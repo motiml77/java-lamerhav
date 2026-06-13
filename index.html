@@ -742,7 +742,7 @@ ctaBtn.addEventListener('click', () => {
   items[7].classList.add('active');
   items.forEach((x, i) => { if(i !== 7) x.classList.remove('active'); });
   typeSnippet('bagrut');
-  setTimeout(() => ctaToast.classList.remove('show'), 4200);
+  setTimeout(() => { window.location.href = 'app.html'; }, 1400);
 });
 
 document.getElementById('replayBtn').addEventListener('click', () => {
