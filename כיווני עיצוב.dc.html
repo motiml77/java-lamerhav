@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #E9EBF0; }
+  </style>
+</helmet>
+<div dir="rtl" style="font-family: 'Heebo', sans-serif; background: #E9EBF0; min-height: 100vh; padding: 48px 40px 96px; display: flex; flex-direction: column; gap: 64px; align-items: center;">
+
+  <!-- ================= INTRO ================= -->
+  <div style="max-width: 860px; width: 100%; display: flex; flex-direction: column; gap: 12px;">
+    <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #6B7280;">מערכת JAVA · עיצוב מחדש</div>
+    <h1 style="margin: 0; font-size: 34px; font-weight: 800; color: #111827;">3 כיווני עיצוב — דף הכניסה ודף הבית</h1>
+    <p style="margin: 0; font-size: 16px; line-height: 1.7; color: #4B5563; text-wrap: pretty;">
+      בכל הכיוונים נשמרת אותה זרימה: האתר נטען פתוח עם תוכן נעול ("ממתינות להתחברות"), התחברות עם Google בכפתור,
+      תלמידה חדשה ממתינה לאישור המורה, ולאחר אישור — רואה רק את שכבת הגיל שלה (יא / יב) עם יחידות לימוד לפי נושאים,
+      ובתוכן עבודות ומבחנים. בחרי כיוון אחד — ואיישם אותו על כל המערכת כולל צד הניהול.
+    </p>
+  </div>
+
+  <!-- ================= DIRECTION 1 ================= -->
+  <div data-screen-label="כיוון 1 — זכוכית כהה" style="max-width: 1280px; width: 100%; display: flex; flex-direction: column; gap: 20px;">
+    <div style="display: flex; align-items: baseline; gap: 14px;">
+      <div style="width: 34px; height: 34px; border-radius: 10px; background: #312E81; color: #C7D2FE; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;">1</div>
+      <h2 style="margin: 0; font-size: 24px; font-weight: 800; color: #111827;">זכוכית כהה</h2>
+      <span style="font-size: 14px; color: #6B7280;">אינדיגו מלוטש · משטחי זכוכית · תמונת הרקע הקיימת כעומק עדין</span>
+    </div>
+
+    <!-- 1A: Entry (logged out) -->
+    <div style="background: white; border-radius: 18px; padding: 18px; box-shadow: 0 8px 30px rgba(17,24,39,0.08); display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 13px; font-weight: 700; color: #6B7280;">מסך כניסה — לפני התחברות (התוכן גלוי אך נעול)</div>
+      <div style="border-radius: 12px; overflow: hidden; position: relative; background: #070B16;">
+        <img src="assets/background.png" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.18; filter: saturate(1.2);">
+        <div style="position: absolute; inset: 0; background: radial-gradient(80% 60% at 50% 0%, rgba(49,46,129,0.45) 0%, rgba(7,11,22,0.92) 70%);"></div>
+        <div style="position: relative; padding: 0 0 48px;">
+          <!-- header -->
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 36px; border-bottom: 1px solid rgba(148,163,184,0.14); backdrop-filter: blur(8px);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, #6366F1, #8B5CF6); display: flex; align-items: center; justify-content: center; color: white; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px;">{ }</div>
+              <div>
+                <div style="color: #F1F5F9; font-weight: 800; font-size: 16px; line-height: 1.2;">Java לבגרות</div>
+                <div style="color: #818CF8; font-size: 11.5px; font-weight: 600;">בית ספר לבנות · יא–יב</div>
+              </div>
+            </div>
+            <button style="display: flex; align-items: center; gap: 10px; background: white; color: #111827; border: none; border-radius: 999px; padding: 10px 22px; font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 4px 18px rgba(99,102,241,0.35);">
+              <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
+              התחברות עם Google
+            </button>
+          </div>
+          <!-- hero -->
+          <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 18px; padding: 64px 32px 40px;">
+            <div style="display: flex; align-items: center; gap: 8px; background: rgba(99,102,241,0.14); border: 1px solid rgba(129,140,248,0.35); color: #A5B4FC; border-radius: 999px; padding: 6px 16px; font-size: 13px; font-weight: 600;">
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: #818CF8; display: inline-block;"></span>
+              ממתינות להתחברות כדי לפתוח את התוכן
+            </div>
+            <h1 style="margin: 0; color: #F8FAFC; font-size: 52px; font-weight: 900; line-height: 1.15; max-width: 640px; text-wrap: pretty;">כותבות קוד.<br>ניגשות לבגרות בביטחון.</h1>
+            <p style="margin: 0; color: #94A3B8; font-size: 18px; line-height: 1.7; max-width: 540px; text-wrap: pretty;">יחידות לימוד לפי נושאים, עבודות ומבחנים עם משוב מיידי על הקוד — הכול במקום אחד, מותאם לשכבה שלך.</p>
+          </div>
+          <!-- locked preview -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 0 64px; max-width: 1080px; margin: 0 auto;">
+            <div style="background: rgba(15,23,42,0.62); border: 1px solid rgba(148,163,184,0.16); border-radius: 16px; padding: 22px; backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-family: 'JetBrains Mono', monospace; color: #818CF8; font-size: 12px; font-weight: 600;">01</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div style="color: #CBD5E1; font-weight: 700; font-size: 16px;">משתנים וקלט/פלט</div>
+              <div style="height: 8px; border-radius: 4px; background: rgba(148,163,184,0.14); width: 80%;"></div>
+              <div style="height: 8px; border-radius: 4px; background: rgba(148,163,184,0.14); width: 55%;"></div>
+            </div>
+            <div style="background: rgba(15,23,42,0.62); border: 1px solid rgba(148,163,184,0.16); border-radius: 16px; padding: 22px; backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-family: 'JetBrains Mono', monospace; color: #818CF8; font-size: 12px; font-weight: 600;">02</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div style="color: #CBD5E1; font-weight: 700; font-size: 16px;">תנאים ולולאות</div>
+              <div style="height: 8px; border-radius: 4px; background: rgba(148,163,184,0.14); width: 72%;"></div>
+              <div style="height: 8px; border-radius: 4px; background: rgba(148,163,184,0.14); width: 48%;"></div>
+            </div>
+            <div style="background: rgba(15,23,42,0.62); border: 1px solid rgba(148,163,184,0.16); border-radius: 16px; padding: 22px; backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-family: 'JetBrains Mono', monospace; color: #818CF8; font-size: 12px; font-weight: 600;">03</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div style="color: #CBD5E1; font-weight: 700; font-size: 16px;">מערכים</div>
+              <div style="height: 8px; border-radius: 4px; background: rgba(148,163,184,0.14); width: 84%;"></div>
+              <div style="height: 8px; border-radius: 4px; background: rgba(148,163,184,0.14); width: 60%;"></div>
+            </div>
+          </div>
+          <div style="text-align: center; color: #64748B; font-size: 13px; margin-top: 22px;">התוכן ייפתח לאחר התחברות ואישור המורה · מוצג לפי שכבת הגיל שלך</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1B: Student home -->
+    <div style="background: white; border-radius: 18px; padding: 18px; box-shadow: 0 8px 30px rgba(17,24,39,0.08); display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 13px; font-weight: 700; color: #6B7280;">דף הבית של תלמידה מאושרת — שכבה יא</div>
+      <div style="border-radius: 12px; overflow: hidden; background: #070B16; position: relative;">
+        <div style="position: absolute; inset: 0; background: radial-gradient(70% 40% at 80% 0%, rgba(49,46,129,0.35) 0%, transparent 70%);"></div>
+        <div style="position: relative;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 36px; border-bottom: 1px solid rgba(148,163,184,0.14);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #6366F1, #8B5CF6); display: flex; align-items: center; justify-content: center; color: white; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 13px;">{ }</div>
+              <div style="color: #F1F5F9; font-weight: 800; font-size: 15px;">Java לבגרות</div>
+              <div style="display: flex; gap: 6px; background: rgba(15,23,42,0.7); border: 1px solid rgba(148,163,184,0.18); border-radius: 999px; padding: 4px; margin-right: 14px;">
+                <span style="background: #6366F1; color: white; border-radius: 999px; padding: 5px 18px; font-size: 13px; font-weight: 700;">כיתה יא</span>
+                <span style="color: #64748B; border-radius: 999px; padding: 5px 18px; font-size: 13px; font-weight: 600;">כיתה יב</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="color: #94A3B8; font-size: 13.5px;">שלום, <b style="color: #E2E8F0;">נעמה לוי</b></span>
+              <div style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #818CF8, #C084FC); display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 13px;">נ</div>
+            </div>
+          </div>
+          <div style="padding: 30px 36px 40px; display: flex; flex-direction: column; gap: 22px;">
+            <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+              <div>
+                <h2 style="margin: 0 0 6px; color: #F8FAFC; font-size: 26px; font-weight: 800;">יחידות הלימוד שלך</h2>
+                <div style="color: #94A3B8; font-size: 14px;">4 יחידות פתוחות · עבודה אחת ממתינה להגשה</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); color: #4ADE80; border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 600;">ממוצע עבודות · 92</div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+              <!-- unit card -->
+              <div style="background: rgba(15,23,42,0.72); border: 1px solid rgba(148,163,184,0.16); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-family: 'JetBrains Mono', monospace; color: #818CF8; font-size: 12px; font-weight: 600;">יחידה 01</span>
+                  <span style="background: rgba(34,197,94,0.12); color: #4ADE80; border-radius: 999px; padding: 3px 10px; font-size: 11.5px; font-weight: 700;">הושלמה</span>
+                </div>
+                <div style="color: #F1F5F9; font-weight: 800; font-size: 18px;">משתנים וקלט/פלט</div>
+                <div style="display: flex; gap: 14px; color: #94A3B8; font-size: 12.5px;">
+                  <span>3 עבודות</span><span>·</span><span>מבחן 1</span>
+                </div>
+                <div style="height: 6px; border-radius: 3px; background: rgba(148,163,184,0.14); overflow: hidden;"><div style="width: 100%; height: 100%; background: linear-gradient(90deg, #4ADE80, #22C55E);"></div></div>
+              </div>
+              <div style="background: rgba(15,23,42,0.72); border: 1px solid rgba(99,102,241,0.45); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 0 32px rgba(99,102,241,0.12);">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-family: 'JetBrains Mono', monospace; color: #818CF8; font-size: 12px; font-weight: 600;">יחידה 02</span>
+                  <span style="background: rgba(99,102,241,0.16); color: #A5B4FC; border-radius: 999px; padding: 3px 10px; font-size: 11.5px; font-weight: 700;">בלמידה עכשיו</span>
+                </div>
+                <div style="color: #F1F5F9; font-weight: 800; font-size: 18px;">תנאים ולולאות</div>
+                <div style="display: flex; gap: 14px; color: #94A3B8; font-size: 12.5px;">
+                  <span>4 עבודות</span><span>·</span><span>מבחן 1</span>
+                  <span style="color: #FBBF24; font-weight: 700;">· עבודה 3 ממתינה</span>
+                </div>
+                <div style="height: 6px; border-radius: 3px; background: rgba(148,163,184,0.14); overflow: hidden;"><div style="width: 55%; height: 100%; background: linear-gradient(90deg, #818CF8, #6366F1);"></div></div>
+              </div>
+              <div style="background: rgba(15,23,42,0.72); border: 1px solid rgba(148,163,184,0.16); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px; opacity: 0.65;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-family: 'JetBrains Mono', monospace; color: #818CF8; font-size: 12px; font-weight: 600;">יחידה 03</span>
+                  <span style="display: flex; align-items: center; gap: 5px; color: #64748B; font-size: 11.5px; font-weight: 700;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    תיפתח בקרוב
+                  </span>
+                </div>
+                <div style="color: #CBD5E1; font-weight: 800; font-size: 18px;">מערכים</div>
+                <div style="display: flex; gap: 14px; color: #64748B; font-size: 12.5px;"><span>5 עבודות</span><span>·</span><span>מבחן 1</span></div>
+                <div style="height: 6px; border-radius: 3px; background: rgba(148,163,184,0.14);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1C: pending approval strip -->
+    <div style="background: white; border-radius: 18px; padding: 18px; box-shadow: 0 8px 30px rgba(17,24,39,0.08); display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 13px; font-weight: 700; color: #6B7280;">מצב "ממתינה לאישור המורה" — זהה בכל הכיוונים (אחרי התחברות ראשונה)</div>
+      <div style="border-radius: 12px; background: #070B16; padding: 44px 32px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3); display: flex; align-items: center; justify-content: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div style="color: #F8FAFC; font-size: 20px; font-weight: 800;">הפרטים נקלטו! ממתינות לאישור המורה</div>
+        <p style="margin: 0; color: #94A3B8; font-size: 14.5px; max-width: 440px; line-height: 1.7;">המורה קיבלה התראה על ההרשמה שלך (נעמה לוי · כיתה יא). ברגע שתאושרי — יחידות הלימוד של השכבה שלך ייפתחו אוטומטית.</p>
+        <span style="display: flex; align-items: center; gap: 8px; color: #FBBF24; font-size: 13px; font-weight: 600; background: rgba(251,191,36,0.08); border-radius: 999px; padding: 6px 16px;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #FBBF24;"></span>
+          סטטוס: ממתינה לאישור
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DIRECTION 2 ================= -->
+  <div data-screen-label="כיוון 2 — סטודיו" style="max-width: 1280px; width: 100%; display: flex; flex-direction: column; gap: 20px;">
+    <div style="display: flex; align-items: baseline; gap: 14px;">
+      <div style="width: 34px; height: 34px; border-radius: 10px; background: #052E16; color: #86EFAC; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;">2</div>
+      <h2 style="margin: 0; font-size: 24px; font-weight: 800; color: #111827;">סטודיו</h2>
+      <span style="font-size: 14px; color: #6B7280;">בהשראת סביבת פיתוח · ירוק-טורקיז מתוך תמונת הרקע · מונוספייס</span>
+    </div>
+
+    <!-- 2A: Entry -->
+    <div style="background: white; border-radius: 18px; padding: 18px; box-shadow: 0 8px 30px rgba(17,24,39,0.08); display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 13px; font-weight: 700; color: #6B7280;">מסך כניסה — לפני התחברות</div>
+      <div style="border-radius: 12px; overflow: hidden; background: #0A0F0D; position: relative;">
+        <img src="assets/background.png" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.14;">
+        <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,15,13,0.75) 0%, rgba(10,15,13,0.96) 80%);"></div>
+        <div style="position: relative;">
+          <!-- top bar like IDE -->
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; background: rgba(6,10,9,0.85); border-bottom: 1px solid rgba(74,222,128,0.14);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="display: flex; gap: 6px;">
+                <span style="width: 11px; height: 11px; border-radius: 50%; background: #FF5F56;"></span>
+                <span style="width: 11px; height: 11px; border-radius: 50%; background: #FFBD2E;"></span>
+                <span style="width: 11px; height: 11px; border-radius: 50%; background: #27C93F;"></span>
+              </div>
+              <span style="font-family: 'JetBrains Mono', monospace; color: #86EFAC; font-size: 13px; font-weight: 600;">java.bagrut — לומדות בקוד</span>
+            </div>
+            <button style="display: flex; align-items: center; gap: 10px; background: #4ADE80; color: #052E16; border: none; border-radius: 8px; padding: 9px 20px; font-family: 'Heebo', sans-serif; font-weight: 800; font-size: 14px; cursor: pointer;">
+              <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#052E16" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/></svg>
+              התחברות עם Google
+            </button>
+          </div>
+          <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; padding: 56px 56px 64px; align-items: center;">
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <div style="font-family: 'JetBrains Mono', monospace; color: #4ADE80; font-size: 13px; font-weight: 600;">// בית ספר לבנות · שכבות יא–יב</div>
+              <h1 style="margin: 0; color: #ECFDF5; font-size: 46px; font-weight: 900; line-height: 1.2; text-wrap: pretty;">הסטודיו שלך<br>ללימוד Java</h1>
+              <p style="margin: 0; color: #9CB8A8; font-size: 17px; line-height: 1.75; max-width: 460px; text-wrap: pretty;">עורך קוד אמיתי בתוך הדפדפן, בדיקה חכמה של כל פתרון, ומשוב שמכוון אותך קדימה — בדיוק לפי תוכנית הבגרות.</p>
+              <div style="display: flex; gap: 10px;">
+                <span style="font-family: 'JetBrains Mono', monospace; background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.25); color: #86EFAC; border-radius: 8px; padding: 6px 14px; font-size: 12.5px;">עבודות</span>
+                <span style="font-family: 'JetBrains Mono', monospace; background: rgba(45,212,191,0.08); border: 1px solid rgba(45,212,191,0.25); color: #5EEAD4; border-radius: 8px; padding: 6px 14px; font-size: 12.5px;">מבחנים</span>
+                <span style="font-family: 'JetBrains Mono', monospace; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25); color: #7DD3FC; border-radius: 8px; padding: 6px 14px; font-size: 12.5px;">משוב AI</span>
+              </div>
+            </div>
+            <!-- terminal card -->
+            <div style="background: #0D1512; border: 1px solid rgba(74,222,128,0.2); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.5); direction: ltr; text-align: left;">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #101A16; border-bottom: 1px solid rgba(74,222,128,0.12);">
+                <span style="font-family: 'JetBrains Mono', monospace; color: #5C7A6A; font-size: 11.5px;">login.sh</span>
+              </div>
+              <div style="padding: 20px 22px; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; line-height: 2; color: #C7E8D4;">
+                <div><span style="color: #4ADE80;">$</span> status</div>
+                <div style="color: #5C7A6A;">→ waiting_for_login: <span style="color: #FBBF24;">true</span></div>
+                <div style="color: #5C7A6A;">→ content: <span style="color: #F87171;">locked</span> 🔒</div>
+                <div><span style="color: #4ADE80;">$</span> login --google</div>
+                <div style="color: #5C7A6A;">→ after approval: grade_units(<span style="color: #5EEAD4;">"יא"</span>)</div>
+                <div><span style="color: #4ADE80;">$</span> <span style="display: inline-block; width: 9px; height: 17px; background: #4ADE80; vertical-align: middle;"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2B: Student home -->
+    <div style="background: white; border-radius: 18px; padding: 18px; box-shadow: 0 8px 30px rgba(17,24,39,0.08); display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 13px; font-weight: 700; color: #6B7280;">דף הבית של תלמידה מאושרת — שכבה יב</div>
+      <div style="border-radius: 12px; overflow: hidden; background: #0A0F0D;">
+        <!-- IDE tabs as grade switch -->
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #060A09; border-bottom: 1px solid rgba(74,222,128,0.12); padding: 0 28px;">
+          <div style="display: flex; align-items: flex-end;">
+            <div style="font-family: 'JetBrains Mono', monospace; color: #5C7A6A; font-size: 13px; padding: 14px 22px; border-bottom: 2px solid transparent;">KitaYudAlef.java</div>
+            <div style="font-family: 'JetBrains Mono', monospace; color: #4ADE80; font-size: 13px; padding: 14px 22px; background: rgba(74,222,128,0.06); border-bottom: 2px solid #4ADE80; font-weight: 600;">KitaYudBet.java</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="color: #9CB8A8; font-size: 13px;">שלום, <b style="color: #ECFDF5;">תהילה כהן</b></span>
+            <div style="width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, #4ADE80, #2DD4BF); display: flex; align-items: center; justify-content: center; color: #052E16; font-weight: 800; font-size: 13px;">ת</div>
+          </div>
+        </div>
+        <div style="padding: 30px 36px 38px; display: flex; flex-direction: column; gap: 20px;">
+          <div style="display: flex; align-items: baseline; gap: 14px;">
+            <h2 style="margin: 0; color: #ECFDF5; font-size: 24px; font-weight: 800;">היחידות של כיתה יב</h2>
+            <span style="font-family: 'JetBrains Mono', monospace; color: #5C7A6A; font-size: 12.5px;">// 5 packages</span>
+          </div>
+          <!-- package list -->
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 16px; background: #0D1512; border: 1px solid rgba(74,222,128,0.14); border-radius: 12px; padding: 16px 20px;">
+              <span style="font-family: 'JetBrains Mono', monospace; color: #4ADE80; font-size: 13px; min-width: 150px; direction: ltr; text-align: left;">unit01.oop</span>
+              <span style="color: #ECFDF5; font-weight: 700; font-size: 15.5px; flex: 1;">מחלקות ואובייקטים</span>
+              <span style="color: #9CB8A8; font-size: 12.5px;">4 עבודות · מבחן 1</span>
+              <div style="width: 120px; height: 6px; border-radius: 3px; background: rgba(74,222,128,0.1); overflow: hidden;"><div style="width: 100%; height: 100%; background: #4ADE80;"></div></div>
+              <span style="background: rgba(74,222,128,0.12); color: #4ADE80; border-radius: 6px; padding: 3px 10px; font-size: 11.5px; font-weight: 700;">הושלמה</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px; background: #0D1512; border: 1px solid rgba(45,212,191,0.4); border-radius: 12px; padding: 16px 20px; box-shadow: 0 0 28px rgba(45,212,191,0.08);">
+              <span style="font-family: 'JetBrains Mono', monospace; color: #5EEAD4; font-size: 13px; min-width: 150px; direction: ltr; text-align: left;">unit02.lists</span>
+              <span style="color: #ECFDF5; font-weight: 700; font-size: 15.5px; flex: 1;">רשימות מקושרות</span>
+              <span style="color: #FBBF24; font-size: 12.5px; font-weight: 700;">עבודה 2 ממתינה להגשה</span>
+              <div style="width: 120px; height: 6px; border-radius: 3px; background: rgba(74,222,128,0.1); overflow: hidden;"><div style="width: 45%; height: 100%; background: #2DD4BF;"></div></div>
+              <span style="background: rgba(45,212,191,0.12); color: #5EEAD4; border-radius: 6px; padding: 3px 10px; font-size: 11.5px; font-weight: 700;">בלמידה</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px; background: #0D1512; border: 1px solid rgba(74,222,128,0.08); border-radius: 12px; padding: 16px 20px; opacity: 0.55;">
+              <span style="font-family: 'JetBrains Mono', monospace; color: #5C7A6A; font-size: 13px; min-width: 150px; direction: ltr; text-align: left;">unit03.recursion</span>
+              <span style="color: #C7E8D4; font-weight: 700; font-size: 15.5px; flex: 1;">רקורסיה</span>
+              <span style="color: #5C7A6A; font-size: 12.5px;">3 עבודות · מבחן 1</span>
+              <div style="width: 120px; height: 6px; border-radius: 3px; background: rgba(74,222,128,0.1);"></div>
+              <span style="display: flex; align-items: center; gap: 5px; color: #5C7A6A; font-size: 11.5px; font-weight: 700;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                נעולה
+              </span>
+            </div>
+          </div>
+          <!-- status bar -->
+          <div style="display: flex; align-items: center; gap: 20px; background: #052E16; border-radius: 8px; padding: 8px 16px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #86EFAC;">
+            <span>● מחוברת</span>
+            <span>שכבה: יב</span>
+            <span>הגשות השבוע: 2</span>
+            <span style="margin-right: auto;">ממוצע: 88</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DIRECTION 3 ================= -->
+  <div data-screen-label="כיוון 3 — מסלול" style="max-width: 1280px; width: 100%; display: flex; flex-direction: column; gap: 20px;">
+    <div style="display: flex; align-items: baseline; gap: 14px;">
+      <div style="width: 34px; height: 34px; border-radius: 10px; background: #4C1D95; color: #DDD6FE; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;">3</div>
+      <h2 style="margin: 0; font-size: 24px; font-weight: 800; color: #111827;">מסלול</h2>
+      <span style="font-size: 14px; color: #6B7280;">מסע למידה מדורג · סגול-כחול חמים · תחושת התקדמות והישג</span>
+    </div>
+
+    <!-- 3A: Entry -->
+    <div style="background: white; border-radius: 18px; padding: 18px; box-shadow: 0 8px 30px rgba(17,24,39,0.08); display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 13px; font-weight: 700; color: #6B7280;">מסך כניסה — לפני התחברות</div>
+      <div style="border-radius: 12px; overflow: hidden; background: #0E0A1F; position: relative;">
+        <div style="position: absolute; inset: 0; background: radial-gradient(60% 50% at 15% 20%, rgba(124,58,237,0.25) 0%, transparent 60%), radial-gradient(50% 40% at 85% 80%, rgba(59,130,246,0.18) 0%, transparent 60%);"></div>
+        <div style="position: relative;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 36px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 38px; height: 38px; border-radius: 50%; background: conic-gradient(from 200deg, #8B5CF6, #3B82F6, #8B5CF6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-size: 15px; font-family: 'JetBrains Mono', monospace;">J</div>
+              <div style="color: #F5F3FF; font-weight: 800; font-size: 16px;">המסלול לבגרות ב-Java</div>
+            </div>
+            <button style="display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #8B5CF6, #6D28D9); color: white; border: none; border-radius: 12px; padding: 11px 24px; font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 8px 24px rgba(139,92,246,0.4);">
+              <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#fff" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/></svg>
+              מתחברות עם Google
+            </button>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; padding: 40px 56px 64px; align-items: center;">
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <h1 style="margin: 0; color: #F5F3FF; font-size: 48px; font-weight: 900; line-height: 1.18; text-wrap: pretty;">צעד אחרי צעד,<br>עד 100 בבגרות</h1>
+              <p style="margin: 0; color: #A78BFA; font-size: 17.5px; line-height: 1.75; max-width: 460px; text-wrap: pretty;">מסלול אישי לשכבה שלך: כל נושא נפתח בתורו, כל עבודה נבדקת מיד, וכל הישג נשמר. מתחברות פעם אחת — והמסע מתחיל.</p>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px; color: #DDD6FE; font-size: 14.5px;">
+                  <span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(139,92,246,0.18); border: 1px solid rgba(167,139,250,0.4); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #C4B5FD;">1</span>
+                  מתחברות עם חשבון Google
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; color: #DDD6FE; font-size: 14.5px;">
+                  <span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(139,92,246,0.18); border: 1px solid rgba(167,139,250,0.4); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #C4B5FD;">2</span>
+                  המורה מאשרת אתכן (פעם אחת בלבד)
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; color: #DDD6FE; font-size: 14.5px;">
+                  <span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(139,92,246,0.18); border: 1px solid rgba(167,139,250,0.4); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #C4B5FD;">3</span>
+                  המסלול של השכבה שלכן נפתח
+                </div>
+              </div>
+            </div>
+            <div style="position: relative; border-radius: 20px; overflow: hidden; border: 1px solid rgba(167,139,250,0.3); box-shadow: 0 32px 80px rgba(109,40,217,0.3);">
+              <img src="assets/background.png" style="display: block; width: 100%; height: 360px; object-fit: cover;">
+              <div style="position: absolute; inset: 0; background: linear-gradient(200deg, transparent 30%, rgba(14,10,31,0.9) 100%);"></div>
+              <div style="position: absolute; bottom: 18px; right: 18px; left: 18px; display: flex; align-items: center; justify-content: space-between;">
+                <span style="color: #F5F3FF; font-weight: 700; font-size: 14px;">המסלול הקרוב: לולאות</span>
+                <span style="background: rgba(245,243,255,0.14); backdrop-filter: blur(8px); color: #F5F3FF; border-radius: 999px; padding: 5px 14px; font-size: 12px; font-weight: 700;">🔒 נפתח אחרי התחברות</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3B: Student home — path view -->
+    <div style="background: white; border-radius: 18px; padding: 18px; box-shadow: 0 8px 30px rgba(17,24,39,0.08); display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 13px; font-weight: 700; color: #6B7280;">דף הבית של תלמידה מאושרת — שכבה יא · תצוגת מסלול</div>
+      <div style="border-radius: 12px; overflow: hidden; background: #0E0A1F; position: relative;">
+        <div style="position: absolute; inset: 0; background: radial-gradient(50% 35% at 85% 10%, rgba(124,58,237,0.2) 0%, transparent 60%);"></div>
+        <div style="position: relative;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 36px; border-bottom: 1px solid rgba(167,139,250,0.14);">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="width: 34px; height: 34px; border-radius: 50%; background: conic-gradient(from 200deg, #8B5CF6, #3B82F6, #8B5CF6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-size: 13px; font-family: 'JetBrains Mono', monospace;">J</div>
+              <span style="color: #F5F3FF; font-weight: 800; font-size: 15px;">המסלול שלי</span>
+              <span style="background: rgba(139,92,246,0.16); border: 1px solid rgba(167,139,250,0.35); color: #C4B5FD; border-radius: 999px; padding: 4px 16px; font-size: 12.5px; font-weight: 700;">כיתה יא</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 110px; height: 7px; border-radius: 4px; background: rgba(167,139,250,0.15); overflow: hidden;"><div style="width: 42%; height: 100%; background: linear-gradient(90deg, #8B5CF6, #3B82F6);"></div></div>
+                <span style="color: #A78BFA; font-size: 12px; font-weight: 700;">42% מהמסלול</span>
+              </div>
+              <div style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #C084FC, #818CF8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 13px;">ש</div>
+            </div>
+          </div>
+          <div style="padding: 36px 56px 48px; display: flex; flex-direction: column;">
+            <!-- path item: done -->
+            <div style="display: flex; gap: 22px;">
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #34D399, #10B981); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 24px rgba(16,185,129,0.35);">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div style="width: 3px; flex: 1; background: linear-gradient(180deg, #10B981, #8B5CF6); margin: 6px 0;"></div>
+              </div>
+              <div style="padding-bottom: 28px; flex: 1;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                  <span style="color: #F5F3FF; font-weight: 800; font-size: 19px;">משתנים וקלט/פלט</span>
+                  <span style="background: rgba(16,185,129,0.14); color: #34D399; border-radius: 999px; padding: 3px 12px; font-size: 11.5px; font-weight: 700;">הושלמה · ציון 95</span>
+                </div>
+                <div style="color: #A78BFA; font-size: 13.5px;">3 עבודות הוגשו · מבחן עבר בהצלחה</div>
+              </div>
+            </div>
+            <!-- path item: current -->
+            <div style="display: flex; gap: 22px;">
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #8B5CF6, #6D28D9); display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-size: 16px; box-shadow: 0 0 28px rgba(139,92,246,0.5);">2</div>
+                <div style="width: 3px; flex: 1; background: rgba(167,139,250,0.2); margin: 6px 0;"></div>
+              </div>
+              <div style="padding-bottom: 28px; flex: 1;">
+                <div style="background: rgba(139,92,246,0.1); border: 1px solid rgba(167,139,250,0.35); border-radius: 16px; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                      <span style="color: #F5F3FF; font-weight: 800; font-size: 19px;">תנאים ולולאות</span>
+                      <span style="background: rgba(139,92,246,0.2); color: #C4B5FD; border-radius: 999px; padding: 3px 12px; font-size: 11.5px; font-weight: 700;">את כאן עכשיו</span>
+                    </div>
+                    <div style="color: #A78BFA; font-size: 13.5px;">עבודה 3 מתוך 4 · <b style="color: #FBBF24;">ממתינה להגשה עד יום חמישי</b></div>
+                  </div>
+                  <button style="background: linear-gradient(135deg, #8B5CF6, #6D28D9); color: white; border: none; border-radius: 10px; padding: 10px 22px; font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 13.5px; cursor: pointer; white-space: nowrap;">המשיכי מכאן ←</button>
+                </div>
+              </div>
+            </div>
+            <!-- path item: locked -->
+            <div style="display: flex; gap: 22px;">
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="width: 44px; height: 44px; border-radius: 50%; background: rgba(167,139,250,0.1); border: 1px dashed rgba(167,139,250,0.4); display: flex; align-items: center; justify-content: center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C6BAE" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+              </div>
+              <div style="flex: 1; opacity: 0.6;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                  <span style="color: #DDD6FE; font-weight: 800; font-size: 19px;">מערכים</span>
+                  <span style="color: #7C6BAE; font-size: 11.5px; font-weight: 700;">תיפתח כשהמורה תחשוף אותה</span>
+                </div>
+                <div style="color: #7C6BAE; font-size: 13.5px;">5 עבודות · מבחן מסכם</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= FOOTER NOTE ================= -->
+  <div style="max-width: 860px; width: 100%; background: white; border-radius: 16px; padding: 24px 28px; box-shadow: 0 4px 16px rgba(17,24,39,0.06);">
+    <div style="font-weight: 800; color: #111827; font-size: 16px; margin-bottom: 8px;">מה קורה אחרי שבוחרים כיוון?</div>
+    <p style="margin: 0; color: #4B5563; font-size: 14.5px; line-height: 1.8; text-wrap: pretty;">
+      איישם את הכיוון הנבחר על המערכת המלאה והעובדת: חיבור ל-Firebase הקיים, מסך אישור תלמידות למורה, ניהול יחידות לפי שכבה (יא/יב),
+      חשיפה/הסתרה של נושאים, עבודות ומבחנים עם עורך הקוד, בדיקת AI ומשוב, צ'אט עזרה, וצד ניהול מלא — הכול רספונסיבי גם לנייד.
+    </p>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
