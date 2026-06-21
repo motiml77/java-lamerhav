@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>אפשרויות עיצוב — סרגל הנושאים</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Heebo', sans-serif;
+    background-color: #070B16;
+    background-image: radial-gradient(80% 50% at 50% 0%, rgba(49,46,129,0.40) 0%, transparent 70%),
+                      radial-gradient(60% 40% at 90% 100%, rgba(139,92,246,0.14) 0%, transparent 70%);
+    background-attachment: fixed;
+    color: #E8EDF6;
+    min-height: 100vh;
+    direction: rtl;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .wrap { width: max-content; min-width: 100%; min-height: 100vh; padding: 44px 48px 72px; }
+  .page-head { margin-bottom: 8px; }
+  .page-head h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.4px; }
+  .page-head .logo { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, #6366F1, #8B5CF6); display: inline-flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #fff; vertical-align: middle; margin-left: 12px; }
+  .page-head p { color: #8A95AD; font-size: 14px; margin-top: 8px; max-width: 720px; line-height: 1.7; }
+
+  .sec-title { display: flex; align-items: center; gap: 12px; margin: 46px 0 20px; }
+  .sec-title .n { width: 30px; height: 30px; border-radius: 9px; background: rgba(99,102,241,0.16); border: 1px solid rgba(129,140,248,0.34); color: #A5B4FC; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex: none; }
+  .sec-title h2 { font-size: 19px; font-weight: 700; }
+  .sec-title span { color: #6B7689; font-size: 13.5px; font-weight: 400; }
+
+  .row { display: flex; gap: 32px; align-items: flex-start; }
+  .frame { flex: none; }
+  .frame-label { font-size: 12.5px; font-weight: 700; color: #B7C0D6; margin-bottom: 11px; display: flex; align-items: center; gap: 8px; }
+  .frame-label .dot { width: 7px; height: 7px; border-radius: 50%; background: #818CF8; flex: none; }
+  .frame-label em { color: #6B7689; font-weight: 400; font-style: normal; }
+
+  /* Sidebar panel shell — mimics the real app sidebar */
+  .panel { width: 340px; background: rgba(11,16,30,0.72); border: 1px solid rgba(148,163,184,0.16); border-radius: 18px; backdrop-filter: blur(14px); overflow: hidden; box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7); }
+  .panel-head { padding: 16px 18px; border-bottom: 1px solid rgba(148,163,184,0.12); display: flex; align-items: center; gap: 10px; }
+  .panel-head .coin { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, #6366F1, #8B5CF6); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #fff; flex: none; }
+  .panel-head h3 { font-size: 15px; font-weight: 800; }
+  .panel-body { padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+
+  svg.ic { display: block; }
+  .icon-box { display: flex; align-items: center; justify-content: center; flex: none; }
+
+  /* ============ A1 — glass cards ============ */
+  .a1-item { display: flex; align-items: center; gap: 12px; padding: 12px 13px; border-radius: 14px; background: rgba(23,32,56,0.66); border: 1px solid rgba(148,163,184,0.16); cursor: pointer; transition: .18s; }
+  .a1-item:hover { border-color: rgba(129,140,248,0.5); background: rgba(30,41,72,0.8); }
+  .a1-item .coin { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .a1-item .t { flex: 1; min-width: 0; }
+  .a1-item .t b { display: block; font-size: 14.5px; font-weight: 600; color: #EAF0FB; }
+  .a1-item .t span { font-size: 11.5px; color: #7C8AA5; }
+  .a1-item .chev { color: #5B6680; flex: none; }
+  .tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(99,102,241,0.18); color: #A5B4FC; flex: none; }
+  .tag.gray { background: rgba(100,116,139,0.18); color: #8593AC; }
+
+  .past { opacity: .72; }
+  .past .coin { transform: scale(.82); }
+  .past b { color: #75809A !important; font-size: 13px !important; }
+
+  /* ============ A2 — terminal / code ============ */
+  .a2 { font-family: 'JetBrains Mono', monospace; }
+  .a2-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; background: rgba(15,22,38,0.7); border: 1px solid rgba(148,163,184,0.12); cursor: pointer; transition: .16s; }
+  .a2-item:hover { border-color: rgba(56,189,248,0.4); background: rgba(15,28,46,0.9); }
+  .a2-item .prompt { color: #56B6C2; font-size: 13px; flex: none; }
+  .a2-item .t { flex: 1; font-size: 13px; color: #CdD6E8; }
+  .a2-item .t b { color: #EAF0FB; font-weight: 600; }
+  .a2-item .meta { font-size: 10.5px; color: #5B6680; }
+  .a2-item .chev { color: #4B566E; flex: none; }
+
+  /* ============ A3 — accent bar minimal ============ */
+  .a3-item { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 14px; border-radius: 12px; background: rgba(18,25,44,0.55); cursor: pointer; transition: .16s; overflow: hidden; }
+  .a3-item:hover { background: rgba(26,35,60,0.8); }
+  .a3-item::before { content: ''; position: absolute; right: 0; top: 14%; bottom: 14%; width: 3px; border-radius: 3px; background: linear-gradient(#6366F1, #8B5CF6); }
+  .a3-item .num { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #6366F1; width: 22px; text-align: center; flex: none; }
+  .a3-item .ic-wrap { color: #93A0BD; flex: none; }
+  .a3-item .t { flex: 1; }
+  .a3-item .t b { display: block; font-size: 14px; font-weight: 600; color: #EAF0FB; }
+  .a3-item .t span { font-size: 11px; color: #6B7689; }
+  .a3-item .chev { color: #5B6680; flex: none; }
+
+  /* ============ Expanded hierarchy (B) ============ */
+  .topic-open { padding: 6px; }
+  .topic-bar { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border-radius: 14px; background: linear-gradient(120deg, rgba(99,102,241,0.2), rgba(139,92,246,0.08)); border: 1px solid rgba(129,140,248,0.3); margin-bottom: 6px; }
+  .topic-bar .coin { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg,#6366F1,#8B5CF6); display: flex; align-items: center; justify-content: center; flex: none; }
+  .topic-bar b { font-size: 15.5px; font-weight: 700; flex: 1; }
+  .topic-bar .chev { color: #A5B4FC; }
+
+  /* B1 — tree with connector rails */
+  .tree { position: relative; padding: 6px 22px 6px 6px; }
+  .tnode { position: relative; padding: 2px 0; }
+  .tnode .rail { position: absolute; right: -14px; top: 0; bottom: 0; width: 2px; background: rgba(129,140,248,0.18); }
+  .titem { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px; cursor: pointer; transition: .15s; position: relative; }
+  .titem::before { content: ''; position: absolute; right: -14px; top: 50%; width: 12px; height: 2px; background: rgba(129,140,248,0.18); }
+  .titem:hover { background: rgba(30,41,72,0.7); }
+  .titem.active { background: rgba(99,102,241,0.16); border: 1px solid rgba(129,140,248,0.34); }
+  .titem .ic-wrap { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .titem .lbl { flex: 1; font-size: 13.5px; font-weight: 500; color: #DCE3F2; }
+  .titem .lbl small { display: block; font-size: 10.5px; color: #6B7689; font-weight: 400; }
+  .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; flex: none; }
+  .b-pts { background: rgba(99,102,241,0.2); color: #A5B4FC; }
+  .b-hw { background: rgba(34,197,94,0.16); color: #6EE7A8; }
+  .b-exam { background: rgba(56,189,248,0.16); color: #7DD3FC; }
+  .b-done { background: rgba(34,197,94,0.16); color: #6EE7A8; }
+  .qsub { padding-right: 30px; }
+  .qrow { display: flex; align-items: center; gap: 9px; padding: 7px 11px; border-radius: 8px; cursor: pointer; position: relative; }
+  .qrow::before { content: ''; position: absolute; right: 14px; top: 50%; width: 9px; height: 2px; background: rgba(129,140,248,0.14); }
+  .qrow:hover { background: rgba(30,41,72,0.6); }
+  .qrow .qn { font-size: 12.5px; color: #AEB8CE; flex: 1; }
+  .qrow .qdot { color: #5B6680; flex: none; }
+
+  /* B2 — grouped sections */
+  .group { margin-top: 14px; }
+  .group:first-child { margin-top: 4px; }
+  .grp-head { display: flex; align-items: center; gap: 8px; padding: 0 6px 9px; }
+  .grp-head .line { flex: 1; height: 1px; background: rgba(148,163,184,0.14); }
+  .grp-head span { font-size: 11px; font-weight: 800; letter-spacing: 1.2px; color: #6B7689; }
+  .grp-head .gi { flex: none; }
+  .g-item { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 11px; background: rgba(18,25,44,0.6); border: 1px solid rgba(148,163,184,0.1); cursor: pointer; transition: .15s; margin-bottom: 7px; }
+  .g-item:hover { border-color: rgba(129,140,248,0.4); background: rgba(26,35,60,0.85); }
+  .g-item .ic-wrap { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .g-item .t { flex: 1; }
+  .g-item .t b { display: block; font-size: 13.5px; font-weight: 600; color: #E4EAF6; }
+  .g-item .t span { font-size: 11px; color: #6B7689; }
+
+  /* B3 — cards with status */
+  .c-item { display: flex; align-items: center; gap: 12px; padding: 12px 13px; border-radius: 13px; background: rgba(20,28,50,0.66); border: 1px solid rgba(148,163,184,0.14); cursor: pointer; transition: .16s; margin-bottom: 8px; position: relative; }
+  .c-item:hover { transform: translateX(-2px); border-color: rgba(129,140,248,0.45); }
+  .c-item .stripe { position: absolute; right: 0; top: 0; bottom: 0; width: 3px; border-radius: 0 3px 3px 0; }
+  .c-item .ic-wrap { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .c-item .t { flex: 1; min-width: 0; }
+  .c-item .t b { display: block; font-size: 14px; font-weight: 600; color: #EAF0FB; }
+  .c-item .t .sub { font-size: 11px; color: #768097; display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .c-item .arrow { color: #5B6680; flex: none; }
+  .c-nested { padding: 4px 14px 4px 0; margin: -2px 0 8px; display: flex; flex-direction: column; gap: 5px; }
+  .c-q { display: flex; align-items: center; gap: 9px; padding: 7px 12px; border-radius: 9px; background: rgba(12,18,33,0.5); cursor: pointer; }
+  .c-q:hover { background: rgba(20,28,50,0.7); }
+  .c-q .qn { flex: 1; font-size: 12px; color: #A6B0C8; }
+
+  .note { color: #5E6A82; font-size: 12.5px; margin-top: 28px; max-width: 760px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- ===== SVG icon library ===== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M11 9.5v5l4-2.5z" fill="currentColor"/></symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 6l4 4" stroke="currentColor" stroke-width="1.7"/></symbol>
+      <symbol id="i-exam" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v5h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 14l1.6 1.6L14 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-q" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.6 9.4a2.4 2.4 0 1 1 3.2 2.3c-.7.3-1 .8-1 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="11.8" cy="16.3" r="1" fill="currentColor"/></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-chevd" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+      <symbol id="i-grad" viewBox="0 0 24 24"><path d="M12 4 2 9l10 5 10-5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M6 11v4c0 1.5 2.7 3 6 3s6-1.5 6-3v-4" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+      <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></symbol>
+      <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+      <symbol id="i-arr" viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="page-head">
+    <h1><span class="logo mono">{ }</span>אפשרויות עיצוב — סרגל הנושאים</h1>
+    <p>בכיוון של דף הפתיחה: רקע כהה, זוהר אינדיגו, כרטיסי זכוכית וטיפוגרפיית Heebo. למעלה — איך נראה נושא סגור (לפני בחירה). למטה — היררכיית התוכן כשבוחרים נושא (הסבר, סרטון, שיעורי בית, מבחנים), עם אייקוני SVG, הזחה וטקסט מדורג.</p>
+  </div>
+
+  <!-- ===================== SECTION A ===================== -->
+  <div class="sec-title"><span class="n">א</span><h2>נושאים סגורים</h2><span>— 3 כיוונים</span></div>
+  <div class="row">
+
+    <!-- A1 glass cards -->
+    <div class="frame">
+      <div class="frame-label"><span class="dot"></span>אפשרות 1 — כרטיסי זכוכית <em>· רך ומזמין</em></div>
+      <div class="panel">
+        <div class="panel-head"><span class="coin mono">{ }</span><h3>הנושאים שלי</h3></div>
+        <div class="panel-body">
+          <div class="a1-item"><span class="coin" style="background:rgba(99,102,241,0.2)"><svg class="ic" width="19" height="19" style="color:#A5B4FC"><use href="#i-dot"/></svg></span><span class="t"><b>משתנים, קלט ופלט</b><span>5 פריטים</span></span><span class="tag">יא</span><span class="chev"><svg class="ic" width="17" height="17"><use href="#i-chev"/></svg></span></div>
+          <div class="a1-item"><span class="coin" style="background:rgba(34,197,94,0.18)"><svg class="ic" width="19" height="19" style="color:#6EE7A8"><use href="#i-spark"/></svg></span><span class="t"><b>לולאות</b><span>3 פריטים</span></span><span class="tag">יא</span><span class="chev"><svg class="ic" width="17" height="17"><use href="#i-chev"/></svg></span></div>
+          <div class="a1-item"><span class="coin" style="background:rgba(56,189,248,0.18)"><svg class="ic" width="19" height="19" style="color:#7DD3FC"><use href="#i-folder"/></svg></span><span class="t"><b>מערכים</b><span>4 פריטים</span></span><span class="tag">יא</span><span class="chev"><svg class="ic" width="17" height="17"><use href="#i-chev"/></svg></span></div>
+          <div class="a1-item past"><span class="coin" style="background:rgba(100,116,139,0.16)"><svg class="ic" width="16" height="16" style="color:#8593AC"><use href="#i-dot"/></svg></span><span class="t"><b>תנאים</b><span>שנה קודמת</span></span><span class="tag gray">י׳</span><span class="chev"><svg class="ic" width="16" height="16"><use href="#i-chev"/></svg></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- A2 terminal -->
+    <div class="frame">
+      <div class="frame-label"><span class="dot"></span>אפשרות 2 — סגנון טרמינל <em>· תכנותי ונקי</em></div>
+      <div class="panel">
+        <div class="panel-head"><span class="coin mono">$_</span><h3 class="mono" style="font-size:13.5px">topics/</h3></div>
+        <div class="panel-body a2">
+          <div class="a2-item"><span class="prompt">&gt;</span><span class="icon-box" style="color:#818CF8"><svg class="ic" width="16" height="16"><use href="#i-folder"/></svg></span><span class="t"><b>משתנים</b> <span class="meta">·5</span></span><span class="chev"><svg class="ic" width="15" height="15"><use href="#i-chev"/></svg></span></div>
+          <div class="a2-item"><span class="prompt">&gt;</span><span class="icon-box" style="color:#818CF8"><svg class="ic" width="16" height="16"><use href="#i-folder"/></svg></span><span class="t"><b>לולאות</b> <span class="meta">·3</span></span><span class="chev"><svg class="ic" width="15" height="15"><use href="#i-chev"/></svg></span></div>
+          <div class="a2-item"><span class="prompt">&gt;</span><span class="icon-box" style="color:#818CF8"><svg class="ic" width="16" height="16"><use href="#i-folder"/></svg></span><span class="t"><b>מערכים</b> <span class="meta">·4</span></span><span class="chev"><svg class="ic" width="15" height="15"><use href="#i-chev"/></svg></span></div>
+          <div class="a2-item" style="opacity:.6"><span class="prompt" style="color:#5B6680">#</span><span class="icon-box" style="color:#5B6680"><svg class="ic" width="15" height="15"><use href="#i-folder"/></svg></span><span class="t" style="color:#75809A"><b style="color:#8593AC">תנאים</b> <span class="meta">// שנה קודמת</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- A3 accent bar -->
+    <div class="frame">
+      <div class="frame-label"><span class="dot"></span>אפשרות 3 — פס מבטא + מספור <em>· מינימלי מקצועי</em></div>
+      <div class="panel">
+        <div class="panel-head"><span class="coin mono">{ }</span><h3>הנושאים שלי</h3></div>
+        <div class="panel-body">
+          <div class="a3-item"><span class="num mono">01</span><span class="ic-wrap"><svg class="ic" width="18" height="18"><use href="#i-dot"/></svg></span><span class="t"><b>משתנים, קלט ופלט</b><span>5 פריטים · כיתה יא</span></span><span class="chev"><svg class="ic" width="16" height="16"><use href="#i-chev"/></svg></span></div>
+          <div class="a3-item"><span class="num mono">02</span><span class="ic-wrap"><svg class="ic" width="18" height="18"><use href="#i-spark"/></svg></span><span class="t"><b>לולאות</b><span>3 פריטים · כיתה יא</span></span><span class="chev"><svg class="ic" width="16" height="16"><use href="#i-chev"/></svg></span></div>
+          <div class="a3-item"><span class="num mono">03</span><span class="ic-wrap"><svg class="ic" width="18" height="18"><use href="#i-folder"/></svg></span><span class="t"><b>מערכים</b><span>4 פריטים · כיתה יא</span></span><span class="chev"><svg class="ic" width="16" height="16"><use href="#i-chev"/></svg></span></div>
+          <div class="a3-item past" style="opacity:.66"><span class="num mono" style="color:#5B6680">—</span><span class="ic-wrap" style="color:#6B7689"><svg class="ic" width="16" height="16"><use href="#i-dot"/></svg></span><span class="t"><b style="color:#75809A;font-size:13px">תנאים</b><span>שנה קודמת</span></span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== SECTION B ===================== -->
+  <div class="sec-title"><span class="n">ב</span><h2>נושא פתוח — היררכיית התוכן</h2><span>— 3 כיוונים</span></div>
+  <div class="row">
+
+    <!-- B1 tree with rails -->
+    <div class="frame">
+      <div class="frame-label"><span class="dot"></span>אפשרות 1 — עץ עם קווי קישור <em>· היררכיה ברורה</em></div>
+      <div class="panel">
+        <div class="topic-open">
+          <div class="topic-bar"><span class="coin"><svg class="ic" width="19" height="19" style="color:#fff"><use href="#i-folder"/></svg></span><b>מערכים</b><span class="chev"><svg class="ic" width="18" height="18"><use href="#i-chevd"/></svg></span></div>
+          <div class="tree">
+            <div class="tnode"><div class="titem active"><span class="ic-wrap" style="background:rgba(99,102,241,0.18);color:#A5B4FC"><svg class="ic" width="17" height="17"><use href="#i-book"/></svg></span><span class="lbl">הסבר ולימוד הנושא<small>קורס מודרך + הדגמה אינטראקטיבית</small></span></div></div>
+            <div class="tnode"><div class="titem"><span class="ic-wrap" style="background:rgba(244,63,94,0.16);color:#FB7185"><svg class="ic" width="17" height="17"><use href="#i-play"/></svg></span><span class="lbl">סרטון הסבר</span></div></div>
+            <div class="tnode">
+              <div class="titem"><span class="ic-wrap" style="background:rgba(34,197,94,0.16);color:#6EE7A8"><svg class="ic" width="17" height="17"><use href="#i-pencil"/></svg></span><span class="lbl">מערך — תרגילים קלים</span><span class="badge b-hw">שיעורי בית</span></div>
+              <div class="qsub">
+                <div class="qrow"><span class="qdot" style="color:#6EE7A8"><svg class="ic" width="14" height="14"><use href="#i-dot"/></svg></span><span class="qn">שאלה 1 — מציאת מקסימום</span><span class="badge b-pts">10</span></div>
+                <div class="qrow"><span class="qdot"><svg class="ic" width="14" height="14"><use href="#i-dot"/></svg></span><span class="qn">שאלה 2 — ממוצע</span><span class="badge b-pts">10</span></div>
+              </div>
+            </div>
+            <div class="tnode">
+              <div class="titem"><span class="ic-wrap" style="background:rgba(56,189,248,0.16);color:#7DD3FC"><svg class="ic" width="17" height="17"><use href="#i-exam"/></svg></span><span class="lbl">מבחן מערכים</span><span class="badge b-exam">מבחן</span></div>
+              <div class="qsub">
+                <div class="qrow"><span class="qdot"><svg class="ic" width="14" height="14"><use href="#i-q"/></svg></span><span class="qn">שאלה 1</span><span class="badge b-pts">30</span></div>
+                <div class="qrow"><span class="qdot"><svg class="ic" width="14" height="14"><use href="#i-q"/></svg></span><span class="qn">שאלה 2</span><span class="badge b-pts">40</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B2 grouped sections -->
+    <div class="frame">
+      <div class="frame-label"><span class="dot"></span>אפשרות 2 — קיבוץ לפי שלב <em>· לימוד · תרגול · הערכה</em></div>
+      <div class="panel">
+        <div class="topic-open">
+          <div class="topic-bar"><span class="coin"><svg class="ic" width="19" height="19" style="color:#fff"><use href="#i-folder"/></svg></span><b>מערכים</b><span class="chev"><svg class="ic" width="18" height="18"><use href="#i-chevd"/></svg></span></div>
+          <div style="padding:8px 8px 4px">
+            <div class="group">
+              <div class="grp-head"><span class="gi" style="color:#A5B4FC"><svg class="ic" width="14" height="14"><use href="#i-book"/></svg></span><span>לימוד</span><span class="line"></span></div>
+              <div class="g-item"><span class="ic-wrap" style="background:rgba(99,102,241,0.18);color:#A5B4FC"><svg class="ic" width="17" height="17"><use href="#i-book"/></svg></span><span class="t"><b>הסבר ולימוד הנושא</b><span>הסבר מודרך + הדגמה חיה</span></span></div>
+              <div class="g-item"><span class="ic-wrap" style="background:rgba(244,63,94,0.16);color:#FB7185"><svg class="ic" width="17" height="17"><use href="#i-play"/></svg></span><span class="t"><b>סרטון הסבר</b><span>צפייה לפני התרגול</span></span></div>
+            </div>
+            <div class="group">
+              <div class="grp-head"><span class="gi" style="color:#6EE7A8"><svg class="ic" width="14" height="14"><use href="#i-dumbbell"/></svg></span><span>תרגול</span><span class="line"></span></div>
+              <div class="g-item"><span class="ic-wrap" style="background:rgba(34,197,94,0.16);color:#6EE7A8"><svg class="ic" width="17" height="17"><use href="#i-pencil"/></svg></span><span class="t"><b>מערך — תרגילים קלים</b><span>2 שאלות · שיעורי בית</span></span></div>
+            </div>
+            <div class="group">
+              <div class="grp-head"><span class="gi" style="color:#7DD3FC"><svg class="ic" width="14" height="14"><use href="#i-target"/></svg></span><span>הערכה</span><span class="line"></span></div>
+              <div class="g-item"><span class="ic-wrap" style="background:rgba(56,189,248,0.16);color:#7DD3FC"><svg class="ic" width="17" height="17"><use href="#i-exam"/></svg></span><span class="t"><b>מבחן מערכים</b><span>2 שאלות · 70 נק׳</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B3 cards with stripe + nested -->
+    <div class="frame">
+      <div class="frame-label"><span class="dot"></span>אפשרות 3 — כרטיסים עם פס סוג + שאלות <em>· עשיר במידע</em></div>
+      <div class="panel">
+        <div class="topic-open">
+          <div class="topic-bar"><span class="coin"><svg class="ic" width="19" height="19" style="color:#fff"><use href="#i-folder"/></svg></span><b>מערכים</b><span class="chev"><svg class="ic" width="18" height="18"><use href="#i-chevd"/></svg></span></div>
+          <div style="padding:8px 6px 4px">
+            <div class="c-item"><span class="stripe" style="background:#6366F1"></span><span class="ic-wrap" style="background:rgba(99,102,241,0.18);color:#A5B4FC"><svg class="ic" width="20" height="20"><use href="#i-book"/></svg></span><span class="t"><b>הסבר ולימוד הנושא</b><span class="sub"><svg class="ic" width="12" height="12"><use href="#i-spark"/></svg> הדגמה אינטראקטיבית</span></span><span class="arrow"><svg class="ic" width="17" height="17"><use href="#i-arr"/></svg></span></div>
+            <div class="c-item"><span class="stripe" style="background:#FB7185"></span><span class="ic-wrap" style="background:rgba(244,63,94,0.16);color:#FB7185"><svg class="ic" width="20" height="20"><use href="#i-play"/></svg></span><span class="t"><b>סרטון הסבר</b><span class="sub">3:40 דקות</span></span><span class="arrow"><svg class="ic" width="17" height="17"><use href="#i-arr"/></svg></span></div>
+            <div class="c-item"><span class="stripe" style="background:#22C55E"></span><span class="ic-wrap" style="background:rgba(34,197,94,0.16);color:#6EE7A8"><svg class="ic" width="20" height="20"><use href="#i-pencil"/></svg></span><span class="t"><b>מערך — תרגילים קלים</b><span class="sub"><span class="badge b-hw">שיעורי בית</span> 2 שאלות</span></span><span class="arrow"><svg class="ic" width="17" height="17"><use href="#i-arr"/></svg></span></div>
+            <div class="c-nested">
+              <div class="c-q"><svg class="ic" width="13" height="13" style="color:#6EE7A8"><use href="#i-dot"/></svg><span class="qn">שאלה 1 — מציאת מקסימום</span><span class="badge b-done">✓</span></div>
+              <div class="c-q"><svg class="ic" width="13" height="13" style="color:#5B6680"><use href="#i-dot"/></svg><span class="qn">שאלה 2 — ממוצע</span><span class="badge b-pts">10</span></div>
+            </div>
+            <div class="c-item"><span class="stripe" style="background:#38BDF8"></span><span class="ic-wrap" style="background:rgba(56,189,248,0.16);color:#7DD3FC"><svg class="ic" width="20" height="20"><use href="#i-exam"/></svg></span><span class="t"><b>מבחן מערכים</b><span class="sub"><span class="badge b-exam">מבחן</span> 70 נק׳</span></span><span class="arrow"><svg class="ic" width="17" height="17"><use href="#i-arr"/></svg></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="note">כל האפשרויות בנויות בשפה של דף הפתיחה (זכוכית, אינדיגו/סגול, Heebo + JetBrains Mono לקוד). הזחה: שאלות מוזחות פנימה תחת העבודה/המבחן. סקאלת טקסט: כותרת נושא 15px, פריט 13.5–14px, שאלה 12.5px, תגיות 10px. אמרי לי איזו אפשרות לסרגל הסגור ואיזו להיררכיה — ואחבר אותן לאפליקציה.</p>
+</div>
+</body>
+</html>

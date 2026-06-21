@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>אפשרויות עיצוב — מסך מבחן</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: #070B16; background-image: radial-gradient(60% 40% at 50% 0%, rgba(49,46,129,0.28) 0%, transparent 65%); color: #E2E8F0; padding: 46px 32px 120px; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .page-h { max-width: 1120px; margin: 0 auto 8px; }
+  .page-h h1 { font-size: 30px; font-weight: 900; color: #F8FAFC; }
+  .page-h p { color: #94A3B8; font-size: 15px; margin-top: 8px; line-height: 1.7; max-width: 840px; }
+  .opt { max-width: 1120px; margin: 56px auto 0; }
+  .opt-label { display: flex; align-items: baseline; gap: 12px; margin-bottom: 5px; }
+  .opt-label .n { width: 28px; height: 28px; border-radius: 9px; background: #7F1D1D; color: #FECACA; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex: none; }
+  .opt-label h2 { font-size: 21px; font-weight: 800; color: #F1F5F9; }
+  .opt > .desc { color: #64748B; font-size: 13.5px; margin: 0 0 18px 40px; }
+  .frame { background: #070B16; border: 1px solid rgba(148,163,184,0.14); border-radius: 18px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.4); }
+  /* code */
+  .code { background: #282C34; border-radius: 12px; overflow: hidden; border: 1px solid rgba(148,163,184,0.14); }
+  .code-hd { background: #21252B; display: flex; align-items: center; gap: 7px; padding: 8px 13px; border-bottom: 1px solid #181A1F; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .code-body { display: flex; font-family: 'JetBrains Mono', monospace; font-size: 12.8px; line-height: 1.75; padding: 11px 0; }
+  .gut { color: #4B5263; text-align: left; padding: 0 12px; user-select: none; direction: ltr; flex: none; }
+  .cd { direction: ltr; text-align: left; flex: 1; overflow-x: auto; padding-left: 12px; white-space: pre; }
+  .q-text { color: #E8EDF6; font-size: 15px; line-height: 1.85; }
+  .palette-num { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; cursor: pointer; }
+  svg { display: block; }
+  .timer { display: inline-flex; align-items: center; gap: 8px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #FCA5A5; border-radius: 10px; padding: 7px 14px; font-weight: 700; font-size: 14px; }
+  .submit { background: linear-gradient(135deg,#DC2626,#B91C1C); color: #fff; border: none; border-radius: 10px; padding: 9px 22px; font-weight: 700; font-size: 14px; font-family: 'Heebo'; cursor: pointer; box-shadow: 0 4px 16px rgba(220,38,38,0.35); }
+</style>
+</head>
+<body>
+<div class="page-h">
+  <h1>אפשרויות עיצוב — מסך המבחן</h1>
+  <p>3 גישות למסך מבחן. בכולן <b style="color:#FCA5A5;">אין עזרה</b> — אין השלמה אוטומטית, אין סימון שגיאות, אין פאנל מבני נתונים, אין תבניות ואין בדיקת AI. רק טיימר, ניווט נקי בין שאלות, ועורך קוד פשוט. הדבקה חסומה. בחרי גישה ואטמיע אותה במסך המבחן.</p>
+</div>
+<div id="root"></div>
+
+<script>
+const KW = new Set(['public','static','void','while','if','else','return','new','class','private','for','int','boolean','double','char','this','null','true','false']);
+const TYPE = new Set(['System','out','String','Main','Node','Integer']);
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function hl(code){
+  const re=/(\/\/[^\n]*)|("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)|(\s+)|([^\sA-Za-z0-9])/g;
+  const toks=[]; let m; while((m=re.exec(code))) toks.push(m[0]); let out='';
+  for(let i=0;i<toks.length;i++){ const t=toks[i];
+    if(/^\/\//.test(t)) out+=`<span style="color:#7A8290;font-style:italic">${esc(t)}</span>`;
+    else if(/^"/.test(t)) out+=`<span style="color:#98C379">${esc(t)}</span>`;
+    else if(/^\d+$/.test(t)) out+=`<span style="color:#D19A66">${t}</span>`;
+    else if(/^[A-Za-z_]\w*$/.test(t)){ if(KW.has(t)) out+=`<span style="color:#C678DD">${t}</span>`; else if(TYPE.has(t)) out+=`<span style="color:#E5C07B">${t}</span>`; else { let j=i+1; while(j<toks.length&&/^\s+$/.test(toks[j]))j++; out+= toks[j]==='(' ? `<span style="color:#61AFEF">${t}</span>` : `<span style="color:#ABB2BF">${t}</span>`; } }
+    else out+=`<span style="color:#ABB2BF">${esc(t)}</span>`;
+  } return out;
+}
+const CODE = 'public class Main {\n    public static void main(String[] args) {\n        int[] arr = {85, 92, 78, 96};\n        int max = arr[0];\n        for (int i = 1; i < arr.length; i++) {\n            \n        }\n    }\n}';
+function codeCard(title){
+  const lines = CODE.split('\n');
+  return `<div class="code">
+    <div class="code-hd"><span class="dot" style="background:#ff5f56"></span><span class="dot" style="background:#ffbd2e"></span><span class="dot" style="background:#27c93f"></span><span class="mono" style="color:#7A8290;font-size:11.5px;margin-right:6px;">${title||'Answer.java'}</span><span style="margin-right:auto;display:flex;align-items:center;gap:5px;color:#64748B;font-size:11px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>הדבקה חסומה</span></div>
+    <div class="code-body"><div class="gut">${lines.map((_,i)=>i+1).join('\n')}</div><div class="cd">${hl(CODE)}</div></div>
+  </div>`;
+}
+const Q = { n: 2, total: 5, title: 'מציאת המקסימום במערך', points: 15, text: 'נתון מערך מספרים שלמים <b>arr</b>. השלימי את הלולאה כך שבסיומה המשתנה <b>max</b> יחזיק את הערך הגדול ביותר במערך. אין להשתמש בפונקציות מובנות של מערכים.' };
+// palette: 1 answered, 2 current, 3-5 not
+function palette(active){
+  return [1,2,3,4,5].map(i=>{
+    const answered = i===1, cur = i===active;
+    const bg = cur ? 'background:#DC2626;color:#fff;box-shadow:0 0 0 3px rgba(220,38,38,0.25);' : answered ? 'background:rgba(34,197,94,0.16);color:#4ADE80;border:1px solid rgba(34,197,94,0.35);' : 'background:rgba(15,23,42,0.6);color:#64748B;border:1px solid rgba(148,163,184,0.18);';
+    return `<div class="palette-num" style="${bg}">${i}</div>`;
+  }).join('');
+}
+const flag = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>';
+
+/* ===== 1. FOCUSED ===== */
+function focused(){
+  return `<div class="frame">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid rgba(148,163,184,0.1);background:rgba(11,17,32,0.6);">
+      <div style="display:flex;align-items:center;gap:12px;"><div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#DC2626,#7F1D1D);display:flex;align-items:center;justify-content:center;color:#fff;" class="mono">מ</div><div><div style="color:#F1F5F9;font-weight:800;font-size:15px;">מבחן · מערכים ולולאות</div><div style="color:#64748B;font-size:12px;">כיתה יא · 100 נק׳</div></div></div>
+      <div style="display:flex;align-items:center;gap:14px;"><span class="timer">${'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'} 47:30</span><button class="submit">הגשת מבחן</button></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 28px;border-bottom:1px solid rgba(148,163,184,0.08);">
+      <span style="color:#64748B;font-size:13px;font-weight:600;margin-left:4px;">שאלות:</span>
+      ${palette(2)}
+      <div style="margin-right:auto;display:flex;align-items:center;gap:14px;font-size:12px;color:#64748B;"><span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4);"></span>נענו</span><span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:#DC2626;"></span>נוכחית</span></div>
+    </div>
+    <div style="padding:30px 40px 36px;max-width:780px;margin:0 auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:11px;"><span style="width:30px;height:30px;border-radius:9px;background:rgba(220,38,38,0.14);color:#FCA5A5;display:flex;align-items:center;justify-content:center;font-weight:800;">2</span><h3 style="color:#fff;font-size:20px;font-weight:800;">${Q.title}</h3><span style="background:rgba(148,163,184,0.1);color:#94A3B8;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:600;">${Q.points} נק׳</span></div>
+        <button style="display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid rgba(251,191,36,0.3);color:#FBBF24;border-radius:8px;padding:6px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Heebo';">${flag} סימון לחזרה</button>
+      </div>
+      <p class="q-text" style="margin-bottom:22px;">${Q.text}</p>
+      ${codeCard()}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:22px;">
+        <button style="background:transparent;border:1px solid rgba(148,163,184,0.25);color:#94A3B8;border-radius:9px;padding:9px 20px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:'Heebo';">→ שאלה קודמת</button>
+        <span style="color:#475569;font-size:12.5px;">נשמר אוטומטית</span>
+        <button style="background:#1E293B;border:1px solid rgba(148,163,184,0.2);color:#E2E8F0;border-radius:9px;padding:9px 22px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:'Heebo';">שאלה הבאה ←</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ===== 2. SPLIT ===== */
+function split(){
+  return `<div class="frame">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 26px;border-bottom:1px solid rgba(148,163,184,0.1);background:rgba(11,17,32,0.6);">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="color:#F1F5F9;font-weight:800;font-size:15px;">מבחן · מערכים ולולאות</span>
+        <div style="display:flex;align-items:center;gap:7px;">${palette(2)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:36px;height:36px;border-radius:50%;background:conic-gradient(#DC2626 75%, rgba(148,163,184,0.15) 0);display:flex;align-items:center;justify-content:center;"><div style="width:28px;height:28px;border-radius:50%;background:#0B1120;display:flex;align-items:center;justify-content:center;color:#FCA5A5;font-size:10px;font-weight:800;">47′</div></div></div>
+        <button class="submit">הגשה</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.1fr;min-height:420px;">
+      <!-- question side -->
+      <div style="padding:28px 30px;border-left:1px solid rgba(148,163,184,0.1);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="mono" style="color:#FCA5A5;font-size:13px;font-weight:600;">שאלה 2 / 5</span><span style="background:rgba(148,163,184,0.1);color:#94A3B8;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;">${Q.points} נק׳</span></div>
+        <h3 style="color:#fff;font-size:21px;font-weight:800;margin-bottom:14px;">${Q.title}</h3>
+        <p class="q-text">${Q.text}</p>
+        <div style="margin-top:20px;padding:13px 16px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.18);border-radius:11px;color:#93C5FD;font-size:13px;line-height:1.6;">דוגמה: עבור {85, 92, 78, 96} הפלט הצפוי הוא <b class="mono">96</b>.</div>
+        <button style="margin-top:18px;display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid rgba(251,191,36,0.3);color:#FBBF24;border-radius:8px;padding:6px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Heebo';">${flag} סימון לחזרה</button>
+      </div>
+      <!-- editor side -->
+      <div style="padding:18px;display:flex;flex-direction:column;background:rgba(15,23,42,0.3);">
+        ${codeCard('Answer.java')}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:16px;">
+          <button style="background:transparent;border:1px solid rgba(148,163,184,0.25);color:#94A3B8;border-radius:9px;padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer;font-family:'Heebo';">→ קודמת</button>
+          <span style="color:#475569;font-size:12px;">נשמר אוטומטית</span>
+          <button style="background:#1E293B;border:1px solid rgba(148,163,184,0.2);color:#E2E8F0;border-radius:9px;padding:8px 20px;font-weight:700;font-size:13px;cursor:pointer;font-family:'Heebo';">הבאה ←</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ===== 3. CONTINUOUS ===== */
+function continuous(){
+  const card = (n,title,answered,active)=>`<div style="background:rgba(23,32,56,0.55);border:1px solid ${active?'rgba(220,38,38,0.4)':'rgba(148,163,184,0.14)'};border-radius:14px;padding:22px 24px;margin-bottom:16px;${active?'box-shadow:0 0 30px rgba(220,38,38,0.08);':''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:10px;"><span style="width:28px;height:28px;border-radius:8px;background:${answered?'rgba(34,197,94,0.15)':'rgba(220,38,38,0.14)'};color:${answered?'#4ADE80':'#FCA5A5'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;">${n}</span><h3 style="color:#fff;font-size:17px;font-weight:800;">${title}</h3></div>
+        <span style="background:rgba(148,163,184,0.1);color:#94A3B8;border-radius:999px;padding:3px 11px;font-size:11.5px;font-weight:600;">${answered?'נענתה':'15 נק׳'}</span>
+      </div>
+      ${active ? `<p class="q-text" style="margin-bottom:16px;font-size:14px;">${Q.text}</p>${codeCard('Q'+n+'.java')}` : `<div style="color:#64748B;font-size:13.5px;">לחצי כדי לפתוח ולכתוב את התשובה…</div>`}
+    </div>`;
+  return `<div class="frame" style="position:relative;">
+    <div style="padding:22px 30px 30px;max-width:820px;margin:0 auto;">
+      <div style="margin-bottom:18px;"><h2 style="color:#fff;font-size:20px;font-weight:800;">מבחן · מערכים ולולאות</h2><div style="color:#64748B;font-size:13px;margin-top:2px;">5 שאלות · 100 נק׳ · משך 60 דק׳</div></div>
+      ${card(1,'הדפסת מספרים זוגיים',true,false)}
+      ${card(2,Q.title,false,true)}
+      ${card(3,'ספירת איברים גדולים מ-90',false,false)}
+    </div>
+    <!-- floating dock -->
+    <div style="position:sticky;bottom:16px;margin:0 30px;background:rgba(13,19,34,0.92);backdrop-filter:blur(12px);border:1px solid rgba(148,163,184,0.18);border-radius:14px;padding:11px 18px;display:flex;align-items:center;gap:16px;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+      <span class="timer">${'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'} 47:30</span>
+      <div style="display:flex;align-items:center;gap:7px;">${palette(2)}</div>
+      <div style="margin-right:auto;display:flex;align-items:center;gap:10px;"><span style="color:#94A3B8;font-size:13px;">1 מתוך 5 נענו</span><button class="submit">הגשת מבחן</button></div>
+    </div>
+  </div>`;
+}
+
+const opts = [
+  ['ממוקד — שאלה אחת במסך', 'הריכוז המרבי: שאלה אחת בכל פעם, סרגל שאלות ממוספר למעלה (ירוק=נענתה, אדום=נוכחית), טיימר וכפתור הגשה קבועים. ניווט הבא/קודם וסימון שאלה לחזרה. הכי דומה למבחנים מקוונים מקצועיים.', focused],
+  ['מפוצל — שאלה ועורך זה לצד זה', 'השאלה בצד אחד והעורך בצד השני, בלי גלילה. כותרת מבחן דביקה עם טיימר טבעתי וסרגל שאלות. אידיאלי לכיתת מחשבים על מסך רחב.', split],
+  ['רשימה רציפה — כל השאלות בגלילה', 'כל השאלות זו אחר זו, כל אחת עם עורך משלה. מזח צף בתחתית עם טיימר, סרגל שאלות וכפתור הגשה שתמיד נגיש. נוח לדפדוף חופשי בין שאלות.', continuous],
+];
+document.getElementById('root').innerHTML = opts.map(([name,desc,fn],i)=>`
+  <div class="opt"><div class="opt-label"><span class="n">${i+1}</span><h2>${name}</h2></div><div class="desc">${desc}</div>${fn()}</div>`).join('');
+</script>
+</body>
+</html>

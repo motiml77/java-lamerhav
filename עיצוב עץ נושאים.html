@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עיצובים לעץ נושאים</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Heebo', sans-serif;
+    background: #070B16 radial-gradient(80% 50% at 50% 0%, rgba(49,46,129,0.35) 0%, transparent 70%) fixed;
+    color: #E2E8F0; min-height: 100vh; padding: 48px 40px 100px;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  h1 { font-size: 30px; font-weight: 900; color: #F8FAFC; }
+  .sub { color: #94A3B8; font-size: 15px; margin-top: 8px; line-height: 1.7; max-width: 720px; }
+  .board { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 44px; align-items: flex-start; }
+  .col { width: 340px; }
+  .col-label { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  .col-label .n { width: 26px; height: 26px; border-radius: 8px; background: #312E81; color: #C7D2FE; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex: none; }
+  .col-label h2 { font-size: 18px; font-weight: 800; color: #F1F5F9; }
+  .col-label .desc { font-size: 12.5px; color: #64748B; }
+  .panel { background: #0B1120; border: 1px solid rgba(148,163,184,0.12); border-radius: 18px; padding: 14px; }
+  .panel-head { display: flex; align-items: center; gap: 10px; padding: 6px 6px 14px; border-bottom: 1px solid rgba(148,163,184,0.1); margin-bottom: 12px; }
+  .brand { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg,#6366F1,#8B5CF6); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 12px; }
+  .brand-t { font-weight: 800; color: #F1F5F9; font-size: 14px; }
+  svg { display: block; }
+  .grade-chip { font-size: 10.5px; font-weight: 800; background: rgba(99,102,241,0.2); color: #A5B4FC; padding: 2px 9px; border-radius: 999px; }
+  .pts { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700; background: rgba(99,102,241,0.18); color: #A5B4FC; padding: 2px 8px; border-radius: 999px; }
+</style>
+</head>
+<body>
+  <h1>4 כיוונים לעיצוב עץ הנושאים</h1>
+  <p class="sub">כל כיוון מציג את אותו תוכן — נושא (כיתה יב), בתוכו מבחנים ועבודות, ובתוכם שאלות עם ניקוד. בחרי כיוון אחד (או שילוב) ואטמיע אותו במערכת. כל האייקונים SVG, ללא אמוג'ים.</p>
+  <div class="board" id="board"></div>
+
+<script>
+const I = {
+  loops: '<path d="M17 4a8 8 0 1 0 4 7"/><path d="M21 3v5h-5"/>',
+  arrays: '<rect x="3" y="8" width="4.5" height="8"/><rect x="9.75" y="8" width="4.5" height="8"/><rect x="16.5" y="8" width="4.5" height="8"/>',
+  list: '<circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><path d="M7.5 12h9"/>',
+  homework: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  exam: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="m9 14 2 2 4-4"/>',
+  dot: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3"/><line x1="12" y1="16.5" x2="12" y2="16.5"/>',
+  check: '<polyline points="20 6 9 17 4 12"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+};
+const svg = (p, s, color, sw) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${color||'currentColor'}" stroke-width="${sw||1.8}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+
+const data = [
+  { title: 'לולאות', icon: 'loops', exams: [
+    { title: 'מבחן לולאות', type: 'exam', qs: [{n:1,p:10,done:true},{n:2,p:10,done:true},{n:3,p:10,done:false}] },
+    { title: 'תרגול בית', type: 'homework', qs: [{n:1,p:5,done:true},{n:2,p:5,done:false}] },
+  ]},
+  { title: 'מערכים', icon: 'arrays', exams: [
+    { title: 'עבודת מערכים', type: 'homework', qs: [{n:1,p:10,done:false},{n:2,p:10,done:false}] },
+  ]},
+  { title: 'רשימה מקושרת', icon: 'list', exams: [
+    { title: 'מבחן מסכם', type: 'exam', qs: [{n:1,p:20,done:false}] },
+  ]},
+];
+
+/* ========== OPTION A — Accordion glass cards with timeline questions ========== */
+function optA() {
+  const topic = (t, open) => `
+    <div style="background:rgba(99,102,241,0.06);border:1px solid rgba(129,140,248,0.18);border-radius:14px;margin-bottom:10px;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:11px;padding:12px 13px;cursor:pointer;">
+        <span style="width:36px;height:36px;border-radius:11px;background:rgba(99,102,241,0.16);border:1px solid rgba(129,140,248,0.3);display:flex;align-items:center;justify-content:center;color:#A5B4FC;">${svg(I[t.icon],19)}</span>
+        <span style="flex:1;font-weight:800;color:#F1F5F9;font-size:15px;">${t.title}</span>
+        <span style="color:#64748B;transform:rotate(${open?0:-90}deg);transition:.2s;">${svg(I.chevron,18)}</span>
+      </div>
+      ${open ? t.exams.map(ex=>examA(ex)).join('') : ''}
+    </div>`;
+  const examA = (ex) => {
+    const green = ex.type==='homework';
+    return `
+    <div style="margin:0 11px 10px;border:1px solid rgba(148,163,184,0.12);border-radius:12px;background:rgba(15,23,42,0.5);overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;">
+        <span style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:${green?'rgba(34,197,94,0.14)':'rgba(99,102,241,0.16)'};color:${green?'#4ADE80':'#A5B4FC'};">${svg(green?I.homework:I.exam,15)}</span>
+        <span style="flex:1;font-weight:700;font-size:13.5px;color:${green?'#86EFAC':'#C7D2FE'};">${ex.title}</span>
+        <span style="font-size:10.5px;font-weight:700;color:${green?'#4ADE80':'#A5B4FC'};background:${green?'rgba(34,197,94,0.12)':'rgba(99,102,241,0.14)'};padding:2px 9px;border-radius:999px;">${green?'עבודה':'מבחן'}</span>
+      </div>
+      <div style="padding:0 12px 10px;">
+        ${ex.qs.map((q,i)=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 0;position:relative;">
+            <div style="display:flex;flex-direction:column;align-items:center;width:22px;flex:none;">
+              <span style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${q.done?'rgba(34,197,94,0.18)':'rgba(148,163,184,0.1)'};color:${q.done?'#4ADE80':'#64748B'};border:1px solid ${q.done?'rgba(74,222,128,0.4)':'rgba(148,163,184,0.2)'};">${q.done?svg(I.check,12,'#4ADE80',2.4):`<span class="mono" style="font-size:10px;font-weight:700;">${q.n}</span>`}</span>
+              ${i<ex.qs.length-1?'<span style="width:2px;flex:1;min-height:8px;background:rgba(148,163,184,0.16);margin-top:2px;"></span>':''}
+            </div>
+            <span style="flex:1;font-size:13px;color:${q.done?'#86EFAC':'#CBD5E1'};">שאלה ${q.n}</span>
+            <span class="pts">${q.p}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  };
+  return data.map((t,i)=>topic(t,i===0)).join('');
+}
+
+/* ========== OPTION B — File-explorer rail (VS Code style) ========== */
+function optB() {
+  const row = (depth, content, active) => `
+    <div style="display:flex;align-items:stretch;${active?'background:rgba(99,102,241,0.16);border-radius:8px;':''}">
+      ${Array.from({length:depth}).map(()=>'<span style="width:18px;flex:none;border-right:1px solid rgba(148,163,184,0.14);margin-right:8px;"></span>').join('')}
+      <div style="flex:1;min-width:0;">${content}</div>
+    </div>`;
+  let html = '';
+  data.forEach((t,ti)=>{
+    html += row(0, `<div style="display:flex;align-items:center;gap:9px;padding:8px 6px;cursor:pointer;">
+      <span style="color:#818CF8;">${svg(I[t.icon],17)}</span>
+      <span style="flex:1;font-weight:800;color:#F1F5F9;font-size:14px;">${t.title}</span>
+    </div>`);
+    t.exams.forEach(ex=>{
+      const green = ex.type==='homework';
+      html += row(1, `<div style="display:flex;align-items:center;gap:8px;padding:7px 6px;cursor:pointer;">
+        <span style="color:${green?'#4ADE80':'#60A5FA'};">${svg(green?I.homework:I.exam,14)}</span>
+        <span style="flex:1;font-size:13px;color:${green?'#86EFAC':'#93C5FD'};">${ex.title}</span>
+        <span class="mono" style="font-size:11px;color:#475569;">${ex.qs.length}</span>
+      </div>`);
+      ex.qs.forEach((q,qi)=>{
+        html += row(2, `<div style="display:flex;align-items:center;gap:8px;padding:5px 6px;cursor:pointer;${qi===0&&ti===0?'':''}">
+          <span style="color:${q.done?'#4ADE80':'#475569'};">${q.done?svg(I.check,13,'#4ADE80',2.4):svg(I.dot,13)}</span>
+          <span style="flex:1;font-size:12.5px;color:${q.done?'#86EFAC':'#94A3B8'};">שאלה ${q.n}</span>
+          <span class="pts">${q.p}</span>
+        </div>`, qi===0&&ti===0);
+      });
+    });
+  });
+  return html;
+}
+
+/* ========== OPTION C — Dashboard sections, numbered chips ========== */
+function optC() {
+  return data.map((t,ti)=>`
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(90deg,rgba(99,102,241,0.18),transparent);border-radius:12px;border-right:3px solid #6366F1;">
+        <span style="color:#A5B4FC;">${svg(I[t.icon],20)}</span>
+        <span style="font-weight:800;color:#F8FAFC;font-size:15px;">${t.title}</span>
+      </div>
+      <div style="padding:12px 4px 2px;">
+        ${t.exams.map(ex=>{const green=ex.type==='homework';return `
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="color:${green?'#4ADE80':'#818CF8'};">${svg(green?I.homework:I.exam,15)}</span>
+              <span style="font-size:13px;font-weight:700;color:#CBD5E1;">${ex.title}</span>
+              <span style="font-size:10.5px;color:${green?'#4ADE80':'#A5B4FC'};">${green?'עבודה':'מבחן'}</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:7px;padding-right:23px;">
+              ${ex.qs.map(q=>`<span style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:9px;font-size:12.5px;font-weight:600;background:${q.done?'rgba(34,197,94,0.12)':'rgba(15,23,42,0.7)'};border:1px solid ${q.done?'rgba(74,222,128,0.35)':'rgba(148,163,184,0.16)'};color:${q.done?'#86EFAC':'#CBD5E1'};">
+                ${q.done?svg(I.check,12,'#4ADE80',2.6):`<span class="mono" style="color:#818CF8;font-size:11px;">${q.n}</span>`}
+                שאלה ${q.n}
+              </span>`).join('')}
+            </div>
+          </div>`}).join('')}
+      </div>
+    </div>`).join('');
+}
+
+/* ========== OPTION D — Premium compact list, left accent + progress ========== */
+function optD() {
+  return data.map((t,ti)=>{
+    const allQ = t.exams.flatMap(e=>e.qs); const done = allQ.filter(q=>q.done).length;
+    const pct = Math.round(done/allQ.length*100);
+    return `
+    <div style="margin-bottom:9px;border-radius:13px;overflow:hidden;background:${ti===0?'rgba(99,102,241,0.1)':'rgba(15,23,42,0.4)'};border:1px solid ${ti===0?'rgba(129,140,248,0.3)':'rgba(148,163,184,0.1)'};">
+      <div style="display:flex;align-items:center;gap:11px;padding:12px 13px;${ti===0?'border-right:3px solid #6366F1;':''}">
+        <span style="width:34px;height:34px;border-radius:10px;background:rgba(99,102,241,0.16);display:flex;align-items:center;justify-content:center;color:#A5B4FC;">${svg(I[t.icon],18)}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:800;color:#F1F5F9;font-size:14px;margin-bottom:5px;">${t.title}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;height:5px;border-radius:3px;background:rgba(148,163,184,0.14);overflow:hidden;"><div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#818CF8,#6366F1);"></div></div>
+            <span class="mono" style="font-size:10.5px;color:#94A3B8;">${pct}%</span>
+          </div>
+        </div>
+      </div>
+      ${ti===0?t.exams.map(ex=>{const green=ex.type==='homework';return `
+        <div style="padding:2px 13px 8px;">
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0 5px;">
+            <span style="color:${green?'#4ADE80':'#818CF8'};">${svg(green?I.homework:I.exam,14)}</span>
+            <span style="flex:1;font-size:12.5px;font-weight:700;color:${green?'#86EFAC':'#C7D2FE'};">${ex.title}</span>
+            <span style="font-size:10px;color:#64748B;">${ex.qs.length} שאלות</span>
+          </div>
+          ${ex.qs.map(q=>`<div style="display:flex;align-items:center;gap:9px;padding:5px 0 5px 0;margin-right:6px;border-radius:8px;">
+            <span style="width:7px;height:7px;border-radius:50%;background:${q.done?'#4ADE80':'#475569'};flex:none;"></span>
+            <span style="flex:1;font-size:12.5px;color:${q.done?'#86EFAC':'#94A3B8'};">שאלה ${q.n}</span>
+            <span class="pts">${q.p}</span>
+          </div>`).join('')}
+        </div>`}).join(''):''}
+    </div>`;
+  }).join('');
+}
+
+const head = `<div class="panel-head"><span class="brand">{ }</span><span class="brand-t">הנושאים שלי</span><span style="margin-right:auto;" class="grade-chip">כיתה יב</span></div>`;
+const cols = [
+  ['Accordion', 'כרטיסים נפתחים · ציר התקדמות לשאלות', optA],
+  ['Explorer', 'עץ היררכי עם פסי הזחה (כמו VS Code)', optB],
+  ['Dashboard', 'סקשנים עם צ\'יפים ממוספרים לשאלות', optC],
+  ['Premium', 'רשימה קומפקטית · פס התקדמות לכל נושא', optD],
+];
+document.getElementById('board').innerHTML = cols.map(([name,desc,fn],i)=>`
+  <div class="col">
+    <div class="col-label"><span class="n">${i+1}</span><h2>${name}</h2></div>
+    <div class="desc" style="color:#64748B;font-size:12.5px;margin:-8px 0 14px 36px;">${desc}</div>
+    <div class="panel">${head}${fn()}</div>
+  </div>`).join('');
+</script>
+</body>
+</html>

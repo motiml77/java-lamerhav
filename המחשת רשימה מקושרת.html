@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>המחשה אינטראקטיבית — רשימה מקושרת</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: #0A0E1A; background-image: radial-gradient(60% 40% at 50% 0%, rgba(76,52,160,0.3) 0%, transparent 65%); color: #E2E8F0; padding: 44px 24px 120px; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .ph { max-width: 940px; margin: 0 auto 8px; }
+  .ph h1 { font-size: 28px; font-weight: 900; color: #F8FAFC; }
+  .ph p { color: #94A3B8; font-size: 15px; margin-top: 8px; line-height: 1.7; }
+  .grp { max-width: 940px; margin: 52px auto 0; }
+  .grp-h { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .grp-h .n { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg,#7C3AED,#6366F1); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex: none; }
+  .grp-h h2 { font-size: 20px; font-weight: 800; color: #F1F5F9; }
+  .grp .desc { color: #8b93a7; font-size: 13.5px; margin: 0 0 16px 42px; }
+  .viz { background: #0E1424; border: 1px solid rgba(148,163,184,0.18); border-radius: 16px; overflow: hidden; }
+  .viz-hd { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid rgba(148,163,184,0.14); background: rgba(124,58,237,0.1); color: #C4B5FD; font-weight: 800; font-size: 13.5px; }
+  .legend { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 12px 16px 0; flex-wrap: wrap; }
+  .legend .item { display: flex; align-items: center; gap: 7px; color: #94A3B8; font-size: 12px; }
+  .stagebox { padding: 14px 18px 18px; min-height: 128px; display: flex; align-items: center; justify-content: center; gap: 2px; flex-wrap: wrap; direction: ltr; }
+  .codebox { background: #21262E; padding: 12px 0; direction: ltr; border-top: 1px solid rgba(148,163,184,0.1); }
+  .cline { display: flex; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.95; padding-inline-end: 12px; }
+  .cline .ln { width: 30px; text-align: right; color: #4B5263; padding-inline-end: 12px; flex: none; user-select: none; }
+  .cap { display: flex; gap: 9px; align-items: flex-start; background: rgba(124,58,237,0.1); border: 1px solid rgba(167,139,250,0.28); border-radius: 11px; padding: 11px 14px; margin: 14px 16px 0; }
+  .out { display: flex; align-items: center; gap: 8px; direction: ltr; background: #171c2b; border-radius: 9px; padding: 8px 12px; margin: 10px 16px 0; min-height: 36px; }
+  .ctrls { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid rgba(148,163,184,0.12); margin-top: 14px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 9px; font-weight: 700; font-size: 13px; font-family: 'Heebo'; border: 1px solid transparent; cursor: pointer; }
+  .btn-solid { background: linear-gradient(135deg,#7C3AED,#6366F1); color: #fff; }
+  .btn-ghost { background: rgba(51,65,85,0.5); color: #CBD5E1; border-color: rgba(148,163,184,0.22); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  svg { display: block; }
+
+  /* ---- node: value compartment + next compartment ---- */
+  .colw { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: none; transition: opacity .35s; }
+  .ptr { display: flex; flex-direction: column; align-items: center; height: 30px; justify-content: flex-end; }
+  .node { display: flex; align-items: stretch; border-radius: 11px; overflow: hidden; border: 2px solid #A78BFA; box-shadow: 0 4px 22px rgba(139,92,246,0.5); transition: all .35s; }
+  .node .val { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 21px; font-family: 'JetBrains Mono', monospace; background: linear-gradient(150deg,#A78BFA,#7C6BF0); color: #fff; }
+  .node .nxt { width: 30px; height: 50px; display: flex; align-items: center; justify-content: center; background: #3a3470; color: #DDD6FE; }
+  .node.active { border-color: #FCD34D; box-shadow: 0 0 30px rgba(251,191,36,0.55); }
+  .node.active .val { background: linear-gradient(150deg,#FCD34D,#F59E0B); color: #3a2a05; }
+  .node.active .nxt { background: #6b5212; color: #FDE68A; }
+  .node.ghost { border-color: #5b6374; box-shadow: none; opacity: .42; }
+  .node.ghost .val { background: linear-gradient(150deg,#475569,#334155); }
+  .node.fresh .val { background: linear-gradient(150deg,#6EE7B7,#10B981); color: #06281c; }
+  .node.fresh { border-color: #6EE7B7; box-shadow: 0 0 28px rgba(16,185,129,0.55); }
+  .node.fresh .nxt { background: #0d5440; color: #A7F3D0; }
+  .nullbox { height: 50px; display: flex; align-items: center; padding: 0 14px; border-radius: 11px; border: 2px dashed rgba(148,163,184,0.5); color: #B6C0D4; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; background: rgba(148,163,184,0.06); }
+  .lbl { height: 16px; font-size: 10.5px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .appear { animation: pop .45s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes pop { from { opacity: 0; transform: scale(.3) translateY(-10px); } to { opacity: 1; transform: none; } }
+  .arrow { align-self: flex-start; margin-top: 42px; color: #C4B5FD; transition: all .35s; }
+  .arrow.skip { color: #34D399; }
+  .arrow.fade { opacity: .28; }
+  .node.reading .val { animation: readpulse 1s ease-in-out infinite; }
+  @keyframes readpulse { 0%,100% { box-shadow: inset 0 0 0 0 rgba(52,211,153,0); } 50% { box-shadow: inset 0 0 0 3px #34D399; } }
+  .printbadge { display: inline-flex; align-items: center; gap: 5px; background: rgba(16,185,129,0.18); border: 1px solid #34D399; color: #6EE7B7; border-radius: 8px; padding: 3px 9px; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; animation: flyup .5s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes flyup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .exec { color: #FBBF24; font-weight: 800; }
+  .stepbar { display: flex; align-items: center; gap: 8px; padding: 9px 16px; background: rgba(251,191,36,0.08); border-bottom: 1px solid rgba(251,191,36,0.18); }
+  .stepbar .badge { background: #FBBF24; color: #3a2a05; font-weight: 800; font-size: 11px; padding: 2px 9px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; }
+  .out.flash { animation: outflash .6s ease-out; }
+  @keyframes outflash { 0% { background: rgba(16,185,129,0.3); } 100% { background: #171c2b; } }
+</style>
+</head>
+<body>
+<div class="ph">
+  <h1>המחשה אינטראקטיבית — רשימה מקושרת</h1>
+  <p>3 הדגמות עובדות. כל חוליה מצוירת בבירור עם שני חלקים: <b style="color:#A5B4FC;">ערך</b> ו-<b style="color:#A5B4FC;">next</b> (המצביע לחוליה הבאה). לחצי "הרצה" או "קדימה" וצפי איך כל שורת קוד פועלת.</p>
+</div>
+<div id="root"></div>
+
+<script>
+const A_R = (c) => `<svg width="24" height="16" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>`;
+const A_SM = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+const A_SM2 = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+const PLAY = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>';
+const SPARK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11z"/></svg>';
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function hlLine(ln){
+  let s = esc(ln).replace(/&lt;/g,'\u0001').replace(/&gt;/g,'\u0002');
+  s = s.replace(/\b([A-Za-z_]\w*)\b/g,(m)=>{
+    if(['while','new','null','int','public','static','void','if'].includes(m)) return '<span style="color:#C678DD">'+m+'</span>';
+    if(['Node','Integer'].includes(m)) return '<span style="color:#E5C07B">'+m+'</span>';
+    if(['setNext','getNext','getValue'].includes(m)) return '<span style="color:#61AFEF">'+m+'</span>';
+    return '<span style="color:#ABB2BF">'+m+'</span>';
+  });
+  return s.replace(/\u0001/g,'<span style="color:#56B6C2">&lt;</span>').replace(/\u0002/g,'<span style="color:#56B6C2">&gt;</span>');
+}
+// node: {val, state:'normal|active|ghost|fresh', topLbl:{text,color}, botLbl:{text,color}, nextNull:bool, fresh}
+function nodeHtml(nd){
+  const cls = 'node' + (nd.state==='active'?' active':nd.state==='ghost'?' ghost':nd.state==='fresh'?' fresh':'') + (nd.fresh?' appear':'');
+  const nxt = nd.nextNull ? '<span class="mono" style="font-size:10px;color:#F87171;">∅</span>' : A_SM;
+  const top = nd.topLbl ? `<span class="mono" style="font-weight:700;font-size:12px;color:${nd.topLbl.color};">${nd.topLbl.text}</span><svg width="13" height="8" viewBox="0 0 14 9"><path d="M7 9L0 0h14z" fill="${nd.topLbl.color}"/></svg>` : '';
+  const bot = nd.botLbl ? `<span class="mono" style="font-weight:700;font-size:10.5px;color:${nd.botLbl.color};">${nd.botLbl.text}</span>` : '';
+  return `<div class="colw"><div class="ptr">${top}</div><div class="${cls}"><div class="val">${nd.val}</div><div class="nxt">${nxt}</div></div><span class="lbl">${bot}</span></div>`;
+}
+function arrowHtml(mod){ return `<div class="arrow ${mod||''}" >${A_R(mod==='skip'?'#34D399':mod==='fade'?'#475569':'#C4B5FD')}</div>`; }
+function nullHtml(active){ return `<div class="colw"><div class="ptr"></div><div class="nullbox" style="${active?'border-color:#FBBF24;color:#FCD34D;':''}">null</div><span class="lbl"></span></div>`; }
+
+function codeHtml(lines, active){
+  return lines.map((ln,idx)=>`<div class="cline" style="background:${active===idx?'rgba(251,191,36,0.14)':'transparent'};border-inline-start:${active===idx?'3px solid #FBBF24':'3px solid transparent'};"><span class="ln">${active===idx?'<span class="exec">▶</span>':(idx+1)}</span><span style="white-space:pre;">${hlLine(ln)}</span></div>`).join('');
+}
+const LEGEND = `<div class="legend">
+  <div class="item"><div class="node" style="box-shadow:none;transform:scale(.8);"><div class="val" style="width:38px;height:38px;font-size:16px;">5</div><div class="nxt" style="width:24px;height:38px;">${A_SM}</div></div> חוליה: ערך + next</div>
+  <div class="item"><span class="mono" style="color:#F87171;">∅</span> = next מצביע ל-null (סוף)</div>
+</div>`;
+
+function makeWidget(host, opts){
+  let i=0, playing=false, timer=null;
+  function stop(){ playing=false; if(timer){clearTimeout(timer);timer=null;} }
+  function render(){
+    const st=opts.steps[i];
+    host.innerHTML=`<div class="viz">
+      <div class="viz-hd">${PLAY} <span>${opts.title}</span><span class="mono" style="margin-inline-start:auto;color:#64748B;font-size:12px;">${i+1}/${opts.steps.length}</span></div>
+      ${LEGEND}
+      ${st.line>=0?`<div class="stepbar"><span class="badge">שורה ${st.line+1}</span><span style="color:#FCD34D;font-size:12.5px;font-weight:600;">${opts.code[st.line].trim()}</span></div>`:''}
+      <div class="stagebox">${opts.render(st)}</div>
+      <div class="codebox">${codeHtml(opts.code, st.line)}</div>
+      <div class="cap"><span style="color:#A78BFA;flex:none;margin-top:1px;">${SPARK}</span><span style="color:#DDD6FE;font-size:14px;line-height:1.6;">${st.cap}</span></div>
+      ${opts.showOut!==false?`<div class="out${st.print!=null?' flash':''}"><span class="mono" style="color:#64748B;font-size:12px;">פלט ▶</span><span class="mono" style="color:#98C379;font-size:14px;font-weight:600;">${(st.out||[]).join('  ')}</span></div>`:''}
+      <div class="ctrls">
+        <button class="btn btn-ghost" data-a="prev" ${i===0?'disabled':''}>${A_SM} אחורה</button>
+        <button class="btn btn-solid" data-a="play">${playing?'השהיה':(i>=opts.steps.length-1?'הרצה מחדש':'הרצה')} ${PLAY}</button>
+        <button class="btn btn-ghost" data-a="next" ${i>=opts.steps.length-1?'disabled':''}>קדימה ${A_SM}</button>
+        <span style="margin-inline-start:auto;color:#64748B;font-size:12px;">${opts.foot||''}</span>
+      </div></div>`;
+    host.querySelector('[data-a=prev]').onclick=()=>{stop();i=Math.max(0,i-1);render();};
+    host.querySelector('[data-a=next]').onclick=()=>{stop();i=Math.min(opts.steps.length-1,i+1);render();};
+    host.querySelector('[data-a=play]').onclick=()=>{ if(i>=opts.steps.length-1){i=0;playing=true;render();tick();}else{playing=!playing;render();if(playing)tick();} };
+  }
+  function tick(){ if(!playing)return; if(i>=opts.steps.length-1){stop();render();return;} timer=setTimeout(()=>{i++;render();tick();},1300); }
+  render();
+}
+
+/* ===== 1. TRAVERSAL ===== */
+function vizTraversal(host){
+  const code=['Node<Integer> pos = head;','while (pos != null) {','    System.out.println( pos.getValue() );','    pos = pos.getNext();','}'];
+  const vals=[1,2,3];
+  const mk=(line,pos,out,cap,print)=>({line,pos,out,cap,print});
+  const steps=[
+    mk(0,0,[], 'pos מקבל את head — מצביע על החוליה הראשונה (1).'),
+    mk(1,0,[], 'התנאי: pos הוא חוליה אמיתית (לא null) → נכנסים ללולאה.'),
+    mk(2,0,[1], 'println קורא את הערך מהחוליה הנוכחית ומדפיס אותו: 1.', 1),
+    mk(3,1,[1], 'pos.getNext() קורא את החלק הימני (next) וקופץ לחוליה 2.'),
+    mk(1,1,[1], 'התנאי שוב: pos=2, לא null → ממשיכים.'),
+    mk(2,1,[1,2], 'println מדפיס את הערך הנוכחי: 2.', 2),
+    mk(3,2,[1,2], 'ה-next של 2 מצביע על 3 — pos קופץ ל-3.'),
+    mk(1,2,[1,2], 'התנאי: pos=3 → ממשיכים.'),
+    mk(2,2,[1,2,3], 'println מדפיס את הערך הנוכחי: 3.', 3),
+    mk(3,3,[1,2,3], 'ה-next של 3 הוא null — לכן pos הופך ל-null.'),
+    mk(1,3,[1,2,3], 'התנאי: pos == null → שקרי. יוצאים מהלולאה. סיימנו!'),
+  ];
+  makeWidget(host,{title:'מעבר על הרשימה — pos מטייל חוליה-חוליה',code,steps,foot:'1 → 2 → 3 → null',
+    render:(st)=>{ let h='';
+      vals.forEach((v,idx)=>{ if(idx>0)h+=arrowHtml();
+        const active=st.pos===idx, reading=st.print!=null&&active;
+        const cls='node'+(active?' active':'')+(reading?' reading':'');
+        const top = active?`<span class="mono" style="font-weight:700;font-size:12px;color:#FBBF24;">pos</span><svg width="13" height="8" viewBox="0 0 14 9"><path d="M7 9L0 0h14z" fill="#FBBF24"/></svg>`:'';
+        const printB = reading?`<div class="printbadge">${A_SM2} מדפיס ${v}</div>`:'';
+        const bot = idx===0?`<span class="mono" style="font-weight:700;font-size:10.5px;color:#818CF8;">head</span>`:'';
+        const nxt = idx===2?'<span class="mono" style="font-size:10px;color:#F87171;">∅</span>':A_SM;
+        h+=`<div class="colw"><div class="ptr">${top}</div><div class="${cls}"><div class="val">${v}</div><div class="nxt">${nxt}</div></div><span class="lbl" style="height:18px;">${printB||bot}</span></div>`;
+      });
+      h+=arrowHtml(); h+=nullHtml(st.pos===3); return h;
+    }});
+}
+
+/* ===== 2. INSERTION ===== */
+function vizInsert(host){
+  const code=['Node<Integer> n = new Node<Integer>(0);','// next של n הוא null אוטומטית','n.setNext(head);','head = n;'];
+  // phases: 0 list only, 1 fresh node created (sep), 2 setNext links n->head, 3 head=n
+  const vals=[1,2,3];
+  const steps=[
+    {ph:0,line:-1,cap:'נקודת התחלה: הרשימה הקיימת 1 → 2 → 3 → null. head מצביע על 1.'},
+    {ph:1,line:0,cap:'יוצרים חוליה חדשה n עם הערך 0. שימי לב: ה-next שלה מצביע אוטומטית ל-null — היא עומדת בפני עצמה.'},
+    {ph:2,line:2,cap:'n.setNext(head) — מחברים את ה-next של החוליה החדשה לראש הרשימה הקיימת (1). עכשיו 0 → 1.'},
+    {ph:3,line:3,cap:'head = n — מעדכנים את head שיצביע על החוליה החדשה. הוספנו איבר לראש: 0 → 1 → 2 → 3 → null!'},
+  ];
+  makeWidget(host,{title:'הוספת חוליה — יוצרים תא ומקשרים לרשימה',code,steps,showOut:false,foot:'מוסיפים את 0 בראש',
+    render:(st)=>{
+      if(st.ph<=1){
+        // fresh node on its own (top), list below
+        let list=''; vals.forEach((v,idx)=>{ if(idx>0)list+=arrowHtml(); list+=nodeHtml({val:v,state:'normal',nextNull:idx===2,botLbl:idx===0?{text:'head',color:'#818CF8'}:null}); });
+        list+=arrowHtml(); list+=nullHtml(false);
+        let fresh='';
+        if(st.ph===1){ fresh=`<div style="display:flex;align-items:center;gap:2px;margin-bottom:14px;width:100%;justify-content:center;">${nodeHtml({val:0,state:'fresh',nextNull:true,fresh:true,topLbl:{text:'n',color:'#34D399'}})}${arrowHtml('fade')}${nullHtml(false)}</div>`; }
+        return `<div style="display:flex;flex-direction:column;gap:6px;width:100%;">${fresh}<div style="display:flex;align-items:center;justify-content:center;gap:2px;flex-wrap:wrap;">${list}</div></div>`;
+      }
+      // ph 2/3: chain with new node connected
+      let h=''; const isHead3=st.ph===3;
+      h+=nodeHtml({val:0,state:'fresh',nextNull:false,topLbl:{text:'n',color:'#34D399'},botLbl:isHead3?{text:'head',color:'#818CF8'}:null});
+      h+=arrowHtml('skip');
+      vals.forEach((v,idx)=>{ if(idx>0)h+=arrowHtml();
+        h+=nodeHtml({val:v,state:'normal',nextNull:idx===2,botLbl:(idx===0&&!isHead3)?{text:'head',color:'#818CF8'}:null});
+      });
+      h+=arrowHtml(); h+=nullHtml(false); return h;
+    }});
+}
+
+/* ===== 3. DELETION ===== */
+function vizDelete(host){
+  const code=['Node<Integer> prev = head;','Node<Integer> cur = head.getNext();','// רוצים למחוק את cur (הערך 2)','prev.setNext( cur.getNext() );'];
+  const vals=[1,2,3];
+  const steps=[
+    {line:0,prev:0,cur:-1,skip:false,cap:'prev מתחיל על החוליה הראשונה (1) — זו שלפני זו שנמחק.'},
+    {line:1,prev:0,cur:1,skip:false,cap:'cur = head.getNext() — cur מצביע על החוליה שרוצים למחוק (2).'},
+    {line:3,prev:0,cur:1,skip:true,cap:'prev.setNext(cur.getNext()) — ה-next של 1 "מדלג" מעל 2 ומצביע ישר על 3. החוליה 2 כבר לא בשרשרת!'},
+    {line:-1,prev:-1,cur:-1,skip:true,done:true,cap:'התוצאה: 1 → 3 → null. מחקנו את 2 בלי להזיז כלום — רק שינינו מצביע אחד. זה היתרון של רשימה מקושרת!'},
+  ];
+  makeWidget(host,{title:'מחיקה — דילוג מעל חוליה עם שני מצביעים',code,steps,showOut:false,foot:'מוחקים את 2',
+    render:(st)=>{ let h='';
+      vals.forEach((v,idx)=>{
+        if(idx>0){ // arrow before node idx
+          if(st.skip && idx===2) h+=''; // we'll draw skip separately
+          else if(st.skip && idx===1) h+=arrowHtml('fade');
+          else h+=arrowHtml();
+        }
+        const isDel = st.done && idx===1;
+        h+=nodeHtml({val:v,state: isDel?'ghost':(st.cur===idx?'active':'normal'),nextNull:idx===2,
+          topLbl: st.prev===idx?{text:'prev',color:'#818CF8'}:st.cur===idx?{text:'cur',color:'#FBBF24'}:null,
+          botLbl: idx===0?{text:'head',color:'#818CF8'}:null});
+        if(st.skip && idx===1){ h+=arrowHtml('skip'); } // skip arrow from 1 jumps to 3 (drawn after node 2 visually via order)
+      });
+      h+=arrowHtml(); h+=nullHtml(false); return h;
+    }});
+}
+
+const OPTS=[
+  ['מעבר על הרשימה (Traversal)','המצביע pos זז חוליה-חוליה עד null. רואים בכל צעד איך קוראים את חלק ה-ערך ואיך עוברים דרך חלק ה-next.',vizTraversal],
+  ['הוספת חוליה (Insertion)','יוצרים חוליה בודדת — ה-next שלה null אוטומטית — ואז מקשרים אותה לרשימה הקיימת ומעדכנים את head. רואים את החוליה החדשה (בירוק) נכנסת ומתחברת.',vizInsert],
+  ['מחיקת חוליה (Deletion)','שני מצביעים: prev ו-cur. המחיקה מתבצעת ב"דילוג" — ה-next של prev מצביע ישר מעבר ל-cur. החוליה שנמחקה דוהה ויוצאת מהשרשרת.',vizDelete],
+];
+const root=document.getElementById('root');
+OPTS.forEach(([name,desc,fn],idx)=>{
+  const g=document.createElement('div'); g.className='grp';
+  g.innerHTML=`<div class="grp-h"><span class="n">${idx+1}</span><h2>${name}</h2></div><div class="desc">${desc}</div><div class="host"></div>`;
+  root.appendChild(g);
+  fn(g.querySelector('.host'));
+});
+</script>
+</body>
+</html>

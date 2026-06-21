@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עיצובים לדף שאלה + עורך קוד</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: #070B16 radial-gradient(80% 50% at 50% 0%, rgba(49,46,129,0.3) 0%, transparent 70%) fixed; color: #E2E8F0; padding: 46px 40px 110px; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  h1 { font-size: 30px; font-weight: 900; color: #F8FAFC; }
+  .sub { color: #94A3B8; font-size: 15px; margin-top: 8px; line-height: 1.7; max-width: 760px; }
+  .opt { margin-top: 52px; max-width: 1000px; }
+  .opt-label { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  .opt-label .n { width: 28px; height: 28px; border-radius: 9px; background: #312E81; color: #C7D2FE; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex: none; }
+  .opt-label h2 { font-size: 21px; font-weight: 800; color: #F1F5F9; }
+  .opt-label .desc { font-size: 13.5px; color: #64748B; }
+  svg { display: block; }
+
+  /* editor */
+  .ed { background: #282C34; border-radius: 12px; overflow: hidden; border: 1px solid rgba(148,163,184,0.16); }
+  .ed-hd { background: #21252B; display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid #181A1F; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .ed-tab { background: #282C34; color: #ABB2BF; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 5px 14px; border-radius: 7px 7px 0 0; border: 1px solid #181A1F; border-bottom: none; }
+  .ed-tools { margin-right: auto; display: flex; gap: 6px; }
+  .ed-btn { width: 26px; height: 26px; border-radius: 7px; background: rgba(255,255,255,0.06); color: #9DA5B4; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .ed-body { display: flex; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; line-height: 1.7; padding: 12px 0; }
+  .ed-gutter { color: #4B5263; text-align: left; padding: 0 14px; user-select: none; direction: ltr; }
+  .ed-gutter > div { line-height: 1.7; }
+  .ed-code { direction: ltr; text-align: left; white-space: pre; color: #ABB2BF; flex: 1; overflow-x: auto; padding-left: 12px; }
+  .ed-console { direction: ltr; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: #21252B; border-top: 1px solid #181A1F; padding: 9px 14px; color: #98C379; }
+  .run { display: inline-flex; align-items: center; gap: 7px; background: linear-gradient(135deg,#22c55e,#16a34a); color: #fff; border: none; border-radius: 9px; padding: 9px 18px; font-family: 'Heebo'; font-weight: 700; font-size: 13.5px; cursor: pointer; }
+  .check { display: inline-flex; align-items: center; gap: 7px; background: linear-gradient(135deg,#6366F1,#4F46E5); color: #fff; border: none; border-radius: 9px; padding: 9px 18px; font-family: 'Heebo'; font-weight: 700; font-size: 13.5px; cursor: pointer; box-shadow: 0 4px 16px rgba(99,102,241,0.35); }
+
+  /* question typography */
+  .q-card { background: rgba(23,32,56,0.72); border: 1px solid rgba(148,163,184,0.16); border-radius: 16px; }
+  .q-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: #818CF8; }
+  .q-title { font-size: 22px; font-weight: 800; color: #F8FAFC; }
+  .q-body { color: #E8EDF6; font-size: 16px; line-height: 1.9; }
+  .q-codebox { background: #282C34; border: 1px solid rgba(148,163,184,0.14); border-radius: 10px; padding: 11px 14px; direction: ltr; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #ABB2BF; }
+  .io { display: flex; gap: 12px; }
+  .io > div { flex: 1; background: rgba(15,23,42,0.5); border: 1px solid rgba(148,163,184,0.12); border-radius: 10px; padding: 10px 13px; }
+  .io .lbl { font-size: 11.5px; color: #64748B; margin-bottom: 4px; }
+  .io .val { font-family: 'JetBrains Mono', monospace; direction: ltr; text-align: left; color: #C7E8D4; font-size: 13px; }
+  .pill { font-size: 11px; font-weight: 700; padding: 3px 11px; border-radius: 999px; }
+  .scrollfade { position: relative; }
+</style>
+</head>
+<body>
+<h1>סגנונות לדף שאלה משולב עורך קוד</h1>
+<p class="sub">4 פריסות לדף עבודה/מבחן — בהשראת LeetCode, JetBrains Academy ו-CS50. אותה שאלה ואותו עורך (ערכת One Dark Pro), בפריסות שונות. בחרי אחת ואטמיע במערכת — לעבודות ולמבחנים.</p>
+<div id="root"></div>
+
+<script>
+const I = {
+  run: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>',
+  check: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  exam: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="m9 14 2 2 4-4"/></svg>',
+  bulb: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>',
+};
+const KW = new Set(['public','static','void','while','if','else','return','new','class','private','for','int','boolean','double','char','this','null','true','false','import','print','println']);
+const TYPE = new Set(['Node','Integer','String','System','Math','BinNode','Queue','Stack','out']);
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function hl(code){
+  const re=/(\/\/[^\n]*)|("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)|(\s+)|([^\sA-Za-z0-9])/g;
+  const toks=[]; let m; while((m=re.exec(code))) toks.push(m[0]);
+  let out='';
+  for(let i=0;i<toks.length;i++){
+    const t=toks[i];
+    if(/^\/\//.test(t)) out+=`<span style="color:#7A8290;font-style:italic">${esc(t)}</span>`;
+    else if(/^"/.test(t)) out+=`<span style="color:#98C379">${esc(t)}</span>`;
+    else if(/^\d+$/.test(t)) out+=`<span style="color:#D19A66">${t}</span>`;
+    else if(/^[A-Za-z_]\w*$/.test(t)){
+      if(KW.has(t)) out+=`<span style="color:#C678DD">${t}</span>`;
+      else if(TYPE.has(t)) out+=`<span style="color:#E5C07B">${t}</span>`;
+      else { let j=i+1; while(j<toks.length&&/^\s+$/.test(toks[j]))j++; out+= toks[j]==='(' ? `<span style="color:#61AFEF">${t}</span>` : `<span style="color:#ABB2BF">${t}</span>`; }
+    }
+    else out+=`<span style="color:#ABB2BF">${esc(t)}</span>`;
+  }
+  return out;
+}
+const CODE = `public static void printEvens(Node<Integer> head) {
+    Node<Integer> pos = head;
+    while (pos != null) {
+        if (pos.getValue() % 2 == 0) {
+            System.out.print(pos.getValue() + ", ");
+        }
+        pos = pos.getNext();
+    }
+}`;
+function editor({tab='Answer.java', console=true, h=null}={}){
+  const lines = CODE.split('\n');
+  const gutter = lines.map((_,i)=>`<div>${i+1}</div>`).join('');
+  return `<div class="ed">
+    <div class="ed-hd">
+      <span class="dot" style="background:#ff5f56"></span><span class="dot" style="background:#ffbd2e"></span><span class="dot" style="background:#27c93f"></span>
+      <span class="ed-tab" style="margin-right:8px;">${tab}</span>
+      <span class="ed-tools"><span class="ed-btn">A-</span><span class="ed-btn">A+</span><span class="ed-btn">⧉</span></span>
+    </div>
+    <div class="ed-body" ${h?`style="height:${h}px;overflow:auto;"`:''}>
+      <div class="ed-gutter">${gutter}</div>
+      <div class="ed-code">${hl(CODE)}</div>
+    </div>
+    ${console?`<div class="ed-console">▶ 4, 2, 8</div>`:''}
+  </div>`;
+}
+function qContent({compact=false}={}){
+  return `
+    <div class="q-eyebrow">מבחן · רשימה מקושרת</div>
+    <div class="q-title" style="margin:5px 0 ${compact?14:18}px;">שאלה 2 · הדפסת איברים זוגיים</div>
+    <div class="q-body">כתבי פעולה המקבלת שרשרת חוליות (<span class="mono" style="color:#E5C07B;direction:ltr;">Node&lt;Integer&gt;</span>). הפעולה תדפיס למסך את כל המספרים הזוגיים ברשימה, בשורה אחת, מופרדים בפסיק.</div>
+    <div style="margin:16px 0 8px;font-size:13px;color:#94A3B8;font-weight:600;">חתימת הפעולה:</div>
+    <div class="q-codebox">${hl('public static void printEvens(Node<Integer> head)')}</div>
+    <div style="margin:16px 0 8px;font-size:13px;color:#94A3B8;font-weight:600;">דוגמה:</div>
+    <div class="io">
+      <div><div class="lbl">קלט (הרשימה)</div><div class="val">4 → 7 → 1 → 2 → 8</div></div>
+      <div><div class="lbl">פלט למסך</div><div class="val">4, 2, 8</div></div>
+    </div>`;
+}
+
+/* ============ 1. SPLIT (LeetCode / JetBrains Academy) ============ */
+function split(){
+  return `<div style="display:grid;grid-template-columns:0.92fr 1.08fr;gap:0;border:1px solid rgba(148,163,184,0.14);border-radius:18px;overflow:hidden;background:#0B1120;height:480px;">
+    <div style="padding:26px 26px;overflow:auto;border-left:1px solid rgba(148,163,184,0.1);">${qContent()}</div>
+    <div style="display:flex;flex-direction:column;background:#0d1322;">
+      <div style="flex:1;padding:14px 14px 0;display:flex;flex-direction:column;min-height:0;">${editor({h:300})}</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid rgba(148,163,184,0.1);">
+        <span style="display:flex;align-items:center;gap:7px;color:#4ADE80;font-size:13px;font-weight:600;"><span style="width:7px;height:7px;border-radius:50%;background:#4ADE80;"></span>נשמר אוטומטית</span>
+        <span style="margin-right:auto;"></span>
+        <button class="run">${I.run} הרצה</button>
+        <button class="check">${I.check} בדיקה ומשוב</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============ 2. STACKED FOCUS ============ */
+function stacked(){
+  return `<div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="q-card" style="padding:24px 26px;">${qContent({compact:true})}</div>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:9px;"><span style="color:#818CF8;">${I.bulb}</span><span style="font-weight:700;color:#CBD5E1;font-size:14.5px;">התשובה שלך</span></div>
+        <span class="pill" style="background:rgba(34,197,94,0.12);color:#4ADE80;">עזרה פעילה · השלמה אוטומטית</span>
+      </div>
+      ${editor({})}
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <button class="check">${I.check} בדיקת התשובה</button>
+        <button class="run" style="background:rgba(255,255,255,0.06);color:#CBD5E1;">${I.run} הרצה</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============ 3. TABBED WORKSPACE ============ */
+function tabbed(){
+  const tab=(t,a)=>`<span style="padding:11px 18px;font-size:14px;font-weight:${a?700:500};color:${a?'#F1F5F9':'#64748B'};border-bottom:2px solid ${a?'#6366F1':'transparent'};cursor:pointer;">${t}</span>`;
+  return `<div class="q-card" style="overflow:hidden;">
+    <div style="display:flex;align-items:center;border-bottom:1px solid rgba(148,163,184,0.12);padding:0 12px;">
+      ${tab('השאלה',false)}${tab('דוגמאות',false)}${tab('הקוד שלי',true)}${tab('משוב',false)}
+      <span style="margin-right:auto;padding-left:14px;"><button class="check">${I.check} בדיקה</button></span>
+    </div>
+    <div style="padding:18px;">
+      <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(129,140,248,0.2);border-radius:11px;padding:12px 15px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start;">
+        <span style="color:#818CF8;flex:none;margin-top:1px;">${I.exam}</span>
+        <span style="color:#C7D2FE;font-size:14px;line-height:1.7;">הדפיסי את כל המספרים הזוגיים ברשימה, מופרדים בפסיק. <span style="color:#94A3B8;">(לחצי על "השאלה" לתיאור המלא)</span></span>
+      </div>
+      ${editor({console:true})}
+    </div>
+  </div>`;
+}
+
+/* ============ 4. NOTEBOOK (guided cells) ============ */
+function notebook(){
+  const cell=(content)=>`<div style="display:flex;gap:14px;">
+    <div style="width:3px;border-radius:3px;background:rgba(129,140,248,0.3);flex:none;"></div>
+    <div style="flex:1;min-width:0;">${content}</div>
+  </div>`;
+  return `<div class="q-card" style="padding:24px 26px;display:flex;flex-direction:column;gap:20px;">
+    ${cell(`<div class="q-eyebrow">שלב 1 · קראי</div><div class="q-body" style="margin-top:6px;">הדפיסי את כל המספרים הזוגיים בשרשרת החוליות, בשורה אחת מופרדת בפסיקים.</div>`)}
+    ${cell(`<div class="q-eyebrow">שלב 2 · דוגמה</div><div class="io" style="margin-top:8px;"><div><div class="lbl">קלט</div><div class="val">4 → 7 → 1 → 2 → 8</div></div><div><div class="lbl">פלט</div><div class="val">4, 2, 8</div></div></div>`)}
+    ${cell(`<div class="q-eyebrow" style="margin-bottom:8px;">שלב 3 · כתבי את הפתרון</div>${editor({console:false})}<div style="display:flex;gap:10px;margin-top:12px;"><button class="check">${I.check} בדיקה ומשוב</button><button class="run" style="background:rgba(255,255,255,0.06);color:#CBD5E1;">${I.run} הרצה</button></div>`)}
+    ${cell(`<div class="q-eyebrow">שלב 4 · משוב</div><div style="margin-top:8px;background:rgba(34,197,94,0.08);border:1px solid rgba(74,222,128,0.3);border-radius:11px;padding:12px 15px;color:#86EFAC;font-size:14px;line-height:1.7;display:flex;gap:9px;"><span style="flex:none;">${I.check}</span> כל הכבוד! הפלט תואם. שימי לב שאפשר לחסוך את הפסיק האחרון — נסי לחשוב איך.</div>`)}
+  </div>`;
+}
+
+const opts = [
+  ['Split — צד לצד', 'שאלה מימין, עורך משמאל + קונסולה. תקן הזהב לדסקטופ (LeetCode/JetBrains).', split],
+  ['Stacked — ערימה ממוקדת', 'שאלה למעלה, עורך רחב למטה. נוח לקריאה ואז כתיבה, מצוין גם לנייד.', stacked],
+  ['Tabbed — טאבים', 'פאנל אחד עם טאבים: שאלה / דוגמאות / קוד / משוב. ממוקד ונקי.', tabbed],
+  ['Notebook — מחברת מודרכת', 'תאים שלב-אחר-שלב: קריאה ← דוגמה ← כתיבה ← משוב. אידיאלי לעבודות בית.', notebook],
+];
+document.getElementById('root').innerHTML = opts.map(([name,desc,fn],i)=>`
+  <div class="opt">
+    <div class="opt-label"><span class="n">${i+1}</span><h2>${name}</h2></div>
+    <div style="color:#64748B;font-size:13.5px;margin:-10px 0 16px 40px;">${desc}</div>
+    ${fn()}
+  </div>`).join('');
+</script>
+</body>
+</html>

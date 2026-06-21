@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>אפשרויות עיצוב — עמוד פתיחת נושא</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: #070B16; background-image: radial-gradient(60% 40% at 50% 0%, rgba(49,46,129,0.28) 0%, transparent 65%); color: #E2E8F0; padding: 46px 32px 120px; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .page-h { max-width: 1080px; margin: 0 auto 8px; }
+  .page-h h1 { font-size: 30px; font-weight: 900; color: #F8FAFC; }
+  .page-h p { color: #94A3B8; font-size: 15px; margin-top: 8px; line-height: 1.7; max-width: 820px; }
+
+  .opt { max-width: 1080px; margin: 56px auto 0; }
+  .opt-label { display: flex; align-items: baseline; gap: 12px; margin-bottom: 5px; }
+  .opt-label .n { width: 28px; height: 28px; border-radius: 9px; background: #312E81; color: #C7D2FE; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex: none; }
+  .opt-label h2 { font-size: 21px; font-weight: 800; color: #F1F5F9; }
+  .opt > .desc { color: #64748B; font-size: 13.5px; margin: 0 0 18px 40px; }
+
+  .frame { background: #070B16; border: 1px solid rgba(148,163,184,0.14); border-radius: 20px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.4); }
+
+  /* code card */
+  .code { background: #282C34; border-radius: 12px; overflow: hidden; border: 1px solid rgba(148,163,184,0.14); }
+  .code-hd { background: #21252B; display: flex; align-items: center; gap: 7px; padding: 8px 13px; border-bottom: 1px solid #181A1F; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .code-body { display: flex; font-family: 'JetBrains Mono', monospace; font-size: 12.8px; line-height: 1.75; padding: 11px 0; }
+  .gut { color: #4B5263; text-align: left; padding: 0 12px; user-select: none; direction: ltr; flex: none; }
+  .cd { direction: ltr; text-align: left; flex: 1; overflow-x: auto; padding-left: 12px; white-space: pre; }
+  .run { display: inline-flex; align-items: center; gap: 6px; background: #1F8A5B; color: #fff; border: none; border-radius: 7px; padding: 5px 13px; font-size: 12px; font-weight: 700; font-family: 'Heebo'; cursor: pointer; }
+  .out { direction: ltr; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #161B22; border-top: 1px solid #181A1F; padding: 8px 13px; color: #98C379; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 999px; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div class="page-h">
+  <h1>אפשרויות עיצוב — עמוד הפתיחה של נושא</h1>
+  <p>3 גישות להצגת ההסבר, נקודות המפתח, הדוגמאות החיות והתרגול העצמי שכבר קיימים בכל נושא. כאן מודגם הנושא "לולאות". בחרי גישה (או שילוב) ואטמיע אותה בעמוד הלמידה של כל הנושאים.</p>
+</div>
+<div id="root"></div>
+
+<script>
+const KW = new Set(['public','static','void','while','if','else','return','new','class','private','for','int','boolean','double','char','this','null','true','false']);
+const TYPE = new Set(['System','out','String','Main','Math']);
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function hl(code){
+  const re=/(\/\/[^\n]*)|("(?:[^"\\]|\\.)*")|('(?:[^'\\]|\\.)*')|(\b\d+\b)|([A-Za-z_\u0590-\u05FF]\w*)|(\s+)|([^\sA-Za-z0-9])/g;
+  const toks=[]; let m; while((m=re.exec(code))) toks.push(m[0]);
+  let out='';
+  for(let i=0;i<toks.length;i++){ const t=toks[i];
+    if(/^\/\//.test(t)) out+=`<span style="color:#7A8290;font-style:italic">${esc(t)}</span>`;
+    else if(/^["']/.test(t)) out+=`<span style="color:#98C379">${esc(t)}</span>`;
+    else if(/^\d+$/.test(t)) out+=`<span style="color:#D19A66">${t}</span>`;
+    else if(/^[A-Za-z_]\w*$/.test(t)){ if(KW.has(t)) out+=`<span style="color:#C678DD">${t}</span>`; else if(TYPE.has(t)) out+=`<span style="color:#E5C07B">${t}</span>`; else { let j=i+1; while(j<toks.length&&/^\s+$/.test(toks[j]))j++; out+= toks[j]==='(' ? `<span style="color:#61AFEF">${t}</span>` : `<span style="color:#ABB2BF">${t}</span>`; } }
+    else if(/^[\u0590-\u05FF]/.test(t)) out+=`<span style="color:#98C379">${esc(t)}</span>`;
+    else out+=`<span style="color:#ABB2BF">${esc(t)}</span>`;
+  }
+  return out;
+}
+function codeCard(code, output){
+  const lines = code.split('\n');
+  const gut = lines.map((_,i)=>i+1).join('\n');
+  return `<div class="code">
+    <div class="code-hd"><span class="dot" style="background:#ff5f56"></span><span class="dot" style="background:#ffbd2e"></span><span class="dot" style="background:#27c93f"></span><span class="mono" style="color:#7A8290;font-size:11.5px;margin-right:6px;">Main.java</span><button class="run" style="margin-right:auto;"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>הרצה</button></div>
+    <div class="code-body"><div class="gut">${gut}</div><div class="cd">${hl(code)}</div></div>
+    ${output?`<div class="out">▶ ${output}</div>`:''}
+  </div>`;
+}
+const ICON = {
+  loop: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1 21 6l-4 3.9"/><path d="M3 11.9V11a4 4 0 0 1 4-4h14"/><path d="M7 21.9 3 18l4-3.9"/><path d="M21 12.1V13a4 4 0 0 1-4 4H3"/></svg>',
+  spark: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg>',
+  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  pen: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  bulb: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M15 14c.2-1 .6-1.7 1.4-2.5A4.6 4.6 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.8.8 1.2 1.5 1.4 2.5"/></svg>',
+  eye: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  book: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+  play2: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>',
+};
+
+const TOPIC = {
+  num: '03', title: 'לולאות', grade: 'כיתה יא',
+  intro: 'לולאה חוזרת על קטע קוד שוב ושוב — במקום לכתוב 100 שורות, כותבים 3. כשיודעים מראש כמה פעמים — משתמשים ב-for; כשלא — ב-while.',
+  points: [
+    'for (int i = 0; i < n; i++) — התחלה · תנאי המשך · קפיצה',
+    'while (תנאי) — רצה כל עוד התנאי מתקיים',
+    'זהירות מלולאה אינסופית — משהו בתנאי חייב להשתנות',
+    'דפוס נפוץ: משתנה צובר (sum) שמתעדכן בתוך הלולאה',
+  ],
+  examples: [
+    { title: 'סכום מספרים עם for', explain: 'הלולאה רצה 10 פעמים: i מקבל את הערכים 1 עד 10, ובכל סיבוב מוסיפים אותו ל-sum. בסוף sum מכיל 1+2+…+10 = 55. זה נקרא "משתנה צובר".', code: 'public class Main {\n    public static void main(String[] args) {\n        int sum = 0;\n        for (int i = 1; i <= 10; i++) {\n            sum = sum + i;\n        }\n        System.out.println("הסכום: " + sum);\n    }\n}', out: 'הסכום: 55' },
+    { title: 'לולאת while', explain: 'בכל סיבוב מחלקים את n ב-2 וסופרים עוד חלוקה. הלולאה עוצרת כש-n מגיע ל-1. ב-while משתמשים כשלא יודעים מראש כמה סיבובים יידרשו.', code: 'public class Main {\n    public static void main(String[] args) {\n        int n = 80, count = 0;\n        while (n > 1) {\n            n = n / 2;\n            count++;\n        }\n        System.out.println("מספר החלוקות: " + count);\n    }\n}', out: 'מספר החלוקות: 7' },
+    { title: 'לוח הכפל של 7', explain: 'בכל סיבוב i גדל ב-1, והשורה מדפיסה את התרגיל המתאים: 7×1=7, אחר כך 7×2=14, וכן הלאה עד 10. לולאה אחת — לוח כפל שלם.', code: 'public class Main {\n    public static void main(String[] args) {\n        for (int i = 1; i <= 10; i++) {\n            System.out.println("7 x " + i + " = " + (7 * i));\n        }\n    }\n}', out: '7 x 1 = 7\n7 x 2 = 14\n…' },
+  ],
+  exercises: [
+    { task: 'הדפיסי את כל המספרים הזוגיים מ-2 עד 20 (כולל), כל מספר בשורה משלו.', hint: 'אפשר לקפוץ ב-2 בכל סיבוב: i += 2' },
+    { task: 'חשבי בעזרת לולאה את 5! (עצרת: 1×2×3×4×5). התוצאה צריכה להיות 120.', hint: 'כמו משתנה צובר — אבל עם × במקום +' },
+  ],
+};
+
+/* =================== OPTION 1 — מאמר לימודי (Article) =================== */
+function optArticle(t){
+  return `<div class="frame">
+    <!-- hero -->
+    <div style="position:relative;padding:38px 44px 30px;border-bottom:1px solid rgba(148,163,184,0.1);background:radial-gradient(70% 120% at 100% 0%, rgba(99,102,241,0.16) 0%, transparent 60%);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <span class="mono" style="color:#818CF8;font-size:13px;font-weight:600;">יחידה ${t.num}</span>
+        <span style="width:4px;height:4px;border-radius:50%;background:#475569;"></span>
+        <span class="badge" style="background:rgba(99,102,241,0.16);color:#A5B4FC;">${t.grade}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;color:#fff;flex:none;">${ICON.loop}</div>
+        <div>
+          <h1 style="font-size:34px;font-weight:900;color:#F8FAFC;line-height:1.1;">${t.title}</h1>
+          <div style="color:#94A3B8;font-size:14px;margin-top:3px;">הסבר · 3 דוגמאות חיות · 2 תרגילי תרגול</div>
+        </div>
+      </div>
+      <p style="color:#CBD5E1;font-size:17px;line-height:1.85;max-width:680px;margin-top:20px;">${t.intro}</p>
+    </div>
+    <div style="padding:30px 44px 40px;">
+      <!-- key points callout -->
+      <div style="background:rgba(99,102,241,0.07);border:1px solid rgba(129,140,248,0.22);border-radius:16px;padding:20px 22px;margin-bottom:34px;">
+        <div style="display:flex;align-items:center;gap:8px;color:#A5B4FC;font-weight:800;font-size:15px;margin-bottom:14px;">${ICON.spark} נקודות מפתח</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;">
+          ${t.points.map((p,i)=>`<div style="display:flex;align-items:flex-start;gap:10px;"><span class="mono" style="color:#6366F1;font-weight:700;font-size:13px;flex:none;margin-top:1px;">${String(i+1).padStart(2,'0')}</span><span style="color:#CBD5E1;font-size:13.5px;line-height:1.55;">${p}</span></div>`).join('')}
+        </div>
+      </div>
+      <!-- worked examples -->
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:20px;"><span style="color:#4ADE80;">${ICON.book}</span><span style="color:#F1F5F9;font-size:19px;font-weight:800;">דוגמאות מודרכות</span></div>
+      ${t.examples.map((ex,i)=>`
+        <div style="display:grid;grid-template-columns:0.85fr 1.15fr;gap:24px;align-items:start;margin-bottom:${i<t.examples.length-1?'28px':'8px'};padding-bottom:${i<t.examples.length-1?'28px':'0'};${i<t.examples.length-1?'border-bottom:1px solid rgba(148,163,184,0.08);':''}">
+          <div style="padding-top:4px;">
+            <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:10px;"><span style="width:26px;height:26px;border-radius:8px;background:rgba(74,222,128,0.14);color:#4ADE80;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;">${i+1}</span><span style="color:#fff;font-weight:700;font-size:16.5px;">${ex.title}</span></div>
+            <p style="color:#94A3B8;font-size:14px;line-height:1.75;">${ex.explain}</p>
+          </div>
+          ${codeCard(ex.code, ex.out)}
+        </div>`).join('')}
+      <!-- practice band -->
+      <div style="margin-top:34px;background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(251,191,36,0.02));border:1px solid rgba(251,191,36,0.25);border-radius:16px;padding:24px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px;"><span style="color:#FBBF24;">${ICON.pen}</span><span style="color:#FCD34D;font-weight:800;font-size:18px;">עכשיו תורך — תרגול עצמי</span></div>
+        <p style="color:#94A3B8;font-size:13.5px;margin-bottom:18px;">תרגילי חימום קטנים — לא נשמרים ולא מוגשים, רק בשבילך. נסי לבד לפני שמציצות בפתרון.</p>
+        ${t.exercises.map((ex,i)=>`<div style="background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.12);border-radius:12px;padding:16px 18px;margin-bottom:${i<t.exercises.length-1?'12px':'0'};">
+          <div style="display:flex;align-items:flex-start;gap:11px;"><span style="width:24px;height:24px;border-radius:7px;background:rgba(251,191,36,0.15);color:#FBBF24;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px;flex:none;">${i+1}</span><span style="color:#E2E8F0;font-size:14.5px;line-height:1.6;">${ex.task}</span></div>
+          <div style="display:flex;gap:8px;margin-top:13px;padding-right:35px;">
+            <button style="background:#6366F1;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-family:'Heebo';font-size:12.5px;font-weight:700;cursor:pointer;">פתחי עורך</button>
+            <button class="chip" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);color:#FCD34D;">${ICON.bulb} רמז</button>
+            <button class="chip" style="background:transparent;border:1px solid rgba(148,163,184,0.25);color:#94A3B8;">${ICON.eye} הצצה בפתרון</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =================== OPTION 2 — קורס מודרך (Guided, sticky rail) =================== */
+function optGuided(t){
+  const steps = [['הסבר','done'],['דוגמה 1 · סכום עם for','done'],['דוגמה 2 · while','current'],['דוגמה 3 · לוח כפל','next'],['תרגול עצמי','next']];
+  const dotColor = s => s==='done'?'#34D399':s==='current'?'#8B5CF6':'rgba(148,163,184,0.3)';
+  return `<div class="frame" style="display:grid;grid-template-columns:248px 1fr;">
+    <!-- sticky rail -->
+    <div style="background:#0B1020;border-left:1px solid rgba(148,163,184,0.1);padding:26px 20px;">
+      <div style="display:flex;align-items:center;gap:11px;margin-bottom:6px;">
+        <div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;color:#fff;">${ICON.loop}</div>
+        <div><div style="color:#fff;font-weight:800;font-size:16px;">${t.title}</div><div class="mono" style="color:#818CF8;font-size:11px;">יחידה ${t.num}</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin:16px 0 20px;"><div style="flex:1;height:6px;border-radius:3px;background:rgba(148,163,184,0.12);overflow:hidden;"><div style="width:45%;height:100%;background:linear-gradient(90deg,#34D399,#8B5CF6);"></div></div><span style="color:#A5B4FC;font-size:11.5px;font-weight:700;">45%</span></div>
+      <div style="display:flex;flex-direction:column;">
+        ${steps.map((s,i)=>`<div style="display:flex;align-items:center;gap:11px;padding:9px 0;">
+          <div style="display:flex;flex-direction:column;align-items:center;flex:none;">
+            <div style="width:22px;height:22px;border-radius:50%;background:${s[1]==='done'?'rgba(52,211,153,0.16)':s[1]==='current'?'#8B5CF6':'transparent'};border:${s[1]==='next'?'1.5px solid rgba(148,163,184,0.3)':'none'};display:flex;align-items:center;justify-content:center;color:${s[1]==='done'?'#34D399':'#fff'};font-size:11px;font-weight:800;">${s[1]==='done'?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':s[1]==='current'?'▸':''}</div>
+            ${i<steps.length-1?`<div style="width:2px;height:18px;background:${s[1]==='done'?'#34D399':'rgba(148,163,184,0.15)'};margin:2px 0;"></div>`:''}
+          </div>
+          <span style="color:${s[1]==='current'?'#F1F5F9':s[1]==='done'?'#CBD5E1':'#64748B'};font-size:13px;font-weight:${s[1]==='current'?'700':'500'};line-height:1.3;">${s[0]}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+    <!-- main content -->
+    <div style="padding:30px 36px 38px;">
+      <span class="badge" style="background:rgba(99,102,241,0.16);color:#A5B4FC;margin-bottom:14px;display:inline-block;">${t.grade}</span>
+      <p style="color:#CBD5E1;font-size:16.5px;line-height:1.85;margin-bottom:22px;">${t.intro}</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px;">
+        ${t.points.map(p=>`<span class="chip mono" style="background:rgba(99,102,241,0.08);border:1px solid rgba(129,140,248,0.2);color:#C7D2FE;font-size:11.5px;direction:ltr;">${p.split('—')[0].trim()}</span>`).join('')}
+      </div>
+      <div style="background:rgba(139,92,246,0.06);border:1px solid rgba(167,139,250,0.3);border-radius:8px 8px 0 0;border-bottom:none;padding:8px 16px;display:flex;align-items:center;gap:8px;"><span class="badge" style="background:#8B5CF6;color:#fff;">שלב 3 מתוך 5</span><span style="color:#C4B5FD;font-size:13px;font-weight:700;">דוגמה 2 · לולאת while</span></div>
+      <div style="border:1px solid rgba(167,139,250,0.3);border-radius:0 0 14px 14px;padding:20px 22px;">
+        <p style="color:#94A3B8;font-size:14.5px;line-height:1.75;margin-bottom:16px;">${t.examples[1].explain}</p>
+        ${codeCard(t.examples[1].code, t.examples[1].out)}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:22px;">
+        <button class="chip" style="background:transparent;border:1px solid rgba(148,163,184,0.25);color:#94A3B8;">→ הקודם</button>
+        <span style="color:#64748B;font-size:12.5px;">השלב הבא: לוח הכפל של 7</span>
+        <button style="background:linear-gradient(135deg,#8B5CF6,#6D28D9);color:#fff;border:none;border-radius:9px;padding:9px 22px;font-family:'Heebo';font-size:13.5px;font-weight:700;cursor:pointer;">הבא ←</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =================== OPTION 3 — לוח אינטראקטיבי (Tabbed board) =================== */
+function optTabbed(t){
+  return `<div class="frame">
+    <div style="padding:28px 36px 0;background:radial-gradient(60% 100% at 0% 0%, rgba(99,102,241,0.14) 0%, transparent 55%);">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+        <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;color:#fff;flex:none;">${ICON.loop}</div>
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:9px;"><h1 style="font-size:25px;font-weight:900;color:#F8FAFC;">${t.title}</h1><span class="badge" style="background:rgba(99,102,241,0.16);color:#A5B4FC;">${t.grade}</span></div>
+          <div style="color:#94A3B8;font-size:13.5px;margin-top:2px;">יחידה ${t.num} · הסבר, דוגמאות ותרגול</div>
+        </div>
+      </div>
+      <!-- tabs -->
+      <div style="display:flex;gap:4px;">
+        ${[['הסבר',ICON.book,false],['דוגמאות',ICON.play2,true],['תרגול',ICON.pen,false]].map(([lbl,ic,act])=>`<div style="display:flex;align-items:center;gap:7px;padding:11px 20px;font-size:13.5px;font-weight:700;color:${act?'#fff':'#64748B'};border-bottom:2.5px solid ${act?'#8B5CF6':'transparent'};cursor:pointer;">${ic} ${lbl}</div>`).join('')}
+      </div>
+    </div>
+    <div style="border-top:1px solid rgba(148,163,184,0.1);padding:26px 36px 36px;">
+      <!-- intro mini -->
+      <div style="display:flex;gap:12px;background:rgba(99,102,241,0.06);border:1px solid rgba(129,140,248,0.18);border-radius:13px;padding:15px 18px;margin-bottom:24px;">
+        <span style="color:#818CF8;flex:none;margin-top:1px;">${ICON.spark}</span>
+        <p style="color:#CBD5E1;font-size:14.5px;line-height:1.7;">${t.intro}</p>
+      </div>
+      <div style="color:#64748B;font-size:12.5px;font-weight:700;margin-bottom:14px;">בחרי דוגמה ←</div>
+      <div style="display:grid;grid-template-columns:200px 1fr;gap:22px;align-items:start;">
+        <!-- example picker -->
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          ${t.examples.map((ex,i)=>`<div style="background:${i===0?'rgba(99,102,241,0.14)':'rgba(15,23,42,0.5)'};border:1px solid ${i===0?'rgba(129,140,248,0.4)':'rgba(148,163,184,0.12)'};border-radius:12px;padding:13px 14px;cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:9px;"><span style="width:24px;height:24px;border-radius:7px;background:${i===0?'#6366F1':'rgba(99,102,241,0.14)'};color:${i===0?'#fff':'#A5B4FC'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px;flex:none;">${i+1}</span><span style="color:${i===0?'#fff':'#CBD5E1'};font-weight:700;font-size:13.5px;line-height:1.25;">${ex.title}</span></div>
+          </div>`).join('')}
+          <div style="margin-top:6px;background:rgba(251,191,36,0.08);border:1px dashed rgba(251,191,36,0.35);border-radius:12px;padding:13px 14px;cursor:pointer;display:flex;align-items:center;gap:9px;"><span style="color:#FBBF24;">${ICON.pen}</span><span style="color:#FCD34D;font-weight:700;font-size:13px;">2 תרגילי תרגול</span></div>
+        </div>
+        <!-- active example -->
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="width:28px;height:28px;border-radius:8px;background:rgba(74,222,128,0.14);color:#4ADE80;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;">1</span><h3 style="color:#fff;font-size:18px;font-weight:800;">${t.examples[0].title}</h3></div>
+          <p style="color:#94A3B8;font-size:14px;line-height:1.75;margin-bottom:16px;">${t.examples[0].explain}</p>
+          ${codeCard(t.examples[0].code, t.examples[0].out)}
+          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;color:#64748B;font-size:12.5px;"><span style="color:#4ADE80;">${ICON.check}</span> נסי לשנות את הקוד ולהריץ — העריכה חיה</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+const opts = [
+  ['מאמר לימודי', 'זרימת קריאה אנכית ונעימה: כותרת גדולה, נקודות מפתח בתיבה מודגשת, דוגמאות עם הסבר לצד הקוד, ובאנר תרגול בסוף. הכי קרוב למה שקיים — מלוטש ומסודר.', optArticle],
+  ['קורס מודרך', 'פס צד דביק עם תוכן הנושא והתקדמות (כמו "מסלול"), והדוגמאות מוצגות שלב-אחר-שלב עם ניווט הבא/הקודם. תחושת קורס מובנה.', optGuided],
+  ['לוח אינטראקטיבי', 'טאבים (הסבר / דוגמאות / תרגול) + בורר דוגמאות בצד. קוד-פור워ד וקומפקטי, נוח במיוחד לקפיצה בין דוגמאות.', optTabbed],
+];
+document.getElementById('root').innerHTML = opts.map(([name,desc,fn],i)=>`
+  <div class="opt">
+    <div class="opt-label"><span class="n">${i+1}</span><h2>${name}</h2></div>
+    <div class="desc">${desc}</div>
+    ${fn(TOPIC)}
+  </div>`).join('');
+</script>
+</body>
+</html>

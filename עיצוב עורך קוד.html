@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עיצובים לעורך הקוד + עזרה וליווי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: #070B16 radial-gradient(80% 50% at 50% 0%, rgba(49,46,129,0.3) 0%, transparent 70%) fixed; color: #E2E8F0; padding: 46px 40px 110px; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  h1 { font-size: 30px; font-weight: 900; color: #F8FAFC; }
+  .sub { color: #94A3B8; font-size: 15px; margin-top: 8px; line-height: 1.7; max-width: 770px; }
+  .opt { margin-top: 54px; max-width: 1000px; }
+  .opt-label { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .opt-label .n { width: 28px; height: 28px; border-radius: 9px; background: #312E81; color: #C7D2FE; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex: none; }
+  .opt-label h2 { font-size: 21px; font-weight: 800; color: #F1F5F9; }
+  .opt .desc { color: #64748B; font-size: 13.5px; margin: 0 0 16px 40px; }
+  svg { display: block; }
+
+  .ed { background: #282C34; border-radius: 12px; overflow: hidden; border: 1px solid rgba(148,163,184,0.16); }
+  .ed-hd { background: #21252B; display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid #181A1F; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .ed-tab { background: #282C34; color: #ABB2BF; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 5px 14px; border-radius: 7px 7px 0 0; }
+  .chip { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .ed-body { display: flex; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; line-height: 1.85; padding: 12px 0; }
+  .ed-gutter { color: #4B5263; text-align: left; padding: 0 14px; user-select: none; direction: ltr; }
+  .ed-gutter > div { min-height: 1.85em; }
+  .ed-code { direction: ltr; text-align: left; flex: 1; overflow-x: auto; padding-left: 14px; }
+  .ln { white-space: pre; min-height: 1.85em; }
+  .squiggly { text-decoration: wavy underline #F14C4C; text-decoration-skip-ink: none; background: rgba(241,76,76,0.1); }
+  .ed-console { direction: ltr; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: #21252B; border-top: 1px solid #181A1F; padding: 9px 14px; color: #98C379; }
+  .toolbtn { display: inline-flex; align-items: center; gap: 6px; background: rgba(99,102,241,0.16); border: 1px solid rgba(129,140,248,0.3); color: #C7D2FE; border-radius: 8px; padding: 5px 11px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Heebo'; }
+  .toolbtn:hover { background: rgba(99,102,241,0.28); }
+
+  /* reference panel */
+  .ref { background: #0d1322; border: 1px solid rgba(148,163,184,0.14); border-radius: 12px; overflow: hidden; }
+  .ref-hd { padding: 11px 14px; border-bottom: 1px solid rgba(148,163,184,0.1); display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; color: #C7D2FE; }
+  .ref-item { padding: 9px 14px; border-bottom: 1px solid rgba(148,163,184,0.06); cursor: pointer; }
+  .ref-item:hover { background: rgba(99,102,241,0.08); }
+  .ref-sig { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #61AFEF; direction: ltr; text-align: left; }
+  .ref-desc { font-size: 12px; color: #94A3B8; margin-top: 2px; }
+
+  /* hint strip */
+  .hint { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.6; padding: 3px 0; }
+  .hint.warn { color: #FBBF24; }
+  .hint.ok { color: #4ADE80; }
+  .hint.info { color: #7DD3FC; }
+
+  .margin-note { background: rgba(241,76,76,0.1); border-right: 3px solid #F14C4C; border-radius: 6px; padding: 7px 11px; font-size: 12.5px; color: #FCA5A5; line-height: 1.6; }
+</style>
+</head>
+<body>
+<h1>סגנונות לעורך הקוד — עזרה לנושא וליווי בכתיבה</h1>
+<p class="sub">4 גישות לעורך קוד מלווה. כולן מבוססות על אותו עורך (One Dark Pro), עם מנגנוני עזרה לפי הנושא (כאן: רשימה מקושרת — מתודות של Node) וליווי חי בזמן הכתיבה עם הערות בעברית. בחרי גישה (או שילוב) ואטמיע במערכת.</p>
+<div id="root"></div>
+
+<script>
+const SI = {
+  book: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+  list: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><path d="M7.5 12h9"/></svg>',
+  bulb: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>',
+  warn: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17"/></svg>',
+  ok: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/></svg>',
+  run: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>',
+};
+const KW = new Set(['public','static','void','while','if','else','return','new','class','private','for','int','boolean','double','char','this','null','true','false','import']);
+const TYPE = new Set(['Node','Integer','String','System','Math','Queue','Stack','out']);
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function hl(code){
+  const re=/(\/\/[^\n]*)|("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)|(\s+)|([^\sA-Za-z0-9])/g;
+  const toks=[]; let m; while((m=re.exec(code))) toks.push(m[0]);
+  let out='';
+  for(let i=0;i<toks.length;i++){ const t=toks[i];
+    if(/^\/\//.test(t)) out+=`<span style="color:#7A8290;font-style:italic">${esc(t)}</span>`;
+    else if(/^"/.test(t)) out+=`<span style="color:#98C379">${esc(t)}</span>`;
+    else if(/^\d+$/.test(t)) out+=`<span style="color:#D19A66">${t}</span>`;
+    else if(/^[A-Za-z_]\w*$/.test(t)){ if(KW.has(t)) out+=`<span style="color:#C678DD">${t}</span>`; else if(TYPE.has(t)) out+=`<span style="color:#E5C07B">${t}</span>`; else { let j=i+1; while(j<toks.length&&/^\s+$/.test(toks[j]))j++; out+= toks[j]==='(' ? `<span style="color:#61AFEF">${t}</span>` : `<span style="color:#ABB2BF">${t}</span>`; } }
+    else out+=`<span style="color:#ABB2BF">${esc(t)}</span>`;
+  }
+  return out;
+}
+const LINES = [
+  'public static int countEvens(Node<Integer> head) {',
+  '    Node<Integer> pos = head;',
+  '    int count = 0;',
+  '    while (pos != null) {',
+  '        if (pos.getValue() % 2 = 0) {',
+  '            count++;',
+  '        }',
+  '        pos = pos.getNext();',
+  '    }',
+  '    return count;',
+  '}',
+];
+// editor with optional inline squiggly on a line index and margin notes
+function editor({squiggle=null, notes=false, console=true}={}){
+  const gutter = LINES.map((_,i)=>`<div>${i+1}</div>`).join('');
+  const body = LINES.map((ln,i)=>{
+    let html = hl(ln);
+    if(squiggle===i){ html = hl(ln).replace('= 0','<span class="squiggly">= 0</span>'); }
+    let note = '';
+    if(notes && i===4){ note = `<div style="margin:4px 0 8px;"><div class="margin-note">שורה 5: לבדיקת שוויון צריך <b class="mono">==</b> (סימן <b class="mono">=</b> בודד הוא השמה ולא השוואה)</div></div>`; }
+    return `<div class="ln">${html}</div>${note}`;
+  }).join('');
+  return `<div class="ed">
+    <div class="ed-hd">
+      <span class="dot" style="background:#ff5f56"></span><span class="dot" style="background:#ffbd2e"></span><span class="dot" style="background:#27c93f"></span>
+      <span class="ed-tab" style="margin-right:6px;">Answer.java</span>
+      <span class="chip" style="background:rgba(34,197,94,0.14);color:#4ADE80;margin-right:6px;">עזרה פעילה</span>
+    </div>
+    <div class="ed-body"><div class="ed-gutter">${gutter}</div><div class="ed-code">${body}</div></div>
+    ${console?'<div class="ed-console">▶ ממתין להרצה...</div>':''}
+  </div>`;
+}
+const NODE_REF = [
+  ['getValue()', 'מחזיר את הערך בחוליה'],
+  ['getNext()', 'מחזיר את החוליה הבאה'],
+  ['setNext(Node n)', 'מעדכן את החוליה הבאה'],
+  ['hasNext()', 'האם קיימת חוליה הבאה'],
+];
+function refPanel(){
+  return `<div class="ref">
+    <div class="ref-hd">${SI.list} עזרה לנושא · רשימה מקושרת (Node)</div>
+    ${NODE_REF.map(([s,d])=>`<div class="ref-item"><div class="ref-sig">${hl(s)}</div><div class="ref-desc">${d}</div></div>`).join('')}
+    <div style="padding:10px 14px;font-size:11.5px;color:#64748B;">לחיצה על מתודה מוסיפה אותה לקוד</div>
+  </div>`;
+}
+function hints(list){
+  return `<div style="background:#14141E;border:1px solid #2C2C3C;border-radius:11px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
+    ${list.map(([t,txt])=>`<div class="hint ${t}"><span style="flex:none;margin-top:2px;">${SI[t==='warn'?'warn':t==='ok'?'ok':'info']}</span><span>${txt}</span></div>`).join('')}
+  </div>`;
+}
+
+/* ===== 1. SIDECAR — editor + topic reference rail + hints below ===== */
+function sidecar(){
+  return `<div style="display:grid;grid-template-columns:1fr 270px;gap:14px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      ${editor({squiggle:4})}
+      ${hints([['warn','שורה 5: השוואה עם == (סימן = בודד הוא השמה)'],['ok','מצוין — מתקדמת עם pos = pos.getNext()'],['info','זכרי לבדוק שהרשימה לא ריקה לפני המעבר']])}
+    </div>
+    ${refPanel()}
+  </div>`;
+}
+
+/* ===== 2. INLINE COACHING — margin notes + squiggly inside the code ===== */
+function inline(){
+  return `<div style="display:flex;flex-direction:column;gap:12px;">
+    ${editor({squiggle:4, notes:true, console:false})}
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button class="toolbtn" style="background:linear-gradient(135deg,#6366F1,#4F46E5);border:none;color:#fff;padding:9px 18px;font-size:13px;">בדיקה ומשוב מלא</button>
+      <span class="hint ok"><span>${SI.ok}</span> 3 מתוך 4 השורות תקינות</span>
+    </div>
+  </div>`;
+}
+
+/* ===== 3. DOCKED ASSISTANT — bottom tabbed dock ===== */
+function docked(){
+  const tab=(t,a,icon)=>`<span style="display:flex;align-items:center;gap:6px;padding:8px 15px;font-size:12.5px;font-weight:${a?700:500};color:${a?'#F1F5F9':'#64748B'};border-bottom:2px solid ${a?'#6366F1':'transparent'};cursor:pointer;">${icon||''}${t}</span>`;
+  return `<div style="border:1px solid rgba(148,163,184,0.14);border-radius:14px;overflow:hidden;background:#0B1120;">
+    ${editor({squiggle:4, console:false})}
+    <div style="display:flex;align-items:center;border-top:1px solid rgba(148,163,184,0.12);background:#0d1322;padding:0 8px;">
+      ${tab('עזרה לנושא',true,SI.list)}${tab('רמזים',false,SI.bulb)}${tab('קונסולה',false,SI.run)}
+    </div>
+    <div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#0d1322;">
+      ${NODE_REF.map(([s,d])=>`<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(129,140,248,0.16);border-radius:9px;padding:9px 12px;"><div class="ref-sig">${hl(s)}</div><div class="ref-desc">${d}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ===== 4. COACH + SNIPPETS — template toolbar + floating coach bubble ===== */
+function coach(){
+  return `<div style="position:relative;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:12.5px;color:#94A3B8;align-self:center;margin-left:4px;">תבניות לנושא:</span>
+      <button class="toolbtn">+ מעבר על רשימה</button>
+      <button class="toolbtn">+ Node חדש</button>
+      <button class="toolbtn">+ ספירה בלולאה</button>
+    </div>
+    ${editor({squiggle:4})}
+    <div style="position:absolute;top:54px;left:14px;max-width:250px;background:#1D1540;border:1px solid rgba(167,139,250,0.4);border-radius:14px;padding:12px 14px;box-shadow:0 12px 30px rgba(0,0,0,0.5);">
+      <div style="display:flex;align-items:center;gap:7px;color:#C4B5FD;font-weight:700;font-size:13px;margin-bottom:5px;">${SI.bulb} רגע, שימי לב</div>
+      <div style="font-size:12.5px;color:#DDD6FE;line-height:1.6;">בשורה 5 כתבת <b class="mono">= 0</b>. לבדיקת שוויון צריך <b class="mono">== 0</b>. נסי לתקן ולהריץ שוב!</div>
+    </div>
+  </div>`;
+}
+
+const opts = [
+  ['Sidecar — עזרה צמודה', 'עורך + רכבת עזרה לנושא בצד (מתודות Node) + רצועת רמזים חיה מתחת.', sidecar],
+  ['Inline Coaching — הערות בתוך הקוד', 'קו אדום גלי על הטעות + הערת שוליים בעברית בדיוק ליד השורה.', inline],
+  ['Docked Assistant — מזח תחתון', 'עורך עם מזח טאבים תחתון: עזרה לנושא / רמזים / קונסולה (כמו IDE).', docked],
+  ['Coach + Snippets — מאמן ותבניות', 'סרגל תבניות לנושא + בועת מאמן צפה שמכוונת בזמן אמת.', coach],
+];
+document.getElementById('root').innerHTML = opts.map(([name,desc,fn],i)=>`
+  <div class="opt">
+    <div class="opt-label"><span class="n">${i+1}</span><h2>${name}</h2></div>
+    <div class="desc">${desc}</div>
+    ${fn()}
+  </div>`).join('');
+</script>
+</body>
+</html>

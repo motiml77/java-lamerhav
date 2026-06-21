@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עיצובים — עבודות בתוך נושא + אינדיקציה לתלמידה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: #070B16; background-image: radial-gradient(60% 40% at 50% 0%, rgba(49,46,129,0.28) 0%, transparent 65%); color: #E2E8F0; padding: 46px 28px 120px; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .ph { max-width: 1120px; margin: 0 auto 8px; }
+  .ph h1 { font-size: 29px; font-weight: 900; color: #F8FAFC; }
+  .ph p { color: #94A3B8; font-size: 15px; margin-top: 8px; line-height: 1.7; max-width: 860px; }
+  .grp { max-width: 1120px; margin: 64px auto 0; }
+  .grp-h { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .grp-h .n { width: 28px; height: 28px; border-radius: 9px; background: #312E81; color: #C7D2FE; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex: none; }
+  .grp-h h2 { font-size: 21px; font-weight: 800; color: #F1F5F9; }
+  .grp .desc { color: #64748B; font-size: 13.5px; margin: 0 0 20px 40px; }
+  .card { background: rgba(23,32,56,0.72); border: 1px solid rgba(148,163,184,0.18); border-radius: 16px; }
+  .stage { background: #0a0f1d; border: 1px solid rgba(148,163,184,0.12); border-radius: 18px; padding: 26px; }
+  .stage-label { color: #64748B; font-size: 12.5px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 7px; }
+  .topic-ico { width: 44px; height: 44px; border-radius: 13px; background: rgba(99,102,241,0.15); border: 1px solid rgba(129,140,248,0.25); display: flex; align-items: center; justify-content: center; color: #A5B4FC; flex: none; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  svg { display: block; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; background: rgba(15,23,42,0.5); border: 1px solid rgba(148,163,184,0.12); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 820px){ .grid3 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="ph">
+  <h1>עבודות ומבחנים בתוך נושא — ואיך התלמידה יודעת איפה מחכה לה עבודה</h1>
+  <p>המנהל מוסיף עבודות ומבחנים לכל נושא, והם משולבים בעמוד הנושא אחרי ההסבר והדוגמאות. כאן 3 כיוונים לאינדיקציה בדף הבית (באיזה נושא יש עבודה ממתינה) + 2 כיוונים לשילוב המשימות בתוך עמוד הנושא. בחרי שילוב ואטמיע.</p>
+</div>
+<div id="root"></div>
+
+<script>
+const I = {
+  hw: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  exam: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="m9 14 2 2 4-4"/></svg>',
+  bell: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+  clock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  check: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  arrow: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>',
+  book: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg>',
+};
+const TOPICS = [
+  { n:'01', t:'משתנים', hw:0, ex:0, pending:0, done:true },
+  { n:'02', t:'תנאים', hw:2, ex:1, pending:1, done:false },
+  { n:'03', t:'לולאות', hw:3, ex:1, pending:2, done:false },
+  { n:'04', t:'מערכים', hw:1, ex:0, pending:0, done:false },
+];
+
+/* ============ HOME OPTION 1 — Pending badge on card corner ============ */
+function home1(){
+  const card = (tp) => `<div class="card" style="padding:20px;position:relative;${tp.pending?'border-color:rgba(251,191,36,0.4);':''}">
+    ${tp.pending ? `<div style="position:absolute;top:-9px;left:16px;background:#F59E0B;color:#1a1205;font-weight:800;font-size:11px;padding:3px 11px;border-radius:999px;display:flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(245,158,11,0.35);">${I.bell} ${tp.pending} ממתינות</div>` : ''}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span class="mono" style="color:#818CF8;font-size:12px;font-weight:600;">${tp.n}</span>
+      <span class="topic-ico">${I.book}</span>
+    </div>
+    <div style="color:#fff;font-weight:800;font-size:18px;margin-bottom:8px;">${tp.t}</div>
+    <div style="color:#94A3B8;font-size:13px;">${tp.hw||tp.ex ? [tp.hw?tp.hw+' עבודות':null,tp.ex?tp.ex+' מבחנים':null].filter(Boolean).join(' · ') : 'אין משימות פתוחות'}</div>
+  </div>`;
+  return `<div class="stage"><div class="stage-label">${I.book} דף הבית של התלמידה</div>
+    <div style="margin-bottom:18px;"><div style="color:#fff;font-size:22px;font-weight:800;">שלום, תהילה</div><div style="color:#94A3B8;font-size:14px;">בחרי נושא · כיתה יא</div></div>
+    <div class="grid3">${TOPICS.slice(0,3).map(card).join('')}</div>
+  </div>`;
+}
+
+/* ============ HOME OPTION 2 — "המשימות שלי" summary strip + subtle dots ============ */
+function home2(){
+  const card = (tp) => `<div class="card" style="padding:20px;position:relative;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span class="mono" style="color:#818CF8;font-size:12px;font-weight:600;">${tp.n}</span>
+      <span class="topic-ico">${I.book}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span style="color:#fff;font-weight:800;font-size:18px;">${tp.t}</span>
+      ${tp.pending ? `<span class="dot" style="background:#FBBF24;box-shadow:0 0 0 4px rgba(251,191,36,0.15);"></span>` : tp.done ? `<span class="pill" style="background:rgba(16,185,129,0.14);color:#6EE7B7;">${I.check}</span>` : ''}
+    </div>
+    <div style="color:#94A3B8;font-size:13px;">${tp.pending ? `<span style="color:#FCD34D;font-weight:700;">${tp.pending} משימות ממתינות</span>` : tp.done ? 'הכול הושלם' : [tp.hw?tp.hw+' עבודות':null,tp.ex?tp.ex+' מבחנים':null].filter(Boolean).join(' · ')||'אין משימות'}</div>
+  </div>`;
+  const totalPending = TOPICS.reduce((s,t)=>s+t.pending,0);
+  return `<div class="stage"><div class="stage-label">${I.book} דף הבית של התלמידה</div>
+    <div style="margin-bottom:16px;"><div style="color:#fff;font-size:22px;font-weight:800;">שלום, תהילה</div><div style="color:#94A3B8;font-size:14px;">כיתה יא</div></div>
+    <div style="display:flex;align-items:center;gap:14px;background:linear-gradient(120deg,rgba(245,158,11,0.12),rgba(245,158,11,0.03));border:1px solid rgba(245,158,11,0.28);border-radius:14px;padding:16px 20px;margin-bottom:20px;">
+      <div style="width:46px;height:46px;border-radius:12px;background:rgba(245,158,11,0.18);color:#FBBF24;display:flex;align-items:center;justify-content:center;flex:none;">${I.bell}</div>
+      <div style="flex:1;"><div style="color:#FCD34D;font-weight:800;font-size:16px;">יש לך ${totalPending} משימות ממתינות</div><div style="color:#94A3B8;font-size:13px;">ב-2 נושאים: תנאים, לולאות</div></div>
+      <button style="background:#F59E0B;color:#1a1205;border:none;border-radius:10px;padding:9px 18px;font-family:'Heebo';font-weight:800;font-size:13.5px;cursor:pointer;">למשימה הקרובה</button>
+    </div>
+    <div class="grid3">${TOPICS.slice(0,3).map(card).join('')}</div>
+  </div>`;
+}
+
+/* ============ HOME OPTION 3 — progress bar per card ============ */
+function home3(){
+  const card = (tp) => { const total=tp.hw+tp.ex; const done=total-tp.pending; const pct= total?Math.round(done/total*100):100;
+   return `<div class="card" style="padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span class="topic-ico">${I.book}</span>
+      ${tp.pending ? `<span class="pill" style="background:rgba(245,158,11,0.14);color:#FCD34D;border:1px solid rgba(245,158,11,0.3);">${I.clock} ${tp.pending} לביצוע</span>` : total? `<span class="pill" style="background:rgba(16,185,129,0.14);color:#6EE7B7;">${I.check} הושלם</span>` : ''}
+    </div>
+    <div style="color:#fff;font-weight:800;font-size:18px;margin-bottom:4px;">${tp.t}</div>
+    <div style="color:#94A3B8;font-size:12.5px;margin-bottom:12px;">${total? `${done} מתוך ${total} משימות`:'אין משימות פתוחות'}</div>
+    <div style="height:7px;border-radius:4px;background:rgba(148,163,184,0.14);overflow:hidden;"><div style="width:${pct}%;height:100%;background:${pct===100?'linear-gradient(90deg,#34D399,#10B981)':'linear-gradient(90deg,#818CF8,#6366F1)'};"></div></div>
+  </div>`; };
+  return `<div class="stage"><div class="stage-label">${I.book} דף הבית של התלמידה</div>
+    <div style="margin-bottom:18px;"><div style="color:#fff;font-size:22px;font-weight:800;">שלום, תהילה</div><div style="color:#94A3B8;font-size:14px;">כיתה יא · ההתקדמות שלך בכל נושא</div></div>
+    <div class="grid3">${['01','02','03'].map((_,i)=>card(TOPICS[i])).join('')}</div>
+  </div>`;
+}
+
+/* ============ TOPIC OPTION A — sectioned list after the course ============ */
+function topicA(){
+  const item = (icon,color,title,meta,status) => `<div class="row">
+    <div style="width:42px;height:42px;border-radius:11px;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;flex:none;">${icon}</div>
+    <div style="flex:1;min-width:0;"><div style="color:#fff;font-weight:700;font-size:15.5px;">${title}</div><div style="color:#94A3B8;font-size:12.5px;">${meta}</div></div>
+    ${status}
+    <span style="color:#A5B4FC;font-weight:700;font-size:13px;flex:none;">פתחי ←</span>
+  </div>`;
+  const st = (txt,bg,c) => `<span class="pill" style="background:${bg};color:${c};flex:none;">${txt}</span>`;
+  return `<div class="stage"><div class="stage-label">${I.book} בתוך נושא "לולאות" — אחרי הקורס</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;"><span class="topic-ico" style="width:52px;height:52px;">${I.book}</span><div><div style="color:#fff;font-size:24px;font-weight:800;">לולאות</div><div style="color:#94A3B8;font-size:13px;">קורס הושלם ✓ · עכשיו המשימות שלך</div></div></div>
+    <div style="border-top:1px dashed rgba(148,163,184,0.2);padding-top:18px;">
+      <h3 style="color:#86EFAC;font-size:13px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:7px;">${I.hw} עבודות (3)</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:22px;">
+        ${item(I.hw,'#34D399','עבודה 1 — לולאת for','5 שאלות · 100 נק׳', st('נבדק · 92','rgba(16,185,129,0.14)','#6EE7B7'))}
+        ${item(I.hw,'#34D399','עבודה 2 — while','4 שאלות · 80 נק׳', st('הוגש · ממתין','rgba(99,102,241,0.16)','#A5B4FC'))}
+        ${item(I.hw,'#FBBF24','עבודה 3 — לולאות מקוננות','6 שאלות · 100 נק׳', st('לביצוע','rgba(245,158,11,0.16)','#FCD34D'))}
+      </div>
+      <h3 style="color:#A5B4FC;font-size:13px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:7px;">${I.exam} מבחנים (1)</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${item(I.exam,'#818CF8','מבחן לולאות','5 שאלות · 100 נק׳', st('לביצוע','rgba(245,158,11,0.16)','#FCD34D'))}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============ TOPIC OPTION B — "המשך מכאן" highlighted next task ============ */
+function topicB(){
+  return `<div class="stage"><div class="stage-label">${I.book} בתוך נושא "לולאות" — אחרי הקורס</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;"><span class="topic-ico" style="width:52px;height:52px;">${I.book}</span><div><div style="color:#fff;font-size:24px;font-weight:800;">לולאות</div><div style="color:#94A3B8;font-size:13px;">3 עבודות · מבחן אחד</div></div></div>
+    <div style="background:linear-gradient(120deg,rgba(99,102,241,0.14),rgba(99,102,241,0.04));border:1px solid rgba(129,140,248,0.4);border-radius:16px;padding:20px;margin-bottom:20px;box-shadow:0 0 40px rgba(99,102,241,0.1);">
+      <div style="display:flex;align-items:center;gap:8px;color:#A5B4FC;font-size:12px;font-weight:700;margin-bottom:8px;">${I.clock} המשימה הקרובה שלך</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;">
+        <div><div style="color:#fff;font-size:19px;font-weight:800;">עבודה 3 — לולאות מקוננות</div><div style="color:#94A3B8;font-size:13px;margin-top:2px;">6 שאלות · 100 נק׳ · להגשה עד יום חמישי</div></div>
+        <button style="background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;border:none;border-radius:10px;padding:11px 24px;font-family:'Heebo';font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;">המשיכי ←</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      ${[['עבודה 1 — for','נבדק · 92','#6EE7B7','rgba(16,185,129,0.14)'],['עבודה 2 — while','הוגש','#A5B4FC','rgba(99,102,241,0.16)'],['מבחן לולאות','לביצוע','#FCD34D','rgba(245,158,11,0.16)'],['עבודה 3','לביצוע','#FCD34D','rgba(245,158,11,0.16)']].map(([t,s,c,bg])=>`<div class="row" style="padding:12px 14px;"><div style="flex:1;"><div style="color:#E2E8F0;font-weight:700;font-size:14px;">${t}</div></div><span class="pill" style="background:${bg};color:${c};">${s}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+const HOME = [
+  ['תג "ממתינות" על הכרטיס', 'תג צהוב בולט בפינת הכרטיס עם מספר המשימות הממתינות. הכי ישיר — העין נתפסת מיד לנושא שמחכה בו עבודה.', home1],
+  ['סיכום "המשימות שלי" + נקודות', 'רצועת סיכום למעלה ("יש לך 3 משימות ב-2 נושאים") עם כפתור קפיצה למשימה הקרובה, ונקודת חיווי עדינה על כל כרטיס.', home2],
+  ['פס התקדמות לכל נושא', 'כל כרטיס מראה כמה משימות הושלמו מתוך הכל + תג "לביצוע/הושלם". תחושת מסע והתקדמות.', home3],
+];
+const TOPIC = [
+  ['רשימה מחולקת לפי סוג + סטטוס', 'אחרי הקורס: עבודות ומבחנים בקבוצות נפרדות, כל פריט עם תג סטטוס (לביצוע / הוגש / נבדק+ציון).', topicA],
+  ['"המשך מכאן" — המשימה הקרובה בולטת', 'המשימה הבאה שצריך לעשות מודגשת למעלה עם כפתור גדול, ושאר המשימות ברשת קומפקטית מתחת.', topicB],
+];
+let html = '';
+html += `<div class="grp"><div class="grp-h"><span class="n" style="background:#3D2F73;">A</span><h2>דף הבית — איפה יש לי עבודה</h2></div><div class="desc">איך התלמידה רואה בדף הבית באיזה נושא מחכה לה עבודה</div></div>`;
+HOME.forEach(([name,desc,fn],i)=>{ html += `<div class="grp"><div class="grp-h"><span class="n">${i+1}</span><h2>${name}</h2></div><div class="desc">${desc}</div>${fn()}</div>`; });
+html += `<div class="grp" style="margin-top:80px;"><div class="grp-h"><span class="n" style="background:#3D2F73;">B</span><h2>בתוך הנושא — המשימות אחרי הקורס</h2></div><div class="desc">איך העבודות והמבחנים משולבים בעמוד הנושא, אחרי ההסבר והדוגמאות</div></div>`;
+TOPIC.forEach(([name,desc,fn],i)=>{ html += `<div class="grp"><div class="grp-h"><span class="n">${i+1}</span><h2>${name}</h2></div><div class="desc">${desc}</div>${fn()}</div>`; });
+document.getElementById('root').innerHTML = html;
+</script>
+</body>
+</html>

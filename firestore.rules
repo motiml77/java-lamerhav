@@ -1,0 +1,148 @@
+rules_version = '2';
+
+// ============================================================================
+//  כללי אבטחה ל-Firestore — אתר "Java לבגרות"
+//  מתאימים בדיוק למבנה הנתונים של האפליקציה (app.html).
+//
+//  איך מעלים (פעם אחת):
+//   Firebase Console  →  הפרויקט exams-a93fb  →  Build → Firestore Database
+//   →  לשונית  Rules  →  להדביק את כל הקובץ הזה  →  Publish.
+//
+//  עיקרון: הבדיקה "מנהל/תלמידה" שבקוד היא רק לתצוגה. האבטחה האמיתית כאן —
+//  בשרת — ולכן אי אפשר לעקוף אותה דרך הדפדפן.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- עזרי הרשאה ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // חשבון המורה היחיד. אם מחליפים אימייל — לעדכן גם כאן וגם בקוד (EDITOR_EMAIL).
+    function isTeacher() {
+      return isSignedIn()
+        && request.auth.token.email == 'motiml77@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    // האימייל ששמור על המסמך זהה למשתמשת המחוברת (לכתיבה / לקריאה).
+    function ownsIncoming() {
+      return isSignedIn() && request.resource.data.email == request.auth.token.email;
+    }
+    function ownsExisting() {
+      return isSignedIn() && resource.data.email == request.auth.token.email;
+    }
+
+    // ---------- תוכן לימודי: נושאים, שאלות, הגדרות ----------
+    // כל מי שמחוברת יכולה לקרוא. רק המורה כותבת.
+    match /classes/{classId} {
+      allow read:  if isSignedIn();
+      allow write: if isTeacher();
+    }
+
+    match /questions/{questionId} {
+      allow read:  if isSignedIn();
+      allow write: if isTeacher();
+    }
+
+    match /exam_settings/{examId} {
+      // מחזיק כעת רק את ה-prompt לשיעורי בית (שהתלמידה צריכה לבדיקה עצמית).
+      allow read:  if isSignedIn();
+      allow write: if isTeacher();
+    }
+
+    // מחוון הבדיקה של המבחנים (הנחיות כלליות + דגשים לכל שאלה) — למורה בלבד.
+    // התלמידות לעולם אינן יכולות לקרוא אותו.
+    match /grading_rubrics/{examId} {
+      allow read, write: if isTeacher();
+    }
+
+    // ---------- פרופילי תלמידות ----------
+    match /users/{uid} {
+      // תלמידה קוראת רק את הפרופיל שלה; המורה קוראת את כולם.
+      allow get: if isSignedIn()
+                 && (resource == null
+                     || isTeacher()
+                     || resource.data.email == request.auth.token.email);
+      allow list: if isTeacher();
+
+      // הרשמה ראשונה: חייבת להיות המשתמשת עצמה, ותמיד מתחילה כ"לא מאושרת".
+      allow create: if ownsIncoming()
+                    && request.resource.data.approved == false;
+
+      // תלמידה יכולה לעדכן שם/שכבה — אך לא לאשר את עצמה. המורה יכולה הכול.
+      allow update: if isTeacher()
+                    || (ownsExisting()
+                        && ownsIncoming()
+                        && request.resource.data.approved == resource.data.approved);
+
+      allow delete: if isTeacher();
+    }
+
+    // ---------- תשובות: מבחנים ----------
+    match /exam_responses/{examId} {
+      // המסמך-אב (רשימת המבחנים) — למורה בלבד.
+      allow read, write: if isTeacher();
+
+      match /students/{sid} {
+        // קריאה: המורה, או התלמידה את התשובה שלה בלבד (מסמך לא-קיים אינו חושף דבר).
+        allow read: if isTeacher() || resource == null || ownsExisting();
+
+        // יצירה: רק את המסמך של עצמה, ובלי לזייף ציון סופי.
+        allow create: if isTeacher()
+                      || (ownsIncoming()
+                          && !request.resource.data.keys().hasAny(['sentToStudent', 'finalGrade']));
+
+        // עדכון: רק את המסמך של עצמה, ובלי לשנות/להוסיף שדות ציון של המורה.
+        allow update: if isTeacher()
+                      || (ownsExisting() && ownsIncoming()
+                          && !request.resource.data.diff(resource.data)
+                                .affectedKeys().hasAny(['sentToStudent', 'finalGrade']));
+
+        allow delete: if isTeacher();
+      }
+    }
+
+    // ---------- תשובות: שיעורי בית ----------
+    match /homework_responses/{examId} {
+      allow read, write: if isTeacher();
+
+      match /students/{sid} {
+        allow read: if isTeacher() || resource == null || ownsExisting();
+
+        allow create: if isTeacher()
+                      || (ownsIncoming()
+                          && !request.resource.data.keys().hasAny(['sentToStudent', 'finalGrade']));
+
+        allow update: if isTeacher()
+                      || (ownsExisting() && ownsIncoming()
+                          && !request.resource.data.diff(resource.data)
+                                .affectedKeys().hasAny(['sentToStudent', 'finalGrade']));
+
+        allow delete: if isTeacher();
+      }
+    }
+
+    // ---------- ברירת מחדל: הכול חסום ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// ============================================================================
+//  המלצות הקשחה נוספות (לא חובה, אך מומלץ):
+//
+//  1. Authentication → Sign-in method: להשאיר מופעל את Google בלבד.
+//  2. Authentication → Settings → Authorized domains: להשאיר רק את הדומיינים
+//     שלך (exams-a93fb.firebaseapp.com + הדומיין שבו האתר מתארח).
+//  3. מחוון הבדיקה של מבחנים (הנחיות כלליות + דגשים לכל שאלה) מאוחסן באוסף
+//     grading_rubrics ושמור למורה בלבד — תלמידה לא יכולה לקרוא אותו. ה-prompt
+//     של שיעורי בית נשאר ב-exam_settings (התלמידה צריכה אותו לבדיקה עצמית).
+//  4. ציון ה-AI האוטומטי בשיעורי בית מחושב בצד הלקוח — לכן הוא "מייעץ" בלבד.
+//     הציון הקובע הוא זה שהמורה שולחת ("שליחה לתלמידה"), והוא מוגן בכללים למעלה
+//     (תלמידה לא יכולה לכתוב finalGrade / sentToStudent).
+//  5. App Check (אופציונלי) — מונע שימוש ב-API מחוץ לאתר שלך.
+// ============================================================================
