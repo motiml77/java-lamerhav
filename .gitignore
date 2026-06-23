@@ -1,3 +1,6 @@
 .vercel
 .firebase
 node_modules
+serviceAccountKey.json
+firebase-setup/node_modules
+firebase-setup/package*.json

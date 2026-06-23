@@ -46,6 +46,7 @@
         @keyframes topicSwap { from { opacity: 0; transform: translateY(16px) scale(.985); } to { opacity: 1; transform: none; } }
         .pop-in { animation: popIn 0.32s cubic-bezier(.34,1.56,.64,1); }
         @keyframes popIn { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
         @keyframes llread { 0%, 100% { box-shadow: inset 0 0 0 0 rgba(52,211,153,0); } 50% { box-shadow: inset 0 0 0 3px #34D399; } }
         @keyframes llDraw { from { stroke-dasharray: 90; stroke-dashoffset: 90; } to { stroke-dasharray: 90; stroke-dashoffset: 0; } }
         @media (prefers-reduced-motion: reduce) { .q-swap, .topic-swap, .pop-in, .fade-in { animation: none !important; } }
@@ -232,6 +233,14 @@
         .login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
         .login-card { background: rgba(15,23,42,0.66); border: 1px solid rgba(148,163,184,0.2); backdrop-filter: blur(14px); border-radius: 24px; padding: 48px; text-align: center; max-width: 440px; width: 90%; box-shadow: 0 32px 80px rgba(0,0,0,0.45); }
         .logo-coin { background: linear-gradient(135deg, #6366F1, #8B5CF6); }
+        /* Animated student name — colorful moving letters that settle after a few seconds */
+        .aname { display: inline-flex; vertical-align: baseline; }
+        .aname > span { display: inline-block; background: linear-gradient(90deg, #818CF8, #C4B5FD, #38BDF8, #A78BFA, #818CF8); background-size: 220% auto; -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; animation: nameShimmer 5s linear infinite; }
+        .aname.moving > span { animation: nameDrop 0.55s cubic-bezier(.34,1.56,.64,1) backwards, nameWave 1.4s ease-in-out infinite, nameShimmer 2.2s linear infinite; }
+        @keyframes nameDrop { 0% { opacity: 0; transform: translateY(-26px) scale(.55) rotate(-10deg); } 60% { opacity: 1; transform: translateY(5px) scale(1.08); } 100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); } }
+        @keyframes nameWave { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes nameShimmer { 0% { background-position: 0% 50%; } 100% { background-position: 220% 50%; } }
+        @media (prefers-reduced-motion: reduce) { .aname.moving > span { animation: nameShimmer 5s linear infinite; } }
         .action-btn { padding: 4px 8px; border-radius: 6px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s; }
         .action-btn:hover { transform: scale(1.05); }
         .tree-class { background: rgba(23,32,56,0.55); border: 1px solid rgba(148,163,184,0.16); border-radius: 16px; margin-bottom: 9px; padding: 4px; transition: border-color 0.2s, background 0.2s; backdrop-filter: blur(8px); }
@@ -267,11 +276,12 @@
         @media (max-width: 768px) {
             .mobile-sidebar {
                 position: fixed;
-                left: 0;
+                right: 0;
+                left: auto;
                 top: 0;
                 height: 100vh;
                 z-index: 100;
-                transform: translateX(-100%);
+                transform: translateX(100%);
                 transition: transform 0.3s ease;
                 width: 85%;
                 max-width: 320px;
@@ -489,6 +499,8 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
         try {
             app = firebase.initializeApp(firebaseConfig);
             auth = firebase.auth();
+            // זכירת משתמשים מחוברים גם אחרי סגירת הדפדפן (לא צריך להתחבר כל פעם)
+            auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.warn('persistence', e));
             db = firebase.firestore();
         } catch (e) { console.error("Firebase init error:", e); }
 
@@ -539,6 +551,77 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 arrowLeft: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>,
             };
             return icons[name] || null;
+        };
+
+        // LiveClock — שעון חי וברור (שעה:דקה:שנייה) למצב מבחן
+        const LiveClock = () => {
+            const [now, setNow] = React.useState(new Date());
+            React.useEffect(() => {
+                const t = setInterval(() => setNow(new Date()), 1000);
+                return () => clearInterval(t);
+            }, []);
+            const pad = (n) => String(n).padStart(2, '0');
+            return (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(129,140,248,0.4)', borderRadius: 12, padding: '7px 14px', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#A5B4FC" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 18, color: '#E8EDF6', letterSpacing: '0.5px', fontVariantNumeric: 'tabular-nums' }}>
+                        {pad(now.getHours())}:{pad(now.getMinutes())}:{pad(now.getSeconds())}
+                    </span>
+                </div>
+            );
+        };
+
+        // ExamTimer — שעון ספירה-לאחור ברור למבחן עם הגבלת זמן. מאחסן זמן התחלה מקומית כדי לשרוד רענון.
+        const ExamTimer = ({ durationMin, storeKey, onExpire }) => {
+            const [remaining, setRemaining] = React.useState(null);
+            const expiredRef = React.useRef(false);
+            React.useEffect(() => {
+                expiredRef.current = false;
+                let start = parseInt(localStorage.getItem(storeKey) || '0');
+                if (!start) { start = Date.now(); try { localStorage.setItem(storeKey, String(start)); } catch (_) {} }
+                const total = durationMin * 60 * 1000;
+                const tick = () => {
+                    const left = Math.max(0, start + total - Date.now());
+                    setRemaining(left);
+                    if (left <= 0 && !expiredRef.current) { expiredRef.current = true; onExpire && onExpire(); }
+                };
+                tick();
+                const id = setInterval(tick, 1000);
+                return () => clearInterval(id);
+            }, [storeKey, durationMin]);
+            if (remaining === null) return null;
+            const totalSec = Math.ceil(remaining / 1000);
+            const hh = Math.floor(totalSec / 3600), mm = Math.floor((totalSec % 3600) / 60), ss = totalSec % 60;
+            const pad = (n) => String(n).padStart(2, '0');
+            const low = remaining < 5 * 60 * 1000;
+            const critical = remaining < 60 * 1000;
+            const color = critical ? '#F87171' : low ? '#FBBF24' : '#A5B4FC';
+            return (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: critical ? 'rgba(248,113,113,0.16)' : 'rgba(15,23,42,0.85)', border: `1px solid ${color}66`, borderRadius: 12, padding: '7px 14px', boxShadow: '0 2px 12px rgba(0,0,0,0.25)', animation: critical ? 'pulse 1s ease-in-out infinite' : 'none' }} title="הזמן שנותר למבחן">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 18, color, letterSpacing: '0.5px', fontVariantNumeric: 'tabular-nums' }}>
+                        {hh > 0 ? hh + ':' : ''}{pad(mm)}:{pad(ss)}
+                    </span>
+                </div>
+            );
+        };
+
+        // AnimatedName — colorful moving letters that settle into a fixed gradient after a few seconds
+        const AnimatedName = ({ name }) => {
+            const [moving, setMoving] = React.useState(true);
+            React.useEffect(() => {
+                setMoving(true);
+                const t = setTimeout(() => setMoving(false), 3600);
+                return () => clearTimeout(t);
+            }, [name]);
+            const letters = [...(name || '')];
+            return (
+                <span className={`aname ${moving ? 'moving' : ''}`} aria-label={name}>
+                    {letters.map((ch, i) => (
+                        <span key={i} aria-hidden="true" style={{ animationDelay: (i * 0.07) + 's' }}>{ch === ' ' ? '\u00A0' : ch}</span>
+                    ))}
+                </span>
+            );
         };
 
         // TopicIcon — maps a topic title to a professional SVG (keyword-based), no emojis.
@@ -729,20 +812,57 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 } catch (e) { console.error('Undo promote error:', e); return { count: 0, error: true }; }
             },
 
-            // ספירת תלמידות לפי שכבה + כמה הועלו (לתצוגה במודאל)
+            // סיום לימודים — מעביר את כל תלמידות יב לארכיון (graduated). הנתונים נשמרים.
+            async graduateGrade(grade) {
+                if (!db) return { count: 0 };
+                try {
+                    const snap = await db.collection('users').where('grade', '==', grade).get();
+                    let count = 0;
+                    const batch = db.batch();
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        if (d.email === 'motiml77@gmail.com' || d.graduated) return;
+                        batch.update(doc.ref, { graduated: true, graduatedAt: new Date().toISOString() });
+                        count++;
+                    });
+                    if (count) await batch.commit();
+                    return { count };
+                } catch (e) { console.error('Graduate error:', e); return { count: 0, error: true }; }
+            },
+
+            // ביטול סיום לימודים — מחזיר תלמידות מהארכיון.
+            async undoGraduation(grade) {
+                if (!db) return { count: 0 };
+                try {
+                    const snap = await db.collection('users').where('grade', '==', grade).get();
+                    let count = 0;
+                    const batch = db.batch();
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        if (!d.graduated) return;
+                        batch.update(doc.ref, { graduated: firebase.firestore.FieldValue.delete(), graduatedAt: firebase.firestore.FieldValue.delete() });
+                        count++;
+                    });
+                    if (count) await batch.commit();
+                    return { count };
+                } catch (e) { console.error('Undo graduate error:', e); return { count: 0, error: true }; }
+            },
+
+            // ספירת תלמידות לפי שכבה + כמה הועלו / סיימו (לתצוגה במודאל)
             async gradeCounts() {
-                if (!db) return { fromCount: 0, promotedCount: 0 };
+                if (!db) return { fromCount: 0, promotedCount: 0, yvActiveCount: 0, graduatedCount: 0 };
                 try {
                     const snap = await db.collection('users').get();
-                    let fromCount = 0, promotedCount = 0;
+                    let fromCount = 0, promotedCount = 0, yvActiveCount = 0, graduatedCount = 0;
                     snap.forEach(doc => {
                         const d = doc.data();
                         if (d.email === 'motiml77@gmail.com') return;
+                        if (d.graduated) { if (d.grade === 'יב') graduatedCount++; return; }
                         if (d.grade === 'יא') fromCount++;
-                        if (d.grade === 'יב' && d.promotedFrom === 'יא') promotedCount++;
+                        if (d.grade === 'יב') { yvActiveCount++; if (d.promotedFrom === 'יא') promotedCount++; }
                     });
-                    return { fromCount, promotedCount };
-                } catch (e) { return { fromCount: 0, promotedCount: 0 }; }
+                    return { fromCount, promotedCount, yvActiveCount, graduatedCount };
+                } catch (e) { return { fromCount: 0, promotedCount: 0, yvActiveCount: 0, graduatedCount: 0 }; }
             },
 
             async loadAllStudents() {
@@ -752,8 +872,8 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     const students = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        // Skip teachers (motiml77@gmail.com)
-                        if (data.email !== 'motiml77@gmail.com' && data.grade) {
+                        // Skip teachers + graduated (archived) students
+                        if (data.email !== 'motiml77@gmail.com' && data.grade && !data.graduated) {
                             students.push(data);
                         }
                     });
@@ -995,6 +1115,22 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     await db.collection(collection).doc(examId).collection('students').doc(safeEmail).set(cleanData, { merge: true });
                     return true;
                 } catch (e) { console.error('Submit error:', e); return false; }
+            },
+
+            // רישום יציאה מהמבחן (מעבר טאב / יציאה ממסך מלא) — נשמר על מסמך התשובה ומוצג למורה
+            async logExamExit(examId, examType, email, studentName, reason) {
+                const safeEmail = email.replace(/[.@]/g, '_');
+                const collection = this.getResponseCollection(examType);
+                if (!db) return 0;
+                try {
+                    const ref = db.collection(collection).doc(examId).collection('students').doc(safeEmail);
+                    const doc = await ref.get();
+                    const existing = doc.exists ? doc.data() : {};
+                    const exits = Array.isArray(existing.exitAttempts) ? existing.exitAttempts : [];
+                    exits.push({ reason: reason || 'exit', timestamp: new Date().toISOString() });
+                    await ref.set({ email, studentName, examType, exitAttempts: exits, submitted: existing.submitted || false }, { merge: true });
+                    return exits.length;
+                } catch (e) { console.error('logExamExit error:', e); return 0; }
             },
 
             async reopenSubmission(examId, examType, email) {
@@ -1443,7 +1579,17 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
         // (W3Schools / GeeksforGeeks / Oracle Tutorials). כל פריט = "שלב הסבר" בקורס המודרך.
         const TOPIC_LESSONS = {
             'משתנים, קלט ופלט': [
+                { h: 'מה זו בעצם תוכנית? קלט · עיבוד · פלט', p: `לפני שנצלול למשתנים, בואי נבין מה תוכנית מחשב עושה בכלל. כל תוכנית — מהפשוטה ועד המסובכת — פועלת לפי שלושה שלבים: קלט (Input) ← עיבוד (Processing) ← פלט (Output).
+· קלט — המידע שנכנס לתוכנית: מספר שהמשתמשת מקלידה, לחיצה, או קובץ.
+· עיבוד — מה שהתוכנית עושה עם המידע: חישובים, השוואות והחלטות.
+· פלט — התוצאה שיוצאת החוצה: טקסט על המסך, ציור, או קובץ.
+דוגמה: מחשבון ממוצע — הקלט הוא הציונים, העיבוד הוא חיבור וחלוק, והפלט הוא הממוצע שמודפס. כל מה שנלמד מתפרק לשלושת השלבים האלה.` },
+                { h: 'איך המחשב "חושב" — מעבד וזיכרון', p: `בלב המחשב יש שני רכיבים שחשוב להכיר:
+· המעבד (CPU) — ה״מוח״ שמבצע את העיבוד: פעולות חשבון, השוואות, והרצת הפקודות שכתבנו — אחת אחרי השנייה, במהירות עצומה.
+· הזיכרון (RAM) — ה״שולחן עבודה״ שמחזיק את הנתונים שהתוכנית עובדת איתם כרגע. כל משתנה שניצור יושב בתא בזיכרון.
+כשכותבים int age = 17, קורים שני דברים: נשמר תא בזיכרון, והמעבד מכניס אליו את הערך 17. כשמחשבים age + 1, המעבד קורא את הערך מהזיכרון, מוסיף 1, ומחזיר את התוצאה. הזיכרון הזה זמני — הוא נמחק כשהתוכנית נסגרת, ולכן לשמירה קבועה צריך קובץ או מסד נתונים.` },
                 { h: 'מה זה בכלל משתנה?', p: `דמייני מגירה קטנה בארון. את כותבת עליה מדבקה עם שם — למשל "גיל" — ושמה בתוכה ערך, נגיד 17. בכל פעם שתרצי לדעת מה יש שם, פשוט תפתחי את המגירה לפי השם.\nבדיוק כך עובד משתנה במחשב: זהו מקום שמור בזיכרון, עם שם משלו, שמחזיק ערך אחד בכל רגע. אפשר לקרוא את הערך, ואפשר להחליף אותו בערך חדש מתי שרוצים.` },
+                { h: 'השמה — איך מכניסים ערך', p: `סימן השוויון = הוא לא "שווה" מהמתמטיקה! הוא אומר: "קח את מה שמימין, ושים אותו במשתנה שמשמאל". לכן כותבים תמיד משתנה = ערך, אף פעם לא הפוך.\nאפשר גם לשנות ערך אחרי שכבר נתנו אותו — למשל age = age + 1 לוקח את הגיל הנוכחי, מוסיף לו 1, ושומר בחזרה.` },
                 { h: 'לכל משתנה יש "סוג" (טיפוס)', p: `לפני שמשתמשים במשתנה צריך להגיד למחשב איזה סוג של ערך הוא יחזיק — בדיוק כמו שמגירה לגרביים שונה ממגירה למסמכים. בג'אווה הטיפוסים הנפוצים הם:`, code: `int age = 17;        // מספר שלם\ndouble avg = 92.5;   // מספר עם נקודה עשרונית\nchar grade = 'A';    // תו בודד, בין גרשיים יחידים\nboolean pass = true; // אמת או שקר בלבד\nString name = "נעמה"; // מחרוזת טקסט, בין מרכאות` },
                 { h: 'int — מספרים שלמים', p: `זהו הטיפוס הנפוץ ביותר. הוא מחזיק מספר שלם בלבד — חיובי, שלילי או אפס — בלי שום שבר.\nלמה משמש: ספירה, גיל, כמויות, ואינדקסים של מערכים ולולאות (i בלולאת for הוא תמיד int).\nמגבלות: אין שברים! חלוקה של שני int "חותכת" את השארית — 7 / 2 נותן 3, לא 3.5. בנוסף הטווח מוגבל (בערך מ-2 מיליארד מינוס עד 2 מיליארד פלוס), אבל לצרכים רגילים זה יותר מספיק.`, code: `int age = 17;\nint students = 32;\nint result = 7 / 2;   // = 3 (לא 3.5!)` },
                 { h: 'double — מספרים עשרוניים', p: `כשצריך שבר או נקודה עשרונית — זה הטיפוס. הוא מחזיק מספרים כמו 3.14, 92.5 או 0.001.\nלמה משמש: ממוצעים, מחירים, אחוזים, מדידות — כל דבר שאינו "עגול".\nמגבלות: הדיוק אינו מושלם. בגלל הדרך שהמחשב שומר שברים, חישוב כמו 0.1 + 0.2 עלול לצאת 0.30000000004. לכן לא משווים שני double עם == אלא בודקים אם ההפרש ביניהם זעיר. טיפ חשוב: כדי לקבל ממוצע מדויק מחלוקת שני int, "ממירים" אחד מהם ל-double עם (double).`, code: `double avg = 92.5;\ndouble price = 19.90;\ndouble mean = (double) sum / count;  // חלוקה מדויקת` },
@@ -1451,7 +1597,6 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 { h: 'char — תו בודד', p: `מחזיק תו אחד ויחיד — אות, ספרה או סימן — וכותבים אותו בין גרשיים יחידים: 'A'. שימי לב: 'A' (גרש יחיד) הוא char, אבל "A" (מרכאות כפולות) הוא String!\nלמה משמש: עבודה עם אות בודדת, ובמיוחד מעבר על מחרוזת תו-תו (charAt מחזיר char).\nמגבלות: תו אחד בלבד — לא מילה. מאחורי הקלעים char הוא בעצם מספר (קוד Unicode), ולכן 'A' שווה 65 — תכונה שלפעמים מנצלים אבל בכיתה יא בדרך כלל לא צריך.`, code: `char grade = 'A';\nchar firstLetter = name.charAt(0);` },
                 { h: 'String — מחרוזת טקסט', p: `מחזיק טקסט שלם: רצף של תווים, בין מרכאות כפולות. בניגוד לארבעת הקודמים, String אינו טיפוס "בסיסי" אלא אובייקט — ולכן עובדים איתו דרך מתודות (length, charAt, substring, equals).\nלמה משמש: שמות, הודעות למשתמשת, כל טקסט.\nמגבלות שחשוב לזכור: (1) להשוואה משתמשים ב-s1.equals(s2) ולעולם לא ב-== — כי == בודק מיקום בזיכרון ולא את התוכן. (2) מחרוזת אינה ניתנת לשינוי ("immutable"): כל "שינוי" באמת יוצר מחרוזת חדשה.`, code: `String name = "נעמה";\nString msg = "שלום " + name;     // חיבור מחרוזות עם +\nif (name.equals("נעמה")) { ... }  // השוואה נכונה` },
                 { h: 'איזה טיפוס לבחור? וטיפוסים נוספים', p: `הכלל פשוט: מספר שלם → int · מספר עם שבר → double · כן/לא → boolean · אות בודדת → char · טקסט → String.\nלידיעה בלבד (פחות נפוץ בכיתה יא): long הוא int לטווח ענק, float הוא double "קצר" ופחות מדויק, ו-byte/short הם מספרים שלמים קטנים יותר. ברוב מבחני הבגרות מסתדרים מצוין עם חמשת הטיפוסים העיקריים שלמעלה.` },
-                { h: 'השמה — איך מכניסים ערך', p: `סימן השוויון = הוא לא "שווה" מהמתמטיקה! הוא אומר: "קח את מה שמימין, ושים אותו במשתנה שמשמאל". לכן כותבים תמיד משתנה = ערך, אף פעם לא הפוך.\nאפשר גם לשנות ערך אחרי שכבר נתנו אותו — למשל age = age + 1 לוקח את הגיל הנוכחי, מוסיף לו 1, ושומר בחזרה.` },
                 { h: 'קלט ופלט — לדבר עם המשתמשת', p: `פלט הוא מה שהתוכנית מציגה על המסך, עם System.out.println(...). כל קריאה כזו מדפיסה שורה ויורדת לשורה הבאה.\nקלט הוא מה שהמשתמשת מקלידה. קולטים אותו עם Scanner: למספר שלם משתמשים ב-nextInt(), ולמחרוזת ב-next() או nextLine(). כך התוכנית יכולה להגיב למה שכותבים לה.`, code: `Scanner sc = new Scanner(System.in);\nSystem.out.println("מה שמך?");\nString name = sc.next();\nSystem.out.println("שלום " + name);` },
             ],
             'תנאים': [
@@ -1468,14 +1613,13 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 { h: 'למה צריך לולאות?', p: `נניח שצריך להדפיס "שלום" מאה פעמים. לכתוב מאה שורות? בזבוז ענק. לולאה אומרת למחשב: "חזור על הפעולה הזו שוב ושוב כל עוד יש צורך". כך שלוש שורות קוד יכולות לעשות עבודה של מאות.` },
                 { h: 'לולאת for — כשיודעים כמה פעמים', p: `for מושלמת כשידוע מראש מספר החזרות. יש לה שלושה חלקים בתוך הסוגריים, מופרדים בנקודה-פסיק:\n1) התחלה — int i = 1 (יוצרים מונה ומאתחלים אותו)\n2) תנאי המשך — i <= 10 (כל עוד נכון, ממשיכים)\n3) קפיצה — i++ (מה קורה בסוף כל סיבוב, כאן: מוסיפים 1)`, code: `for (int i = 1; i <= 5; i++) {\n    System.out.println("סיבוב מספר " + i);\n}` },
                 { h: 'לולאת while — כל עוד נכון', p: `while פשוטה יותר: יש לה רק תנאי. היא ממשיכה לרוץ כל עוד התנאי נכון, ועוצרת ברגע שהוא הופך לשקר. משתמשים בה כשלא יודעים מראש כמה סיבובים יידרשו — למשל "תמשיכי לחלק ב-2 עד שמגיעים ל-1".`, code: `int n = 80, count = 0;\nwhile (n > 1) {\n    n = n / 2;\n    count++;\n}` },
+                { h: 'while לעומק — שלושת המרכיבים', p: `ב-for שלושת החלקים (אתחול, תנאי, קפיצה) כתובים יחד בשורה אחת. ב-while הם מפוזרים, ואת חייבת לזכור את כולם בעצמך: (1) אתחול — לפני הלולאה מכינים את המשתנה. (2) תנאי — בתוך הסוגריים, נבדק לפני כל סיבוב. (3) עדכון — בתוך גוף הלולאה, מקרב אותנו לעצירה. אם שכחת את העדכון — הלולאה אינסופית!`, code: `int n = 16;                 // 1. אתחול\nwhile (n > 1) {             // 2. תנאי\n    System.out.println(n);\n    n = n / 2;             // 3. עדכון\n}` },
+                { h: 'for מול while — מתי כל אחת', p: `השאלה היחידה שצריך לשאול: "האם אני יודעת מראש כמה פעמים?". אם כן (לרוץ על מערך באורך n, להדפיס 10 שורות, לעבור על תווי מחרוזת) — for, כי המונה והגבול ברורים. אם לא (לקרוא קלט עד שמקלידים 0, לחלק ב-2 עד שמגיעים ל-1, לטייל על רשימה מקושרת עד null) — while, כי העצירה תלויה בתנאי שמתגלה תוך כדי. כלל אצבע: מערכים ומספרים ידועים → for · קלט, חיפוש עד תנאי, ומבני נתונים מקושרים → while.` },
+                { h: 'דוגמה שממחישה את ההבדל', p: `אותו דבר — סכום 1 עד 5 — בשתי הצורות. ב-for הכול בשורה אחת ומסודר. ב-while צריך לזכור i=1 לפני, ו-i++ בתוך. כאן for ברורה יותר כי מספר החזרות ידוע. אבל אם היינו צריכים "סכמי מספרים עד שהסכום עובר 100" — לא יודעים כמה סיבובים, ואז while הכרחית.`, code: `int sum = 0;\nfor (int i = 1; i <= 5; i++) sum += i;   // for\n\nint s = 0, i = 1;\nwhile (i <= 5) { s += i; i++; }          // while` },
                 { h: 'משתנה צובר — הדפוס החשוב ביותר', p: `רוב הלולאות בבגרות בנויות סביב "משתנה צובר": משתנה שמתחילים אותו בערך התחלתי (0 לחיבור, 1 לכפל), ובכל סיבוב מעדכנים אותו. בסוף הלולאה הוא מחזיק את התשובה הסופית — סכום, מכפלה, ספירה או מקסימום.` },
                 { h: 'זהירות: לולאה אינסופית', p: `אם התנאי לעולם לא הופך לשקר — הלולאה לא תיעצר אף פעם, והתוכנית "תיתקע". זה קורה למשל אם שוכחים את i++, או כותבים while (n > 1) אבל אף פעם לא משנים את n בתוך הלולאה. תמיד ודאי שמשהו בתוך הלולאה מקדם אותך לעבר העצירה.` },
-                { h: 'for מול while — מתי כל אחת', p: `הכלל פשוט: אם ידוע מראש כמה פעמים לחזור (10 ציונים, אורך מערך) — for. אם לא יודעים והעצירה תלויה בתנאי שמשתנה תוך כדי (כל עוד המשתמשת מקלידה, עד שמגיעים ל-1) — while. שתיהן יכולות לעשות אותו דבר, אבל כל אחת קריאה יותר במצב שלה.` },
                 { h: 'לולאות מקוננות', p: `לולאה בתוך לולאה: הפנימית מסיימת סבב שלם על כל סבב של החיצונית. משתמשים בזה לטבלאות, מטריצות, ולוחות. שימי לב: אם החיצונית רצה 3 פעמים והפנימית 4 — הקוד בפנים ירוץ 12 פעמים בסך הכל.`, code: `for (int i = 1; i <= 3; i++) {\n    for (int j = 1; j <= 4; j++) {\n        System.out.print(i * j + " ");\n    }\n    System.out.println();\n}` },
                 { h: 'break ו-continue', p: `בתוך לולאה: break עוצר את הלולאה מיד ויוצא ממנה לגמרי (למשל ברגע שמצאנו את מה שחיפשנו). continue מדלג רק על שארית הסיבוב הנוכחי וממשיך לסיבוב הבא. שתיהן כלים חזקים — אבל כדאי להשתמש בהן במשורה כדי שהקוד יישאר ברור.` },
-                { h: 'while לעומק — שלושת המרכיבים', p: `ב-for שלושת החלקים (אתחול, תנאי, קפיצה) כתובים יחד בשורה אחת. ב-while הם מפוזרים, ואת חייבת לזכור את כולם בעצמך: (1) אתחול — לפני הלולאה מכינים את המשתנה. (2) תנאי — בתוך הסוגריים, נבדק לפני כל סיבוב. (3) עדכון — בתוך גוף הלולאה, מקרב אותנו לעצירה. אם שכחת את העדכון — הלולאה אינסופית!`, code: `int n = 16;                 // 1. אתחול\nwhile (n > 1) {             // 2. תנאי\n    System.out.println(n);\n    n = n / 2;             // 3. עדכון\n}` },
-                { h: 'מתי while ומתי for — מדריך החלטה', p: `השאלה היחידה שצריך לשאול: "האם אני יודעת מראש כמה פעמים?". אם כן (לרוץ על מערך באורך n, להדפיס 10 שורות, לעבור על תווי מחרוזת) — for, כי המונה והגבול ברורים. אם לא (לקרוא קלט עד שמקלידים 0, לחלק ב-2 עד שמגיעים ל-1, לטייל על רשימה מקושרת עד null) — while, כי העצירה תלויה בתנאי שמתגלה תוך כדי. כלל אצבע: מערכים ומספרים ידועים → for · קלט, חיפוש עד תנאי, ומבני נתונים מקושרים → while.` },
-                { h: 'דוגמה שממחישה את ההבדל', p: `אותו דבר — סכום 1 עד 5 — בשתי הצורות. ב-for הכול בשורה אחת ומסודר. ב-while צריך לזכור i=1 לפני, ו-i++ בתוך. כאן for ברורה יותר כי מספר החזרות ידוע. אבל אם היינו צריכים "סכמי מספרים עד שהסכום עובר 100" — לא יודעים כמה סיבובים, ואז while הכרחית.`, code: `int sum = 0;\nfor (int i = 1; i <= 5; i++) sum += i;   // for\n\nint s = 0, i = 1;\nwhile (i <= 5) { s += i; i++; }          // while` },
             ],
             'מערכים': [
                 { h: 'הבעיה שמערך פותר', p: `נניח שצריך לשמור 30 ציונים. לפתוח 30 משתנים נפרדים (grade1, grade2, ...) זה סיוט. מערך הוא פתרון אלגנטי: משתנה אחד שמכיל שורה שלמה של תאים מאותו סוג, אחד ליד השני.` },
@@ -2417,38 +2561,48 @@ a.setGrade(100);   // משנה רק את נעמה
             };
 
             const diagram = demo.kind === 'queue' ? (
-                <div style={{ padding: '24px 18px 8px', direction: 'ltr' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-                        {/* exit (head) */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 70, flexShrink: 0 }}>
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-                            <span style={{ color: '#FCA5A5', fontSize: 11.5, fontWeight: 700 }}>ראש · יוצא</span>
-                            <span style={{ color: '#64748B', fontSize: 10 }}>remove</span>
+                <div style={{ padding: '22px 14px 6px', direction: 'ltr', overflowX: 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, minWidth: 'min-content' }}>
+                        {/* exit (head) — items leave to the left */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 78, flexShrink: 0 }}>
+                            <svg width="30" height="22" viewBox="0 0 30 22" fill="none" stroke="#F87171" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M28 11H4M12 4l-8 7 8 7"/></svg>
+                            <span style={{ color: '#FCA5A5', fontSize: 12, fontWeight: 800 }}>יוצא · ראש</span>
+                            <span style={{ color: '#64748B', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>remove()</span>
                         </div>
                         {/* boxes */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 46, border: '2px dashed rgba(148,163,184,0.25)', borderRadius: 12, padding: '8px 10px', minWidth: 90 }}>
-                            {st.arr.length === 0 ? <span style={{ color: '#64748B', fontSize: 13, padding: '0 14px' }}>ריק</span> : st.arr.map((v, k) => <Box key={k} v={v} state={stateOf(k)} />)}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 4px', color: '#7C8AA5', fontSize: 9.5, fontFamily: "'JetBrains Mono', monospace" }}><span>ראש</span><span>זנב</span></div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 56, border: '2px dashed rgba(148,163,184,0.28)', borderRadius: 12, padding: '8px 11px', minWidth: 104 }}>
+                                {st.arr.length === 0 ? <span style={{ color: '#64748B', fontSize: 13, padding: '0 22px' }}>ריק</span> : st.arr.map((v, k) => <Box key={k} v={v} state={stateOf(k)} />)}
+                            </div>
                         </div>
-                        {/* entry (tail) */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 70, flexShrink: 0 }}>
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                            <span style={{ color: '#6EE7B7', fontSize: 11.5, fontWeight: 700 }}>זנב · נכנס</span>
-                            <span style={{ color: '#64748B', fontSize: 10 }}>insert</span>
+                        {/* entry (tail) — items enter from the right, moving left into the queue */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 78, flexShrink: 0 }}>
+                            <svg width="30" height="22" viewBox="0 0 30 22" fill="none" stroke="#34D399" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M28 11H4M12 4l-8 7 8 7"/></svg>
+                            <span style={{ color: '#6EE7B7', fontSize: 12, fontWeight: 800 }}>נכנס · זנב</span>
+                            <span style={{ color: '#64748B', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>insert()</span>
                         </div>
                     </div>
                     {st.removed != null && <div style={{ textAlign: 'center', marginTop: 12 }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.4)', color: '#FCD34D', borderRadius: 999, padding: '4px 12px', fontSize: 12.5, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>יצא: {st.removed}</span></div>}
                 </div>
             ) : (
-                <div style={{ padding: '18px 18px 8px', direction: 'ltr', display: 'flex', justifyContent: 'center', gap: 24 }}>
-                    {/* stack column */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#FCD34D', fontSize: 11.5, fontWeight: 700, height: 18 }}>{st.arr.length > 0 && <><span>ראש (top)</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></>}</div>
-                        <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: 5, border: '2px dashed rgba(148,163,184,0.25)', borderTop: 'none', borderRadius: '0 0 12px 12px', padding: '8px 10px 10px', minHeight: 60, justifyContent: 'flex-start' }}>
-                            {st.arr.length === 0 ? <span style={{ color: '#64748B', fontSize: 13, padding: '14px 14px 0' }}>ריק</span> : st.arr.map((v, k) => <Box key={k} v={v} state={stateOf(k)} />)}
-                        </div>
-                        <span style={{ color: '#64748B', fontSize: 10.5 }}>תחתית</span>
+                <div style={{ padding: '16px 14px 6px', direction: 'ltr', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 22, overflowX: 'auto', minWidth: 'min-content' }}>
+                    {/* push/pop indicator — everything happens at the top */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0, paddingBottom: 30 }}>
+                        <svg width="26" height="40" viewBox="0 0 26 40" fill="none" stroke="#34D399" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M13 3v16M7 13l6 6 6-6"/></svg>
+                        <span style={{ color: '#6EE7B7', fontSize: 11, fontWeight: 800 }}>push</span>
+                        <svg width="26" height="40" viewBox="0 0 26 40" fill="none" stroke="#F87171" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M13 37V21M7 27l6-6 6 6"/></svg>
+                        <span style={{ color: '#FCA5A5', fontSize: 11, fontWeight: 800 }}>pop</span>
                     </div>
-                    {st.removed != null && <div style={{ alignSelf: 'center' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.4)', color: '#FCD34D', borderRadius: 999, padding: '4px 12px', fontSize: 12.5, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>יצא: {st.removed}</span></div>}
+                    {/* stack column */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#FCD34D', fontSize: 11.5, fontWeight: 800, height: 20 }}>{st.arr.length > 0 && <><span>ראש · top</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></>}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: 5, border: '2px dashed rgba(148,163,184,0.28)', borderTop: 'none', borderRadius: '0 0 12px 12px', padding: '10px 11px 12px', minHeight: 90, minWidth: 78, justifyContent: 'flex-start' }}>
+                            {st.arr.length === 0 ? <span style={{ color: '#64748B', fontSize: 13, alignSelf: 'center', margin: 'auto' }}>ריק</span> : st.arr.map((v, k) => <Box key={k} v={v} state={stateOf(k)} />)}
+                        </div>
+                        <span style={{ color: '#64748B', fontSize: 10.5 }}>תחתית (bottom)</span>
+                    </div>
+                    {st.removed != null && <div style={{ alignSelf: 'center', paddingBottom: 30 }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.4)', color: '#FCD34D', borderRadius: 999, padding: '4px 12px', fontSize: 12.5, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>יצא: {st.removed}</span></div>}
                 </div>
             );
 
@@ -2482,6 +2636,149 @@ a.setGrade(100);   // משנה רק את נעמה
                     </div>
                     {/* explanation */}
                     <div style={{ padding: '14px 16px 4px' }}>
+                        <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(167,139,250,0.28)', borderRadius: 11, padding: '11px 14px' }}>
+                            <span style={{ color: '#A78BFA', flexShrink: 0, marginTop: 1 }}><Icon name="spark" size={15} /></span>
+                            <span style={{ color: '#DDD6FE', fontSize: 14, lineHeight: 1.6 }}>{st.desc}</span>
+                        </div>
+                    </div>
+                    {/* controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px' }}>
+                        <button onClick={() => { setPlay(false); setI(Math.max(0, i - 1)); }} disabled={i === 0} className="btn btn-ghost btn-sm" style={{ opacity: i === 0 ? 0.4 : 1 }}><Icon name="arrowRight" size={14} /> אחורה</button>
+                        <button onClick={() => { if (i >= steps.length - 1) { setI(0); setPlay(true); } else setPlay(!play); }} className="btn btn-solid btn-sm">{play ? 'השהיה' : i >= steps.length - 1 ? 'הרצה מחדש' : 'הרצה'} <Icon name={play ? 'eyeOff' : 'play'} size={14} /></button>
+                        <button onClick={() => { setPlay(false); setI(Math.min(steps.length - 1, i + 1)); }} disabled={i >= steps.length - 1} className="btn btn-ghost btn-sm" style={{ opacity: i >= steps.length - 1 ? 0.4 : 1 }}>קדימה <Icon name="arrowLeft" size={14} /></button>
+                        <span style={{ marginInlineStart: 'auto', color: '#8b93a7', fontSize: 11.5 }}>{demo.note}</span>
+                    </div>
+                </div>
+            );
+        };
+
+        // ===== Interactive string visualizer — traverse / count / reverse-by-swap, char by char =====
+        const StringViz = () => {
+            const genTraverse = () => {
+                const S = ['J', 'A', 'V', 'A'];
+                const code = ['for (int i = 0; i < s.length(); i++) {', '    char c = s.charAt(i);', '    System.out.println(c);', '}'];
+                const steps = [{ str: S, line: 0, cur: -1, vars: { 's.length()': S.length }, out: [], desc: `המחרוזת "${S.join('')}" באורך ${S.length}. נעבור עליה תו-תו עם charAt, מאינדקס 0 עד length-1.` }];
+                S.forEach((ch, i) => {
+                    steps.push({ str: S, line: 0, cur: i, vars: { i, 's.length()': S.length }, out: S.slice(0, i), desc: `i = ${i} — התנאי ${i} < ${S.length} מתקיים, נכנסים ללולאה.` });
+                    steps.push({ str: S, line: 1, cur: i, hot: 'c', vars: { i, c: `'${ch}'` }, out: S.slice(0, i), desc: `c = s.charAt(${i}) = '${ch}'. charAt מחזיר את התו במקום ${i}.` });
+                    steps.push({ str: S, line: 2, cur: i, vars: { i, c: `'${ch}'` }, out: S.slice(0, i + 1), desc: `מדפיסים '${ch}'.` });
+                });
+                steps.push({ str: S, line: -1, cur: -1, vars: { 's.length()': S.length }, out: S.slice(), finished: true, result: `הודפסו כל ${S.length} התווים`, desc: `i הגיע ל-${S.length}, התנאי כבר לא מתקיים — הלולאה נעצרת. עברנו על כל תו בדיוק פעם אחת.` });
+                return { label: 'מעבר תו-תו', title: 'מעבר על מחרוזת עם charAt', note: 'length() = אורך · charAt(i) = התו במקום i.', code, steps, order: ['i', 'c', 's.length()'] };
+            };
+            const genCount = () => {
+                const S = ['b', 'a', 'n', 'a', 'n', 'a'];
+                const code = ['int count = 0;', 'for (int i = 0; i < s.length(); i++)', "    if (s.charAt(i) == 'a')", '        count++;'];
+                const steps = [{ str: S, line: 0, cur: -1, vars: { count: 0 }, desc: `נספור כמה פעמים מופיע התו 'a' במחרוזת "${S.join('')}". מונה count = 0.` }];
+                let count = 0;
+                S.forEach((ch, i) => {
+                    steps.push({ str: S, line: 1, cur: i, vars: { i, count }, desc: `i = ${i} — ניגשים ל-charAt(${i}) = '${ch}'.` });
+                    const hit = ch === 'a';
+                    steps.push({ str: S, line: 2, cur: i, vars: { i, count }, desc: `האם '${ch}' == 'a'? ${hit ? 'כן — נספור' : 'לא — נדלג'}.` });
+                    if (hit) { count++; steps.push({ str: S, line: 3, cur: i, hit: i, hot: 'count', vars: { i, count }, desc: `count עולה ל-${count}.` }); }
+                });
+                steps.push({ str: S, line: -1, cur: -1, vars: { count }, finished: true, result: `'a' מופיע ${count} פעמים`, desc: `סיימנו לעבור על המחרוזת. התו 'a' הופיע ${count} פעמים.` });
+                return { label: 'ספירת תו', title: "ספירת מופעים של 'a'", note: 'משווים תווים עם == (לתו בודד char).', code, steps, order: ['i', 'count'] };
+            };
+            const genReverse = () => {
+                const S = ['J', 'A', 'V', 'A'];
+                const code = ['char[] c = s.toCharArray();', 'int l = 0, r = c.length - 1;', 'while (l < r) {', '    char t = c[l];', '    c[l] = c[r];', '    c[r] = t;', '    l++; r--;', '}'];
+                let a = [...S];
+                const steps = [{ str: [...a], line: 0, l: -1, r: -1, vars: {}, desc: `נהפוך את "${S.join('')}". ממירים למערך תווים ומשתמשים בשני מצביעים שמחליפים תווים ונפגשים באמצע.` }];
+                let l = 0, r = a.length - 1;
+                steps.push({ str: [...a], line: 1, l, r, vars: { l, r }, desc: `l = 0 (התחלה), r = ${r} (סוף).` });
+                while (l < r) {
+                    steps.push({ str: [...a], line: 2, l, r, vars: { l, r }, desc: `l=${l} < r=${r}? כן — ניכנס ונחליף בין c[${l}]='${a[l]}' ל-c[${r}]='${a[r]}'.` });
+                    const t = a[l]; a[l] = a[r]; a[r] = t;
+                    steps.push({ str: [...a], line: 5, l, r, swap: [l, r], vars: { l, r, t: `'${t}'` }, desc: `החלפה: t='${t}' שומר את c[${l}], אז c[${l}]←'${a[l]}' ו-c[${r}]←'${a[r]}'.` });
+                    l++; r--;
+                    steps.push({ str: [...a], line: 6, l, r, vars: { l, r }, desc: `מתקדמים פנימה: l=${l}, r=${r}.` });
+                }
+                steps.push({ str: [...a], line: -1, l: -1, r: -1, finished: true, result: `הפוך: "${a.join('')}"`, desc: `l ו-r נפגשו (l=${l} ≥ r=${r}) — הלולאה נעצרת. המחרוזת התהפכה: "${a.join('')}".` });
+                return { label: 'היפוך (החלפה)', title: 'היפוך מחרוזת — החלפת תווים', note: 'שני מצביעים מחליפים תווים ומתקרבים לאמצע.', code, steps, order: ['l', 'r', 't'] };
+            };
+            const DEMOS = { traverse: genTraverse(), count: genCount(), reverse: genReverse() };
+            const TABS = Object.keys(DEMOS);
+            const [mode, setMode] = useState('traverse');
+            const [i, setI] = useState(0);
+            const [play, setPlay] = useState(false);
+            const demo = DEMOS[mode];
+            const steps = demo.steps;
+            useEffect(() => { setI(0); setPlay(false); }, [mode]);
+            useEffect(() => {
+                if (!play) return;
+                if (i >= steps.length - 1) { setPlay(false); return; }
+                const t = setTimeout(() => setI(v => v + 1), 1150);
+                return () => clearTimeout(t);
+            }, [play, i, mode]);
+            const st = steps[Math.min(i, steps.length - 1)];
+            const str = st.str || [];
+            const cellState = (idx) => {
+                if (st.swap && st.swap.includes(idx)) return 'swap';
+                if (st.hit === idx) return 'found';
+                if (st.l === idx) return 'left';
+                if (st.r === idx) return 'right';
+                if (st.cur === idx) return 'cur';
+                return 'normal';
+            };
+            const CELL = {
+                normal: { bg: 'linear-gradient(150deg,#A78BFA,#7C6BF0)', bd: '#A78BFA', c: '#fff' },
+                cur:    { bg: 'linear-gradient(150deg,#FCD34D,#F59E0B)', bd: '#FCD34D', c: '#3a2a05' },
+                left:   { bg: 'linear-gradient(150deg,#60A5FA,#3B82F6)', bd: '#93C5FD', c: '#fff' },
+                right:  { bg: 'linear-gradient(150deg,#F472B6,#DB2777)', bd: '#F9A8D4', c: '#fff' },
+                swap:   { bg: 'linear-gradient(150deg,#6EE7B7,#10B981)', bd: '#6EE7B7', c: '#06281c' },
+                found:  { bg: 'linear-gradient(150deg,#6EE7B7,#10B981)', bd: '#6EE7B7', c: '#06281c' },
+            };
+            return (
+                <div style={{ background: '#0E1424', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 16, overflow: 'hidden', margin: '4px 0 8px' }}>
+                    <div style={{ padding: '9px 12px', borderBottom: '1px solid rgba(148,163,184,0.14)', background: 'rgba(124,58,237,0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 5 }}>
+                            {TABS.map(k => (
+                                <button key={k} onClick={() => setMode(k)} style={{ padding: '5px 13px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: "'Heebo', sans-serif", fontWeight: 700, fontSize: 12.5, background: mode === k ? 'linear-gradient(135deg,#7C3AED,#6366F1)' : 'rgba(51,65,85,0.5)', color: mode === k ? '#fff' : '#CBD5E1' }}>{DEMOS[k].label}</button>
+                            ))}
+                            <span style={{ marginInlineStart: 'auto', color: '#64748B', fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>{i + 1}/{steps.length}</span>
+                        </div>
+                        <div style={{ color: '#DDD6FE', fontWeight: 800, fontSize: 13.5, marginTop: 8 }}>{demo.title}</div>
+                    </div>
+                    {/* string cells */}
+                    <div style={{ padding: '22px 18px 6px', direction: 'ltr', display: 'flex', justifyContent: 'center', gap: 7, flexWrap: 'wrap', overflowX: 'auto' }}>
+                        {str.map((ch, idx) => {
+                            const s = CELL[cellState(idx)];
+                            const ptr = st.l === idx && st.r === idx ? 'l,r' : st.l === idx ? 'l' : st.r === idx ? 'r' : (st.cur === idx ? 'i' : '');
+                            return (
+                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                                    <div style={{ height: 16, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 800, color: ptr === 'l' ? '#93C5FD' : ptr === 'r' ? '#F9A8D4' : ptr === 'i' ? '#FCD34D' : ptr === 'l,r' ? '#C4B5FD' : 'transparent' }}>{ptr}</div>
+                                    <div style={{ width: 46, height: 52, borderRadius: 10, border: '2px solid ' + s.bd, background: s.bg, color: s.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 22, fontFamily: "'JetBrains Mono', monospace", transition: 'all .3s', animation: cellState(idx) === 'swap' ? 'popIn .4s ease-out' : 'none' }}>{ch}</div>
+                                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#64748B' }}>[{idx}]</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {/* variables tracker */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 16px 0' }}>
+                        {demo.order.filter(k => st.vars && st.vars[k] !== undefined).map(k => (
+                            <span key={k} style={{ background: st.hot === k ? 'rgba(16,185,129,0.18)' : 'rgba(15,23,42,0.6)', border: '1px solid ' + (st.hot === k ? '#34D399' : 'rgba(148,163,184,0.2)'), borderRadius: 8, padding: '4px 12px', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: st.hot === k ? '#6EE7B7' : '#E2E8F0', transition: 'all .25s' }}>{k} = {String(st.vars[k])}</span>
+                        ))}
+                    </div>
+                    {/* output (printed chars) */}
+                    {st.out && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, direction: 'ltr', background: '#171c2b', borderRadius: 9, padding: '9px 13px', margin: '10px 16px 0', minHeight: 38, flexWrap: 'wrap' }}>
+                            <span style={{ color: '#64748B', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, flexShrink: 0 }}>פלט ▶</span>
+                            {st.out.map((v, k) => <span key={k} style={{ background: 'rgba(16,185,129,0.16)', color: '#6EE7B7', borderRadius: 6, padding: '2px 9px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14 }}>{v}</span>)}
+                        </div>
+                    )}
+                    {/* code */}
+                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 12 }}>
+                        {demo.code.map((ln, idx) => (
+                            <div key={idx} style={{ display: 'flex', fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, lineHeight: '1.85', background: st.line === idx ? 'rgba(251,191,36,0.12)' : 'transparent', borderInlineStart: st.line === idx ? '3px solid #FBBF24' : '3px solid transparent', paddingInlineEnd: 12 }}>
+                                <span style={{ width: 30, textAlign: 'right', color: st.line === idx ? '#FBBF24' : '#4B5263', paddingInlineEnd: 10, flexShrink: 0, userSelect: 'none', fontWeight: st.line === idx ? 800 : 400 }}>{st.line === idx ? '▶' : idx + 1}</span>
+                                <span style={{ color: ln.trim().startsWith('//') ? '#7A8290' : st.line === idx ? '#FDE68A' : '#ABB2BF', whiteSpace: 'pre' }}>{ln}</span>
+                            </div>
+                        ))}
+                    </div>
+                    {/* result + explanation */}
+                    <div style={{ padding: '14px 16px 4px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+                        {st.result && <div style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, background: 'rgba(16,185,129,0.14)', border: '1px solid rgba(16,185,129,0.4)', color: '#6EE7B7', borderRadius: 9, padding: '6px 14px', fontWeight: 800, fontSize: 14, fontFamily: "'JetBrains Mono', monospace" }}><Icon name="check" size={14} /> {st.result}</div>}
                         <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(167,139,250,0.28)', borderRadius: 11, padding: '11px 14px' }}>
                             <span style={{ color: '#A78BFA', flexShrink: 0, marginTop: 1 }}><Icon name="spark" size={15} /></span>
                             <span style={{ color: '#DDD6FE', fontSize: 14, lineHeight: 1.6 }}>{st.desc}</span>
@@ -2674,6 +2971,35 @@ a.setGrade(100);   // משנה רק את נעמה
             );
         };
 
+        // דחיסת תמונה לפני שמירה ב-Firestore — מקטין מימדים ואיכות כך שהקובץ ייכנס בבטחה
+        // (מסמך Firestore מוגבל ל-1MB; צילומי מסך גולמיים חורגים בקלות). מחזיר Promise של dataURL.
+        const compressImage = (file, maxDim = 1400, quality = 0.8) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    let w = img.width, h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                        else { w = Math.round(w * maxDim / h); h = maxDim; }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); // רקע לבן לצילומי מסך שקופים
+                    ctx.drawImage(img, 0, 0, w, h);
+                    let out = canvas.toDataURL('image/jpeg', quality);
+                    if (out.length > 720000) out = canvas.toDataURL('image/jpeg', 0.6); // ירידת איכות נוספת אם עדיין גדול
+                    if (out.length > 980000) { reject(new Error('too-large')); return; }
+                    resolve(out);
+                };
+                img.onerror = () => reject(new Error('bad-image'));
+                img.src = ev.target.result;
+            };
+            reader.onerror = () => reject(new Error('read-failed'));
+            reader.readAsDataURL(file);
+        });
+
         // ממיר קישור סרטון (YouTube / Google Drive) לכתובת הטמעה (embed) לצפייה בתוך העמוד
         const buildVideoEmbed = (raw) => {
             const url = (raw || '').trim();
@@ -2688,6 +3014,166 @@ a.setGrade(100);   // משנה רק את נעמה
                 return url.replace(/\/(edit|view)(\?[^#]*)?(#.*)?$/, '/preview');
             }
             return url; // קישור וידאו ישיר (mp4 וכו') או כל קישור אחר
+        };
+
+        // ===== Interactive Input → (closed box) Processing → Output visualizer =====
+        const IOProcessViz = () => {
+            const DEMOS = {
+                age: {
+                    label: 'גיל בשנה הבאה',
+                    inputs: [{ name: 'age', label: 'גיל', val: 17 }],
+                    formula: 'age + 1', outLabel: 'הגיל הבא', outVal: 18,
+                    code: ['int age = sc.nextInt();      // קלט', 'int next = age + 1;          // עיבוד', 'System.out.println(next);    // פלט'],
+                    calc: 'next = 17 + 1 = 18', why: 'הוספנו 1 לגיל שהתקבל — 17 הופך ל-18.',
+                },
+                area: {
+                    label: 'שטח מלבן',
+                    inputs: [{ name: 'width', label: 'רוחב', val: 4 }, { name: 'height', label: 'גובה', val: 7 }],
+                    formula: 'width * height', outLabel: 'שטח', outVal: 28,
+                    code: ['int width = sc.nextInt();    // קלט', 'int height = sc.nextInt();   // קלט', 'int area = width * height;   // עיבוד', 'System.out.println(area);    // פלט'],
+                    calc: 'area = 4 × 7 = 28', why: 'הכפלנו רוחב בגובה — זה השטח של המלבן.',
+                },
+                avg: {
+                    label: 'ממוצע',
+                    inputs: [{ name: 'a', label: 'ציון 1', val: 80 }, { name: 'b', label: 'ציון 2', val: 90 }, { name: 'c', label: 'ציון 3', val: 100 }],
+                    formula: '(a + b + c) / 3', outLabel: 'ממוצע', outVal: 90,
+                    code: ['int a = sc.nextInt();        // קלט', 'int b = sc.nextInt();        // קלט', 'int c = sc.nextInt();        // קלט', 'int avg = (a + b + c) / 3;   // עיבוד', 'System.out.println(avg);     // פלט'],
+                    calc: 'avg = (80 + 90 + 100) / 3 = 90', why: 'חיברנו את שלושת הציונים וחילקנו ב-3.',
+                },
+            };
+            const TABS = Object.keys(DEMOS);
+            const [mode, setMode] = useState('age');
+            const [phase, setPhase] = useState(0); // 0 ריק · 1 קלט · 2 נכנס לקופסה · 3 עיבוד · 4 פלט
+            const [peek, setPeek] = useState(false);
+            const [play, setPlay] = useState(false);
+            const d = DEMOS[mode];
+            const PHASES = 5;
+            useEffect(() => { setPhase(0); setPeek(false); setPlay(false); }, [mode]);
+            useEffect(() => {
+                if (!play) return;
+                if (phase >= PHASES - 1) { setPlay(false); return; }
+                const t = setTimeout(() => setPhase(p => p + 1), 1150);
+                return () => clearTimeout(t);
+            }, [play, phase, mode]);
+
+            const STEP_DESC = [
+                'כל תוכנית עובדת כך: קלט נכנס מימין, עובר עיבוד בקופסה הסגורה, והפלט יוצא משמאל. לחצי "הרצה".',
+                'שלב הקלט — המשתמשת הקלידה את הערכים, והם נכנסו למשתנים.',
+                'הערכים נכנסים אל קופסת העיבוד. מבחוץ לא רואים מה קורה בפנים — רק מכניסים ומקבלים.',
+                'בתוך הקופסה מתבצע החישוב: ' + d.formula + '.  (' + d.calc + ')',
+                'הפלט יוצא מהקופסה ומוצג על המסך: ' + d.outVal + '. ' + d.why,
+            ];
+            const boxActive = phase >= 2;
+            const processing = phase === 2 || phase === 3;
+            const revealInside = peek || phase >= 3;
+
+            const Chip = ({ label, val, lit, faded }) => (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: faded ? 0.25 : 1, transition: 'opacity .4s' }}>
+                    <span style={{ fontSize: 10.5, color: '#7C8AA5', fontWeight: 700 }}>{label}</span>
+                    <div style={{ minWidth: 46, padding: '7px 12px', borderRadius: 10, border: '2px solid ' + (lit ? '#6EE7B7' : 'rgba(148,163,184,0.3)'), background: lit ? 'linear-gradient(150deg,#6EE7B7,#10B981)' : 'rgba(15,23,42,0.5)', color: lit ? '#06281c' : '#94A3B8', fontWeight: 800, fontSize: 16, fontFamily: "'JetBrains Mono', monospace", textAlign: 'center', boxShadow: lit ? '0 0 16px rgba(16,185,129,0.5)' : 'none', transition: 'all .35s', animation: lit ? 'popIn .4s cubic-bezier(.34,1.56,.64,1)' : 'none' }}>{val}</div>
+                </div>
+            );
+            const FlowArrow = ({ on }) => (
+                <svg width="34" height="20" viewBox="0 0 34 20" fill="none" stroke={on ? '#A78BFA' : 'rgba(148,163,184,0.35)'} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: 'stroke .3s' }}><path d="M32 10H4M12 3l-8 7 8 7"/></svg>
+            );
+
+            return (
+                <div style={{ background: '#0E1424', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 16, overflow: 'hidden', margin: '4px 0 8px' }}>
+                    {/* tabs */}
+                    <div style={{ padding: '9px 12px', borderBottom: '1px solid rgba(148,163,184,0.14)', background: 'rgba(124,58,237,0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 5 }}>
+                            {TABS.map(k => (
+                                <button key={k} onClick={() => setMode(k)} style={{ padding: '5px 13px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: "'Heebo', sans-serif", fontWeight: 700, fontSize: 12.5, background: mode === k ? 'linear-gradient(135deg,#7C3AED,#6366F1)' : 'rgba(51,65,85,0.5)', color: mode === k ? '#fff' : '#CBD5E1' }}>{DEMOS[k].label}</button>
+                            ))}
+                            <span style={{ marginInlineStart: 'auto', color: '#64748B', fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>{phase + 1}/{PHASES}</span>
+                        </div>
+                    </div>
+
+                    {/* flow: input (right) → box → output (left) */}
+                    <div style={{ padding: '22px 14px 10px', direction: 'rtl', overflowX: 'auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, minWidth: 'min-content' }}>
+                            {/* INPUT zone */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                <span style={{ fontSize: 11.5, fontWeight: 800, color: '#6EE7B7' }}>קלט</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', border: '2px dashed rgba(110,231,183,0.35)', borderRadius: 12, background: 'rgba(16,185,129,0.04)' }}>
+                                    {d.inputs.map((inp, k) => <Chip key={k} label={inp.label} val={inp.val} lit={phase === 1} faded={phase >= 2} />)}
+                                </div>
+                                <span style={{ fontSize: 10, color: '#64748B', fontFamily: "'JetBrains Mono', monospace" }}>nextInt()</span>
+                            </div>
+
+                            <FlowArrow on={phase >= 2} />
+
+                            {/* PROCESSING box (closed) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                <span style={{ fontSize: 11.5, fontWeight: 800, color: '#A78BFA' }}>עיבוד</span>
+                                <div style={{ position: 'relative', width: 168, minHeight: 104, borderRadius: 14, border: '2px solid ' + (boxActive ? '#A78BFA' : 'rgba(148,163,184,0.3)'), background: boxActive ? 'linear-gradient(160deg,rgba(124,58,237,0.28),rgba(99,102,241,0.1))' : 'rgba(15,23,42,0.5)', boxShadow: processing ? '0 0 30px rgba(139,92,246,0.5)' : 'none', transition: 'all .4s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, overflow: 'hidden' }}>
+                                    {/* lid line */}
+                                    <div style={{ position: 'absolute', top: 22, left: 0, right: 0, borderTop: '2px dashed rgba(148,163,184,0.25)' }}></div>
+                                    {revealInside ? (
+                                        <>
+                                            <span style={{ color: '#DDD6FE', fontSize: 11, fontWeight: 700 }}>החישוב בפנים:</span>
+                                            <code style={{ direction: 'ltr', fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 15, color: '#C4B5FD', background: 'rgba(15,23,42,0.5)', padding: '6px 12px', borderRadius: 8, textAlign: 'center', animation: 'popIn .4s' }}>{d.formula}</code>
+                                            {phase >= 3 && <span style={{ direction: 'ltr', color: '#6EE7B7', fontSize: 12.5, fontFamily: "'JetBrains Mono', monospace" }}>{d.calc}</span>}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={processing ? '#C4B5FD' : '#64748B'} strokeWidth="1.8" style={{ animation: processing ? 'spin 2s linear infinite' : 'none' }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                            <span style={{ color: processing ? '#C4B5FD' : '#94A3B8', fontSize: 12, fontWeight: 700 }}>{processing ? 'מעבד...' : 'קופסה סגורה'}</span>
+                                        </>
+                                    )}
+                                </div>
+                                <button onClick={() => setPeek(p => !p)} style={{ fontSize: 11, fontWeight: 700, color: '#A78BFA', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 8, padding: '3px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <Icon name={revealInside ? 'eyeOff' : 'eye'} size={12} /> {peek ? 'סגירה' : 'הצצה לפנים'}
+                                </button>
+                            </div>
+
+                            <FlowArrow on={phase >= 4} />
+
+                            {/* OUTPUT zone */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                <span style={{ fontSize: 11.5, fontWeight: 800, color: '#FCD34D' }}>פלט</span>
+                                <div style={{ minWidth: 92, padding: '14px 10px', borderRadius: 12, border: '2px solid ' + (phase >= 4 ? '#FCD34D' : 'rgba(148,163,184,0.3)'), background: phase >= 4 ? 'rgba(251,191,36,0.12)' : 'rgba(15,23,42,0.5)', textAlign: 'center', boxShadow: phase >= 4 ? '0 0 20px rgba(251,191,36,0.4)' : 'none', transition: 'all .4s' }}>
+                                    <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 4 }}>המסך</div>
+                                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 22, color: phase >= 4 ? '#FCD34D' : '#475569', animation: phase >= 4 ? 'popIn .45s cubic-bezier(.34,1.56,.64,1)' : 'none' }}>{phase >= 4 ? d.outVal : '?'}</div>
+                                </div>
+                                <span style={{ fontSize: 10, color: '#64748B', fontFamily: "'JetBrains Mono', monospace" }}>println()</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* code */}
+                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)' }}>
+                        {d.code.map((ln, idx) => {
+                            const isInput = ln.includes('// קלט');
+                            const isProc = ln.includes('// עיבוד');
+                            const isOut = ln.includes('// פלט');
+                            const on = (phase === 1 && isInput) || (phase === 3 && isProc) || (phase === 4 && isOut);
+                            return (
+                                <div key={idx} style={{ display: 'flex', fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, lineHeight: '1.85', background: on ? 'rgba(251,191,36,0.12)' : 'transparent', borderInlineStart: on ? '3px solid #FBBF24' : '3px solid transparent', paddingInlineEnd: 12 }}>
+                                    <span style={{ width: 30, textAlign: 'right', color: on ? '#FBBF24' : '#4B5263', paddingInlineEnd: 10, flexShrink: 0, userSelect: 'none', fontWeight: on ? 800 : 400 }}>{on ? '▶' : idx + 1}</span>
+                                    <span style={{ color: on ? '#FDE68A' : '#ABB2BF', whiteSpace: 'pre' }}>{ln}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* explanation */}
+                    <div style={{ padding: '14px 16px 4px' }}>
+                        <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(167,139,250,0.28)', borderRadius: 11, padding: '11px 14px' }}>
+                            <span style={{ color: '#A78BFA', flexShrink: 0, marginTop: 1 }}><Icon name="spark" size={15} /></span>
+                            <span style={{ color: '#DDD6FE', fontSize: 14, lineHeight: 1.6 }}>{STEP_DESC[phase]}</span>
+                        </div>
+                    </div>
+
+                    {/* controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px' }}>
+                        <button onClick={() => { setPlay(false); setPhase(Math.max(0, phase - 1)); }} disabled={phase === 0} className="btn btn-ghost btn-sm" style={{ opacity: phase === 0 ? 0.4 : 1 }}><Icon name="arrowRight" size={14} /> אחורה</button>
+                        <button onClick={() => { if (phase >= PHASES - 1) { setPhase(0); setPlay(true); } else setPlay(!play); }} className="btn btn-solid btn-sm">{play ? 'השהיה' : phase >= PHASES - 1 ? 'הרצה מחדש' : 'הרצה'} <Icon name={play ? 'eyeOff' : 'play'} size={14} /></button>
+                        <button onClick={() => { setPlay(false); setPhase(Math.min(PHASES - 1, phase + 1)); }} disabled={phase >= PHASES - 1} className="btn btn-ghost btn-sm" style={{ opacity: phase >= PHASES - 1 ? 0.4 : 1 }}>קדימה <Icon name="arrowLeft" size={14} /></button>
+                        <span style={{ marginInlineStart: 'auto', color: '#8b93a7', fontSize: 11.5 }}>קלט · עיבוד · פלט</span>
+                    </div>
+                </div>
+            );
         };
 
         // Topic learning section — קורס מודרך: פס צד עם שלבים והתקדמות, ותוכן שלב-אחר-שלב
@@ -2784,6 +3270,13 @@ a.setGrade(100);   // משנה רק את נעמה
                                         <p className="text-slate-200 leading-[1.85] text-[15.5px]" style={{ textWrap: 'pretty' }}>{topic.intro}</p>
                                     </div>
                                     {lesson.length > 0 && <LessonProse sections={lesson} />}
+                                    {topic.title === 'משתנים, קלט ופלט' && (
+                                        <div>
+                                            <div className="text-amber-300 font-bold text-sm mb-2.5 flex items-center gap-2"><Icon name="play" size={14} /> הדגמה אינטראקטיבית — קלט · עיבוד · פלט</div>
+                                            <IOProcessViz />
+                                            <p className="text-slate-400 text-[13px] mt-2 leading-relaxed" style={{ textWrap: 'pretty' }}>בחרי דוגמה ולחצי "הרצה": רואים איך הערכים נכנסים כקלט, עוברים חישוב בתוך הקופסה הסגורה, והתוצאה יוצאת כפלט. אפשר ללחוץ "הצצה לפנים" כדי לראות מה קורה בתוך הקופסה.</p>
+                                        </div>
+                                    )}
                                     {topic.title === 'רשימות מקושרות' && (
                                         <div>
                                             <div className="text-amber-300 font-bold text-sm mb-2.5 flex items-center gap-2"><Icon name="play" size={14} /> הדגמה אינטראקטיבית — איך הקוד רץ שורה-שורה</div>
@@ -2810,6 +3303,13 @@ a.setGrade(100);   // משנה רק את נעמה
                                             <div className="text-amber-300 font-bold text-sm mb-2.5 flex items-center gap-2"><Icon name="play" size={14} /> הדגמה אינטראקטיבית — תור, מחסנית והיפוך</div>
                                             <QueueStackViz />
                                             <p className="text-slate-400 text-[13px] mt-2 leading-relaxed" style={{ textWrap: 'pretty' }}>בחרי לשונית: בתור (FIFO) ההוספה בזנב וההוצאה מהראש; במחסנית (LIFO) הכול קורה בראש; וההיפוך מראה איך דחיפה ושליפה הופכים את הסדר. לחצי "הרצה" או "קדימה".</p>
+                                        </div>
+                                    )}
+                                    {topic.title === 'מחרוזות' && (
+                                        <div>
+                                            <div className="text-amber-300 font-bold text-sm mb-2.5 flex items-center gap-2"><Icon name="play" size={14} /> הדגמה אינטראקטיבית — מחרוזת תו-אחר-תו</div>
+                                            <StringViz />
+                                            <p className="text-slate-400 text-[13px] mt-2 leading-relaxed" style={{ textWrap: 'pretty' }}>בחרי דפוס: מעבר עם charAt, ספירת תו, או היפוך מחרוזת בעזרת החלפת תווים (שני מצביעים). בכל צעד רואים איזו שורה רצה, איפה האינדקס, ומה קורה לכל תו. לחצי "הרצה" או "קדימה".</p>
                                         </div>
                                     )}
                                     {topic.title === 'מערכים' && (
@@ -2964,7 +3464,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         {openUrl && <a href={openUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-indigo-300 hover:text-indigo-200 flex-shrink-0"><Icon name="upload" size={13} /> פתיחה בכרטיסייה</a>}
                     </div>
                     {embed.mode === 'iframe' ? (
-                        <iframe src={embed.src} title={attachment.name || 'attachment'} className="w-full bg-white" style={{ height: '520px', border: 'none' }} allow="autoplay"></iframe>
+                        <iframe src={embed.src} title={attachment.name || 'attachment'} className="w-full bg-white" style={{ height: 'clamp(340px, 68vh, 640px)', border: 'none', display: 'block' }} allow="autoplay"></iframe>
                     ) : (
                         <a href={embed.src} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-5 py-6 hover:bg-slate-800/40 transition-colors">
                             <span className="w-11 h-11 rounded-xl bg-indigo-500/15 text-indigo-300 flex items-center justify-center flex-shrink-0">{fileIcon(22)}</span>
@@ -3121,7 +3621,7 @@ a.setGrade(100);   // משנה רק את נעמה
         };
 
         // Login Screen — open landing, content visible but locked until sign-in
-        const LoginScreen = ({ onLogin, loading }) => (            <div className="min-h-screen flex flex-col login-stage">
+        const LoginScreen = ({ onLogin, loading, onDemo }) => (            <div className="min-h-screen flex flex-col login-stage">
                 <LoginAmbience />
                 <div className="relative flex flex-col min-h-screen" style={{ zIndex: 1 }}>
                 {/* Header */}
@@ -3133,12 +3633,18 @@ a.setGrade(100);   // משנה רק את נעמה
                             <div className="text-indigo-300 text-[11px] font-semibold">אולפנה 'למרחב' · שכבות יא–יב</div>
                         </div>
                     </div>
-                    <button onClick={onLogin} disabled={loading} className="google-btn login-cta !rounded-full" style={{ boxShadow: '0 4px 18px rgba(99,102,241,0.35)' }}>
-                        {loading ? <div className="spinner w-5 h-5"></div> : (
-                            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                        )}
-                        {loading ? 'מתחברות...' : 'התחברות עם Google'}
-                    </button>
+                    <div className="flex items-center gap-2.5">
+                        <button onClick={onDemo} className="px-4 py-2 rounded-full text-sm font-bold text-indigo-200 bg-indigo-500/15 border border-indigo-400/35 hover:bg-indigo-500/25 transition-colors flex items-center gap-2" title="כניסה לצפייה בכל התוכן — ללא התחברות">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                            כניסת דמו
+                        </button>
+                        <button onClick={onLogin} disabled={loading} className="google-btn login-cta !rounded-full" style={{ boxShadow: '0 4px 18px rgba(99,102,241,0.35)' }}>
+                            {loading ? <div className="spinner w-5 h-5"></div> : (
+                                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                            )}
+                            {loading ? 'מתחברות...' : 'התחברות עם Google'}
+                        </button>
+                    </div>
                 </header>
                 {/* Hero */}
                 <main className="flex-1 flex flex-col items-center text-center px-5 pt-14 md:pt-20 pb-16">
@@ -3168,6 +3674,10 @@ a.setGrade(100);   // משנה רק את נעמה
                         ))}
                     </div>
                     <p className="text-slate-500 text-sm mt-8">· התוכן ייפתח לאחר התחברות ואישור המורה · </p>
+                    <button onClick={onDemo} className="mt-5 px-7 py-3 rounded-full text-base font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-colors inline-flex items-center gap-2.5" style={{ boxShadow: '0 8px 26px rgba(99,102,241,0.4)' }}>
+                        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                        כניסת דמו — לצפות בכל התוכן
+                    </button>
                 </main>
                 </div>
             </div>
@@ -5617,6 +6127,7 @@ a.setGrade(100);   // משנה רק את נעמה
             // Auth state
             const [user, setUser] = useState(null);
             const [isEditor, setIsEditor] = useState(false);
+            const [demoMode, setDemoMode] = useState(false); // מצב דמו — צפייה בכל התוכן ללא התחברות
             const [authLoading, setAuthLoading] = useState(true);
             const [loginLoading, setLoginLoading] = useState(false);
             const [studentName, setStudentName] = useState('');
@@ -5679,6 +6190,11 @@ a.setGrade(100);   // משנה רק את נעמה
             const [homeworkCheckCount, setHomeworkCheckCount] = useState({}); // { examId_questionIndex: count }
             const [examSettings, setExamSettings] = useState({}); // { examId: { homeworkPrompt, gradingInstructions } }
             const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false); // Mobile sidebar toggle
+            // ===== מצב מבחן נעול =====
+            const [examLockStarted, setExamLockStarted] = useState(null); // examId שעבורו אושר "התחל מבחן"
+            const [examLockExits, setExamLockExits] = useState(0); // מונה יציאות בסשן הנוכחי
+            const [examLockWarn, setExamLockWarn] = useState(false); // הצגת מסך אזהרה לאחר יציאה
+            const [examLockToast, setExamLockToast] = useState(false); // הודעה צפה בתחילת מבחן
             const [expandedClasses, setExpandedClasses] = useState(new Set()); // נושאים פתוחים בסרגל הצד (אקורדיון)
             const toggleClassExpand = (id) => setExpandedClasses(prev => {
                 const n = new Set(prev);
@@ -5695,24 +6211,45 @@ a.setGrade(100);   // משנה רק את נעמה
             const [clearingYear, setClearingYear] = useState(false); // Loading state for year clear
 
             // ===== תוספות: מועדפים, דף עזר, עוזר AI בלמידה, לוח בקרה כיתתי =====
-            const [favorites, setFavorites] = useState([]); // מזהי נושאים מועדפים (נשמר מקומית לכל משתמשת)
+            // מועדפים = שאלות ספציפיות שהתלמידה סימנה, עם כותרת אישית. נשמר מקומית לכל משתמשת.
+            // כל פריט: { key, classId, classTitle, examId, examTitle, examType, qNum, qTitle, title }
+            const [favorites, setFavorites] = useState([]);
+            const [favModal, setFavModal] = useState({ open: false, fav: null, title: '' }); // עריכת כותרת מועדף
             const [cheatOpen, setCheatOpen] = useState(false); // דף עזר / מילון מונחים
             const [learnChatOpen, setLearnChatOpen] = useState(false); // עוזר AI בעמוד הלמידה
             const [dashOpen, setDashOpen] = useState(false); // לוח בקרה כיתתי (מורה)
             const [dashData, setDashData] = useState(null); // נתוני לוח הבקרה
             const [dashLoading, setDashLoading] = useState(false);
-            const favKey = user ? 'java_favorites_' + user.email : null;
+            const favKey = user ? 'java_favorites_v2_' + user.email : null;
             useEffect(() => {
                 if (!favKey) { setFavorites([]); return; }
-                try { setFavorites(JSON.parse(localStorage.getItem(favKey) || '[]')); } catch (_) { setFavorites([]); }
+                try {
+                    const raw = JSON.parse(localStorage.getItem(favKey) || '[]');
+                    // שומר רק על פריטי-שאלה תקינים (מתעלם מהפורמט הישן של נושאים שלמים)
+                    setFavorites(Array.isArray(raw) ? raw.filter(f => f && f.key && f.examId) : []);
+                } catch (_) { setFavorites([]); }
             }, [favKey]);
-            const isFavorite = (classId) => favorites.includes(classId);
-            const toggleFavorite = (classId) => {
-                setFavorites(prev => {
-                    const next = prev.includes(classId) ? prev.filter(x => x !== classId) : [classId, ...prev];
-                    if (favKey) { try { localStorage.setItem(favKey, JSON.stringify(next)); } catch (_) {} }
-                    return next;
-                });
+            const persistFavs = (next) => {
+                if (favKey) { try { localStorage.setItem(favKey, JSON.stringify(next)); } catch (_) {} }
+                return next;
+            };
+            const isFavorite = (key) => favorites.some(f => f.key === key);
+            const removeFavorite = (key) => setFavorites(prev => persistFavs(prev.filter(f => f.key !== key)));
+            const upsertFavorite = (fav) => setFavorites(prev => {
+                const exists = prev.find(f => f.key === fav.key);
+                const next = exists ? prev.map(f => f.key === fav.key ? { ...f, ...fav } : f) : [fav, ...prev];
+                return persistFavs(next);
+            });
+            // פותח שאלה מועדפת — מנווט לנושא, למטלה ולשאלה
+            const openFavorite = (fav) => {
+                const cls = classes.find(c => c.id === fav.classId);
+                const exam = cls && (cls.exams || []).find(e => e.id === fav.examId);
+                if (!exam) { alert('הפריט אינו זמין יותר'); return; }
+                setSelectedClass(fav.classId);
+                setSelectedExam(exam);
+                setSelectedQuestion(fav.qNum);
+                setMobileSidebarOpen(false);
+                window.scrollTo({ top: 0 });
             };
 
             // Auth effect - reset all state when user changes
@@ -5759,7 +6296,7 @@ a.setGrade(100);   // משנה רק את נעמה
                     setProfileLoading(false);
                     return;
                 }
-                
+                if (demoMode) { setProfileLoading(false); return; } // \u05de\u05e6\u05d1 \u05d3\u05de\u05d5 \u2014 \u05d0\u05d9\u05df \u05e4\u05e8\u05d5\u05e4\u05d9\u05dc \u05dc\u05d8\u05e2\u05d5\u05df\n                
                 setProfileLoading(true);
                 DataService.loadUserProfile(user.email).then(profile => {
                     setStudentApproved(profile ? (profile.approved !== false) : null);
@@ -5777,6 +6314,7 @@ a.setGrade(100);   // משנה רק את נעמה
 
             // Load classes only after user is authenticated
             useEffect(() => { 
+                if (demoMode) return; // במצב דמו הנושאים מוזרקים מקומית
                 if (!user) {
                     console.log('User not authenticated yet, skipping class load');
                     return;
@@ -5796,7 +6334,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         setLoadingError('שגיאה בטעינת כיתות - בדוק הרשאות Firestore');
                         setDataLoading(false);
                     });
-            }, [user]);
+            }, [user, demoMode]);
 
             // Teacher: load students pending approval
             useEffect(() => {
@@ -5898,6 +6436,29 @@ a.setGrade(100);   // משנה רק את נעמה
                     });
                 }
             }, [selectedExam, isEditor]);
+
+            // Demo mode — לצפות בכל התוכן ללא התחברות (מזריק את כל הנושאים המובנים מקומית)
+            const enterDemo = () => {
+                const demoClasses = LEARN_LIBRARY.map((lib, i) => ({
+                    id: 'demo_' + i,
+                    title: lib.title,
+                    icon: '📚',
+                    grade: topicGradeFor(lib.title),
+                    exams: [],
+                    order: i
+                }));
+                setClasses(demoClasses);
+                setDemoMode(true);
+                setUser({ email: 'demo@demo', displayName: 'דמו' });
+                setIsEditor(false);
+                setStudentName('מצב דמו');
+                setStudentGrade('');
+                setNameEntered(true);
+                setStudentApproved(true);
+                setProfileLoading(false);
+                setDataLoading(false);
+                setAuthLoading(false);
+            };
 
             // Login handler
             const handleLogin = async () => {
@@ -6200,13 +6761,42 @@ a.setGrade(100);   // משנה רק את נעמה
                 setSelectedQuestion(newQuestion);
             }, [flushPendingSave]);
 
+            // רשת ביטחון: שמירה אוטומטית תקופתית (כל 5 שניות) של תשובת התלמידה, מעבר ל-debounce —
+            // כדי שבשום מצב לא תאבד עבודה.
+            useEffect(() => {
+                if (isEditor) return;
+                const id = setInterval(() => { flushPendingSave(); }, 5000);
+                return () => clearInterval(id);
+            }, [isEditor, flushPendingSave]);
+
             // Submit exam
             const handleSubmit = async () => {
                 if (!selectedExam || !user) return;
+                flushPendingSave();
                 await DataService.submitExam(selectedExam.id, selectedExam.type || 'exam', user.email, studentName, studentAnswers);
                 setStudentData(prev => ({ ...prev, submitted: true }));
                 setSubmitModal(false);
+                // שחרור מצב מבחן נעול ויציאה ממסך מלא
+                setExamLockStarted(null);
+                setExamLockWarn(false);
+                setExamLockToast(false);
+                exitExamFullscreen();
+                try { localStorage.removeItem(`exam_start_${selectedExam.id}_${user.email}`); } catch (_) {}
                 alert(selectedExam.type === 'homework' ? 'שיעורי הבית הוגשו בהצלחה!' : 'המבחן הוגש בהצלחה!');
+            };
+
+            // תם הזמן — הגשה אוטומטית של המבחן
+            const handleExamTimeout = async () => {
+                if (!selectedExam || !user || isEditor || studentData?.submitted) return;
+                flushPendingSave();
+                await DataService.submitExam(selectedExam.id, selectedExam.type || 'exam', user.email, studentName, studentAnswers);
+                setStudentData(prev => ({ ...prev, submitted: true }));
+                setExamLockStarted(null);
+                setExamLockWarn(false);
+                setExamLockToast(false);
+                exitExamFullscreen();
+                try { localStorage.removeItem(`exam_start_${selectedExam.id}_${user.email}`); } catch (_) {}
+                alert('תם הזמן! המבחן הוגש אוטומטית.');
             };
 
             // Check with AI
@@ -6334,9 +6924,51 @@ a.setGrade(100);   // משנה רק את נעמה
                 URL.revokeObjectURL(a.href);
             };
 
+            // ===== מצב מבחן נעול: ניטור יציאות (hooks חייבים לרוץ לפני כל return מוקדם) =====
+            useEffect(() => {
+                const lockActive = !isEditor && !!selectedExam && selectedExam.type !== 'homework' && selectedQuestion !== null && !viewingStudent && !(studentData?.submitted);
+                const locked = lockActive && examLockStarted === selectedExam?.id;
+                if (!locked) return;
+                let last = 0;
+                const fire = (reason) => {
+                    const now = Date.now();
+                    if (now - last < 1200) return; // איחוד אירועים כפולים
+                    last = now;
+                    setExamLockExits(c => c + 1);
+                    setExamLockWarn(true);
+                    if (user && !isEditor) DataService.logExamExit(selectedExam.id, selectedExam.type || 'exam', user.email, studentName, reason);
+                };
+                const onVis = () => { if (document.hidden) fire('מעבר-טאב'); };
+                const onFs = () => { if (!document.fullscreenElement && !document.webkitFullscreenElement) fire('יציאה-ממסך-מלא'); };
+                const block = (e) => e.preventDefault();
+                document.addEventListener('visibilitychange', onVis);
+                document.addEventListener('fullscreenchange', onFs);
+                document.addEventListener('webkitfullscreenchange', onFs);
+                document.addEventListener('contextmenu', block);
+                document.addEventListener('copy', block);
+                return () => {
+                    document.removeEventListener('visibilitychange', onVis);
+                    document.removeEventListener('fullscreenchange', onFs);
+                    document.removeEventListener('webkitfullscreenchange', onFs);
+                    document.removeEventListener('contextmenu', block);
+                    document.removeEventListener('copy', block);
+                };
+            }, [isEditor, selectedExam?.id, selectedExam?.type, selectedQuestion, viewingStudent, studentData?.submitted, examLockStarted, user, studentName]);
+            // יציאה ממסך מלא ושחרור הנעילה כשעוזבים את המבחן (חזרה לנושאים / הגשה)
+            useEffect(() => {
+                const lockActive = !isEditor && !!selectedExam && selectedExam.type !== 'homework' && selectedQuestion !== null && !viewingStudent && !(studentData?.submitted);
+                if (!lockActive && examLockStarted) {
+                    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+                    else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+                    setExamLockStarted(null);
+                    setExamLockWarn(false);
+                    setExamLockToast(false);
+                }
+            }, [isEditor, selectedExam?.id, selectedExam?.type, selectedQuestion, viewingStudent, studentData?.submitted, examLockStarted]);
+
             // Render
             if (authLoading) return <div className="min-h-screen flex items-center justify-center"><div className="spinner"></div></div>;
-            if (!user) return <LoginScreen onLogin={handleLogin} loading={loginLoading} />;
+            if (!user) return <LoginScreen onLogin={handleLogin} loading={loginLoading} onDemo={enterDemo} />;
             if (!isEditor && profileLoading) return <div className="min-h-screen flex items-center justify-center"><div className="spinner"></div></div>;
             if (!isEditor && !nameEntered) return <StudentNameScreen onSubmit={async (name, grade) => { 
                 setStudentName(name); 
@@ -6390,6 +7022,28 @@ a.setGrade(100);   // משנה רק את נעמה
             const viewingIsSubmitted = viewingStudent ? viewingStudent.submitted : (safePreviewMode ? false : isSubmitted);
             const isInStudentView = !isEditor || safePreviewMode;
 
+            // ===== מצב מבחן נעול =====
+            // פעיל רק לתלמידה אמיתית, על מבחן (לא שיעורי בית), בשאלה פתוחה שטרם הוגשה
+            const examLockActive = !isEditor && !!selectedExam && selectedExam.type !== 'homework' && selectedQuestion !== null && !viewingIsSubmitted && !viewingStudent;
+            const enterExamFullscreen = () => {
+                const el = document.documentElement;
+                if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            };
+            const exitExamFullscreen = () => {
+                if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+                else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+            };
+            // התלמידה לוחצת "התחל מבחן" — נכנסים למסך מלא ומפעילים את הניטור
+            const startExamLock = () => {
+                enterExamFullscreen();
+                setExamLockExits(studentData?.exitAttempts?.length || 0);
+                setExamLockStarted(selectedExam.id);
+                setExamLockWarn(false);
+                setExamLockToast(true);
+                setTimeout(() => setExamLockToast(false), 5000);
+            };
+
             // Filter classes based on student grade (students see only their grade's units).
             // Teacher (מצב מנהל): filtered by the grade switcher in the header.
             const classMatchesGrade = (cls, grade) => {
@@ -6430,6 +7084,55 @@ a.setGrade(100);   // משנה רק את נעמה
             };
             return (
                 <div className="min-h-screen flex flex-col">
+                    {demoMode && (
+                        <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 60 }}>
+                            <div className="flex items-center gap-3 bg-indigo-600/95 text-white rounded-full pl-2 pr-4 py-1.5 shadow-2xl border border-indigo-400/40" style={{ backdropFilter: 'blur(8px)' }}>
+                                <span className="flex items-center gap-1.5 text-sm font-bold"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> מצב דמו · צפייה בכל התוכן</span>
+                                <button onClick={() => window.location.reload()} className="text-xs font-bold bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors">יציאה</button>
+                            </div>
+                        </div>
+                    )}
+                    {/* ===== מצב מבחן נעול: שער כניסה, הודעה צפה, ומסך אזהרה ===== */}
+                    {examLockActive && examLockStarted !== selectedExam?.id && (
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(8,11,22,0.92)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} data-screen-label="שער מצב מבחן">
+                            <div style={{ maxWidth: 480, width: '100%', background: 'linear-gradient(160deg,#161c2e,#10131f)', border: '1px solid rgba(148,163,184,0.2)', borderRadius: 20, padding: '30px 28px', textAlign: 'center', boxShadow: '0 24px 70px rgba(0,0,0,0.5)' }}>
+                                <div style={{ width: 60, height: 60, borderRadius: 18, background: 'rgba(99,102,241,0.16)', border: '1px solid rgba(129,140,248,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#A5B4FC' }}>
+                                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                </div>
+                                <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>מצב מבחן</h2>
+                                <p style={{ color: '#94A3B8', fontSize: 14.5, lineHeight: 1.7, marginBottom: 18 }}>המבחן ייפתח במסך מלא. כדי לשמור על הוגנות:</p>
+                                <ul style={{ textAlign: 'right', color: '#CBD5E1', fontSize: 13.5, lineHeight: 1.9, listStyle: 'none', padding: 0, margin: '0 auto 22px', maxWidth: 380 }}>
+                                    <li style={{ display: 'flex', gap: 8 }}><span style={{ color: '#F87171' }}>•</span> כל יציאה מהמבחן (מעבר טאב / חלון אחר) <strong style={{ color: '#FCA5A5' }}>נרשמת ומדווחת למורה</strong>.</li>
+                                    <li style={{ display: 'flex', gap: 8 }}><span style={{ color: '#F87171' }}>•</span> יציאות חוזרות נחשבות <strong style={{ color: '#FCA5A5' }}>חשד להעתקה</strong>.</li>
+                                    <li style={{ display: 'flex', gap: 8 }}><span style={{ color: '#A5B4FC' }}>•</span> העתקה והדבקה חסומות לאורך המבחן.</li>
+                                    <li style={{ display: 'flex', gap: 8 }}><span style={{ color: '#6EE7B7' }}>•</span> הנעילה תשתחרר אוטומטית בלחיצה על "הגש מבחן".</li>
+                                </ul>
+                                <button onClick={startExamLock} style={{ width: '100%', padding: '13px', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', fontWeight: 800, fontSize: 16, fontFamily: "'Heebo',sans-serif" }}>התחלת המבחן במסך מלא</button>
+                                <button onClick={() => { setSelectedExam(null); setSelectedQuestion(null); }} style={{ marginTop: 10, background: 'none', border: 'none', color: '#64748B', fontSize: 13, cursor: 'pointer', fontFamily: "'Heebo',sans-serif" }}>חזרה — אינני מתחילה כעת</button>
+                            </div>
+                        </div>
+                    )}
+                    {examLockToast && examLockStarted === selectedExam?.id && (
+                        <div style={{ position: 'fixed', top: 18, left: '50%', transform: 'translateX(-50%)', zIndex: 9997, maxWidth: '92%' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, background: 'rgba(180,83,9,0.96)', color: '#fff', borderRadius: 14, padding: '12px 18px', boxShadow: '0 12px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(251,191,36,0.5)', animation: 'popIn .4s' }}>
+                                <span style={{ flexShrink: 0, marginTop: 1 }}><Icon name="alert" size={18} /></span>
+                                <span style={{ fontSize: 14, lineHeight: 1.55, fontWeight: 600 }}>את במצב מבחן. כל יציאה מהחלון נרשמת אוטומטית ומדווחת למורה — ויציאות חוזרות נחשבות חשד להעתקה. השאירי את המבחן פתוח עד הסיום.</span>
+                            </div>
+                        </div>
+                    )}
+                    {examLockActive && examLockStarted === selectedExam?.id && examLockWarn && (
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(60,10,10,0.93)', backdropFilter: 'blur(7px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} data-screen-label="אזהרת יציאה ממבחן">
+                            <div style={{ maxWidth: 460, width: '100%', background: 'linear-gradient(160deg,#2a1414,#1a1012)', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 20, padding: '30px 28px', textAlign: 'center', boxShadow: '0 24px 70px rgba(0,0,0,0.55)' }}>
+                                <div style={{ width: 60, height: 60, borderRadius: 18, background: 'rgba(248,113,113,0.16)', border: '1px solid rgba(248,113,113,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#FCA5A5' }}>
+                                    <Icon name="alert" size={30} />
+                                </div>
+                                <h2 style={{ color: '#fff', fontSize: 21, fontWeight: 800, marginBottom: 8 }}>יצאת מהמבחן!</h2>
+                                <p style={{ color: '#FCA5A5', fontSize: 15, lineHeight: 1.7, marginBottom: 6 }}>היציאה נרשמה ודווחה למורה. יציאות חוזרות נחשבות חשד להעתקה.</p>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(248,113,113,0.14)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 999, padding: '5px 16px', margin: '6px 0 20px', color: '#FECACA', fontWeight: 800, fontSize: 14 }}>סך היציאות: {examLockExits}</div>
+                                <button onClick={() => { enterExamFullscreen(); setExamLockWarn(false); }} style={{ width: '100%', padding: '13px', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', fontWeight: 800, fontSize: 16, fontFamily: "'Heebo',sans-serif" }}>חזרה למבחן</button>
+                            </div>
+                        </div>
+                    )}
                     {/* Header */}
                     <header className="bg-slate-900/80 backdrop-blur border-b border-slate-700 sticky top-0 z-40">
                         <div className="flex items-center justify-between px-4 py-3">
@@ -7057,6 +7760,14 @@ a.setGrade(100);   // משנה רק את נעמה
                                         <span className="text-blue-400">שאלה {currentQ.number}</span>
                                         {currentQ.points && <span className="bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded-full text-xs">{currentQ.points} נק'</span>}
                                         {isInStudentView && viewingIsSubmitted && <span className="bg-purple-600/30 text-purple-300 px-2 py-0.5 rounded-full text-xs flex items-center gap-1"><Icon name="lock" size={12} /> הוגש</span>}
+                                        {/* שעון מבחן — ספירה-לאחור אם יש הגבלת זמן, אחרת שעה נוכחית */}
+                                        {!isEditor && !viewingStudent && !viewingIsSubmitted && selectedExam.type !== 'homework' && (
+                                            <span style={{ marginInlineStart: 'auto' }}>
+                                                {selectedExam.duration > 0
+                                                    ? <ExamTimer durationMin={selectedExam.duration} storeKey={`exam_start_${selectedExam.id}_${user?.email}`} onExpire={handleExamTimeout} />
+                                                    : <LiveClock />}
+                                            </span>
+                                        )}
                                         {/* Auto-save indicator */}
                                         {!isEditor && !viewingIsSubmitted && saveStatus && (
                                             <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${saveStatus === 'saving' ? 'bg-yellow-600/30 text-yellow-300' : 'bg-green-600/30 text-green-300'}`}>
@@ -7102,10 +7813,28 @@ a.setGrade(100);   // משנה רק את נעמה
                                     <div className="question-card p-6 md:p-7 mb-6">
                                         <div className="flex items-center gap-3 mb-5">
                                             <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/25 flex items-center justify-center text-indigo-300 flex-shrink-0"><TopicIcon title={findClassForExam(selectedExam.id)?.title} size={21} /></div>
-                                            <div>
+                                            <div className="flex-1 min-w-0">
                                                 <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight">שאלה {currentQ.number}{currentQ.title && ` · ${currentQ.title}`}</h3>
                                                 {currentQ.points && <div className="text-indigo-300 text-sm font-semibold">{currentQ.points} נקודות</div>}
                                             </div>
+                                            {!isEditor && (() => {
+                                                const favClass = findClassForExam(selectedExam.id);
+                                                const favK = `${selectedExam.id}_q_${currentQ.number}`;
+                                                const fav = favorites.find(f => f.key === favK);
+                                                const defLabel = `${favClass?.title || ''} · ${selectedExam.title} · שאלה ${currentQ.number}`;
+                                                return (
+                                                    <button
+                                                        onClick={() => {
+                                                            if (fav) { removeFavorite(favK); }
+                                                            else { setFavModal({ open: true, title: currentQ.title ? `${selectedExam.title} · ${currentQ.title}` : defLabel, fav: { key: favK, classId: favClass?.id, classTitle: favClass?.title || '', examId: selectedExam.id, examTitle: selectedExam.title, examType: selectedExam.type || 'exam', qNum: currentQ.number, qTitle: currentQ.title || '' } }); }
+                                                        }}
+                                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold border transition-colors flex-shrink-0 ${fav ? 'bg-amber-400/15 text-amber-300 border-amber-400/45' : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-700/60'}`}
+                                                        title={fav ? 'הסרה מהמועדפים' : 'סימון שאלה זו כמועדפת'}
+                                                    >
+                                                        <Icon name={fav ? 'starFill' : 'star'} size={16} /> <span className="hidden sm:inline">{fav ? 'במועדפים' : 'מועדף'}</span>
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                         
                                         {/* Automata Question Info */}
@@ -7141,9 +7870,9 @@ a.setGrade(100);   // משנה רק את נעמה
                                                             <input type="file" accept="image/*" className="hidden" onChange={e => {
                                                                 const file = e.target.files[0];
                                                                 if (file) {
-                                                                    const reader = new FileReader();
-                                                                    reader.onload = ev => updateQuestionContent('imageBase64', ev.target.result);
-                                                                    reader.readAsDataURL(file);
+                                                                    compressImage(file)
+                                                                        .then(dataUrl => updateQuestionContent('imageBase64', dataUrl))
+                                                                        .catch(err => alert(err.message === 'too-large' ? 'התמונה גדולה מדי גם לאחר דחיסה — נסי תמונה קטנה יותר.' : 'שגיאה בטעינת התמונה.'));
                                                                 }
                                                             }} />
                                                         </label>
@@ -7777,6 +8506,7 @@ ${answerText}
                                                                     <div className="text-sm text-slate-400">ענתה על {answeredCount}/{totalQ}</div>
                                                                     <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${status[1]}`}>{status[0]}</span>
                                                                     {student.pasteAttempts?.length > 0 && <span className="text-xs px-2 py-1 rounded-full bg-red-500/15 text-red-400 font-bold" title="ניסיונות הדבקה">🚨 {student.pasteAttempts.length}</span>}
+                                                                    {student.exitAttempts?.length > 0 && <span className="text-xs px-2 py-1 rounded-full bg-amber-500/15 text-amber-400 font-bold" title="יציאות מהמבחן (חשד להעתקה)">↪ {student.exitAttempts.length} יציאות</span>}
                                                                     <div className="flex gap-2 mr-auto">
                                                                         <button onClick={() => { setViewingStudent(student); setSelectedQuestion(selectedExam.questions?.[0]?.number ?? null); }} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">צפייה ובדיקה</button>
                                                                         <button onClick={() => {
@@ -7799,7 +8529,7 @@ ${answerText}
                                 </div>
                             ) : isInStudentView && selectedClassObj ? (
                                 /* Student: topic page — assignments listed clearly */
-                                <div className="max-w-3xl mx-auto p-4 md:p-8 topic-swap" key={selectedClassObj?.id || 'topic'} data-screen-label="דף נושא לתלמידה">
+                                <div className="max-w-5xl mx-auto p-4 md:p-8 topic-swap" key={selectedClassObj?.id || 'topic'} data-screen-label="דף נושא לתלמידה">
                                     <button onClick={() => { setSelectedClass(null); setSelectedExam(null); setSelectedQuestion(null); }} className="text-indigo-300 text-sm font-semibold mb-5 hover:text-indigo-200">‹ חזרה לכל הנושאים</button>
                                     <div className="flex items-center gap-4 justify-between flex-wrap">
                                         <div className="flex items-center gap-4 min-w-0">
@@ -7810,9 +8540,6 @@ ${answerText}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            <button onClick={() => toggleFavorite(selectedClassObj.id)} className={`px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 border transition-colors ${isFavorite(selectedClassObj.id) ? 'bg-amber-400/15 text-amber-300 border-amber-400/45' : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-700/60'}`} title={isFavorite(selectedClassObj.id) ? 'הסרה מהמועדפים' : 'סימון כמועדף / להמשך'}>
-                                                <Icon name={isFavorite(selectedClassObj.id) ? 'starFill' : 'star'} size={16} /> <span className="hidden sm:inline">{isFavorite(selectedClassObj.id) ? 'במועדפים' : 'מועדף'}</span>
-                                            </button>
                                             {!isEditor && (
                                                 <button onClick={() => setLearnChatOpen(true)} className="px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90" title="עזרה מ-AI על החומר">
                                                     🤖 <span className="hidden sm:inline">שאל את ה-AI</span>
@@ -7878,14 +8605,35 @@ ${answerText}
                                 /* Student: home — topic units grid */
                                 <div className="max-w-4xl mx-auto p-4 md:p-8 fade-in" data-screen-label="דף הבית לתלמידה">
                                     <div className="mb-8">
-                                        <h2 className="text-3xl font-extrabold text-white mb-1.5">שלום{studentName ? `, ${studentName.split(' ')[0]}` : ''}</h2>
+                                        <h2 className="text-3xl font-extrabold text-white mb-1.5">שלום{studentName ? <>, <AnimatedName name={studentName.split(' ')[0]} /></> : ''}</h2>
                                         <p className="text-slate-400">בחרי נושא כדי לראות את העבודות והמבחנים שלו{studentGrade ? ` · כיתה ${studentGrade}` : ''}</p>
                                     </div>
+                                    {favorites.length > 0 && (
+                                        <div className="mb-7 bg-amber-400/[0.07] border border-amber-400/25 rounded-2xl p-4 md:p-5" data-screen-label="המועדפים שלי">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="text-amber-300"><Icon name="starFill" size={17} /></span>
+                                                <h3 className="text-amber-200 font-extrabold text-[15px]">המועדפים שלי</h3>
+                                                <span className="text-amber-300/60 text-xs">· שאלות ששמרת להמשך — לחיצה פותחת אותן</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {favorites.map(fav => (
+                                                    <div key={fav.key} className="group flex items-center gap-1 bg-slate-800/70 border border-amber-400/30 rounded-xl pr-3 pl-1 py-1.5 hover:border-amber-400/60 transition-colors">
+                                                        <button onClick={() => openFavorite(fav)} className="flex items-center gap-2 text-right max-w-[260px]">
+                                                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${fav.examType === 'homework' ? 'bg-green-500/15 text-green-300' : 'bg-blue-500/15 text-blue-300'}`}><TopicIcon title={fav.classTitle} size={14} /></span>
+                                                            <span className="text-slate-100 text-[13px] font-semibold truncate">{fav.title || `${fav.examTitle} · שאלה ${fav.qNum}`}</span>
+                                                        </button>
+                                                        <button onClick={() => setFavModal({ open: true, fav, title: fav.title || '' })} className="p-1 text-slate-500 hover:text-indigo-300 rounded-md transition-colors" title="עריכת כותרת"><Icon name="edit" size={13} /></button>
+                                                        <button onClick={() => removeFavorite(fav.key)} className="p-1 text-slate-500 hover:text-rose-300 rounded-md transition-colors" title="הסרה"><Icon name="x" size={13} /></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                     {filteredClasses.length === 0 ? (
                                         <div className="question-card p-10 text-center text-slate-400">{studentGrade ? `עדיין אין נושאים פתוחים לשכבה ${studentGrade}` : 'עדיין אין נושאים פתוחים'}</div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {[...filteredClasses].sort((a, b) => (isFavorite(b.id) ? 1 : 0) - (isFavorite(a.id) ? 1 : 0)).map((cls, ci) => {
+                                            {filteredClasses.map((cls, ci) => {
                                                 const visible = (cls.exams || []).filter(e => e.visible !== false);
                                                 const stat = topicStat(cls);
                                                 const pct = stat.total ? Math.round(stat.done / stat.total * 100) : 100;
@@ -7895,7 +8643,6 @@ ${answerText}
                                                         <div className="flex items-center justify-between mb-4">
                                                             <span className="w-11 h-11 rounded-xl bg-indigo-500/15 border border-indigo-400/25 flex items-center justify-center text-indigo-300"><TopicIcon title={cls.title} size={24} /></span>
                                                             <div className="flex items-center gap-1.5">
-                                                            <span onClick={(e) => { e.stopPropagation(); toggleFavorite(cls.id); }} className={`cursor-pointer p-1 rounded-lg transition-colors ${isFavorite(cls.id) ? 'text-amber-300' : 'text-slate-500 hover:text-amber-300'}`} title={isFavorite(cls.id) ? 'הסרה מהמועדפים' : 'סימון כמועדף / להמשך'}><Icon name={isFavorite(cls.id) ? 'starFill' : 'star'} size={18} /></span>
                                                             {stat.pending > 0 ? (
                                                                 <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold px-2.5 py-1 rounded-full bg-amber-500/14 text-amber-300 border border-amber-500/30">
                                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
@@ -8061,6 +8808,12 @@ ${answerText}
                                                                     ) : (
                                                                         <span className="text-gray-600">-</span>
                                                                     )}
+                                                                    {student.exitAttempts?.length > 0 && (
+                                                                        <button onClick={() => alert(`יציאות מהמבחן של ${student.studentName}:\n\n${student.exitAttempts.map((p, i) => `${i+1}. ${p.reason || 'יציאה'} — ${new Date(p.timestamp).toLocaleTimeString('he-IL')}`).join('\n')}`)} 
+                                                                            className="text-amber-400 hover:text-amber-300 font-bold mr-1" title="יציאות מהמבחן (חשד להעתקה)">
+                                                                            ↪{student.exitAttempts.length}
+                                                                        </button>
+                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         );
@@ -8115,6 +8868,28 @@ ${answerText}
                     {/* דף עזר / מילון מונחים */}
                     <Modal isOpen={cheatOpen} onClose={() => setCheatOpen(false)} title="דף עזר ומילון מונחים — Java" titleColor="text-indigo-300" wide>
                         <JavaCheatSheet />
+                    </Modal>
+
+                    {/* עריכת כותרת מועדף */}
+                    <Modal isOpen={favModal.open} onClose={() => setFavModal({ open: false, fav: null, title: '' })} title="הוספה למועדפים" titleColor="text-amber-300">
+                        <div className="p-5 space-y-4">
+                            <p className="text-slate-300 text-sm leading-relaxed">תני כותרת לשאלה הזו כדי שיהיה קל למצוא אותה אחר כך באזור "המועדפים שלי".</p>
+                            {favModal.fav && (
+                                <div className="text-xs text-slate-500 bg-slate-800/60 rounded-lg px-3 py-2">{favModal.fav.classTitle} · {favModal.fav.examTitle} · שאלה {favModal.fav.qNum}</div>
+                            )}
+                            <input
+                                value={favModal.title}
+                                onChange={e => setFavModal(m => ({ ...m, title: e.target.value }))}
+                                onKeyDown={e => { if (e.key === 'Enter' && favModal.title.trim()) { upsertFavorite({ ...favModal.fav, title: favModal.title.trim() }); setFavModal({ open: false, fav: null, title: '' }); } }}
+                                autoFocus
+                                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-amber-400 focus:outline-none"
+                                placeholder="כותרת אישית למועדף..."
+                            />
+                        </div>
+                        <div className="p-4 border-t border-slate-600 flex justify-end gap-2">
+                            <button onClick={() => setFavModal({ open: false, fav: null, title: '' })} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg">ביטול</button>
+                            <button onClick={() => { upsertFavorite({ ...favModal.fav, title: favModal.title.trim() || `${favModal.fav.examTitle} · שאלה ${favModal.fav.qNum}` }); setFavModal({ open: false, fav: null, title: '' }); }} className="px-6 py-2 bg-amber-500 text-slate-900 rounded-lg hover:bg-amber-400 font-bold">שמירה</button>
+                        </div>
                     </Modal>
 
                     {/* לוח בקרה כיתתי — למורה */}
@@ -8962,6 +9737,8 @@ ${answerText}
         const ExamForm = ({ item, onSave, onCancel }) => {
             const [title, setTitle] = useState(item?.title || '');
             const [type, setType] = useState(item?.type || 'exam');
+            const [duration, setDuration] = useState(item?.duration ? String(item.duration) : ''); // משך המבחן בדקות (ריק = ללא הגבלה)
+            const durationPresets = [30, 45, 60, 90, 120];
             return (
                 <>
                     <div className="p-4 space-y-4">
@@ -8985,10 +9762,25 @@ ${answerText}
                             <label className="block text-sm font-medium text-gray-300 mb-2">שם</label>
                             <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white" placeholder={type === 'exam' ? 'לדוגמה: מבחן מחצית' : 'לדוגמה: תרגיל 5 - לולאות'} autoFocus />
                         </div>
+                        {type === 'exam' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">משך המבחן לפתרון</label>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {durationPresets.map(m => (
+                                        <button key={m} type="button" onClick={() => setDuration(String(m))} className={`px-3.5 py-2 rounded-lg text-sm font-bold transition-all ${String(m) === duration ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'}`}>{m} דק׳</button>
+                                    ))}
+                                    <div className="flex items-center gap-1.5 bg-slate-700 rounded-lg px-2.5 py-1">
+                                        <input type="number" min="0" value={duration} onChange={e => setDuration(e.target.value)} className="w-16 bg-transparent text-white text-sm text-center focus:outline-none" placeholder="אחר" />
+                                        <span className="text-gray-400 text-xs">דק׳</span>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">התלמידה תראה שעון ספירה-לאחור; בתום הזמן המבחן יוגש אוטומטית. השאירי ריק — ללא הגבלת זמן.</p>
+                            </div>
+                        )}
                     </div>
                     <div className="p-4 border-t border-slate-600 flex justify-end gap-2">
                         <button onClick={onCancel} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg">ביטול</button>
-                        <button onClick={() => title.trim() && onSave({ title: title.trim(), type })} className="px-4 py-2 btn-primary text-white rounded-lg">{item ? 'שמור' : 'הוסף'}</button>
+                        <button onClick={() => title.trim() && onSave({ title: title.trim(), type, duration: type === 'exam' && parseInt(duration) > 0 ? parseInt(duration) : null })} className="px-4 py-2 btn-primary text-white rounded-lg">{item ? 'שמור' : 'הוסף'}</button>
                     </div>
                 </>
             );
@@ -9005,12 +9797,12 @@ ${answerText}
             const [dragOver, setDragOver] = useState(false);
             const fileInputRef = React.useRef(null);
 
-            // Handle file selection
+            // Handle file selection — עם דחיסה אוטומטית לשמירה בטוחה ב-Firestore
             const handleFileSelect = (file) => {
                 if (file && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setImageBase64(ev.target.result);
-                    reader.readAsDataURL(file);
+                    compressImage(file)
+                        .then(dataUrl => setImageBase64(dataUrl))
+                        .catch(err => alert(err.message === 'too-large' ? 'התמונה גדולה מדי גם לאחר דחיסה — נסי תמונה קטנה יותר.' : 'שגיאה בטעינת התמונה.'));
                 }
             };
 
