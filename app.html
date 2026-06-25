@@ -267,6 +267,37 @@
         .action-dropdown-item.danger { color: #f87171; }
         .action-dropdown-item.danger:hover { background: rgba(239, 68, 68, 0.15); }
         .action-dropdown-divider { height: 1px; background: #1E293B; margin: 2px 0; }
+        /* Richer admin dropdown: section headers + wider menu */
+        .admin-menu { min-width: 248px; max-width: 90vw; padding: 5px; }
+        .action-dropdown-header { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; color: #64748B; padding: 9px 10px 4px; text-transform: none; }
+        .admin-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; font-size: 13.5px; font-weight: 600; color: #CBD5E1; cursor: pointer; border: none; background: none; border-radius: 8px; transition: background .15s, color .15s; text-align: right; }
+        .admin-item:hover { background: rgba(99,102,241,0.16); color: #fff; }
+        .admin-item.danger { color: #F87171; }
+        .admin-item.danger:hover { background: rgba(239,68,68,0.15); }
+        .admin-item .ai-ico { flex-shrink: 0; display: flex; }
+        .admin-item .ai-badge { margin-inline-start: auto; background: #F59E0B; color: #1e293b; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 1px 8px; }
+        /* Segmented control — professional mode/scope switcher */
+        .seg-control { display: inline-flex; align-items: center; gap: 2px; background: rgba(15,23,42,0.7); border: 1px solid rgba(148,163,184,0.22); border-radius: 10px; padding: 3px; }
+        .seg-control button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border: none; background: none; cursor: pointer; border-radius: 7px; font-size: 12.5px; font-weight: 700; color: #94A3B8; white-space: nowrap; transition: all .15s; font-family: inherit; }
+        .seg-control button:hover { color: #E2E8F0; }
+        .seg-control button.active { color: #fff; }
+        .seg-control button.active.seg-edit { background: #2563EB; }
+        .seg-control button.active.seg-preview { background: #DB2777; }
+        .seg-control button.active.seg-manage { background: #4F46E5; }
+        .seg-control button.active.seg-grade { background: #4F46E5; }
+        .icon-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgba(148,163,184,0.22); background: rgba(15,23,42,0.7); color: #CBD5E1; cursor: pointer; transition: all .15s; }
+        .icon-btn:hover { background: rgba(99,102,241,0.18); color: #fff; }
+        .icon-btn .notif-badge { position: absolute; top: -5px; left: -5px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: #F59E0B; color: #1e293b; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; border: 2px solid #0f1320; }
+        /* Floating AI assistant launcher (Intercom-style) */
+        .ai-fab { position: fixed; bottom: 24px; left: 24px; z-index: 70; display: inline-flex; align-items: center; gap: 0; height: 58px; padding: 0; border: none; cursor: pointer; border-radius: 999px; background: linear-gradient(135deg,#7C3AED,#4F46E5); color: #fff; box-shadow: 0 10px 30px rgba(99,102,241,0.5); overflow: hidden; max-width: 58px; transition: max-width .35s cubic-bezier(.4,0,.2,1), box-shadow .2s; font-family: inherit; }
+        .ai-fab:hover { max-width: 230px; box-shadow: 0 12px 36px rgba(124,58,237,0.65); }
+        .ai-fab .ai-fab-ico { width: 58px; height: 58px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .ai-fab .ai-fab-label { white-space: nowrap; font-weight: 800; font-size: 15px; padding-inline-end: 22px; opacity: 0; transition: opacity .25s; }
+        .ai-fab:hover .ai-fab-label { opacity: 1; }
+        .ai-fab::before { content: ''; position: absolute; inset: 0; border-radius: 999px; box-shadow: 0 0 0 0 rgba(124,58,237,0.5); animation: aiPulse 2.6s ease-out infinite; }
+        @keyframes aiPulse { 0% { box-shadow: 0 0 0 0 rgba(124,58,237,0.5); } 70% { box-shadow: 0 0 0 16px rgba(124,58,237,0); } 100% { box-shadow: 0 0 0 0 rgba(124,58,237,0); } }
+        @media (prefers-reduced-motion: reduce) { .ai-fab::before { animation: none; } }
+        @media (max-width: 640px) { .ai-fab { bottom: 18px; left: 18px; height: 54px; max-width: 54px; } .ai-fab .ai-fab-ico { width: 54px; height: 54px; } }
         .paste-zone { border: 2px dashed #334155; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
         .paste-zone:hover, .paste-zone.drag-over { border-color: #6366F1; background: rgba(99, 102, 241, 0.1); }
         .paste-zone.has-image { border-style: solid; border-color: #22c55e; }
@@ -606,6 +637,31 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             );
         };
 
+        // GradeCell — תא ציון נערך בדוח המפורט (מאפשר הזנת ציון ידני)
+        const GradeCell = ({ value, saving, onSave }) => {
+            const [editing, setEditing] = React.useState(false);
+            const [draft, setDraft] = React.useState('');
+            React.useEffect(() => { if (!editing) setDraft(value === null || value === undefined ? '' : String(value)); }, [value, editing]);
+            const commit = () => { setEditing(false); if (draft !== (value === null || value === undefined ? '' : String(value))) onSave(draft); };
+            const color = value === null || value === undefined ? 'text-slate-600'
+                : value >= 90 ? 'text-green-400' : value >= 70 ? 'text-blue-300' : value >= 55 ? 'text-yellow-300' : 'text-red-400';
+            if (editing) {
+                return (
+                    <input type="number" min="0" max="100" autoFocus value={draft}
+                        onChange={e => setDraft(e.target.value)}
+                        onBlur={commit}
+                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { setDraft(''); setEditing(false); } }}
+                        className="w-14 px-1 py-1 bg-slate-900 border border-indigo-400 rounded-md text-white text-center text-sm focus:outline-none" />
+                );
+            }
+            return (
+                <button onClick={() => setEditing(true)} title="לחצי להזנה/עריכת ציון"
+                    className={`min-w-[44px] px-2 py-1 rounded-md text-sm font-bold hover:bg-slate-700/60 transition-colors ${color}`}>
+                    {saving ? '…' : (value === null || value === undefined ? '—' : value)}
+                </button>
+            );
+        };
+
         // AnimatedName — colorful moving letters that settle into a fixed gradient after a few seconds
         const AnimatedName = ({ name }) => {
             const [moving, setMoving] = React.useState(true);
@@ -643,7 +699,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
         };
 
         // ActionMenu - dropdown menu for item actions (replaces inline icon buttons)
-        const ActionMenu = ({ items, trigger }) => {
+        const ActionMenu = ({ items, trigger, menuClass, itemClass, align }) => {
             const [open, setOpen] = React.useState(false);
             const menuRef = React.useRef(null);
 
@@ -658,17 +714,20 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
 
             return (
                 <div className="action-dropdown" ref={menuRef}>
-                    <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="p-1 hover:bg-slate-600 rounded text-gray-400 hover:text-white transition-colors">
+                    <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className={trigger ? '' : 'p-1 hover:bg-slate-600 rounded text-gray-400 hover:text-white transition-colors'}>
                         {trigger || <Icon name="moreVert" size={16} />}
                     </button>
                     {open && (
-                        <div className="action-dropdown-menu">
+                        <div className={`action-dropdown-menu ${menuClass || ''}`} style={align === 'right' ? { left: 'auto', right: 0 } : undefined}>
                             {items.map((item, i) => item.divider ? (
                                 <div key={i} className="action-dropdown-divider" />
+                            ) : item.header ? (
+                                <div key={i} className="action-dropdown-header">{item.header}</div>
                             ) : (
-                                <button key={i} className={`action-dropdown-item ${item.danger ? 'danger' : ''}`} onClick={(e) => { e.stopPropagation(); setOpen(false); item.onClick(); }}>
-                                    {item.icon && <span className={item.danger ? 'text-red-400' : item.color || 'text-gray-400'}>{item.icon}</span>}
-                                    {item.label}
+                                <button key={i} className={`${itemClass || 'action-dropdown-item'} ${item.danger ? 'danger' : ''}`} onClick={(e) => { e.stopPropagation(); setOpen(false); item.onClick(); }}>
+                                    {item.icon && <span className={`ai-ico ${item.danger ? 'text-red-400' : item.color || 'text-indigo-300'}`}>{item.icon}</span>}
+                                    <span>{item.label}</span>
+                                    {item.badge ? <span className="ai-badge">{item.badge}</span> : null}
                                 </button>
                             ))}
                         </div>
@@ -906,17 +965,22 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                         const studentDoc = await hwDoc.ref.collection('students').doc(safeEmail).get();
                         if (studentDoc.exists) {
                             const data = studentDoc.data();
-                            // Calculate homework score from AI feedback
-                            let totalScore = 0;
-                            let totalMax = 0;
-                            Object.values(data.answers || {}).forEach(ans => {
-                                if (ans.aiFeedback?.aiScore !== undefined) {
-                                    totalScore += ans.aiFeedback.aiScore;
-                                    totalMax += ans.aiFeedback.maxPoints || 100;
+                            // ציון ידני / סופי גובר על חישוב ה-AI
+                            if ((data.sentToStudent || data.manualGrade) && data.finalGrade !== undefined && data.finalGrade !== null) {
+                                homeworks.push({ examId: hwDoc.id, grade: data.finalGrade });
+                            } else {
+                                // Calculate homework score from AI feedback
+                                let totalScore = 0;
+                                let totalMax = 0;
+                                Object.values(data.answers || {}).forEach(ans => {
+                                    if (ans.aiFeedback?.aiScore !== undefined) {
+                                        totalScore += ans.aiFeedback.aiScore;
+                                        totalMax += ans.aiFeedback.maxPoints || 100;
+                                    }
+                                });
+                                if (totalMax > 0) {
+                                    homeworks.push({ examId: hwDoc.id, grade: Math.round((totalScore / totalMax) * 100) });
                                 }
-                            });
-                            if (totalMax > 0) {
-                                homeworks.push({ examId: hwDoc.id, grade: Math.round((totalScore / totalMax) * 100) });
                             }
                         }
                     }
@@ -950,6 +1014,36 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     console.error('❌ Save class error:', e.code, e.message);
                     return false;
                 }
+            },
+
+            // ===== התראות לתלמידות על עבודה/מבחן חדש =====
+            // נשמרות באוסף notifications לפי שכבה. ניתנות למחיקה ע"י המורה (לא נשארות בזיכרון לנצח).
+            async addNotification({ grade, classId, classTitle, examId, examTitle, examType }) {
+                if (!db) return false;
+                try {
+                    const id = 'ntf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+                    await db.collection('notifications').doc(id).set({
+                        id, grade: grade || 'הכל',
+                        classId: classId || '', classTitle: classTitle || '',
+                        examId: examId || '', examTitle: examTitle || '',
+                        examType: examType || 'exam', createdAt: Date.now(),
+                    });
+                    return true;
+                } catch (e) { console.error('addNotification error:', e); return false; }
+            },
+            async loadNotifications() {
+                if (!db) return [];
+                try {
+                    const snap = await db.collection('notifications').get();
+                    const arr = [];
+                    snap.forEach(d => arr.push(d.data()));
+                    return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                } catch (e) { console.error('loadNotifications error:', e); return []; }
+            },
+            async deleteNotification(id) {
+                if (!db) return false;
+                try { await db.collection('notifications').doc(id).delete(); return true; }
+                catch (e) { console.error('deleteNotification error:', e); return false; }
             },
 
             async deleteClass(classId) {
@@ -1232,6 +1326,40 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     }
                 } catch (e) { console.error('Send to student error:', e); }
                 return false;
+            },
+
+            // שמירת ציון ידני למבחן/עבודה (למשל מבחן שנעשה על נייר בכיתה).
+            // נשמר על מסמך התשובה עם finalGrade + הסימון manualGrade, כך שייכנס לדוח הציונים.
+            async saveManualGrade(examId, examType, email, studentName, grade, note) {
+                const safeEmail = email.replace(/[.@]/g, '_');
+                const collection = this.getResponseCollection(examType);
+                if (!db) return false;
+                try {
+                    const ref = db.collection(collection).doc(examId).collection('students').doc(safeEmail);
+                    const doc = await ref.get();
+                    const existing = doc.exists ? doc.data() : {};
+                    if (grade === null || grade === undefined || grade === '') {
+                        // מחיקת ציון ידני בלבד (לא נוגעים בהגשה אמיתית של תלמידה)
+                        await ref.set({
+                            email, studentName, examType,
+                            finalGrade: firebase.firestore.FieldValue.delete(),
+                            manualGrade: firebase.firestore.FieldValue.delete(),
+                            manualNote: firebase.firestore.FieldValue.delete(),
+                            sentToStudent: existing.submitted ? (existing.sentToStudent || false) : false,
+                        }, { merge: true });
+                        return true;
+                    }
+                    await ref.set({
+                        email, studentName, examType,
+                        finalGrade: grade,
+                        manualGrade: true,
+                        manualNote: note || '',
+                        sentToStudent: true,            // הציון הידני גלוי לתלמידה
+                        submitted: existing.submitted || false,
+                        gradedAt: new Date().toISOString(),
+                    }, { merge: true });
+                    return true;
+                } catch (e) { console.error('Save manual grade error:', e); return false; }
             },
 
             async clearAllResponses(examId, examType) {
@@ -6168,6 +6296,7 @@ a.setGrade(100);   // משנה רק את נעמה
             const [lessonModal, setLessonModal] = useState({ open: false, classId: null, title: '' });
             const [examModal, setExamModal] = useState({ open: false, classId: null, item: null });
             const [questionModal, setQuestionModal] = useState({ open: false, classId: null, examId: null, item: null, index: null });
+            const [quickAddOpen, setQuickAddOpen] = useState(false); // אשף הוספה מהירה (כפתור + ראשי)
             const [deleteModal, setDeleteModal] = useState({ open: false, type: '', id: '', name: '', parentId: '', index: null });
             const [clearModal, setClearModal] = useState({ open: false, examId: '', examTitle: '', examType: 'exam', studentCount: 0 });
             const [showSummary, setShowSummary] = useState(false);
@@ -6204,6 +6333,10 @@ a.setGrade(100);   // משנה רק את נעמה
             const [studentsReportModal, setStudentsReportModal] = useState(false); // Teacher report modal
             const [studentsReportData, setStudentsReportData] = useState([]); // Students data for report
             const [reportGradeFilter, setReportGradeFilter] = useState('הכל'); // סינון הדוח לפי שכבה
+            const [reportView, setReportView] = useState('summary'); // 'summary' | 'detailed'
+            const [detailedReport, setDetailedReport] = useState(null); // גרeditbook מפורט לפי נושא
+            const [loadingDetailed, setLoadingDetailed] = useState(false);
+            const [savingCell, setSavingCell] = useState(null); // מפתח התא שנשמר כרגע
             const [teacherGradeFilter, setTeacherGradeFilter] = useState('הכל'); // מצב מנהל: מעבר בין שכבות
             const [loadingReport, setLoadingReport] = useState(false); // Loading report data
             const [yearClearModal, setYearClearModal] = useState(false); // End of year clear modal
@@ -6252,7 +6385,36 @@ a.setGrade(100);   // משנה רק את נעמה
                 window.scrollTo({ top: 0 });
             };
 
-            // Auth effect - reset all state when user changes
+            // ===== התראות על עבודה/מבחן חדש (סגנון: כרטיס עשיר) =====
+            const [notifs, setNotifs] = useState([]);          // התראות שטרם נסגרו ע"י התלמידה
+            const notifSeenKey = user ? 'java_notif_seen_' + user.email : null;
+            const getSeenNotifs = () => { try { return JSON.parse(localStorage.getItem(notifSeenKey) || '[]'); } catch (_) { return []; } };
+            // טעינת התראות לשכבת התלמידה (מתעלם מאלו שכבר נסגרו)
+            const loadStudentNotifs = async () => {
+                if (isEditor || !studentGrade || !notifSeenKey) { setNotifs([]); return; }
+                const all = await DataService.loadNotifications();
+                const seen = getSeenNotifs();
+                setNotifs(all.filter(n => (n.grade === studentGrade || n.grade === 'הכל') && !seen.includes(n.id)));
+            };
+            useEffect(() => { loadStudentNotifs(); /* eslint-disable-next-line */ }, [isEditor, studentGrade, user]);
+            // סגירת התראה — נרשמת מקומית כ"נראתה" ולא תופיע שוב
+            const dismissNotif = (id) => {
+                if (notifSeenKey) { try { localStorage.setItem(notifSeenKey, JSON.stringify([...getSeenNotifs(), id])); } catch (_) {} }
+                setNotifs(prev => prev.filter(n => n.id !== id));
+            };
+            // "מעבר" — מנווט בדיוק לעבודה/מבחן החדש ולשאלה הראשונה (המקום שבו עונים)
+            const goToNotif = (n) => {
+                const cls = classes.find(c => c.id === n.classId);
+                const exam = cls && (cls.exams || []).find(e => e.id === n.examId);
+                dismissNotif(n.id);
+                if (!cls || !exam) { alert('הפריט אינו זמין יותר'); return; }
+                const firstQ = (exam.questions && exam.questions.length) ? exam.questions[0].number : null;
+                setSelectedClass(cls.id);
+                setSelectedExam(exam);
+                setSelectedQuestion(firstQ);
+                setMobileSidebarOpen(false);
+                window.scrollTo({ top: 0 });
+            };
             useEffect(() => {
                 if (!auth) { setAuthLoading(false); return; }
                 return auth.onAuthStateChanged(u => {
@@ -6579,6 +6741,16 @@ a.setGrade(100);   // משנה רק את נעמה
                 if (c) await DataService.saveClass(c);
                 setClasses(newClasses);
             };
+            // העברת נושא בודד לארכיון (מהתפריט של הנושא עצמו)
+            const [archiveOneModal, setArchiveOneModal] = useState({ open: false, cls: null });
+            const archiveOneClass = async (cls) => {
+                const newClasses = classes.map(c => c.id === cls.id ? { ...c, archived: true, archiveName: c.archiveName || cls.title, archiveYear: c.archiveYear || '' } : c);
+                const updated = newClasses.find(c => c.id === cls.id);
+                await DataService.saveClass(updated);
+                setClasses(newClasses);
+                if (selectedClass === cls.id) { setSelectedClass(null); setSelectedExam(null); setSelectedQuestion(null); }
+                setArchiveOneModal({ open: false, cls: null });
+            };
 
             // Save exam
             const saveExam = async (data) => {
@@ -6605,6 +6777,15 @@ a.setGrade(100);   // משנה רק את נעמה
                     const newExam = { id: 'exam_' + Date.now(), ...data, questions: [], visible: true, type: data.type || 'exam' };
                     console.log('➕ Creating new exam:', newExam);
                     newClasses[classIdx].exams.push(newExam);
+                    // התראה לתלמידות בשכבה המתאימה על עבודה/מבחן חדש
+                    DataService.addNotification({
+                        grade: newClasses[classIdx].grade || 'הכל',
+                        classId: newClasses[classIdx].id,
+                        classTitle: newClasses[classIdx].title,
+                        examId: newExam.id,
+                        examTitle: newExam.title,
+                        examType: newExam.type,
+                    });
                 }
                 
                 console.log('💾 Saving to Firebase...');
@@ -6655,6 +6836,57 @@ a.setGrade(100);   // משנה רק את נעמה
                 }
 
                 setQuestionModal({ open: false, classId: null, examId: null, item: null, index: null });
+            };
+
+            // ===== הוספה מהירה (אשף כפתור + הראשי): יוצר עבודה/מבחן בנושא נבחר עם שאלות ותמונות =====
+            const saveQuickAdd = async (payload) => {
+                const { classId, type, title, duration, questions } = payload;
+                const newClasses = [...classes];
+                const classIdx = newClasses.findIndex(c => c.id === classId);
+                if (classIdx < 0) return false;
+                if (!newClasses[classIdx].exams) newClasses[classIdx].exams = [];
+
+                const examId = 'exam_' + Date.now();
+                const examQuestions = questions.map((q, i) => ({
+                    number: i + 1,
+                    title: q.title || '',
+                    points: q.points || '10',
+                    questionType: 'code',
+                }));
+                const newExam = {
+                    id: examId,
+                    title: title.trim(),
+                    type: type || 'exam',
+                    duration: type === 'exam' && parseInt(duration) > 0 ? parseInt(duration) : null,
+                    visible: true,
+                    questions: examQuestions,
+                };
+                newClasses[classIdx].exams.push(newExam);
+
+                // שמירת תוכן כל שאלה (הוראות + תמונה) במזהה התואם לתצוגה: ${examId}_q_${number}
+                for (let i = 0; i < questions.length; i++) {
+                    const q = questions[i];
+                    if (q.instructions || q.imageBase64) {
+                        const qId = `${examId}_q_${i + 1}`;
+                        const content = { instructions: q.instructions || '', imageBase64: q.imageBase64 || '' };
+                        await DataService.saveQuestionContent(qId, content);
+                        setQuestionContent(prev => ({ ...prev, [qId]: content }));
+                    }
+                }
+
+                const saved = await DataService.saveClass(newClasses[classIdx]);
+                if (saved) {
+                    setClasses(newClasses);
+                    // התראה לתלמידות בשכבה על העבודה/מבחן החדש
+                    DataService.addNotification({
+                        grade: newClasses[classIdx].grade || 'הכל',
+                        classId: newClasses[classIdx].id,
+                        classTitle: newClasses[classIdx].title,
+                        examId, examTitle: newExam.title, examType: newExam.type,
+                    });
+                    return true;
+                }
+                return false;
             };
 
             // Delete handler
@@ -6879,6 +7111,65 @@ a.setGrade(100);   // משנה רק את נעמה
                 setLoadingReport(false);
             };
 
+            // מחזיר את הציון של תשובה בודדת (ציון סופי/ידני, או חישוב AI לעבודה), או null אם אין
+            const responseGrade = (data, examType) => {
+                if (!data) return null;
+                if ((data.sentToStudent || data.manualGrade) && data.finalGrade !== undefined && data.finalGrade !== null) return data.finalGrade;
+                if (examType === 'homework') {
+                    let s = 0, max = 0;
+                    Object.values(data.answers || {}).forEach(ans => {
+                        if (ans.aiFeedback?.aiScore !== undefined) { s += ans.aiFeedback.aiScore; max += ans.aiFeedback.maxPoints || 100; }
+                    });
+                    if (max > 0) return Math.round((s / max) * 100);
+                }
+                return null;
+            };
+
+            // בניית הדוח המפורט: לכל נושא, טבלת ציונים של תלמידות × מבחנים/עבודות
+            const buildDetailedReport = async () => {
+                setLoadingDetailed(true);
+                const activeClasses = classes.filter(c => !c.archived);
+                const topics = [];
+                for (const cls of activeClasses) {
+                    const exams = (cls.exams || []);
+                    if (exams.length === 0) continue;
+                    const examData = [];
+                    for (const ex of exams) {
+                        const responses = await DataService.loadAllResponses(ex.id, ex.type || 'exam');
+                        const grades = {};
+                        responses.forEach(r => { grades[r.email] = responseGrade(r, ex.type || 'exam'); });
+                        examData.push({ examId: ex.id, title: ex.title, type: ex.type || 'exam', grades });
+                    }
+                    topics.push({ classId: cls.id, title: cls.title, grade: cls.grade, exams: examData });
+                }
+                setDetailedReport(topics);
+                setLoadingDetailed(false);
+            };
+
+            // מעבר לתצוגה המפורטת — טוען נתונים אם צריך
+            const showDetailedReport = () => {
+                setReportView('detailed');
+                if (!detailedReport) buildDetailedReport();
+            };
+
+            // שמירת ציון ידני מתוך הדוח המפורט + עדכון מקומי מיידי
+            const handleManualGrade = async (examId, examType, student, raw) => {
+                const cellKey = `${examId}_${student.email}`;
+                let val = null;
+                if (raw !== '' && raw !== null && raw !== undefined) {
+                    const n = parseInt(raw, 10);
+                    if (isNaN(n)) return;
+                    val = Math.max(0, Math.min(100, n));
+                }
+                setSavingCell(cellKey);
+                await DataService.saveManualGrade(examId, examType, student.email, student.name || '', val, '');
+                setDetailedReport(prev => prev ? prev.map(t => ({
+                    ...t,
+                    exams: t.exams.map(e => e.examId === examId ? { ...e, grades: { ...e.grades, [student.email]: val } } : e)
+                })) : prev);
+                setSavingCell(null);
+            };
+
             // לוח בקרה כיתתי — אוסף סטטיסטיקה לכל נושא ולכל מבחן/עבודה (מורה)
             const openDashboard = async () => {
                 setDashOpen(true);
@@ -7092,6 +7383,21 @@ a.setGrade(100);   // משנה רק את נעמה
                             </div>
                         </div>
                     )}
+                    {/* כפתור + ראשי למורה — הוספה מהירה של עבודה/מבחן לכל נושא */}
+                    {isEditor && !previewMode && !quickAddOpen && (
+                        <button onClick={() => setQuickAddOpen(true)} title="הוספת עבודה או מבחן"
+                            style={{ position: 'fixed', bottom: 24, left: 24, zIndex: 70, width: 60, height: 60, borderRadius: '50%', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: '#fff', boxShadow: '0 8px 26px rgba(99,102,241,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            className="quick-fab">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                        </button>
+                    )}
+                    {quickAddOpen && (
+                        <QuickAddWizard
+                            classes={classes.filter(c => !c.archived)}
+                            onClose={() => setQuickAddOpen(false)}
+                            onSave={saveQuickAdd}
+                        />
+                    )}
                     {/* ===== מצב מבחן נעול: שער כניסה, הודעה צפה, ומסך אזהרה ===== */}
                     {examLockActive && examLockStarted !== selectedExam?.id && (
                         <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(8,11,22,0.92)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} data-screen-label="שער מצב מבחן">
@@ -7162,10 +7468,12 @@ a.setGrade(100);   // משנה רק את נעמה
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 md:gap-3">
-                                {/* דף עזר / מילון מונחים — לכולן */}
-                                <button onClick={() => setCheatOpen(true)} className="px-2.5 md:px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5 bg-slate-700/70 text-slate-200 hover:bg-slate-700 border border-slate-600/60" title="דף עזר ומילון מונחים ל-Java">
-                                    <Icon name="book" size={14} /> <span className="hidden sm:inline">דף עזר</span>
-                                </button>
+                                {/* דף עזר / מילון מונחים — לתלמידות (למורה זה בתפריט הניהול) */}
+                                {!isEditor && (
+                                    <button onClick={() => setCheatOpen(true)} className="px-2.5 md:px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5 bg-slate-700/70 text-slate-200 hover:bg-slate-700 border border-slate-600/60" title="דף עזר ומילון מונחים ל-Java">
+                                        <Icon name="book" size={14} /> <span className="hidden sm:inline">דף עזר</span>
+                                    </button>
+                                )}
                                 {/* Student name badge */}
                                 {!isEditor && studentName && (
                                     <button onClick={() => setNameEditModal(true)} className={`px-3 py-1.5 rounded-full text-sm flex items-center gap-2 ${isSubmitted ? 'bg-purple-600' : 'bg-green-600'} hover:opacity-80`}>
@@ -7197,58 +7505,70 @@ a.setGrade(100);   // משנה רק את נעמה
                                         <button onClick={() => setViewingStudent(null)} className="hover:bg-yellow-700 rounded p-0.5"><Icon name="x" size={14} /></button>
                                     </div>
                                 )}
-                                
-                                {/* Preview mode indicator */}
-                                {isEditor && previewMode && (
-                                    <div className="px-3 py-1.5 rounded-full text-sm flex items-center gap-2 bg-pink-600 animate-pulse">
-                                        <Icon name="eye" size={14} />
-                                        מצב תצוגה מקדימה (כתלמידה)
-                                    </div>
-                                )}
-                                
-                                {isEditor && (
+
+                                {isEditor && !viewingStudent && (
                                     <>
-                                        {/* לוח בקרה כיתתי */}
-                                        <button onClick={openDashboard} className="px-2.5 md:px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5 bg-indigo-600/20 text-indigo-200 border border-indigo-500/40 hover:bg-indigo-600/35" title="לוח בקרה — סטטיסטיקת כיתה">
-                                            <Icon name="chart" size={14} /> <span className="hidden md:inline">לוח בקרה</span>
-                                        </button>
-                                        {/* Preview mode toggle */}
-                                        <button onClick={() => { 
-                                            setPreviewMode(!previewMode); 
-                                            setViewingStudent(null);
-                                            setEditMode(false);
-                                            if (!previewMode) {
-                                                // Entering preview mode - reset preview answers
-                                                setPreviewAnswers({});
-                                            }
-                                        }} className={`px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5 ${previewMode ? 'bg-pink-600 text-white' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'}`}>
-                                            <Icon name="eye" size={14} /> {previewMode ? 'יציאה מתצוגה' : 'תצוגה מקדימה'}
-                                        </button>
-                                        
-                                        {/* Edit mode toggle - only when not in preview */}
+                                        {/* Mode segmented control — ניהול / עריכה / תצוגה כתלמידה */}
+                                        <div className="seg-control hidden sm:inline-flex" title="מצב עבודה">
+                                            <button onClick={() => { setPreviewMode(false); setEditMode(false); setViewingStudent(null); }}
+                                                className={`seg-manage ${!editMode && !previewMode ? 'active' : ''}`}><Icon name="clipboard" size={13} /> ניהול</button>
+                                            <button onClick={() => { setPreviewMode(false); setEditMode(true); setViewingStudent(null); }}
+                                                className={`seg-edit ${editMode && !previewMode ? 'active' : ''}`}><Icon name="edit" size={13} /> עריכה</button>
+                                            <button onClick={() => { setEditMode(false); setViewingStudent(null); setPreviewMode(true); setPreviewAnswers({}); }}
+                                                className={`seg-preview ${previewMode ? 'active' : ''}`}><Icon name="eye" size={13} /> כתלמידה</button>
+                                        </div>
+
+                                        {/* Grade scope segmented control */}
                                         {!previewMode && (
-                                            <button onClick={() => setEditMode(!editMode)} className={`px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5 ${editMode ? 'bg-blue-600 text-white' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'}`}>
-                                                <Icon name="edit" size={14} /> {editMode ? 'מצב עריכה' : 'עריכה'}
+                                            <div className="seg-control" title="מעבר בין שכבות">
+                                                {['הכל', 'יא', 'יב'].map(g => (
+                                                    <button key={g} onClick={() => { setTeacherGradeFilter(g); setSelectedExam(null); setSelectedQuestion(null); setViewingStudent(null); }}
+                                                        className={`seg-grade ${teacherGradeFilter === g ? 'active' : ''}`}>
+                                                        {g === 'הכל' ? 'כל השכבות' : 'כיתה ' + g}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Notifications — pending approvals */}
+                                        {!previewMode && (
+                                            <button onClick={() => setApprovalsModal(true)} className="icon-btn" title={pendingStudents.length > 0 ? `${pendingStudents.length} תלמידות ממתינות לאישור` : 'אין בקשות אישור'}>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                                                {pendingStudents.length > 0 && <span className="notif-badge">{pendingStudents.length}</span>}
                                             </button>
+                                        )}
+
+                                        {/* Admin "ניהול" menu — grouped, hierarchical */}
+                                        {!previewMode && (
+                                            <ActionMenu
+                                                menuClass="admin-menu"
+                                                itemClass="admin-item"
+                                                align="right"
+                                                trigger={<span className="icon-btn" title="תפריט ניהול"><Icon name="settings" size={19} /></span>}
+                                                items={[
+                                                    { header: 'תוכן ולמידה' },
+                                                    { icon: <Icon name="plus" size={16} />, label: 'הוספת עבודה / מבחן', color: 'text-emerald-300', onClick: () => setQuickAddOpen(true) },
+                                                    { icon: <Icon name="chart" size={16} />, label: 'לוח בקרה כיתתי', color: 'text-indigo-300', onClick: openDashboard },
+                                                    ...(LEARN_LIBRARY.some(t => !classes.some(c => (c.title || '').trim() === t.title.trim())) ? [{ icon: <Icon name="book" size={16} />, label: 'יצירת נושאי לימוד מובנים', color: 'text-teal-300', onClick: () => setSeedModal({ open: true }) }] : []),
+                                                    { icon: <Icon name="book" size={16} />, label: 'דף עזר ומילון מונחים', color: 'text-sky-300', onClick: () => setCheatOpen(true) },
+                                                    { header: 'תלמידות וציונים' },
+                                                    { icon: <Icon name="chart" size={16} />, label: 'דוח ציונים', color: 'text-purple-300', onClick: openStudentsReport },
+                                                    { icon: <Icon name="users" size={16} />, label: 'אישור תלמידות חדשות', color: 'text-amber-300', badge: pendingStudents.length > 0 ? pendingStudents.length : null, onClick: () => setApprovalsModal(true) },
+                                                    { icon: <Icon name="arrowLeft" size={16} />, label: 'העלאת שכבה (יא ← יב)', color: 'text-cyan-300', onClick: () => setPromoteModal({ open: true }) },
+                                                    { header: 'מערכת' },
+                                                    { icon: <Icon name="folder" size={16} />, label: 'ארכיון שכבות', color: 'text-slate-300', onClick: () => setArchiveModal(true) },
+                                                    { divider: true },
+                                                    { icon: <Icon name="eraser" size={16} />, label: 'ניקוי סוף שנה', danger: true, onClick: () => setYearClearModal(true) },
+                                                ]}
+                                            />
                                         )}
                                     </>
                                 )}
-                                {isEditor && !previewMode && (
-                                    <div className="hidden md:flex gap-1 bg-slate-800/80 border border-slate-600/60 rounded-full p-1" title="מצב מנהל — מעבר בין שכבות">
-                                        {['הכל', 'יא', 'יב'].map(g => (
-                                            <button key={g} onClick={() => { setTeacherGradeFilter(g); setSelectedExam(null); setSelectedQuestion(null); setViewingStudent(null); }}
-                                                className={`px-3 py-1 rounded-full text-[13px] font-bold transition-all whitespace-nowrap ${teacherGradeFilter === g ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                                                {g === 'הכל' ? 'כל השכבות' : 'כיתה ' + g}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                                {isEditor && !previewMode && pendingStudents.length > 0 && (
-                                    <button onClick={() => setApprovalsModal(true)} className="px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5 bg-amber-500 text-slate-900 font-bold hover:bg-amber-400 animate-pulse">
-                                        ⏳ {pendingStudents.length} ממתינות לאישור
+                                {isEditor && previewMode && (
+                                    <button onClick={() => { setPreviewMode(false); setPreviewAnswers({}); }} className="px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5 bg-pink-600 text-white font-bold animate-pulse">
+                                        <Icon name="eye" size={14} /> יציאה מתצוגת תלמידה
                                     </button>
                                 )}
-                                {isEditor && <button onClick={() => setSettingsModal(true)} className="p-2 hover:bg-slate-700 rounded-lg text-gray-400"><Icon name="settings" size={20} /></button>}
                                 <img src={user.photoURL} className="w-8 h-8 rounded-full" />
                                 <button onClick={() => auth.signOut()} className="p-2 hover:bg-slate-700 rounded-lg text-gray-400"><Icon name="logout" size={18} /></button>
                             </div>
@@ -7469,6 +7789,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                                         { icon: <Icon name="book" size={14} />, label: 'עמוד הקורס', color: 'text-indigo-300', onClick: () => { setSelectedClass(cls.id); setSelectedExam(null); setSelectedQuestion(null); setPreviewMode(true); } },
                                                         { icon: <Icon name="edit" size={14} />, label: 'עריכת שם/אייקון', color: 'text-yellow-400', onClick: () => setClassModal({ open: true, item: cls }) },
                                                         { divider: true },
+                                                        { icon: <Icon name="folder" size={14} />, label: 'העברת הנושא לארכיון', color: 'text-amber-300', onClick: () => setArchiveOneModal({ open: true, cls }) },
                                                         { icon: <Icon name="trash" size={14} />, label: 'מחיקה', danger: true, onClick: () => setDeleteModal({ open: true, type: 'class', id: cls.id, name: cls.title }) },
                                                     ]} />
                                                 </div>
@@ -8539,13 +8860,7 @@ ${answerText}
                                                 <p className="text-slate-400 text-sm">לומדות את הנושא, ואז מתרגלות — התשובות נשמרות אוטומטית</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                            {!isEditor && (
-                                                <button onClick={() => setLearnChatOpen(true)} className="px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90" title="עזרה מ-AI על החומר">
-                                                    🤖 <span className="hidden sm:inline">שאל את ה-AI</span>
-                                                </button>
-                                            )}
-                                        </div>
+                                        <div className="flex items-center gap-2 flex-shrink-0"></div>
                                     </div>
                                     <div className="mt-7">
                                         <TopicLearnSection topicTitle={selectedClassObj.title} customLesson={selectedClassObj.lesson} editable={isEditor} onEdit={() => setLessonModal({ open: true, classId: selectedClassObj.id, title: selectedClassObj.title })} />
@@ -9137,25 +9452,104 @@ ${answerText}
                         <ArchiveManager classes={classes} onArchive={archiveClasses} onRestore={restoreClass} onClose={() => setArchiveModal(false)} />
                     </Modal>
 
+                    {/* Archive a single topic — confirm */}
+                    <Modal isOpen={archiveOneModal.open} onClose={() => setArchiveOneModal({ open: false, cls: null })} title="העברת נושא לארכיון" titleColor="text-amber-300">
+                        <div className="p-5 space-y-4">
+                            <p className="text-slate-300 text-sm leading-relaxed" style={{ textWrap: 'pretty' }}>
+                                להעביר את הנושא <b className="text-white">"{archiveOneModal.cls?.title}"</b> לארכיון? הנושא ייעלם מהתצוגה הפעילה (לתלמידות ולך), אך <b>כל התוכן והתשובות יישמרו</b> וניתן לשחזר אותו בכל עת דרך "ארכיון שכבות".
+                            </p>
+                        </div>
+                        <div className="p-4 border-t border-slate-600 flex justify-end gap-2">
+                            <button onClick={() => setArchiveOneModal({ open: false, cls: null })} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg">ביטול</button>
+                            <button onClick={() => archiveOneClass(archiveOneModal.cls)} className="px-5 py-2 bg-amber-500 text-slate-900 rounded-lg hover:bg-amber-400 font-bold flex items-center gap-2"><Icon name="folder" size={16} /> העברה לארכיון</button>
+                        </div>
+                    </Modal>
+
                     {/* Grading Instructions Modal */}
                     <GradingModal isOpen={gradingModal.open} examId={gradingModal.examId} examTitle={gradingModal.examTitle} questions={gradingModal.questions} onClose={() => setGradingModal({ open: false, examId: null, examTitle: '', questions: [] })} />
 
                     {/* Students Report Modal - Teachers only */}
-                    <Modal isOpen={studentsReportModal} onClose={() => setStudentsReportModal(false)} title="דוח ציונים לפי שכבה" titleColor="text-purple-400" wide>
+                    <Modal isOpen={studentsReportModal} onClose={() => setStudentsReportModal(false)} title="דוח ציונים" titleColor="text-purple-400" wide>
                         <div className="p-4 max-h-[70vh] overflow-y-auto">
-                            {/* סינון לפי שכבה */}
-                            <div className="flex items-center gap-2 mb-4">
-                                <span className="text-sm text-gray-400">הצגת שכבה:</span>
+                            {/* מתג תצוגה: סיכום / מפורט */}
+                            <div className="flex flex-wrap items-center gap-3 mb-4">
                                 <div className="flex gap-1 bg-slate-800 border border-slate-600/60 rounded-full p-1">
-                                    {['הכל', 'יא', 'יב'].map(g => (
-                                        <button key={g} onClick={() => setReportGradeFilter(g)}
-                                            className={`px-3.5 py-1 rounded-full text-sm font-bold transition-all ${reportGradeFilter === g ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                                            {g === 'הכל' ? 'כל השכבות' : 'כיתה ' + g}
-                                        </button>
-                                    ))}
+                                    <button onClick={() => setReportView('summary')} className={`px-4 py-1 rounded-full text-sm font-bold transition-all ${reportView === 'summary' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}>סיכום</button>
+                                    <button onClick={showDetailedReport} className={`px-4 py-1 rounded-full text-sm font-bold transition-all ${reportView === 'detailed' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}>מפורט (לפי נושא)</button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-400">שכבה:</span>
+                                    <div className="flex gap-1 bg-slate-800 border border-slate-600/60 rounded-full p-1">
+                                        {['הכל', 'יא', 'יב'].map(g => (
+                                            <button key={g} onClick={() => setReportGradeFilter(g)}
+                                                className={`px-3.5 py-1 rounded-full text-sm font-bold transition-all ${reportGradeFilter === g ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                                                {g === 'הכל' ? 'כל השכבות' : 'כיתה ' + g}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                            {loadingReport ? (
+
+                            {reportView === 'detailed' ? (
+                                /* ===== תצוגה מפורטת — gradebook לפי נושא, עם הזנת ציון ידני ===== */
+                                loadingDetailed ? (
+                                    <div className="flex items-center justify-center py-12"><div className="spinner"></div><span className="mr-3 text-gray-400">טוען נתונים...</span></div>
+                                ) : !detailedReport ? null : (() => {
+                                    const gradeStudents = studentsReportData
+                                        .filter(s => reportGradeFilter === 'הכל' || s.grade === reportGradeFilter)
+                                        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
+                                    const topics = detailedReport.filter(t => reportGradeFilter === 'הכל' || t.grade === reportGradeFilter);
+                                    if (gradeStudents.length === 0) return <div className="text-center py-12 text-gray-500">אין תלמידות בשכבה זו</div>;
+                                    if (topics.length === 0) return <div className="text-center py-12 text-gray-500">אין נושאים עם מבחנים/עבודות בשכבה זו</div>;
+                                    return (
+                                        <div className="space-y-6">
+                                            <p className="text-sm text-gray-400 flex items-center gap-2"><Icon name="edit" size={14} /> לחצי על תא ציון כדי להזין או לערוך ציון ידני (גם למבחן שנעשה על נייר).</p>
+                                            {topics.map(topic => (
+                                                <div key={topic.classId}>
+                                                    <h3 className="text-base font-bold text-indigo-300 mb-2 flex items-center gap-2">
+                                                        <TopicIcon title={topic.title} size={18} /> {topic.title}
+                                                        <span className="text-xs font-normal text-slate-500">כיתה {topic.grade}</span>
+                                                    </h3>
+                                                    <div className="overflow-x-auto rounded-lg border border-slate-700 mobile-hscroll">
+                                                        <table className="w-full text-sm" style={{ minWidth: 'max-content' }}>
+                                                            <thead>
+                                                                <tr className="bg-slate-700/80">
+                                                                    <th className="text-right p-2.5 text-gray-300 font-bold sticky right-0 bg-slate-700/80 whitespace-nowrap">תלמידה</th>
+                                                                    {topic.exams.map(ex => (
+                                                                        <th key={ex.examId} className="p-2.5 text-center font-semibold whitespace-nowrap">
+                                                                            <span className={`inline-flex items-center gap-1 ${ex.type === 'homework' ? 'text-green-300' : 'text-blue-300'}`}>
+                                                                                <span className={`w-1.5 h-1.5 rounded-full ${ex.type === 'homework' ? 'bg-green-400' : 'bg-blue-400'}`}></span>{ex.title}
+                                                                            </span>
+                                                                        </th>
+                                                                    ))}
+                                                                    <th className="p-2.5 text-center text-gray-300 font-bold whitespace-nowrap">ממוצע נושא</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {gradeStudents.map((student, ri) => {
+                                                                    const vals = topic.exams.map(ex => ex.grades[student.email]).filter(v => v !== null && v !== undefined);
+                                                                    const tavg = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+                                                                    return (
+                                                                        <tr key={ri} className="border-t border-slate-700 hover:bg-slate-700/30">
+                                                                            <td className="p-2 text-white whitespace-nowrap sticky right-0 bg-slate-800">{student.name || 'ללא שם'}</td>
+                                                                            {topic.exams.map(ex => (
+                                                                                <td key={ex.examId} className="p-1.5 text-center">
+                                                                                    <GradeCell value={ex.grades[student.email]} saving={savingCell === `${ex.examId}_${student.email}`} onSave={(v) => handleManualGrade(ex.examId, ex.type, student, v)} />
+                                                                                </td>
+                                                                            ))}
+                                                                            <td className="p-2 text-center font-bold text-slate-200">{tavg === null ? '—' : tavg}</td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()
+                            ) : loadingReport ? (
                                 <div className="flex items-center justify-center py-12">
                                     <div className="spinner"></div>
                                     <span className="mr-3 text-gray-400">טוען נתונים...</span>
@@ -9424,6 +9818,50 @@ ${answerText}
                             questionType={currentQ?.questionType || 'code'}
                             automataType={currentQ?.automataType || 'DFA'}
                         />
+                    )}
+
+                    {/* התראות עבודה/מבחן חדש — כרטיס עשיר (לתלמידה) */}
+                    {!isEditor && notifs.length > 0 && (
+                        <div style={{ position: 'fixed', left: 20, bottom: (selectedClassObj && selectedQuestion === null && !learnChatOpen) ? 96 : 22, zIndex: 80, display: 'flex', flexDirection: 'column-reverse', gap: 12, maxWidth: 'calc(100vw - 40px)' }}>
+                            {notifs.slice(0, 3).map(n => {
+                                const isHw = n.examType === 'homework';
+                                return (
+                                    <div key={n.id} className="fade-in" style={{ width: 300, maxWidth: '100%', background: '#161C2E', border: '1px solid rgba(148,163,184,0.2)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 18px 50px rgba(0,0,0,0.55)' }}>
+                                        <div style={{ background: isHw ? 'linear-gradient(135deg,#10B981,#059669)' : 'linear-gradient(135deg,#7C3AED,#4F46E5)', padding: '12px 15px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <span style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff' }}>
+                                                <Icon name={isHw ? 'homework' : 'examPaper'} size={17} />
+                                            </span>
+                                            <span style={{ color: '#fff', fontWeight: 800, fontSize: 14.5, flex: 1 }}>{isHw ? 'שיעורי בית חדשים' : 'מבחן חדש'}</span>
+                                            <button onClick={() => dismissNotif(n.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.85)', padding: 2, display: 'flex' }} title="סגירה"><Icon name="x" size={17} /></button>
+                                        </div>
+                                        <div style={{ padding: '13px 15px' }}>
+                                            <div style={{ color: '#fff', fontWeight: 800, fontSize: 15, marginBottom: 3 }}>{n.examTitle}</div>
+                                            <div style={{ color: '#94A3B8', fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                <Icon name="folder" size={13} /> נושא: {n.classTitle}{n.grade && n.grade !== 'הכל' ? ` · כיתה ${n.grade}` : ''}
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 8, padding: '0 15px 14px' }}>
+                                            <button onClick={() => goToNotif(n)} style={{ flex: 1, background: '#6366F1', color: '#fff', border: 'none', borderRadius: 9, padding: '8px', fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{isHw ? 'מעבר לתרגיל' : 'מעבר למבחן'}</button>
+                                            <button onClick={() => dismissNotif(n.id)} style={{ flex: '0 0 auto', background: 'rgba(148,163,184,0.12)', color: '#CBD5E1', border: 'none', borderRadius: 9, padding: '8px 14px', fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>אחר כך</button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {notifs.length > 3 && <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: 12, fontWeight: 700 }}>ועוד {notifs.length - 3} התראות…</div>}
+                        </div>
+                    )}
+
+                    {/* כפתור צף — שאל את ה-AI (בעמוד הלמידה, כשאין צ'אט פתוח ולא בתוך שאלה/מבחן) */}
+                    {!isEditor && selectedClassObj && selectedQuestion === null && !learnChatOpen && (
+                        <button onClick={() => setLearnChatOpen(true)} className="ai-fab" title="שאל את ה-AI על החומר" aria-label="שאל את ה-AI">
+                            <span className="ai-fab-ico">
+                                <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.6-.8L3 21l1.9-5.4A8.38 8.38 0 0 1 4 12a8.5 8.5 0 0 1 8.5-8.5 8.38 8.38 0 0 1 8.5 8z"/>
+                                    <path d="M12 8.2l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="currentColor" stroke="none"/>
+                                </svg>
+                            </span>
+                            <span className="ai-fab-label">שאל את ה-AI</span>
+                        </button>
                     )}
 
                     {/* עוזר AI בעמוד הלמידה (לא בתוך שאלה/מבחן) */}
@@ -9783,6 +10221,194 @@ ${answerText}
                         <button onClick={() => title.trim() && onSave({ title: title.trim(), type, duration: type === 'exam' && parseInt(duration) > 0 ? parseInt(duration) : null })} className="px-4 py-2 btn-primary text-white rounded-lg">{item ? 'שמור' : 'הוסף'}</button>
                     </div>
                 </>
+            );
+        };
+
+        // אשף הוספה מהירה — 3 שלבים: סוג ושם → בחירת נושא → שאלות (טקסט/תמונה/מצלמה)
+        const QuickAddWizard = ({ classes, onClose, onSave }) => {
+            const [step, setStep] = useState(1);
+            const [type, setType] = useState('homework');
+            const [title, setTitle] = useState('');
+            const [duration, setDuration] = useState('');
+            const [classId, setClassId] = useState(null);
+            const [questions, setQuestions] = useState([{ points: '10', instructions: '', imageBase64: '' }]);
+            const [saving, setSaving] = useState(false);
+            const [focusedQ, setFocusedQ] = useState(0); // השאלה הפעילה — לשם תודבק תמונה (Ctrl+V)
+            const durationPresets = [30, 45, 60, 90, 120];
+
+            const setQ = (i, patch) => setQuestions(qs => qs.map((q, k) => k === i ? { ...q, ...patch } : q));
+            const addQ = () => setQuestions(qs => [...qs, { points: '10', instructions: '', imageBase64: '' }]);
+            const delQ = (i) => setQuestions(qs => qs.length > 1 ? qs.filter((_, k) => k !== i) : qs);
+
+            const pickImage = (i, file) => {
+                if (file && file.type.startsWith('image/')) {
+                    compressImage(file)
+                        .then(d => setQ(i, { imageBase64: d }))
+                        .catch(err => alert(err.message === 'too-large' ? 'התמונה גדולה מדי גם לאחר דחיסה — נסי תמונה קטנה יותר.' : 'שגיאה בטעינת התמונה.'));
+                }
+            };
+
+            // הדבקת צילום-מסך (Ctrl+V) — מוחל על השאלה הפעילה
+            React.useEffect(() => {
+                if (step !== 3) return;
+                const handler = (e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.startsWith('image/')) { e.preventDefault(); pickImage(focusedQ, items[i].getAsFile()); return; }
+                    }
+                };
+                document.addEventListener('paste', handler);
+                return () => document.removeEventListener('paste', handler);
+            }, [step, focusedQ]);
+
+            const sortedClasses = [...classes].sort((a, b) => (a.order || 0) - (b.order || 0));
+            const selectedClass = sortedClasses.find(c => c.id === classId);
+            const canNext = step === 1 ? title.trim().length > 0 : step === 2 ? !!classId : true;
+
+            const doSave = async () => {
+                setSaving(true);
+                const ok = await onSave({ classId, type, title, duration, questions });
+                setSaving(false);
+                if (ok) { alert(`${type === 'homework' ? 'שיעורי הבית' : 'המבחן'} "${title.trim()}" נוסף לנושא "${selectedClass?.title}".`); onClose(); }
+                else alert('אירעה שגיאה בשמירה. נסי שוב.');
+            };
+
+            const stepLabels = ['סוג ושם', 'בחירת נושא', 'שאלות ותוכן'];
+            const accent = type === 'homework' ? '#34D399' : '#60A5FA';
+
+            return (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(8,11,22,0.78)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+                    <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: '#11151f', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.55)' }}>
+                        {/* header + steps */}
+                        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(148,163,184,0.14)', background: 'linear-gradient(135deg,rgba(99,102,241,0.16),rgba(139,92,246,0.08))' }}>
+                            <div className="flex items-center justify-between mb-3">
+                                <h2 style={{ color: '#fff', fontSize: 19, fontWeight: 800 }}>הוספת עבודה או מבחן</h2>
+                                <button onClick={onClose} className="text-slate-400 hover:text-white p-1"><Icon name="x" size={20} /></button>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                {stepLabels.map((lbl, i) => {
+                                    const n = i + 1, active = step === n, done = step > n;
+                                    return (
+                                        <React.Fragment key={n}>
+                                            <div className="flex items-center gap-2" style={{ opacity: active || done ? 1 : 0.45 }}>
+                                                <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 800, background: active ? 'linear-gradient(135deg,#6366F1,#8B5CF6)' : done ? '#10B981' : 'rgba(71,85,105,0.6)', color: '#fff', flexShrink: 0 }}>{done ? '✓' : n}</span>
+                                                <span style={{ color: active ? '#fff' : '#94A3B8', fontSize: 13, fontWeight: active ? 700 : 500, whiteSpace: 'nowrap' }}>{lbl}</span>
+                                            </div>
+                                            {n < 3 && <span style={{ flex: 1, height: 2, background: step > n ? '#10B981' : 'rgba(71,85,105,0.5)', borderRadius: 2, minWidth: 12 }}></span>}
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* body */}
+                        <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
+                            {step === 1 && (
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2">סוג</label>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setType('homework')} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${type === 'homework' ? 'bg-green-600 text-white ring-2 ring-green-400' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'}`}><Icon name="homework" size={17} /> שיעורי בית</button>
+                                            <button onClick={() => setType('exam')} className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${type === 'exam' ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'}`}>📝 מבחן</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-300 mb-2">שם</label>
+                                        <input value={title} onChange={e => setTitle(e.target.value)} autoFocus className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-400 focus:outline-none" placeholder={type === 'exam' ? 'לדוגמה: מבחן מחצית' : 'לדוגמה: תרגיל 5 — לולאות'} />
+                                    </div>
+                                    {type === 'exam' && (
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-300 mb-2">משך המבחן <span className="text-slate-500 font-normal">(ריק = ללא הגבלה)</span></label>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {durationPresets.map(m => (
+                                                    <button key={m} onClick={() => setDuration(String(m))} className={`px-3.5 py-2 rounded-lg text-sm font-bold transition-all ${String(m) === duration ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'}`}>{m} דק׳</button>
+                                                ))}
+                                                <div className="flex items-center gap-1.5 bg-slate-700 rounded-lg px-2.5 py-1">
+                                                    <input type="number" min="0" value={duration} onChange={e => setDuration(e.target.value)} className="w-16 bg-transparent text-white text-sm text-center focus:outline-none" placeholder="אחר" />
+                                                    <span className="text-gray-400 text-xs">דק׳</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {step === 2 && (
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-300 mb-3">לאיזה נושא לשייך?</label>
+                                    {sortedClasses.length === 0 ? (
+                                        <div className="text-center py-10 text-slate-500">אין נושאים עדיין. צרי נושאים תחילה דרך "יצירת נושאי לימוד מובנים".</div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                            {sortedClasses.map(c => (
+                                                <button key={c.id} onClick={() => setClassId(c.id)}
+                                                    className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${classId === c.id ? 'bg-indigo-600/20 border-indigo-400 ring-2 ring-indigo-400/50' : 'bg-slate-800/60 border-slate-700 hover:bg-slate-700/60'}`}>
+                                                    <span className={`w-10 h-10 rounded-xl flex items-center justify-center ${classId === c.id ? 'bg-indigo-500/30 text-indigo-200' : 'bg-slate-700/60 text-slate-300'}`}><TopicIcon title={c.title} size={22} /></span>
+                                                    <span className="text-[12.5px] font-semibold text-white text-center leading-tight">{c.title}</span>
+                                                    {c.grade && c.grade !== 'הכל' && <span className="text-[10px] text-slate-500">כיתה {c.grade}</span>}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {step === 3 && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-bold text-slate-300">שאלות ({questions.length})</span>
+                                        <span className="text-xs text-slate-500">{selectedClass?.title} · {type === 'homework' ? 'שיעורי בית' : 'מבחן'}</span>
+                                    </div>
+                                    {questions.map((q, i) => (
+                                        <div key={i} onMouseDown={() => setFocusedQ(i)} style={{ borderInlineStart: `3px solid ${focusedQ === i ? accent : 'transparent'}` }} className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-bold text-white text-sm">שאלה {i + 1}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1.5 bg-slate-900 rounded-lg px-2 py-1">
+                                                        <span className="text-slate-500 text-xs">ניקוד</span>
+                                                        <input type="number" value={q.points} onChange={e => setQ(i, { points: e.target.value })} className="w-12 bg-transparent text-white text-sm text-center focus:outline-none" />
+                                                    </div>
+                                                    {questions.length > 1 && <button onClick={() => delQ(i)} className="text-slate-500 hover:text-rose-400 p-1"><Icon name="trash" size={15} /></button>}
+                                                </div>
+                                            </div>
+                                            <textarea value={q.instructions} onFocus={() => setFocusedQ(i)} onChange={e => setQ(i, { instructions: e.target.value })} rows={3} className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm resize-none focus:border-indigo-400 focus:outline-none" placeholder="נוסח השאלה (אפשר להשאיר ריק אם מעלים צילום של השאלה)..." />
+                                            {q.imageBase64 ? (
+                                                <div className="relative">
+                                                    <img src={q.imageBase64} alt="תצוגה" className="w-full rounded-lg border border-slate-700 max-h-52 object-contain bg-slate-900" />
+                                                    <button onClick={() => setQ(i, { imageBase64: '' })} className="absolute top-2 left-2 bg-rose-600/90 text-white rounded-lg px-2 py-1 text-xs font-bold flex items-center gap-1"><Icon name="trash" size={12} /> הסרה</button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-2">
+                                                    <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm text-slate-200 cursor-pointer">
+                                                        <Icon name="image" size={15} /> העלאת תמונה
+                                                        <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files[0] && pickImage(i, e.target.files[0])} />
+                                                    </label>
+                                                    <label className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600/25 hover:bg-indigo-600/40 border border-indigo-500/40 rounded-lg text-sm text-indigo-200 cursor-pointer">
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> צילום במצלמה
+                                                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => e.target.files[0] && pickImage(i, e.target.files[0])} />
+                                                    </label>
+                                                    <span className="flex items-center text-xs text-slate-500">או הדביקי צילום מסך (Ctrl+V)</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <button onClick={addQ} className="w-full py-2.5 rounded-xl border border-dashed border-slate-600 text-slate-300 hover:bg-slate-800/60 hover:border-indigo-400 transition-colors flex items-center justify-center gap-1.5 text-sm font-bold"><Icon name="plus" size={15} /> הוספת שאלה</button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* footer */}
+                        <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(148,163,184,0.14)' }} className="flex items-center justify-between gap-2">
+                            <button onClick={() => step === 1 ? onClose() : setStep(step - 1)} className="px-4 py-2 text-slate-300 hover:bg-slate-700 rounded-lg font-semibold">{step === 1 ? 'ביטול' : 'הקודם'}</button>
+                            {step < 3 ? (
+                                <button onClick={() => canNext && setStep(step + 1)} disabled={!canNext} className="px-6 py-2 rounded-lg font-bold text-white disabled:opacity-40" style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>הבא</button>
+                            ) : (
+                                <button onClick={doSave} disabled={saving} className="px-6 py-2 rounded-lg font-bold text-white disabled:opacity-50 flex items-center gap-2" style={{ background: 'linear-gradient(135deg,#10B981,#059669)' }}>{saving ? <><div className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }}></div> שומר...</> : <><Icon name="check" size={16} /> שמירה</>}</button>
+                            )}
+                        </div>
+                    </div>
+                </div>
             );
         };
 
