@@ -21,7 +21,7 @@
             }
         };
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Noto+Sans+Hebrew:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -170,9 +170,26 @@
             margin-right: auto;
             font-family: 'JetBrains Mono', monospace;
         }
-        .question-card { background: rgba(23,32,56,0.72); border: 1px solid rgba(148,163,184,0.18); border-radius: 16px; backdrop-filter: blur(10px); }
-        .q-codeblock { background: #282C34; border: 1px solid rgba(148,163,184,0.16); border-radius: 12px; padding: 14px 16px; direction: ltr; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 1.7; color: #ABB2BF; overflow-x: auto; white-space: pre; }
-        .q-text { color: #E8EDF6; font-size: 16.5px; line-height: 1.9; white-space: pre-wrap; }
+        .question-card { background: rgba(23,32,56,0.72); border: 1px solid rgba(148,163,184,0.18); border-radius: 14px; backdrop-filter: blur(10px); }
+        /* ===== Question display typography — בהשראת CodeClassroom: sans עברי נקי (Segoe UI-like), גדלים אווריריים ===== */
+        .qx-font { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; }
+        .q-codeblock { background: #282C34; border: 1px solid rgba(148,163,184,0.16); border-radius: 12px; padding: 16px 18px; direction: ltr; text-align: left; font-family: Consolas, 'DejaVu Sans Mono', 'JetBrains Mono', monospace; font-size: 14.5px; line-height: 1.75; color: #ABB2BF; overflow-x: auto; white-space: pre; }
+        .q-text { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; color: #E8EDF6; font-size: 17.5px; line-height: 1.85; white-space: pre-wrap; }
+        .q-title { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; font-size: 26px; font-weight: 800; color: #fff; line-height: 1.3; letter-spacing: -0.2px; }
+        .q-inline-code { font-family: Consolas, 'DejaVu Sans Mono', 'JetBrains Mono', monospace; direction: ltr; unicode-bidi: embed; color: #93C5FD; background: rgba(59,130,246,0.12); border: 1px solid rgba(147,197,253,0.18); border-radius: 6px; padding: 1px 7px 2px; font-size: 0.88em; white-space: nowrap; }
+        /* ===== שורת כותרת התרגיל — [מזהה | כותרת] + ניווט "שאלה X מתוך Y" ===== */
+        .qx-header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 18px; margin-bottom: 18px; background: rgba(23,32,56,0.65); border: 1px solid rgba(148,163,184,0.18); border-radius: 14px; backdrop-filter: blur(10px); }
+        .qx-id { font-family: Consolas, 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; color: #FCD34D; white-space: nowrap; }
+        .qx-sep { color: rgba(148,163,184,0.45); font-weight: 300; font-size: 18px; }
+        .qx-title { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; font-size: 19px; font-weight: 700; color: #F1F5F9; line-height: 1.35; }
+        .qx-nav { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: auto; }
+        .qx-navbtn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; border: 1px solid transparent; background: none; color: #A5B4FC; cursor: pointer; transition: background .15s, border-color .15s; }
+        .qx-navbtn:hover:not(:disabled) { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.3); }
+        .qx-navbtn:disabled { color: #475569; cursor: default; }
+        .qx-count { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; font-size: 14.5px; font-weight: 700; color: #CBD5E1; white-space: nowrap; padding: 0 4px; }
+        /* ===== שני חלונות זה-לצד-זה: חלון התרגיל (ימין) מול חלון העבודה/פתרון עם העורך (שמאל) ===== */
+        .qx-panes { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+        @media (min-width: 1360px) { .qx-panes { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
         .sidebar-item { transition: all 0.2s ease; border-radius: 8px; margin: 2px 0; }
         .sidebar-item:hover { background: rgba(99, 102, 241, 0.15); }
         .sidebar-item.active { background: linear-gradient(90deg, rgba(99, 102, 241, 0.3) 0%, transparent 100%); border-right: 3px solid #6366F1; }
@@ -355,8 +372,13 @@
             .code-editor-title { font-size: 11px; }
             .code-editor-wrapper { border-radius: 12px; }
             .learn-console { font-size: 12.5px; padding: 9px 12px; }
-            .q-codeblock { font-size: 12.5px; padding: 11px 12px; }
-            .q-text { font-size: 15px; line-height: 1.8; }
+            .q-codeblock { font-size: 13px; padding: 12px 13px; }
+            .q-text { font-size: 16px; line-height: 1.8; }
+            .q-title { font-size: 21px; }
+            .qx-title { font-size: 16px; }
+            .qx-id { font-size: 13px; }
+            .qx-header { padding: 10px 13px; gap: 9px; }
+            .qx-nav { margin-inline-start: 0; width: 100%; justify-content: center; }
             /* ---- Horizontal toolbars scroll instead of wrapping awkwardly ---- */
             .mobile-hscroll { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
             .mobile-hscroll::-webkit-scrollbar { display: none; }
@@ -549,6 +571,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 logout: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>,
                 chevronDown: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>,
                 chevronLeft: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 18-6-6 6-6"/></svg>,
+                chevronRight: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6"/></svg>,
                 check: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>,
                 x: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>,
                 send: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
@@ -3532,6 +3555,12 @@ a.setGrade(100);   // משנה רק את נעמה
                 else blocks.push({ code, lines: [line] });
             });
             const trim = (s) => s.replace(/^\n+|\n+$/g, '');
+            // קוד inline בתוך משפט עברי — `כך` — מוצג כצ'יפ מונוספייס כחלחל (כמו בדוגמאות CodeClassroom)
+            const renderInline = (s) => s.split(/(`[^`\n]+`)/g).map((part, j) =>
+                part.length > 2 && part.startsWith('`') && part.endsWith('`')
+                    ? <code key={j} className="q-inline-code">{part.slice(1, -1)}</code>
+                    : part
+            );
             return (
                 <div className="flex flex-col gap-3">
                     {blocks.map((b, i) => {
@@ -3539,7 +3568,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         if (!content.trim()) return null;
                         return b.code
                             ? <pre key={i} className="q-codeblock">{content}</pre>
-                            : <div key={i} className="q-text" style={{ textWrap: 'pretty' }}>{content}</div>;
+                            : <div key={i} className="q-text" style={{ textWrap: 'pretty' }}>{renderInline(content)}</div>;
                     })}
                 </div>
             );
@@ -6272,9 +6301,7 @@ a.setGrade(100);   // משנה רק את נעמה
             const [selectedExam, setSelectedExam] = useState(null);
             const [selectedQuestion, setSelectedQuestion] = useState(null);
             const [selectedClass, setSelectedClass] = useState(null); // selected topic unit (for student topic page)
-            const [qTab, setQTab] = useState('question'); // Tabbed question page: 'question' | 'code'
             // Reset to the question tab whenever the student opens a different question
-            useEffect(() => { setQTab('question'); }, [selectedExam?.id, selectedQuestion]);
             const [questionContent, setQuestionContent] = useState({});
             const [studentData, setStudentData] = useState(null);
             const [myProgress, setMyProgress] = useState({}); // examId -> { state: 'todo'|'progress'|'submitted'|'graded' } for student indicators
@@ -7971,7 +7998,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         {/* Main Content */}
                         <main className="flex-1 overflow-y-auto">
                             {selectedExam && currentQ ? (
-                                <div key={`${selectedExam?.id}_${selectedQuestion}_${viewingStudent?.id || 'self'}`} className="max-w-4xl mx-auto p-6 q-swap">
+                                <div key={`${selectedExam?.id}_${selectedQuestion}_${viewingStudent?.id || 'self'}`} className="max-w-[1520px] mx-auto p-4 md:p-6 q-swap">
                                     {/* Viewing student header - only when not in preview mode */}
                                     {isEditor && !previewMode && viewingStudent && (
                                         <div className="bg-yellow-900/30 border border-yellow-600/30 rounded-xl p-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -8070,20 +8097,33 @@ a.setGrade(100);   // משנה רק את נעמה
                                         </div>
                                     )}
                                     
-                                    {/* Breadcrumb */}
-                                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
-                                        {safePreviewMode && <span className="bg-pink-600 text-white px-2 py-0.5 rounded text-xs">תצוגה מקדימה</span>}
-                                        {selectedExam?.type === 'homework' && <span className="bg-emerald-600/90 text-white px-2 py-0.5 rounded text-xs">שיעורי בית</span>}
-                                        <span>{findClassForExam(selectedExam.id)?.title}</span>
-                                        <Icon name="chevronLeft" size={14} />
-                                        <span>{selectedExam.title}</span>
-                                        <Icon name="chevronLeft" size={14} />
-                                        <span className="text-blue-400">שאלה {currentQ.number}</span>
-                                        {currentQ.points && <span className="bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded-full text-xs">{currentQ.points} נק'</span>}
-                                        {isInStudentView && viewingIsSubmitted && <span className="bg-purple-600/30 text-purple-300 px-2 py-0.5 rounded-full text-xs flex items-center gap-1"><Icon name="lock" size={12} /> הוגש</span>}
+                                    {/* שורת כותרת התרגיל — [נושא | כותרת המשימה] + ניווט שאלות (בהשראת CodeClassroom) */}
+                                    <div className="qx-header">
+                                        {safePreviewMode && <span className="bg-pink-600 text-white px-2 py-0.5 rounded text-xs flex-shrink-0">תצוגה מקדימה</span>}
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <span className="qx-id">{findClassForExam(selectedExam.id)?.title}</span>
+                                            <span className="qx-sep">|</span>
+                                            <span className="qx-title truncate">{selectedExam.title}</span>
+                                            {selectedExam?.type === 'homework'
+                                                ? <span className="bg-emerald-600/90 text-white px-2 py-0.5 rounded text-xs flex-shrink-0">שיעורי בית</span>
+                                                : <span className="bg-indigo-600/80 text-white px-2 py-0.5 rounded text-xs flex-shrink-0">מבחן</span>}
+                                            {isInStudentView && viewingIsSubmitted && <span className="bg-purple-600/30 text-purple-300 px-2 py-0.5 rounded-full text-xs flex items-center gap-1 flex-shrink-0"><Icon name="lock" size={12} /> הוגש</span>}
+                                        </div>
+                                        {/* ניווט בין שאלות — RTL: קדימה = שמאלה */}
+                                        <div className="qx-nav">
+                                            <button className="qx-navbtn" disabled={currentQIndex <= 0} title="השאלה הקודמת" onClick={() => {
+                                                const prevQ = selectedExam.questions[currentQIndex - 1];
+                                                if (prevQ) isEditor ? setSelectedQuestion(prevQ.number) : switchQuestion(prevQ.number);
+                                            }}><Icon name="chevronRight" size={17} /></button>
+                                            <span className="qx-count">שאלה {currentQIndex + 1} מתוך {selectedExam.questions.length}{currentQ.points ? ` · ${currentQ.points} נק'` : ''}</span>
+                                            <button className="qx-navbtn" disabled={currentQIndex >= selectedExam.questions.length - 1} title="השאלה הבאה" onClick={() => {
+                                                const nextQ = selectedExam.questions[currentQIndex + 1];
+                                                if (nextQ) isEditor ? setSelectedQuestion(nextQ.number) : switchQuestion(nextQ.number);
+                                            }}><Icon name="chevronLeft" size={17} /></button>
+                                        </div>
                                         {/* שעון מבחן — ספירה-לאחור אם יש הגבלת זמן, אחרת שעה נוכחית */}
                                         {!isEditor && !viewingStudent && !viewingIsSubmitted && selectedExam.type !== 'homework' && (
-                                            <span style={{ marginInlineStart: 'auto' }}>
+                                            <span className="flex-shrink-0">
                                                 {selectedExam.duration > 0
                                                     ? <ExamTimer durationMin={selectedExam.duration} storeKey={`exam_start_${selectedExam.id}_${user?.email}`} onExpire={handleExamTimeout} />
                                                     : <LiveClock />}
@@ -8091,7 +8131,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                         )}
                                         {/* Auto-save indicator */}
                                         {!isEditor && !viewingIsSubmitted && saveStatus && (
-                                            <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${saveStatus === 'saving' ? 'bg-yellow-600/30 text-yellow-300' : 'bg-green-600/30 text-green-300'}`}>
+                                            <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 flex-shrink-0 ${saveStatus === 'saving' ? 'bg-yellow-600/30 text-yellow-300' : 'bg-green-600/30 text-green-300'}`}>
                                                 {saveStatus === 'saving' ? 'שומר…' : '✓ נשמר'}
                                             </span>
                                         )}
@@ -8123,20 +8163,14 @@ a.setGrade(100);   // משנה רק את נעמה
                                         );
                                     })()}
 
-                                    {/* Tabbed workspace */}
-                                    <div className="flex items-center gap-1 border-b border-slate-700/70 mb-6 mobile-hscroll">
-                                        {[['question','השאלה'],['code', (selectedExam?.type === 'homework' ? 'הקוד והמשוב' : 'הקוד שלי')]].map(([k,label]) => (
-                                            <button key={k} onClick={() => setQTab(k)} style={{marginBottom:'-1px'}} className={`px-5 py-2.5 text-sm font-bold border-b-2 transition-colors ${qTab===k ? 'border-indigo-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>{label}</button>
-                                        ))}
-                                    </div>
-
-                                    {qTab === 'question' && (
-                                    <div className="question-card p-6 md:p-7 mb-6">
-                                        <div className="flex items-center gap-3 mb-5">
+                                    {/* שני חלונות זה-לצד-זה — חלון התרגיל (ימין) מול חלון העבודה עם העורך (שמאל), נערמים במסך צר */}
+                                    <div className="qx-panes mb-6">
+                                    <div className="question-card qx-font p-6 md:p-7">
+                                        <div className="flex items-start gap-3 mb-5">
                                             <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/25 flex items-center justify-center text-indigo-300 flex-shrink-0"><TopicIcon title={findClassForExam(selectedExam.id)?.title} size={21} /></div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight">שאלה {currentQ.number}{currentQ.title && ` · ${currentQ.title}`}</h3>
-                                                {currentQ.points && <div className="text-indigo-300 text-sm font-semibold">{currentQ.points} נקודות</div>}
+                                                <h3 className="q-title">שאלה {currentQ.number}{currentQ.title ? `: ${currentQ.title}` : ''}</h3>
+                                                {currentQ.points && <div className="text-indigo-300 text-sm font-semibold mt-0.5">{currentQ.points} נקודות</div>}
                                             </div>
                                             {!isEditor && (() => {
                                                 const favClass = findClassForExam(selectedExam.id);
@@ -8276,10 +8310,8 @@ a.setGrade(100);   // משנה רק את נעמה
                                             </div>
                                         )}
                                     </div>
-                                    )}
 
-                                    {qTab === 'code' && (
-                                    <div className="question-card p-6 mb-6">
+                                    <div className="question-card qx-font p-6">
                                         <div className="flex items-center justify-between mb-4">
                                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
                                                 {viewingStudent ? (
@@ -8709,25 +8741,20 @@ ${answerText}
                                             </div>
                                         )}
                                     </div>
-                                    )}
+                                    </div>
 
                                     {/* Navigation */}
                                     <div className="flex justify-between items-center pt-4 border-t border-slate-700">
-                                        <div className="flex gap-2">
-                                            <button disabled={currentQIndex >= selectedExam.questions.length - 1} onClick={() => {
-                                                const nextQ = selectedExam.questions[currentQIndex + 1];
-                                                if (nextQ) isEditor ? setSelectedQuestion(nextQ.number) : switchQuestion(nextQ.number);
-                                            }}
-                                                className={`px-4 py-2 rounded-lg ${currentQIndex >= selectedExam.questions.length - 1 ? 'text-gray-600' : 'text-blue-400 hover:bg-slate-700'}`}>
-                                                הבאה →
-                                            </button>
-                                            <button disabled={currentQIndex <= 0} onClick={() => {
+                                        <div className="qx-nav" style={{ marginInlineStart: 0 }}>
+                                            <button className="qx-navbtn" disabled={currentQIndex <= 0} title="השאלה הקודמת" onClick={() => {
                                                 const prevQ = selectedExam.questions[currentQIndex - 1];
                                                 if (prevQ) isEditor ? setSelectedQuestion(prevQ.number) : switchQuestion(prevQ.number);
-                                            }}
-                                                className={`px-4 py-2 rounded-lg ${currentQIndex <= 0 ? 'text-gray-600' : 'text-blue-400 hover:bg-slate-700'}`}>
-                                                ← הקודמת
-                                            </button>
+                                            }}><Icon name="chevronRight" size={17} /></button>
+                                            <span className="qx-count">שאלה {currentQIndex + 1} מתוך {selectedExam.questions.length}</span>
+                                            <button className="qx-navbtn" disabled={currentQIndex >= selectedExam.questions.length - 1} title="השאלה הבאה" onClick={() => {
+                                                const nextQ = selectedExam.questions[currentQIndex + 1];
+                                                if (nextQ) isEditor ? setSelectedQuestion(nextQ.number) : switchQuestion(nextQ.number);
+                                            }}><Icon name="chevronLeft" size={17} /></button>
                                         </div>
                                         
                                         {/* Progress indicator for students and preview mode */}
