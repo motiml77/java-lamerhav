@@ -177,6 +177,9 @@
         .q-text { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; color: #E8EDF6; font-size: 17.5px; line-height: 1.85; white-space: pre-wrap; }
         .q-title { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; font-size: 26px; font-weight: 800; color: #fff; line-height: 1.3; letter-spacing: -0.2px; }
         .q-inline-code { font-family: Consolas, 'DejaVu Sans Mono', 'JetBrains Mono', monospace; direction: ltr; unicode-bidi: embed; color: #93C5FD; background: rgba(59,130,246,0.12); border: 1px solid rgba(147,197,253,0.18); border-radius: 6px; padding: 1px 7px 2px; font-size: 0.88em; white-space: nowrap; }
+        /* הזחת תוכן שיעור מתחת למספור הסעיף — מתבטלת במסכים צרים כדי לפנות רוחב לקוד */
+        .lesson-indent { margin-inline-start: 34px; }
+        .lesson-p-indent { padding-inline-start: 34px; }
         /* ===== שורת כותרת התרגיל — [מזהה | כותרת] + ניווט "שאלה X מתוך Y" ===== */
         .qx-header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 18px; margin-bottom: 18px; background: rgba(23,32,56,0.65); border: 1px solid rgba(148,163,184,0.18); border-radius: 14px; backdrop-filter: blur(10px); }
         .qx-id { font-family: Consolas, 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; color: #FCD34D; white-space: nowrap; }
@@ -187,9 +190,28 @@
         .qx-navbtn:hover:not(:disabled) { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.3); }
         .qx-navbtn:disabled { color: #475569; cursor: default; }
         .qx-count { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; font-size: 14.5px; font-weight: 700; color: #CBD5E1; white-space: nowrap; padding: 0 4px; }
+        /* ===== container-query — הפריסה מגיבה לרוחב האזור בפועל (גם כשסוגרים את הסרגל) ===== */
+        .cq { container-type: inline-size; }
         /* ===== שני חלונות זה-לצד-זה: חלון התרגיל (ימין) מול חלון העבודה/פתרון עם העורך (שמאל) ===== */
         .qx-panes { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
-        @media (min-width: 1360px) { .qx-panes { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
+        @container (min-width: 1040px) { .qx-panes { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
+        /* ===== הדגמות אינטראקטיביות — במסך רחב הקוד עומד לצד התצוגה הוויזואלית ===== */
+        .viz-split { display: grid; grid-template-columns: 1fr; align-items: stretch; }
+        .viz-code-side { min-width: 0; overflow-x: auto; }
+        .viz-stage-side { min-width: 0; }
+        @container (min-width: 650px) {
+            .viz-split { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); }
+            .viz-split .viz-stage-side { display: flex; flex-direction: column; justify-content: center; }
+            .viz-split .viz-code-side { border-top: none !important; border-inline-start: 1px solid rgba(148,163,184,0.14); display: flex; flex-direction: column; justify-content: center; }
+        }
+        /* ===== נקודות מפתח — עמודה אחת כשצר, שתיים כשרחב, בלי לחתוך קוד ===== */
+        .points-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        @container (min-width: 640px) { .points-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+        /* ===== סרגל נושאים מתקפל — כפתור צף על גבול הסרגל, התוכן מתרחב בהתאם ===== */
+        .desktop-sidebar { transition: width .25s ease, opacity .2s ease, padding .25s ease; }
+        .sidebar-closed { width: 0 !important; min-width: 0 !important; opacity: 0; pointer-events: none; border-left: none !important; overflow: hidden !important; }
+        .sidebar-toggle { position: absolute; inset-inline-start: 10px; top: 0; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(30,41,59,0.92); border: 1px solid rgba(148,163,184,0.28); color: #A5B4FC; cursor: pointer; transition: background .15s, border-color .15s; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+        .sidebar-toggle:hover { background: rgba(51,65,85,0.95); border-color: rgba(148,163,184,0.45); color: #C7D2FE; }
         .sidebar-item { transition: all 0.2s ease; border-radius: 8px; margin: 2px 0; }
         .sidebar-item:hover { background: rgba(99, 102, 241, 0.15); }
         .sidebar-item.active { background: linear-gradient(90deg, rgba(99, 102, 241, 0.3) 0%, transparent 100%); border-right: 3px solid #6366F1; }
@@ -374,6 +396,8 @@
             .learn-console { font-size: 12.5px; padding: 9px 12px; }
             .q-codeblock { font-size: 13px; padding: 12px 13px; }
             .q-text { font-size: 16px; line-height: 1.8; }
+            .lesson-indent { margin-inline-start: 0; }
+            .lesson-p-indent { padding-inline-start: 0; }
             .q-title { font-size: 21px; }
             .qx-title { font-size: 16px; }
             .qx-id { font-size: 13px; }
@@ -1920,6 +1944,37 @@ a.setGrade(100);   // משנה רק את נעמה
             );
         };
 
+        // ===== FitPre — בלוק קוד שמכווץ את הגופן אוטומטית כך שכל שורה תיכנס לרוחב, בלי גלילה הצידה =====
+        // halveIndent: מציג הזחות של 4 רווחים כ-2 (לתצוגה בלבד) כדי שהקוד יישאר גדול וקריא במסכים צרים.
+        const FitPre = ({ code, className = '', style, halveIndent = false, minPx = 9.5, ...rest }) => {
+            const ref = React.useRef(null);
+            const text = React.useMemo(() => {
+                let t = String(code ?? '');
+                if (halveIndent) t = t.replace(/^(?: {4})+/gm, m => ' '.repeat(m.length / 2));
+                return t;
+            }, [code, halveIndent]);
+            const fit = React.useCallback(() => {
+                const el = ref.current; if (!el) return;
+                el.style.fontSize = '';
+                for (let pass = 0; pass < 3 && el.scrollWidth > el.clientWidth + 1; pass++) {
+                    const cur = parseFloat(getComputedStyle(el).fontSize) || 14;
+                    const next = Math.max(minPx, cur * (el.clientWidth / el.scrollWidth) - 0.15);
+                    el.style.fontSize = next.toFixed(2) + 'px';
+                    if (next <= minPx) break;
+                }
+            }, [text, minPx]);
+            React.useLayoutEffect(() => {
+                fit();
+                if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fit());
+                const el = ref.current;
+                if (!el || typeof ResizeObserver === 'undefined') return;
+                const ro = new ResizeObserver(() => fit());
+                ro.observe(el);
+                return () => ro.disconnect();
+            }, [fit]);
+            return <pre ref={ref} dir="ltr" className={className} style={style} {...rest}>{text}</pre>;
+        };
+
         // Exercise card — תרגיל קטן עם רמז ופתרון
         const ExerciseCard = ({ ex, idx }) => {
             const [showHint, setShowHint] = useState(false);
@@ -1937,7 +1992,7 @@ a.setGrade(100);   // משנה רק את נעמה
                     </div>
                     {showHint && <div className="mt-2.5 bg-amber-400/10 border border-amber-400/25 rounded-xl px-4 py-2.5 text-amber-200 text-sm leading-relaxed flex items-start gap-2"><span className="flex-shrink-0 mt-0.5"><Icon name="spark" size={14} /></span><span>{ex.hint}</span></div>}
                     {showSol && (
-                        <pre dir="ltr" className="mt-2.5 bg-[#14141E] border border-indigo-500/25 rounded-xl px-4 py-3 text-[13px] text-slate-200 overflow-x-auto leading-relaxed" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{ex.solution}</pre>
+                        <FitPre code={ex.solution} halveIndent className="mt-2.5 bg-[#14141E] border border-indigo-500/25 rounded-xl px-4 py-3 text-[13px] text-slate-200 overflow-x-auto leading-relaxed" style={{ fontFamily: "Consolas, 'JetBrains Mono', monospace" }} />
                     )}
                 </div>
             );
@@ -1952,9 +2007,9 @@ a.setGrade(100);   // משנה רק את נעמה
                             <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-xs flex-shrink-0">{i + 1}</span>
                             <h4 className="text-white font-bold text-[16.5px]">{s.h}</h4>
                         </div>
-                        <p className="text-slate-300 leading-[1.95] text-[15px]" style={{ textWrap: 'pretty', whiteSpace: 'pre-line', paddingInlineStart: '34px' }}>{s.p}</p>
+                        <p className="text-slate-300 leading-[1.95] text-[15px] lesson-p-indent" style={{ textWrap: 'pretty', whiteSpace: 'pre-line' }}>{s.p}</p>
                         {s.code && (
-                            <pre dir="ltr" className="q-codeblock mt-3" style={{ marginInlineStart: '34px' }}>{s.code}</pre>
+                            <FitPre code={s.code} halveIndent className="q-codeblock mt-3 lesson-indent" />
                         )}
                     </div>
                 ))}
@@ -2116,6 +2171,9 @@ a.setGrade(100);   // משנה רק את נעמה
                             <span style={{ color: '#FCD34D', fontSize: 12.5, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", direction: 'ltr' }}>{demo.code[st.line].trim()}</span>
                         </div>
                     )}
+                    {/* במסך רחב: התצוגה הוויזואלית לצד הקוד — מעקב במקביל */}
+                    <div className="viz-split">
+                    <div className="viz-stage-side">
                     {/* legend */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, padding: '12px 16px 0', flexWrap: 'wrap', color: '#94A3B8', fontSize: 12 }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ display: 'inline-flex', borderRadius: 7, overflow: 'hidden', border: '2px solid #A78BFA' }}><span style={{ width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(150deg,#A78BFA,#7C6BF0)', color: '#fff', fontWeight: 800, fontSize: 13, fontFamily: "'JetBrains Mono', monospace" }}>5</span><span style={{ width: 18, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#3a3470', color: '#DDD6FE' }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span> חוליה: ערך + next</span>
@@ -2123,14 +2181,16 @@ a.setGrade(100);   // משנה רק את נעמה
                     </div>
                     {/* diagram */}
                     <div style={{ padding: '12px 18px 18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, flexWrap: 'wrap', minHeight: 150, direction: 'ltr' }}>{demo.render(st)}</div>
+                    </div>
                     {/* code */}
-                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)' }}>
+                    <div className="viz-code-side" style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)' }}>
                         {demo.code.map((ln, idx) => (
                             <div key={idx} style={{ display: 'flex', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, lineHeight: '1.95', background: st.line === idx ? 'rgba(251,191,36,0.14)' : 'transparent', borderInlineStart: st.line === idx ? '3px solid #FBBF24' : '3px solid transparent', paddingInlineEnd: 12 }}>
                                 <span style={{ width: 32, textAlign: 'right', color: st.line === idx ? '#FBBF24' : '#4B5263', paddingInlineEnd: 12, flexShrink: 0, userSelect: 'none', fontWeight: st.line === idx ? 800 : 400 }}>{st.line === idx ? '▶' : idx + 1}</span>
                                 <span style={{ color: st.line === idx ? '#FDE68A' : '#ABB2BF', whiteSpace: 'pre' }}>{ln}</span>
                             </div>
                         ))}
+                    </div>
                     </div>
                     {/* explanation + output */}
                     <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -2237,8 +2297,10 @@ a.setGrade(100);   // משנה רק את נעמה
                         <span style={{ background: '#FBBF24', color: '#3a2a05', fontWeight: 800, fontSize: 11, padding: '2px 9px', borderRadius: 999, fontFamily: "'JetBrains Mono', monospace" }}>שורה {st.line + 1}</span>
                         <span style={{ color: '#FCD34D', fontSize: 12.5, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", direction: 'ltr' }}>{code[st.line].trim()}</span>
                     </div>
+                    {/* במסך רחב: הדיאגרמה לצד הקוד */}
+                    <div className="viz-split">
                     {/* diagram: the IDEA births children via descending lines */}
-                    <div style={{ padding: '20px 18px 22px', direction: 'ltr' }}>
+                    <div className="viz-stage-side" style={{ padding: '20px 18px 22px', direction: 'ltr' }}>
                         {/* the idea / class blueprint */}
                         <div style={{ display: 'flex', justifyContent: 'center' }}>
                             <div style={{ width: 250, background: 'repeating-linear-gradient(135deg,rgba(167,139,250,0.08),rgba(167,139,250,0.08) 10px,rgba(167,139,250,0.03) 10px,rgba(167,139,250,0.03) 20px)', border: '2px dashed #A78BFA', borderRadius: 14, padding: '12px 14px', boxShadow: '0 0 34px rgba(167,139,250,0.3)' }}>
@@ -2286,7 +2348,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         </div>
                     </div>
                     {/* code */}
-                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)' }}>
+                    <div className="viz-code-side" style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)' }}>
                         {code.map((ln, idx) => {
                             const isClassBlock = st.line === 0 && idx >= 0 && idx <= 3;
                             const on = st.line === idx || isClassBlock;
@@ -2297,6 +2359,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                 </div>
                             );
                         })}
+                    </div>
                     </div>
                     {/* explanation */}
                     <div style={{ padding: '14px 16px' }}>
@@ -2406,8 +2469,10 @@ a.setGrade(100);   // משנה רק את נעמה
                             <span style={{ color: '#8b93a7', fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace" }}>{demo.note}</span>
                         </div>
                     </div>
+                    {/* במסך רחב: חלונות הקריאות לצד הקוד */}
+                    <div className="viz-split">
                     {/* call-stack windows */}
-                    <div style={{ padding: '18px 18px 8px', direction: 'ltr', minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
+                    <div className="viz-stage-side" style={{ padding: '18px 18px 8px', direction: 'ltr', minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
                         {st.frames.length === 0 && st.finished && (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '30px 0' }}>
                                 <div style={{ width: 54, height: 54, borderRadius: '50%', background: 'rgba(16,185,129,0.15)', border: '2px solid #6EE7B7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6EE7B7' }}><Icon name="check" size={26} /></div>
@@ -2452,13 +2517,14 @@ a.setGrade(100);   // משנה רק את נעמה
                         })}
                     </div>
                     {/* code */}
-                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 10 }}>
+                    <div className="viz-code-side" style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 10 }}>
                         {demo.code.map((ln, idx) => (
                             <div key={idx} style={{ display: 'flex', fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, lineHeight: '1.85', background: st.line === idx ? 'rgba(251,191,36,0.12)' : 'transparent', borderInlineStart: st.line === idx ? '3px solid #FBBF24' : '3px solid transparent', paddingInlineEnd: 12 }}>
                                 <span style={{ width: 30, textAlign: 'right', color: st.line === idx ? '#FBBF24' : '#4B5263', paddingInlineEnd: 10, flexShrink: 0, userSelect: 'none', fontWeight: st.line === idx ? 800 : 400 }}>{st.line === idx ? '▶' : idx + 1}</span>
                                 <span style={{ color: st.line === idx ? '#FDE68A' : '#ABB2BF', whiteSpace: 'pre' }}>{ln}</span>
                             </div>
                         ))}
+                    </div>
                     </div>
                     {/* explanation */}
                     <div style={{ padding: '14px 16px 4px' }}>
@@ -2590,6 +2656,9 @@ a.setGrade(100);   // משנה רק את נעמה
                         </div>
                         <div style={{ color: '#DDD6FE', fontWeight: 800, fontSize: 13.5, marginTop: 8 }}>{demo.title}</div>
                     </div>
+                    {/* במסך רחב: המערך והמשתנים לצד הקוד */}
+                    <div className="viz-split">
+                    <div className="viz-stage-side">
                     {/* array */}
                     <div style={{ padding: '22px 18px 6px', direction: 'ltr', display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
                         {arr.map((v, idx) => {
@@ -2610,14 +2679,16 @@ a.setGrade(100);   // משנה רק את נעמה
                             <span key={k} style={{ background: st.hot === k ? 'rgba(16,185,129,0.18)' : 'rgba(15,23,42,0.6)', border: '1px solid ' + (st.hot === k ? '#34D399' : 'rgba(148,163,184,0.2)'), borderRadius: 8, padding: '4px 12px', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: st.hot === k ? '#6EE7B7' : '#E2E8F0', transition: 'all .25s' }}>{k} = {String(st.vars[k])}</span>
                         ))}
                     </div>
+                    </div>
                     {/* code */}
-                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 12 }}>
+                    <div className="viz-code-side" style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 12 }}>
                         {demo.code.map((ln, idx) => (
                             <div key={idx} style={{ display: 'flex', fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, lineHeight: '1.85', background: st.line === idx ? 'rgba(251,191,36,0.12)' : 'transparent', borderInlineStart: st.line === idx ? '3px solid #FBBF24' : '3px solid transparent', paddingInlineEnd: 12 }}>
                                 <span style={{ width: 30, textAlign: 'right', color: st.line === idx ? '#FBBF24' : '#4B5263', paddingInlineEnd: 10, flexShrink: 0, userSelect: 'none', fontWeight: st.line === idx ? 800 : 400 }}>{st.line === idx ? '▶' : idx + 1}</span>
                                 <span style={{ color: st.line === idx ? '#FDE68A' : '#ABB2BF', whiteSpace: 'pre' }}>{ln}</span>
                             </div>
                         ))}
+                    </div>
                     </div>
                     {/* result + explanation */}
                     <div style={{ padding: '14px 16px 4px', display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -2769,6 +2840,9 @@ a.setGrade(100);   // משנה רק את נעמה
                         </div>
                         <div style={{ color: '#DDD6FE', fontWeight: 800, fontSize: 13.5, marginTop: 8 }}>{demo.title}</div>
                     </div>
+                    {/* במסך רחב: התור/מחסנית לצד הקוד */}
+                    <div className="viz-split">
+                    <div className="viz-stage-side">
                     {/* diagram */}
                     {diagram}
                     {/* output */}
@@ -2776,14 +2850,16 @@ a.setGrade(100);   // משנה רק את נעמה
                         <span style={{ color: '#64748B', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, flexShrink: 0 }}>{mode === 'reverse' ? 'פלט ▶' : 'יצאו ▶'}</span>
                         {(st.out || []).map((v, k) => <span key={k} style={{ background: 'rgba(16,185,129,0.16)', color: '#6EE7B7', borderRadius: 6, padding: '2px 8px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13 }}>{v}</span>)}
                     </div>
+                    </div>
                     {/* code */}
-                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 10 }}>
+                    <div className="viz-code-side" style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 10 }}>
                         {demo.code.map((ln, idx) => (
                             <div key={idx} style={{ display: 'flex', fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, lineHeight: '1.85', background: st.line === idx ? 'rgba(251,191,36,0.12)' : 'transparent', borderInlineStart: st.line === idx ? '3px solid #FBBF24' : '3px solid transparent', paddingInlineEnd: 12 }}>
                                 <span style={{ width: 30, textAlign: 'right', color: st.line === idx ? '#FBBF24' : '#4B5263', paddingInlineEnd: 10, flexShrink: 0, userSelect: 'none', fontWeight: st.line === idx ? 800 : 400 }}>{st.line === idx ? '▶' : idx + 1}</span>
                                 <span style={{ color: ln.trim().startsWith('//') ? '#7A8290' : st.line === idx ? '#FDE68A' : '#ABB2BF', whiteSpace: 'pre' }}>{ln}</span>
                             </div>
                         ))}
+                    </div>
                     </div>
                     {/* explanation */}
                     <div style={{ padding: '14px 16px 4px' }}>
@@ -2891,6 +2967,9 @@ a.setGrade(100);   // משנה רק את נעמה
                         </div>
                         <div style={{ color: '#DDD6FE', fontWeight: 800, fontSize: 13.5, marginTop: 8 }}>{demo.title}</div>
                     </div>
+                    {/* במסך רחב: המחרוזת והמשתנים לצד הקוד */}
+                    <div className="viz-split">
+                    <div className="viz-stage-side">
                     {/* string cells */}
                     <div style={{ padding: '22px 18px 6px', direction: 'ltr', display: 'flex', justifyContent: 'center', gap: 7, flexWrap: 'wrap', overflowX: 'auto' }}>
                         {str.map((ch, idx) => {
@@ -2918,14 +2997,16 @@ a.setGrade(100);   // משנה רק את נעמה
                             {st.out.map((v, k) => <span key={k} style={{ background: 'rgba(16,185,129,0.16)', color: '#6EE7B7', borderRadius: 6, padding: '2px 9px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14 }}>{v}</span>)}
                         </div>
                     )}
+                    </div>
                     {/* code */}
-                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 12 }}>
+                    <div className="viz-code-side" style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 12 }}>
                         {demo.code.map((ln, idx) => (
                             <div key={idx} style={{ display: 'flex', fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, lineHeight: '1.85', background: st.line === idx ? 'rgba(251,191,36,0.12)' : 'transparent', borderInlineStart: st.line === idx ? '3px solid #FBBF24' : '3px solid transparent', paddingInlineEnd: 12 }}>
                                 <span style={{ width: 30, textAlign: 'right', color: st.line === idx ? '#FBBF24' : '#4B5263', paddingInlineEnd: 10, flexShrink: 0, userSelect: 'none', fontWeight: st.line === idx ? 800 : 400 }}>{st.line === idx ? '▶' : idx + 1}</span>
                                 <span style={{ color: ln.trim().startsWith('//') ? '#7A8290' : st.line === idx ? '#FDE68A' : '#ABB2BF', whiteSpace: 'pre' }}>{ln}</span>
                             </div>
                         ))}
+                    </div>
                     </div>
                     {/* result + explanation */}
                     <div style={{ padding: '14px 16px 4px', display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -3070,6 +3151,9 @@ a.setGrade(100);   // משנה רק את נעמה
                         </div>
                         <div style={{ color: '#DDD6FE', fontWeight: 800, fontSize: 13.5, marginTop: 8 }}>{demo.title}</div>
                     </div>
+                    {/* במסך רחב: העץ לצד הקוד */}
+                    <div className="viz-split">
+                    <div className="viz-stage-side">
                     {/* tree diagram */}
                     <div style={{ position: 'relative', height: 380, margin: '6px 8px 0' }}>
                         <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
@@ -3095,14 +3179,16 @@ a.setGrade(100);   // משנה רק את נעמה
                             {(st.out || []).map((v, k) => <span key={k} style={{ background: 'rgba(16,185,129,0.16)', color: '#6EE7B7', borderRadius: 6, padding: '2px 8px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13 }}>{v}</span>)}
                         </div>
                     )}
+                    </div>
                     {/* code */}
-                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 10 }}>
+                    <div className="viz-code-side" style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)', marginTop: 10 }}>
                         {demo.code.map((ln, idx) => (
                             <div key={idx} style={{ display: 'flex', fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, lineHeight: '1.85', background: lineIdx === idx ? 'rgba(251,191,36,0.12)' : 'transparent', borderInlineStart: lineIdx === idx ? '3px solid #FBBF24' : '3px solid transparent', paddingInlineEnd: 12 }}>
                                 <span style={{ width: 30, textAlign: 'right', color: '#4B5263', paddingInlineEnd: 10, flexShrink: 0, userSelect: 'none' }}>{idx + 1}</span>
                                 <span style={{ color: ln.trim().startsWith('//') ? '#7A8290' : '#ABB2BF', whiteSpace: 'pre' }}>{ln}</span>
                             </div>
                         ))}
+                    </div>
                     </div>
                     {/* explanation */}
                     <div style={{ padding: '14px 16px 4px' }}>
@@ -3241,7 +3327,9 @@ a.setGrade(100);   // משנה רק את נעמה
                     </div>
 
                     {/* flow: input (right) → box → output (left) */}
-                    <div style={{ padding: '22px 14px 10px', direction: 'rtl', overflowX: 'auto' }}>
+                    {/* במסך רחב: קלט-עיבוד-פלט לצד הקוד */}
+                    <div className="viz-split">
+                    <div className="viz-stage-side" style={{ padding: '22px 14px 10px', direction: 'rtl', overflowX: 'auto' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, minWidth: 'min-content' }}>
                             {/* INPUT zone */}
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -3293,7 +3381,7 @@ a.setGrade(100);   // משנה רק את נעמה
                     </div>
 
                     {/* code */}
-                    <div style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)' }}>
+                    <div className="viz-code-side" style={{ padding: '12px 0', background: '#21262E', direction: 'ltr', borderTop: '1px solid rgba(148,163,184,0.12)' }}>
                         {d.code.map((ln, idx) => {
                             const isInput = ln.includes('// קלט');
                             const isProc = ln.includes('// עיבוד');
@@ -3306,6 +3394,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                 </div>
                             );
                         })}
+                    </div>
                     </div>
 
                     {/* explanation */}
@@ -3393,7 +3482,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         <span className={`text-indigo-300 text-xl transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
                     </button>
                     {open && (
-                      <div className="grid md:grid-cols-[232px_1fr] border-t border-slate-700/60">
+                      <div className="grid grid-cols-1 md:grid-cols-[232px_minmax(0,1fr)] border-t border-slate-700/60">
                         {/* ===== rail ===== */}
                         <div className="bg-slate-900/40 md:border-l border-b md:border-b-0 border-slate-700/60 p-4 md:p-5">
                             <div className="flex items-center gap-2.5 mb-4">
@@ -3413,7 +3502,7 @@ a.setGrade(100);   // משנה רק את נעמה
                             </div>
                         </div>
                         {/* ===== content ===== */}
-                        <div className="p-4 md:p-6 min-w-0 q-swap" key={cur}>
+                        <div className="p-4 md:p-6 min-w-0 q-swap cq" key={cur}>
                             {s.kind === 'intro' && (
                                 <div className="flex flex-col gap-6">
                                     <div className="flex items-start gap-3 bg-indigo-500/8 border border-indigo-400/20 rounded-xl px-4 py-3.5">
@@ -3479,11 +3568,11 @@ a.setGrade(100);   // משנה רק את נעמה
                                     )}
                                     <div>
                                         <div className="text-indigo-300 font-bold text-sm mb-2.5 flex items-center gap-2"><Icon name="check" size={15} /> לסיכום — נקודות מפתח</div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                        <div className="points-grid">
                                             {topic.points.map((p, i) => (
-                                                <div key={i} className="flex items-start gap-2.5 bg-slate-800/60 border border-slate-700/60 rounded-xl px-3.5 py-2.5">
+                                                <div key={i} className="flex items-start gap-2.5 bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-3">
                                                     <span className="text-indigo-400 font-mono text-sm font-bold mt-0.5 flex-shrink-0">{String(i + 1).padStart(2, '0')}</span>
-                                                    <span className="text-slate-300 text-sm leading-relaxed">{p}</span>
+                                                    <span className="text-slate-300 text-[14.5px] leading-[1.8]" style={{ overflowWrap: 'anywhere', textWrap: 'pretty' }}>{p}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -3567,7 +3656,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         const content = trim(b.lines.join('\n'));
                         if (!content.trim()) return null;
                         return b.code
-                            ? <pre key={i} className="q-codeblock">{content}</pre>
+                            ? <FitPre key={i} code={content} className="q-codeblock" />
                             : <div key={i} className="q-text" style={{ textWrap: 'pretty' }}>{renderInline(content)}</div>;
                     })}
                 </div>
@@ -6269,7 +6358,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         <div className="space-y-2 mt-1">
                             {active.rows.map((r, i) => (
                                 <div key={i} className="flex flex-col md:flex-row md:items-stretch gap-0 md:gap-3 bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-hidden">
-                                    <pre className="flex-1 m-0 px-3.5 py-2.5 text-[13px] leading-relaxed text-emerald-200 bg-[#21252B] overflow-x-auto" style={{ direction: 'ltr', textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}>{r.c}</pre>
+                                    <FitPre code={r.c} className="flex-1 m-0 px-3.5 py-2.5 text-[13px] leading-relaxed text-emerald-200 bg-[#21252B] overflow-x-auto" style={{ textAlign: 'left', fontFamily: "Consolas, 'JetBrains Mono', monospace" }} />
                                     <div className="flex items-center md:w-2/5 px-3.5 py-2 text-slate-300 text-[13.5px] leading-snug" style={{ textWrap: 'pretty' }}>{r.h}</div>
                                 </div>
                             ))}
@@ -6346,6 +6435,8 @@ a.setGrade(100);   // משנה רק את נעמה
             const [homeworkCheckCount, setHomeworkCheckCount] = useState({}); // { examId_questionIndex: count }
             const [examSettings, setExamSettings] = useState({}); // { examId: { homeworkPrompt, gradingInstructions } }
             const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false); // Mobile sidebar toggle
+            const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { return localStorage.getItem('sidebarCollapsed') === '1'; } catch (e) { return false; } }); // סרגל נושאים מתקפל (דסקטופ)
+            const toggleSidebar = () => setSidebarCollapsed(v => { const nv = !v; try { localStorage.setItem('sidebarCollapsed', nv ? '1' : '0'); } catch (e) {} return nv; });
             // ===== מצב מבחן נעול =====
             const [examLockStarted, setExamLockStarted] = useState(null); // examId שעבורו אושר "התחל מבחן"
             const [examLockExits, setExamLockExits] = useState(0); // מונה יציאות בסשן הנוכחי
@@ -7774,7 +7865,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         </aside>
                         
                         {/* Desktop Sidebar */}
-                        <aside className="desktop-sidebar w-80 bg-slate-900/50 border-l border-slate-700 overflow-y-auto flex-shrink-0">
+                        <aside className={`desktop-sidebar bg-slate-900/50 border-l border-slate-700 overflow-y-auto flex-shrink-0 ${sidebarCollapsed ? 'sidebar-closed' : 'w-80'}`}>
                             <div className="p-4 border-b border-slate-700 flex items-center justify-between">
                                 <h2 className="font-extrabold text-white flex items-center gap-2"><span className="w-7 h-7 rounded-lg logo-coin flex items-center justify-center text-white font-mono text-xs">{ }</span> הנושאים שלי</h2>
                                 {editMode && !previewMode && <button onClick={() => setClassModal({ open: true, item: null })} className="p-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg"><Icon name="plus" size={16} /></button>}
@@ -7996,7 +8087,13 @@ a.setGrade(100);   // משנה רק את נעמה
                         </aside>
 
                         {/* Main Content */}
-                        <main className="flex-1 overflow-y-auto">
+                        <main className="flex-1 overflow-y-auto cq">
+                            {/* כפתור קיפול/פתיחה של סרגל הנושאים — צף בקצה הגבול עם הסרגל (דסקטופ בלבד) */}
+                            <div className="hidden md:block" style={{ position: 'sticky', top: 10, height: 0, zIndex: 45 }}>
+                                <button className="sidebar-toggle" onClick={toggleSidebar} title={sidebarCollapsed ? 'פתיחת סרגל הנושאים' : 'סגירת סרגל הנושאים'}>
+                                    <Icon name={sidebarCollapsed ? 'chevronLeft' : 'chevronRight'} size={16} />
+                                </button>
+                            </div>
                             {selectedExam && currentQ ? (
                                 <div key={`${selectedExam?.id}_${selectedQuestion}_${viewingStudent?.id || 'self'}`} className="max-w-[1520px] mx-auto p-4 md:p-6 q-swap">
                                     {/* Viewing student header - only when not in preview mode */}
