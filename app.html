@@ -53,7 +53,7 @@
         
         /* CodeMirror 6 Styles - VS Code Light Theme */
         .cm-editor {
-            height: 520px !important;
+            height: clamp(480px, 64vh, 900px) !important;
             min-height: 300px;
             max-height: 78vh;
             font-family: 'JetBrains Mono', monospace !important;
@@ -194,7 +194,7 @@
         .cq { container-type: inline-size; }
         /* ===== שני חלונות זה-לצד-זה: חלון התרגיל (ימין) מול חלון העבודה/פתרון עם העורך (שמאל) ===== */
         .qx-panes { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
-        @container (min-width: 1040px) { .qx-panes { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
+        @container (min-width: 1040px) { .qx-panes { grid-template-columns: minmax(0,1fr) minmax(0,1.18fr); } }
         /* ===== הדגמות אינטראקטיביות — במסך רחב הקוד עומד לצד התצוגה הוויזואלית ===== */
         .viz-split { display: grid; grid-template-columns: 1fr; align-items: stretch; }
         .viz-code-side { min-width: 0; overflow-x: auto; }
@@ -7446,6 +7446,7 @@ a.setGrade(100);   // משנה רק את נעמה
             // התלמידה לוחצת "התחל מבחן" — נכנסים למסך מלא ומפעילים את הניטור
             const startExamLock = () => {
                 enterExamFullscreen();
+                setSidebarCollapsed(true); // במבחן: מפנים את כל הרוחב לשאלה ולעורך (לא נשמר כהעדפה — אפשר לפתוח בחזרה)
                 setExamLockExits(studentData?.exitAttempts?.length || 0);
                 setExamLockStarted(selectedExam.id);
                 setExamLockWarn(false);
@@ -8095,7 +8096,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                 </button>
                             </div>
                             {selectedExam && currentQ ? (
-                                <div key={`${selectedExam?.id}_${selectedQuestion}_${viewingStudent?.id || 'self'}`} className="max-w-[1520px] mx-auto p-4 md:p-6 q-swap">
+                                <div key={`${selectedExam?.id}_${selectedQuestion}_${viewingStudent?.id || 'self'}`} className="max-w-[1600px] mx-auto p-4 md:p-6 q-swap">
                                     {/* Viewing student header - only when not in preview mode */}
                                     {isEditor && !previewMode && viewingStudent && (
                                         <div className="bg-yellow-900/30 border border-yellow-600/30 rounded-xl p-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
