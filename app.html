@@ -212,11 +212,14 @@
         .sidebar-closed { width: 0 !important; min-width: 0 !important; opacity: 0; pointer-events: none; border-left: none !important; overflow: hidden !important; }
         /* כפתור סרגל הנושאים — כשהסרגל סגור הוא כפתור מלא עם הכיתוב "הנושאים" כדי שיהיה ברור מה הוא פותח;
            כשהסרגל פתוח הוא מתכווץ לחץ שקט שרק מקפל אותו. */
-        .sidebar-toggle { position: absolute; inset-inline-start: 12px; top: 6px; height: 44px; min-width: 44px; padding: 0 16px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg,#6366F1,#4F46E5); border: 1px solid rgba(129,140,248,0.55); color: #fff; font-family: inherit; font-weight: 700; font-size: 14.5px; white-space: nowrap; cursor: pointer; box-shadow: 0 8px 22px rgba(79,70,229,0.45); transition: filter .15s, transform .12s, background .15s; }
+        /* יושב בכותרת ולא מרחף מעל התוכן — כך הוא לא מכסה כותרות וטקסט. */
+        .sidebar-toggle { height: 40px; min-width: 40px; padding: 0 14px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex-shrink: 0; background: linear-gradient(135deg,#6366F1,#4F46E5); border: 1px solid rgba(129,140,248,0.55); color: #fff; font-family: inherit; font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; box-shadow: 0 4px 14px rgba(79,70,229,0.4); transition: filter .15s, transform .12s, background .15s; }
         .sidebar-toggle:hover { filter: brightness(1.08); }
         .sidebar-toggle:active { transform: translateY(1px); }
         .sidebar-toggle:focus-visible { outline: 2px solid #C7D2FE; outline-offset: 3px; }
-        .sidebar-toggle.is-open { width: 44px; padding: 0; background: rgba(30,41,59,0.92); border-color: rgba(148,163,184,0.32); color: #A5B4FC; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+        .sidebar-toggle.is-open { width: 40px; padding: 0; background: rgba(30,41,59,0.92); border-color: rgba(148,163,184,0.32); color: #A5B4FC; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+        /* מעטפת בגובה המסך: אזור התוכן והסרגל גוללים בנפרד, ולכן הסרגל נשאר במקומו בזמן גלילה. */
+        .app-shell { height: 100vh; height: 100dvh; }
         .sidebar-toggle.is-open:hover { background: rgba(51,65,85,0.95); color: #C7D2FE; filter: none; }
         /* עין להסתרת נושא מהתלמידות — נראית רק למורה */
         .topic-eye { width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; background: none; color: #64748B; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
@@ -3939,6 +3942,12 @@ a.setGrade(100);   // משנה רק את נעמה
         };
 
         // Login Screen — open landing, content visible but locked until sign-in
+        // גלילה לראש אזור התוכן. המעטפת בגובה המסך, ולכן ה-main הוא שגולל — לא החלון.
+        const scrollMainTop = () => {
+            try { const m = document.querySelector('main.cq'); if (m) m.scrollTo({ top: 0 }); } catch (e) {}
+            try { window.scrollTo({ top: 0 }); } catch (e) {}
+        };
+
         const LoginScreen = ({ onLogin, loading, onDemo }) => (            <div className="min-h-screen flex flex-col login-stage">
                 <LoginAmbience />
                 <div className="relative flex flex-col min-h-screen" style={{ zIndex: 1 }}>
@@ -6575,7 +6584,7 @@ a.setGrade(100);   // משנה רק את נעמה
                 setSelectedExam(exam);
                 setSelectedQuestion(fav.qNum);
                 setMobileSidebarOpen(false);
-                window.scrollTo({ top: 0 });
+                scrollMainTop();
             };
 
             // ===== התראות על עבודה/מבחן חדש (סגנון: כרטיס עשיר) =====
@@ -6606,7 +6615,7 @@ a.setGrade(100);   // משנה רק את נעמה
                 setSelectedExam(exam);
                 setSelectedQuestion(firstQ);
                 setMobileSidebarOpen(false);
-                window.scrollTo({ top: 0 });
+                scrollMainTop();
             };
             useEffect(() => {
                 if (!auth) { setAuthLoading(false); return; }
@@ -7580,7 +7589,7 @@ a.setGrade(100);   // משנה רק את נעמה
                 return { total: exams.length, done, pending };
             };
             return (
-                <div className="min-h-screen flex flex-col">
+                <div className="app-shell flex flex-col">
                     {demoMode && (
                         <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 60 }}>
                             <div className="flex items-center gap-3 bg-indigo-600/95 text-white rounded-full pl-2 pr-4 py-1.5 shadow-2xl border border-indigo-400/40" style={{ backdropFilter: 'blur(8px)' }}>
@@ -7659,6 +7668,13 @@ a.setGrade(100);   // משנה רק את נעמה
                                         <line x1="3" y1="12" x2="21" y2="12"></line>
                                         <line x1="3" y1="18" x2="21" y2="18"></line>
                                     </svg>
+                                </button>
+                                {/* פתיחה/קיפול של סרגל הנושאים — בכותרת, כדי שלא יכסה תוכן (דסקטופ בלבד) */}
+                                <button className={`sidebar-toggle hidden md:inline-flex ${sidebarCollapsed ? '' : 'is-open'}`} onClick={toggleSidebar}
+                                    title={sidebarCollapsed ? 'פתיחת סרגל הנושאים' : 'קיפול סרגל הנושאים'}
+                                    aria-label={sidebarCollapsed ? 'פתיחת סרגל הנושאים' : 'קיפול סרגל הנושאים'} aria-expanded={!sidebarCollapsed}>
+                                    <Icon name={sidebarCollapsed ? 'list' : 'chevronRight'} size={sidebarCollapsed ? 18 : 17} />
+                                    {sidebarCollapsed && <span>הנושאים</span>}
                                 </button>
                                 <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { 
                                     // Save any pending changes immediately before navigating
@@ -8241,15 +8257,6 @@ a.setGrade(100);   // משנה רק את נעמה
 
                         {/* Main Content */}
                         <main className="flex-1 overflow-y-auto cq">
-                            {/* כפתור קיפול/פתיחה של סרגל הנושאים — צף בקצה הגבול עם הסרגל (דסקטופ בלבד) */}
-                            <div className="hidden md:block" style={{ position: 'sticky', top: 10, height: 0, zIndex: 45 }}>
-                                <button className={`sidebar-toggle ${sidebarCollapsed ? '' : 'is-open'}`} onClick={toggleSidebar}
-                                    title={sidebarCollapsed ? 'פתיחת סרגל הנושאים' : 'סגירת סרגל הנושאים'}
-                                    aria-label={sidebarCollapsed ? 'פתיחת סרגל הנושאים' : 'סגירת סרגל הנושאים'} aria-expanded={!sidebarCollapsed}>
-                                    <Icon name={sidebarCollapsed ? 'list' : 'chevronRight'} size={sidebarCollapsed ? 19 : 18} />
-                                    {sidebarCollapsed && <span>הנושאים</span>}
-                                </button>
-                            </div>
                             {selectedExam && currentQ ? (
                                 <div key={`${selectedExam?.id}_${selectedQuestion}_${viewingStudent?.id || 'self'}`} className="max-w-[1600px] mx-auto p-4 md:p-6 q-swap">
                                     {/* Viewing student header - only when not in preview mode */}
