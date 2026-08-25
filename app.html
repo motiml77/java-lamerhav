@@ -210,8 +210,19 @@
         /* ===== סרגל נושאים מתקפל — כפתור צף על גבול הסרגל, התוכן מתרחב בהתאם ===== */
         .desktop-sidebar { transition: width .25s ease, opacity .2s ease, padding .25s ease; }
         .sidebar-closed { width: 0 !important; min-width: 0 !important; opacity: 0; pointer-events: none; border-left: none !important; overflow: hidden !important; }
-        .sidebar-toggle { position: absolute; inset-inline-start: 10px; top: 0; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(30,41,59,0.92); border: 1px solid rgba(148,163,184,0.28); color: #A5B4FC; cursor: pointer; transition: background .15s, border-color .15s; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
-        .sidebar-toggle:hover { background: rgba(51,65,85,0.95); border-color: rgba(148,163,184,0.45); color: #C7D2FE; }
+        /* כפתור סרגל הנושאים — כשהסרגל סגור הוא כפתור מלא עם הכיתוב "הנושאים" כדי שיהיה ברור מה הוא פותח;
+           כשהסרגל פתוח הוא מתכווץ לחץ שקט שרק מקפל אותו. */
+        .sidebar-toggle { position: absolute; inset-inline-start: 12px; top: 6px; height: 44px; min-width: 44px; padding: 0 16px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg,#6366F1,#4F46E5); border: 1px solid rgba(129,140,248,0.55); color: #fff; font-family: inherit; font-weight: 700; font-size: 14.5px; white-space: nowrap; cursor: pointer; box-shadow: 0 8px 22px rgba(79,70,229,0.45); transition: filter .15s, transform .12s, background .15s; }
+        .sidebar-toggle:hover { filter: brightness(1.08); }
+        .sidebar-toggle:active { transform: translateY(1px); }
+        .sidebar-toggle:focus-visible { outline: 2px solid #C7D2FE; outline-offset: 3px; }
+        .sidebar-toggle.is-open { width: 44px; padding: 0; background: rgba(30,41,59,0.92); border-color: rgba(148,163,184,0.32); color: #A5B4FC; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+        .sidebar-toggle.is-open:hover { background: rgba(51,65,85,0.95); color: #C7D2FE; filter: none; }
+        /* עין להסתרת נושא מהתלמידות — נראית רק למורה */
+        .topic-eye { width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; background: none; color: #64748B; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+        .topic-eye:hover { background: rgba(148,163,184,0.14); color: #CBD5E1; }
+        .topic-eye:focus-visible { outline: 2px solid #A5B4FC; outline-offset: 2px; }
+        .topic-eye.is-hidden { color: #FCA5A5; background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.32); }
         .sidebar-item { transition: all 0.2s ease; border-radius: 8px; margin: 2px 0; }
         .sidebar-item:hover { background: rgba(99, 102, 241, 0.15); }
         .sidebar-item.active { background: linear-gradient(90deg, rgba(99, 102, 241, 0.3) 0%, transparent 100%); border-right: 3px solid #6366F1; }
@@ -426,6 +437,10 @@
             /* מספרים "עירומים" (ניקוד שאלה / משך מבחן) — הקלט עצמו חייב גובה מגע אמיתי,
                אחרת טקסט 16px של iOS נדחס לתיבה בגובה 20px. */
             input[type=number] { min-height: 36px; }
+            /* עין הנושא — יעד מגע מלא בטלפון */
+            .topic-eye { width: 40px; height: 40px; }
+            /* כפתור הסרגל בטלפון מיותר — המגירה נפתחת מה-☰ שבכותרת */
+            .sidebar-toggle { display: none !important; }
             /* Comfortable touch targets for grading actions */
             .btn-sm { padding: 10px 14px; min-height: 40px; }
             .action-btn { padding: 8px 12px; font-size: 13px; }
@@ -647,6 +662,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 unlock: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>,
                 clipboard: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>,
                 eye: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
+                list: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
                 eyeOff: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>,
                 upload: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>,
                 fileText: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>,
@@ -6492,8 +6508,10 @@ a.setGrade(100);   // משנה רק את נעמה
             const [examSettings, setExamSettings] = useState({}); // { examId: { homeworkPrompt, gradingInstructions } }
             const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false); // Mobile sidebar toggle
             const [respFilter, setRespFilter] = useState(null); // סינון רשימת ההגשות בלוח המורה (לחיצה על אריח סטטיסטיקה)
-            const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try { const v = localStorage.getItem('sidebarCollapsed'); if (v !== null) return v === '1'; } catch (e) {} return window.innerWidth < 1100; }); // סרגל נושאים מתקפל (דסקטופ) — מתחיל מקופל במסכים צרים אלא אם נשמרה העדפה
-            const toggleSidebar = () => setSidebarCollapsed(v => { const nv = !v; try { localStorage.setItem('sidebarCollapsed', nv ? '1' : '0'); } catch (e) {} return nv; });
+            // סרגל הנושאים פתוח בכל כניסה לאתר. הקיפול הוא בחירה זמנית של המשתמשת ולא נשמר —
+            // כך תלמידה שסגרה אותו פעם אחת לא מוצאת אותו סגור גם בשיעור הבא.
+            const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+            const toggleSidebar = () => setSidebarCollapsed(v => !v);
             // ===== מצב מבחן נעול =====
             const [examLockStarted, setExamLockStarted] = useState(null); // examId שעבורו אושר "התחל מבחן"
             const [examLockExits, setExamLockExits] = useState(0); // מונה יציאות בסשן הנוכחי
@@ -7251,6 +7269,17 @@ a.setGrade(100);   // משנה רק את נעמה
             };
 
             // Toggle exam visibility
+            // הסתרת נושא שלם מהתלמידות (ברירת המחדל: מוצג). המורה ממשיכה לראות אותו בסרגל, מעומעם ומסומן.
+            const toggleClassVisibility = async (classId) => {
+                const newClasses = [...classes];
+                const idx = newClasses.findIndex(c => c.id === classId);
+                if (idx < 0) return;
+                const hidden = newClasses[idx].visible === false;               // כרגע מוסתר?
+                newClasses[idx] = { ...newClasses[idx], visible: hidden };      // מוסתר → מוצג, ולהפך
+                await DataService.saveClass(newClasses[idx]);
+                setClasses(newClasses);
+            };
+
             const toggleExamVisibility = async (classId, examId) => {
                 const newClasses = [...classes];
                 const classIdx = newClasses.findIndex(c => c.id === classId);
@@ -7536,6 +7565,7 @@ a.setGrade(100);   // משנה רק את נעמה
             };
             const filteredClasses = isEditor ? classes.filter(cls => !cls.archived && classMatchesGrade(cls, teacherGradeFilter)) : classes.filter(cls => {
                 if (cls.archived) return false;
+                if (cls.visible === false) return false; // נושא שהמורה הסתירה מהתלמידות
                 if (!studentGrade) return true; // Show all if no grade set
                 return studentSeesClass(cls, studentGrade);
             }).sort((a, b) => (isPastTopic(a, studentGrade) ? 1 : 0) - (isPastTopic(b, studentGrade) ? 1 : 0)); // נושאי השנה הקודמת בסוף
@@ -7863,6 +7893,16 @@ a.setGrade(100);   // משנה רק את נעמה
                                             <span className={`font-bold flex-1 ${past ? 'text-slate-500 text-[13px]' : 'text-white'}`}>{cls.title}</span>
                                             {past && <span className="text-[9px] bg-slate-700/70 text-slate-400 px-1.5 py-0.5 rounded-full flex-shrink-0">שנה קודמת</span>}
                                             {isEditor && cls.grade && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">{cls.grade === 'הכל' ? 'יא+יב' : cls.grade}</span>}
+                                            {/* עין למורה — הסתרת הנושא מהתלמידות */}
+                                            {isEditor && !previewMode && (<>
+                                                <button onClick={e => { e.stopPropagation(); toggleClassVisibility(cls.id); }}
+                                                    title={cls.visible === false ? 'הנושא מוסתר מהתלמידות — לחצי כדי להציג' : 'הנושא מוצג לתלמידות — לחצי כדי להסתיר'}
+                                                    aria-label={cls.visible === false ? 'הצגת הנושא לתלמידות' : 'הסתרת הנושא מהתלמידות'}
+                                                    className={`topic-eye flex-shrink-0 ${cls.visible === false ? 'is-hidden' : ''}`}>
+                                                    <Icon name={cls.visible === false ? 'eyeOff' : 'eye'} size={15} />
+                                                </button>
+                                                {cls.visible === false && <span className="text-[10px] bg-red-500/15 text-red-300 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">מוסתר</span>}
+                                            </>)}
                                             {isEditor && editMode && !previewMode && (
                                                 <span className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
                                                     <button onClick={() => setExamModal({ open: true, classId: cls.id, item: null })} className="action-btn bg-green-600/20 text-green-400 hover:bg-green-600/40" title="הוספת עבודה / מבחן"><Icon name="plus" size={14} /></button>
@@ -8000,6 +8040,16 @@ a.setGrade(100);   // משנה רק את נעמה
                                                 <span className={`font-bold truncate ${past ? 'text-slate-500 text-[13px]' : 'text-white'}`}>{cls.title}</span>
                                                 {past && <span className="text-[9px] bg-slate-700/70 text-slate-400 px-1.5 py-0.5 rounded-full flex-shrink-0">שנה קודמת</span>}
                                                 {isEditor && cls.grade && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">{cls.grade === 'הכל' ? 'יא+יב' : cls.grade}</span>}
+                                                {/* עין למורה — הסתרת הנושא מהתלמידות */}
+                                                {isEditor && !previewMode && (<>
+                                                    <button onClick={e => { e.stopPropagation(); toggleClassVisibility(cls.id); }}
+                                                        title={cls.visible === false ? 'הנושא מוסתר מהתלמידות — לחצי כדי להציג' : 'הנושא מוצג לתלמידות — לחצי כדי להסתיר'}
+                                                        aria-label={cls.visible === false ? 'הצגת הנושא לתלמידות' : 'הסתרת הנושא מהתלמידות'}
+                                                        className={`topic-eye flex-shrink-0 ${cls.visible === false ? 'is-hidden' : ''}`}>
+                                                        <Icon name={cls.visible === false ? 'eyeOff' : 'eye'} size={15} />
+                                                    </button>
+                                                    {cls.visible === false && <span className="text-[10px] bg-red-500/15 text-red-300 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">מוסתר</span>}
+                                                </>)}
                                             </div>
                                             {editMode && !previewMode && (
                                                 <div className="flex items-center gap-1">
@@ -8193,8 +8243,11 @@ a.setGrade(100);   // משנה רק את נעמה
                         <main className="flex-1 overflow-y-auto cq">
                             {/* כפתור קיפול/פתיחה של סרגל הנושאים — צף בקצה הגבול עם הסרגל (דסקטופ בלבד) */}
                             <div className="hidden md:block" style={{ position: 'sticky', top: 10, height: 0, zIndex: 45 }}>
-                                <button className="sidebar-toggle" onClick={toggleSidebar} title={sidebarCollapsed ? 'פתיחת סרגל הנושאים' : 'סגירת סרגל הנושאים'}>
-                                    <Icon name={sidebarCollapsed ? 'chevronLeft' : 'chevronRight'} size={16} />
+                                <button className={`sidebar-toggle ${sidebarCollapsed ? '' : 'is-open'}`} onClick={toggleSidebar}
+                                    title={sidebarCollapsed ? 'פתיחת סרגל הנושאים' : 'סגירת סרגל הנושאים'}
+                                    aria-label={sidebarCollapsed ? 'פתיחת סרגל הנושאים' : 'סגירת סרגל הנושאים'} aria-expanded={!sidebarCollapsed}>
+                                    <Icon name={sidebarCollapsed ? 'list' : 'chevronRight'} size={sidebarCollapsed ? 19 : 18} />
+                                    {sidebarCollapsed && <span>הנושאים</span>}
                                 </button>
                             </div>
                             {selectedExam && currentQ ? (
