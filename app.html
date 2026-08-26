@@ -515,7 +515,9 @@
         // ===== ניתוב רב-בית-ספרי (docs/multi-school-plan.md סעיף 4) =====
         // "/lamerhav" → בית הספר lamerhav · "/manage" → לוח המנהל הראשי · "/app.html" ישיר → מצב ישן (legacy)
         // במצב legacy האפליקציה מתנהגת בדיוק כמו היום (אוספי שורש) — עד שלב 6 של התוכנית.
-        const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'firebase-setup', 'lamerhav', 'demo']);
+        // שמות שאסור שישמשו כ-slug כי הם נתיבים של המערכת. שים לב: אין להוסיף לכאן slug של בית ספר קיים —
+        // הרשימה משמשת גם לניתוב, והוספה כזו תשבור את הכתובת שלו. התנגשות נמנעת בבדיקת קיום ב-createSchool.
+        const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'firebase-setup']);
         const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
         const __seg = (typeof location !== 'undefined' ? location.pathname : '/').split('/').filter(Boolean);
         const IS_ADMIN_ROUTE = __seg[0] === 'manage';
