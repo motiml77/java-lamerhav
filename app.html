@@ -527,7 +527,7 @@
             name: "אולפנה 'למרחב'",
             teacherEmail: 'motiml77@gmail.com',
             status: 'active',
-            settings: { grades: ['יא', 'יב'], subtitle: "אולפנה 'למרחב' · שכבות יא–יב" },
+            settings: { grades: ['י', 'יא', 'יב'], subtitle: "אולפנה 'למרחב' · שכבות יא–יב" },
             __legacyFallback: true,
         };
 
@@ -536,6 +536,8 @@
         const currentTeacherEmail = () => ((CURRENT_SCHOOL && CURRENT_SCHOOL.teacherEmail) || SUPER_ADMIN_EMAIL).toLowerCase().trim();
         // מרחב שמות ל-localStorage לפי בית ספר — שמצב של בית ספר אחד לא יזלוג לאחר.
         // במצב legacy המפתח נשאר כפי שהיה — המצב הקיים של התלמידות נשמר.
+        // השכבות של בית הספר הנוכחי (ברירת מחדל: י, יא, יב)
+        const schoolGrades = () => (CURRENT_SCHOOL && CURRENT_SCHOOL.settings && CURRENT_SCHOOL.settings.grades) || ['י', 'יא', 'יב'];
         const lsKey = (k) => SCHOOL_SLUG ? (SCHOOL_SLUG + ':' + k) : k;
         const isTeacherEmailOfCurrentSchool = (email) => !!email && String(email).toLowerCase().trim() === currentTeacherEmail();
 
@@ -937,7 +939,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             },
 
             // User profile - save student name (new profiles start unapproved)
-            async saveUserProfile(email, name, grade = null) {
+            async saveUserProfile(email, name, grade = null, classNum = undefined) {
                 if (!db || !email) return false;
                 const safeEmail = email.replace(/[.@]/g, '_');
                 try {
@@ -949,6 +951,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                         updatedAt: new Date().toISOString() 
                     };
                     if (grade) data.grade = grade;
+                    if (classNum !== undefined) data.classNum = classNum || '';
                     if (!existingDoc.exists) {
                         // First registration — requires teacher approval
                         data.approved = false;
@@ -4087,9 +4090,10 @@ a.setGrade(100);   // משנה רק את נעמה
         };
 
         // Student Name Screen
-        const StudentNameScreen = ({ onSubmit, existingName, existingGrade }) => {
+        const StudentNameScreen = ({ onSubmit, existingName, existingGrade, existingClassNum }) => {
             const [name, setName] = useState(existingName || '');
             const [grade, setGrade] = useState(existingGrade || '');
+            const [classNum, setClassNum] = useState(existingClassNum || '');
             const [saving, setSaving] = useState(false);
             return (
                 <div className="login-screen">
@@ -4102,7 +4106,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         <div className="mb-6">
                             <p className="text-slate-400 text-sm mb-2">באיזו כיתה את לומדת?</p>
                             <div className="flex justify-center gap-3">
-                                {['יא', 'יב'].map(g => (
+                                {schoolGrades().map(g => (
                                     <button key={g} onClick={() => setGrade(g)}
                                         className={`flex-1 px-6 py-3 rounded-xl font-bold text-lg transition-all ${
                                             grade === g 
@@ -4114,7 +4118,13 @@ a.setGrade(100);   // משנה רק את נעמה
                                 ))}
                             </div>
                         </div>
-                        <button onClick={async () => { if (!name.trim() || !grade || saving) return; setSaving(true); await onSubmit(name.trim(), grade); setSaving(false); }} disabled={!name.trim() || !grade || saving} 
+                        <div className="mb-6">
+                            <p className="text-slate-400 text-sm mb-2">מספר כיתה <span className="text-slate-500">(רשות — אם יש כמה כיתות בשכבה, למשל 3 עבור יא3)</span></p>
+                            <input type="text" inputMode="numeric" maxLength={2} value={classNum} onChange={e => setClassNum(e.target.value.replace(/[^0-9]/g, ""))}
+                                placeholder="3" dir="ltr"
+                                className="w-28 mx-auto block px-4 py-3 bg-slate-700/70 border border-slate-600 rounded-xl text-white text-lg text-center focus:border-indigo-400 focus:outline-none" />
+                        </div>
+                        <button onClick={async () => { if (!name.trim() || !grade || saving) return; setSaving(true); await onSubmit(name.trim(), grade, classNum.trim()); setSaving(false); }} disabled={!name.trim() || !grade || saving} 
                             className="w-full btn-primary py-3 rounded-xl text-white font-bold disabled:opacity-50 flex items-center justify-center gap-2">
                             {saving ? <><div className="spinner w-4 h-4"></div> שולחת...</> : 'שליחה לאישור המורה'}
                         </button>
@@ -6509,6 +6519,7 @@ a.setGrade(100);   // משנה רק את נעמה
             const [loginLoading, setLoginLoading] = useState(false);
             const [studentName, setStudentName] = useState('');
             const [studentGrade, setStudentGrade] = useState(''); // יא, י, יב
+            const [studentClassNum, setStudentClassNum] = useState('');
             const [studentApproved, setStudentApproved] = useState(null); // null=unknown, false=pending, true=approved
             const [nameEntered, setNameEntered] = useState(false);
             const [profileLoading, setProfileLoading] = useState(true);
@@ -6583,6 +6594,19 @@ a.setGrade(100);   // משנה רק את נעמה
                 return n;
             });
             const [studentsReportModal, setStudentsReportModal] = useState(false); // Teacher report modal
+            const [reportSort, setReportSort] = useState('lastName'); // 'lastName' | 'classNum'
+            // שם המשפחה = המילה האחרונה בשם המלא; מיון א"ב עברי עם localeCompare('he')
+            const lastNameOf = (n) => { const w = String(n || '').trim().split(/\s+/); return w.length ? w[w.length - 1] : ''; };
+            const cmpStudents = (a, b) => {
+                if (reportSort === 'classNum') {
+                    const ca = parseInt(a.classNum, 10), cb = parseInt(b.classNum, 10);
+                    const va = isNaN(ca) ? Infinity : ca, vb = isNaN(cb) ? Infinity : cb; // בלי מספר — בסוף
+                    if (va !== vb) return va - vb;
+                }
+                const la = lastNameOf(a.name), lb = lastNameOf(b.name);
+                const c = la.localeCompare(lb, 'he');
+                return c !== 0 ? c : String(a.name || '').localeCompare(String(b.name || ''), 'he');
+            };
             const [studentsReportData, setStudentsReportData] = useState([]); // Students data for report
             const [reportGradeFilter, setReportGradeFilter] = useState('הכל'); // סינון הדוח לפי שכבה
             const [reportView, setReportView] = useState('summary'); // 'summary' | 'detailed'
@@ -6719,6 +6743,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         console.log('Loaded student name from profile:', profile.name);
                         setStudentName(profile.name);
                         if (profile.grade) setStudentGrade(profile.grade);
+                        setStudentClassNum(profile.classNum || '');
                         setNameEntered(true);
                     }
                     setProfileLoading(false);
@@ -7525,17 +7550,18 @@ a.setGrade(100);   // משנה רק את נעמה
             if (authLoading) return <div className="min-h-screen flex items-center justify-center"><div className="spinner"></div></div>;
             if (!user) return <LoginScreen onLogin={handleLogin} loading={loginLoading} onDemo={enterDemo} />;
             if (!isEditor && profileLoading) return <div className="min-h-screen flex items-center justify-center"><div className="spinner"></div></div>;
-            if (!isEditor && !nameEntered) return <StudentNameScreen onSubmit={async (name, grade) => { 
+            if (!isEditor && !nameEntered) return <StudentNameScreen onSubmit={async (name, grade, classNum) => { 
                 setStudentName(name); 
                 setStudentGrade(grade);
+                setStudentClassNum(classNum || '');
                 // Save to Firebase, then check approval status (new profiles start unapproved)
                 if (user?.email) {
-                    await DataService.saveUserProfile(user.email, name, grade);
+                    await DataService.saveUserProfile(user.email, name, grade, classNum);
                     const p = await DataService.loadUserProfile(user.email);
                     setStudentApproved(p ? (p.approved !== false) : false);
                 }
                 setNameEntered(true); 
-            }} existingName={studentName} existingGrade={studentGrade} />;
+            }} existingName={studentName} existingGrade={studentGrade} existingClassNum={studentClassNum} />;
 
             {/* Waiting for teacher approval */}
             if (!isEditor && nameEntered && studentApproved === false) return <PendingApprovalScreen 
@@ -7797,7 +7823,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                         {/* Grade scope segmented control */}
                                         {!previewMode && (
                                             <div className="seg-control" title="מעבר בין שכבות">
-                                                {['הכל', 'יא', 'יב'].map(g => (
+                                                {['הכל', ...schoolGrades()].map(g => (
                                                     <button key={g} onClick={() => { setTeacherGradeFilter(g); setSelectedExam(null); setSelectedQuestion(null); setViewingStudent(null); }}
                                                         title={g === 'הכל' ? 'כל השכבות' : 'כיתה ' + g} aria-label={g === 'הכל' ? 'כל השכבות' : 'כיתה ' + g}
                                                         className={`seg-grade ${teacherGradeFilter === g ? 'active' : ''}`}>
@@ -7916,7 +7942,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                 <div key={s.email} className="bg-slate-700/40 border border-slate-600/50 rounded-xl p-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
                                     <div className="min-w-0">
                                         <div className="text-white font-bold">{s.name}</div>
-                                        <div className="text-xs text-gray-400 break-all sm:truncate">{s.email} · כיתה {s.grade}</div>
+                                        <div className="text-xs text-gray-400 break-all sm:truncate">{s.email} · כיתה {s.grade}{s.classNum || ''}</div>
                                     </div>
                                     <div className="flex gap-2 flex-shrink-0">
                                         <button onClick={() => handleApproveStudent(s.email, true)} className="px-3.5 py-2.5 sm:px-3 sm:py-1.5 btn-success rounded-lg text-white text-sm font-bold">אישור</button>
@@ -9850,12 +9876,19 @@ ${answerText}
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span className="text-sm text-gray-400">שכבה:</span>
                                     <div className="flex gap-1 bg-slate-800 border border-slate-600/60 rounded-full p-1">
-                                        {['הכל', 'יא', 'יב'].map(g => (
+                                        {['הכל', ...schoolGrades()].map(g => (
                                             <button key={g} onClick={() => setReportGradeFilter(g)}
                                                 className={`px-2.5 sm:px-3.5 py-1 rounded-full text-sm font-bold transition-all ${reportGradeFilter === g ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}>
                                                 {g === 'הכל' ? 'כל השכבות' : 'כיתה ' + g}
                                             </button>
                                         ))}
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm text-gray-400">מיון:</span>
+                                    <div className="flex gap-1 bg-slate-800 border border-slate-600/60 rounded-full p-1">
+                                        <button onClick={() => setReportSort('lastName')} className={`px-3 py-1 rounded-full text-sm font-bold transition-all ${reportSort === 'lastName' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>שם משפחה (א"ב)</button>
+                                        <button onClick={() => setReportSort('classNum')} className={`px-3 py-1 rounded-full text-sm font-bold transition-all ${reportSort === 'classNum' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>מספר כיתה</button>
                                     </div>
                                 </div>
                             </div>
@@ -9867,7 +9900,7 @@ ${answerText}
                                 ) : !detailedReport ? null : (() => {
                                     const gradeStudents = studentsReportData
                                         .filter(s => reportGradeFilter === 'הכל' || s.grade === reportGradeFilter)
-                                        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
+                                        .sort(cmpStudents);
                                     const topics = detailedReport.filter(t => reportGradeFilter === 'הכל' || t.grade === reportGradeFilter);
                                     if (gradeStudents.length === 0) return <div className="text-center py-12 text-gray-500">אין תלמידות בשכבה זו</div>;
                                     if (topics.length === 0) return <div className="text-center py-12 text-gray-500">אין נושאים עם מבחנים/עבודות בשכבה זו</div>;
@@ -9901,7 +9934,7 @@ ${answerText}
                                                                     const tavg = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
                                                                     return (
                                                                         <tr key={ri} className="border-t border-slate-700 hover:bg-slate-700/30">
-                                                                            <td className="p-2 text-white whitespace-nowrap sticky right-0 bg-slate-800">{student.name || 'ללא שם'}</td>
+                                                                            <td className="p-2 text-white whitespace-nowrap sticky right-0 bg-slate-800">{student.name || 'ללא שם'}{student.classNum ? <span className="mr-1.5 text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">{student.grade}{student.classNum}</span> : null}</td>
                                                                             {topic.exams.map(ex => (
                                                                                 <td key={ex.examId} className="p-1.5 text-center">
                                                                                     <GradeCell value={ex.grades[student.email]} saving={savingCell === `${ex.examId}_${student.email}`} onSave={(v) => handleManualGrade(ex.examId, ex.type, student, v)} />
@@ -9945,6 +9978,7 @@ ${answerText}
                                                         <thead>
                                                             <tr className="bg-slate-700">
                                                                 <th className="text-right p-3 text-gray-300 text-sm">שם</th>
+                                                                <th className="text-center p-3 text-gray-300 text-sm">כיתה</th>
                                                                 <th className="text-right p-3 text-gray-300 text-sm hidden sm:table-cell">אימייל</th>
                                                                 <th className="text-center p-3 text-gray-300 text-sm">מבחנים</th>
                                                                 <th className="text-center p-3 text-gray-300 text-sm">עבודות</th>
@@ -9952,12 +9986,13 @@ ${answerText}
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {gradeStudents.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he')).map((student, idx) => (
+                                                            {gradeStudents.slice().sort(cmpStudents).map((student, idx) => (
                                                                 <tr key={idx} className="border-t border-slate-700 hover:bg-slate-700/50">
                                                                     <td className="p-3 text-white">
                                                                         {student.name || 'ללא שם'}
                                                                         <div className="text-xs text-gray-500 sm:hidden break-all">{student.email}</div>
                                                                     </td>
+                                                                    <td className="p-3 text-center text-gray-300">{student.grade}{student.classNum || ''}</td>
                                                                     <td className="p-3 text-gray-400 text-sm hidden sm:table-cell">{student.email}</td>
                                                                     <td className="p-3 text-center text-gray-300">{student.examCount}</td>
                                                                     <td className="p-3 text-center text-gray-300">{student.homeworkCount}</td>
@@ -10096,12 +10131,13 @@ ${answerText}
 
                     {/* Name Edit Modal */}
                     <Modal isOpen={nameEditModal} onClose={() => setNameEditModal(false)} title="✏️ עריכת פרטים">
-                        <NameEditForm name={studentName} grade={studentGrade} onSave={(newName, newGrade) => { 
+                        <NameEditForm name={studentName} grade={studentGrade} classNum={studentClassNum} onSave={(newName, newGrade, newClassNum) => { 
                             setStudentName(newName); 
                             setStudentGrade(newGrade);
                             setNameEditModal(false);
                             // Save to Firebase
-                            if (user?.email) DataService.saveUserProfile(user.email, newName, newGrade);
+                            setStudentClassNum(newClassNum || '');
+                            if (user?.email) DataService.saveUserProfile(user.email, newName, newGrade, newClassNum);
                         }} onCancel={() => setNameEditModal(false)} />
                     </Modal>
 
@@ -11003,9 +11039,10 @@ ${answerText}
             );
         };
 
-        const NameEditForm = ({ name, grade, onSave, onCancel }) => {
+        const NameEditForm = ({ name, grade, classNum, onSave, onCancel }) => {
             const [newName, setNewName] = useState(name || '');
             const [newGrade, setNewGrade] = useState(grade || '');
+            const [newClassNum, setNewClassNum] = useState(classNum || '');
             return (
                 <>
                     <div className="p-4">
@@ -11014,7 +11051,7 @@ ${answerText}
                         
                         <label className="block text-sm font-medium text-gray-300 mb-2">הכיתה שלך</label>
                         <div className="flex gap-2">
-                            {['יא', 'יב'].map(g => (
+                            {schoolGrades().map(g => (
                                 <button key={g} onClick={() => setNewGrade(g)}
                                     className={`flex-1 px-4 py-2 rounded-lg font-bold transition-all ${
                                         newGrade === g 
@@ -11025,10 +11062,13 @@ ${answerText}
                                 </button>
                             ))}
                         </div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2 mt-4">מספר כיתה (רשות)</label>
+                        <input type="text" inputMode="numeric" maxLength={2} value={newClassNum} onChange={e => setNewClassNum(e.target.value.replace(/[^0-9]/g, ""))} dir="ltr"
+                            className="w-24 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-center" placeholder="3" />
                     </div>
                     <div className="p-4 border-t border-slate-600 flex justify-end gap-2 sticky bottom-0 bg-slate-800">
                         <button onClick={onCancel} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg">ביטול</button>
-                        <button onClick={() => newName.trim() && newGrade && onSave(newName.trim(), newGrade)} disabled={!newName.trim() || !newGrade} className="px-4 py-2 btn-primary text-white rounded-lg disabled:opacity-50">שמור</button>
+                        <button onClick={() => newName.trim() && newGrade && onSave(newName.trim(), newGrade, newClassNum)} disabled={!newName.trim() || !newGrade} className="px-4 py-2 btn-primary text-white rounded-lg disabled:opacity-50">שמור</button>
                     </div>
                 </>
             );
