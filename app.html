@@ -7931,7 +7931,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                     <div className="logo-coin w-9 h-9 rounded-xl flex items-center justify-center text-white font-mono font-bold text-sm">{'{ }'}</div>
                                     <div className="hidden md:block">
                                         <h1 className="text-lg font-extrabold text-white leading-tight">Java לבגרות</h1>
-                                        <div className="text-indigo-300 text-[11px] font-semibold leading-tight">{isEditor ? 'ניהול יחידות, עבודות ומבחנים' : 'יחידות · עבודות · מבחנים'}</div>
+                                        <div className="text-indigo-300 text-[11px] font-semibold leading-tight">{(CURRENT_SCHOOL && CURRENT_SCHOOL.name ? CURRENT_SCHOOL.name + ' · ' : '') + (isEditor ? 'ניהול יחידות, עבודות ומבחנים' : 'יחידות · עבודות · מבחנים')}</div>
                                     </div>
                                     <h1 className="text-lg font-bold text-white md:hidden">Java לבגרות</h1>
                                 </div>
@@ -11361,6 +11361,17 @@ ${answerText}
                 if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.teacherEmail.trim())) { alert('אימייל מורה לא תקין'); return; }
                 setBusy(true);
                 try {
+                    // הנושאים המובנים נוצרים מיד — בית ספר חדש נפתח עם כל נושאי הבגרות מוכנים,
+                    // ולא ריק. הכותרת המדויקת היא מה שמפעיל את ההסבר, ההדגמה והתוכן הגלובלי.
+                    const batch = db.batch();
+                    LEARN_LIBRARY.forEach((lib, i) => {
+                        const id = 'class_seed_' + i;
+                        batch.set(db.collection('schools').doc(slug).collection('classes').doc(id), {
+                            id, title: lib.title, icon: '📚', grade: topicGradeFor(lib.title),
+                            exams: [], order: i, archived: false,
+                        });
+                    });
+                    await batch.commit();
                     await db.collection('schools').doc(slug).set({
                         slug,
                         name: form.name.trim(),
@@ -11369,6 +11380,7 @@ ${answerText}
                         status: 'active',
                         createdAt: new Date().toISOString(),
                         createdBy: adminUser.email,
+                        seededTopics: LEARN_LIBRARY.length,
                         settings: { grades: ['י', 'יא', 'יב'], subtitle: form.subtitle.trim() || form.name.trim() },
                     });
                     setCreating(false);
@@ -11376,6 +11388,7 @@ ${answerText}
                     setSlugTouched(false);
                     await loadSchools();
                     setCopied(slug); setTimeout(() => setCopied(''), 6000);
+                    alert('בית הספר נוצר עם ' + LEARN_LIBRARY.length + ' נושאי לימוד מוכנים.\nהכתובת: ' + location.origin + '/' + slug);
                 } catch (e) { alert('היצירה נכשלה: ' + e.message); }
                 setBusy(false);
             };
