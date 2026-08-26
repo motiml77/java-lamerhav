@@ -509,7 +509,36 @@
             appId: "1:1002698034992:web:8918ec2a5940253e7882f5"
         };
 
-        const EDITOR_EMAIL = "motiml77@gmail.com";
+        // המנהל הראשי (docs/multi-school-plan.md §3) — קבוע. המורה של כל בית ספר נגזר ממסמך בית הספר.
+        const SUPER_ADMIN_EMAIL = "motiml77@gmail.com";
+        const EDITOR_EMAIL = SUPER_ADMIN_EMAIL; // שם ישן — נשמר לתאימות
+        // ===== ניתוב רב-בית-ספרי (docs/multi-school-plan.md סעיף 4) =====
+        // "/lamerhav" → בית הספר lamerhav · "/manage" → לוח המנהל הראשי · "/app.html" ישיר → מצב ישן (legacy)
+        // במצב legacy האפליקציה מתנהגת בדיוק כמו היום (אוספי שורש) — עד שלב 6 של התוכנית.
+        const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'firebase-setup']);
+        const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
+        const __seg = (typeof location !== 'undefined' ? location.pathname : '/').split('/').filter(Boolean);
+        const IS_ADMIN_ROUTE = __seg[0] === 'manage';
+        const SCHOOL_SLUG = (!IS_ADMIN_ROUTE && __seg[0] && SLUG_PATTERN.test(__seg[0]) && !RESERVED_SLUGS.has(__seg[0])) ? __seg[0] : null;
+        // בית הספר הראשון — עד שהמיגרציה (שלב 5) תיצור את המסמך ב-Firestore, יש לו הגדרה מקומית
+        // שוות-ערך למצב היום. חל אך ורק על lamerhav; כל slug אחר בלי מסמך → "לא נמצא".
+        const LEGACY_SCHOOL_FALLBACK = {
+            slug: 'lamerhav',
+            name: "אולפנה 'למרחב'",
+            teacherEmail: 'motiml77@gmail.com',
+            status: 'active',
+            settings: { grades: ['יא', 'יב'], subtitle: "אולפנה 'למרחב' · שכבות יא–יב" },
+            __legacyFallback: true,
+        };
+
+        // בית הספר הנוכחי — מוזרם מהשער (Root) לפני רינדור האפליקציה.
+        let CURRENT_SCHOOL = null;
+        const currentTeacherEmail = () => ((CURRENT_SCHOOL && CURRENT_SCHOOL.teacherEmail) || SUPER_ADMIN_EMAIL).toLowerCase().trim();
+        // מרחב שמות ל-localStorage לפי בית ספר — שמצב של בית ספר אחד לא יזלוג לאחר.
+        // במצב legacy המפתח נשאר כפי שהיה — המצב הקיים של התלמידות נשמר.
+        const lsKey = (k) => SCHOOL_SLUG ? (SCHOOL_SLUG + ':' + k) : k;
+        const isTeacherEmailOfCurrentSchool = (email) => !!email && String(email).toLowerCase().trim() === currentTeacherEmail();
+
         // Base system prompt - always sent to AI
         const BASE_SYSTEM_PROMPT = `You are an expert Java teacher and code reviewer grading homework for 11th–12th grade female students preparing for the Israeli Bagrut (matriculation) exam in Computer Science.
 
@@ -861,6 +890,13 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
         };
 
         // Data Service - supports both exams and homework with separate collections
+        // שכבת הנתיב הרב-בית-ספרית: כל האוספים תחת schools/{slug}; במצב legacy — בשורש כמו היום.
+        // מתג המעבר: כל עוד בית הספר רץ על הגדרת ה-fallback (לפני המיגרציה, שלב 5) —
+        // קוראים מאוספי השורש כמו היום. כשמסמך schools/{slug} האמיתי קיים — עוברים לעץ החדש אוטומטית.
+        const col = (name) => (SCHOOL_SLUG && !(CURRENT_SCHOOL && CURRENT_SCHOOL.__legacyFallback))
+            ? db.collection('schools').doc(SCHOOL_SLUG).collection(name)
+            : db.collection(name);
+
         const DataService = {
             // Get collection name based on type
             getResponseCollection(examType) {
@@ -874,10 +910,10 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     // Try with orderBy first, fallback to without
                     let snapshot;
                     try {
-                        snapshot = await db.collection('classes').orderBy('order').get();
+                        snapshot = await col('classes').orderBy('order').get();
                     } catch (orderError) {
                         console.log('⚠️ OrderBy failed, trying without:', orderError.message);
-                        snapshot = await db.collection('classes').get();
+                        snapshot = await col('classes').get();
                     }
                     const classes = [];
                     snapshot.forEach(doc => {
@@ -905,7 +941,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 if (!db || !email) return false;
                 const safeEmail = email.replace(/[.@]/g, '_');
                 try {
-                    const ref = db.collection('users').doc(safeEmail);
+                    const ref = col('users').doc(safeEmail);
                     const existingDoc = await ref.get();
                     const data = { 
                         email, 
@@ -928,7 +964,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 if (!db || !email) return false;
                 const safeEmail = email.replace(/[.@]/g, '_');
                 try {
-                    await db.collection('users').doc(safeEmail).set({ approved, approvedAt: new Date().toISOString() }, { merge: true });
+                    await col('users').doc(safeEmail).set({ approved, approvedAt: new Date().toISOString() }, { merge: true });
                     return true;
                 } catch (e) { console.error('Set approval error:', e); return false; }
             },
@@ -937,7 +973,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 if (!db || !email) return false;
                 const safeEmail = email.replace(/[.@]/g, '_');
                 try {
-                    await db.collection('users').doc(safeEmail).delete();
+                    await col('users').doc(safeEmail).delete();
                     return true;
                 } catch (e) { console.error('Delete user profile error:', e); return false; }
             },
@@ -946,7 +982,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 if (!db || !email) return null;
                 const safeEmail = email.replace(/[.@]/g, '_');
                 try {
-                    const doc = await db.collection('users').doc(safeEmail).get();
+                    const doc = await col('users').doc(safeEmail).get();
                     if (doc.exists) {
                         console.log('Loaded user profile for', email);
                         return doc.data();
@@ -959,12 +995,12 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             async promoteAllStudents(fromGrade, toGrade) {
                 if (!db) return { count: 0 };
                 try {
-                    const snap = await db.collection('users').where('grade', '==', fromGrade).get();
+                    const snap = await col('users').where('grade', '==', fromGrade).get();
                     let count = 0;
                     const batch = db.batch();
                     snap.forEach(doc => {
                         const d = doc.data();
-                        if (d.email === 'motiml77@gmail.com') return; // לא נוגעים במורה
+                        if (isTeacherEmailOfCurrentSchool(d.email)) return; // לא נוגעים במורה של בית הספר
                         batch.update(doc.ref, { grade: toGrade, promotedFrom: fromGrade, promotedAt: new Date().toISOString() });
                         count++;
                     });
@@ -977,7 +1013,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             async undoPromotion(fromGrade, toGrade) {
                 if (!db) return { count: 0 };
                 try {
-                    const snap = await db.collection('users').where('grade', '==', toGrade).get();
+                    const snap = await col('users').where('grade', '==', toGrade).get();
                     let count = 0;
                     const batch = db.batch();
                     snap.forEach(doc => {
@@ -999,12 +1035,12 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             async graduateGrade(grade) {
                 if (!db) return { count: 0 };
                 try {
-                    const snap = await db.collection('users').where('grade', '==', grade).get();
+                    const snap = await col('users').where('grade', '==', grade).get();
                     let count = 0;
                     const batch = db.batch();
                     snap.forEach(doc => {
                         const d = doc.data();
-                        if (d.email === 'motiml77@gmail.com' || d.graduated) return;
+                        if (isTeacherEmailOfCurrentSchool(d.email) || d.graduated) return;
                         batch.update(doc.ref, { graduated: true, graduatedAt: new Date().toISOString() });
                         count++;
                     });
@@ -1017,7 +1053,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             async undoGraduation(grade) {
                 if (!db) return { count: 0 };
                 try {
-                    const snap = await db.collection('users').where('grade', '==', grade).get();
+                    const snap = await col('users').where('grade', '==', grade).get();
                     let count = 0;
                     const batch = db.batch();
                     snap.forEach(doc => {
@@ -1035,11 +1071,11 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             async gradeCounts() {
                 if (!db) return { fromCount: 0, promotedCount: 0, yvActiveCount: 0, graduatedCount: 0 };
                 try {
-                    const snap = await db.collection('users').get();
+                    const snap = await col('users').get();
                     let fromCount = 0, promotedCount = 0, yvActiveCount = 0, graduatedCount = 0;
                     snap.forEach(doc => {
                         const d = doc.data();
-                        if (d.email === 'motiml77@gmail.com') return;
+                        if (isTeacherEmailOfCurrentSchool(d.email)) return;
                         if (d.graduated) { if (d.grade === 'יב') graduatedCount++; return; }
                         if (d.grade === 'יא') fromCount++;
                         if (d.grade === 'יב') { yvActiveCount++; if (d.promotedFrom === 'יא') promotedCount++; }
@@ -1051,12 +1087,12 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             async loadAllStudents() {
                 if (!db) return [];
                 try {
-                    const snapshot = await db.collection('users').get();
+                    const snapshot = await col('users').get();
                     const students = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         // Skip teachers + graduated (archived) students
-                        if (data.email !== 'motiml77@gmail.com' && data.grade && !data.graduated) {
+                        if (!isTeacherEmailOfCurrentSchool(data.email) && data.grade && !data.graduated) {
                             students.push(data);
                         }
                     });
@@ -1072,7 +1108,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     const homeworks = [];
                     
                     // Load exam responses (using correct collection name with underscore)
-                    const examSnapshot = await db.collection('exam_responses').get();
+                    const examSnapshot = await col('exam_responses').get();
                     for (const examDoc of examSnapshot.docs) {
                         const studentDoc = await examDoc.ref.collection('students').doc(safeEmail).get();
                         if (studentDoc.exists) {
@@ -1084,7 +1120,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     }
                     
                     // Load homework responses (using correct collection name with underscore)
-                    const hwSnapshot = await db.collection('homework_responses').get();
+                    const hwSnapshot = await col('homework_responses').get();
                     for (const hwDoc of hwSnapshot.docs) {
                         const studentDoc = await hwDoc.ref.collection('students').doc(safeEmail).get();
                         if (studentDoc.exists) {
@@ -1130,7 +1166,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                         examsCount: cleanData.exams?.length || 0,
                         exams: cleanData.exams?.map(e => ({ title: e.title, type: e.type, id: e.id }))
                     });
-                    await db.collection('classes').doc(cleanData.id).set(cleanData);
+                    await col('classes').doc(cleanData.id).set(cleanData);
                     console.log('✅ Class saved successfully');
                     return true;
                 }
@@ -1146,7 +1182,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 if (!db) return false;
                 try {
                     const id = 'ntf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-                    await db.collection('notifications').doc(id).set({
+                    await col('notifications').doc(id).set({
                         id, grade: grade || 'הכל',
                         classId: classId || '', classTitle: classTitle || '',
                         examId: examId || '', examTitle: examTitle || '',
@@ -1158,7 +1194,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             async loadNotifications() {
                 if (!db) return [];
                 try {
-                    const snap = await db.collection('notifications').get();
+                    const snap = await col('notifications').get();
                     const arr = [];
                     snap.forEach(d => arr.push(d.data()));
                     return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -1166,26 +1202,26 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             },
             async deleteNotification(id) {
                 if (!db) return false;
-                try { await db.collection('notifications').doc(id).delete(); return true; }
+                try { await col('notifications').doc(id).delete(); return true; }
                 catch (e) { console.error('deleteNotification error:', e); return false; }
             },
 
             async deleteClass(classId) {
                 if (!db) return false;
-                try { await db.collection('classes').doc(classId).delete(); return true; }
+                try { await col('classes').doc(classId).delete(); return true; }
                 catch (e) { console.error('Delete error:', e); return false; }
             },
 
             async saveQuestionContent(questionId, data) {
                 if (!db) return false;
-                try { await db.collection('questions').doc(questionId).set(data, { merge: true }); return true; }
+                try { await col('questions').doc(questionId).set(data, { merge: true }); return true; }
                 catch (e) { console.error('Save error:', e); return false; }
             },
 
             async loadQuestionContent(questionId) {
                 if (!db) return { instructions: '', imageBase64: '' };
                 try {
-                    const doc = await db.collection('questions').doc(questionId).get();
+                    const doc = await col('questions').doc(questionId).get();
                     if (!doc.exists) return { instructions: '', imageBase64: '' };
                     const d = doc.data();
                     // נרמול שמות שדות — תומך גם במבנה body/image/starter וגם ב-instructions/imageBase64
@@ -1202,14 +1238,14 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
 
             async saveExamSettings(examId, settings) {
                 if (!db) return false;
-                try { await db.collection('exam_settings').doc(examId).set(settings, { merge: true }); return true; }
+                try { await col('exam_settings').doc(examId).set(settings, { merge: true }); return true; }
                 catch (e) { console.error('Save error:', e); return false; }
             },
 
             async loadExamSettings(examId) {
                 if (!db) return { gradingInstructions: DEFAULT_GRADING_PROMPT };
                 try {
-                    const doc = await db.collection('exam_settings').doc(examId).get();
+                    const doc = await col('exam_settings').doc(examId).get();
                     return doc.exists ? doc.data() : { gradingInstructions: DEFAULT_GRADING_PROMPT };
                 } catch (e) { return { gradingInstructions: DEFAULT_GRADING_PROMPT }; }
             },
@@ -1225,7 +1261,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                         generalInstructions: data.examInstructions || '',
                         questionNotes: data.questions || {}
                     };
-                    await db.collection('grading_rubrics').doc(examId).set(payload, { merge: true });
+                    await col('grading_rubrics').doc(examId).set(payload, { merge: true });
                     return true;
                 } catch (e) { console.error('Save rubric error:', e); return false; }
             },
@@ -1234,7 +1270,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const empty = { examInstructions: '', questions: {} };
                 if (!db) return empty;
                 try {
-                    const doc = await db.collection('grading_rubrics').doc(examId).get();
+                    const doc = await col('grading_rubrics').doc(examId).get();
                     if (doc.exists) {
                         const d = doc.data();
                         // תומך גם ב-examInstructions/questions וגם במבנה generalInstructions/questionNotes
@@ -1244,7 +1280,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                         };
                     }
                     // תאימות לאחור: אם עדיין אין מחוון נפרד, נטען את ההנחיות הישנות (קריאה ע"י המורה בלבד)
-                    const old = await db.collection('exam_settings').doc(examId).get();
+                    const old = await col('exam_settings').doc(examId).get();
                     const gi = old.exists ? old.data().gradingInstructions : '';
                     return { examInstructions: (gi && gi !== DEFAULT_GRADING_PROMPT) ? gi : '', questions: {} };
                 } catch (e) { return empty; }
@@ -1255,7 +1291,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const collection = this.getResponseCollection(examType);
                 if (!db) return false;
                 try {
-                    const docRef = db.collection(collection).doc(examId).collection('students').doc(safeEmail);
+                    const docRef = col(collection).doc(examId).collection('students').doc(safeEmail);
                     const doc = await docRef.get();
                     const existing = doc.exists ? doc.data() : {};
                     
@@ -1330,7 +1366,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                         return value === undefined ? null : value;
                     }));
                     
-                    await db.collection(collection).doc(examId).collection('students').doc(safeEmail).set(cleanData, { merge: true });
+                    await col(collection).doc(examId).collection('students').doc(safeEmail).set(cleanData, { merge: true });
                     return true;
                 } catch (e) { console.error('Submit error:', e); return false; }
             },
@@ -1341,7 +1377,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const collection = this.getResponseCollection(examType);
                 if (!db) return 0;
                 try {
-                    const ref = db.collection(collection).doc(examId).collection('students').doc(safeEmail);
+                    const ref = col(collection).doc(examId).collection('students').doc(safeEmail);
                     const doc = await ref.get();
                     const existing = doc.exists ? doc.data() : {};
                     const exits = Array.isArray(existing.exitAttempts) ? existing.exitAttempts : [];
@@ -1356,7 +1392,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const collection = this.getResponseCollection(examType);
                 if (!db) return false;
                 try {
-                    await db.collection(collection).doc(examId).collection('students').doc(safeEmail).update({
+                    await col(collection).doc(examId).collection('students').doc(safeEmail).update({
                         submitted: false,
                         checkedByAI: false,
                         sentToStudent: false,
@@ -1372,7 +1408,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const collection = this.getResponseCollection(examType);
                 if (!db) return null;
                 try {
-                    const doc = await db.collection(collection).doc(examId).collection('students').doc(safeEmail).get();
+                    const doc = await col(collection).doc(examId).collection('students').doc(safeEmail).get();
                     return doc.exists ? doc.data() : null;
                 } catch (e) { return null; }
             },
@@ -1381,7 +1417,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const collection = this.getResponseCollection(examType);
                 if (!db) return [];
                 try {
-                    const snapshot = await db.collection(collection).doc(examId).collection('students').get();
+                    const snapshot = await col(collection).doc(examId).collection('students').get();
                     const responses = [];
                     snapshot.forEach(doc => responses.push({ id: doc.id, ...doc.data() }));
                     return responses;
@@ -1393,7 +1429,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const collection = this.getResponseCollection(examType);
                 if (!db) return false;
                 try {
-                    const docRef = db.collection(collection).doc(examId).collection('students').doc(safeEmail);
+                    const docRef = col(collection).doc(examId).collection('students').doc(safeEmail);
                     const doc = await docRef.get();
                     if (doc.exists) {
                         const data = doc.data();
@@ -1423,7 +1459,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const collection = this.getResponseCollection(examType);
                 if (!db) return false;
                 try {
-                    const docRef = db.collection(collection).doc(examId).collection('students').doc(safeEmail);
+                    const docRef = col(collection).doc(examId).collection('students').doc(safeEmail);
                     const doc = await docRef.get();
                     if (doc.exists) {
                         const data = doc.data();
@@ -1459,7 +1495,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const collection = this.getResponseCollection(examType);
                 if (!db) return false;
                 try {
-                    const ref = db.collection(collection).doc(examId).collection('students').doc(safeEmail);
+                    const ref = col(collection).doc(examId).collection('students').doc(safeEmail);
                     const doc = await ref.get();
                     const existing = doc.exists ? doc.data() : {};
                     if (grade === null || grade === undefined || grade === '') {
@@ -1490,7 +1526,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const collection = this.getResponseCollection(examType);
                 if (!db) return false;
                 try {
-                    const snapshot = await db.collection(collection).doc(examId).collection('students').get();
+                    const snapshot = await col(collection).doc(examId).collection('students').get();
                     const batch = db.batch();
                     snapshot.forEach(doc => {
                         batch.delete(doc.ref);
@@ -1508,7 +1544,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 
                 try {
                     // Clear all exam responses (using correct collection name with underscore)
-                    const examSnapshot = await db.collection('exam_responses').get();
+                    const examSnapshot = await col('exam_responses').get();
                     for (const examDoc of examSnapshot.docs) {
                         const studentsSnapshot = await examDoc.ref.collection('students').get();
                         // Handle batch limit of 500
@@ -1522,7 +1558,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     }
                     
                     // Clear all homework responses (using correct collection name with underscore)
-                    const hwSnapshot = await db.collection('homework_responses').get();
+                    const hwSnapshot = await col('homework_responses').get();
                     for (const hwDoc of hwSnapshot.docs) {
                         const studentsSnapshot = await hwDoc.ref.collection('students').get();
                         // Handle batch limit of 500
@@ -1547,7 +1583,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const safeEmail = email.replace(/[.@]/g, '_');
                 if (!db) return false;
                 try {
-                    const docRef = db.collection('homework_responses').doc(examId).collection('students').doc(safeEmail);
+                    const docRef = col('homework_responses').doc(examId).collection('students').doc(safeEmail);
                     // Always include email for Firebase security rules
                     await docRef.set({
                         email,
@@ -1561,7 +1597,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 const safeEmail = email.replace(/[.@]/g, '_');
                 if (!db) return {};
                 try {
-                    const doc = await db.collection('homework_responses').doc(examId).collection('students').doc(safeEmail).get();
+                    const doc = await col('homework_responses').doc(examId).collection('students').doc(safeEmail).get();
                     return doc.exists ? (doc.data().checkCounts || {}) : {};
                 } catch (e) { return {}; }
             }
@@ -1577,6 +1613,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        school: SCHOOL_SLUG || 'lamerhav',
                         action: 'gradeExam',
                         gradingData: { code, questionText, questionImage, gradingInstructions }
                     })
@@ -1600,6 +1637,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        school: SCHOOL_SLUG || 'lamerhav',
                         action: 'checkHomework',
                         code,
                         questionText,
@@ -1641,6 +1679,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        school: SCHOOL_SLUG || 'lamerhav',
                         action: 'chat',
                         messages,
                         context // Contains questionText, currentCode, questionType, etc.
@@ -3948,24 +3987,6 @@ a.setGrade(100);   // משנה רק את נעמה
         // נשארת רק "כניסת דמו" שעובדת כולה בזיכרון.
         const IS_DEMO_SITE = typeof location !== 'undefined' && /^(java-bagrut-example|java-example-two)\./.test(location.hostname);
 
-        // ===== ניתוב רב-בית-ספרי (docs/multi-school-plan.md סעיף 4) =====
-        // "/lamerhav" → בית הספר lamerhav · "/manage" → לוח המנהל הראשי · "/app.html" ישיר → מצב ישן (legacy)
-        // במצב legacy האפליקציה מתנהגת בדיוק כמו היום (אוספי שורש) — עד שלב 6 של התוכנית.
-        const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'firebase-setup']);
-        const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
-        const __seg = (typeof location !== 'undefined' ? location.pathname : '/').split('/').filter(Boolean);
-        const IS_ADMIN_ROUTE = __seg[0] === 'manage';
-        const SCHOOL_SLUG = (!IS_ADMIN_ROUTE && __seg[0] && SLUG_PATTERN.test(__seg[0]) && !RESERVED_SLUGS.has(__seg[0])) ? __seg[0] : null;
-        // בית הספר הראשון — עד שהמיגרציה (שלב 5) תיצור את המסמך ב-Firestore, יש לו הגדרה מקומית
-        // שוות-ערך למצב היום. חל אך ורק על lamerhav; כל slug אחר בלי מסמך → "לא נמצא".
-        const LEGACY_SCHOOL_FALLBACK = {
-            slug: 'lamerhav',
-            name: "אולפנה 'למרחב'",
-            teacherEmail: 'motiml77@gmail.com',
-            status: 'active',
-            settings: { grades: ['יא', 'יב'], subtitle: "אולפנה 'למרחב' · שכבות יא–יב" },
-            __legacyFallback: true,
-        };
 
         // גלילה לראש אזור התוכן. המעטפת בגובה המסך, ולכן ה-main הוא שגולל — לא החלון.
         const scrollMainTop = () => {
@@ -3982,7 +4003,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         <div className="logo-coin w-10 h-10 rounded-xl flex items-center justify-center text-white font-mono font-bold text-base">{'{ }'}</div>
                         <div>
                             <div className="text-slate-100 font-extrabold leading-tight">Java לבגרות</div>
-                            <div className="text-indigo-300 text-[11px] font-semibold">אולפנה 'למרחב' · שכבות יא–יב</div>
+                            <div className="text-indigo-300 text-[11px] font-semibold">{(CURRENT_SCHOOL && CURRENT_SCHOOL.settings && CURRENT_SCHOOL.settings.subtitle) || "אולפנה 'למרחב' · שכבות יא–יב"}</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-2.5">
@@ -6584,7 +6605,7 @@ a.setGrade(100);   // משנה רק את נעמה
             const [dashOpen, setDashOpen] = useState(false); // לוח בקרה כיתתי (מורה)
             const [dashData, setDashData] = useState(null); // נתוני לוח הבקרה
             const [dashLoading, setDashLoading] = useState(false);
-            const favKey = user ? 'java_favorites_v2_' + user.email : null;
+            const favKey = user ? lsKey('java_favorites_v2_' + user.email) : null;
             useEffect(() => {
                 if (!favKey) { setFavorites([]); return; }
                 try {
@@ -6618,7 +6639,7 @@ a.setGrade(100);   // משנה רק את נעמה
 
             // ===== התראות על עבודה/מבחן חדש (סגנון: כרטיס עשיר) =====
             const [notifs, setNotifs] = useState([]);          // התראות שטרם נסגרו ע"י התלמידה
-            const notifSeenKey = user ? 'java_notif_seen_' + user.email : null;
+            const notifSeenKey = user ? lsKey('java_notif_seen_' + user.email) : null;
             const getSeenNotifs = () => { try { return JSON.parse(localStorage.getItem(notifSeenKey) || '[]'); } catch (_) { return []; } };
             // טעינת התראות לשכבת התלמידה (מתעלם מאלו שכבר נסגרו)
             const loadStudentNotifs = async () => {
@@ -6663,7 +6684,8 @@ a.setGrade(100);   // משנה רק את נעמה
                     setSelectedClass(null);
                     
                     setUser(u);
-                    const editorStatus = u?.email === EDITOR_EMAIL;
+                    const __em = (u?.email || '').toLowerCase().trim();
+                    const editorStatus = !!__em && (__em === SUPER_ADMIN_EMAIL || __em === currentTeacherEmail());
                     setIsEditor(editorStatus);
                     setAuthLoading(false);
                     
@@ -6685,7 +6707,7 @@ a.setGrade(100);   // משנה רק את נעמה
                     return;
                 }
                 
-                if (user.email === EDITOR_EMAIL) {
+                if ((user.email || '').toLowerCase().trim() === SUPER_ADMIN_EMAIL || isTeacherEmailOfCurrentSchool(user.email)) {
                     setProfileLoading(false);
                     return;
                 }
@@ -7244,7 +7266,7 @@ a.setGrade(100);   // משנה רק את נעמה
                 setExamLockWarn(false);
                 setExamLockToast(false);
                 exitExamFullscreen();
-                try { localStorage.removeItem(`exam_start_${selectedExam.id}_${user.email}`); } catch (_) {}
+                try { localStorage.removeItem(lsKey(`exam_start_${selectedExam.id}_${user.email}`)); } catch (_) {}
                 alert(selectedExam.type === 'homework' ? 'שיעורי הבית הוגשו בהצלחה!' : 'המבחן הוגש בהצלחה!');
             };
 
@@ -7258,7 +7280,7 @@ a.setGrade(100);   // משנה רק את נעמה
                 setExamLockWarn(false);
                 setExamLockToast(false);
                 exitExamFullscreen();
-                try { localStorage.removeItem(`exam_start_${selectedExam.id}_${user.email}`); } catch (_) {}
+                try { localStorage.removeItem(lsKey(`exam_start_${selectedExam.id}_${user.email}`)); } catch (_) {}
                 alert('תם הזמן! המבחן הוגש אוטומטית.');
             };
 
@@ -8414,7 +8436,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                         {!isEditor && !viewingStudent && !viewingIsSubmitted && selectedExam.type !== 'homework' && (
                                             <span className="flex-shrink-0">
                                                 {selectedExam.duration > 0
-                                                    ? <ExamTimer durationMin={selectedExam.duration} storeKey={`exam_start_${selectedExam.id}_${user?.email}`} onExpire={handleExamTimeout} />
+                                                    ? <ExamTimer durationMin={selectedExam.duration} storeKey={lsKey(`exam_start_${selectedExam.id}_${user?.email}`)} onExpire={handleExamTimeout} />
                                                     : <LiveClock />}
                                             </span>
                                         )}
@@ -11149,6 +11171,7 @@ ${answerText}
                     </GateScreen>
                 );
             }
+            CURRENT_SCHOOL = gate.school;
             return <App school={gate.school} />;
         };
 
