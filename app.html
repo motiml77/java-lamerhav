@@ -3604,9 +3604,12 @@ a.setGrade(100);   // משנה רק את נעמה
                 if (busy) return;
                 if (form.type === 'youtube' && !buildVideoEmbed(form.url)) { alert('קישור לא תקין'); return; }
                 if (form.type === 'file' && !form.dataUri) { alert('לא נבחר קובץ'); return; }
+                if (form.type === 'text' && !(form.body || '').trim()) { alert('אין תוכן'); return; }
                 setBusy(true);
                 const item = form.type === 'youtube'
                     ? { type: 'youtube', title: form.title.trim(), url: form.url.trim() }
+                    : form.type === 'text'
+                    ? { type: 'text', title: form.title.trim(), body: (form.body || '').trim() }
                     : { type: 'file', title: form.title.trim() || form.fileName, dataUri: form.dataUri, fileName: form.fileName };
                 if (form.global) item.topicTitle = topicTitle; else item.classId = classId;
                 item.createdBy = user?.email || '';
@@ -3635,7 +3638,7 @@ a.setGrade(100);   // משנה רק את נעמה
                     {isTeacher && adding && (
                         <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 mb-5 space-y-3">
                             <div className="flex gap-2">
-                                {[['youtube', 'סרטון YouTube'], ['file', 'קובץ (תמונה / PDF)']].map(([k, lbl]) => (
+                                {[['youtube', 'סרטון YouTube'], ['file', 'קובץ (תמונה / PDF)'], ['text', 'תוכן / הערה']].map(([k, lbl]) => (
                                     <button key={k} onClick={() => setForm(f => ({ ...f, type: k }))}
                                         className={`px-3 py-1.5 rounded-lg text-sm font-bold ${form.type === k ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300'}`}>{lbl}</button>
                                 ))}
@@ -3645,6 +3648,9 @@ a.setGrade(100);   // משנה רק את נעמה
                             {form.type === 'youtube' ? (
                                 <input type="text" dir="ltr" value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
                                     placeholder="https://www.youtube.com/watch?v=..." className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white" />
+                            ) : form.type === 'text' ? (
+                                <textarea value={form.body || ''} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} rows={5}
+                                    placeholder="תוכן חופשי שיוצג בעמוד הנושא — הסבר נוסף, דגשים, קישורים..." className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white resize-y" />
                             ) : (
                                 <div>
                                     <label className="btn btn-ghost btn-sm cursor-pointer inline-flex">
@@ -3669,9 +3675,9 @@ a.setGrade(100);   // משנה רק את נעמה
                     ) : items.length === 0 ? (
                         isTeacher ? <div className="text-slate-500 text-sm">אין עדיין סרטונים או קבצים לנושא הזה.</div> : null
                     ) : (
-                        <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))' }}>
+                        <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', maxWidth: '100%' }}>
                             {items.map(it => (
-                                <div key={(it.global ? 'g_' : 's_') + it.id} className="rounded-xl overflow-hidden border border-slate-700/60 bg-slate-900/50">
+                                <div key={(it.global ? 'g_' : 's_') + it.id} className="rounded-xl overflow-hidden border border-slate-700/60 bg-slate-900/50" style={{ maxWidth: 560, width: '100%' }}>
                                     <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-700/60 bg-slate-800/40">
                                         <span className="text-slate-200 font-bold text-sm truncate">{it.title || (it.type === 'youtube' ? 'סרטון' : it.fileName || 'קובץ')}</span>
                                         {it.global && <span className="text-[10px] bg-amber-400/15 text-amber-300 px-1.5 py-0.5 rounded-full flex-shrink-0">כללי</span>}
@@ -3680,7 +3686,9 @@ a.setGrade(100);   // משנה רק את נעמה
                                                 className="mr-auto text-red-400 hover:text-red-300 p-1"><Icon name="trash" size={14} /></button>
                                         )}
                                     </div>
-                                    {it.type === 'youtube' ? (
+                                    {it.type === 'text' ? (
+                                        <div className="px-4 py-3 text-slate-200 leading-relaxed whitespace-pre-wrap" style={{ fontSize: 15 }}>{it.body}</div>
+                                    ) : it.type === 'youtube' ? (
                                         <div style={{ position: 'relative', paddingTop: '56.25%' }}>
                                             <iframe src={buildVideoEmbed(it.url)} title={it.title || 'video'} allowFullScreen
                                                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} />
