@@ -137,13 +137,134 @@ service cloud.firestore {
       allow write: if isTeacher();
     }
 
-    // ---------- בתי ספר (תשתית רב-בית-ספרית, שלב 1-2) ----------
-    // מטא-דאטה של בית ספר נקראת גם לפני התחברות (מסך הכניסה, "לא נמצא", "מושהה").
-    // list חסום — אי אפשר למפות את רשימת בתי הספר. כתיבה: המנהל הראשי בלבד.
-    // החוקים המלאים לתתי-האוספים יפורסמו בשלב 3 של docs/multi-school-plan.md.
+    // ================================================================
+    // בתי ספר — העץ הרב-בית-ספרי המלא (docs/multi-school-plan.md §6, שלב 3)
+    // החוקים לאוספי השורש שלמעלה נשארים בכוונה — מצב legacy של lamerhav
+    // עד השלמת המיגרציה (שלב 6). אז הם יימחקו והשורש ייחסם.
+    // ================================================================
+
+    // המנהל הראשי — קבוע
+    function isSuperAdmin() {
+      return isSignedIn()
+        && request.auth.token.email == 'motiml77@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    // מסמך בית הספר של הבקשה הנוכחית (קריאה אחת, עם cache פנימי של Firestore)
+    function schoolDoc(school) {
+      return get(/databases/$(database)/documents/schools/$(school)).data;
+    }
+
+    // המורה האחראי של בית הספר — השוואה בלי תלות באותיות גדולות/קטנות
+    function isSchoolTeacher(school) {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && schoolDoc(school).teacherEmail.lower() == request.auth.token.email.lower();
+    }
+
+    // ההשהיה נאכפת כאן — בשרת, לא רק בתצוגה
+    function isActive(school) {
+      return schoolDoc(school).status == 'active';
+    }
+
+    // "מורה" בהקשר בית ספר: המורה האחראי (רק כשפעיל) או המנהל הראשי (תמיד)
+    function canManage(school) {
+      return isSuperAdmin() || (isSchoolTeacher(school) && isActive(school));
+    }
+
+    // תלמידה מחוברת בבית ספר פעיל
+    function isActiveUser(school) {
+      return isSignedIn() && isActive(school);
+    }
+
     match /schools/{school} {
+      // מטא-דאטה נקראת גם לפני התחברות (מסך כניסה / "לא נמצא" / "מושהה").
+      // list חסום — אי אפשר למפות את בתי הספר; צריך לדעת slug מדויק.
       allow get: if true;
-      allow list, create, update, delete: if isTeacher();
+      allow list: if isSuperAdmin();
+      allow create, delete: if isSuperAdmin();
+      // המנהל — הכול; המורה — שדות תצוגה בלבד, לא teacherEmail/status/slug
+      allow update: if isSuperAdmin()
+        || (isSchoolTeacher(school) && isActive(school)
+            && !request.resource.data.diff(resource.data)
+                 .affectedKeys().hasAny(['teacherEmail', 'status', 'slug']));
+
+      // ---------- תוכן לימודי ----------
+      match /classes/{classId} {
+        allow read: if isActiveUser(school) || isSuperAdmin();
+        allow write: if canManage(school);
+      }
+      match /questions/{questionId} {
+        allow read: if isActiveUser(school) || isSuperAdmin();
+        allow write: if canManage(school);
+      }
+      match /exam_settings/{examId} {
+        allow read: if isActiveUser(school) || isSuperAdmin();
+        allow write: if canManage(school);
+      }
+      // מחוון הבדיקה — למורה בלבד, כמו היום
+      match /grading_rubrics/{examId} {
+        allow read, write: if canManage(school);
+      }
+      match /notifications/{id} {
+        allow read: if isActiveUser(school) || isSuperAdmin();
+        allow write: if canManage(school);
+      }
+      // סרטונים וקבצים של בית הספר (המקבילה של media בשורש)
+      match /media/{mediaId} {
+        allow read: if isActiveUser(school) || isSuperAdmin();
+        allow write: if canManage(school);
+      }
+
+      // ---------- תלמידות ----------
+      match /users/{uid} {
+        allow get: if canManage(school)
+                   || (isActiveUser(school)
+                       && (resource == null || resource.data.email == request.auth.token.email));
+        allow list: if canManage(school);
+        // הרשמה: המשתמשת עצמה, תמיד לא-מאושרת בהתחלה
+        allow create: if isActiveUser(school) && ownsIncoming()
+                      && request.resource.data.approved == false;
+        // תלמידה מעדכנת שם/שכבה/כיתה — לא את approved
+        allow update: if canManage(school)
+                      || (isActiveUser(school) && ownsExisting() && ownsIncoming()
+                          && request.resource.data.approved == resource.data.approved);
+        allow delete: if canManage(school);
+      }
+
+      // ---------- תשובות: מבחנים ----------
+      match /exam_responses/{examId} {
+        allow read, write: if canManage(school);
+        match /students/{sid} {
+          allow read: if canManage(school) || resource == null
+                      || (isActiveUser(school) && ownsExisting());
+          allow create: if canManage(school)
+                        || (isActiveUser(school) && ownsIncoming()
+                            && !request.resource.data.keys().hasAny(['sentToStudent', 'finalGrade']));
+          allow update: if canManage(school)
+                        || (isActiveUser(school) && ownsExisting() && ownsIncoming()
+                            && !request.resource.data.diff(resource.data)
+                                  .affectedKeys().hasAny(['sentToStudent', 'finalGrade']));
+          allow delete: if canManage(school);
+        }
+      }
+
+      // ---------- תשובות: שיעורי בית (זהה למבחנים) ----------
+      match /homework_responses/{examId} {
+        allow read, write: if canManage(school);
+        match /students/{sid} {
+          allow read: if canManage(school) || resource == null
+                      || (isActiveUser(school) && ownsExisting());
+          allow create: if canManage(school)
+                        || (isActiveUser(school) && ownsIncoming()
+                            && !request.resource.data.keys().hasAny(['sentToStudent', 'finalGrade']));
+          allow update: if canManage(school)
+                        || (isActiveUser(school) && ownsExisting() && ownsIncoming()
+                            && !request.resource.data.diff(resource.data)
+                                  .affectedKeys().hasAny(['sentToStudent', 'finalGrade']));
+          allow delete: if canManage(school);
+        }
+      }
     }
 
     // ---------- ברירת מחדל: הכול חסום ----------
