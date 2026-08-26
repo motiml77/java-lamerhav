@@ -125,6 +125,27 @@ service cloud.firestore {
       }
     }
 
+    // ---------- מדיה לנושאים: סרטונים וקבצים ----------
+    // platform_media — תוכן גלובלי לכל בתי הספר (לפי כותרת נושא). כותב: המנהל הראשי בלבד.
+    match /platform_media/{mediaId} {
+      allow read:  if isSignedIn();
+      allow write: if isTeacher();
+    }
+    // media — תוכן של בית הספר הנוכחי (מצב legacy, לפני המעבר ל-schools/{slug}/media).
+    match /media/{mediaId} {
+      allow read:  if isSignedIn();
+      allow write: if isTeacher();
+    }
+
+    // ---------- בתי ספר (תשתית רב-בית-ספרית, שלב 1-2) ----------
+    // מטא-דאטה של בית ספר נקראת גם לפני התחברות (מסך הכניסה, "לא נמצא", "מושהה").
+    // list חסום — אי אפשר למפות את רשימת בתי הספר. כתיבה: המנהל הראשי בלבד.
+    // החוקים המלאים לתתי-האוספים יפורסמו בשלב 3 של docs/multi-school-plan.md.
+    match /schools/{school} {
+      allow get: if true;
+      allow list, create, update, delete: if isTeacher();
+    }
+
     // ---------- ברירת מחדל: הכול חסום ----------
     match /{document=**} {
       allow read, write: if false;

@@ -1087,6 +1087,43 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 } catch (e) { return { fromCount: 0, promotedCount: 0, yvActiveCount: 0, graduatedCount: 0 }; }
             },
 
+            // ===== מדיה לנושא: סרטוני YouTube וקבצים (docs/multi-school-plan.md — תוספת מדיה) =====
+            // שתי רמות: platform_media (גלובלי, לכל בתי הספר, לפי כותרת הנושא — נכתב רק ע"י המנהל הראשי)
+            //           media (של בית הספר, לפי classId — נכתב ע"י המורה של בית הספר; עובר דרך col())
+            async loadTopicMedia(classId, topicTitle) {
+                if (!db) return [];
+                const out = [];
+                try {
+                    const g = await db.collection('platform_media').where('topicTitle', '==', topicTitle || '').get();
+                    g.forEach(d => out.push({ id: d.id, global: true, ...d.data() }));
+                } catch (e) { /* אין הרשאה/אוסף — מתעלמים */ }
+                try {
+                    const m = await col('media').where('classId', '==', classId).get();
+                    m.forEach(d => out.push({ id: d.id, global: false, ...d.data() }));
+                } catch (e) { /* כנ"ל */ }
+                out.sort((x, y) => (x.order || 0) - (y.order || 0) || String(x.createdAt || '').localeCompare(String(y.createdAt || '')));
+                return out;
+            },
+            async saveTopicMedia(item, isGlobal) {
+                if (!db) return false;
+                try {
+                    const id = item.id || ('media_' + Date.now());
+                    const clean = { ...item, id, createdAt: item.createdAt || new Date().toISOString() };
+                    delete clean.global;
+                    if (isGlobal) await db.collection('platform_media').doc(id).set(clean, { merge: true });
+                    else await col('media').doc(id).set(clean, { merge: true });
+                    return true;
+                } catch (e) { console.error('Save media error:', e); return false; }
+            },
+            async deleteTopicMedia(id, isGlobal) {
+                if (!db) return false;
+                try {
+                    if (isGlobal) await db.collection('platform_media').doc(id).delete();
+                    else await col('media').doc(id).delete();
+                    return true;
+                } catch (e) { console.error('Delete media error:', e); return false; }
+            },
+
             async loadAllStudents() {
                 if (!db) return [];
                 try {
@@ -3536,6 +3573,131 @@ a.setGrade(100);   // משנה רק את נעמה
         };
 
         // Topic learning section — קורס מודרך: פס צד עם שלבים והתקדמות, ותוכן שלב-אחר-שלב
+        // ===== סרטונים וחומרים לנושא — גלובלי (כל בתי הספר) + של בית הספר =====
+        const TopicMediaSection = ({ classId, topicTitle, isTeacher, isSuperAdminUser, user }) => {
+            const [items, setItems] = useState(null);
+            const [adding, setAdding] = useState(false);
+            const [form, setForm] = useState({ type: 'youtube', title: '', url: '', global: false, dataUri: '', fileName: '' });
+            const [busy, setBusy] = useState(false);
+            const reload = useCallback(() => {
+                DataService.loadTopicMedia(classId, topicTitle).then(setItems).catch(() => setItems([]));
+            }, [classId, topicTitle]);
+            useEffect(() => { reload(); }, [reload]);
+
+            const onFile = (file) => {
+                if (!file) return;
+                if (file.type.startsWith('image/')) {
+                    compressImage(file).then(dataUri => setForm(f => ({ ...f, dataUri, fileName: file.name })))
+                        .catch(() => alert('התמונה גדולה מדי גם לאחר דחיסה.'));
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    const uri = ev.target.result;
+                    if (uri.length > 950000) { alert('הקובץ גדול מדי — המגבלה כ-700KB. אפשר להעלות PDF קטן, או לצרף קישור.'); return; }
+                    setForm(f => ({ ...f, dataUri: uri, fileName: file.name }));
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const save = async () => {
+                if (busy) return;
+                if (form.type === 'youtube' && !buildVideoEmbed(form.url)) { alert('קישור לא תקין'); return; }
+                if (form.type === 'file' && !form.dataUri) { alert('לא נבחר קובץ'); return; }
+                setBusy(true);
+                const item = form.type === 'youtube'
+                    ? { type: 'youtube', title: form.title.trim(), url: form.url.trim() }
+                    : { type: 'file', title: form.title.trim() || form.fileName, dataUri: form.dataUri, fileName: form.fileName };
+                if (form.global) item.topicTitle = topicTitle; else item.classId = classId;
+                item.createdBy = user?.email || '';
+                const ok = await DataService.saveTopicMedia(item, form.global);
+                setBusy(false);
+                if (!ok) { alert('השמירה נכשלה — בדקי הרשאות.'); return; }
+                setAdding(false);
+                setForm({ type: 'youtube', title: '', url: '', global: false, dataUri: '', fileName: '' });
+                reload();
+            };
+
+            const canDelete = (it) => isTeacher && (!it.global || isSuperAdminUser);
+            if ((items === null || items.length === 0) && !isTeacher) return null;
+            return (
+                <div className="question-card p-5 md:p-6 mb-8" data-screen-label="סרטונים וחומרים לנושא">
+                    <div className="flex items-center gap-2.5 mb-4">
+                        <span className="w-8 h-8 rounded-lg bg-rose-500/15 border border-rose-400/25 flex items-center justify-center text-rose-300"><Icon name="play" size={16} /></span>
+                        <h3 className="text-lg font-extrabold text-white">סרטונים וחומרים</h3>
+                        {isTeacher && (
+                            <button onClick={() => setAdding(v => !v)} className="btn btn-ghost btn-sm mr-auto">
+                                <Icon name={adding ? 'x' : 'plus'} size={14} /> {adding ? 'סגירה' : 'הוספה'}
+                            </button>
+                        )}
+                    </div>
+
+                    {isTeacher && adding && (
+                        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 mb-5 space-y-3">
+                            <div className="flex gap-2">
+                                {[['youtube', 'סרטון YouTube'], ['file', 'קובץ (תמונה / PDF)']].map(([k, lbl]) => (
+                                    <button key={k} onClick={() => setForm(f => ({ ...f, type: k }))}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-bold ${form.type === k ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300'}`}>{lbl}</button>
+                                ))}
+                            </div>
+                            <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                                placeholder="כותרת (רשות)" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white" />
+                            {form.type === 'youtube' ? (
+                                <input type="text" dir="ltr" value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
+                                    placeholder="https://www.youtube.com/watch?v=..." className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white" />
+                            ) : (
+                                <div>
+                                    <label className="btn btn-ghost btn-sm cursor-pointer inline-flex">
+                                        <Icon name="upload" size={14} /> בחירת קובץ
+                                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={e => onFile(e.target.files[0])} />
+                                    </label>
+                                    {form.fileName && <span className="text-sm text-emerald-300 mr-2">{form.fileName}</span>}
+                                </div>
+                            )}
+                            {isSuperAdminUser && (
+                                <label className="flex items-center gap-2 text-sm text-amber-300 cursor-pointer">
+                                    <input type="checkbox" checked={form.global} onChange={e => setForm(f => ({ ...f, global: e.target.checked }))} />
+                                    לכל בתי הספר (גלובלי) — יוצג בכל בית ספר שיש בו נושא "{topicTitle}"
+                                </label>
+                            )}
+                            <button onClick={save} disabled={busy} className="btn btn-solid btn-sm">{busy ? 'שומר...' : 'שמירה'}</button>
+                        </div>
+                    )}
+
+                    {items === null ? (
+                        <div className="text-slate-500 text-sm">טוען...</div>
+                    ) : items.length === 0 ? (
+                        isTeacher ? <div className="text-slate-500 text-sm">אין עדיין סרטונים או קבצים לנושא הזה.</div> : null
+                    ) : (
+                        <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))' }}>
+                            {items.map(it => (
+                                <div key={(it.global ? 'g_' : 's_') + it.id} className="rounded-xl overflow-hidden border border-slate-700/60 bg-slate-900/50">
+                                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-700/60 bg-slate-800/40">
+                                        <span className="text-slate-200 font-bold text-sm truncate">{it.title || (it.type === 'youtube' ? 'סרטון' : it.fileName || 'קובץ')}</span>
+                                        {it.global && <span className="text-[10px] bg-amber-400/15 text-amber-300 px-1.5 py-0.5 rounded-full flex-shrink-0">כללי</span>}
+                                        {canDelete(it) && (
+                                            <button onClick={async () => { if (!confirm('למחוק?')) return; await DataService.deleteTopicMedia(it.id, it.global); reload(); }}
+                                                className="mr-auto text-red-400 hover:text-red-300 p-1"><Icon name="trash" size={14} /></button>
+                                        )}
+                                    </div>
+                                    {it.type === 'youtube' ? (
+                                        <div style={{ position: 'relative', paddingTop: '56.25%' }}>
+                                            <iframe src={buildVideoEmbed(it.url)} title={it.title || 'video'} allowFullScreen
+                                                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} />
+                                        </div>
+                                    ) : (it.dataUri || '').startsWith('data:image') ? (
+                                        <img src={it.dataUri} alt={it.title || ''} className="w-full" style={{ maxHeight: 420, objectFit: 'contain', background: '#0B0F1A' }} />
+                                    ) : (
+                                        <iframe src={it.dataUri} title={it.title || 'file'} className="w-full bg-white" style={{ height: 420, border: 'none' }} />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         const TopicLearnSection = ({ topicTitle, customLesson, editable, onEdit }) => {
             const builtin = findLearnTopic(topicTitle);
             const hasCustom = customLesson && (customLesson.intro || (customLesson.sections || []).length || (customLesson.examples || []).length || (customLesson.points || []).length);
@@ -9259,6 +9421,7 @@ ${answerText}
                                     </div>
                                     <div className="mt-7">
                                         <TopicLearnSection topicTitle={selectedClassObj.title} customLesson={selectedClassObj.lesson} editable={isEditor} onEdit={() => setLessonModal({ open: true, classId: selectedClassObj.id, title: selectedClassObj.title })} />
+                                        <div className="mt-6"><TopicMediaSection classId={selectedClassObj.id} topicTitle={selectedClassObj.title} isTeacher={isEditor && !previewMode} isSuperAdminUser={(user?.email || '').toLowerCase().trim() === SUPER_ADMIN_EMAIL} user={user} /></div>
                                     </div>
                                     {(() => {
                                         const visibleExams = (selectedClassObj.exams || []).filter(e => e.visible !== false);
