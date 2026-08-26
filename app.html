@@ -28,7 +28,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
     <!-- CodeMirror 6 Bundle - Single file, no dependency issues -->
-    <script src="codemirror-java.min.js"></script>
+    <!-- נתיב אבסולוטי: הדף מוגש גם מ-/lamerhav (ניתוב רב-בית-ספרי), ונתיב יחסי היה נשבר שם.
+         בכוונה בלי <base href="/"> — הוא היה שובר הפניות פנימיות של SVG (url(#grid) וכד'). -->
+    <script src="/codemirror-java.min.js"></script>
     
     <style>
         * { box-sizing: border-box; }
@@ -3946,6 +3948,25 @@ a.setGrade(100);   // משנה רק את נעמה
         // נשארת רק "כניסת דמו" שעובדת כולה בזיכרון.
         const IS_DEMO_SITE = typeof location !== 'undefined' && /^(java-bagrut-example|java-example-two)\./.test(location.hostname);
 
+        // ===== ניתוב רב-בית-ספרי (docs/multi-school-plan.md סעיף 4) =====
+        // "/lamerhav" → בית הספר lamerhav · "/manage" → לוח המנהל הראשי · "/app.html" ישיר → מצב ישן (legacy)
+        // במצב legacy האפליקציה מתנהגת בדיוק כמו היום (אוספי שורש) — עד שלב 6 של התוכנית.
+        const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'firebase-setup']);
+        const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
+        const __seg = (typeof location !== 'undefined' ? location.pathname : '/').split('/').filter(Boolean);
+        const IS_ADMIN_ROUTE = __seg[0] === 'manage';
+        const SCHOOL_SLUG = (!IS_ADMIN_ROUTE && __seg[0] && SLUG_PATTERN.test(__seg[0]) && !RESERVED_SLUGS.has(__seg[0])) ? __seg[0] : null;
+        // בית הספר הראשון — עד שהמיגרציה (שלב 5) תיצור את המסמך ב-Firestore, יש לו הגדרה מקומית
+        // שוות-ערך למצב היום. חל אך ורק על lamerhav; כל slug אחר בלי מסמך → "לא נמצא".
+        const LEGACY_SCHOOL_FALLBACK = {
+            slug: 'lamerhav',
+            name: "אולפנה 'למרחב'",
+            teacherEmail: 'motiml77@gmail.com',
+            status: 'active',
+            settings: { grades: ['יא', 'יב'], subtitle: "אולפנה 'למרחב' · שכבות יא–יב" },
+            __legacyFallback: true,
+        };
+
         // גלילה לראש אזור התוכן. המעטפת בגובה המסך, ולכן ה-main הוא שגולל — לא החלון.
         const scrollMainTop = () => {
             try { const m = document.querySelector('main.cq'); if (m) m.scrollTo({ top: 0 }); } catch (e) {}
@@ -6456,7 +6477,9 @@ a.setGrade(100);   // משנה רק את נעמה
         };
 
         // Main App
-        const App = () => {
+        // school — מסמך בית הספר מהשער (Root). null במצב legacy (גישה ישירה ל-app.html).
+        // בשלב 2 של התוכנית הרב-בית-ספרית כל שכבת הנתונים תיגזר ממנו.
+        const App = ({ school = null }) => {
             // Auth state
             const [user, setUser] = useState(null);
             const [isEditor, setIsEditor] = useState(false);
@@ -11054,8 +11077,83 @@ ${answerText}
             );
         };
 
+        // ===== שער הכניסה הרב-בית-ספרי (docs/multi-school-plan.md סעיפים 4, 7) =====
+        // מסך מלא סטטי — משמש ל"לא נמצא", "מושהה" ו"טוען".
+        const GateScreen = ({ icon, title, children }) => (
+            <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#070B16' }}>
+                <div className="max-w-md w-full text-center bg-slate-900/70 border border-slate-700 rounded-2xl p-8">
+                    <div className="w-16 h-16 rounded-2xl bg-indigo-500/15 border border-indigo-400/30 flex items-center justify-center text-indigo-300 mx-auto mb-5">{icon}</div>
+                    <h1 className="text-2xl font-extrabold text-white mb-3">{title}</h1>
+                    <div className="text-slate-400 leading-relaxed">{children}</div>
+                </div>
+            </div>
+        );
+
+        const Root = () => {
+            // מצב ישן — גישה ישירה ל-/app.html (וגם file://): מתנהג בדיוק כמו היום.
+            if (!IS_ADMIN_ROUTE && !SCHOOL_SLUG) return <App />;
+
+            // לוח המנהל הראשי — נבנה בשלב 4 של התוכנית. עד אז: שער סגור.
+            if (IS_ADMIN_ROUTE) {
+                return (
+                    <GateScreen title="לוח ניהול בתי הספר" icon={<Icon name="settings" size={30} />}>
+                        <p>הלוח בבנייה (שלב 4 בתוכנית הרב-בית-ספרית).</p>
+                        <p className="mt-2 text-sm">הגישה תתאפשר רק לחשבון המנהל הראשי, בהתחברות Google.</p>
+                    </GateScreen>
+                );
+            }
+
+            // כתובת של בית ספר: טוענים את המסמך שלו ומחליטים.
+            const [gate, setGate] = useState({ state: 'loading', school: null });
+            useEffect(() => {
+                let cancelled = false;
+                (async () => {
+                    try {
+                        if (!db) throw new Error('no-db');
+                        const snap = await db.collection('schools').doc(SCHOOL_SLUG).get();
+                        if (cancelled) return;
+                        if (snap.exists) setGate({ state: 'ok', school: { slug: SCHOOL_SLUG, ...snap.data() } });
+                        else if (SCHOOL_SLUG === LEGACY_SCHOOL_FALLBACK.slug) setGate({ state: 'ok', school: LEGACY_SCHOOL_FALLBACK });
+                        else setGate({ state: 'not-found', school: null });
+                    } catch (e) {
+                        if (cancelled) return;
+                        // אין עדיין אוסף schools / אין הרשאת קריאה (לפני שלב 3) — נפילה בטוחה:
+                        // lamerhav ממשיך לעבוד כמו היום; כל כתובת אחרת נחשבת לא קיימת.
+                        if (SCHOOL_SLUG === LEGACY_SCHOOL_FALLBACK.slug) setGate({ state: 'ok', school: LEGACY_SCHOOL_FALLBACK });
+                        else setGate({ state: 'not-found', school: null });
+                    }
+                })();
+                return () => { cancelled = true; };
+            }, []);
+
+            if (gate.state === 'loading') {
+                return (
+                    <div className="min-h-screen flex items-center justify-center" style={{ background: '#070B16' }}>
+                        <div className="spinner w-10 h-10"></div>
+                    </div>
+                );
+            }
+            if (gate.state === 'not-found') {
+                return (
+                    <GateScreen title="בית ספר לא נמצא" icon={<Icon name="search" size={30} />}>
+                        <p>אין בית ספר בכתובת <span className="font-mono text-indigo-300" dir="ltr">/{SCHOOL_SLUG}</span>.</p>
+                        <p className="mt-2 text-sm">בדקו את הקישור שקיבלתן מהמורה — אות אחת שונה מספיקה.</p>
+                    </GateScreen>
+                );
+            }
+            if (gate.school.status === 'suspended') {
+                return (
+                    <GateScreen title="בית הספר מושהה" icon={<Icon name="lock" size={30} />}>
+                        <p>{gate.school.name} אינו פעיל כרגע.</p>
+                        <p className="mt-2 text-sm">לפרטים פנו למנהל המערכת.</p>
+                    </GateScreen>
+                );
+            }
+            return <App school={gate.school} />;
+        };
+
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(<Root />);
     
 </script>
 </body>

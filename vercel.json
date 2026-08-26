@@ -1,0 +1,12 @@
+{
+  "cleanUrls": false,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/", "destination": "/lamerhav", "statusCode": 307 }
+  ],
+  "rewrites": [
+    { "source": "/manage", "destination": "/app.html" },
+    { "source": "/:school([a-z0-9][a-z0-9-]{1,28}[a-z0-9])", "destination": "/app.html" },
+    { "source": "/:school([a-z0-9][a-z0-9-]{1,28}[a-z0-9])/app", "destination": "/app.html" }
+  ]
+}
