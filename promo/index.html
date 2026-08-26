@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Java לבגרות — אתר לימוד ותרגול Java לתלמידות</title>
+<meta name="description" content="אתר לימוד ותרגול Java לתלמידות לקראת הבגרות — שיעורים, עבודות, מבחנים ובדיקה אוטומטית במקום אחד.">
+<meta name="theme-color" content="#070B16">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="he_IL">
+<meta property="og:title" content="Java לבגרות — אתר לימוד ותרגול לתלמידות">
+<meta property="og:description" content="שיעורים עם הדגמות שרצות על המסך, עבודות ומבחנים, בדיקה אוטומטית שמציעה ציון — והמורה מאשרת לפני שהוא נשלח.">
+<!-- og:image intentionally omitted: it needs an absolute https URL (plus og:url) once this page is hosted. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236366F1'/%3E%3Ctext x='16' y='23' font-family='Consolas,monospace' font-size='17' font-weight='700' fill='%23fff' text-anchor='middle'%3E%7B%7D%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800&family=Noto+Sans+Hebrew:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070B16;
+  --card:rgba(23,32,56,.72);
+  --card-2:rgba(17,25,45,.6);
+  --line:rgba(148,163,184,.18);
+  --line-strong:rgba(148,163,184,.30);
+  --ink:#E8ECF6;
+  --ink-2:#C3CBDD;
+  --muted:#94A3B8;
+  --indigo:#6366F1;
+  --violet:#8B5CF6;
+  --soft:#A5B4FC;
+  --amber:#F5B841;
+  --green:#34D399;
+  --radius:16px;
+  --wrap:1140px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:
+    radial-gradient(1200px 620px at 50% -220px, rgba(99,102,241,.24), transparent 68%),
+    radial-gradient(900px 520px at 100% 420px, rgba(139,92,246,.11), transparent 70%),
+    radial-gradient(700px 500px at 0% 1200px, rgba(99,102,241,.08), transparent 70%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--ink);
+  font-family:"Heebo","Noto Sans Hebrew","Segoe UI",system-ui,Arial,sans-serif;
+  font-size:17px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+a{color:var(--soft)}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(7,11,22,.82);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.topbar .wrap{display:flex;align-items:center;gap:16px;height:64px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:18px;letter-spacing:.2px}
+.mark{
+  width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(140deg,var(--indigo),var(--violet));
+  color:#fff;font-family:Consolas,"JetBrains Mono",monospace;font-size:15px;font-weight:700;
+  box-shadow:0 6px 18px rgba(99,102,241,.35);
+}
+.topbar .spacer{flex:1}
+.btn{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:11px 20px;border-radius:12px;text-decoration:none;
+  font-weight:700;font-size:15.5px;line-height:1;
+  background:linear-gradient(135deg,var(--indigo),var(--violet));
+  color:#fff;border:0;
+  box-shadow:0 8px 24px rgba(99,102,241,.30);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 12px 30px rgba(99,102,241,.42)}
+.btn.ghost{
+  background:rgba(99,102,241,.10);
+  color:var(--soft);
+  border:1px solid rgba(129,140,248,.35);
+  box-shadow:none;
+}
+.btn.ghost:hover{background:rgba(99,102,241,.18)}
+
+/* ---------- hero ---------- */
+header.hero{padding:78px 0 20px}
+.eyebrow{
+  display:inline-block;font-size:13.5px;font-weight:500;letter-spacing:.6px;
+  color:var(--soft);background:rgba(99,102,241,.12);
+  border:1px solid rgba(129,140,248,.28);
+  padding:6px 14px;border-radius:999px;margin-bottom:22px;line-height:1.6;
+}
+h1{
+  font-size:clamp(34px,5.2vw,58px);line-height:1.18;margin:0 0 20px;
+  font-weight:800;letter-spacing:-.5px;
+}
+h1 .grad{
+  background:linear-gradient(120deg,#A5B4FC,#8B5CF6 60%,#6366F1);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.lead{font-size:clamp(18px,2.1vw,21px);color:var(--ink-2);max-width:46ch;margin:0 0 14px}
+.lead-2{color:var(--muted);max-width:52ch;margin:0 0 30px;font-size:16.5px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:20px}
+.live-note{color:var(--ink-2);font-size:16px;margin:0 0 16px;max-width:52ch}
+.demo-note{
+  color:var(--muted);font-size:15px;max-width:60ch;margin:0 0 46px;
+  border-right:2px solid rgba(129,140,248,.45);padding-right:14px;line-height:1.7;
+}
+.demo-note b{color:var(--ink-2);font-weight:600}
+.hero-art{display:none}
+@media (min-width:980px){
+  .hero .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:48px;align-items:center}
+  .hero-art{display:block}
+  .demo-note{margin-bottom:10px}
+}
+
+/* ---------- sections ---------- */
+section{padding:56px 0}
+section[id],header[id]{scroll-margin-top:84px}
+h2{
+  font-size:clamp(25px,3.2vw,34px);font-weight:800;margin:0 0 10px;letter-spacing:-.3px;
+  line-height:1.3;
+}
+h2 .bar{
+  display:block;width:52px;height:4px;border-radius:3px;margin-bottom:18px;
+  background:linear-gradient(90deg,var(--violet),var(--indigo));
+}
+.sec-sub{color:var(--muted);max-width:62ch;margin:0 0 34px;font-size:16.5px}
+.tap-hint{display:none;margin-top:-24px}
+
+/* ---------- cards / bullets ---------- */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:26px 28px;
+}
+.card h3{
+  margin:0 0 4px;font-size:19px;font-weight:700;color:var(--ink);
+  display:flex;align-items:center;gap:10px;
+}
+.tag{
+  font-size:12.5px;font-weight:700;letter-spacing:.4px;padding:3px 10px;border-radius:999px;
+  background:rgba(99,102,241,.16);color:var(--soft);border:1px solid rgba(129,140,248,.28);
+  line-height:1.7;
+}
+.card ul{list-style:none;padding:0;margin:16px 0 0}
+.card li{
+  position:relative;padding-right:26px;margin-bottom:15px;color:var(--ink-2);font-size:16.5px;
+  line-height:1.75;
+}
+.card li:last-child{margin-bottom:0}
+.card li::before{
+  content:"";position:absolute;right:4px;top:12px;
+  width:7px;height:7px;border-radius:2px;
+  background:linear-gradient(135deg,var(--indigo),var(--violet));
+}
+.card li b{color:var(--ink);font-weight:600}
+
+/* ---------- gallery ---------- */
+.group{margin-bottom:64px}
+.group:last-child{margin-bottom:0}
+.group-head{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  margin:0 0 8px;padding-bottom:12px;border-bottom:1px solid var(--line);
+}
+.group-head h3{margin:0;font-size:22px;font-weight:700;letter-spacing:-.2px}
+.group-head .who{font-size:14px;color:var(--muted);font-weight:400}
+.group-intro{color:var(--muted);margin:14px 0 26px;max-width:66ch;font-size:16px}
+
+figure.shot{margin:0 auto 34px}
+figure.shot:last-child{margin-bottom:0}
+.frame{
+  display:block;border-radius:var(--radius);overflow:hidden;
+  border:1px solid var(--line-strong);
+  background:#0A0F1C;
+  box-shadow:0 26px 60px rgba(0,0,0,.55), 0 2px 0 rgba(255,255,255,.03) inset;
+  line-height:0;
+}
+.frame img{display:block;width:100%;height:auto}
+a.frame{transition:border-color .18s ease, transform .18s ease}
+a.frame:hover{border-color:rgba(129,140,248,.55);transform:translateY(-2px)}
+figcaption{
+  color:var(--muted);font-size:15.5px;line-height:1.75;
+  margin-top:14px;padding-right:14px;
+  border-right:2px solid rgba(129,140,248,.35);
+  max-width:78ch;
+}
+figcaption b{color:var(--ink-2);font-weight:600}
+.w-md{max-width:900px}
+.w-sm{max-width:720px}
+
+/* ---------- phones ---------- */
+.phones{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:32px 18px;margin-top:8px;align-items:start;
+}
+.phones figure{margin:0}
+.phone{
+  width:100%;max-width:260px;margin-inline:auto;
+  border:9px solid #161E31;border-radius:34px;
+  background:#0A0F1C;overflow:hidden;position:relative;
+  padding-top:20px;
+  box-shadow:0 0 0 1px rgba(148,163,184,.24), 0 22px 46px rgba(0,0,0,.6);
+  line-height:0;
+}
+.phone::before{
+  content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:88px;height:15px;background:#161E31;border-radius:0 0 11px 11px;z-index:2;
+}
+.phone a{display:block;line-height:0}
+.phone img{display:block;width:100%;height:auto;border-radius:0}
+.phones figcaption{
+  text-align:center;border:0;padding:0;margin-top:13px;font-size:14.5px;max-width:none;
+}
+
+/* ---------- steps ---------- */
+.steps{counter-reset:s;display:grid;gap:18px}
+.step{
+  display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:24px 26px;
+}
+.step .n{
+  counter-increment:s;
+  width:46px;height:46px;border-radius:13px;display:grid;place-items:center;
+  background:linear-gradient(140deg,rgba(99,102,241,.22),rgba(139,92,246,.16));
+  border:1px solid rgba(129,140,248,.32);
+  font-size:21px;font-weight:800;color:var(--soft);
+  font-family:Consolas,"JetBrains Mono",monospace;
+}
+.step .n::before{content:counter(s)}
+.step h4{margin:0 0 6px;font-size:18.5px;font-weight:700}
+.step p{margin:0;color:var(--ink-2);font-size:16.5px;line-height:1.75}
+
+/* ---------- faq ---------- */
+.faq{display:grid;gap:16px}
+.qa{
+  background:var(--card-2);border:1px solid var(--line);
+  border-radius:var(--radius);padding:24px 26px;
+}
+.qa h4{
+  margin:0 0 8px;font-size:18px;font-weight:700;color:var(--soft);
+  display:flex;gap:10px;align-items:baseline;
+}
+.qa h4 span{color:rgba(129,140,248,.5);font-family:Consolas,monospace;font-size:15px}
+.qa p{margin:0;color:var(--ink-2);font-size:16.5px}
+.qa p + p{margin-top:10px}
+
+/* ---------- closing ---------- */
+.closing{
+  background:
+    radial-gradient(600px 300px at 80% 0%, rgba(139,92,246,.16), transparent 70%),
+    var(--card);
+  border:1px solid rgba(129,140,248,.28);
+  border-radius:22px;padding:48px 44px;text-align:center;
+}
+.closing h2{margin-bottom:14px}
+.closing h2 .bar{margin-inline:auto}
+.closing p{color:var(--ink-2);max-width:56ch;margin:0 auto 26px;font-size:17px}
+.contact{
+  display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:30px 0 26px;
+}
+.contact .pill{
+  background:rgba(10,15,28,.7);border:1px solid var(--line-strong);
+  border-radius:12px;padding:13px 22px;font-size:16px;color:var(--ink-2);
+  line-height:1.5;
+}
+.contact .pill b{display:block;font-size:12.5px;color:var(--muted);font-weight:500;letter-spacing:.5px}
+.contact .pill span{font-weight:700;color:var(--ink);font-size:17px}
+
+footer{
+  border-top:1px solid var(--line);margin-top:70px;padding:28px 0 46px;
+  color:var(--muted);font-size:14.5px;display:flex;flex-wrap:wrap;gap:12px;
+  align-items:center;justify-content:space-between;
+}
+footer a{color:var(--soft);text-decoration:none}
+footer a:hover{text-decoration:underline}
+
+/* ---------- responsive ---------- */
+@media (max-width:860px){
+  .two-col{grid-template-columns:1fr}
+}
+@media (max-width:700px){
+  body{font-size:16px}
+  .wrap{padding:0 18px}
+  header.hero{padding:46px 0 8px}
+  section{padding:40px 0}
+  .card{padding:22px 20px}
+  .step{grid-template-columns:1fr;gap:14px;padding:20px}
+  .closing{padding:34px 22px}
+  .qa{padding:20px}
+  figcaption{padding-right:11px;font-size:15px}
+  .topbar .wrap{height:58px;gap:10px}
+  .topbar .btn{padding:9px 14px;font-size:14px}
+  .brand{font-size:16px}
+  .mark{width:32px;height:32px}
+  .phones{gap:26px 14px}
+  .phones figcaption{font-size:13.5px}
+  .tap-hint{display:block}
+}
+@media (max-width:430px){
+  .brand .brand-txt{display:none}
+  .phones{grid-template-columns:1fr}
+}
+
+
+a.pill{text-decoration:none;display:block;transition:border-color .2s,background .2s,transform .15s}
+a.pill:hover{border-color:var(--indigo);background:rgba(99,102,241,.14);transform:translateY(-1px)}
+a.pill:focus-visible{outline:2px solid var(--soft);outline-offset:3px}
+
+/* ---------- print ---------- */
+@media print{
+  body{background:#fff;font-size:11pt}
+  .topbar,.hero-actions,.btn,.tap-hint{display:none}
+  *{color:#111 !important;text-shadow:none !important}
+  h1 .grad{background:none;-webkit-text-fill-color:#111}
+  .card,.step,.qa,.closing,.contact .pill,.tag,.step .n{background:#fff !important;border:1px solid #ccc !important;box-shadow:none !important}
+  h2 .bar,.card li::before{background:#333 !important}
+  figcaption,.demo-note{border-right-color:#999 !important}
+  figure.shot,.qa,.step,.group-head,.phones figure{break-inside:avoid}
+  .frame{box-shadow:none;border:1px solid #ccc}
+  .phone{border-color:#ccc;box-shadow:none;background:#fff}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand"><span class="mark">{ }</span><span class="brand-txt">Java לבגרות</span></div>
+    <div class="spacer"></div>
+    <a class="btn" href="https://java-bagrut-example.vercel.app" target="_blank" rel="noopener">כניסת דמו</a>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-text">
+      <span class="eyebrow">מדעי המחשב · שכבות יא–יב · תכנות ב-Java</span>
+      <h1>Java <span class="grad">לבגרות</span></h1>
+      <p class="lead">אתר לימוד ותרגול Java לתלמידות לקראת הבגרות — שיעורים, עבודות, מבחנים ובדיקה אוטומטית במקום אחד.</p>
+      <p class="lead-2">הכול רץ בדפדפן. אין JDK להתקין, אין סביבת פיתוח להגדיר בחדר המחשבים, ואין מה לבקש מהטכנאי לפני שיעור.</p>
+      <div class="hero-actions">
+        <a class="btn" href="https://java-bagrut-example.vercel.app" target="_blank" rel="noopener">לאתר החי ←</a>
+        <a class="btn ghost" href="#gallery">צילומי מסך מהאתר</a>
+      </div>
+      <p class="live-note">האתר רץ היום באולפנה "למרחב", בשכבות יא–יב.</p>
+      <p class="demo-note">בדף הכניסה יש כפתור <b>"כניסת דמו"</b>. הוא פותח את האתר עם נתוני דוגמה, גם את צד התלמידה וגם את צד המורה, בלי הרשמה ובלי סיסמה. אפשר להסתובב שם כמה שרוצים.</p>
+    </div>
+    <div class="hero-art">
+      <div class="frame"><img src="img/lesson-viz.webp" alt="הדגמה אינטראקטיבית של סריקת In-Order בעץ בינארי, עם הקוד לצד הציור" width="1412" height="1344"></div>
+    </div>
+  </div>
+</header>
+
+<section id="inside">
+  <div class="wrap">
+    <h2><span class="bar"></span>מה יש בפנים</h2>
+    <p class="sec-sub">שני צדדים לאותו אתר: מה שהתלמידה רואה, ומה שאתם מנהלים מאחורי הקלעים.</p>
+    <div class="two-col">
+
+      <div class="card">
+        <h3>לתלמידה <span class="tag">צד הלמידה</span></h3>
+        <ul>
+          <li>נושאי הבגרות מסודרים ברשימה אחת: <b>משתנים, תנאים, לולאות, מערכים, מחרוזות, מחלקות ואובייקטים, רשימות מקושרות, רקורסיה ועצים בינאריים</b>.</li>
+          <li>בכל נושא: הסבר בעברית, שלוש דוגמאות פתורות, ואז תרגול עצמי.</li>
+          <li>הדגמות שרצות צעד אחר צעד: העץ מצויר על המסך, השורה שרצה כרגע מודגשת בקוד שלצידו, ואפשר לעצור ולחזור אחורה.</li>
+          <li>עורך קוד Java אמיתי בדפדפן, עם צביעת תחביר וסימון שגיאות תוך כדי כתיבה.</li>
+          <li>כפתור "בדקי את התשובה שלי" — <b>הבדיקה מחזירה ציון, מצביעה על השורה הבעייתית ומציעה מה לתקן</b>. אפשר לתקן ולבדוק שוב.</li>
+          <li>מצב מבחן: מסך מלא, טיימר, והעתקה והדבקה חסומות.</li>
+          <li>דף עזר ומילון מונחים שנפתחים מכל מקום באתר.</li>
+          <li>הקוד נשמר תוך כדי כתיבה. אם הדפדפן נסגר באמצע, הכול נשאר.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>למורה <span class="tag">צד הניהול</span></h3>
+        <ul>
+          <li>יצירת נושאים, עבודות ומבחנים מתוך האתר עצמו — אשף בשלושה שלבים.</li>
+          <li>שאלות נכתבות בעברית, עם ניקוד לכל שאלה. אפשר להדביק צילום מסך של פלט ישר לתוך השאלה ב-Ctrl+V.</li>
+          <li><b>הוראות בדיקה שאתם כותבים בעצמכם</b> — כללים למבחן כולו ודגשים לכל שאלה. הן נשלחות עם כל בדיקה, והתלמידות לא רואות אותן.</li>
+          <li>לוח הגשות לכל מטלה: מי התחילה, מי הגישה, מי כבר נבדקה ומי קיבלה ציון.</li>
+          <li>הבדיקה האוטומטית מציעה ציון ומשוב מנומק, <b>וממתינה לאישור שלכם לפני שהוא נשלח</b>.</li>
+          <li>יציאות מהמבחן וניסיונות הדבקה נרשמים ומופיעים בלוח ההגשות ובמסך הבדיקה של אותה תלמידה, עם שעה ועם הטקסט שנחסם.</li>
+          <li>דוח ציונים לפי כיתה, עם ממוצע לכל תלמידה ויצוא לאקסל (CSV).</li>
+          <li>אישור תלמידות חדשות. אף אחת לא נכנסת לתוכן לפני שאישרתם.</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="gallery">
+  <div class="wrap">
+    <h2><span class="bar"></span>איך זה נראה</h2>
+    <p class="sec-sub">כל התמונות כאן הן צילומי מסך מהאתר עצמו, עם נתוני דוגמה.<span class="zoomable"> לחיצה על תמונה פותחת אותה בגודל מלא.</span></p>
+    <p class="sec-sub tap-hint zoomable">בטלפון כדאי להקיש על צילום מסך כדי לפתוח אותו בגודל מלא.</p>
+
+    <div class="group">
+      <div class="group-head"><h3>כניסה</h3><span class="who">מסך ראשון</span></div>
+      <figure class="shot">
+        <a class="frame" href="img/login.webp" target="_blank" rel="noopener"><img src="img/login.webp" alt="מסך הכניסה של האתר עם שישה נושאים נעולים" width="1600" height="927" loading="lazy"></a>
+        <figcaption>התלמידה מתחברת עם חשבון Google. כל עוד היא לא נכנסה ולא אושרה, הנושאים נעולים. הכפתור <b>"כניסת דמו"</b>, משמאל למעלה, פותח את האתר בלי הרשמה.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>דף הבית של התלמידה</h3><span class="who">אחרי הכניסה</span></div>
+      <figure class="shot">
+        <a class="frame" href="img/student-home.webp" target="_blank" rel="noopener"><img src="img/student-home.webp" alt="דף הבית של התלמידה עם כרטיסי נושאים וסטטוס לכל נושא" width="1600" height="836" loading="lazy"></a>
+        <figcaption>הנושאים שלה, ולכל אחד סטטוס משלו: <b>"הושלם"</b> עם פס ירוק מלא, <b>"2 לביצוע"</b> בכתום, או "אין משימות פתוחות עדיין". למעלה רצועת המועדפים: שאלות שסימנה כדי לחזור אליהן לפני מבחן.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>דף לימוד עם הדגמה אינטראקטיבית</h3><span class="who">לב העניין</span></div>
+      <p class="group-intro">כל נושא בנוי אותו דבר: הסבר, שלוש דוגמאות, תרגול. בתוך ההסבר יושבות הדגמות שאפשר להריץ.</p>
+      <figure class="shot">
+        <a class="frame" href="img/lesson-top.webp" target="_blank" rel="noopener"><img src="img/lesson-top.webp" alt="ראש דף הנושא עצים בינאריים עם רשימת שלבים והסבר" width="1600" height="1000" loading="lazy"></a>
+        <figcaption>ראש הנושא "עצים בינאריים". בסרגל מימין עץ הנושאים, ובתוכו גם "מבחן עצים — מועד א" עם שתי השאלות והניקוד שלהן, הכול באותו מקום.</figcaption>
+      </figure>
+      <figure class="shot">
+        <a class="frame" href="img/lesson-viz.webp" target="_blank" rel="noopener"><img src="img/lesson-viz.webp" alt="הדגמה אינטראקטיבית של סריקת In-Order בעץ בינארי" width="1412" height="1344" loading="lazy"></a>
+        <figcaption>סריקת In-Order בשלב 5 מתוך 10: הצומת שבתור מודגש בכתום, ובקוד שמשמאל מודגשת השורה שרצה כרגע, ורשימת הפלט נבנית למטה. יש גם Pre-Order, Post-Order, חיפוש, מקסימום, הוספה ומחיקה, ולכל אחת מהאפשרויות מוצג הקוד שלה.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>שאלה ועורך הקוד</h3><span class="who">שיעורי בית</span></div>
+      <figure class="shot">
+        <a class="frame" href="img/homework-question.webp" target="_blank" rel="noopener"><img src="img/homework-question.webp" alt="שאלת שיעורי בית עם ניסוח מימין ועורך קוד משמאל" width="1600" height="1183" loading="lazy"></a>
+        <figcaption>הניסוח מימין, העורך משמאל, והקוד נשמר תוך כדי כתיבה. בשיעורי בית מותר להיעזר ומותר להדביק, והקופסה הירוקה אומרת את זה לתלמידה במפורש.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>המשוב שהתלמידה מקבלת</h3><span class="who">מיד אחרי "בדקי את התשובה שלי"</span></div>
+      <figure class="shot w-md">
+        <a class="frame" href="img/homework-feedback.webp" target="_blank" rel="noopener"><img src="img/homework-feedback.webp" alt="משוב אוטומטי על תרגיל עם ציון 6 מתוך 10 והצבעה על שורה 10" width="1118" height="1100" loading="lazy"></a>
+        <figcaption>ציון, ואז השורה עצמה: <b>"שורה 10 — בתוך הלולאה"</b>, הסבר למה זה שגוי והצעת התיקון. היא מתקנת בעורך ולוחצת לבדוק שוב, כמה פעמים שצריך.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>מצב מבחן</h3><span class="who">בזמן אמת</span></div>
+      <figure class="shot w-md">
+        <a class="frame" href="img/exam-gate.webp" target="_blank" rel="noopener"><img src="img/exam-gate.webp" alt="חלון מצב מבחן עם רשימת הכללים לפני התחלה" width="1360" height="1016" loading="lazy"></a>
+        <figcaption>לפני שהמבחן מתחיל, הכללים מוצגים על המסך: יציאה מהמבחן נרשמת ומדווחת, יציאות חוזרות נחשבות חשד להעתקה, והעתקה והדבקה חסומות לאורך המבחן. אף אחת לא יכולה לטעון אחר כך שלא ידעה.</figcaption>
+      </figure>
+      <figure class="shot">
+        <a class="frame" href="img/exam-question.webp" target="_blank" rel="noopener"><img src="img/exam-question.webp" alt="מסך מבחן פעיל עם טיימר, שאלה ועורך קוד" width="1600" height="690" loading="lazy"></a>
+        <figcaption>מבחן פעיל: בשורת המבחן טיימר שסופר לאחור (47:21) ולידו "שאלה 1 מתוך 2 · 50 נק'". השאלה וחתימת הפעולה מימין, העורך משמאל. גם כאן הקוד נשמר תוך כדי, כך שמחשב שנתקע באמצע מבחן לא מוחק לתלמידה את העבודה.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>לוח ההגשות של המורה</h3><span class="who">צד הניהול</span></div>
+      <figure class="shot">
+        <a class="frame" href="img/teacher-home.webp" target="_blank" rel="noopener"><img src="img/teacher-home.webp" alt="מסך הבית של המורה עם מוני מצב וכפתורי פעולה" width="1600" height="851" loading="lazy"></a>
+        <figcaption>מסך הבית של המורה: 4 תלמידות ממתינות לאישור, 5 עבודות ומבחנים, 8 נושאים. מתחת לזה הכפתורים לאישור תלמידות חדשות ולדוח הציונים לפי שכבה. רשימת הנושאים בסרגל מימין זמינה מכל מסך.</figcaption>
+      </figure>
+      <figure class="shot">
+        <a class="frame" href="img/teacher-dashboard.webp" target="_blank" rel="noopener"><img src="img/teacher-dashboard.webp" alt="לוח ההגשות של מבחן עם שורת תלמידה לכל אחת" width="1600" height="919" loading="lazy"></a>
+        <figcaption>לוח ההגשות של "מבחן עצים — מועד א". בראש המסך ארבעה מונים: 6 התחילו לפתור, 5 הגישו, 3 נבדקו על ידי AI, ואחת כבר קיבלה ציון. מתחת לזה שורה לכל תלמידה: על כמה שאלות ענתה, איפה זה עומד (טיוטה / הגישה / נבדקה / נשלח ציון), ואם היו יציאות מהמבחן או התראות, זה מסומן ליד השם.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>בדיקת תשובה ושליחת ציון</h3><span class="who">כאן נחסך הזמן</span></div>
+      <p class="group-intro">הבדיקה האוטומטית עוברת על ההגשות ומכינה הצעה. אתם קוראים, משנים אם צריך, ורק אז שולחים.</p>
+      <figure class="shot">
+        <a class="frame" href="img/teacher-review.webp" target="_blank" rel="noopener"><img src="img/teacher-review.webp" alt="מסך בדיקת הגשה: סרגל האישור למעלה, השאלה מימין, קוד התלמידה והמשוב משמאל" width="1600" height="1409" loading="lazy"></a>
+        <figcaption>בסרגל העליון: <b>"נבדק על ידי AI - ממתין לאישור ושליחה"</b>, ולידו הכפתורים "בדוק שוב", "פתח מחדש" ו"שליחת ציון לתלמידה". מתחת, השאלה מימין והקוד שהתלמידה כתבה משמאל, בעורך נעול ל"קריאה בלבד". בכרטיס המשוב כתוב "ציון סופי: 48", אבל הכותרת שלו אומרת <b>"משוב (טרם נשלח לתלמידה)"</b> — וזה המצב עד שלוחצים על הכפתור.</figcaption>
+      </figure>
+      <figure class="shot">
+        <a class="frame" href="img/grading-rubric.webp" target="_blank" rel="noopener"><img src="img/grading-rubric.webp" alt="חלון הוראות בדיקה עם כללים כלליים ודגשים לכל שאלה" width="1600" height="1330" loading="lazy"></a>
+        <figcaption>לפי מה זה בודק? לפי מה שאתם כותבים. <b>כללים לכל המבחן</b> ("על פעולה רקורסיבית חובה תנאי עצירה מפורש; בלעדיו יורדות 12 נקודות") ודגשים נפרדים לכל שאלה. ההוראות נשלחות עם כל בדיקה, והתלמידות לא רואות את החלון הזה בכלל.</figcaption>
+      </figure>
+      <figure class="shot w-md">
+        <a class="frame" href="img/teacher-paste.webp" target="_blank" rel="noopener"><img src="img/teacher-paste.webp" alt="דיווח על ניסיון הדבקה במבחן עם שעה והטקסט שנחסם" width="1600" height="224" loading="lazy"></a>
+        <figcaption>אם תלמידה ניסתה להדביק במבחן, זה יושב בראש מסך הבדיקה שלה: מספר הניסיונות, השעה המדויקת והטקסט שנחסם.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>דוח ציונים</h3><span class="who">סוף תקופה</span></div>
+      <figure class="shot w-md">
+        <a class="frame" href="img/grades-report.webp" target="_blank" rel="noopener"><img src="img/grades-report.webp" alt="דוח ציונים לפי כיתה עם ממוצע לכל תלמידה" width="1600" height="1566" loading="lazy"></a>
+        <figcaption>טבלה לכל כיתה: כמה מבחנים, כמה עבודות וממוצע לכל תלמידה. אפשר לעבור לתצוגה מפורטת לפי נושא, ולייצא קובץ CSV שנפתח באקסל.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>אישור תלמידות</h3><span class="who">מי נכנסת</span></div>
+      <figure class="shot w-sm">
+        <a class="frame" href="img/students-approval.webp" target="_blank" rel="noopener"><img src="img/students-approval.webp" alt="חלון אישור תלמידות חדשות עם ארבע בקשות ממתינות" width="1000" height="894" loading="lazy"></a>
+        <figcaption>תלמידה שנרשמת נכנסת לרשימת המתנה עם השם, האימייל והכיתה שבחרה. עד שלא לחצתם "אישור", היא לא רואה שום תוכן.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>יצירת עבודה ושאלה</h3><span class="who">מתוך האתר</span></div>
+      <figure class="shot w-md">
+        <a class="frame" href="img/quick-add.webp" target="_blank" rel="noopener"><img src="img/quick-add.webp" alt="אשף הוספת עבודה או מבחן בשלב שלוש מתוך שלושה" width="1304" height="1536" loading="lazy"></a>
+        <figcaption>שלב 3 מתוך 3: סוג ושם ← בחירת נושא ← שאלות ותוכן. כותבים את השאלה בעברית, קובעים ניקוד, ואם צריך מצרפים צילום מסך של הפלט. Ctrl+V מדביק אותו ישר פנימה.</figcaption>
+      </figure>
+      <figure class="shot w-sm">
+        <a class="frame" href="img/question-editor.webp" target="_blank" rel="noopener"><img src="img/question-editor.webp" alt="חלון עריכת שאלה עם ניקוד, סוג שאלה ותמונת פלט" width="1000" height="1300" loading="lazy"></a>
+        <figcaption>עריכת שאלה קיימת: מספר, ניקוד, סוג (קוד Java או אוטומט), ותצוגה מקדימה של תמונת הפלט שצורפה. אפשר להחליף או להסיר בכל רגע.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>דף עזר</h3><span class="who">זמין תמיד</span></div>
+      <figure class="shot">
+        <a class="frame" href="img/cheat-sheet.webp" target="_blank" rel="noopener"><img src="img/cheat-sheet.webp" alt="דף עזר ומילון מונחים ב-Java עם לשוניות" width="1600" height="1315" loading="lazy"></a>
+        <figcaption>נפתח מכל מקום באתר, גם באמצע תרגיל: הסבר קצר בעברית מול שורת הקוד עצמה, בלשוניות לפי נושא — יסודות, בקרת זרימה, מחרוזות, מערכים, מבני נתונים ומילון מונחים.</figcaption>
+      </figure>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>גם מהטלפון</h3><span class="who">אותו אתר, מסך צר</span></div>
+      <p class="group-intro">אין אפליקציה להוריד. אותו קישור, אותו חשבון. את הבגרות כותבים במחשב, אבל לחזור על נושא בהפסקה או להציץ בהגשות בין שיעור לשיעור אפשר גם מכאן.</p>
+      <div class="phones">
+        <figure>
+          <div class="phone"><a href="img/m-student-home.webp" target="_blank" rel="noopener"><img src="img/m-student-home.webp" alt="דף הבית של התלמידה בטלפון" width="600" height="1300" loading="lazy"></a></div>
+          <figcaption>דף הבית: הנושאים אחד מתחת לשני, עם אותם סטטוסים.</figcaption>
+        </figure>
+        <figure>
+          <div class="phone"><a href="img/m-lesson-viz.webp" target="_blank" rel="noopener"><img src="img/m-lesson-viz.webp" alt="ההדגמה האינטראקטיבית בטלפון" width="600" height="1300" loading="lazy"></a></div>
+          <figcaption>ההדגמה: העץ למעלה, הקוד מתחתיו.</figcaption>
+        </figure>
+        <figure>
+          <div class="phone"><a href="img/m-homework-feedback.webp" target="_blank" rel="noopener"><img src="img/m-homework-feedback.webp" alt="המשוב על תרגיל בטלפון" width="600" height="1300" loading="lazy"></a></div>
+          <figcaption>המשוב על תרגיל, כמו במחשב.</figcaption>
+        </figure>
+        <figure>
+          <div class="phone"><a href="img/m-exam-question.webp" target="_blank" rel="noopener"><img src="img/m-exam-question.webp" alt="מסך מבחן בטלפון" width="600" height="1300" loading="lazy"></a></div>
+          <figcaption>מסך המבחן, כולל הטיימר.</figcaption>
+        </figure>
+        <figure>
+          <div class="phone"><a href="img/m-teacher-dashboard.webp" target="_blank" rel="noopener"><img src="img/m-teacher-dashboard.webp" alt="לוח ההגשות של המורה בטלפון" width="600" height="1300" loading="lazy"></a></div>
+          <figcaption>לוח ההגשות: שורה לכל תלמידה, גם במסך צר.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <h2><span class="bar"></span>איך זה עובד בפועל</h2>
+    <p class="sec-sub">חמישה שלבים, מהצד שלכם. מבחן ראשון אפשר להכין בשיעור אחד.</p>
+    <div class="steps">
+
+      <div class="step">
+        <div class="n"></div>
+        <div>
+          <h4>פותחים נושא</h4>
+          <p>בוחרים נושא מהרשימה המוכנה או מוסיפים אחד משלכם, וכותבים בתוכו את ההסבר, הדוגמאות והתרגול. הכול נערך מהאתר, ואפשר לשנות מתי שרוצים.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="n"></div>
+        <div>
+          <h4>מוסיפים עבודה או מבחן</h4>
+          <p>אשף בשלושה שלבים: סוג ושם, לאיזה נושא זה שייך, ואז השאלות והניקוד. אם זה מבחן, כותבים גם את הוראות הבדיקה.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="n"></div>
+        <div>
+          <h4>התלמידות פותרות באתר</h4>
+          <p>בעבודה: בלי הגבלת זמן, עם עזרה ועם בדיקה חוזרת. במבחן: מסך מלא, טיימר שרץ, העתקה והדבקה חסומות, ויציאות מהחלון נרשמות עם שעה.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="n"></div>
+        <div>
+          <h4>הבדיקה האוטומטית מציעה ציון והערות</h4>
+          <p>המערכת עוברת על ההגשות ומחזירה לכל שאלה ציון ונימוק מילולי, לפי הוראות הבדיקה שכתבתם. זה מגיע אליכם מוכן — ולא זז משם.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="n"></div>
+        <div>
+          <h4>אתם מאשרים, מתקנים אם צריך, ושולחים</h4>
+          <p>קוראים את מה שהוצע, משנים ציון או מוסיפים הערה משלכם, ולוחצים "שליחת ציון". רק מהרגע הזה התלמידה רואה משהו. הציון נכנס אוטומטית לדוח לפי כיתה.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2><span class="bar"></span>שאלות שמורות ומורים שואלים</h2>
+    <div class="faq">
+
+      <div class="qa">
+        <h4><span>01</span>צריך להתקין משהו?</h4>
+        <p>לא. פותחים דפדפן, נכנסים לקישור, וזהו — גם ממחשב וגם מהטלפון. בחדר המחשבים לא מתקינים כלום ולא צריך הרשאות מנהל.</p>
+      </div>
+
+      <div class="qa">
+        <h4><span>02</span>איך התלמידות נרשמות?</h4>
+        <p>הן נכנסות עם חשבון Google ובוחרות כיתה. הבקשה מגיעה אליכם למסך "אישור תלמידות חדשות", ועד שלא אישרתם הן לא רואות תוכן. אתם קובעים מי נמצא ברשימה.</p>
+      </div>
+
+      <div class="qa">
+        <h4><span>03</span>מה קורה אם תלמידה יוצאת מהמבחן באמצע?</h4>
+        <p>היציאה נרשמת עם שעה ומופיעה ליד השם שלה בלוח ההגשות. גם ניסיונות הדבקה נחסמים ונשמרים, כולל הטקסט עצמו, כדי שתוכלו לראות מה בדיוק נוסה.</p>
+        <p>המערכת מדווחת, לא מענישה. מה עושים עם דיווח כזה זו החלטה שלכם.</p>
+      </div>
+
+      <div class="qa">
+        <h4><span>04</span>אפשר לערוך את ההסברים והשאלות?</h4>
+        <p>כן, הכול מהאתר. אין קבצים לפתוח ואין מה להעלות מחדש. משנים טקסט, שומרים, וזה מה שהתלמידות רואות בכניסה הבאה. אותו דבר לגבי נושאים, שאלות וניקוד.</p>
+      </div>
+
+      <div class="qa">
+        <h4><span>05</span>הציון שה-AI מציע הוא סופי?</h4>
+        <p>לא. זו הצעה שמחכה לכם. אפשר לשנות את הציון, לכתוב הערה משלכם, או לשלוח לבדיקה חוזרת. רק כשלוחצים "שליחת ציון לתלמידה" זה עובר אליה.</p>
+        <p>ההצעה נשענת על הוראות הבדיקה שכתבתם, כך שהיא יוצאת קרובה לציון שהייתם נותנים בעצמכם.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="wrap">
+    <div class="closing">
+      <h2><span class="bar"></span>רוצים לראות את זה בכיתה שלכם?</h2>
+      <p>הדרך המהירה להתרשם היא להיכנס וללחוץ "כניסת דמו": נפתחים שני הצדדים, של התלמידה ושל המורה, בלי הרשמה. תסתובבו שם, ואחר כך נדבר על תמחור ועל התאמה לשכבה שלכם.</p>
+      <a class="btn" href="https://java-bagrut-example.vercel.app" target="_blank" rel="noopener">כניסת דמו ←</a>
+      <div class="contact">
+        <div class="pill"><b>איש קשר</b><span>מוטי לוי</span></div>
+        <a class="pill" href="https://wa.me/972526983897" target="_blank" rel="noopener"><b>וואטסאפ</b><span>052-698-3897</span></a>
+        <a class="pill" href="mailto:motiml77@gmail.com"><b>אימייל</b><span>motiml77@gmail.com</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;width:100%">
+    <span>Java לבגרות — אתר לימוד ותרגול לתלמידות מדעי המחשב.</span>
+    <a href="https://java-bagrut-example.vercel.app" target="_blank" rel="noopener">java-bagrut-example.vercel.app</a>
+  </div>
+</footer>
+
+</body>
+</html>
