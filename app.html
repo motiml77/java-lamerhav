@@ -515,7 +515,7 @@
         // ===== ניתוב רב-בית-ספרי (docs/multi-school-plan.md סעיף 4) =====
         // "/lamerhav" → בית הספר lamerhav · "/manage" → לוח המנהל הראשי · "/app.html" ישיר → מצב ישן (legacy)
         // במצב legacy האפליקציה מתנהגת בדיוק כמו היום (אוספי שורש) — עד שלב 6 של התוכנית.
-        const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'firebase-setup']);
+        const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'firebase-setup', 'lamerhav', 'demo']);
         const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
         const __seg = (typeof location !== 'undefined' ? location.pathname : '/').split('/').filter(Boolean);
         const IS_ADMIN_ROUTE = __seg[0] === 'manage';
@@ -1094,8 +1094,15 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 if (!db) return [];
                 const out = [];
                 try {
+                    const seen = new Set();
                     const g = await db.collection('platform_media').where('topicTitle', '==', topicTitle || '').get();
-                    g.forEach(d => out.push({ id: d.id, global: true, ...d.data() }));
+                    g.forEach(d => { seen.add(d.id); out.push({ id: d.id, global: true, ...d.data() }); });
+                    // גם לפי מפתח יציב — כדי שתוכן גלובלי ימשיך להגיע גם אם שם הנושא שונה
+                    const key = topicKeyOf(topicTitle);
+                    if (key) {
+                        const g2 = await db.collection('platform_media').where('topicKey', '==', key).get();
+                        g2.forEach(d => { if (!seen.has(d.id)) out.push({ id: d.id, global: true, ...d.data() }); });
+                    }
                 } catch (e) { /* אין הרשאה/אוסף — מתעלמים */ }
                 try {
                     const m = await col('media').where('classId', '==', classId).get();
@@ -2058,7 +2065,14 @@ a.setGrade(100);   // משנה רק את נעמה
         };
 
         // שיוך שכבה לנושא לפי הכותרת: יא = משתנים, לולאות, מחרוזות, פונקציות, מחלקות, מערכים · השאר = יב
-        const GRADE_YA_KEYWORDS = ['משתנ', 'לולא', 'מחרוז', 'פונקצ', 'מתוד', 'מחלק', 'אובייקט', 'עצמים', 'מערכ'];
+        const GRADE_YA_KEYWORDS = ['משתנ', 'תנא', 'לולא', 'מחרוז', 'פונקצ', 'מתוד', 'מחלק', 'אובייקט', 'עצמים', 'מערכ'];
+        // מפתח יציב לנושא — משמש להתאמת תוכן גלובלי גם אם המורה תשנה את שם הנושא.
+        const TOPIC_KEYS = { 'משתנ': 'io', 'תנא': 'conditions', 'לולא': 'loops', 'מערכ': 'arrays', 'מחרוז': 'strings', 'מחלק': 'objects', 'רשימ': 'lists', 'תור': 'queuestack', 'רקורס': 'recursion', 'עץ': 'trees', 'עצים': 'trees' };
+        const topicKeyOf = (title) => {
+            const t = String(title || '');
+            for (const [frag, key] of Object.entries(TOPIC_KEYS)) if (t.includes(frag)) return key;
+            return '';
+        };
         const topicGradeFor = (title) => {
             if (!title) return 'יב';
             return GRADE_YA_KEYWORDS.some(k => title.includes(k)) ? 'יא' : 'יב';
@@ -4037,11 +4051,11 @@ a.setGrade(100);   // משנה רק את נעמה
                                 <div className="flex-1 h-px bg-slate-700"></div><span className="text-slate-500 text-xs">או</span><div className="flex-1 h-px bg-slate-700"></div>
                             </div>
                             <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 border border-slate-600 text-slate-300 text-sm font-bold cursor-pointer">
-                                <Icon name="upload" size={15} /> העלאת קובץ PDF (עד 1MB)
+                                <Icon name="upload" size={15} /> העלאת קובץ PDF (עד 700KB)
                                 <input type="file" accept="application/pdf" className="hidden" onChange={e => {
                                     const f = e.target.files[0];
                                     if (!f) return;
-                                    if (f.size > 1024 * 1024) { alert('הקובץ גדול מדי (מקסימום 1MB). לקבצים גדולים השתמשי בקישור Google Drive.'); return; }
+                                    if (f.size > 700 * 1024) { alert('הקובץ גדול מדי (מקסימום 1MB). לקבצים גדולים השתמשי בקישור Google Drive.'); return; }
                                     const reader = new FileReader();
                                     reader.onload = ev => onChange({ name: name || f.name, url: '', dataUri: ev.target.result });
                                     reader.readAsDataURL(f);
@@ -4176,7 +4190,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         <div className="logo-coin w-10 h-10 rounded-xl flex items-center justify-center text-white font-mono font-bold text-base">{'{ }'}</div>
                         <div>
                             <div className="text-slate-100 font-extrabold leading-tight">Java לבגרות</div>
-                            <div className="text-indigo-300 text-[11px] font-semibold">{(CURRENT_SCHOOL && CURRENT_SCHOOL.settings && CURRENT_SCHOOL.settings.subtitle) || "אולפנה 'למרחב' · שכבות יא–יב"}</div>
+                            <div className="text-indigo-300 text-[11px] font-semibold">{(CURRENT_SCHOOL && CURRENT_SCHOOL.settings && CURRENT_SCHOOL.settings.subtitle) || (CURRENT_SCHOOL && CURRENT_SCHOOL.name) || "לימוד ותרגול Java לבגרות"}</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-2.5">
@@ -7111,7 +7125,8 @@ a.setGrade(100);   // משנה רק את נעמה
                     if (existing.has(lib.title.trim())) continue; // לא יוצרים כפילות לנושא שכבר קיים
                     const newClass = {
                         id: 'class_' + Date.now() + '_' + i,
-                        title: lib.title,        // כותרת מדויקת — מפעילה אוטומטית את ההסבר המובנה + ההדגמה האינטראקטיבית
+                        title: lib.title,
+                        topicKey: topicKeyOf(lib.title),        // כותרת מדויקת — מפעילה אוטומטית את ההסבר המובנה + ההדגמה האינטראקטיבית
                         icon: '📚',
                         grade: topicGradeFor(lib.title),   // שיוך שכבה אוטומטי (יא / יב)
                         exams: [],
@@ -7273,7 +7288,7 @@ a.setGrade(100);   // משנה רק את נעמה
 
                 // Save image to question content if provided
                 if (imageBase64) {
-                    const qId = `${questionModal.examId}_q${data.number}`;
+                    const qId = `${questionModal.examId}_q_${data.number}`; // חייב להתאים לנתיב הקריאה בכל האתר
                     const existing = await DataService.loadQuestionContent(qId) || {};
                     await DataService.saveQuestionContent(qId, { ...existing, imageBase64 });
                     setQuestionContent(prev => ({ ...prev, [qId]: { ...existing, imageBase64 } }));
@@ -7933,7 +7948,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                         <h1 className="text-lg font-extrabold text-white leading-tight">Java לבגרות</h1>
                                         <div className="text-indigo-300 text-[11px] font-semibold leading-tight">{(CURRENT_SCHOOL && CURRENT_SCHOOL.name ? CURRENT_SCHOOL.name + ' · ' : '') + (isEditor ? 'ניהול יחידות, עבודות ומבחנים' : 'יחידות · עבודות · מבחנים')}</div>
                                     </div>
-                                    <h1 className="text-lg font-bold text-white md:hidden">Java לבגרות</h1>
+                                    <h1 className="text-lg font-bold text-white md:hidden truncate max-w-[46vw]">{(CURRENT_SCHOOL && CURRENT_SCHOOL.name) || "Java לבגרות"}</h1>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 md:gap-3">
@@ -9429,7 +9444,7 @@ ${answerText}
                                     </div>
                                     <div className="mt-7">
                                         <TopicLearnSection topicTitle={selectedClassObj.title} customLesson={selectedClassObj.lesson} editable={isEditor} onEdit={() => setLessonModal({ open: true, classId: selectedClassObj.id, title: selectedClassObj.title })} />
-                                        <div className="mt-6"><TopicMediaSection classId={selectedClassObj.id} topicTitle={selectedClassObj.title} isTeacher={isEditor && !previewMode} isSuperAdminUser={(user?.email || '').toLowerCase().trim() === SUPER_ADMIN_EMAIL} user={user} /></div>
+                                        <div className="mt-6"><TopicMediaSection classId={selectedClassObj.id} topicTitle={selectedClassObj.title} isTeacher={isEditor} isSuperAdminUser={(user?.email || '').toLowerCase().trim() === SUPER_ADMIN_EMAIL} user={user} /></div>
                                     </div>
                                     {(() => {
                                         const visibleExams = (selectedClassObj.exams || []).filter(e => e.visible !== false);
@@ -9831,7 +9846,7 @@ ${answerText}
 
                     {/* Question Modal */}
                     <Modal isOpen={questionModal.open} onClose={() => setQuestionModal({ open: false, classId: null, examId: null, item: null, index: null })} title={questionModal.item ? 'עריכת שאלה' : 'הוספת שאלה'}>
-                        <QuestionForm item={questionModal.item} existingImage={questionModal.item ? (questionContent[`${questionModal.examId}_q${questionModal.item.number}`]?.imageBase64 || '') : ''} onSave={saveQuestion} onCancel={() => setQuestionModal({ open: false, classId: null, examId: null, item: null, index: null })} />
+                        <QuestionForm item={questionModal.item} existingImage={questionModal.item ? (questionContent[`${questionModal.examId}_q_${questionModal.item.number}`]?.imageBase64 || '') : ''} onSave={saveQuestion} onCancel={() => setQuestionModal({ open: false, classId: null, examId: null, item: null, index: null })} />
                     </Modal>
 
                     {/* Delete Modal */}
@@ -11363,11 +11378,14 @@ ${answerText}
                 try {
                     // הנושאים המובנים נוצרים מיד — בית ספר חדש נפתח עם כל נושאי הבגרות מוכנים,
                     // ולא ריק. הכותרת המדויקת היא מה שמפעיל את ההסבר, ההדגמה והתוכן הגלובלי.
+                                        // בדיקת קיום בצד השרת — slugError בודק רק מול הרשימה שנטענה, שעלולה להיות ישנה
+                    const exists = await db.collection('schools').doc(slug).get();
+                    if (exists.exists) { setBusy(false); alert('הכתובת ' + slug + ' כבר תפוסה על ידי בית ספר קיים.'); return; }
                     const batch = db.batch();
                     LEARN_LIBRARY.forEach((lib, i) => {
-                        const id = 'class_seed_' + i;
+                        const id = 'class_' + slug + '_' + i; // ייחודי לבית הספר — לא ידרוס נתונים קיימים
                         batch.set(db.collection('schools').doc(slug).collection('classes').doc(id), {
-                            id, title: lib.title, icon: '📚', grade: topicGradeFor(lib.title),
+                            id, title: lib.title, topicKey: topicKeyOf(lib.title), icon: '📚', grade: topicGradeFor(lib.title),
                             exams: [], order: i, archived: false,
                         });
                     });
@@ -11456,7 +11474,9 @@ ${answerText}
                 const item = mForm.type === 'youtube' ? { type: 'youtube', title: mForm.title.trim(), url: mForm.url.trim() }
                     : mForm.type === 'text' ? { type: 'text', title: mForm.title.trim(), body: mForm.body.trim() }
                     : { type: 'file', title: mForm.title.trim() || mForm.fileName, dataUri: mForm.dataUri, fileName: mForm.fileName };
-                await db.collection('platform_media').doc(id).set({ ...item, id, topicTitle: mediaTopic, createdAt: new Date().toISOString(), createdBy: adminUser.email });
+                try {
+                    await db.collection('platform_media').doc(id).set({ ...item, id, topicTitle: mediaTopic, topicKey: topicKeyOf(mediaTopic), createdAt: new Date().toISOString(), createdBy: adminUser.email });
+                } catch (e) { alert('השמירה נכשלה: ' + e.message + '\n(קובץ גדול מדי או בעיית הרשאות)'); return; }
                 setMForm({ type: 'youtube', title: '', url: '', body: '', dataUri: '', fileName: '' });
                 loadMedia(mediaTopic);
             };
