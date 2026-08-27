@@ -26,6 +26,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
     
     <!-- CodeMirror 6 Bundle - Single file, no dependency issues -->
     <!-- נתיב אבסולוטי: הדף מוגש גם מ-/lamerhav (ניתוב רב-בית-ספרי), ונתיב יחסי היה נשבר שם.
@@ -671,13 +672,14 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             return p;
         };
 
-        let app, auth, db;
+        let app, auth, db, storage;
         try {
             app = firebase.initializeApp(firebaseConfig);
             auth = firebase.auth();
             // זכירת משתמשים מחוברים גם אחרי סגירת הדפדפן (לא צריך להתחבר כל פעם)
             auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.warn('persistence', e));
             db = firebase.firestore();
+            storage = firebase.storage();
         } catch (e) { console.error("Firebase init error:", e); }
 
         // Icons
@@ -1175,6 +1177,43 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     else await col('practice').doc(id).delete();
                     return true;
                 } catch (e) { console.error('Delete practice error:', e); return false; }
+            },
+
+            // ===== Firebase Storage =====
+            // כל הקבצים עוברים דרך כאן, כדי שמוסכמת השמות והמטא-דאטה יהיו במקום אחד.
+            // שם הקובץ נוצר אצלנו ולעולם לא נלקח מהמשתמש — שמות עבריים, רווחים
+            // ותווים כמו ../ הם מקור קלאסי לתקלות (docs/storage-plan.md §4).
+            storagePath(folder, file) {
+                const ext = ((file.name || '').match(/\.([A-Za-z0-9]{1,8})$/) || [, 'bin'])[1].toLowerCase();
+                const id = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+                return folder.replace(/\/+$/, '') + '/' + id + '.' + ext;
+            },
+            // מעלה ומחזיר { url, path, size, contentType }. onProgress מקבל אחוזים.
+            uploadFile(path, file, onProgress) {
+                if (!storage) return Promise.reject(new Error('Storage לא זמין'));
+                const uid = (auth && auth.currentUser && auth.currentUser.uid) || '';
+                const task = storage.ref(path).put(file, {
+                    contentType: file.type || 'application/octet-stream',
+                    cacheControl: 'public, max-age=604800',   // שבוע ב-CDN — חוסך מכסת הורדות
+                    customMetadata: { uploaderUid: uid },
+                });
+                return new Promise((resolve, reject) => {
+                    task.on('state_changed',
+                        (snap) => { if (onProgress && snap.totalBytes) onProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)); },
+                        reject,
+                        async () => {
+                            try {
+                                const url = await task.snapshot.ref.getDownloadURL();
+                                resolve({ url, path, size: file.size, contentType: file.type || '' });
+                            } catch (e) { reject(e); }
+                        });
+                });
+            },
+            // מחיקה סלחנית — אובייקט שכבר לא קיים אינו שגיאה
+            async deleteFile(path) {
+                if (!storage || !path) return true;
+                try { await storage.ref(path).delete(); return true; }
+                catch (e) { return e && e.code === 'storage/object-not-found'; }
             },
 
             // ===== פרסומות פלטפורמה (מסמך יחיד, נקרא בכל בתי הספר) =====
@@ -3690,6 +3729,9 @@ a.setGrade(100);   // משנה רק את נעמה
         // ראי docs/storage-plan.md). הרינדור כבר מעדיף imageUrl, כך שהמעבר ל-Storage
         // יהיה החלפת שדה אחד בלי לגעת בתצוגה.
         const adSrc = (ad) => (ad && (ad.imageUrl || ad.image)) || '';
+        // מגבלות תמונת פרסום — נאכפות גם בצד הלקוח (הודעה ברורה) וגם בחוקי Storage
+        const AD_MAX_BYTES = 5 * 1024 * 1024;
+        const prettyBytes = (n) => !n ? '' : (n < 1024 * 1024 ? Math.round(n / 1024) + 'KB' : (n / 1048576).toFixed(1) + 'MB');
 
         const AdPopup = ({ ad, user }) => {
             const [show, setShow] = useState(false);
@@ -11746,6 +11788,7 @@ ${answerText}
             const [statsLoading, setStatsLoading] = useState(false);
             const [ads, setAds] = useState(null);
             const [adBusy, setAdBusy] = useState(false);
+            const [adUp, setAdUp] = useState({});   // kind -> {pct} | {error}
             // ניהול תוכן גלובלי
             const [mediaTopic, setMediaTopic] = useState('');
             const [mediaItems, setMediaItems] = useState(null);
@@ -12095,11 +12138,33 @@ ${answerText}
                         {/* ===== פרסום ===== */}
                         {ads === null ? <div className="spinner w-8 h-8 mx-auto mt-10"></div> : (() => {
                             const setKind = (kind, patch) => setAds(a => ({ ...a, [kind]: { ...(a[kind] || {}), ...patch } }));
-                            const pickImage = (kind, file) => {
+                            const pickImage = async (kind, file) => {
                                 if (!file) return;
-                                compressImage(file, 1200, 0.82)
-                                    .then(uri => setKind(kind, { image: uri }))
-                                    .catch(() => alert('התמונה גדולה מדי גם אחרי דחיסה — נסי תמונה קטנה יותר.'));
+                                if (!/^image\//.test(file.type)) {
+                                    setAdUp(u => ({ ...u, [kind]: { error: 'זה לא קובץ תמונה. אפשר JPG, PNG, GIF או WEBP.' } }));
+                                    return;
+                                }
+                                if (file.size > AD_MAX_BYTES) {
+                                    setAdUp(u => ({ ...u, [kind]: { error: 'התמונה ' + prettyBytes(file.size) + ' — המגבלה ' + prettyBytes(AD_MAX_BYTES) + '. נסי תמונה קטנה יותר.' } }));
+                                    return;
+                                }
+                                const prev = (ads[kind] || {}).storagePath;
+                                setAdUp(u => ({ ...u, [kind]: { pct: 0 } }));
+                                try {
+                                    const path = DataService.storagePath('platform/ads/' + kind, file);
+                                    const r = await DataService.uploadFile(path, file, pct => setAdUp(u => ({ ...u, [kind]: { pct } })));
+                                    setKind(kind, { imageUrl: r.url, storagePath: r.path, size: r.size, image: '' });
+                                    setAdUp(u => ({ ...u, [kind]: { done: true, size: r.size } }));
+                                    if (prev && prev !== r.path) DataService.deleteFile(prev);   // לא משאירים קובץ יתום
+                                } catch (e) {
+                                    setAdUp(u => ({ ...u, [kind]: { error: 'ההעלאה נכשלה: ' + ((e && e.code) || e) } }));
+                                }
+                            };
+                            const removeImage = (kind) => {
+                                const prev = (ads[kind] || {}).storagePath;
+                                setKind(kind, { image: '', imageUrl: '', storagePath: '', size: 0 });
+                                setAdUp(u => ({ ...u, [kind]: null }));
+                                if (prev) DataService.deleteFile(prev);
                             };
                             const save = async () => {
                                 setAdBusy(true);
@@ -12107,8 +12172,10 @@ ${answerText}
                                 setAdBusy(false);
                                 alert(ok ? 'הפרסום עודכן בכל בתי הספר.' : 'השמירה נכשלה — ייתכן שהתמונה גדולה מדי.');
                             };
-                            const Editor = ({ kind, title, desc }) => {
+                            const renderEditor = (kind, title, desc, ratio) => {
                                 const ad = ads[kind] || {};
+                                const up = adUp[kind] || {};
+                                const src = adSrc(ad);
                                 return (
                                     <div className="question-card p-5">
                                         <label className="flex items-center gap-2.5 cursor-pointer mb-1">
@@ -12116,25 +12183,56 @@ ${answerText}
                                             <span className="text-white font-extrabold text-[15px]">{title}</span>
                                         </label>
                                         <p className="text-slate-400 text-[12.5px] mb-4">{desc}</p>
+
+                                        {/* התמונה שנבחרה — נראית מיד, בלי קשר לסימון ההפעלה */}
+                                        {src ? (
+                                            <div className="rounded-lg overflow-hidden border border-slate-600/70 mb-3" style={{ background: '#04070f' }}>
+                                                <img src={src} alt="" style={{ display: 'block', width: '100%', maxHeight: 200, objectFit: 'contain' }} />
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-lg border border-dashed border-slate-600/70 mb-3 flex items-center justify-center text-slate-500 text-sm" style={{ height: 120 }}>
+                                                עוד לא הועלתה תמונה · יחס מומלץ {ratio}
+                                            </div>
+                                        )}
+
+                                        {/* מצב ההעלאה — שיהיה ברור שהקובץ באמת עלה */}
+                                        {up.pct !== undefined && (
+                                            <div className="mb-3">
+                                                <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                                                    <div className="h-full bg-indigo-400 transition-all" style={{ width: up.pct + '%' }}></div>
+                                                </div>
+                                                <div className="text-indigo-300 text-[12px] mt-1">מעלה ל-Firebase Storage… {up.pct}%</div>
+                                            </div>
+                                        )}
+                                        {up.error && <div className="mb-3 text-rose-300 text-[12.5px] bg-rose-500/10 border border-rose-400/30 rounded-lg px-3 py-2">{up.error}</div>}
+                                        {up.done && !up.error && (
+                                            <div className="mb-3 text-emerald-300 text-[12.5px] flex items-center gap-1.5">
+                                                <Icon name="check" size={13} /> נשמרה ב-Firebase Storage{up.size ? ' · ' + prettyBytes(up.size) : ''}
+                                            </div>
+                                        )}
+                                        {!up.done && !up.error && up.pct === undefined && ad.storagePath && (
+                                            <div className="mb-3 text-slate-500 text-[12px] truncate" dir="ltr" title={ad.storagePath}>{ad.storagePath}</div>
+                                        )}
+
                                         <div className="flex flex-wrap items-center gap-2 mb-3">
                                             <label className="btn btn-ghost btn-sm cursor-pointer inline-flex">
-                                                <Icon name="upload" size={14} /> {adSrc(ad) ? 'החלפת תמונה' : 'העלאת תמונה'}
-                                                <input type="file" accept="image/*" className="hidden" onChange={e => pickImage(kind, e.target.files[0])} />
+                                                <Icon name="upload" size={14} /> {src ? 'החלפת תמונה' : 'העלאת תמונה'}
+                                                <input type="file" accept="image/*" className="hidden"
+                                                    onChange={e => { const f = e.target.files[0]; e.target.value = ''; pickImage(kind, f); }} />
                                             </label>
-                                            {adSrc(ad) && <button onClick={() => setKind(kind, { image: '', imageUrl: '' })} className="btn btn-rose btn-sm">הסרה</button>}
+                                            {src && <button onClick={() => removeImage(kind)} className="btn btn-rose btn-sm">הסרה</button>}
                                         </div>
                                         <input type="text" dir="ltr" value={ad.link || ''} onChange={e => setKind(kind, { link: e.target.value })}
-                                            placeholder="קישור בלחיצה (רשות) — https://..." className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white mb-3" />
-                                        {!adSrc(ad) && <div className="text-slate-500 text-sm">עוד לא נבחרה תמונה.</div>}
+                                            placeholder="קישור בלחיצה (רשות) — https://..." className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white" />
                                     </div>
                                 );
                             };
                             return (
                                 <div>
-                                    <p className="text-slate-400 text-sm mb-5">מה שמופעל כאן מוטמע <b className="text-slate-200">בכל בתי הספר</b>. התמונה נשמרת דחוסה; מומלץ יחס רוחב-גובה של בערך 4:3 לחלון הקופץ ו-3:1 לבאנר.</p>
+                                    <p className="text-slate-400 text-sm mb-5">מה שמופעל כאן מוטמע <b className="text-slate-200">בכל בתי הספר</b>. התמונה נשמרת ב-Firebase Storage (עד 5MB), ומוצגת מיד למטה כדי שתראה מה עלה. סימון ה-V קובע אם היא מוצגת לתלמידות — התצוגה המקדימה עובדת גם בלי לסמן.</p>
                                     <div className="grid gap-5 items-start mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}>
-                                        <Editor kind="popup" title="פרסומת קופצת" desc="נפתחת בכניסה לאתר, פעם אחת ביום לכל משתמשת — לא בכל רענון." />
-                                        <Editor kind="banner" title="באנר בתחתית העמוד" desc="מוצג בתחתית עמוד הבית של כל בית ספר, בתוך מסגרת בסגנון האתר." />
+                                        {renderEditor('popup', 'פרסומת קופצת', 'נפתחת בכניסה לאתר, פעם אחת ביום לכל משתמשת — לא בכל רענון.', '4:3')}
+                                        {renderEditor('banner', 'באנר בתחתית העמוד', 'מוצג בתחתית עמוד הבית של כל בית ספר, בתוך מסגרת בסגנון האתר.', '3:1')}
                                     </div>
                                     <button onClick={save} disabled={adBusy} className="btn btn-solid mb-6">{adBusy ? 'שומר…' : 'שמירה והחלה על כל בתי הספר'}</button>
 
@@ -12143,9 +12241,9 @@ ${answerText}
                                     <p className="text-slate-500 text-[12.5px] mb-4">כך זה ייראה לתלמידה.</p>
                                     <div className="grid gap-5 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}>
                                         <div>
-                                            <div className="text-slate-400 text-[12.5px] font-bold mb-2">חלון קופץ</div>
+                                            <div className="text-slate-400 text-[12.5px] font-bold mb-2 flex items-center gap-2">חלון קופץ{ads.popup && !ads.popup.enabled && <span className="text-[10.5px] font-normal bg-slate-700/60 text-slate-400 px-1.5 py-0.5 rounded">כבוי — לא יוצג לתלמידות</span>}</div>
                                             <div className="rounded-xl border border-slate-700/60 p-5 flex items-center justify-center" style={{ background: 'rgba(4,7,16,0.9)', minHeight: 220 }}>
-                                                {ads.popup && ads.popup.enabled && adSrc(ads.popup) ? (
+                                                {adSrc(ads.popup) ? (
                                                     <div className="question-card overflow-hidden" style={{ maxWidth: 300, width: '100%' }}>
                                                         <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-700/60">
                                                             <span className="text-[10px] text-slate-500 font-bold">מודעה</span>
@@ -12154,21 +12252,21 @@ ${answerText}
                                                         <img src={adSrc(ads.popup)} alt="" style={{ display: 'block', width: '100%' }} />
                                                         <div className="px-3 py-2"><div className="btn btn-ghost btn-sm w-full justify-center">סגירה והמשך לאתר</div></div>
                                                     </div>
-                                                ) : <span className="text-slate-600 text-sm">כבוי או ללא תמונה</span>}
+                                                ) : <span className="text-slate-600 text-sm">עוד לא הועלתה תמונה</span>}
                                             </div>
                                         </div>
                                         <div>
-                                            <div className="text-slate-400 text-[12.5px] font-bold mb-2">באנר תחתון</div>
+                                            <div className="text-slate-400 text-[12.5px] font-bold mb-2 flex items-center gap-2">באנר תחתון{ads.banner && !ads.banner.enabled && <span className="text-[10.5px] font-normal bg-slate-700/60 text-slate-400 px-1.5 py-0.5 rounded">כבוי — לא יוצג לתלמידות</span>}</div>
                                             <div className="rounded-xl border border-slate-700/60 p-5" style={{ background: '#070B16', minHeight: 220 }}>
                                                 <div className="text-slate-600 text-[11px] mb-3">…תוכן עמוד הבית…</div>
-                                                {ads.banner && ads.banner.enabled && adSrc(ads.banner) ? (
+                                                {adSrc(ads.banner) ? (
                                                     <div className="question-card overflow-hidden">
                                                         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-700/60 bg-slate-800/30">
                                                             <span className="text-[10px] text-slate-500 font-bold tracking-wide">מודעה</span>
                                                         </div>
                                                         <img src={adSrc(ads.banner)} alt="" style={{ display: 'block', width: '100%' }} />
                                                     </div>
-                                                ) : <span className="text-slate-600 text-sm">כבוי או ללא תמונה</span>}
+                                                ) : <span className="text-slate-600 text-sm">עוד לא הועלתה תמונה</span>}
                                             </div>
                                         </div>
                                     </div>
