@@ -143,6 +143,13 @@ service cloud.firestore {
       allow read:  if isSignedIn();
       allow write: if isTeacher();
     }
+
+    // platform_lessons/{topicKey} — תוכן השיעור הגלובלי, דורס את התוכן המובנה
+    // בכל בתי הספר. עמוד קורס שמורה בנתה לכיתה שלה עדיין גובר עליו.
+    match /platform_lessons/{topicKey} {
+      allow read:  if isSignedIn();
+      allow write: if isTeacher();
+    }
     // practice — שאלות של בית הספר הנוכחי (מצב legacy).
     match /practice/{qId} {
       allow read:  if isSignedIn();

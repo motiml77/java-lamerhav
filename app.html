@@ -1179,6 +1179,33 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 } catch (e) { console.error('Delete practice error:', e); return false; }
             },
 
+            // ===== תוכן שיעור גלובלי לכל בתי הספר =====
+            // platform_lessons/{topicKey} דורס את התוכן המובנה (LEARN_LIBRARY) בכל
+            // בתי הספר. סדר הקדימויות בתצוגה: תוכן של הכיתה > גלובלי > מובנה.
+            async loadPlatformLessons() {
+                if (!db) return {};
+                try {
+                    const snap = await db.collection('platform_lessons').get();
+                    const out = {};
+                    snap.forEach(d => { out[d.id] = d.data(); });
+                    return out;
+                } catch (e) { return {}; }
+            },
+            async savePlatformLesson(topicKey, data) {
+                if (!db || !topicKey) return false;
+                try {
+                    await db.collection('platform_lessons').doc(topicKey).set({
+                        ...data, topicKey, updatedAt: new Date().toISOString(),
+                    }, { merge: false });
+                    return true;
+                } catch (e) { console.error('savePlatformLesson', e); return false; }
+            },
+            async deletePlatformLesson(topicKey) {
+                if (!db || !topicKey) return false;
+                try { await db.collection('platform_lessons').doc(topicKey).delete(); return true; }
+                catch (e) { return false; }
+            },
+
             // ===== Firebase Storage =====
             // כל הקבצים עוברים דרך כאן, כדי שמוסכמת השמות והמטא-דאטה יהיו במקום אחד.
             // שם הקובץ נוצר אצלנו ולעולם לא נלקח מהמשתמש — שמות עבריים, רווחים
@@ -4156,17 +4183,32 @@ a.setGrade(100);   // משנה רק את נעמה
             );
         };
 
-        const TopicLearnSection = ({ topicTitle, customLesson, editable, onEdit }) => {
+        // האם אובייקט שיעור מכיל תוכן ממשי
+        const lessonHasContent = (l) => !!(l && (
+            (l.intro && String(l.intro).trim()) || (l.sections || []).length ||
+            (l.examples || []).length || (l.points || []).length || (l.exercises || []).length));
+
+        const TopicLearnSection = ({ topicTitle, customLesson, globalLesson, editable, onEdit }) => {
             const builtin = findLearnTopic(topicTitle);
-            const hasCustom = customLesson && (customLesson.intro || (customLesson.sections || []).length || (customLesson.examples || []).length || (customLesson.points || []).length);
+            const hasCustom = lessonHasContent(customLesson);
+            // דריסה גלובלית מהמנהל הראשי — מתחת לתוכן של הכיתה, מעל המובנה
+            const globalL = lessonHasContent(globalLesson) ? globalLesson : null;
+            const base = globalL ? {
+                title: topicTitle,
+                intro: globalL.intro || '',
+                points: globalL.points || [],
+                examples: globalL.examples || [],
+                exercises: globalL.exercises || [],
+            } : builtin;
             let topic = hasCustom ? {
                 title: topicTitle,
                 intro: customLesson.intro || '',
                 points: customLesson.points || [],
                 examples: customLesson.examples || [],
                 exercises: customLesson.exercises || [],
-            } : builtin;
-            const lesson = hasCustom ? (customLesson.sections || []) : ((builtin && TOPIC_LESSONS[builtin.title]) || []);
+            } : base;
+            const lesson = hasCustom ? (customLesson.sections || [])
+                : (globalL ? (globalL.sections || []) : ((builtin && TOPIC_LESSONS[builtin.title]) || []));
             const [open, setOpen] = useState(true);
             const [step, setStep] = useState(0);
 
@@ -4207,7 +4249,7 @@ a.setGrade(100);   // משנה רק את נעמה
                     {/* admin edit bar */}
                     {editable && (
                         <div className="flex items-center justify-between gap-2 px-4 py-2 bg-indigo-500/10 border-b border-indigo-400/20">
-                            <span className="text-indigo-200 text-xs font-bold flex items-center gap-1.5"><Icon name="spark" size={13} /> {hasCustom ? 'עמוד קורס מותאם אישית' : 'עמוד קורס מובנה (אוטומטי)'}</span>
+                            <span className="text-indigo-200 text-xs font-bold flex items-center gap-1.5"><Icon name="spark" size={13} /> {hasCustom ? 'עמוד קורס מותאם אישית' : globalL ? 'עמוד קורס מהמערכת (עודכן ע"י המנהל)' : 'עמוד קורס מובנה (אוטומטי)'}</span>
                             <button onClick={onEdit} className="btn btn-ghost btn-sm"><Icon name="edit" size={13} /> {hasCustom ? 'עריכת עמוד הקורס' : 'התאמה אישית'}</button>
                         </div>
                     )}
@@ -7202,6 +7244,8 @@ a.setGrade(100);   // משנה רק את נעמה
             // כך תלמידה שסגרה אותו פעם אחת לא מוצאת אותו סגור גם בשיעור הבא.
             const [ads, setAds] = useState(null);
             useEffect(() => { DataService.loadAds().then(setAds).catch(() => setAds(null)); }, []);
+            const [globalLessons, setGlobalLessons] = useState({});
+            useEffect(() => { DataService.loadPlatformLessons().then(setGlobalLessons).catch(() => setGlobalLessons({})); }, []);
             // רישום כניסה — פעם ביום למשתמשת, לא בכל רענון
             useEffect(() => { if (user && user.email && !demoMode) DataService.logVisit(user.email); }, [user, demoMode]);
             const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -9885,7 +9929,7 @@ ${answerText}
                                     </div>
                                     <div className="mt-7"><TopicMediaSection classId={selectedClassObj.id} topicTitle={selectedClassObj.title} isTeacher={isEditor} isSuperAdminUser={(user?.email || '').toLowerCase().trim() === SUPER_ADMIN_EMAIL} user={user} /></div>
                                     <div className="mt-7">
-                                        <TopicLearnSection topicTitle={selectedClassObj.title} customLesson={selectedClassObj.lesson} editable={isEditor} onEdit={() => setLessonModal({ open: true, classId: selectedClassObj.id, title: selectedClassObj.title })} />
+                                        <TopicLearnSection topicTitle={selectedClassObj.title} customLesson={selectedClassObj.lesson} globalLesson={globalLessons[topicKeyOf(selectedClassObj.title)]} editable={isEditor} onEdit={() => setLessonModal({ open: true, classId: selectedClassObj.id, title: selectedClassObj.title })} />
                                     </div>
                                     <div className="mt-7"><TopicPracticeSection classId={selectedClassObj.id} topicTitle={selectedClassObj.title} isTeacher={isEditor} isSuperAdminUser={(user?.email || '').toLowerCase().trim() === SUPER_ADMIN_EMAIL} user={user} /></div>
                                     {(() => {
@@ -11793,6 +11837,11 @@ ${answerText}
             const [mediaTopic, setMediaTopic] = useState('');
             const [mediaItems, setMediaItems] = useState(null);
             const [mForm, setMForm] = useState({ type: 'youtube', title: '', url: '', body: '', dataUri: '', fileName: '' });
+            // עורך תוכן השיעור הגלובלי
+            const [lessonDraft, setLessonDraft] = useState(null);   // null = עוד לא נטען
+            const [lessonSource, setLessonSource] = useState('');   // 'global' | 'builtin' | 'empty'
+            const [lessonBusy, setLessonBusy] = useState(false);
+            const [lessonDirty, setLessonDirty] = useState(false);
 
             useEffect(() => {
                 if (!auth) { setAdminUser(null); return; }
@@ -11918,6 +11967,32 @@ ${answerText}
                 } catch (e) { setMediaItems([]); }
             }, []);
             useEffect(() => { if (tab === 'media' && mediaTopic) loadMedia(mediaTopic); }, [tab, mediaTopic, loadMedia]);
+            // התוכן שמוצג באתר כרגע לנושא הזה — קודם דריסה גלובלית, אחרת המובנה.
+            // כך העורך תמיד נפתח עם מה שהתלמידות באמת רואות.
+            useEffect(() => {
+                if (tab !== 'media' || !mediaTopic) { setLessonDraft(null); return; }
+                let cancelled = false;
+                setLessonDraft(null); setLessonDirty(false);
+                (async () => {
+                    const key = topicKeyOf(mediaTopic);
+                    let doc = null;
+                    try { const d = await db.collection('platform_lessons').doc(key).get(); if (d.exists) doc = d.data(); } catch (e) {}
+                    if (cancelled) return;
+                    const builtin = findLearnTopic(mediaTopic);
+                    if (doc) { setLessonSource('global'); }
+                    else if (builtin) { setLessonSource('builtin'); }
+                    else { setLessonSource('empty'); }
+                    const src = doc || builtin || {};
+                    setLessonDraft({
+                        intro: src.intro || '',
+                        points: (src.points || []).slice(),
+                        examples: (src.examples || []).map(x => ({ title: x.title || '', explain: x.explain || '', code: x.code || '' })),
+                        exercises: (src.exercises || []).map(x => ({ task: x.task || '', starter: x.starter || '', hint: x.hint || '', solution: x.solution || '' })),
+                        sections: (doc && doc.sections) || (builtin && TOPIC_LESSONS[builtin.title]) || [],
+                    });
+                })();
+                return () => { cancelled = true; };
+            }, [tab, mediaTopic]);
 
             const onMFile = (file) => {
                 if (!file) return;
@@ -12284,6 +12359,125 @@ ${answerText}
                                 {topicTitles.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
+                        {/* ===== תוכן השיעור עצמו — מה שמוצג באתר כרגע ===== */}
+                        {mediaTopic && (lessonDraft === null ? <div className="spinner w-7 h-7 mx-auto my-6"></div> : (() => {
+                            const setD = (patch) => { setLessonDraft(d => ({ ...d, ...patch })); setLessonDirty(true); };
+                            const setAt = (field, i, patch) => setD({ [field]: lessonDraft[field].map((x, j) => j === i ? { ...x, ...patch } : x) });
+                            const addTo = (field, blank) => setD({ [field]: [...lessonDraft[field], blank] });
+                            const delAt = (field, i) => setD({ [field]: lessonDraft[field].filter((_, j) => j !== i) });
+                            const ta = inputCls + ' resize-y font-normal';
+                            const code = inputCls + ' resize-y';
+                            const saveLesson = async () => {
+                                setLessonBusy(true);
+                                const ok = await DataService.savePlatformLesson(topicKeyOf(mediaTopic), {
+                                    topicTitle: mediaTopic,
+                                    intro: lessonDraft.intro,
+                                    points: lessonDraft.points.filter(x => String(x).trim()),
+                                    examples: lessonDraft.examples.filter(x => x.title || x.code),
+                                    exercises: lessonDraft.exercises.filter(x => x.task),
+                                    sections: lessonDraft.sections,
+                                    updatedBy: adminUser.email,
+                                });
+                                setLessonBusy(false);
+                                if (ok) { setLessonSource('global'); setLessonDirty(false); alert('התוכן עודכן בכל בתי הספר.'); }
+                                else alert('השמירה נכשלה.');
+                            };
+                            const restore = async () => {
+                                if (!confirm('לחזור לתוכן המקורי של המערכת? כל השינויים הגלובליים לנושא הזה יימחקו.')) return;
+                                setLessonBusy(true);
+                                await DataService.deletePlatformLesson(topicKeyOf(mediaTopic));
+                                setLessonBusy(false);
+                                setMediaTopic(mediaTopic);   // טעינה מחדש
+                                setLessonDraft(null);
+                                const b = findLearnTopic(mediaTopic);
+                                setLessonSource(b ? 'builtin' : 'empty'); setLessonDirty(false);
+                                setTimeout(() => setLessonDraft({
+                                    intro: (b && b.intro) || '', points: ((b && b.points) || []).slice(),
+                                    examples: ((b && b.examples) || []).map(x => ({ ...x })),
+                                    exercises: ((b && b.exercises) || []).map(x => ({ ...x })),
+                                    sections: (b && TOPIC_LESSONS[b.title]) || [],
+                                }), 0);
+                            };
+                            return (
+                                <div className="question-card p-5 mb-5">
+                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                        <h3 className="text-white font-extrabold text-lg">תוכן השיעור — {mediaTopic}</h3>
+                                        <span className={`text-[11px] px-2 py-0.5 rounded-full ${lessonSource === 'global' ? 'bg-amber-500/15 text-amber-300' : lessonSource === 'builtin' ? 'bg-slate-600/40 text-slate-300' : 'bg-rose-500/15 text-rose-300'}`}>
+                                            {lessonSource === 'global' ? 'נערך על ידך — דורס את המובנה' : lessonSource === 'builtin' ? 'התוכן המובנה של המערכת' : 'אין עדיין תוכן לנושא הזה'}
+                                        </span>
+                                        {lessonDirty && <span className="text-[11px] text-indigo-300">· יש שינויים שלא נשמרו</span>}
+                                    </div>
+                                    <p className="text-slate-400 text-[12.5px] mb-4">
+                                        זה בדיוק מה שהתלמידות רואות היום בעמוד הנושא. כל שינוי כאן חל <b className="text-slate-200">על כל בתי הספר</b> —
+                                        אלא אם מורה בנתה לכיתה שלה עמוד קורס משלה, ואז שלה גובר.
+                                    </p>
+
+                                    {/* פתיח */}
+                                    <label className="block text-sm text-slate-300 mb-1 font-bold">פתיח הנושא</label>
+                                    <textarea className={ta} rows={3} value={lessonDraft.intro} onChange={e => setD({ intro: e.target.value })}
+                                        placeholder="המשפטים הראשונים שהתלמידה קוראת על הנושא..." />
+
+                                    {/* נקודות מפתח */}
+                                    <label className="block text-sm text-slate-300 mt-4 mb-1 font-bold">נקודות מפתח <span className="font-normal text-slate-500">· שורה לכל נקודה</span></label>
+                                    <textarea className={ta} rows={Math.max(3, lessonDraft.points.length + 1)}
+                                        value={lessonDraft.points.join('\n')}
+                                        onChange={e => setD({ points: e.target.value.split('\n') })} />
+
+                                    {/* דוגמאות */}
+                                    <div className="flex items-center gap-2 mt-5 mb-2">
+                                        <span className="text-sm text-slate-300 font-bold">דוגמאות חיות ({lessonDraft.examples.length})</span>
+                                        <button onClick={() => addTo('examples', { title: '', explain: '', code: '' })} className="btn btn-ghost btn-sm"><Icon name="plus" size={13} /> הוספה</button>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {lessonDraft.examples.map((ex, i) => (
+                                            <div key={i} className="rounded-xl border border-slate-700/70 p-3 bg-slate-800/30">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-slate-500 text-xs font-bold">דוגמה {i + 1}</span>
+                                                    <button onClick={() => delAt('examples', i)} className="mr-auto text-red-400 hover:text-red-300 p-1"><Icon name="trash" size={13} /></button>
+                                                </div>
+                                                <input className={inputCls} value={ex.title} onChange={e => setAt('examples', i, { title: e.target.value })} placeholder="כותרת הדוגמה" />
+                                                <textarea className={ta + ' mt-2'} rows={2} value={ex.explain} onChange={e => setAt('examples', i, { explain: e.target.value })} placeholder="הסבר בגובה העיניים" />
+                                                <textarea className={code + ' mt-2'} dir="ltr" rows={Math.min(14, Math.max(4, (ex.code || '').split('\n').length))}
+                                                    style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 12.5 }}
+                                                    value={ex.code} onChange={e => setAt('examples', i, { code: e.target.value })} placeholder="קוד Java" />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* תרגילים */}
+                                    <div className="flex items-center gap-2 mt-5 mb-2">
+                                        <span className="text-sm text-slate-300 font-bold">תרגילי תרגול ({lessonDraft.exercises.length})</span>
+                                        <button onClick={() => addTo('exercises', { task: '', starter: '', hint: '', solution: '' })} className="btn btn-ghost btn-sm"><Icon name="plus" size={13} /> הוספה</button>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {lessonDraft.exercises.map((ex, i) => (
+                                            <div key={i} className="rounded-xl border border-slate-700/70 p-3 bg-slate-800/30">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-slate-500 text-xs font-bold">תרגיל {i + 1}</span>
+                                                    <button onClick={() => delAt('exercises', i)} className="mr-auto text-red-400 hover:text-red-300 p-1"><Icon name="trash" size={13} /></button>
+                                                </div>
+                                                <textarea className={ta} rows={2} value={ex.task} onChange={e => setAt('exercises', i, { task: e.target.value })} placeholder="מה צריך לעשות" />
+                                                <input className={inputCls + ' mt-2'} value={ex.hint} onChange={e => setAt('exercises', i, { hint: e.target.value })} placeholder="רמז (רשות)" />
+                                                <textarea className={code + ' mt-2'} dir="ltr" rows={Math.min(10, Math.max(3, (ex.starter || '').split('\n').length))}
+                                                    style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 12.5 }}
+                                                    value={ex.starter} onChange={e => setAt('exercises', i, { starter: e.target.value })} placeholder="קוד פתיחה" />
+                                                <textarea className={code + ' mt-2'} dir="ltr" rows={Math.min(12, Math.max(3, (ex.solution || '').split('\n').length))}
+                                                    style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 12.5 }}
+                                                    value={ex.solution} onChange={e => setAt('exercises', i, { solution: e.target.value })} placeholder="פתרון" />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex items-center gap-2 flex-wrap mt-5">
+                                        <button onClick={saveLesson} disabled={lessonBusy} className="btn btn-solid">{lessonBusy ? 'שומר…' : 'שמירה והחלה על כל בתי הספר'}</button>
+                                        {lessonSource === 'global' && <button onClick={restore} disabled={lessonBusy} className="btn btn-ghost btn-sm">שחזור לתוכן המקורי</button>}
+                                        {lessonDraft.sections && lessonDraft.sections.length > 0 &&
+                                            <span className="text-slate-500 text-[12px]">· {lessonDraft.sections.length} מקטעי הסבר מובנים נשמרים כמו שהם</span>}
+                                    </div>
+                                </div>
+                            );
+                        })())}
+
                         {mediaTopic && (
                             <div className="question-card p-5 mb-5 space-y-3">
                                 <div className="flex gap-2 flex-wrap">
