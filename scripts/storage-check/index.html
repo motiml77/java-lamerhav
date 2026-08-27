@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>storage sdk test</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+</head><body>
+<pre id="out"></pre>
+<script>
+const out = document.getElementById('out');
+const log = (s) => { out.textContent += s + '\n'; };
+window.__done = false;
+window.__results = [];
+
+firebase.initializeApp({
+  apiKey: "REPLACE_KEY",
+  authDomain: "exams-a93fb.firebaseapp.com",
+  projectId: "exams-a93fb",
+  storageBucket: "exams-a93fb.firebasestorage.app",
+});
+const auth = firebase.auth();
+const storage = firebase.storage();
+
+function blobOf(bytes, type) { return new Blob([new Uint8Array(bytes)], { type }); }
+
+async function attempt(label, path, blob, meta, expect) {
+  try {
+    const ref = storage.ref(path);
+    await ref.put(blob, { contentType: blob.type, customMetadata: meta });
+    const got = 'ALLOWED';
+    const ok = got === expect;
+    window.__results.push({ label, got, expect, ok });
+    log((ok ? 'PASS ' : 'FAIL ') + label + ' -> ' + got);
+    return true;
+  } catch (e) {
+    const got = (e && e.code === 'storage/unauthorized') ? 'DENIED' : ('ERROR:' + (e && e.code));
+    const ok = got === expect;
+    window.__results.push({ label, got, expect, ok });
+    log((ok ? 'PASS ' : 'FAIL ') + label + ' -> ' + got);
+    return false;
+  }
+}
+async function attemptDelete(label, path, expect) {
+  try {
+    await storage.ref(path).delete();
+    const got = 'ALLOWED';
+    const ok = got === expect;
+    window.__results.push({ label, got, expect, ok });
+    log((ok ? 'PASS ' : 'FAIL ') + label + ' -> ' + got);
+  } catch (e) {
+    const got = (e && e.code === 'storage/unauthorized') ? 'DENIED' : ('ERROR:' + (e && e.code));
+    const ok = got === expect;
+    window.__results.push({ label, got, expect, ok });
+    log((ok ? 'PASS ' : 'FAIL ') + label + ' -> ' + got);
+  }
+}
+
+(async () => {
+  const A = await auth.signInWithEmailAndPassword('storage-probe-a@example.com', 'Pr0be!2026a');
+  const uidA = A.user.uid;
+  log('signed in as A (' + uidA + ')\n');
+
+  const small = blobOf([137, 80, 78, 71], 'image/png');
+  const exe = blobOf([77, 90, 0, 0], 'application/x-msdownload');
+  const P = 'schools/zz-sdk-probe/topics/c1/';
+
+  await attempt('תמונה קטנה לתיקיית בית ספר ', P + 'a.png', small, { uploaderUid: uidA }, 'ALLOWED');
+  await attempt('קובץ הרצה               ', P + 'x.exe', exe, { uploaderUid: uidA }, 'DENIED');
+  await attempt('כתיבה לתוכן גלובלי      ', 'platform/topics/loops/a.png', small, { uploaderUid: uidA }, 'DENIED');
+  await attempt('כתיבה לתמונת פרסום      ', 'platform/ads/popup/a.png', small, { uploaderUid: uidA }, 'DENIED');
+  await attempt('נתיב מחוץ למבנה         ', 'random/a.png', small, { uploaderUid: uidA }, 'DENIED');
+
+  // משתמשת אחרת מנסה לדרוס ולמחוק
+  await auth.signOut();
+  const B = await auth.signInWithEmailAndPassword('storage-probe-b@example.com', 'Pr0be!2026b');
+  log('\nswitched to B (' + B.user.uid + ')');
+  await attempt('B דורסת קובץ של A       ', P + 'a.png', small, { uploaderUid: B.user.uid }, 'DENIED');
+  await attemptDelete('B מוחקת קובץ של A       ', P + 'a.png', 'DENIED');
+
+  await auth.signOut();
+  await auth.signInWithEmailAndPassword('storage-probe-a@example.com', 'Pr0be!2026a');
+  await attemptDelete('A מוחקת את הקובץ שלה    ', P + 'a.png', 'ALLOWED');
+
+  window.__done = true;
+  log('\nDONE');
+})().catch(e => { log('FATAL ' + e); window.__done = true; });
+</script>
+</body></html>

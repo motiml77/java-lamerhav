@@ -1,0 +1,94 @@
+rules_version = '2';
+
+// חוקי Firebase Storage — docs/storage-plan.md §2 (מבנה התיקיות), §5 (גרסה ב').
+//
+// ====================================================================
+// למה לא Cross-service Rules
+// ====================================================================
+// התכנון המקורי היה לשקף את isSchoolTeacher/isActive מ-firestore.rules דרך
+// firestore.get(). זה עובר קומפילציה ופריסה — אבל **נכשל בזמן ריצה** בפרויקט הזה:
+// כל קריאת firestore.get()/firestore.exists() מחזירה Permission denied, גם אחרי
+// הענקת roles/datastore.viewer לסוכן service-...@firebase-rules.iam.gserviceaccount.com.
+// אומת אמפירית מול הדלי החי: בדיקות שאינן נוגעות ב-Firestore עוברות, וכל בדיקה
+// שנוגעת בו נכשלת. ההשערה: Firestore כאן ב-me-west1.
+//
+// לכן החוקים כאן מסתמכים אך ורק על request.auth ועל מטא-דאטה של האובייקט.
+// **הבידוד האמיתי בין בתי ספר נאכף ב-firestore.rules**, שם הוא כן נבדק ועובד:
+// קובץ שאין לו מסמך ב-Firestore אינו מוצג לאיש ואינו נגיש דרך האפליקציה.
+// הסיכון שנותר תחום: משתמשת מחוברת יכולה לכתוב אובייקט לתיקייה של בית ספר אחר
+// (זבל בלבד — היא לא תוכל להציג אותו דרך האפליקציה, ולא למחוק קבצים של אחרים).
+// ====================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // המנהל הראשי — הבדיקה היחידה שאינה דורשת Firestore, ולכן נאכפת כאן במלואה
+    function isSuperAdmin() {
+      return isSignedIn()
+        && request.auth.token.email == 'motiml77@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    // בעלות על אובייקט קיים — לפי מטא-דאטה שנכתבה בזמן ההעלאה
+    function isOwner() {
+      return isSignedIn()
+        && resource.metadata != null
+        && resource.metadata.uploaderUid == request.auth.uid;
+    }
+
+    // תקרת גודל וסוגים — בשרת, לא רק בצד הלקוח (שם קל לעקוף)
+    function okSize() {
+      return request.resource.size < 20 * 1024 * 1024;
+    }
+    // is string מגן מפני contentType חסר (null היה זורק וגורם ל-deny מבלבל)
+    function okType() {
+      return request.resource.contentType is string
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf'
+            || request.resource.contentType.matches('application/vnd\\..*')
+            || request.resource.contentType == 'application/msword');
+    }
+
+    // ---------- תמונות פרסום ----------
+    // קריאה פתוחה בכוונה: החלון הקופץ נטען כבר במסך הכניסה, לפני התחברות —
+    // בדיוק כמו החוק על platform_settings ב-firestore.rules.
+    match /platform/ads/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSuperAdmin()
+        && (request.resource == null || (okSize() && okType()));
+    }
+
+    // ---------- תוכן גלובלי לכל בתי הספר ----------
+    match /platform/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin()
+        && (request.resource == null || (okSize() && okType()));
+    }
+
+    // ---------- קבצים של בית ספר ----------
+    // כתיבה: כל מחוברת, בתוך תקרת גודל וסוג. מה שקובע מה נראה בפועל הוא המסמך
+    // ב-Firestore, ושם החוק כן מאמת שהכותבת היא המורה של אותו בית ספר.
+    // מחיקה/דריסה: רק המעלה המקורית או המנהל הראשי — כדי שלא יהיה אפשר
+    // להשחית או למחוק קבצים של בית ספר אחר.
+    // allow write יחיד בכוונה: בפרוטוקול resumable סיווג הפעולה ל-create/update
+    // אינו אמין, ובבדיקה מול הדלי החי החוקים המפורקים לא נאכפו כלל.
+    // request.resource == null מזהה מחיקה.
+    match /schools/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (
+           (request.resource == null && (isSuperAdmin() || isOwner()))
+        || (request.resource != null && okSize() && okType()
+            && (resource == null || isSuperAdmin() || isOwner()))
+      );
+    }
+
+    // ---------- ברירת מחדל: הכול חסום ----------
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
