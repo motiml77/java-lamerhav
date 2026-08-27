@@ -820,8 +820,14 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 return () => clearTimeout(t);
             }, [name]);
             const letters = [...(name || '')];
+            // .aname הוא inline-flex והאותיות inline-block, ולכן סדר האותיות נקבע
+            // לפי direction של האלמנט ולא לפי אלגוריתם ה-bidi. בעמוד RTL שם לטיני
+            // היה מוצג הפוך ("Moti" ← "itoM"). קובעים כיוון לפי האות הראשונה בשם,
+            // בדיוק כמו ההיגיון של dir="auto".
+            const firstLetter = letters.find(c => /[A-Za-z֐-׿؀-ۿ]/.test(c)) || '';
+            const nameDir = /[֐-׿؀-ۿ]/.test(firstLetter) ? 'rtl' : 'ltr';
             return (
-                <span className={`aname ${moving ? 'moving' : ''}`} aria-label={name}>
+                <span className={`aname ${moving ? 'moving' : ''}`} aria-label={name} dir={nameDir} style={{ direction: nameDir }}>
                     {letters.map((ch, i) => (
                         <span key={i} aria-hidden="true" style={{ animationDelay: (i * 0.07) + 's' }}>{ch === ' ' ? '\u00A0' : ch}</span>
                     ))}
@@ -904,6 +910,19 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
         const col = (name) => (SCHOOL_SLUG && !(CURRENT_SCHOOL && CURRENT_SCHOOL.__legacyFallback))
             ? db.collection('schools').doc(SCHOOL_SLUG).collection(name)
             : db.collection(name);
+
+        // שנת לימודים נוכחית, בפורמט 2025/26. שנה"ל נפתחת בספטמבר, ולכן ספטמבר–דצמבר
+        // שייכים לשנה שמתחילה בהם. זהו מפתח האידמפוטנטיות של ההעלאה.
+        const schoolYearKey = (d) => {
+            const now = (d instanceof Date && !isNaN(d)) ? d : new Date();
+            const start = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+            return start + '/' + String((start + 1) % 100).padStart(2, '0');
+        };
+        // 'בוגרת' אינה שכבה אמיתית אלא יעד הסיום — התלמידה נשארת בשכבה יב ומסומנת graduated,
+        // כדי שהציונים שלה ימשיכו להיקרא תחת השכבה שבה נצברו.
+        const GRADUATE_STEP = 'בוגרת';
+
+        const PROMOTE_CHUNK = 400; // מתחת למגבלת 500 הפעולות של batch, עם מרווח ביטחון
 
         const DataService = {
             // Get collection name based on type
@@ -1000,97 +1019,152 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 } catch (e) { console.error('Load user profile error:', e); return null; }
             },
 
-            // העלאת שכבה — מעלה את כל התלמידות מ-fromGrade ל-toGrade (למשל יא→יב). שומר promotedFrom לצורך ביטול.
-            async promoteAllStudents(fromGrade, toGrade) {
-                if (!db) return { count: 0 };
+            // ===== מנוע העלאת שכבה =====
+            // שלושה עקרונות שמכתיבים את המימוש כולו:
+            // (1) שום נתון לא נמחק — כל מעבר נצבר ב-gradeHistory (append-only), כולל מספר הכיתה שהיה לפניו;
+            // (2) promotionYear חוסם העלאה כפולה — הרצה שנייה באותה שנה"ל מדלגת על מי שכבר עלתה;
+            // (3) הכתיבה מפוצלת לאצוות — Firestore חוסם batch מעל 500 פעולות, וכל אצווה אטומית לעצמה,
+            //     כך שכישלון באמצע משאיר תלמידה במצב שלם — או לפני המעבר או אחריו, לא באמצע.
+
+            // קריאת המצב לפני הביצוע — זו בדיוק הרשימה שהמורה רואה באשף ומאשרת.
+            async promotionPreview(fromGrade) {
+                if (!db) return { students: [], error: true };
                 try {
                     const snap = await col('users').where('grade', '==', fromGrade).get();
-                    let count = 0;
-                    const batch = db.batch();
+                    const year = schoolYearKey();
+                    const students = [];
                     snap.forEach(doc => {
                         const d = doc.data();
-                        if (isTeacherEmailOfCurrentSchool(d.email)) return; // לא נוגעים במורה של בית הספר
-                        batch.update(doc.ref, { grade: toGrade, promotedFrom: fromGrade, promotedAt: new Date().toISOString() });
-                        count++;
-                    });
-                    if (count) await batch.commit();
-                    return { count };
-                } catch (e) { console.error('Promote error:', e); return { count: 0, error: true }; }
-            },
-
-            // ביטול העלאה — מחזיר רק תלמידות שהועלו (יש להן promotedFrom) חזרה לשכבה הקודמת.
-            async undoPromotion(fromGrade, toGrade) {
-                if (!db) return { count: 0 };
-                try {
-                    const snap = await col('users').where('grade', '==', toGrade).get();
-                    let count = 0;
-                    const batch = db.batch();
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        if (d.promotedFrom !== fromGrade) return; // רק מי שהועלתה — לא תלמידות יב מקוריות
-                        batch.update(doc.ref, {
-                            grade: fromGrade,
-                            promotedFrom: firebase.firestore.FieldValue.delete(),
-                            promotedAt: firebase.firestore.FieldValue.delete()
+                        if (isTeacherEmailOfCurrentSchool(d.email)) return; // המורה אינה תלמידה
+                        // "כבר טופלה השנה" — לפי המפתח החדש, ובנוסף לפי promotedAt של גרסאות קודמות,
+                        // כדי שנתונים שנכתבו לפני האשף לא יקפצו שכבה פעם שנייה.
+                        const legacyDone = !d.promotionYear && !!d.promotedAt && schoolYearKey(new Date(d.promotedAt)) === year;
+                        students.push({
+                            id: doc.id,
+                            email: d.email || '',
+                            name: d.name || '',
+                            grade: d.grade || '',
+                            classNum: d.classNum || '',
+                            approved: d.approved !== false,
+                            graduated: !!d.graduated,
+                            alreadyDone: d.promotionYear === year || !!d.graduated || legacyDone
                         });
-                        count++;
                     });
-                    if (count) await batch.commit();
-                    return { count };
-                } catch (e) { console.error('Undo promote error:', e); return { count: 0, error: true }; }
+                    students.sort((a, b) => String(a.name || a.email).localeCompare(String(b.name || b.email), 'he'));
+                    return { students, year };
+                } catch (e) { console.error('Promotion preview error:', e); return { students: [], error: true }; }
             },
 
-            // סיום לימודים — מעביר את כל תלמידות יב לארכיון (graduated). הנתונים נשמרים.
-            async graduateGrade(grade) {
-                if (!db) return { count: 0 };
-                try {
-                    const snap = await col('users').where('grade', '==', grade).get();
-                    let count = 0;
+            // ביצוע ההעלאה על הרשימה שהמורה אישרה בפועל (אפשר להחריג תלמידה בודדת מהאשף).
+            // mode: 'promote' — מעבר שכבה; 'graduate' — סיום לימודים, ארכוב בלבד ללא מחיקה.
+            async applyPromotion({ fromGrade, toGrade, students, mode, keepClassNum }) {
+                if (!db) return { done: 0, failed: [], error: true };
+                const year = schoolYearKey();
+                const at = new Date().toISOString();
+                const list = (students || []).filter(st => st && st.id);
+                const failed = [];
+                let done = 0;
+                for (let i = 0; i < list.length; i += PROMOTE_CHUNK) {
+                    const chunk = list.slice(i, i + PROMOTE_CHUNK);
                     const batch = db.batch();
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        if (isTeacherEmailOfCurrentSchool(d.email) || d.graduated) return;
-                        batch.update(doc.ref, { graduated: true, graduatedAt: new Date().toISOString() });
-                        count++;
+                    chunk.forEach(st => {
+                        // רשומת ההיסטוריה נכתבת עם המצב שלפני השינוי — היא מה שמאפשר לבטל ולשחזר מספר כיתה.
+                        const entry = { from: fromGrade, to: mode === 'graduate' ? GRADUATE_STEP : toGrade, at, year, classNum: st.classNum || '' };
+                        const upd = {
+                            promotionYear: year,
+                            promotedFrom: fromGrade,
+                            promotedAt: at,
+                            gradeHistory: firebase.firestore.FieldValue.arrayUnion(entry)
+                        };
+                        if (mode === 'graduate') {
+                            upd.graduated = true;
+                            upd.graduatedAt = at;
+                        } else {
+                            upd.grade = toGrade;
+                            // איפוס מספר הכיתה הוא בחירה מפורשת של המורה; ברירת המחדל היא לשמור (י3 ← יא3).
+                            if (!keepClassNum && st.classNum) upd.classNum = firebase.firestore.FieldValue.delete();
+                        }
+                        batch.update(col('users').doc(st.id), upd);
                     });
-                    if (count) await batch.commit();
-                    return { count };
-                } catch (e) { console.error('Graduate error:', e); return { count: 0, error: true }; }
+                    try {
+                        await batch.commit();
+                        done += chunk.length;
+                    } catch (e) {
+                        console.error('Promotion batch error:', e);
+                        // האצווה נכשלה כולה. עוצרים כאן במקום להמשיך לנסות — כישלון כזה הוא כמעט תמיד
+                        // הרשאות או ניתוק, ולא נקודתי — ומדווחים בשמות למי לא בוצע.
+                        list.slice(i).forEach(x => failed.push(x.name || x.email));
+                        return { done, failed, year, stopped: true };
+                    }
+                }
+                return { done, failed, year };
             },
 
-            // ביטול סיום לימודים — מחזיר תלמידות מהארכיון.
-            async undoGraduation(grade) {
-                if (!db) return { count: 0 };
+            // ביטול ההרצה של השנה הנוכחית בלבד — העלאות של שנים קודמות אינן ניתנות לביטול כאן,
+            // כדי שלא נדרוס בטעות מעבר שכבה אמיתי משנה שעברה.
+            async undoPromotionRun({ fromGrade, toGrade, mode }) {
+                if (!db) return { done: 0, error: true };
+                const year = schoolYearKey();
+                const at = new Date().toISOString();
                 try {
-                    const snap = await col('users').where('grade', '==', grade).get();
-                    let count = 0;
-                    const batch = db.batch();
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        if (!d.graduated) return;
-                        batch.update(doc.ref, { graduated: firebase.firestore.FieldValue.delete(), graduatedAt: firebase.firestore.FieldValue.delete() });
-                        count++;
-                    });
-                    if (count) await batch.commit();
-                    return { count };
-                } catch (e) { console.error('Undo graduate error:', e); return { count: 0, error: true }; }
-            },
-
-            // ספירת תלמידות לפי שכבה + כמה הועלו / סיימו (לתצוגה במודאל)
-            async gradeCounts() {
-                if (!db) return { fromCount: 0, promotedCount: 0, yvActiveCount: 0, graduatedCount: 0 };
-                try {
-                    const snap = await col('users').get();
-                    let fromCount = 0, promotedCount = 0, yvActiveCount = 0, graduatedCount = 0;
+                    // בסיום לימודים השכבה לא השתנתה — לכן מחפשים תחת fromGrade; בהעלאה — תחת היעד.
+                    const snap = await col('users').where('grade', '==', mode === 'graduate' ? fromGrade : toGrade).get();
+                    const targets = [];
                     snap.forEach(doc => {
                         const d = doc.data();
                         if (isTeacherEmailOfCurrentSchool(d.email)) return;
-                        if (d.graduated) { if (d.grade === 'יב') graduatedCount++; return; }
-                        if (d.grade === 'יא') fromCount++;
-                        if (d.grade === 'יב') { yvActiveCount++; if (d.promotedFrom === 'יא') promotedCount++; }
+                        if (d.promotionYear !== year) return;
+                        if (mode === 'graduate') { if (!d.graduated) return; }
+                        else if (d.promotedFrom !== fromGrade || d.graduated) return;
+                        targets.push({ id: doc.id, data: d });
                     });
-                    return { fromCount, promotedCount, yvActiveCount, graduatedCount };
-                } catch (e) { return { fromCount: 0, promotedCount: 0, yvActiveCount: 0, graduatedCount: 0 }; }
+                    let done = 0;
+                    for (let i = 0; i < targets.length; i += PROMOTE_CHUNK) {
+                        const chunk = targets.slice(i, i + PROMOTE_CHUNK);
+                        const batch = db.batch();
+                        chunk.forEach(({ id, data }) => {
+                            const last = (data.gradeHistory || []).slice().reverse().find(h => h && h.year === year && !h.undo);
+                            const upd = {
+                                promotionYear: firebase.firestore.FieldValue.delete(),
+                                promotedFrom: firebase.firestore.FieldValue.delete(),
+                                promotedAt: firebase.firestore.FieldValue.delete(),
+                                // ההיסטוריה נשארת שלמה ומקבלת רשומת-נגד, כדי שגם ביטול יהיה מתועד.
+                                gradeHistory: firebase.firestore.FieldValue.arrayUnion({ from: mode === 'graduate' ? GRADUATE_STEP : toGrade, to: fromGrade, at, year, undo: true })
+                            };
+                            if (mode === 'graduate') {
+                                upd.graduated = firebase.firestore.FieldValue.delete();
+                                upd.graduatedAt = firebase.firestore.FieldValue.delete();
+                            } else {
+                                upd.grade = fromGrade;
+                                if (last && last.classNum && !data.classNum) upd.classNum = last.classNum; // שחזור מספר כיתה שאופס
+                            }
+                            batch.update(col('users').doc(id), upd);
+                        });
+                        try { await batch.commit(); done += chunk.length; }
+                        catch (e) { console.error('Undo promotion batch error:', e); return { done, error: true, stopped: true }; }
+                    }
+                    return { done, year };
+                } catch (e) { console.error('Undo promotion error:', e); return { done: 0, error: true }; }
+            },
+
+            // ספירה לכל שכבה + כמה מהן כבר טופלו בשנה"ל הנוכחית — מזין את כרטיסי הבחירה באשף.
+            async gradeCounts() {
+                const empty = { byGrade: {}, doneByGrade: {}, graduated: 0, year: schoolYearKey() };
+                if (!db) return empty;
+                try {
+                    const snap = await col('users').get();
+                    const year = schoolYearKey();
+                    const byGrade = {}, doneByGrade = {};
+                    let graduated = 0;
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        if (isTeacherEmailOfCurrentSchool(d.email) || !d.grade) return;
+                        byGrade[d.grade] = (byGrade[d.grade] || 0) + 1;
+                        if (d.graduated) graduated++;
+                        if (d.promotionYear === year || d.graduated) doneByGrade[d.grade] = (doneByGrade[d.grade] || 0) + 1;
+                    });
+                    return { byGrade, doneByGrade, graduated, year };
+                } catch (e) { return empty; }
             },
 
             // ===== מדיה לנושא: סרטוני YouTube וקבצים (docs/multi-school-plan.md — תוספת מדיה) =====
@@ -1295,7 +1369,8 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 return { students, visits30, assignments: exams + homework, exams, homework };
             },
 
-            async loadAllStudents() {
+            // includeGraduated — הדוח למורה מבקש גם בוגרות, כדי שהציונים של השנה שעברה יישארו נגישים.
+            async loadAllStudents(includeGraduated) {
                 if (!db) return [];
                 try {
                     const snapshot = await col('users').get();
@@ -1303,7 +1378,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         // Skip teachers + graduated (archived) students
-                        if (!isTeacherEmailOfCurrentSchool(data.email) && data.grade && !data.graduated) {
+                        if (!isTeacherEmailOfCurrentSchool(data.email) && data.grade && (includeGraduated || !data.graduated)) {
                             students.push(data);
                         }
                     });
@@ -7628,32 +7703,75 @@ a.setGrade(100);   // משנה רק את נעמה
                     : 'כל נושאי הלימוד המובנים כבר קיימים במערכת.');
             };
 
-            // ===== העלאת שכבה (יא → יב) עם אפשרות ביטול =====
+            // ===== אשף העלאת שכבה =====
+            // שלושה שלבים: בחירת מעבר ← תצוגה מקדימה שמות-שמות ← ביצוע ודיווח.
+            // הכפתור הישן הריץ confirm יחיד על כל השכבה; כאן המורה רואה בדיוק מי מושפעת לפני שהיא מאשרת.
             const [promoteModal, setPromoteModal] = useState({ open: false });
             const [promoting, setPromoting] = useState(false);
-            const [promoteCounts, setPromoteCounts] = useState({ fromCount: 0, promotedCount: 0 });
-            useEffect(() => {
-                if (promoteModal.open) {
-                    DataService.gradeCounts().then(setPromoteCounts);
-                }
-            }, [promoteModal.open]);
-            const doPromote = async () => {
-                if (!window.confirm('להעלות את כל תלמידות יא לכיתה יב? לאחר מכן ייפתחו להן נושאי יב, ונושאי יא יוצגו כחומר שעבר (אפור וקטן). אפשר לבטל בכל רגע.')) return;
-                setPromoting(true);
-                const res = await DataService.promoteAllStudents('יא', 'יב');
-                const counts = await DataService.gradeCounts();
-                setPromoteCounts(counts);
-                setPromoting(false);
-                alert(res.error ? 'אירעה שגיאה בהעלאה. נסי שוב.' : `הועלו ${res.count} תלמידות מ-יא ל-יב.`);
+            const [promoteStep, setPromoteStep] = useState(1);
+            const [promoteCounts, setPromoteCounts] = useState({ byGrade: {}, doneByGrade: {}, graduated: 0, year: schoolYearKey() });
+            const [promotePlan, setPromotePlan] = useState(null);      // { fromGrade, toGrade, mode, label }
+            const [promotePreview, setPromotePreview] = useState(null); // { students, error }
+            const [promoteExcluded, setPromoteExcluded] = useState({}); // email ← הוחרגה ידנית ע"י המורה
+            const [promoteKeepClass, setPromoteKeepClass] = useState(true);
+            const [promoteResult, setPromoteResult] = useState(null);
+
+            // המעברים האפשריים נגזרים משכבות בית הספר — ולא מקובעים ל-יא←יב.
+            const promotionSteps = (() => {
+                const gs = schoolGrades();
+                const out = gs.map((g, i) => gs[i + 1] ? { fromGrade: g, toGrade: gs[i + 1], mode: 'promote', label: 'כיתה ' + g + ' ← כיתה ' + gs[i + 1] } : null).filter(Boolean);
+                const last = gs[gs.length - 1];
+                if (last) out.push({ fromGrade: last, toGrade: GRADUATE_STEP, mode: 'graduate', label: 'כיתה ' + last + ' ← סיום לימודים' });
+                return out;
+            })();
+
+            const openPromoteWizard = () => {
+                setPromoteStep(1); setPromotePlan(null); setPromotePreview(null);
+                setPromoteExcluded({}); setPromoteResult(null); setPromoteKeepClass(true);
+                setPromoteModal({ open: true });
+                DataService.gradeCounts().then(setPromoteCounts);
             };
-            const doUndoPromote = async () => {
-                if (!window.confirm('לבטל את ההעלאה ולהחזיר את התלמידות שהועלו חזרה לכיתה יא?')) return;
+
+            // מעבר לשלב התצוגה המקדימה — טוען את הרשימה האמיתית מ-Firestore, לא הערכה.
+            const choosePromotionStep = async (step) => {
+                setPromotePlan(step);
+                setPromotePreview(null);
+                setPromoteExcluded({});
+                setPromoteStep(2);
                 setPromoting(true);
-                const res = await DataService.undoPromotion('יא', 'יב');
-                const counts = await DataService.gradeCounts();
-                setPromoteCounts(counts);
+                const pv = await DataService.promotionPreview(step.fromGrade);
+                setPromotePreview(pv);
                 setPromoting(false);
-                alert(res.error ? 'אירעה שגיאה בביטול. נסי שוב.' : `${res.count} תלמידות הוחזרו לכיתה יא.`);
+            };
+
+            // רק מי שלא טופלה השנה ולא הוחרגה ידנית — זו הרשימה שתיכתב בפועל.
+            const promoteTargets = (promotePreview && promotePreview.students || [])
+                .filter(st => !st.alreadyDone && !promoteExcluded[st.email]);
+
+            const runPromotion = async () => {
+                if (!promotePlan || promoteTargets.length === 0) return;
+                setPromoting(true);
+                const res = await DataService.applyPromotion({
+                    fromGrade: promotePlan.fromGrade,
+                    toGrade: promotePlan.toGrade,
+                    students: promoteTargets,
+                    mode: promotePlan.mode,
+                    keepClassNum: promoteKeepClass
+                });
+                setPromoteResult({ ...res, total: promoteTargets.length, kind: 'promote' });
+                setPromoteCounts(await DataService.gradeCounts());
+                setPromoting(false);
+                setPromoteStep(3);
+            };
+
+            const undoPromotion = async () => {
+                if (!promotePlan) return;
+                setPromoting(true);
+                const res = await DataService.undoPromotionRun(promotePlan);
+                setPromoteResult({ ...res, kind: 'undo' });
+                setPromoteCounts(await DataService.gradeCounts());
+                setPromoting(false);
+                setPromoteStep(3);
             };
 
             // Save custom course/lesson page for a topic
@@ -8058,7 +8176,7 @@ a.setGrade(100);   // משנה רק את נעמה
                 setLoadingReport(true);
                 setSettingsModal(false);
                 setStudentsReportModal(true);
-                const students = await DataService.loadAllStudents();
+                const students = await DataService.loadAllStudents(true); // כולל בוגרות — הציונים שלהן חייבים להישאר נגישים
                 const studentsWithScores = await Promise.all(students.map(async (s) => {
                     const scores = await DataService.loadStudentScores(s.email);
                     const allScores = [...scores.exams.map(e => e.grade), ...scores.homeworks.map(h => h.grade)];
@@ -8162,7 +8280,7 @@ a.setGrade(100);   // משנה רק את נעמה
             const exportReportCSV = () => {
                 const rows = [['שם', 'אימייל', 'כיתה', 'מבחנים', 'עבודות', 'ממוצע']];
                 studentsReportData
-                    .filter(s => reportGradeFilter === 'הכל' || s.grade === reportGradeFilter)
+                    .filter(s => reportGradeFilter === 'הכל' || (reportGradeFilter === 'בוגרות' ? s.graduated : s.grade === reportGradeFilter && !s.graduated))
                     .forEach(s => rows.push([s.name || '', s.email || '', s.grade || '', s.examCount, s.homeworkCount, s.average !== null && s.average !== undefined ? s.average : '']));
                 const csv = '\uFEFF' + rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -8527,7 +8645,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                                     { header: 'תלמידות וציונים' },
                                                     { icon: <Icon name="chart" size={16} />, label: 'דוח ציונים', color: 'text-purple-300', onClick: openStudentsReport },
                                                     { icon: <Icon name="users" size={16} />, label: 'אישור תלמידות חדשות', color: 'text-amber-300', badge: pendingStudents.length > 0 ? pendingStudents.length : null, onClick: () => setApprovalsModal(true) },
-                                                    { icon: <Icon name="arrowLeft" size={16} />, label: 'העלאת שכבה (יא ← יב)', color: 'text-cyan-300', onClick: () => setPromoteModal({ open: true }) },
+                                                    { icon: <Icon name="arrowLeft" size={16} />, label: 'העלאת שכבה (סוף שנה)', color: 'text-cyan-300', onClick: openPromoteWizard },
                                                     { header: 'מערכת' },
                                                     { icon: <Icon name="folder" size={16} />, label: 'ארכיון שכבות', color: 'text-slate-300', onClick: () => setArchiveModal(true) },
                                                     { divider: true },
@@ -8549,32 +8667,167 @@ a.setGrade(100);   // משנה רק את נעמה
                     </header>
 
                     {/* Promote grade Modal */}
-                    <Modal isOpen={promoteModal.open} onClose={() => !promoting && setPromoteModal({ open: false })} title="העלאת שכבה — יא ← יב" titleColor="text-sky-400">
-                        <div className="p-5 space-y-4">
-                            <p className="text-slate-300 text-sm leading-relaxed" style={{ textWrap: 'pretty' }}>פעולה זו מעלה את <b>כל</b> תלמידות כיתה יא לכיתה יב בבת אחת. אחרי ההעלאה ייפתחו להן נושאי יב, ונושאי יא יוצגו להן כ"חומר שעבר" — בכתב אפור וקטן. הפעולה הפיכה.</p>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl px-4 py-3.5 text-center">
-                                    <div className="text-3xl font-extrabold text-indigo-300">{promoteCounts.fromCount}</div>
-                                    <div className="text-slate-400 text-xs mt-1">תלמידות בכיתה יא</div>
+                    <Modal isOpen={promoteModal.open} onClose={() => !promoting && setPromoteModal({ open: false })} title={'העלאת שכבה — שנה"ל ' + (promoteCounts.year || '')} titleColor="text-sky-400" wide>
+                        {/* שלב 1 — בחירת המעבר */}
+                        {promoteStep === 1 && (
+                            <div className="p-4 sm:p-5 space-y-4">
+                                <p className="text-slate-300 text-sm leading-relaxed" style={{ textWrap: 'pretty' }}>בחרי איזו שכבה מעלים. בשלב הבא תראי את <b>רשימת התלמידות בשמותיהן</b> ומה בדיוק יקרה לכל אחת — ורק אז מאשרים.</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    {promotionSteps.map(st => {
+                                        const total = promoteCounts.byGrade[st.fromGrade] || 0;
+                                        const done = promoteCounts.doneByGrade[st.fromGrade] || 0;
+                                        const grad = st.mode === 'graduate';
+                                        return (
+                                            <button key={st.fromGrade + st.toGrade} onClick={() => choosePromotionStep(st)} disabled={total === 0}
+                                                className={`question-card p-4 text-right transition-all disabled:opacity-40 disabled:cursor-not-allowed ${grad ? 'hover:border-amber-500/60' : 'hover:border-sky-500/60'}`}>
+                                                <div className={`font-extrabold text-[15px] mb-2 ${grad ? 'text-amber-300' : 'text-sky-300'}`}>{st.label}</div>
+                                                <div className="text-3xl font-black text-white">{Math.max(0, total - done)}</div>
+                                                <div className="text-xs text-slate-400 mt-1">תלמידות ימתינו למעבר</div>
+                                                {done > 0 && <div className="text-[11px] text-emerald-300/80 mt-1.5">{done} כבר טופלו השנה</div>}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
-                                <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl px-4 py-3.5 text-center">
-                                    <div className="text-3xl font-extrabold text-emerald-300">{promoteCounts.promotedCount}</div>
-                                    <div className="text-slate-400 text-xs mt-1">כבר הועלו (ניתנות לביטול)</div>
+                                <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-3 text-emerald-200 text-[13px] leading-relaxed flex items-start gap-2">
+                                    <span className="flex-shrink-0 mt-0.5"><Icon name="check" size={15} /></span>
+                                    <span><b>מה נשמר תמיד:</b> כל הציונים, ההגשות, המבחנים והעבודות נשמרים תחת האימייל של התלמידה ולא זזים. נושאי הלימוד עצמם אינם משתנים — הם שייכים לשכבה, לא לתלמידה. גם ההיסטוריה של המעברים נשמרת בכרטיס התלמידה.</span>
                                 </div>
                             </div>
-                            <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl px-4 py-3 text-amber-200 text-[13px] leading-relaxed flex items-start gap-2">
-                                <span className="flex-shrink-0 mt-0.5"><Icon name="alert" size={15} /></span>
-                                <span>שום נתון לא נמחק — רק השכבה של התלמידות מתעדכנת. תלמידות יב שכבר היו במערכת לא יושפעו.</span>
+                        )}
+
+                        {/* שלב 2 — תצוגה מקדימה מדויקת */}
+                        {promoteStep === 2 && promotePlan && (
+                            <div className="p-4 sm:p-5 space-y-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${promotePlan.mode === 'graduate' ? 'bg-amber-500/15 text-amber-300' : 'bg-sky-500/15 text-sky-300'}`}>{promotePlan.label}</span>
+                                    <span className="text-slate-500 text-xs">שנת לימודים {promoteCounts.year}</span>
+                                </div>
+                                {!promotePreview ? (
+                                    <div className="flex items-center justify-center py-10"><div className="spinner"></div><span className="mr-3 text-gray-400">טוען את רשימת התלמידות...</span></div>
+                                ) : promotePreview.error ? (
+                                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-200 text-sm">לא הצלחנו לטעון את רשימת התלמידות. בדקי חיבור לאינטרנט ונסי שוב.</div>
+                                ) : (
+                                    <>
+                                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                            <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl px-2 py-3 text-center">
+                                                <div className="text-2xl sm:text-3xl font-extrabold text-sky-300">{promoteTargets.length}</div>
+                                                <div className="text-slate-400 text-[11px] sm:text-xs mt-1">{promotePlan.mode === 'graduate' ? 'יסומנו כבוגרות' : 'יעברו שכבה'}</div>
+                                            </div>
+                                            <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl px-2 py-3 text-center">
+                                                <div className="text-2xl sm:text-3xl font-extrabold text-slate-400">{promotePreview.students.filter(st => st.alreadyDone || promoteExcluded[st.email]).length}</div>
+                                                <div className="text-slate-400 text-[11px] sm:text-xs mt-1">יישארו כמו שהן</div>
+                                            </div>
+                                            <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl px-2 py-3 text-center">
+                                                <div className="text-2xl sm:text-3xl font-extrabold text-white">{promotePreview.students.length}</div>
+                                                <div className="text-slate-400 text-[11px] sm:text-xs mt-1">סה"כ בכיתה {promotePlan.fromGrade}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* מספר הכיתה — החלטה מפורשת, ולא התנהגות נסתרת */}
+                                        {promotePlan.mode === 'promote' && promotePreview.students.some(st => st.classNum) && (
+                                            <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3">
+                                                <div className="text-slate-200 text-sm font-bold mb-2">מה קורה למספר הכיתה?</div>
+                                                <div className="flex flex-col sm:flex-row gap-2">
+                                                    {[[true, 'לשמור', 'תלמידה מ-' + promotePlan.fromGrade + '3 תעבור ל-' + promotePlan.toGrade + '3'], [false, 'לאפס', 'המספר יימחק ותשייכי מחדש בעצמך']].map(([keep, ttl, sub]) => (
+                                                        <button key={String(keep)} onClick={() => setPromoteKeepClass(keep)}
+                                                            className={`flex-1 text-right px-3 py-2.5 rounded-lg border transition-all ${promoteKeepClass === keep ? 'bg-sky-500/15 border-sky-500/60' : 'bg-slate-800/60 border-slate-700/60 hover:border-slate-600'}`}>
+                                                            <div className={`text-sm font-bold ${promoteKeepClass === keep ? 'text-sky-300' : 'text-slate-300'}`}>{ttl}</div>
+                                                            <div className="text-[11px] text-slate-400 mt-0.5">{sub}</div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* הרשימה בשמות — אפשר להחריג תלמידה שנשארת שנה נוספת */}
+                                        <div className="border border-slate-700/60 rounded-xl overflow-hidden">
+                                            <div className="px-3 py-2 bg-slate-800/70 text-[12px] text-slate-400 border-b border-slate-700/60">סימון V = תעבור. הסירי סימון מתלמידה שנשארת בשכבה.</div>
+                                            <div className="max-h-[38vh] overflow-y-auto divide-y divide-slate-700/40">
+                                                {promotePreview.students.length === 0 && <div className="px-3 py-6 text-center text-slate-500 text-sm">אין תלמידות בכיתה {promotePlan.fromGrade}</div>}
+                                                {promotePreview.students.map(st => {
+                                                    const on = !st.alreadyDone && !promoteExcluded[st.email];
+                                                    const newClass = promotePlan.mode === 'graduate' ? 'בוגרת' : promotePlan.toGrade + (promoteKeepClass ? (st.classNum || '') : '');
+                                                    return (
+                                                        <label key={st.email || st.id} className={`flex items-center gap-3 px-3 py-2.5 ${st.alreadyDone ? 'opacity-50' : 'cursor-pointer hover:bg-slate-700/25'}`}>
+                                                            <input type="checkbox" checked={on} disabled={st.alreadyDone}
+                                                                onChange={() => setPromoteExcluded(prev => ({ ...prev, [st.email]: !prev[st.email] }))}
+                                                                className="w-4 h-4 flex-shrink-0 accent-sky-500" />
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="text-white text-sm font-bold truncate">{st.name || 'ללא שם'}{!st.approved && <span className="mr-1.5 text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">ממתינה לאישור</span>}</div>
+                                                                <div className="text-[11px] text-slate-500 truncate">{st.email}</div>
+                                                            </div>
+                                                            <div className="text-[12px] flex-shrink-0 text-left">
+                                                                {st.alreadyDone ? <span className="text-emerald-300/70">כבר טופלה השנה</span>
+                                                                    : on ? <span className="text-slate-300 font-mono" dir="ltr">{st.grade + (st.classNum || '')} → <b className="text-sky-300">{newClass}</b></span>
+                                                                    : <span className="text-slate-500">נשארת ב-{st.grade}{st.classNum || ''}</span>}
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        <div className={`rounded-xl px-4 py-3 text-[13px] leading-relaxed flex items-start gap-2 ${promotePlan.mode === 'graduate' ? 'bg-amber-500/10 border border-amber-500/25 text-amber-200' : 'bg-sky-500/10 border border-sky-500/25 text-sky-200'}`}>
+                                            <span className="flex-shrink-0 mt-0.5"><Icon name="alert" size={15} /></span>
+                                            <span>{promotePlan.mode === 'graduate'
+                                                ? 'סיום לימודים מסמן את התלמידות כבוגרות ומוציא אותן מהרשימות הפעילות. שום נתון לא נמחק — הציונים וההגשות נשארים, ואפשר לראות אותן בדוח הציונים תחת "בוגרות".'
+                                                : 'הפעולה מעדכנת רק את השכבה של התלמידות. הציונים, ההגשות והמשובים נשארים במקומם, ונושאי השכבה הקודמת ימשיכו להיות זמינים להן כ"חומר שעבר".'}</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
-                        </div>
+                        )}
+
+                        {/* שלב 3 — דיווח על מה שבוצע בפועל */}
+                        {promoteStep === 3 && promoteResult && (
+                            <div className="p-4 sm:p-5 space-y-4">
+                                {promoteResult.kind === 'undo' ? (
+                                    <div className={`rounded-xl px-4 py-4 text-center ${promoteResult.error ? 'bg-red-500/10 border border-red-500/30' : 'bg-slate-800/60 border border-slate-700/60'}`}>
+                                        <div className="text-3xl font-black text-white">{promoteResult.done || 0}</div>
+                                        <div className="text-slate-300 text-sm mt-1">תלמידות הוחזרו לכיתה {promotePlan && promotePlan.fromGrade}</div>
+                                        {promoteResult.error && <div className="text-red-300 text-[13px] mt-2">חלק מהביטול לא הושלם. נסי שוב.</div>}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={`rounded-xl px-4 py-4 text-center ${promoteResult.failed && promoteResult.failed.length ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-emerald-500/10 border border-emerald-500/30'}`}>
+                                            <div className="text-3xl font-black text-white">{promoteResult.done}<span className="text-slate-400 text-lg"> / {promoteResult.total}</span></div>
+                                            <div className="text-slate-300 text-sm mt-1">{promotePlan && promotePlan.mode === 'graduate' ? 'תלמידות סומנו כבוגרות' : 'תלמידות עברו שכבה'}</div>
+                                        </div>
+                                        {promoteResult.failed && promoteResult.failed.length > 0 && (
+                                            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-200 text-[13px] leading-relaxed">
+                                                <b>{promoteResult.failed.length} תלמידות לא עברו</b> — הפעולה נעצרה כדי לא להשאיר מצב חלקי. אפשר להריץ שוב: מי שכבר עברה לא תיפגע.
+                                                <div className="mt-2 max-h-24 overflow-y-auto text-red-300/80">{promoteResult.failed.join(' · ')}</div>
+                                            </div>
+                                        )}
+                                        <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-300 text-[13px] leading-relaxed">
+                                            כל ציון והגשה נשארו במקומם. אפשר לבטל את הפעולה כאן ולהחזיר את התלמידות למצב הקודם, כל עוד לא הסתיימה שנת הלימודים {promoteResult.year}.
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
                         <div className="p-4 border-t border-slate-600 flex flex-wrap justify-end gap-2 sticky bottom-0 bg-slate-800">
-                            <button onClick={() => setPromoteModal({ open: false })} disabled={promoting} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg disabled:opacity-50">סגירה</button>
-                            {promoteCounts.promotedCount > 0 && (
-                                <button onClick={doUndoPromote} disabled={promoting} className="px-5 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 font-bold disabled:opacity-50">ביטול ההעלאה האחרונה</button>
+                            {promoteStep === 1 && <button onClick={() => setPromoteModal({ open: false })} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg">סגירה</button>}
+                            {promoteStep === 2 && (
+                                <>
+                                    <button onClick={() => setPromoteStep(1)} disabled={promoting} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg disabled:opacity-50">חזרה</button>
+                                    <button onClick={runPromotion} disabled={promoting || promoteTargets.length === 0}
+                                        className={`px-5 py-2.5 text-white rounded-lg font-bold disabled:opacity-50 flex items-center gap-2 ${promotePlan && promotePlan.mode === 'graduate' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-sky-600 hover:bg-sky-500'}`}>
+                                        {promoting ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> מבצע...</>
+                                            : (promotePlan && promotePlan.mode === 'graduate' ? `סיימי ${promoteTargets.length} תלמידות` : `העלי ${promoteTargets.length} תלמידות`)}
+                                    </button>
+                                </>
                             )}
-                            <button onClick={doPromote} disabled={promoting || promoteCounts.fromCount === 0} className="px-6 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-500 font-bold disabled:opacity-50 flex items-center gap-2">
-                                {promoting ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> מעלה...</> : `העלי ${promoteCounts.fromCount || ''} תלמידות ל-יב`}
-                            </button>
+                            {promoteStep === 3 && (
+                                <>
+                                    {promoteResult && promoteResult.kind === 'promote' && promoteResult.done > 0 && (
+                                        <button onClick={undoPromotion} disabled={promoting} className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 font-bold disabled:opacity-50">ביטול הפעולה</button>
+                                    )}
+                                    <button onClick={openPromoteWizard} disabled={promoting} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg disabled:opacity-50">שכבה נוספת</button>
+                                    <button onClick={() => setPromoteModal({ open: false })} disabled={promoting} className="px-5 py-2.5 bg-sky-600 text-white rounded-lg hover:bg-sky-500 font-bold disabled:opacity-50">סיום</button>
+                                </>
+                            )}
                         </div>
                     </Modal>
 
@@ -10064,7 +10317,7 @@ ${answerText}
                                         {LEARN_LIBRARY.some(t => !classes.some(c => (c.title || '').trim() === t.title.trim())) && (
                                             <button onClick={() => setSeedModal({ open: true })} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold hover:from-emerald-500 hover:to-teal-500"><span className="flex items-center gap-2"><Icon name="plus" size={16} /> יצירת נושאי לימוד מובנים</span></button>
                                         )}
-                                        <button onClick={() => setPromoteModal({ open: true })} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 text-white font-bold hover:from-sky-500 hover:to-cyan-500"><span className="flex items-center gap-2"><Icon name="chart" size={16} /> העלאת שכבה (יא ← יב)</span></button>
+                                        <button onClick={openPromoteWizard} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 text-white font-bold hover:from-sky-500 hover:to-cyan-500"><span className="flex items-center gap-2"><Icon name="arrowLeft" size={16} /> העלאת שכבה (סוף שנה)</span></button>
                                         <button onClick={openStudentsReport} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold hover:from-purple-500 hover:to-indigo-500"><span className="flex items-center gap-2"><Icon name="chart" size={16} /> דוח ציונים לפי שכבה</span></button>
                                         {pendingStudents.length > 0 && <button onClick={() => setApprovalsModal(true)} className="px-5 py-2.5 rounded-xl bg-amber-500 text-slate-900 font-bold hover:bg-amber-400">אישור תלמידות חדשות ({pendingStudents.length})</button>}
                                     </div>
@@ -10550,10 +10803,10 @@ ${answerText}
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span className="text-sm text-gray-400">שכבה:</span>
                                     <div className="flex gap-1 bg-slate-800 border border-slate-600/60 rounded-full p-1">
-                                        {['הכל', ...schoolGrades()].map(g => (
+                                        {['הכל', ...schoolGrades(), ...(studentsReportData.some(s => s.graduated) ? ['בוגרות'] : [])].map(g => (
                                             <button key={g} onClick={() => setReportGradeFilter(g)}
                                                 className={`px-2.5 sm:px-3.5 py-1 rounded-full text-sm font-bold transition-all ${reportGradeFilter === g ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                                                {g === 'הכל' ? 'כל השכבות' : 'כיתה ' + g}
+                                                {g === 'הכל' ? 'כל השכבות' : g === 'בוגרות' ? 'בוגרות' : 'כיתה ' + g}
                                             </button>
                                         ))}
                                     </div>
@@ -10573,7 +10826,7 @@ ${answerText}
                                     <div className="flex items-center justify-center py-12"><div className="spinner"></div><span className="mr-3 text-gray-400">טוען נתונים...</span></div>
                                 ) : !detailedReport ? null : (() => {
                                     const gradeStudents = studentsReportData
-                                        .filter(s => reportGradeFilter === 'הכל' || s.grade === reportGradeFilter)
+                                        .filter(s => reportGradeFilter === 'הכל' || (reportGradeFilter === 'בוגרות' ? s.graduated : s.grade === reportGradeFilter && !s.graduated))
                                         .sort(cmpStudents);
                                     const topics = detailedReport.filter(t => reportGradeFilter === 'הכל' || t.grade === reportGradeFilter);
                                     if (gradeStudents.length === 0) return <div className="text-center py-12 text-gray-500">אין תלמידות בשכבה זו</div>;
@@ -10637,14 +10890,17 @@ ${answerText}
                                 </div>
                             ) : (
                                 <>
-                                    {['י', 'יא', 'יב'].filter(g => reportGradeFilter === 'הכל' || g === reportGradeFilter).map(grade => {
-                                        const gradeStudents = studentsReportData.filter(s => s.grade === grade);
+                                    {[...schoolGrades(), 'בוגרות'].filter(g => reportGradeFilter === 'הכל' || g === reportGradeFilter).map(grade => {
+                                        // בוגרות מוצגות בקבוצה נפרדת — אחרת הן היו מתערבבות בשכבה שממנה סיימו
+                                        const gradeStudents = grade === 'בוגרות'
+                                            ? studentsReportData.filter(s => s.graduated)
+                                            : studentsReportData.filter(s => s.grade === grade && !s.graduated);
                                         if (gradeStudents.length === 0) return null;
                                         
                                         return (
                                             <div key={grade} className="mb-6">
                                                 <h3 className="text-lg font-bold text-blue-400 mb-3 flex items-center gap-2">
-                                                    📚 כיתה {grade}
+                                                    {grade === 'בוגרות' ? '🎓 בוגרות' : '📚 כיתה ' + grade}
                                                     <span className="text-sm font-normal text-gray-500">({gradeStudents.length} תלמידות)</span>
                                                 </h3>
                                                 <div className="bg-slate-800 rounded-lg overflow-x-auto mobile-hscroll">
@@ -12228,7 +12484,11 @@ ${answerText}
                                 try {
                                     const path = DataService.storagePath('platform/ads/' + kind, file);
                                     const r = await DataService.uploadFile(path, file, pct => setAdUp(u => ({ ...u, [kind]: { pct } })));
-                                    setKind(kind, { imageUrl: r.url, storagePath: r.path, size: r.size, image: '' });
+                                    // מי שהעלה תמונה מתכוון להציג אותה. בלי זה קל לשמור
+                                    // מודעה כבויה ולחשוב שהיא פעילה — בדיוק מה שקרה בפועל.
+                                    const firstImage = !adSrc(ads[kind] || {});
+                                    setKind(kind, { imageUrl: r.url, storagePath: r.path, size: r.size, image: '',
+                                        ...(firstImage ? { enabled: true } : {}) });
                                     setAdUp(u => ({ ...u, [kind]: { done: true, size: r.size } }));
                                     if (prev && prev !== r.path) DataService.deleteFile(prev);   // לא משאירים קובץ יתום
                                 } catch (e) {
@@ -12245,7 +12505,11 @@ ${answerText}
                                 setAdBusy(true);
                                 const ok = await DataService.saveAds(ads);
                                 setAdBusy(false);
-                                alert(ok ? 'הפרסום עודכן בכל בתי הספר.' : 'השמירה נכשלה — ייתכן שהתמונה גדולה מדי.');
+                                if (!ok) { alert('השמירה נכשלה.'); return; }
+                                const live = ['popup', 'banner'].filter(k => ads[k] && ads[k].enabled && adSrc(ads[k]));
+                                alert(live.length
+                                    ? 'נשמר. פעיל עכשיו בכל בתי הספר: ' + live.map(k => k === 'popup' ? 'חלון קופץ' : 'באנר תחתון').join(' + ') + '.'
+                                    : 'נשמר — אבל אף מודעה אינה פעילה כרגע, ולכן שום דבר לא יוצג. צריך גם תמונה וגם סימון בתיבה.');
                             };
                             const renderEditor = (kind, title, desc, ratio) => {
                                 const ad = ads[kind] || {};
@@ -12283,6 +12547,12 @@ ${answerText}
                                         {up.done && !up.error && (
                                             <div className="mb-3 text-emerald-300 text-[12.5px] flex items-center gap-1.5">
                                                 <Icon name="check" size={13} /> נשמרה ב-Firebase Storage{up.size ? ' · ' + prettyBytes(up.size) : ''}
+                                            </div>
+                                        )}
+                                        {src && !ad.enabled && (
+                                            <div className="mb-3 text-amber-200 text-[12.5px] bg-amber-500/10 border border-amber-400/30 rounded-lg px-3 py-2 flex items-start gap-2">
+                                                <Icon name="alert" size={14} />
+                                                <span>התמונה הועלתה, אבל המודעה <b>כבויה</b> ולא תוצג לאיש. סמני את התיבה למעלה ואז שמרי.</span>
                                             </div>
                                         )}
                                         {!up.done && !up.error && up.pct === undefined && ad.storagePath && (
