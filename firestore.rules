@@ -35,6 +35,14 @@ service cloud.firestore {
       return isSignedIn() && resource.data.email == request.auth.token.email;
     }
 
+    // שדות שמנוהלים רק ע"י אשף העלאת השכבה של המורה. תלמידה שתשנה אותם בעצמה
+    // תוכל לבטל לעצמה סטטוס בוגרת, לזייף היסטוריה, או לגרום להעלאה לפסוח עליה.
+    // grade עצמו לא נכלל כאן בכוונה — תלמידה מתקנת את השכבה שלה במסך "עריכת פרטים".
+    function touchesPromotionFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['promotionYear', 'promotedFrom', 'promotedAt', 'gradeHistory', 'graduated', 'graduatedAt']);
+    }
+
     // ---------- תוכן לימודי: נושאים, שאלות, הגדרות ----------
     // כל מי שמחוברת יכולה לקרוא. רק המורה כותבת.
     match /classes/{classId} {
@@ -72,11 +80,13 @@ service cloud.firestore {
       allow create: if ownsIncoming()
                     && request.resource.data.approved == false;
 
-      // תלמידה יכולה לעדכן שם/שכבה — אך לא לאשר את עצמה. המורה יכולה הכול.
+      // תלמידה יכולה לעדכן שם/שכבה — אך לא לאשר את עצמה ולא לגעת בשדות ההעלאה.
+      // המורה יכולה הכול.
       allow update: if isTeacher()
                     || (ownsExisting()
                         && ownsIncoming()
-                        && request.resource.data.approved == resource.data.approved);
+                        && request.resource.data.approved == resource.data.approved
+                        && !touchesPromotionFields());
 
       allow delete: if isTeacher();
     }
@@ -209,9 +219,29 @@ service cloud.firestore {
       return isSuperAdmin() || (isSchoolTeacher(school) && isActive(school));
     }
 
-    // תלמידה מחוברת בבית ספר פעיל
-    function isActiveUser(school) {
+    // מזהה מסמך התלמידה — נגזר מהאימייל בדיוק כמו באפליקציה (app.html:969)
+    function memberId() {
+      return request.auth.token.email.replace('[.@]', '_');
+    }
+
+    // חברות אמיתית בבית הספר. בלי זה "מחוברת" הספיקה כדי לקרוא את התוכן של
+    // *כל* בית ספר פעיל — נושאים, שאלות מבחן והגדרות מבחן. אומת ונחסם.
+    // עלות: קריאה אחת נוספת לכל הערכת חוק. זה המחיר של בידוד אמיתי.
+    function isMember(school) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/schools/$(school)/users/$(memberId()));
+    }
+
+    // לפני ההרשמה אין עדיין מסמך תלמידה, ולכן isMember עוד לא יכול להתקיים.
+    // המצב הזה מותר אך ורק לשני דברים: קריאת המסמך של עצמה, ויצירתו.
+    function canRegister(school) {
       return isSignedIn() && isActive(school);
+    }
+
+    // תלמידה מחוברת ששייכת לבית הספר הזה, והוא פעיל.
+    // המורה של בית הספר נכללת גם אם אין לה מסמך תלמידה.
+    function isActiveUser(school) {
+      return isActive(school) && (isMember(school) || isSchoolTeacher(school));
     }
 
     match /schools/{school} {
@@ -269,17 +299,20 @@ service cloud.firestore {
 
       // ---------- תלמידות ----------
       match /users/{uid} {
+        // canRegister ולא isActiveUser — אחרת משתמשת חדשה לא יכולה לבדוק
+        // אם היא רשומה, ולא יכולה להירשם. הקריאה מוגבלת למסמך של עצמה.
         allow get: if canManage(school)
-                   || (isActiveUser(school)
+                   || (canRegister(school)
                        && (resource == null || resource.data.email == request.auth.token.email));
         allow list: if canManage(school);
         // הרשמה: המשתמשת עצמה, תמיד לא-מאושרת בהתחלה
-        allow create: if isActiveUser(school) && ownsIncoming()
+        allow create: if canRegister(school) && ownsIncoming()
                       && request.resource.data.approved == false;
-        // תלמידה מעדכנת שם/שכבה/כיתה — לא את approved
+        // תלמידה מעדכנת שם/מספר כיתה — לא את approved ולא את שדות ההעלאה
         allow update: if canManage(school)
                       || (isActiveUser(school) && ownsExisting() && ownsIncoming()
-                          && request.resource.data.approved == resource.data.approved);
+                          && request.resource.data.approved == resource.data.approved
+                          && !touchesPromotionFields());
         allow delete: if canManage(school);
       }
 

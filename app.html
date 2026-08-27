@@ -8688,6 +8688,9 @@ a.setGrade(100);   // משנה רק את נעמה
                                         );
                                     })}
                                 </div>
+                                {promoteCounts.graduated > 0 && (
+                                    <div className="text-slate-400 text-[13px] text-center">בארכיון הבוגרות: {promoteCounts.graduated} תלמידות. הציונים שלהן זמינים בדוח הציונים תחת "בוגרות".</div>
+                                )}
                                 <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-3 text-emerald-200 text-[13px] leading-relaxed flex items-start gap-2">
                                     <span className="flex-shrink-0 mt-0.5"><Icon name="check" size={15} /></span>
                                     <span><b>מה נשמר תמיד:</b> כל הציונים, ההגשות, המבחנים והעבודות נשמרים תחת האימייל של התלמידה ולא זזים. נושאי הלימוד עצמם אינם משתנים — הם שייכים לשכבה, לא לתלמידה. גם ההיסטוריה של המעברים נשמרת בכרטיס התלמידה.</span>
@@ -8758,7 +8761,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                                             </div>
                                                             <div className="text-[12px] flex-shrink-0 text-left">
                                                                 {st.alreadyDone ? <span className="text-emerald-300/70">כבר טופלה השנה</span>
-                                                                    : on ? <span className="text-slate-300 font-mono" dir="ltr">{st.grade + (st.classNum || '')} → <b className="text-sky-300">{newClass}</b></span>
+                                                                    : on ? <span className="text-slate-300">{st.grade + (st.classNum || '')} ← <b className="text-sky-300">{newClass}</b></span>
                                                                     : <span className="text-slate-500">נשארת ב-{st.grade}{st.classNum || ''}</span>}
                                                             </div>
                                                         </label>
