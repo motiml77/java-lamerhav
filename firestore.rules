@@ -149,6 +149,24 @@ service cloud.firestore {
       allow write: if isTeacher();
     }
 
+    // ---------- הגדרות פלטפורמה (פרסום) ----------
+    // מסמך יחיד platform_settings/ads. קריאה פתוחה — אלו תמונות פרסום בלבד,
+    // והחלון הקופץ נטען כבר במסך הכניסה. כתיבה: המנהל הראשי בלבד.
+    match /platform_settings/{docId} {
+      allow read:  if true;
+      allow write: if isTeacher();
+    }
+
+    // ---------- רישום כניסות (מצב legacy) ----------
+    // מזהה המסמך הוא email__YYYY-MM-DD, ולכן כניסה נספרת פעם ביום למשתמשת.
+    // כל אחת כותבת רק את הרשומה שלה; רק המנהל קורא.
+    match /activity/{id} {
+      allow read:   if isTeacher();
+      allow create: if isSignedIn() && ownsIncoming();
+      allow update: if isSignedIn() && ownsExisting() && ownsIncoming();
+      allow delete: if isTeacher();
+    }
+
     // ================================================================
     // בתי ספר — העץ הרב-בית-ספרי המלא (docs/multi-school-plan.md §6, שלב 3)
     // החוקים לאוספי השורש שלמעלה נשארים בכוונה — מצב legacy של lamerhav
@@ -231,6 +249,15 @@ service cloud.firestore {
       match /practice/{qId} {
         allow read: if isActiveUser(school) || isSuperAdmin();
         allow write: if canManage(school);
+      }
+
+      // ---------- רישום כניסות ----------
+      // מזהה המסמך email__YYYY-MM-DD מונע כפילות ברמת השרת.
+      match /activity/{id} {
+        allow read:   if canManage(school);
+        allow create: if isActiveUser(school) && ownsIncoming();
+        allow update: if isActiveUser(school) && ownsExisting() && ownsIncoming();
+        allow delete: if canManage(school);
       }
 
       // ---------- תלמידות ----------
