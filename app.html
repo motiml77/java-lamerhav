@@ -135,6 +135,8 @@
         .cm-lint-marker-warning { content: "●"; color: #CCA700; }
         
         /* Mini editors for the learn-by-doing examples */
+        /* עורך בתוך כרטיס תרגול — נמוך יותר מעורך מבחן, כדי שהכרטיס לא ישתלט על עמוד הנושא */
+        .practice-editor .cm-editor { height: 340px !important; min-height: 0; max-height: 60vh; }
         .mini-editor .cm-editor { height: 240px !important; min-height: 0; max-height: 320px; font-size: 14px; }
         .cm-host .cm-editor { font-size: inherit !important; }
         .learn-console { direction: ltr; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; background: #21252B; border-top: 1px solid #181A1F; color: #98C379; padding: 10px 16px; white-space: pre-wrap; min-height: 42px; }
@@ -1131,6 +1133,48 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                     else await col('media').doc(id).delete();
                     return true;
                 } catch (e) { console.error('Delete media error:', e); return false; }
+            },
+
+            // ===== שאלות תרגול קבועות לנושא — גלובלי (platform_questions) + בית-ספרי (practice) =====
+            // תרגול חופשי: הקוד של התלמידה נשמר מקומית בלבד (localStorage), אין הגשות ואין מעקב מורה.
+            async loadTopicPractice(classId, topicTitle) {
+                if (!db) return [];
+                const out = [];
+                try {
+                    const seen = new Set();
+                    const g = await db.collection('platform_questions').where('topicTitle', '==', topicTitle || '').get();
+                    g.forEach(d => { seen.add(d.id); out.push({ id: d.id, global: true, ...d.data() }); });
+                    const key = topicKeyOf(topicTitle);
+                    if (key) {
+                        const g2 = await db.collection('platform_questions').where('topicKey', '==', key).get();
+                        g2.forEach(d => { if (!seen.has(d.id)) out.push({ id: d.id, global: true, ...d.data() }); });
+                    }
+                } catch (e) { /* אין הרשאה — מתעלמים */ }
+                try {
+                    const m = await col('practice').where('classId', '==', classId).get();
+                    m.forEach(d => out.push({ id: d.id, global: false, ...d.data() }));
+                } catch (e) { /* כנ"ל */ }
+                out.sort((x, y) => (x.order || 0) - (y.order || 0) || String(x.createdAt || '').localeCompare(String(y.createdAt || '')));
+                return out;
+            },
+            async saveTopicPractice(item, isGlobal) {
+                if (!db) return false;
+                try {
+                    const id = item.id || ('prq_' + Date.now());
+                    const clean = { ...item, id, createdAt: item.createdAt || new Date().toISOString() };
+                    delete clean.global;
+                    if (isGlobal) await db.collection('platform_questions').doc(id).set(clean, { merge: true });
+                    else await col('practice').doc(id).set(clean, { merge: true });
+                    return true;
+                } catch (e) { console.error('Save practice error:', e); return false; }
+            },
+            async deleteTopicPractice(id, isGlobal) {
+                if (!db) return false;
+                try {
+                    if (isGlobal) await db.collection('platform_questions').doc(id).delete();
+                    else await col('practice').doc(id).delete();
+                    return true;
+                } catch (e) { console.error('Delete practice error:', e); return false; }
             },
 
             async loadAllStudents() {
@@ -3589,6 +3633,175 @@ a.setGrade(100);   // משנה רק את נעמה
         };
 
         // Topic learning section — קורס מודרך: פס צד עם שלבים והתקדמות, ותוכן שלב-אחר-שלב
+        // ===== שאלה בודדת בתרגול הקבוע: ניסוח + עורך קוד + בדיקת AI עצמית. הקוד נשמר מקומית בלבד. =====
+        const PracticeQuestionCard = ({ q, index, user, isTeacher, isSuperAdminUser, onEdit, onDelete }) => {
+            const [open, setOpen] = useState(false);
+            const storeKey = lsKey('practice_' + q.id + '_' + ((user && user.email) || 'anon'));
+            const [code, setCode] = useState('');
+            const [checking, setChecking] = useState(false);
+            const [fb, setFb] = useState(null);
+            useEffect(() => {
+                if (!open) return;
+                try { const saved = localStorage.getItem(storeKey); setCode(saved !== null ? saved : (q.starterCode || '')); }
+                catch (e) { setCode(q.starterCode || ''); }
+            }, [open, storeKey]);
+            const onChange = (c) => { setCode(c); try { localStorage.setItem(storeKey, c); } catch (e) {} };
+            const check = async () => {
+                if (!code.trim()) { alert('כתבי קוד לפני הבדיקה'); return; }
+                setChecking(true); setFb(null);
+                try {
+                    const pts = parseInt(q.points) || 10;
+                    const res = await AIService.checkHomework(code, q.instructions || q.title || '', q.imageBase64 || '',
+                        BASE_SYSTEM_PROMPT + DEFAULT_HOMEWORK_PROMPT, 0, pts);
+                    setFb(res);
+                } catch (e) { alert('הבדיקה נכשלה כרגע — נסי שוב בעוד רגע.'); }
+                setChecking(false);
+            };
+            const canManageQ = isTeacher && (!q.global || isSuperAdminUser);
+            return (
+                <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-800/40" onClick={() => setOpen(v => !v)}>
+                        <span className="w-8 h-8 rounded-lg bg-emerald-500/12 border border-emerald-400/25 text-emerald-300 flex items-center justify-center font-black text-sm flex-shrink-0">{index + 1}</span>
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-slate-100 font-bold text-[14.5px] truncate">{q.title || ('תרגיל ' + (index + 1))}</span>
+                            <span className="block text-slate-500 text-[11.5px]">{(parseInt(q.points) || 10) + ' נק\'' } · תרגול חופשי — לא מוגש</span>
+                        </span>
+                        {q.global && <span className="text-[10px] bg-amber-400/15 text-amber-300 border border-amber-400/25 px-1.5 py-0.5 rounded-full flex-shrink-0">כללי</span>}
+                        {canManageQ && (
+                            <span className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => onEdit(q)} title="עריכה" className="text-slate-500 hover:text-yellow-300 p-1"><Icon name="edit" size={14} /></button>
+                                <button onClick={async () => { if (!confirm('למחוק את "' + (q.title || 'התרגיל') + '"' + (q.global ? ' מכל בתי הספר' : '') + '?')) return; await onDelete(q); }}
+                                    title="מחיקה" className="text-slate-500 hover:text-red-400 p-1"><Icon name="trash" size={14} /></button>
+                            </span>
+                        )}
+                        <span className="text-slate-500 flex-shrink-0"><Icon name={open ? 'chevronDown' : 'chevronLeft'} size={16} /></span>
+                    </div>
+                    {open && (
+                        <div className="border-t border-slate-700/60 p-4 md:p-5">
+                            <div className="qx-panes">
+                                <div className="qx-font">
+                                    {q.imageBase64 && <img src={q.imageBase64} alt="" className="rounded-lg mb-3 max-w-full" />}
+                                    <QuestionInstructions text={q.instructions || ''} />
+                                </div>
+                                <div>
+                                    <div className="practice-editor"><CodeEditor key={'prq_' + q.id} code={code} onChange={onChange} enableLinting={true}
+                                        title={'תרגול — ' + (q.title || '')} /></div>
+                                    <div className="mt-3 flex items-center gap-3 flex-wrap">
+                                        <button onClick={check} disabled={checking} className="btn btn-solid btn-sm">
+                                            {checking ? <><div className="spinner w-4 h-4"></div> בודקת...</> : <><Icon name="spark" size={15} /> בדקי את התשובה שלי</>}
+                                        </button>
+                                        <button onClick={() => { onChange(q.starterCode || ''); setFb(null); }} className="btn btn-ghost btn-sm">↺ איפוס</button>
+                                        <span className="text-[11.5px] text-slate-500">הקוד נשמר אצלך במחשב · הבדיקה לא נשלחת למורה</span>
+                                    </div>
+                                    {fb && (
+                                        <div className={`mt-4 rounded-xl border p-4 ${fb.correct ? 'border-emerald-500/40 bg-emerald-500/[0.07]' : 'border-amber-500/35 bg-amber-500/[0.06]'}`}>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className={`font-black text-lg ${fb.correct ? 'text-emerald-300' : 'text-amber-300'}`}>{fb.score}/{parseInt(q.points) || 10}</span>
+                                                <span className="text-slate-300 text-sm font-bold">{fb.correct ? 'מצוין!' : 'כמעט — יש מה לשפר'}</span>
+                                            </div>
+                                            {fb.feedback && <p className="text-slate-200 text-sm leading-relaxed mb-2" style={{ textWrap: 'pretty' }}>{fb.feedback}</p>}
+                                            {fb.errors && fb.errors.length > 0 && (
+                                                <div className="text-sm text-red-300 mb-2"><b>בעיות שנמצאו:</b>
+                                                    <ul className="list-disc pr-5 mt-1 space-y-0.5">{fb.errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+                                                </div>
+                                            )}
+                                            {fb.suggestions && fb.suggestions.length > 0 && (
+                                                <div className="text-sm text-sky-300"><b>הצעות לשיפור:</b>
+                                                    <ul className="list-disc pr-5 mt-1 space-y-0.5">{fb.suggestions.map((e, i) => <li key={i}>{e}</li>)}</ul>
+                                                </div>
+                                            )}
+                                            {fb.encouragement && <p className="text-emerald-300/90 text-sm mt-2">{fb.encouragement}</p>}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // ===== תרגול קבוע לנושא — שאלות גלובליות (כל בתי הספר) + של בית הספר =====
+        const TopicPracticeSection = ({ classId, topicTitle, isTeacher, isSuperAdminUser, user }) => {
+            const [items, setItems] = useState(null);
+            const [adding, setAdding] = useState(false);
+            const [form, setForm] = useState({ id: null, title: '', instructions: '', starterCode: '', points: '10', global: false });
+            const [busy, setBusy] = useState(false);
+            const reload = useCallback(() => {
+                DataService.loadTopicPractice(classId, topicTitle).then(setItems).catch(() => setItems([]));
+            }, [classId, topicTitle]);
+            useEffect(() => { reload(); }, [reload]);
+
+            const startEdit = (q) => { setForm({ id: q.id, title: q.title || '', instructions: q.instructions || '', starterCode: q.starterCode || '', points: String(q.points || 10), global: !!q.global }); setAdding(true); };
+            const save = async () => {
+                if (busy) return;
+                if (!(form.instructions || '').trim()) { alert('חסר ניסוח לשאלה'); return; }
+                setBusy(true);
+                const item = { title: form.title.trim(), instructions: form.instructions, starterCode: form.starterCode,
+                    points: parseInt(form.points) || 10, createdBy: (user && user.email) || '' };
+                if (form.id) item.id = form.id;
+                if (form.global) { item.topicTitle = topicTitle; item.topicKey = topicKeyOf(topicTitle); } else { item.classId = classId; }
+                const ok = await DataService.saveTopicPractice(item, form.global);
+                setBusy(false);
+                if (!ok) { alert('השמירה נכשלה — בדקי הרשאות.'); return; }
+                setAdding(false);
+                setForm({ id: null, title: '', instructions: '', starterCode: '', points: '10', global: false });
+                reload();
+            };
+            const remove = async (q) => { await DataService.deleteTopicPractice(q.id, q.global); reload(); };
+
+            if ((items === null || items.length === 0) && !isTeacher) return null;
+            return (
+                <div className="question-card p-5 md:p-6 mb-8" data-screen-label="תרגול קבוע לנושא">
+                    <div className="flex items-center gap-2.5 mb-4">
+                        <span className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-400/25 flex items-center justify-center text-emerald-300"><Icon name="edit" size={15} /></span>
+                        <h3 className="text-lg font-extrabold text-white">תרגול לנושא</h3>
+                        <span className="text-slate-500 text-[12px]">חופשי · עם בדיקה אוטומטית · לא מוגש למורה</span>
+                        {isTeacher && (
+                            <button onClick={() => { setForm({ id: null, title: '', instructions: '', starterCode: '', points: '10', global: false }); setAdding(v => !v); }} className="btn btn-ghost btn-sm mr-auto">
+                                <Icon name={adding ? 'x' : 'plus'} size={14} /> {adding ? 'סגירה' : 'הוספת שאלה'}
+                            </button>
+                        )}
+                    </div>
+
+                    {isTeacher && adding && (
+                        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 mb-5 space-y-3">
+                            <div className="grid gap-3" style={{ gridTemplateColumns: 'minmax(0,1fr) 110px' }}>
+                                <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                                    placeholder="כותרת השאלה (למשל: סכום ספרות)" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white" />
+                                <input type="text" inputMode="numeric" value={form.points} onChange={e => setForm(f => ({ ...f, points: e.target.value.replace(/[^0-9]/g, '') }))}
+                                    placeholder="ניקוד" dir="ltr" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-center" />
+                            </div>
+                            <textarea value={form.instructions} onChange={e => setForm(f => ({ ...f, instructions: e.target.value }))} rows={4}
+                                placeholder="ניסוח השאלה — אפשר `קוד משולב` ושורות קוד נפרדות" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white resize-y" />
+                            <textarea value={form.starterCode} onChange={e => setForm(f => ({ ...f, starterCode: e.target.value }))} rows={4} dir="ltr"
+                                placeholder="public static int foo(int n) {\n    // כתבי כאן\n}" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white resize-y" style={{ fontFamily: "Consolas, 'JetBrains Mono', monospace", fontSize: 13, textAlign: 'left' }} />
+                            {isSuperAdminUser && !form.id && (
+                                <label className="flex items-center gap-2 text-sm text-amber-300 cursor-pointer">
+                                    <input type="checkbox" checked={form.global} onChange={e => setForm(f => ({ ...f, global: e.target.checked }))} />
+                                    לכל בתי הספר (גלובלי) — תופיע בכל בית ספר שיש בו נושא "{topicTitle}"
+                                </label>
+                            )}
+                            <button onClick={save} disabled={busy} className="btn btn-solid btn-sm">{busy ? 'שומרת...' : (form.id ? 'עדכון השאלה' : 'שמירה')}</button>
+                        </div>
+                    )}
+
+                    {items === null ? (
+                        <div className="text-slate-500 text-sm">טוען...</div>
+                    ) : items.length === 0 ? (
+                        isTeacher ? <div className="text-slate-500 text-sm">אין עדיין שאלות תרגול לנושא הזה.</div> : null
+                    ) : (
+                        <div className="flex flex-col gap-2.5">
+                            {items.map((q, i) => (
+                                <PracticeQuestionCard key={(q.global ? 'g_' : 's_') + q.id} q={q} index={i} user={user}
+                                    isTeacher={isTeacher} isSuperAdminUser={isSuperAdminUser} onEdit={startEdit} onDelete={remove} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         // ===== סרטונים וחומרים לנושא — גלובלי (כל בתי הספר) + של בית הספר =====
         const TopicMediaSection = ({ classId, topicTitle, isTeacher, isSuperAdminUser, user }) => {
             const [items, setItems] = useState(null);
@@ -9527,6 +9740,7 @@ ${answerText}
                                     <div className="mt-7">
                                         <TopicLearnSection topicTitle={selectedClassObj.title} customLesson={selectedClassObj.lesson} editable={isEditor} onEdit={() => setLessonModal({ open: true, classId: selectedClassObj.id, title: selectedClassObj.title })} />
                                     </div>
+                                    <div className="mt-7"><TopicPracticeSection classId={selectedClassObj.id} topicTitle={selectedClassObj.title} isTeacher={isEditor} isSuperAdminUser={(user?.email || '').toLowerCase().trim() === SUPER_ADMIN_EMAIL} user={user} /></div>
                                     {(() => {
                                         const visibleExams = (selectedClassObj.exams || []).filter(e => e.visible !== false);
                                         const openExam = (exam) => { setSelectedExam(exam); setSelectedQuestion(exam.questions?.[0]?.number ?? null); setViewingStudent(null); if (safePreviewMode) setPreviewAnswers({}); };

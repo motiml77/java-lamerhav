@@ -137,6 +137,18 @@ service cloud.firestore {
       allow write: if isTeacher();
     }
 
+    // ---------- שאלות תרגול קבועות ----------
+    // platform_questions — שאלות גלובליות לכל בתי הספר. כותב: המנהל הראשי בלבד.
+    match /platform_questions/{qId} {
+      allow read:  if isSignedIn();
+      allow write: if isTeacher();
+    }
+    // practice — שאלות של בית הספר הנוכחי (מצב legacy).
+    match /practice/{qId} {
+      allow read:  if isSignedIn();
+      allow write: if isTeacher();
+    }
+
     // ================================================================
     // בתי ספר — העץ הרב-בית-ספרי המלא (docs/multi-school-plan.md §6, שלב 3)
     // החוקים לאוספי השורש שלמעלה נשארים בכוונה — מצב legacy של lamerhav
@@ -212,6 +224,11 @@ service cloud.firestore {
       }
       // סרטונים וקבצים של בית הספר (המקבילה של media בשורש)
       match /media/{mediaId} {
+        allow read: if isActiveUser(school) || isSuperAdmin();
+        allow write: if canManage(school);
+      }
+      // שאלות תרגול קבועות של בית הספר
+      match /practice/{qId} {
         allow read: if isActiveUser(school) || isSuperAdmin();
         allow write: if canManage(school);
       }
