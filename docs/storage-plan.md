@@ -22,6 +22,14 @@
 
 ---
 
+> **תיקון (2026-08-27, מביקורת `blaze-checklist.md`): הקביעה בסעיף הזה שגויה.**
+> חוקי Storage **כן** יכולים לקרוא מ-Firestore, דרך Cross-service Rules:
+> `firestore.get(/databases/(default)/documents/schools/$(slug)).data`.
+> לכן אין צורך ב-Custom Claims ואין צורך ב"גרסה הפרגמטית" — אפשר לשקף
+> את `isSchoolTeacher`/`isActive`/`canManage` אחד לאחד מ-`firestore.rules`.
+> שים לב: בנתיב אין `$(database)` אלא `(default)` ליטרלי.
+> הרשימה המלאה והמעודכנת: [`blaze-checklist.md`](blaze-checklist.md).
+
 ## 1. האילוץ שקובע את כל התכנון
 
 זו הנקודה שגורמת לרוב הפרויקטים להיתקע מאוחר:

@@ -15,7 +15,9 @@ const PROJECT = 'exams-a93fb';
 const BASE = `/v1/projects/${PROJECT}/databases/(default)/documents`;
 const SLUG = 'lamerhav';
 const WRITE = process.argv.includes('--write');
-const PLAIN = ['classes', 'questions', 'exam_settings', 'grading_rubrics', 'notifications', 'users', 'media'];
+// כל אוסף שורש שנקרא דרך col() חייב להופיע כאן — אחרת שלב 6 ימחק אותו בלי עותק.
+const PLAIN = ['classes', 'questions', 'exam_settings', 'grading_rubrics', 'notifications',
+               'users', 'media', 'practice', 'activity'];
 const RESP = ['exam_responses', 'homework_responses'];
 
 function getToken() {
