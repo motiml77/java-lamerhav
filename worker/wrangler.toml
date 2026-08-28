@@ -1,0 +1,8 @@
+name = "gemini-proxy"
+main = "gemini-proxy.js"
+compatibility_date = "2026-08-28"
+
+# GEMINI_API_KEY נשלף כ-secret, לא כאן — ראי worker/README.md.
+# route/routes אינם מוגדרים כאן בכוונה: אם ה-Worker כבר קיים תחת
+# gemini-proxy.motiml77.workers.dev, "wrangler deploy" עם name זהה
+# פשוט מעדכן אותו במקום; כתובת workers.dev לא צריכה route ייעודי.

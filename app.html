@@ -1921,14 +1921,14 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
 
         // AI Service - קורא ל-Cloudflare Worker
         const AIService = {
-            async checkCode(code, questionText, questionImage, gradingInstructions) {
+            async checkCode(code, questionText, questionImage, gradingInstructions, questionPoints) {
                 const response = await fetch(WORKER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         school: SCHOOL_SLUG || 'lamerhav',
                         action: 'gradeExam',
-                        gradingData: { code, questionText, questionImage, gradingInstructions }
+                        gradingData: { code, questionText, questionImage, gradingInstructions, questionPoints }
                     })
                 });
                 
@@ -8276,11 +8276,14 @@ a.setGrade(100);   // משנה רק את נעמה
                             // הנחיות בדיקה: בסיס קבוע (תמיד) + הנחיות כלליות למבחן + דגשים לשאלה (תאימות לאחור לשדה הישן)
                             const qNote = (rubric.questions && rubric.questions[qIdx]) || qContent.questionPrompt || '';
                             const fullPrompt = buildExamGradingPrompt(rubric.examInstructions, qNote);
+                            // ניקוד השאלה — כדי שהעובד ידע את המקסימום בלי לנחש (בדיוק כמו checkHomework)
+                            const qMeta = selectedExam.questions?.find(q => q.number === Number(qIdx) || q.number === qIdx || String(q.number) === String(qIdx));
                             const feedback = await AIService.checkCode(
                                 answer.code,
                                 qContent.instructions || '',
                                 qContent.imageBase64 || '',
-                                fullPrompt
+                                fullPrompt,
+                                parseInt(qMeta?.points) || 10
                             );
                             feedbackByQuestion[qIdx] = feedback;
                         }
