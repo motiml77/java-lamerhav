@@ -4747,7 +4747,11 @@ a.setGrade(100);   // משנה רק את נעמה
                         </div>
                     </div>
                     <div className="flex items-center gap-2.5">
-                        <button onClick={onDemo} className="px-4 py-2 rounded-full text-sm font-bold text-indigo-200 bg-indigo-500/15 border border-indigo-400/35 hover:bg-indigo-500/25 transition-colors flex items-center gap-2" title="כניסה לצפייה בכל התוכן — ללא התחברות">
+                        <button onClick={() => onDemo(true)} className="px-4 py-2 rounded-full text-sm font-bold text-emerald-200 bg-emerald-500/15 border border-emerald-400/35 hover:bg-emerald-500/25 transition-colors flex items-center gap-2" title="להיכנס כמורה ולראות את כל אזור הניהול">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="M6 10.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-5.5"/></svg>
+                            דמו למורה
+                        </button>
+                        <button onClick={() => onDemo(false)} className="px-4 py-2 rounded-full text-sm font-bold text-indigo-200 bg-indigo-500/15 border border-indigo-400/35 hover:bg-indigo-500/25 transition-colors flex items-center gap-2" title="כניסה לצפייה בכל התוכן — ללא התחברות">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
                             כניסת דמו
                         </button>
@@ -4789,7 +4793,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         ))}
                     </div>
                     <p className="text-slate-500 text-sm mt-8">{IS_DEMO_SITE ? '· אפשר להסתובב חופשי — שום דבר לא נשמר ·' : '· התוכן ייפתח לאחר התחברות ואישור המורה ·'}</p>
-                    <button onClick={onDemo} className="mt-5 px-7 py-3 rounded-full text-base font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-colors inline-flex items-center gap-2.5" style={{ boxShadow: '0 8px 26px rgba(99,102,241,0.4)' }}>
+                    <button onClick={() => onDemo(false)} className="mt-5 px-7 py-3 rounded-full text-base font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-colors inline-flex items-center gap-2.5" style={{ boxShadow: '0 8px 26px rgba(99,102,241,0.4)' }}>
                         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
                         כניסת דמו — לצפות בכל התוכן
                     </button>
@@ -7522,8 +7526,9 @@ a.setGrade(100);   // משנה רק את נעמה
             // Teacher: load students pending approval
             useEffect(() => {
                 if (!user || !isEditor) return;
+                if (demoMode) return;   // במצב דמו הרשימה נזרעת מראש ואסור לדרוס אותה
                 DataService.loadAllStudents().then(all => setPendingStudents(all.filter(s => s.approved === false)));
-            }, [user, isEditor]);
+            }, [user, isEditor, demoMode]);
 
             // Teacher: approve / reject a pending student
             const handleApproveStudent = async (email, approve) => {
@@ -7621,23 +7626,146 @@ a.setGrade(100);   // משנה רק את נעמה
             }, [selectedExam, isEditor]);
 
             // Demo mode — לצפות בכל התוכן ללא התחברות (מזריק את כל הנושאים המובנים מקומית)
-            const enterDemo = () => {
+            // ===== מצב דמו =====
+            // הדמו חייב להראות גם את צד המורה, אחרת מורה שמתרשמת רואה רק חצי מוצר.
+            // כל הנתונים כאן בזיכרון בלבד — שום דבר לא נכתב ל-Firestore.
+            const DEMO_EXAMS = {
+                loops: [
+                    { id: 'demo_hw_loops', title: 'עבודה 1 — לולאות', type: 'homework', duration: null, visible: true,
+                      questions: [
+                        { number: 1, title: 'סכום המספרים מ-1 עד n', points: '40', questionType: 'code' },
+                        { number: 2, title: 'הדפסת לוח הכפל', points: '60', questionType: 'code' },
+                      ] },
+                    { id: 'demo_ex_loops', title: 'מבחן — לולאות ותנאים', type: 'exam', duration: 45, visible: true,
+                      questions: [
+                        { number: 1, title: 'ספירת מספרים זוגיים', points: '50', questionType: 'code' },
+                        { number: 2, title: 'מציאת המספר הגדול ביותר', points: '50', questionType: 'code' },
+                      ] },
+                ],
+                arrays: [
+                    { id: 'demo_hw_arrays', title: 'עבודה 2 — מערכים', type: 'homework', duration: null, visible: true,
+                      questions: [{ number: 1, title: 'ממוצע ציונים במערך', points: '100', questionType: 'code' }] },
+                ],
+            };
+            // תלמידות לדוגמה — כדי שלוח ההגשות והדוחות לא יהיו ריקים
+            const DEMO_STUDENTS = [
+                { id: 'd1', email: 'noa@demo', name: 'נעמה כהן',   grade: 'יא', classNum: '2', approved: true },
+                { id: 'd2', email: 'shira@demo', name: 'שירה לוי',  grade: 'יא', classNum: '2', approved: true },
+                { id: 'd3', email: 'tali@demo', name: 'טלי אברהם', grade: 'יא', classNum: '1', approved: true },
+                { id: 'd4', email: 'yael@demo', name: 'יעל מזרחי', grade: 'יב', classNum: '1', approved: true },
+                { id: 'd5', email: 'rivka@demo', name: 'רבקה פרץ', grade: 'יא', classNum: '1', approved: false },
+            ];
+
+            const DEMO_NL = String.fromCharCode(10);
+            // תשובות, ציונים ומשוב AI לדוגמה — כדי שגם צד התלמידה וגם צד המורה
+            // יהיו מלאים. הכול בזיכרון; אף קריאה ואף כתיבה לא מגיעות ל-Firestore.
+            const DEMO_CODE = {
+                sum:  'public class Main {' + DEMO_NL + '    public static void main(String[] args) {' + DEMO_NL + '        int n = 10, sum = 0;' + DEMO_NL + '        for (int i = 1; i <= n; i++) {' + DEMO_NL + '            sum = sum + i;' + DEMO_NL + '        }' + DEMO_NL + '        System.out.println(sum);' + DEMO_NL + '    }' + DEMO_NL + '}',
+                mult: 'public class Main {' + DEMO_NL + '    public static void main(String[] args) {' + DEMO_NL + '        for (int i = 1; i <= 10; i++) {' + DEMO_NL + '            System.out.println("7 x " + i + " = " + (7 * i));' + DEMO_NL + '        }' + DEMO_NL + '    }' + DEMO_NL + '}',
+                partial: 'public class Main {' + DEMO_NL + '    public static void main(String[] args) {' + DEMO_NL + '        int n = 10, sum = 0;' + DEMO_NL + '        for (int i = 1; i < n; i++) {   // כאן הבאג' + DEMO_NL + '            sum += i;' + DEMO_NL + '        }' + DEMO_NL + '        System.out.println(sum);' + DEMO_NL + '    }' + DEMO_NL + '}',
+                even: 'public class Main {' + DEMO_NL + '    public static void main(String[] args) {' + DEMO_NL + '        int count = 0;' + DEMO_NL + '        for (int i = 1; i <= 100; i++) {' + DEMO_NL + '            if (i % 2 == 0) count++;' + DEMO_NL + '        }' + DEMO_NL + '        System.out.println(count);' + DEMO_NL + '    }' + DEMO_NL + '}',
+            };
+            const fb = (score, max, feedback, errors, suggestions) => ({
+                aiScore: score, maxPoints: max, feedback, errors: errors || [], suggestions: suggestions || [],
+            });
+            const DEMO_RESPONSES = {
+                demo_hw_loops: [
+                    { id: 'noa_demo', email: 'noa@demo', studentName: 'נעמה כהן', finalGrade: 95, sentToStudent: true,
+                      answers: { 1: { code: DEMO_CODE.sum, aiFeedback: fb(38, 40,
+                            'פתרון נכון ומסודר. הלולאה רצה בדיוק n פעמים והצבירה נכונה. שם המשתנה sum ברור.',
+                            [], ['אפשר לקצר עם sum += i במקום sum = sum + i']) },
+                                 2: { code: DEMO_CODE.mult, aiFeedback: fb(57, 60,
+                            'הפלט מדויק והפורמט קריא. שימוש נכון בשרשור מחרוזות עם חישוב בתוך סוגריים.',
+                            [], ['שווה לשמור את 7 במשתנה כדי שיהיה קל לשנות את לוח הכפל']) } } },
+                    { id: 'shira_demo', email: 'shira@demo', studentName: 'שירה לוי', finalGrade: 72, sentToStudent: true,
+                      answers: { 1: { code: DEMO_CODE.partial, aiFeedback: fb(24, 40,
+                            'הרעיון של הצבירה נכון, אבל תנאי העצירה שגוי: i < n עוצר ב-9 ולכן 10 לא נספר. התוצאה 45 במקום 55.',
+                            ['תנאי העצירה צריך להיות i <= n'], ['בדקי את הפתרון על n קטן, למשל n=3, וספרי ידנית']) },
+                                 2: { code: DEMO_CODE.mult, aiFeedback: fb(48, 60,
+                            'הלולאה נכונה והפלט תקין. חסרה שורת כותרת שתסביר מה מודפס.',
+                            [], ['הוסיפי System.out.println("לוח הכפל של 7:") לפני הלולאה']) } } },
+                    { id: 'tali_demo', email: 'tali@demo', studentName: 'טלי אברהם',
+                      answers: { 1: { code: DEMO_CODE.sum, aiFeedback: fb(40, 40,
+                            'מצוין. פתרון נכון, קריא, ועם שמות משתנים ברורים.', [], []) } } },
+                ],
+                demo_ex_loops: [
+                    { id: 'noa_demo', email: 'noa@demo', studentName: 'נעמה כהן', finalGrade: 88, sentToStudent: true,
+                      answers: { 1: { code: DEMO_CODE.even, aiFeedback: fb(45, 50,
+                            'נכון. הבדיקה i % 2 == 0 היא הדרך הנכונה לזהות מספר זוגי.',
+                            [], ['אפשר גם להתחיל מ-2 ולקפוץ i += 2 — חוסך חצי מהסיבובים']) } } },
+                    { id: 'yael_demo', email: 'yael@demo', studentName: 'יעל מזרחי', finalGrade: 64, sentToStudent: true,
+                      answers: { 1: { code: DEMO_CODE.even, aiFeedback: fb(32, 50,
+                            'הספירה נכונה אך הפלט לא כולל הסבר, ובתנאי יש השוואה עם = במקום ==.',
+                            ['השוואה נכתבת עם == ולא עם ='], ['הריצי את הקוד ובדקי אם הוא בכלל מתקמפל']) } } },
+                ],
+                demo_hw_arrays: [
+                    { id: 'shira_demo', email: 'shira@demo', studentName: 'שירה לוי', finalGrade: 90, sentToStudent: true,
+                      answers: { 1: { code: DEMO_CODE.sum, aiFeedback: fb(90, 100,
+                            'הממוצע מחושב נכון. שימי לב שחלוקה של שני מספרים שלמים מחזירה מספר שלם.',
+                            [], ['להמרה מדויקת: (double) sum / arr.length']) } } },
+                ],
+            };
+            // מה שהתלמידה בדמו רואה בעצמה
+            const DEMO_MY_ANSWERS = {
+                demo_hw_loops: { email: 'demo@demo', studentName: 'תלמידה לדוגמה', finalGrade: 86, sentToStudent: true,
+                    answers: { 1: { code: DEMO_CODE.sum, aiFeedback: fb(36, 40,
+                            'פתרון נכון! הלולאה והצבירה מדויקות. אפשר לשפר את שמות המשתנים.',
+                            [], ['sum ו-n ברורים, אבל אפשר להוסיף הערה שמסבירה מה הקוד עושה']) },
+                               2: { code: DEMO_CODE.mult, aiFeedback: fb(50, 60,
+                            'הפלט נכון. חסר טיפול במקרה שבו רוצים לוח כפל של מספר אחר.',
+                            [], ['הגדירי int num = 7 והשתמשי בו בתוך הלולאה']) } } },
+            };
+            const DEMO_Q_CONTENT = {
+                demo_hw_loops_q_1: { instructions: 'כתבי תוכנית שמחשבת ומדפיסה את סכום המספרים מ-1 עד n. עבור n = 10 הפלט צריך להיות 55.', imageBase64: '' },
+                demo_hw_loops_q_2: { instructions: 'הדפיסי את לוח הכפל של 7, בפורמט: "7 x 1 = 7" ושורה לכל מכפלה עד 10.', imageBase64: '' },
+                demo_ex_loops_q_1: { instructions: 'ספרי כמה מספרים זוגיים יש בין 1 ל-100, והדפיסי את התוצאה.', imageBase64: '' },
+                demo_ex_loops_q_2: { instructions: 'נתונים שלושה מספרים. מצאי והדפיסי את הגדול מביניהם.', imageBase64: '' },
+                demo_hw_arrays_q_1: { instructions: 'נתון מערך ציונים. חשבי והדפיסי את הממוצע, מעוגל לשתי ספרות אחרי הנקודה.', imageBase64: '' },
+            };
+
+            const enterDemo = (asTeacher) => {
                 const demoClasses = LEARN_LIBRARY.map((lib, i) => ({
                     id: 'demo_' + i,
                     title: lib.title,
                     icon: '📚',
                     grade: topicGradeFor(lib.title),
-                    exams: [],
+                    exams: (DEMO_EXAMS[topicKeyOf(lib.title)] || []).map(e => ({ ...e })),
                     order: i
                 }));
                 setClasses(demoClasses);
                 setDemoMode(true);
-                setUser({ email: 'demo@demo', displayName: 'דמו' });
-                setIsEditor(false);
-                setStudentName('מצב דמו');
-                setStudentGrade('');
+                setUser({ email: 'demo@demo', displayName: asTeacher ? 'מורה (דמו)' : 'דמו' });
+                setIsEditor(!!asTeacher);
+                setStudentName(asTeacher ? 'מורה לדוגמה' : 'תלמידה לדוגמה');
+                setStudentGrade(asTeacher ? '' : 'יא');
                 setNameEntered(true);
                 setStudentApproved(true);
+                setPendingStudents(DEMO_STUDENTS.filter(x => x.approved === false));
+                // עוקפים את שכבת הנתונים כולה — הדמו לא נוגע ב-Firestore בכלל
+                Object.assign(DataService, {
+                    loadAllStudents: async () => DEMO_STUDENTS.filter(x => x.approved !== false),
+                    loadAllResponses: async (examId) => (DEMO_RESPONSES[examId] || []).map(r => ({ ...r })),
+                    loadStudentData: async (examId, type, email) =>
+                        (email === 'demo@demo' ? (DEMO_MY_ANSWERS[examId] || null)
+                         : ((DEMO_RESPONSES[examId] || []).find(r => r.email === email) || null)),
+                    loadStudentScores: async () => ({
+                        exams: [{ examId: 'demo_ex_loops', grade: 88 }],
+                        homeworks: [{ examId: 'demo_hw_loops', grade: 86 }],
+                    }),
+                    loadQuestionContent: async (qId) => DEMO_Q_CONTENT[qId] || null,
+                    loadExamSettings: async () => ({}),
+                    loadNotifications: async () => [],
+                    loadHomeworkCheckCounts: async () => ({}),
+                    loadGradingRubric: async () => null,
+                    loadTopicMedia: async () => [],
+                    loadTopicPractice: async () => [],
+                    saveStudentAnswer: async () => true,
+                    saveAIFeedback: async () => true,
+                    saveManualGrade: async () => true,
+                    saveClass: async () => true,
+                    saveQuestionContent: async () => true,
+                    logVisit: async () => true,
+                });
                 setProfileLoading(false);
                 setDataLoading(false);
                 setAuthLoading(false);
@@ -8458,7 +8586,10 @@ a.setGrade(100);   // משנה רק את נעמה
                     {demoMode && (
                         <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 60 }}>
                             <div className="flex items-center gap-3 bg-indigo-600/95 text-white rounded-full pl-2 pr-4 py-1.5 shadow-2xl border border-indigo-400/40" style={{ backdropFilter: 'blur(8px)' }}>
-                                <span className="flex items-center gap-1.5 text-sm font-bold"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> מצב דמו · צפייה בכל התוכן</span>
+                                <span className="flex items-center gap-1.5 text-sm font-bold"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> {isEditor ? 'מצב דמו · צד המורה' : 'מצב דמו · צד התלמידה'}</span>
+                                <button onClick={() => enterDemo(!isEditor)} className="text-xs font-bold bg-white/25 hover:bg-white/35 rounded-full px-3 py-1 transition-colors">
+                                    {isEditor ? 'מעבר לצד התלמידה' : 'מעבר לצד המורה'}
+                                </button>
                                 <button onClick={() => window.location.reload()} className="text-xs font-bold bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors">יציאה</button>
                             </div>
                         </div>
