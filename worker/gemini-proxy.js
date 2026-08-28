@@ -8,8 +8,17 @@
  * למה נכתב מחדש: הריצה מול ה-Worker הקיים החזירה "כל המודלים נכשלו" בכל
  * קריאה (גם gradeExam וגם checkHomework), ו-"Invalid action" על action:'chat'
  * — כלומר הפעולה שמפעילה את "הרצה" בעמוד הלמידה ואת עוזרת ה-AI מעולם לא
- * הייתה נתמכת. אין גישה לקוד המקור הקודם או לחשבון ה-Cloudflare — זה קובץ
- * חלופי מלא, מוכן להדבקה.
+ * הייתה נתמכת.
+ *
+ * עדכון: יש כעת גישה ל-Cloudflare (wrangler מחובר לאותו חשבון), ומשכה
+ * הקוד הקודם נמשך ונקרא לפני שהוחלף — ואז נמצאו הסיבות המדויקות: המודלים
+ * הישנים היו gemini-1.5-pro-002 / gemini-1.5-flash (משפחת 1.5 יצאה
+ * משימוש), וה-CORS היה נעול לדומיין ישן לגמרי (java-exams.motiml77...)
+ * שאינו אחד מהאתרים הפעילים היום. שני אלה תוקנו כאן.
+ * נמצאו גם שתי פעולות ישנות ש-app.html אינו קורא להן כלל היום —
+ * gradeHandwritten (בדיקת מבחן בכתב יד מצולם) ו-suggestAnswer (תיקון קוד
+ * תוך שמירה על הגישה של התלמידה). הן לא נמחקו, רק עודכנו לאותה שרשרת
+ * מודלים — כדי לא לאבד יכולת קיימת בלי סיבה, גם אם היא לא בשימוש כרגע.
  *
  * החלטה מכוונת: משתמש ב-REST endpoint הקלאסי (v1beta/models/{model}:generateContent)
  * ולא ב-API "interactions" החדש יותר של גוגל. הקלאסי מתועד ונבדק היטב ואי
@@ -30,7 +39,11 @@
 // אם המודל הראשון נכשל (עומס, שינוי זמני בזמינות) — עוברים לבא בתור,
 // ולא מחזירים שגיאה לתלמידה רק כי מודל ספציפי אחד תקוע.
 // ---------------------------------------------------------------------------
-const MODELS = ['gemini-3.7-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+// gemini-2.0-flash הוסר: נבדק חי מול Gemini האמיתי ב-2026-08-28 והתגלה
+// 404 — "no longer available... use models/gemini-3.6-flash". גם 3.7-flash
+// נתפס באותה בדיקה ב-503 (עומס זמני, לא תקלה) ונפל אוטומטית לבא בתור —
+// בדיוק התרחיש שהשרשרת נועדה לספוג. עכשיו כל השלושה מאומתים כחיים.
+const MODELS = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'];
 
 // דומיינים שמורשים לקרוא ל-Worker — כל האתרים של הפרויקט הזה (חי, דמו, תצוגות
 // מקדימות) ופיתוח מקומי. בלי זה, שינוי בחוקי ה-CORS יעצור את כל האתרים בבת אחת.
@@ -87,7 +100,9 @@ async function callGemini(apiKey, systemInstruction, contents, { jsonMode = fals
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        errors.push(`${model}: HTTP ${res.status} — ${data?.error?.message || 'unknown'}`);
+        const msg = `${model}: HTTP ${res.status} — ${data?.error?.message || 'unknown'}`;
+        errors.push(msg);
+        console.warn('[gemini-proxy] model failed:', msg); // גלוי ב-wrangler tail, גם כשמודל אחר מצליח בהמשך
         continue; // המודל הזה נכשל — עוברים לבא בתור
       }
       const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
@@ -122,6 +137,10 @@ function imagePart(dataUri) {
   const m = dataUri.match(/^data:([^;]+);base64,(.+)$/s);
   if (!m) return null;
   return { inlineData: { mimeType: m[1], data: m[2] } };
+}
+// לבדיקת מבחן בכתב יד — כמה תמונות ברצף אחד
+function imageParts(dataUris) {
+  return (Array.isArray(dataUris) ? dataUris : []).map(imagePart).filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +219,114 @@ async function handleCheckHomework(apiKey, payload) {
     encouragement: parsed.encouragement || '',
     languageExamples: Array.isArray(parsed.languageExamples) ? parsed.languageExamples : [],
     examples: parsed.examples || null,
+    modelUsed,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// action: gradeHandwritten — בדיקת מבחן מצולם (כתב יד). app.html אינו קורא
+// לפעולה הזו כיום (נבדק — אין אף אזכור), אבל היא יכולת עצמאית ושלמה,
+// ולכן הועברה כמו שהיא לשרשרת המודלים הנוכחית ולא נמחקה. הפרומפט המקורי
+// נשמר כמעט מילה במילה — הוא כבר מגדיר בדיוק את סדר התמונות (עמודי המבחן
+// קודם, אחר כך תשובות התלמידה) ואת מבנה הפלט הנדרש.
+// ---------------------------------------------------------------------------
+async function handleGradeHandwritten(apiKey, handwrittenData) {
+  const { examImages, studentImages, gradingInstructions } = handwrittenData || {};
+  if (!studentImages || !studentImages.length) throw new Error('חסרות תמונות תשובות תלמיד');
+
+  const safeExamImages = Array.isArray(examImages) ? examImages : [];
+  const examCount = safeExamImages.length;
+  const studentCount = studentImages.length;
+  const allImages = [...safeExamImages, ...studentImages];
+
+  const examDescription = examCount > 0
+    ? `${examCount > 1 ? `${examCount} התמונות הראשונות` : 'התמונה הראשונה'} — דפי המבחן (השאלות).\n${studentCount > 1 ? `${studentCount} התמונות האחרונות` : 'התמונה האחרונה'} — תשובות התלמיד בכתב יד.`
+    : `כל ${studentCount > 1 ? `${studentCount} התמונות` : 'התמונה'} — תשובות התלמיד בכתב יד. לא סופקו דפי מבחן נפרדים, זהי את השאלות מתוך התשובות עצמן.`;
+
+  const systemInstruction = `אתה מורה מומחה לבדיקת מבחנים בשפת Java. קיבלת תמונות של תשובות תלמיד בכתב יד${examCount > 0 ? ' יחד עם דפי המבחן' : ''}.
+
+${examDescription}
+
+הנחיות:
+- זהי כל שאלה בנפרד${examCount > 0 ? ' מתוך דפי המבחן' : ' מתוך תשובות התלמיד'}
+- קראי בקפידה את כתב היד של התלמידה עבור כל שאלה
+- אם לא ניתן לקרוא חלק מכתב היד, ציין זאת
+- בדקי נכונות הקוד: תחביר, לוגיקה, תנאי קצה
+- דרגי כל שאלה בציון מספרי
+- כתבי הערות בעברית בלבד
+- ציין שגיאות ספציפיות עם הפניה למקום בקוד
+
+החזירי JSON בלבד בפורמט הבא:
+{
+  "totalScore": מספר — סך הציון הכולל,
+  "maxScore": מספר — הציון המקסימלי,
+  "questions": [
+    { "questionNumber": 1, "title": "תיאור קצר של השאלה", "score": מספר, "maxScore": מספר,
+      "feedback": "משוב מפורט", "errors": ["..."], "suggestions": ["..."], "grade": "מצוין/טוב/סביר/צריך שיפור" }
+  ],
+  "generalFeedback": "סיכום כללי של הביצוע"
+}
+חשוב: totalScore הוא סכום כל ה-score, maxScore הוא סכום כל ה-maxScore. זהי את כל השאלות גם אם התלמידה לא ענתה על חלקן (ציון 0).`;
+
+  const parts = [{ text: gradingInstructions || '(אין הנחיות נוספות — הניחי תלמידות כיתה יא עם main, Scanner בשם in וכל הפונקציות הבסיסיות)' }, ...imageParts(allImages)];
+  const { text, modelUsed } = await callGemini(apiKey, systemInstruction, [{ role: 'user', parts }], { jsonMode: true, temperature: 0.2 });
+
+  const parsed = parseJsonLoose(text, { totalScore: 0, maxScore: 100, questions: [], generalFeedback: '' });
+  const questions = Array.isArray(parsed.questions)
+    ? parsed.questions.map((q, i) => {
+        const qMax = typeof q.maxScore === 'number' ? Math.max(1, q.maxScore) : 10;
+        // חסימה גם למעלה לפי qMax — לא רק למטה כמו בקוד הקודם. בלעדיה מודל
+        // שמזה ציון לשאלה בודדת (למשל 999 על שאלה של 10) עובר בלי בדיקה.
+        const qScore = typeof q.score === 'number' ? Math.max(0, Math.min(qMax, q.score)) : 0;
+        return {
+          questionNumber: q.questionNumber || i + 1,
+          title: String(q.title || ''),
+          score: qScore,
+          maxScore: qMax,
+          feedback: String(q.feedback || ''),
+          errors: Array.isArray(q.errors) ? q.errors.map(String) : [],
+          suggestions: Array.isArray(q.suggestions) ? q.suggestions.map(String) : [],
+          grade: String(q.grade || ''),
+        };
+      })
+    : [];
+  const totalScore = questions.reduce((sum, q) => sum + q.score, 0);
+  const maxScore = questions.reduce((sum, q) => sum + q.maxScore, 0);
+
+  return {
+    totalScore: typeof parsed.totalScore === 'number' ? parsed.totalScore : totalScore,
+    maxScore: typeof parsed.maxScore === 'number' ? parsed.maxScore : maxScore,
+    questions,
+    generalFeedback: String(parsed.generalFeedback || ''),
+    modelUsed,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// action: suggestAnswer — מתקנת קוד תוך שמירה על הגישה/סגנון של התלמידה,
+// ולא כתיבה מחדש. גם היא לא נקראת כיום מ-app.html, הועברה מהקוד הקודם.
+// ---------------------------------------------------------------------------
+async function handleSuggestAnswer(apiKey, suggestData) {
+  const { code, questionText, questionImage } = suggestData || {};
+  const systemInstruction = `את מורה מנוסה לג'אווה. קיבלת שאלה ותשובת תלמידה.
+
+המשימה שלך:
+1. אם הקוד של התלמידה נכון ועונה על השאלה — החזירי אותו כמו שהוא.
+2. אם הקוד לא נכון — כתבי תשובה מתוקנת שמבוססת על הגישה של התלמידה: שמרי על שמות משתנים, סגנון כתיבה ומבנה כמה שאפשר, ותקני רק את מה שצריך תיקון. אל תכתבי מחדש — תקני.
+
+החזירי JSON בלבד:
+{ "isCorrect": true/false, "correctedCode": "הקוד המתוקן (או המקורי אם נכון)", "explanation": "הסבר קצר בעברית — מה תוקן ולמה (או 'הקוד נכון')" }`;
+
+  const parts = [{ text: `השאלה: ${questionText || '(לא צוינה)'}\n\nהקוד של התלמידה:\n\`\`\`java\n${code || '// אין קוד'}\n\`\`\`` }];
+  const img = imagePart(questionImage);
+  if (img) parts.push(img);
+
+  const { text, modelUsed } = await callGemini(apiKey, systemInstruction, [{ role: 'user', parts }], { jsonMode: true, temperature: 0.2 });
+  const parsed = parseJsonLoose(text, { isCorrect: false, correctedCode: code || '', explanation: '' });
+  return {
+    isCorrect: !!parsed.isCorrect,
+    correctedCode: parsed.correctedCode || code || '',
+    explanation: parsed.explanation || '',
     modelUsed,
   };
 }
@@ -296,6 +423,12 @@ export default {
           break;
         case 'chat':
           result = await handleChat(env.GEMINI_API_KEY, payload.messages, payload.context);
+          break;
+        case 'gradeHandwritten':
+          result = await handleGradeHandwritten(env.GEMINI_API_KEY, payload.handwrittenData);
+          break;
+        case 'suggestAnswer':
+          result = await handleSuggestAnswer(env.GEMINI_API_KEY, payload.suggestData);
           break;
         default:
           return json({ error: 'Invalid action' }, 400, origin);

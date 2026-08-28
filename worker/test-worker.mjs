@@ -68,7 +68,7 @@ fetchScript = [
 {
   const r = await req({ action: 'gradeExam', gradingData: { code: 'x', questionPoints: 10 } });
   check('fallback: 2 קריאות (ראשון נכשל)', r.calls.length === 2, String(r.calls.length));
-  check('fallback: modelUsed הוא השני', r.body.modelUsed === 'gemini-2.5-flash', r.body.modelUsed);
+  check('fallback: modelUsed הוא השני', r.body.modelUsed === 'gemini-3.6-flash', r.body.modelUsed);
   check('fallback: התוצאה מהמודל השני', r.body.aiScore === 7);
 }
 
@@ -157,6 +157,36 @@ fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: 'נ
   const request = { method: 'OPTIONS', headers: { get: () => 'https://java-lamerhav.vercel.app' } };
   const res = await worker.fetch(request, { GEMINI_API_KEY: 'x' });
   check('OPTIONS: 204 עם CORS headers', res.status === 204 && res.headers.get('Access-Control-Allow-Origin') === 'https://java-lamerhav.vercel.app');
+}
+
+// ===== 13ב. gradeHandwritten — מבחן בכתב יד, כמה תמונות, נרמול ציונים =====
+fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: JSON.stringify({
+  totalScore: 15, maxScore: 20, generalFeedback: 'סבבה',
+  questions: [
+    { questionNumber: 1, title: 'לולאה', score: 8, maxScore: 10, feedback: 'טוב', errors: [], suggestions: [], grade: 'טוב' },
+    { questionNumber: 2, title: 'תנאי', score: 999, maxScore: 10, feedback: 'חלקי', errors: ['שגיאה'], suggestions: [], grade: 'סביר' },
+  ] }) }] } }] } }];
+{
+  const r = await req({ action: 'gradeHandwritten', handwrittenData: {
+    examImages: ['data:image/jpeg;base64,ZXhhbQ=='], studentImages: ['data:image/jpeg;base64,c3R1ZGVudA=='], gradingInstructions: 'בדקי בקפדנות' } });
+  check('gradeHandwritten: status 200', r.status === 200, JSON.stringify(r.body));
+  check('gradeHandwritten: שתי תמונות נשלחו', r.calls[0].body.contents[0].parts.filter(p => p.inlineData).length === 2);
+  check('gradeHandwritten: totalScore/maxScore מהתשובה', r.body.totalScore === 15 && r.body.maxScore === 20);
+  check('gradeHandwritten: 2 שאלות', r.body.questions.length === 2);
+  check('gradeHandwritten: ציון שאלה בודדת נחתך לפי maxScore (לא 999)', r.body.questions[1].score === 10, r.body.questions[1].score);
+}
+{
+  const r = await req({ action: 'gradeHandwritten', handwrittenData: { studentImages: [] } });
+  check('gradeHandwritten: בלי תמונות תלמידה → שגיאה ברורה, לא קריסה', r.status === 500 && /חסרות תמונות/.test(r.body.error), JSON.stringify(r.body));
+}
+
+// ===== 13ג. suggestAnswer — קוד נכון מוחזר כמו שהוא, קוד שגוי מתוקן =====
+fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: JSON.stringify({ isCorrect: true, correctedCode: 'int x=1;', explanation: 'הקוד נכון' }) }] } }] } }];
+{
+  const r = await req({ action: 'suggestAnswer', suggestData: { code: 'int x=1;', questionText: 'הגדירי x' } });
+  check('suggestAnswer: status 200', r.status === 200, JSON.stringify(r.body));
+  check('suggestAnswer: isCorrect=true עובר', r.body.isCorrect === true);
+  check('suggestAnswer: correctedCode מוחזר', r.body.correctedCode === 'int x=1;');
 }
 
 // ===== 13. תמונה מוטמעת (data URI) מטופלת בלי לקרוס =====
