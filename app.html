@@ -7339,6 +7339,12 @@ a.setGrade(100);   // משנה רק את נעמה
             useEffect(() => { if (user && user.email && !demoMode) DataService.logVisit(user.email); }, [user, demoMode]);
             const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
             const toggleSidebar = () => setSidebarCollapsed(v => !v);
+            // כניסה לעמוד "הסבר ולימוד" של נושא — מקפלים את הסרגל אוטומטית כדי
+            // שהתוכן יתפוס את כל הרוחב. תלוי רק ב-selectedClass (לא selectedExam),
+            // כדי שזה יקרה פעם אחת בכניסה לנושא ולא בכל מעבר פנימי בין מבחנים
+            // לעמוד הקורס — אחרת מורה שפתחה מחדש את הסרגל תמצא אותו נסגר שוב.
+            // לא נשמר כהעדפה, בדיוק כמו קיפול מצב המבחן (8546) — תמיד אפשר לפתוח בחזרה.
+            useEffect(() => { if (selectedClass && !selectedExam) setSidebarCollapsed(true); }, [selectedClass]);
             // ===== מצב מבחן נעול =====
             const [examLockStarted, setExamLockStarted] = useState(null); // examId שעבורו אושר "התחל מבחן"
             const [examLockExits, setExamLockExits] = useState(0); // מונה יציאות בסשן הנוכחי
