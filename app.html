@@ -522,9 +522,19 @@
         // הרשימה משמשת גם לניתוב, והוספה כזו תשבור את הכתובת שלו. התנגשות נמנעת בבדיקת קיום ב-createSchool.
         const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'firebase-setup']);
         const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
-        const __seg = (typeof location !== 'undefined' ? location.pathname : '/').split('/').filter(Boolean);
+        const __path = (typeof location !== 'undefined' ? location.pathname : '/');
+        const __seg = __path.split('/').filter(Boolean);
         const IS_ADMIN_ROUTE = __seg[0] === 'manage';
         const SCHOOL_SLUG = (!IS_ADMIN_ROUTE && __seg[0] && SLUG_PATTERN.test(__seg[0]) && !RESERVED_SLUGS.has(__seg[0])) ? __seg[0] : null;
+        // "legacy" אמיתי — רק הנתיב הריק, app.html הישיר, או קובץ מקומי. בכוונה *לא*
+        // כל RESERVED_SLUGS: מסלול ה-rewrite הכללי (vercel.json) מפנה גם /docs, /admin,
+        // /login וכו' לאותו app.html, ובלי הצמצום הזה כל אחד מהם היה מקבל <App/> עם
+        // SCHOOL_SLUG=null → col() נופל לאוספי השורש, שעדיין מכילים עותק מלא של
+        // תוכן lamerhav (המיגרציה העתיקה ולא מחקה) — כל מחוברת מכל בית ספר הייתה
+        // קוראת אותו. אומת מול Firestore החי לפני התיקון: 5/6 אוספי שורש דלפו.
+        const IS_LEGACY_ROUTE = !IS_ADMIN_ROUTE
+            && (__seg.length === 0 || __path === '/app.html'
+                || typeof location === 'undefined' || location.protocol === 'file:');
         // בית הספר הראשון — עד שהמיגרציה (שלב 5) תיצור את המסמך ב-Firestore, יש לו הגדרה מקומית
         // שוות-ערך למצב היום. חל אך ורק על lamerhav; כל slug אחר בלי מסמך → "לא נמצא".
         const LEGACY_SCHOOL_FALLBACK = {
@@ -12939,7 +12949,14 @@ ${answerText}
 
         const Root = () => {
             // מצב ישן — גישה ישירה ל-/app.html (וגם file://): מתנהג בדיוק כמו היום.
-            if (!IS_ADMIN_ROUTE && !SCHOOL_SLUG) return <App />;
+            if (!IS_ADMIN_ROUTE && !SCHOOL_SLUG && IS_LEGACY_ROUTE) return <App />;
+            // slug שמור או לא תקין (docs/admin/login/...): לא legacy אמיתי — לא לתת
+            // גישה לאוספי השורש. אותו מסך בדיוק כמו slug שלא קיים בכלל.
+            if (!IS_ADMIN_ROUTE && !SCHOOL_SLUG) return (
+                <GateScreen title="בית ספר לא נמצא" icon={<Icon name="search" size={30} />}>
+                    הכתובת הזו אינה מפנה לבית ספר. בדקי את הקישור שקיבלת — אות אחת שונה מספיקה.
+                </GateScreen>
+            );
 
             // לוח המנהל הראשי — שלב 4
             if (IS_ADMIN_ROUTE) return <AdminConsole />;

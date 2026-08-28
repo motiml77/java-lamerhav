@@ -111,9 +111,17 @@ function check(label, got, expect, body) {
       { fields: { email: { stringValue: OUTSIDER.email }, name: { stringValue: 'חדשה' }, approved: { booleanValue: false } } });
     check('משתמשת חדשה נרשמת                      ', r.code, 200, r.body);
 
-    // ואחרי ההרשמה — היא כן קוראת (היא כבר חברה)
+    // אחרי ההרשמה — עדיין DENY! נרשמה אבל לא אושרה. אם היו מקבלות ALLOW כאן,
+    // כל אחת הייתה יכולה להעניק לעצמה חברות בכל בית ספר בלי אישור מורה כלל —
+    // בדיוק זו הייתה הבדיקה השגויה שנעלה כאן לפני התיקון.
     r = await readClass(users[OUTSIDER.email]);
-    check('אחרי ההרשמה היא קוראת נושא             ', r.code, 200, r.body);
+    check('אחרי הרשמה בלי אישור עדיין לא קוראת    ', r.code, 403, r.body);
+
+    // המורה מאשרת — ורק אז יש קריאה
+    await call(FS, `${DOCS}/schools/${SLUG}/users/${safe(OUTSIDER.email)}?updateMask.fieldPaths=approved`,
+      'PATCH', adm(tok), { fields: { approved: { booleanValue: true } } });
+    r = await readClass(users[OUTSIDER.email]);
+    check('אחרי אישור המורה כן קוראת              ', r.code, 200, r.body);
 
     console.log('\n===== ' + pass + '/' + (pass + fail) + ' =====');
   } finally {

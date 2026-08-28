@@ -227,9 +227,16 @@ service cloud.firestore {
     // חברות אמיתית בבית הספר. בלי זה "מחוברת" הספיקה כדי לקרוא את התוכן של
     // *כל* בית ספר פעיל — נושאים, שאלות מבחן והגדרות מבחן. אומת ונחסם.
     // עלות: קריאה אחת נוספת לכל הערכת חוק. זה המחיר של בידוד אמיתי.
+    // בכוונה לא רק exists(): מי שנרשמה ועדיין לא אושרה ID לגיטימית תיצור לעצמה
+    // מסמך תלמידה (canRegister מאפשר את זה בכל בית ספר פעיל) — בלי הבדיקה על
+    // approved, יצירת המסמך העצמית הזו לבדה הייתה מספיקה כדי לפתוח קריאה מלאה
+    // לכל בית ספר פעיל, בלי שום אישור מורה. זו בדיוק כוונת PendingApprovalScreen
+    // בקוד (app.html:8492): לא מאושרת = לא רואה תוכן, לא רק "לא רואה כפתורים".
     function isMember(school) {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/schools/$(school)/users/$(memberId()));
+        && exists(/databases/$(database)/documents/schools/$(school)/users/$(memberId()))
+        && get(/databases/$(database)/documents/schools/$(school)/users/$(memberId()))
+             .data.get('approved', false) == true;
     }
 
     // לפני ההרשמה אין עדיין מסמך תלמידה, ולכן isMember עוד לא יכול להתקיים.

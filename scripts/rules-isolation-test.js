@@ -24,9 +24,15 @@ function token(cb) {
 }
 
 const auth = e => ({ uid: 'u_' + e.split('@')[0], token: { email: e, email_verified: true, firebase: { sign_in_provider: 'google.com' } } });
-// get מחזיר את מסמך בית הספר; exists עונה על isMember
+// get מחזיר את מסמך בית הספר; exists עונה על isMember.
+// מגבלת ה-Rules Test API: functionMocks מותאם לפי שם הפונקציה בלבד, לא לפי
+// הנתיב — ולכן שני get() שונים (מסמך בית הספר, מסמך החברות לבדיקת approved)
+// מקבלים את אותה תשובה. approved:true תמיד באובייקט הממוזג; זה לא פותח דלת
+// לתלמידה זרה כי exists() המדומה (member) הוא מה שקובע — כשהוא false, ה-&&
+// הרשמי ב-isMember עוצר לפני שהוא בכלל מגיע ל-get() השני.
+// הסמכות לגבי get() מקונן היא scripts/e2e-isolation-check.js מול השרת האמיתי.
 const mocks = (member, teacher, status) => ([
-  { function: 'get', args: [{ anyValue: {} }], result: { value: { data: { slug: 'schoolB', teacherEmail: teacher, status: status || 'active' } } } },
+  { function: 'get', args: [{ anyValue: {} }], result: { value: { data: { slug: 'schoolB', teacherEmail: teacher, status: status || 'active', approved: true } } } },
   { function: 'exists', args: [{ anyValue: {} }], result: { value: !!member } },
 ]);
 
