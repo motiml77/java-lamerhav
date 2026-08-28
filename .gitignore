@@ -1,6 +1,7 @@
 .vercel
 .firebase
 node_modules
+worker/.wrangler
 serviceAccountKey.json
 firebase-setup/node_modules
 firebase-setup/package*.json
