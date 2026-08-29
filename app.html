@@ -1157,6 +1157,66 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 } catch (e) { console.error('Undo promotion error:', e); return { done: 0, error: true }; }
             },
 
+            // ===== "פתיחת שנה חדשה" — איפוס מבחני נושא לקוהורט חדש =====
+            // docs/plan-fresh-year-exam-reset.md. exams החי מתרוקן; מה שהיה נשמר תחת
+            // examSnapshots[year] באותו מסמך, בדיוק כפי שהיה (אותם exam.id) — כדי שתלמידה
+            // שקודמה ורואה "שנה אחורה" תמשיך לראות את המבחן, השאלות, התמונות והתשובה שלה
+            // ללא כל שינוי (ראו examsForView בקומפוננטת App).
+            // תצוגה מקדימה — בדיוק מה שהמורה מאשרת: כמה נושאים ומה כבר אופס לשנה הזו.
+            async openNewYearPreview(grade) {
+                if (!db) return { topics: [], year: schoolYearKey() };
+                const year = schoolYearKey();
+                try {
+                    const snap = await col('classes').where('grade', '==', grade).get();
+                    const topics = [];
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        if (d.archived) return;
+                        topics.push({
+                            id: doc.id, title: d.title || '',
+                            examsCount: (d.exams || []).length,
+                            alreadyDoneThisYear: !!(d.examSnapshots && d.examSnapshots[year]),
+                        });
+                    });
+                    topics.sort((a, b) => String(a.title).localeCompare(String(b.title), 'he'));
+                    return { topics, year };
+                } catch (e) { console.error('Open-new-year preview error:', e); return { topics: [], year, error: true }; }
+            },
+            // הביצוע בפועל. year מגיע מ-promoteResult (אותה ריצת העלאה בדיוק) כדי שה-snapshot
+            // יתויג באותו מפתח ש-gradeHistory כבר כתב לכל תלמידה שקודמה — זה מה שמאפשר
+            // ל-examsForView לפענח את הקישור בין "שנה שקודמה ממנה" ל-"snapshot של אותה שנה".
+            // batch.update() חלקי בדוקו-פאת', לא saveClassesBatch: אסור לדרוס שדות אחרים
+            // של הנושא (title/description/visible) שמורה אחרת עשויה לערוך במקביל.
+            async openNewYear({ grade, year }) {
+                if (!db) return { done: 0, failed: [], error: true };
+                try {
+                    const snap = await col('classes').where('grade', '==', grade).get();
+                    const targets = [];
+                    snap.forEach(doc => { const d = doc.data(); if (!d.archived) targets.push({ id: doc.id, title: d.title || '', exams: d.exams || [] }); });
+                    const failed = [];
+                    let done = 0;
+                    for (let i = 0; i < targets.length; i += PROMOTE_CHUNK) {
+                        const chunk = targets.slice(i, i + PROMOTE_CHUNK);
+                        const batch = db.batch();
+                        chunk.forEach(t => {
+                            // FieldPath, לא מחרוזת dot-notation: schoolYearKey() מכיל "/" (למשל
+                            // "2025/26"), ו-Firestore אוסר / בנתיב שדה מחרוזתי — נבדק ואומת מול
+                            // ה-SDK האמיתי (worker/README.md-style: "כל המודלים נכשלו" לימד את
+                            // אותו לקח בהקשר אחר). FieldPath בונה את המקטעים בנפרד, בלי parsing.
+                            const snapshotField = new firebase.firestore.FieldPath('examSnapshots', year);
+                            batch.update(col('classes').doc(t.id), snapshotField, t.exams, 'exams', []);
+                        });
+                        try { await batch.commit(); done += chunk.length; }
+                        catch (e) {
+                            console.error('Open-new-year batch error:', e);
+                            targets.slice(i).forEach(t => failed.push(t.title));
+                            return { done, failed, stopped: true };
+                        }
+                    }
+                    return { done, failed };
+                } catch (e) { console.error('Open-new-year error:', e); return { done: 0, failed: [], error: true }; }
+            },
+
             // ספירה לכל שכבה + כמה מהן כבר טופלו בשנה"ל הנוכחית — מזין את כרטיסי הבחירה באשף.
             async gradeCounts() {
                 const empty = { byGrade: {}, doneByGrade: {}, graduated: 0, year: schoolYearKey() };
@@ -7288,6 +7348,7 @@ a.setGrade(100);   // משנה רק את נעמה
             const [studentName, setStudentName] = useState('');
             const [studentGrade, setStudentGrade] = useState(''); // יא, י, יב
             const [studentClassNum, setStudentClassNum] = useState('');
+            const [studentGradeHistory, setStudentGradeHistory] = useState([]); // append-only, מ-users/{safeEmail}.gradeHistory — מפענח "שנה אחורה" מול examSnapshots
             const [studentApproved, setStudentApproved] = useState(null); // null=unknown, false=pending, true=approved
             const [nameEntered, setNameEntered] = useState(false);
             const [profileLoading, setProfileLoading] = useState(true);
@@ -7432,7 +7493,7 @@ a.setGrade(100);   // משנה רק את נעמה
             // פותח שאלה מועדפת — מנווט לנושא, למטלה ולשאלה
             const openFavorite = (fav) => {
                 const cls = classes.find(c => c.id === fav.classId);
-                const exam = cls && (cls.exams || []).find(e => e.id === fav.examId);
+                const exam = findExamInClass(cls, fav.examId);
                 if (!exam) { alert('הפריט אינו זמין יותר'); return; }
                 setSelectedClass(fav.classId);
                 setSelectedExam(exam);
@@ -7461,7 +7522,7 @@ a.setGrade(100);   // משנה רק את נעמה
             // "מעבר" — מנווט בדיוק לעבודה/מבחן החדש ולשאלה הראשונה (המקום שבו עונים)
             const goToNotif = (n) => {
                 const cls = classes.find(c => c.id === n.classId);
-                const exam = cls && (cls.exams || []).find(e => e.id === n.examId);
+                const exam = findExamInClass(cls, n.examId);
                 dismissNotif(n.id);
                 if (!cls || !exam) { alert('הפריט אינו זמין יותר'); return; }
                 const firstQ = (exam.questions && exam.questions.length) ? exam.questions[0].number : null;
@@ -7524,6 +7585,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         setStudentName(profile.name);
                         if (profile.grade) setStudentGrade(profile.grade);
                         setStudentClassNum(profile.classNum || '');
+                        setStudentGradeHistory(Array.isArray(profile.gradeHistory) ? profile.gradeHistory : []);
                         setNameEntered(true);
                     }
                     setProfileLoading(false);
@@ -7625,7 +7687,12 @@ a.setGrade(100);   // משנה רק את נעמה
                 let cancelled = false;
                 (async () => {
                     const exams = [];
-                    classes.forEach(c => (c.exams || []).forEach(e => { if (e.visible !== false) exams.push(e); }));
+                    classes.forEach(c => {
+                        (c.exams || []).forEach(e => { if (e.visible !== false) exams.push(e); });
+                        // גם מ-examSnapshots — אחרת מבחן שאופס לשנה חדשה מאבד את הסטטוס
+                        // (הוגש/נבדק) שלה בבאדג'ים, למרות שהתשובה עצמה עדיין קיימת ב-Firestore.
+                        Object.values(c.examSnapshots || {}).forEach(snap => (snap || []).forEach(e => { if (e.visible !== false) exams.push(e); }));
+                    });
                     const entries = await Promise.all(exams.map(async e => {
                         try { const d = await DataService.loadStudentData(e.id, e.type || 'exam', user.email); return [e.id, d]; }
                         catch (_) { return [e.id, null]; }
@@ -7876,6 +7943,11 @@ a.setGrade(100);   // משנה רק את נעמה
             const [promoteExcluded, setPromoteExcluded] = useState({}); // email ← הוחרגה ידנית ע"י המורה
             const [promoteKeepClass, setPromoteKeepClass] = useState(true);
             const [promoteResult, setPromoteResult] = useState(null);
+            // שלב 4 — "פתיחת שנה חדשה": איפוס מבחני הנושאים של השכבה שהתפנתה, בלי לפגוע
+            // בתצוגת "שנה אחורה" של מי שכבר קודמה (docs/plan-fresh-year-exam-reset.md).
+            const [yearOpenPreview, setYearOpenPreview] = useState(null); // { topics, year }
+            const [yearOpenBusy, setYearOpenBusy] = useState(false);
+            const [yearOpenResult, setYearOpenResult] = useState(null);   // { done, failed }
 
             // המעברים האפשריים נגזרים משכבות בית הספר — ולא מקובעים ל-יא←יב.
             const promotionSteps = (() => {
@@ -7889,6 +7961,7 @@ a.setGrade(100);   // משנה רק את נעמה
             const openPromoteWizard = () => {
                 setPromoteStep(1); setPromotePlan(null); setPromotePreview(null);
                 setPromoteExcluded({}); setPromoteResult(null); setPromoteKeepClass(true);
+                setYearOpenPreview(null); setYearOpenResult(null);
                 setPromoteModal({ open: true });
                 DataService.gradeCounts().then(setPromoteCounts);
             };
@@ -7933,6 +8006,25 @@ a.setGrade(100);   // משנה רק את נעמה
                 setPromoteCounts(await DataService.gradeCounts());
                 setPromoting(false);
                 setPromoteStep(3);
+            };
+
+            // כניסה לשלב 4 — טוענת תצוגה מקדימה אמיתית לפני כל אישור.
+            const openYearOpenStep = async () => {
+                if (!promotePlan) return;
+                setYearOpenResult(null);
+                setYearOpenPreview(null);
+                setPromoteStep(4);
+                setYearOpenBusy(true);
+                const pv = await DataService.openNewYearPreview(promotePlan.fromGrade);
+                setYearOpenPreview(pv);
+                setYearOpenBusy(false);
+            };
+            const runYearOpen = async () => {
+                if (!promotePlan || !yearOpenPreview) return;
+                setYearOpenBusy(true);
+                const res = await DataService.openNewYear({ grade: promotePlan.fromGrade, year: yearOpenPreview.year });
+                setYearOpenResult(res);
+                setYearOpenBusy(false);
             };
 
             // Save custom course/lesson page for a topic
@@ -8330,7 +8422,11 @@ a.setGrade(100);   // משנה רק את נעמה
             };
 
             // Find class for exam
-            const findClassForExam = (examId) => classes.find(c => c.exams?.some(e => e.id === examId));
+            // מחפש גם בתוך examSnapshots — אחרת נושא שאופס לשנה חדשה "נעלם" עבור
+            // תלמידה שמסתכלת על מבחן ישן שלה (מועדפים/התראות/כותרת המבחן).
+            const findClassForExam = (examId) => classes.find(c =>
+                c.exams?.some(e => e.id === examId) ||
+                Object.values(c.examSnapshots || {}).some(snap => snap?.some(e => e.id === examId)));
 
             // Get current responses for selected exam
             const currentResponses = selectedExam ? (examResponses[selectedExam.id] || []) : [];
@@ -8592,6 +8688,33 @@ a.setGrade(100);   // משנה רק את נעמה
                 const so = GRADE_ORDER[grade], to = GRADE_ORDER[cls.grade];
                 return so !== undefined && to !== undefined && to < so;
             };
+            // "פתיחת שנה חדשה" (docs/plan-fresh-year-exam-reset.md): מבחני נושא נמצאים
+            // אך ורק ב-cls.exams — אין ממד שנה. כשמורה מאפסת שכבה לקוהורט חדש, exams
+            // מתרוקן ל-[] ו-cls.examSnapshots[year] שומר את מה שהיה. תלמידה שקודמה
+            // וצופה "שנה אחורה" (isPastTopic) חייבת להמשיך לראות בדיוק את מה שהיה לה —
+            // כולל תמונות ותשובות, ששתיהן נשמרות בנפרד לפי אותו exam.id, ולכן שרידות
+            // מלאה כל עוד ה-id לא השתנה (הוא לא — עותק מדויק בזמן ה-snapshot).
+            const examsForView = (cls, grade) => {
+                if (!isPastTopic(cls, grade)) return cls.exams || [];
+                // הרשומה העדכנית ביותר שבה יצאה משכבת הנושא — gradeHistory הוא append-only
+                const entry = studentGradeHistory.filter(h => h && !h.undo && h.from === cls.grade).slice(-1)[0];
+                const snap = entry && cls.examSnapshots && cls.examSnapshots[entry.year];
+                // אין snapshot (נושא שלא אופס מעולם, או שאין רשומת היסטוריה תואמת —
+                // למשל תלמידה שהשכבה שלה נערכה ידנית) → נופלים חזרה ל-exams החי, לא למסך ריק.
+                return snap || cls.exams || [];
+            };
+            // מחפש מבחן לפי id בין exams החי ובכל ה-snapshots — למועדפים/התראות/כותרות,
+            // כדי שמבחן שאופס לשנה חדשה לא "ייעלם" עבור תלמידה שמסתכלת עליו אחורה.
+            const findExamInClass = (cls, examId) => {
+                if (!cls) return null;
+                const inLive = (cls.exams || []).find(e => e.id === examId);
+                if (inLive) return inLive;
+                for (const snap of Object.values(cls.examSnapshots || {})) {
+                    const hit = snap?.find(e => e.id === examId);
+                    if (hit) return hit;
+                }
+                return null;
+            };
             // תלמידה רואה: נושאי השכבה הנוכחית (רגיל) + נושאי השנה הקודמת בלבד (אפור/קטן)
             const studentSeesClass = (cls, grade) => {
                 if (!grade) return true;
@@ -8611,7 +8734,7 @@ a.setGrade(100);   // משנה רק את נעמה
             const selectedClassObj = selectedClass ? filteredClasses.find(c => c.id === selectedClass) : null;
             const examState = (e) => myProgress[e.id]?.state || 'todo';
             const topicStat = (cls) => {
-                const exams = (cls.exams || []).filter(e => e.visible !== false);
+                const exams = examsForView(cls, studentGrade).filter(e => e.visible !== false);
                 let done = 0, pending = 0;
                 exams.forEach(e => { const st = examState(e); if (st === 'submitted' || st === 'graded') done++; else pending++; });
                 return { total: exams.length, done, pending };
@@ -8977,6 +9100,56 @@ a.setGrade(100);   // משנה רק את נעמה
                             </div>
                         )}
 
+                        {/* שלב 4 — פתיחת שנה חדשה: איפוס מבחני הנושאים של השכבה שהתפנתה */}
+                        {promoteStep === 4 && promotePlan && (
+                            <div className="p-4 sm:p-5 space-y-4">
+                                {!yearOpenResult ? (
+                                    yearOpenPreview === null ? (
+                                        <div className="flex justify-center py-8"><div className="spinner"></div></div>
+                                    ) : (
+                                        <>
+                                            <p className="text-slate-300 text-sm leading-relaxed" style={{ textWrap: 'pretty' }}>
+                                                כיתה <b>{promotePlan.fromGrade}</b> התפנתה. פעולה זו מרוקנת את המבחנים והעבודות
+                                                הקיימים בכל נושא של השכבה — כך שכיתה {promotePlan.fromGrade} החדשה תתחיל מנושא נקי,
+                                                בלי המבחנים של הקוהורט הקודם.
+                                            </p>
+                                            <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-3 text-emerald-200 text-[13px] leading-relaxed flex items-start gap-2">
+                                                <span className="flex-shrink-0 mt-0.5"><Icon name="check" size={15} /></span>
+                                                <span><b>מה שלא נמחק לעולם:</b> תשובות התלמידות, ציונים, הוראות השאלה והתמונות שלה —
+                                                    כל אלה שמורים בנפרד ונשארים נגישים למי שכבר קודמה, דרך הצפייה "שנה אחורה" שלה בדיוק כפי שהיו.</span>
+                                            </div>
+                                            <div className="border border-slate-700/60 rounded-xl overflow-hidden">
+                                                {yearOpenPreview.topics.length === 0 ? (
+                                                    <div className="px-4 py-6 text-center text-slate-500 text-sm">אין נושאים בכיתה {promotePlan.fromGrade}</div>
+                                                ) : yearOpenPreview.topics.map(t => (
+                                                    <div key={t.id} className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-slate-700/40 last:border-0">
+                                                        <span className="text-slate-200 text-sm">{t.title}</span>
+                                                        <span className="flex items-center gap-2 flex-shrink-0">
+                                                            {t.alreadyDoneThisYear && <span className="text-[11px] bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-full">כבר אופס השנה</span>}
+                                                            <span className="text-slate-400 text-[13px]">{t.examsCount} משימות יאורכבו</span>
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )
+                                ) : (
+                                    <>
+                                        <div className={`rounded-xl px-4 py-4 text-center ${yearOpenResult.failed && yearOpenResult.failed.length ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-emerald-500/10 border border-emerald-500/30'}`}>
+                                            <div className="text-3xl font-black text-white">{yearOpenResult.done}<span className="text-slate-400 text-lg"> / {yearOpenPreview.topics.length}</span></div>
+                                            <div className="text-slate-300 text-sm mt-1">נושאים אופסו לכיתה {promotePlan.fromGrade} חדשה</div>
+                                        </div>
+                                        {yearOpenResult.failed && yearOpenResult.failed.length > 0 && (
+                                            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-200 text-[13px] leading-relaxed">
+                                                <b>{yearOpenResult.failed.length} נושאים לא אופסו</b> — הפעולה נעצרה כדי לא להשאיר מצב חלקי. אפשר להריץ שוב.
+                                                <div className="mt-2 max-h-24 overflow-y-auto text-red-300/80">{yearOpenResult.failed.join(' · ')}</div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
+
                         <div className="p-4 border-t border-slate-600 flex flex-wrap justify-end gap-2 sticky bottom-0 bg-slate-800">
                             {promoteStep === 1 && <button onClick={() => setPromoteModal({ open: false })} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg">סגירה</button>}
                             {promoteStep === 2 && (
@@ -8994,8 +9167,26 @@ a.setGrade(100);   // משנה רק את נעמה
                                     {promoteResult && promoteResult.kind === 'promote' && promoteResult.done > 0 && (
                                         <button onClick={undoPromotion} disabled={promoting} className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 font-bold disabled:opacity-50">ביטול הפעולה</button>
                                     )}
+                                    {promoteResult && promoteResult.kind === 'promote' && (
+                                        <button onClick={openYearOpenStep} disabled={promoting} className="px-4 py-2 bg-emerald-700/80 text-white rounded-lg hover:bg-emerald-600 font-bold disabled:opacity-50">פתיחת שנה חדשה לנושאי {promotePlan && promotePlan.fromGrade}</button>
+                                    )}
                                     <button onClick={openPromoteWizard} disabled={promoting} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg disabled:opacity-50">שכבה נוספת</button>
                                     <button onClick={() => setPromoteModal({ open: false })} disabled={promoting} className="px-5 py-2.5 bg-sky-600 text-white rounded-lg hover:bg-sky-500 font-bold disabled:opacity-50">סיום</button>
+                                </>
+                            )}
+                            {promoteStep === 4 && (
+                                <>
+                                    {!yearOpenResult ? (
+                                        <>
+                                            <button onClick={() => setPromoteStep(3)} disabled={yearOpenBusy} className="px-4 py-2 text-gray-400 hover:bg-slate-700 rounded-lg disabled:opacity-50">חזרה</button>
+                                            <button onClick={runYearOpen} disabled={yearOpenBusy || !yearOpenPreview || yearOpenPreview.topics.length === 0}
+                                                className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 font-bold disabled:opacity-50 flex items-center gap-2">
+                                                {yearOpenBusy ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> מבצע...</> : `איפוס ${yearOpenPreview ? yearOpenPreview.topics.length : ''} נושאים`}
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button onClick={() => setPromoteModal({ open: false })} className="px-5 py-2.5 bg-sky-600 text-white rounded-lg hover:bg-sky-500 font-bold">סיום</button>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -9069,7 +9260,8 @@ a.setGrade(100);   // משנה רק את נעמה
                                 ) : filteredClasses.map(cls => {
                                     const past = !isEditor && isPastTopic(cls, studentGrade);
                                     const expanded = expandedClasses.has(cls.id) || selectedClass === cls.id;
-                                    const visExams = (cls.exams || []).filter(exam => (isEditor && !previewMode) || exam.visible !== false);
+                                    // מורה תמיד רואה exams חי; תלמידה ב"שנה אחורה" רואה את ה-snapshot של השנה שלה
+                                    const visExams = (isEditor ? (cls.exams || []) : examsForView(cls, studentGrade)).filter(exam => (isEditor && !previewMode) || exam.visible !== false);
                                     const orderedExams = visExams.slice().sort((a, b) => (a.type === 'homework' ? 0 : 1) - (b.type === 'homework' ? 0 : 1));
                                     return (
                                     <div key={cls.id} className={`tree-class mb-2 ${past ? 'opacity-70' : ''} ${expanded ? 'expanded' : ''}`}>
@@ -9214,7 +9406,8 @@ a.setGrade(100);   // משנה רק את נעמה
                                 ) : filteredClasses.map(cls => {
                                     const past = !isEditor && isPastTopic(cls, studentGrade);
                                     const expanded = expandedClasses.has(cls.id) || selectedClass === cls.id;
-                                    const visExams = [...(cls.exams || [])].filter(exam => (isEditor && !previewMode) || exam.visible !== false);
+                                    // מורה תמיד רואה exams חי; תלמידה ב"שנה אחורה" רואה את ה-snapshot של השנה שלה
+                                    const visExams = [...(isEditor ? (cls.exams || []) : examsForView(cls, studentGrade))].filter(exam => (isEditor && !previewMode) || exam.visible !== false);
                                     const orderedExams = visExams.slice().sort((a, b) => (a.type === 'homework' ? 0 : 1) - (b.type === 'homework' ? 0 : 1));
                                     return (
                                     <div key={cls.id} className={`tree-class mb-2 ${past ? 'opacity-70' : ''} ${expanded ? 'expanded' : ''}`}>
@@ -10356,7 +10549,8 @@ ${answerText}
                                     </div>
                                     <div className="mt-7"><TopicPracticeSection classId={selectedClassObj.id} topicTitle={selectedClassObj.title} isTeacher={isEditor} isSuperAdminUser={(user?.email || '').toLowerCase().trim() === SUPER_ADMIN_EMAIL} user={user} /></div>
                                     {(() => {
-                                        const visibleExams = (selectedClassObj.exams || []).filter(e => e.visible !== false);
+                                        // מורה תמיד רואה exams חי; תלמידה ב"שנה אחורה" רואה את ה-snapshot של השנה שלה
+                                        const visibleExams = (isEditor ? (selectedClassObj.exams || []) : examsForView(selectedClassObj, studentGrade)).filter(e => e.visible !== false);
                                         const openExam = (exam) => { setSelectedExam(exam); setSelectedQuestion(exam.questions?.[0]?.number ?? null); setViewingStudent(null); if (safePreviewMode) setPreviewAnswers({}); };
                                         const ptsOf = (exam) => (exam.questions || []).reduce((s, q) => s + (parseInt(q.points) || 0), 0);
                                         const STATUS = {

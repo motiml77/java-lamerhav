@@ -66,12 +66,17 @@ schools/{slug}/homework_responses/{examId}/students/{safeEmail}
     }
   ],
 
-  // ===== מוצע, טרם ממומש — ראו docs/plan-fresh-year-exam-reset.md =====
+  // ===== ממומש — docs/plan-fresh-year-exam-reset.md, נכתב דרך DataService.openNewYear =====
   examSnapshots: {                // מפתח = schoolYearKey() בזמן "פתיחת שנה חדשה"
     "2025/26": [ /* עותק מלא של exams כפי שהיה, אותם id-ים בדיוק */ ]
   }
 }
 ```
+
+**חשוב — לכתוב ל-`examSnapshots` רק עם `firebase.firestore.FieldPath('examSnapshots', year)`,
+לעולם לא עם מחרוזת dot-notation (`` `examSnapshots.${year}` ``).** `schoolYearKey()`
+מכיל `/` (למשל `"2025/26"`), ו-Firestore אוסר `/` בנתיב שדה מחרוזתי — אומת מול
+ה-SDK האמיתי בדפדפן, לא רק בתיעוד (ראו הערה ב-`DataService.openNewYear`).
 
 **הכלל הקובע:** `exams` הוא **תמיד** התצוגה החיה של השכבה הנוכחית. `examSnapshots`
 הוא **אך ורק** מה שתלמידה שקודמה רואה כשהיא מסתכלת אחורה — הוא לא מוצג למורה
