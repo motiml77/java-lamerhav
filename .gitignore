@@ -8,3 +8,4 @@ firebase-setup/package*.json
 
 # חומרי שיווק — גרסאות עבודה
 promo/artifact.html
+dist

@@ -1,0 +1,13 @@
+{
+  "name": "java-lamerhav",
+  "private": true,
+  "version": "1.0.0",
+  "description": "אתר לימוד ותרגול Java לבגרות — הידור מראש של ה-JSX במקום בדפדפן",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-react": "^7.23.3"
+  }
+}
