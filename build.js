@@ -86,17 +86,23 @@ try {
 }
 
 // ---- 3. כתיבת הפלט ----
+// שם הקובץ נושא גיבוב תוכן, כדי שאפשר יהיה לשמור אותו במטמון לנצח
+// (Cache-Control: immutable ב-vercel.json). בלי גיבוב היינו חייבים
+// max-age=0 — ואז כל תלמידה מורידה 223KB בכל טעינה מחדש.
+const hash = require('crypto').createHash('sha256').update(code).digest('hex').slice(0, 10);
+const bundleName = 'app.bundle.' + hash + '.js';
+
 // קודם מעתיקים את כל הסטטי (כולל app.html המקורי), ואז דורסים אותו במהודר.
 fs.rmSync(OUT, { recursive: true, force: true });
 copyStatic(ROOT, OUT);
-fs.writeFileSync(path.join(OUT, 'app.bundle.js'), code, 'utf8');
+fs.writeFileSync(path.join(OUT, bundleName), code, 'utf8');
 
 // סדר הפעולות קריטי: קודם החיתוך לפי start/end, ורק אחר כך הסרת
 // babel/standalone. הפוך — ההסרה מזיזה את כל האינדקסים שאחריה, והחיתוך
 // נעשה במקום שגוי (נתפס בבדיקה: תג ה-babel נשאר בפלט).
 // defer: הסקריפט לא חוסם את פענוח ה-HTML ורץ אחרי שה-DOM מוכן — בדיוק
 // כמו ההתנהגות של text/babel היום.
-html = html.slice(0, start) + '<script src="/app.bundle.js" defer></script>' + html.slice(end + '</script>'.length);
+html = html.slice(0, start) + '<script src="/' + bundleName + '" defer></script>' + html.slice(end + '</script>'.length);
 
 // עכשיו בטוח להסיר — אין יותר תלות באינדקסים
 html = html.replace(/\s*<script src="https:\/\/unpkg\.com\/@babel\/standalone@[^"]*"><\/script>/, '');
@@ -112,6 +118,6 @@ if (/<script type="text\/babel">/.test(html)) {
 fs.writeFileSync(path.join(OUT, 'app.html'), html, 'utf8');
 
 const kb = (n) => Math.round(n / 1024) + 'KB';
-console.log('build: app.bundle.js  ' + kb(Buffer.byteLength(code)));
+console.log('build: ' + bundleName + '  ' + kb(Buffer.byteLength(code)));
 console.log('build: app.html       ' + kb(Buffer.byteLength(html)) + '  (היה ' + kb(fs.statSync(SRC).size) + ')');
 console.log('build: הושלם — ללא babel בדפדפן.');
