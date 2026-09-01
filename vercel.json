@@ -2,7 +2,7 @@
   "cleanUrls": false,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/", "destination": "/lamerhav", "statusCode": 307 }
+    { "source": "/app.html", "destination": "/lamerhav", "statusCode": 308 }
   ],
   "rewrites": [
     { "source": "/manage", "destination": "/app.html" },
