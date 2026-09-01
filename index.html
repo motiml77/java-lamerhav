@@ -123,6 +123,36 @@ body{
 .cta:active{transform:scale(.97)}
 .cta .arrow{color:var(--cyan);font-weight:300;transform:scaleX(-1);font-size:26px;transition:transform .25s}
 .cta:hover .arrow{transform:scaleX(-1) translateX(6px)}
+/* ===== כניסה לפי קוד בית ספר =====
+   מוצג רק אחרי לחיצה על ה-CTA, כדי לא להעמיס על הרושם הראשון.
+   רשימת בתי הספר לא נחשפת בכוונה — חוקי Firestore חוסמים אותה למי שאינו
+   המנהל הראשי, וכל מורה מוסרת לתלמידות שלה את הקוד. */
+.picker{display:none;flex-direction:column;align-items:center;gap:14px;margin-top:26px}
+.picker.show{display:flex;animation:pickIn .35s ease both}
+@keyframes pickIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.picker-label{font-size:17px;color:var(--text);opacity:.85}
+.picker-row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;justify-content:center}
+.picker input{
+  direction:ltr;text-align:left;font-family:inherit;font-size:19px;font-weight:700;
+  color:var(--text);background:rgba(10,24,56,.75);
+  border:2px solid rgba(92,225,255,.35);border-radius:14px;
+  padding:14px 18px;min-width:230px;outline:none;transition:border-color .2s
+}
+.picker input::placeholder{color:rgba(255,255,255,.35);font-weight:400}
+.picker input:focus{border-color:var(--cyan)}
+.picker button{
+  font-family:inherit;font-size:18px;font-weight:800;cursor:pointer;color:#02060f;
+  background:linear-gradient(90deg,var(--cyan),var(--blue));
+  border:none;border-radius:14px;padding:14px 30px;transition:transform .2s
+}
+.picker button:hover{transform:scale(1.04)}
+.picker-err{color:#ff8f8f;font-size:15px;min-height:20px}
+.picker-last{
+  font-size:16px;color:var(--cyan);background:none;border:1px solid rgba(92,225,255,.4);
+  border-radius:999px;padding:9px 20px;cursor:pointer;font-family:inherit;font-weight:700;
+  transition:background .2s
+}
+.picker-last:hover{background:rgba(92,225,255,.12)}
 .cta-toast{
   direction:rtl;margin-top:4px;font-size:16px;color:var(--green);font-weight:600;
   opacity:0;transform:translateY(6px);transition:all .5s ease;
@@ -501,7 +531,17 @@ body{
     <button class="cta reveal d5" id="ctaBtn">
       מתחילים להצליח <span class="arrow">&gt;</span>
     </button>
-    <div class="cta-toast" id="ctaToast">🚀 יאללה, יוצאים לדרך — עוברים לאתר...</div>
+    <div class="cta-toast" id="ctaToast">🚀 יאללה — רק נדע לאיזה בית ספר</div>
+    <div class="picker" id="picker">
+      <div class="picker-label">הזיני את קוד בית הספר שקיבלת מהמורה</div>
+      <div class="picker-row">
+        <input id="schoolCode" type="text" inputmode="latin" autocomplete="off"
+               spellcheck="false" placeholder="lamerhav" aria-label="קוד בית ספר">
+        <button id="goBtn" type="button">כניסה</button>
+      </div>
+      <button class="picker-last" id="lastBtn" type="button" hidden></button>
+      <div class="picker-err" id="pickerErr" role="alert"></div>
+    </div>
   </section>
 
 </main>
@@ -721,9 +761,49 @@ ctaBtn.addEventListener('click', () => {
   items[5].classList.add('active');
   items.forEach((x, i) => { if(i !== 5) x.classList.remove('active'); });
   typeSnippet('bagrut');
-  /* מעבר לאתר עצמו */
-  setTimeout(() => { window.location.href = '/lamerhav'; }, 1200);
+  /* פותחים את בחירת בית הספר במקום לקפוץ לבית ספר מסוים */
+  setTimeout(() => {
+    picker.classList.add('show');
+    codeInput.focus({ preventScroll: true });
+    picker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    entering = false;
+  }, 900);
 });
+
+/* ===== כניסה לפי קוד בית ספר =====
+   אותה ולידציה בדיוק כמו SLUG_PATTERN ו-RESERVED_SLUGS ב-app.html — כדי
+   שהשגיאה תיאמר כאן, לפני הניווט, ולא תגיע כמסך "בית ספר לא נמצא". */
+const picker = document.getElementById('picker');
+const codeInput = document.getElementById('schoolCode');
+const pickerErr = document.getElementById('pickerErr');
+const lastBtn = document.getElementById('lastBtn');
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
+const RESERVED = new Set(['admin','manage','app','api','assets','uploads','docs','login','static','index','promo','firebase-setup']);
+const LAST_KEY = 'java_last_school';
+
+/* תלמידה חוזרת לא צריכה להקליד שוב — מציעים את בית הספר האחרון */
+try {
+  const last = localStorage.getItem(LAST_KEY);
+  if (last && SLUG_RE.test(last)) {
+    lastBtn.textContent = 'המשך ל־' + last;
+    lastBtn.hidden = false;
+    lastBtn.addEventListener('click', () => enter(last));
+  }
+} catch (e) {}
+
+function enter(code) {
+  code = String(code || '').trim().toLowerCase();
+  if (!code) { pickerErr.textContent = 'צריך להזין קוד'; return; }
+  if (RESERVED.has(code)) { pickerErr.textContent = 'הקוד הזה שמור למערכת'; return; }
+  if (!SLUG_RE.test(code)) { pickerErr.textContent = 'קוד לא תקין — אותיות באנגלית, ספרות ומקפים בלבד'; return; }
+  pickerErr.textContent = '';
+  try { localStorage.setItem(LAST_KEY, code); } catch (e) {}
+  window.location.href = '/' + code;
+}
+
+document.getElementById('goBtn').addEventListener('click', () => enter(codeInput.value));
+codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(codeInput.value); });
+codeInput.addEventListener('input', () => { pickerErr.textContent = ''; });
 
 document.getElementById('replayBtn').addEventListener('click', () => {
   /* איפוס כל האנימציות */
