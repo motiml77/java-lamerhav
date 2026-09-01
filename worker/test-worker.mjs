@@ -189,6 +189,44 @@ fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: JSO
   check('suggestAnswer: correctedCode מוחזר', r.body.correctedCode === 'int x=1;');
 }
 
+// ===== 13ד. תמונת שאלה ככתובת http — ה-Worker מוריד אותה ומטמיע כבייטים =====
+// זה המסלול החדש מאז שתמונות עברו ל-Firebase Storage. אם זה נשבר, בדיקת AI
+// מתעלמת מהתמונה בשקט.
+{
+  const realFetch = global.fetch;
+  let imageFetched = null;
+  global.fetch = async (url, opts) => {
+    if (typeof url === 'string' && url.startsWith('https://firebasestorage')) {
+      imageFetched = url;
+      return { ok: true, status: 200,
+        headers: { get: (h) => (h === 'content-type' ? 'image/png' : null) },
+        arrayBuffer: async () => new Uint8Array([1, 2, 3, 4, 5]).buffer };
+    }
+    return realFetch(url, opts);
+  };
+  fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: JSON.stringify({ score: 7, feedback: 'ok', errors: [], suggestions: [], encouragement: '' }) }] } }] } }];
+  const r = await req({ action: 'gradeExam', gradingData: {
+    code: 'x', questionPoints: 10,
+    questionImage: 'https://firebasestorage.googleapis.com/v0/b/exams-a93fb.firebasestorage.app/o/q.jpg?alt=media&token=abc' } });
+  check('כתובת http: התמונה נמשכה בפועל', imageFetched !== null, String(imageFetched));
+  const imgParts = r.calls[0] ? r.calls[0].body.contents[0].parts.filter(p => p.inlineData) : [];
+  check('כתובת http: הומרה ל-inlineData עם mimeType נכון', imgParts.length === 1 && imgParts[0].inlineData.mimeType === 'image/png', JSON.stringify(imgParts));
+  check('כתובת http: הבקשה הצליחה', r.status === 200, JSON.stringify(r.body).slice(0, 120));
+  global.fetch = realFetch;
+}
+{
+  // כתובת שבורה → לא קורס, פשוט ממשיך בלי התמונה
+  const realFetch = global.fetch;
+  global.fetch = async (url, opts) => {
+    if (typeof url === 'string' && url.startsWith('https://broken')) return { ok: false, status: 404, headers: { get: () => null } };
+    return realFetch(url, opts);
+  };
+  fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: JSON.stringify({ score: 5, feedback: 'ok', errors: [] }) }] } }] } }];
+  const r = await req({ action: 'gradeExam', gradingData: { code: 'x', questionPoints: 10, questionImage: 'https://broken.example/x.jpg' } });
+  check('כתובת תמונה שבורה: לא קורס, ממשיך בלי תמונה', r.status === 200 && r.body.aiScore === 5, JSON.stringify(r.body).slice(0, 120));
+  global.fetch = realFetch;
+}
+
 // ===== 13. תמונה מוטמעת (data URI) מטופלת בלי לקרוס =====
 fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: JSON.stringify({ score: 4, feedback: 'x', errors: [], suggestions: [], encouragement: '' }) }] } }] } }];
 {

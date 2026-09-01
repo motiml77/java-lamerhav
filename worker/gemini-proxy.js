@@ -138,9 +138,36 @@ function imagePart(dataUri) {
   if (!m) return null;
   return { inlineData: { mimeType: m[1], data: m[2] } };
 }
+
+// מאז שתמונות השאלה עברו ל-Firebase Storage, questionImage יכול להיות **כתובת
+// http** ולא data URI. Gemini לא מקבל כתובת — צריך את הבייטים עצמם. ה-Worker
+// מוריד אותם כאן: ל-Worker אין מגבלת CORS על fetch יוצא, בשונה מהדפדפן.
+// בלי זה בדיקת AI על שאלה עם תמונה הייתה מתעלמת מהתמונה **בשקט**, בלי שגיאה —
+// בדיוק סוג הכשל שלא צועק ולכן מתגלה מאוחר.
+async function imagePartAsync(src) {
+  if (!src || typeof src !== 'string') return null;
+  if (src.startsWith('data:')) return imagePart(src);
+  if (!/^https?:\/\//i.test(src)) return null;
+  try {
+    const res = await fetch(src);
+    if (!res.ok) { console.warn('[gemini-proxy] image fetch failed:', res.status, src.slice(0, 120)); return null; }
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 8192) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)); // בנתחים — מחרוזת ארגומנטים ענקית מפילה את apply
+    }
+    return { inlineData: { mimeType: res.headers.get('content-type') || 'image/jpeg', data: btoa(bin) } };
+  } catch (e) {
+    console.warn('[gemini-proxy] image fetch error:', String(e && e.message ? e.message : e));
+    return null;
+  }
+}
+
 // לבדיקת מבחן בכתב יד — כמה תמונות ברצף אחד
-function imageParts(dataUris) {
-  return (Array.isArray(dataUris) ? dataUris : []).map(imagePart).filter(Boolean);
+async function imageParts(sources) {
+  const list = await Promise.all((Array.isArray(sources) ? sources : []).map(imagePartAsync));
+  return list.filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +184,7 @@ async function handleGradeExam(apiKey, gradingData) {
   const parts = [
     { text: `# שאלת המבחן\n${questionText || '(לא סופקה כותרת שאלה)'}\n\n# קוד התלמידה להערכה\n\`\`\`java\n${code || ''}\n\`\`\`` },
   ];
-  const img = imagePart(questionImage);
+  const img = await imagePartAsync(questionImage);
   if (img) parts.unshift({ text: '# תמונת השאלה מצורפת:' }, img);
 
   const { text, modelUsed } = await callGemini(
@@ -196,7 +223,7 @@ async function handleCheckHomework(apiKey, payload) {
   const parts = [
     { text: `# השאלה\n${questionText || '(לא סופקה כותרת שאלה)'}\n\n# תשובת התלמידה\n\`\`\`\n${code || ''}\n\`\`\`\n\nניקוד מקסימלי לשאלה זו: ${maxPoints}` },
   ];
-  const img = imagePart(questionImage);
+  const img = await imagePartAsync(questionImage);
   if (img) parts.unshift({ text: '# תמונת השאלה מצורפת:' }, img);
 
   const { text, modelUsed } = await callGemini(
@@ -268,7 +295,7 @@ ${examDescription}
 }
 חשוב: totalScore הוא סכום כל ה-score, maxScore הוא סכום כל ה-maxScore. זהי את כל השאלות גם אם התלמידה לא ענתה על חלקן (ציון 0).`;
 
-  const parts = [{ text: gradingInstructions || '(אין הנחיות נוספות — הניחי תלמידות כיתה יא עם main, Scanner בשם in וכל הפונקציות הבסיסיות)' }, ...imageParts(allImages)];
+  const parts = [{ text: gradingInstructions || '(אין הנחיות נוספות — הניחי תלמידות כיתה יא עם main, Scanner בשם in וכל הפונקציות הבסיסיות)' }, ...(await imageParts(allImages))];
   const { text, modelUsed } = await callGemini(apiKey, systemInstruction, [{ role: 'user', parts }], { jsonMode: true, temperature: 0.2 });
 
   const parsed = parseJsonLoose(text, { totalScore: 0, maxScore: 100, questions: [], generalFeedback: '' });
@@ -318,7 +345,7 @@ async function handleSuggestAnswer(apiKey, suggestData) {
 { "isCorrect": true/false, "correctedCode": "הקוד המתוקן (או המקורי אם נכון)", "explanation": "הסבר קצר בעברית — מה תוקן ולמה (או 'הקוד נכון')" }`;
 
   const parts = [{ text: `השאלה: ${questionText || '(לא צוינה)'}\n\nהקוד של התלמידה:\n\`\`\`java\n${code || '// אין קוד'}\n\`\`\`` }];
-  const img = imagePart(questionImage);
+  const img = await imagePartAsync(questionImage);
   if (img) parts.push(img);
 
   const { text, modelUsed } = await callGemini(apiKey, systemInstruction, [{ role: 'user', parts }], { jsonMode: true, temperature: 0.2 });

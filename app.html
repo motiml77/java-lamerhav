@@ -32,7 +32,13 @@
     <!-- נתיב אבסולוטי: הדף מוגש גם מ-/lamerhav (ניתוב רב-בית-ספרי), ונתיב יחסי היה נשבר שם.
          בכוונה בלי <base href="/"> — הוא היה שובר הפניות פנימיות של SVG (url(#grid) וכד'). -->
     <script src="/codemirror-java.min.js"></script>
-    
+
+    <!-- Cropper.js v1 — עורך התמונה של המורה (חיתוך/סיבוב/שחור-לבן).
+         v1 ולא v2 בכוונה: v2 עבר ל-web components עם API אחר לגמרי, ואין לו CSS נפרד.
+         נטען כאן ולא בעצלתיים — הוא 37KB, והעורך נפתח מיד בלחיצה של המורה. -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'Heebo', sans-serif; background-color: #070B16; background-image: radial-gradient(80% 50% at 50% 0%, rgba(49,46,129,0.35) 0%, transparent 70%); background-attachment: fixed; color: #E2E8F0; min-height: 100vh; }
@@ -318,6 +324,11 @@
         .tree-question:hover { background: rgba(99, 102, 241, 0.14); }
         .tree-student { background: rgba(251, 191, 36, 0.1); border-radius: 6px; margin: 2px 16px; border: 1px solid rgba(251, 191, 36, 0.2); }
         .image-preview { max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #475569; }
+        /* תצוגת שחור-לבן בעורך התמונה. Cropper משכפל את ה-<img> פנימית (cropper-canvas
+           ו-cropper-view-box), ולכן filter על האלמנט המקורי לבדו אינו נראה כלל —
+           המורה הייתה לוחצת "שחור-לבן" ולא רואה שינוי. הפיקסלים עצמם מומרים רק בשמירה. */
+        .img-bw .cropper-canvas img,
+        .img-bw .cropper-view-box img { filter: grayscale(1) contrast(1.1); }
         .action-dropdown { position: relative; }
         .action-dropdown-menu { position: absolute; left: 0; top: 100%; z-index: 50; min-width: 160px; background: #0F172A; border: 1px solid rgba(148,163,184,0.22); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); overflow: hidden; animation: fadeIn 0.15s ease-out; }
         .action-dropdown-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; font-size: 13px; cursor: pointer; transition: background 0.15s; border: none; background: transparent; color: #E2E8F0; text-align: right; }
@@ -717,6 +728,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
                 list: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
                 eyeOff: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>,
                 upload: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>,
+                camera: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
                 fileText: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>,
                 user: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
                 back: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 19-7-7 7-7M19 12H5"/></svg>,
@@ -3733,6 +3745,183 @@ a.setGrade(100);   // משנה רק את נעמה
             reader.readAsDataURL(file);
         });
 
+        // תמונת שאלה — מעדיפה imageUrl (Firebase Storage) על imageBase64 (המבנה הישן,
+        // data URI בתוך המסמך). שתי הצורות ממשיכות לעבוד: שאלות ישנות לא נוגעו.
+        const questionImageSrc = (c) => (c && (c.imageUrl || c.imageBase64)) || '';
+
+        // ===== עורך התמונה של המורה: סיבוב, חיתוך, שחור-לבן =====
+        // הסיבוב מיושם על תמונת המקור עצמה ולא דרך Cropper.rotate — כך Cropper תמיד
+        // חותך תמונה זקופה, והחיתוך מדויק בדיוק כמו שרואים. אומת ברמת פיקסל מול
+        // הספרייה האמיתית לפני ההטמעה (סיבוב דרך Cropper החזיר מידות שגויות בגלל
+        // viewMode שמצמצם את תיבת החיתוך).
+        // deg מחושב תמיד מהמקור, לא מצטבר — אין איבוד איכות בסיבובים חוזרים.
+        const rotateImageToDataUrl = (srcImg, deg) => {
+            const c = document.createElement('canvas');
+            const swap = deg === 90 || deg === 270;
+            c.width = swap ? srcImg.naturalHeight : srcImg.naturalWidth;
+            c.height = swap ? srcImg.naturalWidth : srcImg.naturalHeight;
+            const g = c.getContext('2d');
+            g.translate(c.width / 2, c.height / 2);
+            g.rotate(deg * Math.PI / 180);
+            g.drawImage(srcImg, -srcImg.naturalWidth / 2, -srcImg.naturalHeight / 2);
+            return c.toDataURL('image/png');
+        };
+        // לומיננסיה תפיסתית (0.299/0.587/0.114) ולא ממוצע — כך טקסט בכתב יד
+        // נשאר קריא ולא "שוקע" ברקע.
+        const canvasToGrayscale = (canvas) => {
+            const g = canvas.getContext('2d');
+            const img = g.getImageData(0, 0, canvas.width, canvas.height);
+            const d = img.data;
+            for (let i = 0; i < d.length; i += 4) {
+                const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+                d[i] = d[i + 1] = d[i + 2] = lum;
+            }
+            g.putImageData(img, 0, 0);
+            return canvas;
+        };
+        const canvasToBlob = (canvas, quality = 0.85) =>
+            new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+
+        // ===== מודאל עריכת התמונה =====
+        // נפתח מיד אחרי בחירת קובץ/צילום. המורה מסובבת, חותכת, מסמנת שחור-לבן,
+        // ורק התוצאה הסופית נשמרת ב-Storage — המקור לא נשמר כלל (בקשה מפורשת:
+        // בלי כפילות). onDone מקבל { url, path, size } אחרי ההעלאה.
+        const ImageEditorModal = ({ file, folder, onDone, onCancel }) => {
+            const imgRef = React.useRef(null);
+            const cropperRef = React.useRef(null);
+            const srcImgRef = React.useRef(null);      // תמונת המקור, בזיכרון בלבד
+            const [rotation, setRotation] = useState(0);
+            const [bw, setBw] = useState(false);
+            const [ready, setReady] = useState(false);
+            const [busy, setBusy] = useState(false);
+            const [pct, setPct] = useState(null);
+            const [err, setErr] = useState('');
+
+            // טעינת המקור פעם אחת
+            useEffect(() => {
+                if (!file) return;
+                let cancelled = false;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => { if (!cancelled) { srcImgRef.current = img; setRotation(0); } };
+                    img.onerror = () => !cancelled && setErr('לא הצלחנו לפתוח את התמונה. נסי קובץ אחר.');
+                    img.src = ev.target.result;
+                };
+                reader.onerror = () => !cancelled && setErr('קריאת הקובץ נכשלה.');
+                reader.readAsDataURL(file);
+                return () => { cancelled = true; };
+            }, [file]);
+
+            // אתחול/אתחול-מחדש של Cropper בכל שינוי סיבוב
+            useEffect(() => {
+                const src = srcImgRef.current;
+                if (!src || !imgRef.current) return;
+                if (typeof Cropper === 'undefined') { setErr('רכיב העריכה לא נטען. רענני את הדף.'); return; }
+                setReady(false);
+                if (cropperRef.current) { cropperRef.current.destroy(); cropperRef.current = null; }
+                const el = imgRef.current;
+                el.onload = () => {
+                    cropperRef.current = new Cropper(el, {
+                        viewMode: 1, autoCropArea: 1, background: false, zoomable: false,
+                        ready: () => setReady(true),
+                    });
+                };
+                el.src = rotateImageToDataUrl(src, rotation);
+            }, [rotation, srcImgRef.current]);
+
+            useEffect(() => () => { if (cropperRef.current) cropperRef.current.destroy(); }, []);
+
+            const apply = async () => {
+                if (!cropperRef.current || busy) return;
+                setBusy(true); setErr('');
+                try {
+                    // maxWidth מגביל תמונות ענק מהטלפון — 2000px יותר ממספיק לדף סרוק,
+                    // ומונע קובץ של כמה MB שישרוף מכסת הורדות.
+                    let canvas = cropperRef.current.getCroppedCanvas({ maxWidth: 2000, maxHeight: 2000 });
+                    if (bw) canvas = canvasToGrayscale(canvas);
+                    const blob = await canvasToBlob(canvas, 0.85);
+                    if (!blob) throw new Error('לא הצלחנו לייצר את התמונה');
+                    const named = new File([blob], 'q.jpg', { type: 'image/jpeg' });
+                    const path = DataService.storagePath(folder, named);
+                    const res = await DataService.uploadFile(path, named, setPct);
+                    onDone(res);
+                } catch (e) {
+                    console.error('Image editor error:', e);
+                    setErr('ההעלאה נכשלה: ' + ((e && e.message) || e));
+                    setBusy(false); setPct(null);
+                }
+            };
+
+            const rotBtn = (deg, label) => (
+                <button onClick={() => setRotation(r => (r + deg + 360) % 360)} disabled={busy}
+                    className="btn btn-ghost btn-sm disabled:opacity-50" title={label} aria-label={label}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: deg < 0 ? 'scaleX(-1)' : undefined }}>
+                        <path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" />
+                    </svg>
+                    {label}
+                </button>
+            );
+
+            return (
+                <div className="fixed inset-0 z-[210] flex items-center justify-center p-3" style={{ background: 'rgba(4,7,16,0.9)' }}>
+                    <div className="question-card w-full flex flex-col" style={{ maxWidth: 760, maxHeight: '92dvh' }}>
+                        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/60 flex-shrink-0">
+                            <span className="text-white font-extrabold text-[15px]">עריכת התמונה</span>
+                            <span className="text-slate-500 text-[12px] hidden sm:inline">גררי לסימון החיתוך</span>
+                            <button onClick={onCancel} disabled={busy} className="mr-auto text-slate-400 hover:text-white p-1 disabled:opacity-50" title="ביטול"><Icon name="x" size={18} /></button>
+                        </div>
+
+                        <div className="flex-1 overflow-auto p-3" style={{ background: '#04070f', minHeight: 220 }}>
+                            {err && <div className="mb-3 text-rose-300 text-[13px] bg-rose-500/10 border border-rose-400/30 rounded-lg px-3 py-2">{err}</div>}
+                            {/* img-bw על העוטף, לא על ה-<img> — Cropper משכפל את התמונה
+                                פנימית, ו-filter על האלמנט המקורי לבדו לא נראה כלל.
+                                התצוגה בלבד; הפיקסלים עצמם מומרים רק בשמירה. */}
+                            <div className={bw ? 'img-bw' : ''} style={{ maxHeight: '52dvh' }}>
+                                <img ref={imgRef} alt="" style={{ maxWidth: '100%', display: 'block' }} />
+                            </div>
+                            {!ready && !err && <div className="text-slate-500 text-sm text-center py-4">טוען…</div>}
+                        </div>
+
+                        <div className="px-4 py-3 border-t border-slate-700/60 flex-shrink-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                                {rotBtn(-90, 'סיבוב שמאלה')}
+                                {rotBtn(90, 'סיבוב ימינה')}
+                                <button onClick={() => setBw(v => !v)} disabled={busy}
+                                    className={`btn btn-sm disabled:opacity-50 ${bw ? 'btn-solid' : 'btn-ghost'}`}
+                                    title="המרה לשחור-לבן — מומלץ לדפים סרוקים" aria-pressed={bw}>
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none" />
+                                    </svg>
+                                    שחור-לבן
+                                </button>
+                                <button onClick={() => { if (cropperRef.current) cropperRef.current.reset(); }} disabled={busy || !ready}
+                                    className="btn btn-ghost btn-sm disabled:opacity-50" title="ביטול החיתוך">איפוס חיתוך</button>
+                            </div>
+
+                            {pct !== null && (
+                                <div className="mb-3">
+                                    <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                                        <div className="h-full bg-indigo-400 transition-all" style={{ width: pct + '%' }}></div>
+                                    </div>
+                                    <div className="text-indigo-300 text-[12px] mt-1">מעלה ל-Firebase Storage… {pct}%</div>
+                                </div>
+                            )}
+
+                            <div className="flex items-center gap-2">
+                                <button onClick={apply} disabled={busy || !ready} className="btn btn-solid disabled:opacity-50">
+                                    {busy ? 'שומר…' : 'שמירת התמונה'}
+                                </button>
+                                <button onClick={onCancel} disabled={busy} className="btn btn-ghost btn-sm disabled:opacity-50">ביטול</button>
+                                <span className="text-slate-500 text-[11.5px] mr-auto hidden sm:inline">נשמרת רק התמונה הערוכה</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // ממיר קישור סרטון (YouTube / Google Drive) לכתובת הטמעה (embed) לצפייה בתוך העמוד
         const buildVideoEmbed = (raw) => {
             const url = (raw || '').trim();
@@ -3982,7 +4171,7 @@ a.setGrade(100);   // משנה רק את נעמה
                 setChecking(true); setFb(null);
                 try {
                     const pts = parseInt(q.points) || 10;
-                    const res = await AIService.checkHomework(code, q.instructions || q.title || '', q.imageBase64 || '',
+                    const res = await AIService.checkHomework(code, q.instructions || q.title || '', questionImageSrc(q),
                         BASE_SYSTEM_PROMPT + DEFAULT_HOMEWORK_PROMPT, 0, pts);
                     setFb(res);
                 } catch (e) { alert('הבדיקה נכשלה כרגע — נסי שוב בעוד רגע.'); }
@@ -4011,7 +4200,7 @@ a.setGrade(100);   // משנה רק את נעמה
                         <div className="border-t border-slate-700/60 p-4 md:p-5">
                             <div className="qx-panes">
                                 <div className="qx-font">
-                                    {q.imageBase64 && <img src={q.imageBase64} alt="" className="rounded-lg mb-3 max-w-full" />}
+                                    {questionImageSrc(q) && <img src={questionImageSrc(q)} alt="" className="rounded-lg mb-3 max-w-full" />}
                                     <QuestionInstructions text={q.instructions || ''} />
                                 </div>
                                 <div>
@@ -8268,6 +8457,36 @@ a.setGrade(100);   // משנה רק את נעמה
                 DataService.saveQuestionContent(qId, updated);
             };
 
+            // ===== תמונת שאלה: עריכה לפני שמירה, ושמירה ב-Storage =====
+            const [imgEditor, setImgEditor] = useState(null); // { file, folder, qId }
+            const openQuestionImageEditor = (file) => {
+                if (!selectedExam || selectedQuestion === null) return;
+                const qId = `${selectedExam.id}_q_${selectedQuestion}`;
+                // נתיב פר-בית-ספר, לפי מבנה docs/firebase-schema.md §6
+                const folder = (SCHOOL_SLUG ? `schools/${SCHOOL_SLUG}` : 'schools/legacy') + `/questions/${selectedExam.id}`;
+                setImgEditor({ file, folder, qId });
+            };
+            // מוחקת גם את הקובץ מ-Storage — בלי זה נשארים קבצים יתומים שממשיכים לתפוס מקום
+            const removeQuestionImage = async () => {
+                if (!selectedExam || selectedQuestion === null) return;
+                const qId = `${selectedExam.id}_q_${selectedQuestion}`;
+                const prev = questionContent[qId] || {};
+                const updated = { ...prev, imageUrl: '', imageBase64: '', imagePath: '' };
+                setQuestionContent(p => ({ ...p, [qId]: updated }));
+                await DataService.saveQuestionContent(qId, updated);
+                if (prev.imagePath) DataService.deleteFile(prev.imagePath);
+            };
+            const onImageEditorDone = async (res) => {
+                const { qId } = imgEditor;
+                const prev = questionContent[qId] || {};
+                // imageBase64 מתרוקן במפורש: מהיום התמונה חיה ב-Storage בלבד, בלי כפילות.
+                const updated = { ...prev, imageUrl: res.url, imagePath: res.path, imageBase64: '' };
+                setQuestionContent(p => ({ ...p, [qId]: updated }));
+                await DataService.saveQuestionContent(qId, updated);
+                if (prev.imagePath && prev.imagePath !== res.path) DataService.deleteFile(prev.imagePath);
+                setImgEditor(null);
+            };
+
             // Save student answer with debounce
             const saveStudentAnswer = useCallback((code) => {
                 if (!selectedExam || selectedQuestion === null || !user || isEditor || studentData?.submitted) return;
@@ -8373,7 +8592,7 @@ a.setGrade(100);   // משנה רק את נעמה
                             const feedback = await AIService.checkCode(
                                 answer.code,
                                 qContent.instructions || '',
-                                qContent.imageBase64 || '',
+                                questionImageSrc(qContent),
                                 fullPrompt,
                                 parseInt(qMeta?.points) || 10
                             );
@@ -8742,6 +8961,10 @@ a.setGrade(100);   // משנה רק את נעמה
             return (
                 <div className="app-shell flex flex-col">
                     <AdPopup ad={ads && ads.popup} user={user} />
+                    {imgEditor && (
+                        <ImageEditorModal file={imgEditor.file} folder={imgEditor.folder}
+                            onDone={onImageEditorDone} onCancel={() => setImgEditor(null)} />
+                    )}
                     {demoMode && (
                         <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 60 }}>
                             <div className="flex items-center gap-3 bg-indigo-600/95 text-white rounded-full pl-2 pr-4 py-1.5 shadow-2xl border border-indigo-400/40" style={{ backdropFilter: 'blur(8px)' }}>
@@ -9838,23 +10061,26 @@ a.setGrade(100);   // משנה רק את נעמה
                                         )}
                                         
                                         {/* Image */}
-                                        {(currentContent.imageBase64 || (editMode && !previewMode)) && (
+                                        {(questionImageSrc(currentContent) || (editMode && !previewMode)) && (
                                             <div className="mb-4">
-                                                {currentContent.imageBase64 && <img src={currentContent.imageBase64} className="image-preview mb-3" />}
+                                                {questionImageSrc(currentContent) && <img src={questionImageSrc(currentContent)} className="image-preview mb-3" />}
                                                 {editMode && !previewMode && !viewingStudent && (
-                                                    <div className="flex gap-2">
+                                                    <div className="flex gap-2 flex-wrap">
+                                                        {/* בחירה מהמכשיר */}
                                                         <label className="action-btn bg-slate-600 text-gray-300 cursor-pointer">
-                                                            <Icon name="upload" size={14} /> {currentContent.imageBase64 ? 'החלף תמונה' : 'העלה תמונה'}
-                                                            <input type="file" accept="image/*" className="hidden" onChange={e => {
-                                                                const file = e.target.files[0];
-                                                                if (file) {
-                                                                    compressImage(file)
-                                                                        .then(dataUrl => updateQuestionContent('imageBase64', dataUrl))
-                                                                        .catch(err => alert(err.message === 'too-large' ? 'התמונה גדולה מדי גם לאחר דחיסה — נסי תמונה קטנה יותר.' : 'שגיאה בטעינת התמונה.'));
-                                                                }
-                                                            }} />
+                                                            <Icon name="upload" size={14} /> {questionImageSrc(currentContent) ? 'החלף תמונה' : 'העלה תמונה'}
+                                                            <input type="file" accept="image/*" className="hidden"
+                                                                onChange={e => { const f = e.target.files[0]; e.target.value = ''; if (f) openQuestionImageEditor(f); }} />
                                                         </label>
-                                                        {currentContent.imageBase64 && <button onClick={() => updateQuestionContent('imageBase64', '')} className="action-btn bg-red-600/20 text-red-400">הסר</button>}
+                                                        {/* צילום ישיר — capture פותח את המצלמה האחורית בנייד */}
+                                                        <label className="action-btn bg-slate-600 text-gray-300 cursor-pointer sm:hidden" title="צילום דף">
+                                                            <Icon name="camera" size={14} /> צילום
+                                                            <input type="file" accept="image/*" capture="environment" className="hidden"
+                                                                onChange={e => { const f = e.target.files[0]; e.target.value = ''; if (f) openQuestionImageEditor(f); }} />
+                                                        </label>
+                                                        {questionImageSrc(currentContent) && (
+                                                            <button onClick={() => removeQuestionImage()} className="action-btn bg-red-600/20 text-red-400">הסר</button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -9866,7 +10092,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white resize-none" rows={4} placeholder="הוראות השאלה..." />
                                         ) : currentContent.instructions ? (
                                             <QuestionInstructions text={currentContent.instructions} />
-                                        ) : !currentContent.imageBase64 && <p className="text-gray-500">אין הוראות</p>}
+                                        ) : !questionImageSrc(currentContent) && <p className="text-gray-500">אין הוראות</p>}
 
                                         {/* חומר מצורף — PDF / Word / Google Drive, משובץ ומותאם למסך */}
                                         {editMode && !previewMode && !viewingStudent && (
@@ -10100,7 +10326,7 @@ ${answerText}
                                                             const result = await AIService.checkHomework(
                                                                 answerText,
                                                                 qContent.instructions || '',
-                                                                qContent.imageBase64 || '',
+                                                                questionImageSrc(qContent),
                                                                 fullPrompt,
                                                                 currentCount, // Pass check count to determine Pro vs Flash
                                                                 questionPoints // Pass max points for this question
