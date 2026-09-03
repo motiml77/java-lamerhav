@@ -359,6 +359,40 @@ service cloud.firestore {
     }
 
     // ---------- ברירת מחדל: הכול חסום ----------
+    // ================================================================
+    // בקשות לפתיחת בית ספר — הרשמה עצמית של מורים
+    // ================================================================
+    // מזהה המסמך הוא האימייל המנורמל של המבקש, ולכן יש בקשה אחת לכל אדם:
+    // זה מונע הצפה של התור בלי צורך במנגנון קצב נפרד.
+    //
+    // הכלל הקריטי כאן: המבקש לעולם לא כותב status ששונה מ-'pending'.
+    // בלעדיו כל מורה היה מאשר את עצמו בקריאת SDK אחת ועוקף את המנהל לגמרי —
+    // הגייט שבממשק הוא תצוגה בלבד, האכיפה האמיתית היא השורות האלה.
+    match /school_requests/{reqId} {
+      function ownRequest() {
+        return isSignedIn()
+          && request.auth.token.email_verified == true
+          && reqId == memberId()
+          && request.resource.data.email.lower() == request.auth.token.email.lower();
+      }
+
+      // המבקש רואה רק את הבקשה שלו; רק המנהל רואה את התור כולו
+      allow get: if isSuperAdmin() || (isSignedIn() && reqId == memberId());
+      allow list: if isSuperAdmin();
+
+      allow create: if ownRequest() && request.resource.data.status == 'pending';
+
+      // עדכון עצמי מותר רק כל עוד הבקשה ממתינה — כדי לתקן פרטים לפני החלטה.
+      // אחרי אישור או דחייה היא נעולה, אחרת אפשר היה "למחזר" בקשה מאושרת
+      // ולשנות את ה-slug שכבר הוקצה.
+      allow update: if isSuperAdmin()
+        || (ownRequest()
+            && request.resource.data.status == 'pending'
+            && resource.data.status == 'pending');
+
+      allow delete: if isSuperAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

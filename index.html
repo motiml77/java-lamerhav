@@ -153,6 +153,8 @@ body{
   transition:background .2s
 }
 .picker-last:hover{background:rgba(92,225,255,.12)}
+.picker-teacher{font-size:15px;color:rgba(255,255,255,.55);text-decoration:none;border-bottom:1px dashed rgba(255,255,255,.25);padding-bottom:2px;transition:color .2s}
+.picker-teacher:hover{color:var(--cyan);border-color:var(--cyan)}
 .cta-toast{
   direction:rtl;margin-top:4px;font-size:16px;color:var(--green);font-weight:600;
   opacity:0;transform:translateY(6px);transition:all .5s ease;
@@ -540,6 +542,7 @@ body{
         <button id="goBtn" type="button">כניסה</button>
       </div>
       <button class="picker-last" id="lastBtn" type="button" hidden></button>
+      <a class="picker-teacher" href="/signup">מורה? פתיחת בית ספר חדש</a>
       <div class="picker-err" id="pickerErr" role="alert"></div>
     </div>
   </section>

@@ -537,19 +537,20 @@
         // במצב legacy האפליקציה מתנהגת בדיוק כמו היום (אוספי שורש) — עד שלב 6 של התוכנית.
         // שמות שאסור שישמשו כ-slug כי הם נתיבים של המערכת. שים לב: אין להוסיף לכאן slug של בית ספר קיים —
         // הרשימה משמשת גם לניתוב, והוספה כזו תשבור את הכתובת שלו. התנגשות נמנעת בבדיקת קיום ב-createSchool.
-        const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'firebase-setup']);
+        const RESERVED_SLUGS = new Set(['admin', 'manage', 'app', 'api', 'assets', 'uploads', 'docs', 'login', 'static', 'index', 'promo', 'signup', 'firebase-setup']);
         const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
         const __path = (typeof location !== 'undefined' ? location.pathname : '/');
         const __seg = __path.split('/').filter(Boolean);
         const IS_ADMIN_ROUTE = __seg[0] === 'manage';
-        const SCHOOL_SLUG = (!IS_ADMIN_ROUTE && __seg[0] && SLUG_PATTERN.test(__seg[0]) && !RESERVED_SLUGS.has(__seg[0])) ? __seg[0] : null;
+        const IS_SIGNUP_ROUTE = __seg[0] === 'signup';
+        const SCHOOL_SLUG = (!IS_ADMIN_ROUTE && !IS_SIGNUP_ROUTE && __seg[0] && SLUG_PATTERN.test(__seg[0]) && !RESERVED_SLUGS.has(__seg[0])) ? __seg[0] : null;
         // "legacy" אמיתי — רק הנתיב הריק, app.html הישיר, או קובץ מקומי. בכוונה *לא*
         // כל RESERVED_SLUGS: מסלול ה-rewrite הכללי (vercel.json) מפנה גם /docs, /admin,
         // /login וכו' לאותו app.html, ובלי הצמצום הזה כל אחד מהם היה מקבל <App/> עם
         // SCHOOL_SLUG=null → col() נופל לאוספי השורש, שעדיין מכילים עותק מלא של
         // תוכן lamerhav (המיגרציה העתיקה ולא מחקה) — כל מחוברת מכל בית ספר הייתה
         // קוראת אותו. אומת מול Firestore החי לפני התיקון: 5/6 אוספי שורש דלפו.
-        const IS_LEGACY_ROUTE = !IS_ADMIN_ROUTE
+        const IS_LEGACY_ROUTE = !IS_ADMIN_ROUTE && !IS_SIGNUP_ROUTE
             && (__seg.length === 0 || __path === '/app.html'
                 || typeof location === 'undefined' || location.protocol === 'file:');
         // בית הספר הראשון — עד שהמיגרציה (שלב 5) תיצור את המסמך ב-Firestore, יש לו הגדרה מקומית
@@ -12679,7 +12680,9 @@ ${answerText}
             const [busy, setBusy] = useState(false);
             const [editing, setEditing] = useState(null); // מסמך בעריכה
             const [copied, setCopied] = useState('');
-            const [tab, setTab] = useState('schools'); // schools | stats | ads | media
+            const [tab, setTab] = useState('schools'); // schools | requests | stats | ads | media
+            const [requests, setRequests] = useState(null);   // תור בקשות לפתיחת בית ספר
+            const [reqSlug, setReqSlug] = useState({});        // עריכת ה-slug לפני אישור
             const [stats, setStats] = useState({});      // slug -> {students, visits30, assignments}
             const [statsLoading, setStatsLoading] = useState(false);
             const [ads, setAds] = useState(null);
@@ -12776,6 +12779,83 @@ ${answerText}
                     alert('בית הספר נוצר עם ' + LEARN_LIBRARY.length + ' נושאי לימוד מוכנים.\nהכתובת: ' + location.origin + '/' + slug);
                 } catch (e) { alert('היצירה נכשלה: ' + e.message); }
                 setBusy(false);
+            };
+
+            // ===== תור בקשות לפתיחת בית ספר =====
+            // האישור הוא הרגע שבו בית הספר באמת נוצר: מסמך schools/{slug},
+            // כל נושאי הספרייה, ורק אז הבקשה מסומנת כמאושרת. הסדר הזה מכוון —
+            // אם ההקצאה נכשלת באמצע, הבקשה נשארת 'pending' ואפשר לנסות שוב,
+            // במקום להישאר עם בקשה "מאושרת" בלי בית ספר מאחוריה.
+            const loadRequests = useCallback(async () => {
+                try {
+                    const snap = await db.collection('school_requests').get();
+                    const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    all.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+                    setRequests(all);
+                } catch (e) { setRequests([]); }
+            }, []);
+            useEffect(() => { if (isBoss) loadRequests(); }, [isBoss, loadRequests]);
+
+            const approveRequest = async (req) => {
+                if (busy) return;
+                const slug = String(reqSlug[req.id] != null ? reqSlug[req.id] : req.requestedSlug || '').trim().toLowerCase();
+                const err = slugError(slug);
+                if (err) { alert('בעיה בכתובת: ' + err); return; }
+                if (!confirm('לאשר את "' + req.schoolName + '"?\nייווצר בית ספר בכתובת ' + location.origin + '/' + slug +
+                             '\nהמורה יהיה ' + req.email)) return;
+                setBusy(true);
+                try {
+                    const exists = await db.collection('schools').doc(slug).get();
+                    if (exists.exists) { setBusy(false); alert('הכתובת ' + slug + ' כבר תפוסה. בחר כתובת אחרת ואשר שוב.'); return; }
+                    const batch = db.batch();
+                    LEARN_LIBRARY.forEach((lib, i) => {
+                        const id = 'class_' + slug + '_' + i;
+                        batch.set(db.collection('schools').doc(slug).collection('classes').doc(id), {
+                            id, title: lib.title, topicKey: topicKeyOf(lib.title), icon: '📚', grade: topicGradeFor(lib.title),
+                            exams: [], order: i, archived: false,
+                        });
+                    });
+                    await batch.commit();
+                    await db.collection('schools').doc(slug).set({
+                        slug,
+                        name: req.schoolName,
+                        teacherEmail: String(req.email || '').toLowerCase(),
+                        teacherName: req.name || '',
+                        status: 'active',
+                        createdAt: new Date().toISOString(),
+                        createdBy: adminUser.email,
+                        fromRequest: req.id,
+                        seededTopics: LEARN_LIBRARY.length,
+                        settings: { grades: ['י', 'יא', 'יב'], subtitle: req.schoolName },
+                    });
+                    // רק עכשיו — אחרי שבית הספר קיים באמת
+                    await db.collection('school_requests').doc(req.id).set({
+                        status: 'approved', approvedSlug: slug,
+                        decidedAt: new Date().toISOString(), decidedBy: adminUser.email,
+                    }, { merge: true });
+                    await loadRequests(); await loadSchools();
+                    setCopied(slug); setTimeout(() => setCopied(''), 6000);
+                    alert('בית הספר נפתח.\nהכתובת: ' + location.origin + '/' + slug + '\nשלח אותה למורה ' + req.email);
+                } catch (e) { alert('האישור נכשל: ' + e.message + '\nהבקשה נשארה ממתינה — אפשר לנסות שוב.'); }
+                setBusy(false);
+            };
+
+            const rejectRequest = async (req) => {
+                const note = prompt('לדחות את הבקשה של "' + req.schoolName + '"?\nסיבה שתוצג למורה (רשות):');
+                if (note === null) return;
+                try {
+                    await db.collection('school_requests').doc(req.id).set({
+                        status: 'rejected', decisionNote: note || '',
+                        decidedAt: new Date().toISOString(), decidedBy: adminUser.email,
+                    }, { merge: true });
+                    await loadRequests();
+                } catch (e) { alert('הדחייה נכשלה: ' + e.message); }
+            };
+
+            const deleteRequest = async (req) => {
+                if (!confirm('למחוק את הבקשה של "' + req.schoolName + '" מהתור?\nבית הספר עצמו לא יימחק.')) return;
+                try { await db.collection('school_requests').doc(req.id).delete(); await loadRequests(); }
+                catch (e) { alert('המחיקה נכשלה: ' + e.message); }
             };
 
             const toggleStatus = async (sc) => {
@@ -12907,6 +12987,11 @@ ${answerText}
                             <div className="flex items-center gap-2">
                                 <div className="seg-control">
                                     <button onClick={() => setTab('schools')} className={tab === 'schools' ? 'active seg-manage' : ''}>בתי ספר</button>
+                                    <button onClick={() => setTab('requests')} className={tab === 'requests' ? 'active seg-manage' : ''}>
+                                        בקשות{(requests || []).some(r => r.status === 'pending')
+                                            ? <span className="mr-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-slate-900 text-[11px] font-extrabold">{(requests || []).filter(r => r.status === 'pending').length}</span>
+                                            : null}
+                                    </button>
                                     <button onClick={() => setTab('stats')} className={tab === 'stats' ? 'active seg-manage' : ''}>סטטיסטיקה</button>
                                     <button onClick={() => setTab('ads')} className={tab === 'ads' ? 'active seg-manage' : ''}>פרסום</button>
                                     <button onClick={() => setTab('media')} className={tab === 'media' ? 'active seg-manage' : ''}>תוכן גלובלי</button>
@@ -13002,6 +13087,79 @@ ${answerText}
                                         )}
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                    </>) : tab === 'requests' ? (<>
+                        {/* ===== תור בקשות לפתיחת בית ספר ===== */}
+                        {requests === null ? (
+                            <div className="flex justify-center py-12"><div className="spinner w-8 h-8"></div></div>
+                        ) : requests.length === 0 ? (
+                            <div className="text-center py-16 text-slate-500">
+                                <div className="text-lg font-bold text-slate-400 mb-1">אין בקשות</div>
+                                <div className="text-sm">מורים שיפתחו בקשה בכתובת <span className="font-mono text-indigo-300" dir="ltr">/signup</span> יופיעו כאן.</div>
+                            </div>
+                        ) : (
+                            <div className="grid gap-3">
+                                {requests.map(r => {
+                                    const pending = r.status === 'pending';
+                                    const slugVal = reqSlug[r.id] != null ? reqSlug[r.id] : (r.requestedSlug || '');
+                                    const problem = pending ? slugError(String(slugVal).trim().toLowerCase()) : null;
+                                    const badge = r.status === 'approved'
+                                        ? ['bg-emerald-500/15 border-emerald-400/40 text-emerald-300', 'אושרה']
+                                        : r.status === 'rejected'
+                                        ? ['bg-rose-500/15 border-rose-400/40 text-rose-300', 'נדחתה']
+                                        : ['bg-amber-500/15 border-amber-400/40 text-amber-300', 'ממתינה'];
+                                    return (
+                                        <div key={r.id} className={'rounded-xl border p-4 ' + (pending ? 'bg-slate-900/60 border-indigo-500/30' : 'bg-slate-900/30 border-slate-700')}>
+                                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-white font-bold text-lg">{r.schoolName}</span>
+                                                        <span className={'px-2 py-0.5 rounded-full border text-xs font-bold ' + badge[0]}>{badge[1]}</span>
+                                                    </div>
+                                                    <div className="text-sm text-slate-400">
+                                                        {r.name} · <span dir="ltr">{r.email}</span>
+                                                        {r.phone ? <> · <span dir="ltr">{r.phone}</span></> : null}
+                                                    </div>
+                                                    {r.note ? <div className="text-sm text-slate-300 mt-2 bg-slate-800/60 rounded-lg px-3 py-2">{r.note}</div> : null}
+                                                    {r.createdAt ? <div className="text-xs text-slate-600 mt-2">נשלחה {new Date(r.createdAt).toLocaleString('he-IL')}</div> : null}
+                                                </div>
+                                                {!pending && (
+                                                    <button onClick={() => deleteRequest(r)} className="btn btn-ghost btn-sm text-slate-500">הסרה מהתור</button>
+                                                )}
+                                            </div>
+
+                                            {pending ? (
+                                                <div className="mt-4 pt-4 border-t border-slate-700">
+                                                    <label className="block text-slate-400 text-sm mb-1">כתובת בית הספר — אפשר לשנות לפני האישור</label>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <div className="flex items-center gap-1 bg-slate-800 border border-slate-600 rounded-lg px-3 focus-within:border-indigo-400 flex-1 min-w-[240px]">
+                                                            <span className="text-slate-500 text-sm shrink-0" dir="ltr">{location.origin}/</span>
+                                                            <input value={slugVal}
+                                                                   onChange={e => setReqSlug(m => ({ ...m, [r.id]: e.target.value }))}
+                                                                   dir="ltr" spellCheck={false}
+                                                                   className="flex-1 bg-transparent py-2 text-white outline-none min-w-0 font-mono" />
+                                                        </div>
+                                                        <button onClick={() => approveRequest(r)} disabled={busy || !!problem}
+                                                                className="btn btn-solid btn-sm">{busy ? 'פותח...' : 'אישור ופתיחת בית הספר'}</button>
+                                                        <button onClick={() => rejectRequest(r)} className="btn btn-ghost btn-sm text-rose-300">דחייה</button>
+                                                    </div>
+                                                    {problem
+                                                        ? <div className="text-amber-300 text-xs mt-2">{problem}</div>
+                                                        : <div className="text-slate-600 text-xs mt-2">האישור יוצר את בית הספר עם כל נושאי הבגרות, ומגדיר את {r.email} כמורה שלו.</div>}
+                                                </div>
+                                            ) : r.status === 'approved' ? (
+                                                <div className="mt-3 pt-3 border-t border-slate-700 flex items-center gap-2 flex-wrap text-sm">
+                                                    <span className="text-slate-400">הכתובת:</span>
+                                                    <a href={'/' + (r.approvedSlug || r.requestedSlug)} target="_blank" rel="noopener"
+                                                       className="font-mono text-indigo-300 hover:text-indigo-200" dir="ltr">{location.origin}/{r.approvedSlug || r.requestedSlug}</a>
+                                                </div>
+                                            ) : r.decisionNote ? (
+                                                <div className="mt-3 pt-3 border-t border-slate-700 text-sm text-slate-400">סיבת הדחייה: {r.decisionNote}</div>
+                                            ) : null}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </>) : tab === 'stats' ? (<>
@@ -13399,7 +13557,266 @@ ${answerText}
             </div>
         );
 
+        // ============================================================
+        //  /signup — הרשמה עצמית
+        // ============================================================
+        // אחרי כניסה עם גוגל המשתמש בוחר מסלול: הצטרפות כתלמידה לבית ספר
+        // קיים (לפי הקוד שקיבלה מהמורה), או בקשה לפתוח בית ספר חדש כמורה.
+        //
+        // בקשת מורה *לא* יוצרת בית ספר. היא יוצרת מסמך ב-school_requests
+        // שממתין לאישור המנהל, וההקצאה עצמה קורית רק בלוח הניהול. החוקים
+        // בשרת אוכפים את זה — המבקש לא יכול לכתוב status ששונה מ-'pending'
+        // (נבדק ב-scripts/e2e-school-requests.js).
+        // מחוץ ל-SignupPage בכוונה: רכיב שמוגדר בתוך רכיב אחר נוצר מחדש בכל
+        // רינדור, ו-React מפרק ובונה מחדש את כל תת-העץ — הטופס היה מאבד פוקוס
+        // בכל תו שנכתב. נתפס בבדיקת הזרימה ("Element is not attached to the DOM").
+        const SignupShell = ({ children }) => (
+            <div className="min-h-screen flex items-center justify-center p-5" style={{ background: '#070B16' }}>
+                <div className="w-full max-w-lg">
+                    <div className="text-center mb-6">
+                        <div className="inline-flex items-center gap-2 text-2xl font-extrabold text-white">
+                            <span className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-300 text-base">{ '{ }' }</span>
+                            Java לבגרות
+                        </div>
+                    </div>
+                    <div className="bg-slate-900/70 border border-slate-700 rounded-2xl p-7">{children}</div>
+                </div>
+            </div>
+        );
+
+        const SignupPage = () => {
+            const [user, setUser] = useState(undefined); // undefined = עוד לא ידוע
+            const [mode, setMode] = useState('choose');  // choose | student | teacher
+            const [myReq, setMyReq] = useState(undefined);
+            const [code, setCode] = useState('');
+            const [form, setForm] = useState({ schoolName: '', requestedSlug: '', teacherName: '', phone: '', note: '' });
+            const [busy, setBusy] = useState(false);
+            const [err, setErr] = useState('');
+
+            useEffect(() => {
+                if (!auth) { setUser(null); return; }
+                return auth.onAuthStateChanged(u => setUser(u || null));
+            }, []);
+
+            // הבקשה הקיימת של המשתמש — כדי להציג מצב במקום טופס כפול
+            useEffect(() => {
+                if (!user) { setMyReq(null); return; }
+                let cancelled = false;
+                (async () => {
+                    try {
+                        const id = (user.email || '').replace(/[.@]/g, '_');
+                        const d = await db.collection('school_requests').doc(id).get();
+                        if (!cancelled) setMyReq(d.exists ? { id: d.id, ...d.data() } : null);
+                    } catch (e) { if (!cancelled) setMyReq(null); }
+                })();
+                return () => { cancelled = true; };
+            }, [user]);
+
+            useEffect(() => {
+                if (user && !form.teacherName) setForm(f => ({ ...f, teacherName: user.displayName || '' }));
+            }, [user]);
+
+            const signIn = async () => {
+                setErr('');
+                try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+                catch (e) { setErr('ההתחברות נכשלה: ' + (e.message || '')); }
+            };
+
+            const slugProblem = (v) => {
+                if (!v) return 'חסרה כתובת';
+                if (!SLUG_PATTERN.test(v)) return 'אותיות אנגליות קטנות, ספרות ומקפים · 3-30 תווים';
+                if (RESERVED_SLUGS.has(v)) return 'מילה שמורה במערכת';
+                return null;
+            };
+
+            const submitRequest = async () => {
+                if (busy) return;
+                const slug = form.requestedSlug.trim().toLowerCase();
+                if (!form.schoolName.trim()) { setErr('חסר שם בית הספר'); return; }
+                const sp = slugProblem(slug);
+                if (sp) { setErr('בעיה בכתובת המבוקשת: ' + sp); return; }
+                if (!form.teacherName.trim()) { setErr('חסר שמך'); return; }
+                setBusy(true); setErr('');
+                try {
+                    const id = (user.email || '').replace(/[.@]/g, '_');
+                    const payload = {
+                        email: (user.email || '').toLowerCase(),
+                        name: form.teacherName.trim(),
+                        schoolName: form.schoolName.trim(),
+                        requestedSlug: slug,
+                        phone: form.phone.trim(),
+                        note: form.note.trim(),
+                        status: 'pending',
+                        createdAt: new Date().toISOString(),
+                    };
+                    await db.collection('school_requests').doc(id).set(payload);
+                    setMyReq({ id, ...payload });
+                } catch (e) {
+                    // ההודעה מהשרת לא קריאה למורה — מתרגמים אותה
+                    setErr(/permission/i.test(e.message || '')
+                        ? 'אין הרשאה לשלוח בקשה. ודאי שהתחברת עם חשבון גוגל מאומת.'
+                        : 'השליחה נכשלה: ' + e.message);
+                }
+                setBusy(false);
+            };
+
+
+            if (user === undefined || myReq === undefined) {
+                return <SignupShell><div className="flex justify-center py-6"><div className="spinner w-9 h-9"></div></div></SignupShell>;
+            }
+
+            // --- לא מחובר ---
+            if (!user) {
+                return (
+                    <SignupShell>
+                        <h1 className="text-xl font-extrabold text-white text-center mb-2">הרשמה למערכת</h1>
+                        <p className="text-slate-400 text-center text-sm mb-6">מתחברים עם חשבון גוגל, ואז בוחרים מסלול.</p>
+                        <button onClick={signIn} className="w-full btn btn-solid justify-center">התחברות עם Google</button>
+                        {err && <div className="mt-4 text-rose-300 text-sm text-center">{err}</div>}
+                    </SignupShell>
+                );
+            }
+
+            // --- למשתמש כבר יש בקשה ---
+            if (myReq && mode !== 'student') {
+                const st = myReq.status;
+                return (
+                    <SignupShell>
+                        <h1 className="text-xl font-extrabold text-white text-center mb-4">הבקשה שלך</h1>
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-4 text-sm">
+                            <div className="flex justify-between py-1"><span className="text-slate-400">בית הספר</span><span className="text-white font-bold">{myReq.schoolName}</span></div>
+                            <div className="flex justify-between py-1"><span className="text-slate-400">כתובת מבוקשת</span><span className="text-indigo-300 font-mono" dir="ltr">/{myReq.approvedSlug || myReq.requestedSlug}</span></div>
+                        </div>
+                        {st === 'pending' && (
+                            <div className="text-center">
+                                <div className="inline-block px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-sm font-bold mb-3">ממתינה לאישור</div>
+                                <p className="text-slate-400 text-sm">הבקשה נשלחה למנהל המערכת. מרגע האישור בית הספר ייפתח עם כל נושאי הבגרות מוכנים.</p>
+                            </div>
+                        )}
+                        {st === 'approved' && (
+                            <div className="text-center">
+                                <div className="inline-block px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-sm font-bold mb-3">אושרה</div>
+                                <p className="text-slate-300 text-sm mb-4">בית הספר שלך פעיל. זו הכתובת שלך:</p>
+                                <a href={'/' + (myReq.approvedSlug || myReq.requestedSlug)} className="btn btn-solid inline-flex">כניסה לבית הספר</a>
+                            </div>
+                        )}
+                        {st === 'rejected' && (
+                            <div className="text-center">
+                                <div className="inline-block px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/40 text-rose-300 text-sm font-bold mb-3">נדחתה</div>
+                                {myReq.decisionNote
+                                    ? <p className="text-slate-300 text-sm">{myReq.decisionNote}</p>
+                                    : <p className="text-slate-400 text-sm">לפרטים נוספים אפשר לפנות למנהל המערכת.</p>}
+                            </div>
+                        )}
+                        <button onClick={() => setMode('student')} className="w-full btn btn-ghost justify-center mt-5 text-sm">
+                            להצטרף לבית ספר קיים במקום
+                        </button>
+                    </SignupShell>
+                );
+            }
+
+            // --- בחירת מסלול ---
+            if (mode === 'choose') {
+                return (
+                    <SignupShell>
+                        <p className="text-slate-400 text-center text-sm mb-1">מחוברת כ־</p>
+                        <p className="text-white text-center font-bold mb-6" dir="ltr">{user.email}</p>
+                        <div className="grid gap-3">
+                            <button onClick={() => setMode('student')}
+                                    className="text-right p-4 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-indigo-400 transition">
+                                <div className="text-white font-bold mb-1">אני תלמידה</div>
+                                <div className="text-slate-400 text-sm">הצטרפות לבית ספר קיים עם הקוד שקיבלת מהמורה</div>
+                            </button>
+                            <button onClick={() => setMode('teacher')}
+                                    className="text-right p-4 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-indigo-400 transition">
+                                <div className="text-white font-bold mb-1">אני מורה</div>
+                                <div className="text-slate-400 text-sm">פתיחת בית ספר חדש · טעון אישור מנהל המערכת</div>
+                            </button>
+                        </div>
+                        <button onClick={() => auth.signOut()} className="w-full text-slate-500 text-sm mt-5 hover:text-slate-300">התנתקות</button>
+                    </SignupShell>
+                );
+            }
+
+            // --- מסלול תלמידה ---
+            if (mode === 'student') {
+                const go = () => {
+                    const v = code.trim().toLowerCase();
+                    const sp = slugProblem(v);
+                    if (sp) { setErr(sp); return; }
+                    window.location.href = '/' + v;
+                };
+                return (
+                    <SignupShell>
+                        <h1 className="text-xl font-extrabold text-white text-center mb-2">הצטרפות לבית ספר</h1>
+                        <p className="text-slate-400 text-center text-sm mb-5">הזיני את קוד בית הספר שקיבלת מהמורה.</p>
+                        <input value={code} onChange={e => { setCode(e.target.value); setErr(''); }}
+                               onKeyDown={e => e.key === 'Enter' && go()}
+                               dir="ltr" placeholder="lamerhav" spellCheck={false}
+                               className="w-full text-lg font-bold bg-slate-800 border-2 border-slate-600 focus:border-indigo-400 rounded-xl px-4 py-3 text-white outline-none mb-3" />
+                        {err && <div className="text-rose-300 text-sm mb-3">{err}</div>}
+                        <button onClick={go} className="w-full btn btn-solid justify-center">כניסה</button>
+                        <button onClick={() => { setMode('choose'); setErr(''); }} className="w-full text-slate-500 text-sm mt-4 hover:text-slate-300">חזרה</button>
+                    </SignupShell>
+                );
+            }
+
+            // --- מסלול מורה ---
+            const slugLive = form.requestedSlug.trim().toLowerCase();
+            const slugMsg = slugLive ? slugProblem(slugLive) : null;
+            return (
+                <SignupShell>
+                    <h1 className="text-xl font-extrabold text-white text-center mb-2">פתיחת בית ספר חדש</h1>
+                    <p className="text-slate-400 text-center text-sm mb-5">הבקשה נשלחת למנהל המערכת. אחרי אישור בית הספר נפתח אוטומטית עם כל נושאי הבגרות.</p>
+                    <div className="grid gap-3">
+                        <div>
+                            <label className="block text-slate-400 text-sm mb-1">שם בית הספר</label>
+                            <input value={form.schoolName} onChange={e => { setForm(f => ({ ...f, schoolName: e.target.value })); setErr(''); }}
+                                   placeholder="תיכון ישראלי, תל אביב"
+                                   className="w-full bg-slate-800 border border-slate-600 focus:border-indigo-400 rounded-lg px-3 py-2 text-white outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-slate-400 text-sm mb-1">כתובת מבוקשת</label>
+                            <div className="flex items-center gap-1 bg-slate-800 border border-slate-600 rounded-lg px-3 focus-within:border-indigo-400">
+                                <span className="text-slate-500 text-sm shrink-0" dir="ltr">{location.origin}/</span>
+                                <input value={form.requestedSlug} onChange={e => { setForm(f => ({ ...f, requestedSlug: e.target.value })); setErr(''); }}
+                                       dir="ltr" spellCheck={false} placeholder="my-school"
+                                       className="flex-1 bg-transparent py-2 text-white outline-none min-w-0" />
+                            </div>
+                            {slugMsg
+                                ? <div className="text-amber-300 text-xs mt-1">{slugMsg}</div>
+                                : <div className="text-slate-500 text-xs mt-1">זו תהיה הכתובת הקבועה של בית הספר. המנהל יכול לשנות אותה לפני האישור.</div>}
+                        </div>
+                        <div>
+                            <label className="block text-slate-400 text-sm mb-1">שמך</label>
+                            <input value={form.teacherName} onChange={e => setForm(f => ({ ...f, teacherName: e.target.value }))}
+                                   className="w-full bg-slate-800 border border-slate-600 focus:border-indigo-400 rounded-lg px-3 py-2 text-white outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-slate-400 text-sm mb-1">טלפון <span className="text-slate-600">(רשות)</span></label>
+                            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} dir="ltr"
+                                   className="w-full bg-slate-800 border border-slate-600 focus:border-indigo-400 rounded-lg px-3 py-2 text-white outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-slate-400 text-sm mb-1">הערה למנהל <span className="text-slate-600">(רשות)</span></label>
+                            <textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={2}
+                                      className="w-full bg-slate-800 border border-slate-600 focus:border-indigo-400 rounded-lg px-3 py-2 text-white outline-none resize-none" />
+                        </div>
+                    </div>
+                    <div className="text-slate-500 text-xs mt-3">הבקשה תישלח בשם <span className="text-slate-400" dir="ltr">{user.email}</span> — זה יהיה חשבון המורה של בית הספר.</div>
+                    {err && <div className="mt-3 text-rose-300 text-sm">{err}</div>}
+                    <button onClick={submitRequest} disabled={busy} className="w-full btn btn-solid justify-center mt-4">
+                        {busy ? 'שולח...' : 'שליחת הבקשה'}
+                    </button>
+                    <button onClick={() => { setMode('choose'); setErr(''); }} className="w-full text-slate-500 text-sm mt-3 hover:text-slate-300">חזרה</button>
+                </SignupShell>
+            );
+        };
+
         const Root = () => {
+            // ראשון בכוונה: השומרים שאחריו תופסים כל נתיב בלי slug, ולכן
+            // /signup היה מקבל "בית ספר לא נמצא" (נתפס בבדיקת הזרימה).
+            if (IS_SIGNUP_ROUTE) return <SignupPage />;
             // מצב ישן — גישה ישירה ל-/app.html (וגם file://): מתנהג בדיוק כמו היום.
             if (!IS_ADMIN_ROUTE && !SCHOOL_SLUG && IS_LEGACY_ROUTE) return <App />;
             // slug שמור או לא תקין (docs/admin/login/...): לא legacy אמיתי — לא לתת
