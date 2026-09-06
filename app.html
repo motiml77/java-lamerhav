@@ -8473,6 +8473,32 @@ a.setGrade(100);   // משנה רק את נעמה
                 const folder = (SCHOOL_SLUG ? `schools/${SCHOOL_SLUG}` : 'schools/legacy') + `/questions/${selectedExam.id}`;
                 setImgEditor({ file, folder, qId });
             };
+            // הדבקת צילום מסך (Ctrl+V) — נכנסת בדיוק לאותו מסלול של העלאה מקובץ,
+            // כולל חיתוך, סיבוב ושחור-לבן, ושמירה יחידה ב-Storage.
+            //
+            // המאזין הוא על document ולא על שדה מסוים בכוונה: אין "פוקוס על השאלה"
+            // שהמורה לוחצת עליו — היא עושה צילום מסך ומדביקה מיד. preventDefault
+            // נקרא רק כשבאמת נמצאה תמונה, כדי שהדבקת טקסט רגילה לעורך הקוד
+            // ולשדות הטקסט תמשיך לעבוד כרגיל.
+            useEffect(() => {
+                if (!editMode || previewMode || viewingStudent) return;
+                if (!selectedExam || selectedQuestion === null) return;
+                const onPaste = (e) => {
+                    if (imgEditor) return; // העורך כבר פתוח — לא לפתוח שני
+                    const dt = e.clipboardData;
+                    if (!dt) return;
+                    const items = Array.from(dt.items || []);
+                    const hit = items.find(it => it.kind === 'file' && /^image\//.test(it.type || ''));
+                    const file = hit ? hit.getAsFile()
+                        : Array.from(dt.files || []).find(f => /^image\//.test(f.type || ''));
+                    if (!file) return;
+                    e.preventDefault();
+                    openQuestionImageEditor(file);
+                };
+                document.addEventListener('paste', onPaste);
+                return () => document.removeEventListener('paste', onPaste);
+            }, [editMode, previewMode, viewingStudent, selectedExam, selectedQuestion, imgEditor]);
+
             // מוחקת גם את הקובץ מ-Storage — בלי זה נשארים קבצים יתומים שממשיכים לתפוס מקום
             const removeQuestionImage = async () => {
                 if (!selectedExam || selectedQuestion === null) return;
@@ -10088,6 +10114,7 @@ a.setGrade(100);   // משנה רק את נעמה
                                                         {questionImageSrc(currentContent) && (
                                                             <button onClick={() => removeQuestionImage()} className="action-btn bg-red-600/20 text-red-400">הסר</button>
                                                         )}
+                                                        <span className="hidden sm:flex items-center text-xs text-slate-500 self-center">או Ctrl+V להדבקת צילום מסך</span>
                                                     </div>
                                                 )}
                                             </div>
