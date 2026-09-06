@@ -52,7 +52,7 @@ async function clickByText(pg, text) {
   pg.on('pageerror', e => errs.push(String(e).slice(0, 160)));
 
   try {
-    await pg.goto('http://localhost:4453/lamerhav', { waitUntil: 'domcontentloaded' });
+    await pg.goto('http://localhost:4453/demo', { waitUntil: 'domcontentloaded' });
     await pg.waitForSelector('text=התחברות עם Google', { timeout: 60000 });
     const d = await pg.$('button:has-text("דמו למורה")') || await pg.$('button:has-text("כניסת דמו")');
     if (d) await d.click({ force: true });
