@@ -8984,12 +8984,16 @@ a.setGrade(100);   // משנה רק את נעמה
                 if (so === undefined || to === undefined) return classMatchesGrade(cls, grade);
                 return to === so || to === so - 1; // נוכחי + שנה אחת אחורה
             };
-            const filteredClasses = isEditor ? classes.filter(cls => !cls.archived && classMatchesGrade(cls, teacherGradeFilter)) : classes.filter(cls => {
-                if (cls.archived) return false;
-                if (cls.visible === false) return false; // נושא שהמורה הסתירה מהתלמידות
-                if (!studentGrade) return true; // Show all if no grade set
-                return studentSeesClass(cls, studentGrade);
-            }).sort((a, b) => (isPastTopic(a, studentGrade) ? 1 : 0) - (isPastTopic(b, studentGrade) ? 1 : 0)); // נושאי השנה הקודמת בסוף
+            // נושאים שהתלמידה רשאית לראות בכלל — לפני סינון השכבה
+            const openClasses = isEditor ? [] : classes.filter(cls => !cls.archived && cls.visible !== false);
+            const byGrade = openClasses.filter(cls => !studentGrade || studentSeesClass(cls, studentGrade));
+            // אם השכבה של התלמידה לא תואמת אף נושא — מציגים את הכול במקום מסך ריק.
+            // קורה כשבית הספר מגדיר שכבה שאין לה תוכן (ל'למרחב' מוגדרת גם י',
+            // וכל הנושאים הם יא/יב), ותלמידה שנרשמה לשכבה כזו ראתה אתר ריק לגמרי.
+            const studentClasses = (byGrade.length === 0 && openClasses.length > 0) ? openClasses : byGrade;
+            const filteredClasses = isEditor
+                ? classes.filter(cls => !cls.archived && classMatchesGrade(cls, teacherGradeFilter))
+                : studentClasses.slice().sort((a, b) => (isPastTopic(a, studentGrade) ? 1 : 0) - (isPastTopic(b, studentGrade) ? 1 : 0)); // נושאי השנה הקודמת בסוף
 
             // Currently selected topic unit (student topic page)
             const selectedClassObj = selectedClass ? filteredClasses.find(c => c.id === selectedClass) : null;
@@ -9103,8 +9107,10 @@ a.setGrade(100);   // משנה רק את נעמה
                                 }} title="חזרה לעמוד הבית">
                                     <div className="logo-coin w-9 h-9 rounded-xl flex items-center justify-center text-white font-mono font-bold text-sm">{'{ }'}</div>
                                     <div className="hidden md:block">
-                                        <h1 className="text-lg font-extrabold text-white leading-tight">Java לבגרות</h1>
-                                        <div className="text-indigo-300 text-[11px] font-semibold leading-tight">{(CURRENT_SCHOOL && CURRENT_SCHOOL.name ? CURRENT_SCHOOL.name + ' · ' : '') + (isEditor ? 'ניהול יחידות, עבודות ומבחנים' : 'יחידות · עבודות · מבחנים')}</div>
+                                        {/* שם בית הספר הוא הכותרת הראשית — האתר מוצג לתלמידה
+                                            כאתר של בית הספר שלה, לא כמוצר גנרי עם שם בית ספר בשוליים. */}
+                                        <h1 className="text-lg font-extrabold text-white leading-tight">{(CURRENT_SCHOOL && CURRENT_SCHOOL.name) || 'Java לבגרות'}</h1>
+                                        <div className="text-indigo-300 text-[11px] font-semibold leading-tight">{'Java לבגרות · ' + (isEditor ? 'ניהול יחידות, עבודות ומבחנים' : 'יחידות · עבודות · מבחנים')}</div>
                                     </div>
                                     <h1 className="text-lg font-bold text-white md:hidden truncate max-w-[46vw]">{(CURRENT_SCHOOL && CURRENT_SCHOOL.name) || "Java לבגרות"}</h1>
                                 </div>
@@ -13655,10 +13661,17 @@ ${answerText}
                 catch (e) { setErr('ההתחברות נכשלה: ' + (e.message || '')); }
             };
 
+            // הודעות ספציפיות ולא כלל גנרי אחד: מורה שכתב בעברית צריך לדעת
+            // *מה* לתקן, לא לקרוא שוב את הכלל ולנחש איזה חלק ממנו הפר.
             const slugProblem = (v) => {
                 if (!v) return 'חסרה כתובת';
-                if (!SLUG_PATTERN.test(v)) return 'אותיות אנגליות קטנות, ספרות ומקפים · 3-30 תווים';
-                if (RESERVED_SLUGS.has(v)) return 'מילה שמורה במערכת';
+                if (/[\u0590-\u05FF]/.test(v)) return 'הכתובת חייבת להיות באותיות אנגליות — לא בעברית';
+                if (/\s/.test(v)) return 'בלי רווחים — אפשר לחבר מילים במקף, למשל amit-holon';
+                if (/[^a-z0-9-]/.test(v)) return 'מותרות רק אותיות אנגליות, ספרות ומקפים';
+                if (v.length < 3) return 'קצר מדי — לפחות 3 תווים';
+                if (v.length > 30) return 'ארוך מדי — עד 30 תווים';
+                if (!SLUG_PATTERN.test(v)) return 'הכתובת חייבת להתחיל ולהסתיים באות או בספרה';
+                if (RESERVED_SLUGS.has(v)) return 'מילה שמורה במערכת — בחרי כתובת אחרת';
                 return null;
             };
 
@@ -13809,7 +13822,14 @@ ${answerText}
                                    className="w-full bg-slate-800 border border-slate-600 focus:border-indigo-400 rounded-lg px-3 py-2 text-white outline-none" />
                         </div>
                         <div>
-                            <label className="block text-slate-400 text-sm mb-1">כתובת מבוקשת</label>
+                            <label className="block text-slate-400 text-sm mb-1">כתובת בית הספר באתר</label>
+                            {/* ההוראות מופיעות לפני ההקלדה ולא כשגיאה אחריה: מורה שרואה
+                                "כתובת מבוקשת" מקליד עברית באופן טבעי, ומגלה את הכלל רק
+                                אחרי שנכשל. */}
+                            <div className="text-slate-500 text-xs mb-2 leading-relaxed bg-slate-800/40 border border-slate-700 rounded-lg px-3 py-2">
+                                <span className="text-slate-300 font-bold">באותיות אנגליות בלבד.</span> אותיות קטנות, ספרות ומקפים · 3–30 תווים.
+                                <br />בלי עברית ובלי רווחים — לדוגמה <span className="font-mono text-indigo-300" dir="ltr">amit-holon</span> או <span className="font-mono text-indigo-300" dir="ltr">tichon5</span>
+                            </div>
                             <input value={form.requestedSlug} onChange={e => { setForm(f => ({ ...f, requestedSlug: e.target.value })); setErr(''); }}
                                    dir="ltr" spellCheck={false} placeholder="my-school"
                                    className="w-full bg-slate-800 border border-slate-600 focus:border-indigo-400 rounded-lg px-3 py-2 text-white outline-none font-mono" />

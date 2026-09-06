@@ -232,11 +232,17 @@ service cloud.firestore {
     // approved, יצירת המסמך העצמית הזו לבדה הייתה מספיקה כדי לפתוח קריאה מלאה
     // לכל בית ספר פעיל, בלי שום אישור מורה. זו בדיוק כוונת PendingApprovalScreen
     // בקוד (app.html:8492): לא מאושרת = לא רואה תוכן, לא רק "לא רואה כפתורים".
+    // ברירת המחדל היא true, ובכוונה: האתר מעולם לא כתב approved על מסמך
+    // תלמידה קיימת, והקונבנציה בקוד היא approved !== false (app.html:7787,1077).
+    // ברירת מחדל false נעלה את כל 17 התלמידות של 'למרחב' מיד עם המעבר לייצור —
+    // הן ראו "אין נושאים לשכבה יא" כי קריאת classes נדחתה בשרת.
+    // זה לא פותח פרצה: allow create למטה מחייב approved == false במפורש,
+    // ולכן נרשמת חדשה לא יכולה "לאשר את עצמה" בהשמטת השדה.
     function isMember(school) {
       return isSignedIn()
         && exists(/databases/$(database)/documents/schools/$(school)/users/$(memberId()))
         && get(/databases/$(database)/documents/schools/$(school)/users/$(memberId()))
-             .data.get('approved', false) == true;
+             .data.get('approved', true) != false;
     }
 
     // לפני ההרשמה אין עדיין מסמך תלמידה, ולכן isMember עוד לא יכול להתקיים.
@@ -318,7 +324,7 @@ service cloud.firestore {
         // תלמידה מעדכנת שם/מספר כיתה — לא את approved ולא את שדות ההעלאה
         allow update: if canManage(school)
                       || (isActiveUser(school) && ownsExisting() && ownsIncoming()
-                          && request.resource.data.approved == resource.data.approved
+                          && request.resource.data.get('approved', true) == resource.data.get('approved', true)
                           && !touchesPromotionFields());
         allow delete: if canManage(school);
       }
