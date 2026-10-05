@@ -191,7 +191,7 @@
         /* ===== Question display typography — בהשראת CodeClassroom: sans עברי נקי (Segoe UI-like), גדלים אווריריים ===== */
         .qx-font { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; }
         .q-codeblock { background: #282C34; border: 1px solid rgba(148,163,184,0.16); border-radius: 12px; padding: 16px 18px; direction: ltr; text-align: left; font-family: Consolas, 'DejaVu Sans Mono', 'JetBrains Mono', monospace; font-size: 14.5px; line-height: 1.75; color: #ABB2BF; overflow-x: auto; white-space: pre; }
-        .q-text { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; color: #E8EDF6; font-size: 17.5px; line-height: 1.85; white-space: pre-wrap; }
+        .q-text { direction: rtl; text-align: right; font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; color: #E8EDF6; font-size: 17.5px; line-height: 1.85; white-space: pre-wrap; }
         .q-title { font-family: 'Segoe UI', 'Noto Sans Hebrew', 'Heebo', Arial, sans-serif; font-size: 26px; font-weight: 800; color: #fff; line-height: 1.3; letter-spacing: -0.2px; }
         .q-inline-code { font-family: Consolas, 'DejaVu Sans Mono', 'JetBrains Mono', monospace; direction: ltr; unicode-bidi: embed; color: #93C5FD; background: rgba(59,130,246,0.12); border: 1px solid rgba(147,197,253,0.18); border-radius: 6px; padding: 1px 7px 2px; font-size: 0.88em; white-space: nowrap; }
         /* הזחת תוכן שיעור מתחת למספור הסעיף — מתבטלת במסכים צרים כדי לפנות רוחב לקוד */
@@ -4769,6 +4769,12 @@ a.setGrade(100);   // משנה רק את נעמה
             const t = line.trim();
             if (!t) return false;
             if (/^(קלט|פלט|פלט למסך|דוגמה|תיאור|הערה|חתימת הפעולה)\s*:?/.test(t)) return false;
+            // משפט עברי הוא טקסט גם אם הוא מזכיר שם של פעולה או טווח בסוגריים.
+            // בלי הבדיקה הזו הביטוי \w+\s*\(...\) תפס "0 ל-9 (כולל)" והעביר שורה עברית
+            // שלמה לתיבת קוד LTR מונוספייס — המילים יצאו בסדר הפוך.
+            // שורה עם ; { } הערת // או חץ נשארת קוד גם אם יש בה עברית (הערות בקוד).
+            const hebrewWords = (t.match(/[֐-׿]{2,}/g) || []).length;
+            if (hebrewWords >= 2 && !/[;{}]|\/\/|\/\*|=>|->/.test(t)) return false;
             return /[{};]|<-|->|=>|\(\s*\)|\bpublic\b|\bprivate\b|\bstatic\b|\bvoid\b|\breturn\b|System\.|Node<|BinNode<|\bnew\b|\bfor\s*\(|\bwhile\s*\(|\bif\s*\(|\w+\s*\([^)]*\)|\[\s*\]/.test(t);
         };
         const QuestionInstructions = ({ text }) => {
@@ -4784,10 +4790,40 @@ a.setGrade(100);   // משנה רק את נעמה
             });
             const trim = (s) => s.replace(/^\n+|\n+$/g, '');
             // קוד inline בתוך משפט עברי — `כך` — מוצג כצ'יפ מונוספייס כחלחל (כמו בדוגמאות CodeClassroom)
+            //
+            // בידוד כיוון: רצף לועזי בתוך משפט עברי ("num = 8", "isExist", "Queue<Integer>")
+            // עטוף ב-<bdi dir="ltr"> כרצף אחד. בלי זה, התווים הנייטרליים (= ( ) , .) שבין
+            // המילים הלועזיות נצמדים לכיוון העברי ומתהפכים — "num = 8" יוצא "8 = num".
+            // עוטפים רצף שלם ולא מילה בודדת: מילה בודדת משאירה את "= 8" מחוץ לבידוד.
+            // הרצף מתחיל גם בספרה: "162, 251, 568, 7" בלי בידוד מוצג הפוך, כי פסיק+רווח
+            // אינו "מפריד יחיד" בין מספרים בכללי ה-bidi, ולכן כל מספר הופך לרצף נפרד.
+            const latinRun = /[A-Za-z0-9][A-Za-z0-9_.<>\[\]()=+\-*\/%!&|,:'" \t]*/g;
+            const trailJunk = /[\s,.:;'"(\[<=+\-*\/%!&|]+$/;
+            const pairs = { ')': '(', ']': '[', '>': '<' };
+            const isolateLatin = (str, keyBase) => {
+                const out = []; let last = 0, m, n = 0;
+                latinRun.lastIndex = 0;
+                while ((m = latinRun.exec(str))) {
+                    let run = m[0].replace(trailJunk, '');
+                    // סוגר שנשאר בלי פותח בתוך הרצף היה מתהפך — משאירים אותו בחוץ
+                    for (;;) {
+                        const c = run.slice(-1), o = pairs[c];
+                        if (!o) break;
+                        if (run.split(c).length - 1 <= run.split(o).length - 1) break;
+                        run = run.slice(0, -1).replace(trailJunk, '');
+                    }
+                    if (!run) continue;
+                    if (m.index > last) out.push(str.slice(last, m.index));
+                    out.push(<bdi key={keyBase + '_' + (n++)} dir="ltr">{run}</bdi>);
+                    last = m.index + run.length;
+                }
+                if (last < str.length) out.push(str.slice(last));
+                return out;
+            };
             const renderInline = (s) => s.split(/(`[^`\n]+`)/g).map((part, j) =>
                 part.length > 2 && part.startsWith('`') && part.endsWith('`')
                     ? <code key={j} className="q-inline-code">{part.slice(1, -1)}</code>
-                    : part
+                    : <React.Fragment key={j}>{isolateLatin(part, j)}</React.Fragment>
             );
             return (
                 <div className="flex flex-col gap-3">
