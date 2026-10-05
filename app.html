@@ -953,6 +953,24 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
 
         const PROMOTE_CHUNK = 400; // מתחת למגבלת 500 הפעולות של batch, עם מרווח ביטחון
 
+        // הגנת תקינות טקסט: U+FFFD הוא תו ההחלפה שנוצר כשבתים של אות עברית מפוענחים
+        // בטעות. טקסט שמכיל אותו הגיע מקריאה או הדבקה פגומות, ושמירתו הופכת פגם
+        // חולף לנתון קבוע שכל התלמידות רואות. נבדק באוטומציה: זה בדיוק מה
+        // שקרה כשסקריפט העתקה שיכפל שאלות לבית ספר חדש.
+        const BROKEN_CHAR = String.fromCharCode(0xFFFD); // לא התו עצמו וגם לא רצף בריחה: שניהם משתבשים בעריכה
+        const hasBrokenText = (v) => {
+            if (typeof v === 'string') return v.includes(BROKEN_CHAR);
+            if (Array.isArray(v)) return v.some(hasBrokenText);
+            if (v && typeof v === 'object') return Object.values(v).some(hasBrokenText);
+            return false;
+        };
+        const rejectBrokenText = (data, what) => {
+            if (!hasBrokenText(data)) return false;
+            console.error('Refusing to save ' + what + ': text contains U+FFFD');
+            try { alert('לא נשמר: בטקסט יש תווים שבורים (מוצגים כסימן שאלה בריבוע). בדקי את ההדבקה או הקובץ שממנו הועתק הטקסט, ונסי שוב.'); } catch (e) {}
+            return true;
+        };
+
         const DataService = {
             // Get collection name based on type
             getResponseCollection(examType) {
@@ -1525,6 +1543,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             },
 
             async saveClass(classData) {
+                if (rejectBrokenText(classData, 'class')) return false;
                 if (!db) {
                     console.error('❌ DB not initialized - cannot save class');
                     return false;
@@ -1556,6 +1575,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
             // מספר הנושאים הקיים היום (אותו דפוס בדיוק כמו clearAllYearResponses).
             async saveClassesBatch(classesArr) {
                 if (!db || !classesArr || !classesArr.length) return false;
+                if (rejectBrokenText(classesArr, 'classes batch')) return false;
                 try {
                     const clean = classesArr.map(c => JSON.parse(JSON.stringify(c, (k, v) => v === undefined ? null : v)));
                     for (let i = 0; i < clean.length; i += 500) {
@@ -1606,6 +1626,7 @@ In your feedback (written in Hebrew, לשון נקבה): for each problem give t
 
             async saveQuestionContent(questionId, data) {
                 if (!db) return false;
+                if (rejectBrokenText(data, 'question ' + questionId)) return false;
                 try { await col('questions').doc(questionId).set(data, { merge: true }); return true; }
                 catch (e) { console.error('Save error:', e); return false; }
             },

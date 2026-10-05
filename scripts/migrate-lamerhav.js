@@ -27,6 +27,7 @@ function getToken() {
       '&client_id=563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com&client_secret=j9iVZfS8kkCEFUPaAeJV0sAi';
     const q = https.request({ hostname: 'oauth2.googleapis.com', path: '/token', method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, r => {
+      r.setEncoding('utf8'); // UTF-8 תקין גם כשאות נחתכת בין חתיכות
       let d = ''; r.on('data', c => d += c); r.on('end', () => { const t = JSON.parse(d).access_token; t ? res(t) : rej(new Error(d)); });
     });
     q.write(body); q.end();
@@ -38,6 +39,7 @@ function api(method, p, body) {
   return new Promise((res, rej) => {
     const q = https.request({ hostname: 'firestore.googleapis.com', path: p, method,
       headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' } }, r => {
+      r.setEncoding('utf8'); // UTF-8 תקין גם כשאות נחתכת בין חתיכות
       let d = ''; r.on('data', c => d += c);
       r.on('end', () => { try { res({ status: r.statusCode, data: JSON.parse(d || '{}') }); } catch (e) { res({ status: r.statusCode, data: d }); } });
     });

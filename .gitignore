@@ -10,3 +10,4 @@ firebase-setup/package*.json
 promo/artifact.html
 dist
 .shots/
+.backups/

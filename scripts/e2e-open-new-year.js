@@ -24,6 +24,7 @@ function oauth() {
       '&client_id=563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com&client_secret=j9iVZfS8kkCEFUPaAeJV0sAi';
     const r = https.request({ hostname: 'oauth2.googleapis.com', path: '/token', method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, s => {
+      s.setEncoding('utf8'); // מפענח UTF-8 נכון גם כשאות נחתכת בין חתיכות
       let d = ''; s.on('data', c => d += c); s.on('end', () => res(JSON.parse(d).access_token));
     });
     r.write(b); r.end();
@@ -35,6 +36,7 @@ function call(host, p, method, headers, payload) {
     const h = Object.assign({}, headers);
     if (data) h['Content-Length'] = Buffer.byteLength(data);
     const r = https.request({ hostname: host, path: p, method, headers: h }, s => {
+      s.setEncoding('utf8'); // מפענח UTF-8 נכון גם כשאות נחתכת בין חתיכות
       let d = ''; s.on('data', c => d += c); s.on('end', () => res({ code: s.statusCode, body: d }));
     });
     r.on('error', e => res({ code: 0, body: String(e) }));

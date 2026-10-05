@@ -18,6 +18,7 @@ function token(cb) {
     '&client_id=563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com&client_secret=j9iVZfS8kkCEFUPaAeJV0sAi';
   const r = https.request({ hostname: 'oauth2.googleapis.com', path: '/token', method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, s => {
+    s.setEncoding('utf8'); // מפענח UTF-8 נכון גם כשאות נחתכת בין חתיכות
     let d = ''; s.on('data', c => d += c); s.on('end', () => cb(JSON.parse(d).access_token));
   });
   r.write(b); r.end();
@@ -91,6 +92,7 @@ function run(tok, attempt) {
     testSuite: { testCases: CASES.map(c => ({ expectation: c.expectation, request: c.request, functionMocks: c.functionMocks || [] })) } });
   const r = https.request({ hostname: 'firebaserules.googleapis.com', path: '/v1/projects/exams-a93fb:test', method: 'POST',
     headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' } }, res => {
+    res.setEncoding('utf8'); // UTF-8 תקין גם כשאות נחתכת בין חתיכות
     let d = ''; res.on('data', c => d += c); res.on('end', () => {
       const j = JSON.parse(d);
       if (j.issues && j.issues.length) console.log('COMPILE:', JSON.stringify(j.issues).slice(0, 400));

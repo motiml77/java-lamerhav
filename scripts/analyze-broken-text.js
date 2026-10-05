@@ -14,6 +14,7 @@ function oauth() {
       '&client_id=563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com&client_secret=j9iVZfS8kkCEFUPaAeJV0sAi';
     const q = https.request({ hostname: 'oauth2.googleapis.com', path: '/token', method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, s => {
+      s.setEncoding('utf8'); // מפענח UTF-8 נכון גם כשאות נחתכת בין חתיכות
       let d = ''; s.on('data', x => d += x); s.on('end', () => r(JSON.parse(d).access_token));
     });
     q.write(b); q.end();
@@ -22,7 +23,11 @@ function oauth() {
 function get(p, t) {
   return new Promise(r => {
     const q = https.request({ hostname: 'firestore.googleapis.com', path: p, method: 'GET', headers: { Authorization: 'Bearer ' + t } }, s => {
-      let x = ''; s.on('data', c => x += c); s.on('end', () => r(JSON.parse(x || '{}')));
+      // מחברים Buffers ורק אז מפענחים. חיבור מחרוזות לכל חתיכה מפענח כל חתיכה לבד,
+      // ואות עברית (2 בתים) שנחתכת בין שתי חתיכות הופכת ל-�� — פגם שנוצר
+      // בקריאה ולא קיים בנתונים, והציג ספירות שבורות מנופחות.
+      const chunks = []; s.on('data', c => chunks.push(c));
+      s.on('end', () => r(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')));
     });
     q.end();
   });
@@ -41,7 +46,7 @@ async function all(col, t) {
 // וכל השאר חייב להיות זהה תו-בתו. אם הטקסט נערך מאז — לא תהיה התאמה.
 function matches(broken, clean) {
   const esc = broken.split(/�+/).map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  return new RegExp('^' + esc.join('[\\u0590-\\u05FF]{1,2}') + '$').test(clean);
+  return new RegExp('^' + esc.join('[^\\x00-\\x7F]{1,3}') + '$').test(clean);
 }
 module.exports = { oauth, get, all, matches, DOCS };
 

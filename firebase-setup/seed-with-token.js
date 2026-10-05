@@ -47,6 +47,7 @@ function getToken() {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           }, (res) => {
+            res.setEncoding('utf8'); // UTF-8 תקין גם כשאות נחתכת בין חתיכות
             let data = '';
             res.on('data', c => data += c);
             res.on('end', () => {
@@ -77,6 +78,7 @@ function firestoreRequest(token, method, path, body) {
       },
     };
     const req = https.request(options, (res) => {
+      res.setEncoding('utf8'); // UTF-8 תקין גם כשאות נחתכת בין חתיכות
       let data = '';
       res.on('data', c => data += c);
       res.on('end', () => {

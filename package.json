@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "אתר לימוד ותרגול Java לבגרות — הידור מראש של ה-JSX במקום בדפדפן",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "verify": "node scripts/test-utf8-safety.js && node scripts/test-text-guard.js && node scripts/check-text-integrity.js"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
