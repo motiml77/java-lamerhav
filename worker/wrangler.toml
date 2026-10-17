@@ -6,3 +6,13 @@ compatibility_date = "2026-08-28"
 # route/routes אינם מוגדרים כאן בכוונה: אם ה-Worker כבר קיים תחת
 # gemini-proxy.motiml77.workers.dev, "wrangler deploy" עם name זהה
 # פשוט מעדכן אותו במקום; כתובת workers.dev לא צריכה route ייעודי.
+
+# מונה מכסות יומי (ראי QuotaTracker ב-gemini-proxy.js). Durable Object עם SQLite:
+# זמין גם בתוכנית החינמית. המיגרציה נדרשת פעם אחת בלבד.
+[[durable_objects.bindings]]
+name = "QUOTA"
+class_name = "QuotaTracker"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["QuotaTracker"]

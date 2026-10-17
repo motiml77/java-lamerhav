@@ -5,6 +5,7 @@
 import assert from 'node:assert';
 
 let fetchCalls = [];
+let extraEnv = {}; // QUOTA מדומה לבדיקות המונה
 let fetchScript = [];
 global.fetch = async (url, opts) => {
   fetchCalls.push({ url, body: JSON.parse(opts.body) });
@@ -27,7 +28,7 @@ async function req(payload, origin = 'https://java-lamerhav.vercel.app') {
     headers: { get: (h) => (h === 'Origin' ? origin : null) },
     json: async () => payload,
   };
-  const res = await worker.fetch(request, { GEMINI_API_KEY: 'fake-key-for-test' });
+  const res = await worker.fetch(request, { GEMINI_API_KEY: 'fake-key-for-test', ...extraEnv });
   const body = await res.json();
   return { status: res.status, body, headers: res.headers, calls: fetchCalls };
 }
@@ -129,6 +130,126 @@ fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: 'נ
 {
   const r = await req({ action: 'doesNotExist' });
   check('action לא מוכר: 400 Invalid action', r.status === 400 && r.body.error === 'Invalid action');
+}
+
+// ===== 9b. תשובה פגומה של מודל = כישלון שלו, והשרשרת ממשיכה =====
+const goodJson = JSON.stringify({ score: 8, feedback: 'ok', errors: [], suggestions: [], encouragement: '' });
+const wrap = (text) => ({ ok: true, body: { candidates: [{ content: { parts: [{ text }] } }] } });
+{
+  // JSON שבור במודל הראשון: בעבר הוחזר "לא הצלחנו לפענח" גם כשהמודל הבא היה עונה
+  fetchScript = [wrap('{"score": 3, "feedback": "שבור'), wrap(goodJson)];
+  const r = await req({ action: 'gradeExam', gradingData: { code: 'x', questionPoints: 10 } });
+  check('JSON שבור: עבר למודל הבא', r.calls.length === 2 && r.body.aiScore === 8, JSON.stringify(r.body).slice(0, 120));
+  check('JSON שבור: modelUsed הוא השני', r.body.modelUsed === 'gemini-3.6-flash', r.body.modelUsed);
+
+  // JSON עם משפט פתיחה לפניו — עדיין ניתן לפענוח, בלי לבזבז מודל
+  fetchScript = [wrap('הנה התשובה: ' + goodJson)];
+  const r2 = await req({ action: 'gradeExam', gradingData: { code: 'x', questionPoints: 10 } });
+  check('JSON עם טקסט לפניו: פוענח במודל הראשון', r2.calls.length === 1 && r2.body.aiScore === 8, JSON.stringify(r2.body).slice(0, 120));
+
+  // אות קירילית באמצע מילה עברית: נצפה בפועל ב-gemini-3.5-flash-lite
+  const cyr = String.fromCharCode(0x440);
+  fetchScript = [wrap(JSON.stringify({ score: 5, feedback: 'ש' + cyr + 'וני', errors: [], suggestions: [], encouragement: '' })), wrap(goodJson)];
+  const r3 = await req({ action: 'gradeExam', gradingData: { code: 'x', questionPoints: 10 } });
+  check('אות זרה בתשובה: עבר למודל הבא', r3.calls.length === 2 && r3.body.aiScore === 8, JSON.stringify(r3.body).slice(0, 120));
+
+  // אם כל המודלים מחזירים אות זרה — מחזירים את הטובה ביותר ולא שגיאה לתלמידה
+  const bad = wrap(JSON.stringify({ score: 5, feedback: 'ש' + cyr + 'וני', errors: [], suggestions: [], encouragement: '' }));
+  fetchScript = [bad, bad, bad, bad, bad];
+  const r4 = await req({ action: 'gradeExam', gradingData: { code: 'x', questionPoints: 10 } });
+  check('כולם עם אות זרה: מחזיר תשובה ולא שגיאה', r4.status === 200 && r4.body.aiScore === 5, r4.status + ' ' + JSON.stringify(r4.body).slice(0, 80));
+}
+
+// ===== 9c. כל המודלים מלאים (429): הודעה בעברית, לא הודעת המכסה של גוגל =====
+{
+  const quota = { ok: false, status: 429, body: { error: { message: 'You exceeded your current quota, please check your plan and billing details.' } } };
+  fetchScript = [quota, quota, quota, quota, quota];
+  const r = await req({ action: 'chat', messages: [{ role: 'user', content: 'hi' }] });
+  check('מכסה נגמרה: קוד 429 ולא 500', r.status === 429, String(r.status));
+  check('מכסה נגמרה: הודעה בעברית עם מה לעשות', /נסי שוב/.test(String(r.body.error)) && !/quota|billing/i.test(String(r.body.error)), String(r.body.error));
+  check('מכסה נגמרה: נוסו כל חמשת המודלים', r.calls.length === 5, String(r.calls.length));
+  // תקלה אמיתית (לא עומס) נשארת 500 עם הפרטים לאבחון
+  const boom = { ok: false, status: 400, body: { error: { message: 'bad request' } } };
+  fetchScript = [boom, boom, boom, boom, boom];
+  const r2 = await req({ action: 'chat', messages: [{ role: 'user', content: 'hi' }] });
+  check('תקלה אמיתית (400) נשארת 500', r2.status === 500, String(r2.status));
+}
+
+// ===== 9d. מונה מכסות יומי (QuotaTracker האמיתי, עם אחסון מדומה) =====
+{
+  const todayPT = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  const tick = () => new Promise((r) => setTimeout(r, 25)); // הדיווח למונה רץ ברקע
+  const okBody = { ok: true, body: { candidates: [{ content: { parts: [{ text: 'שלום' }] } }] } };
+  const q429 = { ok: false, status: 429, body: { error: { message: 'quota' } } };
+  const chat = () => req({ action: 'chat', messages: [{ role: 'user', content: 'hi' }] });
+  function fakeQuota(initial) {
+    const store = new Map();
+    if (initial) store.set('st', initial);
+    const tracker = new mod.QuotaTracker({ storage: { get: async (k) => store.get(k), put: async (k, v) => { store.set(k, JSON.parse(JSON.stringify(v))); } } });
+    return { store, env: { QUOTA: { idFromName: () => 'global', get: () => ({ fetch: (u, o) => tracker.fetch(new Request(u, o)) }) } } };
+  }
+
+  // תקרה יומית: מודל שהגיע לתקרה מדולג מראש, בלי בקשה כושלת
+  let fq = fakeQuota({ day: todayPT, counts: { 'gemini-3.8-flash': 18 }, blocked: {} });
+  extraEnv = fq.env; fetchScript = [okBody];
+  let r = await chat();
+  check('מונה: מודל בתקרה מדולג מראש (בקשה אחת בלבד)', r.calls.length === 1, String(r.calls.length));
+  check('מונה: הבקשה הלכה ישר ל-3.6', /gemini-3\.6-flash/.test(r.calls[0].url) && r.body.modelUsed === 'gemini-3.6-flash', r.calls[0] && r.calls[0].url);
+
+  // הצלחה נספרת
+  fq = fakeQuota(); extraEnv = fq.env; fetchScript = [okBody];
+  await chat(); await tick();
+  check('מונה: הצלחה נספרת', (fq.store.get('st').counts['gemini-3.8-flash'] || 0) === 1, JSON.stringify(fq.store.get('st')));
+
+  // 429 מוקדם = קצב לדקה: צינון קצר, ובבקשה הבאה מדלגים
+  fq = fakeQuota(); extraEnv = fq.env; fetchScript = [q429, okBody];
+  r = await chat(); await tick();
+  check('מונה: 429 → עבר למודל הבא', r.calls.length === 2 && r.body.modelUsed === 'gemini-3.6-flash');
+  fetchScript = [okBody];
+  r = await chat();
+  check('מונה: אחרי 429 מוקדם מדלגים על המודל (צינון)', r.calls.length === 1 && /gemini-3\.6-flash/.test(r.calls[0].url), r.calls[0] && r.calls[0].url);
+
+  // 429 אחרי 10+ הצלחות = מכסה יומית: חסום עד חצות
+  fq = fakeQuota({ day: todayPT, counts: { 'gemini-3.8-flash': 12 }, blocked: {} });
+  extraEnv = fq.env; fetchScript = [q429, okBody];
+  await chat(); await tick();
+  check('מונה: 429 אחרי 10+ הצלחות = חסום להיום', fq.store.get('st').blocked['gemini-3.8-flash'] === 'day', JSON.stringify(fq.store.get('st').blocked));
+
+  // מונה חדש (ספירה 0) שמקבל 429 שלוש פעמים ברצף: מכסה יומית, לא קצב
+  fq = fakeQuota(); extraEnv = fq.env;
+  for (let k = 0; k < 3; k++) {
+    // מדמים שהצינון עבר בין הניסיונות
+    const st0 = fq.store.get('st'); if (st0) { st0.blocked = {}; fq.store.set('st', st0); }
+    fetchScript = [q429, okBody]; await chat(); await tick();
+  }
+  check('מונה: שלוש דחיות רצופות = חסום להיום', fq.store.get('st').blocked['gemini-3.8-flash'] === 'day', JSON.stringify(fq.store.get('st').blocked));
+
+  // יום חדש מאפס
+  fq = fakeQuota({ day: '2000-01-01', counts: { 'gemini-3.8-flash': 99 }, blocked: { 'gemini-3.8-flash': 'day' } });
+  extraEnv = fq.env; fetchScript = [okBody];
+  r = await chat();
+  check('מונה: יום חדש מאפס ספירה וחסימות', r.calls.length === 1 && /gemini-3\.8-flash/.test(r.calls[0].url), r.calls[0] && r.calls[0].url);
+
+  // המונה קרס: ממשיכים כמו קודם, לא נופלים
+  extraEnv = { QUOTA: { idFromName: () => 'x', get: () => ({ fetch: async () => { throw new Error('DO down'); } }) } };
+  fetchScript = [okBody];
+  r = await chat();
+  check('מונה לא זמין: ה-AI ממשיך לעבוד', r.status === 200 && r.body.modelUsed === 'gemini-3.8-flash', r.status + ' ' + r.body.modelUsed);
+
+  // הכול חסום להיום: הודעה ברורה, בלי לשלוח אף בקשה לגוגל
+  const dead = { day: todayPT, counts: { 'gemini-3.8-flash': 18, 'gemini-3.6-flash': 18 },
+    blocked: { 'gemini-2.5-flash': 'day', 'gemini-3.5-flash-lite': 'day', 'gemini-3.1-flash-lite': 'day' } };
+  fq = fakeQuota(dead); extraEnv = fq.env; fetchScript = [];
+  r = await chat();
+  check('הכול חסום: 429 בעברית ובלי בקשות לגוגל', r.status === 429 && r.calls.length === 0 && /נסי שוב/.test(String(r.body.error)), r.status + ' calls=' + r.calls.length);
+
+  // quotaStatus
+  fq = fakeQuota({ day: todayPT, counts: { 'gemini-3.8-flash': 5 }, blocked: {} });
+  extraEnv = fq.env; fetchScript = [];
+  r = await req({ action: 'quotaStatus' });
+  check('quotaStatus מחזיר את הספירה', r.body.counts && r.body.counts['gemini-3.8-flash'] === 5, JSON.stringify(r.body));
+
+  extraEnv = {}; // לא מדליפים לבדיקות הבאות
 }
 
 // ===== 10. CORS =====

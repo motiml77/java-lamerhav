@@ -34,16 +34,122 @@
  */
 
 // ---------------------------------------------------------------------------
-// מודלים — מהעדכני לישן, כולם בחינם (נבדק מול דף התמחור של גוגל ב-2026-10-17:
-// "Free of charge" לקלט ולפלט). מפתח API רגיל, בלי כרטיס אשראי מחובר לפרויקט.
-// אם המודל הראשון נכשל (עומס, שינוי זמני בזמינות) — עוברים לבא בתור,
-// ולא מחזירים שגיאה לתלמידה רק כי מודל ספציפי אחד תקוע.
-// ---------------------------------------------------------------------------
+// מודלים — לפי איכות, מהגבוהה לנמוכה. כולם בחינם לפי דף התמחור של גוגל
+// (2026-10-17: "Free of charge" לקלט ולפלט), מפתח API רגיל בלי כרטיס אשראי.
+//
+// נמדד בפועל באותו יום, והוא מה שמסביר את הסדר:
+//   gemini-3.8-flash, gemini-3.6-flash — כ-20 בקשות ליום כל אחד, ואז 429.
+//   gemini-3.5-flash-lite — 13-15 בקשות בדקה, וממשיך הרבה אחרי השאר.
+// כלומר המודלים החזקים מספיקים לכמה עשרות בדיקות ביום, ומשם השרשרת יורדת
+// בהדרגה למודלים הקלים. כל מודל הוא "דלי" מכסה נפרד, ולכן יותר מודלים בשרשרת
+// = יותר קיבולת כוללת. 2.5-flash לפני ה-lite כי האיכות שלו גבוהה יותר.
+// מכסה נקבעת לפרויקט ביום (מתאפסת בחצות שעון מערב ארה"ב), ולא לפי בית ספר.
+//
 // הוסרו: gemini-2.0-flash (404 — כבוי), gemini-3.7-flash (לא מופיע יותר בדפי
-// המודלים והתמחור של גוגל). gemini-4-argon חזק יותר אבל אין לו מכסה חינמית
-// ($2/$10 למיליון טוקנים) — לא נכנס כל עוד המטרה היא חינם.
-// שים לב: במכסה החינמית גוגל רשאית להשתמש בתוכן הבקשות לשיפור המוצרים שלה.
-const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
+// גוגל). gemini-4-argon חזק יותר אבל אין לו מכסה חינמית ($2/$10 למיליון טוקנים).
+// במסלול החינמי גוגל רשאית להשתמש בתוכן הבקשות לשיפור המוצרים שלה.
+const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+
+// ---------------------------------------------------------------------------
+// מונה מכסות יומי. בלי זה כל בקשה ניסתה קודם את המודלים המלאים, קיבלה 429, ורק
+// אז עברה הלאה — בזבוז של זמן והמתנה לתלמידה, על כל בדיקה, כל היום.
+//
+// המונה חי ב-Durable Object אחד (מופע יחיד), כי KV בחינם מוגבל ל-1,000 כתיבות
+// ביום והספירה חייבת להיות אטומית. מכסת גוגל מתאפסת בחצות שעון החוף המערבי של
+// ארה"ב, ולכן "יום" כאן הוא לפי אותו אזור זמן.
+//
+// שני מקורות לדילוג על מודל:
+//  1. תקרה יומית ידועה (DAILY_LIMITS) — דילוג מראש, לפני שנשלחת בקשה כושלת.
+//  2. למידה מ-429: אם מודל נדחה אחרי שכבר ענה 10 פעמים ומעלה — זו כנראה מכסה
+//     יומית, וחוסמים עד חצות. אם נדחה מוקדם יותר — זה קצב לדקה, וקורים 60 שניות.
+// כך הוורקר מסתדר גם כשגוגל משנה את המכסות, בלי עדכון קוד.
+//
+// כשל במונה אינו כשל ב-AI: אם ה-Durable Object לא זמין, מתנהגים כמו קודם.
+// ---------------------------------------------------------------------------
+// מדד ב-2026-10-17: 3.8-flash ו-3.6-flash נעצרו אחרי כ-20 בקשות כל אחד. תקרה
+// נמוכה במעט משאירה מרווח. מודלים בלי רשומה כאן נלמדים מ-429 בלבד.
+const DAILY_LIMITS = { 'gemini-3.8-flash': 18, 'gemini-3.6-flash': 18 };
+const DAILY_BLOCK_AFTER = 10;   // 429 אחרי כמות כזו של הצלחות = מכסה יומית, לא קצב
+const RATE_COOLDOWN_MS = 60 * 1000;
+const DAILY_STRIKES = 3;         // שלוש דחיות רצופות בלי הצלחה באמצע = מכסה יומית
+
+function pacificDay(now = Date.now()) {
+  return new Date(now).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
+
+export class QuotaTracker {
+  constructor(state) { this.state = state; }
+
+  async load() {
+    const today = pacificDay();
+    let st = await this.state.storage.get('st');
+    if (!st || st.day !== today) st = { day: today, counts: {}, blocked: {} }; // יום חדש = מתחילים נקי
+    return st;
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const body = await request.json().catch(() => ({}));
+    const st = await this.load();
+    const now = Date.now();
+
+    if (url.pathname === '/available') {
+      const limits = body.limits || {};
+      const models = [], skipped = {};
+      for (const m of body.models || []) {
+        const used = st.counts[m] || 0;
+        if (limits[m] && used >= limits[m]) skipped[m] = 'daily-limit';
+        else if (st.blocked[m] === 'day') skipped[m] = 'blocked-today';
+        else if (st.blocked[m] > now) skipped[m] = 'cooling';
+        else models.push(m);
+      }
+      return Response.json({ models, skipped, day: st.day });
+    }
+
+    if (url.pathname === '/record') {
+      const { model, ok, status } = body;
+      st.strikes = st.strikes || {};
+      if (ok) { st.counts[model] = (st.counts[model] || 0) + 1; st.strikes[model] = 0; }
+      else if (status === 429) {
+        // מכסה יומית ולא קצב: או שהמודל כבר ענה הרבה היום, או שנדחה שוב ושוב — קצב לדקה
+        // היה מתאפס בין הניסיונות. חשוב בעיקר למונה חדש שעוד לא יודע כמה כבר נוצל היום.
+        st.strikes[model] = (st.strikes[model] || 0) + 1;
+        const daily = (st.counts[model] || 0) >= DAILY_BLOCK_AFTER || st.strikes[model] >= DAILY_STRIKES;
+        st.blocked[model] = daily ? 'day' : now + RATE_COOLDOWN_MS;
+      }
+      await this.state.storage.put('st', st);
+      return Response.json({ ok: true });
+    }
+
+    return Response.json({ day: st.day, counts: st.counts, blocked: st.blocked, limits: DAILY_LIMITS });
+  }
+}
+
+// ה-stub של המונה לבקשה הנוכחית. מוגדר ב-fetch לפני כל טיפול. קבוע לכל הבקשות
+// של אותה סביבה, ולכן בטוח גם כשכמה בקשות רצות במקביל באותו isolate.
+let quotaStub = null;
+let quotaCtx = null;
+
+async function availableModels() {
+  if (!quotaStub) return MODELS;
+  try {
+    const r = await quotaStub.fetch('https://quota/available', { method: 'POST', body: JSON.stringify({ models: MODELS, limits: DAILY_LIMITS }) });
+    const d = await r.json();
+    if (Object.keys(d.skipped || {}).length) console.log('[gemini-proxy] skipped:', JSON.stringify(d.skipped));
+    return Array.isArray(d.models) ? d.models : MODELS;
+  } catch (e) {
+    console.warn('[gemini-proxy] quota tracker unavailable, using full chain:', String(e && e.message ? e.message : e));
+    return MODELS;
+  }
+}
+
+// הדיווח לא מעכב את התשובה לתלמידה — רץ ברקע
+function recordUsage(model, ok, status) {
+  if (!quotaStub) return;
+  const p = quotaStub.fetch('https://quota/record', { method: 'POST', body: JSON.stringify({ model, ok, status }) }).catch(() => {});
+  if (quotaCtx && quotaCtx.waitUntil) quotaCtx.waitUntil(p);
+}
+
 
 // דומיינים שמורשים לקרוא ל-Worker — כל האתרים של הפרויקט הזה (חי, דמו, תצוגות
 // מקדימות) ופיתוח מקומי. בלי זה, שינוי בחוקי ה-CORS יעצור את כל האתרים בבת אחת.
@@ -82,7 +188,15 @@ function json(data, status, origin) {
 // ---------------------------------------------------------------------------
 async function callGemini(apiKey, systemInstruction, contents, { jsonMode = false, temperature = 0.3 } = {}) {
   const errors = [];
-  for (const model of MODELS) {
+  let degraded = null;
+  const order = await availableModels();
+  if (!order.length) {
+    // כל המודלים חסומים להיום לפי המונה — לא שולחים בקשה שבטוח תיכשל
+    const e = new Error('כל המודלים הגיעו למכסה היומית');
+    e.busy = true;
+    throw e;
+  }
+  for (const model of order) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     const body = {
       contents,
@@ -103,6 +217,7 @@ async function callGemini(apiKey, systemInstruction, contents, { jsonMode = fals
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
+        recordUsage(model, false, res.status);
         const msg = `${model}: HTTP ${res.status} — ${data?.error?.message || 'unknown'}`;
         errors.push(msg);
         console.warn('[gemini-proxy] model failed:', msg); // גלוי ב-wrangler tail, גם כשמודל אחר מצליח בהמשך
@@ -113,21 +228,55 @@ async function callGemini(apiKey, systemInstruction, contents, { jsonMode = fals
         errors.push(`${model}: תשובה ריקה (ייתכן חסימת בטיחות — finishReason=${data?.candidates?.[0]?.finishReason})`);
         continue;
       }
+      // תשובה לא תקינה = כישלון של המודל הזה, לא הצלחה: עוברים לבא בתור במקום
+      // להחזיר לתלמידה "לא הצלחנו לפענח" כשיש עוד מודלים שיכלו לענות.
+      if (jsonMode && tryParseJson(text) === undefined) {
+        errors.push(`${model}: JSON לא תקין`);
+        continue;
+      }
+      if (FOREIGN_SCRIPT.test(text)) {
+        errors.push(`${model}: תווים זרים בתשובה`);
+        if (!degraded) degraded = { text, modelUsed: model }; // מוצא אחרון אם כל השאר ייכשלו
+        continue;
+      }
+      recordUsage(model, true, 200);
       return { text, modelUsed: model };
     } catch (e) {
       errors.push(`${model}: ${String(e && e.message ? e.message : e)}`);
     }
   }
-  throw new Error('כל המודלים נכשלו: ' + errors.join(' | '));
+  if (degraded) return degraded;
+  const err = new Error('כל המודלים נכשלו: ' + errors.join(' | '));
+  // עומס/מכסה (429/503) ולא תקלה אמיתית — כדי שהתלמידה תקבל הודעה ברורה בעברית
+  err.busy = errors.length > 0 && errors.every((m) => /HTTP (429|503)/.test(m));
+  throw err;
 }
 
 // Gemini לפעמים עוטף JSON בגדר markdown (```json ... ```) למרות responseMimeType.
 // מנקים לפני הפענוח, ונופלים בחזרה למבנה בטוח אם הפענוח עדיין נכשל.
+// פענוח סלחני: JSON תקין, או התוכן שבין ה-{ הראשון ל-} האחרון (מודלים חלשים
+// לפעמים מוסיפים משפט פתיחה). undefined = לא ניתן לפענח.
+function tryParseJson(text) {
+  const t = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '');
+  try { return JSON.parse(t); } catch (e) { /* ממשיכים */ }
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) { /* ממשיכים */ } }
+  return undefined;
+}
+
+// אותיות קיריליות / ערביות / סיניות בתשובה בעברית הן סימן לתשובה פגומה של מודל
+// חלש (נצפה: "שрони" — קירילית באמצע מילה עברית בתשובת gemini-3.5-flash-lite).
+// אף פעם לא לגיטימי בשאלה על Java בעברית, ולכן עוברים למודל הבא בשרשרת.
+const FOREIGN_SCRIPT = new RegExp('[' + [[0x0400, 0x04FF], [0x0600, 0x06FF], [0x3040, 0x30FF], [0x4E00, 0x9FFF]]
+  .map(([a, b]) => String.fromCharCode(a) + '-' + String.fromCharCode(b)).join('') + ']'); // קירילית, ערבית, יפנית, סינית
+
 function parseJsonLoose(text, fallback) {
   const cleaned = String(text || '')
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/```\s*$/i, '');
+  const parsed = tryParseJson(cleaned);
+  if (parsed !== undefined) return parsed;
   try {
     return JSON.parse(cleaned);
   } catch (e) {
@@ -420,8 +569,10 @@ async function handleChat(apiKey, messages, context) {
 
 // ---------------------------------------------------------------------------
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin');
+    quotaCtx = ctx || null;
+    quotaStub = env.QUOTA ? env.QUOTA.get(env.QUOTA.idFromName('global')) : null;
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -451,6 +602,10 @@ export default {
         case 'checkHomework':
           result = await handleCheckHomework(env.GEMINI_API_KEY, payload);
           break;
+        case 'quotaStatus':
+          // מצב הספירה היומית — לאבחון בלבד, ללא תוכן של תלמידות
+          result = quotaStub ? await (await quotaStub.fetch('https://quota/status', { method: 'POST', body: '{}' })).json() : { tracker: 'off' };
+          break;
         case 'chat':
           result = await handleChat(env.GEMINI_API_KEY, payload.messages, payload.context);
           break;
@@ -466,6 +621,10 @@ export default {
       return json(result, 200, origin);
     } catch (e) {
       console.error(`[gemini-proxy] action=${action} school=${payload?.school || '?'} error:`, e);
+      if (e && e.busy) {
+        // לא מציגים לתלמידה את הודעת המכסה של גוגל (אנגלית, מבלבלת) — רק מה לעשות
+        return json({ error: 'ה-AI עמוס כרגע או שהמכסה היומית החינמית נגמרה. נסי שוב בעוד כמה דקות, ואם זה חוזר — פני למורה.', busy: true }, 429, origin);
+      }
       return json({ error: String(e && e.message ? e.message : e) }, 500, origin);
     }
   },

@@ -599,6 +599,23 @@ For every real problem, you MUST tell the student:
 - WHY it matters: what wrong result / crash it causes, ideally with a concrete example input.
 - HOW to fix it: a precise, actionable correction (you may show the corrected single line). Guide her — do not just dump a full rewritten solution unless the whole approach is wrong.
 
+# SCORING CALIBRATION (חובה — consistency matters more than kindness)
+- Full marks: the code is correct for the example in the question and for edge cases.
+- If the program prints/returns a WRONG result for the example given in the question, or for an ordinary input, the score is AT MOST 50% of the maximum — even if "most of the idea is right". A loop that stops one step early, an accumulator that starts wrong, or a missing/incorrect return all belong here.
+- Correct for ordinary inputs but wrong on a real edge case (empty, 0, single element, first/last index): 65–85%.
+- A tiny slip that is easy to fix and does not change the result on the question's example: 85–95%.
+- Does not compile, or does not address the task at all: 0–25%.
+- Missing scaffolding that the system provides (class, main, Scanner "in", imports) is NEVER a reason to deduct. If the question gives n or the input as a given, a missing declaration of it is not an error.
+
+# EXPLAIN LIKE TO A BEGINNER (חובה)
+The reader may have started programming only a few months ago.
+- Name the ONE root cause first, in plain words ("הלולאה נעצרת צעד אחד מוקדם מדי"), not a list of symptoms and not jargon. If you must use a technical term (למשל "off-by-one", "אינדקס", "אתחול"), explain it in half a sentence the first time.
+- Whenever it fits, show a tiny TRACE with concrete numbers from HER code: "עבור n = 10 הלולאה רצה מ-1 עד 9, ולכן הסכום הוא 45 ולא 55."
+- Say what the code does versus what it should do, in that order, in ordinary words.
+- Code (names, operators, one corrected line) stays in English exactly as written; the explanation around it is simple Hebrew. Do not paste a full corrected solution — at most the single corrected line.
+- Address her in the FEMININE form in every verb and command: שני, תקני, הוסיפי, בדקי, שימי לב — never the masculine שנה, תקן, הוסף, בדוק.
+- Stay short and specific: no greetings, no repeating the question, no more than two short sentences per error.
+
 # OUTPUT — STRUCTURED & CONCISE (חובה)
 Return the result as JSON, with ALL text written in HEBREW addressed to a female student (לשון נקבה):
 - "score": number — the deserved score for THIS question (0 up to the question's maximum points).
@@ -4247,10 +4264,10 @@ a.setGrade(100);   // משנה רק את נעמה
                                                 <span className={`font-black text-lg ${fb.correct ? 'text-emerald-300' : 'text-amber-300'}`}>{fb.score}/{parseInt(q.points) || 10}</span>
                                                 <span className="text-slate-300 text-sm font-bold">{fb.correct ? 'מצוין!' : 'כמעט — יש מה לשפר'}</span>
                                             </div>
-                                            {fb.feedback && <p className="text-slate-200 text-sm leading-relaxed mb-2" style={{ textWrap: 'pretty' }}>{fb.feedback}</p>}
+                                            {fb.feedback && <p className="text-slate-200 text-sm leading-relaxed mb-2" style={{ textWrap: 'pretty' }}><BidiText text={fb.feedback} /></p>}
                                             {fb.errors && fb.errors.length > 0 && (
                                                 <div className="text-sm text-red-300 mb-2"><b>בעיות שנמצאו:</b>
-                                                    <ul className="list-disc pr-5 mt-1 space-y-0.5">{fb.errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+                                                    <ul className="list-disc pr-5 mt-1 space-y-0.5">{fb.errors.map((e, i) => <li key={i}>{typeof e === 'string' ? <BidiText text={e} /> : e}</li>)}</ul>
                                                 </div>
                                             )}
                                             {fb.suggestions && fb.suggestions.length > 0 && (
@@ -4786,6 +4803,41 @@ a.setGrade(100);   // משנה רק את נעמה
 
         // Smart question-instructions renderer — code-looking lines go into an LTR monospace box,
         // prose stays as comfortable RTL Hebrew. Fixes the jumbled קוד+עברית mixing.
+        //
+        // בידוד כיוון: רצף לועזי בתוך משפט עברי ("num = 8", "isExist", "Queue<Integer>")
+        // עטוף ב-<bdi dir="ltr"> כרצף אחד. בלי זה, התווים הנייטרליים (= ( ) , .) שבין
+        // המילים הלועזיות נצמדים לכיוון העברי ומתהפכים — "num = 8" יוצא "8 = num".
+        // עוטפים רצף שלם ולא מילה בודדת: מילה בודדת משאירה את "= 8" מחוץ לבידוד.
+        // הרצף מתחיל גם בספרה: "162, 251, 568, 7" בלי בידוד מוצג הפוך, כי פסיק+רווח
+        // אינו "מפריד יחיד" בין מספרים בכללי ה-bidi, ולכן כל מספר הופך לרצף נפרד.
+        const latinRun = /[A-Za-z0-9][A-Za-z0-9_.<>\[\]()=+\-*\/%!&|,:'" \t]*/g;
+        const trailJunk = /[\s,.:;'"(\[<=+\-*\/%!&|]+$/;
+        const pairs = { ')': '(', ']': '[', '>': '<' };
+        const isolateLatin = (str, keyBase) => {
+            const out = []; let last = 0, m, n = 0;
+            latinRun.lastIndex = 0;
+            while ((m = latinRun.exec(str))) {
+                let run = m[0].replace(trailJunk, '');
+                // סוגר שנשאר בלי פותח בתוך הרצף היה מתהפך — משאירים אותו בחוץ
+                for (;;) {
+                    const c = run.slice(-1), o = pairs[c];
+                    if (!o) break;
+                    if (run.split(c).length - 1 <= run.split(o).length - 1) break;
+                    run = run.slice(0, -1).replace(trailJunk, '');
+                }
+                if (!run) continue;
+                if (m.index > last) out.push(str.slice(last, m.index));
+                out.push(<bdi key={keyBase + '_' + (n++)} dir="ltr">{run}</bdi>);
+                last = m.index + run.length;
+            }
+            if (last < str.length) out.push(str.slice(last));
+            return out;
+        };
+
+        // משפט עברי שמכיל קוד ("i <= n", "s.equals") חייב לעבור את אותו בידוד גם במשוב ה-AI,
+        // לא רק בטקסט השאלה — אחרת הביטוי מתהפך. מקבל כל ערך ומציג טקסט.
+        const BidiText = ({ text }) => <>{isolateLatin(String(text == null ? '' : text), 'bt')}</>;
+
         const looksLikeCode = (line) => {
             const t = line.trim();
             if (!t) return false;
@@ -4811,36 +4863,6 @@ a.setGrade(100);   // משנה רק את נעמה
             });
             const trim = (s) => s.replace(/^\n+|\n+$/g, '');
             // קוד inline בתוך משפט עברי — `כך` — מוצג כצ'יפ מונוספייס כחלחל (כמו בדוגמאות CodeClassroom)
-            //
-            // בידוד כיוון: רצף לועזי בתוך משפט עברי ("num = 8", "isExist", "Queue<Integer>")
-            // עטוף ב-<bdi dir="ltr"> כרצף אחד. בלי זה, התווים הנייטרליים (= ( ) , .) שבין
-            // המילים הלועזיות נצמדים לכיוון העברי ומתהפכים — "num = 8" יוצא "8 = num".
-            // עוטפים רצף שלם ולא מילה בודדת: מילה בודדת משאירה את "= 8" מחוץ לבידוד.
-            // הרצף מתחיל גם בספרה: "162, 251, 568, 7" בלי בידוד מוצג הפוך, כי פסיק+רווח
-            // אינו "מפריד יחיד" בין מספרים בכללי ה-bidi, ולכן כל מספר הופך לרצף נפרד.
-            const latinRun = /[A-Za-z0-9][A-Za-z0-9_.<>\[\]()=+\-*\/%!&|,:'" \t]*/g;
-            const trailJunk = /[\s,.:;'"(\[<=+\-*\/%!&|]+$/;
-            const pairs = { ')': '(', ']': '[', '>': '<' };
-            const isolateLatin = (str, keyBase) => {
-                const out = []; let last = 0, m, n = 0;
-                latinRun.lastIndex = 0;
-                while ((m = latinRun.exec(str))) {
-                    let run = m[0].replace(trailJunk, '');
-                    // סוגר שנשאר בלי פותח בתוך הרצף היה מתהפך — משאירים אותו בחוץ
-                    for (;;) {
-                        const c = run.slice(-1), o = pairs[c];
-                        if (!o) break;
-                        if (run.split(c).length - 1 <= run.split(o).length - 1) break;
-                        run = run.slice(0, -1).replace(trailJunk, '');
-                    }
-                    if (!run) continue;
-                    if (m.index > last) out.push(str.slice(last, m.index));
-                    out.push(<bdi key={keyBase + '_' + (n++)} dir="ltr">{run}</bdi>);
-                    last = m.index + run.length;
-                }
-                if (last < str.length) out.push(str.slice(last));
-                return out;
-            };
             const renderInline = (s) => s.split(/(`[^`\n]+`)/g).map((part, j) =>
                 part.length > 2 && part.startsWith('`') && part.endsWith('`')
                     ? <code key={j} className="q-inline-code">{part.slice(1, -1)}</code>
@@ -10530,7 +10552,7 @@ ${answerText}
                                                         </div>
                                                     )}
                                                 </div>
-                                                <p className="text-gray-200 whitespace-pre-wrap mb-3">{String(homeworkFeedback[selectedQuestion].feedback || '')}</p>
+                                                <p className="text-gray-200 whitespace-pre-wrap mb-3"><BidiText text={homeworkFeedback[selectedQuestion].feedback || ''} /></p>
                                                 
                                                 {/* Language Examples - 3 examples of words in the language */}
                                                 {homeworkFeedback[selectedQuestion].languageExamples?.length > 0 && (
@@ -10571,7 +10593,7 @@ ${answerText}
                                                                         </>
                                                                     ) : (
                                                                         <div className="text-red-300">
-                                                                            {typeof e === 'string' ? e : (
+                                                                            {typeof e === 'string' ? <BidiText text={e} /> : (
                                                                                 typeof e === 'object' ? (
                                                                                     e.error || e.message || e.description || e.text || e.problem || e.בעיה ||
                                                                                     (typeof Object.values(e)[0] === 'string' ? Object.values(e)[0] : JSON.stringify(e, null, 2))
@@ -10589,14 +10611,14 @@ ${answerText}
                                                         <strong className="text-blue-400">💡 הצעות לשיפור:</strong>
                                                         <ul className="list-disc list-inside mt-1 text-blue-300">
                                                             {homeworkFeedback[selectedQuestion].suggestions.map((s, i) => (
-                                                                <li key={i}>{typeof s === 'object' ? (s.suggestion || s.text || s.message || Object.values(s)[0] || JSON.stringify(s)) : String(s)}</li>
+                                                                <li key={i}>{typeof s === 'object' ? (s.suggestion || s.text || s.message || Object.values(s)[0] || JSON.stringify(s)) : <BidiText text={s} />}</li>
                                                             ))}
                                                         </ul>
                                                     </div>
                                                 )}
                                                 {homeworkFeedback[selectedQuestion].encouragement && (
                                                     <div className="p-3 bg-purple-900/30 border border-purple-600/30 rounded-lg">
-                                                        <span className="text-purple-300">🌟 {String(homeworkFeedback[selectedQuestion].encouragement || '')}</span>
+                                                        <span className="text-purple-300">🌟 <BidiText text={homeworkFeedback[selectedQuestion].encouragement || ''} /></span>
                                                     </div>
                                                 )}
                                                 

@@ -15,7 +15,7 @@ const APP = fs.readFileSync(path.join(__dirname, '..', 'app.html'), 'utf8');
 const SHOTS = process.env.SHOTS || path.join(__dirname, '..', '.shots');
 fs.mkdirSync(SHOTS, { recursive: true });
 
-const a = APP.indexOf('const looksLikeCode');
+const a = APP.indexOf('const latinRun'); // הבידוד, BidiText, looksLikeCode ו-QuestionInstructions
 const b = APP.indexOf('// ===== Attachments');
 if (a < 0 || b < 0) { console.log('לא נמצא הרכיב ב-app.html'); process.exit(1); }
 const snippet = babel.transformSync(APP.slice(a, b), {
@@ -34,6 +34,8 @@ const SAMPLE = [
   'int x = 5; // משתנה כלשהו',
 ].join('\n');
 
+const FEEDBACK = 'הלולאה עוצרת מוקדם: התנאי i <= n נכון, ואילו i < n מפספס את n.';
+
 const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8">
 <style>body{background:#0b1220;margin:0;padding:24px;width:760px}${css}</style>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -42,7 +44,9 @@ const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-
 const FitPre = ({ code, className }) => React.createElement('pre', { className }, code);
 ${snippet}
 ReactDOM.createRoot(document.getElementById('root')).render(
-  React.createElement(QuestionInstructions, { text: ${JSON.stringify(SAMPLE)} }));
+  React.createElement(React.Fragment, null,
+    React.createElement(QuestionInstructions, { text: ${JSON.stringify(SAMPLE)} }),
+    React.createElement('p', { id: 'fb', className: 'q-text' }, React.createElement(BidiText, { text: ${JSON.stringify(FEEDBACK)} }))));
 </script></body></html>`;
 
 let pass = 0, fail = 0;
@@ -100,6 +104,8 @@ const t = (n, c, d) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL '
     t('isExist מבודד כרצף', info.bdis.includes('isExist'));
     t('true ו-false מבודדים', info.bdis.includes('true') && info.bdis.includes('false'));
     t('אין סוגר בודד בתוך רצף', !info.bdis.some(x => /^[^(]*\)$/.test(x) && !/\(/.test(x)), JSON.stringify(info.bdis));
+    const fb = await pg.evaluate(() => [...document.querySelectorAll('#fb bdi')].map(e => e.textContent));
+    t('משוב ה-AI: i <= n ו-i < n מבודדים כרצפים שלמים', fb.some(x => /^i <= n/.test(x)) && fb.some(x => /^i < n/.test(x)), JSON.stringify(fb));
     t('אין שגיאות JS', errs.length === 0, JSON.stringify(errs));
     console.log('\n===== ' + pass + '/' + (pass + fail) + ' =====');
   } finally {
