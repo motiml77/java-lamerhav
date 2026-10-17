@@ -34,20 +34,23 @@
  */
 
 // ---------------------------------------------------------------------------
-// מודלים — מהעדכני לישן, כולם בחינם. גם gemini-3.7-flash וגם 2.5-flash
-// דורשים רק מפתח API רגיל, בלי כרטיס אשראי מחובר לפרויקט.
+// מודלים — מהעדכני לישן, כולם בחינם (נבדק מול דף התמחור של גוגל ב-2026-10-17:
+// "Free of charge" לקלט ולפלט). מפתח API רגיל, בלי כרטיס אשראי מחובר לפרויקט.
 // אם המודל הראשון נכשל (עומס, שינוי זמני בזמינות) — עוברים לבא בתור,
 // ולא מחזירים שגיאה לתלמידה רק כי מודל ספציפי אחד תקוע.
 // ---------------------------------------------------------------------------
-// gemini-2.0-flash הוסר: נבדק חי מול Gemini האמיתי ב-2026-08-28 והתגלה
-// 404 — "no longer available... use models/gemini-3.6-flash". גם 3.7-flash
-// נתפס באותה בדיקה ב-503 (עומס זמני, לא תקלה) ונפל אוטומטית לבא בתור —
-// בדיוק התרחיש שהשרשרת נועדה לספוג. עכשיו כל השלושה מאומתים כחיים.
-const MODELS = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'];
+// הוסרו: gemini-2.0-flash (404 — כבוי), gemini-3.7-flash (לא מופיע יותר בדפי
+// המודלים והתמחור של גוגל). gemini-4-argon חזק יותר אבל אין לו מכסה חינמית
+// ($2/$10 למיליון טוקנים) — לא נכנס כל עוד המטרה היא חינם.
+// שים לב: במכסה החינמית גוגל רשאית להשתמש בתוכן הבקשות לשיפור המוצרים שלה.
+const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
 
 // דומיינים שמורשים לקרוא ל-Worker — כל האתרים של הפרויקט הזה (חי, דמו, תצוגות
 // מקדימות) ופיתוח מקומי. בלי זה, שינוי בחוקי ה-CORS יעצור את כל האתרים בבת אחת.
 const ALLOWED_ORIGIN_PATTERNS = [
+  // java-bagrut = הכתובת הראשית מ-2026-09. נשכח בהעברה: הוורקר החזיר
+  // Access-Control-Allow-Origin: null, והדפדפן חסם בשקט כל קריאת AI באתר החי.
+  /^https:\/\/java-bagrut(-[a-z0-9-]+)?\.vercel\.app$/,
   /^https:\/\/java-lamerhav(-[a-z0-9-]+)?\.vercel\.app$/,
   /^https:\/\/java-manager-preview(-[a-z0-9-]+)?\.vercel\.app$/,
   /^https:\/\/java-bagrut-example(-[a-z0-9-]+)?\.vercel\.app$/,
@@ -408,11 +411,11 @@ async function handleChat(apiKey, messages, context) {
 
   if (!contents.length) throw new Error('אין הודעות לשליחה');
 
-  const { text } = await callGemini(apiKey, systemInstruction, contents, {
+  const { text, modelUsed } = await callGemini(apiKey, systemInstruction, contents, {
     jsonMode: false,
     temperature: isRunCode ? 0 : 0.5, // הרצת קוד חייבת להיות דטרמיניסטית ככל האפשר
   });
-  return { response: text };
+  return { response: text, modelUsed };
 }
 
 // ---------------------------------------------------------------------------

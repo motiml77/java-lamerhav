@@ -48,7 +48,7 @@ fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: JSO
   check('gradeExam: aiScore ממופה מ-score', r.body.aiScore === 8, JSON.stringify(r.body));
   check('gradeExam: maxPoints מהבקשה', r.body.maxPoints === 10, JSON.stringify(r.body));
   check('gradeExam: errors מועבר', Array.isArray(r.body.errors) && r.body.errors.length === 1);
-  check('gradeExam: modelUsed = המודל הראשון', r.body.modelUsed === 'gemini-3.7-flash', r.body.modelUsed);
+  check('gradeExam: modelUsed = המודל הראשון', r.body.modelUsed === 'gemini-3.8-flash', r.body.modelUsed);
   check('gradeExam: gradingInstructions הועבר כ-systemInstruction', r.calls[0].body.systemInstruction.parts[0].text === 'בדקי בקפדנות');
   check('gradeExam: קריאה אחת בלבד (לא נפל למודל הבא)', r.calls.length === 1, String(r.calls.length));
 }
@@ -142,6 +142,13 @@ fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: 'נ
   fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: 'hi' }] } }] } }];
   const r3 = await req({ action: 'chat', messages: [{ role: 'user', content: 'hi' }] }, 'https://java-lamerhav-abc123xyz.vercel.app');
   check('CORS: תת-דומיין תצוגה מקדימה של vercel מורשה', r3.headers.get('Access-Control-Allow-Origin') === 'https://java-lamerhav-abc123xyz.vercel.app');
+  // הכתובת הראשית java-bagrut נשכחה בהעברה, והוורקר החזיר null — כל קריאת AI באתר החי נחסמה בדפדפן
+  fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: 'hi' }] } }] } }];
+  const r4 = await req({ action: 'chat', messages: [{ role: 'user', content: 'hi' }] }, 'https://java-bagrut.vercel.app');
+  check('CORS: הכתובת הראשית java-bagrut מורשית', r4.headers.get('Access-Control-Allow-Origin') === 'https://java-bagrut.vercel.app');
+  fetchScript = [{ ok: true, body: { candidates: [{ content: { parts: [{ text: 'hi' }] } }] } }];
+  const r5 = await req({ action: 'chat', messages: [{ role: 'user', content: 'hi' }] }, 'https://java-bagrut.vercel.app.evil.example');
+  check('CORS: דומיין שרק מתחיל ב-java-bagrut נדחה', r5.headers.get('Access-Control-Allow-Origin') === 'null');
 }
 
 // ===== 11. חסר מפתח API =====
