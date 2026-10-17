@@ -48,7 +48,22 @@
 // הוסרו: gemini-2.0-flash (404 — כבוי), gemini-3.7-flash (לא מופיע יותר בדפי
 // גוגל). gemini-4-argon חזק יותר אבל אין לו מכסה חינמית ($2/$10 למיליון טוקנים).
 // במסלול החינמי גוגל רשאית להשתמש בתוכן הבקשות לשיפור המוצרים שלה.
-const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+// נבדק ישירות מול המפתח (probeModels, 2026-10-17). לא נכנסו: gemma-4-26b-a4b-it מדפיס את
+// החשיבה הפנימית שלו בתוך התשובה ("User asks: ..."), gemma-4-31b-it מחזיר 500,
+// ו-gemini-4-argon בתשלום. gemini-3-flash-preview ו-2.5-flash-lite עובדים, כל אחד עם מכסה נפרדת.
+// מודל תצוגה-מקדימה עלול להיעלם — 404 חוסם אותו אוטומטית עד חצות.
+const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash',
+  'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite'];
+
+// מודלים שלא תומכים ב-responseMimeType (מצב JSON) — לא שולחים להם את השדה, והפענוח
+// הסלחני (tryParseJson) מחלץ את ה-JSON מהטקסט. נלמד מהתיעוד של Gemma ב-Gemini API.
+const MODEL_TRAITS = {
+  'gemma-4-31b-it': { noJsonMode: true },
+  'gemma-4-26b-a4b-it': { noJsonMode: true },
+};
+// כל המודלים החינמיים שנמצאו בדף התמחור (2026-10-17) — לבדיקת זמינות בלבד (probeModels)
+const CANDIDATE_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash',
+  'gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite'];
 
 // ---------------------------------------------------------------------------
 // מונה מכסות יומי. בלי זה כל בקשה ניסתה קודם את המודלים המלאים, קיבלה 429, ורק
@@ -110,7 +125,10 @@ export class QuotaTracker {
       const { model, ok, status } = body;
       st.strikes = st.strikes || {};
       if (ok) { st.counts[model] = (st.counts[model] || 0) + 1; st.strikes[model] = 0; }
-      else if (status === 429) {
+      else if (status === 404 || status === 403) {
+        // המודל לא קיים / לא מורשה למפתח הזה — אין טעם לנסות שוב היום
+        st.blocked[model] = 'day';
+      } else if (status === 429) {
         // מכסה יומית ולא קצב: או שהמודל כבר ענה הרבה היום, או שנדחה שוב ושוב — קצב לדקה
         // היה מתאפס בין הניסיונות. חשוב בעיקר למונה חדש שעוד לא יודע כמה כבר נוצל היום.
         st.strikes[model] = (st.strikes[model] || 0) + 1;
@@ -203,7 +221,7 @@ async function callGemini(apiKey, systemInstruction, contents, { jsonMode = fals
       systemInstruction: { parts: [{ text: systemInstruction }] },
       generationConfig: {
         temperature,
-        ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
+        ...(jsonMode && !(MODEL_TRAITS[model] || {}).noJsonMode ? { responseMimeType: 'application/json' } : {}),
       },
       safetySettings: [
         // תוכן חינוכי לנוער — לא מגבילים מעבר לברירת המחדל של גוגל.
@@ -568,6 +586,42 @@ async function handleChat(apiKey, messages, context) {
 }
 
 // ---------------------------------------------------------------------------
+// בודק כל מודל בשתי קריאות קטנות: רגילה, ואם הצליחה — גם במצב JSON. מחזיר סטטוס,
+// זמן ותשובה לדוגמה. לא נספר במונה ולא עובר דרך השרשרת.
+async function probeModels(apiKey, models) {
+  const out = [];
+  for (const model of models) {
+    const row = { model };
+    for (const mode of ['plain', 'json']) {
+      if (mode === 'json' && (MODEL_TRAITS[model] || {}).noJsonMode) { row.json = 'לא נשלח (noJsonMode)'; continue; }
+      const t0 = Date.now();
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: 'את מורה ל-Java. ענית תמיד בעברית.' }] },
+            contents: [{ role: 'user', parts: [{ text: mode === 'json' ? 'החזירי JSON עם שדה "ok" שערכו true ושדה "msg" עם מילה אחת בעברית.' : 'ענה במשפט קצר בעברית: מה זה משתנה בג׳אווה?' }] }],
+            generationConfig: mode === 'json' ? { responseMimeType: 'application/json' } : { maxOutputTokens: 200 },
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts
+          ? data.candidates[0].content.parts.map((p) => p.text || '').join('') : '';
+        if (mode === 'plain') {
+          row.status = res.status; row.ms = Date.now() - t0;
+          row.sample = res.ok ? text.slice(0, 90) : String((data && data.error && data.error.message) || '').slice(0, 140);
+          row.foreign = FOREIGN_SCRIPT.test(text);
+        } else {
+          row.json = res.ok ? (tryParseJson(text) !== undefined ? 'תקין' : 'שבור: ' + text.slice(0, 60)) : 'HTTP ' + res.status;
+        }
+        if (!res.ok && mode === 'plain') break;
+      } catch (e) { row.status = 0; row.sample = String(e && e.message ? e.message : e); break; }
+    }
+    out.push(row);
+  }
+  return { models: out };
+}
+
 export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin');
@@ -602,6 +656,13 @@ export default {
         case 'checkHomework':
           result = await handleCheckHomework(env.GEMINI_API_KEY, payload);
           break;
+        case 'probeModels': {
+          // אבחון זמינות מודלים: קריאה ישירה לכל מועמד, מחוץ לשרשרת ובלי להשפיע על המונה.
+          // נעול בטוקן מנהל — בלי זה כל אחד היה יכול לצרוך את המכסה היומית דרך הוורקר.
+          if (!env.ADMIN_TOKEN || payload.token !== env.ADMIN_TOKEN) return json({ error: 'לא מורשה' }, 403, origin);
+          result = await probeModels(env.GEMINI_API_KEY, Array.isArray(payload.models) ? payload.models : CANDIDATE_MODELS);
+          break;
+        }
         case 'quotaStatus':
           // מצב הספירה היומית — לאבחון בלבד, ללא תוכן של תלמידות
           result = quotaStub ? await (await quotaStub.fetch('https://quota/status', { method: 'POST', body: '{}' })).json() : { tracker: 'off' };

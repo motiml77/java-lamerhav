@@ -155,7 +155,7 @@ const wrap = (text) => ({ ok: true, body: { candidates: [{ content: { parts: [{ 
 
   // אם כל המודלים מחזירים אות זרה — מחזירים את הטובה ביותר ולא שגיאה לתלמידה
   const bad = wrap(JSON.stringify({ score: 5, feedback: 'ש' + cyr + 'וני', errors: [], suggestions: [], encouragement: '' }));
-  fetchScript = [bad, bad, bad, bad, bad];
+  fetchScript = Array(8).fill(bad);
   const r4 = await req({ action: 'gradeExam', gradingData: { code: 'x', questionPoints: 10 } });
   check('כולם עם אות זרה: מחזיר תשובה ולא שגיאה', r4.status === 200 && r4.body.aiScore === 5, r4.status + ' ' + JSON.stringify(r4.body).slice(0, 80));
 }
@@ -163,14 +163,14 @@ const wrap = (text) => ({ ok: true, body: { candidates: [{ content: { parts: [{ 
 // ===== 9c. כל המודלים מלאים (429): הודעה בעברית, לא הודעת המכסה של גוגל =====
 {
   const quota = { ok: false, status: 429, body: { error: { message: 'You exceeded your current quota, please check your plan and billing details.' } } };
-  fetchScript = [quota, quota, quota, quota, quota];
+  fetchScript = Array(8).fill(quota);
   const r = await req({ action: 'chat', messages: [{ role: 'user', content: 'hi' }] });
   check('מכסה נגמרה: קוד 429 ולא 500', r.status === 429, String(r.status));
   check('מכסה נגמרה: הודעה בעברית עם מה לעשות', /נסי שוב/.test(String(r.body.error)) && !/quota|billing/i.test(String(r.body.error)), String(r.body.error));
-  check('מכסה נגמרה: נוסו כל חמשת המודלים', r.calls.length === 5, String(r.calls.length));
+  check('מכסה נגמרה: נוסו כל שמונת המודלים', r.calls.length === 8, String(r.calls.length));
   // תקלה אמיתית (לא עומס) נשארת 500 עם הפרטים לאבחון
   const boom = { ok: false, status: 400, body: { error: { message: 'bad request' } } };
-  fetchScript = [boom, boom, boom, boom, boom];
+  fetchScript = Array(8).fill(boom);
   const r2 = await req({ action: 'chat', messages: [{ role: 'user', content: 'hi' }] });
   check('תקלה אמיתית (400) נשארת 500', r2.status === 500, String(r2.status));
 }
@@ -224,6 +224,12 @@ const wrap = (text) => ({ ok: true, body: { candidates: [{ content: { parts: [{ 
   }
   check('מונה: שלוש דחיות רצופות = חסום להיום', fq.store.get('st').blocked['gemini-3.8-flash'] === 'day', JSON.stringify(fq.store.get('st').blocked));
 
+  // מודל שלא קיים למפתח (404) — חסום להיום מיד, בלי לבזבז בקשות בימים הבאים
+  fq = fakeQuota(); extraEnv = fq.env;
+  fetchScript = [{ ok: false, status: 404, body: { error: { message: 'models/x is not found' } } }, okBody];
+  await chat(); await tick();
+  check('מונה: 404 חוסם את המודל להיום', fq.store.get('st').blocked['gemini-3.8-flash'] === 'day', JSON.stringify(fq.store.get('st').blocked));
+
   // יום חדש מאפס
   fq = fakeQuota({ day: '2000-01-01', counts: { 'gemini-3.8-flash': 99 }, blocked: { 'gemini-3.8-flash': 'day' } });
   extraEnv = fq.env; fetchScript = [okBody];
@@ -238,7 +244,7 @@ const wrap = (text) => ({ ok: true, body: { candidates: [{ content: { parts: [{ 
 
   // הכול חסום להיום: הודעה ברורה, בלי לשלוח אף בקשה לגוגל
   const dead = { day: todayPT, counts: { 'gemini-3.8-flash': 18, 'gemini-3.6-flash': 18 },
-    blocked: { 'gemini-2.5-flash': 'day', 'gemini-3.5-flash-lite': 'day', 'gemini-3.1-flash-lite': 'day' } };
+    blocked: { 'gemini-3-flash-preview': 'day', 'gemini-2.5-pro': 'day', 'gemini-2.5-flash': 'day', 'gemini-3.5-flash-lite': 'day', 'gemini-3.1-flash-lite': 'day', 'gemini-2.5-flash-lite': 'day' } };
   fq = fakeQuota(dead); extraEnv = fq.env; fetchScript = [];
   r = await chat();
   check('הכול חסום: 429 בעברית ובלי בקשות לגוגל', r.status === 429 && r.calls.length === 0 && /נסי שוב/.test(String(r.body.error)), r.status + ' calls=' + r.calls.length);
@@ -250,6 +256,25 @@ const wrap = (text) => ({ ok: true, body: { candidates: [{ content: { parts: [{ 
   check('quotaStatus מחזיר את הספירה', r.body.counts && r.body.counts['gemini-3.8-flash'] === 5, JSON.stringify(r.body));
 
   extraEnv = {}; // לא מדליפים לבדיקות הבאות
+}
+
+// ===== 9e. probeModels: נעול בטוקן מנהל =====
+{
+  extraEnv = { ADMIN_TOKEN: 'secret-token' };
+  fetchScript = [];
+  let r = await req({ action: 'probeModels', token: 'wrong' });
+  check('probeModels: טוקן שגוי נדחה (403, בלי קריאה לגוגל)', r.status === 403 && r.calls.length === 0, r.status + ' calls=' + r.calls.length);
+  extraEnv = {};
+  r = await req({ action: 'probeModels', token: 'anything' });
+  check('probeModels: בלי ADMIN_TOKEN בשרת — נדחה', r.status === 403 && r.calls.length === 0);
+  extraEnv = { ADMIN_TOKEN: 'secret-token' };
+  fetchScript = [wrap('שלום'), wrap('{"ok":true,"msg":"כן"}')];
+  r = await req({ action: 'probeModels', token: 'secret-token', models: ['gemini-3.8-flash'] });
+  check('probeModels: טוקן נכון מחזיר סטטוס ו-JSON תקין', r.status === 200 && r.body.models[0].status === 200 && r.body.models[0].json === 'תקין', JSON.stringify(r.body).slice(0, 160));
+  fetchScript = [wrap('שלום')];
+  r = await req({ action: 'probeModels', token: 'secret-token', models: ['gemma-4-31b-it'] });
+  check('probeModels: Gemma לא מקבל מצב JSON', r.calls.length === 1 && !r.calls[0].body.generationConfig.responseMimeType, JSON.stringify(r.calls[0] && r.calls[0].body.generationConfig));
+  extraEnv = {};
 }
 
 // ===== 10. CORS =====
