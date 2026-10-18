@@ -91,16 +91,22 @@ public class AutoSetup implements IStartup {
 
     /** הנתיב שתוכנית ההתקנה רשמה ב-~/.dsviz/project-path.txt (אם יש שם פרויקט) */
     static File installedProjectFolder() {
+        String path = dsvizFile("project-path.txt");
+        if (path == null) return null;
+        File dir = new File(path);
+        return new File(dir, ".project").isFile() ? dir : null;
+    }
+
+    /** קובץ שתוכנית ההתקנה כתבה ב-~/.dsviz (Windows: UTF-16 עם BOM; Mac/Linux: UTF-8), או null */
+    static String dsvizFile(String name) {
         try {
-            File f = new File(System.getProperty("user.home"), ".dsviz/project-path.txt");
+            File f = new File(System.getProperty("user.home"), ".dsviz/" + name);
             if (!f.isFile()) return null;
             byte[] b = Files.readAllBytes(f.toPath());
-            // Windows (תוכנית ההתקנה) כותבת UTF-16 עם BOM; Mac/Linux כותבים UTF-8
             boolean utf16 = b.length >= 2 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xFE;
-            String path = new String(b, utf16 ? StandardCharsets.UTF_16LE : StandardCharsets.UTF_8).trim();
-            if (!path.isEmpty() && path.charAt(0) == '\uFEFF') path = path.substring(1);
-            File dir = new File(path);
-            return new File(dir, ".project").isFile() ? dir : null;
+            String text = new String(b, utf16 ? StandardCharsets.UTF_16LE : StandardCharsets.UTF_8).trim();
+            if (!text.isEmpty() && text.charAt(0) == '\uFEFF') text = text.substring(1);
+            return text.isEmpty() ? null : text;
         } catch (Exception e) {
             return null;
         }

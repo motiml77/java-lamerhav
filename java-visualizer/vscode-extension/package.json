@@ -317,6 +317,16 @@
                 "id": "dsviz.insertMenu",
                 "label": "הוספה לקוד (נתוני דמה)"
             }
-        ]
+        ],
+        "configuration": {
+            "title": "מבני נתונים",
+            "properties": {
+                "dsviz.javaHome": {
+                    "type": "string",
+                    "default": "",
+                    "description": "תיקיית JDK להרצה (ריק = ה-Java שהותקנה עם מבני נתונים, או JAVA_HOME, או PATH)"
+                }
+            }
+        }
     }
 }

@@ -4,14 +4,18 @@ const fs = require('fs');
 const path = require('path');
 const templates = require('./templates');
 const project = require('./project');
+const runner = require('./runner');
 
 const PENDING_KEY = 'dsviz.pendingOpen';
-const JAVA_PACK = 'vscjava.vscode-java-pack';
 
 let ctx;
+let diagnostics, output, terminal;
 
 function activate(context) {
     ctx = context;
+    diagnostics = vscode.languages.createDiagnosticCollection('dsviz');
+    output = vscode.window.createOutputChannel('מבני נתונים');
+    context.subscriptions.push(diagnostics, output);
     const reg = (id, fn) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
     reg('dsviz.newExercise', () => newExercise());
     reg('dsviz.newStack', () => newExercise('stack'));
@@ -261,14 +265,16 @@ async function insertSnippet(structure) {
 
 // ------------------------------------------------------------ הרצה
 
-/** lineByLine = true: כל שורה בקוד היא צעד (דרך -javaagent של dsviz.jar, שמריץ את התוכנית תחת JDI) */
+/**
+ * מקמפל ומריץ את הקובץ הפתוח — בעצמנו (javac + java בטרמינל), בלי צורך בתוספים של Java ל-VS Code.
+ * lineByLine = true: מריצים דרך LineByLine שבספרייה, וכל שורה בקוד היא צעד בחלון.
+ */
 async function run(lineByLine) {
     const ed = vscode.window.activeTextEditor;
     if (!ed || !ed.document.fileName.endsWith('.java')) {
         vscode.window.showInformationMessage('פתחו קובץ Java (תרגיל) ואז לחצו "הרצה ויזואלית".');
         return;
     }
-    if (!(await ensureJavaTools())) return;
     await ed.document.save();
     const text = ed.document.getText();
     if (!/static\s+void\s+main\s*\(/.test(text)) {
@@ -280,29 +286,60 @@ async function run(lineByLine) {
         vscode.window.showWarningMessage('הקובץ לא נמצא בתוך תיקייה פתוחה. פתחו את התיקייה (File → Open Folder).');
         return;
     }
-    const conflicts = project.findConflicts(folder.uri.fsPath);
-    if (conflicts.length) await warnConflicts(folder.uri.fsPath);
+    const jdk = runner.findJava(vscode.workspace.getConfiguration('dsviz').get('javaHome'));
+    if (!jdk) {
+        const btn = 'הורדת Java (JDK 21)';
+        const ans = await vscode.window.showErrorMessage(
+            'לא נמצאה Java במחשב. תוכנית ההתקנה של מבני נתונים מתקינה Java — או שאפשר להוריד JDK.', btn);
+        if (ans === btn) vscode.env.openExternal(vscode.Uri.parse('https://adoptium.net/temurin/releases/?version=21'));
+        return;
+    }
+    await vscode.workspace.saveAll(false);
+    const root = folder.uri.fsPath;
+    if (project.findConflicts(root).length) await warnConflicts(root);
+    let srcDir = project.sourceDir(root);
+    if (!ed.document.fileName.startsWith(srcDir + path.sep)) srcDir = path.dirname(ed.document.fileName);   // קובץ מחוץ ל-src
+    const jar = project.agentJar(root, path.join(ctx.extensionPath, 'resources', project.JAR_NAME));
+    const binDir = path.join(root, 'bin');
     const mainClass = project.mainClassOf(ed.document.fileName, text);
-    const vmArgs = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8'];
-    if (lineByLine) vmArgs.push('-javaagent:' + project.agentJar(folder.uri.fsPath, path.join(ctx.extensionPath, 'resources', project.JAR_NAME)) + '=' + mainClass);
-    await vscode.debug.startDebugging(folder, {
-        type: 'java',
-        name: lineByLine ? 'הרצה שורה אחר שורה' : 'הרצה ויזואלית',
-        request: 'launch',
-        mainClass,
-        cwd: folder.uri.fsPath,
-        vmArgs
-    }, { noDebug: true });
+
+    const result = await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Window, title: 'מבני נתונים: מקמפל...' },
+        () => runner.compile(jdk.javac, srcDir, binDir, jar));
+    showErrors(result);
+    if (!result.ok) {
+        output.clear();
+        output.appendLine(result.output);
+        const btn = 'פרטים';
+        const n = result.errors.filter(e => e.severity === 'error').length;
+        const ans = await vscode.window.showErrorMessage(
+            n ? `יש ${n} שגיאות קומפילציה (מסומנות באדום בקוד). מתקנים ומריצים שוב.` : 'הקומפילציה נכשלה.', btn);
+        if (ans === btn) output.show(true);
+        return;
+    }
+
+    const args = runner.runArgs(mainClass, binDir, jar, lineByLine);
+    if (terminal) terminal.dispose();
+    const name = lineByLine ? 'מבני נתונים: שורה אחר שורה' : 'מבני נתונים: הרצה';
+    terminal = runner.WIN
+        ? vscode.window.createTerminal({ name, cwd: root, shellPath: process.env.ComSpec || 'cmd.exe',
+                                         shellArgs: ['/d', '/c', runner.windowsScript(binDir, jdk.java, args)] })
+        : vscode.window.createTerminal({ name, cwd: root, shellPath: jdk.java, shellArgs: args });
+    terminal.show(true);
 }
 
-async function ensureJavaTools() {
-    const ok = vscode.extensions.getExtension('redhat.java') && vscode.extensions.getExtension('vscjava.vscode-java-debug');
-    if (ok) return true;
-    const btn = 'התקנה';
-    const ans = await vscode.window.showWarningMessage(
-        'כדי להריץ Java צריך את התוסף "Extension Pack for Java" (חינמי, של Microsoft).', btn);
-    if (ans === btn) await vscode.commands.executeCommand('workbench.extensions.installExtension', JAVA_PACK);
-    return false;
+/** שגיאות הקומפילציה כקו אדום בקוד (עובד גם בלי התוספים של Java) */
+function showErrors(result) {
+    diagnostics.clear();
+    const byFile = new Map();
+    for (const e of result.errors) {
+        const d = new vscode.Diagnostic(new vscode.Range(e.line - 1, 0, e.line - 1, 1000), e.message,
+            e.severity === 'error' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning);
+        d.source = 'javac';
+        if (!byFile.has(e.file)) byFile.set(e.file, []);
+        byFile.get(e.file).push(d);
+    }
+    for (const [file, list] of byFile) diagnostics.set(vscode.Uri.file(file), list);
 }
 
 // ------------------------------------------------------------ דוגמאות

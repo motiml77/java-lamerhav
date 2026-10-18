@@ -7,15 +7,22 @@ const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-ws-'));
 const ext = path.resolve(__dirname, '../../vscode-extension');
 const answers = [];   // תור תשובות: לכל שאלה פונקציה שמקבלת את הפריטים/האפשרויות
 const log = [];
-let debugConfig = null, opened = null;
+let opened = null, terminalOpts = null, diag = new Map();
 
 const vscode = {
     workspace: {
         workspaceFolders: [{ uri: { fsPath: ws }, name: 'ws' }],
         openTextDocument: async f => { const t = fs.readFileSync(f, 'utf8').split('\n');
             return { fileName: f, lineCount: t.length, lineAt: i => ({ text: t[i] }), languageId: 'java' }; },
-        getWorkspaceFolder: () => vscode.workspace.workspaceFolders[0]
+        getWorkspaceFolder: () => vscode.workspace.workspaceFolders[0],
+        getConfiguration: () => ({ get: () => undefined }),
+        saveAll: async () => true
     },
+    languages: { createDiagnosticCollection: () => ({ clear: () => diag.clear(), set: (u, l) => diag.set(u.fsPath, l), dispose() {} }) },
+    env: { openExternal: () => {} },
+    ProgressLocation: { Window: 10 },
+    DiagnosticSeverity: { Error: 0, Warning: 1 },
+    Diagnostic: class { constructor(r, m, s) { this.range = r; this.message = m; this.severity = s; } },
     window: {
         showQuickPick: async (items, opts) => { const a = answers.shift(); log.push('pick: ' + opts.title);
             return a(items, opts); },
@@ -28,15 +35,17 @@ const vscode = {
         createStatusBarItem: () => ({ show() {}, hide() {}, dispose() {} }),
         registerTreeDataProvider: () => ({ dispose() {} }),
         onDidChangeActiveTextEditor: () => ({ dispose() {} }),
-        activeTextEditor: null
+        activeTextEditor: null,
+        createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),
+        withProgress: async (o, f) => f(),
+        createTerminal: o => { terminalOpts = o; return { show() {}, dispose() {} }; }
     },
     commands: { registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; }, executeCommand: async () => {} },
     extensions: { getExtension: () => ({}) },
-    debug: { startDebugging: async (folder, cfg, o) => { debugConfig = { cfg, o }; return true; } },
     StatusBarAlignment: { Left: 1 }, TextEditorRevealType: { InCenter: 2 },
     Position: class { constructor(l, c) { this.line = l; this.character = c; } },
     Selection: class { constructor(a, b) { this.a = a; this.b = b; } },
-    Range: class { constructor(a, b) { this.a = a; this.b = b; } },
+    Range: class { constructor(a, b, c, d) { this.a = a; this.b = b; this.line = a; } },
     Uri: { file: f => ({ fsPath: f }) }
 };
 const commands = {};
@@ -85,20 +94,29 @@ const value = v => () => v;
     await commands['dsviz.examples']();
     assert(fs.existsSync(path.join(ws, 'src', 'examples', 'ListExamples.java')));
 
-    // --- הרצה ויזואלית של Merge.java
+    // --- הרצה ויזואלית של Merge.java: קומפילציה אמיתית עם javac ל-bin, והרצה בטרמינל עם java
     const text = fs.readFileSync(f2, 'utf8');
     vscode.window.activeTextEditor = { document: { fileName: f2, uri: {}, languageId: 'java', getText: () => text, save: async () => true } };
     await commands['dsviz.run']();
-    assert.strictEqual(debugConfig.cfg.mainClass, 'Merge');
-    assert.strictEqual(debugConfig.cfg.cwd, ws);
-    assert.strictEqual(debugConfig.o.noDebug, true);
-    assert(!debugConfig.cfg.vmArgs.some(a => a.startsWith('-javaagent')), 'regular run must not use the agent');
+    assert(fs.existsSync(path.join(ws, 'bin', 'Merge.class')), 'not compiled');
+    assert(fs.existsSync(path.join(ws, 'bin', 'examples', 'ListExamples.class')), 'examples not compiled');
+    assert.strictEqual(terminalOpts.cwd, ws);
+    assert.strictEqual(terminalOpts.shellArgs[terminalOpts.shellArgs.length - 1], 'Merge');
+    assert(terminalOpts.shellArgs.includes(path.join(ws, 'bin') + ':' + path.join(ws, 'lib', 'dsviz.jar')));
+    assert.strictEqual(diag.size, 0);
 
-    // --- הרצה שורה אחר שורה: אותה מחלקה, עם -javaagent של ה-jar שבפרויקט ושם המחלקה
+    // --- הרצה שורה אחר שורה: דרך LineByLine של הספרייה
     await commands['dsviz.runLines']();
-    const agent = debugConfig.cfg.vmArgs.find(a => a.startsWith('-javaagent:'));
-    assert.strictEqual(agent, '-javaagent:' + path.join(ws, 'lib', 'dsviz.jar') + '=Merge');
-    assert.strictEqual(debugConfig.cfg.mainClass, 'Merge');
+    assert.deepStrictEqual(terminalOpts.shellArgs.slice(-2), ['unit4.collectionsLib.LineByLine', 'Merge']);
+
+    // --- שגיאת קומפילציה: לא מריצים, ומסמנים את השורה באדום
+    terminalOpts = null;
+    fs.writeFileSync(path.join(ws, 'src', 'Broken.java'), 'public class Broken {\n    int x = ;\n}\n');
+    await commands['dsviz.run']();
+    assert.strictEqual(terminalOpts, null, 'must not run with errors');
+    const bd = diag.get(path.join(ws, 'src', 'Broken.java'));
+    assert(bd && bd.length >= 1 && bd[0].range.line === 1, 'error not on line 2');
+    fs.unlinkSync(path.join(ws, 'src', 'Broken.java'));
 
     // --- הוספה לקוד: "צור תור" עם String בשורה ריקה בתוך main — בלי import בקובץ
     const lines = ['public class X {', '    public static void main(String[] args) {', '        ', '    }', '}'];

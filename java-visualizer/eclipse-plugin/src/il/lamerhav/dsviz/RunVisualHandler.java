@@ -17,6 +17,7 @@ import org.eclipse.jdt.core.IMethod;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.launching.IJavaLaunchConfigurationConstants;
+import org.eclipse.jdt.launching.JavaRuntime;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.handlers.HandlerUtil;
@@ -89,9 +90,39 @@ public class RunVisualHandler extends AbstractHandler {
         ILaunchConfigurationWorkingCopy wc = type.newInstance(null, mgr.generateLaunchConfigurationName(simple));
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, project);
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME, mainType);
-        if (lines) wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROGRAM_ARGUMENTS, programArgs);
+        if (lines) {
+            wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROGRAM_ARGUMENTS, programArgs);
+            String jre = bundledJre();
+            if (jre != null) wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_JRE_CONTAINER_PATH, jre);
+        }
         setup(wc);
         return wc.doSave();
+    }
+
+    /**
+     * הרצה שורה-שורה צריכה Java עם ממשק הדיבאג (jdk.jdi). אם תוכנית ההתקנה התקינה Java 21 —
+     * רושמים אותה ב-Eclipse (פעם אחת) ומריצים איתה. מחזיר את נתיב ה-JRE container, או null.
+     */
+    private static String bundledJre() {
+        try {
+            String home = AutoSetup.dsvizFile("jdk-path.txt");
+            if (home == null || !(new java.io.File(home, "bin/java.exe").isFile() || new java.io.File(home, "bin/java").isFile()))
+                return null;
+            org.eclipse.jdt.launching.IVMInstallType type =
+                    JavaRuntime.getVMInstallType("org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType");
+            if (type == null) return null;
+            org.eclipse.jdt.launching.IVMInstall vm = type.findVMInstall("il.lamerhav.dsviz.jdk21");
+            if (vm == null) {
+                org.eclipse.jdt.launching.VMStandin s = new org.eclipse.jdt.launching.VMStandin(type, "il.lamerhav.dsviz.jdk21");
+                s.setName("Java 21 (מבני נתונים)");
+                s.setInstallLocation(new java.io.File(home));
+                vm = s.convertToRealVM();
+                JavaRuntime.saveVMConfiguration();
+            }
+            return JavaRuntime.newJREContainerPath(vm).toPortableString();
+        } catch (Exception e) {
+            return null;   // נשארים עם ה-Java של הפרויקט
+        }
     }
 
     private static void setup(ILaunchConfigurationWorkingCopy wc) {

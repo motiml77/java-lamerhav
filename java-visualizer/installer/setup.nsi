@@ -4,6 +4,7 @@
 ;  נבנית ע"י tools/build-all.sh (makensis). לא דורשת הרשאות מנהל.
 ;  התקנה שקטה (למשל לכל מחשבי המעבדה): DSViz-Setup.exe /S   הסרה שקטה: uninstall.exe /S
 ; ============================================================
+SetCompressor /SOLID lzma
 Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים היום)
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
@@ -157,30 +158,6 @@ FunctionEnd
   FindClose $R0
 !macroend
 
-; ------------------------------------------------------------ בדיקת Java
-Function CheckJava
-  ReadEnvStr $0 JAVA_HOME
-  ${If} $0 != ""
-  ${AndIf} ${FileExists} "$0\bin\java.exe"
-    DetailPrint "Java: נמצא ($0)"
-    Return
-  ${EndIf}
-  SearchPath $0 "java.exe"
-  ${If} $0 != ""
-    DetailPrint "Java: נמצא ($0)"
-    Return
-  ${EndIf}
-  ${If} ${FileExists} "$PROGRAMFILES64\Eclipse Adoptium\*.*"
-  ${OrIf} ${FileExists} "$PROGRAMFILES64\Java\*.*"
-  ${OrIf} ${FileExists} "$PROGRAMFILES64\Microsoft\jdk*"
-    DetailPrint "Java: נמצא ב-Program Files"
-    Return
-  ${EndIf}
-  DetailPrint "Java: לא נמצא"
-  MessageBox MB_YESNO|MB_ICONQUESTION "לא נמצאה Java (JDK) במחשב.$\r$\n$\r$\nVS Code צריך JDK כדי להריץ תוכניות Java. (Eclipse החדש מגיע עם Java משלו.)$\r$\n$\r$\nלפתוח את דף ההורדה של JDK 21 (חינמי)?" /SD IDNO IDNO +2
-    ExecShell "open" "https://adoptium.net/temurin/releases/?version=21&os=windows&package=jdk"
-FunctionEnd
-
 ; ------------------------------------------------------------ רכיבים
 Section "-core"
   SetOutPath "$INSTDIR"
@@ -206,8 +183,20 @@ Section "-core"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\מדריך.lnk" "$INSTDIR\README-he.html"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\הסרה.lnk" "$INSTDIR\uninstall.exe"
 
-  Call CheckJava
   Call FindCode
+SectionEnd
+
+Section "Java 21 (כלולה בהתקנה — בלי הורדה)" SEC_JDK
+  SectionIn RO
+  ; Java מקוצרת (java, javac, חלון, הרצה שורה-שורה) — התוסף של VS Code מריץ איתה את התוכניות
+  SetOutPath "$INSTDIR\jdk"
+  File /r "${BUILD}\jre-windows\*.*"
+  SetOutPath "$INSTDIR"
+  CreateDirectory "$PROFILE\.dsviz"
+  FileOpen $0 "$PROFILE\.dsviz\jdk-path.txt" w
+  FileWriteUTF16LE /BOM $0 "$INSTDIR\jdk"
+  FileClose $0
+  DetailPrint "Java 21: הותקנה ב-$INSTDIR\jdk"
 SectionEnd
 
 Section "תיקיית תרגילים מוכנה (במסמכים)" SEC_PROJECT
@@ -251,11 +240,11 @@ Section "תוסף ל-VS Code" SEC_VSCODE
   ${EndIf}
 SectionEnd
 
-Section "Java ל-VS Code (מהאינטרנט)" SEC_JAVAPACK
+Section /o "השלמה אוטומטית ל-Java ב-VS Code (רשות, מהאינטרנט)" SEC_JAVAPACK
+  ; לא נחוץ להרצה (התוסף שלנו מריץ בעצמו עם ה-Java שבהתקנה). רץ ברקע — ההתקנה לא מחכה לו
   ${If} $CODE != ""
-    DetailPrint "VS Code: מתקין את Extension Pack for Java (מהאינטרנט)..."
-    nsExec::ExecToLog '"$SYSDIR\cmd.exe" /c ""$CODE" --install-extension vscjava.vscode-java-pack"'
-    Pop $0
+    DetailPrint "VS Code: Extension Pack for Java יותקן ברקע (אם יש אינטרנט)"
+    Exec '"$SYSDIR\cmd.exe" /c start "" /min "$SYSDIR\cmd.exe" /c ""$CODE" --install-extension vscjava.vscode-java-pack""'
   ${EndIf}
 SectionEnd
 
@@ -288,7 +277,8 @@ SectionEnd
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_PROJECT} "תיקייה DataStructures במסמכים עם תרגיל לדוגמה, דוגמאות פתורות וכל ההגדרות — נפתחת גם ב-VS Code וגם ב-Eclipse."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_VSCODE} "סרגל 'מבני נתונים' ב-VS Code: תרגיל חדש, הרצה ויזואלית והרצה שורה אחר שורה."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_JAVAPACK} "Extension Pack for Java — התוסף החינמי של Microsoft שמאפשר להריץ Java ב-VS Code. דורש אינטרנט."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_JDK} "Java 21 מובנית: מקמפלת ומריצה את התרגילים ב-VS Code, כולל הרצה שורה אחר שורה. לא צריך להוריד כלום."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_JAVAPACK} "רשות: התוסף של Microsoft להשלמה אוטומטית ובדיקת שגיאות בזמן ההקלדה. לא נחוץ להרצה. מותקן ברקע מהאינטרנט."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_ECLIPSE} "תפריט 'מבני נתונים' וכפתורים ב-Eclipse. מותקן לכל Eclipse שנמצא במחשב."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
@@ -324,6 +314,8 @@ Section "Uninstall"
   Delete "$INSTDIR\eclipse-dirs.txt"
   Delete "$INSTDIR\uninstall.exe"
   RMDir /r "$INSTDIR\project"
+  RMDir /r "$INSTDIR\jdk"
+  Delete "$PROFILE\.dsviz\jdk-path.txt"
   Delete "$DESKTOP\תרגילי מבני נתונים (VS Code).lnk"
   ; תיקיית התרגילים במסמכים נשארת — יש בה את העבודה של התלמיד
   RMDir "$INSTDIR"

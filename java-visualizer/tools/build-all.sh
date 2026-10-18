@@ -3,7 +3,7 @@
 #   dsviz.jar                    — הספרייה (גם לשימוש ידני בכל פרויקט)
 #   il.lamerhav.dsviz_1.0.0.jar  — התוסף ל-Eclipse (מעתיקים לתיקיית dropins)
 #   dsviz-1.0.0.vsix             — התוסף ל-VS Code
-#   DSViz-Setup.exe              — תוכנית התקנה ל-Windows (מוצאת לבד את VS Code ואת Eclipse)
+#   DSViz-Setup.exe              — תוכנית התקנה ל-Windows (מוצאת לבד את VS Code ואת Eclipse; Java 21 כלולה)
 #   dsviz-install.zip            — הכול + התקנה ל-Mac/Linux ומדריך
 # דרישות לבנייה: JDK 11+, Python 3, Node.js, NSIS (makensis) — רק למי שבונה, לא למי שמתקין
 set -e
@@ -46,6 +46,7 @@ cp release/dsviz.jar "$P/lib/"
 
 echo "== Windows installer (DSViz-Setup.exe)"
 if command -v makensis >/dev/null 2>&1; then
+    tools/build-jre.sh   # Java 21 מקוצרת ל-Windows שנכנסת לתוך ההתקנה
     (cd installer && makensis -V2 -DVERSION=$VERSION setup.nsi)
     echo "release/DSViz-Setup.exe"
 else
