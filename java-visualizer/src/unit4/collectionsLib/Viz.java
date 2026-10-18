@@ -20,12 +20,14 @@ public final class Viz {
 
     /** לתת שם למבנה (מחסנית, תור, ראש רשימה או שורש עץ) */
     public static void name(Object structure, String name) {
+        Recorder.sync();
         Recorder.setName(structure, name, 2);
         Recorder.record(Kind.NOTE, structure, Mark.NONE, null, "שם חדש: " + name);
     }
 
     /** הערה שתופיע כצעד בהרצה */
     public static void note(String text) {
+        Recorder.sync();
         Recorder.record(Kind.NOTE, null, Mark.NONE, null, "הערה: " + text);
     }
 
@@ -34,6 +36,7 @@ public final class Viz {
      * כדאי לקרוא לזה בכל פעם שהמשתנה מתקדם, למשל: p = p.getNext(); Viz.point("p", p);
      */
     public static void point(String label, Object node) {
+        Recorder.sync();
         Recorder.point(label, node);
         Recorder.record(Kind.NOTE, node, Mark.READ, null,
                 label + "  ←  " + (node == null ? "null" : Recorder.nodeRef(node)));
@@ -41,11 +44,13 @@ public final class Viz {
 
     /** הפסקת התיעוד (למשל לפני לולאה ארוכה שלא מעניין לראות) */
     public static void off() {
+        Recorder.sync();
         Recorder.enabled = false;
     }
 
     /** חידוש התיעוד */
     public static void on() {
+        Recorder.sync();
         Recorder.enabled = true;
     }
 
@@ -83,6 +88,20 @@ public final class Viz {
         inorder(t.left, b, depth + 1);
         b.append(t.value).append(' ');
         inorder(t.right, b, depth + 1);
+    }
+
+    /**
+     * הרצה "שורה אחר שורה": כל שורה בקוד מוצגת כצעד, עם המשתנים המקומיים.
+     * שמים את זה כשורה הראשונה ב-main (אין צורך בזה כשמריצים מכפתור "שורה אחר שורה" של התוסף).
+     * דורש JDK 11 ומעלה.
+     */
+    public static void lines() {
+        if (LineByLine.isChild() || Recorder.lineMode) return;
+        StackTraceElement[] trace = new Throwable().getStackTrace();
+        String main = null;
+        for (StackTraceElement e : trace) if (e.getMethodName().equals("main")) main = e.getClassName();
+        if (main == null) return;
+        System.exit(LineByLine.trace(main, new String[0]));
     }
 
     /** מספר הצעדים המקסימלי שיתועדו (ברירת מחדל 5000) */

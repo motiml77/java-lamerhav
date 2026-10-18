@@ -119,7 +119,7 @@ public final class ProjectSetup {
             changed = true;
         }
         if (!hasJar) {
-            entries.add(JavaCore.newLibraryEntry(jar.getFullPath(), jar.getFullPath(), null));
+            entries.add(JavaCore.newLibraryEntry(jar.getFullPath(), jar.getFullPath(), new Path("src")));
             changed = true;
         }
         if (src == null) {

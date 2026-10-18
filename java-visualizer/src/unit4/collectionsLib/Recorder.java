@@ -46,6 +46,11 @@ final class Recorder {
     static int maxSteps = 5000;
     static boolean enabled = true;
     static boolean textMode = false;
+    /** מצב "שורה אחר שורה": מופעל ע"י LineByLine בתהליך שרץ תחת JdiTracer */
+    static boolean lineMode = false;
+    // המשתנים של המסגרת הנוכחית (מהשורה האחרונה) — שמות המשתנים מוצגים מעל החוליות/המבנים
+    private static Map<Object, List<String>> frameVars = new IdentityHashMap<Object, List<String>>();
+    private static List<String[]> currentVars;
 
     private static int suspended = 0;
     private static boolean started, limitReached;
@@ -76,6 +81,7 @@ final class Recorder {
     // ------------------------------------------------------------ גישה מהחלון
 
     static int stepCount() {
+        sync();   // החלון: שורות שממתינות (למשל בלולאה בלי פעולות על מבנים)
         synchronized (LOCK) { return steps.size(); }
     }
 
@@ -162,6 +168,7 @@ final class Recorder {
 
     private static void onOutput(String text) {
         synchronized (LOCK) {
+            if (lineMode) drainLines();   // השורות שלפני ההדפסה — בלי הטקסט החדש
             output.append(text);
             String t = text.trim();
             if (t.length() > 0) {
@@ -177,6 +184,14 @@ final class Recorder {
             if (!enabled) return;
             start();
             order.put(o, orderCounter++);
+            if (lineMode) {
+                int id = ++idCounter;
+                byId.put(id, new WeakReference<Object>(o));
+                if (o instanceof Stack) ((Stack<?>) o).vizId = id;
+                else if (o instanceof Queue) ((Queue<?>) o).vizId = id;
+                else if (o instanceof Node) ((Node<?>) o).vizId = id;
+                else if (o instanceof BinNode) ((BinNode<?>) o).vizId = id;
+            }
             lastTouch.put(o, steps.size());
             if (o instanceof Stack || o instanceof Queue) linears.add(o);
             else if (o instanceof Node) nodes.add(new WeakReference<Node<?>>((Node<?>) o));
@@ -248,6 +263,7 @@ final class Recorder {
 
     static void recordAt(Kind kind, Object target, Mark mark, String ghost, String text, StackTraceElement[] trace) {
         synchronized (LOCK) {
+            if (lineMode) drainLines();   // קודם השורות שהגיעו לפני הצעד הזה
             if (!enabled || suspended > 0) return;
             start();
             boolean always = kind == Kind.END || kind == Kind.ERROR; // שגיאה וסיום מוצגים תמיד
@@ -275,11 +291,15 @@ final class Recorder {
     }
 
     private static void addStep(Kind kind, Object target, Mark mark, String ghost, String text, StackTraceElement[] trace) {
+        addStep(kind, target, mark, ghost, text, studentFrames(trace));
+    }
+
+    private static void addStep(Kind kind, Object target, Mark mark, String ghost, String text, List<Frame> frames) {
         Step s = new Step();
         s.index = steps.size();
         s.kind = kind;
         s.text = text;
-        s.calls = studentFrames(trace);
+        s.calls = frames;
         s.where = s.calls.isEmpty() ? null : s.calls.get(0);
         suspended++;
         try {
@@ -290,6 +310,7 @@ final class Recorder {
             suspended--;
         }
         s.outLen = output.length();
+        s.vars = currentVars;
         steps.add(s);
         if (textMode) printStep(s);
     }
@@ -338,10 +359,11 @@ final class Recorder {
         for (Object o : linears) {
             boolean focus = o == target;
             List<?> items = o instanceof Stack ? ((Stack<?>) o).items : ((Queue<?>) o).items;
-            if (!focus && items.isEmpty() && stale(o)) continue;
+            List<String> aliases = frameVars.get(o);
+            if (!focus && aliases == null && items.isEmpty() && stale(o)) continue;
             LinearView v = new LinearView();
             v.stack = o instanceof Stack;
-            v.title = names.get(o);
+            v.title = aliases != null ? String.join(", ", aliases) : names.get(o);
             v.focus = focus;
             int n = items.size();
             for (int i = 0; i < n; i++) v.items.add(str(v.stack ? items.get(n - 1 - i) : items.get(i)));
@@ -358,6 +380,12 @@ final class Recorder {
             List<String> l = labels.get(e.getValue());
             if (l == null) labels.put(e.getValue(), l = new ArrayList<String>());
             l.add(e.getKey());
+        }
+        for (Map.Entry<Object, List<String>> e : frameVars.entrySet()) {
+            if (!(e.getKey() instanceof Node || e.getKey() instanceof BinNode)) continue;
+            List<String> l = labels.get(e.getKey());
+            if (l == null) labels.put(e.getKey(), l = new ArrayList<String>());
+            for (String n : e.getValue()) if (!l.contains(n)) l.add(n);
         }
 
         // --- רשימות מקושרות
@@ -509,8 +537,123 @@ final class Recorder {
             if (!v.focus) continue;
             b.append("      ").append(v.title).append(": ").append(describe(v));
         }
+        if (s.vars != null && s.kind == Kind.LINE) {
+            b.append("      {");
+            for (int i = 0; i < s.vars.size(); i++) b.append(i == 0 ? "" : ", ").append(s.vars.get(i)[0]).append('=').append(s.vars.get(i)[1]);
+            b.append('}');
+        }
         if (s.kind != Kind.OUTPUT) out.println(b);
     }
+
+    // ------------------------------------------------------------ מצב שורה אחר שורה
+    //
+    // ה-JdiTracer (בתהליך האב) עוצר לפני כל שורה בקוד של התלמיד וכותב את פרטי השורה כמחרוזת אחת
+    // למקום הפנוי הבא ב-lineTexts שכאן (שתי פניות בלבד — כל פנייה לתהליך הזה יקרה). מבנים מזוהים לפי vizId.
+    // השורות הופכות לצעדים ב-drainLines: בתחילת כל פעולה של הספרייה (sync), לפני כל צעד אחר,
+    // ומהחלון. המבנים משתנים רק בתוך פעולות הספרייה — ולכן הצילום ברגע הזה מדויק לכל השורות שממתינות.
+
+    static final int LINE_CAPACITY = 20000;
+    static String[] lineTexts;
+    /** ה-Tracer בודק את זה מדי פעם: true = הגענו למגבלה, אפשר להפסיק לעצור בכל שורה */
+    static volatile boolean linesFull;
+    private static int lineRead;
+    private static int idCounter;
+    private static final Map<Integer, WeakReference<Object>> byId = new HashMap<Integer, WeakReference<Object>>();
+
+    static void initLineMode() {
+        lineMode = true;
+        lineTexts = new String[LINE_CAPACITY];
+    }
+
+    /** נקרא בתחילת כל פעולה ציבורית של הספרייה */
+    static void sync() {
+        if (lineMode && lineRead < LINE_CAPACITY && lineTexts[lineRead] != null) drainLines();
+    }
+
+    static void drainLines() {
+        synchronized (LOCK) {
+            if (!enabled || !lineMode) return;
+            start();   // גם תוכנית בלי מבנים בכלל מקבלת חלון
+            while (lineRead < LINE_CAPACITY && lineTexts[lineRead] != null) {
+                String meta = lineTexts[lineRead];
+                lineTexts[lineRead++] = "";   // לא null — כדי לא לקרוא שוב
+                if (!meta.isEmpty()) addLine(meta);
+            }
+        }
+    }
+
+    /**
+     * meta = מסגרות \u0004 משתנים. מסגרת: מחלקה\u0002פעולה\u0002קובץ\u0002שורה.
+     * משתנה: שם\u0002ערך, וכשהערך הוא \u0003 ואחריו מספר — זה המבנה עם ה-vizId הזה.
+     */
+    private static void addLine(String meta) {
+        if (!enabled) return;
+        String[] halves = meta.split("\u0004", -1);
+        List<Frame> frames = new ArrayList<Frame>();
+        for (String f : split(halves[0])) {
+            String[] p = f.split("\u0002", -1);
+            int line;
+            try { line = Integer.parseInt(p[3]); } catch (NumberFormatException e) { line = -1; }
+            frames.add(new Frame(p[0], p[1], p[2].isEmpty() ? null : p[2], line));
+        }
+        Map<Object, List<String>> fv = new IdentityHashMap<Object, List<String>>();
+        List<String[]> vars = new ArrayList<String[]>();
+        List<String> vs = split(halves.length > 1 ? halves[1] : "");
+        suspended++;
+        try {
+            for (int i = 0; i < vs.size(); i++) {
+                String[] p = vs.get(i).split("\u0002", -1);
+                String value = p.length > 1 ? p[1] : "";
+                Object v = value.startsWith("\u0003") ? byId(value.substring(1)) : null;
+                if (v != null) {
+                    List<String> l = fv.get(v);
+                    if (l == null) fv.put(v, l = new ArrayList<String>());
+                    l.add(p[0]);
+                    value = formatVar(v);
+                }
+                vars.add(new String[] { p[0], value });
+            }
+        } finally {
+            suspended--;
+        }
+        frameVars = fv;
+        currentVars = vars;
+        Frame f = frames.isEmpty() ? null : frames.get(0);
+        String code = f == null ? null : SourceFiles.line(f);
+        // הקוד עצמו בתוך "הטבעה" משמאל לימין (\u202A...\u202C), כדי שלא יתהפך בתוך הטקסט העברי
+        String text = f == null ? "שורה" : "שורה " + f.line + ":   \u202A" + (code == null ? f.method + "()" : code.trim()) + "\u202C";
+        if (steps.size() >= maxSteps) {
+            linesFull = true;
+            return;
+        }
+        addStep(Kind.LINE, null, Mark.NONE, null, text, frames);
+        if (steps.size() >= maxSteps) linesFull = true;
+    }
+
+    private static Object byId(String id) {
+        try {
+            WeakReference<Object> r = byId.get(Integer.valueOf(id));
+            return r == null ? null : r.get();
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static List<String> split(String s) {
+        List<String> res = new ArrayList<String>();
+        if (s.isEmpty()) return res;
+        for (String x : s.split("\u0001", -1)) if (!x.isEmpty()) res.add(x);
+        return res;
+    }
+
+    private static String formatVar(Object v) {
+        if (v == null) return "null";
+        if (v instanceof Stack) return "Stack " + shorten(v.toString(), 40);
+        if (v instanceof Queue) return "Queue " + shorten(v.toString(), 40);
+        if (v instanceof Node || v instanceof BinNode) return (v instanceof Node ? "Node " : "BinNode ") + nodeRef(v);
+        return shorten(String.valueOf(v), 40);
+    }
+
 
     private static String describe(View v) {
         if (v instanceof LinearView) return ((LinearView) v).items.toString() + (((LinearView) v).stack ? " (ראש משמאל)" : " (ראש התור משמאל)");

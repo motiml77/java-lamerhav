@@ -23,6 +23,7 @@ public final class Build {
     /** מחסנית: האיברים נכנסים לפי הסדר (push), כך שהאחרון יהיה בראש */
     @SafeVarargs
     public static <T> Stack<T> stack(T... items) {
+        Recorder.sync();
         Recorder.suspend();
         Stack<T> s;
         try {
@@ -39,6 +40,7 @@ public final class Build {
     /** תור: האיברים נכנסים לפי הסדר (insert), כך שהראשון יהיה בראש התור */
     @SafeVarargs
     public static <T> Queue<T> queue(T... items) {
+        Recorder.sync();
         Recorder.suspend();
         Queue<T> q;
         try {
@@ -55,6 +57,7 @@ public final class Build {
     /** רשימה מקושרת: מחזיר את החוליה הראשונה (או null אם אין איברים) */
     @SafeVarargs
     public static <T> Node<T> list(T... items) {
+        Recorder.sync();
         Recorder.suspend();
         Node<T> head = null;
         try {
@@ -74,6 +77,7 @@ public final class Build {
      */
     @SafeVarargs
     public static <T> BinNode<T> tree(T... levelOrder) {
+        Recorder.sync();
         Recorder.suspend();
         BinNode<T> root;
         try {
@@ -95,6 +99,7 @@ public final class Build {
     /** עץ חיפוש בינארי: הכנסה לפי הסדר */
     @SafeVarargs
     public static <T extends Comparable<T>> BinNode<T> bst(T... items) {
+        Recorder.sync();
         Recorder.suspend();
         BinNode<T> root = null;
         try {
@@ -118,18 +123,22 @@ public final class Build {
     // ---- אקראי
 
     public static Stack<Integer> randomStack(int n, int min, int max) {
+        Recorder.sync();
         return stack(randoms(n, min, max));
     }
 
     public static Queue<Integer> randomQueue(int n, int min, int max) {
+        Recorder.sync();
         return queue(randoms(n, min, max));
     }
 
     public static Node<Integer> randomList(int n, int min, int max) {
+        Recorder.sync();
         return list(randoms(n, min, max));
     }
 
     public static BinNode<Integer> randomBst(int n, int min, int max) {
+        Recorder.sync();
         return bst(randoms(n, min, max));
     }
 

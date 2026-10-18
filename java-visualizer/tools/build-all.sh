@@ -3,8 +3,9 @@
 #   dsviz.jar                    — הספרייה (גם לשימוש ידני בכל פרויקט)
 #   il.lamerhav.dsviz_1.0.0.jar  — התוסף ל-Eclipse (מעתיקים לתיקיית dropins)
 #   dsviz-1.0.0.vsix             — התוסף ל-VS Code
-#   dsviz-install.zip            — כל הנ"ל + סקריפט התקנה ומדריך (את זה מחלקים למחשבים)
-# דרישות לבנייה: JDK 11+, Python 3, Node.js (רק למי שבונה — לא למי שמתקין)
+#   DSViz-Setup.exe              — תוכנית התקנה ל-Windows (מוצאת לבד את VS Code ואת Eclipse)
+#   dsviz-install.zip            — הכול + התקנה ל-Mac/Linux ומדריך
+# דרישות לבנייה: JDK 11+, Python 3, Node.js, NSIS (makensis) — רק למי שבונה, לא למי שמתקין
 set -e
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
@@ -34,10 +35,20 @@ cp ../src/examples/*.java resources/examples/
 npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/release/dsviz-$VERSION.vsix"
 cd "$ROOT"
 
+echo "== Windows installer (DSViz-Setup.exe)"
+if command -v makensis >/dev/null 2>&1; then
+    (cd installer && makensis -V2 -DVERSION=$VERSION setup.nsi)
+    echo "release/DSViz-Setup.exe"
+else
+    echo "makensis לא מותקן (apt install nsis) — DSViz-Setup.exe לא נבנה מחדש"
+fi
+
 echo "== installer zip"
 PKG=build/dsviz-install
 rm -rf "$PKG" && mkdir -p "$PKG"
-cp installer/install.bat installer/install.sh installer/README-he.html "$PKG/"
+cp installer/install.sh installer/README-he.html "$PKG/"
+cp installer/install.sh "$PKG/install-mac.command"   # ב-Mac: לחיצה כפולה
+[ -f release/DSViz-Setup.exe ] && cp release/DSViz-Setup.exe "$PKG/"
 cp "release/dsviz-$VERSION.vsix" "release/il.lamerhav.dsviz_$VERSION.jar" release/dsviz.jar "$PKG/"
 rm -f release/dsviz-install.zip
 (cd build && python3 -c "
@@ -45,7 +56,7 @@ import zipfile, os
 with zipfile.ZipFile('../release/dsviz-install.zip', 'w', zipfile.ZIP_DEFLATED) as z:
     for f in sorted(os.listdir('dsviz-install')):
         info = zipfile.ZipInfo('dsviz-install/' + f)
-        info.external_attr = (0o755 if f.endswith('.sh') else 0o644) << 16
+        info.external_attr = (0o755 if f.endswith(('.sh', '.command')) else 0o644) << 16
         info.compress_type = zipfile.ZIP_DEFLATED
         z.writestr(info, open('dsviz-install/' + f, 'rb').read())
 ")

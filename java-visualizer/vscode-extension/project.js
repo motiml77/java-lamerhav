@@ -58,7 +58,7 @@ function setup(root, jarSource) {
         let xml = fs.readFileSync(cp, 'utf8');
         if (!xml.includes('lib/' + JAR_NAME)) {
             xml = xml.replace('</classpath>',
-                `\t<classpathentry kind="lib" path="lib/${JAR_NAME}" sourcepath="lib/${JAR_NAME}"/>\n</classpath>`);
+                `\t<classpathentry kind="lib" path="lib/${JAR_NAME}" sourcepath="lib/${JAR_NAME}" rootpath="src"/>\n</classpath>`);
             fs.writeFileSync(cp, xml);
         }
     } else if (fs.existsSync(path.join(root, 'pom.xml')) || fs.existsSync(path.join(root, 'build.gradle'))) {
@@ -102,6 +102,18 @@ function nextClassName(srcDir, prefix) {
     }
 }
 
+/**
+ * ה-jar שמשמש כ-javaagent להרצה שורה-שורה: עדיף זה שבפרויקט (lib/dsviz.jar, מעודכן לגרסת התוסף),
+ * כדי שלא יהיו שתי גרסאות שונות של הספרייה באותה הרצה.
+ */
+function agentJar(root, jarSource) {
+    const local = path.join(root, 'lib', JAR_NAME);
+    if (!fs.existsSync(local)) return jarSource;
+    const fresh = fs.readFileSync(jarSource);
+    if (!fs.readFileSync(local).equals(fresh)) fs.writeFileSync(local, fresh);
+    return local;
+}
+
 /** שם המחלקה המלא (עם package) של קובץ Java */
 function mainClassOf(filePath, text) {
     const m = /^\s*package\s+([\w.]+)\s*;/m.exec(text);
@@ -109,4 +121,4 @@ function mainClassOf(filePath, text) {
     return m ? m[1] + '.' + cls : cls;
 }
 
-module.exports = { JAR_NAME, sourceDir, findConflicts, setup, nextClassName, mainClassOf };
+module.exports = { JAR_NAME, sourceDir, findConflicts, setup, nextClassName, mainClassOf, agentJar };

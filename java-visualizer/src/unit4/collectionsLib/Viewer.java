@@ -79,11 +79,19 @@ final class Viewer extends JFrame {
     private final JSlider speed = new JSlider(1, 10, 6);
     private final JButton playBtn = new JButton("הפעלה אוטומטית");
     private final Timer player;
+    private final javax.swing.table.DefaultTableModel varsModel = new javax.swing.table.DefaultTableModel(
+            new Object[] { "משתנה", "ערך" }, 0) {
+        @Override
+        public boolean isCellEditable(int r, int c) { return false; }
+    };
+    private final javax.swing.JTable vars = new javax.swing.JTable(varsModel);
+    private final JLabel varsTitle = new JLabel("משתנים");
+    private final java.util.Set<Integer> changedRows = new java.util.HashSet<Integer>();
     private String codeKey;
     private Object codeHighlight;
 
     private Viewer() {
-        super("הרצה ויזואלית — מבני נתונים");
+        super(Recorder.lineMode ? "הרצה שורה אחר שורה — מבני נתונים" : "הרצה ויזואלית — מבני נתונים");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
         // --- סרגל שליטה
@@ -156,7 +164,36 @@ final class Viewer extends JFrame {
         callsPanel.add(callsTitle, BorderLayout.NORTH);
         callsPanel.add(new JScrollPane(calls), BorderLayout.CENTER);
 
-        JSplitPane left = new JSplitPane(JSplitPane.VERTICAL_SPLIT, codePanel, callsPanel);
+        // --- משתנים (במצב שורה-שורה)
+        vars.setFont(MONO);
+        vars.setRowHeight(22);
+        vars.setFocusable(false);
+        vars.setFillsViewportHeight(true);
+        vars.getTableHeader().setReorderingAllowed(false);
+        vars.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(javax.swing.JTable t, Object v, boolean sel,
+                                                                    boolean focus, int row, int col) {
+                java.awt.Component c = super.getTableCellRendererComponent(t, v, false, false, row, col);
+                c.setBackground(changedRows.contains(row) ? StructPanel.READ_C : Color.WHITE);
+                return c;
+            }
+        });
+        JPanel varsPanel = new JPanel(new BorderLayout());
+        varsTitle.setFont(UI);
+        varsTitle.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
+        varsPanel.add(varsTitle, BorderLayout.NORTH);
+        varsPanel.add(new JScrollPane(vars), BorderLayout.CENTER);
+
+        JComponent bottom;
+        if (Recorder.lineMode) {
+            JSplitPane cv = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, varsPanel, callsPanel);
+            cv.setResizeWeight(0.55);
+            bottom = cv;
+        } else {
+            bottom = callsPanel;
+        }
+        JSplitPane left = new JSplitPane(JSplitPane.VERTICAL_SPLIT, codePanel, bottom);
         left.setResizeWeight(0.75);
 
         JSplitPane center = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, right);
@@ -323,6 +360,7 @@ final class Viewer extends JFrame {
         structs.setStep(s);
         updateCode(s.where);
         updateCalls(s.calls);
+        if (Recorder.lineMode) updateVars(s);
         console.setText(Recorder.outputUpTo(s.outLen));
         console.setCaretPosition(console.getDocument().getLength());
     }
@@ -335,6 +373,7 @@ final class Viewer extends JFrame {
             case OUTPUT: return new Color(0xDDF1FA);
             case NOTE: return new Color(0xEFE4FA);
             case ERROR: return new Color(0xFAD4D4);
+            case LINE: return new Color(0xEEF3F8);
             default: return new Color(0xDDDDDD);
         }
     }
@@ -395,6 +434,29 @@ final class Viewer extends JFrame {
                 g.fillRect(0, r.y, 5, r.height);
             } catch (BadLocationException ignored) {}
         }
+    }
+
+    /** טבלת המשתנים. ערך שהשתנה מאז השורה הקודמת באותה פעולה — צבוע בצהוב */
+    private void updateVars(Step s) {
+        varsModel.setRowCount(0);
+        changedRows.clear();
+        if (s.vars == null) return;
+        Step prev = null;
+        for (int i = s.index - 1; i >= 0 && prev == null; i--) {
+            Step p = Recorder.step(i);
+            if (p.kind == Kind.LINE && p.vars != s.vars) prev = p;
+        }
+        boolean sameFrame = prev != null && s.where != null && prev.where != null
+                && prev.where.method.equals(s.where.method) && prev.calls.size() == s.calls.size();
+        java.util.Map<String, String> old = new java.util.HashMap<String, String>();
+        if (sameFrame && prev.vars != null) for (String[] v : prev.vars) old.put(v[0], v[1]);
+        for (int i = 0; i < s.vars.size(); i++) {
+            String[] v = s.vars.get(i);
+            varsModel.addRow(new Object[] { v[0], v[1] });
+            if (sameFrame && !v[1].equals(old.get(v[0]))) changedRows.add(i);
+        }
+        String m = s.where == null ? "" : "  —  בפעולה " + s.where.method;
+        varsTitle.setText("משתנים" + m + "   (צהוב = השתנה)");
     }
 
     private void updateCalls(List<Frame> frames) {

@@ -9,14 +9,17 @@ import unit4.collectionsLib.Model.Mark;
 public class Node<T> {
     T value;
     Node<T> next;
+    int vizId;   // מזהה בהרצה שורה-שורה (נקבע ב-Recorder.register)
 
     public Node(T value) {
+        Recorder.sync();
         this.value = value;
         Recorder.register(this);
         Recorder.create(this, "new Node(" + Recorder.str(value) + ")");
     }
 
     public Node(T value, Node<T> next) {
+        Recorder.sync();
         this.value = value;
         this.next = next;
         Recorder.register(this);
@@ -24,27 +27,32 @@ public class Node<T> {
     }
 
     public T getValue() {
+        Recorder.sync();
         Recorder.read(this, ref() + ".getValue()  →  " + Recorder.str(value));
         return value;
     }
 
     public Node<T> getNext() {
+        Recorder.sync();
         Recorder.read(this, ref() + ".getNext()  →  " + Recorder.nodeRef(next));
         return next;
     }
 
     public boolean hasNext() {
+        Recorder.sync();
         Recorder.check(this, ref() + ".hasNext()  →  " + (next != null));
         return next != null;
     }
 
     public void setValue(T value) {
+        Recorder.sync();
         String old = Recorder.str(this.value);
         this.value = value;
         Recorder.change(this, Mark.CHANGED, null, "[" + old + "].setValue(" + Recorder.str(value) + ")");
     }
 
     public void setNext(Node<T> next) {
+        Recorder.sync();
         this.next = next;
         Recorder.change(this, Mark.CHANGED, null, ref() + ".setNext(" + Recorder.nodeRef(next) + ")");
     }

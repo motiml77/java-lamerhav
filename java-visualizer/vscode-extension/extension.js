@@ -19,7 +19,8 @@ function activate(context) {
     reg('dsviz.newList', () => newExercise('list'));
     reg('dsviz.newTree', () => newExercise('tree'));
     reg('dsviz.newBst', () => newExercise('bst'));
-    reg('dsviz.run', () => run());
+    reg('dsviz.run', () => run(false));
+    reg('dsviz.runLines', () => run(true));
     reg('dsviz.examples', () => examples());
 
     // תצוגה בסרגל הצד — הכפתורים עצמם מוגדרים ב-package.json (viewsWelcome)
@@ -32,11 +33,16 @@ function activate(context) {
     bar.text = '$(play-circle) הרצה ויזואלית';
     bar.tooltip = 'הרצת הקובץ עם תצוגה ויזואלית של מבני הנתונים';
     bar.command = 'dsviz.run';
+    const lines = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+    lines.text = '$(debug-step-over) שורה אחר שורה';
+    lines.tooltip = 'הרצה שבה כל שורה בקוד מוצגת כצעד, עם המשתנים';
+    lines.command = 'dsviz.runLines';
     const refresh = () => {
         const ed = vscode.window.activeTextEditor;
-        if (ed && ed.document.languageId === 'java') bar.show(); else bar.hide();
+        const show = ed && ed.document.languageId === 'java';
+        for (const b of [bar, lines]) if (show) b.show(); else b.hide();
     };
-    context.subscriptions.push(bar, vscode.window.onDidChangeActiveTextEditor(refresh));
+    context.subscriptions.push(bar, lines, vscode.window.onDidChangeActiveTextEditor(refresh));
     refresh();
 
     openPending();
@@ -151,7 +157,8 @@ async function askValues(title, value, type, allowNull) {
 
 // ------------------------------------------------------------ הרצה
 
-async function run() {
+/** lineByLine = true: כל שורה בקוד היא צעד (דרך -javaagent של dsviz.jar, שמריץ את התוכנית תחת JDI) */
+async function run(lineByLine) {
     const ed = vscode.window.activeTextEditor;
     if (!ed || !ed.document.fileName.endsWith('.java')) {
         vscode.window.showInformationMessage('פתחו קובץ Java (תרגיל) ואז לחצו "הרצה ויזואלית".');
@@ -171,13 +178,16 @@ async function run() {
     }
     const conflicts = project.findConflicts(folder.uri.fsPath);
     if (conflicts.length) await warnConflicts(folder.uri.fsPath);
+    const mainClass = project.mainClassOf(ed.document.fileName, text);
+    const vmArgs = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8'];
+    if (lineByLine) vmArgs.push('-javaagent:' + project.agentJar(folder.uri.fsPath, path.join(ctx.extensionPath, 'resources', project.JAR_NAME)) + '=' + mainClass);
     await vscode.debug.startDebugging(folder, {
         type: 'java',
-        name: 'הרצה ויזואלית',
+        name: lineByLine ? 'הרצה שורה אחר שורה' : 'הרצה ויזואלית',
         request: 'launch',
-        mainClass: project.mainClassOf(ed.document.fileName, text),
+        mainClass,
         cwd: folder.uri.fsPath,
-        vmArgs: '-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8'
+        vmArgs
     }, { noDebug: true });
 }
 

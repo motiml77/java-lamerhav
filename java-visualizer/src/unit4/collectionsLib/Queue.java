@@ -10,20 +10,24 @@ import unit4.collectionsLib.Model.Mark;
  */
 public class Queue<T> {
     final ArrayList<T> items = new ArrayList<T>(); // ראש התור ראשון
+    int vizId;   // מזהה בהרצה שורה-שורה (נקבע ב-Recorder.register)
 
     public Queue() {
+        Recorder.sync();
         Recorder.register(this);
         Recorder.create(this, "נוצר תור ריק: " + Recorder.nameOf(this));
     }
 
     /** הכנסת x לסוף התור */
     public void insert(T x) {
+        Recorder.sync();
         items.add(x);
         Recorder.change(this, Mark.NEW, null, Recorder.nameOf(this) + ".insert(" + Recorder.str(x) + ")");
     }
 
     /** הוצאת האיבר שבראש התור והחזרתו */
     public T remove() {
+        Recorder.sync();
         if (items.isEmpty())
             throw new RuntimeException("remove() על תור ריק (" + Recorder.nameOf(this) + ")");
         T x = items.remove(0);
@@ -34,6 +38,7 @@ public class Queue<T> {
 
     /** החזרת האיבר שבראש התור בלי להוציא אותו */
     public T head() {
+        Recorder.sync();
         if (items.isEmpty())
             throw new RuntimeException("head() על תור ריק (" + Recorder.nameOf(this) + ")");
         T x = items.get(0);
@@ -42,6 +47,7 @@ public class Queue<T> {
     }
 
     public boolean isEmpty() {
+        Recorder.sync();
         boolean e = items.isEmpty();
         Recorder.check(this, Recorder.nameOf(this) + ".isEmpty()  →  " + e);
         return e;

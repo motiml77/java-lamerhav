@@ -11,6 +11,9 @@
       <command id="il.lamerhav.dsviz.run" categoryId="il.lamerhav.dsviz.category"
                name="הרצה ויזואלית" description="הרצת התרגיל עם תצוגה ויזואלית של מבני הנתונים"
                defaultHandler="il.lamerhav.dsviz.RunVisualHandler"/>
+      <command id="il.lamerhav.dsviz.runLines" categoryId="il.lamerhav.dsviz.category"
+               name="הרצה שורה אחר שורה" description="הרצה שבה כל שורה בקוד מוצגת כצעד, עם המשתנים"
+               defaultHandler="il.lamerhav.dsviz.RunLinesHandler"/>
       <command id="il.lamerhav.dsviz.examples" categoryId="il.lamerhav.dsviz.category"
                name="דוגמאות פתורות" description="העתקת דוגמאות פתורות לפרויקט"
                defaultHandler="il.lamerhav.dsviz.ExamplesHandler"/>
@@ -19,6 +22,7 @@
    <extension point="org.eclipse.ui.commandImages">
       <image commandId="il.lamerhav.dsviz.newExercise" icon="icons/new.png"/>
       <image commandId="il.lamerhav.dsviz.run" icon="icons/run.png"/>
+      <image commandId="il.lamerhav.dsviz.runLines" icon="icons/lines.png"/>
       <image commandId="il.lamerhav.dsviz.examples" icon="icons/examples.png"/>
    </extension>
 
@@ -43,6 +47,7 @@
             </command>
             <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+            <command commandId="il.lamerhav.dsviz.runLines" label="הרצה שורה אחר שורה" style="push"/>
             <separator name="more" visible="true"/>
             <command commandId="il.lamerhav.dsviz.examples" label="דוגמאות פתורות..." style="push"/>
          </menu>
@@ -55,22 +60,27 @@
                      tooltip="תרגיל חדש במבני נתונים" style="push"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" mode="FORCE_TEXT"
                      tooltip="הרצת התרגיל הפתוח עם תצוגה ויזואלית" style="push"/>
+            <command commandId="il.lamerhav.dsviz.runLines" label="שורה אחר שורה" mode="FORCE_TEXT"
+                     tooltip="הרצה שבה כל שורה בקוד מוצגת כצעד, עם המשתנים" style="push"/>
          </toolbar>
       </menuContribution>
 
       <!-- לחיצה ימנית בעורך הקוד -->
       <menuContribution locationURI="popup:#CompilationUnitEditorContext?after=additions">
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+         <command commandId="il.lamerhav.dsviz.runLines" label="הרצה שורה אחר שורה" style="push"/>
       </menuContribution>
 
       <!-- לחיצה ימנית בעץ הקבצים -->
       <menuContribution locationURI="popup:org.eclipse.jdt.ui.PackageExplorer?after=additions">
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+         <command commandId="il.lamerhav.dsviz.runLines" label="הרצה שורה אחר שורה" style="push"/>
       </menuContribution>
       <menuContribution locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?after=additions">
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+         <command commandId="il.lamerhav.dsviz.runLines" label="הרצה שורה אחר שורה" style="push"/>
       </menuContribution>
    </extension>
 </plugin>

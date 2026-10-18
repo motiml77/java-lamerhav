@@ -25,6 +25,12 @@ import org.eclipse.ui.ide.IDE;
 /** "הרצה ויזואלית": שומר ומריץ את המחלקה של הקובץ הפתוח (עם main) */
 public class RunVisualHandler extends AbstractHandler {
     private static final String VM_ARGS = "-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8";
+    private static final String LINE_RUNNER = "unit4.collectionsLib.LineByLine";
+
+    /** true = הרצה שורה אחר שורה (RunLinesHandler) */
+    protected boolean lineByLine() {
+        return false;
+    }
 
     @Override
     public Object execute(ExecutionEvent event) {
@@ -41,7 +47,11 @@ public class RunVisualHandler extends AbstractHandler {
                 MessageDialog.openInformation(shell, "הרצה ויזואלית", "בקובץ " + file.getName() + " אין main — אין מה להריץ.");
                 return null;
             }
-            DebugUITools.launch(config(file.getProject().getName(), main), ILaunchManager.RUN_MODE);
+            if (lineByLine()) {
+                // מוודאים שהספרייה בפרויקט עדכנית (LineByLine נמצא בה)
+                ProjectSetup.prepare(JavaCore.create(file.getProject()), Ui.resolver(shell));
+            }
+            DebugUITools.launch(config(file.getProject().getName(), main, lineByLine()), ILaunchManager.RUN_MODE);
         } catch (CoreException e) {
             Ui.error(shell, "לא הצלחתי להריץ.", e);
         }
@@ -56,12 +66,18 @@ public class RunVisualHandler extends AbstractHandler {
         return null;
     }
 
-    /** תצורת הרצה לכל מחלקה — נוצרת פעם אחת ונשמרת (מופיעה גם ב-Run History) */
-    private static ILaunchConfiguration config(String project, String main) throws CoreException {
+    /**
+     * תצורת הרצה לכל מחלקה — נוצרת פעם אחת ונשמרת (מופיעה גם ב-Run History).
+     * שורה-שורה: המחלקה הראשית היא LineByLine, ושם המחלקה של התלמיד עובר כארגומנט.
+     */
+    private static ILaunchConfiguration config(String project, String main, boolean lines) throws CoreException {
         ILaunchManager mgr = DebugPlugin.getDefault().getLaunchManager();
         ILaunchConfigurationType type = mgr.getLaunchConfigurationType(IJavaLaunchConfigurationConstants.ID_JAVA_APPLICATION);
+        String mainType = lines ? LINE_RUNNER : main;
+        String programArgs = lines ? main : "";
         for (ILaunchConfiguration c : mgr.getLaunchConfigurations(type)) {
-            if (main.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME, ""))
+            if (mainType.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME, ""))
+                    && programArgs.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_PROGRAM_ARGUMENTS, ""))
                     && project.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, ""))) {
                 if (c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_VM_ARGUMENTS, "").contains("stdout.encoding")) return c;
                 ILaunchConfigurationWorkingCopy wc = c.getWorkingCopy();
@@ -69,10 +85,11 @@ public class RunVisualHandler extends AbstractHandler {
                 return wc.doSave();
             }
         }
-        String simple = main.substring(main.lastIndexOf('.') + 1);
+        String simple = main.substring(main.lastIndexOf('.') + 1) + (lines ? " (שורה אחר שורה)" : "");
         ILaunchConfigurationWorkingCopy wc = type.newInstance(null, mgr.generateLaunchConfigurationName(simple));
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, project);
-        wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME, main);
+        wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME, mainType);
+        if (lines) wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROGRAM_ARGUMENTS, programArgs);
         setup(wc);
         return wc.doSave();
     }

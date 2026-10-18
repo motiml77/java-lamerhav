@@ -10,20 +10,24 @@ import unit4.collectionsLib.Model.Mark;
  */
 public class Stack<T> {
     final ArrayList<T> items = new ArrayList<T>(); // התחתית ראשונה, הראש אחרון
+    int vizId;   // מזהה בהרצה שורה-שורה (נקבע ב-Recorder.register)
 
     public Stack() {
+        Recorder.sync();
         Recorder.register(this);
         Recorder.create(this, "נוצרה מחסנית ריקה: " + Recorder.nameOf(this));
     }
 
     /** הכנסת x לראש המחסנית */
     public void push(T x) {
+        Recorder.sync();
         items.add(x);
         Recorder.change(this, Mark.NEW, null, Recorder.nameOf(this) + ".push(" + Recorder.str(x) + ")");
     }
 
     /** הוצאת האיבר שבראש המחסנית והחזרתו */
     public T pop() {
+        Recorder.sync();
         if (items.isEmpty())
             throw new RuntimeException("pop() על מחסנית ריקה (" + Recorder.nameOf(this) + ")");
         T x = items.remove(items.size() - 1);
@@ -34,6 +38,7 @@ public class Stack<T> {
 
     /** החזרת האיבר שבראש המחסנית בלי להוציא אותו */
     public T top() {
+        Recorder.sync();
         if (items.isEmpty())
             throw new RuntimeException("top() על מחסנית ריקה (" + Recorder.nameOf(this) + ")");
         T x = items.get(items.size() - 1);
@@ -42,6 +47,7 @@ public class Stack<T> {
     }
 
     public boolean isEmpty() {
+        Recorder.sync();
         boolean e = items.isEmpty();
         Recorder.check(this, Recorder.nameOf(this) + ".isEmpty()  →  " + e);
         return e;

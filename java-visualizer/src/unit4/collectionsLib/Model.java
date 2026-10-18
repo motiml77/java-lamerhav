@@ -12,7 +12,7 @@ final class Model {
     private Model() {}
 
     /** סוג הצעד */
-    enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END }
+    enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE }
 
     /** איך לצבוע איבר שהצעד נגע בו */
     enum Mark { NONE, NEW, READ, CHANGED }
@@ -23,10 +23,14 @@ final class Model {
         final int line;
 
         Frame(StackTraceElement e) {
-            className = e.getClassName();
-            method = e.getMethodName();
-            file = e.getFileName();
-            line = e.getLineNumber();
+            this(e.getClassName(), e.getMethodName(), e.getFileName(), e.getLineNumber());
+        }
+
+        Frame(String className, String method, String file, int line) {
+            this.className = className;
+            this.method = method;
+            this.file = file;
+            this.line = line;
         }
 
         String packagePath() {
@@ -53,6 +57,7 @@ final class Model {
         List<Frame> calls = new ArrayList<Frame>(); // מחסנית הקריאות (העליונה ראשונה)
         List<View> views = new ArrayList<View>();
         int outLen;                        // כמה פלט הודפס עד הצעד הזה
+        List<String[]> vars;               // במצב שורה-שורה: המשתנים המקומיים {שם, ערך}; אחרת null
     }
 
     abstract static class View {

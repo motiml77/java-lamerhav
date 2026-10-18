@@ -92,6 +92,13 @@ const value = v => () => v;
     assert.strictEqual(debugConfig.cfg.mainClass, 'Merge');
     assert.strictEqual(debugConfig.cfg.cwd, ws);
     assert.strictEqual(debugConfig.o.noDebug, true);
+    assert(!debugConfig.cfg.vmArgs.some(a => a.startsWith('-javaagent')), 'regular run must not use the agent');
+
+    // --- הרצה שורה אחר שורה: אותה מחלקה, עם -javaagent של ה-jar שבפרויקט ושם המחלקה
+    await commands['dsviz.runLines']();
+    const agent = debugConfig.cfg.vmArgs.find(a => a.startsWith('-javaagent:'));
+    assert.strictEqual(agent, '-javaagent:' + path.join(ws, 'lib', 'dsviz.jar') + '=Merge');
+    assert.strictEqual(debugConfig.cfg.mainClass, 'Merge');
 
     // --- ספרייה מתנגשת (jar מקורי של unit4) מזוהה
     fs.writeFileSync(path.join(ws, 'lib', 'unit4.jar'), Buffer.concat([Buffer.from('PK...'), Buffer.from('unit4/collectionsLib/Stack.class')]));
