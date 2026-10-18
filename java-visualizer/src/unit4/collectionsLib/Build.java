@@ -13,6 +13,9 @@ import java.util.Random;
  *   BinNode&lt;Integer&gt; t = Build.tree(5, 3, 8, null, 4); // לפי רמות (null = אין צומת)
  *   BinNode&lt;Integer&gt; b = Build.bst(5, 3, 8, 1, 4);   // עץ חיפוש בינארי
  *   Stack&lt;Integer&gt; r = Build.randomStack(6, 1, 20); // 6 מספרים אקראיים בין 1 ל-20
+ *   int[] arr = Build.array(5, 2, 8);                // מערך (מוצג בחלון)
+ *   int[][] mat = Build.matrix(new int[][] {{1, 2}, {3, 4}});
+ *   Queue&lt;Student&gt; q = Build.queue(Build.students(5));  // תור של 5 תלמידים אקראיים
  * </pre>
  */
 public final class Build {
@@ -120,6 +123,62 @@ public final class Build {
         return t;
     }
 
+    // ---- מערכים (מוצגים בחלון ומתעדכנים בכל צעד)
+
+    /** מערך של int:  int[] arr = Build.array(5, 2, 8); */
+    public static int[] array(int... items) {
+        return watch(items);
+    }
+
+    public static double[] array(double... items) {
+        return watch(items);
+    }
+
+    public static char[] array(char... items) {
+        return watch(items);
+    }
+
+    public static String[] array(String... items) {
+        return watch(items);
+    }
+
+    public static Student[] array(Student... items) {
+        return watch(items);
+    }
+
+    /** מערך דו-ממדי:  int[][] mat = Build.matrix(new int[][] { {1, 2}, {3, 4} }); */
+    public static int[][] matrix(int[][] m) {
+        return watch(m);
+    }
+
+    public static double[][] matrix(double[][] m) {
+        return watch(m);
+    }
+
+    public static char[][] matrix(char[][] m) {
+        return watch(m);
+    }
+
+    public static String[][] matrix(String[][] m) {
+        return watch(m);
+    }
+
+    private static <A> A watch(A array) {
+        Recorder.sync();
+        Recorder.watchArray(array, null);
+        Recorder.nameFromCaller(array);
+        Recorder.create(null, "נבנה מערך " + Recorder.nameOf(array) + " = " + Viz.text(array));
+        return array;
+    }
+
+    // ---- תלמידים
+
+    /** n תלמידים אקראיים (נתוני דמה). למשל: Build.queue(Build.students(5)) */
+    public static Student[] students(int n) {
+        Recorder.sync();
+        return Student.random(n);
+    }
+
     // ---- אקראי
 
     public static Stack<Integer> randomStack(int n, int min, int max) {
@@ -140,6 +199,19 @@ public final class Build {
     public static BinNode<Integer> randomBst(int n, int min, int max) {
         Recorder.sync();
         return bst(randoms(n, min, max));
+    }
+
+    public static int[] randomArray(int n, int min, int max) {
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = min + RND.nextInt(max - min + 1);
+        return watch(a);
+    }
+
+    public static int[][] randomMatrix(int rows, int cols, int min, int max) {
+        int[][] m = new int[rows][cols];
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++) m[r][c] = min + RND.nextInt(max - min + 1);
+        return watch(m);
     }
 
     private static Integer[] randoms(int n, int min, int max) {

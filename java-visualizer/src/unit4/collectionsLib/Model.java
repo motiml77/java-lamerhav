@@ -95,6 +95,23 @@ final class Model {
         boolean shared;                    // הצומת כבר צויר במקום אחר (מעגל / שיתוף)
     }
 
+    /** מערך חד-ממדי */
+    static final class ArrayView extends View {
+        final List<String> items = new ArrayList<String>();
+        final java.util.Set<Integer> changed = new java.util.HashSet<Integer>();
+        /** אינדקס → שמות משתנים שערכם הוא האינדקס הזה (למשל i, j) */
+        final java.util.Map<Integer, List<String>> indexLabels = new java.util.HashMap<Integer, List<String>>();
+        boolean truncated;
+    }
+
+    /** מערך דו-ממדי */
+    static final class MatrixView extends View {
+        final List<List<String>> rows = new ArrayList<List<String>>();
+        final java.util.Set<String> changed = new java.util.HashSet<String>();   // "שורה,עמודה"
+        final java.util.Map<Integer, List<String>> rowLabels = new java.util.HashMap<Integer, List<String>>();
+        final java.util.Map<Integer, List<String>> colLabels = new java.util.HashMap<Integer, List<String>>();
+    }
+
     /** עץ של BinNode */
     static final class TreeView extends View {
         TreeCell root;

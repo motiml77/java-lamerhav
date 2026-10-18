@@ -198,16 +198,46 @@ final class JdiTracer {
         meta.append('\u0004');
         // המשתנים המקומיים של המסגרת העליונה
         StackFrame f = frames.get(0);
+        Map<ArrayReference, List<String>> arrays = new java.util.LinkedHashMap<>();
         try {
             List<LocalVariable> locals = f.visibleVariables();
             Map<LocalVariable, Value> vals = locals.isEmpty() ? null : f.getValues(locals);
             if (!f.location().method().isStatic()) addVar(meta, "this", f.thisObject());
             for (LocalVariable lv : locals) {
                 if (lv.name().equals("args") && lv.typeName().equals("java.lang.String[]")) continue;
-                addVar(meta, lv.name(), vals.get(lv));
+                Value v = vals.get(lv);
+                addVar(meta, lv.name(), v);
+                if (v instanceof ArrayReference) arrays.computeIfAbsent((ArrayReference) v, k -> new ArrayList<>()).add(lv.name());
             }
         } catch (AbsentInformationException noDebugInfo) {
             // קומפילציה בלי מידע על משתנים (javac בלי -g) — מציגים רק את השורה
+        }
+        // מערכים גם מהפעולות שקראו לפעולה הנוכחית (למשל המערך של main בתוך פעולת עזר)
+        int depth = 0;
+        for (int i = 1; i < frames.size() && depth < 4; i++) {
+            StackFrame fr = frames.get(i);
+            if (excluded(fr.location().declaringType().name())) continue;
+            depth++;
+            try {
+                List<LocalVariable> locals = fr.visibleVariables();
+                List<LocalVariable> arr = new ArrayList<>();
+                for (LocalVariable lv : locals) if (lv.typeName().endsWith("[]") && !lv.name().equals("args")) arr.add(lv);
+                if (arr.isEmpty()) continue;
+                Map<LocalVariable, Value> vals = fr.getValues(arr);
+                for (LocalVariable lv : arr) {
+                    Value v = vals.get(lv);
+                    if (v instanceof ArrayReference)
+                        arrays.computeIfAbsent((ArrayReference) v, k -> new ArrayList<>())
+                              .add(lv.name() + " (" + fr.location().method().name() + ")");
+                }
+            } catch (AbsentInformationException ignored) {
+            }
+        }
+        meta.append('\u0004');
+        for (Map.Entry<ArrayReference, List<String>> e : arrays.entrySet()) {
+            meta.append(clean(String.join(", ", e.getValue()))).append('\u0002');
+            encodeArray(meta, e.getKey());
+            meta.append('\u0001');
         }
         if (written >= capacity) {
             stopTracing();
@@ -231,6 +261,65 @@ final class JdiTracer {
         }
     }
 
+    private static final int MAX_ARRAY = 60, MAX_MATRIX = 20;
+
+    /** ממדים \u0002 נתונים \u0002 ("+" אם קוצר). דו-ממדי: שורות מופרדות ב-\u0007, איברים ב-\u0006 */
+    private void encodeArray(StringBuilder meta, ArrayReference a) {
+        int n = a.length();
+        if (a.referenceType().name().endsWith("[][]")) {
+            meta.append("2\u0002");
+            List<Value> rows = n == 0 ? new ArrayList<>() : a.getValues(0, Math.min(n, MAX_MATRIX));
+            for (int r = 0; r < rows.size(); r++) {
+                if (r > 0) meta.append('\u0007');
+                if (!(rows.get(r) instanceof ArrayReference)) continue;
+                ArrayReference row = (ArrayReference) rows.get(r);
+                int m = row.length();
+                List<Value> cells = m == 0 ? new ArrayList<>() : row.getValues(0, Math.min(m, MAX_MATRIX));
+                for (int c = 0; c < cells.size(); c++) meta.append(c == 0 ? "" : "\u0006").append(clean(cell(cells.get(c))));
+            }
+            meta.append(n > MAX_MATRIX ? "\u0002+" : "\u0002-");
+        } else {
+            meta.append("1\u0002");
+            List<Value> cells = n == 0 ? new ArrayList<>() : a.getValues(0, Math.min(n, MAX_ARRAY));
+            for (int i = 0; i < cells.size(); i++) meta.append(i == 0 ? "" : "\u0006").append(clean(cell(cells.get(i))));
+            meta.append(n > MAX_ARRAY ? "\u0002+" : "\u0002-");
+        }
+    }
+
+    /** ערך של תא במערך — קצר, בלי מרכאות */
+    private String cell(Value v) {
+        if (v instanceof CharValue) return String.valueOf(((CharValue) v).value());
+        if (v instanceof StringReference) return shorten(((StringReference) v).value(), 14);
+        if (v instanceof ObjectReference && isStudent((ObjectReference) v)) return studentLabel((ObjectReference) v, true);
+        String s = format(v, 2);
+        return s.startsWith("\u0003") ? "•" : shorten(s, 14);
+    }
+
+    private static boolean isStudent(ObjectReference o) {
+        return o.referenceType().name().equals("unit4.collectionsLib.Student");
+    }
+
+    /** תלמיד: "נועה 84" (קצר) או "נועה לוי (84)" */
+    private String studentLabel(ObjectReference o, boolean shortForm) {
+        ClassType t = (ClassType) o.referenceType();
+        com.sun.jdi.Field fn = t.fieldByName("name"), fg = t.fieldByName("grades");
+        Map<com.sun.jdi.Field, Value> m = o.getValues(java.util.Arrays.asList(fn, fg));
+        String name = m.get(fn) instanceof StringReference ? ((StringReference) m.get(fn)).value() : "?";
+        long avg = 0;
+        if (m.get(fg) instanceof ArrayReference) {
+            ArrayReference g = (ArrayReference) m.get(fg);
+            List<Value> gs = g.length() == 0 ? new ArrayList<>() : g.getValues();
+            long sum = 0;
+            for (Value x : gs) sum += ((com.sun.jdi.IntegerValue) x).value();
+            avg = gs.isEmpty() ? 0 : Math.round((double) sum / gs.size());
+        }
+        return shortForm ? name.trim().split("\\s+")[0] + " " + avg : name + " (" + avg + ")";
+    }
+
+    private static String clean(String s) {
+        return s.replace('\u0001', ' ').replace('\u0002', ' ').replace('\u0004', ' ').replace('\u0006', ' ').replace('\u0007', ' ');
+    }
+
     private static boolean excluded(String cls) {
         for (String x : EXCLUDE) if (cls.startsWith(x.substring(0, x.length() - 1))) return true;
         return false;
@@ -238,9 +327,7 @@ final class JdiTracer {
 
     private void addVar(StringBuilder meta, String name, Value v) {
         String text = format(v, 0);
-        meta.append(name).append('\u0002')
-            .append(text.replace('\u0001', ' ').replace('\u0002', ' ').replace('\u0004', ' '))
-            .append('\u0001');
+        meta.append(name).append('\u0002').append(clean(text)).append('\u0001');
     }
 
     /** מבנה של הספרייה → \u0003 + vizId (ה-Recorder יודע לאיזה אובייקט זה שייך). השאר → טקסט */
@@ -259,6 +346,7 @@ final class JdiTracer {
             return b.append(']').toString();
         }
         ObjectReference o = (ObjectReference) v;
+        if (isStudent(o)) return "Student " + studentLabel(o, false);
         String cached = immutable.get(o);
         if (cached != null) return cached;
         ReferenceType type = o.referenceType();

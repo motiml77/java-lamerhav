@@ -16,4 +16,5 @@ Require-Bundle: org.eclipse.ui,
  org.eclipse.ui.ide,
  org.eclipse.ui.workbench.texteditor,
  org.eclipse.jface.text
+Import-Package: org.osgi.service.prefs
 Automatic-Module-Name: il.lamerhav.dsviz

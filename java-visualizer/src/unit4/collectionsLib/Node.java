@@ -57,6 +57,18 @@ public class Node<T> {
         Recorder.change(this, Mark.CHANGED, null, ref() + ".setNext(" + Recorder.nodeRef(next) + ")");
     }
 
+    // ---- תאימות לגרסה הישנה של Unit4 (getInfo / setInfo)
+
+    /** כמו getValue — מהגרסה הישנה של Unit4 */
+    public T getInfo() {
+        return getValue();
+    }
+
+    /** כמו setValue — מהגרסה הישנה של Unit4 */
+    public void setInfo(T value) {
+        setValue(value);
+    }
+
     private String ref() {
         return Recorder.nodeRef(this);
     }

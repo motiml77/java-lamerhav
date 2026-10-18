@@ -8,6 +8,16 @@ PLUGIN="$HERE/il.lamerhav.dsviz_1.0.0.jar"
 echo "Data Structures Visualizer - installing..."
 command -v java >/dev/null 2>&1 || echo "[!] Java (JDK) not found. Install a JDK (e.g. Adoptium Temurin 17 or 21)."
 
+# תיקיית תרגילים מוכנה במסמכים (משותפת ל-VS Code ול-Eclipse). אם כבר קיימת — רק מעדכנים את הספרייה
+DOCS="$HOME/Documents"; [ -d "$DOCS" ] || DOCS="$HOME"
+PROJECT="$DOCS/DataStructures"
+if [ -f "$PROJECT/.project" ]; then
+    mkdir -p "$PROJECT/lib" && cp "$HERE/dsviz.jar" "$PROJECT/lib/" && echo "[project] updated library in $PROJECT"
+elif [ -d "$HERE/project" ]; then
+    mkdir -p "$PROJECT" && cp -R "$HERE/project/." "$PROJECT/" && echo "[project] created $PROJECT"
+fi
+mkdir -p "$HOME/.dsviz" && printf '%s' "$PROJECT" > "$HOME/.dsviz/project-path.txt"
+
 CODE=$(command -v code)
 [ -z "$CODE" ] && [ -x "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" ] && \
     CODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"

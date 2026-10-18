@@ -114,6 +114,18 @@ function agentJar(root, jarSource) {
     return local;
 }
 
+/** תיקיית התרגילים שתוכנית ההתקנה הכינה (~/.dsviz/project-path.txt), או null */
+function installedProject() {
+    try {
+        const b = fs.readFileSync(path.join(require('os').homedir(), '.dsviz', 'project-path.txt'));
+        const utf16 = b.length >= 2 && b[0] === 0xFF && b[1] === 0xFE;
+        const p = (utf16 ? b.slice(2).toString('utf16le') : b.toString('utf8')).replace(/^\uFEFF/, '').trim();
+        return fs.existsSync(path.join(p, 'src')) ? p : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 /** שם המחלקה המלא (עם package) של קובץ Java */
 function mainClassOf(filePath, text) {
     const m = /^\s*package\s+([\w.]+)\s*;/m.exec(text);
@@ -121,4 +133,4 @@ function mainClassOf(filePath, text) {
     return m ? m[1] + '.' + cls : cls;
 }
 
-module.exports = { JAR_NAME, sourceDir, findConflicts, setup, nextClassName, mainClassOf, agentJar };
+module.exports = { JAR_NAME, sourceDir, findConflicts, setup, nextClassName, mainClassOf, agentJar, installedProject };

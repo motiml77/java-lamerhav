@@ -25,6 +25,8 @@ import unit4.collectionsLib.Model.ChainView;
 import unit4.collectionsLib.Model.Frame;
 import unit4.collectionsLib.Model.Kind;
 import unit4.collectionsLib.Model.LinearView;
+import unit4.collectionsLib.Model.ArrayView;
+import unit4.collectionsLib.Model.MatrixView;
 import unit4.collectionsLib.Model.Mark;
 import unit4.collectionsLib.Model.Step;
 import unit4.collectionsLib.Model.TreeCell;
@@ -209,6 +211,145 @@ final class Recorder {
         }
     }
 
+    // ------------------------------------------------------------ מערכים
+
+    private static final List<WeakReference<Object>> arrays = new ArrayList<WeakReference<Object>>();
+    private static final Map<Object, List<String>> lastArray = new WeakHashMap<Object, List<String>>();
+    private static int arrayCount;
+    static final int MAX_ARRAY = 60, MAX_MATRIX = 20;
+
+    /** מערך (חד או דו ממדי) שמוצג בכל צעד: נוצר ב-Build.array / Build.matrix, או נרשם ב-Viz.watch */
+    static void watchArray(Object arr, String name) {
+        synchronized (LOCK) {
+            if (!enabled || arr == null || !arr.getClass().isArray()) return;
+            start();
+            boolean known = false;
+            for (Object a : alive(arrays)) if (a == arr) known = true;
+            if (!known) arrays.add(new WeakReference<Object>(arr));
+            names.put(arr, name != null ? name : "arr" + (++arrayCount));
+            nameRank.put(arr, name != null ? 2 : 0);
+        }
+    }
+
+    private static boolean isMatrix(Object arr) {
+        return arr.getClass().getComponentType().isArray();
+    }
+
+    private static View arrayView(Object arr) {
+        List<String> flat = new ArrayList<String>();
+        View view;
+        if (isMatrix(arr)) {
+            MatrixView m = new MatrixView();
+            int rows = Math.min(java.lang.reflect.Array.getLength(arr), MAX_MATRIX);
+            for (int r = 0; r < rows; r++) {
+                Object row = java.lang.reflect.Array.get(arr, r);
+                List<String> cells = new ArrayList<String>();
+                int cols = row == null ? 0 : Math.min(java.lang.reflect.Array.getLength(row), MAX_MATRIX);
+                for (int c = 0; c < cols; c++) cells.add(str(java.lang.reflect.Array.get(row, c)));
+                m.rows.add(cells);
+                for (int c = 0; c < cells.size(); c++) flat.add(r + "," + c + "=" + cells.get(c));
+            }
+            List<String> old = lastArray.get(arr);
+            if (old != null) for (String f : flat) if (!old.contains(f)) m.changed.add(f.substring(0, f.indexOf('=')));
+            view = m;
+        } else {
+            ArrayView a = new ArrayView();
+            int n = java.lang.reflect.Array.getLength(arr);
+            for (int i = 0; i < Math.min(n, MAX_ARRAY); i++) a.items.add(str(java.lang.reflect.Array.get(arr, i)));
+            a.truncated = n > MAX_ARRAY;
+            List<String> old = lastArray.get(arr);
+            if (old != null) for (int i = 0; i < a.items.size(); i++) if (i >= old.size() || !old.get(i).equals(a.items.get(i))) a.changed.add(i);
+            flat.addAll(a.items);
+            view = a;
+        }
+        lastArray.put(arr, flat);
+        view.title = names.get(arr);
+        return view;
+    }
+
+    // מצב שורה-שורה: המערכים של המסגרות הנוכחיות כפי שה-Tracer קרא אותם בשורה האחרונה
+    private static List<View> lineArrays = new ArrayList<View>();
+    private static Map<String, List<String>> lastLineArrays = new HashMap<String, List<String>>();
+    /**
+     * section = מערכים מופרדים ב-\u0001: שמות \u0002 ממדים \u0002 נתונים (שורות ב-\u0007, איברים ב-\u0006).
+     * תווית אינדקס (i, j...) מוצגת מעל תא רק אם בקוד באמת כתוב arr[i... (או mat[r][c...) — כדי שלא יופיע i על כל מערך.
+     */
+    private static List<View> parseLineArrays(String section, List<String[]> vars, Frame top) {
+        Map<String, Integer> indexVars = new LinkedHashMap<String, Integer>();
+        for (String[] v : vars) {
+            try { indexVars.put(v[0], Integer.parseInt(v[1])); } catch (NumberFormatException ignored) {}
+        }
+        String code = top == null ? null : SourceFiles.text(top);
+        List<View> res = new ArrayList<View>();
+        Map<String, List<String>> now = new HashMap<String, List<String>>();
+        for (String a : split(section)) {
+            String[] p = a.split("\u0002", -1);
+            if (p.length < 3) continue;
+            List<String> flat = new ArrayList<String>();
+            List<String> old = lastLineArrays.get(p[0]);
+            if (p[1].equals("2")) {
+                MatrixView m = new MatrixView();
+                String[] rows = p[2].isEmpty() ? new String[0] : p[2].split("\u0007", -1);
+                for (int r = 0; r < rows.length; r++) {
+                    List<String> cells = rows[r].isEmpty() ? new ArrayList<String>() : new ArrayList<String>(java.util.Arrays.asList(rows[r].split("\u0006", -1)));
+                    m.rows.add(cells);
+                    for (int c = 0; c < cells.size(); c++) {
+                        String f = r + "," + c + "=" + cells.get(c);
+                        flat.add(f);
+                        if (old != null && !old.contains(f)) m.changed.add(r + "," + c);
+                    }
+                }
+                for (Map.Entry<String, Integer> e : indexVars.entrySet()) {
+                    int idx = e.getValue();
+                    for (String arr : localNames(p[0])) {
+                        if (usedAs(code, arr, "\\[\\s*", e.getKey()) && idx >= 0 && idx < m.rows.size())
+                            addLabel(m.rowLabels, idx, e.getKey());
+                        if (usedAs(code, arr, "\\[[^\\]]*\\]\\s*\\[\\s*", e.getKey()) && idx >= 0 && !m.rows.isEmpty()
+                                && idx < m.rows.get(0).size())
+                            addLabel(m.colLabels, idx, e.getKey());
+                    }
+                }
+                m.title = p[0];
+                res.add(m);
+            } else {
+                ArrayView v = new ArrayView();
+                if (!p[2].isEmpty()) v.items.addAll(java.util.Arrays.asList(p[2].split("\u0006", -1)));
+                v.truncated = p.length > 3 && p[3].equals("+");
+                for (int i = 0; i < v.items.size(); i++) if (old != null && (i >= old.size() || !old.get(i).equals(v.items.get(i)))) v.changed.add(i);
+                for (Map.Entry<String, Integer> e : indexVars.entrySet())
+                    for (String arr : localNames(p[0]))
+                        if (e.getValue() >= 0 && e.getValue() < v.items.size() && usedAs(code, arr, "\\[\\s*", e.getKey()))
+                            addLabel(v.indexLabels, e.getValue(), e.getKey());
+                flat.addAll(v.items);
+                v.title = p[0];
+                res.add(v);
+            }
+            now.put(p[0], flat);
+        }
+        lastLineArrays = now;
+        return res;
+    }
+
+    private static void addLabel(Map<Integer, List<String>> m, int idx, String name) {
+        List<String> l = m.get(idx);
+        if (l == null) m.put(idx, l = new ArrayList<String>());
+        if (!l.contains(name)) l.add(name);
+    }
+
+    /** "a, arr (main)" → [a] — רק השמות מהפעולה הנוכחית (בהן משתני האינדקס מוגדרים) */
+    private static List<String> localNames(String title) {
+        List<String> res = new ArrayList<String>();
+        for (String n : title.split(",\\s*")) if (!n.contains("(")) res.add(n.trim());
+        return res;
+    }
+
+    /** האם בקוד מופיע arr[ ... index (לפי התבנית שבאמצע) */
+    private static boolean usedAs(String code, String arr, String middle, String index) {
+        if (code == null) return false;
+        return java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(arr) + middle
+                + java.util.regex.Pattern.quote(index) + "\\b").matcher(code).find();
+    }
+
     /** rank: 0 = שם אוטומטי, 1 = ניחוש מהקוד, 2 = שם מפורש */
     static void setName(Object o, String name, int rank) {
         synchronized (LOCK) {
@@ -330,6 +471,10 @@ final class Recorder {
         return res;
     }
 
+    static Frame callerFrame() {
+        return firstStudentFrame(new Throwable().getStackTrace());
+    }
+
     private static Frame firstStudentFrame(StackTraceElement[] trace) {
         for (StackTraceElement e : trace) if (!isLibrary(e.getClassName())) return new Frame(e);
         return null;
@@ -354,6 +499,10 @@ final class Recorder {
 
     private static List<View> snapshot(Object target, Mark mark, String ghost) {
         List<View> views = new ArrayList<View>();
+
+        // --- מערכים (במצב שורה-שורה: כפי שנקראו בשורה האחרונה, כי מערך משתנה גם בלי הספרייה)
+        if (lineMode) views.addAll(lineArrays);
+        else for (Object a : alive(arrays)) views.add(arrayView(a));
 
         // --- מחסניות ותורים
         for (Object o : linears) {
@@ -511,7 +660,7 @@ final class Recorder {
     static String str(Object v) {
         String s;
         try {
-            s = String.valueOf(v);
+            s = v instanceof Student ? ((Student) v).label() : String.valueOf(v);
         } catch (RuntimeException e) {
             s = "?";
         }
@@ -619,6 +768,7 @@ final class Recorder {
         frameVars = fv;
         currentVars = vars;
         Frame f = frames.isEmpty() ? null : frames.get(0);
+        lineArrays = parseLineArrays(halves.length > 2 ? halves[2] : "", vars, f);
         String code = f == null ? null : SourceFiles.line(f);
         // הקוד עצמו בתוך "הטבעה" משמאל לימין (\u202A...\u202C), כדי שלא יתהפך בתוך הטקסט העברי
         String text = f == null ? "שורה" : "שורה " + f.line + ":   \u202A" + (code == null ? f.method + "()" : code.trim()) + "\u202C";
@@ -651,6 +801,7 @@ final class Recorder {
         if (v instanceof Stack) return "Stack " + shorten(v.toString(), 40);
         if (v instanceof Queue) return "Queue " + shorten(v.toString(), 40);
         if (v instanceof Node || v instanceof BinNode) return (v instanceof Node ? "Node " : "BinNode ") + nodeRef(v);
+        if (v instanceof Student) return "Student " + shorten(v.toString(), 40);
         return shorten(String.valueOf(v), 40);
     }
 

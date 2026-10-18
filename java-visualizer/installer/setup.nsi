@@ -15,6 +15,10 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !ifndef RELEASE
   !define RELEASE "..\release"
 !endif
+!ifndef BUILD
+  !define BUILD "..\build"
+!endif
+!define PROJECT_DIR "$DOCUMENTS\DataStructures"
 !define VSIX "dsviz-${VERSION}.vsix"
 !define PLUGIN "il.lamerhav.dsviz_${VERSION}.jar"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz"
@@ -76,6 +80,8 @@ Function TryEclipse
   Exch $0
   Push $1
   ${If} ${FileExists} "$0\eclipse.exe"
+    Push $0
+    Call EclipseUtf8
     CreateDirectory "$0\dropins"
     Delete "$0\dropins\il.lamerhav.dsviz_*.jar"
     ClearErrors
@@ -93,6 +99,45 @@ Function TryEclipse
     ${EndIf}
   ${EndIf}
   Pop $1
+  Pop $0
+FunctionEnd
+
+; eclipse.ini: מוסיף -Dfile.encoding=UTF-8 (עברית תקינה בקוד ובפלט) אם עוד אין
+Function EclipseUtf8
+  Exch $0
+  Push $2
+  Push $3
+  Push $4
+  StrCpy $3 0
+  ClearErrors
+  FileOpen $2 "$0\eclipse.ini" r
+  ${IfNot} ${Errors}
+    ${Do}
+      ClearErrors
+      FileRead $2 $4
+      ${If} ${Errors}
+        ${Break}
+      ${EndIf}
+      StrCpy $4 $4 15
+      ${If} $4 == "-Dfile.encoding"
+        StrCpy $3 1
+      ${EndIf}
+    ${Loop}
+    FileClose $2
+    ${If} $3 == 0
+      ClearErrors
+      FileOpen $2 "$0\eclipse.ini" a
+      ${IfNot} ${Errors}
+        FileSeek $2 0 END
+        FileWrite $2 "$\r$\n-Dfile.encoding=UTF-8$\r$\n"
+        FileClose $2
+        DetailPrint "Eclipse: הוגדר קידוד UTF-8 ב-eclipse.ini"
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
+  Pop $4
+  Pop $3
+  Pop $2
   Pop $0
 FunctionEnd
 
@@ -144,6 +189,9 @@ Section "-core"
   File "${RELEASE}\dsviz.jar"
   File "README-he.html"
   File "icon.ico"
+  SetOutPath "$INSTDIR\project"
+  File /r "${BUILD}\project\*.*"
+  SetOutPath "$INSTDIR"
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "מבני נתונים — הרצה ויזואלית"
@@ -162,6 +210,24 @@ Section "-core"
   Call FindCode
 SectionEnd
 
+Section "תיקיית תרגילים מוכנה (במסמכים)" SEC_PROJECT
+  ${IfNot} ${FileExists} "${PROJECT_DIR}\.project"
+    CreateDirectory "${PROJECT_DIR}"
+    CopyFiles /SILENT "$INSTDIR\project\*.*" "${PROJECT_DIR}"
+    DetailPrint "נוצרה תיקיית התרגילים: ${PROJECT_DIR}"
+  ${Else}
+    ; התיקייה כבר קיימת — לא נוגעים בעבודה של התלמיד, רק מעדכנים את הספרייה
+    CreateDirectory "${PROJECT_DIR}\lib"
+    CopyFiles /SILENT "$INSTDIR\dsviz.jar" "${PROJECT_DIR}\lib"
+    DetailPrint "תיקיית התרגילים קיימת — הספרייה עודכנה"
+  ${EndIf}
+  ; התוספים (Eclipse ו-VS Code) מוצאים את התיקייה לפי הקובץ הזה
+  CreateDirectory "$PROFILE\.dsviz"
+  FileOpen $0 "$PROFILE\.dsviz\project-path.txt" w
+  FileWriteUTF16LE /BOM $0 "${PROJECT_DIR}"
+  FileClose $0
+SectionEnd
+
 Section "תוסף ל-VS Code" SEC_VSCODE
   ${If} $CODE == ""
     DetailPrint "VS Code: לא נמצא — דילוג"
@@ -171,6 +237,14 @@ Section "תוסף ל-VS Code" SEC_VSCODE
     Pop $0
     ${If} $0 == "0"
       DetailPrint "VS Code: התוסף הותקן"
+      ; קיצור דרך בשולחן העבודה שפותח את תיקיית התרגילים ב-VS Code
+      ${GetParent} $CODE $1
+      ${GetParent} $1 $1
+      ${If} ${FileExists} "$1\Code.exe"
+      ${AndIf} ${FileExists} "${PROJECT_DIR}\.project"
+        CreateShortcut "$DESKTOP\תרגילי מבני נתונים (VS Code).lnk" "$1\Code.exe" '"${PROJECT_DIR}"' "$INSTDIR\icon.ico"
+        DetailPrint "VS Code: נוצר קיצור דרך בשולחן העבודה"
+      ${EndIf}
     ${Else}
       DetailPrint "VS Code: ההתקנה נכשלה (קוד $0)"
     ${EndIf}
@@ -212,6 +286,7 @@ Section "תוסף ל-Eclipse" SEC_ECLIPSE
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_PROJECT} "תיקייה DataStructures במסמכים עם תרגיל לדוגמה, דוגמאות פתורות וכל ההגדרות — נפתחת גם ב-VS Code וגם ב-Eclipse."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_VSCODE} "סרגל 'מבני נתונים' ב-VS Code: תרגיל חדש, הרצה ויזואלית והרצה שורה אחר שורה."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_JAVAPACK} "Extension Pack for Java — התוסף החינמי של Microsoft שמאפשר להריץ Java ב-VS Code. דורש אינטרנט."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_ECLIPSE} "תפריט 'מבני נתונים' וכפתורים ב-Eclipse. מותקן לכל Eclipse שנמצא במחשב."
@@ -248,6 +323,9 @@ Section "Uninstall"
   Delete "$INSTDIR\icon.ico"
   Delete "$INSTDIR\eclipse-dirs.txt"
   Delete "$INSTDIR\uninstall.exe"
+  RMDir /r "$INSTDIR\project"
+  Delete "$DESKTOP\תרגילי מבני נתונים (VS Code).lnk"
+  ; תיקיית התרגילים במסמכים נשארת — יש בה את העבודה של התלמיד
   RMDir "$INSTDIR"
   Delete "$SMPROGRAMS\מבני נתונים\מדריך.lnk"
   Delete "$SMPROGRAMS\מבני נתונים\הסרה.lnk"

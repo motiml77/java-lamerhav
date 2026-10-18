@@ -19,14 +19,21 @@ function activate(context) {
     reg('dsviz.newList', () => newExercise('list'));
     reg('dsviz.newTree', () => newExercise('tree'));
     reg('dsviz.newBst', () => newExercise('bst'));
+    reg('dsviz.newArray', () => newExercise('array'));
+    reg('dsviz.newMatrix', () => newExercise('matrix'));
+    reg('dsviz.insert', () => insertSnippet());
+    for (const id of Object.keys(templates.SNIPPETS)) {
+        reg('dsviz.insert.' + id, () => insertSnippet(id));
+    }
     reg('dsviz.run', () => run(false));
     reg('dsviz.runLines', () => run(true));
     reg('dsviz.examples', () => examples());
+    reg('dsviz.openProject', () => openProject());
 
     // תצוגה בסרגל הצד — הכפתורים עצמם מוגדרים ב-package.json (viewsWelcome)
-    context.subscriptions.push(vscode.window.registerTreeDataProvider('dsviz.home', {
-        getChildren: () => [], getTreeItem: e => e
-    }));
+    for (const view of ['dsviz.home', 'dsviz.insertView', 'dsviz.runView']) {
+        context.subscriptions.push(vscode.window.registerTreeDataProvider(view, { getChildren: () => [], getTreeItem: e => e }));
+    }
 
     // כפתור "הרצה ויזואלית" בשורת המצב, כשפתוח קובץ Java
     const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -46,6 +53,31 @@ function activate(context) {
     refresh();
 
     openPending();
+    firstRun();
+}
+
+/** פתיחת תיקיית התרגילים שהותקנה (במסמכים) */
+async function openProject() {
+    const p = project.installedProject();
+    if (p) {
+        await ctx.globalState.update(PENDING_KEY, { file: path.join(p, 'src', 'Main.java'), line: 0 });
+        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(p), false);
+    } else {
+        const root = await chooseRoot();
+        if (root) await examples();
+    }
+}
+
+/** פעם ראשונה אחרי ההתקנה, בלי תיקייה פתוחה: מציעים לפתוח את תיקיית התרגילים */
+async function firstRun() {
+    if (ctx.globalState.get('dsviz.welcomed') || vscode.workspace.workspaceFolders) return;
+    const p = project.installedProject();
+    if (!p) return;
+    await ctx.globalState.update('dsviz.welcomed', true);
+    const open = 'פתיחת תיקיית התרגילים';
+    const ans = await vscode.window.showInformationMessage(
+        'מבני נתונים — הכול מוכן! לפתוח את תיקיית התרגילים (עם תרגיל לדוגמה ודוגמאות פתורות)?', open);
+    if (ans === open) await openProject();
 }
 
 function deactivate() {}
@@ -67,12 +99,8 @@ async function newExercise(preset) {
     }
     const st = templates.STRUCTURES[structure];
 
-    const typePick = await vscode.window.showQuickPick([
-        { label: 'Integer', description: 'מספרים שלמים' },
-        { label: 'String', description: 'מחרוזות' },
-        { label: 'Character', description: 'תווים' },
-        { label: 'Double', description: 'מספרים עשרוניים' }
-    ], { title: `${st.label} — (1/${total}) טיפוס הערכים`, placeHolder: `${st.cls}<?>` });
+    const typePick = await vscode.window.showQuickPick(typeItems(structure),
+        { title: `${st.label} — (1/${total}) טיפוס הערכים`, placeHolder: templates.typeOf(st, '?') });
     if (!typePick) return;
     const type = typePick.label;
     const tp = templates.TYPES[type];
@@ -83,14 +111,16 @@ async function newExercise(preset) {
         { label: 'boolean', description: 'מחזירה אמת/שקר (למשל "האם קיים")', id: 'boolean' }
     ];
     if (type !== 'Integer') retItems.push({ label: tp.primitive, description: 'מחזירה ערך מהמבנה', id: 'element' });
-    retItems.push({ label: `${st.cls}<${type}>`, description: 'מחזירה מבנה חדש', id: 'structure' });
+    retItems.push({ label: templates.typeOf(st, type), description: 'מחזירה מבנה חדש', id: 'structure' });
     const retPick = await vscode.window.showQuickPick(retItems,
         { title: `${st.label} — (2/${total}) מה הפעולה מחזירה?` });
     if (!retPick) return;
 
     const extraItems = [
-        { label: `שני מבנים`, description: `הפעולה מקבלת שני ${st.cls} (למשל מיזוג, השוואה)`, id: 'second' },
-        { label: `פרמטר נוסף x`, description: `${tp.primitive} x (למשל "מחקו את כל המופעים של x")`, id: 'extra' }
+        { label: `שני מבנים`, description: `הפעולה מקבלת שניים (למשל מיזוג, השוואה)`, id: 'second' },
+        type === 'Student'
+            ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה תלמידים עם ממוצע מעל x")`, id: 'extra' }
+            : { label: `פרמטר נוסף x`, description: `${tp.primitive} x (למשל "מחקו את כל המופעים של x")`, id: 'extra' }
     ];
     if (type === 'Integer') extraItems.push({ label: 'ערכים אקראיים', description: 'בכל הרצה מספרים אחרים', id: 'random' });
     const extras = await vscode.window.showQuickPick(extraItems,
@@ -106,13 +136,15 @@ async function newExercise(preset) {
 
     if (!opts.random) {
         const isTree = structure === 'tree';
-        const v = await askValues(`${st.label} — (4/${total}) ערכים ל-${st.varName}` +
-            (isTree ? '  (לפי רמות, null = אין צומת)' : ''), templates.defaultValues(structure, type, false), type, isTree);
+        const hint = type === 'Student' ? '  (כמה תלמידים — נוצרים עם נתוני דמה)'
+            : structure === 'matrix' ? '  (שורות מופרדות ב-;)' : isTree ? '  (לפי רמות, null = אין צומת)' : '';
+        const v = await askValues(`${st.label} — (4/${total}) ערכים ל-${st.varName}${hint}`,
+            templates.defaultValues(structure, type, false), type, isTree, structure);
         if (v === undefined) return;
         opts.values = v;
         if (opts.second) {
-            const v2 = await askValues(`${st.label} — ערכים ל-${st.varName}2`,
-                templates.defaultValues(structure, type, true), type, isTree);
+            const v2 = await askValues(`${st.label} — ערכים ל-${st.varName}2${hint}`,
+                templates.defaultValues(structure, type, true), type, isTree, structure);
             if (v2 === undefined) return;
             opts.values2 = v2;
         }
@@ -146,11 +178,83 @@ async function newExercise(preset) {
     await openAt(root, file, gen.cursorLine);
 }
 
-async function askValues(title, value, type, allowNull) {
+async function askValues(title, value, type, allowNull, structure) {
     return vscode.window.showInputBox({
-        title, value, prompt: 'ערכים מופרדים בפסיקים',
+        title, value, prompt: type === 'Student' ? 'מספר' : 'ערכים מופרדים בפסיקים',
         validateInput: s => {
-            try { templates.literals(s, type, allowNull); return null; } catch (e) { return e.message; }
+            try {
+                templates.generate({ structure, type, returns: 'void', values: s, className: 'A', functionName: 'f' });
+                return null;
+            } catch (e) { return e.message; }
+        }
+    });
+}
+
+function typeItems(structure) {
+    const items = [
+        { label: 'Integer', description: 'מספרים שלמים' },
+        { label: 'String', description: 'מחרוזות' },
+        { label: 'Character', description: 'תווים' },
+        { label: 'Double', description: 'מספרים עשרוניים' },
+        { label: 'Student', description: 'תלמידים — שם, כיתה וציונים (נתוני דמה)' }
+    ];
+    return structure === 'matrix' ? items.filter(i => i.label !== 'Student') : items;
+}
+
+// ------------------------------------------------------------ הוספה לקוד: מבנה עם נתוני דמה במקום הסמן
+
+async function insertSnippet(structure) {
+    const ed = vscode.window.activeTextEditor;
+    if (!ed || ed.document.languageId !== 'java') {
+        vscode.window.showInformationMessage('פתחו קובץ Java ושימו את הסמן במקום שבו רוצים את המבנה (בתוך main או בתוך פעולה).');
+        return;
+    }
+    if (!structure) {
+        const pick = await vscode.window.showQuickPick(
+            Object.entries(templates.SNIPPETS).map(([id, label]) => ({ label, id })),
+            { title: 'הוספה לקוד — איזה מבנה?' });
+        if (!pick) return;
+        structure = pick.id;
+    }
+    const label = templates.SNIPPETS[structure];
+    let type = 'Student';
+    if (structure !== 'student') {
+        const t = await vscode.window.showQuickPick(typeItems(structure), { title: `${label} — טיפוס הערכים` });
+        if (!t) return;
+        type = t.label;
+    }
+    const opts = { structure, type, seed: Math.floor(Math.random() * 2147483647), size: 5, rows: 3, cols: 4 };
+    if (structure === 'matrix') {
+        const dims = await vscode.window.showInputBox({ title: `${label} — גודל (שורות x עמודות)`, value: '3x4',
+            validateInput: s => /^\s*\d{1,2}\s*[x×*,]\s*\d{1,2}\s*$/.test(s) ? null : 'למשל 3x4' });
+        if (!dims) return;
+        [opts.rows, opts.cols] = dims.split(/[x×*,]/).map(x => +x.trim());
+    } else if (structure !== 'student') {
+        const size = await vscode.window.showInputBox({ title: `${label} — כמה איברים?`, value: type === 'Student' ? '4' : '5',
+            validateInput: s => /^\d{1,2}$/.test(s.trim()) && +s > 0 && +s <= 30 ? null : 'מספר בין 1 ל-30' });
+        if (!size) return;
+        opts.size = +size;
+    }
+    const text = ed.document.getText();
+    let name = templates.snippetName(structure);
+    for (let i = 2; new RegExp('\\b' + name + '\\s*=').test(text); i++) name = templates.snippetName(structure) + i;
+    name = await vscode.window.showInputBox({ title: `${label} — שם המשתנה`, value: name,
+        validateInput: s => templates.isIdentifier(s) ? null : 'אותיות באנגלית וספרות בלבד, מתחיל באות' });
+    if (!name) return;
+    opts.name = name;
+
+    const line = ed.document.lineAt(ed.selection.active.line);
+    const blank = line.text.trim() === '';
+    opts.indent = blank ? (line.text || '        ') : line.text.match(/^\s*/)[0];
+    let code;
+    try { code = templates.snippet(opts); } catch (e) { vscode.window.showErrorMessage(e.message); return; }
+    await ed.edit(b => {
+        if (blank) b.replace(line.range, code);
+        else b.insert(line.range.end, '\n' + code);
+        if (!/import\s+unit4\.collectionsLib\.\*\s*;/.test(text)) {
+            const pkg = /^\s*package\s+[\w.]+\s*;.*$/m.exec(text);
+            const at = pkg ? ed.document.positionAt(pkg.index + pkg[0].length) : new vscode.Position(0, 0);
+            b.insert(at, pkg ? '\n\nimport unit4.collectionsLib.*;' : 'import unit4.collectionsLib.*;\n\n');
         }
     });
 }
@@ -215,7 +319,8 @@ async function examples() {
     for (const f of files) {
         if (!fs.existsSync(path.join(to, f))) fs.copyFileSync(path.join(from, f), path.join(to, f));
     }
-    const names = { StackExamples: 'מחסנית', QueueExamples: 'תור', ListExamples: 'רשימה מקושרת', TreeExamples: 'עצים' };
+    const names = { StackExamples: 'מחסנית', QueueExamples: 'תור', ListExamples: 'רשימה מקושרת', TreeExamples: 'עצים',
+                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)' };
     const pick = await vscode.window.showQuickPick(
         files.map(f => ({ label: names[path.basename(f, '.java')] || f, description: f, file: f })),
         { title: 'איזו דוגמה לפתוח?' });

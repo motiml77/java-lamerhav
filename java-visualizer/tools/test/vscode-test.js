@@ -100,6 +100,30 @@ const value = v => () => v;
     assert.strictEqual(agent, '-javaagent:' + path.join(ws, 'lib', 'dsviz.jar') + '=Merge');
     assert.strictEqual(debugConfig.cfg.mainClass, 'Merge');
 
+    // --- הוספה לקוד: "צור תור" עם String בשורה ריקה בתוך main — בלי import בקובץ
+    const lines = ['public class X {', '    public static void main(String[] args) {', '        ', '    }', '}'];
+    const edits = [];
+    vscode.window.activeTextEditor = {
+        selection: { active: { line: 2 } },
+        document: {
+            languageId: 'java', getText: () => lines.join('\n'),
+            lineAt: i => ({ text: lines[i], range: { line: i }, }),
+            positionAt: o => ({ offset: o })
+        },
+        edit: async cb => { cb({ replace: (r, t) => edits.push(['replace', r.line, t]), insert: (p, t) => edits.push(['insert', p, t]) }); return true; }
+    };
+    answers.push(byId('String'), value('4'), keep);
+    await commands['dsviz.insert.queue']();
+    assert.strictEqual(edits[0][0], 'replace');
+    assert(/^        Queue<String> q = Build\.queue\("\w+", "\w+", "\w+", "\w+"\);/.test(edits[0][2]), edits[0][2]);
+    assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\n\n');
+    edits.length = 0;
+    answers.push(value('2x3'), keep);
+    answers.unshift(byId('Integer'));
+    await commands['dsviz.insert.matrix']();
+    assert(edits[0][2].includes('int[][] mat = Build.matrix(new int[][] {'), edits[0][2]);
+    assert.strictEqual(edits[0][2].split('\n').length, 4);
+
     // --- ספרייה מתנגשת (jar מקורי של unit4) מזוהה
     fs.writeFileSync(path.join(ws, 'lib', 'unit4.jar'), Buffer.concat([Buffer.from('PK...'), Buffer.from('unit4/collectionsLib/Stack.class')]));
     assert.deepStrictEqual(require(path.join(ext, 'project.js')).findConflicts(ws).map(f => path.basename(f)), ['unit4.jar']);

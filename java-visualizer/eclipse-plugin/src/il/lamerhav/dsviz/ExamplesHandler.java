@@ -19,7 +19,8 @@ import org.eclipse.ui.handlers.HandlerUtil;
 /** "דוגמאות פתורות": מעתיק את הדוגמאות לפרויקט ופותח את הדוגמה שבוחרים */
 public class ExamplesHandler extends AbstractHandler {
     private static final String[] LABELS = { "מחסנית — היפוך, הכנסה לתחתית (רקורסיה)", "תור — ספירה, מחיקת מופעים",
-            "רשימה מקושרת — סכום, מחיקה, היפוך", "עצים — ספירה, גובה, הכנסה לעץ חיפוש" };
+            "רשימה מקושרת — סכום, מחיקה, היפוך", "עצים — ספירה, גובה, הכנסה לעץ חיפוש",
+            "מערכים — מקסימום, היפוך, סכומי שורות, מיון בועות", "תלמידים — מצטיינים בתור, הטוב ביותר במערך" };
 
     @Override
     public Object execute(ExecutionEvent event) {

@@ -33,6 +33,19 @@ final class SourceFiles {
         return res;
     }
 
+    private static final Map<String, String> texts = new HashMap<String, String>();
+
+    /** כל הקובץ כטקסט אחד (בשביל חיפושים) */
+    static synchronized String text(Frame f) {
+        if (f == null || f.file == null) return null;
+        String key = f.packagePath() + f.file;
+        if (texts.containsKey(key)) return texts.get(key);
+        List<String> l = lines(f);
+        String t = l == null ? null : String.join("\n", l);
+        texts.put(key, t);
+        return t;
+    }
+
     static String line(Frame f) {
         List<String> l = lines(f);
         if (l == null || f.line < 1 || f.line > l.size()) return null;
@@ -58,6 +71,14 @@ final class SourceFiles {
         String s = line(f);
         if (s == null) return null;
         Matcher m = Pattern.compile("(\\w+)\\s*=\\s*Build\\s*\\.").matcher(s);
+        return m.find() ? m.group(1) : null;
+    }
+
+    /** "Viz.watch(arr);"  →  "arr" */
+    static String guessWatchName(Frame f) {
+        String s = line(f);
+        if (s == null) return null;
+        Matcher m = Pattern.compile("Viz\\s*\\.\\s*watch\\s*\\(\\s*(\\w+)\\s*\\)").matcher(s);
         return m.find() ? m.group(1) : null;
     }
 

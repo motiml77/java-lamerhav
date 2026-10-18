@@ -394,7 +394,9 @@ final class Viewer extends JFrame {
                 return;
             }
             StringBuilder b = new StringBuilder();
-            for (int i = 0; i < lines.size(); i++) b.append(String.format("%4d  ", i + 1)).append(lines.get(i)).append('\n');
+            // כל שורה בתוך "הטבעה" משמאל לימין — כדי שמחרוזות בעברית לא יהפכו את סדר השורה
+            for (int i = 0; i < lines.size(); i++)
+                b.append(String.format("%4d  ", i + 1)).append(ltr(lines.get(i))).append('\n');
             code.setText(b.toString());
             codeTitle.setText("הקוד:  " + f.file);
         }
@@ -436,6 +438,14 @@ final class Viewer extends JFrame {
         }
     }
 
+    /**
+     * שורת קוד משמאל לימין גם כשיש בה מחרוזות בעברית: סימן כיוון (LRM) משני צידי כל מרכאה,
+     * כדי שמספרים שאחרי "מחרוזת בעברית" לא "יימשכו" לתוכה ויהפכו את סדר השורה.
+     */
+    private static String ltr(String line) {
+        return "\u200E" + line.replace("\"", "\u200E\"\u200E").replace("'", "\u200E'\u200E");
+    }
+
     /** טבלת המשתנים. ערך שהשתנה מאז השורה הקודמת באותה פעולה — צבוע בצהוב */
     private void updateVars(Step s) {
         varsModel.setRowCount(0);
@@ -452,7 +462,7 @@ final class Viewer extends JFrame {
         if (sameFrame && prev.vars != null) for (String[] v : prev.vars) old.put(v[0], v[1]);
         for (int i = 0; i < s.vars.size(); i++) {
             String[] v = s.vars.get(i);
-            varsModel.addRow(new Object[] { v[0], v[1] });
+            varsModel.addRow(new Object[] { v[0], ltr(v[1]) });
             if (sameFrame && !v[1].equals(old.get(v[0]))) changedRows.add(i);
         }
         String m = s.where == null ? "" : "  —  בפעולה " + s.where.method;

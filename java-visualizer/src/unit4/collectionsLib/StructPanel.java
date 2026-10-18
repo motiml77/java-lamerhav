@@ -20,6 +20,8 @@ import javax.swing.JPanel;
 import unit4.collectionsLib.Model.Cell;
 import unit4.collectionsLib.Model.ChainView;
 import unit4.collectionsLib.Model.LinearView;
+import unit4.collectionsLib.Model.ArrayView;
+import unit4.collectionsLib.Model.MatrixView;
 import unit4.collectionsLib.Model.Mark;
 import unit4.collectionsLib.Model.Step;
 import unit4.collectionsLib.Model.TreeCell;
@@ -89,6 +91,22 @@ final class StructPanel extends JPanel {
             }
             return new Dimension(maxX, 80);
         }
+        // מערכים: זה ליד זה כל עוד יש מקום ברוחב החלון
+        int avail = getParent() != null && getParent().getWidth() > 200 ? getParent().getWidth() - PAD : 900;
+        int ax = PAD, arrRow = 0;
+        for (View v : step.views) {
+            if (!(v instanceof ArrayView || v instanceof MatrixView)) continue;
+            Dimension d = measure(v);
+            if (ax > PAD && ax + d.width > avail) { y += arrRow + GAP / 2; ax = PAD; arrRow = 0; }
+            if (g != null) {
+                if (v instanceof ArrayView) drawArray(g, (ArrayView) v, ax, y);
+                else drawMatrix(g, (MatrixView) v, ax, y);
+            }
+            ax += d.width + GAP;
+            arrRow = Math.max(arrRow, d.height);
+            maxX = Math.max(maxX, ax);
+        }
+        if (arrRow > 0) y += arrRow + GAP / 2;
         int x = PAD, rowH = 0;
         for (View v : step.views) {
             if (v instanceof LinearView && ((LinearView) v).stack) {
@@ -117,6 +135,93 @@ final class StructPanel extends JPanel {
             if (d != null) { y += d.height + GAP / 2; maxX = Math.max(maxX, PAD + d.width); }
         }
         return new Dimension(maxX + PAD, y + PAD);
+    }
+
+    private Dimension measure(View v) {
+        return v instanceof ArrayView ? drawArray(null, (ArrayView) v, 0, 0) : drawMatrix(null, (MatrixView) v, 0, 0);
+    }
+
+    // ------------------------------------------------------------ מערך חד-ממדי
+
+    private Dimension drawArray(Graphics2D g, ArrayView v, int x, int y) {
+        int n = v.items.size();
+        int cw = Math.max(40, maxWidth(v.items, null) + 18), ch = 36, labelsH = 22;
+        String type = "מערך, אורך " + n + (v.truncated ? "+" : "");
+        int top = y + TITLE_H + labelsH;
+        int w = Math.max(16 + Math.max(n, 1) * cw + 20, titleWidth(v.title, type));
+        int h = TITLE_H + labelsH + ch + 22;
+        if (g == null) return new Dimension(w, h);
+
+        drawTitle(g, v.title, type, x, y, v.focus || !v.changed.isEmpty());
+        if (n == 0) {
+            box(g, x + 8, top, cw, ch, BOX, null, true);
+            g.setColor(MUTED);
+            center(g, "ריק", SMALL_B, x + 8 + cw / 2, top + ch / 2);
+        }
+        for (int i = 0; i < n; i++) {
+            int bx = x + 8 + i * cw;
+            box(g, bx, top, cw, ch, v.changed.contains(i) ? CHANGED_C : BOX, v.items.get(i), false);
+            g.setColor(MUTED);
+            center(g, String.valueOf(i), SMALL, bx + cw / 2, top + ch + 11);
+            List<String> labels = v.indexLabels.get(i);
+            if (labels != null) indexLabel(g, String.join(",", labels), bx + cw / 2, top - 4);
+        }
+        if (v.truncated) {
+            g.setColor(MUTED);
+            g.setFont(SMALL_B);
+            g.drawString("…", x + 12 + n * cw, top + ch / 2 + 5);
+        }
+        return new Dimension(w, h);
+    }
+
+    /** "i" בסגול עם חץ קטן כלפי התא */
+    private void indexLabel(Graphics2D g, String text, int cx, int bottomY) {
+        g.setColor(LABEL);
+        g.setFont(SMALL_B);
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(text, cx - fm.stringWidth(text) / 2, bottomY - 8);
+        g.fillPolygon(new int[] { cx - 4, cx + 4, cx }, new int[] { bottomY - 6, bottomY - 6, bottomY }, 3);
+    }
+
+    // ------------------------------------------------------------ מערך דו-ממדי
+
+    private Dimension drawMatrix(Graphics2D g, MatrixView v, int x, int y) {
+        int rows = v.rows.size(), cols = 0;
+        List<String> all = new ArrayList<String>();
+        for (List<String> r : v.rows) {
+            cols = Math.max(cols, r.size());
+            all.addAll(r);
+        }
+        int cw = Math.max(40, maxWidth(all, null) + 16), ch = 32;
+        int labelW = 0;
+        for (List<String> l : v.rowLabels.values()) labelW = Math.max(labelW, textWidth(String.join(",", l), SMALL_B) + 16);
+        int left = x + 8 + labelW + 22, top = y + TITLE_H + 22 + (v.colLabels.isEmpty() ? 0 : 18);
+        String type = "מערך דו-ממדי " + rows + "×" + cols;
+        int w = Math.max(left - x + Math.max(cols, 1) * cw + 16, titleWidth(v.title, type));
+        int h = top - y + Math.max(rows, 1) * ch + 12;
+        if (g == null) return new Dimension(w, h);
+
+        drawTitle(g, v.title, type, x, y, v.focus || !v.changed.isEmpty());
+        g.setColor(MUTED);
+        for (int c = 0; c < cols; c++) center(g, String.valueOf(c), SMALL, left + c * cw + cw / 2, top - 9);
+        for (int r = 0; r < rows; r++) {
+            g.setColor(MUTED);
+            center(g, String.valueOf(r), SMALL, left - 11, top + r * ch + ch / 2);
+            List<String> row = v.rows.get(r);
+            for (int c = 0; c < row.size(); c++)
+                box(g, left + c * cw, top + r * ch, cw, ch, v.changed.contains(r + "," + c) ? CHANGED_C : BOX, row.get(c), false);
+            List<String> rl = v.rowLabels.get(r);
+            if (rl != null) {
+                g.setColor(LABEL);
+                g.setFont(SMALL_B);
+                String t = String.join(",", rl);
+                g.drawString(t, left - 22 - textWidth(t, SMALL_B) - 8, top + r * ch + ch / 2 + 5);
+                g.fillPolygon(new int[] { left - 26, left - 26, left - 20 }, new int[] { top + r * ch + ch / 2 - 4, top + r * ch + ch / 2 + 4, top + r * ch + ch / 2 }, 3);
+            }
+        }
+        for (Map.Entry<Integer, List<String>> e : v.colLabels.entrySet())
+            indexLabel(g, String.join(",", e.getValue()), left + e.getKey() * cw + cw / 2, top - 20);
+        return new Dimension(w, h);
     }
 
     // ------------------------------------------------------------ מחסנית

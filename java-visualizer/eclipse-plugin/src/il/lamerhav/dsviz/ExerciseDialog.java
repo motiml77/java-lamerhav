@@ -36,6 +36,7 @@ public class ExerciseDialog extends TitleAreaDialog {
     private final List<Button> structureButtons = new ArrayList<Button>();
     private Button secondCheck, extraCheck, randomCheck;
     private Text valuesText, values2Text, classText, functionText;
+    private Label valuesLabel;
     private StyledText preview;
     private final List<String> returnIds = new ArrayList<String>();
     private boolean classEdited;
@@ -95,7 +96,7 @@ public class ExerciseDialog extends TitleAreaDialog {
         sg.setLayout(new GridLayout(1, false));
         for (Scaffold.Structure s : Scaffold.STRUCTURES.values()) {
             Button b = new Button(sg, SWT.RADIO);
-            b.setText(s.label + "   (" + s.cls + ")");
+            b.setText(s.label + "   (" + (s.cls != null ? s.cls : s.dims == 2 ? "int[][]" : "int[]") + ")");
             b.setData(s.id);
             b.setSelection(s.id.equals(presetStructure == null ? "stack" : presetStructure));
             structureButtons.add(b);
@@ -124,7 +125,8 @@ public class ExerciseDialog extends TitleAreaDialog {
         randomCheck = check(eg, "ערכים אקראיים (מספרים שלמים בלבד)");
 
         // --- ערכים ושמות
-        label(form, "ערכים:");
+        valuesLabel = new Label(form, SWT.NONE);
+        valuesLabel.setText("ערכים:");
         valuesText = text(form);
         label(form, "ערכים למבנה השני:");
         values2Text = text(form);
@@ -223,13 +225,15 @@ public class ExerciseDialog extends TitleAreaDialog {
         addReturn("int", "int — מספר (סכום, כמות...)");
         addReturn("boolean", "boolean — אמת/שקר");
         if (!type.equals("Integer")) addReturn("element", Scaffold.primitive(type) + " — ערך מהמבנה");
-        addReturn("structure", s.cls + "<" + type + "> — מבנה חדש");
+        addReturn("structure", Scaffold.typeOf(s, type) + " — מבנה חדש");
         returnCombo.select(Math.max(0, returnIds.indexOf(prevRet)));
 
         boolean intType = type.equals("Integer");
         randomCheck.setEnabled(intType);
         if (!intType) randomCheck.setSelection(false);
         boolean random = randomCheck.getSelection();
+        valuesLabel.setText(type.equals("Student") ? "כמה תלמידים:" : st.equals("matrix") ? "ערכים (שורות ב-;):" : "ערכים:");
+        valuesLabel.getParent().layout();
         if (!type.equals(lastType) || !st.equals(lastStructure)) {
             valuesText.setText(Scaffold.defaultValues(st, type, false));
             values2Text.setText(Scaffold.defaultValues(st, type, true));

@@ -80,7 +80,35 @@ public final class Viz {
             inorder((BinNode<?>) structure, b, 0);
             return b.toString().trim();
         }
+        if (structure.getClass().isArray()) return arrayText(structure);
         return String.valueOf(structure);
+    }
+
+    private static String arrayText(Object a) {
+        StringBuilder b = new StringBuilder("[");
+        int n = java.lang.reflect.Array.getLength(a);
+        for (int i = 0; i < n; i++) {
+            Object x = java.lang.reflect.Array.get(a, i);
+            b.append(i == 0 ? "" : ", ").append(x != null && x.getClass().isArray() ? arrayText(x) : String.valueOf(x));
+        }
+        return b.append(']').toString();
+    }
+
+    /**
+     * להציג מערך (חד או דו ממדי) בחלון, ולעדכן אותו בכל צעד.
+     * לא צריך את זה למערכים שנוצרו ב-Build.array / Build.matrix, וגם לא בהרצה שורה-שורה (שם כל המערכים מוצגים לבד).
+     */
+    public static void watch(Object array) {
+        Recorder.sync();
+        Recorder.watchArray(array, SourceFiles.guessWatchName(Recorder.callerFrame()));
+        Recorder.record(Kind.NOTE, null, Mark.NONE, null, "מציגים את המערך " + Recorder.nameOf(array));
+    }
+
+    /** כמו watch(array), עם שם לתצוגה */
+    public static void watch(String name, Object array) {
+        Recorder.sync();
+        Recorder.watchArray(array, name);
+        Recorder.record(Kind.NOTE, null, Mark.NONE, null, "מציגים את המערך " + name);
     }
 
     private static void inorder(BinNode<?> t, StringBuilder b, int depth) {
