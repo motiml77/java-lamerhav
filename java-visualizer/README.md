@@ -30,29 +30,48 @@
 
 ---
 
-## התקנה
+## התקנה בכל מחשב (תוסף ל-VS Code ול-Eclipse)
 
-### Eclipse
-1. `File → Import → General → Existing Projects into Workspace`
-2. בוחרים את התיקייה `java-visualizer` → `Finish`
-3. פותחים את `src/Main.java` → לחיצה ימנית → `Run As → Java Application`
+כל מה שצריך נמצא בקובץ אחד: **[`release/dsviz-install.zip`](release/dsviz-install.zip)**.
 
-### VS Code
-1. מתקינים את התוסף **Extension Pack for Java** (VS Code יציע אותו אוטומטית)
-2. `File → Open Folder` → בוחרים את התיקייה `java-visualizer` עצמה
-3. פותחים את `src/Main.java` ולוחצים **Run** שמופיע מעל `main`
+1. מעתיקים את ה-zip למחשב ופותחים אותו.
+2. **Windows:** לחיצה כפולה על `install.bat` · **Mac / Linux:** `./install.sh`
+3. מפעילים מחדש את VS Code / Eclipse.
 
-### שורת פקודה
-```
-run.bat                          (Windows)
-./run.sh                         (Mac / Linux)
-./run.sh examples.ListExamples   ← הרצת קובץ אחר
-```
+הסקריפט מתקין לכל VS Code ולכל Eclipse שהוא מוצא. אם Eclipse נמצא במקום לא רגיל:
+`install.bat "C:\path\to\eclipse"`. בתוך ה-zip יש גם מדריך בעברית (`README-he.html`) והוראות להתקנה ידנית.
 
-### הוספה לפרויקט קיים
-מעתיקים את התיקייה `src/unit4` לתוך תיקיית `src` של הפרויקט.
-**חשוב:** אם בפרויקט כבר מחוברת ספריית הבגרות המקורית (קובץ jar של unit4) — יש להסיר אותה מה-Build Path,
-אחרת יהיו שתי מחלקות `Stack` באותו שם.
+נדרש במחשב: **JDK** (Java 8 ומעלה, מומלץ 17 או 21), ו-VS Code ו/או Eclipse 2020 ומעלה.
+
+### איך זה נראה בתוך התוכנה
+
+**VS Code:** בסרגל הצד מופיע סמל **מבני נתונים** עם כפתורים: מחסנית · תור · רשימה מקושרת · עץ בינארי · עץ חיפוש.
+בוחרים מבנה, עונים על כמה שאלות קצרות (טיפוס הערכים, מה הפעולה מחזירה, תוספות, ערכים, שמות),
+ונפתח קובץ תרגיל מוכן עם הסמן במקום שבו כותבים. אחרי כתיבת הפעולה לוחצים **הרצה ויזואלית**
+(כפתור למעלה מימין, בשורת המצב, או `Ctrl+Alt+R`). אם התיקייה עוד לא מוגדרת — התוסף מגדיר אותה לבד
+(מעתיק את הספרייה ל-`lib/` ומוסיף הגדרות Java).
+
+**Eclipse:** בתפריט העליון מופיע **מבני נתונים** (וגם כפתורים בסרגל הכלים):
+"תרגיל חדש: מחסנית / תור / רשימה / עץ…", "הרצה ויזואלית" ו"דוגמאות פתורות".
+בחלון "תרגיל חדש" בוחרים מבנה, טיפוס, מה הפעולה מחזירה ותוספות — ורואים **תצוגה מקדימה של הקוד**.
+אם אין פרויקט מתאים נוצר פרויקט `DataStructures`, והספרייה נוספת ל-Build Path אוטומטית.
+
+| בחירה | אפשרויות |
+|---|---|
+| מבנה | מחסנית, תור, רשימה מקושרת, עץ בינארי (לפי רמות), עץ חיפוש בינארי |
+| טיפוס | `Integer`, `String`, `Character`, `Double` |
+| הפעולה מחזירה | `void`, `int`, `boolean`, ערך מהמבנה, מבנה חדש |
+| תוספות | שני מבנים (מיזוג/השוואה), פרמטר נוסף `x`, ערכים אקראיים |
+
+![חלון "תרגיל חדש" ב-Eclipse](docs/eclipse-dialog.png)
+
+### בלי תוסף (הפרויקט הזה כמו שהוא)
+
+- **Eclipse:** `File → Import → General → Existing Projects into Workspace` → בוחרים את `java-visualizer`.
+- **VS Code:** `File → Open Folder` → בוחרים את `java-visualizer` (עם Extension Pack for Java).
+- **שורת פקודה:** `run.bat` / `./run.sh` / `./run.sh examples.ListExamples`
+- **פרויקט קיים:** מוסיפים את `release/dsviz.jar` ל-Build Path. אם כבר מחובר ה-jar המקורי של unit4 — יש להסיר אותו
+  (אחרת יהיו שתי מחלקות `Stack` באותו שם). התוספים מזהים התנגשות כזו ומציעים להסיר אותה.
 
 ---
 
@@ -161,14 +180,29 @@ Viz.textMode();             // בלי חלון — הצעדים מודפסים �
 
 ```
 java-visualizer/
+├── release/                       ← קובצי ההתקנה (נבנים ע"י tools/build-all.sh)
+│   ├── dsviz-install.zip          ← את זה מחלקים: הכול + install.bat/install.sh + מדריך
+│   ├── dsviz-1.0.0.vsix           ← תוסף VS Code
+│   ├── il.lamerhav.dsviz_1.0.0.jar← תוסף Eclipse (לתיקיית dropins)
+│   └── dsviz.jar                  ← הספרייה עצמה
 ├── src/
 │   ├── Main.java                  ← תבנית לתרגיל
-│   ├── examples/                  ← דוגמאות מוכנות
-│   └── unit4/collectionsLib/
-│       ├── Stack, Queue, Node, BinNode   ← המבנים (API של הבגרות)
-│       ├── Build, Viz                    ← פקודות עזר
-│       └── Recorder, Viewer, StructPanel, Model, SourceFiles  ← המנוע (פנימי)
-├── run.bat / run.sh               ← הרצה משורת הפקודה
-├── .project / .classpath          ← הגדרות Eclipse
-└── .vscode/                       ← הגדרות VS Code
+│   ├── examples/                  ← דוגמאות פתורות
+│   └── unit4/collectionsLib/      ← הספרייה: Stack, Queue, Node, BinNode, Build, Viz + מנוע התצוגה
+├── vscode-extension/              ← קוד התוסף ל-VS Code (JavaScript)
+├── eclipse-plugin/                ← קוד התוסף ל-Eclipse (Java)
+├── installer/                     ← install.bat, install.sh, README-he.html
+└── tools/
+    ├── build-all.sh               ← בונה את כל release/
+    └── test/                      ← בדיקות: התאמת התבניות בין שני התוספים, ובדיקת התוסף של VS Code
 ```
+
+### בנייה מחדש (רק למי שמשנה את הקוד)
+
+```
+tools/build-all.sh          # דורש JDK 11+, Python 3, Node.js
+node tools/test/vscode-test.js
+```
+
+התבנית שיוצרת את קוד התרגיל כתובה פעמיים — `vscode-extension/templates.js` ו-`eclipse-plugin/src/.../Scaffold.java`.
+שינוי באחת צריך להיעשות גם בשנייה; `tools/test/combos.js` + `ScaffoldAll.java` בודקים שהן מפיקות קוד זהה בכל 760 הצירופים.

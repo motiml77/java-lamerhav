@@ -54,6 +54,37 @@ public final class Viz {
         Recorder.textMode = true;
     }
 
+    /**
+     * מחרוזת שמתארת כל מבנה (בלי להוסיף צעדים להרצה):
+     * מחסנית/תור כמו toString, רשימה: "3 -> 8 -> null", עץ: סריקה תוכית (inorder).
+     */
+    public static String text(Object structure) {
+        if (structure == null) return "null";
+        if (structure instanceof Node) {
+            StringBuilder b = new StringBuilder();
+            java.util.Set<Object> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
+            Node<?> p = (Node<?>) structure;
+            while (p != null && seen.add(p)) {
+                b.append(p.value).append(" -> ");
+                p = p.next;
+            }
+            return b.append(p == null ? "null" : "(מעגל)").toString();
+        }
+        if (structure instanceof BinNode) {
+            StringBuilder b = new StringBuilder("inorder: ");
+            inorder((BinNode<?>) structure, b, 0);
+            return b.toString().trim();
+        }
+        return String.valueOf(structure);
+    }
+
+    private static void inorder(BinNode<?> t, StringBuilder b, int depth) {
+        if (t == null || depth > 200) return;
+        inorder(t.left, b, depth + 1);
+        b.append(t.value).append(' ');
+        inorder(t.right, b, depth + 1);
+    }
+
     /** מספר הצעדים המקסימלי שיתועדו (ברירת מחדל 5000) */
     public static void maxSteps(int n) {
         Recorder.maxSteps = n;

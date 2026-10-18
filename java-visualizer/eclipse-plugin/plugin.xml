@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension point="org.eclipse.ui.commands">
+      <category id="il.lamerhav.dsviz.category" name="מבני נתונים"/>
+      <command id="il.lamerhav.dsviz.newExercise" categoryId="il.lamerhav.dsviz.category"
+               name="תרגיל חדש" description="תרגיל חדש במבני נתונים עם מעטפת מוכנה"
+               defaultHandler="il.lamerhav.dsviz.NewExerciseHandler">
+         <commandParameter id="il.lamerhav.dsviz.structure" name="מבנה" optional="true"/>
+      </command>
+      <command id="il.lamerhav.dsviz.run" categoryId="il.lamerhav.dsviz.category"
+               name="הרצה ויזואלית" description="הרצת התרגיל עם תצוגה ויזואלית של מבני הנתונים"
+               defaultHandler="il.lamerhav.dsviz.RunVisualHandler"/>
+      <command id="il.lamerhav.dsviz.examples" categoryId="il.lamerhav.dsviz.category"
+               name="דוגמאות פתורות" description="העתקת דוגמאות פתורות לפרויקט"
+               defaultHandler="il.lamerhav.dsviz.ExamplesHandler"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.commandImages">
+      <image commandId="il.lamerhav.dsviz.newExercise" icon="icons/new.png"/>
+      <image commandId="il.lamerhav.dsviz.run" icon="icons/run.png"/>
+      <image commandId="il.lamerhav.dsviz.examples" icon="icons/examples.png"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.menus">
+      <!-- תפריט ראשי: "מבני נתונים" -->
+      <menuContribution locationURI="menu:org.eclipse.ui.main.menu?after=additions">
+         <menu id="il.lamerhav.dsviz.menu" label="מבני נתונים">
+            <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש: מחסנית (Stack)..." style="push">
+               <parameter name="il.lamerhav.dsviz.structure" value="stack"/>
+            </command>
+            <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש: תור (Queue)..." style="push">
+               <parameter name="il.lamerhav.dsviz.structure" value="queue"/>
+            </command>
+            <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש: רשימה מקושרת (Node)..." style="push">
+               <parameter name="il.lamerhav.dsviz.structure" value="list"/>
+            </command>
+            <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש: עץ בינארי (BinNode)..." style="push">
+               <parameter name="il.lamerhav.dsviz.structure" value="tree"/>
+            </command>
+            <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש: עץ חיפוש בינארי..." style="push">
+               <parameter name="il.lamerhav.dsviz.structure" value="bst"/>
+            </command>
+            <separator name="run" visible="true"/>
+            <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+            <separator name="more" visible="true"/>
+            <command commandId="il.lamerhav.dsviz.examples" label="דוגמאות פתורות..." style="push"/>
+         </menu>
+      </menuContribution>
+
+      <!-- סרגל הכלים -->
+      <menuContribution locationURI="toolbar:org.eclipse.ui.main.toolbar?after=additions">
+         <toolbar id="il.lamerhav.dsviz.toolbar" label="מבני נתונים">
+            <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש" mode="FORCE_TEXT"
+                     tooltip="תרגיל חדש במבני נתונים" style="push"/>
+            <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" mode="FORCE_TEXT"
+                     tooltip="הרצת התרגיל הפתוח עם תצוגה ויזואלית" style="push"/>
+         </toolbar>
+      </menuContribution>
+
+      <!-- לחיצה ימנית בעורך הקוד -->
+      <menuContribution locationURI="popup:#CompilationUnitEditorContext?after=additions">
+         <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+      </menuContribution>
+
+      <!-- לחיצה ימנית בעץ הקבצים -->
+      <menuContribution locationURI="popup:org.eclipse.jdt.ui.PackageExplorer?after=additions">
+         <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+      </menuContribution>
+      <menuContribution locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?after=additions">
+         <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+      </menuContribution>
+   </extension>
+</plugin>

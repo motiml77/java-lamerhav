@@ -1,3 +1,5 @@
 bin/
 out/
+build/
 *.class
+node_modules/

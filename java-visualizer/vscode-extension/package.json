@@ -1,0 +1,49 @@
+{
+    "name": "dsviz",
+    "displayName": "מבני נתונים — הרצה ויזואלית",
+    "description": "תרגילי מחסנית, תור, רשימה מקושרת ועצים (unit4) עם תצוגה ויזואלית של כל צעד בהרצה",
+    "version": "1.0.0",
+    "publisher": "lamerhav",
+    "license": "SEE LICENSE IN README.md",
+    "icon": "media/icon.png",
+    "engines": { "vscode": "^1.75.0" },
+    "categories": ["Education", "Visualization"],
+    "keywords": ["java", "stack", "queue", "linked list", "binary tree", "unit4", "בגרות"],
+    "main": "./extension.js",
+    "activationEvents": ["onStartupFinished", "onLanguage:java"],
+    "contributes": {
+        "commands": [
+            { "command": "dsviz.newExercise", "title": "תרגיל חדש...", "category": "מבני נתונים", "icon": "$(add)" },
+            { "command": "dsviz.newStack", "title": "תרגיל חדש: מחסנית", "category": "מבני נתונים" },
+            { "command": "dsviz.newQueue", "title": "תרגיל חדש: תור", "category": "מבני נתונים" },
+            { "command": "dsviz.newList", "title": "תרגיל חדש: רשימה מקושרת", "category": "מבני נתונים" },
+            { "command": "dsviz.newTree", "title": "תרגיל חדש: עץ בינארי", "category": "מבני נתונים" },
+            { "command": "dsviz.newBst", "title": "תרגיל חדש: עץ חיפוש בינארי", "category": "מבני נתונים" },
+            { "command": "dsviz.run", "title": "הרצה ויזואלית", "category": "מבני נתונים", "icon": "$(play-circle)" },
+            { "command": "dsviz.examples", "title": "דוגמאות פתורות", "category": "מבני נתונים" }
+        ],
+        "viewsContainers": {
+            "activitybar": [ { "id": "dsviz", "title": "מבני נתונים", "icon": "media/activity.svg" } ]
+        },
+        "views": {
+            "dsviz": [ { "id": "dsviz.home", "name": "תרגילים" } ]
+        },
+        "viewsWelcome": [
+            {
+                "view": "dsviz.home",
+                "contents": "בחרו מבנה נתונים — וייפתח תרגיל מוכן עם המבנה, ונשאר רק לכתוב את הפעולה:\n[מחסנית  (Stack)](command:dsviz.newStack)\n[תור  (Queue)](command:dsviz.newQueue)\n[רשימה מקושרת  (Node)](command:dsviz.newList)\n[עץ בינארי  (BinNode)](command:dsviz.newTree)\n[עץ חיפוש בינארי](command:dsviz.newBst)\nאחרי שכותבים את הפעולה:\n[▶  הרצה ויזואלית](command:dsviz.run)\nללמוד מדוגמאות:\n[דוגמאות פתורות](command:dsviz.examples)"
+            }
+        ],
+        "menus": {
+            "editor/title": [
+                { "command": "dsviz.run", "when": "resourceLangId == java", "group": "navigation" }
+            ],
+            "explorer/context": [
+                { "command": "dsviz.newExercise", "group": "navigation@9" }
+            ]
+        },
+        "keybindings": [
+            { "command": "dsviz.run", "key": "ctrl+alt+r", "mac": "cmd+alt+r", "when": "editorLangId == java" }
+        ]
+    }
+}

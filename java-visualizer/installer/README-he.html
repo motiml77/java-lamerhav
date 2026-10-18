@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>מבני נתונים — הרצה ויזואלית: התקנה</title>
+<style>
+  body { font-family: "Segoe UI", Arial, sans-serif; max-width: 760px; margin: 32px auto; padding: 0 16px; line-height: 1.7; color: #1d2733; background: #fff; }
+  h1 { color: #1a5fb4; font-size: 26px; } h2 { margin-top: 32px; font-size: 20px; border-bottom: 2px solid #e3eeff; padding-bottom: 4px; }
+  code, kbd { background: #f2f4f7; border-radius: 4px; padding: 1px 6px; direction: ltr; unicode-bidi: embed; font-family: Consolas, monospace; }
+  .box { background: #f6f9ff; border: 1px solid #d6e4fb; border-radius: 8px; padding: 12px 16px; }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<h1>מבני נתונים — הרצה ויזואלית</h1>
+<p>תוסף ל-<b>VS Code</b> ול-<b>Eclipse</b>: בוחרים מבנה נתונים (מחסנית, תור, רשימה מקושרת, עץ), מקבלים תרגיל מוכן עם המבנה,
+כותבים את הפעולה — ובהרצה נפתח חלון שמראה כל צעד: המבנים, שורת הקוד, מחסנית הקריאות והפלט.</p>
+
+<h2>1. מה צריך במחשב</h2>
+<ul>
+  <li><b>Java (JDK)</b> גרסה 8 ומעלה. מומלץ JDK 17 או 21 (למשל Adoptium Temurin).</li>
+  <li><b>VS Code</b> ו/או <b>Eclipse</b> (גרסה 2020 ומעלה).</li>
+</ul>
+
+<h2>2. התקנה</h2>
+<div class="box">
+<p><b>Windows:</b> לחיצה כפולה על <code>install.bat</code>.<br>
+<b>Mac / Linux:</b> בטרמינל: <code>./install.sh</code></p>
+<p>הסקריפט מתקין אוטומטית לכל VS Code ולכל Eclipse שהוא מוצא. אחר כך — לסגור ולפתוח מחדש את התוכנה.</p>
+</div>
+<p>אם Eclipse מותקן במקום לא רגיל: <code>install.bat "C:\path\to\eclipse"</code> (התיקייה שבה נמצא <code>eclipse.exe</code>).</p>
+
+<h3>התקנה ידנית (אם הסקריפט לא עבד)</h3>
+<ul>
+  <li><b>VS Code:</b> חלון Extensions ← שלוש הנקודות <kbd>…</kbd> למעלה ← <b>Install from VSIX…</b> ← בוחרים את <code>dsviz-1.0.0.vsix</code>.
+      מתקינים גם את <b>Extension Pack for Java</b>.</li>
+  <li><b>Eclipse:</b> מעתיקים את <code>il.lamerhav.dsviz_1.0.0.jar</code> לתיקייה <code>dropins</code> שבתוך תיקיית Eclipse, ומפעילים מחדש.</li>
+</ul>
+
+<h2>3. שימוש</h2>
+<h3>VS Code</h3>
+<ol>
+  <li>פותחים תיקייה לתרגילים (<b>File ← Open Folder</b>). אפשר גם תיקייה ריקה.</li>
+  <li>לוחצים על הסמל <b>מבני נתונים</b> בסרגל הצד, ובוחרים מבנה: מחסנית / תור / רשימה מקושרת / עץ.</li>
+  <li>עונים על כמה שאלות קצרות (טיפוס, מה הפעולה מחזירה, ערכים) — ונפתח קובץ תרגיל מוכן.</li>
+  <li>כותבים את הפעולה ולוחצים <b>▶ הרצה ויזואלית</b> (למעלה מימין, בשורת המצב, או <kbd>Ctrl+Alt+R</kbd>).</li>
+</ol>
+<h3>Eclipse</h3>
+<ol>
+  <li>בתפריט העליון: <b>מבני נתונים ← תרגיל חדש: מחסנית…</b> (או הכפתור <b>תרגיל חדש</b> בסרגל הכלים).</li>
+  <li>בחלון שנפתח בוחרים מבנה, טיפוס ומה הפעולה מחזירה — ורואים מיד את הקוד שייווצר.
+      אם אין פרויקט מתאים, ייווצר פרויקט חדש בשם <code>DataStructures</code>.</li>
+  <li>כותבים את הפעולה ולוחצים <b>הרצה ויזואלית</b> (בסרגל הכלים, או לחיצה ימנית בקוד).</li>
+</ol>
+
+<h2>4. בחלון ההרצה</h2>
+<ul>
+  <li><kbd>←</kbd> / רווח — הצעד הבא, <kbd>→</kbd> — הצעד הקודם, <kbd>P</kbd> — הפעלה אוטומטית.</li>
+  <li>ירוק = נוסף, צהוב = נקרא, כתום = שונה, אדום מקווקו = הוצא.</li>
+  <li>בתפריט <b>דוגמאות פתורות</b> יש דוגמאות לכל מבנה.</li>
+</ul>
+</body>
+</html>
