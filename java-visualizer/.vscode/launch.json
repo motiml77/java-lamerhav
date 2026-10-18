@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "הרצת הקובץ הפתוח",
+            "request": "launch",
+            "mainClass": "${file}",
+            "cwd": "${workspaceFolder}",
+            "vmArgs": "-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8"
+        },
+        {
+            "type": "java",
+            "name": "הרצת Main",
+            "request": "launch",
+            "mainClass": "Main",
+            "cwd": "${workspaceFolder}",
+            "vmArgs": "-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8"
+        }
+    ]
+}
