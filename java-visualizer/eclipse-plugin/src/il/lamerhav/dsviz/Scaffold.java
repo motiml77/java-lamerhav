@@ -243,13 +243,7 @@ public final class Scaffold {
         L.add("import unit4.collectionsLib.*;");
         if (st.dims > 0) L.add("import java.util.Arrays;");
         L.add("");
-        L.add("/**");
-        L.add(" * תרגיל: " + st.label + " של " + T);
-        L.add(" * 1. כותבים את הפתרון בתוך הפעולה " + o.functionName + " — במקום שמסומן TODO.");
-        L.add(" * 2. לוחצים על \"הרצה ויזואלית\" — נפתח חלון שמראה כל שורה וכל שינוי במבנה.");
-        L.add(" *    (הרצה רגילה — Run — מדפיסה רק לקונסול.)");
-        L.add(" * אפשר לשנות את הערכים ב-main כדי לבדוק מקרים נוספים.");
-        L.add(" */");
+        L.add("// תרגיל: " + st.label + " של " + T);
         L.add("public class " + o.className + " {");
         L.add("");
         L.add("    public static " + retType + " " + o.functionName + "(" + String.join(", ", params) + ") {");

@@ -8,11 +8,9 @@ public class ListExamples {
     public static int sum(Node<Integer> lst) {
         int total = 0;
         Node<Integer> p = lst;
-        Viz.point("p", p);                     // אופציונלי: תווית "p" מעל החוליה
         while (p != null) {
             total += p.getValue();
             p = p.getNext();
-            Viz.point("p", p);
         }
         return total;
     }
@@ -40,8 +38,6 @@ public class ListExamples {
             cur.setNext(prev);
             prev = cur;
             cur = next;
-            Viz.point("prev", prev);
-            Viz.point("cur", cur);
         }
         return prev;
     }
@@ -52,11 +48,8 @@ public class ListExamples {
         lst = new Node<Integer>(8, lst);
         lst = new Node<Integer>(3, lst);   // החוליה הראשונה
         System.out.println("סכום: " + sum(lst));
-        Viz.point("p", null);
 
         lst = remove(lst, 1);
-        Viz.name(lst, "lst");
         lst = reverse(lst);
-        Viz.name(lst, "lst");
     }
 }

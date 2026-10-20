@@ -40,7 +40,6 @@ public class StackExamples {
         Stack<Integer> r = reverse(s);
         System.out.println("הפוכה: " + r);
 
-        Viz.note("עכשיו: הכנסה לתחתית ברקורסיה");
         pushBottom(s, 99);
         System.out.println("אחרי pushBottom: " + s);
     }

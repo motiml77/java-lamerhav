@@ -156,13 +156,7 @@ function generate(o) {
     L.push('import unit4.collectionsLib.*;');
     if (st.dims > 0) L.push('import java.util.Arrays;');
     L.push('');
-    L.push('/**');
-    L.push(` * תרגיל: ${st.label} של ${T}`);
-    L.push(` * 1. כותבים את הפתרון בתוך הפעולה ${o.functionName} — במקום שמסומן TODO.`);
-    L.push(' * 2. לוחצים על "הרצה ויזואלית" — נפתח חלון שמראה כל שורה וכל שינוי במבנה.');
-    L.push(' *    (הרצה רגילה — Run — מדפיסה רק לקונסול.)');
-    L.push(' * אפשר לשנות את הערכים ב-main כדי לבדוק מקרים נוספים.');
-    L.push(' */');
+    L.push(`// תרגיל: ${st.label} של ${T}`);
     L.push(`public class ${o.className} {`);
     L.push('');
     L.push(`    public static ${retType} ${o.functionName}(${params.join(', ')}) {`);

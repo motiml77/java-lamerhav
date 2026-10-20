@@ -1,6 +1,7 @@
 package examples;
 
 import unit4.collectionsLib.*;
+import java.util.Arrays;
 
 /** דוגמאות מערכים: מקום המקסימום, היפוך במקום, סכומי שורות במערך דו-ממדי, מיון בועות */
 public class ArrayExamples {
@@ -61,6 +62,6 @@ public class ArrayExamples {
             {1, 2, 3},
             {4, 5, 6}
         };
-        System.out.println("סכומי שורות: " + Viz.text(rowSums(mat)));
+        System.out.println("סכומי שורות: " + Arrays.toString(rowSums(mat)));
     }
 }
