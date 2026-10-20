@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>DSViz Promo</title>
+<style>
+  @font-face { font-family: Karantina; src: url(fonts/node_modules/@expo-google-fonts/karantina/700Bold/Karantina_700Bold.ttf); }
+  @font-face { font-family: KarantinaL; src: url(fonts/node_modules/@expo-google-fonts/karantina/300Light/Karantina_300Light.ttf); }
+  @font-face { font-family: Secular; src: url(fonts/node_modules/@expo-google-fonts/secular-one/400Regular/SecularOne_400Regular.ttf); }
+  @font-face { font-family: Suez; src: url(fonts/node_modules/@expo-google-fonts/suez-one/400Regular/SuezOne_400Regular.ttf); }
+  @font-face { font-family: Heebo; font-weight: 300; src: url(fonts/node_modules/@expo-google-fonts/heebo/300Light/Heebo_300Light.ttf); }
+  @font-face { font-family: Heebo; font-weight: 500; src: url(fonts/node_modules/@expo-google-fonts/heebo/500Medium/Heebo_500Medium.ttf); }
+  @font-face { font-family: Heebo; font-weight: 800; src: url(fonts/node_modules/@expo-google-fonts/heebo/800ExtraBold/Heebo_800ExtraBold.ttf); }
+  @font-face { font-family: Heebo; font-weight: 900; src: url(fonts/node_modules/@expo-google-fonts/heebo/900Black/Heebo_900Black.ttf); }
+  @font-face { font-family: RubikMono; src: url(fonts/node_modules/@expo-google-fonts/rubik-mono-one/400Regular/RubikMonoOne_400Regular.ttf); }
+  @font-face { font-family: JBMono; src: url(fonts/node_modules/@expo-google-fonts/jetbrains-mono/700Bold/JetBrainsMono_700Bold.ttf); }
+
+  html, body { margin: 0; background: #05060f; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #05060f; color: #fff; font-family: Heebo; }
+  .abs { position: absolute; }
+  .center { left: 0; top: 0; width: 1920px; height: 1080px; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  .blob { position: absolute; width: 1300px; height: 1300px; border-radius: 50%; mix-blend-mode: screen; filter: blur(40px); }
+  #grid { left: -1040px; top: 560px; width: 4000px; height: 1400px; transform-origin: 50% 0;
+          background-image: linear-gradient(rgba(255,255,255,.09) 2px, transparent 2px), linear-gradient(90deg, rgba(255,255,255,.09) 2px, transparent 2px);
+          background-size: 120px 120px; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 35%, #000); }
+  #vignette { left: 0; top: 0; width: 1920px; height: 1080px; background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.7) 100%); }
+  .dot { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+  .grad { background: linear-gradient(100deg, var(--c1), var(--c2) 55%, var(--c3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .word { white-space: nowrap; line-height: 1; will-change: transform; }
+  .outline { color: transparent; -webkit-text-stroke: 3px rgba(255,255,255,.35); }
+
+  /* חלון ההרצה */
+  .win3d { left: 60px; top: 175px; width: 1240px; height: 713px; perspective: 2400px; }
+  .win { direction: ltr; width: 1240px; height: 713px; border-radius: 18px; overflow: hidden; background: #f3f4f8;
+         box-shadow: 0 40px 120px rgba(0,0,0,.6), 0 0 0 2px rgba(255,255,255,.18), 0 0 90px var(--glow); transform-origin: 50% 50%; }
+  .zoomer { width: 1440px; height: 828px; transform-origin: 0 0; }
+  .zin { width: 1440px; height: 828px; position: relative; }
+  .zin img { position: absolute; left: 0; top: 0; width: 1440px; height: 828px; display: none; }
+
+  .hero { left: 0; top: 0; width: 1920px; height: 1080px; }
+  .num { font-family: RubikMono; font-size: 560px; }
+  .title { font-family: Karantina; font-size: 360px; }
+  .sub { font-family: Heebo; font-weight: 500; font-size: 46px; letter-spacing: 1px; color: rgba(255,255,255,.85); }
+
+  .callout { right: 70px; width: 520px; text-align: right; }
+  .callout .big { font-family: Secular; font-size: 62px; line-height: 1.05; }
+  .callout .small { font-family: Heebo; font-weight: 500; font-size: 32px; color: rgba(255,255,255,.8); margin-top: 8px; }
+  .callout .bar { position: absolute; right: -26px; top: 6px; width: 8px; height: 62px; border-radius: 4px; background: linear-gradient(var(--c1), var(--c2)); }
+
+  .bars { left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; }
+  .bars div { position: absolute; top: -100px; height: 1280px; width: 420px; transform-origin: 50% 50%; }
+  #flash { left: 0; top: 0; width: 1920px; height: 1080px; background: #fff; opacity: 0; }
+  #fade { left: 0; top: 0; width: 1920px; height: 1080px; background: #000; opacity: 0; }
+
+  .chip { display: inline-block; padding: 14px 34px; border-radius: 999px; border: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,.08);
+          font-family: Heebo; font-weight: 800; font-size: 44px; margin: 0 14px; }
+  .cursor { display: inline-block; width: 12px; height: 140px; background: var(--c2); margin-right: 14px; vertical-align: -18px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="abs" style="left:0;top:0;width:1920px;height:1080px">
+    <div class="blob" id="b1"></div><div class="blob" id="b2"></div><div class="blob" id="b3"></div>
+    <div id="grid" class="abs"></div>
+    <div id="dots"></div>
+    <div id="vignette" class="abs"></div>
+  </div>
+
+  <!-- פתיחה -->
+  <div id="intro" class="abs" style="left:0;top:0;width:1920px;height:1080px;--c1:#a78bfa;--c2:#60a5fa;--c3:#f472b6">
+    <div class="abs center"><div id="i1" class="word" style="font-family:Heebo;font-weight:900;font-size:170px"><span id="i1t">כותבים פונקציה</span><span class="cursor" id="i1c"></span></div></div>
+    <div class="abs center"><div id="i2a" class="word" style="font-family:Heebo;font-weight:300;font-size:110px;margin-bottom:-30px">לוחצים</div>
+                            <div id="i2b" class="word grad" style="font-family:Karantina;font-size:420px">הרצה</div></div>
+    <div class="abs center"><div id="i3a" class="word" style="font-family:Secular;font-size:120px">הקוד שלכם</div>
+                            <div id="i3b" class="word grad" style="font-family:Karantina;font-size:500px;margin-top:-60px">בתנועה.</div></div>
+    <div class="abs center">
+      <div id="i4a" class="word grad" style="font-family:RubikMono;font-size:190px;direction:ltr">DSViz</div>
+      <div id="i4b" class="word" style="font-family:Heebo;font-weight:800;font-size:76px;margin-top:20px">הרצה ויזואלית ל־Java</div>
+      <div id="i4c" class="word" style="font-family:Heebo;font-weight:300;font-size:38px;letter-spacing:6px;margin-top:34px;color:rgba(255,255,255,.8)">מחסנית · תור · רשימה · עץ · מערך · רקורסיה</div>
+    </div>
+  </div>
+
+  <div id="scenes"></div>
+
+  <!-- סיום -->
+  <div id="outro" class="abs" style="left:0;top:0;width:1920px;height:1080px;--c1:#a78bfa;--c2:#60a5fa;--c3:#f472b6">
+    <div class="abs center"><div id="rf" class="word"></div></div>
+    <div class="abs center">
+      <div id="o2a" class="word" style="font-family:Heebo;font-weight:300;font-size:64px">עובד בתוך</div>
+      <div id="o2b" class="word" style="margin-top:40px;direction:ltr"><span class="chip" style="font-size:72px;font-family:JBMono">Eclipse</span><span class="chip" style="font-size:72px;font-family:JBMono">VS Code</span></div>
+      <div id="o2c" class="word" style="font-family:Suez;font-size:84px;margin-top:60px">התקנה אחת. בלי הגדרות.</div>
+    </div>
+    <div class="abs center">
+      <div id="o3a" class="word grad" style="font-family:RubikMono;font-size:260px;direction:ltr">DSViz</div>
+      <div id="o3b" class="word" style="font-family:Karantina;font-size:170px;margin-top:-10px">הקוד שלכם — בתנועה.</div>
+      <div id="o3c" class="word" style="margin-top:40px"><span class="chip" style="font-size:40px;font-family:JBMono;direction:ltr;background:rgba(255,255,255,.14)">⬇ DSViz-Setup.exe</span></div>
+    </div>
+  </div>
+
+  <div id="bars" class="abs bars"></div>
+  <div id="flash" class="abs"></div>
+  <div id="fade" class="abs"></div>
+</div>
+
+<script src="frames.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const p = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, x) => a + (b - a) * x;
+const eo = x => 1 - Math.pow(1 - x, 3);
+const eo5 = x => 1 - Math.pow(1 - x, 5);
+const eio = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const back = x => { const c1 = 2.2, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+
+function css(el, op, tf, blur) {
+  el.style.opacity = op;
+  el.style.transform = tf || 'none';
+  el.style.filter = blur > 0.05 ? `blur(${blur}px)` : 'none';
+}
+/* כניסה "חבטה": מתחיל גדול ומטושטש ונוחת למקום */
+function slam(t, t0, from = 2.4, dur = .42) {
+  const x = p(t, t0, t0 + dur);
+  return { op: p(t, t0, t0 + .1), s: lerp(from, 1, eo5(x)), blur: (1 - eo(x)) * 24 };
+}
+/* יציאה "דרך המסך": גדל, מיטשטש ונעלם */
+function burst(t, t1, dur = .3) {
+  const x = p(t, t1, t1 + dur);
+  return { op: 1 - x, s: 1 + eio(x) * .9, blur: x * 22 };
+}
+function show(el, t, t0, t1, opt = {}) {
+  if (t < t0 - .01 || t > t1 + .4) { el.style.opacity = 0; return; }
+  const a = slam(t, t0, opt.from ?? 2.4, opt.dur ?? .42), b = burst(t, t1);
+  const y = opt.y ? opt.y(t) : 0;
+  css(el, a.op * b.op, `translateY(${y}px) scale(${a.s * b.s}) ${opt.extra || ''}`, a.blur + b.blur);
+}
+
+// ---------------------------------------------------------------- ציר הזמן
+const T = { intro: [0, 6.2], outro: [35.6, 43] };
+const SCENES = [
+  { id: 'stack', at: 6.2, len: 9.8, num: '01', title: 'מחסנית', sub: 'push · pop · top — כל תזוזה מול העיניים',
+    pal: ['#2563eb', '#22d3ee', '#7c3aed'], frames: FRAMES.s, zoom: { x: 1095, y: 255, s: 2.0 },
+    callouts: [['שורה אחר שורה', 'השורה שרצה עכשיו מודגשת'], ['המחסנית זזה', 'כל pop וכל push — בזמן אמת'], ['מעקב משתנים', 'x ו־total מתעדכנים בכל צעד']] },
+  { id: 'tree', at: 16.0, len: 9.8, num: '02', title: 'עץ בינארי', sub: 'כל צומת · כל הפניה · כל הכנסה',
+    pal: ['#059669', '#34d399', '#0ea5e9'], frames: FRAMES.t, zoom: { x: 1110, y: 300, s: 1.85 },
+    callouts: [['t מצביע', 'רואים איפה נמצאים בעץ'], ['צומת חדש', 'נוצר ונתלה מול העיניים'], ['עץ חיפוש', 'קטן — שמאלה · גדול — ימינה']] },
+  { id: 'rec', at: 25.8, len: 9.8, num: '03', title: 'רקורסיה', sub: 'כל קריאה — מסך משלה',
+    pal: ['#db2777', '#fb923c', '#8b5cf6'], frames: FRAMES.r, zoom: { x: 1140, y: 380, s: 1.45 },
+    callouts: [['#2 → #3 → #4', 'קריאה בתוך קריאה'], ['true / false', 'תוצאת ה־if ליד כל תנאי'], ['→ 6', 'רואים מה כל קריאה מחזירה']] },
+];
+const PALS = { intro: ['#7c3aed', '#3b82f6', '#ec4899'], outro: ['#8b5cf6', '#3b82f6', '#f472b6'] };
+const CUTS = [6.2, 16.0, 25.8, 35.6];   // מעברי "תריס"
+
+// ---------------------------------------------------------------- בניית הסצנות
+const scenesEl = $('scenes');
+for (const sc of SCENES) {
+  const el = document.createElement('div');
+  el.className = 'abs'; el.style.cssText = 'left:0;top:0;width:1920px;height:1080px';
+  el.style.setProperty('--c1', sc.pal[0]); el.style.setProperty('--c2', sc.pal[1]); el.style.setProperty('--c3', sc.pal[2]);
+  el.style.setProperty('--glow', sc.pal[0] + '88');
+  el.innerHTML = `
+    <div class="abs hero"><div class="abs center"><div class="word num outline">${sc.num}</div></div>
+      <div class="abs center"><div class="word title grad">${sc.title}</div><div class="word sub" style="margin-top:-40px">${sc.sub}</div></div></div>
+    <div class="abs win3d"><div class="win"><div class="zoomer"><div class="zin">
+      ${sc.frames.map(f => `<img src="frames/${f[0]}.jpg">`).join('')}</div></div></div></div>
+    ${sc.callouts.map(c => `<div class="abs callout"><div class="bar"></div><div class="big" style="direction:rtl;unicode-bidi:plaintext">${c[0]}</div><div class="small">${c[1]}</div></div>`).join('')}`;
+  scenesEl.appendChild(el);
+  sc.el = el;
+  sc.num_ = el.querySelector('.num'); sc.title_ = el.querySelector('.title'); sc.sub_ = el.querySelector('.sub');
+  sc.titleBox = el.querySelectorAll('.center')[1];
+  sc.win3d = el.querySelector('.win3d'); sc.win = el.querySelector('.win'); sc.zoomer = el.querySelector('.zoomer');
+  sc.imgs = [...el.querySelectorAll('img')]; sc.calls = [...el.querySelectorAll('.callout')];
+  const total = sc.frames.reduce((a, f) => a + f[1], 0);
+  sc.cum = []; let acc = 0; for (const f of sc.frames) { sc.cum.push(acc / total); acc += f[1]; }
+}
+
+// נקודות "אבק" ברקע (קבועות לפי זרע)
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const DOTS = [];
+for (let i = 0; i < 46; i++) {
+  const d = document.createElement('div'); d.className = 'dot';
+  DOTS.push({ el: d, x: rnd() * 1920, y: rnd() * 1080, v: 10 + rnd() * 40, r: .4 + rnd() * 1.4, ph: rnd() * 6 });
+  $('dots').appendChild(d);
+}
+// תריס של פסים אלכסוניים
+const BARS = [];
+for (let i = 0; i < 7; i++) { const b = document.createElement('div'); $('bars').appendChild(b); BARS.push(b); }
+
+function palAt(t) {
+  if (t < CUTS[0]) return PALS.intro;
+  for (let i = SCENES.length - 1; i >= 0; i--) if (t >= SCENES[i].at && t < SCENES[i].at + SCENES[i].len) return SCENES[i].pal;
+  return PALS.outro;
+}
+function nextPal(cut) {
+  const sc = SCENES.find(s => Math.abs(s.at - cut) < .01);
+  return sc ? sc.pal : PALS.outro;
+}
+
+// ---------------------------------------------------------------- רקע
+function renderBg(t) {
+  const [c1, c2, c3] = palAt(t);
+  const B = [[$('b1'), c1, 260, -300, .23], [$('b2'), c2, 1250, 300, .17], [$('b3'), c3, 500, 500, .29]];
+  B.forEach(([el, c, x, y, w], i) => {
+    el.style.background = `radial-gradient(circle, ${c}cc 0%, ${c}55 35%, transparent 68%)`;
+    el.style.left = (x + Math.sin(t * w + i * 2) * 260) + 'px';
+    el.style.top = (y + Math.cos(t * w * 1.3 + i) * 200) + 'px';
+    el.style.opacity = .55;
+  });
+  $('grid').style.transform = 'perspective(900px) rotateX(72deg)';
+  $('grid').style.backgroundPosition = `0 ${(t * 90) % 120}px`;
+  for (const d of DOTS) {
+    const y = (d.y - t * d.v + 1080 * 4) % 1080;
+    d.el.style.transform = `translate(${d.x + Math.sin(t + d.ph) * 20}px, ${y}px) scale(${d.r})`;
+    d.el.style.opacity = .25 + .35 * Math.sin(t * 2 + d.ph) ** 2;
+  }
+}
+
+// ---------------------------------------------------------------- פתיחה
+function renderIntro(t) {
+  const on = t < T.intro[1] + .5;
+  $('intro').style.display = on ? 'block' : 'none';
+  if (!on) return;
+  // כותבים פונקציה — "מוקלד"
+  const i1 = $('i1');
+  if (t < 1.7) {
+    const txt = 'כותבים פונקציה', n = Math.round(p(t, .2, 1.0) * txt.length);
+    $('i1t').textContent = txt.slice(0, n);
+    $('i1c').style.opacity = (Math.floor(t * 4) % 2 === 0 || n < txt.length) ? 1 : 0;
+    const b = burst(t, 1.35);
+    css(i1, p(t, .1, .2) * b.op, `scale(${b.s})`, b.blur);
+  } else i1.style.opacity = 0;
+  // לוחצים / הרצה
+  show($('i2a'), t, 1.55, 2.75, { from: .4, dur: .3 });
+  show($('i2b'), t, 1.75, 2.75, { from: 3.2 });
+  // הקוד שלכם / בתנועה
+  show($('i3a'), t, 3.0, 4.35, { from: .5, dur: .3 });
+  show($('i3b'), t, 3.2, 4.35, { from: 3.4, extra: `rotate(${lerp(-4, 0, eo(p(t, 3.2, 3.7)))}deg)` });
+  // מותג
+  show($('i4a'), t, 4.6, 9, { from: 2.2 });
+  show($('i4b'), t, 4.85, 9, { from: .6, dur: .35 });
+  show($('i4c'), t, 5.1, 9, { from: 1, dur: .4, y: tt => lerp(30, 0, eo(p(tt, 5.1, 5.6))) });
+}
+
+// ---------------------------------------------------------------- סצנה
+function renderScene(sc, t) {
+  const u = t - sc.at, L = sc.len;
+  const on = u > -.4 && u < L + .4;
+  sc.el.style.display = on ? 'block' : 'none';
+  if (!on) return;
+
+  // כותרת: מסך מלא (0..1.5) ואז מתכווצת לפינה הימנית העליונה
+  const k = eio(p(u, 1.45, 2.15));
+  const a = slam(u, .25, 3.0, .45);
+  const tx = lerp(0, 615, k), ty = lerp(0, -390, k), ts = lerp(1, .36, k);
+  css(sc.titleBox, a.op, `translate(${tx}px, ${ty}px) scale(${a.s * ts})`, a.blur);
+  sc.sub_.style.opacity = p(u, .7, 1.0) * (1 - p(u, 1.3, 1.6));
+  const nIn = p(u, 0, .6), nOut = p(u, 1.4, 2.0);
+  css(sc.num_, nIn * (1 - nOut), `translateX(${lerp(-300, 0, eo(nIn)) + nOut * -500}px) scale(${1 + u * .04})`, nOut * 20);
+
+  // חלון ההרצה נכנס מלמטה בהטיה תלת־ממדית
+  const w = eo5(p(u, 1.75, 2.75));
+  const z = eio(p(u, 6.0, 7.2));                       // זום אל התצוגה הוויזואלית
+  const rotY = lerp(-38, 9, w) * (1 - z), rotX = lerp(32, 4, w) * (1 - z);
+  const wy = lerp(900, 0, w), ws = lerp(.7, 1, w) * lerp(1, 1.03, p(u, 2.75, L));
+  css(sc.win3d, p(u, 1.75, 2.0), `translateY(${wy}px)`, 0);
+  sc.win.style.transform = `rotateY(${rotY}deg) rotateX(${rotX}deg) scale(${ws})`;
+
+  // זום בתוך החלון
+  const base = 1240 / 1440;
+  const zs = base * lerp(1, sc.zoom.s, z);
+  const cx = lerp(720, sc.zoom.x, z), cy = lerp(414, sc.zoom.y, z);
+  const ox = 620 - cx * zs, oy = 356.5 - cy * zs;
+  sc.zoomer.style.transform = `translate(${ox}px, ${oy}px) scale(${zs})`;
+
+  // צעדי ההרצה האמיתיים
+  const prog = p(u, 2.5, L - .6);
+  let idx = 0; for (let i = 0; i < sc.cum.length; i++) if (sc.cum[i] <= prog) idx = i;
+  sc.imgs.forEach((im, i) => im.style.display = i === idx ? 'block' : 'none');
+
+  // הסברים בצד ימין
+  sc.calls.forEach((c, i) => {
+    const t0 = 2.9 + i * 1.25;
+    const x = eo5(p(u, t0, t0 + .5));
+    c.style.top = (330 + i * 205) + 'px';
+    const big = c.querySelector('.big');
+    big.style.fontSize = (62 + 26 * (1 - eo(p(u, t0, t0 + .6)))) + 'px';
+    css(c, p(u, t0, t0 + .2), `translateX(${lerp(-260, 0, x)}px)`, (1 - x) * 14);
+  });
+}
+
+// ---------------------------------------------------------------- סיום
+const RAPID = [['מחסנית', 'Karantina', 380], ['תור', 'Secular', 330], ['רשימה מקושרת', 'Heebo', 170, 900], ['עץ', 'Karantina', 520],
+               ['מערך', 'Suez', 280], ['Student', 'JBMono', 210], ['Car', 'JBMono', 300], ['רקורסיה', 'Karantina', 400]];
+function renderOutro(t) {
+  const u = t - T.outro[0];
+  const on = u > -.4;
+  $('outro').style.display = on ? 'block' : 'none';
+  if (!on) return;
+  // מילים מהירות
+  const rf = $('rf'), step = .3, i = Math.floor((u - .25) / step);
+  if (u > .25 && i < RAPID.length) {
+    const [w, f, s, wt] = RAPID[i], uu = u - .25 - i * step;
+    rf.textContent = w; rf.style.fontFamily = f; rf.style.fontSize = s + 'px'; rf.style.fontWeight = wt || 400;
+    rf.style.color = i % 2 ? '#fff' : SCENES[i % 3].pal[1];
+    const a = slam(uu, 0, i % 2 ? .3 : 2.2, .16);
+    css(rf, a.op, `scale(${a.s}) rotate(${(i % 3 - 1) * 3}deg)`, a.blur * .6);
+  } else if (u > .25 && i === RAPID.length) {
+    const b = burst(u, .25 + RAPID.length * step, .25);
+    css(rf, b.op, `scale(${b.s})`, b.blur);
+  } else rf.style.opacity = 0;
+
+  const o2 = .25 + RAPID.length * step + .2;   // ≈ 2.85
+  show($('o2a'), u, o2, o2 + 1.9, { from: .5, dur: .3 });
+  show($('o2b'), u, o2 + .25, o2 + 1.9, { from: 2, dur: .45 });
+  show($('o2c'), u, o2 + .7, o2 + 1.9, { from: .4, dur: .35 });
+  const o3 = o2 + 2.3;
+  show($('o3a'), u, o3, 99, { from: 3, dur: .5, extra: `scale(${1 + Math.max(0, u - o3) * .015})` });
+  show($('o3b'), u, o3 + .35, 99, { from: .5, dur: .35 });
+  show($('o3c'), u, o3 + .7, 99, { from: 1.4, dur: .35 });
+  $('outro').style.setProperty('--c1', '#a78bfa'); $('outro').style.setProperty('--c2', '#60a5fa'); $('outro').style.setProperty('--c3', '#f472b6');
+}
+
+// ---------------------------------------------------------------- מעברים
+function renderBars(t) {
+  let vis = false;
+  for (const cut of CUTS) {
+    const d = t - cut;
+    if (d < -.45 || d > .45) continue;
+    vis = true;
+    const pal = nextPal(cut);
+    BARS.forEach((b, i) => {
+      const lag = i * .035;
+      const inn = eio(p(d, -.45 + lag, -.05 + lag)), out = eio(p(d, .02 + lag, .42 + lag));
+      const x = lerp(2300, 0, inn) - out * 2600;
+      b.style.left = (i * 300 - 200) + 'px';
+      b.style.background = `linear-gradient(180deg, ${pal[i % 3]}, ${pal[(i + 1) % 3]})`;
+      b.style.transform = `translateX(${x}px) skewX(-14deg)`;
+    });
+  }
+  $('bars').style.display = vis ? 'block' : 'none';
+  // הבזקים בנחיתות
+  const hits = [1.75, 3.2, 4.6, 6.2, 16.0, 25.8, 35.6 + 2.65 + 2.3 + .2];
+  let f = 0; for (const h of hits) { const d = t - h; if (d >= 0 && d < .35) f = Math.max(f, (1 - d / .35) * .55); }
+  $('flash').style.opacity = f;
+  $('fade').style.opacity = p(t, T.outro[1] - .5, T.outro[1]) + (1 - p(t, 0, .35));
+}
+
+function render(t) {
+  renderBg(t); renderIntro(t);
+  for (const sc of SCENES) renderScene(sc, t);
+  renderOutro(t); renderBars(t);
+}
+window.DURATION = T.outro[1];
+window.render = render;
+render(0);
+</script>
+</body>
+</html>
