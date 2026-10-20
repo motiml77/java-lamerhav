@@ -159,9 +159,9 @@ function generate(o) {
     L.push(`    public static ${retType} ${o.functionName}(${params.join(', ')}) {`);
     L.push(`        // תזכורת: ${st.hint.replace(/\{v\}/g, v1).replace(/\{T\}/g, T)}`);
     if (T === 'Student') L.push('        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()');
-    if (retStart !== undefined) L.push(`        ${retType} result = ${retStart};`);
+    if (retStart !== undefined) L.push(`        ${retType} result = ${retStart};   // כאן אוספים את מה שהפעולה מחזירה`);
     L.push('');
-    L.push('        // TODO: כאן כותבים את הפתרון');
+    L.push('        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)');
     const cursorLine = L.length;
     L.push('        ');
     if (retStart !== undefined) {
@@ -178,6 +178,7 @@ function generate(o) {
     L.push('    public static void main(String[] args) {');
     // עצים אין בהם "ערכים אקראיים" — אם סימנו, משתמשים בערכי ברירת המחדל
     const vals = (values, second) => values || (o.random ? defaultValues(o.structure, T, second) : values);
+    L.push('        // בונים את המבנה לבדיקה — אפשר לשנות את הערכים');
     L.push(...buildLines(st, T, v1, vals(o.values, false), false, random, o.structure));
     if (o.second) L.push(...buildLines(st, T, v2, vals(o.values2, true), true, random, o.structure));
     if (o.extra) L.push(`        ${extraType(T)} x = ${extraValue(o)};`);
@@ -186,8 +187,10 @@ function generate(o) {
         const p = printable(st, v);
         if (p) L.push(`        System.out.println("${title}: ${o.second ? ' ' + v + ' = ' : ''}" + ${p});`);
     };
+    if (printable(st, v1)) L.push('        // מדפיסים את המבנה לפני הקריאה לפעולה');
     show('לפני', v1);
     if (o.second) show('לפני', v2);
+    L.push('        // קוראים לפעולה שכתבתם');
     const call = `${o.functionName}(${args.join(', ')})`;
     if (o.returns === 'void') {
         L.push(`        ${call};`);
@@ -196,6 +199,7 @@ function generate(o) {
         const p = o.returns === 'structure' ? printable(st, 'result') : 'result';
         if (p) L.push(`        System.out.println("התוצאה: " + ${p});`);
     }
+    if (printable(st, v1)) L.push('        // מדפיסים את המבנה אחרי — מה השתנה?');
     show('אחרי', v1);
     if (o.second) show('אחרי', v2);
     L.push('    }');

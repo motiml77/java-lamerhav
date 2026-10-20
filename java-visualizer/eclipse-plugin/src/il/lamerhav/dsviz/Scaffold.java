@@ -241,9 +241,9 @@ public final class Scaffold {
         L.add("    public static " + retType + " " + o.functionName + "(" + String.join(", ", params) + ") {");
         L.add("        // תזכורת: " + st.hint.replace("{v}", v1).replace("{T}", T));
         if (T.equals("Student")) L.add("        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()");
-        if (retStart != null) L.add("        " + retType + " result = " + retStart + ";");
+        if (retStart != null) L.add("        " + retType + " result = " + retStart + ";   // כאן אוספים את מה שהפעולה מחזירה");
         L.add("");
-        L.add("        // TODO: כאן כותבים את הפתרון");
+        L.add("        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)");
         int cursorLine = L.size();
         L.add("        ");
         if (retStart != null) {
@@ -261,12 +261,15 @@ public final class Scaffold {
         // עצים אין בהם "ערכים אקראיים" — אם סימנו, משתמשים בערכי ברירת המחדל
         String vals1 = o.values.isEmpty() && o.random ? defaultValues(o.structure, T, false) : o.values;
         String vals2 = o.values2.isEmpty() && o.random ? defaultValues(o.structure, T, true) : o.values2;
+        L.add("        // בונים את המבנה לבדיקה — אפשר לשנות את הערכים");
         L.addAll(buildLines(st, T, v1, vals1, false, random, o.structure));
         if (o.second) L.addAll(buildLines(st, T, v2, vals2, true, random, o.structure));
         if (o.extra) L.add("        " + extraType(T) + " x = " + extraValue(o) + ";");
         L.add("");
+        if (printable(st, v1) != null) L.add("        // מדפיסים את המבנה לפני הקריאה לפעולה");
         show(L, st, "לפני", v1, o.second);
         if (o.second) show(L, st, "לפני", v2, true);
+        L.add("        // קוראים לפעולה שכתבתם");
         String call = o.functionName + "(" + String.join(", ", args) + ")";
         if (o.returns.equals("void")) {
             L.add("        " + call + ";");
@@ -275,6 +278,7 @@ public final class Scaffold {
             String p = o.returns.equals("structure") ? printable(st, "result") : "result";
             if (p != null) L.add("        System.out.println(\"התוצאה: \" + " + p + ");");
         }
+        if (printable(st, v1) != null) L.add("        // מדפיסים את המבנה אחרי — מה השתנה?");
         show(L, st, "אחרי", v1, o.second);
         if (o.second) show(L, st, "אחרי", v2, true);
         L.add("    }");
