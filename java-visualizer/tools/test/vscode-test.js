@@ -8,6 +8,7 @@ const ext = path.resolve(__dirname, '../../vscode-extension');
 const answers = [];   // תור תשובות: לכל שאלה פונקציה שמקבלת את הפריטים/האפשרויות
 const log = [];
 let opened = null, terminalOpts = null, diag = new Map();
+const panels = [];
 
 const vscode = {
     workspace: {
@@ -38,11 +39,12 @@ const vscode = {
         activeTextEditor: null,
         createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),
         withProgress: async (o, f) => f(),
-        createTerminal: o => { terminalOpts = o; return { show() {}, dispose() {} }; }
+        createTerminal: o => { terminalOpts = o; return { show() {}, dispose() {} }; },
+        createWebviewPanel: (id, title) => { panels.push({ id, title }); return { webview: {}, dispose() {}, onDidDispose() {} }; }
     },
     commands: { registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; }, executeCommand: async () => {} },
     extensions: { getExtension: () => ({}) },
-    StatusBarAlignment: { Left: 1 }, TextEditorRevealType: { InCenter: 2 },
+    StatusBarAlignment: { Left: 1 }, TextEditorRevealType: { InCenter: 2 }, ViewColumn: { Beside: -2 },
     Position: class { constructor(l, c) { this.line = l; this.character = c; } },
     Selection: class { constructor(a, b) { this.a = a; this.b = b; } },
     Range: class { constructor(a, b, c, d) { this.a = a; this.b = b; this.line = a; } },
@@ -121,6 +123,19 @@ const value = v => () => v;
     assert(bd && bd.length >= 1 && bd[0].range.line === 1, 'error not on line 2');
     fs.unlinkSync(path.join(ws, 'src', 'Broken.java'));
 
+    // --- הוספה לקוד: "צור מכונית" — נפתח חלון "מה יש במחלקה" (Car)
+    {
+        const ls = ['public class X {', '    public static void main(String[] args) {', '        ', '    }', '}'];
+        const ed2 = [];
+        vscode.window.activeTextEditor = { selection: { active: { line: 2 } },
+            document: { languageId: 'java', getText: () => ls.join('\n'), lineAt: i => ({ text: ls[i], range: { line: i } }), positionAt: o => ({ offset: o }) },
+            edit: async cb => { cb({ replace: (r, t) => ed2.push(t), insert: (p, t) => ed2.push(t) }); return true; } };
+        answers.push(keep);
+        await commands['dsviz.insert.car']();
+        assert(/Car c1 = Car\.random\(\);/.test(ed2[0]), ed2[0]);
+        assert(panels.length === 1 && panels[0].title.includes('Car'), JSON.stringify(panels));
+    }
+
     // --- הוספה לקוד: "צור תור" עם String בשורה ריקה בתוך main — בלי import בקובץ
     const lines = ['public class X {', '    public static void main(String[] args) {', '        ', '    }', '}'];
     const edits = [];
@@ -136,7 +151,7 @@ const value = v => () => v;
     answers.push(byId('String'), value('4'), keep);
     await commands['dsviz.insert.queue']();
     assert.strictEqual(edits[0][0], 'replace');
-    assert(/^        Queue<String> q = new Queue<String>\(\);\n(        q\.insert\("\w+"\);.*\n){3}        q\.insert\("\w+"\);$/.test(edits[0][2]), edits[0][2]);
+    assert(/^        Queue<String> q1 = new Queue<String>\(\);\n(        q1\.insert\("\w+"\);.*\n){3}        q1\.insert\("\w+"\);$/.test(edits[0][2]), edits[0][2]);
     assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\n\n');
     edits.length = 0;
     answers.push(value('2x3'), keep);

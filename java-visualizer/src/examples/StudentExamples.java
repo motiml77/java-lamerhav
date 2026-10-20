@@ -2,25 +2,25 @@ package examples;
 
 import unit4.collectionsLib.*;
 
-/** דוגמאות עם תלמידים: מצטיינים בתור, התלמיד הטוב ביותר במערך, מחסנית לפי ממוצע */
+/** דוגמאות עם תלמידים: מצטיינים בתור, והתלמיד הטוב ביותר במערך */
 public class StudentExamples {
 
     /** כמה תלמידים בתור עם ממוצע לפחות x — התור חוזר למצבו */
-    public static int countAbove(Queue<Student> q, int x) {
-        Queue<Student> temp = new Queue<Student>();
-        int count = 0;
-        while (!q.isEmpty()) {
-            Student s = q.remove();
-            if (s.getAverage() >= x) count++;
-            temp.insert(s);
+    public static int countAbove(Queue<Student> q1, int x) {
+        Queue<Student> tmp = new Queue<Student>();   // עזר: שומר את התלמידים כדי להחזיר אותם לתור
+        int count = 0;                               // כמה תלמידים עברו את x
+        while (!q1.isEmpty()) {
+            Student s1 = q1.remove();                // התלמיד שהוצאנו עכשיו
+            if (s1.getAverage() >= x) count++;
+            tmp.insert(s1);
         }
-        while (!temp.isEmpty()) q.insert(temp.remove());
+        while (!tmp.isEmpty()) q1.insert(tmp.remove());
         return count;
     }
 
     /** התלמיד עם הממוצע הגבוה ביותר */
     public static Student best(Student[] arr) {
-        Student best = arr[0];
+        Student best = arr[0];           // הטוב ביותר שמצאנו עד עכשיו (מתחילים מהראשון)
         for (int i = 1; i < arr.length; i++) {
             if (arr[i].getAverage() > best.getAverage()) best = arr[i];
         }
@@ -28,21 +28,21 @@ public class StudentExamples {
     }
 
     public static void main(String[] args) {
-        Queue<Student> q = new Queue<Student>();
+        Queue<Student> q1 = new Queue<Student>();
         for (int i = 0; i < 5; i++) {
-            q.insert(Student.random());   // תלמיד עם נתוני דמה
+            q1.insert(Student.random());   // תלמיד עם נתוני דמה
         }
-        System.out.println("ממוצע 80 ומעלה: " + countAbove(q, 80));
+        System.out.println("ממוצע 80 ומעלה: " + countAbove(q1, 80));
 
-        Student[] cls = new Student[4];
-        for (int i = 0; i < cls.length; i++) {
-            cls[i] = Student.random();
+        Student[] arr = new Student[4];
+        for (int i = 0; i < arr.length; i++) {
+            arr[i] = Student.random();
         }
-        Student b = best(cls);
-        System.out.println("הכי טוב: " + b);
+        Student s1 = best(arr);
+        System.out.println("הכי טוב: " + s1);
 
-        Student s = new Student("נועה לוי", "יא2", 90, 85, 77);
-        s.addGrade(100);
-        System.out.println(s.getName() + " — ממוצע " + s.getAverage() + ", מצטיינת: " + s.isExcellent());
+        Student s2 = new Student("נועה לוי", "יא2", 90, 85, 77);
+        s2.addGrade(100);
+        System.out.println(s2.getName() + " — ממוצע " + s2.getAverage() + ", מצטיינת: " + s2.isExcellent());
     }
 }

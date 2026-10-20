@@ -117,6 +117,7 @@ async function newExercise(preset) {
 
     const extraItems = [
         { label: `שני מבנים`, description: `הפעולה מקבלת שניים (למשל מיזוג, השוואה)`, id: 'second' },
+        { label: `שלושה מבנים`, description: `הפעולה מקבלת שלושה (למשל מחסנית מקור, יעד ועזר)`, id: 'third' },
         type === 'Student'
             ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה תלמידים עם ממוצע מעל x")`, id: 'extra' }
             : type === 'Car'
@@ -132,7 +133,7 @@ async function newExercise(preset) {
 
     const opts = {
         structure, type, returns: retPick.id,
-        second: has('second'), extra: has('extra'), random: false, recursive: has('recursive'),
+        count: has('third') ? 3 : has('second') ? 2 : 1, second: has('second') || has('third'), extra: has('extra'), random: false, recursive: has('recursive'),
         values: '', values2: '', className: '', functionName: ''
     };
 
@@ -154,10 +155,15 @@ async function newExercise(preset) {
         const v = await askValues(`${st.label} — (4/${total}) ערכים ל-${st.varName}${hint}`, first, type, isTree, structure);
         if (v === undefined) return;
         opts.values = v;
-        if (opts.second) {
-            const v2 = await askValues(`${st.label} — ערכים ל-${st.varName}2${hint}`, second, type, isTree, structure);
+        if (opts.count >= 2) {
+            const v2 = await askValues(`${st.label} — ערכים ל-${templates.nameN(st.varName, 2)}${hint}`, second, type, isTree, structure);
             if (v2 === undefined) return;
             opts.values2 = v2;
+        }
+        if (opts.count >= 3) {
+            const v3 = await askValues(`${st.label} — ערכים ל-${templates.nameN(st.varName, 3)}${hint}`, second, type, isTree, structure);
+            if (v3 === undefined) return;
+            opts.values3 = v3;
         }
     }
 
@@ -187,6 +193,7 @@ async function newExercise(preset) {
     const file = path.join(srcDir, className + '.java');
     fs.writeFileSync(file, gen.code, 'utf8');
     await openAt(root, file, gen.cursorLine);
+    showClassInfo(type);
 }
 
 async function askValues(title, value, type, allowNull, structure) {
@@ -248,8 +255,7 @@ async function insertSnippet(structure) {
         opts.size = +size;
     }
     const text = ed.document.getText();
-    let name = templates.snippetName(structure);
-    for (let i = 2; new RegExp('\\b' + name + '\\s*=').test(text); i++) name = templates.snippetName(structure) + i;
+    let name = templates.freeName(templates.snippetName(structure), text);
     name = await vscode.window.showInputBox({ title: `${label} — שם המשתנה`, value: name,
         validateInput: s => templates.isIdentifier(s) ? null : 'אותיות באנגלית וספרות בלבד, מתחיל באות' });
     if (!name) return;
@@ -269,6 +275,38 @@ async function insertSnippet(structure) {
             b.insert(at, pkg ? '\n\nimport unit4.collectionsLib.*;' : 'import unit4.collectionsLib.*;\n\n');
         }
     });
+    if (structure !== 'matrix') showClassInfo(type);
+}
+
+// ------------------------------------------------------------ "מה יש במחלקה" — חלון קטן בצד (Student / Car)
+
+let infoPanel;
+
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function showClassInfo(className) {
+    const info = templates.CLASS_INFO[className];
+    if (!info || !vscode.window.createWebviewPanel) return;
+    const table = (heads, rows) => '<table><tr>' + heads.map(h => `<th>${h}</th>`).join('') + '</tr>'
+        + rows.map(r => '<tr>' + r.map((c, i) => `<td${i === 0 ? ' class="code"' : ''}>${esc(c)}</td>`).join('') + '</tr>').join('') + '</table>';
+    const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><style>
+        body { font: 13px/1.5 var(--vscode-font-family); padding: 10px 14px; color: var(--vscode-foreground); }
+        h1 { font-size: 17px; margin: 0 0 2px; } .intro { opacity: .75; margin-bottom: 8px; }
+        h2 { font-size: 13px; margin: 14px 0 4px; } table { width: 100%; border-collapse: collapse; }
+        th { text-align: right; font-weight: 600; opacity: .7; border-bottom: 1px solid var(--vscode-panel-border); padding: 3px 6px; }
+        td { padding: 3px 6px; border-bottom: 1px solid var(--vscode-panel-border); vertical-align: top; }
+        td.code { direction: ltr; text-align: left; font-family: var(--vscode-editor-font-family); color: var(--vscode-textLink-foreground); white-space: nowrap; }
+    </style></head><body>
+        <h1>${esc(info.title)}</h1><div class="intro">${esc(info.intro)}</div>
+        <h2>איך יוצרים</h2>${table(['קוד', 'מה זה'], info.creators)}
+        <h2>מאפיינים</h2>${table(['שם', 'טיפוס', 'מה זה'], info.fields)}
+        <h2>פעולות</h2>${table(['פעולה', 'מה היא עושה'], info.methods)}
+    </body></html>`;
+    if (infoPanel) { try { infoPanel.dispose(); } catch (e) { /* כבר נסגר */ } }
+    infoPanel = vscode.window.createWebviewPanel('dsviz.classInfo', `מה יש ב-${info.name}`,
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, {});
+    infoPanel.webview.html = html;
+    infoPanel.onDidDispose(() => { infoPanel = undefined; });
 }
 
 // ------------------------------------------------------------ הרצה
@@ -365,7 +403,7 @@ async function examples() {
         if (!fs.existsSync(path.join(to, f))) fs.copyFileSync(path.join(from, f), path.join(to, f));
     }
     const names = { StackExamples: 'מחסנית', QueueExamples: 'תור', ListExamples: 'רשימה מקושרת', TreeExamples: 'עצים',
-                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)', CarExamples: 'מכוניות (Car)' };
+                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)', CarExamples: 'מכוניות (Car)', RecursionExamples: 'רקורסיה (עצרת, מערך, מחסנית)' };
     const pick = await vscode.window.showQuickPick(
         files.map(f => ({ label: names[path.basename(f, '.java')] || f, description: f, file: f })),
         { title: 'איזו דוגמה לפתוח?' });

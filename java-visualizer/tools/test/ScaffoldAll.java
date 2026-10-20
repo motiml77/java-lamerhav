@@ -12,7 +12,7 @@ public class ScaffoldAll {
           Scaffold.Options o = new Scaffold.Options();
           o.className = p[1]; o.structure = p[2]; o.type = p[3]; o.returns = p[4];
           o.second = Boolean.parseBoolean(p[5]); o.extra = Boolean.parseBoolean(p[6]); o.random = Boolean.parseBoolean(p[7]);
-          o.values = p[8]; o.values2 = p[9]; o.recursive = Boolean.parseBoolean(p[10]); o.functionName = "solve";
+          o.values = p[8]; o.values2 = p[9]; o.recursive = Boolean.parseBoolean(p[10]); o.count = Integer.parseInt(p[11]); o.values3 = p[12]; o.functionName = "solve";
           file = p[1] + ".java";
           try { Scaffold.Result r = Scaffold.generate(o); text = r.code + "//cursor=" + r.cursorLine; }
           catch (IllegalArgumentException e) { text = "ERROR: " + e.getMessage(); }

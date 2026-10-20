@@ -658,7 +658,8 @@ final class Recorder {
                                  Map<Object, List<String>> labels, Object last) {
         cell.value = str(value);
         cell.mark = node == target ? mark : Mark.NONE;
-        cell.current = node == last;
+        // בהרצה שורה-שורה שמות המשתנים מסמנים איפה אנחנו — סימן "הצומת האחרון שנגעו בו" רק מבלבל
+        cell.current = !lineMode && node == last;
         List<String> l = labels.get(node);
         if (l != null) cell.labels.addAll(l);
     }

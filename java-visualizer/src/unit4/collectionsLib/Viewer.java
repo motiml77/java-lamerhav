@@ -31,6 +31,7 @@ import java.util.Set;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.Icon;
 import javax.swing.InputMap;
@@ -100,7 +101,7 @@ final class Viewer extends JFrame {
     private final Timer player;
 
 
-    private final JTextArea code = new JTextArea();
+    private final CodePane code = new CodePane();
     private final Gutter gutter = new Gutter();
     private final JLabel codeSub = new JLabel(" ");
     private String codeKey;
@@ -436,13 +437,38 @@ final class Viewer extends JFrame {
         if (rec && pos >= 0 && pos < vis.size()) showPos(pos);
     }
 
+    /** תווית קטנה כמו הכדורים בכרטיסי הרקורסיה (#16 → 2) */
+    private static JLabel miniChip(String text) {
+        JLabel l = new JLabel("\u200E" + text + "\u200E");
+        l.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+        l.setFont(Theme.mono.deriveFont(Font.BOLD, 12f));
+        l.setForeground(Color.WHITE);
+        l.setOpaque(true);
+        l.setBackground(new Color(0x6B87C9));
+        l.setBorder(BorderFactory.createEmptyBorder(1, 7, 1, 7));
+        return l;
+    }
+
     private JPanel recursionLegend() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEADING, 12, 6));
+        JPanel colors = new JPanel(new FlowLayout(FlowLayout.LEADING, 12, 4));
+        colors.setOpaque(false);
+        colors.add(swatch(new Color(0xE8F0FE), new Color(0x2F6FED), "פועלת עכשיו"));
+        colors.add(swatch(new Color(0xF3F5F9), new Color(0xA9B4C6), "מחכה לתשובה"));
+        colors.add(swatch(new Color(0xE3F5E9), new Color(0x2E9E5B), "סיימה והחזירה ערך"));
+        JPanel help = new JPanel(new FlowLayout(FlowLayout.LEADING, 12, 0));
+        help.setOpaque(false);
+        help.add(label("שורה שקראה לפעולה:", Theme.small, Theme.MUTED));
+        help.add(miniChip("#16 → 2"));
+        help.add(label("(קריאה 16 החזירה 2)", Theme.small, Theme.MUTED));
+        help.add(miniChip("#16 …"));
+        help.add(label("(עוד רצה)", Theme.small, Theme.MUTED));
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setOpaque(false);
-        p.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER));
-        p.add(swatch(new Color(0xE8F0FE), new Color(0x2F6FED), "פועלת עכשיו"));
-        p.add(swatch(new Color(0xF3F5F9), new Color(0xA9B4C6), "מחכה לתשובה"));
-        p.add(swatch(new Color(0xE3F5E9), new Color(0x2E9E5B), "סיימה והחזירה ערך"));
+        p.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER),
+                BorderFactory.createEmptyBorder(0, 0, 4, 0)));
+        p.add(colors);
+        p.add(help);
         return p;
     }
 
@@ -676,7 +702,7 @@ final class Viewer extends JFrame {
             StringBuilder b = new StringBuilder();
             // כל שורה "משמאל לימין" — כדי שמחרוזות בעברית לא יהפכו את סדר השורה
             for (int i = 0; i < lines.size(); i++) b.append(ltr(lines.get(i))).append(i < lines.size() - 1 ? "\n" : "");
-            code.setText(b.toString());
+            code.showCode(b.toString());
             gutter.revalidate();
         }
         codeSub.setText(lrm(f.file) + "   ·   בתוך " + method(f));
@@ -705,6 +731,45 @@ final class Viewer extends JFrame {
             int y = Math.max(0, r.y - vis.height / 2 + r.height / 2);
             code.scrollRectToVisible(new Rectangle(vis.x, y, 1, vis.height));
         } catch (BadLocationException ignored) {}
+    }
+
+    /** אזור הקוד: טקסט צבעוני (מילים שמורות, טיפוסים, פעולות, משתנים, מחרוזות, הערות), בלי גלישת שורות */
+    private static final class CodePane extends javax.swing.JTextPane {
+        private final javax.swing.text.SimpleAttributeSet[] styles = new javax.swing.text.SimpleAttributeSet[9];
+
+        CodePane() {
+            for (int k = 0; k < styles.length; k++) {
+                styles[k] = new javax.swing.text.SimpleAttributeSet();
+                javax.swing.text.StyleConstants.setForeground(styles[k], Syntax.color(k));
+                javax.swing.text.StyleConstants.setItalic(styles[k], k == Syntax.COMMENT);
+            }
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            // בלי גלישה — גוללים לצדדים (אבל כשהקוד צר מהחלון — ממלאים את כל הרוחב)
+            return getParent() == null || getUI().getPreferredSize(this).width <= getParent().getWidth();
+        }
+
+        void showCode(String text) {
+            setText(text);
+            javax.swing.text.StyledDocument doc = getStyledDocument();
+            doc.setCharacterAttributes(0, doc.getLength(), styles[Syntax.PLAIN], true);
+            for (int[] t : Syntax.tokens(text)) doc.setCharacterAttributes(t[0], t[1] - t[0], styles[t[2]], false);
+            setCaretPosition(0);
+        }
+
+        int getLineCount() {
+            return getDocument().getDefaultRootElement().getElementCount();
+        }
+
+        int getLineStartOffset(int line) throws BadLocationException {
+            return getDocument().getDefaultRootElement().getElement(line).getStartOffset();
+        }
+
+        int getLineEndOffset(int line) throws BadLocationException {
+            return getDocument().getDefaultRootElement().getElement(line).getEndOffset();
+        }
     }
 
     /** צובע את כל רוחב השורה הנוכחית */

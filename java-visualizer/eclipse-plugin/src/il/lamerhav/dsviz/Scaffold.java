@@ -32,10 +32,10 @@ public final class Scaffold {
 
     public static final Map<String, Structure> STRUCTURES = new LinkedHashMap<String, Structure>();
     static {
-        add(new Structure("stack", "מחסנית", "Stack", "s", "stack", "randomStack",
+        add(new Structure("stack", "מחסנית", "Stack", "stk", "stack", "randomStack",
                 "האיבר האחרון בראש המחסנית",
                 "{v}.push(x)   {v}.pop()   {v}.top()   {v}.isEmpty()"));
-        add(new Structure("queue", "תור", "Queue", "q", "queue", "randomQueue",
+        add(new Structure("queue", "תור", "Queue", "q1", "queue", "randomQueue",
                 "האיבר הראשון בראש התור",
                 "{v}.insert(x)   {v}.remove()   {v}.head()   {v}.isEmpty()"));
         add(new Structure("list", "רשימה מקושרת", "Node", "lst", "list", "randomList",
@@ -196,7 +196,9 @@ public final class Scaffold {
     public static final class Options {
         public String structure = "stack", type = "Integer", returns = "void";
         public boolean second, extra, random, recursive;
-        public String values = "", values2 = "", className = "Targil1", functionName = "solve";
+        /** כמה מבנים הפעולה מקבלת (1–3). 0 = לפי second */
+        public int count;
+        public String values = "", values2 = "", values3 = "", className = "Targil1", functionName = "solve";
     }
 
     /** התוצאה: הקוד, ומספר השורה (מ-0) שבה התלמיד מתחיל לכתוב */
@@ -219,7 +221,10 @@ public final class Scaffold {
         boolean random = o.random && o.type.equals("Integer") && !o.structure.equals("tree") && !o.structure.equals("bst");
         String T = o.type;
         String full = typeOf(st, T);
-        String v1 = st.varName, v2 = st.varName + "2";
+        int count = Math.max(1, Math.min(3, o.count > 0 ? o.count : o.second ? 2 : 1));
+        String[] names = { nameN(st.varName, 1), nameN(st.varName, 2), nameN(st.varName, 3) };
+        String v1 = names[0];
+        String[] valuesOf = { o.values, o.values2, o.values3.isEmpty() ? o.values2 : o.values3 };
         String prim = primitive(T);
 
         // retStart = הערך ההתחלתי של המשתנה result (רק בפעולה שמחזירה ערך)
@@ -236,7 +241,7 @@ public final class Scaffold {
         List<String> params = new ArrayList<String>(), args = new ArrayList<String>();
         params.add(full + " " + v1);
         args.add(v1);
-        if (o.second) { params.add(full + " " + v2); args.add(v2); }
+        for (int i = 1; i < count; i++) { params.add(full + " " + names[i]); args.add(names[i]); }
         if (o.extra) { params.add(extraType(T) + " x"); args.add("x"); }
 
         List<String> L = new ArrayList<String>();
@@ -248,6 +253,8 @@ public final class Scaffold {
         L.add("");
         L.add("    public static " + retType + " " + o.functionName + "(" + String.join(", ", params) + ") {");
         L.add("        // תזכורת: " + st.hint.replace("{v}", v1).replace("{T}", T));
+        String helper = helperHint(st, T, v1);
+        if (helper != null) L.add("        // " + helper);
         if (T.equals("Student")) L.add("        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()");
         if (T.equals("Car")) L.add("        // Car: getManufacturer()   getYear()   getKm()   getFuel()   drive(km)   refuel(l)   isOld()   needsFuel()");
         if (retStart != null) L.add("        " + retType + " result = " + retStart + ";   // כאן אוספים את מה שהפעולה מחזירה");
@@ -273,16 +280,15 @@ public final class Scaffold {
         L.add("");
         L.add("    public static void main(String[] args) {");
         // עצים אין בהם "ערכים אקראיים" — אם סימנו, משתמשים בערכי ברירת המחדל
-        String vals1 = o.values.isEmpty() && o.random ? defaultValues(o.structure, T, false) : o.values;
-        String vals2 = o.values2.isEmpty() && o.random ? defaultValues(o.structure, T, true) : o.values2;
         L.add("        // בונים את המבנה לבדיקה — אפשר לשנות את הערכים");
-        L.addAll(buildLines(st, T, v1, vals1, false, random, o.structure));
-        if (o.second) L.addAll(buildLines(st, T, v2, vals2, true, random, o.structure));
+        for (int i = 0; i < count; i++) {
+            String vals = valuesOf[i].isEmpty() && o.random ? defaultValues(o.structure, T, i > 0) : valuesOf[i];
+            L.addAll(buildLines(st, T, names[i], vals, i > 0, random, o.structure));
+        }
         if (o.extra) L.add("        " + extraType(T) + " x = " + extraValue(o) + ";");
         L.add("");
         if (printable(st, v1) != null) L.add("        // מדפיסים את המבנה לפני הקריאה לפעולה");
-        show(L, st, "לפני", v1, o.second);
-        if (o.second) show(L, st, "לפני", v2, true);
+        for (int i = 0; i < count; i++) show(L, st, "לפני", names[i], count > 1);
         L.add("        // קוראים לפעולה שכתבתם");
         String call = o.functionName + "(" + String.join(", ", args) + ")";
         if (o.returns.equals("void")) {
@@ -293,8 +299,7 @@ public final class Scaffold {
             if (p != null) L.add("        System.out.println(\"התוצאה: \" + " + p + ");");
         }
         if (printable(st, v1) != null) L.add("        // מדפיסים את המבנה אחרי — מה השתנה?");
-        show(L, st, "אחרי", v1, o.second);
-        if (o.second) show(L, st, "אחרי", v2, true);
+        for (int i = 0; i < count; i++) show(L, st, "אחרי", names[i], count > 1);
         L.add("    }");
         L.add("}");
         L.add("");
@@ -642,9 +647,32 @@ public final class Scaffold {
         return b.toString();
     }
 
+    /** רמז לעזר שאפשר לפתוח בפעולה: tmp (מחסנית / תור עזר), curr (מצביע עזר ברשימה) */
+    static String helperHint(Structure st, String T, String v) {
+        if ("Stack".equals(st.cls) || "Queue".equals(st.cls))
+            return "עזר: " + st.cls + "<" + T + "> tmp = new " + st.cls + "<" + T + ">();   (" + st.label + " עזר)";
+        if ("Node".equals(st.cls)) return "עזר: Node<" + T + "> curr = " + v + ";   (מצביע שעובר על הרשימה — " + v + " נשאר בראש)";
+        return null;
+    }
+
+    /** שם המבנה ה-n: stk, stk2, stk3 — ואם השם נגמר בספרה (q1): q1, q2, q3 */
+    public static String nameN(String base, int n) {
+        if (n == 1) return base;
+        return Character.isDigit(base.charAt(base.length() - 1)) ? base.replaceAll("\\d+$", "") + n : base + n;
+    }
+
+    /** השם הפנוי הבא לפי מה שכבר כתוב בקוד: stk, stk2... או q1, q2... */
+    public static String freeName(String base, String text) {
+        for (int i = 1; i < 100; i++) {
+            String n = nameN(base, i);
+            if (!java.util.regex.Pattern.compile("\\b" + n + "\\s*=").matcher(text).find()) return n;
+        }
+        return base;
+    }
+
     /** שם ברירת המחדל למשתנה */
     public static String snippetName(String structure) {
-        return structure.equals("student") ? "st" : structure.equals("car") ? "car" : STRUCTURES.get(structure).varName;
+        return structure.equals("student") ? "s1" : structure.equals("car") ? "c1" : STRUCTURES.get(structure).varName;
     }
 
     private static List<String> withoutNull(List<String> l) {

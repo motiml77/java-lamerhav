@@ -66,6 +66,7 @@ public class InsertHandler extends AbstractHandler {
                 }
             }
             ed.selectAndReveal(caret, 0);
+            ClassInfoDialog.show(shell, d.chosenClass());
         } catch (BadLocationException e) {
             MessageDialog.openError(shell, "הוספה לקוד", e.toString());
         }

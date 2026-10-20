@@ -28,6 +28,7 @@ public class NewExerciseHandler extends AbstractHandler {
             Scaffold.Result r = Scaffold.generate(o);
             IFile file = ProjectSetup.createFile(src, o.className + ".java", r.code);
             Ui.openAt(window.getActivePage(), file, r.cursorLine);
+            ClassInfoDialog.show(shell, o.type);
         } catch (CoreException e) {
             Ui.error(shell, "לא הצלחתי ליצור את התרגיל.", e);
         }

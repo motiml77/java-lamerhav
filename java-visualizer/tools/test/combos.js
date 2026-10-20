@@ -14,12 +14,12 @@ const write = (name, f) => {
 for (const structure of Object.keys(t.STRUCTURES))
   for (const type of Object.keys(t.TYPES))
     for (const returns of t.RETURNS)
-      for (const flags of [0, 1, 2, 3, 4, 5, 6, 7, 8, 11]) {
+      for (const flags of [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 17]) {
         if (returns === 'element' && type === 'Integer') continue;
-        const o = { structure, type, returns, second: !!(flags & 1), extra: !!(flags & 2), random: !!(flags & 4), recursive: !!(flags & 8),
-                    values: t.defaultValues(structure, type, false), values2: t.defaultValues(structure, type, true),
+        const o = { structure, type, returns, second: !!(flags & 1), extra: !!(flags & 2), random: !!(flags & 4), recursive: !!(flags & 8), count: flags & 16 ? 3 : flags & 1 ? 2 : 1,
+                    values: t.defaultValues(structure, type, false), values2: t.defaultValues(structure, type, true), values3: t.defaultValues(structure, type, true),
                     className: 'C' + (++i), functionName: 'solve' };
-        combos.push(['T', o.className, structure, type, returns, o.second, o.extra, o.random, o.values, o.values2, o.recursive].join('|'));
+        combos.push(['T', o.className, structure, type, returns, o.second, o.extra, o.random, o.values, o.values2, o.recursive, o.count, t.defaultValues(structure, type, true)].join('|'));
         write(o.className + '.java', () => { const g = t.generate(o); return g.code + '//cursor=' + g.cursorLine; });
       }
 let k = 0;

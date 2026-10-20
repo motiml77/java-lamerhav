@@ -3,10 +3,10 @@
 // שימו לב: יש עותק זהה בג'אווה בתוסף של Eclipse (Scaffold.java) — שינוי כאן צריך להיעשות גם שם.
 
 const STRUCTURES = {
-    stack: { label: 'מחסנית', cls: 'Stack', varName: 's', build: 'stack', random: 'randomStack',
+    stack: { label: 'מחסנית', cls: 'Stack', varName: 'stk', build: 'stack', random: 'randomStack',
              note: 'האיבר האחרון בראש המחסנית',
              hint: '{v}.push(x)   {v}.pop()   {v}.top()   {v}.isEmpty()' },
-    queue: { label: 'תור', cls: 'Queue', varName: 'q', build: 'queue', random: 'randomQueue',
+    queue: { label: 'תור', cls: 'Queue', varName: 'q1', build: 'queue', random: 'randomQueue',
              note: 'האיבר הראשון בראש התור',
              hint: '{v}.insert(x)   {v}.remove()   {v}.head()   {v}.isEmpty()' },
     list:  { label: 'רשימה מקושרת', cls: 'Node', varName: 'lst', build: 'list', random: 'randomList',
@@ -134,7 +134,10 @@ function generate(o) {
     const random = !!o.random && o.type === 'Integer' && o.structure !== 'tree' && o.structure !== 'bst';
     const T = o.type;
     const full = typeOf(st, T);
-    const v1 = st.varName, v2 = st.varName + '2';
+    const count = Math.max(1, Math.min(3, o.count || (o.second ? 2 : 1)));
+    const names = [1, 2, 3].map(i => nameN(st.varName, i));
+    const v1 = names[0];
+    const valuesOf = [o.values, o.values2, o.values3 || o.values2];
 
     // retStart = הערך ההתחלתי של המשתנה result (רק בפעולה שמחזירה ערך)
     let retType, retStart;
@@ -149,7 +152,7 @@ function generate(o) {
 
     const params = [`${full} ${v1}`];
     const args = [v1];
-    if (o.second) { params.push(`${full} ${v2}`); args.push(v2); }
+    for (let i = 1; i < count; i++) { params.push(`${full} ${names[i]}`); args.push(names[i]); }
     if (o.extra) { params.push(`${extraType(T)} x`); args.push('x'); }
 
     const L = [];
@@ -161,6 +164,8 @@ function generate(o) {
     L.push('');
     L.push(`    public static ${retType} ${o.functionName}(${params.join(', ')}) {`);
     L.push(`        // תזכורת: ${st.hint.replace(/\{v\}/g, v1).replace(/\{T\}/g, T)}`);
+    const helper = helperHint(st, T, v1);
+    if (helper) L.push(`        // ${helper}`);
     if (T === 'Student') L.push('        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()');
     if (T === 'Car') L.push('        // Car: getManufacturer()   getYear()   getKm()   getFuel()   drive(km)   refuel(l)   isOld()   needsFuel()');
     if (retStart !== undefined) L.push(`        ${retType} result = ${retStart};   // כאן אוספים את מה שהפעולה מחזירה`);
@@ -188,17 +193,15 @@ function generate(o) {
     // עצים אין בהם "ערכים אקראיים" — אם סימנו, משתמשים בערכי ברירת המחדל
     const vals = (values, second) => values || (o.random ? defaultValues(o.structure, T, second) : values);
     L.push('        // בונים את המבנה לבדיקה — אפשר לשנות את הערכים');
-    L.push(...buildLines(st, T, v1, vals(o.values, false), false, random, o.structure));
-    if (o.second) L.push(...buildLines(st, T, v2, vals(o.values2, true), true, random, o.structure));
+    for (let i = 0; i < count; i++) L.push(...buildLines(st, T, names[i], vals(valuesOf[i], i > 0), i > 0, random, o.structure));
     if (o.extra) L.push(`        ${extraType(T)} x = ${extraValue(o)};`);
     L.push('');
     const show = (title, v) => {
         const p = printable(st, v);
-        if (p) L.push(`        System.out.println("${title}: ${o.second ? ' ' + v + ' = ' : ''}" + ${p});`);
+        if (p) L.push(`        System.out.println("${title}: ${count > 1 ? ' ' + v + ' = ' : ''}" + ${p});`);
     };
     if (printable(st, v1)) L.push('        // מדפיסים את המבנה לפני הקריאה לפעולה');
-    show('לפני', v1);
-    if (o.second) show('לפני', v2);
+    for (let i = 0; i < count; i++) show('לפני', names[i]);
     L.push('        // קוראים לפעולה שכתבתם');
     const call = `${o.functionName}(${args.join(', ')})`;
     if (o.returns === 'void') {
@@ -209,8 +212,7 @@ function generate(o) {
         if (p) L.push(`        System.out.println("התוצאה: " + ${p});`);
     }
     if (printable(st, v1)) L.push('        // מדפיסים את המבנה אחרי — מה השתנה?');
-    show('אחרי', v1);
-    if (o.second) show('אחרי', v2);
+    for (let i = 0; i < count; i++) show('אחרי', names[i]);
     L.push('    }');
     L.push('}');
     L.push('');
@@ -337,6 +339,29 @@ function emptyOf(st, T, v) {
     if (st.dims === 1) return `new ${prim}[${v}.length]`;
     if (st.dims === 2) return `new ${prim}[${v}.length][${v}[0].length]`;
     return 'null';
+}
+
+/** רמז לעזר שאפשר לפתוח בפעולה: tmp (מחסנית / תור עזר), curr (מצביע עזר ברשימה) */
+function helperHint(st, T, v) {
+    if (st.cls === 'Stack' || st.cls === 'Queue') return `עזר: ${st.cls}<${T}> tmp = new ${st.cls}<${T}>();   (${st.label} עזר)`;
+    if (st.cls === 'Node') return `עזר: Node<${T}> curr = ${v};   (מצביע שעובר על הרשימה — ${v} נשאר בראש)`;
+    return null;
+}
+
+/** שם המבנה ה-n: stk, stk2, stk3 — ואם השם נגמר בספרה (q1): q1, q2, q3 */
+function nameN(base, n) {
+    if (n === 1) return base;
+    return /\d$/.test(base) ? base.replace(/\d+$/, '') + n : base + n;
+}
+
+/** השם הפנוי הבא לפי מה שכבר כתוב בקוד: stk, stk2... או q1, q2... */
+function freeName(base, text) {
+    const used = n => new RegExp('\\b' + n + '\\s*=').test(text);
+    for (let i = 1; i < 100; i++) {
+        const n = nameN(base, i);
+        if (!used(n)) return n;
+    }
+    return base;
 }
 
 /** טיפוס המבנה: Stack<Integer>, int[], int[][] */
@@ -492,7 +517,184 @@ function snippet(o) {
 
 /** שם ברירת המחדל למשתנה */
 function snippetName(structure) {
-    return structure === 'student' ? 'st' : structure === 'car' ? 'car' : STRUCTURES[structure].varName;
+    return structure === 'student' ? 's1' : structure === 'car' ? 'c1' : STRUCTURES[structure].varName;
 }
 
-module.exports = { STRUCTURES, TYPES, RETURNS, SNIPPETS, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues };
+// ------------------------------------------------------------ "מה יש במחלקה" (Student / Car)
+// שימו לב: יש עותק זהה בג'אווה בתוסף של Eclipse (ClassInfo.java) — שינוי כאן צריך להיעשות גם שם.
+const CLASS_INFO = {
+    "Student": {
+        "name": "Student",
+        "title": "תלמיד (Student)",
+        "intro": "המאפיינים פרטיים — ניגשים אליהם דרך הפעולות (למשל s1.getName()).",
+        "creators": [
+            [
+                "new Student(\"נועה\", \"יא2\", 90, 85, 77)",
+                "שם, כיתה וציונים (כמה שרוצים)"
+            ],
+            [
+                "Student.random()",
+                "תלמיד אקראי עם נתוני דמה"
+            ]
+        ],
+        "fields": [
+            [
+                "name",
+                "String",
+                "שם התלמיד"
+            ],
+            [
+                "classRoom",
+                "String",
+                "הכיתה, למשל \"יא2\""
+            ],
+            [
+                "id",
+                "String",
+                "תעודת זהות (9 ספרות)"
+            ],
+            [
+                "age",
+                "int",
+                "גיל"
+            ],
+            [
+                "grades",
+                "int[]",
+                "הציונים"
+            ]
+        ],
+        "methods": [
+            [
+                "getName()  getClassRoom()  getId()  getAge()",
+                "קריאת הפרטים"
+            ],
+            [
+                "getNumGrades()",
+                "כמה ציונים יש"
+            ],
+            [
+                "getGrade(i)",
+                "הציון במקום i (מ-0)"
+            ],
+            [
+                "setGrade(i, g)  addGrade(g)",
+                "שינוי ציון / הוספת ציון בסוף"
+            ],
+            [
+                "getAverage()",
+                "ממוצע הציונים (double)"
+            ],
+            [
+                "getMaxGrade()  getMinGrade()",
+                "הציון הגבוה / הנמוך"
+            ],
+            [
+                "isExcellent()  isPassing()",
+                "ממוצע 90 ומעלה / 55 ומעלה"
+            ],
+            [
+                "compareTo(other)  equals(other)",
+                "השוואה לפי ממוצע / שווים אם אותה ת\"ז"
+            ]
+        ]
+    },
+    "Car": {
+        "name": "Car",
+        "title": "מכונית (Car)",
+        "intro": "המאפיינים פרטיים — ניגשים אליהם דרך הפעולות (למשל c1.getKm()).",
+        "creators": [
+            [
+                "new Car(\"Mazda\", \"3\", 2019)",
+                "יצרן, דגם ושנת ייצור"
+            ],
+            [
+                "Car.random()",
+                "מכונית אקראית עם נתוני דמה"
+            ]
+        ],
+        "fields": [
+            [
+                "manufacturer",
+                "String",
+                "יצרן, למשל \"Mazda\""
+            ],
+            [
+                "model",
+                "String",
+                "דגם"
+            ],
+            [
+                "year",
+                "int",
+                "שנת ייצור"
+            ],
+            [
+                "color",
+                "String",
+                "צבע"
+            ],
+            [
+                "plate",
+                "String",
+                "מספר רישוי"
+            ],
+            [
+                "km",
+                "int",
+                "קילומטראז' (כמה ק\"מ נסעה)"
+            ],
+            [
+                "fuel",
+                "double",
+                "ליטרים במיכל עכשיו"
+            ],
+            [
+                "tankSize",
+                "double",
+                "גודל המיכל בליטרים"
+            ],
+            [
+                "speed",
+                "int",
+                "מהירות עכשיו (קמ\"ש)"
+            ]
+        ],
+        "methods": [
+            [
+                "getManufacturer()  getModel()  getYear()  getColor()  getPlate()",
+                "קריאת הפרטים"
+            ],
+            [
+                "getKm()  getFuel()  getTankSize()  getSpeed()",
+                "קריאת מצב המכונית"
+            ],
+            [
+                "drive(km)",
+                "נוסעת עד km ק\"מ (עד שנגמר הדלק) — מחזירה כמה נסעה"
+            ],
+            [
+                "refuel(l)",
+                "מתדלקת l ליטרים (עד שהמיכל מלא)"
+            ],
+            [
+                "accelerate(d)  brake(d)",
+                "מוסיפה / מורידה מהירות"
+            ],
+            [
+                "getAge()  isOld()",
+                "גיל המכונית / 10 שנים ומעלה"
+            ],
+            [
+                "needsFuel()  isMoving()",
+                "פחות מעשירית מיכל / המהירות גדולה מ-0"
+            ],
+            [
+                "compareTo(other)  equals(other)",
+                "השוואה לפי שנה / שוות אם אותו מספר רישוי"
+            ]
+        ]
+    }
+};
+
+module.exports = { STRUCTURES, TYPES, RETURNS, SNIPPETS, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues, nameN, freeName, CLASS_INFO };

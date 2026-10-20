@@ -8,7 +8,7 @@ public class ArrayExamples {
 
     /** האינדקס של האיבר הגדול ביותר */
     public static int maxIndex(int[] arr) {
-        int max = 0;
+        int max = 0;                      // האינדקס של הגדול שמצאנו עד עכשיו
         for (int i = 1; i < arr.length; i++) {
             if (arr[i] > arr[max]) max = i;
         }
@@ -17,9 +17,9 @@ public class ArrayExamples {
 
     /** היפוך המערך במקום — שני אינדקסים שמתקרבים זה לזה */
     public static void reverse(int[] arr) {
-        int left = 0, right = arr.length - 1;
+        int left = 0, right = arr.length - 1;   // שני אינדקסים: אחד מההתחלה ואחד מהסוף
         while (left < right) {
-            int tmp = arr[left];
+            int tmp = arr[left];                // tmp שומר ערך כדי לא לאבד אותו בהחלפה
             arr[left] = arr[right];
             arr[right] = tmp;
             left++;
@@ -29,7 +29,7 @@ public class ArrayExamples {
 
     /** מערך עם הסכום של כל שורה */
     public static int[] rowSums(int[][] mat) {
-        int[] sums = new int[mat.length];
+        int[] sums = new int[mat.length];   // sums[r] = הסכום של שורה r
         for (int r = 0; r < mat.length; r++) {
             for (int c = 0; c < mat[r].length; c++) {
                 sums[r] += mat[r][c];
@@ -43,7 +43,7 @@ public class ArrayExamples {
         for (int i = 0; i < a.length - 1; i++) {
             for (int j = 0; j < a.length - 1 - i; j++) {
                 if (a[j] > a[j + 1]) {
-                    int tmp = a[j];
+                    int tmp = a[j];             // החלפה של שני שכנים: tmp שומר את הראשון
                     a[j] = a[j + 1];
                     a[j + 1] = tmp;
                 }

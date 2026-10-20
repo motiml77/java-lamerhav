@@ -498,7 +498,9 @@ final class StructPanel extends JPanel {
             g.setColor(LABEL);
             g.setFont(SMALL_B);
             FontMetrics fm = g.getFontMetrics();
-            g.drawString(b.toString(), cx - fm.stringWidth(b.toString()) / 2, bottomY - 2);
+            g.drawString(b.toString(), cx - fm.stringWidth(b.toString()) / 2, bottomY - 8);
+            // חץ קטן מהשם אל התא — כדי שיהיה ברור לאיזה תא / צומת המשתנה מצביע
+            g.fillPolygon(new int[] { cx - 4, cx + 4, cx }, new int[] { bottomY - 6, bottomY - 6, bottomY }, 3);
         } else if (c.current) {
             g.setColor(CURRENT);
             g.fillPolygon(new Polygon(new int[] { cx - 7, cx + 7, cx }, new int[] { bottomY - 12, bottomY - 12, bottomY - 2 }, 3));

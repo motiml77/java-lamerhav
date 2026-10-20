@@ -34,7 +34,7 @@ public class InsertDialog extends Dialog {
     private Label sizeLabel, rowsLabel, colsLabel, errorLabel;
     private Text name;
     private boolean nameEdited, updating;
-    private String result;
+    private String result, chosenClass;
     private Font headerFont, chipFont;
 
     public InsertDialog(Shell parent, String preset, String documentText, String indent) {
@@ -191,11 +191,9 @@ public class InsertDialog extends Dialog {
         return fallback;
     }
 
-    /** שם פנוי: q, q2, q3... (לפי מה שכבר כתוב בקובץ) */
+    /** שם פנוי: stk, stk2... או q1, q2... (לפי מה שכבר כתוב בקובץ) */
     private String freeName(String base) {
-        String n = base;
-        for (int i = 2; java.util.regex.Pattern.compile("\\b" + n + "\\s*=").matcher(documentText).find(); i++) n = base + i;
-        return n;
+        return Scaffold.freeName(base, documentText);
     }
 
     private void update() {
@@ -223,6 +221,8 @@ public class InsertDialog extends Dialog {
             o.seed = seed;
             o.indent = indent;
             String error = null;
+            chosenClass = st.equals("student") ? "Student" : st.equals("car") ? "Car"
+                    : (o.type.equals("Student") || o.type.equals("Car")) && !st.equals("matrix") ? o.type : null;
             try {
                 result = Scaffold.snippet(o);
             } catch (IllegalArgumentException e) {
@@ -235,6 +235,11 @@ public class InsertDialog extends Dialog {
         } finally {
             updating = false;
         }
+    }
+
+    /** Student / Car אם נבחרה מחלקה מוכנה (להצגת חלון "מה יש במחלקה"), אחרת null */
+    public String chosenClass() {
+        return chosenClass;
     }
 
     /** הקוד להכנסה (אחרי OK) */

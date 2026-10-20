@@ -5,14 +5,16 @@ import unit4.collectionsLib.*;
 /** דוגמאות עצים ברקורסיה: מספר צמתים, גובה, הכנסה לעץ חיפוש */
 public class TreeExamples {
 
+    /** כמה צמתים בעץ */
     public static int count(BinNode<Integer> t) {
-        if (t == null) return 0;
-        return 1 + count(t.getLeft()) + count(t.getRight());
+        if (t == null) return 0;                             // מקרה בסיס: עץ ריק — אפס צמתים
+        return 1 + count(t.getLeft()) + count(t.getRight()); // הצומת הזה + כל מה שבתת-העץ השמאלי והימני
     }
 
+    /** גובה העץ (עלה בודד = 0) */
     public static int height(BinNode<Integer> t) {
-        if (t == null) return -1;
-        return 1 + Math.max(height(t.getLeft()), height(t.getRight()));
+        if (t == null) return -1;                            // מקרה בסיס: עץ ריק
+        return 1 + Math.max(height(t.getLeft()), height(t.getRight()));   // הצד הגבוה יותר + צעד אחד
     }
 
     /** הכנסה לעץ חיפוש בינארי */

@@ -380,8 +380,23 @@ final class RecursionPanel extends JPanel {
         g.setColor(MUTED);
         String num = String.valueOf(e.line);
         g.drawString(num, c.x + 28 - fm.stringWidth(num), y);
-        g.setColor(INK);
-        g.drawString(fit(e.code, fm, W - 46 - tagW - (tag != null ? 6 : 0)), c.x + 34, y);
+        drawCode(g, fit(e.code, fm, W - 46 - tagW - (tag != null ? 6 : 0)), c.x + 34, y, fm);
+    }
+
+    /** שורת קוד צבעונית: כל מקטע בצבע שלו (הגופן ברוחב קבוע, אז מתקדמים לפי מדידה) */
+    private static void drawCode(Graphics2D g, String code, int x, int y, FontMetrics fm) {
+        int pos = 0;
+        g.setColor(Syntax.color(Syntax.PLAIN));
+        for (int[] t : Syntax.tokens(code)) {
+            if (t[0] > pos) { g.setColor(Syntax.color(Syntax.PLAIN)); g.drawString(code.substring(pos, t[0]), x + fm.stringWidth(code.substring(0, pos)), y); }
+            g.setColor(Syntax.color(t[2]));
+            g.drawString(code.substring(t[0], t[1]), x + fm.stringWidth(code.substring(0, t[0])), y);
+            pos = t[1];
+        }
+        if (pos < code.length()) {
+            g.setColor(Syntax.color(Syntax.PLAIN));
+            g.drawString(code.substring(pos), x + fm.stringWidth(code.substring(0, pos)), y);
+        }
     }
 
     /** מה הקריאה קיבלה: המשתנים בשורה הראשונה שלה (בלי this) */

@@ -6,39 +6,39 @@ import unit4.collectionsLib.*;
 public class QueueExamples {
 
     /** כמה איברים בתור — התור חוזר למצבו המקורי */
-    public static int size(Queue<Integer> q) {
-        Queue<Integer> temp = new Queue<Integer>();
-        int count = 0;
-        while (!q.isEmpty()) {
-            temp.insert(q.remove());
+    public static int size(Queue<Integer> q1) {
+        Queue<Integer> tmp = new Queue<Integer>();   // עזר: שומר את האיברים כדי להחזיר אותם
+        int count = 0;                               // כאן סופרים
+        while (!q1.isEmpty()) {
+            tmp.insert(q1.remove());
             count++;
         }
-        while (!temp.isEmpty()) {
-            q.insert(temp.remove());
+        while (!tmp.isEmpty()) {
+            q1.insert(tmp.remove());
         }
         return count;
     }
 
     /** מוחקת מהתור את כל המופעים של x (שומרת על הסדר) */
-    public static void removeAll(Queue<Integer> q, int x) {
-        q.insert(null);                 // סימן לסוף הסיבוב
-        Integer cur = q.remove();
-        while (cur != null) {
-            if (cur != x) q.insert(cur);
-            cur = q.remove();
+    public static void removeAll(Queue<Integer> q1, int x) {
+        q1.insert(null);                 // סימן לסוף הסיבוב
+        Integer curr = q1.remove();      // האיבר הנוכחי
+        while (curr != null) {
+            if (curr != x) q1.insert(curr);   // כל מה שלא x חוזר לסוף התור
+            curr = q1.remove();
         }
     }
 
     public static void main(String[] args) {
-        Queue<Integer> q = new Queue<Integer>();
-        q.insert(5);   // הראשון שנכנס — בראש התור
-        q.insert(3);
-        q.insert(5);
-        q.insert(8);
-        q.insert(5);
-        q.insert(2);
-        System.out.println("גודל: " + size(q));
-        removeAll(q, 5);
-        System.out.println("אחרי מחיקת 5: " + q);
+        Queue<Integer> q1 = new Queue<Integer>();
+        q1.insert(5);   // הראשון שנכנס — בראש התור
+        q1.insert(3);
+        q1.insert(5);
+        q1.insert(8);
+        q1.insert(5);
+        q1.insert(2);
+        System.out.println("גודל: " + size(q1));
+        removeAll(q1, 5);
+        System.out.println("אחרי מחיקת 5: " + q1);
     }
 }
