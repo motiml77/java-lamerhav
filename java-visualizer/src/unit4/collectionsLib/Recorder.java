@@ -104,9 +104,28 @@ final class Recorder {
 
     // ------------------------------------------------------------ אתחול
 
+    /** מתעורר כשחלון ההרצה גלוי */
+    static final java.util.concurrent.CountDownLatch viewerReady = new java.util.concurrent.CountDownLatch(1);
+
+    /**
+     * הרצה שורה-שורה: פותחים את החלון ומחכים שיהיה מוכן לפני שהתוכנית של התלמיד מתחילה.
+     * (בזמן שה-debugger צועד על השורות, חוט החלון כמעט לא מקבל זמן ריצה — והחלון היה עולה אחרי כמה שניות)
+     */
+    static void preload() {
+        if (!lineMode || !active) return;
+        start();
+        if (textMode) return;
+        try {
+            viewerReady.await(20, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private static void start() {
         if (started) return;
         started = true;
+        Timing.mark("Recorder.start (צעד ראשון)");
         out = System.out;
         err = System.err;
         if (GraphicsEnvironment.isHeadless()) textMode = true;
@@ -130,7 +149,9 @@ final class Recorder {
         }
         if (!textMode) {
             SwingUtilities.invokeLater(new Runnable() {
-                public void run() { Viewer.open(); }
+                public void run() {
+                    try { Viewer.open(); } finally { viewerReady.countDown(); }   // גם אם נכשל — לא נתקעים
+                }
             });
         }
     }

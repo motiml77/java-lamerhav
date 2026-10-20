@@ -85,7 +85,12 @@ final class JdiTracer {
         cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java");
         cmd.add("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=" + address);
         cmd.add("-D" + LineByLine.CHILD_PROPERTY + "=true");
-        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless" }) {
+        if (LineByLine.splashReady != null) cmd.add("-D" + Splash.READY_PROPERTY + "=" + LineByLine.splashReady.getPath());
+        // עלייה מהירה יותר של התהליך (הקוד של התלמיד קצר — אין צורך בקומפילציה מלאה של ה-JIT)
+        cmd.add("-XX:TieredStopAtLevel=1");
+        cmd.add("-XX:+UseSerialGC");
+        cmd.add("-Xshare:auto");
+        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug" }) {
             String v = System.getProperty(p);
             if (v != null) cmd.add("-D" + p + "=" + v);
         }
@@ -100,7 +105,9 @@ final class JdiTracer {
         pump(proc.getErrorStream(), System.err, true);
         pump(System.in, proc.getOutputStream(), false);
 
+        Timing.mark("ממתין לילד");
         vm = lc.accept(ca);
+        Timing.mark("הילד התחבר");
         lc.stopListening(ca);
 
         EventRequestManager erm = vm.eventRequestManager();

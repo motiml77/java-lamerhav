@@ -23,6 +23,7 @@ public final class LineByLine {
     static final String CHILD_PROPERTY = "dsviz.child";
 
     public static void main(String[] args) throws Throwable {
+        Timing.mark("main התחיל");
         if (args.length == 0) {
             System.err.println("שימוש: LineByLine <שם המחלקה עם main> [ארגומנטים...]");
             System.exit(2);
@@ -36,6 +37,9 @@ public final class LineByLine {
         }
     }
 
+    /** קובץ שהילד יוצר כשהחלון מוכן (וחלון ה"טוען" נסגר), או null */
+    static java.io.File splashReady;
+
     /** האם אנחנו בתוך התהליך שרץ תחת ה-Tracer */
     static boolean isChild() {
         return Boolean.getBoolean(CHILD_PROPERTY);
@@ -44,6 +48,7 @@ public final class LineByLine {
     /** מריץ את התוכנית שורה-שורה ומחזיר את קוד היציאה שלה */
     static int trace(String mainClass, String[] args) {
         String why = null;
+        splashReady = Splash.show();   // "טוען..." מיד — עוד לפני שהתהליך של התוכנית עלה
         try {
             Class.forName("com.sun.jdi.Bootstrap");
             Class<?> tracer = Class.forName("unit4.collectionsLib.JdiTracer");
@@ -69,8 +74,12 @@ public final class LineByLine {
 
     /** בתהליך הילד: מפעיל את מצב השורות ומריץ את main של התלמיד */
     static void runChild(String mainClass, String[] args) throws Throwable {
+        Timing.mark("runChild התחיל");
         Recorder.active = true;   // הרצה ויזואלית — גם כשאין JDI ומריצים כאן בלי שורות
-        if (isChild()) Recorder.initLineMode();
+        if (isChild()) {
+            Recorder.initLineMode();
+            Recorder.preload();
+        }
         Method main = Class.forName(mainClass).getMethod("main", String[].class);
         try {
             main.invoke(null, (Object) args);

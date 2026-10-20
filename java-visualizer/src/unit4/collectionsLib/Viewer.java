@@ -72,9 +72,18 @@ import unit4.collectionsLib.Model.Step;
 final class Viewer extends JFrame {
 
     static void open() {
+        Timing.mark("Viewer.open התחיל");
         Theme.install();
+        Timing.mark("Theme.install הסתיים");
         Viewer v = new Viewer();
+        Timing.mark("Viewer נבנה");
         v.setVisible(true);
+        Timing.mark("החלון גלוי");
+        Recorder.viewerReady.countDown();
+        String ready = System.getProperty(Splash.READY_PROPERTY);
+        if (ready != null) {   // מסמן לחלון ה"טוען" (בתהליך האב) שאפשר לסגור אותו
+            try { new java.io.File(ready).createNewFile(); } catch (java.io.IOException ignored) {}
+        }
     }
 
     // ------------------------------------------------------------ מצב
@@ -89,6 +98,10 @@ final class Viewer extends JFrame {
     private boolean checkedExercise, recursionExercise;
     private JComponent viewTabsBox;
     private final JToggleButton mainBtn = new JToggleButton("גם main");
+    private int angle;
+    private boolean finished;
+    private final Spin busy = new Spin(true);
+    private final Spin overlay = new Spin(false);
 
     // ------------------------------------------------------------ רכיבים
 
@@ -193,6 +206,7 @@ final class Viewer extends JFrame {
         modePanel.setVisible(false);
 
         JPanel info = row(12);
+        info.add(busy);
         info.add(counter);
         info.add(modePanel);
         mainBtn.setFocusable(false);
@@ -325,6 +339,16 @@ final class Viewer extends JFrame {
         });
         new Timer(200, new ActionListener() {
             public void actionPerformed(ActionEvent e) { poll(); }
+        }).start();
+        // ספינר טעינה: על כל החלון עד שמגיע הצעד הראשון, וקטן ליד המונה כל עוד התוכנית עוד רצה
+        setGlassPane(overlay);
+        overlay.setVisible(true);
+        new Timer(40, new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                angle = (angle + 12) % 360;
+                if (overlay.isVisible()) overlay.repaint();
+                if (busy.isVisible()) busy.repaint();
+            }
         }).start();
 
         // גודל החלון לפי המסך (גם במסכים קטנים ובהגדלת תצוגה של Windows)
@@ -558,6 +582,11 @@ final class Viewer extends JFrame {
         boolean rebuild = false;
         for (int i = known; i < n; i++) {
             Step s = Recorder.step(i);
+            if (s.kind == Kind.END || s.kind == Kind.ERROR) {   // התוכנית הסתיימה — נעלם הספינר
+                finished = true;
+                busy.setVisible(false);
+                overlay.setVisible(false);
+            }
             if (s.kind == Kind.LINE && !hasLines) {
                 hasLines = true;
                 modePanel.setVisible(true);
@@ -585,6 +614,7 @@ final class Viewer extends JFrame {
         }
         updateTimeline();
         if (pos < 0 && !vis.isEmpty()) showPos(0);
+        if (!vis.isEmpty()) overlay.setVisible(false);
     }
 
     /**
@@ -938,6 +968,55 @@ final class Viewer extends JFrame {
             g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
             g.setColor(Theme.BORDER);
             g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+            g.dispose();
+        }
+    }
+
+    /**
+     * ספינר מסתובב. small = סימן קטן ליד המונה ("התוכנית עוד רצה");
+     * אחרת — שכבה שקופה על כל החלון עם ספינר גדול וטקסט (לפני הצעד הראשון). לא חוסם עכבר.
+     */
+    private final class Spin extends JComponent {
+        private final boolean small;
+
+        Spin(boolean small) {
+            this.small = small;
+            setOpaque(false);
+            if (small) setPreferredSize(new Dimension(20, 20));
+            if (small) setToolTipText("התוכנית עוד רצה — צעדים חדשים ממשיכים להתווסף");
+        }
+
+        @Override
+        public boolean contains(int x, int y) {
+            return small && super.contains(x, y);   // השכבה הגדולה לא תופסת עכבר
+        }
+
+        @Override
+        protected void paintComponent(Graphics g0) {
+            Graphics2D g = (Graphics2D) g0.create();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            int d = small ? 16 : 46, x, y;
+            if (small) {
+                x = (getWidth() - d) / 2;
+                y = (getHeight() - d) / 2;
+            } else {
+                g.setColor(new Color(255, 255, 255, 215));
+                g.fillRect(0, 0, getWidth(), getHeight());
+                x = (getWidth() - d) / 2;
+                y = getHeight() / 2 - d - 6;
+            }
+            g.setStroke(new BasicStroke(small ? 2.4f : 5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.setColor(new Color(0xDCE3F0));
+            g.drawOval(x, y, d, d);
+            g.setColor(Theme.ACCENT);
+            g.draw(new java.awt.geom.Arc2D.Double(x, y, d, d, -angle, 100, java.awt.geom.Arc2D.OPEN));
+            if (!small) {
+                g.setFont(Theme.big);
+                g.setColor(Theme.TEXT);
+                String t = "מריץ את התוכנית...";
+                g.drawString(t, (getWidth() - g.getFontMetrics().stringWidth(t)) / 2, y + d + 34);
+            }
             g.dispose();
         }
     }
