@@ -56,6 +56,7 @@ final class RecursionPanel extends JPanel {
         boolean done;
         String returned;         // null = void (או שעוד לא החזירה)
         int x, y, h;             // מיקום בציור
+        boolean shown;           // main לא מוצג (הוא המעטפת), אלא אם ביקשו "גם main"
     }
 
     private static final int W = 300, INDENT = 38, GAP = 22, PAD = 18, HEAD = 32, VARS = 22, ROW = 20, FOOT = 28, ARC = 14;
@@ -75,11 +76,17 @@ final class RecursionPanel extends JPanel {
 
     private final List<Call> order = new ArrayList<Call>();   // לפי סדר הקריאות
     private Call active;
+    private boolean hideMain = true;
     private double zoom = 1;
     private int contentW, contentH;
 
     RecursionPanel() {
         setBackground(Color.WHITE);
+    }
+
+    /** true = בלי הכרטיס של main (בניית המבנים היא מעטפת) — המעקב מתחיל בפעולה שהתלמיד כתב */
+    void setHideMain(boolean hide) {
+        hideMain = hide;
     }
 
     /** האם בצעד הזה יש רקורסיה (אותה פעולה פעמיים במחסנית) */
@@ -125,7 +132,8 @@ final class RecursionPanel extends JPanel {
                     if (at != null) at.calls.add(c);   // השורה בקורא שפתחה את הקריאה הזו
                 }
                 stack.add(c);
-                order.add(c);
+                c.shown = !(hideMain && c.depth == 0);
+                if (c.shown) order.add(c);
             }
             Call top = stack.get(stack.size() - 1);
             if (s.where != null) top.line = s.where.line;
@@ -202,7 +210,7 @@ final class RecursionPanel extends JPanel {
         int y = PAD;
         contentW = 0;
         for (Call c : order) {
-            c.x = PAD + c.depth * INDENT;
+            c.x = PAD + (c.depth - (hideMain ? 1 : 0)) * INDENT;
             c.y = y;
             int rows = Math.min(MAX_TRAIL, c.trail.size()) + (c.trail.size() > MAX_TRAIL ? 1 : 0);
             c.h = HEAD + VARS + Math.max(1, rows) * ROW + FOOT + 8;
@@ -241,8 +249,8 @@ final class RecursionPanel extends JPanel {
             g.dispose();
             return;
         }
-        for (Call c : order) if (c.parent != null) callArrow(g, c.parent, c);
-        for (Call c : order) if (c.parent != null && c.done) returnArrow(g, c.parent, c);
+        for (Call c : order) if (c.parent != null && c.parent.shown) callArrow(g, c.parent, c);
+        for (Call c : order) if (c.parent != null && c.parent.shown && c.done) returnArrow(g, c.parent, c);
         for (Call c : order) card(g, c);
         g.dispose();
     }

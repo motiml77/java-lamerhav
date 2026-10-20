@@ -82,6 +82,9 @@ final class Viewer extends JFrame {
     private final List<Integer> vis = new ArrayList<Integer>();
     private int known = 0, pos = -1;
     private boolean onlyOps, hasLines, adjusting;
+    /** inFunction = התוכנית כבר נכנסה לפעולה (לא main); mainOnly = הסתיימה בלי פעולות; showMain = "גם main" */
+    private boolean inFunction, mainOnly, showMain;
+    private final JToggleButton mainBtn = new JToggleButton("גם main");
 
     // ------------------------------------------------------------ רכיבים
 
@@ -192,6 +195,20 @@ final class Viewer extends JFrame {
         JPanel info = row(12);
         info.add(counter);
         info.add(modePanel);
+        mainBtn.setFocusable(false);
+        mainBtn.setFont(Theme.small);
+        mainBtn.putClientProperty("JButton.buttonType", "toolBarButton");
+        mainBtn.putClientProperty("FlatLaf.style", "selectedBackground: #E8F0FE; selectedForeground: #2F6FED; arc: 10; margin: 3,10,3,10");
+        mainBtn.setToolTipText("להציג גם את הצעדים של main (בניית המבנים — המעטפת). בלי זה המעקב מתחיל בפעולה שכתבתם");
+        mainBtn.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                showMain = mainBtn.isSelected();
+                recursion.setHideMain(!showMain);
+                rebuildVisible();
+            }
+        });
+        mainBtn.setVisible(false);
+        info.add(mainBtn);
 
         JPanel bar = new JPanel(new BorderLayout(16, 0));
         bar.setOpaque(false);
@@ -518,28 +535,53 @@ final class Viewer extends JFrame {
     private void poll() {
         int n = Recorder.stepCount();
         if (n == known) return;
+        boolean rebuild = false;
         for (int i = known; i < n; i++) {
             Step s = Recorder.step(i);
             if (s.kind == Kind.LINE && !hasLines) {
                 hasLines = true;
                 modePanel.setVisible(true);
             }
+            if (s.calls.size() >= 2 && !inFunction) {
+                inFunction = true;
+                mainBtn.setVisible(true);
+            }
+            // תוכנית שכולה ב-main (בלי פעולות) — מציגים את main
+            if (s.kind == Kind.END && !inFunction && !mainOnly) {
+                mainOnly = true;
+                rebuild = true;
+            }
             if (visible(s)) vis.add(i);
         }
         known = n;
+        if (rebuild) {
+            rebuildVisible();
+            return;
+        }
         updateTimeline();
         if (pos < 0 && !vis.isEmpty()) showPos(0);
     }
 
+    /**
+     * המעקב מתמקד בפעולות שהתלמיד כתב: הצעדים של main עצמו (בניית המבנים — המעטפת) לא מוצגים,
+     * אלא אם לוחצים "גם main" או שאין בתוכנית פעולות בכלל. המבנים שנבנו ב-main מופיעים מוכנים.
+     */
     private boolean visible(Step s) {
-        return !onlyOps || (s.kind != Kind.LINE && s.kind != Kind.CHECK);
+        if (onlyOps && (s.kind == Kind.LINE || s.kind == Kind.CHECK)) return false;
+        boolean always = s.kind == Kind.END || s.kind == Kind.ERROR;
+        return always || showMain || mainOnly || s.calls.size() >= 2;
     }
 
     /** מעבר בין "כל שורה" ל"רק פעולות" — נשארים בערך באותו מקום בהרצה */
     private void setOnlyOps(boolean only) {
         if (only == onlyOps) return;
-        int cur = pos >= 0 && pos < vis.size() ? vis.get(pos) : 0;
         onlyOps = only;
+        rebuildVisible();
+    }
+
+    /** בונה מחדש את רשימת הצעדים שמוצגים — ונשארים בערך באותו מקום בהרצה */
+    private void rebuildVisible() {
+        int cur = pos >= 0 && pos < vis.size() ? vis.get(pos) : 0;
         vis.clear();
         for (int i = 0; i < known; i++) if (visible(Recorder.step(i))) vis.add(i);
         int p = 0;
