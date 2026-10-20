@@ -121,7 +121,7 @@ async function newExercise(preset) {
             ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה תלמידים עם ממוצע מעל x")`, id: 'extra' }
             : { label: `פרמטר נוסף x`, description: `${tp.primitive} x (למשל "מחקו את כל המופעים של x")`, id: 'extra' }
     ];
-    if (type === 'Integer') extraItems.push({ label: 'ערכים אקראיים', description: 'בכל הרצה מספרים אחרים', id: 'random' });
+    if (type === 'Integer' && structure !== 'tree' && structure !== 'bst') extraItems.push({ label: 'ערכים אקראיים', description: 'בכל הרצה מספרים אחרים', id: 'random' });
     const extras = await vscode.window.showQuickPick(extraItems,
         { title: `${st.label} — (3/${total}) תוספות (אפשר לדלג עם Enter)`, canPickMany: true });
     if (!extras) return;

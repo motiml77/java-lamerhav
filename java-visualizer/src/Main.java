@@ -3,7 +3,7 @@ import unit4.collectionsLib.*;
 /**
  * ===== תבנית לתרגיל =====
  * 1. כותבים את הפונקציה למטה.
- * 2. ב-main בונים מבנה לבדיקה בשורה אחת (Build) וקוראים לפונקציה.
+ * 2. ב-main בונים מבנה לבדיקה (new Stack<Integer>() ...) וקוראים לפונקציה.
  * 3. מריצים (Run) — נפתח חלון שמראה כל צעד: המבנים, שורת הקוד, מחסנית הקריאות והפלט.
  *
  * ניווט בחלון: חץ שמאלה / רווח = צעד הבא,  חץ ימינה = צעד קודם,  P = הפעלה אוטומטית.
@@ -30,7 +30,12 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        Stack<Integer> s = Build.stack(4, 7, 1, 9);   // 9 בראש המחסנית
+        Stack<Integer> s = new Stack<Integer>();
+        s.push(4);
+        s.push(7);
+        s.push(1);
+        s.push(9);   // האחרון שנכנס — בראש המחסנית
+
         System.out.println("הסכום: " + sum(s));
         System.out.println("המחסנית אחרי: " + s);
     }

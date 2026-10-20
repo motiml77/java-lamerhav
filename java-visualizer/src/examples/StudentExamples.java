@@ -28,10 +28,16 @@ public class StudentExamples {
     }
 
     public static void main(String[] args) {
-        Queue<Student> q = Build.queue(Build.students(5));
+        Queue<Student> q = new Queue<Student>();
+        for (int i = 0; i < 5; i++) {
+            q.insert(Student.random());   // תלמיד עם נתוני דמה
+        }
         System.out.println("ממוצע 80 ומעלה: " + countAbove(q, 80));
 
-        Student[] cls = Build.array(Build.students(4));
+        Student[] cls = new Student[4];
+        for (int i = 0; i < cls.length; i++) {
+            cls[i] = Student.random();
+        }
         Student b = best(cls);
         System.out.println("הכי טוב: " + b);
 

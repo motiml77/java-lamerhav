@@ -47,7 +47,10 @@ public class ListExamples {
     }
 
     public static void main(String[] args) {
-        Node<Integer> lst = Build.list(3, 8, 1, 6);
+        Node<Integer> lst = new Node<Integer>(6);   // מתחילים מהחוליה האחרונה
+        lst = new Node<Integer>(1, lst);
+        lst = new Node<Integer>(8, lst);
+        lst = new Node<Integer>(3, lst);   // החוליה הראשונה
         System.out.println("סכום: " + sum(lst));
         Viz.point("p", null);
 

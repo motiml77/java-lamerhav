@@ -32,7 +32,11 @@ public class StackExamples {
     }
 
     public static void main(String[] args) {
-        Stack<Integer> s = Build.stack(1, 2, 3, 4);
+        Stack<Integer> s = new Stack<Integer>();
+        s.push(1);
+        s.push(2);
+        s.push(3);
+        s.push(4);   // האחרון שנכנס — בראש המחסנית
         Stack<Integer> r = reverse(s);
         System.out.println("הפוכה: " + r);
 

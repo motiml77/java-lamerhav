@@ -8,6 +8,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 import unit4.collectionsLib.Model.Cell;
 import unit4.collectionsLib.Model.ChainView;
@@ -30,44 +32,93 @@ import unit4.collectionsLib.Model.View;
 
 /** מצייר את כל המבנים של צעד אחד */
 final class StructPanel extends JPanel {
-    static final Color BOX = new Color(0xDCE8FB);
-    static final Color NEW_C = new Color(0xA8E6B0);
-    static final Color READ_C = new Color(0xFFE680);
-    static final Color CHANGED_C = new Color(0xFFC48A);
-    static final Color GHOST = new Color(0xD64545);
-    static final Color CURRENT = new Color(0xFF8C00);
-    private static final Color LINE = new Color(0x34495E);
-    private static final Color FOCUS = new Color(0x1A5FB4);
-    private static final Color FOCUS_BG = new Color(0xE3EEFF);
-    private static final Color LABEL = new Color(0x8E44AD);
-    private static final Color MUTED = new Color(0x8A8A8A);
+    static final Color BOX = new Color(0xEAF1FD);
+    static final Color BOX_LINE = new Color(0x8FA6CC);
+    static final Color NEW_C = new Color(0xC6F0D2);
+    static final Color READ_C = new Color(0xFFEDA6);
+    static final Color CHANGED_C = new Color(0xFFD3A3);
+    static final Color GHOST = new Color(0xDC2626);
+    static final Color GHOST_BG = new Color(0xFDE4E4);
+    static final Color CURRENT = new Color(0xF97316);
+    private static final Color LINE = new Color(0x3B4A63);
+    private static final Color FOCUS = new Color(0x2F6FED);
+    private static final Color FOCUS_BG = new Color(0xE8F0FE);
+    private static final Color LABEL = new Color(0x7C3AED);
+    private static final Color MUTED = new Color(0x8A93A3);
+    private static final Color INK = new Color(0x1D2433);
 
-    private static final Font VALUE = new Font("Dialog", Font.BOLD, 15);
-    private static final Font TITLE = new Font("Dialog", Font.BOLD, 15);
-    private static final Font SMALL = new Font("Dialog", Font.PLAIN, 12);
-    private static final Font SMALL_B = new Font("Dialog", Font.BOLD, 13);
+    private final Font VALUE = Theme.font(Theme.boldFamily, Theme.boldStyle, 15);
+    private final Font TITLE = Theme.font(Theme.boldFamily, Theme.boldStyle, 14);
+    private final Font TYPE = Theme.font(Theme.family, Font.PLAIN, 12);
+    private final Font SMALL = Theme.font(Theme.family, Font.PLAIN, 12);
+    private final Font SMALL_B = Theme.font(Theme.boldFamily, Theme.boldStyle, 13);
 
-    private static final int PAD = 24, GAP = 40, TITLE_H = 28;
-    private static final Stroke THIN = new BasicStroke(1.4f);
+    private static final int PAD = 20, GAP = 36, TITLE_H = 30, ARC = 8;
+    private static final Stroke THIN = new BasicStroke(1.3f);
     private static final Stroke THICK = new BasicStroke(3f);
     private static final Stroke DASHED = new BasicStroke(2f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f,
             new float[] { 6f, 4f }, 0f);
 
     private Step step;
+    /** הגדלה: 0 = התאמה אוטומטית לרוחב (רק הקטנה, עד 55%); אחרת פי כמה */
+    private double manualZoom = 0, zoom = 1;
+    private Runnable zoomListener;
 
     StructPanel() {
         setBackground(Color.WHITE);
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) { repaint(); }
+        });
     }
 
     void setStep(Step s) {
         step = s;
+        scrollPending = true;
         revalidate();
         repaint();
     }
 
+    void setZoomListener(Runnable r) { zoomListener = r; }
+
+    void zoomBy(double f) {
+        manualZoom = Math.max(0.4, Math.min(2.5, zoom * f));
+        revalidate();
+        repaint();
+    }
+
+    void fit() {
+        manualZoom = 0;
+        revalidate();
+        repaint();
+    }
+
+    String zoomText() {
+        return Math.round(zoom * 100) + "%";
+    }
+
+    private int viewportWidth() {
+        return getParent() != null && getParent().getWidth() > 100 ? getParent().getWidth() : 600;
+    }
+
+    private double computeZoom(Dimension natural) {
+        // התאמה אוטומטית: מקטינים (עד 70%) כך שהמבנים ייכנסו ברוחב; בגובה — גוללים (כדי שהכתוב יישאר קריא)
+        double fit = (viewportWidth() - 4) / (double) natural.width;
+        double z = manualZoom > 0 ? manualZoom : Math.max(0.7, Math.min(1, fit));
+        if (z != zoom) {
+            zoom = z;
+            if (zoomListener != null) {
+                SwingUtilities.invokeLater(zoomListener);
+            }
+        }
+        return z;
+    }
+
     @Override
     public Dimension getPreferredSize() {
-        return layoutAll(null);
+        Dimension d = layoutAll(null);
+        double z = computeZoom(d);
+        return new Dimension((int) Math.ceil(d.width * z), (int) Math.ceil(d.height * z));
     }
 
     @Override
@@ -76,23 +127,43 @@ final class StructPanel extends JPanel {
         Graphics2D g = (Graphics2D) g0.create();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        Dimension d = layoutAll(null);
+        double z = computeZoom(d);
+        // כשיש מקום — המבנים במרכז
+        int free = (int) (getWidth() - d.width * z);
+        if (free > 0) g.translate(free / 2, 0);
+        g.scale(z, z);
+        focusRect = null;
         layoutAll(g);
         g.dispose();
+        if (scrollPending && focusRect != null) {
+            scrollPending = false;
+            final Rectangle r = new Rectangle((int) (focusRect.x * z), (int) (focusRect.y * z),
+                    (int) (focusRect.width * z) + 1, (int) (focusRect.height * z) + 1);
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() { scrollRectToVisible(r); }
+            });
+        } else if (scrollPending) {
+            scrollPending = false;
+        }
     }
 
     /** כשה-g הוא null רק מודדים את הגודל, בלי לצייר */
     private Dimension layoutAll(Graphics2D g) {
-        int y = PAD, maxX = 300;
+        int y = PAD, maxX = 240;
         if (step == null || step.views.isEmpty()) {
+            String t = step == null ? "מחכה להרצה..." : "אין עדיין מבנים בצעד הזה";
             if (g != null) {
                 g.setColor(MUTED);
                 g.setFont(TITLE);
-                g.drawString(step == null ? "מחכה להרצה..." : "אין עדיין מבנים להצגה", PAD, PAD + 20);
+                g.drawString(t, PAD, PAD + 30);
             }
-            return new Dimension(maxX, 80);
+            return new Dimension(textWidth(t, TITLE) + 2 * PAD, 90);
         }
         // מערכים: זה ליד זה כל עוד יש מקום ברוחב החלון
-        int avail = getParent() != null && getParent().getWidth() > 200 ? getParent().getWidth() - PAD : 900;
+        int avail = viewportWidth() > 200 ? viewportWidth() - PAD : 900;
         int ax = PAD, arrRow = 0;
         for (View v : step.views) {
             if (!(v instanceof ArrayView || v instanceof MatrixView)) continue;
@@ -101,6 +172,7 @@ final class StructPanel extends JPanel {
             if (g != null) {
                 if (v instanceof ArrayView) drawArray(g, (ArrayView) v, ax, y);
                 else drawMatrix(g, (MatrixView) v, ax, y);
+                noteFocus(v, ax, y, d);
             }
             ax += d.width + GAP;
             arrRow = Math.max(arrRow, d.height);
@@ -111,6 +183,7 @@ final class StructPanel extends JPanel {
         for (View v : step.views) {
             if (v instanceof LinearView && ((LinearView) v).stack) {
                 Dimension d = drawStack(g, (LinearView) v, x, y);
+                if (g != null) noteFocus(v, x, y, d);
                 x += d.width + GAP;
                 rowH = Math.max(rowH, d.height);
             }
@@ -122,19 +195,30 @@ final class StructPanel extends JPanel {
         for (View v : step.views) {
             Dimension d = null;
             if (v instanceof LinearView && !((LinearView) v).stack) d = drawQueue(g, (LinearView) v, PAD, y);
+            if (d != null && g != null) noteFocus(v, PAD, y, d);
             if (d != null) { y += d.height + GAP / 2; maxX = Math.max(maxX, PAD + d.width); }
         }
         for (View v : step.views) {
             Dimension d = null;
             if (v instanceof ChainView) d = drawChain(g, (ChainView) v, PAD, y);
+            if (d != null && g != null) noteFocus(v, PAD, y, d);
             if (d != null) { y += d.height + GAP / 2; maxX = Math.max(maxX, PAD + d.width); }
         }
         for (View v : step.views) {
             Dimension d = null;
             if (v instanceof TreeView) d = drawTree(g, (TreeView) v, PAD, y);
+            if (d != null && g != null) noteFocus(v, PAD, y, d);
             if (d != null) { y += d.height + GAP / 2; maxX = Math.max(maxX, PAD + d.width); }
         }
         return new Dimension(maxX + PAD, y + PAD);
+    }
+
+    /** המבנה שהצעד נגע בו — כדי לגלול אליו אם הוא מחוץ לחלון */
+    private Rectangle focusRect;
+    private boolean scrollPending;
+
+    private void noteFocus(View v, int x, int y, Dimension d) {
+        if (v.focus && focusRect == null) focusRect = new Rectangle(x, y, d.width, d.height);
     }
 
     private Dimension measure(View v) {
@@ -145,7 +229,7 @@ final class StructPanel extends JPanel {
 
     private Dimension drawArray(Graphics2D g, ArrayView v, int x, int y) {
         int n = v.items.size();
-        int cw = Math.max(40, maxWidth(v.items, null) + 18), ch = 36, labelsH = 22;
+        int cw = Math.max(44, maxWidth(v.items, null) + 22), ch = 40, labelsH = 22;
         String type = "מערך, אורך " + n + (v.truncated ? "+" : "");
         int top = y + TITLE_H + labelsH;
         int w = Math.max(16 + Math.max(n, 1) * cw + 20, titleWidth(v.title, type));
@@ -192,7 +276,7 @@ final class StructPanel extends JPanel {
             cols = Math.max(cols, r.size());
             all.addAll(r);
         }
-        int cw = Math.max(40, maxWidth(all, null) + 16), ch = 32;
+        int cw = Math.max(44, maxWidth(all, null) + 20), ch = 36;
         int labelW = 0;
         for (List<String> l : v.rowLabels.values()) labelW = Math.max(labelW, textWidth(String.join(",", l), SMALL_B) + 16);
         int left = x + 8 + labelW + 22, top = y + TITLE_H + 22 + (v.colLabels.isEmpty() ? 0 : 18);
@@ -228,7 +312,7 @@ final class StructPanel extends JPanel {
 
     private Dimension drawStack(Graphics2D g, LinearView v, int x, int y) {
         int n = v.items.size(), rows = Math.max(n, 1);
-        int cw = Math.max(70, maxWidth(v.items, v.ghost) + 22), ch = 32, ghostH = 46;
+        int cw = Math.max(76, maxWidth(v.items, v.ghost) + 26), ch = 36, ghostH = v.ghost != null ? 50 : 14;
         int w = Math.max(cw + 84, titleWidth(v.title, "מחסנית")), h = TITLE_H + ghostH + rows * ch + 14;
         if (g == null) return new Dimension(w, h);
 
@@ -263,7 +347,7 @@ final class StructPanel extends JPanel {
 
     private Dimension drawQueue(Graphics2D g, LinearView v, int x, int y) {
         int n = v.items.size(), rows = Math.max(n, 1);
-        int cw = Math.max(56, maxWidth(v.items, v.ghost) + 20), ch = 36;
+        int cw = Math.max(56, maxWidth(v.items, v.ghost) + 24), ch = 40;
         int left = x + cw + 40;
         int w = Math.max(left - x + rows * cw + 30, titleWidth(v.title, "תור")), h = TITLE_H + ch + 40;
         if (g == null) return new Dimension(w, h);
@@ -299,7 +383,7 @@ final class StructPanel extends JPanel {
         List<String> values = new ArrayList<String>();
         for (Cell c : v.cells) values.add(c.value);
         int n = v.cells.size();
-        int vw = Math.max(46, maxWidth(values, null) + 18), pw = 20, ch = 34, ag = 38;
+        int vw = Math.max(48, maxWidth(values, null) + 22), pw = 20, ch = 38, ag = 38;
         int stepW = vw + pw + ag;
         String tail = v.cycleTo >= 0 ? "" : v.joinText != null ? v.joinText + "  (ממשיך ברשימה אחרת)"
                 : v.truncated ? "..." : "null";
@@ -319,7 +403,7 @@ final class StructPanel extends JPanel {
             if (c.current) {
                 g.setColor(CURRENT);
                 g.setStroke(THICK);
-                g.drawRect(bx - 2, top - 2, vw + pw + 4, ch + 4);
+                g.drawRoundRect(bx - 2, top - 2, vw + pw + 4, ch + 4, ARC + 4, ARC + 4);
             }
             drawLabels(g, c, bx + (vw + pw) / 2, top - 6);
             int sx = bx + vw + pw / 2, sy = top + ch / 2;
@@ -380,10 +464,10 @@ final class StructPanel extends JPanel {
             int[] p = pos.get(c);
             g.setColor(color(c.mark));
             g.fillOval(p[0] - r, p[1] - r, 2 * r, 2 * r);
-            g.setColor(c.current ? CURRENT : LINE);
+            g.setColor(c.current ? CURRENT : c.mark == Mark.NONE ? BOX_LINE : darker(color(c.mark)));
             g.setStroke(c.shared ? DASHED : c.current ? THICK : THIN);
             g.drawOval(p[0] - r, p[1] - r, 2 * r, 2 * r);
-            g.setColor(Color.BLACK);
+            g.setColor(INK);
             center(g, c.value, VALUE, p[0], p[1]);
             drawLabels(g, c, p[0], p[1] - r - 4);
         }
@@ -414,40 +498,53 @@ final class StructPanel extends JPanel {
         }
     }
 
+    /** כותרת מבנה: שם המשתנה, ולידו "תגית" אפורה עם סוג המבנה */
     private void drawTitle(Graphics2D g, String name, String type, int x, int y, boolean focus) {
-        String s = name + "   (" + type + ")";
         g.setFont(TITLE);
-        int w = g.getFontMetrics().stringWidth(s);
+        FontMetrics fm = g.getFontMetrics();
+        int nw = fm.stringWidth(name), base = y + TITLE_H - 11;
         if (focus) {
             g.setColor(FOCUS_BG);
-            g.fillRoundRect(x - 4, y, w + 12, TITLE_H - 6, 10, 10);
+            g.fillRoundRect(x - 6, y + 2, nw + 12, TITLE_H - 8, 10, 10);
         }
-        g.setColor(focus ? FOCUS : LINE);
-        g.drawString(s, x + 2, y + TITLE_H - 12);
+        g.setColor(focus ? FOCUS : INK);
+        g.drawString(name, x, base);
+        g.setFont(TYPE);
+        FontMetrics tm = g.getFontMetrics();
+        int tx = x + nw + 12, tw = tm.stringWidth(type) + 14, th = tm.getHeight() + 2;
+        g.setColor(new Color(0xEEF0F4));
+        g.fillRoundRect(tx, base - th + 5, tw, th, th, th);
+        g.setColor(MUTED);
+        g.drawString(type, tx + 7, base);
     }
 
     private int titleWidth(String name, String type) {
-        return textWidth(name + "   (" + type + ")", TITLE) + 16;
+        return textWidth(name, TITLE) + 12 + textWidth(type, TYPE) + 14 + 16;
     }
 
     private void box(Graphics2D g, int x, int y, int w, int h, Color fill, String text, boolean dashed) {
         g.setColor(fill);
-        g.fillRect(x, y, w, h);
-        g.setColor(LINE);
+        g.fillRoundRect(x + 1, y + 1, w - 2, h - 2, ARC, ARC);
+        g.setColor(fill == BOX ? BOX_LINE : darker(fill));
         g.setStroke(dashed ? DASHED : THIN);
-        g.drawRect(x, y, w, h);
+        g.drawRoundRect(x + 1, y + 1, w - 2, h - 2, ARC, ARC);
         if (text != null) {
-            g.setColor(Color.BLACK);
+            g.setColor(INK);
             center(g, text, VALUE, x + w / 2, y + h / 2);
         }
     }
 
+    private static Color darker(Color c) {
+        return new Color((int) (c.getRed() * 0.72), (int) (c.getGreen() * 0.72), (int) (c.getBlue() * 0.72));
+    }
+
     private void ghostBox(Graphics2D g, int x, int y, int w, int h, String text) {
-        g.setColor(new Color(0xFDE2E2));
-        g.fillRect(x, y, w, h);
+        g.setColor(GHOST_BG);
+        g.fillRoundRect(x + 1, y + 1, w - 2, h - 2, ARC, ARC);
         g.setColor(GHOST);
         g.setStroke(DASHED);
-        g.drawRect(x, y, w, h);
+        g.drawRoundRect(x + 1, y + 1, w - 2, h - 2, ARC, ARC);
+        g.setColor(GHOST);
         center(g, text, VALUE, x + w / 2, y + h / 2);
     }
 

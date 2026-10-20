@@ -202,7 +202,7 @@ public final class Scaffold {
         if (!TYPES.contains(o.type)) throw new IllegalArgumentException("טיפוס לא מוכר: " + o.type);
         if (!isIdentifier(o.className)) throw new IllegalArgumentException("שם המחלקה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות");
         if (!isIdentifier(o.functionName)) throw new IllegalArgumentException("שם הפעולה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות");
-        boolean random = o.random && o.type.equals("Integer");
+        boolean random = o.random && o.type.equals("Integer") && !o.structure.equals("tree") && !o.structure.equals("bst");
         String T = o.type;
         String full = typeOf(st, T);
         String v1 = st.varName, v2 = st.varName + "2";
@@ -258,8 +258,11 @@ public final class Scaffold {
         L.add("    // אין צורך לשנות — אבל אפשר לשנות את הערכים כדי לבדוק מקרים נוספים");
         L.add("");
         L.add("    public static void main(String[] args) {");
-        L.addAll(buildLines(st, T, v1, o.values, false, random, o.structure));
-        if (o.second) L.addAll(buildLines(st, T, v2, o.values2, true, random, o.structure));
+        // עצים אין בהם "ערכים אקראיים" — אם סימנו, משתמשים בערכי ברירת המחדל
+        String vals1 = o.values.isEmpty() && o.random ? defaultValues(o.structure, T, false) : o.values;
+        String vals2 = o.values2.isEmpty() && o.random ? defaultValues(o.structure, T, true) : o.values2;
+        L.addAll(buildLines(st, T, v1, vals1, false, random, o.structure));
+        if (o.second) L.addAll(buildLines(st, T, v2, vals2, true, random, o.structure));
         if (o.extra) L.add("        " + extraType(T) + " x = " + extraValue(o) + ";");
         L.add("");
         show(L, st, "לפני", v1, o.second);
@@ -347,22 +350,79 @@ public final class Scaffold {
             L.add("        };");
             return L;
         }
-        // רשימה מקושרת ועצים: Build בונה את כל החוליות בשורה אחת
-        String empty = structure.equals("list") ? "רשימה ריקה" : "עץ ריק";
-        if (random) {
-            L.add(structure.equals("list")
-                    ? "        " + full + " " + v + " = Build.randomList(" + n + ", 1, 20);   // " + n + " מספרים אקראיים בין 1 ל-20"
-                    : "        " + full + " " + v + " = Build.randomBst(" + n + ", 1, 20);   // עץ חיפוש עם " + n + " מספרים אקראיים");
+        // רשימה מקושרת ועצים: new + setNext / setLeft / setRight
+        if ("Node".equals(st.cls) && random) {
+            L.add("        " + full + " " + v + " = null;");
+            L.add("        for (int i = 0; i < " + n + "; i++) {");
+            L.add("            " + v + " = new " + full + "(" + RANDOM + ", " + v + ");   // מוסיף בתחילת הרשימה, מספר אקראי בין 1 ל-20");
+            L.add("        }");
             return L;
         }
+        List<String> elems = new ArrayList<String>();
         if (T.equals("Student")) {
-            int count = studentCount(values);
-            L.add("        " + full + " " + v + " = Build." + st.build + "(Build.students(" + count + "));   // " + count + " תלמידים עם נתוני דמה");
+            for (int i = studentCount(values); i > 0; i--) elems.add("Student.random()");
+        } else {
+            elems = literals(values, T, structure.equals("tree"));
+        }
+        for (String l : nodeLines(structure, T, v, elems)) L.add("        " + l);
+        return L;
+    }
+
+    /** צומת בעץ — לבניית שורות הקוד */
+    private static final class TNode {
+        final String v;
+        TNode l, r;
+        TNode(String v) { this.v = v; }
+    }
+
+    private static TNode treeAt(List<String> e, int i) {
+        if (i >= e.size() || e.get(i).equals("null")) return null;
+        TNode n = new TNode(e.get(i));
+        n.l = treeAt(e, 2 * i + 1);
+        n.r = treeAt(e, 2 * i + 2);
+        return n;
+    }
+
+    private static TNode insert(TNode t, String x, boolean numeric) {
+        if (t == null) return new TNode(x);
+        int c = numeric ? Double.compare(Double.parseDouble(x), Double.parseDouble(t.v)) : x.compareTo(t.v);
+        if (c < 0) t.l = insert(t.l, x, numeric); else t.r = insert(t.r, x, numeric);
+        return t;
+    }
+
+    private static void walk(TNode n, String path, String type, List<String> L) {
+        if (n.l != null) { L.add(path + ".setLeft(new " + type + "(" + n.l.v + "));"); walk(n.l, path + ".getLeft()", type, L); }
+        if (n.r != null) { L.add(path + ".setRight(new " + type + "(" + n.r.v + "));"); walk(n.r, path + ".getRight()", type, L); }
+    }
+
+    /**
+     * רשימה מקושרת ועצים בסגנון שלומדים בכיתה, בלי Build:
+     *   רשימה — מוסיפים כל פעם בתחילת הרשימה (לכן מתחילים מהאיבר האחרון)
+     *   עץ — צומת שורש, ואז setLeft / setRight לכל צומת (עץ חיפוש: לפי סדר ההכנסה)
+     * elems = ביטויים (ערכים, או Student.random()); בעץ לפי רמות, "null" = אין צומת. מחזיר שורות בלי הזחה.
+     */
+    static List<String> nodeLines(String structure, String T, String v, List<String> elems) {
+        List<String> L = new ArrayList<String>();
+        if (structure.equals("list")) {
+            String type = "Node<" + T + ">";
+            if (elems.isEmpty()) { L.add(type + " " + v + " = null;   // רשימה ריקה"); return L; }
+            for (int i = elems.size() - 1; i >= 0; i--) {
+                if (i == elems.size() - 1) L.add(type + " " + v + " = new " + type + "(" + elems.get(i) + ");   // מתחילים מהחוליה האחרונה");
+                else L.add(v + " = new " + type + "(" + elems.get(i) + ", " + v + ");" + (i == 0 ? "   // החוליה הראשונה" : ""));
+            }
             return L;
         }
-        List<String> lits = literals(values, T, structure.equals("tree"));
-        L.add(lits.isEmpty() ? "        " + full + " " + v + " = null;   // " + empty
-                             : "        " + full + " " + v + " = Build." + st.build + "(" + String.join(", ", lits) + ");   // " + st.note.replace("{v}", v));
+        String type = "BinNode<" + T + ">";
+        boolean numeric = T.equals("Integer") || T.equals("Double");
+        TNode root = null;
+        if (structure.equals("bst") && !T.equals("Student")) {
+            for (String x : elems) root = insert(root, x, numeric);
+        } else {
+            root = treeAt(elems, 0);
+        }
+        if (root == null) { L.add(type + " " + v + " = null;   // עץ ריק"); return L; }
+        L.add(type + " " + v + " = new " + type + "(" + root.v + ");   // השורש");
+        walk(root, v, type, L);
         return L;
     }
 
@@ -486,7 +546,9 @@ public final class Scaffold {
                 L.add("}");
                 return lines(indent, L);
             }
-            return indent + full + " " + name + " = Build." + st.build + "(Build.students(" + size + "));   // " + size + " תלמידים עם נתוני דמה";
+            List<String> students = new ArrayList<String>();
+            for (int i = 0; i < size; i++) students.add("Student.random()");
+            return lines(indent, nodeLines(o.structure, T, name, students));
         }
         if (st.dims == 2) {
             int rows = Math.max(1, Math.min(o.rows, 12)), cols = Math.max(1, Math.min(o.cols, 12));
@@ -517,13 +579,7 @@ public final class Scaffold {
             return lines(indent, L);
         }
         if (st.dims == 1) return indent + full + " " + name + " = {" + String.join(", ", values) + "};";
-        String what;
-        switch (o.structure) {
-            case "list": what = "החוליה הראשונה היא " + name; break;
-            case "tree": what = "לפי רמות: שורש, ילדים, נכדים..."; break;
-            default: what = "הכנסה לעץ חיפוש לפי הסדר";
-        }
-        return indent + full + " " + name + " = Build." + st.build + "(" + String.join(", ", values) + ");   // " + what;
+        return lines(indent, nodeLines(o.structure, T, name, values));
     }
 
     private static String lines(String indent, List<String> L) {

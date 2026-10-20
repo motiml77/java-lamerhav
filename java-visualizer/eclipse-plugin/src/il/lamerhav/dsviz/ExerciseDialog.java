@@ -229,8 +229,9 @@ public class ExerciseDialog extends TitleAreaDialog {
         returnCombo.select(Math.max(0, returnIds.indexOf(prevRet)));
 
         boolean intType = type.equals("Integer");
-        randomCheck.setEnabled(intType);
-        if (!intType) randomCheck.setSelection(false);
+        boolean canRandom = intType && !st.equals("tree") && !st.equals("bst");   // בעצים אין "ערכים אקראיים"
+        randomCheck.setEnabled(canRandom);
+        if (!canRandom) randomCheck.setSelection(false);
         boolean random = randomCheck.getSelection();
         valuesLabel.setText(type.equals("Student") ? "כמה תלמידים:" : st.equals("matrix") ? "ערכים (שורות ב-;):" : "ערכים:");
         valuesLabel.getParent().layout();

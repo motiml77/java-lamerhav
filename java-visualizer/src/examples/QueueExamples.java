@@ -30,7 +30,13 @@ public class QueueExamples {
     }
 
     public static void main(String[] args) {
-        Queue<Integer> q = Build.queue(5, 3, 5, 8, 5, 2);
+        Queue<Integer> q = new Queue<Integer>();
+        q.insert(5);   // הראשון שנכנס — בראש התור
+        q.insert(3);
+        q.insert(5);
+        q.insert(8);
+        q.insert(5);
+        q.insert(2);
         System.out.println("גודל: " + size(q));
         removeAll(q, 5);
         System.out.println("אחרי מחיקת 5: " + q);

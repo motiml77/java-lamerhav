@@ -27,7 +27,12 @@ public class TreeExamples {
     }
 
     public static void main(String[] args) {
-        BinNode<Integer> t = Build.tree(5, 3, 8, 1, 4, null, 9);
+        BinNode<Integer> t = new BinNode<Integer>(5);   // השורש
+        t.setLeft(new BinNode<Integer>(3));
+        t.setRight(new BinNode<Integer>(8));
+        t.getLeft().setLeft(new BinNode<Integer>(1));
+        t.getLeft().setRight(new BinNode<Integer>(4));
+        t.getRight().setRight(new BinNode<Integer>(9));
         System.out.println("מספר צמתים: " + count(t));
         System.out.println("גובה: " + height(t));
         insert(t, 7);

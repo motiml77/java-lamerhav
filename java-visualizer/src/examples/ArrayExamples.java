@@ -52,15 +52,15 @@ public class ArrayExamples {
 
     // מומלץ להריץ "שורה אחר שורה" — רואים את i, j, left, right זזים על המערך
     public static void main(String[] args) {
-        int[] arr = Build.array(7, 3, 9, 1, 5);
+        int[] arr = {7, 3, 9, 1, 5};
         System.out.println("המקסימום במקום " + maxIndex(arr));
         reverse(arr);
         bubbleSort(arr);
 
-        int[][] mat = Build.matrix(new int[][] {
-                { 1, 2, 3 },
-                { 4, 5, 6 }
-        });
+        int[][] mat = {
+            {1, 2, 3},
+            {4, 5, 6}
+        };
         System.out.println("סכומי שורות: " + Viz.text(rowSums(mat)));
     }
 }

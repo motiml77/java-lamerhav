@@ -122,7 +122,7 @@ function generate(o) {
     if (!tp) throw new Error('טיפוס לא מוכר: ' + o.type);
     if (!isIdentifier(o.className)) throw new Error('שם המחלקה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות');
     if (!isIdentifier(o.functionName)) throw new Error('שם הפעולה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות');
-    const random = !!o.random && o.type === 'Integer';
+    const random = !!o.random && o.type === 'Integer' && o.structure !== 'tree' && o.structure !== 'bst';
     const T = o.type;
     const full = typeOf(st, T);
     const v1 = st.varName, v2 = st.varName + '2';
@@ -176,8 +176,10 @@ function generate(o) {
     L.push('    // אין צורך לשנות — אבל אפשר לשנות את הערכים כדי לבדוק מקרים נוספים');
     L.push('');
     L.push('    public static void main(String[] args) {');
-    L.push(...buildLines(st, T, v1, o.values, false, random, o.structure));
-    if (o.second) L.push(...buildLines(st, T, v2, o.values2, true, random, o.structure));
+    // עצים אין בהם "ערכים אקראיים" — אם סימנו, משתמשים בערכי ברירת המחדל
+    const vals = (values, second) => values || (o.random ? defaultValues(o.structure, T, second) : values);
+    L.push(...buildLines(st, T, v1, vals(o.values, false), false, random, o.structure));
+    if (o.second) L.push(...buildLines(st, T, v2, vals(o.values2, true), true, random, o.structure));
     if (o.extra) L.push(`        ${extraType(T)} x = ${extraValue(o)};`);
     L.push('');
     const show = (title, v) => {
@@ -254,20 +256,58 @@ function buildLines(st, T, v, values, isSecond, random, structure) {
             .concat(rows.map((r, i) => `            {${r.join(', ')}}${i < rows.length - 1 ? ',' : ''}`))
             .concat(['        };']);
     }
-    // רשימה מקושרת ועצים: Build בונה את כל החוליות בשורה אחת
-    const empty = structure === 'list' ? 'רשימה ריקה' : 'עץ ריק';
-    if (random) {
-        return [structure === 'list'
-            ? `        ${full} ${v} = Build.randomList(${n}, 1, 20);   // ${n} מספרים אקראיים בין 1 ל-20`
-            : `        ${full} ${v} = Build.randomBst(${n}, 1, 20);   // עץ חיפוש עם ${n} מספרים אקראיים`];
+    // רשימה מקושרת ועצים: new + setNext / setLeft / setRight
+    if (st.cls === 'Node' && random) {
+        return [`        ${full} ${v} = null;`,
+                `        for (int i = 0; i < ${n}; i++) {`,
+                `            ${v} = new ${full}(${RANDOM}, ${v});   // מוסיף בתחילת הרשימה, מספר אקראי בין 1 ל-20`,
+                '        }'];
     }
-    if (T === 'Student') {
-        const count = studentCount(values);
-        return [`        ${full} ${v} = Build.${st.build}(Build.students(${count}));   // ${count} תלמידים עם נתוני דמה`];
+    const elems = T === 'Student' ? Array(studentCount(values)).fill('Student.random()')
+        : literals(values, T, structure === 'tree');
+    return nodeLines(structure, T, v, elems).map(l => '        ' + l);
+}
+
+/**
+ * רשימה מקושרת ועצים בסגנון שלומדים בכיתה, בלי Build:
+ *   רשימה — מוסיפים כל פעם בתחילת הרשימה (לכן מתחילים מהאיבר האחרון)
+ *   עץ — צומת שורש, ואז setLeft / setRight לכל צומת (עץ חיפוש: לפי סדר ההכנסה)
+ * elems = ביטויים (ערכים, או Student.random()); בעץ לפי רמות, 'null' = אין צומת. מחזיר שורות בלי הזחה.
+ */
+function nodeLines(structure, T, v, elems) {
+    if (structure === 'list') {
+        const type = `Node<${T}>`;
+        if (elems.length === 0) return [`${type} ${v} = null;   // רשימה ריקה`];
+        const L = [];
+        for (let i = elems.length - 1; i >= 0; i--) {
+            if (i === elems.length - 1) L.push(`${type} ${v} = new ${type}(${elems[i]});   // מתחילים מהחוליה האחרונה`);
+            else L.push(`${v} = new ${type}(${elems[i]}, ${v});` + (i === 0 ? '   // החוליה הראשונה' : ''));
+        }
+        return L;
     }
-    const lits = literals(values, T, structure === 'tree');
-    if (lits.length === 0) return [`        ${full} ${v} = null;   // ${empty}`];
-    return [`        ${full} ${v} = Build.${st.build}(${lits.join(', ')});   // ${st.note.replace('{v}', v)}`];
+    const type = `BinNode<${T}>`;
+    const numeric = T === 'Integer' || T === 'Double';
+    const cmp = (a, b) => numeric ? parseFloat(a) - parseFloat(b) : (a < b ? -1 : a > b ? 1 : 0);
+    let root = null;
+    if (structure === 'bst' && T !== 'Student') {
+        const ins = (t, x) => {
+            if (!t) return { v: x, l: null, r: null };
+            if (cmp(x, t.v) < 0) t.l = ins(t.l, x); else t.r = ins(t.r, x);
+            return t;
+        };
+        for (const x of elems) root = ins(root, x);
+    } else {
+        const at = i => (i >= elems.length || elems[i] === 'null') ? null : { v: elems[i], l: at(2 * i + 1), r: at(2 * i + 2) };
+        root = at(0);
+    }
+    if (!root) return [`${type} ${v} = null;   // עץ ריק`];
+    const L = [`${type} ${v} = new ${type}(${root.v});   // השורש`];
+    const walk = (n, path) => {
+        if (n.l) { L.push(`${path}.setLeft(new ${type}(${n.l.v}));`); walk(n.l, path + '.getLeft()'); }
+        if (n.r) { L.push(`${path}.setRight(new ${type}(${n.r.v}));`); walk(n.r, path + '.getRight()'); }
+    };
+    walk(root, v);
+    return L;
 }
 
 /** איך מדפיסים את המבנה ב-main (null = לא מדפיסים — עץ רואים בחלון) */
@@ -373,7 +413,7 @@ function snippet(o) {
                           `    ${name}[i] = Student.random();   // תלמיד עם נתוני דמה`,
                           '}']);
         }
-        return `${indent}${full} ${name} = Build.${st.build}(Build.students(${size}));   // ${size} תלמידים עם נתוני דמה`;
+        return lines(nodeLines(o.structure, T, name, Array(size).fill('Student.random()')));
     }
     if (st.dims === 2) {
         const rows = Math.max(1, Math.min(o.rows || 3, 12)), cols = Math.max(1, Math.min(o.cols || 4, 12));
@@ -404,8 +444,7 @@ function snippet(o) {
         return lines(L);
     }
     if (st.dims === 1) return `${indent}${full} ${name} = {${values.join(', ')}};`;
-    const what = { list: 'החוליה הראשונה היא ' + name, tree: 'לפי רמות: שורש, ילדים, נכדים...', bst: 'הכנסה לעץ חיפוש לפי הסדר' }[o.structure];
-    return `${indent}${full} ${name} = Build.${st.build}(${values.join(', ')});   // ${what}`;
+    return lines(nodeLines(o.structure, T, name, values));
 }
 
 /** שם ברירת המחדל למשתנה */
