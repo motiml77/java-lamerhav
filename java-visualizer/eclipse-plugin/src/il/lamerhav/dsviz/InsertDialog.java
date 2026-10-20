@@ -203,7 +203,7 @@ public class InsertDialog extends Dialog {
         updating = true;
         try {
             String st = selected(structureButtons, "queue");
-            boolean isStudent = st.equals("student"), isMatrix = st.equals("matrix");
+            boolean isStudent = st.equals("student") || st.equals("car"), isMatrix = st.equals("matrix");
             for (Button b : typeButtons) b.setEnabled(!isStudent);
             size.setEnabled(!isStudent && !isMatrix);
             sizeLabel.setEnabled(!isStudent && !isMatrix);

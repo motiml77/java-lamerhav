@@ -33,6 +33,6 @@ for (const structure of Object.keys(t.SNIPPETS))
     }
 fs.writeFileSync(path.join(out, '..', 'combos.txt'), combos.join('\n') + '\n');
 // בדיקת שגיאות קלט
-const bad = [['x, 2', 'Integer'], ['ab', 'Character'], ['1.2.3', 'Double'], ['null', 'Integer'], ['abc', 'Student'], ['50', 'Student']];
+const bad = [['x, 2', 'Integer'], ['ab', 'Character'], ['1.2.3', 'Double'], ['null', 'Integer'], ['abc', 'Student'], ['50', 'Student'], ['abc', 'Car']];
 for (const [v, ty] of bad) { try { t.literals(v, ty, false); console.log('MISSING ERROR', v); } catch (e) { console.log('ok error:', e.message); } }
 console.log(combos.length + ' combos (' + errors + ' expected errors)');

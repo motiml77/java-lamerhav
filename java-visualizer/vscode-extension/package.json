@@ -128,6 +128,11 @@
                 "category": "מבני נתונים"
             },
             {
+                "command": "dsviz.insert.car",
+                "title": "הוספה לקוד: מכונית",
+                "category": "מבני נתונים"
+            },
+            {
                 "command": "dsviz.openProject",
                 "title": "פתיחת תיקיית התרגילים",
                 "category": "מבני נתונים",
@@ -167,12 +172,12 @@
             },
             {
                 "view": "dsviz.home",
-                "contents": "בחרו מבנה — וייפתח תרגיל מוכן, ונשאר רק לכתוב את הפעולה:\n[מחסנית  (Stack)](command:dsviz.newStack)\n[תור  (Queue)](command:dsviz.newQueue)\n[רשימה מקושרת  (Node)](command:dsviz.newList)\n[עץ בינארי  (BinNode)](command:dsviz.newTree)\n[עץ חיפוש בינארי](command:dsviz.newBst)\n[מערך  (int[])](command:dsviz.newArray)\n[מערך דו-ממדי  (int[][])](command:dsviz.newMatrix)\nבכל מבנה אפשר לבחור גם Student (תלמידים).\n[דוגמאות פתורות](command:dsviz.examples)",
+                "contents": "בחרו מבנה — וייפתח תרגיל מוכן, ונשאר רק לכתוב את הפעולה:\n[מחסנית  (Stack)](command:dsviz.newStack)\n[תור  (Queue)](command:dsviz.newQueue)\n[רשימה מקושרת  (Node)](command:dsviz.newList)\n[עץ בינארי  (BinNode)](command:dsviz.newTree)\n[עץ חיפוש בינארי](command:dsviz.newBst)\n[מערך  (int[])](command:dsviz.newArray)\n[מערך דו-ממדי  (int[][])](command:dsviz.newMatrix)\nבכל מבנה אפשר לבחור גם Student (תלמידים) או Car (מכוניות).\n[דוגמאות פתורות](command:dsviz.examples)",
                 "when": "workbenchState != empty"
             },
             {
                 "view": "dsviz.insertView",
-                "contents": "מוסיף לקוד, במקום הסמן, מבנה מלא בנתוני דמה — אפשר לעבוד איתו מיד:\n[צור מחסנית](command:dsviz.insert.stack)\n[צור תור](command:dsviz.insert.queue)\n[צור רשימה מקושרת](command:dsviz.insert.list)\n[צור עץ בינארי](command:dsviz.insert.tree)\n[צור עץ חיפוש](command:dsviz.insert.bst)\n[צור מערך](command:dsviz.insert.array)\n[צור מערך דו-ממדי](command:dsviz.insert.matrix)\n[צור תלמיד](command:dsviz.insert.student)"
+                "contents": "מוסיף לקוד, במקום הסמן, מבנה מלא בנתוני דמה — אפשר לעבוד איתו מיד:\n[צור מחסנית](command:dsviz.insert.stack)\n[צור תור](command:dsviz.insert.queue)\n[צור רשימה מקושרת](command:dsviz.insert.list)\n[צור עץ בינארי](command:dsviz.insert.tree)\n[צור עץ חיפוש](command:dsviz.insert.bst)\n[צור מערך](command:dsviz.insert.array)\n[צור מערך דו-ממדי](command:dsviz.insert.matrix)\n[צור תלמיד](command:dsviz.insert.student)\n[צור מכונית](command:dsviz.insert.car)"
             },
             {
                 "view": "dsviz.runView",
@@ -252,6 +257,10 @@
                 {
                     "command": "dsviz.insert.student",
                     "group": "1@7"
+                },
+                {
+                    "command": "dsviz.insert.car",
+                    "group": "1@8"
                 }
             ],
             "commandPalette": [
@@ -285,6 +294,10 @@
                 },
                 {
                     "command": "dsviz.insert.student",
+                    "when": "editorLangId == java"
+                },
+                {
+                    "command": "dsviz.insert.car",
                     "when": "editorLangId == java"
                 }
             ]

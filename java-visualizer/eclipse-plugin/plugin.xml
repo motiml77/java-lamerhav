@@ -79,6 +79,9 @@
                <command commandId="il.lamerhav.dsviz.insert" label="צור תלמיד..." style="push">
                   <parameter name="il.lamerhav.dsviz.structure" value="student"/>
                </command>
+               <command commandId="il.lamerhav.dsviz.insert" label="צור מכונית..." style="push">
+                  <parameter name="il.lamerhav.dsviz.structure" value="car"/>
+               </command>
             </menu>
             <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
@@ -126,6 +129,9 @@
          <command commandId="il.lamerhav.dsviz.insert" label="צור תלמיד..." style="push">
             <parameter name="il.lamerhav.dsviz.structure" value="student"/>
          </command>
+         <command commandId="il.lamerhav.dsviz.insert" label="צור מכונית..." style="push">
+            <parameter name="il.lamerhav.dsviz.structure" value="car"/>
+         </command>
       </menuContribution>
 
       <!-- לחיצה ימנית בעורך הקוד -->
@@ -154,6 +160,9 @@
             </command>
             <command commandId="il.lamerhav.dsviz.insert" label="צור תלמיד..." style="push">
                <parameter name="il.lamerhav.dsviz.structure" value="student"/>
+            </command>
+            <command commandId="il.lamerhav.dsviz.insert" label="צור מכונית..." style="push">
+               <parameter name="il.lamerhav.dsviz.structure" value="car"/>
             </command>
          </menu>
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>

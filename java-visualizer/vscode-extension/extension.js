@@ -119,6 +119,8 @@ async function newExercise(preset) {
         { label: `שני מבנים`, description: `הפעולה מקבלת שניים (למשל מיזוג, השוואה)`, id: 'second' },
         type === 'Student'
             ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה תלמידים עם ממוצע מעל x")`, id: 'extra' }
+            : type === 'Car'
+            ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה מכוניות חדשות משנה x")`, id: 'extra' }
             : { label: `פרמטר נוסף x`, description: `${tp.primitive} x (למשל "מחקו את כל המופעים של x")`, id: 'extra' }
     ];
     if (type === 'Integer' && structure !== 'tree' && structure !== 'bst') extraItems.push({ label: 'ערכים אקראיים', description: 'בכל הרצה מספרים אחרים', id: 'random' });
@@ -135,7 +137,7 @@ async function newExercise(preset) {
 
     if (!opts.random) {
         const isTree = structure === 'tree';
-        const hint = type === 'Student' ? '  (כמה תלמידים — נוצרים עם נתוני דמה)'
+        const hint = type === 'Student' ? '  (כמה תלמידים — נוצרים עם נתוני דמה)' : type === 'Car' ? '  (כמה מכוניות — נוצרות עם נתוני דמה)'
             : structure === 'matrix' ? '  (שורות מופרדות ב-;)' : isTree ? '  (לפי רמות, null = אין צומת)' : '';
         const v = await askValues(`${st.label} — (4/${total}) ערכים ל-${st.varName}${hint}`,
             templates.defaultValues(structure, type, false), type, isTree, structure);
@@ -179,7 +181,7 @@ async function newExercise(preset) {
 
 async function askValues(title, value, type, allowNull, structure) {
     return vscode.window.showInputBox({
-        title, value, prompt: type === 'Student' ? 'מספר' : 'ערכים מופרדים בפסיקים',
+        title, value, prompt: type === 'Student' || type === 'Car' ? 'מספר' : 'ערכים מופרדים בפסיקים',
         validateInput: s => {
             try {
                 templates.generate({ structure, type, returns: 'void', values: s, className: 'A', functionName: 'f' });
@@ -195,9 +197,10 @@ function typeItems(structure) {
         { label: 'String', description: 'מחרוזות' },
         { label: 'Character', description: 'תווים' },
         { label: 'Double', description: 'מספרים עשרוניים' },
-        { label: 'Student', description: 'תלמידים — שם, כיתה וציונים (נתוני דמה)' }
+        { label: 'Student', description: 'תלמידים — שם, כיתה וציונים (נתוני דמה)' },
+        { label: 'Car', description: 'מכוניות — יצרן, דגם, שנה, דלק (נתוני דמה)' }
     ];
-    return structure === 'matrix' ? items.filter(i => i.label !== 'Student') : items;
+    return structure === 'matrix' ? items.filter(i => i.label !== 'Student' && i.label !== 'Car') : items;
 }
 
 // ------------------------------------------------------------ הוספה לקוד: מבנה עם נתוני דמה במקום הסמן
@@ -216,8 +219,8 @@ async function insertSnippet(structure) {
         structure = pick.id;
     }
     const label = templates.SNIPPETS[structure];
-    let type = 'Student';
-    if (structure !== 'student') {
+    let type = structure === 'car' ? 'Car' : 'Student';
+    if (structure !== 'student' && structure !== 'car') {
         const t = await vscode.window.showQuickPick(typeItems(structure), { title: `${label} — טיפוס הערכים` });
         if (!t) return;
         type = t.label;
@@ -228,8 +231,8 @@ async function insertSnippet(structure) {
             validateInput: s => /^\s*\d{1,2}\s*[x×*,]\s*\d{1,2}\s*$/.test(s) ? null : 'למשל 3x4' });
         if (!dims) return;
         [opts.rows, opts.cols] = dims.split(/[x×*,]/).map(x => +x.trim());
-    } else if (structure !== 'student') {
-        const size = await vscode.window.showInputBox({ title: `${label} — כמה איברים?`, value: type === 'Student' ? '4' : '5',
+    } else if (structure !== 'student' && structure !== 'car') {
+        const size = await vscode.window.showInputBox({ title: `${label} — כמה איברים?`, value: type === 'Student' || type === 'Car' ? '4' : '5',
             validateInput: s => /^\d{1,2}$/.test(s.trim()) && +s > 0 && +s <= 30 ? null : 'מספר בין 1 ל-30' });
         if (!size) return;
         opts.size = +size;
@@ -352,7 +355,7 @@ async function examples() {
         if (!fs.existsSync(path.join(to, f))) fs.copyFileSync(path.join(from, f), path.join(to, f));
     }
     const names = { StackExamples: 'מחסנית', QueueExamples: 'תור', ListExamples: 'רשימה מקושרת', TreeExamples: 'עצים',
-                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)' };
+                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)', CarExamples: 'מכוניות (Car)' };
     const pick = await vscode.window.showQuickPick(
         files.map(f => ({ label: names[path.basename(f, '.java')] || f, description: f, file: f })),
         { title: 'איזו דוגמה לפתוח?' });

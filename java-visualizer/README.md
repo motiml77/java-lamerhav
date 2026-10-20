@@ -175,6 +175,25 @@ for (int i = 0; i < 5; i++) q.insert(Student.random());   // 5 תלמידים א
 | `isExcellent()` (ממוצע ≥ 90), `isPassing()` (ממוצע ≥ 55) | בדיקות |
 | `compareTo` (לפי ממוצע), `equals` (לפי ת"ז), `toString` | השוואה והצגה — אפשר גם עץ חיפוש של תלמידים |
 
+## מחלקת Car (מכונית)
+
+מחלקה מוכנה נוספת לתרגילים, בדיוק כמו `Student`: אפשר לבחור `Car` כטיפוס הערכים בכל מבנה ("תרגיל חדש"),
+ולהוסיף לקוד "צור מכונית" עם נתוני דמה.
+
+```java
+Car c = new Car("Mazda", "3", 2019);          // יצרן, דגם, שנת ייצור
+Car r = Car.random();                         // מכונית אקראית: יצרן, דגם, שנה, צבע, ק"מ ודלק
+c.refuel(20);   c.accelerate(50);   int driven = c.drive(120);   c.brake(50);
+c.getKm()   c.getFuel()   c.getSpeed()   c.getAge()   c.isOld()   c.needsFuel()   c.getYear() ...
+```
+
+| פרטים | פעולות |
+|---|---|
+| `getManufacturer`, `getModel`, `getYear`, `getColor`, `getPlate`, `getKm`, `getFuel`, `getTankSize`, `getSpeed` | `drive(km)` (נוסעת עד שנגמר הדלק, מחזירה כמה נסעה), `refuel(l)`, `accelerate(d)`, `brake(d)` |
+| `compareTo` (לפי שנה), `equals` (לפי מספר רישוי), `toString` | `getAge()`, `isOld()` (10 שנים ומעלה), `needsFuel()`, `isMoving()` |
+
+בחלון המכונית מוצגת כ"יצרן + שנה" (למשל `Mazda 2019`). בתפריט "דוגמאות פתורות" יש גם `CarExamples`.
+
 בחלון תלמיד מוצג כ"שם פרטי + ממוצע" (למשל `נועה 84`), ובטבלת המשתנים — המלא.
 
 ## הרצה שורה אחר שורה

@@ -31,7 +31,8 @@ const TYPES = {
     String:    { primitive: 'String', zero: '""' },
     Character: { primitive: 'char',   zero: "' '" },
     Double:    { primitive: 'double', zero: '0.0' },
-    Student:   { primitive: 'Student', zero: 'null' }
+    Student:   { primitive: 'Student', zero: 'null' },
+    Car:       { primitive: 'Car',     zero: 'null' }
 };
 
 const DEFAULT_VALUES = {
@@ -39,7 +40,8 @@ const DEFAULT_VALUES = {
     String:    { first: 'dog, cat, bird, fish', second: 'sun, moon', tree: 'm, c, t, a, f, null, z', bst: 'm, c, t, a, f, z' },
     Character: { first: 'a, b, c, d', second: 'x, y', tree: 'm, c, t, a, f, null, z', bst: 'm, c, t, a, f, z' },
     Double:    { first: '1.5, 2.0, 3.25, 0.5', second: '4.5, 1.0', tree: '5.0, 3.5, 8.25, 1.0, 4.0, null, 9.5', bst: '5.0, 3.5, 8.25, 1.0, 4.0, 9.5' },
-    Student:   { first: '4', second: '3', tree: '5', bst: '5' }
+    Student:   { first: '4', second: '3', tree: '5', bst: '5' },
+    Car:       { first: '4', second: '3', tree: '5', bst: '5' }
 };
 
 const DEFAULT_MATRIX = {
@@ -65,16 +67,23 @@ const JAVA_KEYWORDS = new Set(('abstract assert boolean break byte case catch ch
     'package private protected public return short static strictfp super switch synchronized this throw throws ' +
     'transient try void volatile while true false null var record').split(' '));
 
-/** לתלמידים כותבים כמה תלמידים (מספר) — הם נוצרים בהרצה עם נתוני דמה (Student.random) */
+/** טיפוסים של אובייקטים מוכנים (Student, Car): כותבים כמה ליצור — הם נוצרים בהרצה עם נתוני דמה */
+const OBJECTS = {
+    Student: { fresh: 'Student.random()', note: 'תלמיד עם נתוני דמה' },
+    Car:     { fresh: 'Car.random()',     note: 'מכונית עם נתוני דמה' }
+};
+const isObj = T => Object.prototype.hasOwnProperty.call(OBJECTS, T);
+
+/** כמה אובייקטים ליצור (מספר) */
 function studentCount(text) {
     const t = String(text || '').trim();
-    if (!/^\d{1,2}$/.test(t) || +t < 1 || +t > 20) throw new Error('לתלמידים כותבים כמה תלמידים ליצור (מספר בין 1 ל-20)');
+    if (!/^\d{1,2}$/.test(t) || +t < 1 || +t > 20) throw new Error('כאן כותבים כמה ליצור — מספר בין 1 ל-20');
     return +t;
 }
 
 /** "1, 2; 3, 4" → [["1","2"],["3","4"]] */
 function matrixLiterals(text, type) {
-    if (type === 'Student') throw new Error('אין מערך דו-ממדי של תלמידים — בחרו מערך רגיל');
+    if (isObj(type)) throw new Error('אין מערך דו-ממדי של תלמידים או מכוניות — בחרו מערך רגיל');
     const rows = String(text || '').split(';').map(r => r.trim()).filter(r => r.length > 0).map(r => literals(r, type, false));
     if (rows.some(r => r.length === 0)) throw new Error('שורה ריקה במערך הדו-ממדי');
     return rows;
@@ -82,7 +91,7 @@ function matrixLiterals(text, type) {
 
 /** "5, 2, 8" → ["5", "2", "8"] ; מחזיר שגיאה בעברית אם ערך לא מתאים לטיפוס */
 function literals(text, type, allowNull) {
-    if (type === 'Student') { studentCount(text); return []; }
+    if (isObj(type)) { studentCount(text); return []; }
     const tokens = String(text || '').split(',').map(t => t.trim()).filter(t => t.length > 0);
     return tokens.map(t => {
         if (t === 'null') {
@@ -159,6 +168,7 @@ function generate(o) {
     L.push(`    public static ${retType} ${o.functionName}(${params.join(', ')}) {`);
     L.push(`        // תזכורת: ${st.hint.replace(/\{v\}/g, v1).replace(/\{T\}/g, T)}`);
     if (T === 'Student') L.push('        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()');
+    if (T === 'Car') L.push('        // Car: getManufacturer()   getYear()   getKm()   getFuel()   drive(km)   refuel(l)   isOld()   needsFuel()');
     if (retStart !== undefined) L.push(`        ${retType} result = ${retStart};   // כאן אוספים את מה שהפעולה מחזירה`);
     L.push('');
     L.push('        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)');
@@ -216,11 +226,11 @@ function buildLines(st, T, v, values, isSecond, random, structure) {
     const RANDOM = '(int) (Math.random() * 20) + 1';
     if (st.cls === 'Stack' || st.cls === 'Queue') {
         const L = [`        ${full} ${v} = new ${full}();`];
-        if (random || T === 'Student') {
+        if (random || isObj(T)) {
             const count = random ? n : studentCount(values);
             L.push(`        for (int i = 0; i < ${count}; i++) {`);
             L.push(random ? `            ${v}.${add}(${RANDOM});   // מספר אקראי בין 1 ל-20`
-                          : `            ${v}.${add}(Student.random());   // תלמיד עם נתוני דמה`);
+                          : `            ${v}.${add}(${OBJECTS[T].fresh});   // ${OBJECTS[T].note}`);
             L.push('        }');
             return L;
         }
@@ -233,12 +243,12 @@ function buildLines(st, T, v, values, isSecond, random, structure) {
         return L;
     }
     if (st.dims === 1) {
-        if (random || T === 'Student') {
+        if (random || isObj(T)) {
             const count = random ? n : studentCount(values);
             return [`        ${full} ${v} = new ${prim}[${count}];`,
                     `        for (int i = 0; i < ${v}.length; i++) {`,
                     random ? `            ${v}[i] = ${RANDOM};   // מספר אקראי בין 1 ל-20`
-                           : `            ${v}[i] = Student.random();   // תלמיד עם נתוני דמה`,
+                           : `            ${v}[i] = ${OBJECTS[T].fresh};   // ${OBJECTS[T].note}`,
                     '        }'];
         }
         const lits = literals(values, T, false);
@@ -267,7 +277,7 @@ function buildLines(st, T, v, values, isSecond, random, structure) {
                 `            ${v} = new ${full}(${RANDOM}, ${v});   // מוסיף בתחילת הרשימה, מספר אקראי בין 1 ל-20`,
                 '        }'];
     }
-    const elems = T === 'Student' ? Array(studentCount(values)).fill('Student.random()')
+    const elems = isObj(T) ? Array(studentCount(values)).fill(OBJECTS[T].fresh)
         : literals(values, T, structure === 'tree');
     return nodeLines(structure, T, v, elems).map(l => '        ' + l);
 }
@@ -293,7 +303,7 @@ function nodeLines(structure, T, v, elems) {
     const numeric = T === 'Integer' || T === 'Double';
     const cmp = (a, b) => numeric ? parseFloat(a) - parseFloat(b) : (a < b ? -1 : a > b ? 1 : 0);
     let root = null;
-    if (structure === 'bst' && T !== 'Student') {
+    if (structure === 'bst' && !isObj(T)) {
         const ins = (t, x) => {
             if (!t) return { v: x, l: null, r: null };
             if (cmp(x, t.v) < 0) t.l = ins(t.l, x); else t.r = ins(t.r, x);
@@ -339,11 +349,12 @@ function typeOf(st, T) {
 
 /** הפרמטר הנוסף x: מסוג הערכים, ולתלמידים — ציון (int) */
 function extraType(T) {
-    return T === 'Student' ? 'int' : TYPES[T].primitive;
+    return isObj(T) ? 'int' : TYPES[T].primitive;   // תלמיד: ציון, מכונית: שנה
 }
 
 function extraValue(o) {
     if (o.type === 'Student') return '80';
+    if (o.type === 'Car') return '2015';
     if (o.structure === 'matrix') {
         const cells = [].concat(...matrixLiterals(o.values, o.type));
         return cells.length ? cells[0] : TYPES[o.type].zero;
@@ -373,7 +384,7 @@ const WORDS = ['apple', 'sun', 'dog', 'cat', 'tree', 'book', 'star', 'moon', 'fi
 
 const SNIPPETS = {
     stack: 'מחסנית', queue: 'תור', list: 'רשימה מקושרת', tree: 'עץ בינארי', bst: 'עץ חיפוש בינארי',
-    array: 'מערך', matrix: 'מערך דו-ממדי', student: 'תלמיד'
+    array: 'מערך', matrix: 'מערך דו-ממדי', student: 'תלמיד', car: 'מכונית'
 };
 
 function randomValue(type, next) {
@@ -395,6 +406,7 @@ function snippet(o) {
     const name = o.name;
     if (!isIdentifier(name)) throw new Error('שם המשתנה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות');
     if (o.structure === 'student') return `${indent}Student ${name} = Student.random();   // תלמיד עם נתוני דמה (שם, כיתה, ציונים)`;
+    if (o.structure === 'car') return `${indent}Car ${name} = Car.random();   // מכונית עם נתוני דמה (יצרן, דגם, שנה, דלק)`;
     const st = STRUCTURES[o.structure];
     if (!st) throw new Error('מבנה לא מוכר: ' + o.structure);
     const T = o.type;
@@ -403,21 +415,21 @@ function snippet(o) {
     const size = Math.max(1, Math.min(o.size || 5, 30));
     const lines = L => L.map(l => indent + l).join('\n');
     const add = st.cls === 'Stack' ? 'push' : 'insert';
-    if (T === 'Student') {
-        if (st.dims === 2) throw new Error('אין מערך דו-ממדי של תלמידים — בחרו מערך רגיל');
+    if (isObj(T)) {
+        if (st.dims === 2) throw new Error('אין מערך דו-ממדי של תלמידים או מכוניות — בחרו מערך רגיל');
         if (st.cls === 'Stack' || st.cls === 'Queue') {
             return lines([`${full} ${name} = new ${full}();`,
                           `for (int i = 0; i < ${size}; i++) {`,
-                          `    ${name}.${add}(Student.random());   // תלמיד עם נתוני דמה`,
+                          `    ${name}.${add}(${OBJECTS[T].fresh});   // ${OBJECTS[T].note}`,
                           '}']);
         }
         if (st.dims === 1) {
-            return lines([`${full} ${name} = new Student[${size}];`,
+            return lines([`${full} ${name} = new ${T}[${size}];`,
                           `for (int i = 0; i < ${name}.length; i++) {`,
-                          `    ${name}[i] = Student.random();   // תלמיד עם נתוני דמה`,
+                          `    ${name}[i] = ${OBJECTS[T].fresh};   // ${OBJECTS[T].note}`,
                           '}']);
         }
-        return lines(nodeLines(o.structure, T, name, Array(size).fill('Student.random()')));
+        return lines(nodeLines(o.structure, T, name, Array(size).fill(OBJECTS[T].fresh)));
     }
     if (st.dims === 2) {
         const rows = Math.max(1, Math.min(o.rows || 3, 12)), cols = Math.max(1, Math.min(o.cols || 4, 12));
@@ -453,7 +465,7 @@ function snippet(o) {
 
 /** שם ברירת המחדל למשתנה */
 function snippetName(structure) {
-    return structure === 'student' ? 'st' : STRUCTURES[structure].varName;
+    return structure === 'student' ? 'st' : structure === 'car' ? 'car' : STRUCTURES[structure].varName;
 }
 
 module.exports = { STRUCTURES, TYPES, RETURNS, SNIPPETS, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf };

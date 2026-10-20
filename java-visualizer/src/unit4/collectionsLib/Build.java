@@ -146,6 +146,10 @@ public final class Build {
         return watch(items);
     }
 
+    public static Car[] array(Car... items) {
+        return watch(items);
+    }
+
     /** מערך דו-ממדי:  int[][] mat = Build.matrix(new int[][] { {1, 2}, {3, 4} }); */
     public static int[][] matrix(int[][] m) {
         return watch(m);
@@ -177,6 +181,14 @@ public final class Build {
     public static Student[] students(int n) {
         Recorder.sync();
         return Student.random(n);
+    }
+
+    // ---- מכוניות
+
+    /** n מכוניות אקראיות (נתוני דמה). למשל: Build.queue(Build.cars(5)) */
+    public static Car[] cars(int n) {
+        Recorder.sync();
+        return Car.random(n);
     }
 
     // ---- אקראי

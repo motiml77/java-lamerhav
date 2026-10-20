@@ -59,7 +59,7 @@ public final class Scaffold {
         STRUCTURES.put(s.id, s);
     }
 
-    public static final List<String> TYPES = Arrays.asList("Integer", "String", "Character", "Double", "Student");
+    public static final List<String> TYPES = Arrays.asList("Integer", "String", "Character", "Double", "Student", "Car");
 
     public static String primitive(String type) {
         switch (type) {
@@ -67,6 +67,7 @@ public final class Scaffold {
             case "Character": return "char";
             case "Double": return "double";
             case "Student": return "Student";
+            case "Car": return "Car";
             default: return "String";
         }
     }
@@ -77,7 +78,7 @@ public final class Scaffold {
             case "Character": return "' '";
             case "Double": return "0.0";
             case "String": return "\"\"";
-            default: return "null";   // Student
+            default: return "null";   // Student, Car
         }
     }
 
@@ -93,7 +94,7 @@ public final class Scaffold {
         }
         String[] d; // first, second, tree, bst
         switch (type) {
-            case "Student": d = new String[] { "4", "3", "5", "5" }; break;
+            case "Student": case "Car": d = new String[] { "4", "3", "5", "5" }; break;
             case "Integer": d = new String[] { "5, 2, 8, 1, 9", "3, 7, 4", "5, 3, 8, 1, 4, null, 9", "5, 3, 8, 1, 4, 9" }; break;
             case "String": d = new String[] { "dog, cat, bird, fish", "sun, moon", "m, c, t, a, f, null, z", "m, c, t, a, f, z" }; break;
             case "Character": d = new String[] { "a, b, c, d", "x, y", "m, c, t, a, f, null, z", "m, c, t, a, f, z" }; break;
@@ -116,17 +117,30 @@ public final class Scaffold {
         return s != null && IDENT.matcher(s).matches() && !KEYWORDS.contains(s);
     }
 
-    /** לתלמידים כותבים כמה תלמידים (מספר) — הם נוצרים בהרצה עם נתוני דמה (Student.random) */
+    /** טיפוסים של אובייקטים מוכנים (Student, Car): כותבים כמה ליצור — הם נוצרים בהרצה עם נתוני דמה */
+    static boolean isObj(String T) {
+        return T.equals("Student") || T.equals("Car");
+    }
+
+    static String fresh(String T) {
+        return T.equals("Car") ? "Car.random()" : "Student.random()";
+    }
+
+    static String freshNote(String T) {
+        return T.equals("Car") ? "מכונית עם נתוני דמה" : "תלמיד עם נתוני דמה";
+    }
+
+    /** כמה אובייקטים ליצור (מספר) */
     public static int studentCount(String text) {
         String t = text == null ? "" : text.trim();
         if (!t.matches("\\d{1,2}") || Integer.parseInt(t) < 1 || Integer.parseInt(t) > 20)
-            throw new IllegalArgumentException("לתלמידים כותבים כמה תלמידים ליצור (מספר בין 1 ל-20)");
+            throw new IllegalArgumentException("כאן כותבים כמה ליצור — מספר בין 1 ל-20");
         return Integer.parseInt(t);
     }
 
     /** "1, 2; 3, 4" → [[1, 2], [3, 4]] */
     public static List<List<String>> matrixLiterals(String text, String type) {
-        if (type.equals("Student")) throw new IllegalArgumentException("אין מערך דו-ממדי של תלמידים — בחרו מערך רגיל");
+        if (isObj(type)) throw new IllegalArgumentException("אין מערך דו-ממדי של תלמידים או מכוניות — בחרו מערך רגיל");
         List<List<String>> rows = new ArrayList<List<String>>();
         for (String r : (text == null ? "" : text).split(";")) {
             if (r.trim().isEmpty()) continue;
@@ -140,7 +154,7 @@ public final class Scaffold {
     /** "5, 2, 8" → [5, 2, 8] ; זורק IllegalArgumentException עם הודעה בעברית אם ערך לא מתאים */
     public static List<String> literals(String text, String type, boolean allowNull) {
         List<String> res = new ArrayList<String>();
-        if (type.equals("Student")) {
+        if (isObj(type)) {
             studentCount(text);
             return res;
         }
@@ -241,6 +255,7 @@ public final class Scaffold {
         L.add("    public static " + retType + " " + o.functionName + "(" + String.join(", ", params) + ") {");
         L.add("        // תזכורת: " + st.hint.replace("{v}", v1).replace("{T}", T));
         if (T.equals("Student")) L.add("        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()");
+        if (T.equals("Car")) L.add("        // Car: getManufacturer()   getYear()   getKm()   getFuel()   drive(km)   refuel(l)   isOld()   needsFuel()");
         if (retStart != null) L.add("        " + retType + " result = " + retStart + ";   // כאן אוספים את מה שהפעולה מחזירה");
         L.add("");
         L.add("        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)");
@@ -302,11 +317,11 @@ public final class Scaffold {
         List<String> L = new ArrayList<String>();
         if ("Stack".equals(st.cls) || "Queue".equals(st.cls)) {
             L.add("        " + full + " " + v + " = new " + full + "();");
-            if (random || T.equals("Student")) {
+            if (random || isObj(T)) {
                 int count = random ? n : studentCount(values);
                 L.add("        for (int i = 0; i < " + count + "; i++) {");
                 L.add(random ? "            " + v + "." + add + "(" + RANDOM + ");   // מספר אקראי בין 1 ל-20"
-                             : "            " + v + "." + add + "(Student.random());   // תלמיד עם נתוני דמה");
+                             : "            " + v + "." + add + "(" + fresh(T) + ");   // " + freshNote(T));
                 L.add("        }");
                 return L;
             }
@@ -319,12 +334,12 @@ public final class Scaffold {
             return L;
         }
         if (st.dims == 1) {
-            if (random || T.equals("Student")) {
+            if (random || isObj(T)) {
                 int count = random ? n : studentCount(values);
                 L.add("        " + full + " " + v + " = new " + prim + "[" + count + "];");
                 L.add("        for (int i = 0; i < " + v + ".length; i++) {");
                 L.add(random ? "            " + v + "[i] = " + RANDOM + ";   // מספר אקראי בין 1 ל-20"
-                             : "            " + v + "[i] = Student.random();   // תלמיד עם נתוני דמה");
+                             : "            " + v + "[i] = " + fresh(T) + ";   // " + freshNote(T));
                 L.add("        }");
                 return L;
             }
@@ -363,8 +378,8 @@ public final class Scaffold {
             return L;
         }
         List<String> elems = new ArrayList<String>();
-        if (T.equals("Student")) {
-            for (int i = studentCount(values); i > 0; i--) elems.add("Student.random()");
+        if (isObj(T)) {
+            for (int i = studentCount(values); i > 0; i--) elems.add(fresh(T));
         } else {
             elems = literals(values, T, structure.equals("tree"));
         }
@@ -419,7 +434,7 @@ public final class Scaffold {
         String type = "BinNode<" + T + ">";
         boolean numeric = T.equals("Integer") || T.equals("Double");
         TNode root = null;
-        if (structure.equals("bst") && !T.equals("Student")) {
+        if (structure.equals("bst") && !isObj(T)) {
             for (String x : elems) root = insert(root, x, numeric);
         } else {
             root = treeAt(elems, 0);
@@ -455,11 +470,12 @@ public final class Scaffold {
 
     /** הפרמטר הנוסף x: מסוג הערכים, ולתלמידים — ציון (int) */
     static String extraType(String T) {
-        return T.equals("Student") ? "int" : primitive(T);
+        return isObj(T) ? "int" : primitive(T);   // תלמיד: ציון, מכונית: שנה
     }
 
     private static String extraValue(Options o) {
         if (o.type.equals("Student")) return "80";
+        if (o.type.equals("Car")) return "2015";
         if (o.structure.equals("matrix")) {
             List<String> cells = new ArrayList<String>();
             for (List<String> r : matrixLiterals(o.values, o.type)) cells.addAll(r);
@@ -501,6 +517,7 @@ public final class Scaffold {
         SNIPPETS.put("array", "מערך");
         SNIPPETS.put("matrix", "מערך דו-ממדי");
         SNIPPETS.put("student", "תלמיד");
+        SNIPPETS.put("car", "מכונית");
     }
 
     static String randomValue(String type, Rng r) {
@@ -525,6 +542,7 @@ public final class Scaffold {
         String name = o.name;
         if (!isIdentifier(name)) throw new IllegalArgumentException("שם המשתנה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות");
         if (o.structure.equals("student")) return indent + "Student " + name + " = Student.random();   // תלמיד עם נתוני דמה (שם, כיתה, ציונים)";
+        if (o.structure.equals("car")) return indent + "Car " + name + " = Car.random();   // מכונית עם נתוני דמה (יצרן, דגם, שנה, דלק)";
         Structure st = STRUCTURES.get(o.structure);
         if (st == null) throw new IllegalArgumentException("מבנה לא מוכר: " + o.structure);
         String T = o.type;
@@ -534,24 +552,24 @@ public final class Scaffold {
         String add = "Stack".equals(st.cls) ? "push" : "insert";
         boolean linear = "Stack".equals(st.cls) || "Queue".equals(st.cls);
         List<String> L = new ArrayList<String>();
-        if (T.equals("Student")) {
-            if (st.dims == 2) throw new IllegalArgumentException("אין מערך דו-ממדי של תלמידים — בחרו מערך רגיל");
+        if (isObj(T)) {
+            if (st.dims == 2) throw new IllegalArgumentException("אין מערך דו-ממדי של תלמידים או מכוניות — בחרו מערך רגיל");
             if (linear) {
                 L.add(full + " " + name + " = new " + full + "();");
                 L.add("for (int i = 0; i < " + size + "; i++) {");
-                L.add("    " + name + "." + add + "(Student.random());   // תלמיד עם נתוני דמה");
+                L.add("    " + name + "." + add + "(" + fresh(T) + ");   // " + freshNote(T));
                 L.add("}");
                 return lines(indent, L);
             }
             if (st.dims == 1) {
-                L.add(full + " " + name + " = new Student[" + size + "];");
+                L.add(full + " " + name + " = new " + T + "[" + size + "];");
                 L.add("for (int i = 0; i < " + name + ".length; i++) {");
-                L.add("    " + name + "[i] = Student.random();   // תלמיד עם נתוני דמה");
+                L.add("    " + name + "[i] = " + fresh(T) + ";   // " + freshNote(T));
                 L.add("}");
                 return lines(indent, L);
             }
             List<String> students = new ArrayList<String>();
-            for (int i = 0; i < size; i++) students.add("Student.random()");
+            for (int i = 0; i < size; i++) students.add(fresh(T));
             return lines(indent, nodeLines(o.structure, T, name, students));
         }
         if (st.dims == 2) {
@@ -594,7 +612,7 @@ public final class Scaffold {
 
     /** שם ברירת המחדל למשתנה */
     public static String snippetName(String structure) {
-        return structure.equals("student") ? "st" : STRUCTURES.get(structure).varName;
+        return structure.equals("student") ? "st" : structure.equals("car") ? "car" : STRUCTURES.get(structure).varName;
     }
 
     private static List<String> withoutNull(List<String> l) {

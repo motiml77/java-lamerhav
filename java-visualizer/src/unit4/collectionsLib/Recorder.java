@@ -668,7 +668,7 @@ final class Recorder {
     static String str(Object v) {
         String s;
         try {
-            s = v instanceof Student ? ((Student) v).label() : String.valueOf(v);
+            s = v instanceof Student ? ((Student) v).label() : v instanceof Car ? ((Car) v).label() : String.valueOf(v);
         } catch (RuntimeException e) {
             s = "?";
         }
@@ -810,6 +810,7 @@ final class Recorder {
         if (v instanceof Queue) return "Queue " + shorten(v.toString(), 40);
         if (v instanceof Node || v instanceof BinNode) return (v instanceof Node ? "Node " : "BinNode ") + nodeRef(v);
         if (v instanceof Student) return "Student " + shorten(v.toString(), 40);
+        if (v instanceof Car) return "Car " + shorten(v.toString(), 40);
         return shorten(String.valueOf(v), 40);
     }
 

@@ -301,7 +301,7 @@ public class ExerciseDialog extends Dialog {
         randomCheck.setEnabled(canRandom);
         if (!canRandom) randomCheck.setSelection(false);
         boolean random = randomCheck.getSelection();
-        valuesLabel.setText(type.equals("Student") ? "כמה תלמידים:" : st.equals("matrix") ? "ערכים (שורות ב-;):" : "ערכים:");
+        valuesLabel.setText(type.equals("Student") ? "כמה תלמידים:" : type.equals("Car") ? "כמה מכוניות:" : st.equals("matrix") ? "ערכים (שורות ב-;):" : "ערכים:");
         if (!type.equals(lastType) || !st.equals(lastStructure)) {
             valuesText.setText(Scaffold.defaultValues(st, type, false));
             values2Text.setText(Scaffold.defaultValues(st, type, true));

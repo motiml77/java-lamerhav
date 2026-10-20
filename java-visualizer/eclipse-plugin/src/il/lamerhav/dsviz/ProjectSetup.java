@@ -35,7 +35,7 @@ public final class ProjectSetup {
     public static final String JAR_NAME = "dsviz.jar";
     public static final String DEFAULT_PROJECT = "DataStructures";
     public static final List<String> EXAMPLES = Arrays.asList("StackExamples", "QueueExamples", "ListExamples", "TreeExamples",
-            "ArrayExamples", "StudentExamples");
+            "ArrayExamples", "StudentExamples", "CarExamples");
     private static final String MARKER = "unit4/collectionsLib/Stack.class";
 
     /** מה לעשות עם ספריית unit4 אחרת שנמצאה ב-Build Path (למשל ה-jar המקורי של הבגרות) */

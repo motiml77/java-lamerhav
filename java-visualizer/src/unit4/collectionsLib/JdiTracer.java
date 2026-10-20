@@ -291,8 +291,22 @@ final class JdiTracer {
         if (v instanceof CharValue) return String.valueOf(((CharValue) v).value());
         if (v instanceof StringReference) return shorten(((StringReference) v).value(), 14);
         if (v instanceof ObjectReference && isStudent((ObjectReference) v)) return studentLabel((ObjectReference) v, true);
+        if (v instanceof ObjectReference && isCar((ObjectReference) v)) return carLabel((ObjectReference) v);
         String s = format(v, 2);
         return s.startsWith("\u0003") ? "•" : shorten(s, 14);
+    }
+
+    private static boolean isCar(ObjectReference o) {
+        return o.referenceType().name().equals("unit4.collectionsLib.Car");
+    }
+
+    /** מכונית: "Mazda 2019" */
+    private String carLabel(ObjectReference o) {
+        ClassType t = (ClassType) o.referenceType();
+        com.sun.jdi.Field fm = t.fieldByName("manufacturer"), fy = t.fieldByName("year");
+        Map<com.sun.jdi.Field, Value> m = o.getValues(java.util.Arrays.asList(fm, fy));
+        String maker = m.get(fm) instanceof StringReference ? ((StringReference) m.get(fm)).value() : "?";
+        return maker + " " + m.get(fy);
     }
 
     private static boolean isStudent(ObjectReference o) {
@@ -347,6 +361,7 @@ final class JdiTracer {
         }
         ObjectReference o = (ObjectReference) v;
         if (isStudent(o)) return "Student " + studentLabel(o, false);
+        if (isCar(o)) return "Car " + carLabel(o);
         String cached = immutable.get(o);
         if (cached != null) return cached;
         ReferenceType type = o.referenceType();
