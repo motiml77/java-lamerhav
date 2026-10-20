@@ -1,7 +1,7 @@
 ﻿; ============================================================
 ;  מבני נתונים — הרצה ויזואלית : תוכנית התקנה ל-Windows
 ;  מתקינה את התוסף ל-VS Code ואת התוסף לכל Eclipse שנמצא במחשב.
-;  נבנית ע"י tools/build-all.sh (makensis). לא דורשת הרשאות מנהל.
+;  נבנית ע"י tools/build-all.sh (makensis). לא דורשת הרשאות מנהל ולא שואלת מה להתקין — הכול אוטומטי.
 ;  התקנה שקטה (למשל לכל מחשבי המעבדה): DSViz-Setup.exe /S   הסרה שקטה: uninstall.exe /S
 ; ============================================================
 SetCompressor /SOLID lzma
@@ -24,6 +24,14 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !define PLUGIN "il.lamerhav.dsviz_${VERSION}.jar"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz"
 
+VIProductVersion "${VERSION}.0"
+VIAddVersionKey /LANG=1037 "ProductName" "DSViz — Data Structures Visualizer"
+VIAddVersionKey /LANG=1037 "FileDescription" "הרצה ויזואלית למבני נתונים — תוכנית התקנה"
+VIAddVersionKey /LANG=1037 "FileVersion" "${VERSION}"
+VIAddVersionKey /LANG=1037 "ProductVersion" "${VERSION}"
+VIAddVersionKey /LANG=1037 "CompanyName" "lamerhav"
+VIAddVersionKey /LANG=1037 "LegalCopyright" "lamerhav"
+
 Name "מבני נתונים — הרצה ויזואלית"
 OutFile "${RELEASE}\DSViz-Setup.exe"
 InstallDir "$LOCALAPPDATA\DSViz"
@@ -36,7 +44,7 @@ ShowUninstDetails show
 !define MUI_UNICON "icon.ico"
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
-!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code ול-Eclipse:$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את VS Code ואת Eclipse שבמחשב. מומלץ לסגור אותם לפני שממשיכים."
+!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code ול-Eclipse:$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את VS Code ואת Eclipse שבמחשב, ומורידה לבד (ברקע) את תוסף ה-Java של Microsoft ל-VS Code — צריך אינטרנט רק בשביל זה.$\r$\nמומלץ לסגור את VS Code ואת Eclipse לפני שממשיכים."
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
 !define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
@@ -44,7 +52,6 @@ ShowUninstDetails show
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
 
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -242,11 +249,12 @@ Section "תוסף ל-VS Code" SEC_VSCODE
   ${EndIf}
 SectionEnd
 
-Section /o "השלמה אוטומטית ל-Java ב-VS Code (רשות, מהאינטרנט)" SEC_JAVAPACK
-  ; לא נחוץ להרצה (התוסף שלנו מריץ בעצמו עם ה-Java שבהתקנה). רץ ברקע — ההתקנה לא מחכה לו
+Section "השלמה אוטומטית ל-Java ב-VS Code (מורידה לבד מהאינטרנט)" SEC_JAVAPACK
+  ; לא נחוץ להרצה (התוסף שלנו מריץ בעצמו עם ה-Java שבהתקנה). רץ ברקע ובחלון נסתר — ההתקנה לא מחכה לו.
+  ; אם אין אינטרנט — ההורדה פשוט נכשלת בשקט, ושאר ההתקנה לא מושפעת
   ${If} $CODE != ""
-    DetailPrint "VS Code: Extension Pack for Java יותקן ברקע (אם יש אינטרנט)"
-    Exec '"$SYSDIR\cmd.exe" /c start "" /min "$SYSDIR\cmd.exe" /c ""$CODE" --install-extension vscjava.vscode-java-pack""'
+    DetailPrint "VS Code: תוסף ה-Java של Microsoft יורד ומותקן ברקע (אם יש אינטרנט)"
+    ExecShell "open" "$SYSDIR\cmd.exe" '/c ""$CODE" --install-extension vscjava.vscode-java-pack"' SW_HIDE
   ${EndIf}
 SectionEnd
 
@@ -261,7 +269,10 @@ Section "תוסף ל-Eclipse" SEC_ECLIPSE
   !insertmacro SCAN "C:" "eclipse*"
   !insertmacro SCAN "D:" "eclipse*"
   ${If} $ECLIPSES == 0
-    MessageBox MB_YESNO|MB_ICONQUESTION "לא נמצא Eclipse באופן אוטומטי.$\r$\n$\r$\nלבחור את התיקייה של Eclipse (התיקייה שבה נמצא eclipse.exe)?" /SD IDNO IDNO eclipse_done
+  ${AndIf} $CODE != ""
+    DetailPrint "Eclipse: לא נמצא — דילוג (VS Code הותקן)"
+  ${ElseIf} $ECLIPSES == 0
+    MessageBox MB_YESNO|MB_ICONQUESTION "לא נמצאו VS Code ו-Eclipse באופן אוטומטי.$\r$\n$\r$\nלבחור את התיקייה של Eclipse (התיקייה שבה נמצא eclipse.exe)?" /SD IDNO IDNO eclipse_done
     nsDialogs::SelectFolderDialog "התיקייה של Eclipse (שבה נמצא eclipse.exe)" "C:\"
     Pop $0
     ${If} $0 != "error"
@@ -275,14 +286,6 @@ Section "תוסף ל-Eclipse" SEC_ECLIPSE
   ${EndIf}
   DetailPrint "Eclipse: הותקן ב-$ECLIPSES מקומות"
 SectionEnd
-
-!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_PROJECT} "תיקייה DataStructures במסמכים עם תרגיל לדוגמה, דוגמאות פתורות וכל ההגדרות — נפתחת גם ב-VS Code וגם ב-Eclipse."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_VSCODE} "סרגל 'מבני נתונים' ב-VS Code: תרגיל חדש, הוספה לקוד והרצה ויזואלית."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_JDK} "Java 21 מובנית: מקמפלת ומריצה את התרגילים ב-VS Code, כולל ההרצה הוויזואלית. לא צריך להוריד כלום."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_JAVAPACK} "רשות: התוסף של Microsoft להשלמה אוטומטית ובדיקת שגיאות בזמן ההקלדה. לא נחוץ להרצה. מותקן ברקע מהאינטרנט."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_ECLIPSE} "תפריט 'מבני נתונים' וכפתורים ב-Eclipse. מותקן לכל Eclipse שנמצא במחשב."
-!insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; ------------------------------------------------------------ הסרה
 Section "Uninstall"
