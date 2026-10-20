@@ -33,7 +33,7 @@
                 "command": "dsviz.newExercise",
                 "title": "תרגיל חדש...",
                 "category": "מבני נתונים",
-                "icon": "$(add)"
+                "icon": "media/new.svg"
             },
             {
                 "command": "dsviz.newStack",
@@ -72,9 +72,9 @@
             },
             {
                 "command": "dsviz.run",
-                "title": "הרצה ויזואלית (שורה אחר שורה)",
+                "title": "הרצה ויזואלית",
                 "category": "מבני נתונים",
-                "icon": "$(play-circle)"
+                "icon": "media/run.svg"
             },
             {
                 "command": "dsviz.examples",
@@ -85,7 +85,7 @@
                 "command": "dsviz.insert",
                 "title": "הוספה לקוד: מבנה עם נתוני דמה...",
                 "category": "מבני נתונים",
-                "icon": "$(insert)"
+                "icon": "media/insert.svg"
             },
             {
                 "command": "dsviz.insert.stack",
@@ -182,9 +182,19 @@
         "menus": {
             "editor/title": [
                 {
+                    "command": "dsviz.newExercise",
+                    "when": "resourceLangId == java",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "dsviz.insert",
+                    "when": "resourceLangId == java",
+                    "group": "navigation@2"
+                },
+                {
                     "command": "dsviz.run",
                     "when": "resourceLangId == java",
-                    "group": "navigation"
+                    "group": "navigation@3"
                 }
             ],
             "explorer/context": [

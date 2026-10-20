@@ -721,8 +721,13 @@ final class Viewer extends JFrame {
      * כדי שמספרים שאחרי "מחרוזת בעברית" לא "יימשכו" לתוכה ויהפכו את סדר השורה.
      */
     private static String ltr(String line) {
-        return "‎" + line.replace("\"", "‎\"‎").replace("'", "‎'‎");
+        String s = "\u200E" + line.replace("\"", "\u200E\"\u200E").replace("'", "\u200E'\u200E");
+        // רצף של מילים בעברית (הערה / מחרוזת) נקרא מימין לשמאל, בלי להפוך את שאר השורה
+        return HEBREW_RUN.matcher(s).replaceAll("\u202B$0\u202C\u200E");
     }
+
+    private static final java.util.regex.Pattern HEBREW_RUN = java.util.regex.Pattern.compile(
+            "[\u0590-\u05FF](?:[\u0590-\u05FF \\-.,:;!?()0-9]*[\u0590-\u05FF])?");
 
     // ------------------------------------------------------------ משתנים וקריאות
 
@@ -769,9 +774,8 @@ final class Viewer extends JFrame {
 
     private void updateCalls(List<Frame> frames) {
         callsModel.clear();
-        for (Frame f : frames) callsModel.addElement(f.label());
-        callsSub.setText(frames.isEmpty() ? "אין קריאות פעילות" : frames.size() == 1 ? "קריאה אחת"
-                : frames.size() + " קריאות   ·   הפעילה למעלה");
+        for (Frame f : frames) callsModel.addElement((f.method.equals("<init>") ? "constructor" : f.method) + "()    \u200E:" + f.line);
+        callsSub.setText(frames.size() <= 1 ? " " : frames.size() + " קריאות");
     }
 
     private static final class CallRenderer extends DefaultListCellRenderer {

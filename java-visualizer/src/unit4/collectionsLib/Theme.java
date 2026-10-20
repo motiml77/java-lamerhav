@@ -15,7 +15,7 @@ import javax.swing.plaf.FontUIResource;
 import javax.swing.text.StyleContext;
 
 /**
- * המראה של החלון: FlatLaf (מראה מודרני ושטוח), הגופן Rubik שנארז בספרייה (עברית ואנגלית),
+ * המראה של החלון: FlatLaf (מראה מודרני ושטוח), הגופן Alef שנארז בספרייה (עברית ואנגלית),
  * וגופן קוד מודרני מהמחשב (Cascadia Mono / Consolas ...). הכול עם נפילה חזרה אם משהו חסר.
  */
 final class Theme {
@@ -42,16 +42,17 @@ final class Theme {
     static void install() {
         if (installed) return;
         installed = true;
-        String regular = register("Rubik-Regular.ttf"), medium = register("Rubik-Medium.ttf");
+        String regular = register("Alef-Regular.ttf");
+        register("Alef-Bold.ttf");   // אותה משפחה, משקל מודגש
         if (regular != null) family = regular;
-        if (medium != null) { boldFamily = medium; boldStyle = Font.PLAIN; }
-        else { boldFamily = family; boldStyle = Font.BOLD; }
-        ui = font(family, Font.PLAIN, 14);
-        uiBold = font(boldFamily, boldStyle, 14);
-        small = font(family, Font.PLAIN, 12);
-        smallBold = font(boldFamily, boldStyle, 12);
-        title = font(boldFamily, boldStyle, 13);
-        big = font(boldFamily, boldStyle, 17);
+        boldFamily = family;
+        boldStyle = Font.BOLD;
+        ui = font(family, Font.PLAIN, 15);
+        uiBold = font(boldFamily, boldStyle, 15);
+        small = font(family, Font.PLAIN, 13);
+        smallBold = font(boldFamily, boldStyle, 13);
+        title = font(boldFamily, boldStyle, 15);
+        big = font(boldFamily, boldStyle, 19);
         mono = monoFont(14);
         monoBig = monoFont(16);
 
@@ -117,6 +118,7 @@ final class Theme {
 
     /** טוען גופן שנארז בתוך הספרייה (unit4/collectionsLib/fonts) ומחזיר את שם המשפחה שלו */
     private static String register(String file) {
+        if ("false".equals(System.getProperty("dsviz.fonts"))) return null;   // לבדיקות (למשל תחת Wine)
         InputStream in = Theme.class.getResourceAsStream("fonts/" + file);
         if (in == null) return null;
         try {

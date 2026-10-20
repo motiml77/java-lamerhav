@@ -47,11 +47,11 @@ final class StructPanel extends JPanel {
     private static final Color MUTED = new Color(0x8A93A3);
     private static final Color INK = new Color(0x1D2433);
 
-    private final Font VALUE = Theme.font(Theme.boldFamily, Theme.boldStyle, 15);
-    private final Font TITLE = Theme.font(Theme.boldFamily, Theme.boldStyle, 14);
-    private final Font TYPE = Theme.font(Theme.family, Font.PLAIN, 12);
-    private final Font SMALL = Theme.font(Theme.family, Font.PLAIN, 12);
-    private final Font SMALL_B = Theme.font(Theme.boldFamily, Theme.boldStyle, 13);
+    private final Font VALUE = Theme.font(Theme.boldFamily, Theme.boldStyle, 16);
+    private final Font TITLE = Theme.font(Theme.boldFamily, Theme.boldStyle, 15);
+    private final Font TYPE = Theme.font(Theme.family, Font.PLAIN, 13);
+    private final Font SMALL = Theme.font(Theme.family, Font.PLAIN, 13);
+    private final Font SMALL_B = Theme.font(Theme.boldFamily, Theme.boldStyle, 14);
 
     private static final int PAD = 20, GAP = 36, TITLE_H = 30, ARC = 8;
     private static final Stroke THIN = new BasicStroke(1.3f);

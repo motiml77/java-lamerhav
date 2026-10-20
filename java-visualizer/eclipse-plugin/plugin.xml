@@ -91,9 +91,10 @@
       <menuContribution locationURI="toolbar:org.eclipse.ui.main.toolbar?after=additions">
          <toolbar id="il.lamerhav.dsviz.toolbar" label="מבני נתונים">
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש" mode="FORCE_TEXT"
-                     tooltip="תרגיל חדש במבני נתונים" style="push"/>
+                     tooltip="תרגיל חדש במבני נתונים — בוחרים מבנה ומקבלים תרגיל מוכן" style="push"/>
             <command commandId="il.lamerhav.dsviz.insert" id="il.lamerhav.dsviz.insertDropdown" label="הוספה לקוד"
-                     mode="FORCE_TEXT" tooltip="צור תור / מחסנית / מערך / תלמיד... עם נתוני דמה" style="pulldown"/>
+                     mode="FORCE_TEXT" tooltip="צור תור / מחסנית / מערך / תלמיד... עם נתוני דמה, במקום הסמן" style="pulldown"/>
+            <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" mode="FORCE_TEXT"
                      tooltip="הרצה בחלון שמראה כל שורה, את המשתנים ואת מבני הנתונים (הרצה רגילה — רק לקונסול)" style="push"/>
          </toolbar>

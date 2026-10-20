@@ -36,7 +36,7 @@ ShowUninstDetails show
 !define MUI_UNICON "icon.ico"
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
-!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code ול-Eclipse:$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: המבנים מצוירים ומתעדכנים בכל צעד.$\r$\n• הרצה שורה אחר שורה: כל שורה בקוד, עם המשתנים.$\r$\n$\r$\nההתקנה מוצאת לבד את VS Code ואת Eclipse שבמחשב. מומלץ לסגור אותם לפני שממשיכים."
+!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code ול-Eclipse:$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את VS Code ואת Eclipse שבמחשב. מומלץ לסגור אותם לפני שממשיכים."
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
 !define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
@@ -276,8 +276,8 @@ SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_PROJECT} "תיקייה DataStructures במסמכים עם תרגיל לדוגמה, דוגמאות פתורות וכל ההגדרות — נפתחת גם ב-VS Code וגם ב-Eclipse."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_VSCODE} "סרגל 'מבני נתונים' ב-VS Code: תרגיל חדש, הרצה ויזואלית והרצה שורה אחר שורה."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_JDK} "Java 21 מובנית: מקמפלת ומריצה את התרגילים ב-VS Code, כולל הרצה שורה אחר שורה. לא צריך להוריד כלום."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_VSCODE} "סרגל 'מבני נתונים' ב-VS Code: תרגיל חדש, הוספה לקוד והרצה ויזואלית."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_JDK} "Java 21 מובנית: מקמפלת ומריצה את התרגילים ב-VS Code, כולל ההרצה הוויזואלית. לא צריך להוריד כלום."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_JAVAPACK} "רשות: התוסף של Microsoft להשלמה אוטומטית ובדיקת שגיאות בזמן ההקלדה. לא נחוץ להרצה. מותקן ברקע מהאינטרנט."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_ECLIPSE} "תפריט 'מבני נתונים' וכפתורים ב-Eclipse. מותקן לכל Eclipse שנמצא במחשב."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
