@@ -10,7 +10,7 @@ const STRUCTURES = {
              note: 'האיבר הראשון בראש התור',
              hint: '{v}.insert(x)   {v}.remove()   {v}.head()   {v}.isEmpty()' },
     list:  { label: 'רשימה מקושרת', cls: 'Node', varName: 'lst', build: 'list', random: 'randomList',
-             note: 'החוליה הראשונה היא ' + 'lst',
+             note: 'החוליה הראשונה היא {v}',
              hint: '{v}.getValue()   {v}.getNext()   {v}.setNext(n)   {v}.hasNext()   new Node<{T}>(x)' },
     tree:  { label: 'עץ בינארי', cls: 'BinNode', varName: 't', build: 'tree', random: 'randomBst',
              note: 'לפי רמות: שורש, ילדים, נכדים... (null = אין צומת)',
@@ -28,7 +28,7 @@ const STRUCTURES = {
 
 const TYPES = {
     Integer:   { primitive: 'int',    zero: '0' },
-    String:    { primitive: 'String', zero: 'null' },
+    String:    { primitive: 'String', zero: '""' },
     Character: { primitive: 'char',   zero: "' '" },
     Double:    { primitive: 'double', zero: '0.0' },
     Student:   { primitive: 'Student', zero: 'null' }
@@ -65,7 +65,7 @@ const JAVA_KEYWORDS = new Set(('abstract assert boolean break byte case catch ch
     'package private protected public return short static strictfp super switch synchronized this throw throws ' +
     'transient try void volatile while true false null var record').split(' '));
 
-/** לתלמידים כותבים כמה תלמידים (מספר) — הם נוצרים בהרצה עם Build.students */
+/** לתלמידים כותבים כמה תלמידים (מספר) — הם נוצרים בהרצה עם נתוני דמה (Student.random) */
 function studentCount(text) {
     const t = String(text || '').trim();
     if (!/^\d{1,2}$/.test(t) || +t < 1 || +t > 20) throw new Error('לתלמידים כותבים כמה תלמידים ליצור (מספר בין 1 ל-20)');
@@ -127,13 +127,14 @@ function generate(o) {
     const full = typeOf(st, T);
     const v1 = st.varName, v2 = st.varName + '2';
 
-    let retType, retDefault;
+    // retStart = הערך ההתחלתי של המשתנה result (רק בפעולה שמחזירה ערך)
+    let retType, retStart;
     switch (o.returns) {
         case 'void': retType = 'void'; break;
-        case 'int': retType = 'int'; retDefault = '0'; break;
-        case 'boolean': retType = 'boolean'; retDefault = 'false'; break;
-        case 'element': retType = tp.primitive; retDefault = tp.zero; break;
-        case 'structure': retType = full; retDefault = 'null'; break;
+        case 'int': retType = 'int'; retStart = '0'; break;
+        case 'boolean': retType = 'boolean'; retStart = 'false'; break;
+        case 'element': retType = tp.primitive; retStart = tp.zero; break;
+        case 'structure': retType = full; retStart = emptyOf(st, T, v1); break;
         default: throw new Error('ערך החזרה לא מוכר: ' + o.returns);
     }
 
@@ -142,73 +143,147 @@ function generate(o) {
     if (o.second) { params.push(`${full} ${v2}`); args.push(v2); }
     if (o.extra) { params.push(`${extraType(T)} x`); args.push('x'); }
 
-    const buildLine = (v, values, isSecond) => {
-        const note = st.note.replace('lst', v).replace('{v}', v);
-        if (random) {
-            const n = isSecond ? 4 : 6;
-            if (st.dims === 2) return `        ${full} ${v} = Build.${st.random}(3, 4, 1, 20);   // 3 שורות, 4 עמודות, מספרים אקראיים`;
-            return `        ${full} ${v} = Build.${st.random}(${n}, 1, 20);   // ${n} מספרים אקראיים בין 1 ל-20`;
-        }
-        if (T === 'Student') {
-            if (st.dims === 2) matrixLiterals(values, T);
-            const n = studentCount(values);
-            return `        ${full} ${v} = Build.${st.build}(Build.students(${n}));   // ${n} תלמידים אקראיים (נתוני דמה)`;
-        }
-        if (st.dims === 2) {
-            const rows = matrixLiterals(values, T);
-            if (rows.length === 0) return `        ${full} ${v} = new ${tp.primitive}[0][0];`;
-            return `        ${full} ${v} = Build.matrix(new ${tp.primitive}[][] {   // ${note}\n`
-                + rows.map(r => `                { ${r.join(', ')} }`).join(',\n') + '\n        });';
-        }
-        const lits = literals(values, T, o.structure === 'tree');
-        if (st.dims === 1 && lits.length === 0) return `        ${full} ${v} = new ${tp.primitive}[0];`;
-        return `        ${full} ${v} = Build.${st.build}(${lits.join(', ')});   // ${note}`;
-    };
-
     const L = [];
     L.push('import unit4.collectionsLib.*;');
+    if (st.dims > 0) L.push('import java.util.Arrays;');
     L.push('');
     L.push('/**');
     L.push(` * תרגיל: ${st.label} של ${T}`);
-    L.push(` * 1. כותבים את הפעולה ${o.functionName} למטה.`);
-    L.push(' * 2. מריצים (הרצה ויזואלית / Run) — ייפתח חלון שמראה כל צעד.');
+    L.push(` * 1. כותבים את הפתרון בתוך הפעולה ${o.functionName} — במקום שמסומן TODO.`);
+    L.push(' * 2. לוחצים על "הרצה ויזואלית" — נפתח חלון שמראה כל שורה וכל שינוי במבנה.');
+    L.push(' *    (הרצה רגילה — Run — מדפיסה רק לקונסול.)');
     L.push(' * אפשר לשנות את הערכים ב-main כדי לבדוק מקרים נוספים.');
     L.push(' */');
     L.push(`public class ${o.className} {`);
     L.push('');
-    L.push('    /**');
-    L.push('     * TODO: כאן כותבים מה הפעולה צריכה לעשות');
-    L.push('     */');
     L.push(`    public static ${retType} ${o.functionName}(${params.join(', ')}) {`);
     L.push(`        // תזכורת: ${st.hint.replace(/\{v\}/g, v1).replace(/\{T\}/g, T)}`);
     if (T === 'Student') L.push('        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()');
+    if (retStart !== undefined) L.push(`        ${retType} result = ${retStart};`);
+    L.push('');
+    L.push('        // TODO: כאן כותבים את הפתרון');
     const cursorLine = L.length;
     L.push('        ');
-    if (retDefault !== undefined) L.push(`        return ${retDefault};`);
+    if (retStart !== undefined) {
+        L.push('');
+        L.push('        return result;');
+    }
     L.push('    }');
     L.push('');
+    L.push('');
+    L.push('');
+    L.push('    // ==================== מכאן והלאה: מעטפת מוכנה (בדיקה של הפעולה) ====================');
+    L.push('    // אין צורך לשנות — אבל אפשר לשנות את הערכים כדי לבדוק מקרים נוספים');
+    L.push('');
     L.push('    public static void main(String[] args) {');
-    L.push(buildLine(v1, o.values, false));
-    if (o.second) L.push(buildLine(v2, o.values2, true));
+    L.push(...buildLines(st, T, v1, o.values, false, random, o.structure));
+    if (o.second) L.push(...buildLines(st, T, v2, o.values2, true, random, o.structure));
     if (o.extra) L.push(`        ${extraType(T)} x = ${extraValue(o)};`);
     L.push('');
-    L.push(`        System.out.println("לפני:  ${v1} = " + Viz.text(${v1}));`);
-    if (o.second) L.push(`        System.out.println("לפני:  ${v2} = " + Viz.text(${v2}));`);
+    const show = (title, v) => {
+        const p = printable(st, v);
+        if (p) L.push(`        System.out.println("${title}: ${o.second ? ' ' + v + ' = ' : ''}" + ${p});`);
+    };
+    show('לפני', v1);
+    if (o.second) show('לפני', v2);
     const call = `${o.functionName}(${args.join(', ')})`;
     if (o.returns === 'void') {
         L.push(`        ${call};`);
     } else {
         L.push(`        ${retType} result = ${call};`);
-        L.push(o.returns === 'structure'
-            ? '        System.out.println("התוצאה: " + Viz.text(result));'
-            : '        System.out.println("התוצאה: " + result);');
+        const p = o.returns === 'structure' ? printable(st, 'result') : 'result';
+        if (p) L.push(`        System.out.println("התוצאה: " + ${p});`);
     }
-    L.push(`        System.out.println("אחרי:  ${v1} = " + Viz.text(${v1}));`);
-    if (o.second) L.push(`        System.out.println("אחרי:  ${v2} = " + Viz.text(${v2}));`);
+    show('אחרי', v1);
+    if (o.second) show('אחרי', v2);
     L.push('    }');
     L.push('}');
     L.push('');
     return { code: L.join('\n'), cursorLine };
+}
+
+/** השורות ב-main שבונות את המבנה — בסגנון שלומדים בכיתה (new + push / insert, מערך עם {...}) */
+function buildLines(st, T, v, values, isSecond, random, structure) {
+    const full = typeOf(st, T), prim = TYPES[T].primitive;
+    const add = st.cls === 'Stack' ? 'push' : 'insert';
+    const n = isSecond ? 4 : 6;
+    const RANDOM = '(int) (Math.random() * 20) + 1';
+    if (st.cls === 'Stack' || st.cls === 'Queue') {
+        const L = [`        ${full} ${v} = new ${full}();`];
+        if (random || T === 'Student') {
+            const count = random ? n : studentCount(values);
+            L.push(`        for (int i = 0; i < ${count}; i++) {`);
+            L.push(random ? `            ${v}.${add}(${RANDOM});   // מספר אקראי בין 1 ל-20`
+                          : `            ${v}.${add}(Student.random());   // תלמיד עם נתוני דמה`);
+            L.push('        }');
+            return L;
+        }
+        const lits = literals(values, T, false);
+        lits.forEach((x, i) => {
+            const note = st.cls === 'Stack' ? (i === lits.length - 1 ? '   // האחרון שנכנס — בראש המחסנית' : '')
+                                            : (i === 0 ? '   // הראשון שנכנס — בראש התור' : '');
+            L.push(`        ${v}.${add}(${x});${note}`);
+        });
+        return L;
+    }
+    if (st.dims === 1) {
+        if (random || T === 'Student') {
+            const count = random ? n : studentCount(values);
+            return [`        ${full} ${v} = new ${prim}[${count}];`,
+                    `        for (int i = 0; i < ${v}.length; i++) {`,
+                    random ? `            ${v}[i] = ${RANDOM};   // מספר אקראי בין 1 ל-20`
+                           : `            ${v}[i] = Student.random();   // תלמיד עם נתוני דמה`,
+                    '        }'];
+        }
+        const lits = literals(values, T, false);
+        if (lits.length === 0) return [`        ${full} ${v} = new ${prim}[0];`];
+        return [`        ${full} ${v} = {${lits.join(', ')}};`];
+    }
+    if (st.dims === 2) {
+        if (random) {
+            return [`        ${full} ${v} = new ${prim}[3][4];   // 3 שורות, 4 עמודות`,
+                    `        for (int i = 0; i < ${v}.length; i++) {`,
+                    `            for (int j = 0; j < ${v}[i].length; j++) {`,
+                    `                ${v}[i][j] = ${RANDOM};   // מספר אקראי בין 1 ל-20`,
+                    '            }',
+                    '        }'];
+        }
+        const rows = matrixLiterals(values, T);
+        if (rows.length === 0) return [`        ${full} ${v} = new ${prim}[0][0];`];
+        return [`        ${full} ${v} = {`]
+            .concat(rows.map((r, i) => `            {${r.join(', ')}}${i < rows.length - 1 ? ',' : ''}`))
+            .concat(['        };']);
+    }
+    // רשימה מקושרת ועצים: Build בונה את כל החוליות בשורה אחת
+    const empty = structure === 'list' ? 'רשימה ריקה' : 'עץ ריק';
+    if (random) {
+        return [structure === 'list'
+            ? `        ${full} ${v} = Build.randomList(${n}, 1, 20);   // ${n} מספרים אקראיים בין 1 ל-20`
+            : `        ${full} ${v} = Build.randomBst(${n}, 1, 20);   // עץ חיפוש עם ${n} מספרים אקראיים`];
+    }
+    if (T === 'Student') {
+        const count = studentCount(values);
+        return [`        ${full} ${v} = Build.${st.build}(Build.students(${count}));   // ${count} תלמידים עם נתוני דמה`];
+    }
+    const lits = literals(values, T, structure === 'tree');
+    if (lits.length === 0) return [`        ${full} ${v} = null;   // ${empty}`];
+    return [`        ${full} ${v} = Build.${st.build}(${lits.join(', ')});   // ${st.note.replace('{v}', v)}`];
+}
+
+/** איך מדפיסים את המבנה ב-main (null = לא מדפיסים — עץ רואים בחלון) */
+function printable(st, v) {
+    if (st.dims === 1) return `Arrays.toString(${v})`;
+    if (st.dims === 2) return `Arrays.deepToString(${v})`;
+    return st.cls === 'BinNode' ? null : v;
+}
+
+/** הערך ההתחלתי של result בפעולה שמחזירה מבנה */
+function emptyOf(st, T, v) {
+    const prim = TYPES[T].primitive;
+    if (st.cls === 'Stack' || st.cls === 'Queue') return `new ${typeOf(st, T)}()`;
+    if (st.dims === 1) return `new ${prim}[${v}.length]`;
+    if (st.dims === 2) return `new ${prim}[${v}.length][${v}[0].length]`;
+    return 'null';
 }
 
 /** טיפוס המבנה: Stack<Integer>, int[], int[][] */
@@ -280,22 +355,36 @@ function snippet(o) {
     if (!st) throw new Error('מבנה לא מוכר: ' + o.structure);
     const T = o.type;
     if (!TYPES[T]) throw new Error('טיפוס לא מוכר: ' + T);
-    const full = typeOf(st, T);
+    const full = typeOf(st, T), prim = TYPES[T].primitive;
     const size = Math.max(1, Math.min(o.size || 5, 30));
+    const lines = L => L.map(l => indent + l).join('\n');
+    const add = st.cls === 'Stack' ? 'push' : 'insert';
     if (T === 'Student') {
         if (st.dims === 2) throw new Error('אין מערך דו-ממדי של תלמידים — בחרו מערך רגיל');
+        if (st.cls === 'Stack' || st.cls === 'Queue') {
+            return lines([`${full} ${name} = new ${full}();`,
+                          `for (int i = 0; i < ${size}; i++) {`,
+                          `    ${name}.${add}(Student.random());   // תלמיד עם נתוני דמה`,
+                          '}']);
+        }
+        if (st.dims === 1) {
+            return lines([`${full} ${name} = new Student[${size}];`,
+                          `for (int i = 0; i < ${name}.length; i++) {`,
+                          `    ${name}[i] = Student.random();   // תלמיד עם נתוני דמה`,
+                          '}']);
+        }
         return `${indent}${full} ${name} = Build.${st.build}(Build.students(${size}));   // ${size} תלמידים עם נתוני דמה`;
     }
     if (st.dims === 2) {
         const rows = Math.max(1, Math.min(o.rows || 3, 12)), cols = Math.max(1, Math.min(o.cols || 4, 12));
-        const lines = [];
+        const L = [`${full} ${name} = {   // ${rows} שורות, ${cols} עמודות`];
         for (let r = 0; r < rows; r++) {
             const cells = [];
             for (let c = 0; c < cols; c++) cells.push(randomValue(T, next));
-            lines.push(`${indent}        { ${cells.join(', ')} }`);
+            L.push(`    {${cells.join(', ')}}${r < rows - 1 ? ',' : ''}`);
         }
-        return `${indent}${full} ${name} = Build.matrix(new ${TYPES[T].primitive}[][] {   // ${rows} שורות, ${cols} עמודות\n`
-            + lines.join(',\n') + `\n${indent}});`;
+        L.push('};');
+        return lines(L);
     }
     const values = [];
     const used = new Set();
@@ -305,8 +394,17 @@ function snippet(o) {
         used.add(v);
         values.push(v);
     }
-    const what = { stack: 'האחרון בראש המחסנית', queue: 'הראשון בראש התור', list: 'החוליה הראשונה: ' + name,
-                   tree: 'לפי רמות', bst: 'הכנסה לפי הסדר', array: 'מוצג בחלון' }[o.structure];
+    if (st.cls === 'Stack' || st.cls === 'Queue') {
+        const L = [`${full} ${name} = new ${full}();`];
+        values.forEach((x, i) => {
+            const note = st.cls === 'Stack' ? (i === values.length - 1 ? '   // האחרון שנכנס — בראש המחסנית' : '')
+                                            : (i === 0 ? '   // הראשון שנכנס — בראש התור' : '');
+            L.push(`${name}.${add}(${x});${note}`);
+        });
+        return lines(L);
+    }
+    if (st.dims === 1) return `${indent}${full} ${name} = {${values.join(', ')}};`;
+    const what = { list: 'החוליה הראשונה היא ' + name, tree: 'לפי רמות: שורש, ילדים, נכדים...', bst: 'הכנסה לעץ חיפוש לפי הסדר' }[o.structure];
     return `${indent}${full} ${name} = Build.${st.build}(${values.join(', ')});   // ${what}`;
 }
 

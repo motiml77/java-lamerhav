@@ -89,11 +89,14 @@ function parseErrors(out) {
     return res;
 }
 
-/** הארגומנטים ל-java: הרצה רגילה, או שורה-שורה (דרך LineByLine שבספרייה) */
-function runArgs(mainClass, binDir, jar, lineByLine) {
+/**
+ * הארגומנטים ל-java בהרצה ויזואלית: דרך LineByLine שבספרייה — כל שורה בקוד היא צעד בחלון
+ * (בלי JDK עם jdk.jdi — LineByLine מריץ בלי שורות, ורק הפעולות על המבנים מוצגות).
+ */
+function runArgs(mainClass, binDir, jar) {
     const cpSep = WIN ? ';' : ':';
-    const args = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', '-cp', binDir + cpSep + jar];
-    return lineByLine ? args.concat(['unit4.collectionsLib.LineByLine', mainClass]) : args.concat([mainClass]);
+    return ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', '-Ddsviz.visual=true',
+            '-cp', binDir + cpSep + jar, 'unit4.collectionsLib.LineByLine', mainClass];
 }
 
 /**

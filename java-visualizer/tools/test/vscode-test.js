@@ -101,11 +101,14 @@ const value = v => () => v;
     assert(fs.existsSync(path.join(ws, 'bin', 'Merge.class')), 'not compiled');
     assert(fs.existsSync(path.join(ws, 'bin', 'examples', 'ListExamples.class')), 'examples not compiled');
     assert.strictEqual(terminalOpts.cwd, ws);
-    assert.strictEqual(terminalOpts.shellArgs[terminalOpts.shellArgs.length - 1], 'Merge');
+    // הרצה ויזואלית אחת: תמיד דרך LineByLine של הספרייה (כל שורה היא צעד בחלון)
+    assert.deepStrictEqual(terminalOpts.shellArgs.slice(-2), ['unit4.collectionsLib.LineByLine', 'Merge']);
+    assert(terminalOpts.shellArgs.includes('-Ddsviz.visual=true'));
     assert(terminalOpts.shellArgs.includes(path.join(ws, 'bin') + ':' + path.join(ws, 'lib', 'dsviz.jar')));
     assert.strictEqual(diag.size, 0);
 
-    // --- הרצה שורה אחר שורה: דרך LineByLine של הספרייה
+    // --- השם הישן dsviz.runLines עדיין עובד (קיצורים מגרסה קודמת) — אותה הרצה
+    terminalOpts = null;
     await commands['dsviz.runLines']();
     assert.deepStrictEqual(terminalOpts.shellArgs.slice(-2), ['unit4.collectionsLib.LineByLine', 'Merge']);
 
@@ -133,13 +136,13 @@ const value = v => () => v;
     answers.push(byId('String'), value('4'), keep);
     await commands['dsviz.insert.queue']();
     assert.strictEqual(edits[0][0], 'replace');
-    assert(/^        Queue<String> q = Build\.queue\("\w+", "\w+", "\w+", "\w+"\);/.test(edits[0][2]), edits[0][2]);
+    assert(/^        Queue<String> q = new Queue<String>\(\);\n(        q\.insert\("\w+"\);.*\n){3}        q\.insert\("\w+"\);$/.test(edits[0][2]), edits[0][2]);
     assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\n\n');
     edits.length = 0;
     answers.push(value('2x3'), keep);
     answers.unshift(byId('Integer'));
     await commands['dsviz.insert.matrix']();
-    assert(edits[0][2].includes('int[][] mat = Build.matrix(new int[][] {'), edits[0][2]);
+    assert(edits[0][2].includes('int[][] mat = {   // 2 שורות, 3 עמודות'), edits[0][2]);
     assert.strictEqual(edits[0][2].split('\n').length, 4);
 
     // --- ספרייה מתנגשת (jar מקורי של unit4) מזוהה

@@ -39,7 +39,7 @@ public final class Scaffold {
                 "האיבר הראשון בראש התור",
                 "{v}.insert(x)   {v}.remove()   {v}.head()   {v}.isEmpty()"));
         add(new Structure("list", "רשימה מקושרת", "Node", "lst", "list", "randomList",
-                "החוליה הראשונה היא lst",
+                "החוליה הראשונה היא {v}",
                 "{v}.getValue()   {v}.getNext()   {v}.setNext(n)   {v}.hasNext()   new Node<{T}>(x)"));
         add(new Structure("tree", "עץ בינארי", "BinNode", "t", "tree", "randomBst",
                 "לפי רמות: שורש, ילדים, נכדים... (null = אין צומת)",
@@ -76,7 +76,8 @@ public final class Scaffold {
             case "Integer": return "0";
             case "Character": return "' '";
             case "Double": return "0.0";
-            default: return "null";   // String, Student
+            case "String": return "\"\"";
+            default: return "null";   // Student
         }
     }
 
@@ -115,7 +116,7 @@ public final class Scaffold {
         return s != null && IDENT.matcher(s).matches() && !KEYWORDS.contains(s);
     }
 
-    /** לתלמידים כותבים כמה תלמידים (מספר) — הם נוצרים בהרצה עם Build.students */
+    /** לתלמידים כותבים כמה תלמידים (מספר) — הם נוצרים בהרצה עם נתוני דמה (Student.random) */
     public static int studentCount(String text) {
         String t = text == null ? "" : text.trim();
         if (!t.matches("\\d{1,2}") || Integer.parseInt(t) < 1 || Integer.parseInt(t) > 20)
@@ -179,7 +180,7 @@ public final class Scaffold {
 
     /** הבחירות של התלמיד */
     public static final class Options {
-        public String structure = "stack", type = "Integer", returns = "int";
+        public String structure = "stack", type = "Integer", returns = "void";
         public boolean second, extra, random;
         public String values = "", values2 = "", className = "Targil1", functionName = "solve";
     }
@@ -207,13 +208,14 @@ public final class Scaffold {
         String v1 = st.varName, v2 = st.varName + "2";
         String prim = primitive(T);
 
-        String retType, retDefault = null;
+        // retStart = הערך ההתחלתי של המשתנה result (רק בפעולה שמחזירה ערך)
+        String retType, retStart = null;
         switch (o.returns) {
             case "void": retType = "void"; break;
-            case "int": retType = "int"; retDefault = "0"; break;
-            case "boolean": retType = "boolean"; retDefault = "false"; break;
-            case "element": retType = prim; retDefault = zero(T); break;
-            case "structure": retType = full; retDefault = "null"; break;
+            case "int": retType = "int"; retStart = "0"; break;
+            case "boolean": retType = "boolean"; retStart = "false"; break;
+            case "element": retType = prim; retStart = zero(T); break;
+            case "structure": retType = full; retStart = emptyOf(st, T, v1); break;
             default: throw new IllegalArgumentException("ערך החזרה לא מוכר: " + o.returns);
         }
 
@@ -225,74 +227,159 @@ public final class Scaffold {
 
         List<String> L = new ArrayList<String>();
         L.add("import unit4.collectionsLib.*;");
+        if (st.dims > 0) L.add("import java.util.Arrays;");
         L.add("");
         L.add("/**");
         L.add(" * תרגיל: " + st.label + " של " + T);
-        L.add(" * 1. כותבים את הפעולה " + o.functionName + " למטה.");
-        L.add(" * 2. מריצים (הרצה ויזואלית / Run) — ייפתח חלון שמראה כל צעד.");
+        L.add(" * 1. כותבים את הפתרון בתוך הפעולה " + o.functionName + " — במקום שמסומן TODO.");
+        L.add(" * 2. לוחצים על \"הרצה ויזואלית\" — נפתח חלון שמראה כל שורה וכל שינוי במבנה.");
+        L.add(" *    (הרצה רגילה — Run — מדפיסה רק לקונסול.)");
         L.add(" * אפשר לשנות את הערכים ב-main כדי לבדוק מקרים נוספים.");
         L.add(" */");
         L.add("public class " + o.className + " {");
         L.add("");
-        L.add("    /**");
-        L.add("     * TODO: כאן כותבים מה הפעולה צריכה לעשות");
-        L.add("     */");
         L.add("    public static " + retType + " " + o.functionName + "(" + String.join(", ", params) + ") {");
         L.add("        // תזכורת: " + st.hint.replace("{v}", v1).replace("{T}", T));
         if (T.equals("Student")) L.add("        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()");
+        if (retStart != null) L.add("        " + retType + " result = " + retStart + ";");
+        L.add("");
+        L.add("        // TODO: כאן כותבים את הפתרון");
         int cursorLine = L.size();
         L.add("        ");
-        if (retDefault != null) L.add("        return " + retDefault + ";");
+        if (retStart != null) {
+            L.add("");
+            L.add("        return result;");
+        }
         L.add("    }");
         L.add("");
+        L.add("");
+        L.add("");
+        L.add("    // ==================== מכאן והלאה: מעטפת מוכנה (בדיקה של הפעולה) ====================");
+        L.add("    // אין צורך לשנות — אבל אפשר לשנות את הערכים כדי לבדוק מקרים נוספים");
+        L.add("");
         L.add("    public static void main(String[] args) {");
-        L.add(buildLine(st, full, v1, o.values, false, random, T, o.structure));
-        if (o.second) L.add(buildLine(st, full, v2, o.values2, true, random, T, o.structure));
+        L.addAll(buildLines(st, T, v1, o.values, false, random, o.structure));
+        if (o.second) L.addAll(buildLines(st, T, v2, o.values2, true, random, o.structure));
         if (o.extra) L.add("        " + extraType(T) + " x = " + extraValue(o) + ";");
         L.add("");
-        L.add("        System.out.println(\"לפני:  " + v1 + " = \" + Viz.text(" + v1 + "));");
-        if (o.second) L.add("        System.out.println(\"לפני:  " + v2 + " = \" + Viz.text(" + v2 + "));");
+        show(L, st, "לפני", v1, o.second);
+        if (o.second) show(L, st, "לפני", v2, true);
         String call = o.functionName + "(" + String.join(", ", args) + ")";
         if (o.returns.equals("void")) {
             L.add("        " + call + ";");
         } else {
             L.add("        " + retType + " result = " + call + ";");
-            L.add(o.returns.equals("structure")
-                    ? "        System.out.println(\"התוצאה: \" + Viz.text(result));"
-                    : "        System.out.println(\"התוצאה: \" + result);");
+            String p = o.returns.equals("structure") ? printable(st, "result") : "result";
+            if (p != null) L.add("        System.out.println(\"התוצאה: \" + " + p + ");");
         }
-        L.add("        System.out.println(\"אחרי:  " + v1 + " = \" + Viz.text(" + v1 + "));");
-        if (o.second) L.add("        System.out.println(\"אחרי:  " + v2 + " = \" + Viz.text(" + v2 + "));");
+        show(L, st, "אחרי", v1, o.second);
+        if (o.second) show(L, st, "אחרי", v2, true);
         L.add("    }");
         L.add("}");
         L.add("");
         return new Result(String.join("\n", L), cursorLine);
     }
 
-    private static String buildLine(Structure st, String full, String v, String values, boolean second,
-                                    boolean random, String T, String structure) {
-        String note = st.note.replaceFirst("lst", v).replace("{v}", v);
-        if (random) {
-            int n = second ? 4 : 6;
-            if (st.dims == 2) return "        " + full + " " + v + " = Build." + st.random + "(3, 4, 1, 20);   // 3 שורות, 4 עמודות, מספרים אקראיים";
-            return "        " + full + " " + v + " = Build." + st.random + "(" + n + ", 1, 20);   // " + n + " מספרים אקראיים בין 1 ל-20";
+    private static void show(List<String> L, Structure st, String title, String v, boolean second) {
+        String p = printable(st, v);
+        if (p != null) L.add("        System.out.println(\"" + title + ": " + (second ? " " + v + " = " : "") + "\" + " + p + ");");
+    }
+
+    /** השורות ב-main שבונות את המבנה — בסגנון שלומדים בכיתה (new + push / insert, מערך עם {...}) */
+    private static List<String> buildLines(Structure st, String T, String v, String values, boolean second,
+                                           boolean random, String structure) {
+        String full = typeOf(st, T), prim = primitive(T);
+        String add = "Stack".equals(st.cls) ? "push" : "insert";
+        int n = second ? 4 : 6;
+        String RANDOM = "(int) (Math.random() * 20) + 1";
+        List<String> L = new ArrayList<String>();
+        if ("Stack".equals(st.cls) || "Queue".equals(st.cls)) {
+            L.add("        " + full + " " + v + " = new " + full + "();");
+            if (random || T.equals("Student")) {
+                int count = random ? n : studentCount(values);
+                L.add("        for (int i = 0; i < " + count + "; i++) {");
+                L.add(random ? "            " + v + "." + add + "(" + RANDOM + ");   // מספר אקראי בין 1 ל-20"
+                             : "            " + v + "." + add + "(Student.random());   // תלמיד עם נתוני דמה");
+                L.add("        }");
+                return L;
+            }
+            List<String> lits = literals(values, T, false);
+            for (int i = 0; i < lits.size(); i++) {
+                String note = "Stack".equals(st.cls) ? (i == lits.size() - 1 ? "   // האחרון שנכנס — בראש המחסנית" : "")
+                                                     : (i == 0 ? "   // הראשון שנכנס — בראש התור" : "");
+                L.add("        " + v + "." + add + "(" + lits.get(i) + ");" + note);
+            }
+            return L;
         }
-        if (T.equals("Student")) {
-            if (st.dims == 2) matrixLiterals(values, T);
-            int n = studentCount(values);
-            return "        " + full + " " + v + " = Build." + st.build + "(Build.students(" + n + "));   // " + n + " תלמידים אקראיים (נתוני דמה)";
+        if (st.dims == 1) {
+            if (random || T.equals("Student")) {
+                int count = random ? n : studentCount(values);
+                L.add("        " + full + " " + v + " = new " + prim + "[" + count + "];");
+                L.add("        for (int i = 0; i < " + v + ".length; i++) {");
+                L.add(random ? "            " + v + "[i] = " + RANDOM + ";   // מספר אקראי בין 1 ל-20"
+                             : "            " + v + "[i] = Student.random();   // תלמיד עם נתוני דמה");
+                L.add("        }");
+                return L;
+            }
+            List<String> lits = literals(values, T, false);
+            L.add(lits.isEmpty() ? "        " + full + " " + v + " = new " + prim + "[0];"
+                                 : "        " + full + " " + v + " = {" + String.join(", ", lits) + "};");
+            return L;
         }
         if (st.dims == 2) {
+            if (random) {
+                L.add("        " + full + " " + v + " = new " + prim + "[3][4];   // 3 שורות, 4 עמודות");
+                L.add("        for (int i = 0; i < " + v + ".length; i++) {");
+                L.add("            for (int j = 0; j < " + v + "[i].length; j++) {");
+                L.add("                " + v + "[i][j] = " + RANDOM + ";   // מספר אקראי בין 1 ל-20");
+                L.add("            }");
+                L.add("        }");
+                return L;
+            }
             List<List<String>> rows = matrixLiterals(values, T);
-            if (rows.isEmpty()) return "        " + full + " " + v + " = new " + primitive(T) + "[0][0];";
-            List<String> lines = new ArrayList<String>();
-            for (List<String> r : rows) lines.add("                { " + String.join(", ", r) + " }");
-            return "        " + full + " " + v + " = Build.matrix(new " + primitive(T) + "[][] {   // " + note + "\n"
-                    + String.join(",\n", lines) + "\n        });";
+            if (rows.isEmpty()) {
+                L.add("        " + full + " " + v + " = new " + prim + "[0][0];");
+                return L;
+            }
+            L.add("        " + full + " " + v + " = {");
+            for (int i = 0; i < rows.size(); i++)
+                L.add("            {" + String.join(", ", rows.get(i)) + "}" + (i < rows.size() - 1 ? "," : ""));
+            L.add("        };");
+            return L;
+        }
+        // רשימה מקושרת ועצים: Build בונה את כל החוליות בשורה אחת
+        String empty = structure.equals("list") ? "רשימה ריקה" : "עץ ריק";
+        if (random) {
+            L.add(structure.equals("list")
+                    ? "        " + full + " " + v + " = Build.randomList(" + n + ", 1, 20);   // " + n + " מספרים אקראיים בין 1 ל-20"
+                    : "        " + full + " " + v + " = Build.randomBst(" + n + ", 1, 20);   // עץ חיפוש עם " + n + " מספרים אקראיים");
+            return L;
+        }
+        if (T.equals("Student")) {
+            int count = studentCount(values);
+            L.add("        " + full + " " + v + " = Build." + st.build + "(Build.students(" + count + "));   // " + count + " תלמידים עם נתוני דמה");
+            return L;
         }
         List<String> lits = literals(values, T, structure.equals("tree"));
-        if (st.dims == 1 && lits.isEmpty()) return "        " + full + " " + v + " = new " + primitive(T) + "[0];";
-        return "        " + full + " " + v + " = Build." + st.build + "(" + String.join(", ", lits) + ");   // " + note;
+        L.add(lits.isEmpty() ? "        " + full + " " + v + " = null;   // " + empty
+                             : "        " + full + " " + v + " = Build." + st.build + "(" + String.join(", ", lits) + ");   // " + st.note.replace("{v}", v));
+        return L;
+    }
+
+    /** איך מדפיסים את המבנה ב-main (null = לא מדפיסים — עץ רואים בחלון) */
+    private static String printable(Structure st, String v) {
+        if (st.dims == 1) return "Arrays.toString(" + v + ")";
+        if (st.dims == 2) return "Arrays.deepToString(" + v + ")";
+        return "BinNode".equals(st.cls) ? null : v;
+    }
+
+    /** הערך ההתחלתי של result בפעולה שמחזירה מבנה */
+    private static String emptyOf(Structure st, String T, String v) {
+        String prim = primitive(T);
+        if ("Stack".equals(st.cls) || "Queue".equals(st.cls)) return "new " + typeOf(st, T) + "()";
+        if (st.dims == 1) return "new " + prim + "[" + v + ".length]";
+        if (st.dims == 2) return "new " + prim + "[" + v + ".length][" + v + "[0].length]";
+        return "null";
     }
 
     /** טיפוס המבנה: Stack<Integer>, int[], int[][] */
@@ -380,20 +467,37 @@ public final class Scaffold {
         if (!TYPES.contains(T)) throw new IllegalArgumentException("טיפוס לא מוכר: " + T);
         String full = typeOf(st, T);
         int size = Math.max(1, Math.min(o.size, 30));
+        String add = "Stack".equals(st.cls) ? "push" : "insert";
+        boolean linear = "Stack".equals(st.cls) || "Queue".equals(st.cls);
+        List<String> L = new ArrayList<String>();
         if (T.equals("Student")) {
             if (st.dims == 2) throw new IllegalArgumentException("אין מערך דו-ממדי של תלמידים — בחרו מערך רגיל");
+            if (linear) {
+                L.add(full + " " + name + " = new " + full + "();");
+                L.add("for (int i = 0; i < " + size + "; i++) {");
+                L.add("    " + name + "." + add + "(Student.random());   // תלמיד עם נתוני דמה");
+                L.add("}");
+                return lines(indent, L);
+            }
+            if (st.dims == 1) {
+                L.add(full + " " + name + " = new Student[" + size + "];");
+                L.add("for (int i = 0; i < " + name + ".length; i++) {");
+                L.add("    " + name + "[i] = Student.random();   // תלמיד עם נתוני דמה");
+                L.add("}");
+                return lines(indent, L);
+            }
             return indent + full + " " + name + " = Build." + st.build + "(Build.students(" + size + "));   // " + size + " תלמידים עם נתוני דמה";
         }
         if (st.dims == 2) {
             int rows = Math.max(1, Math.min(o.rows, 12)), cols = Math.max(1, Math.min(o.cols, 12));
-            List<String> lines = new ArrayList<String>();
+            L.add(full + " " + name + " = {   // " + rows + " שורות, " + cols + " עמודות");
             for (int i = 0; i < rows; i++) {
                 List<String> cells = new ArrayList<String>();
                 for (int c = 0; c < cols; c++) cells.add(randomValue(T, r));
-                lines.add(indent + "        { " + String.join(", ", cells) + " }");
+                L.add("    {" + String.join(", ", cells) + "}" + (i < rows - 1 ? "," : ""));
             }
-            return indent + full + " " + name + " = Build.matrix(new " + primitive(T) + "[][] {   // " + rows + " שורות, " + cols + " עמודות\n"
-                    + String.join(",\n", lines) + "\n" + indent + "});";
+            L.add("};");
+            return lines(indent, L);
         }
         List<String> values = new ArrayList<String>();
         Set<String> used = new HashSet<String>();
@@ -403,16 +507,29 @@ public final class Scaffold {
             used.add(v);
             values.add(v);
         }
+        if (linear) {
+            L.add(full + " " + name + " = new " + full + "();");
+            for (int i = 0; i < values.size(); i++) {
+                String note = "Stack".equals(st.cls) ? (i == values.size() - 1 ? "   // האחרון שנכנס — בראש המחסנית" : "")
+                                                     : (i == 0 ? "   // הראשון שנכנס — בראש התור" : "");
+                L.add(name + "." + add + "(" + values.get(i) + ");" + note);
+            }
+            return lines(indent, L);
+        }
+        if (st.dims == 1) return indent + full + " " + name + " = {" + String.join(", ", values) + "};";
         String what;
         switch (o.structure) {
-            case "stack": what = "האחרון בראש המחסנית"; break;
-            case "queue": what = "הראשון בראש התור"; break;
-            case "list": what = "החוליה הראשונה: " + name; break;
-            case "tree": what = "לפי רמות"; break;
-            case "bst": what = "הכנסה לפי הסדר"; break;
-            default: what = "מוצג בחלון";
+            case "list": what = "החוליה הראשונה היא " + name; break;
+            case "tree": what = "לפי רמות: שורש, ילדים, נכדים..."; break;
+            default: what = "הכנסה לעץ חיפוש לפי הסדר";
         }
         return indent + full + " " + name + " = Build." + st.build + "(" + String.join(", ", values) + ");   // " + what;
+    }
+
+    private static String lines(String indent, List<String> L) {
+        StringBuilder b = new StringBuilder();
+        for (String l : L) b.append(b.length() == 0 ? "" : "\n").append(indent).append(l);
+        return b.toString();
     }
 
     /** שם ברירת המחדל למשתנה */

@@ -29,8 +29,8 @@ function activate(context) {
     for (const id of Object.keys(templates.SNIPPETS)) {
         reg('dsviz.insert.' + id, () => insertSnippet(id));
     }
-    reg('dsviz.run', () => run(false));
-    reg('dsviz.runLines', () => run(true));
+    reg('dsviz.run', () => run());
+    reg('dsviz.runLines', () => run());   // שם ישן (מגרסה קודמת) — אותה הרצה
     reg('dsviz.examples', () => examples());
     reg('dsviz.openProject', () => openProject());
 
@@ -42,18 +42,13 @@ function activate(context) {
     // כפתור "הרצה ויזואלית" בשורת המצב, כשפתוח קובץ Java
     const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     bar.text = '$(play-circle) הרצה ויזואלית';
-    bar.tooltip = 'הרצת הקובץ עם תצוגה ויזואלית של מבני הנתונים';
+    bar.tooltip = 'הרצה שבה רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד';
     bar.command = 'dsviz.run';
-    const lines = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
-    lines.text = '$(debug-step-over) שורה אחר שורה';
-    lines.tooltip = 'הרצה שבה כל שורה בקוד מוצגת כצעד, עם המשתנים';
-    lines.command = 'dsviz.runLines';
     const refresh = () => {
         const ed = vscode.window.activeTextEditor;
-        const show = ed && ed.document.languageId === 'java';
-        for (const b of [bar, lines]) if (show) b.show(); else b.hide();
+        if (ed && ed.document.languageId === 'java') bar.show(); else bar.hide();
     };
-    context.subscriptions.push(bar, lines, vscode.window.onDidChangeActiveTextEditor(refresh));
+    context.subscriptions.push(bar, vscode.window.onDidChangeActiveTextEditor(refresh));
     refresh();
 
     openPending();
@@ -266,10 +261,10 @@ async function insertSnippet(structure) {
 // ------------------------------------------------------------ הרצה
 
 /**
- * מקמפל ומריץ את הקובץ הפתוח — בעצמנו (javac + java בטרמינל), בלי צורך בתוספים של Java ל-VS Code.
- * lineByLine = true: מריצים דרך LineByLine שבספרייה, וכל שורה בקוד היא צעד בחלון.
+ * "הרצה ויזואלית": מקמפל ומריץ את הקובץ הפתוח — בעצמנו (javac + java בטרמינל), בלי צורך בתוספים של Java
+ * ל-VS Code. מריצים דרך LineByLine שבספרייה, וכל שורה בקוד היא צעד בחלון.
  */
-async function run(lineByLine) {
+async function run() {
     const ed = vscode.window.activeTextEditor;
     if (!ed || !ed.document.fileName.endsWith('.java')) {
         vscode.window.showInformationMessage('פתחו קובץ Java (תרגיל) ואז לחצו "הרצה ויזואלית".');
@@ -318,9 +313,9 @@ async function run(lineByLine) {
         return;
     }
 
-    const args = runner.runArgs(mainClass, binDir, jar, lineByLine);
+    const args = runner.runArgs(mainClass, binDir, jar);
     if (terminal) terminal.dispose();
-    const name = lineByLine ? 'מבני נתונים: שורה אחר שורה' : 'מבני נתונים: הרצה';
+    const name = 'מבני נתונים: הרצה ויזואלית';
     terminal = runner.WIN
         ? vscode.window.createTerminal({ name, cwd: root, shellPath: process.env.ComSpec || 'cmd.exe',
                                          shellArgs: ['/d', '/c', runner.windowsScript(binDir, jdk.java, args)] })

@@ -46,6 +46,13 @@ final class Recorder {
     private static final int MAX_CALL_FRAMES = 60;
 
     static int maxSteps = 5000;
+    /**
+     * האם לתעד בכלל. בהרצה רגילה (Run של Eclipse / VS Code) — לא: התוכנית רצה כמו עם Unit4 הרגיל
+     * והפלט רק בקונסול. מופעל ב"הרצה ויזואלית" (-Ddsviz.visual=true, או התהליך שרץ שורה-שורה),
+     * או כשהתוכנית קוראת ל-Viz.show() / Viz.textMode().
+     */
+    static boolean active = Boolean.getBoolean("dsviz.visual") || Boolean.getBoolean(LineByLine.CHILD_PROPERTY);
+    /** Viz.off() / Viz.on() */
     static boolean enabled = true;
     static boolean textMode = false;
     /** מצב "שורה אחר שורה": מופעל ע"י LineByLine בתהליך שרץ תחת JdiTracer */
@@ -183,7 +190,7 @@ final class Recorder {
 
     static void register(Object o) {
         synchronized (LOCK) {
-            if (!enabled) return;
+            if (!enabled || !active) return;
             start();
             order.put(o, orderCounter++);
             if (lineMode) {
@@ -221,7 +228,7 @@ final class Recorder {
     /** מערך (חד או דו ממדי) שמוצג בכל צעד: נוצר ב-Build.array / Build.matrix, או נרשם ב-Viz.watch */
     static void watchArray(Object arr, String name) {
         synchronized (LOCK) {
-            if (!enabled || arr == null || !arr.getClass().isArray()) return;
+            if (!enabled || !active || arr == null || !arr.getClass().isArray()) return;
             start();
             boolean known = false;
             for (Object a : alive(arrays)) if (a == arr) known = true;
@@ -383,6 +390,7 @@ final class Recorder {
 
     static void point(String label, Object node) {
         synchronized (LOCK) {
+            if (!active) return;
             if (node == null) pointers.remove(label);
             else pointers.put(label, node);
         }
@@ -405,7 +413,7 @@ final class Recorder {
     static void recordAt(Kind kind, Object target, Mark mark, String ghost, String text, StackTraceElement[] trace) {
         synchronized (LOCK) {
             if (lineMode) drainLines();   // קודם השורות שהגיעו לפני הצעד הזה
-            if (!enabled || suspended > 0) return;
+            if (!enabled || !active || suspended > 0) return;
             start();
             boolean always = kind == Kind.END || kind == Kind.ERROR; // שגיאה וסיום מוצגים תמיד
             if (steps.size() >= maxSteps) {
@@ -721,7 +729,7 @@ final class Recorder {
 
     static void drainLines() {
         synchronized (LOCK) {
-            if (!enabled || !lineMode) return;
+            if (!enabled || !active || !lineMode) return;
             start();   // גם תוכנית בלי מבנים בכלל מקבלת חלון
             while (lineRead < LINE_CAPACITY && lineTexts[lineRead] != null) {
                 String meta = lineTexts[lineRead];

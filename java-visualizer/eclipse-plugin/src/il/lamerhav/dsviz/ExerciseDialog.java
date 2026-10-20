@@ -218,7 +218,7 @@ public class ExerciseDialog extends TitleAreaDialog {
         Scaffold.Structure s = Scaffold.STRUCTURES.get(st);
 
         // רשימת "מה מחזירים" תלויה בטיפוס ובמבנה
-        String prevRet = returnIds.isEmpty() ? "int" : returnIds.get(Math.max(0, returnCombo.getSelectionIndex()));
+        String prevRet = returnIds.isEmpty() ? "void" : returnIds.get(Math.max(0, returnCombo.getSelectionIndex()));
         returnIds.clear();
         returnCombo.removeAll();
         addReturn("void", "void — לא מחזירה ערך");

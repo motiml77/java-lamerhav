@@ -69,6 +69,7 @@ public final class LineByLine {
 
     /** בתהליך הילד: מפעיל את מצב השורות ומריץ את main של התלמיד */
     static void runChild(String mainClass, String[] args) throws Throwable {
+        Recorder.active = true;   // הרצה ויזואלית — גם כשאין JDI ומריצים כאן בלי שורות
         if (isChild()) Recorder.initLineMode();
         Method main = Class.forName(mainClass).getMethod("main", String[].class);
         try {

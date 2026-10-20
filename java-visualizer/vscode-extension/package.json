@@ -72,15 +72,9 @@
             },
             {
                 "command": "dsviz.run",
-                "title": "הרצה ויזואלית",
+                "title": "הרצה ויזואלית (שורה אחר שורה)",
                 "category": "מבני נתונים",
                 "icon": "$(play-circle)"
-            },
-            {
-                "command": "dsviz.runLines",
-                "title": "הרצה שורה אחר שורה",
-                "category": "מבני נתונים",
-                "icon": "$(debug-step-over)"
             },
             {
                 "command": "dsviz.examples",
@@ -182,18 +176,13 @@
             },
             {
                 "view": "dsviz.runView",
-                "contents": "אחרי שכותבים את הקוד:\n[▶  הרצה ויזואלית](command:dsviz.run)\n[⏯  הרצה שורה אחר שורה](command:dsviz.runLines)"
+                "contents": "אחרי שכותבים את הקוד:\n[▶  הרצה ויזואלית](command:dsviz.run)\nבחלון רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד.\nהרצה רגילה (Run) מדפיסה רק לקונסול."
             }
         ],
         "menus": {
             "editor/title": [
                 {
                     "command": "dsviz.run",
-                    "when": "resourceLangId == java",
-                    "group": "navigation"
-                },
-                {
-                    "command": "dsviz.runLines",
                     "when": "resourceLangId == java",
                     "group": "navigation"
                 }
@@ -219,10 +208,6 @@
                 {
                     "command": "dsviz.run",
                     "group": "2_run@1"
-                },
-                {
-                    "command": "dsviz.runLines",
-                    "group": "2_run@2"
                 }
             ],
             "dsviz.insertMenu": [
@@ -299,12 +284,6 @@
                 "command": "dsviz.run",
                 "key": "ctrl+alt+r",
                 "mac": "cmd+alt+r",
-                "when": "editorLangId == java"
-            },
-            {
-                "command": "dsviz.runLines",
-                "key": "ctrl+alt+l",
-                "mac": "cmd+alt+l",
                 "when": "editorLangId == java"
             }
         ],

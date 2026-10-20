@@ -73,7 +73,8 @@ public class Node<T> {
         return Recorder.nodeRef(this);
     }
 
+    /** כל הרשימה מהחוליה הזו והלאה, למשל: 5 -> 2 -> 8 -> null */
     public String toString() {
-        return String.valueOf(value);
+        return Viz.text(this);
     }
 }
