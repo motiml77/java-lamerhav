@@ -65,8 +65,8 @@
 
 ## התקנה בכל מחשב (תוסף ל-VS Code ול-Eclipse)
 
-**Windows — [קישור קבוע להורדה](https://github.com/motiml77/java-lamerhav/releases/latest/download/DSViz-Setup.exe):** לחיצה כפולה → הבא → סיום. זהו — בלי לסמן כלום.
-(הקישור תמיד מוביל לגרסה האחרונה, ולכן אפשר לתת אותו לתלמידים או לקצר אותו.)
+**Windows — [קישור קבוע להורדה](https://github.com/motiml77/java-lamerhav/raw/master/java-visualizer/release/DSViz-Setup.exe):** לחיצה כפולה → הבא → סיום. זהו — בלי לסמן כלום.
+(הקישור מוביל תמיד לגרסה האחרונה שב-`master`, והנתיב לא משתנה — אפשר לתת אותו לתלמידים או לקצר אותו.)
 
 תוכנית ההתקנה (בעברית, בלי הרשאות מנהל):
 - מוצאת לבד את VS Code ואת **כל** ההתקנות של Eclipse במחשב (בתיקיית המשתמש, בשולחן העבודה, בהורדות, ב-`C:\`, ב-Program Files...)
@@ -94,7 +94,7 @@
 
 1. **שורה אחת ב-PowerShell** — ההורדה לא עוברת בדפדפן, ולכן Windows לא מסמן את הקובץ ולא מציג אזהרה:
    ```powershell
-   iwr https://github.com/motiml77/java-lamerhav/releases/latest/download/DSViz-Setup.exe -OutFile $env:TEMP\DSViz-Setup.exe; Start-Process $env:TEMP\DSViz-Setup.exe -ArgumentList '/S' -Wait; 'ההתקנה הסתיימה'
+   iwr https://github.com/motiml77/java-lamerhav/raw/master/java-visualizer/release/DSViz-Setup.exe -OutFile $env:TEMP\DSViz-Setup.exe; Start-Process $env:TEMP\DSViz-Setup.exe -ArgumentList '/S' -Wait; 'ההתקנה הסתיימה'
    ```
    (מתקין בשקט, בלי חלונות. לא נבדק עדיין על מחשב Windows אמיתי — מומלץ לנסות קודם על מחשב אחד.)
 2. **חתימה דיגיטלית** (הפתרון האמיתי): תעודת חתימה (Code Signing) מסירה את "Unknown publisher" ואחרי זמן גם את האזהרה.
@@ -103,8 +103,8 @@
 
 ### עדכון הקישור הקבוע (למי שבונה)
 
-אחרי `tools/build-all.sh`: `tools/publish-release.sh` מעלה את הקבצים ל-GitHub Release, והקישור
-`https://github.com/motiml77/java-lamerhav/releases/latest/download/DSViz-Setup.exe` מתעדכן לבד — הכתובת לא משתנה.
+אחרי `tools/build-all.sh` עושים commit ל-`release/DSViz-Setup.exe` וממזגים ל-`master` — הקישור הקבוע מתעדכן לבד, והכתובת לא משתנה.
+(אפשר גם GitHub Release עם `tools/publish-release.sh`: הקישור הקבוע שלו הוא `https://github.com/motiml77/java-lamerhav/raw/master/java-visualizer/release/DSViz-Setup.exe`.)
 
 **Mac / Linux — [`release/dsviz-install.zip`](release/dsviz-install.zip):** פותחים, ומריצים `install-mac.command` (לחיצה כפולה ב-Mac) או `./install.sh`.
 
