@@ -123,7 +123,8 @@ async function newExercise(preset) {
             ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה מכוניות חדשות משנה x")`, id: 'extra' }
             : { label: `פרמטר נוסף x`, description: `${tp.primitive} x (למשל "מחקו את כל המופעים של x")`, id: 'extra' }
     ];
-    if (type === 'Integer' && structure !== 'tree' && structure !== 'bst') extraItems.push({ label: 'ערכים אקראיים', description: 'בכל הרצה מספרים אחרים', id: 'random' });
+    extraItems.push({ label: 'תרגיל ברקורסיה', description: 'בחלון ההרצה תופיע גם לשונית "רקורסיה" — כרטיס לכל קריאה', id: 'recursive' });
+    if (type !== 'Student' && type !== 'Car') extraItems.push({ label: 'ערכים אקראיים', description: 'בוחרים כמה — והערכים נוצרים אקראית', id: 'random' });
     const extras = await vscode.window.showQuickPick(extraItems,
         { title: `${st.label} — (3/${total}) תוספות (אפשר לדלג עם Enter)`, canPickMany: true });
     if (!extras) return;
@@ -131,21 +132,30 @@ async function newExercise(preset) {
 
     const opts = {
         structure, type, returns: retPick.id,
-        second: has('second'), extra: has('extra'), random: has('random'),
+        second: has('second'), extra: has('extra'), random: false, recursive: has('recursive'),
         values: '', values2: '', className: '', functionName: ''
     };
 
-    if (!opts.random) {
+    {
         const isTree = structure === 'tree';
         const hint = type === 'Student' ? '  (כמה תלמידים — נוצרים עם נתוני דמה)' : type === 'Car' ? '  (כמה מכוניות — נוצרות עם נתוני דמה)'
             : structure === 'matrix' ? '  (שורות מופרדות ב-;)' : isTree ? '  (לפי רמות, null = אין צומת)' : '';
-        const v = await askValues(`${st.label} — (4/${total}) ערכים ל-${st.varName}${hint}`,
-            templates.defaultValues(structure, type, false), type, isTree, structure);
+        let first = templates.defaultValues(structure, type, false), second = templates.defaultValues(structure, type, true);
+        if (has('random')) {
+            // ערכים אקראיים: בוחרים כמה — והשדה מתמלא בערכים אקראיים (אפשר לשנות לפני היצירה)
+            const count = await vscode.window.showInputBox({
+                title: `${st.label} — ${structure === 'matrix' ? 'כמה שורות (4 עמודות)?' : 'כמה ערכים אקראיים?'}`, value: '6',
+                validateInput: s => /^\d{1,2}$/.test(s.trim()) && +s > 0 && +s <= 20 ? null : 'מספר בין 1 ל-20' });
+            if (count === undefined) return;
+            const seed = Math.floor(Math.random() * 2147483647);
+            first = templates.randomValues(structure, type, +count, seed);
+            second = templates.randomValues(structure, type, Math.max(1, +count - 2), seed + 1);
+        }
+        const v = await askValues(`${st.label} — (4/${total}) ערכים ל-${st.varName}${hint}`, first, type, isTree, structure);
         if (v === undefined) return;
         opts.values = v;
         if (opts.second) {
-            const v2 = await askValues(`${st.label} — ערכים ל-${st.varName}2${hint}`,
-                templates.defaultValues(structure, type, true), type, isTree, structure);
+            const v2 = await askValues(`${st.label} — ערכים ל-${st.varName}2${hint}`, second, type, isTree, structure);
             if (v2 === undefined) return;
             opts.values2 = v2;
         }

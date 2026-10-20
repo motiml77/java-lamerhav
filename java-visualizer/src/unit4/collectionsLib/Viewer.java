@@ -84,6 +84,9 @@ final class Viewer extends JFrame {
     private boolean onlyOps, hasLines, adjusting;
     /** inFunction = התוכנית כבר נכנסה לפעולה (לא main); mainOnly = הסתיימה בלי פעולות; showMain = "גם main" */
     private boolean inFunction, mainOnly, showMain;
+    /** לשונית "רקורסיה" רק בתרגיל ברקורסיה: בקובץ התרגיל כתוב "רקורסיה" (בהערה — כך נוצר תרגיל ברקורסיה) */
+    private boolean checkedExercise, recursionExercise;
+    private JComponent viewTabsBox;
     private final JToggleButton mainBtn = new JToggleButton("גם main");
 
     // ------------------------------------------------------------ רכיבים
@@ -96,10 +99,6 @@ final class Viewer extends JFrame {
     private final JToggleButton allBtn = new JToggleButton("כל שורה"), opsBtn = new JToggleButton("רק פעולות");
     private final Timer player;
 
-    private final Chip chip = new Chip();
-    private final JLabel desc = new JLabel(" ");
-    private final JLabel where = new JLabel(" ");
-    private final StepCard stepCard = new StepCard();
 
     private final JTextArea code = new JTextArea();
     private final Gutter gutter = new Gutter();
@@ -216,22 +215,9 @@ final class Viewer extends JFrame {
         bar.add(timeline, BorderLayout.CENTER);
         bar.add(info, BorderLayout.LINE_END);
 
-        // --- כרטיס הצעד הנוכחי
-        desc.setFont(Theme.big);
-        desc.setForeground(Theme.TEXT);
-        desc.setHorizontalAlignment(SwingConstants.RIGHT);
-        where.setFont(Theme.small);
-        where.setForeground(Theme.MUTED);
-        stepCard.setLayout(new BorderLayout(14, 0));
-        stepCard.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 16));
-        stepCard.add(chip, BorderLayout.LINE_START);
-        stepCard.add(desc, BorderLayout.CENTER);
-        stepCard.add(where, BorderLayout.LINE_END);
-
         JPanel north = new JPanel(new BorderLayout(0, 10));
         north.setOpaque(false);
         north.add(bar, BorderLayout.NORTH);
-        north.add(stepCard, BorderLayout.CENTER);
 
         // --- הקוד
         code.setEditable(false);
@@ -281,9 +267,10 @@ final class Viewer extends JFrame {
         viewPages.add(structPage, "structs");
         viewPages.add(recPage, "recursion");
         JPanel viewTools = row(10);
-        viewTools.add(viewTabs());
+        viewTools.add(viewTabsBox = viewTabs());
+        viewTabsBox.setVisible(false);
         viewTools.add(zoomBox = zoomTools());
-        Card structCard = new Card("תצוגה ויזואלית", null, viewTools, viewPages);
+        Card structCard = new Card(null, null, viewTools, viewPages);
         recScroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
         // --- מעקב משתנים
@@ -434,6 +421,13 @@ final class Viewer extends JFrame {
         return p;
     }
 
+    private static boolean isRecursionExercise(Frame main) {
+        List<String> lines = SourceFiles.lines(main);
+        if (lines == null) return false;
+        for (String l : lines) if (l.contains("רקורסיה") || l.toLowerCase().contains("recursion")) return true;
+        return false;
+    }
+
     private void showView(boolean rec) {
         recursionShown = rec;
         (rec ? recTab : structTab).setSelected(true);
@@ -542,6 +536,11 @@ final class Viewer extends JFrame {
                 hasLines = true;
                 modePanel.setVisible(true);
             }
+            if (!checkedExercise && !s.calls.isEmpty()) {
+                checkedExercise = true;
+                recursionExercise = isRecursionExercise(s.calls.get(s.calls.size() - 1));
+                viewTabsBox.setVisible(recursionExercise);
+            }
             if (s.calls.size() >= 2 && !inFunction) {
                 inFunction = true;
                 mainBtn.setVisible(true);
@@ -640,10 +639,9 @@ final class Viewer extends JFrame {
         adjusting = false;
         updateCounter();
 
-        showStep(s);
         structs.setStep(s);
-        // בפעם הראשונה שיש רקורסיה — עוברים לבד ללשונית "רקורסיה" (אפשר לחזור ל"מבנים")
-        if (!userChoseView && !recursionShown && RecursionPanel.recursive(s)) showView(true);
+        // תרגיל ברקורסיה: בפעם הראשונה שיש רקורסיה — עוברים לבד ללשונית "רקורסיה" (אפשר לחזור ל"מבנים")
+        if (recursionExercise && !userChoseView && !recursionShown && RecursionPanel.recursive(s)) showView(true);
         if (recursionShown) {
             recursion.setStep(vis.get(p));
             miniStructs.setStep(s);
@@ -657,63 +655,6 @@ final class Viewer extends JFrame {
         if (Recorder.lineMode) updateVars(s);
         console.setText(Recorder.outputUpTo(s.outLen));
         console.setCaretPosition(console.getDocument().getLength());
-    }
-
-    /** כרטיס הצעד: תווית צבעונית (שורה 12 / פעולה / הדפסה...), התיאור, והמקום בקוד */
-    private void showStep(Step s) {
-        Color[] c = kindColors(s.kind);
-        chip.set(kindName(s), c[0], c[1]);
-        stepCard.stripe = c[1];
-        String text = s.text;
-        boolean codeText = false;
-        if (s.kind == Kind.LINE) {
-            int colon = text.indexOf(':');
-            if (colon >= 0) text = text.substring(colon + 1).trim();
-            text = text.replace("‪", "").replace("‬", "");
-            codeText = true;
-        }
-        desc.setFont(codeText ? Theme.monoBig : Theme.big);
-        desc.setText(codeText ? ltr(text) : text);
-        desc.setToolTipText(text);
-        boolean hebrew = !codeText && !text.isEmpty() && Character.UnicodeBlock.of(text.charAt(0)) == Character.UnicodeBlock.HEBREW;
-        desc.setComponentOrientation(hebrew || !codeText ? ComponentOrientation.RIGHT_TO_LEFT : ComponentOrientation.LEFT_TO_RIGHT);
-        desc.setHorizontalAlignment(SwingConstants.RIGHT);
-        if (s.where != null) {
-            where.setText("בתוך " + method(s.where) + "   ·   " + lrm(s.where.file));
-        } else {
-            where.setText(" ");
-        }
-        stepCard.repaint();
-    }
-
-    private static String kindName(Step s) {
-        switch (s.kind) {
-            case LINE: return s.where != null ? "שורה " + s.where.line : "שורה";
-            case RETURN: return "חזרה";
-            case CREATE: return "נוצר";
-            case CHANGE: return "שינוי";
-            case READ: return "קריאה";
-            case CHECK: return "בדיקה";
-            case OUTPUT: return "הדפסה";
-            case NOTE: return "הערה";
-            case ERROR: return "שגיאה";
-            case END: return "סיום";
-            default: return "צעד";
-        }
-    }
-
-    /** {רקע התווית, צבע הטקסט והפס} */
-    private static Color[] kindColors(Kind k) {
-        switch (k) {
-            case LINE: return new Color[] { new Color(0xE3ECFF), new Color(0x2F5BD3) };
-            case RETURN: return new Color[] { new Color(0xDDF5E4), new Color(0x1E7B3A) };
-            case CREATE: case CHANGE: return new Color[] { new Color(0xDDF5E4), new Color(0x1E7B3A) };
-            case READ: case CHECK: return new Color[] { new Color(0xFFF1C7), new Color(0x8A6100) };
-            case OUTPUT: return new Color[] { new Color(0xDBF2F9), new Color(0x0B6E8A) };
-            case NOTE: return new Color[] { new Color(0xEEE5FB), new Color(0x6B3FA0) };
-            case ERROR: return new Color[] { new Color(0xFDE2E2), new Color(0xB42318) };
-            default: return new Color[] { new Color(0xE9ECF1), new Color(0x4B5565) };
-        }
     }
 
     // ------------------------------------------------------------ קוד
@@ -907,7 +848,7 @@ final class Viewer extends JFrame {
                     BorderFactory.createEmptyBorder(8, 14, 8, 10)));
             JPanel titles = new JPanel(new FlowLayout(FlowLayout.LEADING, 10, 0));
             titles.setOpaque(false);
-            titles.add(label(title, Theme.title, Theme.TEXT));
+            if (title != null) titles.add(label(title, Theme.title, Theme.TEXT));
             if (sub != null) {
                 sub.setFont(Theme.small);
                 sub.setForeground(Theme.MUTED);
@@ -933,75 +874,6 @@ final class Viewer extends JFrame {
             g.setColor(Theme.BORDER);
             g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
             g.dispose();
-        }
-    }
-
-    /** כרטיס הצעד הנוכחי: לבן, עם פס צבעוני בצד ימין לפי סוג הצעד */
-    private static final class StepCard extends JPanel {
-        Color stripe = Theme.ACCENT;
-
-        StepCard() { setOpaque(false); }
-
-        @Override
-        public Dimension getPreferredSize() {
-            Dimension d = super.getPreferredSize();
-            return new Dimension(d.width, Math.max(d.height, 56));
-        }
-
-        @Override
-        protected void paintComponent(Graphics g0) {
-            Graphics2D g = (Graphics2D) g0.create();
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int w = getWidth() - 1, h = getHeight() - 1;
-            g.setColor(Theme.CARD);
-            g.fillRoundRect(0, 0, w, h, 14, 14);
-            g.setColor(stripe);
-            g.setClip(new java.awt.geom.RoundRectangle2D.Double(0, 0, w, h, 14, 14));
-            g.fillRect(w - 5, 0, 6, h + 1);
-            g.setClip(null);
-            g.setColor(Theme.BORDER);
-            g.drawRoundRect(0, 0, w, h, 14, 14);
-            g.dispose();
-        }
-    }
-
-    /** תווית צבעונית מעוגלת ("שורה 12", "הדפסה"...) */
-    private static final class Chip extends JLabel {
-        private Color bg = Theme.ACCENT_SOFT;
-
-        Chip() {
-            setFont(Theme.uiBold);
-            setHorizontalAlignment(SwingConstants.CENTER);
-            setBorder(BorderFactory.createEmptyBorder(4, 12, 4, 12));
-        }
-
-        void set(String text, Color bg, Color fg) {
-            this.bg = bg;
-            setText(text);
-            setForeground(fg);
-        }
-
-        @Override
-        public Dimension getPreferredSize() {
-            Dimension d = super.getPreferredSize();
-            return new Dimension(Math.max(d.width, 72), d.height);
-        }
-
-        @Override
-        public Dimension getMaximumSize() {
-            return getPreferredSize();
-        }
-
-        @Override
-        protected void paintComponent(Graphics g0) {
-            Graphics2D g = (Graphics2D) g0.create();
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Dimension d = getPreferredSize();
-            int y = (getHeight() - d.height) / 2;
-            g.setColor(bg);
-            g.fillRoundRect(0, y, getWidth(), d.height, d.height, d.height);
-            g.dispose();
-            super.paintComponent(g0);
         }
     }
 

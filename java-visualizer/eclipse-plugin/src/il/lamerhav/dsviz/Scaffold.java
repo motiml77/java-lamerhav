@@ -195,7 +195,7 @@ public final class Scaffold {
     /** הבחירות של התלמיד */
     public static final class Options {
         public String structure = "stack", type = "Integer", returns = "void";
-        public boolean second, extra, random;
+        public boolean second, extra, random, recursive;
         public String values = "", values2 = "", className = "Targil1", functionName = "solve";
     }
 
@@ -243,7 +243,7 @@ public final class Scaffold {
         L.add("import unit4.collectionsLib.*;");
         if (st.dims > 0) L.add("import java.util.Arrays;");
         L.add("");
-        L.add("// תרגיל: " + st.label + " של " + T);
+        L.add("// תרגיל" + (o.recursive ? " ברקורסיה" : "") + ": " + st.label + " של " + T);
         L.add("public class " + o.className + " {");
         L.add("");
         L.add("    public static " + retType + " " + o.functionName + "(" + String.join(", ", params) + ") {");
@@ -252,7 +252,12 @@ public final class Scaffold {
         if (T.equals("Car")) L.add("        // Car: getManufacturer()   getYear()   getKm()   getFuel()   drive(km)   refuel(l)   isOld()   needsFuel()");
         if (retStart != null) L.add("        " + retType + " result = " + retStart + ";   // כאן אוספים את מה שהפעולה מחזירה");
         L.add("");
-        L.add("        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)");
+        if (o.recursive) {
+            L.add("        // רקורסיה: 1. מקרה בסיס — מתי עוצרים?  2. קריאה ל-" + o.functionName + "(...) עם מבנה קטן יותר");
+            L.add("        // TODO: כאן כותבים את הפתרון");
+        } else {
+            L.add("        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)");
+        }
         int cursorLine = L.size();
         L.add("        ");
         if (retStart != null) {
@@ -521,6 +526,39 @@ public final class Scaffold {
             case "Character": return "'" + (char) ('a' + r.next(26)) + "'";
             default: return "\"" + WORDS[r.next(WORDS.length)] + "\"";
         }
+    }
+
+    /**
+     * ערכים אקראיים לשדה "ערכים" (count איברים; במערך דו-ממדי — count שורות של 4).
+     * בעץ חיפוש — בלי כפילויות. התוצאה היא טקסט כמו "5, 23, 8" שהתלמיד יכול לשנות.
+     */
+    public static String randomValues(String structure, String type, int count, int seed) {
+        Rng r = new Rng(seed);
+        int n = Math.max(1, Math.min(count, 20));
+        if (structure.equals("matrix")) {
+            List<String> rows = new ArrayList<String>();
+            for (int i = 0; i < n; i++) {
+                List<String> row = new ArrayList<String>();
+                for (int c = 0; c < 4; c++) row.add(plain(randomValue(type, r)));
+                rows.add(String.join(", ", row));
+            }
+            return String.join("; ", rows);
+        }
+        List<String> values = new ArrayList<String>();
+        Set<String> used = new HashSet<String>();
+        for (int tries = 0; values.size() < n && tries < 1000; tries++) {
+            String v = plain(randomValue(type, r));
+            if (structure.equals("bst") && used.contains(v)) continue;   // בעץ חיפוש — בלי כפילויות
+            used.add(v);
+            values.add(v);
+        }
+        return String.join(", ", values);
+    }
+
+    /** "'a'" → "a",  "\"dog\"" → "dog" */
+    private static String plain(String literal) {
+        boolean quoted = literal.length() >= 2 && (literal.charAt(0) == '\'' || literal.charAt(0) == '"');
+        return quoted ? literal.substring(1, literal.length() - 1) : literal;
     }
 
     /** הבחירות להוספת מבנה לקוד */

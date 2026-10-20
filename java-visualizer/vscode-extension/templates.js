@@ -156,7 +156,7 @@ function generate(o) {
     L.push('import unit4.collectionsLib.*;');
     if (st.dims > 0) L.push('import java.util.Arrays;');
     L.push('');
-    L.push(`// תרגיל: ${st.label} של ${T}`);
+    L.push(`// תרגיל${o.recursive ? ' ברקורסיה' : ''}: ${st.label} של ${T}`);
     L.push(`public class ${o.className} {`);
     L.push('');
     L.push(`    public static ${retType} ${o.functionName}(${params.join(', ')}) {`);
@@ -165,7 +165,12 @@ function generate(o) {
     if (T === 'Car') L.push('        // Car: getManufacturer()   getYear()   getKm()   getFuel()   drive(km)   refuel(l)   isOld()   needsFuel()');
     if (retStart !== undefined) L.push(`        ${retType} result = ${retStart};   // כאן אוספים את מה שהפעולה מחזירה`);
     L.push('');
-    L.push('        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)');
+    if (o.recursive) {
+        L.push(`        // רקורסיה: 1. מקרה בסיס — מתי עוצרים?  2. קריאה ל-${o.functionName}(...) עם מבנה קטן יותר`);
+        L.push('        // TODO: כאן כותבים את הפתרון');
+    } else {
+        L.push('        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)');
+    }
     const cursorLine = L.length;
     L.push('        ');
     if (retStart !== undefined) {
@@ -391,6 +396,34 @@ function randomValue(type, next) {
 }
 
 /**
+ * ערכים אקראיים לשדה "ערכים" (count איברים; במערך דו-ממדי — count שורות של 4).
+ * בעץ חיפוש — בלי כפילויות. התוצאה היא טקסט כמו "5, 23, 8" שהתלמיד יכול לשנות.
+ */
+function randomValues(structure, type, count, seed) {
+    const next = rng(seed);
+    const n = Math.max(1, Math.min(count | 0, 20));
+    const plain = lit => lit.length >= 2 && (lit[0] === "'" || lit[0] === '"') ? lit.slice(1, -1) : lit;
+    if (structure === 'matrix') {
+        const rows = [];
+        for (let i = 0; i < n; i++) {
+            const row = [];
+            for (let c = 0; c < 4; c++) row.push(plain(randomValue(type, next)));
+            rows.push(row.join(', '));
+        }
+        return rows.join('; ');
+    }
+    const values = [];
+    const used = new Set();
+    for (let tries = 0; values.length < n && tries < 1000; tries++) {
+        const v = plain(randomValue(type, next));
+        if (structure === 'bst' && used.has(v)) continue;   // בעץ חיפוש — בלי כפילויות
+        used.add(v);
+        values.push(v);
+    }
+    return values.join(', ');
+}
+
+/**
  * פקודה אחת שיוצרת מבנה עם נתוני דמה, להכנסה במקום הסמן.
  * o = { structure, type, name, size, rows, cols, seed, indent }
  */
@@ -462,4 +495,4 @@ function snippetName(structure) {
     return structure === 'student' ? 'st' : structure === 'car' ? 'car' : STRUCTURES[structure].varName;
 }
 
-module.exports = { STRUCTURES, TYPES, RETURNS, SNIPPETS, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf };
+module.exports = { STRUCTURES, TYPES, RETURNS, SNIPPETS, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues };

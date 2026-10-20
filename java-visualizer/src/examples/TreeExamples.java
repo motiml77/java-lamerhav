@@ -2,7 +2,7 @@ package examples;
 
 import unit4.collectionsLib.*;
 
-/** דוגמאות עצים: מספר צמתים, גובה, הכנסה לעץ חיפוש */
+/** דוגמאות עצים ברקורסיה: מספר צמתים, גובה, הכנסה לעץ חיפוש */
 public class TreeExamples {
 
     public static int count(BinNode<Integer> t) {
