@@ -270,14 +270,16 @@ final class RecursionPanel extends JPanel {
         g.setStroke(new BasicStroke(isActive ? 2.6f : 1.4f));
         g.draw(box);
 
-        // מספר הקריאה בעיגול, ו-"solve(n = 3)"
+        // מספר הקריאה בתווית "#3" (כמו בהפניות מהכרטיסים האחרים), ואחריו "solve(n = 3)"
+        g.setFont(smallBold);
+        int badgeW = g.getFontMetrics().stringWidth("#" + c.id) + 12;
         g.setColor(line);
-        g.fillOval(c.x + 8, c.y + 7, 20, 18);
+        g.fillRoundRect(c.x + 8, c.y + 7, badgeW, 19, 19, 19);
         g.setColor(Color.WHITE);
-        center(g, String.valueOf(c.id), smallBold, c.x + 18, c.y + 16);
+        center(g, "#" + c.id, smallBold, c.x + 8 + badgeW / 2, c.y + 16);
         g.setColor(INK);
         g.setFont(monoBold);
-        g.drawString(fit(c.method + "(" + params(c) + ")", g.getFontMetrics(), W - 44), c.x + 36, c.y + 21);
+        g.drawString(fit(c.method + "(" + params(c) + ")", g.getFontMetrics(), W - 28 - badgeW), c.x + 16 + badgeW, c.y + 21);
 
         // המשתנים — בשורה אחת
         int y = c.y + HEAD + 15;
@@ -327,7 +329,7 @@ final class RecursionPanel extends JPanel {
             sc = ACTIVE;
         } else if (waiting) {
             Call next = c.children.isEmpty() ? null : c.children.get(c.children.size() - 1);
-            status = next != null ? "מחכה לתשובה מקריאה " + next.id : "מחכה";
+            status = next != null ? "מחכה לתשובה מקריאה \u200E#" + next.id : "מחכה";
             sc = MUTED;
         } else if (c.returned != null) {
             status = "החזירה  " + c.returned;
