@@ -261,10 +261,8 @@ public final class Scaffold {
         L.add("");
         if (o.recursive) {
             L.add("        // רקורסיה: 1. מקרה בסיס — מתי עוצרים?  2. קריאה ל-" + o.functionName + "(...) עם מבנה קטן יותר");
-            L.add("        // TODO: כאן כותבים את הפתרון");
-        } else {
-            L.add("        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)");
         }
+        L.add("        // ========== TODO: כאן כותבים את הפתרון ==========");
         int cursorLine = L.size();
         L.add("        ");
         if (retStart != null) {

@@ -172,10 +172,8 @@ function generate(o) {
     L.push('');
     if (o.recursive) {
         L.push(`        // רקורסיה: 1. מקרה בסיס — מתי עוצרים?  2. קריאה ל-${o.functionName}(...) עם מבנה קטן יותר`);
-        L.push('        // TODO: כאן כותבים את הפתרון');
-    } else {
-        L.push('        // TODO: כאן כותבים את הפתרון (אפשר לעבוד עם לולאה — וכל מה שבתזכורת)');
     }
+    L.push('        // ========== TODO: כאן כותבים את הפתרון ==========');
     const cursorLine = L.length;
     L.push('        ');
     if (retStart !== undefined) {
