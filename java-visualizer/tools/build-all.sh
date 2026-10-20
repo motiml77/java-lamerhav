@@ -1,15 +1,15 @@
 #!/bin/sh
 # בונה את כל קובצי ההתקנה לתיקייה release/:
 #   dsviz.jar                    — הספרייה (גם לשימוש ידני בכל פרויקט)
-#   il.lamerhav.dsviz_1.0.0.jar  — התוסף ל-Eclipse (מעתיקים לתיקיית dropins)
-#   dsviz-1.0.0.vsix             — התוסף ל-VS Code
+#   il.lamerhav.dsviz_1.0.1.jar  — התוסף ל-Eclipse (מעתיקים לתיקיית dropins)
+#   dsviz-1.0.1.vsix             — התוסף ל-VS Code
 #   DSViz-Setup.exe              — תוכנית התקנה ל-Windows (מוצאת לבד את VS Code ואת Eclipse; Java 21 כלולה)
 #   dsviz-install.zip            — הכול + התקנה ל-Mac/Linux ומדריך
 # דרישות לבנייה: JDK 11+, Python 3, Node.js, NSIS (makensis) — רק למי שבונה, לא למי שמתקין
 set -e
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
-VERSION=1.0.0
+VERSION=1.0.1
 
 tools/build-lib.sh
 

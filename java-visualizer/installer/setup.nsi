@@ -11,7 +11,7 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !include "FileFunc.nsh"
 
 !ifndef VERSION
-  !define VERSION "1.0.0"
+  !define VERSION "1.0.1"
 !endif
 !ifndef RELEASE
   !define RELEASE "..\release"
@@ -90,6 +90,8 @@ Function TryEclipse
     ${If} ${Errors}
       DetailPrint "Eclipse: אין הרשאה לכתוב ל-$0\dropins — יש להריץ את ההתקנה כמנהל (לחיצה ימנית ← הפעל כמנהל)"
     ${Else}
+      ; כמו eclipse -clean: מוחקים את המטמון של Eclipse, כדי שיטען את התוסף החדש ולא את הישן
+      RMDir /r "$0\configuration\org.eclipse.osgi"
       DetailPrint "Eclipse: הותקן ב-$0"
       ; רשימת המקומות (UTF-16, כדי שגם נתיבים בעברית יעבדו) — בשביל ההסרה
       FileOpen $1 "$INSTDIR\eclipse-dirs.txt" a

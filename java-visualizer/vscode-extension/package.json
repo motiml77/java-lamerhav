@@ -2,7 +2,7 @@
     "name": "dsviz",
     "displayName": "מבני נתונים — הרצה ויזואלית",
     "description": "תרגילי מחסנית, תור, רשימה מקושרת ועצים (unit4) עם תצוגה ויזואלית של כל צעד בהרצה",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "publisher": "lamerhav",
     "license": "SEE LICENSE IN README.md",
     "icon": "media/icon.png",

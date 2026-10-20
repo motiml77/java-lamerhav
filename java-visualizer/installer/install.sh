@@ -3,8 +3,8 @@
 # Installs the extension into VS Code and the plugin into every Eclipse found.
 # Optional: ./install.sh /path/to/eclipse
 HERE=$(cd "$(dirname "$0")" && pwd)
-VSIX="$HERE/dsviz-1.0.0.vsix"
-PLUGIN="$HERE/il.lamerhav.dsviz_1.0.0.jar"
+VSIX="$HERE/dsviz-1.0.1.vsix"
+PLUGIN="$HERE/il.lamerhav.dsviz_1.0.1.jar"
 echo "Data Structures Visualizer - installing..."
 command -v java >/dev/null 2>&1 || echo "[!] Java (JDK) not found. Install a JDK (e.g. Adoptium Temurin 17 or 21)."
 
@@ -34,6 +34,7 @@ install_eclipse() {
     d="$1"
     mkdir -p "$d/dropins" 2>/dev/null
     rm -f "$d"/dropins/il.lamerhav.dsviz_*.jar
+    rm -rf "$d/configuration/org.eclipse.osgi"   # כמו eclipse -clean — כדי שיטען את התוסף החדש
     if cp "$PLUGIN" "$d/dropins/" 2>/dev/null; then
         echo "[Eclipse] installed into $d"; found=$((found + 1))
     else
