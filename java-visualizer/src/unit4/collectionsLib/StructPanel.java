@@ -81,6 +81,11 @@ final class StructPanel extends JPanel {
 
     void setZoomListener(Runnable r) { zoomListener = r; }
 
+    /** תצוגה קטנה (ליד מעקב הרקורסיה): מקטינים כך שהכול ייכנס גם לגובה */
+    private boolean fitHeight;
+
+    void setFitHeight(boolean b) { fitHeight = b; }
+
     void zoomBy(double f) {
         manualZoom = Math.max(0.4, Math.min(2.5, zoom * f));
         revalidate();
@@ -104,7 +109,9 @@ final class StructPanel extends JPanel {
     private double computeZoom(Dimension natural) {
         // התאמה אוטומטית: מקטינים (עד 70%) כך שהמבנים ייכנסו ברוחב; בגובה — גוללים (כדי שהכתוב יישאר קריא)
         double fit = (viewportWidth() - 4) / (double) natural.width;
-        double z = manualZoom > 0 ? manualZoom : Math.max(0.7, Math.min(1, fit));
+        if (fitHeight && getParent() != null && getParent().getHeight() > 40)
+            fit = Math.min(fit, (getParent().getHeight() - 4) / (double) natural.height);
+        double z = manualZoom > 0 ? manualZoom : Math.max(fitHeight ? 0.5 : 0.7, Math.min(1, fit));
         if (z != zoom) {
             zoom = z;
             if (zoomListener != null) {

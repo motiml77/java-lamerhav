@@ -12,7 +12,7 @@ final class Model {
     private Model() {}
 
     /** סוג הצעד */
-    enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE }
+    enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE, RETURN }
 
     /** איך לצבוע איבר שהצעד נגע בו */
     enum Mark { NONE, NEW, READ, CHANGED }
@@ -58,6 +58,7 @@ final class Model {
         List<View> views = new ArrayList<View>();
         int outLen;                        // כמה פלט הודפס עד הצעד הזה
         List<String[]> vars;               // במצב שורה-שורה: המשתנים המקומיים {שם, ערך}; אחרת null
+        String returned;                   // RETURN: הערך שהפעולה החזירה (null אם void)
     }
 
     abstract static class View {

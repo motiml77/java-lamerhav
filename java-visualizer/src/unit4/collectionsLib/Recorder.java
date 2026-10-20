@@ -734,7 +734,8 @@ final class Recorder {
             while (lineRead < LINE_CAPACITY && lineTexts[lineRead] != null) {
                 String meta = lineTexts[lineRead];
                 lineTexts[lineRead++] = "";   // לא null — כדי לא לקרוא שוב
-                if (!meta.isEmpty()) addLine(meta);
+                if (meta.startsWith("\u0005")) addReturn(meta.substring(1));
+                else if (!meta.isEmpty()) addLine(meta);
             }
         }
     }
@@ -785,6 +786,38 @@ final class Recorder {
             return;
         }
         addStep(Kind.LINE, null, Mark.NONE, null, text, frames);
+        if (steps.size() >= maxSteps) linesFull = true;
+    }
+
+    /** פעולה של התלמיד הסתיימה: מסגרות \u0004 ערך ההחזרה (\u0006 = void) */
+    private static void addReturn(String meta) {
+        if (!enabled || steps.size() >= maxSteps) return;
+        String[] halves = meta.split("\u0004", -1);
+        List<Frame> frames = new ArrayList<Frame>();
+        for (String f : split(halves[0])) {
+            String[] p = f.split("\u0002", -1);
+            int line;
+            try { line = Integer.parseInt(p[3]); } catch (NumberFormatException e) { line = -1; }
+            frames.add(new Frame(p[0], p[1], p[2].isEmpty() ? null : p[2], line));
+        }
+        if (frames.isEmpty()) return;
+        String value = halves.length > 1 ? halves[1] : "";
+        boolean isVoid = value.equals("\u0006");
+        if (value.startsWith("\u0003")) {
+            Object v = byId(value.substring(1));
+            suspended++;
+            try {
+                value = v == null ? "?" : formatVar(v);
+            } finally {
+                suspended--;
+            }
+        }
+        String m = frames.get(0).method;   // בלי סוגריים — בתוך משפט בעברית הם מתהפכים
+        // RLM בהתחלה: המשפט בעברית (מימין לשמאל); LRM מסביב לקוד — כדי שהסוגריים והערך לא יקפצו
+        String text = isVoid ? "\u200Fהפעולה " + m + " הסתיימה"
+                : "\u200Fהפעולה " + m + " מחזירה  \u200E" + value + "\u200E";
+        addStep(Kind.RETURN, null, Mark.NONE, null, text, frames);
+        steps.get(steps.size() - 1).returned = isVoid ? null : value;
         if (steps.size() >= maxSteps) linesFull = true;
     }
 

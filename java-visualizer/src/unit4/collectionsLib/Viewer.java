@@ -32,15 +32,12 @@ import java.util.Set;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
-import javax.swing.DefaultListCellRenderer;
-import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
@@ -109,6 +106,13 @@ final class Viewer extends JFrame {
     private int codeLine = -1;
 
     private final StructPanel structs = new StructPanel();
+    private final RecursionPanel recursion = new RecursionPanel();
+    private final StructPanel miniStructs = new StructPanel();
+    private final JPanel miniBox = new JPanel(new BorderLayout());
+    private final JPanel viewPages = new JPanel(new java.awt.CardLayout());
+    private final JToggleButton structTab = new JToggleButton("מבנים"), recTab = new JToggleButton("רקורסיה");
+    private JComponent zoomBox;
+    private boolean recursionShown, userChoseView;
     private final JLabel zoomLabel = new JLabel("100%");
 
     private final DefaultTableModel varsModel = new DefaultTableModel(new Object[] { "משתנה", "ערך" }, 0) {
@@ -119,9 +123,6 @@ final class Viewer extends JFrame {
     private final JLabel varsSub = new JLabel(" ");
     private final Set<Integer> changedRows = new HashSet<Integer>();
 
-    private final DefaultListModel<String> callsModel = new DefaultListModel<String>();
-    private final JList<String> calls = new JList<String>(callsModel);
-    private final JLabel callsSub = new JLabel(" ");
 
     private final JTextArea console = new JTextArea();
 
@@ -233,8 +234,40 @@ final class Viewer extends JFrame {
         structs.setZoomListener(new Runnable() {
             public void run() { zoomLabel.setText(structs.zoomText()); }
         });
-        Card structCard = new Card("תצוגה ויזואלית", null, zoomTools(), structScroll);
-        structCard.add(legend(), BorderLayout.SOUTH);
+        // שתי לשוניות: המבנים, ומעקב הרקורסיה (כל קריאה = כרטיס)
+        JScrollPane recScroll = scroll(recursion);
+        JPanel structPage = new JPanel(new BorderLayout());
+        structPage.setOpaque(false);
+        structPage.add(structScroll, BorderLayout.CENTER);
+        structPage.add(legend(), BorderLayout.SOUTH);
+        JPanel recPage = new JPanel(new BorderLayout());
+        recPage.setOpaque(false);
+        recPage.add(recScroll, BorderLayout.CENTER);
+        // מתחת לכרטיסים: המבנים (מערך, מחסנית...) כמו שהם בשלב הזה — בקטן
+        JPanel south = new JPanel(new BorderLayout());
+        south.setOpaque(false);
+        miniStructs.setFitHeight(true);
+        JScrollPane miniScroll = scroll(miniStructs);
+        miniScroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+        miniBox.setOpaque(false);
+        miniBox.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER));
+        JLabel miniTitle = label("המבנים בשלב הזה", Theme.smallBold, Theme.MUTED);
+        miniTitle.setBorder(BorderFactory.createEmptyBorder(4, 10, 0, 10));
+        miniBox.add(miniTitle, BorderLayout.NORTH);
+        miniBox.add(miniScroll, BorderLayout.CENTER);
+        miniBox.setPreferredSize(new Dimension(100, 200));
+        miniBox.setVisible(false);
+        south.add(miniBox, BorderLayout.CENTER);
+        south.add(recursionLegend(), BorderLayout.SOUTH);
+        recPage.add(south, BorderLayout.SOUTH);
+        viewPages.setOpaque(false);
+        viewPages.add(structPage, "structs");
+        viewPages.add(recPage, "recursion");
+        JPanel viewTools = row(10);
+        viewTools.add(viewTabs());
+        viewTools.add(zoomBox = zoomTools());
+        Card structCard = new Card("תצוגה ויזואלית", null, viewTools, viewPages);
+        recScroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
         // --- מעקב משתנים
         vars.setFocusable(false);
@@ -247,15 +280,9 @@ final class Viewer extends JFrame {
         vars.getColumnModel().getColumn(0).setMaxWidth(220);
         vars.getColumnModel().getColumn(1).setPreferredWidth(300);
         vars.setDefaultRenderer(Object.class, new VarRenderer());
+        vars.setRowHeight(22);
+        vars.setTableHeader(null);   // קומפקטי: "שם | ערך" בלי כותרת
         Card varsCard = new Card("מעקב משתנים", varsSub, null, scroll(vars));
-
-        // --- מחסנית הקריאות
-        calls.setFocusable(false);
-        calls.setFont(Theme.mono);
-        calls.setFixedCellHeight(28);
-        calls.setCellRenderer(new CallRenderer());
-        JScrollPane callsScroll = scroll(calls);
-        Card callsCard = new Card("מחסנית הקריאות", callsSub, null, callsScroll);
 
         // --- פלט
         console.setEditable(false);
@@ -266,16 +293,10 @@ final class Viewer extends JFrame {
         JScrollPane consoleScroll = scroll(console);
         Card outCard = new Card("פלט", label("\u200ESystem.out\u200E עד הצעד הזה", Theme.small, Theme.MUTED), null, consoleScroll);
 
-        // --- סידור: למעלה קוד | תצוגה, למטה מעקב | קריאות | פלט
-        JSplitPane top = split(JSplitPane.HORIZONTAL_SPLIT, codeCard, structCard, 0.6);
-        JComponent bottom;
-        if (Recorder.lineMode) {
-            bottom = split(JSplitPane.HORIZONTAL_SPLIT, varsCard,
-                    split(JSplitPane.HORIZONTAL_SPLIT, callsCard, outCard, 0.42), 0.36);
-        } else {
-            bottom = split(JSplitPane.HORIZONTAL_SPLIT, callsCard, outCard, 0.4);
-        }
-        JSplitPane main = split(JSplitPane.VERTICAL_SPLIT, top, bottom, 0.67);
+        // --- סידור: משמאל — הקוד, ומתחתיו מעקב משתנים ופלט; מימין — התצוגה הוויזואלית לכל הגובה
+        JComponent under = Recorder.lineMode ? split(JSplitPane.HORIZONTAL_SPLIT, varsCard, outCard, 0.5) : outCard;
+        JSplitPane left = split(JSplitPane.VERTICAL_SPLIT, codeCard, under, 0.7);
+        JSplitPane main = split(JSplitPane.HORIZONTAL_SPLIT, left, structCard, 0.55);
 
         JPanel root = new JPanel(new BorderLayout(0, 10));
         root.setBackground(Theme.BG);
@@ -286,7 +307,7 @@ final class Viewer extends JFrame {
 
         root.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
         // הקוד, הפלט והמבנים — משמאל לימין (מספרי השורות משמאל לקוד)
-        for (JComponent c : new JComponent[] { codeScroll, consoleScroll, callsScroll, structScroll })
+        for (JComponent c : new JComponent[] { codeScroll, consoleScroll, structScroll })
             c.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
         keys();
@@ -367,6 +388,51 @@ final class Viewer extends JFrame {
         splits.add(s);
         splitRatios.add(ratio);
         return s;
+    }
+
+    /** המתג "מבנים / רקורסיה" */
+    private JComponent viewTabs() {
+        ButtonGroup g = new ButtonGroup();
+        for (JToggleButton b : new JToggleButton[] { structTab, recTab }) {
+            g.add(b);
+            b.setFocusable(false);
+            b.setFont(Theme.small);
+            b.putClientProperty("JButton.buttonType", "toolBarButton");
+            b.putClientProperty("FlatLaf.style", "selectedBackground: #FFFFFF; selectedForeground: #2F6FED; arc: 10;"
+                    + " margin: 3,10,3,10; toolbar.hoverBackground: #E3E7EE");
+        }
+        structTab.setSelected(true);
+        structTab.setToolTipText("המבנים (מחסנית, תור, רשימה, עץ, מערך) בצעד הזה");
+        recTab.setToolTipText("מעקב רקורסיה: כל קריאה לפעולה בכרטיס נפרד — מה קיבלה, ומה החזירה");
+        structTab.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) { userChoseView = true; showView(false); }
+        });
+        recTab.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) { userChoseView = true; showView(true); }
+        });
+        JPanel p = new Pill(new Color(0xE6E9EF));
+        p.setLayout(new FlowLayout(FlowLayout.CENTER, 2, 2));
+        p.add(structTab);
+        p.add(recTab);
+        return p;
+    }
+
+    private void showView(boolean rec) {
+        recursionShown = rec;
+        (rec ? recTab : structTab).setSelected(true);
+        ((java.awt.CardLayout) viewPages.getLayout()).show(viewPages, rec ? "recursion" : "structs");
+        zoomBox.setVisible(!rec);
+        if (rec && pos >= 0 && pos < vis.size()) showPos(pos);
+    }
+
+    private JPanel recursionLegend() {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEADING, 12, 6));
+        p.setOpaque(false);
+        p.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER));
+        p.add(swatch(new Color(0xE8F0FE), new Color(0x2F6FED), "פועלת עכשיו"));
+        p.add(swatch(new Color(0xF3F5F9), new Color(0xA9B4C6), "מחכה לתשובה"));
+        p.add(swatch(new Color(0xE3F5E9), new Color(0x2E9E5B), "סיימה והחזירה ערך"));
+        return p;
     }
 
     private JComponent zoomTools() {
@@ -534,8 +600,18 @@ final class Viewer extends JFrame {
 
         showStep(s);
         structs.setStep(s);
+        // בפעם הראשונה שיש רקורסיה — עוברים לבד ללשונית "רקורסיה" (אפשר לחזור ל"מבנים")
+        if (!userChoseView && !recursionShown && RecursionPanel.recursive(s)) showView(true);
+        if (recursionShown) {
+            recursion.setStep(vis.get(p));
+            miniStructs.setStep(s);
+            boolean show = !s.views.isEmpty();
+            if (miniBox.isVisible() != show) {
+                miniBox.setVisible(show);
+                miniBox.getParent().revalidate();
+            }
+        }
         updateCode(s.where);
-        updateCalls(s.calls);
         if (Recorder.lineMode) updateVars(s);
         console.setText(Recorder.outputUpTo(s.outLen));
         console.setCaretPosition(console.getDocument().getLength());
@@ -571,6 +647,7 @@ final class Viewer extends JFrame {
     private static String kindName(Step s) {
         switch (s.kind) {
             case LINE: return s.where != null ? "שורה " + s.where.line : "שורה";
+            case RETURN: return "חזרה";
             case CREATE: return "נוצר";
             case CHANGE: return "שינוי";
             case READ: return "קריאה";
@@ -587,6 +664,7 @@ final class Viewer extends JFrame {
     private static Color[] kindColors(Kind k) {
         switch (k) {
             case LINE: return new Color[] { new Color(0xE3ECFF), new Color(0x2F5BD3) };
+            case RETURN: return new Color[] { new Color(0xDDF5E4), new Color(0x1E7B3A) };
             case CREATE: case CHANGE: return new Color[] { new Color(0xDDF5E4), new Color(0x1E7B3A) };
             case READ: case CHECK: return new Color[] { new Color(0xFFF1C7), new Color(0x8A6100) };
             case OUTPUT: return new Color[] { new Color(0xDBF2F9), new Color(0x0B6E8A) };
@@ -754,7 +832,7 @@ final class Viewer extends JFrame {
             if (sameFrame && !v[1].equals(old.get(v[0]))) changedRows.add(i);
         }
         String m = s.where == null ? "" : "בפעולה " + method(s.where);
-        varsSub.setText(m + (changedRows.isEmpty() ? "" : "   ·   צהוב = השתנה עכשיו"));
+        varsSub.setText(m);
     }
 
     private final class VarRenderer extends DefaultTableCellRenderer {
@@ -768,27 +846,6 @@ final class Viewer extends JFrame {
             setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
             setHorizontalAlignment(col == 0 ? SwingConstants.RIGHT : SwingConstants.LEFT);
             setToolTipText(v == null ? null : String.valueOf(v));
-            return this;
-        }
-    }
-
-    private void updateCalls(List<Frame> frames) {
-        callsModel.clear();
-        for (Frame f : frames) callsModel.addElement((f.method.equals("<init>") ? "constructor" : f.method) + "()    \u200E:" + f.line);
-        callsSub.setText(frames.size() <= 1 ? " " : frames.size() + " קריאות");
-    }
-
-    private static final class CallRenderer extends DefaultListCellRenderer {
-        @Override
-        public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean sel, boolean focus) {
-            super.getListCellRendererComponent(list, value, index, false, false);
-            boolean active = index == 0;
-            setFont(active ? Theme.mono.deriveFont(Font.BOLD) : Theme.mono);
-            setForeground(active ? Theme.ACCENT_DARK : Theme.MUTED);
-            setBackground(active ? Theme.ACCENT_SOFT : Color.WHITE);
-            setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createMatteBorder(0, active ? 4 : 0, 0, 0, Theme.ACCENT),
-                    BorderFactory.createEmptyBorder(0, active ? 8 : 12, 0, 8)));
             return this;
         }
     }

@@ -30,6 +30,7 @@ import com.sun.jdi.connect.ListeningConnector;
 import com.sun.jdi.event.BreakpointEvent;
 import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.event.Event;
+import com.sun.jdi.event.MethodExitEvent;
 import com.sun.jdi.event.EventSet;
 import com.sun.jdi.event.StepEvent;
 import com.sun.jdi.event.VMDeathEvent;
@@ -39,6 +40,7 @@ import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.EventRequest;
 import com.sun.jdi.request.EventRequestManager;
+import com.sun.jdi.request.MethodExitRequest;
 import com.sun.jdi.request.StepRequest;
 
 /**
@@ -56,6 +58,7 @@ final class JdiTracer {
     private VirtualMachine vm;
     private ThreadReference mainThread;
     private StepRequest step;
+    private MethodExitRequest exits;
     private ClassType recorder;
     private com.sun.jdi.Field fullField;
     private ArrayReference buffer;
@@ -146,6 +149,8 @@ final class JdiTracer {
                         onLine(((BreakpointEvent) e).location());
                     } else if (e instanceof StepEvent) {
                         onLine(((StepEvent) e).location());
+                    } else if (e instanceof MethodExitEvent) {
+                        onExit((MethodExitEvent) e);
                     }
                 } catch (Exception ex) {
                     System.err.println("[שורה-שורה] " + ex);
@@ -184,17 +189,8 @@ final class JdiTracer {
         }
 
         StringBuilder meta = new StringBuilder();
-        // מחסנית הקריאות (רק הקוד של התלמיד)
         List<StackFrame> frames = mainThread.frames();
-        for (StackFrame fr : frames) {
-            Location l = fr.location();
-            String cls = l.declaringType().name();
-            if (excluded(cls)) continue;
-            String file;
-            try { file = l.sourceName(); } catch (AbsentInformationException e) { file = ""; }
-            meta.append(cls).append('\u0002').append(l.method().name()).append('\u0002').append(file)
-                .append('\u0002').append(l.lineNumber()).append('\u0001');
-        }
+        appendFrames(meta, frames);
         meta.append('\u0004');
         // המשתנים המקומיים של המסגרת העליונה
         StackFrame f = frames.get(0);
@@ -226,9 +222,11 @@ final class JdiTracer {
                 Map<LocalVariable, Value> vals = fr.getValues(arr);
                 for (LocalVariable lv : arr) {
                     Value v = vals.get(lv);
-                    if (v instanceof ArrayReference)
-                        arrays.computeIfAbsent((ArrayReference) v, k -> new ArrayList<>())
-                              .add(lv.name() + " (" + fr.location().method().name() + ")");
+                    if (v instanceof ArrayReference) {
+                        List<String> names = arrays.computeIfAbsent((ArrayReference) v, k -> new ArrayList<>());
+                        String n = lv.name() + " (" + fr.location().method().name() + ")";
+                        if (!names.contains(n) && !names.contains(lv.name())) names.add(n);   // ברקורסיה: אותו שם בכל קריאה — פעם אחת
+                    }
                 }
             } catch (AbsentInformationException ignored) {
             }
@@ -239,26 +237,70 @@ final class JdiTracer {
             encodeArray(meta, e.getKey());
             meta.append('\u0001');
         }
-        if (written >= capacity) {
-            stopTracing();
-            return;
-        }
-        for (int attempt = 0; attempt < 2; attempt++) {
-            try {
-                buffer.setValue(written, vm.mirrorOf(meta.toString()));
-                break;
-            } catch (com.sun.jdi.ObjectCollectedException gcRace) {
-                // ה-GC אסף את המחרוזת החדשה לפני ששמרנו אותה — מנסים שוב
-            }
-        }
-        written++;
+        if (!write(meta.toString())) return;
 
         if (step == null) {
             step = vm.eventRequestManager().createStepRequest(mainThread, StepRequest.STEP_LINE, StepRequest.STEP_INTO);
             for (String x : EXCLUDE) step.addClassExclusionFilter(x);
             step.setSuspendPolicy(EventRequest.SUSPEND_ALL);
             step.enable();
+            // יציאה מכל פעולה של התלמיד — בשביל "מה הפעולה החזירה" (מעקב רקורסיה)
+            if (vm.canGetMethodReturnValues()) {
+                exits = vm.eventRequestManager().createMethodExitRequest();
+                for (String x : EXCLUDE) exits.addClassExclusionFilter(x);
+                exits.addThreadFilter(mainThread);
+                exits.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+                exits.enable();
+            }
         }
+    }
+
+    /** מחסנית הקריאות (רק הקוד של התלמיד): מחלקה\u0002פעולה\u0002קובץ\u0002שורה, מופרדות ב-\u0001 */
+    private static void appendFrames(StringBuilder meta, List<StackFrame> frames) {
+        for (StackFrame fr : frames) {
+            Location l = fr.location();
+            String cls = l.declaringType().name();
+            if (excluded(cls)) continue;
+            String file;
+            try { file = l.sourceName(); } catch (AbsentInformationException e) { file = ""; }
+            meta.append(cls).append('\u0002').append(l.method().name()).append('\u0002').append(file)
+                .append('\u0002').append(l.lineNumber()).append('\u0001');
+        }
+    }
+
+    /**
+     * פעולה של התלמיד מסתיימת: \u0005 מסגרות \u0004 הערך שהוחזר (או \u0006 אם void).
+     * המסגרות עדיין כוללות את הפעולה שמסתיימת (למעלה).
+     */
+    private void onExit(MethodExitEvent e) throws Exception {
+        if (!tracing || recorder == null) return;
+        Method m = e.method();
+        if (m.isSynthetic() || m.isStaticInitializer() || m.isConstructor() || m.name().startsWith("lambda$")) return;
+        if (m.name().equals("main") && m.isStatic()) return;   // סוף התוכנית — יש לזה צעד משלו
+        StringBuilder meta = new StringBuilder("\u0005");
+        appendFrames(meta, mainThread.frames());
+        meta.append('\u0004');
+        if (m.returnTypeName().equals("void")) meta.append('\u0006');
+        else meta.append(clean(format(e.returnValue(), 0)));
+        write(meta.toString());
+    }
+
+    /** כותב מחרוזת למקום הבא ב-Recorder.lineTexts שבתהליך התוכנית. false = נגמר המקום */
+    private boolean write(String meta) throws Exception {
+        if (written >= capacity) {
+            stopTracing();
+            return false;
+        }
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                buffer.setValue(written, vm.mirrorOf(meta));
+                break;
+            } catch (com.sun.jdi.ObjectCollectedException gcRace) {
+                // ה-GC אסף את המחרוזת החדשה לפני ששמרנו אותה — מנסים שוב
+            }
+        }
+        written++;
+        return true;
     }
 
     private static final int MAX_ARRAY = 60, MAX_MATRIX = 20;
@@ -392,6 +434,10 @@ final class JdiTracer {
         if (step != null) {
             try { vm.eventRequestManager().deleteEventRequest(step); } catch (Exception ignored) {}
             step = null;
+        }
+        if (exits != null) {
+            try { vm.eventRequestManager().deleteEventRequest(exits); } catch (Exception ignored) {}
+            exits = null;
         }
     }
 
