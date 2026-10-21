@@ -58,6 +58,7 @@ public class ExerciseDialog extends Dialog {
 
     private Scaffold.Options result;
     private IJavaProject resultProject;
+    private org.eclipse.swt.custom.ScrolledComposite scroll;
 
     public ExerciseDialog(Shell parent, List<IJavaProject> projects, String newProjectName, IProject preferred,
                           String presetStructure) {
@@ -74,19 +75,25 @@ public class ExerciseDialog extends Dialog {
         Composite area = (Composite) super.createDialogArea(parent);
         GridLayout al = (GridLayout) area.getLayout();
         al.marginWidth = 18;
-        al.marginHeight = 12;
-        al.verticalSpacing = 6;
+        al.marginHeight = 8;
+        al.verticalSpacing = 4;
 
         area.setBackground(Look.color(area.getDisplay(), Look.BG));
         area.setBackgroundMode(SWT.INHERIT_DEFAULT);
-        al.marginWidth = 20;
-        al.marginHeight = 16;
-        al.verticalSpacing = 8;
+        al.marginWidth = 16;
+        al.marginHeight = 8;
+        al.verticalSpacing = 4;
         Look.header(area, "תרגיל חדש", "בוחרים מבנה נתונים ואיך למלא אותו — והתרגיל נוצר, מוכן לכתיבה.");
 
         // שתי עמודות (שני כרטיסים): מימין — מבנה וטיפוס; משמאל — כל השאר
-        Composite cols = grid(area, 2, false, 14);
-        cols.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        // (באזור גלילה: אם המסך קטן או שההגדלה של Windows גדולה — מופיע פס גלילה, והכפתורים למטה תמיד נראים)
+        GridLayout cl = new GridLayout(2, false);
+        cl.marginWidth = 0;
+        cl.marginHeight = 0;
+        cl.horizontalSpacing = 14;
+        Composite[] holder = new Composite[1];
+        scroll = Look.scroll(area, cl, holder);
+        Composite cols = holder[0];
         Composite right = Look.card(cols, new GridData(SWT.FILL, SWT.FILL, false, true));
         Composite left = Look.card(cols, new GridData(SWT.FILL, SWT.FILL, true, true));
 
@@ -97,7 +104,7 @@ public class ExerciseDialog extends Dialog {
         String initial = initialParts[0], initialInside = initialParts.length > 1 ? initialParts[1] : "";
         for (Scaffold.Structure st : Scaffold.STRUCTURES.values()) {
             if (st.outer != null) continue;   // קומבינציות נבחרות בשתי בחירות: מבנה + "מה יש בכל תא?"
-            Look.Chip b = chip(structs, st.label, st.id, structureButtons, 34, 130);
+            Look.Chip b = chip(structs, st.label, st.id, structureButtons, 28, 120);
             b.setToolTipText(st.cls != null ? st.cls : st.dims == 2 ? "int[][]" : "int[]");
             b.setSelection(st.id.equals(initial));
         }
@@ -106,7 +113,7 @@ public class ExerciseDialog extends Dialog {
         section(right, "מה יש בכל תא?");
         Composite inside = grid(right, 2, true, 6);
         for (String[] in : Scaffold.INSIDE) {
-            Look.Chip b = chip(inside, in[1], in[0], insideButtons, 28, 130);
+            Look.Chip b = chip(inside, in[1], in[0], insideButtons, 24, 120);
             b.setToolTipText(in[2]);
             b.setSelection(in[0].equals(initialInside));
         }
@@ -115,9 +122,29 @@ public class ExerciseDialog extends Dialog {
         typeSection = section(right, "טיפוס הערכים");
         Composite types = grid(right, 3, true, 6);
         for (String t : Scaffold.TYPES) {
-            Look.Chip b = chip(types, t, t, typeButtons, 28, 84);
+            Look.Chip b = chip(types, t, t, typeButtons, 24, 76);
             b.setSelection(t.equals("Integer"));
         }
+
+        // --- שמות ופרויקט (בעמודה הימנית, כדי שהעמודות יהיו באותו גובה בערך)
+        section(right, "שמות");
+        Composite names = grid(right, 2, false, 6);
+        label(names, "מחלקה:");
+        classText = text(names, 120);
+        label(names, "פעולה:");
+        functionText = text(names, 120);
+        functionText.setText("solve");
+        label(names, "פרויקט:");
+        projectCombo = new Combo(names, SWT.READ_ONLY | SWT.LEFT_TO_RIGHT);
+        projectCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+        int sel = -1;
+        for (int i = 0; i < projects.size(); i++) {
+            IProject p = projects.get(i).getProject();
+            projectCombo.add(p.getName());
+            if (p.equals(preferred)) sel = i;
+        }
+        projectCombo.add("פרויקט חדש: " + newProjectName);
+        projectCombo.select(Math.max(sel, 0));
 
         // --- מה הפעולה מחזירה
         section(left, "מה הפעולה מחזירה?");
@@ -146,37 +173,17 @@ public class ExerciseDialog extends Dialog {
         pt.setForeground(area.getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY));
         previewText = new Label(previewBox, SWT.NONE | SWT.LEFT_TO_RIGHT);   // הטיפוס, למשל Stack<Queue<Integer>>
         previewText.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-        previewText.setFont(Look.font(area.getDisplay(), 1, SWT.BOLD));
+        previewText.setFont(Look.font(area.getDisplay(), 0, SWT.BOLD));
+        previewText.setData("dsviz.keepFont", Boolean.TRUE);
         previewCanvas = new NestedPreview(previewBox);
         GridData pg = new GridData(SWT.FILL, SWT.TOP, true, false);
-        pg.widthHint = 320;
+        pg.widthHint = 300;
         previewCanvas.setLayoutData(pg);
         showBox(previewBox, false);
 
-        // --- שמות ופרויקט
-        section(left, "שמות");
-        Composite names = grid(left, 4, false, 6);
-        label(names, "מחלקה:");
-        classText = text(names, 100);
-        label(names, "פעולה:");
-        functionText = text(names, 80);
-        functionText.setText("solve");
-        Composite proj = grid(left, 2, false, 6);
-        label(proj, "פרויקט:");
-        projectCombo = new Combo(proj, SWT.READ_ONLY | SWT.LEFT_TO_RIGHT);
-        projectCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-        int sel = -1;
-        for (int i = 0; i < projects.size(); i++) {
-            IProject p = projects.get(i).getProject();
-            projectCombo.add(p.getName());
-            if (p.equals(preferred)) sel = i;
-        }
-        projectCombo.add("פרויקט חדש: " + newProjectName);
-        projectCombo.select(Math.max(sel, 0));
-
         errorLabel = new Label(area, SWT.WRAP);
         GridData eg = new GridData(SWT.FILL, SWT.TOP, true, false);
-        eg.widthHint = 500;
+        eg.widthHint = 400;
         errorLabel.setLayoutData(eg);
         errorLabel.setForeground(area.getDisplay().getSystemColor(SWT.COLOR_RED));
 
@@ -188,6 +195,8 @@ public class ExerciseDialog extends Dialog {
         returnCombo.addSelectionListener(onChange);
         for (Button b : new Button[] { randomCheck, recursiveCheck }) b.addSelectionListener(onChange);
         countSpinner.addModifyListener(e -> update());
+        Look.applyFont(area, -1);
+        Look.wheel(scroll);
         for (Text t : new Text[] { valuesText, functionText }) t.addModifyListener(e -> update());
         classText.addModifyListener(e -> {
             if (classText.isFocusControl()) classEdited = true;
@@ -220,7 +229,7 @@ public class ExerciseDialog extends Dialog {
     protected Point getInitialSize() {
         Point p = super.getInitialSize();
         Rectangle screen = getShell().getMonitor().getClientArea();
-        return new Point(Math.min(p.x, screen.width - 40), Math.min(p.y, screen.height - 40));
+        return new Point(Math.min(p.x, screen.width - 40), Math.min(p.y, screen.height - 60));
     }
 
     private static Composite grid(Composite parent, int cols, boolean equal, int spacing) {
@@ -236,7 +245,7 @@ public class ExerciseDialog extends Dialog {
     }
 
     private Label section(Composite c, String s) {
-        return Look.section(c, s, c.getChildren().length == 0 ? 0 : 16);
+        return Look.section(c, s, c.getChildren().length == 0 ? 0 : 8);
     }
 
     private static void showBox(Composite box, boolean show) {
@@ -323,11 +332,13 @@ public class ExerciseDialog extends Dialog {
         returnCombo.select(Math.max(0, returnIds.indexOf(prevRet)));
 
         // ערכים אקראיים: בוחרים כמה, והשדה מתמלא (אפשר לשנות). תלמידים / מכוניות — תמיד נתוני דמה
-        randomCheck.setEnabled(!objects && !combo);
-        if (objects || combo) randomCheck.setSelection(false);
+        randomCheck.setEnabled(!objects);
+        if (objects) randomCheck.setSelection(false);
         boolean random = randomCheck.getSelection();
         countSpinner.setEnabled(random);
-        randomCheck.setText(st.equals("matrix") ? "כמה שורות אקראיות:" : "כמה ערכים אקראיים:");
+        randomCheck.setText(combo ? "כמה מבנים פנימיים אקראיים:" : st.equals("matrix") ? "כמה שורות אקראיות:" : "כמה ערכים אקראיים:");
+        int maxCount = combo ? Scaffold.MAX_INNER : 20;
+        if (countSpinner.getMaximum() != maxCount) countSpinner.setMaximum(maxCount);
         int count = countSpinner.getSelection();
         if (random && (random != lastRandom || count != lastCount || !type.equals(lastType) || !st.equals(lastStructure))) {
             seed = new Random().nextInt(Integer.MAX_VALUE);
@@ -388,6 +399,7 @@ public class ExerciseDialog extends Dialog {
         result = error == null ? o : null;
         resultProject = jp;
         valuesLabel.getParent().layout();
+        Look.updateScroll(scroll);
         growToFit();
     }
 
@@ -395,10 +407,7 @@ public class ExerciseDialog extends Dialog {
     private void growToFit() {
         Shell sh = getShell();
         if (sh == null || !sh.isVisible()) return;
-        Point need = sh.computeSize(SWT.DEFAULT, SWT.DEFAULT), cur = sh.getSize();
-        int max = sh.getMonitor().getClientArea().height - 40;
-        if (need.y > cur.y) sh.setSize(cur.x, Math.min(need.y, max));
-        sh.layout(true, true);
+        Look.fit(sh, true);
     }
 
     private void addReturn(String id, String text) {

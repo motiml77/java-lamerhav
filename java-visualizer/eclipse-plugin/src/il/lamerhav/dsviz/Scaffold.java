@@ -523,7 +523,7 @@ public final class Scaffold {
         for (String g : (text == null ? "" : text).split(";", -1)) raw.add(g.trim());
         while (!raw.isEmpty() && raw.get(raw.size() - 1).isEmpty()) raw.remove(raw.size() - 1);
         if (raw.isEmpty()) throw new IllegalArgumentException("כתבו לפחות מבנה פנימי אחד (קבוצות מופרדות ב-;)");
-        if (raw.size() > 12) throw new IllegalArgumentException("עד 12 מבנים פנימיים");
+        if (raw.size() > MAX_INNER) throw new IllegalArgumentException("עד " + MAX_INNER + " מבנים פנימיים");
         List<List<String>> res = new ArrayList<List<String>>();
         for (String g : raw) res.add(allowNull && g.equals("null") ? null : literals(g, type, false));
         return res;
@@ -832,6 +832,9 @@ public final class Scaffold {
         SNIPPETS.put("car", "מכונית");
     }
 
+    /** הכי הרבה מבנים פנימיים במבנה בתוך מבנה (גם בכתיבה ידנית) */
+    public static final int MAX_INNER = 12;
+
     static String randomValue(String type, Rng r) {
         switch (type) {
             case "Integer": return String.valueOf(1 + r.next(99));
@@ -847,6 +850,16 @@ public final class Scaffold {
      */
     public static String randomValues(String structure, String type, int count, int seed) {
         Rng r = new Rng(seed);
+        if (STRUCTURES.get(structure).outer != null) {   // מבנה בתוך מבנה: count מבנים פנימיים, בכל אחד 2–4 ערכים אקראיים
+            int groups = Math.max(1, Math.min(count, MAX_INNER));
+            List<String> parts = new ArrayList<String>();
+            for (int g = 0; g < groups; g++) {
+                List<String> vals = new ArrayList<String>();
+                for (int k = 2 + r.next(3); k > 0; k--) vals.add(plain(randomValue(type, r)));
+                parts.add(String.join(", ", vals));
+            }
+            return String.join("; ", parts);
+        }
         int n = Math.max(1, Math.min(count, 20));
         if (structure.equals("matrix")) {
             List<String> rows = new ArrayList<String>();

@@ -15,7 +15,11 @@ import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.custom.ScrolledComposite;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Canvas;
+import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -28,6 +32,8 @@ import org.eclipse.swt.widgets.Listener;
  */
 final class Look {
     private Look() {}
+
+    private static final String KEEP = "dsviz.keepFont";
 
     static final int BG = 0xF1F3F7, CARD = 0xFFFFFF, BORDER = 0xDFE3EA, TEXT = 0x1D2433, MUTED = 0x667085,
             ACCENT = 0x2F6FED, ACCENT_DARK = 0x2457C5, ACCENT_SOFT = 0xE8F0FE;
@@ -74,7 +80,8 @@ final class Look {
         Display d = area.getDisplay();
         Label t = new Label(area, SWT.NONE);
         t.setText(title);
-        t.setFont(font(d, 6, SWT.BOLD));
+        t.setFont(font(d, 3, SWT.BOLD));
+        t.setData(KEEP, Boolean.TRUE);
         t.setForeground(color(d, TEXT));
         Label s = new Label(area, SWT.NONE);
         s.setText(subtitle);
@@ -86,7 +93,8 @@ final class Look {
         Display d = c.getDisplay();
         Label l = new Label(c, SWT.NONE);
         l.setText(text);
-        l.setFont(font(d, 1, SWT.BOLD));
+        l.setFont(font(d, 0, SWT.BOLD));
+        l.setData(KEEP, Boolean.TRUE);
         l.setForeground(color(d, TEXT));
         GridData gd = new GridData(SWT.FILL, SWT.TOP, true, false);
         gd.verticalIndent = topSpace;
@@ -100,8 +108,8 @@ final class Look {
         final Composite outer = new Composite(parent, SWT.DOUBLE_BUFFERED);
         outer.setBackground(color(d, BG));
         GridLayout ol = new GridLayout(1, false);
-        ol.marginWidth = 18;
-        ol.marginHeight = 16;
+        ol.marginWidth = 14;
+        ol.marginHeight = 10;
         outer.setLayout(ol);
         outer.setLayoutData(data);
         outer.addListener(SWT.Paint, new Listener() {
@@ -119,7 +127,7 @@ final class Look {
         GridLayout bl = new GridLayout(1, false);
         bl.marginWidth = 0;
         bl.marginHeight = 0;
-        bl.verticalSpacing = 6;
+        bl.verticalSpacing = 4;
         body.setLayout(bl);
         body.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
         body.setBackgroundMode(SWT.INHERIT_DEFAULT);
@@ -165,8 +173,8 @@ final class Look {
         @Override
         public Point computeSize(int wHint, int hHint, boolean changed) {
             GC gc = new GC(this);
-            gc.setFont(font(getDisplay(), 1, SWT.BOLD));
-            int w = gc.textExtent(text).x + 30;
+            gc.setFont(font(getDisplay(), 0, SWT.BOLD));
+            int w = gc.textExtent(text).x + 26;
             gc.dispose();
             return new Point(wHint != SWT.DEFAULT ? wHint : Math.max(minWidth, w), hHint != SWT.DEFAULT ? hHint : height);
         }
@@ -187,7 +195,7 @@ final class Look {
             gc.setLineWidth(on ? 2 : 1);
             gc.drawRoundRectangle(on ? 1 : 0, on ? 1 : 0, s.x - (on ? 3 : 1), s.y - (on ? 3 : 1), 14, 14);
             gc.setLineWidth(1);
-            gc.setFont(font(d, 1, on ? SWT.BOLD : SWT.NORMAL));
+            gc.setFont(font(d, 0, on ? SWT.BOLD : SWT.NORMAL));
             String t = text;
             Point e = gc.textExtent(t);
             while (e.x > s.x - 8 && t.length() > 2) { t = t.substring(0, t.length() - 2) + "…"; e = gc.textExtent(t); }
@@ -248,10 +256,10 @@ final class Look {
         @Override
         public Point computeSize(int wHint, int hHint, boolean changed) {
             GC gc = new GC(this);
-            gc.setFont(font(getDisplay(), 1, primary ? SWT.BOLD : SWT.NORMAL));
-            int w = gc.textExtent(text).x + 44;
+            gc.setFont(font(getDisplay(), 0, primary ? SWT.BOLD : SWT.NORMAL));
+            int w = gc.textExtent(text).x + 36;
             gc.dispose();
-            return new Point(Math.max(primary ? 150 : 92, w), 38);
+            return new Point(Math.max(primary ? 130 : 80, w), 32);
         }
 
         private void paint(GC gc) {
@@ -270,7 +278,7 @@ final class Look {
                 gc.setForeground(color(d, hover ? 0xB8C4DC : 0xC9D0DC));
                 gc.drawRoundRectangle(0, 0, s.x - 1, s.y - 1, 16, 16);
             }
-            gc.setFont(font(d, 1, primary ? SWT.BOLD : SWT.NORMAL));
+            gc.setFont(font(d, 0, primary ? SWT.BOLD : SWT.NORMAL));
             Point e = gc.textExtent(text);
             gc.setForeground(color(d, ink));
             gc.drawString(text, (s.x - e.x) / 2, (s.y - e.y) / 2, true);
@@ -291,5 +299,66 @@ final class Look {
         new Round(bar, "ביטול", false, cancel);
         okOut[0] = primary;
         return bar;
+    }
+
+    // ------------------------------------------------------------------ גודל וגלילה
+
+    /** גופן קטן יותר לכל הרכיבים הרגילים בחלון (כותרות, כפתורי-בחירה וכפתורים ראשיים/משניים מצוירים בנפרד) */
+    static void applyFont(Control root, int delta) {
+        Display d = root.getDisplay();
+        if (!(root instanceof Chip) && !(root instanceof Round) && !(root instanceof ScrolledComposite) && root.getData(KEEP) == null
+                && !(root instanceof Canvas && !(root instanceof Composite)))
+            root.setFont(font(d, delta, SWT.NORMAL));
+        if (root instanceof Composite && !(root instanceof Chip) && !(root instanceof Round))
+            for (Control c : ((Composite) root).getChildren()) applyFont(c, delta);
+    }
+
+    /** אזור גלילה אנכי: מחזיר את הגלילה, ואת התוכן שלו ב-content[0] (מוסיפים אליו רכיבים כרגיל) */
+    static ScrolledComposite scroll(Composite parent, GridLayout layout, Composite[] content) {
+        final ScrolledComposite sc = new ScrolledComposite(parent, SWT.V_SCROLL);
+        sc.setBackground(color(parent.getDisplay(), BG));
+        sc.setBackgroundMode(SWT.INHERIT_DEFAULT);
+        sc.setExpandHorizontal(true);
+        sc.setExpandVertical(true);
+        sc.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        Composite c = new Composite(sc, SWT.NONE);
+        c.setLayout(layout);
+        sc.setContent(c);
+        sc.addListener(SWT.Resize, e -> updateScroll(sc));
+        content[0] = c;
+        return sc;
+    }
+
+    /** מעדכן את הגובה המינימלי של התוכן (אחרי שינוי בתוכן או ברוחב) — מופיע פס גלילה רק אם הוא לא נכנס */
+    static void updateScroll(ScrolledComposite sc) {
+        Control c = sc.getContent();
+        if (c == null) return;
+        Rectangle r = sc.getClientArea();
+        sc.setMinHeight(c.computeSize(Math.max(1, r.width), SWT.DEFAULT, true).y);
+    }
+
+    /** גלגלת העכבר גוללת את האזור גם כשהעכבר מעל רכיב בתוכו */
+    static void wheel(final ScrolledComposite sc) {
+        wheel(sc, sc.getContent());
+    }
+
+    private static void wheel(final ScrolledComposite sc, Control c) {
+        if (!(c instanceof org.eclipse.swt.widgets.Combo) && !(c instanceof org.eclipse.swt.widgets.Spinner))
+            c.addListener(SWT.MouseWheel, e -> {
+                Point o = sc.getOrigin();
+                sc.setOrigin(o.x, Math.max(0, o.y - e.count * 30));
+                e.doit = false;
+            });
+        if (c instanceof Composite) for (Control k : ((Composite) c).getChildren()) wheel(sc, k);
+    }
+
+    /** גודל החלון לפי התוכן, אבל לא יותר מהמסך (שולי ביטחון לשורת המשימות וכותרת החלון) */
+    static void fit(Shell sh, boolean growOnly) {
+        Rectangle screen = sh.getMonitor().getClientArea();
+        Point need = sh.computeSize(SWT.DEFAULT, SWT.DEFAULT), cur = sh.getSize();
+        int w = Math.min(need.x, screen.width - 40), h = Math.min(need.y, screen.height - 60);
+        if (growOnly) { w = Math.max(w, cur.x); h = Math.max(h, cur.y); }
+        if (w != cur.x || h != cur.y) sh.setSize(w, h);
+        sh.layout(true, true);
     }
 }

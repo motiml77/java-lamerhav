@@ -10,6 +10,8 @@ node combos.js "$W/js" | tail -1
 javac -encoding UTF-8 -d "$W/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java ScaffoldAll.java
 java -cp "$W/cls" ScaffoldAll "$W/combos.txt" "$W/java" >/dev/null
 diff -r "$W/js" "$W/java" && echo "זהה"
+javac -encoding UTF-8 -cp "$W/cls" -d "$W/cls" RandomCheck.java
+java -cp "$W/cls" RandomCheck "$W/randoms.txt"
 echo "== 2. כל התרגילים וכל קטעי הקוד מתקמפלים מול הספרייה"
 mkdir -p "$W/compile"
 for f in "$W"/js/C*.java; do grep -q '^ERROR' "$f" || cp "$f" "$W/compile/"; done
