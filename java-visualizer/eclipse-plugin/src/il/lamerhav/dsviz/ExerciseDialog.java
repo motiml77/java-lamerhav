@@ -42,6 +42,10 @@ public class ExerciseDialog extends Dialog {
     private Combo projectCombo, returnCombo;
     private final List<Button> structureButtons = new ArrayList<Button>();
     private final List<Button> typeButtons = new ArrayList<Button>();
+    private final List<Button> insideButtons = new ArrayList<Button>();   // מה יש בכל תא: ערכים / מחסניות / תורים / רשימות
+    private Composite previewBox;
+    private Label previewText, typeSection;
+    private NestedPreview previewCanvas;
     private Button extraCheck, randomCheck, recursiveCheck;
     private Spinner structCount;
     private Spinner countSpinner;
@@ -101,15 +105,26 @@ public class ExerciseDialog extends Dialog {
         // --- מבנה
         section(right, "איזה מבנה נתונים?");
         Composite structs = grid(right, 2, true, 6);
-        String initial = presetStructure == null ? "stack" : presetStructure;
+        String[] initialParts = (presetStructure == null ? "stack" : presetStructure).split("_");   // stack או stack_queue
+        String initial = initialParts[0], initialInside = initialParts.length > 1 ? initialParts[1] : "";
         for (Scaffold.Structure st : Scaffold.STRUCTURES.values()) {
+            if (st.outer != null) continue;   // קומבינציות נבחרות בשתי בחירות: מבנה + "מה יש בכל תא?"
             Button b = chip(structs, st.label, st.id, structureButtons, 34, 130);
             b.setToolTipText(st.cls != null ? st.cls : st.dims == 2 ? "int[][]" : "int[]");
             b.setSelection(st.id.equals(initial));
         }
 
+        // --- מה יש בכל תא? (ערכים רגילים, או מבנה שלם בכל תא — מחסנית של מחסניות, רשימה של תורים...)
+        section(right, "מה יש בכל תא?");
+        Composite inside = grid(right, 2, true, 6);
+        for (String[] in : Scaffold.INSIDE) {
+            Button b = chip(inside, in[1], in[0], insideButtons, 28, 130);
+            b.setToolTipText(in[2]);
+            b.setSelection(in[0].equals(initialInside));
+        }
+
         // --- טיפוס
-        section(right, "טיפוס הערכים");
+        typeSection = section(right, "טיפוס הערכים");
         Composite types = grid(right, 3, true, 6);
         for (String t : Scaffold.TYPES) {
             Button b = chip(types, t, t, typeButtons, 28, 84);
@@ -149,6 +164,20 @@ public class ExerciseDialog extends Dialog {
         values3Label.setText("המבנה השלישי:");
         values3Label.setLayoutData(new GridData());
         values3Text = text(vals, 240);
+
+        // תצוגה מקדימה: רק בקומבינציה — מה ייבנה ובאיזה סדר המבנים הפנימיים נמצאים במבנה החיצוני
+        previewBox = grid(left, 1, false, 2);
+        Label pt = new Label(previewBox, SWT.NONE);
+        pt.setText("כך ייבנה (כל קבוצה, עד ;, היא מבנה פנימי אחד):");
+        pt.setForeground(area.getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY));
+        previewText = new Label(previewBox, SWT.NONE | SWT.LEFT_TO_RIGHT);   // הטיפוס, למשל Stack<Queue<Integer>>
+        previewText.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        previewText.setFont(chipFont);
+        previewCanvas = new NestedPreview(previewBox);
+        GridData pg = new GridData(SWT.FILL, SWT.TOP, true, false);
+        pg.widthHint = 320;
+        previewCanvas.setLayoutData(pg);
+        showBox(previewBox, false);
 
         // --- שמות ופרויקט
         section(left, "שמות");
@@ -221,13 +250,19 @@ public class ExerciseDialog extends Dialog {
         return c;
     }
 
-    private void section(Composite c, String s) {
+    private Label section(Composite c, String s) {
         Label l = new Label(c, SWT.NONE);
         l.setText(s);
         l.setFont(JFaceResources.getBannerFont());
         GridData gd = new GridData(SWT.FILL, SWT.TOP, true, false);
         gd.verticalIndent = 8;
         l.setLayoutData(gd);
+        return l;
+    }
+
+    private static void showBox(Composite box, boolean show) {
+        box.setVisible(show);
+        ((GridData) box.getLayoutData()).exclude = !show;
     }
 
     /** כפתור-בחירה (כמו "צ'יפ"): לוחצים עליו ונבחר, והאחרים בקבוצה מתבטלים */
@@ -293,8 +328,26 @@ public class ExerciseDialog extends Dialog {
     }
 
     private void doUpdate() {
-        String st = selected(structureButtons, "stack"), type = selected(typeButtons, "Integer");
+        String outer = selected(structureButtons, "stack"), type = selected(typeButtons, "Integer");
+        // "מה יש בכל תא?": אפשרי במחסנית, תור, רשימה, עץ ומערך; במטריצה ובעץ חיפוש — רק ערכים רגילים
+        boolean nestable = Scaffold.canNest(outer);
+        String inside = nestable ? selected(insideButtons, "") : "";
+        for (Button b : insideButtons) {
+            b.setEnabled(nestable || ((String) b.getData()).isEmpty());
+            b.setSelection(((String) b.getData()).equals(inside));
+        }
+        String st = Scaffold.comboId(outer, inside);
         Scaffold.Structure s = Scaffold.STRUCTURES.get(st);
+        boolean combo = s.outer != null;
+        // מבנה בתוך מבנה: רק מספרים / מילים / תווים (לא תלמידים ומכוניות), מבנה אחד, בלי ערכים אקראיים
+        for (Button b : typeButtons) b.setEnabled(!(combo && (b.getData().equals("Student") || b.getData().equals("Car"))));
+        if (combo && (type.equals("Student") || type.equals("Car"))) {
+            type = "Integer";
+            for (Button b : typeButtons) b.setSelection(b.getData().equals("Integer"));
+        }
+        typeSection.setText(combo ? "טיפוס הערכים (בתוך המבנים הפנימיים)" : "טיפוס הערכים");
+        structCount.setEnabled(!combo);
+        if (combo && structCount.getSelection() != 1) structCount.setSelection(1);
         boolean objects = type.equals("Student") || type.equals("Car");
 
         // רשימת "מה מחזירים" תלויה בטיפוס ובמבנה
@@ -309,8 +362,8 @@ public class ExerciseDialog extends Dialog {
         returnCombo.select(Math.max(0, returnIds.indexOf(prevRet)));
 
         // ערכים אקראיים: בוחרים כמה, והשדה מתמלא (אפשר לשנות). תלמידים / מכוניות — תמיד נתוני דמה
-        randomCheck.setEnabled(!objects);
-        if (objects) randomCheck.setSelection(false);
+        randomCheck.setEnabled(!objects && !combo);
+        if (objects || combo) randomCheck.setSelection(false);
         boolean random = randomCheck.getSelection();
         countLabel.setEnabled(random);
         countSpinner.setEnabled(random);
@@ -333,7 +386,20 @@ public class ExerciseDialog extends Dialog {
         lastType = type;
         lastStructure = st;
         valuesLabel.setText(type.equals("Student") ? "כמה תלמידים:" : type.equals("Car") ? "כמה מכוניות:"
+                : combo ? (outer.equals("tree") ? "מבנים פנימיים (לפי רמות, ;):" : "מבנים פנימיים (ב-;):")
                 : st.equals("matrix") ? "ערכים (שורות ב-;):" : "ערכים:");
+        java.util.List<java.util.List<String>> groups = null;
+        if (combo) {
+            try { groups = Scaffold.groupLiterals(valuesText.getText(), type, outer.equals("tree")); }
+            catch (IllegalArgumentException e) { groups = null; }   // הודעת השגיאה תוצג למטה
+        }
+        if (groups != null) {
+            previewText.setText(Scaffold.typeOf(s, type));
+            previewCanvas.set(outer, inside, groups);
+        }
+        showBox(previewBox, groups != null);
+        previewBox.layout(true, true);
+        previewBox.getParent().layout();
         showRow(values2Label, values2Text, second);
         showRow(values3Label, values3Text, structs >= 3);
 
@@ -372,6 +438,16 @@ public class ExerciseDialog extends Dialog {
         result = error == null ? o : null;
         resultProject = jp;
         valuesLabel.getParent().layout();
+        growToFit();
+    }
+
+    /** כשהתצוגה המקדימה מופיעה החלון גדל כדי שהכול ייראה (אבל לא יותר מהמסך) */
+    private void growToFit() {
+        Shell sh = getShell();
+        if (sh == null || !sh.isVisible()) return;
+        Point need = sh.computeSize(SWT.DEFAULT, SWT.DEFAULT), cur = sh.getSize();
+        int max = sh.getMonitor().getClientArea().height - 40;
+        if (need.y > cur.y) sh.setSize(cur.x, Math.min(need.y, max));
     }
 
     private static void showRow(Label label, Text text, boolean show) {

@@ -67,7 +67,7 @@ const value = v => () => v;
         globalState: { get: k => globalState.get(k), update: async (k, v) => globalState.set(k, v) } });
 
     // --- תרגיל 1: מחסנית של Integer, מחזירה int, עם פרמטר x — דרך הכפתור "מחסנית"
-    answers.push(byId('Integer'), byId('int'), byIds(['extra']), keep, keep, value('solve'));
+    answers.push(byId(''), byId('Integer'), byId('int'), byIds(['extra']), keep, keep, value('solve'));
     await commands['dsviz.newStack']();
     const f1 = path.join(ws, 'src', 'Targil1.java');
     assert(fs.existsSync(f1), 'Targil1.java not created');
@@ -78,17 +78,33 @@ const value = v => () => v;
     assert.deepStrictEqual(settings['java.project.sourcePaths'], ['src']);
 
     // --- תרגיל 2: דרך "תרגיל חדש" — רשימה של String, מחזירה מבנה, שני מבנים, ערכים משלנו, שם משלנו
-    answers.push(byId('list'), byId('String'), byId('structure'), byIds(['second']),
+    answers.push(byId('list'), byId(''), byId('String'), byId('structure'), byIds(['second']),
                  value('hello, "world", a\\b'), keep, value('Merge'), value('merge'));
     await commands['dsviz.newExercise']();
     const f2 = path.join(ws, 'src', 'Merge.java');
     assert(fs.existsSync(f2), 'Merge.java not created');
 
+    // --- קומבינציה: מחסנית של מחסניות (דרך הכפתור "מחסנית" ← "מה יש בכל תא?" ← מחסניות), ורשימה מקושרת של תורים (דרך "תרגיל חדש")
+    answers.push(byId('stack'), byId('Integer'), byId('int'), byIds([]), keep, value('StackOfStacks'), value('solve'));
+    await commands['dsviz.newStack']();
+    const fc = fs.readFileSync(path.join(ws, 'src', 'StackOfStacks.java'), 'utf8');
+    assert(fc.includes('public static int solve(Stack<Stack<Integer>> stk)') && fc.includes('stk.push(inner);') && fc.includes('// תרגיל: מחסנית של מחסניות של Integer'), fc.slice(0, 600));
+    answers.push(byId('list'), byId('queue'), byId('String'), byId('void'), byIds([]), keep, value('ListOfQueues'), value('solve'));
+    await commands['dsviz.newExercise']();
+    const fl = fs.readFileSync(path.join(ws, 'src', 'ListOfQueues.java'), 'utf8');
+    assert(fl.includes('Node<Queue<String>> lst') && fl.includes('lst = new Node<Queue<String>>(inner, lst);'), fl.slice(0, 600));
+    // "מה יש בכל תא?" מציע ערכים רגילים ראשון (Enter), ולא מוצע במטריצה ובעץ חיפוש
+    let insideItems = null;
+    answers.push((items) => { insideItems = items; return items[0]; }, byId('Integer'), byId('void'), byIds([]), keep, value('Plain1'), value('solve'));
+    await commands['dsviz.newQueue']();
+    assert.deepStrictEqual(insideItems.map(i => i.id), ['', 'stack', 'queue', 'list']);
+    answers.length = 0;
+
     // --- תרגיל 3: שם תפוס / ערך שגוי — validateInput חייב לחסום
-    answers.push(byId('Integer'), byId('void'), byIds([]), value('1, x, 3'));
+    answers.push(byId(''), byId('Integer'), byId('void'), byIds([]), value('1, x, 3'));
     await assert.rejects(commands['dsviz.newQueue'](), /validation/);
     answers.length = 0;
-    answers.push(byId('Integer'), byId('void'), byIds([]), keep, value('Targil1'));
+    answers.push(byId(''), byId('Integer'), byId('void'), byIds([]), keep, value('Targil1'));
     await assert.rejects(commands['dsviz.newQueue'](), /validation: כבר קיים/);
     answers.length = 0;
 
@@ -149,11 +165,15 @@ const value = v => () => v;
         },
         edit: async cb => { cb({ replace: (r, t) => edits.push(['replace', r.line, t]), insert: (p, t) => edits.push(['insert', p, t]) }); return true; }
     };
-    answers.push(byId('String'), value('4'), keep);
+    answers.push(byId(''), byId('String'), value('4'), keep);
     await commands['dsviz.insert.queue']();
     assert.strictEqual(edits[0][0], 'replace');
     assert(/^        Queue<String> q1 = new Queue<String>\(\);\n(        q1\.insert\("\w+"\);.*\n){3}        q1\.insert\("\w+"\);$/.test(edits[0][2]), edits[0][2]);
     assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\n\n');
+    edits.length = 0;
+    answers.push(byId('stack'), byId('Integer'), value('2'), keep);
+    await commands['dsviz.insert.queue']();
+    assert(edits[0][2].includes('Queue<Stack<Integer>> q1 = new Queue<Stack<Integer>>();') && edits[0][2].includes('q1.insert(q1Inner);'), edits[0][2]);
     edits.length = 0;
     answers.push(value('2x3'), keep);
     answers.unshift(byId('Integer'));
@@ -176,7 +196,7 @@ const value = v => () => v;
     csExt.activate({ subscriptions: [], extensionPath: ext, globalState: { get: k => csState.get(k), update: async (k, v) => csState.set(k, v) } });
 
     // --- תרגיל חדש ב-C#: מחסנית של Integer, מחזירה int, עם פרמטר x — נוצר פרויקט שלם
-    answers.push(byId('Integer'), byId('int'), byIds(['extra']), keep, keep, value('solve'));
+    answers.push(byId(''), byId('Integer'), byId('int'), byIds(['extra']), keep, keep, value('solve'));
     await commands['dsviz.newStack']();
     const cs1 = path.join(ws2, 'Exercises', 'Targil1', 'Program.cs');
     assert(fs.existsSync(cs1), 'C# Program.cs not created');
@@ -193,10 +213,10 @@ const value = v => () => v;
 
     // --- שם פרויקט תפוס נחסם; מילה שמורה של C# נחסמת
     answers.length = 0;
-    answers.push(byId('Integer'), byId('void'), byIds([]), keep, value('Targil1'));
+    answers.push(byId(''), byId('Integer'), byId('void'), byIds([]), keep, value('Targil1'));
     await assert.rejects(commands['dsviz.newQueue'](), /validation: כבר קיים/);
     answers.length = 0;
-    answers.push(byId('Integer'), byId('void'), byIds([]), keep, keep, value('string'));
+    answers.push(byId(''), byId('Integer'), byId('void'), byIds([]), keep, keep, value('string'));
     await assert.rejects(commands['dsviz.newQueue'](), /validation/);
     answers.length = 0;
 

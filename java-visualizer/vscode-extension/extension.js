@@ -124,11 +124,15 @@ async function newExercise(preset) {
     let structure = preset;
     if (!structure) {
         const pick = await vscode.window.showQuickPick(
-            Object.entries(templates.STRUCTURES).map(([id, s]) => ({ label: s.label, description: s.cls, id })),
+            Object.entries(templates.STRUCTURES).filter(([, s]) => !s.combo).map(([id, s]) => ({ label: s.label, description: s.cls, id })),
             { title: 'תרגיל חדש — איזה מבנה נתונים?', placeHolder: 'בחרו מבנה נתונים' });
         if (!pick) return;
         structure = pick.id;
     }
+    // מה יש בכל תא: ערכים רגילים (ברירת מחדל — Enter), או מבנה שלם — מחסנית של מחסניות, רשימה של תורים...
+    const inside = await askInside(structure, templates.STRUCTURES[structure].label);
+    if (inside === undefined) return;
+    structure = templates.comboId(structure, inside);
     const st = templates.STRUCTURES[structure];
 
     const typePick = await vscode.window.showQuickPick(typeItems(structure),
@@ -148,17 +152,18 @@ async function newExercise(preset) {
         { title: `${st.label} — (2/${total}) מה הפעולה מחזירה?` });
     if (!retPick) return;
 
-    const extraItems = [
+    const extraItems = (st.combo ? [] : [
         { label: `שני מבנים`, description: `הפעולה מקבלת שניים (למשל מיזוג, השוואה)`, id: 'second' },
-        { label: `שלושה מבנים`, description: `הפעולה מקבלת שלושה (למשל מחסנית מקור, יעד ועזר)`, id: 'third' },
+        { label: `שלושה מבנים`, description: `הפעולה מקבלת שלושה (למשל מחסנית מקור, יעד ועזר)`, id: 'third' }
+    ]).concat([
         type === 'Student'
             ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה תלמידים עם ממוצע מעל x")`, id: 'extra' }
             : type === 'Car'
             ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה מכוניות חדשות משנה x")`, id: 'extra' }
             : { label: `פרמטר נוסף x`, description: `${tp.primitive} x (למשל "מחקו את כל המופעים של x")`, id: 'extra' }
-    ];
+    ]);
     extraItems.push({ label: 'תרגיל ברקורסיה', description: 'בחלון ההרצה תופיע גם לשונית "רקורסיה" — כרטיס לכל קריאה', id: 'recursive' });
-    if (type !== 'Student' && type !== 'Car') extraItems.push({ label: 'ערכים אקראיים', description: 'בוחרים כמה — והערכים נוצרים אקראית', id: 'random' });
+    if (type !== 'Student' && type !== 'Car' && !st.combo) extraItems.push({ label: 'ערכים אקראיים', description: 'בוחרים כמה — והערכים נוצרים אקראית', id: 'random' });
     const extras = await vscode.window.showQuickPick(extraItems,
         { title: `${st.label} — (3/${total}) תוספות (אפשר לדלג עם Enter)`, canPickMany: true });
     if (!extras) return;
@@ -171,8 +176,9 @@ async function newExercise(preset) {
     };
 
     {
-        const isTree = structure === 'tree';
-        const hint = type === 'Student' ? '  (כמה תלמידים — נוצרים עם נתוני דמה)' : type === 'Car' ? '  (כמה מכוניות — נוצרות עם נתוני דמה)'
+        const isTree = structure === 'tree' || structure.startsWith('tree_');
+        const hint = st.combo ? `  (כל קבוצה, עד ;, היא מבנה פנימי אחד${isTree ? ' — לפי רמות, null = אין צומת' : ''})`
+            : type === 'Student' ? '  (כמה תלמידים — נוצרים עם נתוני דמה)' : type === 'Car' ? '  (כמה מכוניות — נוצרות עם נתוני דמה)'
             : structure === 'matrix' ? '  (שורות מופרדות ב-;)' : isTree ? '  (לפי רמות, null = אין צומת)' : '';
         let first = templates.defaultValues(structure, type, false), second = templates.defaultValues(structure, type, true);
         if (has('random')) {
@@ -243,11 +249,14 @@ async function newExercise(preset) {
 
 async function askValues(title, value, type, allowNull, structure) {
     return vscode.window.showInputBox({
-        title, value, prompt: type === 'Student' || type === 'Car' ? 'מספר' : 'ערכים מופרדים בפסיקים',
+        title, value, prompt: type === 'Student' || type === 'Car' ? 'מספר'
+            : templates.STRUCTURES[structure].combo ? 'ערכים מופרדים בפסיקים; מבנים פנימיים מופרדים ב-; (למשל 5, 2; 8, 1, 9; 3)' : 'ערכים מופרדים בפסיקים',
         validateInput: s => {
             try {
                 templates.generate({ structure, type, returns: 'void', values: s, className: 'A', functionName: 'f' });
-                return null;
+                const preview = templates.comboPreview(structure, type, s);   // מבנה בתוך מבנה: מראים מה ייבנה
+                return preview && vscode.InputBoxValidationSeverity
+                    ? { message: preview.replace('\n', '   ←   '), severity: vscode.InputBoxValidationSeverity.Info } : null;
             } catch (e) { return e.message; }
         }
     });
@@ -262,7 +271,24 @@ function typeItems(structure) {
         { label: 'Student', description: 'תלמידים — שם, כיתה וציונים (נתוני דמה)' },
         { label: 'Car', description: 'מכוניות — יצרן, דגם, שנה, דלק (נתוני דמה)' }
     ];
-    return structure === 'matrix' ? items.filter(i => i.label !== 'Student' && i.label !== 'Car') : items;
+    const noObjects = structure === 'matrix' || (templates.STRUCTURES[structure] && templates.STRUCTURES[structure].combo);
+    return noObjects ? items.filter(i => i.label !== 'Student' && i.label !== 'Car') : items;
+}
+
+/**
+ * "מה יש בכל תא?" — ערכים רגילים (ברירת המחדל), או מחסניות / תורים / רשימות מקושרות (מבנה בתוך מבנה).
+ * מחזיר '' / 'stack' / 'queue' / 'list', או undefined אם ביטלו. למבנים שאי אפשר בהם (מטריצה, עץ חיפוש) — '' בלי לשאול.
+ */
+async function askInside(outer, label) {
+    if (!templates.canNest(outer)) return '';
+    const items = templates.INSIDE.map(i => ({
+        label: i.label,
+        description: i.id ? `${label} של ${i.label} — ${templates.typeOf(templates.STRUCTURES[templates.comboId(outer, i.id)], 'Integer')}` : i.description,
+        id: i.id
+    }));
+    const pick = await vscode.window.showQuickPick(items,
+        { title: `${label} — מה יש בכל תא?`, placeHolder: 'Enter = ערכים רגילים. או בחרו מבנה שלם בכל תא (מחסנית של מחסניות...)' });
+    return pick ? pick.id : undefined;
 }
 
 // ------------------------------------------------------------ הוספה לקוד: מבנה עם נתוני דמה במקום הסמן
@@ -282,7 +308,12 @@ async function insertSnippet(structure) {
         if (!pick) return;
         structure = pick.id;
     }
-    const label = templates.SNIPPETS[structure];
+    if (structure !== 'student' && structure !== 'car') {
+        const inside = await askInside(structure, templates.SNIPPETS[structure]);
+        if (inside === undefined) return;
+        structure = templates.comboId(structure, inside);
+    }
+    const label = templates.SNIPPETS[structure] || templates.STRUCTURES[structure].label;
     let type = structure === 'car' ? 'Car' : 'Student';
     if (structure !== 'student' && structure !== 'car') {
         const t = await vscode.window.showQuickPick(typeItems(structure), { title: `${label} — טיפוס הערכים` });
@@ -296,8 +327,10 @@ async function insertSnippet(structure) {
         if (!dims) return;
         [opts.rows, opts.cols] = dims.split(/[x×*,]/).map(x => +x.trim());
     } else if (structure !== 'student' && structure !== 'car') {
-        const size = await vscode.window.showInputBox({ title: `${label} — כמה איברים?`, value: type === 'Student' || type === 'Car' ? '4' : '5',
-            validateInput: s => /^\d{1,2}$/.test(s.trim()) && +s > 0 && +s <= 30 ? null : 'מספר בין 1 ל-30' });
+        const combo = !!templates.STRUCTURES[structure].combo;
+        const size = await vscode.window.showInputBox({ title: `${label} — ${combo ? 'כמה מבנים פנימיים?' : 'כמה איברים?'}`,
+            value: combo ? '3' : type === 'Student' || type === 'Car' ? '4' : '5',
+            validateInput: s => /^\d{1,2}$/.test(s.trim()) && +s > 0 && +s <= (combo ? 6 : 30) ? null : `מספר בין 1 ל-${combo ? 6 : 30}` });
         if (!size) return;
         opts.size = +size;
     }
@@ -482,7 +515,7 @@ async function examples() {
         if (!fs.existsSync(path.join(to, f))) fs.copyFileSync(path.join(from, f), path.join(to, f));
     }
     const names = { StackExamples: 'מחסנית', QueueExamples: 'תור', ListExamples: 'רשימה מקושרת', TreeExamples: 'עצים',
-                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)', CarExamples: 'מכוניות (Car)', RecursionExamples: 'רקורסיה (עצרת, מערך, מחסנית)' };
+                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)', CarExamples: 'מכוניות (Car)', RecursionExamples: 'רקורסיה (עצרת, מערך, מחסנית)', NestedExamples: 'מבנה בתוך מבנה (מחסנית של מחסניות...)' };
     const pick = await vscode.window.showQuickPick(
         files.map(f => ({ label: names[path.basename(f, '.java')] || f, description: f, file: f })),
         { title: 'איזו דוגמה לפתוח?' });
@@ -496,7 +529,7 @@ async function examplesCs(root) {
     const from = path.join(ctx.extensionPath, 'resources', 'cs', 'Examples');
     const to = path.join(root, 'Examples');
     const names = { StackExamples: 'מחסנית', QueueExamples: 'תור', ListExamples: 'רשימה מקושרת', TreeExamples: 'עצים',
-                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)', CarExamples: 'מכוניות (Car)', RecursionExamples: 'רקורסיה (עצרת, מחסנית)' };
+                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)', CarExamples: 'מכוניות (Car)', RecursionExamples: 'רקורסיה (עצרת, מחסנית)', NestedExamples: 'מבנה בתוך מבנה (מחסנית של מחסניות...)' };
     for (const d of fs.readdirSync(from)) {
         const dest = path.join(to, d);
         if (fs.existsSync(dest)) continue;

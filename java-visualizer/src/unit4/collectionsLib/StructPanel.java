@@ -657,6 +657,7 @@ final class StructPanel extends JPanel {
         drawView(g2, sub, 0, 0);
         nest--;
         g2.dispose();
+        if (sub.title != null && !sub.title.isEmpty()) badge(g, sub.title, x + w - 4, y + 2);   // שם המשתנה על פינת התא
     }
 
     private static boolean hasObjs(List<Obj> objs) {

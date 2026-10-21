@@ -30,6 +30,8 @@ public class InsertDialog extends Dialog {
     private final int seed = new Random().nextInt(Integer.MAX_VALUE);
     private final List<Button> structureButtons = new ArrayList<Button>();
     private final List<Button> typeButtons = new ArrayList<Button>();
+    private final List<Button> insideButtons = new ArrayList<Button>();   // מה יש בכל תא: ערכים / מחסניות / תורים / רשימות
+    private Label typeInfo;
     private Spinner size, rows, cols;
     private Label sizeLabel, rowsLabel, colsLabel, errorLabel;
     private Text name;
@@ -84,6 +86,24 @@ public class InsertDialog extends Dialog {
             Button b = chip(grid, e.getValue(), e.getKey(), structureButtons, 48);
             b.setSelection(e.getKey().equals(preset));
         }
+
+        // מה יש בכל תא? ערכים רגילים, או מבנה שלם בכל תא (מחסנית של מחסניות, רשימה של תורים...)
+        section(area, "מה יש בכל תא?");
+        Composite inside = new Composite(area, SWT.NONE);
+        inside.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        GridLayout il = new GridLayout(Scaffold.INSIDE.length, true);
+        il.marginWidth = 0;
+        il.marginHeight = 0;
+        il.horizontalSpacing = 8;
+        inside.setLayout(il);
+        for (String[] in : Scaffold.INSIDE) {
+            Button b = chip(inside, in[1], in[0], insideButtons, 34);
+            b.setToolTipText(in[2]);
+            b.setSelection(in[0].isEmpty());
+        }
+        typeInfo = new Label(area, SWT.NONE);
+        typeInfo.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        typeInfo.setForeground(area.getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY));
 
         section(area, "טיפוס הערכים");
         Composite types = new Composite(area, SWT.NONE);
@@ -200,9 +220,24 @@ public class InsertDialog extends Dialog {
         if (updating || errorLabel == null || getButton(IDialogConstants.OK_ID) == null) return;
         updating = true;
         try {
-            String st = selected(structureButtons, "queue");
-            boolean isStudent = st.equals("student") || st.equals("car"), isMatrix = st.equals("matrix");
-            for (Button b : typeButtons) b.setEnabled(!isStudent);
+            String outer = selected(structureButtons, "queue");
+            boolean isStudent = outer.equals("student") || outer.equals("car"), isMatrix = outer.equals("matrix");
+            // מבנה בתוך מבנה: אפשרי במחסנית, תור, רשימה, עץ ומערך (לא במטריצה, בעץ חיפוש ובתלמיד / מכונית)
+            boolean nestable = Scaffold.canNest(outer);
+            String inside = nestable ? selected(insideButtons, "") : "";
+            for (Button b : insideButtons) {
+                b.setEnabled(nestable || ((String) b.getData()).isEmpty());
+                b.setSelection(((String) b.getData()).equals(inside));
+            }
+            String st = Scaffold.comboId(outer, inside);
+            boolean combo = !st.equals(outer);
+            for (Button b : typeButtons) b.setEnabled(!isStudent && !(combo && (b.getData().equals("Student") || b.getData().equals("Car"))));
+            if (combo && (selected(typeButtons, "Integer").equals("Student") || selected(typeButtons, "Integer").equals("Car")))
+                for (Button b : typeButtons) b.setSelection(b.getData().equals("Integer"));
+            typeInfo.setText(combo ? "הטיפוס: " + Scaffold.typeOf(Scaffold.STRUCTURES.get(st), selected(typeButtons, "Integer")) : "");
+            sizeLabel.setText(combo ? "כמה מבנים פנימיים:" : "כמה איברים:");
+            size.setMaximum(combo ? 6 : 30);
+            if (combo && size.getSelection() > 6) size.setSelection(3);
             size.setEnabled(!isStudent && !isMatrix);
             sizeLabel.setEnabled(!isStudent && !isMatrix);
             rows.setEnabled(isMatrix);
@@ -222,7 +257,7 @@ public class InsertDialog extends Dialog {
             o.indent = indent;
             String error = null;
             chosenClass = st.equals("student") ? "Student" : st.equals("car") ? "Car"
-                    : (o.type.equals("Student") || o.type.equals("Car")) && !st.equals("matrix") ? o.type : null;
+                    : (o.type.equals("Student") || o.type.equals("Car")) && !st.equals("matrix") && !combo ? o.type : null;
             try {
                 result = Scaffold.snippet(o);
             } catch (IllegalArgumentException e) {

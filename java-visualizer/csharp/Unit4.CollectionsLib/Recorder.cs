@@ -587,7 +587,7 @@ namespace Unit4.CollectionsLib
                 views.Add(tv);
             }
             // מבנה שמוצג בתוך תא של מבנה אחר, ואין משתנה שמצביע עליו (למשל ה-target של הצעד) — לא מציירים גם לבד
-            views.RemoveAll(v => v.Src != null && Nested.Contains(v.Src) && Aliases(v.Src, false).Count == 0);
+            views.RemoveAll(v => v.Src != null && Nested.Contains(v.Src));   // גם אם יש משתנה: שמו מופיע כתג על התא
             AttachObjects(views, top);
             return views;
         }
@@ -600,6 +600,14 @@ namespace Unit4.CollectionsLib
         static readonly List<object> NestPath = new List<object>();                       // המבנים שבתהליך ציור — נגד מעגלים
 
         static LinearView LinearViewOf(IVizLinear l, object target, Mark mark, string ghost)
+        {
+            bool added = !NestPath.Any(p => ReferenceEquals(p, l));
+            if (added) NestPath.Add(l);   // מחסנית שמכילה את עצמה (גם דרך מבנה אחר) לא נכנסת בתוך עצמה
+            try { return LinearViewIn(l, target, mark, ghost); }
+            finally { if (added) NestPath.RemoveAt(NestPath.Count - 1); }
+        }
+
+        static LinearView LinearViewIn(IVizLinear l, object target, Mark mark, string ghost)
         {
             var v = new LinearView { Stack = l.IsStack, Focus = ReferenceEquals(l, target), Src = l };
             IList<object> items = l.VizItems;                    // מחסנית: הראש ראשון; תור: ראש התור ראשון
@@ -635,16 +643,24 @@ namespace Unit4.CollectionsLib
             {
                 Nested.Add(item);
                 var none = new Dictionary<object, List<string>>(new RefComparer());
+                var al = Aliases(item, false);
+                string name = al.Count > 0 ? string.Join(", ", al) : null;   // תג על התא: משתנה שמצביע על המבנה הפנימי
+                View res;
                 var lin = item as IVizLinear;
-                if (lin != null) return LinearViewOf(lin, target, mark, ReferenceEquals(item, target) ? ghost : null);
                 var node = item as IVizNode;
-                if (node != null) return ChainOf(node, new HashSet<object>(new RefComparer()), target, mark, none);
-                var bin = (IVizBin)item;
-                var tv = new TreeView { Src = bin };
-                var focus = new bool[1];
-                tv.Root = TreeCellOf(bin, new HashSet<object>(new RefComparer()), target, mark, none, focus, 0);
-                tv.Focus = focus[0];
-                return tv;
+                if (lin != null) res = LinearViewOf(lin, target, mark, ReferenceEquals(item, target) ? ghost : null);
+                else if (node != null) res = ChainOf(node, new HashSet<object>(new RefComparer()), target, mark, none);
+                else
+                {
+                    var bin = (IVizBin)item;
+                    var tv = new TreeView { Src = bin };
+                    var focus = new bool[1];
+                    tv.Root = TreeCellOf(bin, new HashSet<object>(new RefComparer()), target, mark, none, focus, 0);
+                    tv.Focus = focus[0];
+                    res = tv;
+                }
+                res.Title = name;
+                return res;
             }
             finally
             {

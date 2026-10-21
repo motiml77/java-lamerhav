@@ -26,6 +26,23 @@ const STRUCTURES = {
              hint: '{v}.length (שורות)   {v}[0].length (עמודות)   {v}[i][j]' }
 };
 
+// ------------------------------------------------------------ קומבינציות: מבנה בתוך מבנה
+// מחסנית של מחסניות, תור של מחסניות, רשימה מקושרת של תורים, עץ בינארי של מחסניות, מערך של תורים... (5 חיצוניים × 3 פנימיים)
+const COMBO_OUTERS = ['stack', 'queue', 'list', 'tree', 'array'];
+const COMBO_INNERS = ['stack', 'queue', 'list'];
+const INNER_PLURAL = { stack: 'מחסניות', queue: 'תורים', list: 'רשימות מקושרות' };
+for (const out of COMBO_OUTERS) {
+    for (const inn of COMBO_INNERS) {
+        const o = STRUCTURES[out];
+        STRUCTURES[out + '_' + inn] = {
+            label: `${o.label} של ${INNER_PLURAL[inn]}`, cls: o.cls, dims: o.dims, varName: o.varName,
+            combo: { outer: out, inner: inn },
+            note: 'כל איבר הוא מבנה פנימי — הוא מוצג בתוך התא של המבנה החיצוני',
+            hint: o.hint
+        };
+    }
+}
+
 const TYPES = {
     Integer:   { primitive: 'int',    zero: '0' },
     String:    { primitive: 'String', zero: '""' },
@@ -48,9 +65,14 @@ const DEFAULT_MATRIX = {
     Integer: '1, 2, 3; 4, 5, 6; 7, 8, 9', String: 'a, b; c, d', Character: 'a, b, c; d, e, f', Double: '1.5, 2.0; 3.5, 4.0'
 };
 
+const DEFAULT_COMBO = {
+    Integer: '5, 2; 8, 1, 9; 3, 7', String: 'dog, cat; bird; fish, sun, moon', Character: 'a, b; c; d, e', Double: '1.5, 2.0; 3.25; 0.5, 4.5'
+};
+
 const RETURNS = ['void', 'int', 'boolean', 'element', 'structure'];
 
 function defaultValues(structure, type, second) {
+    if (STRUCTURES[structure].combo) return DEFAULT_COMBO[type] || '';
     const d = DEFAULT_VALUES[type];
     if (structure === 'matrix') return DEFAULT_MATRIX[type] || '';
     if (structure === 'tree') return d.tree;
@@ -131,6 +153,7 @@ function generate(o) {
     if (!tp) throw new Error('טיפוס לא מוכר: ' + o.type);
     if (!isIdentifier(o.className)) throw new Error('שם המחלקה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות');
     if (!isIdentifier(o.functionName)) throw new Error('שם הפעולה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות');
+    if (st.combo) return generateCombo(o, st, tp);
     const random = !!o.random && o.type === 'Integer' && o.structure !== 'tree' && o.structure !== 'bst';
     const T = o.type;
     const full = typeOf(st, T);
@@ -323,6 +346,162 @@ function nodeLines(structure, T, v, elems) {
     return L;
 }
 
+
+// ------------------------------------------------------------ קומבינציות (מבנה בתוך מבנה)
+
+/** Stack<Integer> / Queue<Integer> / Node<Integer> — הטיפוס של כל איבר במבנה החיצוני */
+function innerType(st, T) {
+    return `${STRUCTURES[st.combo.inner].cls}<${T}>`;
+}
+
+/** Stack<Stack<Integer>>, Node<Queue<Integer>>, Stack<Integer>[] ... */
+function comboType(st, T) {
+    const it = innerType(st, T);
+    return st.combo.outer === 'array' ? `${it}[]` : `${STRUCTURES[st.combo.outer].cls}<${it}>`;
+}
+
+/**
+ * "1, 2; 3; 4, 5" → [["1","2"],["3"],["4","5"]]: כל קבוצה (עד ';') היא מבנה פנימי אחד.
+ * בעץ — הקבוצות לפי רמות (שורש, ילדים...), והקבוצה null = אין צומת.
+ */
+function groupLiterals(text, type, allowNull) {
+    if (isObj(type)) throw new Error('קומבינציות של מבנים הן רק של מספרים, מחרוזות, תווים או מספרים עשרוניים — בחרו טיפוס אחר');
+    const raw = String(text || '').split(';').map(g => g.trim());
+    while (raw.length > 0 && raw[raw.length - 1] === '') raw.pop();
+    if (raw.length === 0) throw new Error('כתבו לפחות מבנה פנימי אחד (קבוצות מופרדות ב-;)');
+    if (raw.length > 12) throw new Error('עד 12 מבנים פנימיים');
+    return raw.map(g => allowNull && g === 'null' ? null : literals(g, type, false));
+}
+
+/** השורות שבונות את המבנה הפנימי במשתנה inner (בפעם הראשונה עם הצהרה על הטיפוס) */
+function innerLines(st, T, lits, declared, iv) {
+    const inn = STRUCTURES[st.combo.inner], full = innerType(st, T);
+    if (inn.cls === 'Node') {
+        const L = nodeLines('list', T, iv, lits);
+        return declared ? L.map((l, i) => i === 0 ? l.replace(`${full} ${iv} =`, `${iv} =`) : l) : L;
+    }
+    const add = inn.cls === 'Stack' ? 'push' : 'insert';
+    return [(declared ? '' : full + ' ') + `${iv} = new ${full}();`].concat(lits.map(x => `${iv}.${add}(${x});`));
+}
+
+/** שורות הבנייה ב-main: קודם בונים כל מבנה פנימי (במשתנה inner), ואז מכניסים אותו למבנה החיצוני */
+function comboBuildLines(st, T, v, groups, iv) {
+    iv = iv || 'inner';
+    const outer = STRUCTURES[st.combo.outer], it = innerType(st, T), full = comboType(st, T);
+    let declared = false;
+    const inner = lits => { const L = innerLines(st, T, lits, declared, iv); declared = true; return L; };
+    const L = [];
+    if (outer.cls === 'Stack' || outer.cls === 'Queue') {
+        const add = outer.cls === 'Stack' ? 'push' : 'insert';
+        L.push(`${full} ${v} = new ${full}();`);
+        groups.forEach((g, i) => { L.push(...inner(g), `${v}.${add}(${iv});` + (i === groups.length - 1 && add === 'push' ? '   // האחרון שנכנס — בראש המחסנית' : i === 0 && add === 'insert' ? '   // הראשון שנכנס — בראש התור' : '')); });
+    } else if (outer.cls === 'Node') {
+        L.push(`${full} ${v} = null;   // מוסיפים בתחילת הרשימה — לכן מתחילים מהמבנה האחרון`);
+        for (let i = groups.length - 1; i >= 0; i--)
+            L.push(...inner(groups[i]), `${v} = new ${outer.cls}<${it}>(${iv}, ${v});` + (i === 0 ? '   // החוליה הראשונה' : ''));
+    } else if (outer.cls === 'BinNode') {
+        const at = i => (i >= groups.length || groups[i] === null) ? null : { g: groups[i], l: at(2 * i + 1), r: at(2 * i + 2) };
+        const root = at(0);
+        if (!root) { L.push(`${full} ${v} = null;   // עץ ריק`); return L; }
+        L.push(...inner(root.g), `${full} ${v} = new ${outer.cls}<${it}>(${iv});   // השורש`);
+        const walk = (n, path) => {
+            if (n.l) { L.push(...inner(n.l.g), `${path}.setLeft(new ${outer.cls}<${it}>(${iv}));`); walk(n.l, path + '.getLeft()'); }
+            if (n.r) { L.push(...inner(n.r.g), `${path}.setRight(new ${outer.cls}<${it}>(${iv}));`); walk(n.r, path + '.getRight()'); }
+        };
+        walk(root, v);
+    } else {
+        L.push(`${full} ${v} = new ${STRUCTURES[st.combo.inner].cls}[${groups.length}];   // מערך של מבנים — כל תא מכיל מבנה`);
+        groups.forEach((g, i) => L.push(...inner(g), `${v}[${i}] = ${iv};`));
+    }
+    return L;
+}
+
+/** איך ניגשים לאיבר (המבנה הפנימי) במבנה החיצוני */
+function comboAccess(outerKey, v) {
+    return { stack: `${v}.top()`, queue: `${v}.head()`, list: `${v}.getValue()`, tree: `${v}.getValue()`, array: `${v}[i]` }[outerKey];
+}
+
+function generateCombo(o, st, tp) {
+    const T = o.type;
+    if (isObj(T)) throw new Error('קומבינציות של מבנים הן רק של מספרים, מחרוזות, תווים או מספרים עשרוניים — בחרו טיפוס אחר');
+    const outer = STRUCTURES[st.combo.outer], inn = STRUCTURES[st.combo.inner];
+    const full = comboType(st, T), it = innerType(st, T), v1 = st.varName;
+    const isArr = outer.dims === 1;
+    const groups = groupLiterals(o.values || DEFAULT_COMBO[T], T, st.combo.outer === 'tree');
+    let retType, retStart;
+    switch (o.returns) {
+        case 'void': retType = 'void'; break;
+        case 'int': retType = 'int'; retStart = '0'; break;
+        case 'boolean': retType = 'boolean'; retStart = 'false'; break;
+        case 'element': retType = tp.primitive; retStart = tp.zero; break;
+        case 'structure':
+            retType = full;
+            retStart = outer.cls === 'Stack' || outer.cls === 'Queue' ? `new ${full}()` : isArr ? `new ${inn.cls}[${v1}.length]` : 'null';
+            break;
+        default: throw new Error('ערך החזרה לא מוכר: ' + o.returns);
+    }
+    const params = [`${full} ${v1}`];
+    if (o.extra) params.push(`${extraType(T)} x`);
+    const L = [];
+    L.push('import unit4.collectionsLib.*;');
+    if (isArr) L.push('import java.util.Arrays;');
+    L.push('');
+    L.push(`// תרגיל${o.recursive ? ' ברקורסיה' : ''}: ${st.label} של ${T}`);
+    L.push(`public class ${o.className} {`);
+    L.push('');
+    L.push(`    public static ${retType} ${o.functionName}(${params.join(', ')}) {`);
+    L.push(`        // תזכורת — המבנה החיצוני: ${outer.hint.replace(/\{v\}/g, v1).replace(/\{T\}/g, it)}`);
+    L.push(`        // תזכורת — כל איבר הוא מבנה פנימי (${it}):   ${it} inner = ${comboAccess(st.combo.outer, v1)};   ${inn.hint.replace(/\{v\}/g, 'inner').replace(/\{T\}/g, T)}`);
+    if (outer.cls === 'Stack' || outer.cls === 'Queue') L.push(`        // עזר: ${outer.cls}<${it}> tmp = new ${outer.cls}<${it}>();   (${outer.label} עזר)`);
+    if (outer.cls === 'Node') L.push(`        // עזר: Node<${it}> curr = ${v1};   (מצביע שעובר על הרשימה — ${v1} נשאר בראש)`);
+    if (retStart !== undefined) L.push(`        ${retType} result = ${retStart};   // כאן אוספים את מה שהפעולה מחזירה`);
+    L.push('');
+    if (o.recursive) L.push(`        // רקורסיה: 1. מקרה בסיס — מתי עוצרים?  2. קריאה ל-${o.functionName}(...) עם מבנה קטן יותר`);
+    L.push('        // ========== TODO: כאן כותבים את הפתרון ==========');
+    const cursorLine = L.length;
+    L.push('        ');
+    if (retStart !== undefined) {
+        L.push('');
+        L.push('        return result;');
+    }
+    L.push('    }');
+    L.push('');
+    L.push('');
+    L.push('');
+    L.push('    // ==================== מכאן והלאה: מעטפת מוכנה (בדיקה של הפעולה) ====================');
+    L.push('    // אין צורך לשנות — אבל אפשר לשנות את הערכים כדי לבדוק מקרים נוספים');
+    L.push('');
+    if (isArr) L.push('    @SuppressWarnings("unchecked")');
+    L.push('    public static void main(String[] args) {');
+    L.push('        // בונים את המבנה לבדיקה: כל קבוצה (מופרדת ב-;) היא מבנה פנימי אחד — בחלון רואים אותו בתוך התא');
+    for (const l of comboBuildLines(st, T, v1, groups)) L.push('        ' + l);
+    if (o.extra) {
+        const first = (groups.find(g => g && g.length) || [TP_ZERO(T)]);
+        L.push(`        ${extraType(T)} x = ${T === 'Integer' ? (first.length > 2 ? first[2] : first[0]) : first[0]};`);
+    }
+    L.push('');
+    const p = printable(outer, v1);
+    if (p) L.push('        // מדפיסים את המבנה לפני הקריאה לפעולה');
+    if (p) L.push(`        System.out.println("לפני: " + ${p});`);
+    L.push('        // קוראים לפעולה שכתבתם');
+    const call = `${o.functionName}(${v1}${o.extra ? ', x' : ''})`;
+    if (o.returns === 'void') {
+        L.push(`        ${call};`);
+    } else {
+        L.push(`        ${retType} result = ${call};`);
+        const pr = o.returns === 'structure' ? printable(outer, 'result') : 'result';
+        if (pr) L.push(`        System.out.println("התוצאה: " + ${pr});`);
+    }
+    if (p) L.push('        // מדפיסים את המבנה אחרי — מה השתנה?');
+    if (p) L.push(`        System.out.println("אחרי: " + ${p});`);
+    L.push('    }');
+    L.push('}');
+    L.push('');
+    return { code: L.join('\n'), cursorLine };
+}
+
+const TP_ZERO = T => TYPES[T].zero;
+
 /** איך מדפיסים את המבנה ב-main (null = לא מדפיסים — עץ רואים בחלון) */
 function printable(st, v) {
     if (st.dims === 1) return `Arrays.toString(${v})`;
@@ -364,6 +543,7 @@ function freeName(base, text) {
 
 /** טיפוס המבנה: Stack<Integer>, int[], int[][] */
 function typeOf(st, T) {
+    if (st.combo) return comboType(st, T);
     if (st.dims === 1) return `${TYPES[T].primitive}[]`;
     if (st.dims === 2) return `${TYPES[T].primitive}[][]`;
     return `${st.cls}<${T}>`;
@@ -461,6 +641,7 @@ function snippet(o) {
     if (!st) throw new Error('מבנה לא מוכר: ' + o.structure);
     const T = o.type;
     if (!TYPES[T]) throw new Error('טיפוס לא מוכר: ' + T);
+    if (st.combo) return comboSnippet(o, st, next, indent);
     const full = typeOf(st, T), prim = TYPES[T].primitive;
     const size = Math.max(1, Math.min(o.size || 5, 30));
     const lines = L => L.map(l => indent + l).join('\n');
@@ -511,6 +692,59 @@ function snippet(o) {
     }
     if (st.dims === 1) return `${indent}${full} ${name} = {${values.join(', ')}};`;
     return lines(nodeLines(o.structure, T, name, values));
+}
+
+
+/** "הוספה לקוד" של קומבינציה: כמה מבנים פנימיים (size) עם 2–4 ערכים אקראיים בכל אחד */
+function comboSnippet(o, st, next, indent) {
+    const T = o.type;
+    if (isObj(T)) throw new Error('קומבינציות של מבנים הן רק של מספרים, מחרוזות, תווים או מספרים עשרוניים — בחרו טיפוס אחר');
+    const count = Math.max(1, Math.min(o.size || 3, 6));
+    const groups = [];
+    for (let i = 0; i < count; i++) {
+        const g = [];
+        const n = 2 + next(3);
+        for (let k = 0; k < n; k++) g.push(randomValue(T, next));
+        groups.push(g);
+    }
+    const L = [`// ${st.label} — כל קבוצת ערכים היא מבנה פנימי אחד`].concat(comboBuildLines(st, T, o.name, groups, o.name + 'Inner'));
+    return L.map(l => indent + l).join('\n');
+}
+
+/** מה יש בכל תא? — האפשרויות בחלון (ריק = ערכים רגילים) */
+const INSIDE = [
+    { id: '', label: 'ערכים רגילים', description: 'מספרים, מילים, תווים, תלמידים...' },
+    { id: 'stack', label: 'מחסניות', description: 'בכל תא — מחסנית שלמה' },
+    { id: 'queue', label: 'תורים', description: 'בכל תא — תור שלם' },
+    { id: 'list', label: 'רשימות מקושרות', description: 'בכל תא — רשימה מקושרת' }
+];
+
+/** האם אפשר מבנים בתוך התאים של המבנה הזה (מחסנית, תור, רשימה, עץ, מערך) */
+function canNest(outer) {
+    return COMBO_OUTERS.includes(outer);
+}
+
+/** מזהה המבנה: מחסנית + מחסניות → stack_stack ; בלי פנימי → stack */
+function comboId(outer, inside) {
+    return inside && canNest(outer) ? outer + '_' + inside : outer;
+}
+
+/** תצוגה מקדימה קצרה (טקסט) של מה שייבנה: הטיפוס, והמבנים הפנימיים לפי סדרם במבנה החיצוני */
+function comboPreview(structure, type, text) {
+    const st = STRUCTURES[structure];
+    if (!st || !st.combo) return '';
+    let groups;
+    try { groups = groupLiterals(text, type, st.combo.outer === 'tree'); } catch (e) { return ''; }
+    const g = x => x === null ? 'null' : '[' + x.join(', ') + ']';
+    const head = comboType(st, type);
+    switch (st.combo.outer) {
+        case 'stack': return `${head}\ntop → ${groups.slice().reverse().map(g).join('   ')}`;
+        case 'queue': return `${head}\nhead → ${groups.map(g).join('   ')} ← tail`;
+        case 'list': return `${head}\n${groups.map(g).join(' → ')} → null`;
+        case 'tree': return `${head}\n` + (groups.length <= 3 ? ['root', 'left', 'right'].slice(0, groups.length).map((n, i) => `${n} = ${g(groups[i])}`).join(',  ')
+            : 'לפי רמות: ' + groups.map(g).join('  '));
+        default: return `${head}\n${groups.map((x, i) => `[${i}] = ${g(x)}`).join('   ')}`;
+    }
 }
 
 /** שם ברירת המחדל למשתנה */
@@ -695,4 +929,4 @@ const CLASS_INFO = {
     }
 };
 
-module.exports = { STRUCTURES, TYPES, RETURNS, SNIPPETS, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues, nameN, freeName, CLASS_INFO };
+module.exports = { STRUCTURES, TYPES, RETURNS, SNIPPETS, INSIDE, canNest, comboId, comboPreview, groupLiterals, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues, nameN, freeName, CLASS_INFO };

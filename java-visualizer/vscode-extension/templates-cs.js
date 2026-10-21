@@ -59,10 +59,19 @@ function toCs(java) {
     for (const m of java.matchAll(/\b(\w+)\[\]\[\]\s+(\w+)/g)) mats[m[2]] = ELEMENT[m[1]] || m[1];
     const arrs = {};   // מערכים חד-ממדיים: שם → טיפוס האיברים (בשביל string.Join<T>)
     for (const m of java.matchAll(/\b(\w+)\[\]\s+(\w+)/g)) arrs[m[2]] = ELEMENT[m[1]] || m[1];
+    // מערך של מבנים: Stack<Integer>[] arr → string.Join<Stack<int>>
+    for (const m of java.matchAll(/\b(\w+)<(\w+)>\[\]\s+(\w+)/g)) {
+        const t = { Integer: 'int', Double: 'double', Character: 'char', String: 'string' }[m[2]] || m[2];
+        arrs[m[3]] = `${m[1]}<${t}>`;
+    }
     const out = [];
-    for (const line of java.split('\n')) {
+    for (const rawLine of java.split('\n')) {
+        let line = rawLine;
         if (/^import java\.util\.Arrays;/.test(line)) continue;
+        if (/^\s*@SuppressWarnings/.test(line)) continue;
         if (/^import unit4\.collectionsLib\.\*;/.test(line)) { out.push('using System;', 'using Unit4.CollectionsLib;'); continue; }
+        // מערך של מבנים: Stack<Integer>[] arr = new Stack[3];  →  new Stack<Integer>[3]
+        line = line.replace(/\b(\w+)<(\w+)>\[\]\s+(\w+)\s*=\s*new \1\[/, (m, c, t, n) => `${c}<${t}>[] ${n} = new ${c}<${t}>[`);
         let code = line, comment = '';
         // הערה: מהראשון // שמחוץ למחרוזת
         const parts = line.split(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/);

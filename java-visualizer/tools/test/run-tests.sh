@@ -61,6 +61,11 @@ java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/obj:$JAR" unit4.co
 grep -q 'arr=\[\[4\], \[9,8\], \[\]\]' "$W/obj/nest.txt" && grep -q 'deep=Stack \[\[\[9,8\]\]\]' "$W/obj/nest.txt" && grep -q 'qn=Queue \[1 -> 2 -> 3 -> null,7 -> null\]' "$W/obj/nest.txt" \
     && echo "  ok  מבנים בתוך מבנים (מערך של מחסניות, מחסנית של מחסניות של מחסניות, תור של רשימות, עץ של מחסניות): נרשמים" \
     || { echo "  FAIL מבנים בתוך מבנים"; cat "$W/obj/nest.txt"; exit 1; }
+mkdir -p "$W/ne"
+javac -encoding UTF-8 -cp "$JAR" -d "$W/ne" ../../src/examples/NestedExamples.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/ne:$JAR" examples.NestedExamples > "$W/ne/out.txt" 2>&1
+grep -q 'סכום: 25' "$W/ne/out.txt" && grep -q 'כמה מספרים בתורים: 3' "$W/ne/out.txt" && grep -q 'אחרי שיטוח' "$W/ne/out.txt" \
+    && echo "  ok  דוגמאות מבנה בתוך מבנה (NestedExamples): רצות ומחשבות נכון" || { echo "  FAIL NestedExamples"; cat "$W/ne/out.txt"; exit 1; }
 
 echo "== C# (Visual Studio / VS Code / Rider)"
 sh ./cs-tests.sh

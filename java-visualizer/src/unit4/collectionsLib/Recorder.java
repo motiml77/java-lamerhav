@@ -881,6 +881,17 @@ final class Recorder {
     private static final List<Object> nestPath = new ArrayList<Object>();   // המבנים שבתהליך ציור — נגד מעגלים
 
     private static LinearView linearView(Object o, Object target, Mark mark, String ghost) {
+        boolean added = true;
+        for (Object p : nestPath) if (p == o) added = false;
+        if (added) nestPath.add(o);   // מחסנית שמכילה את עצמה (גם דרך מבנה אחר) לא נכנסת בתוך עצמה
+        try {
+            return linearViewIn(o, target, mark, ghost);
+        } finally {
+            if (added) nestPath.remove(nestPath.size() - 1);
+        }
+    }
+
+    private static LinearView linearViewIn(Object o, Object target, Mark mark, String ghost) {
         boolean focus = o == target;
         List<?> items = o instanceof Stack ? ((Stack<?>) o).items : ((Queue<?>) o).items;
         LinearView v = new LinearView();
@@ -919,35 +930,39 @@ final class Recorder {
         nestDepth++;
         try {
             nested.add(item);
-            if (item instanceof Stack || item instanceof Queue) {
-                return linearView(item, target, mark, item == target ? ghost : null);
-            }
+            List<String> al = frameVars.get(item);
+            String name = al == null ? null : String.join(", ", al);   // תג על התא: משתנה שמצביע על המבנה הפנימי
+            View res;
             Map<Object, List<String>> none = new IdentityHashMap<Object, List<String>>();
-            if (item instanceof Node) {
+            if (item instanceof Stack || item instanceof Queue) {
+                res = linearView(item, target, mark, item == target ? ghost : null);
+            } else if (item instanceof Node) {
                 List<View> tmp = new ArrayList<View>();
                 addChain(tmp, (Node<?>) item, identitySet(), target, mark, none, null);
-                return tmp.get(0);
+                res = tmp.get(0);
+            } else {
+                BinNode<?> b = (BinNode<?>) item;
+                TreeView tv = new TreeView();
+                tv.src = b;
+                Object[] focus = { Boolean.FALSE };
+                tv.root = treeCell(b, identitySet(), target, mark, none, focus, 0, null);
+                tv.focus = focus[0] == Boolean.TRUE;
+                res = tv;
             }
-            BinNode<?> b = (BinNode<?>) item;
-            TreeView tv = new TreeView();
-            tv.src = b;
-            Object[] focus = { Boolean.FALSE };
-            tv.root = treeCell(b, identitySet(), target, mark, none, focus, 0, null);
-            tv.focus = focus[0] == Boolean.TRUE;
-            return tv;
+            res.title = name;
+            return res;
         } finally {
             nestDepth--;
             nestPath.remove(nestPath.size() - 1);
         }
     }
 
-    /** מבנה שמוצג בתוך תא של מבנה אחר, ואין משתנה שמצביע עליו — לא מציירים אותו גם לבד */
+    /** מבנה שמוצג בתוך תא של מבנה אחר — לא מציירים אותו גם לבד */
     private static void hideNested(List<View> views, Map<Object, List<String>> labels) {
         for (Iterator<View> it = views.iterator(); it.hasNext();) {
             View v = it.next();
             if (v.src == null || !nested.contains(v.src)) continue;
-            boolean named = v instanceof LinearView ? frameVars.get(v.src) != null : labels.get(v.src) != null;
-            if (!named && rank(v.src) < 1) it.remove();
+            it.remove();   // גם אם יש לו משתנה: שמו מופיע כתג על התא (כך רואים שהמשתנה והתא הם אותו מבנה)
         }
     }
 
