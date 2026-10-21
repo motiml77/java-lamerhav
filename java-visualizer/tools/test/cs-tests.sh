@@ -42,6 +42,27 @@ grep -q '^V	TREE' "$W/TreeExamples.trace" && grep -q '^V	ARR' "$W/ArrayExamples.
 grep -q '^O	' "$W/StudentExamples.trace" && grep -q '^F	average	' "$W/StudentExamples.trace" && grep -qP '^ACC\t' "$W/StudentExamples.trace" \
     && echo "כרטיסי אובייקטים וגישה למאפיין נרשמו (Student)" || { echo "חסרים O/F/ACC ב-StudentExamples"; exit 1; }
 grep -qP '^ACC\t' "$W/CarExamples.trace" && echo "גישה למאפיין נרשמה (Car)" || { echo "חסר ACC ב-CarExamples"; exit 1; }
+# מבנה בתוך מבנה (מחסנית של מחסניות, רשימה / עץ של תורים): שורות SUB ... ENDSUB, והחלון קורא אותן
+mkdir -p "$W/nest" && cat > "$W/nest/Program.cs" <<'CS'
+using Unit4.CollectionsLib;
+class Program
+{
+    static void Main(string[] args)
+    {
+        Stack<int> a = new Stack<int>(); a.Push(1); a.Push(2);
+        Stack<Stack<int>> ss = new Stack<Stack<int>>(); ss.Push(a); ss.Push(new Stack<int>());
+        ss.Top().Push(9);
+        Queue<int> q = new Queue<int>(); q.Insert(5);
+        Node<Queue<int>> lst = new Node<Queue<int>>(q);
+        BinNode<Queue<int>> t = new BinNode<Queue<int>>(q);
+        Stack<int>[] arr = new Stack<int>[1]; arr[0] = a;
+    }
+}
+CS
+viz "$W/nest" --trace "$W/nest.trace" > "$W/nest.out" 2>&1 || { cat "$W/nest.out"; exit 1; }
+[ "$(grep -c '^SUB' "$W/nest.trace")" -ge 10 ] && [ "$(grep -c '^SUB' "$W/nest.trace")" = "$(grep -c '^ENDSUB' "$W/nest.trace")" ] \
+    && java -Djava.awt.headless=true -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/nest.trace" | grep -q '^ok [1-9]' \
+    && echo "מבנים בתוך מבנים נרשמו (SUB / ENDSUB) והחלון קרא אותם" || { echo "חסרים SUB ב-nest.trace"; exit 1; }
 # שגיאת זמן ריצה: נרשמת כצעד ERROR, והתוכנית מסתיימת עם קוד 1
 mkdir -p "$W/boom" && cat > "$W/boom/Program.cs" <<'CS'
 using System;

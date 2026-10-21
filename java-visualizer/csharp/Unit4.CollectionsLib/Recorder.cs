@@ -500,6 +500,9 @@ namespace Unit4.CollectionsLib
         {
             var views = new List<View>();
             SnapObjs.Clear();
+            Nested.Clear();
+            NestPath.Clear();
+            NestDepth = 0;
             Frame top = Frames.Count > 0 ? Frames[Frames.Count - 1] : null;
 
             // כל הערכים של המשתנים, מהמסגרת העליונה כלפי מטה (בלי כפילויות לפי זהות)
@@ -530,16 +533,8 @@ namespace Unit4.CollectionsLib
             foreach (IVizLinear l in linears)
             {
                 var names = Aliases(l, false);
-                var v = new LinearView { Stack = l.IsStack, Focus = ReferenceEquals(l, target) };
+                var v = LinearViewOf(l, target, mark, ghost);
                 v.Title = names.Count > 0 ? string.Join(", ", names) : NameOfStored(l);
-                IList<object> items = l.VizItems;                    // מחסנית: הראש ראשון; תור: ראש התור ראשון
-                foreach (object it in items) { v.Items.Add(Str(it)); v.Objs.Add(ObjOf(it)); }
-                if (v.Focus)
-                {
-                    v.Mark = mark;
-                    v.Ghost = ghost;
-                    v.MarkIndex = (!v.Stack && mark == Mark.NEW) ? items.Count - 1 : 0;
-                }
                 views.Add(v);
             }
 
@@ -583,7 +578,7 @@ namespace Unit4.CollectionsLib
             var drawn = new HashSet<object>(new RefComparer());
             foreach (IVizBin r in roots)
             {
-                var tv = new TreeView();
+                var tv = new TreeView { Src = r };
                 var al = Aliases(r, false);
                 tv.Title = al.Count > 0 ? string.Join(", ", al) : "עץ";
                 var focus = new bool[1];
@@ -591,8 +586,71 @@ namespace Unit4.CollectionsLib
                 tv.Focus = focus[0];
                 views.Add(tv);
             }
+            // מבנה שמוצג בתוך תא של מבנה אחר, ואין משתנה שמצביע עליו (למשל ה-target של הצעד) — לא מציירים גם לבד
+            views.RemoveAll(v => v.Src != null && Nested.Contains(v.Src) && Aliases(v.Src, false).Count == 0);
             AttachObjects(views, top);
             return views;
+        }
+
+        // ------------------------------------------------------------ מבנה בתוך מבנה (מחסנית של מחסניות, רשימה של תורים, עץ של מחסניות...)
+
+        const int MaxNest = 3;                                // כמה רמות מצוירות זו בתוך זו
+        static int NestDepth;
+        static readonly HashSet<object> Nested = new HashSet<object>(new RefComparer());   // מבנים שמוצגים בתוך תא של מבנה אחר
+        static readonly List<object> NestPath = new List<object>();                       // המבנים שבתהליך ציור — נגד מעגלים
+
+        static LinearView LinearViewOf(IVizLinear l, object target, Mark mark, string ghost)
+        {
+            var v = new LinearView { Stack = l.IsStack, Focus = ReferenceEquals(l, target), Src = l };
+            IList<object> items = l.VizItems;                    // מחסנית: הראש ראשון; תור: ראש התור ראשון
+            bool anySub = false;
+            foreach (object it in items)
+            {
+                v.Items.Add(Str(it));
+                v.Objs.Add(ObjOf(it));
+                View sub = SubOf(it, target, mark, ghost);
+                v.Subs.Add(sub);
+                anySub |= sub != null;
+                if (sub != null && sub.Focus) v.Focus = true;   // המבנה הפנימי הוא שנגעו בו — גם החיצוני מסומן
+            }
+            if (!anySub) v.Subs.Clear();
+            if (v.Focus)
+            {
+                v.Mark = mark;
+                v.Ghost = ghost;
+                v.MarkIndex = (!v.Stack && mark == Mark.NEW) ? items.Count - 1 : 0;
+            }
+            return v;
+        }
+
+        /// <summary>הערך הוא מבנה של הספרייה → תצוגה קטנה שלו, לציור בתוך התא. null: ערך רגיל / עמוק מדי / המבנה מכיל את עצמו</summary>
+        static View SubOf(object item, object target, Mark mark, string ghost)
+        {
+            if (!(item is IVizLinear || item is IVizNode || item is IVizBin)) return null;
+            if (NestDepth >= MaxNest) return null;
+            foreach (object p in NestPath) if (ReferenceEquals(p, item)) return null;
+            NestPath.Add(item);
+            NestDepth++;
+            try
+            {
+                Nested.Add(item);
+                var none = new Dictionary<object, List<string>>(new RefComparer());
+                var lin = item as IVizLinear;
+                if (lin != null) return LinearViewOf(lin, target, mark, ReferenceEquals(item, target) ? ghost : null);
+                var node = item as IVizNode;
+                if (node != null) return ChainOf(node, new HashSet<object>(new RefComparer()), target, mark, none);
+                var bin = (IVizBin)item;
+                var tv = new TreeView { Src = bin };
+                var focus = new bool[1];
+                tv.Root = TreeCellOf(bin, new HashSet<object>(new RefComparer()), target, mark, none, focus, 0);
+                tv.Focus = focus[0];
+                return tv;
+            }
+            finally
+            {
+                NestDepth--;
+                NestPath.RemoveAt(NestPath.Count - 1);
+            }
         }
 
         static string NameOfStored(object o)
@@ -631,7 +689,7 @@ namespace Unit4.CollectionsLib
 
         static View ChainOf(IVizNode head, HashSet<object> drawn, object target, Mark mark, Dictionary<object, List<string>> labels)
         {
-            var c = new ChainView();
+            var c = new ChainView { Src = head };
             var al = Aliases(head, false);
             c.Title = al.Count > 0 ? string.Join(", ", al) : "רשימה";
             var pos = new Dictionary<object, int>(new RefComparer());
@@ -645,7 +703,7 @@ namespace Unit4.CollectionsLib
                 drawn.Add(cur);
                 var cell = new Cell();
                 FillCell(cell, cur, cur.VizValue, target, mark, labels);
-                if (ReferenceEquals(cur, target)) c.Focus = true;
+                if (ReferenceEquals(cur, target) || (cell.Sub != null && cell.Sub.Focus)) c.Focus = true;
                 c.Cells.Add(cell);
                 cur = cur.VizNext;
             }
@@ -658,7 +716,7 @@ namespace Unit4.CollectionsLib
             if (b == null) return null;
             var c = new TreeCell();
             FillCell(c, b, b.VizValue, target, mark, labels);
-            if (ReferenceEquals(b, target)) focus[0] = true;
+            if (ReferenceEquals(b, target) || (c.Sub != null && c.Sub.Focus)) focus[0] = true;
             if (!drawn.Add(b) || depth > 40) { c.Shared = true; return c; }
             c.Left = TreeCellOf(b.VizLeft, drawn, target, mark, labels, focus, depth + 1);
             c.Right = TreeCellOf(b.VizRight, drawn, target, mark, labels, focus, depth + 1);
@@ -669,6 +727,7 @@ namespace Unit4.CollectionsLib
         {
             cell.Value = Str(value);
             cell.Obj = ObjOf(value);
+            cell.Sub = SubOf(value, target, mark, null);
             cell.Mark = ReferenceEquals(node, target) ? mark : Mark.NONE;
             cell.Current = false;
             List<string> l;
@@ -754,9 +813,11 @@ namespace Unit4.CollectionsLib
                     a.Items.Add(Str(item));
                     Obj ob = ObjOf(item);
                     a.Objs.Add(ob);
+                    a.Subs.Add(SubOf(item, null, Mark.NONE, null));
                     anyObj |= ob != null;
                 }
                 if (!anyObj) a.Objs.Clear();
+                if (a.Subs.All(x => x == null)) a.Subs.Clear();
                 a.Truncated = n > MaxArray;
                 for (int i = 0; i < a.Items.Count; i++)
                     if (old != null && (i >= old.Count || old[i] != a.Items[i])) a.Changed.Add(i);

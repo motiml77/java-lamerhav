@@ -346,7 +346,7 @@ final class JdiTracer {
         }
         if (v instanceof ObjectReference && isUserClass((ObjectReference) v)) return dumpObject((ObjectReference) v);
         String s = format(v, 2);
-        return s.startsWith("\u0003") ? "•" : shorten(s, 14);
+        return s.startsWith("\u0003") ? s : shorten(s, 14);   // מבנה של הספרייה: הפניה ל-vizId (Recorder מצייר אותו בתוך התא)
     }
 
     /** מזהה האובייקט (vizId) ש-Recorder.register נתן ל-Student / Car; 0 אם לא נרשם */

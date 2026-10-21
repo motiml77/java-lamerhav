@@ -131,6 +131,7 @@ public final class TraceViewer {
             while (next("I")) {
                 l.items.add(rows.get(pos++)[1]);
                 l.objs.add(readObj());
+                l.subs.add(readSub());
             }
             v = l;
             v.focus = f[3].equals("1");
@@ -143,6 +144,7 @@ public final class TraceViewer {
             while (next("C")) {
                 Cell cell = readCell(new Cell(), rows.get(pos++));
                 cell.obj = readObj();
+                cell.sub = readSub();
                 c.cells.add(cell);
             }
             v = c;
@@ -158,7 +160,7 @@ public final class TraceViewer {
             ArrayView a = new ArrayView();
             a.truncated = f[4].equals("1");
             while (true) {
-                if (next("I")) { a.items.add(rows.get(pos++)[1]); a.objs.add(readObj()); }
+                if (next("I")) { a.items.add(rows.get(pos++)[1]); a.objs.add(readObj()); a.subs.add(readSub()); }
                 else if (next("CH")) a.changed.add(Integer.valueOf(rows.get(pos++)[1]));
                 else if (next("IL")) { String[] r = rows.get(pos++); label(a.indexLabels, Integer.parseInt(r[1]), r[2]); }
                 else break;
@@ -220,9 +222,19 @@ public final class TraceViewer {
         readCell(c, f);
         c.shared = f[4].equals("1");
         c.obj = readObj();
+        c.sub = readSub();
         c.left = readTree();
         c.right = readTree();
         return c;
+    }
+
+    /** מבנה בתוך תא (אם השורה הבאה היא SUB): SUB, אחריו שורות V של המבנה הפנימי, ו-ENDSUB */
+    private static View readSub() {
+        if (!next("SUB")) return null;
+        pos++;
+        View v = readView(rows.get(pos++));
+        if (next("ENDSUB")) pos++;
+        return v;
     }
 
     /** אובייקט של מחלקה (אם השורה הבאה היא O): O זהות סוג כותרת פרטים תוויות, ואחריה F לכל מאפיין */

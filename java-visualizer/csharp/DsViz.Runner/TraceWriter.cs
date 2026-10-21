@@ -49,6 +49,7 @@ namespace DsViz
                 {
                     Row(w, "I", lin.Items[i]);
                     if (i < lin.Objs.Count) WriteObj(w, lin.Objs[i]);
+                    if (i < lin.Subs.Count) WriteSub(w, lin.Subs[i]);
                 }
                 return;
             }
@@ -60,6 +61,7 @@ namespace DsViz
                 {
                     Row(w, "C", c.Value, c.Mark.ToString(), c.Current ? "1" : "0", string.Join("\u0001", c.Labels));
                     WriteObj(w, c.Obj);
+                    WriteSub(w, c.Sub);
                 }
                 return;
             }
@@ -78,6 +80,7 @@ namespace DsViz
                 {
                     Row(w, "I", arr.Items[i]);
                     if (i < arr.Objs.Count) WriteObj(w, arr.Objs[i]);
+                    if (i < arr.Subs.Count) WriteSub(w, arr.Subs[i]);
                 }
                 foreach (int i in arr.Changed) Row(w, "CH", i.ToString());
                 foreach (var kv in arr.IndexLabels) foreach (string n in kv.Value) Row(w, "IL", kv.Key.ToString(), n);
@@ -112,9 +115,19 @@ namespace DsViz
             if (c == null) { Row(w, "NULL"); return; }
             Row(w, "N", c.Value, c.Mark.ToString(), c.Current ? "1" : "0", c.Shared ? "1" : "0", string.Join("\u0001", c.Labels));
             WriteObj(w, c.Obj);
+            WriteSub(w, c.Sub);
             if (c.Shared) { Row(w, "NULL"); Row(w, "NULL"); return; }   // צומת משותף — בלי ילדים (כמו ב-Java)
             WriteTree(w, c.Left);
             WriteTree(w, c.Right);
+        }
+
+        /// <summary>מבנה בתוך תא: SUB, שורות ה-V של המבנה הפנימי (רקורסיבי), ENDSUB</summary>
+        static void WriteSub(StreamWriter w, View v)
+        {
+            if (v == null) return;
+            Row(w, "SUB");
+            WriteView(w, v);
+            Row(w, "ENDSUB");
         }
 
         /// <summary>אובייקט של מחלקה: שורת O (זהות, סוג, כותרת, פרטים, תוויות) ואחריה שורת F לכל מאפיין</summary>
@@ -137,6 +150,7 @@ namespace DsViz
 
         static string Escape(string s)
         {
+            if (s == null) return "";
             if (s == "\0") return "\\0";
             var b = new StringBuilder(s.Length + 8);
             foreach (char c in s)

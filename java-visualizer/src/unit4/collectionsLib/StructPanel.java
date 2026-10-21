@@ -278,13 +278,15 @@ final class StructPanel extends JPanel {
         int n = v.items.size();
         boolean objs = hasObjs(v.objs);
         int cw = Math.max(44, widthOf(v.items, v.objs, null) + 22), ch = objs ? OBJ_H : 40;
+        Dimension sb = subsBox(v.subs);
+        if (sb != null) { cw = Math.max(cw, sb.width); ch = Math.max(ch, sb.height); }
         int mostLabels = 0;
         for (List<String> l : v.indexLabels.values()) mostLabels = Math.max(mostLabels, l.size());
         int labelsH = 22 + Math.max(0, mostLabels - 1) * LABEL_STEP;   // כמה משתני אינדקס על אותו תא — שורה לכל אחד
         String type = "מערך, אורך " + n + (v.truncated ? "+" : "");
-        int top = y + TITLE_H + labelsH;
+        int top = y + th() + labelsH;
         int w = Math.max(16 + Math.max(n, 1) * cw + 20, titleWidth(v.title, type));
-        int h = TITLE_H + labelsH + ch + 22;
+        int h = th() + labelsH + ch + 22;
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, type, x, y, v.focus || !v.changed.isEmpty());
@@ -295,7 +297,7 @@ final class StructPanel extends JPanel {
         }
         for (int i = 0; i < n; i++) {
             int bx = x + 8 + i * cw;
-            cell(g, bx, top, cw, ch, v.changed.contains(i) ? CHANGED_C : BOX, v.items.get(i), objAt(v.objs, i));
+            cell(g, bx, top, cw, ch, v.changed.contains(i) ? CHANGED_C : BOX, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
             g.setColor(MUTED);
             center(g, String.valueOf(i), SMALL, bx + cw / 2, top + ch + 11);
             List<String> labels = v.indexLabels.get(i);
@@ -334,7 +336,7 @@ final class StructPanel extends JPanel {
         int cw = Math.max(44, widthOf(all, allObjs, null) + 20), ch = objs ? OBJ_H : 36;
         int labelW = 0;
         for (List<String> l : v.rowLabels.values()) labelW = Math.max(labelW, textWidth(String.join(",", l), SMALL_B) + 16);
-        int left = x + 8 + labelW + 22, top = y + TITLE_H + 22 + (v.colLabels.isEmpty() ? 0 : 18);
+        int left = x + 8 + labelW + 22, top = y + th() + 22 + (v.colLabels.isEmpty() ? 0 : 18);
         String type = "מערך דו-ממדי " + rows + "×" + cols;
         int w = Math.max(left - x + Math.max(cols, 1) * cw + 16, titleWidth(v.title, type));
         int h = top - y + Math.max(rows, 1) * ch + 12;
@@ -370,22 +372,25 @@ final class StructPanel extends JPanel {
         int n = v.items.size(), rows = Math.max(n, 1);
         boolean objs = hasObjs(v.objs);
         int cw = Math.max(76, widthOf(v.items, v.objs, v.ghost) + 26), ch = objs ? OBJ_H : 36, ghostH = v.ghost != null ? (objs ? 62 : 50) : 14;
-        int w = Math.max(cw + 84, titleWidth(v.title, "מחסנית")), h = TITLE_H + ghostH + rows * ch + 14;
+        Dimension sb = subsBox(v.subs);
+        if (sb != null) { cw = Math.max(cw, sb.width); ch = Math.max(ch, sb.height); }
+        int w = Math.max(cw + 84, titleWidth(v.title, "מחסנית")), h = th() + ghostH + rows * ch + 14;
         if (g == null) return new Dimension(w, h);
+        boolean wasInStack = inStack;
         inStack = true;
 
         drawTitle(g, v.title, "מחסנית", x, y, v.focus);
-        int cx = x + 8, top = y + TITLE_H + ghostH;
+        int cx = x + 8, top = y + th() + ghostH;
         if (v.ghost != null) {
-            ghostBox(g, cx, y + TITLE_H + 4, cw, ch, v.ghost);
+            ghostBox(g, cx, y + th() + 4, cw, ch, v.ghost);
             g.setFont(SMALL_B);
-            g.drawString("pop", cx + cw + 10, y + TITLE_H + 4 + ch / 2 + 5);
+            g.drawString("pop", cx + cw + 10, y + th() + 4 + ch / 2 + 5);
         }
         for (int i = 0; i < n; i++) {
             Color c = i == v.markIndex ? color(v.mark) : BOX;
-            cell(g, cx, top + i * ch, cw, ch, c, v.items.get(i), objAt(v.objs, i));
+            cell(g, cx, top + i * ch, cw, ch, c, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
         }
-        inStack = false;
+        inStack = wasInStack;
         g.setColor(LINE);
         g.setStroke(THICK);
         int bottom = top + rows * ch + 5;
@@ -408,19 +413,21 @@ final class StructPanel extends JPanel {
         int n = v.items.size(), rows = Math.max(n, 1);
         boolean objs = hasObjs(v.objs);
         int cw = Math.max(56, widthOf(v.items, v.objs, v.ghost) + 24), ch = objs ? OBJ_H : 40;
+        Dimension sb = subsBox(v.subs);
+        if (sb != null) { cw = Math.max(cw, sb.width); ch = Math.max(ch, sb.height); }
         int left = x + cw + 40;
-        int w = Math.max(left - x + rows * cw + 30, titleWidth(v.title, "תור")), h = TITLE_H + ch + 40;
+        int w = Math.max(left - x + rows * cw + 30, titleWidth(v.title, "תור")), h = th() + ch + 40;
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "תור", x, y, v.focus);
-        int top = y + TITLE_H + 6;
+        int top = y + th() + 6;
         if (v.ghost != null) {
             ghostBox(g, x + 8, top, cw, ch, v.ghost);
             center(g, "remove", SMALL_B, x + 8 + cw / 2, top + ch + 16);
         }
         for (int i = 0; i < n; i++) {
             Color c = i == v.markIndex ? color(v.mark) : BOX;
-            cell(g, left + i * cw, top, cw, ch, c, v.items.get(i), objAt(v.objs, i));
+            cell(g, left + i * cw, top, cw, ch, c, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
         }
         g.setColor(LINE);
         g.setStroke(THICK);
@@ -446,20 +453,24 @@ final class StructPanel extends JPanel {
         int n = v.cells.size();
         boolean objs = hasObjs(cellObjs);
         int vw = Math.max(48, widthOf(values, cellObjs, null) + 22), pw = 20, ch = objs ? OBJ_H : 38, ag = 38;
+        List<View> cellSubs = new ArrayList<View>();
+        for (Cell c : v.cells) cellSubs.add(c.sub);
+        Dimension sb = subsBox(cellSubs);
+        if (sb != null) { vw = Math.max(vw, sb.width); ch = Math.max(ch, sb.height); }
         int stepW = vw + pw + ag;
         String tail = v.cycleTo >= 0 ? "" : v.joinText != null ? v.joinText + "  (ממשיך ברשימה אחרת)"
                 : v.truncated ? "..." : "null";
         int extra = labelExtra(v.cells);   // כמה מצביעים על אותה חוליה — כל אחד בשורה משלו
-        int top = y + TITLE_H + 24 + extra;
+        int top = y + th() + 24 + extra;
         int w = Math.max(16 + n * stepW + textWidth(tail, SMALL_B) + 10, titleWidth(v.title, "רשימה מקושרת"));
-        int h = TITLE_H + 24 + extra + ch + (v.cycleTo >= 0 ? 36 : 14);
+        int h = th() + 24 + extra + ch + (v.cycleTo >= 0 ? 36 : 14);
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "רשימה מקושרת", x, y, v.focus);
         for (int i = 0; i < n; i++) {
             Cell c = v.cells.get(i);
             int bx = x + 8 + i * stepW;
-            cell(g, bx, top, vw, ch, color(c.mark), c.value, c.obj);
+            cell(g, bx, top, vw, ch, color(c.mark), c.value, c.obj, c.sub);
             box(g, bx + vw, top, pw, ch, color(c.mark), null, false);
             g.setColor(LINE);
             g.fillOval(bx + vw + pw / 2 - 3, top + ch / 2 - 3, 7, 7);
@@ -499,24 +510,30 @@ final class StructPanel extends JPanel {
         collect(v.root, 0, inorder, depth);
         int maxDepth = 0, maxW = 0;
         boolean objs = false;
+        List<View> nodeSubs = new ArrayList<View>();
         for (TreeCell c : inorder) {
             maxDepth = Math.max(maxDepth, depth.get(c));
             maxW = Math.max(maxW, c.obj != null ? objW(c.obj) : textWidth(c.value, VALUE));
             objs |= c.obj != null;
+            nodeSubs.add(c.sub);
         }
-        // צמתים של אובייקטים: כרטיס קטן במקום עיגול
-        final int r = objs ? Math.max(OBJ_H / 2, maxW / 2) : Math.max(19, maxW / 2 + 9), ry = objs ? OBJ_H / 2 : r;
-        int nw = 2 * r + 12, lv = objs ? 76 : 70;
+        // צמתים של אובייקטים / של מבנים: מלבן קטן במקום עיגול
+        Dimension sb = subsBox(nodeSubs);
+        if (sb != null) maxW = Math.max(maxW, sb.width);
+        boolean boxy = objs || sb != null;
+        final int r = boxy ? Math.max(OBJ_H / 2, maxW / 2) : Math.max(19, maxW / 2 + 9);
+        final int ry = boxy ? Math.max(OBJ_H / 2, sb != null ? sb.height / 2 : 0) : r;
+        int nw = 2 * r + 12, lv = boxy ? Math.max(76, 2 * ry + 30) : 70;
         final int extra = labelExtra(inorder);   // כמה מצביעים על אותו צומת — כל אחד בשורה משלו
         int w = Math.max(inorder.size() * nw + 16, titleWidth(v.title, "עץ בינארי"));
-        int h = TITLE_H + 22 + extra + (maxDepth + 1) * lv;
+        int h = th() + 22 + extra + (maxDepth + 1) * lv;
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "עץ בינארי", x, y, v.focus);
         Map<TreeCell, int[]> pos = new IdentityHashMap<TreeCell, int[]>();
         for (int i = 0; i < inorder.size(); i++) {
             TreeCell c = inorder.get(i);
-            pos.put(c, new int[] { x + 8 + i * nw + nw / 2, y + TITLE_H + 22 + extra + depth.get(c) * lv + ry });
+            pos.put(c, new int[] { x + 8 + i * nw + nw / 2, y + th() + 22 + extra + depth.get(c) * lv + ry });
         }
         g.setColor(LINE);
         g.setStroke(new BasicStroke(2f));
@@ -530,9 +547,9 @@ final class StructPanel extends JPanel {
         }
         for (TreeCell c : inorder) {
             int[] p = pos.get(c);
-            if (c.obj != null) {
-                int cwid = Math.max(objW(c.obj), 2 * ry) ;
-                objBox(g, p[0] - cwid / 2, p[1] - ry, cwid, 2 * ry, color(c.mark), c.obj);
+            if (c.sub != null || c.obj != null) {
+                int cwid = c.sub != null ? 2 * r : Math.max(objW(c.obj), 2 * ry);
+                cell(g, p[0] - cwid / 2, p[1] - ry, cwid, 2 * ry, color(c.mark), c.value, c.obj, c.sub);
                 if (c.current || c.shared) {
                     g.setColor(c.current ? CURRENT : BOX_LINE);
                     g.setStroke(c.shared ? DASHED : THICK);
@@ -567,6 +584,81 @@ final class StructPanel extends JPanel {
     //  • אובייקט ששמור במשתנה ואינו בתוך מבנה — כרטיס מלא (כל המאפיינים) לבד.
     //  • מעבר עכבר על כרטיס — חלונית עם כל המאפיינים (בכל צעד).
 
+    // ------------------------------------------------------------ מבנה בתוך מבנה
+    // מחסנית של מחסניות, רשימה של תורים, עץ של מחסניות...: התא מכיל תצוגה מוקטנת של המבנה הפנימי (בלי כותרת),
+    // שמצוירת באותן פונקציות ציור (ולכן גם היא יכולה להכיל מבנים — עד MAX_NEST רמות).
+
+    private int nest;                                  // כמה רמות של "בתוך תא" אנחנו כרגע (0 = מבנה ראשי)
+    private static final double SUB_SCALE = 0.8, SUB_MIN = 0.5;
+    private static final int SUB_MAX_W = 300, SUB_MAX_H = 190;
+
+    private int th() { return nest > 0 ? 6 : TITLE_H; }
+
+    private Dimension drawView(Graphics2D g, View v, int x, int y) {
+        if (v instanceof ArrayView) return drawArray(g, (ArrayView) v, x, y);
+        if (v instanceof MatrixView) return drawMatrix(g, (MatrixView) v, x, y);
+        if (v instanceof LinearView) return ((LinearView) v).stack ? drawStack(g, (LinearView) v, x, y) : drawQueue(g, (LinearView) v, x, y);
+        if (v instanceof ChainView) return drawChain(g, (ChainView) v, x, y);
+        if (v instanceof TreeView) return drawTree(g, (TreeView) v, x, y);
+        return new Dimension(0, 0);
+    }
+
+    private static View subAt(List<View> subs, int i) {
+        return i < subs.size() ? subs.get(i) : null;
+    }
+
+    private static boolean hasSubs(List<View> subs) {
+        for (View s : subs) if (s != null) return true;
+        return false;
+    }
+
+    private double subScale(Dimension d) {
+        return Math.max(SUB_MIN, Math.min(SUB_SCALE, Math.min(SUB_MAX_W / (double) Math.max(1, d.width), SUB_MAX_H / (double) Math.max(1, d.height))));
+    }
+
+    /** גודל המבנה הפנימי אחרי הקטנה (בלי שוליים) */
+    private Dimension subDim(View sub) {
+        nest++;
+        Dimension d = drawView(null, sub, 0, 0);
+        nest--;
+        double sc = subScale(d);
+        return new Dimension((int) Math.ceil(d.width * sc), (int) Math.ceil(d.height * sc));
+    }
+
+    /** הגודל של התא הרחב / הגבוה ביותר שמכיל מבנה (עם שוליים); null אם אין מבנים בתאים */
+    private Dimension subsBox(List<View> subs) {
+        int w = 0, h = 0;
+        boolean any = false;
+        for (View s : subs) {
+            if (s == null) continue;
+            any = true;
+            Dimension d = subDim(s);
+            w = Math.max(w, d.width + 18);
+            h = Math.max(h, d.height + 14);
+        }
+        return any ? new Dimension(w, h) : null;
+    }
+
+    private void subBox(Graphics2D g, int x, int y, int w, int h, Color fill, View sub) {
+        g.setColor(fill);
+        g.fillRoundRect(x + 1, y + 1, w - 2, h - 2, ARC + 2, ARC + 2);
+        g.setColor(sub.focus ? FOCUS : fill == BOX ? BOX_LINE : darker(fill));
+        g.setStroke(sub.focus ? THICK : THIN);
+        g.drawRoundRect(x + 1, y + 1, w - 2, h - 2, ARC + 2, ARC + 2);
+        nest++;
+        Dimension d = drawView(null, sub, 0, 0);
+        nest--;
+        double sc = subScale(d);
+        int dw = (int) Math.round(d.width * sc), dh = (int) Math.round(d.height * sc);
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.translate(x + (w - dw) / 2.0, y + (h - dh) / 2.0);
+        g2.scale(sc, sc);
+        nest++;
+        drawView(g2, sub, 0, 0);
+        nest--;
+        g2.dispose();
+    }
+
     private static boolean hasObjs(List<Obj> objs) {
         for (Obj o : objs) if (o != null) return true;
         return false;
@@ -592,7 +684,12 @@ final class StructPanel extends JPanel {
 
     /** תא: ערך רגיל, או כרטיס אם זה אובייקט */
     private void cell(Graphics2D g, int x, int y, int w, int h, Color fill, String text, Obj o) {
-        if (o == null) box(g, x, y, w, h, fill, text, false);
+        cell(g, x, y, w, h, fill, text, o, null);
+    }
+
+    private void cell(Graphics2D g, int x, int y, int w, int h, Color fill, String text, Obj o, View sub) {
+        if (sub != null) subBox(g, x, y, w, h, fill, sub);
+        else if (o == null) box(g, x, y, w, h, fill, text, false);
         else objBox(g, x, y, w, h, fill, o);
     }
 
@@ -633,6 +730,7 @@ final class StructPanel extends JPanel {
             center(g, o.sub, CARD_S, x + w / 2, y + h * 74 / 100);
         }
         if (!o.labels.isEmpty()) badge(g, String.join(",", o.labels), x + w - 5, y + h);
+        if (nest > 0) return;   // בתוך מבנה מוקטן הקואורדינטות אחרות — בלי ריחוף
         Rectangle r = new Rectangle(x, y, w, h);
         if (o.id > 0 && !objRects.containsKey(o.id)) objRects.put(o.id, new Object[] { r, Boolean.valueOf(inStack), o });
         objHits.add(new Object[] { r, o });
@@ -724,6 +822,7 @@ final class StructPanel extends JPanel {
 
     /** כותרת מבנה: שם המשתנה, ולידו "תגית" אפורה עם סוג המבנה */
     private void drawTitle(Graphics2D g, String name, String type, int x, int y, boolean focus) {
+        if (nest > 0) return;   // מבנה בתוך תא: בלי כותרת
         g.setFont(TITLE);
         FontMetrics fm = g.getFontMetrics();
         int nw = fm.stringWidth(name), base = y + TITLE_H - 11;
@@ -743,6 +842,7 @@ final class StructPanel extends JPanel {
     }
 
     private int titleWidth(String name, String type) {
+        if (nest > 0) return 0;
         return textWidth(name, TITLE) + 12 + textWidth(type, TYPE) + 14 + 16;
     }
 

@@ -91,6 +91,7 @@ final class Model {
     abstract static class View {
         String title;
         boolean focus;                     // האם הצעד הנוכחי נגע במבנה הזה
+        Object src;                        // המבנה האמיתי שממנו נבנה (רק ב-Recorder; לא נקרא בחלון)
     }
 
     /** מחסנית או תור */
@@ -101,6 +102,7 @@ final class Model {
         Mark mark = Mark.NONE;
         String ghost;                      // ערך שהוצא בצעד הזה (pop / remove)
         final List<Obj> objs = new ArrayList<Obj>();   // במקביל ל-items: אובייקט (או null אם זה ערך רגיל)
+        final List<View> subs = new ArrayList<View>(); // במקביל ל-items: מבנה שמוכל בתא (מחסנית של מחסניות...) או null
     }
 
     /** תא ברשימה מקושרת או צומת בעץ */
@@ -109,6 +111,7 @@ final class Model {
         Mark mark = Mark.NONE;
         boolean current;                   // הצומת האחרון שנגעו בו (ה"מצביע")
         Obj obj;                           // אם הערך הוא אובייקט של מחלקה
+        View sub;                          // אם הערך הוא מבנה (מחסנית / תור / רשימה / עץ) — מצויר בתוך התא
         final List<String> labels = new ArrayList<String>(); // שמות מ-Viz.point
     }
 
@@ -130,6 +133,8 @@ final class Model {
         final List<String> items = new ArrayList<String>();
         final java.util.Set<Integer> changed = new java.util.HashSet<Integer>();
         final List<Obj> objs = new ArrayList<Obj>();   // במקביל ל-items (או ריק אם אין אובייקטים)
+        final List<View> subs = new ArrayList<View>(); // במקביל ל-items (או ריק אם אין מבנים בתוך תאים)
+        final List<Object> subSrc = new ArrayList<Object>();   // המבנים עצמם (Recorder בלבד) — לרענון התוכן בכל צעד
         /** אינדקס → שמות משתנים שערכם הוא האינדקס הזה (למשל i, j) */
         final java.util.Map<Integer, List<String>> indexLabels = new java.util.HashMap<Integer, List<String>>();
         boolean truncated;

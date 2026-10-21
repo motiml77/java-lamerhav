@@ -56,6 +56,7 @@ namespace Unit4.CollectionsLib
     {
         public string Title;
         public bool Focus;
+        public object Src;                                 // המבנה האמיתי שממנו נבנתה התצוגה (לסינון כפילויות)
     }
 
     internal sealed class LinearView : View
@@ -66,6 +67,7 @@ namespace Unit4.CollectionsLib
         public Mark Mark = Mark.NONE;
         public string Ghost;
         public readonly List<Obj> Objs = new List<Obj>();   // במקביל ל-Items (null = ערך רגיל)
+        public readonly List<View> Subs = new List<View>(); // במקביל ל-Items: מבנה שמוכל בתא (מחסנית של מחסניות...) או null
     }
 
     internal class Cell
@@ -74,6 +76,7 @@ namespace Unit4.CollectionsLib
         public Mark Mark = Mark.NONE;
         public bool Current;
         public Obj Obj;                                    // אם הערך הוא אובייקט של מחלקה
+        public View Sub;                                   // אם הערך הוא מבנה — מצויר בתוך התא
         public readonly List<string> Labels = new List<string>();
     }
 
@@ -101,6 +104,7 @@ namespace Unit4.CollectionsLib
         public readonly List<string> Items = new List<string>();
         public readonly HashSet<int> Changed = new HashSet<int>();
         public readonly List<Obj> Objs = new List<Obj>();   // במקביל ל-Items (או ריק אם אין אובייקטים)
+        public readonly List<View> Subs = new List<View>(); // במקביל ל-Items (או ריק אם אין מבנים בתוך תאים)
         public readonly Dictionary<int, List<string>> IndexLabels = new Dictionary<int, List<string>>();
         public bool Truncated;
     }
