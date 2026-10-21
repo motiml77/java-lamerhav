@@ -154,7 +154,8 @@ async function newExercise(preset) {
 
     // בחירה נפרדת לרקורסיה (מפעילה את לשונית הכרטיסים) ולמילוי אקראי; הפעולה מקבלת מבנה אחד — עוד אפשר להוסיף בקוד
     const extraItems = [{ label: 'תרגיל ברקורסיה', description: 'בחלון ההרצה תופיע גם לשונית "רקורסיה" — כרטיס לכל קריאה', id: 'recursive' }];
-    if (type !== 'Student' && type !== 'Car' && !st.combo) extraItems.push({ label: 'כמה ערכים אקראיים', description: 'מילוי המבנה: בוחרים כמה — והערכים נוצרים אקראית', id: 'random' });
+    if (type !== 'Student' && type !== 'Car') extraItems.push({ label: st.combo ? 'כמה מבנים פנימיים אקראיים' : 'כמה ערכים אקראיים',
+        description: st.combo ? 'מילוי המבנה: בוחרים כמה — ונוצרים מבנים פנימיים עם ערכים אקראיים' : 'מילוי המבנה: בוחרים כמה — והערכים נוצרים אקראית', id: 'random' });
     const extras = await vscode.window.showQuickPick(extraItems,
         { title: `${st.label} — (3/${total}) רקורסיה ומילוי המבנה (אפשר לדלג עם Enter)`, canPickMany: true });
     if (!extras) return;
@@ -174,9 +175,11 @@ async function newExercise(preset) {
         let first = templates.defaultValues(structure, type, false), second = templates.defaultValues(structure, type, true);
         if (has('random')) {
             // ערכים אקראיים: בוחרים כמה — והשדה מתמלא בערכים אקראיים (אפשר לשנות לפני היצירה)
+            const maxCount = st.combo ? 12 : 20;
             const count = await vscode.window.showInputBox({
-                title: `${st.label} — ${structure === 'matrix' ? 'כמה שורות אקראיות (4 עמודות)?' : 'כמה ערכים אקראיים?'}`, value: '6',
-                validateInput: s => /^\d{1,2}$/.test(s.trim()) && +s > 0 && +s <= 20 ? null : 'מספר בין 1 ל-20' });
+                title: `${st.label} — ${st.combo ? 'כמה מבנים פנימיים אקראיים (2–4 ערכים בכל אחד)?' : structure === 'matrix' ? 'כמה שורות אקראיות (4 עמודות)?' : 'כמה ערכים אקראיים?'}`,
+                value: st.combo ? '3' : '6',
+                validateInput: s => /^\d{1,2}$/.test(s.trim()) && +s > 0 && +s <= maxCount ? null : `מספר בין 1 ל-${maxCount}` });
             if (count === undefined) return;
             const seed = Math.floor(Math.random() * 2147483647);
             first = templates.randomValues(structure, type, +count, seed);

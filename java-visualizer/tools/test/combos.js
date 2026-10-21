@@ -24,6 +24,23 @@ for (const structure of Object.keys(t.STRUCTURES))
         combos.push(['T', o.className, structure, type, returns, o.second, o.extra, o.random, o.values, o.values2, o.recursive, o.count, t.defaultValues(structure, type, true)].join('|'));
         write(o.className + '.java', () => { const g = t.generate(o); return g.code + '//cursor=' + g.cursorLine; });
       }
+// קומבינציות עם ערכים אקראיים: "כמה מבנים פנימיים" (1, 5, 12) — כל אחד עם 2–4 ערכים; גם מתקמפל, וגם ההגרלה זהה ב-Java (RandomCheck)
+const randoms = [];
+for (const structure of Object.keys(t.STRUCTURES).filter(k => t.STRUCTURES[k].combo))
+  for (const type of ['Integer', 'String', 'Character', 'Double'])
+    for (const count of [1, 5, 12])
+      for (const seed of [3, 99, 2024]) {
+        const values = t.randomValues(structure, type, count, seed);
+        const groups = values.split(';');
+        if (groups.length !== count || groups.some(g => g.split(',').length < 2 || g.split(',').length > 4)) { console.log('BAD RANDOM', structure, type, count, seed, values); process.exit(1); }
+        randoms.push([structure, type, count, seed, values].join('|'));
+        if (seed !== 3) continue;
+        const o = { structure, type, returns: 'void', second: false, extra: false, random: false, recursive: false, count: 1,
+                    values, values2: '', values3: '', className: 'C' + (++i), functionName: 'solve' };
+        combos.push(['T', o.className, structure, type, 'void', false, false, false, values, '', false, 1, ''].join('|'));
+        write(o.className + '.java', () => { const g = t.generate(o); return g.code + '//cursor=' + g.cursorLine; });
+      }
+fs.writeFileSync(path.join(out, '..', 'randoms.txt'), randoms.join('\n') + '\n');
 let k = 0;
 for (const structure of Object.keys(t.SNIPPETS).concat(Object.keys(t.STRUCTURES).filter(k => t.STRUCTURES[k].combo)))
   for (const type of Object.keys(t.TYPES))

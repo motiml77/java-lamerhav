@@ -93,6 +93,15 @@ const value = v => () => v;
     await commands['dsviz.newExercise']();
     const fl = fs.readFileSync(path.join(ws, 'src', 'ListOfQueues.java'), 'utf8');
     assert(fl.includes('Node<Queue<String>> lst') && fl.includes('lst = new Node<Queue<String>>(inner, lst);'), fl.slice(0, 600));
+    // ערכים אקראיים גם במבנה בתוך מבנה: "4" = 4 תורים אקראיים בתוך המחסנית (ועד 12)
+    answers.push(byId('stack'), byId('queue'), byId('Integer'), byId('void'), byIds(['random']), value('4'), keep, value('RandomQueues'), value('solve'));
+    await commands['dsviz.newExercise']();
+    const fr = fs.readFileSync(path.join(ws, 'src', 'RandomQueues.java'), 'utf8');
+    assert.strictEqual((fr.match(/stk\.push\(inner\);/g) || []).length, 4, fr.slice(0, 900));
+    answers.length = 0;
+    answers.push(byId('stack'), byId('queue'), byId('Integer'), byId('void'), byIds(['random']), value('13'));
+    await assert.rejects(commands['dsviz.newExercise'](), /validation/);
+    answers.length = 0;
     // "מה יש בכל תא?" מציע ערכים רגילים ראשון (Enter), ולא מוצע במטריצה ובעץ חיפוש
     let insideItems = null;
     answers.push((items) => { insideItems = items; return items[0]; }, byId('Integer'), byId('void'), byIds([]), keep, value('Plain1'), value('solve'));

@@ -32,12 +32,14 @@ import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
@@ -75,11 +77,27 @@ public final class CsTool {
         SwingUtilities.invokeAndWait(new Runnable() {
             public void run() {
                 Theme.install();
+                compactFonts();
                 if (mode.equals("insert")) insert(fPreset, fShot);
                 else newExercise(root, fPreset, fShot, fOpen);
             }
         });
         System.exit(0);
+    }
+
+    /** גופנים קטנים יותר לחלונות האלה (החלון הראשי של ההרצה משתמש באותו Theme, בגודל המקורי) */
+    private static void compactFonts() {
+        Theme.ui = Theme.ui.deriveFont(java.awt.Font.PLAIN, 13f);
+        Theme.uiBold = Theme.uiBold.deriveFont(java.awt.Font.BOLD, 13f);
+        Theme.small = Theme.small.deriveFont(java.awt.Font.PLAIN, 11.5f);
+        Theme.big = Theme.big.deriveFont(java.awt.Font.BOLD, 17f);
+        if (Theme.mono != null) Theme.mono = Theme.mono.deriveFont(java.awt.Font.PLAIN, 12.5f);
+        javax.swing.plaf.FontUIResource ui = new javax.swing.plaf.FontUIResource(Theme.ui);
+        UIManager.put("defaultFont", ui);
+        for (String k : new String[] { "Label.font", "Button.font", "ToggleButton.font", "CheckBox.font", "TextField.font", "ComboBox.font",
+                "Spinner.font", "FormattedTextField.font", "List.font", "OptionPane.messageFont", "OptionPane.buttonFont" })
+            UIManager.put(k, ui);
+        UIManager.put("ToolTip.font", new javax.swing.plaf.FontUIResource(Theme.small));
     }
 
     // ------------------------------------------------------------------ תרגיל חדש
@@ -139,7 +157,7 @@ public final class CsTool {
         boolean show(String shot) {
             JDialog d = dialog("תרגיל חדש — C#");
             JPanel content = new JPanel(new BorderLayout(0, 8));
-            content.setBorder(BorderFactory.createEmptyBorder(16, 20, 14, 20));
+            content.setBorder(BorderFactory.createEmptyBorder(12, 16, 10, 16));
             JPanel head = new JPanel(new GridLayout(0, 1));
             JLabel title = new JLabel("תרגיל חדש");
             title.setFont(Theme.big);
@@ -157,16 +175,16 @@ public final class CsTool {
             JPanel structs = grid(2);
             for (Scaffold.Structure st : Scaffold.STRUCTURES.values()) {
                 if (st.outer != null) continue;   // קומבינציות נבחרות בשתי בחירות: מבנה + "מה יש בכל תא?"
-                chip(structs, st.label, st.id, structureButtons, st.id.equals(initial), 34, 130, st.cls != null ? st.cls : st.dims == 2 ? "int[][]" : "int[]");
+                chip(structs, st.label, st.id, structureButtons, st.id.equals(initial), 30, 120, st.cls != null ? st.cls : st.dims == 2 ? "int[][]" : "int[]");
             }
             right.add(structs);
             right.section("מה יש בכל תא?");
             JPanel inside = grid(2);
-            for (String[] in : Scaffold.INSIDE) chip(inside, in[1], in[0], insideButtons, in[0].equals(initialInside), 28, 130, in[2]);
+            for (String[] in : Scaffold.INSIDE) chip(inside, in[1], in[0], insideButtons, in[0].equals(initialInside), 26, 120, in[2]);
             right.add(inside);
             typeSection = right.section("טיפוס הערכים");
             JPanel types = grid(3);
-            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 28, 84, null);
+            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 26, 76, null);
             right.add(types);
 
             left.section("מה הפעולה מחזירה?");
@@ -227,6 +245,8 @@ public final class CsTool {
             for (JLabel l : new JLabel[] { whereText, wherePath }) { l.setForeground(Theme.MUTED); l.setFont(Theme.small); where.add(l); }
             left.add(where);
 
+            right.fill();
+            left.fill();
             JPanel cols = new JPanel(new GridBagLayout());
             GridBagConstraints gc = new GridBagConstraints();
             gc.anchor = GridBagConstraints.FIRST_LINE_START;
@@ -242,7 +262,7 @@ public final class CsTool {
             gc.weightx = 1;
             gc.insets = new Insets(0, 0, 0, 0);
             cols.add(new Card(left.panel), gc);
-            content.add(cols, BorderLayout.CENTER);
+            content.add(scroll(cols), BorderLayout.CENTER);
 
             errorLabel = new JLabel(" ");
             errorLabel.setForeground(new Color(0xC62828));
@@ -291,7 +311,7 @@ public final class CsTool {
             String st = Scaffold.comboId(outer, inside);
             Scaffold.Structure s = Scaffold.STRUCTURES.get(st);
             boolean combo = s.outer != null;
-            // מבנה בתוך מבנה: רק מספרים / מילים / תווים (לא תלמידים ומכוניות), בלי ערכים אקראיים
+            // מבנה בתוך מבנה: רק מספרים / מילים / תווים (לא תלמידים ומכוניות)
             for (JToggleButton b : typeButtons) {
                 String t = (String) b.getClientProperty("id");
                 b.setEnabled(!(combo && (t.equals("Student") || t.equals("Car"))));
@@ -315,11 +335,14 @@ public final class CsTool {
             returnCombo.setSelectedIndex(Math.max(0, returnIds.indexOf(prevRet)));
 
             // ערכים אקראיים: בוחרים כמה, והשדה מתמלא (אפשר לשנות). תלמידים / מכוניות — תמיד נתוני דמה
-            randomCheck.setEnabled(!objects && !combo);
-            if (objects || combo) randomCheck.setSelected(false);
+            randomCheck.setEnabled(!objects);
+            if (objects) randomCheck.setSelected(false);
             boolean random = randomCheck.isSelected();
             count.setEnabled(random);
-            randomCheck.setText(st.equals("matrix") ? "כמה שורות אקראיות:" : "כמה ערכים אקראיים:");
+            randomCheck.setText(combo ? "כמה מבנים פנימיים אקראיים:" : st.equals("matrix") ? "כמה שורות אקראיות:" : "כמה ערכים אקראיים:");
+            int maxCount = combo ? Scaffold.MAX_INNER : 20;
+            ((SpinnerNumberModel) count.getModel()).setMaximum(maxCount);
+            if ((Integer) count.getValue() > maxCount) count.setValue(maxCount);
             int n = (Integer) count.getValue();
             if (random && (random != lastRandom || n != lastCount || !type.equals(lastType) || !st.equals(lastStructure))) {
                 seed = new Random().nextInt(Integer.MAX_VALUE);
@@ -440,7 +463,7 @@ public final class CsTool {
         boolean show(String shot) {
             JDialog d = dialog("הוספת משתנה — C#");
             JPanel content = new JPanel(new BorderLayout(0, 8));
-            content.setBorder(BorderFactory.createEmptyBorder(16, 20, 14, 20));
+            content.setBorder(BorderFactory.createEmptyBorder(12, 16, 10, 16));
             Col col = new Col();
             JLabel title = new JLabel("הוספת משתנה");
             title.setFont(Theme.big);
@@ -452,18 +475,18 @@ public final class CsTool {
             col.section("מה ליצור?");
             JPanel structs = grid(4);
             for (java.util.Map.Entry<String, String> e : Scaffold.SNIPPETS.entrySet())
-                chip(structs, e.getValue(), e.getKey(), structureButtons, e.getKey().equals(preset), 44, 96);
+                chip(structs, e.getValue(), e.getKey(), structureButtons, e.getKey().equals(preset), 38, 92);
             col.add(structs);
             col.section("מה יש בכל תא?");
             JPanel inside = grid(Scaffold.INSIDE.length);
-            for (String[] in : Scaffold.INSIDE) chip(inside, in[1], in[0], insideButtons, in[0].isEmpty(), 30, 96);
+            for (String[] in : Scaffold.INSIDE) chip(inside, in[1], in[0], insideButtons, in[0].isEmpty(), 28, 92);
             col.add(inside);
             typeInfo = new JLabel(" ");
             typeInfo.setForeground(Theme.MUTED);
             col.add(typeInfo);
             col.section("טיפוס הערכים");
             JPanel types = grid(Scaffold.TYPES.size());
-            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 30, 80);
+            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 28, 76);
             col.add(types);
 
             JPanel opts = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 0));
@@ -481,7 +504,7 @@ public final class CsTool {
             nm.add(name, BorderLayout.CENTER);
             col.add(nm);
 
-            content.add(new Card(col.panel), BorderLayout.CENTER);
+            content.add(scroll(new Card(col.panel)), BorderLayout.CENTER);
             errorLabel = new JLabel(" ");
             errorLabel.setForeground(new Color(0xC62828));
             ok = new JButton("העתקה ללוח");
@@ -630,21 +653,42 @@ public final class CsTool {
             primary.putClientProperty("FlatLaf.style", "background:#2F6FED; foreground:#ffffff; arc:14; borderWidth:0; hoverBackground:#2457C5; pressedBackground:#1E4AA8; focusedBackground:#2F6FED; disabledBackground:#B9C8EE; disabledText:#ffffff");
             secondary.putClientProperty("FlatLaf.style", "arc:14; background:#ffffff");
             primary.setFont(Theme.uiBold);
-            primary.setPreferredSize(new Dimension(Math.max(150, primary.getPreferredSize().width + 20), 38));
-            secondary.setPreferredSize(new Dimension(92, 38));
+            primary.setPreferredSize(new Dimension(Math.max(130, primary.getPreferredSize().width + 16), 34));
+            secondary.setPreferredSize(new Dimension(84, 34));
         }
 
         void relayout() {
             if (dlg == null) return;
             dlg.invalidate();
-            dlg.pack();
+            fit(dlg);
+        }
+
+        /** אזור גלילה אנכי: אם התוכן גבוה מהמסך (מסך קטן / הגדלת תצוגה) מופיע פס גלילה, והכפתורים למטה נשארים גלויים */
+        JScrollPane scroll(JComponent inner) {
+            ScrollPanel holder = new ScrollPanel(inner);
+            JScrollPane sp = new JScrollPane(holder, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+            sp.setBorder(BorderFactory.createEmptyBorder());
+            sp.setOpaque(false);
+            sp.getViewport().setOpaque(false);
+            sp.getVerticalScrollBar().setUnitIncrement(18);
+            return sp;
+        }
+
+        /** גודל החלון לפי התוכן, אבל לא יותר מהמסך */
+        void fit(JDialog d) {
+            d.pack();
+            java.awt.Rectangle scr = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+            Dimension s = d.getSize();
+            int maxH = scr.height - 40, maxW = scr.width - 40;
+            if (s.height > maxH || s.width > maxW)
+                d.setSize(Math.min(s.width + (s.height > maxH ? 18 : 0), maxW), Math.min(s.height, maxH));   // 18: מקום לפס הגלילה
         }
 
         /** מציג (מודאלי) ומחזיר true אם לחצו על הכפתור הראשי. עם shot: שומר תמונה ויוצא */
         boolean display(final JDialog d, final String shot) {
-            d.pack();
+            fit(d);
             Dimension p = d.getSize();
-            d.setSize(Math.max(p.width, 560), p.height);
+            d.setSize(Math.min(Math.max(p.width, 560), java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().width - 40), p.height);
             d.setLocationRelativeTo(null);
             if (shot != null) {
                 javax.swing.Timer t = new javax.swing.Timer(700, e -> {
@@ -715,7 +759,7 @@ public final class CsTool {
         public Dimension getPreferredSize() {
             if (isPreferredSizeSet()) return super.getPreferredSize();
             java.awt.FontMetrics fm = getFontMetrics(getFont());
-            return new Dimension(fm.stringWidth(getText()) + 28, 34);
+            return new Dimension(fm.stringWidth(getText()) + 24, 30);
         }
 
         @Override
@@ -743,12 +787,27 @@ public final class CsTool {
         }
     }
 
+    /** תוכן גלילה שרוחבו תמיד כרוחב החלון (גולל רק לאורך) */
+    private static final class ScrollPanel extends JPanel implements javax.swing.Scrollable {
+        ScrollPanel(JComponent inner) {
+            super(new BorderLayout());
+            setOpaque(false);
+            add(inner, BorderLayout.CENTER);
+        }
+
+        public Dimension getPreferredScrollableViewportSize() { return getPreferredSize(); }
+        public int getScrollableUnitIncrement(java.awt.Rectangle r, int o, int d) { return 18; }
+        public int getScrollableBlockIncrement(java.awt.Rectangle r, int o, int d) { return Math.max(40, r.height - 40); }
+        public boolean getScrollableTracksViewportWidth() { return true; }
+        public boolean getScrollableTracksViewportHeight() { return false; }
+    }
+
     /** כרטיס לבן מעוגל עם מסגרת דקה */
     private static final class Card extends JPanel {
         Card(JComponent inner) {
             super(new BorderLayout());
             setOpaque(false);
-            setBorder(BorderFactory.createEmptyBorder(16, 18, 18, 18));
+            setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
             add(inner, BorderLayout.CENTER);
         }
 
@@ -777,12 +836,22 @@ public final class CsTool {
             JLabel l = new JLabel(text);
             l.setFont(Theme.uiBold);
             l.setForeground(Theme.TEXT);
-            add(l, row == 0 ? 0 : 16);
+            add(l, row == 0 ? 0 : 10);
             return l;
         }
 
         void add(Component c) {
             add(c, 4);
+        }
+
+        /** שורה אחרונה שסופגת את הגובה הפנוי — כדי שהתוכן יישאר צמוד למעלה כשהעמודה נמתחת */
+        void fill() {
+            GridBagConstraints g = new GridBagConstraints();
+            g.gridx = 0;
+            g.gridy = row++;
+            g.weighty = 1;
+            g.fill = GridBagConstraints.VERTICAL;
+            panel.add(new JPanel(), g);
         }
 
         void add(Component c, int top) {

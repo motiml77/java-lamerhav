@@ -22,6 +22,16 @@ for (const structure of Object.keys(t.STRUCTURES))
                     className: 'C' + (++i), functionName: 'solve' };
         write(o.className + '.cs', () => t.generate(o).code);
       }
+// קומבינציות עם ערכים אקראיים (אותו סדר ומספור כמו ב-combos.js)
+for (const structure of Object.keys(t.STRUCTURES).filter(k => t.STRUCTURES[k].combo))
+  for (const type of ['Integer', 'String', 'Character', 'Double'])
+    for (const count of [1, 5, 12])
+      for (const seed of [3, 99, 2024]) {
+        if (seed !== 3) continue;
+        const o = { structure, type, returns: 'void', second: false, extra: false, random: false, recursive: false, count: 1,
+                    values: t.randomValues(structure, type, count, seed), values2: '', values3: '', className: 'C' + (++i), functionName: 'solve' };
+        write(o.className + '.cs', () => t.generate(o).code);
+      }
 let k = 0;
 for (const structure of Object.keys(t.SNIPPETS).concat(Object.keys(t.STRUCTURES).filter(k => t.STRUCTURES[k].combo)))
   for (const type of Object.keys(t.TYPES))

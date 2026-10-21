@@ -604,8 +604,18 @@ function randomValue(type, next) {
  */
 function randomValues(structure, type, count, seed) {
     const next = rng(seed);
-    const n = Math.max(1, Math.min(count | 0, 20));
     const plain = lit => lit.length >= 2 && (lit[0] === "'" || lit[0] === '"') ? lit.slice(1, -1) : lit;
+    if (STRUCTURES[structure].combo) {   // מבנה בתוך מבנה: count מבנים פנימיים, בכל אחד 2–4 ערכים אקראיים
+        const groups = Math.max(1, Math.min(count | 0, 12));
+        const parts = [];
+        for (let g = 0; g < groups; g++) {
+            const vals = [];
+            for (let k = 2 + next(3); k > 0; k--) vals.push(plain(randomValue(type, next)));
+            parts.push(vals.join(', '));
+        }
+        return parts.join('; ');
+    }
+    const n = Math.max(1, Math.min(count | 0, 20));
     if (structure === 'matrix') {
         const rows = [];
         for (let i = 0; i < n; i++) {

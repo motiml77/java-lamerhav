@@ -38,6 +38,7 @@ public class InsertDialog extends Dialog {
     private boolean nameEdited, updating;
     private String result, chosenClass;
     private Look.Round ok;
+    private org.eclipse.swt.custom.ScrolledComposite scroll;
 
     public InsertDialog(Shell parent, String preset, String documentText, String indent) {
         super(parent);
@@ -59,14 +60,19 @@ public class InsertDialog extends Dialog {
     protected Control createDialogArea(Composite parent) {
         Composite area = (Composite) super.createDialogArea(parent);
         GridLayout al = (GridLayout) area.getLayout();
-        al.marginWidth = 22;
-        al.marginHeight = 16;
-        al.verticalSpacing = 10;
+        al.marginWidth = 18;
+        al.marginHeight = 12;
+        al.verticalSpacing = 8;
 
         area.setBackground(Look.color(area.getDisplay(), Look.BG));
         area.setBackgroundMode(SWT.INHERIT_DEFAULT);
         Look.header(area, "הוספה לקוד", "המבנה נכנס לקוד במקום הסמן, מלא בנתוני דמה — אפשר לעבוד איתו מיד.");
-        Composite card = Look.card(area, new GridData(SWT.FILL, SWT.FILL, true, true));
+        GridLayout cl = new GridLayout(1, false);
+        cl.marginWidth = 0;
+        cl.marginHeight = 0;
+        Composite[] holder = new Composite[1];
+        scroll = Look.scroll(area, cl, holder);
+        Composite card = Look.card(holder[0], new GridData(SWT.FILL, SWT.FILL, true, true));
 
         section(card, "מה ליצור?");
         Composite grid = new Composite(card, SWT.NONE);
@@ -78,7 +84,7 @@ public class InsertDialog extends Dialog {
         gl.verticalSpacing = 8;
         grid.setLayout(gl);
         for (java.util.Map.Entry<String, String> e : Scaffold.SNIPPETS.entrySet()) {
-            Look.Chip b = chip(grid, e.getValue(), e.getKey(), structureButtons, 48);
+            Look.Chip b = chip(grid, e.getValue(), e.getKey(), structureButtons, 40);
             b.setSelection(e.getKey().equals(preset));
         }
 
@@ -92,7 +98,7 @@ public class InsertDialog extends Dialog {
         il.horizontalSpacing = 8;
         inside.setLayout(il);
         for (String[] in : Scaffold.INSIDE) {
-            Look.Chip b = chip(inside, in[1], in[0], insideButtons, 34);
+            Look.Chip b = chip(inside, in[1], in[0], insideButtons, 28);
             b.setToolTipText(in[2]);
             b.setSelection(in[0].isEmpty());
         }
@@ -109,7 +115,7 @@ public class InsertDialog extends Dialog {
         tl.horizontalSpacing = 8;
         types.setLayout(tl);
         for (String t : Scaffold.TYPES) {
-            Look.Chip b = chip(types, t, t, typeButtons, 34);
+            Look.Chip b = chip(types, t, t, typeButtons, 28);
             b.setSelection(t.equals("Integer"));
         }
 
@@ -136,21 +142,31 @@ public class InsertDialog extends Dialog {
         label(nm, "שם המשתנה:");
         name = new Text(nm, SWT.BORDER | SWT.LEFT_TO_RIGHT);
         GridData ng = new GridData(SWT.FILL, SWT.CENTER, true, false);
-        ng.widthHint = 160;
+        ng.widthHint = 150;
         name.setLayoutData(ng);
 
         errorLabel = new Label(area, SWT.WRAP);
         GridData eg = new GridData(SWT.FILL, SWT.TOP, true, false);
-        eg.widthHint = 380;
+        eg.widthHint = 340;
         errorLabel.setLayoutData(eg);
         errorLabel.setForeground(area.getDisplay().getSystemColor(SWT.COLOR_RED));
 
+        Look.applyFont(area, -1);
+        Look.wheel(scroll);
         for (Spinner sp : new Spinner[] { size, rows, cols }) sp.addModifyListener(e -> update());
         name.addModifyListener(e -> {
             if (name.isFocusControl()) nameEdited = true;
             update();
         });
         return area;
+    }
+
+    /** החלון תמיד נכנס למסך (גם בהגדלת תצוגה של Windows) — אם התוכן גבוה מדי, מופיע פס גלילה והכפתורים נשארים גלויים */
+    @Override
+    protected org.eclipse.swt.graphics.Point getInitialSize() {
+        org.eclipse.swt.graphics.Point p = super.getInitialSize();
+        org.eclipse.swt.graphics.Rectangle screen = getShell().getMonitor().getClientArea();
+        return new org.eclipse.swt.graphics.Point(Math.min(p.x, screen.width - 40), Math.min(p.y, screen.height - 60));
     }
 
     private void section(Composite c, String s) {
@@ -244,7 +260,9 @@ public class InsertDialog extends Dialog {
             }
             errorLabel.setText(error == null ? "" : error);
             ok.setEnabled(error == null);
-            getShell().pack();
+            Look.updateScroll(scroll);
+            if (getShell().isVisible()) Look.fit(getShell(), false);
+            else getShell().pack();
         } finally {
             updating = false;
         }
