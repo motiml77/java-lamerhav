@@ -31,7 +31,7 @@ import org.eclipse.swt.widgets.Text;
 
 /**
  * חלון "תרגיל חדש": דף קטן בשתי עמודות — מימין בוחרים מבנה וטיפוס, משמאל מה הפעולה מחזירה,
- * תוספות וערכים — ולוחצים "יצירת התרגיל". (הקוד נוצר רק בסוף, בלי תצוגה מקדימה.)
+ * רקורסיה ומילוי המבנה — ולוחצים "יצירת התרגיל". (הקוד נוצר רק בסוף, בלי תצוגה מקדימה.)
  */
 public class ExerciseDialog extends Dialog {
     private final IProject preferred;
@@ -46,12 +46,10 @@ public class ExerciseDialog extends Dialog {
     private Composite previewBox;
     private Label previewText, typeSection;
     private NestedPreview previewCanvas;
-    private Button extraCheck, randomCheck, recursiveCheck;
-    private Spinner structCount;
+    private Button randomCheck, recursiveCheck;
     private Spinner countSpinner;
-    private Label countLabel;
-    private Text valuesText, values2Text, values3Text, classText, functionText;
-    private Label valuesLabel, values2Label, values3Label, errorLabel;
+    private Text valuesText, classText, functionText;
+    private Label valuesLabel, errorLabel;
     private final List<String> returnIds = new ArrayList<String>();
     private boolean classEdited, lastRandom;
     private String lastType = "", lastStructure = "";
@@ -136,34 +134,20 @@ public class ExerciseDialog extends Dialog {
         returnCombo = new Combo(left, SWT.READ_ONLY | SWT.LEFT_TO_RIGHT);
         returnCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
-        // --- מה הפעולה מקבלת
-        section(left, "מה הפעולה מקבלת?");
-        Composite cnt = grid(left, 2, false, 6);
-        label(cnt, "כמה מבנים (1–3)? למשל מיזוג, השוואה:");
-        structCount = new Spinner(cnt, SWT.BORDER);
-        structCount.setValues(1, 1, 3, 0, 1, 1);
-        extraCheck = check(left, "גם ערך x (למשל: מחיקת כל ה-x)");
-        recursiveCheck = check(left, "תרגיל ברקורסיה (בחלון — כרטיס לכל קריאה)");
+        // --- תרגיל ברקורסיה: בחירה נפרדת — מפעילה בחלון ההרצה את לשונית הכרטיסים
+        section(left, "רקורסיה");
+        recursiveCheck = check(left, "תרגיל ברקורסיה (כרטיס לכל קריאה)");
+        recursiveCheck.setToolTipText("בחלון ההרצה תופיע לשונית \"רקורסיה\": כרטיס לכל קריאה");
 
-        // --- ערכים
-        section(left, "ערכים לבדיקה");
-        Composite rnd = grid(left, 3, false, 6);
-        randomCheck = check(rnd, "ערכים אקראיים");
-        countLabel = new Label(rnd, SWT.NONE);
-        countLabel.setText("כמה:");
+        // --- מילוי המבנה: אקראי (כמה ערכים) או ידני בשדה
+        section(left, "מילוי מבנה-נתונים");
+        Composite rnd = grid(left, 2, false, 6);
+        randomCheck = check(rnd, "כמה ערכים אקראיים:");
         countSpinner = new Spinner(rnd, SWT.BORDER);
         countSpinner.setValues(6, 1, 20, 0, 1, 5);
         Composite vals = grid(left, 2, false, 6);
         valuesLabel = new Label(vals, SWT.NONE);
         valuesText = text(vals, 240);
-        values2Label = new Label(vals, SWT.NONE);
-        values2Label.setText("המבנה השני:");
-        values2Label.setLayoutData(new GridData());
-        values2Text = text(vals, 240);
-        values3Label = new Label(vals, SWT.NONE);
-        values3Label.setText("המבנה השלישי:");
-        values3Label.setLayoutData(new GridData());
-        values3Text = text(vals, 240);
 
         // תצוגה מקדימה: רק בקומבינציה — מה ייבנה ובאיזה סדר המבנים הפנימיים נמצאים במבנה החיצוני
         previewBox = grid(left, 1, false, 2);
@@ -212,10 +196,9 @@ public class ExerciseDialog extends Dialog {
         };
         projectCombo.addSelectionListener(onChange);
         returnCombo.addSelectionListener(onChange);
-        for (Button b : new Button[] { extraCheck, randomCheck, recursiveCheck }) b.addSelectionListener(onChange);
-        structCount.addModifyListener(e -> update());
+        for (Button b : new Button[] { randomCheck, recursiveCheck }) b.addSelectionListener(onChange);
         countSpinner.addModifyListener(e -> update());
-        for (Text t : new Text[] { valuesText, values2Text, values3Text, functionText }) t.addModifyListener(e -> update());
+        for (Text t : new Text[] { valuesText, functionText }) t.addModifyListener(e -> update());
         classText.addModifyListener(e -> {
             if (classText.isFocusControl()) classEdited = true;
             update();
@@ -346,8 +329,6 @@ public class ExerciseDialog extends Dialog {
             for (Button b : typeButtons) b.setSelection(b.getData().equals("Integer"));
         }
         typeSection.setText(combo ? "טיפוס הערכים (בתוך המבנים הפנימיים)" : "טיפוס הערכים");
-        structCount.setEnabled(!combo);
-        if (combo && structCount.getSelection() != 1) structCount.setSelection(1);
         boolean objects = type.equals("Student") || type.equals("Car");
 
         // רשימת "מה מחזירים" תלויה בטיפוס ובמבנה
@@ -365,21 +346,14 @@ public class ExerciseDialog extends Dialog {
         randomCheck.setEnabled(!objects && !combo);
         if (objects || combo) randomCheck.setSelection(false);
         boolean random = randomCheck.getSelection();
-        countLabel.setEnabled(random);
         countSpinner.setEnabled(random);
-        countLabel.setText(st.equals("matrix") ? "שורות:" : "כמה:");
+        randomCheck.setText(st.equals("matrix") ? "כמה שורות אקראיות:" : "כמה ערכים אקראיים:");
         int count = countSpinner.getSelection();
-        int structs = structCount.getSelection();
-        boolean second = structs >= 2;
         if (random && (random != lastRandom || count != lastCount || !type.equals(lastType) || !st.equals(lastStructure))) {
             seed = new Random().nextInt(Integer.MAX_VALUE);
             valuesText.setText(Scaffold.randomValues(st, type, count, seed));
-            values2Text.setText(Scaffold.randomValues(st, type, Math.max(1, count - 2), seed + 1));
-            values3Text.setText(Scaffold.randomValues(st, type, Math.max(1, count - 2), seed + 2));
         } else if (!random && (lastRandom || !type.equals(lastType) || !st.equals(lastStructure))) {
             valuesText.setText(Scaffold.defaultValues(st, type, false));
-            values2Text.setText(Scaffold.defaultValues(st, type, true));
-            values3Text.setText(Scaffold.defaultValues(st, type, true));
         }
         lastRandom = random;
         lastCount = count;
@@ -400,8 +374,6 @@ public class ExerciseDialog extends Dialog {
         showBox(previewBox, groups != null);
         previewBox.layout(true, true);
         previewBox.getParent().layout();
-        showRow(values2Label, values2Text, second);
-        showRow(values3Label, values3Text, structs >= 3);
 
         IJavaProject jp = selectedProject();
         IContainer src = jp == null ? null : ProjectSetup.existingSource(jp);
@@ -414,14 +386,12 @@ public class ExerciseDialog extends Dialog {
         o.structure = st;
         o.type = type;
         o.returns = returnIds.get(returnCombo.getSelectionIndex());
-        o.second = second;
-        o.count = structs;
-        o.extra = extraCheck.getSelection();
+        o.second = false;
+        o.count = 1;
+        o.extra = false;
         o.recursive = recursiveCheck.getSelection();
         o.random = false;   // הערכים האקראיים כבר בשדה — נכנסים לקוד כמו שהם
         o.values = valuesText.getText();
-        o.values2 = values2Text.getText();
-        o.values3 = values3Text.getText();
         o.className = classText.getText().trim();
         o.functionName = functionText.getText().trim();
 
@@ -448,14 +418,6 @@ public class ExerciseDialog extends Dialog {
         Point need = sh.computeSize(SWT.DEFAULT, SWT.DEFAULT), cur = sh.getSize();
         int max = sh.getMonitor().getClientArea().height - 40;
         if (need.y > cur.y) sh.setSize(cur.x, Math.min(need.y, max));
-    }
-
-    private static void showRow(Label label, Text text, boolean show) {
-        for (Control c : new Control[] { label, text }) {
-            c.setVisible(show);
-            ((GridData) c.getLayoutData()).exclude = !show;
-        }
-        label.getParent().layout();
     }
 
     private void addReturn(String id, String text) {

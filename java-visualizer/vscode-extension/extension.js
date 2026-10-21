@@ -152,26 +152,17 @@ async function newExercise(preset) {
         { title: `${st.label} — (2/${total}) מה הפעולה מחזירה?` });
     if (!retPick) return;
 
-    const extraItems = (st.combo ? [] : [
-        { label: `שני מבנים`, description: `הפעולה מקבלת שניים (למשל מיזוג, השוואה)`, id: 'second' },
-        { label: `שלושה מבנים`, description: `הפעולה מקבלת שלושה (למשל מחסנית מקור, יעד ועזר)`, id: 'third' }
-    ]).concat([
-        type === 'Student'
-            ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה תלמידים עם ממוצע מעל x")`, id: 'extra' }
-            : type === 'Car'
-            ? { label: `פרמטר נוסף x`, description: `int x (למשל "כמה מכוניות חדשות משנה x")`, id: 'extra' }
-            : { label: `פרמטר נוסף x`, description: `${tp.primitive} x (למשל "מחקו את כל המופעים של x")`, id: 'extra' }
-    ]);
-    extraItems.push({ label: 'תרגיל ברקורסיה', description: 'בחלון ההרצה תופיע גם לשונית "רקורסיה" — כרטיס לכל קריאה', id: 'recursive' });
-    if (type !== 'Student' && type !== 'Car' && !st.combo) extraItems.push({ label: 'ערכים אקראיים', description: 'בוחרים כמה — והערכים נוצרים אקראית', id: 'random' });
+    // בחירה נפרדת לרקורסיה (מפעילה את לשונית הכרטיסים) ולמילוי אקראי; הפעולה מקבלת מבנה אחד — עוד אפשר להוסיף בקוד
+    const extraItems = [{ label: 'תרגיל ברקורסיה', description: 'בחלון ההרצה תופיע גם לשונית "רקורסיה" — כרטיס לכל קריאה', id: 'recursive' }];
+    if (type !== 'Student' && type !== 'Car' && !st.combo) extraItems.push({ label: 'כמה ערכים אקראיים', description: 'מילוי המבנה: בוחרים כמה — והערכים נוצרים אקראית', id: 'random' });
     const extras = await vscode.window.showQuickPick(extraItems,
-        { title: `${st.label} — (3/${total}) תוספות (אפשר לדלג עם Enter)`, canPickMany: true });
+        { title: `${st.label} — (3/${total}) רקורסיה ומילוי המבנה (אפשר לדלג עם Enter)`, canPickMany: true });
     if (!extras) return;
     const has = id => extras.some(e => e.id === id);
 
     const opts = {
         structure, type, returns: retPick.id,
-        count: has('third') ? 3 : has('second') ? 2 : 1, second: has('second') || has('third'), extra: has('extra'), random: false, recursive: has('recursive'),
+        count: 1, second: false, extra: false, random: false, recursive: has('recursive'),
         values: '', values2: '', className: '', functionName: ''
     };
 
@@ -184,14 +175,14 @@ async function newExercise(preset) {
         if (has('random')) {
             // ערכים אקראיים: בוחרים כמה — והשדה מתמלא בערכים אקראיים (אפשר לשנות לפני היצירה)
             const count = await vscode.window.showInputBox({
-                title: `${st.label} — ${structure === 'matrix' ? 'כמה שורות (4 עמודות)?' : 'כמה ערכים אקראיים?'}`, value: '6',
+                title: `${st.label} — ${structure === 'matrix' ? 'כמה שורות אקראיות (4 עמודות)?' : 'כמה ערכים אקראיים?'}`, value: '6',
                 validateInput: s => /^\d{1,2}$/.test(s.trim()) && +s > 0 && +s <= 20 ? null : 'מספר בין 1 ל-20' });
             if (count === undefined) return;
             const seed = Math.floor(Math.random() * 2147483647);
             first = templates.randomValues(structure, type, +count, seed);
             second = templates.randomValues(structure, type, Math.max(1, +count - 2), seed + 1);
         }
-        const v = await askValues(`${st.label} — (4/${total}) ערכים ל-${st.varName}${hint}`, first, type, isTree, structure);
+        const v = await askValues(`${st.label} — (4/${total}) מילוי מבנה-נתונים — ערכים ל-${st.varName}${hint}`, first, type, isTree, structure);
         if (v === undefined) return;
         opts.values = v;
         if (opts.count >= 2) {

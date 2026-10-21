@@ -18,28 +18,28 @@ import javax.swing.text.StyleContext;
  * המראה של החלון: FlatLaf (מראה מודרני ושטוח), הגופן Alef שנארז בספרייה (עברית ואנגלית),
  * וגופן קוד מודרני מהמחשב (Cascadia Mono / Consolas ...). הכול עם נפילה חזרה אם משהו חסר.
  */
-final class Theme {
+public final class Theme {
     private Theme() {}
 
-    static final Color BG = new Color(0xF1F3F7);          // רקע החלון
-    static final Color CARD = Color.WHITE;                // רקע הכרטיסים
-    static final Color BORDER = new Color(0xDFE3EA);
-    static final Color TEXT = new Color(0x1D2433);
-    static final Color MUTED = new Color(0x667085);
-    static final Color ACCENT = new Color(0x2F6FED);
-    static final Color ACCENT_DARK = new Color(0x2457C5);
-    static final Color ACCENT_SOFT = new Color(0xE8F0FE);
-    static final Color CODE_LINE = new Color(0xFFF0B3);   // השורה הנוכחית בקוד
-    static final Color CODE_BAR = new Color(0xF0A500);
-    static final Color GUTTER = new Color(0xF7F8FA);
-    static final Color CHANGED = new Color(0xFFF0B3);     // משתנה שהשתנה
+    public static final Color BG = new Color(0xF1F3F7);          // רקע החלון
+    public static final Color CARD = Color.WHITE;                // רקע הכרטיסים
+    public static final Color BORDER = new Color(0xDFE3EA);
+    public static final Color TEXT = new Color(0x1D2433);
+    public static final Color MUTED = new Color(0x667085);
+    public static final Color ACCENT = new Color(0x2F6FED);
+    public static final Color ACCENT_DARK = new Color(0x2457C5);
+    public static final Color ACCENT_SOFT = new Color(0xE8F0FE);
+    public static final Color CODE_LINE = new Color(0xFFF0B3);   // השורה הנוכחית בקוד
+    public static final Color CODE_BAR = new Color(0xF0A500);
+    public static final Color GUTTER = new Color(0xF7F8FA);
+    public static final Color CHANGED = new Color(0xFFF0B3);     // משתנה שהשתנה
 
-    static Font ui, uiBold, small, smallBold, title, big, mono, monoBig;
+    public static Font ui, uiBold, small, smallBold, title, big, mono, monoBig;
     static String family = Font.DIALOG, boldFamily = Font.DIALOG;
     static int boldStyle = Font.BOLD;
     private static boolean installed;
 
-    static void install() {
+    public static void install() {
         if (installed) return;
         installed = true;
         String regular = register("Alef-Regular.ttf");

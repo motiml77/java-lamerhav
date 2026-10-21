@@ -66,8 +66,8 @@ const value = v => () => v;
     extension.activate({ subscriptions: [], extensionPath: ext,
         globalState: { get: k => globalState.get(k), update: async (k, v) => globalState.set(k, v) } });
 
-    // --- תרגיל 1: מחסנית של Integer, מחזירה int, עם פרמטר x — דרך הכפתור "מחסנית"
-    answers.push(byId(''), byId('Integer'), byId('int'), byIds(['extra']), keep, keep, value('solve'));
+    // --- תרגיל 1: מחסנית של Integer, מחזירה int, תרגיל ברקורסיה — דרך הכפתור "מחסנית"
+    answers.push(byId(''), byId('Integer'), byId('int'), byIds(['recursive']), keep, keep, value('solve'));
     await commands['dsviz.newStack']();
     const f1 = path.join(ws, 'src', 'Targil1.java');
     assert(fs.existsSync(f1), 'Targil1.java not created');
@@ -77,9 +77,9 @@ const value = v => () => v;
     assert.deepStrictEqual(settings['java.project.referencedLibraries'], ['lib/**/*.jar']);
     assert.deepStrictEqual(settings['java.project.sourcePaths'], ['src']);
 
-    // --- תרגיל 2: דרך "תרגיל חדש" — רשימה של String, מחזירה מבנה, שני מבנים, ערכים משלנו, שם משלנו
-    answers.push(byId('list'), byId(''), byId('String'), byId('structure'), byIds(['second']),
-                 value('hello, "world", a\\b'), keep, value('Merge'), value('merge'));
+    // --- תרגיל 2: דרך "תרגיל חדש" — רשימה של String, מחזירה מבנה, ערכים משלנו, שם משלנו
+    answers.push(byId('list'), byId(''), byId('String'), byId('structure'), byIds([]),
+                 value('hello, "world", a\\b'), value('Merge'), value('merge'));
     await commands['dsviz.newExercise']();
     const f2 = path.join(ws, 'src', 'Merge.java');
     assert(fs.existsSync(f2), 'Merge.java not created');
@@ -195,8 +195,8 @@ const value = v => () => v;
     const csState = new Map();
     csExt.activate({ subscriptions: [], extensionPath: ext, globalState: { get: k => csState.get(k), update: async (k, v) => csState.set(k, v) } });
 
-    // --- תרגיל חדש ב-C#: מחסנית של Integer, מחזירה int, עם פרמטר x — נוצר פרויקט שלם
-    answers.push(byId(''), byId('Integer'), byId('int'), byIds(['extra']), keep, keep, value('solve'));
+    // --- תרגיל חדש ב-C#: מחסנית של Integer, מחזירה int, ברקורסיה — נוצר פרויקט שלם
+    answers.push(byId(''), byId('Integer'), byId('int'), byIds(['recursive']), keep, keep, value('solve'));
     await commands['dsviz.newStack']();
     const cs1 = path.join(ws2, 'Exercises', 'Targil1', 'Program.cs');
     assert(fs.existsSync(cs1), 'C# Program.cs not created');

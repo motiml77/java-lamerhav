@@ -51,3 +51,10 @@ tools/build-all.sh                 # בונה הכול (כולל dsviz-cs ל-Win
 sh tools/test/cs-tests.sh          # בדיקות C#: תבניות (2331 קבצים מתקמפלים), הרצה ויזואלית של כל הדוגמאות, שגיאות
 ```
 דורש ‎.NET SDK 8 (רק למי שבונה). התבניות ל-VS Code (`vscode-extension/templates-cs.js`) מופקות מאותו מחולל של Java בהמרה מכנית — מקור אחד.
+
+## חלונות "תרגיל חדש" ו"הוספת משתנה" (Visual Studio / Rider)
+
+`csharp/new-exercise/src/il/lamerhav/dsviz/cs/` — חלונות Swing שנארזים ב-`dsviz.jar` ומופעלים מקיצורים שההתקנה יוצרת:
+`javaw -cp dsviz.jar il.lamerhav.dsviz.cs.CsTool new|insert <תיקיית DataStructures-CS>`.
+`ScaffoldCs` ממיר את הקוד של `Scaffold` (Eclipse) ל-C# באותה המרה כמו `vscode-extension/templates-cs.js` (נבדק קובץ-קובץ ב-`tools/test/cs-tests.sh`, סעיף 8).
+`CsProject` כותב `Exercises\<שם>\` (`.csproj`, `Program.cs`, `launchSettings.json`) ורושם את הפרויקט בקובץ ה-`.sln`.

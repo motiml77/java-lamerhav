@@ -82,3 +82,21 @@ grep -q 'Program.cs(1,.*error CS' "$W/bad.out" && [ ! -f "$W/bad.trace" ] && ech
 # הרצה רגילה (בלי dsviz-cs): הספרייה היא סתם מבני נתונים, בלי תיעוד
 dotnet build "$ROOT/csharp/project/Examples/StackExamples" -v q --nologo 2>&1 | grep -E " error |Build succeeded" | head -2
 dotnet "$ROOT/csharp/project/Examples/StackExamples/bin/Debug/net8.0/StackExamples.dll" | grep -q 'הסכום: 21' && echo "הרצה רגילה: תקינה"
+
+echo "== 8. Visual Studio: חלון \"תרגיל חדש ב-C#\" — אותו קוד כמו VS Code, יצירת פרויקט ורישום בפתרון"
+mkdir -p "$W/cstool"
+javac --release 11 -nowarn -encoding UTF-8 -cp "$JAR" -d "$W/cstool" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java" \
+    $(find "$ROOT/csharp/new-exercise/src" cstool ScaffoldCsAll.java -name '*.java')
+# א. המחולל של Visual Studio (Java) מפיק בדיוק אותם 3,426 קבצי C# כמו המחולל של VS Code (JS), בתים-בתים
+node combos.js "$W/jsx" > /dev/null
+java -cp "$W/cstool:$JAR" ScaffoldCsAll "$W/combos.txt" "$W/javacs"
+diff -r "$W/gen" "$W/javacs" > /dev/null && echo "זהה ל-VS Code: $(ls "$W/javacs" | wc -l) קבצים" || { diff -rq "$W/gen" "$W/javacs" | head; exit 1; }
+# ב. יצירת פרויקטים בתיקיית התרגילים, רישום ב-.sln, בנייה והרצה ויזואלית
+cp -r "$ROOT/csharp/project" "$W/csroot"
+rm -rf "$W"/csroot/*/bin "$W"/csroot/*/obj "$W"/csroot/*/*/bin "$W"/csroot/*/*/obj
+java -Djava.awt.headless=true -cp "$W/cstool:$JAR" il.lamerhav.dsviz.cs.CsProjectTest "$W/csroot" > /dev/null
+(cd "$W/csroot" && dotnet sln DataStructures-CS.sln list | grep -c 'Exercises/Targil' | grep -q 3) && echo "3 תרגילים נרשמו בפתרון" || { echo "הפתרון לא עודכן"; exit 1; }
+for n in Targil1 Targil2 Targil3; do
+    dotnet build "$W/csroot/Exercises/$n" -v q --nologo 2>&1 | grep -q 'Build succeeded' || { echo "בנייה נכשלה: $n"; exit 1; }
+done
+viz "$W/csroot/Exercises/Targil2" --trace "$W/t2.trace" > /dev/null 2>&1; grep -q '^SUB' "$W/t2.trace" && echo "התרגיל מבנה-בתוך-מבנה נבנה ורץ ויזואלית"
