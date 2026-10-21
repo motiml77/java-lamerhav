@@ -28,14 +28,16 @@ import org.eclipse.swt.widgets.Text;
 public class InsertDialog extends Dialog {
     private final String preset, documentText, indent;
     private final int seed = new Random().nextInt(Integer.MAX_VALUE);
-    private final List<Button> structureButtons = new ArrayList<Button>();
-    private final List<Button> typeButtons = new ArrayList<Button>();
+    private final List<Look.Chip> structureButtons = new ArrayList<Look.Chip>();
+    private final List<Look.Chip> typeButtons = new ArrayList<Look.Chip>();
+    private final List<Look.Chip> insideButtons = new ArrayList<Look.Chip>();   // מה יש בכל תא: ערכים / מחסניות / תורים / רשימות
+    private Label typeInfo;
     private Spinner size, rows, cols;
     private Label sizeLabel, rowsLabel, colsLabel, errorLabel;
     private Text name;
     private boolean nameEdited, updating;
     private String result, chosenClass;
-    private Font headerFont, chipFont;
+    private Look.Round ok;
 
     public InsertDialog(Shell parent, String preset, String documentText, String indent) {
         super(parent);
@@ -49,6 +51,8 @@ public class InsertDialog extends Dialog {
     protected void configureShell(Shell shell) {
         super.configureShell(shell);
         shell.setText("הוספה לקוד");
+        shell.setBackground(Look.color(shell.getDisplay(), Look.BG));
+        shell.setBackgroundMode(SWT.INHERIT_DEFAULT);
     }
 
     @Override
@@ -59,20 +63,13 @@ public class InsertDialog extends Dialog {
         al.marginHeight = 16;
         al.verticalSpacing = 10;
 
-        FontData hd = JFaceResources.getDialogFont().getFontData()[0];
-        headerFont = new Font(area.getDisplay(), hd.getName(), hd.getHeight() + 6, SWT.BOLD);
-        chipFont = new Font(area.getDisplay(), hd.getName(), hd.getHeight() + 1, SWT.NORMAL);
-        area.addDisposeListener(e -> { headerFont.dispose(); chipFont.dispose(); });
+        area.setBackground(Look.color(area.getDisplay(), Look.BG));
+        area.setBackgroundMode(SWT.INHERIT_DEFAULT);
+        Look.header(area, "הוספה לקוד", "המבנה נכנס לקוד במקום הסמן, מלא בנתוני דמה — אפשר לעבוד איתו מיד.");
+        Composite card = Look.card(area, new GridData(SWT.FILL, SWT.FILL, true, true));
 
-        Label title = new Label(area, SWT.NONE);
-        title.setText("הוספה לקוד");
-        title.setFont(headerFont);
-        Label sub = new Label(area, SWT.NONE);
-        sub.setText("המבנה נכנס לקוד במקום הסמן, מלא בנתוני דמה — אפשר לעבוד איתו מיד.");
-        sub.setForeground(area.getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY));
-
-        section(area, "מה ליצור?");
-        Composite grid = new Composite(area, SWT.NONE);
+        section(card, "מה ליצור?");
+        Composite grid = new Composite(card, SWT.NONE);
         grid.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
         GridLayout gl = new GridLayout(4, true);
         gl.marginWidth = 0;
@@ -81,12 +78,30 @@ public class InsertDialog extends Dialog {
         gl.verticalSpacing = 8;
         grid.setLayout(gl);
         for (java.util.Map.Entry<String, String> e : Scaffold.SNIPPETS.entrySet()) {
-            Button b = chip(grid, e.getValue(), e.getKey(), structureButtons, 48);
+            Look.Chip b = chip(grid, e.getValue(), e.getKey(), structureButtons, 48);
             b.setSelection(e.getKey().equals(preset));
         }
 
-        section(area, "טיפוס הערכים");
-        Composite types = new Composite(area, SWT.NONE);
+        // מה יש בכל תא? ערכים רגילים, או מבנה שלם בכל תא (מחסנית של מחסניות, רשימה של תורים...)
+        section(card, "מה יש בכל תא?");
+        Composite inside = new Composite(card, SWT.NONE);
+        inside.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        GridLayout il = new GridLayout(Scaffold.INSIDE.length, true);
+        il.marginWidth = 0;
+        il.marginHeight = 0;
+        il.horizontalSpacing = 8;
+        inside.setLayout(il);
+        for (String[] in : Scaffold.INSIDE) {
+            Look.Chip b = chip(inside, in[1], in[0], insideButtons, 34);
+            b.setToolTipText(in[2]);
+            b.setSelection(in[0].isEmpty());
+        }
+        typeInfo = new Label(card, SWT.NONE);
+        typeInfo.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        typeInfo.setForeground(area.getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY));
+
+        section(card, "טיפוס הערכים");
+        Composite types = new Composite(card, SWT.NONE);
         types.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
         GridLayout tl = new GridLayout(Scaffold.TYPES.size(), true);
         tl.marginWidth = 0;
@@ -94,11 +109,11 @@ public class InsertDialog extends Dialog {
         tl.horizontalSpacing = 8;
         types.setLayout(tl);
         for (String t : Scaffold.TYPES) {
-            Button b = chip(types, t, t, typeButtons, 34);
+            Look.Chip b = chip(types, t, t, typeButtons, 34);
             b.setSelection(t.equals("Integer"));
         }
 
-        Composite opts = new Composite(area, SWT.NONE);
+        Composite opts = new Composite(card, SWT.NONE);
         opts.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
         GridLayout ol = new GridLayout(6, false);
         ol.marginWidth = 0;
@@ -112,7 +127,7 @@ public class InsertDialog extends Dialog {
         colsLabel = label(opts, "עמודות:");
         cols = spinner(opts, 4, 1, 12);
 
-        Composite nm = new Composite(area, SWT.NONE);
+        Composite nm = new Composite(card, SWT.NONE);
         nm.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
         GridLayout nl = new GridLayout(2, false);
         nl.marginWidth = 0;
@@ -139,12 +154,7 @@ public class InsertDialog extends Dialog {
     }
 
     private void section(Composite c, String s) {
-        Label l = new Label(c, SWT.NONE);
-        l.setText(s);
-        l.setFont(JFaceResources.getBannerFont());
-        GridData gd = new GridData(SWT.FILL, SWT.TOP, true, false);
-        gd.verticalIndent = 4;
-        l.setLayoutData(gd);
+        Look.section(c, s, c.getChildren().length == 0 ? 0 : 14);
     }
 
     private Label label(Composite c, String s) {
@@ -154,23 +164,8 @@ public class InsertDialog extends Dialog {
     }
 
     /** כפתור-בחירה גדול: לוחצים עליו ונבחר, והאחרים בקבוצה מתבטלים */
-    private Button chip(Composite parent, String text, Object data, final List<Button> group, int height) {
-        final Button b = new Button(parent, SWT.TOGGLE);
-        b.setText(text);
-        b.setData(data);
-        b.setFont(chipFont);
-        GridData gd = new GridData(SWT.FILL, SWT.FILL, true, false);
-        gd.heightHint = height;
-        b.setLayoutData(gd);
-        group.add(b);
-        b.addSelectionListener(new SelectionAdapter() {
-            @Override
-            public void widgetSelected(SelectionEvent e) {
-                for (Button o : group) o.setSelection(o == b);
-                update();
-            }
-        });
-        return b;
+    private Look.Chip chip(Composite parent, String text, Object data, final List<Look.Chip> group, int height) {
+        return Look.chip(parent, text, data, group, height, 80, () -> update());
     }
 
     private Spinner spinner(Composite c, int value, int min, int max) {
@@ -180,14 +175,17 @@ public class InsertDialog extends Dialog {
     }
 
     @Override
-    protected void createButtonsForButtonBar(Composite parent) {
-        createButton(parent, IDialogConstants.OK_ID, "הוספה לקוד", true);
-        createButton(parent, IDialogConstants.CANCEL_ID, "ביטול", false);
+    protected Control createButtonBar(Composite parent) {
+        Look.Round[] out = new Look.Round[1];
+        Composite bar = Look.buttonBar(parent, "הוספה לקוד", () -> { if (ok.getEnabled()) okPressed(); }, () -> cancelPressed(), out);
+        ok = out[0];
+        name.addListener(SWT.DefaultSelection, e -> { if (ok.getEnabled()) okPressed(); });
         update();
+        return bar;
     }
 
-    private static String selected(List<Button> group, String fallback) {
-        for (Button b : group) if (b.getSelection()) return (String) b.getData();
+    private static String selected(List<Look.Chip> group, String fallback) {
+        for (Look.Chip b : group) if (b.getSelection()) return (String) b.getData();
         return fallback;
     }
 
@@ -197,12 +195,27 @@ public class InsertDialog extends Dialog {
     }
 
     private void update() {
-        if (updating || errorLabel == null || getButton(IDialogConstants.OK_ID) == null) return;
+        if (updating || errorLabel == null || ok == null) return;
         updating = true;
         try {
-            String st = selected(structureButtons, "queue");
-            boolean isStudent = st.equals("student") || st.equals("car"), isMatrix = st.equals("matrix");
-            for (Button b : typeButtons) b.setEnabled(!isStudent);
+            String outer = selected(structureButtons, "queue");
+            boolean isStudent = outer.equals("student") || outer.equals("car"), isMatrix = outer.equals("matrix");
+            // מבנה בתוך מבנה: אפשרי במחסנית, תור, רשימה, עץ ומערך (לא במטריצה, בעץ חיפוש ובתלמיד / מכונית)
+            boolean nestable = Scaffold.canNest(outer);
+            String inside = nestable ? selected(insideButtons, "") : "";
+            for (Look.Chip b : insideButtons) {
+                b.setEnabled(nestable || ((String) b.getData()).isEmpty());
+                b.setSelection(((String) b.getData()).equals(inside));
+            }
+            String st = Scaffold.comboId(outer, inside);
+            boolean combo = !st.equals(outer);
+            for (Look.Chip b : typeButtons) b.setEnabled(!isStudent && !(combo && (b.getData().equals("Student") || b.getData().equals("Car"))));
+            if (combo && (selected(typeButtons, "Integer").equals("Student") || selected(typeButtons, "Integer").equals("Car")))
+                for (Look.Chip b : typeButtons) b.setSelection(b.getData().equals("Integer"));
+            typeInfo.setText(combo ? "הטיפוס: " + Scaffold.typeOf(Scaffold.STRUCTURES.get(st), selected(typeButtons, "Integer")) : "");
+            sizeLabel.setText(combo ? "כמה מבנים פנימיים:" : "כמה איברים:");
+            size.setMaximum(combo ? 6 : 30);
+            if (combo && size.getSelection() > 6) size.setSelection(3);
             size.setEnabled(!isStudent && !isMatrix);
             sizeLabel.setEnabled(!isStudent && !isMatrix);
             rows.setEnabled(isMatrix);
@@ -222,7 +235,7 @@ public class InsertDialog extends Dialog {
             o.indent = indent;
             String error = null;
             chosenClass = st.equals("student") ? "Student" : st.equals("car") ? "Car"
-                    : (o.type.equals("Student") || o.type.equals("Car")) && !st.equals("matrix") ? o.type : null;
+                    : (o.type.equals("Student") || o.type.equals("Car")) && !st.equals("matrix") && !combo ? o.type : null;
             try {
                 result = Scaffold.snippet(o);
             } catch (IllegalArgumentException e) {
@@ -230,7 +243,7 @@ public class InsertDialog extends Dialog {
                 result = null;
             }
             errorLabel.setText(error == null ? "" : error);
-            getButton(IDialogConstants.OK_ID).setEnabled(error == null);
+            ok.setEnabled(error == null);
             getShell().pack();
         } finally {
             updating = false;

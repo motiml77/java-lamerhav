@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- הספרייה לתרגילי מבני נתונים ב-C#: Stack / Queue / Node / BinNode / Student / Car.
+       netstandard2.0 — כדי שתעבוד בכל פרויקט (‎.NET Framework 4.7.2 ומעלה, ‎.NET 5/6/7/8/9 ואילך) -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>10.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>Unit4.CollectionsLib</RootNamespace>
+    <AssemblyName>Unit4.CollectionsLib</AssemblyName>
+    <Version>1.0.1</Version>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="dsviz-cs" />
+  </ItemGroup>
+
+</Project>

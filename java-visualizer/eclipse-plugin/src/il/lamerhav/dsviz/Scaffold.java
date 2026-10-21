@@ -19,6 +19,8 @@ public final class Scaffold {
     public static final class Structure {
         public final String id, label, cls, varName, build, random, note, hint;
         public final int dims;   // 0 = מבנה של הספרייה, 1 = מערך, 2 = מערך דו-ממדי
+        /** קומבינציה (מבנה בתוך מבנה): outer = המבנה החיצוני, inner = מה יש בכל תא. null אם זה מבנה רגיל */
+        public String outer, inner;
 
         Structure(String id, String label, String cls, String varName, String build, String random, String note, String hint) {
             this(id, label, cls, 0, varName, build, random, note, hint);
@@ -59,6 +61,52 @@ public final class Scaffold {
         STRUCTURES.put(s.id, s);
     }
 
+    // ------------------------------------------------------------ קומבינציות: מבנה בתוך מבנה
+    // מחסנית של מחסניות, תור של מחסניות, רשימה מקושרת של תורים, עץ בינארי של מחסניות, מערך של תורים... (5 חיצוניים × 3 פנימיים)
+    public static final List<String> COMBO_OUTERS = Arrays.asList("stack", "queue", "list", "tree", "array");
+    public static final List<String> COMBO_INNERS = Arrays.asList("stack", "queue", "list");
+    private static final Map<String, String> INNER_PLURAL = new LinkedHashMap<String, String>();
+    static {
+        INNER_PLURAL.put("stack", "מחסניות");
+        INNER_PLURAL.put("queue", "תורים");
+        INNER_PLURAL.put("list", "רשימות מקושרות");
+        for (String out : COMBO_OUTERS) {
+            for (String inn : COMBO_INNERS) {
+                Structure o = STRUCTURES.get(out);
+                Structure c = new Structure(out + "_" + inn, o.label + " של " + INNER_PLURAL.get(inn), o.cls, o.dims, o.varName, o.build, o.random,
+                        "כל איבר הוא מבנה פנימי — הוא מוצג בתוך התא של המבנה החיצוני", o.hint);
+                c.outer = out;
+                c.inner = inn;
+                add(c);
+            }
+        }
+    }
+
+    /** מה יש בכל תא? {מזהה, שם, הסבר}. מזהה ריק = ערכים רגילים */
+    public static final String[][] INSIDE = {
+        { "", "ערכים רגילים", "מספרים, מילים, תווים, תלמידים..." },
+        { "stack", "מחסניות", "בכל תא — מחסנית שלמה" },
+        { "queue", "תורים", "בכל תא — תור שלם" },
+        { "list", "רשימות מקושרות", "בכל תא — רשימה מקושרת" } };
+
+    /** האם אפשר מבנים בתוך התאים של המבנה הזה (מחסנית, תור, רשימה, עץ, מערך) */
+    public static boolean canNest(String outer) {
+        return COMBO_OUTERS.contains(outer);
+    }
+
+    /** מזהה המבנה: מחסנית + מחסניות → stack_stack ; בלי פנימי → stack */
+    public static String comboId(String outer, String inside) {
+        return inside != null && !inside.isEmpty() && canNest(outer) ? outer + "_" + inside : outer;
+    }
+
+    private static final Map<String, String> DEFAULT_COMBO = new LinkedHashMap<String, String>();
+    static {
+        DEFAULT_COMBO.put("Integer", "5, 2; 8, 1, 9; 3, 7");
+        DEFAULT_COMBO.put("String", "dog, cat; bird; fish, sun, moon");
+        DEFAULT_COMBO.put("Character", "a, b; c; d, e");
+        DEFAULT_COMBO.put("Double", "1.5, 2.0; 3.25; 0.5, 4.5");
+    }
+
     public static final List<String> TYPES = Arrays.asList("Integer", "String", "Character", "Double", "Student", "Car");
 
     public static String primitive(String type) {
@@ -83,6 +131,7 @@ public final class Scaffold {
     }
 
     public static String defaultValues(String structure, String type, boolean second) {
+        if (STRUCTURES.get(structure).outer != null) return DEFAULT_COMBO.containsKey(type) ? DEFAULT_COMBO.get(type) : "";
         if (structure.equals("matrix")) {
             switch (type) {
                 case "Integer": return "1, 2, 3; 4, 5, 6; 7, 8, 9";
@@ -218,6 +267,7 @@ public final class Scaffold {
         if (!TYPES.contains(o.type)) throw new IllegalArgumentException("טיפוס לא מוכר: " + o.type);
         if (!isIdentifier(o.className)) throw new IllegalArgumentException("שם המחלקה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות");
         if (!isIdentifier(o.functionName)) throw new IllegalArgumentException("שם הפעולה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות");
+        if (st.outer != null) return generateCombo(o, st);
         boolean random = o.random && o.type.equals("Integer") && !o.structure.equals("tree") && !o.structure.equals("bst");
         String T = o.type;
         String full = typeOf(st, T);
@@ -447,6 +497,265 @@ public final class Scaffold {
         return L;
     }
 
+
+    // ------------------------------------------------------------ קומבינציות (מבנה בתוך מבנה)
+
+    /** Stack<Integer> / Queue<Integer> / Node<Integer> — הטיפוס של כל איבר במבנה החיצוני */
+    static String innerType(Structure st, String T) {
+        return STRUCTURES.get(st.inner).cls + "<" + T + ">";
+    }
+
+    /** Stack<Stack<Integer>>, Node<Queue<Integer>>, Stack<Integer>[] ... */
+    static String comboType(Structure st, String T) {
+        String it = innerType(st, T);
+        return st.outer.equals("array") ? it + "[]" : STRUCTURES.get(st.outer).cls + "<" + it + ">";
+    }
+
+    private static final String NO_OBJECTS = "קומבינציות של מבנים הן רק של מספרים, מחרוזות, תווים או מספרים עשרוניים — בחרו טיפוס אחר";
+
+    /**
+     * "1, 2; 3; 4, 5" → [[1, 2], [3], [4, 5]]: כל קבוצה (עד ';') היא מבנה פנימי אחד.
+     * בעץ — הקבוצות לפי רמות (שורש, ילדים...), והקבוצה null = אין צומת (איבר null ברשימה).
+     */
+    public static List<List<String>> groupLiterals(String text, String type, boolean allowNull) {
+        if (isObj(type)) throw new IllegalArgumentException(NO_OBJECTS);
+        List<String> raw = new ArrayList<String>();
+        for (String g : (text == null ? "" : text).split(";", -1)) raw.add(g.trim());
+        while (!raw.isEmpty() && raw.get(raw.size() - 1).isEmpty()) raw.remove(raw.size() - 1);
+        if (raw.isEmpty()) throw new IllegalArgumentException("כתבו לפחות מבנה פנימי אחד (קבוצות מופרדות ב-;)");
+        if (raw.size() > 12) throw new IllegalArgumentException("עד 12 מבנים פנימיים");
+        List<List<String>> res = new ArrayList<List<String>>();
+        for (String g : raw) res.add(allowNull && g.equals("null") ? null : literals(g, type, false));
+        return res;
+    }
+
+    /** השורות שבונות את המבנה הפנימי במשתנה iv (בפעם הראשונה עם הצהרה על הטיפוס) */
+    private static List<String> innerLines(Structure st, String T, List<String> lits, boolean declared, String iv) {
+        Structure inn = STRUCTURES.get(st.inner);
+        String full = innerType(st, T);
+        if (inn.cls.equals("Node")) {
+            List<String> L = nodeLines("list", T, iv, lits);
+            if (declared) L.set(0, L.get(0).replace(full + " " + iv + " =", iv + " ="));
+            return L;
+        }
+        String add = inn.cls.equals("Stack") ? "push" : "insert";
+        List<String> L = new ArrayList<String>();
+        L.add((declared ? "" : full + " ") + iv + " = new " + full + "();");
+        for (String x : lits) L.add(iv + "." + add + "(" + x + ");");
+        return L;
+    }
+
+    /** שורות הבנייה ב-main: קודם בונים כל מבנה פנימי (במשתנה iv), ואז מכניסים אותו למבנה החיצוני */
+    static List<String> comboBuildLines(Structure st, String T, String v, List<List<String>> groups, String iv) {
+        Structure outer = STRUCTURES.get(st.outer);
+        String it = innerType(st, T), full = comboType(st, T);
+        boolean[] declared = { false };
+        List<String> L = new ArrayList<String>();
+        if (outer.cls != null && (outer.cls.equals("Stack") || outer.cls.equals("Queue"))) {
+            String add = outer.cls.equals("Stack") ? "push" : "insert";
+            L.add(full + " " + v + " = new " + full + "();");
+            for (int i = 0; i < groups.size(); i++) {
+                L.addAll(comboInner(st, T, groups.get(i), declared, iv));
+                L.add(v + "." + add + "(" + iv + ");" + (i == groups.size() - 1 && add.equals("push") ? "   // האחרון שנכנס — בראש המחסנית"
+                        : i == 0 && add.equals("insert") ? "   // הראשון שנכנס — בראש התור" : ""));
+            }
+        } else if (outer.cls != null && outer.cls.equals("Node")) {
+            L.add(full + " " + v + " = null;   // מוסיפים בתחילת הרשימה — לכן מתחילים מהמבנה האחרון");
+            for (int i = groups.size() - 1; i >= 0; i--) {
+                L.addAll(comboInner(st, T, groups.get(i), declared, iv));
+                L.add(v + " = new " + outer.cls + "<" + it + ">(" + iv + ", " + v + ");" + (i == 0 ? "   // החוליה הראשונה" : ""));
+            }
+        } else if (outer.cls != null && outer.cls.equals("BinNode")) {
+            CNode root = comboAt(groups, 0);
+            if (root == null) { L.add(full + " " + v + " = null;   // עץ ריק"); return L; }
+            L.addAll(comboInner(st, T, root.g, declared, iv));
+            L.add(full + " " + v + " = new " + outer.cls + "<" + it + ">(" + iv + ");   // השורש");
+            comboWalk(st, T, root, v, outer.cls + "<" + it + ">", iv, declared, L);
+        } else {
+            L.add(full + " " + v + " = new " + STRUCTURES.get(st.inner).cls + "[" + groups.size() + "];   // מערך של מבנים — כל תא מכיל מבנה");
+            for (int i = 0; i < groups.size(); i++) {
+                L.addAll(comboInner(st, T, groups.get(i), declared, iv));
+                L.add(v + "[" + i + "] = " + iv + ";");
+            }
+        }
+        return L;
+    }
+
+    private static List<String> comboInner(Structure st, String T, List<String> lits, boolean[] declared, String iv) {
+        List<String> L = innerLines(st, T, lits, declared[0], iv);
+        declared[0] = true;
+        return L;
+    }
+
+    private static final class CNode {
+        final List<String> g;
+        CNode l, r;
+        CNode(List<String> g) { this.g = g; }
+    }
+
+    private static CNode comboAt(List<List<String>> groups, int i) {
+        if (i >= groups.size() || groups.get(i) == null) return null;
+        CNode n = new CNode(groups.get(i));
+        n.l = comboAt(groups, 2 * i + 1);
+        n.r = comboAt(groups, 2 * i + 2);
+        return n;
+    }
+
+    private static void comboWalk(Structure st, String T, CNode n, String path, String type, String iv, boolean[] declared, List<String> L) {
+        if (n.l != null) {
+            L.addAll(comboInner(st, T, n.l.g, declared, iv));
+            L.add(path + ".setLeft(new " + type + "(" + iv + "));");
+            comboWalk(st, T, n.l, path + ".getLeft()", type, iv, declared, L);
+        }
+        if (n.r != null) {
+            L.addAll(comboInner(st, T, n.r.g, declared, iv));
+            L.add(path + ".setRight(new " + type + "(" + iv + "));");
+            comboWalk(st, T, n.r, path + ".getRight()", type, iv, declared, L);
+        }
+    }
+
+    /** איך ניגשים לאיבר (המבנה הפנימי) במבנה החיצוני */
+    private static String comboAccess(String outerKey, String v) {
+        switch (outerKey) {
+            case "stack": return v + ".top()";
+            case "queue": return v + ".head()";
+            case "list": case "tree": return v + ".getValue()";
+            default: return v + "[i]";
+        }
+    }
+
+    private static Result generateCombo(Options o, Structure st) {
+        String T = o.type;
+        if (isObj(T)) throw new IllegalArgumentException(NO_OBJECTS);
+        Structure outer = STRUCTURES.get(st.outer), inn = STRUCTURES.get(st.inner);
+        String full = comboType(st, T), it = innerType(st, T), v1 = st.varName;
+        boolean isArr = outer.dims == 1;
+        List<List<String>> groups = groupLiterals(o.values == null || o.values.isEmpty() ? DEFAULT_COMBO.get(T) : o.values, T, st.outer.equals("tree"));
+        String retType, retStart = null;
+        switch (o.returns) {
+            case "void": retType = "void"; break;
+            case "int": retType = "int"; retStart = "0"; break;
+            case "boolean": retType = "boolean"; retStart = "false"; break;
+            case "element": retType = primitive(T); retStart = zero(T); break;
+            case "structure":
+                retType = full;
+                retStart = outer.cls != null && (outer.cls.equals("Stack") || outer.cls.equals("Queue")) ? "new " + full + "()"
+                        : isArr ? "new " + inn.cls + "[" + v1 + ".length]" : "null";
+                break;
+            default: throw new IllegalArgumentException("ערך החזרה לא מוכר: " + o.returns);
+        }
+        List<String> params = new ArrayList<String>();
+        params.add(full + " " + v1);
+        if (o.extra) params.add(extraType(T) + " x");
+        List<String> L = new ArrayList<String>();
+        L.add("import unit4.collectionsLib.*;");
+        if (isArr) L.add("import java.util.Arrays;");
+        L.add("");
+        L.add("// תרגיל" + (o.recursive ? " ברקורסיה" : "") + ": " + st.label + " של " + T);
+        L.add("public class " + o.className + " {");
+        L.add("");
+        L.add("    public static " + retType + " " + o.functionName + "(" + String.join(", ", params) + ") {");
+        L.add("        // תזכורת — המבנה החיצוני: " + outer.hint.replace("{v}", v1).replace("{T}", it));
+        L.add("        // תזכורת — כל איבר הוא מבנה פנימי (" + it + "):   " + it + " inner = " + comboAccess(st.outer, v1) + ";   "
+                + inn.hint.replace("{v}", "inner").replace("{T}", T));
+        if (outer.cls != null && (outer.cls.equals("Stack") || outer.cls.equals("Queue")))
+            L.add("        // עזר: " + outer.cls + "<" + it + "> tmp = new " + outer.cls + "<" + it + ">();   (" + outer.label + " עזר)");
+        if (outer.cls != null && outer.cls.equals("Node"))
+            L.add("        // עזר: Node<" + it + "> curr = " + v1 + ";   (מצביע שעובר על הרשימה — " + v1 + " נשאר בראש)");
+        if (retStart != null) L.add("        " + retType + " result = " + retStart + ";   // כאן אוספים את מה שהפעולה מחזירה");
+        L.add("");
+        if (o.recursive) L.add("        // רקורסיה: 1. מקרה בסיס — מתי עוצרים?  2. קריאה ל-" + o.functionName + "(...) עם מבנה קטן יותר");
+        L.add("        // ========== TODO: כאן כותבים את הפתרון ==========");
+        int cursorLine = L.size();
+        L.add("        ");
+        if (retStart != null) {
+            L.add("");
+            L.add("        return result;");
+        }
+        L.add("    }");
+        L.add("");
+        L.add("");
+        L.add("");
+        L.add("    // ==================== מכאן והלאה: מעטפת מוכנה (בדיקה של הפעולה) ====================");
+        L.add("    // אין צורך לשנות — אבל אפשר לשנות את הערכים כדי לבדוק מקרים נוספים");
+        L.add("");
+        if (isArr) L.add("    @SuppressWarnings(\"unchecked\")");
+        L.add("    public static void main(String[] args) {");
+        L.add("        // בונים את המבנה לבדיקה: כל קבוצה (מופרדת ב-;) היא מבנה פנימי אחד — בחלון רואים אותו בתוך התא");
+        for (String l : comboBuildLines(st, T, v1, groups, "inner")) L.add("        " + l);
+        if (o.extra) {
+            List<String> first = null;
+            for (List<String> g : groups) if (g != null && !g.isEmpty()) { first = g; break; }
+            if (first == null) first = Arrays.asList(zero(T));
+            L.add("        " + extraType(T) + " x = " + (T.equals("Integer") ? (first.size() > 2 ? first.get(2) : first.get(0)) : first.get(0)) + ";");
+        }
+        L.add("");
+        String p = printable(outer, v1);
+        if (p != null) L.add("        // מדפיסים את המבנה לפני הקריאה לפעולה");
+        if (p != null) L.add("        System.out.println(\"לפני: \" + " + p + ");");
+        L.add("        // קוראים לפעולה שכתבתם");
+        String call = o.functionName + "(" + v1 + (o.extra ? ", x" : "") + ")";
+        if (o.returns.equals("void")) {
+            L.add("        " + call + ";");
+        } else {
+            L.add("        " + retType + " result = " + call + ";");
+            String pr = o.returns.equals("structure") ? printable(outer, "result") : "result";
+            if (pr != null) L.add("        System.out.println(\"התוצאה: \" + " + pr + ");");
+        }
+        if (p != null) L.add("        // מדפיסים את המבנה אחרי — מה השתנה?");
+        if (p != null) L.add("        System.out.println(\"אחרי: \" + " + p + ");");
+        L.add("    }");
+        L.add("}");
+        L.add("");
+        return new Result(String.join("\n", L), cursorLine);
+    }
+
+    /** "הוספה לקוד" של קומבינציה: כמה מבנים פנימיים (size) עם 2–4 ערכים אקראיים בכל אחד */
+    private static String comboSnippet(SnippetOptions o, Structure st, Rng r, String indent) {
+        String T = o.type;
+        if (isObj(T)) throw new IllegalArgumentException(NO_OBJECTS);
+        int count = Math.max(1, Math.min(o.size == 0 ? 3 : o.size, 6));
+        List<List<String>> groups = new ArrayList<List<String>>();
+        for (int i = 0; i < count; i++) {
+            List<String> g = new ArrayList<String>();
+            int n = 2 + r.next(3);
+            for (int k = 0; k < n; k++) g.add(randomValue(T, r));
+            groups.add(g);
+        }
+        List<String> L = new ArrayList<String>();
+        L.add("// " + st.label + " — כל קבוצת ערכים היא מבנה פנימי אחד");
+        L.addAll(comboBuildLines(st, T, o.name, groups, o.name + "Inner"));
+        return lines(indent, L);
+    }
+
+    /** תצוגה מקדימה קצרה (טקסט) של מה שייבנה: הטיפוס, והמבנים הפנימיים לפי סדרם במבנה החיצוני. ריק אם הקלט לא תקין */
+    public static String comboPreview(String structure, String type, String text) {
+        Structure st = STRUCTURES.get(structure);
+        if (st == null || st.outer == null) return "";
+        List<List<String>> groups;
+        try { groups = groupLiterals(text, type, st.outer.equals("tree")); } catch (IllegalArgumentException e) { return ""; }
+        List<String> gs = new ArrayList<String>();
+        for (List<String> g : groups) gs.add(g == null ? "null" : "[" + String.join(", ", g) + "]");
+        String head = comboType(st, type);
+        switch (st.outer) {
+            case "stack": { List<String> rev = new ArrayList<String>(gs); java.util.Collections.reverse(rev); return head + "\ntop → " + String.join("   ", rev); }
+            case "queue": return head + "\nhead → " + String.join("   ", gs) + " ← tail";
+            case "list": return head + "\n" + String.join(" → ", gs) + " → null";
+            case "tree": {
+                if (gs.size() > 3) return head + "\nלפי רמות: " + String.join("  ", gs);
+                String[] names = { "root", "left", "right" };
+                List<String> parts = new ArrayList<String>();
+                for (int i = 0; i < gs.size(); i++) parts.add(names[i] + " = " + gs.get(i));
+                return head + "\n" + String.join(",  ", parts);
+            }
+            default: {
+                List<String> parts = new ArrayList<String>();
+                for (int i = 0; i < gs.size(); i++) parts.add("[" + i + "] = " + gs.get(i));
+                return head + "\n" + String.join("   ", parts);
+            }
+        }
+    }
+
     /** איך מדפיסים את המבנה ב-main (null = לא מדפיסים — עץ רואים בחלון) */
     private static String printable(Structure st, String v) {
         if (st.dims == 1) return "Arrays.toString(" + v + ")";
@@ -465,6 +774,7 @@ public final class Scaffold {
 
     /** טיפוס המבנה: Stack<Integer>, int[], int[][] */
     public static String typeOf(Structure st, String T) {
+        if (st.outer != null) return comboType(st, T);
         if (st.dims == 1) return primitive(T) + "[]";
         if (st.dims == 2) return primitive(T) + "[][]";
         return st.cls + "<" + T + ">";
@@ -582,6 +892,7 @@ public final class Scaffold {
         if (st == null) throw new IllegalArgumentException("מבנה לא מוכר: " + o.structure);
         String T = o.type;
         if (!TYPES.contains(T)) throw new IllegalArgumentException("טיפוס לא מוכר: " + T);
+        if (st.outer != null) return comboSnippet(o, st, r, indent);
         String full = typeOf(st, T);
         int size = Math.max(1, Math.min(o.size, 30));
         String add = "Stack".equals(st.cls) ? "push" : "insert";

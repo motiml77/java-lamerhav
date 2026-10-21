@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- הספרייה: lib\Unit4.CollectionsLib.dll בתיקיית התרגילים -->
+    <DsVizLib>$(MSBuildThisFileDirectory)lib\Unit4.CollectionsLib.dll</DsVizLib>
+  </PropertyGroup>
+</Project>

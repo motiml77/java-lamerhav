@@ -9,6 +9,7 @@ const answers = [];   // תור תשובות: לכל שאלה פונקציה ש�
 const log = [];
 let opened = null, terminalOpts = null, diag = new Map();
 const panels = [];
+let testLang = 'java';
 
 const vscode = {
     workspace: {
@@ -16,7 +17,7 @@ const vscode = {
         openTextDocument: async f => { const t = fs.readFileSync(f, 'utf8').split('\n');
             return { fileName: f, lineCount: t.length, lineAt: i => ({ text: t[i] }), languageId: 'java' }; },
         getWorkspaceFolder: () => vscode.workspace.workspaceFolders[0],
-        getConfiguration: () => ({ get: () => undefined }),
+        getConfiguration: () => ({ get: k => (k === 'language' ? testLang : undefined) }),
         saveAll: async () => true
     },
     languages: { createDiagnosticCollection: () => ({ clear: () => diag.clear(), set: (u, l) => diag.set(u.fsPath, l), dispose() {} }) },
@@ -65,8 +66,8 @@ const value = v => () => v;
     extension.activate({ subscriptions: [], extensionPath: ext,
         globalState: { get: k => globalState.get(k), update: async (k, v) => globalState.set(k, v) } });
 
-    // --- תרגיל 1: מחסנית של Integer, מחזירה int, עם פרמטר x — דרך הכפתור "מחסנית"
-    answers.push(byId('Integer'), byId('int'), byIds(['extra']), keep, keep, value('solve'));
+    // --- תרגיל 1: מחסנית של Integer, מחזירה int, תרגיל ברקורסיה — דרך הכפתור "מחסנית"
+    answers.push(byId(''), byId('Integer'), byId('int'), byIds(['recursive']), keep, keep, value('solve'));
     await commands['dsviz.newStack']();
     const f1 = path.join(ws, 'src', 'Targil1.java');
     assert(fs.existsSync(f1), 'Targil1.java not created');
@@ -76,18 +77,34 @@ const value = v => () => v;
     assert.deepStrictEqual(settings['java.project.referencedLibraries'], ['lib/**/*.jar']);
     assert.deepStrictEqual(settings['java.project.sourcePaths'], ['src']);
 
-    // --- תרגיל 2: דרך "תרגיל חדש" — רשימה של String, מחזירה מבנה, שני מבנים, ערכים משלנו, שם משלנו
-    answers.push(byId('list'), byId('String'), byId('structure'), byIds(['second']),
-                 value('hello, "world", a\\b'), keep, value('Merge'), value('merge'));
+    // --- תרגיל 2: דרך "תרגיל חדש" — רשימה של String, מחזירה מבנה, ערכים משלנו, שם משלנו
+    answers.push(byId('list'), byId(''), byId('String'), byId('structure'), byIds([]),
+                 value('hello, "world", a\\b'), value('Merge'), value('merge'));
     await commands['dsviz.newExercise']();
     const f2 = path.join(ws, 'src', 'Merge.java');
     assert(fs.existsSync(f2), 'Merge.java not created');
 
+    // --- קומבינציה: מחסנית של מחסניות (דרך הכפתור "מחסנית" ← "מה יש בכל תא?" ← מחסניות), ורשימה מקושרת של תורים (דרך "תרגיל חדש")
+    answers.push(byId('stack'), byId('Integer'), byId('int'), byIds([]), keep, value('StackOfStacks'), value('solve'));
+    await commands['dsviz.newStack']();
+    const fc = fs.readFileSync(path.join(ws, 'src', 'StackOfStacks.java'), 'utf8');
+    assert(fc.includes('public static int solve(Stack<Stack<Integer>> stk)') && fc.includes('stk.push(inner);') && fc.includes('// תרגיל: מחסנית של מחסניות של Integer'), fc.slice(0, 600));
+    answers.push(byId('list'), byId('queue'), byId('String'), byId('void'), byIds([]), keep, value('ListOfQueues'), value('solve'));
+    await commands['dsviz.newExercise']();
+    const fl = fs.readFileSync(path.join(ws, 'src', 'ListOfQueues.java'), 'utf8');
+    assert(fl.includes('Node<Queue<String>> lst') && fl.includes('lst = new Node<Queue<String>>(inner, lst);'), fl.slice(0, 600));
+    // "מה יש בכל תא?" מציע ערכים רגילים ראשון (Enter), ולא מוצע במטריצה ובעץ חיפוש
+    let insideItems = null;
+    answers.push((items) => { insideItems = items; return items[0]; }, byId('Integer'), byId('void'), byIds([]), keep, value('Plain1'), value('solve'));
+    await commands['dsviz.newQueue']();
+    assert.deepStrictEqual(insideItems.map(i => i.id), ['', 'stack', 'queue', 'list']);
+    answers.length = 0;
+
     // --- תרגיל 3: שם תפוס / ערך שגוי — validateInput חייב לחסום
-    answers.push(byId('Integer'), byId('void'), byIds([]), value('1, x, 3'));
+    answers.push(byId(''), byId('Integer'), byId('void'), byIds([]), value('1, x, 3'));
     await assert.rejects(commands['dsviz.newQueue'](), /validation/);
     answers.length = 0;
-    answers.push(byId('Integer'), byId('void'), byIds([]), keep, value('Targil1'));
+    answers.push(byId(''), byId('Integer'), byId('void'), byIds([]), keep, value('Targil1'));
     await assert.rejects(commands['dsviz.newQueue'](), /validation: כבר קיים/);
     answers.length = 0;
 
@@ -148,11 +165,15 @@ const value = v => () => v;
         },
         edit: async cb => { cb({ replace: (r, t) => edits.push(['replace', r.line, t]), insert: (p, t) => edits.push(['insert', p, t]) }); return true; }
     };
-    answers.push(byId('String'), value('4'), keep);
+    answers.push(byId(''), byId('String'), value('4'), keep);
     await commands['dsviz.insert.queue']();
     assert.strictEqual(edits[0][0], 'replace');
     assert(/^        Queue<String> q1 = new Queue<String>\(\);\n(        q1\.insert\("\w+"\);.*\n){3}        q1\.insert\("\w+"\);$/.test(edits[0][2]), edits[0][2]);
     assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\n\n');
+    edits.length = 0;
+    answers.push(byId('stack'), byId('Integer'), value('2'), keep);
+    await commands['dsviz.insert.queue']();
+    assert(edits[0][2].includes('Queue<Stack<Integer>> q1 = new Queue<Stack<Integer>>();') && edits[0][2].includes('q1.insert(q1Inner);'), edits[0][2]);
     edits.length = 0;
     answers.push(value('2x3'), keep);
     answers.unshift(byId('Integer'));
@@ -164,6 +185,73 @@ const value = v => () => v;
     fs.writeFileSync(path.join(ws, 'lib', 'unit4.jar'), Buffer.concat([Buffer.from('PK...'), Buffer.from('unit4/collectionsLib/Stack.class')]));
     assert.deepStrictEqual(require(path.join(ext, 'project.js')).findConflicts(ws).map(f => path.basename(f)), ['unit4.jar']);
     fs.unlinkSync(path.join(ws, 'lib', 'unit4.jar'));
+
+    // ===================== C# =====================
+    testLang = 'csharp';
+    const ws2 = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-ws-cs-'));
+    vscode.workspace.workspaceFolders = [{ uri: { fsPath: ws2 }, name: 'ws2' }];
+    for (const k of Object.keys(require.cache)) if (k.startsWith(ext)) delete require.cache[k];   // התוסף נטען מחדש עם ה-mock
+    const csExt = require(path.join(ext, 'extension.js'));
+    const csState = new Map();
+    csExt.activate({ subscriptions: [], extensionPath: ext, globalState: { get: k => csState.get(k), update: async (k, v) => csState.set(k, v) } });
+
+    // --- תרגיל חדש ב-C#: מחסנית של Integer, מחזירה int, ברקורסיה — נוצר פרויקט שלם
+    answers.push(byId(''), byId('Integer'), byId('int'), byIds(['recursive']), keep, keep, value('solve'));
+    await commands['dsviz.newStack']();
+    const cs1 = path.join(ws2, 'Exercises', 'Targil1', 'Program.cs');
+    assert(fs.existsSync(cs1), 'C# Program.cs not created');
+    assert.strictEqual(opened, cs1);
+    assert(fs.existsSync(path.join(ws2, 'Exercises', 'Targil1', 'Targil1.csproj')), 'csproj missing');
+    assert(/\$\(DsVizLib\)/.test(fs.readFileSync(path.join(ws2, 'Exercises', 'Targil1', 'Targil1.csproj'), 'utf8')));
+    const launch = JSON.parse(fs.readFileSync(path.join(ws2, 'Exercises', 'Targil1', 'Properties', 'launchSettings.json'), 'utf8'));
+    assert(launch.profiles['הרצה ויזואלית'].executablePath.endsWith('dsviz-cs.exe'));
+    assert(fs.existsSync(path.join(ws2, 'lib', 'Unit4.CollectionsLib.dll')), 'C# library not copied');
+    assert(/DsVizLib/.test(fs.readFileSync(path.join(ws2, 'Directory.Build.props'), 'utf8')));
+    const code1 = fs.readFileSync(cs1, 'utf8');
+    assert(code1.includes('using Unit4.CollectionsLib;') && code1.includes('public static void Main(string[] args)') && code1.includes('stk.Push('), code1.slice(0, 400));
+    assert(!code1.includes('System.out') && !code1.includes('import '));
+
+    // --- שם פרויקט תפוס נחסם; מילה שמורה של C# נחסמת
+    answers.length = 0;
+    answers.push(byId(''), byId('Integer'), byId('void'), byIds([]), keep, value('Targil1'));
+    await assert.rejects(commands['dsviz.newQueue'](), /validation: כבר קיים/);
+    answers.length = 0;
+    answers.push(byId(''), byId('Integer'), byId('void'), byIds([]), keep, keep, value('string'));
+    await assert.rejects(commands['dsviz.newQueue'](), /validation/);
+    answers.length = 0;
+
+    // --- דוגמאות C#
+    answers.push(items => items[0]);
+    await commands['dsviz.examples']();
+    assert(fs.readdirSync(path.join(ws2, 'Examples')).length >= 8, 'C# examples missing');
+
+    // --- הרצה ויזואלית של קובץ .cs: מריצים את dsviz-cs על תיקיית הפרויקט (כאן — סקריפט מדומה)
+    const fake = path.join(ws2, 'fake-dsviz-cs');
+    fs.writeFileSync(fake, '#!/bin/sh\necho "$@"\n', { mode: 0o755 });
+    process.env.DSVIZ_CS = fake;
+    terminalOpts = null;
+    vscode.window.activeTextEditor = { document: { fileName: cs1, uri: {}, languageId: 'csharp', getText: () => code1, save: async () => true } };
+    await commands['dsviz.run']();
+    assert(terminalOpts, 'C# run did not open a terminal');
+    assert.strictEqual(terminalOpts.shellPath, fake);
+    assert.deepStrictEqual(terminalOpts.shellArgs, [path.join(ws2, 'Exercises', 'Targil1')]);
+    delete process.env.DSVIZ_CS;
+
+    // --- הוספה לקוד ב-C#: מכונית; מוסיפים using
+    {
+        const ls = ['class X', '{', '    static void Main(string[] args)', '    {', '        ', '    }', '}'];
+        const ed3 = [];
+        vscode.window.activeTextEditor = { selection: { active: { line: 4 } },
+            document: { languageId: 'csharp', getText: () => ls.join('\n'), lineAt: i => ({ text: ls[i], range: { line: i } }), positionAt: o => ({ offset: o }) },
+            edit: async cb => { cb({ replace: (r, t) => ed3.push(t), insert: (p, t) => ed3.push(t) }); return true; } };
+        answers.push(keep);
+        await commands['dsviz.insert.car']();
+        assert(/Car c1 = Car\.Random\(\);/.test(ed3[0]), ed3[0]);
+        assert(ed3[1].includes('using Unit4.CollectionsLib;') && ed3[1].includes('using System;'), ed3[1]);
+    }
+    const cm = require(path.join(ext, 'cs.js'));
+    assert.strictEqual(cm.detectLanguage(ws2), 'csharp');
+    assert.strictEqual(cm.projectDirOf(cs1, ws2), path.join(ws2, 'Exercises', 'Targil1'));
 
     console.log(log.join('\n'));
     console.log('\nALL VS CODE TESTS PASSED\nworkspace: ' + ws);

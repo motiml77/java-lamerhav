@@ -29,6 +29,19 @@ final class Syntax {
         return COLORS[kind];
     }
 
+    /** true = צובעים קוד C# (מילים שמורות של C# במקום של Java) — מופעל ע"י TraceViewer */
+    static boolean csharp;
+
+    private static final Set<String> CS_CONTROL = new HashSet<String>(Arrays.asList(
+            "if", "else", "while", "for", "foreach", "do", "switch", "case", "default", "break", "continue", "return",
+            "new", "try", "catch", "finally", "throw", "yield", "goto", "lock", "using"));
+
+    private static final Set<String> CS_KEYWORDS = new HashSet<String>(Arrays.asList(
+            "public", "private", "protected", "internal", "static", "readonly", "const", "void", "class", "struct", "interface",
+            "namespace", "int", "double", "bool", "char", "long", "float", "short", "byte", "string", "decimal", "object",
+            "var", "this", "base", "null", "true", "false", "is", "as", "in", "out", "ref", "params", "override", "virtual",
+            "abstract", "sealed", "enum", "typeof", "sizeof", "get", "set", "async", "await"));
+
     private static final Set<String> CONTROL_WORDS = new HashSet<String>(Arrays.asList(
             "if", "else", "while", "for", "do", "switch", "case", "default", "break", "continue", "return",
             "new", "try", "catch", "finally", "throw", "throws"));
@@ -81,8 +94,8 @@ final class Syntax {
                 while (k < n && s.charAt(k) == ' ') k++;
                 boolean call = k < n && s.charAt(k) == '(';
                 int kind;
-                if (CONTROL_WORDS.contains(w)) kind = CONTROL;
-                else if (KEYWORDS.contains(w)) kind = KEYWORD;
+                if ((csharp ? CS_CONTROL : CONTROL_WORDS).contains(w)) kind = CONTROL;
+                else if ((csharp ? CS_KEYWORDS : KEYWORDS).contains(w)) kind = KEYWORD;
                 else if (call) kind = METHOD;
                 else if (Character.isUpperCase(w.charAt(0)) && !w.equals(w.toUpperCase())) kind = TYPE;
                 else kind = VARIABLE;

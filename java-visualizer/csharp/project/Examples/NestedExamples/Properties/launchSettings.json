@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "הרצה ויזואלית": {
+      "commandName": "Executable",
+      "executablePath": "%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe",
+      "commandLineArgs": "\"$(ProjectDir)\"",
+      "workingDirectory": "$(ProjectDir)"
+    },
+    "הרצה רגילה": {
+      "commandName": "Project"
+    }
+  }
+}

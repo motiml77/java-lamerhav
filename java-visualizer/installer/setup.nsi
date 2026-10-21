@@ -9,6 +9,9 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+!include "Sections.nsh"
+!insertmacro GetParameters
+!insertmacro GetOptions
 
 !ifndef VERSION
   !define VERSION "1.0.1"
@@ -20,6 +23,7 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
   !define BUILD "..\build"
 !endif
 !define PROJECT_DIR "$DOCUMENTS\DataStructures"
+!define PROJECT_CS_DIR "$DOCUMENTS\DataStructures-CS"
 !define VSIX "dsviz-${VERSION}.vsix"
 !define PLUGIN "il.lamerhav.dsviz_${VERSION}.jar"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz"
@@ -43,15 +47,20 @@ ShowUninstDetails show
 !define MUI_ICON "icon.ico"
 !define MUI_UNICON "icon.ico"
 !define MUI_ABORTWARNING
+!define MUI_COMPONENTSPAGE_TEXT_TOP "באיזו שפה אתם לומדים? אפשר לסמן את Java, את C#, או את שתיהן. כל השאר (VS Code, Java להרצה, תיקיית התרגילים) מותקן אוטומטית."
+!define MUI_COMPONENTSPAGE_NODESC
+!define MUI_PAGE_HEADER_TEXT "בחירת שפה"
+!define MUI_PAGE_HEADER_SUBTEXT "באיזו שפה כותבים את התרגילים?"
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
-!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code ול-Eclipse:$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את VS Code ואת Eclipse שבמחשב, ומורידה לבד (ברקע) את תוסף ה-Java של Microsoft ל-VS Code — צריך אינטרנט רק בשביל זה.$\r$\nמומלץ לסגור את VS Code ואת Eclipse לפני שממשיכים."
+!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nמומלץ לסגור את VS Code ואת Eclipse לפני שממשיכים."
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
-!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים."
+!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nVisual Studio (C#): פותחים את הקיצור 'תרגילי C#' בשולחן העבודה, ובוחרים ליד כפתור ההפעלה 'הרצה ויזואלית'."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "פתיחת המדריך"
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
 
 !insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -60,6 +69,8 @@ ShowUninstDetails show
 
 Var CODE          ; הנתיב ל-code.cmd של VS Code (ריק אם לא נמצא)
 Var ECLIPSES      ; כמה התקנות Eclipse קיבלו את התוסף
+Var EXTS          ; תוספים של Microsoft ל-VS Code שמורידים ברקע (מופרדים ברווח)
+
 
 ; ------------------------------------------------------------ איתור VS Code
 !macro FIND_CODE UN
@@ -195,9 +206,9 @@ Section "-core"
   Call FindCode
 SectionEnd
 
-Section "Java 21 (כלולה בהתקנה — בלי הורדה)" SEC_JDK
-  SectionIn RO
-  ; Java מקוצרת (java, javac, חלון, הרצה שורה-שורה) — התוסף של VS Code מריץ איתה את התוכניות
+Section "-jdk"
+  ; Java מקוצרת (java, javac, חלון, הרצה שורה-שורה). נחוצה בכל חבילה: החלון הוויזואלי כתוב ב-Java,
+  ; והתוסף של VS Code מריץ איתה את התוכניות. כלולה בהתקנה — בלי הורדה
   SetOutPath "$INSTDIR\jdk"
   File /r "${BUILD}\jre-windows\*.*"
   SetOutPath "$INSTDIR"
@@ -208,7 +219,158 @@ Section "Java 21 (כלולה בהתקנה — בלי הורדה)" SEC_JDK
   DetailPrint "Java 21: הותקנה ב-$INSTDIR\jdk"
 SectionEnd
 
-Section "תיקיית תרגילים מוכנה (במסמכים)" SEC_PROJECT
+Section "-vscode"
+  ; התוסף של VS Code עובד גם ב-Java וגם ב-C# — מותקן תמיד אם VS Code נמצא
+  ${If} $CODE == ""
+    DetailPrint "VS Code: לא נמצא — דילוג"
+  ${Else}
+    DetailPrint "VS Code: מתקין את התוסף..."
+    nsExec::ExecToLog '"$SYSDIR\cmd.exe" /c ""$CODE" --install-extension "$INSTDIR\${VSIX}" --force"'
+    Pop $0
+    ${If} $0 == "0"
+      DetailPrint "VS Code: התוסף הותקן"
+    ${Else}
+      DetailPrint "VS Code: ההתקנה נכשלה (קוד $0)"
+    ${EndIf}
+  ${EndIf}
+SectionEnd
+
+Section "Java — Eclipse ו-VS Code (תרגילים ב-Java)" SEC_JAVA
+  DetailPrint "חבילת Java"
+SectionEnd
+
+Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_CS
+  DetailPrint "חבילת C#"
+  ; ההרצה הוויזואלית (dsviz-cs.exe — כוללת את סביבת ההרצה של .NET, לא צריך להתקין כלום)
+  SetOutPath "$INSTDIR\cs"
+  File /r "${BUILD}\dsviz-cs-win\*.*"
+  SetOutPath "$INSTDIR\cs-project"
+  File /r "${BUILD}\project-cs\*.*"
+  SetOutPath "$INSTDIR\vs-template"
+  File "${BUILD}\vs-template\DSViz-Exercise.zip"
+  SetOutPath "$INSTDIR"
+  CreateDirectory "$PROFILE\.dsviz"
+  FileOpen $0 "$PROFILE\.dsviz\cs-path.txt" w
+  FileWriteUTF16LE /BOM $0 "$INSTDIR\cs\dsviz-cs.exe"
+  FileClose $0
+  DetailPrint "C#: ההרצה הוויזואלית הותקנה ב-$INSTDIR\cs"
+
+  ; תיקיית תרגילים מוכנה (Documents\DataStructures-CS): פתרון של Visual Studio עם תרגיל ודוגמאות
+  ${IfNot} ${FileExists} "${PROJECT_CS_DIR}\DataStructures-CS.sln"
+    CreateDirectory "${PROJECT_CS_DIR}"
+    CopyFiles /SILENT "$INSTDIR\cs-project\*.*" "${PROJECT_CS_DIR}"
+    DetailPrint "נוצרה תיקיית התרגילים ל-C#: ${PROJECT_CS_DIR}"
+  ${Else}
+    ; כבר קיימת — לא נוגעים בעבודה של התלמיד, רק מעדכנים את הספרייה
+    CreateDirectory "${PROJECT_CS_DIR}\lib"
+    CopyFiles /SILENT "$INSTDIR\cs-project\lib\Unit4.CollectionsLib.dll" "${PROJECT_CS_DIR}\lib"
+    DetailPrint "תיקיית התרגילים ל-C# קיימת — הספרייה עודכנה"
+  ${EndIf}
+  FileOpen $0 "$PROFILE\.dsviz\project-cs-path.txt" w
+  FileWriteUTF16LE /BOM $0 "${PROJECT_CS_DIR}"
+  FileClose $0
+  CreateShortcut "$DESKTOP\תרגילי C# (מבני נתונים).lnk" "${PROJECT_CS_DIR}\DataStructures-CS.sln" "" "$INSTDIR\icon.ico"
+  ; החלונות "תרגיל חדש" ו"הוספת משתנה" ל-C# (אותם חלונות כמו ב-Eclipse וב-VS Code) — מקיצור, בשביל Visual Studio / Rider
+  CreateShortcut "$DESKTOP\תרגיל חדש ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool new "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  CreateDirectory "$SMPROGRAMS\מבני נתונים"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool new "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool insert "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+
+  ; תבנית פרויקט חדש ב-Visual Studio: "תרגיל מבני נתונים (DSViz)"
+  Delete "$INSTDIR\vs-templates.txt"
+  Call InstallVsTemplates
+
+  ; תוסף ה-C# של Microsoft ל-VS Code (צבעים והשלמה) — יורד לבד ברקע (Section "-extensions"), אם יש אינטרנט
+  StrCpy $EXTS "$EXTS ms-dotnettools.csharp"
+SectionEnd
+
+; מעתיק את תבנית הפרויקט לכל גרסת Visual Studio שנמצאה (Documents\Visual Studio <שנה>) ורושם איפה — בשביל ההסרה
+Function InstallVsTemplates
+  StrCpy $R8 0
+  FindFirst $R0 $R1 "$DOCUMENTS\Visual Studio *"
+  ${DoWhile} $R1 != ""
+    ${If} ${FileExists} "$DOCUMENTS\$R1\*.*"
+      Push "$DOCUMENTS\$R1"
+      Call CopyVsTemplate
+      IntOp $R8 $R8 + 1
+    ${EndIf}
+    FindNext $R0 $R1
+  ${Loop}
+  FindClose $R0
+  ${If} $R8 == 0
+  ${AndIf} ${FileExists} "$PROGRAMFILES64\Microsoft Visual Studio\2022\*.*"
+    ; Visual Studio מותקן אבל עוד לא נפתח אף פעם — יוצרים את תיקיית התבניות מראש
+    Push "$DOCUMENTS\Visual Studio 2022"
+    Call CopyVsTemplate
+  ${EndIf}
+FunctionEnd
+
+Function CopyVsTemplate
+  Exch $0
+  Push $1
+  CreateDirectory "$0\Templates\ProjectTemplates"
+  ClearErrors
+  CopyFiles /SILENT "$INSTDIR\vs-template\DSViz-Exercise.zip" "$0\Templates\ProjectTemplates\DSViz-Exercise.zip"
+  ${IfNot} ${Errors}
+    FileOpen $1 "$INSTDIR\vs-templates.txt" a
+    FileSeek $1 0 END
+    FileWriteUTF16LE $1 "$0\Templates\ProjectTemplates\DSViz-Exercise.zip$\r$\n"
+    FileClose $1
+    DetailPrint "Visual Studio: נוספה תבנית פרויקט ב-$0"
+  ${EndIf}
+  Pop $1
+  Pop $0
+FunctionEnd
+
+; ------------------------------------------------------------ בחירת חבילת שפה
+; ברירת מחדל: Java; C# מסומן אוטומטית אם יש Visual Studio / Rider. אפשר לקבוע גם משורת הפקודה: /LANG=java|cs|both
+Function .onInit
+  ${GetParameters} $R0
+  ${GetOptions} $R0 "/LANG=" $R1
+  ${If} $R1 == "cs"
+    !insertmacro UnselectSection ${SEC_JAVA}
+    !insertmacro SelectSection ${SEC_CS}
+  ${ElseIf} $R1 == "both"
+    !insertmacro SelectSection ${SEC_CS}
+  ${ElseIf} $R1 == ""
+    Call DetectCsTools
+    Pop $R2
+    ${If} $R2 == "1"
+      !insertmacro SelectSection ${SEC_CS}
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
+; לפחות חבילה אחת חייבת להיות מסומנת
+Function .onSelChange
+  ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
+  ${AndIfNot} ${SectionIsSelected} ${SEC_CS}
+    !insertmacro SelectSection ${SEC_JAVA}
+  ${EndIf}
+FunctionEnd
+
+; מחזיר 1 אם נמצא Visual Studio או Rider במחשב
+Function DetectCsTools
+  Push "0"
+  FindFirst $R3 $R4 "$DOCUMENTS\Visual Studio *"
+  ${If} $R4 != ""
+    Pop $R5
+    Push "1"
+  ${EndIf}
+  FindClose $R3
+  ${If} ${FileExists} "$PROGRAMFILES64\Microsoft Visual Studio\*.*"
+  ${OrIf} ${FileExists} "$PROGRAMFILES32\Microsoft Visual Studio\*.*"
+  ${OrIf} ${FileExists} "$PROGRAMFILES64\JetBrains\*.*"
+  ${OrIf} ${FileExists} "$LOCALAPPDATA\JetBrains\Toolbox\*.*"
+    Pop $R5
+    Push "1"
+  ${EndIf}
+FunctionEnd
+
+Section "-javaproject"
+  ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
+    Return
+  ${EndIf}
   ${IfNot} ${FileExists} "${PROJECT_DIR}\.project"
     CreateDirectory "${PROJECT_DIR}"
     CopyFiles /SILENT "$INSTDIR\project\*.*" "${PROJECT_DIR}"
@@ -224,41 +386,31 @@ Section "תיקיית תרגילים מוכנה (במסמכים)" SEC_PROJECT
   FileOpen $0 "$PROFILE\.dsviz\project-path.txt" w
   FileWriteUTF16LE /BOM $0 "${PROJECT_DIR}"
   FileClose $0
-SectionEnd
-
-Section "תוסף ל-VS Code" SEC_VSCODE
-  ${If} $CODE == ""
-    DetailPrint "VS Code: לא נמצא — דילוג"
-  ${Else}
-    DetailPrint "VS Code: מתקין את התוסף..."
-    nsExec::ExecToLog '"$SYSDIR\cmd.exe" /c ""$CODE" --install-extension "$INSTDIR\${VSIX}" --force"'
-    Pop $0
-    ${If} $0 == "0"
-      DetailPrint "VS Code: התוסף הותקן"
-      ; קיצור דרך בשולחן העבודה שפותח את תיקיית התרגילים ב-VS Code
-      ${GetParent} $CODE $1
-      ${GetParent} $1 $1
-      ${If} ${FileExists} "$1\Code.exe"
-      ${AndIf} ${FileExists} "${PROJECT_DIR}\.project"
-        CreateShortcut "$DESKTOP\תרגילי מבני נתונים (VS Code).lnk" "$1\Code.exe" '"${PROJECT_DIR}"' "$INSTDIR\icon.ico"
-        DetailPrint "VS Code: נוצר קיצור דרך בשולחן העבודה"
-      ${EndIf}
-    ${Else}
-      DetailPrint "VS Code: ההתקנה נכשלה (קוד $0)"
+  ; קיצור דרך בשולחן העבודה שפותח את תיקיית התרגילים ב-VS Code
+  ${If} $CODE != ""
+    ${GetParent} $CODE $1
+    ${GetParent} $1 $1
+    ${If} ${FileExists} "$1\Code.exe"
+    ${AndIf} ${FileExists} "${PROJECT_DIR}\.project"
+      CreateShortcut "$DESKTOP\תרגילי מבני נתונים (VS Code).lnk" "$1\Code.exe" '"${PROJECT_DIR}"' "$INSTDIR\icon.ico"
+      DetailPrint "VS Code: נוצר קיצור דרך בשולחן העבודה"
     ${EndIf}
   ${EndIf}
 SectionEnd
 
-Section "השלמה אוטומטית ל-Java ב-VS Code (מורידה לבד מהאינטרנט)" SEC_JAVAPACK
+Section "-javapack"
   ; לא נחוץ להרצה (התוסף שלנו מריץ בעצמו עם ה-Java שבהתקנה). רץ ברקע ובחלון נסתר — ההתקנה לא מחכה לו.
   ; אם אין אינטרנט — ההורדה פשוט נכשלת בשקט, ושאר ההתקנה לא מושפעת
-  ${If} $CODE != ""
-    DetailPrint "VS Code: תוסף ה-Java של Microsoft יורד ומותקן ברקע (אם יש אינטרנט)"
-    ExecShell "open" "$SYSDIR\cmd.exe" '/c ""$CODE" --install-extension vscjava.vscode-java-pack"' SW_HIDE
+  ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
+    Return
   ${EndIf}
+  StrCpy $EXTS "$EXTS vscjava.vscode-java-pack"
 SectionEnd
 
-Section "תוסף ל-Eclipse" SEC_ECLIPSE
+Section "-eclipse"
+  ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
+    Return
+  ${EndIf}
   StrCpy $ECLIPSES 0
   Delete "$INSTDIR\eclipse-dirs.txt"
   !insertmacro SCAN "$PROFILE\eclipse" "*"
@@ -287,6 +439,21 @@ Section "תוסף ל-Eclipse" SEC_ECLIPSE
   DetailPrint "Eclipse: הותקן ב-$ECLIPSES מקומות"
 SectionEnd
 
+Section "-extensions"
+  ; התוספים של Microsoft ל-VS Code (השלמה אוטומטית ל-Java / C#): יורדים ומותקנים לבד ברקע, בחלון נסתר,
+  ; בזה אחר זה (כדי ש-VS Code לא יקבל כמה התקנות במקביל). ההתקנה לא מחכה להם. בלי אינטרנט — מדלגים בשקט
+  ${If} $CODE != ""
+  ${AndIf} $EXTS != ""
+    DetailPrint "VS Code: יורדים ומותקנים ברקע:$EXTS"
+    ExecShell "open" "$SYSDIR\cmd.exe" '/c for %e in ($EXTS) do "$CODE" --install-extension %e' SW_HIDE
+  ${EndIf}
+SectionEnd
+
+Section "-wait"
+  ; נותנים לתהליכים הנסתרים של הורדת התוספים (VS Code) לעלות לפני שהמתקין נסגר
+  Sleep 1500
+SectionEnd
+
 ; ------------------------------------------------------------ הסרה
 Section "Uninstall"
   Call un.FindCode
@@ -311,6 +478,35 @@ Section "Uninstall"
     FileClose $3
   ${EndIf}
 
+  ; תבניות Visual Studio (נרשמו ב-vs-templates.txt)
+  ClearErrors
+  FileOpen $3 "$INSTDIR\vs-templates.txt" r
+  ${IfNot} ${Errors}
+    ${Do}
+      ClearErrors
+      FileReadUTF16LE $3 $4
+      ${If} ${Errors}
+        ${Break}
+      ${EndIf}
+      Call un.TrimLine
+      ${If} $4 != ""
+        Delete "$4"
+        DetailPrint "Visual Studio: הוסרה תבנית $4"
+      ${EndIf}
+    ${Loop}
+    FileClose $3
+  ${EndIf}
+  Delete "$INSTDIR\vs-templates.txt"
+  RMDir /r "$INSTDIR\cs"
+  RMDir /r "$INSTDIR\cs-project"
+  RMDir /r "$INSTDIR\vs-template"
+  Delete "$PROFILE\.dsviz\cs-path.txt"
+  Delete "$DESKTOP\תרגילי C# (מבני נתונים).lnk"
+  Delete "$DESKTOP\תרגיל חדש ב-C#.lnk"
+  Delete "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk"
+  Delete "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk"
+  ; תיקיית התרגילים ב-Documents\DataStructures-CS נשארת — יש בה את העבודה של התלמיד
+
   Delete "$INSTDIR\${VSIX}"
   Delete "$INSTDIR\${PLUGIN}"
   Delete "$INSTDIR\dsviz.jar"
@@ -329,6 +525,20 @@ Section "Uninstall"
   RMDir "$SMPROGRAMS\מבני נתונים"
   DeleteRegKey HKCU "${UNINST_KEY}"
 SectionEnd
+
+; מוריד סוף שורה (CR/LF) מ-$4
+Function un.TrimLine
+  Push $5
+  StrCpy $5 $4 1 -1
+  ${If} $5 == "$\n"
+    StrCpy $4 $4 -1
+  ${EndIf}
+  StrCpy $5 $4 1 -1
+  ${If} $5 == "$\r"
+    StrCpy $4 $4 -1
+  ${EndIf}
+  Pop $5
+FunctionEnd
 
 ; $4 = שורה מהרשימה (תיקיית Eclipse) — מוחקים את התוסף מ-dropins שלה
 Function un.RemoveFromEclipse

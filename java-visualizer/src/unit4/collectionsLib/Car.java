@@ -3,6 +3,8 @@ package unit4.collectionsLib;
 import java.util.Calendar;
 import java.util.Random;
 
+import unit4.collectionsLib.Model.Obj;
+
 /**
  * מכונית — מחלקה מוכנה לתרגילים: יצרן, דגם, שנה, צבע, מספר רישוי, קילומטראז', דלק ומהירות.
  *
@@ -31,6 +33,7 @@ public class Car implements Comparable<Car> {
     private double fuel;
     private double tankSize;
     private int speed;
+    int vizId;   // זהות בהרצה הוויזואלית (נקבע ב-Recorder.register)
 
     /** מכונית עם יצרן, דגם ושנת ייצור (מיכל חצי מלא, בלי נסיעות) */
     public Car(String manufacturer, String model, int year) {
@@ -48,39 +51,43 @@ public class Car implements Comparable<Car> {
         this.fuel = 25;
         this.km = 0;
         this.speed = 0;
+        Recorder.register(this);
     }
 
     // ------------------------------------------------------------ פרטים
 
-    public String getManufacturer() { return manufacturer; }
-    public void setManufacturer(String manufacturer) { this.manufacturer = manufacturer; }
+    // כל קריאה / שינוי של מאפיין מתועדים בהרצה הוויזואלית (Recorder.got / changed): הכרטיס של המכונית
+    // מוצג עם המאפיין שנקרא מודגש. בתוך המחלקה עצמה משתמשים בשדות ישירות — כדי שלא יתועדו קריאות פנימיות
 
-    public String getModel() { return model; }
-    public void setModel(String model) { this.model = model; }
+    public String getManufacturer() { return Recorder.got(this, "manufacturer", "getManufacturer()", manufacturer); }
+    public void setManufacturer(String manufacturer) { this.manufacturer = manufacturer; Recorder.changed(this, "manufacturer", "setManufacturer(" + Recorder.lit(manufacturer) + ")"); }
+
+    public String getModel() { return Recorder.got(this, "model", "getModel()", model); }
+    public void setModel(String model) { this.model = model; Recorder.changed(this, "model", "setModel(" + Recorder.lit(model) + ")"); }
 
     /** שנת ייצור */
-    public int getYear() { return year; }
-    public void setYear(int year) { this.year = year; }
+    public int getYear() { return Recorder.got(this, "year", "getYear()", year); }
+    public void setYear(int year) { this.year = year; Recorder.changed(this, "year", "setYear(" + year + ")"); }
 
-    public String getColor() { return color; }
-    public void setColor(String color) { this.color = color; }
+    public String getColor() { return Recorder.got(this, "color", "getColor()", color); }
+    public void setColor(String color) { this.color = color; Recorder.changed(this, "color", "setColor(" + Recorder.lit(color) + ")"); }
 
     /** מספר רישוי */
-    public String getPlate() { return plate; }
-    public void setPlate(String plate) { this.plate = plate; }
+    public String getPlate() { return Recorder.got(this, "plate", "getPlate()", plate); }
+    public void setPlate(String plate) { this.plate = plate; Recorder.changed(this, "plate", "setPlate(" + Recorder.lit(plate) + ")"); }
 
     /** קילומטראז' (כמה ק"מ נסעה) */
-    public int getKm() { return km; }
-    public void setKm(int km) { this.km = km; }
+    public int getKm() { return Recorder.got(this, "km", "getKm()", km); }
+    public void setKm(int km) { this.km = km; Recorder.changed(this, "km", "setKm(" + km + ")"); }
 
     /** כמה ליטרים יש במיכל עכשיו */
-    public double getFuel() { return fuel; }
+    public double getFuel() { return Recorder.got(this, "fuel", "getFuel()", fuel); }
 
     /** גודל המיכל בליטרים */
-    public double getTankSize() { return tankSize; }
+    public double getTankSize() { return Recorder.got(this, "tankSize", "getTankSize()", tankSize); }
 
     /** המהירות עכשיו (קמ"ש) */
-    public int getSpeed() { return speed; }
+    public int getSpeed() { return Recorder.got(this, "speed", "getSpeed()", speed); }
 
     // ------------------------------------------------------------ פעולות
 
@@ -92,7 +99,7 @@ public class Car implements Comparable<Car> {
         int driven = Math.max(0, Math.min(km, possible));
         this.km += driven;
         fuel -= driven * LITERS_PER_100KM / 100;
-        Recorder.record(Model.Kind.NOTE, null, Model.Mark.NONE, null, label() + ".drive(" + km + ")  →  נסעה " + driven + " ק\"מ");
+        Recorder.changed(this, "km", "drive(" + km + ")  →  נסעה " + driven + " ק\"מ");
         return driven;
     }
 
@@ -100,33 +107,35 @@ public class Car implements Comparable<Car> {
     public double refuel(double liters) {
         double added = Math.max(0, Math.min(liters, tankSize - fuel));
         fuel += added;
-        Recorder.record(Model.Kind.NOTE, null, Model.Mark.NONE, null, label() + ".refuel(" + liters + ")  →  נכנסו " + added + " ליטר");
+        Recorder.changed(this, "fuel", "refuel(" + liters + ")  →  נכנסו " + added + " ליטר");
         return added;
     }
 
     /** מוסיפה למהירות */
     public void accelerate(int delta) {
         speed += Math.max(0, delta);
-        Recorder.record(Model.Kind.NOTE, null, Model.Mark.NONE, null, label() + ".accelerate(" + delta + ")  →  " + speed + " קמ\"ש");
+        Recorder.changed(this, "speed", "accelerate(" + delta + ")  →  " + speed + " קמ\"ש");
     }
 
     /** מורידה מהירות (לא פחות מ-0) */
     public void brake(int delta) {
         speed = Math.max(0, speed - Math.max(0, delta));
-        Recorder.record(Model.Kind.NOTE, null, Model.Mark.NONE, null, label() + ".brake(" + delta + ")  →  " + speed + " קמ\"ש");
+        Recorder.changed(this, "speed", "brake(" + delta + ")  →  " + speed + " קמ\"ש");
     }
 
+    private int age() { return Calendar.getInstance().get(Calendar.YEAR) - year; }
+
     /** כמה שנים עברו מאז שנת הייצור */
-    public int getAge() { return Calendar.getInstance().get(Calendar.YEAR) - year; }
+    public int getAge() { return Recorder.got(this, "year", "getAge()", age()); }
 
     /** 10 שנים ומעלה */
-    public boolean isOld() { return getAge() >= 10; }
+    public boolean isOld() { return Recorder.got(this, "year", "isOld()", age() >= 10); }
 
     /** פחות מעשירית מיכל */
-    public boolean needsFuel() { return fuel < tankSize / 10; }
+    public boolean needsFuel() { return Recorder.got(this, "fuel", "needsFuel()", fuel < tankSize / 10); }
 
     /** נוסעת (המהירות גדולה מ-0) */
-    public boolean isMoving() { return speed > 0; }
+    public boolean isMoving() { return Recorder.got(this, "speed", "isMoving()", speed > 0); }
 
     // ------------------------------------------------------------ השוואה והצגה
 
@@ -158,6 +167,25 @@ public class Car implements Comparable<Car> {
     /** תווית קצרה לתצוגה: "Mazda 2019" */
     String label() {
         return manufacturer + " " + year;
+    }
+
+    /** הכרטיס של המכונית בחלון: יצרן ודגם; שנה וקילומטראז'; ומתחת — כל המאפיינים */
+    Obj vizObj() {
+        Obj o = new Obj();
+        o.id = vizId;
+        o.type = "Car";
+        o.title = manufacturer + " " + model;
+        o.sub = year + " · " + String.format("%,d", km) + " ק\"מ";
+        o.fields.add(new String[] { "manufacturer", Recorder.lit(manufacturer) });
+        o.fields.add(new String[] { "model", Recorder.lit(model) });
+        o.fields.add(new String[] { "year", String.valueOf(year) });
+        o.fields.add(new String[] { "color", Recorder.lit(color) });
+        o.fields.add(new String[] { "plate", Recorder.lit(plate) });
+        o.fields.add(new String[] { "km", String.valueOf(km) });
+        o.fields.add(new String[] { "fuel", String.valueOf(Math.round(fuel * 10) / 10.0) });
+        o.fields.add(new String[] { "tankSize", String.valueOf(Math.round(tankSize * 10) / 10.0) });
+        o.fields.add(new String[] { "speed", String.valueOf(speed) });
+        return o;
     }
 
     // ------------------------------------------------------------ נתוני דמה

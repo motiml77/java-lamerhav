@@ -15,6 +15,7 @@
     ],
     "keywords": [
         "java",
+        "csharp",
         "stack",
         "queue",
         "linked list",
@@ -25,7 +26,8 @@
     "main": "./extension.js",
     "activationEvents": [
         "onStartupFinished",
-        "onLanguage:java"
+        "onLanguage:java",
+        "onLanguage:csharp"
     ],
     "contributes": {
         "commands": [
@@ -188,17 +190,17 @@
             "editor/title": [
                 {
                     "command": "dsviz.newExercise",
-                    "when": "resourceLangId == java",
+                    "when": "resourceLangId == java || resourceLangId == csharp",
                     "group": "navigation@1"
                 },
                 {
                     "command": "dsviz.insert",
-                    "when": "resourceLangId == java",
+                    "when": "resourceLangId == java || resourceLangId == csharp",
                     "group": "navigation@2"
                 },
                 {
                     "command": "dsviz.run",
-                    "when": "resourceLangId == java",
+                    "when": "resourceLangId == java || resourceLangId == csharp",
                     "group": "navigation@3"
                 }
             ],
@@ -211,7 +213,7 @@
             "editor/context": [
                 {
                     "submenu": "dsviz.editorMenu",
-                    "when": "resourceLangId == java",
+                    "when": "resourceLangId == java || resourceLangId == csharp",
                     "group": "0_dsviz"
                 }
             ],
@@ -266,39 +268,39 @@
             "commandPalette": [
                 {
                     "command": "dsviz.insert.stack",
-                    "when": "editorLangId == java"
+                    "when": "editorLangId == java || editorLangId == csharp"
                 },
                 {
                     "command": "dsviz.insert.queue",
-                    "when": "editorLangId == java"
+                    "when": "editorLangId == java || editorLangId == csharp"
                 },
                 {
                     "command": "dsviz.insert.list",
-                    "when": "editorLangId == java"
+                    "when": "editorLangId == java || editorLangId == csharp"
                 },
                 {
                     "command": "dsviz.insert.tree",
-                    "when": "editorLangId == java"
+                    "when": "editorLangId == java || editorLangId == csharp"
                 },
                 {
                     "command": "dsviz.insert.bst",
-                    "when": "editorLangId == java"
+                    "when": "editorLangId == java || editorLangId == csharp"
                 },
                 {
                     "command": "dsviz.insert.array",
-                    "when": "editorLangId == java"
+                    "when": "editorLangId == java || editorLangId == csharp"
                 },
                 {
                     "command": "dsviz.insert.matrix",
-                    "when": "editorLangId == java"
+                    "when": "editorLangId == java || editorLangId == csharp"
                 },
                 {
                     "command": "dsviz.insert.student",
-                    "when": "editorLangId == java"
+                    "when": "editorLangId == java || editorLangId == csharp"
                 },
                 {
                     "command": "dsviz.insert.car",
-                    "when": "editorLangId == java"
+                    "when": "editorLangId == java || editorLangId == csharp"
                 }
             ]
         },
@@ -307,7 +309,7 @@
                 "command": "dsviz.run",
                 "key": "ctrl+alt+r",
                 "mac": "cmd+alt+r",
-                "when": "editorLangId == java"
+                "when": "editorLangId == java || editorLangId == csharp"
             }
         ],
         "submenus": [
@@ -323,6 +325,17 @@
         "configuration": {
             "title": "מבני נתונים",
             "properties": {
+                "dsviz.language": {
+                    "type": "string",
+                    "enum": ["auto", "java", "csharp"],
+                    "default": "auto",
+                    "description": "באיזו שפה כותבים תרגילים חדשים: auto = לפי הקובץ הפתוח והתיקייה (ואם לא ברור — שואלים)"
+                },
+                "dsviz.csRunner": {
+                    "type": "string",
+                    "default": "",
+                    "description": "הנתיב ל-dsviz-cs.exe (ההרצה הוויזואלית של C#). ריק = זה שהותקן עם מבני נתונים"
+                },
                 "dsviz.javaHome": {
                     "type": "string",
                     "default": "",

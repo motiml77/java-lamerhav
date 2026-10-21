@@ -90,7 +90,7 @@ final class JdiTracer {
         cmd.add("-XX:TieredStopAtLevel=1");
         cmd.add("-XX:+UseSerialGC");
         cmd.add("-Xshare:auto");
-        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug" }) {
+        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview" }) {
             String v = System.getProperty(p);
             if (v != null) cmd.add("-D" + p + "=" + v);
         }
@@ -339,10 +339,49 @@ final class JdiTracer {
     private String cell(Value v) {
         if (v instanceof CharValue) return String.valueOf(((CharValue) v).value());
         if (v instanceof StringReference) return shorten(((StringReference) v).value(), 14);
-        if (v instanceof ObjectReference && isStudent((ObjectReference) v)) return studentLabel((ObjectReference) v, true);
-        if (v instanceof ObjectReference && isCar((ObjectReference) v)) return carLabel((ObjectReference) v);
+        if (v instanceof ObjectReference && (isStudent((ObjectReference) v) || isCar((ObjectReference) v))) {
+            int id = vizIdOf((ObjectReference) v);
+            if (id != 0) return "\u0003" + id;   // ה-Recorder בתהליך התוכנית מכיר את האובייקט ובונה ממנו כרטיס
+            return isStudent((ObjectReference) v) ? studentLabel((ObjectReference) v, true) : carLabel((ObjectReference) v);
+        }
+        if (v instanceof ObjectReference && isUserClass((ObjectReference) v)) return dumpObject((ObjectReference) v);
         String s = format(v, 2);
-        return s.startsWith("\u0003") ? "•" : shorten(s, 14);
+        return s.startsWith("\u0003") ? s : shorten(s, 14);   // מבנה של הספרייה: הפניה ל-vizId (Recorder מצייר אותו בתוך התא)
+    }
+
+    /** מזהה האובייקט (vizId) ש-Recorder.register נתן ל-Student / Car; 0 אם לא נרשם */
+    private int vizIdOf(ObjectReference o) {
+        com.sun.jdi.Field f = ((ClassType) o.referenceType()).fieldByName("vizId");
+        return f == null ? 0 : ((com.sun.jdi.IntegerValue) o.getValue(f)).value();
+    }
+
+    /** מחלקה של התלמיד (לא של Java ולא של הספרייה) */
+    private static boolean isUserClass(ObjectReference o) {
+        String n = o.referenceType().name();
+        return !(o instanceof StringReference) && !(o instanceof ArrayReference) && o.referenceType() instanceof ClassType
+                && !n.startsWith("java.") && !n.startsWith("javax.") && !n.startsWith("jdk.") && !n.startsWith("sun.")
+                && !n.startsWith("com.sun.") && !n.startsWith("unit4.collectionsLib.") && !((ClassType) o.referenceType()).isEnum();
+    }
+
+    /** תיאור אובייקט של מחלקה כללית: \u000E סוג \u000F מאפיין \u0010 ערך ... (ה-Recorder בונה ממנו כרטיס) */
+    private String dumpObject(ObjectReference o) {
+        ReferenceType t = o.referenceType();
+        StringBuilder b = new StringBuilder("\u000E").append(dumpClean(t.name().substring(t.name().lastIndexOf('.') + 1)));
+        int n = 0;
+        for (com.sun.jdi.Field f : t.allFields()) {
+            if (f.isStatic() || f.isSynthetic()) continue;
+            if (n++ >= 12) break;
+            String val = format(o.getValue(f), 1);
+            if (val.startsWith("\u0003")) val = "•";
+            b.append('\u000F').append(dumpClean(f.name())).append('\u0010').append(dumpClean(shorten(val, 24)));
+        }
+        return b.toString();
+    }
+
+    private static String dumpClean(String s) {
+        StringBuilder b = new StringBuilder();
+        for (char c : s.toCharArray()) b.append(c < 32 ? ' ' : c);
+        return b.toString();
     }
 
     private static boolean isCar(ObjectReference o) {
@@ -409,6 +448,10 @@ final class JdiTracer {
             return b.append(']').toString();
         }
         ObjectReference o = (ObjectReference) v;
+        if ((isStudent(o) || isCar(o)) && depth == 0) {   // משתנה / ערך החזרה: הזהות (בתוך רשימה "[...]" — רק טקסט)
+            int id = vizIdOf(o);
+            if (id != 0) return "\u0003" + id;
+        }
         if (isStudent(o)) return "Student " + studentLabel(o, false);
         if (isCar(o)) return "Car " + carLabel(o);
         String cached = immutable.get(o);

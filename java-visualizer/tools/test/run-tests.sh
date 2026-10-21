@@ -46,3 +46,26 @@ grep -q 'הסכום: 21' "$L/plain.txt" && ! grep -q '#1 ' "$L/plain.txt" && [ "
     && echo "עובד: $(wc -l < "$L/plain.txt") שורות פלט בלבד" || { echo "נכשל"; cat "$L/plain.txt"; exit 1; }
 (cd "$L" && java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -Ddsviz.visual=true -cp ".:$JAR" Main > visual.txt 2>&1)
 grep -q '#1 ' "$L/visual.txt" && echo "הרצה ויזואלית (טקסט כשאין מסך): מתועדת" || { echo "נכשל"; cat "$L/visual.txt"; exit 1; }
+
+echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
+mkdir -p "$W/obj"
+javac -encoding UTF-8 -cp "$JAR" -d "$W/obj" objcards/ObjCheck.java
+java -Djava.awt.headless=true -Ddsviz.visual=true -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -cp "$W/obj:$JAR" unit4.collectionsLib.ObjCheck > "$W/obj/out.txt" 2>&1 \
+    && grep -E '^  (ok|FAIL)' "$W/obj/out.txt" || { grep -E '^  (ok|FAIL)' "$W/obj/out.txt"; exit 1; }
+javac -g -encoding UTF-8 -cp "$JAR" -d "$W/obj" objcards/ObjMatrix.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/obj:$JAR" unit4.collectionsLib.LineByLine ObjMatrix > "$W/obj/matrix.txt" 2>&1
+grep -q 'getAverage()  →  84.0' "$W/obj/matrix.txt" && grep -q 'setGrade(0, 100)' "$W/obj/matrix.txt" && grep -q 'Student מאיה פרץ (95)' "$W/obj/matrix.txt" \
+    && echo "  ok  מטריצה של Student (שורה-שורה): נרשמת, והגישות מתועדות" || { echo "  FAIL מטריצה של Student"; cat "$W/obj/matrix.txt"; exit 1; }
+javac -g -encoding UTF-8 -nowarn -cp "$JAR" -d "$W/obj" objcards/NestMix.java 2>&1 | grep -v "^Note" || true
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/obj:$JAR" unit4.collectionsLib.LineByLine NestMix > "$W/obj/nest.txt" 2>&1
+grep -q 'arr=\[\[4\], \[9,8\], \[\]\]' "$W/obj/nest.txt" && grep -q 'deep=Stack \[\[\[9,8\]\]\]' "$W/obj/nest.txt" && grep -q 'qn=Queue \[1 -> 2 -> 3 -> null,7 -> null\]' "$W/obj/nest.txt" \
+    && echo "  ok  מבנים בתוך מבנים (מערך של מחסניות, מחסנית של מחסניות של מחסניות, תור של רשימות, עץ של מחסניות): נרשמים" \
+    || { echo "  FAIL מבנים בתוך מבנים"; cat "$W/obj/nest.txt"; exit 1; }
+mkdir -p "$W/ne"
+javac -encoding UTF-8 -cp "$JAR" -d "$W/ne" ../../src/examples/NestedExamples.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/ne:$JAR" examples.NestedExamples > "$W/ne/out.txt" 2>&1
+grep -q 'סכום: 25' "$W/ne/out.txt" && grep -q 'כמה מספרים בתורים: 3' "$W/ne/out.txt" && grep -q 'אחרי שיטוח' "$W/ne/out.txt" \
+    && echo "  ok  דוגמאות מבנה בתוך מבנה (NestedExamples): רצות ומחשבות נכון" || { echo "  FAIL NestedExamples"; cat "$W/ne/out.txt"; exit 1; }
+
+echo "== C# (Visual Studio / VS Code / Rider)"
+sh ./cs-tests.sh

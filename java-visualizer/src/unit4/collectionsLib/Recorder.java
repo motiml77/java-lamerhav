@@ -20,6 +20,7 @@ import java.util.WeakHashMap;
 
 import javax.swing.SwingUtilities;
 
+import unit4.collectionsLib.Model.Access;
 import unit4.collectionsLib.Model.Cell;
 import unit4.collectionsLib.Model.ChainView;
 import unit4.collectionsLib.Model.Frame;
@@ -27,6 +28,8 @@ import unit4.collectionsLib.Model.Kind;
 import unit4.collectionsLib.Model.LinearView;
 import unit4.collectionsLib.Model.ArrayView;
 import unit4.collectionsLib.Model.MatrixView;
+import unit4.collectionsLib.Model.Obj;
+import unit4.collectionsLib.Model.ObjView;
 import unit4.collectionsLib.Model.Mark;
 import unit4.collectionsLib.Model.Step;
 import unit4.collectionsLib.Model.TreeCell;
@@ -96,6 +99,20 @@ final class Recorder {
 
     static Step step(int i) {
         synchronized (LOCK) { return steps.get(i); }
+    }
+
+    /** מקור חיצוני (למשל הרצה של C# — TraceViewer): טוענים צעדים מוכנים ופלט, והחלון מציג אותם כמו הרצה שורה-שורה */
+    static void adopt(List<Step> loaded, String out) {
+        synchronized (LOCK) {
+            steps.clear();
+            steps.addAll(loaded);
+            output.setLength(0);
+            output.append(out);
+            active = true;
+            started = true;
+            lineMode = true;
+            lineTexts = new String[LINE_CAPACITY];
+        }
     }
 
     static String outputUpTo(int len) {
@@ -212,6 +229,13 @@ final class Recorder {
     static void register(Object o) {
         synchronized (LOCK) {
             if (!enabled || !active) return;
+            if (o instanceof Student || o instanceof Car) {   // אובייקטים של מחלקות: רק זהות (בשביל הכרטיסים והקישור ל-Access)
+                int id = ++idCounter;
+                byId.put(id, new WeakReference<Object>(o));
+                if (o instanceof Student) ((Student) o).vizId = id;
+                else ((Car) o).vizId = id;
+                return;
+            }
             start();
             order.put(o, orderCounter++);
             if (lineMode) {
@@ -268,22 +292,43 @@ final class Recorder {
         View view;
         if (isMatrix(arr)) {
             MatrixView m = new MatrixView();
+            boolean anyObj = false;
             int rows = Math.min(java.lang.reflect.Array.getLength(arr), MAX_MATRIX);
             for (int r = 0; r < rows; r++) {
                 Object row = java.lang.reflect.Array.get(arr, r);
                 List<String> cells = new ArrayList<String>();
+                List<Obj> objRow = new ArrayList<Obj>();
                 int cols = row == null ? 0 : Math.min(java.lang.reflect.Array.getLength(row), MAX_MATRIX);
-                for (int c = 0; c < cols; c++) cells.add(str(java.lang.reflect.Array.get(row, c)));
+                for (int c = 0; c < cols; c++) {
+                    Object item = java.lang.reflect.Array.get(row, c);
+                    cells.add(str(item));
+                    Obj ob = objOf(item);
+                    objRow.add(ob);
+                    anyObj |= ob != null;
+                }
                 m.rows.add(cells);
+                m.objs.add(objRow);
                 for (int c = 0; c < cells.size(); c++) flat.add(r + "," + c + "=" + cells.get(c));
             }
+            if (!anyObj) m.objs.clear();
             List<String> old = lastArray.get(arr);
             if (old != null) for (String f : flat) if (!old.contains(f)) m.changed.add(f.substring(0, f.indexOf('=')));
             view = m;
         } else {
             ArrayView a = new ArrayView();
             int n = java.lang.reflect.Array.getLength(arr);
-            for (int i = 0; i < Math.min(n, MAX_ARRAY); i++) a.items.add(str(java.lang.reflect.Array.get(arr, i)));
+            boolean anyObj = false;
+            for (int i = 0; i < Math.min(n, MAX_ARRAY); i++) {
+                Object item = java.lang.reflect.Array.get(arr, i);
+                a.items.add(str(item));
+                Obj ob = objOf(item);
+                a.objs.add(ob);
+                anyObj |= ob != null;
+                a.subs.add(subOf(item, null, Mark.NONE, null));
+                a.subSrc.add(item);
+            }
+            if (!anyObj) a.objs.clear();
+            dropEmptySubs(a);
             a.truncated = n > MAX_ARRAY;
             List<String> old = lastArray.get(arr);
             if (old != null) for (int i = 0; i < a.items.size(); i++) if (i >= old.size() || !old.get(i).equals(a.items.get(i))) a.changed.add(i);
@@ -318,15 +363,27 @@ final class Recorder {
             if (p[1].equals("2")) {
                 MatrixView m = new MatrixView();
                 String[] rows = p[2].isEmpty() ? new String[0] : p[2].split("\u0007", -1);
+                boolean anyObj = false;
                 for (int r = 0; r < rows.length; r++) {
-                    List<String> cells = rows[r].isEmpty() ? new ArrayList<String>() : new ArrayList<String>(java.util.Arrays.asList(rows[r].split("\u0006", -1)));
+                    List<String> cells = new ArrayList<String>();
+                    List<Obj> objRow = new ArrayList<Obj>();
+                    if (!rows[r].isEmpty()) {
+                        for (String cell : rows[r].split("\u0006", -1)) {
+                            Obj ob = objFromCell(cell);
+                            objRow.add(ob);
+                            cells.add(cellText(cell, ob, cell.startsWith("\u0003") ? byId(cell.substring(1)) : null));
+                            anyObj |= ob != null;
+                        }
+                    }
                     m.rows.add(cells);
+                    m.objs.add(objRow);
                     for (int c = 0; c < cells.size(); c++) {
                         String f = r + "," + c + "=" + cells.get(c);
                         flat.add(f);
                         if (old != null && !old.contains(f)) m.changed.add(r + "," + c);
                     }
                 }
+                if (!anyObj) m.objs.clear();
                 for (Map.Entry<String, Integer> e : indexVars.entrySet()) {
                     int idx = e.getValue();
                     for (String arr : localNames(p[0])) {
@@ -341,7 +398,20 @@ final class Recorder {
                 res.add(m);
             } else {
                 ArrayView v = new ArrayView();
-                if (!p[2].isEmpty()) v.items.addAll(java.util.Arrays.asList(p[2].split("\u0006", -1)));
+                if (!p[2].isEmpty()) {
+                    boolean anyObj = false;
+                    for (String cell : p[2].split("\u0006", -1)) {
+                        Obj ob = objFromCell(cell);
+                        Object src = cell.startsWith("\u0003") ? byId(cell.substring(1)) : null;
+                        v.objs.add(ob);
+                        v.items.add(cellText(cell, ob, src));
+                        v.subs.add(ob == null ? subOf(src, null, Mark.NONE, null) : null);
+                        v.subSrc.add(src);
+                        anyObj |= ob != null;
+                    }
+                    if (!anyObj) v.objs.clear();
+                    dropEmptySubs(v);
+                }
                 v.truncated = p.length > 3 && p[3].equals("+");
                 for (int i = 0; i < v.items.size(); i++) if (old != null && (i >= old.size() || !old.get(i).equals(v.items.get(i)))) v.changed.add(i);
                 for (Map.Entry<String, Integer> e : indexVars.entrySet())
@@ -420,6 +490,156 @@ final class Recorder {
     static void suspend() { synchronized (LOCK) { suspended++; } }
     static void resume()  { synchronized (LOCK) { suspended--; } }
 
+    // ------------------------------------------------------------ גישה למאפיינים של אובייקט (Student, Car)
+
+    private static Object accOwner;
+    private static String accField, accHow;
+    private static Mark accMark;
+
+    /** מחרוזת עם מרכאות, לתצוגה בקוד: "נועה" */
+    static String lit(String s) {
+        return s == null ? "null" : "\"" + shorten(s, 24) + "\"";
+    }
+
+    /** getter: קריאה של המאפיין field של owner — מתועדת, והכרטיס של owner מוצג עם המאפיין מודגש. מחזיר את הערך */
+    static <T> T got(Object owner, String field, String how, T value) {
+        access(owner, field, how, Mark.READ, "  →  " + (value instanceof String ? lit((String) value) : value instanceof int[] ? java.util.Arrays.toString((int[]) value) : String.valueOf(value)));
+        return value;
+    }
+
+    /** setter / פעולה ששינתה את המאפיין field של owner (אחרי השינוי) */
+    static void changed(Object owner, String field, String how) {
+        access(owner, field, how, Mark.CHANGED, "");
+    }
+
+    private static void access(Object owner, String field, String how, Mark mark, String result) {
+        if (!active || !enabled) return;
+        sync();
+        synchronized (LOCK) {
+            if (suspended > 0) return;
+            accOwner = owner;
+            accField = field;
+            accHow = how;
+            accMark = mark;
+            try {
+                record(mark == Mark.CHANGED ? Kind.CHANGE : Kind.READ, owner, mark, null, str(owner) + "." + how + result);
+            } finally {
+                accOwner = null;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ אובייקטים של מחלקות: כרטיס + טבלת מאפיינים
+
+    /** האובייקטים שנוצרו בצילום הנוכחי — כדי לחבר אליהם את שמות המשתנים */
+    private static final List<Obj> snapObjs = new ArrayList<Obj>();
+
+    private static boolean isRecordLike(Class<?> c) {
+        String n = c.getName();
+        return !c.isArray() && !c.isEnum() && !c.isPrimitive() && !n.startsWith("java.") && !n.startsWith("javax.") && !n.startsWith("jdk.")
+                && !n.startsWith("sun.") && !n.startsWith("com.sun.") && !n.startsWith("unit4.collectionsLib.");
+    }
+
+    /** כרטיס לאובייקט: Student / Car (מוכנים), או מחלקה של התלמידים (לפי המאפיינים שלה). null — ערך רגיל */
+    static Obj objOf(Object v) {
+        if (v == null) return null;
+        Obj o = null;
+        if (v instanceof Student) o = ((Student) v).vizObj();
+        else if (v instanceof Car) o = ((Car) v).vizObj();
+        else if (isRecordLike(v.getClass())) o = reflectObj(v);
+        if (o != null) snapObjs.add(o);
+        return o;
+    }
+
+    private static Obj reflectObj(Object v) {
+        Obj o = new Obj();
+        o.id = System.identityHashCode(v);
+        o.type = v.getClass().getSimpleName();
+        List<Class<?>> chain = new ArrayList<Class<?>>();
+        for (Class<?> c = v.getClass(); c != null && c != Object.class; c = c.getSuperclass()) chain.add(0, c);
+        for (Class<?> c : chain) {
+            for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.isSynthetic() || o.fields.size() >= 12) continue;
+                String val;
+                try {
+                    f.setAccessible(true);
+                    val = fieldText(f.get(v));
+                } catch (Exception e) {
+                    val = "?";
+                }
+                o.fields.add(new String[] { f.getName(), val });
+            }
+        }
+        describe(o);
+        return o;
+    }
+
+    /** ערך של מאפיין בטבלה: קצר, בסגנון Java */
+    private static String fieldText(Object x) {
+        if (x == null) return "null";
+        if (x instanceof String) return lit((String) x);
+        if (x instanceof Character) return "'" + x + "'";
+        if (x instanceof Number || x instanceof Boolean) return String.valueOf(x);
+        if (x.getClass().isArray()) {
+            StringBuilder b = new StringBuilder("[");
+            int n = java.lang.reflect.Array.getLength(x);
+            for (int i = 0; i < Math.min(n, 6); i++) b.append(i == 0 ? "" : ", ").append(fieldText(java.lang.reflect.Array.get(x, i)));
+            return b.append(n > 6 ? ", …]" : "]").toString();
+        }
+        if (x instanceof Student || x instanceof Car) return str(x);
+        if (x instanceof Stack || x instanceof Queue || x instanceof Node || x instanceof BinNode) return formatVar(x);
+        if (x.getClass().isEnum()) return String.valueOf(x);
+        try {
+            return shorten(String.valueOf(x), 24);
+        } catch (RuntimeException e) {
+            return x.getClass().getSimpleName();
+        }
+    }
+
+    /** שורות הכרטיס של מחלקה כללית: כותרת = שדה טקסט בשם name/title (או הראשון), ושורה שנייה = עוד שני מאפיינים */
+    static void describe(Obj o) {
+        String[] main = null;
+        for (String[] f : o.fields) {
+            String n = f[0].toLowerCase();
+            if (f[1].startsWith("\"") && (n.equals("name") || n.equals("title") || n.endsWith("name"))) { main = f; break; }
+        }
+        if (main == null) for (String[] f : o.fields) if (f[1].startsWith("\"")) { main = f; break; }
+        StringBuilder sub = new StringBuilder();
+        int k = 0;
+        for (String[] f : o.fields) {
+            if (f == main || k >= 2) continue;
+            sub.append(k++ == 0 ? "" : " · ").append(f[0]).append("=").append(unquote(f[1]));
+        }
+        o.title = main != null ? shorten(unquote(main[1]), 16) : o.type;
+        o.sub = shorten(sub.toString(), 22);
+    }
+
+    private static String unquote(String s) {
+        return s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"") ? s.substring(1, s.length() - 1) : s;
+    }
+
+    /** מערך שה-Tracer קרא: תא-אובייקט שמגיע כ-\u0003id (Student / Car) או כתיאור (\u000E סוג \u000F מאפיין \u0010 ערך ...) */
+    private static Obj objFromCell(String cell) {
+        if (cell.startsWith("\u0003")) {
+            Object o = byId(cell.substring(1));
+            return o == null ? null : objOf(o);
+        }
+        if (cell.startsWith("\u000E")) {
+            String[] p = cell.substring(1).split("\u000F", -1);
+            Obj o = new Obj();
+            o.id = -1;
+            o.type = p[0];
+            for (int i = 1; i < p.length; i++) {
+                int k = p[i].indexOf('\u0010');
+                if (k > 0) o.fields.add(new String[] { p[i].substring(0, k), p[i].substring(k + 1) });
+            }
+            describe(o);
+            snapObjs.add(o);
+            return o;
+        }
+        return null;
+    }
+
     // ------------------------------------------------------------ תיעוד צעדים
 
     static void create(Object target, String text)  { record(Kind.CREATE, target, Mark.NEW, null, text); }
@@ -474,6 +694,14 @@ final class Recorder {
         suspended++;
         try {
             s.views = snapshot(target, mark, ghost);
+            if (accOwner != null) {
+                Access a = new Access();
+                a.obj = objOf(accOwner);
+                a.field = accField;
+                a.text = accHow;
+                a.mark = accMark;
+                s.access = a.obj == null ? null : a;
+            }
         } catch (RuntimeException e) {
             s.views = new ArrayList<View>();
         } finally {
@@ -528,28 +756,23 @@ final class Recorder {
 
     private static List<View> snapshot(Object target, Mark mark, String ghost) {
         List<View> views = new ArrayList<View>();
+        snapObjs.clear();
+        nested.clear();
+        nestPath.clear();
+        nestDepth = 0;
 
         // --- מערכים (במצב שורה-שורה: כפי שנקראו בשורה האחרונה, כי מערך משתנה גם בלי הספרייה)
-        if (lineMode) views.addAll(lineArrays);
+        if (lineMode) { for (View v : lineArrays) views.add(refreshSubs(v, target, mark, ghost)); }
         else for (Object a : alive(arrays)) views.add(arrayView(a));
 
         // --- מחסניות ותורים
         for (Object o : linears) {
             boolean focus = o == target;
-            List<?> items = o instanceof Stack ? ((Stack<?>) o).items : ((Queue<?>) o).items;
             List<String> aliases = frameVars.get(o);
+            List<?> items = o instanceof Stack ? ((Stack<?>) o).items : ((Queue<?>) o).items;
             if (!focus && aliases == null && items.isEmpty() && stale(o)) continue;
-            LinearView v = new LinearView();
-            v.stack = o instanceof Stack;
+            LinearView v = linearView(o, target, mark, ghost);
             v.title = aliases != null ? String.join(", ", aliases) : names.get(o);
-            v.focus = focus;
-            int n = items.size();
-            for (int i = 0; i < n; i++) v.items.add(str(v.stack ? items.get(n - 1 - i) : items.get(i)));
-            if (focus) {
-                v.mark = mark;
-                v.ghost = ghost;
-                v.markIndex = (!v.stack && mark == Mark.NEW) ? n - 1 : 0;
-            }
             views.add(v);
         }
 
@@ -607,13 +830,163 @@ final class Recorder {
         Set<Object> drawn = identitySet();
         for (BinNode<?> r : roots) {
             TreeView tv = new TreeView();
+            tv.src = r;
             tv.title = names.get(r) != null ? names.get(r) : "עץ";
             Object[] focus = { Boolean.FALSE };
             tv.root = treeCell(r, drawn, target, mark, labels, focus, 0, lastBin);
             tv.focus = focus[0] == Boolean.TRUE;
             views.add(tv);
         }
+        hideNested(views, labels);
+        attachObjects(views);
         return views;
+    }
+
+    /** הטקסט של תא שה-Tracer שלח: ערך רגיל, כותרת של כרטיס, או תיאור של מבנה שהתא מצביע עליו */
+    private static String cellText(String cell, Obj ob, Object src) {
+        if (cell.startsWith("\u0003")) return src == null ? "•" : str(src);
+        return ob == null ? cell : ob.title;
+    }
+
+    private static void dropEmptySubs(ArrayView a) {
+        for (View s : a.subs) if (s != null) return;
+        a.subs.clear();
+    }
+
+    /** מערך של מבנים (מצב שורה-שורה): התוכן של המבנים שבתאים מתעדכן בכל צעד, גם כשהמערך עצמו לא נקרא מחדש */
+    private static View refreshSubs(View v, Object target, Mark mark, String ghost) {
+        if (!(v instanceof ArrayView)) return v;
+        ArrayView a = (ArrayView) v;
+        if (a.subs.isEmpty()) return v;
+        ArrayView c = new ArrayView();
+        c.title = a.title;
+        c.focus = a.focus;
+        c.items.addAll(a.items);
+        c.objs.addAll(a.objs);
+        c.changed.addAll(a.changed);
+        c.indexLabels.putAll(a.indexLabels);
+        c.truncated = a.truncated;
+        c.subSrc.addAll(a.subSrc);
+        for (Object src : a.subSrc) c.subs.add(subOf(src, target, mark, ghost));
+        for (int i = 0; i < c.items.size() && i < c.subSrc.size(); i++)
+            if (c.subSrc.get(i) != null) c.items.set(i, str(c.subSrc.get(i)));
+        return c;
+    }
+
+    // ------------------------------------------------------------ מבנה בתוך מבנה (מחסנית של מחסניות, רשימה של תורים, עץ של מחסניות...)
+
+    private static final int MAX_NEST = 3;           // כמה רמות מצוירות זו בתוך זו
+    private static int nestDepth = 0;
+    private static final Set<Object> nested = identitySet();   // מבנים שמוצגים בתוך תא של מבנה אחר (בצעד הנוכחי)
+    private static final List<Object> nestPath = new ArrayList<Object>();   // המבנים שבתהליך ציור — נגד מעגלים
+
+    private static LinearView linearView(Object o, Object target, Mark mark, String ghost) {
+        boolean added = true;
+        for (Object p : nestPath) if (p == o) added = false;
+        if (added) nestPath.add(o);   // מחסנית שמכילה את עצמה (גם דרך מבנה אחר) לא נכנסת בתוך עצמה
+        try {
+            return linearViewIn(o, target, mark, ghost);
+        } finally {
+            if (added) nestPath.remove(nestPath.size() - 1);
+        }
+    }
+
+    private static LinearView linearViewIn(Object o, Object target, Mark mark, String ghost) {
+        boolean focus = o == target;
+        List<?> items = o instanceof Stack ? ((Stack<?>) o).items : ((Queue<?>) o).items;
+        LinearView v = new LinearView();
+        v.src = o;
+        v.stack = o instanceof Stack;
+        v.focus = focus;
+        int n = items.size();
+        boolean anySub = false;
+        for (int i = 0; i < n; i++) {
+            Object item = v.stack ? items.get(n - 1 - i) : items.get(i);
+            v.items.add(str(item));
+            v.objs.add(objOf(item));
+            View sub = subOf(item, target, mark, ghost);
+            v.subs.add(sub);
+            anySub |= sub != null;
+            if (sub != null && sub.focus) v.focus = true;   // המבנה הפנימי הוא שנגעו בו — גם החיצוני מסומן (וגלילה אליו)
+        }
+        if (!anySub) v.subs.clear();
+        if (focus) {
+            v.mark = mark;
+            v.ghost = ghost;
+            v.markIndex = (!v.stack && mark == Mark.NEW) ? n - 1 : 0;
+        }
+        return v;
+    }
+
+    /**
+     * הערך הוא מבנה של הספרייה (Stack / Queue / Node / BinNode) → תצוגה קטנה שלו, לציור בתוך התא.
+     * null אם זה ערך רגיל, או שכבר עמוקים מדי / המבנה מכיל את עצמו.
+     */
+    static View subOf(Object item, Object target, Mark mark, String ghost) {
+        if (!(item instanceof Stack || item instanceof Queue || item instanceof Node || item instanceof BinNode)) return null;
+        if (nestDepth >= MAX_NEST) return null;
+        for (Object p : nestPath) if (p == item) return null;
+        nestPath.add(item);
+        nestDepth++;
+        try {
+            nested.add(item);
+            List<String> al = frameVars.get(item);
+            String name = al == null ? null : String.join(", ", al);   // תג על התא: משתנה שמצביע על המבנה הפנימי
+            View res;
+            Map<Object, List<String>> none = new IdentityHashMap<Object, List<String>>();
+            if (item instanceof Stack || item instanceof Queue) {
+                res = linearView(item, target, mark, item == target ? ghost : null);
+            } else if (item instanceof Node) {
+                List<View> tmp = new ArrayList<View>();
+                addChain(tmp, (Node<?>) item, identitySet(), target, mark, none, null);
+                res = tmp.get(0);
+            } else {
+                BinNode<?> b = (BinNode<?>) item;
+                TreeView tv = new TreeView();
+                tv.src = b;
+                Object[] focus = { Boolean.FALSE };
+                tv.root = treeCell(b, identitySet(), target, mark, none, focus, 0, null);
+                tv.focus = focus[0] == Boolean.TRUE;
+                res = tv;
+            }
+            res.title = name;
+            return res;
+        } finally {
+            nestDepth--;
+            nestPath.remove(nestPath.size() - 1);
+        }
+    }
+
+    /** מבנה שמוצג בתוך תא של מבנה אחר — לא מציירים אותו גם לבד */
+    private static void hideNested(List<View> views, Map<Object, List<String>> labels) {
+        for (Iterator<View> it = views.iterator(); it.hasNext();) {
+            View v = it.next();
+            if (v.src == null || !nested.contains(v.src)) continue;
+            it.remove();   // גם אם יש לו משתנה: שמו מופיע כתג על התא (כך רואים שהמשתנה והתא הם אותו מבנה)
+        }
+    }
+
+    /** שמות המשתנים מעל הכרטיסים; ואובייקט שמשתנה מצביע אליו ואינו בתוך מבנה — מוצג לבד */
+    private static void attachObjects(List<View> views) {
+        if (!lineMode) return;
+        for (Map.Entry<Object, List<String>> e : frameVars.entrySet()) {
+            Object k = e.getKey();
+            if (!(k instanceof Student || k instanceof Car)) continue;
+            int id = k instanceof Student ? ((Student) k).vizId : ((Car) k).vizId;
+            boolean shown = false;
+            for (Obj o : snapObjs) {
+                if (o.id != id) continue;
+                shown = true;
+                for (String n : e.getValue()) if (!o.labels.contains(n)) o.labels.add(n);
+            }
+            if (!shown) {
+                ObjView ov = new ObjView();
+                ov.obj = objOf(k);
+                ov.obj.labels.addAll(e.getValue());
+                ov.title = String.join(", ", e.getValue());
+                views.add(ov);
+            }
+        }
     }
 
     private static <T> List<T> alive(List<WeakReference<T>> refs) {
@@ -645,6 +1018,7 @@ final class Recorder {
     private static void addChain(List<View> views, Node<?> head, Set<Object> seen, Object target, Mark mark,
                                  Map<Object, List<String>> labels, Object lastNode) {
         ChainView c = new ChainView();
+        c.src = head;
         c.title = names.get(head) != null ? names.get(head) : "רשימה";
         Map<Object, Integer> pos = new IdentityHashMap<Object, Integer>();
         Node<?> cur = head;
@@ -656,7 +1030,7 @@ final class Recorder {
             seen.add(cur);
             Cell cell = new Cell();
             fillCell(cell, cur, cur.value, target, mark, labels, lastNode);
-            if (cur == target) c.focus = true;
+            if (cur == target || (cell.sub != null && cell.sub.focus)) c.focus = true;
             c.cells.add(cell);
             cur = cur.next;
         }
@@ -668,7 +1042,7 @@ final class Recorder {
         if (b == null) return null;
         TreeCell c = new TreeCell();
         fillCell(c, b, b.value, target, mark, labels, lastBin);
-        if (b == target) focus[0] = Boolean.TRUE;
+        if (b == target || (c.sub != null && c.sub.focus)) focus[0] = Boolean.TRUE;
         if (!drawn.add(b) || depth > 40) { c.shared = true; return c; }
         c.left = treeCell(b.left, drawn, target, mark, labels, focus, depth + 1, lastBin);
         c.right = treeCell(b.right, drawn, target, mark, labels, focus, depth + 1, lastBin);
@@ -678,6 +1052,8 @@ final class Recorder {
     private static void fillCell(Cell cell, Object node, Object value, Object target, Mark mark,
                                  Map<Object, List<String>> labels, Object last) {
         cell.value = str(value);
+        cell.obj = objOf(value);
+        cell.sub = subOf(value, target, mark, null);
         cell.mark = node == target ? mark : Mark.NONE;
         // בהרצה שורה-שורה שמות המשתנים מסמנים איפה אנחנו — סימן "הצומת האחרון שנגעו בו" רק מבלבל
         cell.current = !lineMode && node == last;
@@ -790,6 +1166,8 @@ final class Recorder {
                     if (l == null) fv.put(v, l = new ArrayList<String>());
                     l.add(p[0]);
                     value = formatVar(v);
+                } else {
+                    value = resolveRefs(value);
                 }
                 vars.add(new String[] { p[0], value });
             }
@@ -833,6 +1211,8 @@ final class Recorder {
             } finally {
                 suspended--;
             }
+        } else {
+            value = resolveRefs(value);
         }
         String m = frames.get(0).method;   // בלי סוגריים — בתוך משפט בעברית הם מתהפכים
         // RLM בהתחלה: המשפט בעברית (מימין לשמאל); LRM מסביב לקוד — כדי שהסוגריים והערך לא יקפצו
@@ -857,6 +1237,24 @@ final class Recorder {
         if (s.isEmpty()) return res;
         for (String x : s.split("\u0001", -1)) if (!x.isEmpty()) res.add(x);
         return res;
+    }
+
+    /** הפניות למבנים בתוך טקסט (איברי מערך: \u0003 + vizId) → תיאור המבנה, למשל [9,8] */
+    private static String resolveRefs(String value) {
+        if (value.indexOf('\u0003') < 0) return value;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\u0003(\\d+)").matcher(value);
+        StringBuffer b = new StringBuffer();
+        suspended++;
+        try {
+            while (m.find()) {
+                Object o = byId(m.group(1));
+                m.appendReplacement(b, java.util.regex.Matcher.quoteReplacement(o == null ? "•" : str(o)));
+            }
+        } finally {
+            suspended--;
+        }
+        m.appendTail(b);
+        return b.toString();
     }
 
     private static String formatVar(Object v) {
