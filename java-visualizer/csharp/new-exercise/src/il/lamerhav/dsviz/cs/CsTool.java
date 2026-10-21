@@ -36,6 +36,7 @@ import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -138,10 +139,15 @@ public final class CsTool {
         boolean show(String shot) {
             JDialog d = dialog("תרגיל חדש — C#");
             JPanel content = new JPanel(new BorderLayout(0, 8));
-            content.setBorder(BorderFactory.createEmptyBorder(14, 18, 12, 18));
+            content.setBorder(BorderFactory.createEmptyBorder(16, 20, 14, 20));
+            JPanel head = new JPanel(new GridLayout(0, 1));
             JLabel title = new JLabel("תרגיל חדש");
             title.setFont(Theme.big);
-            content.add(title, BorderLayout.NORTH);
+            JLabel subtitle = new JLabel("בוחרים מבנה נתונים ואיך למלא אותו — והתרגיל נוצר, מוכן לכתיבה.");
+            subtitle.setForeground(Theme.MUTED);
+            head.add(title);
+            head.add(subtitle);
+            content.add(head, BorderLayout.NORTH);
 
             Col right = new Col(), left = new Col();
             String[] parts = (preset == null ? "stack" : preset).split("_");
@@ -164,7 +170,15 @@ public final class CsTool {
             right.add(types);
 
             left.section("מה הפעולה מחזירה?");
-            returnCombo = new JComboBox<String>();
+            returnCombo = ltr(new JComboBox<String>());
+            returnCombo.setRenderer(new javax.swing.DefaultListCellRenderer() {
+                public Component getListCellRendererComponent(javax.swing.JList<?> list, Object value, int index, boolean sel, boolean focus) {
+                    JLabel l = (JLabel) super.getListCellRendererComponent(list, value, index, sel, focus);
+                    l.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+                    l.setHorizontalAlignment(SwingConstants.LEFT);
+                    return l;
+                }
+            });
             left.add(returnCombo);
             left.section("רקורסיה");
             recursive = new JCheckBox("תרגיל ברקורסיה (כרטיס לכל קריאה)");
@@ -187,8 +201,7 @@ public final class CsTool {
             previewBox = new JPanel(new BorderLayout(0, 2));
             JLabel pt = new JLabel("כך ייבנה (כל קבוצה, עד ;, היא מבנה פנימי אחד):");
             pt.setForeground(Theme.MUTED);
-            previewType = new JLabel(" ");
-            previewType.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+            previewType = ltr(new JLabel(" "));
             previewType.setFont(Theme.uiBold);
             JPanel top = new JPanel(new GridLayout(0, 1));
             top.add(pt);
@@ -210,8 +223,7 @@ public final class CsTool {
             names.add(functionName);
             left.add(names);
             JPanel where = new JPanel(new FlowLayout(FlowLayout.LEADING, 4, 0));
-            JLabel whereText = new JLabel("ייווצר ב:"), wherePath = new JLabel(CsProject.exercisesDir(root).toString());
-            wherePath.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+            JLabel whereText = new JLabel("ייווצר ב:"), wherePath = ltr(new JLabel(CsProject.exercisesDir(root).toString()));
             for (JLabel l : new JLabel[] { whereText, wherePath }) { l.setForeground(Theme.MUTED); l.setFont(Theme.small); where.add(l); }
             left.add(where);
 
@@ -222,18 +234,21 @@ public final class CsTool {
             gc.gridy = 0;
             gc.gridx = 0;
             gc.weightx = 0;
-            gc.insets = new Insets(0, 0, 0, 24);
-            cols.add(right.panel, gc);
+            gc.insets = new Insets(0, 0, 0, 14);
+            gc.fill = GridBagConstraints.BOTH;
+            gc.weighty = 1;
+            cols.add(new Card(right.panel), gc);
             gc.gridx = 1;
             gc.weightx = 1;
             gc.insets = new Insets(0, 0, 0, 0);
-            cols.add(left.panel, gc);
+            cols.add(new Card(left.panel), gc);
             content.add(cols, BorderLayout.CENTER);
 
             errorLabel = new JLabel(" ");
             errorLabel.setForeground(new Color(0xC62828));
             ok = new JButton("יצירת התרגיל");
             JButton cancel = new JButton("ביטול");
+            style(ok, cancel);
             JPanel south = new JPanel(new BorderLayout());
             south.add(errorLabel, BorderLayout.NORTH);
             south.add(buttons(d, ok, cancel), BorderLayout.CENTER);
@@ -326,7 +341,7 @@ public final class CsTool {
                 catch (IllegalArgumentException e) { groups = null; }   // הודעת השגיאה תוצג למטה
             }
             if (groups != null) {
-                previewType.setText(Scaffold.typeOf(s, type).replace("Stack<", "Stack<").replace("int", "int"));
+                previewType.setText(Scaffold.typeOf(s, type));
                 diagram.set(outer, inside, groups);
             }
             boolean show = groups != null;
@@ -380,11 +395,9 @@ public final class CsTool {
 
         /** כפתור-בחירה (כמו "צ'יפ"): לוחצים עליו ונבחר, והאחרים בקבוצה מתבטלים */
         private void chip(JPanel parent, String text, String id, List<JToggleButton> group, boolean selected, int height, int width, String tip) {
-            JToggleButton b = new JToggleButton(text);
+            JToggleButton b = new Chip(text);
             b.putClientProperty("id", id);
-            b.setMargin(new Insets(2, 4, 2, 4));
             b.setPreferredSize(new Dimension(Math.max(width, b.getPreferredSize().width), height));
-            b.setFocusPainted(false);
             if (tip != null) b.setToolTipText(tip);
             if (!group.isEmpty()) { ButtonGroup bg = (ButtonGroup) group.get(0).getClientProperty("group"); bg.add(b); b.putClientProperty("group", bg); }
             else { ButtonGroup bg = new ButtonGroup(); bg.add(b); b.putClientProperty("group", bg); }
@@ -427,11 +440,11 @@ public final class CsTool {
         boolean show(String shot) {
             JDialog d = dialog("הוספת משתנה — C#");
             JPanel content = new JPanel(new BorderLayout(0, 8));
-            content.setBorder(BorderFactory.createEmptyBorder(14, 20, 12, 20));
+            content.setBorder(BorderFactory.createEmptyBorder(16, 20, 14, 20));
             Col col = new Col();
             JLabel title = new JLabel("הוספת משתנה");
             title.setFont(Theme.big);
-            col.add(title);
+            col.add(title, 0);
             JLabel sub = new JLabel("המבנה מוכן עם נתוני דמה — מעתיקים ומדביקים בקוד ועובדים איתו מיד.");
             sub.setForeground(Theme.MUTED);
             col.add(sub);
@@ -468,11 +481,12 @@ public final class CsTool {
             nm.add(name, BorderLayout.CENTER);
             col.add(nm);
 
-            content.add(col.panel, BorderLayout.CENTER);
+            content.add(new Card(col.panel), BorderLayout.CENTER);
             errorLabel = new JLabel(" ");
             errorLabel.setForeground(new Color(0xC62828));
             ok = new JButton("העתקה ללוח");
             JButton cancel = new JButton("ביטול");
+            style(ok, cancel);
             JPanel south = new JPanel(new BorderLayout());
             south.add(errorLabel, BorderLayout.NORTH);
             south.add(buttons(d, ok, cancel), BorderLayout.CENTER);
@@ -556,11 +570,9 @@ public final class CsTool {
         }
 
         private void chip(JPanel parent, String text, String id, List<JToggleButton> group, boolean selected, int height, int width) {
-            JToggleButton b = new JToggleButton(text);
+            JToggleButton b = new Chip(text);
             b.putClientProperty("id", id);
-            b.setMargin(new Insets(2, 4, 2, 4));
             b.setPreferredSize(new Dimension(Math.max(width, b.getPreferredSize().width), height));
-            b.setFocusPainted(false);
             ButtonGroup bg = group.isEmpty() ? new ButtonGroup() : (ButtonGroup) group.get(0).getClientProperty("group");
             bg.add(b);
             b.putClientProperty("group", bg);
@@ -583,15 +595,43 @@ public final class CsTool {
             return dlg;
         }
 
-        void applyOrientation(Container c) {
-            c.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
-            // שדות הערכים והשמות נשארים משמאל לימין (קוד באנגלית)
-            fixLtr(c);
+        void applyOrientation(JPanel content) {
+            content.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+            fixLtr(content);
+            clear(content);
+            content.setOpaque(true);
+            content.setBackground(Theme.BG);
         }
 
+        /** כל מה שסומן ltr (קוד, שמות, טיפוסים — באנגלית): משמאל לימין ומיושר לשמאל, גם בתוך חלון מימין לשמאל */
         private void fixLtr(Component c) {
-            if (c instanceof JTextField || c instanceof NestedDiagram || (c instanceof JLabel && ((JLabel) c).getText() != null && ((JLabel) c).getText().matches("[\\x00-\\x7F]*[\\\\/][\\x00-\\x7F]*"))) c.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+            if (c instanceof JComponent && Boolean.TRUE.equals(((JComponent) c).getClientProperty("ltr"))) {
+                c.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+                if (c instanceof JLabel) ((JLabel) c).setHorizontalAlignment(SwingConstants.LEFT);
+                if (c instanceof JTextField) ((JTextField) c).setHorizontalAlignment(SwingConstants.LEFT);
+            }
+            if (c instanceof NestedDiagram) c.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
             if (c instanceof Container) for (Component k : ((Container) c).getComponents()) fixLtr(k);
+        }
+
+        /** פאנלים שקופים — כדי שהכרטיסים הלבנים יראו */
+        private void clear(Component c) {
+            if (c instanceof JPanel && !(c instanceof Card)) ((JPanel) c).setOpaque(false);
+            if (c instanceof Container) for (Component k : ((Container) c).getComponents()) clear(k);
+        }
+
+        <T extends JComponent> T ltr(T c) {
+            c.putClientProperty("ltr", Boolean.TRUE);
+            return c;
+        }
+
+        /** כפתור ראשי (כחול) / משני (לבן), מעוגלים */
+        void style(JButton primary, JButton secondary) {
+            primary.putClientProperty("FlatLaf.style", "background:#2F6FED; foreground:#ffffff; arc:14; borderWidth:0; hoverBackground:#2457C5; pressedBackground:#1E4AA8; focusedBackground:#2F6FED; disabledBackground:#B9C8EE; disabledText:#ffffff");
+            secondary.putClientProperty("FlatLaf.style", "arc:14; background:#ffffff");
+            primary.setFont(Theme.uiBold);
+            primary.setPreferredSize(new Dimension(Math.max(150, primary.getPreferredSize().width + 20), 38));
+            secondary.setPreferredSize(new Dimension(92, 38));
         }
 
         void relayout() {
@@ -639,9 +679,10 @@ public final class CsTool {
         }
 
         JTextField ltrField(int width) {
-            JTextField t = new JTextField();
-            t.setPreferredSize(new Dimension(width, 28));
-            t.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+            JTextField t = ltr(new JTextField());
+            t.setPreferredSize(new Dimension(width, 32));
+            t.putClientProperty("FlatLaf.style", "arc:12");
+            if (Theme.mono != null) t.setFont(Theme.mono);
             return t;
         }
 
@@ -658,15 +699,85 @@ public final class CsTool {
         }
     }
 
+    /** כפתור-בחירה מעוגל: לבן, ובבחירה — כחול בהיר עם מסגרת כחולה (כמו בחלון ההרצה) */
+    private static final class Chip extends JToggleButton {
+        Chip(String text) {
+            super(text);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setFont(Theme.ui);
+            setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            if (isPreferredSizeSet()) return super.getPreferredSize();
+            java.awt.FontMetrics fm = getFontMetrics(getFont());
+            return new Dimension(fm.stringWidth(getText()) + 28, 34);
+        }
+
+        @Override
+        protected void paintComponent(java.awt.Graphics g0) {
+            java.awt.Graphics2D g = (java.awt.Graphics2D) g0.create();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            int w = getWidth(), h = getHeight();
+            boolean on = isSelected(), enabled = isEnabled(), hover = getModel().isRollover() && enabled;
+            Color fill = !enabled ? new Color(0xF6F7F9) : on ? Theme.ACCENT_SOFT : hover ? new Color(0xF4F7FD) : Color.WHITE;
+            Color line = !enabled ? new Color(0xE6E9EF) : on ? Theme.ACCENT : hover ? new Color(0xB8C4DC) : Theme.BORDER;
+            Color ink = !enabled ? new Color(0xB4BAC6) : on ? Theme.ACCENT_DARK : Theme.TEXT;
+            g.setColor(fill);
+            g.fillRoundRect(1, 1, w - 2, h - 2, 14, 14);
+            g.setColor(line);
+            g.setStroke(new java.awt.BasicStroke(on ? 2f : 1f));
+            g.drawRoundRect(1, 1, w - 3, h - 3, 14, 14);
+            g.setFont(on ? Theme.uiBold : Theme.ui);
+            java.awt.FontMetrics fm = g.getFontMetrics();
+            String t = getText();
+            while (fm.stringWidth(t) > w - 8 && t.length() > 2) t = t.substring(0, t.length() - 2) + "…";
+            g.setColor(ink);
+            g.drawString(t, (w - fm.stringWidth(t)) / 2, (h - fm.getHeight()) / 2 + fm.getAscent());
+            g.dispose();
+        }
+    }
+
+    /** כרטיס לבן מעוגל עם מסגרת דקה */
+    private static final class Card extends JPanel {
+        Card(JComponent inner) {
+            super(new BorderLayout());
+            setOpaque(false);
+            setBorder(BorderFactory.createEmptyBorder(16, 18, 18, 18));
+            add(inner, BorderLayout.CENTER);
+        }
+
+        @Override
+        protected void paintComponent(java.awt.Graphics g0) {
+            java.awt.Graphics2D g = (java.awt.Graphics2D) g0.create();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(Theme.CARD);
+            g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 22, 22);
+            g.setColor(Theme.BORDER);
+            g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 22, 22);
+            g.dispose();
+        }
+    }
+
     /** עמודה: שורות ממולאות לרוחב, מיושרות להתחלה (בעברית — ימין) */
     private static final class Col {
         final JPanel panel = new JPanel(new GridBagLayout());
         private int row;
 
+        Col() {
+            panel.setOpaque(false);
+        }
+
         JLabel section(String text) {
             JLabel l = new JLabel(text);
             l.setFont(Theme.uiBold);
-            add(l, 10);
+            l.setForeground(Theme.TEXT);
+            add(l, row == 0 ? 0 : 16);
             return l;
         }
 
