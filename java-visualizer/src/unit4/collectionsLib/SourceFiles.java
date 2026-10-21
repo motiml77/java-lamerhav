@@ -35,6 +35,12 @@ final class SourceFiles {
 
     private static final Map<String, String> texts = new HashMap<String, String>();
 
+    /** קובץ קוד שכבר בזיכרון (למשל מקובץ הצעדים של C#), במקום לחפש אותו בדיסק */
+    static synchronized void preload(String key, String text) {
+        cache.put(key, new ArrayList<String>(Arrays.asList(text.split("\r?\n", -1))));
+        texts.put(key, text);
+    }
+
     /** כל הקובץ כטקסט אחד (בשביל חיפושים) */
     static synchronized String text(Frame f) {
         if (f == null || f.file == null) return null;

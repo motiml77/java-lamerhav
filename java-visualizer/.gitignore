@@ -3,3 +3,5 @@ out/
 build/
 *.class
 node_modules/
+obj/
+csharp/project/lib/

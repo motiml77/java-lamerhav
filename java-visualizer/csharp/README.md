@@ -1,0 +1,49 @@
+# C# — הרצה ויזואלית (dsviz-cs)
+
+```
+csharp/
+├── Unit4.CollectionsLib/   הספרייה (netstandard2.0): Stack<T>, Queue<T>, Node<T>, BinNode<T>, Student, Car
+│                           + Recorder (התיעוד) + VizHooks (מה שנכנס לקוד של התלמיד)
+├── DsViz.Runner/           dsviz-cs: מקמפל (Roslyn), מכניס דיווח לפני כל שורה (Instrumenter), מריץ וכותב קובץ הרצה
+└── project/                DataStructures-CS: פתרון Visual Studio — Exercise + 8 דוגמאות (נבנה לתיקיית מסמכים בהתקנה)
+```
+
+## איך זה עובד
+
+1. `dsviz-cs <תיקייה | .csproj | קובץ .cs>` קורא את כל קובצי ה-.cs של הפרויקט, ומקמפל אותם **כמו שהם** (שגיאות: `Program.cs(12,5): error CS1002: ...`).
+2. `Instrumenter` (Roslyn) מכניס:
+   - `VizHooks.Enter/Exit/Fault` סביב כל פעולה (מחסנית הקריאות, ערך החזרה: `return Ret<T>(x)`),
+   - `VizHooks.Ln(שורה, "שם", ערך, ...)` לפני כל משפט — ובתנאי של `while` / `for` / `do` בכל סיבוב — עם כל המשתנים שבתחום ומוגדרים (לפי `SemanticModel`).
+3. הקוד המשונה מקומפל בזיכרון ורץ **באותו תהליך**. `Recorder` מצלם את כל המבנים בכל צעד (מחסניות, תורים, רשימות, עצים, מערכים — לפי המשתנים שבמסגרות).
+4. בסוף נכתב קובץ צעדים, ו-`java ... unit4.collectionsLib.TraceViewer <קובץ>` פותח את אותו חלון כמו ב-Eclipse / VS Code
+   (`TraceViewer` טוען את הצעדים ל-`Recorder.adopt`, ומשם החלון עובד כמו בהרצה שורה-שורה של Java).
+
+בהרצה רגילה (בלי dsviz-cs) ההוקים לא קיימים והספרייה היא סתם מבני נתונים — אין תיעוד ואין חלון.
+
+## סדר החיפוש של Java והספרייה (ViewerLauncher)
+`DSVIZ_JAVA` / `DSVIZ_JAR` (משתני סביבה) → `..\jdk` ו-`..\dsviz.jar` ליד `dsviz-cs.exe` (כך מותקן) → `~/.dsviz/jdk-path.txt` → `JAVA_HOME` → `PATH`.
+
+## פורמט קובץ הצעדים
+טקסט UTF-8, שורה לרשומה, שדות מופרדים ב-TAB. בתוך שדה: `\\` `\t` `\n` `\r` מוסתרים, ו-`\0` = null.
+
+| רשומה | שדות |
+|---|---|
+| `DSVIZ` | `1`, `cs` |
+| `SRC` | שם קובץ, הטקסט כולו (קוד המקור — החלון מציג אותו) |
+| `STEP` | סוג (`LINE` `CREATE` `CHANGE` `READ` `CHECK` `OUTPUT` `NOTE` `ERROR` `END` `RETURN`), אורך הפלט עד כאן, ערך החזרה (`\0` = אין), טקסט |
+| `FR` | מחלקה, פעולה, קובץ, שורה — מסגרת קריאה (העליונה ראשונה) |
+| `VARS` / `VAR` | המשתנים של הפעולה העליונה: שם, ערך |
+| `V LIN` | מחסנית (1) / תור (0), focus, כותרת, אינדקס סימון, סימון, ghost — ואחריו `I` לכל איבר |
+| `V CHAIN` | focus, כותרת, מעגל-אל, טקסט-חיבור, חתוך — ואחריו `C` לכל חוליה: ערך, סימון, current, תוויות (מופרדות ב-`\u0001`) |
+| `V TREE` | focus, כותרת — ואחריו צמתים בסדר תחילי: `N` ערך, סימון, current, shared, תוויות; `NULL` = אין צומת |
+| `V ARR` / `V MAT` | focus, כותרת — ואחריו `I` / `ROW`, `CH` (השתנה), `IL` / `RL` / `CL` (תוויות אינדקס) |
+| `OUT` | כל הפלט |
+
+אפשר לבדוק קובץ בלי חלון: `java -cp dsviz.jar unit4.collectionsLib.TraceViewer --check trace.txt`.
+
+## בנייה ובדיקות
+```sh
+tools/build-all.sh                 # בונה הכול (כולל dsviz-cs ל-Windows, self-contained, ~97MB לפני דחיסה)
+sh tools/test/cs-tests.sh          # בדיקות C#: תבניות (2331 קבצים מתקמפלים), הרצה ויזואלית של כל הדוגמאות, שגיאות
+```
+דורש ‎.NET SDK 8 (רק למי שבונה). התבניות ל-VS Code (`vscode-extension/templates-cs.js`) מופקות מאותו מחולל של Java בהמרה מכנית — מקור אחד.

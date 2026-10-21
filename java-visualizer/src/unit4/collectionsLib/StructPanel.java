@@ -394,9 +394,10 @@ final class StructPanel extends JPanel {
         int stepW = vw + pw + ag;
         String tail = v.cycleTo >= 0 ? "" : v.joinText != null ? v.joinText + "  (ממשיך ברשימה אחרת)"
                 : v.truncated ? "..." : "null";
-        int top = y + TITLE_H + 24;
+        int extra = labelExtra(v.cells);   // כמה מצביעים על אותה חוליה — כל אחד בשורה משלו
+        int top = y + TITLE_H + 24 + extra;
         int w = Math.max(16 + n * stepW + textWidth(tail, SMALL_B) + 10, titleWidth(v.title, "רשימה מקושרת"));
-        int h = TITLE_H + 24 + ch + (v.cycleTo >= 0 ? 36 : 14);
+        int h = TITLE_H + 24 + extra + ch + (v.cycleTo >= 0 ? 36 : 14);
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "רשימה מקושרת", x, y, v.focus);
@@ -447,15 +448,16 @@ final class StructPanel extends JPanel {
             maxW = Math.max(maxW, textWidth(c.value, VALUE));
         }
         int r = Math.max(19, maxW / 2 + 9), nw = 2 * r + 12, lv = 70;
+        final int extra = labelExtra(inorder);   // כמה מצביעים על אותו צומת — כל אחד בשורה משלו
         int w = Math.max(inorder.size() * nw + 16, titleWidth(v.title, "עץ בינארי"));
-        int h = TITLE_H + 22 + (maxDepth + 1) * lv;
+        int h = TITLE_H + 22 + extra + (maxDepth + 1) * lv;
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "עץ בינארי", x, y, v.focus);
         Map<TreeCell, int[]> pos = new IdentityHashMap<TreeCell, int[]>();
         for (int i = 0; i < inorder.size(); i++) {
             TreeCell c = inorder.get(i);
-            pos.put(c, new int[] { x + 8 + i * nw + nw / 2, y + TITLE_H + 22 + depth.get(c) * lv + r });
+            pos.put(c, new int[] { x + 8 + i * nw + nw / 2, y + TITLE_H + 22 + extra + depth.get(c) * lv + r });
         }
         g.setColor(LINE);
         g.setStroke(new BasicStroke(2f));
@@ -491,14 +493,25 @@ final class StructPanel extends JPanel {
 
     // ------------------------------------------------------------ עזרי ציור
 
+    private static final int LABEL_STEP = 15;
+
+    /** מקום נוסף מעל התאים כשיש כמה מצביעים על אותו תא: כל שם בשורה משלו */
+    private static int labelExtra(List<? extends Cell> cells) {
+        int most = 0;
+        for (Cell c : cells) most = Math.max(most, c.labels.size());
+        return Math.max(0, most - 1) * LABEL_STEP;
+    }
+
     private void drawLabels(Graphics2D g, Cell c, int cx, int bottomY) {
         if (!c.labels.isEmpty()) {
-            StringBuilder b = new StringBuilder();
-            for (String l : c.labels) b.append(b.length() == 0 ? "" : ", ").append(l);
             g.setColor(LABEL);
             g.setFont(SMALL_B);
             FontMetrics fm = g.getFontMetrics();
-            g.drawString(b.toString(), cx - fm.stringWidth(b.toString()) / 2, bottomY - 8);
+            // כמה מצביעים על אותו תא — שמות זה מעל זה (הראשון הכי קרוב לתא), כדי שלא יכסו אחד את השני
+            for (int i = 0; i < c.labels.size(); i++) {
+                String l = c.labels.get(i);
+                g.drawString(l, cx - fm.stringWidth(l) / 2, bottomY - 8 - i * LABEL_STEP);
+            }
             // חץ קטן מהשם אל התא — כדי שיהיה ברור לאיזה תא / צומת המשתנה מצביע
             g.fillPolygon(new int[] { cx - 4, cx + 4, cx }, new int[] { bottomY - 6, bottomY - 6, bottomY }, 3);
         } else if (c.current) {

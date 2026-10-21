@@ -98,6 +98,20 @@ final class Recorder {
         synchronized (LOCK) { return steps.get(i); }
     }
 
+    /** מקור חיצוני (למשל הרצה של C# — TraceViewer): טוענים צעדים מוכנים ופלט, והחלון מציג אותם כמו הרצה שורה-שורה */
+    static void adopt(List<Step> loaded, String out) {
+        synchronized (LOCK) {
+            steps.clear();
+            steps.addAll(loaded);
+            output.setLength(0);
+            output.append(out);
+            active = true;
+            started = true;
+            lineMode = true;
+            lineTexts = new String[LINE_CAPACITY];
+        }
+    }
+
     static String outputUpTo(int len) {
         synchronized (LOCK) { return output.substring(0, Math.min(len, output.length())); }
     }

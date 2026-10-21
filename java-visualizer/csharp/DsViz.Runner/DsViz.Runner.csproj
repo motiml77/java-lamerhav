@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- dsviz-cs: מריץ פרויקט C# "הרצה ויזואלית" — מקמפל את הקוד של התלמיד עם Roslyn (אחרי שהוא מכניס
+       לפני כל שורה דיווח), מריץ אותו, ופותח את החלון הוויזואלי (אותו חלון כמו ב-Eclipse / VS Code).
+       מתפרסם כ-self-contained, כך שלא צריך להתקין שום דבר אצל התלמיד. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>dsviz-cs</AssemblyName>
+    <RootNamespace>DsViz</RootNamespace>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.1</Version>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- לא לשים את קבצי העזר של Roslyn בתיקיות שפה -->
+    <TieredPGO>false</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+    <ProjectReference Include="..\Unit4.CollectionsLib\Unit4.CollectionsLib.csproj" />
+  </ItemGroup>
+
+</Project>

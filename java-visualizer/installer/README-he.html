@@ -24,17 +24,18 @@
 
 <h2>2. התקנה</h2>
 <div class="box">
-<p><b>Windows:</b> לחיצה כפולה על <code>DSViz-Setup.exe</code> ← הבא ← סיום (אין מה לסמן).<br>
+<p><b>Windows:</b> לחיצה כפולה על <code>DSViz-Setup.exe</code> ← הבא ← <b>בוחרים שפה</b> (Java, C#, או שתיהן) ← התקן ← סיום.<br>
 <b>Mac:</b> לחיצה כפולה על <code>install-mac.command</code>. &nbsp; <b>Linux:</b> בטרמינל: <code>./install.sh</code></p>
 <p>ההתקנה מוצאת לבד את VS Code ואת כל ההתקנות של Eclipse במחשב ומתקינה בכולן, ויוצרת <b>תיקיית תרגילים מוכנה</b>
 במסמכים (<code>DataStructures</code>) עם קיצור דרך בשולחן העבודה. בהפעלה הראשונה Eclipse מכין את עצמו לבד (פרויקט, קידוד עברית, תרגיל פתוח).
 אחר כך — לסגור ולפתוח מחדש את התוכנה.</p>
-<p>את תוסף ה-Java של Microsoft ל-VS Code (השלמה אוטומטית) ההתקנה מורידה לבד ברקע — צריך לשם כך אינטרנט, אבל בלעדיו ההרצה עובדת רגיל.</p>
+<p>את התוספים של Microsoft ל-VS Code (השלמה אוטומטית ל-Java / ל-C#) ההתקנה מורידה לבד ברקע — צריך לשם כך אינטרנט, אבל בלעדיו ההרצה עובדת רגיל.</p>
+<p><b>C# (Visual Studio / VS Code / Rider):</b> החבילה כוללת את כל מה שצריך להרצה הוויזואלית (בלי להתקין שום דבר נוסף). פותחים את הקיצור <b>תרגילי C#</b> בשולחן העבודה (פתרון של Visual Studio עם תרגיל ודוגמאות), ובתפריט שליד כפתור ההפעלה הירוק בוחרים <b>הרצה ויזואלית</b>. ב-VS Code: אותו תוסף, "הרצה ויזואלית" על קובץ ‎.cs. ב-Rider / שורת פקודה: <code>%LOCALAPPDATA%\DSViz\cs\dsviz-cs.exe &lt;תיקיית הפרויקט&gt;</code>.</p>
 </div>
 <p>אם Windows מציג "Windows protected your PC" — זו הגנה כללית על קובץ חדש ולא חתום. לוחצים <b>More info</b> ← <b>Run anyway</b>.</p>
 <p>אם לא נמצא לא VS Code ולא Eclipse — ההתקנה תשאל איפה Eclipse. אם אין הרשאה לכתוב לתיקייה שלו
 (למשל ב-Program Files) — לחיצה ימנית על <code>DSViz-Setup.exe</code> ← "הפעל כמנהל".</p>
-<p><b>למעבדת מחשבים:</b> <code>DSViz-Setup.exe /S</code> מתקין בלי שאלות. הסרה: דרך "אפליקציות ותכונות" של Windows.</p>
+<p><b>למעבדת מחשבים:</b> <code>DSViz-Setup.exe /S /LANG=java</code> (או <code>cs</code> / <code>both</code>) מתקין בלי שאלות. הסרה: דרך "אפליקציות ותכונות" של Windows.</p>
 
 <h3>התקנה ידנית (אם הסקריפט לא עבד)</h3>
 <ul>

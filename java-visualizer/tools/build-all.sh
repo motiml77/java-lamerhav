@@ -13,6 +13,25 @@ VERSION=1.0.1
 
 tools/build-lib.sh
 
+echo "== C# (Unit4.CollectionsLib.dll + dsviz-cs.exe — ההרצה הוויזואלית של C#)"
+# דורש ‎.NET SDK 8 (רק למי שבונה). dsviz-cs מתפרסם self-contained ל-Windows — לתלמיד לא צריך להתקין כלום
+export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+dotnet build csharp/Unit4.CollectionsLib/Unit4.CollectionsLib.csproj -c Release -o build/cs-lib -v q --nologo
+rm -rf build/dsviz-cs-win
+dotnet publish csharp/DsViz.Runner/DsViz.Runner.csproj -c Release -r win-x64 --self-contained -p:PublishReadyToRun=true -p:DebugType=none \
+    -o build/dsviz-cs-win -v q --nologo
+# התוסף של VS Code: הספרייה ודוגמאות C# (נכנסים ל-resources/cs בשלב של VS Code)
+rm -rf build/cs-resources && mkdir -p build/cs-resources/lib build/cs-resources/Examples
+cp build/cs-lib/Unit4.CollectionsLib.dll build/cs-resources/lib/
+for d in csharp/project/Examples/*/; do
+    n=$(basename "$d"); mkdir -p "build/cs-resources/Examples/$n"; cp "$d/Program.cs" "build/cs-resources/Examples/$n/"
+done
+# תיקיית התרגילים של C# שההתקנה יוצרת במסמכים (DataStructures-CS) + תבנית פרויקט ל-Visual Studio
+rm -rf build/project-cs && mkdir -p build/project-cs/lib
+(cd csharp/project && tar c --exclude=bin --exclude=obj --exclude=lib .) | tar x -C build/project-cs
+cp build/cs-lib/Unit4.CollectionsLib.dll build/project-cs/lib/
+python3 tools/make-vs-template.py build/cs-lib/Unit4.CollectionsLib.dll csharp/project/Exercise build/vs-template/DSViz-Exercise.zip
+
 echo "== Eclipse"
 DEPS=build/eclipse-deps
 [ -f "$DEPS/org.eclipse.jdt.core.jar" ] || python3 tools/eclipse-deps.py "$DEPS"
@@ -33,6 +52,7 @@ cd vscode-extension
 rm -rf resources && mkdir -p resources/examples
 cp ../release/dsviz.jar resources/
 cp ../src/examples/*.java resources/examples/
+cp -R ../build/cs-resources resources/cs
 npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/release/dsviz-$VERSION.vsix"
 cd "$ROOT"
 

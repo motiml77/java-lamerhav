@@ -2,9 +2,19 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const templates = require('./templates');
+const javaTemplates = require('./templates');
+const csTemplates = require('./templates-cs');
 const project = require('./project');
 const runner = require('./runner');
+const cs = require('./cs');
+
+/** התבניות של השפה שעובדים בה עכשיו (Java / C#) — נקבע בתחילת כל פעולה לפי השפה */
+let templates = javaTemplates;
+let currentLang = 'java';
+function useLanguage(lang) {
+    currentLang = lang;
+    templates = lang === 'csharp' ? csTemplates : javaTemplates;
+}
 
 const PENDING_KEY = 'dsviz.pendingOpen';
 
@@ -39,14 +49,14 @@ function activate(context) {
         context.subscriptions.push(vscode.window.registerTreeDataProvider(view, { getChildren: () => [], getTreeItem: e => e }));
     }
 
-    // כפתור "הרצה ויזואלית" בשורת המצב, כשפתוח קובץ Java
+    // כפתור "הרצה ויזואלית" בשורת המצב, כשפתוח קובץ Java או C#
     const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     bar.text = '$(play-circle) הרצה ויזואלית';
     bar.tooltip = 'הרצה שבה רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד';
     bar.command = 'dsviz.run';
     const refresh = () => {
         const ed = vscode.window.activeTextEditor;
-        if (ed && ed.document.languageId === 'java') bar.show(); else bar.hide();
+        if (ed && (ed.document.languageId === 'java' || ed.document.languageId === 'csharp')) bar.show(); else bar.hide();
     };
     context.subscriptions.push(bar, vscode.window.onDidChangeActiveTextEditor(refresh));
     refresh();
@@ -57,10 +67,15 @@ function activate(context) {
 
 /** פתיחת תיקיית התרגילים שהותקנה (במסמכים) */
 async function openProject() {
-    const p = project.installedProject();
-    if (p) {
-        await ctx.globalState.update(PENDING_KEY, { file: path.join(p, 'src', 'Main.java'), line: 0 });
-        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(p), false);
+    const options = [];
+    const j = project.installedProject(), c = cs.installedProject();
+    if (j) options.push({ label: 'Java', description: j, dir: j, file: path.join(j, 'src', 'Main.java') });
+    if (c) options.push({ label: 'C#', description: c, dir: c, file: path.join(c, 'Exercise', 'Program.cs') });
+    let pick = options[0];
+    if (options.length > 1) pick = await vscode.window.showQuickPick(options, { title: 'איזו תיקיית תרגילים לפתוח?' });
+    if (pick) {
+        await ctx.globalState.update(PENDING_KEY, { file: pick.file, line: 0 });
+        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(pick.dir), false);
     } else {
         const root = await chooseRoot();
         if (root) await examples();
@@ -70,8 +85,7 @@ async function openProject() {
 /** פעם ראשונה אחרי ההתקנה, בלי תיקייה פתוחה: מציעים לפתוח את תיקיית התרגילים */
 async function firstRun() {
     if (ctx.globalState.get('dsviz.welcomed') || vscode.workspace.workspaceFolders) return;
-    const p = project.installedProject();
-    if (!p) return;
+    if (!project.installedProject() && !cs.installedProject()) return;
     await ctx.globalState.update('dsviz.welcomed', true);
     const open = 'פתיחת תיקיית התרגילים';
     const ans = await vscode.window.showInformationMessage(
@@ -83,9 +97,28 @@ function deactivate() {}
 
 // ------------------------------------------------------------ תרגיל חדש
 
+/** באיזו שפה כותבים: הגדרה dsviz.language → הקובץ הפתוח → מה שיש בתיקייה → שואלים */
+async function chooseLanguage(root) {
+    const setting = vscode.workspace.getConfiguration('dsviz').get('language');
+    if (setting === 'java' || setting === 'csharp') return setting;
+    const ed = vscode.window.activeTextEditor;
+    if (ed && ed.document.languageId === 'csharp') return 'csharp';
+    if (ed && ed.document.languageId === 'java') return 'java';
+    const detected = cs.detectLanguage(root);
+    if (detected) return detected;
+    const pick = await vscode.window.showQuickPick(
+        [{ label: 'Java', id: 'java' }, { label: 'C#', id: 'csharp' }],
+        { title: 'תרגיל חדש — באיזו שפה?', placeHolder: 'בחרו שפה' });
+    return pick && pick.id;
+}
+
 async function newExercise(preset) {
     const root = await chooseRoot();
     if (!root) return;
+    const lang = await chooseLanguage(root);
+    if (!lang) return;
+    useLanguage(lang);
+    const csharp = lang === 'csharp';
 
     const total = 6;
     let structure = preset;
@@ -167,15 +200,22 @@ async function newExercise(preset) {
         }
     }
 
-    const { srcDir, warnings } = project.setup(root, path.join(ctx.extensionPath, 'resources', project.JAR_NAME));
-    await warnConflicts(root);
+    let srcDir, warnings;
+    if (csharp) {
+        ({ warnings } = cs.setup(root, path.join(ctx.extensionPath, 'resources', 'cs', 'lib', cs.LIB)));
+        srcDir = cs.exerciseDir(root);
+        fs.mkdirSync(srcDir, { recursive: true });
+    } else {
+        ({ srcDir, warnings } = project.setup(root, path.join(ctx.extensionPath, 'resources', project.JAR_NAME)));
+        await warnConflicts(root);
+    }
     for (const w of warnings) vscode.window.showWarningMessage(w);
 
     const className = await vscode.window.showInputBox({
-        title: `${st.label} — (5/${total}) שם המחלקה (הקובץ)`,
-        value: project.nextClassName(srcDir, 'Targil'),
+        title: `${st.label} — (5/${total}) ${csharp ? 'שם הפרויקט (והמחלקה)' : 'שם המחלקה (הקובץ)'}`,
+        value: csharp ? cs.nextProjectName(srcDir, 'Targil') : project.nextClassName(srcDir, 'Targil'),
         validateInput: s => !templates.isIdentifier(s) ? 'אותיות באנגלית וספרות בלבד, מתחיל באות'
-            : fs.existsSync(path.join(srcDir, s + '.java')) ? 'כבר קיים קובץ בשם הזה' : null
+            : fs.existsSync(path.join(srcDir, s + (csharp ? '' : '.java'))) ? 'כבר קיים בשם הזה' : null
     });
     if (!className) return;
     const functionName = await vscode.window.showInputBox({
@@ -190,8 +230,13 @@ async function newExercise(preset) {
     let gen;
     try { gen = templates.generate(opts); }
     catch (e) { vscode.window.showErrorMessage(e.message); return; }
-    const file = path.join(srcDir, className + '.java');
-    fs.writeFileSync(file, gen.code, 'utf8');
+    let file;
+    if (csharp) {
+        file = cs.writeProject(srcDir, className, gen.code);   // תיקייה לתרגיל: .csproj + Program.cs
+    } else {
+        file = path.join(srcDir, className + '.java');
+        fs.writeFileSync(file, gen.code, 'utf8');
+    }
     await openAt(root, file, gen.cursorLine);
     showClassInfo(type);
 }
@@ -224,10 +269,12 @@ function typeItems(structure) {
 
 async function insertSnippet(structure) {
     const ed = vscode.window.activeTextEditor;
-    if (!ed || ed.document.languageId !== 'java') {
-        vscode.window.showInformationMessage('פתחו קובץ Java ושימו את הסמן במקום שבו רוצים את המבנה (בתוך main או בתוך פעולה).');
+    if (!ed || (ed.document.languageId !== 'java' && ed.document.languageId !== 'csharp')) {
+        vscode.window.showInformationMessage('פתחו קובץ Java או C# ושימו את הסמן במקום שבו רוצים את המבנה (בתוך main או בתוך פעולה).');
         return;
     }
+    const csharp = ed.document.languageId === 'csharp';
+    useLanguage(csharp ? 'csharp' : 'java');
     if (!structure) {
         const pick = await vscode.window.showQuickPick(
             Object.entries(templates.SNIPPETS).map(([id, label]) => ({ label, id })),
@@ -269,7 +316,10 @@ async function insertSnippet(structure) {
     await ed.edit(b => {
         if (blank) b.replace(line.range, code);
         else b.insert(line.range.end, '\n' + code);
-        if (!/import\s+unit4\.collectionsLib\.\*\s*;/.test(text)) {
+        if (csharp) {
+            const need = ['using System;', 'using Unit4.CollectionsLib;'].filter(u => !text.includes(u));
+            if (need.length) b.insert(new vscode.Position(0, 0), need.join('\n') + '\n');
+        } else if (!/import\s+unit4\.collectionsLib\.\*\s*;/.test(text)) {
             const pkg = /^\s*package\s+[\w.]+\s*;.*$/m.exec(text);
             const at = pkg ? ed.document.positionAt(pkg.index + pkg[0].length) : new vscode.Position(0, 0);
             b.insert(at, pkg ? '\n\nimport unit4.collectionsLib.*;' : 'import unit4.collectionsLib.*;\n\n');
@@ -285,7 +335,7 @@ let infoPanel;
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function showClassInfo(className) {
-    const info = templates.CLASS_INFO[className];
+    const info = currentLang === 'csharp' ? csTemplates.classInfo(className) : javaTemplates.CLASS_INFO[className];
     if (!info || !vscode.window.createWebviewPanel) return;
     const table = (heads, rows) => '<table><tr>' + heads.map(h => `<th>${h}</th>`).join('') + '</tr>'
         + rows.map(r => '<tr>' + r.map((c, i) => `<td${i === 0 ? ' class="code"' : ''}>${esc(c)}</td>`).join('') + '</tr>').join('') + '</table>';
@@ -317,8 +367,9 @@ function showClassInfo(className) {
  */
 async function run() {
     const ed = vscode.window.activeTextEditor;
+    if (ed && ed.document.fileName.endsWith('.cs')) return runCs(ed);
     if (!ed || !ed.document.fileName.endsWith('.java')) {
-        vscode.window.showInformationMessage('פתחו קובץ Java (תרגיל) ואז לחצו "הרצה ויזואלית".');
+        vscode.window.showInformationMessage('פתחו קובץ Java או C# (תרגיל) ואז לחצו "הרצה ויזואלית".');
         return;
     }
     await ed.document.save();
@@ -374,6 +425,31 @@ async function run() {
     terminal.show(true);
 }
 
+/**
+ * הרצה ויזואלית של תרגיל C#: dsviz-cs (מההתקנה) מקמפל את הפרויקט, מכניס דיווח לפני כל שורה, מריץ,
+ * ופותח את אותו חלון ויזואלי. שגיאות קומפילציה מודפסות בטרמינל, באותו פורמט כמו ב-Visual Studio.
+ */
+async function runCs(ed) {
+    await ed.document.save();
+    await vscode.workspace.saveAll(false);
+    const folder = vscode.workspace.getWorkspaceFolder(ed.document.uri);
+    const root = folder ? folder.uri.fsPath : path.dirname(ed.document.fileName);
+    const exe = cs.findRunner(vscode.workspace.getConfiguration('dsviz').get('csRunner'));
+    if (!exe) {
+        vscode.window.showErrorMessage('לא נמצא dsviz-cs (ההרצה הוויזואלית של C#). יש להתקין מחדש את DSViz-Setup.exe ולבחור את חבילת C#.');
+        return;
+    }
+    const target = cs.projectDirOf(ed.document.fileName, root) || ed.document.fileName;
+    if (terminal) terminal.dispose();
+    const name = 'מבני נתונים: הרצה ויזואלית (C#)';
+    const args = exe.prefix.concat([target]);
+    terminal = runner.WIN
+        ? vscode.window.createTerminal({ name, cwd: root, shellPath: process.env.ComSpec || 'cmd.exe',
+                                         shellArgs: ['/d', '/c', runner.windowsScript(require('os').tmpdir(), exe.command, args)] })
+        : vscode.window.createTerminal({ name, cwd: root, shellPath: exe.command, shellArgs: args });
+    terminal.show(true);
+}
+
 /** שגיאות הקומפילציה כקו אדום בקוד (עובד גם בלי התוספים של Java) */
 function showErrors(result) {
     diagnostics.clear();
@@ -393,6 +469,9 @@ function showErrors(result) {
 async function examples() {
     const root = await chooseRoot();
     if (!root) return;
+    const lang = await chooseLanguage(root);
+    if (!lang) return;
+    if (lang === 'csharp') return examplesCs(root);
     const { srcDir, warnings } = project.setup(root, path.join(ctx.extensionPath, 'resources', project.JAR_NAME));
     for (const w of warnings) vscode.window.showWarningMessage(w);
     const from = path.join(ctx.extensionPath, 'resources', 'examples');
@@ -408,6 +487,27 @@ async function examples() {
         files.map(f => ({ label: names[path.basename(f, '.java')] || f, description: f, file: f })),
         { title: 'איזו דוגמה לפתוח?' });
     if (pick) await openAt(root, path.join(to, pick.file), 0);
+}
+
+/** דוגמאות C#: כל דוגמה היא פרויקט (Examples/<שם>) עם .csproj ו-Program.cs */
+async function examplesCs(root) {
+    const { warnings } = cs.setup(root, path.join(ctx.extensionPath, 'resources', 'cs', 'lib', cs.LIB));
+    for (const w of warnings) vscode.window.showWarningMessage(w);
+    const from = path.join(ctx.extensionPath, 'resources', 'cs', 'Examples');
+    const to = path.join(root, 'Examples');
+    const names = { StackExamples: 'מחסנית', QueueExamples: 'תור', ListExamples: 'רשימה מקושרת', TreeExamples: 'עצים',
+                    ArrayExamples: 'מערכים (חד ודו ממדיים)', StudentExamples: 'תלמידים (Student)', CarExamples: 'מכוניות (Car)', RecursionExamples: 'רקורסיה (עצרת, מחסנית)' };
+    for (const d of fs.readdirSync(from)) {
+        const dest = path.join(to, d);
+        if (fs.existsSync(dest)) continue;
+        fs.mkdirSync(path.join(dest, 'Properties'), { recursive: true });
+        for (const f of ['Program.cs']) fs.copyFileSync(path.join(from, d, f), path.join(dest, f));
+        fs.writeFileSync(path.join(dest, d + '.csproj'), cs.csproj(d), 'utf8');
+        fs.writeFileSync(path.join(dest, 'Properties', 'launchSettings.json'), JSON.stringify(cs.LAUNCH, null, 2) + '\n', 'utf8');
+    }
+    const pick = await vscode.window.showQuickPick(
+        fs.readdirSync(from).map(d => ({ label: names[d] || d, description: d, dir: d })), { title: 'איזו דוגמה לפתוח?' });
+    if (pick) await openAt(root, path.join(to, pick.dir, 'Program.cs'), 0);
 }
 
 // ------------------------------------------------------------ עזרים

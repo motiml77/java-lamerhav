@@ -183,7 +183,7 @@ final class RecursionPanel extends JPanel {
         if (prev != null && prev.line == where.line) return;   // אותה שורה שוב (למשל חזרה מקריאה באמצע השורה)
         if (prev != null && prev.cond == null && COND.matcher(prev.code).find()) {
             String after = afterCondition(prev.code);
-            if (after.isEmpty() || after.equals("{")) prev.cond = where.line == prev.line + 1;   // הגוף בשורות הבאות
+            if (after.isEmpty() || after.equals("{")) prev.cond = where.line == bodyStart(where, prev.line);   // הגוף בשורות הבאות
             else if (after.startsWith("return")) prev.cond = Boolean.FALSE;   // אם היה מתקיים — הפעולה הייתה מחזירה כאן
         }
         Entry e = new Entry();
@@ -191,6 +191,18 @@ final class RecursionPanel extends JPanel {
         String code = SourceFiles.line(where);
         e.code = code == null ? "" : code.trim();
         c.trail.add(e);
+    }
+
+    /** השורה הראשונה של הגוף אחרי תנאי: מדלגים על "{" לבד בשורה (סגנון C#), שורות ריקות והערות */
+    private static int bodyStart(Frame where, int condLine) {
+        List<String> lines = SourceFiles.lines(where);
+        int n = condLine + 1;
+        while (lines != null && n - 1 < lines.size()) {
+            String t = lines.get(n - 1).trim();
+            if (!(t.isEmpty() || t.equals("{") || t.startsWith("//"))) break;
+            n++;
+        }
+        return n;
     }
 
     /** מה שבא אחרי ה-) שסוגר את התנאי: "if (n <= 1) return 1;" → "return 1;" */
@@ -463,7 +475,8 @@ final class RecursionPanel extends JPanel {
             g.setFont(monoBold);
             FontMetrics fm = g.getFontMetrics();
             String v = fit(from.returned, fm, 120);
-            int w = fm.stringWidth(v) + 14, h = 20, px = rx - w / 2, py = sy - h - 4;
+            // הערך באמצע הקו האנכי של החזרה (ולא בפינה שלו), כדי שיהיה ברור שזה מה שעובר בקו הזה
+            int w = fm.stringWidth(v) + 14, h = 20, px = rx - w / 2, py = (sy + ty) / 2 - h / 2;
             g.setColor(DONE);
             g.fillRoundRect(px, py, w, h, h, h);
             g.setColor(Color.WHITE);
