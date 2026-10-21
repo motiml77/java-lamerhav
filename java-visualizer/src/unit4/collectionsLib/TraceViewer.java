@@ -10,6 +10,7 @@ import java.util.List;
 
 import javax.swing.SwingUtilities;
 
+import unit4.collectionsLib.Model.Access;
 import unit4.collectionsLib.Model.ArrayView;
 import unit4.collectionsLib.Model.Cell;
 import unit4.collectionsLib.Model.ChainView;
@@ -18,6 +19,8 @@ import unit4.collectionsLib.Model.Kind;
 import unit4.collectionsLib.Model.LinearView;
 import unit4.collectionsLib.Model.Mark;
 import unit4.collectionsLib.Model.MatrixView;
+import unit4.collectionsLib.Model.Obj;
+import unit4.collectionsLib.Model.ObjView;
 import unit4.collectionsLib.Model.Step;
 import unit4.collectionsLib.Model.TreeCell;
 import unit4.collectionsLib.Model.TreeView;
@@ -90,6 +93,13 @@ public final class TraceViewer {
                     cur.calls.add(new Frame(f[1], f[2], f[3].isEmpty() ? null : f[3], Integer.parseInt(f[4])));
                     if (cur.where == null) cur.where = cur.calls.get(0);
                     break;
+                case "ACC":
+                    cur.access = new Access();
+                    cur.access.field = f[1];
+                    cur.access.text = f[2];
+                    cur.access.mark = Mark.valueOf(f[3]);
+                    cur.access.obj = readObj();
+                    break;
                 case "VARS":
                     cur.vars = new ArrayList<String[]>();
                     break;
@@ -118,7 +128,10 @@ public final class TraceViewer {
             l.markIndex = Integer.parseInt(f[5]);
             l.mark = Mark.valueOf(f[6]);
             l.ghost = f[7].equals("\u0000") ? null : f[7];
-            while (next("I")) l.items.add(rows.get(pos++)[1]);
+            while (next("I")) {
+                l.items.add(rows.get(pos++)[1]);
+                l.objs.add(readObj());
+            }
             v = l;
             v.focus = f[3].equals("1");
             v.title = f[4];
@@ -127,7 +140,11 @@ public final class TraceViewer {
             c.cycleTo = Integer.parseInt(f[4]);
             c.joinText = f[5].equals("\u0000") ? null : f[5];
             c.truncated = f[6].equals("1");
-            while (next("C")) c.cells.add(readCell(new Cell(), rows.get(pos++)));
+            while (next("C")) {
+                Cell cell = readCell(new Cell(), rows.get(pos++));
+                cell.obj = readObj();
+                c.cells.add(cell);
+            }
             v = c;
             v.focus = f[2].equals("1");
             v.title = f[3];
@@ -141,12 +158,18 @@ public final class TraceViewer {
             ArrayView a = new ArrayView();
             a.truncated = f[4].equals("1");
             while (true) {
-                if (next("I")) a.items.add(rows.get(pos++)[1]);
+                if (next("I")) { a.items.add(rows.get(pos++)[1]); a.objs.add(readObj()); }
                 else if (next("CH")) a.changed.add(Integer.valueOf(rows.get(pos++)[1]));
                 else if (next("IL")) { String[] r = rows.get(pos++); label(a.indexLabels, Integer.parseInt(r[1]), r[2]); }
                 else break;
             }
             v = a;
+            v.focus = f[2].equals("1");
+            v.title = f[3];
+        } else if (type.equals("OBJ")) {               // V OBJ focus title  + O ...
+            ObjView ov = new ObjView();
+            ov.obj = readObj();
+            v = ov;
             v.focus = f[2].equals("1");
             v.title = f[3];
         } else {                                       // V MAT focus title
@@ -158,6 +181,14 @@ public final class TraceViewer {
                     for (int i = 1; i < r.length; i++) cells.add(r[i]);
                     if (cells.size() == 1 && cells.get(0).equals("\u0000")) cells.clear();
                     m.rows.add(cells);
+                    List<Obj> objRow = new ArrayList<Obj>();
+                    for (int i = 0; i < cells.size(); i++) objRow.add(null);
+                    while (next("OBJAT")) {
+                        int col = Integer.parseInt(rows.get(pos++)[1]);
+                        Obj ob = readObj();
+                        if (col < objRow.size()) objRow.set(col, ob);
+                    }
+                    m.objs.add(objRow);
                 } else if (next("CH")) m.changed.add(rows.get(pos++)[1]);
                 else if (next("RL")) { String[] r = rows.get(pos++); label(m.rowLabels, Integer.parseInt(r[1]), r[2]); }
                 else if (next("CL")) { String[] r = rows.get(pos++); label(m.colLabels, Integer.parseInt(r[1]), r[2]); }
@@ -188,9 +219,27 @@ public final class TraceViewer {
         TreeCell c = new TreeCell();
         readCell(c, f);
         c.shared = f[4].equals("1");
+        c.obj = readObj();
         c.left = readTree();
         c.right = readTree();
         return c;
+    }
+
+    /** אובייקט של מחלקה (אם השורה הבאה היא O): O זהות סוג כותרת פרטים תוויות, ואחריה F לכל מאפיין */
+    private static Obj readObj() {
+        if (!next("O")) return null;
+        String[] f = rows.get(pos++);
+        Obj o = new Obj();
+        o.id = Integer.parseInt(f[1]);
+        o.type = f[2];
+        o.title = f[3];
+        o.sub = f[4];
+        if (!f[5].isEmpty()) for (String l : f[5].split("\u0001")) o.labels.add(l);
+        while (next("F")) {
+            String[] r = rows.get(pos++);
+            o.fields.add(new String[] { r[1], r[2] });
+        }
+        return o;
     }
 
     private static void label(java.util.Map<Integer, List<String>> m, int idx, String name) {

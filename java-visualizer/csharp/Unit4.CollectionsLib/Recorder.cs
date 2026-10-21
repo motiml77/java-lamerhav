@@ -159,7 +159,15 @@ namespace Unit4.CollectionsLib
             }
             var s = new Step { Kind = kind, Text = text };
             for (int i = Frames.Count - 1; i >= 0 && s.Calls.Count < MaxCallFrames; i--) s.Calls.Add(Frames[i].Copy());
-            try { s.Views = Snapshot(target, mark, ghost); }
+            try
+            {
+                s.Views = Snapshot(target, mark, ghost);
+                if (accOwner != null)
+                {
+                    Obj ob = ObjOf(accOwner);
+                    if (ob != null) s.Access = new Access { Obj = ob, Field = accField, Text = accHow, Mark = accMark };
+                }
+            }
             catch (Exception) { s.Views = new List<View>(); }
             s.OutLen = Output.Length;
             s.Vars = currentVars;
@@ -173,6 +181,172 @@ namespace Unit4.CollectionsLib
             if (e is IndexOutOfRangeException) s += "   (אינדקס מחוץ לגבולות המערך)";
             if (e is InvalidCastException) s += "   (המרה לא חוקית)";
             return s;
+        }
+
+        // ------------------------------------------------------------ גישה למאפיינים של אובייקט (Student, Car)
+
+        static int objIdCounter;
+        static object accOwner;
+        static string accField, accHow;
+        static Mark accMark;
+
+        /// <summary>מזהה לאובייקט של מחלקה (Student / Car) — 0 בהרצה רגילה</summary>
+        public static int NextObjId() { return Active ? ++objIdCounter : 0; }
+
+        /// <summary>מחרוזת עם מרכאות, לתצוגה בקוד: "נועה"</summary>
+        public static string Lit(string s) { return s == null ? "null" : "\"" + Shorten(s, 24) + "\""; }
+
+        /// <summary>getter: קריאה של המאפיין field של owner — מתועדת, והכרטיס של owner מוצג עם המאפיין מודגש. מחזיר את הערך</summary>
+        public static T Got<T>(object owner, string field, string how, T value)
+        {
+            if (!Active) return value;
+            object v = value;
+            string text = v is string ? Lit((string)v) : v is Array ? ArrayText((Array)v) : v == null ? "null" : Plain(v);
+            AccessStep(owner, field, how, Mark.READ, "  →  " + text);
+            return value;
+        }
+
+        /// <summary>setter / פעולה ששינתה את המאפיין field של owner (אחרי השינוי)</summary>
+        public static void Changed(object owner, string field, string how)
+        {
+            if (Active) AccessStep(owner, field, how, Mark.CHANGED, "");
+        }
+
+        static void AccessStep(object owner, string field, string how, Mark mark, string result)
+        {
+            accOwner = owner; accField = field; accHow = how; accMark = mark;
+            try { AddStep(mark == Mark.CHANGED ? Kind.CHANGE : Kind.READ, owner, mark, null, Str(owner) + "." + how + result, false); }
+            finally { accOwner = null; }
+        }
+
+        // ------------------------------------------------------------ אובייקטים של מחלקות: כרטיס + טבלת מאפיינים
+
+        /// <summary>האובייקטים שנוצרו בצילום הנוכחי — כדי לחבר אליהם את שמות המשתנים</summary>
+        static readonly List<Obj> SnapObjs = new List<Obj>();
+
+        static bool IsRecordLike(Type t)
+        {
+            if (t == null || t.IsPrimitive || t.IsEnum || t.IsArray || t == typeof(string) || t == typeof(decimal) || t.IsPointer) return false;
+            if (typeof(Delegate).IsAssignableFrom(t)) return false;
+            string ns = t.Namespace ?? "";
+            if (ns == "System" || ns.StartsWith("System.") || ns.StartsWith("Microsoft.")) return false;
+            return t.Namespace != "Unit4.CollectionsLib" || t == typeof(Student) || t == typeof(Car);
+        }
+
+        /// <summary>כרטיס לאובייקט: Student / Car (מוכנים), או מחלקה של התלמידים (לפי המאפיינים שלה). null — ערך רגיל</summary>
+        public static Obj ObjOf(object v)
+        {
+            if (v == null) return null;
+            Obj o = null;
+            var st = v as Student;
+            var car = v as Car;
+            if (st != null) o = st.VizObj();
+            else if (car != null) o = car.VizObj();
+            else if (IsRecordLike(v.GetType())) o = ReflectObj(v);
+            if (o != null) SnapObjs.Add(o);
+            return o;
+        }
+
+        static Obj ReflectObj(object v)
+        {
+            var o = new Obj { Id = RuntimeHelpers.GetHashCode(v), Type = CleanTypeName(v.GetType()) };
+            var chain = new List<Type>();
+            for (Type c = v.GetType(); c != null && c != typeof(object); c = c.BaseType) chain.Insert(0, c);
+            foreach (Type c in chain)
+            {
+                foreach (var f in c.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public
+                                              | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                {
+                    if (o.Fields.Count >= 12) break;
+                    string val;
+                    try { val = FieldText(f.GetValue(v)); } catch (Exception) { val = "?"; }
+                    string name = f.Name;
+                    if (name.StartsWith("<") && name.Contains(">k__BackingField")) name = name.Substring(1, name.IndexOf('>') - 1);   // מאפיין אוטומטי
+                    o.Fields.Add(new[] { name, val });
+                }
+            }
+            Describe(o);
+            return o;
+        }
+
+        static string CleanTypeName(Type t)
+        {
+            string n = t.Name;
+            int k = n.IndexOf('`');
+            return k > 0 ? n.Substring(0, k) : n;
+        }
+
+        /// <summary>ערך של מאפיין בטבלה: קצר, בסגנון C#</summary>
+        static string FieldText(object x)
+        {
+            if (x == null) return "null";
+            if (x is string) return Lit((string)x);
+            if (x is char) return "'" + x + "'";
+            if (x is bool || x is IFormattable) return Plain(x);
+            if (x is Array)
+            {
+                var a = (Array)x;
+                var b = new StringBuilder("[");
+                int i = 0;
+                foreach (object e in a)
+                {
+                    if (i++ >= 6) { b.Append(", …"); break; }
+                    b.Append(i == 1 ? "" : ", ").Append(FieldText(e));
+                }
+                return b.Append(']').ToString();
+            }
+            if (x is Student || x is Car) return Str(x);
+            if (x is IVizLinear || x is IVizNode || x is IVizBin) return FormatVar(x);
+            try { return Shorten(x.ToString(), 24); } catch (Exception) { return x.GetType().Name; }
+        }
+
+        /// <summary>שורות הכרטיס של מחלקה כללית: כותרת = שדה טקסט בשם name/title (או הראשון), ושורה שנייה = עוד שני מאפיינים</summary>
+        static void Describe(Obj o)
+        {
+            string[] main = null;
+            foreach (string[] f in o.Fields)
+            {
+                string n = f[0].ToLowerInvariant();
+                if (f[1].StartsWith("\"") && (n == "name" || n == "title" || n.EndsWith("name"))) { main = f; break; }
+            }
+            if (main == null) foreach (string[] f in o.Fields) if (f[1].StartsWith("\"")) { main = f; break; }
+            var sub = new StringBuilder();
+            int k = 0;
+            foreach (string[] f in o.Fields)
+            {
+                if (f == main || k >= 2) continue;
+                sub.Append(k++ == 0 ? "" : " · ").Append(f[0]).Append('=').Append(Unquote(f[1]));
+            }
+            o.Title = main != null ? Shorten(Unquote(main[1]), 16) : o.Type;
+            o.Sub = Shorten(sub.ToString(), 22);
+        }
+
+        static string Unquote(string s) { return s.Length >= 2 && s[0] == '"' && s[s.Length - 1] == '"' ? s.Substring(1, s.Length - 2) : s; }
+
+        /// <summary>שמות המשתנים מעל הכרטיסים; ואובייקט שמשתנה מצביע אליו ואינו בתוך מבנה — מוצג לבד</summary>
+        static void AttachObjects(List<View> views, Frame top)
+        {
+            if (top == null) return;
+            var seen = new HashSet<object>(new RefComparer());
+            foreach (var kv in top.Vars)
+            {
+                object v = kv.Value;
+                if (v == null || v.GetType().IsValueType || v is string || !(v is Student || v is Car || IsRecordLike(v.GetType())) || !seen.Add(v)) continue;
+                Obj probe = ObjOf(v);                      // מקבל את אותה זהות כמו הכרטיסים בתוך המבנים
+                var names = Aliases(v, true);
+                bool shown = false;
+                foreach (Obj o in SnapObjs.ToArray())
+                {
+                    if (o == probe || o.Id != probe.Id) continue;
+                    shown = true;
+                    foreach (string n in names) if (!o.Labels.Contains(n)) o.Labels.Add(n);
+                }
+                if (!shown)
+                {
+                    probe.Labels.AddRange(names);
+                    views.Add(new ObjView { Obj = probe, Title = string.Join(", ", names) });
+                }
+            }
         }
 
         // ------------------------------------------------------------ שמות
@@ -325,6 +499,7 @@ namespace Unit4.CollectionsLib
         static List<View> Snapshot(object target, Mark mark, string ghost)
         {
             var views = new List<View>();
+            SnapObjs.Clear();
             Frame top = Frames.Count > 0 ? Frames[Frames.Count - 1] : null;
 
             // כל הערכים של המשתנים, מהמסגרת העליונה כלפי מטה (בלי כפילויות לפי זהות)
@@ -358,7 +533,7 @@ namespace Unit4.CollectionsLib
                 var v = new LinearView { Stack = l.IsStack, Focus = ReferenceEquals(l, target) };
                 v.Title = names.Count > 0 ? string.Join(", ", names) : NameOfStored(l);
                 IList<object> items = l.VizItems;                    // מחסנית: הראש ראשון; תור: ראש התור ראשון
-                foreach (object it in items) v.Items.Add(Str(it));
+                foreach (object it in items) { v.Items.Add(Str(it)); v.Objs.Add(ObjOf(it)); }
                 if (v.Focus)
                 {
                     v.Mark = mark;
@@ -416,6 +591,7 @@ namespace Unit4.CollectionsLib
                 tv.Focus = focus[0];
                 views.Add(tv);
             }
+            AttachObjects(views, top);
             return views;
         }
 
@@ -492,6 +668,7 @@ namespace Unit4.CollectionsLib
         static void FillCell(Cell cell, object node, object value, object target, Mark mark, Dictionary<object, List<string>> labels)
         {
             cell.Value = Str(value);
+            cell.Obj = ObjOf(value);
             cell.Mark = ReferenceEquals(node, target) ? mark : Mark.NONE;
             cell.Current = false;
             List<string> l;
@@ -522,23 +699,32 @@ namespace Unit4.CollectionsLib
             if (IsMatrix(arr))
             {
                 var m = new MatrixView();
-                bool rect = arr.Rank == 2;
+                bool rect = arr.Rank == 2, anyObj = false;
                 int rows = Math.Min(rect ? arr.GetLength(0) : arr.Length, MaxMatrix);
                 for (int r = 0; r < rows; r++)
                 {
                     var cells = new List<string>();
+                    var objRow = new List<Obj>();
+                    Action<object> add = item =>
+                    {
+                        cells.Add(Str(item));
+                        Obj ob = ObjOf(item);
+                        objRow.Add(ob);
+                        anyObj |= ob != null;
+                    };
                     if (rect)
                     {
                         int cols = Math.Min(arr.GetLength(1), MaxMatrix);
-                        for (int c = 0; c < cols; c++) cells.Add(Str(arr.GetValue(r, c)));
+                        for (int c = 0; c < cols; c++) add(arr.GetValue(r, c));
                     }
                     else
                     {
                         var row = arr.GetValue(r) as Array;
                         int cols = row == null ? 0 : Math.Min(row.Length, MaxMatrix);
-                        for (int c = 0; c < cols; c++) cells.Add(Str(row.GetValue(c)));
+                        for (int c = 0; c < cols; c++) add(row.GetValue(c));
                     }
                     m.Rows.Add(cells);
+                    m.Objs.Add(objRow);
                     for (int c = 0; c < cells.Count; c++)
                     {
                         string f = r + "," + c + "=" + cells[c];
@@ -546,6 +732,7 @@ namespace Unit4.CollectionsLib
                         if (old != null && !old.Contains(f)) m.Changed.Add(r + "," + c);
                     }
                 }
+                if (!anyObj) m.Objs.Clear();
                 foreach (var iv in indexVars)
                     foreach (string nm in local)
                     {
@@ -560,7 +747,16 @@ namespace Unit4.CollectionsLib
             {
                 var a = new ArrayView();
                 int n = arr.Length;
-                for (int i = 0; i < Math.Min(n, MaxArray); i++) a.Items.Add(Str(arr.GetValue(i)));
+                bool anyObj = false;
+                for (int i = 0; i < Math.Min(n, MaxArray); i++)
+                {
+                    object item = arr.GetValue(i);
+                    a.Items.Add(Str(item));
+                    Obj ob = ObjOf(item);
+                    a.Objs.Add(ob);
+                    anyObj |= ob != null;
+                }
+                if (!anyObj) a.Objs.Clear();
                 a.Truncated = n > MaxArray;
                 for (int i = 0; i < a.Items.Count; i++)
                     if (old != null && (i >= old.Count || old[i] != a.Items[i])) a.Changed.Add(i);

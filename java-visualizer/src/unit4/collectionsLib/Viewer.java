@@ -122,6 +122,7 @@ final class Viewer extends JFrame {
     private int codeLine = -1;
 
     private final StructPanel structs = new StructPanel();
+    private final ObjDock objDock = new ObjDock();
     private final RecursionPanel recursion = new RecursionPanel();
     private final StructPanel miniStructs = new StructPanel();
     private final JPanel miniBox = new JPanel(new BorderLayout());
@@ -257,7 +258,11 @@ final class Viewer extends JFrame {
         JPanel structPage = new JPanel(new BorderLayout());
         structPage.setOpaque(false);
         structPage.add(structScroll, BorderLayout.CENTER);
-        structPage.add(legend(), BorderLayout.SOUTH);
+        JPanel structSouth = new JPanel(new BorderLayout());
+        structSouth.setOpaque(false);
+        structSouth.add(objDock, BorderLayout.NORTH);
+        structSouth.add(legend(), BorderLayout.CENTER);
+        structPage.add(structSouth, BorderLayout.SOUTH);
         JPanel recPage = new JPanel(new BorderLayout());
         recPage.setOpaque(false);
         recPage.add(recScroll, BorderLayout.CENTER);
@@ -696,6 +701,7 @@ final class Viewer extends JFrame {
         updateCounter();
 
         structs.setStep(s);
+        objDock.setStep(s);
         // תרגיל ברקורסיה: בפעם הראשונה שיש רקורסיה — עוברים לבד ללשונית "רקורסיה" (אפשר לחזור ל"מבנים")
         if (recursionExercise && !userChoseView && !recursionShown && RecursionPanel.recursive(s)) showView(true);
         if (recursionShown) {

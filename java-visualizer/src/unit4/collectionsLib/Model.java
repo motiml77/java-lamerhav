@@ -59,6 +59,33 @@ final class Model {
         int outLen;                        // כמה פלט הודפס עד הצעד הזה
         List<String[]> vars;               // במצב שורה-שורה: המשתנים המקומיים {שם, ערך}; אחרת null
         String returned;                   // RETURN: הערך שהפעולה החזירה (null אם void)
+        Access access;                     // קריאה / שינוי של מאפיין באובייקט (למשל s.getName()) — או null
+    }
+
+    /**
+     * אובייקט של מחלקה (Student, Car, או מחלקה של התלמיד) — כרטיס קטן בתוך המבנה, וטבלת המאפיינים שלו.
+     * id = זהות האובייקט (אותו אובייקט בכמה מקומות / קישור ל-Access); 0 או שלילי = לא ידוע.
+     */
+    static final class Obj {
+        int id;
+        String type;                       // Student
+        String title;                      // שורה ראשונה בכרטיס: "נועה"
+        String sub;                        // שורה שנייה: "יא2 · 84"
+        final List<String[]> fields = new ArrayList<String[]>();   // {שם, ערך}
+        final List<String> labels = new ArrayList<String>();       // שמות משתנים שמצביעים עליו (s1, best...)
+    }
+
+    /** הצעד קרא ({@link Mark#READ}) או שינה ({@link Mark#CHANGED}) את המאפיין field של האובייקט obj */
+    static final class Access {
+        Obj obj;
+        String field;                      // שם המאפיין, כמו ב-Obj.fields
+        String text;                       // "getName()"
+        Mark mark = Mark.READ;
+    }
+
+    /** אובייקט שמשתנה מצביע אליו ואינו בתוך מבנה: מוצג לבד, כטבלת מאפיינים */
+    static final class ObjView extends View {
+        Obj obj;
     }
 
     abstract static class View {
@@ -73,6 +100,7 @@ final class Model {
         int markIndex = -1;
         Mark mark = Mark.NONE;
         String ghost;                      // ערך שהוצא בצעד הזה (pop / remove)
+        final List<Obj> objs = new ArrayList<Obj>();   // במקביל ל-items: אובייקט (או null אם זה ערך רגיל)
     }
 
     /** תא ברשימה מקושרת או צומת בעץ */
@@ -80,6 +108,7 @@ final class Model {
         String value;
         Mark mark = Mark.NONE;
         boolean current;                   // הצומת האחרון שנגעו בו (ה"מצביע")
+        Obj obj;                           // אם הערך הוא אובייקט של מחלקה
         final List<String> labels = new ArrayList<String>(); // שמות מ-Viz.point
     }
 
@@ -100,6 +129,7 @@ final class Model {
     static final class ArrayView extends View {
         final List<String> items = new ArrayList<String>();
         final java.util.Set<Integer> changed = new java.util.HashSet<Integer>();
+        final List<Obj> objs = new ArrayList<Obj>();   // במקביל ל-items (או ריק אם אין אובייקטים)
         /** אינדקס → שמות משתנים שערכם הוא האינדקס הזה (למשל i, j) */
         final java.util.Map<Integer, List<String>> indexLabels = new java.util.HashMap<Integer, List<String>>();
         boolean truncated;
@@ -109,6 +139,7 @@ final class Model {
     static final class MatrixView extends View {
         final List<List<String>> rows = new ArrayList<List<String>>();
         final java.util.Set<String> changed = new java.util.HashSet<String>();   // "שורה,עמודה"
+        final List<List<Obj>> objs = new ArrayList<List<Obj>>();   // במקביל ל-rows (או ריק אם אין אובייקטים)
         final java.util.Map<Integer, List<String>> rowLabels = new java.util.HashMap<Integer, List<String>>();
         final java.util.Map<Integer, List<String>> colLabels = new java.util.HashMap<Integer, List<String>>();
     }

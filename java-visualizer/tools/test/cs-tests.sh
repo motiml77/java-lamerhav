@@ -38,6 +38,10 @@ done
 grep -qP '^STEP\tRETURN\t\d+\t24\t' "$W/RecursionExamples.trace" && echo "ערך ההחזרה 24 נרשם" || { echo "חסר RETURN"; exit 1; }
 grep -qP '^VAR\ttotal\t' "$W/StackExamples.trace" && grep -q '^V	LIN	1' "$W/StackExamples.trace" && echo "משתנים ומחסנית נרשמו" || { echo "חסרים משתנים"; exit 1; }
 grep -q '^V	TREE' "$W/TreeExamples.trace" && grep -q '^V	ARR' "$W/ArrayExamples.trace" && grep -q '^V	CHAIN' "$W/ListExamples.trace" && echo "עץ, מערך ורשימה נרשמו"
+# כרטיסי אובייקטים: שורות O/F (תוכן המחלקה), ACC (גישה למאפיין), והחלון קורא אותם
+grep -q '^O	' "$W/StudentExamples.trace" && grep -q '^F	average	' "$W/StudentExamples.trace" && grep -qP '^ACC\t' "$W/StudentExamples.trace" \
+    && echo "כרטיסי אובייקטים וגישה למאפיין נרשמו (Student)" || { echo "חסרים O/F/ACC ב-StudentExamples"; exit 1; }
+grep -qP '^ACC\t' "$W/CarExamples.trace" && echo "גישה למאפיין נרשמה (Car)" || { echo "חסר ACC ב-CarExamples"; exit 1; }
 # שגיאת זמן ריצה: נרשמת כצעד ERROR, והתוכנית מסתיימת עם קוד 1
 mkdir -p "$W/boom" && cat > "$W/boom/Program.cs" <<'CS'
 using System;

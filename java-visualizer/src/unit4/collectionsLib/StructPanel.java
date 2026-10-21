@@ -12,6 +12,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,12 +20,15 @@ import java.util.Map;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
+import unit4.collectionsLib.Model.Access;
 import unit4.collectionsLib.Model.Cell;
 import unit4.collectionsLib.Model.ChainView;
 import unit4.collectionsLib.Model.LinearView;
 import unit4.collectionsLib.Model.ArrayView;
 import unit4.collectionsLib.Model.MatrixView;
 import unit4.collectionsLib.Model.Mark;
+import unit4.collectionsLib.Model.Obj;
+import unit4.collectionsLib.Model.ObjView;
 import unit4.collectionsLib.Model.Step;
 import unit4.collectionsLib.Model.TreeCell;
 import unit4.collectionsLib.Model.TreeView;
@@ -53,6 +57,14 @@ final class StructPanel extends JPanel {
     private final Font SMALL = Theme.font(Theme.family, Font.PLAIN, 13);
     private final Font SMALL_B = Theme.font(Theme.boldFamily, Theme.boldStyle, 14);
 
+    // כרטיס של אובייקט (Student, Car...): שם + שורת פרטים, וטבלת מאפיינים
+    private final Font CARD_T = Theme.font(Theme.boldFamily, Theme.boldStyle, 15);
+    private final Font CARD_S = Theme.font(Theme.family, Font.PLAIN, 12);
+    private final Font FIELD = Theme.font(Theme.family, Font.PLAIN, 13);
+    private final Font FIELD_B = Theme.font(Theme.boldFamily, Theme.boldStyle, 13);
+    private final Font BADGE = Theme.font(Theme.boldFamily, Theme.boldStyle, 11);
+    private static final int OBJ_H = 48, ROW_H = 18;
+
     private static final int PAD = 20, GAP = 36, TITLE_H = 30, ARC = 8;
     private static final Stroke THIN = new BasicStroke(1.3f);
     private static final Stroke THICK = new BasicStroke(3f);
@@ -60,12 +72,18 @@ final class StructPanel extends JPanel {
             new float[] { 6f, 4f }, 0f);
 
     private Step step;
+    /** מקום כל כרטיס אובייקט בציור האחרון (לקישור ה-Access ולחלונית המידע): זהות → {מלבן, האם במחסנית} */
+    private final Map<Integer, Object[]> objRects = new HashMap<Integer, Object[]>();
+    private final List<Object[]> objHits = new ArrayList<Object[]>();      // {מלבן במערכת הציור, אובייקט}
+    private final List<Object[]> screenHits = new ArrayList<Object[]>();   // {מלבן על המסך, אובייקט} — לחלונית על העכבר
+    private boolean inStack;
     /** הגדלה: 0 = התאמה אוטומטית לרוחב (רק הקטנה, עד 55%); אחרת פי כמה */
     private double manualZoom = 0, zoom = 1;
     private Runnable zoomListener;
 
     StructPanel() {
         setBackground(Color.WHITE);
+        setToolTipText("");   // מפעיל חלוניות מידע (getToolTipText)
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent e) { repaint(); }
@@ -143,7 +161,14 @@ final class StructPanel extends JPanel {
         if (free > 0) g.translate(free / 2, 0);
         g.scale(z, z);
         focusRect = null;
+        objRects.clear();
+        objHits.clear();
         layoutAll(g);
+        screenHits.clear();
+        for (Object[] h : objHits) {
+            Rectangle r = (Rectangle) h[0];
+            screenHits.add(new Object[] { new Rectangle(Math.max(free, 0) / 2 + (int) (r.x * z), (int) (r.y * z), (int) (r.width * z), (int) (r.height * z)), h[1] });
+        }
         g.dispose();
         if (scrollPending && focusRect != null) {
             scrollPending = false;
@@ -217,6 +242,21 @@ final class StructPanel extends JPanel {
             if (d != null && g != null) noteFocus(v, PAD, y, d);
             if (d != null) { y += d.height + GAP / 2; maxX = Math.max(maxX, PAD + d.width); }
         }
+        // אובייקטים שמשתנה מצביע אליהם ואינם בתוך מבנה: כרטיס מלא (כל המאפיינים)
+        int ox = PAD, orow = 0;
+        for (View v : step.views) {
+            if (!(v instanceof ObjView)) continue;
+            Dimension d = drawObjView(null, (ObjView) v, 0, 0);
+            if (ox > PAD && ox + d.width > avail) { y += orow + GAP / 2; ox = PAD; orow = 0; }   // כמו מערכים: שורה חדשה כשאין מקום
+            if (g != null) {
+                drawObjView(g, (ObjView) v, ox, y);
+                noteFocus(v, ox, y, d);
+            }
+            ox += d.width + GAP;
+            orow = Math.max(orow, d.height);
+            maxX = Math.max(maxX, ox);
+        }
+        if (orow > 0) y += orow + GAP / 2;
         return new Dimension(maxX + PAD, y + PAD);
     }
 
@@ -236,7 +276,11 @@ final class StructPanel extends JPanel {
 
     private Dimension drawArray(Graphics2D g, ArrayView v, int x, int y) {
         int n = v.items.size();
-        int cw = Math.max(44, maxWidth(v.items, null) + 22), ch = 40, labelsH = 22;
+        boolean objs = hasObjs(v.objs);
+        int cw = Math.max(44, widthOf(v.items, v.objs, null) + 22), ch = objs ? OBJ_H : 40;
+        int mostLabels = 0;
+        for (List<String> l : v.indexLabels.values()) mostLabels = Math.max(mostLabels, l.size());
+        int labelsH = 22 + Math.max(0, mostLabels - 1) * LABEL_STEP;   // כמה משתני אינדקס על אותו תא — שורה לכל אחד
         String type = "מערך, אורך " + n + (v.truncated ? "+" : "");
         int top = y + TITLE_H + labelsH;
         int w = Math.max(16 + Math.max(n, 1) * cw + 20, titleWidth(v.title, type));
@@ -251,11 +295,11 @@ final class StructPanel extends JPanel {
         }
         for (int i = 0; i < n; i++) {
             int bx = x + 8 + i * cw;
-            box(g, bx, top, cw, ch, v.changed.contains(i) ? CHANGED_C : BOX, v.items.get(i), false);
+            cell(g, bx, top, cw, ch, v.changed.contains(i) ? CHANGED_C : BOX, v.items.get(i), objAt(v.objs, i));
             g.setColor(MUTED);
             center(g, String.valueOf(i), SMALL, bx + cw / 2, top + ch + 11);
             List<String> labels = v.indexLabels.get(i);
-            if (labels != null) indexLabel(g, String.join(",", labels), bx + cw / 2, top - 4);
+            if (labels != null) labelStack(g, labels, bx + cw / 2, top - 4);
         }
         if (v.truncated) {
             g.setColor(MUTED);
@@ -279,11 +323,15 @@ final class StructPanel extends JPanel {
     private Dimension drawMatrix(Graphics2D g, MatrixView v, int x, int y) {
         int rows = v.rows.size(), cols = 0;
         List<String> all = new ArrayList<String>();
-        for (List<String> r : v.rows) {
-            cols = Math.max(cols, r.size());
-            all.addAll(r);
+        List<Obj> allObjs = new ArrayList<Obj>();
+        for (int r = 0; r < v.rows.size(); r++) {
+            List<String> row = v.rows.get(r);
+            cols = Math.max(cols, row.size());
+            all.addAll(row);
+            for (int c = 0; c < row.size(); c++) allObjs.add(r < v.objs.size() ? objAt(v.objs.get(r), c) : null);
         }
-        int cw = Math.max(44, maxWidth(all, null) + 20), ch = 36;
+        boolean objs = hasObjs(allObjs);
+        int cw = Math.max(44, widthOf(all, allObjs, null) + 20), ch = objs ? OBJ_H : 36;
         int labelW = 0;
         for (List<String> l : v.rowLabels.values()) labelW = Math.max(labelW, textWidth(String.join(",", l), SMALL_B) + 16);
         int left = x + 8 + labelW + 22, top = y + TITLE_H + 22 + (v.colLabels.isEmpty() ? 0 : 18);
@@ -300,7 +348,8 @@ final class StructPanel extends JPanel {
             center(g, String.valueOf(r), SMALL, left - 11, top + r * ch + ch / 2);
             List<String> row = v.rows.get(r);
             for (int c = 0; c < row.size(); c++)
-                box(g, left + c * cw, top + r * ch, cw, ch, v.changed.contains(r + "," + c) ? CHANGED_C : BOX, row.get(c), false);
+                cell(g, left + c * cw, top + r * ch, cw, ch, v.changed.contains(r + "," + c) ? CHANGED_C : BOX, row.get(c),
+                        r < v.objs.size() ? objAt(v.objs.get(r), c) : null);
             List<String> rl = v.rowLabels.get(r);
             if (rl != null) {
                 g.setColor(LABEL);
@@ -319,9 +368,11 @@ final class StructPanel extends JPanel {
 
     private Dimension drawStack(Graphics2D g, LinearView v, int x, int y) {
         int n = v.items.size(), rows = Math.max(n, 1);
-        int cw = Math.max(76, maxWidth(v.items, v.ghost) + 26), ch = 36, ghostH = v.ghost != null ? 50 : 14;
+        boolean objs = hasObjs(v.objs);
+        int cw = Math.max(76, widthOf(v.items, v.objs, v.ghost) + 26), ch = objs ? OBJ_H : 36, ghostH = v.ghost != null ? (objs ? 62 : 50) : 14;
         int w = Math.max(cw + 84, titleWidth(v.title, "מחסנית")), h = TITLE_H + ghostH + rows * ch + 14;
         if (g == null) return new Dimension(w, h);
+        inStack = true;
 
         drawTitle(g, v.title, "מחסנית", x, y, v.focus);
         int cx = x + 8, top = y + TITLE_H + ghostH;
@@ -332,8 +383,9 @@ final class StructPanel extends JPanel {
         }
         for (int i = 0; i < n; i++) {
             Color c = i == v.markIndex ? color(v.mark) : BOX;
-            box(g, cx, top + i * ch, cw, ch, c, v.items.get(i), false);
+            cell(g, cx, top + i * ch, cw, ch, c, v.items.get(i), objAt(v.objs, i));
         }
+        inStack = false;
         g.setColor(LINE);
         g.setStroke(THICK);
         int bottom = top + rows * ch + 5;
@@ -354,7 +406,8 @@ final class StructPanel extends JPanel {
 
     private Dimension drawQueue(Graphics2D g, LinearView v, int x, int y) {
         int n = v.items.size(), rows = Math.max(n, 1);
-        int cw = Math.max(56, maxWidth(v.items, v.ghost) + 24), ch = 40;
+        boolean objs = hasObjs(v.objs);
+        int cw = Math.max(56, widthOf(v.items, v.objs, v.ghost) + 24), ch = objs ? OBJ_H : 40;
         int left = x + cw + 40;
         int w = Math.max(left - x + rows * cw + 30, titleWidth(v.title, "תור")), h = TITLE_H + ch + 40;
         if (g == null) return new Dimension(w, h);
@@ -367,7 +420,7 @@ final class StructPanel extends JPanel {
         }
         for (int i = 0; i < n; i++) {
             Color c = i == v.markIndex ? color(v.mark) : BOX;
-            box(g, left + i * cw, top, cw, ch, c, v.items.get(i), false);
+            cell(g, left + i * cw, top, cw, ch, c, v.items.get(i), objAt(v.objs, i));
         }
         g.setColor(LINE);
         g.setStroke(THICK);
@@ -388,9 +441,11 @@ final class StructPanel extends JPanel {
 
     private Dimension drawChain(Graphics2D g, ChainView v, int x, int y) {
         List<String> values = new ArrayList<String>();
-        for (Cell c : v.cells) values.add(c.value);
+        List<Obj> cellObjs = new ArrayList<Obj>();
+        for (Cell c : v.cells) { values.add(c.value); cellObjs.add(c.obj); }
         int n = v.cells.size();
-        int vw = Math.max(48, maxWidth(values, null) + 22), pw = 20, ch = 38, ag = 38;
+        boolean objs = hasObjs(cellObjs);
+        int vw = Math.max(48, widthOf(values, cellObjs, null) + 22), pw = 20, ch = objs ? OBJ_H : 38, ag = 38;
         int stepW = vw + pw + ag;
         String tail = v.cycleTo >= 0 ? "" : v.joinText != null ? v.joinText + "  (ממשיך ברשימה אחרת)"
                 : v.truncated ? "..." : "null";
@@ -404,7 +459,7 @@ final class StructPanel extends JPanel {
         for (int i = 0; i < n; i++) {
             Cell c = v.cells.get(i);
             int bx = x + 8 + i * stepW;
-            box(g, bx, top, vw, ch, color(c.mark), c.value, false);
+            cell(g, bx, top, vw, ch, color(c.mark), c.value, c.obj);
             box(g, bx + vw, top, pw, ch, color(c.mark), null, false);
             g.setColor(LINE);
             g.fillOval(bx + vw + pw / 2 - 3, top + ch / 2 - 3, 7, 7);
@@ -443,11 +498,15 @@ final class StructPanel extends JPanel {
         final Map<TreeCell, Integer> depth = new IdentityHashMap<TreeCell, Integer>();
         collect(v.root, 0, inorder, depth);
         int maxDepth = 0, maxW = 0;
+        boolean objs = false;
         for (TreeCell c : inorder) {
             maxDepth = Math.max(maxDepth, depth.get(c));
-            maxW = Math.max(maxW, textWidth(c.value, VALUE));
+            maxW = Math.max(maxW, c.obj != null ? objW(c.obj) : textWidth(c.value, VALUE));
+            objs |= c.obj != null;
         }
-        int r = Math.max(19, maxW / 2 + 9), nw = 2 * r + 12, lv = 70;
+        // צמתים של אובייקטים: כרטיס קטן במקום עיגול
+        final int r = objs ? Math.max(OBJ_H / 2, maxW / 2) : Math.max(19, maxW / 2 + 9), ry = objs ? OBJ_H / 2 : r;
+        int nw = 2 * r + 12, lv = objs ? 76 : 70;
         final int extra = labelExtra(inorder);   // כמה מצביעים על אותו צומת — כל אחד בשורה משלו
         int w = Math.max(inorder.size() * nw + 16, titleWidth(v.title, "עץ בינארי"));
         int h = TITLE_H + 22 + extra + (maxDepth + 1) * lv;
@@ -457,7 +516,7 @@ final class StructPanel extends JPanel {
         Map<TreeCell, int[]> pos = new IdentityHashMap<TreeCell, int[]>();
         for (int i = 0; i < inorder.size(); i++) {
             TreeCell c = inorder.get(i);
-            pos.put(c, new int[] { x + 8 + i * nw + nw / 2, y + TITLE_H + 22 + extra + depth.get(c) * lv + r });
+            pos.put(c, new int[] { x + 8 + i * nw + nw / 2, y + TITLE_H + 22 + extra + depth.get(c) * lv + ry });
         }
         g.setColor(LINE);
         g.setStroke(new BasicStroke(2f));
@@ -471,14 +530,24 @@ final class StructPanel extends JPanel {
         }
         for (TreeCell c : inorder) {
             int[] p = pos.get(c);
-            g.setColor(color(c.mark));
-            g.fillOval(p[0] - r, p[1] - r, 2 * r, 2 * r);
-            g.setColor(c.current ? CURRENT : c.mark == Mark.NONE ? BOX_LINE : darker(color(c.mark)));
-            g.setStroke(c.shared ? DASHED : c.current ? THICK : THIN);
-            g.drawOval(p[0] - r, p[1] - r, 2 * r, 2 * r);
-            g.setColor(INK);
-            center(g, c.value, VALUE, p[0], p[1]);
-            drawLabels(g, c, p[0], p[1] - r - 4);
+            if (c.obj != null) {
+                int cwid = Math.max(objW(c.obj), 2 * ry) ;
+                objBox(g, p[0] - cwid / 2, p[1] - ry, cwid, 2 * ry, color(c.mark), c.obj);
+                if (c.current || c.shared) {
+                    g.setColor(c.current ? CURRENT : BOX_LINE);
+                    g.setStroke(c.shared ? DASHED : THICK);
+                    g.drawRoundRect(p[0] - cwid / 2 - 2, p[1] - ry - 2, cwid + 4, 2 * ry + 4, ARC + 3, ARC + 3);
+                }
+            } else {
+                g.setColor(color(c.mark));
+                g.fillOval(p[0] - r, p[1] - r, 2 * r, 2 * r);
+                g.setColor(c.current ? CURRENT : c.mark == Mark.NONE ? BOX_LINE : darker(color(c.mark)));
+                g.setStroke(c.shared ? DASHED : c.current ? THICK : THIN);
+                g.drawOval(p[0] - r, p[1] - r, 2 * r, 2 * r);
+                g.setColor(INK);
+                center(g, c.value, VALUE, p[0], p[1]);
+            }
+            drawLabels(g, c, p[0], p[1] - ry - 4);
         }
         return new Dimension(w, h);
     }
@@ -489,6 +558,136 @@ final class StructPanel extends JPanel {
         out.add(c);
         depth.put(c, d);
         collect(c.right, d + 1, out, depth);
+    }
+
+    // ------------------------------------------------------------ אובייקטים של מחלקות (Student, Car, ...)
+    //
+    //  • בתוך מבנה — כרטיס קטן: שורה ראשונה שם, שנייה פרטים עיקריים (למשל "יא2 · 84"). ליד הכרטיס — שם המשתנה שמצביע אליו.
+    //  • צעד שקורא / משנה מאפיין (s.getName()): הכרטיס מודגש, ומתחתיו נפתחת חלונית עם כל המאפיינים והמאפיין שנגעו בו מודגש.
+    //  • אובייקט ששמור במשתנה ואינו בתוך מבנה — כרטיס מלא (כל המאפיינים) לבד.
+    //  • מעבר עכבר על כרטיס — חלונית עם כל המאפיינים (בכל צעד).
+
+    private static boolean hasObjs(List<Obj> objs) {
+        for (Obj o : objs) if (o != null) return true;
+        return false;
+    }
+
+    private static Obj objAt(List<Obj> objs, int i) {
+        return i < objs.size() ? objs.get(i) : null;
+    }
+
+    private int objW(Obj o) {
+        return Math.max(70, Math.max(textWidth(o.title, CARD_T), textWidth(o.sub, CARD_S)) + 22);
+    }
+
+    /** רוחב התא הרחב ביותר (טקסט רגיל או כרטיס) */
+    private int widthOf(List<String> items, List<Obj> objs, String extra) {
+        int m = extra == null ? 0 : textWidth(extra, VALUE);
+        for (int i = 0; i < items.size(); i++) {
+            Obj o = objAt(objs, i);
+            m = Math.max(m, o != null ? objW(o) : textWidth(items.get(i), VALUE));
+        }
+        return m;
+    }
+
+    /** תא: ערך רגיל, או כרטיס אם זה אובייקט */
+    private void cell(Graphics2D g, int x, int y, int w, int h, Color fill, String text, Obj o) {
+        if (o == null) box(g, x, y, w, h, fill, text, false);
+        else objBox(g, x, y, w, h, fill, o);
+    }
+
+    private boolean accessed(Obj o) {
+        Access a = step == null ? null : step.access;
+        return a != null && o != null && a.obj != null && o.id > 0 && o.id == a.obj.id;
+    }
+
+    private void objBox(Graphics2D g, int x, int y, int w, int h, Color fill, Obj o) {
+        boolean acc = accessed(o);
+        if (acc) fill = color(step.access.mark);
+        g.setColor(fill);
+        g.fillRoundRect(x + 1, y + 1, w - 2, h - 2, ARC + 2, ARC + 2);
+        g.setColor(acc ? darker(fill) : fill == BOX ? BOX_LINE : darker(fill));
+        g.setStroke(acc ? THICK : THIN);
+        g.drawRoundRect(x + 1, y + 1, w - 2, h - 2, ARC + 2, ARC + 2);
+        g.setColor(INK);
+        center(g, o.title, CARD_T, x + w / 2, y + h * 38 / 100);
+        if (acc) {
+            // המאפיין שנקרא / שונה, ישר בכרטיס: "average = 84.0" (כל המאפיינים — בשורת הפרטים שמתחת)
+            Access a = step.access;
+            String val = a.field;
+            for (String[] f : o.fields) if (f[0].equals(a.field)) val = f[1];
+            // "average = 84.0" אם נכנס; אחרת בלי רווחים ובגופן קטן יותר; ואחרת — רק הערך (השם בשורת הפרטים שמתחת)
+            String[] tries = { a.field + " = " + val, a.field + "=" + val, val };
+            Font[] fonts = { FIELD_B, FIELD_B.deriveFont(11.5f), FIELD_B };
+            int pick = 2;
+            for (int i = 0; i < tries.length; i++) {
+                if (getFontMetrics(fonts[i]).stringWidth(tries[i]) <= w - 10) { pick = i; break; }
+            }
+            String t = tries[pick];
+            FontMetrics fm = getFontMetrics(fonts[pick]);
+            while (t.length() > 4 && fm.stringWidth(t) > w - 10) t = t.substring(0, t.length() - 2) + "…";
+            g.setColor(INK);
+            center(g, t, fonts[pick], x + w / 2, y + h * 74 / 100);
+        } else {
+            g.setColor(MUTED);
+            center(g, o.sub, CARD_S, x + w / 2, y + h * 74 / 100);
+        }
+        if (!o.labels.isEmpty()) badge(g, String.join(",", o.labels), x + w - 5, y + h);
+        Rectangle r = new Rectangle(x, y, w, h);
+        if (o.id > 0 && !objRects.containsKey(o.id)) objRects.put(o.id, new Object[] { r, Boolean.valueOf(inStack), o });
+        objHits.add(new Object[] { r, o });
+    }
+
+    /** שם המשתנה על פינת הכרטיס (s1, best...) */
+    private void badge(Graphics2D g, String text, int right, int cy) {
+        g.setFont(BADGE);
+        FontMetrics fm = g.getFontMetrics();
+        int w = fm.stringWidth(text) + 12, h = 16, x = right - w, y = cy - h / 2;
+        g.setColor(Color.WHITE);
+        g.fillRoundRect(x, y, w, h, h, h);
+        g.setColor(LABEL);
+        g.setStroke(THIN);
+        g.drawRoundRect(x, y, w, h, h, h);
+        g.drawString(text, x + 6, y + h - 4);
+    }
+
+    /** טבלת מאפיינים (ראו ObjCard): עד שתי עמודות בכרטיס המלא ובחלונית */
+    private Dimension fieldsTable(Graphics2D g, Obj o, int x, int y, Access acc) {
+        return ObjCard.table(this, g, o, x, y, acc, ObjCard.columnsFor(o.fields.size(), 2));
+    }
+
+    /** אובייקט ששמור במשתנה ואינו בתוך מבנה: כותרת (שם המשתנה + סוג) וכל המאפיינים */
+    private Dimension drawObjView(Graphics2D g, ObjView v, int x, int y) {
+        Dimension t = fieldsTable(null, v.obj, 0, 0, null);
+        int w = Math.max(t.width + 24, titleWidth(v.title, v.obj.type)), h = TITLE_H + t.height + 20;
+        if (g == null) return new Dimension(w, h);
+        boolean acc = accessed(v.obj);
+        drawTitle(g, v.title, v.obj.type, x, y, v.focus || acc);
+        g.setColor(acc ? color(step.access.mark).brighter() : new Color(0xF6F8FC));
+        g.fillRoundRect(x, y + TITLE_H, w, t.height + 16, 10, 10);
+        g.setColor(acc ? darker(color(step.access.mark)) : BOX_LINE);
+        g.setStroke(acc ? THICK : THIN);
+        g.drawRoundRect(x, y + TITLE_H, w, t.height + 16, 10, 10);
+        fieldsTable(g, v.obj, x + 12, y + TITLE_H + 8, step.access);
+        Rectangle r = new Rectangle(x, y + TITLE_H, w, t.height + 16);
+        objHits.add(new Object[] { r, v.obj });
+        return new Dimension(w, h);
+    }
+
+    @Override
+    public String getToolTipText(java.awt.event.MouseEvent e) {
+        for (Object[] h : screenHits) {
+            if (!((Rectangle) h[0]).contains(e.getPoint())) continue;
+            Obj o = (Obj) h[1];
+            StringBuilder b = new StringBuilder("<html><body style='padding:2px'><b>").append(esc(o.type)).append("</b><table cellspacing=0 cellpadding=1>");
+            for (String[] f : o.fields) b.append("<tr><td><font color='#6b7385'>").append(esc(f[0])).append("</font>&nbsp;&nbsp;</td><td>").append(esc(f[1])).append("</td></tr>");
+            return b.append("</table></body></html>").toString();
+        }
+        return null;
+    }
+
+    private static String esc(String s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     // ------------------------------------------------------------ עזרי ציור
@@ -502,18 +701,21 @@ final class StructPanel extends JPanel {
         return Math.max(0, most - 1) * LABEL_STEP;
     }
 
+    /** שמות משתנים מעל תא: כל שם בשורה משלו (הראשון הכי קרוב), וחץ קטן אל התא */
+    private void labelStack(Graphics2D g, List<String> names, int cx, int bottomY) {
+        g.setColor(LABEL);
+        g.setFont(SMALL_B);
+        FontMetrics fm = g.getFontMetrics();
+        for (int i = 0; i < names.size(); i++) {
+            String l = names.get(i);
+            g.drawString(l, cx - fm.stringWidth(l) / 2, bottomY - 8 - i * LABEL_STEP);
+        }
+        g.fillPolygon(new int[] { cx - 4, cx + 4, cx }, new int[] { bottomY - 6, bottomY - 6, bottomY }, 3);
+    }
+
     private void drawLabels(Graphics2D g, Cell c, int cx, int bottomY) {
         if (!c.labels.isEmpty()) {
-            g.setColor(LABEL);
-            g.setFont(SMALL_B);
-            FontMetrics fm = g.getFontMetrics();
-            // כמה מצביעים על אותו תא — שמות זה מעל זה (הראשון הכי קרוב לתא), כדי שלא יכסו אחד את השני
-            for (int i = 0; i < c.labels.size(); i++) {
-                String l = c.labels.get(i);
-                g.drawString(l, cx - fm.stringWidth(l) / 2, bottomY - 8 - i * LABEL_STEP);
-            }
-            // חץ קטן מהשם אל התא — כדי שיהיה ברור לאיזה תא / צומת המשתנה מצביע
-            g.fillPolygon(new int[] { cx - 4, cx + 4, cx }, new int[] { bottomY - 6, bottomY - 6, bottomY }, 3);
+            labelStack(g, c.labels, cx, bottomY);
         } else if (c.current) {
             g.setColor(CURRENT);
             g.fillPolygon(new Polygon(new int[] { cx - 7, cx + 7, cx }, new int[] { bottomY - 12, bottomY - 12, bottomY - 2 }, 3));

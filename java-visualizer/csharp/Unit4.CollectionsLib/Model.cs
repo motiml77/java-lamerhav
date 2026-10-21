@@ -26,6 +26,30 @@ namespace Unit4.CollectionsLib
         public int OutLen;
         public List<string[]> Vars;                        // {שם, ערך}; null אם אין
         public string Returned;                            // RETURN: הערך שהוחזר (null = void)
+        public Access Access;                              // קריאה / שינוי של מאפיין באובייקט (s.GetName()) — או null
+    }
+
+    /// <summary>אובייקט של מחלקה (Student, Car, או מחלקה של התלמיד): כרטיס קטן בתוך המבנה, וטבלת המאפיינים שלו</summary>
+    internal sealed class Obj
+    {
+        public int Id;                                     // זהות האובייקט (אותו אובייקט בכמה מקומות; קישור ל-Access)
+        public string Type, Title, Sub;
+        public readonly List<string[]> Fields = new List<string[]>();   // {שם, ערך}
+        public readonly List<string> Labels = new List<string>();       // שמות משתנים שמצביעים עליו
+    }
+
+    /// <summary>הצעד קרא (READ) או שינה (CHANGED) את המאפיין Field של האובייקט Obj</summary>
+    internal sealed class Access
+    {
+        public Obj Obj;
+        public string Field, Text;
+        public Mark Mark = Mark.READ;
+    }
+
+    /// <summary>אובייקט שמשתנה מצביע אליו ואינו בתוך מבנה — מוצג לבד, כטבלת מאפיינים</summary>
+    internal sealed class ObjView : View
+    {
+        public Obj Obj;
     }
 
     internal abstract class View
@@ -41,6 +65,7 @@ namespace Unit4.CollectionsLib
         public int MarkIndex = -1;
         public Mark Mark = Mark.NONE;
         public string Ghost;
+        public readonly List<Obj> Objs = new List<Obj>();   // במקביל ל-Items (null = ערך רגיל)
     }
 
     internal class Cell
@@ -48,6 +73,7 @@ namespace Unit4.CollectionsLib
         public string Value;
         public Mark Mark = Mark.NONE;
         public bool Current;
+        public Obj Obj;                                    // אם הערך הוא אובייקט של מחלקה
         public readonly List<string> Labels = new List<string>();
     }
 
@@ -74,6 +100,7 @@ namespace Unit4.CollectionsLib
     {
         public readonly List<string> Items = new List<string>();
         public readonly HashSet<int> Changed = new HashSet<int>();
+        public readonly List<Obj> Objs = new List<Obj>();   // במקביל ל-Items (או ריק אם אין אובייקטים)
         public readonly Dictionary<int, List<string>> IndexLabels = new Dictionary<int, List<string>>();
         public bool Truncated;
     }
@@ -82,6 +109,7 @@ namespace Unit4.CollectionsLib
     {
         public readonly List<List<string>> Rows = new List<List<string>>();
         public readonly HashSet<string> Changed = new HashSet<string>();          // "שורה,עמודה"
+        public readonly List<List<Obj>> Objs = new List<List<Obj>>();             // במקביל ל-Rows (או ריק אם אין אובייקטים)
         public readonly Dictionary<int, List<string>> RowLabels = new Dictionary<int, List<string>>();
         public readonly Dictionary<int, List<string>> ColLabels = new Dictionary<int, List<string>>();
     }

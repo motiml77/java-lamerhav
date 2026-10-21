@@ -23,6 +23,7 @@ namespace Unit4.CollectionsLib
         string manufacturer, model, color, plate;
         int year, km, speed;
         double fuel, tankSize;
+        internal int VizId;   // זהות בהרצה הוויזואלית (Recorder.NextObjId)
 
         /// <summary>מכונית עם יצרן, דגם ושנת ייצור (מיכל חצי מלא, בלי נסיעות)</summary>
         public Car(string manufacturer, string model, int year)
@@ -38,39 +39,43 @@ namespace Unit4.CollectionsLib
             this.plate = plate;
             this.tankSize = 50;
             this.fuel = 25;
+            VizId = Recorder.NextObjId();
         }
 
         // ------------------------------------------------------------ פרטים
 
-        public string GetManufacturer() { return manufacturer; }
-        public void SetManufacturer(string manufacturer) { this.manufacturer = manufacturer; }
+        // כל קריאה / שינוי של מאפיין מתועדים בהרצה הוויזואלית (Recorder.Got / Changed): הכרטיס של המכונית
+        // מוצג עם המאפיין שנקרא מודגש. בתוך המחלקה עצמה משתמשים בשדות ישירות — כדי שלא יתועדו קריאות פנימיות
 
-        public string GetModel() { return model; }
-        public void SetModel(string model) { this.model = model; }
+        public string GetManufacturer() { return Recorder.Got(this, "manufacturer", "GetManufacturer()", manufacturer); }
+        public void SetManufacturer(string manufacturer) { this.manufacturer = manufacturer; Recorder.Changed(this, "manufacturer", "SetManufacturer(" + Recorder.Lit(manufacturer) + ")"); }
+
+        public string GetModel() { return Recorder.Got(this, "model", "GetModel()", model); }
+        public void SetModel(string model) { this.model = model; Recorder.Changed(this, "model", "SetModel(" + Recorder.Lit(model) + ")"); }
 
         /// <summary>שנת ייצור</summary>
-        public int GetYear() { return year; }
-        public void SetYear(int year) { this.year = year; }
+        public int GetYear() { return Recorder.Got(this, "year", "GetYear()", year); }
+        public void SetYear(int year) { this.year = year; Recorder.Changed(this, "year", "SetYear(" + year + ")"); }
 
-        public string GetColor() { return color; }
-        public void SetColor(string color) { this.color = color; }
+        public string GetColor() { return Recorder.Got(this, "color", "GetColor()", color); }
+        public void SetColor(string color) { this.color = color; Recorder.Changed(this, "color", "SetColor(" + Recorder.Lit(color) + ")"); }
 
         /// <summary>מספר רישוי</summary>
-        public string GetPlate() { return plate; }
-        public void SetPlate(string plate) { this.plate = plate; }
+        public string GetPlate() { return Recorder.Got(this, "plate", "GetPlate()", plate); }
+        public void SetPlate(string plate) { this.plate = plate; Recorder.Changed(this, "plate", "SetPlate(" + Recorder.Lit(plate) + ")"); }
 
         /// <summary>קילומטראז' (כמה ק"מ נסעה)</summary>
-        public int GetKm() { return km; }
-        public void SetKm(int km) { this.km = km; }
+        public int GetKm() { return Recorder.Got(this, "km", "GetKm()", km); }
+        public void SetKm(int km) { this.km = km; Recorder.Changed(this, "km", "SetKm(" + km + ")"); }
 
         /// <summary>כמה ליטרים יש במיכל עכשיו</summary>
-        public double GetFuel() { return fuel; }
+        public double GetFuel() { return Recorder.Got(this, "fuel", "GetFuel()", fuel); }
 
         /// <summary>גודל המיכל בליטרים</summary>
-        public double GetTankSize() { return tankSize; }
+        public double GetTankSize() { return Recorder.Got(this, "tankSize", "GetTankSize()", tankSize); }
 
         /// <summary>המהירות עכשיו (קמ"ש)</summary>
-        public int GetSpeed() { return speed; }
+        public int GetSpeed() { return Recorder.Got(this, "speed", "GetSpeed()", speed); }
 
         // ------------------------------------------------------------ פעולות
 
@@ -81,7 +86,7 @@ namespace Unit4.CollectionsLib
             int driven = Math.Max(0, Math.Min(km, possible));
             this.km += driven;
             fuel -= driven * LitersPer100Km / 100;
-            Recorder.Note(Label() + ".Drive(" + km + ")  →  נסעה " + driven + " ק\"מ");
+            Recorder.Changed(this, "km", "Drive(" + km + ")  →  נסעה " + driven + " ק\"מ");
             return driven;
         }
 
@@ -90,8 +95,8 @@ namespace Unit4.CollectionsLib
         {
             double added = Math.Max(0, Math.Min(liters, tankSize - fuel));
             fuel += added;
-            Recorder.Note(Label() + ".Refuel(" + liters.ToString(CultureInfo.InvariantCulture) + ")  →  נכנסו "
-                          + added.ToString(CultureInfo.InvariantCulture) + " ליטר");
+            Recorder.Changed(this, "fuel", "Refuel(" + liters.ToString(CultureInfo.InvariantCulture) + ")  →  נכנסו "
+                             + added.ToString(CultureInfo.InvariantCulture) + " ליטר");
             return added;
         }
 
@@ -99,27 +104,29 @@ namespace Unit4.CollectionsLib
         public void Accelerate(int delta)
         {
             speed += Math.Max(0, delta);
-            Recorder.Note(Label() + ".Accelerate(" + delta + ")  →  " + speed + " קמ\"ש");
+            Recorder.Changed(this, "speed", "Accelerate(" + delta + ")  →  " + speed + " קמ\"ש");
         }
 
         /// <summary>מורידה מהירות (לא פחות מ-0)</summary>
         public void Brake(int delta)
         {
             speed = Math.Max(0, speed - Math.Max(0, delta));
-            Recorder.Note(Label() + ".Brake(" + delta + ")  →  " + speed + " קמ\"ש");
+            Recorder.Changed(this, "speed", "Brake(" + delta + ")  →  " + speed + " קמ\"ש");
         }
 
+        int Age() { return DateTime.Now.Year - year; }
+
         /// <summary>כמה שנים עברו מאז שנת הייצור</summary>
-        public int GetAge() { return DateTime.Now.Year - year; }
+        public int GetAge() { return Recorder.Got(this, "year", "GetAge()", Age()); }
 
         /// <summary>10 שנים ומעלה</summary>
-        public bool IsOld() { return GetAge() >= 10; }
+        public bool IsOld() { return Recorder.Got(this, "year", "IsOld()", Age() >= 10); }
 
         /// <summary>פחות מעשירית מיכל</summary>
-        public bool NeedsFuel() { return fuel < tankSize / 10; }
+        public bool NeedsFuel() { return Recorder.Got(this, "fuel", "NeedsFuel()", fuel < tankSize / 10); }
 
         /// <summary>נוסעת (המהירות גדולה מ-0)</summary>
-        public bool IsMoving() { return speed > 0; }
+        public bool IsMoving() { return Recorder.Got(this, "speed", "IsMoving()", speed > 0); }
 
         // ------------------------------------------------------------ השוואה והצגה
 
@@ -141,6 +148,23 @@ namespace Unit4.CollectionsLib
 
         /// <summary>תווית קצרה לתצוגה: "Mazda 2019"</summary>
         internal string Label() { return manufacturer + " " + year; }
+
+        /// <summary>הכרטיס של המכונית בחלון: יצרן ודגם; שנה וקילומטראז'; ומתחת — כל המאפיינים</summary>
+        internal Obj VizObj()
+        {
+            var o = new Obj { Id = VizId, Type = "Car", Title = manufacturer + " " + model };
+            o.Sub = year + " · " + km.ToString("N0", CultureInfo.InvariantCulture) + " ק\"מ";
+            o.Fields.Add(new[] { "manufacturer", Recorder.Lit(manufacturer) });
+            o.Fields.Add(new[] { "model", Recorder.Lit(model) });
+            o.Fields.Add(new[] { "year", year.ToString(CultureInfo.InvariantCulture) });
+            o.Fields.Add(new[] { "color", Recorder.Lit(color) });
+            o.Fields.Add(new[] { "plate", Recorder.Lit(plate) });
+            o.Fields.Add(new[] { "km", km.ToString(CultureInfo.InvariantCulture) });
+            o.Fields.Add(new[] { "fuel", (Math.Round(fuel * 10) / 10.0).ToString("0.0", CultureInfo.InvariantCulture) });
+            o.Fields.Add(new[] { "tankSize", (Math.Round(tankSize * 10) / 10.0).ToString("0.0", CultureInfo.InvariantCulture) });
+            o.Fields.Add(new[] { "speed", speed.ToString(CultureInfo.InvariantCulture) });
+            return o;
+        }
 
         // ------------------------------------------------------------ נתוני דמה
 

@@ -20,6 +20,7 @@ namespace Unit4.CollectionsLib
         string name, classRoom, id;
         int age;
         int[] grades;
+        internal int VizId;   // זהות בהרצה הוויזואלית (Recorder.NextObjId)
 
         /// <summary>תלמיד עם שם, כיתה וציונים (אפשר כמה ציונים שרוצים)</summary>
         public Student(string name, string classRoom, params int[] grades)
@@ -29,6 +30,7 @@ namespace Unit4.CollectionsLib
             this.grades = grades == null ? new int[0] : (int[])grades.Clone();
             this.id = MakeId(name);
             this.age = 15 + Math.Abs(JavaHash(name) % 4);
+            VizId = Recorder.NextObjId();
         }
 
         /// <summary>תלמיד עם שם וציון אחד</summary>
@@ -43,31 +45,34 @@ namespace Unit4.CollectionsLib
 
         // ------------------------------------------------------------ פרטים
 
-        public string GetName() { return name; }
-        public void SetName(string name) { this.name = name; }
+        // כל קריאה / שינוי של מאפיין מתועדים בהרצה הוויזואלית (Recorder.Got / Changed): הכרטיס של התלמיד
+        // מוצג עם המאפיין שנקרא מודגש. בתוך המחלקה עצמה משתמשים בשדות ישירות — כדי שלא יתועדו קריאות פנימיות
 
-        public string GetClassRoom() { return classRoom; }
-        public void SetClassRoom(string classRoom) { this.classRoom = classRoom; }
+        public string GetName() { return Recorder.Got(this, "name", "GetName()", name); }
+        public void SetName(string name) { this.name = name; Recorder.Changed(this, "name", "SetName(" + Recorder.Lit(name) + ")"); }
+
+        public string GetClassRoom() { return Recorder.Got(this, "classRoom", "GetClassRoom()", classRoom); }
+        public void SetClassRoom(string classRoom) { this.classRoom = classRoom; Recorder.Changed(this, "classRoom", "SetClassRoom(" + Recorder.Lit(classRoom) + ")"); }
 
         /// <summary>תעודת זהות (9 ספרות)</summary>
-        public string GetId() { return id; }
-        public void SetId(string id) { this.id = id; }
+        public string GetId() { return Recorder.Got(this, "id", "GetId()", id); }
+        public void SetId(string id) { this.id = id; Recorder.Changed(this, "id", "SetId(" + Recorder.Lit(id) + ")"); }
 
-        public int GetAge() { return age; }
-        public void SetAge(int age) { this.age = age; }
+        public int GetAge() { return Recorder.Got(this, "age", "GetAge()", age); }
+        public void SetAge(int age) { this.age = age; Recorder.Changed(this, "age", "SetAge(" + age + ")"); }
 
         // ------------------------------------------------------------ ציונים
 
-        public int GetNumGrades() { return grades.Length; }
+        public int GetNumGrades() { return Recorder.Got(this, "grades", "GetNumGrades()", grades.Length); }
 
         /// <summary>הציון במקום i (מ-0)</summary>
-        public int GetGrade(int i) { return grades[i]; }
+        public int GetGrade(int i) { return Recorder.Got(this, "grades", "GetGrade(" + i + ")", grades[i]); }
 
         /// <summary>משנה את הציון במקום i (מ-0)</summary>
         public void SetGrade(int i, int grade)
         {
             grades[i] = grade;
-            Recorder.Note(Label() + ".SetGrade(" + i + ", " + grade + ")");
+            Recorder.Changed(this, "grades", "SetGrade(" + i + ", " + grade + ")");
         }
 
         /// <summary>מוסיף ציון בסוף</summary>
@@ -75,14 +80,16 @@ namespace Unit4.CollectionsLib
         {
             Array.Resize(ref grades, grades.Length + 1);
             grades[grades.Length - 1] = grade;
-            Recorder.Note(Label() + ".AddGrade(" + grade + ")");
+            Recorder.Changed(this, "grades", "AddGrade(" + grade + ")");
         }
 
         /// <summary>עותק של מערך הציונים</summary>
-        public int[] GetGrades() { return (int[])grades.Clone(); }
+        public int[] GetGrades() { return Recorder.Got(this, "grades", "GetGrades()", (int[])grades.Clone()); }
 
         /// <summary>ממוצע הציונים (0 אם אין ציונים)</summary>
-        public double GetAverage()
+        public double GetAverage() { return Recorder.Got(this, "average", "GetAverage()", Average()); }
+
+        double Average()
         {
             if (grades.Length == 0) return 0;
             int sum = 0;
@@ -90,19 +97,19 @@ namespace Unit4.CollectionsLib
             return (double)sum / grades.Length;
         }
 
-        public int GetMaxGrade() { return grades.Length == 0 ? 0 : grades.Max(); }
-        public int GetMinGrade() { return grades.Length == 0 ? 0 : grades.Min(); }
+        public int GetMaxGrade() { return Recorder.Got(this, "grades", "GetMaxGrade()", grades.Length == 0 ? 0 : grades.Max()); }
+        public int GetMinGrade() { return Recorder.Got(this, "grades", "GetMinGrade()", grades.Length == 0 ? 0 : grades.Min()); }
 
         /// <summary>ממוצע 90 ומעלה</summary>
-        public bool IsExcellent() { return GetAverage() >= 90; }
+        public bool IsExcellent() { return Recorder.Got(this, "average", "IsExcellent()", Average() >= 90); }
 
         /// <summary>ממוצע 55 ומעלה</summary>
-        public bool IsPassing() { return GetAverage() >= 55; }
+        public bool IsPassing() { return Recorder.Got(this, "average", "IsPassing()", Average() >= 55); }
 
         // ------------------------------------------------------------ השוואה והצגה
 
         /// <summary>השוואה לפי ממוצע (מאפשר עץ חיפוש של תלמידים)</summary>
-        public int CompareTo(Student other) { return GetAverage().CompareTo(other.GetAverage()); }
+        public int CompareTo(Student other) { return Average().CompareTo(other.Average()); }
 
         /// <summary>שני תלמידים שווים אם יש להם אותה תעודת זהות</summary>
         public override bool Equals(object o)
@@ -118,14 +125,29 @@ namespace Unit4.CollectionsLib
         public override string ToString()
         {
             return name + (string.IsNullOrEmpty(classRoom) ? "" : " (" + classRoom + ")")
-                 + " ממוצע " + (Math.Round(GetAverage() * 10) / 10.0).ToString(CultureInfo.InvariantCulture);
+                 + " ממוצע " + (Math.Round(Average() * 10) / 10.0).ToString(CultureInfo.InvariantCulture);
         }
 
         /// <summary>תווית קצרה לתצוגה: "נועה 84"</summary>
         internal string Label()
         {
             string first = name == null ? "?" : name.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "?";
-            return first + " " + Math.Round(GetAverage()).ToString(CultureInfo.InvariantCulture);
+            return first + " " + Math.Round(Average()).ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>הכרטיס של התלמיד בחלון: שורה ראשונה — שם פרטי; שנייה — כיתה וממוצע; ומתחת — כל המאפיינים</summary>
+        internal Obj VizObj()
+        {
+            var o = new Obj { Id = VizId, Type = "Student" };
+            o.Title = name == null ? "?" : name.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "?";
+            o.Sub = (string.IsNullOrEmpty(classRoom) ? "" : classRoom + " · ") + Math.Round(Average()).ToString(CultureInfo.InvariantCulture);
+            o.Fields.Add(new[] { "name", Recorder.Lit(name) });
+            o.Fields.Add(new[] { "classRoom", Recorder.Lit(classRoom) });
+            o.Fields.Add(new[] { "id", Recorder.Lit(id) });
+            o.Fields.Add(new[] { "age", age.ToString(CultureInfo.InvariantCulture) });
+            o.Fields.Add(new[] { "grades", Recorder.ArrayText(grades) });
+            o.Fields.Add(new[] { "average", (Math.Round(Average() * 10) / 10.0).ToString("0.0", CultureInfo.InvariantCulture) });
+            return o;
         }
 
         // ------------------------------------------------------------ נתוני דמה

@@ -3,6 +3,9 @@ package unit4.collectionsLib;
 import java.util.Arrays;
 import java.util.Random;
 
+import unit4.collectionsLib.Model.Mark;
+import unit4.collectionsLib.Model.Obj;
+
 /**
  * תלמיד — מחלקה מוכנה לתרגילים: שם, כיתה, תעודת זהות, גיל וציונים.
  *
@@ -23,6 +26,7 @@ public class Student implements Comparable<Student> {
     private String id;
     private int age;
     private int[] grades;
+    int vizId;   // זהות בהרצה הוויזואלית (נקבע ב-Recorder.register)
 
     /** תלמיד עם שם, כיתה וציונים (אפשר כמה ציונים שרוצים) */
     public Student(String name, String classRoom, int... grades) {
@@ -31,6 +35,7 @@ public class Student implements Comparable<Student> {
         this.grades = grades == null ? new int[0] : Arrays.copyOf(grades, grades.length);
         this.id = makeId(name);
         this.age = 15 + Math.abs((name == null ? 0 : name.hashCode()) % 4);
+        Recorder.register(this);
     }
 
     /** תלמיד עם שם וציון אחד */
@@ -47,44 +52,49 @@ public class Student implements Comparable<Student> {
 
     // ------------------------------------------------------------ פרטים
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    // כל קריאה / שינוי של מאפיין מתועדים בהרצה הוויזואלית (Recorder.got / changed): הכרטיס של התלמיד
+    // מוצג עם המאפיין שנקרא מודגש. בתוך המחלקה עצמה משתמשים בשדות ישירות — כדי שלא יתועדו קריאות פנימיות
 
-    public String getClassRoom() { return classRoom; }
-    public void setClassRoom(String classRoom) { this.classRoom = classRoom; }
+    public String getName() { return Recorder.got(this, "name", "getName()", name); }
+    public void setName(String name) { this.name = name; Recorder.changed(this, "name", "setName(" + Recorder.lit(name) + ")"); }
+
+    public String getClassRoom() { return Recorder.got(this, "classRoom", "getClassRoom()", classRoom); }
+    public void setClassRoom(String classRoom) { this.classRoom = classRoom; Recorder.changed(this, "classRoom", "setClassRoom(" + Recorder.lit(classRoom) + ")"); }
 
     /** תעודת זהות (9 ספרות) */
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public String getId() { return Recorder.got(this, "id", "getId()", id); }
+    public void setId(String id) { this.id = id; Recorder.changed(this, "id", "setId(" + Recorder.lit(id) + ")"); }
 
-    public int getAge() { return age; }
-    public void setAge(int age) { this.age = age; }
+    public int getAge() { return Recorder.got(this, "age", "getAge()", age); }
+    public void setAge(int age) { this.age = age; Recorder.changed(this, "age", "setAge(" + age + ")"); }
 
     // ------------------------------------------------------------ ציונים
 
-    public int getNumGrades() { return grades.length; }
+    public int getNumGrades() { return Recorder.got(this, "grades", "getNumGrades()", grades.length); }
 
     /** הציון במקום i (מ-0) */
-    public int getGrade(int i) { return grades[i]; }
+    public int getGrade(int i) { return Recorder.got(this, "grades", "getGrade(" + i + ")", grades[i]); }
 
     /** משנה את הציון במקום i (מ-0) */
     public void setGrade(int i, int grade) {
         grades[i] = grade;
-        Recorder.record(Model.Kind.NOTE, null, Model.Mark.NONE, null, label() + ".setGrade(" + i + ", " + grade + ")");
+        Recorder.changed(this, "grades", "setGrade(" + i + ", " + grade + ")");
     }
 
     /** מוסיף ציון בסוף */
     public void addGrade(int grade) {
         grades = Arrays.copyOf(grades, grades.length + 1);
         grades[grades.length - 1] = grade;
-        Recorder.record(Model.Kind.NOTE, null, Model.Mark.NONE, null, label() + ".addGrade(" + grade + ")");
+        Recorder.changed(this, "grades", "addGrade(" + grade + ")");
     }
 
     /** עותק של מערך הציונים */
-    public int[] getGrades() { return Arrays.copyOf(grades, grades.length); }
+    public int[] getGrades() { return Recorder.got(this, "grades", "getGrades()", Arrays.copyOf(grades, grades.length)); }
 
     /** ממוצע הציונים (0 אם אין ציונים) */
-    public double getAverage() {
+    public double getAverage() { return Recorder.got(this, "average", "getAverage()", average()); }
+
+    private double average() {
         if (grades.length == 0) return 0;
         int sum = 0;
         for (int g : grades) sum += g;
@@ -94,26 +104,26 @@ public class Student implements Comparable<Student> {
     public int getMaxGrade() {
         int max = grades.length == 0 ? 0 : grades[0];
         for (int g : grades) max = Math.max(max, g);
-        return max;
+        return Recorder.got(this, "grades", "getMaxGrade()", max);
     }
 
     public int getMinGrade() {
         int min = grades.length == 0 ? 0 : grades[0];
         for (int g : grades) min = Math.min(min, g);
-        return min;
+        return Recorder.got(this, "grades", "getMinGrade()", min);
     }
 
     /** ממוצע 90 ומעלה */
-    public boolean isExcellent() { return getAverage() >= 90; }
+    public boolean isExcellent() { return Recorder.got(this, "average", "isExcellent()", average() >= 90); }
 
     /** ממוצע 55 ומעלה */
-    public boolean isPassing() { return getAverage() >= 55; }
+    public boolean isPassing() { return Recorder.got(this, "average", "isPassing()", average() >= 55); }
 
     // ------------------------------------------------------------ השוואה והצגה
 
     /** השוואה לפי ממוצע (מאפשר עץ חיפוש של תלמידים) */
     public int compareTo(Student other) {
-        return Double.compare(getAverage(), other.getAverage());
+        return Double.compare(average(), other.average());
     }
 
     /** שני תלמידים שווים אם יש להם אותה תעודת זהות */
@@ -134,13 +144,29 @@ public class Student implements Comparable<Student> {
     @Override
     public String toString() {
         return name + (classRoom == null || classRoom.isEmpty() ? "" : " (" + classRoom + ")")
-                + " ממוצע " + Math.round(getAverage() * 10) / 10.0;
+                + " ממוצע " + Math.round(average() * 10) / 10.0;
     }
 
     /** תווית קצרה לתצוגה: "נועה 84" */
     String label() {
         String first = name == null ? "?" : name.trim().split("\\s+")[0];
-        return first + " " + Math.round(getAverage());
+        return first + " " + Math.round(average());
+    }
+
+    /** הכרטיס של התלמיד בחלון: שורה ראשונה — שם פרטי; שנייה — כיתה וממוצע; ומתחת — כל המאפיינים */
+    Obj vizObj() {
+        Obj o = new Obj();
+        o.id = vizId;
+        o.type = "Student";
+        o.title = name == null ? "?" : name.trim().split("\\s+")[0];
+        o.sub = (classRoom == null || classRoom.isEmpty() ? "" : classRoom + " · ") + Math.round(average());
+        o.fields.add(new String[] { "name", Recorder.lit(name) });
+        o.fields.add(new String[] { "classRoom", Recorder.lit(classRoom) });
+        o.fields.add(new String[] { "id", Recorder.lit(id) });
+        o.fields.add(new String[] { "age", String.valueOf(age) });
+        o.fields.add(new String[] { "grades", Arrays.toString(grades) });
+        o.fields.add(new String[] { "average", String.valueOf(Math.round(average() * 10) / 10.0) });
+        return o;
     }
 
     // ------------------------------------------------------------ נתוני דמה
