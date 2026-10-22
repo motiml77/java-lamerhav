@@ -48,6 +48,10 @@ h1 b { background: linear-gradient(100deg, var(--accent), var(--accent2)); -webk
 #player video { width: min(1180px, 100%); max-height: calc(100vh - 150px); background: #000; border-radius: 14px; box-shadow: 0 20px 80px #000a; }
 .btn { font: inherit; color: var(--text); background: #ffffff14; border: 1px solid var(--line); border-radius: 12px; padding: 8px 18px; cursor: pointer; }
 .btn:hover { background: #ffffff26; }
+.speed { display: flex; align-items: center; gap: 6px; direction: ltr; }
+.speed span { color: var(--muted); font-size: 14px; direction: rtl; margin-left: 4px; }
+.speed .btn { padding: 6px 12px; min-width: 56px; }
+.speed .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .hint { color: var(--muted); font-size: 14px; margin-top: 22px; }
 </style></head><body>
 <div class="wrap">
@@ -56,18 +60,28 @@ h1 b { background: linear-gradient(100deg, var(--accent), var(--accent2)); -webk
   <div class="grid" id="grid"></div>
   <div class="hint">אפשר לחזור לכאן בכל רגע בכפתור <b>?</b> בסרגל הכלים.</div>
 </div>
-<div id="player"><div class="bar"><h3 id="ptitle"></h3><button class="btn" id="next">ההדרכה הבאה ◂</button><button class="btn" id="close">✕ סגירה</button></div><video id="vid" controls></video></div>
+<div id="player"><div class="bar"><h3 id="ptitle"></h3><div class="speed" id="speed"><span>מהירות</span></div><button class="btn" id="next">ההדרכה הבאה ◂</button><button class="btn" id="close">✕ סגירה</button></div><video id="vid" controls></video></div>
 <script>
 const LIST = ${data};
 const $ = id => document.getElementById(id);
 $('grid').innerHTML = LIST.map((t, i) => '<button class="card" data-i="' + i + '"><div class="thumb" style="background-image:url(' + t.poster + ')"><span class="badge">' + t.num + '</span>'
   + (t.dur ? '<span class="dur">' + t.dur + '</span>' : '') + '</div><div class="body"><h2>' + t.title + '</h2><p>' + t.desc + '</p></div></button>').join('');
-let cur = -1;
+let cur = -1, rate = 1;
+try { rate = +(localStorage.getItem('dsviz.rate') || 1) || 1; } catch (e) { }
+const SPEEDS = [1, 1.25, 1.5, 2];
+function setRate(r) {
+  rate = r; $('vid').defaultPlaybackRate = r; $('vid').playbackRate = r;
+  try { localStorage.setItem('dsviz.rate', String(r)); } catch (e) { }
+  [...$('speed').querySelectorAll('button')].forEach(b => b.classList.toggle('on', +b.dataset.r === r));
+}
+SPEEDS.forEach(r => { const b = document.createElement('button'); b.className = 'btn'; b.dataset.r = r; b.textContent = r === 1 ? 'רגיל' : r + '×'; b.onclick = () => setRate(r); $('speed').appendChild(b); });
+setRate(SPEEDS.includes(rate) ? rate : 1);
 function play(i) {
   cur = i; const t = LIST[i];
   $('ptitle').textContent = t.num + ' · ' + t.title;
   $('vid').src = t.video; $('vid').poster = t.poster;
   $('player').classList.add('on');
+  $('vid').playbackRate = rate;
   $('vid').play().catch(() => {});
   try { history.replaceState(null, '', '#' + t.id); } catch (e) {}
 }
