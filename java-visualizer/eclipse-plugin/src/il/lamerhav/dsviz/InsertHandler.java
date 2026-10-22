@@ -42,6 +42,13 @@ public class InsertHandler extends AbstractHandler {
             String indent = blank ? (lineText.isEmpty() ? "        " : lineText) : (m.find() ? m.group() : "");
 
             int insertAt = blank ? line.getOffset() : line.getOffset() + line.getLength();   // כאן ייכנס הקוד — לפי זה נבדק שהשם לא מתנגש
+            // שכבת הגנה: אי אפשר להכניס משתנה / פקודות מחוץ לפעולה (בגוף המחלקה או אחריה) — מזהירים ולא פותחים את החלון
+            if (!NameCheck.insideFunction(doc.get(), insertAt)) {
+                MessageDialog.openWarning(shell, "הוסף מבנה נתונים — הסמן לא במקום הנכון",
+                        "הסמן נמצא מחוץ לפעולה (בגוף המחלקה, או לפני / אחרי המחלקה), ושם אי אפשר לכתוב פקודות.\n\n"
+                        + "לחצו בתוך הפעולה main (או בכל פעולה אחרת), בשורה שבה רוצים את המבנה — ואז לחצו שוב על \"הוסף מבנה נתונים\".");
+                return null;
+            }
             InsertDialog d = new InsertDialog(shell, event.getParameter("il.lamerhav.dsviz.structure"), doc.get(), insertAt, indent);
             if (d.open() != Window.OK || d.code() == null) return null;
             String code = d.code();

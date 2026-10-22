@@ -12,6 +12,12 @@ for (const block of raw.split(/^====$/m)) {
     const text = code.replace('§', '');
     const cs = text.includes('using System');
     const isId = cs ? csT.isIdentifier : javaT.isIdentifier;
+    if (name === '@inside') {
+        n++;
+        const got = names.insideFunction(text, offset) ? 'yes' : 'no';
+        if (got !== expect) { bad++; console.log(`נכשל: ${why}: ציפינו ${expect}, קיבלנו ${got}`); }
+        continue;
+    }
     const err = names.checkName(name, text, offset, isId);
     const got = err === null ? 'ok' : !isId(name) || names.RESERVED_NAMES.has(name) ? 'bad' : 'taken';
     n++;

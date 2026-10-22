@@ -8,6 +8,7 @@ const project = require('./project');
 const runner = require('./runner');
 const cs = require('./cs');
 const addstructure = require('./addstructure');
+const names = require('./names');
 
 /** התבניות של השפה שעובדים בה עכשיו (Java / C#) — נקבע בתחילת כל פעולה לפי השפה */
 let templates = javaTemplates;
@@ -313,6 +314,12 @@ async function insertSnippet(structure) {
     useLanguage(csharp ? 'csharp' : 'java');
     const lineNo = ed.selection.active.line;
     const at = insertionPoint(ed.document, lineNo);
+    // שכבת הגנה: אי אפשר להכניס משתנה / פקודות מחוץ לפעולה (בגוף המחלקה או אחריה) — מזהירים ולא פותחים את החלון
+    if (!names.insideFunction(ed.document.getText(), at.offset)) {
+        vscode.window.showWarningMessage('הסמן נמצא מחוץ לפעולה (בגוף המחלקה, או לפני / אחרי המחלקה), ושם אי אפשר לכתוב פקודות. '
+            + 'לחצו בתוך הפעולה main (או בכל פעולה אחרת), בשורה שבה רוצים את המבנה — ואז לחצו שוב על "הוסף מבנה נתונים".', { modal: true });
+        return;
+    }
     const session = new addstructure.Session({ tpl: templates, text: ed.document.getText(), offset: at.offset, indent: at.indent, preset: structure });
     if (addPanel) { try { addPanel.dispose(); } catch (e) { /* כבר נסגר */ } }
     const panel = vscode.window.createWebviewPanel('dsviz.addStructure', 'הוסף מבנה נתונים',

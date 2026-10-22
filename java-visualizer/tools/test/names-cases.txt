@@ -255,3 +255,70 @@ public class A {
         §
     }
 }
+====
+@inside|yes|בתוך main
+public class A {
+    public static void main(String[] args) {
+        §
+    }
+}
+====
+@inside|no|בגוף המחלקה, מחוץ לפעולות
+public class A {
+    §
+    public static void main(String[] args) {
+    }
+}
+====
+@inside|no|אחרי סוף המחלקה
+public class A {
+    public static void main(String[] args) {
+    }
+}
+§
+====
+@inside|no|לפני המחלקה
+import unit4.collectionsLib.*;
+§
+public class A {
+}
+====
+@inside|yes|בתוך פעולה אחרת שאינה main
+public class A {
+    static int f(int x) {
+        if (x > 0) {
+            §
+        }
+        return x;
+    }
+}
+====
+@inside|yes|בתוך לולאה
+public class A {
+    public static void main(String[] args) {
+        for (int i = 0; i < 3; i++) {
+            §
+        }
+    }
+}
+====
+@inside|no|ב-C#: בגוף המחלקה
+using System;
+class P {
+    §
+    static void Main(string[] args) {
+    }
+}
+====
+@inside|yes|ב-C#: בתוך Main
+using System;
+class P {
+    static void Main(string[] args) {
+        §
+    }
+}
+====
+@inside|yes|ב-C#: פקודות ברמה העליונה (בלי מחלקה)
+using System;
+Console.WriteLine("hi");
+§

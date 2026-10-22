@@ -18,6 +18,12 @@ public class NameCheckTest {
       int offset = code.indexOf('§');
       String text = code.replace("§", "");
       boolean cs = text.contains("using System");
+      if (head[0].equals("@inside")) {
+        n++;
+        String got = NameCheck.insideFunction(text, offset) ? "yes" : "no";
+        if (!got.equals(head[1])) { bad++; System.out.println("נכשל: " + head[2] + ": ציפינו " + head[1] + ", קיבלנו " + got); }
+        continue;
+      }
       NameCheck.Ident id = cs ? s -> ScaffoldCs.isIdentifier(s) : s -> Scaffold.isIdentifier(s);
       String err = NameCheck.checkName(head[0], text, offset, id);
       String got = err == null ? "ok" : !id.ok(head[0]) || NameCheck.RESERVED_NAMES.contains(head[0]) ? "bad" : "taken";

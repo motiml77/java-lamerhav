@@ -18,10 +18,6 @@ import org.eclipse.ui.handlers.HandlerUtil;
 
 /** "דוגמאות פתורות": מעתיק את הדוגמאות לפרויקט ופותח את הדוגמה שבוחרים */
 public class ExamplesHandler extends AbstractHandler {
-    private static final String[] LABELS = { "מחסנית — היפוך, הכנסה לתחתית (רקורסיה)", "תור — ספירה, מחיקת מופעים",
-            "רשימה מקושרת — סכום, מחיקה, היפוך", "עצים — ספירה, גובה, הכנסה לעץ חיפוש",
-            "מערכים — מקסימום, היפוך, סכומי שורות, מיון בועות", "תלמידים — מצטיינים בתור, הטוב ביותר במערך" };
-
     @Override
     public Object execute(ExecutionEvent event) {
         Shell shell = HandlerUtil.getActiveShell(event);
@@ -31,13 +27,9 @@ public class ExamplesHandler extends AbstractHandler {
             IContainer src = ProjectSetup.prepare(jp, Ui.resolver(shell));
             List<IFile> files = ProjectSetup.copyExamples(src);
 
-            ElementListSelectionDialog d = new ElementListSelectionDialog(shell, new LabelProvider());
-            d.setTitle("דוגמאות פתורות");
-            d.setMessage("איזו דוגמה לפתוח? (כל הדוגמאות הועתקו ל-src/examples)");
-            d.setElements(LABELS);
-            d.setMultipleSelection(false);
-            if (d.open() != Window.OK || d.getFirstResult() == null) return null;
-            int i = java.util.Arrays.asList(LABELS).indexOf(d.getFirstResult());
+            ExamplesDialog d = new ExamplesDialog(shell);
+            if (d.open() != Window.OK) return null;
+            int i = d.chosen();
             Ui.openAt(HandlerUtil.getActiveWorkbenchWindow(event).getActivePage(), files.get(i), 0);
         } catch (CoreException e) {
             Ui.error(shell, "לא הצלחתי להעתיק את הדוגמאות.", e);

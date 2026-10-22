@@ -95,7 +95,8 @@ function statementNames(stmt) {
  */
 function analyze(text, offset) {
     const code = stripCode(text);
-    const blocks = [{ parent: -1, start: 0 }];
+    const blocks = [{ parent: -1, start: 0, kind: 'file' }];
+    let hasClass = false;
     const decls = [];
     const stack = [0];
     let chain = null;
@@ -124,9 +125,9 @@ function analyze(text, offset) {
             }
             const parent = stack[stack.length - 1];
             const id = blocks.length;
-            blocks.push({ parent, start: i });
             const cls = /\b(?:class|interface|enum|record|struct)\s+([A-Za-z_]\w*)/.exec(header);
-            if (cls) add([cls[1]], parent);
+            blocks.push({ parent, start: i, kind: cls ? 'class' : 'code' });
+            if (cls) { add([cls[1]], parent); hasClass = true; }
             const call = /([A-Za-z_]\w*)\s*(?:<[^()]*>)?\s*\(([^]*)\)\s*(?:throws[^{]*|where[^{]*|:\s*(?:base|this)\s*\([^)]*\))?\s*$/.exec(header);
             if (call) {
                 const head = header.slice(0, call.index).trim();
@@ -143,12 +144,23 @@ function analyze(text, offset) {
         }
     }
     if (chain === null) chain = stack.slice();
-    return { decls, blocks, chain };
+    return { decls, blocks, chain, hasClass };
 }
 
 function isAncestor(blocks, ancestor, id) {
     for (let b = id; b >= 0; b = blocks[b].parent) if (b === ancestor) return true;
     return false;
+}
+
+/**
+ * האם הנקודה offset נמצאת בתוך פעולה (או כל בלוק קוד אחר) — ולא בגוף המחלקה או מחוץ לה. שם אי אפשר להכניס משתנה / פקודות.
+ * קובץ בלי מחלקה בכלל (C# עם פקודות ברמה העליונה) — מותר.
+ */
+function insideFunction(text, offset) {
+    if (offset < 0) return true;
+    const { blocks, chain, hasClass } = analyze(text, offset);
+    if (!hasClass) return true;
+    return chain.some(id => id > 0 && blocks[id].kind !== 'class');
 }
 
 /** כל השמות שאסור להגדיר בנקודה offset (offset < 0 = לא ידוע: כל מה שמוגדר בקובץ) */
@@ -186,4 +198,4 @@ function suggestName(base, text, offset, isIdentifier) {
     return base;
 }
 
-module.exports = { checkName, suggestName, takenNames, stripCode, RESERVED_NAMES };
+module.exports = { insideFunction, checkName, suggestName, takenNames, stripCode, RESERVED_NAMES };

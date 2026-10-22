@@ -142,6 +142,7 @@ public final class NameCheck {
         final List<Decl> decls = new ArrayList<Decl>();
         final List<int[]> blocks = new ArrayList<int[]>();   // {parent, start}
         List<Integer> chain;
+        boolean hasClass;
     }
 
     private static final Pattern INIT_END = Pattern.compile("(?s).*(?:=|\\]|\\bnew|,|\\breturn)$");
@@ -159,7 +160,7 @@ public final class NameCheck {
     private static Analysis analyze(String text, int offset) {
         String code = stripCode(text);
         Analysis a = new Analysis();
-        a.blocks.add(new int[] { -1, 0 });
+        a.blocks.add(new int[] { -1, 0, 0 });
         List<Integer> stack = new ArrayList<Integer>();
         stack.add(0);
         List<Integer> chain = null;
@@ -190,9 +191,10 @@ public final class NameCheck {
                 }
                 int parent = stack.get(stack.size() - 1);
                 int id = a.blocks.size();
-                a.blocks.add(new int[] { parent, i });
                 Matcher cls = CLASS_HEAD.matcher(header);
-                if (cls.find()) add(a, Arrays.asList(cls.group(1)), parent);
+                boolean isClass = cls.find();
+                a.blocks.add(new int[] { parent, i, isClass ? 1 : 2 });   // 1 = גוף מחלקה, 2 = בלוק קוד (פעולה...)
+                if (isClass) { add(a, Arrays.asList(cls.group(1)), parent); a.hasClass = true; }
                 Matcher call = CALL_HEAD.matcher(header);
                 if (call.find()) {
                     String head = header.substring(0, call.start()).trim();
@@ -215,6 +217,18 @@ public final class NameCheck {
 
     private static boolean isAncestor(List<int[]> blocks, int ancestor, int id) {
         for (int b = id; b >= 0; b = blocks.get(b)[0]) if (b == ancestor) return true;
+        return false;
+    }
+
+    /**
+     * האם הנקודה offset נמצאת בתוך פעולה (או כל בלוק קוד אחר) — ולא בגוף המחלקה או מחוץ לה. שם אי אפשר להכניס משתנה / פקודות.
+     * קובץ בלי מחלקה בכלל (C# עם פקודות ברמה העליונה) — מותר.
+     */
+    public static boolean insideFunction(String text, int offset) {
+        if (offset < 0) return true;
+        Analysis a = analyze(text, offset);
+        if (!a.hasClass) return true;
+        for (int id : a.chain) if (id > 0 && a.blocks.get(id)[2] == 2) return true;
         return false;
     }
 

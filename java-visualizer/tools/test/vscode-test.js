@@ -213,6 +213,15 @@ async function addDialog(command, state, steps) {
     d = await addDialog(commands['dsviz.insert.matrix'], {}, [['values', { values: '1, 2, 3; 4, 5, 6' }]]);
     await d.ok();
     assert(edits[0][2].includes('int[][] mat = {') && edits[0][2].includes('{4, 5, 6}'), edits[0][2]);
+    // שכבת הגנה: הסמן מחוץ לפעולה (בגוף המחלקה) — אזהרה, והחלון לא נפתח
+    {
+        const outside = ['public class X {', '    ', '    public static void main(String[] args) {', '    }', '}'];
+        vscode.window.activeTextEditor = mkEditor(outside, 1, 'java', edits);
+        const before = panels.length, warns = log.length;
+        await commands['dsviz.insert.stack']();
+        assert.strictEqual(panels.length, before, 'החלון לא אמור להיפתח מחוץ לפעולה');
+        assert(log.slice(warns).some(l => l.startsWith('warn:') && l.includes('מחוץ לפעולה')), JSON.stringify(log.slice(warns)));
+    }
     // שם תפוס (stk כבר מוגדר בקובץ) נחסם, וההצעה מדלגת עליו
     const taken = ['public class X {', '    public static void main(String[] args) {', '        Stack<Integer> stk = new Stack<Integer>();', '        ', '    }', '}'];
     vscode.window.activeTextEditor = mkEditor(taken, 3, 'java', edits);
