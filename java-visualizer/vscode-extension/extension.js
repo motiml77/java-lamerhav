@@ -373,7 +373,7 @@ async function insertCode(ed, lineNo, code, csharp) {
 
 let helpPanel;
 
-/** חלון שבו בוחרים הדרכה — לכל אחת סרטון קצר (help/<id>.webm בתוך התוסף) */
+/** חלון שבו בוחרים הדרכה — לכל אחת סרטון קצר (help/<id>.mp4 בתוך התוסף) */
 function openHelp() {
     let dir = path.join(ctx.extensionPath, 'resources', 'help');
     if (!fs.existsSync(dir)) {   // התוסף שההתקנה שמה — הסרטונים שמורים פעם אחת בתיקייה help של ההתקנה

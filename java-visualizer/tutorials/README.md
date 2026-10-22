@@ -1,6 +1,6 @@
 # סרטוני ההדרכה (הכפתור ?)
 
-ארבע הדרכות קצרות, כל אחת עם סרטון: `../help/a.webm` … `d.webm` (ופוסטרים `a.jpg` … `d.jpg`), ודף הבחירה `../help/index.html`.
+ארבע הדרכות קצרות, כל אחת עם סרטון: `../help/a.mp4` … `d.mp4` (ופוסטרים `a.jpg` … `d.jpg`), דף הבחירה `../help/index.html` ודף הנגן להדרכה אחת `../help/player.html#a`.
 
 | | הדרכה |
 |---|---|
@@ -19,7 +19,7 @@
 cd java-visualizer/tutorials
 mkdir -p fonts && (cd fonts && npm init -y && npm i @expo-google-fonts/karantina @expo-google-fonts/secular-one \
   @expo-google-fonts/suez-one @expo-google-fonts/heebo @expo-google-fonts/rubik-mono-one @expo-google-fonts/jetbrains-mono)
-node make.js a          # מצלם את החלונות והריצה (scripts/a.prep.js), מרנדר, מוסיף פסקול ומקודד ל-../help/a.webm
+node make.js a          # מצלם את החלונות והריצה (scripts/a.prep.js), מרנדר, מוסיף פסקול ומקודד ל-../help/a.mp4
 node make.js b && node make.js c && node make.js d
 node ../tools/build-help.js     # דף הבחירה help/index.html + המשכים
 ```

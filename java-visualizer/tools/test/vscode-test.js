@@ -221,7 +221,7 @@ async function addDialog(command, state, steps) {
         const hp = panels.slice(before).find(x => x.id === 'dsviz.help');
         assert(hp, 'חלון ההדרכה לא נפתח');
         for (const t of ['יצירת מבנה נתונים חדש', 'דוגמאות פתורות', 'מבנה בתוך מבנה', 'מוסיפים התאמות']) assert(hp.html.includes(t), t);
-        assert(/vscode-resource:.*help[\\/]a\.webm/.test(hp.html), 'כתובת הסרטון חסרה');
+        assert(/vscode-resource:.*help[\\/]a\.mp4/.test(hp.html), 'כתובת הסרטון חסרה');
     }
     // שכבת הגנה: הסמן מחוץ לפעולה (בגוף המחלקה) — אזהרה, והחלון לא נפתח
     {
