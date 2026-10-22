@@ -40,4 +40,15 @@ for (const structure of Object.keys(t.SNIPPETS).concat(Object.keys(t.STRUCTURES)
       const o = { structure, type, name: t.snippetName(structure), size: 3 + (seed & 3), rows: 2 + (seed & 1), cols: 4, seed, indent: '        ' };
       write(name + '.snippet', () => t.snippet(o));
     }
+// "הוסף מבנה נתונים": קטעי קוד לפי ערכים שנבחרו (אותו סדר ומספור כמו ב-combos.js)
+for (const structure of Object.keys(t.SNIPPETS).concat(Object.keys(t.STRUCTURES).filter(x => t.STRUCTURES[x].combo)))
+  for (const type of Object.keys(t.TYPES))
+    for (const mode of ['default', 'random']) {
+      if (structure === 'student' || structure === 'car') continue;   // תלמיד / מכונית בודדים — בלי ערכים
+      const obj = type === 'Student' || type === 'Car';
+      const values = mode === 'default' ? t.defaultValues(structure, type, false) : obj ? '3' : t.randomValues(structure, type, 5, 7);
+      const name = 'S' + (++k);
+      const o = { structure, type, name: t.snippetName(structure), size: 5, rows: 3, cols: 4, seed: 1, indent: '        ', values };
+      write(name + '.snippet', () => t.snippet(o));
+    }
 console.log(written + ' קבצי C# (' + errors + ' שגיאות צפויות)');

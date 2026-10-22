@@ -11,6 +11,10 @@ javac -encoding UTF-8 -d "$W/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Sca
 java -cp "$W/cls" ScaffoldAll "$W/combos.txt" "$W/java" >/dev/null
 diff -r "$W/js" "$W/java" && echo "זהה"
 javac -encoding UTF-8 -cp "$W/cls" -d "$W/cls" RandomCheck.java
+echo "== 1ב. בדיקת שם למשתנה חדש (לא מתנגש בקוד) — אותן תשובות ב-JS וב-Java"
+node names-test.js
+javac -encoding UTF-8 -cp "$W/cls" -d "$W/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/NameCheck.java ../../csharp/new-exercise/src/il/lamerhav/dsviz/cs/ScaffoldCs.java NameCheckTest.java
+java -Dstdout.encoding=UTF-8 -cp "$W/cls" NameCheckTest names-cases.txt
 java -cp "$W/cls" RandomCheck "$W/randoms.txt"
 echo "== 2. כל התרגילים וכל קטעי הקוד מתקמפלים מול הספרייה"
 mkdir -p "$W/compile"
@@ -30,6 +34,8 @@ done
 echo "הרצת דוגמאות: תקין"
 echo "== 3. התוסף של VS Code (מול חיקוי של ה-API)"
 node vscode-test.js | tail -2
+echo "== 3ב. החלון \"הוסף מבנה נתונים\" של VS Code בדפדפן (Chromium): לחיצות, ערכים אקראיים, בדיקת שם, ציור"
+node addstructure-test.js "$W" | tail -1
 echo "== 4. הרצה שורה אחר שורה (JDI) — כל שורה מתועדת עם המשתנים"
 L="$W/lines"
 mkdir -p "$L"

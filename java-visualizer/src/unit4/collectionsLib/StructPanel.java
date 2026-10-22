@@ -409,14 +409,18 @@ final class StructPanel extends JPanel {
 
     // ------------------------------------------------------------ תור
 
+    private static final int QARROW = 16;   // אורך החצים בצדי התור
+
     private Dimension drawQueue(Graphics2D g, LinearView v, int x, int y) {
         int n = v.items.size(), rows = Math.max(n, 1);
         boolean objs = hasObjs(v.objs);
         int cw = Math.max(56, widthOf(v.items, v.objs, v.ghost) + 24), ch = objs ? OBJ_H : 40;
         Dimension sb = subsBox(v.subs);
         if (sb != null) { cw = Math.max(cw, sb.width); ch = Math.max(ch, sb.height); }
-        int left = x + cw + 40;
-        int w = Math.max(left - x + rows * cw + 30, titleWidth(v.title, "תור")), h = th() + ch + 40;
+        // משמאל: מקום לאיבר שהוצא (remove) — רק במבנה ראשי, או כשבאמת הוציאו; ואז חץ קצר החוצה
+        boolean ghostSpace = nest == 0 || v.ghost != null;
+        int left = x + (ghostSpace ? cw + 16 : 4) + QARROW + 8;
+        int w = Math.max(left - x + rows * cw + QARROW + 18, titleWidth(v.title, "תור")), h = th() + ch + 40;
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "תור", x, y, v.focus);
@@ -433,6 +437,10 @@ final class StructPanel extends JPanel {
         g.setStroke(THICK);
         g.drawLine(left - 8, top - 5, left + rows * cw + 8, top - 5);
         g.drawLine(left - 8, top + ch + 5, left + rows * cw + 8, top + ch + 5);
+        // צדדים פתוחים עם חיצים: משמאל יוצאים (הראש — remove), מימין נכנסים (הזנב — insert). כך תור לא נראה כמו מערך
+        int mid = top + ch / 2, right = left + rows * cw;
+        arrow(g, left - 6, mid, left - 6 - QARROW, mid, LINE, 6, 1.5f);
+        arrow(g, right + 8 + QARROW, mid, right + 8, mid, LINE, 6, 1.5f);
         if (n == 0) {
             g.setColor(MUTED);
             center(g, "ריק", SMALL_B, left + cw / 2, top + ch / 2);
@@ -874,11 +882,15 @@ final class StructPanel extends JPanel {
     }
 
     private void arrow(Graphics2D g, int x1, int y1, int x2, int y2, Color c) {
+        arrow(g, x1, y1, x2, y2, c, 9, 2f);
+    }
+
+    /** חץ מ-(x1,y1) אל (x2,y2), עם ראש באורך len */
+    private void arrow(Graphics2D g, int x1, int y1, int x2, int y2, Color c, int len, float width) {
         g.setColor(c);
-        g.setStroke(new BasicStroke(2f));
+        g.setStroke(new BasicStroke(width));
         g.drawLine(x1, y1, x2, y2);
         double a = Math.atan2(y2 - y1, x2 - x1);
-        int len = 9;
         int ax = (int) Math.round(x2 - len * Math.cos(a - 0.45)), ay = (int) Math.round(y2 - len * Math.sin(a - 0.45));
         int bx = (int) Math.round(x2 - len * Math.cos(a + 0.45)), by = (int) Math.round(y2 - len * Math.sin(a + 0.45));
         g.fillPolygon(new int[] { x2, ax, bx }, new int[] { y2, ay, by }, 3);

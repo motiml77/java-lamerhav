@@ -1,0 +1,257 @@
+# בדיקות לשם משתנה חדש: כל מקרה — שורת כותרת "שם|תוצאה|הסבר", ואחריה קוד; הסמן מסומן ב-§. מקרים מופרדים ב-====
+# תוצאה: ok = שם פנוי, taken = מתנגש, bad = שם לא חוקי / שמור
+stk|ok|שם פנוי בתוך main
+public class A {
+    public static void main(String[] args) {
+        int x = 5;
+        §
+    }
+}
+====
+x|taken|משתנה מקומי קודם באותה פעולה
+public class A {
+    public static void main(String[] args) {
+        int x = 5;
+        §
+    }
+}
+====
+args|taken|פרמטר של הפעולה
+public class A {
+    public static void main(String[] args) {
+        §
+    }
+}
+====
+stk|ok|אותו שם בפעולה אחרת — אין התנגשות
+public class A {
+    public static int solve(Stack<Integer> stk) {
+        return 0;
+    }
+    public static void main(String[] args) {
+        §
+    }
+}
+====
+stk|taken|הוגדר בפעולה הזאת, אחרי הסמן
+public class A {
+    public static void main(String[] args) {
+        §
+        Stack<Integer> stk = new Stack<Integer>();
+    }
+}
+====
+stk|taken|שדה במחלקה
+public class A {
+    static Stack<Integer> stk;
+    public static void main(String[] args) {
+        §
+    }
+}
+====
+i|ok|משתנה לולאה שכבר נסגרה
+public class A {
+    public static void main(String[] args) {
+        for (int i = 0; i < 3; i++) {
+            System.out.println(i);
+        }
+        §
+    }
+}
+====
+i|taken|הסמן בתוך הלולאה
+public class A {
+    public static void main(String[] args) {
+        for (int i = 0; i < 3; i++) {
+            §
+        }
+    }
+}
+====
+i|ok|לולאה בלי סוגריים מסולסלים
+public class A {
+    public static void main(String[] args) {
+        for (int i = 0; i < 3; i++) System.out.println(i);
+        §
+    }
+}
+====
+q|taken|הגדרה בבלוק פנימי שבא אחרי הסמן
+public class A {
+    public static void main(String[] args) {
+        §
+        if (true) {
+            int q = 3;
+        }
+    }
+}
+====
+q|ok|הגדרה בבלוק פנימי שנסגר לפני הסמן
+public class A {
+    public static void main(String[] args) {
+        if (true) {
+            int q = 3;
+        }
+        §
+    }
+}
+====
+b|taken|משתנה שני באותה הצהרה
+public class A {
+    public static void main(String[] args) {
+        int a = 1, b = 2;
+        §
+    }
+}
+====
+arr|taken|מערך עם אתחול
+public class A {
+    public static void main(String[] args) {
+        int[] arr = {1, 2, 3};
+        §
+    }
+}
+====
+m|taken|מערך דו-ממדי עם אתחול
+public class A {
+    public static void main(String[] args) {
+        int[][] m = {
+            {1, 2},
+            {3, 4}
+        };
+        §
+    }
+}
+====
+x|ok|שם שמופיע רק בהערה ובמחרוזת
+public class A {
+    public static void main(String[] args) {
+        // int x = 5;
+        System.out.println("int x = 5;");
+        §
+    }
+}
+====
+solve|taken|שם של פעולה במחלקה
+public class A {
+    public static int solve(int n) { return n; }
+    public static void main(String[] args) {
+        §
+    }
+}
+====
+A|taken|שם המחלקה
+public class A {
+    public static void main(String[] args) {
+        §
+    }
+}
+====
+Stack|bad|שם של מחלקה מוכנה
+public class A {
+    public static void main(String[] args) {
+        §
+    }
+}
+====
+class|bad|מילה שמורה
+public class A {
+    public static void main(String[] args) {
+        §
+    }
+}
+====
+2x|bad|מתחיל בספרה
+public class A {
+    public static void main(String[] args) {
+        §
+    }
+}
+====
+s|taken|משתנה מסוג Student
+public class A {
+    public static void main(String[] args) {
+        Student s = new Student("a", "b", 1);
+        §
+    }
+}
+====
+e|ok|e של catch שנסגר
+public class A {
+    public static void main(String[] args) {
+        try {
+            int z = 1;
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+        §
+    }
+}
+====
+e|taken|הסמן בתוך catch
+public class A {
+    public static void main(String[] args) {
+        try {
+            int z = 1;
+        } catch (Exception e) {
+            §
+        }
+    }
+}
+====
+t|taken|foreach ב-Java
+public class A {
+    public static void main(String[] args) {
+        for (Student t : list) {
+            §
+        }
+    }
+}
+====
+lst|taken|C#: משתנה עם var
+using System;
+class P {
+    static void Main(string[] args) {
+        var lst = new List<int>();
+        §
+    }
+}
+====
+item|taken|C#: foreach
+using System;
+class P {
+    static void Main(string[] args) {
+        foreach (var item in items) {
+            §
+        }
+    }
+}
+====
+args|taken|C#: פרמטר Main
+using System;
+class P {
+    static void Main(string[] args) {
+        §
+    }
+}
+====
+stk|ok|שם פנוי בקובץ עם כמה פעולות
+public class A {
+    static void f() { int a = 0; }
+    static void g(Stack<Integer> s) { s.push(1); }
+    public static void main(String[] args) {
+        Queue<Integer> q = new Queue<Integer>();
+        q.insert(3);
+        §
+    }
+}
+====
+q|taken|תור שהוגדר קודם
+public class A {
+    static void f() { int a = 0; }
+    public static void main(String[] args) {
+        Queue<Integer> q = new Queue<Integer>();
+        q.insert(3);
+        §
+    }
+}

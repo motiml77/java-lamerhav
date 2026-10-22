@@ -710,6 +710,22 @@ public final class Scaffold {
         return new Result(String.join("\n", L), cursorLine);
     }
 
+    /**
+     * "הוסף מבנה נתונים": המבנה נבנה מהערכים שהמשתמש בחר (או שהחלון מילא אקראית) — אותה כתיבה כמו בתרגיל.
+     * values: "5, 2, 8" ; מטריצה — שורות ב-; ; קומבינציה — מבנים פנימיים ב-; ; תלמידים / מכוניות — כמה ליצור (מספר)
+     */
+    private static String valuesSnippet(SnippetOptions o, Structure st, String T, String name, String indent) {
+        List<String> L = new ArrayList<String>();
+        if (st.outer != null) {
+            List<List<String>> groups = groupLiterals(o.values, T, st.outer.equals("tree"));
+            L.add("// " + st.label + " — כל קבוצת ערכים היא מבנה פנימי אחד");
+            L.addAll(comboBuildLines(st, T, name, groups, name + "Inner"));
+            return lines(indent, L);
+        }
+        for (String l : buildLines(st, T, name, o.values, false, false, o.structure)) L.add(l.substring(8));
+        return lines(indent, L);
+    }
+
     /** "הוספה לקוד" של קומבינציה: כמה מבנים פנימיים (size) עם 2–4 ערכים אקראיים בכל אחד */
     private static String comboSnippet(SnippetOptions o, Structure st, Rng r, String indent) {
         String T = o.type;
@@ -726,6 +742,79 @@ public final class Scaffold {
         L.add("// " + st.label + " — כל קבוצת ערכים היא מבנה פנימי אחד");
         L.addAll(comboBuildLines(st, T, o.name, groups, o.name + "Inner"));
         return lines(indent, L);
+    }
+
+    /**
+     * מה לצייר בחלון "הוסף מבנה נתונים": המבנה החיצוני (outer) והתוכן של כל תא.
+     * inner = "cell" — בכל תא ערך אחד (המבנה הרגיל); stack / queue / list — בכל תא מבנה שלם (קומבינציה).
+     * groups: מחסנית/תור/רשימה/מערך — תא אחד לכל איבר; עץ — לפי רמות (null = אין צומת); מטריצה — שורה לכל קבוצה.
+     * outer = "card" — תלמיד / מכונית בודד (inner = Student / Car). type = הטיפוס בקוד, למשל Stack<Queue<Integer>>.
+     */
+    public static final class Preview {
+        public final String outer, inner, type;
+        public final List<List<String>> groups;
+        Preview(String outer, String inner, List<List<String>> groups, String type) {
+            this.outer = outer;
+            this.inner = inner;
+            this.groups = groups;
+            this.type = type;
+        }
+    }
+
+    /** המודל לציור (ראו Preview). זורק IllegalArgumentException (בעברית) אם הערכים לא תקינים */
+    public static Preview preview(String structure, String type, String values) {
+        if (structure.equals("student") || structure.equals("car"))
+            return new Preview("card", structure.equals("student") ? "Student" : "Car", new ArrayList<List<String>>(), structure.equals("student") ? "Student" : "Car");
+        Structure st = STRUCTURES.get(structure);
+        if (st == null) throw new IllegalArgumentException("מבנה לא מוכר: " + structure);
+        String shown = typeOf(st, type);
+        if (st.outer != null) {
+            List<List<String>> groups = new ArrayList<List<String>>();
+            for (List<String> g : groupLiterals(values, type, st.outer.equals("tree"))) {
+                if (g == null) { groups.add(null); continue; }
+                List<String> p = new ArrayList<String>();
+                for (String x : g) p.add(plain(x));
+                groups.add(p);
+            }
+            return new Preview(st.outer, st.inner, groups, shown);
+        }
+        List<List<String>> groups = new ArrayList<List<String>>();
+        if (st.dims == 2) {
+            for (List<String> row : matrixLiterals(values, type)) {
+                List<String> p = new ArrayList<String>();
+                for (String x : row) p.add(plain(x));
+                groups.add(p);
+            }
+            return new Preview("matrix", "cell", groups, shown);
+        }
+        List<String> items = new ArrayList<String>();
+        if (isObj(type)) {
+            int n = studentCount(values);
+            for (int i = 1; i <= n; i++) items.add((type.equals("Student") ? "S" : "C") + i);
+        } else {
+            for (String x : literals(values, type, structure.equals("tree"))) items.add(x.equals("null") ? x : plain(x));
+        }
+        String outer = structure.equals("bst") ? "tree" : structure;
+        if (structure.equals("bst") && !isObj(type)) {
+            TNode root = null;
+            boolean numeric = type.equals("Integer") || type.equals("Double");
+            for (String x : literals(values, type, false)) root = insert(root, x, numeric);
+            heapOrder(root, 0, groups, 0);
+        } else if (structure.equals("tree") || structure.equals("bst")) {
+            for (String x : items) groups.add(x.equals("null") ? null : new ArrayList<String>(Arrays.asList(x)));
+        } else {
+            for (String x : items) groups.add(new ArrayList<String>(Arrays.asList(x)));
+        }
+        return new Preview(outer, "cell", groups, shown);
+    }
+
+    /** עץ → רשימה לפי רמות (אינדקס i: ילדים 2i+1, 2i+2), עד עומק 5; null = אין צומת */
+    private static void heapOrder(TNode n, int i, List<List<String>> out, int depth) {
+        if (n == null || depth > 5) return;
+        while (out.size() <= i) out.add(null);
+        out.set(i, new ArrayList<String>(Arrays.asList(plain(n.v))));
+        heapOrder(n.l, 2 * i + 1, out, depth + 1);
+        heapOrder(n.r, 2 * i + 2, out, depth + 1);
     }
 
     /** תצוגה מקדימה קצרה (טקסט) של מה שייבנה: הטיפוס, והמבנים הפנימיים לפי סדרם במבנה החיצוני. ריק אם הקלט לא תקין */
@@ -891,6 +980,8 @@ public final class Scaffold {
     public static final class SnippetOptions {
         public String structure = "queue", type = "Integer", name = "q", indent = "";
         public int size = 5, rows = 3, cols = 4, seed = 1;
+        /** ערכים שבחר המשתמש (או שהחלון מילא אקראית): "5, 2, 8" · מטריצה — שורות ב-; · קומבינציה — מבנים פנימיים ב-; · תלמידים — כמה. null = נתוני דמה לפי size / seed */
+        public String values = null;
     }
 
     /** פקודה אחת שיוצרת מבנה עם נתוני דמה, להכנסה במקום הסמן */
@@ -905,6 +996,7 @@ public final class Scaffold {
         if (st == null) throw new IllegalArgumentException("מבנה לא מוכר: " + o.structure);
         String T = o.type;
         if (!TYPES.contains(T)) throw new IllegalArgumentException("טיפוס לא מוכר: " + T);
+        if (o.values != null) return valuesSnippet(o, st, T, name, indent);
         if (st.outer != null) return comboSnippet(o, st, r, indent);
         String full = typeOf(st, T);
         int size = Math.max(1, Math.min(o.size, 30));

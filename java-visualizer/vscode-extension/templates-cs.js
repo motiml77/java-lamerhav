@@ -122,4 +122,23 @@ function classInfo(name) {
     return deep(info);
 }
 
-module.exports = Object.assign({}, templates, { isIdentifier, generate, snippet, classInfo, toCs, CS_KEYWORDS });
+const names = require('./names');
+
+/** כמו templates.preview, אבל הטיפוס בכתיבה של C# (Stack<Queue<int>>, int[,]) */
+function preview(structure, type, values) {
+    const p = templates.preview(structure, type, values);
+    p.type = toCs(p.type);
+    return p;
+}
+
+/** שגיאה (בעברית) אם השם לא חוקי ב-C# או מתנגש במשהו שכבר מוגדר במקום הסמן; אחרת null */
+function nameError(name, text, offset) {
+    return names.checkName(name, text, offset, isIdentifier);
+}
+
+/** שם מוצע למשתנה חדש (stk, stk2... / q1, q2...) שלא מתנגש בקוד */
+function suggestName(structure, text, offset) {
+    return names.suggestName(templates.snippetName(structure), text, offset, isIdentifier);
+}
+
+module.exports = Object.assign({}, templates, { preview, nameError, suggestName, isIdentifier, generate, snippet, classInfo, toCs, CS_KEYWORDS });

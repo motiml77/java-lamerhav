@@ -187,6 +187,20 @@ public final class ScaffoldCs {
         return new Result(code, todo >= 0 ? todo + 1 : g.cursorLine);
     }
 
+    /** null אם השם חוקי ב-C# ולא מתנגש במשהו שכבר מוגדר במקום הסמן (offset = מיקום הסמן, -1 = לא ידוע); אחרת הודעה בעברית */
+    public static String checkName(String name, String text, int offset) {
+        return il.lamerhav.dsviz.NameCheck.checkName(name, text, offset, new il.lamerhav.dsviz.NameCheck.Ident() {
+            public boolean ok(String s) { return isIdentifier(s); }
+        });
+    }
+
+    /** שם מוצע למשתנה חדש (stk, stk2... / q1, q2...) שלא מתנגש בקוד */
+    public static String suggestName(String structure, String text, int offset) {
+        return il.lamerhav.dsviz.NameCheck.suggestName(Scaffold.snippetName(structure), text, offset, new il.lamerhav.dsviz.NameCheck.Ident() {
+            public boolean ok(String s) { return isIdentifier(s); }
+        });
+    }
+
     /** קטע קוד להכנסה (בלי using — מוסיפים לבד) */
     public static String snippet(Scaffold.SnippetOptions o) {
         return toCs(Scaffold.snippet(o));

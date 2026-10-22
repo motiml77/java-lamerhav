@@ -7,8 +7,8 @@ OUT=build/lib
 rm -rf "$OUT" && mkdir -p "$OUT" release
 javac --release 8 -Xlint:-options -encoding UTF-8 -d "$OUT" $(find src/unit4 -name '*.java' ! -name JdiTracer.java)
 javac --release 11 -encoding UTF-8 -cp "$OUT" -d "$OUT" src/unit4/collectionsLib/JdiTracer.java
-# החלונות של C# ל-Visual Studio / Rider ("תרגיל חדש", "הוספת משתנה") — אותו מחולל כמו ב-Eclipse (Scaffold) + המרה ל-C#
-javac --release 8 -Xlint:-options -encoding UTF-8 -cp "$OUT" -d "$OUT" eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java $(find csharp/new-exercise/src -name '*.java')
+# החלונות של C# ל-Visual Studio / Rider ("תרגיל חדש", "הוסף מבנה נתונים") — אותו מחולל כמו ב-Eclipse (Scaffold) + המרה ל-C#
+javac --release 8 -Xlint:-options -encoding UTF-8 -cp "$OUT" -d "$OUT" eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java eclipse-plugin/src/il/lamerhav/dsviz/NameCheck.java $(find csharp/new-exercise/src -name '*.java')
 # קוד המקור בתוך ה-jar תחת src/ (ולא ליד המחלקות) — כדי ש-javac לא יקמפל אותו מחדש בטעות.
 # התוסף של Eclipse מגדיר את src כשורש קוד המקור (Ctrl+לחיצה על Stack פותח את הקוד)
 mkdir -p "$OUT/src/unit4/collectionsLib"

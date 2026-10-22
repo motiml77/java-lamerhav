@@ -50,6 +50,18 @@ for (const structure of Object.keys(t.SNIPPETS).concat(Object.keys(t.STRUCTURES)
       combos.push(['S', name, structure, type, o.name, o.size, o.rows, o.cols, seed].join('|'));
       write(name + '.snippet', () => t.snippet(o));
     }
+// "הוסף מבנה נתונים": קטעי קוד לפי ערכים שנבחרו — ברירת המחדל של המבנה, ו-5 ערכים אקראיים (2–4 בכל מבנה פנימי)
+for (const structure of Object.keys(t.SNIPPETS).concat(Object.keys(t.STRUCTURES).filter(x => t.STRUCTURES[x].combo)))
+  for (const type of Object.keys(t.TYPES))
+    for (const mode of ['default', 'random']) {
+      if (structure === 'student' || structure === 'car') continue;   // תלמיד / מכונית בודדים — בלי ערכים
+      const obj = type === 'Student' || type === 'Car';
+      const values = mode === 'default' ? t.defaultValues(structure, type, false) : obj ? '3' : t.randomValues(structure, type, 5, 7);
+      const name = 'S' + (++k);
+      const o = { structure, type, name: t.snippetName(structure), size: 5, rows: 3, cols: 4, seed: 1, indent: '        ', values };
+      combos.push(['S', name, structure, type, o.name, o.size, o.rows, o.cols, o.seed, values].join('|'));
+      write(name + '.snippet', () => t.snippet(o));
+    }
 fs.writeFileSync(path.join(out, '..', 'combos.txt'), combos.join('\n') + '\n');
 // בדיקת שגיאות קלט
 const bad = [['x, 2', 'Integer'], ['ab', 'Character'], ['1.2.3', 'Double'], ['null', 'Integer'], ['abc', 'Student'], ['50', 'Student'], ['abc', 'Car']];

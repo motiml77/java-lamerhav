@@ -12,7 +12,7 @@
                name="הרצה ויזואלית" description="הרצת התרגיל בחלון שמראה כל שורה, את המשתנים ואת מבני הנתונים"
                defaultHandler="il.lamerhav.dsviz.RunVisualHandler"/>
       <command id="il.lamerhav.dsviz.insert" categoryId="il.lamerhav.dsviz.category"
-               name="הוספה לקוד" description="מבנה עם נתוני דמה במקום הסמן"
+               name="הוסף מבנה נתונים" description="בוחרים מבנה נתונים, ערכים ושם — והוא נבנה בקוד במקום הסמן"
                defaultHandler="il.lamerhav.dsviz.InsertHandler">
          <commandParameter id="il.lamerhav.dsviz.structure" name="מבנה" optional="true"/>
       </command>
@@ -54,35 +54,7 @@
                <parameter name="il.lamerhav.dsviz.structure" value="matrix"/>
             </command>
             <separator name="insert" visible="true"/>
-            <menu id="il.lamerhav.dsviz.insertMenu" label="הוספה לקוד (נתוני דמה)">
-               <command commandId="il.lamerhav.dsviz.insert" label="צור מחסנית..." style="push">
-                  <parameter name="il.lamerhav.dsviz.structure" value="stack"/>
-               </command>
-               <command commandId="il.lamerhav.dsviz.insert" label="צור תור..." style="push">
-                  <parameter name="il.lamerhav.dsviz.structure" value="queue"/>
-               </command>
-               <command commandId="il.lamerhav.dsviz.insert" label="צור רשימה מקושרת..." style="push">
-                  <parameter name="il.lamerhav.dsviz.structure" value="list"/>
-               </command>
-               <command commandId="il.lamerhav.dsviz.insert" label="צור עץ בינארי..." style="push">
-                  <parameter name="il.lamerhav.dsviz.structure" value="tree"/>
-               </command>
-               <command commandId="il.lamerhav.dsviz.insert" label="צור עץ חיפוש בינארי..." style="push">
-                  <parameter name="il.lamerhav.dsviz.structure" value="bst"/>
-               </command>
-               <command commandId="il.lamerhav.dsviz.insert" label="צור מערך..." style="push">
-                  <parameter name="il.lamerhav.dsviz.structure" value="array"/>
-               </command>
-               <command commandId="il.lamerhav.dsviz.insert" label="צור מערך דו-ממדי..." style="push">
-                  <parameter name="il.lamerhav.dsviz.structure" value="matrix"/>
-               </command>
-               <command commandId="il.lamerhav.dsviz.insert" label="צור תלמיד..." style="push">
-                  <parameter name="il.lamerhav.dsviz.structure" value="student"/>
-               </command>
-               <command commandId="il.lamerhav.dsviz.insert" label="צור מכונית..." style="push">
-                  <parameter name="il.lamerhav.dsviz.structure" value="car"/>
-               </command>
-            </menu>
+            <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
             <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
             <separator name="more" visible="true"/>
@@ -95,76 +67,17 @@
          <toolbar id="il.lamerhav.dsviz.toolbar" label="מבני נתונים">
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש" mode="FORCE_TEXT"
                      tooltip="תרגיל חדש במבני נתונים — בוחרים מבנה ומקבלים תרגיל מוכן" style="push"/>
-            <command commandId="il.lamerhav.dsviz.insert" id="il.lamerhav.dsviz.insertDropdown" label="הוספה לקוד"
-                     mode="FORCE_TEXT" tooltip="צור תור / מחסנית / מערך / תלמיד... עם נתוני דמה, במקום הסמן" style="pulldown"/>
+            <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים" mode="FORCE_TEXT"
+                     tooltip="הוסף מבנה נתונים לקוד במקום הסמן — בוחרים מבנה, ערכים ושם, ורואים איך הוא ייראה" style="push"/>
             <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" mode="FORCE_TEXT"
                      tooltip="הרצה בחלון שמראה כל שורה, את המשתנים ואת מבני הנתונים (הרצה רגילה — רק לקונסול)" style="push"/>
          </toolbar>
       </menuContribution>
 
-      <!-- הכפתור הנפתח "הוספה לקוד" בסרגל הכלים -->
-      <menuContribution locationURI="menu:il.lamerhav.dsviz.insertDropdown">
-         <command commandId="il.lamerhav.dsviz.insert" label="צור מחסנית..." style="push">
-            <parameter name="il.lamerhav.dsviz.structure" value="stack"/>
-         </command>
-         <command commandId="il.lamerhav.dsviz.insert" label="צור תור..." style="push">
-            <parameter name="il.lamerhav.dsviz.structure" value="queue"/>
-         </command>
-         <command commandId="il.lamerhav.dsviz.insert" label="צור רשימה מקושרת..." style="push">
-            <parameter name="il.lamerhav.dsviz.structure" value="list"/>
-         </command>
-         <command commandId="il.lamerhav.dsviz.insert" label="צור עץ בינארי..." style="push">
-            <parameter name="il.lamerhav.dsviz.structure" value="tree"/>
-         </command>
-         <command commandId="il.lamerhav.dsviz.insert" label="צור עץ חיפוש בינארי..." style="push">
-            <parameter name="il.lamerhav.dsviz.structure" value="bst"/>
-         </command>
-         <command commandId="il.lamerhav.dsviz.insert" label="צור מערך..." style="push">
-            <parameter name="il.lamerhav.dsviz.structure" value="array"/>
-         </command>
-         <command commandId="il.lamerhav.dsviz.insert" label="צור מערך דו-ממדי..." style="push">
-            <parameter name="il.lamerhav.dsviz.structure" value="matrix"/>
-         </command>
-         <command commandId="il.lamerhav.dsviz.insert" label="צור תלמיד..." style="push">
-            <parameter name="il.lamerhav.dsviz.structure" value="student"/>
-         </command>
-         <command commandId="il.lamerhav.dsviz.insert" label="צור מכונית..." style="push">
-            <parameter name="il.lamerhav.dsviz.structure" value="car"/>
-         </command>
-      </menuContribution>
-
       <!-- לחיצה ימנית בעורך הקוד -->
       <menuContribution locationURI="popup:#CompilationUnitEditorContext?after=additions">
-         <menu id="il.lamerhav.dsviz.editorInsert" label="מבני נתונים: הוספה לקוד">
-            <command commandId="il.lamerhav.dsviz.insert" label="צור מחסנית..." style="push">
-               <parameter name="il.lamerhav.dsviz.structure" value="stack"/>
-            </command>
-            <command commandId="il.lamerhav.dsviz.insert" label="צור תור..." style="push">
-               <parameter name="il.lamerhav.dsviz.structure" value="queue"/>
-            </command>
-            <command commandId="il.lamerhav.dsviz.insert" label="צור רשימה מקושרת..." style="push">
-               <parameter name="il.lamerhav.dsviz.structure" value="list"/>
-            </command>
-            <command commandId="il.lamerhav.dsviz.insert" label="צור עץ בינארי..." style="push">
-               <parameter name="il.lamerhav.dsviz.structure" value="tree"/>
-            </command>
-            <command commandId="il.lamerhav.dsviz.insert" label="צור עץ חיפוש בינארי..." style="push">
-               <parameter name="il.lamerhav.dsviz.structure" value="bst"/>
-            </command>
-            <command commandId="il.lamerhav.dsviz.insert" label="צור מערך..." style="push">
-               <parameter name="il.lamerhav.dsviz.structure" value="array"/>
-            </command>
-            <command commandId="il.lamerhav.dsviz.insert" label="צור מערך דו-ממדי..." style="push">
-               <parameter name="il.lamerhav.dsviz.structure" value="matrix"/>
-            </command>
-            <command commandId="il.lamerhav.dsviz.insert" label="צור תלמיד..." style="push">
-               <parameter name="il.lamerhav.dsviz.structure" value="student"/>
-            </command>
-            <command commandId="il.lamerhav.dsviz.insert" label="צור מכונית..." style="push">
-               <parameter name="il.lamerhav.dsviz.structure" value="car"/>
-            </command>
-         </menu>
+         <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
       </menuContribution>
 

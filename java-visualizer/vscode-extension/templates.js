@@ -1,4 +1,5 @@
 'use strict';
+const names = require('./names');
 // יוצר את קוד התרגיל (קובץ Java) לפי הבחירות של התלמיד.
 // שימו לב: יש עותק זהה בג'אווה בתוסף של Eclipse (Scaffold.java) — שינוי כאן צריך להיעשות גם שם.
 
@@ -651,6 +652,7 @@ function snippet(o) {
     if (!st) throw new Error('מבנה לא מוכר: ' + o.structure);
     const T = o.type;
     if (!TYPES[T]) throw new Error('טיפוס לא מוכר: ' + T);
+    if (o.values !== undefined && o.values !== null) return valuesSnippet(o, st, T, name, indent);
     if (st.combo) return comboSnippet(o, st, next, indent);
     const full = typeOf(st, T), prim = TYPES[T].primitive;
     const size = Math.max(1, Math.min(o.size || 5, 30));
@@ -705,6 +707,19 @@ function snippet(o) {
 }
 
 
+/**
+ * "הוסף מבנה נתונים": המבנה נבנה מהערכים שהמשתמש בחר (או שהחלון מילא אקראית) — אותה כתיבה כמו בתרגיל.
+ * o.values: "5, 2, 8" ; מטריצה — שורות ב-; ; קומבינציה — מבנים פנימיים ב-; ; תלמידים / מכוניות — כמה ליצור (מספר)
+ */
+function valuesSnippet(o, st, T, name, indent) {
+    if (st.combo) {
+        const groups = groupLiterals(o.values, T, st.combo.outer === 'tree');
+        const L = [`// ${st.label} — כל קבוצת ערכים היא מבנה פנימי אחד`].concat(comboBuildLines(st, T, name, groups, name + 'Inner'));
+        return L.map(l => indent + l).join('\n');
+    }
+    return buildLines(st, T, name, o.values, false, false, o.structure).map(l => indent + l.slice(8)).join('\n');
+}
+
 /** "הוספה לקוד" של קומבינציה: כמה מבנים פנימיים (size) עם 2–4 ערכים אקראיים בכל אחד */
 function comboSnippet(o, st, next, indent) {
     const T = o.type;
@@ -739,6 +754,53 @@ function comboId(outer, inside) {
     return inside && canNest(outer) ? outer + '_' + inside : outer;
 }
 
+/**
+ * מה לצייר בחלון "הוסף מבנה נתונים": { outer, inner, groups, type } — המבנה החיצוני והתוכן של כל תא.
+ * inner = 'cell' — בכל תא ערך אחד (המבנה הרגיל); stack / queue / list — בכל תא מבנה שלם (קומבינציה).
+ * groups: מחסנית/תור/רשימה/מערך — תא אחד לכל איבר; עץ — לפי רמות (null = אין צומת); מטריצה — שורה לכל קבוצה.
+ * outer = 'card' — תלמיד / מכונית בודד. זורק Error (בעברית) אם הערכים לא תקינים.
+ * שימו לב: יש עותק זהה בג'אווה (Scaffold.preview).
+ */
+function preview(structure, type, values) {
+    if (structure === 'student' || structure === 'car') {
+        const c = structure === 'student' ? 'Student' : 'Car';
+        return { outer: 'card', inner: c, groups: [], type: c };
+    }
+    const st = STRUCTURES[structure];
+    if (!st) throw new Error('מבנה לא מוכר: ' + structure);
+    const plain = lit => lit.length >= 2 && (lit[0] === "'" || lit[0] === '"') ? lit.slice(1, -1) : lit;
+    const shown = typeOf(st, type);
+    if (st.combo) {
+        const groups = groupLiterals(values, type, st.combo.outer === 'tree').map(g => g === null ? null : g.map(plain));
+        return { outer: st.combo.outer, inner: st.combo.inner, groups, type: shown };
+    }
+    if (st.dims === 2) return { outer: 'matrix', inner: 'cell', groups: matrixLiterals(values, type).map(r => r.map(plain)), type: shown };
+    const obj = isObj(type);
+    const items = obj ? Array.from({ length: studentCount(values) }, (_, i) => (type === 'Student' ? 'S' : 'C') + (i + 1))
+        : literals(values, type, structure === 'tree').map(x => x === 'null' ? x : plain(x));
+    const groups = [];
+    if (structure === 'bst' && !obj) {
+        const numeric = type === 'Integer' || type === 'Double';
+        const cmp = (a, b) => numeric ? parseFloat(a) - parseFloat(b) : (a < b ? -1 : a > b ? 1 : 0);
+        const ins = (t, x) => { if (!t) return { v: x, l: null, r: null }; if (cmp(x, t.v) < 0) t.l = ins(t.l, x); else t.r = ins(t.r, x); return t; };
+        let root = null;
+        for (const x of literals(values, type, false)) root = ins(root, x);
+        const heap = (n, i, depth) => {
+            if (!n || depth > 5) return;
+            while (groups.length <= i) groups.push(null);
+            groups[i] = [plain(n.v)];
+            heap(n.l, 2 * i + 1, depth + 1);
+            heap(n.r, 2 * i + 2, depth + 1);
+        };
+        heap(root, 0, 0);
+    } else if (structure === 'tree' || structure === 'bst') {
+        for (const x of items) groups.push(x === 'null' ? null : [x]);
+    } else {
+        for (const x of items) groups.push([x]);
+    }
+    return { outer: structure === 'bst' ? 'tree' : structure, inner: 'cell', groups, type: shown };
+}
+
 /** תצוגה מקדימה קצרה (טקסט) של מה שייבנה: הטיפוס, והמבנים הפנימיים לפי סדרם במבנה החיצוני */
 function comboPreview(structure, type, text) {
     const st = STRUCTURES[structure];
@@ -755,6 +817,16 @@ function comboPreview(structure, type, text) {
             : 'לפי רמות: ' + groups.map(g).join('  '));
         default: return `${head}\n${groups.map((x, i) => `[${i}] = ${g(x)}`).join('   ')}`;
     }
+}
+
+/** שגיאה (בעברית) אם השם לא חוקי או מתנגש במשהו שכבר מוגדר במקום הסמן; null אם הכול בסדר. offset = מיקום הסמן בטקסט (-1 = לא ידוע) */
+function nameError(name, text, offset) {
+    return names.checkName(name, text, offset, module.exports.isIdentifier);
+}
+
+/** שם מוצע למשתנה חדש (stk, stk2... / q1, q2...) שלא מתנגש בקוד */
+function suggestName(structure, text, offset) {
+    return names.suggestName(snippetName(structure), text, offset, module.exports.isIdentifier);
 }
 
 /** שם ברירת המחדל למשתנה */
@@ -939,4 +1011,4 @@ const CLASS_INFO = {
     }
 };
 
-module.exports = { STRUCTURES, TYPES, RETURNS, SNIPPETS, INSIDE, canNest, comboId, comboPreview, groupLiterals, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues, nameN, freeName, CLASS_INFO };
+module.exports = { preview, nameError, suggestName, STRUCTURES, TYPES, RETURNS, SNIPPETS, INSIDE, canNest, comboId, comboPreview, groupLiterals, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues, nameN, freeName, CLASS_INFO };

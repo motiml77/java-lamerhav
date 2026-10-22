@@ -7,6 +7,7 @@ const csTemplates = require('./templates-cs');
 const project = require('./project');
 const runner = require('./runner');
 const cs = require('./cs');
+const addstructure = require('./addstructure');
 
 /** התבניות של השפה שעובדים בה עכשיו (Java / C#) — נקבע בתחילת כל פעולה לפי השפה */
 let templates = javaTemplates;
@@ -54,11 +55,17 @@ function activate(context) {
     bar.text = '$(play-circle) הרצה ויזואלית';
     bar.tooltip = 'הרצה שבה רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד';
     bar.command = 'dsviz.run';
+    // וכפתור "הוסף מבנה נתונים" לידו: בוחרים מבנה וערכים, והוא נבנה בקוד במקום הסמן
+    const addBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+    addBar.text = '$(add) הוסף מבנה נתונים';
+    addBar.tooltip = 'בוחרים מבנה נתונים, ערכים ושם — והוא נבנה בקוד במקום הסמן';
+    addBar.command = 'dsviz.insert';
     const refresh = () => {
         const ed = vscode.window.activeTextEditor;
-        if (ed && (ed.document.languageId === 'java' || ed.document.languageId === 'csharp')) bar.show(); else bar.hide();
+        const on = ed && (ed.document.languageId === 'java' || ed.document.languageId === 'csharp');
+        if (on) { bar.show(); addBar.show(); } else { bar.hide(); addBar.hide(); }
     };
-    context.subscriptions.push(bar, vscode.window.onDidChangeActiveTextEditor(refresh));
+    context.subscriptions.push(bar, addBar, vscode.window.onDidChangeActiveTextEditor(refresh));
     refresh();
 
     openPending();
@@ -285,7 +292,16 @@ async function askInside(outer, label) {
     return pick ? pick.id : undefined;
 }
 
-// ------------------------------------------------------------ הוספה לקוד: מבנה עם נתוני דמה במקום הסמן
+// ------------------------------------------------------------ הוסף מבנה נתונים: חלון בחירה, ואז המבנה נבנה בקוד במקום הסמן
+
+let addPanel;
+
+/** השורה שבה ייכנס הקוד: שורה ריקה — מחליפים אותה; אחרת — מתחת לשורה הנוכחית (באותה הזחה) */
+function insertionPoint(doc, lineNo) {
+    const line = doc.lineAt(Math.min(lineNo, doc.lineCount - 1));
+    const blank = line.text.trim() === '';
+    return { line, blank, indent: blank ? (line.text || '        ') : line.text.match(/^\s*/)[0], offset: doc.offsetAt(blank ? line.range.start : line.range.end) };
+}
 
 async function insertSnippet(structure) {
     const ed = vscode.window.activeTextEditor;
@@ -295,64 +311,47 @@ async function insertSnippet(structure) {
     }
     const csharp = ed.document.languageId === 'csharp';
     useLanguage(csharp ? 'csharp' : 'java');
-    if (!structure) {
-        const pick = await vscode.window.showQuickPick(
-            Object.entries(templates.SNIPPETS).map(([id, label]) => ({ label, id })),
-            { title: 'הוספה לקוד — איזה מבנה?' });
-        if (!pick) return;
-        structure = pick.id;
-    }
-    if (structure !== 'student' && structure !== 'car') {
-        const inside = await askInside(structure, templates.SNIPPETS[structure]);
-        if (inside === undefined) return;
-        structure = templates.comboId(structure, inside);
-    }
-    const label = templates.SNIPPETS[structure] || templates.STRUCTURES[structure].label;
-    let type = structure === 'car' ? 'Car' : 'Student';
-    if (structure !== 'student' && structure !== 'car') {
-        const t = await vscode.window.showQuickPick(typeItems(structure), { title: `${label} — טיפוס הערכים` });
-        if (!t) return;
-        type = t.label;
-    }
-    const opts = { structure, type, seed: Math.floor(Math.random() * 2147483647), size: 5, rows: 3, cols: 4 };
-    if (structure === 'matrix') {
-        const dims = await vscode.window.showInputBox({ title: `${label} — גודל (שורות x עמודות)`, value: '3x4',
-            validateInput: s => /^\s*\d{1,2}\s*[x×*,]\s*\d{1,2}\s*$/.test(s) ? null : 'למשל 3x4' });
-        if (!dims) return;
-        [opts.rows, opts.cols] = dims.split(/[x×*,]/).map(x => +x.trim());
-    } else if (structure !== 'student' && structure !== 'car') {
-        const combo = !!templates.STRUCTURES[structure].combo;
-        const size = await vscode.window.showInputBox({ title: `${label} — ${combo ? 'כמה מבנים פנימיים?' : 'כמה איברים?'}`,
-            value: combo ? '3' : type === 'Student' || type === 'Car' ? '4' : '5',
-            validateInput: s => /^\d{1,2}$/.test(s.trim()) && +s > 0 && +s <= (combo ? 6 : 30) ? null : `מספר בין 1 ל-${combo ? 6 : 30}` });
-        if (!size) return;
-        opts.size = +size;
-    }
-    const text = ed.document.getText();
-    let name = templates.freeName(templates.snippetName(structure), text);
-    name = await vscode.window.showInputBox({ title: `${label} — שם המשתנה`, value: name,
-        validateInput: s => templates.isIdentifier(s) ? null : 'אותיות באנגלית וספרות בלבד, מתחיל באות' });
-    if (!name) return;
-    opts.name = name;
+    const lineNo = ed.selection.active.line;
+    const at = insertionPoint(ed.document, lineNo);
+    const session = new addstructure.Session({ tpl: templates, text: ed.document.getText(), offset: at.offset, indent: at.indent, preset: structure });
+    if (addPanel) { try { addPanel.dispose(); } catch (e) { /* כבר נסגר */ } }
+    const panel = vscode.window.createWebviewPanel('dsviz.addStructure', 'הוסף מבנה נתונים',
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false }, { enableScripts: true, retainContextWhenHidden: true });
+    addPanel = panel;
+    panel.webview.html = addstructure.html(addstructure.options(templates, session.initial()));
+    panel.onDidDispose(() => { if (addPanel === panel) addPanel = undefined; });
+    panel.webview.onDidReceiveMessage(async msg => {
+        if (msg.type === 'cancel') { panel.dispose(); return; }
+        // הקובץ יכול להשתנות כשהחלון פתוח — בודקים את השם מול הקוד העדכני
+        const now = insertionPoint(ed.document, lineNo);
+        session.update(ed.document.getText(), now.offset, now.indent);
+        const view = session.view(msg.state, msg.reason);
+        if (msg.type === 'ok' && view.ok) {
+            await insertCode(ed, lineNo, view.code, csharp);
+            panel.dispose();
+            if (view.chosenClass) showClassInfo(view.chosenClass);
+            return;
+        }
+        panel.webview.postMessage({ type: 'view', view });
+    });
+}
 
-    const line = ed.document.lineAt(ed.selection.active.line);
-    const blank = line.text.trim() === '';
-    opts.indent = blank ? (line.text || '        ') : line.text.match(/^\s*/)[0];
-    let code;
-    try { code = templates.snippet(opts); } catch (e) { vscode.window.showErrorMessage(e.message); return; }
-    await ed.edit(b => {
-        if (blank) b.replace(line.range, code);
-        else b.insert(line.range.end, '\n' + code);
+async function insertCode(ed, lineNo, code, csharp) {
+    const editor = await vscode.window.showTextDocument(ed.document, { viewColumn: ed.viewColumn, preserveFocus: false });
+    const text = editor.document.getText();
+    const at = insertionPoint(editor.document, lineNo);
+    await editor.edit(b => {
+        if (at.blank) b.replace(at.line.range, code);
+        else b.insert(at.line.range.end, '\n' + code);
         if (csharp) {
             const need = ['using System;', 'using Unit4.CollectionsLib;'].filter(u => !text.includes(u));
             if (need.length) b.insert(new vscode.Position(0, 0), need.join('\n') + '\n');
         } else if (!/import\s+unit4\.collectionsLib\.\*\s*;/.test(text)) {
             const pkg = /^\s*package\s+[\w.]+\s*;.*$/m.exec(text);
-            const at = pkg ? ed.document.positionAt(pkg.index + pkg[0].length) : new vscode.Position(0, 0);
-            b.insert(at, pkg ? '\n\nimport unit4.collectionsLib.*;' : 'import unit4.collectionsLib.*;\n\n');
+            const pos = pkg ? editor.document.positionAt(pkg.index + pkg[0].length) : new vscode.Position(0, 0);
+            b.insert(pos, pkg ? '\n\nimport unit4.collectionsLib.*;' : 'import unit4.collectionsLib.*;\n\n');
         }
     });
-    if (structure !== 'matrix') showClassInfo(type);
 }
 
 // ------------------------------------------------------------ "מה יש במחלקה" — חלון קטן בצד (Student / Car)
