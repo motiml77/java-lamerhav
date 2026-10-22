@@ -145,10 +145,53 @@
     menuOpen() { this.add({ type: 'menu', geom: this.menuGeom() }); this.now += .35; return this; }
     menuHot(text) { const i = MENU_ITEMS.findIndex(t => t !== '---' && t.includes(text)); this.add({ type: 'menuHot', idx: i }); return this; }
     menuClose(after = .3) { this.add({ type: 'menuClose' }); this.now += after; return this; }
+    /** מלבן (בקואורדינטות האפליקציה) של מטרה — להדגשה סביב מה שלוחצים עליו */
+    rectOfTarget(target) {
+      if (typeof target === 'object') return target.w ? target : { x: target.x - 24, y: target.y - 18, w: 48, h: 36 };
+      const [kind, ...rest] = target.split(':');
+      const arg = rest.join(':');
+      if (kind === 'tb') return this.rectOf($({ add: 'tbAdd', new: 'tbNew', run: 'tbRun', help: 'tbHelp' }[arg]), 'rect');
+      if (kind === 'menu') return this.rectOf(document.querySelector('#ide .menubar .ds'), 'rect');
+      if (kind === 'menuitem') { const m = this.menuGeom(), i = MENU_ITEMS.findIndex(t => t !== '---' && t.includes(arg)); return { x: m.left + 4, y: m.top + m.ys[i], w: MENU_W - 8, h: MI_H }; }
+      if (kind === 'dlg') { const r = this.dlgRect(arg.split('@')[0]); return { x: r.x, y: r.y, w: r.w, h: r.h }; }
+      if (kind === 'view') { const q = this.pt(target); return { x: q.x - 62, y: q.y - 20, w: 124, h: 40 }; }
+      if (kind === 'line') { const q = this.pt(target), r = this.codeRect(); return { x: r.x + GUTTER, y: q.y - LINE_H / 2, w: r.w - GUTTER - 6, h: LINE_H }; }
+      if (kind === 'tree') { const q = this.pt(target); return { x: q.x - 90, y: q.y - 14, w: 180, h: 28 }; }
+      const q = this.pt(target); return { x: q.x - 24, y: q.y - 18, w: 48, h: 36 };
+    }
+    /** העכבר מגיע למטרה, מסביבה מסגרת מהבהבת ותווית "לחץ כאן", מחכים שיספיקו לקרוא — ואז לוחצים */
+    press(target, label, opt = {}) {
+      const r = this.rectOfTarget(target), move = opt.move ?? .9, hold = opt.hold ?? 1.5;
+      const side = opt.side || (typeof target === 'string' && target.startsWith('menuitem') ? 'right' : typeof target === 'string' && target.startsWith('dlg:') && r.y < 150 ? 'bottom' : typeof target === 'string' && (target.startsWith('tb:') || target.startsWith('view:') || target.startsWith('menu')) ? 'bottom' : 'top');
+      this.add({ type: 'hl', rect: { x: r.x - 5, y: r.y - 4, w: r.w + 10, h: r.h + 8 }, dur: move + hold + .3 });
+      const at = side === 'top' ? { x: r.x + r.w / 2, y: r.y - 4 } : side === 'bottom' ? { x: r.x + r.w / 2, y: r.y + r.h + 4 } : side === 'left' ? { x: r.x - 4, y: r.y + r.h / 2 } : { x: r.x + r.w + 4, y: r.y + r.h / 2 };
+      this.add({ type: 'bubble', text: `<span class="cta">${opt.verb || 'לחץ כאן'}</span>${label ? '<span class="lbl">' + label + '</span>' : ''}`, at, side, kind: 'click', dur: move + hold + .3 });
+      this.move(target, move).wait(hold).click(opt.after ?? .35);
+      return this;
+    }
+    /** שמים את הסמן (קליק בקוד) במקום מדויק — עם הסבר */
+    place(target, label, opt = {}) {
+      const r = this.rectOfTarget(target), move = opt.move ?? 1.0, hold = opt.hold ?? 1.8;
+      this.add({ type: 'hl', rect: { x: r.x, y: r.y - 2, w: r.w, h: r.h + 4 }, dur: move + hold + .3 });
+      this.add({ type: 'bubble', text: `<span class="cta">${opt.verb || 'שים את הסמן כאן'}</span>${label ? '<span class="lbl">' + label + '</span>' : ''}`, at: { x: r.x + r.w * (opt.bx ?? .5), y: opt.side === 'top' ? r.y - 4 : r.y + r.h + 4 }, side: opt.side || 'bottom', kind: opt.kind || 'place', dur: move + hold + .3 });
+      this.move(target, move).wait(hold).click(.3);
+      return this;
+    }
+    /** מסבירים משהו בלי ללחוץ (רק מסמנים ומסבירים) */
+    explain(target, text, opt = {}) {
+      const rr = typeof target === 'string' && /^(el:|lines:|view:\d)/.test(target) ? this.dlgRectOrEl(target) : this.rectOfTarget(target);
+      const dur = opt.dur ?? 3.0;
+      this.add({ type: 'hl', rect: { x: rr.x - 4, y: rr.y - 4, w: rr.w + 8, h: rr.h + 8 }, dur });
+      const side = opt.side || 'bottom';
+      const at = side === 'top' ? { x: rr.x + rr.w / 2, y: rr.y - 4 } : side === 'bottom' ? { x: rr.x + rr.w / 2, y: rr.y + rr.h + 4 } : side === 'left' ? { x: rr.x - 4, y: rr.y + rr.h / 2 } : { x: rr.x + rr.w + 4, y: rr.y + rr.h / 2 };
+      this.add({ type: 'bubble', text, at, side, kind: opt.kind || 'info', dur });
+      this.now += opt.wait ?? dur;
+      return this;
+    }
     codeRect() { return this.rectOf($('code'), 'rect'); }
 
     // --- פעולות
-    intro(dur = 3.4) { this.introEnd = dur; this.now = dur + .9; return this; }
+    intro(dur = 2.8) { this.introEnd = dur; this.now = dur + .6; return this; }
     step(i, extra = 0) { this.add({ type: 'step', idx: i }); this.now += extra; return this; }
     files(rows) { this.add({ type: 'tree', rows }); return this; }
     title(text) { this.add({ type: 'title', text }); return this; }
@@ -236,7 +279,7 @@
       return this;
     }
     unzoom(dur = .7) { this.add({ type: 'zoom', to: { s: 1, cx: APP_W / 2, cy: APP_H / 2 }, dur }); this.now += dur; return this; }
-    outro(sub, dur = 4.2) { this.outroAt = this.now + .3; this.now = this.outroAt + dur; return this; }
+    outro(sub, dur = 6.5) { this.outroAt = this.now + .4; this.now = this.outroAt + dur; return this; }
   }
   const CLICKS = [];
   const MENU_ITEMS = ['תרגיל חדש: מחסנית (Stack)...', 'תרגיל חדש: תור (Queue)...', 'תרגיל חדש: רשימה מקושרת (Node)...', 'תרגיל חדש: עץ בינארי (BinNode)...',
@@ -287,16 +330,18 @@
 
   function renderIntro(t) {
     const end = B.introEnd;
-    $('intro').style.display = t < end + .6 ? 'block' : 'none';
-    if (t >= end + .6) return;
-    $('inum').textContent = META.num;
+    $('intro').style.display = t < end + .5 ? 'block' : 'none';
+    if (t >= end + .5) return;
+    $('inum').textContent = '';
     $('ititle').textContent = META.title;
-    $('isub').textContent = META.sub;
-    const nIn = p(t, .05, .6), nOut = p(t, end - .5, end);
-    css($('inum'), nIn * (1 - nOut), `translateX(${lerp(-300, 0, eo(nIn)) - nOut * 500}px) scale(${1 + t * .04})`, nOut * 20);
-    show($('ikick'), t, .3, end - .35, { from: .5, dur: .3 });
-    show($('ititle'), t, .45, end - .35, { from: 3 });
-    show($('isub'), t, .85, end - .35, { from: .6, dur: .35 });
+    $('isub').textContent = META.goal || META.sub;
+    $('ikick').textContent = 'הדרכה ' + META.num;
+    const a = p(t, .1, .6) * (1 - p(t, end - .35, end + .1));
+    for (const id of ['ikick', 'ititle', 'isub']) {
+      const el = $(id), d = id === 'ikick' ? 0 : id === 'ititle' ? .15 : .35;
+      const k = eo(p(t, .1 + d, .6 + d));
+      css(el, a * k, `translateY(${(1 - k) * 22}px)`, 0);
+    }
   }
 
   function renderTop(t) {
@@ -309,12 +354,11 @@
 
   function renderApp(t) {
     const t0 = B.introEnd + .15;
-    const w = eo5(p(t, t0, t0 + 1.0));
+    const w = eo(p(t, t0, t0 + .7));
     const out = B.outroAt != null ? eio(p(t, B.outroAt - .1, B.outroAt + .45)) : 0;
-    const rotY = lerp(-30, 0, w), rotX = lerp(24, 0, w);
-    $('app3d').style.opacity = p(t, t0, t0 + .25) * (1 - out);
-    $('app').style.transform = `translateY(${lerp(700, 0, w) + out * 60}px) rotateY(${rotY}deg) rotateX(${rotX}deg) scale(${lerp(.75, 1, w) * (1 - out * .15)})`;
-    $('app').style.filter = out > .02 ? `blur(${out * 16}px)` : 'none';
+    $('app3d').style.opacity = p(t, t0, t0 + .5) * (1 - out);
+    $('app').style.transform = `translateY(${lerp(30, 0, w) + out * 20}px) scale(${lerp(.97, 1, w)})`;
+    $('app').style.filter = 'none';
 
     // מצלמה (זום)
     let cam = { s: 1, cx: APP_W / 2, cy: APP_H / 2 }, prev = { ...cam };
@@ -471,12 +515,13 @@
       const a = p(t, e.t, e.t + .2) * (1 - p(t, e.t + e.dur, e.t + e.dur + .3));
       const k = back(p(t, e.t, e.t + .35));
       const off = 22;
-      const pos = { top: `left:${e.at.x}px;top:${e.at.y - off}px;transform:translate(-50%,-100%) scale(${k})`,
-                    bottom: `left:${e.at.x}px;top:${e.at.y + off}px;transform:translate(-50%,0) scale(${k})`,
-                    left: `left:${e.at.x - off}px;top:${e.at.y}px;transform:translate(-100%,-50%) scale(${k})`,
-                    right: `left:${e.at.x + off}px;top:${e.at.y}px;transform:translate(0,-50%) scale(${k})` }[e.side];
+      const at = (e.side === 'top' || e.side === 'bottom') ? { x: Math.max(300, Math.min(APP_W - 300, e.at.x)), y: e.at.y } : e.at;
+      const pos = { top: `left:${at.x}px;top:${at.y - off}px;transform:translate(-50%,-100%) scale(${k})`,
+                    bottom: `left:${at.x}px;top:${at.y + off}px;transform:translate(-50%,0) scale(${k})`,
+                    left: `left:${at.x - off}px;top:${at.y}px;transform:translate(-100%,-50%) scale(${k})`,
+                    right: `left:${at.x + off}px;top:${at.y}px;transform:translate(0,-50%) scale(${k})` }[e.side];
       const tip = { top: 'left:calc(50% - 9px);bottom:-8px', bottom: 'left:calc(50% - 9px);top:-8px', left: 'right:-8px;top:calc(50% - 9px)', right: 'left:-8px;top:calc(50% - 9px)' }[e.side];
-      fx.push(`<div class="bubble ${e.kind}" style="${pos};opacity:${a};transform-origin:${e.side === 'top' ? '50% 100%' : e.side === 'bottom' ? '50% 0' : e.side === 'left' ? '100% 50%' : '0 50%'}"><div class="tip" style="${tip}"></div>${e.text}</div>`);
+      fx.push(`<div class="bubble ${e.kind}" style="${pos};${e.side === 'left' ? `max-width:${Math.max(200, Math.min(560, at.x - off - 16))}px;` : e.side === 'right' ? `max-width:${Math.max(200, Math.min(560, APP_W - at.x - off - 16))}px;` : ''}opacity:${a};transform-origin:${e.side === 'top' ? '50% 100%' : e.side === 'bottom' ? '50% 0' : e.side === 'left' ? '100% 50%' : '0 50%'}"><div class="tip" style="${tip}"></div>${e.text}</div>`);
     }
     // לחיצות
     for (const e of EV) if (e.type === 'click' && t >= e.t && t <= e.t + .55) {
@@ -520,15 +565,16 @@
     const u = B.outroAt != null ? t - B.outroAt : -1;
     $('outro').style.display = u > -.2 ? 'block' : 'none';
     if (u <= -.2) return;
-    $('o2').textContent = META.outro || '';
-    show($('o1'), u, .35, 99, { from: 3 });
-    show($('o2'), u, .7, 99, { from: .6, dur: .35 });
-    show($('o3'), u, 1.0, 99, { from: 1.8, dur: .4 });
-    show($('o4'), u, 1.4, 99, { from: .6, dur: .35 });
+    $('o1').textContent = 'סיכום — מה עשינו';
+    $('o2').innerHTML = META.steps.map((st, i) => `<div class="sum" style="opacity:${eo(p(u, .3 + i * .25, .7 + i * .25))};transform:translateX(${(1 - eo(p(u, .3 + i * .25, .7 + i * .25))) * 40}px)"><div class="c">${i + 1}</div><div>${st[2] || st[0]}</div></div>`).join('');
+    $('o1').style.opacity = eo(p(u, 0, .4));
+    $('o3').style.opacity = 0;
+    $('o4').style.opacity = eo(p(u, .6 + META.steps.length * .25, 1.1 + META.steps.length * .25));
+    $('o4').textContent = 'אפשר לחזור להדרכה בכל רגע — כפתור ? בסרגל הכלים';
   }
 
   function renderBars(t) {
-    const cuts = [B.introEnd + .05].concat(B.outroAt != null ? [B.outroAt] : []);
+    const cuts = [];
     let vis = false;
     const bars = $('bars').children;
     for (const cut of cuts) {
@@ -576,7 +622,7 @@
       DUR = B.now;
       window.DURATION = DUR;
       window.CLICK_TIMES = CLICKS.slice();
-      window.CUT_TIMES = [B.introEnd + .05].concat(B.outroAt != null ? [B.outroAt] : []);
+      window.CUT_TIMES = [];
       await Promise.all([...document.images].map(i => i.decode().catch(() => 0)));
       buildLayers();
       await Promise.all([...document.images].map(i => i.decode().catch(() => 0)));
