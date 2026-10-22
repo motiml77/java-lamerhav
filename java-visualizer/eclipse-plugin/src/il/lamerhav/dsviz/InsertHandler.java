@@ -16,7 +16,7 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-/** "הוספה לקוד": מכניס במקום הסמן מבנה עם נתוני דמה (ומוסיף import אם חסר) */
+/** "הוסף מבנה נתונים": מכניס במקום הסמן מבנה עם נתוני דמה (ומוסיף import אם חסר) */
 public class InsertHandler extends AbstractHandler {
     private static final Pattern IMPORT = Pattern.compile("import\\s+unit4\\.collectionsLib\\.\\*\\s*;");
     private static final Pattern PACKAGE = Pattern.compile("(?m)^\\s*package\\s+[\\w.]+\\s*;");
@@ -27,7 +27,7 @@ public class InsertHandler extends AbstractHandler {
         IEditorPart part = HandlerUtil.getActiveEditor(event);
         ITextEditor ed = part == null ? null : part.getAdapter(ITextEditor.class);
         if (ed == null || !ed.getEditorInput().getName().endsWith(".java")) {
-            MessageDialog.openInformation(shell, "הוספה לקוד",
+            MessageDialog.openInformation(shell, "הוסף מבנה נתונים",
                     "פתחו קובץ Java ושימו את הסמן במקום שבו רוצים את המבנה (בתוך main או בתוך פעולה).");
             return null;
         }
@@ -41,7 +41,15 @@ public class InsertHandler extends AbstractHandler {
             Matcher m = Pattern.compile("^\\s*").matcher(lineText);
             String indent = blank ? (lineText.isEmpty() ? "        " : lineText) : (m.find() ? m.group() : "");
 
-            InsertDialog d = new InsertDialog(shell, event.getParameter("il.lamerhav.dsviz.structure"), doc.get(), indent);
+            int insertAt = blank ? line.getOffset() : line.getOffset() + line.getLength();   // כאן ייכנס הקוד — לפי זה נבדק שהשם לא מתנגש
+            // שכבת הגנה: אי אפשר להכניס משתנה / פקודות מחוץ לפעולה (בגוף המחלקה או אחריה) — מזהירים ולא פותחים את החלון
+            if (!NameCheck.insideFunction(doc.get(), insertAt)) {
+                MessageDialog.openWarning(shell, "הוסף מבנה נתונים — הסמן לא במקום הנכון",
+                        "הסמן נמצא מחוץ לפעולה (בגוף המחלקה, או לפני / אחרי המחלקה), ושם אי אפשר לכתוב פקודות.\n\n"
+                        + "לחצו בתוך הפעולה main (או בכל פעולה אחרת), בשורה שבה רוצים את המבנה — ואז לחצו שוב על \"הוסף מבנה נתונים\".");
+                return null;
+            }
+            InsertDialog d = new InsertDialog(shell, event.getParameter("il.lamerhav.dsviz.structure"), doc.get(), insertAt, indent);
             if (d.open() != Window.OK || d.code() == null) return null;
             String code = d.code();
 
@@ -68,7 +76,7 @@ public class InsertHandler extends AbstractHandler {
             ed.selectAndReveal(caret, 0);
             ClassInfoDialog.show(shell, d.chosenClass());
         } catch (BadLocationException e) {
-            MessageDialog.openError(shell, "הוספה לקוד", e.toString());
+            MessageDialog.openError(shell, "הוסף מבנה נתונים", e.toString());
         }
         return null;
     }

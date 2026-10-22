@@ -33,7 +33,7 @@ const vscode = {
         showInformationMessage: async (m) => { log.push('info: ' + m); },
         showWarningMessage: async (m) => { log.push('warn: ' + m); },
         showErrorMessage: async (m) => { log.push('error: ' + m); },
-        showTextDocument: async doc => { opened = doc.fileName; return { selection: null, revealRange() {} }; },
+        showTextDocument: async doc => { opened = doc.fileName; return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document === doc ? vscode.window.activeTextEditor : { selection: null, revealRange() {} }; },
         createStatusBarItem: () => ({ show() {}, hide() {}, dispose() {} }),
         registerTreeDataProvider: () => ({ dispose() {} }),
         onDidChangeActiveTextEditor: () => ({ dispose() {} }),
@@ -41,7 +41,15 @@ const vscode = {
         createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),
         withProgress: async (o, f) => f(),
         createTerminal: o => { terminalOpts = o; return { show() {}, dispose() {} }; },
-        createWebviewPanel: (id, title) => { panels.push({ id, title }); return { webview: {}, dispose() {}, onDidDispose() {} }; }
+        createWebviewPanel: (id, title) => {
+            const panel = { id, title, html: '', posted: [], handler: null, disposed: false };
+            panel.webview = { cspSource: 'vscode-resource:', asWebviewUri: u => ({ toString: () => 'vscode-resource:' + u.fsPath }), set html(v) { panel.html = v; }, get html() { return panel.html; }, postMessage: async m => { panel.posted.push(m); return true; },
+                              onDidReceiveMessage: fn => { panel.handler = fn; return { dispose() {} }; } };
+            panel.dispose = () => { panel.disposed = true; };
+            panel.onDidDispose = () => ({ dispose() {} });
+            panels.push(panel);
+            return panel;
+        }
     },
     commands: { registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; }, executeCommand: async () => {} },
     extensions: { getExtension: () => ({}) },
@@ -59,6 +67,22 @@ const byId = id => items => items.find(i => i.id === id || i.label === id);
 const byIds = ids => items => items.filter(i => ids.includes(i.id));
 const keep = opts => opts.value;           // מקבלים את ברירת המחדל
 const value = v => () => v;
+
+/** "הוסף מבנה נתונים": פותח את הפקודה, ומתנהג כמו הדף בחלון — שולח מצב, מקבל מה להציג, ובסוף לוחץ אישור */
+async function addDialog(command, state, steps) {
+    const before = panels.length;
+    await command();
+    const p = panels.slice(before).find(x => x.id === 'dsviz.addStructure');
+    assert(p && p.handler, 'חלון "הוסף מבנה נתונים" לא נפתח');
+    const initial = JSON.parse(/const OPT = (.*);\n/.exec(p.html)[1]).initial;
+    let st = Object.assign({}, initial, state), view = null;
+    const send = async (reason, patch) => { st = Object.assign({}, st, patch || {}); await p.handler({ type: 'state', state: st, reason }); view = p.posted[p.posted.length - 1].view;
+        st = Object.assign(st, { structure: view.structure, inside: view.inside, type: view.type, random: view.random, count: view.count });
+        if (view.setValues !== undefined) st.values = view.setValues; return view; };
+    await send('init');
+    for (const [reason, patch] of steps || []) await send(reason, patch);
+    return { panel: p, set: send, state: () => st, view: () => view, ok: async () => { await p.handler({ type: 'ok', state: st }); return view; } };
+}
 
 (async () => {
     const extension = require(path.join(ext, 'extension.js'));
@@ -149,46 +173,74 @@ const value = v => () => v;
     assert(bd && bd.length >= 1 && bd[0].range.line === 1, 'error not on line 2');
     fs.unlinkSync(path.join(ws, 'src', 'Broken.java'));
 
-    // --- הוספה לקוד: "צור מכונית" — נפתח חלון "מה יש במחלקה" (Car)
+    // --- הוסף מבנה נתונים: "מכונית" — נפתח חלון, ואחרי אישור נכנס הקוד ונפתח חלון "מה יש במחלקה" (Car)
+    const mkEditor = (ls, line, lang, edits) => ({ selection: { active: { line } }, viewColumn: 1,
+        document: { languageId: lang, lineCount: ls.length, getText: () => ls.join('\n'),
+                    lineAt: i => ({ text: ls[i], range: { line: i, start: { line: i, c: 0 }, end: { line: i, c: 1 } } }),
+                    offsetAt: pos => ls.slice(0, pos.line).join('\n').length + (pos.line ? 1 : 0) + (pos.c ? ls[pos.line].length : 0), positionAt: o => ({ offset: o }) },
+        edit: async cb => { cb({ replace: (r, t) => edits.push(['replace', r.line, t]), insert: (p, t) => edits.push(['insert', p, t]) }); return true; } });
     {
         const ls = ['public class X {', '    public static void main(String[] args) {', '        ', '    }', '}'];
         const ed2 = [];
-        vscode.window.activeTextEditor = { selection: { active: { line: 2 } },
-            document: { languageId: 'java', getText: () => ls.join('\n'), lineAt: i => ({ text: ls[i], range: { line: i } }), positionAt: o => ({ offset: o }) },
-            edit: async cb => { cb({ replace: (r, t) => ed2.push(t), insert: (p, t) => ed2.push(t) }); return true; } };
-        answers.push(keep);
-        await commands['dsviz.insert.car']();
-        assert(/Car c1 = Car\.random\(\);/.test(ed2[0]), ed2[0]);
-        assert(panels.length === 1 && panels[0].title.includes('Car'), JSON.stringify(panels));
+        vscode.window.activeTextEditor = mkEditor(ls, 2, 'java', ed2);
+        const d = await addDialog(commands['dsviz.insert.car'], {});
+        assert.strictEqual(d.view().structure, 'car');
+        assert(d.view().preview.outer === 'card' && d.view().hint === 'c1', JSON.stringify(d.view()).slice(0, 300));
+        const before = panels.length;
+        await d.ok();
+        assert(/Car c1 = Car\.random\(\);/.test(ed2[0][2]), JSON.stringify(ed2));
+        assert(d.panel.disposed, 'החלון לא נסגר אחרי האישור');
+        assert(panels.slice(before).some(p => p.id === 'dsviz.classInfo' && p.title.includes('Car')), JSON.stringify(panels.map(p => p.id + ':' + p.title)));
     }
 
-    // --- הוספה לקוד: "צור תור" עם String בשורה ריקה בתוך main — בלי import בקובץ
+    // --- הוסף מבנה נתונים: תור של String (4 ערכים) בשורה ריקה בתוך main — בלי import בקובץ
     const lines = ['public class X {', '    public static void main(String[] args) {', '        ', '    }', '}'];
     const edits = [];
-    vscode.window.activeTextEditor = {
-        selection: { active: { line: 2 } },
-        document: {
-            languageId: 'java', getText: () => lines.join('\n'),
-            lineAt: i => ({ text: lines[i], range: { line: i }, }),
-            positionAt: o => ({ offset: o })
-        },
-        edit: async cb => { cb({ replace: (r, t) => edits.push(['replace', r.line, t]), insert: (p, t) => edits.push(['insert', p, t]) }); return true; }
-    };
-    answers.push(byId(''), byId('String'), value('4'), keep);
-    await commands['dsviz.insert.queue']();
+    vscode.window.activeTextEditor = mkEditor(lines, 2, 'java', edits);
+    let d = await addDialog(commands['dsviz.insert.queue'], {}, [['type', { type: 'String' }], ['values', { values: 'dog, cat, bird, fish' }]]);
+    await d.ok();
     assert.strictEqual(edits[0][0], 'replace');
     assert(/^        Queue<String> q1 = new Queue<String>\(\);\n(        q1\.insert\("\w+"\);.*\n){3}        q1\.insert\("\w+"\);$/.test(edits[0][2]), edits[0][2]);
     assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\n\n');
+    // מבנה בתוך מבנה, עם 2 מבנים אקראיים
     edits.length = 0;
-    answers.push(byId('stack'), byId('Integer'), value('2'), keep);
-    await commands['dsviz.insert.queue']();
+    d = await addDialog(commands['dsviz.insert.queue'], {}, [['inside', { inside: 'stack' }], ['random', { random: true }], ['count', { count: 2 }]]);
+    assert.strictEqual(d.view().setValues === undefined ? d.state().values.split(';').length : d.view().setValues.split(';').length, 2);
+    await d.ok();
     assert(edits[0][2].includes('Queue<Stack<Integer>> q1 = new Queue<Stack<Integer>>();') && edits[0][2].includes('q1.insert(q1Inner);'), edits[0][2]);
+    // מערך דו-ממדי עם ערכים ידניים
     edits.length = 0;
-    answers.push(value('2x3'), keep);
-    answers.unshift(byId('Integer'));
-    await commands['dsviz.insert.matrix']();
-    assert(edits[0][2].includes('int[][] mat = {   // 2 שורות, 3 עמודות'), edits[0][2]);
-    assert.strictEqual(edits[0][2].split('\n').length, 4);
+    d = await addDialog(commands['dsviz.insert.matrix'], {}, [['values', { values: '1, 2, 3; 4, 5, 6' }]]);
+    await d.ok();
+    assert(edits[0][2].includes('int[][] mat = {') && edits[0][2].includes('{4, 5, 6}'), edits[0][2]);
+    // "?" — הדרכה לשימוש: נפתח חלון עם ארבע ההדרכות
+    {
+        fs.mkdirSync(path.join(ext, 'resources', 'help'), { recursive: true });   // (בהתקנה אמיתית יש שם את הסרטונים)
+        const before = panels.length;
+        await commands['dsviz.help']();
+        const hp = panels.slice(before).find(x => x.id === 'dsviz.help');
+        assert(hp, 'חלון ההדרכה לא נפתח');
+        for (const t of ['יצירת מבנה נתונים חדש', 'דוגמאות פתורות', 'מבנה בתוך מבנה', 'מוסיפים התאמות']) assert(hp.html.includes(t), t);
+        assert(/vscode-resource:.*help[\\/]a\.webm/.test(hp.html), 'כתובת הסרטון חסרה');
+    }
+    // שכבת הגנה: הסמן מחוץ לפעולה (בגוף המחלקה) — אזהרה, והחלון לא נפתח
+    {
+        const outside = ['public class X {', '    ', '    public static void main(String[] args) {', '    }', '}'];
+        vscode.window.activeTextEditor = mkEditor(outside, 1, 'java', edits);
+        const before = panels.length, warns = log.length;
+        await commands['dsviz.insert.stack']();
+        assert.strictEqual(panels.length, before, 'החלון לא אמור להיפתח מחוץ לפעולה');
+        assert(log.slice(warns).some(l => l.startsWith('warn:') && l.includes('מחוץ לפעולה')), JSON.stringify(log.slice(warns)));
+    }
+    // שם תפוס (stk כבר מוגדר בקובץ) נחסם, וההצעה מדלגת עליו
+    const taken = ['public class X {', '    public static void main(String[] args) {', '        Stack<Integer> stk = new Stack<Integer>();', '        ', '    }', '}'];
+    vscode.window.activeTextEditor = mkEditor(taken, 3, 'java', edits);
+    d = await addDialog(commands['dsviz.insert.stack'], {}, [['name', { name: 'stk' }]]);
+    assert(d.view().error && d.view().error.includes('כבר יש בקוד') && !d.view().ok, JSON.stringify(d.view().error));
+    edits.length = 0;
+    const blocked = await d.ok();
+    assert.strictEqual(edits.length, 0, 'שם תפוס לא אמור להיכנס לקוד');
+    assert.strictEqual((await d.set('name', { name: '' })).hint, 'stk2');
 
     // --- ספרייה מתנגשת (jar מקורי של unit4) מזוהה
     fs.writeFileSync(path.join(ws, 'lib', 'unit4.jar'), Buffer.concat([Buffer.from('PK...'), Buffer.from('unit4/collectionsLib/Stack.class')]));
@@ -246,17 +298,23 @@ const value = v => () => v;
     assert.deepStrictEqual(terminalOpts.shellArgs, [path.join(ws2, 'Exercises', 'Targil1')]);
     delete process.env.DSVIZ_CS;
 
-    // --- הוספה לקוד ב-C#: מכונית; מוסיפים using
+    // --- הוסף מבנה נתונים ב-C#: מכונית; מוסיפים using
     {
         const ls = ['class X', '{', '    static void Main(string[] args)', '    {', '        ', '    }', '}'];
         const ed3 = [];
-        vscode.window.activeTextEditor = { selection: { active: { line: 4 } },
-            document: { languageId: 'csharp', getText: () => ls.join('\n'), lineAt: i => ({ text: ls[i], range: { line: i } }), positionAt: o => ({ offset: o }) },
-            edit: async cb => { cb({ replace: (r, t) => ed3.push(t), insert: (p, t) => ed3.push(t) }); return true; } };
-        answers.push(keep);
-        await commands['dsviz.insert.car']();
-        assert(/Car c1 = Car\.Random\(\);/.test(ed3[0]), ed3[0]);
-        assert(ed3[1].includes('using Unit4.CollectionsLib;') && ed3[1].includes('using System;'), ed3[1]);
+        vscode.window.activeTextEditor = mkEditor(ls, 4, 'csharp', ed3);
+        const dc = await addDialog(commands['dsviz.insert.car'], {});
+        await dc.ok();
+        assert(/Car c1 = Car\.Random\(\);/.test(ed3[0][2]), JSON.stringify(ed3));
+        assert(ed3[1], JSON.stringify(ed3));
+        assert(ed3[1][2].includes('using Unit4.CollectionsLib;') && ed3[1][2].includes('using System;'), ed3[1][2]);
+        // רשימה של מחסניות ב-C# עם ערכים ידניים; והשם "string" נחסם (מילה שמורה)
+        ed3.length = 0;
+        const dl = await addDialog(commands['dsviz.insert.list'], {}, [['inside', { inside: 'stack' }], ['values', { values: '1, 2; 3' }], ['name', { name: 'string' }]]);
+        assert(dl.view().error && dl.view().error.includes('שמורה'), dl.view().error);
+        await dl.set('name', { name: 'lst' });
+        await dl.ok();
+        assert(ed3[0][2].includes('Node<Stack<int>> lst = null;') && ed3[0][2].includes('lstInner.Push(3);'), ed3[0][2]);
     }
     const cm = require(path.join(ext, 'cs.js'));
     assert.strictEqual(cm.detectLanguage(ws2), 'csharp');

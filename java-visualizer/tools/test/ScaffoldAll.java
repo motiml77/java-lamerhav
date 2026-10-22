@@ -19,7 +19,7 @@ public class ScaffoldAll {
         } else {
           Scaffold.SnippetOptions o = new Scaffold.SnippetOptions();
           o.structure = p[2]; o.type = p[3]; o.name = p[4]; o.size = Integer.parseInt(p[5]); o.rows = Integer.parseInt(p[6]);
-          o.cols = Integer.parseInt(p[7]); o.seed = Integer.parseInt(p[8]); o.indent = "        ";
+          o.cols = Integer.parseInt(p[7]); o.seed = Integer.parseInt(p[8]); o.indent = "        "; o.values = p.length > 9 ? p[9] : null;
           file = p[1] + ".snippet";
           try { text = Scaffold.snippet(o); } catch (IllegalArgumentException e) { text = "ERROR: " + e.getMessage(); }
         }

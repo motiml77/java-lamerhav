@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>DSViz — הדרכה</title>
+<style>
+  @font-face { font-family: Karantina; src: url(fonts/node_modules/@expo-google-fonts/karantina/700Bold/Karantina_700Bold.ttf); }
+  @font-face { font-family: Secular; src: url(fonts/node_modules/@expo-google-fonts/secular-one/400Regular/SecularOne_400Regular.ttf); }
+  @font-face { font-family: Suez; src: url(fonts/node_modules/@expo-google-fonts/suez-one/400Regular/SuezOne_400Regular.ttf); }
+  @font-face { font-family: Heebo; font-weight: 300; src: url(fonts/node_modules/@expo-google-fonts/heebo/300Light/Heebo_300Light.ttf); }
+  @font-face { font-family: Heebo; font-weight: 400; src: url(fonts/node_modules/@expo-google-fonts/heebo/400Regular/Heebo_400Regular.ttf); }
+  @font-face { font-family: Heebo; font-weight: 500; src: url(fonts/node_modules/@expo-google-fonts/heebo/500Medium/Heebo_500Medium.ttf); }
+  @font-face { font-family: Heebo; font-weight: 700; src: url(fonts/node_modules/@expo-google-fonts/heebo/700Bold/Heebo_700Bold.ttf); }
+  @font-face { font-family: Heebo; font-weight: 800; src: url(fonts/node_modules/@expo-google-fonts/heebo/800ExtraBold/Heebo_800ExtraBold.ttf); }
+  @font-face { font-family: Heebo; font-weight: 900; src: url(fonts/node_modules/@expo-google-fonts/heebo/900Black/Heebo_900Black.ttf); }
+  @font-face { font-family: RubikMono; src: url(fonts/node_modules/@expo-google-fonts/rubik-mono-one/400Regular/RubikMonoOne_400Regular.ttf); }
+  @font-face { font-family: JBMono; font-weight: 400; src: url(fonts/node_modules/@expo-google-fonts/jetbrains-mono/400Regular/JetBrainsMono_400Regular.ttf); }
+  @font-face { font-family: JBMono; font-weight: 700; src: url(fonts/node_modules/@expo-google-fonts/jetbrains-mono/700Bold/JetBrainsMono_700Bold.ttf); }
+
+  html, body { margin: 0; background: #05060f; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #05060f; color: #fff; font-family: Heebo; }
+  .abs { position: absolute; }
+  .full { left: 0; top: 0; width: 1920px; height: 1080px; }
+  .center { display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  .blob { position: absolute; width: 1300px; height: 1300px; border-radius: 50%; mix-blend-mode: screen; filter: blur(40px); }
+  #grid { left: -1040px; top: 600px; width: 4000px; height: 1400px; transform-origin: 50% 0;
+          background-image: linear-gradient(rgba(255,255,255,.08) 2px, transparent 2px), linear-gradient(90deg, rgba(255,255,255,.08) 2px, transparent 2px);
+          background-size: 120px 120px; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 35%, #000); }
+  #vignette { background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.7) 100%); }
+  .dot { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+  .grad { background: linear-gradient(100deg, var(--c1), var(--c2) 55%, var(--c3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .word { white-space: nowrap; line-height: 1; will-change: transform; }
+  .outline { color: transparent; -webkit-text-stroke: 3px rgba(255,255,255,.35); }
+
+  /* ---------------- כותרת עליונה */
+  #top { left: 40px; top: 30px; width: 1840px; height: 90px; display: flex; align-items: center; gap: 22px; direction: rtl; }
+  #top .badge { font-family: RubikMono; font-size: 30px; padding: 10px 20px; border-radius: 14px; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.2); direction: ltr; }
+  #top .ttl { font-family: Secular; font-size: 52px; }
+  #top .brand { margin-right: auto; font-family: RubikMono; font-size: 26px; direction: ltr; opacity: .7; }
+
+  /* ---------------- אזור האפליקציה */
+  #app3d { left: 40px; top: 150px; width: 1300px; height: 880px; perspective: 2600px; }
+  #app { width: 1300px; height: 880px; position: relative; transform-origin: 50% 50%; }
+  #cam { position: absolute; left: 0; top: 0; width: 1300px; height: 880px; transform-origin: 0 0; }
+  #clip { position: absolute; left: 0; top: 0; width: 1300px; height: 880px; overflow: hidden; border-radius: 16px;
+          box-shadow: 0 40px 120px rgba(0,0,0,.6), 0 0 0 2px rgba(255,255,255,.18), 0 0 90px var(--glow); }
+
+  /* IDE */
+  #ide { position: absolute; left: 0; top: 0; width: 1300px; height: 880px; background: #f5f6f8; color: #111; direction: ltr; font-family: Heebo; }
+  #ide .titlebar { height: 34px; background: #2b2f3a; color: #d8dbe3; font-size: 16px; display: flex; align-items: center; padding: 0 14px; gap: 8px; }
+  #ide .titlebar .dots span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; }
+  #ide .titlebar .name { margin: 0 auto; }
+  #ide .menubar { height: 30px; background: #eceef2; border-bottom: 1px solid #d8dbe1; display: flex; align-items: center; gap: 22px; padding: 0 16px; font-size: 16px; color: #333; }
+  #ide .menubar .ds { color: #1f4fd1; font-weight: 700; }
+  #ide .toolbar { height: 50px; background: #f3f4f7; border-bottom: 1px solid #d8dbe1; display: flex; align-items: center; gap: 6px; padding: 0 12px; }
+  #ide .tb-ico { width: 26px; height: 26px; border-radius: 5px; background: #d9dce3; margin: 0 2px; }
+  #ide .tb-sep { width: 1px; height: 30px; background: #cfd3da; margin: 0 8px; }
+  #ide .tb-btn { height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 12px; border-radius: 7px; font-size: 17px; font-weight: 500; color: #1d2433; border: 1px solid transparent; }
+  #ide .tb-btn i { font-style: normal; display: inline-flex; width: 22px; height: 22px; border-radius: 5px; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 800; }
+  #ide .tb-btn.hot { background: #e3ebff; border-color: #8fb0ff; }
+  #ide .body { position: absolute; left: 0; top: 114px; width: 1300px; height: 766px; display: flex; }
+  #ide .explorer { width: 250px; height: 100%; background: #fafbfc; border-right: 1px solid #d8dbe1; font-size: 16px; color: #333; }
+  #ide .explorer .h { height: 34px; display: flex; align-items: center; padding: 0 12px; font-weight: 700; border-bottom: 1px solid #e3e5ea; font-size: 15px; color: #555; }
+  #ide .explorer .row { height: 28px; display: flex; align-items: center; white-space: nowrap; }
+  #ide .explorer .row.sel { background: #dbe6ff; }
+  #ide .editor { flex: 1; position: relative; background: #fff; overflow: hidden; }
+  #ide .tabs { height: 34px; background: #eef0f4; border-bottom: 1px solid #d8dbe1; display: flex; align-items: flex-end; padding-left: 8px; }
+  #ide .tab { height: 30px; padding: 0 16px; display: flex; align-items: center; background: #fff; border: 1px solid #d8dbe1; border-bottom: none; border-radius: 6px 6px 0 0; font-size: 15px; }
+  #code { position: absolute; left: 0; top: 34px; right: 0; bottom: 0; font-family: JBMono; font-size: 17px; overflow: hidden; }
+  #lines { position: absolute; left: 0; top: 0; right: 0; }
+  .ln { position: absolute; left: 0; height: 28px; line-height: 28px; white-space: pre; width: 100%; }
+  .ln .no { display: inline-block; width: 52px; text-align: right; color: #9aa1ad; padding-right: 14px; box-sizing: border-box; background: #f6f7f9; border-right: 1px solid #eceef1; }
+  .ln .tx { padding-left: 12px; }
+  .ln .newbg { position: absolute; left: 52px; right: 0; top: 0; bottom: 0; background: #bff0cf; }
+  .ln .curbg { position: absolute; left: 52px; right: 0; top: 0; bottom: 0; background: #eef3ff; }
+  .kw { color: #7f0055; font-weight: 700; } .st { color: #2a00ff; } .cm { color: #3f7f5f; } .ty { color: #005f87; } .nu { color: #1d2433; }
+  .hebcm { unicode-bidi: isolate; direction: rtl; font-family: Heebo; font-size: 17px; }
+  #caret { position: absolute; width: 2px; height: 24px; background: #111; }
+
+  /* תפריט נפתח */
+  #menu { position: absolute; z-index: 30; background: #fff; border: 1px solid #b9bec9; border-radius: 6px; box-shadow: 0 14px 40px rgba(0,0,0,.35); padding: 4px 0; direction: rtl; display: none; color: #111; font-size: 17px; }
+  #menu .mi { height: 32px; display: flex; align-items: center; padding: 0 16px; white-space: nowrap; }
+  #menu .mi.hot { background: #2f6fed; color: #fff; }
+  #menu .sepl { height: 1px; background: #d8dbe1; margin: 4px 0; }
+
+  /* חלונות קופצים (צילומים אמיתיים) */
+  .win { position: absolute; border-radius: 10px; overflow: hidden; background: #f1f3f7;
+         box-shadow: 0 30px 80px rgba(0,0,0,.45), 0 0 0 1px rgba(0,0,0,.25); transform-origin: 50% 40%; }
+  .win .wt { height: 32px; background: linear-gradient(#fdfdfe, #eceef2); border-bottom: 1px solid #d5d9e0; color: #333; font-size: 16px; font-weight: 500;
+             display: flex; align-items: center; justify-content: center; position: relative; direction: rtl; }
+  .win .wt .x { position: absolute; left: 12px; top: 6px; width: 20px; height: 20px; border-radius: 4px; color: #777; font-size: 16px; line-height: 20px; text-align: center; }
+  .win img { display: block; }
+  .typing { position: absolute; background: #fff; color: #111; font-family: Heebo; font-size: 14px; direction: ltr; text-align: left; padding-left: 6px; box-sizing: border-box;
+            display: flex; align-items: center; overflow: hidden; white-space: pre; border-radius: 3px; }
+
+  /* סמן עכבר, לחיצה, הדגשה, בועות */
+  #cursor { position: absolute; width: 34px; height: 46px; left: 0; top: 0; transform-origin: 3px 3px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.45)); z-index: 50; }
+  .ripple { position: absolute; border-radius: 50%; border: 5px solid var(--c2); z-index: 49; }
+  .hl { position: absolute; border-radius: 12px; border: 5px solid #ffd43b; box-shadow: 0 0 0 4px rgba(0,0,0,.35), 0 0 30px #ffd43b; z-index: 40; }
+  .bubble { position: absolute; z-index: 45; padding: 12px 20px; border-radius: 16px; font-family: Heebo; font-weight: 800; font-size: 28px; max-width: 560px; width: max-content; white-space: normal; color: #fff; direction: rtl; text-align: right;
+            box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+  .bubble .cta { display: block; font-size: 32px; font-weight: 900; line-height: 1.1; }
+  .bubble .lbl { display: block; font-size: 25px; font-weight: 700; margin-top: 4px; opacity: .95; }
+  .bubble.click { background: linear-gradient(120deg, #1d4ed8, #2563eb); border: 3px solid #fff; padding: 14px 24px; }
+  .bubble.place { background: linear-gradient(120deg, #ea580c, #f59e0b); border: 3px solid #fff; padding: 14px 24px; }
+  .bubble.info { background: linear-gradient(120deg, var(--c1), var(--c2)); }
+  .bubble.warn { background: linear-gradient(120deg, #f59e0b, #f97316); }
+  .bubble.ok { background: linear-gradient(120deg, #16a34a, #22c55e); }
+  .bubble.bad { background: linear-gradient(120deg, #dc2626, #f43f5e); }
+  .bubble .tip { position: absolute; width: 18px; height: 18px; transform: rotate(45deg); background: inherit; }
+  .key { display: inline-block; padding: 2px 10px; border-radius: 8px; background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.5); font-family: JBMono; }
+
+  /* פאנל השלבים */
+  #steps { left: 1370px; top: 150px; width: 510px; height: 880px; direction: rtl; }
+  #stepCard { position: absolute; right: 0; top: 0; width: 510px; }
+  #stepCard .n { font-family: RubikMono; font-size: 22px; letter-spacing: 2px; opacity: .75; }
+  #stepCard .t { font-family: Secular; font-size: 48px; line-height: 1.08; margin-top: 8px; }
+  #stepCard .s { font-family: Heebo; font-weight: 500; font-size: 30px; line-height: 1.35; color: rgba(255,255,255,.85); margin-top: 14px; }
+  #stepCard .bar { position: absolute; right: -22px; top: 4px; width: 8px; height: 100%; border-radius: 4px; background: linear-gradient(var(--c1), var(--c2)); }
+  #stepList { position: absolute; right: 0; bottom: 0; width: 510px; }
+  #stepList .it { display: flex; align-items: center; gap: 14px; font-size: 22px; font-weight: 500; height: 44px; color: rgba(255,255,255,.45); }
+  #stepList .it .c { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex: none; }
+  #stepList .it.done { color: rgba(255,255,255,.7); } #stepList .it.done .c { background: rgba(255,255,255,.18); border-color: transparent; }
+  #stepList .it.cur { color: #fff; font-weight: 800; } #stepList .it.cur .c { background: linear-gradient(120deg, var(--c1), var(--c2)); border-color: transparent; }
+
+  /* פתיחה וסיום */
+  .num { font-family: RubikMono; font-size: 520px; }
+  .sum { display: flex; align-items: center; gap: 18px; font-family: Heebo; font-weight: 700; font-size: 38px; height: 62px; }
+  .sum .c { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(120deg, var(--c1), var(--c2)); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 900; flex: none; }
+  .title { font-family: Karantina; font-size: 300px; }
+  .sub { font-family: Heebo; font-weight: 500; font-size: 46px; color: rgba(255,255,255,.88); }
+  .bars div { position: absolute; top: -100px; height: 1280px; width: 420px; }
+  #flash { background: #fff; opacity: 0; } #fade { background: #000; opacity: 0; }
+  .chipx { display: inline-block; padding: 14px 34px; border-radius: 999px; border: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,.08); font-family: Heebo; font-weight: 800; font-size: 40px; margin: 0 12px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="abs full">
+    <div class="blob" id="b1"></div><div class="blob" id="b2"></div><div class="blob" id="b3"></div>
+    <div id="grid" class="abs"></div><div id="dots"></div><div id="vignette" class="abs full"></div>
+  </div>
+
+  <div id="top" class="abs"><div class="badge" id="tbadge"></div><div class="ttl grad" id="tttl"></div><div class="brand">DSViz</div></div>
+
+  <div id="app3d" class="abs"><div id="app"><div id="clip"><div id="cam">
+    <div id="ide">
+      <div class="titlebar"><div class="dots"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+        <div class="name" id="ideTitle">DataStructures - Main.java - Eclipse IDE</div></div>
+      <div class="menubar"><span>File</span><span>Edit</span><span>Source</span><span>Refactor</span><span>Navigate</span><span>Search</span><span>Project</span><span>Run</span><span class="ds">מבני נתונים</span><span>Window</span><span>Help</span></div>
+      <div class="toolbar">
+        <div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-sep"></div><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-sep"></div>
+        <div class="tb-btn" id="tbNew"><i style="background:#2f6fed">+</i>תרגיל חדש</div>
+        <div class="tb-btn" id="tbAdd"><i style="background:#7c3aed">▦</i>הוסף מבנה נתונים</div>
+        <div class="tb-sep"></div>
+        <div class="tb-btn" id="tbRun"><i style="background:#16a34a">▶</i>הרצה ויזואלית</div>
+        <div class="tb-btn" id="tbHelp"><i style="background:#f59e0b">?</i></div>
+        <div class="tb-sep"></div><div class="tb-ico"></div><div class="tb-ico"></div>
+      </div>
+      <div class="body">
+        <div class="explorer"><div class="h">Package Explorer</div><div id="tree"></div></div>
+        <div class="editor"><div class="tabs"><div class="tab" id="tabName">Main.java</div></div>
+          <div id="code"><div id="lines"></div><div id="caret"></div></div></div>
+      </div>
+    </div>
+    <div id="menu"></div>
+    <div id="layers"></div>
+    <div id="fx"></div>
+    <svg id="cursor" viewBox="0 0 24 32"><path d="M2 2 L2 26 L8.5 20 L13 30 L17 28.2 L12.6 18.5 L21 18.5 Z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  </div></div></div></div>
+
+  <div id="steps" class="abs"><div id="stepCard"><div class="bar"></div><div class="n" id="stepN"></div><div class="t" id="stepT"></div><div class="s" id="stepS"></div></div><div id="stepList"></div></div>
+
+  <div id="intro" class="abs full">
+    <div class="abs full center"><div id="inum" class="word num outline"></div></div>
+    <div class="abs full center"><div id="ikick" class="word" style="font-family:Heebo;font-weight:500;font-size:48px;margin-bottom:14px;color:rgba(255,255,255,.8)"></div>
+      <div id="ititle" class="word" style="font-family:Heebo;font-weight:900;font-size:130px"></div><div id="isub" class="word sub" style="margin-top:26px;max-width:1500px;white-space:normal;text-align:center"></div></div>
+  </div>
+  <div id="outro" class="abs full">
+    <div class="abs full center"><div id="o1" class="word" style="font-family:Heebo;font-weight:900;font-size:90px;margin-bottom:34px">סיכום</div>
+      <div id="o2" style="direction:rtl;min-width:760px"></div>
+      <div id="o3"></div>
+      <div id="o4" class="word" style="margin-top:40px;font-family:Heebo;font-weight:500;font-size:34px;color:rgba(255,255,255,.75)"></div></div>
+  </div>
+  <div id="bars" class="abs full bars"></div>
+  <div id="flash" class="abs full"></div>
+  <div id="fade" class="abs full"></div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+  const T = new URLSearchParams(location.search).get('t') || 'a';
+  document.write(`<script src="work/${T}/assets.js"><\/script><script src="scripts/${T}.js"><\/script>`);
+</script>
+<script>Engine.start();</script>
+</body>
+</html>

@@ -16,6 +16,7 @@ import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -47,7 +48,7 @@ import il.lamerhav.dsviz.Scaffold;
 import unit4.collectionsLib.Theme;
 
 /**
- * החלונות של Visual Studio / Rider (ושל כל מי שעובד ב-C#): "תרגיל חדש" ו"הוספת משתנה" — אותם חלונות כמו ב-Eclipse וב-VS Code,
+ * החלונות של Visual Studio / Rider (ושל כל מי שעובד ב-C#): "תרגיל חדש" ו"הוסף מבנה נתונים" — אותם חלונות כמו ב-Eclipse וב-VS Code,
  * בלי להיות תלויים בסביבה. מופעלים מקיצור בשולחן העבודה / בתפריט התחל (ההתקנה יוצרת אותם):
  *
  *   java -cp dsviz.jar il.lamerhav.dsviz.cs.CsTool new    &lt;תיקיית התרגילים&gt;   — יוצר פרויקט בתיקייה Exercises, רושם ב-.sln ופותח
@@ -78,7 +79,8 @@ public final class CsTool {
             public void run() {
                 Theme.install();
                 compactFonts();
-                if (mode.equals("insert")) insert(fPreset, fShot);
+                if (mode.equals("help")) help(fShot);
+                else if (mode.equals("insert")) insert(root, fPreset, fShot);
                 else newExercise(root, fPreset, fShot, fOpen);
             }
         });
@@ -165,7 +167,7 @@ public final class CsTool {
             subtitle.setForeground(Theme.MUTED);
             head.add(title);
             head.add(subtitle);
-            content.add(head, BorderLayout.NORTH);
+            content.add(withHelp(head), BorderLayout.NORTH);
 
             Col right = new Col(), left = new Col();
             String[] parts = (preset == null ? "stack" : preset).split("_");
@@ -431,80 +433,141 @@ public final class CsTool {
         }
     }
 
-    // ------------------------------------------------------------------ הוספת משתנה
+    // ------------------------------------------------------------------ הוסף מבנה נתונים
 
-    private static void insert(String preset, String shot) {
-        InsertForm f = new InsertForm(preset);
+    private static void insert(Path root, String preset, String shot) {
+        Path source = latestSource(root);
+        String text = "";
+        try { if (source != null) text = new String(Files.readAllBytes(source), java.nio.charset.StandardCharsets.UTF_8); } catch (Exception ignored) {}
+        InsertForm f = new InsertForm(preset, text, source == null ? null : (root != null && source.startsWith(root) ? root.relativize(source).toString() : source.getFileName().toString()));
         if (!f.show(shot)) return;
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(f.code), null);
         JOptionPane.showMessageDialog(null,
-                "הקוד הועתק.\nעברו ל-Visual Studio, לחצו במקום שבו רוצים את המבנה (בתוך Main) ולחצו Ctrl+V.",
-                "הוספת משתנה — C#", JOptionPane.INFORMATION_MESSAGE);
+                "הקוד הועתק.\nעברו ל-Visual Studio, לחצו במקום שבו רוצים את המבנה (בתוך Main או בתוך פעולה) ולחצו Ctrl+V.",
+                "הוסף מבנה נתונים — C#", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    /** הטופס של "הוספת משתנה": מבנה, מה יש בכל תא, טיפוס, כמה איברים, שם — והקוד נכנס ללוח */
+    /** קובץ ה-.cs שנערך לאחרונה בתיקיית התרגילים (כנראה זה שפתוח ב-Visual Studio) — לבדיקה שהשם לא תפוס. null אם אין */
+    static Path latestSource(Path root) {
+        if (root == null || !Files.isDirectory(root)) return null;
+        try (java.util.stream.Stream<Path> s = Files.walk(root, 4)) {
+            return s.filter(p -> p.toString().endsWith(".cs") && !p.toString().contains("bin") && !p.toString().contains("obj"))
+                    .max((a, b) -> Long.compare(a.toFile().lastModified(), b.toFile().lastModified())).orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * הטופס של "הוסף מבנה נתונים": מבנה, מה יש בכל תא, טיפוס, ערכים (או אקראיים) ושם — עם ציור חי של המבנה, והקוד נכנס ללוח.
+     * ב-Visual Studio אי אפשר לדעת איפה הסמן, לכן השם נבדק מול הקובץ שנערך לאחרונה, וכשהוא כבר קיים שם — רק אזהרה.
+     */
     private static final class InsertForm extends Base {
-        private final String preset;
-        private final int seed = new Random().nextInt(Integer.MAX_VALUE);
+        private final String preset, docText, docName;
         private final List<JToggleButton> structureButtons = new ArrayList<JToggleButton>();
         private final List<JToggleButton> insideButtons = new ArrayList<JToggleButton>();
         private final List<JToggleButton> typeButtons = new ArrayList<JToggleButton>();
-        private JLabel sizeLabel, rowsLabel, colsLabel, typeInfo, errorLabel;
-        private JSpinner size, rows, cols;
-        private JTextField name;
+        private JLabel typeSection, valuesLabel, previewType, errorLabel, warnLabel;
+        private JCheckBox randomCheck;
+        private JSpinner count;
+        private JTextField values, name;
+        private NestedDiagram diagram;
         private JButton ok;
-        private boolean updating, nameEdited;
+        private JButton regen;
+        private boolean updating, lastRandom, forceRandom;
+        private int lastCount, seed = new Random().nextInt(Integer.MAX_VALUE);
+        private String lastType = "", lastStructure = "";
         String code;
 
-        InsertForm(String preset) {
+        InsertForm(String preset, String docText, String docName) {
             this.preset = preset == null ? "queue" : preset;
+            this.docText = docText == null ? "" : docText;
+            this.docName = docName;
         }
 
         boolean show(String shot) {
-            JDialog d = dialog("הוספת משתנה — C#");
+            JDialog d = dialog("הוסף מבנה נתונים — C#");
             JPanel content = new JPanel(new BorderLayout(0, 8));
             content.setBorder(BorderFactory.createEmptyBorder(12, 16, 10, 16));
-            Col col = new Col();
-            JLabel title = new JLabel("הוספת משתנה");
+            JPanel head = new JPanel(new GridLayout(0, 1));
+            JLabel title = new JLabel("הוסף מבנה נתונים");
             title.setFont(Theme.big);
-            col.add(title, 0);
-            JLabel sub = new JLabel("המבנה מוכן עם נתוני דמה — מעתיקים ומדביקים בקוד ועובדים איתו מיד.");
-            sub.setForeground(Theme.MUTED);
-            col.add(sub);
+            JLabel subtitle = new JLabel("בוחרים מבנה, ערכים ושם — רואים איך הוא ייראה, והקוד מועתק להדבקה ב-Visual Studio.");
+            subtitle.setForeground(Theme.MUTED);
+            head.add(title);
+            head.add(subtitle);
+            content.add(withHelp(head), BorderLayout.NORTH);
 
-            col.section("מה ליצור?");
-            JPanel structs = grid(4);
+            Col right = new Col(), left = new Col();
+            String[] parts = preset.split("_");
+            String initial = parts[0], initialInside = parts.length > 1 ? parts[1] : "";
+            right.section("איזה מבנה נתונים?");
+            JPanel structs = grid(2);
             for (java.util.Map.Entry<String, String> e : Scaffold.SNIPPETS.entrySet())
-                chip(structs, e.getValue(), e.getKey(), structureButtons, e.getKey().equals(preset), 38, 92);
-            col.add(structs);
-            col.section("מה יש בכל תא?");
-            JPanel inside = grid(Scaffold.INSIDE.length);
-            for (String[] in : Scaffold.INSIDE) chip(inside, in[1], in[0], insideButtons, in[0].isEmpty(), 28, 92);
-            col.add(inside);
-            typeInfo = new JLabel(" ");
-            typeInfo.setForeground(Theme.MUTED);
-            col.add(typeInfo);
-            col.section("טיפוס הערכים");
-            JPanel types = grid(Scaffold.TYPES.size());
-            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 28, 76);
-            col.add(types);
+                chip(structs, e.getValue(), e.getKey(), structureButtons, e.getKey().equals(initial), 30, 120);
+            right.add(structs);
+            right.section("מה יש בכל תא?");
+            JPanel inside = grid(2);
+            for (String[] in : Scaffold.INSIDE) chip(inside, in[1], in[0], insideButtons, in[0].equals(initialInside), 26, 120);
+            right.add(inside);
+            typeSection = right.section("טיפוס הערכים");
+            JPanel types = grid(3);
+            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 26, 76);
+            right.add(types);
 
-            JPanel opts = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 0));
-            sizeLabel = new JLabel("כמה איברים:");
-            size = new JSpinner(new SpinnerNumberModel(5, 1, 30, 1));
-            rowsLabel = new JLabel("שורות:");
-            rows = new JSpinner(new SpinnerNumberModel(3, 1, 12, 1));
-            colsLabel = new JLabel("עמודות:");
-            cols = new JSpinner(new SpinnerNumberModel(4, 1, 12, 1));
-            for (JComponent c : new JComponent[] { sizeLabel, size, rowsLabel, rows, colsLabel, cols }) opts.add(c);
-            col.add(opts);
+            left.section("מילוי מבנה-נתונים");
+            JPanel rnd = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 0));
+            randomCheck = new JCheckBox("כמה ערכים אקראיים:");
+            count = new JSpinner(new SpinnerNumberModel(6, 1, 20, 1));
+            regen = new JButton("הגרלה מחדש");
+            regen.putClientProperty("FlatLaf.style", "arc:12");
+            rnd.add(randomCheck);
+            rnd.add(count);
+            rnd.add(regen);
+            left.add(rnd);
+            JPanel vals = new JPanel(new BorderLayout(6, 0));
+            valuesLabel = new JLabel("ערכים:");
+            values = ltrField(240);
+            vals.add(valuesLabel, BorderLayout.LINE_START);
+            vals.add(values, BorderLayout.CENTER);
+            left.add(vals);
+            left.section("כך ייראה המבנה");
+            previewType = ltr(new JLabel(" "));
+            previewType.setFont(Theme.uiBold);
+            left.add(previewType);
+            diagram = new NestedDiagram();
+            diagram.setMaxWidth(360);
+            left.add(diagram);
+            left.section("שם המשתנה");
             JPanel nm = new JPanel(new BorderLayout(6, 0));
             name = ltrField(160);
-            nm.add(new JLabel("שם המשתנה:"), BorderLayout.LINE_START);
+            name.setToolTipText("אם משאירים ריק — נכנסת ההצעה (באפור)");
+            nm.add(new JLabel("שם:"), BorderLayout.LINE_START);
             nm.add(name, BorderLayout.CENTER);
-            col.add(nm);
+            left.add(nm);
+            warnLabel = new JLabel(" ");
+            warnLabel.setForeground(new Color(0xB26A00));
+            warnLabel.setFont(Theme.small);
+            left.add(warnLabel);
 
-            content.add(scroll(new Card(col.panel)), BorderLayout.CENTER);
+            right.fill();
+            left.fill();
+            JPanel cols = new JPanel(new GridBagLayout());
+            GridBagConstraints gc = new GridBagConstraints();
+            gc.anchor = GridBagConstraints.FIRST_LINE_START;
+            gc.gridy = 0;
+            gc.gridx = 0;
+            gc.weightx = 0;
+            gc.insets = new Insets(0, 0, 0, 14);
+            gc.fill = GridBagConstraints.BOTH;
+            gc.weighty = 1;
+            cols.add(new Card(right.panel), gc);
+            gc.gridx = 1;
+            gc.weightx = 1;
+            gc.insets = new Insets(0, 0, 0, 0);
+            cols.add(new Card(left.panel), gc);
+            content.add(scroll(cols), BorderLayout.CENTER);
+
             errorLabel = new JLabel(" ");
             errorLabel.setForeground(new Color(0xC62828));
             ok = new JButton("העתקה ללוח");
@@ -517,8 +580,11 @@ public final class CsTool {
             d.setContentPane(content);
             d.getRootPane().setDefaultButton(ok);
 
-            for (JSpinner sp : new JSpinner[] { size, rows, cols }) sp.addChangeListener(e -> update());
-            onChange(name, () -> { if (name.isFocusOwner()) nameEdited = true; update(); });
+            randomCheck.addActionListener(e -> update());
+            count.addChangeListener(e -> update());
+            regen.addActionListener(e -> { forceRandom = true; update(); });
+            onChange(values, this::update);
+            onChange(name, this::update);
             onClick(ok, () -> { if (code != null) { accepted = true; d.dispose(); } });
             update();
             applyOrientation(content);
@@ -529,62 +595,106 @@ public final class CsTool {
             if (updating) return;
             updating = true;
             try {
-                String outer = selected(structureButtons, "queue");
-                boolean isStudent = outer.equals("student") || outer.equals("car"), isMatrix = outer.equals("matrix");
-                boolean nestable = Scaffold.canNest(outer);
-                String inside = nestable ? selected(insideButtons, "") : "";
-                for (JToggleButton b : insideButtons) {
-                    b.setEnabled(nestable || ((String) b.getClientProperty("id")).isEmpty());
-                    if (b.getClientProperty("id").equals(inside)) b.setSelected(true);
-                }
-                String st = Scaffold.comboId(outer, inside);
-                boolean combo = !st.equals(outer);
-                String type = selected(typeButtons, "Integer");
-                for (JToggleButton b : typeButtons) {
-                    String t = (String) b.getClientProperty("id");
-                    b.setEnabled(!isStudent && !(combo && (t.equals("Student") || t.equals("Car"))));
-                }
-                if (combo && (type.equals("Student") || type.equals("Car"))) {
-                    type = "Integer";
-                    for (JToggleButton b : typeButtons) if (b.getClientProperty("id").equals("Integer")) b.setSelected(true);
-                }
-                typeInfo.setText(combo ? "הטיפוס: " + Scaffold.typeOf(Scaffold.STRUCTURES.get(st), type) : " ");
-                sizeLabel.setText(combo ? "כמה מבנים פנימיים:" : "כמה איברים:");
-                ((SpinnerNumberModel) size.getModel()).setMaximum(combo ? 6 : 30);
-                if (combo && (Integer) size.getValue() > 6) size.setValue(3);
-                size.setEnabled(!isStudent && !isMatrix);
-                sizeLabel.setEnabled(!isStudent && !isMatrix);
-                rows.setEnabled(isMatrix);
-                cols.setEnabled(isMatrix);
-                rowsLabel.setEnabled(isMatrix);
-                colsLabel.setEnabled(isMatrix);
-                if (!nameEdited) name.setText(Scaffold.freeName(Scaffold.snippetName(st), ""));
-
-                Scaffold.SnippetOptions o = new Scaffold.SnippetOptions();
-                o.structure = st;
-                o.type = type;
-                o.name = name.getText().trim();
-                o.size = (Integer) size.getValue();
-                o.rows = (Integer) rows.getValue();
-                o.cols = (Integer) cols.getValue();
-                o.seed = seed;
-                o.indent = "        ";
-                String error = null;
-                try {
-                    String snippet = ScaffoldCs.snippet(o);
-                    // using שחסרים — מוסיפים בראש הקטע כהערה? לא: ב-C# הם בראש הקובץ, והתרגילים שנוצרים כוללים אותם
-                    code = snippet;
-                } catch (IllegalArgumentException e) {
-                    error = e.getMessage();
-                    code = null;
-                }
-                if (error == null && !ScaffoldCs.isIdentifier(o.name)) { error = "שם המשתנה חייב להיות באנגלית, בלי רווחים, להתחיל באות, ולא להיות מילה שמורה של C#"; code = null; }
-                errorLabel.setText(error == null ? " " : error);
-                ok.setEnabled(error == null);
-                relayout();
+                doUpdate();
             } finally {
                 updating = false;
             }
+        }
+
+        private void doUpdate() {
+            String outer = selected(structureButtons, "queue");
+            boolean card = outer.equals("student") || outer.equals("car");
+            boolean nestable = !card && Scaffold.canNest(outer);
+            String inside = nestable ? selected(insideButtons, "") : "";
+            for (JToggleButton b : insideButtons) {
+                b.setEnabled(nestable || ((String) b.getClientProperty("id")).isEmpty());
+                if (b.getClientProperty("id").equals(inside)) b.setSelected(true);
+            }
+            String st = Scaffold.comboId(outer, inside);
+            boolean combo = !card && !st.equals(outer);
+            boolean noObjects = combo || outer.equals("matrix");
+            String type = selected(typeButtons, "Integer");
+            for (JToggleButton b : typeButtons) {
+                String t = (String) b.getClientProperty("id");
+                b.setEnabled(!card && !(noObjects && (t.equals("Student") || t.equals("Car"))));
+            }
+            if (noObjects && (type.equals("Student") || type.equals("Car"))) {
+                type = "Integer";
+                for (JToggleButton b : typeButtons) if (b.getClientProperty("id").equals("Integer")) b.setSelected(true);
+            }
+            typeSection.setText(combo ? "טיפוס הערכים (בתוך המבנים הפנימיים)" : "טיפוס הערכים");
+            boolean objects = !card && (type.equals("Student") || type.equals("Car"));
+
+            randomCheck.setEnabled(!objects && !card);
+            if (objects || card) randomCheck.setSelected(false);
+            boolean random = randomCheck.isSelected();
+            count.setEnabled(random);
+            regen.setVisible(random);
+            randomCheck.setText(combo ? "כמה מבנים פנימיים אקראיים:" : outer.equals("matrix") ? "כמה שורות אקראיות:" : "כמה ערכים אקראיים:");
+            int maxCount = combo ? Scaffold.MAX_INNER : 20;
+            ((SpinnerNumberModel) count.getModel()).setMaximum(maxCount);
+            if ((Integer) count.getValue() > maxCount) count.setValue(maxCount);
+            int n = (Integer) count.getValue();
+            if (card) {
+                if (!st.equals(lastStructure)) values.setText("");
+            } else if (random && (forceRandom || random != lastRandom || n != lastCount || !type.equals(lastType) || !st.equals(lastStructure))) {
+                seed = new Random().nextInt(Integer.MAX_VALUE);
+                values.setText(Scaffold.randomValues(st, type, n, seed));
+            } else if (!random && (lastRandom || !type.equals(lastType) || !st.equals(lastStructure))) {
+                values.setText(Scaffold.defaultValues(st, type, false));
+            }
+            forceRandom = false;
+            values.setEnabled(!card);
+            lastRandom = random;
+            lastCount = n;
+            lastType = type;
+            lastStructure = st;
+            valuesLabel.setText(card ? " " : type.equals("Student") ? "כמה תלמידים:" : type.equals("Car") ? "כמה מכוניות:"
+                    : combo ? (outer.equals("tree") ? "מבנים פנימיים (לפי רמות, ;):" : "מבנים פנימיים (ב-;):")
+                    : outer.equals("matrix") ? "ערכים (שורות ב-;):" : "ערכים:");
+
+            String shownType = card ? (st.equals("student") ? "Student" : "Car") : type;
+            String vals = card ? null : values.getText();
+            String error = null, warning = null;
+            // שם: ההצעה באפור (לא תפוסה בקובץ שנערך לאחרונה); שם שהוקלד — חייב להיות חוקי, ואם הוא כבר בקובץ — אזהרה
+            String suggestion = ScaffoldCs.suggestName(st, docText, -1);
+            name.putClientProperty("JTextField.placeholderText", suggestion);
+            name.repaint();
+            String typed = name.getText().trim();
+            if (!typed.isEmpty()) {
+                String err = ScaffoldCs.checkName(typed, "", -1);
+                if (err != null) error = err;
+                else if (ScaffoldCs.checkName(typed, docText, -1) != null && docName != null)
+                    warning = "שימו לב: בקובץ " + docName + " כבר יש \"" + typed + "\" — אם מדביקים באותה פעולה תהיה שגיאה";
+            }
+            Scaffold.Preview pv = null;
+            try {
+                pv = Scaffold.preview(st, shownType, vals);
+            } catch (IllegalArgumentException e) {
+                if (error == null) error = e.getMessage();
+            }
+            if (pv != null) {
+                previewType.setText(ScaffoldCs.toCs(pv.type));
+                diagram.set(pv);
+            }
+            code = null;
+            if (error == null) {
+                Scaffold.SnippetOptions o = new Scaffold.SnippetOptions();
+                o.structure = st;
+                o.type = shownType;
+                o.name = typed.isEmpty() ? suggestion : typed;
+                o.values = vals;
+                o.indent = "        ";
+                try {
+                    code = ScaffoldCs.snippet(o);
+                } catch (IllegalArgumentException e) {
+                    error = e.getMessage();
+                }
+            }
+            errorLabel.setText(error == null ? " " : error);
+            warnLabel.setText(warning == null ? " " : warning);
+            ok.setEnabled(error == null);
+            relayout();
         }
 
         private String selected(List<JToggleButton> group, String fallback) {
@@ -603,6 +713,94 @@ public final class CsTool {
             b.setSelected(selected);
             b.addActionListener(e -> update());
             parent.add(b);
+        }
+    }
+
+    // ------------------------------------------------------------------ הדרכה לשימוש (?)
+
+    private static final String[][] HELP = {
+        { "a", "\u200F01  ·  יצירת מבנה נתונים חדש", "שמים את הסמן במקום הנכון בקוד, לוחצים \"הוסף מבנה נתונים\", בוחרים מבנה, ערכים ושם — ורואים את הקוד שנוצר ואת ההרצה." },
+        { "b", "\u200F02  ·  דוגמאות פתורות", "פותחים תרגיל מוכן מהרשימה, קוראים את הפתרון, ומריצים אותו בחלון ההדמיה — צעד אחרי צעד." },
+        { "c", "\u200F03  ·  מבנה בתוך מבנה", "שלוש דוגמאות: מחסנית של תורים, רשימה של מחסניות ועץ של תורים — יצירת התרגיל וההרצה הוויזואלית." },
+        { "d", "\u200F04  ·  מוסיפים התאמות לתרגיל", "אחרי שהתרגיל נוצר: מוסיפים ידנית מבנה נוסף, משתנה x ומערך — ורואים שגם הם מופיעים בהדמיה." },
+    };
+
+    /** התיקייה help — ליד dsviz.jar (בהתקנה: ‎%ProgramFiles%\DSViz\help), או לפי -Ddsviz.help */
+    static Path helpDir() {
+        String prop = System.getProperty("dsviz.help");
+        if (prop != null) return Paths.get(prop);
+        try {
+            Path jar = Paths.get(CsTool.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            return jar.getParent().resolve("help");
+        } catch (Exception e) {
+            return Paths.get("help");
+        }
+    }
+
+    /** פותח את ההדרכה (id = a/b/c/d) בדפדפן */
+    static void openHelp(String id) {
+        try {
+            Path index = helpDir().resolve("index.html");
+            if (!Files.isRegularFile(index)) throw new java.io.FileNotFoundException(index.toString());
+            java.awt.Desktop.getDesktop().browse(java.net.URI.create(index.toUri().toString() + (id == null ? "" : "#" + id)));
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "לא הצלחתי לפתוח את ההדרכה: " + e.getMessage(), "הדרכה לשימוש", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private static void help(String shot) {
+        HelpForm f = new HelpForm();
+        if (f.show(shot)) openHelp(f.chosen);
+    }
+
+    /** חלון "הדרכה לשימוש": בוחרים הדרכה, והסרטון נפתח בדפדפן */
+    private static final class HelpForm extends Base {
+        private final List<JToggleButton> chips = new ArrayList<JToggleButton>();
+        String chosen = "a";
+
+        boolean show(String shot) {
+            JDialog d = dialog("הדרכה לשימוש");
+            JPanel content = new JPanel(new BorderLayout(0, 8));
+            content.setBorder(BorderFactory.createEmptyBorder(12, 16, 10, 16));
+            JPanel head = new JPanel(new GridLayout(0, 1));
+            JLabel title = new JLabel("הדרכה לשימוש");
+            title.setFont(Theme.big);
+            JLabel sub = new JLabel("בוחרים הדרכה — לכל אחת סרטון קצר שמראה בדיוק איפה לוחצים ומה נפתח.");
+            sub.setForeground(Theme.MUTED);
+            head.add(title);
+            head.add(sub);
+            content.add(head, BorderLayout.NORTH);
+            Col col = new Col();
+            col.section("איזו הדרכה?");
+            JPanel list = new JPanel(new GridLayout(0, 1, 6, 8));
+            ButtonGroup bg = new ButtonGroup();
+            for (int i = 0; i < HELP.length; i++) {
+                JToggleButton b = new Chip(HELP[i][1]);
+                b.putClientProperty("id", HELP[i][0]);
+                b.setPreferredSize(new Dimension(420, 40));
+                bg.add(b);
+                chips.add(b);
+                b.setSelected(i == 0);
+                b.addActionListener(e -> update());
+                list.add(b);
+            }
+            col.add(list);
+            col.fill();
+            content.add(new Card(col.panel), BorderLayout.CENTER);
+            JButton ok = new JButton("צפייה בהדרכה"), cancel = new JButton("ביטול");
+            style(ok, cancel);
+            content.add(buttons(d, ok, cancel), BorderLayout.SOUTH);
+            d.setContentPane(content);
+            d.getRootPane().setDefaultButton(ok);
+            onClick(ok, () -> { accepted = true; d.dispose(); });
+            update();
+            applyOrientation(content);
+            return display(d, shot);
+        }
+
+        private void update() {
+            for (JToggleButton b : chips) if (b.isSelected()) chosen = (String) b.getClientProperty("id");
+            relayout();
         }
     }
 
@@ -682,6 +880,23 @@ public final class CsTool {
             int maxH = scr.height - 40, maxW = scr.width - 40;
             if (s.height > maxH || s.width > maxW)
                 d.setSize(Math.min(s.width + (s.height > maxH ? 18 : 0), maxW), Math.min(s.height, maxH));   // 18: מקום לפס הגלילה
+        }
+
+        /** כותרת החלון עם כפתור "?" (הדרכה לשימוש) בצד */
+        JPanel withHelp(JPanel head) {
+            JButton q = new JButton("?");
+            q.setToolTipText("הדרכה לשימוש");
+            q.setFocusable(false);
+            q.setFont(Theme.uiBold);
+            q.putClientProperty("FlatLaf.style", "arc:999; background:#F59E0B; foreground:#ffffff; borderWidth:0; hoverBackground:#D97706; margin:0,0,0,0");
+            q.setPreferredSize(new Dimension(34, 34));
+            q.addActionListener(e -> openHelp(null));
+            JPanel row = new JPanel(new BorderLayout(8, 0));
+            JPanel qbox = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+            qbox.add(q);
+            row.add(head, BorderLayout.CENTER);
+            row.add(qbox, BorderLayout.LINE_END);
+            return row;
         }
 
         /** מציג (מודאלי) ומחזיר true אם לחצו על הכפתור הראשי. עם shot: שומר תמונה ויוצא */

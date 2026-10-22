@@ -13,29 +13,44 @@ import java.util.List;
 
 import javax.swing.JComponent;
 
+import il.lamerhav.dsviz.Scaffold;
 import unit4.collectionsLib.Theme;
 
 /**
- * תרשים קטן: איך ייראה מבנה בתוך מבנה (מחסנית של תורים, רשימה של מחסניות, עץ של תורים...) — המבנה החיצוני
- * מצויר עם המבנים הפנימיים בתוך התאים שלו. אותו תרשים כמו בחלון של Eclipse (NestedPreview), ב-Swing.
+ * תרשים קטן: איך ייראה המבנה — מבנה רגיל (בכל תא ערך), מבנה בתוך מבנה (מחסנית של תורים, רשימה של מחסניות, עץ של תורים...),
+ * מערך דו-ממדי, או תלמיד / מכונית. אותו תרשים כמו בחלון של Eclipse (NestedPreview) ושל VS Code, ב-Swing.
+ * תור מצויר כצינור פתוח: יוצאים מהראש (חץ החוצה משמאל) ונכנסים בזנב (חץ פנימה מימין) — כדי שלא ייראה כמו מערך.
  */
 final class NestedDiagram extends JComponent {
-    private static final int CW = 28, CH = 22, PAD = 6, ARROW = 12;
+    private static final int CW = 28, CH = 22, PAD = 6, ARROW = 12, QA = 10, OA = 18;
     private static final Color BOX_FILL = new Color(0xE8F0FE), BOX_LINE = new Color(0x8FA1C4), CELL = Color.WHITE,
             INK = new Color(0x1D2433), MUTED = new Color(0x6B7485), ACCENT = new Color(0x3B4A63);
 
     private String outer = "stack", inner = "stack";
     private List<List<String>> groups = new ArrayList<List<String>>();
+    private int cw = CW;
+    private int maxWidth = 330;
     private Graphics2D g;   // בזמן ציור; null בזמן מדידה
 
     void set(String outer, String inner, List<List<String>> groups) {
         this.outer = outer;
         this.inner = inner;
         this.groups = groups == null ? new ArrayList<List<String>>() : groups;
+        int longest = 0;
+        for (List<String> gr : this.groups) if (gr != null) for (String x : gr) longest = Math.max(longest, Math.min(x.length(), 9));
+        cw = Math.max(CW, longest * 7 + 12);
         Dimension d = content();
-        setPreferredSize(new Dimension(Math.min(d.width, 330), (int) Math.ceil(d.height * Math.min(1.0, 330.0 / Math.max(1, d.width))) + 4));
+        setPreferredSize(new Dimension(Math.min(d.width, maxWidth), (int) Math.ceil(d.height * Math.min(1.0, maxWidth / (double) Math.max(1, d.width))) + 4));
         revalidate();
         repaint();
+    }
+
+    void set(Scaffold.Preview p) {
+        set(p.outer, p.inner, p.groups);
+    }
+
+    void setMaxWidth(int w) {
+        maxWidth = w;
     }
 
     private Dimension content() {
@@ -65,8 +80,13 @@ final class NestedDiagram extends JComponent {
     // ------------------------------------------------------------ ציור (g == null — רק מודד)
 
     private Dimension layout(int x, int y) {
-        if (groups.isEmpty()) return new Dimension(40, 20);
+        if (outer.equals("card")) return drawCard(x, y);
+        if (groups.isEmpty()) {
+            if (g != null) text("ריק — אין איברים", x + 6, y + 2, MUTED);
+            return new Dimension(110, 20);
+        }
         switch (outer) {
+            case "matrix": return drawMatrix(x, y);
             case "stack": return drawStack(x, y);
             case "queue": return drawRow(x, y, false, true);
             case "list": return drawRow(x, y, true, false);
@@ -77,9 +97,10 @@ final class NestedDiagram extends JComponent {
 
     private Dimension innerSize(List<String> list) {
         int k = list == null ? 0 : list.size();
-        if (inner.equals("stack")) return new Dimension(CW + 2 * PAD, Math.max(k, 1) * CH + 2 * PAD);
-        if (inner.equals("queue")) return new Dimension(Math.max(k, 1) * CW + 2 * PAD, CH + 2 * PAD);
-        return new Dimension(Math.max(k, 1) * CW + Math.max(0, k - 1) * ARROW + 2 * PAD + ARROW + 22, CH + 2 * PAD);   // רשימה: חיצים ו-null
+        if (inner.equals("cell")) return new Dimension(cw, CH);
+        if (inner.equals("stack")) return new Dimension(cw + 2 * PAD, Math.max(k, 1) * CH + 2 * PAD);
+        if (inner.equals("queue")) return new Dimension(Math.max(k, 1) * cw + 2 * PAD + 2 * QA, CH + 2 * PAD + 4);
+        return new Dimension(Math.max(k, 1) * cw + Math.max(0, k - 1) * ARROW + 2 * PAD + ARROW + 22, CH + 2 * PAD);   // רשימה: חיצים ו-null
     }
 
     private void text(String s, int x, int y, Color c) {
@@ -89,6 +110,10 @@ final class NestedDiagram extends JComponent {
 
     private void drawInner(int x, int y, List<String> list, int w, int h) {
         if (g == null) return;
+        if (inner.equals("cell")) {   // מבנה רגיל: בכל תא ערך אחד
+            cell(x, y, list == null || list.isEmpty() ? "" : list.get(0));
+            return;
+        }
         g.setColor(BOX_FILL);
         g.fillRoundRect(x, y, w, h, 8, 8);
         g.setColor(BOX_LINE);
@@ -99,27 +124,49 @@ final class NestedDiagram extends JComponent {
         if (inner.equals("stack")) {   // הראש למעלה: האיבר האחרון שנכנס
             for (int i = 0; i < k; i++) cell(x + PAD, y + PAD + i * CH, list.get(k - 1 - i));
             if (k > 0) text("▼", x + w - 11, y + PAD + 3, ACCENT);
-        } else if (inner.equals("queue")) {
-            for (int i = 0; i < k; i++) cell(x + PAD + i * CW, y + PAD, list.get(i));
+        } else if (inner.equals("queue")) {   // תור: צינור פתוח עם חיצים
+            int cx0 = x + PAD + QA, cy = y + PAD + 2, len = Math.max(k, 1) * cw;
+            for (int i = 0; i < k; i++) cell(cx0 + i * cw, cy, list.get(i));
+            queueTube(cx0, cy, len, CH, x + 2, cx0 + len + QA - 2, 2f);
         } else {
             int cx = x + PAD;
             for (int i = 0; i < k; i++) {
                 cell(cx, y + PAD, list.get(i));
-                text(i < k - 1 ? "→" : "→ null", cx + CW + 1, y + PAD + 4, ACCENT);
-                cx += CW + (i < k - 1 ? ARROW : 0);
+                text(i < k - 1 ? "→" : "→ null", cx + cw + 1, y + PAD + 4, ACCENT);
+                cx += cw + (i < k - 1 ? ARROW : 0);
             }
         }
     }
 
     private void cell(int x, int y, String s) {
         g.setColor(CELL);
-        g.fillRect(x, y, CW, CH);
+        g.fillRect(x, y, cw, CH);
         g.setColor(BOX_LINE);
-        g.drawRect(x, y, CW, CH);
-        String t = s.length() > 4 ? s.substring(0, 3) + "…" : s;
+        g.setStroke(new BasicStroke(1));
+        g.drawRect(x, y, cw, CH);
+        int max = cw > CW ? 9 : 4;
+        String t = s.length() > max ? s.substring(0, max - 1) + "…" : s;
         FontMetrics fm = g.getFontMetrics();
         g.setColor(INK);
-        g.drawString(t, x + (CW - fm.stringWidth(t)) / 2, y + (CH - fm.getHeight()) / 2 + fm.getAscent());
+        g.drawString(t, x + (cw - fm.stringWidth(t)) / 2, y + (CH - fm.getHeight()) / 2 + fm.getAscent());
+    }
+
+    /** תור: קווים למעלה ולמטה, צדדים פתוחים; משמאל חץ החוצה (הראש), מימין חץ פנימה (הזנב) */
+    private void queueTube(int x, int y, int len, int h, int outX, int inX, float width) {
+        g.setColor(ACCENT);
+        g.setStroke(new BasicStroke(width));
+        g.drawLine(x - 3, y - 2, x + len + 3, y - 2);
+        g.drawLine(x - 3, y + h + 2, x + len + 3, y + h + 2);
+        g.setStroke(new BasicStroke(width > 2 ? 2f : 1.5f));
+        int mid = y + h / 2;
+        arrowLeft(x - 2, outX, mid);
+        arrowLeft(inX, x + len + 2, mid);
+        g.setStroke(new BasicStroke(1));
+    }
+
+    private void arrowLeft(int fromX, int toX, int y) {
+        g.drawLine(fromX, y, toX + 4, y);
+        g.fillPolygon(new int[] { toX, toX + 6, toX + 6 }, new int[] { y, y - 4, y + 4 }, 3);
     }
 
     private Dimension drawStack(int x, int y) {
@@ -143,19 +190,13 @@ final class NestedDiagram extends JComponent {
         return new Dimension(w + 70, h + 14);
     }
 
-    /** תור / רשימה מקושרת / מערך: שורה של מבנים פנימיים */
+    /** תור / רשימה מקושרת / מערך: שורה של תאים או של מבנים פנימיים */
     private Dimension drawRow(int x, int y, boolean arrows, boolean queue) {
         int n = groups.size(), h = 0, w = 8, gap = arrows ? 22 : 6;
         for (List<String> list : groups) { Dimension s = innerSize(list); w += s.width + gap; h = Math.max(h, s.height); }
-        int top = y + (queue ? 6 : 4), cx = x + 6;
+        int top = y + (queue ? 6 : 4), cx = x + 6 + (queue ? OA : 0);
         if (g != null) {
-            if (queue) {
-                g.setColor(ACCENT);
-                g.setStroke(new BasicStroke(3));
-                g.drawLine(x + 2, top - 2, x + w - 2, top - 2);
-                g.drawLine(x + 2, top + h + 4, x + w - 2, top + h + 4);
-                g.setStroke(new BasicStroke(1));
-            }
+            if (queue) queueTube(x + OA + 4, top - 2, w - 8, h + 6, x + 2, x + w + 2 * OA - 2, 3f);
             for (int i = 0; i < n; i++) {
                 Dimension s = innerSize(groups.get(i));
                 drawInner(cx, top + (h - s.height) / 2 + (queue ? 1 : 0), groups.get(i), s.width, s.height);
@@ -164,11 +205,45 @@ final class NestedDiagram extends JComponent {
                 cx += s.width + gap;
             }
             if (queue) {
-                text("head", x + 10, top + h + 8, ACCENT);
+                text("head", x + OA + 6, top + h + 8, ACCENT);
                 if (n > 1) text("tail", cx - gap - 22, top + h + 8, ACCENT);
             }
         }
-        return new Dimension(w + (arrows ? 28 : 0), h + (queue ? 30 : arrows ? 12 : 26));
+        return new Dimension(w + (arrows ? 28 : 0) + (queue ? 2 * OA : 0), h + (queue ? 30 : arrows ? 12 : 26));
+    }
+
+    /** מערך דו-ממדי: טבלה של תאים, עם מספרי השורות והעמודות */
+    private Dimension drawMatrix(int x, int y) {
+        int rows = groups.size(), cols = 0;
+        for (List<String> r : groups) cols = Math.max(cols, r == null ? 0 : r.size());
+        int left = 26, top = 16;
+        if (g != null) {
+            for (int j = 0; j < cols; j++) text("[" + j + "]", x + left + j * cw + cw / 2 - 8, y, MUTED);
+            for (int i = 0; i < rows; i++) {
+                text("[" + i + "]", x + 2, y + top + i * CH + 4, MUTED);
+                List<String> r = groups.get(i);
+                for (int j = 0; r != null && j < r.size(); j++) cell(x + left + j * cw, y + top + i * CH, r.get(j));
+            }
+        }
+        return new Dimension(left + cols * cw + 8, top + rows * CH + 6);
+    }
+
+    /** תלמיד / מכונית בודד: כרטיס עם המאפיינים */
+    private Dimension drawCard(int x, int y) {
+        boolean student = inner.equals("Student");
+        String[] fields = student
+                ? new String[] { "name: \"Noa\"", "classRoom: \"11B\"", "age: 17", "grades: [90, 85, 77]" }
+                : new String[] { "manufacturer: \"Mazda\"", "model: \"3\"", "year: 2019", "km, fuel..." };
+        int w = 170, h = 26 + fields.length * 17 + 8;
+        if (g != null) {
+            g.setColor(BOX_FILL);
+            g.fillRoundRect(x + 4, y + 2, w, h, 10, 10);
+            g.setColor(BOX_LINE);
+            g.drawRoundRect(x + 4, y + 2, w, h, 10, 10);
+            text(student ? "Student" : "Car", x + 14, y + 8, ACCENT);
+            for (int i = 0; i < fields.length; i++) text(fields[i], x + 14, y + 28 + i * 17, INK);
+        }
+        return new Dimension(w + 10, h + 6);
     }
 
     private Dimension drawTree(int x, int y) {

@@ -18,9 +18,10 @@ import org.eclipse.swt.widgets.Composite;
  * המבנה החיצוני מצויר עם המבנים הפנימיים בתוך התאים שלו — כמו בחלון ההרצה. מתעדכן תוך כדי הקלדת הערכים.
  */
 final class NestedPreview extends Canvas {
-    private static final int CW = 28, CH = 22, PAD = 6, GAP = 12, ARROW = 12, TOP = 18;
+    private static final int CW = 28, CH = 22, PAD = 6, GAP = 12, ARROW = 12, TOP = 18, QA = 10, OA = 18;   // QA/OA — מקום לחיצים בצדי התור
 
     private String outer = "stack", inner = "stack";
+    private int cw = CW;   // רוחב תא (גדל כשהערכים ארוכים, למשל מילים)
     private List<List<String>> groups = new ArrayList<List<String>>();
     private final Color boxFill, boxLine, cellFill, ink, muted, accent;
     private final Font small;
@@ -47,7 +48,15 @@ final class NestedPreview extends Canvas {
         this.outer = outer;
         this.inner = inner;
         this.groups = groups == null ? new ArrayList<List<String>>() : groups;
+        int longest = 0;
+        for (List<String> g : this.groups) if (g != null) for (String x : g) longest = Math.max(longest, Math.min(x.length(), 9));
+        this.cw = Math.max(CW, longest * 7 + 12);
         redraw();
+    }
+
+    /** הציור של מבנה רגיל (בכל תא ערך), של קומבינציה, או של תלמיד / מכונית בודד */
+    void set(Scaffold.Preview p) {
+        set(p.outer, p.inner, p.groups);
     }
 
     @Override
@@ -78,8 +87,13 @@ final class NestedPreview extends Canvas {
     private Point paint(GC gc, int x, int y) {
         if (gc != null) gc.setFont(small);
         int n = groups.size();
-        if (n == 0) return new Point(40, 20);
+        if (outer.equals("card")) return drawCard(gc, x, y);
+        if (n == 0) {
+            if (gc != null) { gc.setForeground(muted); gc.drawString("ריק — אין איברים", x + 6, y + 2, true); }
+            return new Point(110, 20);
+        }
         switch (outer) {
+            case "matrix": return drawMatrix(gc, x, y);
             case "stack": return drawStack(gc, x, y);
             case "queue": return drawRow(gc, x, y, false, true);
             case "list": return drawRow(gc, x, y, true, false);
@@ -90,13 +104,18 @@ final class NestedPreview extends Canvas {
 
     private Point innerSize(List<String> g) {
         int k = g == null ? 0 : g.size();
-        if (inner.equals("stack")) return new Point(CW + 2 * PAD, Math.max(k, 1) * CH + 2 * PAD);
-        if (inner.equals("queue")) return new Point(Math.max(k, 1) * CW + 2 * PAD, CH + 2 * PAD);
-        return new Point(Math.max(k, 1) * CW + Math.max(0, k - 1) * ARROW + 2 * PAD + ARROW + 22, CH + 2 * PAD);   // רשימה: חיצים ו-null
+        if (inner.equals("cell")) return new Point(cw, CH);
+        if (inner.equals("stack")) return new Point(cw + 2 * PAD, Math.max(k, 1) * CH + 2 * PAD);
+        if (inner.equals("queue")) return new Point(Math.max(k, 1) * cw + 2 * PAD + 2 * QA, CH + 2 * PAD + 4);   // צדדים פתוחים עם חיצים
+        return new Point(Math.max(k, 1) * cw + Math.max(0, k - 1) * ARROW + 2 * PAD + ARROW + 22, CH + 2 * PAD);   // רשימה: חיצים ו-null
     }
 
     /** המבנה הפנימי בתוך מלבן; מחזיר את גודלו */
     private Point drawInner(GC gc, int x, int y, List<String> g, int w, int h) {
+        if (gc != null && inner.equals("cell")) {   // מבנה רגיל: בכל תא ערך אחד, בלי מסגרת פנימית
+            cell(gc, x, y, g == null || g.isEmpty() ? "" : g.get(0));
+            return new Point(w, h);
+        }
         if (gc != null) {
             gc.setBackground(boxFill);
             gc.fillRoundRectangle(x, y, w, h, 8, 8);
@@ -112,15 +131,17 @@ final class NestedPreview extends Canvas {
                 int cx = x + PAD;
                 for (int i = 0; i < k; i++) cell(gc, cx, y + PAD + i * CH, g.get(k - 1 - i));
                 if (k > 0) { gc.setForeground(accent); gc.drawString("▼", x + w - 11, y + PAD + 3, true); }
-            } else if (inner.equals("queue")) {
-                for (int i = 0; i < k; i++) cell(gc, x + PAD + i * CW, y + PAD, g.get(i));
+            } else if (inner.equals("queue")) {   // תור: צינור פתוח — יוצאים מהראש (שמאל), נכנסים בזנב (ימין)
+                int cx0 = x + PAD + QA, cy = y + PAD + 2, len = Math.max(k, 1) * cw;
+                for (int i = 0; i < k; i++) cell(gc, cx0 + i * cw, cy, g.get(i));
+                queueTube(gc, cx0, cy, len, CH, x + 2, cx0 + len + QA - 2, 2);
             } else {
                 int cx = x + PAD;
                 for (int i = 0; i < k; i++) {
                     cell(gc, cx, y + PAD, g.get(i));
                     gc.setForeground(accent);
-                    gc.drawString(i < k - 1 ? "→" : "→ null", cx + CW + 1, y + PAD + 4, true);
-                    cx += CW + (i < k - 1 ? ARROW : 0);
+                    gc.drawString(i < k - 1 ? "→" : "→ null", cx + cw + 1, y + PAD + 4, true);
+                    cx += cw + (i < k - 1 ? ARROW : 0);
                 }
             }
         }
@@ -129,13 +150,52 @@ final class NestedPreview extends Canvas {
 
     private void cell(GC gc, int x, int y, String text) {
         gc.setBackground(cellFill);
-        gc.fillRectangle(x, y, CW, CH);
+        gc.fillRectangle(x, y, cw, CH);
         gc.setForeground(boxLine);
-        gc.drawRectangle(x, y, CW, CH);
+        gc.drawRectangle(x, y, cw, CH);
         gc.setForeground(ink);
-        String t = text.length() > 4 ? text.substring(0, 3) + "…" : text;
+        int max = cw > CW ? 9 : 4;
+        String t = text.length() > max ? text.substring(0, max - 1) + "…" : text;
         Point e = gc.textExtent(t);
-        gc.drawString(t, x + (CW - e.x) / 2, y + (CH - e.y) / 2, true);
+        gc.drawString(t, x + (cw - e.x) / 2, y + (CH - e.y) / 2, true);
+    }
+
+    /** מערך דו-ממדי: טבלה של תאים, עם מספרי השורות והעמודות */
+    private Point drawMatrix(GC gc, int x, int y) {
+        int rows = groups.size(), cols = 0;
+        for (List<String> r : groups) cols = Math.max(cols, r == null ? 0 : r.size());
+        int left = 26, top = 16;
+        if (gc != null) {
+            gc.setForeground(muted);
+            for (int j = 0; j < cols; j++) gc.drawString("[" + j + "]", x + left + j * cw + cw / 2 - 8, y, true);
+            for (int i = 0; i < rows; i++) {
+                gc.setForeground(muted);
+                gc.drawString("[" + i + "]", x + 2, y + top + i * CH + 4, true);
+                List<String> r = groups.get(i);
+                for (int j = 0; r != null && j < r.size(); j++) cell(gc, x + left + j * cw, y + top + i * CH, r.get(j));
+            }
+        }
+        return new Point(left + cols * cw + 8, top + rows * CH + 6);
+    }
+
+    /** תלמיד / מכונית בודד: כרטיס עם המאפיינים */
+    private Point drawCard(GC gc, int x, int y) {
+        boolean student = inner.equals("Student");
+        String[] fields = student
+                ? new String[] { "name: \"Noa\"", "classRoom: \"11B\"", "age: 17", "grades: [90, 85, 77]" }
+                : new String[] { "manufacturer: \"Mazda\"", "model: \"3\"", "year: 2019", "km, fuel..." };
+        int w = 170, h = 26 + fields.length * 17 + 8;
+        if (gc != null) {
+            gc.setBackground(boxFill);
+            gc.fillRoundRectangle(x + 4, y + 2, w, h, 10, 10);
+            gc.setForeground(boxLine);
+            gc.drawRoundRectangle(x + 4, y + 2, w, h, 10, 10);
+            gc.setForeground(accent);
+            gc.drawString(student ? "Student" : "Car", x + 14, y + 8, true);
+            gc.setForeground(ink);
+            for (int i = 0; i < fields.length; i++) gc.drawString(fields[i], x + 14, y + 28 + i * 17, true);
+        }
+        return new Point(w + 10, h + 6);
     }
 
     private Point drawStack(GC gc, int x, int y) {
@@ -163,15 +223,9 @@ final class NestedPreview extends Canvas {
     private Point drawRow(GC gc, int x, int y, boolean arrows, boolean queue) {
         int n = groups.size(), h = 0, w = 8, gap = arrows ? 22 : 6;
         for (List<String> g : groups) { Point s = innerSize(g); w += s.x + gap; h = Math.max(h, s.y); }
-        int top = y + (queue ? 6 : 4), cx = x + 6;
+        int top = y + (queue ? 6 : 4), cx = x + 6 + (queue ? OA : 0);
         if (gc != null) {
-            if (queue) {
-                gc.setForeground(accent);
-                gc.setLineWidth(3);
-                gc.drawLine(x + 2, top - 2, x + w - 2, top - 2);
-                gc.drawLine(x + 2, top + h + 4, x + w - 2, top + h + 4);
-                gc.setLineWidth(1);
-            }
+            if (queue) queueTube(gc, x + OA + 4, top - 2, w - 8, h + 6, x + 2, x + w + 2 * OA - 2, 3);
             for (int i = 0; i < n; i++) {
                 Point s = innerSize(groups.get(i));
                 drawInner(gc, cx, top + (h - s.y) / 2 + (queue ? 1 : 0), groups.get(i), s.x, s.y);
@@ -185,11 +239,34 @@ final class NestedPreview extends Canvas {
             }
             if (queue) {
                 gc.setForeground(accent);
-                gc.drawString("head", x + 10, top + h + 8, true);
+                gc.drawString("head", x + OA + 6, top + h + 8, true);
                 if (n > 1) gc.drawString("tail", cx - gap - 22, top + h + 8, true);
             }
         }
-        return new Point(w + (arrows ? 28 : 0), h + (queue ? 30 : arrows ? 12 : 26));
+        return new Point(w + (arrows ? 28 : 0) + (queue ? 2 * OA : 0), h + (queue ? 30 : arrows ? 12 : 26));
+    }
+
+    /**
+     * תור: שני קווים (למעלה ולמטה) עם צדדים פתוחים, וחיצים — בצד שמאל יוצא חוץ (הראש: מוציאים משם),
+     * ובצד ימין נכנס פנימה (הזנב: מכניסים לשם). כך תור לא נראה כמו מערך.
+     */
+    private void queueTube(GC gc, int x, int y, int len, int h, int outX, int inX, int width) {
+        gc.setForeground(accent);
+        gc.setBackground(accent);
+        gc.setLineWidth(width);
+        gc.drawLine(x - 3, y - 2, x + len + 3, y - 2);
+        gc.drawLine(x - 3, y + h + 2, x + len + 3, y + h + 2);
+        gc.setLineWidth(width > 2 ? 2 : 1);
+        int mid = y + h / 2;
+        arrowLeft(gc, x - 2, outX, mid);          // יוצא מהראש
+        arrowLeft(gc, inX, x + len + 2, mid);     // נכנס בזנב
+        gc.setLineWidth(1);
+    }
+
+    /** חץ אופקי שמאלה: מ-fromX אל toX (toX משמאל), עם ראש חץ ב-toX */
+    private void arrowLeft(GC gc, int fromX, int toX, int y) {
+        gc.drawLine(fromX, y, toX + 4, y);
+        gc.fillPolygon(new int[] { toX, y, toX + 6, y - 4, toX + 6, y + 4 });
     }
 
     private Point drawTree(GC gc, int x, int y) {

@@ -361,4 +361,64 @@ final class Look {
         if (w != cur.x || h != cur.y) sh.setSize(w, h);
         sh.layout(true, true);
     }
+
+    // ------------------------------------------------------------------ שדה עם הצעה באפור
+
+    /**
+     * שדה טקסט שמציע ערך בצבע אפור: כל עוד לא הקלידו — מוצגת ההצעה (ו-value() מחזיר ""), ברגע שמקלידים ההצעה נעלמת.
+     * אם מוחקים הכול — ההצעה חוזרת.
+     */
+    static final class HintText {
+        final org.eclipse.swt.widgets.Text text;
+        private String hint = "";
+        private boolean showing, internal;
+        private final Display display;
+
+        HintText(Composite parent, int style) {
+            text = new org.eclipse.swt.widgets.Text(parent, style);
+            display = parent.getDisplay();
+            text.addListener(SWT.Verify, e -> {
+                if (internal || !showing) return;
+                if (e.text.isEmpty()) { e.doit = false; return; }   // מחיקה כשמוצגת ההצעה — לא עושים כלום
+                e.start = 0;                                          // הקלדה: מחליפים את כל ההצעה
+                e.end = text.getCharCount();
+                showing = false;
+                text.setForeground(null);
+            });
+            text.addListener(SWT.Modify, e -> {
+                if (!internal && !showing && text.getText().isEmpty()) show();
+            });
+            Listener caretToStart = e -> { if (showing) text.setSelection(0); };
+            text.addListener(SWT.FocusIn, caretToStart);
+            text.addListener(SWT.MouseUp, caretToStart);
+            text.addListener(SWT.KeyUp, e -> { if (showing && (e.keyCode == SWT.ARROW_RIGHT || e.keyCode == SWT.END)) text.setSelection(0); });
+        }
+
+        private void show() {
+            internal = true;
+            try {
+                text.setText(hint);
+                text.setForeground(color(display, 0x9AA3B2));
+                text.setSelection(0);
+                showing = true;
+            } finally {
+                internal = false;
+            }
+        }
+
+        /** ההצעה (נראית באפור כשהשדה ריק) */
+        void setHint(String h) {
+            hint = h == null ? "" : h;
+            if (showing || text.getText().isEmpty()) show();
+        }
+
+        /** מה שהמשתמש הקליד — "" אם עוד לא הקליד כלום (אז משתמשים בהצעה) */
+        String value() {
+            return showing ? "" : text.getText();
+        }
+
+        boolean isShowingHint() {
+            return showing;
+        }
+    }
 }

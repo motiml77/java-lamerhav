@@ -85,7 +85,7 @@ dotnet "$ROOT/csharp/project/Examples/StackExamples/bin/Debug/net8.0/StackExampl
 
 echo "== 8. Visual Studio: חלון \"תרגיל חדש ב-C#\" — אותו קוד כמו VS Code, יצירת פרויקט ורישום בפתרון"
 mkdir -p "$W/cstool"
-javac --release 11 -nowarn -encoding UTF-8 -cp "$JAR" -d "$W/cstool" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java" \
+javac --release 11 -nowarn -encoding UTF-8 -cp "$JAR" -d "$W/cstool" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/NameCheck.java" \
     $(find "$ROOT/csharp/new-exercise/src" cstool ScaffoldCsAll.java -name '*.java')
 # א. המחולל של Visual Studio (Java) מפיק בדיוק אותם 3,426 קבצי C# כמו המחולל של VS Code (JS), בתים-בתים
 node combos.js "$W/jsx" > /dev/null

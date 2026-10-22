@@ -85,53 +85,53 @@
             },
             {
                 "command": "dsviz.insert",
-                "title": "הוספה לקוד: מבנה עם נתוני דמה...",
+                "title": "הוסף מבנה נתונים...",
                 "category": "מבני נתונים",
                 "icon": "media/insert.svg"
             },
             {
                 "command": "dsviz.insert.stack",
-                "title": "הוספה לקוד: מחסנית",
+                "title": "הוסף מבנה נתונים: מחסנית",
                 "category": "מבני נתונים"
             },
             {
                 "command": "dsviz.insert.queue",
-                "title": "הוספה לקוד: תור",
+                "title": "הוסף מבנה נתונים: תור",
                 "category": "מבני נתונים"
             },
             {
                 "command": "dsviz.insert.list",
-                "title": "הוספה לקוד: רשימה מקושרת",
+                "title": "הוסף מבנה נתונים: רשימה מקושרת",
                 "category": "מבני נתונים"
             },
             {
                 "command": "dsviz.insert.tree",
-                "title": "הוספה לקוד: עץ בינארי",
+                "title": "הוסף מבנה נתונים: עץ בינארי",
                 "category": "מבני נתונים"
             },
             {
                 "command": "dsviz.insert.bst",
-                "title": "הוספה לקוד: עץ חיפוש בינארי",
+                "title": "הוסף מבנה נתונים: עץ חיפוש בינארי",
                 "category": "מבני נתונים"
             },
             {
                 "command": "dsviz.insert.array",
-                "title": "הוספה לקוד: מערך",
+                "title": "הוסף מבנה נתונים: מערך",
                 "category": "מבני נתונים"
             },
             {
                 "command": "dsviz.insert.matrix",
-                "title": "הוספה לקוד: מערך דו-ממדי",
+                "title": "הוסף מבנה נתונים: מערך דו-ממדי",
                 "category": "מבני נתונים"
             },
             {
                 "command": "dsviz.insert.student",
-                "title": "הוספה לקוד: תלמיד",
+                "title": "הוסף מבנה נתונים: תלמיד",
                 "category": "מבני נתונים"
             },
             {
                 "command": "dsviz.insert.car",
-                "title": "הוספה לקוד: מכונית",
+                "title": "הוסף מבנה נתונים: מכונית",
                 "category": "מבני נתונים"
             },
             {
@@ -139,6 +139,12 @@
                 "title": "פתיחת תיקיית התרגילים",
                 "category": "מבני נתונים",
                 "icon": "$(folder-opened)"
+            },
+            {
+                "command": "dsviz.help",
+                "title": "הדרכה לשימוש (?)",
+                "category": "מבני נתונים",
+                "icon": "$(question)"
             }
         ],
         "viewsContainers": {
@@ -158,7 +164,7 @@
                 },
                 {
                     "id": "dsviz.insertView",
-                    "name": "הוספה לקוד (נתוני דמה)"
+                    "name": "הוסף מבנה נתונים"
                 },
                 {
                     "id": "dsviz.runView",
@@ -179,11 +185,11 @@
             },
             {
                 "view": "dsviz.insertView",
-                "contents": "מוסיף לקוד, במקום הסמן, מבנה מלא בנתוני דמה — אפשר לעבוד איתו מיד:\n[צור מחסנית](command:dsviz.insert.stack)\n[צור תור](command:dsviz.insert.queue)\n[צור רשימה מקושרת](command:dsviz.insert.list)\n[צור עץ בינארי](command:dsviz.insert.tree)\n[צור עץ חיפוש](command:dsviz.insert.bst)\n[צור מערך](command:dsviz.insert.array)\n[צור מערך דו-ממדי](command:dsviz.insert.matrix)\n[צור תלמיד](command:dsviz.insert.student)\n[צור מכונית](command:dsviz.insert.car)"
+                "contents": "בוחרים מבנה, ערכים (או אקראיים) ושם — והמבנה נבנה בקוד במקום הסמן, עם ציור של איך הוא ייראה:\n[הוסף מבנה נתונים...](command:dsviz.insert)\nאו ישר מבנה מסוים:\n[מחסנית](command:dsviz.insert.stack)  [תור](command:dsviz.insert.queue)  [רשימה מקושרת](command:dsviz.insert.list)\n[עץ בינארי](command:dsviz.insert.tree)  [עץ חיפוש](command:dsviz.insert.bst)  [מערך](command:dsviz.insert.array)\n[מערך דו-ממדי](command:dsviz.insert.matrix)  [תלמיד](command:dsviz.insert.student)  [מכונית](command:dsviz.insert.car)"
             },
             {
                 "view": "dsviz.runView",
-                "contents": "אחרי שכותבים את הקוד:\n[▶  הרצה ויזואלית](command:dsviz.run)\nבחלון רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד.\nהרצה רגילה (Run) מדפיסה רק לקונסול."
+                "contents": "אחרי שכותבים את הקוד:\n[▶  הרצה ויזואלית](command:dsviz.run)\nבחלון רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד.\nהרצה רגילה (Run) מדפיסה רק לקונסול.\n[?  הדרכה לשימוש — סרטונים קצרים](command:dsviz.help)"
             }
         ],
         "menus": {
@@ -202,6 +208,11 @@
                     "command": "dsviz.run",
                     "when": "resourceLangId == java || resourceLangId == csharp",
                     "group": "navigation@3"
+                },
+                {
+                    "command": "dsviz.help",
+                    "when": "resourceLangId == java || resourceLangId == csharp",
+                    "group": "navigation@4"
                 }
             ],
             "explorer/context": [
@@ -219,12 +230,20 @@
             ],
             "dsviz.editorMenu": [
                 {
+                    "command": "dsviz.insert",
+                    "group": "1_insert@0"
+                },
+                {
                     "submenu": "dsviz.insertMenu",
                     "group": "1_insert"
                 },
                 {
                     "command": "dsviz.run",
                     "group": "2_run@1"
+                },
+                {
+                    "command": "dsviz.help",
+                    "group": "3_help"
                 }
             ],
             "dsviz.insertMenu": [
@@ -310,6 +329,12 @@
                 "key": "ctrl+alt+r",
                 "mac": "cmd+alt+r",
                 "when": "editorLangId == java || editorLangId == csharp"
+            },
+            {
+                "command": "dsviz.insert",
+                "key": "ctrl+alt+i",
+                "mac": "cmd+alt+i",
+                "when": "editorLangId == java || editorLangId == csharp"
             }
         ],
         "submenus": [
@@ -319,7 +344,7 @@
             },
             {
                 "id": "dsviz.insertMenu",
-                "label": "הוספה לקוד (נתוני דמה)"
+                "label": "הוסף מבנה נתונים"
             }
         ],
         "configuration": {
@@ -327,7 +352,11 @@
             "properties": {
                 "dsviz.language": {
                     "type": "string",
-                    "enum": ["auto", "java", "csharp"],
+                    "enum": [
+                        "auto",
+                        "java",
+                        "csharp"
+                    ],
                     "default": "auto",
                     "description": "באיזו שפה כותבים תרגילים חדשים: auto = לפי הקובץ הפתוח והתיקייה (ואם לא ברור — שואלים)"
                 },

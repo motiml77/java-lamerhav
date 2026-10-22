@@ -181,11 +181,14 @@ FunctionEnd
 ; ------------------------------------------------------------ רכיבים
 Section "-core"
   SetOutPath "$INSTDIR"
-  File "${RELEASE}\${VSIX}"
-  File "${RELEASE}\${PLUGIN}"
+  ; התוספים בלי הסרטונים (הם נשמרים פעם אחת, בתיקייה help שלמטה) — כדי שההתקנה לא תכפיל אותם
+  File "${BUILD}\light\${VSIX}"
+  File "${BUILD}\light\${PLUGIN}"
   File "${RELEASE}\dsviz.jar"
   File "README-he.html"
   File "icon.ico"
+  SetOutPath "$INSTDIR\help"
+  File /r "${BUILD}\help\*.*"   ; סרטוני ההדרכה (הכפתור ?)
   SetOutPath "$INSTDIR\project"
   File /r "${BUILD}\project\*.*"
   SetOutPath "$INSTDIR"
@@ -270,11 +273,14 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   FileWriteUTF16LE /BOM $0 "${PROJECT_CS_DIR}"
   FileClose $0
   CreateShortcut "$DESKTOP\תרגילי C# (מבני נתונים).lnk" "${PROJECT_CS_DIR}\DataStructures-CS.sln" "" "$INSTDIR\icon.ico"
-  ; החלונות "תרגיל חדש" ו"הוספת משתנה" ל-C# (אותם חלונות כמו ב-Eclipse וב-VS Code) — מקיצור, בשביל Visual Studio / Rider
+  ; החלונות "תרגיל חדש" ו"הוסף מבנה נתונים" ל-C# (אותם חלונות כמו ב-Eclipse וב-VS Code) — מקיצור, בשביל Visual Studio / Rider
   CreateShortcut "$DESKTOP\תרגיל חדש ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool new "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   CreateDirectory "$SMPROGRAMS\מבני נתונים"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool new "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool insert "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  Delete "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk"   ; השם מגרסה קודמת
+  CreateShortcut "$DESKTOP\הוסף מבנה נתונים ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool insert "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool help "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הוסף מבנה נתונים ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool insert "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
 
   ; תבנית פרויקט חדש ב-Visual Studio: "תרגיל מבני נתונים (DSViz)"
   Delete "$INSTDIR\vs-templates.txt"
@@ -505,6 +511,9 @@ Section "Uninstall"
   Delete "$DESKTOP\תרגיל חדש ב-C#.lnk"
   Delete "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk"
   Delete "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk"
+  Delete "$SMPROGRAMS\מבני נתונים\הוסף מבנה נתונים ל-C#.lnk"
+  Delete "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk"
+  Delete "$DESKTOP\הוסף מבנה נתונים ל-C#.lnk"
   ; תיקיית התרגילים ב-Documents\DataStructures-CS נשארת — יש בה את העבודה של התלמיד
 
   Delete "$INSTDIR\${VSIX}"

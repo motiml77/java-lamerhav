@@ -1,0 +1,69 @@
+package il.lamerhav.dsviz;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+
+import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.window.Window;
+import org.eclipse.swt.program.Program;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.ui.handlers.HandlerUtil;
+
+/** הכפתור "?": חלון שבו בוחרים הדרכה, והסרטון נפתח בדפדפן (מתוך help/ שבתוך התוסף) */
+public class HelpHandler extends AbstractHandler {
+    private static final String[] FILES = { "index.html", "tutorials.json", "a.webm", "a.jpg", "b.webm", "b.jpg", "c.webm", "c.jpg", "d.webm", "d.jpg" };
+
+    @Override
+    public Object execute(ExecutionEvent event) {
+        Shell shell = HandlerUtil.getActiveShell(event);
+        HelpDialog d = new HelpDialog(shell);
+        if (d.open() != Window.OK) return null;
+        try {
+            open(d.chosenId());
+        } catch (Exception e) {
+            MessageDialog.openError(shell, "הדרכה לשימוש", "לא הצלחתי לפתוח את ההדרכה: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /** התיקייה help שההתקנה יצרה (‎%LOCALAPPDATA%\\DSViz\\help) — אם התוסף עצמו בלי סרטונים */
+    static File installedHelp() {
+        try {
+            ProjectSetup.resource("/resources/help/index.html");
+            return null;   // הסרטונים בתוך התוסף
+        } catch (Exception e) {
+            String base = System.getenv("LOCALAPPDATA");
+            File dir = new File(base != null ? new File(base, "DSViz") : new File(System.getProperty("user.home"), "DSViz"), "help");
+            return new File(dir, "index.html").isFile() ? dir : null;
+        }
+    }
+
+    /** מחלץ את קובצי ההדרכה לתיקייה זמנית (פעם אחת) ופותח את ההדרכה בדפדפן */
+    static void open(String id) throws CoreException, IOException {
+        File installed = installedHelp();
+        if (installed != null) {   // ההתקנה (DSViz-Setup) שומרת את הסרטונים פעם אחת, בתיקייה help שלה
+            String url = new File(installed, "index.html").toURI().toString() + (id == null ? "" : "#" + id);
+            if (!Program.launch(url)) throw new IOException("אין דפדפן ברירת מחדל — אפשר לפתוח ידנית: " + new File(installed, "index.html"));
+            return;
+        }
+        File dir = new File(System.getProperty("java.io.tmpdir"), "dsviz-help-1.0.1");
+        dir.mkdirs();
+        for (String f : FILES) {
+            File out = new File(dir, f);
+            byte[] data;
+            try {
+                data = ProjectSetup.resource("/resources/help/" + f);
+            } catch (CoreException e) {
+                if (f.equals("index.html")) throw e;   // שאר הקבצים — אם חסר סרטון, ממשיכים
+                continue;
+            }
+            if (!out.isFile() || out.length() != data.length) Files.write(out.toPath(), data);
+        }
+        String url = new File(dir, "index.html").toURI().toString() + (id == null ? "" : "#" + id);
+        if (!Program.launch(url)) throw new IOException("אין דפדפן ברירת מחדל — אפשר לפתוח ידנית: " + new File(dir, "index.html"));
+    }
+}
