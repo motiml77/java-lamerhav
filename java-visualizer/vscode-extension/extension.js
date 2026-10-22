@@ -9,6 +9,7 @@ const runner = require('./runner');
 const cs = require('./cs');
 const addstructure = require('./addstructure');
 const names = require('./names');
+const help = require('./help');
 
 /** התבניות של השפה שעובדים בה עכשיו (Java / C#) — נקבע בתחילת כל פעולה לפי השפה */
 let templates = javaTemplates;
@@ -41,6 +42,7 @@ function activate(context) {
     for (const id of Object.keys(templates.SNIPPETS)) {
         reg('dsviz.insert.' + id, () => insertSnippet(id));
     }
+    reg('dsviz.help', () => openHelp());
     reg('dsviz.run', () => run());
     reg('dsviz.runLines', () => run());   // שם ישן (מגרסה קודמת) — אותה הרצה
     reg('dsviz.examples', () => examples());
@@ -66,7 +68,13 @@ function activate(context) {
         const on = ed && (ed.document.languageId === 'java' || ed.document.languageId === 'csharp');
         if (on) { bar.show(); addBar.show(); } else { bar.hide(); addBar.hide(); }
     };
-    context.subscriptions.push(bar, addBar, vscode.window.onDidChangeActiveTextEditor(refresh));
+    // וכפתור "?" — הדרכה לשימוש (סרטונים קצרים)
+    const helpBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
+    helpBar.text = '$(question)';
+    helpBar.tooltip = 'הדרכה לשימוש';
+    helpBar.command = 'dsviz.help';
+    helpBar.show();
+    context.subscriptions.push(bar, addBar, helpBar, vscode.window.onDidChangeActiveTextEditor(refresh));
     refresh();
 
     openPending();
@@ -358,6 +366,32 @@ async function insertCode(ed, lineNo, code, csharp) {
             const pos = pkg ? editor.document.positionAt(pkg.index + pkg[0].length) : new vscode.Position(0, 0);
             b.insert(pos, pkg ? '\n\nimport unit4.collectionsLib.*;' : 'import unit4.collectionsLib.*;\n\n');
         }
+    });
+}
+
+// ------------------------------------------------------------ "?" — הדרכה לשימוש
+
+let helpPanel;
+
+/** חלון שבו בוחרים הדרכה — לכל אחת סרטון קצר (help/<id>.webm בתוך התוסף) */
+function openHelp() {
+    const dir = path.join(ctx.extensionPath, 'resources', 'help');
+    if (!fs.existsSync(dir) || !vscode.window.createWebviewPanel) {
+        vscode.window.showWarningMessage('סרטוני ההדרכה לא נמצאו בהתקנה הזאת.');
+        return;
+    }
+    if (helpPanel) { try { helpPanel.dispose(); } catch (e) { /* כבר נסגר */ } }
+    const panel = vscode.window.createWebviewPanel('dsviz.help', 'הדרכה לשימוש', vscode.ViewColumn.Active,
+        { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.file(dir)] });
+    helpPanel = panel;
+    panel.onDidDispose(() => { if (helpPanel === panel) helpPanel = undefined; });
+    let durations = {};
+    try { durations = JSON.parse(fs.readFileSync(path.join(dir, 'tutorials.json'), 'utf8')); } catch (e) { /* בלי משכים */ }
+    const src = panel.webview.cspSource;
+    panel.webview.html = help.page({
+        urlOf: f => panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, f))).toString(),
+        durations,
+        csp: `default-src 'none'; img-src ${src} data:; media-src ${src}; style-src 'unsafe-inline'; script-src 'unsafe-inline';`
     });
 }
 

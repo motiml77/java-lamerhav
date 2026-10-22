@@ -16,6 +16,9 @@
                defaultHandler="il.lamerhav.dsviz.InsertHandler">
          <commandParameter id="il.lamerhav.dsviz.structure" name="מבנה" optional="true"/>
       </command>
+      <command id="il.lamerhav.dsviz.help" categoryId="il.lamerhav.dsviz.category"
+               name="הדרכה לשימוש" description="סרטונים קצרים שמסבירים איך משתמשים"
+               defaultHandler="il.lamerhav.dsviz.HelpHandler"/>
       <command id="il.lamerhav.dsviz.examples" categoryId="il.lamerhav.dsviz.category"
                name="דוגמאות פתורות" description="העתקת דוגמאות פתורות לפרויקט"
                defaultHandler="il.lamerhav.dsviz.ExamplesHandler"/>
@@ -26,6 +29,7 @@
       <image commandId="il.lamerhav.dsviz.run" icon="icons/run.png"/>
       <image commandId="il.lamerhav.dsviz.examples" icon="icons/examples.png"/>
       <image commandId="il.lamerhav.dsviz.insert" icon="icons/insert.png"/>
+      <image commandId="il.lamerhav.dsviz.help" icon="icons/help.png"/>
    </extension>
 
    <extension point="org.eclipse.ui.menus">
@@ -59,6 +63,7 @@
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
             <separator name="more" visible="true"/>
             <command commandId="il.lamerhav.dsviz.examples" label="דוגמאות פתורות..." style="push"/>
+            <command commandId="il.lamerhav.dsviz.help" label="הדרכה לשימוש (?)..." style="push"/>
          </menu>
       </menuContribution>
 
@@ -72,6 +77,8 @@
             <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" mode="FORCE_TEXT"
                      tooltip="הרצה בחלון שמראה כל שורה, את המשתנים ואת מבני הנתונים (הרצה רגילה — רק לקונסול)" style="push"/>
+            <separator name="help" visible="true"/>
+            <command commandId="il.lamerhav.dsviz.help" label="הדרכה לשימוש (?)" tooltip="הדרכה לשימוש" style="push"/>
          </toolbar>
       </menuContribution>
 

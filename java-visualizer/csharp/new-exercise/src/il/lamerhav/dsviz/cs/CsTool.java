@@ -79,7 +79,8 @@ public final class CsTool {
             public void run() {
                 Theme.install();
                 compactFonts();
-                if (mode.equals("insert")) insert(root, fPreset, fShot);
+                if (mode.equals("help")) help(fShot);
+                else if (mode.equals("insert")) insert(root, fPreset, fShot);
                 else newExercise(root, fPreset, fShot, fOpen);
             }
         });
@@ -166,7 +167,7 @@ public final class CsTool {
             subtitle.setForeground(Theme.MUTED);
             head.add(title);
             head.add(subtitle);
-            content.add(head, BorderLayout.NORTH);
+            content.add(withHelp(head), BorderLayout.NORTH);
 
             Col right = new Col(), left = new Col();
             String[] parts = (preset == null ? "stack" : preset).split("_");
@@ -495,7 +496,7 @@ public final class CsTool {
             subtitle.setForeground(Theme.MUTED);
             head.add(title);
             head.add(subtitle);
-            content.add(head, BorderLayout.NORTH);
+            content.add(withHelp(head), BorderLayout.NORTH);
 
             Col right = new Col(), left = new Col();
             String[] parts = preset.split("_");
@@ -715,6 +716,94 @@ public final class CsTool {
         }
     }
 
+    // ------------------------------------------------------------------ הדרכה לשימוש (?)
+
+    private static final String[][] HELP = {
+        { "a", "01  ·  יצירת מבנה נתונים חדש", "שמים את הסמן במקום הנכון בקוד, לוחצים \"הוסף מבנה נתונים\", בוחרים מבנה, ערכים ושם — ורואים את הקוד שנוצר ואת ההרצה." },
+        { "b", "02  ·  דוגמאות פתורות", "פותחים תרגיל מוכן מהרשימה, קוראים את הפתרון, ומריצים אותו בחלון ההדמיה — צעד אחרי צעד." },
+        { "c", "03  ·  מבנה בתוך מבנה", "שלוש דוגמאות: מחסנית של תורים, רשימה של מחסניות ועץ של תורים — יצירת התרגיל וההרצה הוויזואלית." },
+        { "d", "04  ·  מוסיפים התאמות לתרגיל", "אחרי שהתרגיל נוצר: מוסיפים ידנית מבנה נוסף, משתנה x ומערך — ורואים שגם הם מופיעים בהדמיה." },
+    };
+
+    /** התיקייה help — ליד dsviz.jar (בהתקנה: ‎%ProgramFiles%\DSViz\help), או לפי -Ddsviz.help */
+    static Path helpDir() {
+        String prop = System.getProperty("dsviz.help");
+        if (prop != null) return Paths.get(prop);
+        try {
+            Path jar = Paths.get(CsTool.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            return jar.getParent().resolve("help");
+        } catch (Exception e) {
+            return Paths.get("help");
+        }
+    }
+
+    /** פותח את ההדרכה (id = a/b/c/d) בדפדפן */
+    static void openHelp(String id) {
+        try {
+            Path index = helpDir().resolve("index.html");
+            if (!Files.isRegularFile(index)) throw new java.io.FileNotFoundException(index.toString());
+            java.awt.Desktop.getDesktop().browse(java.net.URI.create(index.toUri().toString() + (id == null ? "" : "#" + id)));
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "לא הצלחתי לפתוח את ההדרכה: " + e.getMessage(), "הדרכה לשימוש", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private static void help(String shot) {
+        HelpForm f = new HelpForm();
+        if (f.show(shot)) openHelp(f.chosen);
+    }
+
+    /** חלון "הדרכה לשימוש": בוחרים הדרכה, והסרטון נפתח בדפדפן */
+    private static final class HelpForm extends Base {
+        private final List<JToggleButton> chips = new ArrayList<JToggleButton>();
+        String chosen = "a";
+
+        boolean show(String shot) {
+            JDialog d = dialog("הדרכה לשימוש");
+            JPanel content = new JPanel(new BorderLayout(0, 8));
+            content.setBorder(BorderFactory.createEmptyBorder(12, 16, 10, 16));
+            JPanel head = new JPanel(new GridLayout(0, 1));
+            JLabel title = new JLabel("הדרכה לשימוש");
+            title.setFont(Theme.big);
+            JLabel sub = new JLabel("בוחרים הדרכה — לכל אחת סרטון קצר שמראה בדיוק איפה לוחצים ומה נפתח.");
+            sub.setForeground(Theme.MUTED);
+            head.add(title);
+            head.add(sub);
+            content.add(head, BorderLayout.NORTH);
+            Col col = new Col();
+            col.section("איזו הדרכה?");
+            JPanel list = new JPanel(new GridLayout(0, 1, 6, 8));
+            ButtonGroup bg = new ButtonGroup();
+            for (int i = 0; i < HELP.length; i++) {
+                JToggleButton b = new Chip(HELP[i][1]);
+                b.putClientProperty("id", HELP[i][0]);
+                b.setPreferredSize(new Dimension(420, 40));
+                bg.add(b);
+                chips.add(b);
+                b.setSelected(i == 0);
+                b.addActionListener(e -> update());
+                list.add(b);
+            }
+            col.add(list);
+            col.fill();
+            content.add(new Card(col.panel), BorderLayout.CENTER);
+            JButton ok = new JButton("צפייה בהדרכה"), cancel = new JButton("ביטול");
+            style(ok, cancel);
+            content.add(buttons(d, ok, cancel), BorderLayout.SOUTH);
+            d.setContentPane(content);
+            d.getRootPane().setDefaultButton(ok);
+            onClick(ok, () -> { accepted = true; d.dispose(); });
+            update();
+            applyOrientation(content);
+            return display(d, shot);
+        }
+
+        private void update() {
+            for (JToggleButton b : chips) if (b.isSelected()) chosen = (String) b.getClientProperty("id");
+            relayout();
+        }
+    }
+
     // ------------------------------------------------------------------ בסיס משותף לחלונות
 
     private abstract static class Base {
@@ -791,6 +880,23 @@ public final class CsTool {
             int maxH = scr.height - 40, maxW = scr.width - 40;
             if (s.height > maxH || s.width > maxW)
                 d.setSize(Math.min(s.width + (s.height > maxH ? 18 : 0), maxW), Math.min(s.height, maxH));   // 18: מקום לפס הגלילה
+        }
+
+        /** כותרת החלון עם כפתור "?" (הדרכה לשימוש) בצד */
+        JPanel withHelp(JPanel head) {
+            JButton q = new JButton("?");
+            q.setToolTipText("הדרכה לשימוש");
+            q.setFocusable(false);
+            q.setFont(Theme.uiBold);
+            q.putClientProperty("FlatLaf.style", "arc:999; background:#F59E0B; foreground:#ffffff; borderWidth:0; hoverBackground:#D97706; margin:0,0,0,0");
+            q.setPreferredSize(new Dimension(34, 34));
+            q.addActionListener(e -> openHelp(null));
+            JPanel row = new JPanel(new BorderLayout(8, 0));
+            JPanel qbox = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+            qbox.add(q);
+            row.add(head, BorderLayout.CENTER);
+            row.add(qbox, BorderLayout.LINE_END);
+            return row;
         }
 
         /** מציג (מודאלי) ומחזיר true אם לחצו על הכפתור הראשי. עם shot: שומר תמונה ויוצא */

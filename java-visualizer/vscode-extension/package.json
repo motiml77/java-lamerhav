@@ -139,6 +139,12 @@
                 "title": "פתיחת תיקיית התרגילים",
                 "category": "מבני נתונים",
                 "icon": "$(folder-opened)"
+            },
+            {
+                "command": "dsviz.help",
+                "title": "הדרכה לשימוש (?)",
+                "category": "מבני נתונים",
+                "icon": "$(question)"
             }
         ],
         "viewsContainers": {
@@ -183,7 +189,7 @@
             },
             {
                 "view": "dsviz.runView",
-                "contents": "אחרי שכותבים את הקוד:\n[▶  הרצה ויזואלית](command:dsviz.run)\nבחלון רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד.\nהרצה רגילה (Run) מדפיסה רק לקונסול."
+                "contents": "אחרי שכותבים את הקוד:\n[▶  הרצה ויזואלית](command:dsviz.run)\nבחלון רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד.\nהרצה רגילה (Run) מדפיסה רק לקונסול.\n[?  הדרכה לשימוש — סרטונים קצרים](command:dsviz.help)"
             }
         ],
         "menus": {
@@ -202,6 +208,11 @@
                     "command": "dsviz.run",
                     "when": "resourceLangId == java || resourceLangId == csharp",
                     "group": "navigation@3"
+                },
+                {
+                    "command": "dsviz.help",
+                    "when": "resourceLangId == java || resourceLangId == csharp",
+                    "group": "navigation@4"
                 }
             ],
             "explorer/context": [
@@ -229,6 +240,10 @@
                 {
                     "command": "dsviz.run",
                     "group": "2_run@1"
+                },
+                {
+                    "command": "dsviz.help",
+                    "group": "3_help"
                 }
             ],
             "dsviz.insertMenu": [

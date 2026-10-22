@@ -48,6 +48,7 @@ public class DlgScript {
         display.timerExec(1200, step[0]);
         if (kind.equals("ex")) new ExerciseDialog(parent, new ArrayList<org.eclipse.jdt.core.IJavaProject>(), "DataStructures", null, preset).open();
         else if (kind.equals("ins")) new InsertDialog(parent, preset, fDoc, fOffset, "        ").open();
+        else if (kind.equals("help")) new HelpDialog(parent).open();
         else new ExamplesDialog(parent).open();
         display.dispose();
     }

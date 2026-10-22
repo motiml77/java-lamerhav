@@ -90,6 +90,12 @@
         const r = this.codeRect();
         return { x: r.x + GUTTER + (c || 0) * this.charW + (c === undefined ? 120 : 0), y: r.y + (l - 1 - this.scroll) * LINE_H + LINE_H / 2 };
       }
+      if (kind === 'menuitem') {   // menuitem:טקסט (חלק מהטקסט)
+        const m = this.menuGeom();
+        const i = MENU_ITEMS.findIndex(t => t !== '---' && t.includes(arg));
+        if (i < 0) throw new Error('menu item not found: ' + arg);
+        return { x: m.left + MENU_W / 2, y: m.top + m.ys[i] + MI_H / 2 };
+      }
       if (kind === 'tree') {   // tree:שם הקובץ
         for (const row of document.querySelectorAll('#tree .row')) if (row.textContent.trim() === arg) return this.rectOf(row.querySelector('span:last-child') || row, 'center');
         throw new Error('tree row not found: ' + arg);
@@ -130,6 +136,15 @@
       const x = r.left - app.left, y = r.top - app.top;
       return mode === 'center' ? { x: x + r.width / 2, y: y + r.height / 2 } : { x, y, w: r.width, h: r.height };
     }
+    menuGeom() {
+      const ds = this.rectOf(document.querySelector('#ide .menubar .ds'), 'rect');
+      const ys = []; let y = MENU_PAD;
+      for (const t of MENU_ITEMS) { ys.push(y); y += t === '---' ? SEP_H : MI_H; }
+      return { left: Math.max(10, ds.x + ds.w - MENU_W + 40), top: ds.y + ds.h + 2, ys, h: y + MENU_PAD };
+    }
+    menuOpen() { this.add({ type: 'menu', geom: this.menuGeom() }); this.now += .35; return this; }
+    menuHot(text) { const i = MENU_ITEMS.findIndex(t => t !== '---' && t.includes(text)); this.add({ type: 'menuHot', idx: i }); return this; }
+    menuClose(after = .3) { this.add({ type: 'menuClose' }); this.now += after; return this; }
     codeRect() { return this.rectOf($('code'), 'rect'); }
 
     // --- פעולות
@@ -224,6 +239,9 @@
     outro(sub, dur = 4.2) { this.outroAt = this.now + .3; this.now = this.outroAt + dur; return this; }
   }
   const CLICKS = [];
+  const MENU_ITEMS = ['תרגיל חדש: מחסנית (Stack)...', 'תרגיל חדש: תור (Queue)...', 'תרגיל חדש: רשימה מקושרת (Node)...', 'תרגיל חדש: עץ בינארי (BinNode)...',
+    'תרגיל חדש: עץ חיפוש בינארי...', 'תרגיל חדש: מערך...', 'תרגיל חדש: מערך דו-ממדי...', '---', 'הוסף מבנה נתונים...', '---', 'הרצה ויזואלית', '---', 'דוגמאות פתורות...', 'הדרכה (?)...'];
+  const MI_H = 32, SEP_H = 10, MENU_PAD = 4, MENU_W = 360;
 
   // ------------------------------------------------------------ ציור
   let B, META, EV, DUR;
@@ -367,6 +385,21 @@
       caret.style.display = 'none';
       for (const r of $('lines').children) r.children[1].style.opacity = 0;
     }
+    // תפריט נפתח
+    const mo = last('menu', t), mc = last('menuClose', t), menu = $('menu');
+    if (mo && (!mc || mc.t < mo.t)) {
+      const g = mo.geom, k = eo(p(t, mo.t, mo.t + .18));
+      if (menu.dataset.k !== String(EV.indexOf(mo))) {
+        menu.dataset.k = String(EV.indexOf(mo));
+        menu.innerHTML = MENU_ITEMS.map(x => x === '---' ? '<div class="sepl"></div>' : `<div class="mi">${x}</div>`).join('');
+      }
+      menu.style.display = 'block'; menu.style.left = g.left + 'px'; menu.style.top = g.top + 'px'; menu.style.width = MENU_W + 'px';
+      menu.style.opacity = k; menu.style.transform = `translateY(${(1 - k) * -8}px)`;
+      const hot = last('menuHot', t, e => e.t >= mo.t);
+      const items = menu.querySelectorAll('.mi');
+      let n = 0;
+      MENU_ITEMS.forEach((x, i) => { if (x !== '---') { items[n].classList.toggle('hot', !!hot && hot.idx === i); n++; } });
+    } else menu.style.display = 'none';
     // כפתורים "חמים" בסרגל
     for (const id of ['tbNew', 'tbAdd', 'tbRun', 'tbHelp']) $(id).classList.remove('hot');
     for (const e of EV) if (e.type === 'hot' && t >= e.t && t <= e.t + e.dur) document.querySelector(e.el).classList.add('hot');

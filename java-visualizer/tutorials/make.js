@@ -52,15 +52,15 @@ for f in glob.glob(sys.argv[1] + '/*.png'):
     return out;
   },
   /** מריץ תוכנית בחלון ההרצה ומצלם את הצעדים (חתוך לחלון בלבד, 1440x828) */
-  viewer(name, files, main, steps) {
+  viewer(name, files, main, steps, withMain) {
     const dir = path.join(W, 'run', name);
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
-    for (const [f, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, f), text);
+    for (const [f, text] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); fs.writeFileSync(path.join(dir, f), text); }
     const cap = path.join(dir, 'cap');
     fs.mkdirSync(cap, { recursive: true });
     for (let attempt = 0; attempt < 3; attempt++) {
-      try { sh('sh', [path.join(T, 'viewer.sh'), dir, main, path.join(cap, 's'), ...steps.map(String)], { stdio: 'inherit' }); } catch (e) { /* בודקים בהמשך */ }
+      try { sh('sh', [path.join(T, 'viewer.sh'), dir, main, path.join(cap, 's'), ...steps.map(String)], { stdio: 'inherit', env: Object.assign({}, process.env, withMain ? { MAINBTN: '1' } : {}) }); } catch (e) { /* בודקים בהמשך */ }
       if (steps.every(s => fs.existsSync(path.join(cap, `s-${s}.png`)))) break;
     }
     sh('python3', ['-c', `

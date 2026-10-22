@@ -66,7 +66,7 @@
   #ide .editor { flex: 1; position: relative; background: #fff; overflow: hidden; }
   #ide .tabs { height: 34px; background: #eef0f4; border-bottom: 1px solid #d8dbe1; display: flex; align-items: flex-end; padding-left: 8px; }
   #ide .tab { height: 30px; padding: 0 16px; display: flex; align-items: center; background: #fff; border: 1px solid #d8dbe1; border-bottom: none; border-radius: 6px 6px 0 0; font-size: 15px; }
-  #code { position: absolute; left: 0; top: 34px; right: 0; bottom: 0; font-family: JBMono; font-size: 17px; }
+  #code { position: absolute; left: 0; top: 34px; right: 0; bottom: 0; font-family: JBMono; font-size: 17px; overflow: hidden; }
   #lines { position: absolute; left: 0; top: 0; right: 0; }
   .ln { position: absolute; left: 0; height: 28px; line-height: 28px; white-space: pre; width: 100%; }
   .ln .no { display: inline-block; width: 52px; text-align: right; color: #9aa1ad; padding-right: 14px; box-sizing: border-box; background: #f6f7f9; border-right: 1px solid #eceef1; }
@@ -76,6 +76,12 @@
   .kw { color: #7f0055; font-weight: 700; } .st { color: #2a00ff; } .cm { color: #3f7f5f; } .ty { color: #005f87; } .nu { color: #1d2433; }
   .hebcm { unicode-bidi: isolate; direction: rtl; font-family: Heebo; font-size: 17px; }
   #caret { position: absolute; width: 2px; height: 24px; background: #111; }
+
+  /* תפריט נפתח */
+  #menu { position: absolute; z-index: 30; background: #fff; border: 1px solid #b9bec9; border-radius: 6px; box-shadow: 0 14px 40px rgba(0,0,0,.35); padding: 4px 0; direction: rtl; display: none; color: #111; font-size: 17px; }
+  #menu .mi { height: 32px; display: flex; align-items: center; padding: 0 16px; white-space: nowrap; }
+  #menu .mi.hot { background: #2f6fed; color: #fff; }
+  #menu .sepl { height: 1px; background: #d8dbe1; margin: 4px 0; }
 
   /* חלונות קופצים (צילומים אמיתיים) */
   .win { position: absolute; border-radius: 10px; overflow: hidden; background: #f1f3f7;
@@ -151,6 +157,7 @@
           <div id="code"><div id="lines"></div><div id="caret"></div></div></div>
       </div>
     </div>
+    <div id="menu"></div>
     <div id="layers"></div>
     <div id="fx"></div>
     <svg id="cursor" viewBox="0 0 24 32"><path d="M2 2 L2 26 L8.5 20 L13 30 L17 28.2 L12.6 18.5 L21 18.5 Z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>

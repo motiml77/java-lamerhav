@@ -32,6 +32,10 @@ rm -rf build/project-cs && mkdir -p build/project-cs/lib
 cp build/cs-lib/Unit4.CollectionsLib.dll build/project-cs/lib/
 python3 tools/make-vs-template.py build/cs-lib/Unit4.CollectionsLib.dll csharp/project/Exercise build/vs-template/DSViz-Exercise.zip
 
+echo "== סרטוני הדרכה (הכפתור ?): help/ → תוסף Eclipse, תוסף VS Code, ההתקנה"
+node tools/build-help.js
+rm -rf build/help && mkdir -p build/help && cp help/index.html help/tutorials.json help/*.webm help/*.jpg build/help/ 2>/dev/null || true
+
 echo "== Eclipse"
 DEPS=build/eclipse-deps
 [ -f "$DEPS/org.eclipse.jdt.core.jar" ] || python3 tools/eclipse-deps.py "$DEPS"
@@ -42,6 +46,7 @@ javac --release 11 -encoding UTF-8 -nowarn -cp "$CP" -d "$OUT" $(find eclipse-pl
 cp eclipse-plugin/plugin.xml "$OUT/"
 cp -r eclipse-plugin/icons "$OUT/"
 cp release/dsviz.jar "$OUT/resources/"
+mkdir -p "$OUT/resources/help" && cp build/help/* "$OUT/resources/help/" 2>/dev/null || true
 cp src/examples/*.java "$OUT/resources/examples/"
 cp src/Main.java "$OUT/resources/"
 jar --create --file "release/il.lamerhav.dsviz_$VERSION.jar" --manifest eclipse-plugin/META-INF/MANIFEST.MF -C "$OUT" .
@@ -53,6 +58,7 @@ rm -rf resources && mkdir -p resources/examples
 cp ../release/dsviz.jar resources/
 cp ../src/examples/*.java resources/examples/
 cp -R ../build/cs-resources resources/cs
+rm -rf resources/help && mkdir -p resources/help && cp ../build/help/* resources/help/ 2>/dev/null || true
 npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/release/dsviz-$VERSION.vsix"
 cd "$ROOT"
 

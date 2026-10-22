@@ -43,7 +43,7 @@ const vscode = {
         createTerminal: o => { terminalOpts = o; return { show() {}, dispose() {} }; },
         createWebviewPanel: (id, title) => {
             const panel = { id, title, html: '', posted: [], handler: null, disposed: false };
-            panel.webview = { set html(v) { panel.html = v; }, get html() { return panel.html; }, postMessage: async m => { panel.posted.push(m); return true; },
+            panel.webview = { cspSource: 'vscode-resource:', asWebviewUri: u => ({ toString: () => 'vscode-resource:' + u.fsPath }), set html(v) { panel.html = v; }, get html() { return panel.html; }, postMessage: async m => { panel.posted.push(m); return true; },
                               onDidReceiveMessage: fn => { panel.handler = fn; return { dispose() {} }; } };
             panel.dispose = () => { panel.disposed = true; };
             panel.onDidDispose = () => ({ dispose() {} });
@@ -213,6 +213,16 @@ async function addDialog(command, state, steps) {
     d = await addDialog(commands['dsviz.insert.matrix'], {}, [['values', { values: '1, 2, 3; 4, 5, 6' }]]);
     await d.ok();
     assert(edits[0][2].includes('int[][] mat = {') && edits[0][2].includes('{4, 5, 6}'), edits[0][2]);
+    // "?" — הדרכה לשימוש: נפתח חלון עם ארבע ההדרכות
+    {
+        fs.mkdirSync(path.join(ext, 'resources', 'help'), { recursive: true });   // (בהתקנה אמיתית יש שם את הסרטונים)
+        const before = panels.length;
+        await commands['dsviz.help']();
+        const hp = panels.slice(before).find(x => x.id === 'dsviz.help');
+        assert(hp, 'חלון ההדרכה לא נפתח');
+        for (const t of ['יצירת מבנה נתונים חדש', 'דוגמאות פתורות', 'מבנה בתוך מבנה', 'מוסיפים התאמות']) assert(hp.html.includes(t), t);
+        assert(/vscode-resource:.*help[\\/]a\.webm/.test(hp.html), 'כתובת הסרטון חסרה');
+    }
     // שכבת הגנה: הסמן מחוץ לפעולה (בגוף המחלקה) — אזהרה, והחלון לא נפתח
     {
         const outside = ['public class X {', '    ', '    public static void main(String[] args) {', '    }', '}'];
