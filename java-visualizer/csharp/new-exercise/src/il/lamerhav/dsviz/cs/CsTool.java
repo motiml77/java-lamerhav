@@ -737,15 +737,42 @@ public final class CsTool {
         }
     }
 
-    /** פותח בדפדפן את ההדרכה שנבחרה (id = a/b/c/d) — רק הסרטון שלה, עם בחירת מהירות */
+    /**
+     * פותח את ההדרכה שנבחרה (id = a/b/c/d) בחלון נגן נפרד: רק הסרטון שלה, עם בחירת מהירות.
+     * ב-Windows — Edge (או Chrome) במצב אפליקציה: חלון בלי לשוניות ובלי שורת כתובת. אחרת — הדפדפן הרגיל.
+     */
     static void openHelp(String id) {
         try {
-            Path index = helpDir().resolve(id == null ? "index.html" : "player.html");   // דף נגן עם ההדרכה שנבחרה בלבד (ובחירת מהירות)
-            if (!Files.isRegularFile(index)) throw new java.io.FileNotFoundException(index.toString());
-            java.awt.Desktop.getDesktop().browse(java.net.URI.create(index.toUri().toString() + (id == null ? "" : "#" + id)));
+            Path page = helpDir().resolve(id == null ? "index.html" : "player.html");
+            if (!Files.isRegularFile(page)) throw new java.io.FileNotFoundException(page.toString());
+            String url = page.toUri().toString() + (id == null ? "" : "#" + id);
+            if (id != null && System.getProperty("os.name", "").toLowerCase().contains("win") && openAppWindow(url)) return;
+            java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, "לא הצלחתי לפתוח את ההדרכה: " + e.getMessage(), "הדרכה לשימוש", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    /** חלון אפליקציה של Edge/Chrome (פרופיל נפרד — כדי שההגדרות יחולו גם כש-Edge כבר פתוח, והסרטון יתחיל לבד) */
+    private static boolean openAppWindow(String url) {
+        String profile = new java.io.File(System.getProperty("java.io.tmpdir"), "dsviz-player-profile").getAbsolutePath();
+        String[] roots = { System.getenv("ProgramFiles(x86)"), System.getenv("ProgramFiles"), System.getenv("LOCALAPPDATA") };
+        String[] rel = { "Microsoft\\Edge\\Application\\msedge.exe", "Google\\Chrome\\Application\\chrome.exe" };
+        for (String r : rel) {
+            for (String root : roots) {
+                if (root == null) continue;
+                java.io.File exe = new java.io.File(root, r);
+                if (!exe.isFile()) continue;
+                try {
+                    new ProcessBuilder(exe.getPath(), "--app=" + url, "--window-size=1180,780", "--user-data-dir=" + profile,
+                            "--autoplay-policy=no-user-gesture-required", "--no-first-run", "--disable-extensions").start();
+                    return true;
+                } catch (Exception e) {
+                    // לא הצליח להפעיל — מנסים את הבא
+                }
+            }
+        }
+        return false;
     }
 
     private static void help(String shot) {

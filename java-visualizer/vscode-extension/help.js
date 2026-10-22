@@ -99,7 +99,7 @@ if (k >= 0) play(k);
  * דף נגן להדרכה אחת (help/player.html#a): רק הסרטון שנבחר, ובחירת מהירות. נכתב ב-ES5 כדי שיעבוד גם בדפדפן הישן שבתוך Eclipse ישן (IE).
  * אם הסרטון לא מתנגן — קוראים ל-window.dsvizFail (ש-Eclipse מגדיר) או מציגים הודעה.
  */
-function playerPage({ urlOf, csp }) {
+function playerPage({ urlOf, csp, id: fixedId }) {
     const list = TUTORIALS.map(t => ({ id: t.id, num: t.num, title: t.title, video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
     const data = JSON.stringify(list).replace(/</g, '\\u003c');
     return `<!doctype html>
@@ -117,18 +117,20 @@ body { background: #070913; color: #f2f4fb; font: 16px/1.4 "Segoe UI", Heebo, Ar
 .speed span { color: #aab2c8; font-size: 14px; direction: rtl; margin-right: 8px; }
 .speed button { font: inherit; font-size: 14px; color: #f2f4fb; background: #1b2140; border: 1px solid #3a4468; border-radius: 10px; padding: 5px 12px; margin-left: 6px; min-width: 52px; cursor: pointer; }
 .speed button:hover { background: #2a3260; }
+.other { font: inherit; font-size: 14px; color: #f2f4fb; background: #1b2140; border: 1px solid #3a4468; border-radius: 10px; padding: 5px 12px; margin-right: 12px; cursor: pointer; display: none; }
 .speed button.on { background: #5b8cff; border-color: #5b8cff; color: #fff; font-weight: 700; }
 .stage { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px 12px; }
 video { max-width: 100%; max-height: 100%; background: #000; border-radius: 10px; outline: none; }
 #err { display: none; color: #ffd27a; text-align: center; padding: 20px; }
 </style></head><body>
-<div class="bar"><h1 id="ttl"></h1><div class="speed" id="speed"><span>מהירות</span></div></div>
+<div class="bar"><h1 id="ttl"></h1><button class="other" id="other">הדרכה אחרת</button><div class="speed" id="speed"><span>מהירות</span></div></div>
 <div class="stage"><video id="vid" controls autoplay></video><div id="err">לא הצלחתי לנגן את הסרטון בחלון הזה.</div></div>
 <script>
 var LIST = ${data};
 var SPEEDS = [1, 1.25, 1.5, 2];
 function $(id) { return document.getElementById(id); }
-var id = (location.hash || '#a').slice(1), t = LIST[0], i;
+var id = ${JSON.stringify(fixedId || null)} || (location.hash || '#a').slice(1), t = LIST[0], i, vs = null;
+try { vs = acquireVsCodeApi(); } catch (e) { }
 for (i = 0; i < LIST.length; i++) if (LIST[i].id === id) t = LIST[i];
 $('ttl').textContent = t.num + ' · ' + t.title;
 document.title = t.title;
@@ -149,8 +151,10 @@ SPEEDS.forEach(function (r) {
   b.onclick = function () { setRate(r); };
   $('speed').appendChild(b);
 });
+if (vs) { $('other').style.display = 'block'; $('other').onclick = function () { vs.postMessage({ cmd: 'list' }); }; }
 function fail() {
   if (window.dsvizFail) { try { window.dsvizFail(); return; } catch (e) { } }
+  if (vs) { vs.postMessage({ cmd: 'fail' }); }
   v.style.display = 'none'; $('err').style.display = 'block';
 }
 v.onerror = fail;
