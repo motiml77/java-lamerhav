@@ -181,8 +181,9 @@ FunctionEnd
 ; ------------------------------------------------------------ רכיבים
 Section "-core"
   SetOutPath "$INSTDIR"
-  File "${RELEASE}\${VSIX}"
-  File "${RELEASE}\${PLUGIN}"
+  ; התוספים בלי הסרטונים (הם נשמרים פעם אחת, בתיקייה help שלמטה) — כדי שההתקנה לא תכפיל אותם
+  File "${BUILD}\light\${VSIX}"
+  File "${BUILD}\light\${PLUGIN}"
   File "${RELEASE}\dsviz.jar"
   File "README-he.html"
   File "icon.ico"

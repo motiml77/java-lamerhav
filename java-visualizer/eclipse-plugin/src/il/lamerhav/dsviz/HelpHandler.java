@@ -30,8 +30,26 @@ public class HelpHandler extends AbstractHandler {
         return null;
     }
 
+    /** התיקייה help שההתקנה יצרה (‎%LOCALAPPDATA%\\DSViz\\help) — אם התוסף עצמו בלי סרטונים */
+    static File installedHelp() {
+        try {
+            ProjectSetup.resource("/resources/help/index.html");
+            return null;   // הסרטונים בתוך התוסף
+        } catch (Exception e) {
+            String base = System.getenv("LOCALAPPDATA");
+            File dir = new File(base != null ? new File(base, "DSViz") : new File(System.getProperty("user.home"), "DSViz"), "help");
+            return new File(dir, "index.html").isFile() ? dir : null;
+        }
+    }
+
     /** מחלץ את קובצי ההדרכה לתיקייה זמנית (פעם אחת) ופותח את ההדרכה בדפדפן */
     static void open(String id) throws CoreException, IOException {
+        File installed = installedHelp();
+        if (installed != null) {   // ההתקנה (DSViz-Setup) שומרת את הסרטונים פעם אחת, בתיקייה help שלה
+            String url = new File(installed, "index.html").toURI().toString() + (id == null ? "" : "#" + id);
+            if (!Program.launch(url)) throw new IOException("אין דפדפן ברירת מחדל — אפשר לפתוח ידנית: " + new File(installed, "index.html"));
+            return;
+        }
         File dir = new File(System.getProperty("java.io.tmpdir"), "dsviz-help-1.0.1");
         dir.mkdirs();
         for (String f : FILES) {

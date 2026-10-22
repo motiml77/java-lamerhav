@@ -4,7 +4,7 @@
 #   il.lamerhav.dsviz_1.0.1.jar  — התוסף ל-Eclipse (מעתיקים לתיקיית dropins)
 #   dsviz-1.0.1.vsix             — התוסף ל-VS Code
 #   DSViz-Setup.exe              — תוכנית התקנה ל-Windows (מוצאת לבד את VS Code ואת Eclipse; Java 21 כלולה)
-#   dsviz-install.zip            — הכול + התקנה ל-Mac/Linux ומדריך
+#   dsviz-install.zip            — התקנה ל-Mac/Linux, התוספים והמדריך (בלי ה-exe של Windows)
 # דרישות לבנייה: JDK 11+, Python 3, Node.js, NSIS (makensis) — רק למי שבונה, לא למי שמתקין
 set -e
 cd "$(dirname "$0")/.."
@@ -51,6 +51,9 @@ cp src/examples/*.java "$OUT/resources/examples/"
 cp src/Main.java "$OUT/resources/"
 jar --create --file "release/il.lamerhav.dsviz_$VERSION.jar" --manifest eclipse-plugin/META-INF/MANIFEST.MF -C "$OUT" .
 echo "release/il.lamerhav.dsviz_$VERSION.jar"
+# גרסה בלי סרטונים — זו שנכנסת להתקנה (הסרטונים שם פעם אחת בתיקייה help; התוסף מוצא אותם שם)
+mkdir -p build/light && rm -rf "$OUT/resources/help"
+jar --create --file "build/light/il.lamerhav.dsviz_$VERSION.jar" --manifest eclipse-plugin/META-INF/MANIFEST.MF -C "$OUT" .
 
 echo "== VS Code"
 cd vscode-extension
@@ -60,6 +63,9 @@ cp ../src/examples/*.java resources/examples/
 cp -R ../build/cs-resources resources/cs
 rm -rf resources/help && mkdir -p resources/help && cp ../build/help/* resources/help/ 2>/dev/null || true
 npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/release/dsviz-$VERSION.vsix"
+rm -rf resources/help
+npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/build/light/dsviz-$VERSION.vsix"
+mkdir -p resources/help && cp ../build/help/* resources/help/ 2>/dev/null || true   # חזרה לצורה המלאה (לבדיקות)
 cd "$ROOT"
 
 echo "== project template (תיקיית התרגילים שההתקנה יוצרת)"
@@ -84,7 +90,7 @@ PKG=build/dsviz-install
 rm -rf "$PKG" && mkdir -p "$PKG"
 cp installer/install.sh installer/README-he.html "$PKG/"
 cp installer/install.sh "$PKG/install-mac.command"   # ב-Mac: לחיצה כפולה
-[ -f release/DSViz-Setup.exe ] && cp release/DSViz-Setup.exe "$PKG/"
+# בלי DSViz-Setup.exe: הוא רק ל-Windows, והוא כבר קובץ נפרד בתיקיית release
 cp -R build/project "$PKG/project"
 cp "release/dsviz-$VERSION.vsix" "release/il.lamerhav.dsviz_$VERSION.jar" release/dsviz.jar "$PKG/"
 rm -f release/dsviz-install.zip

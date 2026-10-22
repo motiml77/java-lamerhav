@@ -117,7 +117,7 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
   sh('python3', [path.join(T, 'audio.py'), path.join(W, 'timing.json'), path.join(W, 'audio.wav')], { stdio: 'inherit' });
   const out = path.join(helpDir, id + '.webm');
   sh('ffmpeg', ['-y', '-v', 'error', '-framerate', String(fps), '-i', path.join(frames, '%05d.jpg'), '-i', path.join(W, 'audio.wav'),
-    '-vf', 'scale=1600:900:flags=lanczos', '-c:v', 'libvpx-vp9', '-crf', '36', '-b:v', '0', '-deadline', 'good', '-cpu-used', '4', '-row-mt', '1',
-    '-pix_fmt', 'yuv420p', '-c:a', 'libopus', '-b:a', '80k', '-shortest', out], { stdio: 'inherit' });
+    '-vf', 'fps=20,scale=1280:720:flags=lanczos', '-c:v', 'libvpx-vp9', '-crf', '44', '-b:v', '0', '-deadline', 'good', '-cpu-used', '5', '-row-mt', '1',
+    '-pix_fmt', 'yuv420p', '-c:a', 'libopus', '-b:a', '32k', '-ac', '1', '-shortest', out], { stdio: 'inherit' });   // קטן בכוונה: הסרטונים נכנסים לתוסף, ל-VS Code ולהתקנה
   console.log('done', out, (fs.statSync(out).size / 1e6).toFixed(1) + 'MB', dur.toFixed(1) + 's');
 })().catch(e => { console.error(e); process.exit(1); });
