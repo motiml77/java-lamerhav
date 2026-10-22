@@ -737,10 +737,10 @@ public final class CsTool {
         }
     }
 
-    /** פותח את ההדרכה (id = a/b/c/d) בדפדפן */
+    /** פותח בדפדפן את ההדרכה שנבחרה (id = a/b/c/d) — רק הסרטון שלה, עם בחירת מהירות */
     static void openHelp(String id) {
         try {
-            Path index = helpDir().resolve("index.html");
+            Path index = helpDir().resolve(id == null ? "index.html" : "player.html");   // דף נגן עם ההדרכה שנבחרה בלבד (ובחירת מהירות)
             if (!Files.isRegularFile(index)) throw new java.io.FileNotFoundException(index.toString());
             java.awt.Desktop.getDesktop().browse(java.net.URI.create(index.toUri().toString() + (id == null ? "" : "#" + id)));
         } catch (Exception e) {
@@ -866,8 +866,13 @@ public final class CsTool {
             ScrollPanel holder = new ScrollPanel(inner);
             JScrollPane sp = new JScrollPane(holder, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
             sp.setBorder(BorderFactory.createEmptyBorder());
-            sp.setOpaque(false);
-            sp.getViewport().setOpaque(false);
+            // חלון הצפייה אטום ובאותו צבע כמו הרקע, ומצב גלילה בתמונה שמורה: גלילה שמעתיקה פיקסלים במקום לצייר מחדש את כל הרכיבים
+            // (חלון שקוף גורם לציור מחדש של כל מה שמאחוריו בכל צעד, וזה נראה כמריחה)
+            sp.setOpaque(true);
+            sp.setBackground(Theme.BG);
+            sp.getViewport().setOpaque(true);
+            sp.getViewport().setBackground(Theme.BG);
+            sp.getViewport().setScrollMode(javax.swing.JViewport.BACKINGSTORE_SCROLL_MODE);
             sp.getVerticalScrollBar().setUnitIncrement(18);
             return sp;
         }

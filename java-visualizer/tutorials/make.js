@@ -1,7 +1,7 @@
 // node make.js <id> [--prep-only|--render-only] [--fps 30]
 // בונה סרטון הדרכה: 1. צילומים אמיתיים (scripts/<id>.prep.js) → work/<id>/assets.js
 //                   2. רינדור כל פריים (engine.html?t=<id>) → work/<id>/frames
-//                   3. פסקול (audio.py) וקידוד ל-webm (VP9 + Opus) → ../help/<id>.webm + פוסטר
+//                   3. פסקול (audio.py) וקידוד ל-mp4 (H.264 + AAC — מתנגן בכל דפדפן, גם בזה שבתוך Eclipse) → ../help/<id>.mp4 + פוסטר
 const fs = require('fs'), path = require('path'), cp = require('child_process');
 const T = __dirname, ROOT = path.join(T, '..');
 const id = process.argv[2];
@@ -115,9 +115,9 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
   if (only) return;
   fs.writeFileSync(path.join(W, 'timing.json'), JSON.stringify({ dur, ...meta }));
   sh('python3', [path.join(T, 'audio.py'), path.join(W, 'timing.json'), path.join(W, 'audio.wav')], { stdio: 'inherit' });
-  const out = path.join(helpDir, id + '.webm');
+  const out = path.join(helpDir, id + '.mp4');
   sh('ffmpeg', ['-y', '-v', 'error', '-framerate', String(fps), '-i', path.join(frames, '%05d.jpg'), '-i', path.join(W, 'audio.wav'),
-    '-vf', 'fps=20,scale=1280:720:flags=lanczos', '-c:v', 'libvpx-vp9', '-crf', '44', '-b:v', '0', '-deadline', 'good', '-cpu-used', '5', '-row-mt', '1',
-    '-pix_fmt', 'yuv420p', '-c:a', 'libopus', '-b:a', '32k', '-ac', '1', '-shortest', out], { stdio: 'inherit' });   // קטן בכוונה: הסרטונים נכנסים לתוסף, ל-VS Code ולהתקנה
+    '-vf', 'fps=20,scale=1280:720:flags=lanczos', '-c:v', 'libx264', '-preset', 'slow', '-crf', '30', '-profile:v', 'main',
+    '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '48k', '-ac', '1', '-shortest', out], { stdio: 'inherit' });   // קטן בכוונה: הסרטונים נכנסים לתוסף, ל-VS Code ולהתקנה
   console.log('done', out, (fs.statSync(out).size / 1e6).toFixed(1) + 'MB', dur.toFixed(1) + 's');
 })().catch(e => { console.error(e); process.exit(1); });

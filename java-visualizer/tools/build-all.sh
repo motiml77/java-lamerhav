@@ -34,7 +34,7 @@ python3 tools/make-vs-template.py build/cs-lib/Unit4.CollectionsLib.dll csharp/p
 
 echo "== סרטוני הדרכה (הכפתור ?): help/ → תוסף Eclipse, תוסף VS Code, ההתקנה"
 node tools/build-help.js
-rm -rf build/help && mkdir -p build/help && cp help/index.html help/tutorials.json help/*.webm help/*.jpg build/help/ 2>/dev/null || true
+rm -rf build/help && mkdir -p build/help && cp help/index.html help/player.html help/tutorials.json help/*.mp4 help/*.jpg build/help/ 2>/dev/null || true
 
 echo "== Eclipse"
 DEPS=build/eclipse-deps

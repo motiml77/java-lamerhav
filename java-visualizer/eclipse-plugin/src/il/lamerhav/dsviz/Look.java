@@ -12,6 +12,7 @@ import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -105,23 +106,33 @@ final class Look {
     /** כרטיס לבן מעוגל; מחזיר את הפנים שלו (שם מוסיפים את הרכיבים) */
     static Composite card(Composite parent, GridData data) {
         final Display d = parent.getDisplay();
-        final Composite outer = new Composite(parent, SWT.DOUBLE_BUFFERED);
+        final Composite outer = new Composite(parent, SWT.NO_BACKGROUND);
         outer.setBackground(color(d, BG));
         GridLayout ol = new GridLayout(1, false);
         ol.marginWidth = 14;
         ol.marginHeight = 10;
         outer.setLayout(ol);
         outer.setLayoutData(data);
-        outer.addListener(SWT.Paint, new Listener() {
-            public void handleEvent(Event e) {
-                Point s = outer.getSize();
-                e.gc.setAntialias(SWT.ON);
-                e.gc.setBackground(color(d, CARD));
-                e.gc.fillRoundRectangle(0, 0, s.x - 1, s.y - 1, 22, 22);
-                e.gc.setForeground(color(d, BORDER));
-                e.gc.drawRoundRectangle(0, 0, s.x - 1, s.y - 1, 22, 22);
+        final Image[] cache = new Image[1];   // הכרטיס מצויר פעם אחת לכל גודל — בגלילה רק מעתיקים תמונה
+        outer.addListener(SWT.Paint, e -> {
+            Point s = outer.getSize();
+            if (s.x < 1 || s.y < 1) return;
+            if (cache[0] == null || cache[0].getBounds().width != s.x || cache[0].getBounds().height != s.y) {
+                if (cache[0] != null) cache[0].dispose();
+                cache[0] = new Image(d, s.x, s.y);
+                GC g = new GC(cache[0]);
+                g.setAntialias(SWT.ON);
+                g.setBackground(color(d, BG));
+                g.fillRectangle(0, 0, s.x, s.y);
+                g.setBackground(color(d, CARD));
+                g.fillRoundRectangle(0, 0, s.x - 1, s.y - 1, 22, 22);
+                g.setForeground(color(d, BORDER));
+                g.drawRoundRectangle(0, 0, s.x - 1, s.y - 1, 22, 22);
+                g.dispose();
             }
+            e.gc.drawImage(cache[0], 0, 0);
         });
+        outer.addListener(SWT.Dispose, e -> { if (cache[0] != null) cache[0].dispose(); });
         Composite body = new Composite(outer, SWT.NONE);
         body.setBackground(color(d, CARD));
         GridLayout bl = new GridLayout(1, false);
@@ -140,10 +151,13 @@ final class Look {
     static final class Chip extends Canvas {
         private final String text;
         private boolean selected, hover;
-        private int minWidth = 0, height = 34;
+        private int minWidth = 0, height = 34, textWidth = -1;
+        private Image cache;      // הציור של המצב הנוכחי (גודל + בחירה + ריחוף) — בגלילה רק מעתיקים אותו
+        private String cacheKey;
 
         Chip(Composite parent, String text, int minWidth, int height) {
-            super(parent, SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND | SWT.LEFT_TO_RIGHT | SWT.NO_FOCUS);
+            super(parent, SWT.NO_BACKGROUND | SWT.LEFT_TO_RIGHT | SWT.NO_FOCUS);
+            addListener(SWT.Dispose, e -> { if (cache != null) cache.dispose(); });
             this.text = text;
             this.minWidth = minWidth;
             this.height = height;
@@ -158,7 +172,7 @@ final class Look {
 
         boolean getSelection() { return selected; }
 
-        void setSelection(boolean s) { selected = s; redraw(); }
+        void setSelection(boolean s) { if (selected != s) { selected = s; redraw(); } }
 
         @Override
         public void setEnabled(boolean enabled) {
@@ -172,16 +186,32 @@ final class Look {
 
         @Override
         public Point computeSize(int wHint, int hHint, boolean changed) {
-            GC gc = new GC(this);
-            gc.setFont(font(getDisplay(), 0, SWT.BOLD));
-            int w = gc.textExtent(text).x + 26;
-            gc.dispose();
-            return new Point(wHint != SWT.DEFAULT ? wHint : Math.max(minWidth, w), hHint != SWT.DEFAULT ? hHint : height);
+            if (textWidth < 0) {   // הרוחב של הטקסט לא משתנה — מודדים פעם אחת (computeSize נקרא שוב ושוב בכל סידור מחדש)
+                GC gc = new GC(this);
+                gc.setFont(font(getDisplay(), 0, SWT.BOLD));
+                textWidth = gc.textExtent(text).x;
+                gc.dispose();
+            }
+            return new Point(wHint != SWT.DEFAULT ? wHint : Math.max(minWidth, textWidth + 26), hHint != SWT.DEFAULT ? hHint : height);
         }
 
-        private void paint(GC gc) {
-            Display d = getDisplay();
+        private void paint(GC target) {
             Point s = getSize();
+            if (s.x < 1 || s.y < 1) return;
+            String key = s.x + "x" + s.y + (selected ? "S" : "") + (hover ? "H" : "") + (getEnabled() ? "E" : "") + getParent().getBackground().hashCode();
+            if (cache == null || !key.equals(cacheKey)) {
+                if (cache != null) cache.dispose();
+                cache = new Image(getDisplay(), s.x, s.y);
+                GC g = new GC(cache);
+                draw(g, s);
+                g.dispose();
+                cacheKey = key;
+            }
+            target.drawImage(cache, 0, 0);
+        }
+
+        private void draw(GC gc, Point s) {
+            Display d = getDisplay();
             gc.setAntialias(SWT.ON);
             gc.setBackground(getParent().getBackground());
             gc.fillRectangle(0, 0, s.x, s.y);
@@ -229,9 +259,13 @@ final class Look {
         private final String text;
         private final boolean primary;
         private boolean hover, down;
+        private int textWidth = -1;
+        private Image cache;
+        private String cacheKey;
 
         Round(Composite parent, String text, boolean primary, final Runnable action) {
-            super(parent, SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND | SWT.LEFT_TO_RIGHT | SWT.NO_FOCUS);
+            super(parent, SWT.NO_BACKGROUND | SWT.LEFT_TO_RIGHT | SWT.NO_FOCUS);
+            addListener(SWT.Dispose, e -> { if (cache != null) cache.dispose(); });
             this.text = text;
             this.primary = primary;
             setCursor(getDisplay().getSystemCursor(SWT.CURSOR_HAND));
@@ -255,16 +289,32 @@ final class Look {
 
         @Override
         public Point computeSize(int wHint, int hHint, boolean changed) {
-            GC gc = new GC(this);
-            gc.setFont(font(getDisplay(), 0, primary ? SWT.BOLD : SWT.NORMAL));
-            int w = gc.textExtent(text).x + 36;
-            gc.dispose();
-            return new Point(Math.max(primary ? 130 : 80, w), 32);
+            if (textWidth < 0) {
+                GC gc = new GC(this);
+                gc.setFont(font(getDisplay(), 0, primary ? SWT.BOLD : SWT.NORMAL));
+                textWidth = gc.textExtent(text).x;
+                gc.dispose();
+            }
+            return new Point(Math.max(primary ? 130 : 80, textWidth + 36), 32);
         }
 
-        private void paint(GC gc) {
-            Display d = getDisplay();
+        private void paint(GC target) {
             Point s = getSize();
+            if (s.x < 1 || s.y < 1) return;
+            String key = s.x + "x" + s.y + (hover ? "H" : "") + (down ? "D" : "") + (getEnabled() ? "E" : "") + getParent().getBackground().hashCode();
+            if (cache == null || !key.equals(cacheKey)) {
+                if (cache != null) cache.dispose();
+                cache = new Image(getDisplay(), s.x, s.y);
+                GC g = new GC(cache);
+                draw(g, s);
+                g.dispose();
+                cacheKey = key;
+            }
+            target.drawImage(cache, 0, 0);
+        }
+
+        private void draw(GC gc, Point s) {
+            Display d = getDisplay();
             gc.setAntialias(SWT.ON);
             gc.setBackground(getParent().getBackground());
             gc.fillRectangle(0, 0, s.x, s.y);
@@ -345,11 +395,32 @@ final class Look {
     private static void wheel(final ScrolledComposite sc, Control c) {
         if (!(c instanceof org.eclipse.swt.widgets.Combo) && !(c instanceof org.eclipse.swt.widgets.Spinner))
             c.addListener(SWT.MouseWheel, e -> {
-                Point o = sc.getOrigin();
-                sc.setOrigin(o.x, Math.max(0, o.y - e.count * 30));
+                scrollBy(sc, -e.count * 30);
                 e.doit = false;
             });
         if (c instanceof Composite) for (Control k : ((Composite) c).getChildren()) wheel(sc, k);
+    }
+
+    private static final String PENDING = "dsviz.pendingScroll";
+
+    /**
+     * גלילה ממוזגת: בטאצ'פד/גלגלת מהירה מגיעים עשרות אירועים בשנייה, וכל הזזה של התוכן מציירת מחדש את כל הרכיבים שבו —
+     * אז צוברים את ההפרש ומזיזים פעם אחת בכל סבב ציור (במקום הזזה אחרי כל אירוע, שנערמת ונראית כמריחה)
+     */
+    static void scrollBy(final ScrolledComposite sc, int dy) {
+        Integer pending = (Integer) sc.getData(PENDING);
+        sc.setData(PENDING, (pending == null ? 0 : pending) + dy);
+        if (pending != null) return;   // כבר מתוזמן
+        sc.getDisplay().timerExec(12, () -> {
+            if (sc.isDisposed()) return;
+            Integer sum = (Integer) sc.getData(PENDING);
+            sc.setData(PENDING, null);
+            if (sum == null || sum == 0) return;
+            Point o = sc.getOrigin();
+            int max = Math.max(0, sc.getContent().getSize().y - sc.getClientArea().height);
+            int y = Math.max(0, Math.min(max, o.y + sum));
+            if (y != o.y) sc.setOrigin(o.x, y);
+        });
     }
 
     /** גודל החלון לפי התוכן, אבל לא יותר מהמסך (שולי ביטחון לשורת המשימות וכותרת החלון) */
