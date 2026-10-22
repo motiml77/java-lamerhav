@@ -217,11 +217,15 @@ async function addDialog(command, state, steps) {
     {
         fs.mkdirSync(path.join(ext, 'resources', 'help'), { recursive: true });   // (בהתקנה אמיתית יש שם את הסרטונים)
         const before = panels.length;
+        let offered;
+        answers.push(items => { offered = items.map(i => i.label); return items[2]; });   // בוחרים את ההדרכה השלישית
         await commands['dsviz.help']();
+        for (const t of ['יצירת מבנה נתונים חדש', 'דוגמאות פתורות', 'מבנה בתוך מבנה', 'מוסיפים התאמות']) assert(offered.some(l => l.includes(t)), t);
         const hp = panels.slice(before).find(x => x.id === 'dsviz.help');
         assert(hp, 'חלון ההדרכה לא נפתח');
-        for (const t of ['יצירת מבנה נתונים חדש', 'דוגמאות פתורות', 'מבנה בתוך מבנה', 'מוסיפים התאמות']) assert(hp.html.includes(t), t);
-        assert(/vscode-resource:.*help[\\/]a\.mp4/.test(hp.html), 'כתובת הסרטון חסרה');
+        assert(hp.html.includes('"id":"c"') && /var id = "c"/.test(hp.html), 'צריך להיפתח הנגן של ההדרכה שנבחרה');
+        assert(/vscode-resource:.*help[\\/]c\.mp4/.test(hp.html), 'כתובת הסרטון חסרה');
+        assert(hp.html.includes('1.25') && hp.html.includes('1.5'), 'בחירת מהירות חסרה');
     }
     // שכבת הגנה: הסמן מחוץ לפעולה (בגוף המחלקה) — אזהרה, והחלון לא נפתח
     {

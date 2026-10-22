@@ -373,8 +373,8 @@ async function insertCode(ed, lineNo, code, csharp) {
 
 let helpPanel;
 
-/** חלון שבו בוחרים הדרכה — לכל אחת סרטון קצר (help/<id>.mp4 בתוך התוסף) */
-function openHelp() {
+/** בוחרים הדרכה (חלון בחירה) — ונפתח חלון נגן עם הסרטון שלה בלבד, עם בחירת מהירות (help/<id>.mp4 בתוך התוסף) */
+async function openHelp(id) {
     let dir = path.join(ctx.extensionPath, 'resources', 'help');
     if (!fs.existsSync(dir)) {   // התוסף שההתקנה שמה — הסרטונים שמורים פעם אחת בתיקייה help של ההתקנה
         const base = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DSViz') : path.join(require('os').homedir(), 'DSViz');
@@ -384,18 +384,34 @@ function openHelp() {
         vscode.window.showWarningMessage('סרטוני ההדרכה לא נמצאו בהתקנה הזאת.');
         return;
     }
+    let durations = {};
+    try { durations = JSON.parse(fs.readFileSync(path.join(dir, 'tutorials.json'), 'utf8')); } catch (e) { /* בלי משכים */ }
+    if (!id) {
+        const pick = await vscode.window.showQuickPick(
+            help.TUTORIALS.map(t => ({ label: t.num + '  ·  ' + t.title, description: durations[t.id] || '', detail: t.desc, id: t.id })),
+            { title: 'הדרכה לשימוש', placeHolder: 'איזו הדרכה לצפות?', matchOnDetail: true });
+        if (!pick) return;
+        id = pick.id;
+    }
+    const tut = help.TUTORIALS.find(t => t.id === id) || help.TUTORIALS[0];
     if (helpPanel) { try { helpPanel.dispose(); } catch (e) { /* כבר נסגר */ } }
-    const panel = vscode.window.createWebviewPanel('dsviz.help', 'הדרכה לשימוש', vscode.ViewColumn.Active,
+    const panel = vscode.window.createWebviewPanel('dsviz.help', 'הדרכה: ' + tut.title, vscode.ViewColumn.Active,
         { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.file(dir)] });
     helpPanel = panel;
     panel.onDidDispose(() => { if (helpPanel === panel) helpPanel = undefined; });
-    let durations = {};
-    try { durations = JSON.parse(fs.readFileSync(path.join(dir, 'tutorials.json'), 'utf8')); } catch (e) { /* בלי משכים */ }
     const src = panel.webview.cspSource;
-    panel.webview.html = help.page({
+    panel.webview.html = help.playerPage({
+        id: tut.id,
         urlOf: f => panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, f))).toString(),
-        durations,
         csp: `default-src 'none'; img-src ${src} data:; media-src ${src}; style-src 'unsafe-inline'; script-src 'unsafe-inline';`
+    });
+    panel.webview.onDidReceiveMessage(m => {
+        if (m && m.cmd === 'list') openHelp();
+        else if (m && m.cmd === 'fail') {   // הנגן של החלון לא מצליח לנגן (קודק) — פותחים אותו דף בדפדפן הרגיל
+            try { panel.dispose(); } catch (e) { /* כבר נסגר */ }
+            const f = path.join(dir, 'player.html');
+            vscode.env.openExternal(vscode.Uri.file(f).with ? vscode.Uri.file(f).with({ fragment: tut.id }) : vscode.Uri.file(f));
+        }
     });
 }
 
