@@ -145,6 +145,13 @@ public class App implements IApplication {
         }
         wc.discardWorkingCopy();
 
+        // 2ב. הרצה ויזואלית: קומפילציה לפני ההרצה — עם שגיאות לא מריצים (RunVisualHandler.compileErrors)
+        for (IFile f : files) {
+            List<String> errs = new ArrayList<String>();
+            il.lamerhav.dsviz.RunVisualHandler.compileErrors(f, errs);
+            out.println("RUNCHECK " + f.getName() + " errors=" + errs.size() + (errs.isEmpty() ? "" : " first=" + clean(errs.get(0)).replace("\n", " | ")));
+        }
+
         // 3. כיבוי מהתפריט: אחרי בנייה מלאה — אין אף סימון שלנו
         setMentor(false);
         p.build(IncrementalProjectBuilder.FULL_BUILD, null);

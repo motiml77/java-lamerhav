@@ -15,7 +15,7 @@ if [ ! -d "$ECL/plugins" ]; then
     curl -sSL -o "$B/eclipse.tar.gz" "$URL" && tar xzf "$B/eclipse.tar.gz" -C "$B" && rm "$B/eclipse.tar.gz"
 fi
 rm -rf "$B/it" "$B/ws" && mkdir -p "$B/it/cls"
-javac --release 11 -encoding UTF-8 -nowarn -cp "$(ls "$ECL"/plugins/*.jar | tr '\n' ':')" -d "$B/it/cls" src/il/lamerhav/dsviz/it/*.java
+javac ${JAVAC_FLAGS:---release 11} -encoding UTF-8 -nowarn -cp "$(ls "$ECL"/plugins/*.jar | tr '\n' ':')$(ls "$ROOT"/release/il.lamerhav.dsviz_*.jar)" -d "$B/it/cls" src/il/lamerhav/dsviz/it/*.java
 cp plugin.xml "$B/it/cls/"
 jar --create --file "$B/it/il.lamerhav.dsviz.it_1.0.0.jar" --manifest META-INF/MANIFEST.MF -C "$B/it/cls" .
 rm -f "$ECL"/dropins/il.lamerhav.dsviz*.jar
@@ -34,6 +34,8 @@ check "BUILD Warnings.java:9 mentor warning p לא מתקדם" "בנייה: אז
 check "BUILD Warnings.java:15 mentor warning מחרוזת לא משתנה" "בנייה: אזהרה על toUpperCase שהולך לאיבוד"
 check "BUILD Warnings.java:16 mentor warning השוואת מחרוזות" "בנייה: אזהרה על == במחרוזות"
 check "RECONCILE Targil.java:6 mentor חסרה נקודה-פסיק בסוף שורה 6" "בזמן הכתיבה (reconcile): ההסבר מופיע מיד"
+check "RUNCHECK Mistakes.java errors=[1-9]" "הרצה ויזואלית: יש שגיאות — נחסמת (Mistakes.java)"
+check "RUNCHECK Targil.java errors=0" "הרצה ויזואלית: קוד תקין — מותר להריץ (Targil.java)"
 check "OFF-MENTOR-COUNT 0" "כיבוי מהתפריט: כל הסימונים נמחקים"
 grep -q "BUILD Targil.java" "$OUT" && { echo "  FAIL קוד תקין קיבל סימונים"; FAILED=1; } || echo "  ok  קוד תקין (Targil.java) — בלי אף סימון"
 [ "$(grep -c '^BUILD-MENTOR-COUNT 0' "$OUT")" = 0 ] && echo "  ok  יש סימונים בבנייה" || { echo "  FAIL אין סימונים בבנייה"; FAILED=1; }
@@ -46,6 +48,8 @@ if [ "$SHOT" = 1 ]; then
             -application il.lamerhav.dsviz.it.shot "/Students/src/${f%%:*}.java" "$B/${f%%:*}.png" "${f#*:}" >> "$B/eclipse.log" 2>&1 || true
         [ "$f" = "Mistakes:5:21" ] && { grep -m1 "MENTOR-VIEW-OPEN" "$B/eclipse.log" | grep -q true && echo "  ok  בהפעלה הראשונה — חלון ההסברים בעברית נפתח לבד בצד" \
             || { echo "  FAIL חלון ההסברים לא נפתח לבד"; FAILED=1; }; }
+        [ "$f" = "Mistakes:5:21" ] && { for k in "LAYOUT-AUTO mentor-in-outline-stack=true" "LAYOUT-BOTTOM mentor-in-outline-stack=false" "LAYOUT-REDOCKED mentor-in-outline-stack=true" "separate-row=true"; do
+            grep -q "$k" "$B/eclipse.log" && echo "  ok  סידור אוטומטי: $k" || { echo "  FAIL סידור אוטומטי: $k"; FAILED=1; }; done; }
         [ -f "$B/${f%%:*}.png" ] && echo "  צילום: $B/${f%%:*}.png  $B/${f%%:*}-problems.png"
     done
 fi

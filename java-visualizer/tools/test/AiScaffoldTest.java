@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * בדיקה ל"שליחת תרגיל": מכל תשובה לדוגמה (tools/test/ai/*.json — Java, ai/cs/*.json — C#) בונים את הקבצים, ובודקים:
- * מבנה (TODO, הסמן בשורה הריקה, הערות), ושהקבצים נכתבים לתיקייה משלהם (ex01_stacks / Ex01_Stacks) —
+ * מבנה (שורת הסימון, הסמן בשורה הריקה, הערות), ושהקבצים נכתבים לתיקייה משלהם (ex01_stacks / Ex01_Stacks) —
  * ואז run-tests.sh מקמפל ומריץ אותם (Java: javac; C#: dsviz-cs --check-project).
  *   java AiScaffoldTest <json-dir> <out-src-dir>
  */
@@ -40,18 +40,20 @@ public class AiScaffoldTest {
             check(main.code.contains(e.cs ? "public static void Main(string[] args)" : "public static void main(String[] args)"), f + ": אין main");
             if (!e.expectedOutput.isEmpty()) {
                 // מה צריך להיות מודפס אם הפתרון נכון — בהערה מעל main, שורה-שורה
-                check(main.code.contains("// אם פתרת נכון את התרגיל, צריך להיות מודפס על המסך:"), f + ": אין הערה על הפלט הצפוי");
-                for (String l : e.expectedOutput.split("\n")) check(main.code.contains("//     " + l), f + ": שורת פלט חסרה בהערה: " + l);
+                check(main.code.contains("אם פתרת נכון את התרגיל, צריך להיות מודפס על המסך:"), f + ": אין הערה על הפלט הצפוי");
+                for (String l : e.expectedOutput.split("\n")) check(main.code.contains(l), f + ": שורת פלט חסרה בהערה: " + l);
                 int at = main.code.indexOf("אם פתרת נכון"), mainAt = main.code.indexOf(e.cs ? "static void Main(" : "static void main(");
                 check(at > 0 && at < mainAt, f + ": ההערה צריכה להיות מעל main");
             }
-            int todos = 0, cursors = 0;
+            int cursors = 0;
             for (AiScaffold.GeneratedFile g : files) {
                 String[] lines = g.code.split("\n", -1);
-                for (String l : lines) if (l.contains(AiScaffold.TODO)) todos++;
                 if (g.cursorLine >= 0) {
                     cursors++;
-                    check(lines[g.cursorLine - 1].contains(AiScaffold.TODO), f + ": הסמן לא מתחת ל-TODO (" + g.cursorLine + ")");
+                    // הסמן בשורה הריקה שמתחת לכותרת הפעולה — בלי הערות מעליה ובלי הערות בתוכה
+                    check(lines[g.cursorLine - 1].contains(AiScaffold.MARK), f + ": הסמן לא מתחת לשורת \"כאן כותבים את התשובה\" (" + g.cursorLine + ")");
+                    String before = lines[g.cursorLine - 2].trim();
+                    check(before.endsWith("{") || before.endsWith(")"), f + ": מעל שורת הסימון צריכה להיות כותרת הפעולה: " + before);
                     check(lines[g.cursorLine].trim().isEmpty(), f + ": הסמן לא בשורה ריקה");
                 }
                 if (e.cs) {
@@ -60,11 +62,14 @@ public class AiScaffoldTest {
                     check(g.fileName().endsWith(".cs"), "סיומת .cs");
                 } else check(g.code.startsWith("package " + pkg + ";"), "package");
                 check(!g.code.contains("*/ וסוף"), "*/ בתוך הערה");
+                // בלי כותרת, בלי נוסח התרגיל ובלי Javadoc — רק שלד ובדיקה
+                check(!g.code.contains("/**") && !g.code.contains("נבנה מהתרגיל") && !g.code.contains("המעטפת מוכנה"), f + ": נשאר הסבר של התרגיל בקוד");
+                check(!g.code.contains(" result = ") && !g.code.contains("answer = "), f + ": נשאר משתנה בתוך הפעולה");
+                check(!g.code.contains("תזכורת") && !g.code.contains("זמני"), f + ": נשארו הערות בתוך הפעולה");
                 Path p = (e.cs ? out.resolve("cs") : out).resolve(pkg).resolve(g.fileName());
                 Files.createDirectories(p.getParent());
                 Files.write(p, g.code.getBytes(StandardCharsets.UTF_8));
             }
-            check(todos == e.tasks.size(), f + ": מספר ה-TODO (" + todos + ") שונה ממספר הסעיפים (" + e.tasks.size() + ")");
             check(cursors == 1, f + ": צריך בדיוק קובץ אחד עם סמן");
             if (e.cs) csDirs.add(out.resolve("cs").resolve(pkg).toString());
             else mains.add(pkg + "." + e.mainClass);

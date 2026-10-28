@@ -95,9 +95,15 @@ classes — classes that the exercise defines or describes (UML, list of fields,
   • ${L.noLib}
   • A class described in the exercise must be defined here even if its name is Student or Car.
 
-givenCode — methods that the exercise gives as already existing ("נתונה הפעולה ...", "ניתן להשתמש בפעולה ... שכותרתה ...", "הניחו שקיימת פעולה ...")
-  and that the solution may call. Write a correct, complete implementation of each one (full method code with its header; "public static" when it is in the main class)
-  so that the program runs. className = where it belongs. Never put a task method here.
+givenCode — HELPER methods that the exercise PROVIDES to the student, which the solution may call without writing them. Look for them carefully, in every form:
+  • sentences like "נתונה הפעולה ...", "ניתן להשתמש בפעולה ...", "תוכל להשתמש בפעולה שלפניך ללא צורך לממש", "הניחו שקיימת פעולה ...", "הפעולה הבאה כתובה (מומשה) עבורך";
+  • a TABLE with a column of description ("תיאור הפעולה") and a column of header ("כותרת הפעולה"), often with one header per language
+    (e.g. "בשפת Java — public static Stack<Integer> clone(Stack<Integer> s)", "בשפת C# — ..."): take the header of the student's language (${L.name}) and implement what the description says;
+  • "for solving this sub-question ONLY you may use ..." — still givenCode (and never a task), even if it is mentioned inside one sub-question.
+  Write a correct, complete implementation of every provided method (full method code with its header, exactly the header given; "public static" when it is in the main class)
+  so that the program runs and does exactly what the description says (for instance a "clone"/"copy" of a stack returns an identical new stack and leaves the original unchanged).
+  The implementation uses only the library API. className = where it belongs (the main class for static helpers). Never put a method that the student must write here, and never add a method nobody mentioned.
+  The tasks and mainCode may call these helpers freely, and mainCode should call a helper only if that makes the test clearer.
 
 mainCode — ONLY the statements of the body of "${L.mainHeader}" (no header, no outer braces). main is the student's TEST of the solution:
 running it must show whether each method the student writes works correctly. It must:
@@ -116,7 +122,8 @@ running it must show whether each method the student writes works correctly. It 
 expectedOutput — EXACTLY what the program prints when the student has solved every task CORRECTLY: every line that mainCode prints, in order,
   each line exactly as it will appear (same Hebrew labels, same spacing). This is shown to the student as "if you solved it correctly, this should be printed".
   Work it out carefully, step by step, by simulating mainCode with a correct solution of every task. Keep the data small so the result is certain.
-  How the library prints: Stack → [top,...,bottom] e.g. after push 1, push 2, push 3 it prints [3,2,1]; Queue → [head,...,tail] e.g. [1,2,3];
+  How the library prints (IMPORTANT, character by character): a Stack prints [top,...,bottom] with commas and NO spaces: after push 1, push 2, push 3 it prints [3,2,1] (never "[3, 2, 1]");
+  a Queue prints [head,...,tail] with commas and NO spaces, e.g. [1,2,3];
   an empty Stack or Queue → []; Node chain → 1 -> 2 -> 3 -> null; BinNode → only its own value (e.g. 7); ${L.formats}
   Lines separated by "\\n". No explanations, no comments — only the printed text.
 

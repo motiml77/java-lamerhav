@@ -53,7 +53,7 @@ public class AutoSetup implements IStartup {
                     }
                     // חלון "הסברים בעברית": נפתח לבד בצד אחרי ההתקנה ואחרי כל עדכון של התוסף (אם התלמיד סגר אותו — עד העדכון הבא)
                     String version = String.valueOf(org.eclipse.core.runtime.Platform.getBundle(NODE).getVersion());
-                    if (!version.equals(prefs.get(MENTOR_VIEW, ""))) showMentorView(prefs, version, 0);
+                    arrangeWindow(prefs, version, 0);
                     return Status.OK_STATUS;
                 } catch (Exception e) {
                     return new Status(IStatus.WARNING, NODE, "הכנה אוטומטית נכשלה: " + e, e);
@@ -130,21 +130,30 @@ public class AutoSetup implements IStartup {
         }
     }
 
-    /** פותחים את חלון "הסברים בעברית" בצד, ליד העורך, בלי לקחת את הפוקוס מהעורך (ואם החלון הראשי עוד לא מוכן — מנסים שוב) */
-    private static void showMentorView(final IEclipsePreferences prefs, final String version, final int attempt) {
+    /**
+     * סידור החלון, אוטומטית: סרגל התוכנה בשורה נפרדת (בכל הפעלה), וחלון "הסברים בעברית" קבוע בצד ימין — פעם אחת לכל גרסה
+     * (אם התלמיד סגר אותו או הזיז — לא מחזירים עד העדכון הבא). אם החלון הראשי עוד לא מוכן — מנסים שוב.
+     */
+    private static void arrangeWindow(final IEclipsePreferences prefs, final String version, final int attempt) {
         Display.getDefault().asyncExec(() -> {
             IWorkbenchWindow w = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-            if (w == null || w.getActivePage() == null) {
-                if (attempt < 10) Display.getDefault().timerExec(2000, () -> showMentorView(prefs, version, attempt + 1));
-                return;
-            }
+            boolean toolbar = false;
             try {
-                w.getActivePage().showView(MentorView.ID, null, org.eclipse.ui.IWorkbenchPage.VIEW_VISIBLE);
-                prefs.put(MENTOR_VIEW, version);
-                prefs.flush();
-            } catch (Exception e) {
-                // אפשר לפתוח מהתפריט מבני נתונים ← חלון ההסברים בעברית
+                if (w != null && w.getActivePage() != null) {
+                    toolbar = Layout.toolbarOwnRow(w);
+                    if (!version.equals(prefs.get(MENTOR_VIEW, ""))) {
+                        w.getActivePage().showView(MentorView.ID, null, org.eclipse.ui.IWorkbenchPage.VIEW_VISIBLE);
+                        if (Layout.dockMentorRight(w)) {
+                            prefs.put(MENTOR_VIEW, version);
+                            prefs.flush();
+                        }
+                    }
+                }
+            } catch (Throwable e) {
+                // אפשר לפתוח מהתפריט מבני נתונים ← חלון ההסברים בעברית; הסרגל נשאר איפה שהוא
             }
+            boolean done = w != null && toolbar && version.equals(prefs.get(MENTOR_VIEW, ""));
+            if (!done && attempt < 12) Display.getDefault().timerExec(2500, () -> arrangeWindow(prefs, version, attempt + 1));
         });
     }
 
