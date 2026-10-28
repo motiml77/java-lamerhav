@@ -36,12 +36,14 @@ h1 b { background: linear-gradient(100deg, var(--accent), var(--accent2)); -webk
 .speed .btn { padding: 6px 12px; min-width: 56px; }
 .speed .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .hint { color: var(--muted); font-size: 14px; margin-top: 22px; }
+.copy { font-size: 12px; opacity: .7; direction: ltr; text-align: right; margin-top: 8px; }
 </style></head><body>
 <div class="wrap">
   <h1>הדרכה <b>לשימוש</b></h1>
   <div class="sub">בוחרים הדרכה — לכל אחת סרטון קצר שמראה בדיוק איפה לוחצים ומה נפתח.</div>
   <div class="grid" id="grid"></div>
   <div class="hint">אפשר לחזור לכאן בכל רגע בכפתור <b>?</b> בסרגל הכלים.</div>
+  <div class="hint copy">© 2026 Moti Levi · motiml77@gmail.com</div>
 </div>
 <div id="player"><div class="bar"><h3 id="ptitle"></h3><div class="speed" id="speed"><span>מהירות</span></div><button class="btn" id="next">ההדרכה הבאה ◂</button><button class="btn" id="close">✕ סגירה</button></div><video id="vid" controls></video></div>
 <script>

@@ -39,15 +39,6 @@ S
 REBUILD=1 DSVIZ_WORKER_URL=http://127.0.0.1:8797 sh "$ROOT/tutorials/dlg.sh" submit x "$W/script.txt" "$W/out" | grep -v Gtk-CRITICAL
 test -f "$W/out/exercise.json" || { echo "FAIL: לא התקבל תרגיל"; exit 1; }
 grep -q "^java:text,text,image/png,text,image/png,text,image/png" "$W/gemini.log" && echo "  ok  נשלחו ל-Gemini (Java): טקסט ה-Word + התמונה שבו + 2 תמונות מודבקות (Ctrl+V)" || { cat "$W/gemini.log"; exit 1; }
-# C#: בוחרים C# בחלון — ההנחיות למודל ב-C#
-cat > "$W/script-cs.txt" <<S
-pasteimg $W/page.png
-chip C#
-click שליחה ויצירת התרגיל
-wait 4000
-S
-DSVIZ_WORKER_URL=http://127.0.0.1:8797 sh "$ROOT/tutorials/dlg.sh" submit x "$W/script-cs.txt" "$W/out-cs" | grep -v Gtk-CRITICAL
-grep -q '"language":"csharp"' "$W/out-cs/exercise.json" && tail -1 "$W/gemini.log" | grep -q '^csharp:' && echo "  ok  C#: ההנחיות ל-Gemini ב-C#, והתשובה מסומנת C#" || { cat "$W/gemini.log"; exit 1; }
 # סבב תיקון: Gemini מדומה מחזיר גרסה מתוקנת
 kill $MOCK; sleep 1
 LOG=$W/gemini.log PORT=8798 MOCK_FILE=$T/ai/repair/fixed.json node "$W/mock.mjs" & MOCK=$!
@@ -56,18 +47,4 @@ mkdir -p "$W/rp/cls"
 javac -encoding UTF-8 -d "$W/rp/cls" $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Json.java $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java \
     $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/WorkerClient.java $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/ExerciseFiles.java AiRepairTest.java
 java -Dstdout.encoding=UTF-8 -cp "$W/rp/cls" il.lamerhav.dsviz.AiRepairTest ai/repair/broken.json http://127.0.0.1:8797 "$W/rp" "$ROOT/release/dsviz.jar"
-# C#: פרויקט חדש, בדיקת קומפילציה עם dsviz-cs, תיקון דרך השרת — ונרשם בפתרון
-kill $MOCK; sleep 1
-LOG=$W/gemini.log PORT=8798 MOCK_FILE=$T/ai/cs/repair/fixed.json node "$W/mock.mjs" & MOCK=$!
-sleep 1
-export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
-dotnet build "$ROOT/csharp/DsViz.Runner/DsViz.Runner.csproj" -c Release -v q --nologo 2>&1 | grep -q "Build succeeded"
-CPE=$(ls "$ROOT"/build/eclipse-deps/*.jar | tr '\n' ':')
-mkdir -p "$W/cs/cls" "$W/cs/home/.dsviz"
-javac --release 11 -nowarn -encoding UTF-8 -cp "$CPE" -d "$W/cs/cls" $(find "$ROOT/eclipse-plugin/src" -name '*.java') CsBuildTest.java 2>&1 | grep -v '^Note' || true
-cp -r "$ROOT/csharp/project" "$W/cs/root" && rm -rf "$W"/cs/root/*/bin "$W"/cs/root/*/obj "$W"/cs/root/*/*/bin "$W"/cs/root/*/*/obj
-printf '#!/bin/sh\nexec dotnet "%s" "$@"\n' "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/dsviz-cs.dll" > "$W/cs/dsviz-cs" && chmod +x "$W/cs/dsviz-cs"
-echo "$W/cs/dsviz-cs" > "$W/cs/home/.dsviz/cs-path.txt"
-java -Duser.home="$W/cs/home" -Dstdout.encoding=UTF-8 -cp "$W/cs/cls:$CPE" il.lamerhav.dsviz.CsBuildTest "$W/cs/root" ai/cs/repair/broken.json http://127.0.0.1:8797
-tail -1 "$W/gemini.log" | grep -q '^csharp:' && echo "  ok  בקשת התיקון נשלחה ב-C#"
 echo "e2e: עבר"

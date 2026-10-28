@@ -61,10 +61,6 @@ public class SubmitDialog extends Dialog {
     private Composite progressBox;
     private Text noteText;
     private Combo projectCombo;
-    private final List<Look.Chip> langChips = new ArrayList<Look.Chip>();
-    private Composite row;
-    private Label csInfo;
-    private String language = "java";
     private Look.Round ok;
     private ScrolledComposite scroll;
     private Listener pasteFilter;
@@ -175,17 +171,7 @@ public class SubmitDialog extends Dialog {
 
         // --- פרטים
         Composite more = Look.card(col, new GridData(SWT.FILL, SWT.TOP, true, false));
-        Look.section(more, "באיזו שפה?", 0);
-        Composite langs = new Composite(more, SWT.NONE);
-        GridLayout ll = new GridLayout(2, true);
-        ll.marginWidth = 0;
-        ll.marginHeight = 0;
-        ll.horizontalSpacing = 8;
-        langs.setLayout(ll);
-        langs.setLayoutData(new GridData(SWT.BEGINNING, SWT.TOP, false, false));
-        Look.chip(langs, "Java", "java", langChips, 28, 110, this::languageChanged).setSelection(true);   // ב-Eclipse — ברירת המחדל
-        Look.chip(langs, "C#", "csharp", langChips, 28, 110, this::languageChanged);
-        Look.section(more, "הערה (לא חובה)", 8);
+        Look.section(more, "הערה (לא חובה)", 0);
         Label hint = new Label(more, SWT.WRAP);
         hint.setText("למשל: \"רק שאלה 2\", או: \"הפעולה בסעיף ב צריכה להיות רקורסיבית\"");
         hint.setForeground(Look.color(d, Look.MUTED));
@@ -195,7 +181,7 @@ public class SubmitDialog extends Dialog {
         noteText.setLayoutData(ng);
         noteText.setTextLimit(500);
 
-        row = new Composite(more, SWT.NONE);
+        Composite row = new Composite(more, SWT.NONE);
         GridLayout rwl = new GridLayout(2, false);
         rwl.marginWidth = 0;
         rwl.marginHeight = 0;
@@ -215,13 +201,6 @@ public class SubmitDialog extends Dialog {
         }
         projectCombo.add("פרויקט חדש: " + newProjectName);
         projectCombo.select(Math.max(sel, 0));
-        csInfo = new Label(more, SWT.WRAP);   // במקום בחירת הפרויקט, כשבוחרים C#
-        csInfo.setText("ב-C# התרגיל נוצר כפרויקט חדש בתיקיית התרגילים של C# (DataStructures-CS במסמכים), ומופיע ב-Visual Studio.");
-        GridData cig = new GridData(SWT.FILL, SWT.TOP, true, false);
-        cig.widthHint = 600;
-        cig.verticalIndent = 6;
-        csInfo.setLayoutData(cig);
-        show(csInfo, false);
 
         Label privacy = new Label(more, SWT.WRAP);
         privacy.setText("הקבצים נשלחים לשרת של DSViz ומשם ל-Gemini (של Google) כדי לזהות את התרגיל. לא לשלוח דפים עם פרטים אישיים.");
@@ -545,16 +524,6 @@ public class SubmitDialog extends Dialog {
 
     // ------------------------------------------------------------------ שליחה
 
-    /** Java / C#: ב-Java בוחרים פרויקט ב-Eclipse; ב-C# התרגיל נוצר בתיקיית התרגילים של Visual Studio */
-    private void languageChanged() {
-        for (Look.Chip c : langChips) if (c.getSelection()) language = (String) c.getData();
-        boolean cs = "csharp".equals(language);
-        show(row, !cs);
-        show(csInfo, cs);
-        row.getParent().layout(true, true);
-        Look.updateScroll(scroll);
-    }
-
     private void send() {
         if (sending) return;
         try {
@@ -576,14 +545,13 @@ public class SubmitDialog extends Dialog {
         final List<ExerciseFiles.Item> copy = new ArrayList<ExerciseFiles.Item>(items);
         final String note = noteText.getText();
         final IJavaProject project = selectedProject();
-        final String lang = language;
         final Display d = getShell().getDisplay();
         Thread t = new Thread(() -> {
             Map<String, Object> r = null;
             String err = null;
             boolean cancelled = false;
             try {
-                r = client.exercise(copy, note, lang);
+                r = client.exercise(copy, note, "java");   // ב-Eclipse — תמיד Java
             } catch (WorkerClient.AiError e) {
                 cancelled = "cancel".equals(e.code);
                 err = e.getMessage();
@@ -643,11 +611,6 @@ public class SubmitDialog extends Dialog {
     /** התרגיל מהשרת (אחרי OK) */
     public Map<String, Object> exercise() {
         return result;
-    }
-
-    /** השפה שנבחרה: "java" או "csharp" */
-    public String language() {
-        return language;
     }
 
     /** שמות הקבצים שנשלחו (להערה בראש הקובץ) */

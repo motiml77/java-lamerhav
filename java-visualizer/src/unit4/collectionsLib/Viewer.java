@@ -531,13 +531,23 @@ final class Viewer extends JFrame {
     private JPanel legend() {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEADING, 12, 6));
         p.setOpaque(false);
-        p.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER));
         p.add(swatch(StructPanel.NEW_C, null, "נוסף / נוצר"));
         p.add(swatch(StructPanel.READ_C, null, "נקרא"));
         p.add(swatch(StructPanel.CHANGED_C, null, "שונה"));
         p.add(swatch(StructPanel.GHOST_BG, StructPanel.GHOST, "הוצא"));
         p.add(swatch(Color.WHITE, StructPanel.CURRENT, "החוליה / הצומת הנוכחיים"));
-        return p;
+        // זכויות יוצרים — שורה דקה מתחת למקרא, בקצה השני
+        JPanel box = new JPanel(new BorderLayout());
+        box.setOpaque(false);
+        box.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER));
+        box.add(p, BorderLayout.CENTER);
+        JLabel c = label(Theme.COPYRIGHT, Theme.small.deriveFont(10.5f), new Color(0xA0A8B8));
+        c.setBorder(BorderFactory.createEmptyBorder(0, 10, 3, 10));
+        JPanel line = new JPanel(new BorderLayout());
+        line.setOpaque(false);
+        line.add(c, BorderLayout.LINE_END);
+        box.add(line, BorderLayout.SOUTH);
+        return box;
     }
 
     private static JLabel swatch(final Color fill, final Color line, String text) {

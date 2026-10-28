@@ -21,6 +21,9 @@ import javax.swing.text.StyleContext;
 public final class Theme {
     private Theme() {}
 
+    /** זכויות יוצרים — מוצג בתחתית חלון ההרצה, בחלון הטעינה ובחלונות של C# (מתחיל בסימן כיוון LRM, כדי שגם בחלון מימין לשמאל יופיע בסדר הנכון) */
+    public static final String COPYRIGHT = "\u200E© 2026 Moti Levi · motiml77@gmail.com";
+
     public static final Color BG = new Color(0xF1F3F7);          // רקע החלון
     public static final Color CARD = Color.WHITE;                // רקע הכרטיסים
     public static final Color BORDER = new Color(0xDFE3EA);

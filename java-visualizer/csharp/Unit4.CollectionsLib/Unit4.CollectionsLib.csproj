@@ -9,6 +9,9 @@
     <RootNamespace>Unit4.CollectionsLib</RootNamespace>
     <AssemblyName>Unit4.CollectionsLib</AssemblyName>
     <Version>1.0.1</Version>
+    <Authors>Moti Levi</Authors>
+    <Company>Moti Levi</Company>
+    <Copyright>© 2026 Moti Levi (motiml77@gmail.com)</Copyright>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>

@@ -33,14 +33,14 @@ VIAddVersionKey /LANG=1037 "ProductName" "DSViz — Data Structures Visualizer"
 VIAddVersionKey /LANG=1037 "FileDescription" "הרצה ויזואלית למבני נתונים — תוכנית התקנה"
 VIAddVersionKey /LANG=1037 "FileVersion" "${VERSION}"
 VIAddVersionKey /LANG=1037 "ProductVersion" "${VERSION}"
-VIAddVersionKey /LANG=1037 "CompanyName" "lamerhav"
-VIAddVersionKey /LANG=1037 "LegalCopyright" "lamerhav"
+VIAddVersionKey /LANG=1037 "CompanyName" "Moti Levi"
+VIAddVersionKey /LANG=1037 "LegalCopyright" "© 2026 Moti Levi (motiml77@gmail.com)"
 
 Name "מבני נתונים — הרצה ויזואלית"
 OutFile "${RELEASE}\DSViz-Setup.exe"
 InstallDir "$LOCALAPPDATA\DSViz"
 RequestExecutionLevel user
-BrandingText "מבני נתונים — הרצה ויזואלית ${VERSION}"
+BrandingText "מבני נתונים — הרצה ויזואלית ${VERSION}  ·  © Moti Levi"
 ShowInstDetails show
 ShowUninstDetails show
 
@@ -52,7 +52,7 @@ ShowUninstDetails show
 !define MUI_PAGE_HEADER_TEXT "בחירת שפה"
 !define MUI_PAGE_HEADER_SUBTEXT "באיזו שפה כותבים את התרגילים?"
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
-!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nמומלץ לסגור את VS Code ואת Eclipse לפני שממשיכים."
+!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nמומלץ לסגור את VS Code ואת Eclipse לפני שממשיכים.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
 !define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nVisual Studio (C#): פותחים את הקיצור 'תרגילי C#' בשולחן העבודה, ובוחרים ליד כפתור ההפעלה 'הרצה ויזואלית'."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
@@ -196,7 +196,8 @@ Section "-core"
 
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "מבני נתונים — הרצה ויזואלית"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${VERSION}"
-  WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "lamerhav"
+  WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "Moti Levi"
+  WriteRegStr HKCU "${UNINST_KEY}" "Contact" "motiml77@gmail.com"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\icon.ico"
   WriteRegStr HKCU "${UNINST_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
   WriteRegDWORD HKCU "${UNINST_KEY}" "NoModify" 1

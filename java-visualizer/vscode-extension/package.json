@@ -4,6 +4,10 @@
     "description": "תרגילי מחסנית, תור, רשימה מקושרת ועצים (unit4) עם תצוגה ויזואלית של כל צעד בהרצה",
     "version": "1.0.1",
     "publisher": "lamerhav",
+    "author": {
+        "name": "Moti Levi",
+        "email": "motiml77@gmail.com"
+    },
     "license": "SEE LICENSE IN README.md",
     "icon": "media/icon.png",
     "engines": {
@@ -189,7 +193,7 @@
             },
             {
                 "view": "dsviz.runView",
-                "contents": "אחרי שכותבים את הקוד:\n[▶  הרצה ויזואלית](command:dsviz.run)\nבחלון רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד.\nהרצה רגילה (Run) מדפיסה רק לקונסול.\n[?  הדרכה לשימוש — סרטונים קצרים](command:dsviz.help)"
+                "contents": "אחרי שכותבים את הקוד:\n[▶  הרצה ויזואלית](command:dsviz.run)\nבחלון רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד.\nהרצה רגילה (Run) מדפיסה רק לקונסול.\n[?  הדרכה לשימוש — סרטונים קצרים](command:dsviz.help)\n© 2026 Moti Levi · motiml77@gmail.com"
             }
         ],
         "menus": {

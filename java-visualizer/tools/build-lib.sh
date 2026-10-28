@@ -19,6 +19,6 @@ cp third-party/fonts/*.ttf "$OUT/unit4/collectionsLib/fonts/"
 cp third-party/fonts/OFL-Alef.txt "$OUT/META-INF/LICENSE-Alef-OFL.txt"
 cp third-party/LICENSE-flatlaf.txt "$OUT/META-INF/LICENSE-flatlaf.txt"
 (cd "$OUT" && unzip -qo ../../third-party/flatlaf-3.5.4.jar -x 'META-INF/MANIFEST.MF' 'META-INF/LICENSE' 'module-info.class')
-printf 'Premain-Class: unit4.collectionsLib.LineAgent\nMulti-Release: true\n' > build/lib-manifest.txt
+printf 'Premain-Class: unit4.collectionsLib.LineAgent\nMulti-Release: true\nImplementation-Title: DSViz - Data Structures Visualizer\nImplementation-Vendor: Moti Levi (motiml77@gmail.com)\nCopyright: (c) 2026 Moti Levi, motiml77@gmail.com\n' > build/lib-manifest.txt
 jar --create --file release/dsviz.jar --manifest build/lib-manifest.txt -C "$OUT" .
 echo "release/dsviz.jar"

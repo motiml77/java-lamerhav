@@ -36,6 +36,9 @@ final class Look {
 
     private static final String KEEP = "dsviz.keepFont";
 
+    /** זכויות יוצרים — בתחתית החלונות של התוסף */
+    static final String COPYRIGHT = "\u200E© 2026 Moti Levi · motiml77@gmail.com";
+
     static final int BG = 0xF1F3F7, CARD = 0xFFFFFF, BORDER = 0xDFE3EA, TEXT = 0x1D2433, MUTED = 0x667085,
             ACCENT = 0x2F6FED, ACCENT_DARK = 0x2457C5, ACCENT_SOFT = 0xE8F0FE;
 
@@ -339,7 +342,7 @@ final class Look {
     static Composite buttonBar(Composite parent, String okText, Runnable ok, Runnable cancel, Round[] okOut) {
         Composite bar = new Composite(parent, SWT.NONE);
         bar.setBackground(color(parent.getDisplay(), BG));
-        GridLayout l = new GridLayout(2, false);
+        GridLayout l = new GridLayout(3, false);
         l.marginWidth = 20;
         l.marginHeight = 10;
         l.horizontalSpacing = 10;
@@ -348,6 +351,12 @@ final class Look {
         Round primary = new Round(bar, okText, true, ok);
         new Round(bar, "ביטול", false, cancel);
         okOut[0] = primary;
+        Label c = new Label(bar, SWT.LEFT_TO_RIGHT);   // זכויות יוצרים — בקצה השני של שורת הכפתורים
+        c.setText(COPYRIGHT);
+        c.setFont(font(parent.getDisplay(), -2, SWT.NORMAL));
+        c.setData(KEEP, Boolean.TRUE);
+        c.setForeground(color(parent.getDisplay(), 0xA0A8B8));
+        c.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
         return bar;
     }
 
