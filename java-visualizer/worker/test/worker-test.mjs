@@ -5,7 +5,7 @@ import worker from '../src/index.js';
 
 const SAMPLE = {
   isExercise: true, problem: '', title: 'ספירת זוגיים במחסנית', summary: 'כתיבת פעולה על מחסנית.',
-  packageName: 'stack_targil', mainClass: 'StackTargil', imports: [], classes: [],
+  topic: 'stacks', mainClass: 'StackTargil', imports: [], classes: [],
   tasks: [{ label: 'א', kind: 'method', className: 'StackTargil', isStatic: true, returnType: 'int', methodName: 'countEven',
             parameters: [{ type: 'Stack<Integer>', name: 's' }], instructions: 'כתבו פעולה שמחזירה את מספר הזוגיים.' }],
   givenCode: [], otherQuestions: [],
@@ -65,6 +65,10 @@ await test('תרגיל: PDF + תמונה + טקסט מ-Word + הערה → בק�
   assert.equal(calls[0].init.headers['x-goog-api-key'], 'test-key');
   const sent = JSON.parse(calls[0].init.body);   // הגוף שנבנה בשרשור — חייב להיות JSON תקין
   assert.match(sent.systemInstruction.parts[0].text, /NEVER write the solution/);
+  assert.match(sent.systemInstruction.parts[0].text, /The student works in Java\./);   // ברירת מחדל: Java
+  assert.match(sent.systemInstruction.parts[0].text, /void push\(T x\)/);
+  assert.equal(r.body.exercise.language, 'java');
+  assert.equal(r.body.exercise.topic, 'stacks');
   assert.equal(sent.generationConfig.responseMimeType, 'application/json');
   assert.ok(sent.generationConfig.responseSchema.properties.tasks);
   const parts = sent.contents[0].parts;
@@ -161,6 +165,29 @@ await test('תיקון: הקוד והשגיאות נשלחים, והתשובה �
   assert.match(text, /did not compile/);
   assert.match(text, /cannot find symbol: size\(\)/);
   assert.match(text, /class X \{\}/);
+});
+
+await test('C#: ההנחיות ב-C# (ממשק הספרייה ב-PascalCase), והשפה חוזרת בתשובה', async () => {
+  const r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }], meta: { language: 'csharp' } }));
+  assert.equal(r.status, 200);
+  const sys = JSON.parse(calls[0].init.body).systemInstruction.parts[0].text;
+  assert.match(sys, /The student works in C#\./);
+  assert.match(sys, /void Push\(T x\)/);
+  assert.match(sys, /Never write "using System\.Collections\.Generic;"/);
+  assert.doesNotMatch(sys, /void push\(T x\)/);
+  assert.equal(r.body.exercise.language, 'csharp');
+});
+
+await test('תיקון ב-C#: השפה עוברת גם לבקשת התיקון', async () => {
+  const req = new Request('https://w.example/v1/repair', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ language: 'csharp', exercise: SAMPLE, files: { 'StackTargil.cs': 'class X {}' }, errors: ['StackTargil.cs(3,5): error CS0103'] }),
+  });
+  const r = await call(req);
+  assert.equal(r.status, 200);
+  const sent = JSON.parse(calls[0].init.body);
+  assert.match(sent.contents[0].parts[0].text, /The C# skeleton/);
+  assert.match(sent.systemInstruction.parts[0].text, /The student works in C#/);
 });
 
 await test('הגבלת קצב (LIMITER)', async () => {

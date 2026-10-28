@@ -73,7 +73,7 @@ public class ExerciseFilesTest {
         // שליחה אמיתית לשרת (אם הועבר) — עם Word, תמונה ו-PDF
         if (a.length > 1) {
             WorkerClient c = new WorkerClient(a[1], "");
-            Map<String, Object> ex = c.exercise(Arrays.asList(w, big, pdf), "רק סעיף א");
+            Map<String, Object> ex = c.exercise(Arrays.asList(w, big, pdf), "רק סעיף א", "java");
             check(!Json.arr(ex.get("tasks")).isEmpty(), "תשובה מהשרת");
             ok("שליחה לשרת: " + Json.str(ex.get("title")));
             Map<String, String> files = new LinkedHashMap<String, String>();
@@ -82,7 +82,7 @@ public class ExerciseFilesTest {
             check(!Json.arr(fixed.get("tasks")).isEmpty(), "תיקון");
             ok("בקשת תיקון");
             try {
-                new WorkerClient("http://127.0.0.1:9", "").exercise(Arrays.asList(pdf), "");
+                new WorkerClient("http://127.0.0.1:9", "").exercise(Arrays.asList(pdf), "", "java");
                 throw new AssertionError("צריך להיכשל");
             } catch (WorkerClient.AiError e) {
                 check(e.code.equals("offline"), "offline: " + e.code + " " + e.getMessage());

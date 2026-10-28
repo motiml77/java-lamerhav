@@ -68,7 +68,8 @@ final class WorkerClient {
     }
 
     /** שולח את דף התרגיל ומחזיר את התרגיל (exercise) מהתשובה */
-    Map<String, Object> exercise(List<ExerciseFiles.Item> items, String note) throws AiError {
+    /** language: "java" או "csharp" — נכנס להנחיות למודל (השרת בונה לפיה את ההנחיות ואת ממשק הספרייה) */
+    Map<String, Object> exercise(List<ExerciseFiles.Item> items, String note, String language) throws AiError {
         String boundary = "----dsviz" + UUID.randomUUID().toString().replace("-", "");
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         List<Object> texts = new ArrayList<Object>(), names = new ArrayList<Object>();
@@ -91,6 +92,7 @@ final class WorkerClient {
         }
         Map<String, Object> meta = new LinkedHashMap<String, Object>();
         meta.put("client", CLIENT);
+        meta.put("language", "csharp".equals(language) ? "csharp" : "java");
         meta.put("note", note == null ? "" : note.trim());
         meta.put("texts", texts);
         meta.put("names", names);
@@ -111,6 +113,7 @@ final class WorkerClient {
     Map<String, Object> repair(Map<String, Object> exercise, Map<String, String> files, List<String> errors) throws AiError {
         Map<String, Object> b = new LinkedHashMap<String, Object>();
         b.put("client", CLIENT);
+        b.put("language", "csharp".equals(Json.str(exercise.get("language"))) ? "csharp" : "java");
         b.put("exercise", exercise);
         b.put("files", files);
         b.put("errors", errors);

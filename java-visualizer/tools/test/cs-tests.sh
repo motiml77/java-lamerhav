@@ -86,7 +86,7 @@ dotnet "$ROOT/csharp/project/Examples/StackExamples/bin/Debug/net8.0/StackExampl
 echo "== 8. Visual Studio: חלון \"תרגיל חדש ב-C#\" — אותו קוד כמו VS Code, יצירת פרויקט ורישום בפתרון"
 mkdir -p "$W/cstool"
 javac --release 11 -nowarn -encoding UTF-8 -cp "$JAR" -d "$W/cstool" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/NameCheck.java" \
-    $(find "$ROOT/csharp/new-exercise/src" cstool ScaffoldCsAll.java -name '*.java')
+    "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java" $(find "$ROOT/csharp/new-exercise/src" cstool ScaffoldCsAll.java -name '*.java')
 # א. המחולל של Visual Studio (Java) מפיק בדיוק אותם 3,426 קבצי C# כמו המחולל של VS Code (JS), בתים-בתים
 node combos.js "$W/jsx" > /dev/null
 java -cp "$W/cstool:$JAR" ScaffoldCsAll "$W/combos.txt" "$W/javacs"
@@ -100,3 +100,19 @@ for n in Targil1 Targil2 Targil3; do
     dotnet build "$W/csroot/Exercises/$n" -v q --nologo 2>&1 | grep -q 'Build succeeded' || { echo "בנייה נכשלה: $n"; exit 1; }
 done
 viz "$W/csroot/Exercises/Targil2" --trace "$W/t2.trace" > /dev/null 2>&1; grep -q '^SUB' "$W/t2.trace" && echo "התרגיל מבנה-בתוך-מבנה נבנה ורץ ויזואלית"
+
+echo "== 9. שליחת תרגיל ב-C#: המעטפות מתקמפלות (dsviz-cs --check-project), ופרויקט חדש נרשם בפתרון ונבנה"
+mkdir -p "$W/ai/cls"
+CPE=$(ls "$ROOT"/build/eclipse-deps/*.jar | tr '\n' ':')
+javac --release 11 -nowarn -encoding UTF-8 -cp "$CPE" -d "$W/ai/cls" $(find "$ROOT/eclipse-plugin/src" -name '*.java') AiScaffoldTest.java CsBuildTest.java 2>&1 | grep -v '^Note' || true
+java -Dstdout.encoding=UTF-8 -cp "$W/ai/cls" il.lamerhav.dsviz.AiScaffoldTest ai "$W/ai/src" > /dev/null
+for d in $(cat "$W/ai/src/cs-dirs.txt"); do
+    viz --check-project "$d" | tail -1 | grep -q '^errors: 0' || { viz --check-project "$d"; exit 1; }
+done
+echo "  ok  מעטפות C# מתקמפלות יחד עם הספרייה"
+cp -r "$ROOT/csharp/project" "$W/ai/root" && rm -rf "$W"/ai/root/*/bin "$W"/ai/root/*/obj "$W"/ai/root/*/*/bin "$W"/ai/root/*/*/obj
+mkdir -p "$W/ai/home/.dsviz"
+printf '#!/bin/sh\nexec dotnet "%s" "$@"\n' "$RUNNER" > "$W/ai/dsviz-cs" && chmod +x "$W/ai/dsviz-cs"
+echo "$W/ai/dsviz-cs" > "$W/ai/home/.dsviz/cs-path.txt"
+java -Duser.home="$W/ai/home" -Dstdout.encoding=UTF-8 -cp "$W/ai/cls:$CPE" il.lamerhav.dsviz.CsBuildTest "$W/ai/root" ai/cs/2-classes.json
+dotnet build "$W"/ai/root/Exercises/Ex01_* -v q --nologo 2>&1 | grep -q 'Build succeeded' && echo "  ok  הפרויקט החדש נבנה ב-dotnet (כמו ב-Visual Studio)" || { echo "בנייה נכשלה"; exit 1; }

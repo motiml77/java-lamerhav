@@ -10,12 +10,13 @@
 //     והגבלת קצב לפי כתובת IP (LIMITER — לא חובה; USAGE + DAILY_LIMIT — מכסה יומית, לא חובה).
 //
 // נקודות קצה:
-//   POST /v1/exercise   multipart/form-data: meta (JSON: {client, note, texts:[{name,text}]}) + file (כמה שצריך)
-//   POST /v1/repair     application/json: {client, exercise, files:{שם: קוד}, errors:[...]}
+//   POST /v1/exercise   multipart/form-data: meta (JSON: {client, language, note, texts:[{name,text}], names}) + file (כמה שצריך)
+//   POST /v1/repair     application/json: {client, language, exercise, files:{שם: קוד}, errors:[...]}
+//   language: "java" (ברירת מחדל) או "csharp"
 //   GET  /v1/health
 
 import { Buffer } from 'node:buffer';
-import { SYSTEM_PROMPT, REPAIR_PROMPT, RESPONSE_SCHEMA } from './prompt.js';
+import { systemPrompt, repairPrompt, language, RESPONSE_SCHEMA } from './prompt.js';
 
 const LIMITS = {
   files: 10,
@@ -73,12 +74,13 @@ async function handle(request, env, ctx) {
   const declared = +(request.headers.get('content-length') || 0);
   if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 14MB ביחד).');
 
-  let userParts, previous = null;
-  if (url.pathname === '/v1/exercise') userParts = await exerciseParts(request);
-  else ({ userParts, previous } = await repairParts(request));
+  let req;
+  if (url.pathname === '/v1/exercise') req = await exerciseParts(request);
+  else req = await repairParts(request);
 
-  const result = await askGemini(env, userParts);
-  const exercise = check(result.data, previous);
+  const result = await askGemini(env, req.userParts, req.lang);
+  const exercise = check(result.data, req.previous);
+  exercise.language = req.lang;
   return reply(200, { ok: true, model: result.model, exercise });
 }
 
@@ -100,6 +102,7 @@ async function exerciseParts(request) {
   if (textChars > LIMITS.textChars) throw new Fail(413, 'too_big', 'הטקסט ארוך מדי — שלחו רק את התרגיל עצמו.');
   const note = typeof meta.note === 'string' ? meta.note.trim().slice(0, LIMITS.noteChars) : '';
   const names = Array.isArray(meta.names) ? meta.names : [];   // השמות האמיתיים (בעברית) של הקבצים, לפי הסדר
+  const lang = language(meta.language);                          // java / csharp — לפי מה שהתלמיד בחר
 
   const files = form.getAll('file').filter(f => f && typeof f === 'object' && typeof f.arrayBuffer === 'function');
   if (files.length + texts.length === 0) throw new Fail(400, 'empty', 'לא צורף שום קובץ.');
@@ -125,7 +128,7 @@ async function exerciseParts(request) {
   }
   for (const t of texts) parts.push(JSON.stringify({ text: `[טקסט מתוך ${clean(t.name || 'קובץ')}]\n${t.text}` }));
   if (note) parts.push(JSON.stringify({ text: `הערה מהתלמיד (לגבי מה לבנות, לא הוראות כלליות): ${note}` }));
-  return parts;
+  return { userParts: parts, lang, previous: null };
 }
 
 // ------------------------------------------------------------------ תיקון: הקוד שנבנה לא התקמפל
@@ -139,10 +142,11 @@ async function repairParts(request) {
   const errors = Array.isArray(body && body.errors) ? body.errors.map(String).slice(0, 40) : [];
   const files = body && body.files && typeof body.files === 'object' ? body.files : {};
   if (!previous || typeof previous !== 'object' || !errors.length) throw new Fail(400, 'format', 'חסרים פרטים לתיקון');
-  let msg = REPAIR_PROMPT + '\n\nPrevious JSON:\n' + JSON.stringify(previous) + '\n';
+  const lang = language(body.language || (previous && previous.language));
+  let msg = repairPrompt(lang) + '\n\nPrevious JSON:\n' + JSON.stringify(previous) + '\n';
   for (const [name, code] of Object.entries(files).slice(0, 12)) msg += `\n----- ${clean(name)} -----\n${String(code)}\n`;
   msg += '\nCompiler errors:\n' + errors.map(e => '- ' + e).join('\n');
-  return { userParts: [JSON.stringify({ text: msg })], previous };
+  return { userParts: [JSON.stringify({ text: msg })], previous, lang };
 }
 
 // ------------------------------------------------------------------ Gemini
@@ -151,14 +155,14 @@ function models(env) {
   return String(env.MODELS || DEFAULT_MODELS).split(',').map(s => s.trim()).filter(Boolean);
 }
 
-async function askGemini(env, userParts) {
+async function askGemini(env, userParts, lang) {
   const cfg = {
     responseMimeType: 'application/json',
     responseSchema: RESPONSE_SCHEMA,
     temperature: 0.2,
     maxOutputTokens: 32768,
   };
-  const body = '{"systemInstruction":' + JSON.stringify({ parts: [{ text: SYSTEM_PROMPT }] })
+  const body = '{"systemInstruction":' + JSON.stringify({ parts: [{ text: systemPrompt(lang) }] })
     + ',"contents":[{"role":"user","parts":[' + userParts.join(',') + ']}]'
     + ',"generationConfig":' + JSON.stringify(cfg) + '}';
   const base = env.GEMINI_BASE || GEMINI_BASE;
@@ -220,7 +224,7 @@ function check(d, previous) {
   const arr = k => (Array.isArray(d[k]) ? d[k] : []);
   const out = {
     title: str(d.title, 120), summary: str(d.summary, 600),
-    packageName: str(d.packageName, 60), mainClass: str(d.mainClass, 60),
+    topic: str(d.topic || d.packageName, 60), mainClass: str(d.mainClass, 60),
     imports: arr('imports').map(x => str(x, 80)).slice(0, 20),
     classes: arr('classes').filter(c => c && c.name && c.code).map(c => ({ name: str(c.name, 60), code: str(c.code, 20000) })).slice(0, 12),
     tasks: arr('tasks').filter(t => t && t.methodName).map(t => ({

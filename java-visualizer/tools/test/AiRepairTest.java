@@ -29,7 +29,7 @@ public class AiRepairTest {
         Map<String, Object> raw = Json.obj(Json.parse(new String(Files.readAllBytes(new File(a[0]).toPath()), StandardCharsets.UTF_8)));
         Path out = new File(a[2]).toPath();
         AiScaffold.Exercise e = AiScaffold.read(raw);
-        String pkg = AiScaffold.packageName(e.packageName, new HashSet<String>());
+        String pkg = AiScaffold.folderName(e.topic, new HashSet<String>(), false);
         List<AiScaffold.GeneratedFile> files = AiScaffold.build(e, pkg, Arrays.asList("broken.json"));
         List<String> errors = compile(files, pkg, out, a[3]);
         check(!errors.isEmpty(), "היו צריכות להיות שגיאות");

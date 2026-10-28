@@ -1,0 +1,13 @@
+{"language":"csharp","title":"קבוצות ושחקנים","summary":"מחלקה Player ומחלקה Team.","topic":"classes_team","mainClass":"Program","imports":["System.Text","System.Collections.Generic"],
+"classes":[
+ {"name":"Player","code":"using System;\nnamespace Exercise\n{\n    public class Player\n    {\n        private string name;\n        private int goals;\n        public Player(string name, int goals) { this.name = name; this.goals = goals; }\n        public string GetName() { return name; }\n        public int GetGoals() { return goals; }\n        public override string ToString() { return name + \"(\" + goals + \")\"; }\n    }\n}"},
+ {"name":"Team","code":"namespace Exercise;\n\ninternal class Team\n{\n    private string name;\n    private Player[] players = new Player[11];\n    private int count;\n    public Team(string name) { this.name = name; }\n    public void Add(Player p) { if (count < players.Length) players[count++] = p; }\n    public int GetCount() { return count; }\n    public override string ToString() { return name + \" \" + count; }\n}"}
+],
+"tasks":[
+ {"label":"1","kind":"method","className":"Team","isStatic":false,"returnType":"double","methodName":"Average","parameters":[],"instructions":"הוסיפו למחלקה Team פעולה המחזירה את ממוצע השערים."},
+ {"label":"2","kind":"method","className":"Program","isStatic":true,"returnType":"Team","methodName":"BestTeam","parameters":[{"type":"Team[]","name":"teams"}],"instructions":"פעולה חיצונית המחזירה את הקבוצה עם הממוצע הגבוה ביותר."},
+ {"label":"3","kind":"constructor","className":"Coach","isStatic":false,"returnType":"","methodName":"Coach","parameters":[{"type":"String","name":"name"},{"type":"boolean","name":"head"}],"instructions":"בנאי למאמן"}
+],
+"givenCode":[{"className":"Team","code":"public bool IsFull()\n{\n    return count == players.Length;\n}"}],
+"otherQuestions":[],
+"mainCode":"static void Main(string[] args)\n{\n    Team a = new Team(\"הפועל\");\n    a.Add(new Player(\"דני\", 3));\n    Team[] all = { a };\n    Console.WriteLine(\"סעיף 1: \" + a.Average());\n    Console.WriteLine(\"סעיף 2: \" + BestTeam(all));\n    Coach c = new Coach(\"משה\", true);\n    Console.WriteLine(\"מלאה? \" + a.IsFull());\n    StringBuilder sb = new StringBuilder();\n}"}

@@ -1,7 +1,10 @@
-// ההנחיות למודל, תיאור הספרייה והתבנית (schema) של התשובה.
-// הכול נמצא כאן, בשרת — התוסף שולח רק את דף התרגיל, ולכן אי אפשר להשתמש בשרת לבקשות אחרות.
+// ההנחיות למודל, תיאור הספרייה והתבנית (schema) של התשובה — ב-Java או ב-C#, לפי מה שהתלמיד בחר.
+// הכול נמצא כאן, בשרת — התוסף שולח רק את דף התרגיל (ואת השפה), ולכן אי אפשר להשתמש בשרת לבקשות אחרות.
 
-export const LIBRARY_API = `
+const LANG = {
+  java: {
+    name: 'Java',
+    api: `
 unit4.collectionsLib — imported automatically (import unit4.collectionsLib.*;). Exactly these classes and methods exist:
 
 Stack<T>:   new Stack<T>()  · void push(T x) · T pop() · T top() · boolean isEmpty() · String toString()
@@ -14,75 +17,122 @@ BinNode<T>: new BinNode<T>(T value) · new BinNode<T>(BinNode<T> left, T value, 
             void setValue(T value) · void setLeft(BinNode<T> left) · void setRight(BinNode<T> right)
 BinTreeNode<T>: older name of a binary tree node (same as BinNode, with getInfo()/setInfo()) — use it only if the exercise uses it.
 There is NO size(), length(), peek(), clone() or copy method in Stack/Queue. Nothing else exists in this library.
-Arrays (int[], String[], int[][]) and String/Math/Integer/Character from java.lang are of course available.
-`;
+Arrays (int[], String[], int[][]) and String/Math/Integer/Character from java.lang are of course available.`,
+    types: `מספר שלם → int, מספר ממשי → double, תו → char, מחרוזת → String, בוליאני/אמת-שקר → boolean,
+    מחסנית של מספרים שלמים → Stack<Integer>, תור של מחרוזות → Queue<String>, שרשרת חוליות / רשימה מקושרת של שלמים → Node<Integer>,
+    עץ בינארי של שלמים → BinNode<Integer>, מערך של שלמים → int[], מערך דו-ממדי → int[][]. Generics always use wrapper types (Integer, Character, Double, Boolean).`,
+    names: 'camelCase method names (countEven, isSorted), PascalCase class names',
+    mainHeader: 'public static void main(String[] args)',
+    print: 'System.out.println("סעיף א: " + countEven(s1));',
+    declare: 'Stack<Integer> s1 = new Stack<Integer>(); build chains with new Node<Integer>(...), trees with new BinNode<Integer>(left, value, right)',
+    imports: 'imports — extra imports needed by mainCode/classes/givenCode, only java.util classes (e.g. "java.util.ArrayList"). Usually empty.',
+    rules: 'Java 11, no "var", no records, no lambdas in mainCode. A method of the main class is "public static".',
+    noLib: 'NEVER define Stack, Queue, Node, BinNode or BinTreeNode (they come from the library). No package or import lines.',
+  },
+  csharp: {
+    name: 'C#',
+    api: `
+Unit4.CollectionsLib — already imported (using System; using Unit4.CollectionsLib;). Exactly these classes and methods exist:
 
-export const SYSTEM_PROMPT = `You help Israeli high-school computer-science students (Java, Bagrut "מבני נתונים" curriculum).
+Stack<T>:   new Stack<T>()  · void Push(T x) · T Pop() · T Top() · bool IsEmpty() · string ToString()
+Queue<T>:   new Queue<T>()  · void Insert(T x) · T Remove() · T Head() · bool IsEmpty() · string ToString()
+Node<T>:    new Node<T>(T value) · new Node<T>(T value, Node<T> next)
+            T GetValue() · Node<T> GetNext() · bool HasNext() · void SetValue(T value) · void SetNext(Node<T> next)
+BinNode<T>: new BinNode<T>(T value) · new BinNode<T>(BinNode<T> left, T value, BinNode<T> right)
+            T GetValue() · BinNode<T> GetLeft() · BinNode<T> GetRight() · bool HasLeft() · bool HasRight()
+            void SetValue(T value) · void SetLeft(BinNode<T> left) · void SetRight(BinNode<T> right)
+There is NO Count, Size(), Peek(), Clone() or copy method in Stack/Queue (these are NOT System.Collections.Generic). Nothing else exists in this library.
+Never write "using System.Collections.Generic;" (its Stack/Queue would clash with the library). If a List is really needed, write System.Collections.Generic.List<int> in full.
+Arrays (int[], string[], int[,] or int[][]) and string/Math/Console from System are available.`,
+    types: `מספר שלם → int, מספר ממשי → double, תו → char, מחרוזת → string, בוליאני/אמת-שקר → bool,
+    מחסנית של מספרים שלמים → Stack<int>, תור של מחרוזות → Queue<string>, שרשרת חוליות / רשימה מקושרת של שלמים → Node<int>,
+    עץ בינארי של שלמים → BinNode<int>, מערך של שלמים → int[], מערך דו-ממדי → int[,]. Generics use the C# types directly (Stack<int>, Queue<char>).`,
+    names: 'PascalCase method names (CountEven, IsSorted) and PascalCase class names, as is usual in C#; camelCase parameters',
+    mainHeader: 'public static void Main(string[] args)',
+    print: 'Console.WriteLine("סעיף א: " + CountEven(s1));',
+    declare: 'Stack<int> s1 = new Stack<int>(); build chains with new Node<int>(...), trees with new BinNode<int>(left, value, right)',
+    imports: 'imports — extra "using" namespaces needed by mainCode/classes/givenCode (e.g. "System.Text"), never System.Collections.Generic. Usually empty.',
+    rules: 'C# 10 / .NET 8, no "var", no records, no lambdas or LINQ in mainCode, no top-level statements, no namespace. A method of the main class is "public static". Fields of exercise classes are private, with public Get/Set methods or properties as the exercise describes.',
+    noLib: 'NEVER define Stack, Queue, Node or BinNode (they come from the library). No using lines and no namespace.',
+  },
+};
+
+export function language(l) {
+  return l === 'csharp' || l === 'cs' || l === 'c#' ? 'csharp' : 'java';
+}
+
+export function systemPrompt(lang) {
+  const L = LANG[language(lang)];
+  return `You help Israeli high-school computer-science students (Bagrut "מבני נתונים" curriculum). The student works in ${L.name}.
 The student sends a programming exercise (PDF pages, photos/screenshots, or text from a Word file; usually in Hebrew).
-Your job is to produce a READY-TO-RUN Java SKELETON for the exercise, so the student can immediately start writing the solution and run it.
+Your job is to produce a READY-TO-RUN ${L.name} SKELETON for the exercise, so the student can immediately start writing the solution and run it.
+Even if the exercise itself is written for another language (for example Java code in the question while the student works in C#), describe everything in ${L.name}.
 NEVER write the solution of any task — not in code and not in comments. You only describe the structure; the program assembles the code.
 
 Return ONLY JSON that matches the response schema. Field by field:
 
 tasks — one entry for every method (פעולה / פונקציה), constructor or class operation that the exercise asks the student to WRITE.
   • label: the sub-question label as it appears ("א", "ב", "1", "3ב"...). If one sub-question asks for two methods, use the same label for both.
-  • If the exercise gives the header (כותרת / חתימה / signature), copy the method name, parameter types, parameter names and return type EXACTLY.
-    Otherwise choose a short meaningful English camelCase name for what it does (countEven, isSorted, removeMax...) and meaningful English parameter names.
-  • Hebrew types → Java: מספר שלם → int, מספר ממשי → double, תו → char, מחרוזת → String, בוליאני/אמת-שקר → boolean,
-    מחסנית של מספרים שלמים → Stack<Integer>, תור של מחרוזות → Queue<String>, שרשרת חוליות / רשימה מקושרת של שלמים → Node<Integer>,
-    עץ בינארי של שלמים → BinNode<Integer>, מערך של שלמים → int[], מערך דו-ממדי → int[][]. Generics always use wrapper types.
+  • If the exercise gives the header (כותרת / חתימה / signature), copy the method name, parameter types, parameter names and return type
+    (converted to ${L.name} if the exercise uses another language). Otherwise choose a short meaningful English name for what it does — ${L.names} —
+    and meaningful English parameter names.
+  • Hebrew types → ${L.name}: ${L.types}
   • kind: "method", or "constructor" when the student must write a constructor (methodName = the class name, returnType = "").
   • className: the class the method belongs to. Static helper methods/functions go in the main class (use the mainClass value).
     If the exercise says "add to class X a method..." / "write in class X...", use className X and isStatic=false.
-  • returnType: Java type, or "void".
+  • returnType: ${L.name} type, or "void".
   • instructions: the full text of that sub-question in Hebrew, faithful and complete enough to solve it without the original page,
     including examples given in the question (e.g. "לדוגמה: עבור המחסנית 3, 5, 2 יוחזר 2"). Plain text, no markdown. Up to ~700 characters.
 
 otherQuestions — sub-questions that do NOT require writing code (tracing code, what will be printed, complexity, explanations) — label + Hebrew text.
 
 classes — classes that the exercise defines or describes (UML, list of fields, "נתונה המחלקה ...") and that the code needs. NOT library classes.
-  • name + code: full compilable Java code of the class: "public class Name { ... }" with the fields exactly as described (names and types),
-    a constructor, getters/setters and toString — plus any methods the exercise gives with their implementation.
+  • name + code: full compilable ${L.name} code of the class: "public class Name { ... }" with the fields exactly as described (names and types),
+    a constructor, getters/setters and a string conversion (toString / ToString) — plus any methods the exercise gives with their implementation.
   • Do NOT include the methods/constructors that the student must write (those are tasks — the program inserts them).
-  • NEVER define Stack, Queue, Node, BinNode or BinTreeNode (they come from the library). No package or import lines.
+  • ${L.noLib}
   • A class described in the exercise must be defined here even if its name is Student or Car.
 
 givenCode — methods that the exercise gives as already existing ("נתונה הפעולה ...", "ניתן להשתמש בפעולה ... שכותרתה ...", "הניחו שקיימת פעולה ...")
   and that the solution may call. Write a correct, complete implementation of each one (full method code with its header; "public static" when it is in the main class)
   so that the program runs. className = where it belongs. Never put a task method here.
 
-mainCode — ONLY the statements of the body of "public static void main(String[] args)" (no header, no outer braces). It must:
+mainCode — ONLY the statements of the body of "${L.mainHeader}" (no header, no outer braces). It must:
   • build example data that fits the exercise — use the example values from the exercise when given, otherwise 5–8 sensible values;
-  • print the data before the calls (System.out.println("מחסנית: " + s1););
+  • print the data before the calls;
   • call EVERY task (for instance methods create the objects first; for a constructor task create an object with it) and print each result
-    with a Hebrew label, e.g. System.out.println("סעיף א: " + countEven(s1)); — for void methods print the structure after the call;
+    with a Hebrew label, e.g. ${L.print} — for void methods print the structure after the call;
   • if several calls change the same structure, build a separate structure (separate variable) for each call;
   • the task bodies are stubs that return 0 / false / null until the student writes them — main must not crash because of that
     (print a returned object directly instead of calling methods on it; don't loop on a returned structure);
-  • use only the library API below, java.lang and the imports you list; no Scanner / keyboard input — fixed values only;
-  • declare with full generic types: Stack<Integer> s1 = new Stack<Integer>(); build chains with new Node<Integer>(...), trees with new BinNode<Integer>(left, value, right);
+  • use only the library API below and the standard basics; no keyboard input — fixed values only;
+  • declare with full generic types: ${L.declare};
   • short and clear, with a few short Hebrew comments (// ...).
 
-imports — extra imports needed by mainCode/classes/givenCode, only java.util classes (e.g. "java.util.ArrayList"). Usually empty.
+${L.imports}
 title — short Hebrew title (up to 6 words). summary — 1–2 Hebrew sentences: what the exercise is about.
+topic — the TYPE of the exercise in 1–3 short lowercase English words joined with "_", for a folder name the student will recognize:
+  e.g. "stacks", "queues", "linked_lists", "binary_trees", "arrays", "recursion", "classes_team", "queue_of_stacks".
 mainClass — English PascalCase name of the main class: the class name the exercise uses for the methods if there is one, otherwise e.g. "StackTargil".
-packageName — short lowercase English name for this exercise (letters, digits, underscore), e.g. "queue_targil".
 isExercise / problem — if the files are not a programming exercise or cannot be read: isExercise=false and problem = a short Hebrew explanation
   (what is missing / what to send). Otherwise isExercise=true and problem="".
 
-Java: Java 11, no "var", no records, no lambdas in mainCode. All names in English. Hebrew only in strings and comments.
+${L.name}: ${L.rules} All names in English. Hebrew only in strings and comments.
+${L.api}`;
+}
 
-${LIBRARY_API}`;
-
-export const REPAIR_PROMPT = `The Java skeleton that was assembled from your previous JSON did not compile.
-Below: your previous JSON, the generated Java files, and the compiler errors.
+export function repairPrompt(lang) {
+  const L = LANG[language(lang)];
+  return `The ${L.name} skeleton that was assembled from your previous JSON did not compile.
+Below: your previous JSON, the generated ${L.name} files, and the compiler errors.
 Return the corrected JSON (same schema) that fixes ALL the errors — usually in mainCode, classes, givenCode or imports.
-Keep the same tasks (same names and signatures) unless a signature itself is not valid Java.
+Keep the same tasks (same names and signatures) unless a signature itself is not valid ${L.name}.
 Still never write the solution of any task.`;
+}
 
 const S = (description, extra) => Object.assign({ type: 'STRING', description }, extra || {});
 
-/** התבנית של התשובה (responseSchema של Gemini) */
+/** התבנית של התשובה (responseSchema של Gemini) — זהה ב-Java וב-C# */
 export const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -90,14 +140,14 @@ export const RESPONSE_SCHEMA = {
     problem: S('Hebrew explanation when isExercise is false, otherwise empty'),
     title: S('short Hebrew title'),
     summary: S('1-2 Hebrew sentences'),
-    packageName: S('lowercase English package name'),
+    topic: S('type of the exercise, lowercase English words joined with _'),
     mainClass: S('English PascalCase main class name'),
-    imports: { type: 'ARRAY', items: S('java.util class to import') },
+    imports: { type: 'ARRAY', items: S('extra import / using') },
     classes: {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: { name: S('class name'), code: S('full Java code of the class') },
+        properties: { name: S('class name'), code: S('full code of the class') },
         required: ['name', 'code'],
         propertyOrdering: ['name', 'code'],
       },
@@ -111,13 +161,13 @@ export const RESPONSE_SCHEMA = {
           kind: S('method or constructor', { enum: ['method', 'constructor'] }),
           className: S('class the method belongs to'),
           isStatic: { type: 'BOOLEAN' },
-          returnType: S('Java return type, "void", or "" for a constructor'),
+          returnType: S('return type, "void", or "" for a constructor'),
           methodName: S('method name'),
           parameters: {
             type: 'ARRAY',
             items: {
               type: 'OBJECT',
-              properties: { type: S('Java type'), name: S('parameter name') },
+              properties: { type: S('type'), name: S('parameter name') },
               required: ['type', 'name'],
               propertyOrdering: ['type', 'name'],
             },
@@ -132,7 +182,7 @@ export const RESPONSE_SCHEMA = {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: { className: S('class the method belongs to'), code: S('full Java method code') },
+        properties: { className: S('class the method belongs to'), code: S('full method code') },
         required: ['className', 'code'],
         propertyOrdering: ['className', 'code'],
       },
@@ -148,6 +198,6 @@ export const RESPONSE_SCHEMA = {
     },
     mainCode: S('statements of the main method body'),
   },
-  required: ['isExercise', 'problem', 'title', 'summary', 'packageName', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode'],
-  propertyOrdering: ['isExercise', 'problem', 'title', 'summary', 'packageName', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode'],
+  required: ['isExercise', 'problem', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode'],
+  propertyOrdering: ['isExercise', 'problem', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode'],
 };

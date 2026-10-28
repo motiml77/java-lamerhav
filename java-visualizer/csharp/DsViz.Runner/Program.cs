@@ -26,6 +26,7 @@ namespace DsViz
         {
             try { Console.OutputEncoding = new UTF8Encoding(false); } catch (Exception) { }
             if (args.Length > 0 && args[0] == "--check") return Check(args.Skip(1).ToArray());
+            if (args.Length > 1 && args[0] == "--check-project") return CheckProject(args[1]);
             string target = null, traceOut = null;
             var progArgs = new List<string>();
             for (int i = 0; i < args.Length; i++)
@@ -144,6 +145,21 @@ namespace DsViz
             }
             Console.WriteLine("נבדקו " + files.Length + " קבצים, " + bad + " עם שגיאות");
             return bad == 0 ? 0 : 1;
+        }
+
+        /// בדיקת קומפילציה של פרויקט שלם (כל הקבצים יחד) — בשביל "שליחת תרגיל" ב-Eclipse:
+        /// מדפיס כל שגיאה בשורה "קובץ(שורה,עמודה): error CSxxxx: הודעה", ובסוף "errors: N"
+        static int CheckProject(string target)
+        {
+            var project = ProjectInfo.Load(target);
+            var parse = new CSharpParseOptions(project.LangVersion);
+            var trees = project.Files.Select(f => CSharpSyntaxTree.ParseText(SourceReader.Read(f), parse, f)).ToList();
+            var options = new CSharpCompilationOptions(OutputKind.ConsoleApplication, nullableContextOptions: NullableContextOptions.Disable);
+            var errors = CSharpCompilation.Create(project.Name, trees, MetadataReferences(), options)
+                .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            foreach (Diagnostic d in errors.Take(30)) Console.WriteLine(Format(d));
+            Console.WriteLine("errors: " + errors.Count);
+            return errors.Count == 0 ? 0 : 1;
         }
 
         static int RunProgram(MethodInfo entry, string[] args)
