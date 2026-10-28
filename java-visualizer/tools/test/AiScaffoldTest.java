@@ -38,6 +38,13 @@ public class AiScaffoldTest {
             AiScaffold.GeneratedFile main = files.get(0);
             check(main.className.equals(e.mainClass), "הקובץ הראשון הוא המחלקה הראשית");
             check(main.code.contains(e.cs ? "public static void Main(string[] args)" : "public static void main(String[] args)"), f + ": אין main");
+            if (!e.expectedOutput.isEmpty()) {
+                // מה צריך להיות מודפס אם הפתרון נכון — בהערה מעל main, שורה-שורה
+                check(main.code.contains("// אם פתרת נכון את התרגיל, צריך להיות מודפס על המסך:"), f + ": אין הערה על הפלט הצפוי");
+                for (String l : e.expectedOutput.split("\n")) check(main.code.contains("//     " + l), f + ": שורת פלט חסרה בהערה: " + l);
+                int at = main.code.indexOf("אם פתרת נכון"), mainAt = main.code.indexOf(e.cs ? "static void Main(" : "static void main(");
+                check(at > 0 && at < mainAt, f + ": ההערה צריכה להיות מעל main");
+            }
             int todos = 0, cursors = 0;
             for (AiScaffold.GeneratedFile g : files) {
                 String[] lines = g.code.split("\n", -1);

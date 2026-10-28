@@ -237,6 +237,7 @@ function check(d, previous) {
     givenCode: arr('givenCode').filter(g => g && g.code).map(g => ({ className: str(g.className, 60), code: str(g.code, 20000) })).slice(0, 20),
     otherQuestions: arr('otherQuestions').filter(q => q && q.text).map(q => ({ label: str(q.label, 20), text: str(q.text, 2000) })).slice(0, 20),
     mainCode: str(d.mainCode, 30000),
+    expectedOutput: str(d.expectedOutput, 4000),
   };
   if (!out.tasks.length && !out.otherQuestions.length) {
     throw new Fail(422, 'not_exercise', 'לא מצאתי בתרגיל סעיפים שצריך לכתוב בהם קוד.');

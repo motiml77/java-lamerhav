@@ -55,6 +55,7 @@ final class AiScaffold {
     static final class Exercise {
         boolean cs;   // C# (אחרת Java)
         String title = "", summary = "", topic = "", mainClass = "", mainCode = "";
+        String expectedOutput = "";   // מה main מדפיס כשכל הסעיפים פתורים נכון
         final List<String> imports = new ArrayList<String>();
         final Map<String, String> classes = new LinkedHashMap<String, String>();   // שם → קוד
         final List<Task> tasks = new ArrayList<Task>();
@@ -78,6 +79,18 @@ final class AiScaffold {
     }
 
     /** קורא את התשובה של השרת ומנקה אותה: שמות חוקיים, טיפוסים חוקיים, בלי כפילויות */
+    /** הערה לתלמיד מעל main: מה צריך להיות מודפס על המסך אם הפתרון נכון (לפי התשובה של Gemini) */
+    static List<String> expectedComment(String expected) {
+        List<String> out = new ArrayList<String>();
+        if (expected == null || expected.trim().isEmpty()) return out;
+        out.add("    //");
+        out.add("    // אם פתרת נכון את התרגיל, צריך להיות מודפס על המסך:");
+        String[] lines = expected.split("\n");
+        for (int i = 0; i < lines.length && i < 40; i++) out.add("    //     " + lines[i].replace("\t", "    "));
+        if (lines.length > 40) out.add("    //     ...");
+        return out;
+    }
+
     static Exercise read(Map<String, Object> j) {
         Exercise e = new Exercise();
         e.cs = "csharp".equals(Json.str(j.get("language")));
@@ -87,6 +100,7 @@ final class AiScaffold {
         e.topic = Json.str(j.get("topic"));
         if (e.topic.isEmpty()) e.topic = Json.str(j.get("packageName"));
         e.mainCode = Json.str(j.get("mainCode"));
+        e.expectedOutput = Json.str(j.get("expectedOutput")).replace("\r", "").replaceAll("\\s+$", "");
         for (Object o : Json.arr(j.get("imports"))) {
             String s = Json.str(o).trim().replaceFirst("^(import|using)\\s+", "").replaceFirst(";$", "").trim();
             boolean ok = cs ? USING.matcher(s).matches() && !s.startsWith("System.Collections.Generic") : IMPORT.matcher(s).matches();
@@ -266,6 +280,7 @@ final class AiScaffold {
                 body.add("");
                 body.add("    // ==================== מכאן והלאה: מעטפת מוכנה (בדיקה של הפעולות) ====================");
                 body.add("    // אין צורך לשנות — אבל אפשר לשנות את הערכים כדי לבדוק מקרים נוספים");
+                body.addAll(expectedComment(e.expectedOutput));
                 body.add("");
                 if (cs) {
                     body.add("    public static void Main(string[] args)");

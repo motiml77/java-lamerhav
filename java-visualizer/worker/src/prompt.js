@@ -27,6 +27,7 @@ Arrays (int[], String[], int[][]) and String/Math/Integer/Character from java.la
     declare: 'Stack<Integer> s1 = new Stack<Integer>(); build chains with new Node<Integer>(...), trees with new BinNode<Integer>(left, value, right)',
     imports: 'imports — extra imports needed by mainCode/classes/givenCode, only java.util classes (e.g. "java.util.ArrayList"). Usually empty.',
     rules: 'Java 11, no "var", no records, no lambdas in mainCode. A method of the main class is "public static".',
+    formats: 'boolean prints true / false; double prints like 2.5 or 3.0; char prints the character; an int[] array printed with Arrays.toString looks like [1, 2, 3].',
     noLib: 'NEVER define Stack, Queue, Node, BinNode or BinTreeNode (they come from the library). No package or import lines.',
   },
   csharp: {
@@ -54,6 +55,7 @@ Arrays (int[], string[], int[,] or int[][]) and string/Math/Console from System 
     imports: 'imports — extra "using" namespaces needed by mainCode/classes/givenCode (e.g. "System.Text"), never System.Collections.Generic. Usually empty.',
     rules: 'C# 10 / .NET 8, no "var", no records, no lambdas or LINQ in mainCode, no top-level statements, no namespace. A method of the main class is "public static". Fields of exercise classes are private, with public Get/Set methods or properties as the exercise describes.',
     noLib: 'NEVER define Stack, Queue, Node or BinNode (they come from the library). No using lines and no namespace.',
+    formats: 'bool prints True / False; double prints like 2.5 or 3 (no ".0"); char prints the character; arrays must be printed with string.Join(", ", arr) — looks like 1, 2, 3.',
   },
 };
 
@@ -97,10 +99,12 @@ givenCode — methods that the exercise gives as already existing ("נתונה �
   and that the solution may call. Write a correct, complete implementation of each one (full method code with its header; "public static" when it is in the main class)
   so that the program runs. className = where it belongs. Never put a task method here.
 
-mainCode — ONLY the statements of the body of "${L.mainHeader}" (no header, no outer braces). It must:
-  • build example data that fits the exercise — use the example values from the exercise when given, otherwise 5–8 sensible values;
+mainCode — ONLY the statements of the body of "${L.mainHeader}" (no header, no outer braces). main is the student's TEST of the solution:
+running it must show whether each method the student writes works correctly. It must:
+  • build example data that fits the exercise — use the example values from the exercise when given, otherwise 5–8 sensible values
+    chosen so that a wrong solution gives a different result (not all zeros, not trivial, include the interesting cases of the question);
   • print the data before the calls;
-  • call EVERY task (for instance methods create the objects first; for a constructor task create an object with it) and print each result
+  • call EVERY task with this data (for instance methods create the objects first; for a constructor task create an object with it) and print each result
     with a Hebrew label, e.g. ${L.print} — for void methods print the structure after the call;
   • if several calls change the same structure, build a separate structure (separate variable) for each call;
   • the task bodies are stubs that return 0 / false / null until the student writes them — main must not crash because of that
@@ -108,6 +112,13 @@ mainCode — ONLY the statements of the body of "${L.mainHeader}" (no header, no
   • use only the library API below and the standard basics; no keyboard input — fixed values only;
   • declare with full generic types: ${L.declare};
   • short and clear, with a few short Hebrew comments (// ...).
+
+expectedOutput — EXACTLY what the program prints when the student has solved every task CORRECTLY: every line that mainCode prints, in order,
+  each line exactly as it will appear (same Hebrew labels, same spacing). This is shown to the student as "if you solved it correctly, this should be printed".
+  Work it out carefully, step by step, by simulating mainCode with a correct solution of every task. Keep the data small so the result is certain.
+  How the library prints: Stack → [top,...,bottom] e.g. after push 1, push 2, push 3 it prints [3,2,1]; Queue → [head,...,tail] e.g. [1,2,3];
+  an empty Stack or Queue → []; Node chain → 1 -> 2 -> 3 -> null; BinNode → only its own value (e.g. 7); ${L.formats}
+  Lines separated by "\\n". No explanations, no comments — only the printed text.
 
 ${L.imports}
 title — short Hebrew title (up to 6 words). summary — 1–2 Hebrew sentences: what the exercise is about.
@@ -127,6 +138,7 @@ export function repairPrompt(lang) {
 Below: your previous JSON, the generated ${L.name} files, and the compiler errors.
 Return the corrected JSON (same schema) that fixes ALL the errors — usually in mainCode, classes, givenCode or imports.
 Keep the same tasks (same names and signatures) unless a signature itself is not valid ${L.name}.
+If you change mainCode, update expectedOutput to match it.
 Still never write the solution of any task.`;
 }
 
@@ -197,7 +209,8 @@ export const RESPONSE_SCHEMA = {
       },
     },
     mainCode: S('statements of the main method body'),
+    expectedOutput: S('exactly what main prints when all tasks are solved correctly, lines separated by \\n'),
   },
-  required: ['isExercise', 'problem', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode'],
-  propertyOrdering: ['isExercise', 'problem', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode'],
+  required: ['isExercise', 'problem', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode', 'expectedOutput'],
+  propertyOrdering: ['isExercise', 'problem', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode', 'expectedOutput'],
 };
