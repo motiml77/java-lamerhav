@@ -77,9 +77,10 @@ final class MentorRules extends ASTVisitor {
         return HebrewErrors.c(code);
     }
 
-    private void warn(ASTNode n, String rule, String msg) {
+    /** אזהרה: משפט בעברית (main), והעצה שבסוגריים המרובעים (tip) — עם הקוד המתוקן בסוף */
+    private void warn(ASTNode n, String rule, String main, String tip) {
         int s = n.getStartPosition();
-        out.add(new Mentor.Finding(s, s + Math.max(0, n.getLength() - 1), cu.getLineNumber(s), Mentor.WARNING, msg, rule));
+        out.add(new Mentor.Finding(s, s + Math.max(0, n.getLength() - 1), cu.getLineNumber(s), Mentor.WARNING, main, tip, rule));
     }
 
     // ---------------------------------------------------------------- השוואות
@@ -93,12 +94,12 @@ final class MentorRules extends ASTVisitor {
             ITypeBinding lt = l.resolveTypeBinding(), rt = r.resolveTypeBinding();
             String not = op == InfixExpression.Operator.NOT_EQUALS ? "!" : "";
             if (isString(lt) && isString(rt)) {
-                warn(e, "string-eq", "השוואת מחרוזות עם " + c(op) + " בודקת אם זה אותו עצם בזיכרון, ולא אם הטקסט שווה (מחרוזת שנקראה מהמקלדת לא תהיה "
-                        + c(op) + " למחרוזת שכתובה בקוד, גם אם הטקסט זהה). כותבים: " + c(not + l + ".equals(" + r + ")"));
+                warn(e, "string-eq", "השוואת מחרוזות עם " + c(op) + " בודקת אם זה אותו עצם בזיכרון, ולא אם הטקסט שווה",
+                        "טעות נפוצה מאוד: עם מחרוזת שנקראה מהמקלדת ההשוואה לא תצליח גם כשהטקסט זהה. כותבים: " + c(not + l + ".equals(" + r + ")"));
             } else if (boxed(lt) && boxed(rt)) {
-                warn(e, "boxed-eq", "שני הצדדים הם " + c(lt.getName()) + " (עצמים — למשל ערכים שהוצאו ממחסנית, מתור או מחוליה), ו-" + c(op)
-                        + " משווה עצמים ולא ערכים: למספרים מעל 127 יתקבל " + c(op.toString().equals("==") ? "false" : "true") + " גם כשהערכים שווים. כותבים "
-                        + c(not + l + ".equals(" + r + ")") + " — או שומרים קודם במשתנה " + (lt.getName().equals("Integer") ? c("int") : "פשוט"));
+                warn(e, "boxed-eq", "שני הצדדים הם " + c(lt.getName()) + " (עצמים — למשל ערכים שהוצאו ממחסנית, מתור או מחוליה), ו-" + c(op) + " משווה עצמים ולא ערכים",
+                        "קשה לגלות את זה: עד 127 זה עובד, ובמספרים גדולים יותר ההשוואה נכשלת גם כשהערכים שווים. שומרים קודם במשתנה "
+                        + (lt.getName().equals("Integer") ? "int" : "פשוט") + ", או כותבים: " + c(not + l + ".equals(" + r + ")"));
             }
         }
         return true;
@@ -109,7 +110,8 @@ final class MentorRules extends ASTVisitor {
     @Override
     public boolean visit(IfStatement s) {
         if (s.getThenStatement() instanceof EmptyStatement) {
-            warn(s.getThenStatement(), "if-semicolon", "יש `;` מיד אחרי התנאי של `if` — היא כל הגוף של ה-`if`, ולכן מה שבא אחריה יתבצע תמיד (גם כשהתנאי לא מתקיים). מוחקים את ה-`;`");
+            warn(s.getThenStatement(), "if-semicolon", "יש נקודה-פסיק מיד אחרי התנאי של " + c("if"),
+                    "היא כל הגוף של ה-if, ולכן מה שבא אחריה יתבצע תמיד, גם כשהתנאי לא מתקיים. מוחקים את התו: `;`");
         }
         assignmentInCondition(s.getExpression());
         if (s.getElseStatement() == null) misleadingIndent(s, s.getThenStatement(), "if");
@@ -120,8 +122,8 @@ final class MentorRules extends ASTVisitor {
     @Override
     public boolean visit(WhileStatement w) {
         if (w.getBody() instanceof EmptyStatement) {
-            warn(w.getBody(), "loop-semicolon", "יש `;` מיד אחרי `while (...)` — הלולאה ריקה: היא בודקת את התנאי שוב ושוב (ואם הוא נכון — לא תיגמר), "
-                    + "והבלוק שאחריה הוא לא חלק מהלולאה. מוחקים את ה-`;`");
+            warn(w.getBody(), "loop-semicolon", "יש נקודה-פסיק מיד אחרי " + c("while"),
+                    "הלולאה ריקה — הבלוק שאחריה לא שייך לה, ואם התנאי נכון היא לא תיגמר. מוחקים את התו: `;`");
             return true;
         }
         assignmentInCondition(w.getExpression());
@@ -141,7 +143,8 @@ final class MentorRules extends ASTVisitor {
     @Override
     public boolean visit(ForStatement f) {
         if (f.getBody() instanceof EmptyStatement) {
-            warn(f.getBody(), "loop-semicolon", "יש `;` מיד אחרי `for (...)` — הלולאה ריקה, והבלוק שאחריה יתבצע רק פעם אחת, אחרי שהלולאה נגמרת. מוחקים את ה-`;`");
+            warn(f.getBody(), "loop-semicolon", "יש נקודה-פסיק מיד אחרי " + c("for"),
+                    "הלולאה ריקה, והבלוק שאחריה יתבצע רק פעם אחת, אחרי שהלולאה נגמרת. מוחקים את התו: `;`");
             return true;
         }
         misleadingIndent(f, f.getBody(), "for");
@@ -176,8 +179,8 @@ final class MentorRules extends ASTVisitor {
             }
             String i = v.getName();
             if (up && dir < 0 || down && dir > 0) {
-                warn(u, "for-direction", "התנאי " + c(e) + " מחכה ש-" + c(i) + (up ? " יגדל" : " יקטן") + ", אבל " + c(u) + (up ? " מקטין" : " מגדיל") + " אותו בכל סיבוב — "
-                        + "הלולאה לא תיגמר (או תרוץ מיליארדי פעמים). התכוונתם ל-" + c(i + (up ? "++" : "--")) + "?");
+                warn(u, "for-direction", "התנאי מחכה ש-" + c(i) + (up ? " יגדל" : " יקטן") + ", אבל בכל סיבוב הוא " + (up ? "קטן" : "גדל"),
+                        "הלולאה לא תיגמר (או תרוץ מיליארדי פעמים). כנראה התכוונתם ל: " + c(i + (up ? "++" : "--")));
             }
         }
     }
@@ -185,7 +188,8 @@ final class MentorRules extends ASTVisitor {
     @Override
     public boolean visit(EnhancedForStatement f) {
         if (f.getBody() instanceof EmptyStatement) {
-            warn(f.getBody(), "loop-semicolon", "יש `;` מיד אחרי `for (...)` — הלולאה ריקה, והבלוק שאחריה יתבצע רק פעם אחת. מוחקים את ה-`;`");
+            warn(f.getBody(), "loop-semicolon", "יש נקודה-פסיק מיד אחרי " + c("for"),
+                    "הלולאה ריקה, והבלוק שאחריה יתבצע רק פעם אחת. מוחקים את התו: `;`");
             return true;
         }
         misleadingIndent(f, f.getBody(), "for");
@@ -200,8 +204,8 @@ final class MentorRules extends ASTVisitor {
             Assignment a = (Assignment) e;
             ITypeBinding t = a.resolveTypeBinding();
             if (t != null && t.getName().equals("boolean")) {
-                warn(a, "assign-in-condition", "בתנאי כתבתם `=` (השמה): זה שם " + c(a.getRightHandSide()) + " בתוך " + c(a.getLeftHandSide())
-                        + ", ולא בודק כלום. להשוואה כותבים `==` (ולמשתנה `boolean` מספיק: " + c("if (" + a.getLeftHandSide() + ")") + ")");
+                warn(a, "assign-in-condition", "בתנאי כתבתם השמה (=) במקום השוואה",
+                        "ההשמה שמה ערך במשתנה ולא בודקת כלום. השוואה כותבים עם ==, ולמשתנה boolean מספיק: " + c("if (" + a.getLeftHandSide() + ")"));
             }
         }
     }
@@ -223,8 +227,8 @@ final class MentorRules extends ASTVisitor {
                 ? nextCol == src.column(body.getStartPosition()) && nextCol > ctrlIndent
                 : nextCol > ctrlIndent;
         if (looksInside) {
-            warn(next, "indent", "השורה הזאת מוזחת כאילו היא בתוך ה-" + c(kw) + " (שורה " + ctrlLine + "), אבל בלי `{ }` רק הפקודה הראשונה אחריו שייכת לו"
-                    + " — השורה הזאת תתבצע תמיד. אם גם היא צריכה להיות בפנים — עוטפים את שתיהן ב-`{ }`");
+            warn(next, "indent", "השורה הזאת מוזחת כאילו היא בתוך ה-" + c(kw) + " שבשורה " + ctrlLine + ", אבל היא לא בתוכו",
+                    "בלי סוגריים מסולסלים רק הפקודה הראשונה שייכת ל-" + kw + ", והשורה הזאת תתבצע תמיד. עוטפים את שתי השורות: `{ ... }`");
         }
     }
 
@@ -234,7 +238,8 @@ final class MentorRules extends ASTVisitor {
         List<?> st = ((Block) body).statements();
         for (Object o : st) {
             if (o instanceof ReturnStatement) {
-                warn((ASTNode) o, "loop-once", "ה-`return` הזה בתוך הלולאה, בלי תנאי — הלולאה תתבצע פעם אחת בלבד. אם צריך לעבור על כל האיברים, ה-`return` בא אחרי הלולאה");
+                warn((ASTNode) o, "loop-once", "ה-return בתוך הלולאה בלי תנאי — הלולאה תתבצע פעם אחת בלבד",
+                        "אם צריך לעבור על כל האיברים, ה-return בא אחרי הלולאה");
                 return;
             }
         }
@@ -243,8 +248,8 @@ final class MentorRules extends ASTVisitor {
         Statement els = last.getElseStatement();
         if (els != null && endsWithReturn(last.getThenStatement()) && endsWithReturn(els)) {
             Statement r = lastStatement(els);
-            warn(r, "loop-if-else-return", "גם ב-`if` וגם ב-`else` יש `return` — כבר בסיבוב הראשון הפעולה יוצאת, ולא בודקים את שאר האיברים. "
-                    + "בדרך כלל: ב-`if` משאירים את ה-`return`, ואת ה-`return` של ה-`else` מעבירים לאחרי הלולאה");
+            warn(r, "loop-if-else-return", "גם ב-if וגם ב-else יש return — כבר בסיבוב הראשון הפעולה יוצאת",
+                    "טעות נפוצה בחיפוש: בודקים רק את האיבר הראשון. משאירים את ה-return של ה-if, ואת ה-return של ה-else מעבירים לאחרי הלולאה");
         }
     }
 
@@ -307,9 +312,8 @@ final class MentorRules extends ASTVisitor {
             }
         });
         if (used[0]) {
-            warn(e, "off-by-one", "התנאי " + c(e) + " מגיע עד " + c(r) + ", אבל האינדקס האחרון הוא " + c(r + " - 1") + " — בסיבוב האחרון "
-                    + c(array ? t + "[" + i + "]" : t + ".charAt(" + i + ")") + " ייפול (" + c(array ? "ArrayIndexOutOfBoundsException" : "StringIndexOutOfBoundsException")
-                    + "). כותבים " + c(i + " < " + r));
+            warn(e, "off-by-one", "התנאי מגיע עד " + c(r) + ", אבל האינדקס האחרון הוא אחד פחות",
+                    "בסיבוב האחרון תהיה שגיאה (" + (array ? "ArrayIndexOutOfBoundsException" : "StringIndexOutOfBoundsException") + "). כותבים: " + c(i + " < " + r));
         }
     }
 
@@ -334,7 +338,7 @@ final class MentorRules extends ASTVisitor {
                     Calls k = calls(body, v);
                     if (!k.removes.isEmpty() || !k.peeks.isEmpty()) {
                         warn(cond, "loop-inverted", "הלולאה רצה כל עוד " + c(v.getName()) + " ריק" + ("Stack".equals(kind) ? "ה" : "") + " — ובתוכה מוציאים ממנ"
-                                + ("Stack".equals(kind) ? "ה" : "ו") + ", וזה ייכשל. כנראה התכוונתם ל-" + c("!" + m));
+                                + ("Stack".equals(kind) ? "ה" : "ו"), "כנראה התנאי הפוך: " + c("!" + m));
                     }
                     handled = true;
                 }
@@ -351,16 +355,16 @@ final class MentorRules extends ASTVisitor {
         String x = v.getName(), rem = stack ? "pop" : "remove", it = stack ? "היא" : "הוא";
         Calls k = calls(body, v);
         if (k.removes.isEmpty() && !k.assigned && !k.escapes && !exits(body)) {
-            warn(cond, "loop-no-progress", "הלולאה רצה כל עוד " + c(x) + " לא " + (stack ? "ריקה" : "ריק") + ", אבל בתוכה אף פעם לא מוציאים מ-" + c(x) + " ("
-                    + c(x + "." + rem + "()") + ") — " + it + " לא " + (stack ? "תתרוקן" : "יתרוקן") + " והלולאה לא תיגמר");
+            warn(cond, "loop-no-progress", "הלולאה רצה כל עוד " + c(x) + " לא " + (stack ? "ריקה" : "ריק") + ", אבל בתוכה אף פעם לא מוציאים ממנ" + (stack ? "ה" : "ו"),
+                    it + " לא " + (stack ? "תתרוקן" : "יתרוקן") + " והלולאה לא תיגמר. מוציאים בכל סיבוב: " + c(x + "." + rem + "()"));
             return;
         }
         if (k.assigned || exits(body)) return;
         MethodInvocation firstRemove = first(k.removes, body);
         MethodInvocation add = first(k.adds, body);
         if (firstRemove != null && add != null) {
-            warn(add, "loop-rotate", "בכל סיבוב מוציאים מ-" + c(x) + " ומכניסים אלי" + (stack ? "ה" : "ו") + " בחזרה — " + c(x) + " אף פעם לא " + (stack ? "תתרוקן" : "יתרוקן")
-                    + ", והלולאה לא תיגמר. מעבירים ל" + (stack ? "מחסנית" : "תור") + " עזר (ואחר כך מחזירים), או סופרים סיבובים לפי מספר האיברים");
+            warn(add, "loop-rotate", "בכל סיבוב מוציאים מ-" + c(x) + " ומכניסים אלי" + (stack ? "ה" : "ו") + " בחזרה — " + (stack ? "היא אף פעם לא תתרוקן" : "הוא אף פעם לא יתרוקן"),
+                    "הלולאה לא תיגמר. מעבירים ל" + (stack ? "מחסנית" : "תור") + " עזר (ואחר כך מחזירים), או סופרים סיבובים לפי מספר האיברים");
             return;
         }
         if (firstRemove != null) {
@@ -368,8 +372,8 @@ final class MentorRules extends ASTVisitor {
                 if (m.getStartPosition() <= firstRemove.getStartPosition() || conditional(m, body)) continue;
                 String n = m.getName().getIdentifier();
                 if (n.equals(rem) || n.equals(stack ? "top" : "head")) {
-                    warn(m, "double-pop", "בכל סיבוב יש " + c(firstRemove) + " (שורה " + cu.getLineNumber(firstRemove.getStartPosition()) + ") ואחריה " + c(m)
-                            + ", אבל התנאי של הלולאה בודק רק שיש לפחות איבר אחד — כשנשאר איבר אחד, " + c(m) + " תיכשל. בודקים שוב " + c("!" + x + ".isEmpty()") + " לפניה");
+                    warn(m, "double-pop", "בכל סיבוב יש שתי הוצאות מ-" + c(x) + " (שורות " + cu.getLineNumber(firstRemove.getStartPosition()) + " ו-" + cu.getLineNumber(m.getStartPosition())
+                            + "), אבל התנאי של הלולאה בודק רק שיש איבר אחד", "כשנשאר איבר אחד, ההוצאה השנייה תיכשל. בודקים שוב לפניה: " + c("!" + x + ".isEmpty()"));
                     return;
                 }
             }
@@ -381,7 +385,7 @@ final class MentorRules extends ASTVisitor {
         if (k.assigned || k.escapes || exits(body)) return;
         String p = v.getName();
         String step = "BinNode".equals(lib(v.getType())) ? c(p + " = " + p + ".getLeft();") + " (או " + c("getRight()") + ")" : c(p + " = " + p + ".getNext();");
-        warn(cond, "node-no-progress", c(p) + " לא מתקדם בתוך הלולאה, ולכן התנאי לא משתנה והיא לא תיגמר. בסוף כל סיבוב: " + step);
+        warn(cond, "node-no-progress", c(p) + " לא מתקדם בתוך הלולאה — היא לא תיגמר", "בסוף כל סיבוב מתקדמים: " + step);
     }
 
     /** while (i < n) בלי שום שינוי ב-i או ב-n בתוך הלולאה */
@@ -456,8 +460,8 @@ final class MentorRules extends ASTVisitor {
         if (changed[0]) return;
         List<String> names = new ArrayList<String>();
         for (IVariableBinding v : vars) names.add(v.getName());
-        warn(cond, "loop-stuck", (names.size() == 1 ? "המשתנה " + c(names.get(0)) + " לא משתנה" : "אף אחד מהמשתנים בתנאי (" + c(String.join(", ", names)) + ") לא משתנה")
-                + " בתוך הלולאה — התנאי תמיד יישאר נכון, והלולאה לא תיגמר" + (names.size() == 1 ? ". חסר " + c(names.get(0) + "++") + " (או שינוי אחר)?" : ""));
+        warn(cond, "loop-stuck", (names.size() == 1 ? "המשתנה " + c(names.get(0)) + " לא משתנה" : "אף אחד מהמשתנים בתנאי לא משתנה") + " בתוך הלולאה — היא לא תיגמר",
+                names.size() == 1 ? "כנראה חסר קידום בסוף הלולאה: " + c(names.get(0) + "++") : "משנים בתוך הלולאה את אחד המשתנים: " + c(String.join(", ", names)));
     }
 
     // ---------------------------------------------------------------- ערך שהולך לאיבוד
@@ -480,39 +484,39 @@ final class MentorRules extends ASTVisitor {
         String recv = mi.getExpression() != null ? mi.getExpression().toString() : "";
         String lib = lib(dc);
         if (isString(dc) && STRING_NEW.contains(name) && !recv.isEmpty()) {
-            warn(mi, "string-immutable", "מחרוזת לא משתנה: " + c(mi) + " מחזירה מחרוזת חדשה, ו-" + c(recv) + " נשארת כמו שהייתה. כדי לשמור את השינוי: "
-                    + c(recv + " = " + mi + ";"));
+            warn(mi, "string-immutable", "מחרוזת לא משתנה — " + c(name) + " מחזירה מחרוזת חדשה, והתוצאה הולכת לאיבוד",
+                    "שומרים את התוצאה: " + c(recv + " = " + mi + ";"));
         } else if (lib != null) {
             switch (name) {
                 case "top": case "head":
-                    warn(mi, "ignored-peek", c(mi) + " רק מחזירה את " + (name.equals("top") ? "האיבר שלמעלה" : "הראשון בתור") + " בלי להוציא אותו — והערך הולך לאיבוד. "
-                            + "כדי להוציא: " + c(recv + "." + (name.equals("top") ? "pop();" : "remove();")) + " כדי להשתמש בו: " + c("int x = " + mi + ";"));
+                    warn(mi, "ignored-peek", c(name) + " רק מחזירה את " + (name.equals("top") ? "האיבר העליון" : "הראשון בתור") + " בלי להוציא אותו — והערך הולך לאיבוד",
+                            "כדי להשתמש בו שומרים אותו במשתנה. כדי להוציא: " + c(recv + "." + (name.equals("top") ? "pop();" : "remove();")));
                     break;
                 case "isEmpty": case "hasNext": case "hasLeft": case "hasRight":
-                    warn(mi, "ignored-check", c(mi) + " רק בודקת ומחזירה `true` או `false` — לבד בשורה היא לא עושה כלום. משתמשים בה בתנאי: " + c("if (" + mi + ") …"));
+                    warn(mi, "ignored-check", c(name) + " רק בודקת ומחזירה true או false — לבד בשורה היא לא עושה כלום",
+                            "משתמשים בה בתוך תנאי: " + c("if (" + mi + ")"));
                     break;
                 case "getNext": case "getLeft": case "getRight":
-                    warn(mi, "ignored-move", c(mi) + " לא מזיזה את " + c(recv) + " — היא רק מחזירה את " + (name.equals("getNext") ? "החוליה הבאה" : "הבן") + ". כדי להתקדם: "
-                            + c(recv + " = " + mi + ";"));
+                    warn(mi, "ignored-move", c(name) + " לא מזיזה את " + c(recv) + " — היא רק מחזירה את " + (name.equals("getNext") ? "החוליה הבאה" : "הבן"),
+                            "כדי להתקדם: " + c(recv + " = " + mi + ";"));
                     break;
                 case "getValue": case "getInfo":
-                    warn(mi, "ignored-value", c(mi) + " רק מחזירה את הערך — הוא לא נשמר ולא מודפס. למשל: " + c("int x = " + mi + ";") + " או "
-                            + c("System.out.println(" + mi + ");"));
+                    warn(mi, "ignored-value", "הערך שמוחזר לא נשמר ולא מודפס", "שומרים אותו במשתנה: " + c("int x = " + mi + ";"));
                     break;
                 default:
                     break;
             }
         } else if (dc != null && "java.lang.Math".equals(dc.getQualifiedName())) {
-            warn(mi, "ignored-math", c(mi) + " מחזירה את התוצאה ולא משנה את מה שנשלח אליה — שומרים אותה: " + c("x = " + mi + ";"));
+            warn(mi, "ignored-math", c("Math." + name) + " מחזירה תוצאה ולא משנה את הערך שנשלח אליה", "שומרים את התוצאה: " + c("x = " + mi + ";"));
         } else if (dc != null && dc.isFromSource()) {
             MethodDeclaration encl = enclosingMethod(s);
             IMethodBinding eb = encl != null ? encl.resolveBinding() : null;
             if (eb != null && eb.getMethodDeclaration().isEqualTo(mb.getMethodDeclaration())) {
-                warn(mi, "recursion-ignored", "התוצאה של הקריאה הרקורסיבית " + c(mi) + " לא נשמרת ולא מוחזרת — בדרך כלל צריך: " + c("return " + mi + ";")
-                        + " (או לחבר אותה לתוצאה)");
+                warn(mi, "recursion-ignored", "התוצאה של הקריאה הרקורסיבית לא נשמרת ולא מוחזרת",
+                        "בדרך כלל מחזירים אותה, או מחברים אותה לתוצאה: " + c("return " + mi + ";"));
             } else if (!SIDE_EFFECT.matcher(name).find()) {
-                warn(mi, "ignored-result", c(mi) + " מחזירה ערך (" + c(rt.getName()) + "), אבל הוא לא נשמר ולא מודפס. אם התכוונתם להשתמש בו: "
-                        + c(rt.getName() + " x = " + mi + ";") + " או " + c("System.out.println(" + mi + ");"));
+                warn(mi, "ignored-result", "הפעולה " + c(name) + " מחזירה ערך, אבל הוא לא נשמר ולא מודפס",
+                        "אם התכוונתם להשתמש בו, שומרים אותו: " + c(rt.getName() + " x = " + mi + ";"));
             }
         }
         return true;
@@ -527,12 +531,12 @@ final class MentorRules extends ASTVisitor {
             Expression arg = (Expression) mi.arguments().get(0);
             ITypeBinding t = arg.resolveTypeBinding();
             if (t != null && t.isArray() && !t.getElementType().getName().equals("char")) {
-                warn(arg, "print-array", "הדפסה של מערך מדפיסה כתובת בזיכרון (משהו כמו `[I@1b6d3586`), לא את האיברים. מדפיסים בלולאה, או: "
-                        + c("System.out.println(Arrays.toString(" + arg + "));") + " (עם " + c("import java.util.Arrays;") + ")");
+                warn(arg, "print-array", "הדפסה של מערך מדפיסה כתובת בזיכרון, לא את האיברים",
+                        "מדפיסים בלולאה, או בעזרת המחלקה Arrays (צריך גם import שלה): " + c("System.out.println(Arrays.toString(" + arg + "));"));
             } else if (t != null && t.isClass() && t.isFromSource() && !hasToString(t)) {
                 String name = t.getErasure().getName();
-                warn(arg, "print-object", "הדפסה של עצם מטיפוס " + c(name) + " מדפיסה משהו כמו " + c(name + "@1b6d3586") + ", כי למחלקה " + c(name) + " אין " + c("toString")
-                        + ". מוסיפים לה " + c("public String toString() { return …; }") + " — או מדפיסים את התכונות עצמן");
+                warn(arg, "print-object", "הדפסה של עצם מטיפוס " + c(name) + " מדפיסה כתובת, כי למחלקה אין toString",
+                        "מוסיפים למחלקה פעולה שמחזירה את התכונות כטקסט: " + c("public String toString() { return …; }"));
             }
         }
         return true;
@@ -553,7 +557,7 @@ final class MentorRules extends ASTVisitor {
         boolean len = i instanceof QualifiedName && ((QualifiedName) i).getName().getIdentifier().equals("length") && ((QualifiedName) i).getQualifier().toString().equals(arr)
                 || i instanceof FieldAccess && ((FieldAccess) i).getName().getIdentifier().equals("length") && ((FieldAccess) i).getExpression().toString().equals(arr);
         if (len) {
-            warn(a, "index-length", "האינדקס האחרון במערך הוא " + c(arr + ".length - 1") + " — " + c(a) + " כבר מחוץ למערך (" + c("ArrayIndexOutOfBoundsException") + ")");
+            warn(a, "index-length", "אינדקס שווה לאורך המערך — הוא כבר מחוץ למערך", "האינדקס האחרון הוא: " + c(arr + ".length - 1"));
         }
         return true;
     }
@@ -583,8 +587,8 @@ final class MentorRules extends ASTVisitor {
         if (!removed) return;
         boolean st = kind.equals("Stack");
         String one = st ? "אותה מחסנית" : "אותו תור";
-        warn(at, "alias", c(target.getName() + " = " + src.getName()) + " לא יוצר עותק: " + c(target.getName()) + " ו-" + c(src.getName()) + " הם " + one
-                + ", ומה שמוציאים מאחד נעלם גם מהשני. כדי להעתיק: מעבירים את האיברים ל" + (st ? "מחסנית" : "תור") + " עזר, ומשם מכניסים לשני" + (st ? "הן" : "הם"));
+        warn(at, "alias", "השמה של " + (st ? "מחסנית" : "תור") + " למשתנה אחר לא יוצרת עותק — " + c(target.getName()) + " ו-" + c(src.getName()) + " הם " + one,
+                "מה שמוציאים מאחד נעלם גם מהשני. כדי להעתיק: מעבירים את האיברים ל" + (st ? "מחסנית" : "תור") + " עזר, ומשם מכניסים לשני" + (st ? "הן" : "הם"));
     }
 
     @Override
@@ -604,8 +608,8 @@ final class MentorRules extends ASTVisitor {
             if (glued && (plus || minus && spaceAfter)) {
                 String sign = plus ? "+" : "-";
                 Expression operand = ((PrefixExpression) r).getOperand();
-                warn(a, "eq-plus", "כתבתם " + c("=" + sign) + " — זה שם " + c(sign + operand) + " ב-" + c(a.getLeftHandSide()) + " במקום " + (plus ? "להוסיף" : "להחסיר")
-                        + ". כותבים: " + c(a.getLeftHandSide() + " " + sign + "= " + operand + ";"));
+                warn(a, "eq-plus", "כתבתם " + c("=" + sign) + " במקום " + c(sign + "="),
+                        "כך שמים את הערך במקום " + (plus ? "להוסיף" : "להחסיר") + " אותו. כותבים: " + c(a.getLeftHandSide() + " " + sign + "= " + operand + ";"));
             }
         }
         // s = new Stack<...>() על פרמטר, בפעולת void
@@ -618,8 +622,8 @@ final class MentorRules extends ASTVisitor {
                 String what = v.getType().isArray() ? "מערך" : fem ? "מחסנית" : "Queue".equals(kind) ? "תור" : kind != null ? "עצם" : null;
                 if (what != null) {
                     String nu = fem ? "חדשה" : "חדש";
-                    warn(a, "param-new", "השמה ל-" + c(v.getName()) + " (פרמטר) יוצרת " + what + " " + nu + " רק בתוך הפעולה — ה" + what + " של מי שקרא לפעולה לא "
-                            + "משתנה. אם צריך " + what + " " + nu + " — מחזירים " + (fem ? "אותה" : "אותו") + " (`return`)");
+                    warn(a, "param-new", "השמה לפרמטר " + c(v.getName()) + " יוצרת " + what + " " + nu + " רק בתוך הפעולה",
+                            "מי שקרא לפעולה לא יראה את השינוי. אם צריך " + what + " " + nu + " — מחזירים " + (fem ? "אותה" : "אותו") + ": `return`");
                 }
             }
         }
@@ -641,8 +645,8 @@ final class MentorRules extends ASTVisitor {
         InfixExpression d = (InfixExpression) e;
         if (d.getOperator() != InfixExpression.Operator.DIVIDE || d.hasExtendedOperands()) return;
         if (integral(d.getLeftOperand().resolveTypeBinding()) && integral(d.getRightOperand().resolveTypeBinding())) {
-            warn(d, "int-division", c(d) + " הוא חילוק של שני מספרים שלמים, ולכן התוצאה שלמה (" + c("7 / 2 = 3") + ") — עוד לפני שהיא נשמרת כמספר עשרוני. "
-                    + "כדי לקבל שבר: " + c("(double) " + d.getLeftOperand() + " / " + d.getRightOperand()));
+            warn(d, "int-division", "חילוק של שני מספרים שלמים נותן תוצאה שלמה — השבר הולך לאיבוד, עוד לפני שהיא נשמרת",
+                    "למשל 7 חלקי 2 נותן 3. כדי לקבל שבר: " + c("(double) " + d.getLeftOperand() + " / " + d.getRightOperand()));
         }
     }
 
@@ -688,8 +692,8 @@ final class MentorRules extends ASTVisitor {
         });
         String name = m.getName().getIdentifier();
         if (!self.isEmpty() && !nullBase(m, self) && !branches[0]) {
-            warn(m.getName(), "no-base-case", c(name) + " קוראת לעצמה בכל מקרה — אין מקרה בסיס (תנאי עצירה), ולכן היא לא תיעצר (" + c("StackOverflowError") + "). "
-                    + "בתחילת הפעולה בודקים מקרה פשוט ומחזירים: " + c("if (…) return …;"));
+            warn(m.getName(), "no-base-case", c(name) + " קוראת לעצמה בכל מקרה — אין תנאי עצירה",
+                    "היא לא תיעצר (StackOverflowError). בתחילת הפעולה בודקים מקרה פשוט ומחזירים: " + c("if (…) return …;"));
         }
         paramEmptied(m);
         return true;
@@ -729,11 +733,11 @@ final class MentorRules extends ASTVisitor {
             });
             if (!checked[0]) {
                 String t = v.getName();
-                String what = passed.getName().getIdentifier().equals("getLeft") ? "בן שמאלי" : passed.getName().getIdentifier().equals("getRight") ? "בן ימני" : "חוליה הבאה";
+                String what = passed.getName().getIdentifier().equals("getLeft") ? "הבן השמאלי" : passed.getName().getIdentifier().equals("getRight") ? "הבן הימני" : "החוליה הבאה";
                 ITypeBinding rt = m.resolveBinding().getReturnType();
                 String ret = rt.getName().equals("void") ? "return;" : "return " + HebrewErrors.sample(rt.getName()) + ";";
-                warn(m.getName(), "null-base", c(m.getName()) + " נקראת עם " + c(passed) + ", שיכול להיות `null` (כשאין " + what + ") — ואז " + c(t + ".getValue()")
-                        + " ייפול (" + c("NullPointerException") + "). מוסיפים בתחילת הפעולה: " + c("if (" + t + " == null) " + ret));
+                warn(m.getName(), "null-base", c(m.getName()) + " נקראת עם " + what + " שיכול להיות null",
+                        "בעלה של העץ (או בסוף הרשימה) הקריאה הבאה תיפול (NullPointerException). מוסיפים בתחילת הפעולה: " + c("if (" + t + " == null) " + ret));
                 return true;
             }
         }
@@ -772,9 +776,9 @@ final class MentorRules extends ASTVisitor {
             });
             if (loop[0] == null) continue;
             boolean stack = kind.equals("Stack");
-            warn(loop[0].getExpression(), "param-emptied", "הפעולה מרוקנת את " + c(v.getName()) + " שהתקבל" + (stack ? "ה" : "") + " כפרמטר — אחרי הקריאה, " + (stack ? "המחסנית" : "התור")
-                    + " של מי שקרא לפעולה " + (stack ? "תישאר ריקה" : "יישאר ריק") + ". אם צריך לשמור " + (stack ? "עליה" : "עליו") + ": מעבירים ל" + (stack ? "מחסנית" : "תור")
-                    + " עזר, ובסוף מחזירים את האיברים");
+            warn(loop[0].getExpression(), "param-emptied", "הפעולה מרוקנת את " + (stack ? "המחסנית" : "התור") + " " + c(v.getName()) + " שקיבלה כפרמטר",
+                    "גם אצל מי שקרא לפעולה " + (stack ? "היא תישאר ריקה" : "הוא יישאר ריק") + ". כדי לשמור " + (stack ? "עליה" : "עליו") + ": מעבירים ל"
+                    + (stack ? "מחסנית" : "תור") + " עזר, ובסוף מחזירים את האיברים");
         }
     }
 
@@ -804,8 +808,8 @@ final class MentorRules extends ASTVisitor {
                 if (!k.removes.isEmpty()) use = k.removes.get(0);
                 if (!k.peeks.isEmpty() && (use == null || k.peeks.get(0).getStartPosition() < use.getStartPosition())) use = k.peeks.get(0);
                 if (use != null) {
-                    warn(use, "after-empty", "אחרי הלולאה בשורה " + loopLine + ", " + c(v.getName()) + " כבר " + ("Stack".equals(lib(v.getType())) ? "ריקה" : "ריק") + " — "
-                            + c(use) + " כאן תיכשל");
+                    warn(use, "after-empty", "אחרי הלולאה בשורה " + loopLine + ", " + c(v.getName()) + " כבר " + ("Stack".equals(lib(v.getType())) ? "ריקה" : "ריק") + ", ולכן "
+                            + c(use) + " תיכשל", "הלולאה הוציאה את כל האיברים. אם צריך ערך מסוים — שומרים אותו במשתנה בתוך הלולאה");
                     break;
                 }
             }

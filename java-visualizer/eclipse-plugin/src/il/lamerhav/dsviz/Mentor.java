@@ -18,17 +18,23 @@ import org.eclipse.jdt.core.dom.CompilationUnit;
 public final class Mentor {
     static final int ERROR = 2, WARNING = 1;
 
-    /** הערה אחת: איפה (תווים, כולל הסוף), שורה, חומרה, ההודעה, ואיזה כלל יצר אותה (לבדיקות) */
+    /**
+     * הערה אחת: איפה (תווים, כולל הסוף), שורה, חומרה, ואיזה כלל יצר אותה (לבדיקות).
+     * main — משפט בעברית שמסביר מה לא בסדר; tip — העצה שבסוגריים המרובעים (איך מזהים ומתקנים, והקוד רק בסוף);
+     * message — שניהם יחד, כמו שמוצג ב-Eclipse. קטעי קוד מסומנים ב-`...` (MentorProblem / MentorView).
+     */
     public static final class Finding {
         public final int start, end, line, severity;
-        public final String message, rule;
+        public final String main, tip, message, rule;
 
-        Finding(int start, int end, int line, int severity, String message, String rule) {
+        Finding(int start, int end, int line, int severity, String main, String tip, String rule) {
             this.start = start;
             this.end = end;
             this.line = line;
             this.severity = severity;
-            this.message = message;
+            this.main = main;
+            this.tip = tip == null ? "" : tip;
+            this.message = this.tip.isEmpty() ? main : main + " [" + this.tip + "]";
             this.rule = rule;
         }
 

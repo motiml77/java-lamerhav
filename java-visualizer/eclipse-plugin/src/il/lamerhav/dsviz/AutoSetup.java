@@ -35,6 +35,7 @@ import org.eclipse.ui.PlatformUI;
 public class AutoSetup implements IStartup {
     private static final String NODE = "il.lamerhav.dsviz";
     private static final String DONE = "setupDone";
+    private static final String MENTOR_VIEW = "mentorViewShown";
 
     @Override
     public void earlyStartup() {
@@ -50,6 +51,9 @@ public class AutoSetup implements IStartup {
                         prefs.flush();
                         welcome(main);
                     }
+                    // חלון "הסברים בעברית": נפתח לבד בצד אחרי ההתקנה ואחרי כל עדכון של התוסף (אם התלמיד סגר אותו — עד העדכון הבא)
+                    String version = String.valueOf(org.eclipse.core.runtime.Platform.getBundle(NODE).getVersion());
+                    if (!version.equals(prefs.get(MENTOR_VIEW, ""))) showMentorView(prefs, version, 0);
                     return Status.OK_STATUS;
                 } catch (Exception e) {
                     return new Status(IStatus.WARNING, NODE, "הכנה אוטומטית נכשלה: " + e, e);
@@ -124,6 +128,24 @@ public class AutoSetup implements IStartup {
             } catch (java.io.IOException ignored) {
             }
         }
+    }
+
+    /** פותחים את חלון "הסברים בעברית" בצד, ליד העורך, בלי לקחת את הפוקוס מהעורך (ואם החלון הראשי עוד לא מוכן — מנסים שוב) */
+    private static void showMentorView(final IEclipsePreferences prefs, final String version, final int attempt) {
+        Display.getDefault().asyncExec(() -> {
+            IWorkbenchWindow w = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+            if (w == null || w.getActivePage() == null) {
+                if (attempt < 10) Display.getDefault().timerExec(2000, () -> showMentorView(prefs, version, attempt + 1));
+                return;
+            }
+            try {
+                w.getActivePage().showView(MentorView.ID, null, org.eclipse.ui.IWorkbenchPage.VIEW_VISIBLE);
+                prefs.put(MENTOR_VIEW, version);
+                prefs.flush();
+            } catch (Exception e) {
+                // אפשר לפתוח מהתפריט מבני נתונים ← חלון ההסברים בעברית
+            }
+        });
     }
 
     private static void welcome(final IFile main) {

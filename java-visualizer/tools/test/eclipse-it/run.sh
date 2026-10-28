@@ -27,13 +27,13 @@ OUT="$B/out.txt"
 cat "$OUT"
 check() { grep -q -- "$1" "$OUT" && echo "  ok  $2" || { echo "  FAIL $2  ($1)"; FAILED=1; }; }
 FAILED=0
-check "BUILD Mistakes.java:5 mentor error לתור אין size()" "בנייה: הסבר בעברית לשגיאה (size בתור)"
-check "BUILD Mistakes.java:6 mentor error חסרה נקודה-פסיק (;) בסוף שורה 6" "בנייה: חסרה ; — בשורה הנכונה"
+check "BUILD Mistakes.java:5 mentor error ל-Queue אין פעולה size \[לתור אין פעולה שסופרת" "בנייה: הסבר בעברית לשגיאה (size בתור)"
+check "BUILD Mistakes.java:6 mentor error חסרה נקודה-פסיק בסוף שורה 6 \[כל פקודה" "בנייה: חסרה ; — בשורה הנכונה"
 check "BUILD Warnings.java:5 mentor warning שני הצדדים הם Integer" "בנייה: אזהרה על == בין Integer"
 check "BUILD Warnings.java:9 mentor warning p לא מתקדם" "בנייה: אזהרה על לולאה שלא מתקדמת"
 check "BUILD Warnings.java:15 mentor warning מחרוזת לא משתנה" "בנייה: אזהרה על toUpperCase שהולך לאיבוד"
 check "BUILD Warnings.java:16 mentor warning השוואת מחרוזות" "בנייה: אזהרה על == במחרוזות"
-check "RECONCILE Targil.java:6 mentor חסרה נקודה-פסיק (;) בסוף שורה 6" "בזמן הכתיבה (reconcile): ההסבר מופיע מיד"
+check "RECONCILE Targil.java:6 mentor חסרה נקודה-פסיק בסוף שורה 6" "בזמן הכתיבה (reconcile): ההסבר מופיע מיד"
 check "OFF-MENTOR-COUNT 0" "כיבוי מהתפריט: כל הסימונים נמחקים"
 grep -q "BUILD Targil.java" "$OUT" && { echo "  FAIL קוד תקין קיבל סימונים"; FAILED=1; } || echo "  ok  קוד תקין (Targil.java) — בלי אף סימון"
 [ "$(grep -c '^BUILD-MENTOR-COUNT 0' "$OUT")" = 0 ] && echo "  ok  יש סימונים בבנייה" || { echo "  FAIL אין סימונים בבנייה"; FAILED=1; }
@@ -44,6 +44,8 @@ if [ "$SHOT" = 1 ]; then
     for f in Mistakes:5:21 Warnings:16:15; do
         xvfb-run -a -s "-screen 0 1700x1050x24" java -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -consoleLog -data "$B/ws" \
             -application il.lamerhav.dsviz.it.shot "/Students/src/${f%%:*}.java" "$B/${f%%:*}.png" "${f#*:}" >> "$B/eclipse.log" 2>&1 || true
+        [ "$f" = "Mistakes:5:21" ] && { grep -m1 "MENTOR-VIEW-OPEN" "$B/eclipse.log" | grep -q true && echo "  ok  בהפעלה הראשונה — חלון ההסברים בעברית נפתח לבד בצד" \
+            || { echo "  FAIL חלון ההסברים לא נפתח לבד"; FAILED=1; }; }
         [ -f "$B/${f%%:*}.png" ] && echo "  צילום: $B/${f%%:*}.png  $B/${f%%:*}-problems.png"
     done
 fi

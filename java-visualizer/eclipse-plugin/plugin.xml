@@ -76,6 +76,9 @@
             <separator name="more" visible="true"/>
             <command commandId="il.lamerhav.dsviz.examples" label="דוגמאות פתורות..." style="push"/>
             <command commandId="il.lamerhav.dsviz.mentor" label="הסברים בעברית לשגיאות ולטעויות נפוצות" style="toggle"/>
+            <command commandId="org.eclipse.ui.views.showView" label="חלון ההסברים בעברית" style="push">
+               <parameter name="org.eclipse.ui.views.showView.viewId" value="il.lamerhav.dsviz.mentorView"/>
+            </command>
             <command commandId="il.lamerhav.dsviz.help" label="הדרכה לשימוש (?)..." style="push"/>
          </menu>
       </menuContribution>
@@ -124,6 +127,17 @@
 
    <!-- "המורה בעברית": ליד כל שגיאה של הקומפיילר הסבר בעברית (במקום המדויק של הבעיה), ואזהרות על טעויות נפוצות.
         סוג סימון משלנו (תת-סוג של Java Problem), ו-JDT מנקה אותו בכל בנייה (managedMarker) -->
+   <!-- חלון "הסברים בעברית" — מימין לשמאל, צמוד לימין, ליד העורך (בערימה של Outline) -->
+   <extension point="org.eclipse.ui.views">
+      <category id="il.lamerhav.dsviz.views" name="מבני נתונים"/>
+      <view id="il.lamerhav.dsviz.mentorView" category="il.lamerhav.dsviz.views" name="הסברים בעברית"
+            class="il.lamerhav.dsviz.MentorView" icon="icons/help.png"/>
+   </extension>
+   <extension point="org.eclipse.ui.perspectiveExtensions">
+      <perspectiveExtension targetID="org.eclipse.jdt.ui.JavaPerspective">
+         <view id="il.lamerhav.dsviz.mentorView" relative="org.eclipse.ui.views.ContentOutline" relationship="stack" visible="true"/>
+      </perspectiveExtension>
+   </extension>
    <extension id="mentor" point="org.eclipse.core.resources.markers" name="הסבר בעברית">
       <super type="org.eclipse.jdt.core.problem"/>
       <super type="org.eclipse.core.resources.problemmarker"/>

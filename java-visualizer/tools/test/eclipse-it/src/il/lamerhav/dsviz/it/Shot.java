@@ -44,6 +44,8 @@ public class Shot implements IApplication {
                         IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
                         page.getWorkbenchWindow().getShell().setBounds(0, 0, 1700, 1050);
                         page.getWorkbenchWindow().getShell().setMaximized(true);
+                        // בלי מה שנשאר מהצילום הקודם (חלון מוגדל); את חלון ההסברים לא פותחים כאן — הוא צריך להיפתח לבד (AutoSetup)
+                        if (page.findView("il.lamerhav.dsviz.mentorView") == null) page.resetPerspective();
                         IFile f = ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(a[0]));
                         ITextEditor ed = (ITextEditor) IDE.openEditor(page, f);
                         page.showView("org.eclipse.ui.views.ProblemView");
@@ -80,6 +82,8 @@ public class Shot implements IApplication {
                         }
                     });
                     display.timerExec(11000, () -> {
+                        IWorkbenchPage pg = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+                        System.out.println("MENTOR-VIEW-OPEN " + (pg.findView("il.lamerhav.dsviz.mentorView") != null && pg.isPartVisible(pg.findView("il.lamerhav.dsviz.mentorView"))));
                         capture(display, a[1]);
                         // ועוד צילום: חלון Problems מוגדל — ההודעות המלאות
                         IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();

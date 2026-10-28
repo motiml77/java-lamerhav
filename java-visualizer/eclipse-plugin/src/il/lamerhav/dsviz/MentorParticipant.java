@@ -114,7 +114,7 @@ public class MentorParticipant extends CompilationParticipant {
         }
     }
 
-    private static ASTParser parser(IJavaProject jp) {
+    static ASTParser parser(IJavaProject jp) {
         ASTParser p = ASTParser.newParser(latest());
         p.setProject(jp);
         p.setKind(ASTParser.K_COMPILATION_UNIT);

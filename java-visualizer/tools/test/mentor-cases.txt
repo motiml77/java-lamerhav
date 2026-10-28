@@ -13,7 +13,8 @@ public class X {
   }
 }
 --- expect
-L4 jdt:240 "חסרה נקודה-פסיק (;) בסוף שורה 4 — אחרי 0"
+L4 jdt:240 "חסרה נקודה-פסיק בסוף שורה 4 [כל פקודה נגמרת בנקודה-פסיק"
+L4 jdt:240 "מוסיפים אחרי 0: ;]"
 
 ### חסר } של while
 import unit4.collectionsLib.*;
@@ -28,7 +29,8 @@ public class X {
   }
 }
 --- expect
-L5 jdt:240 "ה-{ שנפתח כאן (של while, שורה 5) לא נסגר — חסר } לפני שורה 6"
+L5 jdt:240 "הסוגר המסולסל שנפתח כאן (של while, שורה 5) לא נסגר"
+L5 jdt:240 "מוסיפים לפני שורה 6: }]"
 !L6 *
 
 ### שמות של פעולות הספרייה
@@ -56,7 +58,7 @@ public class X {
   }
 }
 --- expect
-L6 jdt:100 "למחסנית אין size()"
+L6 jdt:100 "ל-Stack אין פעולה size [למחסנית אין פעולה שסופרת"
 L7 jdt:100 "s.top()"
 L9 jdt:100 "q.insert(x)"
 L9 jdt:100 "q.remove()"
@@ -64,12 +66,13 @@ L9 jdt:100 "q.head()"
 L11 jdt:100 "p.getValue()"
 L11 jdt:100 "p.getNext()"
 L13 jdt:100 "b.getLeft()"
-L14 jdt:70 "חסרים סוגריים: s.pop()"
-L15 jdt:2 "כותבים String"
-L16 jdt:50 "System עם S גדולה"
+L14 jdt:70 "pop היא פעולה, וחסרים לה סוגריים ["
+L14 jdt:70 "s.pop()]"
+L15 jdt:2 "string לא מוכר [ב-Java אותיות גדולות וקטנות שונות. כותבים: String]"
+L16 jdt:50 "system כתוב באות קטנה [System מתחיל באות גדולה"
 L17 jdt:100 "println"
-L18 jdt:2 "כותבים int"
-L19 jdt:2 "כותבים Stack"
+L18 jdt:2 "כותבים: int]"
+L19 jdt:2 "כותבים: Stack]"
 L21 jdt:83 "אין משתנה Count, יש count"
 
 ### return, אתחול, = בתנאי, טיפוסים
@@ -104,7 +107,7 @@ L7 jdt:108 "return false;"
 L11 jdt:108 "אם התנאי של ה-if בשורה 9 לא מתקיים"
 L15 jdt:55 "כבר הוגדר בשורה 13" 
 L15 jdt:55 "y = 4;"
-L16 jdt:17 "להשוואה כותבים ==: y == 4"
+L16 jdt:17 "בתנאי כתבתם השמה (=) במקום השוואה [השוואה כותבים עם שני סימני שוויון: y == 4]"
 L18 jdt:17 "(int) (d)"
 L19 jdt:17 "String.valueOf(5)"
 L20 jdt:17 "בלי מרכאות: 5"
@@ -129,9 +132,9 @@ public class X {
 L4 jdt:240 "Integer במקום int"
 L5 jdt:240 "new Queue<Integer>()"
 L6 jdt:204 "בכותרת של for"
-L7 jdt:232 "כותבים >="
+L7 jdt:232 "הסימנים של גדול-שווה כתובים בסדר הפוך [קודם הסימן ואחר כך השוויון: >=]"
 L8 jdt:240 "בסוף שורה 8"
-L10 jdt:232 "לא כותבים את הטיפוס (int)"
+L10 jdt:232 "בקריאה לפעולה כתוב גם הטיפוס (int)"
 
 ### מחרוזת לא סגורה
 public class X {
@@ -180,7 +183,8 @@ public class X {
   }
 }
 --- expect
-L4 jdt:240 "חסר ) שסוגר את התנאי של if — אחרי 3"
+L4 jdt:240 "חסר סוגר עגול שסוגר את התנאי של if — בשורה 4 נפתחו 1 ונסגרו 0 ["
+L4 jdt:240 "מוסיפים אחרי 3: )]"
 
 ### ; אחרי if ואז else
 public class X {
@@ -193,7 +197,7 @@ public class X {
   }
 }
 --- expect
-L4 jdt:232 "יש ; מיד אחרי התנאי של if"
+L4 jdt:232 "יש נקודה-פסיק מיד אחרי התנאי של if — ולכן ה-else בשורה 6 לא שייך לשום if"
 !L6 jdt:232
 
 ### main לא נסגרה לפני פעולה אחרת
@@ -206,7 +210,8 @@ public class X {
   }
 }
 --- expect
-L2 jdt:240 "של הפעולה main, שורה 2) לא נסגר — חסר } לפני שורה 5"
+L2 jdt:240 "(של הפעולה main, שורה 2) לא נסגר"
+L2 jdt:240 "מוסיפים לפני שורה 5: }]"
 
 ### פקודה מחוץ לפעולה, חסר טיפוס החזרה
 public class X {
@@ -227,7 +232,7 @@ public class X {
   }
 }
 --- expect
-L2 jdt:204 "כותבים public ולא Public"
+L2 jdt:204 "Public כתוב באותיות לא נכונות [ב-Java אותיות גדולות וקטנות שונות. כותבים: public]"
 L3 jdt:253 "\"hello\""
 
 ### length, size, שרשור השוואות, == מופרד, double ל-int
@@ -251,9 +256,9 @@ public class X {
   }
 }
 --- expect
-L4 jdt:116 "arr.length (בלי סוגריים)"
+L4 jdt:116 "arr הוא מערך, ולמערך אין פעולות [האורך נכתב בלי סוגריים: arr.length]"
 L6 jdt:70 "s.length()"
-L7 jdt:100 "אורך מחרוזת"
+L7 jdt:100 "למחרוזת אין פעולה size [את האורך של מחרוזת מקבלים עם: s.length()]"
 L9 jdt:160 "a < b && b < c"
 L10 jdt:234
 L11 jdt:17 "מספר עשרוני"
@@ -285,7 +290,7 @@ public class X {
   }
 }
 --- expect
-L5 jdt:4 "מוחקים את import java.util.*;"
+L5 jdt:4 "מוחקים את ה-import של java.util (שורה 1)"
 
 ### חסרים import
 public class X {
@@ -304,7 +309,7 @@ public class Student {
   public student(String name) { this.name = name; }
 }
 --- expect
-L3 jdt:111 "בנאי נקרא בדיוק כמו המחלקה: Student"
+L3 jdt:111 "שם הבנאי (student) שונה משם המחלקה [בנאי נקרא בדיוק כמו המחלקה, גם באותיות גדולות וקטנות: Student]"
 
 ### else if בלי סוגריים, elseif
 public class X {
@@ -318,7 +323,7 @@ public class X {
   }
 }
 --- expect
-L6 jdt:231 "חייב להיות בתוך סוגריים: if (...)"
+L6 jdt:231 "התנאי של if לא בתוך סוגריים [תנאי תמיד כותבים בתוך סוגריים עגולים: if (...)]"
 
 ### משתנה של לולאה מחוץ לה
 public class X {
@@ -350,7 +355,7 @@ public class X {
   }
 }
 --- expect
-L3 jdt:107 "לא שמים ;"
+L3 jdt:107 "בסוף הכותרת של הפעולה יש נקודה-פסיק"
 L4 jdt:83 "מוגדר בפעולה f"
 L7 jdt:130 "new Node<Integer>(5)"
 L8 jdt:130 "new Stack<Integer>()"
@@ -376,7 +381,8 @@ public class X {
   }
 }
 --- expect
-L11 jdt:240 "(של if, שורה 11) לא נסגר — חסר } לפני שורה 13"
+L11 jdt:240 "(של if, שורה 11) לא נסגר"
+L11 jdt:240 "מוסיפים לפני שורה 13: }]"
 
 ### } מיותר (חסר { אחרי if)
 public class X {
@@ -388,7 +394,8 @@ public class X {
   }
 }
 --- expect
-L4 jdt:232 "חסר { — ולכן ה-} בשורה 6 נראה מיותר"
+L4 jdt:232 "בסוף השורה הזאת חסר סוגר מסולסל פותח — ולכן הסוגר בשורה 6 נראה מיותר"
+L4 jdt:232 "מוסיפים בסוף השורה: {]"
 
 ### כמה ; חסרות
 public class X {
@@ -410,7 +417,7 @@ public class X {
   }
 }
 --- expect
-L3 jdt:240 "יש 2 פעמים ( ורק פעם אחת )"
+L3 jdt:240 "חסר סוגר עגול — בשורה 3 נפתחו 2 ונסגרו 1"
 
 # ======================================================================== אזהרות (קוד שמתקמפל אבל לא עושה מה שרצו)
 
@@ -465,7 +472,7 @@ L5 if-semicolon
 L9 loop-semicolon "while"
 L10 loop-semicolon "for"
 L11 assign-in-condition "if (found)"
-L15 indent "בתוך ה-while (שורה 13)"
+L15 indent "בתוך ה-while שבשורה 13"
 L13 loop-stuck "i++"
 !L18 indent
 
@@ -561,7 +568,7 @@ public class X {
 --- expect
 L4 loop-no-progress "s.pop()"
 L11 loop-rotate "תור עזר"
-L19 double-pop "שורה 18"
+L19 double-pop "שורות 18 ו-19"
 !L31 double-pop
 !L32 double-pop
 L38 loop-inverted "!s.isEmpty()"
@@ -807,7 +814,7 @@ public class Student {
   public static void make() { Student x = new Student("a"); }
 }
 --- expect
-L3 jdt:110 "מוחקים את ה-void"
+L3 jdt:110 "מוחקים את המילה: void]"
 L4 jdt:130 "בשורה 3 כתוב טיפוס החזרה"
 
 ### משתנה בלי ערך התחלתי, משתנה מחוץ לבלוק שלו, שימוש לפני ההגדרה
@@ -836,7 +843,7 @@ public class X {
 L5 jdt:51 "הוגדר בשורה 4 בלי ערך"
 L6 jdt:51 "int sum = 0;"
 L11 jdt:51 "Stack<Integer> s = new Stack<Integer>();"
-L17 jdt:83 "הוגדר בתוך בלוק { } (שורה 15)"
+L17 jdt:83 "הוגדר בתוך בלוק (שורה 15)"
 L18 jdt:83 "מוגדר רק בשורה 19"
 
 ### הדפסת מערך ועצם, arr[arr.length], for בכיוון הפוך, העתקה שאינה עותק
@@ -876,5 +883,5 @@ L13 index-length "arr.length - 1"
 L15 for-direction "i++"
 L16 for-direction "i--"
 !L17 for-direction
-L19 alias "לא יוצר עותק"
+L19 alias "לא יוצרת עותק"
 !L22 alias
