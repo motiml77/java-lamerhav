@@ -11,7 +11,7 @@ import javax.imageio.ImageIO;
 
 /**
  * בדיקה ל"שליחת תרגיל": הכנת הקבצים (Word, תמונות, PDF, קבצים לא נתמכים), JSON, ואם הועברה כתובת שרת — שליחה אמיתית אליו.
- *   java ExerciseFilesTest <files-dir> [worker-url]
+ *   java ExerciseFilesTest <files-dir> [worker-url [app-key]]
  */
 public class ExerciseFilesTest {
     public static void main(String[] a) throws Exception {
@@ -72,8 +72,10 @@ public class ExerciseFilesTest {
 
         // שליחה אמיתית לשרת (אם הועבר) — עם Word, תמונה ו-PDF
         if (a.length > 1) {
-            WorkerClient c = new WorkerClient(a[1], "");
-            Map<String, Object> ex = c.exercise(Arrays.asList(w, big, pdf), "רק סעיף א", "java");
+            WorkerClient c = new WorkerClient(a[1], a.length > 2 ? a[2] : "");
+            // PDF אמיתי (ex.pdf הוא קובץ מדומה לבדיקות בלי רשת — Gemini דוחה אותו)
+            ExerciseFiles.Item exam = ExerciseFiles.fromFile(new File(dir, "exam.pdf"));
+            Map<String, Object> ex = c.exercise(Arrays.asList(w, big, exam), "", "java");
             check(!Json.arr(ex.get("tasks")).isEmpty(), "תשובה מהשרת");
             ok("שליחה לשרת: " + Json.str(ex.get("title")));
             Map<String, String> files = new LinkedHashMap<String, String>();
