@@ -69,7 +69,7 @@
 
 ## התקנה בכל מחשב (Eclipse, VS Code, Visual Studio)
 
-**Windows — [קישור קבוע להורדה](https://github.com/motiml77/java-lamerhav/raw/master/java-visualizer/release/DSViz-Setup.exe):** לחיצה כפולה → הבא → בוחרים שפה (Java / C# / שתיהן) → סיום.
+**Windows — [קישור קבוע להורדה](https://github.com/motiml77/java-lamerhav/raw/master/java-visualizer/release/DSViz-Setup.exe) (קישור קצר: [is.gd/dsjava](https://is.gd/dsjava)):** לחיצה כפולה → הבא → בוחרים שפה (Java / C# / שתיהן) → סיום.
 (הקישור מוביל תמיד לגרסה האחרונה שב-`master`, והנתיב לא משתנה — אפשר לתת אותו לתלמידים או לקצר אותו.)
 
 תוכנית ההתקנה (בעברית, בלי הרשאות מנהל):
