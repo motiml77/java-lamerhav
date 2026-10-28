@@ -51,7 +51,10 @@ public class AiScaffoldTest {
                 if (g.cursorLine >= 0) {
                     cursors++;
                     // הסמן בשורה הריקה שמתחת לכותרת הפעולה — בלי הערות מעליה ובלי הערות בתוכה
-                    check(lines[g.cursorLine - 1].contains(AiScaffold.MARK), f + ": הסמן לא מתחת לשורת \"כאן כותבים את התשובה\" (" + g.cursorLine + ")");
+                    String mk = lines[g.cursorLine - 1];
+                    check(mk.contains(e.tasks.size() > 1 ? AiScaffold.markFor(e.tasks.get(0), true) : AiScaffold.MARK), f + ": הסמן לא מתחת לשורת הסימון (" + g.cursorLine + "): " + mk);
+                    // בלי return בתוך הפעולה — התלמיד כותב בעצמו
+                    check(lines[g.cursorLine + 1].trim().equals("}"), f + ": אחרי הסמן צריך להיות סוף הפעולה, בלי return: " + lines[g.cursorLine + 1]);
                     String before = lines[g.cursorLine - 2].trim();
                     check(before.endsWith("{") || before.endsWith(")"), f + ": מעל שורת הסימון צריכה להיות כותרת הפעולה: " + before);
                     check(lines[g.cursorLine].trim().isEmpty(), f + ": הסמן לא בשורה ריקה");
@@ -65,10 +68,17 @@ public class AiScaffoldTest {
                 // בלי כותרת, בלי נוסח התרגיל ובלי Javadoc — רק שלד ובדיקה
                 check(!g.code.contains("/**") && !g.code.contains("נבנה מהתרגיל") && !g.code.contains("המעטפת מוכנה"), f + ": נשאר הסבר של התרגיל בקוד");
                 check(!g.code.contains(" result = ") && !g.code.contains("answer = "), f + ": נשאר משתנה בתוך הפעולה");
+                check(!g.code.startsWith("\n") && !g.code.contains("\n\n\n") && !g.code.matches("(?s).*\\{\n\n.*") && !g.code.matches("(?s).*\n\n\\s*\\}.*"), f + ": שורות ריקות מיותרות");
                 check(!g.code.contains("תזכורת") && !g.code.contains("זמני"), f + ": נשארו הערות בתוך הפעולה");
+                if (e.tasks.size() > 1) for (AiScaffold.Task t : e.tasks) if (t.className.equals(g.className))
+                    check(g.code.contains("// " + AiScaffold.markFor(t, true)), f + ": חסרה שורת סעיף " + t.label + " ב-" + g.className);
+                AiScaffold.testReturns = true;   // לקומפילציה בבדיקות — עם return חשוף
+                AiScaffold.GeneratedFile gc = null;
+                for (AiScaffold.GeneratedFile x : AiScaffold.build(e, pkg, Arrays.asList(f.getName(), "צילום מסך 1.png"))) if (x.className.equals(g.className)) gc = x;
+                AiScaffold.testReturns = false;
                 Path p = (e.cs ? out.resolve("cs") : out).resolve(pkg).resolve(g.fileName());
                 Files.createDirectories(p.getParent());
-                Files.write(p, g.code.getBytes(StandardCharsets.UTF_8));
+                Files.write(p, gc.code.getBytes(StandardCharsets.UTF_8));
             }
             check(cursors == 1, f + ": צריך בדיוק קובץ אחד עם סמן");
             if (e.cs) csDirs.add(out.resolve("cs").resolve(pkg).toString());

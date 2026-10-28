@@ -82,8 +82,11 @@ public class SubmitHandler extends AbstractHandler {
             if (b.generated.get(i).cursorLine >= 0) { focus = b.files.get(i); line = b.generated.get(i).cursorLine; }
         }
         if (focus == null) focus = b.files.get(0);
-        for (int i = b.files.size() - 1; i >= 0; i--) if (!b.files.get(i).equals(focus)) Ui.openAt(page, b.files.get(i), 0);
-        Ui.openAt(page, focus, line);
+        for (int i = b.files.size() - 1; i >= 0; i--) {
+            IFile f = b.files.get(i);
+            if (!f.equals(focus)) Folding.collapseGiven(Ui.openAt(page, f, 0), f);
+        }
+        Folding.collapseGiven(Ui.openAt(page, focus, line), focus);
     }
 
     /** Java: בניית הקבצים בחבילה משלהם + בדיקת קומפילציה + תיקון אחד (רץ ברקע, עם חלון התקדמות) */

@@ -63,7 +63,7 @@ final class Ui {
     }
 
     /** פותח קובץ בעורך ומציב את הסמן בסוף השורה line (מ-0) */
-    static void openAt(IWorkbenchPage page, IFile file, int line) throws PartInitException {
+    static IEditorPart openAt(IWorkbenchPage page, IFile file, int line) throws PartInitException {
         IEditorPart ed = IDE.openEditor(page, file, true);
         if (line > 0 && ed instanceof ITextEditor) {
             ITextEditor te = (ITextEditor) ed;
@@ -73,6 +73,7 @@ final class Ui {
                 te.selectAndReveal(offset, 0);
             } catch (Exception ignored) {}
         }
+        return ed;
     }
 
     static void error(Shell shell, String what, CoreException e) {

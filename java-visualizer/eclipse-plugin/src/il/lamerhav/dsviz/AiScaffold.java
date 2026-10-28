@@ -40,6 +40,16 @@ final class AiScaffold {
     private static final Pattern IMPORT = Pattern.compile("java\\.util(\\.[a-z]+)*\\.([A-Z][A-Za-z0-9_]*|\\*)");
     private static final Pattern USING = Pattern.compile("System(\\.[A-Z][A-Za-z0-9]*)+");
     static final String MARK = "====" + rtl("כאן כותבים את התשובה") + "====";
+    /** רק לבדיקות: שורת return חשופה בסוף פעולה שמחזירה ערך, כדי שהקוד יתקמפל (לתלמיד לא מוסיפים — הוא כותב בעצמו) */
+    static boolean testReturns = false;
+
+    /** שורת הסימון בתוך הפעולה: כשיש כמה סעיפים — "כאן עונים סעיף א'", אחרת "כאן כותבים את התשובה" */
+    static String markFor(Task t, boolean several) {
+        if (!several) return MARK;
+        String l = t.label == null ? "" : t.label.trim();
+        if (l.matches("[א-ת]")) l += "'";
+        return "====" + rtl("כאן עונים סעיף " + l) + "====";
+    }
 
     // ------------------------------------------------------------------ המודל של התרגיל
 
@@ -265,7 +275,7 @@ final class AiScaffold {
             for (Task t : e.tasks) {
                 if (!t.className.equals(cls)) continue;
                 int at = body.size();
-                int c = stub(body, t);
+                int c = stub(body, t, e.tasks.size() > 1);
                 if (t == firstTask) cursor[0] = at + c;
             }
             boolean anyGiven = false;
@@ -302,23 +312,26 @@ final class AiScaffold {
             List<String> cls0 = classLines(cls, code, isMain, cs);
             int close = cls0.size() - 1;
             while (close > 0 && !cls0.get(close).trim().startsWith("}")) close--;
-            int startLine = countLines(b);
             for (int i = 0; i < close; i++) b.append(cls0.get(i)).append('\n');
-            int bodyStart = startLine + close;
             if (close > 1 && !cls0.get(close - 1).trim().isEmpty() && !body.isEmpty() && !body.get(0).isEmpty()) {
                 b.append('\n');
-                bodyStart++;
             }
             for (String l : body) b.append(l).append('\n');
             for (int i = close; i < cls0.size(); i++) b.append(cls0.get(i)).append('\n');
-            int cur = cursor[0] >= 0 ? bodyStart + cursor[0] : -1;
-            out.add(new GeneratedFile(cls, b.toString(), cur, cs));
+            String text = tidy(b.toString());
+            int cur = -1;
+            if (cursor[0] >= 0) {   // הסמן: בשורה שמתחת לשורת הסימון הראשונה
+                String[] ls = text.split("\n", -1);
+                String mk = "// " + markFor(firstTask, e.tasks.size() > 1);
+                for (int i = 0; i < ls.length; i++) if (ls[i].trim().equals(mk)) { cur = i + 1; break; }
+            }
+            out.add(new GeneratedFile(cls, text, cur, cs));
         }
         return out;
     }
 
     /** פעולה לסעיף אחד. מחזיר את מספר השורה (בתוך מה שנוסף) שבה מחכה הסמן */
-    private static int stub(List<String> out, Task t) {
+    private static int stub(List<String> out, Task t, boolean several) {
         out.add("");
         StringBuilder sig = new StringBuilder("    public ");
         if (t.isStatic) sig.append("static ");
@@ -336,16 +349,25 @@ final class AiScaffold {
             sig.append(") {");
             out.add(sig.toString());
         }
-        // בתוך הפעולה — רק שורת הסימון, ומתחתיה שורה ריקה לסמן (ו-return חשוף כשהפעולה מחזירה ערך, כדי שהקוד יתקמפל). שאר ההערות רק ב-main.
-        out.add("        // " + MARK);
+        // בתוך הפעולה — רק שורת הסימון, ומתחתיה שורה ריקה לסמן. בלי return: התלמיד כותב בעצמו. שאר ההערות רק ב-main.
+        out.add("        // " + markFor(t, several));
         int cursor = out.size();
         out.add("        ");
-        if (!t.constructor() && !"void".equals(t.returnType)) {
-            out.add("");
-            out.add("        return " + defaultValue(t.returnType) + ";");
-        }
+        if (testReturns && !t.constructor() && !"void".equals(t.returnType)) out.add("        return " + defaultValue(t.returnType) + ";");
         out.add("    }");
         return cursor;
+    }
+
+    /** שורות ריקות מיותרות: בראש הקובץ, כפולות, אחרי "{" ולפני "}" */
+    static String tidy(String code) {
+        List<String> out = new ArrayList<String>();
+        for (String l : code.split("\n", -1)) {
+            String t = l.trim();
+            if (l.isEmpty() && (out.isEmpty() || out.get(out.size() - 1).isEmpty() || out.get(out.size() - 1).endsWith("{"))) continue;
+            if (t.startsWith("}")) while (!out.isEmpty() && out.get(out.size() - 1).isEmpty()) out.remove(out.size() - 1);
+            out.add(l);
+        }
+        return String.join("\n", out);
     }
 
     static String defaultValue(String type) {
@@ -516,11 +538,6 @@ final class AiScaffold {
         return t.length() > max ? t.substring(0, max) : t;
     }
 
-    private static int countLines(CharSequence s) {
-        int n = 0;
-        for (int i = 0; i < s.length(); i++) if (s.charAt(i) == '\n') n++;
-        return n;
-    }
 
     private static String spaces(int n) {
         StringBuilder b = new StringBuilder();
