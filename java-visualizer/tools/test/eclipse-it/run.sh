@@ -50,6 +50,8 @@ if [ "$SHOT" = 1 ]; then
             || { echo "  FAIL חלון ההסברים לא נפתח לבד"; FAILED=1; }; }
         [ "$f" = "Mistakes:5:21" ] && { for k in "LAYOUT-AUTO mentor-in-outline-stack=true" "LAYOUT-BOTTOM mentor-in-outline-stack=false" "LAYOUT-REDOCKED mentor-in-outline-stack=true" "separate-row=true"; do
             grep -q "$k" "$B/eclipse.log" && echo "  ok  סידור אוטומטי: $k" || { echo "  FAIL סידור אוטומטי: $k"; FAILED=1; }; done; }
+        [ "$f" = "Mistakes:5:21" ] && { for k in "FOLD public static int twice(int x) { collapsed=true" "FOLD public static void main(String\[\] args) { collapsed=true" "FOLD public static int countEven(int\[\] a) { collapsed=false"; do
+            grep -q "$k" "$B/eclipse.log" && echo "  ok  כיווץ בתרגיל שנוצר: $k" || { echo "  FAIL כיווץ בתרגיל שנוצר: $k"; FAILED=1; }; done; }
         [ -f "$B/${f%%:*}.png" ] && echo "  צילום: $B/${f%%:*}.png  $B/${f%%:*}-problems.png"
     done
 fi

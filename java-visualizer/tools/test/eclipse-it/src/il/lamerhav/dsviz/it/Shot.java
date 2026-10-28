@@ -63,6 +63,11 @@ public class Shot implements IApplication {
                         } catch (Throwable t) {
                             t.printStackTrace(System.out);
                         }
+                        // תרגיל שנוצר: main ופעולות עזר מכווצים, הפעולה של התלמיד פתוחה (Folding)
+                        IFile ex = ResourcesPlugin.getWorkspace().getRoot().getFile(new Path("/Students/src/Exercise.java"));
+                        final ITextEditor exEd = (ITextEditor) IDE.openEditor(page, ex);
+                        il.lamerhav.dsviz.Folding.collapseGiven(exEd, ex);
+                        display.timerExec(5000, () -> foldReport(exEd));
                         IFile f = ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(a[0]));
                         ITextEditor ed = (ITextEditor) IDE.openEditor(page, f);
                         page.showView("org.eclipse.ui.views.ProblemView");
@@ -153,6 +158,25 @@ public class Shot implements IApplication {
                 System.out.println("LAYOUT-" + tag + " toolbar items=" + t.getItemCount() + " spacers=" + sp + " size=" + t.getSize().x + "x" + t.getSize().y + " pref=" + t.computeSize(-1, -1).x);
             }
             System.out.println("LAYOUT-" + tag + " toolbar-y=" + a.y + " main-toolbar-y=" + b.y + " separate-row=" + (a.y > b.y + 5));
+        }
+    }
+
+    /** אילו פעולות מכווצות בעורך של התרגיל */
+    private static void foldReport(ITextEditor ed) {
+        try {
+            org.eclipse.jface.text.source.projection.ProjectionAnnotationModel m = ed.getAdapter(org.eclipse.jface.text.source.projection.ProjectionAnnotationModel.class);
+            org.eclipse.jface.text.IDocument doc = ed.getDocumentProvider().getDocument(ed.getEditorInput());
+            java.util.Iterator<?> it = m.getAnnotationIterator();
+            while (it.hasNext()) {
+                Object o = it.next();
+                if (!(o instanceof org.eclipse.jface.text.source.projection.ProjectionAnnotation)) continue;
+                org.eclipse.jface.text.Position pos = m.getPosition((org.eclipse.jface.text.source.Annotation) o);
+                int line = doc.getLineOfOffset(pos.offset);
+                String text = doc.get(doc.getLineOffset(line), doc.getLineLength(line)).trim();
+                System.out.println("FOLD " + text + " collapsed=" + ((org.eclipse.jface.text.source.projection.ProjectionAnnotation) o).isCollapsed());
+            }
+        } catch (Throwable t) {
+            t.printStackTrace(System.out);
         }
     }
 
