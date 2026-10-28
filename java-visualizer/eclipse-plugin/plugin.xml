@@ -61,7 +61,9 @@
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש: מערך דו-ממדי..." style="push">
                <parameter name="il.lamerhav.dsviz.structure" value="matrix"/>
             </command>
+            <!-- submit:start -->
             <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל (PDF / Word / תמונה)..." style="push"/>
+            <!-- submit:end -->
             <separator name="insert" visible="true"/>
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
             <separator name="run" visible="true"/>
@@ -77,8 +79,10 @@
          <toolbar id="il.lamerhav.dsviz.toolbar" label="מבני נתונים">
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש" mode="FORCE_TEXT"
                      tooltip="תרגיל חדש במבני נתונים — בוחרים מבנה ומקבלים תרגיל מוכן" style="push"/>
+            <!-- submit:start -->
             <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל" mode="FORCE_TEXT"
                      tooltip="שליחת תרגיל: מצרפים את דף התרגיל (PDF, Word או תמונה / צילום מסך) ומקבלים קובץ מוכן — מחלקות, main ופעולה לכל סעיף" style="push"/>
+            <!-- submit:end -->
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים" mode="FORCE_TEXT"
                      tooltip="הוסף מבנה נתונים לקוד במקום הסמן — בוחרים מבנה, ערכים ושם, ורואים איך הוא ייראה" style="push"/>
             <separator name="run" visible="true"/>
@@ -98,12 +102,16 @@
       <!-- לחיצה ימנית בעץ הקבצים -->
       <menuContribution locationURI="popup:org.eclipse.jdt.ui.PackageExplorer?after=additions">
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <!-- submit:start -->
          <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push"/>
+         <!-- submit:end -->
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
       </menuContribution>
       <menuContribution locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?after=additions">
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <!-- submit:start -->
          <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push"/>
+         <!-- submit:end -->
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
       </menuContribution>
    </extension>

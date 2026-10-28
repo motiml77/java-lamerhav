@@ -211,6 +211,7 @@ stk2.push(stk2Inner);   // האחרון שנכנס — בראש המחסנית
 
 השליחה עוברת דרך שרת ביניים קטן (Cloudflare Worker) שמחזיק את המפתח של Gemini, כך שהמפתח לא נמצא אצל התלמידים —
 **לפני השימוש צריך להתקין אותו פעם אחת:** [`worker/README.md`](worker/README.md).
+עד שכתובת השרת מוגדרת (`eclipse-plugin/ai.properties`), הכפתור לא מופיע בתוסף.
 
 ![שליחת תרגיל](docs/submit-dialog.png)
 

@@ -44,6 +44,16 @@ rm -rf "$OUT" && mkdir -p "$OUT/resources/examples"
 CP=$(ls $DEPS/*.jar | tr '\n' ':')
 javac --release 11 -encoding UTF-8 -nowarn -cp "$CP" -d "$OUT" $(find eclipse-plugin/src -name '*.java')
 cp eclipse-plugin/plugin.xml "$OUT/"
+# "שליחת תרגיל" מופיעה בתפריטים ובסרגל הכלים רק כשיש כתובת שרת (eclipse-plugin/ai.properties, worker/README.md)
+if ! grep -qE '^url=https?://' eclipse-plugin/ai.properties; then
+    python3 -c "
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding='utf-8').read()
+s = re.sub(r'[ \t]*<!-- submit:start -->.*?<!-- submit:end -->\n', '', s, flags=re.S)
+open(p, 'w', encoding='utf-8').write(s)" "$OUT/plugin.xml"
+    echo "  (שליחת תרגיל: אין כתובת שרת — הכפתור לא מוצג)"
+fi
 cp -r eclipse-plugin/icons "$OUT/"
 cp release/dsviz.jar "$OUT/resources/"
 cp eclipse-plugin/ai.properties "$OUT/resources/"   # "שליחת תרגיל": כתובת השרת (worker/README.md)
