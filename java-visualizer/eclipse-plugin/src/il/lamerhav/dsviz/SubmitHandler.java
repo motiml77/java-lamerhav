@@ -165,7 +165,7 @@ public class SubmitHandler extends AbstractHandler {
             errors.clear();
             jp.getProject().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, m);
             for (IMarker mk : folder.findMarkers(IMarker.PROBLEM, true, IResource.DEPTH_INFINITE)) {
-                if (mk.getAttribute(IMarker.SEVERITY, 0) != IMarker.SEVERITY_ERROR) continue;
+                if (mk.getAttribute(IMarker.SEVERITY, 0) != IMarker.SEVERITY_ERROR || MentorProblem.MARKER.equals(mk.getType())) continue; // בלי ההסברים בעברית
                 errors.add(mk.getResource().getName() + ":" + mk.getAttribute(IMarker.LINE_NUMBER, 0) + ": " + mk.getAttribute(IMarker.MESSAGE, ""));
                 if (errors.size() >= 30) break;
             }

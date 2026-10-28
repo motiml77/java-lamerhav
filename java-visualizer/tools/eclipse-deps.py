@@ -16,9 +16,10 @@ PINNED = {
         'org.eclipse.ui.ide': '3.20.100', 'org.eclipse.ui.workbench.texteditor': '3.16.700',
         'org.eclipse.text': '3.12.300', 'org.eclipse.jface.text': '3.23.0',
         'org.eclipse.core.filesystem': '1.9.500', 'org.eclipse.core.expressions': '3.8.200',
-        'org.eclipse.equinox.preferences': '3.10.300',
+        'org.eclipse.equinox.preferences': '3.10.300', 'org.eclipse.core.contenttype': '3.8.200',
     },
-    'org.eclipse.jdt': {'org.eclipse.jdt.core': '3.33.0', 'org.eclipse.jdt.launching': '3.19.900'},
+    # ecj: הקומפיילר עצמו (IProblem, CategorizedProblem — ב-Eclipse הוא מגיע עם jdt.core); contenttype — ל-ASTParser בבדיקות של "המורה בעברית"
+    'org.eclipse.jdt': {'org.eclipse.jdt.core': '3.33.0', 'org.eclipse.jdt.launching': '3.19.900', 'ecj': '3.33.0'},
     'org.osgi': {'org.osgi.service.prefs': '1.1.2'},
 }
 

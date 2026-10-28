@@ -89,5 +89,16 @@ for m in $(cat "$W/ai/src/mains.txt"); do
 done
 echo "  ok  כל המעטפות מתקמפלות ורצות (main קורא לכל הסעיפים)"
 
+echo "== 10. המורה בעברית (Eclipse): תרגום כל הודעות הקומפיילר, מיקום מדויק של הבעיה, ואזהרות על טעויות נפוצות"
+DEPS="$(cd ../../build/eclipse-deps && pwd)"
+mkdir -p "$W/mentor/cls"
+javac -encoding UTF-8 -nowarn -cp "$(ls "$DEPS"/*.jar | tr '\n' ':')" -d "$W/mentor/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Mentor.java \
+    ../../eclipse-plugin/src/il/lamerhav/dsviz/MentorRules.java ../../eclipse-plugin/src/il/lamerhav/dsviz/MentorSource.java \
+    ../../eclipse-plugin/src/il/lamerhav/dsviz/HebrewErrors.java MentorTest.java
+cp ../../eclipse-plugin/src/il/lamerhav/dsviz/problems_he.properties "$W/mentor/cls/il/lamerhav/dsviz/"
+(cd "$W/mentor" && jar xf "$DEPS/ecj.jar" org/eclipse/jdt/internal/compiler/problem/messages.properties)
+java -Dstdout.encoding=UTF-8 -Dclean=../../src/examples:../../src/Main.java -Dmessages="$W/mentor/org/eclipse/jdt/internal/compiler/problem/messages.properties" \
+    -cp "$W/mentor/cls:$(ls "$DEPS"/*.jar | tr '\n' ':')" il.lamerhav.dsviz.MentorTest "$JAR" mentor-cases.txt
+
 echo "== C# (Visual Studio / VS Code / Rider)"
 sh ./cs-tests.sh

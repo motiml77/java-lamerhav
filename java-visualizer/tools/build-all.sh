@@ -38,11 +38,12 @@ rm -rf build/help && mkdir -p build/help && cp help/index.html help/player.html 
 
 echo "== Eclipse"
 DEPS=build/eclipse-deps
-[ -f "$DEPS/org.eclipse.jdt.core.jar" ] || python3 tools/eclipse-deps.py "$DEPS"
+[ -f "$DEPS/org.eclipse.jdt.core.jar" ] && [ -f "$DEPS/ecj.jar" ] && [ -f "$DEPS/org.eclipse.core.contenttype.jar" ] || python3 tools/eclipse-deps.py "$DEPS"
 OUT=build/eclipse
 rm -rf "$OUT" && mkdir -p "$OUT/resources/examples"
 CP=$(ls $DEPS/*.jar | tr '\n' ':')
 javac --release 11 -encoding UTF-8 -nowarn -cp "$CP" -d "$OUT" $(find eclipse-plugin/src -name '*.java')
+cp eclipse-plugin/src/il/lamerhav/dsviz/problems_he.properties "$OUT/il/lamerhav/dsviz/"   # המורה בעברית: תרגום כל הודעות הקומפיילר
 cp eclipse-plugin/plugin.xml "$OUT/"
 # "שליחת תרגיל" מופיעה בתפריטים ובסרגל הכלים רק כשיש כתובת שרת (eclipse-plugin/ai.properties, worker/README.md)
 if ! grep -qE '^url=https?://' eclipse-plugin/ai.properties; then

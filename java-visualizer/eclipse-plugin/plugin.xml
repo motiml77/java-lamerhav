@@ -25,6 +25,11 @@
       <command id="il.lamerhav.dsviz.examples" categoryId="il.lamerhav.dsviz.category"
                name="דוגמאות פתורות" description="העתקת דוגמאות פתורות לפרויקט"
                defaultHandler="il.lamerhav.dsviz.ExamplesHandler"/>
+      <command id="il.lamerhav.dsviz.mentor" categoryId="il.lamerhav.dsviz.category"
+               name="הסברים בעברית לשגיאות" description="ליד כל שגיאה של הקומפיילר — הסבר בעברית במקום המדויק של הבעיה, ואזהרות על טעויות נפוצות"
+               defaultHandler="il.lamerhav.dsviz.MentorToggleHandler">
+         <state class="org.eclipse.ui.handlers.RegistryToggleState:true" id="org.eclipse.ui.commands.toggleState"/>
+      </command>
    </extension>
 
    <extension point="org.eclipse.ui.commandImages">
@@ -70,6 +75,7 @@
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
             <separator name="more" visible="true"/>
             <command commandId="il.lamerhav.dsviz.examples" label="דוגמאות פתורות..." style="push"/>
+            <command commandId="il.lamerhav.dsviz.mentor" label="הסברים בעברית לשגיאות ולטעויות נפוצות" style="toggle"/>
             <command commandId="il.lamerhav.dsviz.help" label="הדרכה לשימוש (?)..." style="push"/>
          </menu>
       </menuContribution>
@@ -114,6 +120,20 @@
          <!-- submit:end -->
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
       </menuContribution>
+   </extension>
+
+   <!-- "המורה בעברית": ליד כל שגיאה של הקומפיילר הסבר בעברית (במקום המדויק של הבעיה), ואזהרות על טעויות נפוצות.
+        סוג סימון משלנו (תת-סוג של Java Problem), ו-JDT מנקה אותו בכל בנייה (managedMarker) -->
+   <extension id="mentor" point="org.eclipse.core.resources.markers" name="הסבר בעברית">
+      <super type="org.eclipse.jdt.core.problem"/>
+      <super type="org.eclipse.core.resources.problemmarker"/>
+      <super type="org.eclipse.core.resources.textmarker"/>
+      <persistent value="true"/>
+   </extension>
+   <extension point="org.eclipse.jdt.core.compilationParticipant">
+      <compilationParticipant id="il.lamerhav.dsviz.mentorParticipant" class="il.lamerhav.dsviz.MentorParticipant" createsProblems="true">
+         <managedMarker markerType="il.lamerhav.dsviz.mentor"/>
+      </compilationParticipant>
    </extension>
 
    <!-- הכנה אוטומטית בהפעלה הראשונה (פרויקט, קידוד, ברוכים הבאים) -->
