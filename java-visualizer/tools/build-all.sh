@@ -46,6 +46,7 @@ javac --release 11 -encoding UTF-8 -nowarn -cp "$CP" -d "$OUT" $(find eclipse-pl
 cp eclipse-plugin/plugin.xml "$OUT/"
 cp -r eclipse-plugin/icons "$OUT/"
 cp release/dsviz.jar "$OUT/resources/"
+cp eclipse-plugin/ai.properties "$OUT/resources/"   # "שליחת תרגיל": כתובת השרת (worker/README.md)
 mkdir -p "$OUT/resources/help" && cp build/help/* "$OUT/resources/help/" 2>/dev/null || true
 cp src/examples/*.java "$OUT/resources/examples/"
 cp src/Main.java "$OUT/resources/"

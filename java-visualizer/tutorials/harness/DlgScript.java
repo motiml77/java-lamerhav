@@ -18,6 +18,7 @@ import org.eclipse.swt.widgets.*;
  */
 public class DlgScript {
     static Shell dlgShell;
+    static Object dialog;   // החלון עצמו (לפקודות שקוראות לפעולות שלו)
 
     public static void main(String[] a) throws Exception {
         Display display = new Display();
@@ -39,8 +40,10 @@ public class DlgScript {
             while (it.hasNext()) {
                 String line = it.next().trim();
                 if (line.isEmpty() || line.startsWith("#")) continue;
-                try { run(display, line, out); } catch (Exception e) { e.printStackTrace(); System.exit(2); }
-                display.timerExec(350, step[0]);
+                int delay;
+                try { delay = run(display, line, out); } catch (Exception e) { e.printStackTrace(); System.exit(2); return; }
+                if (dlgShell.isDisposed()) return;   // החלון נסגר (למשל אחרי שליחה)
+                display.timerExec(delay, step[0]);
                 return;
             }
             dlgShell.close();
@@ -49,6 +52,24 @@ public class DlgScript {
         if (kind.equals("ex")) new ExerciseDialog(parent, new ArrayList<org.eclipse.jdt.core.IJavaProject>(), "DataStructures", null, preset).open();
         else if (kind.equals("ins")) new InsertDialog(parent, preset, fDoc, fOffset, "        ").open();
         else if (kind.equals("help")) new HelpDialog(parent).open();
+        else if (kind.equals("submit")) {
+            // החלון "שליחת תרגיל" מול שרת (DSVIZ_WORKER_URL — למשל wrangler dev מקומי עם Gemini מדומה)
+            String url = System.getenv("DSVIZ_WORKER_URL");
+            Class<?> wcc = Class.forName("il.lamerhav.dsviz.WorkerClient");
+            java.lang.reflect.Constructor<?> wc = wcc.getDeclaredConstructor(String.class, String.class);
+            wc.setAccessible(true);
+            Object client = url == null || url.isEmpty() ? null : wc.newInstance(url, "");
+            SubmitDialog sd = (SubmitDialog) SubmitDialog.class.getConstructor(Shell.class, java.util.List.class, String.class,
+                    org.eclipse.core.resources.IProject.class, wcc).newInstance(parent, new ArrayList<Object>(), "DataStructures", null, client);
+            dialog = sd;
+            int rc = sd.open();
+            System.out.println("submit rc=" + rc + " exercise=" + (sd.exercise() != null));
+            if (sd.exercise() != null) {
+                java.lang.reflect.Method w = Class.forName("il.lamerhav.dsviz.Json").getDeclaredMethod("write", Object.class);
+                w.setAccessible(true);
+                Files.write(new File(out, "exercise.json").toPath(), ((String) w.invoke(null, sd.exercise())).getBytes(StandardCharsets.UTF_8));
+            }
+        }
         else new ExamplesDialog(parent).open();
         display.dispose();
     }
@@ -75,37 +96,37 @@ public class DlgScript {
         return null;
     }
 
-    static void run(Display d, String line, File out) throws Exception {
+    static int run(Display d, String line, File out) throws Exception {
         String[] p = line.split(" ", 2);
         String cmd = p[0], arg = p.length > 1 ? p[1] : "";
         List<Control> cs = all(dlgShell, new ArrayList<Control>());
         switch (cmd) {
             case "chip": {
-                for (Control c : cs) if (c.getClass().getSimpleName().equals("Chip") && arg.equals(textOf(c))) { c.notifyListeners(SWT.Selection, new Event()); return; }
+                for (Control c : cs) if (c.getClass().getSimpleName().equals("Chip") && arg.equals(textOf(c))) { c.notifyListeners(SWT.Selection, new Event()); return 350; }
                 throw new IllegalArgumentException("chip not found: " + arg);
             }
             case "check": {
                 for (Control c : cs) if (c instanceof Button && (((Button) c).getStyle() & SWT.CHECK) != 0 && ((Button) c).getText().contains(arg)) {
                     ((Button) c).setSelection(!((Button) c).getSelection());
                     c.notifyListeners(SWT.Selection, new Event());
-                    return;
+                    return 350;
                 }
                 throw new IllegalArgumentException("check not found: " + arg);
             }
             case "spin": {
-                for (Control c : cs) if (c instanceof Spinner) { ((Spinner) c).setSelection(Integer.parseInt(arg)); c.notifyListeners(SWT.Modify, new Event()); return; }
+                for (Control c : cs) if (c instanceof Spinner) { ((Spinner) c).setSelection(Integer.parseInt(arg)); c.notifyListeners(SWT.Modify, new Event()); return 350; }
                 throw new IllegalArgumentException("no spinner");
             }
             case "text": {
                 String[] q = arg.split(" ", 2);
                 int idx = Integer.parseInt(q[0]), n = 0;
-                for (Control c : cs) if (c instanceof Text) { if (n++ == idx) { ((Text) c).setText(q.length > 1 ? q[1] : ""); return; } }
+                for (Control c : cs) if (c instanceof Text) { if (n++ == idx) { ((Text) c).setText(q.length > 1 ? q[1] : ""); return 350; } }
                 throw new IllegalArgumentException("text not found: " + idx);
             }
             case "combo": {
                 String[] q = arg.split(" ");
                 int idx = Integer.parseInt(q[0]), n = 0;
-                for (Control c : cs) if (c instanceof Combo) { if (n++ == idx) { ((Combo) c).select(Integer.parseInt(q[1])); c.notifyListeners(SWT.Selection, new Event()); return; } }
+                for (Control c : cs) if (c instanceof Combo) { if (n++ == idx) { ((Combo) c).select(Integer.parseInt(q[1])); c.notifyListeners(SWT.Selection, new Event()); return 350; } }
                 throw new IllegalArgumentException("combo not found");
             }
             case "shot": {
@@ -140,7 +161,39 @@ public class DlgScript {
                 }
                 js.append("]}");
                 Files.write(new File(out, arg + ".json").toPath(), js.toString().getBytes(StandardCharsets.UTF_8));
-                return;
+                return 350;
+            }
+            case "wait": return Integer.parseInt(arg);
+            case "click": {   // כפתור מעוגל (Round) לפי הטקסט שלו
+                for (Control c : cs) if (c.getClass().getSimpleName().equals("Round") && arg.equals(textOf(c))) {
+                    Event e = new Event(); e.button = 1; e.x = 5; e.y = 5;
+                    c.notifyListeners(SWT.MouseDown, e);
+                    c.notifyListeners(SWT.MouseUp, e);
+                    return 350;
+                }
+                throw new IllegalArgumentException("button not found: " + arg);
+            }
+            case "addfile": {   // כמו בחירה בחלון "בחירת קבצים"
+                java.lang.reflect.Method m = dialog.getClass().getDeclaredMethod("addFiles", java.util.List.class);
+                m.setAccessible(true);
+                m.invoke(dialog, java.util.Arrays.asList(new File(arg)));
+                return 350;
+            }
+            case "pasteimg":   // תמונה ללוח, ואז Ctrl+V אמיתי מהמקלדת
+            case "pastetext": {
+                org.eclipse.swt.dnd.Clipboard cb = new org.eclipse.swt.dnd.Clipboard(d);
+                if (cmd.equals("pasteimg")) cb.setContents(new Object[] { new ImageData(arg) }, new org.eclipse.swt.dnd.Transfer[] { org.eclipse.swt.dnd.ImageTransfer.getInstance() });
+                else cb.setContents(new Object[] { arg }, new org.eclipse.swt.dnd.Transfer[] { org.eclipse.swt.dnd.TextTransfer.getInstance() });
+                cb.dispose();
+                dlgShell.forceActive();
+                dlgShell.forceFocus();
+                while (d.readAndDispatch()) { }
+                Event k = new Event();
+                k.type = SWT.KeyDown; k.keyCode = SWT.CTRL; d.post(k);
+                k = new Event(); k.type = SWT.KeyDown; k.character = 'v'; k.keyCode = 'v'; d.post(k);
+                k = new Event(); k.type = SWT.KeyUp; k.character = 'v'; k.keyCode = 'v'; d.post(k);
+                k = new Event(); k.type = SWT.KeyUp; k.keyCode = SWT.CTRL; d.post(k);
+                return 900;
             }
             default: throw new IllegalArgumentException("unknown: " + line);
         }

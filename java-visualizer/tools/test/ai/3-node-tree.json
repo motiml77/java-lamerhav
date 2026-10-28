@@ -1,0 +1,9 @@
+{"title":"שרשרת חוליות ועץ","summary":"בדיקת סדר בשרשרת וספירת עלים בעץ בינארי.","packageName":"nodes","mainClass":"Targil","imports":[],"classes":[],
+"tasks":[
+ {"label":"א","kind":"method","className":"Targil","isStatic":true,"returnType":"boolean","methodName":"isSorted","parameters":[{"type":"Node<Integer>","name":"lst"}],"instructions":"כתבו פעולה המקבלת שרשרת חוליות של מספרים ומחזירה true אם היא ממוינת בסדר עולה."},
+ {"label":"ב","kind":"method","className":"Targil","isStatic":true,"returnType":"int","methodName":"countLeaves","parameters":[{"type":"BinNode<Integer>","name":"t"}],"instructions":"כתבו פעולה רקורסיבית המחזירה את מספר העלים בעץ."},
+ {"label":"ג","kind":"method","className":"Targil","isStatic":true,"returnType":"Node<Integer>","methodName":"merge","parameters":[{"type":"Node<Integer>","name":"a"},{"type":"Node<Integer>","name":"b"}],"instructions":"כתבו פעולה הממזגת שתי שרשראות ממוינות לשרשרת ממוינת חדשה."}
+],
+"givenCode":[{"className":"Targil","code":"public static void printList(Node<Integer> p) {\n    while (p != null) {\n        System.out.print(p.getValue() + \" \");\n        p = p.getNext();\n    }\n    System.out.println();\n}"}],
+"otherQuestions":[],
+"mainCode":"Node<Integer> lst = new Node<Integer>(1, new Node<Integer>(3, new Node<Integer>(5)));\nprintList(lst);\nSystem.out.println(\"סעיף א: \" + isSorted(lst));\nBinNode<Integer> t = new BinNode<Integer>(new BinNode<Integer>(2), 1, new BinNode<Integer>(new BinNode<Integer>(4), 3, null));\nSystem.out.println(\"סעיף ב: \" + countLeaves(t));\nNode<Integer> other = new Node<Integer>(2, new Node<Integer>(4));\nSystem.out.println(\"סעיף ג: \" + merge(lst, other));"}

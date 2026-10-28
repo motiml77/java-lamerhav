@@ -1,0 +1,13 @@
+{"title":"","summary":"","packageName":"","mainClass":"Stack","imports":["java.util.ArrayList","import java.util.Scanner;","java.io.File","System.exit"],
+"classes":[{"name":"Stack","code":"public class Stack {}"},{"name":"Point","code":"private int x;\nprivate int y;\npublic Point(int x, int y) { this.x = x; this.y = y; }\npublic int getX() { return x; }"}],
+"tasks":[
+ {"label":"","kind":"method","className":"","isStatic":true,"returnType":"Stack<int>","methodName":"מחסנית","parameters":[{"type":"Queue<int>","name":"class"},{"type":"int","name":"class"}],"instructions":"פעולה עם שמות לא חוקיים */ וסוף הערה"},
+ {"label":"ב","kind":"method","className":"StackTargil","isStatic":true,"returnType":"int","methodName":"sum","parameters":[{"type":"int[]","name":"arr"}],"instructions":"סכום"},
+ {"label":"ג","kind":"method","className":"StackTargil","isStatic":true,"returnType":"int","methodName":"sum","parameters":[{"type":"int[]","name":"a"}],"instructions":"סכום שוב (אותה חתימה)"},
+ {"label":"ד","kind":"constructor","className":"Circle","isStatic":true,"returnType":"","methodName":"Circle","parameters":[{"type":"double","name":"r"}],"instructions":"כתבו בנאי למחלקה Circle"},
+ {"label":"ה","kind":"method","className":"Point","isStatic":false,"returnType":"double","methodName":"dist","parameters":[{"type":"Point","name":"other"}],"instructions":"מרחק בין נקודות"},
+ {"label":"ו","kind":"method","className":"StackTargil","isStatic":true,"returnType":"char[][]","methodName":"grid","parameters":[{"type":"Stack<Queue<String>>","name":"sq"},{"type":"BinNode<Character>","name":"t"}],"instructions":"מבנה בתוך מבנה"}
+],
+"givenCode":[{"className":"Nowhere","code":"public static int twice(int v) { return v * 2; }"}],
+"otherQuestions":[{"label":"ז","text":"שאלה בלי קוד"}],
+"mainCode":"public static void main(String[] args) {\n    int[] arr = {1, 2, 3};\n    System.out.println(\"סעיף ב: \" + sum(arr));\n    System.out.println(\"סעיף ג: \" + sum2(arr));\n    Point p = new Point(1, 2);\n    System.out.println(\"סעיף ה: \" + p.dist(new Point(4, 6)));\n    Circle c = new Circle(2.5);\n    System.out.println(\"twice: \" + twice(4));\n    ArrayList<Integer> l = new ArrayList<Integer>();\n}"}

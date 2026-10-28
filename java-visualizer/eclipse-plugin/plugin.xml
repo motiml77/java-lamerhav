@@ -16,6 +16,9 @@
                defaultHandler="il.lamerhav.dsviz.InsertHandler">
          <commandParameter id="il.lamerhav.dsviz.structure" name="מבנה" optional="true"/>
       </command>
+      <command id="il.lamerhav.dsviz.submit" categoryId="il.lamerhav.dsviz.category"
+               name="שליחת תרגיל" description="שולחים את דף התרגיל (PDF, Word או תמונות) ומקבלים מעטפת מוכנה: מחלקות, main ופעולה לכל סעיף"
+               defaultHandler="il.lamerhav.dsviz.SubmitHandler"/>
       <command id="il.lamerhav.dsviz.help" categoryId="il.lamerhav.dsviz.category"
                name="הדרכה לשימוש" description="סרטונים קצרים שמסבירים איך משתמשים"
                defaultHandler="il.lamerhav.dsviz.HelpHandler"/>
@@ -30,6 +33,7 @@
       <image commandId="il.lamerhav.dsviz.examples" icon="icons/examples.png"/>
       <image commandId="il.lamerhav.dsviz.insert" icon="icons/insert.png"/>
       <image commandId="il.lamerhav.dsviz.help" icon="icons/help.png"/>
+      <image commandId="il.lamerhav.dsviz.submit" icon="icons/send.png"/>
    </extension>
 
    <extension point="org.eclipse.ui.menus">
@@ -57,6 +61,7 @@
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש: מערך דו-ממדי..." style="push">
                <parameter name="il.lamerhav.dsviz.structure" value="matrix"/>
             </command>
+            <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל (PDF / Word / תמונה)..." style="push"/>
             <separator name="insert" visible="true"/>
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
             <separator name="run" visible="true"/>
@@ -72,6 +77,8 @@
          <toolbar id="il.lamerhav.dsviz.toolbar" label="מבני נתונים">
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש" mode="FORCE_TEXT"
                      tooltip="תרגיל חדש במבני נתונים — בוחרים מבנה ומקבלים תרגיל מוכן" style="push"/>
+            <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל" mode="FORCE_TEXT"
+                     tooltip="שליחת תרגיל: מצרפים את דף התרגיל (PDF, Word או תמונה / צילום מסך) ומקבלים קובץ מוכן — מחלקות, main ופעולה לכל סעיף" style="push"/>
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים" mode="FORCE_TEXT"
                      tooltip="הוסף מבנה נתונים לקוד במקום הסמן — בוחרים מבנה, ערכים ושם, ורואים איך הוא ייראה" style="push"/>
             <separator name="run" visible="true"/>
@@ -91,10 +98,12 @@
       <!-- לחיצה ימנית בעץ הקבצים -->
       <menuContribution locationURI="popup:org.eclipse.jdt.ui.PackageExplorer?after=additions">
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push"/>
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
       </menuContribution>
       <menuContribution locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?after=additions">
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push"/>
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
       </menuContribution>
    </extension>
