@@ -39,7 +39,7 @@ final class AiScaffold {
     private static final Pattern TYPE = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\s*<[A-Za-z0-9_<>,\\s\\[\\]?]*>)?(\\s*\\[[,\\s]*\\])*");
     private static final Pattern IMPORT = Pattern.compile("java\\.util(\\.[a-z]+)*\\.([A-Z][A-Za-z0-9_]*|\\*)");
     private static final Pattern USING = Pattern.compile("System(\\.[A-Z][A-Za-z0-9]*)+");
-    static final String TODO = "TODO: כאן כותבים את הפתרון";
+    static final String MARK = "====" + rtl("כאן כותבים את התשובה") + "====";
 
     // ------------------------------------------------------------------ המודל של התרגיל
 
@@ -79,14 +79,22 @@ final class AiScaffold {
     }
 
     /** קורא את התשובה של השרת ומנקה אותה: שמות חוקיים, טיפוסים חוקיים, בלי כפילויות */
+    /**
+     * משפט בעברית בתוך הערה בעורך (שכיוונו משמאל לימין): עטוף בסימון כיוון (RLE ... PDF), כדי שהמשפט יוצג מימין לשמאל
+     * כמו שצריך, וסימני הפיסוק (נקודתיים, מקף, סוגריים) לא יקפצו לצד הלא נכון. הסימונים בלתי נראים, והקומפיילר מתעלם מהם בהערות.
+     */
+    static String rtl(String s) {
+        return "\u202B" + s + "\u202C";
+    }
+
     /** הערה לתלמיד מעל main: מה צריך להיות מודפס על המסך אם הפתרון נכון (לפי התשובה של Gemini) */
     static List<String> expectedComment(String expected) {
         List<String> out = new ArrayList<String>();
         if (expected == null || expected.trim().isEmpty()) return out;
         out.add("    //");
-        out.add("    // אם פתרת נכון את התרגיל, צריך להיות מודפס על המסך:");
+        out.add("    // " + rtl("אם פתרת נכון את התרגיל, צריך להיות מודפס על המסך:"));
         String[] lines = expected.split("\n");
-        for (int i = 0; i < lines.length && i < 40; i++) out.add("    //     " + lines[i].replace("\t", "    "));
+        for (int i = 0; i < lines.length && i < 40; i++) out.add("    //     " + rtl(lines[i].replace("\t", "    ")));
         if (lines.length > 40) out.add("    //     ...");
         return out;
     }
@@ -251,8 +259,6 @@ final class AiScaffold {
                     b.append("import ").append(imp).append(";\n");
             }
             b.append('\n');
-            if (isMain) header(b, e, sources);
-            else b.append("// המחלקה ").append(cls).append(" מהתרגיל").append(e.title.isEmpty() ? "" : " (" + e.title + ")").append('\n');
 
             List<String> body = new ArrayList<String>();   // השורות שנכנסות לגוף המחלקה (מוזחות ב-4)
             int[] cursor = { -1 };
@@ -267,7 +273,7 @@ final class AiScaffold {
                 if (!g[0].equals(cls)) continue;
                 if (!anyGiven) {
                     body.add("");
-                    body.add("    // ---------- נתון בתרגיל (אין צורך לשנות) ----------");
+                    body.add("    // ---------- " + rtl("נתון בתרגיל — אין צורך לשנות") + " ----------");
                     anyGiven = true;
                 }
                 body.add("");
@@ -278,8 +284,8 @@ final class AiScaffold {
                 body.add("");
                 body.add("");
                 body.add("");
-                body.add("    // ==================== מכאן והלאה: מעטפת מוכנה (בדיקה של הפעולות) ====================");
-                body.add("    // אין צורך לשנות — אבל אפשר לשנות את הערכים כדי לבדוק מקרים נוספים");
+                body.add("    // ==================== " + rtl("מכאן והלאה בדיקה של הפתרון") + " ====================");
+                body.add("    // " + rtl("אין צורך לשנות — אפשר לשנות את הערכים כדי לבדוק מקרים נוספים"));
                 body.addAll(expectedComment(e.expectedOutput));
                 body.add("");
                 if (cs) {
@@ -287,7 +293,7 @@ final class AiScaffold {
                     body.add("    {");
                 } else body.add("    public static void main(String[] args) {");
                 List<String> mc = reindent(stripMainWrapper(e.mainCode, cs), 8);
-                if (mc.isEmpty()) mc.add("        // (כאן בונים נתונים לדוגמה וקוראים לפעולות)");
+                if (mc.isEmpty()) mc.add("        // " + rtl("כאן בונים נתונים לדוגמה וקוראים לפעולות"));
                 body.addAll(mc);
                 body.add("    }");
             }
@@ -311,33 +317,9 @@ final class AiScaffold {
         return out;
     }
 
-    private static void header(StringBuilder b, Exercise e, List<String> sources) {
-        b.append("// ").append(e.title.isEmpty() ? "תרגיל" : e.title).append('\n');
-        for (String l : wrap(e.summary, 90)) b.append("// ").append(l).append('\n');
-        if (sources != null && !sources.isEmpty()) b.append("// נבנה מהתרגיל ששלחת: ").append(oneLine(String.join(", ", sources), 150)).append('\n');
-        b.append("// המעטפת מוכנה: בכל סעיף כותבים את הפתרון במקום שמסומן ב-TODO, ומריצים (גם בהרצה ויזואלית).\n");
-        if (!e.others.isEmpty()) {
-            b.append("//\n// סעיפים בלי קוד (עונים עליהם בכתב):\n");
-            for (String[] q : e.others) {
-                List<String> lines = wrap(q[1], 86);
-                for (int i = 0; i < lines.size(); i++) b.append("//   ").append(i == 0 ? "סעיף " + q[0] + ": " : "   ").append(lines.get(i)).append('\n');
-            }
-        }
-    }
-
     /** פעולה לסעיף אחד. מחזיר את מספר השורה (בתוך מה שנוסף) שבה מחכה הסמן */
     private static int stub(List<String> out, Task t) {
         out.add("");
-        out.add("    // ==================== סעיף " + t.label + " ====================");
-        if (t.cs) {   // ב-C# — הערות רגילות (/// היא הערת XML, ושם תווים כמו < שוברים אותה)
-            for (String l : wrap(t.instructions, 86)) out.add("    // " + l);
-            if (t.instructions.isEmpty()) out.add("    // סעיף " + t.label);
-        } else {
-            out.add("    /**");
-            for (String l : wrap(t.instructions.replace("*/", "* /"), 86)) out.add("     * " + l);
-            if (t.instructions.isEmpty()) out.add("     * סעיף " + t.label);
-            out.add("     */");
-        }
         StringBuilder sig = new StringBuilder("    public ");
         if (t.isStatic) sig.append("static ");
         if (!t.constructor()) sig.append(t.returnType).append(' ');
@@ -354,23 +336,14 @@ final class AiScaffold {
             sig.append(") {");
             out.add(sig.toString());
         }
-        int reminders = 0;
-        for (String[] p : t.params) {
-            String r = reminder(p[0], p[1], t.cs);
-            if (r != null && reminders++ < 3) out.add("        // תזכורת: " + r);
-        }
-        String result = null;
-        if (!t.constructor() && !"void".equals(t.returnType)) {
-            result = "result";
-            for (String[] p : t.params) if (p[1].equals("result")) result = "answer";
-            out.add("        " + t.returnType + " " + result + " = " + defaultValue(t.returnType) + ";   // כאן אוספים את מה שהפעולה מחזירה");
-        }
-        out.add("");
-        out.add("        // ========== " + TODO + " של סעיף " + t.label + " ==========");
+        // בתוך הפעולה — רק שורת הסימון, ומתחתיה שורה ריקה לסמן (ו-return חשוף כשהפעולה מחזירה ערך, כדי שהקוד יתקמפל). שאר ההערות רק ב-main.
+        out.add("        // " + MARK);
         int cursor = out.size();
         out.add("        ");
-        out.add("");
-        if (result != null) out.add("        return " + result + ";");
+        if (!t.constructor() && !"void".equals(t.returnType)) {
+            out.add("");
+            out.add("        return " + defaultValue(t.returnType) + ";");
+        }
         out.add("    }");
         return cursor;
     }
@@ -392,8 +365,8 @@ final class AiScaffold {
             if (t.startsWith("Node<")) return n + ".GetValue()   " + n + ".GetNext()   " + n + ".SetNext(...)   " + n + ".HasNext()";
             if (t.startsWith("BinNode<"))
                 return n + ".GetValue()   " + n + ".GetLeft()   " + n + ".GetRight()   " + n + ".HasLeft()   " + n + ".HasRight()";
-            if (t.endsWith("[,]")) return n + ".GetLength(0) (שורות)   " + n + ".GetLength(1) (עמודות)   " + n + "[i, j]";
-            if (t.endsWith("[][]")) return n + ".Length (שורות)   " + n + "[0].Length (עמודות)   " + n + "[i][j]";
+            if (t.endsWith("[,]")) return n + ".GetLength(0)   " + n + ".GetLength(1)   " + n + "[i, j]";
+            if (t.endsWith("[][]")) return n + ".Length   " + n + "[0].Length   " + n + "[i][j]";
             if (t.endsWith("[]")) return n + ".Length   " + n + "[i]";
             return null;
         }
@@ -402,7 +375,7 @@ final class AiScaffold {
         if (t.startsWith("Node<")) return n + ".getValue()   " + n + ".getNext()   " + n + ".setNext(...)   " + n + ".hasNext()";
         if (t.startsWith("BinNode<") || t.startsWith("BinTreeNode<"))
             return n + ".getValue()   " + n + ".getLeft()   " + n + ".getRight()   " + n + ".hasLeft()   " + n + ".hasRight()";
-        if (t.endsWith("[][]")) return n + ".length (שורות)   " + n + "[0].length (עמודות)   " + n + "[i][j]";
+        if (t.endsWith("[][]")) return n + ".length   " + n + "[0].length   " + n + "[i][j]";
         if (t.endsWith("[]")) return n + ".length   " + n + "[i]";
         return null;
     }
@@ -466,10 +439,20 @@ final class AiScaffold {
             min = Math.min(min, k);
         }
         if (min == Integer.MAX_VALUE) min = 0;
+        // המודל לפעמים שולח את השורה הראשונה בלי הזחה (חתוכה) ואת כל השאר מוזחות — מורידים את ההזחה המשותפת של השאר
+        int restMin = Integer.MAX_VALUE;
+        for (int i = from + 1; i < to; i++) {
+            if (lines[i].trim().isEmpty()) continue;
+            int k = 0;
+            while (k < lines[i].length() && lines[i].charAt(k) == ' ') k++;
+            restMin = Math.min(restMin, k);
+        }
+        boolean firstCut = to - from > 1 && restMin != Integer.MAX_VALUE && restMin > min && min == 0 && !lines[from].trim().startsWith("}");
         String pad = spaces(indent);
         for (int i = from; i < to; i++) {
             String l = lines[i];
-            res.add(l.trim().isEmpty() ? "" : pad + l.substring(Math.min(min, l.length())).replaceAll("\\s+$", ""));
+            int strip = firstCut && i > from ? restMin : min;
+            res.add(l.trim().isEmpty() ? "" : pad + l.substring(Math.min(strip, l.length())).replaceAll("\\s+$", ""));
         }
         return res;
     }

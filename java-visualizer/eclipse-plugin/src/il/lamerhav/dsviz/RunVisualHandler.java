@@ -2,7 +2,12 @@ package il.lamerhav.dsviz;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IncrementalProjectBuilder;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.debug.core.DebugPlugin;
@@ -48,11 +53,76 @@ public class RunVisualHandler extends AbstractHandler {
             }
             // מוודאים שהספרייה בפרויקט עדכנית (LineByLine נמצא בה)
             ProjectSetup.prepare(JavaCore.create(file.getProject()), Ui.resolver(shell));
+            // קודם מקמפלים ובודקים שגיאות — עם שגיאות לא מריצים (הרצה ויזואלית של קוד שלא מתקמפל נותנת תוצאות שגויות)
+            List<String> errors = new ArrayList<String>();
+            IMarker first = compileErrors(file, errors);
+            if (!errors.isEmpty()) {
+                warn(shell, event, file, first, errors);
+                return null;
+            }
             DebugUITools.launch(config(file.getProject().getName(), main), ILaunchManager.RUN_MODE);
         } catch (CoreException e) {
             Ui.error(shell, "לא הצלחתי להריץ.", e);
         }
         return null;
+    }
+
+    /**
+     * בנייה סינכרונית של הפרויקט (גם אם הבנייה האוטומטית כבויה) ואיסוף כל השגיאות בו.
+     * ההסברים בעברית (סימון המורה בעברית) מועדפים; שגיאה של Eclipse בשורה שכבר יש בה הסבר בעברית לא חוזרת.
+     * מחזיר את הסימון הראשון (לפתיחה בעורך).
+     */
+    public static IMarker compileErrors(IFile file, List<String> out) throws CoreException {
+        file.getProject().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, null);
+        List<IMarker> errs = new ArrayList<IMarker>();
+        // בפרויקט יש הרבה תרגילים — שגיאה בתרגיל אחר לא צריכה לחסום. חוסמות: שגיאות בקובץ הזה, ובקבצים שהוא משתמש בהם (לפי שם המחלקה)
+        String source = "";
+        try {
+            source = new String(file.getContents().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            // בלי טקסט — רק השגיאות של הקובץ עצמו
+        }
+        for (IMarker m : file.getProject().findMarkers(IMarker.PROBLEM, true, IResource.DEPTH_INFINITE)) {
+            if (m.getAttribute(IMarker.SEVERITY, 0) != IMarker.SEVERITY_ERROR) continue;
+            IResource r = m.getResource();
+            boolean used = r.equals(file) || "java".equals(r.getFileExtension())
+                    && java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(r.getName().replaceFirst("\\.java$", "")) + "\\b").matcher(source).find();
+            if (used) errs.add(m);
+        }
+        // שגיאות בקובץ הפתוח קודם
+        java.util.Collections.sort(errs, (a, b) -> {
+            boolean fa = a.getResource().equals(file), fb = b.getResource().equals(file);
+            if (fa != fb) return fa ? -1 : 1;
+            return a.getAttribute(IMarker.LINE_NUMBER, 0) - b.getAttribute(IMarker.LINE_NUMBER, 0);
+        });
+        java.util.Set<String> hebrew = new java.util.HashSet<String>();
+        for (IMarker m : errs) if (MentorProblem.MARKER.equals(m.getType())) hebrew.add(m.getResource().getFullPath() + ":" + m.getAttribute(IMarker.LINE_NUMBER, 0));
+        IMarker first = null;
+        for (IMarker m : errs) {
+            boolean heb = MentorProblem.MARKER.equals(m.getType());
+            if (!heb && hebrew.contains(m.getResource().getFullPath() + ":" + m.getAttribute(IMarker.LINE_NUMBER, 0))) continue;
+            if (first == null) first = m;
+            String msg = m.getAttribute(IMarker.MESSAGE, "").replace("\u202B", "").replace("\u202C", "").replace("\u200E", "");
+            out.add(m.getResource().getName() + " · שורה " + m.getAttribute(IMarker.LINE_NUMBER, 0) + "\n" + msg);
+        }
+        return first;
+    }
+
+    /** חלון אזהרה: יש שגיאות קומפילציה, לא מריצים. פותח את השגיאה הראשונה בעורך */
+    private static void warn(Shell shell, ExecutionEvent event, IFile file, IMarker first, List<String> errors) {
+        StringBuilder b = new StringBuilder("יש " + errors.size() + (errors.size() == 1 ? " שגיאת קומפילציה" : " שגיאות קומפילציה")
+                + " — לכן לא מריצים את ההרצה הוויזואלית. מתקנים את השגיאות (מסומנות באדום בקוד) ומריצים שוב.\n");
+        for (int i = 0; i < errors.size() && i < 3; i++) b.append("\n").append(errors.get(i)).append('\n');
+        if (errors.size() > 3) b.append("\nועוד ").append(errors.size() - 3).append(" — בחלון Problems ובחלון \"הסברים בעברית\".");
+        try {
+            if (first != null && first.getResource() instanceof IFile) {
+                Ui.openAt(HandlerUtil.getActiveWorkbenchWindow(event).getActivePage(), (IFile) first.getResource(),
+                        Math.max(0, first.getAttribute(IMarker.LINE_NUMBER, 1) - 1));
+            }
+        } catch (Exception e) {
+            // לא נפתח — החלון בכל זאת מוצג
+        }
+        MessageDialog.openError(shell, "הרצה ויזואלית — יש שגיאות בקוד", b.toString());
     }
 
     private static String mainType(IFile file) throws CoreException {

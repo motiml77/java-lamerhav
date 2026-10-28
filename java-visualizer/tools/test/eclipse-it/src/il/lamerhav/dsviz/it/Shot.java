@@ -1,5 +1,6 @@
 package il.lamerhav.dsviz.it;
 
+import il.lamerhav.dsviz.Layout;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.Path;
@@ -46,6 +47,22 @@ public class Shot implements IApplication {
                         page.getWorkbenchWindow().getShell().setMaximized(true);
                         // בלי מה שנשאר מהצילום הקודם (חלון מוגדל); את חלון ההסברים לא פותחים כאן — הוא צריך להיפתח לבד (AutoSetup)
                         if (page.findView("il.lamerhav.dsviz.mentorView") == null) page.resetPerspective();
+                        layoutReport(page.getWorkbenchWindow(), "AUTO");
+                        // כמו אצל תלמיד שהחלון נפתח לו למטה: מעבירים אותו למטה (לערימה של Problems), ובודקים שהסידור מחזיר אותו לימין
+                        try {
+                            org.eclipse.e4.ui.workbench.modeling.EModelService ms = page.getWorkbenchWindow().getService(org.eclipse.e4.ui.workbench.modeling.EModelService.class);
+                            org.eclipse.e4.ui.model.application.ui.basic.MWindow mw = page.getWorkbenchWindow().getService(org.eclipse.e4.ui.model.application.ui.basic.MWindow.class);
+                            org.eclipse.e4.ui.model.application.ui.MUIElement mine = ms.find(MENTOR, mw);
+                            if (mine instanceof org.eclipse.e4.ui.model.application.ui.basic.MPart && ((org.eclipse.e4.ui.model.application.ui.basic.MPart) mine).getCurSharedRef() != null) mine = ((org.eclipse.e4.ui.model.application.ui.basic.MPart) mine).getCurSharedRef();
+                            org.eclipse.e4.ui.model.application.ui.MUIElement prob = ms.find("org.eclipse.ui.views.ProblemView", mw);
+                            if (prob instanceof org.eclipse.e4.ui.model.application.ui.basic.MPart && ((org.eclipse.e4.ui.model.application.ui.basic.MPart) prob).getCurSharedRef() != null) prob = ((org.eclipse.e4.ui.model.application.ui.basic.MPart) prob).getCurSharedRef();
+                            ms.move(mine, (org.eclipse.e4.ui.model.application.ui.MElementContainer<org.eclipse.e4.ui.model.application.ui.MUIElement>) (Object) prob.getParent());
+                            layoutReport(page.getWorkbenchWindow(), "BOTTOM");
+                            Layout.dockMentorRight(page.getWorkbenchWindow());
+                            layoutReport(page.getWorkbenchWindow(), "REDOCKED");
+                        } catch (Throwable t) {
+                            t.printStackTrace(System.out);
+                        }
                         IFile f = ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(a[0]));
                         ITextEditor ed = (ITextEditor) IDE.openEditor(page, f);
                         page.showView("org.eclipse.ui.views.ProblemView");
@@ -103,6 +120,43 @@ public class Shot implements IApplication {
         display.dispose();
         return IApplication.EXIT_OK;
     }
+
+    /** איפה עומדים החלון והסרגל: לבדיקה שהסידור האוטומטי (Layout) באמת עבד */
+    private static void layoutReport(org.eclipse.ui.IWorkbenchWindow w, String tag) {
+        org.eclipse.e4.ui.model.application.ui.basic.MWindow mw = w.getService(org.eclipse.e4.ui.model.application.ui.basic.MWindow.class);
+        org.eclipse.e4.ui.workbench.modeling.EModelService ms = w.getService(org.eclipse.e4.ui.workbench.modeling.EModelService.class);
+        org.eclipse.e4.ui.model.application.ui.MUIElement o = ms.find("org.eclipse.ui.views.ContentOutline", mw);
+        org.eclipse.e4.ui.model.application.ui.MUIElement m = ms.find(MENTOR, mw);
+        if (o instanceof org.eclipse.e4.ui.model.application.ui.basic.MPart && ((org.eclipse.e4.ui.model.application.ui.basic.MPart) o).getCurSharedRef() != null) o = ((org.eclipse.e4.ui.model.application.ui.basic.MPart) o).getCurSharedRef();
+        if (m instanceof org.eclipse.e4.ui.model.application.ui.basic.MPart && ((org.eclipse.e4.ui.model.application.ui.basic.MPart) m).getCurSharedRef() != null) m = ((org.eclipse.e4.ui.model.application.ui.basic.MPart) m).getCurSharedRef();
+        System.out.println("LAYOUT-" + tag + " mentor-in-outline-stack=" + (m != null && o != null && m.getParent() == o.getParent()));
+        org.eclipse.e4.ui.model.application.ui.MUIElement tb = ms.find(Layout.TOOLBAR_ID, mw);
+        org.eclipse.e4.ui.model.application.ui.MUIElement main = ms.find("org.eclipse.ui.main.toolbar", mw);
+                if (tb != null && tb.getWidget() instanceof org.eclipse.swt.widgets.Control && main != null && main.getWidget() instanceof org.eclipse.swt.widgets.Control) {
+            org.eclipse.swt.widgets.Control ca = (org.eclipse.swt.widgets.Control) tb.getWidget(), cb = (org.eclipse.swt.widgets.Control) main.getWidget();
+            org.eclipse.swt.graphics.Point a = ca.toDisplay(0, 0), b = cb.toDisplay(0, 0);
+            for (org.eclipse.swt.widgets.Control c : new org.eclipse.swt.widgets.Control[] { ca.getParent(), cb.getParent() }) {
+                org.eclipse.swt.graphics.Point d = c.toDisplay(0, 0);
+                System.out.println("LAYOUT-" + tag + " parent " + c.getClass().getSimpleName() + " at " + d.x + "," + d.y + " size " + c.getSize().x + "x" + c.getSize().y + " data=" + c.getData("modelElement"));
+            }
+            for (org.eclipse.swt.widgets.Control c : ca.getParent().getParent().getChildren()) {
+                org.eclipse.swt.graphics.Point d = c.toDisplay(0, 0);
+                System.out.println("LAYOUT-" + tag + "   sibling " + c.getClass().getSimpleName() + " at " + d.x + "," + d.y + " size " + c.getSize().x + "x" + c.getSize().y);
+            }
+            org.eclipse.swt.widgets.ToolBar t = Layout.findToolBar(ca);
+            System.out.println("LAYOUT-" + tag + " widget=" + ca.getClass().getSimpleName());
+            for (org.eclipse.swt.widgets.Control c = t; c != null && !(c instanceof org.eclipse.swt.widgets.Shell); c = c.getParent())
+                System.out.println("LAYOUT-" + tag + "   chain " + c.getClass().getSimpleName() + " size " + c.getSize().x + "x" + c.getSize().y + " pref " + c.computeSize(-1, -1).x + " layout=" + (c instanceof org.eclipse.swt.widgets.Composite ? String.valueOf(((org.eclipse.swt.widgets.Composite) c).getLayout()) : "-"));
+            if (t != null) {
+                int sp = 0;
+                for (org.eclipse.swt.widgets.ToolItem it : t.getItems()) if (it.getData("il.lamerhav.dsviz.rowSpacer") != null) sp++;
+                System.out.println("LAYOUT-" + tag + " toolbar items=" + t.getItemCount() + " spacers=" + sp + " size=" + t.getSize().x + "x" + t.getSize().y + " pref=" + t.computeSize(-1, -1).x);
+            }
+            System.out.println("LAYOUT-" + tag + " toolbar-y=" + a.y + " main-toolbar-y=" + b.y + " separate-row=" + (a.y > b.y + 5));
+        }
+    }
+
+    private static final String MENTOR = "il.lamerhav.dsviz.mentorView";
 
     private static void capture(Display display, String file) {
         Rectangle r = display.getBounds();
