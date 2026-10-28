@@ -1,0 +1,25 @@
+# DSViz — שרת ביניים ל"שליחת תרגיל" (Cloudflare Worker). הוראות התקנה: README.md
+name = "dsviz-exercise"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# המודלים לפי הסדר: אם הראשון עמוס / נגמרה לו המכסה — עוברים לבא.
+# gemini-flash-latest = תמיד גרסת ה-Flash החדשה ביותר (החזקה ביותר שיש לה מכסה חינמית גדולה);
+# gemini-flash-lite-latest = קטן יותר, עם מכסה חינמית יומית גדולה יותר — גיבוי.
+MODELS = "gemini-flash-latest,gemini-flash-lite-latest"
+
+# הגבלת קצב לפי כתובת IP: עד 6 שליחות בדקה מכל מחשב (מגן על המכסה של Gemini מפני הצפה)
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 6, period = 60 }
+
+# מכסה יומית לכל כתובת IP (לא חובה): יוצרים KV בשם USAGE (npx wrangler kv namespace create USAGE),
+# מעתיקים את ה-id שמתקבל לכאן ומורידים את ה-#:
+# [[kv_namespaces]]
+# binding = "USAGE"
+# id = "<the id>"
+# ואפשר לשנות את המכסה (ברירת מחדל 40 שליחות ביום לכל כתובת):
+# DAILY_LIMIT = "40"   (שורה זו — בתוך [vars] למעלה)

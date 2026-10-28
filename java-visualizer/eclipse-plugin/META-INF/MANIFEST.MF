@@ -3,7 +3,8 @@ Bundle-ManifestVersion: 2
 Bundle-Name: Data Structures Visualizer
 Bundle-SymbolicName: il.lamerhav.dsviz;singleton:=true
 Bundle-Version: 1.0.1
-Bundle-Vendor: lamerhav
+Bundle-Vendor: Moti Levi (motiml77@gmail.com)
+Bundle-Copyright: © 2026 Moti Levi, motiml77@gmail.com
 Bundle-RequiredExecutionEnvironment: JavaSE-11
 Bundle-ActivationPolicy: lazy
 Require-Bundle: org.eclipse.ui,

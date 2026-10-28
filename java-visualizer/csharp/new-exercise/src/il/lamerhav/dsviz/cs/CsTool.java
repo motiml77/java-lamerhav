@@ -962,7 +962,14 @@ public final class CsTool {
             p.add(ok);
             p.add(cancel);
             cancel.addActionListener(e -> d.dispose());
-            return p;
+            JPanel row = new JPanel(new BorderLayout());   // זכויות יוצרים — בקצה השני של שורת הכפתורים
+            row.add(p, BorderLayout.CENTER);
+            JLabel c = ltr(new JLabel(Theme.COPYRIGHT));
+            c.setFont(Theme.small);
+            c.setForeground(new java.awt.Color(0xA0A8B8));
+            c.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
+            row.add(c, BorderLayout.LINE_END);
+            return row;
         }
 
         JPanel grid(int cols) {

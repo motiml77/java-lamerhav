@@ -53,12 +53,14 @@ h1 b { background: linear-gradient(100deg, var(--accent), var(--accent2)); -webk
 .speed .btn { padding: 6px 12px; min-width: 56px; }
 .speed .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .hint { color: var(--muted); font-size: 14px; margin-top: 22px; }
+.copy { font-size: 12px; opacity: .7; direction: ltr; text-align: right; margin-top: 8px; }
 </style></head><body>
 <div class="wrap">
   <h1>הדרכה <b>לשימוש</b></h1>
   <div class="sub">בוחרים הדרכה — לכל אחת סרטון קצר שמראה בדיוק איפה לוחצים ומה נפתח.</div>
   <div class="grid" id="grid"></div>
   <div class="hint">אפשר לחזור לכאן בכל רגע בכפתור <b>?</b> בסרגל הכלים.</div>
+  <div class="hint copy">© 2026 Moti Levi · motiml77@gmail.com</div>
 </div>
 <div id="player"><div class="bar"><h3 id="ptitle"></h3><div class="speed" id="speed"><span>מהירות</span></div><button class="btn" id="next">ההדרכה הבאה ◂</button><button class="btn" id="close">✕ סגירה</button></div><video id="vid" controls></video></div>
 <script>
@@ -122,9 +124,11 @@ body { background: #070913; color: #f2f4fb; font: 16px/1.4 "Segoe UI", Heebo, Ar
 .stage { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px 12px; }
 video { max-width: 100%; max-height: 100%; background: #000; border-radius: 10px; outline: none; }
 #err { display: none; color: #ffd27a; text-align: center; padding: 20px; }
+.copy { flex: 0 0 auto; color: #aab2c8; font-size: 11px; opacity: .7; direction: ltr; text-align: right; padding: 0 16px 8px; }
 </style></head><body>
 <div class="bar"><h1 id="ttl"></h1><button class="other" id="other">הדרכה אחרת</button><div class="speed" id="speed"><span>מהירות</span></div></div>
 <div class="stage"><video id="vid" controls autoplay></video><div id="err">לא הצלחתי לנגן את הסרטון בחלון הזה.</div></div>
+<div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div>
 <script>
 var LIST = ${data};
 var SPEEDS = [1, 1.25, 1.5, 2];

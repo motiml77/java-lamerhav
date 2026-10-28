@@ -12,6 +12,9 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <Version>1.0.1</Version>
+    <Authors>Moti Levi</Authors>
+    <Company>Moti Levi</Company>
+    <Copyright>© 2026 Moti Levi (motiml77@gmail.com)</Copyright>
     <InvariantGlobalization>true</InvariantGlobalization>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>

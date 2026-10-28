@@ -108,6 +108,9 @@ final class Splash {
             g.setColor(new Color(0x667085));
             String sub = "רגע, זה לוקח כמה שניות";
             g.drawString(sub, x - 18 - g.getFontMetrics().stringWidth(sub), h / 2 + 22);
+            g.setFont(new Font("Dialog", Font.PLAIN, 10));
+            g.setColor(new Color(0xA0A8B8));
+            g.drawString(Theme.COPYRIGHT, 10, h - 8);
             g.dispose();
         }
     }

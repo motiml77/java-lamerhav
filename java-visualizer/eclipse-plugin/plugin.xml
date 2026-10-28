@@ -16,12 +16,20 @@
                defaultHandler="il.lamerhav.dsviz.InsertHandler">
          <commandParameter id="il.lamerhav.dsviz.structure" name="מבנה" optional="true"/>
       </command>
+      <command id="il.lamerhav.dsviz.submit" categoryId="il.lamerhav.dsviz.category"
+               name="שליחת תרגיל" description="שולחים את דף התרגיל (PDF, Word או תמונות) ומקבלים מעטפת מוכנה: מחלקות, main ופעולה לכל סעיף"
+               defaultHandler="il.lamerhav.dsviz.SubmitHandler"/>
       <command id="il.lamerhav.dsviz.help" categoryId="il.lamerhav.dsviz.category"
                name="הדרכה לשימוש" description="סרטונים קצרים שמסבירים איך משתמשים"
                defaultHandler="il.lamerhav.dsviz.HelpHandler"/>
       <command id="il.lamerhav.dsviz.examples" categoryId="il.lamerhav.dsviz.category"
                name="דוגמאות פתורות" description="העתקת דוגמאות פתורות לפרויקט"
                defaultHandler="il.lamerhav.dsviz.ExamplesHandler"/>
+      <command id="il.lamerhav.dsviz.mentor" categoryId="il.lamerhav.dsviz.category"
+               name="הסברים בעברית לשגיאות" description="ליד כל שגיאה של הקומפיילר — הסבר בעברית במקום המדויק של הבעיה, ואזהרות על טעויות נפוצות"
+               defaultHandler="il.lamerhav.dsviz.MentorToggleHandler">
+         <state class="org.eclipse.ui.handlers.RegistryToggleState:true" id="org.eclipse.ui.commands.toggleState"/>
+      </command>
    </extension>
 
    <extension point="org.eclipse.ui.commandImages">
@@ -30,6 +38,7 @@
       <image commandId="il.lamerhav.dsviz.examples" icon="icons/examples.png"/>
       <image commandId="il.lamerhav.dsviz.insert" icon="icons/insert.png"/>
       <image commandId="il.lamerhav.dsviz.help" icon="icons/help.png"/>
+      <image commandId="il.lamerhav.dsviz.submit" icon="icons/send.png"/>
    </extension>
 
    <extension point="org.eclipse.ui.menus">
@@ -57,12 +66,19 @@
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש: מערך דו-ממדי..." style="push">
                <parameter name="il.lamerhav.dsviz.structure" value="matrix"/>
             </command>
+            <!-- submit:start -->
+            <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל (PDF / Word / תמונה)..." style="push"/>
+            <!-- submit:end -->
             <separator name="insert" visible="true"/>
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
             <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
             <separator name="more" visible="true"/>
             <command commandId="il.lamerhav.dsviz.examples" label="דוגמאות פתורות..." style="push"/>
+            <command commandId="il.lamerhav.dsviz.mentor" label="הסברים בעברית לשגיאות ולטעויות נפוצות" style="toggle"/>
+            <command commandId="org.eclipse.ui.views.showView" label="חלון ההסברים בעברית" style="push">
+               <parameter name="org.eclipse.ui.views.showView.viewId" value="il.lamerhav.dsviz.mentorView"/>
+            </command>
             <command commandId="il.lamerhav.dsviz.help" label="הדרכה לשימוש (?)..." style="push"/>
          </menu>
       </menuContribution>
@@ -72,6 +88,10 @@
          <toolbar id="il.lamerhav.dsviz.toolbar" label="מבני נתונים">
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש" mode="FORCE_TEXT"
                      tooltip="תרגיל חדש במבני נתונים — בוחרים מבנה ומקבלים תרגיל מוכן" style="push"/>
+            <!-- submit:start -->
+            <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל" mode="FORCE_TEXT"
+                     tooltip="שליחת תרגיל: מצרפים את דף התרגיל (PDF, Word או תמונה / צילום מסך) ומקבלים קובץ מוכן — מחלקות, main ופעולה לכל סעיף" style="push"/>
+            <!-- submit:end -->
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים" mode="FORCE_TEXT"
                      tooltip="הוסף מבנה נתונים לקוד במקום הסמן — בוחרים מבנה, ערכים ושם, ורואים איך הוא ייראה" style="push"/>
             <separator name="run" visible="true"/>
@@ -91,12 +111,43 @@
       <!-- לחיצה ימנית בעץ הקבצים -->
       <menuContribution locationURI="popup:org.eclipse.jdt.ui.PackageExplorer?after=additions">
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <!-- submit:start -->
+         <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push"/>
+         <!-- submit:end -->
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
       </menuContribution>
       <menuContribution locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?after=additions">
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <!-- submit:start -->
+         <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push"/>
+         <!-- submit:end -->
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
       </menuContribution>
+   </extension>
+
+   <!-- "המורה בעברית": ליד כל שגיאה של הקומפיילר הסבר בעברית (במקום המדויק של הבעיה), ואזהרות על טעויות נפוצות.
+        סוג סימון משלנו (תת-סוג של Java Problem), ו-JDT מנקה אותו בכל בנייה (managedMarker) -->
+   <!-- חלון "הסברים בעברית" — מימין לשמאל, צמוד לימין, ליד העורך (בערימה של Outline) -->
+   <extension point="org.eclipse.ui.views">
+      <category id="il.lamerhav.dsviz.views" name="מבני נתונים"/>
+      <view id="il.lamerhav.dsviz.mentorView" category="il.lamerhav.dsviz.views" name="הסברים בעברית"
+            class="il.lamerhav.dsviz.MentorView" icon="icons/help.png"/>
+   </extension>
+   <extension point="org.eclipse.ui.perspectiveExtensions">
+      <perspectiveExtension targetID="org.eclipse.jdt.ui.JavaPerspective">
+         <view id="il.lamerhav.dsviz.mentorView" relative="org.eclipse.ui.views.ContentOutline" relationship="stack" visible="true"/>
+      </perspectiveExtension>
+   </extension>
+   <extension id="mentor" point="org.eclipse.core.resources.markers" name="הסבר בעברית">
+      <super type="org.eclipse.jdt.core.problem"/>
+      <super type="org.eclipse.core.resources.problemmarker"/>
+      <super type="org.eclipse.core.resources.textmarker"/>
+      <persistent value="true"/>
+   </extension>
+   <extension point="org.eclipse.jdt.core.compilationParticipant">
+      <compilationParticipant id="il.lamerhav.dsviz.mentorParticipant" class="il.lamerhav.dsviz.MentorParticipant" createsProblems="true">
+         <managedMarker markerType="il.lamerhav.dsviz.mentor"/>
+      </compilationParticipant>
    </extension>
 
    <!-- הכנה אוטומטית בהפעלה הראשונה (פרויקט, קידוד, ברוכים הבאים) -->

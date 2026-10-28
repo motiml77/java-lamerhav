@@ -86,7 +86,7 @@ dotnet "$ROOT/csharp/project/Examples/StackExamples/bin/Debug/net8.0/StackExampl
 echo "== 8. Visual Studio: חלון \"תרגיל חדש ב-C#\" — אותו קוד כמו VS Code, יצירת פרויקט ורישום בפתרון"
 mkdir -p "$W/cstool"
 javac --release 11 -nowarn -encoding UTF-8 -cp "$JAR" -d "$W/cstool" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/NameCheck.java" \
-    $(find "$ROOT/csharp/new-exercise/src" cstool ScaffoldCsAll.java -name '*.java')
+    "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java" $(find "$ROOT/csharp/new-exercise/src" cstool ScaffoldCsAll.java -name '*.java')
 # א. המחולל של Visual Studio (Java) מפיק בדיוק אותם 3,426 קבצי C# כמו המחולל של VS Code (JS), בתים-בתים
 node combos.js "$W/jsx" > /dev/null
 java -cp "$W/cstool:$JAR" ScaffoldCsAll "$W/combos.txt" "$W/javacs"
@@ -100,3 +100,12 @@ for n in Targil1 Targil2 Targil3; do
     dotnet build "$W/csroot/Exercises/$n" -v q --nologo 2>&1 | grep -q 'Build succeeded' || { echo "בנייה נכשלה: $n"; exit 1; }
 done
 viz "$W/csroot/Exercises/Targil2" --trace "$W/t2.trace" > /dev/null 2>&1; grep -q '^SUB' "$W/t2.trace" && echo "התרגיל מבנה-בתוך-מבנה נבנה ורץ ויזואלית"
+
+echo "== 9. שליחת תרגיל — המחולל יודע לבנות גם C# (לכלי של Visual Studio, בהמשך): המעטפות מתקמפלות יחד עם הספרייה"
+mkdir -p "$W/ai/cls"
+javac -nowarn -encoding UTF-8 -d "$W/ai/cls" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Json.java" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java" AiScaffoldTest.java
+java -Dstdout.encoding=UTF-8 -cp "$W/ai/cls" il.lamerhav.dsviz.AiScaffoldTest ai "$W/ai/src" > /dev/null
+for d in $(cat "$W/ai/src/cs-dirs.txt"); do
+    viz --check-project "$d" | tail -1 | grep -q '^errors: 0' || { viz --check-project "$d"; exit 1; }
+done
+echo "  ok  מעטפות C# מתקמפלות (dsviz-cs --check-project)"
