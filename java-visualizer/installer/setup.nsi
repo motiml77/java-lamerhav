@@ -107,6 +107,7 @@ Function TryEclipse
     CopyFiles /SILENT "$INSTDIR\${PLUGIN}" "$0\dropins"
     ${If} ${Errors}
       DetailPrint "Eclipse: אין הרשאה לכתוב ל-$0\dropins — יש להריץ את ההתקנה כמנהל (לחיצה ימנית ← הפעל כמנהל)"
+      MessageBox MB_OK|MB_ICONEXCLAMATION "ה-Eclipse שנמצא ב:$\r$\n$0$\r$\n$\r$\nנמצא בתיקייה מוגנת, ולכן אי אפשר להתקין בו בלי הרשאות מנהל.$\r$\n$\r$\nסגרו את ההתקנה, ולחצו על הקובץ DSViz-Setup.exe לחיצה ימנית ← 'הפעל כמנהל'." /SD IDOK
     ${Else}
       ; כמו eclipse -clean: מוחקים את המטמון של Eclipse, כדי שיטען את התוסף החדש ולא את הישן
       RMDir /r "$0\configuration\org.eclipse.osgi"
@@ -420,13 +421,45 @@ Section "-eclipse"
   ${EndIf}
   StrCpy $ECLIPSES 0
   Delete "$INSTDIR\eclipse-dirs.txt"
-  !insertmacro SCAN "$PROFILE\eclipse" "*"
-  !insertmacro SCAN "$PROFILE" "eclipse*"
-  !insertmacro SCAN "$DESKTOP" "eclipse*"
-  !insertmacro SCAN "$PROFILE\Downloads" "eclipse*"
-  !insertmacro SCAN "$PROGRAMFILES64" "eclipse*"
-  !insertmacro SCAN "C:" "eclipse*"
-  !insertmacro SCAN "D:" "eclipse*"
+  ; חיפוש מלא (PowerShell): Eclipse שרץ עכשיו, התיקיות הרגילות וכל הכוננים — בכל שם תיקייה, רק Eclipse ל-Java (עם JDT)
+  InitPluginsDir
+  File "/oname=$PLUGINSDIR\find-eclipse.ps1" "find-eclipse.ps1"
+  Delete "$PLUGINSDIR\eclipse-found.txt"
+  DetailPrint "Eclipse: מחפש התקנות במחשב..."
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\find-eclipse.ps1" "$PLUGINSDIR\eclipse-found.txt"'
+  Pop $0
+  ${If} ${FileExists} "$PLUGINSDIR\eclipse-found.txt"
+    FileOpen $R2 "$PLUGINSDIR\eclipse-found.txt" r
+    FileReadUTF16LE $R2 $R3
+    ${DoWhile} $R3 != ""
+      ; מסירים סוף שורה
+      trim_eol:
+      StrCpy $R4 $R3 1 -1
+      StrCmp $R4 "$\n" cut_eol
+      StrCmp $R4 "$\r" cut_eol
+      Goto eol_done
+      cut_eol:
+      StrCpy $R3 $R3 -1
+      Goto trim_eol
+      eol_done:
+      ${If} $R3 != ""
+        Push $R3
+        Call TryEclipse
+      ${EndIf}
+      FileReadUTF16LE $R2 $R3
+    ${Loop}
+    FileClose $R2
+  ${EndIf}
+  ; גיבוי: אם החיפוש לא עבד (אין PowerShell / נחסם) — המקומות הרגילים, לפי שם התיקייה
+  ${If} $ECLIPSES == 0
+    !insertmacro SCAN "$PROFILE\eclipse" "*"
+    !insertmacro SCAN "$PROFILE" "eclipse*"
+    !insertmacro SCAN "$DESKTOP" "eclipse*"
+    !insertmacro SCAN "$PROFILE\Downloads" "eclipse*"
+    !insertmacro SCAN "$PROGRAMFILES64" "eclipse*"
+    !insertmacro SCAN "C:" "eclipse*"
+    !insertmacro SCAN "D:" "eclipse*"
+  ${EndIf}
   ${If} $ECLIPSES == 0
   ${AndIf} $CODE != ""
     DetailPrint "Eclipse: לא נמצא — דילוג (VS Code הותקן)"

@@ -44,6 +44,7 @@ public class AutoSetup implements IStartup {
             public IStatus runInWorkspace(IProgressMonitor monitor) {
                 try {
                     updateLibraries();
+                    LibraryEverywhere.start();
                     IEclipsePreferences prefs = InstanceScope.INSTANCE.getNode(NODE);
                     if (!prefs.getBoolean(DONE, false)) {
                         IFile main = firstRun();
@@ -123,7 +124,7 @@ public class AutoSetup implements IStartup {
             IFile jar = jp.getProject().getFile("lib/" + ProjectSetup.JAR_NAME);
             if (!jar.exists()) continue;
             try (java.io.InputStream in = jar.getContents(true)) {
-                byte[] cur = in.readAllBytes();
+                byte[] cur = ProjectSetup.readAll(in);
                 if (!Arrays.equals(cur, fresh)) jar.setContents(new java.io.ByteArrayInputStream(fresh), true, false, null);
             } catch (java.io.IOException ignored) {
             }

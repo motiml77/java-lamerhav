@@ -86,6 +86,11 @@ public final class ProjectSetup {
      * מוודא שהספרייה נמצאת בפרויקט וב-Build Path. מחזיר את תיקיית הקוד שבה יוצרים תרגילים.
      */
     public static IContainer prepare(IJavaProject jp, ConflictResolver resolver) throws CoreException {
+        return prepare(jp, resolver, true);
+    }
+
+    /** needSource=false: רק הספרייה (בלי ליצור תיקיית src אם אין) — לפרויקטים קיימים של התלמיד */
+    public static IContainer prepare(IJavaProject jp, ConflictResolver resolver, boolean needSource) throws CoreException {
         IProject p = jp.getProject();
         IFolder lib = p.getFolder("lib");
         if (!lib.exists()) lib.create(true, true, null);
@@ -123,7 +128,7 @@ public final class ProjectSetup {
             entries.add(JavaCore.newLibraryEntry(jar.getFullPath(), jar.getFullPath(), new Path("src")));
             changed = true;
         }
-        if (src == null) {
+        if (src == null && needSource) {
             IFolder f = p.getFolder("src");
             if (!f.exists()) f.create(true, true, null);
             entries.add(0, JavaCore.newSourceEntry(f.getFullPath()));
@@ -204,7 +209,7 @@ public final class ProjectSetup {
         }
     }
 
-    private static byte[] readAll(InputStream in) throws IOException {
+    static byte[] readAll(InputStream in) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buf = new byte[8192];
         for (int n; (n = in.read(buf)) > 0;) out.write(buf, 0, n);

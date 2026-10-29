@@ -3,23 +3,16 @@ package il.lamerhav.dsviz;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpConnectTimeoutException;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.HttpTimeoutException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 /**
  * "שליחת תרגיל": השליחה לשרת הביניים (worker/ — Cloudflare Worker), שהוא ששולח ל-Gemini.
@@ -41,7 +34,8 @@ final class WorkerClient {
     }
 
     final String url, key;
-    private volatile CompletableFuture<HttpResponse<String>> pending;
+    private volatile HttpURLConnection pending;
+    private volatile boolean cancelled;
 
     WorkerClient(String url, String key) {
         this.url = url == null ? "" : url.replaceAll("/+$", "");
@@ -103,10 +97,7 @@ final class WorkerClient {
             part(body, boundary, "file", "file" + (i + 1) + "." + ext, mime, files.get(i));   // השם האמיתי (בעברית) — ב-meta
         }
         write(body, "--" + boundary + "--\r\n");
-        HttpRequest req = base("/v1/exercise", Duration.ofSeconds(180))
-                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build();
-        return send(req);
+        return send("/v1/exercise", 180, "multipart/form-data; boundary=" + boundary, body.toByteArray());
     }
 
     /** הקוד שנבנה לא התקמפל — מבקשים תיקון (בלי הקבצים, רק הקוד והשגיאות) */
@@ -117,59 +108,75 @@ final class WorkerClient {
         b.put("exercise", exercise);
         b.put("files", files);
         b.put("errors", errors);
-        HttpRequest req = base("/v1/repair", Duration.ofSeconds(150))
-                .header("Content-Type", "application/json; charset=utf-8")
-                .POST(HttpRequest.BodyPublishers.ofString(Json.write(b), StandardCharsets.UTF_8)).build();
-        return send(req);
+        return send("/v1/repair", 150, "application/json; charset=utf-8", Json.write(b).getBytes(StandardCharsets.UTF_8));
     }
 
     /** מבטל את השליחה שבדרך (מהחלון — "ביטול") */
     void cancel() {
-        CompletableFuture<HttpResponse<String>> f = pending;
-        if (f != null) f.cancel(true);
+        cancelled = true;
+        HttpURLConnection c = pending;
+        if (c != null) c.disconnect();
     }
 
-    private HttpRequest.Builder base(String path, Duration timeout) throws AiError {
+    /** HttpURLConnection (ולא java.net.http) — כדי שיעבוד גם ב-Eclipse שרץ על Java 8 */
+    private Map<String, Object> send(String path, int timeoutSec, String contentType, byte[] body) throws AiError {
+        HttpURLConnection c;
         try {
-            HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(url + path)).timeout(timeout)
-                    .header("User-Agent", CLIENT).header("Accept", "application/json");
-            if (!key.isEmpty()) b.header("X-DSViz-Key", key);
-            return b;
-        } catch (IllegalArgumentException e) {
+            c = (HttpURLConnection) new URL(url + path).openConnection();
+        } catch (IOException | RuntimeException e) {
             throw new AiError("config", "כתובת השרת לא תקינה: " + url);
         }
-    }
-
-    private Map<String, Object> send(HttpRequest req) throws AiError {
-        HttpClient c = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).followRedirects(HttpClient.Redirect.NORMAL).build();
-        HttpResponse<String> res;
+        int status;
+        String text;
+        cancelled = false;
         try {
-            pending = c.sendAsync(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            res = pending.get();
-        } catch (CancellationException e) {
-            throw new AiError("cancel", "השליחה בוטלה.");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new AiError("cancel", "השליחה בוטלה.");
-        } catch (ExecutionException e) {
-            Throwable t = e.getCause();
-            if (t instanceof HttpConnectTimeoutException || t instanceof java.net.ConnectException || t instanceof java.nio.channels.UnresolvedAddressException
-                    || (t != null && t.getCause() instanceof java.nio.channels.UnresolvedAddressException))
+            c.setRequestMethod("POST");
+            c.setConnectTimeout(20000);
+            c.setReadTimeout(timeoutSec * 1000);
+            c.setInstanceFollowRedirects(true);
+            c.setRequestProperty("User-Agent", CLIENT);
+            c.setRequestProperty("Accept", "application/json");
+            c.setRequestProperty("Content-Type", contentType);
+            if (!key.isEmpty()) c.setRequestProperty("X-DSViz-Key", key);
+            c.setDoOutput(true);
+            c.setFixedLengthStreamingMode(body.length);
+            pending = c;
+            try (OutputStream o = c.getOutputStream()) {
+                o.write(body);
+            }
+            status = c.getResponseCode();
+            InputStream in = status >= 400 ? c.getErrorStream() : c.getInputStream();
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            if (in != null) {
+                try (InputStream i = in) {
+                    byte[] b = new byte[8192];
+                    for (int n; (n = i.read(b)) > 0; ) buf.write(b, 0, n);
+                }
+            }
+            text = new String(buf.toByteArray(), StandardCharsets.UTF_8);
+        } catch (java.net.SocketTimeoutException e) {
+            if (cancelled) throw new AiError("cancel", "השליחה בוטלה.");
+            if (e.getMessage() != null && e.getMessage().contains("connect"))
                 throw new AiError("offline", "אין חיבור לשרת. בדקו שיש חיבור לאינטרנט ונסו שוב.");
-            if (t instanceof HttpTimeoutException) throw new AiError("timeout", "השרת לא ענה בזמן (זה לפעמים קורה בתרגילים ארוכים). נסו שוב.");
-            throw new AiError("network", "תקלה בתקשורת עם השרת: " + (t == null ? e.getMessage() : t.getMessage()));
+            throw new AiError("timeout", "השרת לא ענה בזמן (זה לפעמים קורה בתרגילים ארוכים). נסו שוב.");
+        } catch (java.net.UnknownHostException | java.net.ConnectException e) {
+            throw new AiError("offline", "אין חיבור לשרת. בדקו שיש חיבור לאינטרנט ונסו שוב.");
+        } catch (IOException e) {
+            if (cancelled) throw new AiError("cancel", "השליחה בוטלה.");
+            throw new AiError("network", "תקלה בתקשורת עם השרת: " + e.getMessage());
         } finally {
             pending = null;
+            c.disconnect();
         }
         Map<String, Object> j;
         try {
-            j = Json.obj(Json.parse(res.body()));
+            j = Json.obj(Json.parse(text));
         } catch (IllegalArgumentException e) {
-            throw new AiError("server", "השרת החזיר תשובה לא מובנת (קוד " + res.statusCode() + "). נסו שוב בעוד דקה.");
+            throw new AiError("server", "השרת החזיר תשובה לא מובנת (קוד " + status + "). נסו שוב בעוד דקה.");
         }
-        if (res.statusCode() != 200 || !Boolean.TRUE.equals(j.get("ok"))) {
+        if (status != 200 || !Boolean.TRUE.equals(j.get("ok"))) {
             String msg = Json.str(j.get("error"));
-            throw new AiError(Json.str(j.get("code")), msg.isEmpty() ? "השרת החזיר שגיאה (קוד " + res.statusCode() + ")." : msg);
+            throw new AiError(Json.str(j.get("code")), msg.isEmpty() ? "השרת החזיר שגיאה (קוד " + status + ")." : msg);
         }
         Map<String, Object> ex = Json.obj(j.get("exercise"));
         if (ex.isEmpty()) throw new AiError("server", "התשובה מהשרת ריקה. נסו שוב.");
