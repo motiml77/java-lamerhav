@@ -137,7 +137,7 @@ public class App implements IApplication {
         String text = wc.getSource();
         String edited = text.replaceFirst("(?m)^(\\s*int\\s+count\\s*=\\s*0);", "$1");
         wc.getBuffer().setContents(edited);
-        wc.reconcile(AST.getJLSLatest(), true, owner, null);
+        wc.reconcile(il.lamerhav.dsviz.MentorParticipant.latest(), true, owner, null);
         for (IProblem pr : got) {
             String type = pr instanceof CategorizedProblem ? ((CategorizedProblem) pr).getMarkerType() : "?";
             out.println("RECONCILE " + first.getName() + ":" + pr.getSourceLineNumber() + " " + (MARKER.equals(type) ? "mentor" : "jdt") + " "
@@ -151,6 +151,15 @@ public class App implements IApplication {
             il.lamerhav.dsviz.RunVisualHandler.compileErrors(f, errs);
             out.println("RUNCHECK " + f.getName() + " errors=" + errs.size() + (errs.isEmpty() ? "" : " first=" + clean(errs.get(0)).replace("\n", " | ")));
         }
+
+        // 2ג. פרויקט Java רגיל של תלמיד (בלי הספרייה): הספרייה נוספת לו, ו-Queue מזוהה
+        IProject plain = ws.getRoot().getProject("Plain");
+        if (plain.exists()) plain.delete(true, true, null);
+        IJavaProject pj = il.lamerhav.dsviz.ProjectSetup.createProject("Plain");
+        out.println("LIBRARY-BEFORE " + (pj.findType("unit4.collectionsLib.Queue") != null));
+        il.lamerhav.dsviz.LibraryEverywhere.ensure(pj);
+        out.println("LIBRARY-AFTER " + (pj.findType("unit4.collectionsLib.Queue") != null) + " stack=" + (pj.findType("unit4.collectionsLib.Stack") != null)
+                + " node=" + (pj.findType("unit4.collectionsLib.Node") != null) + " jar=" + pj.getProject().getFile("lib/dsviz.jar").exists());
 
         // 3. כיבוי מהתפריט: אחרי בנייה מלאה — אין אף סימון שלנו
         setMentor(false);

@@ -130,12 +130,21 @@ public class MentorParticipant extends CompilationParticipant {
         return l.toArray(new CategorizedProblem[0]);
     }
 
+    /** רמת ה-AST הגבוהה ביותר ש-Eclipse הזה מכיר (גם Eclipse ישן שאין בו getJLSLatest) */
     @SuppressWarnings("deprecation")
-    static int latest() {
+    public static int latest() {
         try {
             return AST.getJLSLatest();
         } catch (Throwable e) {
-            return AST.JLS11; // Eclipse ישן (לפני 2020-12)
+            for (int level = 30; level > 8; level--) {
+                try {
+                    AST.newAST(level);
+                    return level;
+                } catch (Throwable ignored) {
+                    // הרמה הזאת לא קיימת ב-Eclipse הזה
+                }
+            }
+            return 8;
         }
     }
 }

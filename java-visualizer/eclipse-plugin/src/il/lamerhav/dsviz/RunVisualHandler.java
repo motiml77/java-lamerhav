@@ -78,7 +78,7 @@ public class RunVisualHandler extends AbstractHandler {
         // בפרויקט יש הרבה תרגילים — שגיאה בתרגיל אחר לא צריכה לחסום. חוסמות: שגיאות בקובץ הזה, ובקבצים שהוא משתמש בהם (לפי שם המחלקה)
         String source = "";
         try {
-            source = new String(file.getContents().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            source = new String(ProjectSetup.readAll(file.getContents()), java.nio.charset.StandardCharsets.UTF_8);
         } catch (Exception e) {
             // בלי טקסט — רק השגיאות של הקובץ עצמו
         }
