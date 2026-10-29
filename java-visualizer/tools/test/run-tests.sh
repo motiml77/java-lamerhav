@@ -32,6 +32,15 @@ for c in C1 C200 C500 C800 C1000 Snip1 Snip40 Snip80; do
         && ! grep -q Exception "$W/run/$c.out" || { echo "נכשל: $c"; cat "$W/run/$c.out"; exit 1; }
 done
 echo "הרצת דוגמאות: תקין"
+# פעולות העזר size / duplicate (תיבות V בחלונות): נכונות, לא פוגעות במבנה, ורצות גם בהרצה ויזואלית
+mkdir -p "$W/helpers"
+node helpers-test.js "$W/helpers"
+javac -encoding UTF-8 -nowarn -cp "$JAR" -d "$W/helpers" "$W/helpers/HelpersCheck.java"
+(cd "$W/helpers" && java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" HelpersCheck > out.txt 2>&1 \
+    && java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine HelpersCheck > lbl.txt 2>&1) \
+    && grep -q "ALL OK" "$W/helpers/out.txt" && grep -q "ALL OK" "$W/helpers/lbl.txt" \
+    && echo "פעולות עזר size / duplicate: נכונות (מחסנית, תור, רשימה, עץ, תור של מחסניות) — גם בהרצה ויזואלית" \
+    || { echo "נכשל: פעולות עזר"; cat "$W/helpers/out.txt"; exit 1; }
 echo "== 3. התוסף של VS Code (מול חיקוי של ה-API)"
 node vscode-test.js | tail -2
 echo "== 3ב. החלון \"הוסף מבנה נתונים\" של VS Code בדפדפן (Chromium): לחיצות, ערכים אקראיים, בדיקת שם, ציור"

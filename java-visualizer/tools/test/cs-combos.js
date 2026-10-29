@@ -20,6 +20,7 @@ for (const structure of Object.keys(t.STRUCTURES))
         const o = { structure, type, returns, second: !!(flags & 1), extra: !!(flags & 2), random: !!(flags & 4), recursive: !!(flags & 8), count: flags & 16 ? 3 : flags & 1 ? 2 : 1,
                     values: t.defaultValues(structure, type, false), values2: t.defaultValues(structure, type, true), values3: t.defaultValues(structure, type, true),
                     className: 'C' + (++i), functionName: 'solve' };
+        o.helperSize = i % 3 !== 1; o.helperCopy = i % 3 !== 2;   // כמו ב-combos.js
         write(o.className + '.cs', () => t.generate(o).code);
       }
 // קומבינציות עם ערכים אקראיים (אותו סדר ומספור כמו ב-combos.js)

@@ -62,6 +62,9 @@ public class InsertHandler extends AbstractHandler {
                 doc.replace(end, 0, "\n" + code);
                 caret = end + 1 + code.length();
             }
+            // פעולות עזר (size / duplicate) שנבחרו — לסוף המחלקה, אחרי הסמן (לכן הסמן לא זז)
+            Scaffold.HelperInsertion h = d.helpers(doc.get(), caret);
+            if (h != null && h.offset >= caret) doc.replace(h.offset, 0, h.code);
             if (!IMPORT.matcher(doc.get()).find()) {
                 Matcher pkg = PACKAGE.matcher(doc.get());
                 String imp = "import unit4.collectionsLib.*;";

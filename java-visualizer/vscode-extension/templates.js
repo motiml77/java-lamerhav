@@ -147,6 +147,199 @@ function literals(text, type, allowNull) {
  * options = { structure, type, returns, second, extra, random, values, values2, className, functionName }
  * מחזיר { code, cursorLine } — cursorLine = מספר השורה (מ-0) שבה התלמיד מתחיל לכתוב
  */
+// ------------------------------------------------------------ פעולות עזר (size / duplicate) — תיבות V בחלון
+// אותן פעולות בדיוק ב-Scaffold.java (Eclipse); ב-C# הן מומרות (Size<T> / Duplicate<T>)
+const HELPERS = {
+    "Stack.size": [
+        "    // פעולת עזר: מחזירה כמה איברים יש במחסנית — המחסנית נשארת כמו שהייתה",
+        "    public static <T> int size(Stack<T> s) {",
+        "        Stack<T> temp = new Stack<T>();",
+        "        int count = 0;",
+        "        while (!s.isEmpty()) {",
+        "            temp.push(s.pop());",
+        "            count++;",
+        "        }",
+        "        while (!temp.isEmpty()) {",
+        "            s.push(temp.pop());",
+        "        }",
+        "        return count;",
+        "    }",
+    ],
+    "Stack.duplicate": [
+        "    // פעולת עזר: מחזירה עותק של המחסנית (באותו סדר) — המחסנית המקורית נשארת כמו שהייתה",
+        "    public static <T> Stack<T> duplicate(Stack<T> s) {",
+        "        Stack<T> temp = new Stack<T>();",
+        "        Stack<T> copy = new Stack<T>();",
+        "        while (!s.isEmpty()) {",
+        "            temp.push(s.pop());",
+        "        }",
+        "        while (!temp.isEmpty()) {",
+        "            T x = temp.pop();",
+        "            s.push(x);",
+        "            copy.push(x);",
+        "        }",
+        "        return copy;",
+        "    }",
+    ],
+    "Queue.size": [
+        "    // פעולת עזר: מחזירה כמה איברים יש בתור — התור נשאר כמו שהיה",
+        "    public static <T> int size(Queue<T> q) {",
+        "        Queue<T> temp = new Queue<T>();",
+        "        int count = 0;",
+        "        while (!q.isEmpty()) {",
+        "            temp.insert(q.remove());",
+        "            count++;",
+        "        }",
+        "        while (!temp.isEmpty()) {",
+        "            q.insert(temp.remove());",
+        "        }",
+        "        return count;",
+        "    }",
+    ],
+    "Queue.duplicate": [
+        "    // פעולת עזר: מחזירה עותק של התור (באותו סדר) — התור המקורי נשאר כמו שהיה",
+        "    public static <T> Queue<T> duplicate(Queue<T> q) {",
+        "        Queue<T> temp = new Queue<T>();",
+        "        Queue<T> copy = new Queue<T>();",
+        "        while (!q.isEmpty()) {",
+        "            T x = q.remove();",
+        "            temp.insert(x);",
+        "            copy.insert(x);",
+        "        }",
+        "        while (!temp.isEmpty()) {",
+        "            q.insert(temp.remove());",
+        "        }",
+        "        return copy;",
+        "    }",
+    ],
+    "Node.size": [
+        "    // פעולת עזר: מחזירה כמה חוליות יש ברשימה — הרשימה נשארת כמו שהייתה",
+        "    public static <T> int size(Node<T> lst) {",
+        "        int count = 0;",
+        "        Node<T> p = lst;",
+        "        while (p != null) {",
+        "            count++;",
+        "            p = p.getNext();",
+        "        }",
+        "        return count;",
+        "    }",
+    ],
+    "Node.duplicate": [
+        "    // פעולת עזר: מחזירה עותק של הרשימה (חוליות חדשות, באותו סדר) — הרשימה המקורית נשארת כמו שהייתה",
+        "    public static <T> Node<T> duplicate(Node<T> lst) {",
+        "        if (lst == null) {",
+        "            return null;",
+        "        }",
+        "        Node<T> first = new Node<T>(lst.getValue());",
+        "        Node<T> last = first;",
+        "        Node<T> p = lst.getNext();",
+        "        while (p != null) {",
+        "            last.setNext(new Node<T>(p.getValue()));",
+        "            last = last.getNext();",
+        "            p = p.getNext();",
+        "        }",
+        "        return first;",
+        "    }",
+    ],
+    "BinNode.size": [
+        "    // פעולת עזר: מחזירה כמה צמתים יש בעץ — העץ נשאר כמו שהיה",
+        "    public static <T> int size(BinNode<T> t) {",
+        "        if (t == null) {",
+        "            return 0;",
+        "        }",
+        "        return 1 + size(t.getLeft()) + size(t.getRight());",
+        "    }",
+    ],
+    "BinNode.duplicate": [
+        "    // פעולת עזר: מחזירה עותק של העץ (צמתים חדשים, באותו מבנה) — העץ המקורי נשאר כמו שהיה",
+        "    public static <T> BinNode<T> duplicate(BinNode<T> t) {",
+        "        if (t == null) {",
+        "            return null;",
+        "        }",
+        "        return new BinNode<T>(duplicate(t.getLeft()), t.getValue(), duplicate(t.getRight()));",
+        "    }",
+    ],
+};
+
+/** המחלקות (Stack / Queue / Node / BinNode) שיש להן פעולות עזר במבנה הזה: המבנה עצמו, ובקומבינציה — החיצוני והפנימי */
+function helperClasses(structure) {
+    const st = STRUCTURES[structure];
+    if (!st) return [];
+    const res = [];
+    for (const id of st.combo ? [st.combo.outer, st.combo.inner] : [structure]) {
+        const s = STRUCTURES[id];
+        if (s && s.cls && !res.includes(s.cls)) res.push(s.cls);
+    }
+    return res;
+}
+
+/** האם אפשר להוסיף למבנה הזה פעולות עזר (מחסנית, תור, רשימה, עץ — לא מערך) */
+function hasHelpers(structure) {
+    return helperClasses(structure).length > 0;
+}
+
+/** הפעולות עצמן (מוזחות ב-4), כל אחת אחרי שורה ריקה; ריק אם לא נבחר כלום */
+function helperLines(structure, size, copy) {
+    const L = [];
+    for (const c of helperClasses(structure))
+        for (const kind of ['size', 'duplicate']) {
+            if (kind === 'size' ? !size : !copy) continue;
+            L.push('', ...HELPERS[c + '.' + kind]);
+        }
+    return L;
+}
+
+function checkHelperName(o) {
+    if ((o.helperSize && o.functionName === 'size') || (o.helperCopy && o.functionName === 'duplicate'))
+        throw new Error('השם ' + o.functionName + ' תפוס על ידי פעולת העזר — בחרו שם אחר לפעולה');
+}
+
+/**
+ * "הוסף מבנה נתונים" עם פעולות עזר: איפה ומה להוסיף לקוד — לפני הסוגר של המחלקה שבה נמצא הסמן.
+ * פעולה שכבר קיימת בקובץ (לאותו סוג מבנה) לא נוספת שוב. מחזיר { offset, code } או null (אין מה להוסיף / לא נמצאה מחלקה).
+ */
+function helperInsertion(text, offset, structure, size, copy) {
+    const L = [];
+    for (const c of helperClasses(structure))
+        for (const kind of ['size', 'duplicate']) {
+            if (kind === 'size' ? !size : !copy) continue;
+            const exists = new RegExp('\\b[' + kind[0] + kind[0].toUpperCase() + ']' + kind.slice(1) + '\\s*(<T>)?\\s*\\(\\s*' + c + '<').test(text);
+            if (!exists) L.push('', ...HELPERS[c + '.' + kind]);
+        }
+    if (!L.length) return null;
+    const close = classEnd(text, offset);
+    if (close < 0) return null;
+    const lineStart = text.lastIndexOf('\n', close - 1) + 1;
+    return { offset: lineStart, code: L.join('\n') + '\n' };
+}
+
+/** המיקום של הסוגר } שסוגר את המחלקה הפנימית ביותר שמכילה את offset (בלי הערות ומחרוזות), או -1 */
+function classEnd(text, offset) {
+    const open = [];   // { pos, isClass }
+    let best = -1, bestPos = -1, i = 0, last = 0;
+    while (i < text.length) {
+        const ch = text[i], nx = text[i + 1];
+        if (ch === '/' && nx === '/') { const e = text.indexOf('\n', i); i = e < 0 ? text.length : e; continue; }
+        if (ch === '/' && nx === '*') { const e = text.indexOf('*/', i + 2); i = e < 0 ? text.length : e + 2; continue; }
+        if (ch === '"' || ch === "'") {
+            let j = i + 1;
+            while (j < text.length && text[j] !== ch && text[j] !== '\n') j += text[j] === '\\' ? 2 : 1;
+            i = j + 1;
+            continue;
+        }
+        if (ch === '{') {
+            open.push({ pos: i, isClass: /\bclass\s+\w+[^;{}]*$/.test(text.slice(last, i)) });
+            last = i + 1;
+        } else if (ch === '}') {
+            const b = open.pop();
+            if (b && b.isClass && b.pos < offset && offset <= i && b.pos > bestPos) { best = i; bestPos = b.pos; }
+            last = i + 1;
+        } else if (ch === ';') last = i + 1;
+        i++;
+    }
+    return best;
+}
+
 function generate(o) {
     const st = STRUCTURES[o.structure];
     const tp = TYPES[o.type];
@@ -154,6 +347,7 @@ function generate(o) {
     if (!tp) throw new Error('טיפוס לא מוכר: ' + o.type);
     if (!isIdentifier(o.className)) throw new Error('שם המחלקה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות');
     if (!isIdentifier(o.functionName)) throw new Error('שם הפעולה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות');
+    checkHelperName(o);
     if (st.combo) return generateCombo(o, st, tp);
     const random = !!o.random && o.type === 'Integer' && o.structure !== 'tree' && o.structure !== 'bst';
     const T = o.type;
@@ -205,6 +399,7 @@ function generate(o) {
         L.push('        return result;');
     }
     L.push('    }');
+    L.push(...helperLines(o.structure, o.helperSize, o.helperCopy));
     L.push('');
     L.push('');
     L.push('');
@@ -466,6 +661,7 @@ function generateCombo(o, st, tp) {
         L.push('        return result;');
     }
     L.push('    }');
+    L.push(...helperLines(o.structure, o.helperSize, o.helperCopy));
     L.push('');
     L.push('');
     L.push('');
@@ -1011,4 +1207,4 @@ const CLASS_INFO = {
     }
 };
 
-module.exports = { preview, nameError, suggestName, STRUCTURES, TYPES, RETURNS, SNIPPETS, INSIDE, canNest, comboId, comboPreview, groupLiterals, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues, nameN, freeName, CLASS_INFO };
+module.exports = { helperClasses, hasHelpers, helperLines, helperInsertion, classEnd, preview, nameError, suggestName, STRUCTURES, TYPES, RETURNS, SNIPPETS, INSIDE, canNest, comboId, comboPreview, groupLiterals, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues, nameN, freeName, CLASS_INFO };

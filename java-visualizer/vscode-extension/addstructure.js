@@ -34,7 +34,7 @@ class Session {
     /** המצב ההתחלתי של החלון */
     initial() {
         const [outer, inside] = String(this.preset).split('_');
-        return { structure: outer, inside: inside || '', type: 'Integer', random: false, count: 6, values: null, name: '' };
+        return { structure: outer, inside: inside || '', type: 'Integer', random: false, count: 6, values: null, name: '', helperSize: false, helperCopy: false };
     }
 
     /**
@@ -91,7 +91,13 @@ class Session {
         const label = outer === 'matrix' ? 'כמה שורות אקראיות:' : combo ? 'כמה מבנים פנימיים אקראיים:' : 'כמה ערכים אקראיים:';
         const valuesLabel = card ? '' : type === 'Student' ? 'כמה תלמידים:' : type === 'Car' ? 'כמה מכוניות:'
             : combo ? (outer === 'tree' ? 'מבנים פנימיים (לפי רמות, ;):' : 'מבנים פנימיים (ב-;):') : outer === 'matrix' ? 'ערכים (שורות ב-;):' : 'ערכים:';
+        // פעולות עזר (size / duplicate): נוספות לסוף המחלקה — רק למחסנית / תור / רשימה / עץ
+        const helpersEnabled = !card && T.hasHelpers(st);
+        const cs = !!T.CS_KEYWORDS;
         return {
+            helpersEnabled, helperSize: helpersEnabled && !!s.helperSize, helperCopy: helpersEnabled && !!s.helperCopy,
+            sizeLabel: (cs ? 'Size' : 'size') + ' — מחזירה את גודל המבנה, בלי לפגוע בו',
+            copyLabel: (cs ? 'Duplicate' : 'duplicate') + ' — מחזירה עותק מדויק של המבנה, בלי לפגוע בו',
             structure: outer, inside, type, st, card, combo, random, randomEnabled, maxCount, count, randomLabel: label,
             insideEnabled: nestable, typeEnabled: { Student: !card && !noObjects, Car: !card && !noObjects, Integer: !card, String: !card, Character: !card, Double: !card },
             typeSection: combo ? 'טיפוס הערכים (בתוך המבנים הפנימיים)' : 'טיפוס הערכים',
@@ -150,6 +156,9 @@ input:disabled { opacity: .5; } input::placeholder { color: var(--muted); opacit
     <div class="row"><label><input type="checkbox" id="random"> <span id="randomLabel">כמה ערכים אקראיים:</span></label>
       <input type="number" id="count" min="1" max="20" value="6"><button class="link" id="regen" title="הגרלה מחדש">🎲 הגרל שוב</button></div>
     <div class="row"><label id="valuesLabel" for="values">ערכים:</label><input type="text" id="values" spellcheck="false"></div>
+    <h2>פעולות עזר (נוספות למחלקה)</h2>
+    <div class="row"><label><input type="checkbox" id="hsize"> <span id="hsizeLabel">size</span></label></div>
+    <div class="row"><label><input type="checkbox" id="hcopy"> <span id="hcopyLabel">duplicate</span></label></div>
     <h2>כך ייראה המבנה</h2>
     <div class="typeLabel" id="ptype"></div><div id="pv"></div>
     <h2>שם המשתנה</h2>
@@ -177,6 +186,8 @@ chips($('structs'), OPT.structures, 'structure', id => { state.structure = id; s
 chips($('inside'), OPT.inside, 'inside', id => { state.inside = id; send('inside'); });
 chips($('types'), OPT.types.map(t => [t, t]), 'type', id => { state.type = id; send('type'); });
 $('random').onchange = () => { state.random = $('random').checked; send('random'); };
+$('hsize').onchange = () => { state.helperSize = $('hsize').checked; send('helpers'); };
+$('hcopy').onchange = () => { state.helperCopy = $('hcopy').checked; send('helpers'); };
 $('count').oninput = () => { state.count = $('count').value; send('count'); };
 $('regen').onclick = () => send('regen');
 $('values').oninput = () => { state.values = $('values').value; send('values'); };
@@ -201,6 +212,10 @@ function render(v) {
   for (const b of $('inside').children) b.disabled = !v.insideEnabled && b.dataset.id !== '';
   for (const b of $('types').children) b.disabled = v.typeEnabled[b.dataset.id] === false;
   $('typeSection').textContent = v.typeSection;
+  state.helperSize = v.helperSize; state.helperCopy = v.helperCopy;
+  $('hsize').checked = v.helperSize; $('hcopy').checked = v.helperCopy;
+  $('hsize').disabled = $('hcopy').disabled = !v.helpersEnabled;
+  $('hsizeLabel').textContent = v.sizeLabel; $('hcopyLabel').textContent = v.copyLabel;
   $('random').checked = v.random; $('random').disabled = !v.randomEnabled; $('randomLabel').textContent = v.randomLabel;
   $('count').disabled = !v.random; $('count').max = v.maxCount; $('count').value = v.count; $('regen').style.display = v.random ? '' : 'none';
   $('valuesLabel').textContent = v.valuesLabel; $('values').disabled = !v.valuesEnabled;
