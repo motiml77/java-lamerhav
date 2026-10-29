@@ -117,6 +117,18 @@ public final class ScaffoldCs {
 
     /** Java → C#. מזהה לבד איזה משתנים הם מערכים דו-ממדיים (T[][] name) */
     public static String toCs(String java) {
+        // פעולות עזר גנריות: public static <T> int size(Stack<T> s)  →  public static int Size<T>(Stack<T> s), והקריאות size(...) → Size(...)
+        if (java.contains("public static <T> ")) {
+            Matcher d = Pattern.compile("public static <T> (.+?) (size|duplicate)\\(").matcher(java);
+            StringBuffer sb = new StringBuffer();
+            while (d.find()) d.appendReplacement(sb, lit("public static " + d.group(1) + " " + cap(d.group(2)) + "<T>("));
+            d.appendTail(sb);
+            d = Pattern.compile("(?m)(^|[^.\\w])(size|duplicate)\\(").matcher(sb.toString());
+            sb = new StringBuffer();
+            while (d.find()) d.appendReplacement(sb, lit(d.group(1) + cap(d.group(2)) + "("));
+            d.appendTail(sb);
+            java = sb.toString();
+        }
         Map<String, String> mats = new HashMap<String, String>(), arrs = new HashMap<String, String>();
         Matcher m = Pattern.compile("\\b(\\w+)\\[\\]\\[\\]\\s+(\\w+)").matcher(java);
         while (m.find()) mats.put(m.group(2), ELEMENT.containsKey(m.group(1)) ? ELEMENT.get(m.group(1)) : m.group(1));
@@ -179,6 +191,8 @@ public final class ScaffoldCs {
         if (!isIdentifier(o.functionName)) throw new IllegalArgumentException("שם הפעולה חייב להיות באנגלית, בלי רווחים, להתחיל באות, ולא להיות מילה שמורה של C#");
         if (o.functionName.equals("Main")) throw new IllegalArgumentException("Main כבר קיימת בקובץ — בחרו שם אחר לפעולה");
         if (o.functionName.equals(o.className)) throw new IllegalArgumentException("שם הפעולה לא יכול להיות זהה לשם המחלקה");
+        if ((o.helperSize && o.functionName.equals("Size")) || (o.helperCopy && o.functionName.equals("Duplicate")))
+            throw new IllegalArgumentException("השם " + o.functionName + " תפוס על ידי פעולת העזר — בחרו שם אחר לפעולה");
         Scaffold.Result g = Scaffold.generate(o);
         String code = toCs(g.code);
         String[] lines = code.split("\n", -1);

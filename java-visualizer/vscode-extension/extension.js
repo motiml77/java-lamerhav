@@ -172,14 +172,20 @@ async function newExercise(preset) {
     const extraItems = [{ label: 'תרגיל ברקורסיה', description: 'בחלון ההרצה תופיע גם לשונית "רקורסיה" — כרטיס לכל קריאה', id: 'recursive' }];
     if (type !== 'Student' && type !== 'Car') extraItems.push({ label: st.combo ? 'כמה מבנים פנימיים אקראיים' : 'כמה ערכים אקראיים',
         description: st.combo ? 'מילוי המבנה: בוחרים כמה — ונוצרים מבנים פנימיים עם ערכים אקראיים' : 'מילוי המבנה: בוחרים כמה — והערכים נוצרים אקראית', id: 'random' });
+    // פעולות עזר שנוספות לקוד (מחסנית, תור, רשימה, עץ — גם בתוך מבנה)
+    if (templates.hasHelpers(structure)) {
+        extraItems.push({ label: 'פעולת עזר size', description: 'מחזירה את גודל המבנה, בלי לפגוע בו', id: 'size' });
+        extraItems.push({ label: 'פעולת עזר duplicate', description: 'מחזירה עותק מדויק של המבנה, בלי לפגוע בו', id: 'duplicate' });
+    }
     const extras = await vscode.window.showQuickPick(extraItems,
-        { title: `${st.label} — (3/${total}) רקורסיה ומילוי המבנה (אפשר לדלג עם Enter)`, canPickMany: true });
+        { title: `${st.label} — (3/${total}) רקורסיה, פעולות עזר ומילוי המבנה (אפשר לדלג עם Enter)`, canPickMany: true });
     if (!extras) return;
     const has = id => extras.some(e => e.id === id);
 
     const opts = {
         structure, type, returns: retPick.id,
         count: 1, second: false, extra: false, random: false, recursive: has('recursive'),
+        helperSize: has('size'), helperCopy: has('duplicate'),
         values: '', values2: '', className: '', functionName: ''
     };
 
@@ -343,12 +349,22 @@ async function insertSnippet(structure) {
         const view = session.view(msg.state, msg.reason);
         if (msg.type === 'ok' && view.ok) {
             await insertCode(ed, lineNo, view.code, csharp);
+            if (view.helperSize || view.helperCopy) await insertHelpers(ed, lineNo, view);
             panel.dispose();
             if (view.chosenClass) showClassInfo(view.chosenClass);
             return;
         }
         panel.webview.postMessage({ type: 'view', view });
     });
+}
+
+/** פעולות העזר שנבחרו (size / duplicate) — לסוף המחלקה שבה נמצא הסמן, אם עוד אין כאלה בקובץ */
+async function insertHelpers(ed, lineNo, view) {
+    const editor = await vscode.window.showTextDocument(ed.document, { viewColumn: ed.viewColumn, preserveFocus: false });
+    const doc = editor.document;
+    const at = doc.offsetAt(doc.lineAt(Math.min(lineNo, doc.lineCount - 1)).range.end);
+    const h = templates.helperInsertion(doc.getText(), at, view.st, view.helperSize, view.helperCopy);
+    if (h && h.offset >= at) await editor.edit(b => b.insert(doc.positionAt(h.offset), h.code));
 }
 
 async function insertCode(ed, lineNo, code, csharp) {

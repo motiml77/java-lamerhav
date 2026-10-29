@@ -139,7 +139,7 @@ public final class CsTool {
         private final List<String> returnIds = new ArrayList<String>();
         private JLabel typeSection, valuesLabel, previewType, errorLabel;
         private JComboBox<String> returnCombo;
-        private JCheckBox recursive, randomCheck;
+        private JCheckBox recursive, randomCheck, sizeCheck, copyCheck;
         private JSpinner count;
         private JTextField values, className, functionName;
         private JPanel previewBox;
@@ -204,6 +204,13 @@ public final class CsTool {
             recursive = new JCheckBox("תרגיל ברקורסיה (כרטיס לכל קריאה)");
             recursive.setToolTipText("בחלון ההרצה תופיע לשונית \"רקורסיה\": כרטיס לכל קריאה");
             left.add(recursive);
+            left.section("פעולות עזר (נוספות לקוד)");
+            sizeCheck = new JCheckBox("Size — מחזירה את גודל המבנה, בלי לפגוע בו");
+            sizeCheck.setToolTipText("פעולה שמקבלת את המבנה ומחזירה כמה איברים יש בו; המבנה נשאר כמו שהיה");
+            left.add(sizeCheck);
+            copyCheck = new JCheckBox("Duplicate — מחזירה עותק מדויק של המבנה, בלי לפגוע בו");
+            copyCheck.setToolTipText("פעולה שמקבלת את המבנה, יוצרת עותק מדויק ומחזירה אותו; המקור נשאר כמו שהיה");
+            left.add(copyCheck);
             left.section("מילוי מבנה-נתונים");
             JPanel rnd = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 0));
             randomCheck = new JCheckBox("כמה ערכים אקראיים:");
@@ -280,6 +287,8 @@ public final class CsTool {
 
             returnCombo.addActionListener(e -> update());
             recursive.addActionListener(e -> update());
+            sizeCheck.addActionListener(e -> update());
+            copyCheck.addActionListener(e -> update());
             randomCheck.addActionListener(e -> update());
             count.addChangeListener(e -> update());
             onChange(values, this::update);
@@ -388,7 +397,15 @@ public final class CsTool {
             o.second = false;
             o.count = 1;
             o.extra = false;
+            // פעולות עזר: רק למחסנית / תור / רשימה / עץ (לא למערך)
+            boolean helpers = Scaffold.hasHelpers(st);
+            for (JCheckBox b : new JCheckBox[] { sizeCheck, copyCheck }) {
+                b.setEnabled(helpers);
+                if (!helpers && b.isSelected()) b.setSelected(false);
+            }
             o.recursive = recursive.isSelected();
+            o.helperSize = sizeCheck.isSelected();
+            o.helperCopy = copyCheck.isSelected();
             o.random = false;   // הערכים האקראיים כבר בשדה — נכנסים לקוד כמו שהם
             o.values = values.getText();
             o.className = className.getText().trim();

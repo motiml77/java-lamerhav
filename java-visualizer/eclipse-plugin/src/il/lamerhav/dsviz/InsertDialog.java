@@ -30,7 +30,7 @@ public class InsertDialog extends Dialog {
     private final List<Look.Chip> typeButtons = new ArrayList<Look.Chip>();
     private final List<Look.Chip> insideButtons = new ArrayList<Look.Chip>();   // מה יש בכל תא: ערכים / מחסניות / תורים / רשימות
     private Label typeSection, valuesLabel, previewType, errorLabel;
-    private Button randomCheck;
+    private Button randomCheck, sizeCheck, copyCheck;
     private Spinner countSpinner;
     private Text valuesText;
     private Look.HintText nameField;
@@ -39,7 +39,8 @@ public class InsertDialog extends Dialog {
     private boolean updating, lastRandom;
     private int lastCount, seed = new Random().nextInt(Integer.MAX_VALUE);
     private String lastType = "", lastStructure = "";
-    private String result, chosenClass;
+    private String result, chosenClass, chosenStructure;
+    private boolean wantSize, wantCopy;   // נשמר גם אחרי שהחלון נסגר
     private Look.Round ok;
 
     public InsertDialog(Shell parent, String preset, String documentText, int offset, String indent) {
@@ -117,6 +118,13 @@ public class InsertDialog extends Dialog {
         vg.widthHint = 240;
         valuesText.setLayoutData(vg);
 
+        // --- פעולות עזר: נוספות לסוף המחלקה (אם עוד אין כאלה בקובץ)
+        Look.section(left, "פעולות עזר (נוספות למחלקה)", 8);
+        sizeCheck = new Button(left, SWT.CHECK);
+        sizeCheck.setText("size — מחזירה את גודל המבנה, בלי לפגוע בו");
+        copyCheck = new Button(left, SWT.CHECK);
+        copyCheck.setText("duplicate — מחזירה עותק מדויק של המבנה, בלי לפגוע בו");
+
         // --- איך ייראה
         Look.section(left, "כך ייראה המבנה", 8);
         previewType = new Label(left, SWT.LEFT_TO_RIGHT);
@@ -146,6 +154,8 @@ public class InsertDialog extends Dialog {
         errorLabel.setForeground(area.getDisplay().getSystemColor(SWT.COLOR_RED));
 
         randomCheck.addListener(SWT.Selection, e -> update());
+        sizeCheck.addListener(SWT.Selection, e -> update());
+        copyCheck.addListener(SWT.Selection, e -> update());
         countSpinner.addListener(SWT.Modify, e -> update());
         valuesText.addListener(SWT.Modify, e -> update());
         nameField.text.addListener(SWT.Modify, e -> update());
@@ -231,6 +241,14 @@ public class InsertDialog extends Dialog {
         boolean objects = !card && (type.equals("Student") || type.equals("Car"));
 
         // ערכים: אקראיים (בוחרים כמה והשדה מתמלא — אפשר לשנות), או כתיבה ידנית. תלמיד / מכונית — כמה ליצור
+        boolean helpers = !card && Scaffold.hasHelpers(st);
+        for (Button b : new Button[] { sizeCheck, copyCheck }) {
+            b.setEnabled(helpers);
+            if (!helpers) b.setSelection(false);
+        }
+        chosenStructure = st;
+        wantSize = sizeCheck.getSelection();
+        wantCopy = copyCheck.getSelection();
         randomCheck.setEnabled(!objects && !card);
         if (objects || card) randomCheck.setSelection(false);
         boolean random = randomCheck.getSelection();
@@ -304,6 +322,12 @@ public class InsertDialog extends Dialog {
     /** Student / Car אם נבחרה מחלקה מוכנה (להצגת חלון "מה יש במחלקה"), אחרת null */
     public String chosenClass() {
         return chosenClass;
+    }
+
+    /** פעולות העזר שנבחרו — מה להוסיף לסוף המחלקה (או null), לפי הקוד העדכני של הקובץ */
+    public Scaffold.HelperInsertion helpers(String text, int offset) {
+        if (chosenStructure == null || !(wantSize || wantCopy)) return null;
+        return Scaffold.helperInsertion(text, offset, chosenStructure, wantSize, wantCopy);
     }
 
     /** הקוד להכנסה (אחרי OK) */
