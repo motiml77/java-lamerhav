@@ -1374,6 +1374,7 @@ final class Recorder {
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
                     out.print(CondViz.dump());
+                    out.print(CallViz.dump());
                     out.flush();
                 } catch (RuntimeException e) {
                     out.println("  [תנאים: " + e + "]");

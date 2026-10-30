@@ -53,6 +53,34 @@ for want in 'שורה 24 if: x % 2 == 0 | 7 % 2 == 0 | x=7 | false עוברים 
     grep -qF -- "$want" "$W/conds.txt" || { echo "תנאים ב-C#: חסר $want"; grep '^  \[' "$W/conds.txt"; exit 1; }
 done
 echo "תנאים ב-C#: $(grep -c '^  \[תנאי' "$W/conds.txt") בדיקות תנאי מסומנות"
+# פעולת עזר: יציאה וחזרה (ב-C# אחרי החזרה ממשיכים ישר לשורה הבאה)
+viz calls/cs/Calls.cs --trace "$W/calls.trace" > "$W/calls.out" 2>&1 || { cat "$W/calls.out"; exit 1; }
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/calls.trace" > "$W/calls.txt" 2>&1
+for want in 'ENTERED שורה 7: SumEven() > IsEven() > Rem() | יצאנו מ-IsEven() (שורה 11) לפעולת העזר Rem() עם x = 8, d = 2' \
+    'RETURNING שורה 11: SumEven() > IsEven() | IsEven() מחזירה true — חוזרים ל-SumEven() בשורה 30' \
+    'RETURNED שורה 31: SumEven() | חזרנו ל-SumEven() מהקריאה בשורה 30 — IsEven() החזירה true, ממשיכים בשורה 31' \
+    'RETURNING שורה 22: MaxOf() > Report() | Report() הסתיימה — חוזרים ל-MaxOf() בשורה 46'; do
+    grep -qF -- "$want" "$W/calls.txt" || { echo "קריאות ב-C#: חסר $want"; grep 'קריאה' "$W/calls.txt"; exit 1; }
+done
+echo "פעולות עזר ב-C#: $(grep -c 'קריאה #' "$W/calls.txt") צעדים מסומנים"
+# פרויקט רגיל של Visual Studio: קובץ אחד מתוך פרויקט (עם Program.cs של תבנית חדשה), כמה Main, ImplicitUsings, ותוכנית top-level
+VS="$W/vs/GoldWater"
+mkdir -p "$VS" && cp calls/vs/GoldWater.csproj calls/vs/Recursion.cs "$VS/" && printf '// See https://aka.ms/new-console-template\nSystem.Console.WriteLine("Hello, World!");\n' > "$VS/Program.cs"
+viz "$VS/Recursion.cs" --trace "$W/vs1.trace" > "$W/vs1.out" 2>&1 && grep -q '^10 2$' "$W/vs1.out" \
+    && echo "קובץ מתוך פרויקט של Visual Studio: רץ ה-Main שבקובץ (עם כל הפרויקט)" || { echo "קובץ מתוך פרויקט נכשל"; cat "$W/vs1.out"; exit 1; }
+viz "$VS" --trace "$W/vs2.trace" > "$W/vs2.out" 2>&1 && grep -q 'Hello, World!' "$W/vs2.out" \
+    && echo "תיקיית הפרויקט: כמו ב-Visual Studio (ה-top-level הוא ה-Main)" || { echo "תיקיית פרויקט נכשלה"; cat "$W/vs2.out"; exit 1; }
+printf 'using System;\nnamespace GoldWater { class Program { static void Main(string[] args) { Console.WriteLine("x"); } } }\n' > "$VS/Program.cs"
+viz "$VS" --trace "$W/vs3.trace" > "$W/vs3.out" 2>&1 || true; grep -q 'CS0017' "$W/vs3.out" && grep -q 'יותר מפעולת Main אחת' "$W/vs3.out" \
+    && echo "כמה Main: הסבר בעברית" || { echo "כמה Main: חסר הסבר"; cat "$W/vs3.out"; exit 1; }
+sed -i 's/<ImplicitUsings>disable/<ImplicitUsings>enable/' "$VS/GoldWater.csproj"
+viz "$VS/Recursion.cs" --trace "$W/vs4.trace" > "$W/vs4.out" 2>&1 || true; grep -q 'ImplicitUsings>disable' "$W/vs4.out" \
+    && echo "Stack של ‎.NET מול Stack של הספרייה: הסבר בעברית" || { echo "ImplicitUsings: חסר הסבר"; cat "$W/vs4.out"; exit 1; }
+mkdir -p "$W/vs/Top" && cp calls/vs/Top.cs "$W/vs/Top/Program.cs" && printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>\n' > "$W/vs/Top/Top.csproj"
+viz "$W/vs/Top" --trace "$W/top.trace" > "$W/top.out" 2>&1 && grep -q '^8$' "$W/top.out" \
+    && grep -qP '^STEP\tLINE\t.*שורה 4:' "$W/top.trace" && grep -qP '^STEP\tCREATE\t.*מחסנית ריקה: s$' "$W/top.trace" \
+    && grep -qP '^STEP\tRETURN\t.*Sum' "$W/top.trace" \
+    && echo "תוכנית top-level (תבנית חדשה): שורה-שורה, שמות המשתנים, והפעולות שאחרי הקוד" || { echo "top-level נכשל"; cat "$W/top.out"; grep '^STEP' "$W/top.trace" | head; exit 1; }
 # Helpers.Size / Helpers.Duplicate מהספרייה: בלי לשנות את המבנה, עותק עמוק, וצעד אחד לכל קריאה
 viz helpers/HelpersCheck.cs --trace "$W/helpers.trace" > "$W/helpers.out" 2>&1 && grep -q MARK-END "$W/helpers.out" \
     && grep -qP '^STEP\tCREATE\t.*Duplicate\(s\)' "$W/helpers.trace" && echo "Helpers ב-C#: $(grep -c '^  ok' "$W/helpers.out") בדיקות" \

@@ -33,7 +33,8 @@ final class CondPaint {
     private static final Color PILL_BG = new Color(0xEEF2FF), PILL_LINE = new Color(0xC7D2FE), PILL_TEXT = new Color(0x1E293B);
     private static final Color VALUES = new Color(0x475569);
 
-    static void paint(Graphics2D g, JTextComponent c, CondViz.Marks m) {
+    /** used: לכל שורה — עד איפה כבר צוירו בה תגיות (כדי שתגית נוספת, למשל של קריאה לפעולת עזר, תצויר אחריהן) */
+    static void paint(Graphics2D g, JTextComponent c, CondViz.Marks m, java.util.Map<Integer, Integer> used) {
         if (m == null) return;
         Branch inner = m.branches.isEmpty() ? null : m.branches.get(m.branches.size() - 1);
         // הענפים שמדלגים עליהם — מעומעמים (בכל תנאי שהשורה בתוכו)
@@ -48,14 +49,14 @@ final class CondPaint {
             if (inner.inElse) stripe(g, c, b.elseFirst, b.elseLast, col);
             else stripe(g, c, b.thenFirst, b.thenLast, col);
             int tagLine = inner.inElse ? b.elseLine : b.line;
-            if (m.check == null || m.check.block.line != tagLine) tag(g, c, tagLine, inner.inElse ? "✗" : "✓", CondViz.note(inner), col);
+            if (m.check == null || m.check.block.line != tagLine) tag(g, c, tagLine, inner.inElse ? "✗" : "✓", CondViz.note(inner), col, used);
         }
-        if (m.check != null) check(g, c, m.check);
+        if (m.check != null) check(g, c, m.check, used);
     }
 
     // ------------------------------------------------------------ שורת התנאי
 
-    private static void check(Graphics2D g, JTextComponent c, Check k) {
+    private static void check(Graphics2D g, JTextComponent c, Check k, java.util.Map<Integer, Integer> used) {
         Rectangle r = lineRect(c, k.block.line);
         if (r == null) return;
         Font small = Theme.small, mono = Theme.mono.deriveFont(Theme.mono.getSize2D() - 1.5f);
@@ -73,6 +74,7 @@ final class CondPaint {
         int tagW = (int) Math.ceil(tl.getAdvance()) + g.getFontMetrics(small).stringWidth(mark) + 22;
         w += tagW;
         int x = place(c, k.block.line, r, w);
+        used.put(k.block.line, x + w + 6);
 
         // רקע עדין לכל השבב — כדי שיהיה קריא גם אם הוא עולה על קוד ארוך
         g.setColor(new Color(255, 255, 255, 235));
@@ -142,7 +144,7 @@ final class CondPaint {
     }
 
     /** תגית קטנה מימין לשורה: סימן + טקסט בעברית */
-    private static void tag(Graphics2D g, JTextComponent c, int line, String mark, String text, Color col) {
+    static void tag(Graphics2D g, JTextComponent c, int line, String mark, String text, Color col, java.util.Map<Integer, Integer> used) {
         Rectangle r = lineRect(c, line);
         if (r == null) return;
         Font f = Theme.small;
@@ -150,7 +152,31 @@ final class CondPaint {
         FontMetrics sm = g.getFontMetrics(f);
         int h = Math.min(r.height - 2, 20), y = r.y + (r.height - h) / 2;
         int w = (int) Math.ceil(tl.getAdvance()) + sm.stringWidth(mark) + 24;
-        int x = place(c, line, r, w);
+        Integer after = used.get(line);
+        int x = after == null ? place(c, line, r, w) : after + 8;
+        int row = line;
+        Rectangle vis = c.getVisibleRect();
+        if (after != null && x + w > vis.x + vis.width - 10) {
+            // אין מקום אחרי מה שכבר בשורה — בשורה שמתחת / מעל (אם יש שם מקום), עם קו קטן לשורה
+            for (int alt : new int[] { line + 1, line - 1 }) {
+                Rectangle ra = lineRect(c, alt);
+                if (ra == null || used.containsKey(alt)) continue;
+                int xa = Math.max(lineEndX(c, alt) + 22, Math.min(x, vis.x + vis.width - 10 - w));
+                if (xa + w > vis.x + vis.width - 10) continue;
+                int ya = ra.y + (ra.height - h) / 2;
+                g.setColor(col);
+                int cx = xa + h / 2;
+                g.drawLine(cx, alt > line ? ya : ya + h, cx, r.y + r.height / 2);
+                g.fillOval(cx - 2, r.y + r.height / 2 - 2, 4, 4);
+                row = alt;
+                x = xa;
+                y = ya;
+                break;
+            }
+        }
+        used.put(row, x + w);
+        g.setColor(new Color(255, 255, 255, 235));
+        g.fillRoundRect(x, y, w, h, h, h);
         g.setColor(new Color(col.getRed(), col.getGreen(), col.getBlue(), 30));
         g.fillRoundRect(x, y, w, h, h, h);
         g.setColor(col);
@@ -184,7 +210,7 @@ final class CondPaint {
     }
 
     @SuppressWarnings("deprecation")
-    private static int lineEndX(JTextComponent c, int line) {
+    static int lineEndX(JTextComponent c, int line) {
         Element root = c.getDocument().getDefaultRootElement();
         Element e = root.getElement(line - 1);
         int x = 0;
@@ -200,7 +226,7 @@ final class CondPaint {
     }
 
     /** טקסט בעברית (גם עם מספרים וקוד קצר) — מימין לשמאל */
-    private static TextLayout rtl(String s, Font f, FontRenderContext frc) {
+    static TextLayout rtl(String s, Font f, FontRenderContext frc) {
         AttributedString as = new AttributedString(s);
         as.addAttribute(TextAttribute.FONT, f);
         as.addAttribute(TextAttribute.RUN_DIRECTION, TextAttribute.RUN_DIRECTION_RTL);

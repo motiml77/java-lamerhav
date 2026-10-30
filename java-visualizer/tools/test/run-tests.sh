@@ -150,6 +150,25 @@ conds "$C/out.txt" \
     'רץ ה-else — כי התנאי בשורה 23 לא התקיים]' 'רץ ה-if — כי התנאי בשורה 30 התקיים]'
 ! grep -q 'for: i < 2 | 1 < 2 | i=1 | false' "$C/out.txt" || { echo "  FAIL ב-for מוצג הערך מלפני ה-i++"; exit 1; }
 
+echo "== 5ה. פעולה שקוראת לפעולת עזר: יוצאים אליה, מי מחכה, מה היא מחזירה, וחוזרים (לא מ-main, ולא רקורסיה)"
+K="$W/calls"
+mkdir -p "$K"
+cp calls/Calls.java "$K/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$K" "$K/Calls.java"
+(cd "$K" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Calls > out.txt 2>&1) || true
+conds "$K/out.txt" \
+    'CALLING שורה 29: sumEven() > isEven() | בשורה 29 sumEven() קוראת לפעולת העזר isEven() — יוצאים אליה עם x = 8 | כותרת 9]' \
+    'ENTERED שורה 10: sumEven() > isEven() | יצאנו מ-sumEven() (שורה 29) לפעולת העזר isEven() עם x = 8 | כותרת 9]' \
+    'ENTERED שורה 6: sumEven() > isEven() > rem() | יצאנו מ-isEven() (שורה 10) לפעולת העזר rem() עם x = 8, d = 2 | כותרת 5]' \
+    'RETURNING שורה 6: sumEven() > isEven() > rem() | rem() מחזירה 0 — חוזרים ל-isEven() בשורה 10' \
+    'RETURNING שורה 10: sumEven() > isEven() | isEven() מחזירה false — חוזרים ל-sumEven() בשורה 29' \
+    'RETURNED שורה 29: sumEven() | חזרנו ל-sumEven() בשורה 29 — isEven() החזירה true, ממשיכים מאותה נקודה' \
+    'INSIDE שורה 17: maxOf() > bigger() | בתוך פעולת העזר bigger() · maxOf() מחכה בשורה 43 לתשובה' \
+    'RETURNING שורה 22: maxOf() > report() | report() הסתיימה — חוזרים ל-maxOf() בשורה 45' \
+    'RETURNED שורה 46: maxOf() | חזרנו ל-maxOf() מהקריאה בשורה 45 — report() הסתיימה, ממשיכים בשורה 46'
+! grep -q 'קריאה #[0-9]* [A-Z]* שורה [0-9]*: main()' "$K/out.txt" || { echo "  FAIL קריאה מ-main סומנה"; exit 1; }
+! grep -q 'קריאה #[0-9]* [A-Z]* שורה 5[0-9]:' "$K/out.txt" || { echo "  FAIL שורה ב-main סומנה"; exit 1; }
+
 echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
 mkdir -p "$W/obj"
 javac -encoding UTF-8 -cp "$JAR" -d "$W/obj" objcards/ObjCheck.java
