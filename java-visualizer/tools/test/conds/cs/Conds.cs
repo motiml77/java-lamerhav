@@ -49,6 +49,18 @@ public class Conds {
         do {
             k--;
         } while (k > 1);
-        Console.WriteLine(Kind(-2) + " " + Kind(0) + " " + Kind(4) + " " + Fact(3) + " " + sum + " " + k);
+        Console.WriteLine(Kind(-2) + " " + Kind(0) + " " + Kind(4) + " " + Fact(3) + " " + sum + " " + k + " " + Grade(75) + Grade(10));
+    }
+
+    static string Grade(int g) {
+        if (g >= 90) {
+            return "A";
+        } else if (g >= 80) {
+            return "B";
+        } else if (g >= 70) {
+            return "C";
+        } else {
+            return "F";
+        }
     }
 }

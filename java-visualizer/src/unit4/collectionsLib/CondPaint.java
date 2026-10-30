@@ -48,10 +48,7 @@ final class CondPaint {
             if (inner.inElse) stripe(g, c, b.elseFirst, b.elseLast, col);
             else stripe(g, c, b.thenFirst, b.thenLast, col);
             int tagLine = inner.inElse ? b.elseLine : b.line;
-            String text = inner.inElse
-                    ? (b.elseIsIf ? "התנאי בשורה " + b.line + " לא התקיים — עברנו ל-else if" : "רץ ה-else — כי התנאי בשורה " + b.line + " לא התקיים")
-                    : "רץ ה-if — כי התנאי בשורה " + b.line + " התקיים";
-            if (m.check == null || m.check.block.line != tagLine) tag(g, c, tagLine, inner.inElse ? "✗" : "✓", text, col);
+            if (m.check == null || m.check.block.line != tagLine) tag(g, c, tagLine, inner.inElse ? "✗" : "✓", CondViz.note(inner), col);
         }
         if (m.check != null) check(g, c, m.check);
     }

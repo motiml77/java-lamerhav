@@ -30,6 +30,8 @@ final class CondViz {
         int thenFirst = -1, thenLast = -1;   // הגוף (ב-if: ענף ה-if; בלולאה: גוף הלולאה)
         int elseLine = -1, elseFirst = -1, elseLast = -1;
         boolean elseIsIf;            // else if
+        Block chainParent;            // ה-if שזה ה-else if שלו (if (a) ... else if (b) — ל-b), או null
+        int at = -1, elseIfAt = -1;   // מיקום המילה if / for... בקוד, ומיקום ה-if שאחרי ה-else
         String tail = "";             // הגוף, כשהוא באותה שורה עם התנאי (if (c) return x;)
         String forInit = "", forUpdate = "";   // for (init; cond; update)
         int end;                      // השורה האחרונה של כל המשפט (כולל ה-else)
@@ -96,6 +98,31 @@ final class CondViz {
         return m;
     }
 
+    /**
+     * ההסבר ליד הענף שרץ: איזה ענף ולמה. בשרשרת else if — אילו תנאים לא התקיימו ואיזה כן.
+     * למשל: "רץ ה-else if — התנאי בשורה 6 לא התקיים, והתנאי בשורה 8 התקיים", "רץ ה-else — אף תנאי לא התקיים (שורות 6, 8)".
+     */
+    static String note(Branch br) {
+        Block b = br.block;
+        if (br.inElse && b.elseIsIf) return "התנאי בשורה " + b.line + " לא התקיים — עברנו ל-else if";
+        List<Integer> failed = new ArrayList<Integer>();   // התנאים הקודמים בשרשרת — כולם לא התקיימו
+        for (Block p = b.chainParent; p != null && failed.size() < 20; p = p.chainParent) failed.add(0, p.line);
+        if (br.inElse) {
+            if (failed.isEmpty()) return "רץ ה-else — כי התנאי בשורה " + b.line + " לא התקיים";
+            failed.add(b.line);
+            return "רץ ה-else — אף תנאי לא התקיים (שורות " + join(failed) + ")";
+        }
+        if (failed.isEmpty()) return "רץ ה-if — כי התנאי בשורה " + b.line + " התקיים";
+        return "רץ ה-else if — " + (failed.size() == 1 ? "התנאי בשורה " + failed.get(0) + " לא התקיים"
+                : "התנאים בשורות " + join(failed) + " לא התקיימו") + ", והתנאי בשורה " + b.line + " התקיים";
+    }
+
+    private static String join(List<Integer> lines) {
+        StringBuilder b = new StringBuilder();
+        for (int l : lines) b.append(b.length() > 0 ? ", " : "").append(l);
+        return b.toString();
+    }
+
     /** בשביל הבדיקות (מצב טקסט, -Ddsviz.conditions=true): מה מוצג בכל צעד */
     static String dump() {
         StringBuilder b = new StringBuilder();
@@ -113,6 +140,7 @@ final class CondViz {
                 b.append("  [ענף #").append(i + 1).append(" שורה ").append(s.where.line).append(": ")
                         .append(br.inElse ? "else" : "if").append(" של שורה ").append(br.condLine).append("]\n");
             }
+            if (!m.branches.isEmpty()) b.append("  [הסבר #").append(i + 1).append(": ").append(note(m.branches.get(m.branches.size() - 1))).append("]\n");
         }
         return b.toString();
     }
@@ -297,7 +325,8 @@ final class CondViz {
             case "do":
                 return r ? "חוזרים לסיבוב נוסף" : "יוצאים מהלולאה";
             default:
-                return r ? "נכנסים ל-if" : b.hasElse() ? (b.elseIsIf ? "עוברים ל-else if" : "עוברים ל-else") : "מדלגים על ה-if";
+                String self = b.chainParent != null ? "else if" : "if";
+                return r ? "נכנסים ל-" + self : b.hasElse() ? (b.elseIsIf ? "עוברים ל-else if" : "עוברים ל-else") : "מדלגים על ה-" + self;
         }
     }
 
@@ -358,6 +387,10 @@ final class CondViz {
                 // משפט שלא הצלחנו לפרק — בלי סימון
             }
         }
+        for (Block b : out)   // שרשרת else if: כל if יודע מי ה-if שלפניו
+            if (b.elseIsIf)
+                for (Block c : out)
+                    if (c.at == b.elseIfAt && c.kind.equals("if")) c.chainParent = b;
         return out;
     }
 
@@ -425,6 +458,7 @@ final class CondViz {
             int close = match(open);
             String inside = text.substring(open + 1, close);
             Block b = new Block();
+            b.at = at;
             b.line = line(at);
             b.kind = kw.equals("foreach") ? "for" : kw;
             if (kw.equals("for")) {
@@ -459,6 +493,7 @@ final class CondViz {
                     b.elseLine = line(e);
                     int eb = skip(e + 4);
                     b.elseIsIf = word(eb, "if");
+                    if (b.elseIsIf) b.elseIfAt = eb;
                     int ebEnd = end(eb);
                     range(b, eb, ebEnd, false);
                     b.end = line(ebEnd - 1);

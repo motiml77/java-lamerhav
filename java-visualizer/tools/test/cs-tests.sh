@@ -48,7 +48,8 @@ java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -c
 for want in 'שורה 24 if: x % 2 == 0 | 7 % 2 == 0 | x=7 | false עוברים ל-else]' 'שורה 28: else של שורה 24]' \
     'while: !s.IsEmpty() | !true | s=Stack [] | false יוצאים מהלולאה]' 'for: i < 2 | 0 < 2 | i=0 | true ממשיכים לסיבוב]' \
     'for: i < 2 | 2 < 2 | i=2 | false יוצאים מהלולאה]' 'do: k > 1 | 1 > 1 | k=1 | false יוצאים מהלולאה]' \
-    'שורה 7 if: x < 0 | 0 < 0 | x=0 | false עוברים ל-else if]' 'שורה 12: else של שורה 9]'; do
+    'שורה 7 if: x < 0 | 0 < 0 | x=0 | false עוברים ל-else if]' 'שורה 12: else של שורה 9]' \
+    'רץ ה-else if — התנאים בשורות 56, 58 לא התקיימו, והתנאי בשורה 60 התקיים]' 'רץ ה-else — אף תנאי לא התקיים (שורות 56, 58, 60)]'; do
     grep -qF -- "$want" "$W/conds.txt" || { echo "תנאים ב-C#: חסר $want"; grep '^  \[' "$W/conds.txt"; exit 1; }
 done
 echo "תנאים ב-C#: $(grep -c '^  \[תנאי' "$W/conds.txt") בדיקות תנאי מסומנות"

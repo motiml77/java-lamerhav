@@ -48,6 +48,18 @@ public class Conds {
         do {
             k--;
         } while (k > 1);
-        System.out.println(kind(-2) + " " + kind(0) + " " + kind(4) + " " + fact(3) + " " + sum + " " + k);
+        System.out.println(kind(-2) + " " + kind(0) + " " + kind(4) + " " + fact(3) + " " + sum + " " + k + " " + grade(75) + grade(10));
+    }
+
+    static String grade(int g) {
+        if (g >= 90) {
+            return "A";
+        } else if (g >= 80) {
+            return "B";
+        } else if (g >= 70) {
+            return "C";
+        } else {
+            return "F";
+        }
     }
 }
