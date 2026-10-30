@@ -168,24 +168,19 @@ async function newExercise(preset) {
         { title: `${st.label} — (2/${total}) מה הפעולה מחזירה?` });
     if (!retPick) return;
 
-    // בחירה נפרדת לרקורסיה (מפעילה את לשונית הכרטיסים) ולמילוי אקראי; הפעולה מקבלת מבנה אחד — עוד אפשר להוסיף בקוד
+    // בחירה נפרדת לרקורסיה (מפעילה את לשונית הכרטיסים) ולמילוי אקראי (מסומן מראש); הפעולה מקבלת מבנה אחד — עוד אפשר להוסיף בקוד
     const extraItems = [{ label: 'תרגיל ברקורסיה', description: 'בחלון ההרצה תופיע גם לשונית "רקורסיה" — כרטיס לכל קריאה', id: 'recursive' }];
     if (type !== 'Student' && type !== 'Car') extraItems.push({ label: st.combo ? 'כמה מבנים פנימיים אקראיים' : 'כמה ערכים אקראיים',
-        description: st.combo ? 'מילוי המבנה: בוחרים כמה — ונוצרים מבנים פנימיים עם ערכים אקראיים' : 'מילוי המבנה: בוחרים כמה — והערכים נוצרים אקראית', id: 'random' });
-    // פעולות עזר שנוספות לקוד (מחסנית, תור, רשימה, עץ — גם בתוך מבנה)
-    if (templates.hasHelpers(structure)) {
-        extraItems.push({ label: 'פעולת עזר size', description: 'מחזירה את גודל המבנה, בלי לפגוע בו', id: 'size' });
-        extraItems.push({ label: 'פעולת עזר duplicate', description: 'מחזירה עותק מדויק של המבנה, בלי לפגוע בו', id: 'duplicate' });
-    }
+        description: st.combo ? 'מילוי המבנה: בוחרים כמה — ונוצרים מבנים פנימיים עם ערכים אקראיים' : 'מילוי המבנה: בוחרים כמה — והערכים נוצרים אקראית',
+        id: 'random', picked: true });
     const extras = await vscode.window.showQuickPick(extraItems,
-        { title: `${st.label} — (3/${total}) רקורסיה, פעולות עזר ומילוי המבנה (אפשר לדלג עם Enter)`, canPickMany: true });
+        { title: `${st.label} — (3/${total}) רקורסיה ומילוי המבנה (אפשר לדלג עם Enter)`, canPickMany: true });
     if (!extras) return;
     const has = id => extras.some(e => e.id === id);
 
     const opts = {
         structure, type, returns: retPick.id,
         count: 1, second: false, extra: false, random: false, recursive: has('recursive'),
-        helperSize: has('size'), helperCopy: has('duplicate'),
         values: '', values2: '', className: '', functionName: ''
     };
 
@@ -349,22 +344,12 @@ async function insertSnippet(structure) {
         const view = session.view(msg.state, msg.reason);
         if (msg.type === 'ok' && view.ok) {
             await insertCode(ed, lineNo, view.code, csharp);
-            if (view.helperSize || view.helperCopy) await insertHelpers(ed, lineNo, view);
             panel.dispose();
             if (view.chosenClass) showClassInfo(view.chosenClass);
             return;
         }
         panel.webview.postMessage({ type: 'view', view });
     });
-}
-
-/** פעולות העזר שנבחרו (size / duplicate) — לסוף המחלקה שבה נמצא הסמן, אם עוד אין כאלה בקובץ */
-async function insertHelpers(ed, lineNo, view) {
-    const editor = await vscode.window.showTextDocument(ed.document, { viewColumn: ed.viewColumn, preserveFocus: false });
-    const doc = editor.document;
-    const at = doc.offsetAt(doc.lineAt(Math.min(lineNo, doc.lineCount - 1)).range.end);
-    const h = templates.helperInsertion(doc.getText(), at, view.st, view.helperSize, view.helperCopy);
-    if (h && h.offset >= at) await editor.edit(b => b.insert(doc.positionAt(h.offset), h.code));
 }
 
 async function insertCode(ed, lineNo, code, csharp) {
@@ -374,13 +359,20 @@ async function insertCode(ed, lineNo, code, csharp) {
     await editor.edit(b => {
         if (at.blank) b.replace(at.line.range, code);
         else b.insert(at.line.range.end, '\n' + code);
+        // Java: מבנה עם פעולות עזר (ההערה "עזר מהספרייה") — גם שורת ה-import static, כדי לקרוא ל-size(x) / duplicate(x) ישירות
+        const helpers = code.includes('// עזר מהספרייה:');
         if (csharp) {
-            const need = ['using System;', 'using Unit4.CollectionsLib;'].filter(u => !text.includes(u));
+            const need = ['using System;', 'using Unit4.CollectionsLib;'].filter(u => !text.includes(u));   // פעולות העזר — global using בפרויקט
             if (need.length) b.insert(new vscode.Position(0, 0), need.join('\n') + '\n');
-        } else if (!/import\s+unit4\.collectionsLib\.\*\s*;/.test(text)) {
-            const pkg = /^\s*package\s+[\w.]+\s*;.*$/m.exec(text);
-            const pos = pkg ? editor.document.positionAt(pkg.index + pkg[0].length) : new vscode.Position(0, 0);
-            b.insert(pos, pkg ? '\n\nimport unit4.collectionsLib.*;' : 'import unit4.collectionsLib.*;\n\n');
+        } else {
+            const add = [];
+            if (!/import\s+unit4\.collectionsLib\.\*\s*;/.test(text)) add.push('import unit4.collectionsLib.*;');
+            if (helpers && !/import\s+static\s+unit4\.collectionsLib\.Helpers\.\*\s*;/.test(text)) add.push(javaTemplates.HELPERS_IMPORT);
+            if (add.length) {
+                const pkg = /^\s*package\s+[\w.]+\s*;.*$/m.exec(text);
+                const pos = pkg ? editor.document.positionAt(pkg.index + pkg[0].length) : new vscode.Position(0, 0);
+                b.insert(pos, pkg ? '\n\n' + add.join('\n') : add.join('\n') + '\n\n');
+            }
         }
     });
 }

@@ -80,6 +80,14 @@ final class SourceFiles {
         return m.find() ? m.group(1) : null;
     }
 
+    /** "Stack<Integer> copy = duplicate(s);" (או Helpers.duplicate)  →  "copy" */
+    static String guessCopyName(Frame f) {
+        String s = line(f);
+        if (s == null) return null;
+        Matcher m = Pattern.compile("(\\w+)\\s*=\\s*(?:Helpers\\s*\\.\\s*)?duplicate\\s*\\(").matcher(s);
+        return m.find() ? m.group(1) : null;
+    }
+
     /** "Viz.watch(arr);"  →  "arr" */
     static String guessWatchName(Frame f) {
         String s = line(f);

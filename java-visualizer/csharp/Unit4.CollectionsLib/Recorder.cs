@@ -139,9 +139,12 @@ namespace Unit4.CollectionsLib
         public static void Check(object target, string text) { Record(Kind.CHECK, target, Mark.READ, null, text); }
         public static void Note(string text) { Record(Kind.NOTE, null, Mark.NONE, null, text); }
 
+        /// <summary>בתוך פעולת עזר (Helpers.Duplicate): הפעולות שבפנים לא נרשמות — רק התוצאה, בצעד אחד</summary>
+        internal static int Quiet;
+
         static void Record(Kind kind, object target, Mark mark, string ghost, string text)
         {
-            if (!Active) return;
+            if (!Active || Quiet > 0) return;
             AddStep(kind, target, mark, ghost, text, false);
         }
 

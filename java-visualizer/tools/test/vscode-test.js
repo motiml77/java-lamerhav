@@ -200,8 +200,9 @@ async function addDialog(command, state, steps) {
     let d = await addDialog(commands['dsviz.insert.queue'], {}, [['type', { type: 'String' }], ['values', { values: 'dog, cat, bird, fish' }]]);
     await d.ok();
     assert.strictEqual(edits[0][0], 'replace');
-    assert(/^        Queue<String> q1 = new Queue<String>\(\);\n(        q1\.insert\("\w+"\);.*\n){3}        q1\.insert\("\w+"\);$/.test(edits[0][2]), edits[0][2]);
-    assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\n\n');
+    // מעל המבנה — הערה קצרה על פעולות העזר מהספרייה
+    assert(/^        \/\/ עזר מהספרייה: size\(q1\)[^\n]*\n        Queue<String> q1 = new Queue<String>\(\);\n(        q1\.insert\("\w+"\);.*\n){3}        q1\.insert\("\w+"\);$/.test(edits[0][2]), edits[0][2]);
+    assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\nimport static unit4.collectionsLib.Helpers.*;\n\n');   // + פעולות העזר: size(x) / duplicate(x)
     // מבנה בתוך מבנה, עם 2 מבנים אקראיים
     edits.length = 0;
     d = await addDialog(commands['dsviz.insert.queue'], {}, [['inside', { inside: 'stack' }], ['random', { random: true }], ['count', { count: 2 }]]);

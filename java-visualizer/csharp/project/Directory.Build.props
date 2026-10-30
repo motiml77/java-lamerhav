@@ -3,4 +3,8 @@
     <!-- הספרייה: lib\Unit4.CollectionsLib.dll בתיקיית התרגילים -->
     <DsVizLib>$(MSBuildThisFileDirectory)lib\Unit4.CollectionsLib.dll</DsVizLib>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- פעולות העזר מהספרייה (Size / Duplicate) בלי לכתוב Helpers. — בכל הקבצים -->
+    <Using Include="Unit4.CollectionsLib.Helpers" Static="true" />
+  </ItemGroup>
 </Project>

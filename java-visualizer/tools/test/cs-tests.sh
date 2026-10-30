@@ -42,6 +42,13 @@ for n in EmptyPop:'[כרטיס empty-stack s Pop()]' NullNode:'[כרטיס null 
     java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/$c.trace" | grep -qF "$want" \
         && echo "כרטיס שגיאה ב-C#: $want" || { echo "חסר כרטיס ב-$c"; cat "$W/$c.out"; exit 1; }
 done
+# Helpers.Size / Helpers.Duplicate מהספרייה: בלי לשנות את המבנה, עותק עמוק, וצעד אחד לכל קריאה
+viz helpers/HelpersCheck.cs --trace "$W/helpers.trace" > "$W/helpers.out" 2>&1 && grep -q MARK-END "$W/helpers.out" \
+    && grep -qP '^STEP\tCREATE\t.*Duplicate\(s\)' "$W/helpers.trace" && echo "Helpers ב-C#: $(grep -c '^  ok' "$W/helpers.out") בדיקות" \
+    || { echo "Helpers ב-C# נכשל"; cat "$W/helpers.out"; exit 1; }
+# בלי "Helpers." ובלי שורת using: Size(q) / Duplicate(q) — global using (כמו Directory.Build.props)
+viz helpers/BareCalls.cs --trace "$W/bare.trace" > "$W/bare.out" 2>&1 && grep -q 'size 2 1' "$W/bare.out" \
+    && viz --check helpers/BareCalls.cs > /dev/null 2>&1 && echo "Size(q) / Duplicate(q) ב-C# בלי Helpers." || { echo "קריאה בלי Helpers. ב-C# נכשלה"; cat "$W/bare.out"; exit 1; }
 grep -qP '^STEP\tRETURN\t\d+\t24\t' "$W/RecursionExamples.trace" && echo "ערך ההחזרה 24 נרשם" || { echo "חסר RETURN"; exit 1; }
 grep -qP '^VAR\ttotal\t' "$W/StackExamples.trace" && grep -q '^V	LIN	1' "$W/StackExamples.trace" && echo "משתנים ומחסנית נרשמו" || { echo "חסרים משתנים"; exit 1; }
 grep -q '^V	TREE' "$W/TreeExamples.trace" && grep -q '^V	ARR' "$W/ArrayExamples.trace" && grep -q '^V	CHAIN' "$W/ListExamples.trace" && echo "עץ, מערך ורשימה נרשמו"

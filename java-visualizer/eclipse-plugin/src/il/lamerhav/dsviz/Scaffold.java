@@ -241,112 +241,10 @@ public final class Scaffold {
         return res;
     }
 
-    // ------------------------------------------------------------ פעולות עזר (size / duplicate) — תיבות V בחלון
-    // אותן פעולות בדיוק ב-templates.js (VS Code); ב-C# הן מומרות (Size<T> / Duplicate<T>)
-    private static final Map<String, String[]> HELPERS = new LinkedHashMap<String, String[]>();
-    static {
-        HELPERS.put("Stack.size", new String[] {
-                "    // פעולת עזר: מחזירה כמה איברים יש במחסנית — המחסנית נשארת כמו שהייתה",
-                "    public static <T> int size(Stack<T> s) {",
-                "        Stack<T> temp = new Stack<T>();",
-                "        int count = 0;",
-                "        while (!s.isEmpty()) {",
-                "            temp.push(s.pop());",
-                "            count++;",
-                "        }",
-                "        while (!temp.isEmpty()) {",
-                "            s.push(temp.pop());",
-                "        }",
-                "        return count;",
-                "    }" });
-        HELPERS.put("Stack.duplicate", new String[] {
-                "    // פעולת עזר: מחזירה עותק של המחסנית (באותו סדר) — המחסנית המקורית נשארת כמו שהייתה",
-                "    public static <T> Stack<T> duplicate(Stack<T> s) {",
-                "        Stack<T> temp = new Stack<T>();",
-                "        Stack<T> copy = new Stack<T>();",
-                "        while (!s.isEmpty()) {",
-                "            temp.push(s.pop());",
-                "        }",
-                "        while (!temp.isEmpty()) {",
-                "            T x = temp.pop();",
-                "            s.push(x);",
-                "            copy.push(x);",
-                "        }",
-                "        return copy;",
-                "    }" });
-        HELPERS.put("Queue.size", new String[] {
-                "    // פעולת עזר: מחזירה כמה איברים יש בתור — התור נשאר כמו שהיה",
-                "    public static <T> int size(Queue<T> q) {",
-                "        Queue<T> temp = new Queue<T>();",
-                "        int count = 0;",
-                "        while (!q.isEmpty()) {",
-                "            temp.insert(q.remove());",
-                "            count++;",
-                "        }",
-                "        while (!temp.isEmpty()) {",
-                "            q.insert(temp.remove());",
-                "        }",
-                "        return count;",
-                "    }" });
-        HELPERS.put("Queue.duplicate", new String[] {
-                "    // פעולת עזר: מחזירה עותק של התור (באותו סדר) — התור המקורי נשאר כמו שהיה",
-                "    public static <T> Queue<T> duplicate(Queue<T> q) {",
-                "        Queue<T> temp = new Queue<T>();",
-                "        Queue<T> copy = new Queue<T>();",
-                "        while (!q.isEmpty()) {",
-                "            T x = q.remove();",
-                "            temp.insert(x);",
-                "            copy.insert(x);",
-                "        }",
-                "        while (!temp.isEmpty()) {",
-                "            q.insert(temp.remove());",
-                "        }",
-                "        return copy;",
-                "    }" });
-        HELPERS.put("Node.size", new String[] {
-                "    // פעולת עזר: מחזירה כמה חוליות יש ברשימה — הרשימה נשארת כמו שהייתה",
-                "    public static <T> int size(Node<T> lst) {",
-                "        int count = 0;",
-                "        Node<T> p = lst;",
-                "        while (p != null) {",
-                "            count++;",
-                "            p = p.getNext();",
-                "        }",
-                "        return count;",
-                "    }" });
-        HELPERS.put("Node.duplicate", new String[] {
-                "    // פעולת עזר: מחזירה עותק של הרשימה (חוליות חדשות, באותו סדר) — הרשימה המקורית נשארת כמו שהייתה",
-                "    public static <T> Node<T> duplicate(Node<T> lst) {",
-                "        if (lst == null) {",
-                "            return null;",
-                "        }",
-                "        Node<T> first = new Node<T>(lst.getValue());",
-                "        Node<T> last = first;",
-                "        Node<T> p = lst.getNext();",
-                "        while (p != null) {",
-                "            last.setNext(new Node<T>(p.getValue()));",
-                "            last = last.getNext();",
-                "            p = p.getNext();",
-                "        }",
-                "        return first;",
-                "    }" });
-        HELPERS.put("BinNode.size", new String[] {
-                "    // פעולת עזר: מחזירה כמה צמתים יש בעץ — העץ נשאר כמו שהיה",
-                "    public static <T> int size(BinNode<T> t) {",
-                "        if (t == null) {",
-                "            return 0;",
-                "        }",
-                "        return 1 + size(t.getLeft()) + size(t.getRight());",
-                "    }" });
-        HELPERS.put("BinNode.duplicate", new String[] {
-                "    // פעולת עזר: מחזירה עותק של העץ (צמתים חדשים, באותו מבנה) — העץ המקורי נשאר כמו שהיה",
-                "    public static <T> BinNode<T> duplicate(BinNode<T> t) {",
-                "        if (t == null) {",
-                "            return null;",
-                "        }",
-                "        return new BinNode<T>(duplicate(t.getLeft()), t.getValue(), duplicate(t.getRight()));",
-                "    }" });
-    }
+    // ------------------------------------------------------------ פעולות עזר מהספרייה: size(x) / duplicate(x)
+    // הן בספרייה (unit4.collectionsLib.Helpers), לא בקוד של התלמיד. שורת import static אחת בראש הקובץ (HELPERS_IMPORT)
+    // מאפשרת לקרוא להן ישירות, וההערה הקצרה מזכירה שהן קיימות. אותו דבר בדיוק ב-templates.js; ב-C#: using static, Size / Duplicate
+    public static final String HELPERS_IMPORT = "import static unit4.collectionsLib.Helpers.*;";
 
     /** המחלקות (Stack / Queue / Node / BinNode) שיש להן פעולות עזר במבנה הזה: המבנה עצמו, ובקומבינציה — החיצוני והפנימי */
     public static List<String> helperClasses(String structure) {
@@ -361,56 +259,18 @@ public final class Scaffold {
         return res;
     }
 
-    /** האם אפשר להוסיף למבנה הזה פעולות עזר (מחסנית, תור, רשימה, עץ — לא מערך) */
+    /** האם יש לפעולות העזר משמעות במבנה הזה (מחסנית, תור, רשימה, עץ — או מערך של כאלה) */
     public static boolean hasHelpers(String structure) {
         return !helperClasses(structure).isEmpty();
     }
 
-    /** הפעולות עצמן (מוזחות ב-4), כל אחת אחרי שורה ריקה; ריק אם לא נבחר כלום */
-    public static List<String> helperLines(String structure, boolean size, boolean copy) {
-        List<String> L = new ArrayList<String>();
-        for (String c : helperClasses(structure)) {
-            for (String kind : new String[] { "size", "duplicate" }) {
-                if (kind.equals("size") ? !size : !copy) continue;
-                L.add("");
-                L.addAll(Arrays.asList(HELPERS.get(c + "." + kind)));
-            }
-        }
-        return L;
-    }
-
-    /** "הוסף מבנה נתונים" עם פעולות עזר: offset — לפני השורה של הסוגר של המחלקה; code — מה להכניס */
-    public static final class HelperInsertion {
-        public final int offset;
-        public final String code;
-
-        HelperInsertion(int offset, String code) {
-            this.offset = offset;
-            this.code = code;
-        }
-    }
-
-    /**
-     * איפה ומה להוסיף לקוד — לפני הסוגר של המחלקה שבה נמצא הסמן. פעולה שכבר קיימת בקובץ (לאותו סוג מבנה) לא נוספת שוב.
-     * null אם אין מה להוסיף או שלא נמצאה מחלקה. (אותו דבר בדיוק ב-templates.js)
-     */
-    public static HelperInsertion helperInsertion(String text, int offset, String structure, boolean size, boolean copy) {
-        List<String> L = new ArrayList<String>();
-        for (String c : helperClasses(structure)) {
-            for (String kind : new String[] { "size", "duplicate" }) {
-                if (kind.equals("size") ? !size : !copy) continue;
-                Pattern exists = Pattern.compile("\\b[" + kind.charAt(0) + Character.toUpperCase(kind.charAt(0)) + "]" + kind.substring(1)
-                        + "\\s*(<T>)?\\s*\\(\\s*" + c + "<");
-                if (exists.matcher(text).find()) continue;
-                L.add("");
-                L.addAll(Arrays.asList(HELPERS.get(c + "." + kind)));
-            }
-        }
-        if (L.isEmpty()) return null;
-        int close = classEnd(text, offset);
-        if (close < 0) return null;
-        int lineStart = text.lastIndexOf('\n', close - 1) + 1;
-        return new HelperInsertion(lineStart, String.join("\n", L) + "\n");
+    /** ההערה על פעולות העזר (בלי // ובלי הזחה), או null. במערך של מבנים — על תא אחד (arr[i]) */
+    public static String helperNote(String structure, String v) {
+        Structure st = STRUCTURES.get(structure);
+        if (st == null || !hasHelpers(structure)) return null;
+        Structure outer = st.outer != null ? STRUCTURES.get(st.outer) : st;
+        String x = outer.cls != null ? v : v + "[i]";
+        return "עזר מהספרייה: size(" + x + ") — כמה איברים,  duplicate(" + x + ") — עותק (" + x + " לא משתנה)";
     }
 
     private static final Pattern CLASS_HEADER = Pattern.compile("\\bclass\\s+\\w+[^;{}]*$");
@@ -442,17 +302,10 @@ public final class Scaffold {
         return best;
     }
 
-    private static void checkHelperName(Options o) {
-        if ((o.helperSize && o.functionName.equals("size")) || (o.helperCopy && o.functionName.equals("duplicate")))
-            throw new IllegalArgumentException("השם " + o.functionName + " תפוס על ידי פעולת העזר — בחרו שם אחר לפעולה");
-    }
-
     /** הבחירות של התלמיד */
     public static final class Options {
         public String structure = "stack", type = "Integer", returns = "void";
         public boolean second, extra, random, recursive;
-        /** פעולות עזר שנוספות למחלקה: size (גודל המבנה) ו-duplicate (עותק), בלי לפגוע במבנה */
-        public boolean helperSize, helperCopy;
         /** כמה מבנים הפעולה מקבלת (1–3). 0 = לפי second */
         public int count;
         public String values = "", values2 = "", values3 = "", className = "Targil1", functionName = "solve";
@@ -475,7 +328,6 @@ public final class Scaffold {
         if (!TYPES.contains(o.type)) throw new IllegalArgumentException("טיפוס לא מוכר: " + o.type);
         if (!isIdentifier(o.className)) throw new IllegalArgumentException("שם המחלקה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות");
         if (!isIdentifier(o.functionName)) throw new IllegalArgumentException("שם הפעולה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות");
-        checkHelperName(o);
         if (st.outer != null) return generateCombo(o, st);
         boolean random = o.random && o.type.equals("Integer") && !o.structure.equals("tree") && !o.structure.equals("bst");
         String T = o.type;
@@ -505,6 +357,7 @@ public final class Scaffold {
 
         List<String> L = new ArrayList<String>();
         L.add("import unit4.collectionsLib.*;");
+        if (hasHelpers(o.structure)) L.add(HELPERS_IMPORT);
         if (st.dims > 0) L.add("import java.util.Arrays;");
         L.add("");
         L.add("// תרגיל" + (o.recursive ? " ברקורסיה" : "") + ": " + st.label + " של " + T);
@@ -514,6 +367,8 @@ public final class Scaffold {
         L.add("        // תזכורת: " + st.hint.replace("{v}", v1).replace("{T}", T));
         String helper = helperHint(st, T, v1);
         if (helper != null) L.add("        // " + helper);
+        String note = helperNote(o.structure, v1);
+        if (note != null) L.add("        // " + note);
         if (T.equals("Student")) L.add("        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()");
         if (T.equals("Car")) L.add("        // Car: getManufacturer()   getYear()   getKm()   getFuel()   drive(km)   refuel(l)   isOld()   needsFuel()");
         if (retStart != null) L.add("        " + retType + " result = " + retStart + ";   // כאן אוספים את מה שהפעולה מחזירה");
@@ -529,7 +384,6 @@ public final class Scaffold {
             L.add("        return result;");
         }
         L.add("    }");
-        L.addAll(helperLines(o.structure, o.helperSize, o.helperCopy));
         L.add("");
         L.add("");
         L.add("");
@@ -859,6 +713,7 @@ public final class Scaffold {
         if (o.extra) params.add(extraType(T) + " x");
         List<String> L = new ArrayList<String>();
         L.add("import unit4.collectionsLib.*;");
+        if (hasHelpers(o.structure)) L.add(HELPERS_IMPORT);
         if (isArr) L.add("import java.util.Arrays;");
         L.add("");
         L.add("// תרגיל" + (o.recursive ? " ברקורסיה" : "") + ": " + st.label + " של " + T);
@@ -872,6 +727,8 @@ public final class Scaffold {
             L.add("        // עזר: " + outer.cls + "<" + it + "> tmp = new " + outer.cls + "<" + it + ">();   (" + outer.label + " עזר)");
         if (outer.cls != null && outer.cls.equals("Node"))
             L.add("        // עזר: Node<" + it + "> curr = " + v1 + ";   (מצביע שעובר על הרשימה — " + v1 + " נשאר בראש)");
+        String note = helperNote(o.structure, v1);
+        if (note != null) L.add("        // " + note);
         if (retStart != null) L.add("        " + retType + " result = " + retStart + ";   // כאן אוספים את מה שהפעולה מחזירה");
         L.add("");
         if (o.recursive) L.add("        // רקורסיה: 1. מקרה בסיס — מתי עוצרים?  2. קריאה ל-" + o.functionName + "(...) עם מבנה קטן יותר");
@@ -883,7 +740,6 @@ public final class Scaffold {
             L.add("        return result;");
         }
         L.add("    }");
-        L.addAll(helperLines(o.structure, o.helperSize, o.helperCopy));
         L.add("");
         L.add("");
         L.add("");
@@ -1195,8 +1051,14 @@ public final class Scaffold {
         public String values = null;
     }
 
-    /** פקודה אחת שיוצרת מבנה עם נתוני דמה, להכנסה במקום הסמן */
+    /** פקודה אחת שיוצרת מבנה עם נתוני דמה, להכנסה במקום הסמן — ומעליה הערה קצרה על פעולות העזר מהספרייה (במבנים שיש להם) */
     public static String snippet(SnippetOptions o) {
+        String code = snippetBody(o);
+        String note = o.structure != null && STRUCTURES.containsKey(o.structure) ? helperNote(o.structure, o.name) : null;
+        return note != null ? (o.indent == null ? "" : o.indent) + "// " + note + "\n" + code : code;
+    }
+
+    private static String snippetBody(SnippetOptions o) {
         String indent = o.indent == null ? "" : o.indent;
         Rng r = new Rng(o.seed);
         String name = o.name;

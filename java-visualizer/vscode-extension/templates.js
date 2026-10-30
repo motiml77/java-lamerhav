@@ -147,119 +147,10 @@ function literals(text, type, allowNull) {
  * options = { structure, type, returns, second, extra, random, values, values2, className, functionName }
  * מחזיר { code, cursorLine } — cursorLine = מספר השורה (מ-0) שבה התלמיד מתחיל לכתוב
  */
-// ------------------------------------------------------------ פעולות עזר (size / duplicate) — תיבות V בחלון
-// אותן פעולות בדיוק ב-Scaffold.java (Eclipse); ב-C# הן מומרות (Size<T> / Duplicate<T>)
-const HELPERS = {
-    "Stack.size": [
-        "    // פעולת עזר: מחזירה כמה איברים יש במחסנית — המחסנית נשארת כמו שהייתה",
-        "    public static <T> int size(Stack<T> s) {",
-        "        Stack<T> temp = new Stack<T>();",
-        "        int count = 0;",
-        "        while (!s.isEmpty()) {",
-        "            temp.push(s.pop());",
-        "            count++;",
-        "        }",
-        "        while (!temp.isEmpty()) {",
-        "            s.push(temp.pop());",
-        "        }",
-        "        return count;",
-        "    }",
-    ],
-    "Stack.duplicate": [
-        "    // פעולת עזר: מחזירה עותק של המחסנית (באותו סדר) — המחסנית המקורית נשארת כמו שהייתה",
-        "    public static <T> Stack<T> duplicate(Stack<T> s) {",
-        "        Stack<T> temp = new Stack<T>();",
-        "        Stack<T> copy = new Stack<T>();",
-        "        while (!s.isEmpty()) {",
-        "            temp.push(s.pop());",
-        "        }",
-        "        while (!temp.isEmpty()) {",
-        "            T x = temp.pop();",
-        "            s.push(x);",
-        "            copy.push(x);",
-        "        }",
-        "        return copy;",
-        "    }",
-    ],
-    "Queue.size": [
-        "    // פעולת עזר: מחזירה כמה איברים יש בתור — התור נשאר כמו שהיה",
-        "    public static <T> int size(Queue<T> q) {",
-        "        Queue<T> temp = new Queue<T>();",
-        "        int count = 0;",
-        "        while (!q.isEmpty()) {",
-        "            temp.insert(q.remove());",
-        "            count++;",
-        "        }",
-        "        while (!temp.isEmpty()) {",
-        "            q.insert(temp.remove());",
-        "        }",
-        "        return count;",
-        "    }",
-    ],
-    "Queue.duplicate": [
-        "    // פעולת עזר: מחזירה עותק של התור (באותו סדר) — התור המקורי נשאר כמו שהיה",
-        "    public static <T> Queue<T> duplicate(Queue<T> q) {",
-        "        Queue<T> temp = new Queue<T>();",
-        "        Queue<T> copy = new Queue<T>();",
-        "        while (!q.isEmpty()) {",
-        "            T x = q.remove();",
-        "            temp.insert(x);",
-        "            copy.insert(x);",
-        "        }",
-        "        while (!temp.isEmpty()) {",
-        "            q.insert(temp.remove());",
-        "        }",
-        "        return copy;",
-        "    }",
-    ],
-    "Node.size": [
-        "    // פעולת עזר: מחזירה כמה חוליות יש ברשימה — הרשימה נשארת כמו שהייתה",
-        "    public static <T> int size(Node<T> lst) {",
-        "        int count = 0;",
-        "        Node<T> p = lst;",
-        "        while (p != null) {",
-        "            count++;",
-        "            p = p.getNext();",
-        "        }",
-        "        return count;",
-        "    }",
-    ],
-    "Node.duplicate": [
-        "    // פעולת עזר: מחזירה עותק של הרשימה (חוליות חדשות, באותו סדר) — הרשימה המקורית נשארת כמו שהייתה",
-        "    public static <T> Node<T> duplicate(Node<T> lst) {",
-        "        if (lst == null) {",
-        "            return null;",
-        "        }",
-        "        Node<T> first = new Node<T>(lst.getValue());",
-        "        Node<T> last = first;",
-        "        Node<T> p = lst.getNext();",
-        "        while (p != null) {",
-        "            last.setNext(new Node<T>(p.getValue()));",
-        "            last = last.getNext();",
-        "            p = p.getNext();",
-        "        }",
-        "        return first;",
-        "    }",
-    ],
-    "BinNode.size": [
-        "    // פעולת עזר: מחזירה כמה צמתים יש בעץ — העץ נשאר כמו שהיה",
-        "    public static <T> int size(BinNode<T> t) {",
-        "        if (t == null) {",
-        "            return 0;",
-        "        }",
-        "        return 1 + size(t.getLeft()) + size(t.getRight());",
-        "    }",
-    ],
-    "BinNode.duplicate": [
-        "    // פעולת עזר: מחזירה עותק של העץ (צמתים חדשים, באותו מבנה) — העץ המקורי נשאר כמו שהיה",
-        "    public static <T> BinNode<T> duplicate(BinNode<T> t) {",
-        "        if (t == null) {",
-        "            return null;",
-        "        }",
-        "        return new BinNode<T>(duplicate(t.getLeft()), t.getValue(), duplicate(t.getRight()));",
-        "    }",
-    ],
-};
+// ------------------------------------------------------------ פעולות עזר מהספרייה: size(x) / duplicate(x)
+// הן בספרייה (unit4.collectionsLib.Helpers), לא בקוד של התלמיד. שורת import static אחת בראש הקובץ (HELPERS_IMPORT)
+// מאפשרת לקרוא להן ישירות, וההערה הקצרה מזכירה שהן קיימות. אותו דבר בדיוק ב-Scaffold.java; ב-C#: using static, Size / Duplicate
+const HELPERS_IMPORT = 'import static unit4.collectionsLib.Helpers.*;';
 
 /** המחלקות (Stack / Queue / Node / BinNode) שיש להן פעולות עזר במבנה הזה: המבנה עצמו, ובקומבינציה — החיצוני והפנימי */
 function helperClasses(structure) {
@@ -273,44 +164,18 @@ function helperClasses(structure) {
     return res;
 }
 
-/** האם אפשר להוסיף למבנה הזה פעולות עזר (מחסנית, תור, רשימה, עץ — לא מערך) */
+/** האם יש לפעולות העזר משמעות במבנה הזה (מחסנית, תור, רשימה, עץ — או מערך של כאלה) */
 function hasHelpers(structure) {
     return helperClasses(structure).length > 0;
 }
 
-/** הפעולות עצמן (מוזחות ב-4), כל אחת אחרי שורה ריקה; ריק אם לא נבחר כלום */
-function helperLines(structure, size, copy) {
-    const L = [];
-    for (const c of helperClasses(structure))
-        for (const kind of ['size', 'duplicate']) {
-            if (kind === 'size' ? !size : !copy) continue;
-            L.push('', ...HELPERS[c + '.' + kind]);
-        }
-    return L;
-}
-
-function checkHelperName(o) {
-    if ((o.helperSize && o.functionName === 'size') || (o.helperCopy && o.functionName === 'duplicate'))
-        throw new Error('השם ' + o.functionName + ' תפוס על ידי פעולת העזר — בחרו שם אחר לפעולה');
-}
-
-/**
- * "הוסף מבנה נתונים" עם פעולות עזר: איפה ומה להוסיף לקוד — לפני הסוגר של המחלקה שבה נמצא הסמן.
- * פעולה שכבר קיימת בקובץ (לאותו סוג מבנה) לא נוספת שוב. מחזיר { offset, code } או null (אין מה להוסיף / לא נמצאה מחלקה).
- */
-function helperInsertion(text, offset, structure, size, copy) {
-    const L = [];
-    for (const c of helperClasses(structure))
-        for (const kind of ['size', 'duplicate']) {
-            if (kind === 'size' ? !size : !copy) continue;
-            const exists = new RegExp('\\b[' + kind[0] + kind[0].toUpperCase() + ']' + kind.slice(1) + '\\s*(<T>)?\\s*\\(\\s*' + c + '<').test(text);
-            if (!exists) L.push('', ...HELPERS[c + '.' + kind]);
-        }
-    if (!L.length) return null;
-    const close = classEnd(text, offset);
-    if (close < 0) return null;
-    const lineStart = text.lastIndexOf('\n', close - 1) + 1;
-    return { offset: lineStart, code: L.join('\n') + '\n' };
+/** ההערה על פעולות העזר (בלי // ובלי הזחה), או null. במערך של מבנים — על תא אחד (arr[i]) */
+function helperNote(structure, v) {
+    const st = STRUCTURES[structure];
+    if (!st || !hasHelpers(structure)) return null;
+    const outer = st.combo ? STRUCTURES[st.combo.outer] : st;
+    const x = outer.cls ? v : v + '[i]';
+    return `עזר מהספרייה: size(${x}) — כמה איברים,  duplicate(${x}) — עותק (${x} לא משתנה)`;
 }
 
 /** המיקום של הסוגר } שסוגר את המחלקה הפנימית ביותר שמכילה את offset (בלי הערות ומחרוזות), או -1 */
@@ -347,7 +212,6 @@ function generate(o) {
     if (!tp) throw new Error('טיפוס לא מוכר: ' + o.type);
     if (!isIdentifier(o.className)) throw new Error('שם המחלקה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות');
     if (!isIdentifier(o.functionName)) throw new Error('שם הפעולה חייב להיות באנגלית, בלי רווחים, ולהתחיל באות');
-    checkHelperName(o);
     if (st.combo) return generateCombo(o, st, tp);
     const random = !!o.random && o.type === 'Integer' && o.structure !== 'tree' && o.structure !== 'bst';
     const T = o.type;
@@ -375,6 +239,7 @@ function generate(o) {
 
     const L = [];
     L.push('import unit4.collectionsLib.*;');
+    if (hasHelpers(o.structure)) L.push(HELPERS_IMPORT);
     if (st.dims > 0) L.push('import java.util.Arrays;');
     L.push('');
     L.push(`// תרגיל${o.recursive ? ' ברקורסיה' : ''}: ${st.label} של ${T}`);
@@ -384,6 +249,8 @@ function generate(o) {
     L.push(`        // תזכורת: ${st.hint.replace(/\{v\}/g, v1).replace(/\{T\}/g, T)}`);
     const helper = helperHint(st, T, v1);
     if (helper) L.push(`        // ${helper}`);
+    const note = helperNote(o.structure, v1);
+    if (note) L.push(`        // ${note}`);
     if (T === 'Student') L.push('        // Student: getName()   getAverage()   getGrade(i)   getNumGrades()   getClassRoom()   isExcellent()');
     if (T === 'Car') L.push('        // Car: getManufacturer()   getYear()   getKm()   getFuel()   drive(km)   refuel(l)   isOld()   needsFuel()');
     if (retStart !== undefined) L.push(`        ${retType} result = ${retStart};   // כאן אוספים את מה שהפעולה מחזירה`);
@@ -399,7 +266,6 @@ function generate(o) {
         L.push('        return result;');
     }
     L.push('    }');
-    L.push(...helperLines(o.structure, o.helperSize, o.helperCopy));
     L.push('');
     L.push('');
     L.push('');
@@ -640,6 +506,7 @@ function generateCombo(o, st, tp) {
     if (o.extra) params.push(`${extraType(T)} x`);
     const L = [];
     L.push('import unit4.collectionsLib.*;');
+    if (hasHelpers(o.structure)) L.push(HELPERS_IMPORT);
     if (isArr) L.push('import java.util.Arrays;');
     L.push('');
     L.push(`// תרגיל${o.recursive ? ' ברקורסיה' : ''}: ${st.label} של ${T}`);
@@ -650,6 +517,8 @@ function generateCombo(o, st, tp) {
     L.push(`        // תזכורת — כל איבר הוא מבנה פנימי (${it}):   ${it} inner = ${comboAccess(st.combo.outer, v1)};   ${inn.hint.replace(/\{v\}/g, 'inner').replace(/\{T\}/g, T)}`);
     if (outer.cls === 'Stack' || outer.cls === 'Queue') L.push(`        // עזר: ${outer.cls}<${it}> tmp = new ${outer.cls}<${it}>();   (${outer.label} עזר)`);
     if (outer.cls === 'Node') L.push(`        // עזר: Node<${it}> curr = ${v1};   (מצביע שעובר על הרשימה — ${v1} נשאר בראש)`);
+    const note = helperNote(o.structure, v1);
+    if (note) L.push(`        // ${note}`);
     if (retStart !== undefined) L.push(`        ${retType} result = ${retStart};   // כאן אוספים את מה שהפעולה מחזירה`);
     L.push('');
     if (o.recursive) L.push(`        // רקורסיה: 1. מקרה בסיס — מתי עוצרים?  2. קריאה ל-${o.functionName}(...) עם מבנה קטן יותר`);
@@ -661,7 +530,6 @@ function generateCombo(o, st, tp) {
         L.push('        return result;');
     }
     L.push('    }');
-    L.push(...helperLines(o.structure, o.helperSize, o.helperCopy));
     L.push('');
     L.push('');
     L.push('');
@@ -837,7 +705,14 @@ function randomValues(structure, type, count, seed) {
  * פקודה אחת שיוצרת מבנה עם נתוני דמה, להכנסה במקום הסמן.
  * o = { structure, type, name, size, rows, cols, seed, indent }
  */
+/** "הוספה לקוד": המבנה, ומעליו הערה קצרה על פעולות העזר מהספרייה (במבנים שיש להם) */
 function snippet(o) {
+    const code = snippetBody(o);
+    const note = o.structure && STRUCTURES[o.structure] ? helperNote(o.structure, o.name) : null;
+    return note ? (o.indent || '') + '// ' + note + '\n' + code : code;
+}
+
+function snippetBody(o) {
     const indent = o.indent || '';
     const next = rng(o.seed);
     const name = o.name;
@@ -1207,4 +1082,4 @@ const CLASS_INFO = {
     }
 };
 
-module.exports = { helperClasses, hasHelpers, helperLines, helperInsertion, classEnd, preview, nameError, suggestName, STRUCTURES, TYPES, RETURNS, SNIPPETS, INSIDE, canNest, comboId, comboPreview, groupLiterals, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues, nameN, freeName, CLASS_INFO };
+module.exports = { HELPERS_IMPORT, helperClasses, hasHelpers, helperNote, classEnd, preview, nameError, suggestName, STRUCTURES, TYPES, RETURNS, SNIPPETS, INSIDE, canNest, comboId, comboPreview, groupLiterals, defaultValues, isIdentifier, literals, generate, snippet, snippetName, typeOf, randomValues, nameN, freeName, CLASS_INFO };

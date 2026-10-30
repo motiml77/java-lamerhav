@@ -64,15 +64,6 @@ grep -qF "for (int i = 0; i < 4; i++) סיבוב 2, i=1 [0,(1),2,3], תנאי: 1
     && grep -qF "הלולאה הפנימית מתחילה מחדש — כי i התקדם ל-1" "$L3" \
     && echo "לולאות: סיבובים, תנאי עם ערכים, סרגל ערכים / מערך, תור / מחסנית / רשימה, היסטוריה ב-while, ולולאות מקוננות" \
     || { echo "נכשל: לולאות"; grep -h "לולאה\|הזוגות" "$L2" "$L3" | head -30; exit 1; }
-# פעולות העזר size / duplicate (תיבות V בחלונות): נכונות, לא פוגעות במבנה, ורצות גם בהרצה ויזואלית
-mkdir -p "$W/helpers"
-node helpers-test.js "$W/helpers"
-javac -encoding UTF-8 -nowarn -cp "$JAR" -d "$W/helpers" "$W/helpers/HelpersCheck.java"
-(cd "$W/helpers" && java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" HelpersCheck > out.txt 2>&1 \
-    && java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine HelpersCheck > lbl.txt 2>&1) \
-    && grep -q "ALL OK" "$W/helpers/out.txt" && grep -q "ALL OK" "$W/helpers/lbl.txt" \
-    && echo "פעולות עזר size / duplicate: נכונות (מחסנית, תור, רשימה, עץ, תור של מחסניות) — גם בהרצה ויזואלית" \
-    || { echo "נכשל: פעולות עזר"; cat "$W/helpers/out.txt"; exit 1; }
 echo "== 3. התוסף של VS Code (מול חיקוי של ה-API)"
 node vscode-test.js | tail -2
 echo "== 3ב. החלון \"הוסף מבנה נתונים\" של VS Code בדפדפן (Chromium): לחיצות, ערכים אקראיים, בדיקת שם, ציור"
@@ -112,6 +103,25 @@ card bugs.Index '[כרטיס index]'
 card lost.LostCheck 'MARK-NO-LOSS-ABOVE'
 sed '/MARK-NO-LOSS-ABOVE/q' "$P/lost.LostCheck.txt" | grep -q 'אבד' && { echo "  FAIL חוליה סומנה כאבודה בלי סיבה"; cat "$P/lost.LostCheck.txt"; exit 1; }
 sed '1,/MARK-NO-LOSS-ABOVE/d' "$P/lost.LostCheck.txt" | grep -q 'אבד' && echo "  ok  ראש הרשימה שאבד מסומן (ורק הוא)" || { echo "  FAIL ראש שאבד לא סומן"; cat "$P/lost.LostCheck.txt"; exit 1; }
+
+echo "== 5ג. פעולות העזר מהספרייה: Helpers.size / Helpers.duplicate — לא משנות את המבנה, ומעתיקות גם מבנים פנימיים"
+H="$W/helpers"
+mkdir -p "$H"
+cp helpers/HelpersCheck.java "$H/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$H" "$H/HelpersCheck.java"
+java -Dstdout.encoding=UTF-8 -cp "$H:$JAR" HelpersCheck > "$H/out.txt" 2>&1 && grep -q MARK-END "$H/out.txt" && grep '^  ok' "$H/out.txt" || { cat "$H/out.txt"; exit 1; }
+(cd "$H" && java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine HelpersCheck > lines.txt 2>&1) || true
+# שורה 14 (sc = Helpers.duplicate(s)): השורה עצמה וצעד אחד של העותק — בלי ה-pop/push שבפנים, והעותק נקרא sc
+grep -q '  size(s)  →  3' "$H/lines.txt" && grep -q '  duplicate(s)  →  עותק חדש' "$H/lines.txt" \
+    && [ "$(grep -c '(HelpersCheck.java:14)' "$H/lines.txt")" = 2 ] && grep -q ' sc.pop()  →  3' "$H/lines.txt" \
+    && echo "  ok  בהרצה הוויזואלית: כל קריאה היא צעד אחד, והעותק נקרא בשם המשתנה" || { echo "  FAIL צעדים של Helpers"; grep 'Helpers\|java:1[46])' "$H/lines.txt"; exit 1; }
+# בלי "Helpers.": שורת import static אחת, וקוראים ל-size(q) / duplicate(q) ישירות
+cp helpers/BareCalls.java "$H/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$H" "$H/BareCalls.java"
+java -Dstdout.encoding=UTF-8 -cp "$H:$JAR" BareCalls > "$H/bare.txt" 2>&1 && grep -q 'size 2 1' "$H/bare.txt" \
+    && (cd "$H" && java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine BareCalls > bare-lines.txt 2>&1; true) \
+    && grep -q '  duplicate(q)  →  עותק חדש      copy' "$H/bare-lines.txt" \
+    && echo "  ok  size(q) / duplicate(q) בלי Helpers. (import static)" || { echo "  FAIL קריאה בלי Helpers."; cat "$H/bare.txt"; grep 'size\|duplicate' "$H/bare-lines.txt"; exit 1; }
 
 echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
 mkdir -p "$W/obj"

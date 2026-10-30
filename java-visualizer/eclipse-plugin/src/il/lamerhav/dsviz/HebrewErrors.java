@@ -559,6 +559,10 @@ final class HebrewErrors {
         String recv = mi != null && mi.getExpression() != null ? mi.getExpression().toString() : "";
         String r = recv.isEmpty() ? "" : recv + ".";
         if (name.equals("elseif")) return new Spot("כתוב elseif במילה אחת", "כותבים שתי מילים, עם רווח: `else if`");
+        // size(s) / duplicate(s) בלי השורה שמביאה את פעולות העזר מהספרייה
+        if (recv.isEmpty() && (name.equals("size") || name.equals("duplicate")))
+            return new Spot(c(name) + " היא פעולת עזר מהספרייה — חסרה שורה בראש הקובץ",
+                    "מוסיפים מתחת ל-import של הספרייה: `import static unit4.collectionsLib.Helpers.*;` (כשיוצרים מבנה עם \"הוסף מבנה נתונים\" היא נוספת לבד)");
         String lib = LIB_HINTS.get(simple + ":" + name.toLowerCase());
         if (lib != null) return new Spot("ל-" + c(simple) + " אין פעולה " + c(name), lib.replace("$", r));
         if (simple.equals("PrintStream") && name.toLowerCase().startsWith("print")) {
@@ -599,15 +603,19 @@ final class HebrewErrors {
         LIB_METHODS.put("Node", "getValue, getNext, hasNext, setValue, setNext");
         LIB_METHODS.put("BinNode", "getValue, getLeft, getRight, hasLeft, hasRight, setValue, setLeft, setRight");
         // העצה שבסוגריים; $ = המשתנה ונקודה (s.)
-        hint("Stack", "למחסנית אין פעולה שסופרת. כדי לספור: מעבירים את האיברים למחסנית עזר וסופרים, ואז מחזירים אותם. הפעולות שיש: `push, pop, top, isEmpty`",
+        hint("Stack", "למחסנית אין פעולה שסופרת. כדי לספור: מעבירים את האיברים למחסנית עזר וסופרים, ואז מחזירים אותם — או פעולת העזר מהספרייה: `size(...)`. הפעולות שיש: `push, pop, top, isEmpty`",
                 "size", "length", "count", "getsize", "len");
+        hint("Stack", "למחסנית אין פעולה שמעתיקה. יש פעולת עזר בספרייה שמחזירה עותק בלי לשנות את המחסנית: `duplicate(...)`",
+                "clone", "copy", "duplicate");
         hint("Stack", "בספרייה קוראים לזה top — מחזירה את האיבר העליון בלי להוציא אותו: `$top()`", "peek", "gettop", "head", "front", "first", "last", "peak");
         hint("Stack", "מכניסים למחסנית עם: `$push(x)`", "add", "insert", "enqueue", "put", "append", "addtop");
         hint("Stack", "מוציאים מהמחסנית עם: `$pop()`", "remove", "poll", "dequeue", "delete", "removetop", "pull");
         hint("Stack", "בודקים אם המחסנית ריקה עם: `$isEmpty()`", "empty", "isempty", "isnull");
         hint("Stack", "אין פעולה שמרוקנת — מרוקנים בלולאה: `while (!$isEmpty()) $pop();`", "clear", "removeall");
-        hint("Queue", "לתור אין פעולה שסופרת. כדי לספור: מעבירים את האיברים לתור עזר וסופרים, ואז מחזירים אותם. הפעולות שיש: `insert, remove, head, isEmpty`",
+        hint("Queue", "לתור אין פעולה שסופרת. כדי לספור: מעבירים את האיברים לתור עזר וסופרים, ואז מחזירים אותם — או פעולת העזר מהספרייה: `size(...)`. הפעולות שיש: `insert, remove, head, isEmpty`",
                 "size", "length", "count", "getsize", "len");
+        hint("Queue", "לתור אין פעולה שמעתיקה. יש פעולת עזר בספרייה שמחזירה עותק בלי לשנות את התור: `duplicate(...)`",
+                "clone", "copy", "duplicate");
         hint("Queue", "מכניסים לתור עם: `$insert(x)`", "add", "offer", "enqueue", "push", "put", "append", "insertlast", "addlast");
         hint("Queue", "מוציאים מהתור עם: `$remove()`", "poll", "dequeue", "pop", "delete", "removefirst", "pull");
         hint("Queue", "בספרייה קוראים לזה head — מחזירה את הראשון בתור בלי להוציא אותו: `$head()`",

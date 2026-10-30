@@ -494,6 +494,15 @@ final class Recorder {
     }
 
     /** rank: 0 = שם אוטומטי, 1 = ניחוש מהקוד, 2 = שם מפורש */
+    /** עותק מ-Helpers.duplicate: השם של המשתנה שמקבל אותו ("copy = Helpers.duplicate(s)"), אם יש */
+    static void nameCopy(Object o) {
+        synchronized (LOCK) {
+            if (!enabled || !active || o == null) return;
+            String guess = SourceFiles.guessCopyName(firstStudentFrame(new Throwable().getStackTrace()));
+            if (guess != null) setName(o, guess, 1);
+        }
+    }
+
     static void setName(Object o, String name, int rank) {
         synchronized (LOCK) {
             if (name == null || o == null) return;

@@ -9,8 +9,8 @@ namespace Unit4.CollectionsLib
     /// </summary>
     public class Node<T> : IVizNode
     {
-        T value;
-        Node<T> next;
+        internal T value;
+        internal Node<T> next;
 
         public Node(T value)
         {

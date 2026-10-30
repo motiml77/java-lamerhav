@@ -117,14 +117,10 @@ public final class ScaffoldCs {
 
     /** Java → C#. מזהה לבד איזה משתנים הם מערכים דו-ממדיים (T[][] name) */
     public static String toCs(String java) {
-        // פעולות עזר גנריות: public static <T> int size(Stack<T> s)  →  public static int Size<T>(Stack<T> s), והקריאות size(...) → Size(...)
-        if (java.contains("public static <T> ")) {
-            Matcher d = Pattern.compile("public static <T> (.+?) (size|duplicate)\\(").matcher(java);
+        // פעולות העזר מהספרייה (import static): size(x) → Size(x), duplicate(x) → Duplicate(x) — גם בהערות
+        if (java.contains(Scaffold.HELPERS_IMPORT) || java.contains("// עזר מהספרייה:")) {
+            Matcher d = Pattern.compile("(?m)(^|[^.\\w])(size|duplicate)\\(").matcher(java);
             StringBuffer sb = new StringBuffer();
-            while (d.find()) d.appendReplacement(sb, lit("public static " + d.group(1) + " " + cap(d.group(2)) + "<T>("));
-            d.appendTail(sb);
-            d = Pattern.compile("(?m)(^|[^.\\w])(size|duplicate)\\(").matcher(sb.toString());
-            sb = new StringBuffer();
             while (d.find()) d.appendReplacement(sb, lit(d.group(1) + cap(d.group(2)) + "("));
             d.appendTail(sb);
             java = sb.toString();
@@ -143,6 +139,7 @@ public final class ScaffoldCs {
             if (line.matches("^import java\\.util\\.Arrays;.*")) continue;
             if (line.matches("^\\s*@SuppressWarnings.*")) continue;
             if (line.matches("^import unit4\\.collectionsLib\\.\\*;.*")) { out.add("using System;"); out.add("using Unit4.CollectionsLib;"); continue; }
+            if (line.equals(Scaffold.HELPERS_IMPORT)) continue;   // ב-C# זה global using (Directory.Build.props ו-dsviz-cs) — לא צריך שורה בקובץ
             line = structArray.matcher(line).replaceFirst("$1<$2>[] $3 = new $1<$2>[");
             String code = line, comment = "";
             // הערה: מהראשון // שמחוץ למחרוזת
@@ -191,8 +188,6 @@ public final class ScaffoldCs {
         if (!isIdentifier(o.functionName)) throw new IllegalArgumentException("שם הפעולה חייב להיות באנגלית, בלי רווחים, להתחיל באות, ולא להיות מילה שמורה של C#");
         if (o.functionName.equals("Main")) throw new IllegalArgumentException("Main כבר קיימת בקובץ — בחרו שם אחר לפעולה");
         if (o.functionName.equals(o.className)) throw new IllegalArgumentException("שם הפעולה לא יכול להיות זהה לשם המחלקה");
-        if ((o.helperSize && o.functionName.equals("Size")) || (o.helperCopy && o.functionName.equals("Duplicate")))
-            throw new IllegalArgumentException("השם " + o.functionName + " תפוס על ידי פעולת העזר — בחרו שם אחר לפעולה");
         Scaffold.Result g = Scaffold.generate(o);
         String code = toCs(g.code);
         String[] lines = code.split("\n", -1);

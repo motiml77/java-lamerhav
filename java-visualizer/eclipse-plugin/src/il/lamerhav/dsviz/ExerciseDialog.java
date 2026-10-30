@@ -46,7 +46,8 @@ public class ExerciseDialog extends Dialog {
     private Composite previewBox;
     private Label previewText, typeSection;
     private NestedPreview previewCanvas;
-    private Button randomCheck, recursiveCheck, sizeCheck, copyCheck;
+    private Button randomCheck, recursiveCheck;
+    private boolean wantRandom = true;   // אקראי מסומן מראש — עד שהמשתמש מוריד את הסימון
     private Spinner countSpinner;
     private Text valuesText, classText, functionText;
     private Label valuesLabel, errorLabel;
@@ -156,13 +157,6 @@ public class ExerciseDialog extends Dialog {
         recursiveCheck = check(left, "תרגיל ברקורסיה (כרטיס לכל קריאה)");
         recursiveCheck.setToolTipText("בחלון ההרצה תופיע לשונית \"רקורסיה\": כרטיס לכל קריאה");
 
-        // --- פעולות עזר שנוספות למחלקה (מחסנית, תור, רשימה, עץ — גם בתוך מבנה)
-        section(left, "פעולות עזר (נוספות לקוד)");
-        sizeCheck = check(left, "size — מחזירה את גודל המבנה, בלי לפגוע בו");
-        sizeCheck.setToolTipText("פעולה שמקבלת את המבנה ומחזירה כמה איברים יש בו; המבנה נשאר כמו שהיה");
-        copyCheck = check(left, "duplicate — מחזירה עותק מדויק של המבנה, בלי לפגוע בו");
-        copyCheck.setToolTipText("פעולה שמקבלת את המבנה, יוצרת עותק מדויק ומחזירה אותו; המקור נשאר כמו שהיה");
-
         // --- מילוי המבנה: אקראי (כמה ערכים) או ידני בשדה
         section(left, "מילוי מבנה-נתונים");
         Composite rnd = grid(left, 2, false, 6);
@@ -200,7 +194,8 @@ public class ExerciseDialog extends Dialog {
         };
         projectCombo.addSelectionListener(onChange);
         returnCombo.addSelectionListener(onChange);
-        for (Button b : new Button[] { randomCheck, recursiveCheck, sizeCheck, copyCheck }) b.addSelectionListener(onChange);
+        recursiveCheck.addSelectionListener(onChange);
+        randomCheck.addListener(SWT.Selection, e -> { wantRandom = randomCheck.getSelection(); update(); });
         countSpinner.addModifyListener(e -> update());
         Look.applyFont(area, -1);
         Look.wheel(scroll);
@@ -338,16 +333,9 @@ public class ExerciseDialog extends Dialog {
         addReturn("structure", Scaffold.typeOf(s, type) + " — מבנה חדש");
         returnCombo.select(Math.max(0, returnIds.indexOf(prevRet)));
 
-        // פעולות עזר: רק למחסנית / תור / רשימה / עץ (לא למערך)
-        boolean helpers = Scaffold.hasHelpers(st);
-        for (Button b : new Button[] { sizeCheck, copyCheck }) {
-            b.setEnabled(helpers);
-            if (!helpers) b.setSelection(false);
-        }
-
         // ערכים אקראיים: בוחרים כמה, והשדה מתמלא (אפשר לשנות). תלמידים / מכוניות — תמיד נתוני דמה
         randomCheck.setEnabled(!objects);
-        if (objects) randomCheck.setSelection(false);
+        randomCheck.setSelection(!objects && wantRandom);
         boolean random = randomCheck.getSelection();
         countSpinner.setEnabled(random);
         randomCheck.setText(combo ? "כמה מבנים פנימיים אקראיים:" : st.equals("matrix") ? "כמה שורות אקראיות:" : "כמה ערכים אקראיים:");
@@ -396,8 +384,6 @@ public class ExerciseDialog extends Dialog {
         o.extra = false;
         o.recursive = recursiveCheck.getSelection();
         o.random = false;   // הערכים האקראיים כבר בשדה — נכנסים לקוד כמו שהם
-        o.helperSize = sizeCheck.getSelection();
-        o.helperCopy = copyCheck.getSelection();
         o.values = valuesText.getText();
         o.className = classText.getText().trim();
         o.functionName = functionText.getText().trim();

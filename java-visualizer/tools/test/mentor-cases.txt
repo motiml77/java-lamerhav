@@ -885,3 +885,31 @@ L16 for-direction "i--"
 !L17 for-direction
 L19 alias "לא יוצרת עותק"
 !L22 alias
+
+### פעולות העזר size / duplicate בלי שורת ה-import static — ההסבר אומר איזו שורה להוסיף; עם השורה — אין שגיאה
+import unit4.collectionsLib.*;
+public class X {
+  public static void main(String[] args) {
+    Stack<Integer> s = new Stack<Integer>();
+    int n = size(s);
+    Stack<Integer> c = duplicate(s);
+  }
+}
+--- expect
+L5 jdt:100 "היא פעולת עזר מהספרייה — חסרה שורה בראש הקובץ"
+L5 jdt:100 "import static unit4.collectionsLib.Helpers.*;"
+L6 jdt:100 "היא פעולת עזר מהספרייה"
+
+### עם import static — size(s) ו-duplicate(s) מתקמפלות
+import unit4.collectionsLib.*;
+import static unit4.collectionsLib.Helpers.*;
+public class X {
+  public static void main(String[] args) {
+    Stack<Integer> s = new Stack<Integer>();
+    int n = size(s);
+    Stack<Integer> c = duplicate(s);
+  }
+}
+--- expect
+!L6 jdt:100
+!L7 jdt:100

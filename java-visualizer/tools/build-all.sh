@@ -30,6 +30,7 @@ done
 rm -rf build/project-cs && mkdir -p build/project-cs/lib
 (cd csharp/project && tar c --exclude=bin --exclude=obj --exclude=lib .) | tar x -C build/project-cs
 cp build/cs-lib/Unit4.CollectionsLib.dll build/project-cs/lib/
+mkdir -p csharp/project/lib && cp build/cs-lib/Unit4.CollectionsLib.dll csharp/project/lib/   # לבדיקות שבונות את התיקייה עצמה
 python3 tools/make-vs-template.py build/cs-lib/Unit4.CollectionsLib.dll csharp/project/Exercise build/vs-template/DSViz-Exercise.zip
 
 echo "== סרטוני הדרכה (הכפתור ?): help/ → תוסף Eclipse, תוסף VS Code, ההתקנה"
