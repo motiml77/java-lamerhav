@@ -1367,6 +1367,21 @@ final class Recorder {
         if (s.kind != Kind.OUTPUT) out.println(b);
     }
 
+    static {
+        // בדיקות (-Ddsviz.conditions=true): בסוף ההרצה — מה התצוגה של התנאים מראה בכל צעד.
+        // התוצאה נקבעת לפי הצעדים שאחרי, לכן רק בסוף; ביציאה מהתהליך, כדי שלא תיחתך
+        if (Boolean.getBoolean("dsviz.conditions") && Boolean.getBoolean(LineByLine.CHILD_PROPERTY)) {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    out.print(CondViz.dump());
+                    out.flush();
+                } catch (RuntimeException e) {
+                    out.println("  [תנאים: " + e + "]");
+                }
+            }));
+        }
+    }
+
     // ------------------------------------------------------------ מצב שורה אחר שורה
     //
     // ה-JdiTracer (בתהליך האב) עוצר לפני כל שורה בקוד של התלמיד וכותב את פרטי השורה כמחרוזת אחת

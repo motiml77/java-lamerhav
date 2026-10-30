@@ -728,6 +728,16 @@ final class Viewer extends JFrame {
             }
         }
         updateCode(s.where);
+        CondViz.Marks marks = null;
+        if (Recorder.lineMode && codeLine > 0) {
+            try {
+                marks = CondViz.marks(vis.get(p));
+            } catch (RuntimeException e) {
+                marks = null;   // בלי סימון התנאים
+            }
+        }
+        code.marks = marks;
+        code.repaint();
         if (Recorder.lineMode) updateVars(s);
         console.setText(Recorder.outputUpTo(s.outLen));
         console.setCaretPosition(console.getDocument().getLength());
@@ -787,6 +797,23 @@ final class Viewer extends JFrame {
     /** אזור הקוד: טקסט צבעוני (מילים שמורות, טיפוסים, פעולות, משתנים, מחרוזות, הערות), בלי גלישת שורות */
     private static final class CodePane extends javax.swing.JTextPane {
         private final javax.swing.text.SimpleAttributeSet[] styles = new javax.swing.text.SimpleAttributeSet[9];
+        /** התנאים בצעד הנוכחי (CondViz): התגית בשורת התנאי, והענף שרץ / שמדלגים עליו */
+        CondViz.Marks marks;
+
+        @Override
+        protected void paintComponent(Graphics g0) {
+            super.paintComponent(g0);
+            if (marks == null) return;
+            Graphics2D g = (Graphics2D) g0.create();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            try {
+                CondPaint.paint(g, this, marks);
+            } catch (RuntimeException e) {
+                // בלי סימון התנאים — הקוד עצמו מוצג כרגיל
+            }
+            g.dispose();
+        }
 
         CodePane() {
             for (int k = 0; k < styles.length; k++) {
