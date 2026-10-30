@@ -11,14 +11,15 @@
 //
 // נקודות קצה:
 //   POST /v1/exercise   multipart/form-data: meta (JSON: {client, language, note, texts:[{name,text}], names}) + file (כמה שצריך)
-//   POST /v1/repair     application/json: {client, language, exercise, files:{שם: קוד}, errors:[...]}
+//   POST /v1/repair     application/json: {client, language, exercise, files:{שם: קוד}, errors:[...], mode?}
+//                       mode: "solution" — ההצעה לפתרון (tasks[].solution) לא נתנה את expectedOutput: מתקנים אותה (או את expectedOutput)
 //   language: "java" (ברירת מחדל) או "csharp"
 //   GET  /v1/health
 //   POST /v1/license    application/json: {client, machine, code} → {ok, locked, licensed, message, payUrl}
 //                       נעילה לתשלום של התצוגה הוויזואלית: כבויה כל עוד PAYWALL לא "on" (ראו README.md — "נעילה לתשלום")
 
 import { Buffer } from 'node:buffer';
-import { systemPrompt, repairPrompt, language, RESPONSE_SCHEMA } from './prompt.js';
+import { systemPrompt, repairPrompt, solutionPrompt, language, RESPONSE_SCHEMA } from './prompt.js';
 
 const LIMITS = {
   files: 10,
@@ -179,9 +180,10 @@ async function repairParts(request) {
   const files = body && body.files && typeof body.files === 'object' ? body.files : {};
   if (!previous || typeof previous !== 'object' || !errors.length) throw new Fail(400, 'format', 'חסרים פרטים לתיקון');
   const lang = language(body.language || (previous && previous.language));
-  let msg = repairPrompt(lang) + '\n\nPrevious JSON:\n' + JSON.stringify(previous) + '\n';
+  const solution = body.mode === 'solution';
+  let msg = (solution ? solutionPrompt(lang) : repairPrompt(lang)) + '\n\nPrevious JSON:\n' + JSON.stringify(previous) + '\n';
   for (const [name, code] of Object.entries(files).slice(0, 12)) msg += `\n----- ${clean(name)} -----\n${String(code)}\n`;
-  msg += '\nCompiler errors:\n' + errors.map(e => '- ' + e).join('\n');
+  msg += (solution ? '\nWhat happened:\n' : '\nCompiler errors:\n') + errors.map(e => '- ' + e).join('\n');
   return { userParts: [JSON.stringify({ text: msg })], previous, lang };
 }
 
@@ -246,7 +248,7 @@ async function askGemini(env, userParts, lang) {
 
 function stripFence(t) {
   const s = String(t || '').trim();
-  const m = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(s);
+  const m = /^```[A-Za-z#]*\s*([\s\S]*?)\s*```$/.exec(s);   // גם ```java
   return m ? m[1] : s;
 }
 
@@ -269,6 +271,7 @@ function check(d, previous) {
       methodName: str(t.methodName, 60),
       parameters: (Array.isArray(t.parameters) ? t.parameters : []).filter(p => p && p.name).map(p => ({ type: str(p.type, 80), name: str(p.name, 40) })).slice(0, 12),
       instructions: str(t.instructions, 2000),
+      solution: stripFence(str(t.solution, 12000)),
     })).slice(0, 25),
     givenCode: arr('givenCode').filter(g => g && g.code).map(g => ({ className: str(g.className, 60), code: str(g.code, 20000) })).slice(0, 20),
     otherQuestions: arr('otherQuestions').filter(q => q && q.text).map(q => ({ label: str(q.label, 20), text: str(q.text, 2000) })).slice(0, 20),

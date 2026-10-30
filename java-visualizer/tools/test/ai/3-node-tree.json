@@ -1,1 +1,71 @@
-{"title": "שרשרת חוליות ועץ", "summary": "בדיקת סדר בשרשרת וספירת עלים בעץ בינארי.", "mainClass": "Targil", "imports": [], "classes": [], "tasks": [{"label": "א", "kind": "method", "className": "Targil", "isStatic": true, "returnType": "boolean", "methodName": "isSorted", "parameters": [{"type": "Node<Integer>", "name": "lst"}], "instructions": "כתבו פעולה המקבלת שרשרת חוליות של מספרים ומחזירה true אם היא ממוינת בסדר עולה."}, {"label": "ב", "kind": "method", "className": "Targil", "isStatic": true, "returnType": "int", "methodName": "countLeaves", "parameters": [{"type": "BinNode<Integer>", "name": "t"}], "instructions": "כתבו פעולה רקורסיבית המחזירה את מספר העלים בעץ."}, {"label": "ג", "kind": "method", "className": "Targil", "isStatic": true, "returnType": "Node<Integer>", "methodName": "merge", "parameters": [{"type": "Node<Integer>", "name": "a"}, {"type": "Node<Integer>", "name": "b"}], "instructions": "כתבו פעולה הממזגת שתי שרשראות ממוינות לשרשרת ממוינת חדשה."}], "givenCode": [{"className": "Targil", "code": "public static void printList(Node<Integer> p) {\n    while (p != null) {\n        System.out.print(p.getValue() + \" \");\n        p = p.getNext();\n    }\n    System.out.println();\n}"}], "otherQuestions": [], "mainCode": "Node<Integer> lst = new Node<Integer>(1, new Node<Integer>(3, new Node<Integer>(5)));\nprintList(lst);\nSystem.out.println(\"סעיף א: \" + isSorted(lst));\nBinNode<Integer> t = new BinNode<Integer>(new BinNode<Integer>(2), 1, new BinNode<Integer>(new BinNode<Integer>(4), 3, null));\nSystem.out.println(\"סעיף ב: \" + countLeaves(t));\nNode<Integer> other = new Node<Integer>(2, new Node<Integer>(4));\nSystem.out.println(\"סעיף ג: \" + merge(lst, other));", "topic": "linked_lists_trees"}
+{
+  "title": "שרשרת חוליות ועץ",
+  "summary": "בדיקת סדר בשרשרת וספירת עלים בעץ בינארי.",
+  "mainClass": "Targil",
+  "imports": [],
+  "classes": [],
+  "tasks": [
+    {
+      "label": "א",
+      "kind": "method",
+      "className": "Targil",
+      "isStatic": true,
+      "returnType": "boolean",
+      "methodName": "isSorted",
+      "parameters": [
+        {
+          "type": "Node<Integer>",
+          "name": "lst"
+        }
+      ],
+      "instructions": "כתבו פעולה המקבלת שרשרת חוליות של מספרים ומחזירה true אם היא ממוינת בסדר עולה.",
+      "solution": "public static boolean isSorted(Node<Integer> lst) {\n    // משווים כל חוליה לחוליה שאחריה\n    Node<Integer> p = lst;\n    while (p != null && p.hasNext()) {\n        if (p.getValue() > p.getNext().getValue()) {\n            return false;\n        }\n        p = p.getNext();\n    }\n    return true;\n}"
+    },
+    {
+      "label": "ב",
+      "kind": "method",
+      "className": "Targil",
+      "isStatic": true,
+      "returnType": "int",
+      "methodName": "countLeaves",
+      "parameters": [
+        {
+          "type": "BinNode<Integer>",
+          "name": "t"
+        }
+      ],
+      "instructions": "כתבו פעולה רקורסיבית המחזירה את מספר העלים בעץ.",
+      "solution": "public static int countLeaves(BinNode<Integer> t) {\n    // עץ ריק — אין עלים; עלה — 1; אחרת — העלים משמאל ועוד העלים מימין\n    if (t == null) {\n        return 0;\n    }\n    if (!t.hasLeft() && !t.hasRight()) {\n        return 1;\n    }\n    return countLeaves(t.getLeft()) + countLeaves(t.getRight());\n}"
+    },
+    {
+      "label": "ג",
+      "kind": "method",
+      "className": "Targil",
+      "isStatic": true,
+      "returnType": "Node<Integer>",
+      "methodName": "merge",
+      "parameters": [
+        {
+          "type": "Node<Integer>",
+          "name": "a"
+        },
+        {
+          "type": "Node<Integer>",
+          "name": "b"
+        }
+      ],
+      "instructions": "כתבו פעולה הממזגת שתי שרשראות ממוינות לשרשרת ממוינת חדשה.",
+      "solution": "public static Node<Integer> merge(Node<Integer> a, Node<Integer> b) {\n    // חוליה ראשונה \"דמה\" — כך קל להוסיף בסוף; בכל שלב מעתיקים את הקטן מבין השניים\n    Node<Integer> dummy = new Node<Integer>(0);\n    Node<Integer> last = dummy;\n    while (a != null && b != null) {\n        if (a.getValue() <= b.getValue()) {\n            last.setNext(new Node<Integer>(a.getValue()));\n            a = a.getNext();\n        } else {\n            last.setNext(new Node<Integer>(b.getValue()));\n            b = b.getNext();\n        }\n        last = last.getNext();\n    }\n    // מה שנשאר באחת השרשראות\n    Node<Integer> rest = a;\n    if (rest == null) {\n        rest = b;\n    }\n    while (rest != null) {\n        last.setNext(new Node<Integer>(rest.getValue()));\n        last = last.getNext();\n        rest = rest.getNext();\n    }\n    return dummy.getNext();\n}"
+    }
+  ],
+  "givenCode": [
+    {
+      "className": "Targil",
+      "code": "public static void printList(Node<Integer> p) {\n    while (p != null) {\n        System.out.print(p.getValue() + \" \");\n        p = p.getNext();\n    }\n    System.out.println();\n}"
+    }
+  ],
+  "otherQuestions": [],
+  "mainCode": "Node<Integer> lst = new Node<Integer>(1, new Node<Integer>(3, new Node<Integer>(5)));\nprintList(lst);\nSystem.out.println(\"סעיף א: \" + isSorted(lst));\nBinNode<Integer> t = new BinNode<Integer>(new BinNode<Integer>(2), 1, new BinNode<Integer>(new BinNode<Integer>(4), 3, null));\nSystem.out.println(\"סעיף ב: \" + countLeaves(t));\nNode<Integer> other = new Node<Integer>(2, new Node<Integer>(4));\nSystem.out.println(\"סעיף ג: \" + merge(lst, other));",
+  "topic": "linked_lists_trees",
+  "expectedOutput": "1 3 5\nסעיף א: true\nסעיף ב: 2\nסעיף ג: 1 -> 2 -> 3 -> 4 -> 5 -> null"
+}

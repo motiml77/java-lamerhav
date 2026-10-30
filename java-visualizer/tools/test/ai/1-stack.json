@@ -18,7 +18,8 @@
           "name": "s"
         }
       ],
-      "instructions": "כתבו פעולה המקבלת מחסנית של מספרים שלמים ומחזירה את מספר האיברים הזוגיים בה. בסוף הפעולה המחסנית צריכה להיות כמו בהתחלה. לדוגמה: עבור המחסנית 4, 7, 2, 9 (4 בראש) יוחזר 2."
+      "instructions": "כתבו פעולה המקבלת מחסנית של מספרים שלמים ומחזירה את מספר האיברים הזוגיים בה. בסוף הפעולה המחסנית צריכה להיות כמו בהתחלה. לדוגמה: עבור המחסנית 4, 7, 2, 9 (4 בראש) יוחזר 2.",
+      "solution": "public static int countEven(Stack<Integer> s) {\n    // מעבירים את האיברים למחסנית עזר, וסופרים את הזוגיים\n    Stack<Integer> temp = new Stack<Integer>();\n    int count = 0;\n    while (!s.isEmpty()) {\n        int x = s.pop();\n        if (x % 2 == 0) {\n            count++;\n        }\n        temp.push(x);\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n    return count;\n}"
     },
     {
       "label": "ב",
@@ -37,7 +38,8 @@
           "name": "x"
         }
       ],
-      "instructions": "כתבו פעולה המקבלת מחסנית ומספר x ומוציאה מהמחסנית את כל המופעים של x. הסדר של שאר האיברים לא ישתנה."
+      "instructions": "כתבו פעולה המקבלת מחסנית ומספר x ומוציאה מהמחסנית את כל המופעים של x. הסדר של שאר האיברים לא ישתנה.",
+      "solution": "```java\npublic static void removeAll(Stack<Integer> stack, int num)\n{\n    // מעבירים למחסנית עזר רק את האיברים ששונים מ-num\n    Stack<Integer> temp = new Stack<Integer>();\n    while (!stack.isEmpty()) {\n        int y = stack.pop();\n        if (y != num) {\n            temp.push(y);\n        }\n    }\n    // מחזירים אותם — הסדר נשמר\n    while (!temp.isEmpty()) {\n        stack.push(temp.pop());\n    }\n}\n```"
     }
   ],
   "givenCode": [],

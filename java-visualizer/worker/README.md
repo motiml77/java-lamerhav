@@ -92,6 +92,8 @@ Eclipse (התלמיד)  ──קבצים──▶  השרת הזה (Cloudflare) 
 
 - `POST /v1/exercise` — `multipart/form-data`: שדה `meta` (JSON: השפה — `java` או `csharp`, הערה, טקסט מקובצי Word, שמות הקבצים) ושדות `file`.
 - `POST /v1/repair` — כשהקוד שנבנה לא התקמפל: התוסף שולח את הקוד ואת השגיאות, ומקבל תיאור מתוקן (פעם אחת לכל תרגיל).
+  עם `"mode": "solution"` — כשההצעה לפתרון (`tasks[].solution`) לא נתנה את הפלט הצפוי: התוסף שולח את הקבצים עם ההצעות ואת
+  מה שקרה (הפלט בפועל מול `expectedOutput`, או שגיאות), ו-Gemini מתקן את ההצעה — או את `expectedOutput` אם הוא השגוי.
 - `GET /v1/health`.
 
 הבקשה ל-Gemini נבנית בשרשור מחרוזות, בלי `JSON.parse`/`JSON.stringify` על הקבצים עצמם (זה איטי מאוד בקבצים גדולים, ול-Worker

@@ -129,6 +129,17 @@ for m in $(cat "$W/ai/src/mains.txt"); do
     grep -q 'סעיף' "$W/ai/run.txt" || { echo "  FAIL $m (אין פלט של סעיפים)"; cat "$W/ai/run.txt"; exit 1; }
 done
 echo "  ok  כל המעטפות מתקמפלות ורצות (main קורא לכל הסעיפים)"
+# "הצעה לפתרון": ההצעות מתאימות לכותרת, לא נכנסות לקוד של התלמיד, ובאמת נותנות את הפלט הצפוי;
+# פעם עם javac ופעם עם ecj (הקומפיילר של Eclipse — מה שרץ בתוך Eclipse)
+mkdir -p "$W/sol/cls"
+javac -encoding UTF-8 -d "$W/sol/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Json.java ../../eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java \
+    ../../eclipse-plugin/src/il/lamerhav/dsviz/SolutionCheck.java ../../eclipse-plugin/src/il/lamerhav/dsviz/SolutionStore.java SolutionCheckTest.java
+for cp in "$W/sol/cls" "$W/sol/cls:../../build/eclipse-deps/ecj.jar"; do
+    rm -rf "$W/sol/work" && mkdir -p "$W/sol/work"
+    java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$cp" il.lamerhav.dsviz.SolutionCheckTest ai "$JAR" "$W/sol/work" > "$W/sol/out.txt" 2>&1 \
+        || { echo "  FAIL הצעה לפתרון ($cp)"; cat "$W/sol/out.txt"; exit 1; }
+done
+sed 's/^/  /' "$W/sol/out.txt"
 
 echo "== 10. המורה בעברית (Eclipse): תרגום כל הודעות הקומפיילר, מיקום מדויק של הבעיה, ואזהרות על טעויות נפוצות"
 DEPS="$(cd ../../build/eclipse-deps && pwd)"
