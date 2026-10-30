@@ -2,6 +2,8 @@
 
 <sub>© 2026 Moti Levi · motiml77@gmail.com</sub>
 
+**האתר:** https://motiml77.github.io/java-lamerhav/ (הקוד שלו ב-[`site/`](site/README.md))
+
 כותבים פונקציה רגילה ב-Java, לוחצים **הרצה ויזואלית**, ונפתח חלון שמראה את ההרצה **צעד אחר צעד**:
 
 - **המבנים עצמם** — מחסניות, תורים, רשימות מקושרות, עצים, **מערכים חד ודו ממדיים** ותלמידים (`Student`), מצוירים ומתעדכנים בכל צעד
@@ -673,6 +675,7 @@ java-visualizer/
 ├── vscode-extension/              ← קוד התוסף ל-VS Code (JavaScript)
 ├── eclipse-plugin/                ← קוד התוסף ל-Eclipse (Java)
 ├── worker/                        ← השרת של "שליחת תרגיל" (Cloudflare Worker → Gemini) + הוראות התקנה
+├── site/                          ← האתר (GitHub Pages): דף אחד בעברית עם הדגמה חיה וקישור להורדה
 ├── csharp/                        ← C#: Unit4.CollectionsLib (ספרייה), DsViz.Runner (dsviz-cs), project (DataStructures-CS)
 ├── installer/                     ← setup.nsi (DSViz-Setup.exe), install.sh, README-he.html,
 │                                     project/ (תבנית תיקיית התרגילים שההתקנה יוצרת)

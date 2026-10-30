@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSViz: רואים מה הקוד עושה</title>
+<meta name="description" content="תוסף ל-Eclipse, ל-VS&nbsp;Code ול-Visual&nbsp;Studio שמריץ תרגיל במבני נתונים שורה אחרי שורה ומצייר כל מחסנית, תור, רשימה ועץ. הסברים בעברית לשגיאות, ותרגיל מוכן מדף הבחינה.">
+<meta name="theme-color" content="#F1F3F7">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="he_IL">
+<meta property="og:title" content="DSViz: רואים מה הקוד עושה">
+<meta property="og:description" content="מבני נתונים ב-Java וב-C#, שורה אחרי שורה, עם ציור של כל מחסנית, תור, רשימה ועץ.">
+<meta property="og:image" content="https://motiml77.github.io/java-lamerhav/assets/og.png">
+<link rel="canonical" href="https://motiml77.github.io/java-lamerhav/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">דילוג לתוכן</a>
+
+<header class="bar">
+  <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
+    DSViz
+  </a>
+  <nav aria-label="ניווט בעמוד">
+    <a href="#run">הרצה ויזואלית</a>
+    <a href="#errors">הסברים בעברית</a>
+    <a href="#teachers">למורים</a>
+    <a href="#install">התקנה</a>
+  </nav>
+  <a class="btn small" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+</header>
+
+<main id="main">
+
+<section class="hero" aria-labelledby="h-hero">
+  <div class="hero-text">
+    <h1 id="h-hero">רואים מה<br>הקוד עושה</h1>
+    <p class="lead">תוסף <span class="nw">ל-Eclipse</span>, <span class="nw">ל-VS Code</span> <span class="nw">ול-Visual Studio</span> שמריץ תרגיל במבני נתונים שורה אחרי שורה, ומצייר בזמן הריצה כל מחסנית, תור, רשימה ועץ.</p>
+    <p class="cta">
+      <a class="btn" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה ל-Windows</a>
+      <span class="note">קובץ התקנה אחד, 86 מגה. Java כבר בפנים, ואת Eclipse ההתקנה מוצאת לבד. <a href="#install">יש לכם Mac או Linux?</a></span>
+    </p>
+  </div>
+
+  <div class="demo" data-demo data-ui tabindex="0" aria-label="הדגמה: ההרצה של הפעולה countEven, צעד אחרי צעד">
+    <div class="demo-top">
+      <div class="demo-nav">
+        <button type="button" data-prev>הקודם</button>
+        <button type="button" class="go" data-next>הבא</button>
+      </div>
+      <input type="range" min="0" max="31" value="0" data-range aria-label="מעבר בין הצעדים">
+      <span class="demo-count" data-count>צעד 1 מתוך 32</span>
+    </div>
+    <p class="demo-said" data-said aria-live="polite">שורה 1: הפעולה קיבלה מחסנית: 4 בראש, 9 בתחתית</p>
+    <div class="demo-body">
+      <div class="demo-code" data-code dir="ltr"></div>
+      <div class="demo-side">
+        <div class="demo-stacks" data-stacks></div>
+        <table class="demo-vars" aria-label="המשתנים"><tbody data-vars></tbody></table>
+      </div>
+    </div>
+    <noscript><img src="assets/img/run-window.webp" alt="חלון ההרצה הוויזואלית: הקוד, המשתנים והרשימה המקושרת" width="1256" height="706"></noscript>
+  </div>
+  <p class="demo-hint">זו הפעולה countEven מתרגיל אמיתי: היא סופרת את הזוגיים במחסנית בעזרת מחסנית עזר, ומחזירה את המחסנית למצבה. לוחצים על "הבא", או גוררים את הפס.</p>
+</section>
+
+<section id="run" class="run" aria-labelledby="h-run">
+  <div class="rows">
+    <h2 id="h-run">כל צעד על המסך</h2>
+    <div>
+      <p>כותבים פעולה רגילה, לוחצים על <b>הרצה ויזואלית</b> בסרגל הכלים, ונפתח חלון עם השורה שרצה עכשיו (מסומנת בצהוב), כל המשתנים וערכיהם, והמבנים עצמם: מחסנית כקופסה שנפתחת למעלה, תור כצינור עם כניסה ויציאה, רשימה כחוליות עם חצים. הולכים קדימה ואחורה, מריצים לבד או קופצים לכל צעד.</p>
+    </div>
+  </div>
+  <figure class="shot wide">
+    <img src="assets/img/run-window.webp" alt="חלון ההרצה: הפעולה sum עוברת על רשימה מקושרת, המצביע p על החוליה האחרונה, ומעקב המשתנים מראה total = 18" width="1256" height="706" loading="lazy">
+    <figcaption>הפעולה sum עוברת על רשימה מקושרת. החוליה שעליה p מצביע מסומנת בכתום.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li><b>לולאות.</b> לכל לולאה מונה משלה, וגם בלולאה בתוך לולאה רואים את i ואת j, באיזה סיבוב כל אחת ועל איזה תא במערך היא עומדת.</li>
+    <li><b>רקורסיה.</b> כל קריאה לפעולה בכרטיס נפרד: מה היא קיבלה, אילו תנאים יצאו true ואילו false, ומה היא החזירה.</li>
+    <li><b>מבנה בתוך מבנה.</b> תור של מחסניות, רשימה של תורים, עץ של מחסניות: כל מבנה פנימי מצויר בתוך התא שלו.</li>
+    <li><b>מה שהתלמיד כתב.</b> מערכים, מחרוזות ומחלקות חדשות (Student, Car, או כל מחלקה אחרת) מוצגים עם התכונות שלהם.</li>
+  </ul>
+  <div class="pair">
+    <figure class="shot">
+      <video data-autoplay muted loop playsinline controls preload="metadata" poster="assets/video/loops.webp" width="1440" height="828" aria-label="מיון בועות בחלון ההרצה, צעד אחרי צעד: המונים i ו-j זזים והמערך מתמיין">
+        <source src="assets/video/loops.mp4" type="video/mp4">
+      </video>
+      <figcaption>מיון בועות בחלון ההרצה, צעד אחרי צעד. המונים i ו-j, והתאים במערך שכל לולאה כבר עברה.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="assets/img/recursion.webp" alt="ספירת צמתים בעץ בינארי ברקורסיה: הקריאות זו מתחת לזו, וכל אחת עם מה שהחזירה" width="1256" height="706" loading="lazy">
+      <figcaption>ספירת צמתים בעץ. כל קריאה רקורסיבית בכרטיס משלה.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="errors" class="errors" aria-labelledby="h-errors">
+  <div class="errors-text">
+    <h2 id="h-errors">שגיאה? הסבר בעברית</h2>
+    <p>ליד כל שגיאה של הקומפיילר מופיע משפט בעברית שאומר מה לא בסדר, בשורה שבה הבעיה באמת נמצאת, ועצה קצרה איך מתקנים. חלון ההסברים פתוח בצד, מימין לשמאל, ומתעדכן בזמן הכתיבה.</p>
+    <dl class="said">
+      <dt dir="ltr">The method size() is undefined for the type Queue&lt;Integer&gt;</dt>
+      <dd>ל-Queue אין פעולה size. כדי לספור, מעבירים את האיברים לתור עזר וסופרים, ואז מחזירים אותם. הפעולות שיש: <span dir="ltr">insert, remove, head, isEmpty</span>.</dd>
+      <dt dir="ltr">Syntax error, insert ";" to complete ReturnStatement</dt>
+      <dd>חסרה נקודה-פסיק בסוף שורה 6. הקו האדום מופיע לפעמים רק בשורה הבאה, אז בודקים גם את סוף השורה שלפני הסימון.</dd>
+    </dl>
+    <p class="quiet">כל 946 ההודעות של הקומפיילר מתורגמות. יש גם אזהרות על טעויות שחוזרות בכיתה: <span dir="ltr">==</span> בין מחרוזות, לולאה שהמשתנה שלה לא מתקדם, ו-toUpperCase שהתוצאה שלו הולכת לאיבוד.</p>
+  </div>
+  <figure class="shot errors-shot">
+    <img src="assets/img/mentor.webp" alt="Eclipse עם קובץ של תלמיד: ההסבר בעברית מופיע בריחוף מעל השגיאה, ובחלון ההסברים בצד כרטיס לכל שגיאה" width="1272" height="550" loading="lazy">
+  </figure>
+</section>
+
+<section id="exercise" class="exercise" aria-labelledby="h-exercise">
+  <div class="rows">
+    <h2 id="h-exercise">מדף הבחינה לקוד שרץ</h2>
+    <div>
+      <p>ב-Eclipse בוחרים <b>שליחת תרגיל</b> ומצרפים את הדף: PDF, קובץ Word, צילום מהטלפון או צילום מסך שמדביקים עם Ctrl+V. אחרי כמה שניות נפתח קובץ Java עם פעולה ריקה לכל סעיף והסמן כבר בתוכה, המחלקות שהתרגיל מתאר, ו-main שבונה נתונים לדוגמה. מעל main כתוב מה צריך להיות מודפס אם פתרתם נכון.</p>
+    </div>
+  </div>
+  <div class="flow">
+    <figure class="paper">
+      <p class="q"><b>שאלה 2.</b> א. כתבו פעולה המקבלת מחסנית של מספרים שלמים, ומחזירה את מספר האיברים הזוגיים בה. בסוף הפעולה המחסנית צריכה להיות כמו בהתחלה.</p>
+      <p class="q">ב. כתבו פעולה המקבלת מחסנית ומספר x, ומוציאה מהמחסנית את כל המופעים של x. הסדר של שאר האיברים לא ישתנה.</p>
+      <figcaption>הדף ששולחים</figcaption>
+    </figure>
+    <figure class="editor" data-ui>
+      <div class="ed" dir="ltr">
+        <div><b class="kw">public class</b> StackTargil {</div>
+        <div class="chip-line"><span class="bulb">הצעה לפתרון<img src="assets/bulb.svg" alt="" width="14" height="14"></span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<b class="kw">public static int</b> countEven(Stack&lt;Integer&gt; s) {</div>
+        <div class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// <span dir="rtl">====כאן עונים סעיף א'====</span></div>
+        <div class="caret">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i></i></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+        <div class="chip-line"><span class="bulb">הצעה לפתרון<img src="assets/bulb.svg" alt="" width="14" height="14"></span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<b class="kw">public static void</b> removeAll(Stack&lt;Integer&gt; s, <b class="kw">int</b> x) {</div>
+        <div class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// <span dir="rtl">====כאן עונים סעיף ב'====</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+      </div>
+      <figcaption>הקובץ שנפתח</figcaption>
+    </figure>
+    <figure class="shot dialog">
+      <img src="assets/img/solution.webp" alt="החלון הצעה לפתרון לסעיף א: הפעולה countEven עם מחסנית עזר, והודעה שהפתרון נבדק" width="578" height="535" loading="lazy">
+      <figcaption>מה שנפתח בלחיצה על "הצעה לפתרון"</figcaption>
+    </figure>
+  </div>
+  <div class="rows">
+    <h3>נתקעתם? הצעה לפתרון</h3>
+    <div>
+      <p>מעל כל סעיף מופיע כפתור קטן עם מנורה. הפתרון לא מוצג עד שלוחצים, והוא כתוב כמו שמורה היה מראה בכיתה: לולאות, תנאים ומחסנית עזר, עם הערות קצרות בעברית. לפני שהקובץ נפתח, התוסף מריץ את main עם הפתרון ובודק שמודפס בדיוק מה שצריך. אם משהו לא מתאים, הפתרון מתוקן ונבדק שוב, ואם בכל זאת לא אומת, כתוב את זה בחלון.</p>
+    </div>
+  </div>
+</section>
+
+<section id="teachers" class="teachers" aria-labelledby="h-teachers">
+  <h2 id="h-teachers">ומה זה נותן למורה</h2>
+  <div class="teach">
+    <dl class="rows-list">
+      <dt>התקנה אחת לכל הכיתה</dt>
+      <dd>קובץ אחד מתקין את התוסף ל-Eclipse ול-VS Code, כולל Java 21. ההתקנה מוצאת את Eclipse לבד (כל גרסה מ-2020 והלאה), והספרייה של הקורס, unit4.collectionsLib, נוספת לכל פרויקט Java בלי להגדיר Build Path. עדכונים מגיעים לבד.</dd>
+      <dt>אותם ציורים כמו על הלוח</dt>
+      <dd>תור הוא צינור עם חץ כניסה וחץ יציאה, מחסנית היא קופסה שנפתחת למעלה, וחוליה היא ריבוע עם חץ לבאה. התלמידים רואים בהרצה את מה שציירתם.</dd>
+      <dt>פחות "המורה, מה זה אומר?"</dt>
+      <dd>ההסברים בעברית עונים על רוב השאלות על שגיאות קומפילציה עוד לפני שהן נשאלות, ומצביעים על השורה הנכונה.</dd>
+      <dt>תרגיל בכמה לחיצות</dt>
+      <dd><b>תרגיל חדש</b> בונה תרגיל לפי מבנה: מחסנית, תור, רשימה מקושרת, עץ בינארי, עץ חיפוש, מערך ומערך דו-ממדי. <b>הוסף מבנה נתונים</b> מכניס לקוד מבנה עם ערכים שבוחרים, גם מבנה בתוך מבנה, ומראה מראש איך הוא ייראה. ויש 9 דוגמאות פתורות.</dd>
+      <dt>גם ב-C#</dt>
+      <dd>בכיתות שלומדות ב-C# אותה הרצה ויזואלית עובדת ב-Visual&nbsp;Studio וב-VS&nbsp;Code, עם Unit4.CollectionsLib.</dd>
+    </dl>
+    <figure class="shot side-shot">
+      <img src="assets/img/add-structure.webp" alt="החלון הוסף מבנה נתונים: מחסנית של תורים עם הערכים שנבחרו, ותצוגה של איך היא תיראה" width="728" height="520" loading="lazy">
+      <figcaption>הוסף מבנה נתונים: מחסנית של תורים, והתצוגה של איך היא תיראה. בתוכנה יש גם ארבעה סרטוני הדרכה קצרים, בכפתור "?".</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="install" class="install" aria-labelledby="h-install">
+  <div class="rows">
+    <h2 id="h-install">התקנה</h2>
+    <div>
+      <ol class="steps">
+        <li>מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">DSViz-Setup.exe</a>.</li>
+        <li>מריצים אותו. אם Eclipse פתוח, ההתקנה תבקש לסגור אותו קודם.</li>
+        <li>פותחים את Eclipse או VS Code. בסרגל הכלים מופיעים תרגיל חדש, הוסף מבנה נתונים והרצה ויזואלית.</li>
+      </ol>
+      <p class="quiet">ב-Mac וב-Linux: מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/dsviz-install.zip">dsviz-install.zip</a>, פותחים, ומריצים את install-mac.command או את install.sh. שם צריך JDK 17 או 21.</p>
+    </div>
+  </div>
+
+  <div class="rows faq-rows">
+    <h2 id="faq">שאלות</h2>
+    <div class="faq">
+      <details>
+        <summary>אילו גרסאות של Eclipse מתאימות?</summary>
+        <p>כל גרסה מ-2020-09 ועד החדשה ביותר. בדקנו על 2020-09, 2022-03, 2024-03 ו-2026-09. צריך את Eclipse for Java Developers.</p>
+      </details>
+      <details>
+        <summary>Windows אומר "Windows protected your PC". מה עושים?</summary>
+        <p>קובץ ההתקנה עוד לא חתום דיגיטלית, ולכן Windows לא מכיר את המפרסם. לוחצים על More info ואז על Run anyway.</p>
+      </details>
+      <details>
+        <summary>צריך להתקין Java לפני?</summary>
+        <p>ב-Windows לא. Java 21 נכנסת עם ההתקנה, ואם הפרויקט רץ על Java אחרת זה לא מפריע.</p>
+      </details>
+      <details>
+        <summary>ההרצה הוויזואלית משנה את הקוד שלי?</summary>
+        <p>לא. הקוד רץ כמו שהוא. אם לפרויקט חסרה הספרייה של הקורס, התוסף מוסיף אותה, ופרויקט שכבר יש בו את הספרייה נשאר כמו שהוא.</p>
+      </details>
+      <details>
+        <summary>ההצעה לפתרון מופיעה מעצמה?</summary>
+        <p>לא. הקובץ נפתח עם מקום ריק לפתרון, וההצעה נפתחת רק בלחיצה על "הצעה לפתרון" מעל הסעיף.</p>
+      </details>
+      <details>
+        <summary>מה נשלח לאינטרנט?</summary>
+        <p>רק בשליחת תרגיל: הדף שצירפתם עובר דרך השרת של DSViz ל-Gemini של Google, כדי לבנות את הקוד. ההרצה הוויזואלית וההסברים בעברית עובדים בלי אינטרנט. הפרטים בדף <a href="privacy.html">פרטיות</a>.</p>
+      </details>
+      <details>
+        <summary>מה עובד ב-VS Code?</summary>
+        <p>תרגיל חדש, הוסף מבנה נתונים וההרצה הוויזואלית, ב-Java וב-C#. שליחת תרגיל וההסברים בעברית לשגיאות קיימים כרגע רק ב-Eclipse.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="end" aria-labelledby="h-end">
+  <h2 id="h-end">רואים מה הקוד עושה</h2>
+  <p class="cta">
+    <a class="btn light" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה ל-Windows</a>
+    <span class="note" data-version>גרסה 1.0.1, עודכנה ב-30 באוקטובר 2026.</span>
+  </p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <p>© 2026 מוטי לוי. שאלות והערות: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
+  <p><a href="privacy.html">פרטיות</a></p>
+</footer>
+
+<script src="assets/demo.js" defer></script>
+<script>
+// הסרטון הקצר רץ לבד רק כשהוא על המסך, ולא כשמבקשים פחות תנועה
+(function () {
+  var v = document.querySelector('video[data-autoplay]');
+  if (!v) return;
+  var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (calm || !('IntersectionObserver' in window)) { v.removeAttribute('loop'); return; }
+  new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); });
+  }, { threshold: 0.5 }).observe(v);
+})();
+</script>
+<script>
+// התאריך של הגרסה האחרונה — מאותו קובץ שהעדכון האוטומטי קורא
+fetch('https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/version.json', { cache: 'no-store' })
+  .then(function (r) { return r.ok ? r.json() : null; })
+  .then(function (v) {
+    if (!v || !v.build) return;
+    var b = String(v.build), months = ['בינואר', 'בפברואר', 'במרץ', 'באפריל', 'במאי', 'ביוני', 'ביולי', 'באוגוסט', 'בספטמבר', 'באוקטובר', 'בנובמבר', 'בדצמבר'];
+    var d = +b.slice(6, 8), m = +b.slice(4, 6), y = b.slice(0, 4);
+    if (!d || !m) return;
+    document.querySelector('[data-version]').textContent = 'גרסה ' + v.version + ', עודכנה ב-' + d + ' ' + months[m - 1] + ' ' + y + '.';
+  })
+  .catch(function () {});
+</script>
+</body>
+</html>
