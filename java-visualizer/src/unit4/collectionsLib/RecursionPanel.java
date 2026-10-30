@@ -45,7 +45,7 @@ final class RecursionPanel extends JPanel {
     /** קריאה אחת לפעולה */
     static final class Call {
         int id;
-        String method;
+        String method, cls;
         int depth;
         Call parent;
         final List<Call> children = new ArrayList<Call>();
@@ -75,6 +75,15 @@ final class RecursionPanel extends JPanel {
     private final Font ui = Theme.font(Theme.family, Font.PLAIN, 12), uiBold = Theme.font(Theme.boldFamily, Theme.boldStyle, 13);
 
     private final List<Call> order = new ArrayList<Call>();   // לפי סדר הקריאות
+    private List<Call> all = new ArrayList<Call>();            // כל הקריאות עד הצעד הנוכחי (גם main)
+    private final List<Call> cards = new ArrayList<Call>();   // הכרטיסים שמצוירים (ברקורסיה כפולה — רק הדרך אל הקריאה הנוכחית)
+    private RecursionKind kind;
+    /** הפס שמעל המעקב: איזו רקורסיה זו, הסבר קצר, ואיפה אנחנו עכשיו */
+    final Banner banner = new Banner();
+    /** עץ הקריאות (רקורסיה כפולה / מרובה) — מתחת לפס, קבוע (לא נגלל עם הכרטיסים) */
+    final TreeView tree = new TreeView();
+    private int treeH, treeW;
+    private static final Color[] METHOD_COLORS = { new Color(0x2F6FED), new Color(0x7C3AED), new Color(0x0E9F9A), new Color(0xD97706) };
     private Call active;
     private boolean hideMain = true;
     private double zoom = 1;
@@ -103,7 +112,35 @@ final class RecursionPanel extends JPanel {
     /** בונה את עץ הקריאות מכל הצעדים עד הצעד הנוכחי */
     void setStep(int upTo) {
         order.clear();
-        active = null;
+        Call[] act = new Call[1];
+        all = build(upTo, act);
+        active = act[0];
+        for (Call c : all) {
+            c.shown = !(hideMain && c.depth == 0);
+            if (c.shown) order.add(c);
+        }
+        kind = RecursionKind.of();
+        layoutCalls();
+        banner.revalidate();
+        banner.repaint();
+        tree.revalidate();
+        tree.repaint();
+        revalidate();
+        repaint();
+        final Call a = active;
+        if (a != null) {
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    scrollRectToVisible(new Rectangle((int) (a.x * zoom) - 10, (int) (a.y * zoom) - 30,
+                            (int) (W * zoom) + 20, (int) (a.h * zoom) + 60));
+                }
+            });
+        }
+    }
+
+    /** כל הקריאות (גם main) מהצעד הראשון עד upTo, לפי סדר הקריאות; active[0] = הקריאה של הצעד upTo */
+    static List<Call> build(int upTo, Call[] active) {
+        List<Call> res = new ArrayList<Call>();
         List<Call> stack = new ArrayList<Call>();
         int ids = 0;
         for (int i = 0; i <= upTo; i++) {
@@ -124,6 +161,7 @@ final class RecursionPanel extends JPanel {
                 Call c = new Call();
                 c.id = ++ids;
                 c.method = f.method;
+                c.cls = f.className;
                 c.depth = stack.size();
                 c.parent = stack.isEmpty() ? null : stack.get(stack.size() - 1);
                 if (c.parent != null) {
@@ -132,8 +170,7 @@ final class RecursionPanel extends JPanel {
                     if (at != null) at.calls.add(c);   // השורה בקורא שפתחה את הקריאה הזו
                 }
                 stack.add(c);
-                c.shown = !(hideMain && c.depth == 0);
-                if (c.shown) order.add(c);
+                res.add(c);
             }
             Call top = stack.get(stack.size() - 1);
             if (s.where != null) top.line = s.where.line;
@@ -144,7 +181,7 @@ final class RecursionPanel extends JPanel {
                 }
                 addLine(top, s.where);
             }
-            if (i == upTo) active = top;   // בצעד "חזרה" — הקריאה שמחזירה עכשיו
+            if (i == upTo && active != null) active[0] = top;   // בצעד "חזרה" — הקריאה שמחזירה עכשיו
             if (s.kind == Kind.RETURN) {
                 if (s.vars != null) top.vars = s.vars;
                 top.done = true;
@@ -158,18 +195,7 @@ final class RecursionPanel extends JPanel {
                 stack.remove(stack.size() - 1);
             }
         }
-        layoutCalls();
-        revalidate();
-        repaint();
-        final Call a = active;
-        if (a != null) {
-            SwingUtilities.invokeLater(new Runnable() {
-                public void run() {
-                    scrollRectToVisible(new Rectangle((int) (a.x * zoom) - 10, (int) (a.y * zoom) - 30,
-                            (int) (W * zoom) + 20, (int) (a.h * zoom) + 60));
-                }
-            });
-        }
+        return res;
     }
 
     private static Entry last(Call c) {
@@ -218,10 +244,25 @@ final class RecursionPanel extends JPanel {
         return code.substring(Math.min(i, code.length())).trim();
     }
 
+    /** ברקורסיה כפולה / מרובה: עץ קריאות קטן למעלה, ומתחתיו הכרטיסים של הדרך אל הקריאה הנוכחית בלבד */
+    private boolean treeMode() {
+        return kind != null && (kind.type == RecursionKind.Type.BRANCHING || kind.type == RecursionKind.Type.MUTUAL && kind.mutualBranching);
+    }
+
     private void layoutCalls() {
-        int y = PAD;
+        cards.clear();
+        treeH = 0;
         contentW = 0;
-        for (Call c : order) {
+        if (treeMode()) {
+            layoutTree();
+            java.util.Set<Call> path = new java.util.HashSet<Call>();
+            for (Call b = active; b != null; b = b.parent) path.add(b);
+            for (Call c : order) if (path.contains(c)) cards.add(c);
+        } else {
+            cards.addAll(order);
+        }
+        int y = PAD;
+        for (Call c : cards) {
             c.x = PAD + (c.depth - (hideMain ? 1 : 0)) * INDENT;
             c.y = y;
             int rows = Math.min(MAX_TRAIL, c.trail.size()) + (c.trail.size() > MAX_TRAIL ? 1 : 0);
@@ -230,6 +271,108 @@ final class RecursionPanel extends JPanel {
             contentW = Math.max(contentW, c.x + W + 60);
         }
         contentH = y + PAD;
+    }
+
+    // ------------------------------------------------------------ עץ הקריאות (רקורסיה כפולה)
+
+    private static final int NODE_H = 24, LEVEL = 50, NODE_GAP = 10;
+    private final java.util.Map<Call, Rectangle> nodes = new java.util.LinkedHashMap<Call, Rectangle>();
+
+    /** "fib(3)" — הערכים בלבד, בלי שמות הפרמטרים (כדי שהעץ יישאר צר) */
+    private static String nodeText(Call c) {
+        StringBuilder b = new StringBuilder();
+        if (c.params != null) for (String[] p : c.params) {
+            if (p[0].equals("this")) continue;
+            String v = shortValue(p[1]);
+            if (v.length() > 10) v = v.substring(0, 9) + "…";
+            b.append(b.length() == 0 ? "" : ",").append(v);
+        }
+        return c.method + "(" + b + ")";
+    }
+
+    private void layoutTree() {
+        nodes.clear();
+        List<Call> roots = new ArrayList<Call>();
+        for (Call c : all) if (kind.in(c) && !kind.in(c.parent)) roots.add(c);
+        if (roots.isEmpty()) return;
+        FontMetrics fm = getFontMetrics(small);
+        int[] next = { PAD };
+        int levels = 0;
+        for (Call r : roots) levels = Math.max(levels, placeNode(r, 0, next, fm));
+        treeH = 34 + levels * LEVEL + 14;
+        treeW = next[0] + PAD;
+    }
+
+    /** מיקום צומת: עלים משמאל לימין לפי הסדר, הורה באמצע הילדים. מחזיר כמה רמות יש מתחתיו */
+    private int placeNode(Call c, int level, int[] next, FontMetrics fm) {
+        int w = Math.max(44, fm.stringWidth(nodeText(c)) + 16);
+        List<Call> kids = kind.kids(c);
+        int levels = 1;
+        int cx;
+        if (kids.isEmpty()) {
+            cx = next[0] + w / 2;
+            next[0] += w + NODE_GAP;
+        } else {
+            for (Call k : kids) levels = Math.max(levels, 1 + placeNode(k, level + 1, next, fm));
+            Rectangle a = nodes.get(kids.get(0)), b = nodes.get(kids.get(kids.size() - 1));
+            cx = (a.x + a.width / 2 + b.x + b.width / 2) / 2;
+            if (cx - w / 2 < PAD) cx = PAD + w / 2;
+            next[0] = Math.max(next[0], cx + w / 2 + NODE_GAP);
+        }
+        nodes.put(c, new Rectangle(cx - w / 2, PAD + 26 + level * LEVEL, w, NODE_H));
+        return levels;
+    }
+
+    private void drawTree(Graphics2D g) {
+        if (nodes.isEmpty()) return;
+        g.setFont(uiBold);
+        g.setColor(MUTED);
+        String t = "עץ הקריאות";
+        g.drawString(t, PAD, PAD + 12);
+        java.util.Set<Call> path = new java.util.HashSet<Call>();
+        for (Call b = active; b != null; b = b.parent) path.add(b);
+        for (java.util.Map.Entry<Call, Rectangle> e : nodes.entrySet()) {
+            Call c = e.getKey();
+            Rectangle r = e.getValue(), pr = nodes.get(c.parent);
+            if (pr == null) continue;
+            boolean onPath = path.contains(c);
+            g.setColor(onPath ? ACTIVE : new Color(0xC9D1DE));
+            g.setStroke(new BasicStroke(onPath ? 2.2f : 1.3f));
+            g.drawLine(pr.x + pr.width / 2, pr.y + pr.height + (c.parent.done ? 0 : 0), r.x + r.width / 2, r.y);
+        }
+        for (java.util.Map.Entry<Call, Rectangle> e : nodes.entrySet()) {
+            Call c = e.getKey();
+            Rectangle r = e.getValue();
+            boolean isActive = c == active, done = c.done && !isActive;
+            Color line = isActive ? ACTIVE : done ? DONE : path.contains(c) ? ACTIVE : WAIT;
+            Color fill = isActive ? ACTIVE_BG : done ? DONE_BG : WAIT_BG;
+            g.setColor(fill);
+            g.fillRoundRect(r.x, r.y, r.width, r.height, r.height, r.height);
+            g.setColor(line);
+            g.setStroke(new BasicStroke(isActive ? 2.4f : 1.3f));
+            g.drawRoundRect(r.x, r.y, r.width, r.height, r.height, r.height);
+            Color mc = methodColor(c);
+            g.setColor(mc != null ? mc : INK);
+            center(g, nodeText(c), small, r.x + r.width / 2, r.y + r.height / 2);
+            if (c.done && c.returned != null) {   // הערך שהקריאה החזירה — מתחת לצומת
+                g.setFont(smallBold);
+                FontMetrics fm = g.getFontMetrics();
+                String v = fit("= " + c.returned, fm, Math.max(r.width, 70));
+                g.setColor(DONE);
+                g.drawString(v, r.x + r.width / 2 - fm.stringWidth(v) / 2, r.y + r.height + 13);
+            }
+        }
+    }
+
+    /** ברקורסיה הדדית: צבע לכל פעולה (null — לא צריך) */
+    private Color methodColor(Call c) {
+        if (kind == null || kind.type != RecursionKind.Type.MUTUAL || !kind.in(c)) return null;
+        int i = 0;
+        for (String m : kind.methods) {
+            if (m.equals(RecursionKind.key(c))) return METHOD_COLORS[i % METHOD_COLORS.length];
+            i++;
+        }
+        return null;
     }
 
     @Override
@@ -261,9 +404,9 @@ final class RecursionPanel extends JPanel {
             g.dispose();
             return;
         }
-        for (Call c : order) if (c.parent != null && c.parent.shown) callArrow(g, c.parent, c);
-        for (Call c : order) if (c.parent != null && c.parent.shown && c.done) returnArrow(g, c.parent, c);
-        for (Call c : order) card(g, c);
+        for (Call c : cards) if (c.parent != null && c.parent.shown && cards.contains(c.parent)) callArrow(g, c.parent, c);
+        for (Call c : cards) if (c.parent != null && c.parent.shown && cards.contains(c.parent) && c.done) returnArrow(g, c.parent, c);
+        for (Call c : cards) card(g, c);
         g.dispose();
     }
 
@@ -278,6 +421,14 @@ final class RecursionPanel extends JPanel {
         g.setColor(head);
         g.fillRect(c.x, c.y, W, HEAD);
         g.setClip(clip);
+        Color mc = methodColor(c);
+        if (mc != null) {   // רקורסיה הדדית: פס בצבע של הפעולה
+            Shape cl = g.getClip();
+            g.clip(box);
+            g.setColor(mc);
+            g.fillRect(c.x, c.y, 6, c.h);
+            g.setClip(cl);
+        }
         g.setColor(line);
         g.setStroke(new BasicStroke(isActive ? 2.6f : 1.4f));
         g.draw(box);
@@ -289,9 +440,23 @@ final class RecursionPanel extends JPanel {
         g.fillRoundRect(c.x + 8, c.y + 7, badgeW, 19, 19, 19);
         g.setColor(Color.WHITE);
         center(g, "#" + c.id, smallBold, c.x + 8 + badgeW / 2, c.y + 16);
-        g.setColor(INK);
+        int baseW = 0;
+        if (kind != null && kind.base(c)) {   // תנאי העצירה: הקריאה שלא קראה שוב
+            g.setFont(Theme.font(Theme.boldFamily, Theme.boldStyle, 11));
+            FontMetrics bm = g.getFontMetrics();
+            String bt = "תנאי עצירה";
+            baseW = bm.stringWidth(bt) + 14;
+            int bx = c.x + W - 8 - baseW;
+            g.setColor(new Color(0xFFF4D6));
+            g.fillRoundRect(bx, c.y + 7, baseW, 19, 19, 19);
+            g.setColor(new Color(0xB7791F));
+            g.drawRoundRect(bx, c.y + 7, baseW, 19, 19, 19);
+            g.drawString(bt, bx + 7, c.y + 21);
+            baseW += 6;
+        }
+        g.setColor(mc != null ? mc : INK);
         g.setFont(monoBold);
-        g.drawString(fit(c.method + "(" + params(c) + ")", g.getFontMetrics(), W - 28 - badgeW), c.x + 16 + badgeW, c.y + 21);
+        g.drawString(fit(c.method + "(" + params(c) + ")", g.getFontMetrics(), W - 28 - badgeW - baseW), c.x + 16 + badgeW, c.y + 21);
 
         // המשתנים — בשורה אחת
         int y = c.y + HEAD + 15;
@@ -365,6 +530,12 @@ final class RecursionPanel extends JPanel {
             tag = e.returned != null ? "→ " + e.returned : "סיום";
             tagColor = DONE;
             if (Boolean.TRUE.equals(e.cond)) tag = "true " + tag;
+            // return n * fact(n - 1): מה הקריאה החזירה, ומה השורה מחזירה בעזרתו — העבודה שנעשית בדרך חזרה
+            if (!e.calls.isEmpty() && e.returned != null) {
+                StringBuilder b = new StringBuilder();
+                for (Call k : e.calls) if (k.done && k.returned != null) b.append(b.length() > 0 ? " " : "").append("#").append(k.id).append("→").append(k.returned);
+                if (b.length() > 0) tag = b + " ⇒ " + e.returned;
+            }
         } else if (e.cond != null) {
             tag = e.cond ? "true" : "false";
             tagColor = e.cond ? DONE : FALSE;
@@ -481,6 +652,11 @@ final class RecursionPanel extends JPanel {
             g.fillRoundRect(px, py, w, h, h, h);
             g.setColor(Color.WHITE);
             g.drawString(v, px + 7, py + 15);
+            if (kind != null && kind.type == RecursionKind.Type.TAIL) {   // רקורסיית זנב: הערך עולה בלי שינוי
+                g.setFont(ui);
+                g.setColor(DONE);
+                g.drawString("אותו ערך", px + w + 4, py + 15);
+            }
         }
     }
 
@@ -495,6 +671,145 @@ final class RecursionPanel extends JPanel {
         h.rotate(angle);
         h.fill(a);
         h.dispose();
+    }
+
+    /** הכותרת מעל הכרטיסים: הפס (סוג הרקורסיה) ועץ הקריאות */
+    javax.swing.JComponent header() {
+        JPanel p = new JPanel(new java.awt.BorderLayout());
+        p.setOpaque(false);
+        p.add(banner, java.awt.BorderLayout.NORTH);
+        p.add(tree, java.awt.BorderLayout.CENTER);
+        return p;
+    }
+
+    /** עץ הקריאות, מוקטן כך שייכנס לרוחב (ולגובה של עד 300 נקודות) */
+    final class TreeView extends JPanel {
+        TreeView() {
+            setOpaque(true);
+            setBackground(Color.WHITE);
+        }
+
+        private double scale() {
+            int w = getParent() != null && getParent().getWidth() > 100 ? getParent().getWidth() : 600;
+            return treeW <= 0 ? 1 : Math.max(0.45, Math.min(1, Math.min((w - 8) / (double) treeW, 300.0 / Math.max(1, treeH))));
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            if (!treeMode() || nodes.isEmpty()) return new Dimension(10, 0);
+            return new Dimension(300, (int) Math.ceil(treeH * scale()) + 2);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g0) {
+            super.paintComponent(g0);
+            if (!treeMode() || nodes.isEmpty()) return;
+            Graphics2D g = (Graphics2D) g0.create();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            double sc = scale();
+            int ox = (int) Math.max(0, (getWidth() - treeW * sc) / 2);   // באמצע
+            g.translate(ox, 0);
+            g.scale(sc, sc);
+            drawTree(g);
+            g.dispose();
+            g0.setColor(new Color(0xE3E7EE));
+            g0.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
+        }
+    }
+
+    // ------------------------------------------------------------ הפס העליון
+
+    /** איזו רקורסיה, הסבר במשפט, ואיפה אנחנו (ירידה / תנאי העצירה / חזרה) — מעל הכרטיסים, לא זז בגלילה */
+    final class Banner extends JPanel {
+        Banner() {
+            setOpaque(true);
+            setBackground(new Color(0xFBFCFE));
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            if (kind == null || kind.type == RecursionKind.Type.NONE) return new Dimension(10, 0);
+            return new Dimension(300, 58 + 17 * explainLines().size());
+        }
+
+        @Override
+        protected void paintComponent(Graphics g0) {
+            super.paintComponent(g0);
+            if (kind == null || kind.type == RecursionKind.Type.NONE) return;
+            Graphics2D g = (Graphics2D) g0.create();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            int right = getWidth() - 12;
+            // שורה 1: הסוג (תג), המבנה, ובהדדית — תג בצבע לכל פעולה
+            int x = chip(g, kind.title(), new Color(0x1D2433), Color.WHITE, right, 8, uiBold);
+            if (kind.structure != null) x = chip(g, "על " + kind.structure, new Color(0xEEF0F4), INK, x - 8, 8, RecursionPanel.this.ui);
+            if (kind.type == RecursionKind.Type.MUTUAL) {
+                int i = 0;
+                for (String m : kind.methods) {
+                    Color mc = METHOD_COLORS[i++ % METHOD_COLORS.length];
+                    x = chip(g, "\u200E" + m.substring(m.indexOf('#') + 1) + "\u200E", mc, Color.WHITE, x - 8, 8, smallBold);
+                }
+            }
+            // ההסבר (עד שתי שורות)
+            g.setFont(RecursionPanel.this.ui);
+            g.setColor(MUTED);
+            FontMetrics fm = g.getFontMetrics();
+            int y = 47;
+            for (String ex : explainLines()) {
+                g.drawString(ex, right - fm.stringWidth(ex), y);
+                y += 17;
+            }
+            // איפה אנחנו עכשיו
+            String ph = kind.phase(all, active);
+            if (!ph.isEmpty()) {
+                g.setFont(uiBold);
+                fm = g.getFontMetrics();
+                ph = fit(ph, fm, getWidth() - 24);
+                g.setColor(ph.startsWith("■") ? new Color(0xB7791F) : ph.startsWith("↑") ? DONE : ACTIVE);
+                g.drawString(ph, right - fm.stringWidth(ph), y + 2);
+            }
+            g.setColor(new Color(0xE3E7EE));
+            g.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
+            g.dispose();
+        }
+
+        /** ההסבר מחולק לשורות לפי הרוחב (עד שתיים) */
+        private List<String> explainLines() {
+            FontMetrics fm = getFontMetrics(RecursionPanel.this.ui);
+            int width = Math.max(200, (getWidth() > 0 ? getWidth() : 520) - 24);
+            List<String> res = new ArrayList<String>();
+            StringBuilder line = new StringBuilder();
+            for (String w : kind.explain().split(" ")) {
+                String t = line.length() == 0 ? w : line + " " + w;
+                if (fm.stringWidth(t) > width && line.length() > 0) {
+                    res.add(line.toString());
+                    line = new StringBuilder(w);
+                } else {
+                    line = new StringBuilder(t);
+                }
+            }
+            if (line.length() > 0) res.add(line.toString());
+            if (res.size() > 2) {
+                String two = res.get(1);
+                for (int i = 2; i < res.size(); i++) two += " " + res.get(i);
+                res = new ArrayList<String>(res.subList(0, 1));
+                res.add(fit(two, fm, width));
+            }
+            return res;
+        }
+
+        /** תג מעוגל שהקצה הימני שלו ב-right; מחזיר את הקצה השמאלי */
+        private int chip(Graphics2D g, String text, Color bg, Color fg, int right, int y, Font f) {
+            g.setFont(f);
+            FontMetrics fm = g.getFontMetrics();
+            int w = fm.stringWidth(text) + 18, h = 22;
+            g.setColor(bg);
+            g.fillRoundRect(right - w, y, w, h, h, h);
+            g.setColor(fg);
+            g.drawString(text, right - w + 9, y + 16);
+            return right - w;
+        }
     }
 
     // ------------------------------------------------------------ עזרים

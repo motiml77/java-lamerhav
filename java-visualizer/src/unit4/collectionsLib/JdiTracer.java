@@ -358,6 +358,12 @@ final class JdiTracer {
         meta.append('\u0004');
         if (m.returnTypeName().equals("void")) meta.append('\u0006');
         else meta.append(clean(format(e.returnValue(), 0)));
+        // האובייקט שהפעולה רצה בתוכו — כפי שהוא ביציאה (למשל age אחרי birthday)
+        ObjectReference self = m.isStatic() ? null : frames.get(0).thisObject();
+        if (self != null && isUserClass(self)) {
+            String ref = userRef(self);
+            if (ref != null) meta.append('\u0004').append(ref).append(snapshot(self));
+        }
         write(meta.toString());
     }
 
@@ -522,7 +528,36 @@ final class JdiTracer {
     private void addVar(StringBuilder meta, String name, Value v) {
         String ref = v instanceof ObjectReference && isUserClass((ObjectReference) v) ? userRef((ObjectReference) v) : null;
         String text = ref != null ? ref : format(v, 0);
-        meta.append(name).append('\u0002').append(clean(text)).append('\u0001');
+        meta.append(name).append('\u0002').append(clean(text));
+        if (ref != null) meta.append(snapshot((ObjectReference) v));
+        meta.append('\u0001');
+    }
+
+    /**
+     * הערכים של המאפיינים הפשוטים (מספרים, תווים, מחרוזות) של אובייקט של התלמיד ברגע הזה: \u0007 שם \u0010 ערך \u000F ...
+     * ה-Recorder מצלם את הצעדים מאוחר יותר (כשהתוכנית פונה לספרייה), ואז האובייקט כבר השתנה — למשל age בבנאי.
+     * ערך: s + מחרוזת, c + תו, n + מספר / boolean, 0 = null.
+     */
+    private String snapshot(ObjectReference o) {
+        StringBuilder b = new StringBuilder("\u0007");
+        int n = 0;
+        try {
+            for (com.sun.jdi.Field f : o.referenceType().allFields()) {
+                if (f.isStatic() || f.isSynthetic() || n >= 12) continue;
+                Value x = o.getValue(f);
+                String val;
+                if (x == null) val = "0";
+                else if (x instanceof StringReference) val = "s" + shorten(((StringReference) x).value(), 40);
+                else if (x instanceof CharValue) val = "c" + ((CharValue) x).value();
+                else if (x instanceof PrimitiveValue) val = "n" + x;
+                else continue;
+                b.append(n++ == 0 ? "" : "\u000F").append(f.name()).append('\u0010')
+                 .append(clean(val).replace('\u000F', ' ').replace('\u0010', ' '));
+            }
+        } catch (RuntimeException e) {
+            return "";
+        }
+        return n == 0 ? "" : b.toString();
     }
 
     /** מבנה של הספרייה → \u0003 + vizId (ה-Recorder יודע לאיזה אובייקט זה שייך). השאר → טקסט */

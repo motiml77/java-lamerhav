@@ -92,6 +92,12 @@ public final class CsTool {
         if (!mode.equals("solution")) System.exit(0);   // "הצעה לפתרון" — נסגר כשסוגרים את החלון
     }
 
+    /** שם טיפוס להצגה בחלונות של C#: Integer → int, Character → char, Double → double, String → string (גם בתוך <> ו-[,]) */
+    static String csName(String java) {
+        return ScaffoldCs.toCs(java).replaceAll("\\bInteger\\b", "int").replaceAll("\\bCharacter\\b", "char")
+                .replaceAll("\\bDouble\\b", "double").replaceAll("\\bBoolean\\b", "bool").replaceAll("\\bString\\b", "string");
+    }
+
     /** גופנים קטנים יותר לחלונות האלה (החלון הראשי של ההרצה משתמש באותו Theme, בגודל המקורי) */
     private static void compactFonts() {
         Theme.ui = Theme.ui.deriveFont(java.awt.Font.PLAIN, 13f);
@@ -192,7 +198,7 @@ public final class CsTool {
             right.add(inside);
             typeSection = right.section("טיפוס הערכים");
             JPanel types = grid(3);
-            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 26, 76, null);
+            for (String t : Scaffold.TYPES) chip(types, csName(t), t, typeButtons, t.equals("Integer"), 26, 76, null);   // הטקסט ב-C# (int, string...)
             right.add(types);
 
             left.section("מה הפעולה מחזירה?");
@@ -337,9 +343,9 @@ public final class CsTool {
             returnCombo.removeAllItems();
             addReturn("void", "void — לא מחזירה ערך");
             addReturn("int", "int — מספר (סכום, כמות...)");
-            addReturn("boolean", "boolean — אמת/שקר");
-            if (!type.equals("Integer")) addReturn("element", Scaffold.primitive(type) + " — ערך מהמבנה");
-            addReturn("structure", Scaffold.typeOf(s, type) + " — מבנה חדש");
+            addReturn("boolean", "bool — אמת/שקר");   // בשמות של C#
+            if (!type.equals("Integer")) addReturn("element", csName(Scaffold.primitive(type)) + " — ערך מהמבנה");
+            addReturn("structure", csName(Scaffold.typeOf(s, type)) + " — מבנה חדש");
             returnCombo.setSelectedIndex(Math.max(0, returnIds.indexOf(prevRet)));
 
             // ערכים אקראיים: בוחרים כמה, והשדה מתמלא (אפשר לשנות). תלמידים / מכוניות — תמיד נתוני דמה
@@ -372,7 +378,7 @@ public final class CsTool {
                 catch (IllegalArgumentException e) { groups = null; }   // הודעת השגיאה תוצג למטה
             }
             if (groups != null) {
-                previewType.setText(Scaffold.typeOf(s, type));
+                previewType.setText(csName(Scaffold.typeOf(s, type)));
                 diagram.set(outer, inside, groups);
             }
             boolean show = groups != null;
@@ -519,7 +525,7 @@ public final class CsTool {
             right.add(inside);
             typeSection = right.section("טיפוס הערכים");
             JPanel types = grid(3);
-            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 26, 76);
+            for (String t : Scaffold.TYPES) chip(types, csName(t), t, typeButtons, t.equals("Integer"), 26, 76);
             right.add(types);
 
             left.section("מילוי מבנה-נתונים");
@@ -681,7 +687,7 @@ public final class CsTool {
                 if (error == null) error = e.getMessage();
             }
             if (pv != null) {
-                previewType.setText(ScaffoldCs.toCs(pv.type));
+                previewType.setText(csName(pv.type));
                 diagram.set(pv);
             }
             code = null;

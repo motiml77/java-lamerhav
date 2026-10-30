@@ -115,7 +115,7 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
     fs.writeFileSync(sf, lines.join('\n') + '\n');
     const xd = process.env.XD || ':92';
     try { cp.execSync(`pgrep -f "Xvfb ${xd} " >/dev/null || (Xvfb ${xd} -screen 0 1600x900x24 >/dev/null 2>&1 &); sleep 2`, { shell: '/bin/sh' }); } catch (e) { /* כבר רץ */ }
-    const jar = path.join(ROOT, 'release', 'dsviz.jar');
+    const jar = process.env.DSVIZ_SWING_JAR || path.join(ROOT, 'release', 'dsviz.jar');   // אפשר לצלם עם jar אחר (בלי לבנות את release)
     const e = Object.assign({}, process.env, { DISPLAY: xd }, env || {});
     delete e.JAVA_TOOL_OPTIONS;
     sh('java', [...(sysProps || []), '-Ddsviz.noOpen=true', '-cp', cls + path.delimiter + jar, 'SwingScript', sf, dir, 'il.lamerhav.dsviz.cs.CsTool', ...toolArgs], { stdio: 'inherit', env: e });

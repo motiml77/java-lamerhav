@@ -248,7 +248,24 @@ namespace DsViz
                 string id = SyntaxFacts.GetKeywordKind(v.Name) != SyntaxKind.None ? "@" + v.Name : v.Name;
                 sb.Append(", ").Append(Quote(v.Name)).Append(", ").Append(id);
             }
+            if (HasThis(position)) sb.Append(", \"this\", this");   // פעולה של אובייקט: האובייקט שהיא רצה בתוכו (כמו ב-Java)
             return SyntaxFactory.ParseExpression(sb.Append(')').ToString());
+        }
+
+        /// <summary>האם במקום הזה יש this של מחלקה (פעולה / בנאי / property שאינם static; לא struct)</summary>
+        bool HasThis(int position)
+        {
+            ISymbol s;
+            try { s = model.GetEnclosingSymbol(position); }
+            catch (Exception) { return false; }
+            while (s is IMethodSymbol f && (f.MethodKind == MethodKind.AnonymousFunction || f.MethodKind == MethodKind.LocalFunction))
+            {
+                if (f.IsStatic) return false;
+                s = f.ContainingSymbol;
+            }
+            return s is IMethodSymbol m && !m.IsStatic && m.ContainingType != null && m.ContainingType.TypeKind == TypeKind.Class
+                && (m.MethodKind == MethodKind.Ordinary || m.MethodKind == MethodKind.Constructor || m.MethodKind == MethodKind.PropertyGet
+                    || m.MethodKind == MethodKind.PropertySet);
         }
 
         /// <summary>פרמטרים ומשתנים מקומיים שבתחום במקום הזה, מוגדרים כבר, וגם אפשר לקרוא (לא ref struct, לא out)</summary>

@@ -1320,19 +1320,50 @@ final class StructPanel extends JPanel {
         return ObjCard.table(this, g, o, x, y, acc, ObjCard.columnsFor(o.fields.size(), 2));
     }
 
-    /** אובייקט ששמור במשתנה ואינו בתוך מבנה: כותרת (שם המשתנה + סוג) וכל המאפיינים */
+    private static final Color SELF = new Color(0x7C3AED), SELF_BG = new Color(0xF6F1FF), SELF_INK = new Color(0x5B21B6);
+
+    /**
+     * אובייקט ששמור במשתנה ואינו בתוך מבנה: כותרת (שם המשתנה + סוג) וכל המאפיינים.
+     * בתוך פעולה של האובייקט (d1.birthday()): הכותרת היא d1 עם תג "this", מסגרת סגולה, ומתחת "birthday() רצה בתוך d1" (ראו SelfViz).
+     */
     private Dimension drawObjView(Graphics2D g, ObjView v, int x, int y) {
+        SelfViz.Info self = SelfViz.of(step);
+        boolean me = SelfViz.active(self, v.obj);
+        String title = SelfViz.title(self, v.obj, v.title), cap = SelfViz.caption(self, v.obj);
+        boolean thisChip = v.obj.labels.contains("this") && !title.equals("this");
+        java.util.Map<String, Mark> marks = SelfViz.hotFor(self, v.obj);
         Dimension t = fieldsTable(null, v.obj, 0, 0, null);
-        int w = Math.max(t.width + 24, titleWidth(v.title, v.obj.type)), h = TITLE_H + t.height + 20;
+        int chipW = thisChip ? textWidth("this", SMALL) + 14 + 6 : 0;
+        int w = Math.max(t.width + 24, titleWidth(title, v.obj.type) + chipW), h = TITLE_H + t.height + 20;
+        if (cap != null) {
+            w = Math.max(w, textWidth(cap, SMALL) + 4);
+            h += 20;
+        }
         if (g == null) return new Dimension(w, h);
         boolean acc = accessed(v.obj);
-        drawTitle(g, v.title, v.obj.type, x, y, v.focus || acc);
-        g.setColor(acc ? color(step.access.mark).brighter() : new Color(0xF6F8FC));
+        drawTitle(g, title, v.obj.type, x, y, v.focus || acc || me);
+        if (thisChip) {   // תג "this" ליד הסוג: d1 הוא this בתוך הפעולה
+            int cx = x + textWidth(title, TITLE) + 12 + textWidth(v.obj.type, TYPE) + 14 + 6;
+            g.setFont(SMALL);
+            FontMetrics fm = g.getFontMetrics();
+            int th = fm.getHeight() + 1, base = y + TITLE_H - 11;
+            g.setColor(SELF);
+            g.fillRoundRect(cx, base - th + 5, fm.stringWidth("this") + 14, th, th, th);
+            g.setColor(Color.WHITE);
+            g.drawString("this", cx + 7, base);
+        }
+        Color fill = acc ? color(step.access.mark).brighter() : me ? SELF_BG : new Color(0xF6F8FC);
+        g.setColor(fill);
         g.fillRoundRect(x, y + TITLE_H, w, t.height + 16, 10, 10);
-        g.setColor(acc ? darker(color(step.access.mark)) : BOX_LINE);
-        g.setStroke(acc ? THICK : THIN);
+        g.setColor(acc ? darker(color(step.access.mark)) : me ? SELF : BOX_LINE);
+        g.setStroke(acc || me ? THICK : THIN);
         g.drawRoundRect(x, y + TITLE_H, w, t.height + 16, 10, 10);
-        fieldsTable(g, v.obj, x + 12, y + TITLE_H + 8, step.access);
+        ObjCard.table(this, g, v.obj, x + 12, y + TITLE_H + 8, step.access, ObjCard.columnsFor(v.obj.fields.size(), 2), marks);
+        if (cap != null) {
+            g.setFont(SMALL);
+            g.setColor(SELF_INK);
+            g.drawString(cap, x + 2, y + TITLE_H + t.height + 16 + 17);
+        }
         Rectangle r = new Rectangle(x, y + TITLE_H, w, t.height + 16);
         objHits.add(new Object[] { r, v.obj });
         return new Dimension(w, h);

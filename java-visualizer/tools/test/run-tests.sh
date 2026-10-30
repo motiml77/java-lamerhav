@@ -169,6 +169,38 @@ conds "$K/out.txt" \
 ! grep -q 'קריאה #[0-9]* [A-Z]* שורה [0-9]*: main()' "$K/out.txt" || { echo "  FAIL קריאה מ-main סומנה"; exit 1; }
 ! grep -q 'קריאה #[0-9]* [A-Z]* שורה 5[0-9]:' "$K/out.txt" || { echo "  FAIL שורה ב-main סומנה"; exit 1; }
 
+echo "== 5ו. פעולה שרצה בתוך אובייקט (d1.birthday()): מי this, מאפיינים שהשורה קוראת / משנה, וערכים נכונים בכל רגע"
+O="$W/self"
+mkdir -p "$O"
+cp objects/Pets.java "$O/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$O" "$O/Pets.java"
+(cd "$O" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Pets > out.txt 2>&1) || true
+conds "$O/out.txt" \
+    'שורה 16: this=d1 ב-הבנאי Dog() {name=null, age=0} this.name=שינוי]' \
+    'שורה 17: this=d1 ב-הבנאי Dog() {name="רקס", age=0} this.age=שינוי]' \
+    'שורה 5: נכנסים ל-d1.birthday()]' \
+    'שורה 21: this=d1 ב-birthday() {name="רקס", age=3} this.age=שינוי]' \
+    'שורה 26: this=d1 ב-bark() {name="רקס", age=4} this.name=קריאה]' \
+    'שורה 30: this=d2 ב-isOlderThan() {name="לאסי", age=5} other←d1 this.age=קריאה other.age=קריאה]' \
+    'שורה 34: this=d1 ב-getName() {name="רקס", age=4} this.name=קריאה]'
+
+echo "== 5ז. סוגי רקורסיה: פשוטה, זנב (גם void), כפולה, הדדית, על עץ / על שרשרת — והקריאות של תנאי העצירה"
+R="$W/reckinds"
+mkdir -p "$R"
+cp recursion/*.java "$R/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$R" "$R"/*.java
+for spec in 'Fact:רקורסיה פשוטה | פעולות fact | עומק 4 | קריאות 4 | עצירה [#5→1]' \
+    'SumTail:רקורסיית זנב | פעולות sum | עומק 5 | קריאות 5 | עצירה [#6→10]' \
+    'PrintDown:רקורסיית זנב | פעולות down' \
+    'Fib:רקורסיה כפולה | פעולות fib | עומק 4 | קריאות 9 | עצירה [#5→1, #6→0, #7→1, #9→1, #10→0]' \
+    'EvenOdd:רקורסיה הדדית | פעולות isEven, isOdd | עומק 4' \
+    'TreeCount:רקורסיה כפולה | פעולות count | עומק 3 | קריאות 7 | על עץ בינארי' \
+    'ListLen:רקורסיה פשוטה | פעולות length | עומק 4 | קריאות 4 | על שרשרת חוליות'; do
+    c=${spec%%:*}; want=${spec#*:}
+    (cd "$R" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine $c > $c.txt 2>&1) || true
+    grep -qF -- "[רקורסיה: $want" "$R/$c.txt" && echo "  ok  $c: $want" || { echo "  FAIL $c: $want"; grep 'רקורסיה:' "$R/$c.txt"; exit 1; }
+done
+
 echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
 mkdir -p "$W/obj"
 javac -encoding UTF-8 -cp "$JAR" -d "$W/obj" objcards/ObjCheck.java
