@@ -263,18 +263,109 @@ figcaption { font-size: var(--small); color: var(--muted); margin-top: 10px; lin
   padding: 20px var(--pad) 28px;
 }
 .foot p { margin: 0; }
+.foot-end { display: flex; align-items: center; gap: 18px; }
+
+/* ---------- "תרום לנו": זהב, קטן, בתחתית — כמו בחלון ההרצה של התוכנה */
+.donate {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-weight: 700; font-size: 13px; line-height: 1; color: #4A3405; text-decoration: none;
+  padding: 7px 14px; border-radius: 999px;
+  background: #E9C158;
+  border: 1px solid #B68A1E;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.donate span { color: #B4372C; }
+.donate:hover { background: #F2D06F; text-decoration: none; }
+.donate:active { transform: translateY(1px); }
+
+/* מונה ההורדות */
+.cta .count { font-size: var(--small); color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* ---------- עמודים קצרים (פרטיות, 404) */
 .page { padding: clamp(48px, 7vw, 104px) var(--pad); max-width: calc(76ch + 2 * var(--pad)); }
 .page h1 { font-size: var(--head); margin-bottom: 28px; }
 .page h2 { font-size: var(--lead); margin: 36px 0 10px; }
 
+/* ---------- שאלת בגרות לקוד (bagrut.html) */
+.bagrut { padding: clamp(36px, 5vw, 72px) var(--pad) clamp(56px, 7vw, 96px); }
+.bg-head { max-width: 62ch; margin-bottom: 36px; }
+.bg-head h1 { font-size: var(--head); margin-bottom: 18px; }
+.bg-head .lead { font-size: var(--lead); line-height: 1.5; margin: 0; }
+.bg-form { max-width: 760px; display: grid; gap: 22px; }
+.bg-form.busy { cursor: progress; }
+.drop {
+  background: var(--surface); border: 2px dashed #B4BCCB; border-radius: var(--r);
+  padding: clamp(28px, 5vw, 48px) 24px; text-align: center; cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.drop:hover, .drop.over { border-color: var(--hi-bar); background: #FFF8DC; }
+.drop-title { font-size: var(--lead); margin-bottom: 6px; }
+.drop-help { color: var(--muted); font-size: var(--small); margin: 0; }
+.pick { text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.chosen { list-style: none; margin: -8px 0 0; padding: 0; display: grid; gap: 6px; }
+.chosen:empty { display: none; }
+.chosen li { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--surface); border-radius: var(--r); font-size: var(--small); }
+.chosen .fname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.chosen .fmeta { color: var(--muted); white-space: nowrap; }
+.chosen .remove { margin-inline-start: auto; font: inherit; background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 4px; }
+.chosen .remove:hover { color: var(--ink); }
+.lang { border: 0; padding: 0; margin: 0; display: flex; gap: 22px; align-items: center; }
+.lang legend { float: inline-start; font-weight: 600; margin-inline-end: 6px; padding: 0; }
+.lang label { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
+.note-field { display: grid; gap: 6px; }
+.note-field span { font-weight: 600; }
+.note-field textarea {
+  font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid #C9CFDA; border-radius: var(--r); resize: vertical; background: #fff; color: var(--ink);
+}
+.note-field textarea:focus { outline: 3px solid var(--hi-bar); outline-offset: 1px; border-color: transparent; }
+.send-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.btn[disabled] { background: #9AA3B5; cursor: not-allowed; }
+.status { margin: 0; color: var(--muted); font-size: var(--small); font-variant-numeric: tabular-nums; }
+.status.bad { color: #B42318; font-weight: 600; }
+.small { font-size: var(--small); }
+
+.result { display: grid; gap: 22px; }
+.r-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+.r-head h2 { font-size: var(--head); margin-bottom: 10px; }
+.r-sum { margin: 0; max-width: 62ch; color: var(--muted); }
+.r-actions { display: grid; gap: 10px; justify-items: start; }
+.with-sol { display: inline-flex; gap: 8px; align-items: center; font-size: var(--small); cursor: pointer; }
+.files { border-radius: var(--r); overflow: hidden; background: #fff; box-shadow: 0 0 0 1px #E1E5EC; }
+.tabs { display: flex; gap: 2px; background: var(--surface); padding: 6px 6px 0; overflow-x: auto; }
+.tabs button {
+  font: 500 14px/1 "IBM Plex Mono", ui-monospace, Consolas, monospace; color: var(--muted);
+  background: transparent; border: 0; border-radius: 6px 6px 0 0; padding: 10px 14px; cursor: pointer; white-space: nowrap;
+}
+.tabs button[aria-selected="true"] { background: #fff; color: var(--ink); }
+.code-box { position: relative; }
+.copy {
+  position: absolute; top: 10px; left: 10px; font: inherit; font-size: 13px; padding: 6px 12px;
+  background: var(--surface); border: 1px solid #D5DAE3; border-radius: 6px; cursor: pointer; color: var(--ink);
+}
+.copy:hover { background: var(--hi); }
+pre.code {
+  margin: 0; padding: 16px 18px; overflow: auto; max-height: 70vh; text-align: left;
+  font: 13.5px/1.6 "IBM Plex Mono", ui-monospace, Consolas, monospace; tab-size: 4; white-space: pre; unicode-bidi: plaintext;
+}
+.r-more { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+.r-more h3 { margin-bottom: 10px; }
+.r-more > div { min-width: 0; }
+.expected pre { margin: 0; padding: 12px 14px; background: var(--surface); border-radius: var(--r); font: 13.5px/1.6 "IBM Plex Mono", ui-monospace, monospace; overflow: auto; text-align: left; }
+.sols details { border-top: 1px solid #E1E5EC; }
+.sols details:last-child { border-bottom: 1px solid #E1E5EC; }
+.sols summary { cursor: pointer; padding: 10px 2px; font-weight: 600; }
+.sols pre.code { background: var(--surface); border-radius: var(--r); margin-bottom: 12px; max-height: 50vh; }
+.others ul { margin: 0; padding-inline-start: 20px; }
+.again { margin: 0; }
+.btn.light-ink { background: var(--surface); color: var(--ink); }
+.btn.light-ink:hover { background: var(--hi); }
+
 /* ---------- טלפון וטאבלט: הרכבה משלהם */
 @media (max-width: 960px) {
   .hero { grid-template-columns: minmax(0, 1fr); }
   .hero-text { grid-row: auto; }
   .demo-hint { grid-column: 1; }
-  .rows, .errors, .teach, .pair, .flow { grid-template-columns: minmax(0, 1fr); }
+  .rows, .errors, .teach, .pair, .flow, .r-more { grid-template-columns: minmax(0, 1fr); }
   .rows h2 { margin-bottom: 18px; }
   .side-shot { position: static; }
   .flow { gap: 36px; }

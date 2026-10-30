@@ -41,6 +41,16 @@ public class SubmitHandler extends AbstractHandler {
         Shell shell = HandlerUtil.getActiveShell(event);
         IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
         WorkerClient client = WorkerClient.configured();
+        if (client != null) {   // בלי אינטרנט אין טעם לפתוח את החלון — אומרים את זה מיד
+            final boolean[] on = { true };
+            org.eclipse.swt.custom.BusyIndicator.showWhile(shell.getDisplay(), () -> on[0] = client.online(3500));
+            if (!on[0]) {
+                MessageDialog.openWarning(shell, "שליחת תרגיל — אין חיבור לאינטרנט",
+                        "כדי לשלוח תרגיל צריך חיבור לאינטרנט, וכרגע אין חיבור.\n\nבדקו את החיבור (Wi-Fi או כבל) ונסו שוב.\n"
+                        + "כל שאר הכלים — הרצה ויזואלית, הוספת מבנה נתונים, דוגמאות פתורות — עובדים גם בלי אינטרנט.");
+                return null;
+            }
+        }
         SubmitDialog d = new SubmitDialog(shell, ProjectSetup.javaProjects(), ProjectSetup.freeProjectName(), Ui.currentProject(event), client);
         if (d.open() != Window.OK || d.exercise() == null) return null;
         Build b = null;

@@ -15,6 +15,10 @@
 //                       mode: "solution" — ההצעה לפתרון (tasks[].solution) לא נתנה את expectedOutput: מתקנים אותה (או את expectedOutput)
 //   language: "java" (ברירת מחדל) או "csharp"
 //   GET  /v1/health
+//   GET  /dl/windows, /dl/zip   הורדה דרך האתר: סופרים (KV בשם STATS, לא חובה) ומפנים לקובץ ב-GitHub
+//   GET  /v1/stats              כמה הורדות היו — {downloads: {windows, zip, total}} (פתוח לכל אתר)
+//   POST /v1/site/exercise      כמו /v1/exercise, מהאתר (העלאת שאלת בגרות): רק מהכתובות שב-SITE_ORIGINS, בלי מפתח-אפליקציה,
+//                               ועם מכסה יומית קטנה יותר (SITE_DAILY_LIMIT, ברירת מחדל 8)
 //   POST /v1/license    application/json: {client, machine, code} → {ok, locked, licensed, message, payUrl}
 //                       נעילה לתשלום של התצוגה הוויזואלית: כבויה כל עוד PAYWALL לא "on" (ראו README.md — "נעילה לתשלום")
 
@@ -40,24 +44,52 @@ const TYPES = {
 const DEFAULT_MODELS = 'gemini-flash-latest,gemini-flash-lite-latest';
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com';
 
+const RELEASE = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/';
+const DOWNLOADS = { windows: RELEASE + 'DSViz-Setup.exe', zip: RELEASE + 'dsviz-install.zip' };
+const DEFAULT_SITE_ORIGINS = 'https://motiml77.github.io';
+
 export default {
   async fetch(request, env, ctx) {
+    env = env || {};
+    let res;
     try {
-      return await handle(request, env || {}, ctx);
+      res = await handle(request, env, ctx);
     } catch (e) {
-      if (e instanceof Fail) return reply(e.status, { ok: false, code: e.code, error: e.message });
-      console.error('unexpected', e && e.stack || e);
-      return reply(500, { ok: false, code: 'internal', error: 'תקלה בשרת. נסו שוב בעוד דקה.' });
+      if (e instanceof Fail) res = reply(e.status, { ok: false, code: e.code, error: e.message });
+      else {
+        console.error('unexpected', e && e.stack || e);
+        res = reply(500, { ok: false, code: 'internal', error: 'תקלה בשרת. נסו שוב בעוד דקה.' });
+      }
     }
+    return withCors(request, env, res);
   },
 };
+
+/** האתר קורא מהדפדפן: /v1/stats פתוח לכולם, ו-/v1/site/* רק לכתובות שב-SITE_ORIGINS */
+function siteOrigin(request, env) {
+  const origin = request.headers.get('origin') || '';
+  const allowed = String(env.SITE_ORIGINS || DEFAULT_SITE_ORIGINS).split(',').map(x => x.trim().replace(/\/+$/, '')).filter(Boolean);
+  return allowed.includes(origin) ? origin : '';
+}
+
+function withCors(request, env, res) {
+  const path = new URL(request.url).pathname;
+  let origin = '';
+  if (path === '/v1/stats') origin = '*';
+  else if (path.startsWith('/v1/site/')) origin = siteOrigin(request, env);
+  if (!origin) return res;
+  const h = new Headers(res.headers);
+  h.set('access-control-allow-origin', origin);
+  h.set('vary', 'origin');
+  return new Response(res.body, { status: res.status, headers: h });
+}
 
 class Fail extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
 
-function reply(status, obj) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+function reply(status, obj, extra) {
+  return new Response(JSON.stringify(obj), { status, headers: Object.assign({ 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }, extra || {}) });
 }
 
 async function handle(request, env, ctx) {
@@ -65,21 +97,35 @@ async function handle(request, env, ctx) {
   if (request.method === 'GET' && (url.pathname === '/v1/health' || url.pathname === '/')) {
     return reply(200, { ok: true, service: 'dsviz-exercise', models: models(env) });
   }
+  const dl = /^\/dl\/(windows|zip)$/.exec(url.pathname);
+  if (request.method === 'GET' && dl) {   // הורדה מהאתר: סופרים, ומפנים לקובץ (גם אם הספירה נכשלת)
+    const counting = count(env, dl[1]).catch(e => console.error('count', e));
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(counting); else await counting;
+    return new Response(null, { status: 302, headers: { location: DOWNLOADS[dl[1]], 'cache-control': 'no-store' } });
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/stats') return reply(200, await stats(env), { 'cache-control': 'public, max-age=60' });
+  if (request.method === 'OPTIONS' && url.pathname.startsWith('/v1/site/')) {
+    if (!siteOrigin(request, env)) throw new Fail(403, 'origin', 'האתר הזה לא מורשה');
+    return new Response(null, { status: 204, headers: { 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400' } });
+  }
   if (request.method !== 'POST') throw new Fail(405, 'method', 'רק POST');
   if (url.pathname === '/v1/license') return reply(200, await license(request, env));
-  if (url.pathname !== '/v1/exercise' && url.pathname !== '/v1/repair') throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
+  const site = url.pathname === '/v1/site/exercise';
+  if (url.pathname !== '/v1/exercise' && url.pathname !== '/v1/repair' && !site) throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
 
-  if (env.APP_KEY && request.headers.get('x-dsviz-key') !== env.APP_KEY) throw new Fail(401, 'key', 'השרת לא מכיר את התוסף הזה (מפתח שגוי). עדכנו את התוסף.');
+  if (site) {
+    if (!siteOrigin(request, env)) throw new Fail(403, 'origin', 'אפשר לשלוח מכאן רק מהאתר של DSViz.');
+  } else if (env.APP_KEY && request.headers.get('x-dsviz-key') !== env.APP_KEY) throw new Fail(401, 'key', 'השרת לא מכיר את התוסף הזה (מפתח שגוי). עדכנו את התוסף.');
   if (!env.GEMINI_API_KEY) throw new Fail(503, 'config', 'השרת עדיין לא הוגדר (חסר מפתח Gemini).');
 
   const ip = request.headers.get('cf-connecting-ip') || 'local';
-  await rateLimit(env, ip);
+  await rateLimit(env, ip, site);
 
   const declared = +(request.headers.get('content-length') || 0);
   if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 14MB ביחד).');
 
   let req;
-  if (url.pathname === '/v1/exercise') req = await exerciseParts(request);
+  if (url.pathname === '/v1/exercise' || site) req = await exerciseParts(request);
   else req = await repairParts(request);
 
   const result = await askGemini(env, req.userParts, req.lang);
@@ -295,16 +341,31 @@ function toBase64(u8) {
 
 // ------------------------------------------------------------------ הגבלת קצב
 
-async function rateLimit(env, ip) {
+// ------------------------------------------------------------------ מונה הורדות (KV בשם STATS — לא חובה)
+
+async function count(env, kind) {
+  if (!env.STATS || typeof env.STATS.get !== 'function') return;
+  const n = +(await env.STATS.get('dl:' + kind)) || 0;   // KV לא אטומי — בעומס גבוה אולי נאבדת ספירה פה ושם, וזה בסדר למונה
+  await env.STATS.put('dl:' + kind, String(n + 1));
+}
+
+async function stats(env) {
+  if (!env.STATS || typeof env.STATS.get !== 'function') return { ok: true, counting: false, downloads: null };
+  const windows = +(await env.STATS.get('dl:windows')) || 0, zip = +(await env.STATS.get('dl:zip')) || 0;
+  const base = +(env.DOWNLOADS_BEFORE || 0);   // הורדות מלפני שהמונה התחיל (לא חובה)
+  return { ok: true, counting: true, downloads: { windows, zip, total: windows + zip + base } };
+}
+
+async function rateLimit(env, ip, site) {
   if (env.LIMITER && typeof env.LIMITER.limit === 'function') {   // Cloudflare Rate Limiting (לפי דקה)
     const { success } = await env.LIMITER.limit({ key: ip });
     if (!success) throw new Fail(429, 'rate', 'יותר מדי שליחות בדקה האחרונה. חכו דקה ונסו שוב.');
   }
   if (env.USAGE && typeof env.USAGE.get === 'function') {          // מכסה יומית לכל כתובת (KV)
     const day = new Date().toISOString().slice(0, 10);
-    const key = `d:${day}:${ip}`;
+    const key = `${site ? 's' : 'd'}:${day}:${ip}`;
     const n = +(await env.USAGE.get(key)) || 0;
-    if (n >= +(env.DAILY_LIMIT || 40)) throw new Fail(429, 'daily', 'הגעתם למספר השליחות המרבי להיום מהמחשב הזה. נסו שוב מחר.');
+    if (n >= +(site ? env.SITE_DAILY_LIMIT || 8 : env.DAILY_LIMIT || 40)) throw new Fail(429, 'daily', 'הגעתם למספר השליחות המרבי להיום מהמחשב הזה. נסו שוב מחר.');
     await env.USAGE.put(key, String(n + 1), { expirationTtl: 60 * 60 * 36 });
   }
 }

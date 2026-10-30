@@ -23,3 +23,16 @@ simple = { limit = 6, period = 60 }
 # id = "<the id>"
 # ואפשר לשנות את המכסה (ברירת מחדל 40 שליחות ביום לכל כתובת):
 # DAILY_LIMIT = "40"   (שורה זו — בתוך [vars] למעלה)
+
+# מונה הורדות (לא חובה): יוצרים KV בשם STATS (npx wrangler kv namespace create STATS),
+# מעתיקים את ה-id שמתקבל לכאן ומורידים את ה-#. האתר מוריד דרך /dl/windows ו-/dl/zip ומציג את /v1/stats.
+# [[kv_namespaces]]
+# binding = "STATS"
+# id = "<the id>"
+# הורדות מלפני שהמונה התחיל (לא חובה) — שורה בתוך [vars] למעלה:
+# DOWNLOADS_BEFORE = "0"
+#
+# האתר (העלאת שאלת בגרות): הכתובות שמותר להן לשלוח מהדפדפן, מופרדות בפסיק (ברירת מחדל https://motiml77.github.io),
+# ומכסה יומית לכל כתובת IP מהאתר (ברירת מחדל 8; נספרת רק אם USAGE מוגדר) — שורות בתוך [vars]:
+# SITE_ORIGINS = "https://motiml77.github.io"
+# SITE_DAILY_LIMIT = "8"

@@ -35,6 +35,13 @@ for p in "$ROOT"/csharp/project/Exercise "$ROOT"/csharp/project/Examples/*; do
     viz "$p" --trace "$W/$n.trace" > "$W/$n.out" 2>&1 || { echo "נכשל: $n"; cat "$W/$n.out"; exit 1; }
     java -Djava.awt.headless=true -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/$n.trace" | grep -q '^ok [1-9]' || { echo "החלון לא קרא את $n"; exit 1; }
 done
+# שגיאות: Pop על מחסנית ריקה, ו-null (ב-C# ההודעה לא אומרת מי null — מנחשים מהשורה)
+for n in EmptyPop:'[כרטיס empty-stack s Pop()]' NullNode:'[כרטיס null p GetValue()]'; do
+    c=${n%%:*}; want=${n#*:}
+    viz "problems/cs/$c.cs" --trace "$W/$c.trace" > "$W/$c.out" 2>&1 || true
+    java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/$c.trace" | grep -qF "$want" \
+        && echo "כרטיס שגיאה ב-C#: $want" || { echo "חסר כרטיס ב-$c"; cat "$W/$c.out"; exit 1; }
+done
 grep -qP '^STEP\tRETURN\t\d+\t24\t' "$W/RecursionExamples.trace" && echo "ערך ההחזרה 24 נרשם" || { echo "חסר RETURN"; exit 1; }
 grep -qP '^VAR\ttotal\t' "$W/StackExamples.trace" && grep -q '^V	LIN	1' "$W/StackExamples.trace" && echo "משתנים ומחסנית נרשמו" || { echo "חסרים משתנים"; exit 1; }
 grep -q '^V	TREE' "$W/TreeExamples.trace" && grep -q '^V	ARR' "$W/ArrayExamples.trace" && grep -q '^V	CHAIN' "$W/ListExamples.trace" && echo "עץ, מערך ורשימה נרשמו"

@@ -155,7 +155,7 @@ final class Recorder {
         installOutputTee();
         Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             public void uncaughtException(Thread t, Throwable e) {
-                recordAt(Kind.ERROR, null, Mark.NONE, null, "שגיאה: " + describe(e), e.getStackTrace());
+                failed(e);
                 e.printStackTrace(err);
             }
         });
@@ -164,7 +164,8 @@ final class Recorder {
             Thread watcher = new Thread(new Runnable() {
                 public void run() {
                     try { main.join(); } catch (InterruptedException ignored) {}
-                    recordAt(Kind.END, null, Mark.NONE, null, "התוכנית הסתיימה", new StackTraceElement[0]);
+                    if (failure == null)   // אחרי שגיאה — היא הצעד האחרון (עם ההסבר), בלי "התוכנית הסתיימה" אחריה
+                        recordAt(Kind.END, null, Mark.NONE, null, "התוכנית הסתיימה", new StackTraceElement[0]);
                 }
             }, "viz-watcher");
             watcher.setDaemon(true);
@@ -177,6 +178,40 @@ final class Recorder {
                 }
             });
         }
+    }
+
+    private static Throwable failure;
+
+    /**
+     * התוכנית נעצרה בשגיאה (גם כשהשגיאה נתפסת ב-LineByLine ולא מגיעה ל-uncaught): צעד אחרון עם השגיאה,
+     * ועליו כרטיס שמסביר מה קרה (Problems) — ואם p הוא null אחרי סוף רשימה, p מסומן על ה-null שבסוף השרשרת.
+     */
+    static void failed(Throwable e) {
+        synchronized (LOCK) {
+            if (e == null || failure == e) return;
+            failure = e;
+            int before = steps.size();
+            recordAt(Kind.ERROR, null, Mark.NONE, null, "שגיאה: " + describe(e), e.getStackTrace());
+            if (steps.size() == before) return;
+            Step st = steps.get(steps.size() - 1);
+            try {
+                Model.ProblemView p = Problems.attach(st);
+                if (textMode && p != null) out.println("      [כרטיס " + p.kind + (p.name != null ? " " + p.name : "") + (p.op != null ? " " + p.op : "") + "]");
+                Object ln = lastNode.get();
+                if (p != null && "null".equals(p.kind) && p.name != null && !p.name.endsWith(")") && ln instanceof Node && ((Node<?>) ln).next == null)
+                    for (View v : st.views)
+                        if (v instanceof ChainView && chainHas((ChainView) v, ln)) ((ChainView) v).nullLabels.add(p.name);
+            } catch (RuntimeException ignored) {
+                // בלי כרטיס — השגיאה עצמה כתובה בצעד
+            }
+        }
+    }
+
+    private static boolean chainHas(ChainView c, Object node) {
+        if (!(c.src instanceof Node)) return false;
+        int k = 0;
+        for (Node<?> n = (Node<?>) c.src; n != null && k < MAX_CELLS; n = n.next, k++) if (n == node) return true;
+        return false;
     }
 
     private static String describe(Throwable e) {
@@ -691,6 +726,7 @@ final class Recorder {
                 if (target instanceof BinNode) lastBin = new WeakReference<Object>(target);
                 // שינוי מצביע — אולי חוליה התנתקה. נותנים ל-GC לאסוף אותה לפני הצילום
                 if (kind == Kind.CHANGE && (target instanceof Node || target instanceof BinNode) && gcCount < MAX_GC) {
+                    holdUnreachable();   // חוליה שנותקה עכשיו — נשמרת, כדי להראות שהיא אבדה
                     gcCount++;
                     System.gc();
                 }
@@ -710,6 +746,7 @@ final class Recorder {
         s.text = text;
         s.calls = frames;
         s.where = s.calls.isEmpty() ? null : s.calls.get(0);
+        kindNow = kind;
         suspended++;
         try {
             s.views = snapshot(target, mark, ghost);
@@ -754,6 +791,139 @@ final class Recorder {
     private static Frame firstStudentFrame(StackTraceElement[] trace) {
         for (StackTraceElement e : trace) if (!isLibrary(e.getClassName())) return new Frame(e);
         return null;
+    }
+
+    // ------------------------------------------------------------ חוליות שאבדו (רשימה מקושרת)
+
+    /*
+     * חוליה "אבדה" כשאף משתנה (בפעולה הנוכחית, בפעולות שקראו לה, במשתנים סטטיים, או דרך מבנה / אובייקט שהם מצביעים עליו)
+     * כבר לא מגיע אליה — למשל lst = lst.getNext() שהזיז את ראש הרשימה. רק חוליה שהיה אליה מצביע קודם (חוליה חדשה
+     * שעוד לא נשמרה במשתנה — לא), ורק אם זה נשאר כך בשני גבולות שורה רצופים (באמצע שורה ערכים מחכים בצד). חוליות שאבדו
+     * נשמרות (כדי שה-GC לא ימחק אותן לפני שרואים) ומוצגות באדום LOST_STEPS צעדים — ואז נעלמות, כמו בזיכרון.
+     */
+    private static Kind kindNow;
+    private static List<Object> callerRoots = new ArrayList<Object>();
+    private static List<Frame> lineFrames = new ArrayList<Frame>();
+    private static final Set<Object> everHeld = java.util.Collections.newSetFromMap(new WeakHashMap<Object, Boolean>());
+    private static final Map<Object, Integer> lostAt = new IdentityHashMap<Object, Integer>();
+    private static final Map<Object, List<String>> lastNames = new WeakHashMap<Object, List<String>>();
+    private static final Set<Object> pendingLost = identitySet();
+    private static final Map<String, List<java.lang.reflect.Field>> staticFields = new HashMap<String, List<java.lang.reflect.Field>>();
+    private static final Map<Class<?>, List<java.lang.reflect.Field>> objFields = new HashMap<Class<?>, List<java.lang.reflect.Field>>();
+    static final int LOST_STEPS = 12;
+
+    /** לפני GC (חוליה נותקה באמצע שורה): מה שכבר אין אליו מצביע — נשמר עד סוף השורה */
+    private static void holdUnreachable() {
+        if (!lineMode) return;
+        try {
+            Set<Object> reach = reachable();
+            for (Node<?> n : alive(nodes)) if (everHeld.contains(n) && !reach.contains(n)) pendingLost.add(n);
+        } catch (RuntimeException ignored) {
+            // בלי סימון — רק ההצגה הרגילה
+        }
+    }
+
+    private static void updateLost(boolean atLine) {
+        Set<Object> reach;
+        try {
+            reach = reachable();
+        } catch (RuntimeException e) {
+            return;
+        }
+        for (Node<?> n : alive(nodes)) {
+            if (reach.contains(n)) {
+                everHeld.add(n);
+                lostAt.remove(n);   // הגיעו אליה שוב (למשל ערך שחיכה בצד) — לא אבדה
+                pendingLost.remove(n);
+            } else if (atLine && everHeld.contains(n) && !lostAt.containsKey(n)) {
+                // רק אם עדיין אין אליה מצביע גם בגבול השורה הבא: אחרי שפעולה מחזירה ערך, ה-JVM חוזר לאותה שורה
+                // לפני שהערך נשמר במשתנה — ובאותו רגע הערך "ביד" (בלי משתנה) אבל לא אבד
+                if (pendingLost.remove(n)) lostAt.put(n, steps.size());
+                else pendingLost.add(n);
+            }
+        }
+        for (java.util.Iterator<Map.Entry<Object, Integer>> it = lostAt.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<Object, Integer> e = it.next();
+            if (steps.size() - e.getValue() <= LOST_STEPS) continue;
+            Object gone = e.getKey();
+            it.remove();
+            everHeld.remove(gone);
+            for (java.util.Iterator<WeakReference<Node<?>>> ni = nodes.iterator(); ni.hasNext(); ) if (ni.next().get() == gone) ni.remove();
+        }
+    }
+
+    /** כל מה שמשתנה כלשהו מגיע אליו: המשתנים של כל הפעולות, הסטטיים, Viz.point — ודרך חוליות, מבנים, מערכים ואובייקטים */
+    private static Set<Object> reachable() {
+        Set<Object> seen = identitySet();
+        java.util.ArrayDeque<Object> todo = new java.util.ArrayDeque<Object>();
+        for (Object o : frameVars.keySet()) push(todo, o);
+        for (Object o : callerRoots) push(todo, o);
+        for (Object o : pointers.values()) push(todo, o);
+        staticRoots(todo);
+        int budget = 50000;
+        while (!todo.isEmpty() && budget-- > 0) {
+            Object o = todo.poll();
+            if (!seen.add(o)) continue;
+            if (o instanceof Node) { push(todo, ((Node<?>) o).next); push(todo, ((Node<?>) o).value); }
+            else if (o instanceof BinNode) { push(todo, ((BinNode<?>) o).left); push(todo, ((BinNode<?>) o).right); push(todo, ((BinNode<?>) o).value); }
+            else if (o instanceof Stack) { for (Object x : ((Stack<?>) o).items) push(todo, x); }
+            else if (o instanceof Queue) { for (Object x : ((Queue<?>) o).items) push(todo, x); }
+            else if (o instanceof Object[]) { for (Object x : (Object[]) o) push(todo, x); }
+            else if (o instanceof java.util.Collection) { for (Object x : ((java.util.Collection<?>) o).toArray()) push(todo, x); }
+            else if (o instanceof Map) { for (Object x : ((Map<?, ?>) o).values().toArray()) push(todo, x); }
+            else if (userClass(o.getClass())) {
+                for (java.lang.reflect.Field f : fieldsOf(o.getClass())) {
+                    try { push(todo, f.get(o)); } catch (Exception ignored) { /* לא נגיש */ }
+                }
+            }
+        }
+        return seen;
+    }
+
+    private static void push(java.util.ArrayDeque<Object> todo, Object o) {
+        if (o != null && !(o instanceof String) && !(o instanceof Number) && !(o instanceof Character) && !(o instanceof Boolean)) todo.add(o);
+    }
+
+    private static boolean userClass(Class<?> c) {
+        String n = c.getName();
+        return !c.isArray() && !c.isPrimitive() && !n.startsWith("java.") && !n.startsWith("javax.") && !n.startsWith("jdk.")
+                && !n.startsWith("sun.") && !n.startsWith("com.sun.") && !n.startsWith("unit4.collectionsLib.");
+    }
+
+    private static List<java.lang.reflect.Field> fieldsOf(Class<?> c) {
+        List<java.lang.reflect.Field> l = objFields.get(c);
+        if (l != null) return l;
+        l = new ArrayList<java.lang.reflect.Field>();
+        for (Class<?> k = c; k != null && userClass(k); k = k.getSuperclass())
+            for (java.lang.reflect.Field f : k.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.getType().isPrimitive()) continue;
+                try { f.setAccessible(true); l.add(f); } catch (RuntimeException ignored) { /* מודול סגור */ }
+            }
+        objFields.put(c, l);
+        return l;
+    }
+
+    /** משתנים סטטיים של המחלקות שבמחסנית הקריאות (static Node<Integer> head...) */
+    private static void staticRoots(java.util.ArrayDeque<Object> todo) {
+        for (Frame f : lineFrames) {
+            List<java.lang.reflect.Field> l = staticFields.get(f.className);
+            if (l == null) {
+                l = new ArrayList<java.lang.reflect.Field>();
+                try {
+                    Class<?> c = Class.forName(f.className, false, Thread.currentThread().getContextClassLoader());
+                    for (java.lang.reflect.Field x : c.getDeclaredFields()) {
+                        if (!java.lang.reflect.Modifier.isStatic(x.getModifiers()) || x.getType().isPrimitive()) continue;
+                        try { x.setAccessible(true); l.add(x); } catch (RuntimeException ignored) { /* לא נגיש */ }
+                    }
+                } catch (Throwable ignored) {
+                    // מחלקה שלא נמצאה — בלי משתנים סטטיים
+                }
+                staticFields.put(f.className, l);
+            }
+            for (java.lang.reflect.Field x : l) {
+                try { push(todo, x.get(null)); } catch (Exception ignored) { /* לא נגיש */ }
+            }
+        }
     }
 
     // ------------------------------------------------------------ צילום מצב
@@ -813,6 +983,7 @@ final class Recorder {
         }
 
         // --- רשימות מקושרות
+        if (lineMode) updateLost(kindNow == Kind.LINE);
         List<Node<?>> nodes = alive(Recorder.nodes);
         List<BinNode<?>> bins = alive(Recorder.bins);
         Object lastNode = Recorder.lastNode.get(), lastBin = Recorder.lastBin.get();
@@ -829,6 +1000,8 @@ final class Recorder {
                 return ord(b) - ord(a);
             }
         });
+        for (Node<?> n : nodes)   // השמות שהצביעו על כל חוליה — כדי לדעת אחר כך מי "זז" ממנה
+            if (labels.get(n) != null && !lostAt.containsKey(n)) lastNames.put(n, new ArrayList<String>(labels.get(n)));
         Set<Object> seen = identitySet();
         for (Node<?> h : heads) addChain(views, h, seen, target, mark, labels, lastNode);
         for (Node<?> n : nodes) if (!seen.contains(n)) addChain(views, n, seen, target, mark, labels, lastNode); // מעגלים
@@ -1055,10 +1228,33 @@ final class Recorder {
             Cell cell = new Cell();
             fillCell(cell, cur, cur.value, target, mark, labels, lastNode);
             if (cur == target || (cell.sub != null && cell.sub.focus)) c.focus = true;
+            cell.lost = lostAt.containsKey(cur);
             c.cells.add(cell);
             cur = cur.next;
         }
+        lostNote(c, head);
         views.add(c);
+    }
+
+    /** הסבר על החוליות שאבדו בשרשרת: אילו, ומי הצביע עליהן קודם */
+    private static void lostNote(ChainView c, Node<?> head) {
+        List<String> lost = new ArrayList<String>();
+        boolean reachableAfter = false;
+        for (Cell x : c.cells) {
+            if (x.lost) lost.add(x.value);
+            else if (!lost.isEmpty()) reachableAfter = true;
+        }
+        if (lost.isEmpty()) return;
+        boolean all = lost.size() == c.cells.size();
+        if (all) c.title = "חוליות שאבדו";
+        String which = lost.size() == 1 ? "החוליה " + lost.get(0) : "החוליות " + String.join(", ", lost.subList(0, Math.min(6, lost.size()))) + (lost.size() > 6 ? "..." : "");
+        c.lostNote = which + (lost.size() == 1 ? " אבדה" : " אבדו") + ": אף משתנה לא מצביע " + (lost.size() == 1 ? "עליה" : "עליהן") + ", ואי אפשר להגיע " + (lost.size() == 1 ? "אליה" : "אליהן") + " יותר";
+        List<String> was = lastNames.get(head);
+        if (c.cells.get(0).lost && reachableAfter && was != null && !was.isEmpty()) {
+            c.lostHint = was.get(0) + " הצביע על ראש הרשימה וזז הלאה, ולכן ראש הרשימה אבד. כדי לעבור על רשימה בלי לאבד אותה — מתקדמים עם משתנה נוסף: " + Problems.code("Node<Integer> p = " + was.get(0) + ";");
+        } else {
+            c.lostHint = "אם רצית למחוק " + (lost.size() == 1 ? "אותה" : "אותן") + " — זה בדיוק מה שקרה (Java תמחק " + (lost.size() == 1 ? "אותה" : "אותן") + " מהזיכרון). אם לא — שומרים הפניה במשתנה לפני שמנתקים.";
+        }
     }
 
     private static TreeCell treeCell(BinNode<?> b, Set<Object> drawn, Object target, Mark mark,
@@ -1144,6 +1340,15 @@ final class Recorder {
         for (View v : s.views) {
             if (!v.focus) continue;
             b.append("      ").append(v.title).append(": ").append(describe(v));
+        }
+        for (View v : s.views) {   // חוליות שאבדו וכרטיס השגיאה — תמיד (גם כשהמבנה לא בפוקוס)
+            if (v instanceof ChainView && ((ChainView) v).lostNote != null) b.append("      [").append(((ChainView) v).lostNote).append(']');
+            if (v instanceof ChainView && !((ChainView) v).nullLabels.isEmpty()) b.append("      [null: ").append(((ChainView) v).nullLabels).append(']');
+            if (v instanceof LinearView && ((LinearView) v).error != null) b.append("      [").append(v.title).append(" ריק: ").append(((LinearView) v).error).append(']');
+            if (v instanceof Model.ProblemView) {
+                Model.ProblemView p = (Model.ProblemView) v;
+                b.append("      [כרטיס ").append(p.kind).append(p.name != null ? " " + p.name : "").append(p.op != null ? " " + p.op : "").append(']');
+            }
         }
         if (s.vars != null && s.kind == Kind.LINE) {
             b.append("      {");
@@ -1237,6 +1442,14 @@ final class Recorder {
         }
         frameVars = fv;
         currentVars = vars;
+        // המבנים שהמשתנים של הפעולות שקראו לנוכחית מצביעים עליהם — כדי לדעת אם חוליה באמת אבדה
+        List<Object> roots = new ArrayList<Object>();
+        if (halves.length > 3) for (String id : split(halves[3])) {
+            Object o = id.startsWith("\u0003") ? byId(id.substring(1)) : null;
+            if (o != null) roots.add(o);
+        }
+        callerRoots = roots;
+        lineFrames = frames;
         Frame f = frames.isEmpty() ? null : frames.get(0);
         lineArrays = parseLineArrays(halves.length > 2 ? halves[2] : "", vars, f);
         try {

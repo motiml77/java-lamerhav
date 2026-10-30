@@ -61,6 +61,41 @@ final class WorkerClient {
         return new WorkerClient(u, k);
     }
 
+    /**
+     * בדיקה מהירה לפני שפותחים את החלון: יש אינטרנט? מנסים את השרת שלנו ואתר כללי במקביל, ומספיק שאחד עונה.
+     * false רק כששניהם לא עונים בתוך waitMs — אז כנראה אין חיבור לאינטרנט.
+     */
+    boolean online(long waitMs) {
+        return reachable(waitMs, url + "/v1/health", "https://www.google.com/generate_204", "https://www.cloudflare.com/cdn-cgi/trace");
+    }
+
+    static boolean reachable(long waitMs, String... urls) {
+        final java.util.concurrent.CountDownLatch any = new java.util.concurrent.CountDownLatch(1);
+        for (final String u : urls) {
+            Thread t = new Thread(() -> {
+                try {
+                    HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+                    c.setConnectTimeout((int) waitMs);
+                    c.setReadTimeout((int) waitMs);
+                    c.setRequestMethod("GET");
+                    c.setRequestProperty("User-Agent", CLIENT);
+                    if (c.getResponseCode() > 0) any.countDown();   // כל תשובה (גם 404) = יש חיבור
+                    c.disconnect();
+                } catch (IOException | RuntimeException ignored) {
+                    // לא ענה
+                }
+            }, "dsviz-online");
+            t.setDaemon(true);
+            t.start();
+        }
+        try {
+            return any.await(waitMs + 300, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return true;
+        }
+    }
+
     /** שולח את דף התרגיל ומחזיר את התרגיל (exercise) מהתשובה */
     /** language: "java" או "csharp" — נכנס להנחיות למודל (השרת בונה לפיה את ההנחיות ואת ממשק הספרייה) */
     Map<String, Object> exercise(List<ExerciseFiles.Item> items, String note, String language) throws AiError {

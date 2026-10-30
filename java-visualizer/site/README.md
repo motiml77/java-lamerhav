@@ -1,12 +1,18 @@
 # האתר של DSViz
 
-דף אחד בעברית (`index.html`) + `privacy.html` + `404.html`. בלי שלב בנייה: HTML, CSS ו-JS רגילים.
+דף ראשי בעברית (`index.html`), `bagrut.html` (שאלת בגרות לקוד), `privacy.html` ו-`404.html`. בלי שלב בנייה: HTML, CSS ו-JS רגילים.
 
 - **ההדגמה בראש העמוד** (`assets/demo.js`): ההרצה של `countEven` צעד אחרי צעד. הצעדים מחושבים מהקוד עצמו בדפדפן,
   והציור (מחסנית, מעקב משתנים, השורה בצהוב) בצבעים של חלון ההרצה האמיתי.
 - **התמונות** (`assets/img`) — צילומי מסך אמיתיים מ-`docs/` ומבדיקות Eclipse; **הסרטון** (`assets/video/loops.mp4`) —
   44 צעדים של מיון בועות בחלון ההרצה (`tutorials/viewer.sh`), בלי עיבוד.
-- **הקישור להורדה** — הקישור הקבוע של `release/DSViz-Setup.exe` ב-master. תאריך הגרסה נקרא מ-`release/version.json`.
+- **הקישור להורדה** — דרך השרת (`https://dsviz-exercise.motiml77.workers.dev/dl/windows`, וגם `/dl/zip`): השרת מוסיף 1 למונה
+  ומעביר לקישור הקבוע של `release/DSViz-Setup.exe` ב-master. המספר מוצג מ-`/v1/stats` (רק כשה-KV בשם STATS מוגדר — `worker/README.md`).
+  תאריך הגרסה נקרא מ-`release/version.json`.
+- **שאלת בגרות לקוד** (`bagrut.html`, `assets/bagrut.js`): הקבצים מוכנים בדפדפן (Word נפתח עם JSZip מ-cdnjs, תמונות מוקטנות),
+  נשלחים ל-`/v1/site/exercise` בשרת, והקוד נבנה בדפדפן ב-`assets/scaffold.js` — העתק של `AiScaffold.java` מהתוסף
+  (`tools/test/scaffold-parity.js` בודק שהם מפיקים בדיוק אותו קוד). השרת מקבל בקשות כאלה רק מהכתובת של האתר (`SITE_ORIGINS`).
+- **תרום לנו** — כפתור זהב קטן בתחתית כל עמוד, לדף התרומה ב-PayPal (אותו קישור כמו בחלון ההרצה ובנגן הסרטונים).
 
 ## פרסום
 GitHub Pages דרך `.github/workflows/dsviz-site.yml` (בשורש המאגר): כל שינוי בתיקייה הזו ב-master מתפרסם ל-

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>שאלת בגרות לקוד: DSViz</title>
+<meta name="description" content="מעלים שאלת בגרות במבני נתונים (PDF, Word או צילום) ומקבלים קובצי Java או C# מוכנים: פעולה ריקה לכל סעיף, המחלקות מהשאלה ו-main עם נתונים לדוגמה. ואם רוצים, גם הצעה לפתרון.">
+<meta name="theme-color" content="#F1F3F7">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="he_IL">
+<meta property="og:title" content="שאלת בגרות לקוד">
+<meta property="og:description" content="מעלים את דף השאלה, ומקבלים קוד שמוכן לפתרון.">
+<meta property="og:image" content="https://motiml77.github.io/java-lamerhav/assets/og.png">
+<link rel="canonical" href="https://motiml77.github.io/java-lamerhav/bagrut.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">דילוג לתוכן</a>
+
+<header class="bar">
+  <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
+    DSViz
+  </a>
+  <nav aria-label="ניווט באתר">
+    <a href="./#run">הרצה ויזואלית</a>
+    <a href="./#errors">הסברים בעברית</a>
+    <a href="bagrut.html" aria-current="page">שאלת בגרות לקוד</a>
+    <a href="./#install">התקנה</a>
+  </nav>
+  <a class="btn small" href="https://dsviz-exercise.motiml77.workers.dev/dl/windows">הורדה</a>
+</header>
+
+<main id="main" class="bagrut">
+  <div class="bg-head">
+    <h1>שאלת בגרות לקוד</h1>
+    <p class="lead">מעלים את דף השאלה, ומקבלים קובצי Java מוכנים: פעולה ריקה לכל סעיף, המחלקות שהשאלה מתארת, ו-main שבונה נתונים לדוגמה ומדפיס את התוצאות. ואם נתקעים, יש גם הצעה לפתרון.</p>
+  </div>
+
+  <form class="bg-form" data-form novalidate>
+    <div class="drop" data-drop tabindex="0" role="button" aria-describedby="drop-help">
+      <input type="file" id="files" data-input multiple accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,application/pdf,image/*" hidden>
+      <p class="drop-title"><b>גוררים לכאן את דף השאלה</b> או <label for="files" class="pick">בוחרים קבצים</label></p>
+      <p class="drop-help" id="drop-help">PDF, Word (docx) או צילום, גם כמה עמודים. אפשר גם להדביק צילום מסך עם Ctrl+V. עד 10 קבצים.</p>
+    </div>
+    <ul class="chosen" data-chosen aria-label="הקבצים שנבחרו"></ul>
+
+    <fieldset class="lang">
+      <legend>השפה</legend>
+      <label><input type="radio" name="lang" value="java" checked> Java</label>
+      <label><input type="radio" name="lang" value="csharp"> C#</label>
+    </fieldset>
+
+    <label class="note-field">
+      <span>הערה (לא חובה)</span>
+      <textarea name="note" maxlength="600" rows="2" placeholder="למשל: רק שאלה 3, או: התור הוא של מחרוזות"></textarea>
+    </label>
+
+    <div class="send-row">
+      <button type="submit" class="btn" data-send disabled>בניית הקוד</button>
+      <p class="status" data-status role="status" aria-live="polite"></p>
+    </div>
+    <p class="quiet small">הקבצים עוברים דרך השרת של DSViz ל-Gemini של Google, ולא נשמרים. לא מעלים דפים עם שמות, תעודות זהות או ציונים. <a href="privacy.html">פרטיות</a></p>
+  </form>
+
+  <section class="result" data-result hidden aria-labelledby="r-title">
+    <div class="r-head">
+      <div>
+        <h2 id="r-title" data-title></h2>
+        <p class="r-sum" data-summary></p>
+      </div>
+      <div class="r-actions">
+        <button type="button" class="btn" data-zip>הורדה כ-ZIP</button>
+        <label class="with-sol"><input type="checkbox" data-with-sol> עם ההצעות לפתרון בתוך הקוד</label>
+      </div>
+    </div>
+
+    <div class="files">
+      <div class="tabs" role="tablist" data-tabs></div>
+      <div class="code-box">
+        <button type="button" class="copy" data-copy>העתקה</button>
+        <pre class="code" dir="ltr" tabindex="0" data-code></pre>
+      </div>
+    </div>
+    <p class="quiet small" data-where></p>
+
+    <div class="r-more">
+      <div class="expected" data-expected-box hidden>
+        <h3>מה צריך להיות מודפס אם פתרתם נכון</h3>
+        <pre dir="ltr" data-expected></pre>
+      </div>
+      <div class="sols" data-sols-box hidden>
+        <h3>הצעה לפתרון</h3>
+        <p class="quiet small">סגור עד שלוחצים. כאן באתר ההצעה לא הורצה; בתוסף ל-Eclipse היא נבדקת מול הפלט הצפוי לפני שהיא מוצגת.</p>
+        <div data-sols></div>
+      </div>
+      <div class="others" data-others-box hidden>
+        <h3>סעיפים בלי קוד</h3>
+        <p class="quiet small">סעיפים שעונים עליהם במילים, או שאלות על סיבוכיות. הם מופיעים גם בראש הקובץ.</p>
+        <ul data-others></ul>
+      </div>
+    </div>
+
+    <p class="again"><button type="button" class="btn light-ink" data-again>שאלה אחרת</button></p>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>© 2026 מוטי לוי. שאלות והערות: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
+  <p class="foot-end"><a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><span aria-hidden="true">&#9829;</span>תרום לנו</a><a href="privacy.html">פרטיות</a></p>
+</footer>
+
+<script src="assets/scaffold.js" defer></script>
+<script src="assets/bagrut.js" defer></script>
+</body>
+</html>

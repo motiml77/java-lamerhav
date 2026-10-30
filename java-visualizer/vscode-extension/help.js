@@ -11,6 +11,24 @@ const TUTORIALS = [
     { id: 'd', num: '04', title: 'מוסיפים התאמות לתרגיל', desc: 'אחרי שהתרגיל נוצר: מוסיפים ידנית מבנה נוסף, משתנה x ומערך — ורואים שגם הם מופיעים בהדמיה.' },
 ];
 
+/** "תרום לנו" — כפתור זהב קטן בתחתית הדף. אותו קישור כמו בחלון ההרצה (Theme.DONATE_URL) */
+const DONATE_URL = 'https://www.paypal.com/donate/?business=motiml77%40gmail.com&currency_code=ILS&item_name=DSViz';
+const DONATE_CSS = `.donate { display: inline-flex; align-items: center; gap: 6px; font: 700 12.5px/1 "Segoe UI", Heebo, Arial, sans-serif; color: #4a3405; text-decoration: none;
+  padding: 6px 14px; border-radius: 999px; background: linear-gradient(#f8de8a, #ddb042); border: 1px solid #b68a1e; box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 1px 3px rgba(0,0,0,.45); white-space: nowrap; }
+.donate:hover, .donate:focus-visible { background: linear-gradient(#fbe7a4, #e6bc4e); outline: none; }
+.donate:active { transform: translateY(1px); }
+.donate .heart { color: #b4372c; font-size: 13px; }`;
+const DONATE_HTML = `<a class="donate" id="donate" href="${DONATE_URL}" target="_blank" rel="noopener" title="התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal"><span class="heart">&#9829;</span>תרום לנו</a>`;
+// בדפדפן — הקישור נפתח בלשונית חדשה. בתוך Eclipse (dsvizOpen) ובתוך VS Code (postMessage) — פותחים בדפדפן של המערכת
+const DONATE_JS = `(function () {
+  var d = document.getElementById('donate'); if (!d) return;
+  d.onclick = function () {
+    if (window.dsvizOpen) { try { window.dsvizOpen(d.href); return false; } catch (e) { } }
+    if (window.__dsvizVs) { window.__dsvizVs.postMessage({ cmd: 'open', url: d.href }); return false; }
+    return true;
+  };
+})();`;
+
 /** durations: { a: "1:05", ... } (אופציונלי). urlOf(file) → כתובת הקובץ בתוך התיקייה help (שונה ב-Webview ובדפדפן) */
 function page({ urlOf, durations, csp }) {
     const list = TUTORIALS.map(t => Object.assign({}, t, { dur: (durations || {})[t.id] || '', video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
@@ -53,14 +71,16 @@ h1 b { background: linear-gradient(100deg, var(--accent), var(--accent2)); -webk
 .speed .btn { padding: 6px 12px; min-width: 56px; }
 .speed .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .hint { color: var(--muted); font-size: 14px; margin-top: 22px; }
-.copy { font-size: 12px; opacity: .7; direction: ltr; text-align: right; margin-top: 8px; }
+.copy { font-size: 12px; opacity: .7; direction: ltr; text-align: right; }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+${DONATE_CSS}
 </style></head><body>
 <div class="wrap">
   <h1>הדרכה <b>לשימוש</b></h1>
   <div class="sub">בוחרים הדרכה — לכל אחת סרטון קצר שמראה בדיוק איפה לוחצים ומה נפתח.</div>
   <div class="grid" id="grid"></div>
   <div class="hint">אפשר לחזור לכאן בכל רגע בכפתור <b>?</b> בסרגל הכלים.</div>
-  <div class="hint copy">© 2026 Moti Levi · motiml77@gmail.com</div>
+  <div class="foot">${DONATE_HTML}<div class="hint copy" style="margin:0">© 2026 Moti Levi · motiml77@gmail.com</div></div>
 </div>
 <div id="player"><div class="bar"><h3 id="ptitle"></h3><div class="speed" id="speed"><span>מהירות</span></div><button class="btn" id="next">ההדרכה הבאה ◂</button><button class="btn" id="close">✕ סגירה</button></div><video id="vid" controls></video></div>
 <script>
@@ -94,6 +114,7 @@ $('next').onclick = () => play((cur + 1) % LIST.length);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') stop(); });
 const h = (location.hash || '').slice(1), k = LIST.findIndex(t => t.id === h);
 if (k >= 0) play(k);
+${DONATE_JS}
 </script></body></html>`;
 }
 
@@ -124,17 +145,19 @@ body { background: #070913; color: #f2f4fb; font: 16px/1.4 "Segoe UI", Heebo, Ar
 .stage { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px 12px; }
 video { max-width: 100%; max-height: 100%; background: #000; border-radius: 10px; outline: none; }
 #err { display: none; color: #ffd27a; text-align: center; padding: 20px; }
-.copy { flex: 0 0 auto; color: #aab2c8; font-size: 11px; opacity: .7; direction: ltr; text-align: right; padding: 0 16px 8px; }
+.foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 16px 8px; }
+.copy { color: #aab2c8; font-size: 11px; opacity: .7; direction: ltr; }
+${DONATE_CSS}
 </style></head><body>
 <div class="bar"><h1 id="ttl"></h1><button class="other" id="other">הדרכה אחרת</button><div class="speed" id="speed"><span>מהירות</span></div></div>
 <div class="stage"><video id="vid" controls autoplay></video><div id="err">לא הצלחתי לנגן את הסרטון בחלון הזה.</div></div>
-<div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div>
+<div class="foot">${DONATE_HTML}<div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div></div>
 <script>
 var LIST = ${data};
 var SPEEDS = [1, 1.25, 1.5, 2];
 function $(id) { return document.getElementById(id); }
 var id = ${JSON.stringify(fixedId || null)} || (location.hash || '#a').slice(1), t = LIST[0], i, vs = null;
-try { vs = acquireVsCodeApi(); } catch (e) { }
+try { vs = acquireVsCodeApi(); window.__dsvizVs = vs; } catch (e) { }
 for (i = 0; i < LIST.length; i++) if (LIST[i].id === id) t = LIST[i];
 $('ttl').textContent = t.num + ' · ' + t.title;
 document.title = t.title;
@@ -165,6 +188,7 @@ v.onerror = fail;
 v.addEventListener('loadedmetadata', function () { v.playbackRate = rate; });
 v.src = t.video;
 setRate(rate);
+${DONATE_JS}
 </script></body></html>`;
 }
 

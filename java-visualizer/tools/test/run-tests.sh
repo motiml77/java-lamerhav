@@ -96,6 +96,23 @@ grep -q 'הסכום: 21' "$L/plain.txt" && ! grep -q '#1 ' "$L/plain.txt" && [ "
 (cd "$L" && java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -Ddsviz.visual=true -cp ".:$JAR" Main > visual.txt 2>&1)
 grep -q '#1 ' "$L/visual.txt" && echo "הרצה ויזואלית (טקסט כשאין מסך): מתועדת" || { echo "נכשל"; cat "$L/visual.txt"; exit 1; }
 
+echo "== 5א. שגיאות שהתלמיד רואה בציור: מבנה ריק, null, מערך, וחוליות שאבדו (אין מצביע)"
+P="$W/problems"
+mkdir -p "$P"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$P" $(find problems -name "*.java")
+card() {  # card <class> <expected text>
+    (cd "$P" && java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine "$1" > "$1.txt" 2>&1) || true
+    grep -qF "$2" "$P/$1.txt" && echo "  ok  $1: $2" || { echo "  FAIL $1: חסר $2"; cat "$P/$1.txt"; exit 1; }
+}
+card bugs.EmptyPop '[כרטיס empty-stack s pop()]'
+card bugs.EmptyQueue '[כרטיס empty-queue q head()]'
+card bugs.NullNode '[כרטיס null p getValue()]'
+card bugs.TreeNull '[כרטיס null t getValue()]'
+card bugs.Index '[כרטיס index]'
+card lost.LostCheck 'MARK-NO-LOSS-ABOVE'
+sed '/MARK-NO-LOSS-ABOVE/q' "$P/lost.LostCheck.txt" | grep -q 'אבד' && { echo "  FAIL חוליה סומנה כאבודה בלי סיבה"; cat "$P/lost.LostCheck.txt"; exit 1; }
+sed '1,/MARK-NO-LOSS-ABOVE/d' "$P/lost.LostCheck.txt" | grep -q 'אבד' && echo "  ok  ראש הרשימה שאבד מסומן (ורק הוא)" || { echo "  FAIL ראש שאבד לא סומן"; cat "$P/lost.LostCheck.txt"; exit 1; }
+
 echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
 mkdir -p "$W/obj"
 javac -encoding UTF-8 -cp "$JAR" -d "$W/obj" objcards/ObjCheck.java
@@ -140,6 +157,9 @@ for cp in "$W/sol/cls" "$W/sol/cls:../../build/eclipse-deps/ecj.jar"; do
         || { echo "  FAIL הצעה לפתרון ($cp)"; cat "$W/sol/out.txt"; exit 1; }
 done
 sed 's/^/  /' "$W/sol/out.txt"
+
+echo "== 9ב. האתר: שאלת בגרות לקוד (בדפדפן, מול קוד השרת) ומונה ההורדות"
+node site-bagrut-test.js "$W" > "$W/site.txt" 2>&1 && grep -E '^  (ok|FAIL)|עברו' "$W/site.txt" || { cat "$W/site.txt"; exit 1; }
 
 echo "== 10. המורה בעברית (Eclipse): תרגום כל הודעות הקומפיילר, מיקום מדויק של הבעיה, ואזהרות על טעויות נפוצות"
 DEPS="$(cd ../../build/eclipse-deps && pwd)"

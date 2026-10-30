@@ -544,6 +544,12 @@ final class Viewer extends JFrame {
         JPanel line = new JPanel(new BorderLayout());
         line.setOpaque(false);
         line.add(c, BorderLayout.LINE_END);
+        // "תרום לנו" — קטן, בזהב, בצד השני של שורת זכויות היוצרים
+        JPanel give = new JPanel(new FlowLayout(FlowLayout.LEADING, 10, 0));
+        give.setOpaque(false);
+        give.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
+        give.add(new Donate());
+        line.add(give, BorderLayout.LINE_START);
         box.add(line, BorderLayout.SOUTH);
         return box;
     }

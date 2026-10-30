@@ -1,0 +1,173 @@
+// בודק את האתר בדפדפן אמיתי (Chromium): "שאלת בגרות לקוד" (bagrut.html) ומונה ההורדות (index.html).
+// הבקשה מהדפדפן עוברת לקוד האמיתי של השרת (worker/src/index.js) — רק Gemini מדומה — כך שנבדק גם שהשרת מקבל את מה שהדף שולח.
+//   node site-bagrut-test.js [out-dir]   (צילומי מסך: bagrut-*.png)
+const fs = require('fs'), path = require('path'), http = require('http'), assert = require('assert');
+const ROOT = path.join(__dirname, '..', '..');
+const SITE = path.join(ROOT, 'site');
+let playwright, JSZip;
+for (const p of ['playwright', '/opt/node-tools/node_modules/playwright']) { try { playwright = require(p); break; } catch (e) { /* הבא */ } }
+for (const p of ['jszip', '/opt/node-tools/node_modules/jszip']) { try { JSZip = require(p); break; } catch (e) { /* הבא */ } }
+if (!playwright || !JSZip) { console.log('playwright / jszip לא מותקנים — מדלגים על בדיקת האתר'); process.exit(0); }
+const JSZIP_FILE = path.join(path.dirname(require.resolve(fs.existsSync('/opt/node-tools/node_modules/jszip') ? '/opt/node-tools/node_modules/jszip' : 'jszip')), '..', 'dist', 'jszip.min.js');
+const out = process.argv[2] || path.join(ROOT, 'build', 'test');
+fs.mkdirSync(out, { recursive: true });
+const SERVER = 'https://dsviz-exercise.motiml77.workers.dev';
+const S = require(path.join(SITE, 'assets', 'scaffold.js'));
+const SAMPLE = JSON.parse(fs.readFileSync(path.join(__dirname, 'ai', '1-stack.json'), 'utf8'));
+
+let ok = 0;
+function check(c, msg) { assert.ok(c, msg); }
+function pass(msg) { ok++; console.log('  ok  ' + msg); }
+
+// שרת קטן לתיקיית האתר (כמו GitHub Pages)
+function serve() {
+  const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.mp4': 'video/mp4' };
+  return new Promise(res => {
+    const s = http.createServer((q, r) => {
+      const f = path.join(SITE, decodeURIComponent(q.url.split('?')[0]).replace(/^\/+/, '') || 'index.html');
+      if (!f.startsWith(SITE) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; }
+      r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' });
+      fs.createReadStream(f).pipe(r);
+    }).listen(0, '127.0.0.1', () => res(s));
+  });
+}
+
+async function docx() {
+  const z = new JSZip();
+  z.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>');
+  z.file('word/document.xml', '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+    + '<w:p><w:r><w:t>שאלה 2. כתבו פעולה המקבלת מחסנית</w:t></w:r></w:p>'
+    + '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>קלט</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>פלט</w:t></w:r></w:p></w:tc></w:tr></w:tbl>'
+    + '</w:body></w:document>');
+  z.file('word/media/image1.png', fs.readFileSync(path.join(__dirname, 'ai', 'files', 'big.png')));
+  return z.generateAsync({ type: 'nodebuffer' });
+}
+
+(async () => {
+  const worker = (await import(path.join(ROOT, 'worker', 'src', 'index.js'))).default;
+  let gemini = { exercise: SAMPLE }, seen = null;
+  // Gemini המדומה: מחזיר את התרגיל לדוגמה
+  globalThis.fetch = async () => new Response(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(Object.assign({ isExercise: true }, gemini.exercise)) }] } }] }), { status: 200 });
+  const server = await serve();
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const ENV = { GEMINI_API_KEY: 'k', MODELS: 'm', SITE_ORIGINS: base, APP_KEY: 'plugin-only', STATS: { get: async k => (k === 'dl:windows' ? '1230' : '4'), put: async () => {} } };
+
+  const browser = await playwright.chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
+  await ctx.route('https://cdnjs.cloudflare.com/ajax/libs/jszip/**', r => r.fulfill({ path: JSZIP_FILE, contentType: 'text/javascript' }));
+  await ctx.route('https://fonts.googleapis.com/**', r => r.fulfill({ body: '', contentType: 'text/css' }));
+  await ctx.route(SERVER + '/**', async r => {
+    const q = r.request();
+    const headers = Object.assign({}, await q.allHeaders());
+    const body = q.method() === 'POST' ? q.postDataBuffer() : undefined;
+    if (q.url().endsWith('/v1/site/exercise') && q.method() === 'POST') seen = { headers, body };
+    const res = await worker.fetch(new Request(q.url(), { method: q.method(), headers, body }), ENV, {});
+    const h = {}, buf = Buffer.from(await res.arrayBuffer());
+    res.headers.forEach((v, k) => { h[k] = v; });
+    if (seen && res.status === 200 && q.url().endsWith('/v1/site/exercise')) seen.exercise = JSON.parse(buf.toString('utf8')).exercise;
+    await r.fulfill({ status: res.status, headers: h, body: buf });
+  });
+
+  // ---- מונה ההורדות בעמוד הראשי
+  const page = await ctx.newPage();
+  await page.goto(base + '/index.html');
+  await page.waitForFunction(() => !document.querySelector('[data-downloads]').hidden, null, { timeout: 5000 });
+  const count = await page.textContent('[data-downloads]');
+  check(/1,234/.test(count) && /הורדות/.test(count), 'מונה: ' + count);
+  check(await page.getAttribute('.hero .btn', 'href') === SERVER + '/dl/windows', 'כפתור ההורדה עובר דרך המונה');
+  check(await page.$('footer .donate[href*="paypal.com/donate"]'), 'תרום לנו בתחתית');
+  pass('עמוד ראשי: מונה הורדות (' + count + '), ההורדה דרך /dl/windows, ו"תרום לנו"');
+
+  // ---- שאלת בגרות: Word + תמונה + PDF
+  await page.goto(base + '/bagrut.html');
+  check(await page.isDisabled('[data-send]'), 'בלי קבצים — אי אפשר לשלוח');
+  const dir = path.join(out, 'bagrut-upload');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'שאלה.docx'), await docx());
+  await page.setInputFiles('[data-input]', [path.join(dir, 'שאלה.docx'), path.join(__dirname, 'ai', 'files', 'photo.jpg'), path.join(__dirname, 'ai', 'files', 'exam.pdf')]);
+  await page.waitForFunction(() => document.querySelectorAll('[data-chosen] li').length === 3, null, { timeout: 15000 });
+  await page.setInputFiles('[data-input]', [path.join(__dirname, 'ai', 'files', 'old.doc')]);
+  await page.waitForSelector('[data-status].bad');
+  check(/docx/.test(await page.textContent('[data-status]')), 'Word ישן — הודעה');
+  check(await page.$$eval('[data-chosen] li', l => l.length) === 3, 'הקובץ הישן לא נוסף');
+  pass('קבצים: Word, צילום ו-PDF נוספו; Word ישן (doc) נדחה עם הסבר');
+  await page.screenshot({ path: path.join(out, 'bagrut-form.png'), fullPage: true });
+
+  await page.fill('textarea[name=note]', 'רק שאלה 2');
+  await page.click('[data-send]');
+  await page.waitForSelector('[data-result]:not([hidden])', { timeout: 20000 });
+  // מה הגיע לשרת
+  const form = await new Request('http://x/', { method: 'POST', headers: { 'content-type': seen.headers['content-type'] }, body: seen.body }).formData();
+  const meta = JSON.parse(await form.get('meta').text());
+  check(meta.language === 'java' && meta.note === 'רק שאלה 2', 'meta: ' + JSON.stringify(meta).slice(0, 120));
+  check(meta.texts.length === 1 && /שאלה 2\. כתבו/.test(meta.texts[0].text) && /קלט \| פלט/.test(meta.texts[0].text), 'הטקסט מה-Word: ' + JSON.stringify(meta.texts));
+  const files = form.getAll('file');
+  check(files.length === 3 && meta.names.length === 3, 'קבצים: ' + files.length + ' שמות: ' + meta.names);
+  check(files.map(f => f.type).join() === 'image/png,image/jpeg,application/pdf', 'סוגים: ' + files.map(f => f.type));
+  check(meta.names[0] === 'שאלה.docx', 'השם בעברית ב-meta: ' + meta.names[0]);
+  pass('הבקשה: טקסט ה-Word (כולל טבלה), התמונה שבתוכו, הצילום וה-PDF, הערה ושפה — והשרת קיבל אותה');
+
+  // התוצאה: אותם קבצים כמו ב-Eclipse
+  const e = S.read(seen.exercise), pkg = S.folderName(e.topic, new Set(), false);
+  const expect = S.build(e, pkg, ['שאלה.docx', 'photo.jpg', 'exam.pdf'], false);
+  check((await page.textContent('[data-title]')) === SAMPLE.title, 'כותרת');
+  const tabs = await page.$$eval('[data-tabs] button', b => b.map(x => x.textContent));
+  check(tabs.length === expect.length && tabs[0] === expect[0].className + '.java', 'לשוניות: ' + tabs);
+  const code = await page.textContent('[data-code]');
+  check(code === expect[0].code, 'הקוד בדף = הקוד שבונה scaffold.js');
+  check(code.includes('package ' + pkg + ';'), 'חבילה ' + pkg);
+  check(!code.includes(e.tasks[0].solution.split('\n')[1].trim()), 'בלי פתרון בקוד');
+  pass('התוצאה: ' + tabs.join(', ') + ' — חבילה ' + pkg + ', פעולות ריקות, בלי הפתרון');
+
+  check(!(await page.isHidden('[data-expected-box]')) && (await page.textContent('[data-expected]')) === SAMPLE.expectedOutput, 'פלט צפוי');
+  const sols = await page.$$('[data-sols] details');
+  check(sols.length === 2, 'שתי הצעות');
+  check(await page.$$eval('[data-sols] details', d => d.every(x => !x.open)), 'ההצעות סגורות');
+  check(!(await page.isVisible('[data-sols] details pre')), 'הפתרון לא נראה לפני לחיצה');
+  await page.click('[data-sols] details summary');
+  check(await page.isVisible('[data-sols] details pre'), 'נפתח בלחיצה');
+  check(await page.textContent('[data-others]') === 'ג. ' + SAMPLE.otherQuestions[0].text, 'סעיף בלי קוד');
+  pass('פלט צפוי, הצעות לפתרון סגורות עד לחיצה, וסעיף ג (בלי קוד)');
+
+  await page.check('[data-with-sol]');
+  const solved = await page.textContent('[data-code]');
+  check(solved === S.build(e, pkg, ['שאלה.docx', 'photo.jpg', 'exam.pdf'], true)[0].code && solved !== code, 'עם פתרונות');
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-zip]')]);
+  check(dl.suggestedFilename() === pkg + '-solution.zip', 'שם: ' + dl.suggestedFilename());
+  const zip = await JSZip.loadAsync(fs.readFileSync(await dl.path()));
+  const names = Object.keys(zip.files).filter(n => !zip.files[n].dir).sort();
+  check(names.join() === expect.map(f => pkg + '/' + f.className + '.java').sort().join(), 'בתוך ה-ZIP: ' + names);
+  check((await zip.file(pkg + '/' + expect[0].className + '.java').async('string')) === solved, 'תוכן הקובץ ב-ZIP');
+  pass('ZIP: ' + names.join(', ') + ' (עם הפתרונות כשמסמנים)');
+  await page.uncheck('[data-with-sol]');
+  await page.screenshot({ path: path.join(out, 'bagrut-result.png'), fullPage: true });
+
+  // טלפון: בלי גלילה הצידה
+  const phone = await ctx.newPage();
+  await phone.setViewportSize({ width: 390, height: 800 });
+  await phone.goto(base + '/bagrut.html');
+  check(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'גלילה הצידה בטלפון (טופס)');
+  await phone.screenshot({ path: path.join(out, 'bagrut-phone.png'), fullPage: true });
+  pass('טלפון: הטופס בלי גלילה הצידה');
+
+  // שגיאה מהשרת (לא תרגיל) — מוצגת, והטופס נשאר
+  gemini = { exercise: { isExercise: false, problem: 'זה מתכון לעוגה, לא תרגיל.', title: '', summary: '', topic: '', mainClass: '', imports: [], classes: [], tasks: [], givenCode: [], otherQuestions: [], mainCode: '' } };
+  await page.click('[data-again]');
+  await page.setInputFiles('[data-input]', [path.join(__dirname, 'ai', 'files', 'exam.pdf')]);
+  await page.waitForFunction(() => document.querySelectorAll('[data-chosen] li').length === 1);
+  await page.click('[data-send]');
+  await page.waitForSelector('[data-status].bad', { timeout: 15000 });
+  const err = await page.textContent('[data-status]');
+  check(/מתכון|תרגיל/.test(err) && await page.isHidden('[data-result]'), 'שגיאה: ' + err);
+  check(!(await page.isDisabled('[data-send]')), 'אפשר לשלוח שוב');
+  pass('השרת אומר שזה לא תרגיל: ההסבר מוצג, ואפשר לנסות שוב');
+
+  // מאתר אחר — השרת חוסם
+  const evil = await worker.fetch(new Request(SERVER + '/v1/site/exercise', { method: 'POST', headers: { origin: 'https://evil.example' } }), ENV, {});
+  check(evil.status === 403, 'מאתר אחר: ' + evil.status);
+  pass('שליחה מאתר אחר נחסמת (403)');
+
+  await browser.close();
+  server.close();
+  console.log(ok + ' בדיקות של האתר עברו');
+})().catch(e => { console.error('  FAIL', e && e.message || e); process.exit(1); });

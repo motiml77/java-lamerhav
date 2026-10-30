@@ -23,15 +23,16 @@
   <nav aria-label="ניווט בעמוד">
     <a href="./#run">הרצה ויזואלית</a>
     <a href="./#errors">הסברים בעברית</a>
+    <a href="bagrut.html">שאלת בגרות לקוד</a>
     <a href="./#teachers">למורים</a>
     <a href="./#install">התקנה</a>
   </nav>
-  <a class="btn small" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+  <a class="btn small" href="https://dsviz-exercise.motiml77.workers.dev/dl/windows">הורדה</a>
 </header>
 
 <main id="main" class="page">
 <h1>פרטיות</h1>
-<p>בקצרה: רוב מה ש-DSViz עושה קורה על המחשב שלכם, בלי אינטרנט. הדבר היחיד שנשלח החוצה הוא דף תרגיל, וגם זה רק כשבוחרים "שליחת תרגיל".</p>
+<p>בקצרה: רוב מה ש-DSViz עושה קורה על המחשב שלכם, בלי אינטרנט. הדבר היחיד שנשלח החוצה הוא דף תרגיל, וגם זה רק כשבוחרים "שליחת תרגיל" או מעלים שאלה באתר.</p>
 
 <h2>מה נשאר על המחשב</h2>
 <p>ההרצה הוויזואלית, ההסברים בעברית לשגיאות, תרגיל חדש, הוסף מבנה נתונים והדוגמאות הפתורות עובדים בלי חיבור לאינטרנט. הקוד שלכם לא נשלח לשום מקום.</p>
@@ -39,11 +40,14 @@
 <h2>שליחת תרגיל</h2>
 <p>כשבוחרים "שליחת תרגיל" ב-Eclipse, הקבצים שצירפתם (PDF, Word או תמונות) וההערה שכתבתם נשלחים לשרת הביניים של DSViz, ומשם ל-Gemini של Google, שמחזיר תיאור של התרגיל. השרת לא שומר את הקבצים. כדי למנוע שימוש לרעה הוא סופר כמה בקשות הגיעו מכל כתובת IP, וזה הכול. Google מקבלת את הקבצים לפי תנאי השימוש של Gemini, ולכן לא שולחים דפים עם פרטים אישיים: שמות, תעודות זהות או ציונים.</p>
 
+<h2>העלאת שאלת בגרות באתר</h2>
+<p>בדף <a href="bagrut.html">שאלת בגרות לקוד</a> הקבצים שבחרתם עוברים באותה דרך: לשרת הביניים של DSViz ומשם ל-Gemini. קובצי Word נפתחים בדפדפן שלכם, ורק הטקסט והתמונות שבתוכם נשלחים. הקוד שחוזר נבנה בדפדפן, ולא נשמר בשרת.</p>
+
 <h2>עדכונים</h2>
 <p>כשסוגרים את Eclipse, התוכנה בודקת ב-GitHub אם יש גרסה חדשה (הקובץ version.json), ואם יש, מורידה אותה משם. לא נשלח שום מידע מזהה.</p>
 
 <h2>האתר הזה</h2>
-<p>אין באתר עוגיות, אין כלי מעקב ואין טפסים. הגופנים נטענים מ-Google Fonts, ותאריך הגרסה נקרא מ-GitHub.</p>
+<p>אין באתר עוגיות ואין כלי מעקב. הגופנים נטענים מ-Google Fonts, ותאריך הגרסה נקרא מ-GitHub. כפתורי ההורדה עוברים דרך השרת של DSViz, שמוסיף 1 למונה ההורדות ומעביר לקובץ ב-GitHub. נשמר רק המספר, בלי שום פרט על מי שהוריד.</p>
 
 <h2>יצירת קשר</h2>
 <p>שאלות על פרטיות או בקשה למחוק משהו: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a>.</p>
@@ -53,7 +57,7 @@
 
 <footer class="foot">
   <p>© 2026 מוטי לוי. שאלות והערות: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
-  <p><a href="privacy.html">פרטיות</a></p>
+  <p class="foot-end"><a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><span aria-hidden="true">&#9829;</span>תרום לנו</a><a href="privacy.html">פרטיות</a></p>
 </footer>
 </body>
 </html>

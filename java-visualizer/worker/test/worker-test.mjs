@@ -276,4 +276,57 @@ await test('רישיון: PAYWALL=on — נעול בלי קוד / עם קוד ש
   assert.equal(r.body.locked, true);
 });
 
+
+// ------------------------------------------------------------------ מונה הורדות והאתר
+function memKV() {
+  const m = new Map();
+  return { get: async k => (m.has(k) ? m.get(k) : null), put: async (k, v) => { m.set(k, v); }, m };
+}
+await test('הורדה דרך /dl/windows: נספרת ומפנה לקובץ; /v1/stats מחזיר את המספר (ופתוח לכל אתר)', async () => {
+  const STATS = memKV(), env = { ...ENV, STATS, DOWNLOADS_BEFORE: '5' };
+  for (const kind of ['windows', 'windows', 'zip']) {
+    const res = await worker.fetch(new Request('https://w.example/dl/' + kind), env, {});
+    assert.equal(res.status, 302);
+    assert.match(res.headers.get('location'), kind === 'zip' ? /dsviz-install\.zip$/ : /DSViz-Setup\.exe$/);
+  }
+  const res = await worker.fetch(new Request('https://w.example/v1/stats', { headers: { origin: 'https://example.org' } }), env, {});
+  assert.equal(res.headers.get('access-control-allow-origin'), '*');
+  const body = await res.json();
+  assert.deepEqual(body.downloads, { windows: 2, zip: 1, total: 8 });
+  const none = await call(new Request('https://w.example/v1/stats'), ENV);
+  assert.equal(none.body.counting, false);
+  const other = await worker.fetch(new Request('https://w.example/dl/linux'), ENV, {});
+  assert.equal(other.status, 405);
+});
+await test('האתר (/v1/site/exercise): רק מהכתובת של האתר, בלי מפתח-אפליקציה, עם CORS, ומכסה יומית משלו', async () => {
+  const env = { ...ENV, APP_KEY: 'secret-app', USAGE: memKV(), SITE_DAILY_LIMIT: '2' };
+  const site = (origin) => {
+    const fd = new FormData();
+    fd.append('meta', JSON.stringify({ client: 'dsviz-site', language: 'java' }));
+    fd.append('file', new File([PDF], 'q.pdf', { type: 'application/pdf' }));
+    return new Request('https://w.example/v1/site/exercise', { method: 'POST', body: fd, headers: origin ? { origin } : {} });
+  };
+  let res = await worker.fetch(site('https://evil.example'), env, {});
+  assert.equal(res.status, 403);
+  assert.equal(res.headers.get('access-control-allow-origin'), null);
+  res = await worker.fetch(site(null), env, {});
+  assert.equal(res.status, 403);
+  const pre = await worker.fetch(new Request('https://w.example/v1/site/exercise', { method: 'OPTIONS', headers: { origin: 'https://motiml77.github.io' } }), env, {});
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get('access-control-allow-origin'), 'https://motiml77.github.io');
+  for (let i = 0; i < 2; i++) {
+    script = [{ status: 200, json: geminiOk(SAMPLE) }];
+    res = await worker.fetch(site('https://motiml77.github.io'), env, {});
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('access-control-allow-origin'), 'https://motiml77.github.io');
+    assert.equal((await res.json()).exercise.mainClass, 'StackTargil');
+  }
+  res = await worker.fetch(site('https://motiml77.github.io'), env, {});
+  assert.equal(res.status, 429);
+  assert.equal(res.headers.get('access-control-allow-origin'), 'https://motiml77.github.io');   // גם השגיאה נקראת מהדפדפן
+  // התוסף (/v1/exercise) עדיין דורש את המפתח
+  const r = await call(exerciseRequest({ files: [{ bytes: PDF, name: 'a.pdf', type: 'application/pdf' }] }), env);
+  assert.equal(r.status, 401);
+});
+
 console.log(`\n${n} בדיקות עברו`);

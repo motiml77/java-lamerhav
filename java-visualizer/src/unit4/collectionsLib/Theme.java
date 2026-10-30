@@ -23,6 +23,8 @@ public final class Theme {
 
     /** זכויות יוצרים — מוצג בתחתית חלון ההרצה, בחלון הטעינה ובחלונות של C# (מתחיל בסימן כיוון LRM, כדי שגם בחלון מימין לשמאל יופיע בסדר הנכון) */
     public static final String COPYRIGHT = "\u200E© 2026 Moti Levi · motiml77@gmail.com";
+    /** "תרום לנו" — דף התרומה ב-PayPal (אותו קישור בחלון ההרצה, בנגן הסרטונים ובאתר) */
+    public static final String DONATE_URL = "https://www.paypal.com/donate/?business=motiml77%40gmail.com&currency_code=ILS&item_name=DSViz";
 
     public static final Color BG = new Color(0xF1F3F7);          // רקע החלון
     public static final Color CARD = Color.WHITE;                // רקע הכרטיסים
