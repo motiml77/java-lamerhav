@@ -124,7 +124,10 @@ ${DONATE_JS}
  * דף נגן להדרכה אחת (help/player.html#a): רק הסרטון שנבחר, ובחירת מהירות. נכתב ב-ES5 כדי שיעבוד גם בדפדפן הישן שבתוך Eclipse ישן (IE).
  * אם הסרטון לא מתנגן — קוראים ל-window.dsvizFail (ש-Eclipse מגדיר) או מציגים הודעה.
  */
-function playerPage({ urlOf, csp, id: fixedId }) {
+/** הסרטונים באתר (הענף הראשי ב-GitHub) — ההתקנה לא כוללת אותם; הנגן מנגן משם כשאין עותק במחשב, והעדכון ברקע מוריד אותם */
+const REMOTE_HELP = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/help/';
+
+function playerPage({ urlOf, csp, id: fixedId, remote }) {
     const list = TUTORIALS.map(t => ({ id: t.id, num: t.num, title: t.title, video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
     const data = JSON.stringify(list).replace(/</g, '\\u003c');
     return `<!doctype html>
@@ -186,7 +189,12 @@ function fail() {
   if (vs) { vs.postMessage({ cmd: 'fail' }); }
   v.style.display = 'none'; $('err').style.display = 'block';
 }
-v.onerror = fail;
+// הסרטון לא במחשב (ההתקנה בלי סרטונים, והעדכון ברקע עוד לא הוריד אותו) — מנגנים אותו מהאתר
+var REMOTE = ${JSON.stringify(remote || '')}, triedRemote = false;
+v.onerror = function () {
+  if (REMOTE && !triedRemote) { triedRemote = true; v.src = REMOTE + t.id + '.mp4'; return; }
+  fail();
+};
 v.addEventListener('loadedmetadata', function () { v.playbackRate = rate; });
 v.src = t.video;
 setRate(rate);
@@ -194,4 +202,4 @@ ${DONATE_JS}
 </script></body></html>`;
 }
 
-module.exports = { TUTORIALS, page, playerPage };
+module.exports = { TUTORIALS, page, playerPage, REMOTE_HELP };

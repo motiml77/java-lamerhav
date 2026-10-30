@@ -14,7 +14,7 @@ import org.eclipse.ui.handlers.HandlerUtil;
 
 /** הכפתור "?": חלון שבו בוחרים הדרכה, והסרטון הנבחר מתנגן בחלון נגן בתוך Eclipse (מתוך help/ שבתוך התוסף או בהתקנה) */
 public class HelpHandler extends AbstractHandler {
-    private static final String[] FILES = { "index.html", "player.html", "tutorials.json", "a.mp4", "a.jpg", "b.mp4", "b.jpg", "c.mp4", "c.jpg", "d.mp4", "d.jpg" };
+    private static final String[] FILES = { "index.html", "player.html", "tutorials.json", "a.mp4", "a.jpg", "b.mp4", "b.jpg", "c.mp4", "c.jpg", "d.mp4", "d.jpg", "e.mp4", "e.jpg" };
 
     @Override
     public Object execute(ExecutionEvent event) {

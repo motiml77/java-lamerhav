@@ -245,7 +245,10 @@ Section "-core"
   FileWriteUTF16LE /BOM $0 "$INSTDIR"
   FileClose $0
   SetOutPath "$INSTDIR\help"
-  File /r "${BUILD}\help\*.*"   ; סרטוני ההדרכה (הכפתור ?)
+  ; דפי ההדרכה (הכפתור ?) בלי הסרטונים עצמם — כדי שההתקנה תישאר מתחת ל-100MB (המגבלה של GitHub).
+  ; הנגן מנגן מהאתר כשאין עותק במחשב, ו-update.ps1 -Videos מוריד אותם ברקע (מיד אחרי ההתקנה ובכל כניסה ל-Windows)
+  File /r /x *.mp4 "${BUILD}\help\*.*"
+  Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\update.ps1" -Videos'   ; ברקע — לא מחכים
   SetOutPath "$INSTDIR\project"
   File /r "${BUILD}\project\*.*"
   SetOutPath "$INSTDIR"

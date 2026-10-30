@@ -452,7 +452,8 @@ async function openHelp(id) {
     panel.webview.html = help.playerPage({
         id: tut.id,
         urlOf: f => panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, f))).toString(),
-        csp: `default-src 'none'; img-src ${src} data:; media-src ${src}; style-src 'unsafe-inline'; script-src 'unsafe-inline';`
+        remote: help.REMOTE_HELP + (path.basename(dir) === 'help' && path.basename(path.dirname(dir)) !== 'resources' ? '' : 'vscode/'),   // אין עותק במחשב — מהאתר
+        csp: `default-src 'none'; img-src ${src} data:; media-src ${src} https://raw.githubusercontent.com; style-src 'unsafe-inline'; script-src 'unsafe-inline';`
     });
     panel.webview.onDidReceiveMessage(m => {
         if (m && m.cmd === 'list') openHelp();

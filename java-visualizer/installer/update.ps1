@@ -4,13 +4,44 @@
 #   - בודק אם יש גרסה חדשה (version.json באתר), מוריד את ההתקנה, בודק שהקובץ שלם (SHA-256),
 #     מחכה ש-Eclipse ייסגר, ומתקין בשקט (/S /UPDATE) — עם אותן שפות שנבחרו בהתקנה. עבודה של התלמיד לא נוגעים בה.
 #   - בלי אינטרנט / שגיאה — לא עושים כלום (ננסה בפעם הבאה). יומן: update.log ליד הקובץ הזה.
-param([switch]$AfterEclipse)
+#   - -Videos: רק מוריד את סרטוני ההדרכה שחסרים (ההתקנה לא כוללת אותם — מגבלת הגודל של GitHub). רץ מיד אחרי ההתקנה, וגם בכל בדיקה.
+param([switch]$AfterEclipse, [switch]$Videos)
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 $log = Join-Path $dir 'update.log'
 $versionUrl = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/version.json'
 function Log([string]$m) { try { Add-Content -LiteralPath $log -Value ("{0:yyyy-MM-dd HH:mm}  {1}" -f (Get-Date), $m) -Encoding UTF8 } catch { } }
 function EclipseRunning { return [bool](Get-Process -Name eclipse -ErrorAction SilentlyContinue) }
+
+# סרטוני ההדרכה (help\, help\vscode\, help\vs\ — a.mp4 ... e.mp4) שעוד לא במחשב: מורידים מהאתר לקובץ זמני ואז משנים את השם
+function SyncVideos {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $base = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/help/'
+    foreach ($sub in @('', 'vscode', 'vs')) {
+        $d = if ($sub) { Join-Path (Join-Path $dir 'help') $sub } else { Join-Path $dir 'help' }
+        if (-not (Test-Path -LiteralPath (Join-Path $d 'index.html'))) { continue }
+        foreach ($id in @('a', 'b', 'c', 'd', 'e')) {
+            $f = Join-Path $d "$id.mp4"
+            if (Test-Path -LiteralPath $f) { continue }
+            $url = $base + $(if ($sub) { "$sub/" } else { '' }) + "$id.mp4"
+            try {
+                Invoke-WebRequest -Uri $url -OutFile "$f.part" -UseBasicParsing -TimeoutSec 600
+                Move-Item -LiteralPath "$f.part" -Destination $f -Force
+            } catch {
+                Remove-Item -LiteralPath "$f.part" -Force -ErrorAction SilentlyContinue
+                Log "סרטון $sub/$id לא ירד: $($_.Exception.Message)"
+                return   # בלי אינטרנט — ננסה בפעם הבאה
+            }
+        }
+    }
+}
+
+if ($Videos) {
+    $vlock = Join-Path $env:TEMP 'dsviz-videos.lock'
+    try { $vfs = [IO.File]::Open($vlock, 'OpenOrCreate', 'ReadWrite', 'None') } catch { exit 0 }
+    try { SyncVideos } catch { Log "סרטונים: $($_.Exception.Message)" } finally { $vfs.Close() }
+    exit 0
+}
 
 # רק עדכון אחד בכל פעם
 $lock = Join-Path $env:TEMP 'dsviz-update.lock'
@@ -23,6 +54,7 @@ try {
     Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('s')
 
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    try { SyncVideos } catch { Log "סרטונים: $($_.Exception.Message)" }
     $local = 0
     $bf = Join-Path $dir 'build.txt'
     if (Test-Path -LiteralPath $bf) { $local = [int64]((Get-Content -LiteralPath $bf -Raw).Trim()) }
