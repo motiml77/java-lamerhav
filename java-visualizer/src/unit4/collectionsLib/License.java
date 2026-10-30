@@ -27,7 +27,18 @@ import javax.swing.JOptionPane;
 final class License {
     private License() {}
 
+    /**
+     * הנעילה כבויה לגמרי: אין פנייה לשרת, לא נשמר כלום, והחלון תמיד נפתח.
+     * כדי להפעיל בעתיד: true כאן, בנייה מחדש (tools/build-all.sh) — והעדכון האוטומטי מביא את זה לכולם;
+     * ואז בשרת PAYWALL = "on" (worker/README.md). (אפשר גם לנסות בלי לבנות: -Ddsviz.license=on)
+     */
+    static final boolean ENABLED = false;
+
     static final String DEFAULT_URL = "https://dsviz-exercise.motiml77.workers.dev/v1/license";
+
+    private static boolean enabled() {
+        return ENABLED || "on".equals(System.getProperty("dsviz.license"));
+    }
     private static final long FRESH_MS = 6L * 3600 * 1000, OFFLINE_MS = 14L * 24 * 3600 * 1000;
 
     static final class Status {
@@ -140,6 +151,7 @@ final class License {
      * התוכנית עצמה ממשיכה לרוץ כרגיל (הפלט בקונסול) בכל מקרה.
      */
     static boolean allowViewer() {
+        if (!enabled()) return true;   // כרגע: הכול פתוח
         Status s;
         try {
             s = status(false);

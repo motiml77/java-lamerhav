@@ -199,6 +199,12 @@ final class StructPanel extends JPanel {
         }
         // לולאות: כרטיס לכל לולאה (הפנימית מוזחת מתחת לחיצונית), ולידן טבלת הזוגות של לולאות מקוננות
         int loopsH = 0, lx = PAD;
+        for (View v : step.views) {   // המונים (לולאות מקוננות) — מעל הכרטיסים
+            if (!(v instanceof Model.LoopCountersView)) continue;
+            Dimension d = drawCounters(g, (Model.LoopCountersView) v, PAD, y);
+            loopsH += d.height + 10;
+            maxX = Math.max(maxX, PAD + d.width);
+        }
         for (View v : step.views) {
             if (!(v instanceof LoopView)) continue;
             Dimension d = drawLoop(g, (LoopView) v, PAD, y + loopsH);
@@ -302,7 +308,8 @@ final class StructPanel extends JPanel {
 
     /**
      * כרטיס לולאה: הכותרת (קוד), מספר הסיבוב, התנאי — עם הערכים ומה יצא (צבוע צהוב כשבודקים אותו עכשיו),
-     * וב-for שסופר: "סרגל" הערכים — מה כבר עבר (ירוק), איפה עכשיו (כחול, עם שם המשתנה), מה נשאר, ו"יציאה" בסוף.
+     * ומה שהלולאה עוברת עליו: ב-for שסופר — "סרגל" הערכים (במערך: כל המערך, עם האיברים), בתור / מחסנית — מה נשאר בהם,
+     * ברשימה — על מה המצביע, וב-while — איך המשתנה שבתנאי השתנה מסיבוב לסיבוב.
      */
     private Dimension drawLoop(Graphics2D g, LoopView v, int x0, int y) {
         int x = x0 + v.depth * 26;
@@ -311,12 +318,21 @@ final class StructPanel extends JPanel {
         String badge = v.iteration > 0 ? "סיבוב " + v.iteration : "לפני הסיבוב הראשון";
         String cond = v.cond.isEmpty() ? null : v.cond + (v.condValues.isEmpty() ? "" : "   →   " + v.condValues);
         String res = v.condResult == null ? null : String.valueOf(v.condResult);
-        int cw = 34, ch = 30, n = v.values.size();
-        int trackW = n == 0 ? 0 : (n + 1) * cw + 10;
+        boolean arr = !v.elements.isEmpty();
+        int n = v.values.size(), cw = arr ? Math.max(34, widthOfStrings(v.elements) + 14) : 34, ch = 30;
+        String subjLabel = arr && v.subjectKind != null ? "עובר על ה" + v.subjectKind + " " + v.subjectName : null;
+        String hist = v.history.isEmpty() ? null : String.join("  →  ", v.history);
+        String histLbl = hist == null ? null : "הערך של " + v.historyVar + " בתחילת כל סיבוב:";
+        int trackW = n == 0 ? 0 : (n + 1) * cw + 20;
+        int structW = v.structItems.isEmpty() ? 0 : v.structItems.size() * 34 + 140;
         int lblW = textWidth("בודקים — יוצאים מהלולאה", SMALL_B);
-        int w = Math.max(320, 24 + Math.max(textWidth(v.header, mono) + textWidth(badge, SMALL_B) + textWidth(v.title, SMALL) + 64,
-                Math.max(cond == null ? 0 : textWidth(cond, monoP) + lblW + 40 + (res == null ? 0 : textWidth("→  " + res, mono) + 20), trackW)));
-        int h = 14 + 22 + (cond != null ? 28 : 0) + (n > 0 ? 22 + ch + 20 : v.var != null ? 22 : 0) + 8;
+        int w = Math.max(340, 24 + max(textWidth(v.header, mono) + textWidth(badge, SMALL_B) + textWidth(v.title, SMALL) + 64,
+                cond == null ? 0 : textWidth(cond, monoP) + lblW + 40 + (res == null ? 0 : textWidth("→  " + res, mono) + 20),
+                trackW, structW, v.structNote == null ? 0 : textWidth(v.structNote, SMALL_B) + 30,
+                hist == null ? 0 : textWidth(hist, monoP) + textWidth(histLbl, SMALL) + 40,
+                v.note == null ? 0 : textWidth(v.note, SMALL_B) + 30));
+        int h = 14 + 22 + (cond != null ? 28 : 0) + (subjLabel != null ? 20 : 0) + (n > 0 ? 22 + ch + (arr ? 34 : 20) : v.var != null && v.varValue != null ? 22 : 0)
+                + (v.structItems.isEmpty() ? 0 : 40) + (v.structNote != null ? 22 : 0) + (hist != null ? 24 : 0) + (v.note != null ? 24 : 0) + 8;
         if (g == null) return new Dimension(w + (x - x0), h);
 
         // מסגרת עם פס צבע (לפי עומק הקינון)
@@ -342,7 +358,7 @@ final class StructPanel extends JPanel {
         g.setColor(MUTED);
         g.drawString(v.title, bx - 10 - textWidth(v.title, SMALL), cy + 13);
         cy += 26;
-        // שורה 2: התנאי
+        // התנאי
         if (cond != null) {
             if (v.atHeader) {
                 g.setColor(READ_C);
@@ -351,8 +367,7 @@ final class StructPanel extends JPanel {
             String lbl = !v.atHeader ? "תנאי:" : v.condResult == null ? "בודקים:" : v.condResult ? "בודקים — ממשיכים" : "בודקים — יוצאים מהלולאה";
             g.setFont(SMALL_B);
             g.setColor(MUTED);
-            int lw = textWidth(lbl, SMALL_B);
-            g.drawString(lbl, x + w - 18 - lw, cy + 13);
+            g.drawString(lbl, x + w - 18 - textWidth(lbl, SMALL_B), cy + 13);
             g.setFont(monoP);
             g.setColor(INK);
             g.drawString(cond, x + 16, cy + 13);
@@ -364,35 +379,150 @@ final class StructPanel extends JPanel {
             }
             cy += 28;
         }
-        // שורה 3: סרגל הערכים
+        if (subjLabel != null) {
+            g.setFont(SMALL_B);
+            g.setColor(accent);
+            g.drawString(subjLabel, x + w - 18 - textWidth(subjLabel, SMALL_B), cy + 12);
+            cy += 20;
+        }
+        // הסרגל: הערכים של המשתנה (במערך — כל המערך: האיבר בתא, האינדקס מתחת)
         if (n > 0) {
             int tx = x + 16, top = cy + 18;
+            int cur = v.currentIndex >= 0 ? v.values.get(v.currentIndex) : Integer.MIN_VALUE;
             for (int i = 0; i <= n; i++) {
                 int bx2 = tx + i * cw;
-                boolean exit = i == n;
-                boolean now = i == v.currentIndex, past = v.done || v.currentIndex >= 0 && i < v.currentIndex;
-                if (exit) {
-                    box(g, bx2 + 4, top, cw + 10, ch, v.done ? GHOST_BG : TODO_BG, null, true);
+                if (i == n) {   // "יציאה": אחרי הערך האחרון התנאי כבר לא מתקיים
+                    box(g, bx2 + 6, top, 44, ch, v.done ? GHOST_BG : TODO_BG, null, true);
                     g.setColor(v.done ? GHOST : MUTED);
-                    center(g, "יציאה", SMALL, bx2 + 4 + (cw + 10) / 2, top + ch / 2);
+                    center(g, "יציאה", SMALL, bx2 + 6 + 22, top + ch / 2);
                     continue;
                 }
-                Color fill = now ? FOCUS_BG : past ? DONE_BG : TODO_BG;
+                int val = v.values.get(i);
+                boolean inRange = v.rangeFrom < 0 || val >= v.rangeFrom && val <= v.rangeTo;
+                boolean now = i == v.currentIndex;
+                boolean past;
+                if (!inRange) past = false;
+                else if (v.done) past = true;
+                else if (v.currentIndex < 0) past = false;
+                else if (v.rangeFrom >= 0) past = v.descending ? val > cur : val < cur;
+                else past = i < v.currentIndex;
+                Color fill = now ? FOCUS_BG : past ? DONE_BG : inRange ? TODO_BG : new Color(0xFAFAFB);
                 g.setColor(fill);
                 g.fillRoundRect(bx2 + 1, top + 1, cw - 2, ch - 2, ARC, ARC);
-                g.setColor(now ? FOCUS : past ? DONE_LINE : BOX_LINE);
-                g.setStroke(now ? THICK : THIN);
+                g.setColor(now ? FOCUS : past ? DONE_LINE : inRange ? BOX_LINE : new Color(0xE3E6EC));
+                g.setStroke(now ? THICK : inRange ? THIN : DASHED);
                 g.drawRoundRect(bx2 + 1, top + 1, cw - 2, ch - 2, ARC, ARC);
-                g.setColor(past && !now ? new Color(0x15803D) : INK);
-                center(g, String.valueOf(v.values.get(i)), now ? SMALL_B : SMALL, bx2 + cw / 2, top + ch / 2);
+                String text = arr ? v.elements.get(i) : String.valueOf(val);
+                g.setColor(!inRange ? new Color(0xB7BDC8) : past && !now ? new Color(0x15803D) : INK);
+                center(g, text, now ? SMALL_B : SMALL, bx2 + cw / 2, top + ch / 2);
+                if (arr) {
+                    g.setColor(now ? FOCUS : MUTED);
+                    center(g, String.valueOf(val), SMALL, bx2 + cw / 2, top + ch + 11);
+                }
                 if (now) labelStack(g, java.util.Collections.singletonList(v.var), bx2 + cw / 2, top - 2);
             }
-        } else if (v.var != null) {
+            cy += 22 + ch + (arr ? 34 : 20);
+        } else if (v.var != null && v.varValue != null) {
             g.setFont(monoP);
             g.setColor(INK);
             g.drawString(v.var + " = " + v.varValue, x + 16, cy + 13);
+            cy += 22;
+        }
+        // תור / מחסנית: מה נשאר בהם (הראש ראשון)
+        if (!v.structItems.isEmpty()) {
+            int sx = x + 16, top = cy + 4;
+            for (int i = 0; i < v.structItems.size(); i++) {
+                box(g, sx + i * 34, top, 32, 26, i == 0 ? READ_C : BOX, null, false);
+                g.setColor(INK);
+                center(g, v.structItems.get(i), SMALL, sx + i * 34 + 16, top + 13);
+            }
+            g.setColor(MUTED);
+            g.setFont(SMALL);
+            String head = "Stack".equals(v.subjectKind) || "מחסנית".equals(v.subjectKind) ? "ראש המחסנית" : "ראש התור";
+            g.drawString(head, sx, top + 26 + 12);
+            cy += 40;
+        }
+        if (v.structNote != null) {
+            g.setFont(SMALL_B);
+            g.setColor(accent);
+            g.drawString(v.structNote, x + w - 18 - textWidth(v.structNote, SMALL_B), cy + 14);
+            cy += 22;
+        }
+        // while: איך המשתנה שבתנאי השתנה מסיבוב לסיבוב
+        if (hist != null) {
+            g.setFont(SMALL);
+            g.setColor(MUTED);
+            g.drawString(histLbl, x + w - 18 - textWidth(histLbl, SMALL), cy + 14);
+            g.setFont(monoP);
+            g.setColor(INK);
+            g.drawString(hist, x + 16, cy + 14);
+            cy += 24;
+        }
+        if (v.note != null) {
+            g.setColor(new Color(0xF3E8FF));
+            g.fillRoundRect(x + 10, cy, w - 20, 22, 8, 8);
+            g.setFont(SMALL_B);
+            g.setColor(LOOP_C[1]);
+            g.drawString(v.note, x + w - 18 - textWidth(v.note, SMALL_B), cy + 15);
         }
         return new Dimension(w + (x - x0), h);
+    }
+
+    private static int max(int... xs) {
+        int m = 0;
+        for (int x : xs) m = Math.max(m, x);
+        return m;
+    }
+
+    private int widthOfStrings(List<String> l) {
+        int m = 0;
+        for (String x : l) m = Math.max(m, textWidth(x, SMALL_B));
+        return Math.min(m, 90);
+    }
+
+    /**
+     * המונים של לולאות מקוננות — זה בתוך זה (כמו בובות בתוך בובות): בתוך המסגרת של i נמצאת המסגרת של j.
+     * כך רואים שעל כל ערך של i — j עובר על כל הערכים שלו.
+     */
+    private Dimension drawCounters(Graphics2D g, Model.LoopCountersView v, int x, int y) {
+        int k = v.levels.size();
+        int[] w = new int[k];
+        Font big = Theme.mono.deriveFont(Font.BOLD, 22f);
+        for (int i = k - 1; i >= 0; i--) {
+            String[] l = v.levels.get(i);
+            int own = 14 + Math.max(textWidth(l[0] + " =", SMALL_B), textWidth(l[2], SMALL)) + 8 + textWidth(l[1], big) + 14;
+            w[i] = own + (i + 1 < k ? w[i + 1] + 10 : 0);
+        }
+        int h0 = 40 + 22 * (k - 1) + 16;
+        int total = Math.max(w[0], titleWidth(v.title, "לולאות מקוננות"));
+        if (g == null) return new Dimension(total, TITLE_H + h0);
+        drawTitle(g, v.title, "לולאות מקוננות", x, y, true);
+        int bx = x, by = y + TITLE_H, bh = h0;
+        for (int i = 0; i < k; i++) {
+            String[] l = v.levels.get(i);
+            Color c = LOOP_C[i % LOOP_C.length];
+            g.setColor(new Color(c.getRed(), c.getGreen(), c.getBlue(), 22));
+            g.fillRoundRect(bx, by, w[i], bh, 14, 14);
+            g.setColor(c);
+            g.setStroke(new BasicStroke(2f));
+            g.drawRoundRect(bx, by, w[i], bh, 14, 14);
+            g.setFont(SMALL_B);
+            g.drawString(l[0] + " =", bx + 12, by + 20);
+            if (!l[2].isEmpty()) {
+                g.setFont(SMALL);
+                g.setColor(MUTED);
+                g.drawString(l[2], bx + 12, by + 38);
+            }
+            g.setFont(big);
+            g.setColor(c);
+            int lw = Math.max(textWidth(l[0] + " =", SMALL_B), textWidth(l[2], SMALL));
+            g.drawString(l[1], bx + 12 + lw + 8, by + 30);
+            int own = 14 + lw + 8 + textWidth(l[1], big) + 14;
+            bx += own;
+            by += 11;
+            bh -= 22;
+        }
+        return new Dimension(total, TITLE_H + h0);
     }
 
     /** טבלת הזוגות של שתי לולאות מקוננות: ירוק = כבר עבר, כחול = עכשיו, לבן = עוד יגיע, אפור = לא קיים (למשל j < i) */

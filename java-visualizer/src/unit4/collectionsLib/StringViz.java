@@ -24,6 +24,23 @@ final class StringViz {
     private StringViz() {}
 
     static final int MAX_CELLS = 80;
+    /** null בביטוי (p != null) */
+    static final Object NULL = new Object() {
+        @Override
+        public String toString() {
+            return "null";
+        }
+    };
+
+    /** מבנה מהספרייה כפי שהוא מופיע במשתנים: Queue [1,2,3] / Stack [3,2,1] / Node [5] — סוג ותוכן (בשביל isEmpty ו-null) */
+    static final class Struct {
+        final String kind;
+        final List<String> items = new ArrayList<String>();
+
+        Struct(String kind) {
+            this.kind = kind;
+        }
+    }
     /** מפריד בין הקוד והתוצאה (משמאל לימין) לבין ההסבר בעברית — שמוצג בשורה משלו, כדי שלא יתהפך */
     static final String NOTE = "\u0001";
     private static final Pattern CALL = Pattern.compile("\\.\\s*(length|isEmpty|charAt|substring|indexOf|lastIndexOf|contains|startsWith|endsWith"
@@ -371,21 +388,48 @@ final class StringViz {
                 while (j < s.length() && Character.isJavaIdentifierPart(s.charAt(j))) j++;
                 String name = s.substring(i, j);
                 i = j;
+                if (name.equals("null")) return NULL;
+                if (name.equals("true") || name.equals("false")) return Boolean.valueOf(name);
                 Object v = env.get(name);
                 if (v == null) throw new IllegalArgumentException();
-                int save = i;
-                ws();
-                if (i < s.length() && s.charAt(i) == '.') {   // s.length()
-                    i++;
+                // אחרי השם: arr[i]  arr.length  s.length()  s.charAt(i)  q.isEmpty()
+                while (true) {
+                    int save = i;
                     ws();
-                    if (s.startsWith("length", i) && v instanceof String) {
-                        i += 6;
-                        if (eat('(') && eat(')')) return ((String) v).length();
+                    if (i < s.length() && s.charAt(i) == '[' && v instanceof List) {
+                        i++;
+                        int k = num(expr());
+                        if (!eat(']')) throw new IllegalArgumentException();
+                        List<?> l = (List<?>) v;
+                        if (k < 0 || k >= l.size()) throw new IllegalArgumentException();
+                        v = l.get(k);
+                        continue;
                     }
-                    throw new IllegalArgumentException();
+                    if (i < s.length() && s.charAt(i) == '.') {
+                        i++;
+                        ws();
+                        int m = i;
+                        while (m < s.length() && Character.isJavaIdentifierPart(s.charAt(m))) m++;
+                        String member = s.substring(i, m);
+                        i = m;
+                        boolean call = eat('(');
+                        if (member.equals("length") && !call && v instanceof List) { v = ((List<?>) v).size(); continue; }
+                        if (member.equals("length") && call && eat(')') && v instanceof String) { v = ((String) v).length(); continue; }
+                        if (member.equals("isEmpty") && call && eat(')')) {
+                            if (v instanceof String) { v = ((String) v).isEmpty(); continue; }
+                            if (v instanceof Struct) { v = ((Struct) v).items.isEmpty(); continue; }
+                        }
+                        if (member.equals("charAt") && call && v instanceof String) {
+                            int k = num(expr());
+                            if (!eat(')') || k < 0 || k >= ((String) v).length()) throw new IllegalArgumentException();
+                            v = ((String) v).charAt(k);
+                            continue;
+                        }
+                        throw new IllegalArgumentException();
+                    }
+                    i = save;
+                    return v;
                 }
-                i = save;
-                return v;
             }
             throw new IllegalArgumentException();
         }
