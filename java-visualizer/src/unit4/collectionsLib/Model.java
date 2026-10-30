@@ -142,6 +142,30 @@ final class Model {
         boolean error;                     // פעולה מחוץ לגבולות המחרוזת
     }
 
+    /**
+     * לולאה שהשורה הנוכחית בתוכה: הכותרת, מספר הסיבוב, התנאי (עם הערכים ומה יצא), וב-for שסופר — כל הערכים של המשתנה
+     * (values), איפה הוא עכשיו (currentIndex), ו-done אם כבר עבר את כולם. depth = 0 לחיצונית, 1 לפנימית...
+     */
+    static final class LoopView extends View {
+        int depth, iteration;
+        String kind, header, cond = "", condValues = "";
+        Boolean condResult;                // null = לא הצלחנו לחשב
+        boolean atHeader;                  // עכשיו בודקים את התנאי
+        String var;
+        Integer varValue;
+        final List<Integer> values = new ArrayList<Integer>();
+        int currentIndex = -1;
+        boolean done;
+    }
+
+    /** שתי לולאות for מקוננות: טבלה של כל הזוגות (שורה = ערך של החיצוני, עמודה = ערך של הפנימי) */
+    static final class LoopGridView extends View {
+        static final int NONE = 0, TODO = 1, DONE = 2, NOW = 3;
+        String rowVar, colVar;
+        final List<Integer> rows = new ArrayList<Integer>(), cols = new ArrayList<Integer>();
+        final List<int[]> cells = new ArrayList<int[]>();
+    }
+
     /** מערך חד-ממדי */
     static final class ArrayView extends View {
         final List<String> items = new ArrayList<String>();

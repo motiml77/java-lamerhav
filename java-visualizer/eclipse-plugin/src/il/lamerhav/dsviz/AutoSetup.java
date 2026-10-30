@@ -63,6 +63,37 @@ public class AutoSetup implements IStartup {
         };
         job.setSystem(false);
         job.schedule(1500);
+        // עדכון אוטומטי: כש-Eclipse נסגר — בודקים ברקע אם יש גרסה חדשה (ההתקנה עצמה מחכה ש-Eclipse ייסגר לגמרי)
+        try {
+            PlatformUI.getWorkbench().addWorkbenchListener(new org.eclipse.ui.IWorkbenchListener() {
+                @Override
+                public boolean preShutdown(org.eclipse.ui.IWorkbench workbench, boolean forced) {
+                    startUpdater();
+                    return true;
+                }
+
+                @Override
+                public void postShutdown(org.eclipse.ui.IWorkbench workbench) {
+                }
+            });
+        } catch (Throwable e) {
+            // בלי עדכון בסגירה — יש עדיין בדיקה בכל כניסה ל-Windows
+        }
+    }
+
+    /** מפעיל את installer/update.ps1 (שההתקנה שמה בתיקייה שלה) בחלון נסתר. רק ב-Windows */
+    static void startUpdater() {
+        try {
+            if (!System.getProperty("os.name", "").toLowerCase().contains("win")) return;
+            String dir = dsvizFile("install-dir.txt");
+            if (dir == null) return;
+            File script = new File(dir, "update.ps1");
+            if (!script.isFile()) return;
+            new ProcessBuilder("powershell.exe", "-NoProfile", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass",
+                    "-File", script.getAbsolutePath(), "-AfterEclipse").start();
+        } catch (Throwable e) {
+            // לא נורא — ננסה בפעם הבאה
+        }
     }
 
     /** הפעלה ראשונה: קידוד, פרויקט, קובץ פתיחה. מחזיר את Main.java לפתיחה */

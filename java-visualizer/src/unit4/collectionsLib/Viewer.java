@@ -75,6 +75,15 @@ final class Viewer extends JFrame {
         Timing.mark("Viewer.open התחיל");
         Theme.install();
         Timing.mark("Theme.install הסתיים");
+        if (!License.allowViewer()) {   // נעילה לתשלום (כבויה כל עוד השרת לא הפעיל אותה): התוכנית ממשיכה לרוץ כרגיל, בלי החלון
+            Recorder.stopVisual();
+            Recorder.viewerReady.countDown();
+            String ready = System.getProperty(Splash.READY_PROPERTY);
+            if (ready != null) {
+                try { new java.io.File(ready).createNewFile(); } catch (java.io.IOException ignored) {}
+            }
+            return;
+        }
         Viewer v = new Viewer();
         Timing.mark("Viewer נבנה");
         v.setVisible(true);

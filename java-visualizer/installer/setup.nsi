@@ -16,6 +16,9 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !ifndef VERSION
   !define VERSION "1.0.1"
 !endif
+!ifndef BUILDNO
+  !define BUILDNO "0"   ; מספר הבנייה (build-all.sh שם תאריך ושעה) — בשביל העדכון האוטומטי
+!endif
 !ifndef RELEASE
   !define RELEASE "..\release"
 !endif
@@ -52,7 +55,7 @@ ShowUninstDetails show
 !define MUI_PAGE_HEADER_TEXT "בחירת שפה"
 !define MUI_PAGE_HEADER_SUBTEXT "באיזו שפה כותבים את התרגילים?"
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
-!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nמומלץ לסגור את VS Code ואת Eclipse לפני שממשיכים.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
+!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse פתוח — ההתקנה תבקש לסגור אותו.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
 !define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nVisual Studio (C#): פותחים את הקיצור 'תרגילי C#' בשולחן העבודה, ובוחרים ליד כפתור ההפעלה 'הרצה ויזואלית'."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
@@ -179,6 +182,49 @@ FunctionEnd
   FindClose $R0
 !macroend
 
+; ------------------------------------------------------------ Eclipse חייב להיות סגור בזמן ההתקנה
+; (התוסף מועתק ל-dropins, והמטמון של Eclipse נמחק — כש-Eclipse פתוח הוא דורס את זה ביציאה, והתוסף לא נטען כמו שצריך)
+; $0 = 0 אם Eclipse רץ
+Function IsEclipseRunning
+  nsExec::Exec '"$SYSDIR\cmd.exe" /c ""$SYSDIR\tasklist.exe" /NH /FI "IMAGENAME eq eclipse.exe" | "$SYSDIR\find.exe" /I "eclipse.exe""'
+FunctionEnd
+
+Function EnsureEclipseClosed
+  Push $0
+  Push $1
+  StrCpy $1 0
+  check:
+    Call IsEclipseRunning
+    Pop $0
+    StrCmp $0 "0" running done
+  running:
+    ${If} ${Silent}
+      ; התקנה שקטה (עדכון אוטומטי / מעבדה): מחכים ש-Eclipse ייסגר — עד שעתיים
+      IntOp $1 $1 + 1
+      IntCmp $1 240 done 0 done
+      Sleep 30000
+      Goto check
+    ${EndIf}
+    MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "Eclipse פתוח כרגע.$\r$\n$\r$\nכדי שהתוסף יותקן כמו שצריך, צריך לסגור את Eclipse בזמן ההתקנה.$\r$\n$\r$\nכן — לסגור את Eclipse עכשיו (אם יש קבצים שלא נשמרו, Eclipse ישאל אם לשמור)$\r$\nלא — סגרתי בעצמי, להמשיך$\r$\nביטול — לצאת מההתקנה" IDYES close IDNO check
+    Quit
+  close:
+    DetailPrint "Eclipse: סוגר..."
+    nsExec::Exec '"$SYSDIR\taskkill.exe" /IM eclipse.exe'
+    Pop $0
+    ; מחכים עד 60 שניות שייסגר (אולי הוא שואל אם לשמור)
+    StrCpy $1 0
+  wait:
+    Sleep 2000
+    Call IsEclipseRunning
+    Pop $0
+    StrCmp $0 "0" 0 done
+    IntOp $1 $1 + 1
+    IntCmp $1 30 check wait check
+  done:
+  Pop $1
+  Pop $0
+FunctionEnd
+
 ; ------------------------------------------------------------ רכיבים
 Section "-core"
   SetOutPath "$INSTDIR"
@@ -188,6 +234,16 @@ Section "-core"
   File "${RELEASE}\dsviz.jar"
   File "README-he.html"
   File "icon.ico"
+  File "update.ps1"
+  ; עדכון אוטומטי ברקע: מספר הבנייה שמותקן, ובדיקה בכל כניסה ל-Windows (וגם כש-Eclipse נסגר — התוסף מפעיל)
+  FileOpen $0 "$INSTDIR\build.txt" w
+  FileWrite $0 "${BUILDNO}"
+  FileClose $0
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "DSVizUpdate" 'powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\update.ps1"'
+  CreateDirectory "$PROFILE\.dsviz"
+  FileOpen $0 "$PROFILE\.dsviz\install-dir.txt" w
+  FileWriteUTF16LE /BOM $0 "$INSTDIR"
+  FileClose $0
   SetOutPath "$INSTDIR\help"
   File /r "${BUILD}\help\*.*"   ; סרטוני ההדרכה (הכפתור ?)
   SetOutPath "$INSTDIR\project"
@@ -241,6 +297,7 @@ Section "-vscode"
 SectionEnd
 
 Section "Java — Eclipse ו-VS Code (תרגילים ב-Java)" SEC_JAVA
+  Call EnsureEclipseClosed   ; לפני שמתקינים משהו של Java
   DetailPrint "חבילת Java"
 SectionEnd
 
@@ -335,11 +392,25 @@ FunctionEnd
 Function .onInit
   ${GetParameters} $R0
   ${GetOptions} $R0 "/LANG=" $R1
+  ; עדכון אוטומטי: אותן שפות כמו בהתקנה הקודמת
+  ClearErrors
+  ${GetOptions} $R0 "/UPDATE" $R3
+  ${IfNot} ${Errors}
+  ${AndIf} ${FileExists} "$INSTDIR\lang.txt"
+    FileOpen $R4 "$INSTDIR\lang.txt" r
+    FileRead $R4 $R1
+    FileClose $R4
+    ${If} $R1 == "java"
+      StrCpy $R1 "javaonly"
+    ${EndIf}
+  ${EndIf}
   ${If} $R1 == "cs"
     !insertmacro UnselectSection ${SEC_JAVA}
     !insertmacro SelectSection ${SEC_CS}
   ${ElseIf} $R1 == "both"
     !insertmacro SelectSection ${SEC_CS}
+  ${ElseIf} $R1 == "javaonly"
+    !insertmacro UnselectSection ${SEC_CS}
   ${ElseIf} $R1 == ""
     Call DetectCsTools
     Pop $R2
@@ -489,6 +560,20 @@ Section "-extensions"
   ${EndIf}
 SectionEnd
 
+Section "-langs"
+  ; השפות שנבחרו — העדכון האוטומטי (/UPDATE) מתקין שוב את אותן
+  FileOpen $0 "$INSTDIR\lang.txt" w
+  ${If} ${SectionIsSelected} ${SEC_JAVA}
+  ${AndIf} ${SectionIsSelected} ${SEC_CS}
+    FileWrite $0 "both"
+  ${ElseIf} ${SectionIsSelected} ${SEC_CS}
+    FileWrite $0 "cs"
+  ${Else}
+    FileWrite $0 "java"
+  ${EndIf}
+  FileClose $0
+SectionEnd
+
 Section "-wait"
   ; נותנים לתהליכים הנסתרים של הורדת התוספים (VS Code) לעלות לפני שהמתקין נסגר
   Sleep 1500
@@ -496,6 +581,8 @@ SectionEnd
 
 ; ------------------------------------------------------------ הסרה
 Section "Uninstall"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "DSVizUpdate"
+  Delete "$PROFILE\.dsviz\install-dir.txt"
   Call un.FindCode
   ${If} $CODE != ""
     DetailPrint "VS Code: מסיר את התוסף..."
