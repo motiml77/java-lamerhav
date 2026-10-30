@@ -334,9 +334,9 @@
     others.forEach(function (o) {
       var li = document.createElement('li');
       var b = document.createElement('b');
-      b.textContent = (o[0] || '') + (o[0] ? '. ' : '');
+      b.textContent = o.label ? o.label + '. ' : '';
       li.appendChild(b);
-      li.appendChild(document.createTextNode(o[1] || ''));
+      li.appendChild(document.createTextNode(o.text || ''));
       $('[data-others]').appendChild(li);
     });
 

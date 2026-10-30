@@ -158,6 +158,8 @@ for cp in "$W/sol/cls" "$W/sol/cls:../../build/eclipse-deps/ecj.jar"; do
 done
 sed 's/^/  /' "$W/sol/out.txt"
 
+echo "== 9א. האתר בונה את הקוד כמו Eclipse: site/assets/scaffold.js מול AiScaffold.java — אותם קבצים בדיוק"
+node scaffold-parity.js "$W/parity" > "$W/parity.txt" 2>&1 && echo "  ok  $(grep -c '^ *ok' "$W/parity.txt") השוואות זהות" || { cat "$W/parity.txt"; exit 1; }
 echo "== 9ב. האתר: שאלת בגרות לקוד (בדפדפן, מול קוד השרת) ומונה ההורדות"
 node site-bagrut-test.js "$W" > "$W/site.txt" 2>&1 && grep -E '^  (ok|FAIL)|עברו' "$W/site.txt" || { cat "$W/site.txt"; exit 1; }
 

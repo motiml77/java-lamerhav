@@ -1,0 +1,49 @@
+{
+ "title": "בלי סעיפים בכיתה הראשית",
+ "packageName": "ex05_Old Stuff",
+ "mainClass": "Queue",
+ "imports": [],
+ "classes": [
+  {
+   "name": "QueueTargil",
+   "code": "public class QueueTargil {\n    private int z;\n}"
+  },
+  {
+   "name": "Stack",
+   "code": "public class Stack {}"
+  },
+  {
+   "name": "Extra",
+   "code": ""
+  },
+  {
+   "name": "Extra",
+   "code": "dup"
+  },
+  {
+   "name": "class",
+   "code": "x"
+  }
+ ],
+ "tasks": [
+  {
+   "label": "א",
+   "kind": "method",
+   "className": "Extra",
+   "isStatic": false,
+   "returnType": "char",
+   "methodName": "first",
+   "parameters": [
+    {
+     "type": "String",
+     "name": "s"
+    }
+   ],
+   "solution": "public char first(String s) {\n  return s.charAt(0);\n}"
+  }
+ ],
+ "givenCode": [],
+ "otherQuestions": [],
+ "mainCode": "public static void main(String[] args) {\n  System.out.println(1);\n} ",
+ "expectedOutput": "\n\n \n"
+}

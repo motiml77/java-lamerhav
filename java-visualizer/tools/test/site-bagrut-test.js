@@ -81,11 +81,13 @@ async function docx() {
   // ---- שאלת בגרות: Word + תמונה + PDF
   await page.goto(base + '/bagrut.html');
   check(await page.isDisabled('[data-send]'), 'בלי קבצים — אי אפשר לשלוח');
-  const dir = path.join(out, 'bagrut-upload');
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'שאלה.docx'), await docx());
-  await page.setInputFiles('[data-input]', [path.join(dir, 'שאלה.docx'), path.join(__dirname, 'ai', 'files', 'photo.jpg'), path.join(__dirname, 'ai', 'files', 'exam.pdf')]);
-  await page.waitForFunction(() => document.querySelectorAll('[data-chosen] li').length === 3, null, { timeout: 15000 });
+  // שם בעברית — כקובץ בזיכרון (מנתיב בעברית Playwright לא תמיד מעלה)
+  const word = { name: 'שאלה.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await docx() };
+  const fileOf = f => ({ name: f, mimeType: f.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg', buffer: fs.readFileSync(path.join(__dirname, 'ai', 'files', f)) });
+  await page.setInputFiles('[data-input]', [word, fileOf('photo.jpg'), fileOf('exam.pdf')]);
+  page.on('pageerror', e => console.log('    [pageerror] ' + e.message));
+  await page.waitForFunction(() => document.querySelectorAll('[data-chosen] li').length === 3, null, { timeout: 15000 })
+    .catch(async e => { throw new Error('קבצים: ' + (await page.textContent('[data-chosen]')) + ' | סטטוס: ' + (await page.textContent('[data-status]'))); });
   await page.setInputFiles('[data-input]', [path.join(__dirname, 'ai', 'files', 'old.doc')]);
   await page.waitForSelector('[data-status].bad');
   check(/docx/.test(await page.textContent('[data-status]')), 'Word ישן — הודעה');
@@ -104,7 +106,7 @@ async function docx() {
   const files = form.getAll('file');
   check(files.length === 3 && meta.names.length === 3, 'קבצים: ' + files.length + ' שמות: ' + meta.names);
   check(files.map(f => f.type).join() === 'image/png,image/jpeg,application/pdf', 'סוגים: ' + files.map(f => f.type));
-  check(meta.names[0] === 'שאלה.docx', 'השם בעברית ב-meta: ' + meta.names[0]);
+  check(meta.names[0] === 'שאלה.docx (1)' && meta.names[1] === 'photo.jpg', 'השמות בעברית ב-meta (כמו ב-Eclipse): ' + meta.names);
   pass('הבקשה: טקסט ה-Word (כולל טבלה), התמונה שבתוכו, הצילום וה-PDF, הערה ושפה — והשרת קיבל אותה');
 
   // התוצאה: אותם קבצים כמו ב-Eclipse

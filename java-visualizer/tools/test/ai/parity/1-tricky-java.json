@@ -1,0 +1,220 @@
+{
+ "title": "  כותרת\tעם\nרווחים ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ארוכה ",
+ "summary": " סיכום עם רווח קשיח  \n",
+ "topic": "Linked Lists & Recursion!! (שרשראות)",
+ "mainClass": "Main",
+ "imports": [
+  "java.util.*",
+  "import java.util.Arrays;",
+  "java.util.Arrays",
+  "java.util.function.Function",
+  "java.util.List; ",
+  "  using java.util.Map ",
+  "java.util.Scanner",
+  "java.util.Arrays; "
+ ],
+ "classes": [
+  {
+   "name": "Shape",
+   "code": "/* shape */abstract class Shape {\n\tpublic abstract double area();\n}"
+  },
+  {
+   "name": "Helper",
+   "code": "import java.util.*;\npackage foo;\nfinal class Helper\n{\n    int v;\n}"
+  },
+  {
+   "name": "__proto__",
+   "code": "int x;\r\nint y;"
+  },
+  {
+   "name": "Main",
+   "code": ""
+  }
+ ],
+ "tasks": [
+  {
+   "label": " א",
+   "kind": "method",
+   "className": "Main",
+   "isStatic": false,
+   "returnType": "Node< Integer >",
+   "methodName": "בנה",
+   "parameters": [
+    {
+     "type": "int [ ]",
+     "name": "arr"
+    },
+    {
+     "type": "string",
+     "name": "s"
+    },
+    {
+     "type": "Map<String,Integer>",
+     "name": "m"
+    }
+   ],
+   "instructions": "  בונים שרשרת  ",
+   "solution": "// פעולת עזר\n    private static int helper(int q) { return q; }\n\n    static Node<Integer> בנה(int[] a, String str, Map<String, Integer> mm) {\n    \t// בונים שרשרת \"// לא הערה\"\n    \tNode<Integer> first = null; /* הערה { */\n    \tfor (int i = a.length - 1; i >= 0; i--) first = new Node<Integer>(a[i], first);\n    \tString t = \"a // b {\"; // הערה בסוף שורה   \n    \tif (str.length() > 0) mm.put(str, a.length);\n    \tif (a.length > 9) return בנה(a, str, mm);\n    \treturn בנה2(first) ;\n    }\n"
+  },
+  {
+   "label": "ב",
+   "kind": "method",
+   "className": "Shape",
+   "isStatic": false,
+   "returnType": "double",
+   "methodName": "area2",
+   "parameters": [],
+   "solution": "```java \npublic double area2() { return 0; } // שטח\n```"
+  },
+  {
+   "label": "ג",
+   "kind": "method",
+   "className": "Helper",
+   "isStatic": false,
+   "returnType": "boolean",
+   "methodName": "swap",
+   "parameters": [
+    {
+     "type": "int",
+     "name": "x"
+    },
+    {
+     "type": "int",
+     "name": "y"
+    }
+   ],
+   "solution": "public boolean swap(int y, int x) {\n    return y > x && helper(x); // y.x לא מוחלף\n}"
+  },
+  {
+   "label": "ד",
+   "kind": "constructor",
+   "className": "Helper",
+   "parameters": [
+    {
+     "type": "int",
+     "name": "v"
+    }
+   ],
+   "solution": "Helper(int value) { this.v = value; }"
+  },
+  {
+   "label": "ה",
+   "kind": "constructor",
+   "className": "Helper",
+   "parameters": [
+    {
+     "type": "int",
+     "name": "w"
+    }
+   ],
+   "solution": ""
+  },
+  {
+   "label": "",
+   "kind": "method",
+   "className": "Main",
+   "returnType": "int[,]",
+   "methodName": "Main",
+   "parameters": [
+    {
+     "type": "Stack<int",
+     "name": "1bad"
+    }
+   ],
+   "solution": "void doMain(int p1); { }"
+  },
+  {
+   "label": "ז",
+   "kind": "method",
+   "className": "Main",
+   "returnType": "int",
+   "methodName": "calc",
+   "parameters": [
+    {
+     "type": "int",
+     "name": "n"
+    }
+   ],
+   "solution": "x.calc(1);\nint r = new calc(5);\nint calc (int k) {\n  return k + calc(k - 1);\n}"
+  },
+  {
+   "label": "ח",
+   "kind": "method",
+   "className": "Main",
+   "returnType": "int",
+   "methodName": "loop",
+   "parameters": [],
+   "solution": "int r = new loop(5); while (true) { }"
+  },
+  {
+   "label": "ט",
+   "kind": "method",
+   "className": "__proto__",
+   "returnType": "String[][]",
+   "methodName": "toString",
+   "parameters": [
+    {
+     "type": "Queue<Stack<Character>>",
+     "name": "q"
+    },
+    {
+     "type": "Queue<Stack<Character>>",
+     "name": "q"
+    }
+   ],
+   "solution": "String[][] toString(Queue<Stack<Character>> constructor, Queue<Stack<Character>> hasOwnProperty) {\n    return toString(constructor, hasOwnProperty);\n}"
+  },
+  {
+   "label": "י",
+   "kind": "method",
+   "className": "Main",
+   "returnType": "int",
+   "methodName": "calc",
+   "parameters": [
+    {
+     "type": "int",
+     "name": "z"
+    }
+   ]
+  },
+  {
+   "label": "יא",
+   "kind": "method",
+   "className": "Main",
+   "returnType": "int",
+   "methodName": "calc2",
+   "parameters": [
+    {
+     "type": "int",
+     "name": "z"
+    }
+   ]
+  }
+ ],
+ "givenCode": [
+  {
+   "className": "Helper",
+   "code": "\tpublic int get() {\n\t\treturn v;\n\t}"
+  },
+  {
+   "className": "Nope",
+   "code": "static int z() { return 1; }"
+  },
+  {
+   "className": "Main",
+   "code": "   "
+  }
+ ],
+ "otherQuestions": [
+  {
+   "label": "ח  \n x",
+   "text": "  שאלה  "
+  },
+  {
+   "label": "ט",
+   "text": "   "
+  }
+ ],
+ "mainCode": "\n\n    int[] a = {1, 2};\n\tSystem.out.println(task1(a, \"x\", null)); // Mapים\n    Arrays.sort(a);   \n\n",
+ "expectedOutput": "שורה 1\tא\r\nשורה 2   \r\n\nסוף   "
+}
