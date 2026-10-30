@@ -63,6 +63,23 @@ for want in 'ENTERED שורה 7: SumEven() > IsEven() > Rem() | יצאנו מ-Is
     grep -qF -- "$want" "$W/calls.txt" || { echo "קריאות ב-C#: חסר $want"; grep 'קריאה' "$W/calls.txt"; exit 1; }
 done
 echo "פעולות עזר ב-C#: $(grep -c 'קריאה #' "$W/calls.txt") צעדים מסומנים"
+# פעולה שרצה בתוך אובייקט: this הוא d1, המאפיינים שהשורה קוראת / משנה (כמו ב-Java)
+viz objects/cs/Pets.cs --trace "$W/pets.trace" > "$W/pets.out" 2>&1 || { cat "$W/pets.out"; exit 1; }
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/pets.trace" > "$W/pets.txt" 2>&1
+for want in 'this=d1 ב-הבנאי Dog() {name=null, age=0} this.name=שינוי]' 'נכנסים ל-d1.Birthday()]' \
+    'this=d1 ב-Birthday() {name="רקס", age=3} this.age=שינוי]' 'this=d1 ב-Bark() {name="רקס", age=4} this.name=קריאה]' \
+    'this=d2 ב-IsOlderThan() {name="לאסי", age=5} other←d1 this.age=קריאה other.age=קריאה]'; do
+    grep -qF -- "$want" "$W/pets.txt" || { echo "אובייקט ב-C#: חסר $want"; grep 'אובייקט' "$W/pets.txt"; exit 1; }
+done
+echo "פעולה בתוך אובייקט ב-C#: $(grep -c 'אובייקט #' "$W/pets.txt") צעדים מסומנים"
+# סוגי רקורסיה: אותו סיווג כמו ב-Java
+for spec in 'Fib:רקורסיה כפולה | פעולות Fib | עומק 4 | קריאות 9' 'EvenOdd:רקורסיה הדדית | פעולות IsEven, IsOdd' \
+    'SumTail:רקורסיית זנב | פעולות Sum | עומק 5' 'ListLen:רקורסיה פשוטה | פעולות Length | עומק 4 | קריאות 4 | על שרשרת חוליות'; do
+    c=${spec%%:*}; want=${spec#*:}
+    viz recursion/cs/$c.cs --trace "$W/rec-$c.trace" > "$W/rec-$c.out" 2>&1 || { cat "$W/rec-$c.out"; exit 1; }
+    java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/rec-$c.trace" > "$W/rec-$c.txt" 2>&1
+    grep -qF -- "[רקורסיה: $want" "$W/rec-$c.txt" && echo "רקורסיה ב-C#: $c — $want" || { echo "רקורסיה ב-C#: $c חסר $want"; grep 'רקורסיה:' "$W/rec-$c.txt"; exit 1; }
+done
 # פרויקט רגיל של Visual Studio: קובץ אחד מתוך פרויקט (עם Program.cs של תבנית חדשה), כמה Main, ImplicitUsings, ותוכנית top-level
 VS="$W/vs/GoldWater"
 mkdir -p "$VS" && cp calls/vs/GoldWater.csproj calls/vs/Recursion.cs "$VS/" && printf '// See https://aka.ms/new-console-template\nSystem.Console.WriteLine("Hello, World!");\n' > "$VS/Program.cs"
@@ -81,6 +98,32 @@ viz "$W/vs/Top" --trace "$W/top.trace" > "$W/top.out" 2>&1 && grep -q '^8$' "$W/
     && grep -qP '^STEP\tLINE\t.*שורה 4:' "$W/top.trace" && grep -qP '^STEP\tCREATE\t.*מחסנית ריקה: s$' "$W/top.trace" \
     && grep -qP '^STEP\tRETURN\t.*Sum' "$W/top.trace" \
     && echo "תוכנית top-level (תבנית חדשה): שורה-שורה, שמות המשתנים, והפעולות שאחרי הקוד" || { echo "top-level נכשל"; cat "$W/top.out"; grep '^STEP' "$W/top.trace" | head; exit 1; }
+# "שליחת תרגיל" + "הצעה לפתרון" ל-Visual Studio: אותו מנוע כמו ב-Eclipse (SubmitCli / VsSubmit), מול שרת מדומה
+SUB="$W/submit"; mkdir -p "$SUB/home" && cp -r "$ROOT/csharp/project" "$SUB/root" && cp ai/files/photo.jpg "$SUB/"
+node submit/mock-worker.js 8796 submit/cs-stack.json & MOCKW=$!
+sleep 1
+printf '{"lang":"csharp","out":"%s","store":"%s","cs":["dotnet","%s"],"note":"","items":[{"path":"%s","name":"דף התרגיל.jpg"}]}' \
+    "$SUB/root" "$SUB/solutions.json" "$RUNNER" "$SUB/photo.jpg" > "$SUB/m.json"
+DSVIZ_WORKER_URL=http://127.0.0.1:8796 java -cp "$JAR" il.lamerhav.dsviz.SubmitCli submit --manifest "$SUB/m.json" > "$SUB/out.txt" 2>&1 || true
+grep -q '"done":true' "$SUB/out.txt" && grep -q '"solutionStatus":"ok"' "$SUB/out.txt" && grep -q 'Ex01_Stacks.csproj' "$SUB/root/DataStructures-CS.sln" \
+    && [ "$(grep -c 'כאן עונים' "$SUB/root/Exercises/Ex01_Stacks/StackTargil.cs")" = 3 ] && ! grep -q 'count++' "$SUB/root/Exercises/Ex01_Stacks/StackTargil.cs" \
+    && grep -q '"status":"ok"' "$SUB/solutions.json" \
+    && echo "שליחת תרגיל ב-C#: פרויקט Ex01_Stacks בפתרון, בלי פתרון בקוד, וההצעות נבדקו (dsviz-cs)" || { echo "שליחת תרגיל ב-C# נכשלה"; cat "$SUB/out.txt"; kill $MOCKW; exit 1; }
+# החלונות עצמם (Swing), אם יש מסך מדומה
+if command -v Xvfb >/dev/null 2>&1; then
+    (Xvfb :97 -screen 0 1600x900x24 >/dev/null 2>&1 &); sleep 2
+    mkdir -p "$SUB/cls" && javac -d "$SUB/cls" "$ROOT/tutorials/harness/SwingScript.java"
+    rm -rf "$SUB/root2" && cp -r "$ROOT/csharp/project" "$SUB/root2"
+    printf 'pasteimg %s\ntext 0 רק שאלה 1\nshot s1\nclick שליחה ויצירת התרגיל\nwaitwin שליחת תרגיל — C#\nshot s2\n' "$SUB/photo.jpg" > "$SUB/s1.txt"
+    DISPLAY=:97 DSVIZ_WORKER_URL=http://127.0.0.1:8796 DSVIZ_CS="$RUNNER" timeout 120 java -Duser.home="$SUB/home" -Ddsviz.noOpen=true -cp "$SUB/cls:$JAR" \
+        SwingScript "$SUB/s1.txt" "$SUB/shots" il.lamerhav.dsviz.cs.CsTool submit "$SUB/root2" > "$SUB/gui.txt" 2>&1 || true
+    printf 'select 1\nshot l1\n' > "$SUB/s2.txt"
+    DISPLAY=:97 timeout 60 java -Duser.home="$SUB/home" -cp "$SUB/cls:$JAR" SwingScript "$SUB/s2.txt" "$SUB/shots" il.lamerhav.dsviz.cs.CsTool solution "$SUB/root2" >> "$SUB/gui.txt" 2>&1 || true
+    grep -q '"שליחה ויצירת התרגיל"' "$SUB/shots/s1.json" && grep -q 'נוצר התרגיל Ex01_Stacks' "$SUB/shots/s2.json" \
+        && grep -q 'נבדק: הרצנו את main' "$SUB/shots/l1.json" && ! grep -q 'Moti Levi' "$SUB/shots/l1.json" \
+        && echo "החלונות של Visual Studio: שליחת תרגיל → פרויקט, והצעה לפתרון (נבדקה)" || { echo "החלונות של Visual Studio נכשלו"; cat "$SUB/gui.txt"; kill $MOCKW; exit 1; }
+fi
+kill $MOCKW
 # Helpers.Size / Helpers.Duplicate מהספרייה: בלי לשנות את המבנה, עותק עמוק, וצעד אחד לכל קריאה
 viz helpers/HelpersCheck.cs --trace "$W/helpers.trace" > "$W/helpers.out" 2>&1 && grep -q MARK-END "$W/helpers.out" \
     && grep -qP '^STEP\tCREATE\t.*Duplicate\(s\)' "$W/helpers.trace" && echo "Helpers ב-C#: $(grep -c '^  ok' "$W/helpers.out") בדיקות" \

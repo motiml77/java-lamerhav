@@ -9,7 +9,9 @@ const TUTORIALS = [
     { id: 'b', num: '02', title: 'דוגמאות פתורות', desc: 'פותחים תרגיל מוכן מהרשימה, קוראים את הפתרון, ומריצים אותו בחלון ההדמיה — צעד אחרי צעד.' },
     { id: 'c', num: '03', title: 'מבנה בתוך מבנה', desc: 'שלוש דוגמאות: מחסנית של תורים, רשימה של מחסניות ועץ של תורים — יצירת התרגיל וההרצה הוויזואלית.' },
     { id: 'd', num: '04', title: 'מוסיפים התאמות לתרגיל', desc: 'אחרי שהתרגיל נוצר: מוסיפים ידנית מבנה נוסף, משתנה x ומערך — ורואים שגם הם מופיעים בהדמיה.' },
+    { id: 'e', num: '05', title: 'שליחת תרגיל והצעה לפתרון', desc: 'מעלים את דף התרגיל — צילום מסך (Ctrl+V), PDF או Word — ומקבלים קוד מוכן עם פעולה לכל סעיף; ולכל סעיף "💡 הצעה לפתרון" שנבדקה.' },
 ];
+// לכל סביבה סרטונים משלה (אותן הדרכות, במסך של הסביבה): Eclipse — help/, VS Code — help/vscode/, Visual Studio — help/vs/
 
 /** "תרום לנו" — כפתור זהב קטן בתחתית הדף. אותו קישור כמו בחלון ההרצה (Theme.DONATE_URL) */
 const DONATE_URL = 'https://www.paypal.com/donate/?business=motiml77%40gmail.com&currency_code=ILS&item_name=DSViz';
@@ -122,7 +124,10 @@ ${DONATE_JS}
  * דף נגן להדרכה אחת (help/player.html#a): רק הסרטון שנבחר, ובחירת מהירות. נכתב ב-ES5 כדי שיעבוד גם בדפדפן הישן שבתוך Eclipse ישן (IE).
  * אם הסרטון לא מתנגן — קוראים ל-window.dsvizFail (ש-Eclipse מגדיר) או מציגים הודעה.
  */
-function playerPage({ urlOf, csp, id: fixedId }) {
+/** הסרטונים באתר (הענף הראשי ב-GitHub) — ההתקנה לא כוללת אותם; הנגן מנגן משם כשאין עותק במחשב, והעדכון ברקע מוריד אותם */
+const REMOTE_HELP = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/help/';
+
+function playerPage({ urlOf, csp, id: fixedId, remote }) {
     const list = TUTORIALS.map(t => ({ id: t.id, num: t.num, title: t.title, video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
     const data = JSON.stringify(list).replace(/</g, '\\u003c');
     return `<!doctype html>
@@ -184,7 +189,12 @@ function fail() {
   if (vs) { vs.postMessage({ cmd: 'fail' }); }
   v.style.display = 'none'; $('err').style.display = 'block';
 }
-v.onerror = fail;
+// הסרטון לא במחשב (ההתקנה בלי סרטונים, והעדכון ברקע עוד לא הוריד אותו) — מנגנים אותו מהאתר
+var REMOTE = ${JSON.stringify(remote || '')}, triedRemote = false;
+v.onerror = function () {
+  if (REMOTE && !triedRemote) { triedRemote = true; v.src = REMOTE + t.id + '.mp4'; return; }
+  fail();
+};
 v.addEventListener('loadedmetadata', function () { v.playbackRate = rate; });
 v.src = t.video;
 setRate(rate);
@@ -192,4 +202,4 @@ ${DONATE_JS}
 </script></body></html>`;
 }
 
-module.exports = { TUTORIALS, page, playerPage };
+module.exports = { TUTORIALS, page, playerPage, REMOTE_HELP };

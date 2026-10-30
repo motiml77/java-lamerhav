@@ -53,6 +53,8 @@ public final class TraceViewer {
             if (Boolean.getBoolean("dsviz.conditions")) {   // התנאים והקריאות לפעולות עזר: מה מצויר בכל צעד
                 System.out.print(CondViz.dump());
                 System.out.print(CallViz.dump());
+                System.out.print(SelfViz.dump());
+                System.out.print(RecursionKind.dump());
             }
             return;
         }

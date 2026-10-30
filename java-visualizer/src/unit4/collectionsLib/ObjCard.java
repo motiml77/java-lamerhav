@@ -10,6 +10,7 @@ import java.awt.Graphics2D;
 import javax.swing.JComponent;
 
 import unit4.collectionsLib.Model.Access;
+import unit4.collectionsLib.Model.Mark;
 import unit4.collectionsLib.Model.Obj;
 
 /** טבלת המאפיינים של אובייקט (שם, ערך) — משותפת לחלון המבנים, לחלונית הצד ולכרטיס המלא */
@@ -30,6 +31,11 @@ final class ObjCard {
      * cols = כמה עמודות (מאפיינים רבים — כמה עמודות, כדי שהטבלה תישאר נמוכה). g == null: רק מודדים.
      */
     static Dimension table(JComponent c, Graphics2D g, Obj o, int x, int y, Access acc, int cols) {
+        return table(c, g, o, x, y, acc, cols, null);
+    }
+
+    /** marks = עוד מאפיינים מודגשים (שהשורה קוראת / משנה — age, this.age), לפי השם */
+    static Dimension table(JComponent c, Graphics2D g, Obj o, int x, int y, Access acc, int cols, java.util.Map<String, Mark> marks) {
         int n = o.fields.size(), per = (n + cols - 1) / cols;
         Font mono = mono();
         int nameW = 0, valW = 0;
@@ -44,8 +50,10 @@ final class ObjCard {
             String[] f = o.fields.get(i);
             int cx = x + (i / per) * (colW + 10), cy = y + (i % per) * ROW_H;
             boolean hot = acc != null && f[0].equals(acc.field) && acc.obj != null && acc.obj.id == o.id;
+            Mark mark = hot ? acc.mark : marks != null ? marks.get(f[0]) : null;
+            hot = mark != null;
             if (hot) {
-                Color fill = StructPanel.color(acc.mark);
+                Color fill = StructPanel.color(mark);
                 g.setColor(fill);
                 g.fillRoundRect(cx - 2, cy + 1, colW + 4, ROW_H - 2, 8, 8);
                 g.setColor(darker(fill));

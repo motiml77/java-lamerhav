@@ -61,7 +61,7 @@ public final class CsTool {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println("שימוש: CsTool new|insert <תיקיית התרגילים> [--preset מבנה] [--shot קובץ.png] [--no-open]");
+            System.err.println("שימוש: CsTool new|insert|submit|solution|help <תיקיית התרגילים> [--preset מבנה] [--shot קובץ.png] [--no-open]");
             System.exit(2);
         }
         final String mode = args[0];
@@ -80,11 +80,22 @@ public final class CsTool {
                 Theme.install();
                 compactFonts();
                 if (mode.equals("help")) help(fShot);
+                else if (mode.equals("submit")) il.lamerhav.dsviz.VsSubmit.submit(root);       // שליחת תרגיל ב-C#
+                else if (mode.equals("solution")) {                                            // הצעה לפתרון ב-C# (חלון שנשאר פתוח)
+                    il.lamerhav.dsviz.VsSubmit.solutions(root);
+                    return;
+                }
                 else if (mode.equals("insert")) insert(root, fPreset, fShot);
                 else newExercise(root, fPreset, fShot, fOpen);
             }
         });
-        System.exit(0);
+        if (!mode.equals("solution")) System.exit(0);   // "הצעה לפתרון" — נסגר כשסוגרים את החלון
+    }
+
+    /** שם טיפוס להצגה בחלונות של C#: Integer → int, Character → char, Double → double, String → string (גם בתוך <> ו-[,]) */
+    static String csName(String java) {
+        return ScaffoldCs.toCs(java).replaceAll("\\bInteger\\b", "int").replaceAll("\\bCharacter\\b", "char")
+                .replaceAll("\\bDouble\\b", "double").replaceAll("\\bBoolean\\b", "bool").replaceAll("\\bString\\b", "string");
     }
 
     /** גופנים קטנים יותר לחלונות האלה (החלון הראשי של ההרצה משתמש באותו Theme, בגודל המקורי) */
@@ -187,7 +198,7 @@ public final class CsTool {
             right.add(inside);
             typeSection = right.section("טיפוס הערכים");
             JPanel types = grid(3);
-            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 26, 76, null);
+            for (String t : Scaffold.TYPES) chip(types, csName(t), t, typeButtons, t.equals("Integer"), 26, 76, null);   // הטקסט ב-C# (int, string...)
             right.add(types);
 
             left.section("מה הפעולה מחזירה?");
@@ -332,9 +343,9 @@ public final class CsTool {
             returnCombo.removeAllItems();
             addReturn("void", "void — לא מחזירה ערך");
             addReturn("int", "int — מספר (סכום, כמות...)");
-            addReturn("boolean", "boolean — אמת/שקר");
-            if (!type.equals("Integer")) addReturn("element", Scaffold.primitive(type) + " — ערך מהמבנה");
-            addReturn("structure", Scaffold.typeOf(s, type) + " — מבנה חדש");
+            addReturn("boolean", "bool — אמת/שקר");   // בשמות של C#
+            if (!type.equals("Integer")) addReturn("element", csName(Scaffold.primitive(type)) + " — ערך מהמבנה");
+            addReturn("structure", csName(Scaffold.typeOf(s, type)) + " — מבנה חדש");
             returnCombo.setSelectedIndex(Math.max(0, returnIds.indexOf(prevRet)));
 
             // ערכים אקראיים: בוחרים כמה, והשדה מתמלא (אפשר לשנות). תלמידים / מכוניות — תמיד נתוני דמה
@@ -367,7 +378,7 @@ public final class CsTool {
                 catch (IllegalArgumentException e) { groups = null; }   // הודעת השגיאה תוצג למטה
             }
             if (groups != null) {
-                previewType.setText(Scaffold.typeOf(s, type));
+                previewType.setText(csName(Scaffold.typeOf(s, type)));
                 diagram.set(outer, inside, groups);
             }
             boolean show = groups != null;
@@ -514,7 +525,7 @@ public final class CsTool {
             right.add(inside);
             typeSection = right.section("טיפוס הערכים");
             JPanel types = grid(3);
-            for (String t : Scaffold.TYPES) chip(types, t, t, typeButtons, t.equals("Integer"), 26, 76);
+            for (String t : Scaffold.TYPES) chip(types, csName(t), t, typeButtons, t.equals("Integer"), 26, 76);
             right.add(types);
 
             left.section("מילוי מבנה-נתונים");
@@ -676,7 +687,7 @@ public final class CsTool {
                 if (error == null) error = e.getMessage();
             }
             if (pv != null) {
-                previewType.setText(ScaffoldCs.toCs(pv.type));
+                previewType.setText(csName(pv.type));
                 diagram.set(pv);
             }
             code = null;
@@ -725,15 +736,17 @@ public final class CsTool {
         { "b", "\u200F02  ·  דוגמאות פתורות", "פותחים תרגיל מוכן מהרשימה, קוראים את הפתרון, ומריצים אותו בחלון ההדמיה — צעד אחרי צעד." },
         { "c", "\u200F03  ·  מבנה בתוך מבנה", "שלוש דוגמאות: מחסנית של תורים, רשימה של מחסניות ועץ של תורים — יצירת התרגיל וההרצה הוויזואלית." },
         { "d", "\u200F04  ·  מוסיפים התאמות לתרגיל", "אחרי שהתרגיל נוצר: מוסיפים ידנית מבנה נוסף, משתנה x ומערך — ורואים שגם הם מופיעים בהדמיה." },
+        { "e", "\u200F05  ·  שליחת תרגיל והצעה לפתרון", "מעלים את דף התרגיל — צילום מסך (Ctrl+V), PDF או Word — ומקבלים קוד מוכן עם פעולה לכל סעיף; ולכל סעיף \"💡 הצעה לפתרון\" שנבדקה." },
     };
 
-    /** התיקייה help — ליד dsviz.jar (בהתקנה: ‎%ProgramFiles%\DSViz\help), או לפי -Ddsviz.help */
+    /** התיקייה help\vs (הסרטונים של Visual Studio) — ליד dsviz.jar (בהתקנה: ...\DSViz\help\vs), או לפי -Ddsviz.help */
     static Path helpDir() {
         String prop = System.getProperty("dsviz.help");
         if (prop != null) return Paths.get(prop);
         try {
             Path jar = Paths.get(CsTool.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-            return jar.getParent().resolve("help");
+            Path vs = jar.getParent().resolve("help").resolve("vs");   // הסרטונים של Visual Studio (C#)
+            return Files.isDirectory(vs) ? vs : jar.getParent().resolve("help");
         } catch (Exception e) {
             return Paths.get("help");
         }

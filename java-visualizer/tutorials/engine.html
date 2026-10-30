@@ -76,6 +76,54 @@
   .kw { color: #7f0055; font-weight: 700; } .st { color: #2a00ff; } .cm { color: #3f7f5f; } .ty { color: #005f87; } .nu { color: #1d2433; }
   .hebcm { unicode-bidi: isolate; direction: rtl; font-family: Heebo; font-size: 17px; }
   #caret { position: absolute; width: 2px; height: 24px; background: #111; }
+  .lensrow { position: absolute; left: 0; height: 22px; line-height: 22px; width: 100%; white-space: pre; }
+  .lensrow .no { display: inline-block; width: 52px; height: 22px; vertical-align: top; background: #f6f7f9; border-right: 1px solid #eceef1; }
+  .lens { display: inline-block; font-family: Heebo; font-size: 14px; font-weight: 500; color: #3b6fd9; vertical-align: top; }
+
+  /* ---------------- VS Code (Light Modern) */
+  #ide.vscode { background: #f8f8f8; }
+  #ide.vscode .titlebar { background: #f8f8f8; color: #3b3b3b; border-bottom: 1px solid #e5e5e5; height: 34px; }
+  #ide.vscode .titlebar .menus { display: flex; gap: 14px; font-size: 14px; color: #3b3b3b; }
+  #ide.vscode .act { position: absolute; left: 0; top: 34px; width: 48px; bottom: 30px; background: #f8f8f8; border-right: 1px solid #e5e5e5; display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 8px; }
+  #ide.vscode .act i { width: 26px; height: 26px; border-radius: 6px; background: #c9ccd1; display: block; margin: 5px 0; }
+  #ide.vscode .act i.on { background: #2f6fed; box-shadow: -11px 0 0 -9px #005fb8; }
+  #ide.vscode .side { position: absolute; left: 48px; top: 34px; width: 260px; bottom: 30px; background: #f8f8f8; border-right: 1px solid #e5e5e5; font-size: 15px; color: #3b3b3b; }
+  #ide.vscode .side .h { height: 34px; display: flex; align-items: center; padding: 0 16px; font-size: 12px; letter-spacing: .6px; color: #616161; }
+  #ide.vscode .side .sec { height: 24px; display: flex; align-items: center; padding: 0 8px; font-size: 12px; font-weight: 700; color: #3b3b3b; }
+  #ide.vscode #tree .row { height: 26px; display: flex; align-items: center; white-space: nowrap; font-size: 15px; }
+  #ide.vscode #tree .row.sel { background: #cce4ff; }
+  #ide.vscode .dsview { display: none; direction: rtl; padding: 6px 14px; font-size: 14px; line-height: 1.45; color: #3b3b3b; }
+  #ide.vscode .dsview .b { display: block; margin: 7px 0; padding: 6px 10px; border-radius: 4px; background: #005fb8; color: #fff; text-align: center; font-size: 14px; }
+  #ide.vscode .dsview .b.alt { background: #e4e6ea; color: #1d2433; }
+  #ide.vscode .ed { position: absolute; left: 308px; top: 34px; right: 0; bottom: 30px; background: #fff; }
+  #ide.vscode .tabs { height: 35px; background: #f8f8f8; border-bottom: 1px solid #e5e5e5; display: flex; align-items: stretch; padding-left: 0; }
+  #ide.vscode .tab { height: 35px; padding: 0 16px; display: flex; align-items: center; background: #fff; border-right: 1px solid #e5e5e5; border-top: 2px solid #005fb8; border-radius: 0; font-size: 14px; }
+  #ide.vscode .acts { margin-left: auto; display: flex; align-items: center; gap: 4px; padding-right: 10px; }
+  #ide.vscode .acts .ic { width: 26px; height: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; font-weight: 800; }
+  #ide.vscode .acts .ic.hot, #ide.vscode .sbi.hot { outline: 2px solid #8fb0ff; background-color: #e3ebff; color: #1d2433; }
+  #ide.vscode .crumbs { height: 24px; display: flex; align-items: center; padding-left: 16px; font-size: 13px; color: #616161; }
+  #ide.vscode #code { top: 59px; }
+  #ide.vscode .status { position: absolute; left: 0; right: 0; bottom: 0; height: 30px; background: #005fb8; color: #fff; display: flex; align-items: center; font-size: 16px; padding: 0 8px; gap: 2px; direction: ltr; }
+  #ide.vscode .sbi { padding: 0 10px; height: 30px; display: flex; align-items: center; gap: 5px; direction: rtl; white-space: nowrap; }
+  /* ---------------- Visual Studio 2022 (Light) */
+  #ide.vs { background: #eeeef2; }
+  #ide.vs .titlebar { background: #eeeef2; color: #1e1e1e; height: 34px; gap: 14px; }
+  #ide.vs .titlebar .logo { width: 22px; height: 22px; border-radius: 4px; background: #865fc5; }
+  #ide.vs .titlebar .menus { display: flex; gap: 16px; font-size: 14px; }
+  #ide.vs .titlebar .sln { margin-left: auto; padding: 3px 12px; border-radius: 4px; background: #dcdce4; font-size: 14px; font-weight: 600; }
+  #ide.vs .toolbar { height: 40px; background: #eeeef2; border-bottom: 1px solid #ccced8; gap: 4px; }
+  #ide.vs .tb-btn.run { border: 1px solid #c4c6d0; background: #fff; font-size: 16px; }
+  #ide.vs .tb-btn.run i { background: none !important; color: #1e8f3e; font-size: 18px; }
+  #ide.vs .body { top: 74px; height: 766px; }
+  #ide.vs .editor { order: 1; }
+  #ide.vs .tabs { background: #eeeef2; }
+  #ide.vs .tab { border-top: 2px solid #865fc5; border-radius: 0; background: #fff; }
+  #ide.vs .explorer { order: 2; width: 300px; border-right: none; border-left: 1px solid #ccced8; background: #f5f5f7; }
+  #ide.vs .explorer .h { background: #eeeef2; color: #1e1e1e; font-weight: 600; }
+  #ide.vs .taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: #dfe4ee; border-top: 1px solid #c7cdd8; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  #ide.vs .taskbar .tk { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: #fff; }
+  #ide.vs .taskbar .tk.hot { outline: 3px solid #8fb0ff; }
+  #ide.vs .body { height: 726px; }
 
   /* תפריט נפתח */
   #menu { position: absolute; z-index: 30; background: #fff; border: 1px solid #b9bec9; border-radius: 6px; box-shadow: 0 14px 40px rgba(0,0,0,.35); padding: 4px 0; direction: rtl; display: none; color: #111; font-size: 17px; }
@@ -151,10 +199,12 @@
       <div class="toolbar">
         <div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-sep"></div><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-sep"></div>
         <div class="tb-btn" id="tbNew"><i style="background:#2f6fed">+</i>תרגיל חדש</div>
+        <div class="tb-btn" id="tbSubmit"><i style="background:#7c5cf0">➤</i>שליחת תרגיל</div>
         <div class="tb-btn" id="tbAdd"><i style="background:#7c3aed">▦</i>הוסף מבנה נתונים</div>
         <div class="tb-sep"></div>
         <div class="tb-btn" id="tbRun"><i style="background:#16a34a">▶</i>הרצה ויזואלית</div>
         <div class="tb-btn" id="tbHelp"><i style="background:#f59e0b">?</i></div>
+        <div class="tb-btn" id="tbPower"><i style="background:#dc2626">⏻</i>כיבוי</div>
         <div class="tb-sep"></div><div class="tb-ico"></div><div class="tb-ico"></div>
       </div>
       <div class="body">
@@ -189,8 +239,10 @@
 
 <script src="engine.js"></script>
 <script>
-  const T = new URLSearchParams(location.search).get('t') || 'a';
-  document.write(`<script src="work/${T}/assets.js"><\/script><script src="scripts/${T}.js"><\/script>`);
+  // ?t=a&ide=eclipse|vscode|vs — הסרטונים של Eclipse ב-scripts/<t>.js (work/<t>), ושל VS Code / Visual Studio ב-scripts/<ide>/<t>.js (work/<ide>-<t>)
+  const Q = new URLSearchParams(location.search), T = Q.get('t') || 'a', IDE = Q.get('ide') || 'eclipse';
+  const W = IDE === 'eclipse' ? T : IDE + '-' + T, S = IDE === 'eclipse' ? T : IDE + '/' + T;
+  document.write(`<script src="work/${W}/assets.js"><\/script><script src="scripts/${S}.js"><\/script>`);
 </script>
 <script>Engine.start();</script>
 </body>

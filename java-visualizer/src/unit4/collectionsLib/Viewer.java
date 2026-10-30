@@ -274,6 +274,7 @@ final class Viewer extends JFrame {
         structPage.add(structSouth, BorderLayout.SOUTH);
         JPanel recPage = new JPanel(new BorderLayout());
         recPage.setOpaque(false);
+        recPage.add(recursion.header(), BorderLayout.NORTH);   // איזו רקורסיה זו, ואיפה אנחנו (וברקורסיה כפולה — עץ הקריאות)
         recPage.add(recScroll, BorderLayout.CENTER);
         // מתחת לכרטיסים: המבנים (מערך, מחסנית...) כמו שהם בשלב הזה — בקטן
         JPanel south = new JPanel(new BorderLayout());
@@ -735,6 +736,8 @@ final class Viewer extends JFrame {
             }
         }
         updateCode(s.where);
+        String inside = SelfViz.where(s);   // פעולה של אובייקט: "בתוך d1.birthday()"
+        if (inside != null && s.where != null && codeSub.getText().contains("בתוך")) codeSub.setText(lrm(s.where.file) + "   ·   בתוך " + lrm(inside));
         CondViz.Marks marks = null;
         if (Recorder.lineMode && codeLine > 0) {
             try {
@@ -1001,10 +1004,14 @@ final class Viewer extends JFrame {
         if (sameFrame && prev.vars != null) for (String[] v : prev.vars) old.put(v[0], v[1]);
         for (int i = 0; i < s.vars.size(); i++) {
             String[] v = s.vars.get(i);
-            varsModel.addRow(new Object[] { v[0], ltr(v[1]) });
+            String name = v[0];
+            SelfViz.Info self = name.equals("this") ? SelfViz.of(s) : null;
+            if (self != null && self.self != null && !self.self.isEmpty() && !self.self.equals("this")) name = "this (" + self.self + ")";
+            varsModel.addRow(new Object[] { name, ltr(v[1]) });
             if (sameFrame && !v[1].equals(old.get(v[0]))) changedRows.add(i);
         }
-        String m = s.where == null ? "" : "בפעולה " + method(s.where);
+        String inside = SelfViz.where(s);
+        String m = s.where == null ? "" : "בפעולה " + (inside != null ? lrm(inside) : method(s.where));
         varsSub.setText(m);
     }
 

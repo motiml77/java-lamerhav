@@ -52,6 +52,25 @@ public class DlgScript {
         if (kind.equals("ex")) new ExerciseDialog(parent, new ArrayList<org.eclipse.jdt.core.IJavaProject>(), "DataStructures", null, preset).open();
         else if (kind.equals("ins")) new InsertDialog(parent, preset, fDoc, fOffset, "        ").open();
         else if (kind.equals("help")) new HelpDialog(parent).open();
+        else if (kind.equals("solution")) {
+            // החלון "הצעה לפתרון" עם הצעה מ-solutions.json (preset = הקובץ, הצעה ראשונה; או "קובץ#אינדקס")
+            String[] pa = preset.split("#");
+            Class<?> sc = Class.forName("il.lamerhav.dsviz.SolutionStore");
+            java.lang.reflect.Constructor<?> c = sc.getDeclaredConstructor(File.class);
+            c.setAccessible(true);
+            Object store = c.newInstance(new File(pa[0]));
+            java.lang.reflect.Method all = sc.getDeclaredMethod("all");
+            all.setAccessible(true);
+            Object entry = ((java.util.List<?>) all.invoke(store)).get(pa.length > 1 ? Integer.parseInt(pa[1]) : 0);
+            java.lang.reflect.Constructor<?> dc = Class.forName("il.lamerhav.dsviz.SolutionDialog").getDeclaredConstructor(Shell.class, entry.getClass());
+            dc.setAccessible(true);
+            Object dlgObj = dc.newInstance(parent, entry);
+            dialog = dlgObj;
+            java.lang.reflect.Method open = org.eclipse.jface.window.Window.class.getMethod("open");
+            open.invoke(dlgObj);
+            // החלון לא חוסם (כמו בתוך Eclipse) — ממשיכים לטפל באירועים עד שהתסריט סוגר אותו
+            while (dlgShell == null || !dlgShell.isDisposed()) if (!display.readAndDispatch()) display.sleep();
+        }
         else if (kind.equals("submit")) {
             // החלון "שליחת תרגיל" מול שרת (DSVIZ_WORKER_URL — למשל wrangler dev מקומי עם Gemini מדומה)
             String url = System.getenv("DSVIZ_WORKER_URL");

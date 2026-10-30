@@ -615,11 +615,16 @@ final class Recorder {
             for (java.lang.reflect.Field f : c.getDeclaredFields()) {
                 if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.isSynthetic() || o.fields.size() >= 12) continue;
                 String val;
-                try {
-                    f.setAccessible(true);
-                    val = fieldText(f.get(v));
-                } catch (Exception e) {
-                    val = "?";
+                Map<String, String> snap = lineSnap.get(v);
+                if (snap != null && snap.containsKey(f.getName())) {
+                    val = snap.get(f.getName());   // הערך ברגע של השורה (ראו lineSnap)
+                } else {
+                    try {
+                        f.setAccessible(true);
+                        val = fieldText(f.get(v));
+                    } catch (Exception e) {
+                        val = "?";
+                    }
                 }
                 o.fields.add(new String[] { f.getName(), val });
             }
@@ -1195,6 +1200,13 @@ final class Recorder {
         }
     }
 
+    /** האובייקטים שמוצגים לבד בצעד (כרטיס מלא) — עם שמות המשתנים שמצביעים עליהם */
+    static List<Obj> objectsOf(Step s) {
+        List<Obj> res = new ArrayList<Obj>();
+        if (s != null) for (View v : s.views) if (v instanceof ObjView && ((ObjView) v).obj != null) res.add(((ObjView) v).obj);
+        return res;
+    }
+
     private static <T> List<T> alive(List<WeakReference<T>> refs) {
         List<T> res = new ArrayList<T>();
         for (Iterator<WeakReference<T>> it = refs.iterator(); it.hasNext();) {
@@ -1375,6 +1387,8 @@ final class Recorder {
                 try {
                     out.print(CondViz.dump());
                     out.print(CallViz.dump());
+                    out.print(SelfViz.dump());
+                    out.print(RecursionKind.dump());
                     out.flush();
                 } catch (RuntimeException e) {
                     out.println("  [תנאים: " + e + "]");
@@ -1445,13 +1459,21 @@ final class Recorder {
         }
         Map<Object, List<String>> fv = new IdentityHashMap<Object, List<String>>();
         List<String[]> vars = new ArrayList<String[]>();
+        lineSnap.clear();
         List<String> vs = split(halves.length > 1 ? halves[1] : "");
         suspended++;
         try {
             for (int i = 0; i < vs.size(); i++) {
                 String[] p = vs.get(i).split("\u0002", -1);
                 String value = p.length > 1 ? p[1] : "";
+                String snap = null;
+                int cut = value.startsWith("\u0003") ? value.indexOf('\u0007') : -1;
+                if (cut > 0) {
+                    snap = value.substring(cut + 1);
+                    value = value.substring(0, cut);
+                }
                 Object v = value.startsWith("\u0003") ? byId(value.substring(1)) : null;
+                if (v != null && snap != null) lineSnap.put(v, parseSnap(snap));
                 if (v != null) {
                     List<String> l = fv.get(v);
                     if (l == null) fv.put(v, l = new ArrayList<String>());
@@ -1499,8 +1521,30 @@ final class Recorder {
             linesFull = true;
             return;
         }
-        addStep(Kind.LINE, null, Mark.NONE, null, text, frames);
+        try {
+            addStep(Kind.LINE, null, Mark.NONE, null, text, frames);
+        } finally {
+            lineSnap.clear();   // צעדים אחרים (פעולות של הספרייה) מצלמים את האובייקט כפי שהוא עכשיו
+        }
         if (steps.size() >= maxSteps) linesFull = true;
+    }
+
+    /**
+     * הערכים של אובייקטים של התלמיד ברגע של השורה (מה-Tracer): השורות הופכות לצעדים מאוחר יותר,
+     * כשהאובייקט כבר השתנה — בלי זה הבנאי היה מראה כבר את הגיל אחרי birthday.
+     */
+    private static final Map<Object, Map<String, String>> lineSnap = new IdentityHashMap<Object, Map<String, String>>();
+
+    private static Map<String, String> parseSnap(String snap) {
+        Map<String, String> m = new HashMap<String, String>();
+        for (String kv : snap.split("\u000F")) {
+            int k = kv.indexOf('\u0010');
+            if (k <= 0 || k + 1 >= kv.length()) continue;
+            String raw = kv.substring(k + 2);
+            char tag = kv.charAt(k + 1);
+            m.put(kv.substring(0, k), tag == 's' ? lit(raw) : tag == 'c' ? "'" + raw + "'" : tag == '0' ? "null" : raw);
+        }
+        return m;
     }
 
     /** פעולה של התלמיד הסתיימה: מסגרות \u0004 ערך ההחזרה (\u0006 = void) */
@@ -1532,7 +1576,18 @@ final class Recorder {
         // RLM בהתחלה: המשפט בעברית (מימין לשמאל); LRM מסביב לקוד — כדי שהסוגריים והערך לא יקפצו
         String text = isVoid ? "\u200Fהפעולה " + m + " הסתיימה"
                 : "\u200Fהפעולה " + m + " מחזירה  \u200E" + value + "\u200E";
-        addStep(Kind.RETURN, null, Mark.NONE, null, text, frames);
+        lineSnap.clear();
+        String self = halves.length > 2 ? halves[2] : "";   // האובייקט שהפעולה רצה בתוכו, כפי שהוא ביציאה
+        int cut = self.indexOf('\u0007');
+        if (self.startsWith("\u0003") && cut > 0) {
+            Object o = byId(self.substring(1, cut));
+            if (o != null) lineSnap.put(o, parseSnap(self.substring(cut + 1)));
+        }
+        try {
+            addStep(Kind.RETURN, null, Mark.NONE, null, text, frames);
+        } finally {
+            lineSnap.clear();
+        }
         steps.get(steps.size() - 1).returned = isVoid ? null : value;
         if (steps.size() >= maxSteps) linesFull = true;
     }

@@ -245,7 +245,10 @@ Section "-core"
   FileWriteUTF16LE /BOM $0 "$INSTDIR"
   FileClose $0
   SetOutPath "$INSTDIR\help"
-  File /r "${BUILD}\help\*.*"   ; סרטוני ההדרכה (הכפתור ?)
+  ; דפי ההדרכה (הכפתור ?) בלי הסרטונים עצמם — כדי שההתקנה תישאר מתחת ל-100MB (המגבלה של GitHub).
+  ; הנגן מנגן מהאתר כשאין עותק במחשב, ו-update.ps1 -Videos מוריד אותם ברקע (מיד אחרי ההתקנה ובכל כניסה ל-Windows)
+  File /r /x *.mp4 "${BUILD}\help\*.*"
+  Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\update.ps1" -Videos'   ; ברקע — לא מחכים
   SetOutPath "$INSTDIR\project"
   File /r "${BUILD}\project\*.*"
   SetOutPath "$INSTDIR"
@@ -341,6 +344,11 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   CreateShortcut "$DESKTOP\הוסף מבנה נתונים ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool insert "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool help "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\הוסף מבנה נתונים ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool insert "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  ; "שליחת תרגיל" (דף התרגיל → פרויקט מוכן בפתרון) ו"הצעה לפתרון" (חלון שנשאר פתוח ליד Visual Studio) — כמו ב-Eclipse וב-VS Code
+  CreateShortcut "$DESKTOP\שליחת תרגיל ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool submit "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\שליחת תרגיל ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool submit "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  CreateShortcut "$DESKTOP\הצעה לפתרון ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool solution "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הצעה לפתרון ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool solution "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
 
   ; תבנית פרויקט חדש ב-Visual Studio: "תרגיל מבני נתונים (DSViz)"
   Delete "$INSTDIR\vs-templates.txt"
@@ -636,6 +644,10 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\מבני נתונים\הוסף מבנה נתונים ל-C#.lnk"
   Delete "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk"
   Delete "$DESKTOP\הוסף מבנה נתונים ל-C#.lnk"
+  Delete "$DESKTOP\שליחת תרגיל ב-C#.lnk"
+  Delete "$SMPROGRAMS\מבני נתונים\שליחת תרגיל ב-C#.lnk"
+  Delete "$DESKTOP\הצעה לפתרון ב-C#.lnk"
+  Delete "$SMPROGRAMS\מבני נתונים\הצעה לפתרון ב-C#.lnk"
   ; תיקיית התרגילים ב-Documents\DataStructures-CS נשארת — יש בה את העבודה של התלמיד
 
   Delete "$INSTDIR\${VSIX}"

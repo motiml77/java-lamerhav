@@ -10,6 +10,7 @@ const cs = require('./cs');
 const addstructure = require('./addstructure');
 const names = require('./names');
 const help = require('./help');
+const submitModule = require('./submit');
 
 /** התבניות של השפה שעובדים בה עכשיו (Java / C#) — נקבע בתחילת כל פעולה לפי השפה */
 let templates = javaTemplates;
@@ -47,6 +48,11 @@ function activate(context) {
     reg('dsviz.runLines', () => run());   // שם ישן (מגרסה קודמת) — אותה הרצה
     reg('dsviz.examples', () => examples());
     reg('dsviz.openProject', () => openProject());
+    // "שליחת תרגיל" ו"הצעה לפתרון" — אותו מנוע כמו ב-Eclipse (submit.js → SubmitCli שבתוך dsviz.jar)
+    const sub = submitModule.register({ vscode, ctx: context, chooseRoot, detectLanguage: root => detectLanguage(root),
+        project, cs, runner, openFiles });
+    reg('dsviz.submit', () => sub.submit());
+    reg('dsviz.solution', entry => sub.showSolution(entry));
 
     // תצוגה בסרגל הצד — הכפתורים עצמם מוגדרים ב-package.json (viewsWelcome)
     for (const view of ['dsviz.home', 'dsviz.insertView', 'dsviz.runView']) {
@@ -63,10 +69,16 @@ function activate(context) {
     addBar.text = '$(add) הוסף מבנה נתונים';
     addBar.tooltip = 'בוחרים מבנה נתונים, ערכים ושם — והוא נבנה בקוד במקום הסמן';
     addBar.command = 'dsviz.insert';
+    // וכפתור "שליחת תרגיל": מצרפים את דף התרגיל ומקבלים קוד מוכן (עם 💡 הצעה לפתרון לכל סעיף)
+    const submitBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 101);
+    submitBar.text = '$(send) שליחת תרגיל';
+    submitBar.tooltip = 'מצרפים את דף התרגיל (PDF, Word או צילום מסך) — ומקבלים קובץ מוכן עם מקום לכתוב את הפתרון';
+    submitBar.command = 'dsviz.submit';
+    context.subscriptions.push(submitBar);
     const refresh = () => {
         const ed = vscode.window.activeTextEditor;
         const on = ed && (ed.document.languageId === 'java' || ed.document.languageId === 'csharp');
-        if (on) { bar.show(); addBar.show(); } else { bar.hide(); addBar.hide(); }
+        if (on) { bar.show(); addBar.show(); submitBar.show(); } else { bar.hide(); addBar.hide(); submitBar.hide(); }
     };
     // וכפתור "?" — הדרכה לשימוש (סרטונים קצרים)
     const helpBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
@@ -414,7 +426,8 @@ async function openHelp(id) {
     let dir = path.join(ctx.extensionPath, 'resources', 'help');
     if (!fs.existsSync(dir)) {   // התוסף שההתקנה שמה — הסרטונים שמורים פעם אחת בתיקייה help של ההתקנה
         const base = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DSViz') : path.join(require('os').homedir(), 'DSViz');
-        if (fs.existsSync(path.join(base, 'help', 'index.html'))) dir = path.join(base, 'help');
+        if (fs.existsSync(path.join(base, 'help', 'vscode', 'index.html'))) dir = path.join(base, 'help', 'vscode');   // הסרטונים של VS Code
+        else if (fs.existsSync(path.join(base, 'help', 'index.html'))) dir = path.join(base, 'help');
     }
     if (!fs.existsSync(dir) || !vscode.window.createWebviewPanel) {
         vscode.window.showWarningMessage('סרטוני ההדרכה לא נמצאו בהתקנה הזאת.');
@@ -439,7 +452,8 @@ async function openHelp(id) {
     panel.webview.html = help.playerPage({
         id: tut.id,
         urlOf: f => panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, f))).toString(),
-        csp: `default-src 'none'; img-src ${src} data:; media-src ${src}; style-src 'unsafe-inline'; script-src 'unsafe-inline';`
+        remote: help.REMOTE_HELP + (path.basename(dir) === 'help' && path.basename(path.dirname(dir)) !== 'resources' ? '' : 'vscode/'),   // אין עותק במחשב — מהאתר
+        csp: `default-src 'none'; img-src ${src} data:; media-src ${src} https://raw.githubusercontent.com; style-src 'unsafe-inline'; script-src 'unsafe-inline';`
     });
     panel.webview.onDidReceiveMessage(m => {
         if (m && m.cmd === 'list') openHelp();
@@ -649,6 +663,24 @@ async function chooseRoot() {
     if (!ans) return undefined;
     const uris = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, openLabel: 'שמירת התרגילים כאן' });
     return uris && uris[0] && uris[0].fsPath;
+}
+
+/** באיזו שפה התיקייה (בלי לשאול): הגדרה → הקובץ הפתוח → מה שיש בתיקייה */
+function detectLanguage(root) {
+    const setting = vscode.workspace.getConfiguration('dsviz').get('language');
+    if (setting === 'java' || setting === 'csharp') return setting;
+    const ed = vscode.window.activeTextEditor;
+    if (ed && (ed.document.languageId === 'csharp' || ed.document.languageId === 'java')) return ed.document.languageId;
+    return cs.detectLanguage(root);
+}
+
+/** "שליחת תרגיל": פותח את הקבצים שנוצרו — קודם המחלקות, ובסוף הקובץ עם הסעיף הראשון, והסמן מחכה במקום הפתרון */
+async function openFiles(root, files, focus, line) {
+    for (const f of files) {
+        if (f === focus || !fs.existsSync(f)) continue;
+        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(f), { preview: false, preserveFocus: true });
+    }
+    if (focus && fs.existsSync(focus)) await openAt(root, focus, line);
 }
 
 /** פותח קובץ ומציב את הסמן. אם התיקייה עוד לא פתוחה — פותחים אותה, והקובץ ייפתח אחרי הטעינה */

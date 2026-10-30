@@ -63,6 +63,12 @@ final class SolutionStore {
         return best;
     }
 
+    /** כל ההצעות (לחלון "הצעה לפתרון" של Visual Studio) */
+    synchronized List<Entry> all() {
+        load();
+        return new ArrayList<Entry>(entries);
+    }
+
     /** כל ההצעות לקובץ */
     synchronized List<Entry> forFile(String path) {
         load();

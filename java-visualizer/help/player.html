@@ -30,7 +30,7 @@ video { max-width: 100%; max-height: 100%; background: #000; border-radius: 10px
 <div class="stage"><video id="vid" controls autoplay></video><div id="err">לא הצלחתי לנגן את הסרטון בחלון הזה.</div></div>
 <div class="foot"><a class="donate" id="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&currency_code=ILS&item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal"><span class="heart">&#9829;</span>תרום לנו</a><div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div></div>
 <script>
-var LIST = [{"id":"a","num":"01","title":"יצירת מבנה נתונים חדש","video":"a.mp4","poster":"a.jpg"},{"id":"b","num":"02","title":"דוגמאות פתורות","video":"b.mp4","poster":"b.jpg"},{"id":"c","num":"03","title":"מבנה בתוך מבנה","video":"c.mp4","poster":"c.jpg"},{"id":"d","num":"04","title":"מוסיפים התאמות לתרגיל","video":"d.mp4","poster":"d.jpg"}];
+var LIST = [{"id":"a","num":"01","title":"יצירת מבנה נתונים חדש","video":"a.mp4","poster":"a.jpg"},{"id":"b","num":"02","title":"דוגמאות פתורות","video":"b.mp4","poster":"b.jpg"},{"id":"c","num":"03","title":"מבנה בתוך מבנה","video":"c.mp4","poster":"c.jpg"},{"id":"d","num":"04","title":"מוסיפים התאמות לתרגיל","video":"d.mp4","poster":"d.jpg"},{"id":"e","num":"05","title":"שליחת תרגיל והצעה לפתרון","video":"e.mp4","poster":"e.jpg"}];
 var SPEEDS = [1, 1.25, 1.5, 2];
 function $(id) { return document.getElementById(id); }
 var id = null || (location.hash || '#a').slice(1), t = LIST[0], i, vs = null;
@@ -61,7 +61,12 @@ function fail() {
   if (vs) { vs.postMessage({ cmd: 'fail' }); }
   v.style.display = 'none'; $('err').style.display = 'block';
 }
-v.onerror = fail;
+// הסרטון לא במחשב (ההתקנה בלי סרטונים, והעדכון ברקע עוד לא הוריד אותו) — מנגנים אותו מהאתר
+var REMOTE = "https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/help/", triedRemote = false;
+v.onerror = function () {
+  if (REMOTE && !triedRemote) { triedRemote = true; v.src = REMOTE + t.id + '.mp4'; return; }
+  fail();
+};
 v.addEventListener('loadedmetadata', function () { v.playbackRate = rate; });
 v.src = t.video;
 setRate(rate);

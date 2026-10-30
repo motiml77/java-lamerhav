@@ -20,7 +20,7 @@ import java.util.UUID;
  * הכתובת: ‎-Ddsviz.worker=...‎ / משתנה הסביבה DSVIZ_WORKER_URL / resources/ai.properties שבתוך התוסף.
  */
 final class WorkerClient {
-    static final String CLIENT = "dsviz-eclipse/1.0.1";
+    static String CLIENT = "dsviz-eclipse/1.0.1";   // ב-VS Code / Visual Studio: dsviz-vscode / dsviz-vs
 
     /** שגיאה שמוצגת לתלמיד כמו שהיא */
     static final class AiError extends Exception {
