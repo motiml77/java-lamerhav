@@ -161,6 +161,10 @@ public class App implements IApplication {
         out.println("LIBRARY-AFTER " + (pj.findType("unit4.collectionsLib.Queue") != null) + " stack=" + (pj.findType("unit4.collectionsLib.Stack") != null)
                 + " node=" + (pj.findType("unit4.collectionsLib.Node") != null) + " jar=" + pj.getProject().getFile("lib/dsviz.jar").exists());
 
+        // 2ד. הרצה ויזואלית בכל פרויקט: הספרייה שלנו ראשונה ב-classpath של ההרצה (מתוך התוסף), ואחריה ה-classpath של הפרויקט
+        java.util.List<String> cp = il.lamerhav.dsviz.RunVisualHandler.launchClasspath(pj);
+        out.println("LAUNCH-CP first-is-dsviz=" + (!cp.isEmpty() && cp.get(0).contains("dsviz-")) + " entries=" + cp.size());
+
         // 3. כיבוי מהתפריט: אחרי בנייה מלאה — אין אף סימון שלנו
         setMentor(false);
         p.build(IncrementalProjectBuilder.FULL_BUILD, null);

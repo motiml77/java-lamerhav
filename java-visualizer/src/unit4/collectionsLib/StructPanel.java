@@ -25,6 +25,7 @@ import unit4.collectionsLib.Model.Cell;
 import unit4.collectionsLib.Model.ChainView;
 import unit4.collectionsLib.Model.LinearView;
 import unit4.collectionsLib.Model.ArrayView;
+import unit4.collectionsLib.Model.StringView;
 import unit4.collectionsLib.Model.MatrixView;
 import unit4.collectionsLib.Model.Mark;
 import unit4.collectionsLib.Model.Obj;
@@ -198,11 +199,12 @@ final class StructPanel extends JPanel {
         int avail = viewportWidth() > 200 ? viewportWidth() - PAD : 900;
         int ax = PAD, arrRow = 0;
         for (View v : step.views) {
-            if (!(v instanceof ArrayView || v instanceof MatrixView)) continue;
+            if (!(v instanceof ArrayView || v instanceof MatrixView || v instanceof StringView)) continue;
             Dimension d = measure(v);
             if (ax > PAD && ax + d.width > avail) { y += arrRow + GAP / 2; ax = PAD; arrRow = 0; }
             if (g != null) {
                 if (v instanceof ArrayView) drawArray(g, (ArrayView) v, ax, y);
+                else if (v instanceof StringView) drawStringView(g, (StringView) v, ax, y);
                 else drawMatrix(g, (MatrixView) v, ax, y);
                 noteFocus(v, ax, y, d);
             }
@@ -269,7 +271,79 @@ final class StructPanel extends JPanel {
     }
 
     private Dimension measure(View v) {
+        if (v instanceof StringView) return drawStringView(null, (StringView) v, 0, 0);
         return v instanceof ArrayView ? drawArray(null, (ArrayView) v, 0, 0) : drawMatrix(null, (MatrixView) v, 0, 0);
+    }
+
+    // ------------------------------------------------------------ מחרוזת
+
+    /**
+     * מחרוזת: תו בכל תא ומתחתיו האינדקס. מעל התאים — חצים (charAt(i), "כאן שונה"...);
+     * החלק שהשורה חותכת (substring) או מוצאת (indexOf) — צבוע ועם סוגר מתחת; ומתחת — מה כל פעולה מחזירה.
+     */
+    private Dimension drawStringView(Graphics2D g, StringView v, int x, int y) {
+        String text = v.text;
+        int n = text.length(), cw = 30, ch = 36;
+        int most = 0;
+        for (List<String> l : v.arrows.values()) most = Math.max(most, l.size());
+        int labelsH = 22 + Math.max(0, most - 1) * LABEL_STEP;
+        boolean range = v.from >= 0 && v.to > v.from;
+        String type = "מחרוזת (String), אורך " + (v.truncated ? n + "+" : String.valueOf(n));
+        int top = y + th() + labelsH;
+        int opsW = 0, opsLines = 0;
+        for (String o : v.ops) {
+            for (String part : o.split(StringViz.NOTE)) { opsW = Math.max(opsW, textWidth(part, SMALL_B)); opsLines++; }
+        }
+        int opsH = v.ops.isEmpty() ? 0 : 10 + opsLines * 20 + (v.ops.size() - 1) * 6;
+        int w = Math.max(Math.max(16 + Math.max(n, 1) * cw + 20, titleWidth(v.title, type)), opsW + 24);
+        int h = th() + labelsH + ch + 22 + (range ? 12 : 0) + opsH;
+        if (g == null) return new Dimension(w, h);
+
+        drawTitle(g, v.title, type, x, y, v.focus);
+        if (n == 0) {
+            box(g, x + 8, top, cw * 2, ch, BOX, null, true);
+            g.setColor(MUTED);
+            center(g, "\"\"", SMALL_B, x + 8 + cw, top + ch / 2);
+        }
+        for (int i = 0; i < n; i++) {
+            int bx = x + 8 + i * cw;
+            boolean in = range && i >= v.from && i < v.to;
+            Color fill = in ? (v.found ? NEW_C : READ_C) : v.changed ? CHANGED_C : BOX;
+            char c = text.charAt(i);
+            box(g, bx, top, cw, ch, fill, c == ' ' ? "\u2423" : String.valueOf(c), false);
+            g.setColor(MUTED);
+            center(g, String.valueOf(i), SMALL, bx + cw / 2, top + ch + 11);
+            List<String> labels = v.arrows.get(i);
+            if (labels != null) labelStack(g, labels, bx + cw / 2, top - 4);
+        }
+        int by = top + ch + 22;
+        if (range) {   // סוגר מתחת לחלק המסומן
+            int x1 = x + 8 + v.from * cw + 3, x2 = x + 8 + Math.min(v.to, n) * cw - 3;
+            g.setColor(v.found ? new Color(0x15803D) : new Color(0xB45309));
+            g.setStroke(new BasicStroke(2.2f));
+            g.drawLine(x1, by + 2, x2, by + 2);
+            g.drawLine(x1, by - 4, x1, by + 2);
+            g.drawLine(x2, by - 4, x2, by + 2);
+            by += 12;
+        }
+        int oy = by + 16;
+        for (String o : v.ops) {
+            String[] parts = o.split(StringViz.NOTE);
+            boolean err = v.error && o.contains("Exception");
+            // שורה 1: הקוד והתוצאה (משמאל לימין); שורה 2: ההסבר בעברית (מתחיל באות עברית — ולכן מימין לשמאל, צמוד לימין)
+            g.setColor(err ? GHOST : FOCUS);
+            g.setFont(SMALL_B);
+            g.drawString(parts[0], x + 10, oy);
+            oy += 20;
+            if (parts.length > 1) {
+                g.setColor(err ? GHOST : MUTED);
+                g.setFont(SMALL);
+                g.drawString(parts[1], x + w - 10 - textWidth(parts[1], SMALL), oy);
+                oy += 20;
+            }
+            oy += 6;
+        }
+        return new Dimension(w, h);
     }
 
     // ------------------------------------------------------------ מערך חד-ממדי

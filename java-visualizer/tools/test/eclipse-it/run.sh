@@ -38,6 +38,7 @@ check "RUNCHECK Mistakes.java errors=[1-9]" "הרצה ויזואלית: יש ש�
 check "RUNCHECK Targil.java errors=0" "הרצה ויזואלית: קוד תקין — מותר להריץ (Targil.java)"
 check "LIBRARY-BEFORE false" "פרויקט Java רגיל: בהתחלה אין בו את ספריית הקורס"
 check "LIBRARY-AFTER true stack=true node=true jar=true" "פרויקט Java רגיל: הספרייה נוספה — Queue / Stack / Node מזוהים"
+check "LAUNCH-CP first-is-dsviz=true entries=[2-9]" "הרצה ויזואלית בכל פרויקט: הספרייה מהתוסף ראשונה, ואחריה ה-classpath של הפרויקט"
 check "OFF-MENTOR-COUNT 0" "כיבוי מהתפריט: כל הסימונים נמחקים"
 grep -q "BUILD Targil.java" "$OUT" && { echo "  FAIL קוד תקין קיבל סימונים"; FAILED=1; } || echo "  ok  קוד תקין (Targil.java) — בלי אף סימון"
 [ "$(grep -c '^BUILD-MENTOR-COUNT 0' "$OUT")" = 0 ] && echo "  ok  יש סימונים בבנייה" || { echo "  FAIL אין סימונים בבנייה"; FAILED=1; }

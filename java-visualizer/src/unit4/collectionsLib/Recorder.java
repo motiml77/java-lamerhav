@@ -342,6 +342,8 @@ final class Recorder {
 
     // מצב שורה-שורה: המערכים של המסגרות הנוכחיות כפי שה-Tracer קרא אותם בשורה האחרונה
     private static List<View> lineArrays = new ArrayList<View>();
+    // מצב שורה-שורה: משתני המחרוזת של השורה האחרונה, עם מה שהשורה עושה בהם (StringViz)
+    private static List<View> lineStrings = new ArrayList<View>();
     private static Map<String, List<String>> lastLineArrays = new HashMap<String, List<String>>();
     /**
      * section = מערכים מופרדים ב-\u0001: שמות \u0002 ממדים \u0002 נתונים (שורות ב-\u0007, איברים ב-\u0006).
@@ -589,6 +591,15 @@ final class Recorder {
         if (x instanceof Student || x instanceof Car) return str(x);
         if (x instanceof Stack || x instanceof Queue || x instanceof Node || x instanceof BinNode) return formatVar(x);
         if (x.getClass().isEnum()) return String.valueOf(x);
+        if (isRecordLike(x.getClass()) && !overridesToString(x.getClass())) {   // הפניה לאובייקט אחר של התלמיד: → Bob
+            if (titleDepth > 0) return "→ " + x.getClass().getSimpleName();   // בלי להיכנס לעומק (אובייקטים שמצביעים זה על זה)
+            titleDepth++;
+            try {
+                return "→ " + shorten(userTitle(x), 14);
+            } finally {
+                titleDepth--;
+            }
+        }
         try {
             return shorten(String.valueOf(x), 24);
         } catch (RuntimeException e) {
@@ -762,7 +773,10 @@ final class Recorder {
         nestDepth = 0;
 
         // --- מערכים (במצב שורה-שורה: כפי שנקראו בשורה האחרונה, כי מערך משתנה גם בלי הספרייה)
-        if (lineMode) { for (View v : lineArrays) views.add(refreshSubs(v, target, mark, ghost)); }
+        if (lineMode) {
+            views.addAll(lineStrings);
+            for (View v : lineArrays) views.add(refreshSubs(v, target, mark, ghost));
+        }
         else for (Object a : alive(arrays)) views.add(arrayView(a));
 
         // --- מחסניות ותורים
@@ -971,8 +985,9 @@ final class Recorder {
         if (!lineMode) return;
         for (Map.Entry<Object, List<String>> e : frameVars.entrySet()) {
             Object k = e.getKey();
-            if (!(k instanceof Student || k instanceof Car)) continue;
-            int id = k instanceof Student ? ((Student) k).vizId : ((Car) k).vizId;
+            boolean user = !(k instanceof Student || k instanceof Car);
+            if (user && !isRecordLike(k.getClass())) continue;
+            int id = k instanceof Student ? ((Student) k).vizId : k instanceof Car ? ((Car) k).vizId : System.identityHashCode(k);
             boolean shown = false;
             for (Obj o : snapObjs) {
                 if (o.id != id) continue;
@@ -1066,11 +1081,40 @@ final class Recorder {
     static String str(Object v) {
         String s;
         try {
-            s = v instanceof Student ? ((Student) v).label() : v instanceof Car ? ((Car) v).label() : String.valueOf(v);
+            s = v instanceof Student ? ((Student) v).label() : v instanceof Car ? ((Car) v).label()
+                    : v != null && isRecordLike(v.getClass()) && !overridesToString(v.getClass()) ? userTitle(v) : String.valueOf(v);
         } catch (RuntimeException e) {
             s = "?";
         }
         return shorten(s, 14);
+    }
+
+    /** תוכן מחסנית / תור; אובייקט של התלמיד בלי toString — לפי הכותרת שלו (Rex) ולא zoo.Dog@1b6d3586 */
+    private static String itemsText(List<?> items, Object struct) {
+        boolean plain = true;
+        for (Object x : items) if (x != null && isRecordLike(x.getClass()) && !overridesToString(x.getClass())) plain = false;
+        if (plain) return struct.toString();
+        StringBuilder b = new StringBuilder("[");
+        boolean stack = struct instanceof Stack;   // במחסנית: הראש ראשון (כמו ב-toString)
+        for (int i = 0; i < items.size(); i++) b.append(i == 0 ? "" : ",").append(str(items.get(stack ? items.size() - 1 - i : i)));
+        return b.append(']').toString();
+    }
+
+    private static int titleDepth;
+
+    /** מחלקה של התלמיד בלי toString משלה: במקום Dog@1b6d3586 — הכותרת של הכרטיס (השם, או סוג המחלקה) */
+    private static String userTitle(Object v) {
+        Obj o = reflectObj(v);
+        if (!o.title.equals(o.type)) return o.title;           // שדה שם / טקסט
+        return o.sub.isEmpty() ? o.type : "{" + o.sub + "}";   // אחרת — המאפיינים הראשונים: {x=3 · y=4}
+    }
+
+    private static boolean overridesToString(Class<?> c) {
+        try {
+            return c.getMethod("toString").getDeclaringClass() != Object.class;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
     }
 
     static String nodeRef(Object node) {
@@ -1115,9 +1159,17 @@ final class Recorder {
     private static int idCounter;
     private static final Map<Integer, WeakReference<Object>> byId = new HashMap<Integer, WeakReference<Object>>();
 
+    /**
+     * אובייקטים של מחלקות שהתלמיד כתב (Dog, Person...) שה-Tracer ראה במשתנים: הוא שם אותם כאן (בלי להריץ קוד בתהליך),
+     * ושולח \u0003u + המקום — כך יודעים בדיוק איזה אובייקט זה (גם כשהוא בתוך מבנה), ובונים לו כרטיס.
+     */
+    static final int OBJ_CAPACITY = 4096;
+    static Object[] lineObjs;
+
     static void initLineMode() {
         lineMode = true;
         lineTexts = new String[LINE_CAPACITY];
+        lineObjs = new Object[OBJ_CAPACITY];
     }
 
     /** נקרא בתחילת כל פעולה ציבורית של הספרייה */
@@ -1178,6 +1230,11 @@ final class Recorder {
         currentVars = vars;
         Frame f = frames.isEmpty() ? null : frames.get(0);
         lineArrays = parseLineArrays(halves.length > 2 ? halves[2] : "", vars, f);
+        try {
+            lineStrings = StringViz.views(vars, f == null ? null : SourceFiles.line(f));
+        } catch (RuntimeException e) {
+            lineStrings = new ArrayList<View>();   // מחרוזות לא מוצגות — שאר ההרצה ממשיכה
+        }
         String code = f == null ? null : SourceFiles.line(f);
         // הקוד עצמו בתוך "הטבעה" משמאל לימין (\u202A...\u202C), כדי שלא יתהפך בתוך הטקסט העברי
         String text = f == null ? "שורה" : "שורה " + f.line + ":   \u202A" + (code == null ? f.method + "()" : code.trim()) + "\u202C";
@@ -1224,6 +1281,14 @@ final class Recorder {
     }
 
     private static Object byId(String id) {
+        if (id.startsWith("u")) {   // אובייקט של מחלקה של התלמיד (ראו lineObjs)
+            try {
+                int k = Integer.parseInt(id.substring(1));
+                return lineObjs != null && k >= 0 && k < lineObjs.length ? lineObjs[k] : null;
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
         try {
             WeakReference<Object> r = byId.get(Integer.valueOf(id));
             return r == null ? null : r.get();
@@ -1242,7 +1307,7 @@ final class Recorder {
     /** הפניות למבנים בתוך טקסט (איברי מערך: \u0003 + vizId) → תיאור המבנה, למשל [9,8] */
     private static String resolveRefs(String value) {
         if (value.indexOf('\u0003') < 0) return value;
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\u0003(\\d+)").matcher(value);
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\u0003(u?\\d+)").matcher(value);
         StringBuffer b = new StringBuffer();
         suspended++;
         try {
@@ -1259,16 +1324,33 @@ final class Recorder {
 
     private static String formatVar(Object v) {
         if (v == null) return "null";
-        if (v instanceof Stack) return "Stack " + shorten(v.toString(), 40);
-        if (v instanceof Queue) return "Queue " + shorten(v.toString(), 40);
+        if (v instanceof Stack) return "Stack " + shorten(itemsText(((Stack<?>) v).items, v), 40);
+        if (v instanceof Queue) return "Queue " + shorten(itemsText(((Queue<?>) v).items, v), 40);
         if (v instanceof Node || v instanceof BinNode) return (v instanceof Node ? "Node " : "BinNode ") + nodeRef(v);
         if (v instanceof Student) return "Student " + shorten(v.toString(), 40);
         if (v instanceof Car) return "Car " + shorten(v.toString(), 40);
+        if (isRecordLike(v.getClass())) return v.getClass().getSimpleName() + " " + str(v);
         return shorten(String.valueOf(v), 40);
     }
 
 
     private static String describe(View v) {
+        if (v instanceof Model.StringView) {   // "hello" [2..5) ↑4  s.substring(2, 5) → "llo"
+            Model.StringView sv = (Model.StringView) v;
+            StringBuilder b = new StringBuilder("\"").append(sv.text).append('"');
+            if (sv.from >= 0) b.append(" [").append(sv.from).append("..").append(sv.to).append(')');
+            for (Map.Entry<Integer, List<String>> e : new java.util.TreeMap<Integer, List<String>>(sv.arrows).entrySet())
+                b.append(" ↑").append(e.getKey()).append(e.getValue());
+            for (String o : sv.ops) b.append("  ").append(o.replace(StringViz.NOTE, "  — "));
+            return b.toString();
+        }
+        if (v instanceof ObjView) {
+            Obj o = ((ObjView) v).obj;
+            StringBuilder b = new StringBuilder(o.type).append(" {");
+            for (int i = 0; i < o.fields.size(); i++) b.append(i == 0 ? "" : ", ").append(o.fields.get(i)[0]).append('=').append(o.fields.get(i)[1]);
+            return b.append('}').toString();
+        }
+        if (!(v instanceof LinearView || v instanceof ChainView || v instanceof TreeView)) return v.getClass().getSimpleName();
         if (v instanceof LinearView) return ((LinearView) v).items.toString() + (((LinearView) v).stack ? " (ראש משמאל)" : " (ראש התור משמאל)");
         if (v instanceof ChainView) {
             StringBuilder b = new StringBuilder();
