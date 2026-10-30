@@ -18,17 +18,23 @@ body { background: #070913; color: #f2f4fb; font: 16px/1.4 "Segoe UI", Heebo, Ar
 .stage { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px 12px; }
 video { max-width: 100%; max-height: 100%; background: #000; border-radius: 10px; outline: none; }
 #err { display: none; color: #ffd27a; text-align: center; padding: 20px; }
-.copy { flex: 0 0 auto; color: #aab2c8; font-size: 11px; opacity: .7; direction: ltr; text-align: right; padding: 0 16px 8px; }
+.foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 16px 8px; }
+.copy { color: #aab2c8; font-size: 11px; opacity: .7; direction: ltr; }
+.donate { display: inline-flex; align-items: center; gap: 6px; font: 700 12.5px/1 "Segoe UI", Heebo, Arial, sans-serif; color: #4a3405; text-decoration: none;
+  padding: 6px 14px; border-radius: 999px; background: linear-gradient(#f8de8a, #ddb042); border: 1px solid #b68a1e; box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 1px 3px rgba(0,0,0,.45); white-space: nowrap; }
+.donate:hover, .donate:focus-visible { background: linear-gradient(#fbe7a4, #e6bc4e); outline: none; }
+.donate:active { transform: translateY(1px); }
+.donate .heart { color: #b4372c; font-size: 13px; }
 </style></head><body>
 <div class="bar"><h1 id="ttl"></h1><button class="other" id="other">הדרכה אחרת</button><div class="speed" id="speed"><span>מהירות</span></div></div>
 <div class="stage"><video id="vid" controls autoplay></video><div id="err">לא הצלחתי לנגן את הסרטון בחלון הזה.</div></div>
-<div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div>
+<div class="foot"><a class="donate" id="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&currency_code=ILS&item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal"><span class="heart">&#9829;</span>תרום לנו</a><div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div></div>
 <script>
 var LIST = [{"id":"a","num":"01","title":"יצירת מבנה נתונים חדש","video":"a.mp4","poster":"a.jpg"},{"id":"b","num":"02","title":"דוגמאות פתורות","video":"b.mp4","poster":"b.jpg"},{"id":"c","num":"03","title":"מבנה בתוך מבנה","video":"c.mp4","poster":"c.jpg"},{"id":"d","num":"04","title":"מוסיפים התאמות לתרגיל","video":"d.mp4","poster":"d.jpg"}];
 var SPEEDS = [1, 1.25, 1.5, 2];
 function $(id) { return document.getElementById(id); }
 var id = null || (location.hash || '#a').slice(1), t = LIST[0], i, vs = null;
-try { vs = acquireVsCodeApi(); } catch (e) { }
+try { vs = acquireVsCodeApi(); window.__dsvizVs = vs; } catch (e) { }
 for (i = 0; i < LIST.length; i++) if (LIST[i].id === id) t = LIST[i];
 $('ttl').textContent = t.num + ' · ' + t.title;
 document.title = t.title;
@@ -59,4 +65,12 @@ v.onerror = fail;
 v.addEventListener('loadedmetadata', function () { v.playbackRate = rate; });
 v.src = t.video;
 setRate(rate);
+(function () {
+  var d = document.getElementById('donate'); if (!d) return;
+  d.onclick = function () {
+    if (window.dsvizOpen) { try { window.dsvizOpen(d.href); return false; } catch (e) { } }
+    if (window.__dsvizVs) { window.__dsvizVs.postMessage({ cmd: 'open', url: d.href }); return false; }
+    return true;
+  };
+})();
 </script></body></html>
