@@ -123,6 +123,29 @@ java -Dstdout.encoding=UTF-8 -cp "$H:$JAR" BareCalls > "$H/bare.txt" 2>&1 && gre
     && grep -q '  duplicate(q)  →  עותק חדש      copy' "$H/bare-lines.txt" \
     && echo "  ok  size(q) / duplicate(q) בלי Helpers. (import static)" || { echo "  FAIL קריאה בלי Helpers."; cat "$H/bare.txt"; grep 'size\|duplicate' "$H/bare-lines.txt"; exit 1; }
 
+echo "== 5ד. תנאים בהרצה הוויזואלית: המשתנים בקטן, האם התנאי מתקיים, ואיזה ענף רץ (if / else / else if, while, for, do-while)"
+C="$W/conds"
+mkdir -p "$C"
+cp conds/Conds.java "$C/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$C" "$C/Conds.java"
+(cd "$C" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Conds > out.txt 2>&1) || true
+conds() {   # $1 = הקובץ, ואחריו השורות שחייבות להופיע
+    f=$1; shift
+    for want in "$@"; do
+        grep -qF -- "$want" "$f" && echo "  ok  $want" || { echo "  FAIL חסר: $want"; grep '^  \[' "$f"; exit 1; }
+    done
+}
+conds "$C/out.txt" \
+    'שורה 23 if: x % 2 == 0 | 7 % 2 == 0 | x=7 | false עוברים ל-else]' 'שורה 27: else של שורה 23]' \
+    'שורה 30 if: x > 5 | 7 > 5 | x=7 | true נכנסים ל-if]' 'שורה 31: if של שורה 30]' \
+    'while: !s.isEmpty() | !false | s=Stack [8,3] | true ממשיכים לסיבוב]' 'while: !s.isEmpty() | !true | s=Stack [] | false יוצאים מהלולאה]' \
+    'שורה 41 if: v > 5 | 3 > 5 | v=3 | false מדלגים על ה-if]' \
+    'for: i < 2 | 0 < 2 | i=0 | true ממשיכים לסיבוב]' 'for: i < 2 | 2 < 2 | i=2 | false יוצאים מהלולאה]' \
+    'do: k > 1 | 2 > 1 | k=2 | true חוזרים לסיבוב נוסף]' 'do: k > 1 | 1 > 1 | k=1 | false יוצאים מהלולאה]' \
+    'שורה 6 if: x < 0 | 0 < 0 | x=0 | false עוברים ל-else if]' 'שורה 11: else של שורה 8]' \
+    'שורה 16 if: n <= 1 | 1 <= 1 | n=1 | true נכנסים ל-if]'
+! grep -q 'for: i < 2 | 1 < 2 | i=1 | false' "$C/out.txt" || { echo "  FAIL ב-for מוצג הערך מלפני ה-i++"; exit 1; }
+
 echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
 mkdir -p "$W/obj"
 javac -encoding UTF-8 -cp "$JAR" -d "$W/obj" objcards/ObjCheck.java

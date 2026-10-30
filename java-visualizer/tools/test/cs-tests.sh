@@ -42,6 +42,16 @@ for n in EmptyPop:'[כרטיס empty-stack s Pop()]' NullNode:'[כרטיס null 
     java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/$c.trace" | grep -qF "$want" \
         && echo "כרטיס שגיאה ב-C#: $want" || { echo "חסר כרטיס ב-$c"; cat "$W/$c.out"; exit 1; }
 done
+# תנאים: אותן תוצאות כמו ב-Java (ב-C# הערכים נרשמים בשורת ה-for אחרי ה-i++ — עדיין מוצג מה שנבדק)
+viz conds/cs/Conds.cs --trace "$W/conds.trace" > "$W/conds.out" 2>&1 || { cat "$W/conds.out"; exit 1; }
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/conds.trace" > "$W/conds.txt" 2>&1
+for want in 'שורה 24 if: x % 2 == 0 | 7 % 2 == 0 | x=7 | false עוברים ל-else]' 'שורה 28: else של שורה 24]' \
+    'while: !s.IsEmpty() | !true | s=Stack [] | false יוצאים מהלולאה]' 'for: i < 2 | 0 < 2 | i=0 | true ממשיכים לסיבוב]' \
+    'for: i < 2 | 2 < 2 | i=2 | false יוצאים מהלולאה]' 'do: k > 1 | 1 > 1 | k=1 | false יוצאים מהלולאה]' \
+    'שורה 7 if: x < 0 | 0 < 0 | x=0 | false עוברים ל-else if]' 'שורה 12: else של שורה 9]'; do
+    grep -qF -- "$want" "$W/conds.txt" || { echo "תנאים ב-C#: חסר $want"; grep '^  \[' "$W/conds.txt"; exit 1; }
+done
+echo "תנאים ב-C#: $(grep -c '^  \[תנאי' "$W/conds.txt") בדיקות תנאי מסומנות"
 # Helpers.Size / Helpers.Duplicate מהספרייה: בלי לשנות את המבנה, עותק עמוק, וצעד אחד לכל קריאה
 viz helpers/HelpersCheck.cs --trace "$W/helpers.trace" > "$W/helpers.out" 2>&1 && grep -q MARK-END "$W/helpers.out" \
     && grep -qP '^STEP\tCREATE\t.*Duplicate\(s\)' "$W/helpers.trace" && echo "Helpers ב-C#: $(grep -c '^  ok' "$W/helpers.out") בדיקות" \

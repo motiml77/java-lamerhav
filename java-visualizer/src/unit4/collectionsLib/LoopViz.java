@@ -58,7 +58,7 @@ final class LoopViz {
     }
 
     /** הערך של משתנה כפי שהוא ברשימת המשתנים → ערך לחישוב: מספר / תו / מחרוזת / boolean / null / מבנה */
-    private static Object value(String text) {
+    static Object value(String text) {
         Object v = StringViz.parseValue(text);
         if (v != null) return v;
         if (text.equals("true") || text.equals("false")) return Boolean.valueOf(text);
