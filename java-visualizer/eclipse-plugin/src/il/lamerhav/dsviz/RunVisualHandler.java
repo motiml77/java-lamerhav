@@ -48,8 +48,14 @@ public class RunVisualHandler extends AbstractHandler {
         try {
             String main = mainType(file);
             if (main == null) {
-                MessageDialog.openInformation(shell, "הרצה ויזואלית", "בקובץ " + file.getName() + " אין main — אין מה להריץ.");
-                return null;
+                // מחלקה בלי main (למשל מחלקה חדשה שהתלמיד כתב): מריצים את המחלקה שמשתמשת בה — או מציעים להוסיף main קצרה
+                IType user = mainUsing(file, shell);
+                if (user == null) {
+                    offerMain(shell, event, file);
+                    return null;
+                }
+                main = user.getFullyQualifiedName();
+                if (user.getResource() instanceof IFile) file = (IFile) user.getResource();
             }
             // פרויקט של התלמיד (כל פרויקט Java): לא משנים בו כלום מלבד הוספת ספריית הקורס אם אין בו בכלל (כדי ש-Queue וכו' יתקמפלו).
             // ספרייה אחרת של unit4 (למשל ה-jar המקורי של הקורס) נשארת; בזמן ההרצה הספרייה שלנו לפניה — היא שמציירת את המבנים.
@@ -167,6 +173,80 @@ public class RunVisualHandler extends AbstractHandler {
             return v.startsWith("1.") ? Integer.parseInt(v.substring(2)) : Integer.parseInt(v);
         } catch (NumberFormatException e) {
             return 0;
+        }
+    }
+
+    /**
+     * המחלקות בפרויקט שיש בהן main ומשתמשות במחלקה של הקובץ (לפי השם). אחת — מחזירים אותה; כמה — התלמיד בוחר;
+     * אף אחת — null. (בוחרים "לא" — גם null)
+     */
+    private static IType mainUsing(IFile file, Shell shell) throws CoreException {
+        ICompilationUnit cu = JavaCore.createCompilationUnitFrom(file);
+        if (cu == null || cu.getTypes().length == 0) return null;
+        String name = cu.getTypes()[0].getElementName();
+        java.util.regex.Pattern used = java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(name) + "\\b");
+        List<IType> found = new ArrayList<IType>();
+        org.eclipse.jdt.core.IJavaProject jp = cu.getJavaProject();
+        for (org.eclipse.jdt.core.IPackageFragmentRoot root : jp.getPackageFragmentRoots()) {
+            if (root.getKind() != org.eclipse.jdt.core.IPackageFragmentRoot.K_SOURCE) continue;
+            for (org.eclipse.jdt.core.IJavaElement pkg : root.getChildren()) {
+                if (!(pkg instanceof org.eclipse.jdt.core.IPackageFragment)) continue;
+                for (ICompilationUnit u : ((org.eclipse.jdt.core.IPackageFragment) pkg).getCompilationUnits()) {
+                    if (u.equals(cu)) continue;
+                    String src = u.getSource();
+                    if (src == null || !used.matcher(src).find()) continue;
+                    for (IType t : u.getTypes()) for (IMethod m : t.getMethods()) if (m.isMainMethod()) found.add(t);
+                }
+            }
+        }
+        if (found.isEmpty()) return null;
+        if (found.size() == 1) return found.get(0);
+        org.eclipse.ui.dialogs.ElementListSelectionDialog d = new org.eclipse.ui.dialogs.ElementListSelectionDialog(shell,
+                new org.eclipse.jface.viewers.LabelProvider() {
+                    @Override
+                    public String getText(Object o) {
+                        return ((IType) o).getFullyQualifiedName();
+                    }
+                });
+        d.setTitle("הרצה ויזואלית");
+        d.setMessage("בקובץ " + file.getName() + " אין main. איזו מחלקה להריץ? (כולן משתמשות ב-" + name + ")");
+        d.setElements(found.toArray());
+        d.setMultipleSelection(false);
+        return d.open() == org.eclipse.jface.window.Window.OK && d.getFirstResult() != null ? (IType) d.getFirstResult() : null;
+    }
+
+    /** אין main ואין מי שמשתמש במחלקה: מציעים להוסיף main קצרה לבדיקה בסוף המחלקה (רק אם התלמיד מסכים — כל השאר לא משתנה) */
+    private static void offerMain(Shell shell, ExecutionEvent event, IFile file) throws CoreException {
+        ICompilationUnit cu = JavaCore.createCompilationUnitFrom(file);
+        IType t = cu == null || cu.getTypes().length == 0 ? null : cu.getTypes()[0];
+        if (t == null) {
+            MessageDialog.openInformation(shell, "הרצה ויזואלית", "בקובץ " + file.getName() + " אין main — אין מה להריץ.");
+            return;
+        }
+        String name = t.getElementName();
+        if (!MessageDialog.openQuestion(shell, "הרצה ויזואלית",
+                "בקובץ " + file.getName() + " אין main, ואין בפרויקט מחלקה עם main שמשתמשת ב-" + name + ".\n\n"
+                + "להוסיף בסוף המחלקה פעולת main קצרה לבדיקה? (כל מה שכתבתם נשאר כמו שהוא)\n"
+                + "אחרי שתכתבו בה מה לבדוק — לוחצים שוב \"הרצה ויזואלית\".")) return;
+        org.eclipse.ui.IEditorPart ed = Ui.openAt(HandlerUtil.getActiveWorkbenchWindow(event).getActivePage(), file, 0);
+        if (!(ed instanceof org.eclipse.ui.texteditor.ITextEditor)) return;
+        org.eclipse.ui.texteditor.ITextEditor te = (org.eclipse.ui.texteditor.ITextEditor) ed;
+        org.eclipse.jface.text.IDocument doc = te.getDocumentProvider().getDocument(te.getEditorInput());
+        int close = Scaffold.classEnd(doc.get(), t.getNameRange().getOffset() + 1);
+        if (close < 0) return;
+        try {
+            int lineStart = doc.getLineOffset(doc.getLineOfOffset(close));
+            String var = Character.toLowerCase(name.charAt(0)) + name.substring(1);
+            String code = "\n    // בדיקה: כאן יוצרים אובייקטים וקוראים לפעולות (\"הרצה ויזואלית\" מראה כל שורה)\n"
+                    + "    public static void main(String[] args) {\n"
+                    + "        // למשל: " + name + " " + var + " = new " + name + "(...);\n"
+                    + "        \n"
+                    + "    }\n";
+            doc.replace(lineStart, 0, code);
+            int caret = lineStart + code.indexOf("        \n") + 8;
+            te.selectAndReveal(caret, 0);
+        } catch (org.eclipse.jface.text.BadLocationException e) {
+            // לא נוסף
         }
     }
 

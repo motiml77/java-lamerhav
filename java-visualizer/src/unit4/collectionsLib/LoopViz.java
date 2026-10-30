@@ -8,6 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import unit4.collectionsLib.Model.Frame;
+import unit4.collectionsLib.Model.LoopCountersView;
 import unit4.collectionsLib.Model.LoopGridView;
 import unit4.collectionsLib.Model.LoopView;
 import unit4.collectionsLib.Model.View;
@@ -33,18 +34,50 @@ final class LoopViz {
         String cond = "";                  // התנאי
         String var, init, op, bound;       // for שסופר: i, 0, <, n
         int stepBy;                        // +1 / -1 / +k
+        String body = "";                  // הגוף (בלי הערות ומחרוזות) — כדי לזהות arr[i]
+        String eachVar, eachOver;          // for (int x : arr)
     }
 
     /** מצב לולאה פעילה (לכל קריאה לפעולה בנפרד — גם ברקורסיה) */
     private static final class State {
         int iteration, lastLine;
         Integer start;                     // הערך ההתחלתי של המשתנה
+        final List<String> history = new ArrayList<String>();   // while: ערך המשתנה שבתנאי בתחילת כל סיבוב
     }
 
     private static final Map<String, List<Loop>> parsed = new HashMap<String, List<Loop>>();
     private static final Map<String, State> states = new HashMap<String, State>();
 
+    private static final Pattern STRUCT = Pattern.compile("^(Queue|Stack|Node|BinNode) \\[(.*)\\]$");
+    private static final Map<String, String> KIND = new HashMap<String, String>();
+    static {
+        KIND.put("Queue", "תור");
+        KIND.put("Stack", "מחסנית");
+        KIND.put("Node", "רשימה");
+        KIND.put("BinNode", "עץ");
+    }
+
+    /** הערך של משתנה כפי שהוא ברשימת המשתנים → ערך לחישוב: מספר / תו / מחרוזת / boolean / null / מבנה */
+    private static Object value(String text) {
+        Object v = StringViz.parseValue(text);
+        if (v != null) return v;
+        if (text.equals("true") || text.equals("false")) return Boolean.valueOf(text);
+        if (text.equals("null")) return StringViz.NULL;
+        Matcher m = STRUCT.matcher(text);
+        if (m.matches()) {
+            StringViz.Struct st = new StringViz.Struct(m.group(1));
+            if (!m.group(2).trim().isEmpty()) for (String x : m.group(2).split(",")) st.items.add(x.trim());
+            return st;
+        }
+        return null;
+    }
+
     static List<View> views(List<Frame> frames, List<String[]> vars) {
+        return views(frames, vars, new HashMap<String, List<String>>());
+    }
+
+    /** arrays = המערכים של השורה (שם → התאים), כדי לדעת על מה לולאה עוברת (arr.length, arr[i], for-each) */
+    static List<View> views(List<Frame> frames, List<String[]> vars, Map<String, List<String>> arrays) {
         List<View> res = new ArrayList<View>();
         if (frames.isEmpty()) return res;
         Frame f = frames.get(0);
@@ -57,9 +90,16 @@ final class LoopViz {
         }
         Map<String, Object> env = new HashMap<String, Object>();
         for (String[] v : vars) {
-            Object val = StringViz.parseValue(v[1]);
-            if (val == null && (v[1].equals("true") || v[1].equals("false"))) val = Boolean.valueOf(v[1]);
+            Object val = value(v[1]);
             if (val != null) env.put(v[0], val);
+        }
+        for (Map.Entry<String, List<String>> a : arrays.entrySet()) {
+            List<Object> items = new ArrayList<Object>();
+            for (String c : a.getValue()) {
+                Object x = StringViz.parseValue(c);
+                items.add(x != null ? x : c);
+            }
+            env.put(a.getKey(), items);
         }
         String prefix = frames.size() + ":" + key + ":";   // עומק הקריאה — ברקורסיה לכל קריאה לולאות משלה
         // הלולאות שהשורה בתוכן: מהחיצונית לפנימית
@@ -82,11 +122,17 @@ final class LoopViz {
             boolean sameLineBody = l.bodyStart == l.header;
             boolean outside = s.lastLine < 0 || s.lastLine > l.end || s.lastLine < l.header;
             if (l.kind.equals("do")) {   // do: סיבוב חדש כשנכנסים, ובכל חזרה מהתנאי (בסוף) אל תחילת הגוף
-                if (outside || s.lastLine == l.end && f.line < l.end) s.iteration++;
+                if (outside || s.lastLine == l.end && f.line < l.end) {
+                    s.iteration++;
+                    String hv = historyVar(l, env);
+                    if (hv != null && s.history.size() < 200) s.history.add(show(env.get(hv)));
+                }
             } else if (sameLineBody) {
                 if (f.line == l.header && s.lastLine == l.header) s.iteration++;   // גוף באותה שורה: כל ביקור נוסף בשורה = סיבוב
             } else if (inBody && (s.lastLine == l.header || outside)) {
                 s.iteration++;   // מהכותרת (בדיקת התנאי) אל הגוף — סיבוב חדש
+                String hv = historyVar(l, env);
+                if (hv != null && s.history.size() < 200) s.history.add(show(env.get(hv)));
             }
             s.lastLine = f.line;
             if (l.var != null && s.start == null) {
@@ -109,8 +155,27 @@ final class LoopViz {
                 Object b = StringViz.eval(l.bound, env);
                 if (b instanceof Integer) track(v, l, s.start, (Integer) b, (Integer) env.get(l.var));
             }
+            subject(v, l, s, env, arrays);
+            // הפנימית מתחילה מחדש בכל סיבוב של החיצונית
+            if (d > 0 && s.iteration == 1 && inBody && chain.get(d - 1).iteration > 1) {
+                LoopView outer = chain.get(d - 1);
+                v.note = "הלולאה הפנימית מתחילה מחדש — כי " + (outer.var != null ? outer.var + " התקדם ל-" + outer.varValue
+                        : "הלולאה החיצונית בסיבוב " + outer.iteration);
+            }
             chain.add(v);
             res.add(v);
+        }
+        // המונים — זה בתוך זה
+        if (chain.size() >= 2) {
+            LoopCountersView c = new LoopCountersView();
+            c.title = "המונים — מה בתוך מה";
+            for (LoopView v : chain) {
+                String name = v.var != null ? v.var : "סיבוב";
+                String val = v.var != null && v.varValue != null ? String.valueOf(v.varValue) : String.valueOf(v.iteration);
+                String range = !v.values.isEmpty() ? v.values.get(0) + "–" + v.values.get(v.values.size() - 1) : "";
+                c.levels.add(new String[] { name, val, range });
+            }
+            res.add(0, c);
         }
         // שתי לולאות for שסופרות, זו בתוך זו: טבלה של כל הזוגות
         for (int d = 0; d + 1 < active.size(); d++) {
@@ -124,6 +189,95 @@ final class LoopViz {
             }
         }
         return res;
+    }
+
+    /** המשתנה המספרי הראשון שבתנאי של while / do — כדי להראות איך הוא משתנה מסיבוב לסיבוב */
+    private static String historyVar(Loop l, Map<String, Object> env) {
+        if (!(l.kind.equals("while") || l.kind.equals("do"))) return null;
+        Matcher m = Pattern.compile("(?<![.\\w])([A-Za-z_]\\w*)(?!\\s*[.(\\[])").matcher(l.cond);
+        while (m.find()) if (env.get(m.group(1)) instanceof Integer || env.get(m.group(1)) instanceof Character) return m.group(1);
+        return null;
+    }
+
+    private static String show(Object v) {
+        return v instanceof Character ? "'" + v + "'" : v instanceof String ? "\"" + v + "\"" : String.valueOf(v);
+    }
+
+    /** על מה הלולאה עוברת: מערך (arr.length / arr[i] / for-each), מבנה בתנאי (תור, מחסנית, רשימה), והיסטוריית while */
+    private static void subject(LoopView v, Loop l, State s, Map<String, Object> env, Map<String, List<String>> arrays) {
+        if (l.var != null && !v.values.isEmpty()) {   // for שסופר על מערך
+            String arr = null;
+            Matcher b = Pattern.compile("^\\s*([A-Za-z_]\\w*)\\s*\\.\\s*length\\s*(-\\s*\\d+)?\\s*$").matcher(l.bound);
+            if (b.matches() && arrays.containsKey(b.group(1))) arr = b.group(1);
+            if (arr == null) {
+                for (String a : arrays.keySet()) {
+                    if (Pattern.compile("(?<![\\w.])" + Pattern.quote(a) + "\\s*\\[\\s*" + Pattern.quote(l.var) + "\\s*[\\]+-]").matcher(l.body).find()) { arr = a; break; }
+                }
+            }
+            if (arr != null) {
+                List<String> items = arrays.get(arr);
+                v.subjectName = arr;
+                v.subjectKind = "מערך";
+                int lo = Math.min(v.values.get(0), v.values.get(v.values.size() - 1)), hi = Math.max(v.values.get(0), v.values.get(v.values.size() - 1));
+                if (Math.abs(l.stepBy) == 1 && lo >= 0 && hi < items.size() && items.size() <= MAX_TRACK) {
+                    // כל המערך, לפי הסדר: מה בטווח של הלולאה, מה כבר עבר, ואיפה עכשיו (גם בלולאה שיורדת)
+                    v.values.clear();
+                    for (int x = 0; x < items.size(); x++) { v.values.add(x); v.elements.add(items.get(x)); }
+                    v.rangeFrom = lo;
+                    v.rangeTo = hi;
+                    v.descending = l.stepBy < 0;
+                    v.currentIndex = v.varValue != null && v.varValue >= 0 && v.varValue < items.size() && v.varValue >= lo && v.varValue <= hi ? v.varValue : -1;
+                } else {
+                    for (int x : v.values) v.elements.add(x >= 0 && x < items.size() ? items.get(x) : "");
+                }
+            }
+        }
+        if (l.kind.equals("foreach") && l.eachOver != null && arrays.containsKey(l.eachOver)) {   // for (int x : arr)
+            List<String> items = arrays.get(l.eachOver);
+            if (items.size() <= MAX_TRACK) {
+                v.subjectName = l.eachOver;
+                v.subjectKind = "מערך";
+                v.var = l.eachVar;
+                for (int i = 0; i < items.size(); i++) {
+                    v.values.add(i);
+                    v.elements.add(items.get(i));
+                }
+                v.currentIndex = s.iteration >= 1 && s.iteration <= items.size() ? s.iteration - 1 : -1;
+                v.done = s.iteration > items.size();
+                Object cur = env.get(l.eachVar);
+                v.varValue = null;
+                if (cur != null) v.structNote = l.eachVar + " = " + show(cur);
+            }
+        }
+        if (l.kind.equals("while") || l.kind.equals("do")) {
+            Matcher m = Pattern.compile("(?<![.\\w])([A-Za-z_]\\w*)").matcher(l.cond);
+            while (m.find() && v.subjectName == null) {
+                Object val = env.get(m.group(1));
+                String n = m.group(1);
+                if (val instanceof StringViz.Struct) {
+                    StringViz.Struct st = (StringViz.Struct) val;
+                    v.subjectName = n;
+                    v.subjectKind = KIND.get(st.kind);
+                    if (st.kind.equals("Queue") || st.kind.equals("Stack")) {
+                        v.structItems.addAll(st.items.size() > 10 ? st.items.subList(0, 10) : st.items);
+                        v.structNote = st.items.isEmpty() ? "ה" + v.subjectKind + " " + n + " ריק" + (st.kind.equals("Queue") ? "" : "ה")
+                                : "ב" + v.subjectKind + " " + n + " יש עוד " + st.items.size() + (st.items.size() == 1 ? " איבר" : " איברים");
+                    } else {
+                        v.structNote = n + " מצביע על " + (st.kind.equals("Node") ? "חוליה" : "צומת") + " עם הערך " + (st.items.isEmpty() ? "?" : st.items.get(0));
+                    }
+                } else if (val == StringViz.NULL) {
+                    v.subjectName = n;
+                    v.structNote = n + " הוא null — הגענו לסוף";
+                }
+            }
+            String hv = historyVar(l, env);
+            if (hv != null && !s.history.isEmpty()) {
+                v.historyVar = hv;
+                List<String> h = s.history;
+                v.history.addAll(h.size() > 12 ? h.subList(h.size() - 12, h.size()) : h);
+                if (h.size() > 12) v.history.add(0, "…");
+            }
+        }
     }
 
     /** הערכים של המשתנה מההתחלה ועד הגבול (רק אם יש עד 40), ואיפה הוא עכשיו */
@@ -218,29 +372,77 @@ final class LoopViz {
 
     // ------------------------------------------------------------ תנאי: הצבת הערכים וחישוב
 
-    /** i < arr.length  →  2 < 5 (מחליפים משתנים בערכים שלהם; s.length() → האורך) */
+    /** i < arr.length  →  2 < 3 ; arr[i] > max → 9 > 7 (משתנים → הערכים שלהם; מבנים נשארים בשם — עליהם יש שורה משלהם) */
     static String substitute(String cond, Map<String, Object> env) {
         if (cond == null || cond.isEmpty()) return "";
         StringBuilder b = new StringBuilder();
-        Matcher m = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|([A-Za-z_]\\w*)(\\s*\\.\\s*length\\s*\\(\\s*\\))?").matcher(cond);
+        Matcher m = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|([A-Za-z_]\\w*)").matcher(cond);
         int last = 0;
         boolean any = false;
         while (m.find()) {
+            if (m.start() < last) continue;
             b.append(cond, last, m.start());
             last = m.end();
             String id = m.group(1);
             Object v = id == null ? null : env.get(id);
-            boolean dotBefore = m.start() > 0 && cond.charAt(m.start() - 1) == '.';
+            boolean dotBefore = m.start() > 0 && cond.substring(0, m.start()).trim().endsWith(".");
             if (v == null || dotBefore) { b.append(m.group()); continue; }
-            if (m.group(2) != null) {
-                if (v instanceof String) { b.append(((String) v).length()); any = true; } else b.append(m.group());
+            // הביטוי המלא אחרי השם: arr[i]  arr.length  s.length()  s.charAt(i)  — מחשבים את כולו
+            int end = postfixEnd(cond, m.end());
+            if (end > m.end()) {
+                Object r = StringViz.eval(cond.substring(m.start(), end), env);
+                if (r != null && !(r instanceof Boolean) && !(r instanceof StringViz.Struct) && !(r instanceof List)) {
+                    b.append(show(r));
+                    last = end;
+                    any = true;
+                    continue;
+                }
+                b.append(m.group());
                 continue;
             }
-            b.append(v instanceof String ? "\"" + v + "\"" : v instanceof Character ? "'" + v + "'" : String.valueOf(v));
+            if (v instanceof StringViz.Struct || v instanceof List) { b.append(m.group()); continue; }
+            b.append(show(v));
             any = true;
         }
         b.append(cond.substring(last));
         return any ? b.toString() : "";
+    }
+
+    /** הסוף של arr[i] / x.length / s.charAt(i) / q.isEmpty() שמתחילים ב-from */
+    private static int postfixEnd(String s, int from) {
+        int i = from;
+        while (true) {
+            int k = i;
+            while (k < s.length() && Character.isWhitespace(s.charAt(k))) k++;
+            if (k < s.length() && s.charAt(k) == '[') {
+                int depth = 0, e = k;
+                for (; e < s.length(); e++) {
+                    if (s.charAt(e) == '[') depth++;
+                    else if (s.charAt(e) == ']' && --depth == 0) break;
+                }
+                if (e >= s.length()) return i;
+                i = e + 1;
+                continue;
+            }
+            if (k < s.length() && s.charAt(k) == '.') {
+                int e = k + 1;
+                while (e < s.length() && Character.isWhitespace(s.charAt(e))) e++;
+                int n = e;
+                while (n < s.length() && Character.isJavaIdentifierPart(s.charAt(n))) n++;
+                if (n == e) return i;
+                int p = n;
+                while (p < s.length() && Character.isWhitespace(s.charAt(p))) p++;
+                if (p < s.length() && s.charAt(p) == '(') {
+                    int close = StringViz.matching(s, p);
+                    if (close < 0) return i;
+                    i = close + 1;
+                } else {
+                    i = n;
+                }
+                continue;
+            }
+            return i;
+        }
     }
 
     /** true / false אם אפשר לחשב (השוואות, &&, ||, !), אחרת null */
@@ -283,9 +485,7 @@ final class LoopViz {
                 default: return x > y;
             }
         }
-        if (s.equals("true")) return true;
-        if (s.equals("false")) return false;
-        Object v = env.get(s);
+        Object v = StringViz.eval(s, env);   // true / flag / q.isEmpty() / s.isEmpty()
         if (v instanceof Boolean) return (Boolean) v;
         throw new IllegalArgumentException();
     }
@@ -361,6 +561,8 @@ final class LoopViz {
                     l.cond = inside.trim();
                 } else if (inside.contains(":") && !inside.contains(";")) {
                     l.kind = "foreach";
+                    Matcher fe = Pattern.compile("([A-Za-z_]\\w*)\\s*:\\s*([A-Za-z_]\\w*)\\s*$").matcher(inside.trim());
+                    if (fe.find()) { l.eachVar = fe.group(1); l.eachOver = fe.group(2); }
                 } else {
                     l.kind = "for";
                     String[] parts = inside.split(";", -1);
@@ -387,6 +589,7 @@ final class LoopViz {
                     l.bodyStart = lineOf[first];
                 }
                 l.end = lineOf[close];
+                l.body = clean.substring(k + 1, close);
                 if (l.kind.equals("do")) {   // do { ... } while (cond);
                     Matcher w = Pattern.compile("\\G\\s*while\\s*\\(").matcher(clean);
                     if (w.find(close + 1)) {
@@ -403,6 +606,7 @@ final class LoopViz {
                 if (semi < 0) continue;
                 l.bodyStart = lineOf[k];
                 l.end = lineOf[semi];
+                l.body = clean.substring(k, semi);
             }
             res.add(l);
         }

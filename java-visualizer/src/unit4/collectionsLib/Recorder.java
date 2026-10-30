@@ -1245,7 +1245,12 @@ final class Recorder {
             lineStrings = new ArrayList<View>();   // מחרוזות לא מוצגות — שאר ההרצה ממשיכה
         }
         try {
-            lineLoops = LoopViz.views(frames, vars);
+            Map<String, List<String>> arrs = new HashMap<String, List<String>>();   // המערכים של השורה (בשביל arr.length, arr[i], for-each)
+            for (View av : lineArrays) {
+                if (!(av instanceof ArrayView) || av.title == null) continue;
+                for (String n : av.title.split(",\\s*")) arrs.put(n.replaceAll("\\s*\\(.*\\)$", "").trim(), ((ArrayView) av).items);
+            }
+            lineLoops = LoopViz.views(frames, vars, arrs);
         } catch (RuntimeException e) {
             lineLoops = new ArrayList<View>();
         }
@@ -1361,14 +1366,24 @@ final class Recorder {
         if (v instanceof Model.LoopView) {   // for (int i = 0; i < 5; i++) סיבוב 3, i=2 [0,1,(2),3,4], תנאי: 2 < 5 → true
             Model.LoopView l = (Model.LoopView) v;
             StringBuilder b = new StringBuilder(l.header).append(" סיבוב ").append(l.iteration);
-            if (l.var != null) b.append(", ").append(l.var).append('=').append(l.varValue);
+            if (l.var != null && l.varValue != null) b.append(", ").append(l.var).append('=').append(l.varValue);
             if (!l.values.isEmpty()) {
                 b.append(" [");
                 for (int i = 0; i < l.values.size(); i++) b.append(i == 0 ? "" : ",").append(i == l.currentIndex ? "(" + l.values.get(i) + ")" : l.values.get(i));
                 b.append(']');
             }
             if (l.done) b.append(" הסתיימה");
+            if (l.subjectKind != null) b.append(", על ").append(l.subjectKind).append(' ').append(l.subjectName).append(l.elements.isEmpty() ? "" : " " + l.elements);
+            if (!l.structItems.isEmpty()) b.append(" ").append(l.structItems);
+            if (l.structNote != null) b.append(", ").append(l.structNote);
+            if (!l.history.isEmpty()) b.append(", ").append(l.historyVar).append(": ").append(String.join(" → ", l.history));
+            if (l.note != null) b.append(", ").append(l.note);
             if (!l.cond.isEmpty()) b.append(", תנאי: ").append(l.condValues.isEmpty() ? l.cond : l.condValues).append(l.condResult == null ? "" : " → " + l.condResult);
+            return b.toString();
+        }
+        if (v instanceof Model.LoopCountersView) {
+            StringBuilder b = new StringBuilder();
+            for (String[] l : ((Model.LoopCountersView) v).levels) b.append(b.length() == 0 ? "" : " ⊃ ").append(l[0]).append('=').append(l[1]);
             return b.toString();
         }
         if (v instanceof Model.LoopGridView) {

@@ -156,6 +156,21 @@ final class Model {
         final List<Integer> values = new ArrayList<Integer>();
         int currentIndex = -1;
         boolean done;
+        // על מה הלולאה עוברת
+        String subjectName, subjectKind;   // arr / q ; "מערך" / "תור" / "מחסנית" / "רשימה"
+        final List<String> elements = new ArrayList<String>();     // מערך: האיבר בכל מקום בסרגל (במקביל ל-values)
+        final List<String> structItems = new ArrayList<String>();  // תור / מחסנית: מה יש בו עכשיו (הראש ראשון)
+        String structNote;                 // "יש עוד 3 איברים" / "p מצביע על חוליה עם הערך 5"
+        String historyVar;                 // while: המשתנה שבתנאי, וערכו בתחילת כל סיבוב
+        final List<String> history = new ArrayList<String>();
+        String note;                       // "הלולאה הפנימית מתחילה מחדש..."
+        int rangeFrom = -1, rangeTo = -1;  // מערך שלם בסרגל: האינדקסים שהלולאה עוברת עליהם (השאר — מעומעמים)
+        boolean descending;                // הלולאה יורדת (i--): מה שכבר עבר — מימין למקום הנוכחי
+    }
+
+    /** לולאות מקוננות: המונים, זה בתוך זה (i ובתוכו j) — כדי לראות מה בתוך מה */
+    static final class LoopCountersView extends View {
+        final List<String[]> levels = new ArrayList<String[]>();   // {שם, ערך, טווח} מהחיצונית לפנימית
     }
 
     /** שתי לולאות for מקוננות: טבלה של כל הזוגות (שורה = ערך של החיצוני, עמודה = ערך של הפנימי) */

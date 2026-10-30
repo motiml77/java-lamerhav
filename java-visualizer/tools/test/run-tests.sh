@@ -43,20 +43,27 @@ U="$W/userclass/out.txt"
     && grep -q "השוני הראשון במקום 2" "$U" && grep -q "הפעולה toString מחזירה" "$U" \
     && echo "מחלקות של התלמיד ומחרוזות: כרטיסים, ותיאור הפעולות על מחרוזות (charAt / substring / compareTo) — בלי לולאה בגלל toString" \
     || { echo "נכשל: מחלקות של התלמיד / מחרוזות"; tail -30 "$U"; exit 1; }
-# לולאות: for, מקוננות (גם j < i), while, do-while, for-each — מספר הסיבוב, התנאי עם הערכים, וסרגל הערכים
+# לולאות: for, מקוננות (גם j < i), while, do-while, for-each, ולולאות שעוברות על מערך / תור / מחסנית / רשימה
 mkdir -p "$W/loops"
-javac -g -encoding UTF-8 -nowarn -d "$W/loops" loops/loops/Main.java
+javac -g -encoding UTF-8 -nowarn -cp "$JAR" -d "$W/loops" loops/loops/*.java
 (cd "$W/loops" && cp -r "$OLDPWD/loops/loops" . && timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -Ddsviz.visual=true \
-    -cp ".:$JAR" unit4.collectionsLib.LineByLine loops.Main > out.txt 2>&1)
+    -cp ".:$JAR" unit4.collectionsLib.LineByLine loops.Main > out.txt 2>&1 \
+    && timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -Ddsviz.visual=true -cp ".:$JAR" unit4.collectionsLib.LineByLine loops.Data > data.txt 2>&1)
 L2="$W/loops/out.txt"
-grep -q "for (int i = 0; i < 4; i++) סיבוב 2, i=1 \[0,(1),2,3\], תנאי: 1 < 4 → true" "$L2" \
-    && grep -q "לולאה פנימית: for (int j = 0; j < i; j++) סיבוב 2, j=1 \[0,(1)\]" "$L2" \
+L3="$W/loops/data.txt"
+grep -qF "for (int i = 0; i < 4; i++) סיבוב 2, i=1 [0,(1),2,3], תנאי: 1 < 4 → true" "$L2" \
+    && grep -qF "לולאה פנימית: for (int j = 0; j < i; j++) סיבוב 2, j=1 [0,(1)]" "$L2" \
     && grep -qF "הזוגות (i, j): ../x./xO" "$L2" \
-    && grep -q "while (n > 1) סיבוב 3, תנאי: 5 > 1 → true" "$L2" \
-    && grep -q "do { ... } while (k > 0) סיבוב 3, תנאי: 0 > 0 → false" "$L2" \
-    && grep -q "for (int x : arr) סיבוב 2" "$L2" \
-    && echo "לולאות: סיבובים, תנאי עם ערכים, סרגל הערכים, וטבלת הזוגות של לולאות מקוננות" \
-    || { echo "נכשל: לולאות"; grep "לולאה\|הזוגות" "$L2" | head -20; exit 1; }
+    && grep -qF "while (n > 1) סיבוב 3, n: 20 → 10 → 5, תנאי: 5 > 1 → true" "$L2" \
+    && grep -qF "do { ... } while (k > 0) סיבוב 3, k: 3 → 2 → 1, תנאי: 0 > 0 → false" "$L2" \
+    && grep -qF "for (int x : arr) סיבוב 2 [0,(1)], על מערך arr [5, 6], x = 6" "$L2" \
+    && grep -qF "for (int i = 1; i < arr.length; i++) סיבוב 2, i=2 [0,1,(2)], על מערך arr [7, 3, 9], תנאי: 2 < 3 → true" "$L3" \
+    && grep -qF "while (!q.isEmpty()) סיבוב 1, על תור q [4, 5], בתור q יש עוד 2 איברים, תנאי: !q.isEmpty() → true" "$L3" \
+    && grep -qF "while (!st.isEmpty()) סיבוב 2, על מחסנית st, המחסנית st ריקה, תנאי: !st.isEmpty() → false" "$L3" \
+    && grep -qF "p מצביע על חוליה עם הערך 2, תנאי: p != null → true" "$L3" \
+    && grep -qF "הלולאה הפנימית מתחילה מחדש — כי i התקדם ל-1" "$L3" \
+    && echo "לולאות: סיבובים, תנאי עם ערכים, סרגל ערכים / מערך, תור / מחסנית / רשימה, היסטוריה ב-while, ולולאות מקוננות" \
+    || { echo "נכשל: לולאות"; grep -h "לולאה\|הזוגות" "$L2" "$L3" | head -30; exit 1; }
 # פעולות העזר size / duplicate (תיבות V בחלונות): נכונות, לא פוגעות במבנה, ורצות גם בהרצה ויזואלית
 mkdir -p "$W/helpers"
 node helpers-test.js "$W/helpers"
