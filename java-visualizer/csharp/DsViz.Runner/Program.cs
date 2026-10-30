@@ -59,11 +59,11 @@ namespace DsViz
                 Recorder.Sources[Path.GetFileName(f)] = text;
                 trees.Add(CSharpSyntaxTree.ParseText(text, parse, f));
             }
-            if (project.ImplicitUsings)
-                trees.Add(CSharpSyntaxTree.ParseText(
+            // כמו Directory.Build.props של תיקיית התרגילים: פעולות העזר מהספרייה (Size / Duplicate) בלי Helpers. — תמיד
+            trees.Add(CSharpSyntaxTree.ParseText("global using static global::Unit4.CollectionsLib.Helpers; " + (project.ImplicitUsings ?
                     "global using global::System; global using global::System.Collections.Generic; global using global::System.IO; " +
                     "global using global::System.Linq; global using global::System.Net.Http; global using global::System.Threading; " +
-                    "global using global::System.Threading.Tasks;", parse, "GlobalUsings.g.cs"));
+                    "global using global::System.Threading.Tasks;" : ""), parse, "GlobalUsings.g.cs"));
 
             var refs = MetadataReferences();
             var options = new CSharpCompilationOptions(OutputKind.ConsoleApplication, optimizationLevel: OptimizationLevel.Debug,
@@ -126,6 +126,12 @@ namespace DsViz
             return exit;
         }
 
+        /// <summary>כמו ב-Directory.Build.props: Size(x) / Duplicate(x) מהספרייה בלי Helpers.</summary>
+        static SyntaxTree HelpersUsing(CSharpParseOptions parse)
+        {
+            return CSharpSyntaxTree.ParseText("global using static global::Unit4.CollectionsLib.Helpers;", parse, "HelpersUsing.g.cs");
+        }
+
         /// <summary>בדיקה (לבדיקות אוטומטיות): מקמפל כל קובץ .cs בנפרד מול הספרייה ומדפיס שגיאות. קוד יציאה 1 אם יש</summary>
         static int Check(string[] files)
         {
@@ -136,7 +142,7 @@ namespace DsViz
             foreach (string f in files)
             {
                 var tree = CSharpSyntaxTree.ParseText(SourceReader.Read(f), parse, f);
-                var errors = CSharpCompilation.Create("Check", new[] { tree }, refs, options)
+                var errors = CSharpCompilation.Create("Check", new[] { tree, HelpersUsing(parse) }, refs, options)
                     .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
                 if (errors.Count == 0) continue;
                 bad++;
@@ -154,6 +160,7 @@ namespace DsViz
             var project = ProjectInfo.Load(target);
             var parse = new CSharpParseOptions(project.LangVersion);
             var trees = project.Files.Select(f => CSharpSyntaxTree.ParseText(SourceReader.Read(f), parse, f)).ToList();
+            trees.Add(HelpersUsing(parse));
             var options = new CSharpCompilationOptions(OutputKind.ConsoleApplication, nullableContextOptions: NullableContextOptions.Disable);
             var errors = CSharpCompilation.Create(project.Name, trees, MetadataReferences(), options)
                 .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();

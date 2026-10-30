@@ -8,8 +8,8 @@ namespace Unit4.CollectionsLib
     /// </summary>
     public class BinNode<T> : IVizBin
     {
-        T value;
-        BinNode<T> left, right;
+        internal T value;
+        internal BinNode<T> left, right;
 
         public BinNode(T value)
         {

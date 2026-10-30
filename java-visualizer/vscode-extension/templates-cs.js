@@ -55,11 +55,8 @@ function convertText(s, mats, arrs) {
 
 /** Java → C#. מזהה לבד איזה משתנים הם מערכים דו-ממדיים (T[][] name) */
 function toCs(java) {
-    // פעולות עזר גנריות: public static <T> int size(Stack<T> s)  →  public static int Size<T>(Stack<T> s), והקריאות size(...) → Size(...)
-    if (/public static <T> /.test(java)) {
-        java = java.replace(/public static <T> (.+?) (size|duplicate)\(/g, (m, r, n) => `public static ${r} ${cap(n)}<T>(`)
-                   .replace(/(^|[^.\w])(size|duplicate)\(/gm, (m, pre, n) => pre + cap(n) + '(');
-    }
+    // פעולות העזר מהספרייה (import static): size(x) → Size(x), duplicate(x) → Duplicate(x) — גם בהערות
+    if (java.includes(templates.HELPERS_IMPORT) || java.includes('// עזר מהספרייה:')) java = java.replace(/(^|[^.\w])(size|duplicate)\(/gm, (m, pre, n) => pre + cap(n) + '(');
     const mats = {};
     for (const m of java.matchAll(/\b(\w+)\[\]\[\]\s+(\w+)/g)) mats[m[2]] = ELEMENT[m[1]] || m[1];
     const arrs = {};   // מערכים חד-ממדיים: שם → טיפוס האיברים (בשביל string.Join<T>)
@@ -75,6 +72,7 @@ function toCs(java) {
         if (/^import java\.util\.Arrays;/.test(line)) continue;
         if (/^\s*@SuppressWarnings/.test(line)) continue;
         if (/^import unit4\.collectionsLib\.\*;/.test(line)) { out.push('using System;', 'using Unit4.CollectionsLib;'); continue; }
+        if (line === templates.HELPERS_IMPORT) continue;   // ב-C# זה global using (Directory.Build.props ו-dsviz-cs) — לא צריך שורה בקובץ
         // מערך של מבנים: Stack<Integer>[] arr = new Stack[3];  →  new Stack<Integer>[3]
         line = line.replace(/\b(\w+)<(\w+)>\[\]\s+(\w+)\s*=\s*new \1\[/, (m, c, t, n) => `${c}<${t}>[] ${n} = new ${c}<${t}>[`);
         let code = line, comment = '';
@@ -105,8 +103,6 @@ function generate(o) {
     if (!isIdentifier(o.functionName)) throw new Error('שם הפעולה חייב להיות באנגלית, בלי רווחים, להתחיל באות, ולא להיות מילה שמורה של C#');
     if (o.functionName === 'Main') throw new Error('Main כבר קיימת בקובץ — בחרו שם אחר לפעולה');
     if (o.functionName === o.className) throw new Error('שם הפעולה לא יכול להיות זהה לשם המחלקה');
-    if ((o.helperSize && o.functionName === 'Size') || (o.helperCopy && o.functionName === 'Duplicate'))
-        throw new Error('השם ' + o.functionName + ' תפוס על ידי פעולת העזר — בחרו שם אחר לפעולה');
     const g = templates.generate(o);
     const code = toCs(g.code);
     const lines = code.split('\n');
@@ -148,10 +144,4 @@ function suggestName(structure, text, offset) {
     return names.suggestName(templates.snippetName(structure), text, offset, isIdentifier);
 }
 
-/** כמו templates.helperInsertion, אבל הפעולות ב-C# (Size<T> / Duplicate<T>) */
-function helperInsertion(text, offset, structure, size, copy) {
-    const h = templates.helperInsertion(text, offset, structure, size, copy);
-    return h && { offset: h.offset, code: toCs(h.code) };
-}
-
-module.exports = Object.assign({}, templates, { helperInsertion, preview, nameError, suggestName, isIdentifier, generate, snippet, classInfo, toCs, CS_KEYWORDS });
+module.exports = Object.assign({}, templates, { preview, nameError, suggestName, isIdentifier, generate, snippet, classInfo, toCs, CS_KEYWORDS });

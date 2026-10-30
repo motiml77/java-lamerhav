@@ -21,9 +21,7 @@ for (const structure of Object.keys(t.STRUCTURES))
         const o = { structure, type, returns, second: !!(flags & 1), extra: !!(flags & 2), random: !!(flags & 4), recursive: !!(flags & 8), count: flags & 16 ? 3 : flags & 1 ? 2 : 1,
                     values: t.defaultValues(structure, type, false), values2: t.defaultValues(structure, type, true), values3: t.defaultValues(structure, type, true),
                     className: 'C' + (++i), functionName: 'solve' };
-        // פעולות עזר (size / duplicate): צירופים שונים לפי מספר הצירוף
-        o.helperSize = i % 3 !== 1; o.helperCopy = i % 3 !== 2;
-        combos.push(['T', o.className, structure, type, returns, o.second, o.extra, o.random, o.values, o.values2, o.recursive, o.count, t.defaultValues(structure, type, true), o.helperSize, o.helperCopy].join('|'));
+        combos.push(['T', o.className, structure, type, returns, o.second, o.extra, o.random, o.values, o.values2, o.recursive, o.count, t.defaultValues(structure, type, true)].join('|'));
         write(o.className + '.java', () => { const g = t.generate(o); return g.code + '//cursor=' + g.cursorLine; });
       }
 // קומבינציות עם ערכים אקראיים: "כמה מבנים פנימיים" (1, 5, 12) — כל אחד עם 2–4 ערכים; גם מתקמפל, וגם ההגרלה זהה ב-Java (RandomCheck)

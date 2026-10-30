@@ -14,7 +14,6 @@ public class ScaffoldCsAll {
         o.className = p[1]; o.structure = p[2]; o.type = p[3]; o.returns = p[4];
         o.second = Boolean.parseBoolean(p[5]); o.extra = Boolean.parseBoolean(p[6]); o.random = Boolean.parseBoolean(p[7]);
         o.values = p[8]; o.values2 = p[9]; o.recursive = Boolean.parseBoolean(p[10]); o.count = Integer.parseInt(p[11]); o.values3 = p[12]; o.functionName = "solve";
-        if (p.length > 14) { o.helperSize = Boolean.parseBoolean(p[13]); o.helperCopy = Boolean.parseBoolean(p[14]); }
         file = p[1] + ".cs";
         try { text = ScaffoldCs.generate(o).code; } catch (IllegalArgumentException e) { continue; }
       } else {

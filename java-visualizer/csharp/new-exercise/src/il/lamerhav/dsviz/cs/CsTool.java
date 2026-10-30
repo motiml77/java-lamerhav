@@ -139,7 +139,8 @@ public final class CsTool {
         private final List<String> returnIds = new ArrayList<String>();
         private JLabel typeSection, valuesLabel, previewType, errorLabel;
         private JComboBox<String> returnCombo;
-        private JCheckBox recursive, randomCheck, sizeCheck, copyCheck;
+        private JCheckBox recursive, randomCheck;
+        private boolean wantRandom = true;   // אקראי מסומן מראש — עד שהמשתמש מוריד את הסימון
         private JSpinner count;
         private JTextField values, className, functionName;
         private JPanel previewBox;
@@ -204,13 +205,6 @@ public final class CsTool {
             recursive = new JCheckBox("תרגיל ברקורסיה (כרטיס לכל קריאה)");
             recursive.setToolTipText("בחלון ההרצה תופיע לשונית \"רקורסיה\": כרטיס לכל קריאה");
             left.add(recursive);
-            left.section("פעולות עזר (נוספות לקוד)");
-            sizeCheck = new JCheckBox("Size — מחזירה את גודל המבנה, בלי לפגוע בו");
-            sizeCheck.setToolTipText("פעולה שמקבלת את המבנה ומחזירה כמה איברים יש בו; המבנה נשאר כמו שהיה");
-            left.add(sizeCheck);
-            copyCheck = new JCheckBox("Duplicate — מחזירה עותק מדויק של המבנה, בלי לפגוע בו");
-            copyCheck.setToolTipText("פעולה שמקבלת את המבנה, יוצרת עותק מדויק ומחזירה אותו; המקור נשאר כמו שהיה");
-            left.add(copyCheck);
             left.section("מילוי מבנה-נתונים");
             JPanel rnd = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 0));
             randomCheck = new JCheckBox("כמה ערכים אקראיים:");
@@ -287,9 +281,7 @@ public final class CsTool {
 
             returnCombo.addActionListener(e -> update());
             recursive.addActionListener(e -> update());
-            sizeCheck.addActionListener(e -> update());
-            copyCheck.addActionListener(e -> update());
-            randomCheck.addActionListener(e -> update());
+            randomCheck.addActionListener(e -> { wantRandom = randomCheck.isSelected(); update(); });
             count.addChangeListener(e -> update());
             onChange(values, this::update);
             onChange(functionName, this::update);
@@ -347,7 +339,7 @@ public final class CsTool {
 
             // ערכים אקראיים: בוחרים כמה, והשדה מתמלא (אפשר לשנות). תלמידים / מכוניות — תמיד נתוני דמה
             randomCheck.setEnabled(!objects);
-            if (objects) randomCheck.setSelected(false);
+            randomCheck.setSelected(!objects && wantRandom);
             boolean random = randomCheck.isSelected();
             count.setEnabled(random);
             randomCheck.setText(combo ? "כמה מבנים פנימיים אקראיים:" : st.equals("matrix") ? "כמה שורות אקראיות:" : "כמה ערכים אקראיים:");
@@ -397,15 +389,7 @@ public final class CsTool {
             o.second = false;
             o.count = 1;
             o.extra = false;
-            // פעולות עזר: רק למחסנית / תור / רשימה / עץ (לא למערך)
-            boolean helpers = Scaffold.hasHelpers(st);
-            for (JCheckBox b : new JCheckBox[] { sizeCheck, copyCheck }) {
-                b.setEnabled(helpers);
-                if (!helpers && b.isSelected()) b.setSelected(false);
-            }
             o.recursive = recursive.isSelected();
-            o.helperSize = sizeCheck.isSelected();
-            o.helperCopy = copyCheck.isSelected();
             o.random = false;   // הערכים האקראיים כבר בשדה — נכנסים לקוד כמו שהם
             o.values = values.getText();
             o.className = className.getText().trim();
@@ -486,6 +470,7 @@ public final class CsTool {
         private final List<JToggleButton> typeButtons = new ArrayList<JToggleButton>();
         private JLabel typeSection, valuesLabel, previewType, errorLabel, warnLabel;
         private JCheckBox randomCheck;
+        private boolean wantRandom = true;
         private JSpinner count;
         private JTextField values, name;
         private NestedDiagram diagram;
@@ -597,7 +582,7 @@ public final class CsTool {
             d.setContentPane(content);
             d.getRootPane().setDefaultButton(ok);
 
-            randomCheck.addActionListener(e -> update());
+            randomCheck.addActionListener(e -> { wantRandom = randomCheck.isSelected(); update(); });
             count.addChangeListener(e -> update());
             regen.addActionListener(e -> { forceRandom = true; update(); });
             onChange(values, this::update);
@@ -643,7 +628,7 @@ public final class CsTool {
             boolean objects = !card && (type.equals("Student") || type.equals("Car"));
 
             randomCheck.setEnabled(!objects && !card);
-            if (objects || card) randomCheck.setSelected(false);
+            randomCheck.setSelected(!objects && !card && wantRandom);
             boolean random = randomCheck.isSelected();
             count.setEnabled(random);
             regen.setVisible(random);

@@ -326,6 +326,7 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
     ; כבר קיימת — לא נוגעים בעבודה של התלמיד, רק מעדכנים את הספרייה
     CreateDirectory "${PROJECT_CS_DIR}\lib"
     CopyFiles /SILENT "$INSTDIR\cs-project\lib\Unit4.CollectionsLib.dll" "${PROJECT_CS_DIR}\lib"
+    CopyFiles /SILENT "$INSTDIR\cs-project\Directory.Build.props" "${PROJECT_CS_DIR}"   ; קובץ שלנו: מאפשר Size(x) / Duplicate(x) בלי Helpers.
     DetailPrint "תיקיית התרגילים ל-C# קיימת — הספרייה עודכנה"
   ${EndIf}
   FileOpen $0 "$PROFILE\.dsviz\project-cs-path.txt" w

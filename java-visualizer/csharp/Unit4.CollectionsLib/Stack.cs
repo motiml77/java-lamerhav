@@ -9,7 +9,7 @@ namespace Unit4.CollectionsLib
     /// </summary>
     public class Stack<T> : IVizLinear
     {
-        readonly List<T> items = new List<T>();   // התחתית ראשונה, הראש אחרון
+        internal readonly List<T> items = new List<T>();   // התחתית ראשונה, הראש אחרון
 
         public Stack()
         {

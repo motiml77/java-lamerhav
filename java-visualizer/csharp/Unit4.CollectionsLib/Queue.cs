@@ -9,7 +9,7 @@ namespace Unit4.CollectionsLib
     /// </summary>
     public class Queue<T> : IVizLinear
     {
-        readonly List<T> items = new List<T>();   // ראש התור ראשון
+        internal readonly List<T> items = new List<T>();   // ראש התור ראשון
 
         public Queue()
         {

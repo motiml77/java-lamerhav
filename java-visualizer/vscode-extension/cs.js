@@ -15,6 +15,10 @@ const BUILD_PROPS = `<Project>
     <!-- הספרייה: lib\\Unit4.CollectionsLib.dll בתיקיית התרגילים -->
     <DsVizLib>$(MSBuildThisFileDirectory)lib\\Unit4.CollectionsLib.dll</DsVizLib>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- פעולות העזר מהספרייה (Size / Duplicate) בלי לכתוב Helpers. — בכל הקבצים -->
+    <Using Include="Unit4.CollectionsLib.Helpers" Static="true" />
+  </ItemGroup>
 </Project>
 `;
 
@@ -79,8 +83,11 @@ function setup(root, libSource) {
     const fresh = fs.readFileSync(libSource);
     if (!fs.existsSync(target) || !fs.readFileSync(target).equals(fresh)) fs.writeFileSync(target, fresh);
     const props = path.join(root, 'Directory.Build.props');
-    if (!fs.existsSync(props)) fs.writeFileSync(props, BUILD_PROPS);
-    else if (!fs.readFileSync(props, 'utf8').includes('DsVizLib'))
+    const had = fs.existsSync(props) ? fs.readFileSync(props, 'utf8') : null;
+    // הקובץ שלנו מגרסה קודמת (בלי פעולות העזר) — מתעדכן; קובץ של המשתמש — רק הודעה
+    if (had === null || (had.includes('DsVizLib') && !had.includes('Unit4.CollectionsLib.Helpers') && /^<Project>\s*<PropertyGroup>\s*<!--[^>]*-->\s*<DsVizLib>[^<]*<\/DsVizLib>\s*<\/PropertyGroup>\s*<\/Project>\s*$/.test(had)))
+        fs.writeFileSync(props, BUILD_PROPS);
+    else if (!had.includes('DsVizLib'))
         warnings.push('יש ב-' + root + ' קובץ Directory.Build.props משלכם — יש להוסיף לו: <DsVizLib>$(MSBuildThisFileDirectory)lib\\' + LIB + '</DsVizLib>');
     return { warnings };
 }
