@@ -166,6 +166,10 @@ public final class ScaffoldCs {
                     h.appendTail(sb);
                     comment = sb.toString();
                 }
+                // כותרת התרגיל: "// תרגיל: מחסנית של תורים של Integer" → int (שמות הטיפוסים של C#)
+                if (comment.startsWith("// תרגיל"))
+                    comment = comment.replaceAll("\\bInteger\\b", "int").replaceAll("\\bCharacter\\b", "char").replaceAll("\\bDouble\\b", "double")
+                            .replaceAll("\\bBoolean\\b", "bool").replaceAll("\\bString\\b", "string");
                 c += convertText(comment, mats, arrs);
             }
             out.add(c);

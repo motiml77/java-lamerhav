@@ -88,6 +88,9 @@ function toCs(java) {
         if (comment) {
             // שורת רמז עם שמות פעולות בלי נקודה: // Student: getName()  getAverage() ...
             if (/^\s*\/\/ (Student|Car):/.test(line) && !code.trim()) comment = comment.replace(/\b([a-z]\w*)\(/g, (m, w) => cap(w) + '(');
+            // כותרת התרגיל: "// תרגיל: מחסנית של Integer" → int (שמות הטיפוסים של C#)
+            if (comment.startsWith('// תרגיל')) comment = comment.replace(/\bInteger\b/g, 'int').replace(/\bCharacter\b/g, 'char')
+                .replace(/\bDouble\b/g, 'double').replace(/\bBoolean\b/g, 'bool').replace(/\bString\b/g, 'string');
             c += convertText(comment, mats, arrs);
         }
         out.push(c);
