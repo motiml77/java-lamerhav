@@ -9,6 +9,7 @@ using System.Threading;
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unit4.CollectionsLib;
 
 namespace DsViz
@@ -53,11 +54,22 @@ namespace DsViz
             // --- 1. קומפילציה של הקוד המקורי (שגיאות מוצגות בלי הכנסת ההוקים)
             var parse = new CSharpParseOptions(project.LangVersion);
             var trees = new List<SyntaxTree>();
+            var plain = new Dictionary<SyntaxTree, SyntaxTree>();   // קובץ עם top-level שעטפנו ב-Main — והמקור, אם העטיפה לא מתקמפלת
+            bool topLevel = false;
             foreach (string f in project.Files)
             {
                 string text = SourceReader.Read(f);
                 Recorder.Sources[Path.GetFileName(f)] = text;
-                trees.Add(CSharpSyntaxTree.ParseText(text, parse, f));
+                SyntaxTree tree = CSharpSyntaxTree.ParseText(text, parse, f);
+                string wrapped = TopLevel.Wrap(tree);
+                if (wrapped != null)
+                {
+                    SyntaxTree w = CSharpSyntaxTree.ParseText(wrapped, parse, f);
+                    plain[w] = tree;
+                    tree = w;
+                    topLevel = true;
+                }
+                trees.Add(tree);
             }
             // כמו Directory.Build.props של תיקיית התרגילים: פעולות העזר מהספרייה (Size / Duplicate) בלי Helpers. — תמיד
             trees.Add(CSharpSyntaxTree.ParseText("global using static global::Unit4.CollectionsLib.Helpers; " + (project.ImplicitUsings ?
@@ -65,17 +77,46 @@ namespace DsViz
                     "global using global::System.Linq; global using global::System.Net.Http; global using global::System.Threading; " +
                     "global using global::System.Threading.Tasks;" : ""), parse, "GlobalUsings.g.cs"));
 
+            // איזה Main מריצים: קובץ מסוים מתוך פרויקט — ה-Main שבו (ושאר הקבצים בפרויקט נכללים);
+            // אחרת ה-StartupObject של הפרויקט, ואם אין — מה שהמהדר בוחר (כמו ב-Visual Studio)
+            string mainType = project.StartupObject ?? (topLevel ? "Program" : null);   // כמו ב-Visual Studio: ה-top-level הוא ה-Main
+            if (project.StartFile != null)
+            {
+                SyntaxTree start = trees.FirstOrDefault(t => string.Equals(Path.GetFullPath(t.FilePath), project.StartFile, StringComparison.OrdinalIgnoreCase));
+                string inFile = start == null ? null : MainTypeIn(start);
+                if (inFile != null)
+                {
+                    mainType = inFile;
+                    // קובץ אחר עם "top-level statements" (כמו Program.cs של תבנית חדשה: Console.WriteLine("Hello, World!");) היה דורס את ה-Main הזה
+                    trees.RemoveAll(t => t != start && t.GetRoot() is CompilationUnitSyntax cu && cu.Members.OfType<GlobalStatementSyntax>().Any());
+                }
+            }
+
             var refs = MetadataReferences();
             var options = new CSharpCompilationOptions(OutputKind.ConsoleApplication, optimizationLevel: OptimizationLevel.Debug,
-                allowUnsafe: project.AllowUnsafe, nullableContextOptions: NullableContextOptions.Disable);
+                allowUnsafe: project.AllowUnsafe, nullableContextOptions: NullableContextOptions.Disable, mainTypeName: mainType);
             var original = CSharpCompilation.Create("StudentProgram", trees, refs, options);
             var errors = original.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            if (errors.Count > 0 && plain.Count > 0)
+            {
+                // העטיפה של ה-top-level לא הצליחה (למשל פעולה מקומית שמשתמשת במשתנה של התוכנית) — מריצים כמו שהוא, בלי שורה-שורה שם
+                trees = trees.Select(t => plain.TryGetValue(t, out SyntaxTree o) ? o : t).ToList();
+                if (mainType == "Program" && project.StartupObject == null) mainType = null;
+                options = options.WithMainTypeName(mainType);
+                original = CSharpCompilation.Create("StudentProgram", trees, refs, options);
+                errors = original.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            }
             if (errors.Count > 0)
             {
                 foreach (Diagnostic d in errors) Console.Error.WriteLine(Format(d));
+                foreach (string hint in Hints(errors, project)) Console.Error.WriteLine(hint);
                 Console.Error.WriteLine("הקומפילציה נכשלה — " + errors.Count + " שגיאות. מתקנים ומריצים שוב.");
                 return 1;
             }
+
+            // פרויקט של Visual Studio: מוסיפים לו (פעם אחת) את "הרצה ויזואלית" לתפריט שליד כפתור ההפעלה
+            if (traceOut == null && LaunchProfile.Ensure(project))
+                Console.WriteLine("נוסף לפרויקט \"הרצה ויזואלית\": מעכשיו אפשר להריץ ישר מ-Visual Studio — בחץ שליד כפתור ההפעלה הירוק בוחרים \"הרצה ויזואלית\".");
 
             // --- 2. הכנסת ההוקים
             var instrumented = new List<SyntaxTree>();
@@ -169,6 +210,38 @@ namespace DsViz
             return errors.Count == 0 ? 0 : 1;
         }
 
+        /// <summary>השם המלא של המחלקה בקובץ שיש בה static Main (או null)</summary>
+        static string MainTypeIn(SyntaxTree tree)
+        {
+            foreach (var m in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                if (m.Identifier.Text != "Main" || !m.Modifiers.Any(SyntaxKind.StaticKeyword)) continue;
+                var names = new List<string>();
+                for (SyntaxNode n = m.Parent; n != null; n = n.Parent)
+                {
+                    if (n is BaseTypeDeclarationSyntax t) names.Insert(0, t.Identifier.Text);
+                    else if (n is BaseNamespaceDeclarationSyntax ns) names.Insert(0, ns.Name.ToString());
+                }
+                if (names.Count > 0) return string.Join(".", names);
+            }
+            return null;
+        }
+
+        /// <summary>הסבר בעברית לשגיאות שקורות כשמריצים פרויקט רגיל של Visual Studio</summary>
+        static IEnumerable<string> Hints(List<Diagnostic> errors, ProjectInfo project)
+        {
+            var ids = new HashSet<string>(errors.Select(e => e.Id));
+            if (ids.Contains("CS0017"))
+                yield return "← בפרויקט יש יותר מפעולת Main אחת. מריצים את הקובץ שרוצים: dsviz-cs \"<הקובץ>.cs\" — ירוץ ה-Main שבו (ושאר הקבצים בפרויקט נכללים).";
+            if (errors.Any(e => e.Id == "CS0104" && e.GetMessage().Contains("Unit4.CollectionsLib") && e.GetMessage().Contains("System.Collections.Generic")))
+                yield return "← Stack / Queue קיימים גם ב-‎.NET (System.Collections.Generic) וגם בספרייה. בקובץ ה-‎.csproj משנים ל-<ImplicitUsings>disable</ImplicitUsings>,"
+                    + " או מוחקים את השורה using System.Collections.Generic; (אותה שגיאה מופיעה גם ב-Visual Studio).";
+            if (errors.Any(e => e.Id == "CS0103" && e.GetMessage().Contains("'Console'")))
+                yield return "← חסרה בראש הקובץ השורה: using System;";
+            if (ids.Contains("CS0246") && errors.Any(e => e.GetMessage().Contains("'Unit4'")))
+                yield return "← הספרייה נקראת Unit4.CollectionsLib: בראש הקובץ — using Unit4.CollectionsLib;";
+        }
+
         static int RunProgram(MethodInfo entry, string[] args)
         {
             try
@@ -252,6 +325,10 @@ namespace DsViz
         public string Name, Dir;
         public List<string> Files = new List<string>();
         public bool ImplicitUsings, AllowUnsafe;
+        public string StartFile;       // הקובץ שביקשו להריץ (כשהוא חלק מפרויקט) — ה-Main שבו
+        public string StartupObject;   // <StartupObject> מה-csproj
+        public string Csproj;          // קובץ הפרויקט (או null)
+        public bool SdkStyle;          // פרויקט ‎.NET חדש (<Project Sdk=...>) — יש לו launchSettings.json
         public LanguageVersion LangVersion = LanguageVersion.Latest;
 
         public static ProjectInfo Load(string target)
@@ -260,6 +337,15 @@ namespace DsViz
             string csproj = null;
             if (File.Exists(target) && target.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             {
+                // קובץ בתוך פרויקט (למשל מ-Visual Studio): כל הפרויקט עם ההגדרות שלו, ומריצים את ה-Main שבקובץ
+                string owner = FindProject(Path.GetDirectoryName(Path.GetFullPath(target)));
+                if (owner != null)
+                {
+                    ProjectInfo whole = Load(owner);
+                    whole.StartFile = Path.GetFullPath(target);
+                    if (!whole.Files.Any(f => string.Equals(f, whole.StartFile, StringComparison.OrdinalIgnoreCase))) whole.Files.Add(whole.StartFile);
+                    return whole;
+                }
                 p.Dir = Path.GetDirectoryName(Path.GetFullPath(target));
                 p.Name = Path.GetFileName(target);
                 p.Files.Add(Path.GetFullPath(target));
@@ -275,8 +361,11 @@ namespace DsViz
                 try
                 {
                     XDocument x = XDocument.Load(csproj);
+                    p.Csproj = csproj;
+                    p.SdkStyle = x.Root != null && x.Root.Attribute("Sdk") != null;
                     string V(string n) { return x.Descendants().Where(e => e.Name.LocalName == n).Select(e => e.Value.Trim()).FirstOrDefault(); }
-                    string iu = V("ImplicitUsings"), un = V("AllowUnsafeBlocks"), lv = V("LangVersion");
+                    string iu = V("ImplicitUsings"), un = V("AllowUnsafeBlocks"), lv = V("LangVersion"), so = V("StartupObject");
+                    if (!string.IsNullOrEmpty(so)) p.StartupObject = so;
                     p.ImplicitUsings = iu != null && (iu.Equals("enable", StringComparison.OrdinalIgnoreCase) || iu.Equals("true", StringComparison.OrdinalIgnoreCase));
                     p.AllowUnsafe = un != null && un.Equals("true", StringComparison.OrdinalIgnoreCase);
                     LanguageVersion parsed;
@@ -295,6 +384,107 @@ namespace DsViz
             }
             p.Files.Sort(StringComparer.OrdinalIgnoreCase);
             return p;
+        }
+
+        /// <summary>הפרויקט (.csproj) שהתיקייה שייכת אליו — בתיקייה עצמה או עד 4 תיקיות למעלה</summary>
+        static string FindProject(string dir)
+        {
+            for (int i = 0; dir != null && i < 5; i++, dir = Path.GetDirectoryName(dir))
+            {
+                string[] found;
+                try { found = Directory.GetFiles(dir, "*.csproj"); }
+                catch (Exception) { return null; }
+                if (found.Length == 1) return found[0];
+                if (found.Length > 1) return null;   // כמה פרויקטים באותה תיקייה — רק הקובץ
+            }
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// "top-level statements" (תבנית חדשה של Visual Studio: הקוד ישר בקובץ, בלי class ו-Main) — עוטפים ב-Main רגיל,
+    /// והפעולות שכתובות אחרי הקוד הופכות לפעולות של המחלקה. בלי לשנות את מספרי השורות (מוסיפים רק בתוך שורות קיימות),
+    /// כך שההרצה הוויזואלית עוקבת אחרי הקוד והפעולות שורה-שורה כמו בכל תוכנית.
+    /// </summary>
+    internal static class TopLevel
+    {
+        public static string Wrap(SyntaxTree tree)
+        {
+            if (!(tree.GetRoot() is CompilationUnitSyntax root)) return null;
+            var globals = root.Members.OfType<GlobalStatementSyntax>().ToList();
+            if (globals.Count == 0) return null;
+            var funcs = globals.Where(g => g.Statement is LocalFunctionStatementSyntax).ToList();
+            var stmts = globals.Where(g => !(g.Statement is LocalFunctionStatementSyntax)).ToList();
+            if (stmts.Count == 0) return null;
+            // רק כשהפעולות אחרי הקוד (כך בדרך כלל) — אחרת אי אפשר בלי להזיז שורות
+            if (funcs.Count > 0 && funcs.Min(g => g.SpanStart) < stmts.Max(g => g.Span.End)) return null;
+            bool isAsync = stmts.Any(g => Body(g).OfType<AwaitExpressionSyntax>().Any());
+            bool returnsInt = stmts.Any(g => Body(g).OfType<ReturnStatementSyntax>().Any(r => r.Expression != null));
+            string sig = "static " + (isAsync ? "async System.Threading.Tasks.Task" + (returnsInt ? "<int>" : "") : returnsInt ? "int" : "void")
+                + " Main(string[] args) { ";
+            string text = tree.GetText().ToString();
+            var inserts = new List<KeyValuePair<int, string>>();
+            inserts.Add(new KeyValuePair<int, string>(stmts[0].SpanStart, "partial class Program { " + sig));
+            inserts.Add(new KeyValuePair<int, string>(stmts[stmts.Count - 1].Span.End, " }"));
+            foreach (var g in funcs)
+            {
+                var lf = (LocalFunctionStatementSyntax)g.Statement;
+                if (!lf.Modifiers.Any(SyntaxKind.StaticKeyword)) inserts.Add(new KeyValuePair<int, string>(g.SpanStart, "static "));
+            }
+            inserts.Add(new KeyValuePair<int, string>(globals[globals.Count - 1].Span.End, " }"));
+            var b = new StringBuilder(text);
+            foreach (var ins in inserts.OrderByDescending(i => i.Key)) b.Insert(ins.Key, ins.Value);
+            return b.ToString();
+        }
+
+        /// <summary>הצמתים של משפט — בלי מה שבתוך למדות ופעולות מקומיות (שם return / await שייכים להן)</summary>
+        static IEnumerable<SyntaxNode> Body(GlobalStatementSyntax g)
+        {
+            return g.DescendantNodes(n => !(n is LambdaExpressionSyntax) && !(n is AnonymousMethodExpressionSyntax) && !(n is LocalFunctionStatementSyntax));
+        }
+    }
+
+    /// <summary>פרופיל "הרצה ויזואלית" ב-Properties\launchSettings.json של פרויקט — כמו בפרויקטים של התבנית</summary>
+    internal static class LaunchProfile
+    {
+        const string Name = "הרצה ויזואלית";
+
+        public static bool Ensure(ProjectInfo p)
+        {
+            if (p.Csproj == null || !p.SdkStyle) return false;
+            try
+            {
+                string file = Path.Combine(p.Dir, "Properties", "launchSettings.json");
+                var root = File.Exists(file)
+                    ? System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file), null,
+                        new System.Text.Json.JsonDocumentOptions { CommentHandling = System.Text.Json.JsonCommentHandling.Skip, AllowTrailingCommas = true }) as System.Text.Json.Nodes.JsonObject
+                    : new System.Text.Json.Nodes.JsonObject();
+                if (root == null) return false;
+                var profiles = root["profiles"] as System.Text.Json.Nodes.JsonObject;
+                if (profiles == null) { profiles = new System.Text.Json.Nodes.JsonObject(); root["profiles"] = profiles; }
+                if (profiles.ContainsKey(Name)) return false;
+                // ההרצה הרגילה נשארת ראשונה (F5 כמו קודם)
+                if (!profiles.Any(kv => (string)kv.Value?["commandName"] == "Project"))
+                    profiles.Add("הרצה רגילה", new System.Text.Json.Nodes.JsonObject { ["commandName"] = "Project" });
+                profiles.Add(Name, new System.Text.Json.Nodes.JsonObject
+                {
+                    ["commandName"] = "Executable",
+                    ["executablePath"] = "%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe",
+                    ["commandLineArgs"] = "\"$(ProjectDir)\"",
+                    ["workingDirectory"] = "$(ProjectDir)"
+                });
+                Directory.CreateDirectory(Path.GetDirectoryName(file));
+                File.WriteAllText(file, root.ToJsonString(new System.Text.Json.JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                }), new UTF8Encoding(false));
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;   // לא חשוב — מריצים בכל מקרה
+            }
         }
     }
 }

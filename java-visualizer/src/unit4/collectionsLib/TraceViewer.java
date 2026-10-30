@@ -50,7 +50,10 @@ public final class TraceViewer {
                         Model.ProblemView p = (Model.ProblemView) v;
                         System.out.println("[כרטיס " + p.kind + (p.name != null ? " " + p.name : "") + (p.op != null ? " " + p.op : "") + "]");
                     }
-            if (Boolean.getBoolean("dsviz.conditions")) System.out.print(CondViz.dump());   // התנאים: מה מצויר בכל צעד
+            if (Boolean.getBoolean("dsviz.conditions")) {   // התנאים והקריאות לפעולות עזר: מה מצויר בכל צעד
+                System.out.print(CondViz.dump());
+                System.out.print(CallViz.dump());
+            }
             return;
         }
         load(args[0]);

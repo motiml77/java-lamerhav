@@ -174,6 +174,7 @@ final class CondViz {
         }
         c.values = values(b.cond, env);
         if (c.result == null) c.result = LoopViz.evalCondition(b.cond, env);
+        if (c.result == null && !c.values.isEmpty()) c.result = LoopViz.evalCondition(c.values, new HashMap<String, Object>());   // !false, 7 % 2 == 0
         c.outcome = outcome(b, c.result);
         return c;
     }
@@ -354,7 +355,7 @@ final class CondViz {
         return out;
     }
 
-    private static String shorten(String v) {
+    static String shorten(String v) {
         String s = v.replaceAll("\\s+", " ").trim();
         return s.length() > 22 ? s.substring(0, 20) + "…" : s;
     }

@@ -126,6 +126,7 @@ final class Viewer extends JFrame {
     private final CodePane code = new CodePane();
     private final Gutter gutter = new Gutter();
     private final JLabel codeSub = new JLabel(" ");
+    private final CallPaint.Strip callStrip = new CallPaint.Strip();
     private String codeKey;
     private Object codeHighlight;
     private int codeLine = -1;
@@ -247,7 +248,13 @@ final class Viewer extends JFrame {
         code.setHighlighter(new DefaultHighlighter());
         JScrollPane codeScroll = scroll(code);
         codeScroll.setRowHeaderView(gutter);
-        Card codeCard = new Card("הקוד", codeSub, null, codeScroll);
+        // מעל הקוד: הפס של הקריאות לפעולות עזר (רק בהרצה שיש בה כאלה)
+        JPanel codeBody = new JPanel(new BorderLayout());
+        codeBody.setOpaque(false);
+        callStrip.setVisible(false);
+        codeBody.add(callStrip, BorderLayout.NORTH);
+        codeBody.add(codeScroll, BorderLayout.CENTER);
+        Card codeCard = new Card("הקוד", codeSub, null, codeBody);
 
         // --- התצוגה הוויזואלית
         JScrollPane structScroll = scroll(structs);
@@ -737,6 +744,22 @@ final class Viewer extends JFrame {
             }
         }
         code.marks = marks;
+        // פעולה שקוראת לפעולת עזר: היציאה אליה והחזרה (לא מ-main)
+        CallViz.State call = null;
+        if (Recorder.lineMode && CallViz.any()) {
+            if (!callStrip.isVisible()) {
+                callStrip.setVisible(true);
+                callStrip.getParent().revalidate();
+            }
+            try {
+                call = CallViz.state(vis.get(p));
+            } catch (RuntimeException e) {
+                call = null;   // בלי סימון הקריאות
+            }
+            callStrip.set(call, s.calls);
+        }
+        code.call = call;
+        code.fileKey = codeKey;
         code.repaint();
         if (Recorder.lineMode) updateVars(s);
         console.setText(Recorder.outputUpTo(s.outLen));
@@ -799,18 +822,42 @@ final class Viewer extends JFrame {
         private final javax.swing.text.SimpleAttributeSet[] styles = new javax.swing.text.SimpleAttributeSet[9];
         /** התנאים בצעד הנוכחי (CondViz): התגית בשורת התנאי, והענף שרץ / שמדלגים עליו */
         CondViz.Marks marks;
+        /** הקריאה לפעולת עזר בצעד הנוכחי (CallViz) — או null; fileKey = הקובץ שמוצג */
+        CallViz.State call;
+        String fileKey;
 
         @Override
         protected void paintComponent(Graphics g0) {
-            super.paintComponent(g0);
-            if (marks == null) return;
+            if (call != null) {   // הרקע של השורה שמחכה — מתחת לטקסט
+                Graphics2D g = (Graphics2D) g0.create();
+                try {
+                    g.setColor(getBackground());
+                    g.fillRect(0, 0, getWidth(), getHeight());
+                    CallPaint.background(g, this, call, fileKey);
+                } catch (RuntimeException e) {
+                    // בלי
+                }
+                g.dispose();
+                setOpaque(false);
+                super.paintComponent(g0);
+                setOpaque(true);
+            } else {
+                super.paintComponent(g0);
+            }
+            if (marks == null && call == null) return;
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            java.util.Map<Integer, Integer> used = new java.util.HashMap<Integer, Integer>();
             try {
-                CondPaint.paint(g, this, marks);
+                CondPaint.paint(g, this, marks, used);
             } catch (RuntimeException e) {
                 // בלי סימון התנאים — הקוד עצמו מוצג כרגיל
+            }
+            try {
+                CallPaint.foreground(g, this, call, fileKey, used);
+            } catch (RuntimeException e) {
+                // בלי סימון הקריאות
             }
             g.dispose();
         }
