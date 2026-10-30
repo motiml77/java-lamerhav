@@ -26,6 +26,9 @@
   }
 
   const APP_W = 1300, APP_H = 880, LINE_H = 28, GUTTER = 64;
+  const LENS_H = 22;   // שורת "💡 הצעה לפתרון" מעל שורה בקוד (CodeLens ב-VS Code / code mining ב-Eclipse)
+  /** כמה פיקסלים שורות ה-lens דוחפות למטה את השורה l (lens שמעל l או מעל שורה לפניה) */
+  const lensOff = (items, l) => (items || []).filter(x => x.line <= l).length * LENS_H;
   // הסביבה: eclipse (ברירת מחדל) / vscode / vs — המסגרת, הכפתורים והתפריט של כל אחת
   const IDE = new URLSearchParams(location.search).get('ide') || 'eclipse';
   const SKINS = {
@@ -107,6 +110,8 @@
       this.now = 0;
       this.cur = { x: 760, y: 560 };
       this.scroll = 0;
+      this.lenses = [];
+      this.codeLines = [];
       this.dlg = null;      // { asset, x, y }
       this.view = null;     // { x, y, s }
       this.introEnd = 0;
@@ -128,8 +133,9 @@
       if (kind === 'line') {   // line:L או line:L:C (C = עמודה, מ-0)
         const [l, c] = arg.split(':').map(Number);
         const r = this.codeRect();
-        return { x: r.x + GUTTER + (c || 0) * this.charW + (c === undefined ? 120 : 0), y: r.y + (l - 1 - this.scroll) * LINE_H + LINE_H / 2 };
+        return { x: r.x + GUTTER + (c || 0) * this.charW + (c === undefined ? 120 : 0), y: r.y + (l - 1 - this.scroll) * LINE_H + lensOff(this.lenses, l) + LINE_H / 2 };
       }
+      if (kind === 'lens') { const q = this.lensRect(+arg); return { x: q.x + q.w / 2, y: q.y + q.h / 2 }; }
       if (kind === 'menuitem') {   // menuitem:טקסט (חלק מהטקסט)
         const m = this.menuGeom();
         const i = MENU_ITEMS.findIndex(t => t !== '---' && t.includes(arg));
@@ -137,7 +143,7 @@
         return { x: m.left + MENU_W / 2, y: m.top + m.ys[i] + MI_H / 2 };
       }
       if (kind === 'tree') {   // tree:שם הקובץ
-        for (const row of document.querySelectorAll('#tree .row')) if (row.textContent.trim() === arg) return this.rectOf(row.querySelector('span:last-child') || row, 'center');
+        for (const row of document.querySelectorAll('#tree .row')) if (row.textContent.trim() === arg || (row.querySelector('span:last-child') || row).textContent.trim() === arg) return this.rectOf(row.querySelector('span:last-child') || row, 'center');
         throw new Error('tree row not found: ' + arg);
       }
       if (kind === 'view') {
@@ -185,7 +191,16 @@
       return { left: Math.max(10, ds.x + ds.w - MENU_W + 40), top: ds.y + ds.h + 2, ys, h: y + MENU_PAD };
     }
     /** VS Code: הלוח בצד — קבצים (explorer) או הלוח של מבני נתונים (dsviz) */
-    side(view) { this.add({ type: 'side', view }); return this; }
+    side(view) {
+      this.add({ type: 'side', view });
+      const ds = view === 'dsviz';   // גם עכשיו (בזמן הבנייה) — כדי שהמדידות של הכפתורים בלוח יהיו נכונות
+      $('tree').style.display = ds ? 'none' : 'block';
+      $('dsview').style.display = ds ? 'block' : 'none';
+      $('sideSec').style.display = ds ? 'none' : 'flex';
+      return this;
+    }
+    /** מרכז של רכיב במסגרת (למשל '#actDs') — מטרה ללחיצה */
+    el(sel) { const r = this.rectOf(document.querySelector(sel), 'rect'); return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; }
     menuOpen() { this.add({ type: 'menu', geom: this.menuGeom() }); this.now += .35; return this; }
     menuHot(text) { const i = MENU_ITEMS.findIndex(t => t !== '---' && t.includes(text)); this.add({ type: 'menuHot', idx: i }); return this; }
     menuClose(after = .3) { this.add({ type: 'menuClose' }); this.now += after; return this; }
@@ -200,6 +215,7 @@
       if (kind === 'dlg') { const r = this.dlgRect(arg.split('@')[0]); return { x: r.x, y: r.y, w: r.w, h: r.h }; }
       if (kind === 'view') { const q = this.pt(target); return { x: q.x - 62, y: q.y - 20, w: 124, h: 40 }; }
       if (kind === 'line') { const q = this.pt(target), r = this.codeRect(); return { x: r.x + GUTTER, y: q.y - LINE_H / 2, w: r.w - GUTTER - 6, h: LINE_H }; }
+      if (kind === 'lens') return this.lensRect(+arg);
       if (kind === 'tree') { const q = this.pt(target); return { x: q.x - 90, y: q.y - 14, w: 180, h: 28 }; }
       const q = this.pt(target); return { x: q.x - 24, y: q.y - 18, w: 48, h: 36 };
     }
@@ -238,9 +254,18 @@
     // --- פעולות
     intro(dur = 2.8) { this.introEnd = dur; this.now = dur + .6; return this; }
     step(i, extra = 0) { this.add({ type: 'step', idx: i }); this.now += extra; return this; }
-    files(rows) { this.add({ type: 'tree', rows }); return this; }
+    files(rows) { this.add({ type: 'tree', rows }); $('tree').innerHTML = treeHtml(rows); return this; }
     title(text) { this.add({ type: 'title', text }); return this; }
+    /** שורות "💡 הצעה לפתרון" מעל שורות בקוד: [{ line, text }] — השורות שאחריהן זזות למטה; lens([]) מוחק. מטרה: 'lens:<line>' */
+    lens(items) { this.lenses = items.map(x => ({ line: x.line, text: x.text })); this.add({ type: 'lens', items: this.lenses }); return this; }
+    lensRect(l) {
+      const r = this.codeRect(), it = this.lenses.find(x => x.line === l);
+      if (!it) throw new Error('no lens above line ' + l);
+      const ind = ((this.codeLines[l - 1] || '').match(/^ */) || [''])[0].length;
+      return { x: r.x + GUTTER + ind * this.charW, y: r.y + (l - 1 - this.scroll) * LINE_H + lensOff(this.lenses, l) - LENS_H, w: it.text.length * 8.6 + 34, h: LENS_H };
+    }
     code(lines, opt = {}) {
+      this.codeLines = lines.slice();
       this.add({ type: 'code', lines: lines.slice(), file: opt.file, newFrom: opt.newFrom, newTo: opt.newTo, edit: opt.edit });
       if (opt.file) this.add({ type: 'tab', name: opt.file, crumbs: opt.crumbs });
       return this;
@@ -266,8 +291,9 @@
         x = r.x; y = r.y + 35; th = 0;
         this.add({ type: 'tab', name: title });
       }
+      if (opt.bare) th = 0;   // בלי מסגרת של חלון (למשל ה-QuickPick של VS Code) — x/y מהתסריט
       this.dlg = { asset, x, y, th };
-      this.add({ type: 'dialog', asset, x, y, title, w: a.w, h: a.h, dock: !!opt.dock });
+      this.add({ type: 'dialog', asset, x, y, title, w: a.w, h: a.h, dock: !!opt.dock, bare: !!opt.bare });
       this.now += opt.wait ?? .7;
       return this;
     }
@@ -302,7 +328,8 @@
       if (s.startsWith('el:')) { const r = this.rectOf(document.querySelector(s.slice(3)), 'rect'); return { x: r.x - 6, y: r.y - 4, w: r.w + 12, h: r.h + 8 }; }
       if (s.startsWith('lines:')) {
         const [a, b] = s.slice(6).split('-').map(Number), r = this.codeRect();
-        return { x: r.x + GUTTER - 6, y: r.y + (a - 1 - this.scroll) * LINE_H - 2, w: r.w - GUTTER - 10, h: (b - a + 1) * LINE_H + 4 };
+        const oa = lensOff(this.lenses, a), ob = lensOff(this.lenses, b);
+        return { x: r.x + GUTTER - 6, y: r.y + (a - 1 - this.scroll) * LINE_H + oa - 2, w: r.w - GUTTER - 10, h: (b - a + 1) * LINE_H + (ob - oa) + 4 };
       }
       if (s.startsWith('view:')) {
         const [x, y, w, h] = s.slice(5).split(',').map(Number), v = this.view;
@@ -440,11 +467,9 @@
   }
 
   let lastCodeKey = null;
-  function renderIde(t) {
-    const tr = last('tree', t);
-    if (tr && $('tree').dataset.k !== String(EV.indexOf(tr))) {
-      $('tree').dataset.k = String(EV.indexOf(tr));
-      $('tree').innerHTML = tr.rows.map(r => {
+  /** שורות עץ הקבצים (גם בזמן בניית התסריט — כדי ש-tree:שם ימצא את השורה) */
+  function treeHtml(rows) {
+    return rows.map(r => {
         const [depth, name, sel] = r;
         const file = /\.(java|cs|csproj)$/.test(name);
         const icon = name.endsWith('.java') ? '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#3d7be0;margin-right:6px"></span>'
@@ -453,6 +478,12 @@
                    : '<span style="display:inline-block;width:14px;height:12px;border-radius:2px;background:#e5b84b;margin-right:6px"></span>';
         return `<div class="row${sel ? ' sel' : ''}" style="padding-left:${12 + depth * 16}px">${file ? '' : '▾ '}${icon}<span>${name}</span></div>`;
       }).join('');
+  }
+  function renderIde(t) {
+    const tr = last('tree', t);
+    if (tr && $('tree').dataset.k !== String(EV.indexOf(tr))) {
+      $('tree').dataset.k = String(EV.indexOf(tr));
+      $('tree').innerHTML = treeHtml(tr.rows);
     }
     const tab = last('tab', t);
     if (tab) {
@@ -473,11 +504,14 @@
     const ce = last('code', t);
     if (ce) {
       const key = EV.indexOf(ce);
-      if (key !== lastCodeKey) {
-        lastCodeKey = key;
-        $('lines').innerHTML = ce.lines.map((l, i) => `<div class="ln" style="top:${i * LINE_H}px"><span class="newbg" style="opacity:0"></span><span class="curbg" style="opacity:0"></span><span class="no" style="position:relative">${i + 1}</span><span class="tx" style="position:relative;display:inline-block">${highlight(l)}</span></div>`).join('');
+      const le = last('lens', t), lens = le ? le.items : [];
+      const lkey = key + ':' + (le ? EV.indexOf(le) : -1);
+      if (lkey !== lastCodeKey) {
+        lastCodeKey = lkey;
+        $('lines').innerHTML = ce.lines.map((l, i) => `<div class="ln" style="top:${i * LINE_H + lensOff(lens, i + 1)}px"><span class="newbg" style="opacity:0"></span><span class="curbg" style="opacity:0"></span><span class="no" style="position:relative">${i + 1}</span><span class="tx" style="position:relative;display:inline-block">${highlight(l)}</span></div>`).join('')
+          + lens.map(x => `<div class="lensrow" style="top:${(x.line - 1) * LINE_H + lensOff(lens, x.line) - LENS_H}px"><span class="no"></span><span class="lens" style="padding-left:${12 + ((ce.lines[x.line - 1] || '').match(/^ */)[0].length) * CHAR_W}px">${esc(x.text)}</span></div>`).join('');
       }
-      const rows = $('lines').children;
+      const rows = $('lines').querySelectorAll('.ln');
       for (let i = 0; i < rows.length; i++) {
         const ln = i + 1, isNew = ce.newFrom && ln >= ce.newFrom && ln <= ce.newTo;
         const nb = rows[i].children[0], tx = rows[i].children[3];
@@ -499,14 +533,15 @@
     if (ca && ca.line != null) {
       caret.style.display = 'block';
       caret.style.left = (GUTTER + ca.col * CHAR_W) + 'px';
-      caret.style.top = ((ca.line - 1 - sc) * LINE_H + 2) + 'px';
+      const cl = last('lens', t);
+      caret.style.top = ((ca.line - 1 - sc) * LINE_H + lensOff(cl && cl.items, ca.line) + 2) + 'px';
       caret.style.opacity = Math.floor((t - ca.t) * 2.2) % 2 === 0 ? 1 : 0;
       // השורה של הסמן — רקע כחול בהיר
-      const rows = $('lines').children;
+      const rows = $('lines').querySelectorAll('.ln');
       for (let i = 0; i < rows.length; i++) rows[i].children[1].style.opacity = i === ca.line - 1 ? 1 : 0;
     } else {
       caret.style.display = 'none';
-      for (const r of $('lines').children) r.children[1].style.opacity = 0;
+      for (const r of $('lines').querySelectorAll('.ln')) r.children[1].style.opacity = 0;
     }
     // תפריט נפתח
     const mo = last('menu', t), mc = last('menuClose', t), menu = $('menu');
@@ -551,7 +586,8 @@
       const k = back(p(t, open.t, open.t + .38));
       win.style.left = open.x + 'px'; win.style.top = open.y + 'px';
       $('dlgTitle').textContent = open.title;
-      win.querySelector('.wt').style.display = open.dock ? 'none' : 'flex';
+      win.querySelector('.wt').style.display = open.dock || open.bare ? 'none' : 'flex';
+      win.style.background = open.bare ? 'transparent' : '';
       win.style.borderRadius = open.dock ? '0' : '10px';
       win.style.boxShadow = open.dock ? 'none' : '';
       if (open.dock) css(win, p(t, open.t, open.t + .15) * (1 - closing), 'none', 0);
