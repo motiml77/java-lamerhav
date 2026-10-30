@@ -1,4 +1,5 @@
-// node make.js <id> [--prep-only|--render-only] [--fps 30]
+// node make.js <id> [--ide eclipse|vscode|vs] [--prep-only|--render-only] [--fps 30]
+// Eclipse: scripts/<id>.js → ../help/<id>.mp4;  VS Code / Visual Studio: scripts/<ide>/<id>.js → ../help/<ide>/<id>.mp4
 // בונה סרטון הדרכה: 1. צילומים אמיתיים (scripts/<id>.prep.js) → work/<id>/assets.js
 //                   2. רינדור כל פריים (engine.html?t=<id>) → work/<id>/frames
 //                   3. פסקול (audio.py) וקידוד ל-mp4 (H.264 + AAC — מתנגן בכל דפדפן, גם בזה שבתוך Eclipse) → ../help/<id>.mp4 + פוסטר
@@ -7,13 +8,16 @@ const T = __dirname, ROOT = path.join(T, '..');
 const id = process.argv[2];
 const args = process.argv.slice(3);
 const fps = +(args[args.indexOf('--fps') + 1] || 30) || 30;
-const W = path.join(T, 'work', id);
+const ide = args.includes('--ide') ? args[args.indexOf('--ide') + 1] : 'eclipse';
+const wid = ide === 'eclipse' ? id : ide + '-' + id;      // work/<wid>
+const sid = ide === 'eclipse' ? id : ide + '/' + id;      // scripts/<sid>.js
+const W = path.join(T, 'work', wid);
 fs.mkdirSync(W, { recursive: true });
 const sh = (cmd, a, opt = {}) => cp.execFileSync(cmd, a, Object.assign({ stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' }, opt));
 const templates = require(path.join(ROOT, 'vscode-extension', 'templates'));
 
 const ctx = {
-  id, W, templates,
+  id: wid, W, templates, ide,
   assets: {},
   /** חלון אמיתי של התוסף לפי תסריט; מחזיר את ה-JSON של כל צילום */
   dlg(name, kind, preset, lines, doc, marker) {
@@ -45,7 +49,7 @@ for f in glob.glob(sys.argv[1] + '/*.png'):
       const m = /^shot (\S+)/.exec(l.trim());
       if (!m) continue;
       const js = JSON.parse(fs.readFileSync(path.join(dir, m[1] + '.json'), 'utf8'));
-      js.src = `work/${id}/dlg/${name}/${m[1]}.png`;
+      js.src = `work/${wid}/dlg/${name}/${m[1]}.png`;
       this.assets[`${name}/${m[1]}`] = js;
       out[m[1]] = js;
     }
@@ -69,14 +73,69 @@ from PIL import Image
 for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
     Image.open(f).convert('RGB').crop((80, 36, 1520, 864)).save(f[:-4] + '.jpg', quality=92)
 `, cap]);
-    return steps.map(s => `work/${id}/run/${name}/cap/s-${s}.jpg`);
+    return steps.map(s => `work/${wid}/run/${name}/cap/s-${s}.jpg`);
+  },
+  /** כמו viewer, ל-C#: קובצי .cs → dsviz-cs → חלון ההרצה (TraceViewer) */
+  viewerCs(name, files, steps, withMain) {
+    const dir = path.join(W, 'run', name);
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [f, text] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); fs.writeFileSync(path.join(dir, f), text); }
+    const cap = path.join(dir, 'cap');
+    fs.mkdirSync(cap, { recursive: true });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try { sh('sh', [path.join(T, 'viewer-cs.sh'), dir, path.join(cap, 's'), ...steps.map(String)], { stdio: 'inherit', env: Object.assign({}, process.env, withMain ? { MAINBTN: '1' } : {}) }); } catch (e) { /* בודקים בהמשך */ }
+      if (steps.every(s => fs.existsSync(path.join(cap, `s-${s}.png`)))) break;
+    }
+    sh('python3', ['-c', `
+import sys, glob, os
+from PIL import Image
+for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
+    Image.open(f).convert('RGB').crop((80, 36, 1520, 864)).save(f[:-4] + '.jpg', quality=92)
+`, cap]);
+    return steps.map(s => `work/${wid}/run/${name}/cap/s-${s}.jpg`);
+  },
+  /** חלון Webview אמיתי של VS Code (הדף מהתוסף) לפי תסריט — harness/webview.js */
+  async web(name, html, host, size, actions) {
+    const dir = path.join(W, 'dlg', name);
+    fs.rmSync(dir, { recursive: true, force: true });
+    const out = await require('./harness/webview').capture({ html, host, size, actions, dir, src: `work/${wid}/dlg/${name}` });
+    for (const [k, v] of Object.entries(out)) this.assets[`${name}/${k}`] = v;
+    return out;
+  },
+  /** חלון Swing של Visual Studio (CsTool ...) לפי תסריט — harness/SwingScript.java; env: משתני סביבה (שרת מדומה וכו') */
+  swing(name, toolArgs, lines, env, sysProps) {
+    const dir = path.join(W, 'dlg', name);
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(dir, { recursive: true });
+    const cls = path.join(T, '.swing');
+    fs.mkdirSync(cls, { recursive: true });
+    sh('javac', ['-d', cls, path.join(T, 'harness', 'SwingScript.java')]);
+    const sf = path.join(dir, 'script.txt');
+    fs.writeFileSync(sf, lines.join('\n') + '\n');
+    const xd = process.env.XD || ':92';
+    try { cp.execSync(`pgrep -f "Xvfb ${xd} " >/dev/null || (Xvfb ${xd} -screen 0 1600x900x24 >/dev/null 2>&1 &); sleep 2`, { shell: '/bin/sh' }); } catch (e) { /* כבר רץ */ }
+    const jar = path.join(ROOT, 'release', 'dsviz.jar');
+    const e = Object.assign({}, process.env, { DISPLAY: xd }, env || {});
+    delete e.JAVA_TOOL_OPTIONS;
+    sh('java', [...(sysProps || []), '-Ddsviz.noOpen=true', '-cp', cls + path.delimiter + jar, 'SwingScript', sf, dir, 'il.lamerhav.dsviz.cs.CsTool', ...toolArgs], { stdio: 'inherit', env: e });
+    const out = {};
+    for (const l of lines) {
+      const m = /^shot (\S+)/.exec(l.trim());
+      if (!m) continue;
+      const js = JSON.parse(fs.readFileSync(path.join(dir, m[1] + '.json'), 'utf8'));
+      js.src = `work/${wid}/dlg/${name}/${m[1]}.png`;
+      this.assets[`${name}/${m[1]}`] = js;
+      out[m[1]] = js;
+    }
+    return out;
   },
   write(file, text) { fs.writeFileSync(path.join(W, file), text); },
 };
 
 (async () => {
   if (!args.includes('--render-only')) {
-    const prep = require(path.join(T, 'scripts', id + '.prep.js'));
+    const prep = require(path.join(T, 'scripts', sid + '.prep.js'));
     const extra = await prep(ctx);
     fs.writeFileSync(path.join(W, 'assets.js'), `window.ASSETS = ${JSON.stringify(ctx.assets)};\nwindow.DATA = ${JSON.stringify(extra || {})};\n`);
     console.log('assets ok');
@@ -92,7 +151,7 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
   const b = await pw.chromium.launch({ args: ['--allow-file-access-from-files'] });
   const pg = await b.newPage({ viewport: { width: 1920, height: 1080 } });
   pg.on('pageerror', e => { console.error('PAGE ERROR', e.message); process.exit(1); });
-  await pg.goto('file://' + path.join(T, 'engine.html') + '?t=' + id);
+  await pg.goto('file://' + path.join(T, 'engine.html') + '?t=' + id + '&ide=' + ide);
   await pg.waitForFunction(() => window.READY === true, null, { timeout: 60000 });
   const dur = await pg.evaluate(() => DURATION);
   const meta = await pg.evaluate(() => ({ clicks: CLICK_TIMES, cuts: CUT_TIMES, poster: (window.META && window.META.poster) || 0 }));
@@ -108,7 +167,7 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
   }
   // פוסטר
   await pg.evaluate(t => render(t), meta.poster || Math.min(dur - 1, 12));
-  const helpDir = path.join(ROOT, 'help');
+  const helpDir = ide === 'eclipse' ? path.join(ROOT, 'help') : path.join(ROOT, 'help', ide);
   fs.mkdirSync(helpDir, { recursive: true });
   await stage.screenshot({ path: path.join(helpDir, id + '.jpg'), type: 'jpeg', quality: 82 });
   await b.close();

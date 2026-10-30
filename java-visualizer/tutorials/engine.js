@@ -26,12 +26,55 @@
   }
 
   const APP_W = 1300, APP_H = 880, LINE_H = 28, GUTTER = 64;
+  // הסביבה: eclipse (ברירת מחדל) / vscode / vs — המסגרת, הכפתורים והתפריט של כל אחת
+  const IDE = new URLSearchParams(location.search).get('ide') || 'eclipse';
+  const SKINS = {
+    vscode: `
+      <div class="titlebar"><div class="menus"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></div>
+        <div class="name" id="ideTitle">Main.java — DataStructures — Visual Studio Code</div></div>
+      <div class="act"><i class="on" id="actFiles"></i><i></i><i></i><i></i><i></i><i id="actDs" style="background:#7c5cf0"></i></div>
+      <div class="side"><div class="h" id="sideH">EXPLORER</div><div class="sec" id="sideSec">⌄ DATASTRUCTURES</div><div id="tree"></div>
+        <div class="dsview" id="dsview">יש דף תרגיל (PDF, Word או צילום מסך)? שולחים אותו ומקבלים קוד מוכן — עם 💡 הצעה לפתרון לכל סעיף:
+          <span class="b" id="dsSubmit">שליחת תרגיל...</span>בחרו מבנה — וייפתח תרגיל מוכן, ונשאר רק לכתוב את הפעולה:
+          <span class="b alt" id="dsStack">מחסנית (Stack)</span><span class="b alt" id="dsQueue">תור (Queue)</span><span class="b alt" id="dsList">רשימה מקושרת (Node)</span>
+          <span class="b alt" id="dsTree">עץ בינארי (BinNode)</span><span class="b" id="dsExamples">דוגמאות פתורות</span></div></div>
+      <div class="ed"><div class="tabs"><div class="tab" id="tabName">Main.java</div>
+          <div class="acts"><span class="ic" id="tbSubmit" style="background:#7c5cf0">➤</span><span class="ic" id="tbNew" style="background:#2f6fed">+</span>
+            <span class="ic" id="tbAdd" style="background:#7c3aed">▦</span><span class="ic" id="tbRun" style="background:#16a34a">▶</span><span class="ic" id="tbHelp" style="background:#f59e0b">?</span></div></div>
+        <div class="crumbs" id="crumbs">src › Main.java</div>
+        <div id="code"><div id="lines"></div><div id="caret"></div></div></div>
+      <div class="status"><span class="sbi">⎇ main</span><span class="sbi">⊗ 0 ⚠ 0</span>
+        <span class="sbi" id="sbSubmit">➤ שליחת תרגיל</span><span class="sbi" id="sbRun">▶ הרצה ויזואלית</span><span class="sbi" id="sbAdd">⊕ הוסף מבנה נתונים</span><span class="sbi" id="sbHelp">?</span></div>`,
+    vs: `
+      <div class="titlebar"><div class="logo"></div><div class="menus"><span>File</span><span>Edit</span><span>View</span><span>Git</span><span>Project</span><span>Build</span><span>Debug</span><span>Test</span><span>Analyze</span><span>Tools</span><span>Extensions</span><span>Window</span><span>Help</span></div>
+        <div class="sln" id="ideTitle">DataStructures-CS</div></div>
+      <div class="toolbar"><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-sep"></div><div class="tb-ico"></div><div class="tb-ico"></div>
+        <div class="tb-sep"></div><div class="tb-btn" style="font-size:15px">Debug ▾</div><div class="tb-btn" style="font-size:15px">Any CPU ▾</div>
+        <div class="tb-btn run" id="tbRun"><i>▶</i>הרצה ויזואלית ▾</div><div class="tb-sep"></div><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-ico"></div></div>
+      <div class="body">
+        <div class="editor"><div class="tabs"><div class="tab" id="tabName">Program.cs</div></div>
+          <div id="code"><div id="lines"></div><div id="caret"></div></div></div>
+        <div class="explorer"><div class="h">Solution Explorer</div><div id="tree"></div></div>
+      </div>
+      <div class="taskbar"><span class="tk" id="tkStart" style="background:#2f6fed">⊞</span><span class="tk" style="background:#865fc5">∞</span><span class="tk" style="background:#e5b84b">▭</span>
+        <span class="tk" style="background:#0ea5e9">◉</span></div>`
+  };
+  // התפריט של כל סביבה: Eclipse — "מבני נתונים" בשורת התפריטים; VS Code — לחיצה ימנית בעורך ← "מבני נתונים";
+  // Visual Studio — תפריט התחל של Windows ← התיקייה "מבני נתונים" (הקיצורים שההתקנה יוצרת)
+  const MENUS = {
+    eclipse: ['תרגיל חדש: מחסנית (Stack)...', 'תרגיל חדש: תור (Queue)...', 'תרגיל חדש: רשימה מקושרת (Node)...', 'תרגיל חדש: עץ בינארי (BinNode)...',
+      'תרגיל חדש: עץ חיפוש בינארי...', 'תרגיל חדש: מערך...', 'תרגיל חדש: מערך דו-ממדי...', '---', 'שליחת תרגיל (PDF / Word / תמונה)...', 'הצעה לפתרון לסעיף שבו נמצא הסמן...',
+      '---', 'הוסף מבנה נתונים...', '---', 'הרצה ויזואלית', '---', 'דוגמאות פתורות...', 'הדרכה לשימוש (?)...'],
+    vscode: ['שליחת תרגיל', 'הצעה לפתרון', '---', 'הוסף מבנה נתונים', 'הוסף מבנה ‹', '---', 'הרצה ויזואלית', '---', 'הדרכה לשימוש'],
+    vs: ['תרגיל חדש ב-C#', 'הוסף מבנה נתונים ל-C#', 'שליחת תרגיל ב-C#', 'הצעה לפתרון ב-C#', '---', 'תרגילי C# (Visual Studio)', 'הדרכה לשימוש']
+  };
   const DLG_TITLE = 32;
   const VIEW = { w: 1440, h: 828, s: 1240 / 1440, next: [1280, 30] };   // חלון ההרצה (צילום 1440x828), הכפתור "הבא"
 
   // ------------------------------------------------------------ הדגשת תחביר (בערך כמו ב-Eclipse)
-  const KW = new Set('public private protected static void int boolean char double new return if else while for class import null true false this final do break continue'.split(' '));
-  const TY = new Set('Stack Queue Node BinNode Student Car String Integer Double Character System Math Arrays'.split(' '));
+  const KW = new Set(('public private protected static void int boolean char double new return if else while for class import null true false this final do break continue '
+    + 'using namespace string bool var foreach in internal out ref').split(' '));
+  const TY = new Set('Stack Queue Node BinNode Student Car String Integer Double Character System Math Arrays Console Helpers'.split(' '));
   function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function highlight(line) {
     let out = '', i = 0;
@@ -78,13 +121,10 @@
       if (typeof target === 'object') return target;
       const [kind, ...rest] = target.split(':');
       const arg = rest.join(':');
-      if (kind === 'tb') {
-        const el = $({ add: 'tbAdd', new: 'tbNew', run: 'tbRun', help: 'tbHelp' }[arg]);
-        return this.rectOf(el, 'center');
+      if (kind === 'tb' || kind === 'sb' || kind === 'ds' || kind === 'tk') {   // כפתור: tb:add (סרגל), sb:run (שורת המצב של VS Code), ds:examples (הלוח של VS Code), tk:start
+        return this.rectOf(tbEl(kind, arg), 'center');
       }
-      if (kind === 'menu') {   // התפריט "מבני נתונים"
-        return this.rectOf(document.querySelector('#ide .menubar .ds'), 'center');
-      }
+      if (kind === 'menu') return this.rectOf(menuAnchor(), 'center');   // פותחים את התפריט של הסביבה
       if (kind === 'line') {   // line:L או line:L:C (C = עמודה, מ-0)
         const [l, c] = arg.split(':').map(Number);
         const r = this.codeRect();
@@ -122,7 +162,7 @@
       const types = { chip: ['Chip'], round: ['Round'], check: ['Button'], text: ['Text'], label: ['Label'], spin: ['Spinner'], combo: ['Combo'] }[k];
       const c = a.controls.find(c => types.includes(c.type) && (k === 'text' ? String(c.index) === v : k === 'spin' || k === 'combo' ? true : k === 'chip' || k === 'round' ? c.text === v : (c.text || '').includes(v)));
       if (!c) throw new Error('control not found ' + arg + ' in ' + d.asset);
-      return { x: d.x + c.x, y: d.y + DLG_TITLE + c.y, w: c.w, h: c.h };
+      return { x: d.x + c.x, y: d.y + (d.th ?? DLG_TITLE) + c.y, w: c.w, h: c.h };
     }
     /** מלבן שמכיל כמה רכיבים בחלון (להדגשה / זום) */
     area(sels, pad = 8, growH = 0) {
@@ -137,11 +177,15 @@
       return mode === 'center' ? { x: x + r.width / 2, y: y + r.height / 2 } : { x, y, w: r.width, h: r.height };
     }
     menuGeom() {
-      const ds = this.rectOf(document.querySelector('#ide .menubar .ds'), 'rect');
+      const ds = this.rectOf(menuAnchor(), 'rect');
       const ys = []; let y = MENU_PAD;
       for (const t of MENU_ITEMS) { ys.push(y); y += t === '---' ? SEP_H : MI_H; }
+      if (IDE === 'vs') return { left: Math.max(10, ds.x - 40), top: ds.y - y - 6, ys, h: y + MENU_PAD };   // תפריט התחל — נפתח למעלה
+      if (IDE === 'vscode') return { left: ds.x + ds.w / 2 - MENU_W, top: ds.y + ds.h / 2, ys, h: y + MENU_PAD };   // לחיצה ימנית בעורך
       return { left: Math.max(10, ds.x + ds.w - MENU_W + 40), top: ds.y + ds.h + 2, ys, h: y + MENU_PAD };
     }
+    /** VS Code: הלוח בצד — קבצים (explorer) או הלוח של מבני נתונים (dsviz) */
+    side(view) { this.add({ type: 'side', view }); return this; }
     menuOpen() { this.add({ type: 'menu', geom: this.menuGeom() }); this.now += .35; return this; }
     menuHot(text) { const i = MENU_ITEMS.findIndex(t => t !== '---' && t.includes(text)); this.add({ type: 'menuHot', idx: i }); return this; }
     menuClose(after = .3) { this.add({ type: 'menuClose' }); this.now += after; return this; }
@@ -150,8 +194,8 @@
       if (typeof target === 'object') return target.w ? target : { x: target.x - 24, y: target.y - 18, w: 48, h: 36 };
       const [kind, ...rest] = target.split(':');
       const arg = rest.join(':');
-      if (kind === 'tb') return this.rectOf($({ add: 'tbAdd', new: 'tbNew', run: 'tbRun', help: 'tbHelp' }[arg]), 'rect');
-      if (kind === 'menu') return this.rectOf(document.querySelector('#ide .menubar .ds'), 'rect');
+      if (kind === 'tb' || kind === 'sb' || kind === 'ds' || kind === 'tk') return this.rectOf(tbEl(kind, arg), 'rect');
+      if (kind === 'menu') return this.rectOf(menuAnchor(), 'rect');
       if (kind === 'menuitem') { const m = this.menuGeom(), i = MENU_ITEMS.findIndex(t => t !== '---' && t.includes(arg)); return { x: m.left + 4, y: m.top + m.ys[i], w: MENU_W - 8, h: MI_H }; }
       if (kind === 'dlg') { const r = this.dlgRect(arg.split('@')[0]); return { x: r.x, y: r.y, w: r.w, h: r.h }; }
       if (kind === 'view') { const q = this.pt(target); return { x: q.x - 62, y: q.y - 20, w: 124, h: 40 }; }
@@ -162,7 +206,8 @@
     /** העכבר מגיע למטרה, מסביבה מסגרת מהבהבת ותווית "לחץ כאן", מחכים שיספיקו לקרוא — ואז לוחצים */
     press(target, label, opt = {}) {
       const r = this.rectOfTarget(target), move = opt.move ?? .9, hold = opt.hold ?? 1.5;
-      const side = opt.side || (typeof target === 'string' && target.startsWith('menuitem') ? 'right' : typeof target === 'string' && target.startsWith('dlg:') && r.y < 150 ? 'bottom' : typeof target === 'string' && (target.startsWith('tb:') || target.startsWith('view:') || target.startsWith('menu')) ? 'bottom' : 'top');
+      const low = r.y > APP_H - 120;   // שורת המצב / שורת המשימות למטה — הבועה מעל
+      const side = opt.side || (typeof target === 'string' && target.startsWith('menuitem') ? (IDE === 'eclipse' ? 'right' : 'left') : low ? 'top' : typeof target === 'string' && target.startsWith('dlg:') && r.y < 150 ? 'bottom' : typeof target === 'string' && (/^(tb|ds):/.test(target) || target.startsWith('view:') || target.startsWith('menu')) ? 'bottom' : 'top');
       this.add({ type: 'hl', rect: { x: r.x - 5, y: r.y - 4, w: r.w + 10, h: r.h + 8 }, dur: move + hold + .3 });
       const at = side === 'top' ? { x: r.x + r.w / 2, y: r.y - 4 } : side === 'bottom' ? { x: r.x + r.w / 2, y: r.y + r.h + 4 } : side === 'left' ? { x: r.x - 4, y: r.y + r.h / 2 } : { x: r.x + r.w + 4, y: r.y + r.h / 2 };
       this.add({ type: 'bubble', text: `<span class="cta">${opt.verb || 'לחץ כאן'}</span>${label ? '<span class="lbl">' + label + '</span>' : ''}`, at, side, kind: 'click', dur: move + hold + .3 });
@@ -197,7 +242,7 @@
     title(text) { this.add({ type: 'title', text }); return this; }
     code(lines, opt = {}) {
       this.add({ type: 'code', lines: lines.slice(), file: opt.file, newFrom: opt.newFrom, newTo: opt.newTo, edit: opt.edit });
-      if (opt.file) this.add({ type: 'tab', name: opt.file });
+      if (opt.file) this.add({ type: 'tab', name: opt.file, crumbs: opt.crumbs });
       return this;
     }
     caret(line, col) { this.add({ type: 'caret', line, col }); return this; }
@@ -215,9 +260,14 @@
     hot(el, dur = .5) { this.add({ type: 'hot', el, dur }); return this; }
     dialog(asset, title, opt = {}) {
       const a = ASSETS[asset];
-      const x = opt.x ?? Math.round((APP_W - a.w) / 2), y = opt.y ?? Math.max(40, Math.round((APP_H - a.h - DLG_TITLE) / 2) + 20);
-      this.dlg = { asset, x, y };
-      this.add({ type: 'dialog', asset, x, y, title, w: a.w, h: a.h });
+      let x = opt.x ?? Math.round((APP_W - a.w) / 2), y = opt.y ?? Math.max(40, Math.round((APP_H - a.h - DLG_TITLE) / 2) + 20), th = DLG_TITLE;
+      if (opt.dock) {   // VS Code: ה-Webview נפתח כלשונית בעורך (בלי מסגרת של חלון)
+        const r = this.rectOf(document.querySelector('#ide .ed'), 'rect');
+        x = r.x; y = r.y + 35; th = 0;
+        this.add({ type: 'tab', name: title });
+      }
+      this.dlg = { asset, x, y, th };
+      this.add({ type: 'dialog', asset, x, y, title, w: a.w, h: a.h, dock: !!opt.dock });
       this.now += opt.wait ?? .7;
       return this;
     }
@@ -282,8 +332,21 @@
     outro(sub, dur = 6.5) { this.outroAt = this.now + .4; this.now = this.outroAt + dur; return this; }
   }
   const CLICKS = [];
-  const MENU_ITEMS = ['תרגיל חדש: מחסנית (Stack)...', 'תרגיל חדש: תור (Queue)...', 'תרגיל חדש: רשימה מקושרת (Node)...', 'תרגיל חדש: עץ בינארי (BinNode)...',
-    'תרגיל חדש: עץ חיפוש בינארי...', 'תרגיל חדש: מערך...', 'תרגיל חדש: מערך דו-ממדי...', '---', 'הוסף מבנה נתונים...', '---', 'הרצה ויזואלית', '---', 'דוגמאות פתורות...', 'הדרכה (?)...'];
+  const MENU_ITEMS = MENUS[IDE] || MENUS.eclipse;
+  const TB = { tb: { add: 'tbAdd', new: 'tbNew', run: 'tbRun', help: 'tbHelp', submit: 'tbSubmit', power: 'tbPower' },
+               sb: { submit: 'sbSubmit', run: 'sbRun', add: 'sbAdd', help: 'sbHelp' },
+               ds: { submit: 'dsSubmit', examples: 'dsExamples', stack: 'dsStack', queue: 'dsQueue', list: 'dsList', tree: 'dsTree' },
+               tk: { start: 'tkStart' } };
+  function tbEl(kind, name) {
+    const el = $(TB[kind] && TB[kind][name]);
+    if (!el) throw new Error('no button ' + kind + ':' + name + ' in ' + IDE);
+    return el;
+  }
+  function menuAnchor() {
+    if (IDE === 'vs') return $('tkStart');
+    if (IDE === 'vscode') return $('code');
+    return document.querySelector('#ide .menubar .ds');
+  }
   const MI_H = 32, SEP_H = 10, MENU_PAD = 4, MENU_W = 360;
 
   // ------------------------------------------------------------ ציור
@@ -383,13 +446,29 @@
       $('tree').dataset.k = String(EV.indexOf(tr));
       $('tree').innerHTML = tr.rows.map(r => {
         const [depth, name, sel] = r;
+        const file = /\.(java|cs|csproj)$/.test(name);
         const icon = name.endsWith('.java') ? '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#3d7be0;margin-right:6px"></span>'
+                   : name.endsWith('.cs') ? '<span style="display:inline-block;width:16px;height:14px;border-radius:3px;background:#68217a;color:#fff;font-size:9px;line-height:14px;text-align:center;margin-right:6px;font-weight:800">C#</span>'
+                   : name.endsWith('.csproj') || name.endsWith('.sln') ? '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#865fc5;margin-right:6px"></span>'
                    : '<span style="display:inline-block;width:14px;height:12px;border-radius:2px;background:#e5b84b;margin-right:6px"></span>';
-        return `<div class="row${sel ? ' sel' : ''}" style="padding-left:${12 + depth * 16}px">${name.endsWith('.java') ? '' : '▾ '}${icon}<span>${name}</span></div>`;
+        return `<div class="row${sel ? ' sel' : ''}" style="padding-left:${12 + depth * 16}px">${file ? '' : '▾ '}${icon}<span>${name}</span></div>`;
       }).join('');
     }
     const tab = last('tab', t);
-    if (tab) { $('tabName').textContent = tab.name; $('ideTitle').textContent = `DataStructures - ${tab.name} - Eclipse IDE`; }
+    if (tab) {
+      $('tabName').textContent = tab.name;
+      if (IDE === 'eclipse') $('ideTitle').textContent = `DataStructures - ${tab.name} - Eclipse IDE`;
+      if (IDE === 'vscode') { $('ideTitle').textContent = `${tab.name} — DataStructures — Visual Studio Code`; $('crumbs').textContent = (tab.crumbs || 'src') + ' › ' + tab.name; }
+    }
+    if (IDE === 'vscode') {   // הלוח בצד: קבצים או "מבני נתונים"
+      const sd = last('side', t), ds = sd && sd.view === 'dsviz';
+      $('tree').style.display = ds ? 'none' : 'block';
+      $('dsview').style.display = ds ? 'block' : 'none';
+      $('sideSec').style.display = ds ? 'none' : 'flex';
+      $('sideH').textContent = ds ? 'מבני נתונים' : 'EXPLORER';
+      $('actDs').classList.toggle('on', !!ds);
+      $('actFiles').classList.toggle('on', !ds);
+    }
 
     const ce = last('code', t);
     if (ce) {
@@ -445,7 +524,7 @@
       MENU_ITEMS.forEach((x, i) => { if (x !== '---') { items[n].classList.toggle('hot', !!hot && hot.idx === i); n++; } });
     } else menu.style.display = 'none';
     // כפתורים "חמים" בסרגל
-    for (const id of ['tbNew', 'tbAdd', 'tbRun', 'tbHelp']) $(id).classList.remove('hot');
+    for (const el of document.querySelectorAll('#ide .hot')) el.classList.remove('hot');
     for (const e of EV) if (e.type === 'hot' && t >= e.t && t <= e.t + e.dur) document.querySelector(e.el).classList.add('hot');
   }
 
@@ -472,7 +551,11 @@
       const k = back(p(t, open.t, open.t + .38));
       win.style.left = open.x + 'px'; win.style.top = open.y + 'px';
       $('dlgTitle').textContent = open.title;
-      css(win, p(t, open.t, open.t + .12) * (1 - closing), `scale(${lerp(.82, 1, k) * (1 - closing * .08)})`, 0);
+      win.querySelector('.wt').style.display = open.dock ? 'none' : 'flex';
+      win.style.borderRadius = open.dock ? '0' : '10px';
+      win.style.boxShadow = open.dock ? 'none' : '';
+      if (open.dock) css(win, p(t, open.t, open.t + .15) * (1 - closing), 'none', 0);
+      else css(win, p(t, open.t, open.t + .12) * (1 - closing), `scale(${lerp(.82, 1, k) * (1 - closing * .08)})`, 0);
       let asset = open.asset;
       for (const e of EV) if (e.type === 'swap' && e.t >= open.t && e.t <= t) asset = e.asset;
       for (const a in DLG) DLG[a].style.display = a === asset ? 'block' : 'none';
@@ -608,12 +691,15 @@
       CHAR_W = probe.getBoundingClientRect().width / 100;
       probe.remove();
       META = window.META;
+      if (SKINS[IDE]) { $('ide').innerHTML = SKINS[IDE]; $('ide').classList.add(IDE); }
       document.getElementById('stage').style.setProperty('--c1', META.pal[0]);
       document.getElementById('stage').style.setProperty('--c2', META.pal[1]);
       document.getElementById('stage').style.setProperty('--c3', META.pal[2]);
       document.getElementById('stage').style.setProperty('--glow', META.pal[0] + '88');
       bgInit();
       B = new Builder(META);
+      B.ide = IDE;
+      B.cs = IDE === 'vs';
       B.charW = CHAR_W;
       // התסריט צריך מדידות של העורך — מציגים אותו בלי טרנספורמציות בזמן הבנייה
       $('app').style.transform = 'none';
