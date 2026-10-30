@@ -101,6 +101,7 @@ final class Model {
         int markIndex = -1;
         Mark mark = Mark.NONE;
         String ghost;                      // ערך שהוצא בצעד הזה (pop / remove)
+        String error;                      // פעולה שנכשלה כי המבנה ריק ("pop()") — מצויר מקום ריק עם "?" באדום
         final List<Obj> objs = new ArrayList<Obj>();   // במקביל ל-items: אובייקט (או null אם זה ערך רגיל)
         final List<View> subs = new ArrayList<View>(); // במקביל ל-items: מבנה שמוכל בתא (מחסנית של מחסניות...) או null
     }
@@ -113,6 +114,7 @@ final class Model {
         Obj obj;                           // אם הערך הוא אובייקט של מחלקה
         View sub;                          // אם הערך הוא מבנה (מחסנית / תור / רשימה / עץ) — מצויר בתוך התא
         final List<String> labels = new ArrayList<String>(); // שמות מ-Viz.point
+        boolean lost;                      // אף משתנה לא מצביע על החוליה, ואי אפשר להגיע אליה (רשימה מקושרת)
     }
 
     /** שרשרת של Node */
@@ -121,6 +123,17 @@ final class Model {
         int cycleTo = -1;                  // אם האחרון מצביע חזרה לתא קודם
         String joinText;                   // אם האחרון מצביע לצומת שמוצג ברשימה אחרת
         boolean truncated;
+        String lostNote, lostHint;         // יש בשרשרת חוליות שאבדו: מה קרה, ומה עושים (או null)
+        final List<String> nullLabels = new ArrayList<String>();   // משתנים שהם null בסוף השרשרת (p אחרי האחרונה) — באדום
+    }
+
+    /**
+     * התוכנית נעצרה בשגיאה: כרטיס אדום בראש התצוגה — מה קרה, למה, ומה עושים — עם ציור קטן
+     * (kind: "empty-stack" / "empty-queue" — מבנה ריק; "null" — name מצביע על null; "index"; "recursion"; "other")
+     */
+    static final class ProblemView extends View {
+        String kind = "other", what = "", why = "", hint = "", name, op;
+        int index = -1, length = -1;       // index: התא שניסו, length: כמה תאים יש
     }
 
     static final class TreeCell extends Cell {

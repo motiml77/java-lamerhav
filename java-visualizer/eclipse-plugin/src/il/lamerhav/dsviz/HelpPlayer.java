@@ -48,6 +48,13 @@ final class HelpPlayer {
                     return null;
                 }
             };
+            new BrowserFunction(browser, "dsvizOpen") {   // "תרום לנו" — נפתח בדפדפן של המערכת, לא בתוך הנגן
+                @Override
+                public Object function(Object[] args) {
+                    if (args.length > 0 && String.valueOf(args[0]).startsWith("https://www.paypal.com/")) Program.launch(String.valueOf(args[0]));
+                    return null;
+                }
+            };
         } catch (Throwable ignored) {
             // בלי JavaScript מול Java — הדף יציג הודעה בעצמו
         }

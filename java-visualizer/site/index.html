@@ -30,10 +30,11 @@
   <nav aria-label="ניווט בעמוד">
     <a href="#run">הרצה ויזואלית</a>
     <a href="#errors">הסברים בעברית</a>
+    <a href="bagrut.html">שאלת בגרות לקוד</a>
     <a href="#teachers">למורים</a>
     <a href="#install">התקנה</a>
   </nav>
-  <a class="btn small" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+  <a class="btn small" href="https://dsviz-exercise.motiml77.workers.dev/dl/windows">הורדה</a>
 </header>
 
 <main id="main">
@@ -43,8 +44,9 @@
     <h1 id="h-hero">רואים מה<br>הקוד עושה</h1>
     <p class="lead">תוסף <span class="nw">ל-Eclipse</span>, <span class="nw">ל-VS Code</span> <span class="nw">ול-Visual Studio</span> שמריץ תרגיל במבני נתונים שורה אחרי שורה, ומצייר בזמן הריצה כל מחסנית, תור, רשימה ועץ.</p>
     <p class="cta">
-      <a class="btn" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה ל-Windows</a>
+      <a class="btn" href="https://dsviz-exercise.motiml77.workers.dev/dl/windows">הורדה ל-Windows</a>
       <span class="note">קובץ התקנה אחד, 86 מגה. Java כבר בפנים, ואת Eclipse ההתקנה מוצאת לבד. <a href="#install">יש לכם Mac או Linux?</a></span>
+      <span class="count" data-downloads hidden></span>
     </p>
   </div>
 
@@ -123,6 +125,7 @@
     <h2 id="h-exercise">מדף הבחינה לקוד שרץ</h2>
     <div>
       <p>ב-Eclipse בוחרים <b>שליחת תרגיל</b> ומצרפים את הדף: PDF, קובץ Word, צילום מהטלפון או צילום מסך שמדביקים עם Ctrl+V. אחרי כמה שניות נפתח קובץ Java עם פעולה ריקה לכל סעיף והסמן כבר בתוכה, המחלקות שהתרגיל מתאר, ו-main שבונה נתונים לדוגמה. מעל main כתוב מה צריך להיות מודפס אם פתרתם נכון.</p>
+      <p>אין לכם Eclipse פתוח? אפשר גם <a href="bagrut.html">להעלות שאלת בגרות כאן באתר</a> ולקבל את הקבצים להורדה.</p>
     </div>
   </div>
   <div class="flow">
@@ -186,11 +189,11 @@
     <h2 id="h-install">התקנה</h2>
     <div>
       <ol class="steps">
-        <li>מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">DSViz-Setup.exe</a>.</li>
+        <li>מורידים את <a href="https://dsviz-exercise.motiml77.workers.dev/dl/windows">DSViz-Setup.exe</a>.</li>
         <li>מריצים אותו. אם Eclipse פתוח, ההתקנה תבקש לסגור אותו קודם.</li>
         <li>פותחים את Eclipse או VS Code. בסרגל הכלים מופיעים תרגיל חדש, הוסף מבנה נתונים והרצה ויזואלית.</li>
       </ol>
-      <p class="quiet">ב-Mac וב-Linux: מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/dsviz-install.zip">dsviz-install.zip</a>, פותחים, ומריצים את install-mac.command או את install.sh. שם צריך JDK 17 או 21.</p>
+      <p class="quiet">ב-Mac וב-Linux: מורידים את <a href="https://dsviz-exercise.motiml77.workers.dev/dl/zip">dsviz-install.zip</a>, פותחים, ומריצים את install-mac.command או את install.sh. שם צריך JDK 17 או 21.</p>
     </div>
   </div>
 
@@ -232,8 +235,9 @@
 <section class="end" aria-labelledby="h-end">
   <h2 id="h-end">רואים מה הקוד עושה</h2>
   <p class="cta">
-    <a class="btn light" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה ל-Windows</a>
+    <a class="btn light" href="https://dsviz-exercise.motiml77.workers.dev/dl/windows">הורדה ל-Windows</a>
     <span class="note" data-version>גרסה 1.0.1, עודכנה ב-30 באוקטובר 2026.</span>
+    <span class="note" data-downloads hidden></span>
   </p>
 </section>
 
@@ -241,7 +245,7 @@
 
 <footer class="foot">
   <p>© 2026 מוטי לוי. שאלות והערות: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
-  <p><a href="privacy.html">פרטיות</a></p>
+  <p class="foot-end"><a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><span aria-hidden="true">&#9829;</span>תרום לנו</a><a href="privacy.html">פרטיות</a></p>
 </footer>
 
 <script src="assets/demo.js" defer></script>
@@ -256,6 +260,18 @@
     es.forEach(function (e) { if (e.isIntersecting) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); });
   }, { threshold: 0.5 }).observe(v);
 })();
+</script>
+<script>
+// מונה ההורדות: כפתורי ההורדה עוברים דרך השרת (/dl/...), שסופר ומעביר לקובץ
+fetch('https://dsviz-exercise.motiml77.workers.dev/v1/stats')
+  .then(function (r) { return r.ok ? r.json() : null; })
+  .then(function (s) {
+    var n = s && s.downloads && s.downloads.total;
+    if (!n) return;
+    var t = n === 1 ? 'הורדה אחת עד היום' : n.toLocaleString('he-IL') + ' הורדות עד היום';
+    document.querySelectorAll('[data-downloads]').forEach(function (el) { el.textContent = t; el.hidden = false; });
+  })
+  .catch(function () {});
 </script>
 <script>
 // התאריך של הגרסה האחרונה — מאותו קובץ שהעדכון האוטומטי קורא

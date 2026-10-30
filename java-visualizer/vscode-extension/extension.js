@@ -423,6 +423,7 @@ async function openHelp(id) {
     });
     panel.webview.onDidReceiveMessage(m => {
         if (m && m.cmd === 'list') openHelp();
+        else if (m && m.cmd === 'open' && /^https:\/\/www\.paypal\.com\//.test(String(m.url))) vscode.env.openExternal(vscode.Uri.parse(m.url));   // "תרום לנו"
         else if (m && m.cmd === 'fail') {   // הנגן של החלון לא מצליח לנגן (קודק) — פותחים אותו דף בדפדפן הרגיל
             try { panel.dispose(); } catch (e) { /* כבר נסגר */ }
             const f = path.join(dir, 'player.html');

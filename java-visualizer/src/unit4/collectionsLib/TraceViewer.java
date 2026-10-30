@@ -44,6 +44,12 @@ public final class TraceViewer {
         if (args[0].equals("--check") && args.length > 1) {   // בדיקה בלי חלון: קורא את הקובץ ומדפיס כמה צעדים יש
             load(args[1]);
             System.out.println("ok " + Recorder.stepCount() + " steps");
+            for (int i = 0; i < Recorder.stepCount(); i++)
+                for (Model.View v : Recorder.step(i).views)
+                    if (v instanceof Model.ProblemView) {
+                        Model.ProblemView p = (Model.ProblemView) v;
+                        System.out.println("[כרטיס " + p.kind + (p.name != null ? " " + p.name : "") + (p.op != null ? " " + p.op : "") + "]");
+                    }
             return;
         }
         load(args[0]);
@@ -114,6 +120,17 @@ public final class TraceViewer {
                     break;
                 default:
                     break;
+            }
+        }
+        String lastLine = null;
+        for (Step st : steps) {   // שגיאה (Pop על מחסנית ריקה, null...) — כרטיס שמסביר מה קרה, כמו ב-Java
+            if (st.kind == Kind.LINE && st.text != null) lastLine = st.text;
+            if (st.kind == Kind.ERROR && st.text != null && st.text.startsWith("שגיאה")) {
+                try {
+                    Problems.attach(st, lastLine);
+                } catch (RuntimeException ignored) {
+                    // בלי כרטיס
+                }
             }
         }
         Recorder.adopt(steps, out.toString());

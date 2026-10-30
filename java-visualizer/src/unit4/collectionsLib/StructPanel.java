@@ -24,6 +24,7 @@ import unit4.collectionsLib.Model.Access;
 import unit4.collectionsLib.Model.Cell;
 import unit4.collectionsLib.Model.ChainView;
 import unit4.collectionsLib.Model.LinearView;
+import unit4.collectionsLib.Model.ProblemView;
 import unit4.collectionsLib.Model.ArrayView;
 import unit4.collectionsLib.Model.StringView;
 import unit4.collectionsLib.Model.LoopView;
@@ -196,6 +197,13 @@ final class StructPanel extends JPanel {
                 g.drawString(t, PAD, PAD + 30);
             }
             return new Dimension(textWidth(t, TITLE) + 2 * PAD, 90);
+        }
+        // שגיאה: כרטיס אדום בראש — מה קרה, למה, ומה עושים
+        for (View v : step.views) {
+            if (!(v instanceof ProblemView)) continue;
+            Dimension d = drawProblem(g, (ProblemView) v, PAD, y);
+            y += d.height + GAP / 2;
+            maxX = Math.max(maxX, PAD + d.width);
         }
         // לולאות: כרטיס לכל לולאה (הפנימית מוזחת מתחת לחיצונית), ולידן טבלת הזוגות של לולאות מקוננות
         int loopsH = 0, lx = PAD;
@@ -747,7 +755,7 @@ final class StructPanel extends JPanel {
     private Dimension drawStack(Graphics2D g, LinearView v, int x, int y) {
         int n = v.items.size(), rows = Math.max(n, 1);
         boolean objs = hasObjs(v.objs);
-        int cw = Math.max(76, widthOf(v.items, v.objs, v.ghost) + 26), ch = objs ? OBJ_H : 36, ghostH = v.ghost != null ? (objs ? 62 : 50) : 14;
+        int cw = Math.max(76, widthOf(v.items, v.objs, v.ghost) + 26), ch = objs ? OBJ_H : 36, ghostH = v.ghost != null || v.error != null ? (objs ? 62 : 50) : 14;
         Dimension sb = subsBox(v.subs);
         if (sb != null) { cw = Math.max(cw, sb.width); ch = Math.max(ch, sb.height); }
         int w = Math.max(cw + 84, titleWidth(v.title, "מחסנית")), h = th() + ghostH + rows * ch + 14;
@@ -762,18 +770,24 @@ final class StructPanel extends JPanel {
             g.setFont(SMALL_B);
             g.drawString("pop", cx + cw + 10, y + th() + 4 + ch / 2 + 5);
         }
+        if (v.error != null) {   // ניסו להוציא / לקרוא — ואין איבר: "?" אדום במקום שבו היה צריך להיות
+            ghostBox(g, cx, y + th() + 4, cw, ch, "?");
+            g.setFont(SMALL_B);
+            g.setColor(GHOST);
+            g.drawString(v.error, cx + cw + 10, y + th() + 4 + ch / 2 + 5);
+        }
         for (int i = 0; i < n; i++) {
             Color c = i == v.markIndex ? color(v.mark) : BOX;
             cell(g, cx, top + i * ch, cw, ch, c, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
         }
         inStack = wasInStack;
-        g.setColor(LINE);
+        g.setColor(v.error != null ? GHOST : LINE);
         g.setStroke(THICK);
         int bottom = top + rows * ch + 5;
         g.drawPolyline(new int[] { cx - 5, cx - 5, cx + cw + 5, cx + cw + 5 },
                 new int[] { top - 8, bottom, bottom, top - 8 }, 4);
         if (n == 0) {
-            g.setColor(MUTED);
+            g.setColor(v.error != null ? GHOST : MUTED);
             center(g, "ריקה", SMALL_B, cx + cw / 2, top + ch / 2);
         } else {
             arrow(g, cx + cw + 42, top + ch / 2, cx + cw + 10, top + ch / 2, LINE);
@@ -805,11 +819,16 @@ final class StructPanel extends JPanel {
             ghostBox(g, x + 8, top, cw, ch, v.ghost);
             center(g, "remove", SMALL_B, x + 8 + cw / 2, top + ch + 16);
         }
+        if (v.error != null) {   // remove / head על תור ריק: "?" אדום ביציאה
+            ghostBox(g, x + 8, top, cw, ch, "?");
+            g.setColor(GHOST);
+            center(g, v.error, SMALL_B, x + 8 + cw / 2, top + ch + 16);
+        }
         for (int i = 0; i < n; i++) {
             Color c = i == v.markIndex ? color(v.mark) : BOX;
             cell(g, left + i * cw, top, cw, ch, c, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
         }
-        g.setColor(LINE);
+        g.setColor(v.error != null ? GHOST : LINE);
         g.setStroke(THICK);
         g.drawLine(left - 8, top - 5, left + rows * cw + 8, top - 5);
         g.drawLine(left - 8, top + ch + 5, left + rows * cw + 8, top + ch + 5);
@@ -818,7 +837,7 @@ final class StructPanel extends JPanel {
         arrow(g, left - 6, mid, left - 6 - QARROW, mid, LINE, 6, 1.5f);
         arrow(g, right + 8 + QARROW, mid, right + 8, mid, LINE, 6, 1.5f);
         if (n == 0) {
-            g.setColor(MUTED);
+            g.setColor(v.error != null ? GHOST : MUTED);
             center(g, "ריק", SMALL_B, left + cw / 2, top + ch / 2);
         } else {
             g.setColor(LINE);
@@ -844,16 +863,29 @@ final class StructPanel extends JPanel {
         int stepW = vw + pw + ag;
         String tail = v.cycleTo >= 0 ? "" : v.joinText != null ? v.joinText + "  (ממשיך ברשימה אחרת)"
                 : v.truncated ? "..." : "null";
-        int extra = labelExtra(v.cells);   // כמה מצביעים על אותה חוליה — כל אחד בשורה משלו
+        int extra = Math.max(labelExtra(v.cells), v.nullLabels.isEmpty() ? 0 : (v.nullLabels.size() - 1) * LABEL_STEP);   // כמה מצביעים על אותה חוליה — כל אחד בשורה משלו
         int top = y + th() + 24 + extra;
         int w = Math.max(16 + n * stepW + textWidth(tail, SMALL_B) + 10, titleWidth(v.title, "רשימה מקושרת"));
-        int h = th() + 24 + extra + ch + (v.cycleTo >= 0 ? 36 : 14);
+        int noteW = Math.max(w, Math.min(620, Math.max(360, w)));
+        int noteH = v.lostNote == null || nest > 0 ? 0 : 10 + paragraph(null, v.lostNote, SMALL_B, GHOST, 0, 0, noteW) + paragraph(null, v.lostHint, SMALL, INK, 0, 0, noteW);
+        int h = th() + 24 + extra + ch + (v.cycleTo >= 0 ? 36 : 14) + noteH;
+        if (noteH > 0) w = Math.max(w, noteW);
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "רשימה מקושרת", x, y, v.focus);
         for (int i = 0; i < n; i++) {
             Cell c = v.cells.get(i);
             int bx = x + 8 + i * stepW;
+            if (c.lost) {   // אף משתנה לא מצביע עליה: אדום מקווקו, ומעליה "אבדה"
+                ghostBox(g, bx, top, vw, ch, c.value);
+                ghostBox(g, bx + vw, top, pw, ch, "");
+                g.setColor(GHOST);
+                g.fillOval(bx + vw + pw / 2 - 3, top + ch / 2 - 3, 7, 7);
+                center(g, "אבדה", SMALL_B, bx + (vw + pw) / 2, top - 12);
+                int sx = bx + vw + pw / 2, sy = top + ch / 2;
+                if (i < n - 1) arrow(g, sx, sy, bx + stepW, sy, GHOST);
+                continue;
+            }
             cell(g, bx, top, vw, ch, color(c.mark), c.value, c.obj, c.sub);
             box(g, bx + vw, top, pw, ch, color(c.mark), null, false);
             g.setColor(LINE);
@@ -879,11 +911,160 @@ final class StructPanel extends JPanel {
             g.drawString("מעגל!", (lastX + tx) / 2, low + 14);
         } else {
             arrow(g, lastX, midY, lastX + ag, midY, LINE);
-            g.setColor(v.joinText != null ? CURRENT : MUTED);
+            g.setColor(v.joinText != null ? CURRENT : !v.nullLabels.isEmpty() ? GHOST : MUTED);
             g.setFont(SMALL_B);
             g.drawString(tail, lastX + ag + 4, midY + 5);
+            if (!v.nullLabels.isEmpty()) {   // p שהוא null: מצביע על ה-null שבסוף — ומשם אי אפשר להמשיך
+                int cx = lastX + ag + 4 + textWidth(tail, SMALL_B) / 2;
+                g.setColor(GHOST);
+                g.setFont(SMALL_B);
+                FontMetrics fm = g.getFontMetrics();
+                for (int k = 0; k < v.nullLabels.size(); k++) {
+                    String l = v.nullLabels.get(k);
+                    g.drawString(l, cx - fm.stringWidth(l) / 2, top - 6 - 8 - k * LABEL_STEP);
+                }
+                g.fillPolygon(new int[] { cx - 4, cx + 4, cx }, new int[] { midY - 18, midY - 18, midY - 11 }, 3);
+                g.setStroke(THICK);
+                g.drawLine(cx - 9, midY + 9, cx + 9, midY + 25);
+                g.drawLine(cx + 9, midY + 9, cx - 9, midY + 25);
+            }
+        }
+        if (noteH > 0) {
+            int ny = top + ch + (v.cycleTo >= 0 ? 36 : 14) + 6;
+            ny += paragraph(g, v.lostNote, SMALL_B, GHOST, x + noteW, ny, noteW);
+            paragraph(g, v.lostHint, SMALL, INK, x + noteW, ny, noteW);
         }
         return new Dimension(w, h);
+    }
+
+    // ------------------------------------------------------------ שגיאה
+
+    private static final Color PROB_BG = new Color(0xFEF2F2), PROB_LINE = new Color(0xF19A9A), HINT_BG = new Color(0xFFF7E0);
+    private final Font PROB_T = Theme.font(Theme.boldFamily, Theme.boldStyle, 17);
+    private final Font CODE = new Font(Font.MONOSPACED, Font.BOLD, 14);
+
+    /** כרטיס השגיאה: מימין — מה קרה, למה, ומה עושים; משמאל — ציור קטן של מה שחסר */
+    private Dimension drawProblem(Graphics2D g, ProblemView p, int x, int y) {
+        int avail = viewportWidth() > 300 ? viewportWidth() - 2 * PAD : 760;
+        int w = Math.max(420, Math.min(820, avail));
+        int pic = p.kind.equals("other") ? 0 : 190, textW = w - pic - 40;
+        int th = paragraph(null, p.what, PROB_T, GHOST, 0, 0, textW);
+        int wh = paragraph(null, p.why, SMALL_B, INK, 0, 0, textW);
+        int hh = paragraph(null, "מה עושים: " + p.hint, SMALL, INK, 0, 0, textW - 16);
+        int h = Math.max(16 + th + 8 + wh + 12 + hh + 16 + 16, pic > 0 ? 130 : 0);
+        if (g == null) return new Dimension(w, h);
+        g.setColor(PROB_BG);
+        g.fillRoundRect(x, y, w, h, 14, 14);
+        g.setColor(PROB_LINE);
+        g.setStroke(new BasicStroke(2f));
+        g.drawRoundRect(x, y, w, h, 14, 14);
+        int right = x + w - 18, ty = y + 16;
+        ty += paragraph(g, p.what, PROB_T, GHOST, right, ty, textW) + 8;
+        ty += paragraph(g, p.why, SMALL_B, INK, right, ty, textW) + 12;
+        g.setColor(HINT_BG);
+        g.fillRoundRect(right - textW, ty - 4, textW, hh + 12, 10, 10);
+        paragraph(g, "מה עושים: " + p.hint, SMALL, INK, right - 8, ty + 2, textW - 16);
+        if (pic > 0) problemPicture(g, p, x + 18, y + 18, pic - 20, h - 36);
+        return new Dimension(w, h);
+    }
+
+    /** הציור הקטן: מחסנית / תור ריקים עם "?", משתנה שמצביע על null, תא שאין במערך, רקורסיה */
+    private void problemPicture(Graphics2D g, ProblemView p, int x, int y, int w, int h) {
+        g.setStroke(THICK);
+        int cx = x + w / 2, cy = y + h / 2;
+        switch (p.kind) {
+            case "empty-stack": {
+                int bw = 70, bh = 34, top = cy - 16;
+                ghostBox(g, cx - bw / 2, top - bh - 8, bw, bh, "?");
+                g.setColor(GHOST);
+                g.setStroke(THICK);
+                g.drawPolyline(new int[] { cx - bw / 2 - 6, cx - bw / 2 - 6, cx + bw / 2 + 6, cx + bw / 2 + 6 },
+                        new int[] { top, top + bh + 8, top + bh + 8, top }, 4);
+                center(g, "ריקה", SMALL_B, cx, top + bh / 2 + 4);
+                if (p.op != null) center(g, p.op, CODE, cx, top + bh + 26);
+                break;
+            }
+            case "empty-queue": {
+                int bw = 52, bh = 34, left = x + 52;
+                ghostBox(g, x, cy - bh / 2, bw - 8, bh, "?");
+                g.setColor(GHOST);
+                g.setStroke(THICK);
+                g.drawLine(left, cy - bh / 2 - 5, left + 2 * bw, cy - bh / 2 - 5);
+                g.drawLine(left, cy + bh / 2 + 5, left + 2 * bw, cy + bh / 2 + 5);
+                arrow(g, left - 2, cy, left - 2 - QARROW, cy, GHOST, 6, 1.5f);
+                center(g, "ריק", SMALL_B, left + bw, cy);
+                if (p.op != null) center(g, p.op, CODE, x + bw / 2, cy + bh / 2 + 22);
+                break;
+            }
+            case "null": {
+                String name = p.name != null ? p.name : "?";
+                int bw = Math.max(44, textWidth(name, CODE) + 18), bh = 34, bx = x + 4, by = cy - 26;
+                box(g, bx, by, bw, bh, BOX, null, false);
+                g.setColor(INK);
+                center(g, name, CODE, bx + bw / 2, by + bh / 2);
+                arrow(g, bx + bw + 4, by + bh / 2, bx + bw + 46, by + bh / 2, GHOST);
+                g.setColor(GHOST);
+                g.setFont(SMALL_B);
+                g.drawString("null", bx + bw + 52, by + bh / 2 + 5);
+                int nx = bx + bw + 52 + textWidth("null", SMALL_B) / 2, ny = by + bh / 2 + 24;
+                g.setStroke(THICK);
+                g.drawLine(nx - 8, ny - 8, nx + 8, ny + 8);
+                g.drawLine(nx + 8, ny - 8, nx - 8, ny + 8);
+                if (p.op != null) center(g, "." + p.op, CODE, bx + bw / 2 + 40, by + bh + 46);
+                break;
+            }
+            case "index": {
+                int n = p.length < 0 ? 3 : Math.min(p.length, 4), cw = 30, ch = 30, bx = x, by = cy - 20;
+                for (int i = 0; i < n; i++) {
+                    box(g, bx + i * cw, by, cw, ch, BOX, null, false);
+                    g.setColor(MUTED);
+                    center(g, String.valueOf(p.length > 4 && i == 3 ? p.length - 1 : i), SMALL, bx + i * cw + cw / 2, by + ch + 12);
+                }
+                if (p.length > 4) { g.setColor(MUTED); center(g, "…", SMALL_B, bx + 3 * cw - 2, by + ch / 2); }
+                int gx = bx + n * cw + 8;
+                ghostBox(g, gx, by, cw + 6, ch, "?");
+                g.setColor(GHOST);
+                center(g, p.index >= 0 ? String.valueOf(p.index) : "?", SMALL_B, gx + (cw + 6) / 2, by + ch + 12);
+                break;
+            }
+            case "recursion": {
+                g.setFont(CODE);
+                for (int i = 0; i < 4; i++) {
+                    int bx = x + i * 12, by = y + 8 + i * 22;
+                    g.setColor(i == 3 ? GHOST_BG : FOCUS_BG);
+                    g.fillRoundRect(bx, by, 120, 26, 8, 8);
+                    g.setColor(i == 3 ? GHOST : FOCUS);
+                    g.setStroke(i == 3 ? DASHED : THIN);
+                    g.drawRoundRect(bx, by, 120, 26, 8, 8);
+                    g.drawString(i == 3 ? "..." : "f(...)", bx + 10, by + 18);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    /**
+     * פסקה בעברית (מימין לשמאל — גם כשהיא מתחילה במילה באנגלית), מיושרת לימין עד right, עם שבירת שורות לפי width.
+     * g == null — רק מחשבים את הגובה.
+     */
+    private int paragraph(Graphics2D g, String text, Font f, Color c, int right, int y, int width) {
+        if (text == null || text.isEmpty()) return 0;
+        java.text.AttributedString as = new java.text.AttributedString(text);
+        as.addAttribute(java.awt.font.TextAttribute.FONT, f);
+        as.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION, java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
+        java.awt.font.FontRenderContext frc = g != null ? g.getFontRenderContext() : new java.awt.font.FontRenderContext(null, true, true);
+        java.awt.font.LineBreakMeasurer lbm = new java.awt.font.LineBreakMeasurer(as.getIterator(), frc);
+        int h = 0;
+        if (g != null) g.setColor(c);
+        while (lbm.getPosition() < text.length()) {
+            java.awt.font.TextLayout tl = lbm.nextLayout(Math.max(40, width));
+            float asc = tl.getAscent(), lh = tl.getAscent() + tl.getDescent() + tl.getLeading() + 2;
+            if (g != null) tl.draw(g, right - tl.getAdvance(), y + h + asc);
+            h += Math.round(lh);
+        }
+        return h;
     }
 
     // ------------------------------------------------------------ עץ

@@ -70,9 +70,17 @@ public class ExerciseFilesTest {
         check(Json.write(back).equals(Json.write(m)), "JSON הלוך ושוב: " + Json.write(back));
         ok("JSON");
 
+        // "שליחת תרגיל" בלי אינטרנט: אף כתובת לא עונה — false (ואז Eclipse מציג התראה ולא פותח את החלון)
+        long t0 = System.currentTimeMillis();
+        check(!WorkerClient.reachable(1200, "http://127.0.0.1:9", "http://127.0.0.1:7"), "אין שרת: false");
+        check(System.currentTimeMillis() - t0 < 6000, "בדיקת החיבור מהירה");
+        ok("בדיקת חיבור לאינטרנט לפני שליחה");
+
         // שליחה אמיתית לשרת (אם הועבר) — עם Word, תמונה ו-PDF
         if (a.length > 1) {
             WorkerClient c = new WorkerClient(a[1], a.length > 2 ? a[2] : "");
+            check(c.online(3000), "השרת זמין: online=true");
+            ok("השרת עונה ל-health");
             // PDF אמיתי (ex.pdf הוא קובץ מדומה לבדיקות בלי רשת — Gemini דוחה אותו)
             ExerciseFiles.Item exam = ExerciseFiles.fromFile(new File(dir, "exam.pdf"));
             Map<String, Object> ex = c.exercise(Arrays.asList(w, big, exam), "", "java");

@@ -250,6 +250,8 @@ final class JdiTracer {
             encodeArray(meta, e.getKey());
             meta.append('\u0001');
         }
+        meta.append('\u0004');
+        appendCallerRoots(meta, frames);
         if (!write(meta.toString())) return;
 
         if (step == null) {
@@ -266,6 +268,53 @@ final class JdiTracer {
                 exits.enable();
             }
         }
+    }
+
+    private static final java.util.Set<String> PRIMITIVES = new java.util.HashSet<>(java.util.Arrays.asList(
+            "int", "long", "short", "byte", "char", "boolean", "double", "float", "java.lang.String"));
+
+    /**
+     * המבנים (חוליות, מחסניות, תורים, עצים, אובייקטים של התלמיד) שהמשתנים של הפעולות שקראו לפעולה הנוכחית מצביעים עליהם:
+     * \u0003 vizId או \u0003u מקום, מופרדים ב-\u0001. כך ה-Recorder יודע שחוליה שרק main מצביע עליה לא "אבדה" בתוך פעולת עזר.
+     */
+    private void appendCallerRoots(StringBuilder meta, List<StackFrame> frames) {
+        java.util.Set<String> done = new java.util.HashSet<>();
+        int n = 0;
+        for (int i = 1; i < frames.size() && n < 80; i++) {
+            StackFrame fr = frames.get(i);
+            if (excluded(fr.location().declaringType().name())) continue;
+            n++;
+            try {
+                if (!fr.location().method().isStatic()) addRoot(meta, fr.thisObject(), done);
+                List<LocalVariable> refs = new ArrayList<>();
+                for (LocalVariable lv : fr.visibleVariables()) if (!PRIMITIVES.contains(lv.typeName())) refs.add(lv);
+                if (refs.isEmpty()) continue;
+                for (Value v : fr.getValues(refs).values()) addRoot(meta, v, done);
+            } catch (AbsentInformationException | RuntimeException ignored) {
+                // בלי מידע על המשתנים של המסגרת הזו
+            }
+        }
+    }
+
+    private void addRoot(StringBuilder meta, Value v, java.util.Set<String> done) {
+        if (!(v instanceof ObjectReference) || v instanceof StringReference) return;
+        ObjectReference o = (ObjectReference) v;
+        String type = o.referenceType().name();
+        if (o instanceof ArrayReference) {   // מערך של חוליות / מבנים
+            if (!type.startsWith("unit4.collectionsLib.")) return;
+            ArrayReference a = (ArrayReference) o;
+            int len = Math.min(a.length(), 60);
+            if (len > 0) for (Value x : a.getValues(0, len)) addRoot(meta, x, done);
+            return;
+        }
+        String ref = null;
+        if (type.startsWith("unit4.collectionsLib.")) {
+            int id = vizIdOf(o);
+            if (id != 0) ref = "\u0003" + id;
+        } else if (isUserClass(o)) {
+            ref = userRef(o);
+        }
+        if (ref != null && done.add(ref)) meta.append(ref).append('\u0001');
     }
 
     /**

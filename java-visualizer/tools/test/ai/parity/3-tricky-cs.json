@@ -1,0 +1,103 @@
+{
+ "language": "csharp",
+ "title": "עצים",
+ "topic": "Binary Trees – עצים",
+ "mainClass": "Program",
+ "imports": [
+  "using System.Linq;",
+  "System.Collections.Generic",
+  "System.Collections.Generic.List",
+  "System.Text",
+  "System.Text",
+  "system.io",
+  "System.IO;"
+ ],
+ "classes": [
+  {
+   "name": "Program",
+   "code": "namespace Ex { class Program\n{\n    static int Main(string[] args)\n    {\n        return 0;\n    }\n} }"
+  },
+  {
+   "name": "Tree",
+   "code": "using System;\ninternal sealed partial class Tree<T>\n{\n    public BinNode<T> root;\n}"
+  },
+  {
+   "name": "Util",
+   "code": "public static class Util { }"
+  }
+ ],
+ "tasks": [
+  {
+   "label": "1",
+   "kind": "method",
+   "className": "Tree",
+   "isStatic": false,
+   "returnType": "Integer",
+   "methodName": "Height",
+   "parameters": [
+    {
+     "type": "BinNode<Integer>",
+     "name": "t"
+    },
+    {
+     "type": "boolean[ , ]",
+     "name": "flags"
+    }
+   ],
+   "solution": "```csharp\npublic int Height(BinNode<int> node, bool[,] f)\n{\n    // גובה העץ\n    if (node == null) return -1;\n    return 1 + Math.Max(Height(node.GetLeft(), f), Height(node.GetRight(), f));\n}\n```"
+  },
+  {
+   "label": "2",
+   "kind": "method",
+   "className": "Program",
+   "returnType": "string",
+   "methodName": "Describe",
+   "parameters": [
+    {
+     "type": "Character",
+     "name": "c"
+    },
+    {
+     "type": "Stack<Boolean>",
+     "name": "in"
+    }
+   ],
+   "solution": "public static string Describe(char c, Stack<bool> st) => c.ToString();"
+  },
+  {
+   "label": "3",
+   "kind": "constructor",
+   "className": "Tree",
+   "parameters": [],
+   "solution": "public Tree()\n{\n    root = null; // \"שורש\"\n}"
+  },
+  {
+   "label": "ד",
+   "kind": "method",
+   "className": "Program",
+   "returnType": "void",
+   "methodName": "Print",
+   "parameters": [
+    {
+     "type": "int[][]",
+     "name": "m"
+    }
+   ],
+   "solution": "static void Print(int[][] m) {\n  Console.WriteLine(\"{\" + m.Length + \"}\"); /* { */\n}"
+  }
+ ],
+ "givenCode": [
+  {
+   "className": "Program",
+   "code": "static void Helper() { }"
+  }
+ ],
+ "otherQuestions": [
+  {
+   "label": "",
+   "text": "הסבירו"
+  }
+ ],
+ "mainCode": "",
+ "expectedOutput": "1\n2"
+}

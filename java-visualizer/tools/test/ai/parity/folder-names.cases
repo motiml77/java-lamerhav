@@ -1,0 +1,104 @@
+[
+ [
+  "Binary Trees",
+  [
+   "ex03_x",
+   "EX12_y",
+   "examples"
+  ],
+  false
+ ],
+ [
+  "",
+  [],
+  false
+ ],
+ [
+  null,
+  [],
+  true
+ ],
+ [
+  "שרשראות",
+  [
+   "Ex01_Targil"
+  ],
+  true
+ ],
+ [
+  "  stacks__and--queues  ",
+  [],
+  true
+ ],
+ [
+  "123_abc",
+  [],
+  false
+ ],
+ [
+  "a very long topic name that goes past thirty chars",
+  [],
+  false
+ ],
+ [
+  "a very long topic name that go_ past",
+  [],
+  true
+ ],
+ [
+  "İstanbul Kelvin",
+  [],
+  false
+ ],
+ [
+  "stacks",
+  [
+   "ex01_stacks",
+   "ex02_stacks",
+   "Ex03_STACKS"
+  ],
+  false
+ ],
+ [
+  "x",
+  [
+   "ex99999999999_big"
+  ],
+  false
+ ],
+ [
+  "queues",
+  [
+   "ex5_a\nb"
+  ],
+  false
+ ],
+ [
+  "queues",
+  [
+   "ex5_ab"
+  ],
+  false
+ ],
+ [
+  "queues",
+  [
+   "ex5_a b",
+   "ex2_ok"
+  ],
+  false
+ ],
+ [
+  "Trees",
+  [
+   "ex04_trees",
+   "Ex1_"
+  ],
+  true
+ ],
+ [
+  "𝐀lpha",
+  [],
+  false
+ ]
+]

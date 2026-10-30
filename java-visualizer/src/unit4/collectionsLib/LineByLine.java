@@ -84,6 +84,7 @@ public final class LineByLine {
         try {
             main.invoke(null, (Object) args);
         } catch (InvocationTargetException e) {
+            Recorder.failed(e.getCause());   // השגיאה כצעד אחרון בחלון — עם הסבר מה קרה (Problems)
             throw e.getCause();
         } finally {
             mainDone();
