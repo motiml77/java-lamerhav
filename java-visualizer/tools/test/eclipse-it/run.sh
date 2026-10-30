@@ -40,6 +40,9 @@ check "LIBRARY-BEFORE false" "פרויקט Java רגיל: בהתחלה אין ב
 check "LIBRARY-AFTER true stack=true node=true jar=true" "פרויקט Java רגיל: הספרייה נוספה — Queue / Stack / Node מזוהים"
 check "LAUNCH-CP first-is-dsviz=true entries=[2-9]" "הרצה ויזואלית בכל פרויקט: הספרייה מהתוסף ראשונה, ואחריה ה-classpath של הפרויקט"
 check "OFF-MENTOR-COUNT 0" "כיבוי מהתפריט: כל הסימונים נמחקים"
+check "AUTOIMPORT bare=true member=false" "פעולות העזר: size(s) — ה-import נוסף לבד; s.size() — לא"
+check "POWER-OFF on=false mentor=0 autoimport=false" "לחצן הכיבוי: בלי הסברים בעברית ובלי import אוטומטי"
+check "POWER-ON on=true mentor=[1-9][0-9]* autoimport=true" "לחצן ההפעלה: הכול חוזר"
 grep -q "BUILD Targil.java" "$OUT" && { echo "  FAIL קוד תקין קיבל סימונים"; FAILED=1; } || echo "  ok  קוד תקין (Targil.java) — בלי אף סימון"
 [ "$(grep -c '^BUILD-MENTOR-COUNT 0' "$OUT")" = 0 ] && echo "  ok  יש סימונים בבנייה" || { echo "  FAIL אין סימונים בבנייה"; FAILED=1; }
 [ "$(sed -n 's/^ON-AGAIN-MENTOR-COUNT //p' "$OUT")" = "$(sed -n 's/^BUILD-MENTOR-COUNT //p' "$OUT")" ] && echo "  ok  הפעלה מחדש: אותם סימונים חוזרים" \

@@ -49,7 +49,7 @@ Eclipse (התלמיד)  ──קבצים──▶  השרת הזה (Cloudflare) 
 | **מפתח-אפליקציה** | `npx wrangler@4 secret put APP_KEY` עם מילה סודית, ואותה מילה ב-`eclipse-plugin/ai.properties` בשורה `key=`. מונע שליחות מכל מי שלא משתמש בתוסף (הגנה בסיסית — המפתח נמצא בתוך התוסף). |
 | **מכסה יומית לכל מחשב** | יוצרים KV: `npx wrangler@4 kv namespace create USAGE`, מעתיקים את ה-id ל-`wrangler.toml` (יש שם דוגמה) ומגדירים `DAILY_LIMIT` (ברירת מחדל 40). |
 | **הגבלת קצב** | כבר מוגדרת ב-`wrangler.toml` (`LIMITER`: עד 6 בדקה מכל כתובת IP). |
-| **מונה הורדות** | יוצרים KV: `npx wrangler@4 kv namespace create STATS`, מעתיקים את ה-id ל-`wrangler.toml` (יש שם דוגמה) ומעלים מחדש (`npx wrangler@4 deploy`). כפתורי ההורדה באתר עוברים דרך `/dl/windows` ו-`/dl/zip` (נספר ומועבר לקובץ ב-GitHub), והאתר מציג את המספר מ-`/v1/stats`. הורדות ישירות מ-GitHub או מהקישור המקוצר לא נספרות. |
+| **מונה הורדות** | יוצרים KV: `npx wrangler@4 kv namespace create STATS`, מעתיקים את ה-id ל-`wrangler.toml` (יש שם דוגמה) ומעלים מחדש (`npx wrangler@4 deploy`). כפתורי ההורדה באתר מורידים ישירות מ-GitHub (עובדים תמיד, גם בלי השרת), ובמקביל שולחים לשרת `POST /v1/count/windows` (או `zip`) שמוסיף 1. האתר מציג את המספר מ-`/v1/stats`. יש גם `/dl/windows` ו-`/dl/zip` שסופרים ומפנים לקובץ. הורדות מהקישור המקוצר לא נספרות. |
 | **שאלת בגרות מהאתר** | האתר שולח ל-`/v1/site/exercise` — מותר רק מהכתובות שב-`SITE_ORIGINS` (ברירת מחדל `https://motiml77.github.io`), בלי מפתח-אפליקציה, ועם מכסה יומית נפרדת `SITE_DAILY_LIMIT` (ברירת מחדל 8, נספרת רק כש-USAGE מוגדר). |
 
 ## נעילה לתשלום של התצוגה הוויזואלית (כבויה)

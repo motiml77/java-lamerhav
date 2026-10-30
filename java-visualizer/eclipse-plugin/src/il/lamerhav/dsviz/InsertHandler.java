@@ -19,7 +19,6 @@ import org.eclipse.ui.texteditor.ITextEditor;
 /** "הוסף מבנה נתונים": מכניס במקום הסמן מבנה עם נתוני דמה (ומוסיף import אם חסר) */
 public class InsertHandler extends AbstractHandler {
     private static final Pattern IMPORT = Pattern.compile("import\\s+unit4\\.collectionsLib\\.\\*\\s*;");
-    private static final Pattern STATIC_IMPORT = Pattern.compile("import\\s+static\\s+unit4\\.collectionsLib\\.Helpers\\.\\*\\s*;");
     private static final Pattern PACKAGE = Pattern.compile("(?m)^\\s*package\\s+[\\w.]+\\s*;");
 
     @Override
@@ -63,18 +62,10 @@ public class InsertHandler extends AbstractHandler {
                 doc.replace(end, 0, "\n" + code);
                 caret = end + 1 + code.length();
             }
-            // מבנה עם פעולות עזר (ההערה "עזר מהספרייה") — גם שורת ה-import static, כדי לקרוא ל-size(x) / duplicate(x) ישירות
-            boolean helpers = code.contains("// עזר מהספרייה:") && !STATIC_IMPORT.matcher(doc.get()).find();
-            boolean lib = !IMPORT.matcher(doc.get()).find();
-            if (lib || helpers) {
+            if (!IMPORT.matcher(doc.get()).find()) {
                 Matcher pkg = PACKAGE.matcher(doc.get());
-                String imp = lib && helpers ? "import unit4.collectionsLib.*;\n" + Scaffold.HELPERS_IMPORT
-                        : lib ? "import unit4.collectionsLib.*;" : Scaffold.HELPERS_IMPORT;
-                Matcher at = IMPORT.matcher(doc.get());
-                if (!lib && at.find()) {   // יש כבר import של הספרייה — השורה החדשה מתחתיו
-                    doc.replace(at.end(), 0, "\n" + imp);
-                    caret += imp.length() + 1;
-                } else if (pkg.find()) {
+                String imp = "import unit4.collectionsLib.*;";
+                if (pkg.find()) {
                     doc.replace(pkg.end(), 0, "\n\n" + imp);
                     caret += imp.length() + 2;
                 } else {

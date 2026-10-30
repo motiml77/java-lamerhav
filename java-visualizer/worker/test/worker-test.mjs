@@ -293,6 +293,11 @@ await test('הורדה דרך /dl/windows: נספרת ומפנה לקובץ; /v1
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
   const body = await res.json();
   assert.deepEqual(body.downloads, { windows: 2, zip: 1, total: 8 });
+  // האתר מוריד ישירות מ-GitHub ושולח "נספר" ברקע
+  const beacon = await worker.fetch(new Request('https://w.example/v1/count/zip', { method: 'POST', body: '' }), env, {});
+  assert.equal(beacon.status, 204);
+  assert.equal(beacon.headers.get('access-control-allow-origin'), '*');
+  assert.equal(STATS.m.get('dl:zip'), '2');
   const none = await call(new Request('https://w.example/v1/stats'), ENV);
   assert.equal(none.body.counting, false);
   const other = await worker.fetch(new Request('https://w.example/dl/linux'), ENV, {});

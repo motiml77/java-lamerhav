@@ -75,6 +75,8 @@ function activate(context) {
     helpBar.command = 'dsviz.help';
     helpBar.show();
     context.subscriptions.push(bar, addBar, helpBar, vscode.window.onDidChangeActiveTextEditor(refresh));
+    // פעולות העזר מהספרייה: כותבים size(q) / duplicate(q) בקובץ Java — ושורת ה-import static נוספת לבד
+    if (vscode.workspace.onDidChangeTextDocument) context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => helperImportSoon(e.document)));
     refresh();
 
     openPending();
@@ -352,6 +354,39 @@ async function insertSnippet(structure) {
     });
 }
 
+// ------------------------------------------------------------ פעולות העזר: import static אוטומטי (כמו AutoImport ב-Eclipse)
+
+const helperTimers = new Map();
+
+function helperImportSoon(doc) {
+    if (!doc || doc.languageId !== 'java') return;
+    const key = doc.uri.toString();
+    clearTimeout(helperTimers.get(key));
+    helperTimers.set(key, setTimeout(() => { helperTimers.delete(key); addHelperImport(doc); }, 800));
+}
+
+/** הטקסט צריך את שורת ה-import static? — קריאה "ערומה" ל-size( / duplicate( (לא s.size()), בלי פעולה כזו בקובץ, בלי השורה */
+function needsHelperImport(text) {
+    const code = text.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, ' ')   // בלי הערות ומחרוזות
+        .replace(/\.\s*(size|duplicate)\s*\(/g, '.x(');                                                                  // בלי s.size()
+    if (!/\b(size|duplicate)\s*\(/.test(code)) return false;
+    if (/[\w>\]]\s+(size|duplicate)\s*\([^)]*\)\s*(throws\s+[\w.,\s]+)?\{/.test(code)) return false;   // התלמיד כתב פעולה כזו בעצמו
+    if (/import\s+static\s+unit4\.collectionsLib\.Helpers\.(\*|size|duplicate)\s*;/.test(text)) return false;
+    return /import\s+unit4\.collectionsLib\./.test(text) || /\b(Stack|Queue|Node|BinNode)\s*</.test(code);
+}
+
+async function addHelperImport(doc) {
+    if (doc.isClosed || !needsHelperImport(doc.getText())) return;
+    const text = doc.getText();
+    const lib = /^\s*import\s+unit4\.collectionsLib\.\*\s*;.*$/m.exec(text);
+    const pkg = /^\s*package\s+[\w.]+\s*;.*$/m.exec(text);
+    const edit = new vscode.WorkspaceEdit();
+    if (lib) edit.insert(doc.uri, doc.positionAt(lib.index + lib[0].length), '\n' + javaTemplates.HELPERS_IMPORT);
+    else if (pkg) edit.insert(doc.uri, doc.positionAt(pkg.index + pkg[0].length), '\n\nimport unit4.collectionsLib.*;\n' + javaTemplates.HELPERS_IMPORT);
+    else edit.insert(doc.uri, new vscode.Position(0, 0), 'import unit4.collectionsLib.*;\n' + javaTemplates.HELPERS_IMPORT + '\n\n');
+    await vscode.workspace.applyEdit(edit);
+}
+
 async function insertCode(ed, lineNo, code, csharp) {
     const editor = await vscode.window.showTextDocument(ed.document, { viewColumn: ed.viewColumn, preserveFocus: false });
     const text = editor.document.getText();
@@ -359,20 +394,13 @@ async function insertCode(ed, lineNo, code, csharp) {
     await editor.edit(b => {
         if (at.blank) b.replace(at.line.range, code);
         else b.insert(at.line.range.end, '\n' + code);
-        // Java: מבנה עם פעולות עזר (ההערה "עזר מהספרייה") — גם שורת ה-import static, כדי לקרוא ל-size(x) / duplicate(x) ישירות
-        const helpers = code.includes('// עזר מהספרייה:');
         if (csharp) {
             const need = ['using System;', 'using Unit4.CollectionsLib;'].filter(u => !text.includes(u));   // פעולות העזר — global using בפרויקט
             if (need.length) b.insert(new vscode.Position(0, 0), need.join('\n') + '\n');
-        } else {
-            const add = [];
-            if (!/import\s+unit4\.collectionsLib\.\*\s*;/.test(text)) add.push('import unit4.collectionsLib.*;');
-            if (helpers && !/import\s+static\s+unit4\.collectionsLib\.Helpers\.\*\s*;/.test(text)) add.push(javaTemplates.HELPERS_IMPORT);
-            if (add.length) {
-                const pkg = /^\s*package\s+[\w.]+\s*;.*$/m.exec(text);
-                const pos = pkg ? editor.document.positionAt(pkg.index + pkg[0].length) : new vscode.Position(0, 0);
-                b.insert(pos, pkg ? '\n\n' + add.join('\n') : add.join('\n') + '\n\n');
-            }
+        } else if (!/import\s+unit4\.collectionsLib\.\*\s*;/.test(text)) {
+            const pkg = /^\s*package\s+[\w.]+\s*;.*$/m.exec(text);
+            const pos = pkg ? editor.document.positionAt(pkg.index + pkg[0].length) : new vscode.Position(0, 0);
+            b.insert(pos, pkg ? '\n\nimport unit4.collectionsLib.*;' : 'import unit4.collectionsLib.*;\n\n');
         }
     });
 }
@@ -658,4 +686,4 @@ async function warnConflicts(root) {
     if (ans === btn) for (const c of conflicts) fs.renameSync(c, c + '.bak');
 }
 
-module.exports = { activate, deactivate };
+module.exports = { needsHelperImport, activate, deactivate };

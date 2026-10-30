@@ -15,7 +15,8 @@
 //                       mode: "solution" — ההצעה לפתרון (tasks[].solution) לא נתנה את expectedOutput: מתקנים אותה (או את expectedOutput)
 //   language: "java" (ברירת מחדל) או "csharp"
 //   GET  /v1/health
-//   GET  /dl/windows, /dl/zip   הורדה דרך האתר: סופרים (KV בשם STATS, לא חובה) ומפנים לקובץ ב-GitHub
+//   GET  /dl/windows, /dl/zip   הורדה דרך השרת: סופרים (KV בשם STATS, לא חובה) ומפנים לקובץ ב-GitHub
+//   POST /v1/count/windows|zip  האתר מוריד ישירות מ-GitHub ושולח לכאן "נספר" ברקע (sendBeacon) — פתוח לכל אתר
 //   GET  /v1/stats              כמה הורדות היו — {downloads: {windows, zip, total}} (פתוח לכל אתר)
 //   POST /v1/site/exercise      כמו /v1/exercise, מהאתר (העלאת שאלת בגרות): רק מהכתובות שב-SITE_ORIGINS, בלי מפתח-אפליקציה,
 //                               ועם מכסה יומית קטנה יותר (SITE_DAILY_LIMIT, ברירת מחדל 8)
@@ -102,6 +103,12 @@ async function handle(request, env, ctx) {
     const counting = count(env, dl[1]).catch(e => console.error('count', e));
     if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(counting); else await counting;
     return new Response(null, { status: 302, headers: { location: DOWNLOADS[dl[1]], 'cache-control': 'no-store' } });
+  }
+  const hit = /^\/v1\/count\/(windows|zip)$/.exec(url.pathname);
+  if (request.method === 'POST' && hit) {
+    const counting = count(env, hit[1]).catch(e => console.error('count', e));
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(counting); else await counting;
+    return new Response(null, { status: 204, headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' } });
   }
   if (request.method === 'GET' && url.pathname === '/v1/stats') return reply(200, await stats(env), { 'cache-control': 'public, max-age=60' });
   if (request.method === 'OPTIONS' && url.pathname.startsWith('/v1/site/')) {

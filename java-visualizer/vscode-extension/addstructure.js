@@ -91,7 +91,7 @@ class Session {
         const label = outer === 'matrix' ? 'כמה שורות אקראיות:' : combo ? 'כמה מבנים פנימיים אקראיים:' : 'כמה ערכים אקראיים:';
         const valuesLabel = card ? '' : type === 'Student' ? 'כמה תלמידים:' : type === 'Car' ? 'כמה מכוניות:'
             : combo ? (outer === 'tree' ? 'מבנים פנימיים (לפי רמות, ;):' : 'מבנים פנימיים (ב-;):') : outer === 'matrix' ? 'ערכים (שורות ב-;):' : 'ערכים:';
-        // פעולות עזר מהספרייה (size / duplicate) — רק תזכורת; ההערה נכנסת גם לקוד, ושורת ה-import static לראש הקובץ
+        // פעולות עזר מהספרייה (size / duplicate) — רק תזכורת; ההערה נכנסת גם לקוד
         const helpersEnabled = !card && T.hasHelpers(st);
         const cs = !!T.CS_KEYWORDS;
         return {
@@ -157,7 +157,7 @@ input:disabled { opacity: .5; } input::placeholder { color: var(--muted); opacit
       <input type="number" id="count" min="1" max="20" value="6"><button class="link" id="regen" title="הגרלה מחדש">🎲 הגרל שוב</button></div>
     <div class="row"><label id="valuesLabel" for="values">ערכים:</label><input type="text" id="values" spellcheck="false"></div>
     <p class="hnote" id="hnote"><b>פעולות עזר מהספרייה:</b> <code id="hsize" dir="ltr"></code> — כמה איברים, <code id="hcopy" dir="ltr"></code> — עותק.
-      המבנה שנשלח לא משתנה, וגם מבנה בתוך מבנה עובד.</p>
+      המבנה שנשלח לא משתנה.</p>
     <h2>כך ייראה המבנה</h2>
     <div class="typeLabel" id="ptype"></div><div id="pv"></div>
     <h2>שם המשתנה</h2>

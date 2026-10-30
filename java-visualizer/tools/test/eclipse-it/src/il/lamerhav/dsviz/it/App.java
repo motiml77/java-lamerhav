@@ -176,6 +176,42 @@ public class App implements IApplication {
         int on = 0;
         for (IFile f : files) for (IMarker m : f.findMarkers(MARKER, true, IResource.DEPTH_ZERO)) on++;
         out.println("ON-AGAIN-MENTOR-COUNT " + on);
+
+        // 4. פעולות העזר: כותבים size(s) — ושורת ה-import static נוספת לבד (AutoImport, בזמן הכתיבה). s.size() — לא
+        IFolder psrc = pj.getProject().getFolder("src");
+        if (!psrc.exists()) psrc.create(true, true, null);
+        out.println("AUTOIMPORT bare=" + autoImport(psrc, "Bare", "int n = size(s);")
+                + " member=" + autoImport(psrc, "Member", "int n = s.size();"));
+
+        // 5. לחצן הכיבוי: הכול כבוי (בלי הסברים בעברית אחרי בנייה, בלי import אוטומטי), ואז הפעלה מחדש מחזירה הכול
+        il.lamerhav.dsviz.PowerHandler.apply(false);
+        p.build(IncrementalProjectBuilder.FULL_BUILD, null);
+        int powerOff = 0;
+        for (IFile f : files) for (IMarker m : f.findMarkers(MARKER, true, IResource.DEPTH_ZERO)) powerOff++;
+        out.println("POWER-OFF on=" + il.lamerhav.dsviz.Power.on() + " mentor=" + powerOff + " autoimport=" + autoImport(psrc, "BareOff", "int n = size(s);"));
+        il.lamerhav.dsviz.PowerHandler.apply(true);
+        p.build(IncrementalProjectBuilder.FULL_BUILD, null);
+        int powerOn = 0;
+        for (IFile f : files) for (IMarker m : f.findMarkers(MARKER, true, IResource.DEPTH_ZERO)) powerOn++;
+        out.println("POWER-ON on=" + il.lamerhav.dsviz.Power.on() + " mentor=" + powerOn + " autoimport=" + autoImport(psrc, "BareOn", "int n = size(s);"));
+    }
+
+    /** קובץ עם השורה code בתוך main, בעותק עבודה (כמו עורך פתוח): reconcile, ומחכים שה-import יתווסף. מחזיר אם נוסף */
+    private static boolean autoImport(IFolder src, String name, String code) throws Exception {
+        IFile f = src.getFile(name + ".java");
+        String text = "import unit4.collectionsLib.*;\n\npublic class " + name + " {\n    public static void main(String[] args) {\n"
+                + "        Stack<Integer> s = new Stack<Integer>();\n        " + code + "\n    }\n}\n";
+        if (f.exists()) f.setContents(new java.io.ByteArrayInputStream(text.getBytes("UTF-8")), true, false, null);
+        else f.create(new java.io.ByteArrayInputStream(text.getBytes("UTF-8")), true, null);
+        ICompilationUnit wc = JavaCore.createCompilationUnitFrom(f).getWorkingCopy(null);
+        try {
+            wc.reconcile(il.lamerhav.dsviz.MentorParticipant.latest(), true, null, null);
+            long end = System.currentTimeMillis() + 4000;
+            while (System.currentTimeMillis() < end && !wc.getImport("unit4.collectionsLib.Helpers.*").exists()) Thread.sleep(50);
+            return wc.getImport("unit4.collectionsLib.Helpers.*").exists();
+        } finally {
+            wc.discardWorkingCopy();
+        }
     }
 
     private static void setMentor(boolean on) throws Exception {

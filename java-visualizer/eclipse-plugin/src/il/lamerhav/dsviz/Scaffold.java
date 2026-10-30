@@ -242,8 +242,8 @@ public final class Scaffold {
     }
 
     // ------------------------------------------------------------ פעולות עזר מהספרייה: size(x) / duplicate(x)
-    // הן בספרייה (unit4.collectionsLib.Helpers), לא בקוד של התלמיד. שורת import static אחת בראש הקובץ (HELPERS_IMPORT)
-    // מאפשרת לקרוא להן ישירות, וההערה הקצרה מזכירה שהן קיימות. אותו דבר בדיוק ב-templates.js; ב-C#: using static, Size / Duplicate
+    // הן בספרייה (unit4.collectionsLib.Helpers), לא בקוד של התלמיד. השורה HELPERS_IMPORT נוספת לבד לקובץ ברגע שכותבים
+    // size( / duplicate( (AutoImport), וכאן רק ההערה הקצרה שמזכירה שהן קיימות. אותה הערה בדיוק ב-templates.js; ב-C# זה global using
     public static final String HELPERS_IMPORT = "import static unit4.collectionsLib.Helpers.*;";
 
     /** המחלקות (Stack / Queue / Node / BinNode) שיש להן פעולות עזר במבנה הזה: המבנה עצמו, ובקומבינציה — החיצוני והפנימי */
@@ -357,7 +357,6 @@ public final class Scaffold {
 
         List<String> L = new ArrayList<String>();
         L.add("import unit4.collectionsLib.*;");
-        if (hasHelpers(o.structure)) L.add(HELPERS_IMPORT);
         if (st.dims > 0) L.add("import java.util.Arrays;");
         L.add("");
         L.add("// תרגיל" + (o.recursive ? " ברקורסיה" : "") + ": " + st.label + " של " + T);
@@ -713,7 +712,6 @@ public final class Scaffold {
         if (o.extra) params.add(extraType(T) + " x");
         List<String> L = new ArrayList<String>();
         L.add("import unit4.collectionsLib.*;");
-        if (hasHelpers(o.structure)) L.add(HELPERS_IMPORT);
         if (isArr) L.add("import java.util.Arrays;");
         L.add("");
         L.add("// תרגיל" + (o.recursive ? " ברקורסיה" : "") + ": " + st.label + " של " + T);
