@@ -29,6 +29,7 @@ Arrays (int[], String[], int[][]) and String/Math/Integer/Character from java.la
     rules: 'Java 11, no "var", no records, no lambdas in mainCode. A method of the main class is "public static".',
     formats: 'boolean prints true / false; double prints like 2.5 or 3.0; char prints the character; an int[] array printed with Arrays.toString looks like [1, 2, 3].',
     noLib: 'NEVER define Stack, Queue, Node, BinNode or BinTreeNode (they come from the library). No package or import lines.',
+    noAdvanced: 'No streams, lambdas, "var", the ?: operator, java.util collections (ArrayList, HashMap...), StringBuilder, Arrays/Collections utilities or other advanced tricks.',
   },
   csharp: {
     name: 'C#',
@@ -55,6 +56,7 @@ Arrays (int[], string[], int[,] or int[][]) and string/Math/Console from System 
     imports: 'imports — extra "using" namespaces needed by mainCode/classes/givenCode (e.g. "System.Text"), never System.Collections.Generic. Usually empty.',
     rules: 'C# 10 / .NET 8, no "var", no records, no lambdas or LINQ in mainCode, no top-level statements, no namespace. A method of the main class is "public static". Fields of exercise classes are private, with public Get/Set methods or properties as the exercise describes.',
     noLib: 'NEVER define Stack, Queue, Node or BinNode (they come from the library). No using lines and no namespace.',
+    noAdvanced: 'No LINQ, lambdas, "var", the ?: operator, System.Collections.Generic collections, StringBuilder or other advanced tricks.',
     formats: 'bool prints True / False; double prints like 2.5 or 3 (no ".0"); char prints the character; arrays must be printed with string.Join(", ", arr) — looks like 1, 2, 3.',
   },
 };
@@ -69,7 +71,9 @@ export function systemPrompt(lang) {
 The student sends a programming exercise (PDF pages, photos/screenshots, or text from a Word file; usually in Hebrew).
 Your job is to produce a READY-TO-RUN ${L.name} SKELETON for the exercise, so the student can immediately start writing the solution and run it.
 Even if the exercise itself is written for another language (for example Java code in the question while the student works in C#), describe everything in ${L.name}.
-NEVER write the solution of any task — not in code and not in comments. You only describe the structure; the program assembles the code.
+The skeleton itself never contains a solution: classes, givenCode, mainCode and instructions never solve a task — the program assembles the skeleton
+with an empty body in every task. Separately, for every task you also write ONE suggested solution in tasks[].solution; it is kept hidden and shown
+to the student only if they press "הצעה לפתרון" after trying by themselves.
 
 Return ONLY JSON that matches the response schema. Field by field:
 
@@ -85,6 +89,20 @@ tasks — one entry for every method (פעולה / פונקציה), constructor 
   • returnType: ${L.name} type, or "void".
   • instructions: the full text of that sub-question in Hebrew, faithful and complete enough to solve it without the original page,
     including examples given in the question (e.g. "לדוגמה: עבור המחסנית 3, 5, 2 יוחזר 2"). Plain text, no markdown. Up to ~700 characters.
+  • solution: the suggested solution — see "tasks[].solution" below.
+
+tasks[].solution — the COMPLETE ${L.name} code of that method (or constructor): exactly the same header as the task (same name, parameter types and names,
+  return type, "public static" or not) and the full body. Write it the way a good Israeli high-school teacher would show it to a 10th–12th grade student:
+  • simple and intuitive — the most natural way a student would think about the problem: one clear idea, step by step, with clear variable names
+    (count, sum, temp, current, max...). Prefer the straightforward solution over a short or clever one.
+  • only basic tools: if / else, while and for loops, local variables, the library operations listed below, and helper structures of the same kind
+    (for example a temporary Stack or Queue, also to restore the original after going over it). Recursion only when the sub-question asks for it,
+    or when it is the natural way (binary trees). ${L.noAdvanced}
+  • CORRECT for every input — also an empty structure, a single element, duplicates, negative numbers; never crashes on valid input.
+  • when the method goes over a Stack or Queue it received, the structure must be exactly as it was at the end (same values, same order),
+    unless the sub-question asks to change it (remove / insert / sort ...).
+  • it may call the givenCode helpers and the methods of other tasks, as the exercise allows.
+  • a few short Hebrew comments (// ...) that explain the idea of each step. Nothing outside the method — no extra methods, no explanations.
 
 otherQuestions — sub-questions that do NOT require writing code (tracing code, what will be printed, complexity, explanations) — label + Hebrew text.
 
@@ -121,7 +139,8 @@ running it must show whether each method the student writes works correctly. It 
 
 expectedOutput — EXACTLY what the program prints when the student has solved every task CORRECTLY: every line that mainCode prints, in order,
   each line exactly as it will appear (same Hebrew labels, same spacing). This is shown to the student as "if you solved it correctly, this should be printed".
-  Work it out carefully, step by step, by simulating mainCode with a correct solution of every task. Keep the data small so the result is certain.
+  Work it out carefully, step by step, by simulating mainCode with exactly the solutions you wrote in tasks[].solution
+  (and check that they are correct according to the instructions). Keep the data small so the result is certain.
   How the library prints (IMPORTANT, character by character): a Stack prints [top,...,bottom] with commas and NO spaces: after push 1, push 2, push 3 it prints [3,2,1] (never "[3, 2, 1]");
   a Queue prints [head,...,tail] with commas and NO spaces, e.g. [1,2,3];
   an empty Stack or Queue → []; Node chain → 1 -> 2 -> 3 -> null; BinNode → only its own value (e.g. 7); ${L.formats}
@@ -146,7 +165,20 @@ Below: your previous JSON, the generated ${L.name} files, and the compiler error
 Return the corrected JSON (same schema) that fixes ALL the errors — usually in mainCode, classes, givenCode or imports.
 Keep the same tasks (same names and signatures) unless a signature itself is not valid ${L.name}.
 If you change mainCode, update expectedOutput to match it.
-Still never write the solution of any task.`;
+Keep every tasks[].solution (fix it only if it no longer matches the corrected header). The skeleton still never contains a solution.`;
+}
+
+/** ההצעה לפתרון לא התקמפלה / לא הדפיסה את מה שצריך — מבקשים לתקן את ההצעה (או את הפלט הצפוי, אם הוא השגוי) */
+export function solutionPrompt(lang) {
+  const L = LANG[language(lang)];
+  return `You previously produced the JSON below. The program checked your suggested solutions: it ran mainCode with tasks[].solution
+instead of the empty bodies, and the result was NOT what expectedOutput says (or it did not compile, or it crashed).
+Below: your previous JSON, the ${L.name} file(s) WITH your solutions, and what happened (compiler errors, or the actual output next to expectedOutput).
+Find what is wrong — a mistake in a solution, or a mistake in expectedOutput. The instructions of each task decide what is correct.
+Return the corrected JSON (same schema):
+  • fix every wrong solution so it is correct for every input — still simple, intuitive and at high-school level, as described before;
+  • fix expectedOutput if it is the wrong one, so it is exactly what mainCode prints with CORRECT solutions;
+  • keep tasks (names, headers), classes, givenCode and mainCode exactly as they are, unless one of them is clearly wrong.`;
 }
 
 const S = (description, extra) => Object.assign({ type: 'STRING', description }, extra || {});
@@ -192,9 +224,10 @@ export const RESPONSE_SCHEMA = {
             },
           },
           instructions: S('full Hebrew text of the sub-question'),
+          solution: S('suggested solution: the complete code of the method, header and body'),
         },
-        required: ['label', 'kind', 'className', 'isStatic', 'returnType', 'methodName', 'parameters', 'instructions'],
-        propertyOrdering: ['label', 'kind', 'className', 'isStatic', 'returnType', 'methodName', 'parameters', 'instructions'],
+        required: ['label', 'kind', 'className', 'isStatic', 'returnType', 'methodName', 'parameters', 'instructions', 'solution'],
+        propertyOrdering: ['label', 'kind', 'className', 'isStatic', 'returnType', 'methodName', 'parameters', 'instructions', 'solution'],
       },
     },
     givenCode: {

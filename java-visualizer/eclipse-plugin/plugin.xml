@@ -19,6 +19,9 @@
       <command id="il.lamerhav.dsviz.submit" categoryId="il.lamerhav.dsviz.category"
                name="שליחת תרגיל" description="שולחים את דף התרגיל (PDF, Word או תמונות) ומקבלים מעטפת מוכנה: מחלקות, main ופעולה לכל סעיף"
                defaultHandler="il.lamerhav.dsviz.SubmitHandler"/>
+      <command id="il.lamerhav.dsviz.solution" categoryId="il.lamerhav.dsviz.category"
+               name="הצעה לפתרון" description="הצעה לפתרון של הסעיף שבו נמצא הסמן (בתרגילים שנוצרו ב&quot;שליחת תרגיל&quot;)"
+               defaultHandler="il.lamerhav.dsviz.SolutionHandler"/>
       <command id="il.lamerhav.dsviz.help" categoryId="il.lamerhav.dsviz.category"
                name="הדרכה לשימוש" description="סרטונים קצרים שמסבירים איך משתמשים"
                defaultHandler="il.lamerhav.dsviz.HelpHandler"/>
@@ -39,6 +42,7 @@
       <image commandId="il.lamerhav.dsviz.insert" icon="icons/insert.png"/>
       <image commandId="il.lamerhav.dsviz.help" icon="icons/help.png"/>
       <image commandId="il.lamerhav.dsviz.submit" icon="icons/send.png"/>
+      <image commandId="il.lamerhav.dsviz.solution" icon="icons/solution.png"/>
    </extension>
 
    <extension point="org.eclipse.ui.menus">
@@ -68,6 +72,7 @@
             </command>
             <!-- submit:start -->
             <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל (PDF / Word / תמונה)..." style="push"/>
+            <command commandId="il.lamerhav.dsviz.solution" label="הצעה לפתרון לסעיף שבו נמצא הסמן..." style="push"/>
             <!-- submit:end -->
             <separator name="insert" visible="true"/>
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
@@ -106,6 +111,9 @@
       <menuContribution locationURI="popup:#CompilationUnitEditorContext?after=additions">
          <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+         <!-- submit:start -->
+         <command commandId="il.lamerhav.dsviz.solution" label="הצעה לפתרון..." style="push"/>
+         <!-- submit:end -->
       </menuContribution>
 
       <!-- לחיצה ימנית בעץ הקבצים -->
@@ -148,6 +156,17 @@
       <compilationParticipant id="il.lamerhav.dsviz.mentorParticipant" class="il.lamerhav.dsviz.MentorParticipant" createsProblems="true">
          <managedMarker markerType="il.lamerhav.dsviz.mentor"/>
       </compilationParticipant>
+   </extension>
+
+   <!-- "הצעה לפתרון": כפתור עם מנורה מעל הכותרת של כל פעולה של סעיף (בתרגילים שנוצרו ב"שליחת תרגיל") — SolutionMinings -->
+   <extension point="org.eclipse.ui.workbench.texteditor.codeMiningProviders">
+      <codeMiningProvider id="il.lamerhav.dsviz.solutionMinings" class="il.lamerhav.dsviz.SolutionMinings" label="הצעה לפתרון">
+         <enabledWhen>
+            <with variable="editor">
+               <instanceof value="org.eclipse.ui.texteditor.ITextEditor"/>
+            </with>
+         </enabledWhen>
+      </codeMiningProvider>
    </extension>
 
    <!-- הכנה אוטומטית בהפעלה הראשונה (פרויקט, קידוד, ברוכים הבאים) -->

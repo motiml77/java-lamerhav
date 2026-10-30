@@ -102,9 +102,18 @@ final class WorkerClient {
 
     /** הקוד שנבנה לא התקמפל — מבקשים תיקון (בלי הקבצים, רק הקוד והשגיאות) */
     Map<String, Object> repair(Map<String, Object> exercise, Map<String, String> files, List<String> errors) throws AiError {
+        return repair(exercise, files, errors, null);
+    }
+
+    /**
+     * mode = "solution": ההצעות לפתרון (tasks[].solution) לא נתנו את הפלט הצפוי — files הם הקבצים עם ההצעות, ו-errors מה שקרה
+     * (שגיאות קומפילציה, או הפלט מול הפלט הצפוי). השרת מבקש מהמודל לתקן את ההצעה (או את הפלט הצפוי, אם הוא השגוי)
+     */
+    Map<String, Object> repair(Map<String, Object> exercise, Map<String, String> files, List<String> errors, String mode) throws AiError {
         Map<String, Object> b = new LinkedHashMap<String, Object>();
         b.put("client", CLIENT);
         b.put("language", "csharp".equals(Json.str(exercise.get("language"))) ? "csharp" : "java");
+        if (mode != null) b.put("mode", mode);
         b.put("exercise", exercise);
         b.put("files", files);
         b.put("errors", errors);

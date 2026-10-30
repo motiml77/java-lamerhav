@@ -2,6 +2,7 @@ package il.lamerhav.dsviz;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -36,6 +37,8 @@ final class AiScaffold {
             "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while",
             "true", "false", "null", "var", "record", "yield", "main", "String", "Object", "System", "Math", "Integer"));
     private static final Pattern IDENT = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
+    /** מזהה בקוד שהמודל כתב (גם בעברית — לפני שתוקן) */
+    private static final Pattern WORD = Pattern.compile("[\\p{L}_$][\\p{L}\\p{N}_$]*");
     private static final Pattern TYPE = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\s*<[A-Za-z0-9_<>,\\s\\[\\]?]*>)?(\\s*\\[[,\\s]*\\])*");
     private static final Pattern IMPORT = Pattern.compile("java\\.util(\\.[a-z]+)*\\.([A-Z][A-Za-z0-9_]*|\\*)");
     private static final Pattern USING = Pattern.compile("System(\\.[A-Z][A-Za-z0-9]*)+");
@@ -56,6 +59,8 @@ final class AiScaffold {
     static final class Task {
         boolean cs;
         String label = "", kind = "method", className = "", returnType = "void", methodName = "", instructions = "";
+        /** ההצעה לפתרון (הפעולה כולה — כותרת וגוף). לא נכנסת לקוד של התלמיד: נשמרת בצד ונפתחת רק בלחיצה על "הצעה לפתרון" */
+        String solution = "";
         boolean isStatic = true;
         final List<String[]> params = new ArrayList<String[]>();   // {טיפוס, שם}
 
@@ -182,6 +187,7 @@ final class AiScaffold {
             }
             if (signatures.contains(sig)) continue;   // בנאי כפול
             signatures.add(sig);
+            t.solution = fitSolution(t, Json.str(m.get("solution")), Json.str(m.get("methodName")).trim());
             e.tasks.add(t);
         }
         for (Object o : Json.arr(j.get("givenCode"))) {
@@ -236,6 +242,14 @@ final class AiScaffold {
 
     /** pkg — החבילה (ב-Java; ב-C# כל תרגיל הוא פרויקט משלו, בלי namespace). sources — שמות הקבצים ששלח התלמיד (להערה בראש הקובץ) */
     static List<GeneratedFile> build(Exercise e, String pkg, List<String> sources) {
+        return build(e, pkg, sources, false);
+    }
+
+    /**
+     * withSolutions — לבדיקה של ההצעות לפתרון בלבד (SolutionCheck, בתיקייה זמנית): בכל סעיף ההצעה במקום הפעולה הריקה.
+     * הקבצים שהתלמיד מקבל נבנים תמיד בלי ההצעות.
+     */
+    static List<GeneratedFile> build(Exercise e, String pkg, List<String> sources, boolean withSolutions) {
         final boolean cs = e.cs;
         List<GeneratedFile> out = new ArrayList<GeneratedFile>();
         Set<String> all = new LinkedHashSet<String>(e.classes.keySet());
@@ -275,7 +289,7 @@ final class AiScaffold {
             for (Task t : e.tasks) {
                 if (!t.className.equals(cls)) continue;
                 int at = body.size();
-                int c = stub(body, t, e.tasks.size() > 1);
+                int c = withSolutions ? solved(body, t) : stub(body, t, e.tasks.size() > 1);
                 if (t == firstTask) cursor[0] = at + c;
             }
             boolean anyGiven = false;
@@ -333,22 +347,10 @@ final class AiScaffold {
     /** פעולה לסעיף אחד. מחזיר את מספר השורה (בתוך מה שנוסף) שבה מחכה הסמן */
     private static int stub(List<String> out, Task t, boolean several) {
         out.add("");
-        StringBuilder sig = new StringBuilder("    public ");
-        if (t.isStatic) sig.append("static ");
-        if (!t.constructor()) sig.append(t.returnType).append(' ');
-        sig.append(t.methodName).append('(');
-        for (int i = 0; i < t.params.size(); i++) {
-            if (i > 0) sig.append(", ");
-            sig.append(t.params.get(i)[0]).append(' ').append(t.params.get(i)[1]);
-        }
         if (t.cs) {   // סגנון C#: הסוגר בשורה משלו
-            sig.append(")");
-            out.add(sig.toString());
+            out.add("    " + header(t));
             out.add("    {");
-        } else {
-            sig.append(") {");
-            out.add(sig.toString());
-        }
+        } else out.add("    " + header(t) + " {");
         // בתוך הפעולה — רק שורת הסימון, ומתחתיה שורה ריקה לסמן. בלי return: התלמיד כותב בעצמו. שאר ההערות רק ב-main.
         out.add("        // " + markFor(t, several));
         int cursor = out.size();
@@ -356,6 +358,228 @@ final class AiScaffold {
         if (testReturns && !t.constructor() && !"void".equals(t.returnType)) out.add("        return " + defaultValue(t.returnType) + ";");
         out.add("    }");
         return cursor;
+    }
+
+    /** הפעולה עם ההצעה לפתרון (לבדיקה). סעיף בלי הצעה — פעולה ריקה שמחזירה ערך זמני, כדי שהכול יתקמפל */
+    private static int solved(List<String> out, Task t) {
+        if (t.solution.isEmpty()) {
+            boolean keep = testReturns;
+            testReturns = true;
+            try {
+                return stub(out, t, false);
+            } finally {
+                testReturns = keep;
+            }
+        }
+        out.add("");
+        out.addAll(reindent(t.solution, 4));
+        return -1;
+    }
+
+    // ------------------------------------------------------------------ ההצעה לפתרון
+
+    /**
+     * ההצעה לפתרון של סעיף, מותאמת לפעולה שבמעטפת: הכותרת מוחלפת בכותרת של הסעיף בדיוק (שם, טיפוסים, static) — כמו שהתלמיד רואה אותה,
+     * והגוף נשאר כמו שהמודל כתב. אם בהצעה הפעולה או הפרמטרים נקראים אחרת (למשל שם שתוקן כאן) — מחליפים את השם גם בגוף.
+     * nameInJson — השם שהמודל נתן לפעולה (לפני התיקון). מחזיר "" כשאין הצעה שאפשר להשתמש בה.
+     */
+    static String fitSolution(Task t, String code, String nameInJson) {
+        String c = code == null ? "" : code.replace("\r", "").replace("\t", "    ");
+        Matcher fence = Pattern.compile("(?s)^\\s*```[A-Za-z#]*[ ]*\n(.*?)\\s*```\\s*$").matcher(c);
+        if (fence.matches()) c = fence.group(1);
+        c = String.join("\n", reindent(c, 0));
+        if (c.isEmpty() || c.indexOf('{') < 0) return "";
+        int[] depth = new int[c.length() + 1];
+        boolean[] isCode = lex(c, depth);
+        // הכותרת: השם של הפעולה ואחריו "(" — מחוץ לגוף (עומק 0), לא בהערה ולא אחרי new או נקודה
+        int name = -1, nameEnd = -1;
+        List<String> names = new ArrayList<String>();
+        names.add(t.methodName);
+        if (nameInJson != null && WORD.matcher(nameInJson).matches()) names.add(nameInJson);
+        names.add(WORD.pattern());
+        for (String n : names) {
+            Matcher m = Pattern.compile("(?<![\\p{L}\\p{N}_$.])(" + (n.startsWith("[") ? n : Pattern.quote(n)) + ")\\s*\\(").matcher(c);
+            while (m.find()) {
+                int at = m.start(1);
+                if (!isCode[at] || depth[at] != 0 || c.substring(0, at).matches("(?s).*\\bnew\\s*$")) continue;
+                if (n.startsWith("[") && (KEYWORDS.contains(m.group(1)) || CS_KEYWORDS.contains(m.group(1)))) continue;
+                name = at;
+                nameEnd = m.end(1);
+                break;
+            }
+            if (name >= 0) break;
+        }
+        if (name < 0) return "";
+        int open = c.indexOf('(', nameEnd), close = -1, level = 0;
+        for (int i = open; i < c.length(); i++) {
+            if (!isCode[i]) continue;
+            if (c.charAt(i) == '(') level++;
+            else if (c.charAt(i) == ')' && --level == 0) { close = i; break; }
+        }
+        if (close < 0) return "";
+        int brace = -1;
+        for (int i = close + 1; i < c.length(); i++) {
+            if (!isCode[i]) continue;
+            char ch = c.charAt(i);
+            if (ch == '{') { brace = i; break; }
+            if (ch == ';' || ch == '}') return "";   // הכרזה בלי גוף
+        }
+        if (brace < 0) return "";
+        // השורה של הכותרת מתחילה בתחילת השורה (או אחרי ; / } באותה שורה)
+        int from = c.lastIndexOf('\n', name) + 1;
+        for (int i = from; i < name; i++) if (isCode[i] && (c.charAt(i) == ';' || c.charAt(i) == '}')) from = i + 1;
+        while (from < name && c.charAt(from) == ' ') from++;
+        int lineStart = c.lastIndexOf('\n', from) + 1;
+        String indent = c.substring(lineStart, from).trim().isEmpty() ? c.substring(lineStart, from) : "";
+
+        // שמות שצריך להחליף בגוף: הפעולה (אם המודל קרא לה אחרת) והפרמטרים (לפי הסדר)
+        Map<String, String> rename = new LinkedHashMap<String, String>();
+        String oldName = c.substring(name, nameEnd);
+        if (!t.constructor() && !oldName.equals(t.methodName)) rename.put(oldName, t.methodName);
+        List<String> oldParams = paramNames(c.substring(open + 1, close));
+        if (oldParams.size() == t.params.size()) {
+            for (int i = 0; i < oldParams.size(); i++)
+                if (!oldParams.get(i).equals(t.params.get(i)[1])) rename.put(oldParams.get(i), t.params.get(i)[1]);
+        }
+        String rest = c.substring(brace + 1);
+        if (!rename.isEmpty()) rest = renameIdents(rest, isCode, depth, brace + 1, rename);
+        StringBuilder b = new StringBuilder(c.substring(0, lineStart));
+        b.append(indent).append(header(t));
+        if (t.cs) b.append('\n').append(indent).append('{');
+        else b.append(" {");
+        b.append(rest);
+        return String.join("\n", rtlComments(reindent(b.toString(), 0)));
+    }
+
+    /** הכותרת של הפעולה של הסעיף — בדיוק כמו במעטפת (בלי "{") */
+    static String header(Task t) {
+        StringBuilder sig = new StringBuilder("public ");
+        if (t.isStatic) sig.append("static ");
+        if (!t.constructor()) sig.append(t.returnType).append(' ');
+        sig.append(t.methodName).append('(');
+        for (int i = 0; i < t.params.size(); i++) {
+            if (i > 0) sig.append(", ");
+            sig.append(t.params.get(i)[0]).append(' ').append(t.params.get(i)[1]);
+        }
+        return sig.append(')').toString();
+    }
+
+    /**
+     * סימון לכל תו בקוד: true — קוד (לא הערה, לא מחרוזת ולא תו); depth — עומק הסוגריים המסולסלים לפני התו.
+     */
+    static boolean[] lex(String c, int[] depth) {
+        boolean[] code = new boolean[c.length()];
+        int d = 0, n = c.length();
+        for (int i = 0; i < n; i++) {
+            char ch = c.charAt(i);
+            depth[i] = d;
+            if (ch == '/' && i + 1 < n && c.charAt(i + 1) == '/') {
+                while (i < n && c.charAt(i) != '\n') depth[i++] = d;
+                if (i < n) { depth[i] = d; code[i] = true; }
+                continue;
+            }
+            if (ch == '/' && i + 1 < n && c.charAt(i + 1) == '*') {
+                int end = c.indexOf("*/", i + 2);
+                end = end < 0 ? n : end + 2;
+                while (i < end) depth[i++] = d;
+                i--;
+                continue;
+            }
+            if (ch == '"' || ch == '\'') {
+                depth[i] = d;
+                int j = i + 1;
+                while (j < n && c.charAt(j) != ch && c.charAt(j) != '\n') {
+                    if (c.charAt(j) == '\\') j++;
+                    j++;
+                }
+                for (int k = i + 1; k <= Math.min(j, n - 1); k++) depth[k] = d;
+                i = Math.min(j, n - 1);
+                continue;
+            }
+            code[i] = true;
+            if (ch == '{') d++;
+            else if (ch == '}') d = Math.max(0, d - 1);
+        }
+        depth[n] = d;
+        return code;
+    }
+
+    /** השמות של הפרמטרים ברשימה "Stack<Integer> s, int x" (גם "int a[]") */
+    static List<String> paramNames(String list) {
+        List<String> out = new ArrayList<String>();
+        if (list.trim().isEmpty()) return out;
+        int level = 0, start = 0;
+        for (int i = 0; i <= list.length(); i++) {
+            char ch = i < list.length() ? list.charAt(i) : ',';
+            if (ch == '<' || ch == '(' || ch == '[') level++;
+            else if (ch == '>' || ch == ')' || ch == ']') level--;
+            else if (ch == ',' && level <= 0) {
+                Matcher m = Pattern.compile("(" + WORD.pattern() + ")\\s*(\\[\\s*\\]\\s*)*$").matcher(list.substring(start, i).trim());
+                out.add(m.find() ? m.group(1) : "");
+                start = i + 1;
+            }
+        }
+        return out;
+    }
+
+    /** החלפת שמות (משתנים / קריאות) בקוד בלבד — לא בהערות ובמחרוזות, ולא אחרי נקודה (x.name). שם שכבר תפוס — לא מחליפים */
+    private static String renameIdents(String s, boolean[] isCode, int[] depth, int offset, Map<String, String> rename) {
+        Set<String> used = new HashSet<String>();
+        Matcher all = WORD.matcher(s);
+        while (all.find()) if (isCode[offset + all.start()]) used.add(all.group());
+        Map<String, String> ok = new HashMap<String, String>();
+        for (Map.Entry<String, String> r : rename.entrySet())
+            if (!used.contains(r.getValue()) || rename.containsKey(r.getValue())) ok.put(r.getKey(), r.getValue());
+        StringBuilder b = new StringBuilder();
+        Matcher m = WORD.matcher(s);
+        int last = 0;
+        while (m.find()) {
+            String to = ok.get(m.group());
+            if (to == null || !isCode[offset + m.start()] || (m.start() > 0 && s.charAt(m.start() - 1) == '.')) continue;
+            b.append(s, last, m.start()).append(to);
+            last = m.end();
+        }
+        return b.append(s.substring(last)).toString();
+    }
+
+    /** הערות "//" בעברית — עטופות בסימון כיוון (כמו בשאר הקוד שנבנה), כדי שיוצגו מימין לשמאל כמו שצריך */
+    private static List<String> rtlComments(List<String> lines) {
+        List<String> out = new ArrayList<String>();
+        for (String l : lines) {
+            int[] depth = new int[l.length() + 1];
+            boolean[] isCode = lex(l, depth);
+            int at = -1;
+            for (int i = 0; i + 1 < l.length(); i++) if (l.charAt(i) == '/' && l.charAt(i + 1) == '/' && isCode.length > i && !isCode[i] && (i == 0 || isCode[i - 1] || l.substring(0, i).trim().isEmpty())) { at = i; break; }
+            if (at >= 0) {
+                String text = l.substring(at + 2).trim();
+                if (text.matches(".*[\u0590-\u05FF].*") && text.indexOf('\u202B') < 0) {
+                    out.add(l.substring(0, at) + "// " + rtl(text));
+                    continue;
+                }
+            }
+            out.add(l);
+        }
+        return out;
+    }
+
+    /**
+     * אחרי סבב תיקון של ההצעות: מהתשובה המתוקנת לוקחים רק את ההצעות לפתרון ואת הפלט הצפוי — המעטפת (הסעיפים, main, המחלקות) נשארת כמו שהיא.
+     * מחזיר true אם הפלט הצפוי השתנה (ואז גם ההערה מעל main נכתבת מחדש)
+     */
+    static boolean takeSolutions(Exercise e, Exercise fixed) {
+        for (int i = 0; i < e.tasks.size(); i++) {
+            Task t = e.tasks.get(i), f = null;
+            for (Task x : fixed.tasks)
+                if (x.className.equals(t.className) && x.methodName.equals(t.methodName) && x.params.size() == t.params.size()) { f = x; break; }
+            if (f == null && fixed.tasks.size() == e.tasks.size()) f = fixed.tasks.get(i);
+            if (f != null && !f.solution.isEmpty()) {
+                String s = fitSolution(t, f.solution, f.methodName);
+                if (!s.isEmpty()) t.solution = s;
+            }
+        }
+        String old = e.expectedOutput, now = fixed.expectedOutput.replace("\r", "").replaceAll("\\s+$", "");
+        if (!now.isEmpty()) e.expectedOutput = now;
+        return !old.equals(e.expectedOutput);
     }
 
     /** שורות ריקות מיותרות: בראש הקובץ, כפולות, אחרי "{" ולפני "}" */

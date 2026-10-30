@@ -64,7 +64,7 @@ await test('תרגיל: PDF + תמונה + טקסט מ-Word + הערה → בק�
   assert.match(calls[0].url, /\/v1beta\/models\/model-a:generateContent$/);
   assert.equal(calls[0].init.headers['x-goog-api-key'], 'test-key');
   const sent = JSON.parse(calls[0].init.body);   // הגוף שנבנה בשרשור — חייב להיות JSON תקין
-  assert.match(sent.systemInstruction.parts[0].text, /NEVER write the solution/);
+  assert.match(sent.systemInstruction.parts[0].text, /The skeleton itself never contains a solution/);
   assert.match(sent.systemInstruction.parts[0].text, /The student works in Java\./);   // ברירת מחדל: Java
   assert.match(sent.systemInstruction.parts[0].text, /void push\(T x\)/);
   assert.equal(r.body.exercise.language, 'java');
@@ -165,6 +165,38 @@ await test('תיקון: הקוד והשגיאות נשלחים, והתשובה �
   assert.match(text, /did not compile/);
   assert.match(text, /cannot find symbol: size\(\)/);
   assert.match(text, /class X \{\}/);
+});
+
+await test('הצעה לפתרון: ההנחיות מבקשות פתרון פשוט, והפתרון חוזר בתשובה (גם בתוך ```java)', async () => {
+  const sol = 'public static int countEven(Stack<Integer> s) {\n    int count = 0;\n    return count;\n}';
+  const withSol = JSON.parse(JSON.stringify(SAMPLE));
+  withSol.tasks[0].solution = '```java\n' + sol + '\n```';
+  script = [{ status: 200, json: geminiOk(withSol) }];
+  const r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.exercise.tasks[0].solution, sol);
+  const sent = JSON.parse(calls[0].init.body);
+  const sys = sent.systemInstruction.parts[0].text;
+  assert.match(sys, /tasks\[\]\.solution/);
+  assert.match(sys, /simple and intuitive/);
+  assert.match(sys, /high-school/);
+  assert.match(sys, /No streams, lambdas/);
+  assert.ok(sent.generationConfig.responseSchema.properties.tasks.items.required.includes('solution'));
+});
+
+await test('תיקון ההצעה לפתרון (mode=solution): ההנחיות של בדיקת הפתרון, והפלט בפועל מול הצפוי', async () => {
+  const req = new Request('https://w.example/v1/repair', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ mode: 'solution', exercise: SAMPLE, files: { 'StackTargil.java': 'class X {}' },
+                           errors: ['Expected output:\nסעיף א: 1', 'Actual output:\nסעיף א: 0'] }),
+  });
+  const r = await call(req);
+  assert.equal(r.status, 200);
+  const text = JSON.parse(calls[0].init.body).contents[0].parts[0].text;
+  assert.match(text, /checked your suggested solutions/);
+  assert.match(text, /What happened:/);
+  assert.match(text, /Actual output:/);
+  assert.doesNotMatch(text, /did not compile\./);
 });
 
 await test('C#: ההנחיות ב-C# (ממשק הספרייה ב-PascalCase), והשפה חוזרת בתשובה', async () => {

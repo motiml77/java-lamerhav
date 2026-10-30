@@ -1,6 +1,6 @@
 #!/bin/sh
 # בדיקה של "המורה בעברית" בתוך Eclipse אמיתי: מתקינים את התוסף, בונים פרויקט עם קוד של תלמידים,
-# ובודקים את הסימונים (Problems), את ההסברים בזמן הכתיבה (reconcile) ואת הכיבוי מהתפריט.
+# ובודקים את הסימונים (Problems), את ההסברים בזמן הכתיבה (reconcile) ואת הכיבוי מהתפריט; ואת "הצעה לפתרון" (Sol.java).
 # לא חלק מ-run-tests.sh (צריך Eclipse — כ-380MB). להריץ אחרי tools/build-all.sh:
 #   sh tools/test/eclipse-it/run.sh [תיקיית eclipse]
 set -e
@@ -58,4 +58,14 @@ if [ "$SHOT" = 1 ]; then
         [ -f "$B/${f%%:*}.png" ] && echo "  צילום: $B/${f%%:*}.png  $B/${f%%:*}-problems.png"
     done
 fi
+# "הצעה לפתרון" (צריך xvfb-run): תרגיל מתשובה לדוגמה → ההצעות נבדקו ונשמרו בצד, הכפתור מעל כל פעולה של סעיף, לחיצה → החלון
+mkdir -p "$B/sol"
+timeout 240 xvfb-run -a -s "-screen 0 1600x1000x24" java -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog \
+    -data "$B/ws-sol" -application il.lamerhav.dsviz.it.solution "$ROOT/tools/test/ai/1-stack.json" "$B/sol/out.txt" "$B/sol" > "$B/sol/eclipse.log" 2>&1 || true
+rm -rf "$B/ws-sol"
+SOL="$B/sol/out.txt"
+for k in "STATUS ok" "ERRORS \[\]" "STUDENT-CODE-HAS-SOLUTION false" "STORE solutions.json entries=2 path=true" "MINING countEven( line=6 indent=[1-9]" \
+         "MINING removeAll( line=11 indent=[1-9]" "MINING void main( line=24 indent=0" "CLICK-DIALOG true" "DIALOG-RTL true code-ltr=true" "MENU-DIALOG true public static void removeAll"; do
+    grep -q -- "$k" "$SOL" 2>/dev/null && echo "  ok  הצעה לפתרון: $k" || { echo "  FAIL הצעה לפתרון: $k"; FAILED=1; }
+done
 exit $FAILED
