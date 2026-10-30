@@ -43,8 +43,10 @@ public class AutoSetup implements IStartup {
             @Override
             public IStatus runInWorkspace(IProgressMonitor monitor) {
                 try {
+                    if (!Power.on()) return Status.OK_STATUS;   // DSViz כבוי (לחצן הכיבוי) — לא נוגעים בכלום
                     updateLibraries();
                     LibraryEverywhere.start();
+                    favoriteHelpers();
                     IEclipsePreferences prefs = InstanceScope.INSTANCE.getNode(NODE);
                     if (!prefs.getBoolean(DONE, false)) {
                         IFile main = firstRun();
@@ -78,6 +80,20 @@ public class AutoSetup implements IStartup {
             });
         } catch (Throwable e) {
             // בלי עדכון בסגירה — יש עדיין בדיקה בכל כניסה ל-Windows
+        }
+    }
+
+    /** Ctrl+Space מציע גם את size( / duplicate( מהספרייה (ומוסיף את ה-import static לבד) */
+    static void favoriteHelpers() {
+        try {
+            IEclipsePreferences ui = InstanceScope.INSTANCE.getNode("org.eclipse.jdt.ui");
+            String key = "content_assist_favorite_static_members", fav = AutoImport.HELPERS + ".*";
+            String cur = ui.get(key, "");
+            if ((";" + cur + ";").contains(";" + fav + ";")) return;
+            ui.put(key, cur.isEmpty() ? fav : cur + ";" + fav);
+            ui.flush();
+        } catch (Exception e) {
+            // בלי הצעה ב-Ctrl+Space — ה-import עדיין נוסף לבד (AutoImport)
         }
     }
 

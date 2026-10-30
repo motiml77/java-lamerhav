@@ -148,8 +148,9 @@ function literals(text, type, allowNull) {
  * מחזיר { code, cursorLine } — cursorLine = מספר השורה (מ-0) שבה התלמיד מתחיל לכתוב
  */
 // ------------------------------------------------------------ פעולות עזר מהספרייה: size(x) / duplicate(x)
-// הן בספרייה (unit4.collectionsLib.Helpers), לא בקוד של התלמיד. שורת import static אחת בראש הקובץ (HELPERS_IMPORT)
-// מאפשרת לקרוא להן ישירות, וההערה הקצרה מזכירה שהן קיימות. אותו דבר בדיוק ב-Scaffold.java; ב-C#: using static, Size / Duplicate
+// הן בספרייה (unit4.collectionsLib.Helpers), לא בקוד של התלמיד. השורה HELPERS_IMPORT נוספת לבד לקובץ ברגע שכותבים
+// size( / duplicate( (Eclipse: AutoImport, VS Code: extension.js), וכאן רק ההערה הקצרה שמזכירה שהן קיימות.
+// אותה הערה בדיוק ב-Scaffold.java; ב-C# (Size / Duplicate) זה global using של הפרויקט
 const HELPERS_IMPORT = 'import static unit4.collectionsLib.Helpers.*;';
 
 /** המחלקות (Stack / Queue / Node / BinNode) שיש להן פעולות עזר במבנה הזה: המבנה עצמו, ובקומבינציה — החיצוני והפנימי */
@@ -239,7 +240,6 @@ function generate(o) {
 
     const L = [];
     L.push('import unit4.collectionsLib.*;');
-    if (hasHelpers(o.structure)) L.push(HELPERS_IMPORT);
     if (st.dims > 0) L.push('import java.util.Arrays;');
     L.push('');
     L.push(`// תרגיל${o.recursive ? ' ברקורסיה' : ''}: ${st.label} של ${T}`);
@@ -506,7 +506,6 @@ function generateCombo(o, st, tp) {
     if (o.extra) params.push(`${extraType(T)} x`);
     const L = [];
     L.push('import unit4.collectionsLib.*;');
-    if (hasHelpers(o.structure)) L.push(HELPERS_IMPORT);
     if (isArr) L.push('import java.util.Arrays;');
     L.push('');
     L.push(`// תרגיל${o.recursive ? ' ברקורסיה' : ''}: ${st.label} של ${T}`);

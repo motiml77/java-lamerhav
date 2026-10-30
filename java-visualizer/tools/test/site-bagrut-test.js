@@ -74,9 +74,16 @@ async function docx() {
   await page.waitForFunction(() => !document.querySelector('[data-downloads]').hidden, null, { timeout: 5000 });
   const count = await page.textContent('[data-downloads]');
   check(/1,234/.test(count) && /הורדות/.test(count), 'מונה: ' + count);
-  check(await page.getAttribute('.hero .btn', 'href') === SERVER + '/dl/windows', 'כפתור ההורדה עובר דרך המונה');
+  // ההורדה ישירות מ-GitHub (עובדת גם כשהשרת לא זמין), והמונה מקבל "נספר" ברקע
+  check(/^https:\/\/raw\.githubusercontent\.com\/.*\/release\/DSViz-Setup\.exe$/.test(await page.getAttribute('.hero .btn', 'href')), 'כפתור ההורדה ישירות מ-GitHub');
+  let counted = null;
+  await ctx.route('https://raw.githubusercontent.com/**', r => r.fulfill({ status: 200, contentType: 'application/octet-stream', body: 'x' }));
+  const beacon = page.waitForRequest(q => q.url() === SERVER + '/v1/count/windows' && q.method() === 'POST', { timeout: 5000 }).then(() => { counted = true; });
+  await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('.hero .btn')]);
+  await beacon.catch(() => {});
+  check(counted, 'ספירה ברקע אחרי לחיצה על הורדה');
   check(await page.$('footer .donate[href*="paypal.com/donate"]'), 'תרום לנו בתחתית');
-  pass('עמוד ראשי: מונה הורדות (' + count + '), ההורדה דרך /dl/windows, ו"תרום לנו"');
+  pass('עמוד ראשי: מונה הורדות (' + count + '), הורדה ישירה מ-GitHub עם ספירה ברקע, ו"תרום לנו"');
 
   // ---- שאלת בגרות: Word + תמונה + PDF
   await page.goto(base + '/bagrut.html');

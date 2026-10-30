@@ -43,6 +43,7 @@ public class SolutionMinings extends AbstractCodeMiningProvider {
     public CompletableFuture<List<? extends ICodeMining>> provideCodeMinings(ITextViewer viewer, IProgressMonitor monitor) {
         return CompletableFuture.supplyAsync(() -> {
             List<ICodeMining> out = new ArrayList<ICodeMining>();
+            if (!Power.on()) return out;   // DSViz כבוי
             try {
                 ITextEditor editor = getAdapter(ITextEditor.class);
                 IFile file = editor == null || editor.getEditorInput() == null ? null : editor.getEditorInput().getAdapter(IFile.class);
@@ -65,6 +66,24 @@ public class SolutionMinings extends AbstractCodeMiningProvider {
             }
             return out;
         });
+    }
+
+    /** אחרי כיבוי / הפעלה של DSViz: מציירים מחדש את השורות בכל עורכי ה-Java הפתוחים */
+    static void refreshAll() {
+        try {
+            for (org.eclipse.ui.IWorkbenchWindow w : org.eclipse.ui.PlatformUI.getWorkbench().getWorkbenchWindows()) {
+                for (org.eclipse.ui.IWorkbenchPage page : w.getPages()) {
+                    for (org.eclipse.ui.IEditorReference ref : page.getEditorReferences()) {
+                        org.eclipse.ui.IEditorPart part = ref.getEditor(false);
+                        Object viewer = part == null ? null : part.getAdapter(org.eclipse.jface.text.ITextViewer.class);
+                        if (viewer instanceof org.eclipse.jface.text.source.ISourceViewerExtension5)
+                            ((org.eclipse.jface.text.source.ISourceViewerExtension5) viewer).updateCodeMinings();
+                    }
+                }
+            }
+        } catch (Throwable e) {
+            // יתעדכן בפתיחה הבאה של הקובץ
+        }
     }
 
     /** השורה "הצעה לפתרון 💡" מעל הכותרת: שבב צהוב-בהיר מעוגל עם מנורה */

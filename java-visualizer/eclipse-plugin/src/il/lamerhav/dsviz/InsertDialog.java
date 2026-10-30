@@ -121,7 +121,7 @@ public class InsertDialog extends Dialog {
 
         // --- תזכורת: פעולות העזר מהספרייה (ההערה נכנסת גם לקוד)
         helperNote = new Label(left, SWT.WRAP);
-        helperNote.setText("פעולות עזר מהספרייה: size(x) — כמה איברים, duplicate(x) — עותק.\nהמבנה שנשלח לא משתנה, וגם מבנה בתוך מבנה עובד.");
+        helperNote.setText("פעולות עזר מהספרייה: size(x) — כמה איברים, duplicate(x) — עותק. המבנה שנשלח לא משתנה.");
         helperNote.setForeground(left.getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY));
         GridData hg = new GridData(SWT.FILL, SWT.CENTER, true, false);
         hg.verticalIndent = 6;

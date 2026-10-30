@@ -202,7 +202,7 @@ async function addDialog(command, state, steps) {
     assert.strictEqual(edits[0][0], 'replace');
     // מעל המבנה — הערה קצרה על פעולות העזר מהספרייה
     assert(/^        \/\/ עזר מהספרייה: size\(q1\)[^\n]*\n        Queue<String> q1 = new Queue<String>\(\);\n(        q1\.insert\("\w+"\);.*\n){3}        q1\.insert\("\w+"\);$/.test(edits[0][2]), edits[0][2]);
-    assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\nimport static unit4.collectionsLib.Helpers.*;\n\n');   // + פעולות העזר: size(x) / duplicate(x)
+    assert.strictEqual(edits[1][2], 'import unit4.collectionsLib.*;\n\n');
     // מבנה בתוך מבנה, עם 2 מבנים אקראיים
     edits.length = 0;
     d = await addDialog(commands['dsviz.insert.queue'], {}, [['inside', { inside: 'stack' }], ['random', { random: true }], ['count', { count: 2 }]]);
@@ -324,6 +324,16 @@ async function addDialog(command, state, steps) {
     const cm = require(path.join(ext, 'cs.js'));
     assert.strictEqual(cm.detectLanguage(ws2), 'csharp');
     assert.strictEqual(cm.projectDirOf(cs1, ws2), path.join(ws2, 'Exercises', 'Targil1'));
+
+    // פעולות העזר: מתי מוסיפים לבד את import static unit4.collectionsLib.Helpers.*; (רק כשיש קריאה ערומה ל-size( / duplicate()
+    const need = csExt.needsHelperImport, H = 'import unit4.collectionsLib.*;\n';
+    assert(need(H + 'class A{ void f(){ Stack<Integer> s=null; int n = size(s);} }'), 'size(s) — צריך import');
+    assert(need(H + 'class A{ void f(){ Queue<Integer> c = duplicate(q);} }'), 'duplicate(q) — צריך import');
+    assert(!need(H + 'class A{ void f(){ int n = s.size();} }'), 's.size() — לא');
+    assert(!need(H + 'import static unit4.collectionsLib.Helpers.*;\nclass A{ void f(){ int n=size(s);} }'), 'כבר יש');
+    assert(!need(H + 'class A{ static int size(Stack<Integer> s){ return 0;} void f(){ int n=size(s);} }'), 'פעולה של התלמיד');
+    assert(!need(H + 'class A{ void f(){ // size(s)\n String t="size(s)"; } }'), 'הערה / מחרוזת');
+    assert(!need('class A{ void f(){ java.util.List<Integer> l=null; int n=size(l);} }'), 'בלי ספריית הקורס');
 
     console.log(log.join('\n'));
     console.log('\nALL VS CODE TESTS PASSED\nworkspace: ' + ws);

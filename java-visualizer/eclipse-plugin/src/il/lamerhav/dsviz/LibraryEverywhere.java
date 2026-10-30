@@ -35,6 +35,12 @@ public final class LibraryEverywhere {
         schedule(0);
     }
 
+    /** אחרי הפעלה מחדש של DSViz (הלחצן הירוק): בודקים שוב את כל הפרויקטים */
+    static synchronized void refresh() {
+        if (!started) start();
+        else schedule(0);
+    }
+
     /** נוסף / נפתח פרויקט Java, או שה-Build Path שלו השתנה */
     private static boolean relevant(IJavaElementDelta d) {
         IJavaElement e = d.getElement();
@@ -51,6 +57,7 @@ public final class LibraryEverywhere {
     private static final WorkspaceJob JOB = new WorkspaceJob("מבני נתונים — ספריית הקורס בפרויקטים") {
         @Override
         public IStatus runInWorkspace(IProgressMonitor monitor) {
+            if (!Power.on()) return Status.OK_STATUS;   // DSViz כבוי — לא נוגעים בפרויקטים
             for (IJavaProject jp : ProjectSetup.javaProjects()) ensure(jp);
             return Status.OK_STATUS;
         }

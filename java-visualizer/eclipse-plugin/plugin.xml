@@ -28,11 +28,21 @@
       <command id="il.lamerhav.dsviz.examples" categoryId="il.lamerhav.dsviz.category"
                name="דוגמאות פתורות" description="העתקת דוגמאות פתורות לפרויקט"
                defaultHandler="il.lamerhav.dsviz.ExamplesHandler"/>
+      <command id="il.lamerhav.dsviz.power" categoryId="il.lamerhav.dsviz.category"
+               name="כיבוי / הפעלה של DSViz" description="מכבה את כל היכולות של DSViz (נשאר רק Eclipse) — או מפעיל אותן מחדש"
+               defaultHandler="il.lamerhav.dsviz.PowerHandler"/>
       <command id="il.lamerhav.dsviz.mentor" categoryId="il.lamerhav.dsviz.category"
                name="הסברים בעברית לשגיאות" description="ליד כל שגיאה של הקומפיילר — הסבר בעברית במקום המדויק של הבעיה, ואזהרות על טעויות נפוצות"
                defaultHandler="il.lamerhav.dsviz.MentorToggleHandler">
          <state class="org.eclipse.ui.handlers.RegistryToggleState:true" id="org.eclipse.ui.commands.toggleState"/>
       </command>
+   </extension>
+
+   <!-- DSViz פועל / כבוי (Power) — המשתנה שלפיו מוצגים הכפתורים והתפריטים -->
+   <extension point="org.eclipse.ui.services">
+      <sourceProvider provider="il.lamerhav.dsviz.Power">
+         <variable name="il.lamerhav.dsviz.active" priorityLevel="workbench"/>
+      </sourceProvider>
    </extension>
 
    <extension point="org.eclipse.ui.commandImages">
@@ -49,6 +59,7 @@
       <!-- תפריט ראשי: "מבני נתונים" -->
       <menuContribution locationURI="menu:org.eclipse.ui.main.menu?after=additions">
          <menu id="il.lamerhav.dsviz.menu" label="מבני נתונים">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש: מחסנית (Stack)..." style="push">
                <parameter name="il.lamerhav.dsviz.structure" value="stack"/>
             </command>
@@ -92,44 +103,82 @@
       <menuContribution locationURI="toolbar:org.eclipse.ui.main.toolbar?after=additions">
          <toolbar id="il.lamerhav.dsviz.toolbar" label="מבני נתונים">
             <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש" mode="FORCE_TEXT"
-                     tooltip="תרגיל חדש במבני נתונים — בוחרים מבנה ומקבלים תרגיל מוכן" style="push"/>
+                     tooltip="תרגיל חדש במבני נתונים — בוחרים מבנה ומקבלים תרגיל מוכן" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
             <!-- submit:start -->
             <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל" mode="FORCE_TEXT"
-                     tooltip="שליחת תרגיל: מצרפים את דף התרגיל (PDF, Word או תמונה / צילום מסך) ומקבלים קובץ מוכן — מחלקות, main ופעולה לכל סעיף" style="push"/>
+                     tooltip="שליחת תרגיל: מצרפים את דף התרגיל (PDF, Word או תמונה / צילום מסך) ומקבלים קובץ מוכן — מחלקות, main ופעולה לכל סעיף" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
             <!-- submit:end -->
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים" mode="FORCE_TEXT"
-                     tooltip="הוסף מבנה נתונים לקוד במקום הסמן — בוחרים מבנה, ערכים ושם, ורואים איך הוא ייראה" style="push"/>
+                     tooltip="הוסף מבנה נתונים לקוד במקום הסמן — בוחרים מבנה, ערכים ושם, ורואים איך הוא ייראה" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
             <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" mode="FORCE_TEXT"
-                     tooltip="הרצה בחלון שמראה כל שורה, את המשתנים ואת מבני הנתונים (הרצה רגילה — רק לקונסול)" style="push"/>
+                     tooltip="הרצה בחלון שמראה כל שורה, את המשתנים ואת מבני הנתונים (הרצה רגילה — רק לקונסול)" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
             <separator name="help" visible="true"/>
-            <command commandId="il.lamerhav.dsviz.help" label="הדרכה לשימוש (?)" tooltip="הדרכה לשימוש" style="push"/>
+            <command commandId="il.lamerhav.dsviz.help" label="הדרכה לשימוש (?)" tooltip="הדרכה לשימוש" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+            <separator name="power" visible="true"/>
+            <!-- כיבוי (אדום) כש-DSViz פועל; הפעלה (ירוק) כשהוא כבוי — תמיד בסוף -->
+            <command commandId="il.lamerhav.dsviz.power" label="כיבוי" mode="FORCE_TEXT" icon="icons/power-off.png"
+                     tooltip="כיבוי DSViz: כל הכפתורים והיכולות נכבים, ונשאר רק Eclipse" style="push" id="il.lamerhav.dsviz.powerOff">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+            </command>
+            <command commandId="il.lamerhav.dsviz.power" label="הפעלה" mode="FORCE_TEXT" icon="icons/power-on.png"
+                     tooltip="הפעלת DSViz: מחזיר את כל הכפתורים והיכולות" style="push" id="il.lamerhav.dsviz.powerOn">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="false"/></with></visibleWhen>
+            </command>
          </toolbar>
       </menuContribution>
 
       <!-- לחיצה ימנית בעורך הקוד -->
       <menuContribution locationURI="popup:#CompilationUnitEditorContext?after=additions">
-         <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
-         <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+         <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+         <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <!-- submit:start -->
-         <command commandId="il.lamerhav.dsviz.solution" label="הצעה לפתרון..." style="push"/>
+         <command commandId="il.lamerhav.dsviz.solution" label="הצעה לפתרון..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <!-- submit:end -->
       </menuContribution>
 
       <!-- לחיצה ימנית בעץ הקבצים -->
       <menuContribution locationURI="popup:org.eclipse.jdt.ui.PackageExplorer?after=additions">
-         <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <!-- submit:start -->
-         <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push"/>
+         <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <!-- submit:end -->
-         <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+         <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
       </menuContribution>
       <menuContribution locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?after=additions">
-         <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push"/>
+         <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <!-- submit:start -->
-         <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push"/>
+         <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <!-- submit:end -->
-         <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
+         <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
       </menuContribution>
    </extension>
 

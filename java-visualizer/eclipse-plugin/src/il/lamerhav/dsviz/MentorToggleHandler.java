@@ -20,6 +20,12 @@ public class MentorToggleHandler extends AbstractHandler {
     public Object execute(ExecutionEvent event) throws ExecutionException {
         boolean on = !HandlerUtil.toggleCommandState(event.getCommand());
         MentorParticipant.setEnabled(on);
+        rebuild(on && Power.on());
+        return null;
+    }
+
+    /** בנייה מחדש של כל פרויקטי ה-Java — כדי שההערות בעברית יופיעו (on) או ייעלמו */
+    static void rebuild(final boolean on) {
         WorkspaceJob job = new WorkspaceJob(on ? "מבני נתונים — מוסיף הסברים בעברית" : "מבני נתונים — מסיר את ההסברים בעברית") {
             @Override
             public IStatus runInWorkspace(IProgressMonitor monitor) throws CoreException {
@@ -31,6 +37,5 @@ public class MentorToggleHandler extends AbstractHandler {
         };
         job.setRule(ResourcesPlugin.getWorkspace().getRuleFactory().buildRule());
         job.schedule();
-        return null;
     }
 }

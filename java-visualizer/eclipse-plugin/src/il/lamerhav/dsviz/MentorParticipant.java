@@ -51,7 +51,7 @@ public class MentorParticipant extends CompilationParticipant {
 
     @Override
     public boolean isActive(IJavaProject project) {
-        return enabled();
+        return Power.on();   // גם בלי ההסברים בעברית: ה-import האוטומטי של פעולות העזר (AutoImport)
     }
 
     @Override
@@ -63,6 +63,8 @@ public class MentorParticipant extends CompilationParticipant {
             if (ast == null) return;
             IProblem[] problems = context.getProblems(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER);
             if (problems == null) problems = ast.getProblems();
+            AutoImport.check(wc, problems);
+            if (!enabled()) return;
             List<Mentor.Finding> fs = Mentor.analyze(ast, wc.getSource(), problems);
             context.putProblems(MentorProblem.MARKER, problems(fs, wc.getPath().toString().toCharArray()));
         } catch (Throwable e) {
@@ -72,6 +74,7 @@ public class MentorParticipant extends CompilationParticipant {
 
     @Override
     public void buildStarting(BuildContext[] files, boolean isBatch) {
+        if (!enabled()) return;
         try {
             final Map<ICompilationUnit, BuildContext> units = new LinkedHashMap<ICompilationUnit, BuildContext>();
             IJavaProject project = null;
