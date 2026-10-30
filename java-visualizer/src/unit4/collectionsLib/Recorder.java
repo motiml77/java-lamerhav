@@ -57,6 +57,12 @@ final class Recorder {
     static boolean active = Boolean.getBoolean("dsviz.visual") || Boolean.getBoolean(LineByLine.CHILD_PROPERTY);
     /** Viz.off() / Viz.on() */
     static boolean enabled = true;
+
+    /** בלי חלון (למשל נעילה לתשלום): מפסיקים לתעד, וה-Tracer מפסיק לעצור בכל שורה — התוכנית רצה במהירות רגילה */
+    static void stopVisual() {   // בלי LOCK: נקרא מחלון ה-Swing, ובזמן הזה התוכנית יכולה להחזיק אותו
+        enabled = false;
+        linesFull = true;
+    }
     static boolean textMode = false;
     /** מצב "שורה אחר שורה": מופעל ע"י LineByLine בתהליך שרץ תחת JdiTracer */
     static boolean lineMode = false;
@@ -344,6 +350,8 @@ final class Recorder {
     private static List<View> lineArrays = new ArrayList<View>();
     // מצב שורה-שורה: משתני המחרוזת של השורה האחרונה, עם מה שהשורה עושה בהם (StringViz)
     private static List<View> lineStrings = new ArrayList<View>();
+    // מצב שורה-שורה: הלולאות שהשורה האחרונה בתוכן (LoopViz)
+    private static List<View> lineLoops = new ArrayList<View>();
     private static Map<String, List<String>> lastLineArrays = new HashMap<String, List<String>>();
     /**
      * section = מערכים מופרדים ב-\u0001: שמות \u0002 ממדים \u0002 נתונים (שורות ב-\u0007, איברים ב-\u0006).
@@ -774,6 +782,7 @@ final class Recorder {
 
         // --- מערכים (במצב שורה-שורה: כפי שנקראו בשורה האחרונה, כי מערך משתנה גם בלי הספרייה)
         if (lineMode) {
+            views.addAll(lineLoops);
             views.addAll(lineStrings);
             for (View v : lineArrays) views.add(refreshSubs(v, target, mark, ghost));
         }
@@ -1235,6 +1244,11 @@ final class Recorder {
         } catch (RuntimeException e) {
             lineStrings = new ArrayList<View>();   // מחרוזות לא מוצגות — שאר ההרצה ממשיכה
         }
+        try {
+            lineLoops = LoopViz.views(frames, vars);
+        } catch (RuntimeException e) {
+            lineLoops = new ArrayList<View>();
+        }
         String code = f == null ? null : SourceFiles.line(f);
         // הקוד עצמו בתוך "הטבעה" משמאל לימין (\u202A...\u202C), כדי שלא יתהפך בתוך הטקסט העברי
         String text = f == null ? "שורה" : "שורה " + f.line + ":   \u202A" + (code == null ? f.method + "()" : code.trim()) + "\u202C";
@@ -1342,6 +1356,28 @@ final class Recorder {
             for (Map.Entry<Integer, List<String>> e : new java.util.TreeMap<Integer, List<String>>(sv.arrows).entrySet())
                 b.append(" ↑").append(e.getKey()).append(e.getValue());
             for (String o : sv.ops) b.append("  ").append(o.replace(StringViz.NOTE, "  — "));
+            return b.toString();
+        }
+        if (v instanceof Model.LoopView) {   // for (int i = 0; i < 5; i++) סיבוב 3, i=2 [0,1,(2),3,4], תנאי: 2 < 5 → true
+            Model.LoopView l = (Model.LoopView) v;
+            StringBuilder b = new StringBuilder(l.header).append(" סיבוב ").append(l.iteration);
+            if (l.var != null) b.append(", ").append(l.var).append('=').append(l.varValue);
+            if (!l.values.isEmpty()) {
+                b.append(" [");
+                for (int i = 0; i < l.values.size(); i++) b.append(i == 0 ? "" : ",").append(i == l.currentIndex ? "(" + l.values.get(i) + ")" : l.values.get(i));
+                b.append(']');
+            }
+            if (l.done) b.append(" הסתיימה");
+            if (!l.cond.isEmpty()) b.append(", תנאי: ").append(l.condValues.isEmpty() ? l.cond : l.condValues).append(l.condResult == null ? "" : " → " + l.condResult);
+            return b.toString();
+        }
+        if (v instanceof Model.LoopGridView) {
+            Model.LoopGridView g = (Model.LoopGridView) v;
+            StringBuilder b = new StringBuilder();
+            for (int r = 0; r < g.rows.size(); r++) {
+                b.append(r == 0 ? "" : "/");
+                for (int c : g.cells.get(r)) b.append(".-xO".charAt(c));
+            }
             return b.toString();
         }
         if (v instanceof ObjView) {

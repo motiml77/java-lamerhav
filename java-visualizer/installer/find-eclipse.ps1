@@ -1,4 +1,4 @@
-# מחפש התקנות Eclipse (עם JDT — Eclipse ל-Java) במחשב: תהליכי Eclipse שרצים, ואחר כך סריקה של התיקיות הרגילות ושל כל הכוננים.
+﻿# מחפש התקנות Eclipse (עם JDT — Eclipse ל-Java) במחשב: תהליכי Eclipse שרצים, ואחר כך סריקה של התיקיות הרגילות ושל כל הכוננים.
 # כותב את התיקיות (שבהן eclipse.exe) לקובץ שמקבל כפרמטר, בקידוד UTF-16 (נתיבים בעברית). לא מתקין כלום.
 param([string]$Out)
 $ErrorActionPreference = 'SilentlyContinue'

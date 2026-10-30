@@ -14,6 +14,8 @@
 //   POST /v1/repair     application/json: {client, language, exercise, files:{שם: קוד}, errors:[...]}
 //   language: "java" (ברירת מחדל) או "csharp"
 //   GET  /v1/health
+//   POST /v1/license    application/json: {client, machine, code} → {ok, locked, licensed, message, payUrl}
+//                       נעילה לתשלום של התצוגה הוויזואלית: כבויה כל עוד PAYWALL לא "on" (ראו README.md — "נעילה לתשלום")
 
 import { Buffer } from 'node:buffer';
 import { systemPrompt, repairPrompt, language, RESPONSE_SCHEMA } from './prompt.js';
@@ -63,6 +65,7 @@ async function handle(request, env, ctx) {
     return reply(200, { ok: true, service: 'dsviz-exercise', models: models(env) });
   }
   if (request.method !== 'POST') throw new Fail(405, 'method', 'רק POST');
+  if (url.pathname === '/v1/license') return reply(200, await license(request, env));
   if (url.pathname !== '/v1/exercise' && url.pathname !== '/v1/repair') throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
 
   if (env.APP_KEY && request.headers.get('x-dsviz-key') !== env.APP_KEY) throw new Fail(401, 'key', 'השרת לא מכיר את התוסף הזה (מפתח שגוי). עדכנו את התוסף.');
@@ -82,6 +85,39 @@ async function handle(request, env, ctx) {
   const exercise = check(result.data, req.previous);
   exercise.language = req.lang;
   return reply(200, { ok: true, model: result.model, exercise });
+}
+
+// ------------------------------------------------------------------ נעילה לתשלום (התצוגה הוויזואלית)
+//
+// PAYWALL = "on" — נועלים; כל ערך אחר (או בלי) — פתוח לכולם (ברירת המחדל).
+// קוד רישיון: DSV-<מזהה>-<חתימה>; החתימה = 16 התווים הראשונים (hex) של HMAC-SHA256(LICENSE_SECRET, מזהה).
+//   יוצרים קוד: LICENSE_SECRET=... node tools/license.mjs <מזהה, למשל מספר קבלה או כתובת מייל>
+// REVOKED = מזהים מבוטלים, מופרדים בפסיק. PAYWALL_MESSAGE / PAY_URL — ההודעה והקישור לתשלום שמוצגים לתלמיד.
+
+const DEFAULT_LOCK_MESSAGE = 'התצוגה הוויזואלית דורשת רישיון. אפשר להמשיך לעבוד ולהריץ כרגיל ב-Eclipse — רק החלון הוויזואלי נעול.';
+
+export async function licenseSignature(secret, id) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(id)));
+  return Array.from(sig.slice(0, 8), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** בודק קוד רישיון: מחזיר את המזהה אם הוא תקין (ולא בוטל), אחרת null */
+export async function verifyLicense(env, code) {
+  const m = /^DSV-([A-Za-z0-9._@+-]{1,80})-([0-9a-f]{16})$/.exec(String(code || '').trim());
+  if (!m || !env.LICENSE_SECRET) return null;
+  const revoked = String(env.REVOKED || '').split(',').map(x => x.trim()).filter(Boolean);
+  if (revoked.includes(m[1])) return null;
+  return (await licenseSignature(env.LICENSE_SECRET, m[1])) === m[2] ? m[1] : null;
+}
+
+async function license(request, env) {
+  let body = {};
+  try { body = await request.json() || {}; } catch (e) { body = {}; }
+  if (String(env.PAYWALL || '').toLowerCase() !== 'on') return { ok: true, locked: false, licensed: false };
+  const id = await verifyLicense(env, body.code);
+  if (id) return { ok: true, locked: false, licensed: true };
+  return { ok: true, locked: true, licensed: false, message: env.PAYWALL_MESSAGE || DEFAULT_LOCK_MESSAGE, payUrl: env.PAY_URL || '' };
 }
 
 // ------------------------------------------------------------------ בקשת תרגיל: קבצים + טקסט

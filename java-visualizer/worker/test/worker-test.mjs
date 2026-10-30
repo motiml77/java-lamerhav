@@ -218,4 +218,30 @@ await test('קובץ גדול (8MB) — הבקשה נבנית בלי JSON.string
   console.log(`   (8MB: ${ms.toFixed(0)}ms בסך הכול, כולל בניית FormData בבדיקה)`);
 });
 
+// ------------------------------------------------------------------ נעילה לתשלום
+const { licenseSignature } = await import('../src/index.js');
+function licenseRequest(body) {
+  return new Request('https://w.example/v1/license', { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
+}
+await test('רישיון: בלי PAYWALL — פתוח לכולם (גם בלי קוד, וגם בלי מפתח-אפליקציה)', async () => {
+  const r = await call(licenseRequest({ machine: 'm1' }), { ...ENV, APP_KEY: 'secret-app' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.locked, false);
+});
+await test('רישיון: PAYWALL=on — נעול בלי קוד / עם קוד שגוי / מבוטל, ופתוח עם קוד תקין', async () => {
+  const env = { ...ENV, PAYWALL: 'on', LICENSE_SECRET: 's3cret', PAY_URL: 'https://pay.example', REVOKED: 'bad@x.com' };
+  let r = await call(licenseRequest({ machine: 'm1' }), env);
+  assert.equal(r.body.locked, true);
+  assert.equal(r.body.payUrl, 'https://pay.example');
+  assert.ok(r.body.message.length > 10);
+  r = await call(licenseRequest({ code: 'DSV-dana@x.com-0000000000000000' }), env);
+  assert.equal(r.body.locked, true);
+  const good = 'DSV-dana@x.com-' + await licenseSignature('s3cret', 'dana@x.com');
+  r = await call(licenseRequest({ code: good }), env);
+  assert.equal(r.body.locked, false);
+  assert.equal(r.body.licensed, true);
+  r = await call(licenseRequest({ code: 'DSV-bad@x.com-' + await licenseSignature('s3cret', 'bad@x.com') }), env);
+  assert.equal(r.body.locked, true);
+});
+
 console.log(`\n${n} בדיקות עברו`);

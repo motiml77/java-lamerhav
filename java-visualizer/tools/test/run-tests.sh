@@ -43,6 +43,20 @@ U="$W/userclass/out.txt"
     && grep -q "השוני הראשון במקום 2" "$U" && grep -q "הפעולה toString מחזירה" "$U" \
     && echo "מחלקות של התלמיד ומחרוזות: כרטיסים, ותיאור הפעולות על מחרוזות (charAt / substring / compareTo) — בלי לולאה בגלל toString" \
     || { echo "נכשל: מחלקות של התלמיד / מחרוזות"; tail -30 "$U"; exit 1; }
+# לולאות: for, מקוננות (גם j < i), while, do-while, for-each — מספר הסיבוב, התנאי עם הערכים, וסרגל הערכים
+mkdir -p "$W/loops"
+javac -g -encoding UTF-8 -nowarn -d "$W/loops" loops/loops/Main.java
+(cd "$W/loops" && cp -r "$OLDPWD/loops/loops" . && timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -Ddsviz.visual=true \
+    -cp ".:$JAR" unit4.collectionsLib.LineByLine loops.Main > out.txt 2>&1)
+L2="$W/loops/out.txt"
+grep -q "for (int i = 0; i < 4; i++) סיבוב 2, i=1 \[0,(1),2,3\], תנאי: 1 < 4 → true" "$L2" \
+    && grep -q "לולאה פנימית: for (int j = 0; j < i; j++) סיבוב 2, j=1 \[0,(1)\]" "$L2" \
+    && grep -qF "הזוגות (i, j): ../x./xO" "$L2" \
+    && grep -q "while (n > 1) סיבוב 3, תנאי: 5 > 1 → true" "$L2" \
+    && grep -q "do { ... } while (k > 0) סיבוב 3, תנאי: 0 > 0 → false" "$L2" \
+    && grep -q "for (int x : arr) סיבוב 2" "$L2" \
+    && echo "לולאות: סיבובים, תנאי עם ערכים, סרגל הערכים, וטבלת הזוגות של לולאות מקוננות" \
+    || { echo "נכשל: לולאות"; grep "לולאה\|הזוגות" "$L2" | head -20; exit 1; }
 # פעולות העזר size / duplicate (תיבות V בחלונות): נכונות, לא פוגעות במבנה, ורצות גם בהרצה ויזואלית
 mkdir -p "$W/helpers"
 node helpers-test.js "$W/helpers"

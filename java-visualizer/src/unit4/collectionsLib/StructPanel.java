@@ -26,6 +26,8 @@ import unit4.collectionsLib.Model.ChainView;
 import unit4.collectionsLib.Model.LinearView;
 import unit4.collectionsLib.Model.ArrayView;
 import unit4.collectionsLib.Model.StringView;
+import unit4.collectionsLib.Model.LoopView;
+import unit4.collectionsLib.Model.LoopGridView;
 import unit4.collectionsLib.Model.MatrixView;
 import unit4.collectionsLib.Model.Mark;
 import unit4.collectionsLib.Model.Obj;
@@ -195,6 +197,24 @@ final class StructPanel extends JPanel {
             }
             return new Dimension(textWidth(t, TITLE) + 2 * PAD, 90);
         }
+        // לולאות: כרטיס לכל לולאה (הפנימית מוזחת מתחת לחיצונית), ולידן טבלת הזוגות של לולאות מקוננות
+        int loopsH = 0, lx = PAD;
+        for (View v : step.views) {
+            if (!(v instanceof LoopView)) continue;
+            Dimension d = drawLoop(g, (LoopView) v, PAD, y + loopsH);
+            loopsH += d.height + 8;
+            lx = Math.max(lx, PAD + d.width);
+            maxX = Math.max(maxX, PAD + d.width);
+        }
+        int gx = lx + GAP, gridH = 0;
+        for (View v : step.views) {
+            if (!(v instanceof LoopGridView)) continue;
+            Dimension d = drawLoopGrid(g, (LoopGridView) v, gx, y);
+            gx += d.width + GAP;
+            gridH = Math.max(gridH, d.height);
+            maxX = Math.max(maxX, gx);
+        }
+        if (loopsH > 0 || gridH > 0) y += Math.max(loopsH, gridH) + GAP / 2;
         // מערכים: זה ליד זה כל עוד יש מקום ברוחב החלון
         int avail = viewportWidth() > 200 ? viewportWidth() - PAD : 900;
         int ax = PAD, arrRow = 0;
@@ -273,6 +293,158 @@ final class StructPanel extends JPanel {
     private Dimension measure(View v) {
         if (v instanceof StringView) return drawStringView(null, (StringView) v, 0, 0);
         return v instanceof ArrayView ? drawArray(null, (ArrayView) v, 0, 0) : drawMatrix(null, (MatrixView) v, 0, 0);
+    }
+
+    // ------------------------------------------------------------ לולאות
+
+    private static final Color[] LOOP_C = { new Color(0x2F6FED), new Color(0x7C3AED), new Color(0x0E9F6E), new Color(0xD97706) };
+    private static final Color DONE_BG = new Color(0xDDF4E4), DONE_LINE = new Color(0x7CC79A), TODO_BG = new Color(0xF7F8FA);
+
+    /**
+     * כרטיס לולאה: הכותרת (קוד), מספר הסיבוב, התנאי — עם הערכים ומה יצא (צבוע צהוב כשבודקים אותו עכשיו),
+     * וב-for שסופר: "סרגל" הערכים — מה כבר עבר (ירוק), איפה עכשיו (כחול, עם שם המשתנה), מה נשאר, ו"יציאה" בסוף.
+     */
+    private Dimension drawLoop(Graphics2D g, LoopView v, int x0, int y) {
+        int x = x0 + v.depth * 26;
+        Color accent = LOOP_C[v.depth % LOOP_C.length];
+        Font mono = Theme.mono.deriveFont(Font.BOLD, 13f), monoP = Theme.mono.deriveFont(13f);
+        String badge = v.iteration > 0 ? "סיבוב " + v.iteration : "לפני הסיבוב הראשון";
+        String cond = v.cond.isEmpty() ? null : v.cond + (v.condValues.isEmpty() ? "" : "   →   " + v.condValues);
+        String res = v.condResult == null ? null : String.valueOf(v.condResult);
+        int cw = 34, ch = 30, n = v.values.size();
+        int trackW = n == 0 ? 0 : (n + 1) * cw + 10;
+        int lblW = textWidth("בודקים — יוצאים מהלולאה", SMALL_B);
+        int w = Math.max(320, 24 + Math.max(textWidth(v.header, mono) + textWidth(badge, SMALL_B) + textWidth(v.title, SMALL) + 64,
+                Math.max(cond == null ? 0 : textWidth(cond, monoP) + lblW + 40 + (res == null ? 0 : textWidth("→  " + res, mono) + 20), trackW)));
+        int h = 14 + 22 + (cond != null ? 28 : 0) + (n > 0 ? 22 + ch + 20 : v.var != null ? 22 : 0) + 8;
+        if (g == null) return new Dimension(w + (x - x0), h);
+
+        // מסגרת עם פס צבע (לפי עומק הקינון)
+        g.setColor(Color.WHITE);
+        g.fillRoundRect(x, y, w, h, 12, 12);
+        g.setColor(v.focus ? accent : BOX_LINE);
+        g.setStroke(v.focus ? new BasicStroke(2f) : THIN);
+        g.drawRoundRect(x, y, w, h, 12, 12);
+        g.setColor(accent);
+        g.fillRoundRect(x, y, 6, h, 6, 6);
+        int cy = y + 14;
+        // שורה 1: הכותרת (קוד) + תג הסיבוב + שם (לולאה חיצונית / פנימית)
+        g.setFont(mono);
+        g.setColor(INK);
+        g.drawString(v.header, x + 16, cy + 12);
+        int bw = textWidth(badge, SMALL_B) + 18, bx = x + w - bw - 10;
+        g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 28));
+        g.fillRoundRect(bx, cy - 2, bw, 22, 22, 22);
+        g.setColor(accent);
+        g.setFont(SMALL_B);
+        g.drawString(badge, bx + 9, cy + 13);
+        g.setFont(SMALL);
+        g.setColor(MUTED);
+        g.drawString(v.title, bx - 10 - textWidth(v.title, SMALL), cy + 13);
+        cy += 26;
+        // שורה 2: התנאי
+        if (cond != null) {
+            if (v.atHeader) {
+                g.setColor(READ_C);
+                g.fillRoundRect(x + 10, cy - 3, w - 20, 24, 8, 8);
+            }
+            String lbl = !v.atHeader ? "תנאי:" : v.condResult == null ? "בודקים:" : v.condResult ? "בודקים — ממשיכים" : "בודקים — יוצאים מהלולאה";
+            g.setFont(SMALL_B);
+            g.setColor(MUTED);
+            int lw = textWidth(lbl, SMALL_B);
+            g.drawString(lbl, x + w - 18 - lw, cy + 13);
+            g.setFont(monoP);
+            g.setColor(INK);
+            g.drawString(cond, x + 16, cy + 13);
+            if (res != null) {
+                int rx = x + 16 + textWidth(cond, monoP) + 12;
+                g.setFont(mono);
+                g.setColor(v.condResult ? new Color(0x15803D) : GHOST);
+                g.drawString("→  " + res, rx, cy + 13);
+            }
+            cy += 28;
+        }
+        // שורה 3: סרגל הערכים
+        if (n > 0) {
+            int tx = x + 16, top = cy + 18;
+            for (int i = 0; i <= n; i++) {
+                int bx2 = tx + i * cw;
+                boolean exit = i == n;
+                boolean now = i == v.currentIndex, past = v.done || v.currentIndex >= 0 && i < v.currentIndex;
+                if (exit) {
+                    box(g, bx2 + 4, top, cw + 10, ch, v.done ? GHOST_BG : TODO_BG, null, true);
+                    g.setColor(v.done ? GHOST : MUTED);
+                    center(g, "יציאה", SMALL, bx2 + 4 + (cw + 10) / 2, top + ch / 2);
+                    continue;
+                }
+                Color fill = now ? FOCUS_BG : past ? DONE_BG : TODO_BG;
+                g.setColor(fill);
+                g.fillRoundRect(bx2 + 1, top + 1, cw - 2, ch - 2, ARC, ARC);
+                g.setColor(now ? FOCUS : past ? DONE_LINE : BOX_LINE);
+                g.setStroke(now ? THICK : THIN);
+                g.drawRoundRect(bx2 + 1, top + 1, cw - 2, ch - 2, ARC, ARC);
+                g.setColor(past && !now ? new Color(0x15803D) : INK);
+                center(g, String.valueOf(v.values.get(i)), now ? SMALL_B : SMALL, bx2 + cw / 2, top + ch / 2);
+                if (now) labelStack(g, java.util.Collections.singletonList(v.var), bx2 + cw / 2, top - 2);
+            }
+        } else if (v.var != null) {
+            g.setFont(monoP);
+            g.setColor(INK);
+            g.drawString(v.var + " = " + v.varValue, x + 16, cy + 13);
+        }
+        return new Dimension(w + (x - x0), h);
+    }
+
+    /** טבלת הזוגות של שתי לולאות מקוננות: ירוק = כבר עבר, כחול = עכשיו, לבן = עוד יגיע, אפור = לא קיים (למשל j < i) */
+    private Dimension drawLoopGrid(Graphics2D g, LoopGridView v, int x, int y) {
+        int c = 26, rows = v.rows.size(), cols = v.cols.size(), head = 30;
+        int w = head + cols * c + 12, h = TITLE_H + head + rows * c + 8;
+        w = Math.max(w, titleWidth(v.title, "כל המעברים"));
+        if (g == null) return new Dimension(w, h);
+        drawTitle(g, v.title, "כל המעברים", x, y, true);
+        int top = y + TITLE_H + head, left = x + head;
+        g.setFont(SMALL_B);
+        g.setColor(LOOP_C[1]);
+        for (int j = 0; j < cols; j++) center(g, String.valueOf(v.cols.get(j)), SMALL, left + j * c + c / 2, top - head / 2);
+        g.setColor(LOOP_C[0]);
+        for (int i = 0; i < rows; i++) center(g, String.valueOf(v.rows.get(i)), SMALL, x + head / 2, top + i * c + c / 2);
+        g.setColor(LOOP_C[0]);
+        g.setFont(SMALL_B);
+        // בפינה: "i \ j" — השורות לפי i, העמודות לפי j
+        g.drawString(v.rowVar, x + 1, top - 3);
+        g.setColor(MUTED);
+        g.drawString("\\", x + 1 + textWidth(v.rowVar, SMALL_B), top - 3 - 5);
+        g.setColor(LOOP_C[1]);
+        g.drawString(v.colVar, x + 1 + textWidth(v.rowVar + "\\", SMALL_B), top - 3 - 10);
+        for (int i = 0; i < rows; i++) {
+            int[] st = v.cells.get(i);
+            for (int j = 0; j < cols; j++) {
+                int cx = left + j * c, cy = top + i * c;
+                switch (st[j]) {
+                    case LoopGridView.NONE:
+                        g.setColor(new Color(0xEEF0F4));
+                        g.fillRect(cx + 2, cy + 2, c - 4, c - 4);
+                        break;
+                    case LoopGridView.DONE:
+                        g.setColor(DONE_BG);
+                        g.fillRoundRect(cx + 1, cy + 1, c - 2, c - 2, 6, 6);
+                        g.setColor(new Color(0x15803D));
+                        center(g, "✓", SMALL_B, cx + c / 2, cy + c / 2);
+                        break;
+                    case LoopGridView.NOW:
+                        g.setColor(FOCUS);
+                        g.fillRoundRect(cx + 1, cy + 1, c - 2, c - 2, 6, 6);
+                        break;
+                    default:
+                        g.setColor(Color.WHITE);
+                        g.fillRoundRect(cx + 1, cy + 1, c - 2, c - 2, 6, 6);
+                        g.setColor(BOX_LINE);
+                        g.setStroke(THIN);
+                        g.drawRoundRect(cx + 1, cy + 1, c - 2, c - 2, 6, 6);
+                }
+            }
+        }
+        return new Dimension(w, h);
     }
 
     // ------------------------------------------------------------ מחרוזת

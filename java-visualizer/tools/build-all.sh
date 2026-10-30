@@ -91,8 +91,13 @@ cp release/dsviz.jar "$P/lib/"
 echo "== Windows installer (DSViz-Setup.exe)"
 if command -v makensis >/dev/null 2>&1; then
     tools/build-jre.sh   # Java 21 מקוצרת ל-Windows שנכנסת לתוך ההתקנה
-    (cd installer && makensis -V2 -DVERSION=$VERSION setup.nsi)
+    BUILDNO=$(date -u +%Y%m%d%H%M)   # מספר הבנייה — העדכון האוטומטי מתקין כל בנייה חדשה יותר
+    (cd installer && makensis -V2 -DVERSION=$VERSION -DBUILDNO=$BUILDNO setup.nsi)
     echo "release/DSViz-Setup.exe"
+    # מה העדכון האוטומטי (installer/update.ps1) בודק: הגרסה, מספר הבנייה, והקובץ (עם SHA-256 — כדי לוודא שהורד שלם)
+    printf '{\n  "version": "%s",\n  "build": %s,\n  "url": "https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe",\n  "sha256": "%s"\n}\n' \
+        "$VERSION" "$BUILDNO" "$(sha256sum release/DSViz-Setup.exe | cut -d' ' -f1)" > release/version.json
+    echo "release/version.json (build $BUILDNO)"
 else
     echo "makensis לא מותקן (apt install nsis) — DSViz-Setup.exe לא נבנה מחדש"
 fi
