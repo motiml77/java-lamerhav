@@ -36,6 +36,8 @@ python3 tools/make-vs-template.py build/cs-lib/Unit4.CollectionsLib.dll csharp/p
 echo "== סרטוני הדרכה (הכפתור ?): help/ → תוסף Eclipse, תוסף VS Code, ההתקנה"
 node tools/build-help.js
 rm -rf build/help && mkdir -p build/help && cp help/index.html help/player.html help/tutorials.json help/*.mp4 help/*.jpg build/help/ 2>/dev/null || true
+# לכל סביבה הסרטונים שלה: help/ (Eclipse), help/vscode/, help/vs/ (Visual Studio) — בהתקנה כולם, וכל כלי פותח את התיקייה שלו
+for d in vscode vs; do [ -d help/$d ] && mkdir -p build/help/$d && cp help/$d/index.html help/$d/player.html help/$d/tutorials.json help/$d/*.mp4 help/$d/*.jpg build/help/$d/ 2>/dev/null || true; done
 
 echo "== Eclipse"
 DEPS=build/eclipse-deps
@@ -74,11 +76,12 @@ rm -rf resources && mkdir -p resources/examples
 cp ../release/dsviz.jar resources/
 cp ../src/examples/*.java resources/examples/
 cp -R ../build/cs-resources resources/cs
-rm -rf resources/help && mkdir -p resources/help && cp ../build/help/* resources/help/ 2>/dev/null || true
+HELPSRC=../build/help; [ -f ../build/help/vscode/index.html ] && HELPSRC=../build/help/vscode   # הסרטונים של VS Code
+rm -rf resources/help && mkdir -p resources/help && cp $HELPSRC/* resources/help/ 2>/dev/null || true
 npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/release/dsviz-$VERSION.vsix"
 rm -rf resources/help
 npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/build/light/dsviz-$VERSION.vsix"
-mkdir -p resources/help && cp ../build/help/* resources/help/ 2>/dev/null || true   # חזרה לצורה המלאה (לבדיקות)
+mkdir -p resources/help && cp $HELPSRC/* resources/help/ 2>/dev/null || true   # חזרה לצורה המלאה (לבדיקות)
 cd "$ROOT"
 
 echo "== project template (תיקיית התרגילים שההתקנה יוצרת)"

@@ -426,7 +426,8 @@ async function openHelp(id) {
     let dir = path.join(ctx.extensionPath, 'resources', 'help');
     if (!fs.existsSync(dir)) {   // התוסף שההתקנה שמה — הסרטונים שמורים פעם אחת בתיקייה help של ההתקנה
         const base = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DSViz') : path.join(require('os').homedir(), 'DSViz');
-        if (fs.existsSync(path.join(base, 'help', 'index.html'))) dir = path.join(base, 'help');
+        if (fs.existsSync(path.join(base, 'help', 'vscode', 'index.html'))) dir = path.join(base, 'help', 'vscode');   // הסרטונים של VS Code
+        else if (fs.existsSync(path.join(base, 'help', 'index.html'))) dir = path.join(base, 'help');
     }
     if (!fs.existsSync(dir) || !vscode.window.createWebviewPanel) {
         vscode.window.showWarningMessage('סרטוני ההדרכה לא נמצאו בהתקנה הזאת.');

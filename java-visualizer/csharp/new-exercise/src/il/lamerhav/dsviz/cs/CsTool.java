@@ -730,15 +730,17 @@ public final class CsTool {
         { "b", "\u200F02  ·  דוגמאות פתורות", "פותחים תרגיל מוכן מהרשימה, קוראים את הפתרון, ומריצים אותו בחלון ההדמיה — צעד אחרי צעד." },
         { "c", "\u200F03  ·  מבנה בתוך מבנה", "שלוש דוגמאות: מחסנית של תורים, רשימה של מחסניות ועץ של תורים — יצירת התרגיל וההרצה הוויזואלית." },
         { "d", "\u200F04  ·  מוסיפים התאמות לתרגיל", "אחרי שהתרגיל נוצר: מוסיפים ידנית מבנה נוסף, משתנה x ומערך — ורואים שגם הם מופיעים בהדמיה." },
+        { "e", "\u200F05  ·  שליחת תרגיל והצעה לפתרון", "מעלים את דף התרגיל — צילום מסך (Ctrl+V), PDF או Word — ומקבלים קוד מוכן עם פעולה לכל סעיף; ולכל סעיף \"💡 הצעה לפתרון\" שנבדקה." },
     };
 
-    /** התיקייה help — ליד dsviz.jar (בהתקנה: ‎%ProgramFiles%\DSViz\help), או לפי -Ddsviz.help */
+    /** התיקייה help\vs (הסרטונים של Visual Studio) — ליד dsviz.jar (בהתקנה: ...\DSViz\help\vs), או לפי -Ddsviz.help */
     static Path helpDir() {
         String prop = System.getProperty("dsviz.help");
         if (prop != null) return Paths.get(prop);
         try {
             Path jar = Paths.get(CsTool.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-            return jar.getParent().resolve("help");
+            Path vs = jar.getParent().resolve("help").resolve("vs");   // הסרטונים של Visual Studio (C#)
+            return Files.isDirectory(vs) ? vs : jar.getParent().resolve("help");
         } catch (Exception e) {
             return Paths.get("help");
         }
