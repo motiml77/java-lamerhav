@@ -97,7 +97,7 @@ final class Viewer extends JFrame {
     /** לשונית "רקורסיה" רק בתרגיל ברקורסיה: בקובץ התרגיל כתוב "רקורסיה" (בהערה — כך נוצר תרגיל ברקורסיה) */
     private boolean checkedExercise, recursionExercise;
     private JComponent viewTabsBox;
-    private final JToggleButton mainBtn = new JToggleButton("גם main");
+    private final JToggleButton mainBtn = new SwitchButton("להציג גם main");
     private int angle;
     private boolean finished;
     private final Spin busy = new Spin(true);
@@ -106,11 +106,11 @@ final class Viewer extends JFrame {
     // ------------------------------------------------------------ רכיבים
 
     private final JSlider timeline = new JSlider(0, 0, 0);
-    private final JLabel counter = new JLabel(" ");
+    private final StepBadge counter = new StepBadge();
     private final JButton prevBtn, nextBtn, playBtn;
     private final JSlider speed = new JSlider(1, 10, 6);
     private final JPanel modePanel;
-    private final JToggleButton allBtn = new JToggleButton("כל שורה"), opsBtn = new JToggleButton("רק פעולות");
+    private final JToggleButton allBtn = new SegButton("כל שורה"), opsBtn = new SegButton("רק פעולות");
     private final Timer player;
 
 
@@ -127,7 +127,7 @@ final class Viewer extends JFrame {
     private final StructPanel miniStructs = new StructPanel();
     private final JPanel miniBox = new JPanel(new BorderLayout());
     private final JPanel viewPages = new JPanel(new java.awt.CardLayout());
-    private final JToggleButton structTab = new JToggleButton("מבנים"), recTab = new JToggleButton("רקורסיה");
+    private final JToggleButton structTab = new SegButton("מבנים"), recTab = new SegButton("רקורסיה");
     private JComponent zoomBox;
     private boolean recursionShown, userChoseView;
     private final JLabel zoomLabel = new JLabel("100%");
@@ -184,36 +184,29 @@ final class Viewer extends JFrame {
             }
         });
 
-        counter.setFont(Theme.uiBold);
-        counter.setForeground(Theme.TEXT);
         ButtonGroup g = new ButtonGroup();
-        for (JToggleButton b : new JToggleButton[] { allBtn, opsBtn }) {
-            g.add(b);
-            b.setFocusable(false);
-            b.setFont(Theme.small);
-            b.putClientProperty("JButton.buttonType", "toolBarButton");
-            b.putClientProperty("FlatLaf.style", "selectedBackground: #FFFFFF; selectedForeground: #2F6FED; arc: 10;"
-                    + " margin: 3,10,3,10; toolbar.hoverBackground: #E3E7EE");
-        }
+        for (JToggleButton b : new JToggleButton[] { allBtn, opsBtn }) g.add(b);
         allBtn.setSelected(true);
         allBtn.setToolTipText("כל שורה בקוד היא צעד — עם המשתנים");
         opsBtn.setToolTipText("רק הצעדים שמשנים או קוראים מבנה (push, insert, setNext...)");
         allBtn.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setOnlyOps(false); } });
         opsBtn.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setOnlyOps(true); } });
-        modePanel = new Pill(new Color(0xE6E9EF));
-        modePanel.setLayout(new FlowLayout(FlowLayout.CENTER, 2, 2));
+        modePanel = new Pill(new Color(0xEDF0F5), Theme.BORDER);
+        modePanel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        modePanel.setBorder(BorderFactory.createEmptyBorder(3, 3, 3, 3));
         modePanel.add(allBtn);
         modePanel.add(opsBtn);
         modePanel.setVisible(false);
 
-        JPanel info = row(12);
+        // פס המידע: מספר הצעד, "כל שורה / רק פעולות", ומתג "להציג גם main" — בתוך מסגרת לבנה אחת
+        JPanel info = new Pill(Color.WHITE, Theme.BORDER);
+        info.setLayout(new FlowLayout(FlowLayout.LEADING, 0, 0));
+        info.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
         info.add(busy);
         info.add(counter);
+        info.add(new Divider(modePanel));
         info.add(modePanel);
-        mainBtn.setFocusable(false);
-        mainBtn.setFont(Theme.small);
-        mainBtn.putClientProperty("JButton.buttonType", "toolBarButton");
-        mainBtn.putClientProperty("FlatLaf.style", "selectedBackground: #E8F0FE; selectedForeground: #2F6FED; arc: 10; margin: 3,10,3,10");
+        info.add(new Divider(mainBtn));
         mainBtn.setToolTipText("להציג גם את הצעדים של main (בניית המבנים — המעטפת). בלי זה המעקב מתחיל בפעולה שכתבתם");
         mainBtn.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -429,11 +422,6 @@ final class Viewer extends JFrame {
         ButtonGroup g = new ButtonGroup();
         for (JToggleButton b : new JToggleButton[] { structTab, recTab }) {
             g.add(b);
-            b.setFocusable(false);
-            b.setFont(Theme.small);
-            b.putClientProperty("JButton.buttonType", "toolBarButton");
-            b.putClientProperty("FlatLaf.style", "selectedBackground: #FFFFFF; selectedForeground: #2F6FED; arc: 10;"
-                    + " margin: 3,10,3,10; toolbar.hoverBackground: #E3E7EE");
         }
         structTab.setSelected(true);
         structTab.setToolTipText("המבנים (מחסנית, תור, רשימה, עץ, מערך) בצעד הזה");
@@ -444,8 +432,9 @@ final class Viewer extends JFrame {
         recTab.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) { userChoseView = true; showView(true); }
         });
-        JPanel p = new Pill(new Color(0xE6E9EF));
-        p.setLayout(new FlowLayout(FlowLayout.CENTER, 2, 2));
+        JPanel p = new Pill(new Color(0xEDF0F5), Theme.BORDER);
+        p.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        p.setBorder(BorderFactory.createEmptyBorder(3, 3, 3, 3));
         p.add(structTab);
         p.add(recTab);
         return p;
@@ -696,7 +685,7 @@ final class Viewer extends JFrame {
     }
 
     private void updateCounter() {
-        counter.setText(vis.isEmpty() ? "מחכה להרצה..." : "צעד " + (pos + 1) + " מתוך " + vis.size());
+        counter.set(vis.isEmpty() ? -1 : pos + 1, vis.size());
         prevBtn.setEnabled(pos > 0);
         nextBtn.setEnabled(pos < vis.size() - 1);
     }
@@ -736,6 +725,7 @@ final class Viewer extends JFrame {
         String key = f.packagePath() + f.file;
         if (!key.equals(codeKey)) {
             codeKey = key;
+            code.getHighlighter().removeAllHighlights();   // הסימון של הקובץ הקודם — אחרת הוא נשאר על השורה הראשונה
             codeHighlight = null;
             List<String> lines = SourceFiles.lines(f);
             if (lines == null) {
@@ -1037,12 +1027,13 @@ final class Viewer extends JFrame {
         }
     }
 
-    /** רקע מעוגל אפור — למתג "כל שורה / רק פעולות" */
+    /** רקע מעוגל (עם מסגרת דקה) — לפס המידע ולמתג "כל שורה / רק פעולות" */
     private static final class Pill extends JPanel {
-        private final Color bg;
+        private final Color bg, line;
 
-        Pill(Color bg) {
+        Pill(Color bg, Color line) {
             this.bg = bg;
+            this.line = line;
             setOpaque(false);
         }
 
@@ -1050,8 +1041,177 @@ final class Viewer extends JFrame {
         protected void paintComponent(Graphics g0) {
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int arc = Math.min(getHeight(), 16);
             g.setColor(bg);
-            g.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+            g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
+            if (line != null) {
+                g.setColor(line);
+                g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
+            }
+            g.dispose();
+        }
+    }
+
+    /** קו אנכי דק בין חלקי פס המידע — מוצג רק כשהחלק שאחריו מוצג */
+    private static final class Divider extends JComponent {
+        private final Component next;
+
+        Divider(Component next) {
+            this.next = next;
+        }
+
+        @Override
+        public boolean isVisible() {
+            return next.isVisible();
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(21, 26);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            g.setColor(Theme.BORDER);
+            g.fillRect(10, 4, 1, getHeight() - 8);
+        }
+    }
+
+    private static Graphics2D smooth(Graphics g0) {
+        Graphics2D g = (Graphics2D) g0.create();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        return g;
+    }
+
+    /** "צעד 27 מתוך 50": המספר הנוכחי מודגש בכחול. כל חלק מצויר לבד (מימין לשמאל) — כדי שהמספרים לא יקפצו */
+    private static final class StepBadge extends JComponent {
+        private int pos = -1, total;
+
+        void set(int pos, int total) {
+            this.pos = pos;
+            this.total = total;
+            revalidate();
+            repaint();
+        }
+
+        private String[] parts() {
+            return pos < 0 ? new String[] { "מחכה להרצה..." } : new String[] { "צעד", String.valueOf(pos), "מתוך", String.valueOf(total) };
+        }
+
+        private Font fontOf(int i) {
+            return pos >= 0 && i == 1 ? Theme.uiBold.deriveFont(Theme.uiBold.getSize2D() + 2f) : Theme.small;
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            String[] p = parts();
+            int w = 16;
+            for (int i = 0; i < p.length; i++) w += getFontMetrics(fontOf(i)).stringWidth(p[i]) + (i > 0 ? 6 : 0);
+            // רוחב קבוע לפי המספר הגדול ביותר — כדי שהפס לא "יקפוץ" בכל צעד
+            if (pos >= 0) w += Math.max(0, getFontMetrics(fontOf(1)).stringWidth(String.valueOf(total)) - getFontMetrics(fontOf(1)).stringWidth(p[1]));
+            return new Dimension(w, 30);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g0) {
+            Graphics2D g = smooth(g0);
+            String[] p = parts();
+            int x = getWidth() - 8, base = getHeight() / 2 + 5;
+            for (int i = 0; i < p.length; i++) {
+                Font f = fontOf(i);
+                g.setFont(f);
+                g.setColor(pos >= 0 && i == 1 ? Theme.ACCENT : pos >= 0 && i == 3 ? Theme.TEXT : Theme.MUTED);
+                int w = g.getFontMetrics().stringWidth(p[i]);
+                x -= w;
+                g.drawString(p[i], x, base);
+                x -= 6;
+            }
+            g.dispose();
+        }
+    }
+
+    /** כפתור במתג מקטעים: הנבחר — לבן עם טקסט כחול ומסגרת; האחר — טקסט אפור (כהה במעבר עכבר) */
+    private static final class SegButton extends JToggleButton {
+        SegButton(String text) {
+            super(text);
+            setFocusable(false);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setOpaque(false);
+            setFont(Theme.small);
+            setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(getFontMetrics(Theme.smallBold).stringWidth(getText()) + 28, 26);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g0) {
+            Graphics2D g = smooth(g0);
+            int w = getWidth(), h = getHeight();
+            boolean sel = isSelected();
+            if (sel) {
+                g.setColor(new Color(0, 0, 0, 18));   // צל עדין
+                g.fillRoundRect(1, 2, w - 2, h - 2, 12, 12);
+                g.setColor(Color.WHITE);
+                g.fillRoundRect(0, 0, w - 1, h - 2, 12, 12);
+                g.setColor(new Color(0xD3DAE6));
+                g.drawRoundRect(0, 0, w - 1, h - 2, 12, 12);
+            } else if (getModel().isRollover()) {
+                g.setColor(new Color(0xE2E6EE));
+                g.fillRoundRect(0, 0, w - 1, h - 2, 12, 12);
+            }
+            Font f = sel ? Theme.smallBold : Theme.small;
+            g.setFont(f);
+            g.setColor(sel ? Theme.ACCENT : getModel().isRollover() ? Theme.TEXT : Theme.MUTED);
+            java.awt.FontMetrics fm = g.getFontMetrics();
+            g.drawString(getText(), (w - fm.stringWidth(getText())) / 2, (h - 2 + fm.getAscent() - fm.getDescent()) / 2);
+            g.dispose();
+        }
+    }
+
+    /** מתג הפעלה (כמו בטלפון) עם תווית: כבוי — אפור; פועל — כחול. בעברית המתג מימין לתווית */
+    private static final class SwitchButton extends JToggleButton {
+        private static final int TW = 34, TH = 18;
+
+        SwitchButton(String text) {
+            super(text);
+            setFocusable(false);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setOpaque(false);
+            setFont(Theme.small);
+            setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(TW + 10 + getFontMetrics(Theme.small).stringWidth(getText()) + 8, 28);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g0) {
+            Graphics2D g = smooth(g0);
+            int w = getWidth(), h = getHeight(), tx = w - TW - 2, ty = (h - TH) / 2;
+            boolean on = isSelected();
+            g.setColor(on ? Theme.ACCENT : getModel().isRollover() ? new Color(0xB8C0CC) : new Color(0xCBD2DC));
+            g.fillRoundRect(tx, ty, TW, TH, TH, TH);
+            int k = TH - 4, kx = on ? tx + 2 : tx + TW - k - 2;   // פועל: העיגול זז שמאלה (בכיוון הקריאה)
+            g.setColor(new Color(0, 0, 0, 30));
+            g.fillOval(kx, ty + 3, k, k);
+            g.setColor(Color.WHITE);
+            g.fillOval(kx, ty + 2, k, k);
+            g.setFont(Theme.small);
+            g.setColor(on ? Theme.TEXT : Theme.MUTED);
+            java.awt.FontMetrics fm = g.getFontMetrics();
+            g.drawString(getText(), tx - 10 - fm.stringWidth(getText()), (h + fm.getAscent() - fm.getDescent()) / 2);
             g.dispose();
         }
     }
