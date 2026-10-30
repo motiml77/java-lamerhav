@@ -8,7 +8,12 @@ rm -rf "$OUT" && mkdir -p "$OUT" release
 javac --release 8 -Xlint:-options -encoding UTF-8 -d "$OUT" $(find src/unit4 -name '*.java' ! -name JdiTracer.java)
 javac --release 11 -encoding UTF-8 -cp "$OUT" -d "$OUT" src/unit4/collectionsLib/JdiTracer.java
 # החלונות של C# ל-Visual Studio / Rider ("תרגיל חדש", "הוסף מבנה נתונים") — אותו מחולל כמו ב-Eclipse (Scaffold) + המרה ל-C#
-javac --release 8 -Xlint:-options -encoding UTF-8 -cp "$OUT" -d "$OUT" eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java eclipse-plugin/src/il/lamerhav/dsviz/NameCheck.java eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java $(find csharp/new-exercise/src -name '*.java')
+# וגם "שליחת תרגיל" + "הצעה לפתרון" — אותו מנוע כמו ב-Eclipse (ExercisePipeline): לכלי של Visual Studio ול-VS Code (SubmitCli)
+E=eclipse-plugin/src/il/lamerhav/dsviz
+javac --release 8 -Xlint:-options -encoding UTF-8 -cp "$OUT" -d "$OUT" $E/Scaffold.java $E/NameCheck.java $E/CsSolution.java \
+    $E/Json.java $E/WorkerClient.java $E/ExerciseFiles.java $E/AiScaffold.java $E/SolutionCheck.java $E/SolutionStore.java $E/ExercisePipeline.java $E/SubmitCli.java \
+    $(find csharp/new-exercise/src -name '*.java')
+mkdir -p "$OUT/resources" && cp eclipse-plugin/ai.properties "$OUT/resources/"   # כתובת השרת של "שליחת תרגיל" (worker/README.md)
 # קוד המקור בתוך ה-jar תחת src/ (ולא ליד המחלקות) — כדי ש-javac לא יקמפל אותו מחדש בטעות.
 # התוסף של Eclipse מגדיר את src כשורש קוד המקור (Ctrl+לחיצה על Stack פותח את הקוד)
 mkdir -p "$OUT/src/unit4/collectionsLib"

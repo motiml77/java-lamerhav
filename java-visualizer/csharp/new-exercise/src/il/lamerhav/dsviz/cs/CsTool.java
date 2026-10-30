@@ -61,7 +61,7 @@ public final class CsTool {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println("שימוש: CsTool new|insert <תיקיית התרגילים> [--preset מבנה] [--shot קובץ.png] [--no-open]");
+            System.err.println("שימוש: CsTool new|insert|submit|solution|help <תיקיית התרגילים> [--preset מבנה] [--shot קובץ.png] [--no-open]");
             System.exit(2);
         }
         final String mode = args[0];
@@ -80,11 +80,16 @@ public final class CsTool {
                 Theme.install();
                 compactFonts();
                 if (mode.equals("help")) help(fShot);
+                else if (mode.equals("submit")) il.lamerhav.dsviz.VsSubmit.submit(root);       // שליחת תרגיל ב-C#
+                else if (mode.equals("solution")) {                                            // הצעה לפתרון ב-C# (חלון שנשאר פתוח)
+                    il.lamerhav.dsviz.VsSubmit.solutions(root);
+                    return;
+                }
                 else if (mode.equals("insert")) insert(root, fPreset, fShot);
                 else newExercise(root, fPreset, fShot, fOpen);
             }
         });
-        System.exit(0);
+        if (!mode.equals("solution")) System.exit(0);   // "הצעה לפתרון" — נסגר כשסוגרים את החלון
     }
 
     /** גופנים קטנים יותר לחלונות האלה (החלון הראשי של ההרצה משתמש באותו Theme, בגודל המקורי) */

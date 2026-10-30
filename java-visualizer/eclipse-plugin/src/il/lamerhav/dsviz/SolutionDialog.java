@@ -182,7 +182,7 @@ public class SolutionDialog extends Dialog {
         Display d = parent.getDisplay();
         Composite bar = new Composite(parent, SWT.NONE);
         bar.setBackground(Look.color(d, Look.BG));
-        GridLayout l = new GridLayout(4, false);
+        GridLayout l = new GridLayout(3, false);
         l.marginWidth = 20;
         l.marginHeight = 10;
         l.horizontalSpacing = 10;
@@ -192,12 +192,7 @@ public class SolutionDialog extends Dialog {
         new Look.Round(bar, "סגירה", false, this::close);
         copied = new Label(bar, SWT.NONE);
         copied.setForeground(Look.color(d, 0x1E6B34));
-        copied.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, false, false));
-        Label c = new Label(bar, SWT.LEFT_TO_RIGHT);
-        c.setText(Look.COPYRIGHT);
-        c.setFont(Look.font(d, -2, SWT.NORMAL));
-        c.setForeground(Look.color(d, 0xA0A8B8));
-        c.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
+        copied.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));   // בלי שורת זכויות יוצרים בחלון הזה
         return bar;
     }
 

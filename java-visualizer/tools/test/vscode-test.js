@@ -10,6 +10,8 @@ const log = [];
 let opened = null, terminalOpts = null, diag = new Map();
 const panels = [];
 let testLang = 'java';
+const lensProviders = [];
+let clipboard = null;
 
 const vscode = {
     workspace: {
@@ -20,9 +22,12 @@ const vscode = {
         getConfiguration: () => ({ get: k => (k === 'language' ? testLang : undefined) }),
         saveAll: async () => true
     },
-    languages: { createDiagnosticCollection: () => ({ clear: () => diag.clear(), set: (u, l) => diag.set(u.fsPath, l), dispose() {} }) },
-    env: { openExternal: () => {} },
-    ProgressLocation: { Window: 10 },
+    languages: { createDiagnosticCollection: () => ({ clear: () => diag.clear(), set: (u, l) => diag.set(u.fsPath, l), dispose() {} }),
+                 registerCodeLensProvider: (sel, provider) => { lensProviders.push(provider); return { dispose() {} }; } },
+    env: { openExternal: () => {}, clipboard: { writeText: async t => { clipboard = t; } } },
+    ProgressLocation: { Window: 10, Notification: 15 },
+    EventEmitter: class { constructor() { this.event = () => ({ dispose() {} }); } fire() {} },
+    CodeLens: class { constructor(range, command) { this.range = range; this.command = command; } },
     DiagnosticSeverity: { Error: 0, Warning: 1 },
     Diagnostic: class { constructor(r, m, s) { this.range = r; this.message = m; this.severity = s; } },
     window: {
@@ -35,17 +40,20 @@ const vscode = {
         showErrorMessage: async (m) => { log.push('error: ' + m); },
         showTextDocument: async doc => { opened = doc.fileName; return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document === doc ? vscode.window.activeTextEditor : { selection: null, revealRange() {} }; },
         createStatusBarItem: () => ({ show() {}, hide() {}, dispose() {} }),
+        setStatusBarMessage: m => { log.push("status: " + m); return { dispose() {} }; },
+        showOpenDialog: async () => [],
         registerTreeDataProvider: () => ({ dispose() {} }),
         onDidChangeActiveTextEditor: () => ({ dispose() {} }),
         activeTextEditor: null,
         createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),
-        withProgress: async (o, f) => f(),
+        withProgress: async (o, f) => f({ report() {} }, { onCancellationRequested() {} }),
         createTerminal: o => { terminalOpts = o; return { show() {}, dispose() {} }; },
         createWebviewPanel: (id, title) => {
             const panel = { id, title, html: '', posted: [], handler: null, disposed: false };
             panel.webview = { cspSource: 'vscode-resource:', asWebviewUri: u => ({ toString: () => 'vscode-resource:' + u.fsPath }), set html(v) { panel.html = v; }, get html() { return panel.html; }, postMessage: async m => { panel.posted.push(m); return true; },
                               onDidReceiveMessage: fn => { panel.handler = fn; return { dispose() {} }; } };
             panel.dispose = () => { panel.disposed = true; };
+            panel.reveal = () => {};
             panel.onDidDispose = () => ({ dispose() {} });
             panels.push(panel);
             return panel;
@@ -53,7 +61,7 @@ const vscode = {
     },
     commands: { registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; }, executeCommand: async () => {} },
     extensions: { getExtension: () => ({}) },
-    StatusBarAlignment: { Left: 1 }, TextEditorRevealType: { InCenter: 2 }, ViewColumn: { Beside: -2 },
+    StatusBarAlignment: { Left: 1 }, TextEditorRevealType: { InCenter: 2 }, ViewColumn: { Beside: -2, Active: -1 },
     Position: class { constructor(l, c) { this.line = l; this.character = c; } },
     Selection: class { constructor(a, b) { this.a = a; this.b = b; } },
     Range: class { constructor(a, b, c, d) { this.a = a; this.b = b; this.line = a; } },
@@ -334,6 +342,55 @@ async function addDialog(command, state, steps) {
     assert(!need(H + 'class A{ static int size(Stack<Integer> s){ return 0;} void f(){ int n=size(s);} }'), 'פעולה של התלמיד');
     assert(!need(H + 'class A{ void f(){ // size(s)\n String t="size(s)"; } }'), 'הערה / מחרוזת');
     assert(!need('class A{ void f(){ java.util.List<Integer> l=null; int n=size(l);} }'), 'בלי ספריית הקורס');
+
+    // "שליחת תרגיל" + "הצעה לפתרון": החלון (הודעות כמו מהדף), SubmitCli מול שרת מדומה, הקבצים, 💡 מעל הסעיפים, והחלון של ההצעה
+    assert(commands['dsviz.submit'] && commands['dsviz.solution'], 'פקודות שליחת תרגיל / הצעה לפתרון');
+    {
+        const sub = require(path.join(ext, 'submit.js'));
+        const mock = require('child_process').spawn('node', [path.join(__dirname, 'submit', 'mock-worker.js'), '8794', path.join(__dirname, 'ai', '1-stack.json')]);
+        await new Promise(r => setTimeout(r, 700));
+        process.env.DSVIZ_WORKER_URL = 'http://127.0.0.1:8794';
+        const wsS = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-submit-ws-')), storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-store-'));
+        const openedFiles = [];
+        try {
+            const api = sub.register({ vscode, ctx: { subscriptions: [], extensionPath: ext, globalStorageUri: { fsPath: storeDir } },
+                chooseRoot: async () => wsS, detectLanguage: () => 'java', project: require(path.join(ext, 'project.js')),
+                cs: require(path.join(ext, 'cs.js')), runner: require(path.join(ext, 'runner.js')),
+                openFiles: async (root, files, focus, line) => openedFiles.push({ files, focus, line }) });
+            const before = panels.length;
+            const done = api.submit();
+            for (let i = 0; i < 50 && panels.length === before; i++) await new Promise(r => setTimeout(r, 100));
+            const p = panels.slice(before).find(x => x.id === 'dsviz.submit');
+            assert(p && p.html.includes('שליחה ויצירת התרגיל') && p.html.includes('הדבקה (Ctrl+V)'), 'חלון שליחת תרגיל');
+            const page = 'photo.jpg';   // צילום של דף (כמו Ctrl+V)
+            await p.handler({ type: 'data', name: '', kind: 'image', data: fs.readFileSync(path.join(__dirname, 'ai', 'files', page)).toString('base64') });
+            await p.handler({ type: 'text', text: 'שאלה 1 — מחסניות: כתבו פעולה שסופרת את הזוגיים' });
+            const items = p.posted.filter(m => m.type === 'items').pop().items;
+            assert.strictEqual(items.length, 2, JSON.stringify(items));
+            assert(items[0].name.startsWith('תמונה מודבקת 1') || items[0].name === page, items[0].name);
+            await p.handler({ type: 'send', note: 'רק שאלה 1', lang: 'java' });
+            await done;
+            assert(p.disposed, 'החלון נסגר אחרי השליחה: ' + JSON.stringify(p.posted.filter(m => m.type === 'status')));
+            const f = path.join(wsS, 'src', 'ex01_stacks', 'StackTargil.java');
+            assert(fs.existsSync(f), 'נוצר ' + f);
+            assert(openedFiles[0] && openedFiles[0].focus === f && openedFiles[0].line > 0, JSON.stringify(openedFiles));
+            const text = fs.readFileSync(f, 'utf8');
+            assert(!text.includes('count++'), 'הפתרון לא נכנס לקוד של התלמיד');
+            const lenses = await lensProviders[lensProviders.length - 1].provideCodeLenses({ uri: { fsPath: f }, getText: () => text });
+            assert.strictEqual(lenses.length, 2, 'שני 💡 — אחד לכל סעיף');
+            assert(text.split('\n')[lenses[0].range.line].includes('countEven('), 'ה-💡 מעל הכותרת של countEven');
+            const sp = panels.length;
+            commands['dsviz.solution'] ? await api.showSolution(lenses[0].command.arguments[0]) : null;
+            const sol = panels.slice(sp).find(x => x.id === 'dsviz.solution');
+            assert(sol && sol.html.includes('הצעה לפתרון') && sol.html.includes('נבדק: הרצנו את main') && sol.html.includes('count++'), 'חלון ההצעה');
+            await sol.handler({ type: 'copy', text: null });
+            assert(clipboard && clipboard.includes('countEven'), 'העתקה');
+            log.push('submit: ex01_stacks + 2 × 💡 + הצעה שנבדקה');
+        } finally {
+            mock.kill();
+            delete process.env.DSVIZ_WORKER_URL;
+        }
+    }
 
     console.log(log.join('\n'));
     console.log('\nALL VS CODE TESTS PASSED\nworkspace: ' + ws);

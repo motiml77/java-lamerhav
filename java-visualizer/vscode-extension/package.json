@@ -42,6 +42,17 @@
                 "icon": "media/new.svg"
             },
             {
+                "command": "dsviz.submit",
+                "title": "שליחת תרגיל",
+                "category": "מבני נתונים",
+                "icon": "media/submit.svg"
+            },
+            {
+                "command": "dsviz.solution",
+                "title": "הצעה לפתרון",
+                "category": "מבני נתונים"
+            },
+            {
                 "command": "dsviz.newStack",
                 "title": "תרגיל חדש: מחסנית",
                 "category": "מבני נתונים"
@@ -184,7 +195,7 @@
             },
             {
                 "view": "dsviz.home",
-                "contents": "בחרו מבנה — וייפתח תרגיל מוכן, ונשאר רק לכתוב את הפעולה:\n[מחסנית  (Stack)](command:dsviz.newStack)\n[תור  (Queue)](command:dsviz.newQueue)\n[רשימה מקושרת  (Node)](command:dsviz.newList)\n[עץ בינארי  (BinNode)](command:dsviz.newTree)\n[עץ חיפוש בינארי](command:dsviz.newBst)\n[מערך  (int[])](command:dsviz.newArray)\n[מערך דו-ממדי  (int[][])](command:dsviz.newMatrix)\nבכל מבנה אפשר לבחור גם Student (תלמידים) או Car (מכוניות).\n[דוגמאות פתורות](command:dsviz.examples)",
+                "contents": "יש דף תרגיל (PDF, Word או צילום מסך)? שולחים אותו ומקבלים קוד מוכן — עם 💡 הצעה לפתרון לכל סעיף:\n[שליחת תרגיל...](command:dsviz.submit)\nבחרו מבנה — וייפתח תרגיל מוכן, ונשאר רק לכתוב את הפעולה:\n[מחסנית  (Stack)](command:dsviz.newStack)\n[תור  (Queue)](command:dsviz.newQueue)\n[רשימה מקושרת  (Node)](command:dsviz.newList)\n[עץ בינארי  (BinNode)](command:dsviz.newTree)\n[עץ חיפוש בינארי](command:dsviz.newBst)\n[מערך  (int[])](command:dsviz.newArray)\n[מערך דו-ממדי  (int[][])](command:dsviz.newMatrix)\nבכל מבנה אפשר לבחור גם Student (תלמידים) או Car (מכוניות).\n[דוגמאות פתורות](command:dsviz.examples)",
                 "when": "workbenchState != empty"
             },
             {
@@ -198,6 +209,11 @@
         ],
         "menus": {
             "editor/title": [
+                {
+                    "command": "dsviz.submit",
+                    "when": "resourceLangId == java || resourceLangId == csharp",
+                    "group": "navigation@0"
+                },
                 {
                     "command": "dsviz.newExercise",
                     "when": "resourceLangId == java || resourceLangId == csharp",
@@ -223,6 +239,10 @@
                 {
                     "command": "dsviz.newExercise",
                     "group": "navigation@9"
+                },
+                {
+                    "command": "dsviz.submit",
+                    "group": "navigation@8"
                 }
             ],
             "editor/context": [
@@ -233,6 +253,14 @@
                 }
             ],
             "dsviz.editorMenu": [
+                {
+                    "command": "dsviz.submit",
+                    "group": "0_submit@0"
+                },
+                {
+                    "command": "dsviz.solution",
+                    "group": "0_submit@1"
+                },
                 {
                     "command": "dsviz.insert",
                     "group": "1_insert@0"

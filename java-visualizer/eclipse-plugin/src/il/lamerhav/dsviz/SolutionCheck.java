@@ -199,6 +199,12 @@ final class SolutionCheck {
         }
     }
 
+    /** קומפילציה מחוץ ל-Eclipse (ExercisePipeline): ecj אם יש, אחרת javac. השגיאות, או null אם אין קומפיילר */
+    static List<String> javacErrors(List<File> files, File bin, File lib) {
+        List<String> errors = ecj(files, bin, lib);
+        return errors != null ? errors : javac(files, bin, lib);
+    }
+
     /** javac של ה-JDK (בבדיקות מחוץ ל-Eclipse, או אם ecj לא נמצא) */
     private static List<String> javac(List<File> files, File bin, File lib) {
         try {
