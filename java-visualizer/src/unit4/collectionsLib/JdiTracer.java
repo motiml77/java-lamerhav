@@ -61,7 +61,9 @@ final class JdiTracer {
     private MethodExitRequest exits;
     private ClassType recorder;
     private com.sun.jdi.Field fullField;
-    private ArrayReference buffer;
+    private ArrayReference buffer, objBuffer;
+    /** אובייקטים של מחלקות התלמיד שכבר הונחו ב-Recorder.lineObjs: האובייקט → המקום */
+    private final Map<ObjectReference, Integer> objSlots = new java.util.HashMap<>();
     private int written, capacity, lines;
     private final Map<ObjectReference, String> immutable = new java.util.HashMap<>();
     private boolean tracing = true;
@@ -187,6 +189,9 @@ final class JdiTracer {
             recorder = (ClassType) r.get(0);
             fullField = recorder.fieldByName("linesFull");
             buffer = (ArrayReference) recorder.getValue(recorder.fieldByName("lineTexts"));
+            com.sun.jdi.Field lo = recorder.fieldByName("lineObjs");
+            Value ob = lo == null ? null : recorder.getValue(lo);
+            objBuffer = ob instanceof ArrayReference ? (ArrayReference) ob : null;
             if (buffer == null) { stopTracing(); return; }
             capacity = buffer.length();
         }
@@ -197,6 +202,7 @@ final class JdiTracer {
 
         StringBuilder meta = new StringBuilder();
         List<StackFrame> frames = mainThread.frames();
+        if (insideRecorder(frames)) return;   // קוד של התלמיד (למשל toString) שהציור קרא לו — לא צעד של התוכנית
         appendFrames(meta, frames);
         meta.append('\u0004');
         // המשתנים המקומיים של המסגרת העליונה
@@ -262,6 +268,18 @@ final class JdiTracer {
         }
     }
 
+    /**
+     * האם הקוד רץ מתוך הציור של הספרייה (Recorder) — למשל toString של מחלקה של התלמיד שנקרא כדי לכתוב את הכרטיס.
+     * צעדים כאלה לא שייכים לתוכנית (ותיעוד שלהם גורם לציור נוסף — ולולאה בלי סוף).
+     */
+    private static boolean insideRecorder(List<StackFrame> frames) {
+        for (StackFrame fr : frames) {
+            String n = fr.location().declaringType().name();
+            if (n.startsWith("unit4.collectionsLib.Recorder") || n.startsWith("unit4.collectionsLib.StringViz")) return true;
+        }
+        return false;
+    }
+
     /** מחסנית הקריאות (רק הקוד של התלמיד): מחלקה\u0002פעולה\u0002קובץ\u0002שורה, מופרדות ב-\u0001 */
     private static void appendFrames(StringBuilder meta, List<StackFrame> frames) {
         for (StackFrame fr : frames) {
@@ -285,7 +303,9 @@ final class JdiTracer {
         if (m.isSynthetic() || m.isStaticInitializer() || m.isConstructor() || m.name().startsWith("lambda$")) return;
         if (m.name().equals("main") && m.isStatic()) return;   // סוף התוכנית — יש לזה צעד משלו
         StringBuilder meta = new StringBuilder("\u0005");
-        appendFrames(meta, mainThread.frames());
+        List<StackFrame> frames = mainThread.frames();
+        if (insideRecorder(frames)) return;
+        appendFrames(meta, frames);
         meta.append('\u0004');
         if (m.returnTypeName().equals("void")) meta.append('\u0006');
         else meta.append(clean(format(e.returnValue(), 0)));
@@ -344,7 +364,10 @@ final class JdiTracer {
             if (id != 0) return "\u0003" + id;   // ה-Recorder בתהליך התוכנית מכיר את האובייקט ובונה ממנו כרטיס
             return isStudent((ObjectReference) v) ? studentLabel((ObjectReference) v, true) : carLabel((ObjectReference) v);
         }
-        if (v instanceof ObjectReference && isUserClass((ObjectReference) v)) return dumpObject((ObjectReference) v);
+        if (v instanceof ObjectReference && isUserClass((ObjectReference) v)) {
+            String ref = userRef((ObjectReference) v);
+            return ref != null ? ref : dumpObject((ObjectReference) v);
+        }
         String s = format(v, 2);
         return s.startsWith("\u0003") ? s : shorten(s, 14);   // מבנה של הספרייה: הפניה ל-vizId (Recorder מצייר אותו בתוך התא)
     }
@@ -427,8 +450,29 @@ final class JdiTracer {
         return false;
     }
 
+    /**
+     * אובייקט של מחלקה של התלמיד: מניחים אותו ב-Recorder.lineObjs (כתיבה לתא במערך — בלי להריץ קוד בתהליך)
+     * ומחזירים \u0003u + המקום; null אם אין מקום.
+     */
+    private String userRef(ObjectReference o) {
+        if (objBuffer == null) return null;
+        Integer slot = objSlots.get(o);
+        if (slot == null) {
+            if (objSlots.size() >= objBuffer.length()) return null;
+            slot = objSlots.size();
+            try {
+                objBuffer.setValue(slot, o);
+            } catch (Exception e) {
+                return null;
+            }
+            objSlots.put(o, slot);
+        }
+        return "\u0003u" + slot;
+    }
+
     private void addVar(StringBuilder meta, String name, Value v) {
-        String text = format(v, 0);
+        String ref = v instanceof ObjectReference && isUserClass((ObjectReference) v) ? userRef((ObjectReference) v) : null;
+        String text = ref != null ? ref : format(v, 0);
         meta.append(name).append('\u0002').append(clean(text)).append('\u0001');
     }
 
@@ -460,7 +504,7 @@ final class JdiTracer {
         String name = type.name();
         String res;
         if (o instanceof StringReference) {
-            res = "\"" + shorten(((StringReference) o).value(), 30) + "\"";
+            return "\"" + shorten(((StringReference) o).value(), depth == 0 ? 80 : 30) + "\"";   // משתנה מחרוזת: ארוך יותר (מוצג גם כתאים)
         } else if (name.startsWith("unit4.collectionsLib.") && type instanceof ClassType
                 && ((ClassType) type).fieldByName("vizId") != null) {
             int id = ((com.sun.jdi.IntegerValue) o.getValue(((ClassType) type).fieldByName("vizId"))).value();

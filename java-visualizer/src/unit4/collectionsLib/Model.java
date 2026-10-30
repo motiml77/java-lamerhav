@@ -128,6 +128,20 @@ final class Model {
         boolean shared;                    // הצומת כבר צויר במקום אחר (מעגל / שיתוף)
     }
 
+    /**
+     * משתנה מחרוזת (String): תו בכל תא, עם האינדקסים — ומה שהשורה הנוכחית עושה בו:
+     * charAt — חץ לתו; substring — החלק שנחתך מסומן; indexOf — החלק שנמצא; length — כל המחרוזת. op = הסבר, למשל s.substring(1, 4) → "ell"
+     */
+    static final class StringView extends View {
+        String text = "";
+        boolean truncated, changed;
+        int from = -1, to = -1;            // החלק המסומן [from, to)
+        boolean found;                     // החלק המסומן הוא תוצאת חיפוש (צבע אחר)
+        final java.util.Map<Integer, List<String>> arrows = new java.util.HashMap<Integer, List<String>>();   // אינדקס → תוויות (i, charAt...)
+        final List<String> ops = new ArrayList<String>();   // הסבר לכל פעולה בשורה
+        boolean error;                     // פעולה מחוץ לגבולות המחרוזת
+    }
+
     /** מערך חד-ממדי */
     static final class ArrayView extends View {
         final List<String> items = new ArrayList<String>();

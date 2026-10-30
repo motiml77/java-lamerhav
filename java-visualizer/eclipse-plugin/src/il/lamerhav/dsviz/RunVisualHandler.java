@@ -51,8 +51,9 @@ public class RunVisualHandler extends AbstractHandler {
                 MessageDialog.openInformation(shell, "הרצה ויזואלית", "בקובץ " + file.getName() + " אין main — אין מה להריץ.");
                 return null;
             }
-            // מוודאים שהספרייה בפרויקט עדכנית (LineByLine נמצא בה)
-            ProjectSetup.prepare(JavaCore.create(file.getProject()), Ui.resolver(shell));
+            // פרויקט של התלמיד (כל פרויקט Java): לא משנים בו כלום מלבד הוספת ספריית הקורס אם אין בו בכלל (כדי ש-Queue וכו' יתקמפלו).
+            // ספרייה אחרת של unit4 (למשל ה-jar המקורי של הקורס) נשארת; בזמן ההרצה הספרייה שלנו לפניה — היא שמציירת את המבנים.
+            LibraryEverywhere.ensure(JavaCore.create(file.getProject()));
             // קודם מקמפלים ובודקים שגיאות — עם שגיאות לא מריצים (הרצה ויזואלית של קוד שלא מתקמפל נותנת תוצאות שגויות)
             List<String> errors = new ArrayList<String>();
             IMarker first = compileErrors(file, errors);
@@ -60,7 +61,7 @@ public class RunVisualHandler extends AbstractHandler {
                 warn(shell, event, file, first, errors);
                 return null;
             }
-            DebugUITools.launch(config(file.getProject().getName(), main), ILaunchManager.RUN_MODE);
+            DebugUITools.launch(config(JavaCore.create(file.getProject()), main), ILaunchManager.RUN_MODE);
         } catch (CoreException e) {
             Ui.error(shell, "לא הצלחתי להריץ.", e);
         }
@@ -125,6 +126,50 @@ public class RunVisualHandler extends AbstractHandler {
         MessageDialog.openError(shell, "הרצה ויזואלית — יש שגיאות בקוד", b.toString());
     }
 
+    /**
+     * ה-classpath של ההרצה: קודם הספרייה שלנו (מתוך התוסף — לא מהפרויקט), ואחריה ה-classpath הרגיל של הפרויקט.
+     * כך ההרצה הוויזואלית עובדת בכל פרויקט — גם אם יש בו ספריית unit4 אחרת — בלי לשנות את הפרויקט עצמו.
+     */
+    public static List<String> launchClasspath(org.eclipse.jdt.core.IJavaProject jp) throws CoreException {
+        List<String> cp = new ArrayList<String>();
+        java.io.File lib = libraryJar();
+        if (lib != null) {
+            org.eclipse.jdt.launching.IRuntimeClasspathEntry e = JavaRuntime.newArchiveRuntimeClasspathEntry(new org.eclipse.core.runtime.Path(lib.getAbsolutePath()));
+            e.setClasspathProperty(org.eclipse.jdt.launching.IRuntimeClasspathEntry.USER_CLASSES);
+            cp.add(e.getMemento());
+        }
+        for (org.eclipse.jdt.launching.IRuntimeClasspathEntry e : JavaRuntime.computeUnresolvedRuntimeClasspath(jp)) cp.add(e.getMemento());
+        return cp;
+    }
+
+    /** הספרייה (dsviz.jar) מתוך התוסף, בתיקייה של התוסף ב-Eclipse (נכתבת מחדש כשהתוסף מתעדכן) */
+    static java.io.File libraryJar() {
+        try {
+            org.osgi.framework.Bundle b = org.eclipse.core.runtime.Platform.getBundle("il.lamerhav.dsviz");
+            byte[] data = ProjectSetup.resource("/resources/" + ProjectSetup.JAR_NAME);
+            java.io.File dir = org.eclipse.core.runtime.Platform.getStateLocation(b).toFile();
+            java.io.File f = new java.io.File(dir, "dsviz-" + b.getVersion() + "-" + Integer.toHexString(java.util.Arrays.hashCode(data)) + ".jar");
+            if (!f.isFile() || f.length() != data.length) {
+                dir.mkdirs();
+                java.nio.file.Files.write(f.toPath(), data);
+            }
+            return f;
+        } catch (Exception e) {
+            return null;   // ההרצה ממשיכה עם הספרייה שבפרויקט
+        }
+    }
+
+    /** לאיזו גרסת Java הפרויקט מקומפל (8, 11, 17, 21...) */
+    private static int targetVersion(org.eclipse.jdt.core.IJavaProject jp) {
+        String v = jp.getOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, true);
+        if (v == null) return 0;
+        try {
+            return v.startsWith("1.") ? Integer.parseInt(v.substring(2)) : Integer.parseInt(v);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
     private static String mainType(IFile file) throws CoreException {
         ICompilationUnit cu = JavaCore.createCompilationUnitFrom(file);
         for (IType t : cu.getTypes()) {
@@ -137,16 +182,16 @@ public class RunVisualHandler extends AbstractHandler {
      * תצורת הרצה לכל מחלקה — נוצרת פעם אחת ונשמרת. המחלקה הראשית היא LineByLine, ושם המחלקה של התלמיד
      * עובר כארגומנט. התצורה "פרטית" (לא בהיסטוריית Run) — כדי שכפתור ה-Run הרגיל לא יפתח את החלון.
      */
-    private static ILaunchConfiguration config(String project, String main) throws CoreException {
+    private static ILaunchConfiguration config(org.eclipse.jdt.core.IJavaProject jp, String main) throws CoreException {
+        String project = jp.getProject().getName();
         ILaunchManager mgr = DebugPlugin.getDefault().getLaunchManager();
         ILaunchConfigurationType type = mgr.getLaunchConfigurationType(IJavaLaunchConfigurationConstants.ID_JAVA_APPLICATION);
         for (ILaunchConfiguration c : mgr.getLaunchConfigurations(type)) {
             if (LINE_RUNNER.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME, ""))
                     && main.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_PROGRAM_ARGUMENTS, ""))
                     && project.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, ""))) {
-                if (c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_VM_ARGUMENTS, "").contains("dsviz.visual")) return c;
                 ILaunchConfigurationWorkingCopy wc = c.getWorkingCopy();
-                setup(wc);
+                setup(wc, jp);   // בכל הרצה מחדש: ה-classpath של הפרויקט יכול להשתנות
                 return wc.doSave();
             }
         }
@@ -155,9 +200,7 @@ public class RunVisualHandler extends AbstractHandler {
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, project);
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME, LINE_RUNNER);
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROGRAM_ARGUMENTS, main);
-        String jre = bundledJre();
-        if (jre != null) wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_JRE_CONTAINER_PATH, jre);
-        setup(wc);
+        setup(wc, jp);
         return wc.doSave();
     }
 
@@ -187,7 +230,13 @@ public class RunVisualHandler extends AbstractHandler {
         }
     }
 
-    private static void setup(ILaunchConfigurationWorkingCopy wc) {
+    private static void setup(ILaunchConfigurationWorkingCopy wc, org.eclipse.jdt.core.IJavaProject jp) throws CoreException {
+        // Java 21 שבהתקנה (עם ממשק הדיבאג) — אלא אם הפרויקט מקומפל לגרסה חדשה יותר
+        String jre = targetVersion(jp) <= 21 ? bundledJre() : null;
+        if (jre != null) wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_JRE_CONTAINER_PATH, jre);
+        else wc.removeAttribute(IJavaLaunchConfigurationConstants.ATTR_JRE_CONTAINER_PATH);
+        wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_DEFAULT_CLASSPATH, false);
+        wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_CLASSPATH, launchClasspath(jp));
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_VM_ARGUMENTS, VM_ARGS);
         wc.setAttribute(IDebugUIConstants.ATTR_CONSOLE_ENCODING, "UTF-8");
         wc.setAttribute(IDebugUIConstants.ATTR_PRIVATE, true);

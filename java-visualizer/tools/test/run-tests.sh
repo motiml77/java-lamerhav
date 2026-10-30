@@ -32,6 +32,17 @@ for c in C1 C200 C500 C800 C1000 Snip1 Snip40 Snip80; do
         && ! grep -q Exception "$W/run/$c.out" || { echo "נכשל: $c"; cat "$W/run/$c.out"; exit 1; }
 done
 echo "הרצת דוגמאות: תקין"
+# מחלקות שהתלמיד כתב בעצמו (בלי שדה שם, רשימה מקושרת משלו עם מעגל, toString משלו) ומחרוזות — בהרצה שורה-שורה
+mkdir -p "$W/userclass"
+javac -g -encoding UTF-8 -nowarn -cp "$JAR" -d "$W/userclass" userclass/shapes/*.java
+(cd "$W/userclass" && cp -r "$OLDPWD/userclass/shapes" . && timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -Ddsviz.visual=true \
+    -cp ".:$JAR" unit4.collectionsLib.LineByLine shapes.Main > out.txt 2>&1)
+U="$W/userclass/out.txt"
+! grep -q "5000 צעדים" "$U" && grep -q "p=Point {x=3 · y=4}" "$U" && grep -q "st=Stack \[{x=3 · y=4}\]" "$U" \
+    && grep -q "word.charAt(last)  →  'f'" "$U" && grep -q 'word.substring(1, last)  →  "bcde"' "$U" \
+    && grep -q "השוני הראשון במקום 2" "$U" && grep -q "הפעולה toString מחזירה" "$U" \
+    && echo "מחלקות של התלמיד ומחרוזות: כרטיסים, ותיאור הפעולות על מחרוזות (charAt / substring / compareTo) — בלי לולאה בגלל toString" \
+    || { echo "נכשל: מחלקות של התלמיד / מחרוזות"; tail -30 "$U"; exit 1; }
 # פעולות העזר size / duplicate (תיבות V בחלונות): נכונות, לא פוגעות במבנה, ורצות גם בהרצה ויזואלית
 mkdir -p "$W/helpers"
 node helpers-test.js "$W/helpers"
