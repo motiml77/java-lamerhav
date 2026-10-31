@@ -109,7 +109,7 @@ public class RunVisualHandler extends AbstractHandler {
             boolean heb = MentorProblem.MARKER.equals(m.getType());
             if (!heb && hebrew.contains(m.getResource().getFullPath() + ":" + m.getAttribute(IMarker.LINE_NUMBER, 0))) continue;
             if (first == null) first = m;
-            String msg = m.getAttribute(IMarker.MESSAGE, "").replace("\u202B", "").replace("\u202C", "").replace("\u200E", "");
+            String msg = RtlText.strip(m.getAttribute(IMarker.MESSAGE, ""));
             out.add(m.getResource().getName() + " · שורה " + m.getAttribute(IMarker.LINE_NUMBER, 0) + "\n" + msg);
         }
         return first;

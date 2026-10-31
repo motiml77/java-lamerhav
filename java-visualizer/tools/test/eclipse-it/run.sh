@@ -3,6 +3,7 @@
 # ובודקים את הסימונים (Problems), את ההסברים בזמן הכתיבה (reconcile) ואת הכיבוי מהתפריט; ואת "הצעה לפתרון" (Sol.java).
 # לא חלק מ-run-tests.sh (צריך Eclipse — כ-380MB). להריץ אחרי tools/build-all.sh:
 #   sh tools/test/eclipse-it/run.sh [תיקיית eclipse]
+# צילומי המסך (SHOT=1) ו"הצעה לפתרון" רצים ב-xvfb-run; עם XD=:99 — על מסך X קיים (כמו ב-tutorials/viewer.sh)
 set -e
 cd "$(dirname "$0")"
 ROOT="$(cd ../../.. && pwd)"
@@ -27,12 +28,15 @@ OUT="$B/out.txt"
 cat "$OUT"
 check() { grep -q -- "$1" "$OUT" && echo "  ok  $2" || { echo "  FAIL $2  ($1)"; FAILED=1; }; }
 FAILED=0
+xrun() { if [ -n "$XD" ]; then DISPLAY="$XD" "$@"; else xvfb-run -a -s "-screen 0 ${XSCREEN:-1700x1050x24}" "$@"; fi; }
 check "BUILD Mistakes.java:5 mentor error ל-Queue אין פעולה size \[לתור אין פעולה שסופרת" "בנייה: הסבר בעברית לשגיאה (size בתור)"
 check "BUILD Mistakes.java:6 mentor error חסרה נקודה-פסיק בסוף שורה 6 \[כל פקודה" "בנייה: חסרה ; — בשורה הנכונה"
 check "BUILD Warnings.java:5 mentor warning שני הצדדים הם Integer" "בנייה: אזהרה על == בין Integer"
 check "BUILD Warnings.java:9 mentor warning p לא מתקדם" "בנייה: אזהרה על לולאה שלא מתקדמת"
 check "BUILD Warnings.java:15 mentor warning מחרוזת לא משתנה" "בנייה: אזהרה על toUpperCase שהולך לאיבוד"
 check "BUILD Warnings.java:16 mentor warning השוואת מחרוזות" "בנייה: אזהרה על == במחרוזות"
+check "BUILD Mixed.java:6 mentor warning התנאי מגיע עד arr.length, אבל האינדקס האחרון הוא אחד פחות \[בסיבוב האחרון תהיה שגיאה (ArrayIndexOutOfBoundsException). כותבים: i < arr.length\]" \
+    "בנייה: הסימון ב-Problems — אותו טקסט בדיוק (תווי הכיווניות לא משנים אותו)"
 check "RECONCILE Targil.java:6 mentor חסרה נקודה-פסיק בסוף שורה 6" "בזמן הכתיבה (reconcile): ההסבר מופיע מיד"
 check "RUNCHECK Mistakes.java errors=[1-9]" "הרצה ויזואלית: יש שגיאות — נחסמת (Mistakes.java)"
 check "RUNCHECK Targil.java errors=0" "הרצה ויזואלית: קוד תקין — מותר להריץ (Targil.java)"
@@ -47,10 +51,10 @@ grep -q "BUILD Targil.java" "$OUT" && { echo "  FAIL קוד תקין קיבל ס
 [ "$(grep -c '^BUILD-MENTOR-COUNT 0' "$OUT")" = 0 ] && echo "  ok  יש סימונים בבנייה" || { echo "  FAIL אין סימונים בבנייה"; FAILED=1; }
 [ "$(sed -n 's/^ON-AGAIN-MENTOR-COUNT //p' "$OUT")" = "$(sed -n 's/^BUILD-MENTOR-COUNT //p' "$OUT")" ] && echo "  ok  הפעלה מחדש: אותם סימונים חוזרים" \
     || { echo "  FAIL הפעלה מחדש"; FAILED=1; }
-# צילומי מסך (SHOT=1, צריך xvfb-run): העורך וחלון Problems עם ההסברים בעברית
+# צילומי מסך (SHOT=1, צריך xvfb-run או XD): העורך, חלון Problems וחלון "הסברים בעברית" (‎-mentor.png‎)
 if [ "$SHOT" = 1 ]; then
-    for f in Mistakes:5:21 Warnings:16:15; do
-        xvfb-run -a -s "-screen 0 1700x1050x24" java -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -consoleLog -data "$B/ws" \
+    for f in Mistakes:5:21 Warnings:16:15 Mixed:15:20; do
+        xrun java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -consoleLog -data "$B/ws" \
             -application il.lamerhav.dsviz.it.shot "/Students/src/${f%%:*}.java" "$B/${f%%:*}.png" "${f#*:}" >> "$B/eclipse.log" 2>&1 || true
         [ "$f" = "Mistakes:5:21" ] && { grep -m1 "MENTOR-VIEW-OPEN" "$B/eclipse.log" | grep -q true && echo "  ok  בהפעלה הראשונה — חלון ההסברים בעברית נפתח לבד בצד" \
             || { echo "  FAIL חלון ההסברים לא נפתח לבד"; FAILED=1; }; }
@@ -58,12 +62,24 @@ if [ "$SHOT" = 1 ]; then
             grep -q "$k" "$B/eclipse.log" && echo "  ok  סידור אוטומטי: $k" || { echo "  FAIL סידור אוטומטי: $k"; FAILED=1; }; done; }
         [ "$f" = "Mistakes:5:21" ] && { for k in "FOLD public static int twice(int x) { collapsed=true" "FOLD public static void main(String\[\] args) { collapsed=true" "FOLD public static int countEven(int\[\] a) { collapsed=false"; do
             grep -q "$k" "$B/eclipse.log" && echo "  ok  כיווץ בתרגיל שנוצר: $k" || { echo "  FAIL כיווץ בתרגיל שנוצר: $k"; FAILED=1; }; done; }
-        [ -f "$B/${f%%:*}.png" ] && echo "  צילום: $B/${f%%:*}.png  $B/${f%%:*}-problems.png"
+        [ -f "$B/${f%%:*}.png" ] && echo "  צילום: $B/${f%%:*}.png  $B/${f%%:*}-problems.png  $B/${f%%:*}-mentor.png"
+    done
+    # חלון "הסברים בעברית": בכל כרטיס קודם ההתראה, אחריה שורת רווח, ורק אז ההצעה לתיקון (והקוד בשורה משלו);
+    # וכל טקסט עטוף בתווי הכיווניות (RtlText) — מימין לשמאל, וקטעי הקוד משמאל לימין כיחידה אחת
+    for k in "PANEL-CARD Mistakes.java:5 error: title main gap([1-9][0-9]*px) fix code$" \
+             "PANEL-CARD Mixed.java:6 warning: title main gap([1-9][0-9]*px) fix code$" \
+             "PANEL-CARD Mixed.java:18 warning: title main gap([1-9][0-9]*px) fix code$" \
+             "PANEL-TEXT Mixed.java:18 main <RLM><RLE><RLM><LRE>isEmpty<PDF><RLM> רק בודקת ומחזירה <RLM><LRE>true<PDF><RLM> או <RLM><LRE>false<PDF><RLM>" \
+             "PANEL-TEXT Mixed.java:6 fix <RLM><RLE>הצעה לתיקון: בסיבוב האחרון תהיה שגיאה <RLM><LRE>(ArrayIndexOutOfBoundsException)<PDF><RLM>. כותבים:<PDF>" \
+             "PANEL-TEXT Mixed.java:6 code <LRM><LRE> i < arr.length <PDF>" \
+             "PANEL-TEXT Mixed.java:27 main <RLM><RLE>אי התאמה בטיפוסים: אי אפשר להכניס <RLM><LRE>Stack<String><PDF><RLM> למשתנה מטיפוס <RLM><LRE>Stack<Integer><PDF><RLM><PDF>" \
+             "PANEL-HEAD Mixed.java <RLM><RLE><RLM><LRE>1<PDF><RLM> שגיאות ו-<RLM><LRE>5<PDF><RLM> אזהרות"; do
+        grep -q -- "$k" "$B/eclipse.log" && echo "  ok  חלון ההסברים: ${k%%<*}" || { echo "  FAIL חלון ההסברים: $k"; FAILED=1; }
     done
 fi
 # "הצעה לפתרון" (צריך xvfb-run): תרגיל מתשובה לדוגמה → ההצעות נבדקו ונשמרו בצד, הכפתור מעל כל פעולה של סעיף, לחיצה → החלון
 mkdir -p "$B/sol"
-timeout 240 xvfb-run -a -s "-screen 0 1600x1000x24" java -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog \
+XSCREEN=1600x1000x24 xrun timeout 240 java -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog \
     -data "$B/ws-sol" -application il.lamerhav.dsviz.it.solution "$ROOT/tools/test/ai/1-stack.json" "$B/sol/out.txt" "$B/sol" > "$B/sol/eclipse.log" 2>&1 || true
 rm -rf "$B/ws-sol"
 SOL="$B/sol/out.txt"

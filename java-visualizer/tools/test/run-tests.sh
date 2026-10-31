@@ -256,11 +256,13 @@ DEPS="$(cd ../../build/eclipse-deps && pwd)"
 mkdir -p "$W/mentor/cls"
 javac -encoding UTF-8 -nowarn -cp "$(ls "$DEPS"/*.jar | tr '\n' ':')" -d "$W/mentor/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Mentor.java \
     ../../eclipse-plugin/src/il/lamerhav/dsviz/MentorRules.java ../../eclipse-plugin/src/il/lamerhav/dsviz/MentorSource.java \
-    ../../eclipse-plugin/src/il/lamerhav/dsviz/HebrewErrors.java MentorTest.java
+    ../../eclipse-plugin/src/il/lamerhav/dsviz/HebrewErrors.java ../../eclipse-plugin/src/il/lamerhav/dsviz/RtlText.java RtlTextTest.java MentorTest.java
 cp ../../eclipse-plugin/src/il/lamerhav/dsviz/problems_he.properties "$W/mentor/cls/il/lamerhav/dsviz/"
 (cd "$W/mentor" && jar xf "$DEPS/ecj.jar" org/eclipse/jdt/internal/compiler/problem/messages.properties)
 java -Dstdout.encoding=UTF-8 -Dclean=../../src/examples:../../src/Main.java -Dmessages="$W/mentor/org/eclipse/jdt/internal/compiler/problem/messages.properties" \
     -cp "$W/mentor/cls:$(ls "$DEPS"/*.jar | tr '\n' ':')" il.lamerhav.dsviz.MentorTest "$JAR" mentor-cases.txt
+echo "== 10א. חלון \"הסברים בעברית\": עברית עם קוד מוצגת נכון מימין לשמאל (s.pop() בסוף משפט, arr[i], Stack<Integer>, !=, מספרים, רשימות)"
+java -Dstdout.encoding=UTF-8 -cp "$W/mentor/cls" il.lamerhav.dsviz.RtlTextTest
 
 echo "== C# (Visual Studio / VS Code / Rider)"
 sh ./cs-tests.sh
