@@ -415,7 +415,18 @@ final class StringViz {
                         boolean call = eat('(');
                         if (member.equals("length") && !call && v instanceof List) { v = ((List<?>) v).size(); continue; }
                         if (member.equals("length") && call && eat(')') && v instanceof String) { v = ((String) v).length(); continue; }
-                        if (member.equals("isEmpty") && call && eat(')')) {
+                        if (member.equals("Length") && !call && (v instanceof String || v instanceof List)) {   // C#: s.Length, arr.Length
+                            v = v instanceof String ? ((String) v).length() : ((List<?>) v).size();
+                            continue;
+                        }
+                        if (call && v instanceof Struct && first(member, ((Struct) v).kind) && eat(')')) {   // s.top() / q.head() / p.getValue()
+                            List<String> items = ((Struct) v).items;
+                            Object x = items.isEmpty() || items.get(0).contains("…") ? null : LoopViz.value(items.get(0));
+                            if (x == null) throw new IllegalArgumentException();
+                            v = x;
+                            continue;
+                        }
+                        if ((member.equals("isEmpty") || member.equals("IsEmpty")) && call && eat(')')) {
                             if (v instanceof String) { v = ((String) v).isEmpty(); continue; }
                             if (v instanceof Struct) { v = ((Struct) v).items.isEmpty(); continue; }
                         }
@@ -433,6 +444,13 @@ final class StringViz {
             }
             throw new IllegalArgumentException();
         }
+    }
+
+    /** הפעולה מחזירה את האיבר הראשון במבנה כפי שהוא ברשימת המשתנים (Stack [5,2] — הראש ראשון; Queue [1,2] — ראש התור ראשון; Node [5]) */
+    private static boolean first(String member, String kind) {
+        String m = member.toLowerCase();
+        return m.equals("top") && kind.equals("Stack") || m.equals("head") && kind.equals("Queue")
+                || m.equals("getvalue") && (kind.equals("Node") || kind.equals("BinNode"));
     }
 
     private static String unescape(String s) {

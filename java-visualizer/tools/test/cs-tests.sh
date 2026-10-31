@@ -53,6 +53,23 @@ for want in 'שורה 24 if: x % 2 == 0 | 7 % 2 == 0 | x=7 | false עוברים 
     grep -qF -- "$want" "$W/conds.txt" || { echo "תנאים ב-C#: חסר $want"; grep '^  \[' "$W/conds.txt"; exit 1; }
 done
 echo "תנאים ב-C#: $(grep -c '^  \[תנאי' "$W/conds.txt") בדיקות תנאי מסומנות"
+# תנאים מורכבים (&&, ||, !, סוגריים) ב-C#: כל חלק בנפרד, קיצור (short-circuit), ו-.Length (property, לא פעולה)
+for want in 'שורה 72 if: x > 5 && y > 4 | 7 > 5 && 3 > 4 | x=7 y=3 | חלקים: x > 5 ✓, y > 4 ✗ | false מדלגים על ה-if]' \
+    'x > 5 מתקיים (7 > 5), אבל y > 4 לא מתקיים (3 > 4) — וב-&& צריך ששניהם יתקיימו]' \
+    'שורה 73 if: x > 5 || y > 4 | 7 > 5 || y > 4 | x=7 y=3 | חלקים: x > 5 ✓, y > 4 לא נבדק | true נכנסים ל-if]' \
+    'x > 5 מתקיים (7 > 5) — וזה מספיק ב-||, אז את y > 4 לא בודקים בכלל]' \
+    'שורה 74 if: x % 2 == 0 && y != 0 || s.Length == 3 | 7 % 2 == 0 && y != 0 || 3 == 3 | x=7 y=3 s=abc | חלקים: x % 2 == 0 ✗, y != 0 לא נבדק, s.Length == 3 ✓ | true נכנסים ל-if]' \
+    'החלק הראשון לא מתקיים, אבל s.Length == 3 מתקיים (3 == 3) — וזה מספיק ב-||]' \
+    'שורה 75 if: !(x < 0) && (y == 3 || y == 9) | !(7 < 0) && (3 == 3 || y == 9) | x=7 y=3 | חלקים: !(x < 0) ✓, y == 3 ✓, y == 9 לא נבדק | true נכנסים ל-if]' \
+    'שורה 76 if: y > 4 && x / (y - 3) > 1 | 3 > 4 && x / (y - 3) > 1 | y=3 x=7 | חלקים: y > 4 ✗, x / (y - 3) > 1 לא נבדק | false מדלגים על ה-if]' \
+    'y > 4 לא מתקיים (3 > 4), ולכן את x / (y - 3) > 1 לא בודקים בכלל]' \
+    'שורה 80 while: !st.IsEmpty() && st.Top() > 0 | !false && 5 > 0 | st=Stack [5,2] | חלקים: !st.IsEmpty() ✓, st.Top() > 0 ✓ | true ממשיכים לסיבוב]' \
+    'שורה 80 while: !st.IsEmpty() && st.Top() > 0 | !true && st.Top() > 0 | st=Stack [] | חלקים: !st.IsEmpty() ✗, st.Top() > 0 לא נבדק | false יוצאים מהלולאה]' \
+    'שורה 83 if: s.IndexOf("z") >= 0 || y > 1 | s.IndexOf("z") >= 0 || 3 > 1 | s=abc y=3 | חלקים: s.IndexOf("z") >= 0 ?, y > 1 ? | true נכנסים ל-if]' \
+    'לא ידוע מה יצא ב-s.IndexOf("z") >= 0 (אי אפשר לחשב את זה כאן), אבל התנאי כולו התקיים]'; do
+    grep -qF -- "$want" "$W/conds.txt" || { echo "תנאים מורכבים ב-C#: חסר $want"; grep '^  \[' "$W/conds.txt"; exit 1; }
+done
+echo "תנאים מורכבים ב-C#: $(grep -c '| חלקים:' "$W/conds.txt") בדיקות תנאי-מורכב מסומנות"
 # פעולת עזר: יציאה וחזרה (ב-C# אחרי החזרה ממשיכים ישר לשורה הבאה)
 viz calls/cs/Calls.cs --trace "$W/calls.trace" > "$W/calls.out" 2>&1 || { cat "$W/calls.out"; exit 1; }
 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/calls.trace" > "$W/calls.txt" 2>&1

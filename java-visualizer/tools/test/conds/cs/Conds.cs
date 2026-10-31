@@ -49,7 +49,7 @@ public class Conds {
         do {
             k--;
         } while (k > 1);
-        Console.WriteLine(Kind(-2) + " " + Kind(0) + " " + Kind(4) + " " + Fact(3) + " " + sum + " " + k + " " + Grade(75) + Grade(10));
+        Console.WriteLine(Kind(-2) + " " + Kind(0) + " " + Kind(4) + " " + Fact(3) + " " + sum + " " + k + " " + Grade(75) + Grade(10) + " " + Parts());
     }
 
     static string Grade(int g) {
@@ -62,5 +62,25 @@ public class Conds {
         } else {
             return "F";
         }
+    }
+
+    // תנאים מורכבים (&&, ||, !, סוגריים): כל חלק עם הערכים שלו, קיצור (short-circuit), ו"?" כשאי אפשר לחשב
+    static string Parts() {
+        int x = 7, y = 3;
+        string s = "abc";
+        string outp = "";
+        if (x > 5 && y > 4) outp += "1";           // && — החלק השני נכשל
+        if (x > 5 || y > 4) outp += "2";            // || — החלק הראשון מספיק, השני לא נבדק
+        if (x % 2 == 0 && y != 0 || s.Length == 3) outp += "3";   // קדימות: && לפני ||, ו-.Length
+        if (!(x < 0) && (y == 3 || y == 9)) outp += "4";          // ! וסוגריים
+        if (y > 4 && x / (y - 3) > 1) outp += "5";  // קיצור: נמנעים מחילוק באפס
+        Stack<int> st = new Stack<int>();
+        st.Push(2);
+        st.Push(5);
+        while (!st.IsEmpty() && st.Top() > 0) {
+            st.Pop();
+        }
+        if (s.IndexOf("z") >= 0 || y > 1) outp += "6";   // s.IndexOf — אי אפשר לחשב כאן (מוצג "?")
+        return outp;
     }
 }
