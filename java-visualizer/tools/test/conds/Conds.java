@@ -48,7 +48,7 @@ public class Conds {
         do {
             k--;
         } while (k > 1);
-        System.out.println(kind(-2) + " " + kind(0) + " " + kind(4) + " " + fact(3) + " " + sum + " " + k + " " + grade(75) + grade(10));
+        System.out.println(kind(-2) + " " + kind(0) + " " + kind(4) + " " + fact(3) + " " + sum + " " + k + " " + grade(75) + grade(10) + " " + parts());
     }
 
     static String grade(int g) {
@@ -61,5 +61,25 @@ public class Conds {
         } else {
             return "F";
         }
+    }
+
+    // תנאים מורכבים (&&, ||, !, סוגריים): כל חלק עם הערכים שלו, קיצור (short-circuit), ו"?" כשאי אפשר לחשב
+    static String parts() {
+        int x = 7, y = 3;
+        String s = "abc";
+        StringBuilder out = new StringBuilder();
+        if (x > 5 && y > 4) out.append("1");           // && — החלק השני נכשל
+        if (x > 5 || y > 4) out.append("2");            // || — החלק הראשון מספיק, השני לא נבדק
+        if (x % 2 == 0 && y != 0 || s.length() == 3) out.append("3");   // קדימות: && לפני ||
+        if (!(x < 0) && (y == 3 || y == 9)) out.append("4");            // ! וסוגריים
+        if (y > 4 && x / (y - 3) > 1) out.append("5");  // קיצור: נמנעים מחילוק באפס
+        Stack<Integer> st = new Stack<Integer>();
+        st.push(2);
+        st.push(5);
+        while (!st.isEmpty() && st.top() > 0) {
+            st.pop();
+        }
+        if (s.indexOf("z") >= 0 || y > 1) out.append("6");   // s.indexOf — אי אפשר לחשב כאן (מוצג "?")
+        return out.toString();
     }
 }
