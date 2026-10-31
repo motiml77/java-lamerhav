@@ -152,7 +152,9 @@ classes — EVERY class that the code needs besides the main class and the libra
   • name + code: full compilable ${L.name} code of the class: "public class Name { ... }" with the fields exactly as described (names and types as written;
     when they are only described in words, choose sensible English names and ${L.name} types: "לכל ספר יש שם, מחבר ומספר עמודים" →
     ${L.book}), a constructor, getters/setters and a string conversion (toString / ToString) —
-    plus any methods the exercise gives with their implementation.
+    plus any methods the exercise gives with their implementation. Setters only for fields that the exercise or the code really changes — do not add
+    extra methods nobody needs. The string conversion is short and simple, with the values only (e.g. "מסע בזמן, יוסי, 320" — no English words such as
+    "by" or "pages"), so that what main prints reads naturally in Hebrew.
   • Do NOT include the methods/constructors that the student must write (those are tasks — the program inserts them). If the student must write the
     constructor, a getter or toString of a class, leave out only that one — the class still gets all its fields and everything else it needs.
   • HARD RULE: every className in tasks and in givenCode is either mainClass or the name of a class in classes (never a library class — see className

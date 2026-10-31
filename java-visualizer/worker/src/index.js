@@ -298,25 +298,32 @@ async function askGemini(env, userParts, lang) {
     // והתשובה נחתכת (MAX_TOKENS → JSON שבור → המודל הבא, החלש יותר). 65536 — המקסימום של מודלי Flash
     maxOutputTokens: 65536,
   };
-  const body = '{"systemInstruction":' + JSON.stringify({ parts: [{ text: systemPrompt(lang) }] })
-    + ',"contents":[{"role":"user","parts":[' + userParts.join(',') + ']}]'
-    + ',"generationConfig":' + JSON.stringify(cfg) + '}';
+  const head = '{"systemInstruction":' + JSON.stringify({ parts: [{ text: systemPrompt(lang) }] })
+    + ',"contents":[{"role":"user","parts":[' + userParts.join(',') + ']}]';
+  const bodyFor = c => head + ',"generationConfig":' + JSON.stringify(c) + '}';
   const base = env.GEMINI_BASE || GEMINI_BASE;
   let last = null, busy = false;
   for (const model of models(env)) {
-    let res;
+    let res, raw;
     try {
-      res = await fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      const call = c => fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-        body,
+        body: bodyFor(c),
         signal: AbortSignal.timeout(+(env.TIMEOUT_MS || 100000)),
       });
+      res = await call(cfg);
+      raw = await res.text();
+      // מודל שלא מקבל מכסה של 65536 (400 על maxOutputTokens) — מנסים שוב עם 32768, כמו קודם, ולא נכשלים לכל התלמידים
+      if (res.status === 400 && /max[_ ]?output[_ ]?tokens/i.test(raw)) {
+        console.error('gemini maxOutputTokens rejected', model, raw.slice(0, 200));
+        res = await call(Object.assign({}, cfg, { maxOutputTokens: 32768 }));
+        raw = await res.text();
+      }
     } catch (e) {
       last = `${model}: ${e && e.name === 'TimeoutError' ? 'timeout' : String(e)}`;
       continue;
     }
-    const raw = await res.text();
     if (res.status === 429 || res.status >= 500 || res.status === 404) {   // מכסה נגמרה / עומס / מודל לא קיים — מנסים את הבא
       if (res.status === 429 || res.status === 503) busy = true;
       last = `${model}: ${res.status} ${raw.slice(0, 300)}`;

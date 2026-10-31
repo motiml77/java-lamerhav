@@ -2,6 +2,7 @@
 //   node test/worker-test.mjs
 import assert from 'node:assert/strict';
 import worker from '../src/index.js';
+import { systemPrompt } from '../src/prompt.js';
 
 const SAMPLE = {
   isExercise: true, problem: '', title: 'ספירת זוגיים במחסנית', summary: 'כתיבת פעולה על מחסנית.',
@@ -336,6 +337,29 @@ await test('התשובה נחתכה (MAX_TOKENS) → נרשם בלוג בנפר�
   assert.equal(r.status, 200);
   assert.equal(r.body.model, 'model-b');
   assert.ok(logged.some(l => /^gemini MAX_TOKENS model-a/.test(l)), logged.join(' | '));
+});
+
+await test('מודל שלא מקבל maxOutputTokens=65536 (400) → אותו מודל שוב עם 32768, ולא נכשלים', async () => {
+  script = [{ status: 400, json: { error: { code: 400, message: 'The specified maxOutputTokens value is out of range', status: 'INVALID_ARGUMENT' } } },
+            { status: 200, json: geminiOk(SAMPLE) }];
+  const logged = [], orig = console.error;
+  console.error = (...a) => logged.push(a.join(' '));
+  let r;
+  try { r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] })); } finally { console.error = orig; }
+  assert.equal(r.status, 200);
+  assert.equal(r.body.model, 'model-a');
+  assert.equal(calls.length, 2);
+  assert.equal(JSON.parse(calls[0].init.body).generationConfig.maxOutputTokens, 65536);
+  assert.equal(JSON.parse(calls[1].init.body).generationConfig.maxOutputTokens, 32768);
+  assert.ok(logged.some(l => /maxOutputTokens rejected model-a/.test(l)), logged.join(' | '));
+});
+
+await test('הצעת toString פשוטה ובלי מתודות מיותרות — בהנחיות לשתי השפות', async () => {
+  for (const l of ['java', 'csharp']) {
+    const p = systemPrompt(l);
+    assert.ok(p.includes('Setters only for fields that the exercise or the code really changes'), l);
+    assert.ok(p.includes('no English words such as'), l);
+  }
 });
 
 await test('לא תרגיל → הסבר בעברית', async () => {
