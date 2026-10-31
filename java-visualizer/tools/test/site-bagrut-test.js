@@ -82,8 +82,8 @@ async function docx() {
   await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('.hero .btn')]);
   await beacon.catch(() => {});
   check(counted, 'ספירה ברקע אחרי לחיצה על הורדה');
-  check(await page.$('footer .donate[href*="paypal.com/donate"]'), 'תרום לנו בתחתית');
-  pass('עמוד ראשי: מונה הורדות (' + count + '), הורדה ישירה מ-GitHub עם ספירה ברקע, ו"תרום לנו"');
+  check(await page.$('footer .donate[href*="paypal.com/donate"]'), 'תמכו בפרויקט בתחתית');
+  pass('עמוד ראשי: מונה הורדות (' + count + '), הורדה ישירה מ-GitHub עם ספירה ברקע, ו"תמכו בפרויקט"');
 
   // ---- שאלת בגרות: Word + תמונה + PDF
   await page.goto(base + '/bagrut.html');

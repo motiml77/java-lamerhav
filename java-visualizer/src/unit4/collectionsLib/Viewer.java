@@ -228,11 +228,18 @@ final class Viewer extends JFrame {
         mainBtn.setVisible(false);
         info.add(mainBtn);
 
+        // בקצה הסרגל, אחרי פס המידע: "תמכו בפרויקט" — כפתור שקט באותו גובה (BorderLayout — שניהם נמתחים לאותו גובה)
+        Donate donate = new Donate();
+        JPanel end = new JPanel(new BorderLayout(10, 0));
+        end.setOpaque(false);
+        end.add(info, BorderLayout.CENTER);
+        end.add(donate, BorderLayout.LINE_END);
+
         JPanel bar = new JPanel(new BorderLayout(16, 0));
         bar.setOpaque(false);
         bar.add(nav, BorderLayout.LINE_START);
         bar.add(timeline, BorderLayout.CENTER);
-        bar.add(info, BorderLayout.LINE_END);
+        bar.add(end, BorderLayout.LINE_END);
 
         JPanel north = new JPanel(new BorderLayout(0, 10));
         north.setOpaque(false);
@@ -552,12 +559,6 @@ final class Viewer extends JFrame {
         JPanel line = new JPanel(new BorderLayout());
         line.setOpaque(false);
         line.add(c, BorderLayout.LINE_END);
-        // "תרום לנו" — קטן, בזהב, בצד השני של שורת זכויות היוצרים
-        JPanel give = new JPanel(new FlowLayout(FlowLayout.LEADING, 10, 0));
-        give.setOpaque(false);
-        give.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
-        give.add(new Donate());
-        line.add(give, BorderLayout.LINE_START);
         box.add(line, BorderLayout.SOUTH);
         return box;
     }

@@ -13,14 +13,24 @@ const TUTORIALS = [
 ];
 // לכל סביבה סרטונים משלה (אותן הדרכות, במסך של הסביבה): Eclipse — help/, VS Code — help/vscode/, Visual Studio — help/vs/
 
-/** "תרום לנו" — כפתור זהב קטן בתחתית הדף. אותו קישור כמו בחלון ההרצה (Theme.DONATE_URL) */
+/**
+ * "תמכו בפרויקט" — כפתור שקט בקצה הסרגל העליון, כמו בחלון ההרצה (Donate.java) ובאתר: מסגרת דקה שקופה-למחצה (הדפים כהים),
+ * לב קטן בקו, ובריחוף — גוון ורוד עדין והלב מתמלא. בדף צר נשאר רק הלב. אותו קישור כמו Theme.DONATE_URL.
+ * בלי משתני CSS ובלי gap — כדי שייראה נכון גם בדפדפן הישן שבתוך Eclipse ישן (IE).
+ */
 const DONATE_URL = 'https://www.paypal.com/donate/?business=motiml77%40gmail.com&currency_code=ILS&item_name=DSViz';
-const DONATE_CSS = `.donate { display: inline-flex; align-items: center; gap: 6px; font: 700 12.5px/1 "Segoe UI", Heebo, Arial, sans-serif; color: #4a3405; text-decoration: none;
-  padding: 6px 14px; border-radius: 999px; background: linear-gradient(#f8de8a, #ddb042); border: 1px solid #b68a1e; box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 1px 3px rgba(0,0,0,.45); white-space: nowrap; }
-.donate:hover, .donate:focus-visible { background: linear-gradient(#fbe7a4, #e6bc4e); outline: none; }
-.donate:active { transform: translateY(1px); }
-.donate .heart { color: #b4372c; font-size: 13px; }`;
-const DONATE_HTML = `<a class="donate" id="donate" href="${DONATE_URL}" target="_blank" rel="noopener" title="התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal"><span class="heart">&#9829;</span>תרום לנו</a>`;
+const DONATE_CSS = `.donate { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 10px; white-space: nowrap; cursor: pointer; flex: none;
+  font: 600 13.5px/1 "Segoe UI", Heebo, Arial, sans-serif; color: #e6e9f2; text-decoration: none;
+  border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.04); transition: background-color .15s, border-color .15s, color .15s; }
+.donate svg { width: 15px; height: 15px; margin-left: 8px; flex: none; color: #f472b6; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.donate:hover { background: rgba(244,114,182,.12); border-color: rgba(244,114,182,.55); color: #fff; }
+.donate:hover svg { fill: currentColor; }
+.donate:focus-visible { outline: 2px solid #f472b6; outline-offset: 2px; }
+.donate:active { background: rgba(244,114,182,.22); }
+@media (max-width: 640px) { .donate span { display: none; } .donate { padding: 0 9px; } .donate svg { margin: 0; } }`;
+/** הלב — אותה צורה (viewBox 16x16) כמו ב-Donate.java ובאתר */
+const DONATE_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14.2C4.4 11.4 1.5 8.9 1.5 5.6 1.5 3.5 3.1 2 5 2c1.3 0 2.4.7 3 1.8C8.6 2.7 9.7 2 11 2c1.9 0 3.5 1.5 3.5 3.6 0 3.3-2.9 5.8-6.5 8.6z"/></svg>';
+const DONATE_HTML = `<a class="donate" id="donate" href="${DONATE_URL}" target="_blank" rel="noopener" title="התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal">${DONATE_SVG}<span>תמכו בפרויקט</span></a>`;
 // בדפדפן — הקישור נפתח בלשונית חדשה. בתוך Eclipse (dsvizOpen) ובתוך VS Code (postMessage) — פותחים בדפדפן של המערכת
 const DONATE_JS = `(function () {
   var d = document.getElementById('donate'); if (!d) return;
@@ -74,15 +84,16 @@ h1 b { background: linear-gradient(100deg, var(--accent), var(--accent2)); -webk
 .speed .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .hint { color: var(--muted); font-size: 14px; margin-top: 22px; }
 .copy { font-size: 12px; opacity: .7; direction: ltr; text-align: right; }
-.foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.foot { margin-top: 14px; }
 ${DONATE_CSS}
 </style></head><body>
 <div class="wrap">
-  <h1>הדרכה <b>לשימוש</b></h1>
+  <div class="head"><h1>הדרכה <b>לשימוש</b></h1>${DONATE_HTML}</div>
   <div class="sub">בוחרים הדרכה — לכל אחת סרטון קצר שמראה בדיוק איפה לוחצים ומה נפתח.</div>
   <div class="grid" id="grid"></div>
   <div class="hint">אפשר לחזור לכאן בכל רגע בכפתור <b>?</b> בסרגל הכלים.</div>
-  <div class="foot">${DONATE_HTML}<div class="hint copy" style="margin:0">© 2026 Moti Levi · motiml77@gmail.com</div></div>
+  <div class="foot"><div class="hint copy" style="margin:0">© 2026 Moti Levi · motiml77@gmail.com</div></div>
 </div>
 <div id="player"><div class="bar"><h3 id="ptitle"></h3><div class="speed" id="speed"><span>מהירות</span></div><button class="btn" id="next">ההדרכה הבאה ◂</button><button class="btn" id="close">✕ סגירה</button></div><video id="vid" controls></video></div>
 <script>
@@ -140,7 +151,8 @@ ${csp ? `<meta http-equiv="Content-Security-Policy" content="${csp}">` : ''}
 html, body { height: 100%; margin: 0; }
 body { background: #070913; color: #f2f4fb; font: 16px/1.4 "Segoe UI", Heebo, Arial, sans-serif; display: flex; flex-direction: column; }
 .bar { display: flex; align-items: center; padding: 10px 16px; flex: 0 0 auto; }
-.bar h1 { margin: 0; font-size: 20px; flex: 1; }
+.bar h1 { margin: 0; font-size: 20px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar .donate { margin-right: 14px; }
 .speed { direction: ltr; display: flex; align-items: center; }
 .speed span { color: #aab2c8; font-size: 14px; direction: rtl; margin-right: 8px; }
 .speed button { font: inherit; font-size: 14px; color: #f2f4fb; background: #1b2140; border: 1px solid #3a4468; border-radius: 10px; padding: 5px 12px; margin-left: 6px; min-width: 52px; cursor: pointer; }
@@ -150,13 +162,13 @@ body { background: #070913; color: #f2f4fb; font: 16px/1.4 "Segoe UI", Heebo, Ar
 .stage { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px 12px; }
 video { max-width: 100%; max-height: 100%; background: #000; border-radius: 10px; outline: none; }
 #err { display: none; color: #ffd27a; text-align: center; padding: 20px; }
-.foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 16px 8px; }
-.copy { color: #aab2c8; font-size: 11px; opacity: .7; direction: ltr; }
+.foot { flex: 0 0 auto; padding: 0 16px 8px; }
+.copy { color: #aab2c8; font-size: 11px; opacity: .7; direction: ltr; text-align: right; }
 ${DONATE_CSS}
 </style></head><body>
-<div class="bar"><h1 id="ttl"></h1><button class="other" id="other">הדרכה אחרת</button><div class="speed" id="speed"><span>מהירות</span></div></div>
+<div class="bar"><h1 id="ttl"></h1><button class="other" id="other">הדרכה אחרת</button><div class="speed" id="speed"><span>מהירות</span></div>${DONATE_HTML}</div>
 <div class="stage"><video id="vid" controls autoplay></video><div id="err">לא הצלחתי לנגן את הסרטון בחלון הזה.</div></div>
-<div class="foot">${DONATE_HTML}<div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div></div>
+<div class="foot"><div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div></div>
 <script>
 var LIST = ${data};
 var SPEEDS = [1, 1.25, 1.5, 2];
