@@ -267,24 +267,15 @@ figcaption { font-size: var(--small); color: var(--muted); margin-top: 10px; lin
 .foot-end { display: flex; align-items: center; gap: 18px; }
 
 /* ---------- "תמכו בפרויקט": כפתור שקט (כמו "Sponsor" ב-GitHub) — בסרגל העליון ליד "הורדה" ובתחתית. אותו עיצוב כמו בחלון ההרצה */
-.donate {
-  display: inline-flex; align-items: center; flex: none;
-  height: 36px; padding: 0 14px; border-radius: var(--r);
-  font-weight: 600; font-size: var(--small); line-height: 1; color: var(--ink); text-decoration: none; white-space: nowrap;
-  background: #fff; border: 1px solid #DFE3EA;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-.donate svg { width: 15px; height: 15px; margin-inline-end: 8px; flex: none; color: #E0679A; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-.donate:hover { background: #FDF2F8; border-color: #F5C2D8; color: #9D174D; text-decoration: none; }
-.donate:hover svg { color: #DB2777; fill: currentColor; }
-.donate:active { background: #FCE7F3; }
+/* "תמכו בפרויקט" — התגים (assets/donate-java.png / donate-cs.png), אותם תגים כמו בחלון ההרצה ובדפי ההדרכה */
+.donate { display: inline-block; flex: none; line-height: 0; border-radius: 999px; transition: transform 0.12s ease, filter 0.12s ease; }
+.donate img { height: 36px; width: auto; display: block; }
+.donate:hover { filter: brightness(1.1); transform: translateY(-1px); text-decoration: none; }
+.donate:active { transform: translateY(1px); }
+.donate:focus-visible { outline: 2px solid #F472B6; outline-offset: 2px; }
 .bar .donate { margin-inline-end: -10px; }
-/* בתחתית הכהה: מסגרת שקופה-למחצה */
-.foot .donate { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.22); color: var(--dark-ink); }
-.foot .donate svg { color: #F472B6; }
-.foot .donate:hover { background: rgba(244, 114, 182, 0.12); border-color: rgba(244, 114, 182, 0.55); color: #fff; }
-.foot .donate:hover svg { color: #F472B6; }
-.foot .donate:active { background: rgba(244, 114, 182, 0.22); }
+.foot-end .donate + .donate { margin-inline-start: 8px; }
+@media (max-width: 520px) { .foot-end { flex-wrap: wrap; gap: 10px; } .foot-end .donate img { height: 30px; } .foot-end .donate + .donate { margin-inline-start: 0; } }
 
 /* מונה ההורדות */
 .cta .count { font-size: var(--small); color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -379,9 +370,7 @@ pre.code {
 }
 @media (max-width: 720px) {
   .bar nav { display: none; }
-  .bar .donate { margin-inline-start: auto; padding: 0 10px; }   /* בטלפון: רק הלב, צמוד ל"הורדה" */
-  .bar .donate span { display: none; }
-  .bar .donate svg { margin: 0; }
+  .bar .donate { display: none; }   /* בטלפון: אין מקום בכותרת — התגים נשארים בתחתית הדף */
   .facts { grid-template-columns: 1fr; }
   .hero .lead { margin: 20px 0 24px; }
   .end h2 { font-size: var(--head); }

@@ -19,18 +19,32 @@ const TUTORIALS = [
  * בלי משתני CSS ובלי gap — כדי שייראה נכון גם בדפדפן הישן שבתוך Eclipse ישן (IE).
  */
 const DONATE_URL = 'https://www.paypal.com/donate/?business=motiml77%40gmail.com&currency_code=ILS&item_name=DSViz';
-const DONATE_CSS = `.donate { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 10px; white-space: nowrap; cursor: pointer; flex: none;
-  font: 600 13.5px/1 "Segoe UI", Heebo, Arial, sans-serif; color: #e6e9f2; text-decoration: none;
-  border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.04); transition: background-color .15s, border-color .15s, color .15s; }
-.donate svg { width: 15px; height: 15px; margin-left: 8px; flex: none; color: #f472b6; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-.donate:hover { background: rgba(244,114,182,.12); border-color: rgba(244,114,182,.55); color: #fff; }
-.donate:hover svg { fill: currentColor; }
+/** התג — תמונה (media/donate-java.png / donate-cs.png), מוטמעת בדף (data:) כדי שתופיע בכל מקום: Webview, Eclipse, דפדפן. גובה 36 בתצוגה */
+const DONATE_CSS = `.donate { display: inline-block; flex: none; line-height: 0; border-radius: 999px; cursor: pointer; transition: transform .12s, filter .12s; }
+.donate img { height: 36px; width: auto; display: block; }
+.donate:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.donate:active { transform: translateY(1px); }
 .donate:focus-visible { outline: 2px solid #f472b6; outline-offset: 2px; }
-.donate:active { background: rgba(244,114,182,.22); }
-@media (max-width: 640px) { .donate span { display: none; } .donate { padding: 0 9px; } .donate svg { margin: 0; } }`;
-/** הלב — אותה צורה (viewBox 16x16) כמו ב-Donate.java ובאתר */
-const DONATE_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14.2C4.4 11.4 1.5 8.9 1.5 5.6 1.5 3.5 3.1 2 5 2c1.3 0 2.4.7 3 1.8C8.6 2.7 9.7 2 11 2c1.9 0 3.5 1.5 3.5 3.6 0 3.3-2.9 5.8-6.5 8.6z"/></svg>';
-const DONATE_HTML = `<a class="donate" id="donate" href="${DONATE_URL}" target="_blank" rel="noopener" title="התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal">${DONATE_SVG}<span>תמכו בפרויקט</span></a>`;
+@media (max-width: 640px) { .donate img { height: 28px; } }`;
+const badges = {};
+function badge(lang) {
+    const k = lang === 'cs' ? 'cs' : 'java';
+    if (!(k in badges)) {
+        try {
+            badges[k] = 'data:image/png;base64,' + require('fs').readFileSync(require('path').join(__dirname, 'media', 'donate-' + k + '.png')).toString('base64');
+        } catch (e) {
+            badges[k] = null;
+        }
+    }
+    return badges[k];
+}
+/** lang: 'cs' — התג של C# (Visual Studio), אחרת התג של Java */
+function donateHtml(lang) {
+    const src = badge(lang);
+    const tip = 'התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal';
+    return `<a class="donate" id="donate" href="${DONATE_URL}" target="_blank" rel="noopener" title="${tip}">`
+        + (src ? `<img src="${src}" alt="תמכו בפרויקט">` : 'תמכו בפרויקט') + '</a>';
+}
 // בדפדפן — הקישור נפתח בלשונית חדשה. בתוך Eclipse (dsvizOpen) ובתוך VS Code (postMessage) — פותחים בדפדפן של המערכת
 const DONATE_JS = `(function () {
   var d = document.getElementById('donate'); if (!d) return;
@@ -42,7 +56,7 @@ const DONATE_JS = `(function () {
 })();`;
 
 /** durations: { a: "1:05", ... } (אופציונלי). urlOf(file) → כתובת הקובץ בתוך התיקייה help (שונה ב-Webview ובדפדפן) */
-function page({ urlOf, durations, csp }) {
+function page({ urlOf, durations, csp, lang }) {
     const list = TUTORIALS.map(t => Object.assign({}, t, { dur: (durations || {})[t.id] || '', video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
     const data = JSON.stringify(list).replace(/</g, '\\u003c');
     return `<!doctype html>
@@ -89,7 +103,7 @@ h1 b { background: linear-gradient(100deg, var(--accent), var(--accent2)); -webk
 ${DONATE_CSS}
 </style></head><body>
 <div class="wrap">
-  <div class="head"><h1>הדרכה <b>לשימוש</b></h1>${DONATE_HTML}</div>
+  <div class="head"><h1>הדרכה <b>לשימוש</b></h1>${donateHtml(lang)}</div>
   <div class="sub">בוחרים הדרכה — לכל אחת סרטון קצר שמראה בדיוק איפה לוחצים ומה נפתח.</div>
   <div class="grid" id="grid"></div>
   <div class="hint">אפשר לחזור לכאן בכל רגע בכפתור <b>?</b> בסרגל הכלים.</div>
@@ -138,7 +152,7 @@ ${DONATE_JS}
 /** הסרטונים באתר (הענף הראשי ב-GitHub) — ההתקנה לא כוללת אותם; הנגן מנגן משם כשאין עותק במחשב, והעדכון ברקע מוריד אותם */
 const REMOTE_HELP = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/help/';
 
-function playerPage({ urlOf, csp, id: fixedId, remote }) {
+function playerPage({ urlOf, csp, id: fixedId, remote, lang }) {
     const list = TUTORIALS.map(t => ({ id: t.id, num: t.num, title: t.title, video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
     const data = JSON.stringify(list).replace(/</g, '\\u003c');
     return `<!doctype html>
@@ -166,7 +180,7 @@ video { max-width: 100%; max-height: 100%; background: #000; border-radius: 10px
 .copy { color: #aab2c8; font-size: 11px; opacity: .7; direction: ltr; text-align: right; }
 ${DONATE_CSS}
 </style></head><body>
-<div class="bar"><h1 id="ttl"></h1><button class="other" id="other">הדרכה אחרת</button><div class="speed" id="speed"><span>מהירות</span></div>${DONATE_HTML}</div>
+<div class="bar"><h1 id="ttl"></h1><button class="other" id="other">הדרכה אחרת</button><div class="speed" id="speed"><span>מהירות</span></div>${donateHtml(lang)}</div>
 <div class="stage"><video id="vid" controls autoplay></video><div id="err">לא הצלחתי לנגן את הסרטון בחלון הזה.</div></div>
 <div class="foot"><div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div></div>
 <script>

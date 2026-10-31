@@ -451,6 +451,7 @@ async function openHelp(id) {
     const src = panel.webview.cspSource;
     panel.webview.html = help.playerPage({
         id: tut.id,
+        lang: currentLang === 'csharp' ? 'cs' : 'java',   // התג "תמכו בפרויקט" של השפה שבה עובדים
         urlOf: f => panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, f))).toString(),
         remote: help.REMOTE_HELP + (path.basename(dir) === 'help' && path.basename(path.dirname(dir)) !== 'resources' ? '' : 'vscode/'),   // אין עותק במחשב — מהאתר
         csp: `default-src 'none'; img-src ${src} data:; media-src ${src} https://raw.githubusercontent.com; style-src 'unsafe-inline'; script-src 'unsafe-inline';`
