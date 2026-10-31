@@ -223,6 +223,45 @@ javac -encoding UTF-8 -cp "$JAR" -d "$LB" loops/LoopArrowPaint.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$LB:$JAR" unit4.collectionsLib.LoopArrowPaint > "$LB/paint.txt" 2>&1 \
     && grep -q MARK-END "$LB/paint.txt" && grep '^  ok' "$LB/paint.txt" || { cat "$LB/paint.txt"; exit 1; }
 
+echo "== 5ט. קלט מהמקלדת (Scanner / BufferedReader / System.in.read): השורה שמחכה, מה שהוקלד כצעד INPUT, והפלט"
+# בלי חלון: dsviz.input "מקליד" את השורות כשהתוכנית מחכה (מקובץ UTF-8 — עברית בלי תלות בקידוד של שורת הפקודה)
+I="$W/input"
+mkdir -p "$I"
+cp input/*.java "$I/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$I" "$I"/*.java
+printf '3\n4 5\n6\nדני כהן\n' > "$I/scan.in"
+printf 'y\nתל אביב\n' > "$I/read.in"
+printf 'abc\n' > "$I/bad.in"
+printf '1 2\n3\n' > "$I/sum.in"
+for run in ScanInput:scan ReadInput:read ScanInput:bad SumUntil:sum; do
+    (cd "$I" && timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -Ddsviz.input=@${run#*:}.in -cp ".:$JAR" \
+        unit4.collectionsLib.LineByLine ${run%%:*} < /dev/null 2>&1 | sed 's/\xE2\x80\x8E//g' > ${run#*:}.out) || true
+done
+conds "$I/scan.out" \
+    '⌨ מחכה לקלט מהמקלדת — שורה 10:  in.nextInt()' '(ScanInput.java:10)  קלט מהמקלדת: 3' \
+    '⌨ מחכה לקלט מהמקלדת — שורה 14:  in.nextInt()' '(ScanInput.java:14)  קלט מהמקלדת: 4 5' '(ScanInput.java:14)  s.push(5)' \
+    '(ScanInput.java:14)  קלט מהמקלדת: 6' '⌨ מחכה לקלט מהמקלדת — שורה 18:  in.nextLine()' '(ScanInput.java:18)  קלט מהמקלדת: דני כהן' \
+    'name="דני כהן"' 'שלום דני כהן, הסכום: 15'
+[ "$(grep -c 'קלט מהמקלדת: ' "$I/scan.out")" = 4 ] && echo "  ok  4 צעדי קלט (\"4 5\" לשתי קריאות בשורה אחת — צעד אחד)" \
+    || { echo "  FAIL מספר צעדי הקלט"; grep 'קלט מהמקלדת' "$I/scan.out"; exit 1; }
+grep -A1 'מחכה לקלט מהמקלדת — שורה 18' "$I/scan.out" | grep -qx 'דני כהן' && echo "  ok  מה שהוקלד מודפס גם לקונסול" \
+    || { echo "  FAIL ההקלדה לא הודפסה לקונסול"; exit 1; }
+conds "$I/read.out" '⌨ מחכה לקלט מהמקלדת — שורה 9:  System.in.read()' '⌨ מחכה לקלט מהמקלדת — שורה 14:  br.readLine()' \
+    '(ReadInput.java:14)  קלט מהמקלדת: תל אביב' 'קיבלתי y ו-תל אביב (7 תווים)'
+conds "$I/bad.out" '(ScanInput.java:10)  קלט מהמקלדת: abc' 'שגיאה: InputMismatchException'
+# while (in.hasNextInt()) עד שהקלט נגמר — צעד אחד "סוף הקלט" (בחלון: אחרי "סיום הקלט")
+conds "$I/sum.out" '⌨ מחכה לקלט מהמקלדת — שורה 8:  in.hasNextInt()' '(SumUntil.java:8)  קלט מהמקלדת: 1 2' \
+    '(SumUntil.java:8)  סוף הקלט — אין עוד מה לקרוא' 'סכום: 6'
+# בלי חלון ובלי dsviz.input — כמו קודם: System.in הרגיל. קלט מצינור עובד (בלי צעדי קלט), ובסוף הקלט — NoSuchElementException
+(cd "$I" && printf '2\n7 8\nרון\n' | timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" \
+    unit4.collectionsLib.LineByLine ScanInput > piped.out 2>&1) || true
+grep -q 'שלום רון, הסכום: 15' "$I/piped.out" && ! grep -q 'קלט מהמקלדת\|מחכה לקלט' "$I/piped.out" \
+    && echo "  ok  בלי חלון: קלט מצינור כמו קודם" || { echo "  FAIL קלט מצינור בלי חלון"; tail -5 "$I/piped.out"; exit 1; }
+(cd "$I" && timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" \
+    unit4.collectionsLib.LineByLine ScanInput < /dev/null > eof.out 2>&1) || true
+grep -q 'שגיאה: NoSuchElementException' "$I/eof.out" && ! grep -q 'קלט מהמקלדת\|מחכה לקלט' "$I/eof.out" \
+    && echo "  ok  בלי חלון ובלי קלט: NoSuchElementException כמו קודם" || { echo "  FAIL בלי קלט"; tail -5 "$I/eof.out"; exit 1; }
+
 echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
 mkdir -p "$W/obj"
 javac -encoding UTF-8 -cp "$JAR" -d "$W/obj" objcards/ObjCheck.java

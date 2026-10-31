@@ -265,6 +265,49 @@ final class Recorder {
         }
     }
 
+    // ------------------------------------------------------------ קלט מהמקלדת (Keyboard)
+
+    /**
+     * התוכנית מנסה לקרוא קלט ואין: השורות שממתינות הופכות לצעדים — כך השורה שקוראת היא הצעד האחרון בחלון.
+     * תוכנית שעוד לא עשתה כלום שמתועד — החלון נפתח עכשיו, כדי שיהיה איפה להקליד. בלי חלון (בדיקות) — מודפס איפה מחכים.
+     * מחזיר את האינדקס של הצעד האחרון (או -1).
+     */
+    static int inputWait(Frame f, String call) {
+        synchronized (LOCK) {
+            if (lineMode) drainLines();
+            if (active && enabled) start();
+            if (textMode) out.println("  \u2328 מחכה לקלט מהמקלדת" + (f == null ? "" : " — שורה " + f.line) + (call == null ? "" : ":  " + call));
+            return steps.size() - 1;
+        }
+    }
+
+    /**
+     * התוכנית קיבלה שורת קלט: מופיעה בפלט (בחלון — בצבע של קלט) ונרשמת כצעד INPUT בשורה שקראה אותה.
+     * echo = הוקלדה בחלון (או בבדיקה) — מודפסת גם לקונסול, כדי שיופיע שם "הכנס מספר: 5" כמו בהרצה רגילה
+     * (מה שהוקלד בקונסול עצמו כבר מופיע שם).
+     */
+    static void input(String typed, boolean echo) {
+        synchronized (LOCK) {
+            if (lineMode) drainLines();   // השורות שלפני הקריאה — בלי הקלט החדש
+            if (echo) {
+                out.println(typed);
+                out.flush();
+            }
+            output.append(typed).append('\n');   // הצעד (outLen) כבר כולל את מה שהוקלד
+            int before = steps.size();
+            recordAt(Kind.INPUT, null, Mark.NONE, null, "קלט מהמקלדת: \u200E" + shorten(typed, 60) + "\u200E", new Throwable().getStackTrace());
+            if (steps.size() > before) steps.get(steps.size() - 1).input = typed;
+        }
+    }
+
+    /** התוכנית ניסתה לקרוא ואין עוד קלט ("סיום הקלט", או בלי חלון — הקלט נגמר): צעד INPUT בלי input (null) */
+    static void inputEnd() {
+        synchronized (LOCK) {
+            if (lineMode) drainLines();
+            recordAt(Kind.INPUT, null, Mark.NONE, null, "סוף הקלט — אין עוד מה לקרוא", new Throwable().getStackTrace());
+        }
+    }
+
     // ------------------------------------------------------------ רישום מבנים
 
     static void register(Object o) {
@@ -783,7 +826,7 @@ final class Recorder {
         if (textMode) printStep(s);
     }
 
-    private static boolean isLibrary(String cls) {
+    static boolean isLibrary(String cls) {
         return cls.startsWith("unit4.collectionsLib.") || cls.startsWith("java.") || cls.startsWith("javax.")
                 || cls.startsWith("sun.") || cls.startsWith("jdk.") || cls.startsWith("com.sun.");
     }

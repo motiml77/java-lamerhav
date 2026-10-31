@@ -80,6 +80,8 @@ public final class LineByLine {
             Recorder.initLineMode();
             Recorder.preload();
         }
+        // קלט מהמקלדת (Scanner): System.in מתחלף בזרם שמחכה גם להקלדה בחלון — לפני main, כי Scanner שומר את הזרם כשהוא נוצר
+        Keyboard.install(!java.awt.GraphicsEnvironment.isHeadless() && !Recorder.textMode);
         Method main = Class.forName(mainClass).getMethod("main", String[].class);
         try {
             main.invoke(null, (Object) args);
