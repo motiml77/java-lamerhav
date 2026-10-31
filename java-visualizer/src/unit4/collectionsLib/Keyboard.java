@@ -310,6 +310,7 @@ final class Keyboard extends InputStream {
         waitStep = step;
         waitId++;
         waiting = true;
+        Recorder.waitingForInput = true;   // מחכים לתלמיד — לא לולאה שלא נגמרת (LoopGuard)
         notifyViewer();
         String line;
         synchronized (lock) {
@@ -320,6 +321,7 @@ final class Keyboard extends InputStream {
 
     private void endWait() {
         waiting = false;
+        Recorder.waitingForInput = false;
         notifyViewer();
     }
 

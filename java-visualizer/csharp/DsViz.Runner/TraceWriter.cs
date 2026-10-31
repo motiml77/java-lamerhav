@@ -34,6 +34,7 @@ namespace DsViz
                     }
                     WriteFrameVars(w, s);
                     foreach (View v in s.Views) WriteView(w, v);
+                    if (s.Loop != null) Row(w, "LOOP", s.Loop);   // התוכנית נעצרה כאן בלולאה שלא נגמרת (החלון: LoopCard)
                 }
                 Row(w, "OUT", Recorder.Output.ToString());
             }

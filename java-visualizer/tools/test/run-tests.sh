@@ -311,6 +311,40 @@ grep -q 'שלום רון, הסכום: 15' "$I/piped.out" && ! grep -q 'קלט מ
 grep -q 'שגיאה: NoSuchElementException' "$I/eof.out" && ! grep -q 'קלט מהמקלדת\|מחכה לקלט' "$I/eof.out" \
     && echo "  ok  בלי חלון ובלי קלט: NoSuchElementException כמו קודם" || { echo "  FAIL בלי קלט"; tail -5 "$I/eof.out"; exit 1; }
 
+echo "== 5י. לולאה שלא נגמרת: התוכנית נעצרת, והכרטיס אומר מה קרה, למה (איזה משתנה לא מתקדם) ומה עושים — ולולאות תקינות וארוכות לא נעצרות"
+LP="$W/loopguard"
+mkdir -p "$LP/loops"
+cp problems/loops/*.java "$LP/loops/"   # הכרטיס נבנה מהקוד — הקבצים ליד המחלקות
+javac -g -encoding UTF-8 -cp "$JAR" -d "$LP" "$LP"/loops/*.java
+# כולן במקביל (כל אחת היא תהליך עם debugger); בלי ‪...‬ שעוטפים קוד בתוך עברית — כדי לחפש טקסט פשוט
+for c in CounterStuck WrongWay NodeStuck StackStuck SameState Semicolon EmptyTrue FineLoops LongSum; do
+    (cd "$LP" && timeout 150 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine loops.$c 2>&1 \
+        | sed 's/\xE2\x80[\xAA\xAC\x8E\x8F]//g' > $c.txt) &
+done
+wait
+stuck() {   # stuck <class> <השורות שחייבות להופיע...> — וצעד העצירה הוא האחרון (בלי "התוכנית הסתיימה")
+    c=$1; shift
+    conds "$LP/$c.txt" "$@"
+    grep '^  #' "$LP/$c.txt" | tail -1 | grep -q 'הלולאה לא נגמרת — התוכנית נעצרה' && ! grep -q 'התוכנית הסתיימה' "$LP/$c.txt" \
+        && echo "  ok  $c: נעצרה, וצעד העצירה הוא האחרון" || { echo "  FAIL $c: לא נעצרה בלולאה"; tail -5 "$LP/$c.txt"; exit 1; }
+}
+stuck CounterStuck '[כרטיס loop x x > 0]' '[לולאה x שורה 7 הלולאה בשורה 7 לא נגמרת' 'x נשאר 5 בכל הסיבובים — אף פקודה בלולאה לא משנה אותו' \
+    'בסוף כל סיבוב מקטינים את x — כך הוא יתקרב ל-0 והלולאה תיגמר:  x--;'
+stuck WrongWay '[כרטיס loop i i < 10]' 'i רק הולך וקטן (0, -1, -2, …' 'בחלק השלישי של ה-for כתוב i-- — הוא מקטין את i. צריך i++.'
+stuck NodeStuck '[כרטיס loop p p != null]' 'p לא מתקדם — הוא מצביע כל הזמן על החוליה עם הערך 3' 'מתקדמים לחוליה הבאה:  p = p.getNext();'
+stuck StackStuck '[כרטיס loop s !s.isEmpty()]' 'לא מוציאים מ-s — יש בה כל הזמן 3 איברים' 's.top() רק מציץ בראש המחסנית בלי להוציא — מוציאים באמת:  s.pop()'
+stuck SameState '[כרטיס loop n n >= 1]' 'אותו מצב חוזר שוב ושוב: בכל סיבוב n = 3' 'n--;'
+stuck Semicolon '[כרטיס loop n n > 0]' 'יש ; מיד אחרי while (n > 0): זה הגוף של הלולאה — פקודה ריקה, והבלוק { ... } שאחריו בכלל לא שייך ללולאה' \
+    'מוחקים את ה-; שבסוף שורה 7 — ואז הבלוק שאחריו יהיה הגוף של הלולאה.'
+# while (true); בשורה אחת: אין צעדים חדשים בכלל — מזהים לפי דגימות של התוכנית
+stuck EmptyTrue '[כרטיס loop true]' 'התנאי true תמיד מתקיים, ואין בתוך הלולאה break שיוציא ממנה' 'if (...) break;'
+# לולאות תקינות: while (true) עם break, מאפיין שמשתנה בפעולה, משתנה שמשתנה רק לפעמים, מקוננות, רשימה — ולולאה ארוכה (אחרי שהתיעוד נעצר)
+for c in FineLoops:'100 50 150 64 6' LongSum:'סכום: 2001000'; do
+    f=${c%%:*}; want=${c#*:}
+    grep -qF "$want" "$LP/$f.txt" && grep -q 'התוכנית הסתיימה' "$LP/$f.txt" && ! grep -q 'כרטיס loop\|הלולאה לא נגמרת' "$LP/$f.txt" \
+        && echo "  ok  $f: רצה עד הסוף ולא נעצרה" || { echo "  FAIL $f נעצרה בלי סיבה"; grep 'כרטיס\|לולאה' "$LP/$f.txt" | tail -3; tail -3 "$LP/$f.txt"; exit 1; }
+done
+
 echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
 mkdir -p "$W/obj"
 javac -encoding UTF-8 -cp "$JAR" -d "$W/obj" objcards/ObjCheck.java

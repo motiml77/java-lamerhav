@@ -590,7 +590,8 @@ final class Viewer extends JFrame {
                 mainBtn.setVisible(true);
             }
             // תוכנית שכולה ב-main (בלי פעולות) — מציגים את main
-            if (s.kind == Kind.END && !inFunction && !mainOnly) {
+            // (וגם לולאה שלא נגמרת ב-main — רואים את הסיבובים שלפני העצירה, לא רק את הכרטיס)
+            if ((s.kind == Kind.END || LoopCard.isStop(s)) && !inFunction && !mainOnly) {
                 mainOnly = true;
                 rebuild = true;
             }
@@ -758,6 +759,7 @@ final class Viewer extends JFrame {
         code.inputStep = s.kind == Kind.INPUT && s.where != null && !waitHere;
         code.inputTyped = code.inputStep ? typedOf(s) : null;
         code.inputLine = s.where == null ? -1 : s.where.line;
+        code.loopLine = Recorder.lineMode ? LoopCard.tagLine(s) : -1;
         code.repaint();
         if (Recorder.lineMode) varsPanel.set(s, codeKey, call);
         showOutput(s);
@@ -951,6 +953,8 @@ final class Viewer extends JFrame {
         float pulse() {
             return (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 260.0));
         }
+        /** לולאה שלא נגמרת בצעד הזה: השורה שמסמנים בה "∞ הלולאה לא נגמרת" (או -1) — LoopCard */
+        int loopLine = -1;
 
         @Override
         protected void paintComponent(Graphics g0) {
@@ -970,7 +974,7 @@ final class Viewer extends JFrame {
             } else {
                 super.paintComponent(g0);
             }
-            if (marks == null && call == null && !loopAnim.active() && inputWait < 0 && !inputStep) return;
+            if (marks == null && call == null && !loopAnim.active() && inputWait < 0 && !inputStep && loopLine < 0) return;
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
@@ -996,6 +1000,13 @@ final class Viewer extends JFrame {
                 else if (inputStep && inputLine > 0) InputPaint.ended(g, this, inputLine, used);
             } catch (RuntimeException e) {
                 // בלי סימון הקלט
+            }
+            if (loopLine > 0) {
+                try {
+                    LoopCard.paintTag(g, this, loopLine, used);
+                } catch (RuntimeException e) {
+                    // בלי תגית הלולאה
+                }
             }
             g.dispose();
         }

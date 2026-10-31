@@ -1122,6 +1122,22 @@ final class StructPanel extends JPanel {
                 }
                 break;
             }
+            case "loop": {   // לולאה שלא נגמרת: ∞ גדול, החץ שחוזר לתנאי, התנאי עצמו וכמה סיבובים
+                int iw = Math.min(110, w - 20), top = y + 6;
+                LoopCard.infinity(g, cx - iw / 2, top + iw / 4, iw, GHOST);
+                int ty = top + iw / 2 + 18;
+                if (p.op != null) {
+                    String c = p.op.length() > 22 ? p.op.substring(0, 21) + "…" : p.op;
+                    g.setColor(INK);
+                    center(g, c, CODE, cx, ty);
+                    ty += 22;
+                }
+                if (p.index >= 2) {
+                    g.setColor(GHOST);
+                    center(g, "סיבוב " + p.index + "…", SMALL_B, cx, ty);
+                }
+                break;
+            }
             default:
                 break;
         }

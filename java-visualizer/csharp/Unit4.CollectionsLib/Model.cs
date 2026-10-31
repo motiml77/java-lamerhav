@@ -29,6 +29,7 @@ namespace Unit4.CollectionsLib
         public Access Access;                              // קריאה / שינוי של מאפיין באובייקט (s.GetName()) — או null
         /// <summary>המשתנים של כל פעולה במחסנית, במקביל ל-Calls (0 = הפעולה שרצה = Vars); איבר null — עמוק מדי. שורות FV בקובץ</summary>
         public List<List<string[]>> FrameVars;
+        public string Loop;                                // התוכנית נעצרה כאן בלולאה שלא נגמרת: ההחלטה (LoopGuard) — או null
     }
 
     /// <summary>אובייקט של מחלקה (Student, Car, או מחלקה של התלמיד): כרטיס קטן בתוך המבנה, וטבלת המאפיינים שלו</summary>
