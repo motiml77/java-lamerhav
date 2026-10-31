@@ -104,8 +104,6 @@ final class Viewer extends JFrame {
     /** inFunction = התוכנית כבר נכנסה לפעולה (לא main); mainOnly = הסתיימה בלי פעולות; showMain = "גם main" */
     private boolean inFunction, mainOnly, showMain;
     /** לשונית "רקורסיה" רק בתרגיל ברקורסיה: בקובץ התרגיל כתוב "רקורסיה" (בהערה — כך נוצר תרגיל ברקורסיה) */
-    private boolean checkedExercise, recursionExercise;
-    private JComponent viewTabsBox;
     private final JToggleButton mainBtn = new SwitchButton("להציג גם main");
     private int angle;
     private boolean finished;
@@ -137,9 +135,8 @@ final class Viewer extends JFrame {
     private final StructPanel miniStructs = new StructPanel();
     private final JPanel miniBox = new JPanel(new BorderLayout());
     private final JPanel viewPages = new JPanel(new java.awt.CardLayout());
-    private final JToggleButton structTab = new SegButton("מבנים"), recTab = new SegButton("רקורסיה");
     private JComponent zoomBox;
-    private boolean recursionShown, userChoseView;
+    private boolean recursionShown;
     private final JLabel zoomLabel = new JLabel("100%");
 
     private final DefaultTableModel varsModel = new DefaultTableModel(new Object[] { "משתנה", "ערך" }, 0) {
@@ -291,14 +288,11 @@ final class Viewer extends JFrame {
         miniBox.setPreferredSize(new Dimension(100, 200));
         miniBox.setVisible(false);
         south.add(miniBox, BorderLayout.CENTER);
-        south.add(recursionLegend(), BorderLayout.SOUTH);
         recPage.add(south, BorderLayout.SOUTH);
         viewPages.setOpaque(false);
         viewPages.add(structPage, "structs");
         viewPages.add(recPage, "recursion");
         JPanel viewTools = row(10);
-        viewTools.add(viewTabsBox = viewTabs());
-        viewTabsBox.setVisible(false);
         viewTools.add(zoomBox = zoomTools());
         Card structCard = new Card(null, null, viewTools, viewPages);
         recScroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
@@ -435,76 +429,21 @@ final class Viewer extends JFrame {
     }
 
     /** המתג "מבנים / רקורסיה" */
-    private JComponent viewTabs() {
-        ButtonGroup g = new ButtonGroup();
-        for (JToggleButton b : new JToggleButton[] { structTab, recTab }) {
-            g.add(b);
-        }
-        structTab.setSelected(true);
-        structTab.setToolTipText("המבנים (מחסנית, תור, רשימה, עץ, מערך) בצעד הזה");
-        recTab.setToolTipText("מעקב רקורסיה: כל קריאה לפעולה בכרטיס נפרד — מה קיבלה, ומה החזירה");
-        structTab.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) { userChoseView = true; showView(false); }
-        });
-        recTab.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) { userChoseView = true; showView(true); }
-        });
-        JPanel p = new Pill(new Color(0xEDF0F5), Theme.BORDER);
-        p.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        p.setBorder(BorderFactory.createEmptyBorder(3, 3, 3, 3));
-        p.add(structTab);
-        p.add(recTab);
-        return p;
-    }
-
-    private static boolean isRecursionExercise(Frame main) {
-        List<String> lines = SourceFiles.lines(main);
-        if (lines == null) return false;
-        for (String l : lines) if (l.contains("רקורסיה") || l.toLowerCase().contains("recursion")) return true;
+    /**
+     * האם הצעד בתוך קריאה לפעולה רקורסיבית (פעולה שקוראת לעצמה, או כמה פעולות שקוראות זו לזו) —
+     * מזהים לבד, לפי ההרצה (RecursionKind), בלי שהתלמיד צריך לסמן משהו
+     */
+    private static boolean inRecursion(Step s) {
+        RecursionKind k = RecursionKind.of();
+        if (k.type == RecursionKind.Type.NONE || s == null) return false;
+        for (Frame f : s.calls) if (k.methods.contains(f.className + "#" + f.method)) return true;
         return false;
     }
 
     private void showView(boolean rec) {
         recursionShown = rec;
-        (rec ? recTab : structTab).setSelected(true);
         ((java.awt.CardLayout) viewPages.getLayout()).show(viewPages, rec ? "recursion" : "structs");
         zoomBox.setVisible(!rec);
-        if (rec && pos >= 0 && pos < vis.size()) showPos(pos);
-    }
-
-    /** תווית קטנה כמו הכדורים בכרטיסי הרקורסיה (#16 → 2) */
-    private static JLabel miniChip(String text) {
-        JLabel l = new JLabel("\u200E" + text + "\u200E");
-        l.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
-        l.setFont(Theme.mono.deriveFont(Font.BOLD, 12f));
-        l.setForeground(Color.WHITE);
-        l.setOpaque(true);
-        l.setBackground(new Color(0x6B87C9));
-        l.setBorder(BorderFactory.createEmptyBorder(1, 7, 1, 7));
-        return l;
-    }
-
-    private JPanel recursionLegend() {
-        JPanel colors = new JPanel(new FlowLayout(FlowLayout.LEADING, 12, 4));
-        colors.setOpaque(false);
-        colors.add(swatch(new Color(0xE8F0FE), new Color(0x2F6FED), "פועלת עכשיו"));
-        colors.add(swatch(new Color(0xF3F5F9), new Color(0xA9B4C6), "מחכה לתשובה"));
-        colors.add(swatch(new Color(0xE3F5E9), new Color(0x2E9E5B), "סיימה והחזירה ערך"));
-        JPanel help = new JPanel(new FlowLayout(FlowLayout.LEADING, 12, 0));
-        help.setOpaque(false);
-        help.add(label("שורה שקראה לפעולה:", Theme.small, Theme.MUTED));
-        help.add(miniChip("#16 → 2"));
-        help.add(label("(קריאה 16 החזירה 2)", Theme.small, Theme.MUTED));
-        help.add(miniChip("#16 …"));
-        help.add(label("(עוד רצה)", Theme.small, Theme.MUTED));
-        JPanel p = new JPanel();
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        p.setOpaque(false);
-        p.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER),
-                BorderFactory.createEmptyBorder(0, 0, 4, 0)));
-        p.add(colors);
-        p.add(help);
-        return p;
     }
 
     private JComponent zoomTools() {
@@ -618,11 +557,6 @@ final class Viewer extends JFrame {
                 hasLines = true;
                 modePanel.setVisible(true);
             }
-            if (!checkedExercise && !s.calls.isEmpty()) {
-                checkedExercise = true;
-                recursionExercise = isRecursionExercise(s.calls.get(s.calls.size() - 1));
-                viewTabsBox.setVisible(recursionExercise);
-            }
             if (s.calls.size() >= 2 && !inFunction) {
                 inFunction = true;
                 mainBtn.setVisible(true);
@@ -724,8 +658,14 @@ final class Viewer extends JFrame {
 
         structs.setStep(s);
         objDock.setStep(s);
-        // תרגיל ברקורסיה: בפעם הראשונה שיש רקורסיה — עוברים לבד ללשונית "רקורסיה" (אפשר לחזור ל"מבנים")
-        if (recursionExercise && !userChoseView && !recursionShown && RecursionPanel.recursive(s)) showView(true);
+        // רקורסיה: כל עוד הצעד בתוך הרקורסיה — מעקב הרקורסיה (כרטיס לכל קריאה, והמבנים בקטן מתחת); אחר כך — חזרה למבנים
+        boolean rec;
+        try {
+            rec = inRecursion(s);
+        } catch (RuntimeException e) {
+            rec = false;
+        }
+        if (rec != recursionShown) showView(rec);
         if (recursionShown) {
             recursion.setStep(vis.get(p));
             miniStructs.setStep(s);
