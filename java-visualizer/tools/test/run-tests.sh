@@ -201,6 +201,32 @@ for spec in 'Fact:רקורסיה פשוטה | פעולות fact | עומק 4 | �
     grep -qF -- "[רקורסיה: $want" "$R/$c.txt" && echo "  ok  $c: $want" || { echo "  FAIL $c: $want"; grep 'רקורסיה:' "$R/$c.txt"; exit 1; }
 done
 
+echo "== 5ז2. מעקב המשתנים לכל פעולה פעילה: הפעולה שרצה, ולכל פעולה שמחכה (גם ברקורסיה) — המשתנים שלה ברגע הזה"
+# [מסגרות #צעד: הפנימית{משתנים} ← מי שקרא לה{...} ← ... ← main{...} | המשפט] — מה שהרשימה במעקב המשתנים מציגה לכל פעולה
+FV="$W/framevars"
+mkdir -p "$FV"
+cp calls/Calls.java calls/Deep.java recursion/Fact.java "$FV/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$FV" "$FV"/*.java
+for c in Calls Deep Fact; do
+    (cd "$FV" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine $c > $c.txt 2>&1) || true
+done
+conds "$FV/Calls.txt" \
+    '[מסגרות #9: sumEven{s=Stack [8,3], sum=0} ← main{s=Stack [8,3]}]' \
+    '[מסגרות #17: rem{x=8, d=2} ← isEven{x=8} ← sumEven{s=Stack [3], sum=0, tmp=Stack [], v=8} ← main{s=Stack [3]}]' \
+    '[מסגרות #18: rem{x=8, d=2} ← isEven{x=8} ← sumEven{s=Stack [3], sum=0, tmp=Stack [], v=8} ← main{s=Stack [3]} | rem() מחזירה 0 — חוזרים ל-isEven() בשורה 10]' \
+    '[מסגרות #23: sumEven{s=Stack [3], sum=8, tmp=Stack [], v=8} ← main{s=Stack [3]}]' \
+    '[מסגרות #77: report{title="max", value=9} ← maxOf{q=Queue [], m=9} ← main{s=Stack [8,3], total=8, q=Queue []}]' \
+    '[סיום #86: main{s=Stack [8,3], total=8, q=Queue []}]'
+conds "$FV/Fact.txt" \
+    '[מסגרות #8: fact{n=1} ← fact{n=2} ← fact{n=3} ← fact{n=4} ← main{}]' \
+    '[מסגרות #9: fact{n=1} ← fact{n=2} ← fact{n=3} ← fact{n=4} ← main{} | fact(n = 1) מחזירה 1 — חוזרים ל-fact(n = 2) בשורה 5]' \
+    '[מסגרות #15: fact{n=4} ← main{} | fact(n = 4) מחזירה 24 — חוזרים ל-main() בשורה 9]'
+# רקורסיה עמוקה (15 פעולות): 11 הפנימיות, "…" במקום האמצעיות, ו-main למטה עם המשתנים שלו
+conds "$FV/Deep.txt" \
+    '[מסגרות #27: sum{n=1} ← sum{n=2} ← sum{n=3} ← sum{n=4} ← sum{n=5} ← sum{n=6} ← sum{n=7} ← sum{n=8} ← sum{n=9} ← sum{n=10} ← sum{n=11} ← … ← main{start=13}]' \
+    '[סיום #61: main{start=13, total=91}]'
+! grep -q '^  \[מסגרות.*{?}' "$FV/Calls.txt" "$FV/Fact.txt" || { echo "  FAIL פעולה שמחכה בלי משתנים"; grep '{?}' "$FV"/*.txt | head; exit 1; }
+
 echo "== 5ח. חץ \"חוזרים לראש הלולאה\" בקוד: for, while, do-while, מקוננות (החץ של החיצונית), for-each, continue — והציור עצמו"
 LB="$W/loopback"
 mkdir -p "$LB"

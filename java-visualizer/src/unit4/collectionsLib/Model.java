@@ -61,6 +61,11 @@ final class Model {
         String returned;                   // RETURN: הערך שהפעולה החזירה (null אם void)
         Access access;                     // קריאה / שינוי של מאפיין באובייקט (למשל s.getName()) — או null
         String input;                      // INPUT: מה שהוקלד (בלי ירידת השורה); null = סוף הקלט (או צעד אחר)
+        /**
+         * המשתנים של כל פעולה במחסנית, במקביל ל-calls: 0 = הפעולה שרצה (= vars), 1 = מי שקרא לה... (ראו FrameViz).
+         * null — לא נשמרו (הרצה ישנה); איבר null — הפעולה הזו עמוק מדי במחסנית
+         */
+        List<List<String[]>> frameVars;
     }
 
     /**
