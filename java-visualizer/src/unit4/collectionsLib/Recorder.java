@@ -179,7 +179,9 @@ final class Recorder {
                         recordAt(Kind.END, null, Mark.NONE, null, "התוכנית הסתיימה", new StackTraceElement[0]);
                 }
             }, "viz-watcher");
-            watcher.setDaemon(true);
+            // לא daemon: ה-JVM מחכה לו עד שהצעד "התוכנית הסתיימה" נרשם (daemon — לפעמים התהליך נסגר לפני כן, והצעד חסר).
+            // הוא מחכה רק ל-main, כך שהוא לא מחזיק את התוכנית בחיים אחריו (ו-System.exit לא מחכה לו בכלל)
+            watcher.setDaemon(false);
             watcher.start();
         }
         if (!textMode) {
