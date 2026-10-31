@@ -1,4 +1,6 @@
 {
+  "readingOrder": [1],
+  "pageNotes": "",
   "title": "קבוצות ושחקנים",
   "summary": "מחלקה Player ומחלקה Team עם מערך שחקנים.",
   "mainClass": "Main",

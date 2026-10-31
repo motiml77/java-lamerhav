@@ -28,6 +28,7 @@ public class AiScaffoldTest {
         }
         List<String> mains = new ArrayList<String>(), csDirs = new ArrayList<String>();
         HashSet<String> taken = new HashSet<String>(Arrays.asList("examples", "ex07_old")), takenCs = new HashSet<String>(Arrays.asList("Targil1"));
+        int emptyClasses = 0;
         for (File f : cases) {
             String json = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
             AiScaffold.Exercise e = AiScaffold.read(Json.obj(Json.parse(json)));
@@ -72,6 +73,20 @@ public class AiScaffoldTest {
                 check(!g.code.contains("תזכורת") && !g.code.contains("זמני"), f + ": נשארו הערות בתוך הפעולה");
                 if (e.tasks.size() > 1) for (AiScaffold.Task t : e.tasks) if (t.className.equals(g.className))
                     check(g.code.contains("// " + AiScaffold.markFor(t, true)), f + ": חסרה שורת סעיף " + t.label + " ב-" + g.className);
+                // מחלקה שסעיף שייך אליה אבל לא תוארה בתשובה (אין לה קוד), או שתוארה ריקה ("public class Shelf { }"): נוצרת בכל זאת,
+                // והשורה הראשונה בתוכה — הערה (מימין לשמאל) שמבקשת מהתלמיד להוסיף את התכונות שמתוארות בתרגיל.
+                // במחלקה שתוארה עם תוכן ובמחלקה הראשית — אין הערה כזו
+                String described = e.classes.get(g.className);
+                boolean undescribed = !g.className.equals(e.mainClass) && described != null
+                        && (described.isEmpty() || described.replaceAll("\\s+", "").matches(".*class" + g.className + "\\{\\}\\}?"));
+                check(g.code.contains(AiScaffold.ADD_FIELDS) == undescribed, f + ": הערת התכונות במחלקה " + g.className + " (לא תוארה: " + undescribed + ")");
+                if (undescribed) {
+                    emptyClasses++;
+                    int at = Arrays.asList(lines).indexOf(e.cs ? "public class " + g.className : "public class " + g.className + " {");
+                    String first = at < 0 ? "" : lines[at + (e.cs ? 2 : 1)];
+                    check(first.equals("    // " + AiScaffold.rtl(AiScaffold.addFields(g.className))), f + ": ההערה לא בראש המחלקה " + g.className + ": " + first);
+                    check(first.contains("המחלקה " + g.className + " מהתרגיל — הוסיפו כאן את התכונות שמתוארות בתרגיל"), f + ": נוסח ההערה: " + first);
+                }
                 AiScaffold.testReturns = true;   // לקומפילציה בבדיקות — עם return חשוף
                 AiScaffold.GeneratedFile gc = null;
                 for (AiScaffold.GeneratedFile x : AiScaffold.build(e, pkg, Arrays.asList(f.getName(), "צילום מסך 1.png"))) if (x.className.equals(g.className)) gc = x;
@@ -86,6 +101,9 @@ public class AiScaffoldTest {
             System.out.println("✓ " + f.getName() + " → " + pkg + " (" + files.size() + " קבצים, " + e.tasks.size() + " סעיפים)");
         }
         check(mains.get(0).startsWith("ex08_stacks.") && csDirs.get(0).endsWith("Ex01_Stacks"), "מספור התיקיות: " + mains + " " + csDirs);
+        // ai/4-messy.json (Circle, Java) ו-ai/cs/2-classes.json (Coach, C#): סעיף במחלקה שלא תוארה;
+        // ai/4-messy.json (Shelf, Java) ו-ai/cs/2-classes.json (Referee, C# בתוך namespace): מחלקה שתוארה ריקה
+        check(emptyClasses >= 4, "מחלקות שלא תוארו או שתוארו ריקות (עם הערת התכונות): " + emptyClasses);
         Files.write(out.resolve("mains.txt"), String.join("\n", mains).getBytes(StandardCharsets.UTF_8));
         Files.write(out.resolve("cs-dirs.txt"), String.join("\n", csDirs).getBytes(StandardCharsets.UTF_8));
     }
