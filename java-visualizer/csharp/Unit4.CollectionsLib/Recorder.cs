@@ -70,9 +70,16 @@ namespace Unit4.CollectionsLib
             AddStep(Kind.ERROR, null, Mark.NONE, null, "שגיאה: " + Describe(e), true);
         }
 
+        /// <summary>
+        /// נקרא לפני כל שורה (בחוט של התוכנית, בין צעדים שלמים): החלון שכבר פתוח (קלט מהמקלדת) מקבל משם את הצעדים החדשים.
+        /// null — אין חלון פתוח בזמן ההרצה.
+        /// </summary>
+        public static Action Live;
+
         public static void Line(int line, object[] kv)
         {
             if (!Active || Frames.Count == 0) return;
+            Live?.Invoke();
             Frame top = Frames[Frames.Count - 1];
             top.Line = line;
             top.Vars.Clear();
@@ -129,6 +136,72 @@ namespace Unit4.CollectionsLib
             AddStep(Kind.END, null, Mark.NONE, null, "התוכנית הסתיימה", true);
             Steps[Steps.Count - 1].Calls.Clear();
             Frames.Clear();
+        }
+
+        // ------------------------------------------------------------ קלט מהמקלדת (Console.ReadLine — DsViz.Keyboard)
+
+        /// <summary>המקומות שבהם התוכנית חיכתה לקלט (לקובץ ההרצה ולבדיקות)</summary>
+        public static readonly List<InputWait> Waits = new List<InputWait>();
+
+        /// <summary>
+        /// התוכנית מתחילה לחכות לקלט: איפה (השורה שקוראת עכשיו — המסגרת העליונה), ומה היא קוראת.
+        /// method = הפעולה של הקלט (ReadLine / Read...). מחזיר את פרטי ההמתנה (Step = הצעד האחרון, או -1).
+        /// </summary>
+        public static InputWait InputWaiting(string method)
+        {
+            var w = new InputWait { Step = Steps.Count - 1, Call = method + "()", What = "ערך" };
+            if (Frames.Count > 0)
+            {
+                Frame top = Frames[Frames.Count - 1];
+                w.Class = top.Class;
+                w.Method = top.Method;
+                w.File = top.File;
+                w.Line = top.Line;
+            }
+            string src = w.File == null ? null : SourceLine(w.File, w.Line);
+            if (src != null)
+            {
+                Match m = Regex.Match(src, @"([A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*)\s*\.\s*" + method + @"\s*\(\s*\)");
+                if (m.Success) w.Call = Regex.Replace(m.Groups[1].Value, @"\s+", "") + "." + method + "()";
+            }
+            w.What = InputWhat(method, src ?? "");
+            if (Active) Waits.Add(w);
+            return w;
+        }
+
+        /// <summary>מה התוכנית מחכה שיקלידו — לפי הפעולה ולפי מה שעושים עם השורה (int.Parse → מספר שלם)</summary>
+        static string InputWhat(string method, string src)
+        {
+            if (method == "Read" || method == "Peek") return "תו";
+            if (method == "ReadToEnd") return "טקסט (עד סיום הקלט)";
+            if (Regex.IsMatch(src, @"\b(int|long|short|byte|Int32|Int64|Int16)\s*\.\s*(Try)?Parse\b|Convert\s*\.\s*ToInt(16|32|64)\b")) return "מספר שלם";
+            if (Regex.IsMatch(src, @"\b(double|float|decimal|Double|Single|Decimal)\s*\.\s*(Try)?Parse\b|Convert\s*\.\s*To(Double|Single|Decimal)\b")) return "מספר";
+            if (Regex.IsMatch(src, @"\b(char|Char)\s*\.\s*(Try)?Parse\b|Convert\s*\.\s*ToChar\b")) return "תו";
+            if (Regex.IsMatch(src, @"\b(bool|Boolean)\s*\.\s*(Try)?Parse\b|Convert\s*\.\s*ToBoolean\b")) return "true או false";
+            return "שורת טקסט";
+        }
+
+        /// <summary>
+        /// התוכנית קיבלה שורת קלט: מופיעה בפלט (בחלון — בצבע של קלט) ונרשמת כצעד INPUT בשורה שקראה אותה.
+        /// echo = הוקלדה בחלון (או בבדיקה) — מודפסת גם לקונסול, כדי שיופיע שם "הכנס מספר: 5" כמו בהרצה רגילה
+        /// (מה שהוקלד בקונסול עצמו כבר מופיע שם).
+        /// </summary>
+        public static void Input(string typed, System.IO.TextWriter echo)
+        {
+            if (echo != null)
+            {
+                echo.WriteLine(typed);
+                echo.Flush();
+            }
+            Output.Append(typed).Append('\n');   // הצעד (OutLen) כבר כולל את מה שהוקלד
+            if (!Active) return;
+            AddStep(Kind.INPUT, null, Mark.NONE, null, "קלט מהמקלדת: ‎" + Shorten(typed, 60) + "‎", false);
+        }
+
+        /// <summary>התוכנית ניסתה לקרוא ואין עוד קלט ("סיום הקלט", או בלי חלון — הקלט נגמר)</summary>
+        public static void InputEnd()
+        {
+            if (Active) AddStep(Kind.INPUT, null, Mark.NONE, null, "סוף הקלט — אין עוד מה לקרוא", false);
         }
 
         // ------------------------------------------------------------ דיווח מהספרייה

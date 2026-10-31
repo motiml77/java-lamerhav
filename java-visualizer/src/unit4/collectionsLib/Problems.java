@@ -183,6 +183,13 @@ final class Problems {
             p.hint = "בודקים קודם שהוקלד מספר:  " + code("if (in.hasNextInt())");
             return p;
         }
+        // C#: int.Parse(Console.ReadLine()) כשהוקלדו אותיות
+        if (t.startsWith("FormatException")) {
+            p.what = "הוקלד ערך מסוג אחר ממה שהתוכנית ביקשה";
+            p.why = "למשל " + code("int.Parse(...)") + " מחכה למספר שלם — אבל הוקלדו אותיות, או מספר עם נקודה.";
+            p.hint = "בודקים קודם שהוקלד מספר:  " + code("if (int.TryParse(line, out int n))");
+            return p;
+        }
         if (t.startsWith("NoSuchElementException")) {
             p.what = "אין עוד קלט";
             p.why = "התוכנית ניסתה לקרוא קלט, אבל הקלט נגמר (למשל אחרי שלוחצים \"סיום הקלט\").";

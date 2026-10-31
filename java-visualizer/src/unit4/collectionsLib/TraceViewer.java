@@ -1,7 +1,11 @@
 package unit4.collectionsLib;
 
 import java.io.BufferedReader;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -32,6 +36,10 @@ import unit4.collectionsLib.Model.View;
  * ראו csharp/README.md לתיאור הפורמט.
  *
  * <pre>  java -cp dsviz.jar unit4.collectionsLib.TraceViewer trace.txt</pre>
+ *
+ * <p>{@code --live}: התוכנית עוד רצה (C# שמחכה לקלט מהמקלדת — LiveViewer ב-dsviz-cs). אותן שורות מגיעות ב-stdin,
+ * במנות שמסתיימות ב-{@code SYNC}, ובין המנות {@code ASK} (מחכה לקלט) / {@code RESUME} / {@code DONE}. מה שמוקלד בחלון
+ * חוזר ב-stdout: {@code DSVIZ-IN} טקסט, {@code DSVIZ-EOF} ("סיום הקלט"), {@code DSVIZ-NOVIEW} (החלון לא נפתח).
  */
 public final class TraceViewer {
     private TraceViewer() {}
@@ -41,9 +49,14 @@ public final class TraceViewer {
             System.err.println("שימוש: TraceViewer <קובץ צעדים>");
             System.exit(2);
         }
+        if (args[0].equals("--live")) {
+            live();
+            return;
+        }
         if (args[0].equals("--check") && args.length > 1) {   // בדיקה בלי חלון: קורא את הקובץ ומדפיס כמה צעדים יש
             load(args[1]);
             System.out.println("ok " + Recorder.stepCount() + " steps");
+            printInput();
             for (int i = 0; i < Recorder.stepCount(); i++)
                 for (Model.View v : Recorder.step(i).views)
                     if (v instanceof Model.ProblemView) {
@@ -66,23 +79,126 @@ public final class TraceViewer {
         });
     }
 
+    // ------------------------------------------------------------ קלט מהמקלדת
+
+    /** שורות WAIT: התוכנית התחילה לחכות לקלט אחרי הצעד f[1] — מחלקה, פעולה, קובץ, שורה, קריאה, מה */
+    private static final List<String[]> waits = new ArrayList<String[]>();
+
+    /** לבדיקות (--check): איפה התוכנית חיכתה לקלט ומה הוקלד — כמו בהרצה הטקסטואלית של Java */
+    private static void printInput() {
+        for (String[] w : waits) if (Integer.parseInt(w[1]) < 0) printWait(w);
+        for (int i = 0; i < Recorder.stepCount(); i++) {
+            Step s = Recorder.step(i);
+            if (s.kind == Kind.INPUT)
+                System.out.println("  (" + (s.where == null ? "" : s.where.file + ":" + s.where.line) + ")  " + s.text.replace("\u200E", ""));
+            for (String[] w : waits) if (Integer.parseInt(w[1]) == i) printWait(w);
+        }
+    }
+
+    private static void printWait(String[] w) {
+        System.out.println("  \u2328 מחכה לקלט מהמקלדת — שורה " + w[5] + ":  " + w[6] + "  (" + w[7] + ")");
+    }
+
+    /**
+     * התוכנית עוד רצה: המנה הראשונה (עד SYNC) נטענת והחלון נפתח; המנות הבאות נוספות לצעדים (Recorder.adoptMore),
+     * ו-ASK / RESUME פותחים וסוגרים את פס ההקלדה (Keyboard.remoteWait / remoteResume).
+     */
+    private static void live() throws IOException {
+        final BufferedReader in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+        final PrintStream answers = new PrintStream(new FileOutputStream(FileDescriptor.out), true, "UTF-8");
+        Keyboard.remote(new Keyboard.Remote() {
+            public void line(String text) { answer(answers, "DSVIZ-IN\t" + escape(text)); }
+            public void end() { answer(answers, "DSVIZ-EOF"); }
+            public void noViewer() { answer(answers, "DSVIZ-NOVIEW"); }
+        });
+        if (!readChunk(in, true)) return;   // התוכנית נעלמה לפני שהגיע משהו
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                Viewer.open();
+                for (java.awt.Frame f : java.awt.Frame.getFrames())   // החלון גלוי: מכאן סגירה שלו עוצרת את ההרצה
+                    if (f.isVisible()) { answer(answers, "DSVIZ-READY"); break; }
+            }
+        });
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    while (readChunk(in, false)) {
+                        // ממשיכים עד DONE / סוף הזרם
+                    }
+                } catch (IOException | RuntimeException ignored) {
+                    // התוכנית נעלמה
+                }
+                Keyboard.remoteResume();
+            }
+        }, "dsviz-live");
+        t.setDaemon(true);   // החלון נסגר — מסיימים
+        t.start();
+    }
+
+    private static synchronized void answer(PrintStream out, String line) {
+        out.println(line);
+        out.flush();
+    }
+
+    /** קורא עד SYNC (מנת צעדים) ומטפל בפקודות שבדרך. false = DONE או סוף הזרם */
+    private static boolean readChunk(BufferedReader in, boolean first) throws IOException {
+        List<String[]> chunk = new ArrayList<String[]>();
+        for (String line; (line = in.readLine()) != null; ) {
+            if (line.isEmpty()) continue;
+            String[] f = split(line);
+            switch (f[0]) {
+                case "SYNC":
+                    if (chunk.isEmpty() && !first) continue;
+                    StringBuilder out = new StringBuilder();
+                    List<Step> steps = parse(chunk, first ? 0 : Recorder.stepCount(), out);
+                    if (first) Recorder.adopt(steps, out.toString());
+                    else Recorder.adoptMore(steps, out.toString());
+                    return true;
+                case "ASK":   // ASK צעד מחלקה פעולה קובץ שורה קריאה מה
+                    Keyboard.remoteWait(new Frame(f[2], f[3], f[4].isEmpty() ? null : f[4], Integer.parseInt(f[5])), f[6], f[7], Integer.parseInt(f[1]));
+                    break;
+                case "RESUME":
+                    Keyboard.remoteResume();
+                    break;
+                case "DONE":
+                    return false;
+                default:
+                    chunk.add(f);
+                    break;
+            }
+        }
+        return false;
+    }
+
     // ------------------------------------------------------------ קריאה
 
     private static List<String[]> rows;
     private static int pos;
+    private static String lastLine;
 
     static void load(String file) throws IOException {
-        rows = new ArrayList<String[]>();
+        List<String[]> all = new ArrayList<String[]>();
         try (BufferedReader r = Files.newBufferedReader(Paths.get(file), StandardCharsets.UTF_8)) {
             for (String line; (line = r.readLine()) != null; ) {
                 if (line.isEmpty()) continue;
-                String[] f = line.split("\t", -1);
-                for (int i = 0; i < f.length; i++) f[i] = unescape(f[i]);
-                rows.add(f);
+                all.add(split(line));
             }
         }
-        List<Step> steps = new ArrayList<Step>();
         StringBuilder out = new StringBuilder();
+        List<Step> steps = parse(all, 0, out);
+        Recorder.adopt(steps, out.toString());
+    }
+
+    private static String[] split(String line) {
+        String[] f = line.split("\t", -1);
+        for (int i = 0; i < f.length; i++) f[i] = unescape(f[i]);
+        return f;
+    }
+
+    /** שורות של קובץ הצעדים (או של מנה אחת) → צעדים; base = האינדקס של הצעד הראשון. הפלט נוסף ל-out */
+    private static List<Step> parse(List<String[]> chunk, int base, StringBuilder out) {
+        rows = chunk;
+        List<Step> steps = new ArrayList<Step>();
         Step cur = null;
         pos = 0;
         while (pos < rows.size()) {
@@ -96,7 +212,7 @@ public final class TraceViewer {
                     break;
                 case "STEP":
                     cur = new Step();
-                    cur.index = steps.size();
+                    cur.index = base + steps.size();
                     cur.kind = Kind.valueOf(f[1]);
                     cur.outLen = Integer.parseInt(f[2]);
                     cur.returned = f[3].equals("\u0000") ? null : f[3];
@@ -126,11 +242,13 @@ public final class TraceViewer {
                 case "OUT":
                     out.append(f.length > 1 ? f[1] : "");
                     break;
+                case "WAIT":
+                    waits.add(f);
+                    break;
                 default:
                     break;
             }
         }
-        String lastLine = null;
         for (Step st : steps) {   // שגיאה (Pop על מחסנית ריקה, null...) — כרטיס שמסביר מה קרה, כמו ב-Java
             if (st.kind == Kind.LINE && st.text != null) lastLine = st.text;
             if (st.kind == Kind.ERROR && st.text != null && st.text.startsWith("שגיאה")) {
@@ -141,7 +259,7 @@ public final class TraceViewer {
                 }
             }
         }
-        Recorder.adopt(steps, out.toString());
+        return steps;
     }
 
     private static View readView(String[] f) {
@@ -297,6 +415,21 @@ public final class TraceViewer {
 
     private static boolean next(String tag) {
         return pos < rows.size() && rows.get(pos)[0].equals(tag);
+    }
+
+    private static String escape(String s) {
+        StringBuilder b = new StringBuilder(s.length() + 8);
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\': b.append("\\\\"); break;
+                case '\t': b.append("\\t"); break;
+                case '\n': b.append("\\n"); break;
+                case '\r': b.append("\\r"); break;
+                default: b.append(c); break;
+            }
+        }
+        return b.toString();
     }
 
     private static String unescape(String s) {

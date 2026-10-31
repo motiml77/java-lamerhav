@@ -105,6 +105,77 @@ done
 ! grep -q 'שורה 27 for: מ-26\|\[חזרה #[0-9]* שורה 41 \|\[חזרה #[0-9]* שורה 8 ' "$W/loopback.txt" \
     || { echo "חץ הלולאה ב-C#: חץ במקום שאין בו חזרה"; grep 'חזרה' "$W/loopback.txt"; exit 1; }
 echo "חץ \"חוזרים לראש הלולאה\" ב-C#: $(grep -c '^  \[חזרה #' "$W/loopback.txt") חזרות מסומנות"
+# קלט מהמקלדת (Console.ReadLine / Console.Read / Console.In): השורה שמחכה, מה שהוקלד כצעד INPUT, והפלט — כמו ב-Java.
+# בלי חלון: --input קובץ (או DSVIZ_INPUT) "מקליד" את השורות כשהתוכנית מחכה (UTF-8 — עברית בלי תלות בקידוד של שורת הפקודה)
+IN="$W/input"
+mkdir -p "$IN"
+printf '3\n4\n5\n6\nדני כהן\n' > "$IN/sum.in"
+printf 'y\nתל אביב\n' > "$IN/read.in"
+printf 'abc\n' > "$IN/bad.in"
+printf '1\n2\n3\n' > "$IN/until.in"
+incheck() { f=$1; shift; for want in "$@"; do grep -qF -- "$want" "$f" || { echo "קלט ב-C#: חסר $want ב-$(basename "$f")"; cat "$f"; exit 1; }; done; }
+for run in InputSum:sum ReadChars:read InputSum:bad SumUntil:until; do
+    viz input/cs/${run%%:*}.cs --trace "$IN/${run#*:}.trace" --input "$IN/${run#*:}.in" < /dev/null > "$IN/${run#*:}.out" 2>&1 || true
+    java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$IN/${run#*:}.trace" > "$IN/${run#*:}.txt" 2>&1
+done
+incheck "$IN/sum.txt" '⌨ מחכה לקלט מהמקלדת — שורה 10:  Console.ReadLine()  (מספר שלם)' '(InputSum.cs:10)  קלט מהמקלדת: 3' \
+    '⌨ מחכה לקלט מהמקלדת — שורה 15:  Console.ReadLine()  (מספר שלם)' '(InputSum.cs:15)  קלט מהמקלדת: 6' \
+    '⌨ מחכה לקלט מהמקלדת — שורה 18:  Console.ReadLine()  (שורת טקסט)' '(InputSum.cs:18)  קלט מהמקלדת: דני כהן'
+[ "$(grep -c 'קלט מהמקלדת: ' "$IN/sum.txt")" = 5 ] && [ "$(grep -c 'מחכה לקלט' "$IN/sum.txt")" = 5 ] \
+    || { echo "קלט ב-C#: מספר צעדי הקלט / ההמתנות"; cat "$IN/sum.txt"; exit 1; }
+# מה שהוקלד: מודפס גם לקונסול אחרי השאלה, נכנס לפלט שבחלון, וצעד ה-Push שאחריו רואה אותו
+incheck "$IN/sum.out" 'כמה מספרים? 3' 'מספר 3: 6' 'מה השם שלך? דני כהן' 'שלום דני כהן, הסכום: 15'
+grep -qF 'OUT	כמה מספרים? 3\nמספר 1: 4\n' "$IN/sum.trace" \
+    && grep -P '^STEP\t(INPUT|CHANGE)\t' "$IN/sum.trace" | grep -A1 'קלט מהמקלדת: ‎4‎' | grep -qP '^STEP\tCHANGE\t24\t.*s\.Push\(4\)$' || { echo "קלט ב-C#: הפלט / הצעדים שאחרי הקלט"; grep '^STEP' "$IN/sum.trace" | head -20; exit 1; }
+incheck "$IN/read.txt" '⌨ מחכה לקלט מהמקלדת — שורה 9:  Console.Read()  (תו)' '(ReadChars.cs:9)  קלט מהמקלדת: y' \
+    '⌨ מחכה לקלט מהמקלדת — שורה 12:  Console.In.ReadLine()  (שורת טקסט)' '(ReadChars.cs:12)  קלט מהמקלדת: תל אביב'
+incheck "$IN/read.out" 'קיבלתי y ו-תל אביב (7 תווים)'
+# הקלדה שגויה: int.Parse("abc") — צעד הקלט, ואחריו שגיאה עם כרטיס שמסביר
+incheck "$IN/bad.txt" '(InputSum.cs:10)  קלט מהמקלדת: abc' '[כרטיס other]'
+grep -qP '^STEP\tERROR\t.*FormatException' "$IN/bad.trace" || { echo "קלט ב-C#: חסרה השגיאה של abc"; cat "$IN/bad.out"; exit 1; }
+# while ((line = Console.ReadLine()) != null) עד שהקלט נגמר — צעד אחד "סוף הקלט" (בחלון: אחרי "סיום הקלט")
+incheck "$IN/until.txt" '⌨ מחכה לקלט מהמקלדת — שורה 11:  Console.ReadLine()  (שורת טקסט)' '(SumUntil.cs:11)  קלט מהמקלדת: 3' \
+    '(SumUntil.cs:11)  סוף הקלט — אין עוד מה לקרוא'
+incheck "$IN/until.out" 'סכום: 6'
+# DSVIZ_INPUT (כמו dsviz.input ב-Java): השורות במשתנה הסביבה
+DSVIZ_INPUT='2\n7\n8\nרון' viz input/cs/InputSum.cs --trace "$IN/env.trace" < /dev/null > "$IN/env.out" 2>&1 || true
+incheck "$IN/env.out" 'כמה מספרים? 2' 'שלום רון, הסכום: 15'
+# קלט מצינור (בלי --input): נקרא כרגיל ונרשם כצעדי קלט, בלי הד לקונסול (כמו בהרצה רגילה)
+printf '2\n7\n8\nרון\n' | viz input/cs/InputSum.cs --trace "$IN/pipe.trace" > "$IN/pipe.out" 2>&1 || true
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$IN/pipe.trace" > "$IN/pipe.txt" 2>&1
+incheck "$IN/pipe.out" 'כמה מספרים? מספר 1: ' 'שלום רון, הסכום: 15'
+incheck "$IN/pipe.txt" '(InputSum.cs:10)  קלט מהמקלדת: 2' '(InputSum.cs:18)  קלט מהמקלדת: רון'
+# בלי קלט בכלל: ReadLine מחזירה null (כמו בהרצה רגילה) — צעד "סוף הקלט", ו-int.Parse(null) נכשל
+viz input/cs/InputSum.cs --trace "$IN/eof.trace" < /dev/null > "$IN/eof.out" 2>&1 || true
+grep -qP '^STEP\tINPUT\t.*סוף הקלט' "$IN/eof.trace" && grep -qP '^STEP\tERROR\t.*ArgumentNullException' "$IN/eof.trace" \
+    || { echo "קלט ב-C#: בלי קלט"; cat "$IN/eof.out"; exit 1; }
+# בלי --trace: כשהתוכנית מחכה נפתח החלון כבר עכשיו (LiveViewer) ומקבל את הצעדים במנות; כאן "חלון" מדומה שעונה על ASK
+printf '#!/bin/sh\nexec node "%s" "$@"\n' "$(pwd)/input/cs/fake-viewer.js" > "$IN/fakejava" && chmod +x "$IN/fakejava"
+DSVIZ_JAVA="$IN/fakejava" DSVIZ_JAR="$JAR" FAKE_OUT="$IN/live.stream" FAKE_ANSWERS='5|7|EOF' timeout 120 dotnet "$RUNNER" input/cs/SumUntil.cs < /dev/null > "$IN/live.out" 2>&1 \
+    || { echo "קלט ב-C#: ההרצה עם החלון נכשלה"; cat "$IN/live.out"; exit 1; }
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$IN/live.stream" > "$IN/live.txt" 2>&1
+[ "$(grep -c '^ASK	' "$IN/live.stream")" = 3 ] && [ "$(grep -c '^RESUME$' "$IN/live.stream")" = 3 ] && grep -q '^DONE$' "$IN/live.stream" \
+    && grep -qP '^ASK\t\d+\tSumUntil\tReadSum\tSumUntil.cs\t11\tConsole.ReadLine\(\)\tשורת טקסט$' "$IN/live.stream" \
+    || { echo "קלט ב-C#: מה שנשלח לחלון"; grep -v '^SRC' "$IN/live.stream" | cut -c1-80; exit 1; }
+incheck "$IN/live.txt" '(SumUntil.cs:11)  קלט מהמקלדת: 5' '(SumUntil.cs:11)  קלט מהמקלדת: 7' '(SumUntil.cs:11)  סוף הקלט — אין עוד מה לקרוא'
+incheck "$IN/live.out" 'נפתח חלון ההרצה הוויזואלית' 'סכום: 12'
+grep -qx '7' "$IN/live.out" || { echo "קלט ב-C#: מה שהוקלד בחלון לא הודפס לקונסול"; cat "$IN/live.out"; exit 1; }
+# החלון האמיתי (Swing), אם יש מסך מדומה: מחכה — הפס עם השאלה, מקלידים, ו"סיום הקלט"
+if command -v Xvfb >/dev/null 2>&1; then
+    Xvfb :95 -screen 0 1600x900x24 >/dev/null 2>&1 & XVFB=$!
+    sleep 2
+    mkdir -p "$IN/cls" && javac -d "$IN/cls" "$ROOT/tutorials/harness/SwingScript.java"
+    printf 'shot w1\ntext 0 2\nclick שליחה\nwait 800\ntext 0 4\nclick שליחה\nwait 800\nshot w2\ntext 0 5\nclick שליחה\nwait 800\nclick סיום הקלט\nwait 2500\nshot end\n' > "$IN/gui.script"
+    printf '#!/bin/sh\nexec java -cp "%s:%s" SwingScript "%s" "%s" unit4.collectionsLib.TraceViewer --live\n' "$IN/cls" "$JAR" "$IN/gui.script" "$IN/shots" > "$IN/swingjava"
+    chmod +x "$IN/swingjava"
+    DISPLAY=:95 DSVIZ_JAVA="$IN/swingjava" DSVIZ_JAR="$JAR" timeout 120 dotnet "$RUNNER" input/cs/InputSum.cs < /dev/null > "$IN/gui.out" 2>&1 || true
+    kill $XVFB 2>/dev/null || true
+    grep -q '"התוכנית מחכה שתקלידו מספר שלם"' "$IN/shots/w1.json" && grep -q 'שורה 10:  .*Console.ReadLine()' "$IN/shots/w1.json" \
+        && grep -q '"כמה מספרים?"' "$IN/shots/w1.json" && grep -q 'שורה 15:' "$IN/shots/w2.json" && grep -q '"מספר 2:"' "$IN/shots/w2.json" \
+        && ! grep -q 'מחכה שתקלידו' "$IN/shots/end.json" && grep -q 'שלום , הסכום: 9' "$IN/gui.out" \
+        && echo "קלט ב-C# בחלון האמיתי: הפס עם השאלה והשורה, שליחה, ו\"סיום הקלט\"" || { echo "קלט ב-C# בחלון נכשל"; cat "$IN/gui.out"; exit 1; }
+fi
+echo "קלט מהמקלדת ב-C#: --input, DSVIZ_INPUT, צינור, סוף הקלט, הקלדה שגויה, וחלון שנפתח כשהתוכנית מחכה"
 # פרויקט רגיל של Visual Studio: קובץ אחד מתוך פרויקט (עם Program.cs של תבנית חדשה), כמה Main, ImplicitUsings, ותוכנית top-level
 VS="$W/vs/GoldWater"
 mkdir -p "$VS" && cp calls/vs/GoldWater.csproj calls/vs/Recursion.cs "$VS/" && printf '// See https://aka.ms/new-console-template\nSystem.Console.WriteLine("Hello, World!");\n' > "$VS/Program.cs"

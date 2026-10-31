@@ -225,9 +225,14 @@ namespace DsViz
 
         // ------------------------------------------------------------ הוקים
 
+        /// <summary>
+        /// ההוק לפני התנאי: (hook ? (cond) : throw null). ולא hook &amp;&amp; cond — כדי שהמהדר ידע שהתנאי תמיד מחושב:
+        /// אחרי while ((line = Console.ReadLine()) != null) המשתנה line מוגדר, בדיוק כמו בקוד המקורי
+        /// </summary>
         static ExpressionSyntax Conjoin(ExpressionSyntax hook, ExpressionSyntax cond)
         {
-            return SyntaxFactory.BinaryExpression(SyntaxKind.LogicalAndExpression, hook, SyntaxFactory.ParenthesizedExpression(cond));
+            return SyntaxFactory.ParenthesizedExpression(SyntaxFactory.ConditionalExpression(hook, SyntaxFactory.ParenthesizedExpression(cond),
+                SyntaxFactory.ThrowExpression(SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression))));
         }
 
         StatementSyntax HookStatement(StatementSyntax s)

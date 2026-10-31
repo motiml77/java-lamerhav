@@ -16,29 +16,58 @@ namespace DsViz
             using (var w = new StreamWriter(path, false, new UTF8Encoding(false)))
             {
                 w.NewLine = "\n";
-                Row(w, "DSVIZ", "1", "cs");
-                foreach (var kv in Recorder.Sources) Row(w, "SRC", kv.Key, kv.Value);
-                foreach (Step s in Recorder.Steps)
-                {
-                    Row(w, "STEP", s.Kind.ToString(), s.OutLen.ToString(), s.Returned ?? "\0", s.Text);
-                    if (s.Access != null)
-                    {
-                        Row(w, "ACC", s.Access.Field, s.Access.Text, s.Access.Mark.ToString());
-                        WriteObj(w, s.Access.Obj);
-                    }
-                    foreach (Frame f in s.Calls) Row(w, "FR", f.Class, f.Method, f.File ?? "", f.Line.ToString());
-                    if (s.Vars != null)
-                    {
-                        Row(w, "VARS");
-                        foreach (string[] v in s.Vars) Row(w, "VAR", v[0], v[1]);
-                    }
-                    foreach (View v in s.Views) WriteView(w, v);
-                }
+                Header(w);
+                WriteSteps(w, 0, Recorder.Steps.Count, true);
                 Row(w, "OUT", Recorder.Output.ToString());
             }
         }
 
-        static void WriteView(StreamWriter w, View v)
+        /// <summary>הכותרת וקבצי הקוד — פעם אחת, בתחילת הקובץ (או בתחילת השידור לחלון שנפתח תוך כדי ההרצה)</summary>
+        public static void Header(TextWriter w)
+        {
+            Row(w, "DSVIZ", "1", "cs");
+            foreach (var kv in Recorder.Sources) Row(w, "SRC", kv.Key, kv.Value);
+        }
+
+        /// <summary>
+        /// הצעדים from עד to (לא כולל). waits = גם שורות WAIT (איפה התוכנית חיכתה לקלט) אחרי הצעד שבו התחילה לחכות —
+        /// בקובץ; לחלון שפתוח תוך כדי ההרצה ההמתנה נשלחת בנפרד (LiveViewer)
+        /// </summary>
+        public static void WriteSteps(TextWriter w, int from, int to, bool waits)
+        {
+            int wi = 0;
+            if (waits)
+            {
+                while (wi < Recorder.Waits.Count && Recorder.Waits[wi].Step < from) wi++;
+                while (wi < Recorder.Waits.Count && Recorder.Waits[wi].Step < 0) WriteWait(w, Recorder.Waits[wi++]);
+            }
+            for (int i = from; i < to; i++)
+            {
+                Step s = Recorder.Steps[i];
+                Row(w, "STEP", s.Kind.ToString(), s.OutLen.ToString(), s.Returned ?? "\0", s.Text);
+                if (s.Access != null)
+                {
+                    Row(w, "ACC", s.Access.Field, s.Access.Text, s.Access.Mark.ToString());
+                    WriteObj(w, s.Access.Obj);
+                }
+                foreach (Frame f in s.Calls) Row(w, "FR", f.Class, f.Method, f.File ?? "", f.Line.ToString());
+                if (s.Vars != null)
+                {
+                    Row(w, "VARS");
+                    foreach (string[] v in s.Vars) Row(w, "VAR", v[0], v[1]);
+                }
+                foreach (View v in s.Views) WriteView(w, v);
+                while (waits && wi < Recorder.Waits.Count && Recorder.Waits[wi].Step == i) WriteWait(w, Recorder.Waits[wi++]);
+            }
+        }
+
+        /// <summary>WAIT צעד מחלקה פעולה קובץ שורה קריאה מה — התוכנית התחילה לחכות לקלט מהמקלדת אחרי הצעד הזה</summary>
+        public static void WriteWait(TextWriter w, InputWait x)
+        {
+            Row(w, "WAIT", x.Step.ToString(), x.Class ?? "", x.Method ?? "", x.File ?? "", x.Line.ToString(), x.Call ?? "", x.What ?? "");
+        }
+
+        static void WriteView(TextWriter w, View v)
         {
             string focus = v.Focus ? "1" : "0";
             var lin = v as LinearView;
@@ -110,7 +139,7 @@ namespace DsViz
             foreach (var kv in mat.ColLabels) foreach (string n in kv.Value) Row(w, "CL", kv.Key.ToString(), n);
         }
 
-        static void WriteCells(StreamWriter w, ChainView chain)
+        static void WriteCells(TextWriter w, ChainView chain)
         {
             foreach (Cell c in chain.Cells)
             {
@@ -120,7 +149,7 @@ namespace DsViz
             }
         }
 
-        static void WriteTree(StreamWriter w, TreeCell c)
+        static void WriteTree(TextWriter w, TreeCell c)
         {
             if (c == null) { Row(w, "NULL"); return; }
             Row(w, "N", c.Value, c.Mark.ToString(), c.Current ? "1" : "0", c.Shared ? "1" : "0", string.Join("\u0001", c.Labels));
@@ -132,7 +161,7 @@ namespace DsViz
         }
 
         /// <summary>מבנה בתוך תא: SUB, שורות ה-V של המבנה הפנימי (רקורסיבי), ENDSUB</summary>
-        static void WriteSub(StreamWriter w, View v)
+        static void WriteSub(TextWriter w, View v)
         {
             if (v == null) return;
             Row(w, "SUB");
@@ -141,14 +170,14 @@ namespace DsViz
         }
 
         /// <summary>אובייקט של מחלקה: שורת O (זהות, סוג, כותרת, פרטים, תוויות) ואחריה שורת F לכל מאפיין</summary>
-        static void WriteObj(StreamWriter w, Obj o)
+        static void WriteObj(TextWriter w, Obj o)
         {
             if (o == null) return;
             Row(w, "O", o.Id.ToString(), o.Type, o.Title, o.Sub, string.Join("\u0001", o.Labels));
             foreach (string[] f in o.Fields) Row(w, "F", f[0], f[1]);
         }
 
-        static void Row(StreamWriter w, params string[] fields)
+        public static void Row(TextWriter w, params string[] fields)
         {
             for (int i = 0; i < fields.Length; i++)
             {
