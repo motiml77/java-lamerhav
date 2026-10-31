@@ -27,6 +27,8 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !endif
 !define PROJECT_DIR "$DOCUMENTS\DataStructures"
 !define PROJECT_CS_DIR "$DOCUMENTS\DataStructures-CS"
+; נקודת ההרחבה של MSBuild (ברמת המשתמש) שכל פרויקט C# מסוג SDK מייבא אוטומטית — ראו installer/DSViz.targets
+!define MSBUILD_IMPORTAFTER "$LOCALAPPDATA\Microsoft\MSBuild\Current\Microsoft.CSharp.targets\ImportAfter"
 !define VSIX "dsviz-${VERSION}.vsix"
 !define PLUGIN "il.lamerhav.dsviz_${VERSION}.jar"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz"
@@ -57,7 +59,7 @@ ShowUninstDetails show
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
 !define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse פתוח — ההתקנה תבקש לסגור אותו.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
-!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nVisual Studio (C#): פותחים את הקיצור 'תרגילי C#' בשולחן העבודה, ובוחרים ליד כפתור ההפעלה 'הרצה ויזואלית'."
+!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "פתיחת המדריך"
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
@@ -319,6 +321,13 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   FileWriteUTF16LE /BOM $0 "$INSTDIR\cs\dsviz-cs.exe"
   FileClose $0
   DetailPrint "C#: ההרצה הוויזואלית הותקנה ב-$INSTDIR\cs"
+
+  ; MSBuild (DSViz.targets): בכל פרויקט C# של Visual Studio — חדש או קיים, בכל תיקייה — מתווספת לבד
+  ; ההפניה לספרייה ופרופיל ההרצה "הרצה ויזואלית", בלי להריץ שום דבר משורת הפקודה (ראו installer/DSViz.targets)
+  SetOutPath "${MSBUILD_IMPORTAFTER}"
+  File "DSViz.targets"
+  SetOutPath "$INSTDIR"
+  DetailPrint "Visual Studio: בכל פרויקט C# מופיעה לבד 'הרצה ויזואלית' ליד כפתור ההפעלה (${MSBUILD_IMPORTAFTER})"
 
   ; תיקיית תרגילים מוכנה (Documents\DataStructures-CS): פתרון של Visual Studio עם תרגיל ודוגמאות
   ${IfNot} ${FileExists} "${PROJECT_CS_DIR}\DataStructures-CS.sln"
@@ -637,6 +646,8 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\cs-project"
   RMDir /r "$INSTDIR\vs-template"
   Delete "$PROFILE\.dsviz\cs-path.txt"
+  ; MSBuild (DSViz.targets) — משאירים את התיקייה (ImportAfter) כי יכולים להיות בה קבצים של תוכנות אחרות
+  Delete "${MSBUILD_IMPORTAFTER}\DSViz.targets"
   Delete "$DESKTOP\תרגילי C# (מבני נתונים).lnk"
   Delete "$DESKTOP\תרגיל חדש ב-C#.lnk"
   Delete "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk"

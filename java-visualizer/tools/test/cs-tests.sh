@@ -230,3 +230,106 @@ for d in $(cat "$W/ai/src/cs-dirs.txt"); do
     viz --check-project "$d" | tail -1 | grep -q '^errors: 0' || { viz --check-project "$d"; exit 1; }
 done
 echo "  ok  מעטפות C# מתקמפלות (dsviz-cs --check-project)"
+
+echo "== 10. Visual Studio בלי שום פעולה: DSViz.targets (MSBuild ImportAfter) — הפניה לספרייה ופרופיל ההרצה אוטומטית בכל פרויקט"
+# מדמים את %LOCALAPPDATA% של Windows (MSBuildUserExtensionsPath נגזר מ-XDG_DATA_HOME גם ב-Linux) —
+# עם קובץ ה-targets שההתקנה כותבת, ואת תיקיית ההתקנה $(LOCALAPPDATA)\DSViz\cs (dsviz-cs.exe + הספרייה)
+FAKE="$W/msbuild-home"
+rm -rf "$FAKE" && mkdir -p "$FAKE/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter" "$FAKE/DSViz/cs"
+cp "$ROOT/installer/DSViz.targets" "$FAKE/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter/DSViz.targets"
+cp "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" "$FAKE/DSViz/cs/Unit4.CollectionsLib.dll"
+printf '#!/bin/sh\necho "CALLED $*" >> "%s/calls.log"\nexec dotnet "%s" "$@"\n' "$FAKE/DSViz/cs" "$RUNNER" > "$FAKE/DSViz/cs/dsviz-cs.exe"
+chmod +x "$FAKE/DSViz/cs/dsviz-cs.exe"
+export XDG_DATA_HOME="$FAKE"
+msb() { (cd "$1" && shift && dotnet build -v "${V:-q}" --nologo "$@"); }
+
+# א. פרויקט חדש (בלי הפניה, בלי launchSettings): אחרי בנייה — ה-DLL נעתק (ההפניה הצליחה) ופרופיל "הרצה ויזואלית" נוסף
+rm -rf "$W/new1" && mkdir -p "$W/new1"
+printf 'using System;\nusing Unit4.CollectionsLib;\nStack<int> s = new Stack<int>(); s.Push(1); s.Push(2);\nConsole.WriteLine(s.Pop());\n' > "$W/new1/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new1/New1.csproj"
+msb "$W/new1" | grep -q 'Build succeeded' && [ -f "$W/new1/bin/Debug/net8.0/Unit4.CollectionsLib.dll" ] \
+    && grep -q 'הרצה ויזואלית' "$W/new1/Properties/launchSettings.json" && grep -q 'הרצה רגילה' "$W/new1/Properties/launchSettings.json" \
+    && [ "$(dotnet "$W/new1/bin/Debug/net8.0/New1.dll")" = 2 ] \
+    && echo "פרויקט חדש: הפניה לספרייה + פרופיל הרצה נוספו לבד (והתוכנית רצה עם הספרייה)" || { echo "DSViz.targets נכשל על פרויקט חדש"; cat "$W/new1/Properties/launchSettings.json" 2>&1; exit 1; }
+
+# ב. בנייה שנייה: מהירה — dsviz-cs לא רץ שוב (ה-Exec מדלג כש-הפרופיל כבר קיים)
+rm -f "$FAKE/DSViz/cs/calls.log"
+msb "$W/new1" | grep -q 'Build succeeded'
+[ ! -f "$FAKE/DSViz/cs/calls.log" ] && echo "בנייה שנייה: לא רץ dsviz-cs.exe שוב (מהיר)" || { echo "בנייה שנייה הריצה את ה-Exec שלא לצורך"; cat "$FAKE/DSViz/cs/calls.log"; exit 1; }
+
+# ג. launchSettings.json קיים עם פרופיל אחר של התלמיד — נשאר, והפרופיל שלנו מתווסף לידו
+rm -rf "$W/new2" && mkdir -p "$W/new2/Properties"
+printf 'using System;\nConsole.WriteLine("hi");\n' > "$W/new2/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new2/New2.csproj"
+printf '{"profiles":{"שלי":{"commandName":"Project","environmentVariables":{"X":"1"}}}}\n' > "$W/new2/Properties/launchSettings.json"
+msb "$W/new2" | grep -q 'Build succeeded'
+grep -q '"שלי"' "$W/new2/Properties/launchSettings.json" && grep -q '"X": *"1"' "$W/new2/Properties/launchSettings.json" && grep -q 'הרצה ויזואלית' "$W/new2/Properties/launchSettings.json" \
+    && ! grep -q 'הרצה רגילה' "$W/new2/Properties/launchSettings.json" \
+    && echo "launchSettings.json קיים: הפרופיל של התלמיד נשאר, והפרופיל שלנו נוסף (בלי 'הרצה רגילה' כפולה)" || { echo "פרופיל קיים לא נשמר"; cat "$W/new2/Properties/launchSettings.json"; exit 1; }
+
+# ד. DSVizDisable=true — שום דבר לא קורה
+rm -rf "$W/new3" && mkdir -p "$W/new3"
+printf 'using System;\nConsole.WriteLine("hi");\n' > "$W/new3/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new3/New3.csproj"
+msb "$W/new3" -p:DSVizDisable=true | grep -q 'Build succeeded'
+[ ! -e "$W/new3/Properties" ] && [ ! -f "$W/new3/bin/Debug/net8.0/Unit4.CollectionsLib.dll" ] \
+    && echo "DSVizDisable=true: שום דבר לא נוסף" || { echo "DSVizDisable=true לא עבד"; exit 1; }
+
+# ה. ספרייה (classlib, לא Exe) — לא נוגעים
+rm -rf "$W/new4" && mkdir -p "$W/new4"
+printf 'namespace N4 { public class C1 {} }\n' > "$W/new4/Class1.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new4/New4.csproj"
+msb "$W/new4" | grep -q 'Build succeeded'
+[ ! -e "$W/new4/Properties" ] && echo "ספרייה (OutputType != Exe): לא נוגעים" || { echo "DSViz.targets נגע בספרייה (לא Exe)"; exit 1; }
+
+# ו. פרויקט רגיל של Visual Studio (GoldWater, עם הפניה משלו לספרייה) — לא מתווספת הפניה כפולה, והבנייה מצליחה.
+#    (ResolveAssemblyReferences היה מאחד שתי הפניות לבד — אבל לטובת העותק שבהתקנה; לכן בודקים שנשארה ההפניה של הפרויקט)
+rm -rf "$W/gw" && mkdir -p "$W/gw"
+cp calls/vs/GoldWater.csproj calls/vs/Recursion.cs "$W/gw/"
+cp "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" "$W/Unit4.CollectionsLib.dll"   # ה-HintPath בפרויקט: ..\Unit4.CollectionsLib.dll
+V=normal msb "$W/gw" > "$W/gw.out" 2>&1; grep -q 'Build succeeded' "$W/gw.out" \
+    && [ "$(grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/gw.out" | wc -l)" = 1 ] \
+    && ! grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/gw.out" | grep -q msbuild-home \
+    && echo "פרויקט עם הפניה משלו לספרייה: בלי הפניה כפולה (נשארת ההפניה של הפרויקט)" || { echo "הפניה כפולה לספרייה"; grep reference "$W/gw.out" | tr ' ' '\n' | grep -i unit4; exit 1; }
+
+# ז. ה-DLL חסר (למשל התקנה חלקית) — הבנייה מצליחה בכל זאת, ופרופיל ההרצה עדיין מתווסף
+rm -rf "$W/new5" && mkdir -p "$W/new5"
+printf 'using System;\nConsole.WriteLine("hi");\n' > "$W/new5/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new5/New5.csproj"
+msb "$W/new5" -p:DSVizLibPath="$W/no-such-file.dll" | grep -q 'Build succeeded'
+grep -q 'הרצה ויזואלית' "$W/new5/Properties/launchSettings.json" \
+    && echo "ה-DLL חסר: הבנייה הצליחה בכל זאת, ופרופיל ההרצה נוסף" || { echo "ה-DLL החסר שבר את הבנייה"; exit 1; }
+
+# ח. הפניה בשם המלא ("Unit4.CollectionsLib, Version=...") או ProjectReference לפרויקט של הספרייה — בלי הפניה כפולה
+rm -rf "$W/new6" "$W/new7" && mkdir -p "$W/new6" "$W/new7"
+for d in new6 new7; do printf 'using System;\nusing Unit4.CollectionsLib;\nConsole.WriteLine(new Queue<int>().IsEmpty());\n' > "$W/$d/Program.cs"; done
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup><ItemGroup><Reference Include="Unit4.CollectionsLib, Version=1.0.1.0, Culture=neutral, PublicKeyToken=null"><HintPath>%s</HintPath></Reference></ItemGroup></Project>\n' "$W/Unit4.CollectionsLib.dll" > "$W/new6/New6.csproj"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup><ItemGroup><ProjectReference Include="%s" /></ItemGroup></Project>\n' "$ROOT/csharp/Unit4.CollectionsLib/Unit4.CollectionsLib.csproj" > "$W/new7/New7.csproj"
+for d in new6 new7; do
+    V=normal msb "$W/$d" > "$W/$d.out" 2>&1; grep -q 'Build succeeded' "$W/$d.out" \
+        && [ "$(grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/$d.out" | wc -l)" = 1 ] \
+        && ! grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/$d.out" | grep -q msbuild-home \
+        || { echo "$d: הפניה כפולה / בנייה נכשלה"; grep -E 'error|warning' "$W/$d.out" | head; exit 1; }
+done
+echo "הפניה בשם מלא / ProjectReference לספרייה: בלי הפניה כפולה"
+
+# ט. אידמפוטנטי: --ensure-profile שוב לא משנה את הקובץ; launchSettings.json פגום (לא JSON) — הבנייה מצליחה והקובץ לא נוגע
+before=$(md5sum < "$W/new2/Properties/launchSettings.json")
+viz --ensure-profile "$W/new2" && [ "$(md5sum < "$W/new2/Properties/launchSettings.json")" = "$before" ] \
+    || { echo "--ensure-profile שינה קובץ שכבר יש בו את הפרופיל"; exit 1; }
+rm -rf "$W/new8" && mkdir -p "$W/new8/Properties"
+printf 'using System;\nConsole.WriteLine("hi");\n' > "$W/new8/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new8/New8.csproj"
+printf '{ "profiles": { oops\n' > "$W/new8/Properties/launchSettings.json"
+msb "$W/new8" | grep -q 'Build succeeded' && [ "$(cat "$W/new8/Properties/launchSettings.json")" = '{ "profiles": { oops' ] \
+    && echo "אידמפוטנטי, ו-launchSettings.json פגום לא שובר את הבנייה (והקובץ לא נדרס)" || { echo "launchSettings.json פגום: בעיה"; exit 1; }
+
+# י. כמה מסגרות (TargetFrameworks) — הבנייה החיצונית לא נשברת, והבנייה הפנימית מקבלת הכול
+rm -rf "$W/new9" && mkdir -p "$W/new9"
+printf 'using System;\nusing Unit4.CollectionsLib;\nConsole.WriteLine(new Stack<int>().IsEmpty());\n' > "$W/new9/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFrameworks>net8.0</TargetFrameworks><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new9/New9.csproj"
+msb "$W/new9" | grep -q 'Build succeeded' && grep -q 'הרצה ויזואלית' "$W/new9/Properties/launchSettings.json" \
+    && echo "TargetFrameworks (כמה מסגרות): תקין" || { echo "TargetFrameworks: נכשל"; exit 1; }
+
+unset XDG_DATA_HOME
+echo "DSViz.targets: 10 תרחישים נבדקו (פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, כמה מסגרות)"

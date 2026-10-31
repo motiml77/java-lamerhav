@@ -1,0 +1,92 @@
+<!--
+  DSViz.targets — מותקן אוטומטית (SEC_CS ב-installer/setup.nsi) לתוך
+    %LOCALAPPDATA%\Microsoft\MSBuild\Current\Microsoft.CSharp.targets\ImportAfter\DSViz.targets
+  ומוסר בהסרת ההתקנה. זו נקודת הרחבה סטנדרטית של MSBuild (ברמת המשתמש — בלי הרשאות מנהל) שכל בנייה של
+  פרויקט C# מייבאת אוטומטית — גם מ-Visual Studio (כולל הבנייה של עיצוב-זמן, שרצה כש-Visual Studio פותח/טוען
+  את הפרויקט, בשביל ה-IntelliSense), וגם מ-dotnet build / dotnet msbuild. כך שבכל פרויקט קונסול ב-C#, חדש
+  או קיים, בכל תיקייה, בלי שום פעולה של התלמיד:
+    1. מתווספת הפניה לספרייה Unit4.CollectionsLib (אם קיימת בהתקנה, ואם הפרויקט לא כבר מפנה אליה —
+       ב-Reference או ב-ProjectReference) — כדי ש-using Unit4.CollectionsLib; יתקמפל גם בבנייה הרגילה
+       של Visual Studio (F5), ו-IntelliSense יכיר את Stack / Queue / Node / BinNode.
+    2. מתווסף (פעם אחת) פרופיל ההרצה "הרצה ויזואלית" ל-Properties\launchSettings.json, בתפריט שליד כפתור
+       ההפעלה הירוק — באמצעות dsviz-cs.exe ‎ensure-profile (קריאה קטנה: רק ה-csproj, בלי לסרוק את קבצי
+       הפרויקט). פרופילים קיימים נשמרים. רק בפרויקטים מסוג SDK (רק בהם יש launchSettings.json).
+
+  לא נוגע: בפרויקטים שאינם Exe (ספריות, בדיקות), בפרויקטים שאינם C#, ב-$(DSVizDisable)==true
+  (אפשר לשים ב-csproj: <DSVizDisable>true</DSVizDisable>). הפניה — רק ל-‎.NET Core 2.0+ / ‎.NET 5+ /
+  ‎.NET Framework 4.7.2+ (הספרייה היא netstandard2.0). פרופיל ההרצה — רק לפרויקט SDK של ‎.NET 6 ומעלה.
+  כל שלב מוגן ב-Condition וב-ContinueOnError — הבנייה לא נכשלת אף פעם בגלל הקובץ הזה, גם אם ההתקנה
+  של DSViz חסרה או חלקית, ואין בו שום פעולה בזמן הטעינה (evaluation) שיכולה להיכשל.
+-->
+<Project>
+
+  <PropertyGroup>
+    <!-- נתיבי ההתקנה (אפשר לדרוס מבחוץ לבדיקות: -p:DSVizInstallDir=... / -p:DSVizLibPath=... / -p:DSVizRunner=...) -->
+    <DSVizInstallDir Condition="'$(DSVizInstallDir)' == ''">$(LOCALAPPDATA)\DSViz</DSVizInstallDir>
+    <DSVizLibPath Condition="'$(DSVizLibPath)' == ''">$(DSVizInstallDir)\cs\Unit4.CollectionsLib.dll</DSVizLibPath>
+    <DSVizRunner Condition="'$(DSVizRunner)' == ''">$(DSVizInstallDir)\cs\dsviz-cs.exe</DSVizRunner>
+
+    <!-- פרויקט קונסול ב-C# (לא ספרייה), ולא כובה -->
+    <_DSVizExe Condition="'$(DSVizDisable)' != 'true' and '$(Language)' == 'C#' and '$(OutputType)' == 'Exe'">true</_DSVizExe>
+
+    <!-- הספרייה (netstandard2.0) מתאימה: ‎.NET Core 2.0+ / ‎.NET 5+ או ‎.NET Framework 4.7.2+.
+         (and ב-MSBuild מקצר — VersionGreaterThanOrEquals לא נבדק כשאין TargetFrameworkVersion, למשל בבנייה החיצונית של כמה מסגרות) -->
+    <_DSVizLibOk Condition="'$(_DSVizExe)' == 'true' and '$(TargetFrameworkIdentifier)' == '.NETCoreApp' and '$(TargetFrameworkVersion)' != ''
+        and $([MSBuild]::VersionGreaterThanOrEquals('$(TargetFrameworkVersion)', '2.0'))">true</_DSVizLibOk>
+    <_DSVizLibOk Condition="'$(_DSVizExe)' == 'true' and '$(TargetFrameworkIdentifier)' == '.NETFramework' and '$(TargetFrameworkVersion)' != ''
+        and $([MSBuild]::VersionGreaterThanOrEquals('$(TargetFrameworkVersion)', '4.7.2'))">true</_DSVizLibOk>
+
+    <!-- פרופיל ההרצה: רק בפרויקט SDK (launchSettings.json) של ‎.NET 6 ומעלה -->
+    <_DSVizProfileOk Condition="'$(_DSVizExe)' == 'true' and '$(UsingMicrosoftNETSdk)' == 'true'
+        and '$(TargetFrameworkIdentifier)' == '.NETCoreApp' and '$(TargetFrameworkVersion)' != ''
+        and $([MSBuild]::VersionGreaterThanOrEquals('$(TargetFrameworkVersion)', '6.0'))">true</_DSVizProfileOk>
+    <_DSVizLaunchFile>$(MSBuildProjectDirectory)\Properties\launchSettings.json</_DSVizLaunchFile>
+  </PropertyGroup>
+
+  <!--
+    1. הפניה לספרייה. רצה לפני ResolveAssemblyReferences (גם בבנייה רגילה וגם בבנייה של עיצוב-זמן —
+    שתיהן מריצות אותו, כדי ש-IntelliSense יידע על ההפניות), כך שהקובץ שמתווסף כבר נכלל ברשימת
+    ה-References שהמהדר מקבל.
+  -->
+  <Target Name="DSVizAddLibraryReference" BeforeTargets="ResolveAssemblyReferences"
+          Condition="'$(_DSVizLibOk)' == 'true' and Exists('$(DSVizLibPath)')">
+    <ItemGroup>
+      <!-- הפרויקט כבר מפנה לספרייה? (Reference בשם, גם בצורה המלאה "Unit4.CollectionsLib, Version=...",
+           או לפי ה-HintPath; או ProjectReference לפרויקט של הספרייה) — אז לא מוסיפים עוד הפניה -->
+      <_DSVizExistingRef Include="@(Reference)"
+          Condition="'%(Reference.Identity)' == 'Unit4.CollectionsLib'
+                  or $([System.String]::Copy('%(Reference.Identity)').StartsWith('Unit4.CollectionsLib,'))
+                  or $([System.String]::Copy('%(Reference.HintPath)').ToLowerInvariant().EndsWith('unit4.collectionslib.dll'))" />
+      <_DSVizExistingRef Include="@(ProjectReference)" Condition="'%(ProjectReference.Filename)' == 'Unit4.CollectionsLib'" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_DSVizExistingRef)' == ''">
+      <Reference Include="Unit4.CollectionsLib">
+        <HintPath>$(DSVizLibPath)</HintPath>
+        <Private>true</Private>
+      </Reference>
+    </ItemGroup>
+  </Target>
+
+  <!--
+    2. פרופיל ההרצה. אותה נקודת-חיבור (ResolveAssemblyReferences) — רצה גם בבנייה של עיצוב-זמן, כך
+    שהאפשרות "הרצה ויזואלית" מופיעה ליד כפתור ההפעלה כבר כשהפרויקט נטען ב-Visual Studio, בלי להמתין
+    ל-F5 / Build. קודם קוראים את launchSettings.json (אם יש): אם הפרופיל כבר שם — ה-Exec לא רץ, כך
+    שבנייה שנייה (ושלישית...) לא עושה שום דבר נוסף והבנייה/הטעינה לא מתעכבת. dsviz-cs ממזג את הפרופיל
+    לתוך הקובץ (ומשאיר את הפרופילים הקיימים) ולא נכשל אף פעם.
+  -->
+  <Target Name="DSVizEnsureLaunchProfile" BeforeTargets="ResolveAssemblyReferences"
+          Condition="'$(_DSVizProfileOk)' == 'true' and Exists('$(DSVizRunner)')">
+    <ReadLinesFromFile File="$(_DSVizLaunchFile)" Condition="Exists('$(_DSVizLaunchFile)')" ContinueOnError="true">
+      <Output TaskParameter="Lines" ItemName="_DSVizLaunchLines" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_DSVizLaunchText>@(_DSVizLaunchLines)</_DSVizLaunchText>
+      <_DSVizHasProfile>$(_DSVizLaunchText.Contains('הרצה ויזואלית'))</_DSVizHasProfile>
+    </PropertyGroup>
+    <Exec Condition="'$(_DSVizHasProfile)' != 'true'"
+          Command="&quot;$(DSVizRunner)&quot; --ensure-profile &quot;$(MSBuildProjectDirectory)&quot;"
+          ContinueOnError="true" IgnoreExitCode="true" EchoOff="true" Timeout="60000"
+          StandardOutputImportance="Low" StandardErrorImportance="Low" />
+  </Target>
+
+</Project>

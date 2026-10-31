@@ -28,6 +28,7 @@ namespace DsViz
             try { Console.OutputEncoding = new UTF8Encoding(false); } catch (Exception) { }
             if (args.Length > 0 && args[0] == "--check") return Check(args.Skip(1).ToArray());
             if (args.Length > 1 && args[0] == "--check-project") return CheckProject(args[1]);
+            if (args.Length > 1 && args[0] == "--ensure-profile") return EnsureProfile(args[1]);
             string target = null, traceOut = null;
             var progArgs = new List<string>();
             for (int i = 0; i < args.Length; i++)
@@ -208,6 +209,17 @@ namespace DsViz
             foreach (Diagnostic d in errors.Take(30)) Console.WriteLine(Format(d));
             Console.WriteLine("errors: " + errors.Count);
             return errors.Count == 0 ? 0 : 1;
+        }
+
+        /// <summary>
+        /// מצב קטן בשביל DSViz.targets (MSBuild ImportBefore/ImportAfter ברמת המשתמש — ראו installer/DSViz.targets):
+        /// מוסיף את פרופיל "הרצה ויזואלית" לפרויקט אם חסר, בלי לסרוק את כל קבצי ה-.cs (ProjectInfo.LoadProjectOnly —
+        /// מהיר, כדי שגם ירוץ בבנייה של עיצוב-זמן ב-Visual Studio בלי לעכב את פתיחת הפרויקט). לא נכשל אף פעם.
+        /// </summary>
+        static int EnsureProfile(string dir)
+        {
+            try { LaunchProfile.Ensure(ProjectInfo.LoadProjectOnly(dir)); } catch (Exception) { }
+            return 0;
         }
 
         /// <summary>השם המלא של המחלקה בקובץ שיש בה static Main (או null)</summary>
@@ -398,6 +410,27 @@ namespace DsViz
                 if (found.Length > 1) return null;   // כמה פרויקטים באותה תיקייה — רק הקובץ
             }
             return null;
+        }
+
+        /// <summary>
+        /// רק קריאת ה-csproj של תיקייה (Dir, Csproj, SdkStyle) — בלי לסרוק את כל קבצי ה-.cs שבפרויקט.
+        /// בשביל --ensure-profile (DSViz.targets): רץ בכל פתיחה/בנייה של פרויקט ב-Visual Studio, וצריך להיות מהיר.
+        /// </summary>
+        public static ProjectInfo LoadProjectOnly(string dir)
+        {
+            var p = new ProjectInfo { Dir = Path.GetFullPath(dir) };
+            string csproj = null;
+            try { csproj = Directory.GetFiles(p.Dir, "*.csproj").FirstOrDefault(); } catch (Exception) { }
+            if (csproj == null) return p;
+            p.Csproj = csproj;
+            p.Name = Path.GetFileNameWithoutExtension(csproj);
+            try
+            {
+                XDocument x = XDocument.Load(csproj);
+                p.SdkStyle = x.Root != null && x.Root.Attribute("Sdk") != null;
+            }
+            catch (Exception) { }
+            return p;
         }
     }
 

@@ -20,6 +20,23 @@ csharp/
 
 בהרצה רגילה (בלי dsviz-cs) ההוקים לא קיימים והספרייה היא סתם מבני נתונים — אין תיעוד ואין חלון.
 
+## כל פרויקט ב-Visual Studio, בלי שום פעולה (installer/DSViz.targets)
+
+ההתקנה (חבילת C#) מעתיקה את `installer/DSViz.targets` ל-
+`%LOCALAPPDATA%\Microsoft\MSBuild\Current\Microsoft.CSharp.targets\ImportAfter\` — נקודת הרחבה של MSBuild ברמת המשתמש
+(בלי הרשאות מנהל) שכל בנייה של פרויקט C# מייבאת: Visual Studio (גם הבנייה של עיצוב-זמן כשהפרויקט נטען), `dotnet build`, ו-C# Dev Kit.
+ההסרה מוחקת את הקובץ. בכל פרויקט **קונסול** (`OutputType` = `Exe`) ב-C#:
+- **הפניה ל-`Unit4.CollectionsLib.dll`** מתיקיית ההתקנה, לפני `ResolveAssemblyReferences` — רק אם הפרויקט עוד לא מפנה לספרייה
+  (`Reference` בשם קצר/מלא או לפי `HintPath`, או `ProjectReference`), ורק ל-‎.NET Core 2.0+ / ‎.NET 5+ / ‎.NET Framework 4.7.2+.
+- **פרופיל "הרצה ויזואלית"** ב-`Properties\launchSettings.json` (פרויקט SDK, ‎.NET 6+): אם הפרופיל לא בקובץ, רץ
+  `dsviz-cs.exe --ensure-profile <תיקייה>` — ממזג את הפרופיל (ו"הרצה רגילה" אם אין פרופיל `Project`), משאיר את הפרופילים הקיימים,
+  ולא נוגע בקובץ פגום. כשהפרופיל כבר שם — לא רץ כלום (בנייה רגילה לא מתעכבת).
+
+לא נוגע בספריות / פרויקטי בדיקות / פרויקטים שאינם C#, ולא אם יש `<DSVizDisable>true</DSVizDisable>` בפרויקט. אף שלב לא מכשיל את הבנייה
+(ההתקנה חסרה, DLL חסר, Exec נכשל). פרויקט שהיה פתוח ב-Visual Studio בזמן ההתקנה — סוגרים ופותחים פעם אחת.
+נבדק ב-`tools/test/cs-tests.sh`, סעיף 10 (מדמה את `%LOCALAPPDATA%` ב-Linux עם `XDG_DATA_HOME`).
+ב-VS Code אין צורך בזה: התוסף מוצא את `dsviz-cs` לבד (`~/.dsviz/cs-path.txt` שההתקנה כותבת, או `%LOCALAPPDATA%\DSViz\cs`) ומריץ אותו על כל פרויקט.
+
 ## סדר החיפוש של Java והספרייה (ViewerLauncher)
 `DSVIZ_JAVA` / `DSVIZ_JAR` (משתני סביבה) → `..\jdk` ו-`..\dsviz.jar` ליד `dsviz-cs.exe` (כך מותקן) → `~/.dsviz/jdk-path.txt` → `JAVA_HOME` → `PATH`.
 
