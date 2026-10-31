@@ -1014,11 +1014,13 @@ final class Recorder {
                 return ord(b) - ord(a);
             }
         });
+        heads = mainFirst(heads, len);
         for (Node<?> n : nodes)   // השמות שהצביעו על כל חוליה — כדי לדעת אחר כך מי "זז" ממנה
             if (labels.get(n) != null && !lostAt.containsKey(n)) lastNames.put(n, new ArrayList<String>(labels.get(n)));
         Set<Object> seen = identitySet();
-        for (Node<?> h : heads) addChain(views, h, seen, target, mark, labels, lastNode);
-        for (Node<?> n : nodes) if (!seen.contains(n)) addChain(views, n, seen, target, mark, labels, lastNode); // מעגלים
+        Map<Object, Object[]> inMain = new IdentityHashMap<Object, Object[]>();   // חוליה → {השרשרת שבשורה שלה היא מצוירת, המקום בה}
+        for (Node<?> h : heads) addChain(views, h, seen, target, mark, labels, lastNode, inMain);
+        for (Node<?> n : nodes) if (!seen.contains(n)) addChain(views, n, seen, target, mark, labels, lastNode, inMain); // מעגלים
 
         // --- עצים
         Set<Object> children = identitySet();
@@ -1148,7 +1150,7 @@ final class Recorder {
                 res = linearView(item, target, mark, item == target ? ghost : null);
             } else if (item instanceof Node) {
                 List<View> tmp = new ArrayList<View>();
-                addChain(tmp, (Node<?>) item, identitySet(), target, mark, none, null);
+                addChain(tmp, (Node<?>) item, identitySet(), target, mark, none, null, null);
                 res = tmp.get(0);
             } else {
                 BinNode<?> b = (BinNode<?>) item;
@@ -1233,19 +1235,67 @@ final class Recorder {
         return 1 + treeSize(t.left, s) + treeSize(t.right, s);
     }
 
+    /**
+     * שרשראות שמתחברות לאותו המשך (למשל חוליה חדשה q אחרי q.setNext(p.getNext()) — היא ו-p.getNext() מצביעות לאותה חוליה):
+     * הארוכה מביניהן — ואם שוות, הוותיקה (הרשימה הקיימת) — ראשונה, והשאר מיד אחריה: הן יצוירו כענפים שלה ולא כרשימה נפרדת.
+     * הסדר בין הקבוצות לא משתנה
+     */
+    private static List<Node<?>> mainFirst(List<Node<?>> heads, final Map<Object, Integer> len) {
+        Map<Object, Integer> group = new IdentityHashMap<Object, Integer>();   // חוליה → מספר הקבוצה שלה
+        List<List<Node<?>>> groups = new ArrayList<List<Node<?>>>();
+        for (Node<?> h : heads) {
+            Integer g = null;
+            List<Node<?>> walked = new ArrayList<Node<?>>();
+            Set<Object> mine = identitySet();
+            for (Node<?> p = h; p != null && mine.add(p) && walked.size() < MAX_CELLS; p = p.next) {
+                g = group.get(p);
+                if (g != null) break;   // הגענו להמשך של שרשרת קודמת
+                walked.add(p);
+            }
+            if (g == null) {
+                g = groups.size();
+                groups.add(new ArrayList<Node<?>>());
+            }
+            for (Node<?> p : walked) group.put(p, g);
+            groups.get(g).add(h);
+        }
+        List<Node<?>> res = new ArrayList<Node<?>>();
+        for (List<Node<?>> l : groups) {
+            Collections.sort(l, new Comparator<Node<?>>() {
+                public int compare(Node<?> a, Node<?> b) {
+                    if (!len.get(a).equals(len.get(b))) return len.get(b) - len.get(a);
+                    return ord(a) - ord(b);
+                }
+            });
+            res.addAll(l);
+        }
+        return res;
+    }
+
+    /**
+     * inMain: החוליות שכבר מצוירות בשורה הראשית של שרשרת (→ {השרשרת, המקום}). שרשרת שמגיעה לאחת מהן היא "ענף" של אותה שרשרת
+     * (ומצוירת מתחתיה, עם חץ אל החוליה) — ולא רשימה נפרדת עם "ממשיך ברשימה אחרת". null = בלי ענפים (מבנה בתוך תא)
+     */
     private static void addChain(List<View> views, Node<?> head, Set<Object> seen, Object target, Mark mark,
-                                 Map<Object, List<String>> labels, Object lastNode) {
+                                 Map<Object, List<String>> labels, Object lastNode, Map<Object, Object[]> inMain) {
         ChainView c = new ChainView();
         c.src = head;
         c.title = names.get(head) != null ? names.get(head) : "רשימה";
         Map<Object, Integer> pos = new IdentityHashMap<Object, Integer>();
+        List<Node<?>> mine = new ArrayList<Node<?>>();
+        Object[] join = null;
         Node<?> cur = head;
         while (cur != null) {
             if (pos.containsKey(cur)) { c.cycleTo = pos.get(cur); break; }
-            if (seen.contains(cur)) { c.joinText = "[" + str(cur.value) + "]"; break; }
+            if (seen.contains(cur)) {
+                join = inMain == null ? null : inMain.get(cur);
+                if (join == null) c.joinText = "[" + str(cur.value) + "]";
+                break;
+            }
             if (c.cells.size() >= MAX_CELLS) { c.truncated = true; break; }
             pos.put(cur, c.cells.size());
             seen.add(cur);
+            mine.add(cur);
             Cell cell = new Cell();
             fillCell(cell, cur, cur.value, target, mark, labels, lastNode);
             if (cur == target || (cell.sub != null && cell.sub.focus)) c.focus = true;
@@ -1254,6 +1304,14 @@ final class Recorder {
             cur = cur.next;
         }
         lostNote(c, head);
+        if (join != null) {   // ענף: האחרונה מצביעה לחוליה באמצע שרשרת שכבר מצוירת
+            ChainView main = (ChainView) join[0];
+            c.joinTo = (Integer) join[1];
+            main.branches.add(c);
+            if (c.focus) main.focus = true;
+            return;
+        }
+        if (inMain != null) for (int i = 0; i < mine.size(); i++) inMain.put(mine.get(i), new Object[] { c, i });
         views.add(c);
     }
 
@@ -1364,6 +1422,8 @@ final class Recorder {
         }
         for (View v : s.views) {   // חוליות שאבדו וכרטיס השגיאה — תמיד (גם כשהמבנה לא בפוקוס)
             if (v instanceof ChainView && ((ChainView) v).lostNote != null) b.append("      [").append(((ChainView) v).lostNote).append(']');
+            if (v instanceof ChainView)
+                for (ChainView br : ((ChainView) v).branches) if (br.lostNote != null) b.append("      [").append(br.lostNote).append(']');
             if (v instanceof ChainView && !((ChainView) v).nullLabels.isEmpty()) b.append("      [null: ").append(((ChainView) v).nullLabels).append(']');
             if (v instanceof LinearView && ((LinearView) v).error != null) b.append("      [").append(v.title).append(" ריק: ").append(((LinearView) v).error).append(']');
             if (v instanceof Model.ProblemView) {
@@ -1379,6 +1439,40 @@ final class Recorder {
         if (s.kind != Kind.OUTPUT) out.println(b);
     }
 
+    /**
+     * בדיקות (-Ddsviz.conditions=true): מה מצויר ברשימות המקושרות — שורה לכל צעד שבו הציור השתנה. למשל
+     * [שרשרת #8: n: 5(n)→3(list)→7→1→null] — ערך(המשתנים שמצביעים עליה); ~ = חוליה שאבדה; ענף 4(q)↗7 = חוליה שמצביעה לאמצע השרשרת
+     */
+    static String chainDump() {
+        StringBuilder b = new StringBuilder();
+        String last = null;
+        for (int i = 0; i < stepCount(); i++) {
+            StringBuilder now = new StringBuilder();
+            for (View v : step(i).views)
+                if (v instanceof ChainView)
+                    now.append("  [שרשרת #").append(i + 1).append(": ").append(v.title).append(": ").append(chainText((ChainView) v)).append("]\n");
+            String key = now.toString().replaceAll("#\\d+:", "#:");
+            if (!key.equals(last)) b.append(now);
+            last = key;
+        }
+        return b.toString();
+    }
+
+    static String chainText(ChainView c) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < c.cells.size(); i++) {
+            Cell x = c.cells.get(i);
+            b.append(i == 0 ? "" : "→").append(x.lost ? "~" : "").append(x.value);
+            if (!x.labels.isEmpty()) b.append('(').append(String.join(",", x.labels)).append(')');
+        }
+        if (c.joinTo >= 0) return b.toString();
+        b.append('→').append(c.cycleTo >= 0 ? "מעגל:" + c.cycleTo : c.joinText != null ? c.joinText + "(ברשימה אחרת)" : c.truncated ? "..." : "null");
+        if (!c.nullLabels.isEmpty()) b.append('(').append(String.join(",", c.nullLabels)).append(')');
+        for (ChainView br : c.branches)
+            b.append(" ; ענף ").append(chainText(br)).append('↗').append(br.joinTo < c.cells.size() ? c.cells.get(br.joinTo).value : "?");
+        return b.toString();
+    }
+
     static {
         // בדיקות (-Ddsviz.conditions=true): בסוף ההרצה — מה התצוגה של התנאים מראה בכל צעד.
         // התוצאה נקבעת לפי הצעדים שאחרי, לכן רק בסוף; ביציאה מהתהליך, כדי שלא תיחתך
@@ -1389,6 +1483,7 @@ final class Recorder {
                     out.print(CallViz.dump());
                     out.print(SelfViz.dump());
                     out.print(RecursionKind.dump());
+                    out.print(chainDump());
                     out.flush();
                 } catch (RuntimeException e) {
                     out.println("  [תנאים: " + e + "]");

@@ -55,6 +55,7 @@ public final class TraceViewer {
                 System.out.print(CallViz.dump());
                 System.out.print(SelfViz.dump());
                 System.out.print(RecursionKind.dump());
+                System.out.print(Recorder.chainDump());
             }
             return;
         }
@@ -164,11 +165,12 @@ public final class TraceViewer {
             c.cycleTo = Integer.parseInt(f[4]);
             c.joinText = f[5].equals("\u0000") ? null : f[5];
             c.truncated = f[6].equals("1");
-            while (next("C")) {
-                Cell cell = readCell(new Cell(), rows.get(pos++));
-                cell.obj = readObj();
-                cell.sub = readSub();
-                c.cells.add(cell);
+            readCells(c);
+            while (next("BR")) {                       // BR joinTo — ענף: שרשרת שהאחרונה בה מצביעה לחוליה joinTo, ואחריה שורות C שלה
+                ChainView br = new ChainView();
+                br.joinTo = Integer.parseInt(rows.get(pos++)[1]);
+                readCells(br);
+                c.branches.add(br);
             }
             v = c;
             v.focus = f[2].equals("1");
@@ -224,6 +226,15 @@ public final class TraceViewer {
             v.title = f[3];
         }
         return v;
+    }
+
+    private static void readCells(ChainView c) {
+        while (next("C")) {
+            Cell cell = readCell(new Cell(), rows.get(pos++));
+            cell.obj = readObj();
+            cell.sub = readSub();
+            c.cells.add(cell);
+        }
     }
 
     private static Cell readCell(Cell c, String[] f) {   // C|N value mark current [shared] labels

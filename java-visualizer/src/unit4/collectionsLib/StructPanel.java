@@ -849,59 +849,107 @@ final class StructPanel extends JPanel {
 
     // ------------------------------------------------------------ רשימה מקושרת
 
+    /**
+     * רשימה מקושרת: שורה של חוליות (ערך + מצביע), חץ מכל חוליה לבאה, ובסוף null (או מעגל / המשך ברשימה אחרת).
+     * מעל כל חוליה — המשתנים שמצביעים עליה, כל אחד עם חץ משלו בצבע משלו (pointerLabels); כשיש כמה שמות, החוליות מתרחקות
+     * זו מזו כך ששורות השמות של שכנות לא נוגעות זו בזו.
+     * ענפים (חוליה חדשה שכבר מצביעה לאמצע הרשימה, חוליה שהוצאה ועדיין מצביעה הלאה): בשורה מתחת, והאחרונה בענף — מתחת
+     * לחוליה שלפני החוליה שהיא מצביעה עליה, עם חץ אלכסוני אליה.
+     */
     private Dimension drawChain(Graphics2D g, ChainView v, int x, int y) {
+        List<ChainView> rows = new ArrayList<ChainView>();
+        rows.add(v);
+        rows.addAll(v.branches);
         List<String> values = new ArrayList<String>();
         List<Obj> cellObjs = new ArrayList<Obj>();
-        for (Cell c : v.cells) { values.add(c.value); cellObjs.add(c.obj); }
+        List<View> cellSubs = new ArrayList<View>();
+        for (ChainView r : rows) for (Cell c : r.cells) { values.add(c.value); cellObjs.add(c.obj); cellSubs.add(c.sub); }
         int n = v.cells.size();
         boolean objs = hasObjs(cellObjs);
         int vw = Math.max(48, widthOf(values, cellObjs, null) + 22), pw = 20, ch = objs ? OBJ_H : 38, ag = 38;
-        List<View> cellSubs = new ArrayList<View>();
-        for (Cell c : v.cells) cellSubs.add(c.sub);
         Dimension sb = subsBox(cellSubs);
         if (sb != null) { vw = Math.max(vw, sb.width); ch = Math.max(ch, sb.height); }
-        int stepW = vw + pw + ag;
+        int cw = vw + pw, stepW = cw + ag;
         String tail = v.cycleTo >= 0 ? "" : v.joinText != null ? v.joinText + "  (ממשיך ברשימה אחרת)"
                 : v.truncated ? "..." : "null";
-        int extra = Math.max(labelExtra(v.cells), v.nullLabels.isEmpty() ? 0 : (v.nullLabels.size() - 1) * LABEL_STEP);   // כמה מצביעים על אותה חוליה — כל אחד בשורה משלו
-        int top = y + th() + 24 + extra;
-        int w = Math.max(16 + n * stepW + textWidth(tail, SMALL_B) + 10, titleWidth(v.title, "רשימה מקושרת"));
+        int tailW = textWidth(tail, SMALL_B);
+
+        // --- עמודות: ענף שארוך מהמקום שלפני החוליה שהוא מצביע עליה דוחף את השורה הראשית ימינה
+        int shift = 0;
+        for (ChainView b : v.branches) shift = Math.max(shift, b.cells.size() - b.joinTo);
+        int cols = shift + Math.max(n, 1);
+        // כל ענף בשורה משלו מתחת לראשית, אלא אם יש מקום בשורה קיימת (העמודות לא חופפות)
+        int[] brRow = new int[v.branches.size()];
+        List<List<int[]>> taken = new ArrayList<List<int[]>>();
+        for (int i = 0; i < v.branches.size(); i++) {
+            ChainView b = v.branches.get(i);
+            int from = shift + b.joinTo - b.cells.size(), to = shift + b.joinTo - 1;
+            int r = 0;
+            for (; r < taken.size(); r++) {
+                boolean free = true;
+                for (int[] t : taken.get(r)) if (from <= t[1] + 1 && to >= t[0] - 1) free = false;
+                if (free) break;
+            }
+            if (r == taken.size()) taken.add(new ArrayList<int[]>());
+            taken.get(r).add(new int[] { from, to });
+            brRow[i] = r;
+        }
+        // כמה מקום צריכים השמות מעל כל עמודה — ומשם המרחק בין החוליות
+        int[] need = new int[cols];
+        for (int i = 0; i < n; i++) need[shift + i] = Math.max(need[shift + i], pointerRowW(v.cells.get(i).labels));
+        for (ChainView b : v.branches)
+            for (int k = 0; k < b.cells.size(); k++) {
+                int col = shift + b.joinTo - b.cells.size() + k;
+                need[col] = Math.max(need[col], pointerRowW(b.cells.get(k).labels));
+            }
+        int[] left = new int[cols];
+        left[0] = x + 8 + Math.max(0, (need[0] - cw) / 2);
+        for (int c = 1; c < cols; c++) left[c] = left[c - 1] + Math.max(stepW, (need[c - 1] + need[c]) / 2 + LBL_SPACE);
+        int last = shift + n - 1;
+        int lastX = left[last] + vw + pw / 2;
+        // ה-null שבסוף: אם יש משתנים שהם null (p אחרי האחרונה) — השמות שלהם מעליו, בלי לגעת בשמות של החוליה האחרונה
+        int nullW = pointerRowW(v.nullLabels);
+        int agT = ag;
+        if (nullW > 0) agT = Math.max(ag, (need[last] + nullW) / 2 + LBL_SPACE - (lastX + 4 + tailW / 2 - (left[last] + cw / 2)));
+        int tailCx = lastX + agT + 4 + tailW / 2;
+        int right = v.cycleTo >= 0 ? lastX + 30 : Math.max(lastX + agT + 4 + tailW + 10, nullW > 0 ? tailCx + nullW / 2 + 8 : 0);
+
+        // --- גובה: שמות מעל השורה הראשית, השורה, מעגל, ענפים, והסבר על חוליות שאבדו
+        boolean mainLabels = !v.nullLabels.isEmpty();
+        for (Cell c : v.cells) mainLabels |= !c.labels.isEmpty();
+        int top = y + th() + (mainLabels ? LABELS_H : 24);
+        int below = top + ch + (v.cycleTo >= 0 ? 36 : 14);
+        int[] rowTop = new int[taken.size()];
+        int yy = top + ch + (v.cycleTo >= 0 ? 36 : 0);
+        for (int r = 0; r < taken.size(); r++) {
+            boolean lab = false;
+            for (int i = 0; i < v.branches.size(); i++)
+                if (brRow[i] == r) for (Cell c : v.branches.get(i).cells) lab |= !c.labels.isEmpty() || c.lost;
+            rowTop[r] = yy + (lab ? LABELS_H + 4 : 30);
+            yy = rowTop[r] + ch;
+            below = yy + 14;
+        }
+        List<String[]> notes = new ArrayList<String[]>();   // {מה קרה, מה עושים}
+        for (ChainView r : rows) if (r.lostNote != null) notes.add(new String[] { r.lostNote, r.lostHint });
+        int w = Math.max(right - x, titleWidth(v.title, "רשימה מקושרת"));
         int noteW = Math.max(w, Math.min(620, Math.max(360, w)));
-        int noteH = v.lostNote == null || nest > 0 ? 0 : 10 + paragraph(null, v.lostNote, SMALL_B, GHOST, 0, 0, noteW) + paragraph(null, v.lostHint, SMALL, INK, 0, 0, noteW);
-        int h = th() + 24 + extra + ch + (v.cycleTo >= 0 ? 36 : 14) + noteH;
+        int noteH = 0;
+        if (nest == 0) for (String[] t : notes) noteH += 10 + paragraph(null, t[0], SMALL_B, GHOST, 0, 0, noteW) + paragraph(null, t[1], SMALL, INK, 0, 0, noteW);
+        int h = below - y + noteH;
         if (noteH > 0) w = Math.max(w, noteW);
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "רשימה מקושרת", x, y, v.focus);
         for (int i = 0; i < n; i++) {
             Cell c = v.cells.get(i);
-            int bx = x + 8 + i * stepW;
-            if (c.lost) {   // אף משתנה לא מצביע עליה: אדום מקווקו, ומעליה "אבדה"
-                ghostBox(g, bx, top, vw, ch, c.value);
-                ghostBox(g, bx + vw, top, pw, ch, "");
-                g.setColor(GHOST);
-                g.fillOval(bx + vw + pw / 2 - 3, top + ch / 2 - 3, 7, 7);
-                center(g, "אבדה", SMALL_B, bx + (vw + pw) / 2, top - 12);
-                int sx = bx + vw + pw / 2, sy = top + ch / 2;
-                if (i < n - 1) arrow(g, sx, sy, bx + stepW, sy, GHOST);
-                continue;
-            }
-            cell(g, bx, top, vw, ch, color(c.mark), c.value, c.obj, c.sub);
-            box(g, bx + vw, top, pw, ch, color(c.mark), null, false);
-            g.setColor(LINE);
-            g.fillOval(bx + vw + pw / 2 - 3, top + ch / 2 - 3, 7, 7);
-            if (c.current) {
-                g.setColor(CURRENT);
-                g.setStroke(THICK);
-                g.drawRoundRect(bx - 2, top - 2, vw + pw + 4, ch + 4, ARC + 4, ARC + 4);
-            }
-            drawLabels(g, c, bx + (vw + pw) / 2, top - 6);
+            int bx = left[shift + i];
+            chainCell(g, c, bx, top, vw, pw, ch);
             int sx = bx + vw + pw / 2, sy = top + ch / 2;
-            if (i < n - 1) arrow(g, sx, sy, bx + stepW, sy, LINE);
+            if (i < n - 1) arrow(g, sx, sy, left[shift + i + 1], sy, c.lost ? GHOST : LINE);
         }
-        int lastX = x + 8 + (n - 1) * stepW + vw + pw / 2, midY = top + ch / 2;
+        int midY = top + ch / 2;
         if (v.cycleTo >= 0) {
-            int tx = x + 8 + v.cycleTo * stepW + vw / 2, low = top + ch + 24;
+            int tx = left[shift + v.cycleTo] + vw / 2, low = top + ch + 24;
             g.setColor(GHOST);
             g.setStroke(THICK);
             g.drawPolyline(new int[] { lastX, lastX + 20, lastX + 20, tx, tx },
@@ -910,31 +958,65 @@ final class StructPanel extends JPanel {
             g.setFont(SMALL_B);
             g.drawString("מעגל!", (lastX + tx) / 2, low + 14);
         } else {
-            arrow(g, lastX, midY, lastX + ag, midY, LINE);
+            arrow(g, lastX, midY, lastX + agT, midY, LINE);
             g.setColor(v.joinText != null ? CURRENT : !v.nullLabels.isEmpty() ? GHOST : MUTED);
             g.setFont(SMALL_B);
-            g.drawString(tail, lastX + ag + 4, midY + 5);
+            g.drawString(tail, lastX + agT + 4, midY + 5);
             if (!v.nullLabels.isEmpty()) {   // p שהוא null: מצביע על ה-null שבסוף — ומשם אי אפשר להמשיך
-                int cx = lastX + ag + 4 + textWidth(tail, SMALL_B) / 2;
+                pointerLabels(g, v.nullLabels, tailCx, tailW, top - LBL_BASE, midY - 8, 0, GHOST);
                 g.setColor(GHOST);
-                g.setFont(SMALL_B);
-                FontMetrics fm = g.getFontMetrics();
-                for (int k = 0; k < v.nullLabels.size(); k++) {
-                    String l = v.nullLabels.get(k);
-                    g.drawString(l, cx - fm.stringWidth(l) / 2, top - 6 - 8 - k * LABEL_STEP);
-                }
-                g.fillPolygon(new int[] { cx - 4, cx + 4, cx }, new int[] { midY - 18, midY - 18, midY - 11 }, 3);
                 g.setStroke(THICK);
-                g.drawLine(cx - 9, midY + 9, cx + 9, midY + 25);
-                g.drawLine(cx + 9, midY + 9, cx - 9, midY + 25);
+                g.drawLine(tailCx - 9, midY + 9, tailCx + 9, midY + 25);
+                g.drawLine(tailCx + 9, midY + 9, tailCx - 9, midY + 25);
+            }
+        }
+        // ענפים: התאים בשורה מתחת, וחץ מהאחרונה אל החוליה שהיא מצביעה עליה
+        for (int b = 0; b < v.branches.size(); b++) {
+            ChainView br = v.branches.get(b);
+            int rt = rowTop[brRow[b]], k = br.cells.size(), first = shift + br.joinTo - k;
+            for (int i = 0; i < k; i++) {
+                Cell c = br.cells.get(i);
+                int bx = left[first + i];
+                chainCell(g, c, bx, rt, vw, pw, ch);
+                int sx = bx + vw + pw / 2, sy = rt + ch / 2;
+                if (i < k - 1) {
+                    arrow(g, sx, sy, left[first + i + 1], sy, c.lost ? GHOST : LINE);
+                } else if (br.joinTo >= 0 && br.joinTo < n) {
+                    int tx = left[shift + br.joinTo] + Math.min(18, vw / 3);
+                    arrow(g, sx, sy, tx, top + ch + 1, c.lost ? GHOST : LINE);
+                }
             }
         }
         if (noteH > 0) {
-            int ny = top + ch + (v.cycleTo >= 0 ? 36 : 14) + 6;
-            ny += paragraph(g, v.lostNote, SMALL_B, GHOST, x + noteW, ny, noteW);
-            paragraph(g, v.lostHint, SMALL, INK, x + noteW, ny, noteW);
+            int ny = below + 6;
+            for (String[] t : notes) {
+                ny += paragraph(g, t[0], SMALL_B, GHOST, x + noteW, ny, noteW);
+                ny += paragraph(g, t[1], SMALL, INK, x + noteW, ny, noteW) + 10;
+            }
         }
         return new Dimension(w, h);
+    }
+
+    /** חוליה אחת: ערך + תא המצביע (עם נקודה), ומעליה המשתנים שמצביעים עליה; חוליה שאבדה — באדום מקווקו, ומעליה "אבדה" */
+    private void chainCell(Graphics2D g, Cell c, int bx, int top, int vw, int pw, int ch) {
+        if (c.lost) {   // אף משתנה לא מצביע עליה
+            ghostBox(g, bx, top, vw, ch, c.value);
+            ghostBox(g, bx + vw, top, pw, ch, "");
+            g.setColor(GHOST);
+            g.fillOval(bx + vw + pw / 2 - 3, top + ch / 2 - 3, 7, 7);
+            center(g, "אבדה", SMALL_B, bx + (vw + pw) / 2, top - 12);
+            return;
+        }
+        cell(g, bx, top, vw, ch, color(c.mark), c.value, c.obj, c.sub);
+        box(g, bx + vw, top, pw, ch, color(c.mark), null, false);
+        g.setColor(LINE);
+        g.fillOval(bx + vw + pw / 2 - 3, top + ch / 2 - 3, 7, 7);
+        if (c.current) {
+            g.setColor(CURRENT);
+            g.setStroke(THICK);
+            g.drawRoundRect(bx - 2, top - 2, vw + pw + 4, ch + 4, ARC + 4, ARC + 4);
+        }
+        drawPointers(g, c, bx + (vw + pw) / 2, vw + pw, top - LBL_BASE, top - 1, 0);
     }
 
     // ------------------------------------------------------------ שגיאה
@@ -1088,8 +1170,11 @@ final class StructPanel extends JPanel {
         boolean boxy = objs || sb != null;
         final int r = boxy ? Math.max(OBJ_H / 2, maxW / 2) : Math.max(19, maxW / 2 + 9);
         final int ry = boxy ? Math.max(OBJ_H / 2, sb != null ? sb.height / 2 : 0) : r;
-        int nw = 2 * r + 12, lv = boxy ? Math.max(76, 2 * ry + 30) : 70;
-        final int extra = labelExtra(inorder);   // כמה מצביעים על אותו צומת — כל אחד בשורה משלו
+        int most = 0;
+        for (TreeCell c : inorder) most = Math.max(most, pointerRowW(c.labels));
+        // המצביעים: השמות זה לצד זה מעל הצומת — הצמתים מתרחקים כך שהשמות של שכנים לא נוגעים זה בזה
+        int nw = Math.max(2 * r + 12, most + LBL_SPACE), lv = boxy ? Math.max(76, 2 * ry + 30) : 70;
+        final int extra = most > 0 ? 6 : 0;
         int w = Math.max(inorder.size() * nw + 16, titleWidth(v.title, "עץ בינארי"));
         int h = th() + 22 + extra + (maxDepth + 1) * lv;
         if (g == null) return new Dimension(w, h);
@@ -1129,7 +1214,8 @@ final class StructPanel extends JPanel {
                 g.setColor(INK);
                 center(g, c.value, VALUE, p[0], p[1]);
             }
-            drawLabels(g, c, p[0], p[1] - ry - 4);
+            int top = p[1] - ry, span = c.sub != null ? 2 * r : c.obj != null ? Math.max(objW(c.obj), 2 * ry) : 2 * r;
+            drawPointers(g, c, p[0], span, top - LBL_BASE_TREE, top - 1, c.sub != null || c.obj != null ? 0 : r);
         }
         return new Dimension(w, h);
     }
@@ -1389,14 +1475,11 @@ final class StructPanel extends JPanel {
 
     private static final int LABEL_STEP = 15;
 
-    /** מקום נוסף מעל התאים כשיש כמה מצביעים על אותו תא: כל שם בשורה משלו */
-    private static int labelExtra(List<? extends Cell> cells) {
-        int most = 0;
-        for (Cell c : cells) most = Math.max(most, c.labels.size());
-        return Math.max(0, most - 1) * LABEL_STEP;
-    }
-
-    /** שמות משתנים מעל תא: כל שם בשורה משלו (הראשון הכי קרוב), וחץ קטן אל התא */
+    /**
+     * שמות משתנים מעל תא: כל שם בשורה משלו (הראשון הכי קרוב), וחץ קטן אחד אל התא.
+     * בכוונה רק למשתני אינדקס (i, j מעל תא במערך / תו במחרוזת / המונה בלולאה) — הם לא מצביעים, והתאים צרים.
+     * לחוליות ולצמתים (מצביעים) — pointerLabels: חץ וצבע לכל משתנה
+     */
     private void labelStack(Graphics2D g, List<String> names, int cx, int bottomY) {
         g.setColor(LABEL);
         g.setFont(SMALL_B);
@@ -1408,10 +1491,85 @@ final class StructPanel extends JPanel {
         g.fillPolygon(new int[] { cx - 4, cx + 4, cx }, new int[] { bottomY - 6, bottomY - 6, bottomY }, 3);
     }
 
-    private void drawLabels(Graphics2D g, Cell c, int cx, int bottomY) {
+    // ------------------------------------------------------------ מצביעים (משתנים שמצביעים על חוליה / צומת)
+
+    private static final int LABELS_H = 38;    // מקום מעל שורת חוליות שיש בה מצביעים: השמות והחצים
+    private static final int LBL_BASE = 22;    // קו הבסיס של השמות: כמה מעל התא (ברשימה)
+    private static final int LBL_BASE_TREE = 16;   // בעץ — קצר יותר (בין הרמות אין הרבה מקום)
+    private static final int LBL_GAP = 9;      // רווח בין שני שמות מעל אותו תא
+    private static final int LBL_SPACE = 14;   // רווח מינימלי בין השמות של שני תאים שכנים
+
+    /**
+     * צבע לכל מצביע: כהים וברורים על לבן, ושונים מצבעי הסימון של התאים (נוסף / נקרא / שונה / הוצא / הנוכחי).
+     * הסגול הראשון — כמו שהיה לכל השמות עד עכשיו
+     */
+    private static final Color[] PTR_C = {
+        new Color(0x7C3AED),   // סגול
+        new Color(0x0F766E),   // טורקיז כהה
+        new Color(0xDB2777),   // ורוד
+        new Color(0x1D4ED8),   // כחול
+        new Color(0x15803D),   // ירוק
+        new Color(0x854D0E),   // חום
+    };
+    /** שם → צבע: נקבע בפעם הראשונה שהשם מצויר, ונשאר כך בכל הצעדים (קדימה ואחורה) */
+    private static final Map<String, Color> ptrColors = new HashMap<String, Color>();
+
+    static Color pointerColor(String name) {
+        synchronized (ptrColors) {
+            Color c = ptrColors.get(name);
+            if (c == null) {
+                c = PTR_C[ptrColors.size() % PTR_C.length];
+                ptrColors.put(name, c);
+            }
+            return c;
+        }
+    }
+
+    /** רוחב השמות מעל תא, זה לצד זה */
+    private int pointerRowW(List<String> names) {
+        if (names.isEmpty()) return 0;
+        int w = 0;
+        for (String n : names) w += textWidth(n, SMALL_B);
+        return w + (names.size() - 1) * LBL_GAP;
+    }
+
+    /**
+     * המשתנים שמצביעים על תא: השמות זה לצד זה (באמצע מעל התא), כל אחד בצבע שלו, ומכל שם חץ משלו — אל נקודה אחרת
+     * על הקצה העליון של התא (משמאל לימין, באותו סדר, כך שהחצים לא נחתכים). כך רואים שכל משתנה הוא מצביע בפני עצמו.
+     * span = רוחב התא; base = קו הבסיס של השמות; endY = הקצה העליון; circleR > 0 — התא הוא עיגול (צומת בעץ), והחצים
+     * נגמרים על ההיקף. fixed — צבע אחד לכולם (null בסוף הרשימה: אדום)
+     */
+    private void pointerLabels(Graphics2D g, List<String> names, int cx, int span, int base, int endY, int circleR, Color fixed) {
+        int k = names.size();
+        if (k == 0) return;
+        g.setFont(SMALL_B);
+        FontMetrics fm = g.getFontMetrics();
+        int rowW = pointerRowW(names);
+        int lx = cx - rowW / 2;
+        int sp = Math.min(Math.max(0, span - 16), Math.max((k - 1) * 14, rowW - 40));   // כמה רחב הפיזור של קצות החצים
+        for (int i = 0; i < k; i++) {
+            String name = names.get(i);
+            int tw = fm.stringWidth(name);
+            Color c = fixed != null ? fixed : pointerColor(name);
+            int ex = k == 1 ? cx : cx - sp / 2 + i * sp / (k - 1);
+            int ey = endY;
+            if (circleR > 0) {
+                int dx = Math.min(Math.abs(ex - cx), circleR - 1);
+                ey = endY + circleR - (int) Math.round(Math.sqrt(circleR * circleR - dx * dx));
+            }
+            g.setColor(c);
+            g.drawString(name, lx, base);
+            arrow(g, lx + tw / 2, base + 4, ex, ey, c, 7, 1.8f);
+            lx += tw + LBL_GAP;
+        }
+    }
+
+    /** המצביעים על חוליה / צומת; בלי שמות — משולש כתום על התא האחרון שנגעו בו (בהרצה רגילה) */
+    private void drawPointers(Graphics2D g, Cell c, int cx, int span, int base, int endY, int circleR) {
         if (!c.labels.isEmpty()) {
-            labelStack(g, c.labels, cx, bottomY);
+            pointerLabels(g, c.labels, cx, span, base, endY, circleR, null);
         } else if (c.current) {
+            int bottomY = endY - (circleR > 0 ? 3 : 5);
             g.setColor(CURRENT);
             g.fillPolygon(new Polygon(new int[] { cx - 7, cx + 7, cx }, new int[] { bottomY - 12, bottomY - 12, bottomY - 2 }, 3));
         }

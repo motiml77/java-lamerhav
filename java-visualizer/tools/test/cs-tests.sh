@@ -72,6 +72,19 @@ for want in 'this=d1 ב-הבנאי Dog() {name=null, age=0} this.name=שינוי
     grep -qF -- "$want" "$W/pets.txt" || { echo "אובייקט ב-C#: חסר $want"; grep 'אובייקט' "$W/pets.txt"; exit 1; }
 done
 echo "פעולה בתוך אובייקט ב-C#: $(grep -c 'אובייקט #' "$W/pets.txt") צעדים מסומנים"
+# רשימה מקושרת: לכל מצביע חץ וצבע משלו (כמה מצביעים לאותה חוליה), וחיבור חוליה חדשה לרשימה קיימת (באמצע/בסוף) — כמו ב-Java
+viz lists/cs/LinkNew.cs --trace "$W/linknew.trace" > "$W/linknew.out" 2>&1 || { cat "$W/linknew.out"; exit 1; }
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/linknew.trace" > "$W/linknew.txt" 2>&1
+for want in '[שרשרת #7: list: 3(list)→7→1→null]' '[שרשרת #7: n: 5(n)→null]' \
+    '[שרשרת #8: n: 5(n)→3(list)→7→1→null]' \
+    '[שרשרת #10: list, n: 5(list,n)→3→7→1→null]' '[שרשרת #11: list, n, p: 5(list,n,p)→3→7→1→null]' \
+    '[שרשרת #28: list, n: 5(list,n)→3→7→1(p)→9(t)→null]' \
+    'ענף 4(q)↗7' \
+    '[שרשרת #37: list, n: 5(list,n)→3(p)→4(q)→7→1→9(t)→null]'; do
+    grep -qF -- "$want" "$W/linknew.txt" || { echo "רשימה מקושרת ב-C#: חסר $want"; grep 'שרשרת' "$W/linknew.txt"; exit 1; }
+done
+! grep -q 'אבד' "$W/linknew.txt" || { echo "רשימה מקושרת ב-C#: חוליה סומנה כאבודה בלי סיבה"; grep 'אבד' "$W/linknew.txt"; exit 1; }
+echo "רשימה מקושרת ב-C#: $(grep -c 'שרשרת #' "$W/linknew.txt") צעדים מסומנים, בלי 'אבדה' שגויה"
 # סוגי רקורסיה: אותו סיווג כמו ב-Java
 for spec in 'Fib:רקורסיה כפולה | פעולות Fib | עומק 4 | קריאות 9' 'EvenOdd:רקורסיה הדדית | פעולות IsEven, IsOdd' \
     'SumTail:רקורסיית זנב | פעולות Sum | עומק 5' 'ListLen:רקורסיה פשוטה | פעולות Length | עומק 4 | קריאות 4 | על שרשרת חוליות'; do

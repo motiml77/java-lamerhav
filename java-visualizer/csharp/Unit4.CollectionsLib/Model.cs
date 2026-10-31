@@ -86,6 +86,12 @@ namespace Unit4.CollectionsLib
         public int CycleTo = -1;
         public string JoinText;
         public bool Truncated;
+        /// <summary>
+        /// "ענפים": שרשראות שהאחרונה שלהן מצביעה לחוליה באמצע השרשרת הזו (חוליה חדשה q אחרי q.SetNext(p.GetNext()) —
+        /// מצוירות מתחת, עם חץ אל החוליה JoinTo), כמו ב-Java
+        /// </summary>
+        public readonly List<ChainView> Branches = new List<ChainView>();
+        public int JoinTo = -1;
     }
 
     internal sealed class TreeCell : Cell
