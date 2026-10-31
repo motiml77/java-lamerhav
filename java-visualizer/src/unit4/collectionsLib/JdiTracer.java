@@ -66,7 +66,21 @@ final class JdiTracer {
     private final Map<ObjectReference, Integer> objSlots = new java.util.HashMap<>();
     private int written, capacity, lines;
     private final Map<ObjectReference, String> immutable = new java.util.HashMap<>();
-    private boolean tracing = true;
+    private volatile boolean tracing = true;
+
+    // לולאה שלא נגמרת (LoopGuard): בזמן התיעוד — כל ביקור בשורת התנאי; אחרי שהתיעוד נעצר / כשאין שורות חדשות — דגימות
+    private final Object jdi = new Object();
+    private final LoopGuard.Tracker loops = new LoopGuard.Tracker();
+    private final LoopGuard.Sampler sampler = new LoopGuard.Sampler();
+    private final Map<String, List<LoopViz.Loop>> parsedLoops = new java.util.HashMap<>();
+    private final java.util.Set<String> scannedClasses = new java.util.HashSet<>();
+    private boolean deterministic = true;
+    private com.sun.jdi.Field mutField, verdictField, inputField, maxField, enabledField;
+    private volatile long lastResume = System.currentTimeMillis();
+    private volatile boolean busy, sampling, finished, stopped;
+    private Thread watcher;
+    private int maxSteps = -1;
+    private static final boolean DEBUG_LOOPS = Boolean.getBoolean("dsviz.debugLoops");
 
     static int run(String mainClass, String[] args) throws Exception {
         return new JdiTracer().go(mainClass, args);
@@ -131,6 +145,8 @@ final class JdiTracer {
             } catch (InterruptedException e) {
                 break;
             }
+            busy = true;
+            synchronized (jdi) {   // חוט הדגימה (לולאה שלא נגמרת) לא פונה לתהליך באמצע אירוע
             for (Event e : set) {
                 if (e instanceof VMDeathEvent || e instanceof VMDisconnectEvent) break loop;
                 try {
@@ -151,10 +167,12 @@ final class JdiTracer {
                             bp.enable();
                         }
                     } else if (e instanceof BreakpointEvent && e.request().getProperty("done") != null) {
+                        finished = true;
                         stopTracing();
                     } else if (e instanceof BreakpointEvent) {
                         erm.deleteEventRequest(e.request());
                         mainThread = ((BreakpointEvent) e).thread();
+                        startWatch();
                         onLine(((BreakpointEvent) e).location());
                     } else if (e instanceof StepEvent) {
                         onLine(((StepEvent) e).location());
@@ -167,7 +185,10 @@ final class JdiTracer {
                     stopTracing();
                 }
             }
-            set.resume();
+            set.resume();   // ה-main נשאר מושהה אם עצרנו לולאה שלא נגמרת (suspend נוסף)
+            }
+            lastResume = System.currentTimeMillis();
+            busy = false;
         }
         try {
             return proc.waitFor();
@@ -188,6 +209,11 @@ final class JdiTracer {
             if (r.isEmpty()) return;
             recorder = (ClassType) r.get(0);
             fullField = recorder.fieldByName("linesFull");
+            mutField = recorder.fieldByName("mutations");
+            verdictField = recorder.fieldByName("loopVerdict");
+            inputField = recorder.fieldByName("waitingForInput");
+            maxField = recorder.fieldByName("maxSteps");
+            enabledField = recorder.fieldByName("enabled");
             buffer = (ArrayReference) recorder.getValue(recorder.fieldByName("lineTexts"));
             com.sun.jdi.Field lo = recorder.fieldByName("lineObjs");
             Value ob = lo == null ? null : recorder.getValue(lo);
@@ -195,14 +221,36 @@ final class JdiTracer {
             if (buffer == null) { stopTracing(); return; }
             capacity = buffer.length();
         }
-        if (++lines % 50 == 0 && ((BooleanValue) recorder.getValue(fullField)).value()) {
-            stopTracing();
+        if (++lines % 50 == 0 && (((BooleanValue) recorder.getValue(fullField)).value() || written >= maxSteps())) {
+            capReached();
             return;
         }
 
-        StringBuilder meta = new StringBuilder();
         List<StackFrame> frames = mainThread.frames();
         if (insideRecorder(frames)) return;   // קוד של התלמיד (למשל toString) שהציור קרא לו — לא צעד של התוכנית
+        String meta = meta(frames);
+        if (!write(meta)) return;
+        if (checkLoop(frames, meta)) return;   // לולאה שלא נגמרת — עצרנו את התוכנית
+
+        if (step == null) {
+            step = vm.eventRequestManager().createStepRequest(mainThread, StepRequest.STEP_LINE, StepRequest.STEP_INTO);
+            for (String x : EXCLUDE) step.addClassExclusionFilter(x);
+            step.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+            step.enable();
+            // יציאה מכל פעולה של התלמיד — בשביל "מה הפעולה החזירה" (מעקב רקורסיה)
+            if (vm.canGetMethodReturnValues()) {
+                exits = vm.eventRequestManager().createMethodExitRequest();
+                for (String x : EXCLUDE) exits.addClassExclusionFilter(x);
+                exits.addThreadFilter(mainThread);
+                exits.setSuspendPolicy(EventRequest.SUSPEND_ALL);
+                exits.enable();
+            }
+        }
+    }
+
+    /** פרטי השורה (מסגרות \u0004 משתנים \u0004 מערכים \u0004 מבנים של הפעולות הקוראות) — כמו שה-Recorder קורא */
+    private String meta(List<StackFrame> frames) throws Exception {
+        StringBuilder meta = new StringBuilder();
         appendFrames(meta, frames);
         meta.append('\u0004');
         // המשתנים המקומיים של המסגרת העליונה
@@ -252,22 +300,7 @@ final class JdiTracer {
         }
         meta.append('\u0004');
         appendCallerRoots(meta, frames);
-        if (!write(meta.toString())) return;
-
-        if (step == null) {
-            step = vm.eventRequestManager().createStepRequest(mainThread, StepRequest.STEP_LINE, StepRequest.STEP_INTO);
-            for (String x : EXCLUDE) step.addClassExclusionFilter(x);
-            step.setSuspendPolicy(EventRequest.SUSPEND_ALL);
-            step.enable();
-            // יציאה מכל פעולה של התלמיד — בשביל "מה הפעולה החזירה" (מעקב רקורסיה)
-            if (vm.canGetMethodReturnValues()) {
-                exits = vm.eventRequestManager().createMethodExitRequest();
-                for (String x : EXCLUDE) exits.addClassExclusionFilter(x);
-                exits.addThreadFilter(mainThread);
-                exits.setSuspendPolicy(EventRequest.SUSPEND_ALL);
-                exits.enable();
-            }
-        }
+        return meta.toString();
     }
 
     private static final java.util.Set<String> PRIMITIVES = new java.util.HashSet<>(java.util.Arrays.asList(
@@ -354,6 +387,7 @@ final class JdiTracer {
         StringBuilder meta = new StringBuilder("\u0005");
         List<StackFrame> frames = mainThread.frames();
         if (insideRecorder(frames)) return;
+        loops.exit(studentDepth(frames));
         appendFrames(meta, frames);
         meta.append('\u0004');
         if (m.returnTypeName().equals("void")) meta.append('\u0006');
@@ -370,7 +404,7 @@ final class JdiTracer {
     /** כותב מחרוזת למקום הבא ב-Recorder.lineTexts שבתהליך התוכנית. false = נגמר המקום */
     private boolean write(String meta) throws Exception {
         if (written >= capacity) {
-            stopTracing();
+            capReached();
             return false;
         }
         for (int attempt = 0; attempt < 2; attempt++) {
@@ -605,6 +639,394 @@ final class JdiTracer {
 
     private static String shorten(String s, int max) {
         return s.length() <= max ? s : s.substring(0, max - 1) + "…";
+    }
+
+    // ------------------------------------------------------------ לולאה שלא נגמרת
+
+    /** מגבלת הצעדים של ה-Recorder (Viz.maxSteps יכול לשנות אותה) — נקראת מחדש מדי פעם */
+    private int maxSteps() {
+        if (maxSteps < 0 || lines % 500 == 0) {
+            try {
+                maxSteps = ((com.sun.jdi.IntegerValue) recorder.getValue(maxField)).value();
+            } catch (RuntimeException e) {
+                maxSteps = 5000;
+            }
+        }
+        return maxSteps + 20;   // קצת מרווח: חלק מהשורות לא הופכות לצעדים
+    }
+
+    /** התיעוד מלא: מפסיקים לעצור בכל שורה, והתוכנית רצה במהירות רגילה — אבל דוגמים אותה (אולי היא תקועה בלולאה) */
+    private void capReached() {
+        stopTracing();
+        if (!finished && !stopped) sampling = true;
+    }
+
+    private void startWatch() {
+        if (watcher != null) return;
+        watcher = new Thread(this::watch, "dsviz-loop-watch");
+        watcher.setDaemon(true);
+        watcher.start();
+    }
+
+    /** חוט הדגימה: כשהתיעוד נעצר, או כשאין שורה חדשה כבר QUIET_MS (לולאה בשורה אחת) — דוגמים איפה התוכנית */
+    private void watch() {
+        while (!stopped && !finished) {
+            try {
+                Thread.sleep(LoopGuard.SAMPLE_EVERY_MS);
+            } catch (InterruptedException e) {
+                return;
+            }
+            try {
+                synchronized (jdi) {
+                    if (stopped || finished || busy || mainThread == null) continue;
+                    boolean quiet = tracing && System.currentTimeMillis() - lastResume > LoopGuard.QUIET_MS;
+                    if (!sampling && !quiet) {
+                        sampler.reset();
+                        continue;
+                    }
+                    sample(quiet && !sampling);
+                }
+            } catch (com.sun.jdi.VMDisconnectedException e) {
+                return;
+            } catch (Exception e) {
+                if (DEBUG_LOOPS || Boolean.getBoolean("dsviz.debug")) e.printStackTrace();
+            }
+        }
+    }
+
+    /** דגימה אחת: הלולאות שהתוכנית בתוכן (בכל הפעולות במחסנית), וערכי המשתנים שבתנאים */
+    private void sample(boolean quiet) throws Exception {
+        if (DEBUG_LOOPS) System.err.println("[loop] sample quiet=" + quiet + " status=" + mainThread.status() + " suspended=" + mainThread.isSuspended());
+        if (mainThread.status() != ThreadReference.THREAD_STATUS_RUNNING) {   // ישנה / מחכה / חסומה — לא לולאה שמסתובבת
+            sampler.reset();
+            return;
+        }
+        if (recorder != null && inputField != null && ((BooleanValue) recorder.getValue(inputField)).value()) {   // מחכה לקלט מהחלון
+            sampler.reset();
+            return;
+        }
+        if (recorder != null && enabledField != null && !((BooleanValue) recorder.getValue(enabledField)).value()) return;   // בלי חלון
+        LoopGuard.Sample smp = new LoopGuard.Sample();
+        smp.t = System.currentTimeMillis();
+        mainThread.suspend();
+        try {
+            List<StackFrame> frames = mainThread.frames();
+            if (waitingForInput(frames)) {
+                sampler.reset();
+                return;
+            }
+            if (insideRecorder(frames)) return;   // הספרייה מציירת (למשל מעבדת שורות שהצטברו) — לא נחשב
+            List<StackFrame> student = new ArrayList<>();
+            for (StackFrame fr : frames) if (!excluded(fr.location().declaringType().name())) student.add(fr);
+            if (student.isEmpty()) return;
+            smp.studentTop = !excluded(frames.get(0).location().declaringType().name());
+            for (int i = 0; i < student.size(); i++) {
+                StackFrame fr = student.get(i);
+                Location loc = fr.location();
+                Model.Frame mf = modelFrame(loc);
+                List<String> src = SourceFiles.lines(mf);
+                for (LoopViz.Loop l : LoopGuard.around(loopsOf(mf), loc.lineNumber())) {
+                    LoopGuard.Info info = LoopGuard.analyze(l, src);
+                    if (info == null) continue;
+                    LoopGuard.Ctx c = new LoopGuard.Ctx();
+                    c.level = student.size() - 1 - i;
+                    c.top = i == 0;
+                    c.fileKey = mf.packagePath() + mf.file;
+                    c.method = loc.method().name() + loc.method().signature();
+                    c.info = info;
+                    c.vals = condValues(fr, info.vars);
+                    smp.ctxs.add(c);
+                }
+            }
+            if (mutField != null) smp.mutations = ((com.sun.jdi.IntegerValue) recorder.getValue(mutField)).value();
+        } finally {
+            mainThread.resume();
+        }
+        sampler.quiet = quiet;
+        LoopGuard.Hit h = sampler.add(smp);
+        if (DEBUG_LOOPS) System.err.println("[loop] ctxs=" + smp.ctxs.size() + " top=" + smp.studentTop + " hit=" + (h == null ? null : h.verdict));
+        if (h == null) return;
+        h.verdict.quiet = true;
+        stopTracing();
+        stopInLoop(h);
+    }
+
+    /**
+     * עוצרים את התוכנית בתוך הלולאה שהדוגם החליט עליה: משהים את ה-main (גם כשהלולאה כבר מקומפלת — נקודת עצירה לא תמיד נתפסת שם)
+     * ומשאירים אותו מושהה רק ברגע שהוא בקוד של התלמיד, בלולאה הזו — לא באמצע הדפסה או ציור (שם הוא מחזיק מנעולים
+     * שהחלון צריך). אם עוד לא — משחררים לרגע ומנסים שוב.
+     */
+    private void stopInLoop(LoopGuard.Hit h) throws Exception {
+        LoopViz.Loop l = h.ctx.info.loop;
+        for (int tries = 0; tries < 600 && !stopped; tries++) {
+            if (mainThread.isCollected() || mainThread.status() == ThreadReference.THREAD_STATUS_ZOMBIE) return;
+            mainThread.suspend();
+            boolean keep = false;
+            try {
+                List<StackFrame> frames = mainThread.frames();
+                boolean safe = !insideRecorder(frames) && (!excluded(frames.get(0).location().declaringType().name()) || tries > 300 && !locked(frames));
+                for (int k = 0; safe && k < frames.size(); k++) {
+                    Location loc = frames.get(k).location();
+                    if (excluded(loc.declaringType().name())) continue;
+                    Model.Frame mf = modelFrame(loc);
+                    if (!(mf.packagePath() + mf.file).equals(h.ctx.fileKey) || !(loc.method().name() + loc.method().signature()).equals(h.ctx.method)
+                            || loc.lineNumber() < l.header || loc.lineNumber() > l.end) continue;
+                    setVerdict(h.verdict.toString(), meta(frames.subList(k, frames.size())), h.ctx.info.atLine);
+                    keep = true;   // נשאר מושהה
+                    return;
+                }
+            } finally {
+                if (!keep) mainThread.resume();
+            }
+            Thread.sleep(tries < 50 ? 2 : 10);
+        }
+    }
+
+    /** ה-main באמצע קוד של Java שמחזיק מנעול (הדפסה, חלון) — לא משאירים אותו מושהה שם */
+    private static boolean locked(List<StackFrame> frames) {
+        for (int i = 0; i < frames.size() && i < 12; i++) {
+            String n = frames.get(i).location().declaringType().name();
+            if (n.startsWith("java.io.") || n.startsWith("sun.nio.") || n.startsWith("java.awt.") || n.startsWith("javax.swing.")
+                    || n.startsWith("sun.awt.") || n.startsWith("java.util.concurrent.")) return true;
+        }
+        return false;
+    }
+
+    /**
+     * בזמן התיעוד, בכל שורה: יציאה מלולאות, ובשורת התנאי של לולאה — האם היא לא נגמרת (LoopGuard.Tracker).
+     * true = החלטנו, והתוכנית נעצרה.
+     */
+    private boolean checkLoop(List<StackFrame> frames, String meta) throws Exception {
+        StackFrame top = frames.get(0);
+        Location loc = top.location();
+        Model.Frame mf = modelFrame(loc);
+        String fileKey = mf.packagePath() + mf.file, method = loc.method().name() + loc.method().signature();
+        int depth = studentDepth(frames), line = loc.lineNumber();
+        loops.line(depth, fileKey, method, line);
+        LoopViz.Loop l = LoopGuard.at(loopsOf(mf), line);
+        if (l == null) return false;
+        List<String> src = SourceFiles.lines(mf);
+        LoopGuard.Info info = LoopGuard.analyze(l, src);
+        if (info == null) return false;
+        Map<String, String> vals = condValues(top, info.vars);
+        int mut = mutField == null ? 0 : ((com.sun.jdi.IntegerValue) recorder.getValue(mutField)).value();
+        int cut = meta.indexOf('\u0004');
+        String cheap = cut < 0 ? null : meta.substring(cut) + "#" + mut;
+        boolean det = deterministic(frames);
+        LoopGuard.Verdict v = loops.header(depth, fileKey, method, info, vals, mut, cheap, () -> deepState(frames), det, System.currentTimeMillis());
+        if (v == null) return false;
+        stop(v.toString(), meta, info.atLine);
+        return true;
+    }
+
+    /**
+     * עוצרים: מפסיקים לעקוב, כותבים ל-Recorder את ההחלטה (והוא מוסיף את הצעד עם הכרטיס), ומשאירים את ה-main מושהה —
+     * בלי לשרוף מעבד. החלון נשאר פתוח; כשסוגרים אותו התהליך נגמר.
+     */
+    private void stop(String verdict, String meta, int atLine) throws Exception {
+        setVerdict(verdict, meta, atLine);
+        mainThread.suspend();   // נשאר מושהה גם אחרי set.resume()
+    }
+
+    /** כותבים ל-Recorder את ההחלטה ואת פרטי השורה (בשורת התנאי של הלולאה) — והוא מוסיף את הצעד עם הכרטיס */
+    private void setVerdict(String verdict, String meta, int atLine) throws Exception {
+        stopped = true;
+        sampling = false;
+        stopTracing();
+        String text = verdict + "\u0011" + withLine(meta, atLine);
+        for (int attempt = 0; attempt < 3 && verdictField != null; attempt++) {
+            try {
+                recorder.setValue(verdictField, vm.mirrorOf(text));
+                break;
+            } catch (com.sun.jdi.ObjectCollectedException gcRace) {
+                // ה-GC אסף את המחרוזת לפני ששמרנו — שוב
+            }
+        }
+        if (DEBUG_LOOPS) System.err.println("[loop] stopped: " + verdict);
+    }
+
+    /** פרטי השורה, אבל בשורה של התנאי של הלולאה (שם מסמנים בקוד) */
+    private static String withLine(String meta, int line) {
+        int end = meta.indexOf('\u0001');
+        if (end < 0) return meta;
+        String[] p = meta.substring(0, end).split("\u0002", -1);
+        if (p.length < 4) return meta;
+        p[3] = String.valueOf(line);
+        return String.join("\u0002", p) + meta.substring(end);
+    }
+
+    private static int studentDepth(List<StackFrame> frames) {
+        int n = 0;
+        for (StackFrame fr : frames) if (!excluded(fr.location().declaringType().name())) n++;
+        return n;
+    }
+
+    private static Model.Frame modelFrame(Location loc) {
+        String file;
+        try { file = loc.sourceName(); } catch (AbsentInformationException e) { file = null; }
+        return new Model.Frame(loc.declaringType().name(), loc.method().name(), file, loc.lineNumber());
+    }
+
+    private List<LoopViz.Loop> loopsOf(Model.Frame f) {
+        String key = f.packagePath() + f.file;
+        List<LoopViz.Loop> l = parsedLoops.get(key);
+        if (l == null) {
+            List<String> src = SourceFiles.lines(f);
+            parsedLoops.put(key, l = src == null ? new ArrayList<>() : LoopViz.parse(src));
+        }
+        return l;
+    }
+
+    /** האם בקוד של התלמיד (המחלקות שנטענו עד עכשיו) אין אקראיות / קלט / שעון — רק אז "אותו מצב חוזר" אומר לולאה אינסופית */
+    private boolean deterministic(List<StackFrame> frames) {
+        boolean fresh = false;
+        for (StackFrame fr : frames) {
+            String cls = fr.location().declaringType().name();
+            if (!excluded(cls) && !scannedClasses.contains(cls)) fresh = true;
+        }
+        if (!fresh) return deterministic;
+        for (ReferenceType t : vm.allClasses()) {
+            String n = t.name();
+            if (excluded(n) || n.contains("[") || !scannedClasses.add(n)) continue;
+            try {
+                String text = SourceFiles.text(new Model.Frame(n, "", t.sourceName(), 0));
+                if (text == null || LoopGuard.nondeterministic(text)) deterministic = false;   // בלי קוד מקור — לא יודעים מה יש בה
+            } catch (AbsentInformationException | RuntimeException e) {
+                deterministic = false;
+            }
+        }
+        return deterministic;
+    }
+
+    /** התוכנית מחכה לקלט מהמקלדת (Scanner / BufferedReader / System.in) — לא לולאה */
+    private static boolean waitingForInput(List<StackFrame> frames) {
+        for (int i = 0; i < frames.size() && i < 16; i++) {
+            String n = frames.get(i).location().declaringType().name();
+            if (n.startsWith("java.util.Scanner") || n.equals("java.io.FileInputStream") || n.equals("java.io.BufferedInputStream")
+                    || n.equals("java.io.PipedInputStream") || n.equals("java.io.InputStreamReader") || n.equals("java.io.BufferedReader")
+                    || n.startsWith("java.io.Console") || n.equals("sun.nio.cs.StreamDecoder") || n.startsWith("jdk.internal.io"))
+                return true;
+        }
+        return false;
+    }
+
+    /** ערכי המשתנים שבתנאי, בפעולה הזו: מקומיים, ואם אין — מאפיין של this או משתנה סטטי של המחלקה */
+    private Map<String, String> condValues(StackFrame fr, List<String> names) {
+        Map<String, String> res = new java.util.HashMap<>();
+        if (names.isEmpty()) return res;
+        try {
+            List<LocalVariable> want = new ArrayList<>();
+            for (LocalVariable lv : fr.visibleVariables()) if (names.contains(lv.name())) want.add(lv);
+            if (!want.isEmpty()) {
+                Map<LocalVariable, Value> vals = fr.getValues(want);
+                for (LocalVariable lv : want) res.put(lv.name(), ident(vals.get(lv)));
+            }
+        } catch (AbsentInformationException ignored) {
+            // בלי מידע על משתנים
+        }
+        for (String n : names) {
+            if (res.containsKey(n)) continue;
+            try {
+                ObjectReference self = fr.location().method().isStatic() ? null : fr.thisObject();
+                com.sun.jdi.Field f = self == null ? null : self.referenceType().fieldByName(n);
+                if (f != null && !f.isStatic()) {
+                    res.put(n, ident(self.getValue(f)));
+                    continue;
+                }
+                ReferenceType t = fr.location().declaringType();
+                com.sun.jdi.Field sf = t.fieldByName(n);
+                if (sf != null && sf.isStatic()) res.put(n, ident(t.getValue(sf)));
+            } catch (RuntimeException ignored) {
+                // לא נמצא
+            }
+        }
+        return res;
+    }
+
+    /** ערך להשוואה בין סיבובים: מספר / תו / מחרוזת כמו שהם; מבנה של הספרייה — הזהות שלו; אובייקט — זהות + המאפיינים הפשוטים */
+    private String ident(Value v) {
+        if (v == null) return "null";
+        if (v instanceof PrimitiveValue || v instanceof StringReference) return format(v, 0);
+        if (v instanceof ArrayReference) return "@" + ((ArrayReference) v).uniqueID() + format(v, 1);
+        ObjectReference o = (ObjectReference) v;
+        String f = format(o, 0);
+        if (f.startsWith("\u0003")) return f;   // מבנה של הספרייה (התוכן — לפי מונה השינויים)
+        if (o.referenceType().name().startsWith("java.lang.") && LoopGuard.num(f) != null) return f;   // Integer / Double
+        return "@" + o.uniqueID() + snapshot(o);
+    }
+
+    /**
+     * המצב המלא (בשביל "אותו מצב חוזר"): המשתנים של הפעולה, this, והמשתנים הסטטיים של המחלקות שבמחסנית — עם כל מה שהם מצביעים עליו
+     * (מבנים, מערכים, אובייקטים), לפי סדר הגילוי (בלי כתובות אמיתיות). null אם גדול מדי.
+     */
+    private String deepState(List<StackFrame> frames) {
+        StringBuilder b = new StringBuilder();
+        Map<ObjectReference, Integer> ids = new java.util.HashMap<>();
+        java.util.ArrayDeque<ObjectReference> todo = new java.util.ArrayDeque<>();
+        try {
+            StackFrame top = frames.get(0);
+            List<LocalVariable> locals = top.visibleVariables();
+            Map<LocalVariable, Value> vals = locals.isEmpty() ? new java.util.HashMap<>() : top.getValues(locals);
+            for (LocalVariable lv : locals) {
+                b.append(lv.name()).append('=');
+                deepValue(b, vals.get(lv), ids, todo);
+                b.append(';');
+            }
+            b.append("this=");
+            deepValue(b, top.location().method().isStatic() ? null : top.thisObject(), ids, todo);
+            b.append(';');
+            java.util.Set<ReferenceType> types = new java.util.LinkedHashSet<>();
+            for (StackFrame fr : frames) if (!excluded(fr.location().declaringType().name())) types.add(fr.location().declaringType());
+            for (ReferenceType t : types)
+                for (com.sun.jdi.Field f : t.allFields()) {
+                    if (!f.isStatic() || f.isSynthetic()) continue;
+                    b.append(t.name()).append('.').append(f.name()).append('=');
+                    deepValue(b, t.getValue(f), ids, todo);
+                    b.append(';');
+                }
+            int n = 0;
+            while (!todo.isEmpty()) {
+                if (++n > 400 || b.length() > 300_000) return null;
+                ObjectReference o = todo.poll();
+                b.append('#').append(ids.get(o)).append('{');
+                if (o instanceof ArrayReference) {
+                    ArrayReference a = (ArrayReference) o;
+                    int len = a.length();
+                    if (len > 5000) return null;
+                    b.append(len).append(':');
+                    if (len > 0) for (Value x : a.getValues()) { deepValue(b, x, ids, todo); b.append(','); }
+                } else {
+                    List<com.sun.jdi.Field> fs = new ArrayList<>();
+                    for (com.sun.jdi.Field f : o.referenceType().allFields()) if (!f.isStatic()) fs.add(f);
+                    b.append(o.referenceType().name()).append(':');
+                    if (!fs.isEmpty()) {
+                        Map<com.sun.jdi.Field, Value> m = o.getValues(fs);
+                        for (com.sun.jdi.Field f : fs) { deepValue(b, m.get(f), ids, todo); b.append(','); }
+                    }
+                }
+                b.append('}');
+            }
+            return b.toString();
+        } catch (AbsentInformationException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static void deepValue(StringBuilder b, Value v, Map<ObjectReference, Integer> ids, java.util.ArrayDeque<ObjectReference> todo) {
+        if (v == null) { b.append("null"); return; }
+        if (v instanceof PrimitiveValue) { b.append(v); return; }
+        if (v instanceof StringReference) { b.append('"').append(((StringReference) v).value()).append('"'); return; }
+        ObjectReference o = (ObjectReference) v;
+        if (o instanceof com.sun.jdi.ClassObjectReference || o instanceof ThreadReference || o instanceof com.sun.jdi.ClassLoaderReference) {
+            b.append('<').append(o.referenceType().name()).append('>');
+            return;
+        }
+        Integer id = ids.get(o);
+        if (id == null) {
+            ids.put(o, id = ids.size());
+            todo.add(o);
+        }
+        b.append('@').append(id);
     }
 
     private void stopTracing() {

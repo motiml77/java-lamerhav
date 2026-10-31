@@ -153,10 +153,14 @@ namespace DsViz
             Console.SetOut(tee);
             int exit = 0;
             var thread = new Thread(() => exit = RunProgram(entry, progArgs.ToArray()), 256 * 1024 * 1024);
+            thread.IsBackground = true;   // לולאה שלא נגמרת: החוט של התלמיד נשאר תקוע — והתהליך עדיין יכול להסתיים
             thread.Start();
-            thread.Join();
+            // מחכים לסוף התוכנית — או לעצירה בלולאה שלא נגמרת (Recorder.LoopLine / LoopGuard)
+            while (!thread.Join(50))
+                if (Recorder.LoopStop.WaitOne(0)) break;
             Console.Out.Flush();
-            Recorder.Finish();
+            if (Recorder.LoopStopped) exit = 1;
+            else Recorder.Finish();
 
             // --- 4. החלון
             string trace = traceOut ?? Path.Combine(Path.GetTempPath(), "dsviz-" + Process.GetCurrentProcess().Id + ".trace");

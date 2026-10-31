@@ -39,6 +39,7 @@ import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
 import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.ParenthesizedExpression;
+import org.eclipse.jdt.core.dom.NumberLiteral;
 import org.eclipse.jdt.core.dom.PostfixExpression;
 import org.eclipse.jdt.core.dom.PrefixExpression;
 import org.eclipse.jdt.core.dom.QualifiedName;
@@ -430,23 +431,36 @@ final class MentorRules extends ASTVisitor {
         });
         if (complex[0] || vars.isEmpty() || exits(body)) return;
         final boolean[] changed = new boolean[1];
+        // כל שינוי של משתנה מהתנאי: +1 (x++ / x += 2 / x = x + 1), -1 (x-- ...), 0 (משהו אחר) — בשביל "בכיוון ההפוך"
+        final List<Object[]> steps = new ArrayList<Object[]>();
         body.accept(new ASTVisitor() {
             @Override
             public boolean visit(Assignment a) {
-                if (vars.contains(variable(a.getLeftHandSide()))) changed[0] = true;
+                IVariableBinding v = variable(a.getLeftHandSide());
+                if (vars.contains(v)) {
+                    changed[0] = true;
+                    steps.add(new Object[] { v, assignDir(a, v), a });
+                }
                 return true;
             }
 
             @Override
             public boolean visit(PostfixExpression p) {
-                if (vars.contains(variable(p.getOperand()))) changed[0] = true;
+                IVariableBinding v = variable(p.getOperand());
+                if (vars.contains(v)) {
+                    changed[0] = true;
+                    steps.add(new Object[] { v, p.getOperator() == PostfixExpression.Operator.INCREMENT ? 1 : -1, p });
+                }
                 return true;
             }
 
             @Override
             public boolean visit(PrefixExpression p) {
                 PrefixExpression.Operator op = p.getOperator();
-                if ((op == PrefixExpression.Operator.INCREMENT || op == PrefixExpression.Operator.DECREMENT) && vars.contains(variable(p.getOperand()))) changed[0] = true;
+                if ((op == PrefixExpression.Operator.INCREMENT || op == PrefixExpression.Operator.DECREMENT) && vars.contains(variable(p.getOperand()))) {
+                    changed[0] = true;
+                    steps.add(new Object[] { variable(p.getOperand()), op == PrefixExpression.Operator.INCREMENT ? 1 : -1, p });
+                }
                 return true;
             }
 
@@ -457,11 +471,82 @@ final class MentorRules extends ASTVisitor {
                 return true;
             }
         });
-        if (changed[0]) return;
+        if (changed[0]) {
+            wrongWay(cond, vars, steps);
+            return;
+        }
         List<String> names = new ArrayList<String>();
         for (IVariableBinding v : vars) names.add(v.getName());
-        warn(cond, "loop-stuck", (names.size() == 1 ? "המשתנה " + c(names.get(0)) + " לא משתנה" : "אף אחד מהמשתנים בתנאי לא משתנה") + " בתוך הלולאה — היא לא תיגמר",
-                names.size() == 1 ? "כנראה חסר קידום בסוף הלולאה: " + c(names.get(0) + "++") : "משנים בתוך הלולאה את אחד המשתנים: " + c(String.join(", ", names)));
+        String fix;
+        if (names.size() == 1) {
+            IVariableBinding only = vars.iterator().next();
+            String step = counterStep(cond, only);
+            if (step == null) step = "++";
+            fix = "כנראה חסר " + (step.equals("++") ? "קידום" : "הקטנה") + " בסוף הלולאה: " + c(names.get(0) + step);
+        } else {
+            fix = "משנים בתוך הלולאה את אחד המשתנים: " + c(String.join(", ", names));
+        }
+        warn(cond, "loop-stuck", (names.size() == 1 ? "המשתנה " + c(names.get(0)) + " לא משתנה" : "אף אחד מהמשתנים בתנאי לא משתנה") + " בתוך הלולאה — היא לא תיגמר", fix);
+    }
+
+    /**
+     * while (x &gt; 0) { ... x++; } — המשתנה היחיד שבתנאי משתנה בלולאה רק בכיוון ההפוך ממה שהתנאי מחכה לו
+     * (גדל כשצריך שיקטן, או להפך): הלולאה לא תיגמר. מזהירים על השינוי עצמו, עם הכיוון הנכון.
+     */
+    private void wrongWay(Expression cond, Set<IVariableBinding> vars, List<Object[]> steps) {
+        if (vars.size() != 1 || steps.isEmpty()) return;
+        IVariableBinding v = vars.iterator().next();
+        String want = counterStep(cond, v);
+        if (want == null) return;
+        int need = want.equals("++") ? 1 : -1;
+        for (Object[] st : steps) if ((Integer) st[1] != -need) return;   // יש שינוי בכיוון הנכון (או שלא ברור מה הוא עושה)
+        String x = v.getName();
+        warn((ASTNode) steps.get(0)[2], "loop-direction", "התנאי " + c(cond.toString()) + " מחכה ש-" + c(x) + (need > 0 ? " יגדל" : " יקטן")
+                + ", אבל בתוך הלולאה הוא רק " + (need > 0 ? "קטן" : "גדל"), "הלולאה לא תיגמר. כנראה התכוונתם ל: " + c(x + want));
+    }
+
+    /** x += 2 → 1, x -= 1 → -1, x = x + 1 → 1, x = x - 1 → -1 (עם מספר חיובי); אחרת 0 */
+    private static int assignDir(Assignment a, IVariableBinding v) {
+        Expression r = strip(a.getRightHandSide());
+        if (a.getOperator() == Assignment.Operator.PLUS_ASSIGN || a.getOperator() == Assignment.Operator.MINUS_ASSIGN) {
+            if (!positive(r)) return 0;
+            return a.getOperator() == Assignment.Operator.PLUS_ASSIGN ? 1 : -1;
+        }
+        if (a.getOperator() == Assignment.Operator.ASSIGN && r instanceof InfixExpression) {
+            InfixExpression e = (InfixExpression) r;
+            if (!e.extendedOperands().isEmpty() || !v.equals(variable(e.getLeftOperand())) || !positive(strip(e.getRightOperand()))) return 0;
+            if (e.getOperator() == InfixExpression.Operator.PLUS) return 1;
+            if (e.getOperator() == InfixExpression.Operator.MINUS) return -1;
+        }
+        return 0;
+    }
+
+    private static boolean positive(Expression e) {
+        if (!(e instanceof NumberLiteral)) return false;
+        try {
+            return Double.parseDouble(((NumberLiteral) e).getToken().replaceAll("[lLfFdD_]", "")) > 0;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
+    }
+
+    /** המשתנה היחיד שבתנאי: "++" אם צריך לגדול כדי שהתנאי יפסיק להתקיים (i &lt; n), "--" אם צריך לקטון (x &gt; 0); null אם לא ברור (==, !=) */
+    private String counterStep(Expression cond, final IVariableBinding v) {
+        final String[] dir = new String[1];
+        cond.accept(new ASTVisitor() {
+            @Override
+            public boolean visit(InfixExpression e) {
+                InfixExpression.Operator op = e.getOperator();
+                boolean lt = op == InfixExpression.Operator.LESS || op == InfixExpression.Operator.LESS_EQUALS;
+                boolean gt = op == InfixExpression.Operator.GREATER || op == InfixExpression.Operator.GREATER_EQUALS;
+                if (!lt && !gt) return true;
+                IVariableBinding l = variable(e.getLeftOperand()), r = variable(e.getRightOperand());
+                if (v.equals(l)) dir[0] = lt ? "++" : "--";
+                else if (v.equals(r)) dir[0] = lt ? "--" : "++";
+                return true;
+            }
+        });
+        return dir[0];
     }
 
     // ---------------------------------------------------------------- ערך שהולך לאיבוד

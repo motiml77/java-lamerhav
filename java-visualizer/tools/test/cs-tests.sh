@@ -42,6 +42,27 @@ for n in EmptyPop:'[כרטיס empty-stack s Pop()]' NullNode:'[כרטיס null 
     java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/$c.trace" | grep -qF "$want" \
         && echo "כרטיס שגיאה ב-C#: $want" || { echo "חסר כרטיס ב-$c"; cat "$W/$c.out"; exit 1; }
 done
+# לולאה שלא נגמרת: התוכנית נעצרת (לא נתקעת), והחלון מראה את אותו כרטיס כמו ב-Java — ולולאות תקינות וארוכות רצות עד הסוף
+for n in CounterStuck:'[לולאה x שורה 7 הלולאה בשורה 7 לא נגמרת|x נשאר 5 בכל הסיבובים|x--;' \
+    WrongWay:'[כרטיס loop i i < 10]|i רק הולך וקטן|בחלק השלישי של ה-for כתוב i-- — הוא מקטין את i. צריך i++.' \
+    NodeStuck:'[כרטיס loop p p != null]|p לא מתקדם|p = p.GetNext();' \
+    StackStuck:'[כרטיס loop s !s.IsEmpty()]|לא מוציאים מ-s|s.Top() רק מציץ בראש המחסנית בלי להוציא — מוציאים באמת:  s.Pop()' \
+    SameState:'[כרטיס loop n n >= 1]|אותו מצב חוזר שוב ושוב|n--;' \
+    Semicolon:'[כרטיס loop n n > 0]|יש ; מיד אחרי while (n > 0)|מוחקים את ה-;'; do
+    c=${n%%:*}; wants=${n#*:}
+    timeout 120 dotnet "$RUNNER" "problems/loops/cs/$c.cs" --trace "$W/loop-$c.trace" > "$W/loop-$c.out" 2>&1 || true
+    grep -q 'לא נגמרת — התוכנית נעצרה' "$W/loop-$c.out" && ! grep -q '^STEP	END' "$W/loop-$c.trace" && grep -q '^LOOP	' "$W/loop-$c.trace" \
+        || { echo "לולאה שלא נגמרת ב-C#: $c לא נעצרה"; tail -5 "$W/loop-$c.out"; exit 1; }
+    java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/loop-$c.trace" \
+        | sed 's/\xE2\x80[\xAA\xAC\x8E\x8F]//g' > "$W/loop-$c.txt"
+    echo "$wants" | tr '|' '\n' | while read -r want; do
+        grep -qF -- "$want" "$W/loop-$c.txt" || { echo "לולאה שלא נגמרת ב-C# ($c): חסר $want"; cat "$W/loop-$c.txt"; exit 1; }
+    done
+    echo "לולאה שלא נגמרת ב-C#: $c נעצרה, עם כרטיס"
+done
+timeout 120 dotnet "$RUNNER" problems/loops/cs/FineLoops.cs --trace "$W/loop-fine.trace" > "$W/loop-fine.out" 2>&1 \
+    && grep -q '100 50 150 64 6 200010000' "$W/loop-fine.out" && grep -q '^STEP	END' "$W/loop-fine.trace" && ! grep -q '^LOOP	' "$W/loop-fine.trace" \
+    && echo "לולאות תקינות וארוכות ב-C#: רצות עד הסוף ולא נעצרות" || { echo "לולאה תקינה ב-C# נעצרה"; tail -5 "$W/loop-fine.out"; exit 1; }
 # תנאים: אותן תוצאות כמו ב-Java (ב-C# הערכים נרשמים בשורת ה-for אחרי ה-i++ — עדיין מוצג מה שנבדק)
 viz conds/cs/Conds.cs --trace "$W/conds.trace" > "$W/conds.out" 2>&1 || { cat "$W/conds.out"; exit 1; }
 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/conds.trace" > "$W/conds.txt" 2>&1

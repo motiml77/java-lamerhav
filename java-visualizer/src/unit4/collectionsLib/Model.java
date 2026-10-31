@@ -136,11 +136,13 @@ final class Model {
 
     /**
      * התוכנית נעצרה בשגיאה: כרטיס אדום בראש התצוגה — מה קרה, למה, ומה עושים — עם ציור קטן
-     * (kind: "empty-stack" / "empty-queue" — מבנה ריק; "null" — name מצביע על null; "index"; "recursion"; "other")
+     * (kind: "empty-stack" / "empty-queue" — מבנה ריק; "null" — name מצביע על null; "index"; "recursion"; "loop" — לולאה שלא נגמרת
+     * (name = המשתנה העיקרי בתנאי, op = התנאי — ראו LoopCard); "other")
      */
     static final class ProblemView extends View {
         String kind = "other", what = "", why = "", hint = "", name, op;
-        int index = -1, length = -1;       // index: התא שניסו, length: כמה תאים יש
+        int index = -1, length = -1;       // index: התא שניסו, length: כמה תאים יש (loop: index = כמה סיבובים)
+        int line = -1;                     // loop: שורת התנאי של הלולאה שלא נגמרת (התגית בקוד)
     }
 
     static final class TreeCell extends Cell {

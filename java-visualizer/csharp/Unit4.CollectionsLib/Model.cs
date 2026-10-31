@@ -27,6 +27,7 @@ namespace Unit4.CollectionsLib
         public List<string[]> Vars;                        // {שם, ערך}; null אם אין
         public string Returned;                            // RETURN: הערך שהוחזר (null = void)
         public Access Access;                              // קריאה / שינוי של מאפיין באובייקט (s.GetName()) — או null
+        public string Loop;                                // התוכנית נעצרה כאן בלולאה שלא נגמרת: ההחלטה (LoopGuard) — או null
     }
 
     /// <summary>אובייקט של מחלקה (Student, Car, או מחלקה של התלמיד): כרטיס קטן בתוך המבנה, וטבלת המאפיינים שלו</summary>

@@ -164,7 +164,7 @@ final class Recorder {
             Thread watcher = new Thread(new Runnable() {
                 public void run() {
                     try { main.join(); } catch (InterruptedException ignored) {}
-                    if (failure == null)   // אחרי שגיאה — היא הצעד האחרון (עם ההסבר), בלי "התוכנית הסתיימה" אחריה
+                    if (failure == null && !loopStopped)   // אחרי שגיאה — היא הצעד האחרון (עם ההסבר), בלי "התוכנית הסתיימה" אחריה
                         recordAt(Kind.END, null, Mark.NONE, null, "התוכנית הסתיימה", new StackTraceElement[0]);
                 }
             }, "viz-watcher");
@@ -763,7 +763,9 @@ final class Recorder {
     }
 
     static void recordAt(Kind kind, Object target, Mark mark, String ghost, String text, StackTraceElement[] trace) {
+        if (kind == Kind.CHANGE || kind == Kind.CREATE) mutations++;   // לולאה שלא נגמרת: ה-Tracer בודק אם משהו במבנים השתנה (LoopGuard)
         synchronized (LOCK) {
+            if (loopStopped) return;   // הלולאה שלא נגמרת נעצרה — הצעד שלה (עם הכרטיס) הוא האחרון
             if (lineMode) drainLines();   // קודם השורות שהגיעו לפני הצעד הזה
             if (!enabled || !active || suspended > 0) return;
             start();
@@ -771,8 +773,10 @@ final class Recorder {
             if (steps.size() >= maxSteps) {
                 if (!limitReached && !always) {
                     limitReached = true;
-                    addStep(Kind.ERROR, null, Mark.NONE, null,
-                            "התיעוד נעצר אחרי " + maxSteps + " צעדים — אולי יש לולאה אינסופית? (אפשר להגדיל: Viz.maxSteps)",
+                    // שורה-שורה: התוכנית ממשיכה, ולולאה שלא נגמרת נעצרת עם כרטיס משלה (LoopGuard) — כאן רק הערה
+                    addStep(lineMode ? Kind.NOTE : Kind.ERROR, null, Mark.NONE, null, lineMode
+                            ? "התיעוד נעצר אחרי " + maxSteps + " צעדים — מכאן התוכנית ממשיכה לרוץ בלי לצייר (אפשר להגדיל: Viz.maxSteps)"
+                            : "התיעוד נעצר אחרי " + maxSteps + " צעדים — אולי יש לולאה אינסופית? (אפשר להגדיל: Viz.maxSteps)",
                             trace);
                 }
                 if (!always) return;
@@ -1562,6 +1566,11 @@ final class Recorder {
         lineMode = true;
         lineTexts = new String[LINE_CAPACITY];
         lineObjs = new Object[OBJ_CAPACITY];
+        Thread t = new Thread(new Runnable() {
+            public void run() { watchLoopVerdict(); }
+        }, "dsviz-loop");
+        t.setDaemon(true);
+        t.start();
     }
 
     /** נקרא בתחילת כל פעולה ציבורית של הספרייה */
@@ -1571,7 +1580,7 @@ final class Recorder {
 
     static void drainLines() {
         synchronized (LOCK) {
-            if (!enabled || !active || !lineMode) return;
+            if (!enabled || !active || !lineMode || loopStoppedDone) return;
             start();   // גם תוכנית בלי מבנים בכלל מקבלת חלון
             while (lineRead < LINE_CAPACITY && lineTexts[lineRead] != null) {
                 String meta = lineTexts[lineRead];
@@ -1587,7 +1596,12 @@ final class Recorder {
      * משתנה: שם\u0002ערך, וכשהערך הוא \u0003 ואחריו מספר — זה המבנה עם ה-vizId הזה.
      */
     private static void addLine(String meta) {
-        if (!enabled) return;
+        addLine(meta, Kind.LINE, null);
+    }
+
+    /** forced != null: צעד מסוג kind עם הטקסט הזה — גם אחרי המגבלה (העצירה של לולאה שלא נגמרת). מחזיר את הצעד (או null) */
+    private static Step addLine(String meta, Kind kind, String forced) {
+        if (!enabled) return null;
         String[] halves = meta.split("\u0004", -1);
         List<Frame> frames = new ArrayList<Frame>();
         for (String f : split(halves[0])) {
@@ -1656,16 +1670,83 @@ final class Recorder {
         String code = f == null ? null : SourceFiles.line(f);
         // הקוד עצמו בתוך "הטבעה" משמאל לימין (\u202A...\u202C), כדי שלא יתהפך בתוך הטקסט העברי
         String text = f == null ? "שורה" : "שורה " + f.line + ":   \u202A" + (code == null ? f.method + "()" : code.trim()) + "\u202C";
-        if (steps.size() >= maxSteps) {
+        if (forced != null) text = forced;
+        if (steps.size() >= maxSteps && forced == null) {
             linesFull = true;
-            return;
+            if (!limitReached) {   // פעם אחת: הסבר שהתיעוד נעצר (התוכנית ממשיכה; לולאה שלא נגמרת תיעצר עם כרטיס משלה)
+                limitReached = true;
+                addStep(Kind.NOTE, null, Mark.NONE, null, "התיעוד נעצר אחרי " + maxSteps + " צעדים — מכאן התוכנית ממשיכה לרוץ בלי לצייר (אפשר להגדיל: Viz.maxSteps)", frames);
+            }
+            return null;
         }
         try {
-            addStep(Kind.LINE, null, Mark.NONE, null, text, frames);
+            addStep(forced == null ? Kind.LINE : kind, null, Mark.NONE, null, text, frames);
         } finally {
             lineSnap.clear();   // צעדים אחרים (פעולות של הספרייה) מצלמים את האובייקט כפי שהוא עכשיו
         }
         if (steps.size() >= maxSteps) linesFull = true;
+        return steps.get(steps.size() - 1);
+    }
+
+    // ------------------------------------------------------------ לולאה שלא נגמרת (LoopGuard / LoopCard)
+    //
+    // ה-JdiTracer (בתהליך האב) מזהה לולאה שלא נגמרת, עוצר את ה-main של התלמיד (משאיר אותו מושהה — בלי לשרוף מעבד),
+    // וכותב כאן את ההחלטה. חוט קטן כאן מוסיף את הצעד האחרון — שורת התנאי של הלולאה עם הכרטיס שמסביר — והחלון נשאר פתוח.
+    // סגירת החלון מסיימת את התהליך (EXIT_ON_CLOSE); בלי חלון (בדיקות) — מדפיסים ויוצאים.
+
+    /** ההחלטה מה-Tracer: LoopGuard.Verdict \u0011 פרטי השורה (כמו ב-lineTexts) — או null */
+    static volatile String loopVerdict;
+    /** כל שינוי במבנה של הספרייה (push / pop / setNext / new...) — ה-Tracer משווה בין סיבובים כדי לדעת אם משהו השתנה */
+    static volatile int mutations;
+    /**
+     * קלט מהמקלדת: קוד שממתין לקלט מהתלמיד (למשל שורת הקלט שבחלון) שם כאן true בזמן ההמתנה, ו-false אחריה —
+     * כך "אין שורות חדשות כמה שניות" לא נחשב לולאה תקועה. (Scanner רגיל על System.in מזוהה גם בלי זה — לפי מחסנית הקריאות.)
+     */
+    static volatile boolean waitingForInput;
+    /** הלולאה נעצרה — ההרצה לא תגיע ל"התוכנית הסתיימה" */
+    static volatile boolean loopStopped;
+    /** ... והצעד של העצירה כבר נוסף — אחריו לא נוספים צעדים (גם לא שורות שעוד ממתינות) */
+    private static boolean loopStoppedDone;
+
+    private static void watchLoopVerdict() {
+        while (true) {
+            try {
+                Thread.sleep(80);
+            } catch (InterruptedException e) {
+                return;
+            }
+            String v = loopVerdict;
+            if (v == null) continue;
+            loopStopped(v);
+            return;
+        }
+    }
+
+    /** הצעד האחרון: שורת התנאי של הלולאה, עם הכרטיס "הלולאה לא נגמרת" */
+    static void loopStopped(String v) {
+        int cut = v.indexOf('\u0011');
+        String verdict = cut < 0 ? v : v.substring(0, cut), meta = cut < 0 ? null : v.substring(cut + 1);
+        synchronized (LOCK) {
+            loopStopped = true;
+            drainLines();   // קודם כל השורות שעוד ממתינות — כך אפשר לחזור אחורה בסיבובים האחרונים
+            Step st = meta != null && enabled && active ? addLine(meta, Kind.ERROR, LoopCard.STOP_TEXT) : null;
+            loopStoppedDone = true;
+            if (st != null) {
+                try {
+                    Model.ProblemView p = LoopCard.attach(steps, st, verdict);
+                    if (textMode && p != null) {
+                        out.println("      [כרטיס " + p.kind + (p.name != null ? " " + p.name : "") + (p.op != null ? " " + p.op : "") + "]");
+                        out.println("      " + LoopCard.text(p));
+                    }
+                } catch (RuntimeException e) {
+                    // בלי כרטיס — הצעד עצמו מראה איפה נעצרנו
+                }
+            }
+        }
+        if (textMode) {   // בלי חלון: אין מה לראות — יוצאים (ה-main מושהה ע"י ה-Tracer)
+            out.flush();
+            System.exit(1);
+        }
     }
 
     /**

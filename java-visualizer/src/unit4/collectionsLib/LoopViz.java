@@ -191,10 +191,16 @@ final class LoopViz {
         return res;
     }
 
+    // תבניות קבועות — מקומפלות פעם אחת (בהרצה שורה-שורה ה-main רץ במפרש, וקומפילציה של תבנית בכל שורה מאטה מאוד)
+    private static final Pattern PLAIN_VAR = Pattern.compile("(?<![.\\w])([A-Za-z_]\\w*)(?!\\s*[.(\\[])");
+    private static final Pattern LENGTH_BOUND = Pattern.compile("^\\s*([A-Za-z_]\\w*)\\s*\\.\\s*length\\s*(-\\s*\\d+)?\\s*$");
+    private static final Pattern ANY_VAR = Pattern.compile("(?<![.\\w])([A-Za-z_]\\w*)");
+    private static final Pattern TOKEN = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|([A-Za-z_]\\w*)");
+
     /** המשתנה המספרי הראשון שבתנאי של while / do — כדי להראות איך הוא משתנה מסיבוב לסיבוב */
     private static String historyVar(Loop l, Map<String, Object> env) {
         if (!(l.kind.equals("while") || l.kind.equals("do"))) return null;
-        Matcher m = Pattern.compile("(?<![.\\w])([A-Za-z_]\\w*)(?!\\s*[.(\\[])").matcher(l.cond);
+        Matcher m = PLAIN_VAR.matcher(l.cond);
         while (m.find()) if (env.get(m.group(1)) instanceof Integer || env.get(m.group(1)) instanceof Character) return m.group(1);
         return null;
     }
@@ -207,7 +213,7 @@ final class LoopViz {
     private static void subject(LoopView v, Loop l, State s, Map<String, Object> env, Map<String, List<String>> arrays) {
         if (l.var != null && !v.values.isEmpty()) {   // for שסופר על מערך
             String arr = null;
-            Matcher b = Pattern.compile("^\\s*([A-Za-z_]\\w*)\\s*\\.\\s*length\\s*(-\\s*\\d+)?\\s*$").matcher(l.bound);
+            Matcher b = LENGTH_BOUND.matcher(l.bound);
             if (b.matches() && arrays.containsKey(b.group(1))) arr = b.group(1);
             if (arr == null) {
                 for (String a : arrays.keySet()) {
@@ -250,7 +256,7 @@ final class LoopViz {
             }
         }
         if (l.kind.equals("while") || l.kind.equals("do")) {
-            Matcher m = Pattern.compile("(?<![.\\w])([A-Za-z_]\\w*)").matcher(l.cond);
+            Matcher m = ANY_VAR.matcher(l.cond);
             while (m.find() && v.subjectName == null) {
                 Object val = env.get(m.group(1));
                 String n = m.group(1);
@@ -376,7 +382,7 @@ final class LoopViz {
     static String substitute(String cond, Map<String, Object> env) {
         if (cond == null || cond.isEmpty()) return "";
         StringBuilder b = new StringBuilder();
-        Matcher m = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|([A-Za-z_]\\w*)").matcher(cond);
+        Matcher m = TOKEN.matcher(cond);
         int last = 0;
         boolean any = false;
         while (m.find()) {

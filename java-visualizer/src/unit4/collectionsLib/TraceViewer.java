@@ -49,6 +49,7 @@ public final class TraceViewer {
                     if (v instanceof Model.ProblemView) {
                         Model.ProblemView p = (Model.ProblemView) v;
                         System.out.println("[כרטיס " + p.kind + (p.name != null ? " " + p.name : "") + (p.op != null ? " " + p.op : "") + "]");
+                        if ("loop".equals(p.kind)) System.out.println(LoopCard.text(p));
                     }
             if (Boolean.getBoolean("dsviz.conditions")) {   // התנאים והקריאות לפעולות עזר: מה מצויר בכל צעד
                 System.out.print(CondViz.dump());
@@ -82,6 +83,7 @@ public final class TraceViewer {
             }
         }
         List<Step> steps = new ArrayList<Step>();
+        java.util.Map<Step, String> loops = new java.util.LinkedHashMap<Step, String>();
         StringBuilder out = new StringBuilder();
         Step cur = null;
         pos = 0;
@@ -126,6 +128,9 @@ public final class TraceViewer {
                 case "OUT":
                     out.append(f.length > 1 ? f[1] : "");
                     break;
+                case "LOOP":   // LOOP verdict — הצעד הזה: התוכנית נעצרה בלולאה שלא נגמרת (LoopGuard.Verdict; הכרטיס — LoopCard)
+                    if (cur != null) loops.put(cur, f.length > 1 ? f[1] : "");
+                    break;
                 default:
                     break;
             }
@@ -139,6 +144,13 @@ public final class TraceViewer {
                 } catch (RuntimeException ignored) {
                     // בלי כרטיס
                 }
+            }
+        }
+        for (java.util.Map.Entry<Step, String> e : loops.entrySet()) {   // לולאה שלא נגמרת — הכרטיס, כמו ב-Java
+            try {
+                LoopCard.attach(steps, e.getKey(), e.getValue());
+            } catch (RuntimeException ignored) {
+                // בלי כרטיס
             }
         }
         Recorder.adopt(steps, out.toString());

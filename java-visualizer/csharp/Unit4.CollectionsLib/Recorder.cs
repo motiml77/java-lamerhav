@@ -58,6 +58,7 @@ namespace Unit4.CollectionsLib
             Frame top = Frames[Frames.Count - 1];
             if (!top.Returned && !top.Faulted) AddReturn(null);
             if (Frames.Count == 1) endVars = new List<KeyValuePair<string, object>>(top.Vars);   // המשתנים של main — לצילום האחרון
+            LoopGuard.OnExit(Frames.Count);
             Frames.RemoveAt(Frames.Count - 1);
         }
 
@@ -75,6 +76,7 @@ namespace Unit4.CollectionsLib
             if (!Active || Frames.Count == 0) return;
             Frame top = Frames[Frames.Count - 1];
             top.Line = line;
+            LoopGuard.OnLine(Frames.Count, MethodKey(top), line);
             top.Vars.Clear();
             var vars = new List<string[]>();
             for (int i = 0; i + 1 < kv.Length; i += 2)
@@ -88,6 +90,36 @@ namespace Unit4.CollectionsLib
             string code = SourceLine(top.File, line);
             string text = "שורה " + line + ":   ‪" + (code == null ? top.Method + "()" : code.Trim()) + "‬";
             AddStep(Kind.LINE, null, Mark.NONE, null, text, false);
+        }
+
+        static string MethodKey(Frame f) { return f.File + "|" + f.Class + "." + f.Method; }
+
+        // ------------------------------------------------------------ לולאה שלא נגמרת (LoopGuard)
+
+        /// <summary>הלולאה נעצרה — ההרצה לא תגיע ל"התוכנית הסתיימה"; Program מחכה ל-LoopStop במקום לסוף התוכנית</summary>
+        public static volatile bool LoopStopped;
+        public static readonly System.Threading.ManualResetEvent LoopStop = new System.Threading.ManualResetEvent(false);
+
+        /// <summary>
+        /// התנאי של לולאה (בכל סיבוב): השורה כמו כל שורה, ואז — האם הלולאה לא נגמרת. אם כן: הצעד האחרון הוא שורת התנאי
+        /// עם ההחלטה (החלון מראה כרטיס שמסביר), והתוכנית נעצרת כאן — החוט של התלמיד נשאר תקוע, בלי לשרוף מעבד.
+        /// </summary>
+        public static void LoopLine(int line, string info, object cmp, object bound, object[] kv)
+        {
+            Line(line, kv);
+            if (!Active || Frames.Count == 0 || LoopStopped) return;
+            Frame top = Frames[Frames.Count - 1];
+            string verdict;
+            try { verdict = LoopGuard.Visit(Frames.Count, MethodKey(top), line, info, cmp, bound, kv, Steps.Count >= MaxSteps); }
+            catch (Exception) { verdict = null; }
+            if (verdict == null) return;
+            LoopStopped = true;
+            AddStep(Kind.ERROR, null, Mark.NONE, null, "הלולאה לא נגמרת — התוכנית נעצרה", true);
+            Steps[Steps.Count - 1].Loop = verdict;
+            try { Console.Error.WriteLine("הלולאה בשורה " + line + " לא נגמרת — התוכנית נעצרה (ההסבר בחלון של ההרצה הוויזואלית)"); }
+            catch (Exception) { }
+            LoopStop.Set();
+            System.Threading.Thread.Sleep(System.Threading.Timeout.Infinite);
         }
 
         public static T Return<T>(T value)
@@ -133,8 +165,8 @@ namespace Unit4.CollectionsLib
 
         // ------------------------------------------------------------ דיווח מהספרייה
 
-        public static void Create(object target, string text) { Record(Kind.CREATE, target, Mark.NEW, null, text); }
-        public static void Change(object target, Mark mark, string ghost, string text) { Record(Kind.CHANGE, target, mark, ghost, text); }
+        public static void Create(object target, string text) { if (Active) LoopGuard.Mutations++; Record(Kind.CREATE, target, Mark.NEW, null, text); }
+        public static void Change(object target, Mark mark, string ghost, string text) { if (Active) LoopGuard.Mutations++; Record(Kind.CHANGE, target, mark, ghost, text); }
         public static void Read(object target, string text) { Record(Kind.READ, target, Mark.READ, null, text); }
         public static void Check(object target, string text) { Record(Kind.CHECK, target, Mark.READ, null, text); }
         public static void Note(string text) { Record(Kind.NOTE, null, Mark.NONE, null, text); }
@@ -155,8 +187,9 @@ namespace Unit4.CollectionsLib
                 if (!limitReached && !always)
                 {
                     limitReached = true;
-                    AddStep(Kind.ERROR, null, Mark.NONE, null,
-                        "התיעוד נעצר אחרי " + MaxSteps + " צעדים — אולי יש לולאה אינסופית?", true);
+                    // התוכנית ממשיכה לרוץ; לולאה שלא נגמרת תיעצר עם כרטיס משלה (LoopGuard) — כאן רק הערה
+                    AddStep(Kind.NOTE, null, Mark.NONE, null,
+                        "התיעוד נעצר אחרי " + MaxSteps + " צעדים — מכאן התוכנית ממשיכה לרוץ בלי לצייר", true);
                 }
                 if (!always) return;
             }
@@ -212,7 +245,9 @@ namespace Unit4.CollectionsLib
         /// <summary>setter / פעולה ששינתה את המאפיין field של owner (אחרי השינוי)</summary>
         public static void Changed(object owner, string field, string how)
         {
-            if (Active) AccessStep(owner, field, how, Mark.CHANGED, "");
+            if (!Active) return;
+            LoopGuard.Mutations++;
+            AccessStep(owner, field, how, Mark.CHANGED, "");
         }
 
         static void AccessStep(object owner, string field, string how, Mark mark, string result)

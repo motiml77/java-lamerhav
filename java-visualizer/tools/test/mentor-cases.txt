@@ -612,6 +612,69 @@ L5 node-no-progress "p = p.getNext();"
 L20 loop-stuck "i++"
 !L24 loop-stuck
 
+### לולאת מונה שלא מתקדמת — כיוון ההצעה לפי התנאי (לא תמיד ++)
+public class X {
+  public static void main(String[] args) {
+    int x = 5;
+    while (x > 0) {
+      System.out.println(x);
+    }
+    int y = 3;
+    while (y >= 1) {
+      System.out.println(y);
+    }
+    int n = 10;
+    while (0 < n) {
+      System.out.println(n);
+    }
+    int i = 0;
+    while (i < 5) {
+      System.out.println(i);
+    }
+    int k = 0;
+    while (k != 5) {
+      System.out.println(k);
+    }
+  }
+}
+--- expect
+L4 loop-stuck "x--"
+L8 loop-stuck "y--"
+L12 loop-stuck "n--"
+L16 loop-stuck "i++"
+L20 loop-stuck
+
+### לולאת while שהמונה בה זז בכיוון ההפוך ממה שהתנאי מחכה לו
+public class X {
+  public static void main(String[] args) {
+    int x = 5;
+    while (x > 0) {
+      System.out.println(x);
+      x++;
+    }
+    int i = 0;
+    while (i < 10) {
+      i -= 2;
+    }
+    int k = 10;
+    while (k > 0) {
+      k = k - 1;
+    }
+    int m = 0;
+    while (m < 10) {
+      m++;
+      if (m == 3) m--;
+    }
+  }
+}
+--- expect
+L6 loop-direction "x--"
+L10 loop-direction "i++"
+!L4 loop-stuck
+!L14 loop-direction
+!L18 loop-direction
+!L19 loop-direction
+
 ### ערך שהולך לאיבוד
 import unit4.collectionsLib.*;
 public class X {
