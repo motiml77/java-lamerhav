@@ -95,6 +95,34 @@ final class CallPaint {
         }
     }
 
+    /** השורות שהחץ של הקריאה (arrow) נכנס אליהן או יוצא מהן בצעד הזה — כדי שהחץ של הלולאה לא יעלה עליו */
+    static java.util.Set<Integer> arrowLines(State st, String fileKey) {
+        java.util.Set<Integer> res = new java.util.HashSet<Integer>();
+        if (st == null) return res;
+        int sig = same(st.callee, fileKey) ? CallViz.signatureLine(st.callee) : -1;
+        switch (st.phase) {
+            case CALLING:
+            case ENTERED:
+            case INSIDE:
+                if (same(st.caller, fileKey) && sig > 0) {
+                    res.add(st.caller.line);
+                    res.add(sig);
+                }
+                break;
+            case RETURNING: {
+                Frame here = st.path.get(st.path.size() - 1);
+                if (same(st.caller, fileKey) && same(here, fileKey)) {
+                    res.add(here.line);
+                    res.add(st.caller.line);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+        return res;
+    }
+
     /** "מחכה ל-isEven()" בכל שורה שקראה ומחכה (כולן חוץ מהפעולה שרצה עכשיו) */
     private static void waiting(Graphics2D g, JTextComponent c, State st, String fileKey, Map<Integer, Integer> used) {
         for (int i = 0; i < st.path.size() - 1; i++) {
@@ -140,9 +168,9 @@ final class CallPaint {
         g.dispose();
     }
 
-    /** איפה מתחיל הקוד בשורה (אחרי הרווחים) */
+    /** איפה מתחיל הקוד בשורה (אחרי הרווחים) — גם לחץ של הלולאה (LoopArrow) */
     @SuppressWarnings("deprecation")
-    private static int textStart(JTextComponent c, int line) {
+    static int textStart(JTextComponent c, int line) {
         Element root = c.getDocument().getDefaultRootElement();
         if (line < 1 || line > root.getElementCount()) return 14;
         Element e = root.getElement(line - 1);

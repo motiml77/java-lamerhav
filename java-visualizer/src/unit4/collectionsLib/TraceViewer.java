@@ -54,6 +54,7 @@ public final class TraceViewer {
                 System.out.print(CondViz.dump());
                 System.out.print(CallViz.dump());
                 System.out.print(SelfViz.dump());
+                System.out.print(LoopArrow.dump());
                 System.out.print(RecursionKind.dump());
             }
             return;
