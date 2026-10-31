@@ -6,32 +6,50 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
-import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Window;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
+import java.awt.geom.RoundRectangle2D;
 import java.net.URI;
 
 import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
 
 /**
- * כפתור "תרום לנו" קטן בצבע זהב — בתחתית חלון ההרצה. פותח את דף התרומה ב-PayPal בדפדפן.
+ * "תמכו בפרויקט" — כפתור שקט בקצה סרגל השליטה (כמו "Sponsor" ב-GitHub): מסגרת דקה, לב קטן, בלי צבעים צועקים.
+ * בריחוף — גוון ורוד עדין והלב מתמלא. בחלון צר מוצג רק הלב. פותח את דף התרומה ב-PayPal בדפדפן.
  */
 final class Donate extends JComponent {
-    private static final String TEXT = "תרום לנו";
-    private static final Color TOP = new Color(0xF8DE8A), BOTTOM = new Color(0xDDB042);
-    private static final Color TOP_HOVER = new Color(0xFBE7A4), BOTTOM_HOVER = new Color(0xE6BC4E);
-    private static final Color EDGE = new Color(0xB68A1E), INK = new Color(0x4A3405), HEART = new Color(0xB4372C);
-    private boolean hover, down;
+    static final String TEXT = "תמכו בפרויקט";
+    static final String TIP = "התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal";
+    /** מתחת לרוחב החלון הזה מוצג רק הלב (הטקסט "תמכו בפרויקט" מופיע בעצה) */
+    private static final int COMPACT_BELOW = 1100;
+
+    private static final Color LINE = new Color(0xDFE3EA);          // כמו המסגרת של פס המידע
+    private static final Color LINE_HOVER = new Color(0xF5C2D8);    // ורוד רך
+    private static final Color INK = new Color(0x3B4455);
+    private static final Color INK_HOVER = new Color(0x9D174D);     // ורוד כהה — קריא על הרקע הבהיר
+    private static final Color HEART = new Color(0xE0679A);         // ורוד מעומעם במנוחה
+    private static final Color HEART_HOVER = new Color(0xDB2777);
+    private static final Color TINT = new Color(0xFDF2F8);          // רקע בריחוף
+    private static final Color TINT_DOWN = new Color(0xFCE7F3);     // רקע בלחיצה
+
+    private boolean hover, down, compact, hooked;
 
     Donate() {
         setOpaque(false);
         setFocusable(false);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        setToolTipText("התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal");
+        setToolTipText(TIP);
         addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
             public void mouseExited(MouseEvent e) { hover = false; down = false; repaint(); }
@@ -43,16 +61,40 @@ final class Donate extends JComponent {
                 if (click) open(Theme.DONATE_URL);
             }
         });
+        // בחלון צר — רק הלב. מאזינים לשינוי גודל החלון (פעם אחת, כשהכפתור נכנס לחלון)
+        addHierarchyListener(new HierarchyListener() {
+            public void hierarchyChanged(HierarchyEvent e) {
+                final Window w = SwingUtilities.getWindowAncestor(Donate.this);
+                if (w == null || hooked) return;
+                hooked = true;
+                w.addComponentListener(new ComponentAdapter() {
+                    public void componentResized(ComponentEvent ev) { fit(w.getWidth()); }
+                });
+                fit(w.getWidth());
+            }
+        });
+    }
+
+    private void fit(int windowWidth) {
+        boolean c = windowWidth > 0 && windowWidth < COMPACT_BELOW;
+        if (c == compact) return;
+        compact = c;
+        setToolTipText(compact ? TEXT + " — " + TIP : TIP);
+        revalidate();
+        repaint();
     }
 
     private Font font() {
-        return Theme.smallBold != null ? Theme.smallBold.deriveFont(11.5f) : new Font(Font.DIALOG, Font.BOLD, 11);
+        return Theme.smallBold != null ? Theme.smallBold : new Font(Font.DIALOG, Font.BOLD, 13);
     }
 
     public Dimension getPreferredSize() {
+        if (compact) return new Dimension(34, 30);
         FontMetrics fm = getFontMetrics(font());
-        return new Dimension(fm.stringWidth(TEXT) + 40, 24);
+        return new Dimension(fm.stringWidth(TEXT) + 15 + 8 + 2 * 13, 30);   // טקסט + לב + רווח + שוליים
     }
+
+    public Dimension getMinimumSize() { return getPreferredSize(); }
 
     public Dimension getMaximumSize() { return getPreferredSize(); }
 
@@ -60,37 +102,51 @@ final class Donate extends JComponent {
         Graphics2D g = (Graphics2D) g0.create();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        int w = getWidth() - 1, h = getHeight() - 3, y = down ? 2 : 1;
-        // צל דק מתחת — הכפתור "בולט" קצת מהרקע
-        g.setColor(new Color(0x80, 0x5C, 0x0A, down ? 0 : 40));
-        g.fillRoundRect(0, y + 1, w, h, h, h);
-        g.setPaint(new GradientPaint(0, y, hover ? TOP_HOVER : TOP, 0, y + h, hover ? BOTTOM_HOVER : BOTTOM));
-        g.fillRoundRect(0, y, w, h, h, h);
-        // ברק עליון
-        g.setColor(new Color(255, 255, 255, 90));
-        g.drawLine(h / 2, y + 1, w - h / 2, y + 1);
-        g.setColor(EDGE);
+        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        int w = getWidth(), h = getHeight();
+        boolean lit = hover || down;
+        int arc = Math.min(h, 16);
+        // רקע: לבן במנוחה, ורוד עדין בריחוף; מסגרת דקה כמו שאר הפסים בסרגל
+        g.setColor(down ? TINT_DOWN : lit ? TINT : Color.WHITE);
+        g.fill(new RoundRectangle2D.Float(0.5f, 0.5f, w - 1, h - 1, arc, arc));
+        g.setColor(lit ? LINE_HOVER : LINE);
         g.setStroke(new BasicStroke(1f));
-        g.drawRoundRect(0, y, w, h, h, h);
-        // לב קטן + הטקסט (מימין לשמאל: הלב בצד ימין)
-        Font f = font();
-        g.setFont(f);
-        FontMetrics fm = g.getFontMetrics();
-        int tw = fm.stringWidth(TEXT), total = tw + 15, x0 = (w - total) / 2;
-        int cy = y + h / 2;
-        heart(g, x0 + tw + 5, cy - 4, 9);
-        g.setColor(INK);
-        g.drawString(TEXT, x0, cy + (fm.getAscent() - fm.getDescent()) / 2);
+        g.draw(new RoundRectangle2D.Float(0.5f, 0.5f, w - 1, h - 1, arc, arc));
+
+        int s = 15;                                   // גודל הלב
+        double cy = h / 2.0;
+        if (compact) {
+            heart(g, (w - s) / 2.0, cy - s / 2.0, s, lit);
+        } else {
+            Font f = font();
+            g.setFont(f);
+            FontMetrics fm = g.getFontMetrics();
+            int tw = fm.stringWidth(TEXT), gap = 8, total = tw + gap + s, x0 = (w - total) / 2;
+            heart(g, x0 + tw + gap, cy - s / 2.0, s, lit);   // מימין לשמאל: הלב בצד ימין של הטקסט
+            g.setColor(lit ? INK_HOVER : INK);
+            g.drawString(TEXT, x0, (int) Math.round(cy + (fm.getAscent() - fm.getDescent()) / 2.0));
+        }
         g.dispose();
     }
 
-    private static void heart(Graphics2D g, int x, int y, int s) {
-        Path2D p = new Path2D.Double();
-        p.moveTo(x + s / 2.0, y + s);
-        p.curveTo(x - s * 0.15, y + s * 0.55, x, y - s * 0.1, x + s / 2.0, y + s * 0.25);
-        p.curveTo(x + s, y - s * 0.1, x + s * 1.15, y + s * 0.55, x + s / 2.0, y + s);
-        g.setColor(HEART);
-        g.fill(p);
+    /** לב: קו דק במנוחה, מלא בריחוף. אותה צורה כמו בדפי ההדרכה ובאתר (viewBox 16x16) */
+    private static void heart(Graphics2D g, double x, double y, int s, boolean filled) {
+        Path2D.Double p = new Path2D.Double();
+        p.moveTo(8, 14.2);
+        p.curveTo(4.4, 11.4, 1.5, 8.9, 1.5, 5.6);
+        p.curveTo(1.5, 3.5, 3.1, 2, 5, 2);
+        p.curveTo(6.3, 2, 7.4, 2.7, 8, 3.8);
+        p.curveTo(8.6, 2.7, 9.7, 2, 11, 2);
+        p.curveTo(12.9, 2, 14.5, 3.5, 14.5, 5.6);
+        p.curveTo(14.5, 8.9, 11.6, 11.4, 8, 14.2);
+        p.closePath();
+        AffineTransform t = AffineTransform.getTranslateInstance(x, y);
+        t.scale(s / 16.0, s / 16.0);
+        java.awt.Shape shape = t.createTransformedShape(p);
+        g.setColor(filled ? HEART_HOVER : HEART);
+        if (filled) g.fill(shape);
+        g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(shape);
     }
 
     /** פותח קישור בדפדפן (Desktop, ואם אין — הפקודה של מערכת ההפעלה) */
