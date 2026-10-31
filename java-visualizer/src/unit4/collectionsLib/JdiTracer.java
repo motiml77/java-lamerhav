@@ -92,7 +92,7 @@ final class JdiTracer {
         cmd.add("-XX:TieredStopAtLevel=1");
         cmd.add("-XX:+UseSerialGC");
         cmd.add("-Xshare:auto");
-        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview", "dsviz.conditions", "dsviz.licenseUrl", "dsviz.license", "user.home" }) {
+        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview", "dsviz.conditions", "dsviz.licenseUrl", "dsviz.license", "dsviz.input", "dsviz.inputDelay", "user.home" }) {
             String v = System.getProperty(p);
             if (v != null) cmd.add("-D" + p + "=" + v);
         }
@@ -105,7 +105,7 @@ final class JdiTracer {
         Process proc = new ProcessBuilder(cmd).start();
         pump(proc.getInputStream(), System.out, true);
         pump(proc.getErrorStream(), System.err, true);
-        pump(System.in, proc.getOutputStream(), false);
+        pump(Keyboard.original(System.in), proc.getOutputStream(), false);   // מה שמקלידים בקונסול / בטרמינל — לתוכנית
 
         Timing.mark("ממתין לילד");
         vm = lc.accept(ca);

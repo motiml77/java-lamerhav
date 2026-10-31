@@ -11,8 +11,8 @@ import java.util.List;
 final class Model {
     private Model() {}
 
-    /** סוג הצעד */
-    enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE, RETURN }
+    /** סוג הצעד. INPUT = התוכנית קראה כאן קלט מהמקלדת (Scanner / Console.ReadLine) — מה שהוקלד ב-Step.input */
+    enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE, RETURN, INPUT }
 
     /** איך לצבוע איבר שהצעד נגע בו */
     enum Mark { NONE, NEW, READ, CHANGED }
@@ -60,6 +60,7 @@ final class Model {
         List<String[]> vars;               // במצב שורה-שורה: המשתנים המקומיים {שם, ערך}; אחרת null
         String returned;                   // RETURN: הערך שהפעולה החזירה (null אם void)
         Access access;                     // קריאה / שינוי של מאפיין באובייקט (למשל s.getName()) — או null
+        String input;                      // INPUT: מה שהוקלד (בלי ירידת השורה); null = סוף הקלט (או צעד אחר)
     }
 
     /**
