@@ -1388,6 +1388,7 @@ final class Recorder {
                     out.print(CondViz.dump());
                     out.print(CallViz.dump());
                     out.print(SelfViz.dump());
+                    out.print(LoopArrow.dump());
                     out.print(RecursionKind.dump());
                     out.flush();
                 } catch (RuntimeException e) {

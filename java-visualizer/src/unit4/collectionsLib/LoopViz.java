@@ -529,7 +529,7 @@ final class LoopViz {
 
     // ------------------------------------------------------------ איתור הלולאות בקוד
 
-    private static final Pattern LOOP = Pattern.compile("\\b(for|while)\\s*\\(|\\bdo\\s*(\\{|$)");
+    private static final Pattern LOOP = Pattern.compile("\\b(for|foreach|while)\\s*\\(|\\bdo\\s*(\\{|$)");   // foreach — של C#
     private static final Pattern COUNTING = Pattern.compile(
             "^\\s*(?:int|long|short|byte)?\\s*([A-Za-z_]\\w*)\\s*=\\s*([^;]+);\\s*([A-Za-z_]\\w*)\\s*(<=|>=|<|>|!=)\\s*([^;]+);\\s*(.+?)\\s*$");
 
@@ -559,6 +559,10 @@ final class LoopViz {
                     if (k >= 0 && clean.charAt(k) == '}' && isDoClose(clean, k)) continue;
                     l.kind = "while";
                     l.cond = inside.trim();
+                } else if (m.group(1).equals("foreach")) {   // C#: foreach (int x in arr)
+                    l.kind = "foreach";
+                    Matcher fe = Pattern.compile("([A-Za-z_]\\w*)\\s+in\\s+([A-Za-z_]\\w*)\\s*$").matcher(inside.trim());
+                    if (fe.find()) { l.eachVar = fe.group(1); l.eachOver = fe.group(2); }
                 } else if (inside.contains(":") && !inside.contains(";")) {
                     l.kind = "foreach";
                     Matcher fe = Pattern.compile("([A-Za-z_]\\w*)\\s*:\\s*([A-Za-z_]\\w*)\\s*$").matcher(inside.trim());

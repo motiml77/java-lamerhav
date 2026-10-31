@@ -704,6 +704,17 @@ final class Viewer extends JFrame {
         }
         code.call = call;
         code.fileKey = codeKey;
+        // הלולאה חוזרת להתחלה: חץ מונפש מהסוף של הלולאה אל השורה שחוזרים אליה (ונעלם)
+        LoopArrow.Jump jump = null;
+        if (Recorder.lineMode && codeLine > 0) {
+            try {
+                jump = LoopArrow.at(vis.get(p));
+            } catch (RuntimeException e) {
+                jump = null;   // בלי החץ
+            }
+            if (jump != null && !jump.fileKey.equals(codeKey)) jump = null;
+        }
+        code.loopAnim.start(jump, player.isRunning() ? delay() : 0);
         code.repaint();
         if (Recorder.lineMode) updateVars(s);
         console.setText(Recorder.outputUpTo(s.outLen));
@@ -769,6 +780,8 @@ final class Viewer extends JFrame {
         /** הקריאה לפעולת עזר בצעד הנוכחי (CallViz) — או null; fileKey = הקובץ שמוצג */
         CallViz.State call;
         String fileKey;
+        /** החץ של "חוזרים לראש הלולאה" (LoopArrow) — מופיע לרגע בצעד שבו הלולאה חוזרת להתחלה */
+        final LoopArrow.Anim loopAnim = new LoopArrow.Anim(this);
 
         @Override
         protected void paintComponent(Graphics g0) {
@@ -788,7 +801,7 @@ final class Viewer extends JFrame {
             } else {
                 super.paintComponent(g0);
             }
-            if (marks == null && call == null) return;
+            if (marks == null && call == null && !loopAnim.active()) return;
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
@@ -802,6 +815,11 @@ final class Viewer extends JFrame {
                 CallPaint.foreground(g, this, call, fileKey, used);
             } catch (RuntimeException e) {
                 // בלי סימון הקריאות
+            }
+            try {
+                loopAnim.paint(g, this, CallPaint.arrowLines(call, fileKey));
+            } catch (RuntimeException e) {
+                // בלי החץ של הלולאה
             }
             g.dispose();
         }

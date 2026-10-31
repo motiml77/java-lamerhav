@@ -80,6 +80,18 @@ for spec in 'Fib:רקורסיה כפולה | פעולות Fib | עומק 4 | ק�
     java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/rec-$c.trace" > "$W/rec-$c.txt" 2>&1
     grep -qF -- "[רקורסיה: $want" "$W/rec-$c.txt" && echo "רקורסיה ב-C#: $c — $want" || { echo "רקורסיה ב-C#: $c חסר $want"; grep 'רקורסיה:' "$W/rec-$c.txt"; exit 1; }
 done
+# חץ "חוזרים לראש הלולאה": אותן חזרות כמו ב-Java (גם foreach, while עם סוגריים בשורה נפרדת, ו-continue)
+viz loops/cs/LoopBack.cs --trace "$W/loopback.trace" > "$W/loopback.out" 2>&1 || { cat "$W/loopback.out"; exit 1; }
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/loopback.trace" > "$W/loopback.txt" 2>&1
+for want in 'שורה 13 for: מ-14, החץ מ-15 | for (int i = 0; i < n; i++)]' 'שורה 17 while: מ-20, החץ מ-21 | while (k > 0)]' \
+    'שורה 24 do: מ-25, החץ מ-25 | do { ... } while (d > 0)]' 'שורה 27 for: מ-28, החץ מ-29 | for (int b = 0; b < 2; b++)]' \
+    'שורה 26 for: מ-27, החץ מ-30 | for (int a = 0; a < 2; a++)]' 'שורה 32 foreach: מ-33, החץ מ-36 | foreach (int x in arr)]' \
+    'שורה 37 for: מ-38, החץ מ-40 | for (int c = 0; c < 3; c++)]'; do
+    grep -qF -- "$want" "$W/loopback.txt" || { echo "חץ הלולאה ב-C#: חסר $want"; grep 'חזרה' "$W/loopback.txt"; exit 1; }
+done
+! grep -q 'שורה 27 for: מ-26\|\[חזרה #[0-9]* שורה 41 \|\[חזרה #[0-9]* שורה 8 ' "$W/loopback.txt" \
+    || { echo "חץ הלולאה ב-C#: חץ במקום שאין בו חזרה"; grep 'חזרה' "$W/loopback.txt"; exit 1; }
+echo "חץ \"חוזרים לראש הלולאה\" ב-C#: $(grep -c '^  \[חזרה #' "$W/loopback.txt") חזרות מסומנות"
 # פרויקט רגיל של Visual Studio: קובץ אחד מתוך פרויקט (עם Program.cs של תבנית חדשה), כמה Main, ImplicitUsings, ותוכנית top-level
 VS="$W/vs/GoldWater"
 mkdir -p "$VS" && cp calls/vs/GoldWater.csproj calls/vs/Recursion.cs "$VS/" && printf '// See https://aka.ms/new-console-template\nSystem.Console.WriteLine("Hello, World!");\n' > "$VS/Program.cs"

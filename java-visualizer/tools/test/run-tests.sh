@@ -201,6 +201,28 @@ for spec in 'Fact:רקורסיה פשוטה | פעולות fact | עומק 4 | �
     grep -qF -- "[רקורסיה: $want" "$R/$c.txt" && echo "  ok  $c: $want" || { echo "  FAIL $c: $want"; grep 'רקורסיה:' "$R/$c.txt"; exit 1; }
 done
 
+echo "== 5ח. חץ \"חוזרים לראש הלולאה\" בקוד: for, while, do-while, מקוננות (החץ של החיצונית), for-each, continue — והציור עצמו"
+LB="$W/loopback"
+mkdir -p "$LB"
+cp loops/LoopBack.java "$LB/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$LB" "$LB/LoopBack.java"
+(cd "$LB" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine LoopBack > out.txt 2>&1) || true
+conds "$LB/out.txt" \
+    'שורה 10 for: מ-11, החץ מ-12 | for (int i = 0; i < n; i++)]' \
+    'שורה 14 while: מ-16, החץ מ-17 | while (k > 0)]' \
+    'שורה 20 do: מ-21, החץ מ-21 | do { ... } while (d > 0)]' \
+    'שורה 23 for: מ-24, החץ מ-25 | for (int b = 0; b < 2; b++)]' \
+    'שורה 22 for: מ-23, החץ מ-26 | for (int a = 0; a < 2; a++)]' \
+    'שורה 28 foreach: מ-30, החץ מ-32 | for (int x : arr)]' \
+    'שורה 33 for: מ-34, החץ מ-36 | for (int c = 0; c < 3; c++)]'
+# בלי חץ: כניסה ראשונה ללולאה הפנימית, for בשורה אחת, ובתוך פעולת העזר; ובסך הכול 16 חזרות
+! grep -q 'שורה 23 for: מ-22\|\[חזרה #[0-9]* שורה 37 \|\[חזרה #[0-9]* שורה 5 ' "$LB/out.txt" && [ "$(grep -c '^  \[חזרה #' "$LB/out.txt")" = 16 ] \
+    && echo "  ok  בלי חץ כשלא חוזרים להתחלה (כניסה ללולאה, שורה אחת, פעולת עזר) — 16 חזרות" \
+    || { echo "  FAIL חץ במקום שאין בו חזרה"; grep 'חזרה' "$LB/out.txt"; exit 1; }
+javac -encoding UTF-8 -cp "$JAR" -d "$LB" loops/LoopArrowPaint.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$LB:$JAR" unit4.collectionsLib.LoopArrowPaint > "$LB/paint.txt" 2>&1 \
+    && grep -q MARK-END "$LB/paint.txt" && grep '^  ok' "$LB/paint.txt" || { cat "$LB/paint.txt"; exit 1; }
+
 echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
 mkdir -p "$W/obj"
 javac -encoding UTF-8 -cp "$JAR" -d "$W/obj" objcards/ObjCheck.java
