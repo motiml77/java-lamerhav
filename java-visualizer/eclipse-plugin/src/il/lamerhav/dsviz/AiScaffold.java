@@ -630,8 +630,8 @@ final class AiScaffold {
     static final String ADD_FIELDS = "הוסיפו כאן את התכונות שמתוארות בתרגיל";
 
     /**
-     * ההערה בתוך מחלקה שסעיף שייך אליה, אבל המודל לא תיאר אותה (בלי קוד): המחלקה נוצרת בכל זאת — כדי שהכול יתקמפל —
-     * והתלמיד מתבקש להוסיף בה את התכונות שמתוארות בתרגיל
+     * ההערה בתוך מחלקה שסעיף שייך אליה, אבל המודל לא תיאר אותה (בלי קוד), או שתיאר אותה ריקה ("public class Book { }"):
+     * המחלקה נוצרת בכל זאת — כדי שהכול יתקמפל — והתלמיד מתבקש להוסיף בה את התכונות שמתוארות בתרגיל
      */
     static String addFields(String cls) {
         return "המחלקה " + cls + " מהתרגיל — " + ADD_FIELDS;
@@ -667,6 +667,16 @@ final class AiScaffold {
         c = c.substring(m.start()).trim();
         if (cs) c = c.replaceFirst("^internal\\s+", "");
         if (!c.startsWith("public")) c = "public " + c;
+        int brace = c.indexOf('{');
+        if (!isMain && brace > 0 && c.endsWith("}") && c.substring(brace + 1, c.length() - 1).trim().isEmpty()) {
+            // מחלקה ריקה ("public class Book { }") — כמו מחלקה שלא תוארה: עם ההערה להוסיף את התכונות מהתרגיל
+            String head = c.substring(0, brace).trim().replaceAll("\\s+", " ");
+            lines.add(cs ? head : head + " {");
+            if (cs) lines.add("{");
+            lines.add("    // " + rtl(addFields(cls)));
+            lines.add("}");
+            return lines;
+        }
         lines.addAll(reindent(c, 0));
         return lines;
     }

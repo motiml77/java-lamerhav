@@ -122,8 +122,10 @@ async function docx() {
   check(labels.join('|') === '[קובץ 1 מתוך 4: שאלה.docx (1)]|[קובץ 2 מתוך 4: photo.jpg]|[קובץ 3 מתוך 4: exam.pdf]|[קובץ 4 מתוך 4: טקסט מתוך שאלה.docx]', 'מספור: ' + labels.join(' | '));
   // meta מהאתר (Blob) נקרא בשרת: הטקסט מה-Word וההערה הגיעו ל-Gemini
   check(gparts.some(t => /^\[קובץ 4 מתוך 4: טקסט מתוך שאלה\.docx\]\nשאלה 2\. כתבו/.test(t)) && gparts.some(t => /^הערה מהתלמיד.*רק שאלה 2$/.test(t)), 'הטקסט וההערה ל-Gemini');
+  // אחרי כל החלקים, לפני ההערה — תזכורת לקבוע קודם את הסדר
+  check(/^סוף החלקים \(4\)/.test(gparts[gparts.length - 2]) && /^הערה מהתלמיד/.test(gparts[gparts.length - 1]), 'התזכורת אחרי החלקים: ' + gparts.slice(-2).join(' | ').slice(0, 120));
   check(JSON.stringify(seen.exercise.readingOrder) === JSON.stringify(SAMPLE.readingOrder) && seen.exercise.pageNotes === SAMPLE.pageNotes, 'readingOrder בתשובה: ' + JSON.stringify(seen.exercise.readingOrder));
-  pass('ל-Gemini: "הקבצים לא בהכרח לפי הסדר", ' + labels.length + ' חלקים ממוספרים; readingOrder חוזר בתשובה והדף מתעלם ממנו');
+  pass('ל-Gemini: "הקבצים לא בהכרח לפי הסדר", ' + labels.length + ' חלקים ממוספרים ותזכורת אחריהם; readingOrder חוזר בתשובה והדף מתעלם ממנו');
 
   // התוצאה: אותם קבצים כמו ב-Eclipse
   const e = S.read(seen.exercise), pkg = S.folderName(e.topic, new Set(), false);
@@ -179,6 +181,41 @@ async function docx() {
   check(/מתכון|תרגיל/.test(err) && await page.isHidden('[data-result]'), 'שגיאה: ' + err);
   check(!(await page.isDisabled('[data-send]')), 'אפשר לשלוח שוב');
   pass('השרת אומר שזה לא תרגיל: ההסבר מוצג, ואפשר לנסות שוב');
+
+  // C#: הבחירה ב-C# מגיעה לשרת (meta כ-Blob) ול-Gemini, והדף בונה קובצי ‎.cs ל-Visual Studio — כמו ב-Visual Studio עצמו
+  const CS = JSON.parse(fs.readFileSync(path.join(__dirname, 'ai', 'cs', '2-classes.json'), 'utf8'));
+  gemini = { exercise: CS };
+  asked = null; seen = null;
+  check(await page.$$eval('[data-chosen] li', l => l.length) === 1, 'נשאר קובץ אחד (exam.pdf) אחרי השגיאה');
+  await page.check('input[name=lang][value=csharp]');
+  await page.click('[data-send]');
+  await page.waitForSelector('[data-result]:not([hidden])', { timeout: 20000 });
+  const csReq = JSON.parse(asked);
+  check(/The student works in C#\./.test(csReq.systemInstruction.parts[0].text) && /void Push\(T x\)/.test(csReq.systemInstruction.parts[0].text), 'ההנחיות ל-Gemini ב-C#');
+  const csParts = csReq.contents[0].parts.filter(p => typeof p.text === 'string').map(p => p.text);
+  check(/חלק אחד/.test(csParts[0]) && !/לא בהכרח צורפו לפי הסדר/.test(csParts[0]) && !csParts.some(t => /^סוף החלקים/.test(t)), 'קובץ אחד — בלי אזהרת סדר ובלי תזכורת: ' + csParts[0].slice(0, 60));
+  check(seen.exercise.language === 'csharp', 'השפה בתשובה: ' + seen.exercise.language);
+  const ce = S.read(seen.exercise), cpkg = S.folderName(ce.topic, new Set(), true);
+  check(ce.cs, 'scaffold.js קרא את התשובה כ-C#');
+  const cexpect = S.build(ce, cpkg, ['exam.pdf'], false);
+  const ctabs = await page.$$eval('[data-tabs] button', b => b.map(x => x.textContent));
+  check(ctabs.join() === cexpect.map(f => f.className + '.cs').join() && ctabs[0] === 'Program.cs' && ctabs.includes('Coach.cs') && ctabs.includes('Referee.cs'), 'לשוניות C#: ' + ctabs);
+  check((await page.textContent('[data-code]')) === cexpect[0].code, 'הקוד ב-C# = מה שבונה scaffold.js');
+  check((await page.textContent('[data-code]')).includes('public static void Main(string[] args)'), 'Main של C#');
+  check(/Visual Studio/.test(await page.textContent('[data-where]')) && (await page.textContent('[data-where]')).includes(cpkg), 'הסבר ל-Visual Studio: ' + (await page.textContent('[data-where]')));
+  // Coach — סעיף במחלקה שלא תוארה, Referee — מחלקה שתוארה ריקה: שתיהן נוצרות עם הערת התכונות
+  for (const name of ['Coach', 'Referee']) {
+    await page.$$eval('[data-tabs] button', (b, n) => b.find(x => x.textContent === n + '.cs').click(), name);
+    const txt = await page.textContent('[data-code]');
+    check(txt.includes('public class ' + name) && txt.includes(S.ADD_FIELDS) && txt === cexpect.find(f => f.className === name).code, name + '.cs עם הערת התכונות');
+  }
+  const [cdl] = await Promise.all([page.waitForEvent('download'), page.click('[data-zip]')]);
+  check(cdl.suggestedFilename() === cpkg + '.zip', 'שם ה-ZIP: ' + cdl.suggestedFilename());
+  const czip = await JSZip.loadAsync(fs.readFileSync(await cdl.path()));
+  const cnames = Object.keys(czip.files).filter(n => !czip.files[n].dir).sort();
+  check(cnames.join() === cexpect.map(f => cpkg + '/' + f.className + '.cs').sort().join(), 'בתוך ה-ZIP (C#): ' + cnames);
+  await page.screenshot({ path: path.join(out, 'bagrut-result-cs.png'), fullPage: true });
+  pass('C#: ההנחיות ב-C#, language=csharp בתשובה, ' + ctabs.join(', ') + ' (Coach / Referee עם הערת התכונות) ו-ZIP ' + cpkg);
 
   // מאתר אחר — השרת חוסם
   const evil = await worker.fetch(new Request(SERVER + '/v1/site/exercise', { method: 'POST', headers: { origin: 'https://evil.example' } }), ENV, {});

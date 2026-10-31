@@ -596,8 +596,8 @@
     // חלק מההערה שבמחלקה ריקה (לבדיקות)
     const ADD_FIELDS = 'הוסיפו כאן את התכונות שמתוארות בתרגיל';
 
-    // ההערה בתוך מחלקה שסעיף שייך אליה, אבל המודל לא תיאר אותה (בלי קוד): המחלקה נוצרת בכל זאת — כדי שהכול יתקמפל —
-    // והתלמיד מתבקש להוסיף בה את התכונות שמתוארות בתרגיל
+    // ההערה בתוך מחלקה שסעיף שייך אליה, אבל המודל לא תיאר אותה (בלי קוד), או שתיאר אותה ריקה ("public class Book { }"):
+    // המחלקה נוצרת בכל זאת — כדי שהכול יתקמפל — והתלמיד מתבקש להוסיף בה את התכונות שמתוארות בתרגיל
     function addFields(cls) {
         return 'המחלקה ' + cls + ' מהתרגיל — ' + ADD_FIELDS;
     }
@@ -635,6 +635,16 @@
         c = trim(c.substring(m.index + m[1].length));
         if (cs) c = c.replace(INTERNAL, '');
         if (!c.startsWith('public')) c = 'public ' + c;
+        const brace = c.indexOf('{');
+        if (!isMain && brace > 0 && c.endsWith('}') && isBlank(c.substring(brace + 1, c.length - 1))) {
+            // מחלקה ריקה ("public class Book { }") — כמו מחלקה שלא תוארה: עם ההערה להוסיף את התכונות מהתרגיל
+            const head = trim(c.substring(0, brace)).replace(new RegExp(S + '+', 'g'), ' ');
+            lines.push(cs ? head : head + ' {');
+            if (cs) lines.push('{');
+            lines.push('    // ' + rtl(addFields(cls)));
+            lines.push('}');
+            return lines;
+        }
         for (const l of reindent(c, 0)) lines.push(l);
         return lines;
     }
