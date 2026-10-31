@@ -316,10 +316,13 @@ LP="$W/loopguard"
 mkdir -p "$LP/loops"
 cp problems/loops/*.java "$LP/loops/"   # הכרטיס נבנה מהקוד — הקבצים ליד המחלקות
 javac -g -encoding UTF-8 -cp "$JAR" -d "$LP" "$LP"/loops/*.java
-# כולן במקביל (כל אחת היא תהליך עם debugger); בלי ‪...‬ שעוטפים קוד בתוך עברית — כדי לחפש טקסט פשוט
+# שלוש במקביל בכל פעם (כל אחת היא שני תהליכי Java עם debugger — יותר מזה במחשב עם מעט ליבות והזיהוי, שתלוי גם בזמן,
+# לא מספיק לפני ה-timeout); בלי ‪...‬ שעוטפים קוד בתוך עברית — כדי לחפש טקסט פשוט
+n=0
 for c in CounterStuck WrongWay NodeStuck StackStuck SameState Semicolon EmptyTrue FineLoops LongSum; do
     (cd "$LP" && timeout 150 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine loops.$c 2>&1 \
         | sed 's/\xE2\x80[\xAA\xAC\x8E\x8F]//g' > $c.txt) &
+    n=$((n + 1)); [ $((n % 3)) = 0 ] && wait
 done
 wait
 stuck() {   # stuck <class> <השורות שחייבות להופיע...> — וצעד העצירה הוא האחרון (בלי "התוכנית הסתיימה")
