@@ -24,10 +24,8 @@ import java.awt.event.WindowEvent;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
@@ -44,7 +42,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JSplitPane;
-import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
@@ -54,8 +51,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultHighlighter;
 import javax.swing.text.Highlighter;
@@ -141,13 +136,9 @@ final class Viewer extends JFrame {
     private boolean recursionShown;
     private final JLabel zoomLabel = new JLabel("100%");
 
-    private final DefaultTableModel varsModel = new DefaultTableModel(new Object[] { "משתנה", "ערך" }, 0) {
-        @Override
-        public boolean isCellEditable(int r, int c) { return false; }
-    };
-    private final JTable vars = new JTable(varsModel);
     private final JLabel varsSub = new JLabel(" ");
-    private final Set<Integer> changedRows = new HashSet<Integer>();
+    /** מעקב המשתנים: הפעולה שרצה — ורשימה לבחירת פעולה שמחכה (VarsPanel / FrameViz) */
+    private final VarsPanel varsPanel = new VarsPanel(varsSub, code);
 
 
     private final ConsolePane console = new ConsolePane();
@@ -320,19 +311,7 @@ final class Viewer extends JFrame {
         recScroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
         // --- מעקב משתנים
-        vars.setFocusable(false);
-        vars.setRowSelectionAllowed(false);
-        vars.setFillsViewportHeight(true);
-        vars.getTableHeader().setReorderingAllowed(false);
-        vars.getTableHeader().setFont(Theme.smallBold);
-        vars.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
-        vars.getColumnModel().getColumn(0).setPreferredWidth(110);
-        vars.getColumnModel().getColumn(0).setMaxWidth(220);
-        vars.getColumnModel().getColumn(1).setPreferredWidth(300);
-        vars.setDefaultRenderer(Object.class, new VarRenderer());
-        vars.setRowHeight(22);
-        vars.setTableHeader(null);   // קומפקטי: "שם | ערך" בלי כותרת
-        Card varsCard = new Card("מעקב משתנים", varsSub, null, scroll(vars));
+        Card varsCard = new Card("מעקב משתנים", varsSub, null, varsPanel);
 
         // --- פלט
         console.setEditable(false);
@@ -780,7 +759,7 @@ final class Viewer extends JFrame {
         code.inputTyped = code.inputStep ? typedOf(s) : null;
         code.inputLine = s.where == null ? -1 : s.where.line;
         code.repaint();
-        if (Recorder.lineMode) updateVars(s);
+        if (Recorder.lineMode) varsPanel.set(s, codeKey, call);
         showOutput(s);
     }
 
@@ -1138,53 +1117,6 @@ final class Viewer extends JFrame {
 
     private static final java.util.regex.Pattern HEBREW_RUN = java.util.regex.Pattern.compile(
             "[\u0590-\u05FF](?:[\u0590-\u05FF \\-.,:;!?()0-9]*[\u0590-\u05FF])?");
-
-    // ------------------------------------------------------------ משתנים וקריאות
-
-    /** טבלת המשתנים. ערך שהשתנה מאז השורה הקודמת באותה פעולה — מסומן בצהוב */
-    private void updateVars(Step s) {
-        varsModel.setRowCount(0);
-        changedRows.clear();
-        if (s.vars == null) {
-            varsSub.setText(" ");
-            return;
-        }
-        Step prev = null;
-        for (int i = s.index - 1; i >= 0 && prev == null; i--) {
-            Step p = Recorder.step(i);
-            if (p.kind == Kind.LINE && p.vars != s.vars) prev = p;
-        }
-        boolean sameFrame = prev != null && s.where != null && prev.where != null
-                && prev.where.method.equals(s.where.method) && prev.calls.size() == s.calls.size();
-        Map<String, String> old = new HashMap<String, String>();
-        if (sameFrame && prev.vars != null) for (String[] v : prev.vars) old.put(v[0], v[1]);
-        for (int i = 0; i < s.vars.size(); i++) {
-            String[] v = s.vars.get(i);
-            String name = v[0];
-            SelfViz.Info self = name.equals("this") ? SelfViz.of(s) : null;
-            if (self != null && self.self != null && !self.self.isEmpty() && !self.self.equals("this")) name = "this (" + self.self + ")";
-            varsModel.addRow(new Object[] { name, ltr(v[1]) });
-            if (sameFrame && !v[1].equals(old.get(v[0]))) changedRows.add(i);
-        }
-        String inside = SelfViz.where(s);
-        String m = s.where == null ? "" : "בפעולה " + (inside != null ? lrm(inside) : method(s.where));
-        varsSub.setText(m);
-    }
-
-    private final class VarRenderer extends DefaultTableCellRenderer {
-        @Override
-        public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean focus, int row, int col) {
-            super.getTableCellRendererComponent(t, v, false, false, row, col);
-            boolean changed = changedRows.contains(row);
-            setBackground(changed ? Theme.CHANGED : Color.WHITE);
-            setForeground(Theme.TEXT);
-            setFont(col == 0 ? Theme.mono.deriveFont(Font.BOLD) : Theme.mono);
-            setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-            setHorizontalAlignment(col == 0 ? SwingConstants.RIGHT : SwingConstants.LEFT);
-            setToolTipText(v == null ? null : String.valueOf(v));
-            return this;
-        }
-    }
 
     /** הפלט: מה שהתוכנית הדפיסה, ומה שהוקלד מהמקלדת — מודגש בצבע של קלט (על רקע עדין), כמו בקונסול של Eclipse */
     private static final class ConsolePane extends javax.swing.JTextPane {

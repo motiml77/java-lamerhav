@@ -92,7 +92,7 @@ final class JdiTracer {
         cmd.add("-XX:TieredStopAtLevel=1");
         cmd.add("-XX:+UseSerialGC");
         cmd.add("-Xshare:auto");
-        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview", "dsviz.conditions", "dsviz.loopArrowFreeze", "dsviz.input", "dsviz.inputDelay", "dsviz.licenseUrl", "dsviz.license", "user.home" }) {
+        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview", "dsviz.conditions", "dsviz.loopArrowFreeze", "dsviz.input", "dsviz.inputDelay", "dsviz.licenseUrl", "dsviz.license", "user.home", "dsviz.varsFrame" }) {
             String v = System.getProperty(p);
             if (v != null) cmd.add("-D" + p + "=" + v);
         }
@@ -252,6 +252,7 @@ final class JdiTracer {
         }
         meta.append('\u0004');
         appendCallerRoots(meta, frames);
+        appendFrameVars(meta, frames);   // המשתנים של הפעולות שמחכות — בחירת פעולה במעקב המשתנים
         if (!write(meta.toString())) return;
 
         if (step == null) {
@@ -294,6 +295,60 @@ final class JdiTracer {
                 // בלי מידע על המשתנים של המסגרת הזו
             }
         }
+    }
+
+    /** כמה פעולות שמחכות (מתחת לפעולה שרצה) שולחות את המשתנים שלהן, וכמה משתנים לכל אחת */
+    private static final int FRAME_VARS_DEPTH = 10, FRAME_VARS_MAX = 20, FRAME_SNAPSHOTS = 6;
+
+    /**
+     * המשתנים של הפעולות שקראו לפעולה הנוכחית (במעקב המשתנים אפשר לבחור פעולה שמחכה ולראות את המשתנים שלה):
+     * חצי חדש בסוף: \u0004 \u0012, ואחריו לכל מסגרת: המספר שלה (0 = העליונה, לפי סדר המסגרות של התלמיד) \u0013 המשתנים
+     * (כמו בחצי של המשתנים — שם \u0002 ערך \u0001), והמסגרות מופרדות ב-\u0011. עד FRAME_VARS_DEPTH מסגרות מתחת לעליונה,
+     * וגם התחתונה (main) — getValues אחד לכל מסגרת. ה-\u0012 בהתחלה מזהה את החצי (גם אם יתווספו חצאים אחרים).
+     */
+    private void appendFrameVars(StringBuilder meta, List<StackFrame> frames) {
+        meta.append('\u0004').append('\u0012');
+        List<StackFrame> user = new ArrayList<>();
+        for (StackFrame fr : frames) if (!excluded(fr.location().declaringType().name())) user.add(fr);
+        java.util.Set<ObjectReference> snapped = new java.util.HashSet<>();
+        boolean first = true;
+        for (int k = 1; k < user.size(); k++) {
+            if (k > FRAME_VARS_DEPTH && k != user.size() - 1) continue;
+            StackFrame fr = user.get(k);
+            StringBuilder b = new StringBuilder();
+            try {
+                int n = 0;
+                if (!fr.location().method().isStatic()) {
+                    addFrameVar(b, "this", fr.thisObject(), snapped);
+                    n++;
+                }
+                List<LocalVariable> locals = new ArrayList<>();
+                for (LocalVariable lv : fr.visibleVariables()) {
+                    if (lv.name().equals("args") && lv.typeName().equals("java.lang.String[]")) continue;
+                    if (n + locals.size() >= FRAME_VARS_MAX) break;
+                    locals.add(lv);
+                }
+                Map<LocalVariable, Value> vals = locals.isEmpty() ? null : fr.getValues(locals);
+                for (LocalVariable lv : locals) addFrameVar(b, lv.name(), vals.get(lv), snapped);
+            } catch (AbsentInformationException | RuntimeException e) {
+                continue;   // בלי מידע על המשתנים של המסגרת הזו — היא לא נשלחת
+            }
+            if (!first) meta.append('\u0011');
+            first = false;
+            meta.append(k).append('\u0013').append(b);
+        }
+    }
+
+    private void addFrameVar(StringBuilder b, String name, Value v, java.util.Set<ObjectReference> snapped) {
+        String ref = v instanceof ObjectReference && isUserClass((ObjectReference) v) ? userRef((ObjectReference) v) : null;
+        b.append(frameClean(name)).append('\u0002').append(frameClean(clean(ref != null ? ref : format(v, 0))));
+        // הערכים של אובייקט של התלמיד ברגע הזה (כמו במסגרת העליונה) — פעם אחת לכל אובייקט בשורה
+        if (ref != null && snapped.size() < FRAME_SNAPSHOTS && snapped.add((ObjectReference) v)) b.append(frameClean(snapshot((ObjectReference) v)));
+        b.append('\u0001');
+    }
+
+    private static String frameClean(String s) {
+        return s.replace('\u0011', ' ').replace('\u0012', ' ').replace('\u0013', ' ');
     }
 
     private void addRoot(StringBuilder meta, Value v, java.util.Set<String> done) {

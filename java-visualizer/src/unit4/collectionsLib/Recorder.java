@@ -821,7 +821,11 @@ final class Recorder {
             suspended--;
         }
         s.outLen = output.length();
-        s.vars = currentVars;
+        // Kind.END: אין לצעד הזה מחסנית קריאות משלו (הוא לא "בתוך" שורה) — המשתנים הם תמיד אלה של main ברגע שסיים,
+        // ולא currentVars (שעלול עדיין להחזיק את המשתנים של פעולת עזר שרצה אחרונה, אם main עצמו לא עבר עוד שורה)
+        s.vars = kind == Kind.END && lineMode ? mainVars : currentVars;
+        attachFrameVars(s);
+        if (kind == Kind.END && s.vars != null) s.frameVars = java.util.Collections.singletonList(s.vars);
         steps.add(s);
         if (textMode) printStep(s);
     }
@@ -1474,7 +1478,7 @@ final class Recorder {
                 b.append("      [כרטיס ").append(p.kind).append(p.name != null ? " " + p.name : "").append(p.op != null ? " " + p.op : "").append(']');
             }
         }
-        if (s.vars != null && s.kind == Kind.LINE) {
+        if (s.vars != null && (s.kind == Kind.LINE || s.kind == Kind.END)) {
             b.append("      {");
             for (int i = 0; i < s.vars.size(); i++) b.append(i == 0 ? "" : ", ").append(s.vars.get(i)[0]).append('=').append(s.vars.get(i)[1]);
             b.append('}');
@@ -1528,6 +1532,7 @@ final class Recorder {
                     out.print(LoopArrow.dump());
                     out.print(RecursionKind.dump());
                     out.print(chainDump());
+                    out.print(FrameViz.dump());
                     out.flush();
                 } catch (RuntimeException e) {
                     out.println("  [תנאים: " + e + "]");
@@ -1628,6 +1633,8 @@ final class Recorder {
         }
         frameVars = fv;
         currentVars = vars;
+        lineFrameVars = parseFrameVars(halves, vars, frames.size());
+        if (frames.size() == 1) mainVars = vars;   // המשתנים של main ברגע הזה — למעקב המשתנים בצעד הסיום (END)
         // המבנים שהמשתנים של הפעולות שקראו לנוכחית מצביעים עליהם — כדי לדעת אם חוליה באמת אבדה
         List<Object> roots = new ArrayList<Object>();
         if (halves.length > 3) for (String id : split(halves[3])) {
@@ -1673,6 +1680,81 @@ final class Recorder {
      * כשהאובייקט כבר השתנה — בלי זה הבנאי היה מראה כבר את הגיל אחרי birthday.
      */
     private static final Map<Object, Map<String, String>> lineSnap = new IdentityHashMap<Object, Map<String, String>>();
+
+    // ------------------------------------------------------------ המשתנים של הפעולות שמחכות (FrameViz)
+
+    /** המשתנים של כל המסגרות בשורה האחרונה, במקביל ל-lineFrames (0 = העליונה = currentVars; null = לא נשלחו) */
+    private static List<List<String[]>> lineFrameVars;
+    /** המשתנים של main בשורה האחרונה שלו (ולא, למשל, של פעולת עזר שרצה אחריה) — ל-Kind.END, שאין לו מחסנית קריאות משלו */
+    private static List<String[]> mainVars;
+
+    /** החצי של ה-Tracer שמתחיל ב-\u0012 (ראו JdiTracer.appendFrameVars): מספר מסגרת \u0013 משתנים, מופרדות ב-\u0011 */
+    private static List<List<String[]>> parseFrameVars(String[] halves, List<String[]> top, int depth) {
+        List<List<String[]>> res = new ArrayList<List<String[]>>();
+        res.add(top);
+        for (int i = 1; i < depth; i++) res.add(null);
+        String half = null;
+        for (int h = 4; h < halves.length; h++) if (halves[h].startsWith("\u0012")) half = halves[h].substring(1);
+        if (half == null || half.isEmpty()) return res;
+        suspended++;
+        try {
+            for (String group : half.split("\u0011")) {
+                int cut = group.indexOf('\u0013');
+                int k;
+                try {
+                    k = cut > 0 ? Integer.parseInt(group.substring(0, cut)) : -1;
+                } catch (NumberFormatException e) {
+                    k = -1;
+                }
+                if (k <= 0 || k >= depth) continue;
+                List<String> items = split(group.substring(cut + 1));
+                for (String item : items) {   // קודם הערכים של האובייקטים ברגע השורה — ואז הטקסט של כל משתנה
+                    String[] p = item.split("\u0002", -1);
+                    String value = p.length > 1 ? p[1] : "";
+                    int c = value.startsWith("\u0003") ? value.indexOf('\u0007') : -1;
+                    Object o = c > 0 ? byId(value.substring(1, c)) : null;
+                    if (o != null && !lineSnap.containsKey(o)) lineSnap.put(o, parseSnap(value.substring(c + 1)));
+                }
+                List<String[]> vs = new ArrayList<String[]>();
+                for (String item : items) {
+                    String[] p = item.split("\u0002", -1);
+                    String value = p.length > 1 ? p[1] : "";
+                    int c = value.startsWith("\u0003") ? value.indexOf('\u0007') : -1;
+                    if (c > 0) value = value.substring(0, c);
+                    Object o = value.startsWith("\u0003") ? byId(value.substring(1)) : null;
+                    vs.add(new String[] { p[0], o != null ? formatVar(o) : resolveRefs(value) });
+                }
+                res.set(k, vs);
+            }
+        } catch (RuntimeException e) {
+            // בלי המשתנים של הפעולות שמחכות — שאר השורה כרגיל
+        } finally {
+            suspended--;
+        }
+        return res;
+    }
+
+    /**
+     * המשתנים של כל פעולה במחסנית של הצעד (Step.frameVars), לפי השורה האחרונה — מיושרים מלמטה (main) למעלה.
+     * צעד בפעולה שקראה, לפני השורה הבאה שלה (חזרנו מפעולה אחרת) — מקבל את המשתנים שלה ולא של הפעולה שחזרה.
+     */
+    private static void attachFrameVars(Step s) {
+        if (lineFrameVars == null || s.calls.isEmpty()) return;
+        if (s.calls == lineFrames) {
+            s.frameVars = lineFrameVars;
+            return;
+        }
+        int off = lineFrames.size() - s.calls.size();
+        List<List<String[]>> res = new ArrayList<List<String[]>>();
+        for (int k = 0; k < s.calls.size(); k++) {
+            int j = k + off;
+            Frame a = s.calls.get(k), b = j >= 0 && j < lineFrames.size() ? lineFrames.get(j) : null;
+            boolean same = b != null && j < lineFrameVars.size() && a.method.equals(b.method) && a.className.equals(b.className);
+            res.add(same ? lineFrameVars.get(j) : null);
+        }
+        if (off > 0 && res.get(0) != null) s.vars = res.get(0);
+        s.frameVars = res;
+    }
 
     private static Map<String, String> parseSnap(String snap) {
         Map<String, String> m = new HashMap<String, String>();

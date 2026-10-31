@@ -32,9 +32,24 @@ namespace DsViz
                         Row(w, "VARS");
                         foreach (string[] v in s.Vars) Row(w, "VAR", v[0], v[1]);
                     }
+                    WriteFrameVars(w, s);
                     foreach (View v in s.Views) WriteView(w, v);
                 }
                 Row(w, "OUT", Recorder.Output.ToString());
+            }
+        }
+
+        /// <summary>המשתנים של הפעולות שמחכות: "FV k" פותח את מסגרת k (1 = מי שקרא לפעולה שרצה), ואחריו "FV k שם ערך" לכל משתנה</summary>
+        static void WriteFrameVars(StreamWriter w, Step s)
+        {
+            if (s.FrameVars == null) return;
+            for (int k = 1; k < s.FrameVars.Count; k++)
+            {
+                List<string[]> fv = s.FrameVars[k];
+                if (fv == null) continue;
+                string ks = k.ToString();
+                Row(w, "FV", ks);
+                foreach (string[] v in fv) Row(w, "FV", ks, v[0], v[1]);
             }
         }
 

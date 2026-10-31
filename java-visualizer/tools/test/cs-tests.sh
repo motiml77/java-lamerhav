@@ -63,6 +63,20 @@ for want in 'ENTERED שורה 7: SumEven() > IsEven() > Rem() | יצאנו מ-Is
     grep -qF -- "$want" "$W/calls.txt" || { echo "קריאות ב-C#: חסר $want"; grep 'קריאה' "$W/calls.txt"; exit 1; }
 done
 echo "פעולות עזר ב-C#: $(grep -c 'קריאה #' "$W/calls.txt") צעדים מסומנים"
+# מעקב המשתנים לכל פעולה פעילה (שורות FV בקובץ): אותן מסגרות כמו ב-Java, והחלון עצמו (VarsPanel) — בלי מסך
+for want in '[מסגרות #17: Rem{x=8, d=2} ← IsEven{x=8} ← SumEven{s=Stack [3], sum=0, tmp=Stack [], v=8} ← Main{s=Stack [3]}]' \
+    '[מסגרות #19: IsEven{x=8} ← SumEven{s=Stack [3], sum=0, tmp=Stack [], v=8} ← Main{s=Stack [3]} | IsEven() מחזירה true — חוזרים ל-SumEven() בשורה 30]' \
+    '[מסגרות #21: SumEven{s=Stack [3], sum=8, tmp=Stack [], v=8} ← Main{s=Stack [3]}]' \
+    '[סיום #76: Main{s=Stack [8,3], total=8, q=Queue []}]'; do
+    grep -qF -- "$want" "$W/calls.txt" || { echo "מעקב משתנים ב-C#: חסר $want"; grep 'מסגרות\|סיום' "$W/calls.txt"; exit 1; }
+done
+viz recursion/cs/Fib.cs --trace "$W/fib.trace" > "$W/fib.out" 2>&1 || { cat "$W/fib.out"; exit 1; }
+mkdir -p "$W/vp" && javac -encoding UTF-8 -cp "$JAR" -d "$W/vp" calls/VarsPanelCheck.java
+for t in calls fib; do
+    java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/vp:$JAR" unit4.collectionsLib.VarsPanelCheck $t "$W/$t.trace" > "$W/vp-$t.txt" 2>&1 \
+        && grep -q MARK-END "$W/vp-$t.txt" || { echo "מעקב המשתנים (VarsPanel) נכשל: $t"; cat "$W/vp-$t.txt"; exit 1; }
+done
+echo "מעקב משתנים ב-C#: המשתנים של כל פעולה פעילה, ובחלון — $(cat "$W"/vp-*.txt | grep -c '^  ok') בדיקות (כותרת, רשימה, בחירה, חזרה לפעולה שרצה)"
 # פעולה שרצה בתוך אובייקט: this הוא d1, המאפיינים שהשורה קוראת / משנה (כמו ב-Java)
 viz objects/cs/Pets.cs --trace "$W/pets.trace" > "$W/pets.out" 2>&1 || { cat "$W/pets.out"; exit 1; }
 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/pets.trace" > "$W/pets.txt" 2>&1

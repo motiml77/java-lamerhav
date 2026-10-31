@@ -57,6 +57,7 @@ public final class TraceViewer {
                 System.out.print(LoopArrow.dump());
                 System.out.print(RecursionKind.dump());
                 System.out.print(Recorder.chainDump());
+                System.out.print(FrameViz.dump());
             }
             return;
         }
@@ -120,6 +121,9 @@ public final class TraceViewer {
                 case "VAR":
                     cur.vars.add(new String[] { f[1], f[2] });
                     break;
+                case "FV":   // המשתנים של פעולה שמחכה (מסגרת k במחסנית, 0 = העליונה): "FV k" פותח אותה, "FV k שם ערך" — משתנה
+                    readFrameVar(cur, f);
+                    break;
                 case "V":
                     cur.views.add(readView(f));
                     break;
@@ -142,6 +146,25 @@ public final class TraceViewer {
             }
         }
         Recorder.adopt(steps, out.toString());
+    }
+
+    /** שורת FV (קובץ ישן בלי שורות כאלה — Step.frameVars נשאר null, והמעקב מציג רק את הפעולה שרצה) */
+    private static void readFrameVar(Step cur, String[] f) {
+        if (cur == null || f.length < 2) return;
+        int k;
+        try {
+            k = Integer.parseInt(f[1]);
+        } catch (NumberFormatException e) {
+            return;
+        }
+        if (k <= 0 || k > 4000) return;
+        if (cur.frameVars == null) {
+            cur.frameVars = new ArrayList<List<String[]>>();
+            cur.frameVars.add(cur.vars);
+        }
+        while (cur.frameVars.size() <= k) cur.frameVars.add(null);
+        if (cur.frameVars.get(k) == null) cur.frameVars.set(k, new ArrayList<String[]>());
+        if (f.length > 3) cur.frameVars.get(k).add(new String[] { f[2], f[3] });
     }
 
     private static View readView(String[] f) {

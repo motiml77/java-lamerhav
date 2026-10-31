@@ -85,6 +85,8 @@ namespace Unit4.CollectionsLib
                 vars.Add(new[] { name, FormatVar(kv[i + 1]) });
             }
             currentVars = vars;
+            currentVarsFrame = top;
+            currentCallerVars = CallerVars();
             string code = SourceLine(top.File, line);
             string text = "שורה " + line + ":   ‪" + (code == null ? top.Method + "()" : code.Trim()) + "‬";
             AddStep(Kind.LINE, null, Mark.NONE, null, text, false);
@@ -174,7 +176,55 @@ namespace Unit4.CollectionsLib
             catch (Exception) { s.Views = new List<View>(); }
             s.OutLen = Output.Length;
             s.Vars = currentVars;
+            AttachFrameVars(s);
             Steps.Add(s);
+        }
+
+        // ------------------------------------------------------------ המשתנים של כל פעולה במחסנית (מעקב משתנים: בחירת פעולה)
+
+        const int FrameVarsDepth = 10, FrameVarsMax = 20;
+        /// <summary>המסגרת ש-currentVars שייכים לה (השורה האחרונה), והמשתנים של הפעולות שמחכות לה — כפי שהיו באותה שורה</summary>
+        static Frame currentVarsFrame;
+        static List<List<string[]>> currentCallerVars = new List<List<string[]>>();
+
+        /// <summary>
+        /// Step.Vars של הפעולה שרצה עכשיו, ו-FrameVars — המשתנים של הפעולות שמחכות (עד FrameVarsDepth מתחת לעליונה, ו-Main למטה),
+        /// מהשורה האחרונה (כמו Vars וכמו ב-Java). אחרי חזרה מפעולה, בלי שורה חדשה עדיין (s.Push(Helper(x)), צעד החזרה של
+        /// הפעולה שקראה, סוף התוכנית) — currentVars הם עדיין של הפעולה שחזרה: אז לוקחים את המשתנים של המסגרות עצמן.
+        /// </summary>
+        static void AttachFrameVars(Step s)
+        {
+            int n = Frames.Count;
+            if (n == 0) return;
+            List<List<string[]>> callers = currentCallerVars;
+            if (Frames[n - 1] != currentVarsFrame)
+            {
+                s.Vars = FormatFrame(Frames[n - 1]);
+                callers = CallerVars();
+            }
+            s.FrameVars = new List<List<string[]>> { s.Vars };
+            for (int k = 1; k < s.Calls.Count && k - 1 < callers.Count; k++) s.FrameVars.Add(callers[k - 1]);
+        }
+
+        /// <summary>המשתנים של הפעולות שמחכות לפעולה העליונה: [0] = מי שקרא לה ... (null — עמוק מדי)</summary>
+        static List<List<string[]>> CallerVars()
+        {
+            int n = Frames.Count;
+            var res = new List<List<string[]>>();
+            for (int k = 1; k < n && k < MaxCallFrames; k++)
+                res.Add(k <= FrameVarsDepth || k == n - 1 ? FormatFrame(Frames[n - 1 - k]) : null);
+            return res;
+        }
+
+        static List<string[]> FormatFrame(Frame f)
+        {
+            var res = new List<string[]>();
+            foreach (var kv in f.Vars)
+            {
+                if (res.Count >= FrameVarsMax) break;
+                res.Add(new[] { kv.Key, FormatVar(kv.Value) });
+            }
+            return res;
         }
 
         static string Describe(Exception e)
