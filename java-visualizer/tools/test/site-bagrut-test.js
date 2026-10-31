@@ -45,9 +45,9 @@ async function docx() {
 
 (async () => {
   const worker = (await import(path.join(ROOT, 'worker', 'src', 'index.js'))).default;
-  let gemini = { exercise: SAMPLE }, seen = null;
-  // Gemini המדומה: מחזיר את התרגיל לדוגמה
-  globalThis.fetch = async () => new Response(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(Object.assign({ isExercise: true }, gemini.exercise)) }] } }] }), { status: 200 });
+  let gemini = { exercise: SAMPLE }, seen = null, asked = null;
+  // Gemini המדומה: מחזיר את התרגיל לדוגמה (ושומר את הבקשה שהשרת שלח אליו)
+  globalThis.fetch = async (url, init) => (asked = init && init.body, null) || new Response(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(Object.assign({ isExercise: true }, gemini.exercise)) }] } }] }), { status: 200 });
   const server = await serve();
   const base = 'http://127.0.0.1:' + server.address().port;
   const ENV = { GEMINI_API_KEY: 'k', MODELS: 'm', SITE_ORIGINS: base, APP_KEY: 'plugin-only', STATS: { get: async k => (k === 'dl:windows' ? '1230' : '4'), put: async () => {} } };
@@ -115,6 +115,15 @@ async function docx() {
   check(files.map(f => f.type).join() === 'image/png,image/jpeg,application/pdf', 'סוגים: ' + files.map(f => f.type));
   check(meta.names[0] === 'שאלה.docx (1)' && meta.names[1] === 'photo.jpg', 'השמות בעברית ב-meta (כמו ב-Eclipse): ' + meta.names);
   pass('הבקשה: טקסט ה-Word (כולל טבלה), התמונה שבתוכו, הצילום וה-PDF, הערה ושפה — והשרת קיבל אותה');
+  // מה השרת שלח ל-Gemini: אזהרה שהקבצים לא בהכרח לפי הסדר, וכל חלק ממוספר (גם הטקסט מה-Word)
+  const gparts = JSON.parse(asked).contents[0].parts.filter(p => typeof p.text === 'string').map(p => p.text);
+  check(/4 חלקים/.test(gparts[0]) && /לא בהכרח צורפו לפי הסדר/.test(gparts[0]) && /readingOrder/.test(gparts[0]), 'אזהרת הסדר: ' + gparts[0].slice(0, 80));
+  const labels = gparts.filter(t => t.startsWith('[קובץ ')).map(t => t.split('\n')[0]);
+  check(labels.join('|') === '[קובץ 1 מתוך 4: שאלה.docx (1)]|[קובץ 2 מתוך 4: photo.jpg]|[קובץ 3 מתוך 4: exam.pdf]|[קובץ 4 מתוך 4: טקסט מתוך שאלה.docx]', 'מספור: ' + labels.join(' | '));
+  // meta מהאתר (Blob) נקרא בשרת: הטקסט מה-Word וההערה הגיעו ל-Gemini
+  check(gparts.some(t => /^\[קובץ 4 מתוך 4: טקסט מתוך שאלה\.docx\]\nשאלה 2\. כתבו/.test(t)) && gparts.some(t => /^הערה מהתלמיד.*רק שאלה 2$/.test(t)), 'הטקסט וההערה ל-Gemini');
+  check(JSON.stringify(seen.exercise.readingOrder) === JSON.stringify(SAMPLE.readingOrder) && seen.exercise.pageNotes === SAMPLE.pageNotes, 'readingOrder בתשובה: ' + JSON.stringify(seen.exercise.readingOrder));
+  pass('ל-Gemini: "הקבצים לא בהכרח לפי הסדר", ' + labels.length + ' חלקים ממוספרים; readingOrder חוזר בתשובה והדף מתעלם ממנו');
 
   // התוצאה: אותם קבצים כמו ב-Eclipse
   const e = S.read(seen.exercise), pkg = S.folderName(e.topic, new Set(), false);

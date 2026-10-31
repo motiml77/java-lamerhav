@@ -82,6 +82,126 @@ await test('תרגיל: PDF + תמונה + טקסט מ-Word + הערה → בק�
   assert.ok(parts.some(p => p.text && p.text.includes('צילום 1.png')));
 });
 
+await test('סדר הקבצים: לפני הקבצים — אזהרה שהם לא בהכרח לפי הסדר, וכל חלק ממוספר ("[קובץ 2 מתוך 3: ...]")', async () => {
+  const r = await call(exerciseRequest({
+    files: [{ bytes: PNG, name: 'b.png', type: 'image/png' }, { bytes: PDF, name: 'a.pdf', type: 'application/pdf' }],
+    meta: { note: 'סעיף ב בצילום הראשון', names: ['צילום מסך 2', 'דף 1.pdf'], texts: [{ name: 'targil.docx', text: 'שאלה 3: כתבו פעולה...' }] },
+  }));
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const parts = JSON.parse(calls[0].init.body).contents[0].parts;
+  // הסדר: הודעה, [קובץ 1] + התמונה, [קובץ 2] + ה-PDF, [קובץ 3] הטקסט מ-Word, ההערה של התלמיד
+  assert.equal(parts.length, 7);
+  const notice = parts[0].text;
+  assert.match(notice, /3 חלקים/);
+  assert.match(notice, /לא בהכרח צורפו לפי הסדר/);
+  assert.match(notice, /קודם כל קבע את סדר הקריאה/);
+  assert.match(notice, /מספרי העמודים/);
+  assert.match(notice, /readingOrder/);
+  assert.match(notice, /בלי לדלג על אף חלק/);
+  assert.match(notice, /כל מחלקה שהתרגיל מתאר או מבקש לכתוב, עם התכונות שלה/);
+  assert.equal(parts[1].text, '[קובץ 1 מתוך 3: צילום מסך 2]');
+  assert.equal(parts[2].inlineData.mimeType, 'image/png');
+  assert.equal(parts[3].text, '[קובץ 2 מתוך 3: דף 1.pdf]');
+  assert.equal(parts[4].inlineData.mimeType, 'application/pdf');
+  assert.equal(parts[5].text, '[קובץ 3 מתוך 3: טקסט מתוך targil.docx]\nשאלה 3: כתבו פעולה...');
+  assert.match(parts[6].text, /^הערה מהתלמיד .*סעיף ב בצילום הראשון$/);
+  // קובץ אחד — גם הוא ממוספר, וגם בו העמודים לא בהכרח לפי הסדר
+  calls = [];
+  await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }));
+  const one = JSON.parse(calls[0].init.body).contents[0].parts;
+  assert.match(one[0].text, /חלק אחד/);
+  assert.match(one[0].text, /לא בהכרח צורפו לפי הסדר/);
+  assert.equal(one[1].text, '[קובץ 1 מתוך 1: a.png]');
+});
+
+await test('meta שנשלח כ-Blob (כמו מהאתר) נקרא: שפה, הערה, טקסט מה-Word ושמות הקבצים', async () => {
+  const fd = new FormData();
+  fd.append('meta', new Blob([JSON.stringify({ language: 'csharp', note: 'רק שאלה 2', names: ['צילום.png'], texts: [{ name: 'q.docx', text: 'שאלה 2' }] })], { type: 'application/json' }));
+  fd.append('file', new File([PNG], 'file1.png', { type: 'image/png' }));
+  const r = await call(new Request('https://w.example/v1/exercise', { method: 'POST', body: fd }));
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.exercise.language, 'csharp');
+  const sent = JSON.parse(calls[0].init.body);
+  assert.match(sent.systemInstruction.parts[0].text, /The student works in C#\./);
+  const texts = sent.contents[0].parts.filter(p => p.text).map(p => p.text);
+  assert.equal(texts[1], '[קובץ 1 מתוך 2: צילום.png]');
+  assert.equal(texts[2], '[קובץ 2 מתוך 2: טקסט מתוך q.docx]\nשאלה 2');
+  assert.match(texts[3], /רק שאלה 2$/);
+});
+
+await test('ההנחיות (Java ו-C#): קודם לקבוע את סדר הקריאה, ומחלקות נוספות תמיד עם התוכן שבתרגיל', async () => {
+  for (const [language, bookFields] of [['java', 'private String name; private String author; private int pages;'], ['csharp', 'private string name; private string author; private int pages;']]) {
+    calls = [];
+    const r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }], meta: { language } }));
+    assert.equal(r.status, 200);
+    const sys = JSON.parse(calls[0].init.body).systemInstruction.parts[0].text;
+    // סדר הקבצים — לפני "Return ONLY JSON", כלומר לפני כל השדות
+    const step1 = sys.indexOf('STEP 1 — PUT THE PAGES IN ORDER, THEN READ.');
+    assert.ok(step1 > 0 && step1 < sys.indexOf('Return ONLY JSON'), language + ': שלב סדר הקריאה לפני השדות');
+    assert.match(sys, /\[קובץ 2 מתוך 4: name\]/);
+    assert.match(sys, /often NOT attached in the order of the exercise/);
+    assert.match(sys, /BEFORE extracting anything/);
+    assert.match(sys, /page numbers/);
+    assert.match(sys, /sub-questions \(1, 2, 3 \/ א, ב, ג/);
+    assert.match(sys, /continues at the top of another/);
+    assert.match(sys, /code line numbers\s+that continue/);
+    assert.match(sys, /"המשך", "\(המשך\)"/);
+    assert.match(sys, /the student's note/);
+    assert.match(sys, /Never drop a part/);
+    assert.match(sys, /overlap or show the same part twice are merged/);
+    assert.match(sys, /^readingOrder — /m);
+    assert.match(sys, /^pageNotes — /m);
+    // מחלקות: כל מחלקה שהקוד צריך, עם התכונות מהתרגיל — גם מחלקה שהתלמיד מתבקש לכתוב
+    assert.match(sys, /classes — EVERY class that the code needs besides the main class and the library classes/);
+    assert.match(sys, /\(a\) classes that the exercise gives or describes/);
+    assert.match(sys, /\(b\) classes that the student is asked to write, define or complete \("כתבו את המחלקה Team/);
+    assert.match(sys, /\(c\) classes implied by the data/);
+    assert.match(sys, /"לכל ספר יש שם, מחבר ומספר עמודים"/);
+    assert.ok(sys.includes('public class Book { ' + bookFields), language + ': דוגמת Book בשפה הנכונה');
+    assert.match(sys, /HARD RULE: every className in tasks and in givenCode is either mainClass or the name of a class in classes/);
+    assert.match(sys, /never leave it empty/);
+    assert.match(sys, /A className other than mainClass must also be defined in classes/);
+    assert.match(sys, /SELF-CHECK before you answer/);
+    assert.ok(sys.indexOf('SELF-CHECK') > sys.indexOf('isExercise / problem'), language + ': הבדיקה העצמית בסוף');
+    // הכללים הקיימים נשארו
+    assert.match(sys, /must be defined here even if its name is Student or Car/);
+    assert.match(sys, language === 'java' ? /NEVER define Stack, Queue, Node, BinNode or BinTreeNode/ : /NEVER define Stack, Queue, Node or BinNode/);
+    assert.match(sys, /Do NOT include the methods\/constructors that the student must write/);
+  }
+});
+
+await test('התבנית: readingOrder ו-pageNotes מיד אחרי isExercise / problem, וחובה', async () => {
+  const { RESPONSE_SCHEMA } = await import('../src/prompt.js');
+  const order = RESPONSE_SCHEMA.propertyOrdering;
+  assert.deepEqual(order.slice(0, 5), ['isExercise', 'problem', 'readingOrder', 'pageNotes', 'title']);
+  assert.ok(RESPONSE_SCHEMA.required.includes('readingOrder') && RESPONSE_SCHEMA.required.includes('pageNotes'));
+  assert.equal(RESPONSE_SCHEMA.properties.readingOrder.type, 'ARRAY');
+  assert.equal(RESPONSE_SCHEMA.properties.readingOrder.items.type, 'INTEGER');
+  assert.equal(RESPONSE_SCHEMA.properties.pageNotes.type, 'STRING');
+  assert.deepEqual(Object.keys(RESPONSE_SCHEMA.properties).sort(), [...order].sort());   // כל שדה ב-propertyOrdering
+  // גם בבקשה עצמה
+  await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }));
+  assert.deepEqual(JSON.parse(calls[0].init.body).generationConfig.responseSchema.propertyOrdering.slice(2, 4), ['readingOrder', 'pageNotes']);
+});
+
+await test('התשובה: readingOrder נשאר (רק מספרים שלמים חיוביים, בלי כפילויות) ו-pageNotes נשאר (מקוצר); בלי השדות — ריקים', async () => {
+  const withOrder = Object.assign(JSON.parse(JSON.stringify(SAMPLE)), { readingOrder: [2, '1', 2, 0, -1, 1.5, 'x', null, 3], pageNotes: 'צילום 2 הוא תחילת השאלה. ' + 'א'.repeat(500) });
+  script = [{ status: 200, json: geminiOk(withOrder) }];
+  let r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }));
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.exercise.readingOrder, [2, 1, 3]);
+  assert.ok(r.body.exercise.pageNotes.startsWith('צילום 2 הוא תחילת השאלה.'));
+  assert.equal(r.body.exercise.pageNotes.length, 400);
+  assert.equal(r.body.exercise.tasks[0].methodName, 'countEven');   // שאר התשובה כרגיל
+  r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }));   // SAMPLE — בלי השדות
+  assert.deepEqual(r.body.exercise.readingOrder, []);
+  assert.equal(r.body.exercise.pageNotes, '');
+  script = [{ status: 200, json: geminiOk(Object.assign({}, SAMPLE, { readingOrder: 'not an array', pageNotes: 7 })) }];
+  r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }));
+  assert.deepEqual(r.body.exercise.readingOrder, []);
+  assert.equal(r.body.exercise.pageNotes, '');
+});
+
 await test('קובץ שמתחזה ל-PDF נדחה', async () => {
   const r = await call(exerciseRequest({ files: [{ bytes: new Uint8Array([0x4d, 0x5a, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]), name: 'x.pdf', type: 'application/pdf' }] }));
   assert.equal(r.status, 415);
@@ -165,6 +285,25 @@ await test('תיקון: הקוד והשגיאות נשלחים, והתשובה �
   assert.match(text, /did not compile/);
   assert.match(text, /cannot find symbol: size\(\)/);
   assert.match(text, /class X \{\}/);
+  // מחלקה חסרה — מוסיפים אותה עם התכונות, ולא מוחקים סעיף; סדר הקריאה נשאר כמו שהוא
+  assert.match(text, /Keep every class in classes with all its fields/);
+  assert.match(text, /ADD it to classes with the fields that the exercise describes/);
+  assert.match(text, /never delete a task or a class to make the code compile/);
+  assert.match(text, /Keep readingOrder and pageNotes as they are/);
+});
+
+await test('תיקון: readingOrder מהתשובה הקודמת חוזר למודל ונשמר בתשובה המתוקנת', async () => {
+  const previous = Object.assign(JSON.parse(JSON.stringify(SAMPLE)), { readingOrder: [2, 1], pageNotes: 'צילום 2 קודם' });
+  script = [{ status: 200, json: geminiOk(previous) }];
+  const req = new Request('https://w.example/v1/repair', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ exercise: previous, files: { 'StackTargil.java': 'class X {}' }, errors: ['Book.java:1: cannot find symbol: class Book'] }),
+  });
+  const r = await call(req);
+  assert.equal(r.status, 200);
+  assert.match(JSON.parse(calls[0].init.body).contents[0].parts[0].text, /"readingOrder":\[2,1\]/);
+  assert.deepEqual(r.body.exercise.readingOrder, [2, 1]);
+  assert.equal(r.body.exercise.pageNotes, 'צילום 2 קודם');
 });
 
 await test('הצעה לפתרון: ההנחיות מבקשות פתרון פשוט, והפתרון חוזר בתשובה (גם בתוך ```java)', async () => {
@@ -197,6 +336,8 @@ await test('תיקון ההצעה לפתרון (mode=solution): ההנחיות �
   assert.match(text, /What happened:/);
   assert.match(text, /Actual output:/);
   assert.doesNotMatch(text, /did not compile\./);
+  assert.match(text, /never delete a task or a class/);
+  assert.match(text, /keep readingOrder and pageNotes as they are/);
 });
 
 await test('C#: ההנחיות ב-C# (ממשק הספרייה ב-PascalCase), והשפה חוזרת בתשובה', async () => {

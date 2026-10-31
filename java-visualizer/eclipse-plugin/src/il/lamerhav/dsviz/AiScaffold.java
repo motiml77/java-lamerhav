@@ -153,7 +153,7 @@ final class AiScaffold {
             t.className = ident(Json.str(m.get("className")), main, cs);
             if (LIBRARY.contains(t.className)) t.className = main;
             if (!t.className.equals(main) && !e.classes.containsKey(t.className)) {
-                e.classes.put(t.className, "");   // מחלקה שהסעיף שייך אליה אבל לא תוארה — נוצרת ריקה
+                e.classes.put(t.className, "");   // מחלקה שהסעיף שייך אליה אבל לא תוארה — נוצרת, עם הערה להוסיף את התכונות מהתרגיל
             }
             t.isStatic = !Boolean.FALSE.equals(m.get("isStatic")) && !t.constructor();
             if (t.className.equals(main) && !t.constructor()) t.isStatic = true;   // במחלקה הראשית: פעולות סטטיות שנקראות מ-main
@@ -626,6 +626,17 @@ final class AiScaffold {
         return null;
     }
 
+    /** חלק מההערה שבמחלקה ריקה (לבדיקות) */
+    static final String ADD_FIELDS = "הוסיפו כאן את התכונות שמתוארות בתרגיל";
+
+    /**
+     * ההערה בתוך מחלקה שסעיף שייך אליה, אבל המודל לא תיאר אותה (בלי קוד): המחלקה נוצרת בכל זאת — כדי שהכול יתקמפל —
+     * והתלמיד מתבקש להוסיף בה את התכונות שמתוארות בתרגיל
+     */
+    static String addFields(String cls) {
+        return "המחלקה " + cls + " מהתרגיל — " + ADD_FIELDS;
+    }
+
     /** קוד המחלקה מהתרגיל, מנוקה (בלי package/import/using/namespace), או מחלקה ריקה */
     private static List<String> classLines(String cls, String code, boolean isMain, boolean cs) {
         List<String> lines = new ArrayList<String>();
@@ -649,7 +660,7 @@ final class AiScaffold {
             lines.add(open);
             if (cs) lines.add("{");
             if (!c.isEmpty()) lines.addAll(reindent(c, 4));   // קוד בלי הכרזת מחלקה — עוטפים
-            else if (!isMain) lines.add("    // המחלקה " + cls + " מהתרגיל — אפשר להוסיף כאן תכונות ופעולות לפי התרגיל");
+            else if (!isMain) lines.add("    // " + rtl(addFields(cls)));   // מחלקה שהסעיף שייך אליה אבל לא תוארה בתשובה
             lines.add("}");
             return lines;
         }

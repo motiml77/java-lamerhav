@@ -11,6 +11,9 @@
 //
 // נקודות קצה:
 //   POST /v1/exercise   multipart/form-data: meta (JSON: {client, language, note, texts:[{name,text}], names}) + file (כמה שצריך)
+//                       הקבצים לא תמיד צורפו לפי הסדר של התרגיל: כל חלק ממוספר בבקשה ל-Gemini ("[קובץ 2 מתוך 4: שם]"), והמודל
+//                       קובע קודם את סדר הקריאה (readingOrder, ו-pageNotes אם הסדר לא היה ברור). שני השדות נשארים ב-exercise
+//                       שבתשובה — הלקוחות מתעלמים מהם; הם לבדיקת תקלות, וחוזרים למודל כמו שהם בבקשת תיקון
 //   POST /v1/repair     application/json: {client, language, exercise, files:{שם: קוד}, errors:[...], mode?}
 //                       mode: "solution" — ההצעה לפתרון (tasks[].solution) לא נתנה את expectedOutput: מתקנים אותה (או את expectedOutput)
 //   language: "java" (ברירת מחדל) או "csharp"
@@ -183,7 +186,10 @@ async function exerciseParts(request) {
   try { form = await request.formData(); } catch (e) { throw new Fail(400, 'format', 'לא הצלחתי לקרוא את הבקשה'); }
 
   let meta = {};
-  const rawMeta = form.get('meta');
+  let rawMeta = form.get('meta');
+  // מהאתר meta נשלח כ-Blob, ולכן מגיע כקובץ (בשם "blob") ולא כמחרוזת — קוראים אותו כטקסט. בלי זה השפה, ההערה,
+  // הטקסט מה-Word ושמות הקבצים שנשלחו מהאתר היו נעלמים
+  if (rawMeta && typeof rawMeta === 'object' && typeof rawMeta.text === 'function' && rawMeta.size < LIMITS.textChars * 12) rawMeta = await rawMeta.text();
   if (typeof rawMeta === 'string' && rawMeta.length < LIMITS.textChars * 4) {
     try { meta = JSON.parse(rawMeta) || {}; } catch (e) { throw new Fail(400, 'format', 'לא הצלחתי לקרוא את הבקשה'); }
   }
@@ -206,19 +212,34 @@ async function exerciseParts(request) {
 
   // החלקים לבקשה ל-Gemini — כמחרוזות JSON מוכנות. הקבצים עצמם לא עוברים JSON.parse/stringify (זה איטי מאוד
   // בקבצים גדולים, ול-Worker יש מגבלת זמן מעבד) — ה-base64 נוצר בקוד מקומי ומשורשר כמו שהוא.
-  const parts = [JSON.stringify({ text: 'זה דף התרגיל ששלח התלמיד. בנה את המעטפת לפי ההנחיות והתבנית.' })];
+  // הקבצים מגיעים בסדר שהתלמיד צירף (צילומי מסך שהודבקו אחד-אחד, קבצים לפי שם...) — לא בהכרח בסדר של התרגיל.
+  // לכן כל חלק ממוספר ("[קובץ 2 מתוך 4: שם]"), ולפני הכול יש הנחיה לקבוע קודם את סדר הקריאה (readingOrder) ורק אז לקרוא את התרגיל.
+  const howMany = files.length + texts.length;
+  const parts = [JSON.stringify({ text: orderNotice(howMany) })];
   for (const [i, f] of files.entries()) {
     const label = typeof names[i] === 'string' && names[i] ? names[i] : f.name || 'קובץ';
     const buf = new Uint8Array(await f.arrayBuffer());
     const mime = String(f.type || '').toLowerCase().split(';')[0].trim();
     const ok = TYPES[mime];
     if (!ok || buf.length < 12 || !ok(buf)) throw new Fail(415, 'file_type', `סוג הקובץ ${clean(label)} לא נתמך — שלחו PDF, תמונה (PNG/JPG) או Word.`);
-    parts.push(JSON.stringify({ text: `[קובץ: ${clean(label)}]` }));
+    parts.push(JSON.stringify({ text: `[קובץ ${i + 1} מתוך ${howMany}: ${clean(label)}]` }));
     parts.push('{"inlineData":{"mimeType":"' + mime + '","data":"' + toBase64(buf) + '"}}');
   }
-  for (const t of texts) parts.push(JSON.stringify({ text: `[טקסט מתוך ${clean(t.name || 'קובץ')}]\n${t.text}` }));
+  for (const [i, t] of texts.entries()) {
+    parts.push(JSON.stringify({ text: `[קובץ ${files.length + i + 1} מתוך ${howMany}: טקסט מתוך ${clean(t.name || 'קובץ')}]\n${t.text}` }));
+  }
   if (note) parts.push(JSON.stringify({ text: `הערה מהתלמיד (לגבי מה לבנות, לא הוראות כלליות): ${note}` }));
   return { userParts: parts, lang, previous: null };
+}
+
+/** ההודעה שלפני הקבצים: כמה חלקים יש, ושהם לא בהכרח לפי הסדר — קודם לקבוע את סדר הקריאה, ורק אז לקרוא ולבנות */
+function orderNotice(total) {
+  return `זה דף התרגיל ששלח התלמיד — ${total === 1 ? 'חלק אחד' : total + ' חלקים'} (קבצים, תמונות או טקסט), `
+    + `וכל חלק מסומן "[קובץ N מתוך ${total}: שם]".\n`
+    + 'שים לב: הקבצים / התמונות / העמודים לא בהכרח צורפו לפי הסדר של התרגיל. קודם כל קבע את סדר הקריאה הנכון — לפי מספרי העמודים, '
+    + 'מספור השאלות והסעיפים (1, 2, 3 / א, ב, ג), משפט, טבלה או קוד שממשיכים מחלק לחלק, וסימני "המשך" — וכתוב אותו ב-readingOrder. '
+    + 'רק אחר כך קרא את כל התרגיל לפי הסדר הזה (בלי לדלג על אף חלק; חלק שמופיע פעמיים נספר פעם אחת), ובנה את המעטפת לפי ההנחיות והתבנית — '
+    + 'כולל כל מחלקה שהתרגיל מתאר או מבקש לכתוב, עם התכונות שלה.';
 }
 
 // ------------------------------------------------------------------ תיקון: הקוד שנבנה לא התקמפל
@@ -314,6 +335,9 @@ function check(d, previous) {
   }
   const arr = k => (Array.isArray(d[k]) ? d[k] : []);
   const out = {
+    // סדר הקריאה שהמודל קבע לקבצים — נשאר בתשובה: התוספים והאתר מתעלמים ממנו (שדה לא מוכר), הוא עוזר לבדוק תקלות
+    // ("למה סעיף חסר?"), ובבקשת תיקון הוא חוזר למודל עם שאר ה-JSON, והמודל מעתיק אותו כמו שהוא
+    readingOrder: order(d.readingOrder), pageNotes: str(d.pageNotes, 400),
     title: str(d.title, 120), summary: str(d.summary, 600),
     topic: str(d.topic || d.packageName, 60), mainClass: str(d.mainClass, 60),
     imports: arr('imports').map(x => str(x, 80)).slice(0, 20),
@@ -339,6 +363,15 @@ function check(d, previous) {
 }
 
 function str(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
+/** סדר הקריאה: מספרי החלקים (מ-1) — רק מספרים שלמים חיוביים, בלי כפילויות */
+function order(v) {
+  const out = [];
+  for (const x of Array.isArray(v) ? v : []) {
+    const k = typeof x === 'number' ? x : typeof x === 'string' && /^\s*\d{1,3}\s*$/.test(x) ? +x : NaN;
+    if (Number.isInteger(k) && k >= 1 && k <= 100 && !out.includes(k)) out.push(k);
+  }
+  return out.slice(0, 40);
+}
 function clean(s) { return String(s).replace(/[\u0000-\u001f"\\]/g, ' ').slice(0, 120); }
 
 function toBase64(u8) {

@@ -29,6 +29,7 @@ Arrays (int[], String[], int[][]) and String/Math/Integer/Character from java.la
     rules: 'Java 11, no "var", no records, no lambdas in mainCode. A method of the main class is "public static".',
     formats: 'boolean prints true / false; double prints like 2.5 or 3.0; char prints the character; an int[] array printed with Arrays.toString looks like [1, 2, 3].',
     noLib: 'NEVER define Stack, Queue, Node, BinNode or BinTreeNode (they come from the library). No package or import lines.',
+    book: 'public class Book { private String name; private String author; private int pages; ... }',
     noAdvanced: 'No streams, lambdas, "var", the ?: operator, java.util collections (ArrayList, HashMap...), StringBuilder, Arrays/Collections utilities or other advanced tricks.',
   },
   csharp: {
@@ -56,6 +57,7 @@ Arrays (int[], string[], int[,] or int[][]) and string/Math/Console from System 
     imports: 'imports — extra "using" namespaces needed by mainCode/classes/givenCode (e.g. "System.Text"), never System.Collections.Generic. Usually empty.',
     rules: 'C# 10 / .NET 8, no "var", no records, no lambdas or LINQ in mainCode, no top-level statements, no namespace. A method of the main class is "public static". Fields of exercise classes are private, with public Get/Set methods or properties as the exercise describes.',
     noLib: 'NEVER define Stack, Queue, Node or BinNode (they come from the library). No using lines and no namespace.',
+    book: 'public class Book { private string name; private string author; private int pages; ... }',
     noAdvanced: 'No LINQ, lambdas, "var", the ?: operator, System.Collections.Generic collections, StringBuilder or other advanced tricks.',
     formats: 'bool prints True / False; double prints like 2.5 or 3 (no ".0"); char prints the character; arrays must be printed with string.Join(", ", arr) — looks like 1, 2, 3.',
   },
@@ -75,7 +77,24 @@ The skeleton itself never contains a solution: classes, givenCode, mainCode and 
 with an empty body in every task. Separately, for every task you also write ONE suggested solution in tasks[].solution; it is kept hidden and shown
 to the student only if they press "הצעה לפתרון" after trying by themselves.
 
+STEP 1 — PUT THE PAGES IN ORDER, THEN READ. Every attached part (file, photo, screenshot or text) is introduced by a line like "[קובץ 2 מתוך 4: name]".
+The parts are often NOT attached in the order of the exercise: students photograph and paste screenshots one by one, in any order, and files may be
+sorted by name — the end of a question may come first and its beginning last. So BEFORE extracting anything:
+  1. Look at every part and work out the correct reading order, using every clue: page numbers ("עמוד 2", "2/3"); the numbering of the questions and
+     sub-questions (1, 2, 3 / א, ב, ג / 2א, 2ב) — the introduction, the data and the given classes usually come before the sub-questions;
+     a sentence, a list, a table or a code listing that is cut at the bottom of one part and continues at the top of another (also code line numbers
+     that continue); "המשך", "(המשך)", "המשך בעמוד הבא"; headers and footers; and the student's note.
+     Inside one PDF the pages are usually in order — several files, photos or screenshots usually are not.
+  2. Write that order in readingOrder. Then read the WHOLE exercise in that order, as one continuous text, and only then fill the other fields.
+  3. Never drop a part: every attached part belongs to the exercise unless it is clearly unrelated (then say so in pageNotes).
+     Screenshots that overlap or show the same part twice are merged — a sub-question, a class or an example that appears twice is used once, not twice.
+  The tasks and otherQuestions follow the order of the exercise as you reconstructed it, not the order in which the files were attached.
+
 Return ONLY JSON that matches the response schema. Field by field:
+
+readingOrder — the numbers of the attached parts in the correct reading order, as decided in step 1 ("[קובץ 3 מתוך 4: ...]" is 3);
+  every part exactly once, e.g. [2, 3, 1, 4]. With a single part: [1].
+pageNotes — one or two short Hebrew sentences about the order when it was not obvious (e.g. "צילום 3 הוא המשך של סעיף ב שמתחיל בצילום 1"), otherwise "".
 
 tasks — one entry for every method (פעולה / פונקציה), constructor or class operation that the exercise asks the student to WRITE.
   • label: the sub-question label as it appears ("א", "ב", "1", "3ב"...). If one sub-question asks for two methods, use the same label for both.
@@ -86,6 +105,7 @@ tasks — one entry for every method (פעולה / פונקציה), constructor 
   • kind: "method", or "constructor" when the student must write a constructor (methodName = the class name, returnType = "").
   • className: the class the method belongs to. Static helper methods/functions go in the main class (use the mainClass value).
     If the exercise says "add to class X a method..." / "write in class X...", use className X and isStatic=false.
+    A className other than mainClass must also be defined in classes, with its fields (see "classes" below).
   • returnType: ${L.name} type, or "void".
   • instructions: the full text of that sub-question in Hebrew, faithful and complete enough to solve it without the original page,
     including examples given in the question (e.g. "לדוגמה: עבור המחסנית 3, 5, 2 יוחזר 2"). Plain text, no markdown. Up to ~700 characters.
@@ -106,10 +126,20 @@ tasks[].solution — the COMPLETE ${L.name} code of that method (or constructor)
 
 otherQuestions — sub-questions that do NOT require writing code (tracing code, what will be printed, complexity, explanations) — label + Hebrew text.
 
-classes — classes that the exercise defines or describes (UML, list of fields, "נתונה המחלקה ...") and that the code needs. NOT library classes.
-  • name + code: full compilable ${L.name} code of the class: "public class Name { ... }" with the fields exactly as described (names and types),
-    a constructor, getters/setters and a string conversion (toString / ToString) — plus any methods the exercise gives with their implementation.
-  • Do NOT include the methods/constructors that the student must write (those are tasks — the program inserts them).
+classes — EVERY class that the code needs besides the main class and the library classes, each one WITH the content that the exercise states:
+  (a) classes that the exercise gives or describes (UML, a list of fields, "נתונה המחלקה ...", "לכל ... יש ...");
+  (b) classes that the student is asked to write, define or complete ("כתבו את המחלקה Team ...", "הגדירו מחלקה ...", "השלימו את המחלקה ...",
+      "הוסיפו למחלקה ...") — the class itself is defined here, with all the fields / properties that the exercise states;
+  (c) classes implied by the data the exercise talks about (several values for every item — a record, a pair, a card...) when tasks or mainCode need them.
+  • name + code: full compilable ${L.name} code of the class: "public class Name { ... }" with the fields exactly as described (names and types as written;
+    when they are only described in words, choose sensible English names and ${L.name} types: "לכל ספר יש שם, מחבר ומספר עמודים" →
+    ${L.book}), a constructor, getters/setters and a string conversion (toString / ToString) —
+    plus any methods the exercise gives with their implementation.
+  • Do NOT include the methods/constructors that the student must write (those are tasks — the program inserts them). If the student must write the
+    constructor, a getter or toString of a class, leave out only that one — the class still gets all its fields and everything else it needs.
+  • HARD RULE: every className in tasks and in givenCode is either mainClass or the name of a class in classes, and every other class that mainCode or
+    a solution creates or uses (except the library classes and the standard ${L.name} classes) is defined in classes. Never leave such a class out
+    and never leave it empty (without its fields) — an empty class does not compile with mainCode and gives the student nothing to work with.
   • ${L.noLib}
   • A class described in the exercise must be defined here even if its name is Student or Car.
 
@@ -154,6 +184,13 @@ mainClass — English PascalCase name of the main class: the class name the exer
 isExercise / problem — if the files are not a programming exercise or cannot be read: isExercise=false and problem = a short Hebrew explanation
   (what is missing / what to send). Otherwise isExercise=true and problem="".
 
+SELF-CHECK before you answer (fix anything that fails):
+  1. readingOrder contains every attached part exactly once, and no question or sub-question of the exercise is missing or appears twice.
+  2. Every className in tasks and in givenCode is mainClass or the name of a class in classes; every other class that mainCode or a solution uses
+     (except the library classes and the standard ${L.name} classes) is in classes; and every class in classes has the fields that the exercise
+     states — none is empty.
+  3. mainCode calls every task, and expectedOutput is exactly what it prints with the solutions.
+
 ${L.name}: ${L.rules} All names in English. Hebrew only in strings and comments.
 ${L.api}`;
 }
@@ -164,8 +201,12 @@ export function repairPrompt(lang) {
 Below: your previous JSON, the generated ${L.name} files, and the compiler errors.
 Return the corrected JSON (same schema) that fixes ALL the errors — usually in mainCode, classes, givenCode or imports.
 Keep the same tasks (same names and signatures) unless a signature itself is not valid ${L.name}.
+Keep every class in classes with all its fields. If an error shows that a class, a field or a constructor is missing (e.g. "cannot find symbol: class Book",
+a task whose class is empty), ADD it to classes with the fields that the exercise describes (the task instructions say what they are) —
+never delete a task or a class to make the code compile. Every className in tasks and givenCode must be mainClass or a class in classes.
 If you change mainCode, update expectedOutput to match it.
-Keep every tasks[].solution (fix it only if it no longer matches the corrected header). The skeleton still never contains a solution.`;
+Keep every tasks[].solution (fix it only if it no longer matches the corrected header). The skeleton still never contains a solution.
+Keep readingOrder and pageNotes as they are.`;
 }
 
 /** ההצעה לפתרון לא התקמפלה / לא הדפיסה את מה שצריך — מבקשים לתקן את ההצעה (או את הפלט הצפוי, אם הוא השגוי) */
@@ -178,17 +219,25 @@ Find what is wrong — a mistake in a solution, or a mistake in expectedOutput. 
 Return the corrected JSON (same schema):
   • fix every wrong solution so it is correct for every input — still simple, intuitive and at high-school level, as described before;
   • fix expectedOutput if it is the wrong one, so it is exactly what mainCode prints with CORRECT solutions;
-  • keep tasks (names, headers), classes, givenCode and mainCode exactly as they are, unless one of them is clearly wrong.`;
+  • keep tasks (names, headers), classes, givenCode and mainCode exactly as they are, unless one of them is clearly wrong
+    (never delete a task or a class; a solution may use only the fields and methods that the classes really have);
+  • keep readingOrder and pageNotes as they are.`;
 }
 
 const S = (description, extra) => Object.assign({ type: 'STRING', description }, extra || {});
 
-/** התבנית של התשובה (responseSchema של Gemini) — זהה ב-Java וב-C# */
+/**
+ * התבנית של התשובה (responseSchema של Gemini) — זהה ב-Java וב-C#.
+ * readingOrder / pageNotes באים מיד אחרי isExercise / problem: Gemini כותב את השדות לפי propertyOrdering, ולכן הוא מתחייב
+ * קודם על סדר הקריאה של הקבצים (שלא תמיד צורפו לפי הסדר), ורק אחר כך כותב את הסעיפים, המחלקות ו-main.
+ */
 export const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     isExercise: { type: 'BOOLEAN' },
     problem: S('Hebrew explanation when isExercise is false, otherwise empty'),
+    readingOrder: { type: 'ARRAY', description: 'numbers of the attached parts ([קובץ N מתוך M]) in the correct reading order', items: { type: 'INTEGER' } },
+    pageNotes: S('short Hebrew note about the reading order when it was not obvious, otherwise empty'),
     title: S('short Hebrew title'),
     summary: S('1-2 Hebrew sentences'),
     topic: S('type of the exercise, lowercase English words joined with _'),
@@ -198,7 +247,7 @@ export const RESPONSE_SCHEMA = {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: { name: S('class name'), code: S('full code of the class') },
+        properties: { name: S('class name'), code: S('full code of the class, with all the fields the exercise states') },
         required: ['name', 'code'],
         propertyOrdering: ['name', 'code'],
       },
@@ -251,6 +300,6 @@ export const RESPONSE_SCHEMA = {
     mainCode: S('statements of the main method body'),
     expectedOutput: S('exactly what main prints when all tasks are solved correctly, lines separated by \\n'),
   },
-  required: ['isExercise', 'problem', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode', 'expectedOutput'],
-  propertyOrdering: ['isExercise', 'problem', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode', 'expectedOutput'],
+  required: ['isExercise', 'problem', 'readingOrder', 'pageNotes', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode', 'expectedOutput'],
+  propertyOrdering: ['isExercise', 'problem', 'readingOrder', 'pageNotes', 'title', 'summary', 'topic', 'mainClass', 'imports', 'classes', 'tasks', 'givenCode', 'otherQuestions', 'mainCode', 'expectedOutput'],
 };
