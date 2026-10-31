@@ -52,6 +52,23 @@ public final class Mentor {
     }
 
     /**
+     * העצה: הטקסט, והקוד שבסוף (אחרי נקודתיים, בין `...`) — בנפרד: {טקסט, קוד או null}.
+     * בחלון "הסברים בעברית" הקוד מוצג בשורה משלו, משמאל לימין (MentorView).
+     */
+    static String[] splitCode(String tip) {
+        String t = tip.trim();
+        int end = t.lastIndexOf('`');
+        if (end == t.length() - 1) {
+            int start = t.lastIndexOf('`', end - 1);
+            if (start >= 0) {
+                String before = t.substring(0, start).trim();
+                if (before.endsWith(":")) return new String[] { before, t.substring(start + 1, end) };
+            }
+        }
+        return new String[] { t, null };
+    }
+
+    /**
      * ההערות לקובץ: תרגום (ומיקום מדויק) לכל שגיאה ואזהרה של הקומפיילר, ואזהרות על טעויות נפוצות.
      * האזהרות נבדקות רק כשאין שגיאות תחביר — עם שגיאת תחביר ה-AST "משוחזר" ועלול להטעות.
      */

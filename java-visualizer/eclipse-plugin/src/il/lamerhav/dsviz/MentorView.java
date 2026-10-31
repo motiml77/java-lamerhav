@@ -28,6 +28,7 @@ import org.eclipse.swt.custom.ScrolledComposite;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.FontData;
+import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
@@ -44,7 +45,9 @@ import org.eclipse.ui.texteditor.ITextEditor;
 
 /**
  * חלון "הסברים בעברית": כל ההערות של המורה בעברית לקובץ שפתוח בעורך — מימין לשמאל, צמודות לימין, כרטיס לכל הערה:
- * השורה, ההסבר, העצה — והקוד המתוקן בשורה נפרדת (משמאל לימין), כך שעברית ואנגלית לא מתערבבות באותה שורה.
+ * קודם ההתראה (השורה והחומרה, וההסבר), אחריה שורת רווח, ורק אז ההצעה לתיקון — והקוד המתוקן בשורה נפרדת (משמאל לימין).
+ * כל טקסט עובר דרך RtlText: קטעי הקוד והמילים באנגלית מוצגים משמאל לימין כיחידה אחת בתוך משפט מימין לשמאל,
+ * גם ב-Windows וגם ב-Linux, וגם כשההסבר מתחיל בקוד (p לא מתקדם...).
  * מתעדכן בזמן הכתיבה; ההערה של השורה שבה נמצא הסמן מודגשת; לחיצה על כרטיס מעבירה לשורה בקוד.
  */
 public class MentorView extends ViewPart {
@@ -54,6 +57,7 @@ public class MentorView extends ViewPart {
     private Composite list;
     private Font bold, mono;
     private Color red, orange, gray, codeBg, highlight, white;
+    private int lineHeight = 16;
     private ITextEditor editor;
     private IDocument document;
     private ISelectionProvider selections;
@@ -129,6 +133,9 @@ public class MentorView extends ViewPart {
         FontData fd = parent.getFont().getFontData()[0];
         bold = new Font(d, fd.getName(), fd.getHeight(), SWT.BOLD);
         mono = JFaceResources.getTextFont();
+        GC gc = new GC(parent);
+        lineHeight = gc.getFontMetrics().getHeight();
+        gc.dispose();
 
         scroll = new ScrolledComposite(parent, SWT.V_SCROLL | SWT.RIGHT_TO_LEFT);
         scroll.setExpandHorizontal(true);
@@ -225,7 +232,7 @@ public class MentorView extends ViewPart {
         cards.clear();
         if (empty != null) {
             Label l = new Label(list, SWT.WRAP | SWT.RIGHT_TO_LEFT);
-            l.setText(empty);
+            l.setText(text(empty));
             l.setForeground(gray);
             l.setBackground(white);
             l.setLayoutData(wrap());
@@ -233,7 +240,7 @@ public class MentorView extends ViewPart {
             int errors = 0;
             for (Mentor.Finding f : findings) if (f.isError()) errors++;
             Label head = new Label(list, SWT.WRAP | SWT.RIGHT_TO_LEFT);
-            head.setText(errors + " שגיאות ו-" + (findings.size() - errors) + " אזהרות — לחיצה על הסבר מעבירה לשורה בקוד");
+            head.setText(text(errors + " שגיאות ו-" + (findings.size() - errors) + " אזהרות — לחיצה על הסבר מעבירה לשורה בקוד"));
             head.setForeground(gray);
             head.setBackground(white);
             head.setLayoutData(wrap());
@@ -243,6 +250,7 @@ public class MentorView extends ViewPart {
         highlight(true);
     }
 
+    /** כרטיס: ההתראה (שורה · שגיאה/אזהרה, וההסבר), שורת רווח, ההצעה לתיקון — והקוד המתוקן בשורה משלו */
     private void card(final Mentor.Finding f) {
         Composite c = new Composite(list, SWT.RIGHT_TO_LEFT | SWT.BORDER);
         GridLayout gl = new GridLayout(1, false);
@@ -253,22 +261,27 @@ public class MentorView extends ViewPart {
         c.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
         c.setData(f);
         Label title = new Label(c, SWT.RIGHT_TO_LEFT);
-        title.setText("שורה " + f.line + " · " + (f.isError() ? "שגיאה" : "אזהרה"));
+        title.setText(text("שורה " + f.line + " · " + (f.isError() ? "שגיאה" : "אזהרה")));
         title.setFont(bold);
         title.setForeground(f.isError() ? red : orange);
         Label main = new Label(c, SWT.WRAP | SWT.RIGHT_TO_LEFT);
-        main.setText(plain(f.main));
+        main.setText(text(f.main));
         main.setLayoutData(wrap());
         if (!f.tip.isEmpty()) {
-            String[] tc = splitCode(f.tip);
+            // שורת רווח אחת בין ההתראה להצעה לתיקון (בגובה שורת טקסט, כולל הרווח הרגיל בין השורות)
+            Label gap = new Label(c, SWT.RIGHT_TO_LEFT);
+            GridData g = new GridData(SWT.FILL, SWT.TOP, true, false);
+            g.heightHint = Math.max(2, lineHeight - gl.verticalSpacing);
+            gap.setLayoutData(g);
+            String[] tc = Mentor.splitCode(f.tip);
             Label tip = new Label(c, SWT.WRAP | SWT.RIGHT_TO_LEFT);
-            tip.setText("עצה: " + plain(tc[0]));
+            tip.setText(text(FIX + tc[0]));
             tip.setForeground(gray);
             tip.setLayoutData(wrap());
             if (tc[1] != null) {
                 // הקוד בשורה משלו, משמאל לימין, בגופן של קוד
                 Label code = new Label(c, SWT.LEFT_TO_RIGHT);
-                code.setText(" " + tc[1] + " ");
+                code.setText(mnemonics(RtlText.ltr(" " + tc[1] + " ")));
                 code.setFont(mono);
                 code.setBackground(codeBg);
                 code.setLayoutData(new GridData(SWT.BEGINNING, SWT.TOP, false, false));
@@ -279,23 +292,17 @@ public class MentorView extends ViewPart {
         cards.add(c);
     }
 
-    /** העצה: הטקסט, והקוד שבסוף (אחרי נקודתיים) — בנפרד */
-    static String[] splitCode(String tip) {
-        String t = tip.trim();
-        int end = t.lastIndexOf('`');
-        if (end == t.length() - 1) {
-            int start = t.lastIndexOf('`', end - 1);
-            if (start >= 0) {
-                String before = t.substring(0, start).trim();
-                if (before.endsWith(":")) return new String[] { before, t.substring(start + 1, end) };
-            }
-        }
-        return new String[] { t, null };
+    /** הכותרת של ההצעה בכרטיס */
+    static final String FIX = "הצעה לתיקון: ";
+
+    /** טקסט לתווית מימין לשמאל: קטעי הקוד והאנגלית משמאל לימין כיחידה אחת (RtlText) */
+    private static String text(String s) {
+        return mnemonics(RtlText.rtl(s));
     }
 
-    /** טקסט לתווית מימין לשמאל: קטעי קוד קצרים בין שני LRM (כדי שלא יתהפכו) */
-    private static String plain(String s) {
-        return s.replace('`', '‎');
+    /** בתווית של SWT התו & מסמן קיצור מקשים (ונעלם) — && מציג & אחד (למשל a && b בקוד) */
+    private static String mnemonics(String s) {
+        return s.replace("&", "&&");
     }
 
     private void reveal(Mentor.Finding f) {
