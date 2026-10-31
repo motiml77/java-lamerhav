@@ -250,6 +250,7 @@ public final class TraceViewer {
                     break;
                 case "LOOP":   // LOOP verdict — הצעד הזה: התוכנית נעצרה בלולאה שלא נגמרת (LoopGuard.Verdict; הכרטיס — LoopCard)
                     if (cur != null) loops.put(cur, f.length > 1 ? f[1] : "");
+                    break;
                 case "WAIT":
                     waits.add(f);
                     break;
