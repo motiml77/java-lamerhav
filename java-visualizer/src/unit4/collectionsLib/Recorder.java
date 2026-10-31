@@ -121,6 +121,17 @@ final class Recorder {
         }
     }
 
+    /** עוד צעדים מאותו מקור (תוכנית C# שעוד רצה — TraceViewer --live): נוספים בסוף, והפלט החדש אחרי הפלט */
+    static void adoptMore(List<Step> more, String out) {
+        synchronized (LOCK) {
+            for (Step s : more) {
+                s.index = steps.size();
+                steps.add(s);
+            }
+            output.append(out);
+        }
+    }
+
     static String outputUpTo(int len) {
         synchronized (LOCK) { return output.substring(0, Math.min(len, output.length())); }
     }
@@ -164,11 +175,13 @@ final class Recorder {
             Thread watcher = new Thread(new Runnable() {
                 public void run() {
                     try { main.join(); } catch (InterruptedException ignored) {}
-                    if (failure == null)   // אחרי שגיאה — היא הצעד האחרון (עם ההסבר), בלי "התוכנית הסתיימה" אחריה
+                    if (failure == null && !loopStopped)   // אחרי שגיאה — היא הצעד האחרון (עם ההסבר), בלי "התוכנית הסתיימה" אחריה
                         recordAt(Kind.END, null, Mark.NONE, null, "התוכנית הסתיימה", new StackTraceElement[0]);
                 }
             }, "viz-watcher");
-            watcher.setDaemon(true);
+            // לא daemon: ה-JVM מחכה לו עד שהצעד "התוכנית הסתיימה" נרשם (daemon — לפעמים התהליך נסגר לפני כן, והצעד חסר).
+            // הוא מחכה רק ל-main, כך שהוא לא מחזיק את התוכנית בחיים אחריו (ו-System.exit לא מחכה לו בכלל)
+            watcher.setDaemon(false);
             watcher.start();
         }
         if (!textMode) {
@@ -262,6 +275,49 @@ final class Recorder {
             if (t.length() > 0) {
                 record(Kind.OUTPUT, null, Mark.NONE, null, "הדפסה: " + shorten(t, 60));
             }
+        }
+    }
+
+    // ------------------------------------------------------------ קלט מהמקלדת (Keyboard)
+
+    /**
+     * התוכנית מנסה לקרוא קלט ואין: השורות שממתינות הופכות לצעדים — כך השורה שקוראת היא הצעד האחרון בחלון.
+     * תוכנית שעוד לא עשתה כלום שמתועד — החלון נפתח עכשיו, כדי שיהיה איפה להקליד. בלי חלון (בדיקות) — מודפס איפה מחכים.
+     * מחזיר את האינדקס של הצעד האחרון (או -1).
+     */
+    static int inputWait(Frame f, String call) {
+        synchronized (LOCK) {
+            if (lineMode) drainLines();
+            if (active && enabled) start();
+            if (textMode) out.println("  \u2328 מחכה לקלט מהמקלדת" + (f == null ? "" : " — שורה " + f.line) + (call == null ? "" : ":  " + call));
+            return steps.size() - 1;
+        }
+    }
+
+    /**
+     * התוכנית קיבלה שורת קלט: מופיעה בפלט (בחלון — בצבע של קלט) ונרשמת כצעד INPUT בשורה שקראה אותה.
+     * echo = הוקלדה בחלון (או בבדיקה) — מודפסת גם לקונסול, כדי שיופיע שם "הכנס מספר: 5" כמו בהרצה רגילה
+     * (מה שהוקלד בקונסול עצמו כבר מופיע שם).
+     */
+    static void input(String typed, boolean echo) {
+        synchronized (LOCK) {
+            if (lineMode) drainLines();   // השורות שלפני הקריאה — בלי הקלט החדש
+            if (echo) {
+                out.println(typed);
+                out.flush();
+            }
+            output.append(typed).append('\n');   // הצעד (outLen) כבר כולל את מה שהוקלד
+            int before = steps.size();
+            recordAt(Kind.INPUT, null, Mark.NONE, null, "קלט מהמקלדת: \u200E" + shorten(typed, 60) + "\u200E", new Throwable().getStackTrace());
+            if (steps.size() > before) steps.get(steps.size() - 1).input = typed;
+        }
+    }
+
+    /** התוכנית ניסתה לקרוא ואין עוד קלט ("סיום הקלט", או בלי חלון — הקלט נגמר): צעד INPUT בלי input (null) */
+    static void inputEnd() {
+        synchronized (LOCK) {
+            if (lineMode) drainLines();
+            recordAt(Kind.INPUT, null, Mark.NONE, null, "סוף הקלט — אין עוד מה לקרוא", new Throwable().getStackTrace());
         }
     }
 
@@ -720,7 +776,9 @@ final class Recorder {
     }
 
     static void recordAt(Kind kind, Object target, Mark mark, String ghost, String text, StackTraceElement[] trace) {
+        if (kind == Kind.CHANGE || kind == Kind.CREATE) mutations++;   // לולאה שלא נגמרת: ה-Tracer בודק אם משהו במבנים השתנה (LoopGuard)
         synchronized (LOCK) {
+            if (loopStopped) return;   // הלולאה שלא נגמרת נעצרה — הצעד שלה (עם הכרטיס) הוא האחרון
             if (lineMode) drainLines();   // קודם השורות שהגיעו לפני הצעד הזה
             if (!enabled || !active || suspended > 0) return;
             start();
@@ -728,8 +786,10 @@ final class Recorder {
             if (steps.size() >= maxSteps) {
                 if (!limitReached && !always) {
                     limitReached = true;
-                    addStep(Kind.ERROR, null, Mark.NONE, null,
-                            "התיעוד נעצר אחרי " + maxSteps + " צעדים — אולי יש לולאה אינסופית? (אפשר להגדיל: Viz.maxSteps)",
+                    // שורה-שורה: התוכנית ממשיכה, ולולאה שלא נגמרת נעצרת עם כרטיס משלה (LoopGuard) — כאן רק הערה
+                    addStep(lineMode ? Kind.NOTE : Kind.ERROR, null, Mark.NONE, null, lineMode
+                            ? "התיעוד נעצר אחרי " + maxSteps + " צעדים — מכאן התוכנית ממשיכה לרוץ בלי לצייר (אפשר להגדיל: Viz.maxSteps)"
+                            : "התיעוד נעצר אחרי " + maxSteps + " צעדים — אולי יש לולאה אינסופית? (אפשר להגדיל: Viz.maxSteps)",
                             trace);
                 }
                 if (!always) return;
@@ -778,12 +838,16 @@ final class Recorder {
             suspended--;
         }
         s.outLen = output.length();
-        s.vars = currentVars;
+        // Kind.END: אין לצעד הזה מחסנית קריאות משלו (הוא לא "בתוך" שורה) — המשתנים הם תמיד אלה של main ברגע שסיים,
+        // ולא currentVars (שעלול עדיין להחזיק את המשתנים של פעולת עזר שרצה אחרונה, אם main עצמו לא עבר עוד שורה)
+        s.vars = kind == Kind.END && lineMode ? mainVars : currentVars;
+        attachFrameVars(s);
+        if (kind == Kind.END && s.vars != null) s.frameVars = java.util.Collections.singletonList(s.vars);
         steps.add(s);
         if (textMode) printStep(s);
     }
 
-    private static boolean isLibrary(String cls) {
+    static boolean isLibrary(String cls) {
         return cls.startsWith("unit4.collectionsLib.") || cls.startsWith("java.") || cls.startsWith("javax.")
                 || cls.startsWith("sun.") || cls.startsWith("jdk.") || cls.startsWith("com.sun.");
     }
@@ -1014,11 +1078,13 @@ final class Recorder {
                 return ord(b) - ord(a);
             }
         });
+        heads = mainFirst(heads, len);
         for (Node<?> n : nodes)   // השמות שהצביעו על כל חוליה — כדי לדעת אחר כך מי "זז" ממנה
             if (labels.get(n) != null && !lostAt.containsKey(n)) lastNames.put(n, new ArrayList<String>(labels.get(n)));
         Set<Object> seen = identitySet();
-        for (Node<?> h : heads) addChain(views, h, seen, target, mark, labels, lastNode);
-        for (Node<?> n : nodes) if (!seen.contains(n)) addChain(views, n, seen, target, mark, labels, lastNode); // מעגלים
+        Map<Object, Object[]> inMain = new IdentityHashMap<Object, Object[]>();   // חוליה → {השרשרת שבשורה שלה היא מצוירת, המקום בה}
+        for (Node<?> h : heads) addChain(views, h, seen, target, mark, labels, lastNode, inMain);
+        for (Node<?> n : nodes) if (!seen.contains(n)) addChain(views, n, seen, target, mark, labels, lastNode, inMain); // מעגלים
 
         // --- עצים
         Set<Object> children = identitySet();
@@ -1148,7 +1214,7 @@ final class Recorder {
                 res = linearView(item, target, mark, item == target ? ghost : null);
             } else if (item instanceof Node) {
                 List<View> tmp = new ArrayList<View>();
-                addChain(tmp, (Node<?>) item, identitySet(), target, mark, none, null);
+                addChain(tmp, (Node<?>) item, identitySet(), target, mark, none, null, null);
                 res = tmp.get(0);
             } else {
                 BinNode<?> b = (BinNode<?>) item;
@@ -1233,19 +1299,67 @@ final class Recorder {
         return 1 + treeSize(t.left, s) + treeSize(t.right, s);
     }
 
+    /**
+     * שרשראות שמתחברות לאותו המשך (למשל חוליה חדשה q אחרי q.setNext(p.getNext()) — היא ו-p.getNext() מצביעות לאותה חוליה):
+     * הארוכה מביניהן — ואם שוות, הוותיקה (הרשימה הקיימת) — ראשונה, והשאר מיד אחריה: הן יצוירו כענפים שלה ולא כרשימה נפרדת.
+     * הסדר בין הקבוצות לא משתנה
+     */
+    private static List<Node<?>> mainFirst(List<Node<?>> heads, final Map<Object, Integer> len) {
+        Map<Object, Integer> group = new IdentityHashMap<Object, Integer>();   // חוליה → מספר הקבוצה שלה
+        List<List<Node<?>>> groups = new ArrayList<List<Node<?>>>();
+        for (Node<?> h : heads) {
+            Integer g = null;
+            List<Node<?>> walked = new ArrayList<Node<?>>();
+            Set<Object> mine = identitySet();
+            for (Node<?> p = h; p != null && mine.add(p) && walked.size() < MAX_CELLS; p = p.next) {
+                g = group.get(p);
+                if (g != null) break;   // הגענו להמשך של שרשרת קודמת
+                walked.add(p);
+            }
+            if (g == null) {
+                g = groups.size();
+                groups.add(new ArrayList<Node<?>>());
+            }
+            for (Node<?> p : walked) group.put(p, g);
+            groups.get(g).add(h);
+        }
+        List<Node<?>> res = new ArrayList<Node<?>>();
+        for (List<Node<?>> l : groups) {
+            Collections.sort(l, new Comparator<Node<?>>() {
+                public int compare(Node<?> a, Node<?> b) {
+                    if (!len.get(a).equals(len.get(b))) return len.get(b) - len.get(a);
+                    return ord(a) - ord(b);
+                }
+            });
+            res.addAll(l);
+        }
+        return res;
+    }
+
+    /**
+     * inMain: החוליות שכבר מצוירות בשורה הראשית של שרשרת (→ {השרשרת, המקום}). שרשרת שמגיעה לאחת מהן היא "ענף" של אותה שרשרת
+     * (ומצוירת מתחתיה, עם חץ אל החוליה) — ולא רשימה נפרדת עם "ממשיך ברשימה אחרת". null = בלי ענפים (מבנה בתוך תא)
+     */
     private static void addChain(List<View> views, Node<?> head, Set<Object> seen, Object target, Mark mark,
-                                 Map<Object, List<String>> labels, Object lastNode) {
+                                 Map<Object, List<String>> labels, Object lastNode, Map<Object, Object[]> inMain) {
         ChainView c = new ChainView();
         c.src = head;
         c.title = names.get(head) != null ? names.get(head) : "רשימה";
         Map<Object, Integer> pos = new IdentityHashMap<Object, Integer>();
+        List<Node<?>> mine = new ArrayList<Node<?>>();
+        Object[] join = null;
         Node<?> cur = head;
         while (cur != null) {
             if (pos.containsKey(cur)) { c.cycleTo = pos.get(cur); break; }
-            if (seen.contains(cur)) { c.joinText = "[" + str(cur.value) + "]"; break; }
+            if (seen.contains(cur)) {
+                join = inMain == null ? null : inMain.get(cur);
+                if (join == null) c.joinText = "[" + str(cur.value) + "]";
+                break;
+            }
             if (c.cells.size() >= MAX_CELLS) { c.truncated = true; break; }
             pos.put(cur, c.cells.size());
             seen.add(cur);
+            mine.add(cur);
             Cell cell = new Cell();
             fillCell(cell, cur, cur.value, target, mark, labels, lastNode);
             if (cur == target || (cell.sub != null && cell.sub.focus)) c.focus = true;
@@ -1254,6 +1368,14 @@ final class Recorder {
             cur = cur.next;
         }
         lostNote(c, head);
+        if (join != null) {   // ענף: האחרונה מצביעה לחוליה באמצע שרשרת שכבר מצוירת
+            ChainView main = (ChainView) join[0];
+            c.joinTo = (Integer) join[1];
+            main.branches.add(c);
+            if (c.focus) main.focus = true;
+            return;
+        }
+        if (inMain != null) for (int i = 0; i < mine.size(); i++) inMain.put(mine.get(i), new Object[] { c, i });
         views.add(c);
     }
 
@@ -1364,6 +1486,8 @@ final class Recorder {
         }
         for (View v : s.views) {   // חוליות שאבדו וכרטיס השגיאה — תמיד (גם כשהמבנה לא בפוקוס)
             if (v instanceof ChainView && ((ChainView) v).lostNote != null) b.append("      [").append(((ChainView) v).lostNote).append(']');
+            if (v instanceof ChainView)
+                for (ChainView br : ((ChainView) v).branches) if (br.lostNote != null) b.append("      [").append(br.lostNote).append(']');
             if (v instanceof ChainView && !((ChainView) v).nullLabels.isEmpty()) b.append("      [null: ").append(((ChainView) v).nullLabels).append(']');
             if (v instanceof LinearView && ((LinearView) v).error != null) b.append("      [").append(v.title).append(" ריק: ").append(((LinearView) v).error).append(']');
             if (v instanceof Model.ProblemView) {
@@ -1371,12 +1495,46 @@ final class Recorder {
                 b.append("      [כרטיס ").append(p.kind).append(p.name != null ? " " + p.name : "").append(p.op != null ? " " + p.op : "").append(']');
             }
         }
-        if (s.vars != null && s.kind == Kind.LINE) {
+        if (s.vars != null && (s.kind == Kind.LINE || s.kind == Kind.END)) {
             b.append("      {");
             for (int i = 0; i < s.vars.size(); i++) b.append(i == 0 ? "" : ", ").append(s.vars.get(i)[0]).append('=').append(s.vars.get(i)[1]);
             b.append('}');
         }
         if (s.kind != Kind.OUTPUT) out.println(b);
+    }
+
+    /**
+     * בדיקות (-Ddsviz.conditions=true): מה מצויר ברשימות המקושרות — שורה לכל צעד שבו הציור השתנה. למשל
+     * [שרשרת #8: n: 5(n)→3(list)→7→1→null] — ערך(המשתנים שמצביעים עליה); ~ = חוליה שאבדה; ענף 4(q)↗7 = חוליה שמצביעה לאמצע השרשרת
+     */
+    static String chainDump() {
+        StringBuilder b = new StringBuilder();
+        String last = null;
+        for (int i = 0; i < stepCount(); i++) {
+            StringBuilder now = new StringBuilder();
+            for (View v : step(i).views)
+                if (v instanceof ChainView)
+                    now.append("  [שרשרת #").append(i + 1).append(": ").append(v.title).append(": ").append(chainText((ChainView) v)).append("]\n");
+            String key = now.toString().replaceAll("#\\d+:", "#:");
+            if (!key.equals(last)) b.append(now);
+            last = key;
+        }
+        return b.toString();
+    }
+
+    static String chainText(ChainView c) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < c.cells.size(); i++) {
+            Cell x = c.cells.get(i);
+            b.append(i == 0 ? "" : "→").append(x.lost ? "~" : "").append(x.value);
+            if (!x.labels.isEmpty()) b.append('(').append(String.join(",", x.labels)).append(')');
+        }
+        if (c.joinTo >= 0) return b.toString();
+        b.append('→').append(c.cycleTo >= 0 ? "מעגל:" + c.cycleTo : c.joinText != null ? c.joinText + "(ברשימה אחרת)" : c.truncated ? "..." : "null");
+        if (!c.nullLabels.isEmpty()) b.append('(').append(String.join(",", c.nullLabels)).append(')');
+        for (ChainView br : c.branches)
+            b.append(" ; ענף ").append(chainText(br)).append('↗').append(br.joinTo < c.cells.size() ? c.cells.get(br.joinTo).value : "?");
+        return b.toString();
     }
 
     static {
@@ -1388,7 +1546,10 @@ final class Recorder {
                     out.print(CondViz.dump());
                     out.print(CallViz.dump());
                     out.print(SelfViz.dump());
+                    out.print(LoopArrow.dump());
                     out.print(RecursionKind.dump());
+                    out.print(chainDump());
+                    out.print(FrameViz.dump());
                     out.flush();
                 } catch (RuntimeException e) {
                     out.println("  [תנאים: " + e + "]");
@@ -1423,6 +1584,11 @@ final class Recorder {
         lineMode = true;
         lineTexts = new String[LINE_CAPACITY];
         lineObjs = new Object[OBJ_CAPACITY];
+        Thread t = new Thread(new Runnable() {
+            public void run() { watchLoopVerdict(); }
+        }, "dsviz-loop");
+        t.setDaemon(true);
+        t.start();
     }
 
     /** נקרא בתחילת כל פעולה ציבורית של הספרייה */
@@ -1432,7 +1598,7 @@ final class Recorder {
 
     static void drainLines() {
         synchronized (LOCK) {
-            if (!enabled || !active || !lineMode) return;
+            if (!enabled || !active || !lineMode || loopStoppedDone) return;
             start();   // גם תוכנית בלי מבנים בכלל מקבלת חלון
             while (lineRead < LINE_CAPACITY && lineTexts[lineRead] != null) {
                 String meta = lineTexts[lineRead];
@@ -1448,7 +1614,12 @@ final class Recorder {
      * משתנה: שם\u0002ערך, וכשהערך הוא \u0003 ואחריו מספר — זה המבנה עם ה-vizId הזה.
      */
     private static void addLine(String meta) {
-        if (!enabled) return;
+        addLine(meta, Kind.LINE, null);
+    }
+
+    /** forced != null: צעד מסוג kind עם הטקסט הזה — גם אחרי המגבלה (העצירה של לולאה שלא נגמרת). מחזיר את הצעד (או null) */
+    private static Step addLine(String meta, Kind kind, String forced) {
+        if (!enabled) return null;
         String[] halves = meta.split("\u0004", -1);
         List<Frame> frames = new ArrayList<Frame>();
         for (String f : split(halves[0])) {
@@ -1489,6 +1660,8 @@ final class Recorder {
         }
         frameVars = fv;
         currentVars = vars;
+        lineFrameVars = parseFrameVars(halves, vars, frames.size());
+        if (frames.size() == 1) mainVars = vars;   // המשתנים של main ברגע הזה — למעקב המשתנים בצעד הסיום (END)
         // המבנים שהמשתנים של הפעולות שקראו לנוכחית מצביעים עליהם — כדי לדעת אם חוליה באמת אבדה
         List<Object> roots = new ArrayList<Object>();
         if (halves.length > 3) for (String id : split(halves[3])) {
@@ -1517,16 +1690,83 @@ final class Recorder {
         String code = f == null ? null : SourceFiles.line(f);
         // הקוד עצמו בתוך "הטבעה" משמאל לימין (\u202A...\u202C), כדי שלא יתהפך בתוך הטקסט העברי
         String text = f == null ? "שורה" : "שורה " + f.line + ":   \u202A" + (code == null ? f.method + "()" : code.trim()) + "\u202C";
-        if (steps.size() >= maxSteps) {
+        if (forced != null) text = forced;
+        if (steps.size() >= maxSteps && forced == null) {
             linesFull = true;
-            return;
+            if (!limitReached) {   // פעם אחת: הסבר שהתיעוד נעצר (התוכנית ממשיכה; לולאה שלא נגמרת תיעצר עם כרטיס משלה)
+                limitReached = true;
+                addStep(Kind.NOTE, null, Mark.NONE, null, "התיעוד נעצר אחרי " + maxSteps + " צעדים — מכאן התוכנית ממשיכה לרוץ בלי לצייר (אפשר להגדיל: Viz.maxSteps)", frames);
+            }
+            return null;
         }
         try {
-            addStep(Kind.LINE, null, Mark.NONE, null, text, frames);
+            addStep(forced == null ? Kind.LINE : kind, null, Mark.NONE, null, text, frames);
         } finally {
             lineSnap.clear();   // צעדים אחרים (פעולות של הספרייה) מצלמים את האובייקט כפי שהוא עכשיו
         }
         if (steps.size() >= maxSteps) linesFull = true;
+        return steps.get(steps.size() - 1);
+    }
+
+    // ------------------------------------------------------------ לולאה שלא נגמרת (LoopGuard / LoopCard)
+    //
+    // ה-JdiTracer (בתהליך האב) מזהה לולאה שלא נגמרת, עוצר את ה-main של התלמיד (משאיר אותו מושהה — בלי לשרוף מעבד),
+    // וכותב כאן את ההחלטה. חוט קטן כאן מוסיף את הצעד האחרון — שורת התנאי של הלולאה עם הכרטיס שמסביר — והחלון נשאר פתוח.
+    // סגירת החלון מסיימת את התהליך (EXIT_ON_CLOSE); בלי חלון (בדיקות) — מדפיסים ויוצאים.
+
+    /** ההחלטה מה-Tracer: LoopGuard.Verdict \u0011 פרטי השורה (כמו ב-lineTexts) — או null */
+    static volatile String loopVerdict;
+    /** כל שינוי במבנה של הספרייה (push / pop / setNext / new...) — ה-Tracer משווה בין סיבובים כדי לדעת אם משהו השתנה */
+    static volatile int mutations;
+    /**
+     * קלט מהמקלדת: קוד שממתין לקלט מהתלמיד (למשל שורת הקלט שבחלון) שם כאן true בזמן ההמתנה, ו-false אחריה —
+     * כך "אין שורות חדשות כמה שניות" לא נחשב לולאה תקועה. (Scanner רגיל על System.in מזוהה גם בלי זה — לפי מחסנית הקריאות.)
+     */
+    static volatile boolean waitingForInput;
+    /** הלולאה נעצרה — ההרצה לא תגיע ל"התוכנית הסתיימה" */
+    static volatile boolean loopStopped;
+    /** ... והצעד של העצירה כבר נוסף — אחריו לא נוספים צעדים (גם לא שורות שעוד ממתינות) */
+    private static boolean loopStoppedDone;
+
+    private static void watchLoopVerdict() {
+        while (true) {
+            try {
+                Thread.sleep(80);
+            } catch (InterruptedException e) {
+                return;
+            }
+            String v = loopVerdict;
+            if (v == null) continue;
+            loopStopped(v);
+            return;
+        }
+    }
+
+    /** הצעד האחרון: שורת התנאי של הלולאה, עם הכרטיס "הלולאה לא נגמרת" */
+    static void loopStopped(String v) {
+        int cut = v.indexOf('\u0011');
+        String verdict = cut < 0 ? v : v.substring(0, cut), meta = cut < 0 ? null : v.substring(cut + 1);
+        synchronized (LOCK) {
+            loopStopped = true;
+            drainLines();   // קודם כל השורות שעוד ממתינות — כך אפשר לחזור אחורה בסיבובים האחרונים
+            Step st = meta != null && enabled && active ? addLine(meta, Kind.ERROR, LoopCard.STOP_TEXT) : null;
+            loopStoppedDone = true;
+            if (st != null) {
+                try {
+                    Model.ProblemView p = LoopCard.attach(steps, st, verdict);
+                    if (textMode && p != null) {
+                        out.println("      [כרטיס " + p.kind + (p.name != null ? " " + p.name : "") + (p.op != null ? " " + p.op : "") + "]");
+                        out.println("      " + LoopCard.text(p));
+                    }
+                } catch (RuntimeException e) {
+                    // בלי כרטיס — הצעד עצמו מראה איפה נעצרנו
+                }
+            }
+        }
+        if (textMode) {   // בלי חלון: אין מה לראות — יוצאים (ה-main מושהה ע"י ה-Tracer)
+            out.flush();
+            System.exit(1);
+        }
     }
 
     /**
@@ -1534,6 +1774,81 @@ final class Recorder {
      * כשהאובייקט כבר השתנה — בלי זה הבנאי היה מראה כבר את הגיל אחרי birthday.
      */
     private static final Map<Object, Map<String, String>> lineSnap = new IdentityHashMap<Object, Map<String, String>>();
+
+    // ------------------------------------------------------------ המשתנים של הפעולות שמחכות (FrameViz)
+
+    /** המשתנים של כל המסגרות בשורה האחרונה, במקביל ל-lineFrames (0 = העליונה = currentVars; null = לא נשלחו) */
+    private static List<List<String[]>> lineFrameVars;
+    /** המשתנים של main בשורה האחרונה שלו (ולא, למשל, של פעולת עזר שרצה אחריה) — ל-Kind.END, שאין לו מחסנית קריאות משלו */
+    private static List<String[]> mainVars;
+
+    /** החצי של ה-Tracer שמתחיל ב-\u0012 (ראו JdiTracer.appendFrameVars): מספר מסגרת \u0013 משתנים, מופרדות ב-\u0011 */
+    private static List<List<String[]>> parseFrameVars(String[] halves, List<String[]> top, int depth) {
+        List<List<String[]>> res = new ArrayList<List<String[]>>();
+        res.add(top);
+        for (int i = 1; i < depth; i++) res.add(null);
+        String half = null;
+        for (int h = 4; h < halves.length; h++) if (halves[h].startsWith("\u0012")) half = halves[h].substring(1);
+        if (half == null || half.isEmpty()) return res;
+        suspended++;
+        try {
+            for (String group : half.split("\u0011")) {
+                int cut = group.indexOf('\u0013');
+                int k;
+                try {
+                    k = cut > 0 ? Integer.parseInt(group.substring(0, cut)) : -1;
+                } catch (NumberFormatException e) {
+                    k = -1;
+                }
+                if (k <= 0 || k >= depth) continue;
+                List<String> items = split(group.substring(cut + 1));
+                for (String item : items) {   // קודם הערכים של האובייקטים ברגע השורה — ואז הטקסט של כל משתנה
+                    String[] p = item.split("\u0002", -1);
+                    String value = p.length > 1 ? p[1] : "";
+                    int c = value.startsWith("\u0003") ? value.indexOf('\u0007') : -1;
+                    Object o = c > 0 ? byId(value.substring(1, c)) : null;
+                    if (o != null && !lineSnap.containsKey(o)) lineSnap.put(o, parseSnap(value.substring(c + 1)));
+                }
+                List<String[]> vs = new ArrayList<String[]>();
+                for (String item : items) {
+                    String[] p = item.split("\u0002", -1);
+                    String value = p.length > 1 ? p[1] : "";
+                    int c = value.startsWith("\u0003") ? value.indexOf('\u0007') : -1;
+                    if (c > 0) value = value.substring(0, c);
+                    Object o = value.startsWith("\u0003") ? byId(value.substring(1)) : null;
+                    vs.add(new String[] { p[0], o != null ? formatVar(o) : resolveRefs(value) });
+                }
+                res.set(k, vs);
+            }
+        } catch (RuntimeException e) {
+            // בלי המשתנים של הפעולות שמחכות — שאר השורה כרגיל
+        } finally {
+            suspended--;
+        }
+        return res;
+    }
+
+    /**
+     * המשתנים של כל פעולה במחסנית של הצעד (Step.frameVars), לפי השורה האחרונה — מיושרים מלמטה (main) למעלה.
+     * צעד בפעולה שקראה, לפני השורה הבאה שלה (חזרנו מפעולה אחרת) — מקבל את המשתנים שלה ולא של הפעולה שחזרה.
+     */
+    private static void attachFrameVars(Step s) {
+        if (lineFrameVars == null || s.calls.isEmpty()) return;
+        if (s.calls == lineFrames) {
+            s.frameVars = lineFrameVars;
+            return;
+        }
+        int off = lineFrames.size() - s.calls.size();
+        List<List<String[]>> res = new ArrayList<List<String[]>>();
+        for (int k = 0; k < s.calls.size(); k++) {
+            int j = k + off;
+            Frame a = s.calls.get(k), b = j >= 0 && j < lineFrames.size() ? lineFrames.get(j) : null;
+            boolean same = b != null && j < lineFrameVars.size() && a.method.equals(b.method) && a.className.equals(b.className);
+            res.add(same ? lineFrameVars.get(j) : null);
+        }
+        if (off > 0 && res.get(0) != null) s.vars = res.get(0);
+        s.frameVars = res;
+    }
 
     private static Map<String, String> parseSnap(String snap) {
         Map<String, String> m = new HashMap<String, String>();

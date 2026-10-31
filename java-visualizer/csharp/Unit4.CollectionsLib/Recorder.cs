@@ -58,6 +58,7 @@ namespace Unit4.CollectionsLib
             Frame top = Frames[Frames.Count - 1];
             if (!top.Returned && !top.Faulted) AddReturn(null);
             if (Frames.Count == 1) endVars = new List<KeyValuePair<string, object>>(top.Vars);   // המשתנים של main — לצילום האחרון
+            LoopGuard.OnExit(Frames.Count);
             Frames.RemoveAt(Frames.Count - 1);
         }
 
@@ -70,11 +71,19 @@ namespace Unit4.CollectionsLib
             AddStep(Kind.ERROR, null, Mark.NONE, null, "שגיאה: " + Describe(e), true);
         }
 
+        /// <summary>
+        /// נקרא לפני כל שורה (בחוט של התוכנית, בין צעדים שלמים): החלון שכבר פתוח (קלט מהמקלדת) מקבל משם את הצעדים החדשים.
+        /// null — אין חלון פתוח בזמן ההרצה.
+        /// </summary>
+        public static Action Live;
+
         public static void Line(int line, object[] kv)
         {
             if (!Active || Frames.Count == 0) return;
+            Live?.Invoke();
             Frame top = Frames[Frames.Count - 1];
             top.Line = line;
+            LoopGuard.OnLine(Frames.Count, MethodKey(top), line);
             top.Vars.Clear();
             var vars = new List<string[]>();
             for (int i = 0; i + 1 < kv.Length; i += 2)
@@ -85,9 +94,41 @@ namespace Unit4.CollectionsLib
                 vars.Add(new[] { name, FormatVar(kv[i + 1]) });
             }
             currentVars = vars;
+            currentVarsFrame = top;
+            currentCallerVars = CallerVars();
             string code = SourceLine(top.File, line);
             string text = "שורה " + line + ":   ‪" + (code == null ? top.Method + "()" : code.Trim()) + "‬";
             AddStep(Kind.LINE, null, Mark.NONE, null, text, false);
+        }
+
+        static string MethodKey(Frame f) { return f.File + "|" + f.Class + "." + f.Method; }
+
+        // ------------------------------------------------------------ לולאה שלא נגמרת (LoopGuard)
+
+        /// <summary>הלולאה נעצרה — ההרצה לא תגיע ל"התוכנית הסתיימה"; Program מחכה ל-LoopStop במקום לסוף התוכנית</summary>
+        public static volatile bool LoopStopped;
+        public static readonly System.Threading.ManualResetEvent LoopStop = new System.Threading.ManualResetEvent(false);
+
+        /// <summary>
+        /// התנאי של לולאה (בכל סיבוב): השורה כמו כל שורה, ואז — האם הלולאה לא נגמרת. אם כן: הצעד האחרון הוא שורת התנאי
+        /// עם ההחלטה (החלון מראה כרטיס שמסביר), והתוכנית נעצרת כאן — החוט של התלמיד נשאר תקוע, בלי לשרוף מעבד.
+        /// </summary>
+        public static void LoopLine(int line, string info, object cmp, object bound, object[] kv)
+        {
+            Line(line, kv);
+            if (!Active || Frames.Count == 0 || LoopStopped) return;
+            Frame top = Frames[Frames.Count - 1];
+            string verdict;
+            try { verdict = LoopGuard.Visit(Frames.Count, MethodKey(top), line, info, cmp, bound, kv, Steps.Count >= MaxSteps); }
+            catch (Exception) { verdict = null; }
+            if (verdict == null) return;
+            LoopStopped = true;
+            AddStep(Kind.ERROR, null, Mark.NONE, null, "הלולאה לא נגמרת — התוכנית נעצרה", true);
+            Steps[Steps.Count - 1].Loop = verdict;
+            try { Console.Error.WriteLine("הלולאה בשורה " + line + " לא נגמרת — התוכנית נעצרה (ההסבר בחלון של ההרצה הוויזואלית)"); }
+            catch (Exception) { }
+            LoopStop.Set();
+            System.Threading.Thread.Sleep(System.Threading.Timeout.Infinite);
         }
 
         public static T Return<T>(T value)
@@ -131,10 +172,76 @@ namespace Unit4.CollectionsLib
             Frames.Clear();
         }
 
+        // ------------------------------------------------------------ קלט מהמקלדת (Console.ReadLine — DsViz.Keyboard)
+
+        /// <summary>המקומות שבהם התוכנית חיכתה לקלט (לקובץ ההרצה ולבדיקות)</summary>
+        public static readonly List<InputWait> Waits = new List<InputWait>();
+
+        /// <summary>
+        /// התוכנית מתחילה לחכות לקלט: איפה (השורה שקוראת עכשיו — המסגרת העליונה), ומה היא קוראת.
+        /// method = הפעולה של הקלט (ReadLine / Read...). מחזיר את פרטי ההמתנה (Step = הצעד האחרון, או -1).
+        /// </summary>
+        public static InputWait InputWaiting(string method)
+        {
+            var w = new InputWait { Step = Steps.Count - 1, Call = method + "()", What = "ערך" };
+            if (Frames.Count > 0)
+            {
+                Frame top = Frames[Frames.Count - 1];
+                w.Class = top.Class;
+                w.Method = top.Method;
+                w.File = top.File;
+                w.Line = top.Line;
+            }
+            string src = w.File == null ? null : SourceLine(w.File, w.Line);
+            if (src != null)
+            {
+                Match m = Regex.Match(src, @"([A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*)\s*\.\s*" + method + @"\s*\(\s*\)");
+                if (m.Success) w.Call = Regex.Replace(m.Groups[1].Value, @"\s+", "") + "." + method + "()";
+            }
+            w.What = InputWhat(method, src ?? "");
+            if (Active) Waits.Add(w);
+            return w;
+        }
+
+        /// <summary>מה התוכנית מחכה שיקלידו — לפי הפעולה ולפי מה שעושים עם השורה (int.Parse → מספר שלם)</summary>
+        static string InputWhat(string method, string src)
+        {
+            if (method == "Read" || method == "Peek") return "תו";
+            if (method == "ReadToEnd") return "טקסט (עד סיום הקלט)";
+            if (Regex.IsMatch(src, @"\b(int|long|short|byte|Int32|Int64|Int16)\s*\.\s*(Try)?Parse\b|Convert\s*\.\s*ToInt(16|32|64)\b")) return "מספר שלם";
+            if (Regex.IsMatch(src, @"\b(double|float|decimal|Double|Single|Decimal)\s*\.\s*(Try)?Parse\b|Convert\s*\.\s*To(Double|Single|Decimal)\b")) return "מספר";
+            if (Regex.IsMatch(src, @"\b(char|Char)\s*\.\s*(Try)?Parse\b|Convert\s*\.\s*ToChar\b")) return "תו";
+            if (Regex.IsMatch(src, @"\b(bool|Boolean)\s*\.\s*(Try)?Parse\b|Convert\s*\.\s*ToBoolean\b")) return "true או false";
+            return "שורת טקסט";
+        }
+
+        /// <summary>
+        /// התוכנית קיבלה שורת קלט: מופיעה בפלט (בחלון — בצבע של קלט) ונרשמת כצעד INPUT בשורה שקראה אותה.
+        /// echo = הוקלדה בחלון (או בבדיקה) — מודפסת גם לקונסול, כדי שיופיע שם "הכנס מספר: 5" כמו בהרצה רגילה
+        /// (מה שהוקלד בקונסול עצמו כבר מופיע שם).
+        /// </summary>
+        public static void Input(string typed, System.IO.TextWriter echo)
+        {
+            if (echo != null)
+            {
+                echo.WriteLine(typed);
+                echo.Flush();
+            }
+            Output.Append(typed).Append('\n');   // הצעד (OutLen) כבר כולל את מה שהוקלד
+            if (!Active) return;
+            AddStep(Kind.INPUT, null, Mark.NONE, null, "קלט מהמקלדת: ‎" + Shorten(typed, 60) + "‎", false);
+        }
+
+        /// <summary>התוכנית ניסתה לקרוא ואין עוד קלט ("סיום הקלט", או בלי חלון — הקלט נגמר)</summary>
+        public static void InputEnd()
+        {
+            if (Active) AddStep(Kind.INPUT, null, Mark.NONE, null, "סוף הקלט — אין עוד מה לקרוא", false);
+        }
+
         // ------------------------------------------------------------ דיווח מהספרייה
 
-        public static void Create(object target, string text) { Record(Kind.CREATE, target, Mark.NEW, null, text); }
-        public static void Change(object target, Mark mark, string ghost, string text) { Record(Kind.CHANGE, target, mark, ghost, text); }
+        public static void Create(object target, string text) { if (Active) LoopGuard.Mutations++; Record(Kind.CREATE, target, Mark.NEW, null, text); }
+        public static void Change(object target, Mark mark, string ghost, string text) { if (Active) LoopGuard.Mutations++; Record(Kind.CHANGE, target, mark, ghost, text); }
         public static void Read(object target, string text) { Record(Kind.READ, target, Mark.READ, null, text); }
         public static void Check(object target, string text) { Record(Kind.CHECK, target, Mark.READ, null, text); }
         public static void Note(string text) { Record(Kind.NOTE, null, Mark.NONE, null, text); }
@@ -155,8 +262,9 @@ namespace Unit4.CollectionsLib
                 if (!limitReached && !always)
                 {
                     limitReached = true;
-                    AddStep(Kind.ERROR, null, Mark.NONE, null,
-                        "התיעוד נעצר אחרי " + MaxSteps + " צעדים — אולי יש לולאה אינסופית?", true);
+                    // התוכנית ממשיכה לרוץ; לולאה שלא נגמרת תיעצר עם כרטיס משלה (LoopGuard) — כאן רק הערה
+                    AddStep(Kind.NOTE, null, Mark.NONE, null,
+                        "התיעוד נעצר אחרי " + MaxSteps + " צעדים — מכאן התוכנית ממשיכה לרוץ בלי לצייר", true);
                 }
                 if (!always) return;
             }
@@ -174,7 +282,55 @@ namespace Unit4.CollectionsLib
             catch (Exception) { s.Views = new List<View>(); }
             s.OutLen = Output.Length;
             s.Vars = currentVars;
+            AttachFrameVars(s);
             Steps.Add(s);
+        }
+
+        // ------------------------------------------------------------ המשתנים של כל פעולה במחסנית (מעקב משתנים: בחירת פעולה)
+
+        const int FrameVarsDepth = 10, FrameVarsMax = 20;
+        /// <summary>המסגרת ש-currentVars שייכים לה (השורה האחרונה), והמשתנים של הפעולות שמחכות לה — כפי שהיו באותה שורה</summary>
+        static Frame currentVarsFrame;
+        static List<List<string[]>> currentCallerVars = new List<List<string[]>>();
+
+        /// <summary>
+        /// Step.Vars של הפעולה שרצה עכשיו, ו-FrameVars — המשתנים של הפעולות שמחכות (עד FrameVarsDepth מתחת לעליונה, ו-Main למטה),
+        /// מהשורה האחרונה (כמו Vars וכמו ב-Java). אחרי חזרה מפעולה, בלי שורה חדשה עדיין (s.Push(Helper(x)), צעד החזרה של
+        /// הפעולה שקראה, סוף התוכנית) — currentVars הם עדיין של הפעולה שחזרה: אז לוקחים את המשתנים של המסגרות עצמן.
+        /// </summary>
+        static void AttachFrameVars(Step s)
+        {
+            int n = Frames.Count;
+            if (n == 0) return;
+            List<List<string[]>> callers = currentCallerVars;
+            if (Frames[n - 1] != currentVarsFrame)
+            {
+                s.Vars = FormatFrame(Frames[n - 1]);
+                callers = CallerVars();
+            }
+            s.FrameVars = new List<List<string[]>> { s.Vars };
+            for (int k = 1; k < s.Calls.Count && k - 1 < callers.Count; k++) s.FrameVars.Add(callers[k - 1]);
+        }
+
+        /// <summary>המשתנים של הפעולות שמחכות לפעולה העליונה: [0] = מי שקרא לה ... (null — עמוק מדי)</summary>
+        static List<List<string[]>> CallerVars()
+        {
+            int n = Frames.Count;
+            var res = new List<List<string[]>>();
+            for (int k = 1; k < n && k < MaxCallFrames; k++)
+                res.Add(k <= FrameVarsDepth || k == n - 1 ? FormatFrame(Frames[n - 1 - k]) : null);
+            return res;
+        }
+
+        static List<string[]> FormatFrame(Frame f)
+        {
+            var res = new List<string[]>();
+            foreach (var kv in f.Vars)
+            {
+                if (res.Count >= FrameVarsMax) break;
+                res.Add(new[] { kv.Key, FormatVar(kv.Value) });
+            }
+            return res;
         }
 
         static string Describe(Exception e)
@@ -212,7 +368,9 @@ namespace Unit4.CollectionsLib
         /// <summary>setter / פעולה ששינתה את המאפיין field של owner (אחרי השינוי)</summary>
         public static void Changed(object owner, string field, string how)
         {
-            if (Active) AccessStep(owner, field, how, Mark.CHANGED, "");
+            if (!Active) return;
+            LoopGuard.Mutations++;
+            AccessStep(owner, field, how, Mark.CHANGED, "");
         }
 
         static void AccessStep(object owner, string field, string how, Mark mark, string result)
@@ -564,9 +722,19 @@ namespace Unit4.CollectionsLib
             var drawnNodes = new HashSet<object>(new RefComparer());
             var lens = new Dictionary<object, int>(new RefComparer());
             foreach (IVizNode h in heads) lens[h] = ChainLength(h);
-            heads = heads.OrderByDescending(h => lens[h]).ToList();
-            foreach (IVizNode h in heads) views.Add(ChainOf(h, drawnNodes, target, mark, labels));
-            foreach (IVizNode n in nodes) if (!drawnNodes.Contains(n)) views.Add(ChainOf(n, drawnNodes, target, mark, labels));   // מעגלים
+            heads = MainFirst(heads.OrderByDescending(h => lens[h]).ToList(), lens);
+            var inMain = new Dictionary<object, KeyValuePair<ChainView, int>>(new RefComparer());   // חוליה → השרשרת שבשורה שלה היא מצוירת, והמקום
+            foreach (IVizNode h in heads)
+            {
+                View cv = ChainOf(h, drawnNodes, target, mark, labels, inMain);
+                if (cv != null) views.Add(cv);   // null: ענף של שרשרת קודמת
+            }
+            foreach (IVizNode n in nodes)   // מעגלים
+            {
+                if (drawnNodes.Contains(n)) continue;
+                View cv = ChainOf(n, drawnNodes, target, mark, labels, inMain);
+                if (cv != null) views.Add(cv);
+            }
 
             // --- עצים
             var bins = new List<IVizBin>();
@@ -706,26 +874,75 @@ namespace Unit4.CollectionsLib
             return 1 + TreeSize(t.VizLeft, s) + TreeSize(t.VizRight, s);
         }
 
-        static View ChainOf(IVizNode head, HashSet<object> drawn, object target, Mark mark, Dictionary<object, List<string>> labels)
+        /// <summary>
+        /// שרשראות שמתחברות לאותו המשך (חוליה חדשה q אחרי q.SetNext(p.GetNext())): הארוכה — ואם שוות, הוותיקה (הרשימה הקיימת) —
+        /// ראשונה, והשאר מיד אחריה: הן יצוירו כענפים שלה ולא כרשימה נפרדת (כמו ב-Java). הסדר בין הקבוצות לא משתנה
+        /// </summary>
+        static List<IVizNode> MainFirst(List<IVizNode> heads, Dictionary<object, int> lens)
+        {
+            var group = new Dictionary<object, int>(new RefComparer());   // חוליה → מספר הקבוצה שלה
+            var groups = new List<List<IVizNode>>();
+            foreach (IVizNode h in heads)
+            {
+                int g = -1;
+                var walked = new List<IVizNode>();
+                var mine = new HashSet<object>(new RefComparer());
+                for (IVizNode p = h; p != null && mine.Add(p) && walked.Count < MaxCells; p = p.VizNext)
+                {
+                    if (group.TryGetValue(p, out g)) break;   // הגענו להמשך של שרשרת קודמת
+                    g = -1;
+                    walked.Add(p);
+                }
+                if (g < 0) { g = groups.Count; groups.Add(new List<IVizNode>()); }
+                foreach (IVizNode p in walked) group[p] = g;
+                groups[g].Add(h);
+            }
+            return groups.SelectMany(l => l.OrderByDescending(h => lens[h]).ThenBy(h => Ord(h))).ToList();
+        }
+
+        /// <summary>
+        /// inMain: החוליות שכבר מצוירות בשורה הראשית של שרשרת. שרשרת שמגיעה לאחת מהן היא "ענף" של אותה שרשרת (מצוירת מתחתיה,
+        /// עם חץ אל החוליה) — ואז מחזירים null. בלי inMain (מבנה בתוך תא) — "ממשיך ברשימה אחרת" כמו קודם
+        /// </summary>
+        static View ChainOf(IVizNode head, HashSet<object> drawn, object target, Mark mark, Dictionary<object, List<string>> labels,
+                            Dictionary<object, KeyValuePair<ChainView, int>> inMain = null)
         {
             var c = new ChainView { Src = head };
             var al = Aliases(head, false);
             c.Title = al.Count > 0 ? string.Join(", ", al) : "רשימה";
             var pos = new Dictionary<object, int>(new RefComparer());
+            var mine = new List<IVizNode>();
+            bool joined = false;
+            KeyValuePair<ChainView, int> join = default(KeyValuePair<ChainView, int>);
             IVizNode cur = head;
             while (cur != null)
             {
                 if (pos.ContainsKey(cur)) { c.CycleTo = pos[cur]; break; }
-                if (drawn.Contains(cur)) { c.JoinText = "[" + Str(cur.VizValue) + "]"; break; }
+                if (drawn.Contains(cur))
+                {
+                    if (inMain != null && inMain.TryGetValue(cur, out join)) joined = true;
+                    else c.JoinText = "[" + Str(cur.VizValue) + "]";
+                    break;
+                }
                 if (c.Cells.Count >= MaxCells) { c.Truncated = true; break; }
                 pos[cur] = c.Cells.Count;
                 drawn.Add(cur);
+                mine.Add(cur);
                 var cell = new Cell();
                 FillCell(cell, cur, cur.VizValue, target, mark, labels);
                 if (ReferenceEquals(cur, target) || (cell.Sub != null && cell.Sub.Focus)) c.Focus = true;
                 c.Cells.Add(cell);
                 cur = cur.VizNext;
             }
+            if (joined)   // ענף: האחרונה מצביעה לחוליה באמצע שרשרת שכבר מצוירת
+            {
+                c.JoinTo = join.Value;
+                join.Key.Branches.Add(c);
+                if (c.Focus) join.Key.Focus = true;
+                return null;
+            }
+            if (inMain != null)
+                for (int i = 0; i < mine.Count; i++) inMain[mine[i]] = new KeyValuePair<ChainView, int>(c, i);
             return c;
         }
 

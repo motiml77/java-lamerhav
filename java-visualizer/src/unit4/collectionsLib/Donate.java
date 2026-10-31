@@ -1,37 +1,46 @@
 package unit4.collectionsLib;
 
-import java.awt.BasicStroke;
-import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Window;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.geom.Path2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.RescaleOp;
+import java.io.InputStream;
 import java.net.URI;
 
+import javax.imageio.ImageIO;
 import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
 
 /**
- * כפתור "תרום לנו" קטן בצבע זהב — בתחתית חלון ההרצה. פותח את דף התרומה ב-PayPal בדפדפן.
+ * "תמכו בפרויקט" — התג בקצה סרגל השליטה: תג Java בהרצה של Java, ותג C# בהרצה של C# (Syntax.csharp — נקבע כשנטען קובץ הצעדים של C#).
+ * התמונות נשמרות בגובה 96 (פי 3 מהתצוגה) כדי שיהיו חדות גם במסך ברזולוציה גבוהה. בריחוף — התג מואר קצת; בלחיצה — יורד פיקסל.
+ * בחלון צר — התג קטן יותר. פותח את דף התרומה ב-PayPal בדפדפן.
  */
 final class Donate extends JComponent {
-    private static final String TEXT = "תרום לנו";
-    private static final Color TOP = new Color(0xF8DE8A), BOTTOM = new Color(0xDDB042);
-    private static final Color TOP_HOVER = new Color(0xFBE7A4), BOTTOM_HOVER = new Color(0xE6BC4E);
-    private static final Color EDGE = new Color(0xB68A1E), INK = new Color(0x4A3405), HEART = new Color(0xB4372C);
-    private boolean hover, down;
+    static final String TEXT = "תמכו בפרויקט";
+    static final String TIP = "התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal";
+    /** מתחת לרוחב החלון הזה התג קטן יותר */
+    private static final int COMPACT_BELOW = 1100;
+    private static final int HEIGHT = 34, COMPACT_HEIGHT = 26;
+
+    private static BufferedImage javaBadge, csBadge, javaLit, csLit;   // ...Lit — אותו תג מואר קצת (לריחוף)
+    private boolean hover, down, compact, hooked;
 
     Donate() {
         setOpaque(false);
         setFocusable(false);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        setToolTipText("התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal");
+        setToolTipText(TIP);
         addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
             public void mouseExited(MouseEvent e) { hover = false; down = false; repaint(); }
@@ -43,54 +52,80 @@ final class Donate extends JComponent {
                 if (click) open(Theme.DONATE_URL);
             }
         });
+        // בחלון צר — תג קטן יותר. מאזינים לשינוי גודל החלון (פעם אחת, כשהכפתור נכנס לחלון)
+        addHierarchyListener(new HierarchyListener() {
+            public void hierarchyChanged(HierarchyEvent e) {
+                final Window w = SwingUtilities.getWindowAncestor(Donate.this);
+                if (w == null || hooked) return;
+                hooked = true;
+                w.addComponentListener(new ComponentAdapter() {
+                    public void componentResized(ComponentEvent ev) { fit(w.getWidth()); }
+                });
+                fit(w.getWidth());
+            }
+        });
     }
 
-    private Font font() {
-        return Theme.smallBold != null ? Theme.smallBold.deriveFont(11.5f) : new Font(Font.DIALOG, Font.BOLD, 11);
+    private void fit(int windowWidth) {
+        boolean c = windowWidth > 0 && windowWidth < COMPACT_BELOW;
+        if (c == compact) return;
+        compact = c;
+        revalidate();
+        repaint();
+    }
+
+    /** התג של השפה שרצה עכשיו (או null אם התמונה לא נמצאה ב-jar); lit — הגרסה המוארת לריחוף */
+    private static BufferedImage badge(boolean lit) {
+        if (Syntax.csharp) {
+            if (csBadge == null) { csBadge = load("donate-cs.png"); csLit = brighter(csBadge); }
+            return lit ? csLit : csBadge;
+        }
+        if (javaBadge == null) { javaBadge = load("donate-java.png"); javaLit = brighter(javaBadge); }
+        return lit ? javaLit : javaBadge;
+    }
+
+    /** עותק מואר ב-10% (השקיפות נשמרת) */
+    private static BufferedImage brighter(BufferedImage img) {
+        if (img == null) return null;
+        BufferedImage argb = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        argb.getGraphics().drawImage(img, 0, 0, null);
+        return new RescaleOp(new float[] { 1.1f, 1.1f, 1.1f, 1f }, new float[] { 8, 8, 8, 0 }, null).filter(argb, null);
+    }
+
+    private static BufferedImage load(String file) {
+        InputStream in = Donate.class.getResourceAsStream("images/" + file);
+        if (in == null) return null;
+        try {
+            return ImageIO.read(in);
+        } catch (Exception e) {
+            return null;
+        } finally {
+            try { in.close(); } catch (Exception ignored) {}
+        }
     }
 
     public Dimension getPreferredSize() {
-        FontMetrics fm = getFontMetrics(font());
-        return new Dimension(fm.stringWidth(TEXT) + 40, 24);
+        BufferedImage img = badge(false);
+        int h = compact ? COMPACT_HEIGHT : HEIGHT;
+        int w = img == null ? 150 : (int) Math.round(img.getWidth() * (h / (double) img.getHeight()));
+        return new Dimension(w, h + 2);   // +2 — מקום לירידה בלחיצה
     }
+
+    public Dimension getMinimumSize() { return getPreferredSize(); }
 
     public Dimension getMaximumSize() { return getPreferredSize(); }
 
     protected void paintComponent(Graphics g0) {
+        BufferedImage img = badge(hover && !down);
+        if (img == null) return;
         Graphics2D g = (Graphics2D) g0.create();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        int w = getWidth() - 1, h = getHeight() - 3, y = down ? 2 : 1;
-        // צל דק מתחת — הכפתור "בולט" קצת מהרקע
-        g.setColor(new Color(0x80, 0x5C, 0x0A, down ? 0 : 40));
-        g.fillRoundRect(0, y + 1, w, h, h, h);
-        g.setPaint(new GradientPaint(0, y, hover ? TOP_HOVER : TOP, 0, y + h, hover ? BOTTOM_HOVER : BOTTOM));
-        g.fillRoundRect(0, y, w, h, h, h);
-        // ברק עליון
-        g.setColor(new Color(255, 255, 255, 90));
-        g.drawLine(h / 2, y + 1, w - h / 2, y + 1);
-        g.setColor(EDGE);
-        g.setStroke(new BasicStroke(1f));
-        g.drawRoundRect(0, y, w, h, h, h);
-        // לב קטן + הטקסט (מימין לשמאל: הלב בצד ימין)
-        Font f = font();
-        g.setFont(f);
-        FontMetrics fm = g.getFontMetrics();
-        int tw = fm.stringWidth(TEXT), total = tw + 15, x0 = (w - total) / 2;
-        int cy = y + h / 2;
-        heart(g, x0 + tw + 5, cy - 4, 9);
-        g.setColor(INK);
-        g.drawString(TEXT, x0, cy + (fm.getAscent() - fm.getDescent()) / 2);
+        int h = getHeight() - 2, w = getWidth();
+        int y = down ? 2 : hover ? 0 : 1;
+        g.drawImage(img, 0, y, w, h, null);
         g.dispose();
-    }
-
-    private static void heart(Graphics2D g, int x, int y, int s) {
-        Path2D p = new Path2D.Double();
-        p.moveTo(x + s / 2.0, y + s);
-        p.curveTo(x - s * 0.15, y + s * 0.55, x, y - s * 0.1, x + s / 2.0, y + s * 0.25);
-        p.curveTo(x + s, y - s * 0.1, x + s * 1.15, y + s * 0.55, x + s / 2.0, y + s);
-        g.setColor(HEART);
-        g.fill(p);
     }
 
     /** פותח קישור בדפדפן (Desktop, ואם אין — הפקודה של מערכת ההפעלה) */

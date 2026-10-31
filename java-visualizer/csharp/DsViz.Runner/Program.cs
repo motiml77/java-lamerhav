@@ -16,10 +16,11 @@ namespace DsViz
 {
     /// <summary>
     /// dsviz-cs — הרצה ויזואלית לפרויקט C#. עובד מכל סביבה (Visual Studio, VS Code, Rider, שורת פקודה):
-    ///   dsviz-cs &lt;תיקיית פרויקט | קובץ .csproj | קובץ .cs&gt; [--trace קובץ] [-- ארגומנטים לתוכנית]
+    ///   dsviz-cs &lt;תיקיית פרויקט | קובץ .csproj | קובץ .cs&gt; [--trace קובץ] [--input קובץ] [-- ארגומנטים לתוכנית]
     /// 1. מקמפל את הקוד של התלמיד (Roslyn) — שגיאות מוצגות כמו ב-Visual Studio.
     /// 2. מכניס לפני כל שורה דיווח על המשתנים והמבנים (Instrumenter), ומריץ את התוכנית.
-    /// 3. פותח את אותו חלון ויזואלי של Eclipse / VS Code (Java, TraceViewer) עם ההרצה.
+    /// 3. פותח את אותו חלון ויזואלי של Eclipse / VS Code (Java, TraceViewer) עם ההרצה — בסוף, או כבר כשהתוכנית
+    ///    מחכה לקלט מהמקלדת (Keyboard / LiveViewer), כדי שאפשר יהיה להקליד בו.
     /// </summary>
     internal static class Program
     {
@@ -28,18 +29,20 @@ namespace DsViz
             try { Console.OutputEncoding = new UTF8Encoding(false); } catch (Exception) { }
             if (args.Length > 0 && args[0] == "--check") return Check(args.Skip(1).ToArray());
             if (args.Length > 1 && args[0] == "--check-project") return CheckProject(args[1]);
-            string target = null, traceOut = null;
+            if (args.Length > 1 && args[0] == "--ensure-profile") return EnsureProfile(args[1]);
+            string target = null, traceOut = null, inputFile = null;
             var progArgs = new List<string>();
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "--") { progArgs.AddRange(args.Skip(i + 1)); break; }
                 if (args[i] == "--trace" && i + 1 < args.Length) traceOut = args[++i];
+                else if (args[i] == "--input" && i + 1 < args.Length) inputFile = args[++i];   // קלט מהמקלדת מקובץ (בדיקות): שורה בכל פעם שהתוכנית מחכה
                 else if (args[i] == "--version") { Console.WriteLine("dsviz-cs 1.0.1"); return 0; }
                 else if (target == null) target = args[i];
             }
             if (target == null)
             {
-                Console.Error.WriteLine("שימוש: dsviz-cs <תיקיית פרויקט | קובץ .csproj | קובץ .cs> [--trace קובץ] [-- ארגומנטים]");
+                Console.Error.WriteLine("שימוש: dsviz-cs <תיקיית פרויקט | קובץ .csproj | קובץ .cs> [--trace קובץ] [--input קובץ] [-- ארגומנטים]");
                 return 2;
             }
 
@@ -149,14 +152,28 @@ namespace DsViz
 
             // --- 3. הרצה
             Recorder.Active = true;
-            var tee = new TeeWriter(Console.Out);
+            TextWriter console = Console.Out;
+            var tee = new TeeWriter(console);
             Console.SetOut(tee);
+            // קלט מהמקלדת: Console.In מתחלף בקורא שמחכה גם להקלדה בחלון (שנפתח כשהתוכנית מחכה) — רק בלי --trace
+            Keyboard keyboard = Keyboard.Install(console, traceOut == null ? (Func<Keyboard, LiveViewer>)(k => LiveViewer.Open(k, console)) : null, inputFile);
             int exit = 0;
             var thread = new Thread(() => exit = RunProgram(entry, progArgs.ToArray()), 256 * 1024 * 1024);
+            thread.IsBackground = true;   // לולאה שלא נגמרת: החוט של התלמיד נשאר תקוע — והתהליך עדיין יכול להסתיים
             thread.Start();
-            thread.Join();
+            // מחכים לסוף התוכנית — או לעצירה בלולאה שלא נגמרת (Recorder.LoopLine / LoopGuard)
+            while (!thread.Join(50))
+                if (Recorder.LoopStop.WaitOne(0)) break;
             Console.Out.Flush();
-            Recorder.Finish();
+            if (Recorder.LoopStopped) exit = 1;
+            else Recorder.Finish();
+
+            // החלון כבר פתוח (התוכנית חיכתה לקלט): מקבל את שאר הצעדים, ומחכים שייסגר
+            if (keyboard.Viewer != null && keyboard.Viewer.Alive)
+            {
+                keyboard.Viewer.Finish();
+                return exit;
+            }
 
             // --- 4. החלון
             string trace = traceOut ?? Path.Combine(Path.GetTempPath(), "dsviz-" + Process.GetCurrentProcess().Id + ".trace");
@@ -208,6 +225,17 @@ namespace DsViz
             foreach (Diagnostic d in errors.Take(30)) Console.WriteLine(Format(d));
             Console.WriteLine("errors: " + errors.Count);
             return errors.Count == 0 ? 0 : 1;
+        }
+
+        /// <summary>
+        /// מצב קטן בשביל DSViz.targets (MSBuild ImportBefore/ImportAfter ברמת המשתמש — ראו installer/DSViz.targets):
+        /// מוסיף את פרופיל "הרצה ויזואלית" לפרויקט אם חסר, בלי לסרוק את כל קבצי ה-.cs (ProjectInfo.LoadProjectOnly —
+        /// מהיר, כדי שגם ירוץ בבנייה של עיצוב-זמן ב-Visual Studio בלי לעכב את פתיחת הפרויקט). לא נכשל אף פעם.
+        /// </summary>
+        static int EnsureProfile(string dir)
+        {
+            try { LaunchProfile.Ensure(ProjectInfo.LoadProjectOnly(dir)); } catch (Exception) { }
+            return 0;
         }
 
         /// <summary>השם המלא של המחלקה בקובץ שיש בה static Main (או null)</summary>
@@ -398,6 +426,27 @@ namespace DsViz
                 if (found.Length > 1) return null;   // כמה פרויקטים באותה תיקייה — רק הקובץ
             }
             return null;
+        }
+
+        /// <summary>
+        /// רק קריאת ה-csproj של תיקייה (Dir, Csproj, SdkStyle) — בלי לסרוק את כל קבצי ה-.cs שבפרויקט.
+        /// בשביל --ensure-profile (DSViz.targets): רץ בכל פתיחה/בנייה של פרויקט ב-Visual Studio, וצריך להיות מהיר.
+        /// </summary>
+        public static ProjectInfo LoadProjectOnly(string dir)
+        {
+            var p = new ProjectInfo { Dir = Path.GetFullPath(dir) };
+            string csproj = null;
+            try { csproj = Directory.GetFiles(p.Dir, "*.csproj").FirstOrDefault(); } catch (Exception) { }
+            if (csproj == null) return p;
+            p.Csproj = csproj;
+            p.Name = Path.GetFileNameWithoutExtension(csproj);
+            try
+            {
+                XDocument x = XDocument.Load(csproj);
+                p.SdkStyle = x.Root != null && x.Root.Attribute("Sdk") != null;
+            }
+            catch (Exception) { }
+            return p;
         }
     }
 

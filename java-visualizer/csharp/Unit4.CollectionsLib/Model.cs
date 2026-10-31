@@ -2,8 +2,15 @@ using System.Collections.Generic;
 
 namespace Unit4.CollectionsLib
 {
-    /// <summary>סוגי הצעדים (כמו Model.Kind בגרסת ה-Java)</summary>
-    internal enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE, RETURN }
+    /// <summary>סוגי הצעדים (כמו Model.Kind בגרסת ה-Java). INPUT = התוכנית קראה כאן קלט מהמקלדת (Console.ReadLine)</summary>
+    internal enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE, RETURN, INPUT }
+
+    /// <summary>התוכנית התחילה לחכות לקלט מהמקלדת: אחרי הצעד Step, בשורה Line של File, בקריאה Call ("Console.ReadLine()")</summary>
+    internal sealed class InputWait
+    {
+        public int Step, Line;
+        public string Class, Method, File, Call, What;
+    }
 
     /// <summary>איך לצבוע איבר שהצעד נגע בו</summary>
     internal enum Mark { NONE, NEW, READ, CHANGED }
@@ -27,6 +34,9 @@ namespace Unit4.CollectionsLib
         public List<string[]> Vars;                        // {שם, ערך}; null אם אין
         public string Returned;                            // RETURN: הערך שהוחזר (null = void)
         public Access Access;                              // קריאה / שינוי של מאפיין באובייקט (s.GetName()) — או null
+        /// <summary>המשתנים של כל פעולה במחסנית, במקביל ל-Calls (0 = הפעולה שרצה = Vars); איבר null — עמוק מדי. שורות FV בקובץ</summary>
+        public List<List<string[]>> FrameVars;
+        public string Loop;                                // התוכנית נעצרה כאן בלולאה שלא נגמרת: ההחלטה (LoopGuard) — או null
     }
 
     /// <summary>אובייקט של מחלקה (Student, Car, או מחלקה של התלמיד): כרטיס קטן בתוך המבנה, וטבלת המאפיינים שלו</summary>
@@ -86,6 +96,12 @@ namespace Unit4.CollectionsLib
         public int CycleTo = -1;
         public string JoinText;
         public bool Truncated;
+        /// <summary>
+        /// "ענפים": שרשראות שהאחרונה שלהן מצביעה לחוליה באמצע השרשרת הזו (חוליה חדשה q אחרי q.SetNext(p.GetNext()) —
+        /// מצוירות מתחת, עם חץ אל החוליה JoinTo), כמו ב-Java
+        /// </summary>
+        public readonly List<ChainView> Branches = new List<ChainView>();
+        public int JoinTo = -1;
     }
 
     internal sealed class TreeCell : Cell

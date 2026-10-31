@@ -16,9 +16,10 @@ final class MentorProblem extends CategorizedProblem {
     private int start, end, line;
 
     MentorProblem(Mentor.Finding f, char[] file) {
-        // RLE ... PDF: העברית מוצגת מימין לשמאל גם בחלונות של Eclipse שהם משמאל לימין (Problems, ריחוף מעל השגיאה);
-        // וקטעי הקוד (`...`) בין שני LRM — כדי שיוצגו משמאל לימין, בלי שהסוגריים יתהפכו
-        this.message = "\u202B" + f.message.replace('`', '\u200E') + "\u202C";
+        // העברית מוצגת מימין לשמאל גם בחלונות של Eclipse שהם משמאל לימין (Problems, ריחוף מעל השגיאה), וכל קטע קוד
+        // (`...`, או אנגלית בלי סימון) משמאל לימין כיחידה אחת — בלי שהסוגריים יתהפכו ובלי שרשימה כמו insert, remove
+        // תתהפך (RtlText — אותו טיפול כמו בחלון "הסברים בעברית"). מי שקורא את ההודעה כטקסט: RtlText.strip
+        this.message = RtlText.rtl(f.message);
         this.error = f.isError();
         this.file = file;
         this.start = f.start;

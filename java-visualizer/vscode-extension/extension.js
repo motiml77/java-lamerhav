@@ -451,13 +451,14 @@ async function openHelp(id) {
     const src = panel.webview.cspSource;
     panel.webview.html = help.playerPage({
         id: tut.id,
+        lang: currentLang === 'csharp' ? 'cs' : 'java',   // התג "תמכו בפרויקט" של השפה שבה עובדים
         urlOf: f => panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, f))).toString(),
         remote: help.REMOTE_HELP + (path.basename(dir) === 'help' && path.basename(path.dirname(dir)) !== 'resources' ? '' : 'vscode/'),   // אין עותק במחשב — מהאתר
         csp: `default-src 'none'; img-src ${src} data:; media-src ${src} https://raw.githubusercontent.com; style-src 'unsafe-inline'; script-src 'unsafe-inline';`
     });
     panel.webview.onDidReceiveMessage(m => {
         if (m && m.cmd === 'list') openHelp();
-        else if (m && m.cmd === 'open' && /^https:\/\/www\.paypal\.com\//.test(String(m.url))) vscode.env.openExternal(vscode.Uri.parse(m.url));   // "תרום לנו"
+        else if (m && m.cmd === 'open' && /^https:\/\/www\.paypal\.com\//.test(String(m.url))) vscode.env.openExternal(vscode.Uri.parse(m.url));   // "תמכו בפרויקט"
         else if (m && m.cmd === 'fail') {   // הנגן של החלון לא מצליח לנגן (קודק) — פותחים אותו דף בדפדפן הרגיל
             try { panel.dispose(); } catch (e) { /* כבר נסגר */ }
             const f = path.join(dir, 'player.html');

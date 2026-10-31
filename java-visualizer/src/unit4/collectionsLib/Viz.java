@@ -66,6 +66,7 @@ public final class Viz {
      */
     public static void show() {
         Recorder.active = true;
+        Keyboard.install(!java.awt.GraphicsEnvironment.isHeadless() && !Recorder.textMode);   // Scanner שנוצר אחרי זה — אפשר להקליד בחלון
     }
 
     /**

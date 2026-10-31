@@ -21,7 +21,8 @@ import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 /**
- * צילום מסך של Eclipse עם קובץ של תלמיד: העורך (קווים אדומים / צהובים) וחלון Problems עם ההסברים בעברית.
+ * צילום מסך של Eclipse עם קובץ של תלמיד: העורך (קווים אדומים / צהובים) וחלון Problems עם ההסברים בעברית;
+ * וחלון "הסברים בעברית" לבד (out-mentor.png), עם תיאור הכרטיסים שבו (PANEL-...) — לבדיקה ב-run.sh.
  *   eclipse -application il.lamerhav.dsviz.it.shot <project/src/File.java> <out.png> [line-to-select]
  */
 public class Shot implements IApplication {
@@ -45,6 +46,13 @@ public class Shot implements IApplication {
                         IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
                         page.getWorkbenchWindow().getShell().setBounds(0, 0, 1700, 1050);
                         page.getWorkbenchWindow().getShell().setMaximized(true);
+                        // בלי דף ה-Welcome (בהפעלה הראשונה של סביבת עבודה הוא מכסה הכול)
+                        org.eclipse.ui.intro.IIntroManager intro = PlatformUI.getWorkbench().getIntroManager();
+                        if (intro.getIntro() != null) intro.closeIntro(intro.getIntro());
+                        // הצילום הקודם נגמר עם Problems מוגדל (וכל השאר ממוזערים, גם חלון ההסברים) — חוזרים לגודל הרגיל
+                        for (org.eclipse.ui.IViewReference v : page.getViewReferences()) {
+                            if (page.getPartState(v) != IWorkbenchPage.STATE_RESTORED) page.setPartState(v, IWorkbenchPage.STATE_RESTORED);
+                        }
                         // בלי מה שנשאר מהצילום הקודם (חלון מוגדל); את חלון ההסברים לא פותחים כאן — הוא צריך להיפתח לבד (AutoSetup)
                         if (page.findView("il.lamerhav.dsviz.mentorView") == null) page.resetPerspective();
                         layoutReport(page.getWorkbenchWindow(), "AUTO");
@@ -107,8 +115,9 @@ public class Shot implements IApplication {
                         IWorkbenchPage pg = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
                         System.out.println("MENTOR-VIEW-OPEN " + (pg.findView("il.lamerhav.dsviz.mentorView") != null && pg.isPartVisible(pg.findView("il.lamerhav.dsviz.mentorView"))));
                         capture(display, a[1]);
-                        // ועוד צילום: חלון Problems מוגדל — ההודעות המלאות
                         IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+                        panelReport(display, page, a[1].replace(".png", "-mentor.png"), new Path(a[0]).lastSegment());
+                        // ועוד צילום: חלון Problems מוגדל — ההודעות המלאות
                         org.eclipse.ui.IViewReference ref = page.findViewReference("org.eclipse.ui.views.ProblemView");
                         if (ref != null) page.setPartState(ref, IWorkbenchPage.STATE_MAXIMIZED);
                         display.timerExec(2500, () -> {
@@ -182,11 +191,64 @@ public class Shot implements IApplication {
 
     private static final String MENTOR = "il.lamerhav.dsviz.mentorView";
 
+    /**
+     * חלון "הסברים בעברית": צילום של החלון לבד, ולכל כרטיס — מה יש בו לפי הסדר (title = שורה · שגיאה, main = ההסבר,
+     * gap = שורת הרווח, fix = ההצעה לתיקון, code = הקוד המתוקן) והטקסטים עם תווי הכיווניות (<RLM> <RLE> ...).
+     */
+    private static void panelReport(Display display, IWorkbenchPage page, String file, String name) {
+        try {
+            org.eclipse.ui.IViewPart v = page.findView(MENTOR);
+            org.eclipse.e4.ui.model.application.ui.basic.MPart mp = v == null ? null : v.getSite().getService(org.eclipse.e4.ui.model.application.ui.basic.MPart.class);
+            if (mp == null || !(mp.getWidget() instanceof org.eclipse.swt.widgets.Control)) {
+                System.out.println("PANEL none");
+                return;
+            }
+            org.eclipse.swt.widgets.Control root = (org.eclipse.swt.widgets.Control) mp.getWidget();
+            org.eclipse.swt.graphics.Point at = root.toDisplay(0, 0), size = root.getSize();
+            System.out.println("PANEL " + name + " size=" + size.x + "x" + size.y);
+            panelWalk(root, name);
+            capture(display, file, new Rectangle(at.x, at.y, size.x, size.y));
+        } catch (Throwable t) {
+            t.printStackTrace(System.out);
+        }
+    }
+
+    private static void panelWalk(org.eclipse.swt.widgets.Control c, String name) {
+        if (c instanceof org.eclipse.swt.widgets.Composite && c.getData() instanceof il.lamerhav.dsviz.Mentor.Finding) {
+            il.lamerhav.dsviz.Mentor.Finding f = (il.lamerhav.dsviz.Mentor.Finding) c.getData();
+            StringBuilder kinds = new StringBuilder();
+            java.util.List<String> texts = new java.util.ArrayList<String>();
+            for (org.eclipse.swt.widgets.Control k : ((org.eclipse.swt.widgets.Composite) c).getChildren()) {
+                if (!(k instanceof org.eclipse.swt.widgets.Label)) continue;
+                String t = ((org.eclipse.swt.widgets.Label) k).getText(), plain = il.lamerhav.dsviz.RtlText.strip(t);
+                boolean bold = k.getFont().getFontData()[0].getStyle() == SWT.BOLD;
+                String kind = bold ? "title" : plain.trim().isEmpty() ? "gap" : (k.getStyle() & SWT.LEFT_TO_RIGHT) != 0 ? "code"
+                        : plain.startsWith("הצעה לתיקון:") ? "fix" : "main";
+                kinds.append(' ').append(kind).append(kind.equals("gap") ? "(" + k.getSize().y + "px)" : "");
+                texts.add(kind + " " + visible(t));
+            }
+            System.out.println("PANEL-CARD " + name + ":" + f.line + " " + (f.isError() ? "error" : "warning") + ":" + kinds);
+            for (String t : texts) System.out.println("PANEL-TEXT " + name + ":" + f.line + " " + t);
+            return;
+        }
+        if (c instanceof org.eclipse.swt.widgets.Label) System.out.println("PANEL-HEAD " + name + " " + visible(((org.eclipse.swt.widgets.Label) c).getText()));
+        if (c instanceof org.eclipse.swt.widgets.Composite) for (org.eclipse.swt.widgets.Control k : ((org.eclipse.swt.widgets.Composite) c).getChildren()) panelWalk(k, name);
+    }
+
+    /** תווי הכיווניות כשמות (<RLM> ...) — כדי לראות אותם בלוג */
+    private static String visible(String s) {
+        return s.replace("\u200F", "<RLM>").replace("\u200E", "<LRM>").replace("\u202B", "<RLE>").replace("\u202A", "<LRE>").replace("\u202C", "<PDF>")
+                .replace("\n", "<NL>");
+    }
+
     private static void capture(Display display, String file) {
-        Rectangle r = display.getBounds();
+        capture(display, file, display.getBounds());
+    }
+
+    private static void capture(Display display, String file, Rectangle r) {
         Image img = new Image(display, r.width, r.height);
         GC gc = new GC(display);
-        gc.copyArea(img, 0, 0);
+        gc.copyArea(img, r.x, r.y);
         gc.dispose();
         ImageLoader l = new ImageLoader();
         l.data = new org.eclipse.swt.graphics.ImageData[] { img.getImageData() };

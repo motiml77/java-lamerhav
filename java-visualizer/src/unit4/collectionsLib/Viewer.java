@@ -12,6 +12,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
+import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
@@ -23,10 +24,8 @@ import java.awt.event.WindowEvent;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
@@ -43,8 +42,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JSplitPane;
-import javax.swing.JTable;
-import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
 import javax.swing.ScrollPaneConstants;
@@ -53,8 +51,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultHighlighter;
 import javax.swing.text.Highlighter;
@@ -77,6 +73,7 @@ final class Viewer extends JFrame {
         Timing.mark("Theme.install הסתיים");
         if (!License.allowViewer()) {   // נעילה לתשלום (כבויה כל עוד השרת לא הפעיל אותה): התוכנית ממשיכה לרוץ כרגיל, בלי החלון
             Recorder.stopVisual();
+            Keyboard.noViewer();   // קלט רק מהקונסול, כמו בהרצה רגילה
             Recorder.viewerReady.countDown();
             String ready = System.getProperty(Splash.READY_PROPERTY);
             if (ready != null) {
@@ -104,8 +101,6 @@ final class Viewer extends JFrame {
     /** inFunction = התוכנית כבר נכנסה לפעולה (לא main); mainOnly = הסתיימה בלי פעולות; showMain = "גם main" */
     private boolean inFunction, mainOnly, showMain;
     /** לשונית "רקורסיה" רק בתרגיל ברקורסיה: בקובץ התרגיל כתוב "רקורסיה" (בהערה — כך נוצר תרגיל ברקורסיה) */
-    private boolean checkedExercise, recursionExercise;
-    private JComponent viewTabsBox;
     private final JToggleButton mainBtn = new SwitchButton("להציג גם main");
     private int angle;
     private boolean finished;
@@ -137,27 +132,35 @@ final class Viewer extends JFrame {
     private final StructPanel miniStructs = new StructPanel();
     private final JPanel miniBox = new JPanel(new BorderLayout());
     private final JPanel viewPages = new JPanel(new java.awt.CardLayout());
-    private final JToggleButton structTab = new SegButton("מבנים"), recTab = new SegButton("רקורסיה");
     private JComponent zoomBox;
-    private boolean recursionShown, userChoseView;
+    private boolean recursionShown;
     private final JLabel zoomLabel = new JLabel("100%");
 
-    private final DefaultTableModel varsModel = new DefaultTableModel(new Object[] { "משתנה", "ערך" }, 0) {
-        @Override
-        public boolean isCellEditable(int r, int c) { return false; }
-    };
-    private final JTable vars = new JTable(varsModel);
     private final JLabel varsSub = new JLabel(" ");
-    private final Set<Integer> changedRows = new HashSet<Integer>();
+    /** מעקב המשתנים: הפעולה שרצה — ורשימה לבחירת פעולה שמחכה (VarsPanel / FrameViz) */
+    private final VarsPanel varsPanel = new VarsPanel(varsSub, code);
 
 
-    private final JTextArea console = new JTextArea();
+    private final ConsolePane console = new ConsolePane();
+
+    // ------------------------------------------------------------ קלט מהמקלדת (Keyboard)
+
+    private final InputBar inputBar = new InputBar();
+    private final JPanel leftBox = new JPanel(new BorderLayout(0, 8));
+    /** הצעדים שבהם התוכנית חיכתה לקלט (השורה שקוראת) — מוצגים תמיד, כמו צעדי הקלט עצמם */
+    private final Set<Integer> waitPoints = new HashSet<Integer>();
+    /** האינדקסים (ב-Recorder) של צעדי הקלט — בשביל הצבע של מה שהוקלד, בפלט */
+    private final List<Integer> inputSteps = new ArrayList<Integer>();
+    private boolean inputShown, inputFocused, followEnd;
+    private int shownWait = -1, shownWaitStep = -1, pulse, errorAt = -1;
 
     private final List<JSplitPane> splits = new ArrayList<JSplitPane>();
     private final List<Double> splitRatios = new ArrayList<Double>();
 
+    private static final String TITLE = "הרצה ויזואלית — מבני נתונים";
+
     private Viewer() {
-        super("הרצה ויזואלית — מבני נתונים");
+        super(TITLE);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setIconImage(appIcon());
 
@@ -228,11 +231,18 @@ final class Viewer extends JFrame {
         mainBtn.setVisible(false);
         info.add(mainBtn);
 
+        // בקצה הסרגל, אחרי פס המידע: "תמכו בפרויקט" — כפתור שקט באותו גובה (BorderLayout — שניהם נמתחים לאותו גובה)
+        Donate donate = new Donate();
+        JPanel end = new JPanel(new BorderLayout(10, 0));
+        end.setOpaque(false);
+        end.add(info, BorderLayout.CENTER);
+        end.add(donate, BorderLayout.LINE_END);
+
         JPanel bar = new JPanel(new BorderLayout(16, 0));
         bar.setOpaque(false);
         bar.add(nav, BorderLayout.LINE_START);
         bar.add(timeline, BorderLayout.CENTER);
-        bar.add(info, BorderLayout.LINE_END);
+        bar.add(end, BorderLayout.LINE_END);
 
         JPanel north = new JPanel(new BorderLayout(0, 10));
         north.setOpaque(false);
@@ -291,32 +301,17 @@ final class Viewer extends JFrame {
         miniBox.setPreferredSize(new Dimension(100, 200));
         miniBox.setVisible(false);
         south.add(miniBox, BorderLayout.CENTER);
-        south.add(recursionLegend(), BorderLayout.SOUTH);
         recPage.add(south, BorderLayout.SOUTH);
         viewPages.setOpaque(false);
         viewPages.add(structPage, "structs");
         viewPages.add(recPage, "recursion");
         JPanel viewTools = row(10);
-        viewTools.add(viewTabsBox = viewTabs());
-        viewTabsBox.setVisible(false);
         viewTools.add(zoomBox = zoomTools());
         Card structCard = new Card(null, null, viewTools, viewPages);
         recScroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
         // --- מעקב משתנים
-        vars.setFocusable(false);
-        vars.setRowSelectionAllowed(false);
-        vars.setFillsViewportHeight(true);
-        vars.getTableHeader().setReorderingAllowed(false);
-        vars.getTableHeader().setFont(Theme.smallBold);
-        vars.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
-        vars.getColumnModel().getColumn(0).setPreferredWidth(110);
-        vars.getColumnModel().getColumn(0).setMaxWidth(220);
-        vars.getColumnModel().getColumn(1).setPreferredWidth(300);
-        vars.setDefaultRenderer(Object.class, new VarRenderer());
-        vars.setRowHeight(22);
-        vars.setTableHeader(null);   // קומפקטי: "שם | ערך" בלי כותרת
-        Card varsCard = new Card("מעקב משתנים", varsSub, null, scroll(vars));
+        Card varsCard = new Card("מעקב משתנים", varsSub, null, varsPanel);
 
         // --- פלט
         console.setEditable(false);
@@ -330,7 +325,12 @@ final class Viewer extends JFrame {
         // --- סידור: משמאל — הקוד, ומתחתיו מעקב משתנים ופלט; מימין — התצוגה הוויזואלית לכל הגובה
         JComponent under = Recorder.lineMode ? split(JSplitPane.HORIZONTAL_SPLIT, varsCard, outCard, 0.5) : outCard;
         JSplitPane left = split(JSplitPane.VERTICAL_SPLIT, codeCard, under, 0.7);
-        JSplitPane main = split(JSplitPane.HORIZONTAL_SPLIT, left, structCard, 0.55);
+        // מתחת לקוד, לפלט ולמשתנים: הפס "התוכנית מחכה לקלט" (רק כשהיא מחכה)
+        leftBox.setOpaque(false);
+        leftBox.add(left, BorderLayout.CENTER);
+        inputBar.setVisible(false);
+        leftBox.add(inputBar, BorderLayout.SOUTH);
+        JSplitPane main = split(JSplitPane.HORIZONTAL_SPLIT, leftBox, structCard, 0.55);
 
         JPanel root = new JPanel(new BorderLayout(0, 10));
         root.setBackground(Theme.BG);
@@ -341,7 +341,7 @@ final class Viewer extends JFrame {
 
         root.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
         // הקוד, הפלט והמבנים — משמאל לימין (מספרי השורות משמאל לקוד)
-        for (JComponent c : new JComponent[] { codeScroll, consoleScroll, structScroll })
+        for (JComponent c : new JComponent[] { codeScroll, consoleScroll, structScroll, inputBar.field })
             c.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
         keys();
@@ -363,6 +363,10 @@ final class Viewer extends JFrame {
                 angle = (angle + 12) % 360;
                 if (overlay.isVisible()) overlay.repaint();
                 if (busy.isVisible()) busy.repaint();
+                if (inputShown && code.inputWait > 0 && ++pulse % 2 == 0) {   // התגית "מחכה לקלט" נושמת
+                    Rectangle r = CondPaint.lineRect(code, code.inputWait);
+                    if (r != null) code.repaint(0, r.y - 6, code.getWidth(), r.height + 12);
+                }
             }
         }).start();
 
@@ -377,6 +381,10 @@ final class Viewer extends JFrame {
             public void windowOpened(WindowEvent e) {
                 for (int i = 0; i < splits.size(); i++) splits.get(i).setDividerLocation(splitRatios.get(i));
             }
+        });
+        // התוכנית מתחילה / מפסיקה לחכות לקלט מהמקלדת — מיד (ולא רק בבדיקה התקופתית)
+        Keyboard.listen(new Runnable() {
+            public void run() { poll(); }
         });
         poll();
     }
@@ -435,76 +443,21 @@ final class Viewer extends JFrame {
     }
 
     /** המתג "מבנים / רקורסיה" */
-    private JComponent viewTabs() {
-        ButtonGroup g = new ButtonGroup();
-        for (JToggleButton b : new JToggleButton[] { structTab, recTab }) {
-            g.add(b);
-        }
-        structTab.setSelected(true);
-        structTab.setToolTipText("המבנים (מחסנית, תור, רשימה, עץ, מערך) בצעד הזה");
-        recTab.setToolTipText("מעקב רקורסיה: כל קריאה לפעולה בכרטיס נפרד — מה קיבלה, ומה החזירה");
-        structTab.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) { userChoseView = true; showView(false); }
-        });
-        recTab.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) { userChoseView = true; showView(true); }
-        });
-        JPanel p = new Pill(new Color(0xEDF0F5), Theme.BORDER);
-        p.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        p.setBorder(BorderFactory.createEmptyBorder(3, 3, 3, 3));
-        p.add(structTab);
-        p.add(recTab);
-        return p;
-    }
-
-    private static boolean isRecursionExercise(Frame main) {
-        List<String> lines = SourceFiles.lines(main);
-        if (lines == null) return false;
-        for (String l : lines) if (l.contains("רקורסיה") || l.toLowerCase().contains("recursion")) return true;
+    /**
+     * האם הצעד בתוך קריאה לפעולה רקורסיבית (פעולה שקוראת לעצמה, או כמה פעולות שקוראות זו לזו) —
+     * מזהים לבד, לפי ההרצה (RecursionKind), בלי שהתלמיד צריך לסמן משהו
+     */
+    private static boolean inRecursion(Step s) {
+        RecursionKind k = RecursionKind.of();
+        if (k.type == RecursionKind.Type.NONE || s == null) return false;
+        for (Frame f : s.calls) if (k.methods.contains(f.className + "#" + f.method)) return true;
         return false;
     }
 
     private void showView(boolean rec) {
         recursionShown = rec;
-        (rec ? recTab : structTab).setSelected(true);
         ((java.awt.CardLayout) viewPages.getLayout()).show(viewPages, rec ? "recursion" : "structs");
         zoomBox.setVisible(!rec);
-        if (rec && pos >= 0 && pos < vis.size()) showPos(pos);
-    }
-
-    /** תווית קטנה כמו הכדורים בכרטיסי הרקורסיה (#16 → 2) */
-    private static JLabel miniChip(String text) {
-        JLabel l = new JLabel("\u200E" + text + "\u200E");
-        l.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
-        l.setFont(Theme.mono.deriveFont(Font.BOLD, 12f));
-        l.setForeground(Color.WHITE);
-        l.setOpaque(true);
-        l.setBackground(new Color(0x6B87C9));
-        l.setBorder(BorderFactory.createEmptyBorder(1, 7, 1, 7));
-        return l;
-    }
-
-    private JPanel recursionLegend() {
-        JPanel colors = new JPanel(new FlowLayout(FlowLayout.LEADING, 12, 4));
-        colors.setOpaque(false);
-        colors.add(swatch(new Color(0xE8F0FE), new Color(0x2F6FED), "פועלת עכשיו"));
-        colors.add(swatch(new Color(0xF3F5F9), new Color(0xA9B4C6), "מחכה לתשובה"));
-        colors.add(swatch(new Color(0xE3F5E9), new Color(0x2E9E5B), "סיימה והחזירה ערך"));
-        JPanel help = new JPanel(new FlowLayout(FlowLayout.LEADING, 12, 0));
-        help.setOpaque(false);
-        help.add(label("שורה שקראה לפעולה:", Theme.small, Theme.MUTED));
-        help.add(miniChip("#16 → 2"));
-        help.add(label("(קריאה 16 החזירה 2)", Theme.small, Theme.MUTED));
-        help.add(miniChip("#16 …"));
-        help.add(label("(עוד רצה)", Theme.small, Theme.MUTED));
-        JPanel p = new JPanel();
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        p.setOpaque(false);
-        p.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.BORDER),
-                BorderFactory.createEmptyBorder(0, 0, 4, 0)));
-        p.add(colors);
-        p.add(help);
-        return p;
     }
 
     private JComponent zoomTools() {
@@ -552,12 +505,6 @@ final class Viewer extends JFrame {
         JPanel line = new JPanel(new BorderLayout());
         line.setOpaque(false);
         line.add(c, BorderLayout.LINE_END);
-        // "תרום לנו" — קטן, בזהב, בצד השני של שורת זכויות היוצרים
-        JPanel give = new JPanel(new FlowLayout(FlowLayout.LEADING, 10, 0));
-        give.setOpaque(false);
-        give.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
-        give.add(new Donate());
-        line.add(give, BorderLayout.LINE_START);
         box.add(line, BorderLayout.SOUTH);
         return box;
     }
@@ -598,19 +545,39 @@ final class Viewer extends JFrame {
         for (int k : codes) im.put(KeyStroke.getKeyStroke(k, 0), name);
         root.getActionMap().put(name, new AbstractAction() {
             public void actionPerformed(ActionEvent e) { r.run(); }
+
+            /** בזמן הקלדה בשדה הקלט — המקשים (רווח, Enter, P, חצים) שייכים לשדה ולא לניווט */
+            @Override
+            public boolean isEnabled() {
+                Component f = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+                return !(f instanceof JTextComponent && ((JTextComponent) f).isEditable());
+            }
         });
     }
 
     // ------------------------------------------------------------ ניווט
 
+    /** צעדים חדשים מהתוכנית, ומצב הקלט מהמקלדת (מתחילה / מפסיקה לחכות) */
     private void poll() {
+        boolean atEnd = pos >= vis.size() - 1;
+        pollSteps();
+        boolean w = Keyboard.waiting();
+        if (w && (!inputShown || Keyboard.waitId() != shownWait)) startWaiting();
+        else if (!w && inputShown) stopWaiting(atEnd);
+    }
+
+    private void pollSteps() {
         int n = Recorder.stepCount();
         if (n == known) return;
-        boolean rebuild = false;
+        boolean rebuild = false, error = false;
         for (int i = known; i < n; i++) {
             Step s = Recorder.step(i);
             if (s.kind == Kind.END || s.kind == Kind.ERROR) {   // התוכנית הסתיימה — נעלם הספינר
                 finished = true;
+                if (s.kind == Kind.ERROR) {
+                    error = true;
+                    errorAt = i;
+                }
                 busy.setVisible(false);
                 overlay.setVisible(false);
             }
@@ -618,20 +585,17 @@ final class Viewer extends JFrame {
                 hasLines = true;
                 modePanel.setVisible(true);
             }
-            if (!checkedExercise && !s.calls.isEmpty()) {
-                checkedExercise = true;
-                recursionExercise = isRecursionExercise(s.calls.get(s.calls.size() - 1));
-                viewTabsBox.setVisible(recursionExercise);
-            }
             if (s.calls.size() >= 2 && !inFunction) {
                 inFunction = true;
                 mainBtn.setVisible(true);
             }
             // תוכנית שכולה ב-main (בלי פעולות) — מציגים את main
-            if (s.kind == Kind.END && !inFunction && !mainOnly) {
+            // (וגם לולאה שלא נגמרת ב-main — רואים את הסיבובים שלפני העצירה, לא רק את הכרטיס)
+            if ((s.kind == Kind.END || LoopCard.isStop(s)) && !inFunction && !mainOnly) {
                 mainOnly = true;
                 rebuild = true;
             }
+            if (s.kind == Kind.INPUT) inputSteps.add(i);
             if (visible(s)) vis.add(i);
         }
         known = n;
@@ -642,6 +606,13 @@ final class Viewer extends JFrame {
         updateTimeline();
         if (pos < 0 && !vis.isEmpty()) showPos(0);
         if (!vis.isEmpty()) overlay.setVisible(false);
+        if (followEnd && finished && !vis.isEmpty()) {   // אחרי "סיום הקלט": רואים איך התוכנית הסתיימה
+            followEnd = false;
+            showPos(vis.size() - 1);
+        }
+        // הקלט שהוקלד הרגע עצר את התוכנית בשגיאה (למשל אותיות ל-nextInt) — רואים מיד את כרטיס השגיאה
+        if (error && !inputSteps.isEmpty() && pos >= 0 && pos < vis.size() && vis.get(pos).equals(inputSteps.get(inputSteps.size() - 1)))
+            showPos(vis.size() - 1);
     }
 
     /**
@@ -649,6 +620,7 @@ final class Viewer extends JFrame {
      * אלא אם לוחצים "גם main" או שאין בתוכנית פעולות בכלל. המבנים שנבנו ב-main מופיעים מוכנים.
      */
     private boolean visible(Step s) {
+        if (s.kind == Kind.INPUT || waitPoints.contains(s.index)) return true;   // קלט מהמקלדת — תמיד (גם ב"רק פעולות" ובלי main)
         if (onlyOps && (s.kind == Kind.LINE || s.kind == Kind.CHECK)) return false;
         boolean always = s.kind == Kind.END || s.kind == Kind.ERROR;
         return always || showMain || mainOnly || s.calls.size() >= 2;
@@ -724,8 +696,14 @@ final class Viewer extends JFrame {
 
         structs.setStep(s);
         objDock.setStep(s);
-        // תרגיל ברקורסיה: בפעם הראשונה שיש רקורסיה — עוברים לבד ללשונית "רקורסיה" (אפשר לחזור ל"מבנים")
-        if (recursionExercise && !userChoseView && !recursionShown && RecursionPanel.recursive(s)) showView(true);
+        // רקורסיה: כל עוד הצעד בתוך הרקורסיה — מעקב הרקורסיה (כרטיס לכל קריאה, והמבנים בקטן מתחת); אחר כך — חזרה למבנים
+        boolean rec;
+        try {
+            rec = inRecursion(s);
+        } catch (RuntimeException e) {
+            rec = false;
+        }
+        if (rec != recursionShown) showView(rec);
         if (recursionShown) {
             recursion.setStep(vis.get(p));
             miniStructs.setStep(s);
@@ -735,7 +713,10 @@ final class Viewer extends JFrame {
                 miniBox.getParent().revalidate();
             }
         }
-        updateCode(s.where);
+        // התוכנית מחכה לקלט, ואנחנו בצעד האחרון: השורה שקוראת מסומנת (גם אם הצעד האחרון הוא פעולה בשורה אחרת)
+        Frame wait = inputShown && p == vis.size() - 1 ? Keyboard.waitFrame() : null;
+        boolean waitHere = wait != null && wait.line > 0 && (s.where == null || !sameFile(s.where, wait) || s.where.line != wait.line);
+        updateCode(waitHere ? wait : s.where);
         String inside = SelfViz.where(s);   // פעולה של אובייקט: "בתוך d1.birthday()"
         if (inside != null && s.where != null && codeSub.getText().contains("בתוך")) codeSub.setText(lrm(s.where.file) + "   ·   בתוך " + lrm(inside));
         CondViz.Marks marks = null;
@@ -763,10 +744,144 @@ final class Viewer extends JFrame {
         }
         code.call = call;
         code.fileKey = codeKey;
+        // הלולאה חוזרת להתחלה: חץ מונפש מהסוף של הלולאה אל השורה שחוזרים אליה (ונעלם)
+        LoopArrow.Jump jump = null;
+        if (Recorder.lineMode && codeLine > 0) {
+            try {
+                jump = LoopArrow.at(vis.get(p));
+            } catch (RuntimeException e) {
+                jump = null;   // בלי החץ
+            }
+            if (jump != null && !jump.fileKey.equals(codeKey)) jump = null;
+        }
+        code.loopAnim.start(jump, player.isRunning() ? delay() : 0);
+        code.inputWait = wait != null && codeLine == wait.line ? wait.line : -1;
+        code.inputStep = s.kind == Kind.INPUT && s.where != null && !waitHere;
+        code.inputTyped = code.inputStep ? typedOf(s) : null;
+        code.inputLine = s.where == null ? -1 : s.where.line;
+        code.loopLine = Recorder.lineMode ? LoopCard.tagLine(s) : -1;
         code.repaint();
-        if (Recorder.lineMode) updateVars(s);
-        console.setText(Recorder.outputUpTo(s.outLen));
-        console.setCaretPosition(console.getDocument().getLength());
+        if (Recorder.lineMode) varsPanel.set(s, codeKey, call);
+        showOutput(s);
+    }
+
+    private static boolean sameFile(Frame a, Frame b) {
+        return (a.packagePath() + a.file).equals(b.packagePath() + b.file);
+    }
+
+    // ------------------------------------------------------------ קלט מהמקלדת
+
+    /** התוכנית מחכה לקלט: קופצים לצעד האחרון (השורה שקוראת), ומופיע הפס עם שדה ההקלדה */
+    private void startWaiting() {
+        shownWait = Keyboard.waitId();
+        followEnd = false;
+        boolean rebuild = false;
+        int ws = Keyboard.waitStep();
+        shownWaitStep = ws;
+        if (ws >= 0 && ws < known && waitPoints.add(ws)) rebuild = true;
+        // תוכנית שעד עכשיו כולה ב-main (כמו רוב התוכניות עם Scanner): מראים את main — רואים את השאלות ואת הקלט
+        if (!inFunction && !showMain && !mainOnly) {
+            showMain = true;
+            mainBtn.setSelected(true);
+            recursion.setHideMain(false);
+            rebuild = true;
+        }
+        if (rebuild) rebuildVisible();
+        else updateTimeline();
+        overlay.setVisible(false);
+        inputShown = true;
+        if (!vis.isEmpty()) {
+            showPos(vis.size() - 1);
+        } else if (Keyboard.waitFrame() != null) {   // עוד אין אף צעד (הרצה בלי שורות) — לפחות השורה שקוראת
+            updateCode(Keyboard.waitFrame());
+            code.inputWait = codeLine;
+            code.repaint();
+        }
+        inputBar.open(Keyboard.waitFrame(), Keyboard.waitWhat(), Keyboard.waitCall(), promptText());
+        if (!inputBar.isVisible()) {
+            inputBar.setVisible(true);
+            leftBox.revalidate();
+        }
+        setTitle(TITLE + "  —  מחכה לקלט מהמקלדת");   // רואים גם בשורת המשימות
+        busy.repaint();
+        if (!inputFocused && !isActive()) toFront();   // בפעם הראשונה: החלון קדימה, כדי שאפשר יהיה להקליד מיד
+        inputFocused = true;
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() { inputBar.field.requestFocusInWindow(); }
+        });
+    }
+
+    /**
+     * הקלט הגיע: הפס נעלם; אם היינו בסוף — רואים את צעד הקלט ("⌨ הוקלד: 5"), והתוכנית ממשיכה.
+     * בלי קלט חדש ("סיום הקלט") — כשהתוכנית מסתיימת (או נעצרת בשגיאה, כי אין קלט) קופצים לסוף.
+     */
+    private void stopWaiting(boolean atEnd) {
+        inputShown = false;
+        inputBar.setVisible(false);
+        leftBox.revalidate();
+        setTitle(TITLE);
+        busy.repaint();
+        int last = inputSteps.isEmpty() ? -1 : inputSteps.get(inputSteps.size() - 1);
+        int vi = atEnd && last > shownWaitStep ? vis.indexOf(last) : -1;
+        if (vi >= 0 && errorAt > last) vi = vis.size() - 1;   // הקלט עצר את התוכנית בשגיאה — כרטיס השגיאה
+        if (vi >= 0) showPos(vi);
+        else if (pos >= 0 && pos < vis.size()) showPos(pos);   // בלי התגית "מחכה"
+        followEnd = atEnd && vi < 0;
+        if (followEnd && finished) {
+            followEnd = false;
+            showPos(vis.size() - 1);
+        }
+        getRootPane().requestFocusInWindow();   // המקשים חוזרים לניווט
+    }
+
+    /** מה שהוקלד בצעד הקלט (גם מצעד שנטען מקובץ — מתוך הטקסט "קלט מהמקלדת: 5"); null = "סוף הקלט" */
+    private static String typedOf(Step s) {
+        if (s.input != null) return s.input;
+        String t = s.text == null ? "" : s.text.replace("\u200F", "");
+        if (!t.startsWith("קלט מהמקלדת:")) return null;
+        return t.substring("קלט מהמקלדת:".length()).trim().replace("\u200E", "");
+    }
+
+    /**
+     * השאלה שהתוכנית הדפיסה לפני שהיא מחכה (השורה האחרונה בפלט; ואם היא ריקה — זו שלפניה),
+     * אבל לא מה שכבר הוקלד קודם (אם אחרי הקלט הקודם לא הודפס כלום — אין שאלה).
+     */
+    private String promptText() {
+        String out = Recorder.outputUpTo(Integer.MAX_VALUE);
+        if (!inputSteps.isEmpty()) {
+            Step last = Recorder.step(inputSteps.get(inputSteps.size() - 1));
+            if (last.outLen >= out.length()) return "";
+        }
+        String[] lines = out.replace("\r", "").split("\n", -1);
+        for (int i = lines.length - 1; i >= 0 && i >= lines.length - 2; i--) {
+            String l = lines[i].trim();
+            if (!l.isEmpty()) return l.length() > 50 ? "…" + l.substring(l.length() - 49) : l;
+        }
+        return "";
+    }
+
+    /** הפלט עד הצעד הזה — ומה שהוקלד מהמקלדת מודגש בצבע של קלט */
+    private void showOutput(Step s) {
+        String raw = Recorder.outputUpTo(s.outLen);
+        List<int[]> typed = new ArrayList<int[]>();
+        for (int idx : inputSteps) {
+            if (idx > s.index) break;
+            Step t = Recorder.step(idx);
+            String in = typedOf(t);
+            if (in == null || in.isEmpty()) continue;
+            int at = -1;
+            // ב-Java: הקלט ואחריו ירידת שורה — בדיוק לפני outLen של צעד הקלט (מקובץ צעדים — אולי מעט אחריו)
+            for (int e : new int[] { t.outLen - 1, t.outLen - 2, t.outLen }) {
+                int b = e - in.length();
+                if (b >= 0 && e <= raw.length() && raw.startsWith(in, b)) { at = b; break; }
+            }
+            if (at < 0) {
+                int b = raw.indexOf(in, Math.max(0, t.outLen - in.length() - 2));
+                if (b >= 0 && b <= t.outLen + 2) at = b;
+            }
+            if (at >= 0) typed.add(new int[] { at, at + in.length() });
+        }
+        console.show(raw, typed);
     }
 
     // ------------------------------------------------------------ קוד
@@ -828,6 +943,18 @@ final class Viewer extends JFrame {
         /** הקריאה לפעולת עזר בצעד הנוכחי (CallViz) — או null; fileKey = הקובץ שמוצג */
         CallViz.State call;
         String fileKey;
+        /** החץ של "חוזרים לראש הלולאה" (LoopArrow) — מופיע לרגע בצעד שבו הלולאה חוזרת להתחלה */
+        final LoopArrow.Anim loopAnim = new LoopArrow.Anim(this);
+        /** קלט מהמקלדת: השורה שמחכה עכשיו לקלט (או -1); בצעד קלט — מה שהוקלד (או null) והשורה שלו */
+        int inputWait = -1, inputLine = -1;
+        boolean inputStep;
+        String inputTyped;
+        /** הטבעת "הנושמת" סביב התגית "מחכה לקלט" (0..1) */
+        float pulse() {
+            return (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 260.0));
+        }
+        /** לולאה שלא נגמרת בצעד הזה: השורה שמסמנים בה "∞ הלולאה לא נגמרת" (או -1) — LoopCard */
+        int loopLine = -1;
 
         @Override
         protected void paintComponent(Graphics g0) {
@@ -847,7 +974,7 @@ final class Viewer extends JFrame {
             } else {
                 super.paintComponent(g0);
             }
-            if (marks == null && call == null) return;
+            if (marks == null && call == null && !loopAnim.active() && inputWait < 0 && !inputStep && loopLine < 0) return;
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
@@ -861,6 +988,25 @@ final class Viewer extends JFrame {
                 CallPaint.foreground(g, this, call, fileKey, used);
             } catch (RuntimeException e) {
                 // בלי סימון הקריאות
+            }
+            try {
+                loopAnim.paint(g, this, CallPaint.arrowLines(call, fileKey));
+            } catch (RuntimeException e) {
+                // בלי החץ של הלולאה
+            }
+            try {
+                if (inputWait > 0) InputPaint.waiting(g, this, inputWait, used, pulse());
+                else if (inputStep && inputLine > 0 && inputTyped != null) InputPaint.typed(g, this, inputLine, inputTyped, used);
+                else if (inputStep && inputLine > 0) InputPaint.ended(g, this, inputLine, used);
+            } catch (RuntimeException e) {
+                // בלי סימון הקלט
+            }
+            if (loopLine > 0) {
+                try {
+                    LoopCard.paintTag(g, this, loopLine, used);
+                } catch (RuntimeException e) {
+                    // בלי תגית הלולאה
+                }
             }
             g.dispose();
         }
@@ -983,50 +1129,170 @@ final class Viewer extends JFrame {
     private static final java.util.regex.Pattern HEBREW_RUN = java.util.regex.Pattern.compile(
             "[\u0590-\u05FF](?:[\u0590-\u05FF \\-.,:;!?()0-9]*[\u0590-\u05FF])?");
 
-    // ------------------------------------------------------------ משתנים וקריאות
+    /** הפלט: מה שהתוכנית הדפיסה, ומה שהוקלד מהמקלדת — מודגש בצבע של קלט (על רקע עדין), כמו בקונסול של Eclipse */
+    private static final class ConsolePane extends javax.swing.JTextPane {
+        private final javax.swing.text.SimpleAttributeSet plain = new javax.swing.text.SimpleAttributeSet();
+        private final javax.swing.text.SimpleAttributeSet typed = new javax.swing.text.SimpleAttributeSet();
+        private String shown;
+        private String shownRanges;
 
-    /** טבלת המשתנים. ערך שהשתנה מאז השורה הקודמת באותה פעולה — מסומן בצהוב */
-    private void updateVars(Step s) {
-        varsModel.setRowCount(0);
-        changedRows.clear();
-        if (s.vars == null) {
-            varsSub.setText(" ");
-            return;
+        ConsolePane() {
+            javax.swing.text.StyleConstants.setForeground(typed, InputPaint.INPUT);
+            javax.swing.text.StyleConstants.setBold(typed, true);
+            javax.swing.text.StyleConstants.setBackground(typed, InputPaint.SOFT);
         }
-        Step prev = null;
-        for (int i = s.index - 1; i >= 0 && prev == null; i--) {
-            Step p = Recorder.step(i);
-            if (p.kind == Kind.LINE && p.vars != s.vars) prev = p;
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            // בלי גלישת שורות, כמו בקונסול (כשהפלט צר מהחלון — ממלאים את כל הרוחב)
+            return getParent() == null || getUI().getPreferredSize(this).width <= getParent().getWidth();
         }
-        boolean sameFrame = prev != null && s.where != null && prev.where != null
-                && prev.where.method.equals(s.where.method) && prev.calls.size() == s.calls.size();
-        Map<String, String> old = new HashMap<String, String>();
-        if (sameFrame && prev.vars != null) for (String[] v : prev.vars) old.put(v[0], v[1]);
-        for (int i = 0; i < s.vars.size(); i++) {
-            String[] v = s.vars.get(i);
-            String name = v[0];
-            SelfViz.Info self = name.equals("this") ? SelfViz.of(s) : null;
-            if (self != null && self.self != null && !self.self.isEmpty() && !self.self.equals("this")) name = "this (" + self.self + ")";
-            varsModel.addRow(new Object[] { name, ltr(v[1]) });
-            if (sameFrame && !v[1].equals(old.get(v[0]))) changedRows.add(i);
+
+        /** raw = הפלט כמו שהוא (אולי עם \r\n); ranges = מה שהוקלד, כמקומות ב-raw */
+        void show(String raw, List<int[]> ranges) {
+            StringBuilder key = new StringBuilder();
+            for (int[] r : ranges) key.append(r[0]).append('-').append(r[1]).append(',');
+            if (raw.equals(shown) && key.toString().equals(shownRanges)) return;
+            shown = raw;
+            shownRanges = key.toString();
+            // המסמך לא שומר \r — מתרגמים את המקומות בהתאם
+            int[] map = new int[raw.length() + 1];
+            StringBuilder text = new StringBuilder(raw.length());
+            for (int i = 0; i < raw.length(); i++) {
+                map[i] = text.length();
+                if (raw.charAt(i) != '\r') text.append(raw.charAt(i));
+            }
+            map[raw.length()] = text.length();
+            setText(text.toString());
+            javax.swing.text.StyledDocument doc = getStyledDocument();
+            doc.setCharacterAttributes(0, doc.getLength(), plain, true);
+            for (int[] r : ranges) {
+                int a = map[Math.min(r[0], raw.length())], b = map[Math.min(r[1], raw.length())];
+                if (b > a && b <= doc.getLength()) doc.setCharacterAttributes(a, b - a, typed, false);
+            }
+            // שורה שמתחילה בעברית — מימין לשמאל (כך "הכנס מספר: " ואחריה הקלט נקראות נכון); שאר השורות משמאל לימין.
+            // שורות עבריות רצופות — בפעולה אחת (פלט ארוך)
+            doc.setParagraphAttributes(0, doc.getLength(), ltr, false);   // בלי שארית מהטקסט הקודם
+            javax.swing.text.Element root = doc.getDefaultRootElement();
+            int from = -1;
+            for (int i = 0; i <= root.getElementCount(); i++) {
+                javax.swing.text.Element e = i < root.getElementCount() ? root.getElement(i) : null;
+                boolean r = e != null && rtlLine(text, e.getStartOffset(), Math.min(e.getEndOffset(), text.length()));
+                if (r && from < 0) from = e.getStartOffset();
+                if (!r && from >= 0) {
+                    int to = e == null ? doc.getLength() : e.getStartOffset();
+                    doc.setParagraphAttributes(from, Math.max(1, to - from), rtl, false);
+                    from = -1;
+                }
+            }
+            setCaretPosition(doc.getLength());
         }
-        String inside = SelfViz.where(s);
-        String m = s.where == null ? "" : "בפעולה " + (inside != null ? lrm(inside) : method(s.where));
-        varsSub.setText(m);
+
+        private final javax.swing.text.SimpleAttributeSet rtl = new javax.swing.text.SimpleAttributeSet();
+        private final javax.swing.text.SimpleAttributeSet ltr = new javax.swing.text.SimpleAttributeSet();
+        {
+            rtl.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION, java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
+            ltr.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION, java.awt.font.TextAttribute.RUN_DIRECTION_LTR);
+            javax.swing.text.StyleConstants.setAlignment(rtl, javax.swing.text.StyleConstants.ALIGN_LEFT);
+            javax.swing.text.StyleConstants.setAlignment(ltr, javax.swing.text.StyleConstants.ALIGN_LEFT);
+        }
+
+        /** האות "החזקה" הראשונה בשורה (עברית / לטינית) קובעת את הכיוון, כמו dir=auto */
+        private static boolean rtlLine(CharSequence t, int from, int to) {
+            for (int i = from; i < to; i++) {
+                byte d = Character.getDirectionality(t.charAt(i));
+                if (d == Character.DIRECTIONALITY_LEFT_TO_RIGHT) return false;
+                if (d == Character.DIRECTIONALITY_RIGHT_TO_LEFT || d == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC) return true;
+            }
+            return false;
+        }
     }
 
-    private final class VarRenderer extends DefaultTableCellRenderer {
+    /**
+     * הפס שמופיע כשהתוכנית מחכה לקלט: מה היא מחכה לו ואיפה ("שורה 7: in.nextInt()"), השאלה שהיא הדפיסה,
+     * שדה הקלדה (מקבל את המקלדת מיד), "שליחה" (או Enter) ו"סיום הקלט" (אין עוד קלט — כמו Ctrl+D / Ctrl+Z בקונסול).
+     */
+    private final class InputBar extends JPanel {
+        final JTextField field = new JTextField();
+        private final JLabel title = label("", Theme.title, InputPaint.INPUT_DARK);
+        private final JLabel where = label("", Theme.small, Theme.MUTED);
+        private final JLabel prompt = label("", Theme.mono, Theme.TEXT);
+        private final JButton send = new JButton("שליחה");
+        private final JButton end = small("סיום הקלט", "אין עוד קלט: התוכנית מקבלת \"סוף הקלט\" (כמו Ctrl+D / Ctrl+Z בקונסול)");
+
+        InputBar() {
+            super(new BorderLayout(0, 8));
+            setOpaque(false);
+            setBorder(BorderFactory.createEmptyBorder(10, 16, 12, 16));
+            JPanel head = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
+            head.setOpaque(false);
+            JLabel icon = new JLabel(InputPaint.icon(1.6f, InputPaint.INPUT));
+            head.add(icon);
+            head.add(title);
+            head.add(where);
+            add(head, BorderLayout.NORTH);
+
+            field.setFont(Theme.monoBig);
+            field.setForeground(Theme.TEXT);
+            field.setToolTipText(Syntax.csharp ? "אפשר להקליד גם בחלון הקונסול / בטרמינל של VS Code"
+                    : "אפשר להקליד גם בקונסול של Eclipse / בטרמינל של VS Code");
+            field.putClientProperty("JTextField.placeholderText", "מקלידים כאן ולוחצים אנטר");
+            field.putClientProperty("FlatLaf.style", "arc: 10; borderColor: #9FDCD2; focusedBorderColor: #0F766E;"
+                    + " borderWidth: 1; focusWidth: 2; focusColor: #CDEFE8; margin: 4,10,4,10");
+            send.setFont(Theme.uiBold);
+            send.setFocusable(false);
+            send.setToolTipText("שולחים את מה שהוקלד לתוכנית  (Enter)");
+            send.putClientProperty("FlatLaf.style", "background: #0F766E; foreground: #FFFFFF; hoverBackground: #115E59;"
+                    + " pressedBackground: #134E4A; borderWidth: 0; arc: 12; margin: 5,18,5,18");
+            ActionListener go = new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                    String t = field.getText();
+                    field.setText("");
+                    Keyboard.submit(t);
+                }
+            };
+            field.addActionListener(go);
+            send.addActionListener(go);
+            end.setForeground(Theme.MUTED);
+            end.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) { Keyboard.endInput(); }
+            });
+
+            JPanel row = new JPanel(new BorderLayout(10, 0));
+            row.setOpaque(false);
+            prompt.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
+            row.add(prompt, BorderLayout.LINE_START);
+            row.add(field, BorderLayout.CENTER);
+            JPanel btns = row(6);
+            btns.add(send);
+            btns.add(end);
+            row.add(btns, BorderLayout.LINE_END);
+            add(row, BorderLayout.CENTER);
+        }
+
+        /** f = השורה שקוראת; what = "מספר שלם"...; call = "in.nextInt()"; ask = השאלה שהתוכנית הדפיסה (או "") */
+        void open(Frame f, String what, String call, String ask) {
+            title.setText("התוכנית מחכה שתקלידו " + (what == null ? "ערך" : what));
+            String w = f == null ? "" : "שורה " + f.line;
+            if (call != null) w += (w.isEmpty() ? "" : ":  ") + lrm(call);
+            where.setText(w.isEmpty() ? "" : "—  " + w);
+            prompt.setText(ask == null || ask.isEmpty() ? "" : ask);
+            prompt.setVisible(ask != null && !ask.isEmpty());
+            prompt.setToolTipText(ask == null || ask.isEmpty() ? null : "מה שהתוכנית הדפיסה לפני הקריאה");
+            revalidate();
+            repaint();
+        }
+
         @Override
-        public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean focus, int row, int col) {
-            super.getTableCellRendererComponent(t, v, false, false, row, col);
-            boolean changed = changedRows.contains(row);
-            setBackground(changed ? Theme.CHANGED : Color.WHITE);
-            setForeground(Theme.TEXT);
-            setFont(col == 0 ? Theme.mono.deriveFont(Font.BOLD) : Theme.mono);
-            setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-            setHorizontalAlignment(col == 0 ? SwingConstants.RIGHT : SwingConstants.LEFT);
-            setToolTipText(v == null ? null : String.valueOf(v));
-            return this;
+        protected void paintComponent(Graphics g0) {
+            Graphics2D g = smooth(g0);
+            int w = getWidth(), h = getHeight();
+            g.setColor(InputPaint.BAR_BG);
+            g.fillRoundRect(1, 1, w - 3, h - 3, 16, 16);
+            g.setColor(InputPaint.BAR_LINE);
+            g.setStroke(new BasicStroke(2f));
+            g.drawRoundRect(1, 1, w - 3, h - 3, 16, 16);
+            g.dispose();
         }
     }
 
@@ -1085,7 +1351,13 @@ final class Viewer extends JFrame {
             this.small = small;
             setOpaque(false);
             if (small) setPreferredSize(new Dimension(20, 20));
-            if (small) setToolTipText("התוכנית עוד רצה — צעדים חדשים ממשיכים להתווסף");
+            if (small) javax.swing.ToolTipManager.sharedInstance().registerComponent(this);   // הטקסט — getToolTipText
+        }
+
+        @Override
+        public String getToolTipText(java.awt.event.MouseEvent e) {
+            if (!small) return null;
+            return inputShown ? "התוכנית מחכה לקלט מהמקלדת" : "התוכנית עוד רצה — צעדים חדשים ממשיכים להתווסף";
         }
 
         @Override
@@ -1095,6 +1367,10 @@ final class Viewer extends JFrame {
 
         @Override
         protected void paintComponent(Graphics g0) {
+            if (small && inputShown) {   // התוכנית לא "רצה" — היא מחכה לקלט: מקלדת במקום הספינר
+                InputPaint.keyboard((Graphics2D) g0, (getWidth() - 18) / 2.0, (getHeight() - 12) / 2.0, 1.2f, InputPaint.INPUT);
+                return;
+            }
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);

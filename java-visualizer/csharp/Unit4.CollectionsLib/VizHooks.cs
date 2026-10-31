@@ -23,6 +23,16 @@ namespace Unit4.CollectionsLib
             return true;
         }
 
+        /// <summary>
+        /// בתנאי של לולאה: כמו Ln, ועוד מה שידוע על הלולאה מהקוד (info), ושני הצדדים של ההשוואה (i &lt; n → i, n; אחרת null) —
+        /// כדי לזהות לולאה שלא נגמרת (LoopGuard). מחזירה true
+        /// </summary>
+        public static bool Lp(int line, string info, object cmp, object bound, params object[] kv)
+        {
+            Recorder.LoopLine(line, info, cmp, bound, kv);
+            return true;
+        }
+
         public static T Ret<T>(T value) { return Recorder.Return(value); }
     }
 }

@@ -148,7 +148,30 @@ conds "$C/out.txt" \
     'רץ ה-else if — התנאי בשורה 6 לא התקיים, והתנאי בשורה 8 התקיים]' 'רץ ה-else — אף תנאי לא התקיים (שורות 6, 8)]' \
     'רץ ה-else if — התנאים בשורות 55, 57 לא התקיימו, והתנאי בשורה 59 התקיים]' 'רץ ה-else — אף תנאי לא התקיים (שורות 55, 57, 59)]' \
     'רץ ה-else — כי התנאי בשורה 23 לא התקיים]' 'רץ ה-if — כי התנאי בשורה 30 התקיים]'
+echo "== 5ד2. תנאים מורכבים (&&, ||, !, סוגריים): כל חלק בנפרד עם הערכים שלו, קיצור (short-circuit), ו'?' כשאי אפשר לחשב"
+conds "$C/out.txt" \
+    'שורה 71 if: x > 5 && y > 4 | 7 > 5 && 3 > 4 | x=7 y=3 | חלקים: x > 5 ✓, y > 4 ✗ | false מדלגים על ה-if]' \
+    'x > 5 מתקיים (7 > 5), אבל y > 4 לא מתקיים (3 > 4) — וב-&& צריך ששניהם יתקיימו]' \
+    'שורה 72 if: x > 5 || y > 4 | 7 > 5 || y > 4 | x=7 y=3 | חלקים: x > 5 ✓, y > 4 לא נבדק | true נכנסים ל-if]' \
+    'x > 5 מתקיים (7 > 5) — וזה מספיק ב-||, אז את y > 4 לא בודקים בכלל]' \
+    'שורה 73 if: x % 2 == 0 && y != 0 || s.length() == 3 | 7 % 2 == 0 && y != 0 || 3 == 3 | x=7 y=3 s="abc" | חלקים: x % 2 == 0 ✗, y != 0 לא נבדק, s.length() == 3 ✓ | true נכנסים ל-if]' \
+    'החלק הראשון לא מתקיים, אבל s.length() == 3 מתקיים (3 == 3) — וזה מספיק ב-||]' \
+    'שורה 74 if: !(x < 0) && (y == 3 || y == 9) | !(7 < 0) && (3 == 3 || y == 9) | x=7 y=3 | חלקים: !(x < 0) ✓, y == 3 ✓, y == 9 לא נבדק | true נכנסים ל-if]' \
+    '!(x < 0) מתקיים (!(7 < 0)), וגם (y == 3 || y == 9) מתקיים]' \
+    'שורה 75 if: y > 4 && x / (y - 3) > 1 | 3 > 4 && x / (y - 3) > 1 | y=3 x=7 | חלקים: y > 4 ✗, x / (y - 3) > 1 לא נבדק | false מדלגים על ה-if]' \
+    'y > 4 לא מתקיים (3 > 4), ולכן את x / (y - 3) > 1 לא בודקים בכלל]' \
+    'שורה 79 while: !st.isEmpty() && st.top() > 0 | !false && 5 > 0 | st=Stack [5,2] | חלקים: !st.isEmpty() ✓, st.top() > 0 ✓ | true ממשיכים לסיבוב]' \
+    'שורה 79 while: !st.isEmpty() && st.top() > 0 | !true && st.top() > 0 | st=Stack [] | חלקים: !st.isEmpty() ✗, st.top() > 0 לא נבדק | false יוצאים מהלולאה]' \
+    '!st.isEmpty() לא מתקיים (!true), ולכן את st.top() > 0 לא בודקים בכלל]' \
+    'שורה 82 if: s.indexOf("z") >= 0 || y > 1 | s.indexOf("z") >= 0 || 3 > 1 | s="abc" y=3 | חלקים: s.indexOf("z") >= 0 ?, y > 1 ? | true נכנסים ל-if]' \
+    'לא ידוע מה יצא ב-s.indexOf("z") >= 0 (אי אפשר לחשב את זה כאן), אבל התנאי כולו התקיים]'
 ! grep -q 'for: i < 2 | 1 < 2 | i=1 | false' "$C/out.txt" || { echo "  FAIL ב-for מוצג הערך מלפני ה-i++"; exit 1; }
+# הציור של תנאי מורכב בקוד (בלי חלון): קו בצבע של כל חלק מתחת לקוד שלו, גם כשהתנאי ממשיך לשורה הבאה; השבב וההסבר לא מכסים את הקוד
+CP="$W/condpaint"
+mkdir -p "$CP"
+javac -encoding UTF-8 -cp "$JAR" -d "$CP" conds/CondPartsPaint.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$CP:$JAR" unit4.collectionsLib.CondPartsPaint "$CP/shot.png" > "$CP/paint.txt" 2>&1 \
+    && grep -q MARK-END "$CP/paint.txt" && grep '^  ok' "$CP/paint.txt" || { cat "$CP/paint.txt"; exit 1; }
 
 echo "== 5ה. פעולה שקוראת לפעולת עזר: יוצאים אליה, מי מחכה, מה היא מחזירה, וחוזרים (לא מ-main, ולא רקורסיה)"
 K="$W/calls"
@@ -199,6 +222,130 @@ for spec in 'Fact:רקורסיה פשוטה | פעולות fact | עומק 4 | �
     c=${spec%%:*}; want=${spec#*:}
     (cd "$R" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine $c > $c.txt 2>&1) || true
     grep -qF -- "[רקורסיה: $want" "$R/$c.txt" && echo "  ok  $c: $want" || { echo "  FAIL $c: $want"; grep 'רקורסיה:' "$R/$c.txt"; exit 1; }
+done
+
+echo "== 5ז2. מעקב המשתנים לכל פעולה פעילה: הפעולה שרצה, ולכל פעולה שמחכה (גם ברקורסיה) — המשתנים שלה ברגע הזה"
+# [מסגרות #צעד: הפנימית{משתנים} ← מי שקרא לה{...} ← ... ← main{...} | המשפט] — מה שהרשימה במעקב המשתנים מציגה לכל פעולה
+FV="$W/framevars"
+mkdir -p "$FV"
+cp calls/Calls.java calls/Deep.java recursion/Fact.java "$FV/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$FV" "$FV"/*.java
+for c in Calls Deep Fact; do
+    (cd "$FV" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine $c > $c.txt 2>&1) || true
+done
+conds "$FV/Calls.txt" \
+    '[מסגרות #9: sumEven{s=Stack [8,3], sum=0} ← main{s=Stack [8,3]}]' \
+    '[מסגרות #17: rem{x=8, d=2} ← isEven{x=8} ← sumEven{s=Stack [3], sum=0, tmp=Stack [], v=8} ← main{s=Stack [3]}]' \
+    '[מסגרות #18: rem{x=8, d=2} ← isEven{x=8} ← sumEven{s=Stack [3], sum=0, tmp=Stack [], v=8} ← main{s=Stack [3]} | rem() מחזירה 0 — חוזרים ל-isEven() בשורה 10]' \
+    '[מסגרות #23: sumEven{s=Stack [3], sum=8, tmp=Stack [], v=8} ← main{s=Stack [3]}]' \
+    '[מסגרות #77: report{title="max", value=9} ← maxOf{q=Queue [], m=9} ← main{s=Stack [8,3], total=8, q=Queue []}]' \
+    '[סיום #86: main{s=Stack [8,3], total=8, q=Queue []}]'
+conds "$FV/Fact.txt" \
+    '[מסגרות #8: fact{n=1} ← fact{n=2} ← fact{n=3} ← fact{n=4} ← main{}]' \
+    '[מסגרות #9: fact{n=1} ← fact{n=2} ← fact{n=3} ← fact{n=4} ← main{} | fact(n = 1) מחזירה 1 — חוזרים ל-fact(n = 2) בשורה 5]' \
+    '[מסגרות #15: fact{n=4} ← main{} | fact(n = 4) מחזירה 24 — חוזרים ל-main() בשורה 9]'
+# רקורסיה עמוקה (15 פעולות): 11 הפנימיות, "…" במקום האמצעיות, ו-main למטה עם המשתנים שלו
+conds "$FV/Deep.txt" \
+    '[מסגרות #27: sum{n=1} ← sum{n=2} ← sum{n=3} ← sum{n=4} ← sum{n=5} ← sum{n=6} ← sum{n=7} ← sum{n=8} ← sum{n=9} ← sum{n=10} ← sum{n=11} ← … ← main{start=13}]' \
+    '[סיום #61: main{start=13, total=91}]'
+! grep -q '^  \[מסגרות.*{?}' "$FV/Calls.txt" "$FV/Fact.txt" || { echo "  FAIL פעולה שמחכה בלי משתנים"; grep '{?}' "$FV"/*.txt | head; exit 1; }
+
+echo "== 5ח. חץ \"חוזרים לראש הלולאה\" בקוד: for, while, do-while, מקוננות (החץ של החיצונית), for-each, continue — והציור עצמו"
+LB="$W/loopback"
+mkdir -p "$LB"
+cp loops/LoopBack.java "$LB/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$LB" "$LB/LoopBack.java"
+(cd "$LB" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine LoopBack > out.txt 2>&1) || true
+conds "$LB/out.txt" \
+    'שורה 10 for: מ-11, החץ מ-12 | for (int i = 0; i < n; i++)]' \
+    'שורה 14 while: מ-16, החץ מ-17 | while (k > 0)]' \
+    'שורה 20 do: מ-21, החץ מ-21 | do { ... } while (d > 0)]' \
+    'שורה 23 for: מ-24, החץ מ-25 | for (int b = 0; b < 2; b++)]' \
+    'שורה 22 for: מ-23, החץ מ-26 | for (int a = 0; a < 2; a++)]' \
+    'שורה 28 foreach: מ-30, החץ מ-32 | for (int x : arr)]' \
+    'שורה 33 for: מ-34, החץ מ-36 | for (int c = 0; c < 3; c++)]'
+# בלי חץ: כניסה ראשונה ללולאה הפנימית, for בשורה אחת, ובתוך פעולת העזר; ובסך הכול 16 חזרות
+! grep -q 'שורה 23 for: מ-22\|\[חזרה #[0-9]* שורה 37 \|\[חזרה #[0-9]* שורה 5 ' "$LB/out.txt" && [ "$(grep -c '^  \[חזרה #' "$LB/out.txt")" = 16 ] \
+    && echo "  ok  בלי חץ כשלא חוזרים להתחלה (כניסה ללולאה, שורה אחת, פעולת עזר) — 16 חזרות" \
+    || { echo "  FAIL חץ במקום שאין בו חזרה"; grep 'חזרה' "$LB/out.txt"; exit 1; }
+javac -encoding UTF-8 -cp "$JAR" -d "$LB" loops/LoopArrowPaint.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$LB:$JAR" unit4.collectionsLib.LoopArrowPaint > "$LB/paint.txt" 2>&1 \
+    && grep -q MARK-END "$LB/paint.txt" && grep '^  ok' "$LB/paint.txt" || { cat "$LB/paint.txt"; exit 1; }
+
+echo "== 5ט. קלט מהמקלדת (Scanner / BufferedReader / System.in.read): השורה שמחכה, מה שהוקלד כצעד INPUT, והפלט"
+# בלי חלון: dsviz.input "מקליד" את השורות כשהתוכנית מחכה (מקובץ UTF-8 — עברית בלי תלות בקידוד של שורת הפקודה)
+I="$W/input"
+mkdir -p "$I"
+cp input/*.java "$I/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$I" "$I"/*.java
+printf '3\n4 5\n6\nדני כהן\n' > "$I/scan.in"
+printf 'y\nתל אביב\n' > "$I/read.in"
+printf 'abc\n' > "$I/bad.in"
+printf '1 2\n3\n' > "$I/sum.in"
+for run in ScanInput:scan ReadInput:read ScanInput:bad SumUntil:sum; do
+    (cd "$I" && timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -Ddsviz.input=@${run#*:}.in -cp ".:$JAR" \
+        unit4.collectionsLib.LineByLine ${run%%:*} < /dev/null 2>&1 | sed 's/\xE2\x80\x8E//g' > ${run#*:}.out) || true
+done
+conds "$I/scan.out" \
+    '⌨ מחכה לקלט מהמקלדת — שורה 10:  in.nextInt()' '(ScanInput.java:10)  קלט מהמקלדת: 3' \
+    '⌨ מחכה לקלט מהמקלדת — שורה 14:  in.nextInt()' '(ScanInput.java:14)  קלט מהמקלדת: 4 5' '(ScanInput.java:14)  s.push(5)' \
+    '(ScanInput.java:14)  קלט מהמקלדת: 6' '⌨ מחכה לקלט מהמקלדת — שורה 18:  in.nextLine()' '(ScanInput.java:18)  קלט מהמקלדת: דני כהן' \
+    'name="דני כהן"' 'שלום דני כהן, הסכום: 15'
+[ "$(grep -c 'קלט מהמקלדת: ' "$I/scan.out")" = 4 ] && echo "  ok  4 צעדי קלט (\"4 5\" לשתי קריאות בשורה אחת — צעד אחד)" \
+    || { echo "  FAIL מספר צעדי הקלט"; grep 'קלט מהמקלדת' "$I/scan.out"; exit 1; }
+grep -A1 'מחכה לקלט מהמקלדת — שורה 18' "$I/scan.out" | grep -qx 'דני כהן' && echo "  ok  מה שהוקלד מודפס גם לקונסול" \
+    || { echo "  FAIL ההקלדה לא הודפסה לקונסול"; exit 1; }
+conds "$I/read.out" '⌨ מחכה לקלט מהמקלדת — שורה 9:  System.in.read()' '⌨ מחכה לקלט מהמקלדת — שורה 14:  br.readLine()' \
+    '(ReadInput.java:14)  קלט מהמקלדת: תל אביב' 'קיבלתי y ו-תל אביב (7 תווים)'
+conds "$I/bad.out" '(ScanInput.java:10)  קלט מהמקלדת: abc' 'שגיאה: InputMismatchException'
+# while (in.hasNextInt()) עד שהקלט נגמר — צעד אחד "סוף הקלט" (בחלון: אחרי "סיום הקלט")
+conds "$I/sum.out" '⌨ מחכה לקלט מהמקלדת — שורה 8:  in.hasNextInt()' '(SumUntil.java:8)  קלט מהמקלדת: 1 2' \
+    '(SumUntil.java:8)  סוף הקלט — אין עוד מה לקרוא' 'סכום: 6'
+# בלי חלון ובלי dsviz.input — כמו קודם: System.in הרגיל. קלט מצינור עובד (בלי צעדי קלט), ובסוף הקלט — NoSuchElementException
+(cd "$I" && printf '2\n7 8\nרון\n' | timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" \
+    unit4.collectionsLib.LineByLine ScanInput > piped.out 2>&1) || true
+grep -q 'שלום רון, הסכום: 15' "$I/piped.out" && ! grep -q 'קלט מהמקלדת\|מחכה לקלט' "$I/piped.out" \
+    && echo "  ok  בלי חלון: קלט מצינור כמו קודם" || { echo "  FAIL קלט מצינור בלי חלון"; tail -5 "$I/piped.out"; exit 1; }
+(cd "$I" && timeout 120 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" \
+    unit4.collectionsLib.LineByLine ScanInput < /dev/null > eof.out 2>&1) || true
+grep -q 'שגיאה: NoSuchElementException' "$I/eof.out" && ! grep -q 'קלט מהמקלדת\|מחכה לקלט' "$I/eof.out" \
+    && echo "  ok  בלי חלון ובלי קלט: NoSuchElementException כמו קודם" || { echo "  FAIL בלי קלט"; tail -5 "$I/eof.out"; exit 1; }
+
+echo "== 5י. לולאה שלא נגמרת: התוכנית נעצרת, והכרטיס אומר מה קרה, למה (איזה משתנה לא מתקדם) ומה עושים — ולולאות תקינות וארוכות לא נעצרות"
+LP="$W/loopguard"
+mkdir -p "$LP/loops"
+cp problems/loops/*.java "$LP/loops/"   # הכרטיס נבנה מהקוד — הקבצים ליד המחלקות
+javac -g -encoding UTF-8 -cp "$JAR" -d "$LP" "$LP"/loops/*.java
+# שלוש במקביל בכל פעם (כל אחת היא שני תהליכי Java עם debugger — יותר מזה במחשב עם מעט ליבות והזיהוי, שתלוי גם בזמן,
+# לא מספיק לפני ה-timeout); בלי ‪...‬ שעוטפים קוד בתוך עברית — כדי לחפש טקסט פשוט
+n=0
+for c in CounterStuck WrongWay NodeStuck StackStuck SameState Semicolon EmptyTrue FineLoops LongSum; do
+    (cd "$LP" && timeout 150 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine loops.$c 2>&1 \
+        | sed 's/\xE2\x80[\xAA\xAC\x8E\x8F]//g' > $c.txt) &
+    n=$((n + 1)); [ $((n % 3)) = 0 ] && wait
+done
+wait
+stuck() {   # stuck <class> <השורות שחייבות להופיע...> — וצעד העצירה הוא האחרון (בלי "התוכנית הסתיימה")
+    c=$1; shift
+    conds "$LP/$c.txt" "$@"
+    grep '^  #' "$LP/$c.txt" | tail -1 | grep -q 'הלולאה לא נגמרת — התוכנית נעצרה' && ! grep -q 'התוכנית הסתיימה' "$LP/$c.txt" \
+        && echo "  ok  $c: נעצרה, וצעד העצירה הוא האחרון" || { echo "  FAIL $c: לא נעצרה בלולאה"; tail -5 "$LP/$c.txt"; exit 1; }
+}
+stuck CounterStuck '[כרטיס loop x x > 0]' '[לולאה x שורה 7 הלולאה בשורה 7 לא נגמרת' 'x נשאר 5 בכל הסיבובים — אף פקודה בלולאה לא משנה אותו' \
+    'בסוף כל סיבוב מקטינים את x — כך הוא יתקרב ל-0 והלולאה תיגמר:  x--;'
+stuck WrongWay '[כרטיס loop i i < 10]' 'i רק הולך וקטן (0, -1, -2, …' 'בחלק השלישי של ה-for כתוב i-- — הוא מקטין את i. צריך i++.'
+stuck NodeStuck '[כרטיס loop p p != null]' 'p לא מתקדם — הוא מצביע כל הזמן על החוליה עם הערך 3' 'מתקדמים לחוליה הבאה:  p = p.getNext();'
+stuck StackStuck '[כרטיס loop s !s.isEmpty()]' 'לא מוציאים מ-s — יש בה כל הזמן 3 איברים' 's.top() רק מציץ בראש המחסנית בלי להוציא — מוציאים באמת:  s.pop()'
+stuck SameState '[כרטיס loop n n >= 1]' 'אותו מצב חוזר שוב ושוב: בכל סיבוב n = 3' 'n--;'
+stuck Semicolon '[כרטיס loop n n > 0]' 'יש ; מיד אחרי while (n > 0): זה הגוף של הלולאה — פקודה ריקה, והבלוק { ... } שאחריו בכלל לא שייך ללולאה' \
+    'מוחקים את ה-; שבסוף שורה 7 — ואז הבלוק שאחריו יהיה הגוף של הלולאה.'
+# while (true); בשורה אחת: אין צעדים חדשים בכלל — מזהים לפי דגימות של התוכנית
+stuck EmptyTrue '[כרטיס loop true]' 'התנאי true תמיד מתקיים, ואין בתוך הלולאה break שיוציא ממנה' 'if (...) break;'
+# לולאות תקינות: while (true) עם break, מאפיין שמשתנה בפעולה, משתנה שמשתנה רק לפעמים, מקוננות, רשימה — ולולאה ארוכה (אחרי שהתיעוד נעצר)
+for c in FineLoops:'100 50 150 64 6' LongSum:'סכום: 2001000'; do
+    f=${c%%:*}; want=${c#*:}
+    grep -qF "$want" "$LP/$f.txt" && grep -q 'התוכנית הסתיימה' "$LP/$f.txt" && ! grep -q 'כרטיס loop\|הלולאה לא נגמרת' "$LP/$f.txt" \
+        && echo "  ok  $f: רצה עד הסוף ולא נעצרה" || { echo "  FAIL $f נעצרה בלי סיבה"; grep 'כרטיס\|לולאה' "$LP/$f.txt" | tail -3; tail -3 "$LP/$f.txt"; exit 1; }
 done
 
 echo "== 5ב. כרטיסי אובייקטים: תוכן המחלקה בתוך כל מבנה, וגישה למאפיין (getName / setGrade / drive)"
@@ -256,11 +403,29 @@ DEPS="$(cd ../../build/eclipse-deps && pwd)"
 mkdir -p "$W/mentor/cls"
 javac -encoding UTF-8 -nowarn -cp "$(ls "$DEPS"/*.jar | tr '\n' ':')" -d "$W/mentor/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Mentor.java \
     ../../eclipse-plugin/src/il/lamerhav/dsviz/MentorRules.java ../../eclipse-plugin/src/il/lamerhav/dsviz/MentorSource.java \
-    ../../eclipse-plugin/src/il/lamerhav/dsviz/HebrewErrors.java MentorTest.java
+    ../../eclipse-plugin/src/il/lamerhav/dsviz/HebrewErrors.java ../../eclipse-plugin/src/il/lamerhav/dsviz/RtlText.java RtlTextTest.java MentorTest.java
 cp ../../eclipse-plugin/src/il/lamerhav/dsviz/problems_he.properties "$W/mentor/cls/il/lamerhav/dsviz/"
 (cd "$W/mentor" && jar xf "$DEPS/ecj.jar" org/eclipse/jdt/internal/compiler/problem/messages.properties)
 java -Dstdout.encoding=UTF-8 -Dclean=../../src/examples:../../src/Main.java -Dmessages="$W/mentor/org/eclipse/jdt/internal/compiler/problem/messages.properties" \
     -cp "$W/mentor/cls:$(ls "$DEPS"/*.jar | tr '\n' ':')" il.lamerhav.dsviz.MentorTest "$JAR" mentor-cases.txt
+echo "== 10א. חלון \"הסברים בעברית\": עברית עם קוד מוצגת נכון מימין לשמאל (s.pop() בסוף משפט, arr[i], Stack<Integer>, !=, מספרים, רשימות)"
+java -Dstdout.encoding=UTF-8 -cp "$W/mentor/cls" il.lamerhav.dsviz.RtlTextTest
+
+echo "== 5ח. רשימה מקושרת: לכל מצביע חץ וצבע משלו (כמה מצביעים לאותה חוליה), וחיבור חוליה חדשה לרשימה קיימת (באמצע/בסוף) — בלי שכפול ובלי 'אבדה' שגויה"
+LN="$W/lists"
+mkdir -p "$LN"
+cp lists/LinkNew.java "$LN/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$LN" "$LN/LinkNew.java"
+(cd "$LN" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine LinkNew > out.txt 2>&1) || true
+conds "$LN/out.txt" \
+    '[שרשרת #7: n: 5(n)→null]' '[שרשרת #7: רשימה: 3(list)→7→1→null]' \
+    '[שרשרת #8: n: 5(n)→3(list)→7→1→null]' \
+    '[שרשרת #10: n: 5(list,n)→3→7→1→null]' '[שרשרת #11: n: 5(list,n,p)→3→7→1→null]' \
+    '[שרשרת #28: n: 5(list,n)→3→7→1(p)→9(t)→null]' \
+    'ענף 4(q)↗7' \
+    '[שרשרת #37: n: 5(list,n)→3(p)→4(q)→7→1→9(t)→null]'
+! grep -q 'אבד' "$LN/out.txt" && echo "  ok  אין אזהרת 'אבדה' שגויה (אין חוליה בלי מצביע) בכל הצעדים" \
+    || { echo "  FAIL חוליה סומנה כאבודה בלי סיבה"; grep 'אבד' "$LN/out.txt"; exit 1; }
 
 echo "== C# (Visual Studio / VS Code / Rider)"
 sh ./cs-tests.sh

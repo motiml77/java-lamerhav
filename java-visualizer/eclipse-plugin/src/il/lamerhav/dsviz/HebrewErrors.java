@@ -1287,54 +1287,18 @@ final class HebrewErrors {
         return b.toString().replace("``", "");
     }
 
-    private static final java.util.regex.Pattern CODE_RUN = java.util.regex.Pattern.compile(
-            "(?<![\\u0590-\\u05FF\\w])[\\w.\\[\\]<>(){};=!&|+*/%\"'@#?\\\\-]+(?:[ ][\\w.\\[\\]<>(){};=!&|+*/%\"'@#?\\\\-]+)*");
-
     /**
      * מסמן קטעי קוד בתרגום (למשל length(), import unit4.collectionsLib.*;, {0}({1})) — כדי שיוצגו משמאל לימין בתוך העברית.
-     * סוגריים שסוגרים טקסט עברי (בלי זוג בתוך הקטע) נשארים מחוץ לסימון, כדי שיתהפכו כרגיל בעברית.
+     * סוגריים שסוגרים טקסט עברי (בלי זוג בתוך הקטע) נשארים מחוץ לסימון, כדי שיתהפכו כרגיל בעברית. (RtlText.markCode —
+     * אותו זיהוי משמש גם בהצגה, למילים באנגלית שלא סומנו.)
      */
     static String markCode(String t) {
-        java.util.regex.Matcher m = CODE_RUN.matcher(t);
-        StringBuilder b = new StringBuilder();
-        int last = 0;
-        while (m.find()) {
-            String run = m.group();
-            int s = m.start(), e = m.end();
-            // סימני פיסוק של המשפט בקצוות, וסוגריים בלי זוג (שסוגרים טקסט עברי)
-            for (boolean changed = true; changed && e > s; ) {
-                changed = false;
-                char end = t.charAt(e - 1), first = t.charAt(s);
-                String word = t.substring(s, e);
-                if (".,: ".indexOf(end) >= 0 || end == '(' || end == '/' && e - 2 >= s && t.charAt(e - 2) == ' '
-                        || end == ')' && count(t, s, e, '(') < count(t, s, e, ')')
-                        || end == ';' && word.matches("\\w+;") && !word.matches("(return|break|continue);")) {
-                    e--;
-                    changed = true;
-                } else if (first == ' ' || first == ')' || first == '(' && count(t, s, e, '(') > count(t, s, e, ')')) {
-                    s++;
-                    changed = true;
-                }
-            }
-            if (e <= s) continue;
-            run = t.substring(s, e);
-            boolean code = run.matches(".*[A-Za-z0-9].*") || run.matches(".*(==|!=|<=|>=|&&|\\|\\||\\+\\+|--|[;{}\\[\\]<>=!%*/+]).*");
-            if (!code || run.isEmpty()) continue;
-            b.append(t, last, s).append('`').append(run).append('`');
-            last = e;
-        }
-        return b.append(t.substring(last)).toString();
-    }
-
-    private static int count(String t, int s, int e, char c) {
-        int n = 0;
-        for (int i = s; i < e; i++) if (t.charAt(i) == c) n++;
-        return n;
+        return RtlText.markCode(t);
     }
 
     /**
-     * מסמן קטע קוד בתוך ההודעה (`...`). בהצגה כל סימון כזה הופך ל-LRM משני הצדדים, כדי שבתוך טקסט עברי (מימין לשמאל)
-     * הקוד יוצג משמאל לימין והסוגריים לא יתהפכו (MentorProblem).
+     * מסמן קטע קוד בתוך ההודעה (`...`). בהצגה כל קטע כזה עטוף בתווי כיווניות (RtlText.rtl), כדי שבתוך טקסט עברי
+     * (מימין לשמאל) הקוד יוצג משמאל לימין כיחידה אחת והסוגריים לא יתהפכו (MentorView, MentorProblem).
      */
     static String c(Object code) {
         return "`" + code + "`";

@@ -135,7 +135,7 @@
             t.className = ident(jstr(get(m, 'className')), main, cs);
             if (LIBRARY.has(t.className)) t.className = main;
             if (t.className !== main && !e.classes.has(t.className)) {
-                e.classes.set(t.className, '');   // מחלקה שהסעיף שייך אליה אבל לא תוארה — נוצרת ריקה
+                e.classes.set(t.className, '');   // מחלקה שהסעיף שייך אליה אבל לא תוארה — נוצרת, עם הערה להוסיף את התכונות מהתרגיל
             }
             t.isStatic = get(m, 'isStatic') !== false && !isCtor(t);
             if (t.className === main && !isCtor(t)) t.isStatic = true;   // במחלקה הראשית: פעולות סטטיות שנקראות מ-main
@@ -593,6 +593,15 @@
     const NS_BLOCK = new RegExp('^namespace' + S + '+[\\w.]+' + S + '*\\{([\\s\\S]*)\\}$');
     const INTERNAL = new RegExp('^internal' + S + '+');
 
+    // חלק מההערה שבמחלקה ריקה (לבדיקות)
+    const ADD_FIELDS = 'הוסיפו כאן את התכונות שמתוארות בתרגיל';
+
+    // ההערה בתוך מחלקה שסעיף שייך אליה, אבל המודל לא תיאר אותה (בלי קוד), או שתיאר אותה ריקה ("public class Book { }"):
+    // המחלקה נוצרת בכל זאת — כדי שהכול יתקמפל — והתלמיד מתבקש להוסיף בה את התכונות שמתוארות בתרגיל
+    function addFields(cls) {
+        return 'המחלקה ' + cls + ' מהתרגיל — ' + ADD_FIELDS;
+    }
+
     // קוד המחלקה מהתרגיל, מנוקה (בלי package/import/using/namespace), או מחלקה ריקה
     function classLines(cls, code, isMain, cs) {
         const lines = [];
@@ -619,13 +628,23 @@
             lines.push(open);
             if (cs) lines.push('{');
             if (c !== '') for (const l of reindent(c, 4)) lines.push(l);   // קוד בלי הכרזת מחלקה — עוטפים
-            else if (!isMain) lines.push('    // המחלקה ' + cls + ' מהתרגיל — אפשר להוסיף כאן תכונות ופעולות לפי התרגיל');
+            else if (!isMain) lines.push('    // ' + rtl(addFields(cls)));   // מחלקה שהסעיף שייך אליה אבל לא תוארה בתשובה
             lines.push('}');
             return lines;
         }
         c = trim(c.substring(m.index + m[1].length));
         if (cs) c = c.replace(INTERNAL, '');
         if (!c.startsWith('public')) c = 'public ' + c;
+        const brace = c.indexOf('{');
+        if (!isMain && brace > 0 && c.endsWith('}') && isBlank(c.substring(brace + 1, c.length - 1))) {
+            // מחלקה ריקה ("public class Book { }") — כמו מחלקה שלא תוארה: עם ההערה להוסיף את התכונות מהתרגיל
+            const head = trim(c.substring(0, brace)).replace(new RegExp(S + '+', 'g'), ' ');
+            lines.push(cs ? head : head + ' {');
+            if (cs) lines.push('{');
+            lines.push('    // ' + rtl(addFields(cls)));
+            lines.push('}');
+            return lines;
+        }
         for (const l of reindent(c, 0)) lines.push(l);
         return lines;
     }
@@ -718,6 +737,7 @@
     return {
         LIBRARY: LIBRARY,
         MARK: MARK,
+        ADD_FIELDS: ADD_FIELDS,
         markFor: markFor,
         rtl: rtl,
         read: read,

@@ -266,18 +266,16 @@ figcaption { font-size: var(--small); color: var(--muted); margin-top: 10px; lin
 .foot p { margin: 0; }
 .foot-end { display: flex; align-items: center; gap: 18px; }
 
-/* ---------- "תרום לנו": זהב, קטן, בתחתית — כמו בחלון ההרצה של התוכנה */
-.donate {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-weight: 700; font-size: 13px; line-height: 1; color: #4A3405; text-decoration: none;
-  padding: 7px 14px; border-radius: 999px;
-  background: #E9C158;
-  border: 1px solid #B68A1E;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-.donate span { color: #B4372C; }
-.donate:hover { background: #F2D06F; text-decoration: none; }
+/* ---------- "תמכו בפרויקט": כפתור שקט (כמו "Sponsor" ב-GitHub) — בסרגל העליון ליד "הורדה" ובתחתית. אותו עיצוב כמו בחלון ההרצה */
+/* "תמכו בפרויקט" — התגים (assets/donate-java.png / donate-cs.png), אותם תגים כמו בחלון ההרצה ובדפי ההדרכה */
+.donate { display: inline-block; flex: none; line-height: 0; border-radius: 999px; transition: transform 0.12s ease, filter 0.12s ease; }
+.donate img { height: 36px; width: auto; display: block; }
+.donate:hover { filter: brightness(1.1); transform: translateY(-1px); text-decoration: none; }
 .donate:active { transform: translateY(1px); }
+.donate:focus-visible { outline: 2px solid #F472B6; outline-offset: 2px; }
+.bar .donate { margin-inline-end: -10px; }
+.foot-end .donate + .donate { margin-inline-start: 8px; }
+@media (max-width: 520px) { .foot-end { flex-wrap: wrap; gap: 10px; } .foot-end .donate img { height: 30px; } .foot-end .donate + .donate { margin-inline-start: 0; } }
 
 /* מונה ההורדות */
 .cta .count { font-size: var(--small); color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -372,7 +370,7 @@ pre.code {
 }
 @media (max-width: 720px) {
   .bar nav { display: none; }
-  .bar .btn { margin-inline-start: auto; }
+  .bar .donate { display: none; }   /* בטלפון: אין מקום בכותרת — התגים נשארים בתחתית הדף */
   .facts { grid-template-columns: 1fr; }
   .hero .lead { margin: 20px 0 24px; }
   .end h2 { font-size: var(--head); }

@@ -220,9 +220,9 @@ public class App implements IApplication {
         p.flush();
     }
 
-    /** בלי תווי הכיווניות (RLE / LRM / PDF) — לקריאה ולבדיקה */
+    /** בלי תווי הכיווניות (RLM / RLE / LRE / PDF...) — לקריאה ולבדיקה */
     private static String clean(String s) {
-        return s.replace("\u202B", "").replace("\u202C", "").replace("\u200E", "");
+        return il.lamerhav.dsviz.RtlText.strip(s);
     }
 
     @Override

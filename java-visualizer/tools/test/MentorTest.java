@@ -26,7 +26,7 @@ public class MentorTest {
         String lib = a[0];
         String all = new String(Files.readAllBytes(Paths.get(a[1])), StandardCharsets.UTF_8);
         boolean verbose = a.length > 2 && a[2].equals("-v");
-        int cases = 0, checks = 0;
+        int cases = 0, checks = 0, shown = 0;
         List<String> failures = new ArrayList<String>();
         for (String block : all.split("(?m)^### ")) {
             if (block.trim().isEmpty() || block.startsWith("#")) continue;
@@ -38,6 +38,12 @@ public class MentorTest {
             String unit = title.contains("@") ? title.substring(title.indexOf('@') + 1).trim() : unitName(src);
             List<Mentor.Finding> fs = analyze(lib, unit, src);
             cases++;
+            // כל הסבר וכל הצעה מוצגים נכון מימין לשמאל — בחלון "הסברים בעברית" ובחלון Problems (RtlTextTest)
+            for (Mentor.Finding f : fs) {
+                shown++;
+                String bad = rtlProblem(f);
+                if (bad != null) failures.add("תצוגה מימין לשמאל [" + title + "] " + f.rule + ": " + bad);
+            }
             if (verbose) {
                 System.out.println("── " + title);
                 for (Mentor.Finding f : fs) System.out.println("   " + f);
@@ -62,7 +68,8 @@ public class MentorTest {
                 }
             }
         }
-        System.out.println("המורה בעברית: " + cases + " דוגמאות, " + checks + " בדיקות");
+        System.out.println("המורה בעברית: " + cases + " דוגמאות, " + checks + " בדיקות; " + shown
+                + " הערות — ההסבר, ההצעה לתיקון והקוד מוצגים נכון מימין לשמאל (בסיס משמאל לימין, מימין לשמאל ו-GTK)");
 
         // קוד תקין (הדוגמאות הפתורות, Main): אסור שתופיע עליו אף אזהרה של המורה — בדיקה שאין אזהרות שווא
         if (System.getProperty("clean") != null) {
@@ -87,11 +94,35 @@ public class MentorTest {
         // התרגום: כל ההודעות של הקומפיילר מתורגמות, ואין בתרגום פרמטר ({0} {1}...) שלא קיים בהודעה המקורית
         if (System.getProperty("messages") != null) {
             int n = checkTranslations(System.getProperty("messages"));
-            System.out.println("✓ תרגום: " + n + " הודעות קומפיילר — לכולן יש תרגום, בלי פרמטרים שלא קיימים במקור");
+            System.out.println("✓ תרגום: " + n + " הודעות קומפיילר — לכולן יש תרגום, בלי פרמטרים שלא קיימים במקור, וכולן מוצגות נכון מימין לשמאל");
         }
         for (String f : failures) System.out.println("✗ " + f);
         System.out.println((failures.isEmpty() ? "✓ " : "✗ ") + "המורה בעברית: " + failures.size() + " בדיקות נכשלו");
         if (!failures.isEmpty()) System.exit(1);
+    }
+
+    /** ההסבר, ההצעה לתיקון והקוד שבסופה — כמו שמוצגים בחלון "הסברים בעברית" — וההודעה של Problems: null אם הכול מוצג נכון */
+    static String rtlProblem(Mentor.Finding f) {
+        String[] tc = Mentor.splitCode(f.tip);
+        for (String t : new String[] { f.main, f.tip.isEmpty() ? "" : "הצעה לתיקון: " + tc[0], f.message }) {
+            String p = t.isEmpty() ? null : RtlTextTest.problem(t);
+            if (p != null) return p;
+        }
+        // הסוגריים [ ] שסביב העצה (בחלון Problems) שייכים לעברית ולא לקוד — אחרת הם לא מתהפכים
+        if (!f.tip.isEmpty()) {
+            List<String[]> segs = RtlText.segments(f.message);
+            boolean open = false;
+            for (String[] seg : segs) if (seg[1] != null && seg[1].contains(" [")) open = true;
+            String[] last = segs.get(segs.size() - 1);
+            if (!open || last[1] == null || !last[1].endsWith("]")) return "הסוגריים [ ] של העצה סומנו כקוד: " + f.message;
+        }
+        if (tc[1] != null) {
+            for (int base : RtlTextTest.BASES) {
+                String v = RtlTextTest.visual(RtlText.ltr(tc[1]), base);
+                if (!v.equals(RtlTextTest.visual(tc[1], java.text.Bidi.DIRECTION_LEFT_TO_RIGHT))) return "שורת הקוד " + tc[1] + " ← " + v;
+            }
+        }
+        return null;
     }
 
     static List<Mentor.Finding> analyze(String lib, String unit, String src) {
@@ -116,9 +147,13 @@ public class MentorTest {
         return (m.find() ? m.group(1) : "X") + ".java";
     }
 
+    /** פרמטרים לדוגמה להודעות הקומפיילר: טיפוס גנרי, שם, פעולה עם סוגריים, מספר */
+    static final String[] SAMPLE_ARGS = { "Stack<Integer>", "s", "pop()", "int", "arr[i]", "7", "Node<String>", "x", "y", "z" };
+
     /**
      * כל מספר בקובץ ההודעות באנגלית של JDT מתורגם, ובתרגום רק פרמטרים שקיימים במקור.
      * (בחלק מהתרגומים הושמטו בכוונה פרטים שלא עוזרים לתלמיד — למשל באיזו מחלקה הוגדרה הפעולה.)
+     * וכל תרגום (עם פרמטרים לדוגמה — SAMPLE_ARGS) מוצג נכון מימין לשמאל.
      */
     static int checkTranslations(String english) throws Exception {
         int n = 0;
@@ -133,6 +168,12 @@ public class MentorTest {
                 if (he.contains("{" + i + "}") && !m.group(2).contains("{" + i + "}")) {
                     throw new AssertionError("בתרגום של " + id + " יש {" + i + "} שלא קיים במקור: " + he + "  ←  " + m.group(2));
                 }
+            }
+            // ההודעה (עם פרמטרים לדוגמה) מוצגת נכון מימין לשמאל — ההסבר וההצעה (RtlTextTest)
+            String[] parts = HebrewErrors.splitAdvice(HebrewErrors.fill(he, SAMPLE_ARGS));
+            for (String t : parts) {
+                String p = t == null ? null : RtlTextTest.problem(t);
+                if (p != null) throw new AssertionError("התרגום של " + id + " לא מוצג נכון מימין לשמאל: " + p);
             }
             n++;
         }

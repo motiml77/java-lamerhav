@@ -176,6 +176,26 @@ final class Problems {
             p.hint = "בודקים לפני החלוקה:  " + code("if (count != 0)");
             return p;
         }
+        // קלט מהמקלדת (Scanner): הוקלד ערך מסוג אחר, או שאין עוד קלט (אחרי "סיום הקלט")
+        if (t.startsWith("InputMismatchException")) {
+            p.what = "הוקלד ערך מסוג אחר ממה שהתוכנית ביקשה";
+            p.why = "למשל " + code("nextInt()") + " מחכה למספר שלם — אבל הוקלדו אותיות, או מספר עם נקודה.";
+            p.hint = "בודקים קודם שהוקלד מספר:  " + code("if (in.hasNextInt())");
+            return p;
+        }
+        // C#: int.Parse(Console.ReadLine()) כשהוקלדו אותיות
+        if (t.startsWith("FormatException")) {
+            p.what = "הוקלד ערך מסוג אחר ממה שהתוכנית ביקשה";
+            p.why = "למשל " + code("int.Parse(...)") + " מחכה למספר שלם — אבל הוקלדו אותיות, או מספר עם נקודה.";
+            p.hint = "בודקים קודם שהוקלד מספר:  " + code("if (int.TryParse(line, out int n))");
+            return p;
+        }
+        if (t.startsWith("NoSuchElementException")) {
+            p.what = "אין עוד קלט";
+            p.why = "התוכנית ניסתה לקרוא קלט, אבל הקלט נגמר (למשל אחרי שלוחצים \"סיום הקלט\").";
+            p.hint = "בודקים קודם שיש עוד קלט:  " + code("while (in.hasNextInt())");
+            return p;
+        }
         p.what = "התוכנית נעצרה בשגיאה";
         p.why = t.replaceAll("\\s+\\(.*\\)\\s*$", "");
         p.hint = "השורה שבה זה קרה מסומנת בקוד.";

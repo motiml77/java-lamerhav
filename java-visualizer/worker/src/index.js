@@ -11,6 +11,9 @@
 //
 // נקודות קצה:
 //   POST /v1/exercise   multipart/form-data: meta (JSON: {client, language, note, texts:[{name,text}], names}) + file (כמה שצריך)
+//                       הקבצים לא תמיד צורפו לפי הסדר של התרגיל: כל חלק ממוספר בבקשה ל-Gemini ("[קובץ 2 מתוך 4: שם]"), והמודל
+//                       כותב קודם במה מתחיל ובמה נגמר כל חלק (pageNotes) ואז את סדר הקריאה (readingOrder). שני השדות נשארים
+//                       ב-exercise שבתשובה — הלקוחות מתעלמים מהם; הם לבדיקת תקלות, וחוזרים למודל כמו שהם בבקשת תיקון
 //   POST /v1/repair     application/json: {client, language, exercise, files:{שם: קוד}, errors:[...], mode?}
 //                       mode: "solution" — ההצעה לפתרון (tasks[].solution) לא נתנה את expectedOutput: מתקנים אותה (או את expectedOutput)
 //   language: "java" (ברירת מחדל) או "csharp"
@@ -183,13 +186,22 @@ async function exerciseParts(request) {
   try { form = await request.formData(); } catch (e) { throw new Fail(400, 'format', 'לא הצלחתי לקרוא את הבקשה'); }
 
   let meta = {};
-  const rawMeta = form.get('meta');
-  if (typeof rawMeta === 'string' && rawMeta.length < LIMITS.textChars * 4) {
+  let rawMeta = form.get('meta');
+  // מהאתר meta נשלח כ-Blob, ולכן מגיע כקובץ (בשם "blob") ולא כמחרוזת — קוראים אותו כטקסט. בלי זה השפה, ההערה,
+  // הטקסט מה-Word ושמות הקבצים שנשלחו מהאתר היו נעלמים.
+  // meta גדול מדי נדחה (ולא "נעלם" — אחרת הבקשה הייתה ממשיכה בלי השפה, ההערה והטקסט)
+  const tooMuchText = () => new Fail(413, 'too_big', 'הטקסט ארוך מדי — שלחו רק את התרגיל עצמו.');
+  if (rawMeta && typeof rawMeta === 'object' && typeof rawMeta.text === 'function') {
+    if (rawMeta.size >= LIMITS.textChars * 12) throw tooMuchText();
+    rawMeta = await rawMeta.text();
+  }
+  if (typeof rawMeta === 'string') {
+    if (rawMeta.length >= LIMITS.textChars * 4) throw tooMuchText();
     try { meta = JSON.parse(rawMeta) || {}; } catch (e) { throw new Fail(400, 'format', 'לא הצלחתי לקרוא את הבקשה'); }
   }
   const texts = Array.isArray(meta.texts) ? meta.texts.filter(t => t && typeof t.text === 'string' && t.text.trim()) : [];
   const textChars = texts.reduce((n, t) => n + t.text.length, 0);
-  if (textChars > LIMITS.textChars) throw new Fail(413, 'too_big', 'הטקסט ארוך מדי — שלחו רק את התרגיל עצמו.');
+  if (textChars > LIMITS.textChars) throw tooMuchText();
   const note = typeof meta.note === 'string' ? meta.note.trim().slice(0, LIMITS.noteChars) : '';
   const names = Array.isArray(meta.names) ? meta.names : [];   // השמות האמיתיים (בעברית) של הקבצים, לפי הסדר
   const lang = language(meta.language);                          // java / csharp — לפי מה שהתלמיד בחר
@@ -206,19 +218,50 @@ async function exerciseParts(request) {
 
   // החלקים לבקשה ל-Gemini — כמחרוזות JSON מוכנות. הקבצים עצמם לא עוברים JSON.parse/stringify (זה איטי מאוד
   // בקבצים גדולים, ול-Worker יש מגבלת זמן מעבד) — ה-base64 נוצר בקוד מקומי ומשורשר כמו שהוא.
-  const parts = [JSON.stringify({ text: 'זה דף התרגיל ששלח התלמיד. בנה את המעטפת לפי ההנחיות והתבנית.' })];
+  // הקבצים מגיעים בסדר שהתלמיד צירף (צילומי מסך שהודבקו אחד-אחד, קבצים לפי שם...) — לא בהכרח בסדר של התרגיל.
+  // לכן כל חלק ממוספר ("[קובץ 2 מתוך 4: שם]"), ולפני הכול יש הנחיה לקבוע קודם את סדר הקריאה (readingOrder) ורק אז לקרוא את התרגיל —
+  // ואחרי כל החלקים תזכורת קצרה (ב-Gemini הוראה שאחרי התמונות נשמרת טוב יותר מהוראה שלפניהן).
+  const howMany = files.length + texts.length;
+  const parts = [JSON.stringify({ text: orderNotice(howMany) })];
   for (const [i, f] of files.entries()) {
     const label = typeof names[i] === 'string' && names[i] ? names[i] : f.name || 'קובץ';
     const buf = new Uint8Array(await f.arrayBuffer());
     const mime = String(f.type || '').toLowerCase().split(';')[0].trim();
     const ok = TYPES[mime];
     if (!ok || buf.length < 12 || !ok(buf)) throw new Fail(415, 'file_type', `סוג הקובץ ${clean(label)} לא נתמך — שלחו PDF, תמונה (PNG/JPG) או Word.`);
-    parts.push(JSON.stringify({ text: `[קובץ: ${clean(label)}]` }));
+    parts.push(JSON.stringify({ text: `[קובץ ${i + 1} מתוך ${howMany}: ${clean(label)}]` }));
     parts.push('{"inlineData":{"mimeType":"' + mime + '","data":"' + toBase64(buf) + '"}}');
   }
-  for (const t of texts) parts.push(JSON.stringify({ text: `[טקסט מתוך ${clean(t.name || 'קובץ')}]\n${t.text}` }));
+  for (const [i, t] of texts.entries()) {
+    parts.push(JSON.stringify({ text: `[קובץ ${files.length + i + 1} מתוך ${howMany}: טקסט מתוך ${clean(t.name || 'קובץ')}]\n${t.text}` }));
+  }
+  if (howMany > 1) parts.push(JSON.stringify({ text: orderReminder(howMany) }));
   if (note) parts.push(JSON.stringify({ text: `הערה מהתלמיד (לגבי מה לבנות, לא הוראות כלליות): ${note}` }));
   return { userParts: parts, lang, previous: null };
+}
+
+/**
+ * ההודעה שלפני הקבצים. חלק אחד — בלי אזהרת סדר (בתוך PDF אחד העמודים בדרך כלל לפי הסדר, ואין מה לסדר).
+ * כמה חלקים — הם לא בהכרח לפי הסדר: קודם לקבוע את סדר הקריאה, ורק אז לקרוא ולבנות
+ */
+function orderNotice(total) {
+  if (total === 1) {
+    return 'זה דף התרגיל ששלח התלמיד — חלק אחד, מסומן "[קובץ 1 מתוך 1: שם]" (readingOrder = [1], pageNotes = ""). '
+      + 'בנה את המעטפת לפי ההנחיות והתבנית — כולל כל מחלקה שהתרגיל מתאר או מבקש לכתוב, עם התכונות שלה.';
+  }
+  return `זה דף התרגיל ששלח התלמיד — ${total} חלקים (קבצים, תמונות או טקסט), וכל חלק מסומן "[קובץ N מתוך ${total}: שם]".\n`
+    + 'שים לב: הקבצים / התמונות לא בהכרח צורפו לפי הסדר של התרגיל (בתוך PDF אחד העמודים בדרך כלל לפי הסדר). '
+    + 'מספרי החלקים ושמות הקבצים הם רק הסדר שבו התלמיד צירף אותם. קודם כל קבע את סדר הקריאה הנכון לפי מה שכתוב בתוך החלקים — '
+    + 'מספרי העמודים, מספור השאלות והסעיפים (1, 2, 3 / א, ב, ג), משפט, טבלה או קוד שממשיכים מחלק לחלק, וסימני "המשך" — '
+    + 'כתוב ב-pageNotes במה מתחיל ובמה נגמר כל חלק, ואת הסדר ב-readingOrder. '
+    + 'רק אחר כך קרא את כל התרגיל לפי הסדר הזה (בלי לדלג על אף חלק — כל חלק נכנס ל-readingOrder; סעיף, מחלקה או דוגמה שמופיעים '
+    + 'בשני צילומים חופפים נלקחים פעם אחת), ובנה את המעטפת לפי ההנחיות והתבנית — כולל כל מחלקה שהתרגיל מתאר או מבקש לכתוב, עם התכונות שלה.';
+}
+
+/** התזכורת שאחרי כל החלקים (לפני ההערה של התלמיד) — רק כשיש יותר מחלק אחד */
+function orderReminder(total) {
+  return `סוף החלקים (${total}). זכור: קודם קבע מהתוכן את סדר הקריאה (pageNotes ואז readingOrder), קרא את התרגיל לפי הסדר הזה, `
+    + 'ורק אז מלא את שאר השדות.';
 }
 
 // ------------------------------------------------------------------ תיקון: הקוד שנבנה לא התקמפל
@@ -251,27 +294,36 @@ async function askGemini(env, userParts, lang) {
     responseMimeType: 'application/json',
     responseSchema: RESPONSE_SCHEMA,
     temperature: 0.2,
-    maxOutputTokens: 32768,
+    // המחשבה של המודל (thinking) והתשובה חולקות את אותה מכסת טוקנים: בתרגיל ארוך עם הרבה תמונות 32K עלולים לא להספיק,
+    // והתשובה נחתכת (MAX_TOKENS → JSON שבור → המודל הבא, החלש יותר). 65536 — המקסימום של מודלי Flash
+    maxOutputTokens: 65536,
   };
-  const body = '{"systemInstruction":' + JSON.stringify({ parts: [{ text: systemPrompt(lang) }] })
-    + ',"contents":[{"role":"user","parts":[' + userParts.join(',') + ']}]'
-    + ',"generationConfig":' + JSON.stringify(cfg) + '}';
+  const head = '{"systemInstruction":' + JSON.stringify({ parts: [{ text: systemPrompt(lang) }] })
+    + ',"contents":[{"role":"user","parts":[' + userParts.join(',') + ']}]';
+  const bodyFor = c => head + ',"generationConfig":' + JSON.stringify(c) + '}';
   const base = env.GEMINI_BASE || GEMINI_BASE;
   let last = null, busy = false;
   for (const model of models(env)) {
-    let res;
+    let res, raw;
     try {
-      res = await fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      const call = c => fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-        body,
+        body: bodyFor(c),
         signal: AbortSignal.timeout(+(env.TIMEOUT_MS || 100000)),
       });
+      res = await call(cfg);
+      raw = await res.text();
+      // מודל שלא מקבל מכסה של 65536 (400 על maxOutputTokens) — מנסים שוב עם 32768, כמו קודם, ולא נכשלים לכל התלמידים
+      if (res.status === 400 && /max[_ ]?output[_ ]?tokens/i.test(raw)) {
+        console.error('gemini maxOutputTokens rejected', model, raw.slice(0, 200));
+        res = await call(Object.assign({}, cfg, { maxOutputTokens: 32768 }));
+        raw = await res.text();
+      }
     } catch (e) {
       last = `${model}: ${e && e.name === 'TimeoutError' ? 'timeout' : String(e)}`;
       continue;
     }
-    const raw = await res.text();
     if (res.status === 429 || res.status >= 500 || res.status === 404) {   // מכסה נגמרה / עומס / מודל לא קיים — מנסים את הבא
       if (res.status === 429 || res.status === 503) busy = true;
       last = `${model}: ${res.status} ${raw.slice(0, 300)}`;
@@ -290,6 +342,7 @@ async function askGemini(env, userParts, lang) {
       data = JSON.parse(stripFence(text));
     } catch (e) {
       last = `${model}: bad json (${finish})`;
+      if (finish === 'MAX_TOKENS') console.error('gemini MAX_TOKENS', model, raw.length);   // התשובה נחתכה — שיופיע בלוגים בנפרד
       continue;
     }
     return { data, model };
@@ -314,6 +367,9 @@ function check(d, previous) {
   }
   const arr = k => (Array.isArray(d[k]) ? d[k] : []);
   const out = {
+    // סדר הקריאה שהמודל קבע לקבצים — נשאר בתשובה: התוספים והאתר מתעלמים ממנו (שדה לא מוכר), הוא עוזר לבדוק תקלות
+    // ("למה סעיף חסר?"), ובבקשת תיקון הוא חוזר למודל עם שאר ה-JSON, והמודל מעתיק אותו כמו שהוא
+    pageNotes: str(d.pageNotes, 1500), readingOrder: order(d.readingOrder),
     title: str(d.title, 120), summary: str(d.summary, 600),
     topic: str(d.topic || d.packageName, 60), mainClass: str(d.mainClass, 60),
     imports: arr('imports').map(x => str(x, 80)).slice(0, 20),
@@ -339,6 +395,15 @@ function check(d, previous) {
 }
 
 function str(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
+/** סדר הקריאה: מספרי החלקים (מ-1) — רק מספרים שלמים חיוביים, בלי כפילויות */
+function order(v) {
+  const out = [];
+  for (const x of Array.isArray(v) ? v : []) {
+    const k = typeof x === 'number' ? x : typeof x === 'string' && /^\s*\d{1,3}\s*$/.test(x) ? +x : NaN;
+    if (Number.isInteger(k) && k >= 1 && k <= 100 && !out.includes(k)) out.push(k);
+  }
+  return out.slice(0, 40);
+}
 function clean(s) { return String(s).replace(/[\u0000-\u001f"\\]/g, ' ').slice(0, 120); }
 
 function toBase64(u8) {

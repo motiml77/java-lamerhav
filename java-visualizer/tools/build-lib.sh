@@ -22,6 +22,8 @@ cp src/unit4/collectionsLib/*.java "$OUT/src/unit4/collectionsLib/"
 mkdir -p "$OUT/unit4/collectionsLib/fonts" "$OUT/META-INF"
 cp third-party/fonts/*.ttf "$OUT/unit4/collectionsLib/fonts/"
 cp third-party/fonts/OFL-Alef.txt "$OUT/META-INF/LICENSE-Alef-OFL.txt"
+# התגים "תמכו בפרויקט" (Java / C#) בסרגל של חלון ההרצה — Donate.java
+mkdir -p "$OUT/unit4/collectionsLib/images" && cp third-party/images/donate-*.png "$OUT/unit4/collectionsLib/images/"
 cp third-party/LICENSE-flatlaf.txt "$OUT/META-INF/LICENSE-flatlaf.txt"
 (cd "$OUT" && unzip -qo ../../third-party/flatlaf-3.5.4.jar -x 'META-INF/MANIFEST.MF' 'META-INF/LICENSE' 'module-info.class')
 printf 'Premain-Class: unit4.collectionsLib.LineAgent\nMulti-Release: true\nImplementation-Title: DSViz - Data Structures Visualizer\nImplementation-Vendor: Moti Levi (motiml77@gmail.com)\nCopyright: (c) 2026 Moti Levi, motiml77@gmail.com\n' > build/lib-manifest.txt

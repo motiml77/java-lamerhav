@@ -11,8 +11,8 @@ import java.util.List;
 final class Model {
     private Model() {}
 
-    /** סוג הצעד */
-    enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE, RETURN }
+    /** סוג הצעד. INPUT = התוכנית קראה כאן קלט מהמקלדת (Scanner / Console.ReadLine) — מה שהוקלד ב-Step.input */
+    enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE, RETURN, INPUT }
 
     /** איך לצבוע איבר שהצעד נגע בו */
     enum Mark { NONE, NEW, READ, CHANGED }
@@ -60,6 +60,12 @@ final class Model {
         List<String[]> vars;               // במצב שורה-שורה: המשתנים המקומיים {שם, ערך}; אחרת null
         String returned;                   // RETURN: הערך שהפעולה החזירה (null אם void)
         Access access;                     // קריאה / שינוי של מאפיין באובייקט (למשל s.getName()) — או null
+        String input;                      // INPUT: מה שהוקלד (בלי ירידת השורה); null = סוף הקלט (או צעד אחר)
+        /**
+         * המשתנים של כל פעולה במחסנית, במקביל ל-calls: 0 = הפעולה שרצה (= vars), 1 = מי שקרא לה... (ראו FrameViz).
+         * null — לא נשמרו (הרצה ישנה); איבר null — הפעולה הזו עמוק מדי במחסנית
+         */
+        List<List<String[]>> frameVars;
     }
 
     /**
@@ -125,15 +131,23 @@ final class Model {
         boolean truncated;
         String lostNote, lostHint;         // יש בשרשרת חוליות שאבדו: מה קרה, ומה עושים (או null)
         final List<String> nullLabels = new ArrayList<String>();   // משתנים שהם null בסוף השרשרת (p אחרי האחרונה) — באדום
+        /**
+         * "ענפים": שרשראות שהאחרונה שלהן מצביעה לחוליה באמצע השרשרת הזו — למשל חוליה חדשה q אחרי q.setNext(p.getNext()),
+         * או חוליה שהוצאה מהרשימה ועדיין מצביעה הלאה. מצוירות בשורה מתחת, עם חץ אל החוליה שהן מצביעות עליה (joinTo)
+         */
+        final List<ChainView> branches = new ArrayList<ChainView>();
+        int joinTo = -1;                   // בענף: האינדקס של החוליה בשרשרת הראשית שהאחרונה בענף מצביעה עליה
     }
 
     /**
      * התוכנית נעצרה בשגיאה: כרטיס אדום בראש התצוגה — מה קרה, למה, ומה עושים — עם ציור קטן
-     * (kind: "empty-stack" / "empty-queue" — מבנה ריק; "null" — name מצביע על null; "index"; "recursion"; "other")
+     * (kind: "empty-stack" / "empty-queue" — מבנה ריק; "null" — name מצביע על null; "index"; "recursion"; "loop" — לולאה שלא נגמרת
+     * (name = המשתנה העיקרי בתנאי, op = התנאי — ראו LoopCard); "other")
      */
     static final class ProblemView extends View {
         String kind = "other", what = "", why = "", hint = "", name, op;
-        int index = -1, length = -1;       // index: התא שניסו, length: כמה תאים יש
+        int index = -1, length = -1;       // index: התא שניסו, length: כמה תאים יש (loop: index = כמה סיבובים)
+        int line = -1;                     // loop: שורת התנאי של הלולאה שלא נגמרת (התגית בקוד)
     }
 
     static final class TreeCell extends Cell {
