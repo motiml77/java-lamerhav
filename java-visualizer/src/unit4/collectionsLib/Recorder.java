@@ -121,6 +121,17 @@ final class Recorder {
         }
     }
 
+    /** עוד צעדים מאותו מקור (תוכנית C# שעוד רצה — TraceViewer --live): נוספים בסוף, והפלט החדש אחרי הפלט */
+    static void adoptMore(List<Step> more, String out) {
+        synchronized (LOCK) {
+            for (Step s : more) {
+                s.index = steps.size();
+                steps.add(s);
+            }
+            output.append(out);
+        }
+    }
+
     static String outputUpTo(int len) {
         synchronized (LOCK) { return output.substring(0, Math.min(len, output.length())); }
     }

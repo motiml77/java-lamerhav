@@ -2,8 +2,15 @@ using System.Collections.Generic;
 
 namespace Unit4.CollectionsLib
 {
-    /// <summary>סוגי הצעדים (כמו Model.Kind בגרסת ה-Java)</summary>
-    internal enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE, RETURN }
+    /// <summary>סוגי הצעדים (כמו Model.Kind בגרסת ה-Java). INPUT = התוכנית קראה כאן קלט מהמקלדת (Console.ReadLine)</summary>
+    internal enum Kind { CREATE, CHANGE, READ, CHECK, OUTPUT, NOTE, ERROR, END, LINE, RETURN, INPUT }
+
+    /// <summary>התוכנית התחילה לחכות לקלט מהמקלדת: אחרי הצעד Step, בשורה Line של File, בקריאה Call ("Console.ReadLine()")</summary>
+    internal sealed class InputWait
+    {
+        public int Step, Line;
+        public string Class, Method, File, Call, What;
+    }
 
     /// <summary>איך לצבוע איבר שהצעד נגע בו</summary>
     internal enum Mark { NONE, NEW, READ, CHANGED }

@@ -32,6 +32,9 @@ import unit4.collectionsLib.Model.Frame;
  * הבתים עוברים לתוכנית בדיוק כמו שהם: מה שמוקלד בחלון מקודד ב-Charset.defaultCharset() — כמו ש-Scanner
  * ו-InputStreamReader מפענחים את System.in (כך עברית עוברת שלמה). הקלט נמסר שורה-שורה (read מחזיר עד סוף השורה),
  * כדי שכל שורה תירשם בשורת הקוד שקראה אותה.
+ * <p>
+ * תוכנית C# (dsviz-cs) רצה בתהליך אחר ומחליפה שם את Console.In בעצמה: החלון (TraceViewer --live) מקבל ממנה
+ * "מחכה לקלט" / "הפסיקה לחכות" (remoteWait / remoteResume), ומה שמוקלד בחלון נשלח אליה (Remote) — אותו פס הקלדה.
  */
 final class Keyboard extends InputStream {
 
@@ -136,6 +139,8 @@ final class Keyboard extends InputStream {
 
     /** אין חלון (למשל נעילה לתשלום): כשהקלט האמיתי נגמר — סוף הקלט, כמו בהרצה רגילה */
     static void noViewer() {
+        Remote r = remote;
+        if (r != null) r.noViewer();
         Keyboard k = installed;
         if (k == null) return;
         k.viewer = false;
@@ -163,18 +168,64 @@ final class Keyboard extends InputStream {
 
     /** שורה שהוקלדה בחלון (בלי ירידת השורה) */
     static void submit(String text) {
+        Remote r = remote;
+        if (r != null) {
+            r.line(text);
+            return;
+        }
         Keyboard k = installed;
         if (k != null) k.offer(text, true);
     }
 
     /** "סיום הקלט": מכאן והלאה התוכנית מקבלת "אין עוד קלט" (כמו Ctrl+D / Ctrl+Z בקונסול) */
     static void endInput() {
+        Remote r = remote;
+        if (r != null) {
+            r.end();
+            return;
+        }
         Keyboard k = installed;
         if (k == null) return;
         synchronized (k.lock) {
             k.ended = true;
             k.lock.notifyAll();
         }
+    }
+
+    // ------------------------------------------------------------ תוכנית שרצה בתהליך אחר (C# — TraceViewer --live)
+
+    /** לאן הולך מה שמוקלד בחלון כשהתוכנית רצה בתהליך אחר */
+    interface Remote {
+        /** שורה שהוקלדה (בלי ירידת השורה) */
+        void line(String text);
+        /** "סיום הקלט" */
+        void end();
+        /** החלון לא נפתח — התוכנית מקבלת קלט רק מהקונסול */
+        void noViewer();
+    }
+
+    private static volatile Remote remote;
+
+    static void remote(Remote r) {
+        remote = r;
+    }
+
+    /** התוכנית בתהליך האחר מתחילה לחכות לקלט: f = השורה שקוראת, call = "Console.ReadLine()", step = הצעד האחרון */
+    static void remoteWait(Frame f, String call, String what, int step) {
+        waitFrame = f;
+        waitCall = call == null || call.isEmpty() ? null : call;
+        waitWhat = what == null || what.isEmpty() ? "ערך" : what;
+        waitStep = step;
+        waitId++;
+        waiting = true;
+        notifyViewer();
+    }
+
+    /** התוכנית בתהליך האחר קיבלה קלט (או "סוף הקלט") — הצעדים החדשים כבר נטענו */
+    static void remoteResume() {
+        if (!waiting) return;
+        waiting = false;
+        notifyViewer();
     }
 
     // ------------------------------------------------------------ InputStream

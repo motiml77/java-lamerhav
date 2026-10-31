@@ -1234,7 +1234,8 @@ final class Viewer extends JFrame {
 
             field.setFont(Theme.monoBig);
             field.setForeground(Theme.TEXT);
-            field.setToolTipText("אפשר להקליד גם בקונסול של Eclipse / בטרמינל של VS Code");
+            field.setToolTipText(Syntax.csharp ? "אפשר להקליד גם בחלון הקונסול / בטרמינל של VS Code"
+                    : "אפשר להקליד גם בקונסול של Eclipse / בטרמינל של VS Code");
             field.putClientProperty("JTextField.placeholderText", "מקלידים כאן ולוחצים אנטר");
             field.putClientProperty("FlatLaf.style", "arc: 10; borderColor: #9FDCD2; focusedBorderColor: #0F766E;"
                     + " borderWidth: 1; focusWidth: 2; focusColor: #CDEFE8; margin: 4,10,4,10");
