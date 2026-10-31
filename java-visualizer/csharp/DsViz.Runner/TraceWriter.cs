@@ -57,11 +57,11 @@ namespace DsViz
             if (chain != null)
             {
                 Row(w, "V", "CHAIN", focus, v.Title, chain.CycleTo.ToString(), chain.JoinText ?? "\0", chain.Truncated ? "1" : "0");
-                foreach (Cell c in chain.Cells)
+                WriteCells(w, chain);
+                foreach (ChainView br in chain.Branches)   // BR joinTo, ואחריה התאים של הענף
                 {
-                    Row(w, "C", c.Value, c.Mark.ToString(), c.Current ? "1" : "0", string.Join("\u0001", c.Labels));
-                    WriteObj(w, c.Obj);
-                    WriteSub(w, c.Sub);
+                    Row(w, "BR", br.JoinTo.ToString());
+                    WriteCells(w, br);
                 }
                 return;
             }
@@ -108,6 +108,16 @@ namespace DsViz
             foreach (string c in mat.Changed) Row(w, "CH", c);
             foreach (var kv in mat.RowLabels) foreach (string n in kv.Value) Row(w, "RL", kv.Key.ToString(), n);
             foreach (var kv in mat.ColLabels) foreach (string n in kv.Value) Row(w, "CL", kv.Key.ToString(), n);
+        }
+
+        static void WriteCells(StreamWriter w, ChainView chain)
+        {
+            foreach (Cell c in chain.Cells)
+            {
+                Row(w, "C", c.Value, c.Mark.ToString(), c.Current ? "1" : "0", string.Join("\u0001", c.Labels));
+                WriteObj(w, c.Obj);
+                WriteSub(w, c.Sub);
+            }
         }
 
         static void WriteTree(StreamWriter w, TreeCell c)

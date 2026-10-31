@@ -286,5 +286,21 @@ java -Dstdout.encoding=UTF-8 -Dclean=../../src/examples:../../src/Main.java -Dme
 echo "== 10א. חלון \"הסברים בעברית\": עברית עם קוד מוצגת נכון מימין לשמאל (s.pop() בסוף משפט, arr[i], Stack<Integer>, !=, מספרים, רשימות)"
 java -Dstdout.encoding=UTF-8 -cp "$W/mentor/cls" il.lamerhav.dsviz.RtlTextTest
 
+echo "== 5ח. רשימה מקושרת: לכל מצביע חץ וצבע משלו (כמה מצביעים לאותה חוליה), וחיבור חוליה חדשה לרשימה קיימת (באמצע/בסוף) — בלי שכפול ובלי 'אבדה' שגויה"
+LN="$W/lists"
+mkdir -p "$LN"
+cp lists/LinkNew.java "$LN/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$LN" "$LN/LinkNew.java"
+(cd "$LN" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine LinkNew > out.txt 2>&1) || true
+conds "$LN/out.txt" \
+    '[שרשרת #7: n: 5(n)→null]' '[שרשרת #7: רשימה: 3(list)→7→1→null]' \
+    '[שרשרת #8: n: 5(n)→3(list)→7→1→null]' \
+    '[שרשרת #10: n: 5(list,n)→3→7→1→null]' '[שרשרת #11: n: 5(list,n,p)→3→7→1→null]' \
+    '[שרשרת #28: n: 5(list,n)→3→7→1(p)→9(t)→null]' \
+    'ענף 4(q)↗7' \
+    '[שרשרת #37: n: 5(list,n)→3(p)→4(q)→7→1→9(t)→null]'
+! grep -q 'אבד' "$LN/out.txt" && echo "  ok  אין אזהרת 'אבדה' שגויה (אין חוליה בלי מצביע) בכל הצעדים" \
+    || { echo "  FAIL חוליה סומנה כאבודה בלי סיבה"; grep 'אבד' "$LN/out.txt"; exit 1; }
+
 echo "== C# (Visual Studio / VS Code / Rider)"
 sh ./cs-tests.sh

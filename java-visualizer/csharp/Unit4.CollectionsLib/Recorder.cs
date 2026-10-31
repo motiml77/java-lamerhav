@@ -564,9 +564,19 @@ namespace Unit4.CollectionsLib
             var drawnNodes = new HashSet<object>(new RefComparer());
             var lens = new Dictionary<object, int>(new RefComparer());
             foreach (IVizNode h in heads) lens[h] = ChainLength(h);
-            heads = heads.OrderByDescending(h => lens[h]).ToList();
-            foreach (IVizNode h in heads) views.Add(ChainOf(h, drawnNodes, target, mark, labels));
-            foreach (IVizNode n in nodes) if (!drawnNodes.Contains(n)) views.Add(ChainOf(n, drawnNodes, target, mark, labels));   // מעגלים
+            heads = MainFirst(heads.OrderByDescending(h => lens[h]).ToList(), lens);
+            var inMain = new Dictionary<object, KeyValuePair<ChainView, int>>(new RefComparer());   // חוליה → השרשרת שבשורה שלה היא מצוירת, והמקום
+            foreach (IVizNode h in heads)
+            {
+                View cv = ChainOf(h, drawnNodes, target, mark, labels, inMain);
+                if (cv != null) views.Add(cv);   // null: ענף של שרשרת קודמת
+            }
+            foreach (IVizNode n in nodes)   // מעגלים
+            {
+                if (drawnNodes.Contains(n)) continue;
+                View cv = ChainOf(n, drawnNodes, target, mark, labels, inMain);
+                if (cv != null) views.Add(cv);
+            }
 
             // --- עצים
             var bins = new List<IVizBin>();
@@ -706,26 +716,75 @@ namespace Unit4.CollectionsLib
             return 1 + TreeSize(t.VizLeft, s) + TreeSize(t.VizRight, s);
         }
 
-        static View ChainOf(IVizNode head, HashSet<object> drawn, object target, Mark mark, Dictionary<object, List<string>> labels)
+        /// <summary>
+        /// שרשראות שמתחברות לאותו המשך (חוליה חדשה q אחרי q.SetNext(p.GetNext())): הארוכה — ואם שוות, הוותיקה (הרשימה הקיימת) —
+        /// ראשונה, והשאר מיד אחריה: הן יצוירו כענפים שלה ולא כרשימה נפרדת (כמו ב-Java). הסדר בין הקבוצות לא משתנה
+        /// </summary>
+        static List<IVizNode> MainFirst(List<IVizNode> heads, Dictionary<object, int> lens)
+        {
+            var group = new Dictionary<object, int>(new RefComparer());   // חוליה → מספר הקבוצה שלה
+            var groups = new List<List<IVizNode>>();
+            foreach (IVizNode h in heads)
+            {
+                int g = -1;
+                var walked = new List<IVizNode>();
+                var mine = new HashSet<object>(new RefComparer());
+                for (IVizNode p = h; p != null && mine.Add(p) && walked.Count < MaxCells; p = p.VizNext)
+                {
+                    if (group.TryGetValue(p, out g)) break;   // הגענו להמשך של שרשרת קודמת
+                    g = -1;
+                    walked.Add(p);
+                }
+                if (g < 0) { g = groups.Count; groups.Add(new List<IVizNode>()); }
+                foreach (IVizNode p in walked) group[p] = g;
+                groups[g].Add(h);
+            }
+            return groups.SelectMany(l => l.OrderByDescending(h => lens[h]).ThenBy(h => Ord(h))).ToList();
+        }
+
+        /// <summary>
+        /// inMain: החוליות שכבר מצוירות בשורה הראשית של שרשרת. שרשרת שמגיעה לאחת מהן היא "ענף" של אותה שרשרת (מצוירת מתחתיה,
+        /// עם חץ אל החוליה) — ואז מחזירים null. בלי inMain (מבנה בתוך תא) — "ממשיך ברשימה אחרת" כמו קודם
+        /// </summary>
+        static View ChainOf(IVizNode head, HashSet<object> drawn, object target, Mark mark, Dictionary<object, List<string>> labels,
+                            Dictionary<object, KeyValuePair<ChainView, int>> inMain = null)
         {
             var c = new ChainView { Src = head };
             var al = Aliases(head, false);
             c.Title = al.Count > 0 ? string.Join(", ", al) : "רשימה";
             var pos = new Dictionary<object, int>(new RefComparer());
+            var mine = new List<IVizNode>();
+            bool joined = false;
+            KeyValuePair<ChainView, int> join = default(KeyValuePair<ChainView, int>);
             IVizNode cur = head;
             while (cur != null)
             {
                 if (pos.ContainsKey(cur)) { c.CycleTo = pos[cur]; break; }
-                if (drawn.Contains(cur)) { c.JoinText = "[" + Str(cur.VizValue) + "]"; break; }
+                if (drawn.Contains(cur))
+                {
+                    if (inMain != null && inMain.TryGetValue(cur, out join)) joined = true;
+                    else c.JoinText = "[" + Str(cur.VizValue) + "]";
+                    break;
+                }
                 if (c.Cells.Count >= MaxCells) { c.Truncated = true; break; }
                 pos[cur] = c.Cells.Count;
                 drawn.Add(cur);
+                mine.Add(cur);
                 var cell = new Cell();
                 FillCell(cell, cur, cur.VizValue, target, mark, labels);
                 if (ReferenceEquals(cur, target) || (cell.Sub != null && cell.Sub.Focus)) c.Focus = true;
                 c.Cells.Add(cell);
                 cur = cur.VizNext;
             }
+            if (joined)   // ענף: האחרונה מצביעה לחוליה באמצע שרשרת שכבר מצוירת
+            {
+                c.JoinTo = join.Value;
+                join.Key.Branches.Add(c);
+                if (c.Focus) join.Key.Focus = true;
+                return null;
+            }
+            if (inMain != null)
+                for (int i = 0; i < mine.Count; i++) inMain[mine[i]] = new KeyValuePair<ChainView, int>(c, i);
             return c;
         }
 

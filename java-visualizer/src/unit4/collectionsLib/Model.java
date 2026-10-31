@@ -125,6 +125,12 @@ final class Model {
         boolean truncated;
         String lostNote, lostHint;         // יש בשרשרת חוליות שאבדו: מה קרה, ומה עושים (או null)
         final List<String> nullLabels = new ArrayList<String>();   // משתנים שהם null בסוף השרשרת (p אחרי האחרונה) — באדום
+        /**
+         * "ענפים": שרשראות שהאחרונה שלהן מצביעה לחוליה באמצע השרשרת הזו — למשל חוליה חדשה q אחרי q.setNext(p.getNext()),
+         * או חוליה שהוצאה מהרשימה ועדיין מצביעה הלאה. מצוירות בשורה מתחת, עם חץ אל החוליה שהן מצביעות עליה (joinTo)
+         */
+        final List<ChainView> branches = new ArrayList<ChainView>();
+        int joinTo = -1;                   // בענף: האינדקס של החוליה בשרשרת הראשית שהאחרונה בענף מצביעה עליה
     }
 
     /**
