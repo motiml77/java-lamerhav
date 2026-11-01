@@ -17,6 +17,7 @@ on:
       - 'java-visualizer/src/**'
       - 'java-visualizer/vscode-extension/**'
       - 'java-visualizer/eclipse-plugin/**'
+      - 'java-visualizer/intellij-plugin/**'
       - 'java-visualizer/csharp/**'
       - 'java-visualizer/help/**'
       - 'java-visualizer/tools/build-all.sh'
@@ -35,7 +36,7 @@ env:
   DOTNET_NOLOGO: 1
 
 jobs:
-  # הספרייה, התוסף ל-Eclipse והתוסף ל-VS Code — מהקוד (tools/build-all.sh; בלי makensis לא נבנה ה-exe של Windows)
+  # הספרייה, התוספים ל-Eclipse, ל-VS Code ול-IntelliJ — מהקוד (tools/build-all.sh; בלי makensis לא נבנה ה-exe של Windows; Gradle — יש ב-ubuntu-latest)
   common:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -49,6 +50,8 @@ jobs:
         with: { node-version: '20' }
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: '8.0.x' }
+      - uses: gradle/actions/setup-gradle@v4   # התוסף ל-IntelliJ (intellij-plugin/, IntelliJ Platform Gradle Plugin)
+        with: { gradle-version: '8.14.3' }
       - id: b
         run: echo "build=$(date -u +%Y%m%d%H%M)" >> "$GITHUB_OUTPUT"
       - name: tools/build-all.sh
@@ -59,6 +62,7 @@ jobs:
           C="$RUNNER_TEMP/common"; mkdir -p "$C/help"
           cp release/dsviz.jar build/light/il.lamerhav.dsviz_1.0.1.jar build/light/dsviz-1.0.1.vsix "$C/"
           cp -R build/project build/project-cs "$C/"
+          [ -d build/intellij/dsviz-intellij ] && mkdir -p "$C/intellij" && cp -R build/intellij/dsviz-intellij "$C/intellij/"   # התוסף ל-IntelliJ
           rsync -a --exclude '*.mp4' build/help/ "$C/help/"   # הסרטונים — מהאתר (כמו ב-Windows)
           find "$C" -maxdepth 2 | sort
       - uses: actions/upload-artifact@v4

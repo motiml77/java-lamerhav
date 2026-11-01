@@ -4,6 +4,7 @@
 #   - בודק אם יש גרסה חדשה (version.json באתר), מוריד את ההתקנה, בודק שהקובץ שלם (SHA-256),
 #     מחכה ש-Eclipse ייסגר, ומתקין בשקט (/S /UPDATE) — עם אותן שפות שנבחרו בהתקנה. עבודה של התלמיד לא נוגעים בה.
 #   - בלי אינטרנט / שגיאה — לא עושים כלום (ננסה בפעם הבאה). יומן: update.log ליד הקובץ הזה.
+#   - IntelliJ IDEA: בכל בדיקה — התוסף נכנס לכל IntelliJ שעוד אין בו (intellij.ps1), גם IntelliJ שהותקן אחרי DSViz
 #   - -Videos: רק מוריד את סרטוני ההדרכה שחסרים (ההתקנה לא כוללת אותם — מגבלת הגודל של GitHub). רץ מיד אחרי ההתקנה, וגם בכל בדיקה.
 param([switch]$AfterEclipse, [switch]$Videos)
 $ErrorActionPreference = 'Stop'
@@ -48,6 +49,16 @@ $lock = Join-Path $env:TEMP 'dsviz-update.lock'
 try { $fs = [IO.File]::Open($lock, 'OpenOrCreate', 'ReadWrite', 'None') } catch { exit 0 }
 try {
     if ($AfterEclipse) { Start-Sleep -Seconds 5 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows
+    # IntelliJ IDEA: גם IntelliJ שהותקן אחרי DSViz (או שהיה פתוח בזמן ההתקנה) מקבל את התוסף — בכל בדיקה, גם בלי אינטרנט
+    try {
+        $langFile = Join-Path $dir 'lang.txt'
+        $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
+        $ij = Join-Path $dir 'intellij\dsviz-intellij'
+        if ($lang -ne 'cs' -and (Test-Path -LiteralPath (Join-Path $ij 'lib'))) {
+            $r = & (Join-Path $dir 'intellij.ps1') -Source $ij -Quiet
+            if ($LASTEXITCODE -eq 3) { Log 'IntelliJ פתוח — התוסף יעודכן בפעם הבאה' }
+        }
+    } catch { Log "IntelliJ: $($_.Exception.Message)" }
     # לא יותר מבדיקה אחת בשעה
     $stamp = Join-Path $dir 'update-check.txt'
     if ((Test-Path -LiteralPath $stamp) -and ((Get-Date) - (Get-Item -LiteralPath $stamp).LastWriteTime).TotalMinutes -lt 60) { exit 0 }

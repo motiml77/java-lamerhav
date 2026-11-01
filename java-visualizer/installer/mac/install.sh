@@ -8,7 +8,7 @@
 #  מה מותקן (הכול לתיקייה ~/Library/Application Support/DSViz — לא צריך סיסמה):
 #    Java 21 מקוצרת (java, javac, חלון, הרצה שורה-שורה), dsviz.jar, dsviz-cs (ההרצה הוויזואלית של C#),
 #    תיקיות התרגילים במסמכים (DataStructures ו/או DataStructures-CS — עבודה קיימת לא נדרסת),
-#    התוסף ל-VS Code (אם יש), התוסף לכל Eclipse שנמצא (Eclipse עצמו מתקין אותו), ול-C#: DSViz.targets
+#    התוסף ל-VS Code (אם יש), התוסף לכל Eclipse שנמצא (Eclipse עצמו מתקין אותו), לכל IntelliJ IDEA (2024.2+), ול-C#: DSViz.targets
 #    (ההפניה לספרייה בכל פרויקט) ואם צריך — ‎.NET SDK ב-~/.dotnet.
 #  הרצה חוזרת = עדכון (מה שכבר עדכני — לא מורידים שוב). ההסרה: ~/Library/Application Support/DSViz/uninstall.sh
 #
@@ -73,7 +73,7 @@ fi
 
 # ---------------------------------------------------------------- הדפסה
 if [ -t 1 ]; then B=$'\033[1m'; G=$'\033[32m'; Y=$'\033[33m'; R=$'\033[31m'; D=$'\033[2m'; N=$'\033[0m'; else B=; G=; Y=; R=; D=; N=; fi
-STEPN=0; STEPS=7
+STEPN=0; STEPS=8
 step() { STEPN=$((STEPN + 1)); printf '\n%s[%d/%d] %s%s\n      %s%s%s\n' "$B" "$STEPN" "$STEPS" "$1" "$N" "$D" "$2" "$N"; echo "== $2" >>"$LOG"; }
 say()  { printf '      %s\n' "$1"; [ -n "$2" ] && printf '      %s%s%s\n' "$D" "$2" "$N"; return 0; }
 ok()   { printf '      %s✓%s %s\n' "$G" "$N" "$1"; [ -n "$2" ] && printf '        %s%s%s\n' "$D" "$2" "$N"; return 0; }
@@ -189,7 +189,7 @@ else
         [ "$("$NEW/jdk/bin/java" -XshowSettings:properties -version 2>&1 | sed -n 's/.*os.arch = //p')" = "$([ "$ARCH" = arm64 ] && echo aarch64 || echo x86_64)" ] \
             || warn "הארכיטקטורה של Java לא תואמת למחשב" "Java architecture does not match this Mac ($ARCH)"
         "$NEW/cs/dsviz-cs" --version >>"$LOG" 2>&1 || warn "ההרצה הוויזואלית של C# (dsviz-cs) לא רצה" "dsviz-cs does not start (C# visual run unavailable); see $LOG"
-        for f in lang.txt eclipse.txt; do [ -f "$APP/$f" ] && cp "$APP/$f" "$NEW/$f"; done
+        for f in lang.txt eclipse.txt intellij-pending; do [ -f "$APP/$f" ] && cp "$APP/$f" "$NEW/$f"; done
         OLD="$PARENT/.DSViz-old-$$"
         if [ -d "$APP" ]; then mv "$APP" "$OLD" || die "אי אפשר להחליף את ההתקנה הקיימת" "Cannot move the old installation aside"; fi
         if ! mv "$NEW" "$APP"; then [ -d "$OLD" ] && mv "$OLD" "$APP"; die "ההחלפה נכשלה — ההתקנה הקודמת הוחזרה" "Activating the new version failed (old version restored)"; fi
@@ -439,7 +439,28 @@ EOF
 fi
 if [ -n "$ECLIPSE_PENDING" ]; then : > "$APP/eclipse-pending"; else rm -f "$APP/eclipse-pending"; fi
 
-# ================================================================ 6. C#
+# ================================================================ 6. IntelliJ IDEA
+# כל IntelliJ IDEA במחשב (Community / Ultimate, ‎/Applications ו-Toolbox, 2024.2 ומעלה) — בלי שאלות (intellij.sh).
+# IntelliJ שיותקן אחר כך — העדכון היומי (update.sh) מוסיף לו את התוסף
+step "IntelliJ IDEA" "IntelliJ IDEA plugin"
+if [ -z "$JAVA_ON" ]; then
+    say "דילוג (רק C#)" "Skipped (C# only)"
+elif [ ! -d "$APP/intellij/dsviz-intellij/lib" ] || [ ! -f "$APP/intellij.sh" ]; then
+    warn "התוסף ל-IntelliJ חסר בהתקנה" "The IntelliJ plugin is missing from the payload"
+else
+    [ -f "$APP/intellij/dsviz-intellij/runtime/dsviz.jar" ] || { mkdir -p "$APP/intellij/dsviz-intellij/runtime" && cp "$APP/dsviz.jar" "$APP/intellij/dsviz-intellij/runtime/"; }
+    IJ_OUT=$(bash "$APP/intellij.sh" install "$APP/intellij/dsviz-intellij" 2>&1); IJ_RC=$?
+    echo "$IJ_OUT" >>"$LOG"
+    printf '%s\n' "$IJ_OUT" | while IFS= read -r l; do [ -n "$l" ] && say "$l"; done
+    if [ "$IJ_RC" = 3 ]; then
+        : > "$APP/intellij-pending"
+        warn "IntelliJ פתוח — העדכון של התוסף יותקן אחרי שייסגר (בעדכון האוטומטי, או: סגרו את IntelliJ והריצו שוב)" "IntelliJ is running — the plugin update will be applied later"
+    else
+        rm -f "$APP/intellij-pending"
+    fi
+fi
+
+# ================================================================ 7. C#
 step "C#" "C# support (dsviz-cs, MSBuild targets, .NET SDK)"
 if [ -z "$CS_ON" ]; then
     say "ההרצה הוויזואלית של C# מותקנת תמיד (גם ב-VS Code). התיקייה וההגדרות של C# — רק אם בוחרים C#." \
@@ -481,17 +502,18 @@ else
     fi
 fi
 
-# ================================================================ 7. סיום
+# ================================================================ 8. סיום
 step "סיום" "Done"
 "$APP/jdk/bin/javac" -version >>"$LOG" 2>&1 && ok "Java 21: $APP/jdk" "java + javac + jdk.jdi (line-by-line runs)" || warn "javac לא רץ" "javac failed"
 [ -x "$APP/cs/dsviz-cs" ] && ok "C#: $APP/cs/dsviz-cs"
 rm -f "$DSV/update-check.txt.tmp" 2>/dev/null
 touch "$DSV/update-check.txt" 2>/dev/null   # העדכון האוטומטי (update.sh) יבדוק שוב רק מחר
 if [ "$MODE" != update ]; then
-    printf '\n%sהכול מוכן!%s  פותחים מחדש את VS Code / Eclipse.\n' "$G$B" "$N"
-    printf '%sAll set! Restart VS Code / Eclipse.%s\n' "$D" "$N"
+    printf '\n%sהכול מוכן!%s  פותחים מחדש את VS Code / Eclipse / IntelliJ IDEA.\n' "$G$B" "$N"
+    printf '%sAll set! Restart VS Code / Eclipse / IntelliJ IDEA.%s\n' "$D" "$N"
     printf '  • VS Code: הסמל "מבני נתונים" בסרגל הצד ← "הרצה ויזואלית".\n'
     printf '  • Eclipse: התפריט "מבני נתונים" למעלה.\n'
+    printf '  • IntelliJ IDEA: התפריט "מבני נתונים", החלון DSViz בצד ימין, ו"הרצה ויזואלית" ליד main.\n'
     printf '  • %sבפעם הראשונה macOS ישאל אם לתת ל-VS Code / Eclipse גישה לתיקיית המסמכים — לוחצים "אישור" (Allow).%s\n' "$D" "$N"
     printf '  • %sעדכונים: אוטומטיים (פעם ביום). הסרה: "%s/uninstall.sh"%s\n' "$D" "$APP" "$N"
     [ "$WARNINGS" -gt 0 ] && printf '  %s(%d אזהרות — הפרטים ב-%s)%s\n' "$Y" "$WARNINGS" "$LOG" "$N"

@@ -54,9 +54,9 @@ done
 ok "Windows: setup.nsi מתקין ב-VS Code Insiders / VSCodium / Cursor ומסיר מהם"
 if command -v makensis >/dev/null 2>&1; then
     B="$OUT/nsis/build"; R="$OUT/nsis/release"
-    mkdir -p "$B/light" "$B/help" "$B/project" "$B/jre-windows/bin" "$B/dsviz-cs-win" "$B/project-cs" "$B/vs-template" "$R"
+    mkdir -p "$B/light" "$B/help" "$B/project" "$B/jre-windows/bin" "$B/dsviz-cs-win" "$B/project-cs" "$B/vs-template" "$B/intellij/dsviz-intellij/lib" "$R"
     for f in light/dsviz-1.0.1.vsix light/il.lamerhav.dsviz_1.0.1.jar help/index.html project/README.txt jre-windows/bin/java.exe \
-             dsviz-cs-win/dsviz-cs.exe project-cs/README.txt vs-template/DSViz-Exercise.zip; do echo x > "$B/$f"; done
+             dsviz-cs-win/dsviz-cs.exe project-cs/README.txt vs-template/DSViz-Exercise.zip intellij/dsviz-intellij/lib/dsviz-intellij.jar; do echo x > "$B/$f"; done
     echo x > "$R/dsviz.jar"
     (cd "$ROOT/installer" && makensis -V2 -WX -DBUILD="$B" -DRELEASE="$R" setup.nsi) > "$OUT/makensis.txt" 2>&1 \
         && [ -s "$R/DSViz-Setup.exe" ] && ok "Windows: setup.nsi מתקמפל ב-makensis בלי אזהרות ($(du -k "$R/DSViz-Setup.exe" | cut -f1)K עם קבצים מדומים)" \

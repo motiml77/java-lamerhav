@@ -1,6 +1,6 @@
 ﻿; ============================================================
 ;  מבני נתונים — הרצה ויזואלית : תוכנית התקנה ל-Windows
-;  מתקינה את התוסף ל-VS Code ואת התוסף לכל Eclipse שנמצא במחשב.
+;  מתקינה את התוסף ל-VS Code, את התוסף לכל Eclipse ולכל IntelliJ IDEA שנמצאים במחשב.
 ;  נבנית ע"י tools/build-all.sh (makensis). לא דורשת הרשאות מנהל ולא שואלת מה להתקין — הכול אוטומטי.
 ;  התקנה שקטה (למשל לכל מחשבי המעבדה): DSViz-Setup.exe /S   הסרה שקטה: uninstall.exe /S
 ; ============================================================
@@ -57,9 +57,9 @@ ShowUninstDetails show
 !define MUI_PAGE_HEADER_TEXT "בחירת שפה"
 !define MUI_PAGE_HEADER_SUBTEXT "באיזו שפה כותבים את התרגילים?"
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
-!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse פתוח — ההתקנה תבקש לסגור אותו.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
+!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse, ל-IntelliJ IDEA ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse או IntelliJ פתוחים — ההתקנה תבקש לסגור אותם.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
-!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה."
+!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nIntelliJ IDEA: התפריט 'מבני נתונים', החלון DSViz בצד ימין, ו'הרצה ויזואלית' ליד main.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "פתיחת המדריך"
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
@@ -228,6 +228,58 @@ Function EnsureEclipseClosed
   Pop $0
 FunctionEnd
 
+; ------------------------------------------------------------ יש IntelliJ IDEA במחשב? (תיקיית הגדרות ב-%APPDATA%\JetBrains) → $HASIDEA = 1 / 0
+Var HASIDEA
+Function HasIntelliJ
+  Push $0
+  Push $1
+  StrCpy $HASIDEA 0
+  FindFirst $0 $1 "$APPDATA\JetBrains\IdeaIC*"
+  StrCmp $1 "" +2
+  StrCpy $HASIDEA 1
+  FindClose $0
+  FindFirst $0 $1 "$APPDATA\JetBrains\IntelliJIdea*"
+  StrCmp $1 "" +2
+  StrCpy $HASIDEA 1
+  FindClose $0
+  Pop $1
+  Pop $0
+FunctionEnd
+
+; ------------------------------------------------------------ IntelliJ IDEA חייב להיות סגור כשמעדכנים את התוסף
+; (הקבצים של תוסף קיים נעולים כש-IntelliJ פתוח; התקנה ראשונה אפשר גם כשהוא פתוח — נטען בפתיחה הבאה)
+Function EnsureIntelliJClosed
+  Push $0
+  Push $1
+  StrCpy $1 0
+  check:
+    nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\intellij.ps1" -Running'
+    Pop $0
+    StrCmp $0 "0" running done
+  running:
+    ${If} ${Silent}
+      ; עדכון אוטומטי: לא מחכים — intellij.ps1 מדלג על גרסה פתוחה, והתוסף מתעדכן בכניסה הבאה ל-Windows (update.ps1)
+      Goto done
+    ${EndIf}
+    MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "IntelliJ IDEA פתוח כרגע.$\r$\n$\r$\nכדי שהתוסף יותקן כמו שצריך, צריך לסגור את IntelliJ בזמן ההתקנה.$\r$\n$\r$\nכן — לסגור את IntelliJ עכשיו (הוא שומר את הקבצים לבד)$\r$\nלא — סגרתי בעצמי, להמשיך$\r$\nביטול — להמשיך בלי לעדכן את IntelliJ (יעודכן בכניסה הבאה ל-Windows)" IDYES close IDNO check
+    Goto done
+  close:
+    DetailPrint "IntelliJ IDEA: סוגר..."
+    nsExec::Exec '"$SYSDIR\taskkill.exe" /IM idea64.exe'
+    Pop $0
+    StrCpy $1 0
+  wait:
+    Sleep 2000
+    nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\intellij.ps1" -Running'
+    Pop $0
+    StrCmp $0 "0" 0 done
+    IntOp $1 $1 + 1
+    IntCmp $1 30 check wait check
+  done:
+  Pop $1
+  Pop $0
+FunctionEnd
+
 ; ------------------------------------------------------------ רכיבים
 Section "-core"
   SetOutPath "$INSTDIR"
@@ -238,6 +290,14 @@ Section "-core"
   File "README-he.html"
   File "icon.ico"
   File "update.ps1"
+  File "intellij.ps1"
+  ; התוסף ל-IntelliJ IDEA (התיקייה dsviz-intellij כמו שהיא בתוך plugins). הספרייה (runtime\dsviz.jar) — אותו קובץ כמו $INSTDIR\dsviz.jar,
+  ; מועתק במחשב ולא נכלל פעמיים בהתקנה
+  SetOutPath "$INSTDIR\intellij\dsviz-intellij\lib"
+  File /nonfatal "${BUILD}\intellij\dsviz-intellij\lib\*.jar"   ; בלי Gradle בבנייה — בלי התוסף (intellij.ps1 מדלג)
+  CreateDirectory "$INSTDIR\intellij\dsviz-intellij\runtime"
+  CopyFiles /SILENT "$INSTDIR\dsviz.jar" "$INSTDIR\intellij\dsviz-intellij\runtime"
+  SetOutPath "$INSTDIR"
   ; עדכון אוטומטי ברקע: מספר הבנייה שמותקן, ובדיקה בכל כניסה ל-Windows (וגם כש-Eclipse נסגר — התוסף מפעיל)
   FileOpen $0 "$INSTDIR\build.txt" w
   FileWrite $0 "${BUILDNO}"
@@ -579,9 +639,13 @@ Section "-eclipse"
     !insertmacro SCAN "C:" "eclipse*"
     !insertmacro SCAN "D:" "eclipse*"
   ${EndIf}
+  Call HasIntelliJ
   ${If} $ECLIPSES == 0
   ${AndIf} "$CODE$FORKS" != ""
     DetailPrint "Eclipse: לא נמצא — דילוג (VS Code הותקן)"
+  ${ElseIf} $ECLIPSES == 0
+  ${AndIf} $HASIDEA == 1
+    DetailPrint "Eclipse: לא נמצא — דילוג (IntelliJ IDEA נמצא)"
   ${ElseIf} $ECLIPSES == 0
     MessageBox MB_YESNO|MB_ICONQUESTION "לא נמצאו VS Code ו-Eclipse באופן אוטומטי.$\r$\n$\r$\nלבחור את התיקייה של Eclipse (התיקייה שבה נמצא eclipse.exe)?" /SD IDNO IDNO eclipse_done
     nsDialogs::SelectFolderDialog "התיקייה של Eclipse (שבה נמצא eclipse.exe)" "C:\"
@@ -596,6 +660,17 @@ Section "-eclipse"
     eclipse_done:
   ${EndIf}
   DetailPrint "Eclipse: הותקן ב-$ECLIPSES מקומות"
+SectionEnd
+
+Section "-intellij"
+  ; כל IntelliJ IDEA במחשב (Community / Ultimate, התקנה רגילה ו-Toolbox, 2024.2 ומעלה) — בלי שאלות (intellij.ps1)
+  ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
+    Return
+  ${EndIf}
+  Call EnsureIntelliJClosed
+  DetailPrint "IntelliJ IDEA: מחפש התקנות במחשב..."
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\intellij.ps1" -Source "$INSTDIR\intellij\dsviz-intellij"'
+  Pop $0
 SectionEnd
 
 Section "-extensions"
@@ -658,6 +733,13 @@ Section "Uninstall"
     FileClose $3
   ${EndIf}
   Delete "$INSTDIR\vscode-forks.txt"
+  ; IntelliJ IDEA: מכל הגרסאות (‎%APPDATA%\JetBrains\*\plugins\dsviz-intellij)
+  ${If} ${FileExists} "$INSTDIR\intellij.ps1"
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\intellij.ps1" -Uninstall'
+    Pop $0
+  ${EndIf}
+  RMDir /r "$INSTDIR\intellij"
+  Delete "$INSTDIR\intellij.ps1"
 
   ; כל התקנות Eclipse שהתוסף הועתק אליהן רשומות ב-eclipse-dirs.txt (שורה לכל תיקייה)
   ClearErrors

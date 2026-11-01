@@ -13,20 +13,20 @@
 </head>
 <body>
 <h1>מבני נתונים — הרצה ויזואלית</h1>
-<p>תוסף ל-<b>VS Code</b> ול-<b>Eclipse</b>: בוחרים מבנה נתונים (מחסנית, תור, רשימה מקושרת, עץ, מערך, מערך דו-ממדי — של מספרים, מחרוזות או תלמידים),
+<p>תוסף ל-<b>VS Code</b>, ל-<b>Eclipse</b> ול-<b>IntelliJ IDEA</b>: בוחרים מבנה נתונים (מחסנית, תור, רשימה מקושרת, עץ, מערך, מערך דו-ממדי — של מספרים, מחרוזות או תלמידים),
 מקבלים תרגיל מוכן עם המבנה, כותבים את הפעולה — ובהרצה נפתח חלון שמראה כל צעד: המבנים, שורת הקוד, המשתנים, מעקב הרקורסיה והפלט.</p>
 
 <h2>1. מה צריך במחשב</h2>
 <ul>
   <li><b>Windows ו-Mac:</b> Java כלולה בהתקנה — לא צריך להוריד כלום. <b>Linux:</b> JDK 17 או 21 (למשל Adoptium Temurin).</li>
-  <li><b>VS Code</b> ו/או <b>Eclipse</b> (גרסה 2020 ומעלה).</li>
+  <li><b>VS Code</b>, <b>Eclipse</b> (גרסה 2020 ומעלה) ו/או <b>IntelliJ IDEA</b> (Community או Ultimate, 2024.2 ומעלה).</li>
 </ul>
 
 <h2>2. התקנה</h2>
 <div class="box">
 <p><b>Windows:</b> לחיצה כפולה על <code>DSViz-Setup.exe</code> ← הבא ← <b>בוחרים שפה</b> (Java, C#, או שתיהן) ← התקן ← סיום.<br>
 <b>Mac:</b> פקודה אחת בטרמינל — ראו <a href="#mac">התקנה ב-Mac</a> למטה. &nbsp; <b>Linux:</b> בטרמינל: <code>./install.sh</code></p>
-<p>ההתקנה מוצאת לבד את VS Code ואת כל ההתקנות של Eclipse במחשב ומתקינה בכולן, ויוצרת <b>תיקיית תרגילים מוכנה</b>
+<p>ההתקנה מוצאת לבד את VS Code ואת כל ההתקנות של Eclipse ושל IntelliJ IDEA במחשב ומתקינה בכולן (בלי שאלות), ויוצרת <b>תיקיית תרגילים מוכנה</b>
 במסמכים (<code>DataStructures</code>) עם קיצור דרך בשולחן העבודה. בהפעלה הראשונה Eclipse מכין את עצמו לבד (פרויקט, קידוד עברית, תרגיל פתוח).
 אחר כך — לסגור ולפתוח מחדש את התוכנה.</p>
 <p>את התוספים של Microsoft ל-VS Code (השלמה אוטומטית ל-Java / ל-C#) ההתקנה מורידה לבד ברקע — צריך לשם כך אינטרנט, אבל בלעדיו ההרצה עובדת רגיל.</p>
@@ -41,7 +41,7 @@
       <code style="display:block;white-space:pre-wrap;word-break:break-all;margin:6px 0;padding:8px">curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash</code></li>
   <li>לוחצים <kbd>Enter</kbd>. ההתקנה שואלת באיזו שפה לומדים (Java, C# או שתיהן), ומתקינה הכול לבד — בלי סיסמה ובלי הרשאות מנהל.</li>
 </ol>
-<p>מה מותקן: Java 21 (כלולה), ההרצה הוויזואלית ל-Java ול-C#, התוסף ל-VS Code, התוסף לכל Eclipse שנמצא במחשב
+<p>מה מותקן: Java 21 (כלולה), ההרצה הוויזואלית ל-Java ול-C#, התוסף ל-VS Code, התוסף לכל Eclipse ולכל IntelliJ IDEA שנמצאים במחשב
 (Eclipse עצמו מתקין אותו — צריך שהוא יהיה סגור), ותיקיות התרגילים במסמכים (<code>DataStructures</code>, <code>DataStructures-CS</code>).
 ל-C# אפשר להתקין גם ‎.NET SDK (ההתקנה שואלת). העדכונים אוטומטיים (פעם ביום, כש-VS Code נפתח או כש-Eclipse נסגר). הרצה חוזרת של אותה פקודה = עדכון/תיקון —
 העבודה שלכם בתיקיות התרגילים לא נדרסת.</p>

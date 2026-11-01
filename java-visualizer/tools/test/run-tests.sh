@@ -439,5 +439,9 @@ conds "$LN/out.txt" \
 ! grep -q 'אבד' "$LN/out.txt" && echo "  ok  אין אזהרת 'אבדה' שגויה (אין חוליה בלי מצביע) בכל הצעדים" \
     || { echo "  FAIL חוליה סומנה כאבודה בלי סיבה"; grep 'אבד' "$LN/out.txt"; exit 1; }
 
+echo "== IntelliJ IDEA: ההתקנה האוטומטית מוצאת כל IntelliJ (2024.2+), מדלגת על ישנים, ומסירה (בלי רשת; הבדיקות בתוך IntelliJ — intellij-it.sh)"
+IJZIP=$(ls ../../release/dsviz-intellij-*.zip ../../intellij-plugin/build/distributions/dsviz-intellij-*.zip 2>/dev/null | head -1)
+if [ -n "$IJZIP" ]; then bash ./intellij-installer-test.sh "$IJZIP"; else echo "  (התוסף ל-IntelliJ לא נבנה — tools/build-all.sh עם Gradle; דילוג)"; fi
+
 echo "== C# (Visual Studio / VS Code / Rider)"
 sh ./cs-tests.sh

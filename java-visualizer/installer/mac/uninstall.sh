@@ -2,7 +2,7 @@
 # הסרת DSViz מה-Mac. מריצים בטרמינל:
 #   "$HOME/Library/Application Support/DSViz/uninstall.sh"
 # או: curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/uninstall.sh | bash
-# מסיר: התוסף מ-VS Code ומכל Eclipse, DSViz.targets (C#), התיקייה ~/Library/Application Support/DSViz, הנתיבים ב-~/.dsviz.
+# מסיר: התוסף מ-VS Code, מכל Eclipse ומכל IntelliJ IDEA, DSViz.targets (C#), התיקייה ~/Library/Application Support/DSViz, הנתיבים ב-~/.dsviz.
 # לא נוגע: בתיקיות התרגילים במסמכים (DataStructures, DataStructures-CS — העבודה שלכם), וב-‎.NET SDK שב-~/.dotnet.
 main() {
 APP="$HOME/Library/Application Support/DSViz"
@@ -80,6 +80,13 @@ while IFS= read -r app; do
 done <<EOF
 $ECLS
 EOF
+
+# ---- IntelliJ IDEA: מכל הגרסאות (~/Library/Application Support/JetBrains/<IdeaIC… / IntelliJIdea…>/plugins/dsviz-intellij)
+for d in "$HOME/Library/Application Support/JetBrains"/IdeaIC* "$HOME/Library/Application Support/JetBrains"/IntelliJIdea* \
+         "$HOME/Library/Application Support/JetBrains"/IdeaIE*; do
+    [ -d "$d/plugins/dsviz-intellij" ] || continue
+    rm -rf "$d/plugins/dsviz-intellij" && ok "IntelliJ IDEA $(basename "$d"): התוסף הוסר" "IntelliJ plugin removed from $(basename "$d")"
+done
 
 # ---- C# (MSBuild) — משאירים את התיקייה ImportAfter (יכולים להיות בה קבצים של תוכנות אחרות)
 for d in "$HOME/Library/Application Support/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter" \
