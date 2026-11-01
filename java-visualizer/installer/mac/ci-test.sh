@@ -89,13 +89,13 @@ done
 mkdir -p "$W/loops/loops" && cp "$T"/problems/loops/CounterStuck.java "$W/loops/loops/"
 "$J/javac" -g -encoding UTF-8 -cp "$JAR" -d "$W/loops" "$W/loops/loops/CounterStuck.java" 2>>"$OUT/logs/checks.log"
 (cd "$W/loops" && tmo 150 "$J/java" -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine loops.CounterStuck 2>&1 \
-    | sed 's/\xE2\x80[\xAA\xAC\x8E\x8F]//g' > "$OUT/logs/java-loop.txt")
+    | perl -pe 's/\xE2\x80[\xAA\xAC\x8E\x8F]//g' > "$OUT/logs/java-loop.txt")
 check "לולאה שלא נגמרת (Java): נעצרת עם כרטיס" sh -c "grep -qF '[כרטיס loop x x > 0]' '$OUT/logs/java-loop.txt' && grep -q 'הלולאה לא נגמרת — התוכנית נעצרה' '$OUT/logs/java-loop.txt'"
 mkdir -p "$W/input" && cp "$T"/input/ScanInput.java "$W/input/"
 "$J/javac" -g -encoding UTF-8 -cp "$JAR" -d "$W/input" "$W/input/ScanInput.java" 2>>"$OUT/logs/checks.log"
 printf '3\n4 5\n6\nדני כהן\n' > "$W/input/scan.in"
 (cd "$W/input" && tmo 120 "$J/java" -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -Ddsviz.input=@scan.in -cp ".:$JAR" unit4.collectionsLib.LineByLine ScanInput </dev/null 2>&1 \
-    | sed 's/\xE2\x80\x8E//g' > "$OUT/logs/java-input.txt")
+    | perl -pe 's/\xE2\x80\x8E//g' > "$OUT/logs/java-input.txt")
 check "קלט מהמקלדת (Java): צעדי קלט ו'שלום דני כהן, הסכום: 15'" sh -c "grep -q '(ScanInput.java:10)  קלט מהמקלדת: 3' '$OUT/logs/java-input.txt' && grep -q 'שלום דני כהן, הסכום: 15' '$OUT/logs/java-input.txt'"
 
 sec "4. C# — dsviz-cs (Roslyn, self-contained) + החלון קורא את קובץ ההרצה"
@@ -144,6 +144,9 @@ osascript -e 'tell application "System Events" to keystroke "3"' -e 'delay 0.5' 
 sleep 4; shot 02b-java-keyboard-typed
 grep -q 'קלט מהמקלדת: 3' "$OUT/logs/gui-02-java-keyboard.txt" && ok "הקלדה בחלון (osascript): התוכנית קיבלה 3" || info "ההקלדה בחלון לא הגיעה לתוכנית (פוקוס?)"
 viz_java "$W/loops" loops.CounterStuck 03-java-infinite-loop 45
+pid=$(pgrep -f 'dsviz.child=true' | head -1); [ -n "$pid" ] && front "$pid"; sleep 1
+osascript -e 'tell application "System Events" to key code 119' >>"$OUT/logs/checks.log" 2>&1   # End — הצעד האחרון (הכרטיס)
+sleep 3; shot 03b-java-infinite-loop-card
 killviz
 (cd "$CSP" && "$CS" "$CSP/Examples/StackExamples" > "$OUT/logs/gui-04-cs.txt" 2>&1 &)
 sleep 30; windows > "$OUT/logs/windows-04-cs.txt"; shot 04-cs-viewer
@@ -227,8 +230,9 @@ check "install.sh שהורד בדפדפן ומורץ עם bash — רץ (הטר�
 printf '#!/bin/bash\necho DSViz test\n' > install-mac.command; chmod +x install-mac.command; xattr -w com.apple.quarantine "$Q" install-mac.command
 spctl -a -vv -t open --context context:primary-signature install-mac.command > "$OUT/logs/gatekeeper-command.txt" 2>&1
 info ".command שהורד בדפדפן: $(tr '\n' ' ' < "$OUT/logs/gatekeeper-command.txt")"
-open install-mac.command >>"$OUT/logs/gatekeeper-command.txt" 2>&1; sleep 8; shot 11-gatekeeper-command-doubleclick
-osascript -e 'tell application "System Events" to keystroke return' >/dev/null 2>&1; pkill -x Terminal 2>/dev/null
+(tmo 20 open install-mac.command >>"$OUT/logs/gatekeeper-command.txt" 2>&1 &)   # open מחכה עד שסוגרים את חלון Gatekeeper — ברקע, עם timeout
+sleep 8; shot 11-gatekeeper-command-doubleclick
+osascript -e 'tell application "System Events" to keystroke return' >/dev/null 2>&1; pkill -x Terminal 2>/dev/null; pkill -f "open install-mac.command" 2>/dev/null
 # החבילה עצמה, "מהדפדפן": tar פורס — האם ה-quarantine עובר לקבצים? והאם dsviz-cs (ad-hoc) / java (Developer ID) רצים?
 TGZ=$(curl -fsSL "https://github.com/motiml77/java-lamerhav/releases/download/$CHANNEL/dsviz-mac.json" | sed -n "s/.*\"$([ "$(sysctl -n hw.optional.arm64)" = 1 ] && echo arm64 || echo x64)_file\"[^\"]*\"\([^\"]*\)\".*/\1/p")
 curl -fsSL -o p.tgz "https://github.com/motiml77/java-lamerhav/releases/download/$CHANNEL/$TGZ" && xattr -w com.apple.quarantine "$Q" p.tgz
@@ -237,8 +241,9 @@ mkdir x && tar -xzf p.tgz -C x
   echo "== spctl:"; spctl -a -vv -t execute x/cs/dsviz-cs 2>&1; spctl -a -vv -t execute x/jdk/bin/java 2>&1
   echo "== dsviz-cs --version (quarantined):"; tmo 30 x/cs/dsviz-cs --version; echo "exit=$?"
   echo "== java -version (quarantined):"; tmo 30 x/jdk/bin/java -version; echo "exit=$?"; } > "$OUT/logs/gatekeeper-payload.txt" 2>&1 &
+GKP=$!
 sleep 12; shot 12-gatekeeper-quarantined-binary
-wait
+wait "$GKP"   # רק הבדיקה הזו (לא תהליכים אחרים שרצים ברקע)
 osascript -e 'tell application "System Events" to keystroke return' >/dev/null 2>&1
 info "חבילה 'מהדפדפן': $(grep -A1 'exit=\|quarantine' "$OUT/logs/gatekeeper-payload.txt" | tr '\n' ' ' | head -c 600)"
 cd "$OUT"

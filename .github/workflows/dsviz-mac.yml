@@ -62,7 +62,7 @@ jobs:
           rsync -a --exclude '*.mp4' build/help/ "$C/help/"   # הסרטונים — מהאתר (כמו ב-Windows)
           find "$C" -maxdepth 2 | sort
       - uses: actions/upload-artifact@v4
-        with: { name: common, path: '${{ runner.temp }}/common', retention-days: 7 }
+        with: { name: common, path: '${{ runner.temp }}/common', retention-days: 7, include-hidden-files: true }   # .project / .classpath בתבנית של Java
 
   # Java 21 (jlink מקומי מ-Temurin) ו-dsviz-cs (dotnet publish על Mac — חתום) לכל ארכיטקטורה
   build:
