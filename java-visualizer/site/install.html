@@ -174,7 +174,7 @@ All set! Restart VS Code / Eclipse / IntelliJ IDEA.</pre>
           </ul>
         </div>
       </div>
-      <div class="note-box"><p><b>למה שורה ולא קובץ?</b> macOS חוסם קבצים שהורדו בדפדפן כשהם לא חתומים ע"י Apple ("מפתח לא מזוהה"), ואת החסימה אפשר לעקוף רק עם סיסמת מנהל. קבצים ש-curl מוריד לא מסומנים כ"הורדו מהאינטרנט", ולכן אין חסימה ואין שאלה. כל קובץ נבדק מול SHA-256 לפני שהוא מותקן. Apple Silicon ו-Intel, macOS 12 ומעלה.</p></div>
+      <div class="note-box"><p><b>למה שורה ולא קובץ?</b> macOS חוסם קבצים שהורדו בדפדפן כשהם לא חתומים ע"י Apple ("מפתח לא מזוהה"), ואת החסימה אפשר לעקוף רק עם סיסמת מנהל. השורה מורידה את הקבצים בלי הדפדפן, ולכן אין חסימה ואין שאלה. כל קובץ נבדק לפני שהוא מותקן. Apple Silicon ו-Intel, macOS 12 ומעלה.</p></div>
     </section>
 
     <section id="eclipse" aria-labelledby="h-eclipse">
@@ -302,7 +302,7 @@ All set! Restart VS Code / Eclipse / IntelliJ IDEA.</pre>
       <h2 id="h-updates">עדכונים והסרה</h2>
       <h3>עדכונים</h3>
       <ul>
-        <li><b>Windows:</b> בכל כניסה ל-Windows ובכל סגירה של Eclipse נבדק אם יש גרסה חדשה. אם יש, היא יורדת, נבדקת (SHA-256) ומותקנת בשקט עם אותן שפות, אחרי ש-Eclipse נסגר.</li>
+        <li><b>Windows:</b> בכל כניסה ל-Windows ובכל סגירה של Eclipse נבדק אם יש גרסה חדשה. אם יש, היא יורדת, נבדקת ומותקנת בשקט עם אותן שפות, אחרי ש-Eclipse נסגר.</li>
         <li><b>Mac:</b> בכניסה למחשב ופעם ביום (פריט רקע של המשתמש, בלי סיסמה), וגם כש-VS Code או IntelliJ נפתחים וכש-Eclipse נסגר. סביבת פיתוח שהותקנה אחרי DSViz מקבלת את התוסף באותה בדיקה. היומן: <code dir="ltr">~/Library/Logs/DSViz/update.log</code>. אפשר גם להריץ שוב את שורת ההתקנה.</li>
       </ul>
       <h3>הסרה</h3>

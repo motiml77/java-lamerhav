@@ -124,9 +124,8 @@
             <button type="button" role="tab" id="fs-1" aria-controls="fp-1" aria-selected="true"><span class="n">1</span><span class="st"><b>מצרפים את הדף</b><small>PDF, Word, צילום, או צילום מסך עם Ctrl+V</small></span><i class="prog" aria-hidden="true"></i></button>
             <button type="button" role="tab" id="fs-2" aria-controls="fp-2" aria-selected="false" tabindex="-1"><span class="n">2</span><span class="st"><b>Gemini קורא את השאלה</b><small>סעיפים, פעולות, ומה כבר נתון</small></span><i class="prog" aria-hidden="true"></i></button>
             <button type="button" role="tab" id="fs-3" aria-controls="fp-3" aria-selected="false" tabindex="-1"><span class="n">3</span><span class="st"><b>נוצרת חבילה לתרגיל</b><small>תיקייה משלו בפרויקט, ומחלקה לכל מחלקה בשאלה</small></span><i class="prog" aria-hidden="true"></i></button>
-            <button type="button" role="tab" id="fs-4" aria-controls="fp-4" aria-selected="false" tabindex="-1"><span class="n">4</span><span class="st"><b>פעולה ריקה לכל סעיף</b><small>פעולות העזר, main והפלט הצפוי. הסמן בסעיף א</small></span><i class="prog" aria-hidden="true"></i></button>
+            <button type="button" role="tab" id="fs-4" aria-controls="fp-4" aria-selected="false" tabindex="-1"><span class="n">4</span><span class="st"><b>פעולה ריקה לכל סעיף</b><small>פעולות העזר, main והפלט הצפוי. הסמן כבר בסעיף א</small></span><i class="prog" aria-hidden="true"></i></button>
             <button type="button" role="tab" id="fs-5" aria-controls="fp-5" aria-selected="false" tabindex="-1"><span class="n">5</span><span class="st"><b>הרצה ויזואלית</b><small>כותבים את הפתרון ורואים אותו רץ</small></span><i class="prog" aria-hidden="true"></i></button>
-            <button type="button" role="tab" id="fs-6" aria-controls="fp-6" aria-selected="false" tabindex="-1"><span class="n">6</span><span class="st"><b>הצעה לפתרון</b><small>מנורה ליד כל סעיף. סגורה עד שלוחצים</small></span><i class="prog" aria-hidden="true"></i></button>
           </div>
           <p class="fp-now" aria-hidden="true" data-fnow><b>מצרפים את הדף</b> PDF, Word, צילום, או צילום מסך עם Ctrl+V</p>
           <div class="demo-nav fp-nav">
@@ -159,11 +158,11 @@
                 <div class="fp-slice"><img src="assets/img/submit-page-c.webp" width="860" height="114" alt="" loading="lazy"><i class="hl" data-k="b" style="top:8%;height:50%"></i><i class="hl" data-k="c" style="top:64%;height:30%"></i></div>
               </div>
               <div class="fp-json">
-                <p class="fp-label">מה חזר מ-Gemini על הדף הזה <span class="mono" dir="ltr" data-fmodel>gemini-flash-latest</span></p>
+                <p class="fp-label">מה Gemini הבין מהדף</p>
                 <ul class="fp-fields" data-ffields></ul>
               </div>
             </div>
-            <p class="fp-cap">הצד השמאלי הוא התשובה האמיתית שהתקבלה לדף הזה, בקיצור. כל שליחה היא תשובה חדשה, ולכן שמות יכולים להשתנות קצת בין פעם לפעם.</p>
+            <p class="fp-cap">Gemini מזהה את הסעיפים, את הפעולה שצריך לכתוב בכל סעיף, ומה כבר נתון בשאלה. גם אם הצילומים הודבקו לא לפי הסדר.</p>
           </div>
 
           <div class="fp-pane" id="fp-3" role="tabpanel" aria-labelledby="fs-3" aria-hidden="true">
@@ -196,7 +195,6 @@
                 </dl>
               </div>
             </div>
-            <p class="fp-cap">השמות כאן מחושבים בדפדפן מהתשובה של Gemini, באותו קוד שבונה את החבילה בתוסף.</p>
           </div>
 
           <div class="fp-pane" id="fp-4" role="tabpanel" aria-labelledby="fs-4" aria-hidden="true">
@@ -206,8 +204,18 @@
                 <pre class="ide-code" data-fcode tabindex="0" aria-label="הקובץ שנוצר"><span class="l"><span class="n"></span>// טוען…</span></pre>
               </div>
               <div class="fp-legend" data-flegend role="group" aria-label="מה יש בקובץ"></div>
+              <div class="fp-solbox" data-solbox hidden>
+                <figure class="fp-open" data-sol-open="א" hidden>
+                  <img class="frame" src="assets/img/submit-solution-ij.webp" width="569" height="394" alt="IntelliJ IDEA: החלון הצעה לפתרון לסעיף א, עם הפעולה isBalanced והשורה: ההצעה נבדקה, הרצנו את התרגיל איתה והפלט יצא בדיוק כמו הפלט הצפוי" loading="lazy">
+                  <figcaption>ההצעה לסעיף א. לפני שהיא מוצגת, התרגיל רץ איתה ובודקים שמודפס בדיוק הפלט הצפוי. <button type="button" class="linkish" data-sol-close>סגירה</button></figcaption>
+                </figure>
+                <div class="fp-open fp-closed" data-sol-open="ב" hidden>
+                  <p><b>סעיף ב</b> נפתח באותו חלון, עם הפתרון של <code dir="ltr">countBalanced</code>.</p>
+                  <p class="quiet">הפתרון כתוב כמו שמורה היה מראה בכיתה, עם הערות קצרות בעברית. <button type="button" class="linkish" data-sol-close>סגירה</button></p>
+                </div>
+              </div>
             </div>
-            <p class="fp-cap">הקובץ נבנה עכשיו בדפדפן מהתשובה של Gemini, ב-<code dir="ltr">assets/scaffold.js</code>, שמפיק בדיוק את מה שהתוסף מפיק. לחיצה על שורה ברשימה מראה אותה בקוד.</p>
+            <p class="fp-cap">ליד כל סעיף יש מנורה <img src="assets/bulb.svg" alt="" width="14" height="14" class="ib">. ההצעה לפתרון נפתחת רק אם בוחרים ללחוץ עליה, וכל עוד לא לוחצים היא לא מוצגת.</p>
           </div>
 
           <div class="fp-pane" id="fp-5" role="tabpanel" aria-labelledby="fs-5" aria-hidden="true">
@@ -217,29 +225,6 @@
             <p class="fp-cap">חלון ההרצה על אותו תרגיל, אחרי שכתבו את סעיף א. צעד 9: ‏5 יצא מהתור ונספר ב-<code dir="ltr">pos</code>, והשורה הצהובה תכניס אותו לתור העזר.</p>
           </div>
 
-          <div class="fp-pane" id="fp-6" role="tabpanel" aria-labelledby="fs-6" aria-hidden="true">
-            <div class="fp-sol">
-              <div class="ide fp-ed">
-                <div class="ide-tabs" aria-hidden="true"><span class="on">BalancedQueues.java</span></div>
-                <pre class="ide-code" data-fsol aria-label="תחילת הקובץ, עם מנורה ליד כל סעיף"></pre>
-              </div>
-              <div class="fp-solbox" data-solbox>
-                <div class="fp-closed" data-sol-closed>
-                  <p><b>ההצעה סגורה.</b> היא נפתחת רק כשלוחצים על המנורה <img src="assets/bulb.svg" alt="" width="14" height="14"> ליד הפעולה.</p>
-                  <p class="quiet">הפתרון כתוב כמו שמורה היה מראה בכיתה: לולאות, תנאים ותור עזר, עם הערות קצרות בעברית.</p>
-                </div>
-                <figure class="fp-open" data-sol-open="א" hidden>
-                  <img class="frame" src="assets/img/submit-solution-ij.webp" width="569" height="394" alt="IntelliJ IDEA: החלון הצעה לפתרון לסעיף א, עם הפעולה isBalanced והשורה: ההצעה נבדקה, הרצנו את התרגיל איתה והפלט יצא בדיוק כמו הפלט הצפוי" loading="lazy">
-                  <figcaption>ההצעה לסעיף א ב-IntelliJ IDEA. <button type="button" class="linkish" data-sol-close>סגירה</button></figcaption>
-                </figure>
-                <div class="fp-open fp-closed" data-sol-open="ב" hidden>
-                  <p><b>סעיף ב</b> נפתח באותו חלון, עם הפתרון של <code dir="ltr">countBalanced</code>.</p>
-                  <p class="quiet">כאן יש צילום רק של ההצעה לסעיף א. <button type="button" class="linkish" data-sol-close>סגירה</button></p>
-                </div>
-              </div>
-            </div>
-            <p class="fp-cap">לפני שהקובץ נפתח, התוסף מריץ את main עם ההצעה ובודק שמודפס בדיוק הפלט הצפוי. אם לא, ההצעה מתוקנת ונבדקת שוב, ואם בכל זאת לא אומתה, כתוב את זה בחלון.</p>
-          </div>
         </div>
       </div>
     </div>
@@ -265,7 +250,7 @@
             <img src="assets/img/submit-dialog-ij.webp" width="702" height="535" alt="IntelliJ IDEA: החלון שליחת תרגיל עם שלושה צילומי מסך" loading="lazy">
             <img src="assets/img/submit-created-ij.webp" width="819" height="655" alt="IntelliJ IDEA אחרי השליחה: BalancedQueues.java פתוח, פעולה ריקה לכל סעיף, הסמן בשורה 8, והודעה: התרגיל נוצר, 2 סעיפים" loading="lazy">
           </div>
-          <figcaption>התפריט "מבני נתונים" ← שליחת תרגיל, והקובץ שנפתח. הצילום השני משליחה אחרת של אותו דף, ובה Gemini קרא לנושא <code dir="ltr">queue_of_stacks</code>.</figcaption>
+          <figcaption>התפריט "מבני נתונים" ← שליחת תרגיל, והקובץ שנפתח, עם הסמן בסעיף הראשון.</figcaption>
         </figure>
         <figure class="pane" id="p-sub-ecl" role="tabpanel" aria-labelledby="t-sub-ecl" aria-hidden="true">
           <div class="pair">
@@ -276,7 +261,7 @@
         </figure>
         <figure class="pane" id="p-sub-web" role="tabpanel" aria-labelledby="t-sub-web" aria-hidden="true">
           <img src="assets/img/submit-web.webp" width="1248" height="720" alt="הדף שאלת בגרות לקוד אחרי שליחה: הכותרת תור מאוזן ומחסנית תורים, כפתור הורדה כ-ZIP, והקובץ BalancedQueues.java" loading="lazy">
-          <figcaption>באתר, בלי התקנה: אותו דף, אותה תשובה של Gemini ואותו קוד, להורדה כ-ZIP. כאן ההצעה לפתרון לא הורצה, ובתוסף היא נבדקת מול הפלט הצפוי.</figcaption>
+          <figcaption>באתר, בלי התקנה: מעלים את הדף ומורידים את הקבצים כ-ZIP.</figcaption>
         </figure>
       </div>
       <p class="quiet fp-where">ב-VS Code: "שליחת תרגיל" בשורת המצב, כשפתוח קובץ Java או <bdi>C#</bdi>, וההצעה לפתרון מעל כל פעולה. ב-Visual Studio: הקיצורים "שליחת תרגיל ב-<bdi>C#</bdi>" ו"הצעה לפתרון ב-<bdi>C#</bdi>" בשולחן העבודה ובתפריט התחל, והתרגיל נכנס כפרויקט מוכן בפתרון.</p>
@@ -297,7 +282,7 @@
           <source src="assets/video/queue.mp4" type="video/mp4">
         </video>
       </div>
-      <figcaption><span>הפעולה position עוברת על תור: כל <code>remove</code> יוצא מראש התור, וכל <code>insert</code> נכנס דרך הזנב.</span><span>הקלטה מחלון ההרצה, בלי עריכה.</span></figcaption>
+      <figcaption><span>הפעולה position עוברת על תור: כל <code>remove</code> יוצא מראש התור, וכל <code>insert</code> נכנס דרך הזנב.</span></figcaption>
     </figure>
 
     <ul class="facts">
@@ -518,7 +503,7 @@
       </details>
       <details>
         <summary>למה ב-Mac מדביקים שורה ולא מורידים קובץ?</summary>
-        <p>macOS חוסם קבצים שהורדו בדפדפן כשהם לא חתומים ע"י Apple, ואת החסימה אפשר לעקוף רק עם סיסמת מנהל. השורה מורידה את הקבצים בלי הדפדפן, ולכן אין חסימה. כל קובץ נבדק (SHA-256) לפני ההתקנה.</p>
+        <p>macOS חוסם קבצים שהורדו בדפדפן כשהם לא חתומים ע"י Apple, ואת החסימה אפשר לעקוף רק עם סיסמת מנהל. השורה מורידה את הקבצים בלי הדפדפן, ולכן אין חסימה. כל קובץ נבדק לפני ההתקנה.</p>
       </details>
       <details>
         <summary>ההרצה הוויזואלית משנה את הקוד שלי?</summary>

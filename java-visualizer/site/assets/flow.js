@@ -1,4 +1,5 @@
-// "שליחת תרגיל", שלב אחרי שלב (העמוד הראשי, #exercise): הדף, מה ש-Gemini החזיר, החבילה, הקובץ, ההרצה וההצעה לפתרון.
+// "שליחת תרגיל", שלב אחרי שלב (העמוד הראשי, #exercise): הדף, מה ש-Gemini החזיר, החבילה, הקובץ וההרצה.
+// ההצעה לפתרון היא לא שלב: היא נפתחת רק כשלוחצים על המנורה ליד סעיף בקובץ (שלב 4).
 // כל מה שמוצג אמיתי: שלושת הצילומים הם הקבצים שנשלחו, EXERCISE היא התשובה של Gemini עליהם (בלי שינוי), והחבילה והקוד
 // נבנים כאן מהתשובה ב-assets/scaffold.js, שמפיק בדיוק את מה שהתוסף מפיק (tools/test/scaffold-parity.js, אותו JSON
 // נמצא שם ב-ai/parity/5-gemini-balanced-java.json). הצילומים של ההרצה ושל ההצעה לפתרון מ-IntelliJ IDEA, על אותו תרגיל.
@@ -7,7 +8,6 @@
   if (!root) return;
   var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  var MODEL = 'gemini-flash-latest';
   var EXERCISE = {"title":"תור מאוזן ומחסנית תורים","summary":"בדיקה האם תור של מספרים שלמים מאוזן (סכום המספרים החיוביים שווה לסכום הערכים המוחלטים של השליליים), וספירת תורים מאוזנים במחסנית תורים.","topic":"queues_and_stacks","mainClass":"BalancedQueues","imports":[],"classes":[],"tasks":[{"label":"א","kind":"method","className":"BalancedQueues","isStatic":true,"returnType":"boolean","methodName":"isBalanced","parameters":[{"type":"Queue<Integer>","name":"q"}],"instructions":"תור \"מאוזן\" הוא תור של מספרים שלמים שבו סכום המספרים החיוביים שווה לסכום הערכים המוחלטים של המספרים השליליים.\nכתבו פעולה isBalanced המקבלת תור של מספרים שלמים ומחזירה אמת אם התור מאוזן, ושקר אחרת. התור צריך להישאר כפי שהיה. ניתן להשתמש בפעולה sumPositive הנתונה."},{"label":"ב","kind":"method","className":"BalancedQueues","isStatic":true,"returnType":"int","methodName":"countBalanced","parameters":[{"type":"Stack<Queue<Integer>>","name":"st"}],"instructions":"כתבו פעולה המקבלת מחסנית של תורים של מספרים שלמים, ומחזירה כמה מהתורים במחסנית הם מאוזנים. השתמשו בפעולה שכתבתם בסעיף א."}],"givenCode":[{"className":"BalancedQueues","code":"public static int sumPositive(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int sum = 0;\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        if (x > 0) sum += x;\n        temp.insert(x);\n    }\n    while (!temp.isEmpty()) q.insert(temp.remove());\n    return sum;\n}"}],"otherQuestions":[{"label":"ג","text":"מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו."}],"mainCode":"// יצירת תור מאוזן: 5 חיובי, -2 ו- -3 סכומם בערך מוחלט 5\nQueue<Integer> q1 = new Queue<Integer>();\nq1.insert(5);\nq1.insert(-2);\nq1.insert(-3);\nSystem.out.println(\"תור 1: \" + q1);\nSystem.out.println(\"סעיף א (תור 1 מאוזן?): \" + isBalanced(q1));\n\n// יצירת תור לא מאוזן: חיובי 4, שלילי בערך מוחלט 1\nQueue<Integer> q2 = new Queue<Integer>();\nq2.insert(4);\nq2.insert(-1);\nSystem.out.println(\"תור 2: \" + q2);\nSystem.out.println(\"סעיף א (תור 2 מאוזן?): \" + isBalanced(q2));\n\n// יצירת תור מאוזן נוסף: -7 וסכום חיוביים 3+4=7\nQueue<Integer> q3 = new Queue<Integer>();\nq3.insert(-7);\nq3.insert(3);\nq3.insert(4);\n\n// יצירת מחסנית המכילה 3 תורים (מתוכם 2 מאוזנים)\nStack<Queue<Integer>> st = new Stack<Queue<Integer>>();\nst.push(q1);\nst.push(q2);\nst.push(q3);\nSystem.out.println(\"סעיף ב (מספר תורים מאוזנים במחסנית): \" + countBalanced(st));","expectedOutput":"תור 1: [5,-2,-3]\nסעיף א (תור 1 מאוזן?): true\nתור 2: [4,-1]\nסעיף א (תור 2 מאוזן?): false\nסעיף ב (מספר תורים מאוזנים במחסנית): 2","language":"java"};
 
   var tabs = Array.prototype.slice.call(root.querySelectorAll('.fp-steps [role=tab]'));
@@ -16,8 +16,8 @@
   var next = root.querySelector('[data-fnext]');
   var play = root.querySelector('[data-fplay]');
   var now = root.querySelector('[data-fnow]');
-  // כמה זמן כל שלב על המסך כשמריצים (מ"ש). בשלב האחרון ההרצה נעצרת: ההצעה נפתחת רק בלחיצה
-  var DUR = [3600, 5400, 3800, 5200, 4600, 0];
+  // כמה זמן כל שלב על המסך כשמריצים (מ"ש)
+  var DUR = [3600, 5400, 3800, 5200, 4600];
   var at = 0, timer = null, playing = false, touched = false, seq = [];
 
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -45,7 +45,6 @@
   fieldsEl.innerHTML = FIELDS.map(function (f) {
     return '<li data-k="' + f[0] + '"><span class="fk">' + f[1] + '</span>' + (f[3] ? '<code dir="ltr">' + f[2] + '</code>' : '<span>' + f[2] + '</span>') + '</li>';
   }).join('');
-  root.querySelector('[data-fmodel]').textContent = MODEL;
 
   function reading() {
     var items = fieldsEl.children, marks = root.querySelectorAll('#fp-2 .hl');
@@ -133,7 +132,6 @@
   }
 
   var codeEl = root.querySelector('[data-fcode]');
-  var solEl = root.querySelector('[data-fsol]');
   var legendEl = root.querySelector('[data-flegend]');
   var PARTS = [];
 
@@ -153,9 +151,7 @@
   function fill(b) {
     if (b.error) { codeEl.innerHTML = '<span class="l"><span class="n"></span>// הקוד לא נטען. מרעננים את הדף ומנסים שוב.</span>'; return; }
     PARTS = parts(b);
-    codeEl.innerHTML = lines(b);
-    var sol = PARTS.filter(function (p) { return p.task; });
-    solEl.innerHTML = lines(b, sol.length ? sol[sol.length - 1].to + 2 : 14, true);
+    codeEl.innerHTML = lines(b, 0, true);
     legendEl.innerHTML = PARTS.map(function (p) {
       return '<button type="button" data-part="' + p.id + '"><span>' + p.label + '</span><small>' + (p.from === p.to ? 'שורה ' + (p.from + 1) : 'שורות <bdi dir="ltr">' + (p.from + 1) + '–' + (p.to + 1) + '</bdi>') + '</small></button>';
     }).join('');
@@ -199,7 +195,7 @@
     PARTS.slice(1).forEach(function (p, n) { later(function () { mark(p.id, true); }, 1100 + n * 950); });
   }
 
-  // ---------------------------------------------------------------- שלב 6: ההצעה סגורה עד שלוחצים
+  // ---------------------------------------------------------------- המנורה: ההצעה נפתחת רק כשבוחרים ללחוץ
   var solBox = root.querySelector('[data-solbox]');
   function solution(task) {
     var shown = false;
@@ -212,22 +208,22 @@
       var other = solBox.querySelector('[data-sol-open="ב"]');
       if (other) { other.hidden = false; shown = true; }
     }
-    solBox.querySelector('[data-sol-closed]').hidden = shown;
-    solEl.querySelectorAll('[data-bulb]').forEach(function (b) { b.setAttribute('aria-expanded', b.getAttribute('data-bulb') === task ? 'true' : 'false'); });
+    solBox.hidden = !shown;
+    codeEl.querySelectorAll('[data-bulb]').forEach(function (b) { b.setAttribute('aria-expanded', b.getAttribute('data-bulb') === task ? 'true' : 'false'); });
   }
   root.addEventListener('click', function (e) {
     var b = e.target.closest('[data-bulb]');
     if (b) {
       stop();
       var task = b.getAttribute('data-bulb');
-      if (at !== 5) show(5);
-      solution(task);
-      // בטלפון ההצעה נפתחת מתחת לקוד — שתיראה
+      var again = b.getAttribute('aria-expanded') === 'true';
+      if (at !== 3) show(3);
+      solution(again ? null : task);
       var open = solBox.querySelector('[data-sol-open]:not([hidden])');
       if (open && open.scrollIntoView) open.scrollIntoView({ block: 'nearest', behavior: calm ? 'auto' : 'smooth' });
       return;
     }
-    if (e.target.closest('[data-sol-close]')) { solution(null); var first = solEl.querySelector('[data-bulb]'); if (first) first.focus(); }
+    if (e.target.closest('[data-sol-close]')) { solution(null); var first = codeEl.querySelector('[data-bulb]'); if (first) first.focus(); }
   });
 
   // ---------------------------------------------------------------- השלבים
@@ -249,7 +245,7 @@
     next.textContent = i === tabs.length - 1 ? 'מההתחלה' : 'הבא';
     if (i === 1) reading();
     if (i >= 2) scaffold(function (b) { if (!root.classList.contains('fp-built')) fill(b); if (at === 3) tour(); });
-    if (i === 5) solution(null);
+    if (i === 3) solution(null);
     if (playing) {
       root.style.setProperty('--fp-dur', DUR[i] + 'ms');
       tabs.forEach(function (x) { x.classList.remove('run'); });
