@@ -238,11 +238,23 @@ final class Viewer extends JFrame {
         end.add(info, BorderLayout.CENTER);
         end.add(donate, BorderLayout.LINE_END);
 
-        JPanel bar = new JPanel(new BorderLayout(16, 0));
+        // שורה אחת כשיש מקום; בחלון צר (מסך קטן / Mac) — פס המידע יורד לשורה שנייה, במקום שהרכיבים יעלו זה על זה
+        final JPanel bar = new JPanel(new BarLayout(16, 8));
         bar.setOpaque(false);
-        bar.add(nav, BorderLayout.LINE_START);
-        bar.add(timeline, BorderLayout.CENTER);
-        bar.add(end, BorderLayout.LINE_END);
+        bar.add(nav);
+        bar.add(timeline);
+        bar.add(end);
+        bar.addComponentListener(new java.awt.event.ComponentAdapter() {
+            private Boolean last;
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                boolean two = BarLayout.twoRows(bar);
+                if (last == null || two != last) {
+                    last = two;
+                    bar.revalidate();
+                    bar.repaint();
+                }
+            }
+        });
 
         JPanel north = new JPanel(new BorderLayout(0, 10));
         north.setOpaque(false);
@@ -1454,6 +1466,70 @@ final class Viewer extends JFrame {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         return g;
+    }
+
+    /**
+     * סרגל השליטה: [ניווט] [ציר הזמן] [פס המידע]. כשאין מקום לשלושה בשורה אחת (ציר הזמן היה נדחס מתחת ל-MIN_CENTER
+     * והרכיבים היו עולים זה על זה) — פס המידע עובר לשורה שנייה, בקצה. מכבד כיוון (מימין לשמאל).
+     */
+    static final class BarLayout implements java.awt.LayoutManager {
+        static final int MIN_CENTER = 90;
+        private final int gap, rowGap;
+
+        BarLayout(int gap, int rowGap) {
+            this.gap = gap;
+            this.rowGap = rowGap;
+        }
+
+        static boolean twoRows(java.awt.Container c) {
+            if (c.getComponentCount() < 3) return false;
+            java.awt.Insets in = c.getInsets();
+            int w = c.getWidth() - in.left - in.right;
+            Dimension s = c.getComponent(0).getPreferredSize(), e = c.getComponent(2).getPreferredSize();
+            return w > 0 && s.width + e.width + 2 * ((BarLayout) c.getLayout()).gap + MIN_CENTER > w;
+        }
+
+        public void addLayoutComponent(String name, Component comp) {}
+
+        public void removeLayoutComponent(Component comp) {}
+
+        public Dimension minimumLayoutSize(java.awt.Container c) {
+            return preferredLayoutSize(c);
+        }
+
+        public Dimension preferredLayoutSize(java.awt.Container c) {
+            java.awt.Insets in = c.getInsets();
+            Dimension s = c.getComponent(0).getPreferredSize(), m = c.getComponent(1).getPreferredSize(), e = c.getComponent(2).getPreferredSize();
+            int h = twoRows(c) ? Math.max(s.height, m.height) + rowGap + e.height : Math.max(s.height, Math.max(m.height, e.height));
+            return new Dimension(s.width + m.width + e.width + 2 * gap + in.left + in.right, h + in.top + in.bottom);
+        }
+
+        public void layoutContainer(java.awt.Container c) {
+            java.awt.Insets in = c.getInsets();
+            int W = c.getWidth() - in.left - in.right;
+            boolean ltr = c.getComponentOrientation().isLeftToRight();
+            Component sc = c.getComponent(0), mc = c.getComponent(1), ec = c.getComponent(2);
+            Dimension s = sc.getPreferredSize(), m = mc.getPreferredSize(), e = ec.getPreferredSize();
+            if (!twoRows(c)) {
+                int h = Math.max(s.height, Math.max(m.height, e.height));
+                place(sc, in, W, ltr, 0, s.width, (h - s.height) / 2, s.height);
+                place(ec, in, W, ltr, W - e.width, e.width, (h - e.height) / 2, e.height);
+                place(mc, in, W, ltr, s.width + gap, Math.max(0, W - s.width - e.width - 2 * gap), (h - m.height) / 2, m.height);
+            } else {
+                int h1 = Math.max(s.height, m.height);
+                int sw = Math.min(s.width, W);
+                place(sc, in, W, ltr, 0, sw, (h1 - s.height) / 2, s.height);
+                place(mc, in, W, ltr, sw + gap, Math.max(0, W - sw - gap), (h1 - m.height) / 2, m.height);
+                int ew = Math.min(e.width, W);
+                place(ec, in, W, ltr, W - ew, ew, h1 + rowGap, e.height);
+            }
+        }
+
+        /** lead = המרחק מתחילת השורה (מימין בעברית) */
+        private static void place(Component comp, java.awt.Insets in, int W, boolean ltr, int lead, int w, int y, int h) {
+            int x = ltr ? in.left + lead : in.left + W - lead - w;
+            comp.setBounds(x, in.top + y, w, h);
+        }
     }
 
     /** "צעד 27 מתוך 50": המספר הנוכחי מודגש בכחול. כל חלק מצויר לבד (מימין לשמאל) — כדי שהמספרים לא יקפצו */
