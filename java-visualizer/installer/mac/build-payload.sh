@@ -5,7 +5,8 @@
 #   - dotnet publish על Mac חותם את dsviz-cs (חתימה ad-hoc — מספיקה כשהקובץ לא הורד בדפדפן); בלי חתימה Apple Silicon הורג אותו
 # שימוש: build-payload.sh <arm64|x64> <מספר בנייה> <תיקיית הקבצים המשותפים> <תיקיית הפלט>
 #   הקבצים המשותפים (נבנים ב-Linux ע"י tools/build-all.sh — ראו .github/workflows/dsviz-mac.yml):
-#   dsviz.jar, il.lamerhav.dsviz_<v>.jar ו-dsviz-<v>.vsix (בלי הסרטונים), project/, project-cs/, help/ (בלי mp4)
+#   dsviz.jar, il.lamerhav.dsviz_<v>.jar ו-dsviz-<v>.vsix (בלי הסרטונים), project/, project-cs/, help/ (בלי mp4),
+#   intellij/dsviz-intellij/lib (התוסף ל-IntelliJ — runtime/dsviz.jar מועתק מכאן)
 # דורש: JAVA_HOME = JDK 21 עם jmods (Temurin) לארכיטקטורה של המחשב, ‎.NET SDK 8, python3
 set -euo pipefail
 ARCH=$1; BUILD=$2
@@ -71,11 +72,18 @@ cp "$COMMON/dsviz-$VERSION.vsix" "$P/"
 mkdir -p "$P/eclipse"
 python3 "$HERE/make-p2.py" "$COMMON/il.lamerhav.dsviz_$VERSION.jar" "$P/eclipse/p2" auto
 (cd "$P/eclipse/p2" && zip -qrX ../dsviz-eclipse-site.zip .)
+# IntelliJ IDEA: התיקייה dsviz-intellij (כמו שהיא בתוך plugins) + intellij.sh שמתקין אותה בכל IntelliJ שבמחשב
+if [ -d "$COMMON/intellij/dsviz-intellij/lib" ]; then
+    mkdir -p "$P/intellij" && cp -R "$COMMON/intellij/dsviz-intellij" "$P/intellij/"
+    mkdir -p "$P/intellij/dsviz-intellij/runtime" && cp "$COMMON/dsviz.jar" "$P/intellij/dsviz-intellij/runtime/"
+else
+    echo "  (אין תוסף ל-IntelliJ בקבצים המשותפים — החבילה בלעדיו)"
+fi
 cp -R "$COMMON/project" "$P/project"
 cp -R "$COMMON/project-cs" "$P/project-cs"
 [ -d "$COMMON/help" ] && cp -R "$COMMON/help" "$P/help"
 cp "$ROOT/installer/DSViz.targets" "$ROOT/installer/README-he.html" "$P/"
-cp "$HERE/install.sh" "$HERE/update.sh" "$HERE/uninstall.sh" "$P/"
+cp "$HERE/install.sh" "$HERE/update.sh" "$HERE/uninstall.sh" "$HERE/intellij.sh" "$P/"
 chmod 755 "$P"/*.sh
 printf '%s\n' "$BUILD" > "$P/build.txt"
 printf '%s\n' "$VERSION" > "$P/version.txt"

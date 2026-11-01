@@ -1,6 +1,6 @@
 #!/bin/sh
 # Data Structures Visualizer - installer for Linux
-# Installs the extension into VS Code and the plugin into every Eclipse found.
+# Installs the extension into VS Code and the plugin into every Eclipse and IntelliJ IDEA (2024.2+) found.
 # Optional: ./install.sh /path/to/eclipse
 # macOS: use the one-line Terminal installer instead (bundled Java 21, C#, auto-update):
 #   curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash
@@ -56,4 +56,21 @@ for d in "$HOME"/eclipse/*/eclipse "$HOME"/eclipse "$HOME"/eclipse-* /opt/eclips
     if [ -f "$d/eclipse" ] || [ -f "$d/eclipse.ini" ]; then install_eclipse "$d"; fi
 done
 [ "$found" = 0 ] && echo "[Eclipse] not found automatically. Run: ./install.sh /path/to/eclipse"
-echo "Done. Restart VS Code / Eclipse."
+
+# IntelliJ IDEA (Community / Ultimate, 2024.2+): ~/.config/JetBrains/<IdeaIC2024.2 / IntelliJIdea2025.1 ...>/plugins/dsviz-intellij
+IJZIP="$HERE/dsviz-intellij-1.0.1.zip"
+ij=0
+if [ -f "$IJZIP" ]; then
+    for d in "$HOME"/.config/JetBrains/IdeaIC20* "$HOME"/.config/JetBrains/IntelliJIdea20*; do
+        [ -d "$d" ] || continue
+        v=$(basename "$d" | sed 's/^[A-Za-z]*//'); y=${v%%.*}; m=${v#*.}
+        case "$y$m" in *[!0-9]*|"") continue ;; esac
+        if [ "$y" -lt 2024 ] || { [ "$y" -eq 2024 ] && [ "$m" -lt 2 ]; }; then echo "[IntelliJ] $(basename "$d"): too old (needs 2024.2+) - skipped"; continue; fi
+        mkdir -p "$d/plugins" && rm -rf "$d/plugins/dsviz-intellij"
+        if (cd "$d/plugins" && { unzip -qo "$IJZIP" 2>/dev/null || python3 -m zipfile -e "$IJZIP" . ; }); then
+            echo "[IntelliJ] installed into $d/plugins"; ij=$((ij + 1))
+        fi
+    done
+    [ "$ij" = 0 ] && echo "[IntelliJ] not found - skipped (or: Settings > Plugins > gear > Install Plugin from Disk > $IJZIP)"
+fi
+echo "Done. Restart VS Code / Eclipse / IntelliJ IDEA."
