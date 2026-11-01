@@ -24,48 +24,17 @@
   function later(fn, ms) { seq.push(setTimeout(fn, ms)); }
   function clearSeq() { seq.forEach(clearTimeout); seq = []; }
 
-  // ---------------------------------------------------------------- שלב 2: מה Gemini החזיר, מקוצר
-  var FIELDS = (function (e) {
-    var out = [['title', 'כותרת', esc(e.title), false]];
-    var g = (e.givenCode || [])[0];
-    if (g) out.push(['given', 'נתון בשאלה', esc(g.code.split('\n')[0].replace(/^\s*(public\s+)?(static\s+)?/, '').replace(/\s*\{\s*$/, '')), true]);
-    (e.tasks || []).forEach(function (t, i) {
-      var sig = t.returnType + ' ' + t.methodName + '(' + (t.parameters || []).map(function (p) { return p.type + ' ' + p.name; }).join(', ') + ')';
-      out.push([i === 0 ? 'a' : i === 1 ? 'b' : 't' + i, 'סעיף ' + t.label, esc(sig), true]);
-    });
-    (e.otherQuestions || []).forEach(function (q, i) { if (i === 0) out.push(['c', 'סעיף ' + q.label, 'במילים, בלי קוד: ' + esc(q.text), false]); });
-    var count = function (re) { return (e.mainCode.match(re) || []).length; };
-    var q = count(/new Queue</g), s = count(/new Stack</g), lines = e.expectedOutput.split('\n').length, parts = [];
-    if (q) parts.push(q === 1 ? 'תור' : q + ' תורים');
-    if (s) parts.push(s === 1 ? 'מחסנית' : s + ' מחסניות');
-    out.push(['main', 'main', 'נתונים לדוגמה (' + parts.join(' ו') + ') ו-' + lines + ' שורות של פלט צפוי', false]);
-    return out;
-  })(EXERCISE);
-  var fieldsEl = root.querySelector('[data-ffields]');
-  fieldsEl.innerHTML = FIELDS.map(function (f) {
-    return '<li data-k="' + f[0] + '"><span class="fk">' + f[1] + '</span>' + (f[3] ? '<code dir="ltr">' + f[2] + '</code>' : '<span>' + f[2] + '</span>') + '</li>';
-  }).join('');
-
-  function reading() {
-    var items = fieldsEl.children, marks = root.querySelectorAll('#fp-2 .hl');
-    var lit = function (k) {
-      for (var i = 0; i < marks.length; i++) {
-        var on = marks[i].getAttribute('data-k') === k;
-        if (on) marks[i].classList.add('seen');
-        marks[i].classList.toggle('lit', on);
-      }
-      for (var j = 0; j < items.length; j++) {
-        var me = items[j].getAttribute('data-k') === k;
-        if (me) items[j].classList.add('shown');
-        items[j].classList.toggle('lit', me);
-      }
+  // ---------------------------------------------------------------- שלב 2: ההמתנה — ההודעות שבשורת ההתקדמות, אחת אחרי השנייה
+  var msgs = Array.prototype.slice.call(root.querySelectorAll('[data-fmsgs] li'));
+  var bar = root.querySelector('[data-fbar]');
+  function progress() {
+    var step = function (k) {
+      msgs.forEach(function (li, n) { li.classList.toggle('done', n < k); li.classList.toggle('now', n === k); });
+      bar.style.transform = 'scaleX(' + Math.min(1, (k + 1) / msgs.length) + ')';
     };
-    root.classList.toggle('fp-all', calm);
-    for (var i = 0; i < items.length; i++) items[i].classList.remove('shown', 'lit');
-    for (var m = 0; m < marks.length; m++) marks[m].classList.remove('seen', 'lit');
-    if (calm) return;
-    FIELDS.forEach(function (f, n) { later(function () { lit(f[0]); }, 250 + n * 780); });
-    later(function () { lit(null); }, 250 + FIELDS.length * 780);
+    if (calm) { step(msgs.length - 1); return; }
+    step(0);
+    msgs.forEach(function (li, n) { if (n) later(function () { step(n); }, n * 900); });
   }
 
   // ---------------------------------------------------------------- הקוד: נבנה בדפדפן ב-scaffold.js
@@ -157,15 +126,19 @@
     }).join('');
     root.querySelector('[data-fpkg]').textContent = b.pkg;
     root.querySelector('[data-fpkg2]').textContent = b.pkg;
-    root.querySelector('[data-ftopic]').textContent = b.e.topic;
-    root.querySelector('[data-fmain]').textContent = b.e.mainClass;
     root.querySelector('[data-ffile]').textContent = b.main.fileName;
     root.querySelector('[data-ftitle]').textContent = b.pkg + '/' + b.main.fileName;
     root.querySelector('[data-ffiles]').innerHTML = b.files.map(function (f, i) {
       return '<li class="new" style="--i:' + (i + 1) + '"><span class="ff">' + esc(f.fileName) + '</span></li>';
     }).join('');
     var n = b.e.tasks.length;
-    root.querySelector('[data-fcount]').textContent = (n === 1 ? 'סעיף אחד.' : n + ' סעיפים.');
+    root.querySelector('[data-fcount]').textContent = n;
+    // סעיפים שעונים עליהם במילים — מופיעים בהודעה, לא בקוד
+    var others = b.e.others || [], oEl = root.querySelector('[data-fothers]');
+    oEl.hidden = !others.length;
+    oEl.innerHTML = others.length ? 'סעיפים שעונים עליהם במילים (בלי קוד): ' + others.map(function (o) { return '<b>' + esc(o.label) + '</b> — ' + esc(o.text); }).join(' · ') : '';
+    // שלב 5: מה שכתוב מעל main
+    root.querySelector('[data-fexpect]').innerHTML = (b.e.expectedOutput || '').split('\n').map(function (l) { return '<span class="l" dir="auto">' + esc(l) + '</span>'; }).join('');
     root.classList.add('fp-built');
     if (at === 3) mark(PARTS[0] && PARTS[0].id, false);
   }
@@ -243,7 +216,7 @@
     now.innerHTML = '<b>' + t.querySelector('b').innerHTML + '</b> ' + t.querySelector('small').innerHTML;
     prev.disabled = i === 0;
     next.textContent = i === tabs.length - 1 ? 'מההתחלה' : 'הבא';
-    if (i === 1) reading();
+    if (i === 1) progress();
     if (i >= 2) scaffold(function (b) { if (!root.classList.contains('fp-built')) fill(b); if (at === 3) tour(); });
     if (i === 3) solution(null);
     if (playing) {

@@ -292,10 +292,11 @@ function serve() {
       await page.click('[data-fnext]');
       assert.strictEqual(await sel(), 1, 'הבא → שלב 2');
       assert.ok(await vis(2) && !(await vis(1)), 'שלב 2 גלוי');
-      const fields = await page.$$eval('[data-ffields] li', l => l.map(x => x.textContent));
-      assert.strictEqual(fields.length, 6, 'מה Gemini החזיר: ' + fields.join(' | '));
-      assert.ok(fields.some(f => f.includes('boolean isBalanced(Queue<Integer> q)')) && fields.some(f => f.includes('int countBalanced(Stack<Queue<Integer>> st)')) && fields.some(f => f.includes('int sumPositive(Queue<Integer> q)')), 'הסעיפים והפעולה הנתונה מהתשובה: ' + fields.join(' | '));
-      assert.ok(await page.isVisible('[data-ffields] li[data-k=main]'), 'בלי תנועה: כל השדות גלויים מיד');
+      // שלב 2: מה שרואים בזמן ההמתנה — ההודעות של שורת ההתקדמות (בלי תנועה: כולן כבר עברו)
+      const msgs = await page.$$eval('[data-fmsgs] li', l => l.map(x => x.textContent));
+      assert.ok(msgs.length === 5 && msgs[1].startsWith('שולח את התרגיל') && msgs[3] === 'בודק שהקוד מתקמפל…', 'הודעות ההתקדמות: ' + msgs.join(' | '));
+      assert.ok(await page.$eval('[data-fmsgs] li:last-child', li => li.classList.contains('now')), 'בלי תנועה: ההודעה האחרונה מסומנת מיד');
+      assert.ok(!(await page.$('[data-ffields]')), 'בלי תצוגה פנימית של מה ש-Gemini החזיר');
       await page.click('[data-fprev]');
       assert.strictEqual(await sel(), 0, 'הקודם → שלב 1');
       // מקלדת: שמאלה = הבא, End / Home
@@ -311,7 +312,8 @@ function serve() {
       await page.waitForSelector('[data-flow].fp-built', { timeout: 5000 });
       assert.strictEqual(await page.textContent('[data-fpkg]'), pkg, 'שם החבילה');
       assert.deepStrictEqual(await page.$$eval('[data-ffiles] .ff', l => l.map(x => x.textContent)), files.map(f => f.fileName), 'הקבצים בחבילה');
-      assert.ok((await page.textContent('[data-fcount]')).startsWith(ex.tasks.length + ' '), 'מספר הסעיפים');
+      assert.strictEqual(await page.textContent('[data-fcount]'), String(ex.tasks.length), 'מספר הסעיפים בהודעה');
+      assert.ok(/ג — מהי סיבוכיות/.test(await page.textContent('[data-fothers]')) && await page.isVisible('[data-fothers]'), 'סעיף ג (במילים) מופיע בהודעה');
       // שלב 4: הקוד שמוצג הוא בדיוק מה שהתוסף בונה מאותה תשובה (scaffold-parity בודק שזה זהה ל-AiScaffold.java)
       await page.click('#fs-4');
       const code = await page.$eval('[data-fcode]', pre => [...pre.children].map(l => { const c = l.cloneNode(true); c.querySelectorAll('.n, .fp-bulb, .caret').forEach(x => x.remove()); return c.textContent; }).join('\n'));
@@ -338,6 +340,11 @@ function serve() {
       assert.ok(await page.isVisible('[data-sol-open=ב]'), 'סעיף ב: הודעה');
       await page.click('[data-fcode] [data-bulb=ב]');
       assert.ok(!(await page.isVisible('[data-solbox]')), 'לחיצה שנייה על המנורה סוגרת');
+      // שלב 5: מה שכתוב מעל main — אותן שורות כמו בקובץ
+      await page.click('#fs-5');
+      const expect = await page.$$eval('[data-fexpect] .l', l => l.map(x => x.textContent));
+      assert.strictEqual(expect.join('\n'), ex.expectedOutput, 'מה צריך להיות מודפס: ' + expect.join(' | '));
+      await page.click('#fs-4');
       // אין בדף הערות טכניות (שמות קבצים של האתר, שם המודל)
       const txt = await page.textContent('#exercise');
       assert.ok(!/scaffold\.js|assets\/|gemini-flash|SHA-256/.test(txt), 'הערה טכנית באזור שליחת תרגיל');
@@ -375,9 +382,9 @@ function serve() {
     await page.waitForTimeout(3700);
     assert.strictEqual(await sel(), 1, 'אחרי 3.6 שניות: שלב 2');
     await page.waitForTimeout(1300);
-    await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, 'anim-flow-2-reading.png') });
-    const lit = await page.$$eval('#fp-2 .hl.lit, [data-ffields] li.lit', l => l.length);
-    assert.ok(lit >= 2, 'Gemini "קורא": החלק בדף והשדה שיצא ממנו מסומנים יחד (' + lit + ')');
+    await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, 'anim-flow-2-waiting.png') });
+    const prog = await page.$$eval('[data-fmsgs] li', l => [l.filter(x => x.classList.contains('done')).length, l.findIndex(x => x.classList.contains('now'))]);
+    assert.ok(prog[0] >= 1 && prog[1] >= 1, 'ההמתנה: ההודעות של שורת ההתקדמות מתקדמות אחת אחרי השנייה (' + prog + ')');
     await page.waitForTimeout(4400);
     assert.strictEqual(await sel(), 2, 'שלב 3');
     await page.waitForTimeout(500);

@@ -419,26 +419,21 @@ html:not(.js) .fp-pane { grid-area: auto; border-bottom: 1px solid var(--line); 
 @keyframes fp-drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
 @keyframes fp-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-/* 2: מה Gemini קרא — סימון בדף, והשדה שיצא ממנו */
-.fp-paper { display: grid; gap: 6px; padding: var(--s-12); background: #fff; border: 1px solid var(--line-2); border-radius: var(--r-sm); }
-.fp-slice { position: relative; }
-.fp-slice img { width: 100%; }
-.fp-slice .hl { position: absolute; inset-inline: 1%; border-radius: var(--r-sm); background: rgba(255, 228, 120, 0.42); box-shadow: inset 0 0 0 2px var(--hi-bar); opacity: 0; transition: opacity 0.25s var(--ease); }
-.fp-slice .hl.seen { opacity: 0.45; box-shadow: none; }
-.fp-slice .hl.lit { opacity: 1; box-shadow: inset 0 0 0 2px var(--hi-bar); }
-.fp-all .fp-slice .hl { opacity: 0.45; box-shadow: none; }
+/* 2: ההמתנה — ההודעות בשורת ההתקדמות, ומה קורה בינתיים */
+.fp-wait { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-16); align-items: start; }
 .fp-label { margin: 0 0 var(--s-8); font-size: var(--t-12); font-weight: 600; color: var(--muted); }
-.fp-label .mono { font-weight: 400; color: var(--ink-2); background: var(--sunk); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 4px; unicode-bidi: isolate; }
-.fp-fields { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.fp-fields li {
-  display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: var(--s-8); align-items: baseline;
-  padding: 6px var(--s-8); border: 1px solid transparent; border-radius: var(--r-sm);
-  opacity: 0; transform: translateY(4px); transition: opacity 0.25s var(--ease), transform 0.25s var(--ease), background-color 0.25s var(--ease);
-}
-.fp-fields li.shown, .fp-all .fp-fields li { opacity: 1; transform: none; }
-.fp-fields li.lit { background: #FFF6D6; border-color: #F0CF73; }
-.fp-fields .fk { font-size: var(--t-12); font-weight: 600; color: var(--ink-2); }
-.fp-fields code { font-size: var(--t-12); justify-self: start; text-align: left; }
+.fp-progress { padding: var(--s-16); background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r-win); }
+.fp-bar { height: 4px; margin: 0 0 var(--s-12); background: var(--sunk); border-radius: 2px; overflow: hidden; }
+.fp-bar i { display: block; height: 100%; background: var(--accent); transform: scaleX(0.2); transform-origin: right; transition: transform 0.6s var(--ease); }
+.fp-msgs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: var(--t-14); }
+.fp-msgs li { display: flex; gap: var(--s-8); align-items: baseline; color: var(--muted); opacity: 0.45; transition: opacity 0.25s var(--ease), color 0.25s var(--ease); }
+.fp-msgs li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid currentColor; transform: translateY(-1px); }
+.fp-msgs li.done { opacity: 1; color: var(--ink-2); }
+.fp-msgs li.done::before { background: #2E9E5B; border-color: #2E9E5B; }
+.fp-msgs li.now { opacity: 1; color: var(--ink); font-weight: 600; }
+.fp-msgs li.now::before { border-color: var(--accent); background: var(--accent); }
+.fp-behind { margin: 0; padding: 0 var(--s-16) 0 0; display: grid; gap: var(--s-8); color: var(--ink-2); }
+.fp-behind b { color: var(--ink); }
 
 /* 3: החבילה בעץ הפרויקט */
 .fp-explorer { background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r-win); padding: 0 0 var(--s-8); font: 13px/2 var(--mono); color: var(--ink-2); text-align: left; overflow: hidden; }
@@ -452,19 +447,22 @@ html:not(.js) .fp-pane { grid-area: auto; border-bottom: 1px solid var(--line); 
 .fx li.new > span { background: #C6F0D2; color: var(--ink); }
 .fx .pkg { font-weight: 500; }
 .fp-pane.on .fx li.new { animation: fp-drop 0.45s var(--ease) both; animation-delay: calc(var(--i) * 300ms + 250ms); }
-.fp-toast { margin: 0 0 var(--s-16); padding: var(--s-12) var(--s-16); background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r); }
-.fp-toast b { display: block; margin-bottom: 2px; }
+.fp-toast { margin: 0 0 var(--s-12); padding: var(--s-12) var(--s-16); background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r); box-shadow: 0 1px 0 var(--line); }
+.fp-toast p { margin: 0 0 4px; font-size: var(--t-14); color: var(--ink-2); }
+.fp-toast p:last-child { margin: 0; }
+.fp-toast .t { color: var(--ink); }
+.fp-toast .ib { display: inline; vertical-align: -2px; }
 .fp-toast bdi { font-family: var(--mono); font-weight: 500; font-size: var(--t-14); }
 .fp-pane.on .fp-toast { animation: fp-up 0.45s var(--ease) both 0.95s; }
-.fp-dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s-8) var(--s-16); }
-.fp-dl dt { font-weight: 600; }
-.fp-dl dd { margin: 0; color: var(--ink-2); }
-.fp-dl code { font-size: var(--t-12); }
 
 /* 4 ו-6: הקובץ שנוצר, בעורך הכהה */
 .fp-ed { color: var(--ide-ink); }
 .fp-ed .ide-code { height: 300px; overflow: auto; font-size: 12.5px; line-height: 21px; overscroll-behavior: contain; }
 .fp-code .fp-solbox { grid-column: 1 / -1; max-width: 640px; }
+/* 5: ההרצה, ומה שכתוב מעל main */
+.fp-check { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-16); align-items: start; }
+.fp-expect .ide-code { margin: 0; padding: var(--s-12) 0; background: var(--ide); color: var(--ide-ink); border-radius: var(--r-win); font-size: 12.5px; line-height: 21px; overflow-x: auto; }
+.fp-expect .ide-code .l { display: block; padding: 0 var(--s-12); white-space: pre-wrap; text-align: start; unicode-bidi: plaintext; }
 .fp-cap .ib { display: inline; vertical-align: -2px; }
 .fp-ed .ide-code, .fp-ed .ide-code .l { position: relative; }
 .fp-ed .ide-code .n { width: 4.2em; }
@@ -493,7 +491,8 @@ html:not(.js) .fp-pane { grid-area: auto; border-bottom: 1px solid var(--line); 
 .linkish { font: inherit; color: var(--accent-2); background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 @media (min-width: 720px) {
   .fp-drop { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: center; }
-  .fp-read, .fp-sol { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .fp-wait { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); }
+  .fp-check { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
   .fp-tree { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
   .fp-code { grid-template-columns: minmax(0, 1fr) 200px; }
   .fp-legend { grid-template-columns: minmax(0, 1fr); }
