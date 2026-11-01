@@ -210,6 +210,43 @@ final class AiScaffold {
         return e;
     }
 
+    // ------------------------------------------------------------------ ההודעה לתלמיד אחרי שהתרגיל נוצר
+
+    static final String NO_CODE = "בתרגיל אין סעיפים שכותבים בהם קוד.";
+    static final String OTHERS_HEAD = "סעיפים שעונים עליהם במילים (בלי קוד):";
+
+    /** "2 סעיפים בקוד" / "סעיף אחד בקוד" */
+    static String codeTasks(int n) {
+        return (n == 1 ? "סעיף אחד" : n + " סעיפים") + " בקוד";
+    }
+
+    /**
+     * בקוד שנוצר אין את הטקסט של התרגיל — אז הסעיפים שעונים עליהם במילים (otherQuestions, למשל "מהי סיבוכיות זמן הריצה? נמקו.")
+     * מופיעים בהודעה שהתלמיד רואה מיד אחרי שהתרגיל נוצר; וגם כשאין בכלל סעיפים בקוד, ההודעה אומרת את זה.
+     * "" — אין מה להוסיף (יש סעיפים בקוד, ואין סעיפים במילים). אותו נוסח גם ב-VS Code (submit.js) וב-IntelliJ (Submitter).
+     */
+    static String othersText(int tasks, List<String[]> others) {
+        StringBuilder b = new StringBuilder();
+        if (tasks == 0) b.append(NO_CODE);
+        if (others != null && !others.isEmpty()) {
+            if (b.length() > 0) b.append("\n\n");
+            b.append(OTHERS_HEAD);
+            for (String[] o : others) b.append('\n').append(otherLine(o[0], o[1]));
+        }
+        return b.toString();
+    }
+
+    /** "ג — מהי סיבוכיות זמן הריצה...": שורה אחת, ועד 200 תווים (ואז "…") */
+    static String otherLine(String label, String text) {
+        String t = text == null ? "" : text.replaceAll("\\s+", " ").trim();
+        if (t.length() > 200) {
+            int cut = t.lastIndexOf(' ', 200);
+            t = t.substring(0, cut > 150 ? cut : 200).trim() + "…";
+        }
+        String l = label == null ? "" : label.trim();
+        return l.isEmpty() ? t : l + " — " + t;
+    }
+
     /**
      * שם התיקייה של התרגיל — לפי סוג התרגיל, עם מספר רץ, כדי שיהיה קל למצוא ולמחוק:
      *   Java: חבילה ex01_stacks, ex02_binary_trees...;  C#: פרויקט Ex01_Stacks, Ex02_BinaryTrees...

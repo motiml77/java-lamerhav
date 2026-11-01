@@ -225,4 +225,14 @@ public class DsvizPluginTest extends LightJavaCodeInsightFixtureTestCase {
         assertEquals("something new", JavacHebrew.translate("something new"));
         assertEquals("// ab", Submitter.clean("// ‫a‬b"));
     }
+
+    /** אחרי שהתרגיל נוצר: הסעיפים שעונים עליהם במילים בהודעה (בקוד אין את הטקסט של התרגיל) — אותו נוסח כמו ב-Eclipse וב-VS Code */
+    public void testOthersInCreatedMessage() {
+        java.util.List<String[]> others = java.util.Collections.singletonList(new String[] { "ג", "מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו." });
+        assertEquals("סעיפים שעונים עליהם במילים (בלי קוד):\nג — מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו.", Submitter.othersText(2, others));
+        assertEquals("", Submitter.othersText(2, java.util.Collections.<String[]>emptyList()));
+        assertEquals("בתרגיל אין סעיפים שכותבים בהם קוד.", Submitter.othersText(0, java.util.Collections.<String[]>emptyList()));
+        assertEquals("סעיף אחד בקוד", Submitter.codeTasks(1));
+        assertEquals("<div dir='rtl'>‏א<br><br>‏i &lt; n</div>", Submitter.notificationHtml("א\n\ni < n"));
+    }
 }

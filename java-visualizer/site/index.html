@@ -113,121 +113,46 @@
   <div class="wrap">
     <div class="head">
       <h2 id="h-exercise">מדף הבחינה לפרויקט שרץ</h2>
-      <p>לוחצים על <b>שליחת תרגיל</b> ומצרפים את הדף: PDF, Word, צילום, או צילום מסך שמדביקים עם Ctrl+V. Gemini של Google קורא את השאלה, והסביבה בונה לתרגיל חבילה משלו: המחלקות, פעולה ריקה לכל סעיף, פעולות העזר שבשאלה, ו-main עם נתונים לדוגמה ומה צריך להיות מודפס. הקובץ נפתח והסמן כבר בסעיף הראשון.</p>
+      <p>שולחים את דף התרגיל מתוך סביבת העבודה, ואחרי בערך חצי דקה נפתח תרגיל מוכן לכתיבה: פעולה ריקה לכל סעיף, מה שנתון בשאלה, ו-main עם נתונים לדוגמה ומה צריך להיות מודפס כשהפתרון נכון. את הפתרון כותבים לבד. אם נתקעים, יש הצעה לפתרון שנפתחת רק כשמבקשים.</p>
     </div>
 
-    <div class="win flowplay" data-flow data-ui>
-      <div class="win-title"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="file" data-ftitle>ex01_queues_and_stacks/BalancedQueues.java</span><span class="fp-what">שליחת תרגיל, שלב אחרי שלב</span></div>
-      <div class="fp-grid">
-        <div class="fp-side">
-          <div class="fp-steps" role="tablist" aria-label="השלבים של שליחת תרגיל" aria-orientation="vertical">
-            <button type="button" role="tab" id="fs-1" aria-controls="fp-1" aria-selected="true"><span class="n">1</span><span class="st"><b>מצרפים את הדף</b><small>PDF, Word, צילום, או צילום מסך עם Ctrl+V</small></span><i class="prog" aria-hidden="true"></i></button>
-            <button type="button" role="tab" id="fs-2" aria-controls="fp-2" aria-selected="false" tabindex="-1"><span class="n">2</span><span class="st"><b>Gemini קורא את השאלה</b><small>סעיפים, פעולות, ומה כבר נתון</small></span><i class="prog" aria-hidden="true"></i></button>
-            <button type="button" role="tab" id="fs-3" aria-controls="fp-3" aria-selected="false" tabindex="-1"><span class="n">3</span><span class="st"><b>נוצרת חבילה לתרגיל</b><small>תיקייה משלו בפרויקט, ומחלקה לכל מחלקה בשאלה</small></span><i class="prog" aria-hidden="true"></i></button>
-            <button type="button" role="tab" id="fs-4" aria-controls="fp-4" aria-selected="false" tabindex="-1"><span class="n">4</span><span class="st"><b>פעולה ריקה לכל סעיף</b><small>פעולות העזר, main והפלט הצפוי. הסמן כבר בסעיף א</small></span><i class="prog" aria-hidden="true"></i></button>
-            <button type="button" role="tab" id="fs-5" aria-controls="fp-5" aria-selected="false" tabindex="-1"><span class="n">5</span><span class="st"><b>הרצה ויזואלית</b><small>כותבים את הפתרון ורואים אותו רץ</small></span><i class="prog" aria-hidden="true"></i></button>
+    <div class="win buildplay" data-flow>
+      <div class="win-title"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="file" data-ftitle>ex01_queues_and_stacks/BalancedQueues.java</span><span class="fp-what">שליחת תרגיל</span></div>
+      <div class="bp-stage">
+        <div class="bp-build" data-fbuild aria-hidden="true">
+          <div class="bp-pages">
+            <img src="assets/img/submit-page-a.webp" width="860" height="300" alt="" loading="lazy">
+            <img src="assets/img/submit-page-b.webp" width="860" height="252" alt="" loading="lazy">
+            <img src="assets/img/submit-page-c.webp" width="860" height="114" alt="" loading="lazy">
           </div>
-          <p class="fp-now" aria-hidden="true" data-fnow><b>מצרפים את הדף</b> PDF, Word, צילום, או צילום מסך עם Ctrl+V</p>
-          <div class="demo-nav fp-nav">
-            <button type="button" data-fprev disabled>הקודם</button>
-            <button type="button" class="go" data-fnext>הבא</button>
-            <button type="button" class="play" data-fplay aria-pressed="false">הפעלה</button>
+          <div class="fp-progress">
+            <div class="fp-bar"><i data-fbar></i></div>
+            <ol class="fp-msgs" data-fmsgs>
+              <li>מכין את הקבצים…</li>
+              <li>שולח את התרגיל… (בדרך כלל עד דקה)</li>
+              <li>בונה את התרגיל…</li>
+              <li>בודק שהקוד מתקמפל…</li>
+              <li>בודק שההצעות לפתרון נותנות את התוצאה הנכונה…</li>
+            </ol>
           </div>
         </div>
-
-        <div class="fp-stage">
-          <div class="fp-pane on" id="fp-1" role="tabpanel" aria-labelledby="fs-1">
-            <div class="fp-drop">
-              <div class="fp-pages" role="group" aria-label="דף התרגיל: שלושה צילומי מסך של אותו דף">
-                <figure class="fp-shot" style="--i:0"><img src="assets/img/submit-page-a.webp" width="860" height="300" alt="צילום 1 מתוך 3: שאלה 3, ההגדרה של תור מאוזן ותחילת הפעולה הנתונה sumPositive" loading="lazy"><figcaption dir="ltr">a.png</figcaption></figure>
-                <figure class="fp-shot" style="--i:1"><img src="assets/img/submit-page-b.webp" width="860" height="252" alt="צילום 2 מתוך 3: סוף הפעולה sumPositive וסעיף א: כתבו פעולה isBalanced" loading="lazy"><figcaption dir="ltr">b.png</figcaption></figure>
-                <figure class="fp-shot" style="--i:2"><img src="assets/img/submit-page-c.webp" width="860" height="114" alt="צילום 3 מתוך 3: סעיף ב, מחסנית של תורים, וסעיף ג על סיבוכיות" loading="lazy"><figcaption dir="ltr">c.png</figcaption></figure>
-              </div>
-              <figure class="fp-real">
-                <img class="frame" src="assets/img/submit-dialog-ij.webp" width="702" height="535" alt="IntelliJ IDEA: החלון שליחת תרגיל, ובו שלושת צילומי המסך c.png, a.png ו-b.png, שדה הערה, תיקיית הקוד וכפתור שליחה" loading="lazy">
-              </figure>
-            </div>
-            <p class="fp-cap">שלושה צילומי מסך של דף אחד, שהודבקו עם Ctrl+V לחלון <b>שליחת תרגיל</b> ב-IntelliJ IDEA. אותו חלון יש ב-Eclipse, ב-VS Code וב-Visual Studio.</p>
+        <div class="bp-code" data-fcodewrap>
+          <div class="ide fp-ed">
+            <pre class="ide-code" data-fcode tabindex="0" aria-label="התרגיל שנוצר: פעולה ריקה לכל סעיף, והסמן במקום התשובה של סעיף א"><span class="l"><span class="n"></span>// טוען…</span></pre>
           </div>
-
-          <div class="fp-pane" id="fp-2" role="tabpanel" aria-labelledby="fs-2" aria-hidden="true">
-            <div class="fp-read">
-              <div class="fp-paper" aria-hidden="true">
-                <div class="fp-slice"><img src="assets/img/submit-page-a.webp" width="860" height="300" alt="" loading="lazy"><i class="hl" data-k="title" style="top:26%;height:18%"></i><i class="hl" data-k="given" style="top:47%;height:51%"></i></div>
-                <div class="fp-slice"><img src="assets/img/submit-page-b.webp" width="860" height="252" alt="" loading="lazy"><i class="hl" data-k="given" style="top:4%;height:67%"></i><i class="hl" data-k="a" style="top:75%;height:22%"></i></div>
-                <div class="fp-slice"><img src="assets/img/submit-page-c.webp" width="860" height="114" alt="" loading="lazy"><i class="hl" data-k="b" style="top:8%;height:50%"></i><i class="hl" data-k="c" style="top:64%;height:30%"></i></div>
-              </div>
-              <div class="fp-json">
-                <p class="fp-label">מה Gemini הבין מהדף</p>
-                <ul class="fp-fields" data-ffields></ul>
-              </div>
-            </div>
-            <p class="fp-cap">Gemini מזהה את הסעיפים, את הפעולה שצריך לכתוב בכל סעיף, ומה כבר נתון בשאלה. גם אם הצילומים הודבקו לא לפי הסדר.</p>
-          </div>
-
-          <div class="fp-pane" id="fp-3" role="tabpanel" aria-labelledby="fs-3" aria-hidden="true">
-            <div class="fp-tree">
-              <div class="fp-explorer" dir="ltr">
-                <p class="fx-h">Project</p>
-                <ul class="fx">
-                  <li><span class="fd">sample</span>
-                    <ul>
-                      <li><span class="fd">lib</span></li>
-                      <li><span class="fd">src</span>
-                        <ul>
-                          <li><span class="fd">examples</span></li>
-                          <li><span class="ff">Main.java</span></li>
-                          <li class="new" style="--i:0"><span class="fd pkg" data-fpkg>ex01_queues_and_stacks</span>
-                            <ul data-ffiles><li class="new" style="--i:1"><span class="ff">BalancedQueues.java</span></li></ul>
-                          </li>
-                        </ul>
-                      </li>
-                    </ul>
-                  </li>
-                </ul>
-              </div>
-              <div class="fp-made">
-                <p class="fp-toast"><b><bdi dir="ltr" data-fpkg2>ex01_queues_and_stacks</bdi>: התרגיל נוצר</b><span data-fcount>2 סעיפים.</span> הסמן מחכה במקום הפתרון של הסעיף הראשון.</p>
-                <dl class="fp-dl">
-                  <dt>השם</dt><dd>לפי הנושא שזוהה, <code dir="ltr" data-ftopic>queues_and_stacks</code>, ומספר רץ, כדי לא לדרוס תרגיל קודם.</dd>
-                  <dt>בפנים</dt><dd>מחלקה לכל מחלקה שהשאלה מתארת. כאן אחת: <code dir="ltr" data-fmain>BalancedQueues</code>.</dd>
-                  <dt>ב-<bdi>C#</bdi></dt><dd>תיקייה עם namespace, באותו פרויקט.</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          <div class="fp-pane" id="fp-4" role="tabpanel" aria-labelledby="fs-4" aria-hidden="true">
-            <div class="fp-code">
-              <div class="ide fp-ed">
-                <div class="ide-tabs" aria-hidden="true"><span>Main.java</span><span class="on" data-ffile>BalancedQueues.java</span></div>
-                <pre class="ide-code" data-fcode tabindex="0" aria-label="הקובץ שנוצר"><span class="l"><span class="n"></span>// טוען…</span></pre>
-              </div>
-              <div class="fp-legend" data-flegend role="group" aria-label="מה יש בקובץ"></div>
-              <div class="fp-solbox" data-solbox hidden>
-                <figure class="fp-open" data-sol-open="א" hidden>
-                  <img class="frame" src="assets/img/submit-solution-ij.webp" width="569" height="394" alt="IntelliJ IDEA: החלון הצעה לפתרון לסעיף א, עם הפעולה isBalanced והשורה: ההצעה נבדקה, הרצנו את התרגיל איתה והפלט יצא בדיוק כמו הפלט הצפוי" loading="lazy">
-                  <figcaption>ההצעה לסעיף א. לפני שהיא מוצגת, התרגיל רץ איתה ובודקים שמודפס בדיוק הפלט הצפוי. <button type="button" class="linkish" data-sol-close>סגירה</button></figcaption>
-                </figure>
-                <div class="fp-open fp-closed" data-sol-open="ב" hidden>
-                  <p><b>סעיף ב</b> נפתח באותו חלון, עם הפתרון של <code dir="ltr">countBalanced</code>.</p>
-                  <p class="quiet">הפתרון כתוב כמו שמורה היה מראה בכיתה, עם הערות קצרות בעברית. <button type="button" class="linkish" data-sol-close>סגירה</button></p>
-                </div>
-              </div>
-            </div>
-            <p class="fp-cap">ליד כל סעיף יש מנורה <img src="assets/bulb.svg" alt="" width="14" height="14" class="ib">. ההצעה לפתרון נפתחת רק אם בוחרים ללחוץ עליה, וכל עוד לא לוחצים היא לא מוצגת.</p>
-          </div>
-
-          <div class="fp-pane" id="fp-5" role="tabpanel" aria-labelledby="fs-5" aria-hidden="true">
-            <figure class="fp-run">
-              <img class="frame" src="assets/img/submit-run-ij.webp" width="1254" height="705" alt="חלון ההרצה הוויזואלית על BalancedQueue: השורה temp.insert(x) מסומנת בצהוב, התור q עם ‎-2 ו-‎-3, תור העזר temp ריק, ובמעקב המשתנים pos שווה 5" loading="lazy">
+          <div class="fp-solbox" data-solbox hidden>
+            <figure class="fp-open" data-sol-open="א" hidden>
+              <img class="frame" src="assets/img/submit-solution-ij.webp" width="569" height="394" alt="IntelliJ IDEA: החלון הצעה לפתרון לסעיף א, עם הפעולה isBalanced והשורה: ההצעה נבדקה, הרצנו את התרגיל איתה והפלט יצא בדיוק כמו הפלט הצפוי" loading="lazy">
+              <figcaption>ההצעה לסעיף א. לפני שהיא מוצגת, התרגיל רץ איתה ובודקים שמודפס בדיוק הפלט הצפוי. <button type="button" class="linkish" data-sol-close>סגירה</button></figcaption>
             </figure>
-            <p class="fp-cap">חלון ההרצה על אותו תרגיל, אחרי שכתבו את סעיף א. צעד 9: ‏5 יצא מהתור ונספר ב-<code dir="ltr">pos</code>, והשורה הצהובה תכניס אותו לתור העזר.</p>
+            <div class="fp-open fp-closed" data-sol-open="ב" hidden>
+              <p><b>סעיף ב</b> נפתח באותו חלון, עם הפתרון של <code dir="ltr">countBalanced</code>. <button type="button" class="linkish" data-sol-close>סגירה</button></p>
+            </div>
           </div>
-
         </div>
       </div>
     </div>
+    <p class="bp-cap">הסמן מחכה במקום התשובה של סעיף א, ובכל סעיף מסומן איפה כותבים. מעל main כתוב מה צריך להיות מודפס כשהפתרון נכון. ליד כל סעיף יש מנורה <img src="assets/bulb.svg" alt="" width="14" height="14" class="ib">, וההצעה לפתרון נפתחת רק אם לוחצים עליה.</p>
 
     <div class="fp-after">
       <a class="btn btn-primary" href="bagrut.html">
@@ -341,7 +266,7 @@
         <div class="pg-ops">
           <label class="pg-val"><span>ערך</span><input type="number" inputmode="numeric" min="-99" max="99" step="1" value="7" data-pval></label>
           <div class="pg-btns" data-pops></div>
-          <button type="button" class="pg-reset" data-preset>מההתחלה</button>
+          <button type="button" class="pg-reset" data-preset>איפוס</button>
         </div>
         <p class="demo-said" data-psaid aria-live="polite">&nbsp;</p>
         <div class="demo-body">

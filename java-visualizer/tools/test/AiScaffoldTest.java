@@ -71,6 +71,8 @@ public class AiScaffoldTest {
                 check(!g.code.contains(" result = ") && !g.code.contains("answer = "), f + ": נשאר משתנה בתוך הפעולה");
                 check(!g.code.startsWith("\n") && !g.code.contains("\n\n\n") && !g.code.matches("(?s).*\\{\n\n.*") && !g.code.matches("(?s).*\n\n\\s*\\}.*"), f + ": שורות ריקות מיותרות");
                 check(!g.code.contains("תזכורת") && !g.code.contains("זמני"), f + ": נשארו הערות בתוך הפעולה");
+                // סעיפים שעונים עליהם במילים — לא בקוד (רק בהודעה לתלמיד אחרי שהתרגיל נוצר)
+                for (String[] q : e.others) check(!g.code.contains(q[1]), f + ": סעיף במילים נכנס לקוד: " + q[1]);
                 if (e.tasks.size() > 1) for (AiScaffold.Task t : e.tasks) if (t.className.equals(g.className))
                     check(g.code.contains("// " + AiScaffold.markFor(t, true)), f + ": חסרה שורת סעיף " + t.label + " ב-" + g.className);
                 // מחלקה שסעיף שייך אליה אבל לא תוארה בתשובה (אין לה קוד), או שתוארה ריקה ("public class Shelf { }"): נוצרת בכל זאת,
@@ -104,8 +106,34 @@ public class AiScaffoldTest {
         // ai/4-messy.json (Circle, Java) ו-ai/cs/2-classes.json (Coach, C#): סעיף במחלקה שלא תוארה;
         // ai/4-messy.json (Shelf, Java) ו-ai/cs/2-classes.json (Referee, C# בתוך namespace): מחלקה שתוארה ריקה
         check(emptyClasses >= 4, "מחלקות שלא תוארו או שתוארו ריקות (עם הערת התכונות): " + emptyClasses);
+        othersMessage(dir);
         Files.write(out.resolve("mains.txt"), String.join("\n", mains).getBytes(StandardCharsets.UTF_8));
         Files.write(out.resolve("cs-dirs.txt"), String.join("\n", csDirs).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * ההודעה אחרי שהתרגיל נוצר (Eclipse, Visual Studio; אותו נוסח ב-VS Code וב-IntelliJ): הסעיפים שעונים עליהם במילים —
+     * ובלי הודעה בכלל כשיש סעיפים בקוד ואין סעיפים במילים
+     */
+    static void othersMessage(File dir) throws Exception {
+        AiScaffold.Exercise e = AiScaffold.read(Json.obj(Json.parse(new String(Files.readAllBytes(new File(dir, "1-stack.json").toPath()), StandardCharsets.UTF_8))));
+        check(e.tasks.size() == 2 && e.others.size() == 1, "1-stack: 2 סעיפים בקוד וסעיף אחד במילים");
+        String words = AiScaffold.othersText(e.tasks.size(), e.others);
+        check(words.equals("סעיפים שעונים עליהם במילים (בלי קוד):\nג — מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו."), "סעיף במילים: " + words);
+        check(AiScaffold.codeTasks(2).equals("2 סעיפים בקוד") && AiScaffold.codeTasks(1).equals("סעיף אחד בקוד"), "מספר הסעיפים בקוד");
+        check(AiScaffold.othersText(2, new ArrayList<String[]>()).isEmpty(), "יש סעיפים בקוד ואין במילים — אין מה להוסיף");
+        check(AiScaffold.othersText(0, new ArrayList<String[]>()).equals("בתרגיל אין סעיפים שכותבים בהם קוד."), "בלי סעיפים בקוד");
+        check(AiScaffold.othersText(0, e.others).equals("בתרגיל אין סעיפים שכותבים בהם קוד.\n\n" + words), "בלי סעיפים בקוד, עם סעיף במילים");
+        check(!words.contains("בראש הקובץ"), "לא אומרים שהשאלות בראש הקובץ");
+        // טקסט ארוך (וגם עם ירידות שורה): שורה אחת, עד 200 תווים, נחתך בין מילים ומסתיים ב-"…"
+        StringBuilder longText = new StringBuilder();
+        for (int i = 0; i < 60; i++) longText.append("מילה").append(i % 7 == 6 ? "\n" : " ");
+        String line = AiScaffold.otherLine("ד", longText.toString());
+        String body = line.substring("ד — ".length());
+        check(line.startsWith("ד — ") && !line.contains("\n") && body.endsWith("…") && body.length() <= 201 && body.length() > 150
+                && !body.contains(" …"), "קיצור טקסט ארוך: " + line);
+        check(AiScaffold.otherLine("", " מהי  הסיבוכיות? ").equals("מהי הסיבוכיות?"), "בלי סעיף — רק הטקסט");
+        System.out.println("✓ ההודעה אחרי שהתרגיל נוצר: סעיפים במילים / בלי סעיפים בקוד");
     }
 
     static void check(boolean ok, String what) {

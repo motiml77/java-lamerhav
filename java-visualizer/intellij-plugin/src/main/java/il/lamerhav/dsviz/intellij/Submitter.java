@@ -41,6 +41,8 @@ public final class Submitter {
         String error, folder = "", focus = "", solutionStatus = "";
         int line, tasks;
         final List<String> files = new ArrayList<String>(), errors = new ArrayList<String>();
+        /** הסעיפים שעונים עליהם במילים (בלי קוד): {סעיף, טקסט} */
+        final List<String[]> others = new ArrayList<String[]>();
     }
 
     /** הפעולה מהתפריט: בדיקת חיבור → החלון → שליחה ברקע (עם חלון התקדמות) → פתיחת הקבצים */
@@ -193,6 +195,11 @@ public final class Submitter {
                         res.tasks = (int) num(m.get("tasks"));
                         for (Object o : IjShared.arr(m.get("files"))) res.files.add(IjShared.str(o));
                         for (Object o : IjShared.arr(m.get("errors"))) res.errors.add(IjShared.str(o));
+                        for (Object o : IjShared.arr(m.get("others"))) {
+                            Map<String, Object> q = IjShared.obj(o);
+                            String text = IjShared.str(q.get("text")).trim();
+                            if (!text.isEmpty()) res.others.add(new String[] { IjShared.str(q.get("label")), text });
+                        }
                     }
                 }
             }
@@ -230,6 +237,48 @@ public final class Submitter {
         return o instanceof Number ? ((Number) o).doubleValue() : 0;
     }
 
+    /** "2 סעיפים בקוד" / "סעיף אחד בקוד" */
+    static String codeTasks(int n) {
+        return (n == 1 ? "סעיף אחד" : n + " סעיפים") + " בקוד";
+    }
+
+    /**
+     * בקוד שנוצר אין את הטקסט של התרגיל — אז הסעיפים שעונים עליהם במילים (others מ-SubmitCli) מופיעים בהודעה אחרי שהתרגיל נוצר,
+     * וגם כשאין בכלל סעיפים בקוד. "" — אין מה להוסיף. אותו נוסח כמו AiScaffold.othersText (Eclipse, Visual Studio) ו-submit.js (VS Code).
+     */
+    static String othersText(int tasks, List<String[]> others) {
+        StringBuilder b = new StringBuilder();
+        if (tasks == 0) b.append("בתרגיל אין סעיפים שכותבים בהם קוד.");
+        if (others != null && !others.isEmpty()) {
+            if (b.length() > 0) b.append("\n\n");
+            b.append("סעיפים שעונים עליהם במילים (בלי קוד):");
+            for (String[] o : others) b.append('\n').append(otherLine(o[0], o[1]));
+        }
+        return b.toString();
+    }
+
+    /** "ג — מהי סיבוכיות זמן הריצה...": שורה אחת, ועד 200 תווים (ואז "…") */
+    static String otherLine(String label, String text) {
+        String t = text == null ? "" : text.replaceAll("\\s+", " ").trim();
+        if (t.length() > 200) {
+            int cut = t.lastIndexOf(' ', 200);
+            t = t.substring(0, cut > 150 ? cut : 200).trim() + "…";
+        }
+        String l = label == null ? "" : label.trim();
+        return l.isEmpty() ? t : l + " — " + t;
+    }
+
+    /** תוכן ההודעה (Notification — HTML): מימין לשמאל, שורה לכל \n, וטקסט התרגיל בלי תגים (למשל "i < n") */
+    static String notificationHtml(String text) {
+        StringBuilder b = new StringBuilder("<div dir='rtl'>");
+        String[] lines = text.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) b.append("<br>");
+            if (!lines[i].isEmpty()) b.append('‏').append(lines[i].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"));
+        }
+        return b.append("</div>").toString();
+    }
+
     /** אחרי השליחה: רענון, הספרייה במודול, פתיחת הקבצים (האחרון — עם הסעיף הראשון והסמן במקום הפתרון) */
     static void finish(Project project, ExerciseDialog.Target target, Outcome out) {
         if (out == null) return;
@@ -254,16 +303,19 @@ public final class Submitter {
         for (VirtualFile f : files) if (!f.equals(focus)) ProjectFiles.open(project, f, 0);
         if (focus != null) ProjectFiles.open(project, focus, out.line);
         DaemonCodeAnalyzer.getInstance(project).restart();
+        // בקוד אין את הטקסט של התרגיל: הסעיפים שעונים עליהם במילים (ותרגיל בלי סעיפים בקוד) — בהודעה
+        String words = othersText(out.tasks, out.others);
         if (!out.errors.isEmpty()) {
             Say.warn(project, "התרגיל נוצר (בתיקייה " + out.folder + "), אבל יש בו " + out.errors.size() + " שגיאות קומפילציה (מסומנות באדום בקוד):\n\n"
                     + String.join("\n", out.errors.subList(0, Math.min(4, out.errors.size())))
-                    + "\n\nבדרך כלל זה ב-main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב.", TITLE);
+                    + "\n\nבדרך כלל זה ב-main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב." + (words.isEmpty() ? "" : "\n\n" + words), TITLE);
         } else if (out.tasks == 0) {
-            Say.info(project, "בתרגיל לא נמצאו סעיפים שצריך לכתוב בהם קוד — השאלות מופיעות בראש הקובץ.", TITLE);
+            Say.info(project, "התרגיל נוצר (בתיקייה " + out.folder + ").\n\n" + words, TITLE);
         } else {
-            String sol = out.solutionStatus.isEmpty() ? "" : "\nמעל כל פעולה של סעיף יש מנורה 💡 בצד שמאל — \"הצעה לפתרון\" (כדאי לנסות קודם לבד).";
+            String sol = out.solutionStatus.isEmpty() ? "" : "\nליד כל פעולה של סעיף יש מנורה 💡 בצד שמאל — \"הצעה לפתרון\" (כדאי לנסות קודם לבד).";
             Dsviz.notify(project, "התרגיל נוצר — " + out.folder,
-                    "\u200Fבתרגיל " + out.tasks + " סעיפים. הסמן מחכה במקום הפתרון של הסעיף הראשון, ו\"הרצה ויזואלית\" מראה כל שורה." + sol,
+                    notificationHtml("בתרגיל " + codeTasks(out.tasks) + ". הסמן מחכה במקום הפתרון של הסעיף הראשון, ו\"הרצה ויזואלית\" מראה כל שורה." + sol
+                            + (words.isEmpty() ? "" : "\n\n" + words)),
                     com.intellij.notification.NotificationType.INFORMATION);
         }
         ApplicationManager.getApplication().invokeLater(() -> DaemonCodeAnalyzer.getInstance(project).restart());

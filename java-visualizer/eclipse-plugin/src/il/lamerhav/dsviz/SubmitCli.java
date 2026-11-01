@@ -14,6 +14,7 @@ import java.util.Map;
 /**
  * "שליחת תרגיל" משורת הפקודה — בשביל התוסף של VS Code (dsviz-ai.jar). אותו מנוע כמו ב-Eclipse (ExercisePipeline).
  * הפלט: שורת JSON לכל הודעה — {"progress": "..."} תוך כדי, ובסוף {"done": true, ...} או {"error": "..."}.
+ * ב-done גם others: [{label, text}] — הסעיפים שעונים עליהם במילים (בלי קוד), שהתוסף מציג בהודעה אחרי שהתרגיל נוצר.
  *
  *   online                      — יש אינטרנט? (קוד יציאה 0 / 1)
  *   submit --manifest FILE.json — כל הפרטים בקובץ JSON (UTF-8), ולא בשורת הפקודה — כדי ששמות בעברית יעברו גם ב-Windows באנגלית:
@@ -136,6 +137,14 @@ public final class SubmitCli {
         done.put("line", (double) r.line);
         done.put("errors", new ArrayList<Object>(r.errors));
         done.put("tasks", (double) r.tasks);
+        List<Object> others = new ArrayList<Object>();   // הסעיפים שעונים עליהם במילים — לא בקוד, רק בהודעה לתלמיד
+        for (String[] o : r.others) {
+            Map<String, Object> q = new LinkedHashMap<String, Object>();
+            q.put("label", o[0]);
+            q.put("text", o[1]);
+            others.add(q);
+        }
+        done.put("others", others);
         done.put("solutionStatus", r.solutionStatus);
         out.println(Json.write(done));
     }
