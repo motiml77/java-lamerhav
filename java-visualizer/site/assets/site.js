@@ -52,6 +52,32 @@
       .catch(function () {});
   }
 
+  // כפתור התרומה של PayPal (Hosted Button): הקוד של PayPal נטען רק כשמגיעים קרוב לאזור, כדי לא להאט את העמוד.
+  // אם הוא לא נטען (חסום / בלי אינטרנט) — נשאר הקישור הרגיל לדף התרומה
+  var pp = document.querySelector('[data-paypal]');
+  if (pp) {
+    var SDK = 'https://www.paypal.com/sdk/js?client-id=BAAUiWYGhQw3cUhVQ2uKsXHWWbHXV98zBOw7mEu6dbRdXo31fTuEBZxPyJs1lPyOhjUY50uMuhXs4tIaQA&components=hosted-buttons&disable-funding=venmo&currency=ILS';
+    var loadPayPal = function () {
+      var s = document.createElement('script');
+      s.src = SDK;
+      s.async = true;
+      s.onload = function () {
+        try {
+          var r = window.paypal.HostedButtons({ hostedButtonId: 'DJYTDJ6F57KA2' }).render('#paypal-container-DJYTDJ6F57KA2');
+          var ready = function () { if (pp.querySelector('#paypal-container-DJYTDJ6F57KA2').children.length) pp.classList.add('pp-ready'); };
+          if (r && r.then) r.then(ready, function () {}); else ready();
+        } catch (e) { /* נשאר הקישור */ }
+      };
+      document.head.appendChild(s);
+    };
+    if ('IntersectionObserver' in window) {
+      var ppObs = new IntersectionObserver(function (es) {
+        if (es.some(function (e) { return e.isIntersecting; })) { ppObs.disconnect(); loadPayPal(); }
+      }, { rootMargin: '400px 0px' });
+      ppObs.observe(pp);
+    } else loadPayPal();
+  }
+
   // מדריך ההתקנה: הסעיף שעל המסך מסומן בתוכן העניינים
   var toc = document.querySelectorAll('.toc a[href^="#"]');
   if (toc.length && 'IntersectionObserver' in window) {

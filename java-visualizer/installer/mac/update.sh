@@ -1,21 +1,35 @@
 #!/bin/bash
-# עדכון אוטומטי של DSViz ב-Mac — בלי LaunchAgent (שמוסיף "פריט רקע" מבלבל ב-macOS ואין לו גישה למסמכים).
-# מי מפעיל: התוסף של VS Code (כשהוא נטען, פעם ביום) והתוסף של Eclipse (כש-Eclipse נסגר) — ברקע, בלי חלון.
+# עדכון אוטומטי של DSViz ב-Mac.
+# מי מפעיל: LaunchAgent של המשתמש (~/Library/LaunchAgents/il.lamerhav.dsviz.update.plist — בכניסה למחשב ופעם ביום, בלי
+# הרשאות מנהל; עם --agent), התוסף של VS Code (כשהוא נטען, פעם ביום) והתוסף של Eclipse (כש-Eclipse נסגר) — ברקע, בלי חלון.
+# מה-LaunchAgent (--agent) לא נוגעים בתיקיות התרגילים במסמכים: macOS היה שואל "bash would like to access Documents"
+# (הספרייה שבתיקיות מתעדכנת ממילא מהתוספים עצמם, וגם בעדכון הבא שמופעל מסביבת פיתוח).
 #   1. לא יותר מבדיקה אחת ב-20 שעות (~/.dsviz/update-check.txt), ורק עדכון אחד בכל פעם.
 #   2. מוריד את dsviz-mac.json מה-GitHub Release של הערוץ (channel.txt), ואם יש בנייה חדשה יותר —
 #      מוריד את install.sh של אותה בנייה, בודק SHA-256, ומריץ אותו עם --update (שקט, בלי שאלות).
 #   3. אם אין בנייה חדשה אבל Eclipse היה פתוח בעדכון הקודם (eclipse-pending) — משלים את התוסף ל-Eclipse.
 #   4. IntelliJ IDEA: בכל בדיקה — התוסף נכנס לכל IntelliJ שעוד אין בו (intellij.sh), גם IntelliJ שהותקן אחרי DSViz.
 #      (מי עוד מפעיל: התוסף של IntelliJ — פעם ביום, כש-IntelliJ נפתח)
+#   5. VS Code / Insiders / VSCodium / Cursor / Eclipse שהותקנו אחרי DSViz: רשימת האפליקציות (--ide-signature) לא כמו
+#      בהתקנה האחרונה (ides.txt) — משלימים את התוספים מההתקנה הקיימת (install.sh --update --no-download), בלי להוריד שוב.
 # יומן: ~/Library/Logs/DSViz/update.log. בלי אינטרנט — לא עושים כלום (ננסה בפעם הבאה).
-# שימוש: update.sh [--force] [--after-eclipse]
+# שימוש: update.sh [--force] [--after-eclipse] [--agent] [--ide-signature]
 main() {
 APP="$(cd "$(dirname "$0")" && pwd)"
 DSV="$HOME/.dsviz"
 LOGDIR="$HOME/Library/Logs/DSViz"
 REPO="motiml77/java-lamerhav"
-FORCE=""; AFTER=""
-for a in "$@"; do case "$a" in --force) FORCE=1 ;; --after-eclipse) AFTER=--after-eclipse ;; esac; done
+FORCE=""; AFTER=""; SIG=""
+for a in "$@"; do case "$a" in --force) FORCE=1 ;; --after-eclipse) AFTER=--after-eclipse ;; --agent) export DSVIZ_AGENT=1 ;; --ide-signature) SIG=1 ;; esac; done
+# האפליקציות של סביבות הפיתוח שבמחשב (שורה לכל אחת) — כדי לזהות סביבה שהותקנה אחרי DSViz
+ide_signature() {
+    ls -d "/Applications/Visual Studio Code.app" "$HOME/Applications/Visual Studio Code.app" \
+          "/Applications/Visual Studio Code - Insiders.app" "$HOME/Applications/Visual Studio Code - Insiders.app" \
+          /Applications/VSCodium.app "$HOME/Applications/VSCodium.app" /Applications/Cursor.app "$HOME/Applications/Cursor.app" \
+          /Applications/Eclipse*.app /Applications/*/Eclipse*.app "$HOME"/Applications/Eclipse*.app "$HOME"/eclipse/*/Eclipse*.app \
+          "$HOME"/eclipse*/Eclipse*.app 2>/dev/null | LC_ALL=C sort -u
+}
+if [ -n "$SIG" ]; then ide_signature; return 0; fi
 mkdir -p "$LOGDIR" "$DSV" 2>/dev/null
 LOG="$LOGDIR/update.log"
 # היומן לא גדל בלי סוף
@@ -62,6 +76,9 @@ if [ -n "$REMOTE" ] && { [ -z "$LOCAL" ] || [ "$REMOTE" -gt "$LOCAL" ]; }; then
     /bin/bash "$TMP/install.sh" --update $AFTER
 elif [ -f "$APP/eclipse-pending" ] && [ -x "$APP/install.sh" ]; then
     echo "completing the Eclipse plugin"
+    /bin/bash "$APP/install.sh" --update --no-download $AFTER
+elif [ -f "$APP/install.sh" ] && [ "$(ide_signature)" != "$(cat "$APP/ides.txt" 2>/dev/null)" ]; then
+    echo "a development environment was added or removed — completing the plugins"
     /bin/bash "$APP/install.sh" --update --no-download $AFTER
 fi
 return 0

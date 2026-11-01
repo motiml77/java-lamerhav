@@ -172,6 +172,7 @@ html[data-os="mac"] .get-alt .alt-win { display: inline; }
 }
 .cmd code {
   flex: 1; min-width: 0; padding: var(--s-12) var(--s-16); font-size: var(--t-14); line-height: 1.6;
+  background: none; border: 0; border-radius: 0; color: var(--ide-ink); white-space: nowrap; overflow-wrap: normal;
   overflow-x: auto; white-space: nowrap; user-select: all; scrollbar-width: thin;
 }
 .cmd code::before { content: "$ "; color: var(--ide-muted); user-select: none; }
@@ -416,6 +417,16 @@ html[data-os="mac"] .get-alt .alt-win { display: inline; }
 .faq summary:hover { color: var(--accent-2); }
 .faq details p { padding: 0 0 var(--s-16); margin: 0; max-width: 46em; color: var(--ink-2); }
 
+/* ---------- תרומה (PayPal) */
+.support-in { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-24); align-items: center; }
+@media (min-width: 900px) { .support-in { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--s-64); } }
+.support-in h2 { margin-bottom: var(--s-12); }
+.support-in p { color: var(--ink-2); max-width: 40em; margin: 0; }
+.pp { display: grid; gap: var(--s-12); justify-items: start; min-width: 0; max-width: 360px; width: 100%; }
+#paypal-container-DJYTDJ6F57KA2 { width: 100%; }
+#paypal-container-DJYTDJ6F57KA2:empty { display: none; }
+.pp-ready .pp-fallback { display: none; }
+
 /* ---------- הסוף והתחתית */
 .end { padding-block: var(--s-64); }
 .end-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-24); }
@@ -454,6 +465,7 @@ html[data-os="mac"] .get-alt .alt-win { display: inline; }
 .doc ol, .doc ul { padding-inline-start: 1.25em; margin: 0 0 var(--s-16); }
 .doc li { margin-bottom: var(--s-8); }
 .doc .get { margin: var(--s-16) 0 var(--s-24); }
+.doc figure { margin: var(--s-24) 0; }
 .who { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-16); margin: var(--s-24) 0; }
 @media (min-width: 720px) { .who { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .who > div { background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r-win); padding: var(--s-16) var(--s-24); }

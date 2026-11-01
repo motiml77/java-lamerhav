@@ -34,6 +34,12 @@ for c in "$(command -v code 2>/dev/null)" "/Applications/Visual Studio Code.app/
     fi
     break
 done
+# ---- העדכון האוטומטי (LaunchAgent)
+LA="$HOME/Library/LaunchAgents/il.lamerhav.dsviz.update.plist"
+if [ -f "$LA" ]; then
+    launchctl bootout "gui/$(id -u)/il.lamerhav.dsviz.update" >/dev/null 2>&1 || launchctl unload -w "$LA" >/dev/null 2>&1
+    rm -f "$LA" && ok "העדכון האוטומטי ברקע הוסר" "Auto-update LaunchAgent removed"
+fi
 # VS Code Insiders / VSCodium / Cursor (נרשמו ב-vscode-forks.txt בהתקנה)
 while IFS= read -r c; do
     [ -n "$c" ] && [ -x "$c" ] || continue

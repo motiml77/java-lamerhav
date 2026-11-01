@@ -38,7 +38,7 @@
       <a href="install.html" aria-current="page">התקנה</a>
     </nav>
     <div class="bar-end">
-      <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="180" height="34"></a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="180" height="34"></a>
       <a class="btn btn-sm dl-win" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
       <a class="btn btn-sm dl-mac" href="#mac">התקנה ל-Mac</a>
     </div>
@@ -55,8 +55,8 @@
         <li><a href="#mac">Mac</a></li>
         <li><a href="#eclipse">Eclipse</a></li>
         <li><a href="#vscode">VS Code</a></li>
-        <li><a href="#visual-studio">Visual Studio (C#)</a></li>
-        <li><a href="#mac-cs">C# ב-Mac</a></li>
+        <li><a href="#visual-studio">Visual Studio (<bdi>C#</bdi>)</a></li>
+        <li><a href="#mac-cs"><bdi>C#</bdi> ב-Mac</a></li>
         <li><a href="#intellij">IntelliJ IDEA</a></li>
         <li><a href="#web">בלי התקנה</a></li>
         <li><a href="#updates">עדכונים והסרה</a></li>
@@ -97,7 +97,7 @@
       <ol>
         <li>מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">DSViz-Setup.exe</a> ומריצים אותו. לא צריך הרשאות מנהל.</li>
         <li>אם מופיע "Windows protected your PC": לוחצים <b>More info</b> ואז <b>Run anyway</b>. הקובץ עוד לא חתום דיגיטלית.</li>
-        <li>בוחרים באיזו שפה לומדים: Java, C# או שתיהן. C# מסומן מראש כשיש במחשב Visual Studio או Rider.</li>
+        <li>בוחרים באיזו שפה לומדים: Java, <bdi>C#</bdi> או שתיהן. <bdi>C#</bdi> מסומן מראש כשיש במחשב Visual Studio או Rider.</li>
         <li>פותחים מחדש את הסביבה. ב-Eclipse מופיע התפריט "מבני נתונים", וב-VS Code הסמל "מבני נתונים" בסרגל הצד.</li>
       </ol>
       <div class="who">
@@ -107,7 +107,8 @@
             <li>מתקינה Java 21 (בתוך תיקיית ההתקנה, לא נוגעת ב-Java אחרת)</li>
             <li>מוצאת כל Eclipse בכל הכוננים ומתקינה בו את התוסף</li>
             <li>מתקינה את התוסף ב-VS Code, VS Code Insiders, VSCodium ו-Cursor</li>
-            <li>ב-C#: Visual Studio, Rider ו-dotnet מכירים את הספרייה בכל פרויקט</li>
+            <li>מתקינה את התוסף בכל IntelliJ IDEA (2024.2 ומעלה)</li>
+            <li>ב-<bdi>C#</bdi>: Visual Studio, Rider ו-dotnet מכירים את הספרייה בכל פרויקט</li>
             <li>יוצרת תיקיית תרגילים במסמכים (עבודה קיימת לא נדרסת)</li>
             <li>מתעדכנת לבד, ברקע</li>
           </ul>
@@ -117,7 +118,7 @@
           <ul>
             <li>מאשרים את האזהרה של Windows (More info, Run anyway)</li>
             <li>בוחרים שפה ולוחצים "הבא"</li>
-            <li>אם Eclipse פתוח, ההתקנה מציעה לסגור אותו</li>
+            <li>אם Eclipse או IntelliJ פתוחים, ההתקנה מציעה לסגור אותם</li>
           </ul>
         </div>
       </div>
@@ -133,16 +134,20 @@
         </li>
         <li>לוחצים Enter. ההתקנה שואלת באיזו שפה לומדים, ומשם עושה הכול לבד.</li>
       </ol>
-      <p>ככה זה נראה בטרמינל (מקוצר):</p>
-<pre class="term" aria-label="הפלט של ההתקנה בטרמינל">[1/7] מוריד את DSViz (Java 21, ההרצה הוויזואלית ל-Java ול-C#, התוספים)
-      <span class="ok">✓</span> הורד ונבדק (SHA-256)
-[2/7] באיזו שפה לומדים?
-      1) Java   2) C#   3) שתיהן / both   [1]:
-[4/7] VS Code
-      <span class="ok">✓</span> התוסף הותקן (בסרגל הצד של VS Code: הסמל 'מבני נתונים')
-[5/7] Eclipse
-      <span class="ok">✓</span> Eclipse Java: התוסף הותקן (בתפריט העליון: 'מבני נתונים')
-הכול מוכן!  פותחים מחדש את VS Code / Eclipse.</pre>
+      <p>ככה זה נראה בטרמינל (מקוצר; ליד כל שורה באנגלית מופיעה גם שורה בעברית):</p>
+<pre class="term" aria-label="הפלט של ההתקנה בטרמינל, מקוצר">[1/8] Downloading DSViz (Java 21 runtime, visual runners, IDE plugins)
+      <span class="ok">✓</span> Downloaded and verified
+[2/8] Which language are you learning? (Java / C#)
+      1) Java   2) C#   3) both   [1]: 1
+[3/8] Exercise folders in Documents
+[4/8] VS Code extension
+      <span class="ok">✓</span> Extension installed
+[5/8] Eclipse plugin
+      <span class="ok">✓</span> Eclipse Java.app: plugin installed
+[6/8] IntelliJ IDEA
+[8/8] Done
+      <span class="ok">✓</span> Auto-update: at login and once a day
+All set! Restart VS Code / Eclipse / IntelliJ IDEA.</pre>
       <div class="who">
         <div>
           <h3><span class="tag auto">לבד</span> מה ההתקנה עושה</h3>
@@ -150,9 +155,10 @@
             <li>Java 21 ל-<code dir="ltr">~/Library/Application Support/DSViz</code>, בלי סיסמת מנהל</li>
             <li>התוסף לכל Eclipse שנמצא (Eclipse עצמו מתקין אותו)</li>
             <li>התוסף ל-VS Code, VS Code Insiders, VSCodium ו-Cursor</li>
-            <li>ב-C#: הספרייה בכל פרויקט, ואם צריך ‎.NET SDK 8</li>
+            <li>התוסף לכל IntelliJ IDEA (2024.2 ומעלה)</li>
+            <li>ב-<bdi>C#</bdi>: הספרייה בכל פרויקט, ואם צריך ‎.NET SDK 8</li>
             <li>תיקיות תרגילים במסמכים</li>
-            <li>עדכון פעם ביום, ברקע</li>
+            <li>עדכון בכניסה למחשב ופעם ביום, ברקע; סביבה שתתקינו אחר כך מקבלת את התוסף לבד</li>
           </ul>
         </div>
         <div>
@@ -162,6 +168,7 @@
             <li>בוחרים שפה (או Enter ל-Java)</li>
             <li>אם Eclipse פתוח: סוגרים אותו (<kbd>Cmd</kbd>+<kbd>Q</kbd>) ולוחצים Enter</li>
             <li>בפעם הראשונה macOS שואל אם לתת גישה לתיקיית המסמכים: "אישור"</li>
+            <li>אם מופיעה ההודעה "Background Items Added" (פריט רקע: bash): זה העדכון האוטומטי, לא צריך לעשות כלום</li>
           </ul>
         </div>
       </div>
@@ -193,13 +200,13 @@
 
     <section id="vscode" aria-labelledby="h-vscode">
       <h2 id="h-vscode">VS Code</h2>
-      <p>אותו תוסף ל-Java ול-C#: הרצה ויזואלית, תרגיל חדש, הוסף מבנה נתונים ושליחת תרגיל, בשורת המצב ובסרגל הצד.</p>
+      <p>אותו תוסף ל-Java ול-<bdi>C#</bdi>: הרצה ויזואלית, תרגיל חדש, הוסף מבנה נתונים ושליחת תרגיל, בשורת המצב ובסרגל הצד.</p>
       <div class="who">
         <div>
           <h3><span class="tag auto">לבד</span></h3>
           <ul>
             <li>התוסף מותקן ב-VS Code, ב-VS Code Insiders, ב-VSCodium וב-Cursor</li>
-            <li>התוספים של Microsoft (Java או C#) יורדים ברקע, להשלמה אוטומטית וצבעים</li>
+            <li>התוספים של Microsoft (Java או <bdi>C#</bdi>) יורדים ברקע, להשלמה אוטומטית וצבעים</li>
             <li>תיקייה שיש בה קוד שמשתמש ב-Stack, Queue, Node או BinNode של הקורס מקבלת את הספרייה (<code dir="ltr">lib/dsviz.jar</code>) לבד, ברגע שפותחים או שומרים</li>
             <li>בפעם הראשונה מוצעת תיקיית התרגילים, עם תרגיל לדוגמה</li>
           </ul>
@@ -208,7 +215,7 @@
           <h3><span class="tag once">פעם אחת</span></h3>
           <ul>
             <li>פותחים מחדש את VS Code אחרי ההתקנה</li>
-            <li>התקנתם VS Code אחרי DSViz? מריצים שוב את ההתקנה (או את השורה ב-Mac), והתוסף נוסף</li>
+            <li>התקנתם VS Code אחרי DSViz? ב-Mac התוסף נוסף לבד בבדיקה היומית; ב-Windows מריצים שוב את DSViz-Setup.exe</li>
           </ul>
         </div>
       </div>
@@ -216,8 +223,8 @@
     </section>
 
     <section id="visual-studio" aria-labelledby="h-vs">
-      <h2 id="h-vs">Visual Studio (C#)</h2>
-      <p>בוחרים C# במסך השפה של ההתקנה ב-Windows. מאותו רגע, בכל פרויקט C# מסוג קונסול, חדש או קיים, בכל תיקייה:</p>
+      <h2 id="h-vs">Visual Studio (<bdi>C#</bdi>)</h2>
+      <p>בוחרים <bdi>C#</bdi> במסך השפה של ההתקנה ב-Windows. מאותו רגע, בכל פרויקט <bdi>C#</bdi> מסוג קונסול, חדש או קיים, בכל תיקייה:</p>
       <div class="who">
         <div>
           <h3><span class="tag auto">לבד</span></h3>
@@ -240,41 +247,53 @@
     </section>
 
     <section id="mac-cs" aria-labelledby="h-mac-cs">
-      <h2 id="h-mac-cs">C# ב-Mac</h2>
-      <p>Visual Studio for Mac הופסק ב-2024, ולכן ב-Mac עובדים ב-C# עם <b>VS Code</b>, עם <b>Rider</b> או עם <code dir="ltr">dotnet</code> בטרמינל. כשבוחרים C# בהתקנה:</p>
+      <h2 id="h-mac-cs"><bdi>C#</bdi> ב-Mac</h2>
+      <p>Visual Studio for Mac הופסק ב-2024, ולכן ב-Mac עובדים ב-<bdi>C#</bdi> עם <b>VS Code</b>, עם <b>Rider</b> או עם <code dir="ltr">dotnet</code> בטרמינל. כשבוחרים C# בהתקנה:</p>
       <ul>
-        <li>כל פרויקט C# מכיר את Unit4.CollectionsLib, בלי להוסיף הפניה (אותו קובץ MSBuild כמו ב-Windows).</li>
-        <li>ההרצה הוויזואלית של C# כלולה, ועובדת גם בלי ‎.NET SDK.</li>
+        <li>כל פרויקט <bdi>C#</bdi> מכיר את Unit4.CollectionsLib, בלי להוסיף הפניה (אותו קובץ MSBuild כמו ב-Windows).</li>
+        <li>ההרצה הוויזואלית של <bdi>C#</bdi> כלולה, ועובדת גם בלי ‎.NET SDK.</li>
         <li>אם אין ‎.NET SDK, ההתקנה שואלת אם להתקין את גרסה 8 (כ-200 מגה, ל-<code dir="ltr">~/.dotnet</code>, בלי סיסמה). צריך אותו בשביל <code dir="ltr">dotnet build</code> ו-F5 ב-VS Code.</li>
       </ul>
     </section>
 
-    <!-- ===== IntelliJ IDEA: הקטע הזה מתאר את מה שהתוסף ל-IntelliJ וההתקנות עושים. לעדכן כאן אם משהו משתנה. ===== -->
+    <!-- ===== IntelliJ IDEA: הקטע הזה מתאר את מה שהתוסף ל-IntelliJ וההתקנות עושים (intellij-plugin/, installer/intellij.ps1,
+         installer/mac/intellij.sh). לעדכן כאן אם משהו משתנה. ===== -->
     <section id="intellij" aria-labelledby="h-intellij" data-block="intellij">
       <h2 id="h-intellij">IntelliJ IDEA</h2>
-      <div class="note-box"><p>התוסף ל-IntelliJ IDEA חדש. אם משהו לא עובד כמו שכתוב כאן, כתבו לנו: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a>.</p></div>
+      <p>IntelliJ IDEA מגרסה 2024.2 ומעלה, Community או Ultimate, בהתקנה רגילה או דרך JetBrains Toolbox. ההתקנה ב-Windows וב-Mac מוצאת כל אחת מהן ומתקינה בה את התוסף בשקט.</p>
       <div class="who">
         <div>
           <h3><span class="tag auto">לבד</span></h3>
           <ul>
-            <li>ההתקנה ב-Windows וב-Mac מוצאת את IntelliJ IDEA (Community ו-Ultimate) ומתקינה בו את התוסף</li>
-            <li>הספרייה unit4.collectionsLib נוספת לכל פרויקט Java</li>
+            <li>התוסף נכנס לכל IntelliJ IDEA שנמצא, גם כשיש כמה</li>
+            <li>כל פרויקט Java מקבל בפתיחה את הספרייה unit4.collectionsLib ו-JDK, גם פרויקט ישן</li>
+            <li>תיקיית התרגילים (DataStructures במסמכים) נפתחת ישר ב-IntelliJ</li>
+            <li>עדכונים: ב-Windows בכניסה למחשב, ב-Mac פעם ביום; ההסרה מוציאה את התוסף</li>
           </ul>
         </div>
         <div>
           <h3><span class="tag once">פעם אחת</span></h3>
           <ul>
-            <li>IntelliJ סגור בזמן ההתקנה</li>
+            <li>IntelliJ סגור בזמן ההתקנה (ב-Windows ההתקנה מציעה לסגור אותו)</li>
             <li>פותחים מחדש את IntelliJ</li>
           </ul>
         </div>
       </div>
+      <p>התפריט "מבני נתונים" (אחרי Tools) והחלון DSViz בצד: תרגיל חדש, שליחת תרגיל, הוסף מבנה נתונים, הרצה ויזואלית (<kbd dir="ltr">Ctrl+Alt+R</kbd>, או החץ הירוק ליד main), דוגמאות פתורות, הדרכה וכיבוי. ההצעה לפתרון מופיעה רק כמנורה קטנה בשוליים, ליד הפעולות של תרגיל ששלחתם.</p>
+      <figure>
+        <img class="frame" src="assets/img/intellij-menu.webp" alt="IntelliJ IDEA: התפריט מבני נתונים עם תרגיל חדש, שליחת תרגיל, הוסף מבנה נתונים, הרצה ויזואלית, דוגמאות פתורות, הדרכה לשימוש וכיבוי DSViz" width="821" height="657" loading="lazy">
+        <figcaption>התפריט "מבני נתונים" ב-IntelliJ IDEA.</figcaption>
+      </figure>
+      <figure>
+        <img class="frame" src="assets/img/intellij-gutter.webp" alt="IntelliJ IDEA: תרגיל ששלחתם, עם מנורה בשוליים ליד כל פעולה של סעיף; ההצעה לפתרון נפתחת בלחיצה עליה" width="821" height="600" loading="lazy">
+        <figcaption>תרגיל ששלחתם: המנורה בשוליים, ליד כל סעיף, פותחת את ההצעה לפתרון.</figcaption>
+      </figure>
     </section>
     <!-- ===== סוף הקטע של IntelliJ IDEA ===== -->
 
     <section id="web" aria-labelledby="h-web">
       <h2 id="h-web">בלי התקנה</h2>
-      <p>בדף <a href="bagrut.html">שאלת בגרות לקוד</a> מעלים את דף השאלה (PDF, Word או צילום) ומקבלים קובצי Java או C# מוכנים: פעולה ריקה לכל סעיף, המחלקות מהשאלה ו-main עם נתונים לדוגמה, ואם רוצים גם הצעה לפתרון. הכול בדפדפן, בלי להתקין כלום. הדף עובר דרך השרת של DSViz ל-Gemini של Google; הפרטים בדף <a href="privacy.html">פרטיות</a>.</p>
+      <p>בדף <a href="bagrut.html">שאלת בגרות לקוד</a> מעלים את דף השאלה (PDF, Word או צילום) ומקבלים קובצי Java או <bdi>C#</bdi> מוכנים: פעולה ריקה לכל סעיף, המחלקות מהשאלה ו-main עם נתונים לדוגמה, ואם רוצים גם הצעה לפתרון. הכול בדפדפן, בלי להתקין כלום. הדף עובר דרך השרת של DSViz ל-Gemini של Google; הפרטים בדף <a href="privacy.html">פרטיות</a>.</p>
     </section>
 
     <section id="updates" aria-labelledby="h-updates">
@@ -282,7 +301,7 @@
       <h3>עדכונים</h3>
       <ul>
         <li><b>Windows:</b> בכל כניסה ל-Windows ובכל סגירה של Eclipse נבדק אם יש גרסה חדשה. אם יש, היא יורדת, נבדקת (SHA-256) ומותקנת בשקט עם אותן שפות, אחרי ש-Eclipse נסגר.</li>
-        <li><b>Mac:</b> פעם ביום, כש-VS Code נפתח או כש-Eclipse נסגר. היומן: <code dir="ltr">~/Library/Logs/DSViz/update.log</code>. אפשר גם להריץ שוב את שורת ההתקנה.</li>
+        <li><b>Mac:</b> בכניסה למחשב ופעם ביום (פריט רקע של המשתמש, בלי סיסמה), וגם כש-VS Code או IntelliJ נפתחים וכש-Eclipse נסגר. סביבת פיתוח שהותקנה אחרי DSViz מקבלת את התוסף באותה בדיקה. היומן: <code dir="ltr">~/Library/Logs/DSViz/update.log</code>. אפשר גם להריץ שוב את שורת ההתקנה.</li>
       </ul>
       <h3>הסרה</h3>
       <ul>
@@ -323,8 +342,8 @@
       <a href="./">לעמוד הראשי</a>
       <a href="bagrut.html">שאלת בגרות לקוד</a>
       <a href="privacy.html">פרטיות</a>
-      <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="159" height="30"></a>
-      <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" width="163" height="30"></a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="159" height="30"></a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" width="163" height="30"></a>
     </p>
   </div>
 </footer>

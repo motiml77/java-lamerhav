@@ -73,7 +73,7 @@ async function docx() {
   await page.goto(base + '/index.html');
   await page.waitForFunction(() => !document.querySelector('[data-downloads]').hidden, null, { timeout: 5000 });
   const count = await page.textContent('[data-downloads]');
-  check(/1,234/.test(count) && /הורדות/.test(count), 'מונה: ' + count);
+  check(/1,238/.test(count) && /הורדות/.test(count), 'מונה: ' + count);
   // ההורדה ישירות מ-GitHub (עובדת גם כשהשרת לא זמין), והמונה מקבל "נספר" ברקע
   check(/^https:\/\/raw\.githubusercontent\.com\/.*\/release\/DSViz-Setup\.exe$/.test(await page.getAttribute('.hero .btn', 'href')), 'כפתור ההורדה ישירות מ-GitHub');
   let counted = null;
@@ -82,7 +82,7 @@ async function docx() {
   await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('.hero .btn')]);
   await beacon.catch(() => {});
   check(counted, 'ספירה ברקע אחרי לחיצה על הורדה');
-  check(await page.$('footer .donate[href*="paypal.com/donate"]'), 'תמכו בפרויקט בתחתית');
+  check(await page.$('footer .donate[href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2"][target=_blank][rel~=noopener]'), 'תמכו בפרויקט בתחתית');
   pass('עמוד ראשי: מונה הורדות (' + count + '), הורדה ישירה מ-GitHub עם ספירה ברקע, ו"תמכו בפרויקט"');
 
   // ---- שאלת בגרות: Word + תמונה + PDF

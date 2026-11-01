@@ -252,7 +252,13 @@ project_dir() {   # project_dir <שם> <קובץ שמסמן שהתיקייה כ�
     done
     return 1
 }
-if [ -n "$JAVA_ON" ]; then
+if [ -n "${DSVIZ_AGENT:-}" ]; then
+    say "עדכון ברקע — התיקיות במסמכים לא משתנות" "Background update (LaunchAgent): exercise folders in ~/Documents are left as they are"
+    JAVA_DOCS=""; CS_DOCS=""
+else
+    JAVA_DOCS=$JAVA_ON; CS_DOCS=$CS_ON
+fi
+if [ -n "$JAVA_DOCS" ]; then
     project_dir DataStructures .project "$APP/project"
     if [ -n "$PSTATE" ]; then
         if [ "$PSTATE" = existing ]; then mkdir -p "$PDIR/lib" && cp_new "$APP/dsviz.jar" "$PDIR/lib/dsviz.jar"; ok "Java: $PDIR (קיימת — הספרייה עודכנה, העבודה שלכם לא נגעה)" "Java folder exists — library updated, your files untouched"
@@ -260,7 +266,7 @@ if [ -n "$JAVA_ON" ]; then
         wtxt project-path.txt "$PDIR"
     else warn "לא הצלחתי ליצור את תיקיית התרגילים של Java" "Could not create the Java exercise folder"; fi
 fi
-if [ -n "$CS_ON" ]; then
+if [ -n "$CS_DOCS" ]; then
     project_dir DataStructures-CS DataStructures-CS.sln "$APP/project-cs"
     if [ -n "$PSTATE" ]; then
         if [ "$PSTATE" = existing ]; then
@@ -508,6 +514,47 @@ step "סיום" "Done"
 [ -x "$APP/cs/dsviz-cs" ] && ok "C#: $APP/cs/dsviz-cs"
 rm -f "$DSV/update-check.txt.tmp" 2>/dev/null
 touch "$DSV/update-check.txt" 2>/dev/null   # העדכון האוטומטי (update.sh) יבדוק שוב רק מחר
+# >>> launchagent (נבדק גם ב-Linux: tools/test/installer-test.sh)
+# עדכון אוטומטי גם כשלא פותחים את VS Code / Eclipse / IntelliJ (ו-IDE שהותקן אחרי DSViz מקבל את התוסף): LaunchAgent של המשתמש,
+# בלי הרשאות מנהל — update.sh --agent בכניסה למחשב ופעם ביום. כשאין מה לעשות update.sh יוצא מיד (לכל היותר בדיקה ב-20 שעות,
+# קובץ JSON קטן). ב-macOS 13 ומעלה מופיעה פעם אחת ההודעה "Background Items Added" (פריט רקע: bash) — זה הוא.
+LA_ID=il.lamerhav.dsviz.update
+LA="$HOME/Library/LaunchAgents/$LA_ID.plist"
+install_launchagent() {
+    mkdir -p "$HOME/Library/LaunchAgents" 2>>"$LOG" || return 1
+    cat > "$LA.dsviz-tmp" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$LA_ID</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/bash</string><string>$APP/update.sh</string><string>--agent</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>86400</integer>
+  <key>ProcessType</key><string>Background</string>
+  <key>LowPriorityIO</key><true/>
+  <key>Nice</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/dev/null</string>
+  <key>StandardErrorPath</key><string>/dev/null</string>
+</dict>
+</plist>
+PLIST
+    if cmp -s "$LA.dsviz-tmp" "$LA"; then rm -f "$LA.dsviz-tmp"; else mv -f "$LA.dsviz-tmp" "$LA" || return 1; fi
+    # טוענים רק אם עוד לא טעון (לא מורידים ומעלים: בעדכון, update.sh עצמו רץ מה-LaunchAgent הזה)
+    if [ "${DSVIZ_NO_LAUNCHCTL:-}" != 1 ] && ! launchctl print "gui/$(id -u)/$LA_ID" >/dev/null 2>&1; then
+        launchctl bootstrap "gui/$(id -u)" "$LA" >>"$LOG" 2>&1 || launchctl load -w "$LA" >>"$LOG" 2>&1
+    fi
+    return 0
+}
+# <<< launchagent
+if [ -f "$APP/update.sh" ] && install_launchagent; then
+    ok "עדכון אוטומטי: בכניסה למחשב ופעם ביום" "Auto-update: at login and once a day ($LA)"
+else
+    warn "העדכון האוטומטי ברקע לא הוגדר (העדכון ירוץ כשפותחים את VS Code / Eclipse / IntelliJ)" "LaunchAgent not installed"
+fi
+# אילו סביבות פיתוח יש עכשיו — update.sh משלים את התוספים כשנוספת סביבה
+grep -q 'ide-signature' "$APP/update.sh" 2>/dev/null && /bin/bash "$APP/update.sh" --ide-signature > "$APP/ides.txt" 2>/dev/null
 if [ "$MODE" != update ]; then
     printf '\n%sהכול מוכן!%s  פותחים מחדש את VS Code / Eclipse / IntelliJ IDEA.\n' "$G$B" "$N"
     printf '%sAll set! Restart VS Code / Eclipse / IntelliJ IDEA.%s\n' "$D" "$N"
@@ -515,6 +562,7 @@ if [ "$MODE" != update ]; then
     printf '  • Eclipse: התפריט "מבני נתונים" למעלה.\n'
     printf '  • IntelliJ IDEA: התפריט "מבני נתונים", החלון DSViz בצד ימין, ו"הרצה ויזואלית" ליד main.\n'
     printf '  • %sבפעם הראשונה macOS ישאל אם לתת ל-VS Code / Eclipse גישה לתיקיית המסמכים — לוחצים "אישור" (Allow).%s\n' "$D" "$N"
+    printf '  • %sאם מופיעה ההודעה "Background Items Added" (פריט רקע: bash) — זה העדכון האוטומטי של DSViz.%s\n' "$D" "$N"
     printf '  • %sעדכונים: אוטומטיים (פעם ביום). הסרה: "%s/uninstall.sh"%s\n' "$D" "$APP" "$N"
     [ "$WARNINGS" -gt 0 ] && printf '  %s(%d אזהרות — הפרטים ב-%s)%s\n' "$Y" "$WARNINGS" "$LOG" "$N"
 else

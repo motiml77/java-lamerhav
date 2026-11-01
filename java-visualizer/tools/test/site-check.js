@@ -19,7 +19,7 @@ const SERVER = 'https://dsviz-exercise.motiml77.workers.dev';
 const RAW = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/';
 const EXE = RAW + 'java-visualizer/release/DSViz-Setup.exe';
 const MAC = 'curl -fsSL ' + RAW + 'java-visualizer/installer/mac/install.sh | bash';
-const DONATE = 'https://www.paypal.com/donate/?business=motiml77%40gmail.com&currency_code=ILS&item_name=DSViz';
+const DONATE = 'https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2';
 const PAGES = ['index.html', 'install.html', 'bagrut.html', 'privacy.html', '404.html'];
 
 let ok = 0;
@@ -45,6 +45,7 @@ function serve() {
   const browser = await playwright.chromium.launch();
   let stats = { ok: true, counting: true, downloads: { windows: 1230, zip: 4, mac: 4, total: 1238 } };
   const counted = [];
+  let sdkRequests = 0;
   async function context(viewport) {
     const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, locale: 'he-IL' });
     // בלי אינטרנט — בלי הגופנים (הבדיקות לא תלויות בהם). לצילומים עם הגופנים האמיתיים: SITE_FONTS=<תיקייה עם css.txt
@@ -62,6 +63,8 @@ function serve() {
       if (m && r.request().method() === 'POST') { counted.push(m[1]); return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*' } }); }
       return r.fulfill({ status: 404 });
     });
+    // ה-SDK של PayPal (כפתור התרומה בעמוד הראשי): בלי אינטרנט — 404, ואז נשאר הקישור הרגיל
+    await ctx.route('https://www.paypal.com/sdk/**', r => { sdkRequests++; return r.fulfill({ status: 404, body: '' }); });
     await ctx.route('https://raw.githubusercontent.com/**', r => r.request().url().endsWith('version.json')
       ? r.fulfill({ status: 200, contentType: 'text/plain', body: JSON.stringify({ version: '1.0.1', build: '202610301200' }) })
       : r.fulfill({ status: 200, contentType: 'application/octet-stream', body: 'x' }));
@@ -94,8 +97,8 @@ function serve() {
         blank: [...document.querySelectorAll('a[target=_blank]')].filter(a => !/noopener/.test(a.rel)).map(a => a.href),
         unnamed: [...document.querySelectorAll('button, a[href]')].filter(b => !(b.textContent.trim() || b.getAttribute('aria-label') || (b.querySelector('img') || {}).alt)).map(b => b.outerHTML.slice(0, 80)),
         wide: [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.right > innerWidth + 1 || r.left < -1) && getComputedStyle(e).position !== 'fixed' && !e.closest('.cmd, .tabbar, .ide-code, .ed, pre, .tabs, .skip, .demo-code, video'); }).slice(0, 5).map(e => e.tagName + '.' + e.className),
-        donateTop: !!document.querySelector('header .donate[href^="https://www.paypal.com/donate/"]'),
-        donateFoot: document.querySelectorAll('footer .donate[href^="https://www.paypal.com/donate/"]').length,
+        donateTop: !!document.querySelector('header .donate[href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2"][target=_blank][rel~=noopener]'),
+        donateFoot: document.querySelectorAll('footer .donate[href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2"][target=_blank][rel~=noopener]').length,
         donateHref: (document.querySelector('.donate') || {}).href,
         links: [...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')),
         ids: [...document.querySelectorAll('[id]')].map(e => e.id),
@@ -150,7 +153,7 @@ function serve() {
       anchors++;
     }
   }
-  for (const e of external) assert.ok(/^https:\/\/(www\.paypal\.com\/donate\/|is\.gd\/dsjava$)/.test(e), 'קישור חיצוני לא צפוי: ' + e);
+  for (const e of external) assert.ok(/^https:\/\/(www\.paypal\.com\/ncp\/payment\/DJYTDJ6F57KA2$|is\.gd\/dsjava$)/.test(e), 'קישור חיצוני לא צפוי: ' + e);
   assert.ok(fs.existsSync(path.join(ROOT, 'installer', 'mac', 'install.sh')), 'שורת ה-Mac מצביעה על installer/mac/install.sh');
   const repoFiles = [...links.keys()].filter(h => h.startsWith(RAW)).map(h => h.split('/').pop());
   pass('קישורים: ' + local + ' מקומיים (' + anchors + ' עוגנים), ' + repo + ' קבועים לקבצים במאגר (' + repoFiles.join(', ') + ', ושורת ה-Mac ל-install.sh), חיצוניים: ' + [...external].join(' , '));
@@ -230,6 +233,23 @@ function serve() {
     await ctx.close();
   }
 
+  // ---- כפתור התרומה של PayPal: נטען רק כשמגיעים לאזור; אם לא נטען — הקישור לדף התרומה
+  {
+    const ctx = await context({ width: 1366, height: 900 });
+    const page = await ctx.newPage();
+    sdkRequests = 0;
+    await page.goto(base + 'index.html');
+    await page.waitForTimeout(500);
+    assert.strictEqual(sdkRequests, 0, 'ה-SDK של PayPal נטען לפני שגוללים אליו');
+    await page.locator('#support').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(800);
+    assert.strictEqual(sdkRequests, 1, 'ה-SDK של PayPal לא נטען כשהגענו לאזור');
+    const fb = await page.$('#support .pp-fallback');
+    assert.ok(fb && await fb.isVisible() && await fb.getAttribute('href') === DONATE && await fb.getAttribute('target') === '_blank', 'הקישור החלופי לתרומה');
+    pass('תרומה: ה-SDK של PayPal נטען רק כשגוללים לאזור, וכשהוא חסום נשאר הקישור ' + DONATE);
+    await ctx.close();
+  }
+
   // ---- ההדגמה, הלשוניות וצילומים של האזורים
   for (const [label, viewport] of [['desktop', { width: 1366, height: 900 }], ['mobile', { width: 390, height: 844 }]]) {
     const ctx = await context(viewport);
@@ -247,7 +267,7 @@ function serve() {
     await page.keyboard.press('ArrowRight');
     assert.strictEqual(await page.getAttribute('#t-tree', 'aria-selected'), 'true', 'חיצים בלשוניות');
     await page.click('[role=tab]#t-stack');
-    for (const id of ['run', 'errors', 'exercise', 'teachers', 'install', 'faq']) {
+    for (const id of ['run', 'errors', 'exercise', 'teachers', 'install', 'faq', 'support']) {
       const el = await page.$('#' + id);
       await el.screenshot({ path: path.join(OUT, label + '-index-' + id + '.png') });
     }

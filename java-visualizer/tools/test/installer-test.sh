@@ -45,6 +45,45 @@ ok "Mac: VS Code Insiders, VSCodium ו-Cursor (מדומים) קיבלו את ה�
 bash -n "$ROOT/installer/mac/install.sh" && bash -n "$ROOT/installer/mac/uninstall.sh" && bash -n "$ROOT/installer/mac/update.sh" \
     && ok "Mac: install.sh / uninstall.sh / update.sh — תחביר תקין" || fail "Mac: שגיאת תחביר"
 
+# ---------------------------------------------------------------- 1ב. Mac: העדכון האוטומטי (LaunchAgent) ו-IDE שהותקן אחרי DSViz
+sed -n '/^# >>> launchagent/,/^# <<< launchagent/p' "$ROOT/installer/mac/install.sh" > "$OUT/la.sh"
+[ "$(grep -c . "$OUT/la.sh")" -gt 10 ] || fail "הקטע launchagent לא נמצא ב-install.sh"
+(
+    HOME="$H"; APP="$H/Library/Application Support/DSViz"; LOG="$OUT/la-log.txt"; mkdir -p "$APP"
+    DSVIZ_NO_LAUNCHCTL=1
+    # shellcheck disable=SC1090
+    . "$OUT/la.sh"
+    install_launchagent && install_launchagent   # פעמיים: הפעם השנייה לא משנה כלום
+) || fail "Mac: install_launchagent נכשל"
+PL="$H/Library/LaunchAgents/il.lamerhav.dsviz.update.plist"
+python3 - "$PL" "$H/Library/Application Support/DSViz/update.sh" <<'PY' || fail "Mac: ה-plist של ה-LaunchAgent"
+import plistlib, sys
+d = plistlib.load(open(sys.argv[1], 'rb'))
+assert d['Label'] == 'il.lamerhav.dsviz.update', d
+assert d['ProgramArguments'] == ['/bin/bash', sys.argv[2], '--agent'], d['ProgramArguments']
+assert d['RunAtLoad'] is True and d['StartInterval'] == 86400 and d['ProcessType'] == 'Background', d
+PY
+grep -q 'launchctl bootout "gui/$(id -u)/il.lamerhav.dsviz.update"' "$ROOT/installer/mac/uninstall.sh" && grep -q 'rm -f "$LA"' "$ROOT/installer/mac/uninstall.sh" \
+    || fail "Mac: uninstall.sh לא מסיר את ה-LaunchAgent"
+ok "Mac: LaunchAgent של המשתמש (RunAtLoad + פעם ביום, update.sh --agent, plist תקין); uninstall.sh מסיר אותו"
+# update.sh --ide-signature: רואה אפליקציה חדשה (כאן: VSCodium / Cursor / Insiders המדומים, ו-Eclipse שנוסף)
+SIG1=$(HOME="$H" bash "$ROOT/installer/mac/update.sh" --ide-signature)
+mkdir -p "$H/Applications/Eclipse.app"
+SIG2=$(HOME="$H" bash "$ROOT/installer/mac/update.sh" --ide-signature)
+echo "$SIG1" | grep -q "VSCodium.app" && [ "$SIG1" != "$SIG2" ] && echo "$SIG2" | grep -q "Applications/Eclipse.app" \
+    || fail "Mac: update.sh --ide-signature ($SIG1 / $SIG2)"
+grep -q 'ide_signature)" != "$(cat "$APP/ides.txt"' "$ROOT/installer/mac/update.sh" && grep -q 'update.sh" --ide-signature > "$APP/ides.txt"' "$ROOT/installer/mac/install.sh" \
+    || fail "Mac: ההשוואה ל-ides.txt"
+ok "Mac: update.sh מזהה סביבת פיתוח שנוספה אחרי ההתקנה (--ide-signature מול ides.txt) ומשלים את התוספים"
+# כשנבדק ב-20 השעות האחרונות — update.sh (גם מה-LaunchAgent) יוצא מיד, בלי רשת ובלי לכתוב "check" ליומן
+mkdir -p "$H/.dsviz" && touch "$H/.dsviz/update-check.txt"
+t0=$(date +%s%N); HOME="$H" bash "$ROOT/installer/mac/update.sh" --agent; t1=$(date +%s%N)
+! grep -q ' check' "$H/Library/Logs/DSViz/update.log" 2>/dev/null && [ $(( (t1 - t0) / 1000000 )) -lt 2000 ] \
+    && ok "Mac: update.sh --agent כשאין מה לבדוק: יוצא מיד ($(( (t1 - t0) / 1000000 ))ms), בלי רשת" || fail "Mac: update.sh לא יצא מיד"
+# --agent: בלי לגעת במסמכים
+grep -q 'export DSVIZ_AGENT=1' "$ROOT/installer/mac/update.sh" && grep -q 'if \[ -n "${DSVIZ_AGENT:-}" \]; then' "$ROOT/installer/mac/install.sh" \
+    && ok "Mac: עדכון מה-LaunchAgent לא נוגע ב-~/Documents (בלי שאלת הפרטיות של macOS על bash)" || fail "Mac: DSVIZ_AGENT"
+
 # ---------------------------------------------------------------- 2. Windows: setup.nsi
 NSI="$ROOT/installer/setup.nsi"
 for p in 'Microsoft VS Code Insiders\bin\code-insiders.cmd' 'VSCodium\bin\codium.cmd' 'cursor\resources\app\bin\cursor.cmd' \
