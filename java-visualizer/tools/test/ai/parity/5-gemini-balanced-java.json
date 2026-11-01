@@ -1,0 +1,55 @@
+{
+  "title": "תור מאוזן ומחסנית תורים",
+  "summary": "בדיקה האם תור של מספרים שלמים מאוזן (סכום המספרים החיוביים שווה לסכום הערכים המוחלטים של השליליים), וספירת תורים מאוזנים במחסנית תורים.",
+  "topic": "queues_and_stacks",
+  "mainClass": "BalancedQueues",
+  "imports": [],
+  "classes": [],
+  "tasks": [
+    {
+      "label": "א",
+      "kind": "method",
+      "className": "BalancedQueues",
+      "isStatic": true,
+      "returnType": "boolean",
+      "methodName": "isBalanced",
+      "parameters": [
+        {
+          "type": "Queue<Integer>",
+          "name": "q"
+        }
+      ],
+      "instructions": "תור \"מאוזן\" הוא תור של מספרים שלמים שבו סכום המספרים החיוביים שווה לסכום הערכים המוחלטים של המספרים השליליים.\nכתבו פעולה isBalanced המקבלת תור של מספרים שלמים ומחזירה אמת אם התור מאוזן, ושקר אחרת. התור צריך להישאר כפי שהיה. ניתן להשתמש בפעולה sumPositive הנתונה."
+    },
+    {
+      "label": "ב",
+      "kind": "method",
+      "className": "BalancedQueues",
+      "isStatic": true,
+      "returnType": "int",
+      "methodName": "countBalanced",
+      "parameters": [
+        {
+          "type": "Stack<Queue<Integer>>",
+          "name": "st"
+        }
+      ],
+      "instructions": "כתבו פעולה המקבלת מחסנית של תורים של מספרים שלמים, ומחזירה כמה מהתורים במחסנית הם מאוזנים. השתמשו בפעולה שכתבתם בסעיף א."
+    }
+  ],
+  "givenCode": [
+    {
+      "className": "BalancedQueues",
+      "code": "public static int sumPositive(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int sum = 0;\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        if (x > 0) sum += x;\n        temp.insert(x);\n    }\n    while (!temp.isEmpty()) q.insert(temp.remove());\n    return sum;\n}"
+    }
+  ],
+  "otherQuestions": [
+    {
+      "label": "ג",
+      "text": "מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו."
+    }
+  ],
+  "mainCode": "// יצירת תור מאוזן: 5 חיובי, -2 ו- -3 סכומם בערך מוחלט 5\nQueue<Integer> q1 = new Queue<Integer>();\nq1.insert(5);\nq1.insert(-2);\nq1.insert(-3);\nSystem.out.println(\"תור 1: \" + q1);\nSystem.out.println(\"סעיף א (תור 1 מאוזן?): \" + isBalanced(q1));\n\n// יצירת תור לא מאוזן: חיובי 4, שלילי בערך מוחלט 1\nQueue<Integer> q2 = new Queue<Integer>();\nq2.insert(4);\nq2.insert(-1);\nSystem.out.println(\"תור 2: \" + q2);\nSystem.out.println(\"סעיף א (תור 2 מאוזן?): \" + isBalanced(q2));\n\n// יצירת תור מאוזן נוסף: -7 וסכום חיוביים 3+4=7\nQueue<Integer> q3 = new Queue<Integer>();\nq3.insert(-7);\nq3.insert(3);\nq3.insert(4);\n\n// יצירת מחסנית המכילה 3 תורים (מתוכם 2 מאוזנים)\nStack<Queue<Integer>> st = new Stack<Queue<Integer>>();\nst.push(q1);\nst.push(q2);\nst.push(q3);\nSystem.out.println(\"סעיף ב (מספר תורים מאוזנים במחסנית): \" + countBalanced(st));",
+  "expectedOutput": "תור 1: [5,-2,-3]\nסעיף א (תור 1 מאוזן?): true\nתור 2: [4,-1]\nסעיף א (תור 2 מאוזן?): false\nסעיף ב (מספר תורים מאוזנים במחסנית): 2",
+  "language": "java"
+}

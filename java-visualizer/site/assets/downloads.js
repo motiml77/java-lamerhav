@@ -75,9 +75,33 @@
       .then(function (s) {
         var n = s && s.counting && s.downloads && s.downloads.total;
         if (!n) return;
-        var t = n === 1 ? 'הורדה אחת עד היום' : n.toLocaleString('he-IL') + ' הורדות עד היום';
-        slots.forEach(function (el) { el.textContent = t; el.hidden = false; });
+        slots.forEach(function (el) { show(el, n); });
       })
       .catch(function () {});
+  }
+
+  // המספר האמיתי מהשרת. כשהמונה נכנס למסך הוא עולה מ-0 אליו (פחות משנייה), ולא כשמבקשים פחות תנועה.
+  // הרוחב נשמר מראש לפי המספר הסופי, כדי ששום דבר לא יזוז
+  function text(n) { return n === 1 ? 'הורדה אחת עד היום' : n.toLocaleString('he-IL') + ' הורדות עד היום'; }
+  function show(el, n) {
+    el.textContent = text(n);
+    el.hidden = false;
+    el.setAttribute('data-total', String(n));
+    var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (calm || n < 10 || !('IntersectionObserver' in window) || !window.requestAnimationFrame) return;
+    el.style.minWidth = el.getBoundingClientRect().width + 'px';
+    var io = new IntersectionObserver(function (es) {
+      if (!es.some(function (e) { return e.isIntersecting; })) return;
+      io.disconnect();
+      var t0 = null, D = 900;
+      var step = function (t) {
+        if (t0 === null) t0 = t;
+        var p = Math.min(1, (t - t0) / D), eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = text(p < 1 ? Math.max(2, Math.round(n * eased)) : n);
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, { threshold: 1 });
+    io.observe(el);
   }
 })();
