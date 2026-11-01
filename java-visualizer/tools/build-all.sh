@@ -12,6 +12,9 @@ set -e
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 VERSION=1.0.1
+# מספר הבנייה (תאריך ושעה, UTC) — עולה בכל בנייה. נכנס ל-Bundle-Version של התוסף ל-Eclipse (1.0.1.v<מספר>), להתקנה
+# ול-version.json: Eclipse מעדיף תמיד את הגרסה הגבוהה יותר, כך שעותק ישן של התוסף (שנשאר במקום אחר) לא יכול "לנצח"
+BUILDNO=${BUILDNO:-$(date -u +%Y%m%d%H%M)}
 
 tools/build-lib.sh
 
@@ -67,11 +70,16 @@ cp eclipse-plugin/ai.properties "$OUT/resources/"   # "שליחת תרגיל": �
 mkdir -p "$OUT/resources/help" && cp build/help/* "$OUT/resources/help/" 2>/dev/null || true
 cp src/examples/*.java "$OUT/resources/examples/"
 cp src/Main.java "$OUT/resources/"
-jar --create --file "release/il.lamerhav.dsviz_$VERSION.jar" --manifest eclipse-plugin/META-INF/MANIFEST.MF -C "$OUT" .
-echo "release/il.lamerhav.dsviz_$VERSION.jar"
+# Bundle-Version עם qualifier של הבנייה (1.0.1.v202611011200). שם הקובץ נשאר il.lamerhav.dsviz_1.0.1.jar (קישורים קבועים);
+# ל-Eclipse משנה רק הגרסה שבתוך MANIFEST.MF. בלי זה כל הבניות היו "1.0.1", ועותק ישן היה נטען במקום החדש
+MF=build/eclipse-MANIFEST.MF
+sed "s/^Bundle-Version: .*/Bundle-Version: $VERSION.v$BUILDNO/" eclipse-plugin/META-INF/MANIFEST.MF > "$MF"
+grep -q "^Bundle-Version: $VERSION.v$BUILDNO" "$MF" || { echo "Bundle-Version לא עודכן"; exit 1; }
+jar --create --file "release/il.lamerhav.dsviz_$VERSION.jar" --manifest "$MF" -C "$OUT" .
+echo "release/il.lamerhav.dsviz_$VERSION.jar (Bundle-Version $VERSION.v$BUILDNO)"
 # גרסה בלי סרטונים — זו שנכנסת להתקנה (הסרטונים שם פעם אחת בתיקייה help; התוסף מוצא אותם שם)
 mkdir -p build/light && rm -rf "$OUT/resources/help"
-jar --create --file "build/light/il.lamerhav.dsviz_$VERSION.jar" --manifest eclipse-plugin/META-INF/MANIFEST.MF -C "$OUT" .
+jar --create --file "build/light/il.lamerhav.dsviz_$VERSION.jar" --manifest "$MF" -C "$OUT" .
 
 echo "== IntelliJ IDEA"
 # Gradle + IntelliJ Platform Gradle Plugin (intellij-plugin/build.gradle.kts). בפעם הראשונה מוריד את IntelliJ 2024.2 שמולו בונים (~700MB).
@@ -94,9 +102,18 @@ cp ../src/examples/*.java resources/examples/
 cp -R ../build/cs-resources resources/cs
 HELPSRC=../build/help; [ -f ../build/help/vscode/index.html ] && HELPSRC=../build/help/vscode   # הסרטונים של VS Code
 rm -rf resources/help && mkdir -p resources/help && cp $HELPSRC/* resources/help/ 2>/dev/null || true
-npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/release/dsviz-$VERSION.vsix"
+# גרסה ייחודית לכל בנייה (1.0.<מספר הבנייה>; שם הקובץ נשאר dsviz-1.0.1.vsix): VS Code מתקין אותה לתיקייה חדשה
+# (lamerhav.dsviz-1.0.<מספר>), מסמן את הישנה כמיושנת ומוחק אותה, ומבקש לטעון מחדש חלון פתוח — בלי לסמוך על כך
+# ש-‎--force מחליף בדיוק את אותה גרסה. package.json עצמו לא משתנה (מוחזר בסוף, גם אם האריזה נכשלה)
+cp package.json ../build/vscode-package.json
+node -e "const f='package.json',p=require('./'+f);p.version='${VERSION%.*}.$BUILDNO';require('fs').writeFileSync(f,JSON.stringify(p,null,4)+'\n')"
+vsce_ok=1
+npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/release/dsviz-$VERSION.vsix" || vsce_ok=0
 rm -rf resources/help
-npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/build/light/dsviz-$VERSION.vsix"
+[ $vsce_ok = 1 ] && { npx --yes @vscode/vsce@2.32.0 package --skip-license --allow-missing-repository --out "$ROOT/build/light/dsviz-$VERSION.vsix" || vsce_ok=0; }
+cp ../build/vscode-package.json package.json
+[ $vsce_ok = 1 ] || { echo "vsce נכשל"; exit 1; }
+echo "  (VS Code: גרסה ${VERSION%.*}.$BUILDNO)"
 mkdir -p resources/help && cp $HELPSRC/* resources/help/ 2>/dev/null || true   # חזרה לצורה המלאה (לבדיקות)
 cd "$ROOT"
 
@@ -111,7 +128,7 @@ cp release/dsviz.jar "$P/lib/"
 echo "== Windows installer (DSViz-Setup.exe)"
 if command -v makensis >/dev/null 2>&1; then
     tools/build-jre.sh   # Java 21 מקוצרת ל-Windows שנכנסת לתוך ההתקנה
-    BUILDNO=$(date -u +%Y%m%d%H%M)   # מספר הבנייה — העדכון האוטומטי מתקין כל בנייה חדשה יותר
+    # BUILDNO (למעלה) — העדכון האוטומטי מתקין כל בנייה חדשה יותר; אותו מספר כמו ב-Bundle-Version של התוסף ל-Eclipse
     (cd installer && makensis -V2 -DVERSION=$VERSION -DBUILDNO=$BUILDNO setup.nsi)
     echo "release/DSViz-Setup.exe"
     # מה העדכון האוטומטי (installer/update.ps1) בודק: הגרסה, מספר הבנייה, והקובץ (עם SHA-256 — כדי לוודא שהורד שלם)

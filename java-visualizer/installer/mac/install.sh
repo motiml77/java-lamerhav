@@ -373,11 +373,17 @@ eclipse_p2() {
     cat "$out" >>"$LOG" 2>/dev/null
     grep -q "^$BUNDLE_ID,$PLUGIN_VER," "$(bundles_info "$app")" 2>/dev/null
 }
+# כל עותק קודם ב-dropins (בכל עומק: dropins/x.jar, dropins/<שם>/plugins/x.jar) והמטמון של Eclipse (כמו eclipse -clean) —
+# כדי שלא ייטען תוסף ישן. הגרסה החדשה ממילא גבוהה מכל ישנה (1.0.1.v<מספר בנייה>), זה רק כדי שלא יישארו שניים
+eclipse_clean_old() {
+    local home="$1/Contents/Eclipse"
+    [ -d "$home/dropins" ] && find "$home/dropins" -name "${BUNDLE_ID}_*" -prune -exec rm -rf {} + 2>>"$LOG"
+    rm -rf "$home/configuration/org.eclipse.osgi" 2>>"$LOG"
+    return 0
+}
 eclipse_dropins() {
     local home="$1/Contents/Eclipse"
-    mkdir -p "$home/dropins" 2>>"$LOG" && rm -f "$home"/dropins/${BUNDLE_ID}_*.jar 2>>"$LOG" \
-        && cp "$PLUGIN_JAR" "$home/dropins/" 2>>"$LOG" || return 1
-    rm -rf "$home/configuration/org.eclipse.osgi" 2>>"$LOG"   # כמו eclipse -clean — כדי שיטען את התוסף החדש
+    mkdir -p "$home/dropins" 2>>"$LOG" && eclipse_clean_old "$1" && cp "$PLUGIN_JAR" "$home/dropins/" 2>>"$LOG" || return 1
     return 0
 }
 record_eclipse() {   # eclipse.txt: <Eclipse.app>|<p2/dropins>|<גרסה> — בשביל ההסרה
@@ -423,7 +429,7 @@ else
         done_how=""
         if [ "$ECL_METHOD" != dropins ] && eclipse_p2 "$app"; then
             done_how=p2
-            rm -f "$app"/Contents/Eclipse/dropins/${BUNDLE_ID}_*.jar 2>/dev/null   # עותק ישן מהתקנה קודמת (dropins) — כדי שלא יהיו שניים
+            eclipse_clean_old "$app"   # עותק ישן מהתקנה קודמת (dropins) — כדי שלא יהיו שניים; והמטמון
         elif [ "$ECL_METHOD" != p2 ] && eclipse_dropins "$app"; then
             done_how=dropins
         fi

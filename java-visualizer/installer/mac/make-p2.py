@@ -7,7 +7,7 @@ org.eclipse.equinox.p2.publisher.FeaturesAndBundlesPublisher (נבדק מולו)
 שימוש: make-p2.py <plugin.jar> <תיקיית המאגר> [qualifier]
 הגרסה, השם והתלויות נקראים מה-MANIFEST.MF שבתוך ה-jar (Require-Bundle / Import-Package / BREE).
 qualifier: Bundle-Version הופך ל-1.0.1.<qualifier> — כדי ש-p2 יזהה תוסף ששונה כגרסה חדשה (בלי זה "1.0.1" כבר
-מותקן, ו-p2 לא מחליף אותו). auto = לפי התוכן (c + 12 תווים של SHA-256 של הקבצים שבתוך ה-jar, בלי תאריכים ובלי
+מותקן, ו-p2 לא מחליף אותו). auto = ה-qualifier שכבר ב-jar (v<מספר בנייה> מ-build-all.sh), ואם אין — לפי התוכן (c + 12 תווים של SHA-256 של הקבצים שבתוך ה-jar, בלי תאריכים ובלי
 Bundle-Version; jar שבתוך jar — לפי התוכן שלו): אותו קוד = אותה גרסה, כך שעדכון שבו התוסף לא השתנה לא נוגע ב-Eclipse."""
 import hashlib, io, os, re, shutil, sys, time, zipfile
 from xml.sax.saxutils import quoteattr
@@ -70,10 +70,13 @@ def content_hash(data):
     return h.hexdigest()
 
 
-if qualifier == 'auto':
-    qualifier = 'c' + content_hash(open(jar, 'rb').read())[:12]
-
 m = manifest(jar)
+if qualifier == 'auto':
+    # ה-jar כבר עם qualifier של הבנייה (build-all.sh: 1.0.1.v<מספר בנייה>) — משאירים אותו: הוא עולה בכל בנייה, כך שהגרסה
+    # החדשה תמיד גבוהה מכל עותק ישן (גם מ-1.0.1.c<hash> של התקנות קודמות: 'v' > 'c'). בלי qualifier — לפי התוכן, כמו קודם
+    parts = m['Bundle-Version'].split('.')
+    qualifier = parts[3] if len(parts) > 3 and parts[3] else 'c' + content_hash(open(jar, 'rb').read())[:12]
+
 bsn = m['Bundle-SymbolicName'].split(';')[0].strip()
 ver = m['Bundle-Version']
 if qualifier:

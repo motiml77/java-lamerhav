@@ -108,7 +108,13 @@ Function TryEclipse
     Push $0
     Call EclipseUtf8
     CreateDirectory "$0\dropins"
-    Delete "$0\dropins\il.lamerhav.dsviz_*.jar"
+    ; קודם מוחקים כל עותק קודם של התוסף (dropins בכל עומק ובכל שם, plugins, bundles.info) ומנקים את המטמון של Eclipse
+    ; בכל מקום שבו הוא יכול להיות — אחרת Eclipse יכול להמשיך לטעון את הגרסה הישנה (clean-eclipse.ps1)
+    ${If} ${FileExists} "$INSTDIR\clean-eclipse.ps1"
+      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\clean-eclipse.ps1" "$0"'
+      Pop $1
+    ${EndIf}
+    Delete "$0\dropins\il.lamerhav.dsviz_*.jar"   ; גם בלי PowerShell
     ClearErrors
     CopyFiles /SILENT "$INSTDIR\${PLUGIN}" "$0\dropins"
     ${If} ${Errors}
@@ -291,8 +297,10 @@ Section "-core"
   File "icon.ico"
   File "update.ps1"
   File "intellij.ps1"
+  File "clean-eclipse.ps1"
   ; התוסף ל-IntelliJ IDEA (התיקייה dsviz-intellij כמו שהיא בתוך plugins). הספרייה (runtime\dsviz.jar) — אותו קובץ כמו $INSTDIR\dsviz.jar,
   ; מועתק במחשב ולא נכלל פעמיים בהתקנה
+  RMDir /r "$INSTDIR\intellij"   ; בלי jar-ים מבנייה קודמת (intellij.ps1 מעתיק את כל התיקייה כמו שהיא)
   SetOutPath "$INSTDIR\intellij\dsviz-intellij\lib"
   File /nonfatal "${BUILD}\intellij\dsviz-intellij\lib\*.jar"   ; בלי Gradle בבנייה — בלי התוסף (intellij.ps1 מדלג)
   CreateDirectory "$INSTDIR\intellij\dsviz-intellij\runtime"
@@ -399,6 +407,9 @@ SectionEnd
 Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_CS
   DetailPrint "חבילת C#"
   ; ההרצה הוויזואלית (dsviz-cs.exe — כוללת את סביבת ההרצה של .NET, לא צריך להתקין כלום)
+  ; בלי קבצים מבנייה קודמת (DLL-ים שהשם שלהם השתנה וכו') — התיקיות נבנות מחדש בכל התקנה / עדכון
+  RMDir /r "$INSTDIR\cs"
+  RMDir /r "$INSTDIR\cs-project"
   SetOutPath "$INSTDIR\cs"
   File /r "${BUILD}\dsviz-cs-win\*.*"
   SetOutPath "$INSTDIR\cs-project"
@@ -599,13 +610,18 @@ Section "-eclipse"
     Return
   ${EndIf}
   StrCpy $ECLIPSES 0
+  InitPluginsDir
+  ; כל Eclipse שקיבל את התוסף בהתקנה הקודמת מקבל גם את החדש — גם אם החיפוש לא מוצא אותו הפעם (אחרת נשאר בו התוסף הישן)
+  Delete "$PLUGINSDIR\eclipse-prev.txt"
+  ${If} ${FileExists} "$INSTDIR\eclipse-dirs.txt"
+    CopyFiles /SILENT "$INSTDIR\eclipse-dirs.txt" "$PLUGINSDIR\eclipse-prev.txt"
+  ${EndIf}
   Delete "$INSTDIR\eclipse-dirs.txt"
   ; חיפוש מלא (PowerShell): Eclipse שרץ עכשיו, התיקיות הרגילות וכל הכוננים — בכל שם תיקייה, רק Eclipse ל-Java (עם JDT)
-  InitPluginsDir
   File "/oname=$PLUGINSDIR\find-eclipse.ps1" "find-eclipse.ps1"
   Delete "$PLUGINSDIR\eclipse-found.txt"
   DetailPrint "Eclipse: מחפש התקנות במחשב..."
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\find-eclipse.ps1" "$PLUGINSDIR\eclipse-found.txt"'
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\find-eclipse.ps1" "$PLUGINSDIR\eclipse-found.txt" "$PLUGINSDIR\eclipse-prev.txt"'
   Pop $0
   ${If} ${FileExists} "$PLUGINSDIR\eclipse-found.txt"
     FileOpen $R2 "$PLUGINSDIR\eclipse-found.txt" r
@@ -800,6 +816,7 @@ Section "Uninstall"
   Delete "$INSTDIR\README-he.html"
   Delete "$INSTDIR\icon.ico"
   Delete "$INSTDIR\eclipse-dirs.txt"
+  Delete "$INSTDIR\clean-eclipse.ps1"
   Delete "$INSTDIR\uninstall.exe"
   RMDir /r "$INSTDIR\project"
   RMDir /r "$INSTDIR\jdk"
@@ -838,6 +855,10 @@ Function un.RemoveFromEclipse
     StrCpy $4 $4 -1
   ${EndIf}
   ${If} $4 != ""
+    ${If} ${FileExists} "$INSTDIR\clean-eclipse.ps1"
+      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\clean-eclipse.ps1" "$4"'
+      Pop $5
+    ${EndIf}
     Delete "$4\dropins\il.lamerhav.dsviz_*.jar"
     DetailPrint "Eclipse: הוסר מ-$4"
   ${EndIf}

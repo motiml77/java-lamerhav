@@ -42,8 +42,9 @@ found=0
 install_eclipse() {
     d="$1"
     mkdir -p "$d/dropins" 2>/dev/null
-    rm -f "$d"/dropins/il.lamerhav.dsviz_*.jar
-    rm -rf "$d/configuration/org.eclipse.osgi"   # כמו eclipse -clean — כדי שיטען את התוסף החדש
+    # כל עותק קודם (dropins בכל עומק) והמטמון — כמו eclipse -clean, כדי שיטען את התוסף החדש (גם ב-~/.eclipse: Eclipse בתיקייה בלי הרשאה)
+    find "$d/dropins" -name 'il.lamerhav.dsviz_*' -prune -exec rm -rf {} + 2>/dev/null
+    rm -rf "$d/configuration/org.eclipse.osgi" "$HOME"/.eclipse/*/configuration/org.eclipse.osgi
     if cp "$PLUGIN" "$d/dropins/" 2>/dev/null; then
         echo "[Eclipse] installed into $d"; found=$((found + 1))
     else
