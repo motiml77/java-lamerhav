@@ -41,6 +41,8 @@ final class Look {
 
     static final int BG = 0xF1F3F7, CARD = 0xFFFFFF, BORDER = 0xDFE3EA, TEXT = 0x1D2433, MUTED = 0x667085,
             ACCENT = 0x2F6FED, ACCENT_DARK = 0x2457C5, ACCENT_SOFT = 0xE8F0FE;
+    /** המראה החדש (כמו באתר — site/DESIGN.md): משטח אפור-בהיר, טקסט משני, ירוק של "בוצע", אדום של שגיאה, הצהוב של "כאן עונים" */
+    static final int SURFACE = 0xF7F8FA, INK2 = 0x3B4250, OK = 0x2E9E5B, ERR = 0xC4302B, AMBER = 0xE8A100, AMBER_SOFT = 0xFFF6D6;
 
     @SuppressWarnings("unchecked")
     static Color color(Display d, int rgb) {
@@ -77,6 +79,69 @@ final class Look {
             m.put(key, f);
         }
         return f;
+    }
+
+    /** גופן קוד (הגופן של העורך — Consolas / Menlo / Monospace), בגודל של גופן הדיאלוג + delta */
+    @SuppressWarnings("unchecked")
+    static Font mono(Display d, int delta) {
+        Map<String, Font> m = (Map<String, Font>) d.getData("dsviz.fonts");
+        if (m == null) {
+            font(d, 0, SWT.NORMAL);   // יוצר את המטמון
+            m = (Map<String, Font>) d.getData("dsviz.fonts");
+        }
+        String key = "mono/" + delta;
+        Font f = m.get(key);
+        if (f == null) {
+            FontData dlg = org.eclipse.jface.resource.JFaceResources.getDialogFont().getFontData()[0];
+            FontData fd = org.eclipse.jface.resource.JFaceResources.getTextFont().getFontData()[0];
+            f = new Font(d, fd.getName(), Math.max(7, dlg.getHeight() + delta), SWT.NORMAL);
+            m.put(key, f);
+        }
+        return f;
+    }
+
+    /**
+     * משטח שטוח עם קו של 1px ופינות קטנות (כמו באתר): מחזיר את הפנים שלו. fill / line — צבעים; radius — 6 או 8.
+     * בלי צל ובלי גרדיאנט. הרקע של הרכיבים שבפנים — fill.
+     */
+    static Composite panel(Composite parent, final int fill, final int line, final int radius, int marginW, int marginH) {
+        final Display d = parent.getDisplay();
+        final Composite outer = new Composite(parent, SWT.NONE);
+        GridLayout ol = new GridLayout(1, false);
+        ol.marginWidth = marginW;
+        ol.marginHeight = marginH;
+        outer.setLayout(ol);
+        outer.setData("dsviz.panel", new int[] { fill, line });
+        outer.addListener(SWT.Paint, e -> {
+            Point s = outer.getSize();
+            int[] c = (int[]) outer.getData("dsviz.panel");
+            e.gc.setAntialias(SWT.ON);
+            e.gc.setBackground(outer.getParent().getBackground());
+            e.gc.fillRectangle(0, 0, s.x, s.y);
+            e.gc.setBackground(color(d, c[0]));
+            e.gc.fillRoundRectangle(0, 0, s.x - 1, s.y - 1, radius * 2, radius * 2);
+            e.gc.setForeground(color(d, c[1]));
+            e.gc.drawRoundRectangle(0, 0, s.x - 1, s.y - 1, radius * 2, radius * 2);
+        });
+        outer.addListener(SWT.Resize, e -> outer.redraw());
+        Composite body = new Composite(outer, SWT.NONE);
+        body.setBackground(color(d, fill));
+        body.setBackgroundMode(SWT.INHERIT_DEFAULT);
+        GridLayout bl = new GridLayout(1, false);
+        bl.marginWidth = 0;
+        bl.marginHeight = 0;
+        bl.verticalSpacing = 4;
+        body.setLayout(bl);
+        body.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        return body;
+    }
+
+    /** משנה את הצבעים של משטח שנוצר ב-panel (למשל במעבר עכבר) */
+    static void repaintPanel(Composite body, int fill, int line) {
+        Composite outer = body.getParent();
+        outer.setData("dsviz.panel", new int[] { fill, line });
+        body.setBackground(color(body.getDisplay(), fill));
+        outer.redraw();
     }
 
     /** כותרת החלון + שורת הסבר מתחתיה */

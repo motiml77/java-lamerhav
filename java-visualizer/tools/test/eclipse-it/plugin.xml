@@ -11,6 +11,11 @@
          <run class="il.lamerhav.dsviz.it.Shot"/>
       </application>
    </extension>
+   <extension id="submit" point="org.eclipse.core.runtime.applications">
+      <application visible="true">
+         <run class="il.lamerhav.dsviz.it.Sub"/>
+      </application>
+   </extension>
    <extension id="solution" point="org.eclipse.core.runtime.applications">
       <application visible="true">
          <run class="il.lamerhav.dsviz.it.Sol"/>

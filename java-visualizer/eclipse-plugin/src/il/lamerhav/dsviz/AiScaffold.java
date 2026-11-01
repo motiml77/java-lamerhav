@@ -1,7 +1,9 @@
 package il.lamerhav.dsviz;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -248,21 +250,62 @@ final class AiScaffold {
     }
 
     /**
+     * שורה אחת קצרה להודעה אחרי שהתרגיל נוצר: רק אילו סעיפים עונים עליהם במילים, בלי הטקסט שלהם —
+     * "סעיף ד: עונים במילים" / "סעיפים ג, ד: עונים במילים" (בלי סימון של סעיף: "סעיף אחד: ..." / "2 סעיפים: ...").
+     * "" — אין סעיפים כאלה. הטקסט המלא של הסעיפים נפתח רק כשמבקשים (ב-Eclipse: "הצגה").
+     */
+    static String wordsLine(List<String[]> others) {
+        if (others == null || others.isEmpty()) return "";
+        List<String> labels = new ArrayList<String>();
+        for (String[] o : others) {
+            String l = o == null || o[0] == null ? "" : o[0].trim().replaceAll("['\u05F3\u2019]+$", "").trim();
+            if (!l.isEmpty() && !labels.contains(l)) labels.add(l);
+        }
+        String who;
+        if (labels.isEmpty()) who = others.size() == 1 ? "סעיף אחד" : others.size() + " סעיפים";
+        else who = (labels.size() == 1 ? "סעיף " : "סעיפים ") + String.join(", ", labels);
+        return who + ": " + WORDS;
+    }
+
+    static final String WORDS = "עונים במילים";
+
+    /**
      * שם התיקייה של התרגיל — לפי סוג התרגיל, עם מספר רץ, כדי שיהיה קל למצוא ולמחוק:
      *   Java: חבילה ex01_stacks, ex02_binary_trees...;  C#: פרויקט Ex01_Stacks, Ex02_BinaryTrees...
      * exists — השמות שכבר תפוסים (בתיקיית src, או בתיקיית התרגילים של C#)
      */
     static String folderName(String topic, Set<String> exists, boolean cs) {
+        return folderName(topic, exists, cs, new File[0]);
+    }
+
+    /**
+     * כמו למעלה, ועוד: exists יכול להכיל שמות מלאים של חבילות (school.ex03_trees) או נתיבים — כל חלק נחשב תפוס, וגם המספר הרץ
+     * ממשיך אחרי הגבוה שבהם (חבילות בכל תיקיות המקור של הפרויקט, גם מקוננות). ההשוואה בלי הבדל בין אותיות גדולות לקטנות.
+     * dirs — תיקיות שבהן אסור שיהיה כבר קובץ או תיקייה בשם הזה.
+     * תרגיל באותו נושא כמו תרגיל קיים מקבל את המספר הבא (ex01_stacks ← ex02_stacks), לא דורס.
+     */
+    static String folderName(String topic, Collection<String> exists, boolean cs, File... dirs) {
         String t = topic == null ? "" : topic.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_]", "_").replaceAll("_+", "_").replaceAll("^[_0-9]+|_+$", "");
         if (t.isEmpty()) t = "targil";
         if (t.length() > 30) t = t.substring(0, 30).replaceAll("_+$", "");
+        Set<String> all = new HashSet<String>();
+        if (exists != null) for (String x : exists) if (x != null) all.add(x);
+        for (File d : dirs) {
+            String[] names = d == null ? null : d.list();
+            if (names != null) all.addAll(Arrays.asList(names));
+        }
         int max = 0;
         Pattern num = Pattern.compile("(?i)ex(\\d+)_.*");
         Set<String> lower = new HashSet<String>();
-        for (String x : exists) {
-            lower.add(x.toLowerCase(java.util.Locale.ROOT));
-            Matcher m = num.matcher(x);
-            if (m.matches()) max = Math.max(max, Integer.parseInt(m.group(1)));
+        for (String x : all) {
+            List<String> parts = new ArrayList<String>(Arrays.asList(x.split("[./\\\\]")));
+            parts.add(x);
+            for (String part : parts) {
+                if (part.isEmpty()) continue;
+                lower.add(part.toLowerCase(java.util.Locale.ROOT));
+                Matcher m = num.matcher(part);
+                if (m.matches()) max = Math.max(max, Integer.parseInt(m.group(1)));
+            }
         }
         if (cs) {
             StringBuilder p = new StringBuilder();
@@ -271,7 +314,10 @@ final class AiScaffold {
         }
         for (int n = max + 1; ; n++) {
             String name = (cs ? "Ex" : "ex") + (n < 10 ? "0" : "") + n + "_" + t;
-            if (!lower.contains(name.toLowerCase(java.util.Locale.ROOT))) return name;
+            if (lower.contains(name.toLowerCase(java.util.Locale.ROOT))) continue;
+            boolean onDisk = false;
+            for (File d : dirs) onDisk |= d != null && new File(d, name).exists();
+            if (!onDisk) return name;
         }
     }
 

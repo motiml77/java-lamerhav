@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -54,12 +55,19 @@ final class ExercisePipeline {
 
     /** src — תיקיית המקור של הפרויקט; lib — dsviz.jar; java — ה-java של ה-JDK (להרצת הבדיקה; null = זה שרץ עכשיו) */
     static Result java(WorkerClient client, Map<String, Object> raw, List<String> sources, File src, File lib, String java, Progress p) {
+        return java(client, raw, sources, src, lib, java, p, Collections.<String>emptyList());
+    }
+
+    /**
+     * taken — עוד שמות שתפוסים בפרויקט (מהתוסף שקורא: חבילות בתיקיות מקור אחרות, גם מקוננות — "school.ex03_trees"),
+     * כדי שהחבילה החדשה לא תתנגש בהן. מתווספים לקבצים ולתיקיות שכבר בתיקיית המקור.
+     */
+    static Result java(WorkerClient client, Map<String, Object> raw, List<String> sources, File src, File lib, String java, Progress p, Collection<String> taken) {
         Result r = new Result();
-        Set<String> taken = new HashSet<String>();
-        String[] names = src.list();
-        if (names != null) taken.addAll(Arrays.asList(names));
+        Set<String> names = new HashSet<String>();
+        if (taken != null) names.addAll(taken);
         AiScaffold.Exercise e = AiScaffold.read(raw);
-        String pkg = AiScaffold.folderName(e.topic, taken, false);
+        String pkg = AiScaffold.folderName(e.topic, names, false, src);
         r.folderName = pkg;
         File dir = new File(src, pkg);
         List<AiScaffold.GeneratedFile> generated = write(e, pkg, sources, dir, r);
@@ -119,13 +127,21 @@ final class ExercisePipeline {
      * הפרויקט נכתב לתיקייה Exercises\Ex01_... ונרשם בפתרון (CsSolution).
      */
     static Result csharp(WorkerClient client, Map<String, Object> raw, List<String> sources, Path root, List<String> dsvizCs, Progress p) throws IOException {
+        return csharp(client, raw, sources, root, dsvizCs, p, Collections.<String>emptyList());
+    }
+
+    /**
+     * taken — עוד שמות שתפוסים (מהכלי שקורא). מתווספים לתיקיות שתחת Exercises, לשמות הפרויקטים שבקובץ ה-.sln
+     * ולמה שכבר בתיקייה עצמה — כדי שהפרויקט החדש לא יתנגש באף אחד מהם.
+     */
+    static Result csharp(WorkerClient client, Map<String, Object> raw, List<String> sources, Path root, List<String> dsvizCs, Progress p, Collection<String> taken) throws IOException {
         Result r = new Result();
-        Set<String> taken = new HashSet<String>();
+        Set<String> names = new HashSet<String>();
+        if (taken != null) names.addAll(taken);
+        names.addAll(slnProjects(root));
         File ex = CsSolution.exercisesDir(root).toFile();
-        String[] names = ex.list();
-        if (names != null) for (String n : names) taken.add(n);
         AiScaffold.Exercise e = AiScaffold.read(raw);
-        String name = AiScaffold.folderName(e.topic, taken, true);
+        String name = AiScaffold.folderName(e.topic, names, true, ex, root.toFile());
         r.folderName = name;
         List<AiScaffold.GeneratedFile> generated = writeCs(e, name, sources, root, r);
         File dir = CsSolution.exercisesDir(root).resolve(name).toFile();
@@ -152,6 +168,22 @@ final class ExercisePipeline {
             if (projectDir.isDirectory()) r.files.removeIf(f -> !f.getName().endsWith(".cs"));
         }
         return r;
+    }
+
+    private static final Pattern SLN_PROJECT = Pattern.compile("(?m)^\\s*Project\\(\"[^\"]*\"\\)\\s*=\\s*\"([^\"]+)\"");
+
+    /** שמות הפרויקטים שרשומים בקובץ ה-.sln של התיקייה (בלי .sln — רשימה ריקה) */
+    static List<String> slnProjects(Path root) {
+        List<String> out = new ArrayList<String>();
+        try {
+            Path sln = CsSolution.solution(root);
+            if (sln == null) return out;
+            Matcher m = SLN_PROJECT.matcher(new String(Files.readAllBytes(sln), StandardCharsets.UTF_8));
+            while (m.find()) out.add(m.group(1));
+        } catch (IOException | RuntimeException ignored) {
+            // בלי הפתרון — רק התיקיות
+        }
+        return out;
     }
 
     private static List<AiScaffold.GeneratedFile> writeCs(AiScaffold.Exercise e, String name, List<String> sources, Path root, Result r) throws IOException {

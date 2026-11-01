@@ -18,7 +18,8 @@ import java.util.Map;
  *
  *   online                      — יש אינטרנט? (קוד יציאה 0 / 1)
  *   submit --manifest FILE.json — כל הפרטים בקובץ JSON (UTF-8), ולא בשורת הפקודה — כדי ששמות בעברית יעברו גם ב-Windows באנגלית:
- *     {lang: java|csharp, out, store, lib?, java?, cs?: [פקודת dsviz-cs], note?, client?, items: [{path, name}]}
+ *     {lang: java|csharp, out, store, lib?, java?, cs?: [פקודת dsviz-cs], note?, client?, items: [{path, name}], taken?: [שמות]}
+ *     taken — שמות שכבר תפוסים בפרויקט (חבילות בתיקיות מקור אחרות, פרויקטים בפתרון) — התרגיל החדש מקבל שם אחר מכולם
  *     java: out = תיקיית המקור (src), הקבצים בחבילה ex01_... ;  csharp: out = תיקיית התרגילים (DataStructures-CS), פרויקט Ex01_...
  */
 public final class SubmitCli {
@@ -62,6 +63,8 @@ public final class SubmitCli {
         String note = Json.str(m.get("note"));
         List<String> cs = new ArrayList<String>();
         for (Object o : Json.arr(m.get("cs"))) cs.add(Json.str(o));
+        List<String> taken = new ArrayList<String>();
+        for (Object o : Json.arr(m.get("taken"))) if (!Json.str(o).trim().isEmpty()) taken.add(Json.str(o).trim());
         if (wc == null) {
             emit("error", "השרת של \"שליחת תרגיל\" לא מוגדר.");
             System.exit(1);
@@ -120,11 +123,11 @@ public final class SubmitCli {
                 emit("error", bad);
                 System.exit(1);
             }
-            r = ExercisePipeline.csharp(wc, raw, names, outDir.toPath(), cs, p);
+            r = ExercisePipeline.csharp(wc, raw, names, outDir.toPath(), cs, p, taken);
         } else {
             String libPath = Json.str(m.get("lib")), java = Json.str(m.get("java"));
             File lib = libPath.isEmpty() ? null : new File(libPath);
-            r = ExercisePipeline.java(wc, raw, names, outDir, lib, java.isEmpty() ? null : java, p);
+            r = ExercisePipeline.java(wc, raw, names, outDir, lib, java.isEmpty() ? null : java, p, taken);
         }
         if (!r.entries.isEmpty()) new SolutionStore(store).add(r.entries);
         Map<String, Object> done = new LinkedHashMap<String, Object>();

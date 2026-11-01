@@ -9,7 +9,6 @@ import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IMethod;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorPart;
@@ -23,7 +22,7 @@ import org.eclipse.ui.texteditor.ITextEditor;
 public class SolutionHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) {
-        Shell shell = HandlerUtil.getActiveShell(event);
+        Shell shell = Ui.shell(event);
         IEditorPart part = HandlerUtil.getActiveEditor(event);
         ITextEditor editor = part instanceof ITextEditor ? (ITextEditor) part : part == null ? null : part.getAdapter(ITextEditor.class);
         IFile file = editor == null ? null : editor.getEditorInput().getAdapter(IFile.class);
@@ -53,7 +52,7 @@ public class SolutionHandler extends AbstractHandler {
         }
         if (found == null && all.size() == 1) found = all.get(0);
         if (found == null) {
-            MessageDialog.openInformation(shell, "הצעה לפתרון",
+            Say.info(shell, "הצעה לפתרון",
                     "שימו את הסמן בתוך הפעולה של הסעיף, ובחרו שוב \"הצעה לפתרון\".\n\n(אפשר גם ללחוץ על \"הצעה לפתרון\" שמופיע מעל כל פעולה של סעיף.)");
             return null;
         }
@@ -62,7 +61,7 @@ public class SolutionHandler extends AbstractHandler {
     }
 
     private static void none(Shell shell) {
-        MessageDialog.openInformation(shell, "הצעה לפתרון",
+        Say.info(shell, "הצעה לפתרון",
                 "יש הצעה לפתרון לתרגילים שנוצרו ב\"שליחת תרגיל\": מעל הפעולה של כל סעיף מופיע \"הצעה לפתרון\" עם מנורה.\n\n"
                 + "כדאי לנסות קודם לבד — ההצעה נפתחת רק כשלוחצים עליה.");
     }

@@ -15,7 +15,7 @@ import org.eclipse.ui.handlers.HandlerUtil;
 public class NewExerciseHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) {
-        Shell shell = HandlerUtil.getActiveShell(event);
+        Shell shell = Ui.shell(event);
         IWorkbenchWindow window = HandlerUtil.getActiveWorkbenchWindow(event);
         String preset = event.getParameter("il.lamerhav.dsviz.structure");
         ExerciseDialog d = new ExerciseDialog(shell, ProjectSetup.javaProjects(), ProjectSetup.freeProjectName(),

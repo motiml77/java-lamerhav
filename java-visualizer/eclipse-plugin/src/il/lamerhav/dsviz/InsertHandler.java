@@ -5,7 +5,6 @@ import java.util.regex.Pattern;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IRegion;
@@ -23,11 +22,11 @@ public class InsertHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) {
-        Shell shell = HandlerUtil.getActiveShell(event);
+        Shell shell = Ui.shell(event);
         IEditorPart part = HandlerUtil.getActiveEditor(event);
         ITextEditor ed = part == null ? null : part.getAdapter(ITextEditor.class);
         if (ed == null || !ed.getEditorInput().getName().endsWith(".java")) {
-            MessageDialog.openInformation(shell, "הוסף מבנה נתונים",
+            Say.info(shell, "הוסף מבנה נתונים",
                     "פתחו קובץ Java ושימו את הסמן במקום שבו רוצים את המבנה (בתוך main או בתוך פעולה).");
             return null;
         }
@@ -44,7 +43,7 @@ public class InsertHandler extends AbstractHandler {
             int insertAt = blank ? line.getOffset() : line.getOffset() + line.getLength();   // כאן ייכנס הקוד — לפי זה נבדק שהשם לא מתנגש
             // שכבת הגנה: אי אפשר להכניס משתנה / פקודות מחוץ לפעולה (בגוף המחלקה או אחריה) — מזהירים ולא פותחים את החלון
             if (!NameCheck.insideFunction(doc.get(), insertAt)) {
-                MessageDialog.openWarning(shell, "הוסף מבנה נתונים — הסמן לא במקום הנכון",
+                Say.warn(shell, "הוסף מבנה נתונים — הסמן לא במקום הנכון",
                         "הסמן נמצא מחוץ לפעולה (בגוף המחלקה, או לפני / אחרי המחלקה), ושם אי אפשר לכתוב פקודות.\n\n"
                         + "לחצו בתוך הפעולה main (או בכל פעולה אחרת), בשורה שבה רוצים את המבנה — ואז לחצו שוב על \"הוסף מבנה נתונים\".");
                 return null;
@@ -76,7 +75,7 @@ public class InsertHandler extends AbstractHandler {
             ed.selectAndReveal(caret, 0);
             ClassInfoDialog.show(shell, d.chosenClass());
         } catch (BadLocationException e) {
-            MessageDialog.openError(shell, "הוסף מבנה נתונים", e.toString());
+            Say.error(shell, "הוסף מבנה נתונים", e.toString());
         }
         return null;
     }
