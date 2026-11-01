@@ -26,7 +26,7 @@ module.exports = async ctx => {
     { wait: 300 }, { shot: 's1' },
     { eval: `window.postMessage({ type: 'items', items: ${JSON.stringify([item])} }, '*')` }, { wait: 300 }, { shot: 's2' },
     { fill: ['#note', 'רק שאלה 1'] }, { shot: 's3' },
-    { eval: `window.postMessage({ type: 'busy', busy: true }, '*'); window.postMessage({ type: 'status', text: 'שולח את התרגיל… (בדרך כלל עד דקה)' }, '*')` }, { wait: 200 }, { shot: 's4' }]);
+    { eval: `window.postMessage({ type: 'build' }, '*'); window.postMessage({ type: 'progress', text: 'שולח את התרגיל… (בדרך כלל עד דקה)' }, '*')` }, { wait: 200 }, { shot: 's4' }]);
 
   // 3. המנוע האמיתי (SubmitCli) מול שרת מדומה — הקבצים, השורה של הסמן וההצעות שנשמרו
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-tut-e-'));
@@ -59,7 +59,7 @@ module.exports = async ctx => {
   const T = [['t1', { progress: true, title: 'שליחת תרגיל', text: 'שולח את התרגיל… (בדרך כלל עד דקה)' }],
              ['t2', { progress: true, title: 'שליחת תרגיל', text: 'בודק שהקוד מתקמפל…' }],
              ['t3', { progress: true, title: 'שליחת תרגיל', text: 'בודק שההצעות לפתרון נותנות את התוצאה הנכונה…' }],
-             ['t4', { text: `התרגיל נוצר בתיקייה ${done.folder}. כותבים את הפתרון במקום המסומן — ומעל כל סעיף יש 💡 הצעה לפתרון.` }]];
+             ['t4', { text: submit.doneMessage(done, submit.labelAt(code.join('\n'), done.line)).text }]];
   for (const [n, o] of T) await ctx.web(n, toast(o), null, [448, o.progress ? 86 : 78], [{ wait: 150 }, { shot: n }]);
   fs.rmSync(tmp, { recursive: true, force: true });
   return { code, cursor: done.line + 1, folder: done.folder, file: path.basename(done.focus), lenses, mainLine, expectLine, status: done.solutionStatus };

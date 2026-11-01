@@ -31,7 +31,6 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
@@ -44,6 +43,7 @@ import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import il.lamerhav.dsviz.RtlDialog;
 import il.lamerhav.dsviz.Scaffold;
 import unit4.collectionsLib.Theme;
 
@@ -118,7 +118,7 @@ public final class CsTool {
     private static void newExercise(Path root, String preset, String shot, boolean open) {
         String bad = CsProject.check(root);
         if (bad != null) {
-            JOptionPane.showMessageDialog(null, bad + "\nאפשר להריץ שוב את ההתקנה (DSViz-Setup.exe) עם חבילת C#.", "תרגיל חדש — C#", JOptionPane.ERROR_MESSAGE);
+            RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + "\nמריצים שוב את ההתקנה (DSViz-Setup.exe) עם חבילת C#.");
             return;
         }
         ExerciseForm f = new ExerciseForm(root, preset);
@@ -126,17 +126,15 @@ public final class CsTool {
         try {
             Path file = CsProject.write(root, f.options.className, f.code);
             Path sln = CsProject.solution(root);
-            JOptionPane.showMessageDialog(null,
-                    "נוצר התרגיל " + f.options.className + ".\n\n"
-                    + "ב-Visual Studio: בחלון Solution Explorer לחצו קליק ימני על " + f.options.className + " ← Set as Startup Project,\n"
-                    + "ואז בתפריט שליד כפתור ההפעלה הירוק בחרו \"הרצה ויזואלית\".\n"
-                    + "(אם Visual Studio כבר פתוח — אשרו Reload כשהוא שואל.)",
-                    "תרגיל חדש — C#", JOptionPane.INFORMATION_MESSAGE);
+            RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.OK, "התרגיל " + f.options.className + " נוצר",
+                    "ב-Solution Explorer: קליק ימני על " + f.options.className + " " + RtlDialog.ARROW + " Set as Startup Project.\n"
+                    + "מריצים: בתפריט שליד הכפתור הירוק בוחרים \"הרצה ויזואלית\".\n"
+                    + "אם Visual Studio כבר פתוח, מאשרים Reload.");
             if (open && java.awt.Desktop.isDesktopSupported()) {
                 java.awt.Desktop.getDesktop().open((sln != null ? sln : file).toFile());
             }
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "לא הצלחתי ליצור את התרגיל: " + e.getMessage(), "תרגיל חדש — C#", JOptionPane.ERROR_MESSAGE);
+            RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.ERROR, "לא הצלחתי ליצור את התרגיל", e.getMessage());
         }
     }
 
@@ -454,9 +452,8 @@ public final class CsTool {
         InsertForm f = new InsertForm(preset, text, source == null ? null : (root != null && source.startsWith(root) ? root.relativize(source).toString() : source.getFileName().toString()));
         if (!f.show(shot)) return;
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(f.code), null);
-        JOptionPane.showMessageDialog(null,
-                "הקוד הועתק.\nעברו ל-Visual Studio, לחצו במקום שבו רוצים את המבנה (בתוך Main או בתוך פעולה) ולחצו Ctrl+V.",
-                "הוסף מבנה נתונים — C#", JOptionPane.INFORMATION_MESSAGE);
+        RtlDialog.show(null, "הוסף מבנה נתונים — C#", RtlDialog.Kind.OK, "הקוד הועתק",
+                "עוברים ל-Visual Studio, לוחצים במקום של המבנה (בתוך Main או בתוך פעולה), ואז Ctrl+V.");
     }
 
     /** קובץ ה-.cs שנערך לאחרונה בתיקיית התרגילים (כנראה זה שפתוח ב-Visual Studio) — לבדיקה שהשם לא תפוס. null אם אין */
@@ -764,7 +761,7 @@ public final class CsTool {
             if (id != null && System.getProperty("os.name", "").toLowerCase().contains("win") && openAppWindow(url)) return;
             java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "לא הצלחתי לפתוח את ההדרכה: " + e.getMessage(), "הדרכה לשימוש", JOptionPane.ERROR_MESSAGE);
+            RtlDialog.show(null, "הדרכה לשימוש", RtlDialog.Kind.ERROR, "לא הצלחתי לפתוח את ההדרכה", e.getMessage());
         }
     }
 

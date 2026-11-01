@@ -12,6 +12,22 @@ const panels = [];
 let testLang = 'java';
 const lensProviders = [];
 let clipboard = null;
+// ההודעות של VS Code (בפינה): כל אחת חייבת להתחיל ב-RLM (U+200F); onMessage — "לוחץ" על כפתור (או לא)
+const shown = [];
+let onMessage = null;
+const notify = kind => async (m, ...rest) => {
+    assert(typeof m === 'string' && m.startsWith('\u200F'), kind + ' — הודעה בלי RLM בהתחלה: ' + JSON.stringify(m));
+    const o = rest.find(x => x && typeof x === 'object');
+    const buttons = rest.filter(x => typeof x === 'string');
+    const text = m.slice(1);
+    shown.push({ kind, text, buttons, modal: !!(o && o.modal) });
+    log.push(kind + ': ' + text + (o && o.detail ? '\n' + o.detail : ''));
+    return onMessage ? onMessage(text, buttons) : undefined;
+};
+const config = {};   // הגדרות: 'java.project.sourcePaths' → [...]
+const decorations = [];   // { type, ranges } — setDecorations של עורכים מדומים
+let docChange = null;
+const openedSeq = [];
 
 const vscode = {
     workspace: {
@@ -19,7 +35,8 @@ const vscode = {
         openTextDocument: async f => { const t = fs.readFileSync(f, 'utf8').split('\n');
             return { fileName: f, lineCount: t.length, lineAt: i => ({ text: t[i] }), languageId: 'java' }; },
         getWorkspaceFolder: () => vscode.workspace.workspaceFolders[0],
-        getConfiguration: () => ({ get: k => (k === 'language' ? testLang : undefined) }),
+        getConfiguration: sec => ({ get: k => (sec === 'dsviz' && k === 'language' ? testLang : config[sec + '.' + k]) }),
+        onDidChangeTextDocument: fn => { docChange = fn; return { dispose() {} }; },
         saveAll: async () => true
     },
     languages: { createDiagnosticCollection: () => ({ clear: () => diag.clear(), set: (u, l) => diag.set(u.fsPath, l), dispose() {} }),
@@ -35,10 +52,13 @@ const vscode = {
             return a(items, opts); },
         showInputBox: async opts => { const a = answers.shift(); const v = a(opts); log.push('input: ' + opts.title + ' = ' + v);
             const err = opts.validateInput && opts.validateInput(v); if (err) throw new Error('validation: ' + err); return v; },
-        showInformationMessage: async (m, o) => { log.push('info: ' + m + (o && o.detail ? '\n' + o.detail : '')); },
-        showWarningMessage: async (m, o) => { log.push('warn: ' + m + (o && o.detail ? '\n' + o.detail : '')); },
-        showErrorMessage: async (m) => { log.push('error: ' + m); },
-        showTextDocument: async doc => { opened = doc.fileName; return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document === doc ? vscode.window.activeTextEditor : { selection: null, revealRange() {} }; },
+        showInformationMessage: notify('info'),
+        showWarningMessage: notify('warn'),
+        showErrorMessage: notify('error'),
+        createTextEditorDecorationType: o => ({ options: o, dispose() {} }),
+        visibleTextEditors: [],
+        onDidChangeVisibleTextEditors: () => ({ dispose() {} }),
+        showTextDocument: async (doc, o) => { opened = doc.fileName; openedSeq.push({ file: doc.fileName, preview: o && o.preview, preserveFocus: !!(o && o.preserveFocus), line: o && o.selection ? o.selection.line : undefined }); return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document === doc ? vscode.window.activeTextEditor : { selection: null, revealRange() {} }; },
         createStatusBarItem: () => ({ show() {}, hide() {}, dispose() {} }),
         setStatusBarMessage: m => { log.push("status: " + m); return { dispose() {} }; },
         showOpenDialog: async () => [],
@@ -61,10 +81,10 @@ const vscode = {
     },
     commands: { registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; }, executeCommand: async () => {} },
     extensions: { getExtension: () => ({}) },
-    StatusBarAlignment: { Left: 1 }, TextEditorRevealType: { InCenter: 2 }, ViewColumn: { Beside: -2, Active: -1 },
+    StatusBarAlignment: { Left: 1 }, TextEditorRevealType: { InCenter: 2 }, ViewColumn: { Beside: -2, Active: -1 }, OverviewRulerLane: { Left: 1 },
     Position: class { constructor(l, c) { this.line = l; this.character = c; } },
     Selection: class { constructor(a, b) { this.a = a; this.b = b; } },
-    Range: class { constructor(a, b, c, d) { this.a = a; this.b = b; this.line = a; } },
+    Range: class { constructor(a, b, c, d) { this.a = a; this.b = b; this.line = a; this.start = { line: a, character: b }; this.end = { line: c, character: d }; } },
     Uri: { file: f => ({ fsPath: f }) }
 };
 const commands = {};
@@ -93,6 +113,45 @@ async function addDialog(command, state, steps) {
 }
 
 (async () => {
+    // --- כל ההודעות של התוסף עוברות דרך ui.js, שמוסיף RLM בהתחלה (ההודעה מוצגת מימין לשמאל): אין קריאה ישירה ל-window.show*Message
+    for (const f of fs.readdirSync(ext).filter(f => f.endsWith('.js') && f !== 'ui.js')) {
+        const t = fs.readFileSync(path.join(ext, f), 'utf8');
+        assert(!/\.show(?:Information|Warning|Error)Message\s*\(/.test(t), f + ': הודעה ישירה (בלי ui.info / ui.warn / ui.error, ובלי RLM)');
+    }
+    assert.strictEqual((fs.readFileSync(path.join(ext, 'ui.js'), 'utf8').match(/\.show(?:Information|Warning|Error)Message\(rtl\(text\)/g) || []).length, 3, 'ui.js: RLM בכל ההודעות');
+    {
+        const ui = require(path.join(ext, 'ui.js'));
+        assert.strictEqual(ui.rtl('שלום'), '\u200Fשלום');
+        assert.strictEqual(ui.rtl('\u200Fשלום'), '\u200Fשלום');
+        assert.strictEqual(ui.explain("';' expected"), 'חסר ; בסוף הפקודה');
+        assert.strictEqual(ui.explain('incompatible types: String cannot be converted to int'), 'אי התאמה בטיפוסים: אי אפשר להכניס String למשתנה מטיפוס int');
+        assert.strictEqual(ui.explain('; expected', 'CS1002'), 'חסר ; בסוף הפקודה');
+        assert.strictEqual(ui.explain('something new'), '');
+        assert.deepStrictEqual(ui.parseError('StackTargil.cs:12: ; expected   [CS1002]'), { file: 'StackTargil.cs', line: 12, message: '; expected', code: 'CS1002' });
+        assert.strictEqual(ui.inlineHtml('כתבו פעולה count(Stack<Integer> s) המחזירה.'), 'כתבו פעולה <code dir="ltr">count(Stack&lt;Integer&gt; s)</code> המחזירה.');
+        assert.strictEqual(ui.inlineHtml('עבור המחסנית [1, 2, 3]? הסבירו.'), 'עבור המחסנית <bdi dir="ltr">[1, 2, 3]</bdi>? הסבירו.');
+        assert.strictEqual(ui.inlineHtml('יש 3 סעיפים, 2 בקוד.'), 'יש 3 סעיפים, 2 בקוד.');
+        const rich = ui.richHtml('מה יודפס?\npublic static int f(int n) {\n    return n;\n}\nנמקו.');
+        assert(rich.includes('<pre dir="ltr">public static int f(int n) {\n    return n;\n}</pre>') && rich.includes('<p>נמקו.</p>'), rich);
+    }
+    // --- הפעולות של הסעיפים שעוד לא כתבו בהן (Java: "{" בסוף הכותרת; C#: "{" בשורה משלו), והשמות התפוסים ב-C#
+    {
+        const sub = require(path.join(ext, 'submit.js'));
+        const M = n => '        // ====\u202Bכאן עונים סעיף ' + n + "'\u202C====";
+        const java = ['class A {', '    static int f(Stack<Integer> s) {', M('א'), '        ', '    }', '', '    static void g() {', M('ב'), '        g();', '    }', '}'].join('\n');
+        assert.deepStrictEqual(sub.emptyAnswers(java), [{ start: 2, end: 3 }]);
+        const cs = ['class A', '{', '    static int F()', '    {', M('א'), '', '    }', '    static void G()', '    {', '        int x = 1;', M('ב'), '    }', '}'].join('\n');
+        assert.deepStrictEqual(sub.emptyAnswers(cs), [{ start: 4, end: 5 }], 'C#: הסעיף השני כבר לא ריק');
+        assert.deepStrictEqual(sub.emptyAnswers('void f() {\n        // ====\u202Bכאן כותבים את התשובה\u202C====\n    }'), [{ start: 1, end: 1 }]);
+        const cr = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-cs-taken-'));
+        fs.writeFileSync(path.join(cr, 'DataStructures-CS.sln'), 'Microsoft Visual Studio Solution File\nProject("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Exercise", "Exercise\\Exercise.csproj", "{1}"\nEndProject\n'
+            + 'Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ex01_Stacks", "Old\\Ex01_Stacks\\Ex01_Stacks.csproj", "{2}"\nEndProject\n');
+        fs.mkdirSync(path.join(cr, 'Exercises', 'Ex02_Queues'), { recursive: true });
+        assert.deepStrictEqual(sub.takenNames('csharp', [cr], { exercisesDir: r => path.join(r, 'Exercises') }), ['Ex01_Stacks', 'Ex02_Queues', 'Exercise']);
+        fs.rmSync(cr, { recursive: true, force: true });
+        assert.strictEqual(sub.mainFile([]), null);
+    }
+
     const extension = require(path.join(ext, 'extension.js'));
     const globalState = new Map();
     // --- ספריית הקורס בכל תיקייה (בלי שהתלמיד מבקש): תיקייה שהוא פתח בעצמו, עם קוד שמשתמש ב-Queue של הקורס,
@@ -210,14 +269,66 @@ async function addDialog(command, state, steps) {
     await commands['dsviz.runLines']();
     assert.deepStrictEqual(terminalOpts.shellArgs.slice(-2), ['unit4.collectionsLib.LineByLine', 'Merge']);
 
-    // --- שגיאת קומפילציה: לא מריצים, ומסמנים את השורה באדום
+    // --- שגיאת קומפילציה: לא מריצים, מסמנים את השורה באדום (ההסבר בעברית), והודעה קצרה עם "מעבר לשגיאה" / "כל השגיאות"
     terminalOpts = null;
-    fs.writeFileSync(path.join(ws, 'src', 'Broken.java'), 'public class Broken {\n    int x = ;\n}\n');
+    const broken = path.join(ws, 'src', 'Broken.java');
+    fs.writeFileSync(broken, 'public class Broken {\n    int x = ;\n}\n');
+    onMessage = (t, b) => (b.includes('כל השגיאות') ? 'כל השגיאות' : undefined);
+    const pBefore = panels.length;
     await commands['dsviz.run']();
+    await new Promise(r => setTimeout(r, 50));
+    onMessage = null;
     assert.strictEqual(terminalOpts, null, 'must not run with errors');
-    const bd = diag.get(path.join(ws, 'src', 'Broken.java'));
+    const bd = diag.get(broken);
     assert(bd && bd.length >= 1 && bd[0].range.line === 1, 'error not on line 2');
-    fs.unlinkSync(path.join(ws, 'src', 'Broken.java'));
+    assert(bd[0].message.startsWith('\u200Fביטוי לא חוקי') && bd[0].message.includes('(illegal start of expression)'), bd[0].message);
+    const em = shown[shown.length - 1];
+    assert(em.kind === 'error' && !em.modal && em.text === 'שגיאת קומפילציה אחת · ההרצה לא התחילה'
+        && JSON.stringify(em.buttons) === JSON.stringify(['מעבר לשגיאה', 'כל השגיאות']), JSON.stringify(em));
+    const ep = panels.slice(pBefore).find(x => x.id === 'dsviz.errors');
+    assert(ep && /<html lang="he" dir="rtl">/.test(ep.html) && ep.html.includes('Broken.java') && ep.html.includes('ביטוי לא חוקי')
+        && ep.html.includes('int x = ;') && ep.html.includes('<pre dir="ltr">'), 'חלון השגיאות');
+    openedSeq.length = 0;
+    await ep.handler({ type: 'open', i: 0 });
+    await new Promise(r => setTimeout(r, 50));
+    assert(openedSeq.some(o => o.file === broken && o.line === 1), 'לחיצה על "Broken.java · שורה 2": ' + JSON.stringify(openedSeq));
+    onMessage = (t, b) => (b.includes('מעבר לשגיאה') ? 'מעבר לשגיאה' : undefined);
+    openedSeq.length = 0;
+    await commands['dsviz.run']();
+    await new Promise(r => setTimeout(r, 50));
+    onMessage = null;
+    assert(openedSeq.some(o => o.file === broken && o.line === 1), '"מעבר לשגיאה": ' + JSON.stringify(openedSeq));
+    fs.unlinkSync(broken);
+
+    // --- "הרצה ויזואלית" מקובץ של סעיף בלי main: מריצים את ה-main של התרגיל (הקובץ שלידו, באותה חבילה)
+    fs.mkdirSync(path.join(ws, 'src', 'ex09_x'), { recursive: true });
+    const helper = path.join(ws, 'src', 'ex09_x', 'Node2.java');
+    fs.writeFileSync(helper, 'package ex09_x;\n\npublic class Node2 {\n    public static int twice(int x) {\n        return 2 * x;\n    }\n}\n');
+    fs.writeFileSync(path.join(ws, 'src', 'ex09_x', 'Targil9.java'), 'package ex09_x;\n\npublic class Targil9 {\n    public static void main(String[] args) {\n        System.out.println(Node2.twice(4));\n    }\n}\n');
+    terminalOpts = null;
+    const helperText = fs.readFileSync(helper, 'utf8');
+    vscode.window.activeTextEditor = { document: { fileName: helper, uri: {}, languageId: 'java', getText: () => helperText, save: async () => true } };
+    await commands['dsviz.run']();
+    assert(terminalOpts && terminalOpts.shellArgs.slice(-1)[0] === 'ex09_x.Targil9', 'ה-main של התרגיל: ' + JSON.stringify(terminalOpts && terminalOpts.shellArgs.slice(-2)));
+    assert.strictEqual(extension.siblingMain(helper), path.join(ws, 'src', 'ex09_x', 'Targil9.java'));
+    fs.rmSync(path.join(ws, 'src', 'ex09_x'), { recursive: true, force: true });
+
+    // --- "שליחת תרגיל" פותח את הקבצים: המחלקות, אחר כך הקובץ עם main (לשונית ליד הסעיף), ובסוף הסעיף — עם המיקוד
+    {
+        const od = path.join(ws, 'src', 'ex08_open');
+        fs.mkdirSync(od, { recursive: true });
+        const [A, M, B, T] = ['Node3', 'Targil8', 'Tree3', 'Task8'].map(n => path.join(od, n + '.java'));
+        fs.writeFileSync(A, 'class Node3 {}\n'); fs.writeFileSync(B, 'class Tree3 {}\n');
+        fs.writeFileSync(M, 'class Targil8 {\n    public static void main(String[] a) {}\n}\n');
+        fs.writeFileSync(T, 'class Task8 {\n    int f() {\n        \n    }\n}\n');
+        openedSeq.length = 0;
+        shown.length = 0;
+        await extension.openFiles(ws, [M, A, B, T], T, 2, M);
+        assert.deepStrictEqual(openedSeq.map(o => path.basename(o.file)), ['Node3.java', 'Tree3.java', 'Targil8.java', 'Task8.java'], JSON.stringify(openedSeq));
+        assert(openedSeq.slice(0, 3).every(o => o.preserveFocus && o.preview === false) && !openedSeq[3].preserveFocus && openedSeq[3].preview === false, JSON.stringify(openedSeq));
+        assert.strictEqual(shown.length, 0, 'בלי הודעה נוספת אחרי שליחת תרגיל');
+        fs.rmSync(od, { recursive: true, force: true });
+    }
 
     // --- הוסף מבנה נתונים: "מכונית" — נפתח חלון, ואחרי אישור נכנס הקוד ונפתח חלון "מה יש במחלקה" (Car)
     const mkEditor = (ls, line, lang, edits) => ({ selection: { active: { line } }, viewColumn: 1,
@@ -390,36 +501,61 @@ async function addDialog(command, state, steps) {
         process.env.DSVIZ_WORKER_URL = 'http://127.0.0.1:8794';
         const wsS = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-submit-ws-')), storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-store-'));
         const openedFiles = [];
+        // השמות התפוסים: תיקייה פתוחה נוספת עם חבילות ב-src ובתיקייה שב-java.project.sourcePaths
+        const other = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-other-'));
+        fs.mkdirSync(path.join(other, 'src', 'ex01_queues'), { recursive: true });
+        fs.mkdirSync(path.join(other, 'code', 'ex02_trees'), { recursive: true });
+        fs.mkdirSync(path.join(wsS, 'src', 'mywork'), { recursive: true });
+        const savedFolders = vscode.workspace.workspaceFolders;
+        vscode.workspace.workspaceFolders = [{ uri: { fsPath: wsS }, name: 'wsS' }, { uri: { fsPath: other }, name: 'other' }];
+        config['java.project.sourcePaths'] = ['code'];
+        const wsState = new Map();
+        let manifest = null;
         try {
-            const api = sub.register({ vscode, ctx: { subscriptions: [], extensionPath: ext, globalStorageUri: { fsPath: storeDir } },
+            const api = sub.register({ vscode, ctx: { subscriptions: [], extensionPath: ext, globalStorageUri: { fsPath: storeDir },
+                    workspaceState: { get: k => wsState.get(k), update: async (k, v) => wsState.set(k, v) } },
                 chooseRoot: async () => wsS, detectLanguage: () => 'java', project: require(path.join(ext, 'project.js')),
                 cs: require(path.join(ext, 'cs.js')), runner: require(path.join(ext, 'runner.js')),
-                openFiles: async (root, files, focus, line) => openedFiles.push({ files, focus, line }) });
+                openFiles: async (root, files, focus, line, main) => openedFiles.push({ files, focus, line, main }),
+                onManifest: m => { manifest = m; } });
             const before = panels.length;
             const done = api.submit();
             for (let i = 0; i < 50 && panels.length === before; i++) await new Promise(r => setTimeout(r, 100));
             const p = panels.slice(before).find(x => x.id === 'dsviz.submit');
-            assert(p && p.html.includes('שליחה ויצירת התרגיל') && p.html.includes('הדבקה (Ctrl+V)'), 'חלון שליחת תרגיל');
+            assert(p && p.html.includes('שליחה ויצירת התרגיל') && p.html.includes('הדבקה (Ctrl+V)') && /<html lang="he" dir="rtl">/.test(p.html), 'חלון שליחת תרגיל');
             const page = 'photo.jpg';   // צילום של דף (כמו Ctrl+V)
             await p.handler({ type: 'data', name: '', kind: 'image', data: fs.readFileSync(path.join(__dirname, 'ai', 'files', page)).toString('base64') });
             await p.handler({ type: 'text', text: 'שאלה 1 — מחסניות: כתבו פעולה שסופרת את הזוגיים' });
             const items = p.posted.filter(m => m.type === 'items').pop().items;
             assert.strictEqual(items.length, 2, JSON.stringify(items));
             assert(items[0].name.startsWith('תמונה מודבקת 1') || items[0].name === page, items[0].name);
+            shown.length = 0;
+            onMessage = (text, buttons) => (buttons.includes(sub.SHOW) ? sub.SHOW : undefined);   // לוחצים "הצגה"
             await p.handler({ type: 'send', note: 'רק שאלה 1', lang: 'java' });
             await done;
-            assert(p.disposed, 'החלון נסגר אחרי השליחה: ' + JSON.stringify(p.posted.filter(m => m.type === 'status')));
+            assert(p.disposed, 'החלון נסגר אחרי השליחה: ' + JSON.stringify(p.posted.filter(m => m.type === 'failed' || m.type === 'status')));
+            // תצוגת הבנייה באותו חלון: "build" ואז השלבים לפי הסדר, מהשורות progress של SubmitCli
+            const posted = p.posted.map(m => m.type);
+            assert(posted.indexOf('build') >= 0 && posted.indexOf('build') < posted.indexOf('progress'), JSON.stringify(posted));
+            const stages = p.posted.filter(m => m.type === 'progress').map(m => sub.stageFor(m.text).stage).filter(x => x != null);
+            assert.deepStrictEqual(stages, [0, 1, 2, 3, 4], 'השלבים: ' + JSON.stringify(p.posted.filter(m => m.type === 'progress')));
+            // השמות התפוסים במניפסט: התיקיות שבראש כל תיקיית קוד (src, java.project.sourcePaths, התיקייה הפתוחה עצמה)
+            assert(manifest && ['ex01_queues', 'ex02_trees', 'mywork', 'src', 'code'].every(n => manifest.taken.includes(n)), JSON.stringify(manifest && manifest.taken));
             const f = path.join(wsS, 'src', 'ex01_stacks', 'StackTargil.java');
             assert(fs.existsSync(f), 'נוצר ' + f);
-            assert(openedFiles[0] && openedFiles[0].focus === f && openedFiles[0].line > 0, JSON.stringify(openedFiles));
+            assert(openedFiles[0] && openedFiles[0].focus === f && openedFiles[0].line > 0 && openedFiles[0].main === f, JSON.stringify(openedFiles));
             const text = fs.readFileSync(f, 'utf8');
             assert(!text.includes('count++'), 'הפתרון לא נכנס לקוד של התלמיד');
-            // סעיף ג' (סיבוכיות — במילים, בלי קוד): לא בקוד, אבל בהודעה שאחרי השליחה (SubmitCli → others)
-            const other = 'ג — מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו.';
+            // סעיף ג' (סיבוכיות — במילים, בלי קוד): לא בקוד; בהודעה הקצרה רק "סעיף ג: עונים במילים", והטקסט עצמו ב"הצגה"
             assert(!text.includes('מהי סיבוכיות'), 'הסעיף במילים לא נכנס לקוד');
-            const created = log.filter(l => l.startsWith('info: התרגיל נוצר')).pop() || '';
-            assert(created.startsWith('info: התרגיל נוצר — 2 סעיפים בקוד (בתיקייה ex01_stacks)\n') && created.includes('סעיפים שעונים עליהם במילים (בלי קוד):\n' + other)
-                && created.includes('💡 הצעה לפתרון') && !created.includes('בראש הקובץ'), 'ההודעה אחרי השליחה: ' + created);
+            await new Promise(r => setTimeout(r, 50));
+            const created = shown.filter(x => x.text.includes('התרגיל נוצר')).pop();
+            assert(created && created.kind === 'info' && !created.modal && created.text === '✓ התרגיל נוצר · 2 סעיפים · הסמן בסעיף א · סעיף ג: עונים במילים'
+                && JSON.stringify(created.buttons) === JSON.stringify([sub.SHOW]), 'ההודעה אחרי השליחה: ' + JSON.stringify(created));
+            assert(!shown.some(x => x.text.includes('כותבים את הפעולה')), 'בלי הודעה נוספת');
+            const op = panels.filter(x => x.id === 'dsviz.others').pop();
+            assert(op && op.html.includes('מהי סיבוכיות זמן הריצה') && /<html lang="he" dir="rtl">/.test(op.html) && op.html.includes('סעיף ג\''), 'החלון "הצגה"');
+            onMessage = null;
             const lenses = await lensProviders[lensProviders.length - 1].provideCodeLenses({ uri: { fsPath: f }, getText: () => text });
             assert.strictEqual(lenses.length, 2, 'שני 💡 — אחד לכל סעיף');
             assert(text.split('\n')[lenses[0].range.line].includes('countEven('), 'ה-💡 מעל הכותרת של countEven');
@@ -429,27 +565,183 @@ async function addDialog(command, state, steps) {
             assert(sol && sol.html.includes('הצעה לפתרון') && sol.html.includes('נבדק: הרצנו את main') && sol.html.includes('count++'), 'חלון ההצעה');
             await sol.handler({ type: 'copy', text: null });
             assert(clipboard && clipboard.includes('countEven'), 'העתקה');
-            log.push('submit: ex01_stacks + 2 × 💡 + הצעה שנבדקה + סעיף ג (במילים) בהודעה');
-            // ההודעה עצמה (doneMessage): בלי סעיפים במילים — הודעה רגילה בפינה; בלי סעיפים בקוד — אומרים את זה; טקסט ארוך מתקצר
-            const plain = sub.doneMessage({ done: true, folder: 'ex02_queues', tasks: 3, errors: [], others: [] });
-            assert(!plain.options && plain.message === 'התרגיל נוצר בתיקייה ex02_queues. כותבים את הפתרון במקום המסומן — ומעל כל סעיף יש 💡 הצעה לפתרון.', JSON.stringify(plain));
-            const none = sub.doneMessage({ done: true, folder: 'ex03_trees', tasks: 0, errors: [], others: [{ label: 'א', text: 'הסבירו\nבמילים' }] });
-            assert(none.message === 'התרגיל נוצר (בתיקייה ex03_trees)' && none.options.modal
-                && none.options.detail === 'בתרגיל אין סעיפים שכותבים בהם קוד.\n\nסעיפים שעונים עליהם במילים (בלי קוד):\nא — הסבירו במילים', JSON.stringify(none));
-            assert.strictEqual(sub.othersText(0, []), 'בתרגיל אין סעיפים שכותבים בהם קוד.');
-            assert.strictEqual(sub.othersText(1, undefined), '');
-            const one = sub.doneMessage({ done: true, folder: 'ex04_x', tasks: 1, errors: [], others: [{ label: 'ב', text: 'נמקו' }] });
-            assert(one.message === 'התרגיל נוצר — סעיף אחד בקוד (בתיקייה ex04_x)', one.message);
-            const withErr = sub.doneMessage({ done: true, folder: 'ex05_y', tasks: 2, errors: ['A.java:3: x'], others: [{ label: 'ג', text: 'נמקו' }] });
-            assert(withErr.warn && withErr.message.endsWith('או לשלוח שוב.\n\nסעיפים שעונים עליהם במילים (בלי קוד):\nג — נמקו'), withErr.message);
-            const long = sub.otherLine('ד', Array.from({ length: 60 }, (x, i) => 'מילה' + i).join(' '));
-            assert(long.startsWith('ד — ') && long.endsWith('…') && long.length - 4 <= 201 && !long.includes(' …'), long);
+            // ההדגשה של הסעיפים שעוד לא ענו עליהם: הקובץ נזכר (workspaceState), שני גופים מודגשים; כותבים קוד — נשאר אחד
+            assert((wsState.get('dsviz.submittedFiles') || []).some(x => x.endsWith('ex01_stacks/stacktargil.java')), JSON.stringify([...wsState]));
+            let cur = text;
+            const set = [];
+            const doc = { uri: { fsPath: f }, getText: () => cur };
+            const ed = { document: doc, setDecorations: (t, r) => set.push(r) };
+            vscode.window.visibleTextEditors = [ed];
+            api.decorate(ed);
+            const r0 = set.pop();
+            const lines = text.split('\n');
+            assert(r0 && r0.length === 2 && lines[r0[0].start.line].includes('כאן עונים סעיף א') && lines[r0[1].start.line].includes('כאן עונים סעיף ב'), JSON.stringify(r0));
+            cur = text.replace(/(כאן עונים סעיף א[^\n]*\n)/, '$1        int count = 0;\n');
+            docChange({ document: doc });
+            await new Promise(r => setTimeout(r, 400));
+            const r1 = set.pop();
+            assert(r1 && r1.length === 1 && cur.split('\n')[r1[0].start.line].includes('כאן עונים סעיף ב'), 'אחרי שכותבים בסעיף א: ' + JSON.stringify(r1));
+            const notMine = [];
+            api.decorate({ document: { uri: { fsPath: path.join(wsS, 'Other.java') }, getText: () => text }, setDecorations: (t, r) => notMine.push(r) });
+            assert.strictEqual(notMine.length, 0, 'רק בקבצים שנוצרו ב"שליחת תרגיל"');
+            vscode.window.visibleTextEditors = [];
+            log.push('submit: ex01_stacks + שלבים 0-4 + 2 × 💡 + הודעה קצרה + "הצגה" לסעיף ג + הדגשה של הסעיפים הריקים');
+
+            // ההודעה עצמה (doneMessage) והתוויות של הסעיפים במילים — יחיד / רבים
+            assert.strictEqual(sub.wordLabels([]), '');
+            assert.strictEqual(sub.wordLabels([{ label: 'ד', text: 'נמקו' }]), 'סעיף ד: עונים במילים');
+            assert.strictEqual(sub.wordLabels([{ label: 'ג', text: 'א' }, { label: "ד'", text: 'ב' }]), 'סעיפים ג, ד: עונים במילים');
+            assert.strictEqual(sub.wordLabels([{ label: '', text: 'א' }, { label: 'ב', text: 'ב' }]), '2 סעיפים: עונים במילים');
+            assert.strictEqual(sub.wordLabels([{ label: 'ה', text: '  ' }]), '', 'סעיף בלי טקסט');
+            const plain = sub.doneMessage({ done: true, folder: 'ex02_queues', tasks: 3, errors: [], others: [] }, 'א');
+            assert(!plain.warn && plain.text === '✓ התרגיל נוצר · 3 סעיפים · הסמן בסעיף א' && plain.buttons.length === 0, JSON.stringify(plain));
+            const one = sub.doneMessage({ tasks: 1, errors: [], others: [{ label: 'ב', text: 'נמקו' }] }, '');
+            assert(one.text === '✓ התרגיל נוצר · סעיף אחד · הסמן במקום התשובה · סעיף ב: עונים במילים' && one.buttons[0] === sub.SHOW, JSON.stringify(one));
+            const none = sub.doneMessage({ tasks: 0, errors: [], others: [{ label: 'א', text: 'הסבירו\nבמילים' }] });
+            assert(none.text === '✓ התרגיל נוצר · אין בו סעיפים בקוד · סעיף א: עונים במילים', JSON.stringify(none));
+            const withErr = sub.doneMessage({ tasks: 2, errors: ['A.java:3: x', 'A.java:5: y'], others: [{ label: 'ג', text: 'נמקו' }] }, 'א');
+            assert(withErr.warn && withErr.text === 'התרגיל נוצר · יש 2 שגיאות קומפילציה · סעיף ג: עונים במילים'
+                && JSON.stringify(withErr.buttons) === JSON.stringify([sub.JUMP, sub.SHOW]), JSON.stringify(withErr));
+            assert.strictEqual(sub.doneMessage({ tasks: 1, errors: ['A.java:3: x'] }).text, 'התרגיל נוצר · יש שגיאת קומפילציה אחת');
+            // "מעבר לשגיאה": נפתח הקובץ בשורה של השגיאה הראשונה
+            const errFile = path.join(wsS, 'src', 'ex01_stacks', 'StackTargil.java');
+            openedSeq.length = 0;
+            onMessage = (t, b) => (b.includes(sub.JUMP) ? sub.JUMP : undefined);
+            await api.showDone({ focus: errFile, line: 8, tasks: 2, files: [errFile], errors: ["StackTargil.java:12: ';' expected"], others: [] });
+            onMessage = null;
+            assert(openedSeq.some(o => o.file === errFile && o.line === 11), JSON.stringify(openedSeq));
+            assert(shown[shown.length - 1].kind === 'warn' && shown[shown.length - 1].text === 'התרגיל נוצר · יש שגיאת קומפילציה אחת', JSON.stringify(shown[shown.length - 1]));
+            // השלבים מהשורות של SubmitCli; שורות "מבקש תיקון" / "בודק שוב" — שורה אפורה מתחת לשלב
+            assert.deepStrictEqual(['מכין את הקבצים…', 'שולח את התרגיל… (בדרך כלל עד דקה)', 'בונה את התרגיל…', 'בודק שהקוד מתקמפל…',
+                'בודק שההצעות לפתרון נותנות את התוצאה הנכונה…'].map(t => sub.stageFor(t).stage), [0, 1, 2, 3, 4]);
+            assert.deepStrictEqual(sub.stageFor('יש שגיאות קומפילציה — מבקש תיקון…'), { note: 'יש שגיאות קומפילציה · מבקש תיקון…' });
+            assert.deepStrictEqual(sub.stageFor('בודק שוב…'), { note: 'בודק שוב…' });
+            assert.strictEqual(sub.STAGES.length, 5);
+            const se = sub.shortError('השרת לא ענה — נסו שוב בעוד דקה.\nפרטים: 504 Gateway Timeout\nat x.y');
+            assert(se === 'השרת לא ענה, נסו שוב בעוד דקה.', se);
+            assert(sub.shortError('x '.repeat(200)).length <= 151);
+            assert.strictEqual(sub.labelAt(text, openedFiles[0].line), 'א');
         } finally {
+            vscode.workspace.workspaceFolders = savedFolders;
+            delete config['java.project.sourcePaths'];
             mock.kill();
             delete process.env.DSVIZ_WORKER_URL;
         }
     }
 
+    // ===================== החלונות בדפדפן אמיתי (Chromium): תצוגת הבנייה, "הצגה", "כל השגיאות" — בערכה בהירה וכהה =====================
+    await webviewShots();
+
     console.log(log.join('\n'));
     console.log('\nALL VS CODE TESTS PASSED\nworkspace: ' + ws);
 })().catch(e => { console.error(log.join('\n')); console.error(e); process.exit(1); });
+
+/**
+ * החלונות (Webview) בדפדפן אמיתי, עם המשתנים של VS Code (Light Modern / Dark Modern): הדף של התוסף כמו שהוא,
+ * ו-acquireVsCodeApi מדומה. שומר צילומים ב-DSVIZ_SHOTS (או build/test/vscode). בלי playwright — מדלגים.
+ */
+async function webviewShots() {
+    let pw = null;
+    for (const p of ['playwright', '/opt/node-tools/node_modules/playwright']) { try { pw = require(p); break; } catch (e) { /* הבא */ } }
+    if (!pw) { log.push('playwright לא מותקן — מדלגים על הצילומים של החלונות'); return; }
+    const sub = require(path.join(ext, 'submit.js')), ui = require(path.join(ext, 'ui.js'));
+    const out = process.env.DSVIZ_SHOTS || path.join(__dirname, '..', '..', 'build', 'test', 'vscode');
+    fs.mkdirSync(out, { recursive: true });
+    // הגופנים של הסרטונים (Heebo, JetBrains Mono — tutorials/fonts, או DSVIZ_FONTS_DIR), ואם אין — גופני המערכת
+    const fontsDir = process.env.DSVIZ_FONTS_DIR || path.join(__dirname, '..', '..', 'tutorials', 'fonts', 'node_modules', '@expo-google-fonts');
+    const font = (pkg, file) => { const p = path.join(fontsDir, pkg, file); return fs.existsSync(p) ? fs.readFileSync(p).toString('base64') : null; };
+    const face = (fam, data, w) => (data ? `@font-face { font-family: '${fam}'; font-weight: ${w}; src: url(data:font/ttf;base64,${data}); }` : '');
+    const FONTS = face('Heebo', font('heebo', '400Regular/Heebo_400Regular.ttf'), 400) + face('Heebo', font('heebo', '600SemiBold/Heebo_600SemiBold.ttf'), '600 700')
+        + face('JBMono', font('jetbrains-mono', '400Regular/JetBrainsMono_400Regular.ttf'), 400);
+    const THEMES = {
+        light: `--vscode-font-family: 'Heebo', 'DejaVu Sans', sans-serif; --vscode-editor-font-family: 'JBMono', 'DejaVu Sans Mono', monospace;
+  --vscode-foreground: #3b3b3b; --vscode-editor-background: #ffffff; --vscode-descriptionForeground: #717171; --vscode-widget-border: #e5e5e5;
+  --vscode-input-background: #ffffff; --vscode-input-foreground: #3b3b3b; --vscode-input-border: #cecece; --vscode-dropdown-background: #ffffff;
+  --vscode-dropdown-foreground: #3b3b3b; --vscode-dropdown-border: #cecece; --vscode-textCodeBlock-background: #f8f8f8;`,
+        dark: `--vscode-font-family: 'Heebo', 'DejaVu Sans', sans-serif; --vscode-editor-font-family: 'JBMono', 'DejaVu Sans Mono', monospace;
+  --vscode-foreground: #cccccc; --vscode-editor-background: #1f1f1f; --vscode-descriptionForeground: #9d9d9d; --vscode-widget-border: #313131;
+  --vscode-input-background: #313131; --vscode-input-foreground: #cccccc; --vscode-input-border: #3c3c3c; --vscode-dropdown-background: #313131;
+  --vscode-dropdown-foreground: #cccccc; --vscode-dropdown-border: #3c3c3c; --vscode-textCodeBlock-background: #2b2b2b;`
+    };
+    const browser = await pw.chromium.launch({ args: ['--no-sandbox'] });
+    const hostLog = [];
+    const open = async (html, theme, size) => {
+        const page = await browser.newPage({ viewport: { width: size[0], height: size[1] } });
+        await page.exposeFunction('hostMsg', m => { hostLog.push(m); });
+        await page.addInitScript(() => { window.acquireVsCodeApi = () => ({ postMessage: m => window.hostMsg(m), setState() {}, getState() { return null; } }); });
+        const body = html.replace("default-src 'none';", "default-src 'none'; font-src data:;")
+            .replace('</head>', `<style>${FONTS} :root { ${THEMES[theme]} }</style></head>`).replace('<body>', `<body class="vscode-${theme}">`);
+        await page.route('http://dsviz.test/page', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body }));
+        await page.goto('http://dsviz.test/page');
+        assert.strictEqual(await page.evaluate(() => document.documentElement.dir + '/' + getComputedStyle(document.body).direction), 'rtl/rtl', 'החלון מימין לשמאל');
+        return page;
+    };
+    const send = (page, m) => page.evaluate(x => window.postMessage(x, '*'), m);
+    const img = f => { const p = path.join(__dirname, '..', '..', 'site', 'assets', 'img', f); return fs.existsSync(p) ? 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64') : null; };
+    const items = [{ id: 1, name: 'תמונה מודבקת 1.png', kind: 'image', size: 182000, thumb: img('submit-page-a.webp') },
+        { id: 2, name: 'תמונה מודבקת 2.png', kind: 'image', size: 96000, thumb: img('submit-page-b.webp') }, { id: 3, name: 'בגרות 2025 שאלה 3.pdf', kind: 'pdf', size: 412000 }];
+    const others = [{ label: 'ד', text: 'מהי סיבוכיות זמן הריצה של הפעולה countEven(s) שכתבתם בסעיף א? נמקו.' },
+        { label: 'ה', text: 'נתונה הפעולה:\npublic static int what(Stack<Integer> s) {\n    if (s.isEmpty()) return 0;\n    int x = s.pop();\n    int r = x + what(s);\n    s.push(x);\n    return r;\n}\nמה מחזירה הפעולה what עבור המחסנית [1, 2, 3]? הסבירו במילים.' }];
+    const errors = [{ file: 'StackTargil.java', line: 14, message: "';' expected", source: '        int count = 0' },
+        { file: 'StackTargil.java', line: 21, message: 'cannot find symbol', source: '        while (!s.isEmty()) {' },
+        { file: 'Node.java', line: 7, message: 'incompatible types: String cannot be converted to int', source: '        int v = "5";' }];
+    try {
+        for (const theme of ['light', 'dark']) {
+            // תצוגת הבנייה באמצע: שלושה שלבים הסתיימו, "בודק שהקוד מתקמפל" עכשיו (עם שניות ושורת תיקון), האחרון עוד לא התחיל
+            const p = await open(sub.submitHtml({ lang: 'java', where: 'DataStructures' }), theme, [760, 560]);
+            await send(p, { type: 'items', items });
+            if (theme === 'light') await p.screenshot({ path: path.join(out, 'submit-form-light.png') });
+            await send(p, { type: 'build' });
+            for (const t of ['מכין את הקבצים…', 'שולח את התרגיל… (בדרך כלל עד דקה)', 'בונה את התרגיל…', 'בודק שהקוד מתקמפל…', 'יש שגיאות קומפילציה — מבקש תיקון…'])
+                await send(p, { type: 'progress', text: t });
+            await p.waitForTimeout(2300);
+            const st = await p.evaluate(() => [...document.querySelectorAll('#stages li')].map(li => [li.className, li.querySelector('.t').textContent, li.querySelector('.sec').textContent, li.querySelector('.note').textContent]));
+            assert.deepStrictEqual(st.map(x => x[0]), ['done', 'done', 'done', 'now', ''], JSON.stringify(st));
+            assert.deepStrictEqual(st.map(x => x[1]), sub.STAGES);
+            assert(/^[1-9]\d* שנ'$/.test(st[3][2]) && st[3][3] === 'יש שגיאות קומפילציה · מבקש תיקון…' && !st[2][2] && !st[4][2], JSON.stringify(st));
+            const vis = await p.evaluate(() => ({ form: document.getElementById('form').hidden, build: document.getElementById('build').hidden, top: document.getElementById('topline').hidden,
+                bar: document.getElementById('bar').style.width, thumbs: document.querySelectorAll('#thumbs .item').length,
+                buttons: [...document.querySelectorAll('#build button')].filter(b => b.offsetParent).map(b => b.textContent) }));
+            assert.deepStrictEqual(vis, { form: true, build: false, top: false, bar: '70%', thumbs: 3, buttons: ['ביטול'] }, JSON.stringify(vis));
+            await p.screenshot({ path: path.join(out, `build-${theme}.png`) });
+            if (theme === 'light') {
+                // שגיאה: שורה אדומה קצרה ו"נסו שוב" — אותם קבצים
+                await send(p, { type: 'failed', text: 'השרת לא ענה. נסו שוב בעוד דקה.' });
+                await p.waitForTimeout(150);
+                const f = await p.evaluate(() => ({ bad: document.querySelector('#stages li.bad .t').textContent, text: document.getElementById('ftext').textContent,
+                    shown: !document.getElementById('fail').hidden, color: getComputedStyle(document.getElementById('ftext')).color }));
+                assert(f.shown && f.bad === 'בודק שהקוד מתקמפל' && f.text === 'השרת לא ענה. נסו שוב בעוד דקה.' && f.color === 'rgb(196, 48, 43)', JSON.stringify(f));
+                await p.screenshot({ path: path.join(out, 'build-failed-light.png') });
+                hostLog.length = 0;
+                await p.click('#retry');
+                await p.waitForTimeout(100);
+                assert(hostLog.some(m => m.type === 'send' && m.lang === 'java'), 'נסו שוב → send: ' + JSON.stringify(hostLog));
+                await send(p, { type: 'form' });
+                await p.waitForTimeout(100);
+                assert.strictEqual(await p.evaluate(() => document.querySelectorAll('#items .item').length), 3, 'הקבצים נשארו');
+            }
+            await p.close();
+            // "הצגה": הסעיפים במילים, והקוד שבתוכם משמאל לימין
+            const o = await open(ui.othersHtml(others), theme, [620, 600]);
+            const od = await o.evaluate(() => ({ pre: [...document.querySelectorAll('pre')].map(x => x.dir + ':' + getComputedStyle(x).direction),
+                code: [...document.querySelectorAll('p code')].map(x => x.textContent), tags: [...document.querySelectorAll('.tag')].map(x => x.textContent) }));
+            assert.deepStrictEqual(od, { pre: ['ltr:ltr'], code: ['countEven(s)', 'what'], tags: ["סעיף ד'", "סעיף ה'"] }, JSON.stringify(od));
+            await o.screenshot({ path: path.join(out, `others-${theme}.png`), fullPage: true });
+            await o.close();
+            // "כל השגיאות": כרטיס לכל שגיאה, "קובץ · שורה", ההסבר בעברית והשורה מהקוד
+            const e = await open(ui.errorsHtml(errors), theme, [620, 560]);
+            const ed = await e.evaluate(() => [...document.querySelectorAll('.err')].map(c => c.querySelector('.where').textContent + ' | ' + c.querySelector('.he').textContent));
+            assert.deepStrictEqual(ed, ['StackTargil.java · שורה 14 | חסר ; בסוף הפקודה', 'StackTargil.java · שורה 21 | השם לא מוכר. בדקו את האיות (אותיות גדולות וקטנות), שהמשתנה הוגדר, ושיש import',
+                'Node.java · שורה 7 | אי התאמה בטיפוסים: אי אפשר להכניס String למשתנה מטיפוס int'], JSON.stringify(ed));
+            hostLog.length = 0;
+            await e.click('.err:nth-of-type(2) .where');
+            await e.waitForTimeout(100);
+            assert(hostLog.some(m => m.type === 'open' && m.i === 1), JSON.stringify(hostLog));
+            await e.screenshot({ path: path.join(out, `errors-${theme}.png`), fullPage: true });
+            await e.close();
+        }
+        log.push('Chromium: תצוגת הבנייה (שלבים, שניות, שגיאה ונסו שוב), "הצגה" ו"כל השגיאות" — RTL, בהיר וכהה → ' + out);
+    } finally {
+        await browser.close();
+    }
+}
