@@ -72,6 +72,8 @@ async function docx() {
   const page = await ctx.newPage();
   await page.goto(base + '/index.html');
   await page.waitForFunction(() => !document.querySelector('[data-downloads]').hidden, null, { timeout: 5000 });
+  // המונה עולה עד המספר האמיתי כשהוא על המסך — מחכים שיגיע אליו
+  await page.waitForFunction(() => /1,238/.test(document.querySelector('[data-downloads]').textContent), null, { timeout: 3000 }).catch(() => {});
   const count = await page.textContent('[data-downloads]');
   check(/1,238/.test(count) && /הורדות/.test(count), 'מונה: ' + count);
   // ההורדה ישירות מ-GitHub (עובדת גם כשהשרת לא זמין), והמונה מקבל "נספר" ברקע
