@@ -21,7 +21,6 @@ import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IStartup;
 import org.eclipse.ui.IWorkbenchWindow;
@@ -39,6 +38,7 @@ public class AutoSetup implements IStartup {
 
     @Override
     public void earlyStartup() {
+        AnswerHighlight.start();   // "כאן עונים": הגוף של פעולה שעוד לא נכתבה בה תשובה — מסומן בצהוב בעורך
         WorkspaceJob job = new WorkspaceJob("מבני נתונים — הכנת סביבת העבודה") {
             @Override
             public IStatus runInWorkspace(IProgressMonitor monitor) {
@@ -230,7 +230,7 @@ public class AutoSetup implements IStartup {
             try {
                 if (main != null && main.exists()) Ui.openAt(w.getActivePage(), main, 0);
             } catch (Exception ignored) {}
-            MessageDialog.openInformation(w.getShell(), "מבני נתונים — הכול מוכן",
+            Say.info(w.getShell(), "מבני נתונים — הכול מוכן",
                     "ברוכים הבאים! סביבת העבודה הוכנה אוטומטית:\n"
                     + "• פרויקט " + main.getProject().getName() + " עם תרגיל לדוגמה (Main.java) ודוגמאות פתורות.\n\n"
                     + "בתפריט העליון \"מבני נתונים\" ובסרגל הכלים:\n"

@@ -1,0 +1,72 @@
+{
+  "_scenario": "nowords",
+  "title": "כפתורים — גודל וצבע",
+  "summary": "מחלקה Button ושלושה סעיפים בקוד, וסעיף אחד שעונים עליו במילים.",
+  "mainClass": "Program",
+  "topic": "buttons",
+  "imports": [],
+  "classes": [
+    {
+      "name": "Button",
+      "code": "public class Button {\n    private int size;\n    private int width;\n    private String color;\n\n    public Button(int size, int width, String color) {\n        this.size = size;\n        this.width = width;\n        this.color = color;\n    }\n\n    public int getSize() { return size; }\n    public int getWidth() { return width; }\n    public String getColor() { return color; }\n}"
+    }
+  ],
+  "tasks": [
+    {
+      "label": "א",
+      "kind": "method",
+      "className": "Button",
+      "isStatic": false,
+      "returnType": "boolean",
+      "methodName": "isSameSize",
+      "parameters": [
+        {
+          "type": "Button",
+          "name": "other"
+        }
+      ],
+      "instructions": "כתבו פעולה שמחזירה true אם לשני הכפתורים אותו גודל ואותו רוחב.",
+      "solution": "public boolean isSameSize(Button other) {\n    return this.size == other.size && this.width == other.width;\n}"
+    },
+    {
+      "label": "ב",
+      "kind": "method",
+      "className": "Button",
+      "isStatic": false,
+      "returnType": "boolean",
+      "methodName": "isSameColor",
+      "parameters": [
+        {
+          "type": "Button",
+          "name": "other"
+        }
+      ],
+      "instructions": "כתבו פעולה שמחזירה true אם לשני הכפתורים אותו צבע.",
+      "solution": "public boolean isSameColor(Button other) {\n    return this.color.equals(other.color);\n}"
+    },
+    {
+      "label": "ג",
+      "kind": "method",
+      "className": "Program",
+      "isStatic": true,
+      "returnType": "int",
+      "methodName": "countSame",
+      "parameters": [
+        {
+          "type": "Button[]",
+          "name": "arr"
+        },
+        {
+          "type": "Button",
+          "name": "b"
+        }
+      ],
+      "instructions": "כתבו פעולה שמחזירה כמה כפתורים במערך באותו גודל כמו b.",
+      "solution": "public static int countSame(Button[] arr, Button b) {\n    int count = 0;\n    for (int i = 0; i < arr.length; i++) {\n        if (arr[i].isSameSize(b)) {\n            count++;\n        }\n    }\n    return count;\n}"
+    }
+  ],
+  "givenCode": [],
+  "otherQuestions": [],
+  "mainCode": "Button a1 = new Button(1, 12, \"red\");\nButton a2 = new Button(1, 12, \"blue\");\nButton a3 = new Button(2, 10, \"red\");\nSystem.out.println(a1.isSameSize(a2));\nSystem.out.println(a1.isSameColor(a3));\nButton[] arr = { a1, a2, a3 };\nSystem.out.println(countSame(arr, a1));",
+  "expectedOutput": "true\ntrue\n2"
+}

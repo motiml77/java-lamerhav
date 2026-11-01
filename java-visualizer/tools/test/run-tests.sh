@@ -422,6 +422,9 @@ java -Dstdout.encoding=UTF-8 -Dclean=../../src/examples:../../src/Main.java -Dme
     -cp "$W/mentor/cls:$(ls "$DEPS"/*.jar | tr '\n' ':')" il.lamerhav.dsviz.MentorTest "$JAR" mentor-cases.txt
 echo "== 10א. חלון \"הסברים בעברית\": עברית עם קוד מוצגת נכון מימין לשמאל (s.pop() בסוף משפט, arr[i], Stack<Integer>, !=, מספרים, רשימות)"
 java -Dstdout.encoding=UTF-8 -cp "$W/mentor/cls" il.lamerhav.dsviz.RtlTextTest
+echo "== 10ב. Eclipse: כל חלונות ההודעה דרך Say (מימין לשמאל, במראה החדש) — בלי MessageDialog / ErrorDialog / MessageBox / חלונות בחירה של JFace ישירות"
+BAD=$(grep -rnE "MessageDialog|ErrorDialog|MessageBox|ElementListSelectionDialog|ListSelectionDialog|ProgressMonitorDialog|InputDialog" ../../eclipse-plugin/src --include='*.java' | grep -v "/Say.java:" || true)
+if [ -z "$BAD" ]; then echo "  ok  אין חלון הודעה ישיר (רק Say)"; else echo "  FAIL חלון הודעה ישיר — צריך Say:"; echo "$BAD"; exit 1; fi
 
 echo "== 5ח. רשימה מקושרת: לכל מצביע חץ וצבע משלו (כמה מצביעים לאותה חוליה), וחיבור חוליה חדשה לרשימה קיימת (באמצע/בסוף) — בלי שכפול ובלי 'אבדה' שגויה"
 LN="$W/lists"

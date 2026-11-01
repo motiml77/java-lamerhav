@@ -10,17 +10,15 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.ui.dialogs.ElementListSelectionDialog;
 import org.eclipse.ui.handlers.HandlerUtil;
 
 /** "דוגמאות פתורות": מעתיק את הדוגמאות לפרויקט ופותח את הדוגמה שבוחרים */
 public class ExamplesHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) {
-        Shell shell = HandlerUtil.getActiveShell(event);
+        Shell shell = Ui.shell(event);
         try {
             IJavaProject jp = chooseProject(shell, Ui.currentProject(event));
             if (jp == null) return null;
@@ -45,13 +43,9 @@ public class ExamplesHandler extends AbstractHandler {
         for (IJavaProject jp : projects) names.add(jp.getProject().getName());
         String create = "פרויקט חדש: " + ProjectSetup.freeProjectName();
         names.add(create);
-        ElementListSelectionDialog d = new ElementListSelectionDialog(shell, new LabelProvider());
-        d.setTitle("דוגמאות פתורות");
-        d.setMessage("לאיזה פרויקט להעתיק את הדוגמאות?");
-        d.setElements(names.toArray());
-        d.setMultipleSelection(false);
-        if (d.open() != Window.OK || d.getFirstResult() == null) return null;
-        if (create.equals(d.getFirstResult())) return ProjectSetup.createProject(ProjectSetup.freeProjectName());
-        return projects.get(names.indexOf(d.getFirstResult()));
+        int i = Say.choose(shell, "דוגמאות פתורות", "לאיזה פרויקט להעתיק את הדוגמאות?", names);
+        if (i < 0) return null;
+        if (create.equals(names.get(i))) return ProjectSetup.createProject(ProjectSetup.freeProjectName());
+        return projects.get(i);
     }
 }

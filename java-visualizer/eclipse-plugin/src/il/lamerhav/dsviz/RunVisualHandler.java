@@ -23,7 +23,6 @@ import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.launching.IJavaLaunchConfigurationConstants;
 import org.eclipse.jdt.launching.JavaRuntime;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.ide.IDE;
@@ -38,10 +37,10 @@ public class RunVisualHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) {
-        Shell shell = HandlerUtil.getActiveShell(event);
+        Shell shell = Ui.shell(event);
         IFile file = Ui.currentFile(event);
         if (file == null || !"java".equals(file.getFileExtension())) {
-            MessageDialog.openInformation(shell, "הרצה ויזואלית", "פתחו קובץ Java (תרגיל) ואז לחצו \"הרצה ויזואלית\".");
+            Say.info(shell, "הרצה ויזואלית", "פתחו קובץ Java (תרגיל) ואז לחצו \"הרצה ויזואלית\".");
             return null;
         }
         IDE.saveAllEditors(new IResource[] { file.getProject() }, false);
@@ -61,10 +60,9 @@ public class RunVisualHandler extends AbstractHandler {
             // ספרייה אחרת של unit4 (למשל ה-jar המקורי של הקורס) נשארת; בזמן ההרצה הספרייה שלנו לפניה — היא שמציירת את המבנים.
             LibraryEverywhere.ensure(JavaCore.create(file.getProject()));
             // קודם מקמפלים ובודקים שגיאות — עם שגיאות לא מריצים (הרצה ויזואלית של קוד שלא מתקמפל נותנת תוצאות שגויות)
-            List<String> errors = new ArrayList<String>();
-            IMarker first = compileErrors(file, errors);
+            List<Problem> errors = problems(file);
             if (!errors.isEmpty()) {
-                warn(shell, event, file, first, errors);
+                warn(shell, HandlerUtil.getActiveWorkbenchWindow(event).getActivePage(), errors);
                 return null;
             }
             DebugUITools.launch(config(JavaCore.create(file.getProject()), main), ILaunchManager.RUN_MODE);
@@ -74,21 +72,49 @@ public class RunVisualHandler extends AbstractHandler {
         return null;
     }
 
+    /** שגיאה אחת שחוסמת את ההרצה: איפה, משפט אחד בעברית, ושורת הקוד */
+    static final class Problem {
+        final IMarker marker;
+        final IFile file;
+        final int line;
+        final String sentence, code;
+
+        Problem(IMarker marker, IFile file, int line, String sentence, String code) {
+            this.marker = marker;
+            this.file = file;
+            this.line = line;
+            this.sentence = sentence;
+            this.code = code;
+        }
+
+        /** "Button.java · שורה 42" */
+        String where() {
+            return file.getName() + " · שורה " + line;
+        }
+    }
+
     /**
-     * בנייה סינכרונית של הפרויקט (גם אם הבנייה האוטומטית כבויה) ואיסוף כל השגיאות בו.
-     * ההסברים בעברית (סימון המורה בעברית) מועדפים; שגיאה של Eclipse בשורה שכבר יש בה הסבר בעברית לא חוזרת.
+     * בנייה סינכרונית של הפרויקט (גם אם הבנייה האוטומטית כבויה) ואיסוף כל השגיאות בו (כטקסט: "Targil.java · שורה 6\nההסבר").
      * מחזיר את הסימון הראשון (לפתיחה בעורך).
      */
     public static IMarker compileErrors(IFile file, List<String> out) throws CoreException {
+        List<Problem> ps = problems(file);
+        for (Problem p : ps) out.add(p.where() + "\n" + p.sentence);
+        return ps.isEmpty() ? null : ps.get(0).marker;
+    }
+
+    private static final java.util.regex.Pattern OTHER_LINE = java.util.regex.Pattern.compile("\\s*\\(הסימון באנגלית — בשורה (\\d+)\\)");
+
+    /**
+     * בנייה סינכרונית של הפרויקט ואיסוף השגיאות שחוסמות את ההרצה: בקובץ הזה, ובקבצים שהוא משתמש בהם (לפי שם המחלקה).
+     * ההסברים בעברית (סימון המורה בעברית) מועדפים; שגיאה של Eclipse בשורה שכבר יש לה הסבר בעברית לא חוזרת — גם כשההסבר
+     * מסומן בשורה אחרת ("הסימון באנגלית — בשורה 42"). שגיאה של Eclipse בלי הסבר — מתורגמת (problems_he.properties).
+     */
+    static List<Problem> problems(IFile file) throws CoreException {
         file.getProject().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, null);
         List<IMarker> errs = new ArrayList<IMarker>();
         // בפרויקט יש הרבה תרגילים — שגיאה בתרגיל אחר לא צריכה לחסום. חוסמות: שגיאות בקובץ הזה, ובקבצים שהוא משתמש בהם (לפי שם המחלקה)
-        String source = "";
-        try {
-            source = new String(ProjectSetup.readAll(file.getContents()), java.nio.charset.StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            // בלי טקסט — רק השגיאות של הקובץ עצמו
-        }
+        String source = text(file);
         for (IMarker m : file.getProject().findMarkers(IMarker.PROBLEM, true, IResource.DEPTH_INFINITE)) {
             if (m.getAttribute(IMarker.SEVERITY, 0) != IMarker.SEVERITY_ERROR) continue;
             IResource r = m.getResource();
@@ -100,36 +126,121 @@ public class RunVisualHandler extends AbstractHandler {
         java.util.Collections.sort(errs, (a, b) -> {
             boolean fa = a.getResource().equals(file), fb = b.getResource().equals(file);
             if (fa != fb) return fa ? -1 : 1;
-            return a.getAttribute(IMarker.LINE_NUMBER, 0) - b.getAttribute(IMarker.LINE_NUMBER, 0);
+            int c = a.getResource().getName().compareTo(b.getResource().getName());
+            return c != 0 ? c : a.getAttribute(IMarker.LINE_NUMBER, 0) - b.getAttribute(IMarker.LINE_NUMBER, 0);
         });
         java.util.Set<String> hebrew = new java.util.HashSet<String>();
-        for (IMarker m : errs) if (MentorProblem.MARKER.equals(m.getType())) hebrew.add(m.getResource().getFullPath() + ":" + m.getAttribute(IMarker.LINE_NUMBER, 0));
-        IMarker first = null;
+        for (IMarker m : errs) {
+            if (!MentorProblem.MARKER.equals(m.getType())) continue;
+            String at = m.getResource().getFullPath() + ":";
+            hebrew.add(at + m.getAttribute(IMarker.LINE_NUMBER, 0));
+            java.util.regex.Matcher o = OTHER_LINE.matcher(RtlText.strip(m.getAttribute(IMarker.MESSAGE, "")));
+            if (o.find()) hebrew.add(at + o.group(1));   // ההסבר בעברית בשורה אחרת מזו ש-Eclipse סימן
+        }
+        java.util.Map<IResource, String[]> lines = new java.util.HashMap<IResource, String[]>();
+        List<Problem> out = new ArrayList<Problem>();
         for (IMarker m : errs) {
             boolean heb = MentorProblem.MARKER.equals(m.getType());
-            if (!heb && hebrew.contains(m.getResource().getFullPath() + ":" + m.getAttribute(IMarker.LINE_NUMBER, 0))) continue;
-            if (first == null) first = m;
-            String msg = RtlText.strip(m.getAttribute(IMarker.MESSAGE, ""));
-            out.add(m.getResource().getName() + " · שורה " + m.getAttribute(IMarker.LINE_NUMBER, 0) + "\n" + msg);
+            int line = m.getAttribute(IMarker.LINE_NUMBER, 0);
+            if (!heb && hebrew.contains(m.getResource().getFullPath() + ":" + line)) continue;
+            if (!(m.getResource() instanceof IFile)) continue;
+            String[] ls = lines.get(m.getResource());
+            if (ls == null) {
+                ls = text((IFile) m.getResource()).split("\r?\n", -1);
+                lines.put(m.getResource(), ls);
+            }
+            String code = line >= 1 && line <= ls.length ? ls[line - 1].trim() : "";
+            if (code.matches("[{}();]*")) code = header(ls, line - 1);   // "}" בסוף פעולה ("חסר return") — הכותרת שלה
+            out.add(new Problem(m, (IFile) m.getResource(), line, sentence(m, heb), code));
         }
-        return first;
+        return out;
     }
 
-    /** חלון אזהרה: יש שגיאות קומפילציה, לא מריצים. פותח את השגיאה הראשונה בעורך */
-    private static void warn(Shell shell, ExecutionEvent event, IFile file, IMarker first, List<String> errors) {
-        StringBuilder b = new StringBuilder("יש " + errors.size() + (errors.size() == 1 ? " שגיאת קומפילציה" : " שגיאות קומפילציה")
-                + " — לכן לא מריצים את ההרצה הוויזואלית. מתקנים את השגיאות (מסומנות באדום בקוד) ומריצים שוב.\n");
-        for (int i = 0; i < errors.size() && i < 3; i++) b.append("\n").append(errors.get(i)).append('\n');
-        if (errors.size() > 3) b.append("\nועוד ").append(errors.size() - 3).append(" — בחלון Problems ובחלון \"הסברים בעברית\".");
-        try {
-            if (first != null && first.getResource() instanceof IFile) {
-                Ui.openAt(HandlerUtil.getActiveWorkbenchWindow(event).getActivePage(), (IFile) first.getResource(),
-                        Math.max(0, first.getAttribute(IMarker.LINE_NUMBER, 1) - 1));
-            }
-        } catch (Exception e) {
-            // לא נפתח — החלון בכל זאת מוצג
+    /** הכותרת של הבלוק שהשורה סוגרת (עד 40 שורות למעלה, באותה הזחה): "public static int countSame(Button[] arr, Button b) {" */
+    static String header(String[] ls, int at) {
+        if (at < 0 || at >= ls.length) return "";
+        String close = ls[at];
+        int indent = close.length() - close.replaceAll("^\\s+", "").length();
+        for (int i = at - 1; i >= 0 && i >= at - 40; i--) {
+            String l = ls[i];
+            if (l.trim().isEmpty()) continue;
+            int k = l.length() - l.replaceAll("^\\s+", "").length();
+            if (k == indent && l.trim().endsWith("{") && l.contains("(")) return l.trim();
+            if (k < indent) break;
         }
-        MessageDialog.openError(shell, "הרצה ויזואלית — יש שגיאות בקוד", b.toString());
+        return "";
+    }
+
+    /** משפט אחד בעברית: ההסבר של המורה בעברית (בלי העצה שבסוגריים המרובעים), או התרגום של הודעת Eclipse */
+    static String sentence(IMarker m, boolean hebrew) {
+        String msg = RtlText.strip(m.getAttribute(IMarker.MESSAGE, "")).trim();
+        if (!hebrew) {
+            int id = m.getAttribute(org.eclipse.jdt.core.IJavaModelMarker.ID, 0) & org.eclipse.jdt.core.compiler.IProblem.IgnoreCategoriesMask;
+            String t = id == 0 ? null : HebrewErrors.template(id);
+            if (t != null) {
+                String[] a = markerArguments(m.getAttribute(org.eclipse.jdt.core.IJavaModelMarker.ARGUMENTS, ""));
+                for (int i = 0; i < a.length; i++) a[i] = HebrewErrors.shorten(a[i]);
+                return HebrewErrors.splitAdvice(HebrewErrors.fill(t, a))[0].replaceAll("\\.$", "");
+            }
+            return msg;
+        }
+        msg = OTHER_LINE.matcher(msg).replaceAll("");
+        int tip = msg.indexOf(" [");
+        if (tip > 0 && msg.endsWith("]")) msg = msg.substring(0, tip);
+        return msg.trim().replaceAll("\\.$", "");
+    }
+
+    /** הארגומנטים של בעיית JDT כפי שנשמרו בסימון: "2:int#boolean" (# בתוך ארגומנט — ##) */
+    static String[] markerArguments(String attr) {
+        int colon = attr == null ? -1 : attr.indexOf(':');
+        if (colon < 0) return new String[0];
+        List<String> out = new ArrayList<String>();
+        StringBuilder cur = new StringBuilder();
+        String rest = attr.substring(colon + 1);
+        for (int i = 0; i < rest.length(); i++) {
+            char c = rest.charAt(i);
+            if (c == '#' && i + 1 < rest.length() && rest.charAt(i + 1) == '#') { cur.append('#'); i++; }
+            else if (c == '#') { out.add(cur.toString().trim()); cur.setLength(0); }
+            else cur.append(c);
+        }
+        out.add(cur.toString().trim());
+        return out.toArray(new String[0]);
+    }
+
+    private static String text(IFile f) {
+        try {
+            return new String(ProjectSetup.readAll(f.getContents()), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return "";   // בלי טקסט — רק השגיאות של הקובץ עצמו
+        }
+    }
+
+    /** שגיאות קומפילציה — לא מריצים. כותרת קצרה, כרטיס לכל שגיאה (עד 4), ומעבר לשגיאה הראשונה */
+    static void warn(Shell shell, final org.eclipse.ui.IWorkbenchPage page, final List<Problem> errors) {
+        int n = errors.size();
+        Say say = new Say(shell, Say.Kind.ERROR, "הרצה ויזואלית")
+                .heading((n == 1 ? "שגיאה אחת" : n + " שגיאות") + " — מתקנים ומריצים שוב")
+                .text("ההרצה הוויזואלית מתחילה רק כשהקוד מתקמפל.").width(500)
+                .buttons("מעבר לשגיאה הראשונה", "סגירה").onPrimary(() -> jump(page, errors.get(0)));
+        for (int i = 0; i < n && i < 4; i++) {
+            final Problem p = errors.get(i);
+            say.card(p.where(), () -> jump(page, p), p.sentence, p.code);
+        }
+        if (n > 4) say.more("ועוד " + (n - 4) + ", בחלון Problems ובחלון \"הסברים בעברית\".");
+        say.open();
+    }
+
+    /** פותח את הקובץ בעורך, עם הסמן על השגיאה */
+    static void jump(org.eclipse.ui.IWorkbenchPage page, Problem p) {
+        try {
+            if (page != null) IDE.openEditor(page, p.marker, true);
+        } catch (Exception e) {
+            try {
+                Ui.openAt(page, p.file, Math.max(0, p.line - 1));
+            } catch (Exception ignored) {
+                // לא נפתח
+            }
+        }
     }
 
     /**
@@ -200,19 +311,15 @@ public class RunVisualHandler extends AbstractHandler {
             }
         }
         if (found.isEmpty()) return null;
+        // התרגיל שנוצר ב"שליחת תרגיל": main במחלקה הראשית, באותה חבילה (בתרגילים אחרים אולי יש מחלקה באותו שם) — היא קודמת
+        List<IType> same = new ArrayList<IType>();
+        for (IType t : found) if (t.getPackageFragment().equals(cu.getParent())) same.add(t);
+        if (!same.isEmpty()) found = same;
         if (found.size() == 1) return found.get(0);
-        org.eclipse.ui.dialogs.ElementListSelectionDialog d = new org.eclipse.ui.dialogs.ElementListSelectionDialog(shell,
-                new org.eclipse.jface.viewers.LabelProvider() {
-                    @Override
-                    public String getText(Object o) {
-                        return ((IType) o).getFullyQualifiedName();
-                    }
-                });
-        d.setTitle("הרצה ויזואלית");
-        d.setMessage("בקובץ " + file.getName() + " אין main. איזו מחלקה להריץ? (כולן משתמשות ב-" + name + ")");
-        d.setElements(found.toArray());
-        d.setMultipleSelection(false);
-        return d.open() == org.eclipse.jface.window.Window.OK && d.getFirstResult() != null ? (IType) d.getFirstResult() : null;
+        List<String> names = new ArrayList<String>();
+        for (IType t : found) names.add(t.getFullyQualifiedName());
+        int i = Say.choose(shell, "הרצה ויזואלית", "בקובץ " + file.getName() + " אין main. איזו מחלקה להריץ? (כולן משתמשות ב-" + name + ")", names);
+        return i < 0 ? null : found.get(i);
     }
 
     /** אין main ואין מי שמשתמש במחלקה: מציעים להוסיף main קצרה לבדיקה בסוף המחלקה (רק אם התלמיד מסכים — כל השאר לא משתנה) */
@@ -220,14 +327,14 @@ public class RunVisualHandler extends AbstractHandler {
         ICompilationUnit cu = JavaCore.createCompilationUnitFrom(file);
         IType t = cu == null || cu.getTypes().length == 0 ? null : cu.getTypes()[0];
         if (t == null) {
-            MessageDialog.openInformation(shell, "הרצה ויזואלית", "בקובץ " + file.getName() + " אין main — אין מה להריץ.");
+            Say.info(shell, "הרצה ויזואלית", "בקובץ " + file.getName() + " אין main, אז אין מה להריץ.");
             return;
         }
         String name = t.getElementName();
-        if (!MessageDialog.openQuestion(shell, "הרצה ויזואלית",
+        if (!Say.ask(shell, "הרצה ויזואלית",
                 "בקובץ " + file.getName() + " אין main, ואין בפרויקט מחלקה עם main שמשתמשת ב-" + name + ".\n\n"
                 + "להוסיף בסוף המחלקה פעולת main קצרה לבדיקה? (כל מה שכתבתם נשאר כמו שהוא)\n"
-                + "אחרי שתכתבו בה מה לבדוק — לוחצים שוב \"הרצה ויזואלית\".")) return;
+                + "אחרי שתכתבו בה מה לבדוק, לוחצים שוב \"הרצה ויזואלית\".", "הוספת main", "ביטול")) return;
         org.eclipse.ui.IEditorPart ed = Ui.openAt(HandlerUtil.getActiveWorkbenchWindow(event).getActivePage(), file, 0);
         if (!(ed instanceof org.eclipse.ui.texteditor.ITextEditor)) return;
         org.eclipse.ui.texteditor.ITextEditor te = (org.eclipse.ui.texteditor.ITextEditor) ed;

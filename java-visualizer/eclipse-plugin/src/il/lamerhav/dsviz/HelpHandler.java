@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.handlers.HandlerUtil;
@@ -18,13 +17,13 @@ public class HelpHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) {
-        Shell shell = HandlerUtil.getActiveShell(event);
+        Shell shell = Ui.shell(event);
         HelpDialog d = new HelpDialog(shell);
         if (d.open() != Window.OK) return null;
         try {
             HelpPlayer.show(shell, helpDir(), d.chosenId());   // נפתח חלון נגן בתוך Eclipse — רק ההדרכה שנבחרה
         } catch (Exception e) {
-            MessageDialog.openError(shell, "הדרכה לשימוש", "לא הצלחתי לפתוח את ההדרכה: " + e.getMessage());
+            Say.error(shell, "הדרכה לשימוש", "לא הצלחתי לפתוח את ההדרכה: " + e.getMessage());
         }
         return null;
     }

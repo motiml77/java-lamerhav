@@ -81,6 +81,6 @@ final class HelpPlayer {
     }
 
     private static void external(String url) {
-        if (!Program.launch(url)) org.eclipse.jface.dialogs.MessageDialog.openError(null, "הדרכה לשימוש", "אין דפדפן ברירת מחדל — אפשר לפתוח ידנית: " + url);
+        if (!Program.launch(url)) Say.error(null, "הדרכה לשימוש", "אין דפדפן ברירת מחדל. אפשר לפתוח ידנית: " + url);
     }
 }

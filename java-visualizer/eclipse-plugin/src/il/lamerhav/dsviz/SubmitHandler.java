@@ -22,99 +22,100 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.jface.dialogs.ProgressMonitorDialog;
 import org.eclipse.jface.window.Window;
-import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.handlers.HandlerUtil;
 
 /**
- * "שליחת תרגיל": החלון (SubmitDialog) שולח את דף התרגיל ומקבל את התיאור שלו; כאן בונים ממנו את קובצי ה-Java — כל תרגיל בחבילה משלו,
- * עם שם לפי סוג התרגיל ומספר רץ (src/ex01_stacks, src/ex02_binary_trees...) כדי שיהיה קל למצוא ולמחוק בסוף.
- * בודקים שהכול מתקמפל (ואם לא — תיקון אחד דרך השרת), ופותחים עם הסמן במקום הפתרון של הסעיף הראשון.
- * ההצעות לפתרון שבתשובה נבדקות (SolutionCheck) ונשמרות בצד — הן נפתחות רק מהכפתור "הצעה לפתרון" ליד כל סעיף (SolutionMinings).
+ * "שליחת תרגיל": החלון (SubmitDialog) שולח את דף התרגיל, ובאותו חלון — בלי חלון התקדמות נוסף — בונים ממנו את קובצי ה-Java
+ * (Build, כאן למטה): כל תרגיל בחבילה משלו, עם שם לפי סוג התרגיל ומספר רץ (src/ex01_stacks, src/ex02_binary_trees...) כדי שיהיה קל
+ * למצוא ולמחוק בסוף. בודקים שהכול מתקמפל (ואם לא — תיקון אחד דרך השרת), ופותחים עם הסמן במקום הפתרון של הסעיף הראשון,
+ * והלשונית עם main ממש לידה. ההצעות לפתרון שבתשובה נבדקות (SolutionCheck) ונשמרות בצד — הן נפתחות רק מהכפתור "הצעה לפתרון"
+ * ליד כל סעיף (SolutionMinings). בסוף — הודעה קטנה בפינה (Toast), בלי חלון שצריך לסגור.
  */
 public class SubmitHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) {
-        Shell shell = HandlerUtil.getActiveShell(event);
+        Shell shell = Ui.shell(event);
         IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
         WorkerClient client = WorkerClient.configured();
         if (client != null) {   // בלי אינטרנט אין טעם לפתוח את החלון — אומרים את זה מיד
             final boolean[] on = { true };
             org.eclipse.swt.custom.BusyIndicator.showWhile(shell.getDisplay(), () -> on[0] = client.online(3500));
             if (!on[0]) {
-                MessageDialog.openWarning(shell, "שליחת תרגיל — אין חיבור לאינטרנט",
-                        "כדי לשלוח תרגיל צריך חיבור לאינטרנט, וכרגע אין חיבור.\n\nבדקו את החיבור (Wi-Fi או כבל) ונסו שוב.\n"
-                        + "כל שאר הכלים — הרצה ויזואלית, הוספת מבנה נתונים, דוגמאות פתורות — עובדים גם בלי אינטרנט.");
+                Say.warn(shell, "שליחת תרגיל — אין חיבור לאינטרנט",
+                        "כדי לשלוח תרגיל צריך חיבור לאינטרנט, וכרגע אין חיבור. בדקו את החיבור (Wi-Fi או כבל) ונסו שוב.\n\n"
+                        + "כל שאר הכלים (הרצה ויזואלית, הוספת מבנה נתונים, דוגמאות פתורות) עובדים גם בלי אינטרנט.");
                 return null;
             }
         }
         SubmitDialog d = new SubmitDialog(shell, ProjectSetup.javaProjects(), ProjectSetup.freeProjectName(), Ui.currentProject(event), client);
-        if (d.open() != Window.OK || d.exercise() == null) return null;
-        Build b = null;
+        int code = d.open();
+        Build b = d.build();
+        if (b == null || b.files.isEmpty()) return null;
         try {
-            IJavaProject jp = d.project() != null ? d.project() : ProjectSetup.createProject(d.newProjectName());
-            IContainer src = ProjectSetup.prepare(jp, Ui.resolver(shell));
-            b = new Build(client, d.exercise(), d.sourceNames(), jp, src);
-            new ProgressMonitorDialog(shell).run(true, true, b::run);
             open(page, b);
-            // בקוד אין את הטקסט של התרגיל: סעיפים שעונים עליהם במילים (ותרגיל בלי סעיפים בקוד) — בהודעה. אם אין כאלה — אין הודעה
-            String words = AiScaffold.othersText(b.tasks, b.exercise == null ? null : b.exercise.others);
-            if (!b.errors.isEmpty()) {
-                say(shell, MessageDialog.WARNING,
-                        "התרגיל נוצר (בתיקייה " + b.folderName + "), אבל יש בו " + b.errors.size() + " שגיאות קומפילציה (מסומנות באדום בקוד):\n\n"
-                        + String.join("\n", b.errors.subList(0, Math.min(4, b.errors.size())))
-                        + "\n\nבדרך כלל זה ב-main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב."
-                        + (words.isEmpty() ? "" : "\n\n" + words));
-            } else if (!words.isEmpty()) {
-                say(shell, MessageDialog.INFORMATION, "התרגיל נוצר" + (b.tasks > 0 ? " — " + AiScaffold.codeTasks(b.tasks) : "") + ".\n\n" + words);
-            }
-        } catch (InvocationTargetException e) {
-            Throwable t = e.getCause();
-            MessageDialog.openError(shell, "שליחת תרגיל", "לא הצלחתי ליצור את התרגיל: " + (t != null ? t.getMessage() : e.getMessage()));
-        } catch (InterruptedException e) {
-            // בוטל באמצע — פותחים את מה שכבר נוצר
-            try {
-                if (b != null) open(page, b);
-            } catch (CoreException ignored) {
-                // לא נפתח — הקבצים בכל זאת בפרויקט
-            }
         } catch (CoreException e) {
-            Ui.error(shell, "לא הצלחתי ליצור את התרגיל.", e);
+            Ui.error(shell, "התרגיל נוצר, אבל לא הצלחתי לפתוח אותו.", e);
+            return null;
         }
+        if (code == Window.OK) Toast.created(page, b);   // בוטל באמצע — רק פותחים את מה שכבר נוצר, בלי הודעה
         return null;
     }
 
-    /** הודעה מימין לשמאל (כמו PowerHandler.ask) — MessageDialog.openInformation מציג את העברית משמאל לימין */
-    private static void say(Shell shell, int kind, String text) {
-        new MessageDialog(shell, "שליחת תרגיל", null, text, kind, 0, "אישור") {
-            @Override
-            protected int getShellStyle() {
-                return super.getShellStyle() | SWT.RIGHT_TO_LEFT;
-            }
-        }.open();
-    }
-
-    /** פותח את הקבצים: קודם המחלקות מהתרגיל, ובסוף הקובץ עם הסעיף הראשון — שיהיה הפעיל, והסמן מחכה במקום הפתרון */
-    private static void open(IWorkbenchPage page, Build b) throws CoreException {
+    /**
+     * פותח את הקבצים: קודם המחלקות מהתרגיל, אחר כך הקובץ עם main, ובסוף הקובץ עם הסעיף הראשון — שיהיה הפעיל, והסמן מחכה
+     * במקום הפתרון. כך הלשונית של main נפתחת ממש ליד הלשונית שבה עונים (כשהסעיפים במחלקה אחרת, למשל Button.java ו-main ב-Program.java),
+     * ואפשר להריץ בלי לחפש אותה.
+     */
+    static void open(IWorkbenchPage page, Build b) throws CoreException {
         if (b.files.isEmpty()) return;
-        IFile focus = null;
+        IFile focus = null, main = null;
         int line = 0;
+        String mainClass = b.exercise == null ? "" : b.exercise.mainClass;
         for (int i = 0; i < b.files.size(); i++) {
-            if (b.generated.get(i).cursorLine >= 0) { focus = b.files.get(i); line = b.generated.get(i).cursorLine; }
+            if (focus == null && b.generated.get(i).cursorLine >= 0) { focus = b.files.get(i); line = b.generated.get(i).cursorLine; }
+            if (b.generated.get(i).className.equals(mainClass)) main = b.files.get(i);
         }
-        if (focus == null) focus = b.files.get(0);
+        if (focus == null) focus = main != null ? main : b.files.get(0);
         for (int i = b.files.size() - 1; i >= 0; i--) {
             IFile f = b.files.get(i);
-            if (!f.equals(focus)) Folding.collapseGiven(Ui.openAt(page, f, 0), f);
+            if (!f.equals(focus) && !f.equals(main)) Folding.collapseGiven(Ui.openAt(page, f, 0), f);
         }
-        Folding.collapseGiven(Ui.openAt(page, focus, line), focus);
+        if (main != null && !main.equals(focus)) Folding.collapseGiven(Ui.openAt(page, main, 0), main);
+        org.eclipse.ui.IEditorPart ed = Ui.openAt(page, focus, line);
+        Folding.collapseGiven(ed, focus);
+        AnswerHighlight.attach(ed);
     }
 
-    /** Java: בניית הקבצים בחבילה משלהם + בדיקת קומפילציה + תיקון אחד (רץ ברקע, עם חלון התקדמות) */
+    /**
+     * השמות שתפוסים בפרויקט — כדי שהחבילה של התרגיל החדש לא תתנגש באף אחד: כל החבילות בכל תיקיות המקור (גם מקוננות — השם המלא,
+     * ו-AiScaffold.folderName בודק כל חלק שלו), ומה שכבר נמצא בתיקיית המקור שנבחרה (תיקיות וקבצים).
+     */
+    static java.util.Set<String> takenNames(IJavaProject jp, IContainer src) throws CoreException {
+        java.util.Set<String> taken = new HashSet<String>();
+        for (IResource r : src.members()) taken.add(r.getName());
+        try {
+            for (org.eclipse.jdt.core.IPackageFragmentRoot root : jp.getPackageFragmentRoots()) {
+                if (root.getKind() != org.eclipse.jdt.core.IPackageFragmentRoot.K_SOURCE) continue;
+                for (org.eclipse.jdt.core.IJavaElement pkg : root.getChildren()) {
+                    String n = pkg.getElementName();
+                    if (!n.isEmpty()) taken.add(n);
+                }
+                if (root.getResource() instanceof IContainer)
+                    for (IResource r : ((IContainer) root.getResource()).members()) taken.add(r.getName());
+            }
+        } catch (org.eclipse.jdt.core.JavaModelException ignored) {
+            // בלי מודל Java — רק מה שבתיקייה
+        }
+        return taken;
+    }
+
+    /**
+     * Java: בניית הקבצים בחבילה משלהם + בדיקת קומפילציה + תיקון אחד (רץ ברקע). ההתקדמות — ב-subTask: החלון של שליחת התרגיל
+     * מציג לפיה את השלבים (SubmitDialog.Stages)
+     */
     static final class Build {
         final WorkerClient client;
         final List<String> sources;
@@ -141,11 +142,10 @@ public class SubmitHandler extends AbstractHandler {
         void run(IProgressMonitor m) throws InvocationTargetException, InterruptedException {
             try {
                 m.beginTask("בונה את התרגיל…", 7);
-                Set<String> taken = new HashSet<String>();
-                for (IResource r : src.members()) taken.add(r.getName());
+                Set<String> taken = takenNames(jp, src);
                 AiScaffold.Exercise e = AiScaffold.read(raw);
                 exercise = e;
-                String pkg = AiScaffold.folderName(e.topic, taken, false);
+                String pkg = AiScaffold.folderName(e.topic, taken, false, src.getLocation() == null ? null : src.getLocation().toFile());
                 folderName = pkg;
                 IFolder folder = src.getFolder(new Path(pkg));
                 write(e, pkg, folder);

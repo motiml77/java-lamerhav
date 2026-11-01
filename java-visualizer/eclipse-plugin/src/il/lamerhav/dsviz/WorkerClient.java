@@ -36,6 +36,8 @@ final class WorkerClient {
     final String url, key;
     private volatile HttpURLConnection pending;
     private volatile boolean cancelled;
+    /** נקרא רגע לפני שהבקשה יוצאת לשרת (אחרי שהקבצים הוכנו) — לשלבים בחלון של Eclipse */
+    volatile Runnable onSending;
 
     WorkerClient(String url, String key) {
         this.url = url == null ? "" : url.replaceAll("/+$", "");
@@ -185,6 +187,8 @@ final class WorkerClient {
             c.setDoOutput(true);
             c.setFixedLengthStreamingMode(body.length);
             pending = c;
+            Runnable hook = onSending;
+            if (hook != null) hook.run();
             try (OutputStream o = c.getOutputStream()) {
                 o.write(body);
             }
