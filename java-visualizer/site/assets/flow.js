@@ -132,11 +132,11 @@
       return '<li class="new" style="--i:' + (i + 1) + '"><span class="ff">' + esc(f.fileName) + '</span></li>';
     }).join('');
     var n = b.e.tasks.length;
-    root.querySelector('[data-fcount]').textContent = n;
+    root.querySelector('[data-fcount]').textContent = (n === 1 ? 'סעיף אחד' : n + ' סעיפים') + ' בקוד';
     // סעיפים שעונים עליהם במילים — מופיעים בהודעה, לא בקוד
     var others = b.e.others || [], oEl = root.querySelector('[data-fothers]');
     oEl.hidden = !others.length;
-    oEl.innerHTML = others.length ? 'סעיפים שעונים עליהם במילים (בלי קוד): ' + others.map(function (o) { return '<b>' + esc(o.label) + '</b> — ' + esc(o.text); }).join(' · ') : '';
+    oEl.innerHTML = others.length ? '<p>סעיפים שעונים עליהם במילים (בלי קוד):</p>' + others.map(function (o) { return '<p>' + esc(o.label) + ' — ' + esc(o.text.replace(/\s+/g, ' ')) + '</p>'; }).join('') : '';
     // שלב 5: מה שכתוב מעל main
     root.querySelector('[data-fexpect]').innerHTML = (b.e.expectedOutput || '').split('\n').map(function (l) { return '<span class="l" dir="auto">' + esc(l) + '</span>'; }).join('');
     root.classList.add('fp-built');

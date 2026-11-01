@@ -312,7 +312,7 @@ public final class Submitter {
         } else if (out.tasks == 0) {
             Say.info(project, "התרגיל נוצר (בתיקייה " + out.folder + ").\n\n" + words, TITLE);
         } else {
-            String sol = out.solutionStatus.isEmpty() ? "" : "\nמעל כל פעולה של סעיף יש מנורה 💡 בצד שמאל — \"הצעה לפתרון\" (כדאי לנסות קודם לבד).";
+            String sol = out.solutionStatus.isEmpty() ? "" : "\nליד כל פעולה של סעיף יש מנורה 💡 בצד שמאל — \"הצעה לפתרון\" (כדאי לנסות קודם לבד).";
             Dsviz.notify(project, "התרגיל נוצר — " + out.folder,
                     notificationHtml("בתרגיל " + codeTasks(out.tasks) + ". הסמן מחכה במקום הפתרון של הסעיף הראשון, ו\"הרצה ויזואלית\" מראה כל שורה." + sol
                             + (words.isEmpty() ? "" : "\n\n" + words)),

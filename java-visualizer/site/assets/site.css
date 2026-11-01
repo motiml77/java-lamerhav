@@ -451,6 +451,7 @@ html:not(.js) .fp-pane { grid-area: auto; border-bottom: 1px solid var(--line); 
 .fp-toast p { margin: 0 0 4px; font-size: var(--t-14); color: var(--ink-2); }
 .fp-toast p:last-child { margin: 0; }
 .fp-toast .t { color: var(--ink); }
+.fp-words { margin-top: var(--s-8); }
 .fp-toast .ib { display: inline; vertical-align: -2px; }
 .fp-toast bdi { font-family: var(--mono); font-weight: 500; font-size: var(--t-14); }
 .fp-pane.on .fp-toast { animation: fp-up 0.45s var(--ease) both 0.95s; }

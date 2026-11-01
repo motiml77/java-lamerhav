@@ -314,7 +314,7 @@ function serve() {
       await page.waitForSelector('[data-flow].fp-built', { timeout: 5000 });
       assert.strictEqual(await page.textContent('[data-fpkg]'), pkg, 'שם החבילה');
       assert.deepStrictEqual(await page.$$eval('[data-ffiles] .ff', l => l.map(x => x.textContent)), files.map(f => f.fileName), 'הקבצים בחבילה');
-      assert.strictEqual(await page.textContent('[data-fcount]'), String(ex.tasks.length), 'מספר הסעיפים בהודעה');
+      assert.strictEqual(await page.textContent('[data-fcount]'), ex.tasks.length + ' סעיפים בקוד', 'מספר הסעיפים בהודעה (כמו ב-IntelliJ)');
       assert.ok(/ג — מהי סיבוכיות/.test(await page.textContent('[data-fothers]')) && await page.isVisible('[data-fothers]'), 'סעיף ג (במילים) מופיע בהודעה');
       // שלב 4: הקוד שמוצג הוא בדיוק מה שהתוסף בונה מאותה תשובה (scaffold-parity בודק שזה זהה ל-AiScaffold.java)
       await page.click('#fs-4');
