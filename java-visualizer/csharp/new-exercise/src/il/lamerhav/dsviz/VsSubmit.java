@@ -749,16 +749,10 @@ public final class VsSubmit {
                     dlg.pack();
                 });
             }
-            // שגיאות קומפילציה: כרטיס לכל שגיאה (עד 3), עם ההסבר בעברית
+            // שגיאות קומפילציה: כאן רק התראה קצרה — הפירוט בחלון Error List של Visual Studio
             if (errs) {
                 in.add(RtlDialog.gap(6));
-                for (int i = 0; i < Math.min(3, r.errors.size()); i++) {
-                    in.add(RtlDialog.gap(6));
-                    in.add(RtlDialog.errorCard(r.errors.get(i), w));
-                }
-                if (r.errors.size() > 3) in.add(RtlDialog.label("ועוד " + (r.errors.size() - 3) + " בחלון Error List של Visual Studio", RtlDialog.small(), RtlDialog.MUTED));
-                in.add(RtlDialog.gap(4));
-                in.add(RtlDialog.label("בדרך כלל זה ב-Main (הנתונים לדוגמה). אפשר לתקן, או לשלוח שוב.", RtlDialog.small(), RtlDialog.MUTED));
+                in.add(RtlDialog.label("מתקנים ומריצים שוב. הפירוט בחלון Error List של Visual Studio.", RtlDialog.small(), RtlDialog.MUTED));
             }
             body.add(RtlDialog.card(in, 14, 16));
             body.add(RtlDialog.gap(14));

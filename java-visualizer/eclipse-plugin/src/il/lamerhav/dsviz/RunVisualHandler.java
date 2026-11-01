@@ -215,19 +215,29 @@ public class RunVisualHandler extends AbstractHandler {
         }
     }
 
-    /** שגיאות קומפילציה — לא מריצים. כותרת קצרה, כרטיס לכל שגיאה (עד 4), ומעבר לשגיאה הראשונה */
+    /**
+     * שגיאות קומפילציה — לא מריצים. בחלון שקופץ רק התראה קצרה; הפירוט (הסבר בעברית לכל שגיאה) — בחלון הצדדי
+     * "הסברים בעברית", שנפתח כאן (ואם ההסברים כבויים — בחלון Problems).
+     */
     static void warn(Shell shell, final org.eclipse.ui.IWorkbenchPage page, final List<Problem> errors) {
         int n = errors.size();
-        Say say = new Say(shell, Say.Kind.ERROR, "הרצה ויזואלית")
-                .heading((n == 1 ? "שגיאה אחת" : n + " שגיאות") + " — מתקנים ומריצים שוב")
-                .text("ההרצה הוויזואלית מתחילה רק כשהקוד מתקמפל.").width(500)
-                .buttons("מעבר לשגיאה הראשונה", "סגירה").onPrimary(() -> jump(page, errors.get(0)));
-        for (int i = 0; i < n && i < 4; i++) {
-            final Problem p = errors.get(i);
-            say.card(p.where(), () -> jump(page, p), p.sentence, p.code);
+        boolean mentor = MentorParticipant.enabled();
+        showDetails(page, mentor);
+        new Say(shell, Say.Kind.ERROR, "הרצה ויזואלית")
+                .heading(n == 1 ? "יש שגיאה בקוד" : "יש " + n + " שגיאות בקוד")
+                .text("מתקנים ומריצים שוב. הפירוט בחלון " + (mentor ? "\"הסברים בעברית\"" : "Problems") + " בצד.").width(420)
+                .buttons("מעבר לשגיאה הראשונה", "סגירה").onPrimary(() -> jump(page, errors.get(0)))
+                .open();
+    }
+
+    /** פותח את החלון הצדדי עם פירוט השגיאות, בלי לקחת את הפוקוס מהעורך */
+    static void showDetails(org.eclipse.ui.IWorkbenchPage page, boolean mentor) {
+        if (page == null) return;
+        try {
+            page.showView(mentor ? MentorView.ID : org.eclipse.ui.IPageLayout.ID_PROBLEM_VIEW, null, org.eclipse.ui.IWorkbenchPage.VIEW_VISIBLE);
+        } catch (Exception ignored) {
+            // החלון לא נפתח — השגיאות מסומנות באדום בקוד
         }
-        if (n > 4) say.more("ועוד " + (n - 4) + ", בחלון Problems ובחלון \"הסברים בעברית\".");
-        say.open();
     }
 
     /** פותח את הקובץ בעורך, עם הסמן על השגיאה */

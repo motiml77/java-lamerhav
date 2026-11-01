@@ -269,29 +269,21 @@ async function addDialog(command, state, steps) {
     await commands['dsviz.runLines']();
     assert.deepStrictEqual(terminalOpts.shellArgs.slice(-2), ['unit4.collectionsLib.LineByLine', 'Merge']);
 
-    // --- שגיאת קומפילציה: לא מריצים, מסמנים את השורה באדום (ההסבר בעברית), והודעה קצרה עם "מעבר לשגיאה" / "כל השגיאות"
+    // --- שגיאת קומפילציה: לא מריצים, מסמנים את השורה באדום (ההסבר בעברית, בחלון Problems), והודעה קצרה עם "מעבר לשגיאה" בלבד
     terminalOpts = null;
     const broken = path.join(ws, 'src', 'Broken.java');
     fs.writeFileSync(broken, 'public class Broken {\n    int x = ;\n}\n');
-    onMessage = (t, b) => (b.includes('כל השגיאות') ? 'כל השגיאות' : undefined);
     const pBefore = panels.length;
     await commands['dsviz.run']();
     await new Promise(r => setTimeout(r, 50));
-    onMessage = null;
     assert.strictEqual(terminalOpts, null, 'must not run with errors');
     const bd = diag.get(broken);
     assert(bd && bd.length >= 1 && bd[0].range.line === 1, 'error not on line 2');
     assert(bd[0].message.startsWith('\u200Fביטוי לא חוקי') && bd[0].message.includes('(illegal start of expression)'), bd[0].message);
     const em = shown[shown.length - 1];
-    assert(em.kind === 'error' && !em.modal && em.text === 'שגיאת קומפילציה אחת · ההרצה לא התחילה'
-        && JSON.stringify(em.buttons) === JSON.stringify(['מעבר לשגיאה', 'כל השגיאות']), JSON.stringify(em));
-    const ep = panels.slice(pBefore).find(x => x.id === 'dsviz.errors');
-    assert(ep && /<html lang="he" dir="rtl">/.test(ep.html) && ep.html.includes('Broken.java') && ep.html.includes('ביטוי לא חוקי')
-        && ep.html.includes('int x = ;') && ep.html.includes('<pre dir="ltr">'), 'חלון השגיאות');
-    openedSeq.length = 0;
-    await ep.handler({ type: 'open', i: 0 });
-    await new Promise(r => setTimeout(r, 50));
-    assert(openedSeq.some(o => o.file === broken && o.line === 1), 'לחיצה על "Broken.java · שורה 2": ' + JSON.stringify(openedSeq));
+    assert(em.kind === 'error' && !em.modal && em.text === 'יש שגיאה בקוד — מתקנים ומריצים שוב'
+        && JSON.stringify(em.buttons) === JSON.stringify(['מעבר לשגיאה']), JSON.stringify(em));
+    assert(!panels.slice(pBefore).some(x => x.id === 'dsviz.errors'), 'בלי חלון פירוט קופץ — הפירוט בחלון Problems');
     onMessage = (t, b) => (b.includes('מעבר לשגיאה') ? 'מעבר לשגיאה' : undefined);
     openedSeq.length = 0;
     await commands['dsviz.run']();

@@ -106,8 +106,8 @@ if command -v node >/dev/null 2>&1; then
              "FOCUS-AFTER-TOAST toast-focus=false no-focus-style=true" "ACTIVE-EDITOR Button.java" "TABS .*\(Program.java \[Button.java\]\|\[Button.java\] Program.java\)" \
              "POPOVER true rtl=true code-ltr-mono=[1-9]" "POPOVER-CLOSED-WITH-TOAST true" \
              "HIGHLIGHT-BEFORE Button.java \[[0-9]*-[0-9]*, [0-9]*-[0-9]*\]" "HIGHLIGHT-AFTER Button.java \[[0-9]*-[0-9]*\]$" \
-             "SAY-RUN-ERRORS kind=ERROR rtl=true title=הרצה ויזואלית buttons=מעבר לשגיאה הראשונה+סגירה text=2 שגיאות — מתקנים ומריצים שוב" \
-             "RUN-ERRORS-JUMP closed=true" "RUN-ERRORS-CODE public static int countSame(Button\[\] arr, Button b) {" \
+             "SAY-RUN-ERRORS kind=ERROR rtl=true title=הרצה ויזואלית buttons=מעבר לשגיאה הראשונה+סגירה text=יש 2 שגיאות בקוד" \
+             "RUN-ERRORS-JUMP closed=true" "RUN-ERRORS-CODE $" "RUN-ERRORS-SIDE il.lamerhav.dsviz.mentorView" \
              "TOAST-NOWORDS kind=done rtl=true modal=false corner=bottom-left text=התרגיל נוצר / 3 סעיפים · הסמן בסעיף א / ex02_buttons / ליד כל סעיף — הצעה לפתרון$" \
              "FOLDERS ex01_buttons ex02_buttons$" "RUN-MAIN ex02_buttons.Program$" \
              "BUILD-REPAIR stages=\[done done done now pending\]" "BUILD-REPAIR-SUB true" \

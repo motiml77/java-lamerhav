@@ -250,26 +250,20 @@ public class ModernUiTest extends BasePlatformTestCase {
         return l;
     }
 
-    public void testCompileErrorNoticeIsRtlWithCards() {
+    public void testCompileErrorNoticeIsShortAndRtl() {
         Notice.Spec s = VisualRunner.compileErrors(cards(6));
-        assertEquals("6 שגיאות — מתקנים ומריצים שוב", s.heading);
-        assertEquals("ועוד 2 בחלון Build", s.more);
+        assertEquals("יש 6 שגיאות בקוד", s.heading);
+        assertEquals("מתקנים ומריצים שוב. הפירוט בחלון Build בצד.", s.text);
+        assertTrue("בלי כרטיסים — הפירוט בחלון הצדדי", s.cards.isEmpty());
         assertEquals("מעבר לשגיאה הראשונה", s.primary);
         assertEquals("סגירה", s.secondary);
-        assertEquals("שגיאה אחת — מתקנים ומריצים שוב", VisualRunner.compileErrors(cards(1)).heading);
+        assertEquals("יש שגיאה בקוד", VisualRunner.compileErrors(cards(1)).heading);
         Notice n = new Notice(getProject(), s);
         try {
             assertRtl(n.body());
             List<JLabel> labels = new ArrayList<JLabel>();
             labels(n.body(), labels);
-            int links = 0;
-            boolean more = false;
-            for (JLabel l : labels) {
-                if (l.getText() != null && l.getText().contains("· שורה")) links++;
-                if ("ועוד 2 בחלון Build".equals(l.getText())) more = true;
-            }
-            assertEquals("4 כרטיסים לכל היותר", 4, links);
-            assertTrue(more);
+            for (JLabel l : labels) assertFalse("בלי קישורים לשורות בחלון שקופץ", l.getText() != null && l.getText().contains("· שורה"));
             JPanel footer = n.footer();
             assertFalse("הכפתורים מימין לשמאל", footer.getComponentOrientation().isLeftToRight());
             JButton first = (JButton) footer.getComponent(0);

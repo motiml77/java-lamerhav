@@ -291,8 +291,8 @@ if command -v Xvfb >/dev/null 2>&1; then
     DISPLAY=:97 DSVIZ_WORKER_URL=http://127.0.0.1:8795 DSVIZ_CS="$RUNNER" timeout 120 java -Duser.home="$SUB/home" -Ddsviz.noOpen=true -cp "$SUB/cls:$JAR" \
         SwingScript "$SUB/s3.txt" "$SUB/shots" il.lamerhav.dsviz.cs.CsTool submit "$SUB/root3" >> "$SUB/gui.txt" 2>&1 || true
     kill $MOCKB
-    grep -q 'יש שגיאת קומפילציה אחת' "$SUB/shots/e1.json" && grep -q 'אי התאמה בטיפוסים' "$SUB/shots/e1.json" && grep -q 'CS0029' "$SUB/shots/e1.json" \
-        && echo "שגיאות קומפילציה בכרטיס: ההסבר בעברית וההודעה המקורית" || { echo "כרטיס השגיאות נכשל"; cat "$SUB/gui.txt"; kill $MOCKW; exit 1; }
+    grep -q 'יש שגיאת קומפילציה אחת' "$SUB/shots/e1.json" && grep -q 'הפירוט בחלון Error List' "$SUB/shots/e1.json" && ! grep -q 'CS0029' "$SUB/shots/e1.json" \
+        && echo "שגיאות קומפילציה: רק התראה קצרה, הפירוט ב-Error List" || { echo "התראת השגיאות נכשלה"; cat "$SUB/gui.txt"; kill $MOCKW; exit 1; }
     # בלי אינטרנט: חלון אחד של RtlDialog עם "נסו שוב"
     printf 'shot o1\nclick סגירה\n' > "$SUB/s4.txt"
     DISPLAY=:97 DSVIZ_WORKER_URL=http://127.0.0.1:9 timeout 60 java -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=9 -Duser.home="$SUB/home" -cp "$SUB/cls:$JAR" \

@@ -164,6 +164,12 @@ public class Sub implements IApplication {
                 b.append(b.length() > 0 ? " | " : "").append(((Label) c).getText());
             return b.toString();
         }));
+        // הפירוט — רק בחלון הצדדי "הסברים בעברית" (נפתח לבד); בחלון שקופץ אין כרטיסים ואין שורות קוד
+        out.println("RUN-ERRORS-SIDE " + ui(() -> {
+            for (org.eclipse.ui.IViewReference r : page().getViewReferences())
+                if ("il.lamerhav.dsviz.mentorView".equals(r.getId()) && page().isPartVisible(r.getPart(false))) return r.getId();
+            return "-";
+        }));
         shot(errs, "run-errors.png");
         ui(() -> { click(find(errs, c -> "primary".equals(c.getData("dsviz.say")))); return null; });
         sleep(800);

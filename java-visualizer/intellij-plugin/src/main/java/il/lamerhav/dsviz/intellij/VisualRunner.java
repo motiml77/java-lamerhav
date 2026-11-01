@@ -181,24 +181,35 @@ public final class VisualRunner {
         return mine;
     }
 
-    /** החלון: יש שגיאות קומפילציה — לא מריצים. כרטיס לכל שגיאה (עם קישור לשורה), ו"מעבר לשגיאה הראשונה" */
+    /**
+     * יש שגיאות קומפילציה — לא מריצים. בחלון שקופץ רק התראה קצרה ו"מעבר לשגיאה הראשונה";
+     * הפירוט — בחלון הצדדי Build (נפתח כאן בלי לקחת את הפוקוס מהעורך).
+     */
     static void warn(Project project, List<CompilerMessage> errors) {
         List<Notice.Card> cards = new ArrayList<Notice.Card>();
         for (CompilerMessage m : errors) cards.add(card(project, m));
+        showBuildWindow(project);
         Notice.show(project, compileErrors(cards));
     }
 
-    /** "2 שגיאות — מתקנים ומריצים שוב", עד 4 כרטיסים ואחריהם "ועוד N" */
+    /** "יש 2 שגיאות בקוד" + שורה אחת, בלי כרטיסים — הפירוט בחלון Build */
     static Notice.Spec compileErrors(List<Notice.Card> cards) {
         int n = cards.size();
-        Notice.Spec s = new Notice.Spec(Modern.Kind.ERROR, TITLE, (n == 1 ? "שגיאה אחת" : n + " שגיאות") + " — מתקנים ומריצים שוב")
+        Notice.Spec s = new Notice.Spec(Modern.Kind.ERROR, TITLE, n == 1 ? "יש שגיאה בקוד" : "יש " + n + " שגיאות בקוד")
                 .buttons("מעבר לשגיאה הראשונה", "סגירה");
-        s.cards.addAll(cards);
-        if (n > Notice.MAX_CARDS) s.more = "ועוד " + (n - Notice.MAX_CARDS) + " בחלון Build";
-        Runnable first = n == 0 ? null : cards.get(0).go;
-        s.onPrimary = first;
-        s.width = 460;
+        s.text = "מתקנים ומריצים שוב. הפירוט בחלון Build בצד.";
+        s.onPrimary = n == 0 ? null : cards.get(0).go;
+        s.width = 400;
         return s;
+    }
+
+    /** פותח את חלון Build (רשימת השגיאות) בלי לקחת את הפוקוס */
+    static void showBuildWindow(Project project) {
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (project.isDisposed()) return;
+            com.intellij.openapi.wm.ToolWindow w = com.intellij.openapi.wm.ToolWindowManager.getInstance(project).getToolWindow("Build");
+            if (w != null) w.show(null);
+        });
     }
 
     /** כרטיס לשגיאה: "Button.java · שורה 42", ההסבר בעברית, והשורה מהקוד */

@@ -656,8 +656,8 @@ function siblingMain(file) {
 }
 
 /**
- * הקומפילציה נכשלה: הודעה קצרה ("2 שגיאות קומפילציה · ההרצה לא התחילה") עם "מעבר לשגיאה" ו"כל השגיאות".
- * השגיאות כבר מסומנות באדום בקוד ובחלון Problems; "כל השגיאות" פותח חלון עם כרטיס לכל שגיאה (ההסבר בעברית, והשורה מהקוד).
+ * הקומפילציה נכשלה: בהודעה רק התראה קצרה ("יש 2 שגיאות בקוד — מתקנים ומריצים שוב") עם "מעבר לשגיאה".
+ * הפירוט — בחלון הצדדי Problems (נפתח כאן): ההסבר בעברית לכל שגיאה, והשורות מסומנות באדום בקוד.
  */
 let errorsPanel;
 async function compileFailed(result) {
@@ -668,10 +668,18 @@ async function compileFailed(result) {
         if (await ui.error(vscode, 'הקומפילציה נכשלה. ההרצה לא התחילה.', more) === more) output.show(true);
         return;
     }
-    const jump = 'מעבר לשגיאה', all = 'כל השגיאות';
-    const ans = await ui.error(vscode, (n === 1 ? 'שגיאת קומפילציה אחת' : n + ' שגיאות קומפילציה') + ' · ההרצה לא התחילה', jump, all);
+    showProblems();
+    const jump = 'מעבר לשגיאה';
+    const ans = await ui.error(vscode, (n === 1 ? 'יש שגיאה בקוד' : 'יש ' + n + ' שגיאות בקוד') + ' — מתקנים ומריצים שוב', jump);
     if (ans === jump) await openError(errs[0]);
-    else if (ans === all) showErrorList(errs);
+}
+
+/** פותח את חלון Problems (הפירוט בעברית) ומחזיר את הפוקוס לעורך */
+async function showProblems() {
+    try {
+        await vscode.commands.executeCommand('workbench.actions.view.problems');
+        await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+    } catch (x) { /* בלי החלון — השגיאות מסומנות באדום בקוד */ }
 }
 
 async function openError(e) {
