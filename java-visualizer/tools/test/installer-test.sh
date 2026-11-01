@@ -8,7 +8,7 @@ set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
 OUT=${1:-$ROOT/build/test}/installer
-rm -rf "$OUT" && mkdir -p "$OUT"
+rm -rf "$OUT" && mkdir -p "$OUT" && OUT=$(cd "$OUT" && pwd)   # נתיב מלא — makensis רץ מתוך installer/
 PASS=0
 ok()   { echo "  ok  $*"; PASS=$((PASS + 1)); }
 fail() { echo "  FAIL $*"; exit 1; }
