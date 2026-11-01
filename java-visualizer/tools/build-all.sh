@@ -4,7 +4,8 @@
 #   il.lamerhav.dsviz_1.0.1.jar  — התוסף ל-Eclipse (מעתיקים לתיקיית dropins)
 #   dsviz-1.0.1.vsix             — התוסף ל-VS Code
 #   DSViz-Setup.exe              — תוכנית התקנה ל-Windows (מוצאת לבד את VS Code ואת Eclipse; Java 21 כלולה)
-#   dsviz-install.zip            — התקנה ל-Mac/Linux, התוספים והמדריך (בלי ה-exe של Windows)
+#   dsviz-install.zip            — התקנה ל-Linux, התוספים והמדריך (בלי ה-exe של Windows)
+# ל-Mac: פקודה אחת בטרמינל (installer/mac/install.sh) — החבילות נבנות ב-GitHub Actions (.github/workflows/dsviz-mac.yml)
 # דרישות לבנייה: JDK 11+, Python 3, Node.js, NSIS (makensis) — רק למי שבונה, לא למי שמתקין
 set -e
 cd "$(dirname "$0")/.."
@@ -34,7 +35,8 @@ mkdir -p csharp/project/lib && cp build/cs-lib/Unit4.CollectionsLib.dll csharp/p
 python3 tools/make-vs-template.py build/cs-lib/Unit4.CollectionsLib.dll csharp/project/Exercise build/vs-template/DSViz-Exercise.zip
 
 echo "== סרטוני הדרכה (הכפתור ?): help/ → תוסף Eclipse, תוסף VS Code, ההתקנה"
-node tools/build-help.js
+# משכי הסרטונים נמדדים ב-ffprobe; בלי ffmpeg (למשל בבנייה של ה-Mac ב-GitHub Actions) — הדפים שכבר בתיקייה help/
+if command -v ffprobe >/dev/null 2>&1; then node tools/build-help.js; else echo "  (אין ffprobe — משתמשים בדפי ההדרכה שבתיקייה help/)"; fi
 rm -rf build/help && mkdir -p build/help && cp help/index.html help/player.html help/tutorials.json help/*.mp4 help/*.jpg build/help/ 2>/dev/null || true
 # לכל סביבה הסרטונים שלה: help/ (Eclipse), help/vscode/, help/vs/ (Visual Studio) — בהתקנה כולם, וכל כלי פותח את התיקייה שלו
 for d in vscode vs; do [ -d help/$d ] && mkdir -p build/help/$d && cp help/$d/index.html help/$d/player.html help/$d/tutorials.json help/$d/*.mp4 help/$d/*.jpg build/help/$d/ 2>/dev/null || true; done
@@ -110,7 +112,8 @@ echo "== installer zip"
 PKG=build/dsviz-install
 rm -rf "$PKG" && mkdir -p "$PKG"
 cp installer/install.sh installer/README-he.html "$PKG/"
-cp installer/install.sh "$PKG/install-mac.command"   # ב-Mac: לחיצה כפולה
+# ב-Mac לא מפיצים יותר install-mac.command: קובץ שהורד בדפדפן נחסם ב-macOS 15 ומעלה (Gatekeeper) —
+# ב-Mac מתקינים בפקודה אחת בטרמינל (installer/mac/install.sh; ראו README-he.html)
 # בלי DSViz-Setup.exe: הוא רק ל-Windows, והוא כבר קובץ נפרד בתיקיית release
 cp -R build/project "$PKG/project"
 cp "release/dsviz-$VERSION.vsix" "release/il.lamerhav.dsviz_$VERSION.jar" release/dsviz.jar "$PKG/"

@@ -18,20 +18,38 @@
 
 <h2>1. מה צריך במחשב</h2>
 <ul>
-  <li><b>Windows:</b> Java כלולה בהתקנה — לא צריך להוריד כלום. <b>Mac/Linux:</b> JDK 17 או 21 (למשל Adoptium Temurin).</li>
+  <li><b>Windows ו-Mac:</b> Java כלולה בהתקנה — לא צריך להוריד כלום. <b>Linux:</b> JDK 17 או 21 (למשל Adoptium Temurin).</li>
   <li><b>VS Code</b> ו/או <b>Eclipse</b> (גרסה 2020 ומעלה).</li>
 </ul>
 
 <h2>2. התקנה</h2>
 <div class="box">
 <p><b>Windows:</b> לחיצה כפולה על <code>DSViz-Setup.exe</code> ← הבא ← <b>בוחרים שפה</b> (Java, C#, או שתיהן) ← התקן ← סיום.<br>
-<b>Mac:</b> לחיצה כפולה על <code>install-mac.command</code>. &nbsp; <b>Linux:</b> בטרמינל: <code>./install.sh</code></p>
+<b>Mac:</b> פקודה אחת בטרמינל — ראו <a href="#mac">התקנה ב-Mac</a> למטה. &nbsp; <b>Linux:</b> בטרמינל: <code>./install.sh</code></p>
 <p>ההתקנה מוצאת לבד את VS Code ואת כל ההתקנות של Eclipse במחשב ומתקינה בכולן, ויוצרת <b>תיקיית תרגילים מוכנה</b>
 במסמכים (<code>DataStructures</code>) עם קיצור דרך בשולחן העבודה. בהפעלה הראשונה Eclipse מכין את עצמו לבד (פרויקט, קידוד עברית, תרגיל פתוח).
 אחר כך — לסגור ולפתוח מחדש את התוכנה.</p>
 <p>את התוספים של Microsoft ל-VS Code (השלמה אוטומטית ל-Java / ל-C#) ההתקנה מורידה לבד ברקע — צריך לשם כך אינטרנט, אבל בלעדיו ההרצה עובדת רגיל.</p>
 <p><b>C# (Visual Studio / VS Code / Rider):</b> החבילה כוללת את כל מה שצריך להרצה הוויזואלית (בלי להתקין שום דבר נוסף). פותחים את הקיצור <b>תרגילי C#</b> בשולחן העבודה (פתרון של Visual Studio עם תרגיל ודוגמאות), ובתפריט שליד כפתור ההפעלה הירוק בוחרים <b>הרצה ויזואלית</b>. ב-VS Code: אותו תוסף, "הרצה ויזואלית" על קובץ ‎.cs. ב-Rider / שורת פקודה: <code>%LOCALAPPDATA%\DSViz\cs\dsviz-cs.exe &lt;תיקיית הפרויקט&gt;</code>.</p>
 <p><b>פרויקט C# אחר (שלכם, או שהמורה שלחה) ב-Visual Studio:</b> לא צריך להריץ שום דבר משורת הפקודה. בכל פרויקט C# — חדש או קיים, בכל תיקייה — מופיעה לבד האפשרות <b>הרצה ויזואלית</b> ליד כפתור ההפעלה, ואפשר לכתוב <code>using Unit4.CollectionsLib;</code> בלי להוסיף הפניה בעצמכם. (אם הפרויקט היה פתוח ב-Visual Studio לפני ההתקנה — סוגרים ופותחים אותו מחדש פעם אחת.)</p>
+</div>
+<h3 id="mac">התקנה ב-Mac (Apple Silicon ו-Intel, macOS 12 ומעלה)</h3>
+<div class="box">
+<ol>
+  <li>פותחים את <b>Terminal</b>: <kbd>Cmd</kbd>+<kbd>רווח</kbd>, כותבים <code>Terminal</code> ולוחצים <kbd>Enter</kbd>.</li>
+  <li>מדביקים את השורה הזאת (<kbd>Cmd</kbd>+<kbd>V</kbd>):<br>
+      <code style="display:block;white-space:pre-wrap;word-break:break-all;margin:6px 0;padding:8px">curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash</code></li>
+  <li>לוחצים <kbd>Enter</kbd>. ההתקנה שואלת באיזו שפה לומדים (Java, C# או שתיהן), ומתקינה הכול לבד — בלי סיסמה ובלי הרשאות מנהל.</li>
+</ol>
+<p>מה מותקן: Java 21 (כלולה), ההרצה הוויזואלית ל-Java ול-C#, התוסף ל-VS Code, התוסף לכל Eclipse שנמצא במחשב
+(Eclipse עצמו מתקין אותו — צריך שהוא יהיה סגור), ותיקיות התרגילים במסמכים (<code>DataStructures</code>, <code>DataStructures-CS</code>).
+ל-C# אפשר להתקין גם ‎.NET SDK (ההתקנה שואלת). העדכונים אוטומטיים (פעם ביום, כש-VS Code נפתח או כש-Eclipse נסגר). הרצה חוזרת של אותה פקודה = עדכון/תיקון —
+העבודה שלכם בתיקיות התרגילים לא נדרסת.</p>
+<p>בפעם הראשונה macOS ישאל אם לתת ל-Terminal, ל-VS Code ול-Eclipse גישה לתיקיית <b>המסמכים</b> — לוחצים <b>אישור</b> (Allow).
+אם macOS כותב <i>"Terminal was prevented from modifying apps"</i> — ב-Eclipse: <b>Help ← Install New Software ← Add ← Archive</b>
+ובוחרים את <code>~/Library/Application Support/DSViz/eclipse/dsviz-eclipse-site.zip</code>.</p>
+<p>הסרה: <code>"$HOME/Library/Application Support/DSViz/uninstall.sh"</code> (תיקיות התרגילים נשארות).
+לא מורידים קובץ בדפדפן ולא לוחצים עליו פעמיים — macOS חוסם קבצים כאלה כשהם לא חתומים ע"י Apple; הפקודה בטרמינל לא נחסמת.</p>
 </div>
 <p>אם Windows מציג "Windows protected your PC" — זו הגנה כללית על קובץ חדש ולא חתום. לוחצים <b>More info</b> ← <b>Run anyway</b>.</p>
 <p>אם לא נמצא לא VS Code ולא Eclipse — ההתקנה תשאל איפה Eclipse. אם אין הרשאה לכתוב לתיקייה שלו
@@ -42,7 +60,8 @@
 <ul>
   <li><b>VS Code:</b> חלון Extensions ← שלוש הנקודות <kbd>…</kbd> למעלה ← <b>Install from VSIX…</b> ← בוחרים את <code>dsviz-1.0.1.vsix</code>.
       מתקינים גם את <b>Extension Pack for Java</b>.</li>
-  <li><b>Eclipse:</b> מעתיקים את <code>il.lamerhav.dsviz_1.0.1.jar</code> לתיקייה <code>dropins</code> שבתוך תיקיית Eclipse, ומפעילים מחדש.</li>
+  <li><b>Eclipse:</b> מעתיקים את <code>il.lamerhav.dsviz_1.0.1.jar</code> לתיקייה <code>dropins</code> שבתוך תיקיית Eclipse, ומפעילים מחדש.
+      (ב-Mac: Help ← Install New Software ← Add ← Archive ← <code>dsviz-eclipse-site.zip</code>, כמו למעלה.)</li>
 </ul>
 
 <h2>3. שימוש</h2>

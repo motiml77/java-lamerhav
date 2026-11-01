@@ -93,6 +93,11 @@ function activate(context) {
 
     openPending();
     firstRun();
+    // Mac: עדכון אוטומטי (פעם ביום, ברקע — update.sh של ההתקנה). דקה אחרי הפתיחה, כדי לא להאט את VS Code
+    if (runner.MAC) {
+        const t = setTimeout(() => runner.startMacUpdater(), 60000);
+        if (t && t.unref) t.unref();
+    }
 }
 
 /** פתיחת תיקיית התרגילים שהותקנה (במסמכים) */
@@ -425,7 +430,7 @@ let helpPanel;
 async function openHelp(id) {
     let dir = path.join(ctx.extensionPath, 'resources', 'help');
     if (!fs.existsSync(dir)) {   // התוסף שההתקנה שמה — הסרטונים שמורים פעם אחת בתיקייה help של ההתקנה
-        const base = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DSViz') : path.join(require('os').homedir(), 'DSViz');
+        const base = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DSViz') : runner.MAC_DIR || path.join(require('os').homedir(), 'DSViz');
         if (fs.existsSync(path.join(base, 'help', 'vscode', 'index.html'))) dir = path.join(base, 'help', 'vscode');   // הסרטונים של VS Code
         else if (fs.existsSync(path.join(base, 'help', 'index.html'))) dir = path.join(base, 'help');
     }
@@ -575,7 +580,8 @@ async function runCs(ed) {
     const root = folder ? folder.uri.fsPath : path.dirname(ed.document.fileName);
     const exe = cs.findRunner(vscode.workspace.getConfiguration('dsviz').get('csRunner'));
     if (!exe) {
-        vscode.window.showErrorMessage('לא נמצא dsviz-cs (ההרצה הוויזואלית של C#). יש להתקין מחדש את DSViz-Setup.exe ולבחור את חבילת C#.');
+        vscode.window.showErrorMessage(runner.MAC ? 'לא נמצא dsviz-cs (ההרצה הוויזואלית של C#). ' + runner.INSTALL_HINT + '.'
+            : 'לא נמצא dsviz-cs (ההרצה הוויזואלית של C#). יש להתקין מחדש את DSViz-Setup.exe ולבחור את חבילת C#.');
         return;
     }
     const target = cs.projectDirOf(ed.document.fileName, root) || ed.document.fileName;

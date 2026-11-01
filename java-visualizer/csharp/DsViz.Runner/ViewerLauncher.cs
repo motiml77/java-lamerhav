@@ -17,7 +17,8 @@ namespace DsViz
             if (java == null || jar == null)
             {
                 Console.Error.WriteLine("לא נמצאו Java ו/או dsviz.jar להצגת החלון" + (java == null ? " (java)" : "") + (jar == null ? " (dsviz.jar)" : "")
-                    + ". מתקינים מחדש את DSViz-Setup.exe. קובץ ההרצה: " + trace);
+                    + (OperatingSystem.IsMacOS() ? ". מריצים שוב את פקודת ההתקנה ל-Mac (installer/mac/install.sh)" : ". מתקינים מחדש את DSViz-Setup.exe")
+                    + ". קובץ ההרצה: " + trace);
                 return;
             }
             var psi = new ProcessStartInfo(java)
@@ -34,8 +35,11 @@ namespace DsViz
         /// <summary>הפקודה עד שם המחלקה (בלי הקובץ / --live)</summary>
         internal static string[] JvmArgs(string jar)
         {
-            return new[] { "-Dfile.encoding=UTF-8", "-Xshare:auto", "-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC",
-                           "-cp", jar, "unit4.collectionsLib.TraceViewer" };
+            var a = new System.Collections.Generic.List<string> { "-Dfile.encoding=UTF-8", "-Xshare:auto", "-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC" };
+            // Mac: השם ב-Dock ובתפריט העליון "DSViz" (ולא "java"). האפשרות ‎-Xdock קיימת רק ב-Java של Mac
+            if (OperatingSystem.IsMacOS()) { a.Add("-Xdock:name=DSViz"); a.Add("-Dapple.awt.application.name=DSViz"); }
+            a.AddRange(new[] { "-cp", jar, "unit4.collectionsLib.TraceViewer" });
+            return a.ToArray();
         }
 
         static string BaseDir { get { return AppContext.BaseDirectory; } }

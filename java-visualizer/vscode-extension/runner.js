@@ -7,7 +7,12 @@ const path = require('path');
 const cp = require('child_process');
 
 const WIN = process.platform === 'win32';
+const MAC = process.platform === 'darwin';
 const EXE = WIN ? '.exe' : '';
+/** תיקיית ההתקנה ב-Mac (installer/mac/install.sh): Java 21, dsviz-cs, update.sh */
+const MAC_DIR = MAC ? path.join(os.homedir(), 'Library', 'Application Support', 'DSViz') : null;
+/** איך מתקינים (להודעות שגיאה) */
+const INSTALL_HINT = MAC ? 'מריצים שוב בטרמינל את פקודת ההתקנה ל-Mac (curl ... install.sh | bash)' : 'יש להתקין מחדש את DSViz-Setup.exe';
 
 /** קובץ שתוכנית ההתקנה כתבה ב-~/.dsviz (ב-Windows: UTF-16 עם BOM) */
 function readDsvizFile(name) {
@@ -32,6 +37,7 @@ function findJava(configured) {
     const candidates = [
         [configured, 'הגדרה dsviz.javaHome'],
         [readDsvizFile('jdk-path.txt'), 'ה-Java שהותקנה עם מבני נתונים'],
+        [MAC_DIR && path.join(MAC_DIR, 'jdk'), 'ה-Java שהותקנה עם מבני נתונים'],
         [process.env.JAVA_HOME, 'JAVA_HOME']
     ];
     for (const [home, source] of candidates) {
@@ -95,8 +101,9 @@ function parseErrors(out) {
  */
 function runArgs(mainClass, binDir, jar) {
     const cpSep = WIN ? ';' : ':';
-    return ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', '-Ddsviz.visual=true',
-            '-cp', binDir + cpSep + jar, 'unit4.collectionsLib.LineByLine', mainClass];
+    return ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', '-Ddsviz.visual=true']
+        .concat(MAC ? ['-Xdock:name=DSViz'] : [])   // Mac: השם ב-Dock (ולא "java")
+        .concat(['-cp', binDir + cpSep + jar, 'unit4.collectionsLib.LineByLine', mainClass]);
 }
 
 /**
@@ -110,4 +117,22 @@ function windowsScript(binDir, java, args) {
     return file;
 }
 
-module.exports = { findJava, compile, parseErrors, runArgs, windowsScript, javaFiles, readDsvizFile, WIN };
+/**
+ * עדכון אוטומטי ב-Mac: פעם ביום מפעילים ברקע את update.sh של ההתקנה — הוא בודק את dsviz-mac.json ומעדכן אם יש בנייה
+ * חדשה (ב-Windows העדכון הוא update.ps1, בכניסה ל-Windows — כאן לא עושים כלום). מחזיר true אם הופעל.
+ */
+function startMacUpdater(now) {
+    if (!MAC) return false;
+    try {
+        const script = path.join(MAC_DIR, 'update.sh');
+        if (!fs.existsSync(script)) return false;
+        const stamp = path.join(os.homedir(), '.dsviz', 'update-check.txt');
+        if (!now && fs.existsSync(stamp) && Date.now() - fs.statSync(stamp).mtimeMs < 20 * 3600 * 1000) return false;
+        cp.spawn('/bin/bash', [script], { detached: true, stdio: 'ignore' }).unref();
+        return true;
+    } catch (e) {
+        return false;   // לא נורא — ננסה בפעם הבאה
+    }
+}
+
+module.exports = { findJava, compile, parseErrors, runArgs, windowsScript, javaFiles, readDsvizFile, startMacUpdater, WIN, MAC, MAC_DIR, INSTALL_HINT };

@@ -56,11 +56,12 @@ const LAUNCH = {
 
 /**
  * מוצא את dsviz-cs. סדר: הגדרה dsviz.csRunner → מה שההתקנה רשמה (~/.dsviz/cs-path.txt) → ברירת המחדל בהתקנה
- * (%LOCALAPPDATA%\DSViz\cs) → משתנה הסביבה DSVIZ_CS → PATH. מחזיר { command, prefix } או null
+ * (%LOCALAPPDATA%\DSViz\cs; ב-Mac ~/Library/Application Support/DSViz/cs) → משתנה הסביבה DSVIZ_CS → PATH. מחזיר { command, prefix } או null
  * (prefix = ארגומנטים לפני הנתיב לפרויקט; קובץ dsviz-cs.dll מורץ דרך dotnet).
  */
 function findRunner(configured) {
-    const local = WIN && process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DSViz', 'cs', 'dsviz-cs.exe') : null;
+    const local = WIN && process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DSViz', 'cs', 'dsviz-cs.exe')
+        : runner.MAC_DIR ? path.join(runner.MAC_DIR, 'cs', 'dsviz-cs') : null;   // Mac: ~/Library/Application Support/DSViz/cs
     for (const p of [configured, runner.readDsvizFile('cs-path.txt'), local, process.env.DSVIZ_CS]) {
         if (!p || !fs.existsSync(p)) continue;
         return p.toLowerCase().endsWith('.dll') ? { command: 'dotnet', prefix: [p] } : { command: p, prefix: [] };

@@ -462,7 +462,7 @@ final class Viewer extends JFrame {
 
     private JComponent zoomTools() {
         JPanel p = row(2);
-        JButton out = small("−", "הקטנה"), in = small("+", "הגדלה"), fit = small("התאמה", "התאמה לגודל החלון");
+        JButton out = small("–", "הקטנה"), in = small("+", "הגדלה"), fit = small("התאמה", "התאמה לגודל החלון");
         out.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { structs.zoomBy(1 / 1.2); } });
         in.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { structs.zoomBy(1.2); } });
         fit.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { structs.fit(); } });

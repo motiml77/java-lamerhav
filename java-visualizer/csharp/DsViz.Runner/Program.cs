@@ -518,7 +518,10 @@ namespace DsViz
                 profiles.Add(Name, new System.Text.Json.Nodes.JsonObject
                 {
                     ["commandName"] = "Executable",
-                    ["executablePath"] = "%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe",
+                    // Mac (Rider): הנתיב המלא של dsviz-cs שרץ עכשיו (~/Library/Application Support/DSViz/cs/dsviz-cs)
+                    ["executablePath"] = OperatingSystem.IsWindows() || string.IsNullOrEmpty(Environment.ProcessPath)
+                        || Path.GetFileName(Environment.ProcessPath) != "dsviz-cs"
+                        ? "%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe" : Environment.ProcessPath,
                     ["commandLineArgs"] = "\"$(ProjectDir)\"",
                     ["workingDirectory"] = "$(ProjectDir)"
                 });

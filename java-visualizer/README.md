@@ -114,15 +114,33 @@
 אחרי `tools/build-all.sh` עושים commit ל-`release/DSViz-Setup.exe` וממזגים ל-`master` — הקישור הקבוע מתעדכן לבד, והכתובת לא משתנה.
 (אפשר גם GitHub Release עם `tools/publish-release.sh`: הקישור הקבוע שלו הוא `https://github.com/motiml77/java-lamerhav/raw/master/java-visualizer/release/DSViz-Setup.exe`.)
 
-**Mac / Linux — [`release/dsviz-install.zip`](release/dsviz-install.zip):** פותחים, ומריצים `install-mac.command` (לחיצה כפולה ב-Mac) או `./install.sh`.
+**Mac (Apple Silicon ו-Intel, macOS 12 ומעלה) — פקודה אחת בטרמינל:** פותחים **Terminal** (<kbd>Cmd</kbd>+רווח ← `Terminal`), מדביקים ולוחצים Enter:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash
+```
+
+- בלי סיסמה ובלי הרשאות מנהל; שואלת באיזו שפה לומדים (Java / C# / שתיהן). מתקינה ל-`~/Library/Application Support/DSViz`:
+  Java 21 מקוצרת (כמו ב-Windows — `java`, `javac`, הרצה שורה-שורה), `dsviz.jar`, `dsviz-cs` (C#, כולל ‎.NET — לא צריך להתקין כלום),
+  התוסף ל-VS Code (דרך `code`), התוסף לכל Eclipse שנמצא (`/Applications/Eclipse*.app`, `~/Applications`, `~/eclipse` — Eclipse עצמו מתקין אותו, p2),
+  תיקיות התרגילים במסמכים (עבודה קיימת לא נדרסת), ול-C#: `DSViz.targets` (ההפניה לספרייה בכל פרויקט) ו-‎.NET SDK ב-`~/.dotnet` אם רוצים.
+- **למה פקודה ולא קובץ להורדה:** קבצים ש-`curl` מוריד לא מסומנים "הורד מהאינטרנט", ולכן macOS לא חוסם אותם — בלי Apple Developer ID.
+  קובץ (‎`.command` / ‎`.pkg` / ‎`.app`) שהורד בדפדפן ולא נחתם ואושר ע"י Apple — נחסם מ-macOS 15 (ו-"Open Anyway" דורש סיסמת מנהל).
+  כל קובץ שמורד נבדק מול SHA-256.
+- **עדכונים:** אוטומטיים, פעם ביום (התוסף של VS Code כשהוא נפתח, והתוסף של Eclipse כשהוא נסגר, מפעילים את `update.sh` של ההתקנה). הרצה חוזרת של הפקודה = עדכון.
+- **הסרה:** `"$HOME/Library/Application Support/DSViz/uninstall.sh"`.
+- אפשרויות: `... | DSVIZ_LANG=both DSVIZ_DOTNET=1 bash` (בלי שאלות), `DSVIZ_CHANNEL=mac-test` (גרסת הבדיקה). פרטים: [`installer/mac/install.sh`](installer/mac/install.sh).
+- החבילות (`dsviz-mac-arm64/x64-*.tar.gz`, ‏`dsviz-mac.json`) נבנות ונבדקות על Mac אמיתי ב-GitHub Actions ([`.github/workflows/dsviz-mac.yml`](../.github/workflows/dsviz-mac.yml)) ומתפרסמות כ-GitHub Release ‏`mac-latest`.
+
+**Linux — [`release/dsviz-install.zip`](release/dsviz-install.zip):** פותחים, ומריצים `./install.sh`.
 
 אחרי ההתקנה — סוגרים ופותחים מחדש את VS Code / Eclipse.
 
-נדרש במחשב: VS Code ו/או Eclipse (כל גרסה מהשנים האחרונות, מ-2020-09 ומעלה, גם הגרסאות החדשות ביותר; נבדק על 2020-09, 2022-03, 2024-03 ו-2026-09). ב-Windows, Java כלולה בהתקנה.
+נדרש במחשב: VS Code ו/או Eclipse (כל גרסה מהשנים האחרונות, מ-2020-09 ומעלה, גם הגרסאות החדשות ביותר; נבדק על 2020-09, 2022-03, 2024-03 ו-2026-09). ב-Windows וב-Mac, Java כלולה בהתקנה.
 
 - **זיהוי Eclipse:** ההתקנה מחפשת לבד — Eclipse שרץ עכשיו, התיקיות הרגילות וכל הכוננים, בכל שם תיקייה (רק Eclipse ל-Java). Eclipse בתיקייה מוגנת (Program Files) דורש להריץ את ההתקנה כמנהל — ההתקנה אומרת את זה במפורש.
 - **ספריית הקורס בכל פרויקט:** בכל פתיחה של Eclipse, ובכל פרויקט Java שנוצר או נפתח, אם חסרה בו הספרייה (`Stack`, `Queue`, `Node`, `BinNode`...) היא נוספת לו לבד (`lib/dsviz.jar` ב-Build Path), גם בפרויקט שהתלמיד יצר בעצמו. פרויקט שכבר יש בו ספרייה כזו (למשל ה-jar המקורי של הקורס) לא נוגעים בו.
-ב-Mac/Linux צריך JDK (17 או 21 מומלץ; להרצה שורה אחר שורה — 11 ומעלה).
+ב-Linux צריך JDK (17 או 21 מומלץ; להרצה שורה אחר שורה — 11 ומעלה). ב-Windows וב-Mac, Java כלולה בהתקנה.
 
 ### איך זה נראה בתוך התוכנה
 
@@ -825,7 +843,7 @@ Viz.text(x);                // מחרוזת של כל מבנה או מערך: "3
 java-visualizer/
 ├── release/                       ← קובצי ההתקנה (נבנים ע"י tools/build-all.sh)
 │   ├── DSViz-Setup.exe            ← תוכנית ההתקנה ל-Windows
-│   ├── dsviz-install.zip          ← הכול + התקנה ל-Mac/Linux + מדריך
+│   ├── dsviz-install.zip          ← הכול + התקנה ל-Linux + מדריך
 │   ├── dsviz-1.0.1.vsix           ← תוסף VS Code
 │   ├── il.lamerhav.dsviz_1.0.1.jar← תוסף Eclipse (לתיקיית dropins)
 │   └── dsviz.jar                  ← הספרייה עצמה
@@ -839,8 +857,10 @@ java-visualizer/
 ├── worker/                        ← השרת של "שליחת תרגיל" (Cloudflare Worker → Gemini) + הוראות התקנה
 ├── site/                          ← האתר (GitHub Pages): דף אחד בעברית עם הדגמה חיה וקישור להורדה
 ├── csharp/                        ← C#: Unit4.CollectionsLib (ספרייה), DsViz.Runner (dsviz-cs), project (DataStructures-CS)
-├── installer/                     ← setup.nsi (DSViz-Setup.exe), install.sh, README-he.html,
-│                                     project/ (תבנית תיקיית התרגילים שההתקנה יוצרת)
+├── installer/                     ← setup.nsi (DSViz-Setup.exe), install.sh (Linux), README-he.html,
+│   │                                 project/ (תבנית תיקיית התרגילים שההתקנה יוצרת)
+│   └── mac/                       ← Mac: install.sh (curl | bash), update.sh, uninstall.sh, build-payload.sh (נבנה על Mac),
+│                                     make-p2.py (מאגר p2 לתוסף של Eclipse), ci-test.sh (בדיקה מקצה לקצה ב-GitHub Actions)
 └── tools/
     ├── build-all.sh               ← בונה את כל release/
     └── test/                      ← בדיקות: התאמת התבניות בין שני התוספים, ובדיקת התוסף של VS Code
@@ -852,6 +872,10 @@ java-visualizer/
 tools/build-all.sh          # דורש JDK 11+, Python 3, Node.js, NSIS (makensis)
 tools/test/run-tests.sh     # תבניות, קומפילציה, התוסף של VS Code, והרצה שורה-שורה
 ```
+
+ההתקנה ל-Mac נבנית ונבדקת לבד ב-GitHub Actions (`.github/workflows/dsviz-mac.yml`) בכל push ל-`master` שנוגע בקוד הרלוונטי:
+הספרייה והתוספים נבנים מהקוד (Linux, `tools/build-all.sh`), Java 21 ו-`dsviz-cs` נבנים על Mac לכל ארכיטקטורה (`installer/mac/build-payload.sh`),
+מתפרסמים ב-GitHub Release `mac-latest`, ונבדקים מקצה לקצה על macOS 26 (Apple Silicon) ו-macOS 15 (Intel) עם צילומי מסך (`installer/mac/ci-test.sh`).
 
 התבנית שיוצרת את קוד התרגיל ואת "הוספה לקוד" כתובה פעמיים — `vscode-extension/templates.js` ו-`eclipse-plugin/src/.../Scaffold.java`
 (כולל מחולל מספרים אקראיים זהה). שינוי באחת צריך להיעשות גם בשנייה; `tools/test/combos.js` + `ScaffoldAll.java`
