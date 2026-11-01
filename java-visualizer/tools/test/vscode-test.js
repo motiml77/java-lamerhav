@@ -35,8 +35,8 @@ const vscode = {
             return a(items, opts); },
         showInputBox: async opts => { const a = answers.shift(); const v = a(opts); log.push('input: ' + opts.title + ' = ' + v);
             const err = opts.validateInput && opts.validateInput(v); if (err) throw new Error('validation: ' + err); return v; },
-        showInformationMessage: async (m) => { log.push('info: ' + m); },
-        showWarningMessage: async (m) => { log.push('warn: ' + m); },
+        showInformationMessage: async (m, o) => { log.push('info: ' + m + (o && o.detail ? '\n' + o.detail : '')); },
+        showWarningMessage: async (m, o) => { log.push('warn: ' + m + (o && o.detail ? '\n' + o.detail : '')); },
         showErrorMessage: async (m) => { log.push('error: ' + m); },
         showTextDocument: async doc => { opened = doc.fileName; return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document === doc ? vscode.window.activeTextEditor : { selection: null, revealRange() {} }; },
         createStatusBarItem: () => ({ show() {}, hide() {}, dispose() {} }),
@@ -414,6 +414,12 @@ async function addDialog(command, state, steps) {
             assert(openedFiles[0] && openedFiles[0].focus === f && openedFiles[0].line > 0, JSON.stringify(openedFiles));
             const text = fs.readFileSync(f, 'utf8');
             assert(!text.includes('count++'), 'הפתרון לא נכנס לקוד של התלמיד');
+            // סעיף ג' (סיבוכיות — במילים, בלי קוד): לא בקוד, אבל בהודעה שאחרי השליחה (SubmitCli → others)
+            const other = 'ג — מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו.';
+            assert(!text.includes('מהי סיבוכיות'), 'הסעיף במילים לא נכנס לקוד');
+            const created = log.filter(l => l.startsWith('info: התרגיל נוצר')).pop() || '';
+            assert(created.startsWith('info: התרגיל נוצר — 2 סעיפים בקוד (בתיקייה ex01_stacks)\n') && created.includes('סעיפים שעונים עליהם במילים (בלי קוד):\n' + other)
+                && created.includes('💡 הצעה לפתרון') && !created.includes('בראש הקובץ'), 'ההודעה אחרי השליחה: ' + created);
             const lenses = await lensProviders[lensProviders.length - 1].provideCodeLenses({ uri: { fsPath: f }, getText: () => text });
             assert.strictEqual(lenses.length, 2, 'שני 💡 — אחד לכל סעיף');
             assert(text.split('\n')[lenses[0].range.line].includes('countEven('), 'ה-💡 מעל הכותרת של countEven');
@@ -423,7 +429,21 @@ async function addDialog(command, state, steps) {
             assert(sol && sol.html.includes('הצעה לפתרון') && sol.html.includes('נבדק: הרצנו את main') && sol.html.includes('count++'), 'חלון ההצעה');
             await sol.handler({ type: 'copy', text: null });
             assert(clipboard && clipboard.includes('countEven'), 'העתקה');
-            log.push('submit: ex01_stacks + 2 × 💡 + הצעה שנבדקה');
+            log.push('submit: ex01_stacks + 2 × 💡 + הצעה שנבדקה + סעיף ג (במילים) בהודעה');
+            // ההודעה עצמה (doneMessage): בלי סעיפים במילים — הודעה רגילה בפינה; בלי סעיפים בקוד — אומרים את זה; טקסט ארוך מתקצר
+            const plain = sub.doneMessage({ done: true, folder: 'ex02_queues', tasks: 3, errors: [], others: [] });
+            assert(!plain.options && plain.message === 'התרגיל נוצר בתיקייה ex02_queues. כותבים את הפתרון במקום המסומן — ומעל כל סעיף יש 💡 הצעה לפתרון.', JSON.stringify(plain));
+            const none = sub.doneMessage({ done: true, folder: 'ex03_trees', tasks: 0, errors: [], others: [{ label: 'א', text: 'הסבירו\nבמילים' }] });
+            assert(none.message === 'התרגיל נוצר (בתיקייה ex03_trees)' && none.options.modal
+                && none.options.detail === 'בתרגיל אין סעיפים שכותבים בהם קוד.\n\nסעיפים שעונים עליהם במילים (בלי קוד):\nא — הסבירו במילים', JSON.stringify(none));
+            assert.strictEqual(sub.othersText(0, []), 'בתרגיל אין סעיפים שכותבים בהם קוד.');
+            assert.strictEqual(sub.othersText(1, undefined), '');
+            const one = sub.doneMessage({ done: true, folder: 'ex04_x', tasks: 1, errors: [], others: [{ label: 'ב', text: 'נמקו' }] });
+            assert(one.message === 'התרגיל נוצר — סעיף אחד בקוד (בתיקייה ex04_x)', one.message);
+            const withErr = sub.doneMessage({ done: true, folder: 'ex05_y', tasks: 2, errors: ['A.java:3: x'], others: [{ label: 'ג', text: 'נמקו' }] });
+            assert(withErr.warn && withErr.message.endsWith('או לשלוח שוב.\n\nסעיפים שעונים עליהם במילים (בלי קוד):\nג — נמקו'), withErr.message);
+            const long = sub.otherLine('ד', Array.from({ length: 60 }, (x, i) => 'מילה' + i).join(' '));
+            assert(long.startsWith('ד — ') && long.endsWith('…') && long.length - 4 <= 201 && !long.includes(' …'), long);
         } finally {
             mock.kill();
             delete process.env.DSVIZ_WORKER_URL;

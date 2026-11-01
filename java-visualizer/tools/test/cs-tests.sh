@@ -256,7 +256,8 @@ DSVIZ_WORKER_URL=http://127.0.0.1:8796 java -cp "$JAR" il.lamerhav.dsviz.SubmitC
 grep -q '"done":true' "$SUB/out.txt" && grep -q '"solutionStatus":"ok"' "$SUB/out.txt" && grep -q 'Ex01_Stacks.csproj' "$SUB/root/DataStructures-CS.sln" \
     && [ "$(grep -c 'כאן עונים' "$SUB/root/Exercises/Ex01_Stacks/StackTargil.cs")" = 3 ] && ! grep -q 'count++' "$SUB/root/Exercises/Ex01_Stacks/StackTargil.cs" \
     && grep -q '"status":"ok"' "$SUB/solutions.json" \
-    && echo "שליחת תרגיל ב-C#: פרויקט Ex01_Stacks בפתרון, בלי פתרון בקוד, וההצעות נבדקו (dsviz-cs)" || { echo "שליחת תרגיל ב-C# נכשלה"; cat "$SUB/out.txt"; kill $MOCKW; exit 1; }
+    && grep -qF '"others":[{"label":"ד","text":"מהי סיבוכיות זמן הריצה?"}]' "$SUB/out.txt" && ! grep -q 'מהי סיבוכיות' "$SUB/root/Exercises/Ex01_Stacks/StackTargil.cs" \
+    && echo "שליחת תרגיל ב-C#: פרויקט Ex01_Stacks בפתרון, בלי פתרון בקוד, וההצעות נבדקו (dsviz-cs); סעיף ד (במילים) — בהודעה ולא בקוד" || { echo "שליחת תרגיל ב-C# נכשלה"; cat "$SUB/out.txt"; kill $MOCKW; exit 1; }
 # החלונות עצמם (Swing), אם יש מסך מדומה
 if command -v Xvfb >/dev/null 2>&1; then
     (Xvfb :97 -screen 0 1600x900x24 >/dev/null 2>&1 &); sleep 2
@@ -267,7 +268,8 @@ if command -v Xvfb >/dev/null 2>&1; then
         SwingScript "$SUB/s1.txt" "$SUB/shots" il.lamerhav.dsviz.cs.CsTool submit "$SUB/root2" > "$SUB/gui.txt" 2>&1 || true
     printf 'select 1\nshot l1\n' > "$SUB/s2.txt"
     DISPLAY=:97 timeout 60 java -Duser.home="$SUB/home" -cp "$SUB/cls:$JAR" SwingScript "$SUB/s2.txt" "$SUB/shots" il.lamerhav.dsviz.cs.CsTool solution "$SUB/root2" >> "$SUB/gui.txt" 2>&1 || true
-    grep -q '"שליחה ויצירת התרגיל"' "$SUB/shots/s1.json" && grep -q 'נוצר התרגיל Ex01_Stacks' "$SUB/shots/s2.json" \
+    grep -q '"שליחה ויצירת התרגיל"' "$SUB/shots/s1.json" && grep -q 'נוצר התרגיל Ex01_Stacks, ובו 3 סעיפים בקוד' "$SUB/shots/s2.json" \
+        && grep -q 'ד — מהי סיבוכיות זמן הריצה?' "$SUB/shots/s2.json" \
         && grep -q 'נבדק: הרצנו את main' "$SUB/shots/l1.json" && ! grep -q 'Moti Levi' "$SUB/shots/l1.json" \
         && echo "החלונות של Visual Studio: שליחת תרגיל → פרויקט, והצעה לפתרון (נבדקה)" || { echo "החלונות של Visual Studio נכשלו"; cat "$SUB/gui.txt"; kill $MOCKW; exit 1; }
 fi

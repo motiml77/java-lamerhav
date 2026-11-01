@@ -441,18 +441,32 @@ public final class VsSubmit {
 
         void finished(ExercisePipeline.Result r) {
             String msg;
+            // בקוד אין את הטקסט של התרגיל: הסעיפים שעונים עליהם במילים (ותרגיל בלי סעיפים בקוד) — כאן בהודעה
+            String words = AiScaffold.othersText(r.tasks, r.others);
             if (!r.errors.isEmpty()) {
                 msg = "התרגיל נוצר (" + r.folderName + "), אבל יש בו " + r.errors.size() + " שגיאות קומפילציה:\n\n"
                         + String.join("\n", r.errors.subList(0, Math.min(4, r.errors.size())))
-                        + "\n\nבדרך כלל זה ב-Main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב.";
+                        + "\n\nבדרך כלל זה ב-Main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב."
+                        + (words.isEmpty() ? "" : "\n\n" + words);
             } else {
-                msg = "נוצר התרגיל " + r.folderName + (r.tasks == 0 ? " (בלי סעיפים שצריך לכתוב בהם קוד — השאלות בראש הקובץ)." : ".") + "\n\n"
+                // "ובו" בין שם הפרויקט למספר — אחרת המספר נצמד לשם (משמאל לימין) ומוצג במקום הלא נכון
+                msg = "נוצר התרגיל " + r.folderName + (r.tasks > 0 ? ", ובו " + AiScaffold.codeTasks(r.tasks) : "") + ".\n\n"
+                        + (words.isEmpty() ? "" : words + "\n\n")
                         + "ב-Visual Studio: בחלון Solution Explorer לחצו קליק ימני על " + r.folderName + " ← Set as Startup Project,\n"
                         + "כתבו את הפתרון במקום המסומן, ובתפריט שליד כפתור ההפעלה הירוק בחרו \"הרצה ויזואלית\".\n"
                         + "(אם Visual Studio כבר פתוח — אשרו Reload כשהוא שואל.)"
                         + (r.entries.isEmpty() ? "" : "\n\nנתקעתם? בקיצור \"הצעה לפתרון ב-C#\" יש הצעה לכל סעיף (" + statusShort(r.solutionStatus) + ").");
             }
-            JOptionPane.showMessageDialog(null, msg, "שליחת תרגיל — C#", r.errors.isEmpty() ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
+            // שורה ארוכה (סעיף במילים — עד 200 תווים) נשברת, במקום חלון רחב מהמסך
+            JOptionPane pane = new JOptionPane(msg, r.errors.isEmpty() ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE) {
+                @Override
+                public int getMaxCharactersPerLineCount() {
+                    return 120;
+                }
+            };
+            JDialog shown = pane.createDialog(null, "שליחת תרגיל — C#");
+            shown.setVisible(true);
+            shown.dispose();
             if (!Boolean.getBoolean("dsviz.noOpen") && java.awt.Desktop.isDesktopSupported()) {
                 try {
                     Path sln = CsSolution.solution(root);
