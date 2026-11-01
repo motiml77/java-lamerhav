@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node test/worker-test.mjs",
-    "deploy": "npx --yes wrangler@4 deploy"
+    "deploy": "npx --yes wrangler@4 deploy",
+    "bundle": "npx --yes esbuild@0.24.0 src/index.js --bundle --format=esm --platform=neutral --external:node:buffer --outfile=dist/worker.js"
   }
 }

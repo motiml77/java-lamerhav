@@ -96,10 +96,13 @@ function reply(status, obj, extra) {
   return new Response(JSON.stringify(obj), { status, headers: Object.assign({ 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }, extra || {}) });
 }
 
+/** גרסת השרת — מופיעה ב-/v1/health, כדי לראות שהעדכון עלה (מעדכנים בכל שינוי בהנחיות / בקוד) */
+const VERSION = '2026-11-01';
+
 async function handle(request, env, ctx) {
   const url = new URL(request.url);
   if (request.method === 'GET' && (url.pathname === '/v1/health' || url.pathname === '/')) {
-    return reply(200, { ok: true, service: 'dsviz-exercise', models: models(env) });
+    return reply(200, { ok: true, service: 'dsviz-exercise', version: VERSION, models: models(env) });
   }
   const dl = /^\/dl\/(windows|zip)$/.exec(url.pathname);
   if (request.method === 'GET' && dl) {   // הורדה מהאתר: סופרים, ומפנים לקובץ (גם אם הספירה נכשלת)
