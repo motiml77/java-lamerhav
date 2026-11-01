@@ -128,7 +128,8 @@
       .replace(/`([^`]+)`/g, '<code dir="ltr">$1</code>');
     range.value = String(at);
     prev.disabled = at === 0;
-    next.textContent = at === steps.length - 1 ? 'מההתחלה' : 'הבא';
+    next.disabled = at === steps.length - 1;   // בצעד האחרון נעצרים — לא מתחילים שוב לבד
+    if (play && !timer) play.disabled = at === steps.length - 1;
   }
 
   // הפעלה / עצירה: כפתור, רווח במקלדת, או לבד פעם אחת כשההדגמה על המסך
@@ -137,6 +138,7 @@
     if (!play) return;
     play.setAttribute('aria-pressed', on ? 'true' : 'false');
     play.textContent = on ? 'עצירה' : 'הפעלה';
+    play.disabled = !on && at === steps.length - 1;
   }
   function stop() {
     touched = true;
@@ -155,11 +157,11 @@
   function toggle() {
     if (timer) { stop(); return; }
     touched = true;
-    if (at >= steps.length - 1) { at = 0; render(); }
+    if (at >= steps.length - 1) return;
     run();
   }
   prev.addEventListener('click', function () { stop(); if (at > 0) { at--; render(); } });
-  next.addEventListener('click', function () { stop(); at = at === steps.length - 1 ? 0 : at + 1; render(); });
+  next.addEventListener('click', function () { stop(); if (at < steps.length - 1) { at++; render(); } });
   range.addEventListener('input', function () { stop(); at = +range.value; render(); });
   if (play) play.addEventListener('click', toggle);
   // מקלדת (כשההדגמה בפוקוס): מימין לשמאל, שמאלה = קדימה; רווח מפעיל ועוצר; Home / End — הצעד הראשון והאחרון

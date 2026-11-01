@@ -305,6 +305,8 @@ function serve() {
       assert.strictEqual(await sel(), 1, 'חץ שמאלה → שלב 2');
       await page.keyboard.press('End');
       assert.strictEqual(await sel(), 4, 'End → שלב 5');
+      assert.ok(await page.$eval('[data-fnext]', b => b.disabled) && await page.$eval('[data-fplay]', b => b.disabled), 'בשלב האחרון "הבא" ו"הפעלה" כבויים — לא מתחילים שוב');
+      assert.ok(!/מההתחלה/.test(await page.textContent('[data-flow] .fp-nav')), 'אין כפתור "מההתחלה"');
       await page.keyboard.press('Home');
       assert.strictEqual(await sel(), 0, 'Home → שלב 1');
       // שלב 3: החבילה, מהקוד של scaffold.js בדפדפן
@@ -457,7 +459,7 @@ function serve() {
     await page.click(P + '[data-op=push]');
     assert.ok(/ערך בין/.test((await st()).said), 'ערך לא חוקי');
     await page.click(P + '[data-preset]');
-    assert.strictEqual((await st()).boxes, 2, '"מההתחלה"');
+    assert.strictEqual((await st()).boxes, 2, '"איפוס"');
     // תור
     await page.click(P + '[data-kind=queue]');
     s0 = await st();
@@ -509,7 +511,7 @@ function serve() {
     assert.deepStrictEqual(errors, [], 'שגיאות בקונסול (נסו בעצמכם): ' + label);
     await ctx.close();
   }
-  pass('נסו בעצמכם (1366 ו-390): מחסנית, תור, רשימה ועץ — כל כפתור משנה את הציור ומוסיף שורת Java מסומנת; pop/remove מנפישים יציאה, חוליה שאבדה, מסלול בעץ ו-inOrder; גבולות, ערך לא חוקי ו"מההתחלה"');
+  pass('נסו בעצמכם (1366 ו-390): מחסנית, תור, רשימה ועץ — כל כפתור משנה את הציור ומוסיף שורת Java מסומנת; pop/remove מנפישים יציאה, חוליה שאבדה, מסלול בעץ ו-inOrder; גבולות, ערך לא חוקי ו"איפוס"');
 
   // ---- ההדגמה בראש העמוד: הפעלה ועצירה (כפתור ורווח), Home / End; ו"מה חדש"
   {

@@ -215,7 +215,8 @@
     var t = tabs[i].querySelector('.st');
     now.innerHTML = '<b>' + t.querySelector('b').innerHTML + '</b> ' + t.querySelector('small').innerHTML;
     prev.disabled = i === 0;
-    next.textContent = i === tabs.length - 1 ? 'מההתחלה' : 'הבא';
+    next.disabled = i === tabs.length - 1;   // בשלב האחרון נעצרים — לא מתחילים שוב לבד
+    play.disabled = i === tabs.length - 1 && !playing;
     if (i === 1) progress();
     if (i >= 2) scaffold(function (b) { if (!root.classList.contains('fp-built')) fill(b); if (at === 3) tour(); });
     if (i === 3) solution(null);
@@ -234,6 +235,7 @@
     root.classList.toggle('playing', on);
     play.setAttribute('aria-pressed', on ? 'true' : 'false');
     play.textContent = on ? 'עצירה' : 'הפעלה';
+    play.disabled = !on && at === tabs.length - 1;
     tabs.forEach(function (t) { t.classList.remove('run'); });
     if (!on && timer) { clearTimeout(timer); timer = null; }
   }
@@ -241,14 +243,14 @@
   function start() {
     touched = true;
     setPlaying(true);
-    show(at === tabs.length - 1 ? 0 : at);
+    show(at);
   }
 
   tabs.forEach(function (t, n) {
     t.addEventListener('click', function () { stop(); show(n); });
   });
   prev.addEventListener('click', function () { stop(); if (at > 0) show(at - 1); });
-  next.addEventListener('click', function () { stop(); show(at === tabs.length - 1 ? 0 : at + 1); });
+  next.addEventListener('click', function () { stop(); if (at < tabs.length - 1) show(at + 1); });
   play.addEventListener('click', function () { if (playing) stop(); else start(); });
 
   // מקלדת: חצים בין השלבים (מימין לשמאל: שמאלה ולמטה = הבא), Home / End, ורווח מפעיל ועוצר
@@ -260,7 +262,7 @@
     else if (k === 'ArrowRight' || k === 'ArrowUp') j = Math.max(at - 1, 0);
     else if (k === 'Home') j = 0;
     else if (k === 'End') j = tabs.length - 1;
-    else if ((k === ' ' || k === 'Spacebar') && !/^(BUTTON|A|INPUT)$/.test(el.tagName)) { e.preventDefault(); if (playing) stop(); else start(); return; }
+    else if ((k === ' ' || k === 'Spacebar') && !/^(BUTTON|A|INPUT)$/.test(el.tagName)) { e.preventDefault(); if (playing) stop(); else if (at < tabs.length - 1) start(); return; }
     if (j === null) return;
     if (el.tagName === 'PRE' && (k === 'ArrowDown' || k === 'ArrowUp' || k === 'Home' || k === 'End')) return;   // גלילה בתוך הקוד
     e.preventDefault();
