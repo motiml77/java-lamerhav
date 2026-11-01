@@ -5,6 +5,8 @@
 #   2. מוריד את dsviz-mac.json מה-GitHub Release של הערוץ (channel.txt), ואם יש בנייה חדשה יותר —
 #      מוריד את install.sh של אותה בנייה, בודק SHA-256, ומריץ אותו עם --update (שקט, בלי שאלות).
 #   3. אם אין בנייה חדשה אבל Eclipse היה פתוח בעדכון הקודם (eclipse-pending) — משלים את התוסף ל-Eclipse.
+#   4. IntelliJ IDEA: בכל בדיקה — התוסף נכנס לכל IntelliJ שעוד אין בו (intellij.sh), גם IntelliJ שהותקן אחרי DSViz.
+#      (מי עוד מפעיל: התוסף של IntelliJ — פעם ביום, כש-IntelliJ נפתח)
 # יומן: ~/Library/Logs/DSViz/update.log. בלי אינטרנט — לא עושים כלום (ננסה בפעם הבאה).
 # שימוש: update.sh [--force] [--after-eclipse]
 main() {
@@ -21,7 +23,7 @@ LOG="$LOGDIR/update.log"
 exec </dev/null >>"$LOG" 2>&1
 
 STAMP="$DSV/update-check.txt"
-if [ -z "$FORCE" ] && [ -f "$STAMP" ] && [ -z "$(find "$STAMP" -mmin +1200 2>/dev/null)" ] && [ ! -f "$APP/eclipse-pending" ]; then
+if [ -z "$FORCE" ] && [ -f "$STAMP" ] && [ -z "$(find "$STAMP" -mmin +1200 2>/dev/null)" ] && [ ! -f "$APP/eclipse-pending" ] && [ ! -f "$APP/intellij-pending" ]; then
     return 0   # נבדק ב-20 השעות האחרונות
 fi
 LOCK="$DSV/update.lock"
@@ -33,6 +35,12 @@ trap 'rm -rf "$LOCK" "$TMP" 2>/dev/null' EXIT
 echo "---- $(date '+%Y-%m-%d %H:%M:%S') check"
 [ -n "$AFTER" ] && sleep 5
 touch "$STAMP"
+
+# IntelliJ IDEA: גם IntelliJ שהותקן אחרי DSViz (או שהיה פתוח בעדכון הקודם) מקבל את התוסף — בכל בדיקה, גם בלי אינטרנט
+if [ -f "$APP/intellij.sh" ] && [ -d "$APP/intellij/dsviz-intellij/lib" ] && [ "$(cat "$APP/lang.txt" 2>/dev/null)" != cs ]; then
+    bash "$APP/intellij.sh" install "$APP/intellij/dsviz-intellij"; IJ_RC=$?
+    if [ "$IJ_RC" = 3 ]; then : > "$APP/intellij-pending"; else rm -f "$APP/intellij-pending"; fi
+fi
 
 CHANNEL=$(cat "$APP/channel.txt" 2>/dev/null); case "$CHANNEL" in mac-*) ;; *) CHANNEL=mac-latest ;; esac
 BASE="https://github.com/$REPO/releases/download/$CHANNEL"
