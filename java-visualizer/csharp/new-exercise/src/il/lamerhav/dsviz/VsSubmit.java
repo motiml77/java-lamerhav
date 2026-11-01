@@ -2,6 +2,7 @@ package il.lamerhav.dsviz;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.ComponentOrientation;
@@ -27,13 +28,18 @@ import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
@@ -47,7 +53,6 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -67,12 +72,14 @@ import unit4.collectionsLib.Theme;
  * אותו מנוע כמו ב-Eclipse וב-VS Code (ExercisePipeline): התרגיל נבנה כפרויקט Exercises\Ex01_... בתיקיית התרגילים, נרשם בפתרון
  * (Visual Studio מציג אותו), מתקמפל ונבדק ב-dsviz-cs; ההצעות לפתרון נבדקות (מריצים את Main עם ההצעות ומשווים לפלט הצפוי)
  * ונשמרות בצד (~/.dsviz/solutions.json) — לא בקוד של התלמיד. בחלון "הצעה לפתרון" בוחרים תרגיל וסעיף, ורק אז רואים את ההצעה.
+ * חלון אחד, שלושה מצבים, בעיצוב של האתר (RtlDialog): הטופס; אחרי "שליחה" — תצוגת הבנייה (השלבים); ובסוף — כרטיס קצר "התרגיל נוצר"
+ * עם הסעיפים שעונים עליהם במילים (בלחיצה על "הצגה") ואיך פותחים ב-Visual Studio. כל ההודעות — בחלון של RtlDialog.
  * לסרטוני ההדרכה ולבדיקות: לשורש החלון יש "dsviz.addFile" (הוספת קובץ כמו "בחירת קבצים…").
  */
 public final class VsSubmit {
     private VsSubmit() {}
 
-    static final Color PURPLE = new Color(0x7C5CF0);
+    static final String TITLE = "שליחת תרגיל — C#";
 
     /** איפה נשמרות ההצעות */
     static File storeFile() {
@@ -107,25 +114,115 @@ public final class VsSubmit {
         return c;
     }
 
+    // ------------------------------------------------------------------ השמות התפוסים
+
+    /** שמות הפרויקטים ב-.sln והתיקיות שבתיקיית התרגילים — הפרויקט החדש יקבל שם אחר מכולם */
+    public static List<String> takenNames(Path root) {
+        TreeSet<String> out = new TreeSet<String>();
+        Path sln = CsSolution.solution(root);
+        if (sln != null) {
+            try {
+                Matcher m = Pattern.compile("(?m)^\\s*Project\\(\"[^\"]*\"\\)\\s*=\\s*\"([^\"]+)\"").matcher(new String(Files.readAllBytes(sln), StandardCharsets.UTF_8));
+                while (m.find()) out.add(m.group(1));
+            } catch (Exception ignored) {
+                // לא נקרא
+            }
+        }
+        String[] dirs = CsSolution.exercisesDir(root).toFile().list();
+        if (dirs != null) for (String d : dirs) if (new File(CsSolution.exercisesDir(root).toFile(), d).isDirectory()) out.add(d);
+        return new ArrayList<String>(out);
+    }
+
+    /**
+     * ExercisePipeline.csharp עם השמות התפוסים (הפרמטר האחרון, Collection&lt;String&gt; taken). בגרסה שעוד אין בה את הפרמטר —
+     * בלעדיו (ואז רק התיקיות שב-Exercises נחשבות תפוסות).
+     */
+    static ExercisePipeline.Result build(WorkerClient client, Map<String, Object> raw, List<String> names, Path root, List<String> cs,
+            ExercisePipeline.Progress p, Collection<String> taken) throws Exception {
+        java.lang.reflect.Method m;
+        try {
+            m = ExercisePipeline.class.getDeclaredMethod("csharp", WorkerClient.class, Map.class, List.class, Path.class, List.class,
+                    ExercisePipeline.Progress.class, Collection.class);
+        } catch (NoSuchMethodException e) {
+            return ExercisePipeline.csharp(client, raw, names, root, cs, p);
+        }
+        try {
+            m.setAccessible(true);
+            return (ExercisePipeline.Result) m.invoke(null, client, raw, names, root, cs, p, taken);
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            Throwable c = e.getCause();
+            if (c instanceof Exception) throw (Exception) c;
+            throw new RuntimeException(c);
+        }
+    }
+
+    // ------------------------------------------------------------------ השלבים (מה ש-ExercisePipeline אומר תוך כדי)
+
+    static final String[] STAGES = { "מכין את הקבצים", "שולח ל-Gemini", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
+
+    /** הודעה מהבנייה → מספר השלב (0-4), או -1: שורה אפורה מתחת לשלב הנוכחי (noteOf) — כמו stageFor ב-VS Code */
+    static int stageOf(String text) {
+        String t = text == null ? "" : text.trim();
+        if (t.startsWith("מכין את הקבצים")) return 0;
+        if (t.startsWith("שולח")) return 1;
+        if (t.startsWith("בונה את התרגיל")) return 2;
+        if (t.startsWith("בודק שהקוד מתקמפל")) return 3;
+        if (t.startsWith("בודק שההצעות")) return 4;
+        return -1;
+    }
+
+    static String noteOf(String text) {
+        return (text == null ? "" : text.trim()).replaceAll("\\s+—\\s+", " · ").replaceFirst("\\s*\\(בדרך כלל[^)]*\\)", "");
+    }
+
+    /** "סעיף ד: עונים במילים" / "סעיפים ג, ד: עונים במילים" ("" — אין) */
+    static String wordLabels(List<String[]> others) {
+        List<String> labels = new ArrayList<String>();
+        int n = 0;
+        boolean all = true;
+        for (String[] o : others) {
+            if (o == null || o[1] == null || o[1].trim().isEmpty()) continue;
+            n++;
+            String l = o[0] == null ? "" : o[0].trim().replaceFirst("'$", "");
+            if (l.isEmpty()) all = false;
+            labels.add(l);
+        }
+        if (n == 0) return "";
+        if (all) return (n == 1 ? "סעיף " : "סעיפים ") + String.join(", ", labels) + ": עונים במילים";
+        return (n == 1 ? "סעיף אחד" : n + " סעיפים") + ": עונים במילים";
+    }
+
+    /** הקובץ עם Main מבין הקבצים (או הראשון) */
+    static File mainFile(List<File> files) {
+        Pattern main = Pattern.compile("\\bstatic\\s+(void|int|async\\s+Task)\\s+Main\\s*\\(");
+        for (File f : files) {
+            try {
+                if (main.matcher(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)).find()) return f;
+            } catch (Exception ignored) {
+                // לא נקרא
+            }
+        }
+        return files.isEmpty() ? null : files.get(0);
+    }
+
     // ------------------------------------------------------------------ שליחת תרגיל
 
     public static void submit(Path root) {
         String bad = CsSolution.check(root);
         if (bad != null) {
-            JOptionPane.showMessageDialog(null, bad + "\nאפשר להריץ שוב את ההתקנה (DSViz-Setup.exe) עם חבילת C#.", "שליחת תרגיל — C#", JOptionPane.ERROR_MESSAGE);
+            RtlDialog.show(null, TITLE, RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + "\nמריצים שוב את ההתקנה (DSViz-Setup.exe) עם חבילת C#.");
             return;
         }
         WorkerClient.CLIENT = "dsviz-vs/1.0.1";
         WorkerClient client = WorkerClient.configured();
         if (client == null) {
-            JOptionPane.showMessageDialog(null, "השרת של \"שליחת תרגיל\" לא מוגדר.", "שליחת תרגיל — C#", JOptionPane.ERROR_MESSAGE);
+            RtlDialog.show(null, TITLE, RtlDialog.Kind.ERROR, "השרת של שליחת תרגיל לא מוגדר", null);
             return;
         }
-        if (!client.online(3500)) {   // בלי אינטרנט אין טעם לפתוח את החלון — אומרים את זה מיד
-            JOptionPane.showMessageDialog(null, "כדי לשלוח תרגיל צריך חיבור לאינטרנט, וכרגע אין חיבור.\n\nבדקו את החיבור (Wi-Fi או כבל) ונסו שוב.\n"
-                    + "כל שאר הכלים — הרצה ויזואלית, הוספת מבנה נתונים, דוגמאות פתורות — עובדים גם בלי אינטרנט.",
-                    "שליחת תרגיל — אין חיבור לאינטרנט", JOptionPane.WARNING_MESSAGE);
-            return;
+        while (!client.online(3500)) {   // בלי אינטרנט אין טעם לפתוח את החלון — אומרים את זה מיד
+            int a = RtlDialog.ask(null, TITLE, RtlDialog.Kind.WARN, "אין חיבור לאינטרנט",
+                    "שליחת תרגיל צריכה אינטרנט. שאר הכלים (הרצה ויזואלית, הוספת מבנה נתונים, דוגמאות) עובדים גם בלי.", "נסו שוב", "סגירה");
+            if (a != 0) return;
         }
         new SubmitWindow(root, client).show();
     }
@@ -142,16 +239,31 @@ public final class VsSubmit {
         final Path root;
         final WorkerClient client;
         final JDialog dlg = new JDialog((java.awt.Frame) null, "שליחת תרגיל ב-C#", true);
+        final CardLayout cards = new CardLayout();
+        final JPanel deck = new JPanel(cards);
+        // הטופס
         final List<Entry> entries = new ArrayList<Entry>();
-        final JPanel items = new JPanel(new FlowLayout(FlowLayout.LEADING, 10, 10));
-        final JLabel empty = new JLabel("גוררים לכאן קבצים, מדביקים צילום מסך (Ctrl+V), או בוחרים קבצים — PDF, Word (docx) או תמונות", SwingConstants.CENTER);
-        final JLabel summary = new JLabel(" ");
-        final JLabel status = new JLabel(" ");
+        final JPanel items = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 8));
+        final JLabel empty = RtlDialog.label("גוררים לכאן את דף התרגיל. PDF, Word או תמונה; צילום מסך: Ctrl+V", RtlDialog.ui(), RtlDialog.MUTED);
+        final JLabel summary = RtlDialog.label(" ", RtlDialog.small(), RtlDialog.MUTED);
+        final JLabel status = RtlDialog.label(" ", RtlDialog.ui(), RtlDialog.RED);
         final JTextArea note = new JTextArea(3, 40);
-        final JButton send = new JButton("שליחה ויצירת התרגיל"), cancel = new JButton("ביטול");
-        final JButton pick = new JButton("בחירת קבצים…"), paste = new JButton("הדבקה (Ctrl+V)");
+        final JButton send = RtlDialog.primary("שליחה ויצירת התרגיל"), cancel = RtlDialog.secondary("ביטול");
+        final JButton pick = RtlDialog.secondary("בחירת קבצים…"), paste = RtlDialog.secondary("הדבקה (Ctrl+V)");
         int pastedImages, pastedTexts;
+        // הבנייה
+        final TopLine top = new TopLine();
+        final JPanel thumbs = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
+        final StageRow[] rows = new StageRow[STAGES.length];
+        final JPanel fail = new JPanel(new BorderLayout(12, 0));
+        final JLabel failText = RtlDialog.label(" ", RtlDialog.ui(), RtlDialog.RED);
+        final JButton retry = RtlDialog.primary("נסו שוב"), stop = RtlDialog.secondary("ביטול");
+        final javax.swing.Timer timer = new javax.swing.Timer(500, e -> tick());
+        int cur = -1, run;   // run — מספר השליחה; תוצאה של שליחה שבוטלה לא מוצגת
+        long t0;
         boolean busy;
+        // הסוף
+        final JPanel done = new JPanel(new BorderLayout());
 
         SubmitWindow(Path root, WorkerClient client) {
             this.root = root;
@@ -159,91 +271,31 @@ public final class VsSubmit {
         }
 
         void show() {
-            JPanel content = new JPanel(new BorderLayout(0, 12));
-            content.setBorder(BorderFactory.createEmptyBorder(16, 18, 12, 18));
-            content.add(header("שליחת תרגיל", "מצרפים את דף התרגיל — ומקבלים פרויקט מוכן ב-Visual Studio: המחלקות, Main, ופעולה לכל סעיף עם מקום לכתוב את הפתרון."), BorderLayout.NORTH);
-
-            JPanel body = new JPanel();
-            body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-            // דף התרגיל
-            JPanel page = new JPanel(new BorderLayout(0, 6));
-            page.add(bold("דף התרגיל"), BorderLayout.NORTH);
-            JPanel drop = new DashedPanel(new BorderLayout(0, 6));
-            items.setOpaque(false);
-            empty.setForeground(Theme.MUTED);
-            JPanel btns = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
-            btns.add(pick);
-            btns.add(paste);
-            for (JButton b : new JButton[] { pick, paste }) b.putClientProperty("FlatLaf.style", "arc:14; background:#ffffff");
-            JPanel center = new JPanel(new BorderLayout());
-            center.add(items, BorderLayout.CENTER);
-            center.add(empty, BorderLayout.SOUTH);
-            drop.add(center, BorderLayout.CENTER);
-            drop.add(btns, BorderLayout.SOUTH);
-            drop.setPreferredSize(new Dimension(640, 200));
-            page.add(drop, BorderLayout.CENTER);
-            summary.setForeground(Theme.MUTED);
-            summary.setFont(Theme.small);
-            page.add(summary, BorderLayout.SOUTH);
-            body.add(new Card(page));
-            body.add(gap(12));
-            // הערה
-            JPanel notes = new JPanel(new BorderLayout(0, 6));
-            JPanel nt = new JPanel(new BorderLayout(0, 2));
-            nt.add(bold("הערה (לא חובה)"), BorderLayout.NORTH);
-            JLabel hint = new JLabel("למשל: \"רק שאלה 2\", או: \"הפעולה בסעיף ב צריכה להיות רקורסיבית\"");
-            hint.setForeground(Theme.MUTED);
-            hint.setFont(Theme.small);
-            nt.add(hint, BorderLayout.SOUTH);
-            notes.add(nt, BorderLayout.NORTH);
-            note.setLineWrap(true);
-            note.setWrapStyleWord(true);
-            note.setFont(Theme.ui);
-            JScrollPane ns = new JScrollPane(note);
-            ns.setBorder(BorderFactory.createLineBorder(new Color(0xC5CCD8)));
-            notes.add(ns, BorderLayout.CENTER);
-            JLabel where = new JLabel("הפרויקט ייווצר בתיקייה Exercises שבתיקיית התרגילים (" + root.getFileName() + ") וייכנס לפתרון ב-Visual Studio.");
-            where.setForeground(Theme.MUTED);
-            where.setFont(Theme.small);
-            JLabel privacy = new JLabel("הקבצים נשלחים לשרת של DSViz ומשם ל-Gemini (של Google) כדי לזהות את התרגיל. לא לשלוח דפים עם פרטים אישיים.");
-            privacy.setForeground(Theme.MUTED);
-            privacy.setFont(Theme.small);
-            JPanel under = new JPanel(new BorderLayout(0, 2));
-            under.add(where, BorderLayout.NORTH);
-            under.add(privacy, BorderLayout.SOUTH);
-            notes.add(under, BorderLayout.SOUTH);
-            body.add(new Card(notes));
-            body.add(gap(8));
-            status.setFont(Theme.uiBold);
-            JPanel st = new JPanel(new BorderLayout());
-            st.add(status, BorderLayout.CENTER);
-            body.add(st);
-            content.add(body, BorderLayout.CENTER);
-
-            // כפתורים
-            send.putClientProperty("FlatLaf.style", "background:#2F6FED; foreground:#ffffff; arc:14; borderWidth:0; hoverBackground:#2457C5; pressedBackground:#1E4AA8; focusedBackground:#2F6FED; disabledBackground:#B9C8EE; disabledText:#ffffff");
-            send.setFont(Theme.uiBold);
-            send.setPreferredSize(new Dimension(190, 34));
-            cancel.putClientProperty("FlatLaf.style", "arc:14; background:#ffffff");
-            cancel.setPreferredSize(new Dimension(84, 34));
-            content.add(buttons(send, cancel), BorderLayout.SOUTH);
+            deck.add(formView(), "form");
+            deck.add(buildView(), "build");
+            deck.add(done, "done");
+            deck.setOpaque(true);
+            deck.setBackground(RtlDialog.PANEL);
 
             pick.addActionListener(e -> pickFiles());
             paste.addActionListener(e -> pasteClipboard());
             cancel.addActionListener(e -> dlg.dispose());
             send.addActionListener(e -> send());
+            retry.addActionListener(e -> send());
+            stop.addActionListener(e -> backToForm());
             dlg.getRootPane().registerKeyboardAction(e -> {
-                if (!note.isFocusOwner()) pasteClipboard();
+                if (!note.isFocusOwner() && !busy) pasteClipboard();
             }, KeyStroke.getKeyStroke(KeyEvent.VK_V, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()), JComponent.WHEN_IN_FOCUSED_WINDOW);
             new DropTarget(dlg, DnDConstants.ACTION_COPY, new DropTargetAdapter() {
                 @SuppressWarnings("unchecked")
                 public void drop(DropTargetDropEvent e) {
                     try {
                         e.acceptDrop(DnDConstants.ACTION_COPY);
+                        if (busy) return;
                         Object v = e.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
                         for (File f : (List<File>) v) addFile(f);
                     } catch (Exception ex) {
-                        say(ex.getMessage(), true);
+                        say(ex.getMessage());
                     }
                 }
             });
@@ -252,19 +304,94 @@ public final class VsSubmit {
                 try {
                     add(ExerciseFiles.fromPastedImage(Files.readAllBytes(f.toPath()), ++pastedImages), "image", ImageIO.read(f), f.length());
                 } catch (Exception ex) {
-                    say(ex.getMessage(), true);
+                    say(ex.getMessage());
                 }
             });
+            // לבדיקות ולסרטונים: הודעה מהבנייה כאילו הגיעה מ-ExercisePipeline (בלי שרת)
+            dlg.getRootPane().putClientProperty("dsviz.progress", (java.util.function.Consumer<String>) t -> {
+                if (cur < 0) startBuild();
+                progress(t);
+            });
 
-            dlg.setContentPane(content);
-            rtl(content);
-            content.setOpaque(true);
-        content.setBackground(Theme.BG);
+            dlg.setContentPane(deck);
+            RtlDialog.rtl(deck);
             refresh();
             dlg.pack();
             dlg.setMinimumSize(new Dimension(700, dlg.getHeight()));
             dlg.setLocationRelativeTo(null);
             dlg.setVisible(true);
+            timer.stop();
+        }
+
+        // ---------------------------------------------------------- הטופס
+
+        JComponent formView() {
+            JPanel body = column();
+            body.add(header("שליחת תרגיל", "מצרפים את דף התרגיל, ומקבלים פרויקט מוכן ב-Visual Studio: פעולה ריקה לכל סעיף, ו-Main לבדיקה."));
+            body.add(RtlDialog.gap(14));
+            // דף התרגיל
+            JPanel drop = new DashedPanel(new BorderLayout(0, 8));
+            items.setOpaque(false);
+            JPanel btns = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
+            btns.setOpaque(false);
+            btns.add(pick);
+            btns.add(paste);
+            JPanel center = new JPanel(new BorderLayout());
+            center.setOpaque(false);
+            center.add(items, BorderLayout.CENTER);
+            empty.setHorizontalAlignment(SwingConstants.CENTER);
+            empty.setBorder(BorderFactory.createEmptyBorder(14, 0, 4, 0));
+            center.add(empty, BorderLayout.SOUTH);
+            drop.add(center, BorderLayout.CENTER);
+            JPanel under = new JPanel(new BorderLayout(0, 4));
+            under.setOpaque(false);
+            under.add(btns, BorderLayout.NORTH);
+            summary.setHorizontalAlignment(SwingConstants.CENTER);
+            under.add(summary, BorderLayout.SOUTH);
+            drop.add(under, BorderLayout.SOUTH);
+            drop.setPreferredSize(new Dimension(640, 196));
+            drop.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            drop.setMaximumSize(new Dimension(Integer.MAX_VALUE, 196));
+            body.add(drop);
+            body.add(RtlDialog.gap(14));
+            // הערה
+            body.add(RtlDialog.label("הערה (לא חובה)", RtlDialog.bold(), RtlDialog.INK));
+            body.add(RtlDialog.gap(4));
+            note.setLineWrap(true);
+            note.setWrapStyleWord(true);
+            note.setFont(RtlDialog.ui());
+            note.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
+            JScrollPane ns = new JScrollPane(note);
+            ns.setBorder(BorderFactory.createLineBorder(RtlDialog.LINE_2));
+            ns.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            body.add(ns);
+            body.add(RtlDialog.gap(4));
+            body.add(RtlDialog.label("למשל: \"רק שאלה 2\", או: \"הפעולה בסעיף ב צריכה להיות רקורסיבית\"", RtlDialog.small(), RtlDialog.MUTED));
+            body.add(RtlDialog.gap(10));
+            body.add(RtlDialog.label("הפרויקט נכנס לתיקייה Exercises שב-" + root.getFileName() + ", ולפתרון של Visual Studio.", RtlDialog.small(), RtlDialog.MUTED));
+            body.add(RtlDialog.label("הדף עובר דרך השרת של DSViz ל-Gemini של Google. לא לשלוח דפים עם פרטים אישיים.", RtlDialog.small(), RtlDialog.MUTED));
+            body.add(RtlDialog.gap(8));
+            body.add(status);
+            JPanel foot = RtlDialog.footer();
+            foot.add(send);
+            foot.add(cancel);
+            JLabel c = new JLabel(Theme.COPYRIGHT);
+            c.setFont(RtlDialog.small());
+            c.setForeground(new Color(0xA0A8B8));
+            JPanel row = new JPanel(new BorderLayout()) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    g.setColor(RtlDialog.PAGE);
+                    g.fillRect(0, 0, getWidth(), getHeight());
+                    g.setColor(RtlDialog.LINE);
+                    g.drawLine(0, 0, getWidth(), 0);
+                }
+            };
+            foot.setOpaque(false);
+            row.add(foot, BorderLayout.CENTER);
+            c.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+            row.add(c, BorderLayout.LINE_END);
+            return page(body, row);
         }
 
         void pickFiles() {
@@ -284,9 +411,9 @@ public final class VsSubmit {
                 Image img = kind.equals("image") ? ImageIO.read(f) : null;
                 add(it, kind, img, f.length());
             } catch (ExerciseFiles.UserError e) {
-                say(e.getMessage(), true);
+                say(e.getMessage());
             } catch (Exception e) {
-                say("לא הצלחתי לקרוא את הקובץ " + f.getName() + ": " + e.getMessage(), true);
+                say("לא הצלחתי לקרוא את הקובץ " + f.getName() + ": " + e.getMessage());
             }
         }
 
@@ -322,9 +449,9 @@ public final class VsSubmit {
                 }
                 throw new IllegalStateException();
             } catch (ExerciseFiles.UserError e) {
-                say(e.getMessage(), true);
+                say(e.getMessage());
             } catch (Exception e) {
-                say("בלוח אין תמונה. מצלמים את התרגיל (Win+Shift+S) ואז Ctrl+V כאן בחלון.", true);
+                say("בלוח אין תמונה. מצלמים את התרגיל (Win+Shift+S) ואז Ctrl+V כאן בחלון.");
             }
         }
 
@@ -336,7 +463,7 @@ public final class VsSubmit {
             e.thumb = img;
             e.size = size;
             entries.add(e);
-            say(" ", false);
+            say(" ");
             refresh();
         }
 
@@ -345,7 +472,7 @@ public final class VsSubmit {
             for (Entry e : entries) items.add(new Thumb(e, () -> {
                 entries.remove(e);
                 refresh();
-            }));
+            }, false));
             empty.setVisible(entries.isEmpty());
             int files = 0, imgs = 0;
             long total = 0;
@@ -357,20 +484,120 @@ public final class VsSubmit {
             List<String> parts = new ArrayList<String>();
             if (files > 0) parts.add(files == 1 ? "קובץ אחד" : files + " קבצים");
             if (imgs > 0) parts.add(imgs == 1 ? "תמונה אחת" : imgs + " תמונות");
-            summary.setText(entries.isEmpty() ? " " : String.join(" ו-", parts) + " · " + size(total) + "   ·   אפשר להוסיף עוד, או להסיר עם ×");
+            summary.setText(entries.isEmpty() ? " " : RtlDialog.rtl(String.join(" ו-", parts) + " · " + size(total)));
             send.setEnabled(!busy && !entries.isEmpty());
-            rtl(items);
+            RtlDialog.rtl(items);
             items.revalidate();
             items.repaint();
         }
 
-        void say(String text, boolean bad) {
-            status.setText(text == null || text.isEmpty() ? " " : text);
-            status.setForeground(bad ? new Color(0xDC2626) : Theme.ACCENT_DARK);
+        /** שורה אדומה בטופס (שגיאה בקובץ / בלוח) */
+        void say(String text) {
+            status.setText(text == null || text.trim().isEmpty() ? " " : RtlDialog.rtl(text));
+        }
+
+        // ---------------------------------------------------------- הבנייה
+
+        JComponent buildView() {
+            JPanel body = column();
+            body.add(header("בונה את התרגיל", "בדרך כלל עד דקה. בסוף הפתרון נפתח ב-Visual Studio."));
+            body.add(RtlDialog.gap(12));
+            thumbs.setOpaque(false);
+            thumbs.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            body.add(thumbs);
+            body.add(RtlDialog.gap(12));
+            JPanel list = new JPanel();
+            list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
+            list.setOpaque(false);
+            for (int i = 0; i < STAGES.length; i++) {
+                rows[i] = new StageRow(STAGES[i]);
+                if (i > 0) list.add(RtlDialog.gap(6));
+                list.add(rows[i]);
+            }
+            body.add(RtlDialog.card(list, 12, 14));
+            body.add(RtlDialog.gap(12));
+            fail.setOpaque(false);
+            fail.add(failText, BorderLayout.CENTER);
+            JPanel rb = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 0));
+            rb.setOpaque(false);
+            rb.add(retry);
+            fail.add(rb, BorderLayout.LINE_START);
+            fail.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            fail.setVisible(false);
+            body.add(fail);
+            JPanel foot = RtlDialog.footer();
+            foot.add(stop);
+            JPanel wrap = new JPanel(new BorderLayout());
+            wrap.setOpaque(false);
+            wrap.add(top, BorderLayout.NORTH);
+            wrap.add(page(body, foot), BorderLayout.CENTER);
+            return wrap;
+        }
+
+        void startBuild() {
+            busy = true;
+            thumbs.removeAll();
+            for (Entry e : entries) thumbs.add(new Thumb(e, null, true));
+            RtlDialog.rtl(thumbs);
+            for (StageRow r : rows) r.set(StageRow.PENDING, "");
+            fail.setVisible(false);
+            cur = -1;
+            setStage(0);
+            cards.show(deck, "build");
+            timer.start();
+        }
+
+        void setStage(int i) {
+            if (i < cur) return;
+            cur = i;
+            t0 = System.currentTimeMillis();
+            for (int k = 0; k < rows.length; k++) {
+                if (k < i) rows[k].set(StageRow.DONE, "");
+                else if (k == i) rows[k].set(StageRow.NOW, "");
+                else rows[k].set(StageRow.PENDING, "");
+            }
+            top.fraction = (i + 0.5) / rows.length;
+            top.repaint();
+        }
+
+        void tick() {
+            if (cur < 0 || rows[cur].state != StageRow.NOW) return;
+            long s = (System.currentTimeMillis() - t0) / 1000;
+            rows[cur].secs.setText(s >= 1 ? RtlDialog.rtl(s + " שנ'") : " ");
+        }
+
+        void progress(String text) {
+            int st = stageOf(text);
+            if (st >= 0) setStage(st);
+            else rows[Math.max(cur, 0)].setNote(noteOf(text));
+        }
+
+        void failed(String text) {
+            timer.stop();
+            busy = false;
+            rows[Math.max(cur, 0)].set(StageRow.BAD, "");
+            String t = text == null || text.trim().isEmpty() ? "לא הצלחתי ליצור את התרגיל." : text.trim().split("\\r?\\n")[0].replaceAll("\\s+—\\s+", ", ");
+            if (t.length() > 150) t = t.substring(0, 148) + "…";
+            failText.setText(RtlDialog.rtl(t));
+            failText.setToolTipText(text);
+            fail.setVisible(true);
+            deck.revalidate();
+        }
+
+        /** "ביטול" בזמן הבנייה (או אחרי שגיאה): חוזרים לטופס עם אותם קבצים. התוצאה של השליחה הזאת כבר לא תוצג */
+        void backToForm() {
+            run++;
+            timer.stop();
+            busy = false;
+            cur = -1;
+            dlg.setCursor(Cursor.getDefaultCursor());
+            for (JComponent c : new JComponent[] { pick, paste, note }) c.setEnabled(true);
+            refresh();
+            cards.show(deck, "form");
         }
 
         void send() {
-            if (busy || entries.isEmpty()) return;
+            if (entries.isEmpty()) return;
             final List<ExerciseFiles.Item> list = new ArrayList<ExerciseFiles.Item>();
             final List<String> names = new ArrayList<String>();
             for (Entry e : entries) {
@@ -380,18 +607,19 @@ public final class VsSubmit {
             try {
                 ExerciseFiles.checkAll(list);
             } catch (ExerciseFiles.UserError e) {
-                say(e.getMessage(), true);
+                say(e.getMessage());
+                if (busy || cur >= 0) backToForm();
                 return;
             }
-            busy = true;
-            for (JComponent c : new JComponent[] { pick, paste, note }) c.setEnabled(false);
-            refresh();
-            dlg.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            final int me = ++run;
+            startBuild();
             final String text = note.getText();
+            final List<String> taken = takenNames(root);
             new SwingWorker<ExercisePipeline.Result, String>() {
                 String error;
 
                 protected ExercisePipeline.Result doInBackground() throws Exception {
+                    publish("מכין את הקבצים…");
                     publish("שולח את התרגיל… (בדרך כלל עד דקה)");
                     Map<String, Object> raw;
                     try {
@@ -400,28 +628,28 @@ public final class VsSubmit {
                         error = e.getMessage();
                         return null;
                     }
+                    if (me != run) return null;
                     publish("בונה את התרגיל…");
-                    ExercisePipeline.Result r = ExercisePipeline.csharp(client, raw, names, root, dsvizCs(), new ExercisePipeline.Progress() {
+                    ExercisePipeline.Result r = build(client, raw, names, root, dsvizCs(), new ExercisePipeline.Progress() {
                         public void say(String t) {
                             publish(t);
                         }
 
                         public boolean cancelled() {
-                            return false;
+                            return me != run;
                         }
-                    });
+                    }, taken);
                     if (!r.entries.isEmpty()) new SolutionStore(storeFile()).add(r.entries);
                     return r;
                 }
 
                 protected void process(List<String> chunks) {
-                    say(chunks.get(chunks.size() - 1), false);
+                    if (me != run) return;
+                    for (String c : chunks) progress(c);
                 }
 
                 protected void done() {
-                    busy = false;
-                    dlg.setCursor(Cursor.getDefaultCursor());
-                    for (JComponent c : new JComponent[] { pick, paste, note }) c.setEnabled(true);
+                    if (me != run) return;   // בוטל — החלון כבר חזר לטופס
                     ExercisePipeline.Result r = null;
                     try {
                         r = get();
@@ -429,44 +657,26 @@ public final class VsSubmit {
                         error = "לא הצלחתי ליצור את התרגיל: " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
                     }
                     if (r == null) {
-                        say(error == null ? "לא הצלחתי ליצור את התרגיל." : error, true);
-                        refresh();
+                        failed(error);
                         return;
                     }
-                    dlg.dispose();
                     finished(r);
                 }
             }.execute();
         }
 
+        // ---------------------------------------------------------- הסוף: כרטיס קצר
+
         void finished(ExercisePipeline.Result r) {
-            String msg;
-            // בקוד אין את הטקסט של התרגיל: הסעיפים שעונים עליהם במילים (ותרגיל בלי סעיפים בקוד) — כאן בהודעה
-            String words = AiScaffold.othersText(r.tasks, r.others);
-            if (!r.errors.isEmpty()) {
-                msg = "התרגיל נוצר (" + r.folderName + "), אבל יש בו " + r.errors.size() + " שגיאות קומפילציה:\n\n"
-                        + String.join("\n", r.errors.subList(0, Math.min(4, r.errors.size())))
-                        + "\n\nבדרך כלל זה ב-Main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב."
-                        + (words.isEmpty() ? "" : "\n\n" + words);
-            } else {
-                // "ובו" בין שם הפרויקט למספר — אחרת המספר נצמד לשם (משמאל לימין) ומוצג במקום הלא נכון
-                msg = "נוצר התרגיל " + r.folderName + (r.tasks > 0 ? ", ובו " + AiScaffold.codeTasks(r.tasks) : "") + ".\n\n"
-                        + (words.isEmpty() ? "" : words + "\n\n")
-                        + "ב-Visual Studio: בחלון Solution Explorer לחצו קליק ימני על " + r.folderName + " ← Set as Startup Project,\n"
-                        + "כתבו את הפתרון במקום המסומן, ובתפריט שליד כפתור ההפעלה הירוק בחרו \"הרצה ויזואלית\".\n"
-                        + "(אם Visual Studio כבר פתוח — אשרו Reload כשהוא שואל.)"
-                        + (r.entries.isEmpty() ? "" : "\n\nנתקעתם? בקיצור \"הצעה לפתרון ב-C#\" יש הצעה לכל סעיף (" + statusShort(r.solutionStatus) + ").");
-            }
-            // שורה ארוכה (סעיף במילים — עד 200 תווים) נשברת, במקום חלון רחב מהמסך
-            JOptionPane pane = new JOptionPane(msg, r.errors.isEmpty() ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE) {
-                @Override
-                public int getMaxCharactersPerLineCount() {
-                    return 120;
-                }
-            };
-            JDialog shown = pane.createDialog(null, "שליחת תרגיל — C#");
-            shown.setVisible(true);
-            shown.dispose();
+            timer.stop();
+            busy = false;
+            done.removeAll();
+            done.add(doneView(r), BorderLayout.CENTER);
+            RtlDialog.rtl(done);
+            dlg.setTitle(TITLE);
+            cards.show(deck, "done");
+            dlg.pack();
+            dlg.setLocationRelativeTo(null);
             if (!Boolean.getBoolean("dsviz.noOpen") && java.awt.Desktop.isDesktopSupported()) {
                 try {
                     Path sln = CsSolution.solution(root);
@@ -476,10 +686,130 @@ public final class VsSubmit {
                 }
             }
         }
-    }
 
-    static String statusShort(String s) {
-        return "ok".equals(s) ? "נבדקו — נותנות את הפלט הצפוי" : "ran".equals(s) ? "רצות בלי שגיאות" : "לא אומתו — כדאי לבדוק בעצמכם";
+        JComponent doneView(ExercisePipeline.Result r) {
+            final int w = 600;
+            JPanel body = column();
+            JPanel in = new JPanel();
+            in.setLayout(new BoxLayout(in, BoxLayout.Y_AXIS));
+            in.setOpaque(false);
+            boolean errs = !r.errors.isEmpty();
+            JPanel head = new JPanel(new BorderLayout(8, 0));
+            head.setOpaque(false);
+            JLabel mark = new JLabel(errs ? "●" : "✓");
+            mark.setFont(RtlDialog.bold().deriveFont(Font.BOLD, 18f));
+            mark.setForeground(errs ? RtlDialog.AMBER : RtlDialog.GREEN);
+            head.add(mark, BorderLayout.LINE_START);
+            head.add(RtlDialog.label(errs ? "התרגיל נוצר · " + (r.errors.size() == 1 ? "יש שגיאת קומפילציה אחת" : "יש " + r.errors.size() + " שגיאות קומפילציה")
+                    : "התרגיל נוצר", RtlDialog.bold().deriveFont(Font.BOLD, 18f), RtlDialog.INK), BorderLayout.CENTER);
+            head.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            in.add(head);
+            String tasks = r.tasks == 0 ? "אין בו סעיפים בקוד" : r.tasks == 1 ? "סעיף אחד" : r.tasks + " סעיפים";
+            in.add(RtlDialog.label(r.folderName + RtlDialog.RLM + " · " + tasks, RtlDialog.ui(), RtlDialog.MUTED));   // RLM: המספר לא נצמד לשם
+            // הסעיפים שעונים עליהם במילים: שורה אחת, והטקסט עצמו רק בלחיצה על "הצגה"
+            String words = wordLabels(r.others);
+            if (!words.isEmpty()) {
+                in.add(RtlDialog.gap(10));
+                JPanel wr = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 0));
+                wr.setOpaque(false);
+                wr.add(RtlDialog.label(words, RtlDialog.ui(), RtlDialog.INK_2));
+                final JButton show = RtlDialog.link("הצגה");
+                wr.add(RtlDialog.label("  ·  ", RtlDialog.ui(), RtlDialog.MUTED));
+                wr.add(show);
+                wr.setAlignmentX(Component.RIGHT_ALIGNMENT);
+                wr.setMaximumSize(new Dimension(Integer.MAX_VALUE, wr.getPreferredSize().height + 4));
+                in.add(wr);
+                final JPanel parts = new JPanel();
+                parts.setLayout(new BoxLayout(parts, BoxLayout.Y_AXIS));
+                parts.setOpaque(false);
+                parts.setAlignmentX(Component.RIGHT_ALIGNMENT);
+                for (String[] o : r.others) {
+                    if (o[1] == null || o[1].trim().isEmpty()) continue;
+                    JPanel p = new JPanel();
+                    p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+                    p.setOpaque(false);
+                    p.add(RtlDialog.label(section(o[0]), RtlDialog.bold(), RtlDialog.INK));
+                    p.add(RtlDialog.gap(4));
+                    p.add(RtlDialog.rich(o[1], w - 64, RtlDialog.INK_2));
+                    parts.add(RtlDialog.gap(8));
+                    parts.add(new RtlDialog.Panel(new BorderLayout(), RtlDialog.PAGE, RtlDialog.LINE) {
+                        {
+                            setBorder(BorderFactory.createEmptyBorder(8, 12, 10, 12));
+                            add(p, BorderLayout.CENTER);
+                            setAlignmentX(Component.RIGHT_ALIGNMENT);
+                        }
+                    });
+                }
+                parts.setVisible(false);
+                in.add(parts);
+                show.addActionListener(e -> {
+                    parts.setVisible(!parts.isVisible());
+                    show.setText(parts.isVisible() ? "הסתרה" : "הצגה");
+                    RtlDialog.rtl(parts);
+                    dlg.pack();
+                });
+            }
+            // שגיאות קומפילציה: כרטיס לכל שגיאה (עד 3), עם ההסבר בעברית
+            if (errs) {
+                in.add(RtlDialog.gap(6));
+                for (int i = 0; i < Math.min(3, r.errors.size()); i++) {
+                    in.add(RtlDialog.gap(6));
+                    in.add(RtlDialog.errorCard(r.errors.get(i), w));
+                }
+                if (r.errors.size() > 3) in.add(RtlDialog.label("ועוד " + (r.errors.size() - 3) + " בחלון Error List של Visual Studio", RtlDialog.small(), RtlDialog.MUTED));
+                in.add(RtlDialog.gap(4));
+                in.add(RtlDialog.label("בדרך כלל זה ב-Main (הנתונים לדוגמה). אפשר לתקן, או לשלוח שוב.", RtlDialog.small(), RtlDialog.MUTED));
+            }
+            body.add(RtlDialog.card(in, 14, 16));
+            body.add(RtlDialog.gap(14));
+            // איך פותחים ב-Visual Studio — קצר: קודם הקובץ עם Main
+            File main = r.files.isEmpty() ? null : mainFile(r.files);
+            body.add(RtlDialog.label("ב-Visual Studio", RtlDialog.bold(), RtlDialog.INK));
+            body.add(RtlDialog.gap(4));
+            String[] steps = {
+                "אם הוא שואל, מאשרים Reload.",
+                "ב-Solution Explorer: קליק ימני על " + r.folderName + " " + RtlDialog.ARROW + " Set as Startup Project.",
+                main == null ? "עונים במקום המסומן בכל סעיף." : "פותחים את " + main.getName() + " (שם Main), ועונים במקום המסומן.",
+                "מריצים: בתפריט שליד הכפתור הירוק בוחרים \"הרצה ויזואלית\"."
+            };
+            for (int i = 0; i < steps.length; i++) body.add(step(i + 1, steps[i]));
+            if (!r.entries.isEmpty()) {
+                body.add(RtlDialog.gap(6));
+                body.add(RtlDialog.label("נתקעתם? בקיצור \"הצעה לפתרון ב-C#\" יש הצעה לכל סעיף.", RtlDialog.small(), RtlDialog.MUTED));
+            }
+            JButton close = RtlDialog.primary("סגירה");
+            close.addActionListener(e -> dlg.dispose());
+            JPanel foot = RtlDialog.footer();
+            foot.add(close);
+            dlg.getRootPane().setDefaultButton(close);
+            return page(body, foot);
+        }
+
+        JComponent step(int n, String text) {
+            JPanel p = new JPanel(new BorderLayout(8, 0));
+            p.setOpaque(false);
+            JLabel num = new JLabel(String.valueOf(n), SwingConstants.CENTER) {
+                @Override
+                protected void paintComponent(Graphics g0) {
+                    Graphics2D g = (Graphics2D) g0.create();
+                    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g.setColor(RtlDialog.SUNK);
+                    g.fillRoundRect(0, (getHeight() - 18) / 2, 18, 18, 8, 8);
+                    g.setColor(RtlDialog.LINE_2);
+                    g.drawRoundRect(0, (getHeight() - 18) / 2, 17, 17, 8, 8);
+                    g.dispose();
+                    super.paintComponent(g0);
+                }
+            };
+            num.setFont(RtlDialog.mono(11f));
+            num.setForeground(RtlDialog.INK_2);
+            num.setPreferredSize(new Dimension(18, 22));
+            p.add(num, BorderLayout.LINE_START);
+            p.add(RtlDialog.label(text, RtlDialog.ui(), RtlDialog.INK_2), BorderLayout.CENTER);
+            p.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+            return p;
+        }
     }
 
     // ------------------------------------------------------------------ הצעה לפתרון
@@ -531,7 +861,7 @@ public final class VsSubmit {
         });
         JScrollPane ls = new JScrollPane(list);
         ls.setPreferredSize(new Dimension(250, 380));
-        ls.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
+        ls.setBorder(BorderFactory.createLineBorder(RtlDialog.LINE));
 
         // הצד של ההצעה
         final JLabel title = new JLabel("בוחרים סעיף מהרשימה");
@@ -548,7 +878,7 @@ public final class VsSubmit {
         code.setText(all.isEmpty() ? "" : "");
         JScrollPane cs = new JScrollPane(code);
         cs.setPreferredSize(new Dimension(560, 380));
-        cs.setBorder(BorderFactory.createLineBorder(Theme.BORDER));
+        cs.setBorder(BorderFactory.createLineBorder(RtlDialog.LINE));
         if (sorted.isEmpty()) {
             title.setText("עוד אין הצעות");
             code.setText("הצעות לפתרון יש לתרגילים שנוצרו ב\"שליחת תרגיל ב-C#\".");
@@ -564,13 +894,10 @@ public final class VsSubmit {
         mid.add(right, BorderLayout.CENTER);
         content.add(mid, BorderLayout.CENTER);
 
-        final JButton copy = new JButton("העתקה"), close = new JButton("סגירה");
-        copy.putClientProperty("FlatLaf.style", "background:#2F6FED; foreground:#ffffff; arc:14; borderWidth:0; hoverBackground:#2457C5; disabledBackground:#B9C8EE; disabledText:#ffffff");
-        copy.setFont(Theme.uiBold);
-        copy.setPreferredSize(new Dimension(110, 34));
+        final JButton copy = RtlDialog.primary("העתקה"), close = RtlDialog.secondary("סגירה");
+        copy.setPreferredSize(new Dimension(110, 32));
         copy.setEnabled(false);
-        close.putClientProperty("FlatLaf.style", "arc:14; background:#ffffff");
-        close.setPreferredSize(new Dimension(84, 34));
+        close.setPreferredSize(new Dimension(84, 32));
         JPanel bp = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 6));   // בלי שורת זכויות יוצרים בחלון הזה
         bp.add(copy);
         bp.add(close);
@@ -606,7 +933,7 @@ public final class VsSubmit {
         rtl(content);
         code.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
         content.setOpaque(true);
-        content.setBackground(Theme.BG);
+        content.setBackground(RtlDialog.PANEL);
         f.pack();
         f.setLocationRelativeTo(null);
         f.setVisible(true);
@@ -655,85 +982,56 @@ public final class VsSubmit {
     // ------------------------------------------------------------------ רכיבים
 
     static JPanel header(String title, String sub) {
-        JPanel h = new JPanel(new BorderLayout(0, 2));
-        JLabel t = new JLabel(title);
-        t.setFont(Theme.big);
-        t.setForeground(Theme.TEXT);
-        JLabel s = new JLabel(sub);
-        s.setForeground(Theme.MUTED);
-        h.add(t, BorderLayout.NORTH);
-        h.add(s, BorderLayout.SOUTH);
+        JPanel h = new JPanel();
+        h.setLayout(new BoxLayout(h, BoxLayout.Y_AXIS));
+        h.setOpaque(false);
+        h.add(RtlDialog.label(title, RtlDialog.bold().deriveFont(Font.BOLD, 18f), RtlDialog.INK));
+        h.add(RtlDialog.gap(2));
+        h.add(RtlDialog.label(sub, RtlDialog.ui(), RtlDialog.MUTED));
+        h.setAlignmentX(Component.RIGHT_ALIGNMENT);
         return h;
     }
 
     static JLabel bold(String s) {
-        JLabel l = new JLabel(s);
-        l.setFont(Theme.uiBold);
-        l.setForeground(Theme.TEXT);
-        return l;
+        return RtlDialog.label(s, RtlDialog.bold(), RtlDialog.INK);
     }
 
     static Component gap(int h) {
+        return RtlDialog.gap(h);
+    }
+
+    /** עמודה: רכיבים אחד מתחת לשני, מיושרים לימין */
+    static JPanel column() {
         JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setOpaque(false);
-        p.setPreferredSize(new Dimension(1, h));
-        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, h));
         return p;
     }
 
-    static JPanel buttons(JButton ok, JButton cancel) {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 6));
-        p.add(ok);
-        p.add(cancel);
-        JPanel row = new JPanel(new BorderLayout());
-        row.add(p, BorderLayout.CENTER);
-        JLabel c = new JLabel(Theme.COPYRIGHT);
-        c.setFont(Theme.small);
-        c.setForeground(new Color(0xA0A8B8));
-        c.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
-        c.putClientProperty("ltr", Boolean.TRUE);
-        row.add(c, BorderLayout.LINE_END);
-        return row;
+    /** תוכן עם שוליים, ושורת הכפתורים למטה */
+    static JPanel page(JComponent body, JComponent foot) {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setOpaque(true);
+        p.setBackground(RtlDialog.PANEL);
+        body.setBorder(BorderFactory.createEmptyBorder(18, 20, 16, 20));
+        JPanel top = new JPanel(new BorderLayout());   // התוכן בגובה שלו; המקום שנשאר (החלון בגובה של המצב הגבוה) — למטה
+        top.setOpaque(false);
+        top.add(body, BorderLayout.NORTH);
+        p.add(top, BorderLayout.CENTER);
+        p.add(foot, BorderLayout.SOUTH);
+        return p;
     }
 
-    /** מימין לשמאל; פאנלים שקופים (חוץ מהכרטיסים) */
+    /** מימין לשמאל */
     static void rtl(Container c) {
-        c.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
-        clear(c);
-    }
-
-    private static void clear(Component c) {
-        if (c instanceof JPanel && !(c instanceof Card) && !(c instanceof DashedPanel) && !(c instanceof Thumb)) ((JPanel) c).setOpaque(false);
-        if (c instanceof Container) for (Component k : ((Container) c).getComponents()) clear(k);
+        RtlDialog.rtl(c);
     }
 
     static String size(long n) {
         return n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024.0)) + "KB" : String.format("%.1fMB", n / 1024.0 / 1024.0);
     }
 
-    /** כרטיס לבן מעוגל */
-    static final class Card extends JPanel {
-        Card(JComponent inner) {
-            super(new BorderLayout());
-            setOpaque(false);
-            setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
-            add(inner, BorderLayout.CENTER);
-            setAlignmentX(Component.RIGHT_ALIGNMENT);
-        }
-
-        @Override
-        protected void paintComponent(Graphics g0) {
-            Graphics2D g = (Graphics2D) g0.create();
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(Theme.CARD);
-            g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 22, 22);
-            g.setColor(Theme.BORDER);
-            g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 22, 22);
-            g.dispose();
-        }
-    }
-
-    /** אזור הגרירה — מסגרת מקווקוות */
+    /** אזור הגרירה — מסגרת מקווקוות דקה, פינות קטנות */
     static final class DashedPanel extends JPanel {
         DashedPanel(java.awt.LayoutManager l) {
             super(l);
@@ -745,58 +1043,68 @@ public final class VsSubmit {
         protected void paintComponent(Graphics g0) {
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(new Color(0xFAFBFD));
-            g.fillRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 18, 18);
-            g.setColor(new Color(0xC5CCD8));
-            g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f, new float[] { 6f, 5f }, 0f));
-            g.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 18, 18);
+            g.setColor(RtlDialog.PAGE);
+            g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+            g.setColor(RtlDialog.LINE_2);
+            g.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 1f, new float[] { 4f, 3f }, 0f));
+            g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
             g.dispose();
         }
     }
 
-    /** תמונה ממוזערת של פריט, עם × להסרה */
+    /** תמונה ממוזערת של פריט (עם × להסרה; בתצוגת הבנייה — קטנה ובלי ×) */
     static final class Thumb extends JPanel {
-        Thumb(Entry e, Runnable remove) {
+        Thumb(Entry e, Runnable remove, boolean small) {
             super(new BorderLayout(0, 4));
             setOpaque(false);
-            setPreferredSize(new Dimension(122, 112));
-            setBorder(BorderFactory.createEmptyBorder(8, 8, 6, 8));
+            int w = small ? 84 : 108, h = small ? 52 : 64;
+            setPreferredSize(new Dimension(w + 12, h + 34));
+            setBorder(BorderFactory.createEmptyBorder(6, 6, 5, 6));
             JLabel pic;
             if (e.thumb != null) {
-                int w = e.thumb.getWidth(null), h = e.thumb.getHeight(null);
-                double k = Math.min(100.0 / Math.max(1, w), 64.0 / Math.max(1, h));
-                pic = new JLabel(new ImageIcon(e.thumb.getScaledInstance(Math.max(1, (int) (w * k)), Math.max(1, (int) (h * k)), Image.SCALE_SMOOTH)));
+                int iw = e.thumb.getWidth(null), ih = e.thumb.getHeight(null);
+                double k = Math.min((double) w / Math.max(1, iw), (double) h / Math.max(1, ih));
+                pic = new JLabel(new ImageIcon(e.thumb.getScaledInstance(Math.max(1, (int) (iw * k)), Math.max(1, (int) (ih * k)), Image.SCALE_SMOOTH)));
             } else {
-                pic = new JLabel(e.kind.equals("pdf") ? "PDF" : e.kind.equals("word") ? "Word" : "טקסט", SwingConstants.CENTER) {
+                pic = new JLabel(e.kind.equals("pdf") ? "PDF" : e.kind.equals("word") ? "Word" : "TXT", SwingConstants.CENTER) {
                     @Override
                     protected void paintComponent(Graphics g0) {
                         Graphics2D g = (Graphics2D) g0.create();
                         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                        g.setColor(e.kind.equals("pdf") ? new Color(0xDC2626) : e.kind.equals("word") ? new Color(0x2563EB) : new Color(0x6B7280));
-                        int bw = 64, bh = 44;
-                        g.fillRoundRect((getWidth() - bw) / 2, (getHeight() - bh) / 2, bw, bh, 10, 10);
+                        g.setColor(e.kind.equals("pdf") ? RtlDialog.RED : e.kind.equals("word") ? RtlDialog.ACCENT : RtlDialog.MUTED);
+                        int bw = 44, bh = 26;
+                        g.fillRoundRect((getWidth() - bw) / 2, (getHeight() - bh) / 2, bw, bh, 6, 6);
                         g.dispose();
                         super.paintComponent(g0);
                     }
                 };
                 pic.setForeground(Color.WHITE);
-                pic.setFont(Theme.uiBold.deriveFont(15f));
+                pic.setFont(RtlDialog.mono(11.5f).deriveFont(Font.BOLD));
             }
-            add(pic, BorderLayout.CENTER);
+            JPanel box = new RtlDialog.Panel(new BorderLayout(), RtlDialog.SUNK, null);
+            box.add(pic, BorderLayout.CENTER);
+            add(box, BorderLayout.CENTER);
             JLabel n = new JLabel(e.name, SwingConstants.CENTER);
-            n.setFont(Theme.small);
+            n.setFont(RtlDialog.small().deriveFont(11f));
+            n.setForeground(RtlDialog.MUTED);
             n.setToolTipText(e.name);
             add(n, BorderLayout.SOUTH);
-            JButton x = new JButton("×");
-            x.setToolTipText("הסרה");
-            x.setFocusable(false);
-            x.putClientProperty("FlatLaf.style", "arc:999; background:#9CA3AF; foreground:#ffffff; borderWidth:0; margin:0,0,0,0");
-            x.setPreferredSize(new Dimension(20, 20));
-            x.addActionListener(ev -> remove.run());
-            JPanel xr = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            xr.setOpaque(false);
-            xr.add(x);
-            add(xr, BorderLayout.NORTH);
+            if (remove != null && !small) {
+                JButton x = new JButton("×");
+                x.setToolTipText("הסרה");
+                x.setFocusable(false);
+                x.putClientProperty("FlatLaf.style", "arc:6; background:#ffffff; foreground:#3B4250; borderColor:#CDD2DA; margin:0,0,0,0; focusWidth:0");
+                x.setPreferredSize(new Dimension(20, 20));
+                x.addActionListener(ev -> remove.run());
+                JPanel xr = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+                xr.setOpaque(false);
+                xr.add(x);
+                xr.putClientProperty("ltr", Boolean.TRUE);
+                JPanel layer = new JPanel(new BorderLayout());
+                layer.setOpaque(false);
+                layer.add(xr, BorderLayout.NORTH);
+                box.add(layer, BorderLayout.NORTH);
+            }
         }
 
         @Override
@@ -804,10 +1112,113 @@ public final class VsSubmit {
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(Color.WHITE);
-            g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
-            g.setColor(Theme.BORDER);
-            g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+            g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+            g.setColor(RtlDialog.LINE);
+            g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
             g.dispose();
+        }
+    }
+
+    /** שורה ברשימת השלבים: סימן (✓ ירוק / נקודה כחולה / עיגול אפור / ✕ אדום), השם, השניות, ושורה אפורה קטנה מתחת */
+    static final class StageRow extends JPanel {
+        static final int PENDING = 0, NOW = 1, DONE = 2, BAD = 3;
+        int state;
+        final JLabel name, secs, note;
+        final JComponent icon;
+
+        StageRow(String text) {
+            super(new BorderLayout(10, 0));
+            setOpaque(false);
+            icon = new JComponent() {
+                @Override
+                protected void paintComponent(Graphics g0) {
+                    Graphics2D g = (Graphics2D) g0.create();
+                    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    int cx = getWidth() / 2, cy = 11;
+                    if (state == DONE || state == BAD) {
+                        g.setColor(state == DONE ? RtlDialog.GREEN : RtlDialog.RED);
+                        g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        if (state == DONE) {
+                            g.drawLine(cx - 5, cy, cx - 1, cy + 4);
+                            g.drawLine(cx - 1, cy + 4, cx + 5, cy - 4);
+                        } else {
+                            g.drawLine(cx - 4, cy - 4, cx + 4, cy + 4);
+                            g.drawLine(cx - 4, cy + 4, cx + 4, cy - 4);
+                        }
+                    } else if (state == NOW) {
+                        g.setColor(RtlDialog.ACCENT);
+                        g.fillOval(cx - 4, cy - 4, 8, 8);
+                    } else {
+                        g.setColor(RtlDialog.LINE_2);
+                        g.setStroke(new BasicStroke(1.5f));
+                        g.drawOval(cx - 4, cy - 4, 8, 8);
+                    }
+                    g.dispose();
+                }
+            };
+            icon.setPreferredSize(new Dimension(16, 22));
+            JPanel iw = new JPanel(new BorderLayout());
+            iw.setOpaque(false);
+            iw.add(icon, BorderLayout.NORTH);
+            add(iw, BorderLayout.LINE_START);
+            name = RtlDialog.label(text, RtlDialog.ui(), RtlDialog.MUTED);
+            secs = RtlDialog.label(" ", RtlDialog.small(), RtlDialog.MUTED);
+            note = RtlDialog.label(" ", RtlDialog.small(), RtlDialog.MUTED);
+            JPanel line = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 0));
+            line.setOpaque(false);
+            line.add(name);
+            line.add(RtlDialog.gap(1));
+            JPanel sp = new JPanel();
+            sp.setOpaque(false);
+            sp.setPreferredSize(new Dimension(10, 1));
+            line.add(sp);
+            line.add(secs);
+            JPanel col = new JPanel(new BorderLayout());
+            col.setOpaque(false);
+            col.add(line, BorderLayout.NORTH);
+            col.add(note, BorderLayout.CENTER);
+            add(col, BorderLayout.CENTER);
+            note.setVisible(false);
+            setAlignmentX(Component.RIGHT_ALIGNMENT);
+        }
+
+        void set(int s, String n) {
+            state = s;
+            name.setFont(s == NOW ? RtlDialog.bold() : RtlDialog.ui());
+            name.setForeground(s == PENDING ? new Color(0x9AA1AD) : s == DONE ? RtlDialog.INK_2 : RtlDialog.INK);
+            secs.setText(" ");
+            if (s != BAD) setNote(n);   // אחרי שגיאה — השורה האפורה נשארת
+            icon.repaint();
+        }
+
+        void setNote(String n) {
+            boolean has = n != null && !n.trim().isEmpty();
+            note.setText(has ? RtlDialog.rtl(n.trim()) : " ");
+            note.setVisible(has);
+            revalidate();
+        }
+
+        @Override
+        public Dimension getMaximumSize() {
+            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+        }
+    }
+
+    /** קו כחול דק למעלה, שמתמלא מימין לשמאל לפי השלב */
+    static final class TopLine extends JComponent {
+        double fraction;
+
+        TopLine() {
+            setPreferredSize(new Dimension(10, 2));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            int w = (int) Math.round(getWidth() * Math.max(0, Math.min(1, fraction)));
+            g.setColor(RtlDialog.PANEL);
+            g.fillRect(0, 0, getWidth(), getHeight());
+            g.setColor(RtlDialog.ACCENT);
+            g.fillRect(getWidth() - w, 0, w, getHeight());
         }
     }
 }

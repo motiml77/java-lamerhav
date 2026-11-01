@@ -11,6 +11,7 @@ const addstructure = require('./addstructure');
 const names = require('./names');
 const help = require('./help');
 const submitModule = require('./submit');
+const ui = require('./ui');
 
 /** התבניות של השפה שעובדים בה עכשיו (Java / C#) — נקבע בתחילת כל פעולה לפי השפה */
 let templates = javaTemplates;
@@ -155,8 +156,7 @@ async function firstRun() {
     if (!project.installedProject() && !cs.installedProject()) return;
     await ctx.globalState.update('dsviz.welcomed', true);
     const open = 'פתיחת תיקיית התרגילים';
-    const ans = await vscode.window.showInformationMessage(
-        'מבני נתונים — הכול מוכן! לפתוח את תיקיית התרגילים (עם תרגיל לדוגמה ודוגמאות פתורות)?', open);
+    const ans = await ui.info(vscode, 'מבני נתונים מוכן. לפתוח את תיקיית התרגילים (תרגיל לדוגמה ודוגמאות פתורות)?', open);
     if (ans === open) await openProject();
 }
 
@@ -277,7 +277,7 @@ async function newExercise(preset) {
         ({ srcDir, warnings } = project.setup(root, path.join(ctx.extensionPath, 'resources', project.JAR_NAME)));
         await warnConflicts(root);
     }
-    for (const w of warnings) vscode.window.showWarningMessage(w);
+    for (const w of warnings) ui.warn(vscode, w);
 
     const className = await vscode.window.showInputBox({
         title: `${st.label} — (5/${total}) ${csharp ? 'שם הפרויקט (והמחלקה)' : 'שם המחלקה (הקובץ)'}`,
@@ -297,7 +297,7 @@ async function newExercise(preset) {
 
     let gen;
     try { gen = templates.generate(opts); }
-    catch (e) { vscode.window.showErrorMessage(e.message); return; }
+    catch (e) { ui.error(vscode, e.message); return; }
     let file;
     if (csharp) {
         file = cs.writeProject(srcDir, className, gen.code);   // תיקייה לתרגיל: .csproj + Program.cs
@@ -367,7 +367,7 @@ function insertionPoint(doc, lineNo) {
 async function insertSnippet(structure) {
     const ed = vscode.window.activeTextEditor;
     if (!ed || (ed.document.languageId !== 'java' && ed.document.languageId !== 'csharp')) {
-        vscode.window.showInformationMessage('פתחו קובץ Java או C# ושימו את הסמן במקום שבו רוצים את המבנה (בתוך main או בתוך פעולה).');
+        ui.info(vscode, 'פתחו קובץ Java או C# ושימו את הסמן במקום של המבנה (בתוך main או בתוך פעולה).');
         return;
     }
     const csharp = ed.document.languageId === 'csharp';
@@ -376,8 +376,7 @@ async function insertSnippet(structure) {
     const at = insertionPoint(ed.document, lineNo);
     // שכבת הגנה: אי אפשר להכניס משתנה / פקודות מחוץ לפעולה (בגוף המחלקה או אחריה) — מזהירים ולא פותחים את החלון
     if (!names.insideFunction(ed.document.getText(), at.offset)) {
-        vscode.window.showWarningMessage('הסמן נמצא מחוץ לפעולה (בגוף המחלקה, או לפני / אחרי המחלקה), ושם אי אפשר לכתוב פקודות. '
-            + 'לחצו בתוך הפעולה main (או בכל פעולה אחרת), בשורה שבה רוצים את המבנה — ואז לחצו שוב על "הוסף מבנה נתונים".', { modal: true });
+        ui.warn(vscode, 'הסמן מחוץ לפעולה. לוחצים בתוך main (או בפעולה אחרת), בשורה של המבנה, ואז שוב "הוסף מבנה נתונים".');
         return;
     }
     const session = new addstructure.Session({ tpl: templates, text: ed.document.getText(), offset: at.offset, indent: at.indent, preset: structure });
@@ -467,7 +466,7 @@ async function openHelp(id) {
         else if (fs.existsSync(path.join(base, 'help', 'index.html'))) dir = path.join(base, 'help');
     }
     if (!fs.existsSync(dir) || !vscode.window.createWebviewPanel) {
-        vscode.window.showWarningMessage('סרטוני ההדרכה לא נמצאו בהתקנה הזאת.');
+        ui.warn(vscode, 'סרטוני ההדרכה לא נמצאו בהתקנה הזאת.');
         return;
     }
     let durations = {};
@@ -545,25 +544,30 @@ async function run() {
     const ed = vscode.window.activeTextEditor;
     if (ed && ed.document.fileName.endsWith('.cs')) return runCs(ed);
     if (!ed || !ed.document.fileName.endsWith('.java')) {
-        vscode.window.showInformationMessage('פתחו קובץ Java או C# (תרגיל) ואז לחצו "הרצה ויזואלית".');
+        ui.info(vscode, 'פותחים קובץ Java או C# (תרגיל), ואז "הרצה ויזואלית".');
         return;
     }
     await ed.document.save();
     const text = ed.document.getText();
-    if (!/static\s+void\s+main\s*\(/.test(text)) {
-        vscode.window.showWarningMessage('בקובץ הזה אין main — אין מה להריץ.');
-        return;
+    // הקובץ של הסעיף בלי main (מחלקה של התרגיל): מריצים את ה-main של התרגיל, מהקובץ שלידו באותה תיקייה
+    let mainPath = ed.document.fileName, mainText = text;
+    if (!MAIN_JAVA.test(text)) {
+        mainPath = siblingMain(ed.document.fileName);
+        if (!mainPath) {
+            ui.warn(vscode, 'בקובץ הזה אין main, ואין מה להריץ.');
+            return;
+        }
+        mainText = fs.readFileSync(mainPath, 'utf8');
     }
     const folder = vscode.workspace.getWorkspaceFolder(ed.document.uri);
     if (!folder) {
-        vscode.window.showWarningMessage('הקובץ לא נמצא בתוך תיקייה פתוחה. פתחו את התיקייה (File → Open Folder).');
+        ui.warn(vscode, 'הקובץ לא בתוך תיקייה פתוחה. פותחים את התיקייה שלו (File > Open Folder).');
         return;
     }
     const jdk = runner.findJava(vscode.workspace.getConfiguration('dsviz').get('javaHome'));
     if (!jdk) {
         const btn = 'הורדת Java (JDK 21)';
-        const ans = await vscode.window.showErrorMessage(
-            'לא נמצאה Java במחשב. תוכנית ההתקנה של מבני נתונים מתקינה Java — או שאפשר להוריד JDK.', btn);
+        const ans = await ui.error(vscode, 'לא נמצאה Java במחשב. ההתקנה של מבני נתונים מתקינה אותה, או מורידים JDK.', btn);
         if (ans === btn) vscode.env.openExternal(vscode.Uri.parse('https://adoptium.net/temurin/releases/?version=21'));
         return;
     }
@@ -574,7 +578,7 @@ async function run() {
     if (!ed.document.fileName.startsWith(srcDir + path.sep)) srcDir = path.dirname(ed.document.fileName);   // קובץ מחוץ ל-src
     const jar = project.agentJar(root, path.join(ctx.extensionPath, 'resources', project.JAR_NAME));
     const binDir = path.join(root, 'bin');
-    const mainClass = project.mainClassOf(ed.document.fileName, text);
+    const mainClass = project.mainClassOf(mainPath, mainText);
 
     const result = await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Window, title: 'מבני נתונים: מקמפל...' },
@@ -583,11 +587,7 @@ async function run() {
     if (!result.ok) {
         output.clear();
         output.appendLine(result.output);
-        const btn = 'פרטים';
-        const n = result.errors.filter(e => e.severity === 'error').length;
-        const ans = await vscode.window.showErrorMessage(
-            n ? `יש ${n} שגיאות קומפילציה (מסומנות באדום בקוד). מתקנים ומריצים שוב.` : 'הקומפילציה נכשלה.', btn);
-        if (ans === btn) output.show(true);
+        compileFailed(result);
         return;
     }
 
@@ -612,8 +612,8 @@ async function runCs(ed) {
     const root = folder ? folder.uri.fsPath : path.dirname(ed.document.fileName);
     const exe = cs.findRunner(vscode.workspace.getConfiguration('dsviz').get('csRunner'));
     if (!exe) {
-        vscode.window.showErrorMessage(runner.MAC ? 'לא נמצא dsviz-cs (ההרצה הוויזואלית של C#). ' + runner.INSTALL_HINT + '.'
-            : 'לא נמצא dsviz-cs (ההרצה הוויזואלית של C#). יש להתקין מחדש את DSViz-Setup.exe ולבחור את חבילת C#.');
+        ui.error(vscode, runner.MAC ? 'לא נמצא dsviz-cs (ההרצה של C#). ' + runner.INSTALL_HINT + '.'
+            : 'לא נמצא dsviz-cs (ההרצה של C#). מתקינים שוב את DSViz-Setup.exe עם חבילת C#.');
         return;
     }
     const target = cs.projectDirOf(ed.document.fileName, root) || ed.document.fileName;
@@ -632,13 +632,71 @@ function showErrors(result) {
     diagnostics.clear();
     const byFile = new Map();
     for (const e of result.errors) {
-        const d = new vscode.Diagnostic(new vscode.Range(e.line - 1, 0, e.line - 1, 1000), e.message,
+        const he = ui.explain(e.message);
+        const d = new vscode.Diagnostic(new vscode.Range(e.line - 1, 0, e.line - 1, 1000), he ? ui.rtl(he) + ' (' + e.message + ')' : e.message,
             e.severity === 'error' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning);
         d.source = 'javac';
         if (!byFile.has(e.file)) byFile.set(e.file, []);
         byFile.get(e.file).push(d);
     }
     for (const [file, list] of byFile) diagnostics.set(vscode.Uri.file(file), list);
+}
+
+const MAIN_JAVA = /static\s+void\s+main\s*\(/;
+
+/** קובץ Java עם main באותה תיקייה (התרגיל: הסעיף במחלקה אחת, ה-main במחלקה הראשית). null אם אין */
+function siblingMain(file) {
+    try {
+        const dir = path.dirname(file);
+        return fs.readdirSync(dir).filter(f => f.endsWith('.java')).sort().map(f => path.join(dir, f))
+            .find(f => f !== file && MAIN_JAVA.test(fs.readFileSync(f, 'utf8'))) || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * הקומפילציה נכשלה: הודעה קצרה ("2 שגיאות קומפילציה · ההרצה לא התחילה") עם "מעבר לשגיאה" ו"כל השגיאות".
+ * השגיאות כבר מסומנות באדום בקוד ובחלון Problems; "כל השגיאות" פותח חלון עם כרטיס לכל שגיאה (ההסבר בעברית, והשורה מהקוד).
+ */
+let errorsPanel;
+async function compileFailed(result) {
+    const errs = result.errors.filter(e => e.severity === 'error');
+    const n = errs.length;
+    if (!n) {
+        const more = 'פרטים';
+        if (await ui.error(vscode, 'הקומפילציה נכשלה. ההרצה לא התחילה.', more) === more) output.show(true);
+        return;
+    }
+    const jump = 'מעבר לשגיאה', all = 'כל השגיאות';
+    const ans = await ui.error(vscode, (n === 1 ? 'שגיאת קומפילציה אחת' : n + ' שגיאות קומפילציה') + ' · ההרצה לא התחילה', jump, all);
+    if (ans === jump) await openError(errs[0]);
+    else if (ans === all) showErrorList(errs);
+}
+
+async function openError(e) {
+    const doc = await vscode.workspace.openTextDocument(e.file);
+    const l = Math.max(0, e.line - 1);
+    return vscode.window.showTextDocument(doc, { preview: false, selection: new vscode.Range(l, 0, l, 0) });
+}
+
+function showErrorList(errs) {
+    const lines = new Map();
+    const source = e => {
+        try {
+            if (!lines.has(e.file)) lines.set(e.file, fs.readFileSync(e.file, 'utf8').split(/\r?\n/));
+            return lines.get(e.file)[e.line - 1];
+        } catch (x) {
+            return null;
+        }
+    };
+    const list = errs.map(e => ({ file: path.basename(e.file), path: e.file, line: e.line, message: e.message, source: source(e) }));
+    if (errorsPanel) { try { errorsPanel.dispose(); } catch (x) { /* כבר נסגר */ } }
+    errorsPanel = vscode.window.createWebviewPanel('dsviz.errors', 'שגיאות קומפילציה', { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, { enableScripts: true });
+    errorsPanel.webview.html = ui.errorsHtml(list);
+    errorsPanel.webview.onDidReceiveMessage(m => { if (m.type === 'open' && list[m.i]) openError(errs[m.i]); });
+    errorsPanel.onDidDispose(() => { errorsPanel = undefined; });
+    return errorsPanel;
 }
 
 // ------------------------------------------------------------ דוגמאות
@@ -650,7 +708,7 @@ async function examples() {
     if (!lang) return;
     if (lang === 'csharp') return examplesCs(root);
     const { srcDir, warnings } = project.setup(root, path.join(ctx.extensionPath, 'resources', project.JAR_NAME));
-    for (const w of warnings) vscode.window.showWarningMessage(w);
+    for (const w of warnings) ui.warn(vscode, w);
     const from = path.join(ctx.extensionPath, 'resources', 'examples');
     const to = path.join(srcDir, 'examples');
     fs.mkdirSync(to, { recursive: true });
@@ -669,7 +727,7 @@ async function examples() {
 /** דוגמאות C#: כל דוגמה היא פרויקט (Examples/<שם>) עם .csproj ו-Program.cs */
 async function examplesCs(root) {
     const { warnings } = cs.setup(root, path.join(ctx.extensionPath, 'resources', 'cs', 'lib', cs.LIB));
-    for (const w of warnings) vscode.window.showWarningMessage(w);
+    for (const w of warnings) ui.warn(vscode, w);
     const from = path.join(ctx.extensionPath, 'resources', 'cs', 'Examples');
     const to = path.join(root, 'Examples');
     const names = { StackExamples: 'מחסנית', QueueExamples: 'תור', ListExamples: 'רשימה מקושרת', TreeExamples: 'עצים',
@@ -697,8 +755,7 @@ async function chooseRoot() {
         const f = await vscode.window.showWorkspaceFolderPick({ placeHolder: 'באיזו תיקייה ליצור את התרגיל?' });
         return f && f.uri.fsPath;
     }
-    const ans = await vscode.window.showInformationMessage(
-        'צריך תיקייה לתרגילים. לבחור (או ליצור) תיקייה עכשיו?', { modal: true }, 'בחירת תיקייה');
+    const ans = await ui.info(vscode, 'צריך תיקייה לתרגילים. לבחור (או ליצור) תיקייה עכשיו?', { modal: true }, 'בחירת תיקייה');
     if (!ans) return undefined;
     const uris = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, openLabel: 'שמירת התרגילים כאן' });
     return uris && uris[0] && uris[0].fsPath;
@@ -713,29 +770,31 @@ function detectLanguage(root) {
     return cs.detectLanguage(root);
 }
 
-/** "שליחת תרגיל": פותח את הקבצים שנוצרו — קודם המחלקות, ובסוף הקובץ עם הסעיף הראשון, והסמן מחכה במקום הפתרון */
-async function openFiles(root, files, focus, line) {
-    for (const f of files) {
-        if (f === focus || !fs.existsSync(f)) continue;
-        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(f), { preview: false, preserveFocus: true });
-    }
-    if (focus && fs.existsSync(focus)) await openAt(root, focus, line);
+/**
+ * "שליחת תרגיל": פותח את הקבצים שנוצרו — קודם המחלקות, אחר כך הקובץ עם main, ובסוף הקובץ של סעיף א (הסמן במקום הפתרון).
+ * כך הלשונית של main נמצאת ממש ליד הלשונית של הסעיף, והמיקוד נשאר בסעיף.
+ */
+async function openFiles(root, files, focus, line, main) {
+    const rest = files.filter(f => f !== focus && fs.existsSync(f));
+    const order = rest.filter(f => f !== main).concat(rest.includes(main) ? [main] : []);
+    for (const f of order) await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(f), { preview: false, preserveFocus: true });
+    if (focus && fs.existsSync(focus)) await openAt(root, focus, line, { quiet: true });
 }
 
 /** פותח קובץ ומציב את הסמן. אם התיקייה עוד לא פתוחה — פותחים אותה, והקובץ ייפתח אחרי הטעינה */
-async function openAt(root, file, line) {
+async function openAt(root, file, line, opts) {
     const inWorkspace = (vscode.workspace.workspaceFolders || []).some(f => f.uri.fsPath === root);
     if (!inWorkspace) {
-        await ctx.globalState.update(PENDING_KEY, { file, line });
+        await ctx.globalState.update(PENDING_KEY, { file, line, quiet: !!(opts && opts.quiet) });
         await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(root), false);
         return;
     }
     const doc = await vscode.workspace.openTextDocument(file);
-    const ed = await vscode.window.showTextDocument(doc);
+    const ed = await vscode.window.showTextDocument(doc, { preview: false });
     const pos = new vscode.Position(line, doc.lineAt(Math.min(line, doc.lineCount - 1)).text.length);
     ed.selection = new vscode.Selection(pos, pos);
     ed.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
-    vscode.window.showInformationMessage('כתבו את הפעולה, ואז לחצו "הרצה ויזואלית" (למעלה מימין, או בשורת המצב למטה).');
+    if (!(opts && opts.quiet)) ui.info(vscode, 'כותבים את הפעולה, ואז "הרצה ויזואלית" (למעלה, או בשורת המצב למטה).');
 }
 
 async function openPending() {
@@ -744,7 +803,7 @@ async function openPending() {
     await ctx.globalState.update(PENDING_KEY, undefined);
     if (fs.existsSync(p.file)) {
         const root = (vscode.workspace.workspaceFolders || []).find(f => p.file.startsWith(f.uri.fsPath));
-        if (root) await openAt(root.uri.fsPath, p.file, p.line);
+        if (root) await openAt(root.uri.fsPath, p.file, p.line, { quiet: p.quiet });
     }
 }
 
@@ -752,9 +811,8 @@ async function warnConflicts(root) {
     const conflicts = project.findConflicts(root);
     if (!conflicts.length) return;
     const btn = 'השבתה (שינוי שם ל-.bak)';
-    const ans = await vscode.window.showWarningMessage(
-        'נמצאה ספריית unit4 נוספת שתתנגש עם המעטפת: ' + conflicts.map(c => path.basename(c)).join(', '), btn);
+    const ans = await ui.warn(vscode, 'יש ספריית unit4 נוספת שתתנגש עם הספרייה של הקורס: ' + conflicts.map(c => path.basename(c)).join(', '), btn);
     if (ans === btn) for (const c of conflicts) fs.renameSync(c, c + '.bak');
 }
 
-module.exports = { needsHelperImport, activate, deactivate };
+module.exports = { needsHelperImport, activate, deactivate, siblingMain, showErrorList, openFiles };

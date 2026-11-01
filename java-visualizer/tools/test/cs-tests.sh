@@ -258,20 +258,47 @@ grep -q '"done":true' "$SUB/out.txt" && grep -q '"solutionStatus":"ok"' "$SUB/ou
     && grep -q '"status":"ok"' "$SUB/solutions.json" \
     && grep -qF '"others":[{"label":"ד","text":"מהי סיבוכיות זמן הריצה?"}]' "$SUB/out.txt" && ! grep -q 'מהי סיבוכיות' "$SUB/root/Exercises/Ex01_Stacks/StackTargil.cs" \
     && echo "שליחת תרגיל ב-C#: פרויקט Ex01_Stacks בפתרון, בלי פתרון בקוד, וההצעות נבדקו (dsviz-cs); סעיף ד (במילים) — בהודעה ולא בקוד" || { echo "שליחת תרגיל ב-C# נכשלה"; cat "$SUB/out.txt"; kill $MOCKW; exit 1; }
-# החלונות עצמם (Swing), אם יש מסך מדומה
+# החלונות עצמם (Swing), אם יש מסך מדומה. כל ההודעות — RtlDialog (מימין לשמאל, בעיצוב של האתר); אין JOptionPane בקוד של הכלים
+if grep -rln 'JOptionPane' --include='*.java' "$ROOT/csharp/new-exercise/src" | grep -v '/RtlDialog\.java$'; then
+    echo "JOptionPane בכלים של Visual Studio (צריך RtlDialog)"; kill $MOCKW; exit 1
+fi
+echo "הודעות של Visual Studio: רק RtlDialog (בלי JOptionPane)"
 if command -v Xvfb >/dev/null 2>&1; then
     (Xvfb :97 -screen 0 1600x900x24 >/dev/null 2>&1 &); sleep 2
     mkdir -p "$SUB/cls" && javac -d "$SUB/cls" "$ROOT/tutorials/harness/SwingScript.java"
     rm -rf "$SUB/root2" && cp -r "$ROOT/csharp/project" "$SUB/root2"
-    printf 'pasteimg %s\ntext 0 רק שאלה 1\nshot s1\nclick שליחה ויצירת התרגיל\nwaitwin שליחת תרגיל — C#\nshot s2\n' "$SUB/photo.jpg" > "$SUB/s1.txt"
+    # הטופס → תצוגת הבנייה באמצע (השלבים מההודעות של הבנייה) → ביטול (חזרה לטופס) → שליחה אמיתית → הכרטיס "התרגיל נוצר" → "הצגה"
+    { printf 'pasteimg %s\ntext 0 רק שאלה 1\nshot s1\n' "$SUB/photo.jpg"
+      for t in 'מכין את הקבצים…' 'שולח את התרגיל… (בדרך כלל עד דקה)' 'בונה את התרגיל…' 'בודק שהקוד מתקמפל…' 'יש שגיאות קומפילציה — מבקש תיקון…'; do echo "progress $t"; done
+      printf 'wait 1300\nshot b1\nclick ביטול\nshot s1b\nclick שליחה ויצירת התרגיל\nwaitwin שליחת תרגיל — C#\nshot s2\nclick הצגה\nshot s3\n'; } > "$SUB/s1.txt"
     DISPLAY=:97 DSVIZ_WORKER_URL=http://127.0.0.1:8796 DSVIZ_CS="$RUNNER" timeout 120 java -Duser.home="$SUB/home" -Ddsviz.noOpen=true -cp "$SUB/cls:$JAR" \
         SwingScript "$SUB/s1.txt" "$SUB/shots" il.lamerhav.dsviz.cs.CsTool submit "$SUB/root2" > "$SUB/gui.txt" 2>&1 || true
     printf 'select 1\nshot l1\n' > "$SUB/s2.txt"
     DISPLAY=:97 timeout 60 java -Duser.home="$SUB/home" -cp "$SUB/cls:$JAR" SwingScript "$SUB/s2.txt" "$SUB/shots" il.lamerhav.dsviz.cs.CsTool solution "$SUB/root2" >> "$SUB/gui.txt" 2>&1 || true
-    grep -q '"שליחה ויצירת התרגיל"' "$SUB/shots/s1.json" && grep -q 'נוצר התרגיל Ex01_Stacks, ובו 3 סעיפים בקוד' "$SUB/shots/s2.json" \
-        && grep -q 'ד — מהי סיבוכיות זמן הריצה?' "$SUB/shots/s2.json" \
+    grep -q '"שליחה ויצירת התרגיל"' "$SUB/shots/s1.json" \
+        && grep -q 'יש שגיאות קומפילציה · מבקש תיקון…' "$SUB/shots/b1.json" && grep -q 'בודק שהקוד מתקמפל' "$SUB/shots/b1.json" && grep -q '[1-9] שנ' "$SUB/shots/b1.json" \
+        && grep -q '"ביטול"' "$SUB/shots/b1.json" && ! grep -q 'שליחה ויצירת התרגיל' "$SUB/shots/b1.json" && grep -q '"שליחה ויצירת התרגיל"' "$SUB/shots/s1b.json" \
+        && grep -q 'התרגיל נוצר' "$SUB/shots/s2.json" && grep -q 'Ex01_Stacks.* · 3 סעיפים' "$SUB/shots/s2.json" && grep -q 'סעיף ד: עונים במילים' "$SUB/shots/s2.json" \
+        && ! grep -q 'מהי סיבוכיות' "$SUB/shots/s2.json" && grep -q 'StackTargil.cs (שם Main)' "$SUB/shots/s2.json" \
+        && grep -q 'מהי סיבוכיות זמן הריצה?' "$SUB/shots/s3.json" && grep -q '"הסתרה"' "$SUB/shots/s3.json" \
         && grep -q 'נבדק: הרצנו את main' "$SUB/shots/l1.json" && ! grep -q 'Moti Levi' "$SUB/shots/l1.json" \
-        && echo "החלונות של Visual Studio: שליחת תרגיל → פרויקט, והצעה לפתרון (נבדקה)" || { echo "החלונות של Visual Studio נכשלו"; cat "$SUB/gui.txt"; kill $MOCKW; exit 1; }
+        && echo "החלונות של Visual Studio: שליחת תרגיל → תצוגת הבנייה → כרטיס קצר (סעיף ד ב\"הצגה\"), והצעה לפתרון (נבדקה)" || { echo "החלונות של Visual Studio נכשלו"; cat "$SUB/gui.txt"; kill $MOCKW; exit 1; }
+    # שגיאת קומפילציה שהתיקון לא תיקן: כרטיס לשגיאה, עם ההסבר בעברית
+    node submit/mock-worker.js 8795 submit/cs-broken.json & MOCKB=$!
+    sleep 1
+    rm -rf "$SUB/root3" && cp -r "$ROOT/csharp/project" "$SUB/root3"
+    printf 'pasteimg %s\nclick שליחה ויצירת התרגיל\nwaitwin שליחת תרגיל — C#\nshot e1\n' "$SUB/photo.jpg" > "$SUB/s3.txt"
+    DISPLAY=:97 DSVIZ_WORKER_URL=http://127.0.0.1:8795 DSVIZ_CS="$RUNNER" timeout 120 java -Duser.home="$SUB/home" -Ddsviz.noOpen=true -cp "$SUB/cls:$JAR" \
+        SwingScript "$SUB/s3.txt" "$SUB/shots" il.lamerhav.dsviz.cs.CsTool submit "$SUB/root3" >> "$SUB/gui.txt" 2>&1 || true
+    kill $MOCKB
+    grep -q 'יש שגיאת קומפילציה אחת' "$SUB/shots/e1.json" && grep -q 'אי התאמה בטיפוסים' "$SUB/shots/e1.json" && grep -q 'CS0029' "$SUB/shots/e1.json" \
+        && echo "שגיאות קומפילציה בכרטיס: ההסבר בעברית וההודעה המקורית" || { echo "כרטיס השגיאות נכשל"; cat "$SUB/gui.txt"; kill $MOCKW; exit 1; }
+    # בלי אינטרנט: חלון אחד של RtlDialog עם "נסו שוב"
+    printf 'shot o1\nclick סגירה\n' > "$SUB/s4.txt"
+    DISPLAY=:97 DSVIZ_WORKER_URL=http://127.0.0.1:9 timeout 60 java -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=9 -Duser.home="$SUB/home" -cp "$SUB/cls:$JAR" \
+        SwingScript "$SUB/s4.txt" "$SUB/shots" il.lamerhav.dsviz.cs.CsTool submit "$SUB/root2" >> "$SUB/gui.txt" 2>&1 || true
+    grep -q 'אין חיבור לאינטרנט' "$SUB/shots/o1.json" && grep -q '"נסו שוב"' "$SUB/shots/o1.json" \
+        && echo "בלי אינטרנט: RtlDialog עם נסו שוב" || { echo "חלון בלי אינטרנט נכשל"; cat "$SUB/gui.txt"; kill $MOCKW; exit 1; }
 fi
 kill $MOCKW
 # Helpers.Size / Helpers.Duplicate מהספרייה: בלי לשנות את המבנה, עותק עמוק, וצעד אחד לכל קריאה
