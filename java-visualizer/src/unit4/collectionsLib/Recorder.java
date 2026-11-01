@@ -1415,6 +1415,7 @@ final class Recorder {
     private static void fillCell(Cell cell, Object node, Object value, Object target, Mark mark,
                                  Map<Object, List<String>> labels, Object last) {
         cell.value = str(value);
+        cell.id = ord(node) + 1;   // לפי סדר היצירה: אותה חוליה — אותו מספר בכל הצעדים (0 אם לא נרשמה)
         cell.obj = objOf(value);
         cell.sub = subOf(value, target, mark, null);
         cell.mark = node == target ? mark : Mark.NONE;

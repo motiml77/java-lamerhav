@@ -1,5 +1,6 @@
 package unit4.collectionsLib;
 
+import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -7,10 +8,12 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -95,10 +98,185 @@ final class StructPanel extends JPanel {
     }
 
     void setStep(Step s) {
+        setStep(s, false, 0);
+    }
+
+    // ------------------------------------------------------------ הנפשה של הכנסה / הוצאה (StructAnim)
+
+    private StructAnim anim;
+    /** בזמן מדידת הציור הקודם: מפתח → המקום (ראו captureLayout) */
+    private Map<String, Rectangle> capture;
+    private Map<View, String> capViews;
+    private Map<Cell, String> capCells;
+    /** המבנה הראשי שמצויר עכשיו (המפתח שלו), בזמן הנפשה / מדידה — אחרת null */
+    private String curView;
+    /** מציירים איבר שהוצא (בהנפשה) — בלי חלונית מידע עליו */
+    private boolean noHits;
+    /** בדיקות בלי חלון: מנפישים גם כשהלוח לא על המסך */
+    boolean offscreen;
+
+    /**
+     * צעד חדש. animate — התקדמו בדיוק צעד אחד קדימה ("הבא" / הפעלה אוטומטית): מנפישים את מה שנוסף / הוצא מאז הצעד
+     * שמוצג עכשיו. interval = כל כמה זמן מתקדמת ההפעלה האוטומטית (0 = לא פועלת) — ההנפשה מתקצרת בהתאם
+     */
+    void setStep(Step s, boolean animate, int interval) {
+        stopAnim();
+        Step prev = step;
         step = s;
+        if (animate && prev != null && s != null && prev != s && (offscreen || isShowing())) {
+            try {
+                StructAnim a = StructAnim.build(prev, s, this);
+                if (a != null) {
+                    captureLayout(prev, a);
+                    a.viewport = viewportWidth();
+                    if (a.begin(interval)) anim = a;
+                }
+            } catch (RuntimeException e) {
+                anim = null;   // בלי הנפשה — רק הצעד
+            }
+        }
         scrollPending = true;
         revalidate();
         repaint();
+    }
+
+    private void stopAnim() {
+        if (anim != null) anim.stop();
+        anim = null;
+    }
+
+    /** יש עכשיו הנפשה (גם קפואה) */
+    boolean animating() {
+        return anim != null;
+    }
+
+    StructAnim anim() {
+        return anim;
+    }
+
+    /**
+     * המקומות של המבנים והאיברים בציור של הצעד הקודם — מציירים אותו "בלי מסך" (על תמונה קטנה) ורושמים.
+     * כך כל איבר יודע מאיפה הוא בא, גם אם עבר למבנה אחר (חוליה שנכנסה לרשימה)
+     */
+    private void captureLayout(Step prev, StructAnim a) {
+        Step keep = step;
+        Map<Integer, Object[]> keepRects = new HashMap<Integer, Object[]>(objRects);
+        List<Object[]> keepHits = new ArrayList<Object[]>(objHits);
+        Rectangle keepFocus = focusRect;
+        BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        step = prev;
+        capture = new HashMap<String, Rectangle>();
+        capViews = a.fromViews;
+        capCells = a.fromCells;
+        try {
+            Dimension d = layoutAll(g);
+            a.oldTranslate = Math.max(0, (int) (getWidth() - d.width * zoom)) / 2;
+            a.old = capture;
+        } finally {
+            g.dispose();
+            step = keep;
+            capture = null;
+            capViews = null;
+            capCells = null;
+            curView = null;
+            nest = 0;
+            objRects.clear();
+            objRects.putAll(keepRects);
+            objHits.clear();
+            objHits.addAll(keepHits);
+            focusRect = keepFocus;
+        }
+    }
+
+    /** איפה לצייר מבנה ראשי: בזמן הנפשה — בדרך מהמקום הקודם שלו לחדש; וגם קובע אותו כ"מבנה שמצויר עכשיו" */
+    private Point place(View v, int x, int y) {
+        curView = null;
+        if (capture != null) {
+            String k = capViews.get(v);
+            if (k != null) {
+                capture.put("V|" + k, new Rectangle(x, y, 0, 0));
+                curView = k;
+            }
+            return new Point(x, y);
+        }
+        if (anim != null) {
+            String k = anim.toViews.get(v);
+            if (k != null) {
+                curView = k;
+                Point p = anim.origin(k, x, y);
+                anim.dx = x - p.x;
+                anim.dy = y - p.y;
+                return p;
+            }
+        }
+        return new Point(x, y);
+    }
+
+    /** האם לרשום / להנפיש את האיברים של המבנה שמצויר עכשיו (רק מבנה ראשי, לא מבנה בתוך תא) */
+    private boolean hooked() {
+        return nest == 0 && curView != null && (capture != null || anim != null);
+    }
+
+    /** עותק של g שמצייר שקוף (alpha כפול השקיפות שכבר יש ל-g — מבנה חדש שמופיע, ובתוכו חוליה שנופלת) */
+    private static Graphics2D faded(Graphics2D g, float alpha) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        if (alpha < 1f) {
+            float base = g.getComposite() instanceof AlphaComposite ? ((AlphaComposite) g.getComposite()).getAlpha() : 1f;
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0f, Math.min(1f, alpha * base))));
+        }
+        return g2;
+    }
+
+    /** בדיקות: איפה צוירו (על הלוח, בפיקסלים) האיברים שהוצאו, בציור האחרון */
+    final List<Rectangle> exitBounds = new ArrayList<Rectangle>();
+
+    /** האיברים שהוצאו: מעל הכול, בדרך החוצה — מאדימים, מתכווצים ונמחקים */
+    private void drawExits(Graphics2D g) {
+        for (StructAnim.Exit x : anim.exits) {
+            float[] f = anim.exit(x);
+            if (f == null) continue;
+            int w = Math.round(f[2]), h = Math.round(f[3]), px = Math.round(f[0]), py = Math.round(f[1]);
+            Graphics2D g2 = faded(g, f[4]);
+            double cx = f[0] + f[2] / 2.0, cy = f[1] + f[3] / 2.0;
+            g2.translate(cx, cy);
+            g2.scale(f[5], f[5]);
+            g2.translate(-cx, -cy);
+            exitBounds.add(g2.getTransform().createTransformedShape(new Rectangle(px, py, w, h)).getBounds());
+            float[] l = x.cell != null ? anim.exitLink(x, f, Math.min(20, w / 3)) : null;
+            if (l != null) {   // החץ שיצא מהחוליה — נחתך ונעלם כשהיא נופלת
+                Graphics2D ga = faded(g, l[4]);
+                arrow(ga, Math.round(l[0]), Math.round(l[1]), Math.round(l[2]), Math.round(l[3]), f[6] > 0.5f ? GHOST : LINE);
+                ga.dispose();
+            }
+            boolean was = noHits;
+            noHits = true;
+            try {
+                if (x.cell != null) {
+                    int pw = Math.min(20, w / 3), vw = w - pw;
+                    cell(g2, px, py, vw, h, color(x.cell.mark), x.cell.value, x.cell.obj, x.cell.sub);
+                    box(g2, px + vw, py, pw, h, color(x.cell.mark), null, false);
+                    g2.setColor(LINE);
+                    g2.fillOval(px + vw + pw / 2 - 3, py + h / 2 - 3, 7, 7);
+                } else {
+                    cell(g2, px, py, w, h, color(x.mark), x.text, x.obj, x.sub);
+                }
+                if (f[6] > 0.01f) {   // מאדים: הסימן "הוצא" מעליו
+                    g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0f, f[4] * f[6])));
+                    String text = x.cell != null ? x.cell.value : x.obj != null ? x.obj.title : x.sub != null ? "" : x.text;
+                    if (x.cell != null) {
+                        int pw = Math.min(20, w / 3);
+                        ghostBox(g2, px, py, w - pw, h, text);
+                        ghostBox(g2, px + w - pw, py, pw, h, "");
+                    } else {
+                        ghostBox(g2, px, py, w, h, text);
+                    }
+                }
+            } finally {
+                noHits = was;
+                g2.dispose();
+            }
+        }
     }
 
     void setZoomListener(Runnable r) { zoomListener = r; }
@@ -109,12 +287,14 @@ final class StructPanel extends JPanel {
     void setFitHeight(boolean b) { fitHeight = b; }
 
     void zoomBy(double f) {
+        stopAnim();
         manualZoom = Math.max(0.4, Math.min(2.5, zoom * f));
         revalidate();
         repaint();
     }
 
     void fit() {
+        stopAnim();
         manualZoom = 0;
         revalidate();
         repaint();
@@ -158,6 +338,8 @@ final class StructPanel extends JPanel {
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        // הנפשה: נגמרה — מציירים כרגיל; הגדילו / הקטינו את החלון באמצע — נגמרת מיד
+        if (anim != null && (anim.finished() || anim.viewport != viewportWidth())) stopAnim();
         Dimension d = layoutAll(null);
         double z = computeZoom(d);
         // כשיש מקום — המבנים במרכז
@@ -167,7 +349,29 @@ final class StructPanel extends JPanel {
         focusRect = null;
         objRects.clear();
         objHits.clear();
-        layoutAll(g);
+        exitBounds.clear();
+        if (anim != null) {
+            anim.shiftX = (float) ((anim.oldTranslate - Math.max(free, 0) / 2) / z);
+            anim.ghosts.clear();
+            anim.now.clear();
+        }
+        if (anim == null) {
+            layoutAll(g);
+        } else {
+            try {
+                layoutAll(g);
+                curView = null;
+                drawExits(g);
+            } catch (RuntimeException e) {   // משהו בהנפשה נכשל — בלי הנפשה, רק הצעד
+                stopAnim();
+                nest = 0;
+                curView = null;
+                g.dispose();
+                repaint();
+                return;
+            }
+        }
+        curView = null;
         screenHits.clear();
         for (Object[] h : objHits) {
             Rectangle r = (Rectangle) h[0];
@@ -201,7 +405,8 @@ final class StructPanel extends JPanel {
         // שגיאה: כרטיס אדום בראש — מה קרה, למה, ומה עושים
         for (View v : step.views) {
             if (!(v instanceof ProblemView)) continue;
-            Dimension d = drawProblem(g, (ProblemView) v, PAD, y);
+            Point o = at(g, v, PAD, y);
+            Dimension d = drawProblem(g, (ProblemView) v, o.x, o.y);
             y += d.height + GAP / 2;
             maxX = Math.max(maxX, PAD + d.width);
         }
@@ -209,13 +414,15 @@ final class StructPanel extends JPanel {
         int loopsH = 0, lx = PAD;
         for (View v : step.views) {   // המונים (לולאות מקוננות) — מעל הכרטיסים
             if (!(v instanceof Model.LoopCountersView)) continue;
-            Dimension d = drawCounters(g, (Model.LoopCountersView) v, PAD, y);
+            Point o = at(g, v, PAD, y);
+            Dimension d = drawCounters(g, (Model.LoopCountersView) v, o.x, o.y);
             loopsH += d.height + 10;
             maxX = Math.max(maxX, PAD + d.width);
         }
         for (View v : step.views) {
             if (!(v instanceof LoopView)) continue;
-            Dimension d = drawLoop(g, (LoopView) v, PAD, y + loopsH);
+            Point o = at(g, v, PAD, y + loopsH);
+            Dimension d = drawLoop(g, (LoopView) v, o.x, o.y);
             loopsH += d.height + 8;
             lx = Math.max(lx, PAD + d.width);
             maxX = Math.max(maxX, PAD + d.width);
@@ -223,7 +430,8 @@ final class StructPanel extends JPanel {
         int gx = lx + GAP, gridH = 0;
         for (View v : step.views) {
             if (!(v instanceof LoopGridView)) continue;
-            Dimension d = drawLoopGrid(g, (LoopGridView) v, gx, y);
+            Point o = at(g, v, gx, y);
+            Dimension d = drawLoopGrid(g, (LoopGridView) v, o.x, o.y);
             gx += d.width + GAP;
             gridH = Math.max(gridH, d.height);
             maxX = Math.max(maxX, gx);
@@ -237,9 +445,10 @@ final class StructPanel extends JPanel {
             Dimension d = measure(v);
             if (ax > PAD && ax + d.width > avail) { y += arrRow + GAP / 2; ax = PAD; arrRow = 0; }
             if (g != null) {
-                if (v instanceof ArrayView) drawArray(g, (ArrayView) v, ax, y);
-                else if (v instanceof StringView) drawStringView(g, (StringView) v, ax, y);
-                else drawMatrix(g, (MatrixView) v, ax, y);
+                Point o = place(v, ax, y);
+                if (v instanceof ArrayView) drawArray(g, (ArrayView) v, o.x, o.y);
+                else if (v instanceof StringView) drawStringView(g, (StringView) v, o.x, o.y);
+                else drawMatrix(g, (MatrixView) v, o.x, o.y);
                 noteFocus(v, ax, y, d);
             }
             ax += d.width + GAP;
@@ -250,7 +459,10 @@ final class StructPanel extends JPanel {
         int x = PAD, rowH = 0;
         for (View v : step.views) {
             if (v instanceof LinearView && ((LinearView) v).stack) {
-                Dimension d = drawStack(g, (LinearView) v, x, y);
+                Point o = at(g, v, x, y);
+                Graphics2D gv = fresh(g);
+                Dimension d = drawStack(gv, (LinearView) v, o.x, o.y);
+                if (gv != g) gv.dispose();
                 if (g != null) noteFocus(v, x, y, d);
                 x += d.width + GAP;
                 rowH = Math.max(rowH, d.height);
@@ -262,19 +474,34 @@ final class StructPanel extends JPanel {
         }
         for (View v : step.views) {
             Dimension d = null;
-            if (v instanceof LinearView && !((LinearView) v).stack) d = drawQueue(g, (LinearView) v, PAD, y);
+            if (v instanceof LinearView && !((LinearView) v).stack) {
+                Point o = at(g, v, PAD, y);
+                Graphics2D gv = fresh(g);
+                d = drawQueue(gv, (LinearView) v, o.x, o.y);
+                if (gv != g) gv.dispose();
+            }
             if (d != null && g != null) noteFocus(v, PAD, y, d);
             if (d != null) { y += d.height + GAP / 2; maxX = Math.max(maxX, PAD + d.width); }
         }
         for (View v : step.views) {
             Dimension d = null;
-            if (v instanceof ChainView) d = drawChain(g, (ChainView) v, PAD, y);
+            if (v instanceof ChainView) {
+                Point o = at(g, v, PAD, y);
+                Graphics2D gv = fresh(g);
+                d = drawChain(gv, (ChainView) v, o.x, o.y);
+                if (gv != g) gv.dispose();
+            }
             if (d != null && g != null) noteFocus(v, PAD, y, d);
             if (d != null) { y += d.height + GAP / 2; maxX = Math.max(maxX, PAD + d.width); }
         }
         for (View v : step.views) {
             Dimension d = null;
-            if (v instanceof TreeView) d = drawTree(g, (TreeView) v, PAD, y);
+            if (v instanceof TreeView) {
+                Point o = at(g, v, PAD, y);
+                Graphics2D gv = fresh(g);
+                d = drawTree(gv, (TreeView) v, o.x, o.y);
+                if (gv != g) gv.dispose();
+            }
             if (d != null && g != null) noteFocus(v, PAD, y, d);
             if (d != null) { y += d.height + GAP / 2; maxX = Math.max(maxX, PAD + d.width); }
         }
@@ -285,7 +512,8 @@ final class StructPanel extends JPanel {
             Dimension d = drawObjView(null, (ObjView) v, 0, 0);
             if (ox > PAD && ox + d.width > avail) { y += orow + GAP / 2; ox = PAD; orow = 0; }   // כמו מערכים: שורה חדשה כשאין מקום
             if (g != null) {
-                drawObjView(g, (ObjView) v, ox, y);
+                Point o = place(v, ox, y);
+                drawObjView(g, (ObjView) v, o.x, o.y);
                 noteFocus(v, ox, y, d);
             }
             ox += d.width + GAP;
@@ -293,7 +521,20 @@ final class StructPanel extends JPanel {
             maxX = Math.max(maxX, ox);
         }
         if (orow > 0) y += orow + GAP / 2;
+        curView = null;
         return new Dimension(maxX + PAD, y + PAD);
+    }
+
+    /** בהנפשה: מבנה חדש (ראו StructAnim.fresh) מצויר שקוף בהתחלה, ומופיע אחרי שהשאר פינו לו מקום */
+    private Graphics2D fresh(Graphics2D g) {
+        if (g == null || anim == null || curView == null) return g;
+        float a = anim.viewAlpha(curView);
+        return a >= 1f ? g : faded(g, a);
+    }
+
+    /** מדידה (g == null): המקום עצמו; ציור — דרך place (בהנפשה: המבנה בדרך מהמקום הקודם שלו) */
+    private Point at(Graphics2D g, View v, int x, int y) {
+        return g == null ? new Point(x, y) : place(v, x, y);
     }
 
     /** המבנה שהצעד נגע בו — כדי לגלול אליו אם הוא מחוץ לחלון */
@@ -765,10 +1006,31 @@ final class StructPanel extends JPanel {
 
         drawTitle(g, v.title, "מחסנית", x, y, v.focus);
         int cx = x + 8, top = y + th() + ghostH;
-        if (v.ghost != null) {
-            ghostBox(g, cx, y + th() + 4, cw, ch, v.ghost);
-            g.setFont(SMALL_B);
-            g.drawString("pop", cx + cw + 10, y + th() + 4 + ch / 2 + 5);
+        // המקומות של האיברים ושל הקירות — בהנפשה: בדרך מהמקום הקודם (StructAnim.stack)
+        Rectangle[] rs = new Rectangle[n];
+        for (int i = 0; i < n; i++) rs[i] = new Rectangle(cx, top + i * ch, cw, ch);
+        Rectangle wall = new Rectangle(cx, top, cw, rows * ch);
+        float[] alpha = null;
+        float ghostA = 1f;
+        if (hooked()) {
+            String key = curView;
+            if (capture != null) {
+                for (int i = 0; i < n; i++) capture.put("L|" + key + "|" + i, rs[i]);
+                capture.put("W|" + key, wall);
+            } else {
+                alpha = new float[n];
+                rs = anim.stack(key, rs, alpha);
+                wall = anim.wall(key, wall);
+                anim.ghosts.put(key, new Rectangle(cx, y + th() + 4, cw, ch));
+                ghostA = anim.ghostAlpha(key);
+            }
+        }
+        if (v.ghost != null && ghostA > 0.01f) {
+            Graphics2D gg = faded(g, ghostA);
+            ghostBox(gg, cx, y + th() + 4, cw, ch, v.ghost);
+            gg.setFont(SMALL_B);
+            gg.drawString("pop", cx + cw + 10, y + th() + 4 + ch / 2 + 5);
+            gg.dispose();
         }
         if (v.error != null) {   // ניסו להוציא / לקרוא — ואין איבר: "?" אדום במקום שבו היה צריך להיות
             ghostBox(g, cx, y + th() + 4, cw, ch, "?");
@@ -776,23 +1038,34 @@ final class StructPanel extends JPanel {
             g.setColor(GHOST);
             g.drawString(v.error, cx + cw + 10, y + th() + 4 + ch / 2 + 5);
         }
+        int falling = alpha != null ? anim.added(curView) : 0;
         for (int i = 0; i < n; i++) {
             Color c = i == v.markIndex ? color(v.mark) : BOX;
-            cell(g, cx, top + i * ch, cw, ch, c, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
+            Graphics2D gi = alpha != null && alpha[i] < 1f ? faded(g, alpha[i]) : g;
+            cell(gi, rs[i].x, rs[i].y, rs[i].width, rs[i].height, c, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
+            if (gi != g) gi.dispose();
+        }
+        // מה שנופל פנימה עובר מאחורי הכותרת (השם והתגית נשארים קריאים): מציירים את הכותרת שוב — רק איפה שהוא
+        for (int i = 0; i < falling && i < n; i++) {
+            if (rs[i].y >= y + th()) continue;
+            Graphics2D gt = (Graphics2D) g.create();
+            gt.clip(rs[i]);
+            drawTitle(gt, v.title, "מחסנית", x, y, v.focus);
+            gt.dispose();
         }
         inStack = wasInStack;
         g.setColor(v.error != null ? GHOST : LINE);
         g.setStroke(THICK);
-        int bottom = top + rows * ch + 5;
-        g.drawPolyline(new int[] { cx - 5, cx - 5, cx + cw + 5, cx + cw + 5 },
-                new int[] { top - 8, bottom, bottom, top - 8 }, 4);
+        int wl = wall.x, wr = wall.x + wall.width, wt = wall.y, bottom = wall.y + wall.height + 5;
+        g.drawPolyline(new int[] { wl - 5, wl - 5, wr + 5, wr + 5 },
+                new int[] { wt - 8, bottom, bottom, wt - 8 }, 4);
         if (n == 0) {
             g.setColor(v.error != null ? GHOST : MUTED);
             center(g, "ריקה", SMALL_B, cx + cw / 2, top + ch / 2);
         } else {
-            arrow(g, cx + cw + 42, top + ch / 2, cx + cw + 10, top + ch / 2, LINE);
+            arrow(g, wr + 42, wt + ch / 2, wr + 10, wt + ch / 2, LINE);
             g.setFont(SMALL_B);
-            g.drawString("top", cx + cw + 46, top + ch / 2 + 5);
+            g.drawString("top", wr + 46, wt + ch / 2 + 5);
         }
         return new Dimension(w, h);
     }
@@ -815,34 +1088,67 @@ final class StructPanel extends JPanel {
 
         drawTitle(g, v.title, "תור", x, y, v.focus);
         int top = y + th() + 6;
-        if (v.ghost != null) {
-            ghostBox(g, x + 8, top, cw, ch, v.ghost);
-            center(g, "remove", SMALL_B, x + 8 + cw / 2, top + ch + 16);
+        // המקומות של האיברים ושל הצינור — בהנפשה: בדרך מהמקום הקודם (StructAnim.queue)
+        Rectangle[] rs = new Rectangle[n];
+        for (int i = 0; i < n; i++) rs[i] = new Rectangle(left + i * cw, top, cw, ch);
+        Rectangle wall = new Rectangle(left, top, rows * cw, ch);
+        float[] alpha = null;
+        float ghostA = 1f;
+        if (hooked()) {
+            String key = curView;
+            if (capture != null) {
+                for (int i = 0; i < n; i++) capture.put("L|" + key + "|" + i, rs[i]);
+                capture.put("W|" + key, wall);
+            } else {
+                alpha = new float[n];
+                rs = anim.queue(key, rs, alpha, cw + QARROW + 34);
+                wall = anim.wall(key, wall);
+                anim.ghosts.put(key, new Rectangle(x + 8, top, cw, ch));
+                ghostA = anim.ghostAlpha(key);
+            }
+        }
+        if (v.ghost != null && ghostA > 0.01f) {
+            Graphics2D gg = faded(g, ghostA);
+            ghostBox(gg, x + 8, top, cw, ch, v.ghost);
+            center(gg, "remove", SMALL_B, x + 8 + cw / 2, top + ch + 16);
+            gg.dispose();
         }
         if (v.error != null) {   // remove / head על תור ריק: "?" אדום ביציאה
             ghostBox(g, x + 8, top, cw, ch, "?");
             g.setColor(GHOST);
             center(g, v.error, SMALL_B, x + 8 + cw / 2, top + ch + 16);
         }
-        for (int i = 0; i < n; i++) {
-            Color c = i == v.markIndex ? color(v.mark) : BOX;
-            cell(g, left + i * cw, top, cw, ch, c, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
-        }
         g.setColor(v.error != null ? GHOST : LINE);
         g.setStroke(THICK);
-        g.drawLine(left - 8, top - 5, left + rows * cw + 8, top - 5);
-        g.drawLine(left - 8, top + ch + 5, left + rows * cw + 8, top + ch + 5);
+        int wl = wall.x, wt = wall.y, wh = wall.height;
+        g.drawLine(wl - 8, wt - 5, wl + wall.width + 8, wt - 5);
+        g.drawLine(wl - 8, wt + wh + 5, wl + wall.width + 8, wt + wh + 5);
         // צדדים פתוחים עם חיצים: משמאל יוצאים (הראש — remove), מימין נכנסים (הזנב — insert). כך תור לא נראה כמו מערך
-        int mid = top + ch / 2, right = left + rows * cw;
-        arrow(g, left - 6, mid, left - 6 - QARROW, mid, LINE, 6, 1.5f);
+        int mid = wt + wh / 2, right = wl + wall.width;
+        arrow(g, wl - 6, mid, wl - 6 - QARROW, mid, LINE, 6, 1.5f);
         arrow(g, right + 8 + QARROW, mid, right + 8, mid, LINE, 6, 1.5f);
+        // האיברים — אחרי הצינור והחצים: בהנפשה איבר שנכנס עובר מעל החץ של הכניסה
+        for (int i = 0; i < n; i++) {
+            Color c = i == v.markIndex ? color(v.mark) : BOX;
+            Graphics2D gi = alpha != null && alpha[i] < 1f ? faded(g, alpha[i]) : g;
+            cell(gi, rs[i].x, rs[i].y, rs[i].width, rs[i].height, c, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
+            if (gi != g) gi.dispose();
+        }
         if (n == 0) {
             g.setColor(v.error != null ? GHOST : MUTED);
             center(g, "ריק", SMALL_B, left + cw / 2, top + ch / 2);
         } else {
-            g.setColor(LINE);
-            center(g, n == 1 ? "head / tail" : "head", SMALL_B, left + cw / 2, top + ch + 18);
-            if (n > 1) center(g, "tail", SMALL_B, left + (n - 1) * cw + cw / 2, top + ch + 18);
+            // head / tail — מתחת לאיברים עצמם (בהנפשה הם זזים איתם: מי שמתקדם לראש / נכנס לזנב לוקח את השם)
+            Graphics2D gl = alpha != null && alpha[0] < 1f ? faded(g, alpha[0]) : g;
+            gl.setColor(LINE);
+            center(gl, n == 1 ? "head / tail" : "head", SMALL_B, rs[0].x + rs[0].width / 2, rs[0].y + rs[0].height + 18);
+            if (gl != g) gl.dispose();
+            if (n > 1) {
+                gl = alpha != null && alpha[n - 1] < 1f ? faded(g, alpha[n - 1]) : g;
+                gl.setColor(LINE);
+                center(gl, "tail", SMALL_B, rs[n - 1].x + rs[n - 1].width / 2, rs[n - 1].y + rs[n - 1].height + 18);
+                if (gl != g) gl.dispose();
+            }
         }
         return new Dimension(w, h);
     }
@@ -940,14 +1246,35 @@ final class StructPanel extends JPanel {
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "רשימה מקושרת", x, y, v.focus);
+        // המקומות של החוליות (השורה הראשית והענפים) — בהנפשה: בדרך מהמקום הקודם (StructAnim.cell)
+        Rectangle[] mr = new Rectangle[n];
+        for (int i = 0; i < n; i++) mr[i] = new Rectangle(left[shift + i], top, vw + pw, ch);
+        List<Rectangle[]> brR = new ArrayList<Rectangle[]>();
+        for (int b = 0; b < v.branches.size(); b++) {
+            ChainView br = v.branches.get(b);
+            int k = br.cells.size(), first = shift + br.joinTo - k;
+            Rectangle[] r = new Rectangle[k];
+            for (int i = 0; i < k; i++) r[i] = new Rectangle(left[first + i], rowTop[brRow[b]], vw + pw, ch);
+            brR.add(r);
+        }
+        Rectangle lastStatic = n > 0 ? mr[n - 1] : null;
+        float[][] mfx = chainPlaces(v.cells, mr);
+        List<float[][]> brFx = new ArrayList<float[][]>();
+        for (int b = 0; b < v.branches.size(); b++) brFx.add(chainPlaces(v.branches.get(b).cells, brR.get(b)));
         for (int i = 0; i < n; i++) {
             Cell c = v.cells.get(i);
-            int bx = left[shift + i];
-            chainCell(g, c, bx, top, vw, pw, ch);
-            int sx = bx + vw + pw / 2, sy = top + ch / 2;
-            if (i < n - 1) arrow(g, sx, sy, left[shift + i + 1], sy, c.lost ? GHOST : LINE);
+            chainCellAt(g, c, mr[i], mfx == null ? null : mfx[i], pw);
+            if (i < n - 1) link(g, c, v.cells.get(i + 1), mr[i], mr[i + 1].x, mr[i + 1].y + mr[i + 1].height / 2, pw);
         }
         int midY = top + ch / 2;
+        // ה-null שבסוף נשאר צמוד לחוליה האחרונה כשהיא זזה (אבל לא "עף" עם חוליה חדשה שנופלת למקומה)
+        Graphics2D gt = g;
+        if (n > 0 && mfx != null && mfx[n - 1][1] >= 1f && (mr[n - 1].x != lastStatic.x || mr[n - 1].y != lastStatic.y)) {
+            gt = (Graphics2D) g.create();
+            gt.translate(mr[n - 1].x - lastStatic.x, mr[n - 1].y - lastStatic.y);
+        }
+        Graphics2D gMain = g;
+        g = gt;
         if (v.cycleTo >= 0) {
             int tx = left[shift + v.cycleTo] + vw / 2, low = top + ch + 24;
             g.setColor(GHOST);
@@ -970,20 +1297,22 @@ final class StructPanel extends JPanel {
                 g.drawLine(tailCx + 9, midY + 9, tailCx - 9, midY + 25);
             }
         }
+        if (gt != gMain) gt.dispose();
+        g = gMain;
         // ענפים: התאים בשורה מתחת, וחץ מהאחרונה אל החוליה שהיא מצביעה עליה
         for (int b = 0; b < v.branches.size(); b++) {
             ChainView br = v.branches.get(b);
-            int rt = rowTop[brRow[b]], k = br.cells.size(), first = shift + br.joinTo - k;
+            int k = br.cells.size();
+            Rectangle[] r = brR.get(b);
+            float[][] fx = brFx.get(b);
             for (int i = 0; i < k; i++) {
                 Cell c = br.cells.get(i);
-                int bx = left[first + i];
-                chainCell(g, c, bx, rt, vw, pw, ch);
-                int sx = bx + vw + pw / 2, sy = rt + ch / 2;
+                chainCellAt(g, c, r[i], fx == null ? null : fx[i], pw);
                 if (i < k - 1) {
-                    arrow(g, sx, sy, left[first + i + 1], sy, c.lost ? GHOST : LINE);
+                    link(g, c, br.cells.get(i + 1), r[i], r[i + 1].x, r[i + 1].y + r[i + 1].height / 2, pw);
                 } else if (br.joinTo >= 0 && br.joinTo < n) {
-                    int tx = left[shift + br.joinTo] + Math.min(18, vw / 3);
-                    arrow(g, sx, sy, tx, top + ch + 1, c.lost ? GHOST : LINE);
+                    Rectangle to = mr[br.joinTo];
+                    link(g, c, v.cells.get(br.joinTo), r[i], to.x + Math.min(18, vw / 3), to.y + to.height + 1, pw);
                 }
             }
         }
@@ -995,6 +1324,56 @@ final class StructPanel extends JPanel {
             }
         }
         return new Dimension(w, h);
+    }
+
+    /**
+     * בהנפשה: איפה כל חוליה ברגע הזה (r מתעדכן במקום) — והשקיפות / ההגדלה שלה ({שקיפות, הגדלה} לכל חוליה, או null).
+     * במדידת הציור הקודם — רושמים את המקומות
+     */
+    private float[][] chainPlaces(List<Cell> cells, Rectangle[] r) {
+        if (!hooked()) return null;
+        if (capture != null) {
+            for (int i = 0; i < r.length; i++) {
+                String k = capCells.get(cells.get(i));
+                if (k != null) capture.put("N|" + k, r[i]);
+            }
+            return null;
+        }
+        float[][] fx = new float[r.length][2];
+        for (int i = 0; i < r.length; i++) {
+            String k = anim.toCells.get(cells.get(i));
+            r[i] = anim.cell(k, r[i], fx[i], curView);
+            if (k != null) anim.now.put(k, r[i]);
+        }
+        return fx;
+    }
+
+    /** חוליה במקום r (בהנפשה — עם שקיפות והגדלה סביב המרכז) */
+    private void chainCellAt(Graphics2D g, Cell c, Rectangle r, float[] fx, int pw) {
+        if (fx == null || (fx[0] >= 1f && fx[1] >= 1f)) {
+            chainCell(g, c, r.x, r.y, r.width - pw, pw, r.height);
+            return;
+        }
+        if (fx[0] <= 0.01f) return;
+        Graphics2D g2 = faded(g, fx[0]);
+        double cx = r.getCenterX(), cy = r.getCenterY();
+        g2.translate(cx, cy);
+        g2.scale(fx[1], fx[1]);
+        g2.translate(-cx, -cy);
+        chainCell(g2, c, r.x, r.y, r.width - pw, pw, r.height);
+        g2.dispose();
+    }
+
+    /** החץ מחוליה a (במקום ra) אל החוליה b (הנקודה tx, ty). בהנפשה: חץ חדש "נמתח" בהדרגה */
+    private void link(Graphics2D g, Cell a, Cell b, Rectangle ra, int tx, int ty, int pw) {
+        int sx = ra.x + ra.width - pw + pw / 2, sy = ra.y + ra.height / 2;
+        if (anim != null && hooked()) {
+            int[] e = anim.linkEnd(anim.toCells.get(a), anim.toCells.get(b), sx, sy, tx, ty);
+            if (e == null) return;
+            tx = e[0];
+            ty = e[1];
+        }
+        arrow(g, sx, sy, tx, ty, a.lost ? GHOST : LINE);
     }
 
     /** חוליה אחת: ערך + תא המצביע (עם נקודה), ומעליה המשתנים שמצביעים עליה; חוליה שאבדה — באדום מקווקו, ומעליה "אבדה" */
@@ -1398,7 +1777,7 @@ final class StructPanel extends JPanel {
             center(g, o.sub, CARD_S, x + w / 2, y + h * 74 / 100);
         }
         if (!o.labels.isEmpty()) badge(g, String.join(",", o.labels), x + w - 5, y + h);
-        if (nest > 0) return;   // בתוך מבנה מוקטן הקואורדינטות אחרות — בלי ריחוף
+        if (nest > 0 || noHits) return;   // בתוך מבנה מוקטן הקואורדינטות אחרות — בלי ריחוף (וגם לא על איבר שהוצא, בהנפשה)
         Rectangle r = new Rectangle(x, y, w, h);
         if (o.id > 0 && !objRects.containsKey(o.id)) objRects.put(o.id, new Object[] { r, Boolean.valueOf(inStack), o });
         objHits.add(new Object[] { r, o });

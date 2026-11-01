@@ -272,6 +272,14 @@ javac -encoding UTF-8 -cp "$JAR" -d "$LB" loops/LoopArrowPaint.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$LB:$JAR" unit4.collectionsLib.LoopArrowPaint > "$LB/paint.txt" 2>&1 \
     && grep -q MARK-END "$LB/paint.txt" && grep '^  ok' "$LB/paint.txt" || { cat "$LB/paint.txt"; exit 1; }
 
+echo "== 5ח2. הנפשה של הכנסה / הוצאה: push / pop, insert / remove בתור, חוליה שנכנסת לרשימה / יוצאת ממנה — כמה רגעים מכל הנפשה, בלי חלון"
+# האיבר זז בכיוון הנכון מרגע לרגע, מה שהוצא נמחק, ובסוף — בדיוק הציור הרגיל (התמונות נשמרות ב-structanim/frames)
+SA="$W/structanim"
+mkdir -p "$SA"
+javac -encoding UTF-8 -cp "$JAR" -d "$SA" anim/StructAnimPaint.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$SA:$JAR" unit4.collectionsLib.StructAnimPaint "$SA/frames" > "$SA/paint.txt" 2>&1 \
+    && grep -q MARK-END "$SA/paint.txt" && grep '^  ok' "$SA/paint.txt" || { cat "$SA/paint.txt"; exit 1; }
+
 echo "== 5ט. קלט מהמקלדת (Scanner / BufferedReader / System.in.read): השורה שמחכה, מה שהוקלד כצעד INPUT, והפלט"
 # בלי חלון: dsviz.input "מקליד" את השורות כשהתוכנית מחכה (מקובץ UTF-8 — עברית בלי תלות בקידוד של שורת הפקודה)
 I="$W/input"
