@@ -464,7 +464,8 @@ html:not(.js) .fp-pane { grid-area: auto; border-bottom: 1px solid var(--line); 
 /* 4 ו-6: הקובץ שנוצר, בעורך הכהה */
 .fp-ed { color: var(--ide-ink); }
 .fp-ed .ide-code { height: 300px; overflow: auto; font-size: 12.5px; line-height: 21px; overscroll-behavior: contain; }
-.fp-sol .fp-ed .ide-code { height: auto; max-height: 320px; }
+.fp-code .fp-solbox { grid-column: 1 / -1; max-width: 640px; }
+.fp-cap .ib { display: inline; vertical-align: -2px; }
 .fp-ed .ide-code, .fp-ed .ide-code .l { position: relative; }
 .fp-ed .ide-code .n { width: 4.2em; }
 .fp-ed .ide-code .l.cur { background: rgba(255, 255, 255, 0.045); }

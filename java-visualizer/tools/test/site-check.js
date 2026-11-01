@@ -284,7 +284,7 @@ function serve() {
       await page.waitForSelector('[data-flow].ready');
       const sel = () => page.$$eval('[data-flow] .fp-steps [role=tab]', ts => ts.findIndex(t => t.getAttribute('aria-selected') === 'true'));
       const vis = n => page.isVisible('#fp-' + n + ' .fp-cap');
-      assert.strictEqual(await page.$$eval('[data-flow] .fp-steps [role=tab]', l => l.length), 6, '6 שלבים');
+      assert.strictEqual(await page.$$eval('[data-flow] .fp-steps [role=tab]', l => l.length), 5, '5 שלבים (ההצעה לפתרון היא לא שלב)');
       assert.ok(await vis(1) && !(await vis(2)), 'שלב 1 גלוי, והשאר מוסתרים');
       assert.ok(await page.$$eval('#exercise img[src*="img/"]', l => l.length >= 10 && l.every(i => i.loading === 'lazy')), 'הצילומים בנגן נטענים רק כשמגיעים אליהם');
       await page.locator('[data-flow]').scrollIntoViewIfNeeded();
@@ -303,7 +303,7 @@ function serve() {
       await page.keyboard.press('ArrowLeft');
       assert.strictEqual(await sel(), 1, 'חץ שמאלה → שלב 2');
       await page.keyboard.press('End');
-      assert.strictEqual(await sel(), 5, 'End → שלב 6');
+      assert.strictEqual(await sel(), 4, 'End → שלב 5');
       await page.keyboard.press('Home');
       assert.strictEqual(await sel(), 0, 'Home → שלב 1');
       // שלב 3: החבילה, מהקוד של scaffold.js בדפדפן
@@ -326,22 +326,22 @@ function serve() {
       const mainSel = await page.$$eval('[data-fcode] .l.sel', l => l.map(x => x.textContent));
       assert.ok(mainSel.length > 10 && /void main\(/.test(mainSel[0]) && await page.$eval('[data-fcode]', p => p.scrollTop) > 0, 'לחיצה על main מסמנת וגוללת: ' + mainSel[0]);
       await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, label + '-flow-4-main.png') });
-      // שלב 6: ההצעה סגורה עד שלוחצים על המנורה
-      await page.click('#fs-6');
-      assert.ok(await page.isVisible('[data-sol-closed]') && !(await page.isVisible('[data-sol-open=א]')), 'ההצעה סגורה');
-      await page.click('[data-fsol] [data-bulb=א]');
-      assert.ok(!(await page.isVisible('[data-sol-closed]')) && await page.isVisible('[data-sol-open=א] img'), 'מנורה של סעיף א פותחת את ההצעה');
-      assert.strictEqual(await page.getAttribute('[data-fsol] [data-bulb=א]', 'aria-expanded'), 'true');
-      await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, label + '-flow-6-open.png') });
-      await page.click('[data-sol-open=א] [data-sol-close]');
-      assert.ok(await page.isVisible('[data-sol-closed]'), 'סגירה');
-      await page.click('[data-fsol] [data-bulb=ב]');
-      assert.ok(await page.isVisible('[data-sol-open=ב]'), 'סעיף ב: הודעה');
-      // מנורה בשלב 4 עוברת לשלב 6 ופותחת
-      await page.click('#fs-4');
+      // ההצעה לפתרון: לא מוצגת עד שבוחרים ללחוץ על המנורה ליד הסעיף
+      assert.ok(!(await page.isVisible('[data-solbox]')) && !(await page.isVisible('[data-sol-open=א]')), 'ההצעה לא מוצגת לפני לחיצה');
       await page.click('[data-fcode] [data-bulb=א]');
-      assert.ok(await sel() === 5 && await page.isVisible('[data-sol-open=א] img'), 'מנורה בקוד → שלב 6, פתוח');
-      for (let n = 1; n <= 6; n++) {
+      assert.ok(await sel() === 3 && await page.isVisible('[data-sol-open=א] img'), 'מנורה של סעיף א פותחת את ההצעה, באותו שלב');
+      assert.strictEqual(await page.getAttribute('[data-fcode] [data-bulb=א]', 'aria-expanded'), 'true');
+      await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, label + '-flow-4-open.png') });
+      await page.click('[data-sol-open=א] [data-sol-close]');
+      assert.ok(!(await page.isVisible('[data-solbox]')), 'סגירה');
+      await page.click('[data-fcode] [data-bulb=ב]');
+      assert.ok(await page.isVisible('[data-sol-open=ב]'), 'סעיף ב: הודעה');
+      await page.click('[data-fcode] [data-bulb=ב]');
+      assert.ok(!(await page.isVisible('[data-solbox]')), 'לחיצה שנייה על המנורה סוגרת');
+      // אין בדף הערות טכניות (שמות קבצים של האתר, שם המודל)
+      const txt = await page.textContent('#exercise');
+      assert.ok(!/scaffold\.js|assets\/|gemini-flash|SHA-256/.test(txt), 'הערה טכנית באזור שליחת תרגיל');
+      for (let n = 1; n <= 5; n++) {
         await page.click('#fs-' + n);
         await page.waitForTimeout(60);
         await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, label + '-flow-' + n + '.png') });
@@ -396,7 +396,7 @@ function serve() {
     assert.strictEqual(await page.getAttribute('[data-fplay]', 'aria-pressed'), 'false', '"עצירה"');
     assert.deepStrictEqual(errors, [], 'שגיאות (הנגן רץ לבד)');
     await ctx.close();
-    pass('שליחת תרגיל, שלב אחרי שלב: 6 שלבים (הבא / הקודם / חצים / Home / End), מה Gemini החזיר, החבילה ' + pkg + ' והקוד זהים ל-scaffold.js, סמן בשורה ' + (files[0].cursorLine + 1) + ', ההצעה סגורה עד לחיצה על המנורה, מתחיל לבד פעם אחת ונעצר בלחיצה, בלי תנועה כשמבקשים');
+    pass('שליחת תרגיל, שלב אחרי שלב: 5 שלבים (הבא / הקודם / חצים / Home / End), מה Gemini החזיר, החבילה ' + pkg + ' והקוד זהים ל-scaffold.js, סמן בשורה ' + (files[0].cursorLine + 1) + ', ההצעה רק בלחיצה על המנורה (לא שלב), בלי הערות טכניות, מתחיל לבד פעם אחת ונעצר בלחיצה, בלי תנועה כשמבקשים');
   }
 
   // ---- נסו בעצמכם (#playground): הכפתורים משנים את הציור, והשורה ב-Java נוספת ומסומנת
