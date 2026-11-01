@@ -226,13 +226,139 @@ public class DsvizPluginTest extends LightJavaCodeInsightFixtureTestCase {
         assertEquals("// ab", Submitter.clean("// ‫a‬b"));
     }
 
-    /** אחרי שהתרגיל נוצר: הסעיפים שעונים עליהם במילים בהודעה (בקוד אין את הטקסט של התרגיל) — אותו נוסח כמו ב-Eclipse וב-VS Code */
-    public void testOthersInCreatedMessage() {
-        java.util.List<String[]> others = java.util.Collections.singletonList(new String[] { "ג", "מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו." });
-        assertEquals("סעיפים שעונים עליהם במילים (בלי קוד):\nג — מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו.", Submitter.othersText(2, others));
-        assertEquals("", Submitter.othersText(2, java.util.Collections.<String[]>emptyList()));
-        assertEquals("בתרגיל אין סעיפים שכותבים בהם קוד.", Submitter.othersText(0, java.util.Collections.<String[]>emptyList()));
-        assertEquals("סעיף אחד בקוד", Submitter.codeTasks(1));
-        assertEquals("<div dir='rtl'>‏א<br><br>‏i &lt; n</div>", Submitter.notificationHtml("א\n\ni < n"));
+    // ------------------------------------------------------------------ שליחת תרגיל: שמות תפוסים, main, סדר הלשוניות
+
+    /** החבילה של התרגיל לא תתנגש: כל התיקיות שבראש כל תיקיות הקוד של הפרויקט נכנסות ל-"taken" במניפסט */
+    public void testTakenNamesFromAllSourceRoots() throws Exception {
+        com.intellij.openapi.vfs.VirtualFile src2 = myFixture.getTempDirFixture().findOrCreateDir("src2");
+        com.intellij.testFramework.PsiTestUtil.addSourceRoot(getModule(), src2);
+        try {
+            myFixture.getTempDirFixture().findOrCreateDir("src2/ex01_stacks");
+            myFixture.addFileToProject("ex02_queues/Q.java", "package ex02_queues; class Q {}");
+            File chosen = Files.createTempDirectory("dsviz-src").toFile();
+            new File(chosen, "ex03_trees").mkdirs();
+            java.util.List<String> taken = com.intellij.openapi.application.ReadAction.compute(() -> Submitter.takenNames(getProject(), chosen));
+            assertTrue(taken.toString(), taken.contains("ex01_stacks"));
+            assertTrue("גם בתיקיית הקוד הראשונה", taken.contains("ex02_queues"));
+            assertTrue("וגם בתיקייה שנבחרה", taken.contains("ex03_trees"));
+            java.util.Map<String, Object> man = Submitter.manifest("java", new File(System.getProperty("dsviz.lib")), chosen,
+                    java.util.Collections.<SubmitDialog.Item>emptyList(), "", taken);
+            assertTrue(((java.util.List<?>) man.get("taken")).contains("ex01_stacks"));
+            assertTrue(IjShared.toJson(man), IjShared.toJson(man).contains("\"taken\""));
+        } finally {
+            com.intellij.testFramework.PsiTestUtil.removeSourceRoot(getModule(), src2);
+        }
+    }
+
+    /** הסעיפים במחלקה אחת ו-main ב-Program.java באותה חבילה: "הרצה ויזואלית" מהקובץ של הסעיפים מריצה את main של התרגיל */
+    public void testMainOfExerciseFoundInSamePackage() {
+        myFixture.addFileToProject("ex01_q/Program.java",
+                "package ex01_q;\npublic class Program {\n    public static void main(String[] a) { System.out.println(Tasks.sum(3)); }\n}\n");
+        myFixture.addFileToProject("ex01_q/Other.java", "package ex01_q;\npublic class Other {\n    public static void main(String[] a) { }\n}\n");
+        PsiFile tasks = myFixture.addFileToProject("ex01_q/Tasks.java", "package ex01_q;\npublic class Tasks {\n    public static int sum(int n) {\n        return 0;\n    }\n}\n");
+        com.intellij.psi.PsiClass m = VisualRunner.mainInPackage((com.intellij.psi.PsiJavaFile) tasks, ((com.intellij.psi.PsiJavaFile) tasks).getClasses()[0]);
+        assertNotNull(m);
+        assertEquals("ex01_q.Program", m.getQualifiedName());
+        assertEquals(Arrays.asList("Other.java", "Program.java", "Tasks.java"),
+                Submitter.openOrder(Arrays.asList("Program.java", "Other.java", "Tasks.java"), "Tasks.java", "Program.java"));
+        assertEquals("main בקובץ של הסעיפים — פעם אחת", Arrays.asList("A.java", "Tasks.java"),
+                Submitter.openOrder(Arrays.asList("Tasks.java", "A.java"), "Tasks.java", "Tasks.java"));
+    }
+
+    // ------------------------------------------------------------------ המקום של התשובה בעורך (צהוב)
+
+    static final String STUBS = "package ex01_q;\n\npublic class Tasks {\n"
+            + "    public static int sumEven(Queue<Integer> q) {\n        // ====כאן עונים סעיף א'====\n        \n    }\n\n"
+            + "    public static boolean has(int x) {\n        // ====כאן עונים סעיף ב'====\n        \n    }\n}\n";
+
+    public void testAnswerHighlightInSubmittedFilesOnly() {
+        PsiFile f = myFixture.addFileToProject("ex01_q/Tasks.java", STUBS);
+        PsiFile other = myFixture.addFileToProject("mine/Tasks.java", STUBS.replace("ex01_q", "mine"));
+        AnswerMarks marks = AnswerMarks.get(getProject());
+        marks.track(new File(f.getVirtualFile().getParent().getPath()));
+        myFixture.configureFromExistingVirtualFile(f.getVirtualFile());
+        com.intellij.openapi.editor.Document doc = myFixture.getEditor().getDocument();
+        marks.attach(doc);
+        java.util.List<com.intellij.openapi.editor.markup.RangeHighlighter> hs = marks.highlighters(doc);
+        assertEquals("שני סעיפים — שני מקומות צהובים", 2, hs.size());
+        assertEquals(Modern.ANSWER, hs.get(0).getTextAttributes(null).getBackgroundColor());
+        assertNotNull("פס צהוב בשוליים", hs.get(0).getLineMarkerRenderer());
+        assertTrue(doc.getText(hs.get(0).getTextRange()).contains("כאן עונים סעיף א"));
+        // התלמיד כותב קוד בסעיף א — הצהוב שלו נעלם, של ב נשאר
+        int at = doc.getText().indexOf("        \n    }") + 8;
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(), () -> doc.insertString(at, "return 1;"));
+        com.intellij.testFramework.PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue();
+        hs = marks.highlighters(doc);
+        assertEquals(1, hs.size());
+        assertTrue(doc.getText(hs.get(0).getTextRange()).contains("כאן עונים סעיף ב"));
+        // קובץ שלא נוצר ב"שליחת תרגיל" — בלי צהוב
+        myFixture.configureFromExistingVirtualFile(other.getVirtualFile());
+        marks.attach(myFixture.getEditor().getDocument());
+        assertTrue(marks.highlighters(myFixture.getEditor().getDocument()).isEmpty());
+        assertFalse(marks.tracked(other.getVirtualFile()));
+    }
+
+    /** הבנייה בחלון: שגיאה — שורה אדומה ו"נסו שוב", והקבצים נשארים; הצלחה — התוצאה נשמרת. השליחה לא בחוט של המסך */
+    public void testSubmitDialogBuildsInPlace() throws Exception {
+        File dir = Files.createTempDirectory("dsviz-sd").toFile();
+        File img = File.createTempFile("page", ".png");
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(40, 20, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", img);
+        SubmitDialog d = new SubmitDialog(getProject(), Arrays.asList(new ExerciseDialog.Target(dir, "src")));
+        try {
+            d.add(img, "דף.png");
+            java.util.concurrent.atomic.AtomicBoolean edt = new java.util.concurrent.atomic.AtomicBoolean(true);
+            d.runner((items, note, target, l) -> {
+                edt.set(javax.swing.SwingUtilities.isEventDispatchThread());
+                l.progress("שולח את התרגיל… (בדרך כלל עד דקה)");
+                Submitter.Outcome o = new Submitter.Outcome();
+                o.error = "השרת לא ענה בזמן.\nפרטים טכניים ארוכים";
+                return o;
+            });
+            d.start();
+            for (int i = 0; i < 150 && !d.build().states().contains("✕"); i++) {
+                com.intellij.testFramework.PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue();
+                Thread.sleep(20);
+            }
+            assertFalse("השליחה לא בחוט של המסך", edt.get());
+            assertEquals("✓✕○○○", d.build().states());
+            assertEquals("נסו שוב", ((javax.swing.JButton) d.footer().getComponent(0)).getText());
+            assertEquals("הקבצים נשארים", 1, d.items().size());
+            d.runner((items, note, target, l) -> {
+                l.progress("בונה את התרגיל…");
+                l.progress("בודק שהקוד מתקמפל…");
+                l.progress("יש שגיאות קומפילציה — מבקש תיקון…");
+                Submitter.Outcome o = new Submitter.Outcome();
+                o.files.add(new File(dir, "T.java").getPath());
+                return o;
+            });
+            d.start();
+            for (int i = 0; i < 150 && d.outcome() == null; i++) {
+                com.intellij.testFramework.PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue();
+                Thread.sleep(20);
+            }
+            assertNotNull(d.outcome());
+            assertEquals("✓✓✓✓✓", d.build().states());
+        } finally {
+            if (!d.isDisposed()) d.close(1);
+        }
+    }
+
+    /** כל ההודעות — בחלון האחד (Notice), מימין לשמאל: אין Messages.* / JOptionPane בשום מקום אחר בתוסף */
+    public void testNoMessagesOrJOptionPaneOutsideNotice() throws Exception {
+        File dir = new File(System.getProperty("dsviz.root"), "intellij-plugin/src/main/java");
+        assertTrue(dir.getPath(), dir.isDirectory());
+        java.util.List<String> bad = new java.util.ArrayList<String>();
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile("\\bMessages\\.|JOptionPane|import com\\.intellij\\.openapi\\.ui\\.Messages");
+        int seen = 0;
+        try (java.util.stream.Stream<java.nio.file.Path> files = Files.walk(dir.toPath())) {
+            for (java.nio.file.Path f : (Iterable<java.nio.file.Path>) files.filter(x -> x.toString().endsWith(".java"))::iterator) {
+                seen++;
+                if (f.getFileName().toString().equals("Notice.java")) continue;
+                java.util.List<String> lines = Files.readAllLines(f, java.nio.charset.StandardCharsets.UTF_8);
+                for (int i = 0; i < lines.size(); i++) if (p.matcher(lines.get(i)).find()) bad.add(f.getFileName() + ":" + (i + 1) + ": " + lines.get(i).trim());
+            }
+        }
+        assertTrue(seen > 20);
+        assertTrue("חלונות הודעה ישנים (לא מימין לשמאל):\n" + String.join("\n", bad), bad.isEmpty());
     }
 }

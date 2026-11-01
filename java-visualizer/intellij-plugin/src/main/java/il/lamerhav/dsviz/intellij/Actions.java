@@ -189,6 +189,14 @@ public final class Actions {
         }
     }
 
+    /** השאלה לפני כיבוי: מה ייעלם, ושהקוד לא משתנה */
+    static Notice.Spec powerOff() {
+        return new Notice.Spec(Modern.Kind.QUESTION, "DSViz", "לכבות את DSViz?")
+                .text("הכפתורים, ההרצה הוויזואלית, ההצעות לפתרון וההוספה האוטומטית של ספריית הקורס ייכבו. הקוד והפרויקטים לא משתנים.\n"
+                        + "מפעילים שוב בתפריט \"מבני נתונים\" ← הפעלת DSViz.")
+                .buttons("כיבוי", "ביטול");
+    }
+
     /** כיבוי (אדום) כש-DSViz פועל; הפעלה (ירוק) כשהוא כבוי */
     public static final class Power extends AnAction implements DumbAware {
         @Override
@@ -207,8 +215,9 @@ public final class Actions {
         @Override
         public void actionPerformed(AnActionEvent e) {
             boolean on = !Dsviz.on();
-            Dsviz.setOn(on);
             Project p = e.getProject();
+            if (!on && !new Notice(p, powerOff()).ask()) return;
+            Dsviz.setOn(on);
             if (p != null) {
                 if (on) LibrarySetup.ensureAll(p);
                 com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(p).restart();

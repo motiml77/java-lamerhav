@@ -126,10 +126,18 @@ public final class Dsviz {
 
     // ------------------------------------------------------------------ הודעות
 
+    /** הודעה (בלון) — התוכן תמיד מימין לשמאל (‎<div dir='rtl'>) */
     public static Notification notify(Project project, String title, String text, NotificationType type) {
-        Notification n = NotificationGroupManager.getInstance().getNotificationGroup("DSViz").createNotification(title, text, type);
+        Notification n = NotificationGroupManager.getInstance().getNotificationGroup("DSViz").createNotification(title, rtlHtml(text), type);
         n.notify(project);
         return n;
+    }
+
+    /** תוכן של הודעה: עטוף ב-div מימין לשמאל ומיושר לימין (אם הוא עוד לא כזה) */
+    static String rtlHtml(String html) {
+        String t = html == null ? "" : html.trim();
+        if (t.startsWith("<div dir='rtl'") || t.startsWith("<div dir=\"rtl\"")) return t;
+        return "<div dir='rtl' style='text-align:right'>\u200F" + t + "</div>";
     }
 
     /** טקסט עברי ב-HTML מימין לשמאל (לחלונות של IntelliJ) */

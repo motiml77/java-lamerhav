@@ -17,7 +17,6 @@ import javax.swing.ListSelectionModel;
 
 import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.ui.ColoredListCellRenderer;
 import com.intellij.ui.SimpleTextAttributes;
 import com.intellij.ui.components.JBList;
@@ -83,11 +82,11 @@ public final class Help {
         }
     }
 
-    static final class ChooserDialog extends DialogWrapper {
+    static final class ChooserDialog extends Modern.Dialog {
         private JBList<String[]> list;
 
         ChooserDialog(Project project) {
-            super(project, true);
+            super(project);
             setTitle(TITLE);
             setOKButtonText("צפייה");
             setCancelButtonText("ביטול");
@@ -129,7 +128,7 @@ public final class Help {
                 if (it != null) desc.setText(it[2]);
             });
             Forms.rtl(root);
-            return root;
+            return Modern.Dialog.wrap(root);
         }
 
         @Override

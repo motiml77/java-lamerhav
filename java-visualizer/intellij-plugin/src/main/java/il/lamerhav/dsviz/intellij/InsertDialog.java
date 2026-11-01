@@ -16,7 +16,6 @@ import javax.swing.event.DocumentEvent;
 
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.ui.DocumentAdapter;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
@@ -32,7 +31,7 @@ import il.lamerhav.dsviz.Scaffold;
  * חלון "הוסף מבנה נתונים" (כמו InsertDialog ב-Eclipse): בוחרים מבנה (גם מבנה בתוך מבנה), טיפוס, ערכים (או אקראיים) ושם —
  * רואים איך המבנה ייראה ואת הקוד שייכנס, ואחרי אישור הוא נכנס לקוד במקום הסמן. השם מוצע באפור, ונבדק שהוא חוקי ולא מתנגש.
  */
-final class InsertDialog extends DialogWrapper {
+final class InsertDialog extends Modern.Dialog {
     private final String preset, documentText, indent;
     private final int offset;
     private final Forms.Chips structures = new Forms.Chips(2), insides = new Forms.Chips(2), types = new Forms.Chips(3);
@@ -50,7 +49,7 @@ final class InsertDialog extends DialogWrapper {
     private JPanel root;
 
     InsertDialog(Project project, String preset, String documentText, int offset, String indent) {
-        super(project, true);
+        super(project);
         this.preset = preset == null ? "queue" : preset;
         this.documentText = documentText == null ? "" : documentText;
         this.offset = offset;
@@ -135,7 +134,7 @@ final class InsertDialog extends DialogWrapper {
         values.getDocument().addDocumentListener(onText);
         name.getDocument().addDocumentListener(onText);
         Forms.rtl(root, values, name, previewType, preview, codeScroll, count);
-        return root;
+        return Modern.Dialog.wrap(root);
     }
 
     @Override

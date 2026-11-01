@@ -85,6 +85,8 @@ tasks {
     test {
         systemProperty("dsviz.lib", libJar.asFile.absolutePath)
         systemProperty("dsviz.root", viz.asFile.absolutePath)
+        // ‎-Pshots=<תיקייה> — צילומי מסך של החלונות החדשים (ModernUiTest, בלי מסך)
+        providers.gradleProperty("shots").orNull?.let { systemProperty("dsviz.shots", it) }
         jvmArgs("-Djava.awt.headless=true", "-Dfile.encoding=UTF-8")
     }
     runIde {
