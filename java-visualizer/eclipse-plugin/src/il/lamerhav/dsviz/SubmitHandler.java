@@ -25,6 +25,7 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.ProgressMonitorDialog;
 import org.eclipse.jface.window.Window;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.handlers.HandlerUtil;
@@ -60,13 +61,16 @@ public class SubmitHandler extends AbstractHandler {
             b = new Build(client, d.exercise(), d.sourceNames(), jp, src);
             new ProgressMonitorDialog(shell).run(true, true, b::run);
             open(page, b);
+            // בקוד אין את הטקסט של התרגיל: סעיפים שעונים עליהם במילים (ותרגיל בלי סעיפים בקוד) — בהודעה. אם אין כאלה — אין הודעה
+            String words = AiScaffold.othersText(b.tasks, b.exercise == null ? null : b.exercise.others);
             if (!b.errors.isEmpty()) {
-                MessageDialog.openWarning(shell, "שליחת תרגיל",
+                say(shell, MessageDialog.WARNING,
                         "התרגיל נוצר (בתיקייה " + b.folderName + "), אבל יש בו " + b.errors.size() + " שגיאות קומפילציה (מסומנות באדום בקוד):\n\n"
                         + String.join("\n", b.errors.subList(0, Math.min(4, b.errors.size())))
-                        + "\n\nבדרך כלל זה ב-main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב.");
-            } else if (b.tasks == 0) {
-                MessageDialog.openInformation(shell, "שליחת תרגיל", "בתרגיל לא נמצאו סעיפים שצריך לכתוב בהם קוד — השאלות מופיעות בראש הקובץ.");
+                        + "\n\nבדרך כלל זה ב-main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב."
+                        + (words.isEmpty() ? "" : "\n\n" + words));
+            } else if (!words.isEmpty()) {
+                say(shell, MessageDialog.INFORMATION, "התרגיל נוצר" + (b.tasks > 0 ? " — " + AiScaffold.codeTasks(b.tasks) : "") + ".\n\n" + words);
             }
         } catch (InvocationTargetException e) {
             Throwable t = e.getCause();
@@ -82,6 +86,16 @@ public class SubmitHandler extends AbstractHandler {
             Ui.error(shell, "לא הצלחתי ליצור את התרגיל.", e);
         }
         return null;
+    }
+
+    /** הודעה מימין לשמאל (כמו PowerHandler.ask) — MessageDialog.openInformation מציג את העברית משמאל לימין */
+    private static void say(Shell shell, int kind, String text) {
+        new MessageDialog(shell, "שליחת תרגיל", null, text, kind, 0, "אישור") {
+            @Override
+            protected int getShellStyle() {
+                return super.getShellStyle() | SWT.RIGHT_TO_LEFT;
+            }
+        }.open();
     }
 
     /** פותח את הקבצים: קודם המחלקות מהתרגיל, ובסוף הקובץ עם הסעיף הראשון — שיהיה הפעיל, והסמן מחכה במקום הפתרון */

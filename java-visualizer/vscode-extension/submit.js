@@ -122,6 +122,49 @@ function runCli(java, jar, args, onMessage, env) {
     return { proc, done };
 }
 
+// ------------------------------------------------------------ ההודעה אחרי שהתרגיל נוצר
+
+/** "2 סעיפים בקוד" / "סעיף אחד בקוד" */
+const codeTasks = n => (n === 1 ? 'סעיף אחד' : n + ' סעיפים') + ' בקוד';
+
+/** "ג — מהי סיבוכיות זמן הריצה...": שורה אחת, ועד 200 תווים (ואז "…") — כמו AiScaffold.otherLine */
+function otherLine(label, text) {
+    let t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (t.length > 200) {
+        const cut = t.lastIndexOf(' ', 200);
+        t = t.slice(0, cut > 150 ? cut : 200).trim() + '…';
+    }
+    const l = String(label || '').trim();
+    return l ? l + ' — ' + t : t;
+}
+
+/**
+ * בקוד שנוצר אין את הטקסט של התרגיל — אז הסעיפים שעונים עליהם במילים (others מ-SubmitCli) מופיעים בהודעה אחרי שהתרגיל נוצר,
+ * וגם כשאין בכלל סעיפים בקוד. '' — אין מה להוסיף. אותו נוסח כמו AiScaffold.othersText (Eclipse, Visual Studio) ו-IntelliJ.
+ */
+function othersText(tasks, others) {
+    const out = [];
+    if (!tasks) out.push('בתרגיל אין סעיפים שכותבים בהם קוד.');
+    const list = (others || []).filter(o => o && String(o.text || '').trim());
+    if (list.length) out.push(['סעיפים שעונים עליהם במילים (בלי קוד):', ...list.map(o => otherLine(o.label, o.text))].join('\n'));
+    return out.join('\n\n');
+}
+
+/** מה מציגים אחרי ש-SubmitCli סיים ({done: true, ...}): { warn?, message, options? } */
+function doneMessage(r) {
+    const errors = r.errors || [], tasks = r.tasks || 0, words = othersText(tasks, r.others);
+    if (errors.length) {
+        return { warn: true, message: 'התרגיל נוצר (בתיקייה ' + r.folder + '), אבל יש בו ' + errors.length + ' שגיאות קומפילציה:\n\n'
+            + errors.slice(0, 4).join('\n') + '\n\nבדרך כלל זה ב-main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב.' + (words ? '\n\n' + words : ''), options: { modal: true } };
+    }
+    // הודעה רגילה (בפינה) מציגה שורה אחת בלבד — רשימת הסעיפים בחלון (modal), שבו יש ירידת שורה
+    if (words) {
+        return { message: 'התרגיל נוצר' + (tasks ? ' — ' + codeTasks(tasks) : '') + ' (בתיקייה ' + r.folder + ')',
+            options: { modal: true, detail: words + (tasks ? '\n\nכותבים את הפתרון במקום המסומן — ומעל כל סעיף יש 💡 הצעה לפתרון.' : '') } };
+    }
+    return { message: 'התרגיל נוצר בתיקייה ' + r.folder + '. כותבים את הפתרון במקום המסומן — ומעל כל סעיף יש 💡 הצעה לפתרון.' };
+}
+
 // ------------------------------------------------------------ החלונות (HTML)
 
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -500,14 +543,10 @@ function register(deps) {
             }
             changed.fire();
             await deps.openFiles(root, r.files || [], r.focus, r.line || 0);
-            if ((r.errors || []).length) {
-                vscode.window.showWarningMessage('התרגיל נוצר (בתיקייה ' + r.folder + '), אבל יש בו ' + r.errors.length + ' שגיאות קומפילציה:\n\n'
-                    + r.errors.slice(0, 4).join('\n') + '\n\nבדרך כלל זה ב-main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב.', { modal: true });
-            } else if (!r.tasks) {
-                vscode.window.showInformationMessage('בתרגיל לא נמצאו סעיפים שצריך לכתוב בהם קוד — השאלות מופיעות בראש הקובץ.');
-            } else {
-                vscode.window.showInformationMessage('התרגיל נוצר בתיקייה ' + r.folder + '. כותבים את הפתרון במקום המסומן — ומעל כל סעיף יש 💡 הצעה לפתרון.');
-            }
+            const msg = doneMessage(r);
+            if (msg.warn) vscode.window.showWarningMessage(msg.message, msg.options);
+            else if (msg.options) vscode.window.showInformationMessage(msg.message, msg.options);
+            else vscode.window.showInformationMessage(msg.message);
             return true;
         };
     };
@@ -515,4 +554,5 @@ function register(deps) {
     return { submit, showSolution };
 }
 
-module.exports = { register, readStore, forFile, methods, lensesFor, entryAt, paramCount, submitHtml, solutionHtml, highlight, section, runCli };
+module.exports = { register, readStore, forFile, methods, lensesFor, entryAt, paramCount, submitHtml, solutionHtml, highlight, section, runCli,
+    othersText, otherLine, doneMessage };

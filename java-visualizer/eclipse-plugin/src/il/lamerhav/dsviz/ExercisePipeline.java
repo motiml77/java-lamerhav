@@ -44,6 +44,8 @@ final class ExercisePipeline {
         int line;                 // השורה (מ-0) שבה הסמן מחכה בקובץ focus
         final List<String> errors = new ArrayList<String>();
         int tasks;
+        /** הסעיפים שעונים עליהם במילים (בלי קוד): {סעיף, טקסט} — לא בקוד, רק בהודעה לתלמיד (AiScaffold.othersText) */
+        final List<String[]> others = new ArrayList<String[]>();
         String solutionStatus = "";   // ok / ran / failed / unchecked ("" — אין הצעות)
         final List<SolutionStore.Entry> entries = new ArrayList<SolutionStore.Entry>();
     }
@@ -154,6 +156,8 @@ final class ExercisePipeline {
 
     private static List<AiScaffold.GeneratedFile> writeCs(AiScaffold.Exercise e, String name, List<String> sources, Path root, Result r) throws IOException {
         r.tasks = e.tasks.size();
+        r.others.clear();
+        r.others.addAll(e.others);
         List<AiScaffold.GeneratedFile> gen = AiScaffold.build(e, name, sources);
         Map<String, String> files = new LinkedHashMap<String, String>();
         for (AiScaffold.GeneratedFile g : gen) files.put(g.fileName(), g.code);
@@ -325,6 +329,8 @@ final class ExercisePipeline {
 
     private static List<AiScaffold.GeneratedFile> write(AiScaffold.Exercise e, String pkg, List<String> sources, File dir, Result r) {
         r.tasks = e.tasks.size();
+        r.others.clear();
+        r.others.addAll(e.others);
         dir.mkdirs();
         List<AiScaffold.GeneratedFile> gen = AiScaffold.build(e, pkg, sources);
         r.files.clear();

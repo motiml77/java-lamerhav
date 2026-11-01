@@ -82,6 +82,10 @@ public final class IjShared {
         return Json.arr(o);
     }
 
+    public static Map<String, Object> obj(Object o) {
+        return Json.obj(o);
+    }
+
     public static String toJson(Map<String, Object> m) {
         return Json.write(m);
     }
