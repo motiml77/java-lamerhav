@@ -18,5 +18,9 @@ public class CsProjectTest {
             System.out.println(f);
         }
         if (!CsProject.taken(root, "Targil1")) throw new RuntimeException("taken");
+        // "שליחת תרגיל" ב-Visual Studio: השמות התפוסים = הפרויקטים ב-.sln + התיקיות שב-Exercises (הפרויקט החדש יקבל שם אחר)
+        java.util.List<String> names = il.lamerhav.dsviz.VsSubmit.takenNames(root);
+        for (String n : new String[] { "Targil1", "Targil2", "Exercise", "StackExamples" })
+            if (!names.contains(n)) throw new RuntimeException("takenNames: חסר " + n + " ב-" + names);
     }
 }

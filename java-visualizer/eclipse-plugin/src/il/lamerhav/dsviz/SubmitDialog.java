@@ -6,7 +6,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.swt.SWT;
@@ -39,13 +43,14 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.ProgressBar;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
 /**
  * חלון "שליחת תרגיל": מצרפים את דף התרגיל — PDF, Word, תמונות (גם כמה), או מדביקים צילום מסך עם Ctrl+V —
- * והוא נשלח לשרת (ומשם ל-Gemini). כשהתשובה מגיעה החלון נסגר, ו-SubmitHandler בונה את הקבצים.
+ * והוא נשלח לשרת (ומשם ל-Gemini). אחרי "שליחה" אותו חלון עובר לתצוגת הבנייה (כמו באתר): הדפים שצורפו, ורשימת השלבים
+ * האמיתיים — מכין את הקבצים, שולח ל-Gemini, בונה, בודק שמתקמפל, בודק את ההצעות לפתרון (לפי ה-subTask של SubmitHandler.Build).
+ * כשהכול מוכן החלון נסגר לבד, ו-SubmitHandler פותח את הקובץ. שגיאה — שורה אדומה אחת ו"נסו שוב" (הקבצים נשארים).
  */
 public class SubmitDialog extends Dialog {
     private static final String NOT_CONFIGURED = "שליחת תרגיל עוד לא הוגדרה בהתקנה הזאת: חסרה הכתובת של השרת (worker/README.md). אפשר לצרף קבצים, אבל עוד אי אפשר לשלוח.";
@@ -55,21 +60,30 @@ public class SubmitDialog extends Dialog {
     private final IProject preferred;
     private final WorkerClient client;
 
+    /** השלבים — אותם שלבים כמו באתר (site/index.html, ‎#exercise‎) */
+    static final String[] STAGES = { "מכין את הקבצים", "שולח ל-Gemini", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
+    /** כמה זמן כל שלב לוקח בדרך כלל (שניות) ואיזה חלק מהפס הוא — רק בשביל הפס הדק למעלה */
+    private static final double[] EXPECT = { 1, 25, 2, 6, 10 }, WEIGHT = { 0.04, 0.56, 0.08, 0.14, 0.18 };
+
     private final List<ExerciseFiles.Item> items = new ArrayList<ExerciseFiles.Item>();
-    private Composite zone, tiles, empty;
-    private Label status, progressLabel;
-    private Composite progressBox;
+    private Composite zone, tiles, empty, form, buildView, thumbs;
+    private Label status, buildTitle, buildHint, buildError;
+    private Canvas line;
     private Text noteText;
     private Combo projectCombo;
-    private Look.Round ok;
+    private Look.Round ok, retry, cancelBtn, closeBtn;
     private ScrolledComposite scroll;
     private Listener pasteFilter;
     private int pasted;
-    private volatile boolean sending;
-    private long sendStart;
+    private volatile boolean sending, building;
+    private boolean closeWhenStopped;
+    private Point formSize;
+    private Stages stages;
+    private final Cancel monitor = new Cancel();
 
     private Map<String, Object> result;
     private IJavaProject resultProject;
+    private SubmitHandler.Build build;
 
     public SubmitDialog(Shell parent, List<IJavaProject> projects, String newProjectName, IProject preferred, WorkerClient client) {
         super(parent);
@@ -98,14 +112,21 @@ public class SubmitDialog extends Dialog {
         al.verticalSpacing = 4;
         area.setBackground(Look.color(d, Look.BG));
         area.setBackgroundMode(SWT.INHERIT_DEFAULT);
-        Look.header(area, "שליחת תרגיל", "מצרפים את דף התרגיל — ומקבלים קובץ מוכן: המחלקות, main, ופעולה לכל סעיף עם מקום לכתוב את הפתרון.");
+        form = new Composite(area, SWT.NONE);
+        GridLayout fl = new GridLayout(1, false);
+        fl.marginWidth = 0;
+        fl.marginHeight = 0;
+        fl.verticalSpacing = 4;
+        form.setLayout(fl);
+        form.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        Look.header(form, "שליחת תרגיל", "מצרפים את דף התרגיל — ומקבלים קובץ מוכן: המחלקות, main, ופעולה לכל סעיף עם מקום לכתוב את הפתרון.");
 
         GridLayout cl = new GridLayout(1, false);
         cl.marginWidth = 0;
         cl.marginHeight = 0;
         cl.verticalSpacing = 10;
         Composite[] holder = new Composite[1];
-        scroll = Look.scroll(area, cl, holder);
+        scroll = Look.scroll(form, cl, holder);
         Composite col = holder[0];
 
         // --- דף התרגיל
@@ -210,20 +231,9 @@ public class SubmitDialog extends Dialog {
         prg.verticalIndent = 6;
         privacy.setLayoutData(prg);
 
-        // --- התקדמות (מופיע בזמן השליחה)
-        progressBox = new Composite(area, SWT.NONE);
-        GridLayout pl = new GridLayout(2, false);
-        pl.marginWidth = 4;
-        pl.marginHeight = 4;
-        progressBox.setLayout(pl);
-        progressBox.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-        ProgressBar bar = new ProgressBar(progressBox, SWT.INDETERMINATE | SWT.HORIZONTAL);
-        GridData bg = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
-        bg.widthHint = 160;
-        bar.setLayoutData(bg);
-        progressLabel = new Label(progressBox, SWT.NONE);
-        progressLabel.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-        showProgress(false);
+        // --- תצוגת הבנייה (אחרי "שליחה"): באותו חלון
+        createBuildView(area);
+        show(buildView, false);
 
         // גרירת קבצים / תמונות לכל החלון
         for (Control c : new Control[] { zone, tiles, empty, big, small, card }) dropTarget(c);
@@ -249,11 +259,38 @@ public class SubmitDialog extends Dialog {
 
     @Override
     protected Control createButtonBar(Composite parent) {
-        Look.Round[] out = new Look.Round[1];
-        Composite bar = Look.buttonBar(parent, "שליחה ויצירת התרגיל", this::send, this::cancel, out);
-        ok = out[0];
+        Display d = parent.getDisplay();
+        Composite bar = new Composite(parent, SWT.NONE);
+        bar.setBackground(Look.color(d, Look.BG));
+        GridLayout l = new GridLayout(5, false);
+        l.marginWidth = 20;
+        l.marginHeight = 10;
+        l.horizontalSpacing = 10;
+        bar.setLayout(l);
+        bar.setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, false));
+        ok = new Look.Round(bar, "שליחה ויצירת התרגיל", true, this::send);
+        retry = new Look.Round(bar, "נסו שוב", true, this::backToForm);
+        cancelBtn = new Look.Round(bar, "ביטול", false, this::cancel);
+        closeBtn = new Look.Round(bar, "סגירה", false, this::cancelPressed);
+        for (Look.Round r : new Look.Round[] { ok, retry, cancelBtn, closeBtn }) r.setLayoutData(new GridData());
+        Label c = new Label(bar, SWT.LEFT_TO_RIGHT);   // זכויות יוצרים — בקצה השני של שורת הכפתורים
+        c.setText(Look.COPYRIGHT);
+        c.setFont(Look.font(d, -2, SWT.NORMAL));
+        c.setData("dsviz.keepFont", Boolean.TRUE);
+        c.setForeground(Look.color(d, 0xA0A8B8));
+        c.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
+        buttons("form");
         refresh();
         return bar;
+    }
+
+    /** אילו כפתורים מוצגים: form — שליחה + ביטול; build — רק ביטול; error — נסו שוב + סגירה */
+    private void buttons(String mode) {
+        show(ok, mode.equals("form"));
+        show(retry, mode.equals("error"));
+        show(cancelBtn, !mode.equals("error"));
+        show(closeBtn, mode.equals("error"));
+        ok.getParent().layout(true, true);
     }
 
     @Override
@@ -265,7 +302,11 @@ public class SubmitDialog extends Dialog {
 
     @Override
     protected void handleShellCloseEvent() {
-        if (sending && client != null) client.cancel();
+        if (sending || building) {   // באמצע: עוצרים, והחלון נסגר כשהעבודה ברקע באמת נעצרה (בלי קבצים שנכתבים אחרי שנסגר)
+            closeWhenStopped = true;
+            stop();
+            return;
+        }
         super.handleShellCloseEvent();
     }
 
@@ -522,10 +563,10 @@ public class SubmitDialog extends Dialog {
         }
     }
 
-    // ------------------------------------------------------------------ שליחה
+    // ------------------------------------------------------------------ שליחה ובנייה
 
     private void send() {
-        if (sending) return;
+        if (sending || building) return;
         try {
             ExerciseFiles.checkAll(items);
         } catch (ExerciseFiles.UserError e) {
@@ -537,15 +578,16 @@ public class SubmitDialog extends Dialog {
             return;
         }
         sending = true;
-        sendStart = System.currentTimeMillis();
-        ok.setEnabled(false);
+        closeWhenStopped = false;
+        monitor.setCanceled(false);
         status("", false);
-        showProgress(true);
-        tick();
+        showBuildView();
+        stages.set(0);
         final List<ExerciseFiles.Item> copy = new ArrayList<ExerciseFiles.Item>(items);
         final String note = noteText.getText();
         final IJavaProject project = selectedProject();
         final Display d = getShell().getDisplay();
+        client.onSending = () -> d.asyncExec(() -> { if (stages != null) stages.set(1); });   // הקבצים מוכנים — יוצא לשרת
         Thread t = new Thread(() -> {
             Map<String, Object> r = null;
             String err = null;
@@ -559,46 +601,507 @@ public class SubmitDialog extends Dialog {
             final Map<String, Object> fr = r;
             final String ferr = err;
             final boolean fc = cancelled;
-            d.asyncExec(() -> {
-                sending = false;
-                if (getShell() == null || getShell().isDisposed()) return;
-                showProgress(false);
-                if (fr != null) {
-                    result = fr;
-                    resultProject = project;
-                    setReturnCode(OK);
-                    close();
-                    return;
-                }
-                ok.setEnabled(!items.isEmpty());
-                status(fc ? "השליחה בוטלה." : ferr, !fc);
-            });
+            d.asyncExec(() -> sent(fr, ferr, fc, project));
         }, "dsviz-submit");
         t.setDaemon(true);
         t.start();
     }
 
+    /** התשובה מהשרת הגיעה (או שגיאה): בונים את הקבצים — באותו חלון, ברקע */
+    private void sent(Map<String, Object> raw, String err, boolean cancelled, IJavaProject project) {
+        sending = false;
+        client.onSending = null;
+        if (getShell() == null || getShell().isDisposed()) return;
+        if (raw == null) {
+            if (closeWhenStopped) { cancelPressed(); return; }
+            if (cancelled) {   // "ביטול" בזמן השליחה — חוזרים לטופס, עם הקבצים
+                backToForm();
+                status("השליחה בוטלה.", false);
+            } else failed(err);
+            return;
+        }
+        if (monitor.isCanceled()) {   // התשובה הגיעה, אבל כבר ביקשו לעצור
+            if (closeWhenStopped) cancelPressed();
+            else {
+                backToForm();
+                status("השליחה בוטלה.", false);
+            }
+            return;
+        }
+        result = raw;
+        resultProject = project;
+        stages.set(2);
+        try {
+            IJavaProject jp = project != null ? project : ProjectSetup.createProject(newProjectName);
+            IContainer src = ProjectSetup.prepare(jp, Ui.resolver(getShell()));
+            build = new SubmitHandler.Build(client, raw, sourceNames(), jp, src);
+        } catch (CoreException e) {
+            failed("לא הצלחתי להכין את הפרויקט: " + e.getStatus().getMessage());
+            return;
+        }
+        building = true;
+        final SubmitHandler.Build b = build;
+        final Display d = getShell().getDisplay();
+        Thread t = new Thread(() -> {
+            String error = null;
+            boolean stopped = false;
+            try {
+                b.run(monitor);
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                Throwable c = e.getCause();
+                error = c != null && c.getMessage() != null ? c.getMessage() : e.getMessage();
+            } catch (InterruptedException | OperationCanceledException e) {
+                stopped = true;
+            } catch (RuntimeException e) {
+                error = e.toString();
+            }
+            final String fe = error;
+            final boolean fs = stopped || monitor.isCanceled();
+            d.asyncExec(() -> built(fe, fs));
+        }, "dsviz-build");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** הבנייה נגמרה: הכול ירוק, והחלון נסגר לבד (SubmitHandler פותח את הקובץ ומציג את ההודעה) */
+    private void built(String err, boolean stopped) {
+        building = false;
+        if (getShell() == null || getShell().isDisposed()) return;
+        if (stopped || closeWhenStopped) {   // בוטל באמצע — SubmitHandler פותח את מה שכבר נוצר
+            setReturnCode(CANCEL);
+            close();
+            return;
+        }
+        if (err != null) {
+            failed("לא הצלחתי ליצור את התרגיל: " + err);
+            return;
+        }
+        stages.finish();
+        cancelBtn.setEnabled(false);
+        getShell().getDisplay().timerExec(450, () -> {
+            if (getShell() == null || getShell().isDisposed()) return;
+            setReturnCode(OK);
+            close();
+        });
+    }
+
+    /** שגיאה: שורה אדומה אחת, והכפתור "נסו שוב" (שחוזר לטופס עם אותם קבצים) */
+    private void failed(String err) {
+        sending = false;
+        building = false;
+        build = null;
+        stages.fail();
+        buildTitle.setText("התרגיל לא נוצר");
+        show(buildHint, false);
+        buildError.setText(RtlText.rtl(err == null || err.isEmpty() ? "משהו השתבש. נסו שוב." : err));
+        show(buildError, true);
+        buttons("error");
+        fitHeight();
+    }
+
     private void cancel() {
-        if (sending) {
-            client.cancel();
+        if (sending || building) {
+            stop();
             return;
         }
         cancelPressed();
     }
 
-    /** "שולח... 12 שניות" — כל שנייה, כל עוד שולחים */
-    private void tick() {
-        if (!sending || progressLabel == null || progressLabel.isDisposed()) return;
-        long s = (System.currentTimeMillis() - sendStart) / 1000;
-        progressLabel.setText("שולח ל-Gemini ובונה את המעטפת…" + (s >= 2 ? " " + s + " שניות" : "") + "  (בדרך כלל 15–60 שניות)");
-        progressLabel.getParent().layout();
-        progressLabel.getDisplay().timerExec(1000, this::tick);
+    /** עוצר את מה שרץ: השליחה (או בקשת התיקון), והבנייה בנקודה הבאה שבודקת */
+    private void stop() {
+        monitor.setCanceled(true);
+        if (client != null) client.cancel();
+        if (cancelBtn != null && !cancelBtn.isDisposed()) cancelBtn.setEnabled(false);
     }
 
-    private void showProgress(boolean on) {
-        if (progressBox == null || progressBox.isDisposed()) return;
-        show(progressBox, on);
-        progressBox.getParent().layout(true, true);
+    /** חזרה מתצוגת הבנייה לטופס — עם כל הקבצים שצורפו */
+    private void backToForm() {
+        sending = false;
+        building = false;
+        build = null;
+        show(buildView, false);
+        show(form, true);
+        cancelBtn.setEnabled(true);
+        buttons("form");
+        refresh();
+        if (formSize != null) getShell().setSize(formSize);
+        getShell().layout(true, true);
+    }
+
+    // ------------------------------------------------------------------ תצוגת הבנייה
+
+    private void createBuildView(Composite area) {
+        Display d = area.getDisplay();
+        buildView = new Composite(area, SWT.NONE);
+        GridLayout bl = new GridLayout(1, false);
+        bl.marginWidth = 0;
+        bl.marginHeight = 0;
+        bl.verticalSpacing = 12;
+        buildView.setLayout(bl);
+        GridData bg = new GridData(SWT.FILL, SWT.FILL, true, true);
+        bg.widthHint = 560;
+        buildView.setLayoutData(bg);
+        buildView.setBackground(Look.color(d, Look.BG));
+
+        // פס דק בצבע ההדגשה — כמה מהעבודה כבר נעשתה (מימין לשמאל)
+        line = new Canvas(buildView, SWT.NO_FOCUS | SWT.DOUBLE_BUFFERED);
+        GridData lg = new GridData(SWT.FILL, SWT.TOP, true, false);
+        lg.heightHint = 3;
+        line.setLayoutData(lg);
+        line.addListener(SWT.Paint, e -> {
+            Point s = line.getSize();
+            e.gc.setBackground(Look.color(d, 0xE3E7EE));
+            e.gc.fillRectangle(0, 0, s.x, s.y);
+            e.gc.setBackground(Look.color(d, stages != null && stages.failed ? Look.ERR : Look.ACCENT));
+            e.gc.fillRectangle(0, 0, (int) Math.round(s.x * (stages == null ? 0 : stages.fraction())), s.y);
+        });
+
+        Composite head = new Composite(buildView, SWT.NONE);
+        GridLayout hl = new GridLayout(1, false);
+        hl.marginWidth = 0;
+        hl.marginHeight = 0;
+        hl.verticalSpacing = 2;
+        head.setLayout(hl);
+        head.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        buildTitle = new Label(head, SWT.NONE);
+        buildTitle.setText("בונה את התרגיל");
+        buildTitle.setFont(Look.font(d, 3, SWT.BOLD));
+        buildTitle.setData("dsviz.keepFont", Boolean.TRUE);
+        buildTitle.setForeground(Look.color(d, Look.TEXT));
+        buildTitle.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        buildHint = new Label(head, SWT.NONE);
+        buildHint.setText("בדרך כלל עד דקה.");
+        buildHint.setForeground(Look.color(d, Look.MUTED));
+        buildHint.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+
+        thumbs = new Composite(buildView, SWT.NONE);
+        RowLayout rl = new RowLayout(SWT.HORIZONTAL);
+        rl.wrap = true;
+        rl.spacing = 8;
+        rl.marginWidth = 0;
+        rl.marginHeight = 0;
+        thumbs.setLayout(rl);
+        thumbs.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+
+        Composite panel = Look.panel(buildView, Look.CARD, Look.BORDER, 8, 16, 12);
+        panel.getParent().setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        stages = new Stages(panel);
+
+        buildError = new Label(buildView, SWT.WRAP);
+        buildError.setForeground(Look.color(d, Look.ERR));
+        GridData eg = new GridData(SWT.FILL, SWT.TOP, true, false);
+        eg.widthHint = 540;
+        buildError.setLayoutData(eg);
+        show(buildError, false);
+    }
+
+    private void showBuildView() {
+        formSize = getShell().getSize();
+        for (Control c : thumbs.getChildren()) c.dispose();
+        for (ExerciseFiles.Item it : items) new Thumb(thumbs, it);
+        stages.reset();
+        buildTitle.setText("בונה את התרגיל");
+        show(buildHint, true);
+        show(buildError, false);
+        show(form, false);
+        show(buildView, true);
+        cancelBtn.setEnabled(true);
+        buttons("build");
+        Look.applyFont(buildView, -1);
+        fitHeight();
+        tick();
+    }
+
+    /** גובה החלון לפי התצוגה (הרוחב נשאר) */
+    private void fitHeight() {
+        Shell sh = getShell();
+        sh.layout(true, true);
+        Point need = sh.computeSize(sh.getSize().x, SWT.DEFAULT, true);
+        Rectangle screen = sh.getMonitor().getClientArea();
+        sh.setSize(sh.getSize().x, Math.min(need.y, screen.height - 60));
+        sh.layout(true, true);
+    }
+
+    /** כל רבע שנייה, כל עוד עובדים: השניות של השלב הנוכחי והפס הדק */
+    private void tick() {
+        if (!(sending || building) || stages == null || line.isDisposed()) return;
+        stages.update();
+        line.redraw();
+        line.getDisplay().timerExec(250, this::tick);
+    }
+
+    /** השלבים מ-subTask / beginTask של SubmitHandler.Build (ומבקשות התיקון — שורה קטנה באפור) */
+    void progress(String text) {
+        if (text == null || stages == null) return;
+        String t = text.trim();
+        if (t.isEmpty()) return;
+        if (t.startsWith("בונה את התרגיל")) stages.set(2);
+        else if (t.startsWith("בודק שהקוד מתקמפל")) stages.set(3);
+        else if (t.startsWith("בודק שההצעות לפתרון")) stages.set(4);
+        else if (t.contains("מבקש תיקון")) stages.sub("יש מה לתקן, מבקש תיקון…");
+        else if (t.startsWith("בודק שוב")) stages.sub("בודק שוב…");
+    }
+
+    /** מצב השלבים כטקסט (לבדיקות): "done done now pending pending" */
+    String stageReport() {
+        return stages == null ? "" : stages.report();
+    }
+
+    /** ההתקדמות של הבנייה — מעבירה את ה-subTask לחלון, ו"ביטול" עוצר אותה */
+    private final class Cancel extends NullProgressMonitor {
+        @Override
+        public void beginTask(String name, int totalWork) {
+            post(name);
+        }
+
+        @Override
+        public void subTask(String name) {
+            post(name);
+        }
+
+        @Override
+        public void setTaskName(String name) {
+            post(name);
+        }
+
+        private void post(final String text) {
+            Shell sh = getShell();
+            if (sh == null || sh.isDisposed() || text == null) return;
+            sh.getDisplay().asyncExec(() -> progress(text));
+        }
+    }
+
+    /** רשימת השלבים: בוצע — ✓ ירוק; עכשיו — נקודה כחולה, מודגש, והשניות; עוד לא — אפור */
+    private final class Stages {
+        final int[] state = new int[STAGES.length];   // 0 עוד לא, 1 עכשיו, 2 בוצע, 3 נכשל
+        final long[] start = new long[STAGES.length];
+        final Canvas[] dots = new Canvas[STAGES.length];
+        final Label[] texts = new Label[STAGES.length], times = new Label[STAGES.length], subs = new Label[STAGES.length];
+        boolean failed;
+
+        Stages(Composite parent) {
+            Display d = parent.getDisplay();
+            GridLayout gl = new GridLayout(3, false);
+            gl.marginWidth = 0;
+            gl.marginHeight = 0;
+            gl.horizontalSpacing = 10;
+            gl.verticalSpacing = 6;
+            parent.setLayout(gl);
+            for (int i = 0; i < STAGES.length; i++) {
+                final int k = i;
+                dots[i] = new Canvas(parent, SWT.NO_FOCUS | SWT.LEFT_TO_RIGHT | SWT.DOUBLE_BUFFERED);
+                GridData dg = new GridData(SWT.CENTER, SWT.CENTER, false, false);
+                dg.widthHint = 14;
+                dg.heightHint = 14;
+                dots[i].setLayoutData(dg);
+                dots[i].addListener(SWT.Paint, e -> dot(e.gc, d, state[k]));
+                texts[i] = new Label(parent, SWT.NONE);
+                texts[i].setText(STAGES[i]);
+                texts[i].setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+                times[i] = new Label(parent, SWT.NONE);
+                times[i].setForeground(Look.color(d, Look.MUTED));
+                GridData tg = new GridData(SWT.END, SWT.CENTER, false, false);
+                tg.widthHint = 60;
+                times[i].setLayoutData(tg);
+                subs[i] = new Label(parent, SWT.NONE);
+                subs[i].setForeground(Look.color(d, Look.MUTED));
+                GridData sg = new GridData(SWT.FILL, SWT.TOP, true, false);
+                sg.horizontalSpan = 3;
+                sg.horizontalIndent = 24;
+                subs[i].setLayoutData(sg);
+            }
+            reset();
+        }
+
+        void reset() {
+            failed = false;
+            for (int i = 0; i < STAGES.length; i++) {
+                state[i] = 0;
+                times[i].setText("");
+                subs[i].setText("");
+                show(subs[i], false);
+            }
+            paint();
+        }
+
+        int current() {
+            for (int i = 0; i < state.length; i++) if (state[i] == 1 || state[i] == 3) return i;
+            return -1;
+        }
+
+        /** עוברים לשלב i (רק קדימה): כל מה שלפניו — בוצע */
+        void set(int i) {
+            int cur = current();
+            if (failed || i < cur || i == cur) return;
+            for (int j = 0; j < i; j++) {
+                if (state[j] != 2) times[j].setText("");
+                state[j] = 2;
+            }
+            state[i] = 1;
+            start[i] = System.currentTimeMillis();
+            paint();
+        }
+
+        /** שורה קטנה באפור מתחת לשלב הנוכחי ("יש מה לתקן, מבקש תיקון…") */
+        void sub(String text) {
+            int cur = current();
+            if (cur < 0) return;
+            subs[cur].setText(text);
+            show(subs[cur], true);
+            fitHeight();
+        }
+
+        void finish() {
+            for (int i = 0; i < state.length; i++) {
+                state[i] = 2;
+                times[i].setText("");
+            }
+            paint();
+            line.redraw();
+        }
+
+        void fail() {
+            failed = true;
+            int cur = current();
+            if (cur >= 0) {
+                state[cur] = 3;
+                times[cur].setText("");
+            }
+            paint();
+            line.redraw();
+        }
+
+        void update() {
+            int cur = current();
+            if (cur < 0 || state[cur] != 1) return;
+            long sec = (System.currentTimeMillis() - start[cur]) / 1000;
+            String t = sec >= 1 ? sec + " שנ'" : "";
+            if (!t.equals(times[cur].getText())) {
+                times[cur].setText(t);
+                times[cur].getParent().layout();
+            }
+        }
+
+        /** כמה מהעבודה נעשתה (0..1) — לפס הדק */
+        double fraction() {
+            double f = 0;
+            for (int i = 0; i < state.length; i++) {
+                if (state[i] == 2) f += WEIGHT[i];
+                else if (state[i] == 1) f += WEIGHT[i] * 0.95 * (1 - Math.exp(-(System.currentTimeMillis() - start[i]) / 1000.0 / EXPECT[i]));
+                else if (state[i] == 3) f += WEIGHT[i] * 0.5;
+            }
+            return Math.min(1, f);
+        }
+
+        private void paint() {
+            Display d = dots[0].getDisplay();
+            for (int i = 0; i < STAGES.length; i++) {
+                texts[i].setFont(Look.font(d, -1, state[i] == 1 ? SWT.BOLD : SWT.NORMAL));
+                texts[i].setForeground(Look.color(d, state[i] == 0 ? 0x98A2B3 : state[i] == 3 ? Look.ERR : state[i] == 1 ? Look.TEXT : Look.INK2));
+                texts[i].setData("dsviz.keepFont", Boolean.TRUE);
+                dots[i].redraw();
+            }
+            dots[0].getParent().layout(true, true);
+        }
+
+        String report() {
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < state.length; i++) b.append(i > 0 ? " " : "").append(new String[] { "pending", "now", "done", "failed" }[state[i]]);
+            return b.toString();
+        }
+    }
+
+    /** הסימן של שלב: ✓ בעיגול ירוק (בוצע), נקודה כחולה (עכשיו), עיגול אפור ריק (עוד לא), ✕ אדום (נכשל) */
+    private static void dot(GC gc, Display d, int state) {
+        gc.setAntialias(SWT.ON);
+        if (state == 2 || state == 3) {
+            gc.setBackground(Look.color(d, state == 2 ? Look.OK : Look.ERR));
+            gc.fillOval(0, 0, 13, 13);
+            gc.setForeground(d.getSystemColor(SWT.COLOR_WHITE));
+            gc.setLineWidth(2);
+            gc.setLineCap(SWT.CAP_ROUND);
+            if (state == 2) gc.drawPolyline(new int[] { 3, 7, 5, 9, 10, 4 });
+            else { gc.drawLine(4, 4, 9, 9); gc.drawLine(9, 4, 4, 9); }
+            gc.setLineWidth(1);
+        } else if (state == 1) {
+            gc.setBackground(Look.color(d, Look.ACCENT));
+            gc.fillOval(2, 2, 10, 10);
+        } else {
+            gc.setForeground(Look.color(d, 0xB4BCC8));
+            gc.setLineWidth(2);
+            gc.drawOval(2, 2, 9, 9);
+            gc.setLineWidth(1);
+        }
+    }
+
+    /** תמונה ממוזערת של קובץ שצורף (בתצוגת הבנייה): התמונה עצמה, או סמל של מסמך (PDF / Word / טקסט) */
+    private final class Thumb extends Canvas {
+        static final int W = 84, H = 96, TH = 66;
+        private final ExerciseFiles.Item item;
+        private Image img;
+
+        Thumb(Composite parent, ExerciseFiles.Item item) {
+            super(parent, SWT.DOUBLE_BUFFERED | SWT.NO_FOCUS | SWT.LEFT_TO_RIGHT);
+            this.item = item;
+            setLayoutData(new RowData(W, H));
+            setToolTipText(item.name);
+            byte[] prev = item.kind.equals("image") ? item.preview() : null;
+            if (prev != null) {
+                try {
+                    ImageData id = new ImageLoader().load(new java.io.ByteArrayInputStream(prev))[0];
+                    double k = Math.min((W - 10.0) / id.width, (TH - 8.0) / id.height);
+                    int w = Math.max(1, (int) (id.width * k)), h = Math.max(1, (int) (id.height * k));
+                    Image full = new Image(getDisplay(), id);
+                    img = new Image(getDisplay(), w, h);
+                    GC g = new GC(img);
+                    g.setAntialias(SWT.ON);
+                    g.setInterpolation(SWT.HIGH);
+                    g.drawImage(full, 0, 0, id.width, id.height, 0, 0, w, h);
+                    g.dispose();
+                    full.dispose();
+                } catch (Exception ignored) {
+                    img = null;
+                }
+            }
+            addListener(SWT.Dispose, e -> { if (img != null) img.dispose(); });
+            addListener(SWT.Paint, e -> paint(e.gc));
+        }
+
+        private void paint(GC gc) {
+            Display d = getDisplay();
+            gc.setAntialias(SWT.ON);
+            gc.setBackground(getParent().getBackground());
+            gc.fillRectangle(0, 0, W, H);
+            gc.setBackground(Look.color(d, Look.CARD));
+            gc.fillRoundRectangle(0, 0, W - 1, TH, 12, 12);
+            gc.setForeground(Look.color(d, Look.BORDER));
+            gc.drawRoundRectangle(0, 0, W - 1, TH, 12, 12);
+            if (img != null) {
+                Rectangle b = img.getBounds();
+                gc.drawImage(img, (W - b.width) / 2, (TH - b.height) / 2 + 1);
+            } else {   // דף עם פינה מקופלת, ותווית בצבע של סוג הקובץ
+                int x = W / 2 - 17, y = 9, w = 34, h = 46, f = 10;
+                gc.setBackground(Look.color(d, Look.SURFACE));
+                gc.fillPolygon(new int[] { x, y, x + w - f, y, x + w, y + f, x + w, y + h, x, y + h });
+                gc.setForeground(Look.color(d, 0xB4BCC8));
+                gc.drawPolygon(new int[] { x, y, x + w - f, y, x + w, y + f, x + w, y + h, x, y + h });
+                gc.drawPolyline(new int[] { x + w - f, y, x + w - f, y + f, x + w, y + f });
+                int color = item.kind.equals("pdf") ? 0xE5484D : item.kind.equals("word") ? Look.ACCENT : 0x667085;
+                String label = item.kind.equals("pdf") ? "PDF" : item.kind.equals("word") ? "DOC" : "TXT";
+                gc.setFont(Look.font(d, -3, SWT.BOLD));
+                Point e = gc.textExtent(label);
+                gc.setBackground(Look.color(d, color));
+                gc.fillRoundRectangle(x - 4, y + h - 19, e.x + 8, e.y + 2, 4, 4);
+                gc.setForeground(d.getSystemColor(SWT.COLOR_WHITE));
+                gc.drawString(label, x, y + h - 18, true);
+            }
+            gc.setFont(Look.font(d, -2, SWT.NORMAL));
+            gc.setForeground(Look.color(d, Look.MUTED));
+            String n = item.name;
+            Point e = gc.textExtent(n);
+            while (e.x > W - 4 && n.length() > 3) { n = n.substring(0, n.length() - 2) + "…"; e = gc.textExtent(n); }
+            gc.drawString(n, (W - e.x) / 2, TH + 8, true);
+        }
     }
 
     private IJavaProject selectedProject() {
@@ -611,6 +1114,11 @@ public class SubmitDialog extends Dialog {
     /** התרגיל מהשרת (אחרי OK) */
     public Map<String, Object> exercise() {
         return result;
+    }
+
+    /** התרגיל שנבנה (אחרי OK; אחרי ביטול באמצע הבנייה — מה שכבר נוצר), או null */
+    SubmitHandler.Build build() {
+        return build;
     }
 
     /** שמות הקבצים שנשלחו (להערה בראש הקובץ) */

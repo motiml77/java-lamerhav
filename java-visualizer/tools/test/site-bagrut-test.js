@@ -197,7 +197,9 @@ async function docx() {
   const csParts = csReq.contents[0].parts.filter(p => typeof p.text === 'string').map(p => p.text);
   check(/חלק אחד/.test(csParts[0]) && !/לא בהכרח צורפו לפי הסדר/.test(csParts[0]) && !csParts.some(t => /^סוף החלקים/.test(t)), 'קובץ אחד — בלי אזהרת סדר ובלי תזכורת: ' + csParts[0].slice(0, 60));
   check(seen.exercise.language === 'csharp', 'השפה בתשובה: ' + seen.exercise.language);
-  const ce = S.read(seen.exercise), cpkg = S.folderName(ce.topic, new Set(), true);
+  // התרגיל השני באותו דפדפן מקבל מספר חדש (Ex02_...) — לא דורס את ex01_... כשפותחים את ה-ZIP באותו פרויקט
+  const ce = S.read(seen.exercise), cpkg = S.folderName(ce.topic, new Set([pkg]), true);
+  check(/^Ex02_/.test(cpkg), 'שם חדש לתרגיל השני: ' + cpkg);
   check(ce.cs, 'scaffold.js קרא את התשובה כ-C#');
   const cexpect = S.build(ce, cpkg, ['exam.pdf'], false);
   const ctabs = await page.$$eval('[data-tabs] button', b => b.map(x => x.textContent));

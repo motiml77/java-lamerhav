@@ -8,7 +8,6 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
@@ -24,6 +23,16 @@ import org.eclipse.ui.texteditor.ITextEditor;
 /** עזרי ממשק משותפים לפקודות */
 final class Ui {
     private Ui() {}
+
+    /** החלון שממנו הופעלה הפקודה; אם הוא כבר נסגר (או לא ידוע) — החלון של Eclipse */
+    static Shell shell(ExecutionEvent event) {
+        Shell s = HandlerUtil.getActiveShell(event);
+        if (s != null && !s.isDisposed()) return s;
+        org.eclipse.ui.IWorkbenchWindow w = HandlerUtil.getActiveWorkbenchWindow(event);
+        if (w == null) w = org.eclipse.ui.PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+        if (w == null && org.eclipse.ui.PlatformUI.getWorkbench().getWorkbenchWindowCount() > 0) w = org.eclipse.ui.PlatformUI.getWorkbench().getWorkbenchWindows()[0];
+        return w == null ? null : w.getShell();
+    }
 
     /** הקובץ שעובדים עליו עכשיו: העורך הפעיל, או מה שנבחר בעץ הקבצים */
     static IFile currentFile(ExecutionEvent event) {
@@ -54,10 +63,10 @@ final class Ui {
     static ProjectSetup.ConflictResolver resolver(final Shell shell) {
         return new ProjectSetup.ConflictResolver() {
             public boolean removeConflicts(List<String> names) {
-                return MessageDialog.openQuestion(shell, "ספרייה מתנגשת",
+                return Say.ask(shell, "ספרייה מתנגשת",
                         "ב-Build Path נמצאה ספריית unit4 נוספת: " + String.join(", ", names) + "\n"
                         + "היא תתנגש עם המעטפת הוויזואלית (שתי מחלקות Stack באותו שם).\n\n"
-                        + "להסיר אותה מה-Build Path? (הקובץ עצמו לא יימחק)");
+                        + "להסיר אותה מה-Build Path? (הקובץ עצמו לא יימחק)", "הסרה", "ביטול");
             }
         };
     }
@@ -77,6 +86,6 @@ final class Ui {
     }
 
     static void error(Shell shell, String what, CoreException e) {
-        MessageDialog.openError(shell, "מבני נתונים", what + "\n\n" + e.getStatus().getMessage());
+        Say.error(shell, "מבני נתונים", what + "\n\n" + e.getStatus().getMessage());
     }
 }

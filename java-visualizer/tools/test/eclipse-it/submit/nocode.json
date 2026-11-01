@@ -1,0 +1,22 @@
+{
+  "_scenario": "nocode",
+  "title": "שאלות הבנה",
+  "mainClass": "Theory",
+  "topic": "theory",
+  "imports": [],
+  "classes": [],
+  "tasks": [],
+  "givenCode": [],
+  "otherQuestions": [
+    {
+      "label": "ג",
+      "text": "מהי סיבוכיות זמן הריצה של הפעולה remove בתור? נמקו."
+    },
+    {
+      "label": "ד",
+      "text": "מה יודפס?\nQueue<Integer> q = new Queue<Integer>();\nq.insert(4);\nq.insert(7);\nSystem.out.println(q.remove() + q.head());\nהסבירו את התשובה."
+    }
+  ],
+  "mainCode": "System.out.println(\"שאלות הבנה\");",
+  "expectedOutput": ""
+}

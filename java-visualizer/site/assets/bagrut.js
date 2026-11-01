@@ -294,10 +294,25 @@
     return S.build(e, current.pkg, current.sources, withSol.checked);
   }
 
+  // שמות החבילות / הפרויקטים שכבר נוצרו בדפדפן הזה — כדי שתרגיל חדש יקבל שם אחר (ex02_..., Ex02_...) ולא ידרוס
+  // תרגיל קודם כשפותחים את ה-ZIP באותו פרויקט. נשמר רק אצל המשתמש (localStorage); בלי גישה — מתחילים מ-01.
+  var NAMES_KEY = 'dsviz.exerciseNames';
+  function usedNames() {
+    try { return new Set(JSON.parse(localStorage.getItem(NAMES_KEY) || '[]')); } catch (x) { return new Set(); }
+  }
+  function rememberName(name) {
+    try {
+      var list = Array.from(usedNames());
+      if (list.indexOf(name) < 0) list.push(name);
+      localStorage.setItem(NAMES_KEY, JSON.stringify(list.slice(-200)));
+    } catch (x) { /* בלי localStorage — לא נורא */ }
+  }
+
   function show(raw, sources) {
     var S = window.DSVizScaffold;
     var e = S.read(raw);
-    current = { exercise: e, sources: sources, pkg: S.folderName(e.topic, new Set(), e.cs) };
+    current = { exercise: e, sources: sources, pkg: S.folderName(e.topic, usedNames(), e.cs) };
+    rememberName(current.pkg);
     $('[data-title]').textContent = e.title || 'התרגיל';
     $('[data-summary]').textContent = e.summary || '';
     withSol.checked = false;

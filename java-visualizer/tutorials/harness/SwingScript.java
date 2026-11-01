@@ -36,6 +36,7 @@ import javax.swing.text.JTextComponent;
  *   SwingScript <script.txt> <out-dir> <main-class> [args...]
  * פקודות: shot <שם> · click <טקסט> · chip <טקסט> · check <חלק> · spin <מספר> · text <אינדקס> <ערך> · combo <אינדקס> <פריט>
  *         addfile <קובץ> · pasteimg <קובץ> · select <אינדקס> (ברשימה) · waitwin <חלק מהכותרת> · wait <ms> · close
+ *         progress <טקסט> (שליחת תרגיל: הודעה מהבנייה, כאילו הגיעה מהשרת — לצילום של תצוגת הבנייה)
  */
 public class SwingScript {
     static Window win;
@@ -176,6 +177,9 @@ public class SwingScript {
             case "pasteimg":
                 ((Consumer<File>) rp.getClientProperty("dsviz.pasteImage")).accept(new File(arg));
                 return 500;
+            case "progress":
+                ((Consumer<String>) rp.getClientProperty("dsviz.progress")).accept(arg);
+                return 300;
             case "select":
                 ((JList<?>) rp.getClientProperty("dsviz.list")).setSelectedIndex(Integer.parseInt(arg));
                 return 500;
@@ -193,6 +197,7 @@ public class SwingScript {
         if (k instanceof JToggleButton) return "Chip";
         if (k instanceof JButton) return "Round";
         if (k instanceof JTextComponent && ((JTextComponent) k).isEditable()) return "Text";
+        if (k instanceof JTextComponent && ((JComponent) k).getClientProperty("dsviz.label") != null) return "Label";   // טקסט של RtlDialog
         if (k instanceof JSpinner) return "Spinner";
         if (k instanceof JComboBox) return "Combo";
         if (k instanceof JList) return "List";

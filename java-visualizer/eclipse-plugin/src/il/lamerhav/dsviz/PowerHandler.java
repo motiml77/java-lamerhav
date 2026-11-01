@@ -8,8 +8,6 @@ import org.eclipse.core.resources.WorkspaceJob;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IViewReference;
 import org.eclipse.ui.IWorkbenchPage;
@@ -34,7 +32,7 @@ public class PowerHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) {
-        Shell shell = HandlerUtil.getActiveShell(event);
+        Shell shell = Ui.shell(event);
         boolean turnOff = Power.on();
         if (!ask(shell, turnOff)) return null;
         apply(!turnOff);
@@ -43,14 +41,8 @@ public class PowerHandler extends AbstractHandler {
 
     /** חלון ההסבר (מימין לשמאל): כיבוי / הפעלה, או ביטול */
     static boolean ask(Shell shell, boolean turnOff) {
-        MessageDialog d = new MessageDialog(shell, turnOff ? "כיבוי DSViz" : "הפעלת DSViz", null, turnOff ? OFF_TEXT : ON_TEXT,
-                MessageDialog.INFORMATION, 0, turnOff ? "כיבוי" : "הפעלה", "ביטול") {
-            @Override
-            protected int getShellStyle() {
-                return super.getShellStyle() | SWT.RIGHT_TO_LEFT;
-            }
-        };
-        return d.open() == 0;
+        return new Say(shell, turnOff ? Say.Kind.WARN : Say.Kind.QUESTION, turnOff ? "כיבוי DSViz" : "הפעלת DSViz")
+                .text(turnOff ? OFF_TEXT : ON_TEXT).buttons(turnOff ? "כיבוי" : "הפעלה", "ביטול").width(500).open() == 0;
     }
 
     /** מכבה / מפעיל: המצב נשמר, הכפתורים מתעדכנים, וההסברים בעברית מוסרים (או חוזרים) בבנייה מחדש */

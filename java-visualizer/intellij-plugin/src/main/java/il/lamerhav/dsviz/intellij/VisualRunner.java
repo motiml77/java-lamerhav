@@ -80,6 +80,24 @@ public final class VisualRunner {
         return null;
     }
 
+    /**
+     * main של התרגיל: בתרגיל של "שליחת תרגיל" הסעיפים יכולים להיות במחלקה אחת ו-main במחלקה אחרת באותה חבילה (Program.java).
+     * מחפשים בקבצים שבאותה תיקייה מחלקה עם main שמזכירה את המחלקה — בלי אינדקס, אז זה עובד גם מיד אחרי שהקבצים נוצרו.
+     * null — אין אחת כזאת בדיוק.
+     */
+    static PsiClass mainInPackage(PsiJavaFile file, PsiClass cls) {
+        com.intellij.psi.PsiDirectory dir = file.getContainingDirectory();
+        if (dir == null || cls.getName() == null) return null;
+        Pattern name = Pattern.compile("\\b" + Pattern.quote(cls.getName()) + "\\b");
+        List<PsiClass> found = new ArrayList<PsiClass>();
+        for (PsiFile f : dir.getFiles()) {
+            if (!(f instanceof PsiJavaFile) || f.equals(file)) continue;
+            PsiClass m = mainClassIn((PsiJavaFile) f);
+            if (m != null && name.matcher(f.getText()).find()) found.add(m);
+        }
+        return found.size() == 1 ? found.get(0) : null;
+    }
+
     /** המחלקות בפרויקט עם main שמשתמשות במחלקה (למחלקה בלי main — למשל מחלקה שהתלמיד כתב) */
     static List<PsiClass> mainsUsing(PsiClass cls) {
         Set<PsiClass> out = new LinkedHashSet<PsiClass>();
@@ -102,7 +120,8 @@ public final class VisualRunner {
                 Say.info(project, "בקובץ " + file.getName() + " אין מחלקה — אין מה להריץ.", TITLE);
                 return;
             }
-            List<PsiClass> users = mainsUsing(classes[0]);
+            main = mainInPackage(file, classes[0]);
+            List<PsiClass> users = main != null ? java.util.Collections.singletonList(main) : mainsUsing(classes[0]);
             if (users.size() == 1) main = users.get(0);
             else if (users.size() > 1) {
                 String[] names = new String[users.size()];
@@ -162,15 +181,53 @@ public final class VisualRunner {
         return mine;
     }
 
-    /** חלון אזהרה: יש שגיאות קומפילציה — לא מריצים. פותח את השגיאה הראשונה בעורך */
+    /**
+     * יש שגיאות קומפילציה — לא מריצים. בחלון שקופץ רק התראה קצרה ו"מעבר לשגיאה הראשונה";
+     * הפירוט — בחלון הצדדי Build (נפתח כאן בלי לקחת את הפוקוס מהעורך).
+     */
     static void warn(Project project, List<CompilerMessage> errors) {
-        StringBuilder b = new StringBuilder("יש " + errors.size() + (errors.size() == 1 ? " שגיאת קומפילציה" : " שגיאות קומפילציה")
-                + " — לכן לא מריצים את ההרצה הוויזואלית. מתקנים את השגיאות (מסומנות באדום בקוד) ומריצים שוב.\n");
-        for (int i = 0; i < errors.size() && i < 3; i++) b.append("\n").append(describe(errors.get(i))).append('\n');
-        if (errors.size() > 3) b.append("\nועוד ").append(errors.size() - 3).append(" — בחלון Build שבתחתית המסך.");
-        Navigatable nav = errors.get(0).getNavigatable();
-        if (nav != null && nav.canNavigate()) nav.navigate(true);
-        Say.error(project, b.toString(), TITLE + " — יש שגיאות בקוד");
+        List<Notice.Card> cards = new ArrayList<Notice.Card>();
+        for (CompilerMessage m : errors) cards.add(card(project, m));
+        showBuildWindow(project);
+        Notice.show(project, compileErrors(cards));
+    }
+
+    /** "יש 2 שגיאות בקוד" + שורה אחת, בלי כרטיסים — הפירוט בחלון Build */
+    static Notice.Spec compileErrors(List<Notice.Card> cards) {
+        int n = cards.size();
+        Notice.Spec s = new Notice.Spec(Modern.Kind.ERROR, TITLE, n == 1 ? "יש שגיאה בקוד" : "יש " + n + " שגיאות בקוד")
+                .buttons("מעבר לשגיאה הראשונה", "סגירה");
+        s.text = "מתקנים ומריצים שוב. הפירוט בחלון Build בצד.";
+        s.onPrimary = n == 0 ? null : cards.get(0).go;
+        s.width = 400;
+        return s;
+    }
+
+    /** פותח את חלון Build (רשימת השגיאות) בלי לקחת את הפוקוס */
+    static void showBuildWindow(Project project) {
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (project.isDisposed()) return;
+            com.intellij.openapi.wm.ToolWindow w = com.intellij.openapi.wm.ToolWindowManager.getInstance(project).getToolWindow("Build");
+            if (w != null) w.show(null);
+        });
+    }
+
+    /** כרטיס לשגיאה: "Button.java · שורה 42", ההסבר בעברית, והשורה מהקוד */
+    static Notice.Card card(Project project, CompilerMessage m) {
+        VirtualFile f = m.getVirtualFile();
+        Navigatable nav = m.getNavigatable();
+        int line = nav instanceof OpenFileDescriptor ? ((OpenFileDescriptor) nav).getLine() : -1;
+        String where = (f == null ? "" : f.getName()) + (line >= 0 ? (f == null ? "" : " · ") + "שורה " + (line + 1) : "");
+        String code = "";
+        if (f != null && line >= 0) {
+            code = ReadAction.compute(() -> {
+                Document d = FileDocumentManager.getInstance().getDocument(f);
+                if (d == null || line >= d.getLineCount()) return "";
+                return d.getText(new com.intellij.openapi.util.TextRange(d.getLineStartOffset(line), d.getLineEndOffset(line))).trim();
+            });
+        }
+        Runnable go = nav != null ? () -> { if (nav.canNavigate()) nav.navigate(true); } : null;
+        return new Notice.Card(where, JavacHebrew.translate(m.getMessage()), code, go);
     }
 
     static String describe(CompilerMessage m) {

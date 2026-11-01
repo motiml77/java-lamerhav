@@ -1,0 +1,30 @@
+{
+  "_scenario": "broken",
+  "title": "מחסנית — סכום",
+  "mainClass": "SumTargil",
+  "topic": "stack_sum",
+  "imports": [],
+  "classes": [],
+  "tasks": [
+    {
+      "label": "א",
+      "kind": "method",
+      "className": "SumTargil",
+      "isStatic": true,
+      "returnType": "int",
+      "methodName": "sum",
+      "parameters": [
+        {
+          "type": "Stack<Integer>",
+          "name": "s"
+        }
+      ],
+      "instructions": "סכום האיברים במחסנית.",
+      "solution": ""
+    }
+  ],
+  "givenCode": [],
+  "otherQuestions": [],
+  "mainCode": "Stack<Integer> s = new Stack<Integer>();\ns.push(3);\nSystem.out.println(sum(s) + total);\nint x = \"שלוש\";",
+  "expectedOutput": ""
+}

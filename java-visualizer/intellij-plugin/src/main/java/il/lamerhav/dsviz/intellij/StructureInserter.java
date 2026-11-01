@@ -90,7 +90,7 @@ public final class StructureInserter {
     static void showClassInfo(Project project, String cls) {
         ClassInfo.Info info = cls == null ? null : ClassInfo.ALL.get(cls);
         if (info == null) return;
-        StringBuilder b = new StringBuilder("<div dir='rtl'>").append(esc(info.intro)).append("<br><b>יצירה:</b><br>");
+        StringBuilder b = new StringBuilder("<div dir='rtl' style='text-align:right'>\u200F").append(esc(info.intro)).append("<br><b>יצירה:</b><br>");
         for (String[] c : info.creators) b.append("<code>").append(esc(c[0])).append("</code> — ").append(esc(c[1])).append("<br>");
         b.append("<b>פעולות:</b><br>");
         for (String[] m : info.methods) b.append("<code>").append(esc(m[0])).append("</code> — ").append(esc(m[1])).append("<br>");

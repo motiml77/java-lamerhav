@@ -1,6 +1,7 @@
 #!/bin/sh
 # בדיקה של "המורה בעברית" בתוך Eclipse אמיתי: מתקינים את התוסף, בונים פרויקט עם קוד של תלמידים,
-# ובודקים את הסימונים (Problems), את ההסברים בזמן הכתיבה (reconcile) ואת הכיבוי מהתפריט; ואת "הצעה לפתרון" (Sol.java).
+# ובודקים את הסימונים (Problems), את ההסברים בזמן הכתיבה (reconcile) ואת הכיבוי מהתפריט; ואת "הצעה לפתרון" (Sol.java);
+# ו"שליחת תרגיל" מקצה לקצה מול שרת מדומה (Sub.java): תצוגת הבנייה, ההודעה בפינה, "כאן עונים" בעורך, וחלונות ההודעה (Say) מימין לשמאל.
 # לא חלק מ-run-tests.sh (צריך Eclipse — כ-380MB). להריץ אחרי tools/build-all.sh:
 #   sh tools/test/eclipse-it/run.sh [תיקיית eclipse]
 # צילומי המסך (SHOT=1) ו"הצעה לפתרון" רצים ב-xvfb-run; עם XD=:99 — על מסך X קיים (כמו ב-tutorials/viewer.sh)
@@ -87,4 +88,43 @@ for k in "STATUS ok" "ERRORS \[\]" "STUDENT-CODE-HAS-SOLUTION false" "STORE solu
          "MINING removeAll( line=11 indent=[1-9]" "MINING void main( line=24 indent=0" "CLICK-DIALOG true" "DIALOG-RTL true code-ltr=true" "MENU-DIALOG true public static void removeAll"; do
     grep -q -- "$k" "$SOL" 2>/dev/null && echo "  ok  הצעה לפתרון: $k" || { echo "  FAIL הצעה לפתרון: $k"; FAILED=1; }
 done
+# "שליחת תרגיל" מקצה לקצה (צריך xvfb-run ו-node): שרת מדומה עם תרחישים (submit/*.json, לפי "scenario:" בהערה), תצוגת הבנייה באותו
+# חלון, ההודעה הקטנה בפינה (בלי חלון מודאלי) והחלונית "הצגה", הלשונית של main ליד הסעיף, הסימון הצהוב של "כאן עונים",
+# והחלון החדש של שגיאות קומפילציה — כל חלון הודעה מימין לשמאל. הצילומים: SUBMIT_SHOTS=<תיקייה> (ברירת מחדל: $B/sub)
+if command -v node >/dev/null 2>&1; then
+    rm -rf "$B/sub" "$B/ws-sub" && mkdir -p "$B/sub"
+    SHOTS="${SUBMIT_SHOTS:-$B/sub}"
+    PORT="${SUBMIT_PORT:-8813}"
+    MOCK_DELAY_MS=3000 MOCK_REPAIR_DELAY_MS=4000 node "$ROOT/tools/test/submit/mock-worker.js" "$PORT" "$(pwd)/submit" "$B/sub/mock.log" & MOCKP=$!
+    XSCREEN=1500x1000x24 xrun timeout 480 java -Dfile.encoding=UTF-8 -Ddsviz.worker="http://127.0.0.1:$PORT" -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar \
+        -nosplash -clean -consoleLog -data "$B/ws-sub" -application il.lamerhav.dsviz.it.submit "$B/sub/out.txt" "$SHOTS" "$ROOT/tools/test/ai/files" > "$B/sub/eclipse.log" 2>&1 || true
+    kill $MOCKP 2>/dev/null || true
+    rm -rf "$B/ws-sub"
+    SUB="$B/sub/out.txt"
+    for k in "BUILD-SENDING stages=\[done now pending pending pending\] rtl=true buttons=ביטול " \
+             "TOAST-WORDS kind=done rtl=true modal=false corner=bottom-left text=התרגיל נוצר / 3 סעיפים · הסמן בסעיף א / ex01_buttons / סעיף ד: עונים במילים / הצגה / ליד כל סעיף — הצעה לפתרון$" \
+             "FOCUS-AFTER-TOAST toast-focus=false no-focus-style=true" "ACTIVE-EDITOR Button.java" "TABS .*\(Program.java \[Button.java\]\|\[Button.java\] Program.java\)" \
+             "POPOVER true rtl=true code-ltr-mono=[1-9]" "POPOVER-CLOSED-WITH-TOAST true" \
+             "HIGHLIGHT-BEFORE Button.java \[[0-9]*-[0-9]*, [0-9]*-[0-9]*\]" "HIGHLIGHT-AFTER Button.java \[[0-9]*-[0-9]*\]$" \
+             "SAY-RUN-ERRORS kind=ERROR rtl=true title=הרצה ויזואלית buttons=מעבר לשגיאה הראשונה+סגירה text=יש 2 שגיאות בקוד" \
+             "RUN-ERRORS-JUMP closed=true" "RUN-ERRORS-CODE $" "RUN-ERRORS-SIDE il.lamerhav.dsviz.mentorView" \
+             "TOAST-NOWORDS kind=done rtl=true modal=false corner=bottom-left text=התרגיל נוצר / 3 סעיפים · הסמן בסעיף א / ex02_buttons / ליד כל סעיף — הצעה לפתרון$" \
+             "FOLDERS ex01_buttons ex02_buttons$" "RUN-MAIN ex02_buttons.Program$" \
+             "BUILD-REPAIR stages=\[done done done now pending\]" "BUILD-REPAIR-SUB true" \
+             "TOAST-BROKEN kind=warn rtl=true modal=false corner=bottom-left text=התרגיל נוצר · יש [0-9]* שגיאות קומפילציה / סעיף אחד · הסמן בסעיף א / ex03_stack_sum / מסומנות באדום בקוד / הצגה$" \
+             "ERRORS-JUMP SumTargil.java:[0-9]* System.out.println(sum(s) + total);" \
+             "TOAST-NOCODE kind=done rtl=true modal=false corner=bottom-left text=התרגיל נוצר / בתרגיל אין סעיפים בקוד / ex04_theory / סעיפים ג, ד: עונים במילים / הצגה$" \
+             "POPOVER-NOCODE true code-ltr-mono=[1-9]" \
+             "BUILD-ERROR stages=\[done failed pending pending pending\] rtl=true buttons=נסו שוב+סגירה text=.*השרת עמוס כרגע" \
+             "RETRY form=true items=2 buttons=.*שליחה ויצירת התרגיל+ביטול$" \
+             "SAY-POWER kind=WARN rtl=true title=כיבוי DSViz buttons=כיבוי+ביטול" "POWER-STILL-ON true" "SAY-SOLUTION-NONE kind=INFO rtl=true" "^DONE"; do
+        grep -q -- "$k" "$SUB" 2>/dev/null && echo "  ok  שליחת תרגיל: ${k%% *}" || { echo "  FAIL שליחת תרגיל: $k"; FAILED=1; }
+    done
+    # בלי הודעה באנגלית כשיש תרגום (This method must return...), ובלי חלון מודאלי אחרי שהתרגיל נוצר
+    grep "^SAY-RUN-ERRORS" "$SUB" 2>/dev/null | grep -q "This method\|must return" && { echo "  FAIL הרצה ויזואלית: הודעה באנגלית"; FAILED=1; } || echo "  ok  הרצה ויזואלית: השגיאות בעברית"
+    grep -q "^WAIT-SHELL timeout" "$SUB" 2>/dev/null && { echo "  FAIL שליחת תרגיל: חלון שלא הופיע"; FAILED=1; }
+    echo "  צילומים: $SHOTS"
+else
+    echo "  (אין node — מדלגים על שליחת תרגיל מקצה לקצה)"
+fi
 exit $FAILED
