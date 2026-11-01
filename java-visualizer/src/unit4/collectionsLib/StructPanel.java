@@ -679,11 +679,20 @@ final class StructPanel extends JPanel {
         }
         // תור / מחסנית: מה נשאר בהם (הראש ראשון)
         if (!v.structItems.isEmpty()) {
-            int sx = x + 16, top = cy + 4;
+            int sx = x + 16, top = cy + 4, qx = sx, maxX = x + w - 18;
+            // רוחב התא לפי הטקסט (מחרוזות ארוכות כמו "חיי שרה" לא עולות זו על זו); מה שלא נכנס בכרטיס — "…"
             for (int i = 0; i < v.structItems.size(); i++) {
-                box(g, sx + i * 34, top, 32, 26, i == 0 ? READ_C : BOX, null, false);
+                String s = v.structItems.get(i);
+                int qw = Math.max(32, textWidth(s, SMALL) + 14);
+                if (i > 0 && qx + qw > maxX) {
+                    g.setColor(MUTED);
+                    center(g, "…", SMALL, qx + 10, top + 13);
+                    break;
+                }
+                box(g, qx, top, qw, 26, i == 0 ? READ_C : BOX, null, false);
                 g.setColor(INK);
-                center(g, v.structItems.get(i), SMALL, sx + i * 34 + 16, top + 13);
+                center(g, s, SMALL, qx + qw / 2, top + 13);
+                qx += qw + 2;
             }
             g.setColor(MUTED);
             g.setFont(SMALL);

@@ -45,6 +45,9 @@ info "macOS $(sw_vers -productVersion) $(uname -m), $(spctl --status 2>&1)"
 # תלמיד כבר פתח את Eclipse ואת VS Code לפחות פעם אחת (אישר "הורד מהאינטרנט") — Homebrew משאיר אותם עם quarantine
 xattr -dr com.apple.quarantine "$ECL_APP" "/Applications/Visual Studio Code.app" 2>/dev/null
 shot 00-desktop
+# VSCodium מדומה ב-~/Applications (סקריפט שרושם את הפקודות): ההתקנה מתקינה את התוסף גם בגרסאות אחרות של VS Code
+FAKE="$HOME/Applications/VSCodium.app/Contents/Resources/app/bin"; mkdir -p "$FAKE"
+printf '#!/bin/sh\necho "$@" >> "%s"\n' "$OUT/logs/fake-codium.txt" > "$FAKE/codium"; chmod +x "$FAKE/codium"
 
 sec "1. התקנה כמו תלמיד: curl -fsSL .../install.sh | bash  (ערוץ $CHANNEL)"
 curl -fsSL "$URL" | DSVIZ_CHANNEL="$CHANNEL" DSVIZ_LANG=both bash > "$OUT/logs/install-1.log" 2>&1
@@ -61,6 +64,7 @@ check "תיקיית התרגילים Java (Main.java, lib/dsviz.jar, .project)" 
 check "תיקיית התרגילים C# (sln, lib/Unit4.CollectionsLib.dll)" test -f "$HOME/Documents/DataStructures-CS/DataStructures-CS.sln" -a -f "$HOME/Documents/DataStructures-CS/lib/Unit4.CollectionsLib.dll"
 check "DSViz.targets ב-ImportAfter של MSBuild (Mac)" test -f "$HOME/Library/Application Support/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter/DSViz.targets"
 check "update.sh / uninstall.sh בהתקנה" test -x "$APP/update.sh" -a -x "$APP/uninstall.sh"
+check "VSCodium (מדומה): התוסף הותקן גם בו (--install-extension dsviz-*.vsix)" grep -q -- '--install-extension .*dsviz-.*\.vsix --force' "$OUT/logs/fake-codium.txt"
 
 sec "2. Java 21 שבהתקנה"
 "$J/java" -version > "$OUT/logs/java-version.txt" 2>&1; "$J/javac" -version >> "$OUT/logs/java-version.txt" 2>&1
@@ -254,6 +258,8 @@ check "uninstall.sh: התיקייה נמחקה" test ! -e "$APP"
 check "uninstall.sh: ~/.dsviz/jdk-path.txt נמחק" test ! -e "$HOME/.dsviz/jdk-path.txt"
 check "uninstall.sh: התוסף הוסר מ-VS Code" sh -c "! '$CODE' --list-extensions | grep -qi lamerhav.dsviz"
 check "uninstall.sh: התוסף הוסר מ-Eclipse (p2)" sh -c "! grep -q '^il.lamerhav.dsviz,' '$INFO'"
+check "uninstall.sh: התוסף הוסר גם מ-VSCodium (מדומה)" grep -q -- '--uninstall-extension lamerhav.dsviz' "$OUT/logs/fake-codium.txt"
+rm -rf "$HOME/Applications/VSCodium.app"
 check "uninstall.sh: DSViz.targets הוסר" test ! -e "$HOME/Library/Application Support/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter/DSViz.targets"
 check "uninstall.sh: תיקיות התרגילים נשארו (העבודה של התלמיד)" test -f "$HOME/Documents/DataStructures/src/MyWork.java" -a -d "$HOME/Documents/DataStructures-CS"
 

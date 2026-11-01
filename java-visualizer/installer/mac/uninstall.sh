@@ -34,6 +34,11 @@ for c in "$(command -v code 2>/dev/null)" "/Applications/Visual Studio Code.app/
     fi
     break
 done
+# VS Code Insiders / VSCodium / Cursor (נרשמו ב-vscode-forks.txt בהתקנה)
+while IFS= read -r c; do
+    [ -n "$c" ] && [ -x "$c" ] || continue
+    with_timeout 120 "$c" --uninstall-extension lamerhav.dsviz >/dev/null 2>&1 && ok "${c%%.app/*}: התוסף הוסר" "Extension removed ($c)"
+done < <(cat "$APP/vscode-forks.txt" 2>/dev/null)
 
 # ---- Eclipse: כל מקום שבו התוסף רשום (eclipse.txt), וגם כל Eclipse שנמצא בו התוסף (מהתקנה ישנה / ידנית)
 ECLS=$( { cut -d'|' -f1 "$APP/eclipse.txt" 2>/dev/null

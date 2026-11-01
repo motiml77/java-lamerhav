@@ -405,6 +405,10 @@ echo "== 9א. האתר בונה את הקוד כמו Eclipse: site/assets/scaffo
 node scaffold-parity.js "$W/parity" > "$W/parity.txt" 2>&1 && echo "  ok  $(grep -c '^ *ok' "$W/parity.txt") השוואות זהות" || { cat "$W/parity.txt"; exit 1; }
 echo "== 9ב. האתר: שאלת בגרות לקוד (בדפדפן, מול קוד השרת) ומונה ההורדות"
 node site-bagrut-test.js "$W" > "$W/site.txt" 2>&1 && grep -E '^  (ok|FAIL)|עברו' "$W/site.txt" || { cat "$W/site.txt"; exit 1; }
+echo "== 9ג. האתר: כל העמודים — קישורים, alt / meta / og, בלי גלילה הצידה (1366 ו-390), בלי שגיאות, כפתור ההורדה לפי מערכת ההפעלה, ספירה ותרומה"
+node site-check.js "$W/site-check" > "$W/site-check.txt" 2>&1 && grep -E '^  (ok|FAIL)|עברו|מדלגים' "$W/site-check.txt" || { cat "$W/site-check.txt"; exit 1; }
+echo "== 9ד. ההתקנות: VS Code Insiders / VSCodium / Cursor ב-Mac (אפליקציות מדומות) וב-Windows, ו-setup.nsi מתקמפל (makensis)"
+bash installer-test.sh "$W" || exit 1
 
 echo "== 10. המורה בעברית (Eclipse): תרגום כל הודעות הקומפיילר, מיקום מדויק של הבעיה, ואזהרות על טעויות נפוצות"
 DEPS="$(cd ../../build/eclipse-deps && pwd)"

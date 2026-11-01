@@ -93,6 +93,7 @@ function activate(context) {
 
     openPending();
     firstRun();
+    autoLibrary(context);
     // Mac: עדכון אוטומטי (פעם ביום, ברקע — update.sh של ההתקנה). דקה אחרי הפתיחה, כדי לא להאט את VS Code
     if (runner.MAC) {
         const t = setTimeout(() => runner.startMacUpdater(), 60000);
@@ -115,6 +116,37 @@ async function openProject() {
         const root = await chooseRoot();
         if (root) await examples();
     }
+}
+
+/**
+ * ספריית הקורס בכל תיקייה (כמו LibraryEverywhere ב-Eclipse): תיקייה שיש בה קוד Java שמשתמש ב-Stack / Queue / Node / BinNode
+ * של הקורס, והספרייה לא מוגדרת בה — מקבלת lib/dsviz.jar וההפניה אליו (‎.classpath או .vscode/settings.json), בלי לבקש.
+ * בפתיחה, כשנוספת תיקייה, וכששומרים קובץ Java (פעם אחת לכל תיקייה). לא נוגעים ב-Maven / Gradle ובפרויקט עם ספריית unit4 אחרת
+ */
+function autoLibrary(context) {
+    const done = new Set();
+    const jar = path.join(ctx.extensionPath, 'resources', project.JAR_NAME);
+    const check = root => {
+        if (!root || done.has(root)) return;
+        try {
+            if (!project.needsLibrary(root)) return;
+            done.add(root);
+            project.setup(root, jar, { libOnly: true });
+            if (vscode.window.setStatusBarMessage) vscode.window.setStatusBarMessage('מבני נתונים: ספריית הקורס נוספה לפרויקט (lib/' + project.JAR_NAME + ')', 8000);
+            output.appendLine('ספריית הקורס (unit4.collectionsLib) נוספה ל-' + root);
+        } catch (e) {
+            output.appendLine('הוספת ספריית הקורס נכשלה ב-' + root + ': ' + e.message);
+        }
+    };
+    const all = () => (vscode.workspace.workspaceFolders || []).forEach(f => check(f.uri.fsPath));
+    all();
+    const ws = vscode.workspace;
+    if (ws.onDidChangeWorkspaceFolders) context.subscriptions.push(ws.onDidChangeWorkspaceFolders(all));
+    if (ws.onDidSaveTextDocument) context.subscriptions.push(ws.onDidSaveTextDocument(doc => {
+        if (doc.languageId !== 'java' && !/\.java$/.test(doc.fileName || '')) return;
+        const f = ws.getWorkspaceFolder && doc.uri && ws.getWorkspaceFolder(doc.uri);
+        if (f) check(f.uri.fsPath);
+    }));
 }
 
 /** פעם ראשונה אחרי ההתקנה, בלי תיקייה פתוחה: מציעים לפתוח את תיקיית התרגילים */

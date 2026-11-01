@@ -4,209 +4,293 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DSViz: רואים מה הקוד עושה</title>
-<meta name="description" content="תוסף ל-Eclipse, ל-VS&nbsp;Code ול-Visual&nbsp;Studio שמריץ תרגיל במבני נתונים שורה אחרי שורה ומצייר כל מחסנית, תור, רשימה ועץ. הסברים בעברית לשגיאות, ותרגיל מוכן מדף הבחינה.">
-<meta name="theme-color" content="#F1F3F7">
+<meta name="description" content="תוסף ל-Eclipse, ל-VS&nbsp;Code, ל-Visual&nbsp;Studio ול-IntelliJ שמריץ תרגיל במבני נתונים שורה אחרי שורה ומצייר כל מחסנית, תור, רשימה ועץ. הסברים בעברית לשגיאות, ותרגיל מוכן מדף הבחינה.">
+<meta name="theme-color" content="#FAFAFB">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="he_IL">
+<meta property="og:site_name" content="DSViz">
 <meta property="og:title" content="DSViz: רואים מה הקוד עושה">
 <meta property="og:description" content="מבני נתונים ב-Java וב-C#, שורה אחרי שורה, עם ציור של כל מחסנית, תור, רשימה ועץ.">
+<meta property="og:url" content="https://motiml77.github.io/java-lamerhav/">
 <meta property="og:image" content="https://motiml77.github.io/java-lamerhav/assets/og.png">
 <link rel="canonical" href="https://motiml77.github.io/java-lamerhav/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>!function(d){var q=/[?&]os=(mac|win|other)\b/.exec(location.search),n=navigator,p=(n.userAgentData&&n.userAgentData.platform)||n.platform||"";d.setAttribute("data-os",q?q[1]:/mac/i.test(p)&&!(n.maxTouchPoints>1)?"mac":/win/i.test(p)||/Windows/.test(n.userAgent)?"win":"other");d.className+=" js"}(document.documentElement)</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
 <a class="skip" href="#main">דילוג לתוכן</a>
 
 <header class="bar">
-  <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
-    DSViz
-  </a>
-  <nav aria-label="ניווט בעמוד">
-    <a href="#run">הרצה ויזואלית</a>
-    <a href="#errors">הסברים בעברית</a>
-    <a href="bagrut.html">שאלת בגרות לקוד</a>
-    <a href="#teachers">למורים</a>
-    <a href="#install">התקנה</a>
-  </nav>
-  <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" height="36"></a>
-  <a class="btn small" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+  <div class="wrap bar-in">
+    <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
+      DSViz
+    </a>
+    <nav aria-label="ניווט באתר">
+      <a href="#run">הרצה ויזואלית</a>
+      <a href="#errors">הסברים בעברית</a>
+      <a href="bagrut.html">שאלת בגרות לקוד</a>
+      <a href="install.html">התקנה</a>
+    </nav>
+    <div class="bar-end">
+      <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="180" height="34"></a>
+      <a class="btn btn-sm dl-win" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+      <a class="btn btn-sm dl-mac" href="install.html#mac">התקנה ל-Mac</a>
+    </div>
+  </div>
 </header>
 
 <main id="main">
 
 <section class="hero" aria-labelledby="h-hero">
-  <div class="hero-text">
-    <h1 id="h-hero">רואים מה<br>הקוד עושה</h1>
-    <p class="lead">תוסף <span class="nw">ל-Eclipse</span>, <span class="nw">ל-VS Code</span> <span class="nw">ול-Visual Studio</span> שמריץ תרגיל במבני נתונים שורה אחרי שורה, ומצייר בזמן הריצה כל מחסנית, תור, רשימה ועץ.</p>
-    <p class="cta">
-      <a class="btn" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה ל-Windows</a>
-      <span class="note">קובץ התקנה אחד, 86 מגה. Java כבר בפנים, ואת Eclipse ההתקנה מוצאת לבד. <a href="#install">יש לכם Mac או Linux?</a></span>
-      <span class="count" data-downloads hidden></span>
-    </p>
-  </div>
-
-  <div class="demo" data-demo data-ui tabindex="0" aria-label="הדגמה: ההרצה של הפעולה countEven, צעד אחרי צעד">
-    <div class="demo-top">
-      <div class="demo-nav">
-        <button type="button" data-prev>הקודם</button>
-        <button type="button" class="go" data-next>הבא</button>
+  <div class="wrap hero-grid">
+    <div class="hero-text">
+      <h1 id="h-hero">רואים מה הקוד עושה,<br>שורה אחרי שורה</h1>
+      <p class="lead">תוסף <span class="nw">ל-Eclipse</span>, <span class="nw">ל-VS Code</span>, <span class="nw">ל-Visual Studio</span> <span class="nw">ול-IntelliJ</span> שמריץ תרגיל במבני נתונים ומצייר בזמן הריצה כל מחסנית, תור, רשימה ועץ. בשביל תלמידי מדעי המחשב שלומדים לבגרות <span class="nw">ב-Java</span> או <span class="nw">ב-C#</span>.</p>
+      <div class="get" data-get>
+        <div class="get-win">
+          <a class="btn btn-primary" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5v9m0 0L4.5 7M8 10.5 11.5 7M2.5 13.5h11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            הורדה ל-Windows
+          </a>
+          <span class="get-meta">DSViz-Setup.exe · 84 MB</span>
+        </div>
+        <div class="get-mac" data-cmd-box>
+          <p class="get-label">ב-Mac מדביקים את השורה הזו ב-Terminal:</p>
+          <div class="cmd"><code data-cmd>curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash</code><button type="button" class="copy" data-copy-cmd>העתקה</button></div>
+        </div>
+        <p class="get-alt">
+          <span class="alt-mac">יש לכם Mac? <a href="install.html#mac">שורת ההתקנה ל-Terminal</a>.</span>
+          <span class="alt-win">יש לכם Windows? <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדת DSViz-Setup.exe</a>.</span>
+          <a href="install.html">ההתקנה לכל סביבה</a>
+        </p>
+        <span class="count" data-downloads hidden></span>
       </div>
-      <input type="range" min="0" max="31" value="0" data-range aria-label="מעבר בין הצעדים">
-      <span class="demo-count" data-count>צעד 1 מתוך 32</span>
+      <ul class="specs" aria-label="דרישות">
+        <li>Windows 10/11</li>
+        <li>macOS 12 ומעלה</li>
+        <li>Java 21 בפנים</li>
+        <li>חינם</li>
+      </ul>
     </div>
-    <p class="demo-said" data-said aria-live="polite">שורה 1: הפעולה קיבלה מחסנית: 4 בראש, 9 בתחתית</p>
-    <div class="demo-body">
-      <div class="demo-code" data-code dir="ltr"></div>
-      <div class="demo-side">
-        <div class="demo-stacks" data-stacks></div>
-        <table class="demo-vars" aria-label="המשתנים"><tbody data-vars></tbody></table>
+
+    <div>
+      <div class="win demo" data-demo data-ui tabindex="0" aria-label="הדגמה: ההרצה של הפעולה countEven, צעד אחרי צעד">
+        <div class="win-title"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="file">StackTargil.java</span><span>הרצה ויזואלית</span></div>
+        <div class="demo-top">
+          <div class="demo-nav">
+            <button type="button" data-prev>הקודם</button>
+            <button type="button" class="go" data-next>הבא</button>
+          </div>
+          <input type="range" min="0" max="31" value="0" data-range aria-label="מעבר בין הצעדים">
+          <span class="demo-count" data-count>צעד 1 מתוך 32</span>
+        </div>
+        <p class="demo-said" data-said aria-live="polite">שורה 1: הפעולה קיבלה מחסנית: 4 בראש, 9 בתחתית</p>
+        <div class="demo-body">
+          <div class="demo-code" data-code dir="ltr"></div>
+          <div class="demo-side">
+            <div class="demo-stacks" data-stacks></div>
+            <table class="demo-vars" aria-label="המשתנים"><tbody data-vars></tbody></table>
+          </div>
+        </div>
+        <noscript><img src="assets/img/stack.webp" alt="חלון ההרצה: הפעולה removeAll מוציאה איברים ממחסנית אל מחסנית עזר" width="1280" height="736"></noscript>
+      </div>
+      <p class="demo-hint">הפעולה countEven מתרגיל אמיתי: סופרת את הזוגיים במחסנית בעזרת מחסנית עזר, ומחזירה את המחסנית למצבה. "הבא" או גרירה של הפס; במקלדת, החצים.</p>
+    </div>
+  </div>
+</section>
+
+<section id="run" class="section" aria-labelledby="h-run">
+  <div class="wrap">
+    <div class="head">
+      <h2 id="h-run">כל צעד על המסך</h2>
+      <p>כותבים פעולה רגילה ולוחצים על <b>הרצה ויזואלית</b>. נפתח חלון עם השורה שרצה עכשיו, כל המשתנים וערכיהם, והמבנים עצמם: מחסנית כקופסה שנפתחת למעלה, תור כצינור עם כניסה ויציאה, רשימה כחוליות עם חצים. מה שנכנס למבנה נגרר פנימה, ומה שיוצא נזרק החוצה.</p>
+    </div>
+
+    <figure class="clip">
+      <div class="frame">
+        <video data-autoplay muted loop playsinline controls preload="metadata" poster="assets/video/queue.webp" width="1280" height="736" aria-label="חלון ההרצה: הפעולה position מוציאה כל איבר מהתור q ומכניסה אותו לתור העזר temp, ואחר כך מחזירה אותם">
+          <source src="assets/video/queue.mp4" type="video/mp4">
+        </video>
+      </div>
+      <figcaption><span>הפעולה position עוברת על תור: כל <code>remove</code> יוצא מראש התור, וכל <code>insert</code> נכנס דרך הזנב.</span><span>הקלטה מחלון ההרצה, בלי עריכה.</span></figcaption>
+    </figure>
+
+    <ul class="facts">
+      <li><span class="tok">for · while · do</span><h3>לולאות</h3><p>לכל לולאה מונה משלה. גם בלולאה בתוך לולאה רואים את i ואת j, באיזה סיבוב כל אחת, ועל איזה תא במערך היא עומדת.</p></li>
+      <li><span class="tok">leaves(t.getLeft())</span><h3>רקורסיה</h3><p>כל קריאה בכרטיס נפרד: מה היא קיבלה, אילו תנאים יצאו true ואילו false, ומה היא החזירה.</p></li>
+      <li><span class="tok">Queue&lt;Stack&lt;Integer&gt;&gt;</span><h3>מבנה בתוך מבנה</h3><p>תור של מחסניות, רשימה של תורים, עץ של מחסניות. כל מבנה פנימי מצויר בתוך התא שלו.</p></li>
+      <li><span class="tok">class Student</span><h3>מה שהתלמיד כתב</h3><p>מערכים, מחרוזות ומחלקות חדשות (Student, Car, או כל מחלקה אחרת) מוצגים עם התכונות שלהם.</p></li>
+    </ul>
+
+    <div class="gallery" data-tabs-ui>
+      <h3>עוד מחלון ההרצה</h3>
+      <div class="tabbar" role="tablist" aria-label="דוגמאות מחלון ההרצה">
+        <button type="button" role="tab" id="t-stack" aria-controls="p-stack" aria-selected="true">StackTargil.java</button>
+        <button type="button" role="tab" id="t-list" aria-controls="p-list" aria-selected="false" tabindex="-1">ListTargil.java</button>
+        <button type="button" role="tab" id="t-tree" aria-controls="p-tree" aria-selected="false" tabindex="-1">TreeTargil.java</button>
+        <button type="button" role="tab" id="t-loops" aria-controls="p-loops" aria-selected="false" tabindex="-1">Pairs.java</button>
+      </div>
+      <div class="panes">
+        <figure class="pane" id="p-stack" role="tabpanel" aria-labelledby="t-stack">
+          <img src="assets/img/stack.webp" alt="הפעולה removeAll: האיבר 7 יוצא מראש המחסנית s (מסומן pop), ו-1 כבר במחסנית העזר temp" width="1280" height="736" loading="lazy">
+          <figcaption>removeAll מוציאה מהמחסנית את כל המופעים של 7. האיבר שיצא מסומן ב-pop עד הצעד הבא.</figcaption>
+        </figure>
+        <figure class="pane" id="p-list" role="tabpanel" aria-labelledby="t-list" aria-hidden="true">
+          <img src="assets/img/list.webp" alt="הפעולה insertSorted: חוליה חדשה עם 7 נוצרת מתחת לרשימה 2, 5, 9, 12 ומצביעה על 9, והמצביע p על 5" width="1280" height="736" loading="lazy">
+          <figcaption>insertSorted מכניסה 7 לרשימה ממוינת. החוליה החדשה כבר מצביעה על 9, ובצעד הבא 5 יצביע עליה.</figcaption>
+        </figure>
+        <figure class="pane" id="p-tree" role="tabpanel" aria-labelledby="t-tree" aria-hidden="true">
+          <img src="assets/img/tree.webp" alt="הפעולה leaves ברקורסיה: עץ הקריאות, הכרטיס של הקריאה על הצומת 10, והעץ עצמו עם הצומת הנוכחי מסומן" width="1280" height="736" loading="lazy">
+          <figcaption>ספירת עלים בעץ בינארי. עץ הקריאות למעלה, הכרטיס של הקריאה שרצה, והצומת שלה בעץ למטה.</figcaption>
+        </figure>
+        <figure class="pane" id="p-loops" role="tabpanel" aria-labelledby="t-loops" aria-hidden="true">
+          <img src="assets/img/loops-nested.webp" alt="לולאה בתוך לולאה: כרטיס לכל לולאה עם i ו-j, המערך עם החיצים, וטבלת הזוגות שכבר נבדקו" width="1280" height="736" loading="lazy">
+          <figcaption>כמה זוגות במערך שהסכום שלהם 7. כרטיס לכל לולאה, וטבלה של הזוגות (i, j) שכבר נבדקו.</figcaption>
+        </figure>
       </div>
     </div>
-    <noscript><img src="assets/img/run-window.webp" alt="חלון ההרצה הוויזואלית: הקוד, המשתנים והרשימה המקושרת" width="1256" height="706"></noscript>
   </div>
-  <p class="demo-hint">זו הפעולה countEven מתרגיל אמיתי: היא סופרת את הזוגיים במחסנית בעזרת מחסנית עזר, ומחזירה את המחסנית למצבה. לוחצים על "הבא", או גוררים את הפס.</p>
 </section>
 
-<section id="run" class="run" aria-labelledby="h-run">
-  <div class="rows">
-    <h2 id="h-run">כל צעד על המסך</h2>
+<section id="errors" class="section dark" aria-labelledby="h-errors">
+  <div class="wrap split">
     <div>
-      <p>כותבים פעולה רגילה, לוחצים על <b>הרצה ויזואלית</b> בסרגל הכלים, ונפתח חלון עם השורה שרצה עכשיו (מסומנת בצהוב), כל המשתנים וערכיהם, והמבנים עצמם: מחסנית כקופסה שנפתחת למעלה, תור כצינור עם כניסה ויציאה, רשימה כחוליות עם חצים. הולכים קדימה ואחורה, מריצים לבד או קופצים לכל צעד.</p>
-    </div>
-  </div>
-  <figure class="shot wide">
-    <img src="assets/img/run-window.webp" alt="חלון ההרצה: הפעולה sum עוברת על רשימה מקושרת, המצביע p על החוליה האחרונה, ומעקב המשתנים מראה total = 18" width="1256" height="706" loading="lazy">
-    <figcaption>הפעולה sum עוברת על רשימה מקושרת. החוליה שעליה p מצביע מסומנת בכתום.</figcaption>
-  </figure>
-  <ul class="facts">
-    <li><b>לולאות.</b> לכל לולאה מונה משלה, וגם בלולאה בתוך לולאה רואים את i ואת j, באיזה סיבוב כל אחת ועל איזה תא במערך היא עומדת.</li>
-    <li><b>רקורסיה.</b> כל קריאה לפעולה בכרטיס נפרד: מה היא קיבלה, אילו תנאים יצאו true ואילו false, ומה היא החזירה.</li>
-    <li><b>מבנה בתוך מבנה.</b> תור של מחסניות, רשימה של תורים, עץ של מחסניות: כל מבנה פנימי מצויר בתוך התא שלו.</li>
-    <li><b>מה שהתלמיד כתב.</b> מערכים, מחרוזות ומחלקות חדשות (Student, Car, או כל מחלקה אחרת) מוצגים עם התכונות שלהם.</li>
-  </ul>
-  <div class="pair">
-    <figure class="shot">
-      <video data-autoplay muted loop playsinline controls preload="metadata" poster="assets/video/loops.webp" width="1440" height="828" aria-label="מיון בועות בחלון ההרצה, צעד אחרי צעד: המונים i ו-j זזים והמערך מתמיין">
-        <source src="assets/video/loops.mp4" type="video/mp4">
-      </video>
-      <figcaption>מיון בועות בחלון ההרצה, צעד אחרי צעד. המונים i ו-j, והתאים במערך שכל לולאה כבר עברה.</figcaption>
-    </figure>
-    <figure class="shot">
-      <img src="assets/img/recursion.webp" alt="ספירת צמתים בעץ בינארי ברקורסיה: הקריאות זו מתחת לזו, וכל אחת עם מה שהחזירה" width="1256" height="706" loading="lazy">
-      <figcaption>ספירת צמתים בעץ. כל קריאה רקורסיבית בכרטיס משלה.</figcaption>
-    </figure>
-  </div>
-</section>
-
-<section id="errors" class="errors" aria-labelledby="h-errors">
-  <div class="errors-text">
-    <h2 id="h-errors">שגיאה? הסבר בעברית</h2>
-    <p>ליד כל שגיאה של הקומפיילר מופיע משפט בעברית שאומר מה לא בסדר, בשורה שבה הבעיה באמת נמצאת, ועצה קצרה איך מתקנים. חלון ההסברים פתוח בצד, מימין לשמאל, ומתעדכן בזמן הכתיבה.</p>
-    <dl class="said">
-      <dt dir="ltr">The method size() is undefined for the type Queue&lt;Integer&gt;</dt>
-      <dd>ל-Queue אין פעולה size. כדי לספור, מעבירים את האיברים לתור עזר וסופרים, ואז מחזירים אותם. הפעולות שיש: <span dir="ltr">insert, remove, head, isEmpty</span>.</dd>
-      <dt dir="ltr">Syntax error, insert ";" to complete ReturnStatement</dt>
-      <dd>חסרה נקודה-פסיק בסוף שורה 6. הקו האדום מופיע לפעמים רק בשורה הבאה, אז בודקים גם את סוף השורה שלפני הסימון.</dd>
-    </dl>
-    <p class="quiet">כל 946 ההודעות של הקומפיילר מתורגמות. יש גם אזהרות על טעויות שחוזרות בכיתה: <span dir="ltr">==</span> בין מחרוזות, לולאה שהמשתנה שלה לא מתקדם, ו-toUpperCase שהתוצאה שלו הולכת לאיבוד.</p>
-  </div>
-  <figure class="shot errors-shot">
-    <img src="assets/img/mentor.webp" alt="Eclipse עם קובץ של תלמיד: ההסבר בעברית מופיע בריחוף מעל השגיאה, ובחלון ההסברים בצד כרטיס לכל שגיאה" width="1272" height="550" loading="lazy">
-  </figure>
-</section>
-
-<section id="exercise" class="exercise" aria-labelledby="h-exercise">
-  <div class="rows">
-    <h2 id="h-exercise">מדף הבחינה לקוד שרץ</h2>
-    <div>
-      <p>ב-Eclipse בוחרים <b>שליחת תרגיל</b> ומצרפים את הדף: PDF, קובץ Word, צילום מהטלפון או צילום מסך שמדביקים עם Ctrl+V. אחרי כמה שניות נפתח קובץ Java עם פעולה ריקה לכל סעיף והסמן כבר בתוכה, המחלקות שהתרגיל מתאר, ו-main שבונה נתונים לדוגמה. מעל main כתוב מה צריך להיות מודפס אם פתרתם נכון.</p>
-      <p>אין לכם Eclipse פתוח? אפשר גם <a href="bagrut.html">להעלות שאלת בגרות כאן באתר</a> ולקבל את הקבצים להורדה.</p>
-    </div>
-  </div>
-  <div class="flow">
-    <figure class="paper">
-      <p class="q"><b>שאלה 2.</b> א. כתבו פעולה המקבלת מחסנית של מספרים שלמים, ומחזירה את מספר האיברים הזוגיים בה. בסוף הפעולה המחסנית צריכה להיות כמו בהתחלה.</p>
-      <p class="q">ב. כתבו פעולה המקבלת מחסנית ומספר x, ומוציאה מהמחסנית את כל המופעים של x. הסדר של שאר האיברים לא ישתנה.</p>
-      <figcaption>הדף ששולחים</figcaption>
-    </figure>
-    <figure class="editor" data-ui>
-      <div class="ed" dir="ltr">
-        <div><b class="kw">public class</b> StackTargil {</div>
-        <div class="chip-line"><span class="bulb">הצעה לפתרון<img src="assets/bulb.svg" alt="" width="14" height="14"></span></div>
-        <div>&nbsp;&nbsp;&nbsp;&nbsp;<b class="kw">public static int</b> countEven(Stack&lt;Integer&gt; s) {</div>
-        <div class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// <span dir="rtl">====כאן עונים סעיף א'====</span></div>
-        <div class="caret">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i></i></div>
-        <div>&nbsp;&nbsp;&nbsp;&nbsp;}</div>
-        <div class="chip-line"><span class="bulb">הצעה לפתרון<img src="assets/bulb.svg" alt="" width="14" height="14"></span></div>
-        <div>&nbsp;&nbsp;&nbsp;&nbsp;<b class="kw">public static void</b> removeAll(Stack&lt;Integer&gt; s, <b class="kw">int</b> x) {</div>
-        <div class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// <span dir="rtl">====כאן עונים סעיף ב'====</span></div>
-        <div>&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+      <div class="head">
+        <h2 id="h-errors">שגיאה? הסבר בעברית</h2>
+        <p>ליד כל שגיאה של הקומפיילר מופיע משפט בעברית שאומר מה לא בסדר, בשורה שבה הבעיה באמת נמצאת, ועצה קצרה איך מתקנים. חלון ההסברים פתוח בצד ומתעדכן בזמן הכתיבה.</p>
       </div>
-      <figcaption>הקובץ שנפתח</figcaption>
-    </figure>
-    <figure class="shot dialog">
-      <img src="assets/img/solution.webp" alt="החלון הצעה לפתרון לסעיף א: הפעולה countEven עם מחסנית עזר, והודעה שהפתרון נבדק" width="578" height="535" loading="lazy">
-      <figcaption>מה שנפתח בלחיצה על "הצעה לפתרון"</figcaption>
+      <ul class="list-plain quiet">
+        <li>כל 946 ההודעות של הקומפיילר מתורגמות.</li>
+        <li>אזהרות על טעויות שחוזרות בכיתה: <code dir="ltr">==</code> בין מחרוזות, לולאה שהמשתנה שלה לא מתקדם, ו-toUpperCase שהתוצאה שלו הולכת לאיבוד.</li>
+        <li>ב-Eclipse. ב-VS Code, ב-Visual Studio וב-IntelliJ מופיעות ההודעות הרגילות של הסביבה.</li>
+      </ul>
+    </div>
+    <div class="ide" role="img" aria-label="עורך עם שתי שגיאות: q.size() לא קיים ל-Queue, וחסרה נקודה-פסיק בשורה 6. מתחת, ההודעות של הקומפיילר וההסבר בעברית לכל אחת">
+      <div class="ide-tabs" aria-hidden="true"><span class="on">QueueTargil.java</span><span>Main.java</span></div>
+      <pre class="ide-code" aria-hidden="true"><span class="l"><span class="n">1</span><span class="k">import</span> unit4.collectionsLib.*;</span>
+<span class="l"><span class="n">2</span> </span>
+<span class="l"><span class="n">3</span><span class="k">public class</span> <span class="t">QueueTargil</span> {</span>
+<span class="l"><span class="n">4</span>    <span class="k">public static int</span> count(<span class="t">Queue</span>&lt;<span class="t">Integer</span>&gt; q) {</span>
+<span class="l bad"><span class="n">5</span>        <span class="k">int</span> n = q.<span class="sq">size</span>();</span>
+<span class="l bad"><span class="n">6</span>        <span class="k">return</span> <span class="sq">n</span></span>
+<span class="l"><span class="n">7</span>    }</span>
+<span class="l"><span class="n">8</span>}</span></pre>
+      <div class="problems">
+        <div class="problems-h"><span>הסברים בעברית</span><span dir="ltr">2 errors</span></div>
+        <div class="prob">
+          <span class="msg"><b>5</b> &nbsp;The method size() is undefined for the type Queue&lt;Integer&gt;</span>
+          <p>ל-Queue אין פעולה size. כדי לספור, מעבירים את האיברים לתור עזר וסופרים, ואז מחזירים אותם. הפעולות שיש: <code dir="ltr">insert, remove, head, isEmpty</code>.</p>
+        </div>
+        <div class="prob">
+          <span class="msg"><b>6</b> &nbsp;Syntax error, insert ";" to complete ReturnStatement</span>
+          <p>חסרה נקודה-פסיק בסוף שורה 6. הקו האדום מופיע לפעמים רק בשורה הבאה, אז בודקים גם את סוף השורה שלפני הסימון.</p>
+        </div>
+      </div>
+    </div>
+    <figure class="mentor-shot">
+      <img class="frame" src="assets/img/mentor.webp" alt="Eclipse עם קובץ של תלמיד: ההסבר בעברית מופיע בריחוף מעל השגיאה, ובחלון ההסברים בצד כרטיס לכל שגיאה" width="1272" height="550" loading="lazy">
+      <figcaption>ככה זה נראה ב-Eclipse: ההסבר בריחוף מעל השגיאה, וכרטיס לכל שגיאה בחלון שבצד.</figcaption>
     </figure>
   </div>
-  <div class="rows">
-    <h3>נתקעתם? הצעה לפתרון</h3>
-    <div>
-      <p>מעל כל סעיף מופיע כפתור קטן עם מנורה. הפתרון לא מוצג עד שלוחצים, והוא כתוב כמו שמורה היה מראה בכיתה: לולאות, תנאים ומחסנית עזר, עם הערות קצרות בעברית. לפני שהקובץ נפתח, התוסף מריץ את main עם הפתרון ובודק שמודפס בדיוק מה שצריך. אם משהו לא מתאים, הפתרון מתוקן ונבדק שוב, ואם בכל זאת לא אומת, כתוב את זה בחלון.</p>
+</section>
+
+<section id="exercise" class="section" aria-labelledby="h-exercise">
+  <div class="wrap">
+    <div class="head">
+      <h2 id="h-exercise">מדף הבחינה לקוד שרץ</h2>
+      <p>בוחרים <b>שליחת תרגיל</b> ומצרפים את הדף: PDF, קובץ Word, צילום מהטלפון או צילום מסך שמדביקים עם Ctrl+V. אחרי כמה שניות נפתח קובץ עם פעולה ריקה לכל סעיף והסמן כבר בתוכה, המחלקות שהתרגיל מתאר, ו-main שבונה נתונים לדוגמה. מעל main כתוב מה צריך להיות מודפס אם פתרתם נכון.</p>
+    </div>
+    <div class="flow">
+      <figure class="paper">
+        <p class="q"><b>שאלה 2.</b> א. כתבו פעולה המקבלת מחסנית של מספרים שלמים, ומחזירה את מספר האיברים הזוגיים בה. בסוף הפעולה המחסנית צריכה להיות כמו בהתחלה.</p>
+        <p class="q">ב. כתבו פעולה המקבלת מחסנית ומספר x, ומוציאה מהמחסנית את כל המופעים של x. הסדר של שאר האיברים לא ישתנה.</p>
+        <figcaption>הדף ששולחים</figcaption>
+      </figure>
+      <figure class="editor" data-ui>
+        <div class="ed" dir="ltr">
+          <div><b class="kw">public class</b> StackTargil {</div>
+          <div class="chip-line"><span class="bulb">הצעה לפתרון<img src="assets/bulb.svg" alt="" width="14" height="14"></span></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<b class="kw">public static int</b> countEven(Stack&lt;Integer&gt; s) {</div>
+          <div class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// <span dir="rtl">====כאן עונים סעיף א'====</span></div>
+          <div class="caret">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i></i></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+          <div class="chip-line"><span class="bulb">הצעה לפתרון<img src="assets/bulb.svg" alt="" width="14" height="14"></span></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<b class="kw">public static void</b> removeAll(Stack&lt;Integer&gt; s, <b class="kw">int</b> x) {</div>
+          <div class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// <span dir="rtl">====כאן עונים סעיף ב'====</span></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+        </div>
+        <figcaption>הקובץ שנפתח</figcaption>
+      </figure>
+      <figure class="dialog">
+        <img src="assets/img/solution.webp" alt="החלון הצעה לפתרון לסעיף א: הפעולה countEven עם מחסנית עזר, והודעה שהפתרון נבדק" width="578" height="512" loading="lazy">
+        <figcaption>מה שנפתח בלחיצה על "הצעה לפתרון"</figcaption>
+      </figure>
+    </div>
+    <div class="sub">
+      <h3>נתקעתם? הצעה לפתרון</h3>
+      <p>מעל כל סעיף יש כפתור קטן עם מנורה. הפתרון לא מוצג עד שלוחצים, והוא כתוב כמו שמורה היה מראה בכיתה: לולאות, תנאים ומחסנית עזר, עם הערות קצרות בעברית. לפני שהקובץ נפתח, התוסף מריץ את main עם הפתרון ובודק שמודפס בדיוק מה שצריך. אם משהו לא מתאים, הפתרון מתוקן ונבדק שוב, ואם בכל זאת לא אומת, כתוב את זה בחלון.</p>
+      <p>אין לכם סביבת פיתוח פתוחה? אפשר <a href="bagrut.html">להעלות שאלת בגרות כאן באתר</a> ולקבל את הקבצים להורדה, בלי להתקין כלום.</p>
     </div>
   </div>
 </section>
 
-<section id="teachers" class="teachers" aria-labelledby="h-teachers">
-  <h2 id="h-teachers">ומה זה נותן למורה</h2>
-  <div class="teach">
-    <dl class="rows-list">
-      <dt>התקנה אחת לכל הכיתה</dt>
-      <dd>קובץ אחד מתקין את התוסף ל-Eclipse ול-VS Code, כולל Java 21. ההתקנה מוצאת את Eclipse לבד (כל גרסה מ-2020 והלאה), והספרייה של הקורס, unit4.collectionsLib, נוספת לכל פרויקט Java בלי להגדיר Build Path. עדכונים מגיעים לבד.</dd>
-      <dt>אותם ציורים כמו על הלוח</dt>
-      <dd>תור הוא צינור עם חץ כניסה וחץ יציאה, מחסנית היא קופסה שנפתחת למעלה, וחוליה היא ריבוע עם חץ לבאה. התלמידים רואים בהרצה את מה שציירתם.</dd>
-      <dt>פחות "המורה, מה זה אומר?"</dt>
-      <dd>ההסברים בעברית עונים על רוב השאלות על שגיאות קומפילציה עוד לפני שהן נשאלות, ומצביעים על השורה הנכונה.</dd>
-      <dt>תרגיל בכמה לחיצות</dt>
-      <dd><b>תרגיל חדש</b> בונה תרגיל לפי מבנה: מחסנית, תור, רשימה מקושרת, עץ בינארי, עץ חיפוש, מערך ומערך דו-ממדי. <b>הוסף מבנה נתונים</b> מכניס לקוד מבנה עם ערכים שבוחרים, גם מבנה בתוך מבנה, ומראה מראש איך הוא ייראה. ויש 9 דוגמאות פתורות.</dd>
-      <dt>גם ב-C#</dt>
-      <dd>בכיתות שלומדות ב-C# אותה הרצה ויזואלית עובדת ב-Visual&nbsp;Studio וב-VS&nbsp;Code, עם Unit4.CollectionsLib.</dd>
-    </dl>
-    <figure class="shot side-shot">
-      <img src="assets/img/add-structure.webp" alt="החלון הוסף מבנה נתונים: מחסנית של תורים עם הערכים שנבחרו, ותצוגה של איך היא תיראה" width="728" height="520" loading="lazy">
-      <figcaption>הוסף מבנה נתונים: מחסנית של תורים, והתצוגה של איך היא תיראה. בתוכנה יש גם ארבעה סרטוני הדרכה קצרים, בכפתור "?".</figcaption>
+<section id="teachers" class="section" aria-labelledby="h-teachers">
+  <div class="wrap split flip">
+    <div>
+      <div class="head">
+        <h2 id="h-teachers">ומה זה נותן למורה</h2>
+      </div>
+      <dl class="rows-list">
+        <dt>התקנה אחת לכל הכיתה</dt>
+        <dd>קובץ אחד ב-Windows ושורה אחת ב-Mac מתקינים את התוספים לכל הסביבות שנמצאו במחשב, כולל Java 21. הספרייה של הקורס, unit4.collectionsLib, נוספת לכל פרויקט בלי להגדיר Build Path, ועדכונים מגיעים לבד. במעבדה: <code dir="ltr">DSViz-Setup.exe /S</code> מתקין בשקט.</dd>
+        <dt>אותם ציורים כמו על הלוח</dt>
+        <dd>תור הוא צינור עם חץ כניסה וחץ יציאה, מחסנית היא קופסה שנפתחת למעלה, וחוליה היא ריבוע עם חץ לבאה. התלמידים רואים בהרצה את מה שציירתם.</dd>
+        <dt>פחות "המורה, מה זה אומר?"</dt>
+        <dd>ההסברים בעברית עונים על רוב השאלות על שגיאות קומפילציה עוד לפני שהן נשאלות, ומצביעים על השורה הנכונה.</dd>
+        <dt>תרגיל בכמה לחיצות</dt>
+        <dd><b>תרגיל חדש</b> בונה תרגיל לפי מבנה: מחסנית, תור, רשימה מקושרת, עץ בינארי, עץ חיפוש, מערך ומערך דו-ממדי. <b>הוסף מבנה נתונים</b> מכניס לקוד מבנה עם ערכים שבוחרים, גם מבנה בתוך מבנה. ויש 9 דוגמאות פתורות.</dd>
+        <dt>גם ב-C#</dt>
+        <dd>בכיתות שלומדות ב-C# אותה הרצה ויזואלית עובדת ב-Visual&nbsp;Studio, ב-VS&nbsp;Code וב-Rider, עם Unit4.CollectionsLib.</dd>
+      </dl>
+    </div>
+    <figure class="sticky">
+      <img class="frame" src="assets/img/add-structure.webp" alt="החלון הוסף מבנה נתונים: מחסנית של תורים עם הערכים שנבחרו, ותצוגה של איך היא תיראה" width="728" height="520" loading="lazy">
+      <figcaption>הוסף מבנה נתונים: מחסנית של תורים, ואיך היא תיראה. בתוכנה יש גם סרטוני הדרכה קצרים, בכפתור "?".</figcaption>
     </figure>
   </div>
 </section>
 
-<section id="install" class="install" aria-labelledby="h-install">
-  <div class="rows">
-    <h2 id="h-install">התקנה</h2>
-    <div>
-      <ol class="steps">
-        <li>מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">DSViz-Setup.exe</a>.</li>
-        <li>מריצים אותו. אם Eclipse פתוח, ההתקנה תבקש לסגור אותו קודם.</li>
-        <li>פותחים את Eclipse או VS Code. בסרגל הכלים מופיעים תרגיל חדש, הוסף מבנה נתונים והרצה ויזואלית.</li>
-      </ol>
-      <h3 id="mac" class="mac-h">ב-Mac</h3>
-      <ol class="steps">
-        <li>פותחים את Terminal: <kbd>Cmd</kbd>+רווח, כותבים Terminal ולוחצים Enter.</li>
-        <li>מעתיקים את השורה הזאת ומדביקים אותה בחלון של Terminal:
-          <div class="cmd"><code dir="ltr" data-cmd>curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash</code><button type="button" class="copy" data-copy-cmd>העתקה</button></div></li>
-        <li>לוחצים Enter. ההתקנה שואלת באיזו שפה לומדים ומתקינה הכול לבד, בלי סיסמה: Java, התוסף ל-VS Code ול-Eclipse ותיקיית תרגילים.</li>
-      </ol>
-      <p class="quiet">ל-Mac עם Apple Silicon או Intel, macOS 12 ומעלה. העדכונים אוטומטיים. ב-Linux: מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/dsviz-install.zip">dsviz-install.zip</a>, פותחים, ומריצים את install.sh. שם צריך JDK 17 או 21.</p>
+<section id="install" class="section" aria-labelledby="h-install">
+  <div class="wrap">
+    <div class="head">
+      <h2 id="h-install">התקנה</h2>
+      <p>ההתקנה מוצאת לבד את הסביבות שבמחשב ומתקינה בכל אחת. זה מה שקורה לבד, ומה נשאר לכם לעשות.</p>
     </div>
+    <table class="envs">
+      <thead><tr><th scope="col">סביבה</th><th scope="col">קורה לבד</th><th scope="col">מה עושים אתם</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="install.html#windows">Windows</a></th><td data-h="קורה לבד">Java 21, התוספים לכל סביבה שנמצאה, תיקיית תרגילים, עדכונים</td><td class="you" data-h="מה עושים אתם">מריצים את DSViz-Setup.exe ובוחרים שפה</td></tr>
+        <tr><th scope="row"><a href="install.html#mac">Mac</a></th><td data-h="קורה לבד">אותו דבר, בלי סיסמה ובלי אזהרה של macOS</td><td class="you" data-h="מה עושים אתם">מדביקים שורה אחת ב-Terminal</td></tr>
+        <tr><th scope="row"><a href="install.html#eclipse">Eclipse</a></th><td data-h="קורה לבד">התוסף, הספרייה בכל פרויקט, קידוד UTF-8</td><td class="you" data-h="מה עושים אתם">סוגרים את Eclipse בזמן ההתקנה</td></tr>
+        <tr><th scope="row"><a href="install.html#vscode">VS Code</a></th><td data-h="קורה לבד">התוסף (גם ב-Insiders, VSCodium ו-Cursor), התוספים של Microsoft ל-Java ול-C#, הספרייה בכל תיקייה</td><td class="you" data-h="מה עושים אתם">פותחים מחדש את VS Code</td></tr>
+        <tr><th scope="row"><a href="install.html#visual-studio">Visual Studio</a></th><td data-h="קורה לבד">Unit4.CollectionsLib ו"הרצה ויזואלית" בכל פרויקט C#, תבנית פרויקט</td><td class="you" data-h="מה עושים אתם">בוחרים C# במסך השפה (מסומן לבד כשיש Visual Studio)</td></tr>
+        <tr><th scope="row"><a href="install.html#intellij">IntelliJ IDEA</a></th><td data-h="קורה לבד">התוסף, והספרייה בכל פרויקט Java</td><td class="you" data-h="מה עושים אתם">סוגרים את IntelliJ בזמן ההתקנה</td></tr>
+        <tr><th scope="row"><a href="bagrut.html">באתר</a></th><td data-h="קורה לבד">שאלת בגרות לקוד, בדפדפן</td><td class="you" data-h="מה עושים אתם">כלום, בלי התקנה</td></tr>
+      </tbody>
+    </table>
+    <p class="more"><a href="install.html">המדריך המלא: כל סביבה, צעד אחרי צעד</a></p>
   </div>
+</section>
 
-  <div class="rows faq-rows">
-    <h2 id="faq">שאלות</h2>
+<section id="faq" class="section" aria-labelledby="h-faq">
+  <div class="wrap split">
+    <div class="head"><h2 id="h-faq">שאלות</h2></div>
     <div class="faq">
       <details>
         <summary>אילו גרסאות של Eclipse מתאימות?</summary>
@@ -218,11 +302,11 @@
       </details>
       <details>
         <summary>צריך להתקין Java לפני?</summary>
-        <p>ב-Windows וב-Mac לא. Java 21 נכנסת עם ההתקנה, ואם הפרויקט רץ על Java אחרת זה לא מפריע.</p>
+        <p>לא. Java 21 נכנסת עם ההתקנה, ב-Windows וב-Mac, ואם הפרויקט רץ על Java אחרת זה לא מפריע.</p>
       </details>
       <details>
-        <summary>למה ב-Mac מדביקים פקודה ולא מורידים קובץ?</summary>
-        <p>macOS חוסם קבצים שהורדו בדפדפן כשהם לא חתומים ע"י Apple, ואת החסימה אפשר לעקוף רק עם סיסמת מנהל. הפקודה מורידה את הקבצים בלי הדפדפן, ולכן אין חסימה. כל קובץ נבדק לפני ההתקנה.</p>
+        <summary>למה ב-Mac מדביקים שורה ולא מורידים קובץ?</summary>
+        <p>macOS חוסם קבצים שהורדו בדפדפן כשהם לא חתומים ע"י Apple, ואת החסימה אפשר לעקוף רק עם סיסמת מנהל. השורה מורידה את הקבצים בלי הדפדפן, ולכן אין חסימה. כל קובץ נבדק (SHA-256) לפני ההתקנה.</p>
       </details>
       <details>
         <summary>ההרצה הוויזואלית משנה את הקוד שלי?</summary>
@@ -238,82 +322,47 @@
       </details>
       <details>
         <summary>אפשר לכבות את DSViz בלי להסיר אותו?</summary>
-        <p>כן. בסוף סרגל הכלים של Eclipse יש לחצן כיבוי אדום. אחרי אישור כל הכפתורים, התפריט, ההסברים בעברית וההכנה האוטומטית של הפרויקטים נכבים, ונשאר Eclipse רגיל. הקוד לא משתנה. הלחצן הירוק במקומו מחזיר הכול.</p>
+        <p>ב-Eclipse כן: בסוף סרגל הכלים יש לחצן כיבוי אדום. אחרי אישור, כל הכפתורים, התפריט וההסברים בעברית נכבים, ונשאר Eclipse רגיל. הלחצן הירוק במקומו מחזיר הכול.</p>
       </details>
       <details>
-        <summary>מה עובד ב-VS Code?</summary>
-        <p>תרגיל חדש, הוסף מבנה נתונים וההרצה הוויזואלית, ב-Java וב-C#. שליחת תרגיל וההסברים בעברית לשגיאות קיימים כרגע רק ב-Eclipse.</p>
+        <summary>מה עובד בכל סביבה?</summary>
+        <p>ההרצה הוויזואלית, תרגיל חדש, הוסף מבנה נתונים ושליחת תרגיל עובדים ב-Eclipse, ב-VS Code וב-Visual Studio. ההסברים בעברית לשגיאות קיימים כרגע רק ב-Eclipse.</p>
       </details>
     </div>
   </div>
 </section>
 
 <section class="end" aria-labelledby="h-end">
-  <h2 id="h-end">רואים מה הקוד עושה</h2>
-  <p class="cta">
-    <a class="btn light" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה ל-Windows</a>
-    <span class="note" data-version>גרסה 1.0.1, עודכנה ב-30 באוקטובר 2026.</span>
-    <span class="note" data-downloads hidden></span>
-  </p>
+  <div class="wrap end-in">
+    <div>
+      <h2 id="h-end">DSViz חינמי, לתלמידים ולמורים</h2>
+      <p class="quiet" data-version>גרסה 1.0.1, עודכנה ב-30 באוקטובר 2026.</p>
+    </div>
+    <div class="get">
+      <div class="get-win"><a class="btn" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה ל-Windows</a></div>
+      <div class="get-mac"><a class="btn" href="install.html#mac">התקנה ל-Mac</a></div>
+      <span class="count" data-downloads hidden></span>
+    </div>
+  </div>
 </section>
 
 </main>
 
 <footer class="foot">
-  <p>© 2026 מוטי לוי. שאלות והערות: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
-  <p class="foot-end"><a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" height="36"></a> <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" height="36"></a><a href="privacy.html">פרטיות</a></p>
+  <div class="wrap foot-in">
+    <p>© 2026 מוטי לוי · <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
+    <p class="foot-links">
+      <a href="install.html">התקנה</a>
+      <a href="bagrut.html">שאלת בגרות לקוד</a>
+      <a href="privacy.html">פרטיות</a>
+      <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="159" height="30"></a>
+      <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" width="163" height="30"></a>
+    </p>
+  </div>
 </footer>
 
 <script src="assets/demo.js" defer></script>
-<script>
-// הסרטון הקצר רץ לבד רק כשהוא על המסך, ולא כשמבקשים פחות תנועה
-(function () {
-  var v = document.querySelector('video[data-autoplay]');
-  if (!v) return;
-  var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (calm || !('IntersectionObserver' in window)) { v.removeAttribute('loop'); return; }
-  new IntersectionObserver(function (es) {
-    es.forEach(function (e) { if (e.isIntersecting) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause(); });
-  }, { threshold: 0.5 }).observe(v);
-})();
-</script>
-<script>
-// מונה ההורדות: כפתורי ההורדה עוברים דרך השרת (/dl/...), שסופר ומעביר לקובץ
-fetch('https://dsviz-exercise.motiml77.workers.dev/v1/stats')
-  .then(function (r) { return r.ok ? r.json() : null; })
-  .then(function (s) {
-    var n = s && s.downloads && s.downloads.total;
-    if (!n) return;
-    var t = n === 1 ? 'הורדה אחת עד היום' : n.toLocaleString('he-IL') + ' הורדות עד היום';
-    document.querySelectorAll('[data-downloads]').forEach(function (el) { el.textContent = t; el.hidden = false; });
-  })
-  .catch(function () {});
-</script>
-<script>
-// התאריך של הגרסה האחרונה — מאותו קובץ שהעדכון האוטומטי קורא
-fetch('https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/version.json', { cache: 'no-store' })
-  .then(function (r) { return r.ok ? r.json() : null; })
-  .then(function (v) {
-    if (!v || !v.build) return;
-    var b = String(v.build), months = ['בינואר', 'בפברואר', 'במרץ', 'באפריל', 'במאי', 'ביוני', 'ביולי', 'באוגוסט', 'בספטמבר', 'באוקטובר', 'בנובמבר', 'בדצמבר'];
-    var d = +b.slice(6, 8), m = +b.slice(4, 6), y = b.slice(0, 4);
-    if (!d || !m) return;
-    document.querySelector('[data-version]').textContent = 'גרסה ' + v.version + ', עודכנה ב-' + d + ' ' + months[m - 1] + ' ' + y + '.';
-  })
-  .catch(function () {});
-</script>
-<script>
-// "העתקה" של פקודת ההתקנה ל-Mac
-document.querySelectorAll('[data-copy-cmd]').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var code = b.parentNode.querySelector('[data-cmd]'), t = code.textContent;
-    var done = function () { b.textContent = 'הועתק'; setTimeout(function () { b.textContent = 'העתקה'; }, 2000); };
-    var pick = function () { var r = document.createRange(); r.selectNodeContents(code); var s = getSelection(); s.removeAllRanges(); s.addRange(r); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, pick);
-    else { pick(); try { document.execCommand('copy'); done(); } catch (e) { /* מסומן — מעתיקים לבד */ } }
-  });
-});
-</script>
+<script src="assets/site.js" defer></script>
 <script src="assets/downloads.js" defer></script>
 </body>
 </html>

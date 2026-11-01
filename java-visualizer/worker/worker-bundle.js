@@ -396,7 +396,7 @@ async function handle(request, env, ctx) {
     else await counting;
     return new Response(null, { status: 302, headers: { location: DOWNLOADS[dl[1]], "cache-control": "no-store" } });
   }
-  const hit = /^\/v1\/count\/(windows|zip)$/.exec(url.pathname);
+  const hit = /^\/v1\/count\/(windows|zip|mac)$/.exec(url.pathname);
   if (request.method === "POST" && hit) {
     const counting = count(env, hit[1]).catch((e) => console.error("count", e));
     if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(counting);
@@ -677,8 +677,9 @@ async function count(env, kind) {
 async function stats(env) {
   if (!env.STATS || typeof env.STATS.get !== "function") return { ok: true, counting: false, downloads: null };
   const windows = +await env.STATS.get("dl:windows") || 0, zip = +await env.STATS.get("dl:zip") || 0;
+  const mac = +await env.STATS.get("dl:mac") || 0;
   const base = +(env.DOWNLOADS_BEFORE || 0);
-  return { ok: true, counting: true, downloads: { windows, zip, total: windows + zip + base } };
+  return { ok: true, counting: true, downloads: { windows, zip, mac, total: windows + zip + mac + base } };
 }
 async function rateLimit(env, ip, site) {
   if (env.LIMITER && typeof env.LIMITER.limit === "function") {

@@ -1,4 +1,4 @@
-// ההדגמה בראש העמוד: ההרצה של countEven צעד אחרי צעד, מצוירת כמו בחלון של DSViz.
+// ההדגמה בראש העמוד: ההרצה של countEven צעד אחרי צעד, מצוירת כמו בחלון של DSViz (כולל ההנפשה של push / pop).
 // הצעדים מחושבים כאן מהקוד עצמו (לא מוקלטים), אז מה שרואים הוא באמת מה שהקוד עושה.
 (function () {
   var root = document.querySelector('[data-demo]');
@@ -61,7 +61,7 @@
   }
 
   var steps = trace();
-  var at = 0, timer = null, touched = false;
+  var at = 0, shown = -1, timer = null, touched = false;
   var codeEl = root.querySelector('[data-code]');
   var stacksEl = root.querySelector('[data-stacks]');
   var varsEl = root.querySelector('[data-vars]');
@@ -82,13 +82,24 @@
   }).join('');
   range.max = String(steps.length - 1);
 
-  function stack(name, items, changed) {
+  // מחסנית מצוירת. anim: 'in' — האיבר העליון נכנס עכשיו (push); מספר — האיבר שיצא עכשיו (pop), עף למעלה ונעלם
+  function stack(name, items, changed, anim) {
     var boxes = items.map(function (v, i) {
       var top = i === items.length - 1;
-      return '<div class="box' + (top && changed ? ' new' : '') + '">' + v + (top ? '<span class="top">top</span>' : '') + '</div>';
+      var cls = 'box' + (top && changed ? ' new' : '') + (top && anim === 'in' ? ' in' : '');
+      return '<div class="' + cls + '">' + v + (top ? '<span class="top">top</span>' : '') + '</div>';
     }).reverse().join('');
+    var gone = typeof anim === 'number' ? '<div class="box gone" aria-hidden="true">' + anim + '</div>' : '';
     return '<figure class="stack"><figcaption><b>' + name + '</b><span class="chip">מחסנית</span></figcaption>'
-      + '<div class="cup">' + boxes + '</div></figure>';
+      + '<div class="cup">' + gone + boxes + '</div></figure>';
+  }
+
+  // הנפשה רק בצעד אחד קדימה (כמו בחלון ההרצה): מה נכנס למחסנית ומה יצא ממנה
+  function motion(before, after) {
+    if (!before || !after) return null;
+    if (after.length === before.length + 1) return 'in';
+    if (after.length === before.length - 1) return before[before.length - 1];
+    return null;
   }
 
   function render() {
@@ -98,8 +109,10 @@
     var lineEl = lines[st.line - 1];
     var top = lineEl.offsetTop - codeEl.clientHeight / 2 + lineEl.offsetHeight / 2;
     codeEl.scrollTop = Math.max(0, top);
-    stacksEl.innerHTML = stack('s', st.s, st.changed.indexOf('s') >= 0 && st.line === 12)
-      + (st.temp ? stack('temp', st.temp, st.changed.indexOf('temp') >= 0 && st.line === 9) : '');
+    var prevSt = shown === at - 1 ? steps[shown] : null;
+    shown = at;
+    stacksEl.innerHTML = stack('s', st.s, st.changed.indexOf('s') >= 0 && st.line === 12, prevSt && motion(prevSt.s, st.s))
+      + (st.temp ? stack('temp', st.temp, st.changed.indexOf('temp') >= 0 && st.line === 9, prevSt && motion(prevSt.temp, st.temp)) : '');
     var rows = [
       ['s', '[' + st.s.slice().reverse().join(', ') + ']', 's'],
       ['temp', st.temp ? '[' + st.temp.slice().reverse().join(', ') + ']' : '', 'temp'],

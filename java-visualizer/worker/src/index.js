@@ -19,8 +19,9 @@
 //   language: "java" (ברירת מחדל) או "csharp"
 //   GET  /v1/health
 //   GET  /dl/windows, /dl/zip   הורדה דרך השרת: סופרים (KV בשם STATS, לא חובה) ומפנים לקובץ ב-GitHub
-//   POST /v1/count/windows|zip  האתר מוריד ישירות מ-GitHub ושולח לכאן "נספר" ברקע (sendBeacon) — פתוח לכל אתר
-//   GET  /v1/stats              כמה הורדות היו — {downloads: {windows, zip, total}} (פתוח לכל אתר)
+//   POST /v1/count/windows|zip|mac  האתר מוריד ישירות מ-GitHub ושולח לכאן "נספר" ברקע (sendBeacon) — פתוח לכל אתר.
+//                               mac = העתקה של פקודת ההתקנה ל-Mac (אין קובץ להוריד — ההתקנה היא curl בטרמינל)
+//   GET  /v1/stats              כמה הורדות היו — {downloads: {windows, zip, mac, total}} (פתוח לכל אתר)
 //   POST /v1/site/exercise      כמו /v1/exercise, מהאתר (העלאת שאלת בגרות): רק מהכתובות שב-SITE_ORIGINS, בלי מפתח-אפליקציה,
 //                               ועם מכסה יומית קטנה יותר (SITE_DAILY_LIMIT, ברירת מחדל 8)
 //   POST /v1/license    application/json: {client, machine, code} → {ok, locked, licensed, message, payUrl}
@@ -110,7 +111,7 @@ async function handle(request, env, ctx) {
     if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(counting); else await counting;
     return new Response(null, { status: 302, headers: { location: DOWNLOADS[dl[1]], 'cache-control': 'no-store' } });
   }
-  const hit = /^\/v1\/count\/(windows|zip)$/.exec(url.pathname);
+  const hit = /^\/v1\/count\/(windows|zip|mac)$/.exec(url.pathname);
   if (request.method === 'POST' && hit) {
     const counting = count(env, hit[1]).catch(e => console.error('count', e));
     if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(counting); else await counting;
@@ -427,8 +428,9 @@ async function count(env, kind) {
 async function stats(env) {
   if (!env.STATS || typeof env.STATS.get !== 'function') return { ok: true, counting: false, downloads: null };
   const windows = +(await env.STATS.get('dl:windows')) || 0, zip = +(await env.STATS.get('dl:zip')) || 0;
+  const mac = +(await env.STATS.get('dl:mac')) || 0;   // העתקות של פקודת ההתקנה ל-Mac
   const base = +(env.DOWNLOADS_BEFORE || 0);   // הורדות מלפני שהמונה התחיל (לא חובה)
-  return { ok: true, counting: true, downloads: { windows, zip, total: windows + zip + base } };
+  return { ok: true, counting: true, downloads: { windows, zip, mac, total: windows + zip + mac + base } };
 }
 
 async function rateLimit(env, ip, site) {

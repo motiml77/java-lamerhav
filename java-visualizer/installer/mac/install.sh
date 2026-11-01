@@ -302,6 +302,36 @@ else
         fi
     fi
 fi
+# >>> vscode-forks (נבדק גם ב-Linux: tools/test/run-tests.sh מריץ את הקטע הזה עם אפליקציות מדומות)
+# VS Code Insiders / VSCodium / Cursor: אותו תוסף (vsix). רשימה ב-vscode-forks.txt — בשביל ההסרה
+vscode_forks() {   # שורה לכל CLI שנמצא
+    local app b
+    for app in "/Applications/Visual Studio Code - Insiders.app" "$HOME/Applications/Visual Studio Code - Insiders.app" \
+               /Applications/VSCodium.app "$HOME/Applications/VSCodium.app" /Applications/Cursor.app "$HOME/Applications/Cursor.app"; do
+        for b in code-insiders codium cursor code; do
+            [ -x "$app/Contents/Resources/app/bin/$b" ] && { echo "$app/Contents/Resources/app/bin/$b"; break; }
+        done
+    done
+}
+install_vscode_forks() {
+    local c name
+    : > "$APP/vscode-forks.txt"
+    [ -n "$VSIX" ] || return 0
+    while IFS= read -r c; do
+        [ -n "$c" ] || continue
+        name=${c%.app/*}; name=${name##*/}
+        if with_timeout 180 "$c" --install-extension "$VSIX" --force >>"$LOG" 2>&1; then
+            echo "$c" >> "$APP/vscode-forks.txt"
+            ok "$name: התוסף הותקן" "Extension installed in $name"
+        else
+            warn "$name: התקנת התוסף נכשלה" "$c --install-extension failed (see $LOG)"
+        fi
+    done <<EOF
+$(vscode_forks)
+EOF
+}
+# <<< vscode-forks
+install_vscode_forks
 
 # ================================================================ 5. Eclipse
 step "Eclipse" "Eclipse plugin"

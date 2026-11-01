@@ -95,8 +95,46 @@ async function addDialog(command, state, steps) {
 (async () => {
     const extension = require(path.join(ext, 'extension.js'));
     const globalState = new Map();
+    // --- ספריית הקורס בכל תיקייה (בלי שהתלמיד מבקש): תיקייה שהוא פתח בעצמו, עם קוד שמשתמש ב-Queue של הקורס,
+    //     מקבלת lib/dsviz.jar וההפניה — בלי src חדש ובלי לשנות את תיקיית הקוד. Maven, java.util ו-jar מקורי של unit4 — לא נוגעים
+    const tmpDir = n => fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-' + n + '-'));
+    const own = tmpDir('own'), eclipseProj = tmpDir('ecl'), mvn = tmpDir('mvn'), util = tmpDir('util'), orig = tmpDir('orig'), saved = tmpDir('saved');
+    fs.writeFileSync(path.join(own, 'Ex.java'), 'import unit4.collectionsLib.*;\npublic class Ex { Queue<Integer> q = new Queue<Integer>(); }\n');
+    fs.mkdirSync(path.join(eclipseProj, 'src', 'a'), { recursive: true });
+    fs.writeFileSync(path.join(eclipseProj, 'src', 'a', 'T.java'), 'package a;\npublic class T { BinNode<Integer> t; }\n');
+    fs.writeFileSync(path.join(eclipseProj, '.classpath'), '<?xml version="1.0"?>\n<classpath>\n\t<classpathentry kind="src" path="src"/>\n</classpath>\n');
+    fs.writeFileSync(path.join(mvn, 'pom.xml'), '<project/>');
+    fs.writeFileSync(path.join(mvn, 'A.java'), 'import unit4.collectionsLib.*;\nclass A {}\n');
+    fs.writeFileSync(path.join(util, 'U.java'), 'import java.util.Stack;\nclass U { Stack<Integer> s; }\n');
+    fs.mkdirSync(path.join(orig, 'lib'));
+    fs.writeFileSync(path.join(orig, 'lib', 'unit4.jar'), Buffer.concat([Buffer.from('PK'), Buffer.from('unit4/collectionsLib/Stack.class')]));
+    fs.writeFileSync(path.join(orig, 'O.java'), 'import unit4.collectionsLib.*;\nclass O {}\n');
+    const projectMod = require(path.join(ext, 'project.js'));
+    assert(projectMod.usesCourseLib('Node<String> p;') && !projectMod.usesCourseLib('import java.util.Queue;\nQueue<Integer> q;') && projectMod.usesCourseLib('import unit4.collectionsLib.Queue;'));
+    let onSave = null;
+    const folder = d => ({ uri: { fsPath: d }, name: path.basename(d) });
+    vscode.workspace.workspaceFolders = [ws, own, eclipseProj, mvn, util, orig, saved].map(d => d === ws ? vscode.workspace.workspaceFolders[0] : folder(d));
+    vscode.workspace.onDidSaveTextDocument = fn => { onSave = fn; return { dispose() {} }; };
+    const realGetWs = vscode.workspace.getWorkspaceFolder;
+    vscode.workspace.getWorkspaceFolder = u => folder(path.dirname(u.fsPath));
     extension.activate({ subscriptions: [], extensionPath: ext,
         globalState: { get: k => globalState.get(k), update: async (k, v) => globalState.set(k, v) } });
+    assert(fs.existsSync(path.join(own, 'lib', 'dsviz.jar')), 'ספריית הקורס לא נוספה לתיקייה של התלמיד');
+    const ownSettings = JSON.parse(fs.readFileSync(path.join(own, '.vscode', 'settings.json'), 'utf8'));
+    assert.deepStrictEqual(ownSettings, { 'java.project.referencedLibraries': ['lib/**/*.jar'] }, JSON.stringify(ownSettings));
+    assert(!fs.existsSync(path.join(own, 'src')), 'לא נוצרת תיקיית src בתיקייה של התלמיד');
+    assert(fs.readFileSync(path.join(eclipseProj, '.classpath'), 'utf8').includes('path="lib/dsviz.jar"') && fs.existsSync(path.join(eclipseProj, 'lib', 'dsviz.jar')), 'פרויקט Eclipse: ההפניה ב-.classpath');
+    for (const d of [mvn, util, orig]) assert(!fs.existsSync(path.join(d, 'lib', 'dsviz.jar')), 'נגעו ב-' + d);
+    assert(!projectMod.needsLibrary(own), 'בפעם השנייה — כבר מוגדר');
+    // שמירה של קובץ Java בתיקייה שעד עכשיו לא היה בה קוד כזה
+    assert(!fs.existsSync(path.join(saved, 'lib')));
+    fs.writeFileSync(path.join(saved, 'S.java'), 'public class S { Stack<String> s; }\n');
+    onSave({ languageId: 'java', fileName: path.join(saved, 'S.java'), uri: { fsPath: path.join(saved, 'S.java') } });
+    assert(fs.existsSync(path.join(saved, 'lib', 'dsviz.jar')), 'אחרי שמירה — הספרייה נוספה');
+    vscode.workspace.workspaceFolders = [vscode.workspace.workspaceFolders[0]];
+    vscode.workspace.getWorkspaceFolder = realGetWs;
+    delete vscode.workspace.onDidSaveTextDocument;
+    log.push('ספריית הקורס בכל תיקייה: תיקייה של התלמיד, פרויקט Eclipse ושמירה — כן; Maven, java.util, jar מקורי — לא');
 
     // --- תרגיל 1: מחסנית של Integer, מחזירה int, תרגיל ברקורסיה — דרך הכפתור "מחסנית"
     answers.push(byId(''), byId('Integer'), byId('int'), byIds(['recursive']), keep, keep, value('solve'));

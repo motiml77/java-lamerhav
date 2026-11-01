@@ -75,6 +75,7 @@ ShowUninstDetails show
 Var CODE          ; הנתיב ל-code.cmd של VS Code (ריק אם לא נמצא)
 Var ECLIPSES      ; כמה התקנות Eclipse קיבלו את התוסף
 Var EXTS          ; תוספים של Microsoft ל-VS Code שמורידים ברקע (מופרדים ברווח)
+Var FORKS         ; VS Code Insiders / VSCodium / Cursor שקיבלו את התוסף (שמות, מופרדים ברווח; ריק אם אין)
 
 
 ; ------------------------------------------------------------ איתור VS Code
@@ -299,6 +300,35 @@ Section "-vscode"
       DetailPrint "VS Code: ההתקנה נכשלה (קוד $0)"
     ${EndIf}
   ${EndIf}
+SectionEnd
+
+; ------------------------------------------------------------ VS Code Insiders / VSCodium / Cursor
+; אותו תוסף (vsix) לכל גרסה אחרת של VS Code שמותקנת. נרשמות ב-vscode-forks.txt — בשביל ההסרה
+!macro VSIX_FORK CMD NAME
+  ${If} ${FileExists} "${CMD}"
+    nsExec::ExecToLog '"$SYSDIR\cmd.exe" /c ""${CMD}" --install-extension "$INSTDIR\${VSIX}" --force"'
+    Pop $0
+    ${If} $0 == "0"
+      DetailPrint "${NAME}: התוסף הותקן"
+      StrCpy $FORKS "$FORKS ${NAME}"
+      FileOpen $1 "$INSTDIR\vscode-forks.txt" a
+      FileSeek $1 0 END
+      FileWriteUTF16LE $1 "${CMD}$\r$\n"
+      FileClose $1
+    ${Else}
+      DetailPrint "${NAME}: ההתקנה נכשלה (קוד $0)"
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+Section "-vscode-forks"
+  StrCpy $FORKS ""
+  Delete "$INSTDIR\vscode-forks.txt"
+  !insertmacro VSIX_FORK "$LOCALAPPDATA\Programs\Microsoft VS Code Insiders\bin\code-insiders.cmd" "VS Code Insiders"
+  !insertmacro VSIX_FORK "$PROGRAMFILES64\Microsoft VS Code Insiders\bin\code-insiders.cmd" "VS Code Insiders"
+  !insertmacro VSIX_FORK "$LOCALAPPDATA\Programs\VSCodium\bin\codium.cmd" "VSCodium"
+  !insertmacro VSIX_FORK "$PROGRAMFILES64\VSCodium\bin\codium.cmd" "VSCodium"
+  !insertmacro VSIX_FORK "$LOCALAPPDATA\Programs\cursor\resources\app\bin\cursor.cmd" "Cursor"
 SectionEnd
 
 Section "Java — Eclipse ו-VS Code (תרגילים ב-Java)" SEC_JAVA
@@ -550,7 +580,7 @@ Section "-eclipse"
     !insertmacro SCAN "D:" "eclipse*"
   ${EndIf}
   ${If} $ECLIPSES == 0
-  ${AndIf} $CODE != ""
+  ${AndIf} "$CODE$FORKS" != ""
     DetailPrint "Eclipse: לא נמצא — דילוג (VS Code הותקן)"
   ${ElseIf} $ECLIPSES == 0
     MessageBox MB_YESNO|MB_ICONQUESTION "לא נמצאו VS Code ו-Eclipse באופן אוטומטי.$\r$\n$\r$\nלבחור את התיקייה של Eclipse (התיקייה שבה נמצא eclipse.exe)?" /SD IDNO IDNO eclipse_done
@@ -607,6 +637,27 @@ Section "Uninstall"
     nsExec::ExecToLog '"$SYSDIR\cmd.exe" /c ""$CODE" --uninstall-extension lamerhav.dsviz"'
     Pop $0
   ${EndIf}
+
+  ; VS Code Insiders / VSCodium / Cursor (נרשמו ב-vscode-forks.txt)
+  ClearErrors
+  FileOpen $3 "$INSTDIR\vscode-forks.txt" r
+  ${IfNot} ${Errors}
+    ${Do}
+      ClearErrors
+      FileReadUTF16LE $3 $4
+      ${If} ${Errors}
+        ${Break}
+      ${EndIf}
+      Call un.TrimLine
+      ${If} $4 != ""
+      ${AndIf} ${FileExists} "$4"
+        nsExec::ExecToLog '"$SYSDIR\cmd.exe" /c ""$4" --uninstall-extension lamerhav.dsviz"'
+        Pop $0
+      ${EndIf}
+    ${Loop}
+    FileClose $3
+  ${EndIf}
+  Delete "$INSTDIR\vscode-forks.txt"
 
   ; כל התקנות Eclipse שהתוסף הועתק אליהן רשומות ב-eclipse-dirs.txt (שורה לכל תיקייה)
   ClearErrors
