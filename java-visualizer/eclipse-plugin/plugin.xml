@@ -96,6 +96,20 @@
                <parameter name="org.eclipse.ui.views.showView.viewId" value="il.lamerhav.dsviz.mentorView"/>
             </command>
             <command commandId="il.lamerhav.dsviz.help" label="הדרכה לשימוש (?)..." style="push"/>
+            <!-- כיבוי גם מהתפריט — לא רק מהלחצן האדום בסוף סרגל הכלים -->
+            <separator name="power" visible="true"/>
+            <command commandId="il.lamerhav.dsviz.power" label="כיבוי DSViz..." icon="icons/power-off.png" style="push" id="il.lamerhav.dsviz.menu.powerOff">
+               <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+            </command>
+         </menu>
+      </menuContribution>
+      <!-- כש-DSViz כבוי: במקום התפריט המלא — אותו שם, ובו רק "הפעלת DSViz" (כדי שתמיד תהיה דרך להחזיר, גם בלי סרגל הכלים) -->
+      <menuContribution locationURI="menu:org.eclipse.ui.main.menu?after=additions">
+         <menu id="il.lamerhav.dsviz.menuOff" label="מבני נתונים">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="false"/></with></visibleWhen>
+            <command commandId="il.lamerhav.dsviz.power" label="הפעלת DSViz..." icon="icons/power-on.png" style="push" id="il.lamerhav.dsviz.menu.powerOn">
+               <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="false"/></with></visibleWhen>
+            </command>
          </menu>
       </menuContribution>
 

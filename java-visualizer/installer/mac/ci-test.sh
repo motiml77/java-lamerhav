@@ -176,8 +176,10 @@ killviz
 
 sec "7. VS Code"
 "$CODE" --list-extensions --show-versions > "$OUT/logs/vscode-extensions.txt" 2>&1
-check "code --list-extensions: lamerhav.dsviz@1.0.1" grep -qi '^lamerhav.dsviz@1.0.1' "$OUT/logs/vscode-extensions.txt"
+# הגרסה ייחודית לכל בנייה (1.0.<מספר בנייה>) — VS Code מתקין אותה לתיקייה חדשה ומוחק את הישנה
+check "code --list-extensions: lamerhav.dsviz@1.0.<בנייה>" grep -qiE '^lamerhav.dsviz@1\.0\.[0-9]{12}$' "$OUT/logs/vscode-extensions.txt"
 EXT=$(ls -d "$HOME"/.vscode/extensions/lamerhav.dsviz-* 2>/dev/null | head -1)
+check "רק עותק אחד של התוסף ב-~/.vscode/extensions (לא נשארה גרסה קודמת)" test "$(ls -d "$HOME"/.vscode/extensions/lamerhav.dsviz-* 2>/dev/null | wc -l | tr -d ' ')" = 1
 check "התוסף שהותקן הוא הבנייה החדשה (עם הקוד ל-Mac)" grep -q startMacUpdater "$EXT/runner.js"
 # הקוד של התוסף עצמו, ב-node של VS Code על ה-Mac: מוצא את Java ואת dsviz-cs של ההתקנה
 ELECTRON_RUN_AS_NODE=1 "$ELECTRON" -e "const r=require('$EXT/runner.js'), c=require('$EXT/cs.js'); console.log(JSON.stringify({java: r.findJava(), cs: c.findRunner(), mac: r.MAC_DIR}))" > "$OUT/logs/vscode-find.txt" 2>&1
@@ -192,6 +194,8 @@ PV=$(basename "$(ls "$APP"/eclipse/p2/plugins/il.lamerhav.dsviz_*.jar | head -1)
 info "גרסת התוסף ל-Eclipse: $PV"
 grep dsviz "$INFO" > "$OUT/logs/eclipse-bundles.txt" 2>&1; cp "$APP/eclipse.txt" "$OUT/logs/" 2>/dev/null
 check "bundles.info: il.lamerhav.dsviz,$PV,plugins/ (הותקן דרך p2)" grep -q "^il.lamerhav.dsviz,$PV,plugins/" "$INFO"
+check "גרסת התוסף ל-Eclipse ייחודית לבנייה (1.0.1.v<מספר>) — גבוהה מכל עותק ישן" sh -c "echo '$PV' | grep -qE '^1\.0\.1\.v[0-9]{12}$'"
+check "bundles.info: רק גרסה אחת של il.lamerhav.dsviz" test "$(grep -c '^il.lamerhav.dsviz,' "$INFO")" = 1
 check "eclipse.txt: נרשם (בשביל ההסרה)" grep -q "|p2|" "$APP/eclipse.txt"
 tmo 180 "$ECL_APP/Contents/MacOS/eclipse" -nosplash -application org.eclipse.equinox.p2.director -listInstalledRoots > "$OUT/logs/eclipse-roots.txt" 2>&1
 check "p2 director -listInstalledRoots: il.lamerhav.dsviz/$PV" grep -q "^il.lamerhav.dsviz/$PV" "$OUT/logs/eclipse-roots.txt"

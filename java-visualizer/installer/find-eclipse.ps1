@@ -1,15 +1,23 @@
 ﻿# מחפש התקנות Eclipse (עם JDT — Eclipse ל-Java) במחשב: תהליכי Eclipse שרצים, ואחר כך סריקה של התיקיות הרגילות ושל כל הכוננים.
 # כותב את התיקיות (שבהן eclipse.exe) לקובץ שמקבל כפרמטר, בקידוד UTF-16 (נתיבים בעברית). לא מתקין כלום.
-param([string]$Out)
+# Prev (לא חובה): רשימת ה-Eclipse שקיבלו את התוסף בהתקנה הקודמת (eclipse-dirs.txt, UTF-16) — נכללים תמיד, כדי שאף אחד מהם
+# לא יישאר עם התוסף הישן גם אם החיפוש לא מוצא אותו הפעם
+param([string]$Out, [string]$Prev)
 $ErrorActionPreference = 'SilentlyContinue'
 $found = New-Object 'System.Collections.Generic.List[string]'
 $clock = [Diagnostics.Stopwatch]::StartNew()
 
-function Add-Eclipse([string]$dir) {
+function Add-Eclipse([string]$dir, [switch]$Known) {
     if (-not $dir) { return }
     if (-not (Test-Path -LiteralPath (Join-Path $dir 'eclipse.exe'))) { return }
     $plugins = Join-Path $dir 'plugins'
-    if (-not (Get-ChildItem -LiteralPath $plugins -Filter 'org.eclipse.jdt.core_*' -ErrorAction SilentlyContinue)) { return }   # לא Eclipse ל-Java
+    # Eclipse ל-Java: JDT בתיקייה plugins — או ב-bundles.info (התקנה של Eclipse Installer עם "bundle pool": הקבצים ב-‎%USERPROFILE%\.p2\pool)
+    $java = $Known -or (Get-ChildItem -LiteralPath $plugins -Filter 'org.eclipse.jdt.core_*' -ErrorAction SilentlyContinue)
+    if (-not $java) {
+        $bi = Join-Path $dir 'configuration\org.eclipse.equinox.simpleconfigurator\bundles.info'
+        $java = (Test-Path -LiteralPath $bi) -and (Select-String -LiteralPath $bi -Pattern '^org\.eclipse\.jdt\.core,' -Quiet)
+    }
+    if (-not $java) { return }   # לא Eclipse ל-Java
     foreach ($f in $found) { if ($f -ieq $dir) { return } }
     $found.Add($dir)
 }
@@ -28,6 +36,11 @@ function Walk([string]$dir, [int]$depth) {
         if ($skip -contains $name) { continue }
         Walk $s ($depth - 1)
     }
+}
+
+# 0. מה שקיבל את התוסף בפעם הקודמת
+if ($Prev -and (Test-Path -LiteralPath $Prev)) {
+    foreach ($l in [IO.File]::ReadAllLines($Prev, [Text.Encoding]::Unicode)) { Add-Eclipse $l.Trim() -Known }
 }
 
 # 1. Eclipse שרץ עכשיו — הכי מדויק
