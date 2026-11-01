@@ -1,7 +1,16 @@
 #!/bin/sh
-# Data Structures Visualizer - installer for macOS / Linux
+# Data Structures Visualizer - installer for Linux
 # Installs the extension into VS Code and the plugin into every Eclipse found.
 # Optional: ./install.sh /path/to/eclipse
+# macOS: use the one-line Terminal installer instead (bundled Java 21, C#, auto-update):
+#   curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash
+MAC_URL="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh"
+if [ "$(uname -s)" = Darwin ]; then
+    echo "ב-Mac מתקינים בפקודה אחת בטרמינל (Java כלולה, בלי סיסמה) — מריצים אותה עכשיו:"
+    echo "On macOS, running the Mac installer: curl -fsSL $MAC_URL | bash"
+    curl -fsSL "$MAC_URL" | bash
+    exit $?
+fi
 HERE=$(cd "$(dirname "$0")" && pwd)
 VSIX="$HERE/dsviz-1.0.1.vsix"
 PLUGIN="$HERE/il.lamerhav.dsviz_1.0.1.jar"

@@ -29,14 +29,16 @@ public class HelpHandler extends AbstractHandler {
         return null;
     }
 
-    /** התיקייה help שההתקנה יצרה (‎%LOCALAPPDATA%\\DSViz\\help) — אם התוסף עצמו בלי סרטונים */
+    /** התיקייה help שההתקנה יצרה (‎%LOCALAPPDATA%\\DSViz\\help; ב-Mac ‎~/Library/Application Support/DSViz/help) — אם התוסף עצמו בלי סרטונים */
     static File installedHelp() {
         try {
             ProjectSetup.resource("/resources/help/index.html");
             return null;   // הסרטונים בתוך התוסף
         } catch (Exception e) {
             String base = System.getenv("LOCALAPPDATA");
-            File dir = new File(base != null ? new File(base, "DSViz") : new File(System.getProperty("user.home"), "DSViz"), "help");
+            File home = new File(System.getProperty("user.home"));
+            File mac = new File(home, "Library/Application Support/DSViz");   // ההתקנה ל-Mac (installer/mac/install.sh)
+            File dir = new File(base != null ? new File(base, "DSViz") : mac.isDirectory() ? mac : new File(home, "DSViz"), "help");
             return new File(dir, "index.html").isFile() ? dir : null;
         }
     }

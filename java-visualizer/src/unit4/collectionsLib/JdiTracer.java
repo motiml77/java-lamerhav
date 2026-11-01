@@ -106,6 +106,11 @@ final class JdiTracer {
         cmd.add("-XX:TieredStopAtLevel=1");
         cmd.add("-XX:+UseSerialGC");
         cmd.add("-Xshare:auto");
+        // Mac: החלון מופיע ב-Dock ובתפריט העליון בשם DSViz (ולא "java"). ‎-Xdock קיים רק ב-Java של Mac
+        if (System.getProperty("os.name", "").toLowerCase().contains("mac")) {
+            cmd.add("-Xdock:name=DSViz");
+            cmd.add("-Dapple.awt.application.name=DSViz");
+        }
         for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview", "dsviz.conditions", "dsviz.loopArrowFreeze", "dsviz.input", "dsviz.inputDelay", "dsviz.licenseUrl", "dsviz.license", "user.home", "dsviz.varsFrame" }) {
             String v = System.getProperty(p);
             if (v != null) cmd.add("-D" + p + "=" + v);

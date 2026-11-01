@@ -1,0 +1,169 @@
+# DSViz ל-Mac: בונה את החבילות (Apple Silicon + Intel) על מחשבי Mac של GitHub, מפרסם אותן כ-GitHub Release,
+# ובודק את ההתקנה מקצה לקצה על Mac אמיתי (curl ... | bash, Java / C#, החלון עם צילומי מסך, VS Code, Eclipse, עדכון, הסרה).
+#   push ל-master        → release "mac-latest" (מה שהתלמידים מקבלים: installer/mac/install.sh מוריד ממנו)
+#   push לענף הבדיקה     → prerelease "mac-test" (DSVIZ_CHANNEL=mac-test — לבדיקה לפני המיזוג)
+# ה-release לא מסומן "Latest", כך שהקישור הקבוע ל-DSViz-Setup.exe (releases/latest) לא משתנה.
+# החבילות גדולות מ-100MB (המגבלה של git) — לכן הן ב-Release ולא בתיקייה release/.
+name: DSViz mac
+on:
+  push:
+    branches: [master, ccr-66784144-dygsmb]
+    paths:
+      - 'java-visualizer/installer/mac/**'
+      - 'java-visualizer/installer/DSViz.targets'
+      - 'java-visualizer/installer/README-he.html'
+      - 'java-visualizer/installer/project/**'
+      - 'java-visualizer/release/**'
+      - 'java-visualizer/src/**'
+      - 'java-visualizer/vscode-extension/**'
+      - 'java-visualizer/eclipse-plugin/**'
+      - 'java-visualizer/csharp/**'
+      - 'java-visualizer/help/**'
+      - 'java-visualizer/tools/build-all.sh'
+      - 'java-visualizer/tools/build-lib.sh'
+      - 'java-visualizer/tools/build-jre.sh'
+      - '.github/workflows/dsviz-mac.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: dsviz-mac-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CHANNEL: ${{ github.ref == 'refs/heads/master' && 'mac-latest' || 'mac-test' }}
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+
+jobs:
+  # הספרייה, התוסף ל-Eclipse והתוסף ל-VS Code — מהקוד (tools/build-all.sh; בלי makensis לא נבנה ה-exe של Windows)
+  common:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      build: ${{ steps.b.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - id: b
+        run: echo "build=$(date -u +%Y%m%d%H%M)" >> "$GITHUB_OUTPUT"
+      - name: tools/build-all.sh
+        run: sh java-visualizer/tools/build-all.sh
+      - name: הקבצים המשותפים לשתי הארכיטקטורות
+        run: |
+          cd java-visualizer
+          C="$RUNNER_TEMP/common"; mkdir -p "$C/help"
+          cp release/dsviz.jar build/light/il.lamerhav.dsviz_1.0.1.jar build/light/dsviz-1.0.1.vsix "$C/"
+          cp -R build/project build/project-cs "$C/"
+          rsync -a --exclude '*.mp4' build/help/ "$C/help/"   # הסרטונים — מהאתר (כמו ב-Windows)
+          find "$C" -maxdepth 2 | sort
+      - uses: actions/upload-artifact@v4
+        with: { name: common, path: '${{ runner.temp }}/common', retention-days: 7 }
+
+  # Java 21 (jlink מקומי מ-Temurin) ו-dsviz-cs (dotnet publish על Mac — חתום) לכל ארכיטקטורה
+  build:
+    needs: common
+    strategy:
+      matrix:
+        include:
+          - { arch: arm64, os: macos-15, jarch: aarch64 }
+          - { arch: x64, os: macos-15-intel, jarch: x64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: common, path: common }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21', architecture: '${{ matrix.jarch }}' }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - name: build-payload.sh ${{ matrix.arch }}
+        run: bash java-visualizer/installer/mac/build-payload.sh ${{ matrix.arch }} ${{ needs.common.outputs.build }} common dist
+      - uses: actions/upload-artifact@v4
+        with: { name: 'payload-${{ matrix.arch }}', path: dist, retention-days: 7 }
+
+  # GitHub Release: החבילות, install.sh / uninstall.sh, ו-dsviz-mac.json (גרסה + SHA-256 — מה ש-install.sh ו-update.sh בודקים)
+  publish:
+    needs: [common, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD: ${{ needs.common.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: 'payload-*', path: dist, merge-multiple: true }
+      - name: dsviz-mac.json
+        run: |
+          cp java-visualizer/installer/mac/install.sh java-visualizer/installer/mac/uninstall.sh dist/
+          python3 - <<'EOF'
+          import hashlib, json, os, time
+          b = os.environ['BUILD']
+          sha = lambda p: hashlib.sha256(open(p, 'rb').read()).hexdigest()
+          j = {'version': open('java-visualizer/tools/build-all.sh').read().split('VERSION=')[1].split()[0],
+               'build': int(b), 'commit': os.environ['GITHUB_SHA'], 'channel': os.environ['CHANNEL'],
+               'date': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+          for arch in ('arm64', 'x64'):
+              f = f'dsviz-mac-{arch}-{b}.tar.gz'
+              p = os.path.join('dist', f)
+              j[f'{arch}_file'] = f
+              j[f'{arch}_sha256'] = sha(p)
+              j[f'{arch}_size'] = os.path.getsize(p)
+              assert open(p + '.sha256').read().strip() == j[f'{arch}_sha256'], 'sha mismatch ' + f
+          j['installer_file'] = 'install.sh'
+          j['installer_sha256'] = sha('dist/install.sh')
+          j['uninstaller_file'] = 'uninstall.sh'
+          json.dump(j, open('dist/dsviz-mac.json', 'w'), indent=2)
+          print(json.dumps(j, indent=2))
+          EOF
+      - name: GitHub Release (${{ env.CHANNEL }})
+        run: |
+          set -e
+          TAG="$CHANNEL"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            PRE=""; [ "$TAG" = mac-test ] && PRE=--prerelease
+            gh release create "$TAG" --target "$GITHUB_SHA" --latest=false $PRE \
+              --title "DSViz ל-Mac ($TAG)" \
+              --notes "התקנה ל-Mac (Apple Silicon ו-Intel): פותחים Terminal ומדביקים:
+          curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash
+
+          הקבצים כאן מתעדכנים אוטומטית מ-GitHub Actions (dsviz-mac.yml). dsviz-mac.json: הגרסה וה-SHA-256 של כל קובץ."
+          fi
+          # קודם החבילות, ואחריהן קובץ הגרסה (שמפנה אליהן) — מי שמוריד באמצע מקבל תמיד זוג תואם
+          gh release upload "$TAG" dist/dsviz-mac-*.tar.gz dist/install.sh dist/uninstall.sh --clobber
+          gh release upload "$TAG" dist/dsviz-mac.json --clobber
+          # חבילות של בניות קודמות
+          OLD=$(gh release view "$TAG" --json assets -q '.assets[].name' | grep -E '^dsviz-mac-(arm64|x64)-[0-9]+\.tar\.gz$' | grep -v -- "-$BUILD.tar.gz\$" || true)
+          for a in $OLD; do gh release delete-asset "$TAG" "$a" -y; done
+          gh release view "$TAG" --json assets -q '.assets[] | "\(.name)  \(.size)"'
+
+  # מקצה לקצה על Mac אמיתי: Apple Silicon (macos-26) ו-Intel (macos-15-intel)
+  test:
+    needs: [common, publish]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      BUILD: ${{ needs.common.outputs.build }}
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: VS Code + Eclipse (Homebrew — כמו שתלמיד מתקין)
+        run: brew install --cask visual-studio-code eclipse-java
+      - name: ci-test.sh
+        run: bash java-visualizer/installer/mac/ci-test.sh
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: 'mac-test-${{ matrix.os }}', path: mac-ci, retention-days: 14 }

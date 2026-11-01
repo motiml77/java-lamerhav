@@ -465,7 +465,7 @@ function register(deps) {
             if (lang === 'csharp') {
                 const runner = deps.cs.findRunner(vscode.workspace.getConfiguration('dsviz').get('csRunner'));
                 if (!runner) {
-                    post({ type: 'status', bad: true, text: 'לא נמצא dsviz-cs (ההרצה של C#). מתקינים את DSViz-Setup.exe עם C#.' });
+                    post({ type: 'status', bad: true, text: process.platform === 'darwin' ? 'לא נמצא dsviz-cs (ההרצה של C#). מריצים שוב את פקודת ההתקנה ל-Mac.' : 'לא נמצא dsviz-cs (ההרצה של C#). מתקינים את DSViz-Setup.exe עם C#.' });
                     return false;
                 }
                 deps.cs.setup(root, path.join(ctx.extensionPath, 'resources', 'cs', 'lib', deps.cs.LIB));
@@ -474,7 +474,7 @@ function register(deps) {
             } else {
                 const jdk = deps.runner.findJava(vscode.workspace.getConfiguration('dsviz').get('javaHome'));
                 if (!jdk) {
-                    post({ type: 'status', bad: true, text: 'לא נמצא JDK (צריך גם javac). מתקינים את DSViz-Setup.exe, או מגדירים dsviz.javaHome.' });
+                    post({ type: 'status', bad: true, text: process.platform === 'darwin' ? 'לא נמצא JDK (צריך גם javac). מריצים שוב את פקודת ההתקנה ל-Mac, או מגדירים dsviz.javaHome.' : 'לא נמצא JDK (צריך גם javac). מתקינים את DSViz-Setup.exe, או מגדירים dsviz.javaHome.' });
                     return false;
                 }
                 java = jdk.java;

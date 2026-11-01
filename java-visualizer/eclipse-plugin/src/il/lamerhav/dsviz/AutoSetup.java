@@ -55,7 +55,9 @@ public class AutoSetup implements IStartup {
                         welcome(main);
                     }
                     // חלון "הסברים בעברית": נפתח לבד בצד אחרי ההתקנה ואחרי כל עדכון של התוסף (אם התלמיד סגר אותו — עד העדכון הבא)
-                    String version = String.valueOf(org.eclipse.core.runtime.Platform.getBundle(NODE).getVersion());
+                    // בלי ה-qualifier (ב-Mac הגרסה היא 1.0.1.<מספר בנייה> — כדי ש-p2 יעדכן): החלון נפתח פעם אחת לכל גרסה, לא לכל בנייה
+                    org.osgi.framework.Version bv = org.eclipse.core.runtime.Platform.getBundle(NODE).getVersion();
+                    String version = bv.getMajor() + "." + bv.getMinor() + "." + bv.getMicro();
                     arrangeWindow(prefs, version, 0);
                     return Status.OK_STATUS;
                 } catch (Exception e) {
@@ -79,7 +81,7 @@ public class AutoSetup implements IStartup {
                 }
             });
         } catch (Throwable e) {
-            // בלי עדכון בסגירה — יש עדיין בדיקה בכל כניסה ל-Windows
+            // בלי עדכון בסגירה — יש עדיין בדיקה בכל כניסה ל-Windows (וב-Mac: כש-VS Code נפתח)
         }
     }
 
@@ -97,10 +99,23 @@ public class AutoSetup implements IStartup {
         }
     }
 
-    /** מפעיל את installer/update.ps1 (שההתקנה שמה בתיקייה שלה) בחלון נסתר. רק ב-Windows */
+    /**
+     * מפעיל את installer/update.ps1 (שההתקנה שמה בתיקייה שלה) בחלון נסתר. ב-Mac: את update.sh של ההתקנה
+     * (installer/mac/update.sh — בודק פעם ביום אם יש בנייה חדשה, ומחכה ש-Eclipse ייסגר לפני שמעדכן את התוסף)
+     */
     static void startUpdater() {
         try {
-            if (!System.getProperty("os.name", "").toLowerCase().contains("win")) return;
+            String os = System.getProperty("os.name", "").toLowerCase();
+            if (os.contains("mac")) {
+                String dir = dsvizFile("install-dir.txt");
+                File script = new File(dir != null ? dir : System.getProperty("user.home") + "/Library/Application Support/DSViz", "update.sh");
+                if (!script.isFile()) return;
+                File none = new File("/dev/null");
+                new ProcessBuilder("/bin/bash", script.getAbsolutePath(), "--after-eclipse")
+                        .redirectInput(none).redirectOutput(ProcessBuilder.Redirect.appendTo(none)).redirectErrorStream(true).start();
+                return;
+            }
+            if (!os.contains("win")) return;
             String dir = dsvizFile("install-dir.txt");
             if (dir == null) return;
             File script = new File(dir, "update.ps1");

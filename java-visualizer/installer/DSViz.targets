@@ -1,6 +1,7 @@
 <!--
   DSViz.targets — מותקן אוטומטית (SEC_CS ב-installer/setup.nsi) לתוך
     %LOCALAPPDATA%\Microsoft\MSBuild\Current\Microsoft.CSharp.targets\ImportAfter\DSViz.targets
+  (ב-Mac: installer/mac/install.sh מתקין אותו ל-~/Library/Application Support/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter)
   ומוסר בהסרת ההתקנה. זו נקודת הרחבה סטנדרטית של MSBuild (ברמת המשתמש — בלי הרשאות מנהל) שכל בנייה של
   פרויקט C# מייבאת אוטומטית — גם מ-Visual Studio (כולל הבנייה של עיצוב-זמן, שרצה כש-Visual Studio פותח/טוען
   את הפרויקט, בשביל ה-IntelliSense), וגם מ-dotnet build / dotnet msbuild. כך שבכל פרויקט קונסול ב-C#, חדש
@@ -21,9 +22,15 @@
 <Project>
 
   <PropertyGroup>
-    <!-- נתיבי ההתקנה (אפשר לדרוס מבחוץ לבדיקות: -p:DSVizInstallDir=... / -p:DSVizLibPath=... / -p:DSVizRunner=...) -->
-    <DSVizInstallDir Condition="'$(DSVizInstallDir)' == ''">$(LOCALAPPDATA)\DSViz</DSVizInstallDir>
+    <!-- נתיבי ההתקנה (אפשר לדרוס מבחוץ לבדיקות: -p:DSVizInstallDir=... / -p:DSVizLibPath=... / -p:DSVizRunner=...).
+         Mac (installer/mac/install.sh): $(LOCALAPPDATA) של MSBuild הוא ~/Library/Application Support (‎.NET 8 ומעלה), כלומר
+         אותה תיקייה שההתקנה משתמשת בה; ב-SDK ישן (‎~/.local/share) — עוברים לתיקייה של ה-Mac. שם dsviz-cs בלי ‎.exe,
+         ויש רווח בנתיב ("Application Support") — ב-Exec הנתיב במרכאות. ב-Windows — בדיוק כמו קודם. -->
+    <_DSVizDefaultDir>$(LOCALAPPDATA)\DSViz</_DSVizDefaultDir>
+    <_DSVizDefaultDir Condition="'$(OS)' != 'Windows_NT' and !Exists('$(_DSVizDefaultDir)') and Exists('$(HOME)/Library/Application Support/DSViz')">$(HOME)/Library/Application Support/DSViz</_DSVizDefaultDir>
+    <DSVizInstallDir Condition="'$(DSVizInstallDir)' == ''">$(_DSVizDefaultDir)</DSVizInstallDir>
     <DSVizLibPath Condition="'$(DSVizLibPath)' == ''">$(DSVizInstallDir)\cs\Unit4.CollectionsLib.dll</DSVizLibPath>
+    <DSVizRunner Condition="'$(DSVizRunner)' == '' and '$(OS)' != 'Windows_NT' and Exists('$(DSVizInstallDir)/cs/dsviz-cs')">$(DSVizInstallDir)/cs/dsviz-cs</DSVizRunner>
     <DSVizRunner Condition="'$(DSVizRunner)' == ''">$(DSVizInstallDir)\cs\dsviz-cs.exe</DSVizRunner>
 
     <!-- פרויקט קונסול ב-C# (לא ספרייה), ולא כובה -->

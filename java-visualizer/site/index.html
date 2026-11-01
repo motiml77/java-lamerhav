@@ -194,7 +194,14 @@
         <li>מריצים אותו. אם Eclipse פתוח, ההתקנה תבקש לסגור אותו קודם.</li>
         <li>פותחים את Eclipse או VS Code. בסרגל הכלים מופיעים תרגיל חדש, הוסף מבנה נתונים והרצה ויזואלית.</li>
       </ol>
-      <p class="quiet">ב-Mac וב-Linux: מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/dsviz-install.zip">dsviz-install.zip</a>, פותחים, ומריצים את install-mac.command או את install.sh. שם צריך JDK 17 או 21.</p>
+      <h3 id="mac" class="mac-h">ב-Mac</h3>
+      <ol class="steps">
+        <li>פותחים את Terminal: <kbd>Cmd</kbd>+רווח, כותבים Terminal ולוחצים Enter.</li>
+        <li>מעתיקים את השורה הזאת ומדביקים אותה בחלון של Terminal:
+          <div class="cmd"><code dir="ltr" data-cmd>curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash</code><button type="button" class="copy" data-copy-cmd>העתקה</button></div></li>
+        <li>לוחצים Enter. ההתקנה שואלת באיזו שפה לומדים ומתקינה הכול לבד, בלי סיסמה: Java, התוסף ל-VS Code ול-Eclipse ותיקיית תרגילים.</li>
+      </ol>
+      <p class="quiet">ל-Mac עם Apple Silicon או Intel, macOS 12 ומעלה. העדכונים אוטומטיים. ב-Linux: מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/dsviz-install.zip">dsviz-install.zip</a>, פותחים, ומריצים את install.sh. שם צריך JDK 17 או 21.</p>
     </div>
   </div>
 
@@ -211,7 +218,11 @@
       </details>
       <details>
         <summary>צריך להתקין Java לפני?</summary>
-        <p>ב-Windows לא. Java 21 נכנסת עם ההתקנה, ואם הפרויקט רץ על Java אחרת זה לא מפריע.</p>
+        <p>ב-Windows וב-Mac לא. Java 21 נכנסת עם ההתקנה, ואם הפרויקט רץ על Java אחרת זה לא מפריע.</p>
+      </details>
+      <details>
+        <summary>למה ב-Mac מדביקים פקודה ולא מורידים קובץ?</summary>
+        <p>macOS חוסם קבצים שהורדו בדפדפן כשהם לא חתומים ע"י Apple, ואת החסימה אפשר לעקוף רק עם סיסמת מנהל. הפקודה מורידה את הקבצים בלי הדפדפן, ולכן אין חסימה. כל קובץ נבדק לפני ההתקנה.</p>
       </details>
       <details>
         <summary>ההרצה הוויזואלית משנה את הקוד שלי?</summary>
@@ -290,6 +301,18 @@ fetch('https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visu
     document.querySelector('[data-version]').textContent = 'גרסה ' + v.version + ', עודכנה ב-' + d + ' ' + months[m - 1] + ' ' + y + '.';
   })
   .catch(function () {});
+</script>
+<script>
+// "העתקה" של פקודת ההתקנה ל-Mac
+document.querySelectorAll('[data-copy-cmd]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var code = b.parentNode.querySelector('[data-cmd]'), t = code.textContent;
+    var done = function () { b.textContent = 'הועתק'; setTimeout(function () { b.textContent = 'העתקה'; }, 2000); };
+    var pick = function () { var r = document.createRange(); r.selectNodeContents(code); var s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, pick);
+    else { pick(); try { document.execCommand('copy'); done(); } catch (e) { /* מסומן — מעתיקים לבד */ } }
+  });
+});
 </script>
 <script src="assets/downloads.js" defer></script>
 </body>
