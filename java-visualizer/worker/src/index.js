@@ -98,7 +98,7 @@ function reply(status, obj, extra) {
 }
 
 /** גרסת השרת — מופיעה ב-/v1/health, כדי לראות שהעדכון עלה (מעדכנים בכל שינוי בהנחיות / בקוד) */
-const VERSION = '2026-11-01';
+const VERSION = '2026-11-01.2';
 
 async function handle(request, env, ctx) {
   const url = new URL(request.url);

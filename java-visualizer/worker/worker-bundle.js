@@ -1,5 +1,3 @@
-// DSViz — השרת של "שליחת תרגיל" (Cloudflare Worker) בקובץ אחד: להדבקה ב-Cloudflare → Workers → dsviz-exercise → Edit code.
-// נבנה מ-src/ (npm run bundle; קובץ שנוצר) — לא עורכים כאן; עורכים את src/index.js ו-src/prompt.js ובונים מחדש.
 // src/index.js
 import { Buffer } from "node:buffer";
 
@@ -383,7 +381,7 @@ var Fail = class extends Error {
 function reply(status, obj, extra) {
   return new Response(JSON.stringify(obj), { status, headers: Object.assign({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }, extra || {}) });
 }
-var VERSION = "2026-11-01";
+var VERSION = "2026-11-01.2";
 async function handle(request, env, ctx) {
   const url = new URL(request.url);
   if (request.method === "GET" && (url.pathname === "/v1/health" || url.pathname === "/")) {
