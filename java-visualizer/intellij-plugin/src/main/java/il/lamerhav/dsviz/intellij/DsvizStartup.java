@@ -66,7 +66,7 @@ public final class DsvizStartup implements StartupActivity.DumbAware {
         if (props.getBoolean(WELCOMED, false)) return;
         props.setValue(WELCOMED, true);
         Notification n = Dsviz.notify(project, "DSViz – מבני נתונים: הכול מוכן",
-                "<div dir='rtl'>בתפריט העליון \"מבני נתונים\", בחלון DSViz שבצד ימין ובלחיצה ימנית בקוד:<br>"
+                "<div dir='rtl' style='text-align:right'>\u200Fבתפריט העליון \"מבני נתונים\", בחלון DSViz שבצד ימין ובלחיצה ימנית בקוד:<br>"
                 + "• <b>תרגיל חדש</b> — בוחרים מבנה ומקבלים תרגיל מוכן.<br>"
                 + "• <b>הוסף מבנה נתונים</b> — המבנה נכנס לקוד במקום הסמן.<br>"
                 + "• <b>הרצה ויזואלית</b> (Ctrl+Alt+R) — חלון שמראה כל שורה, את המשתנים ואת מבני הנתונים.<br>"

@@ -17,7 +17,6 @@ import javax.swing.event.DocumentEvent;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.ComboBox;
-import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.ui.DocumentAdapter;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
@@ -30,7 +29,7 @@ import il.lamerhav.dsviz.Scaffold;
  * חלון "תרגיל חדש" (כמו ExerciseDialog ב-Eclipse): מימין בוחרים מבנה, מה יש בכל תא, טיפוס ושמות; משמאל מה הפעולה מחזירה,
  * רקורסיה ומילוי המבנה (ובמבנה בתוך מבנה — תרשים של מה שייבנה). "יצירת התרגיל" יוצר את הקובץ בתיקיית הקוד שנבחרה.
  */
-final class ExerciseDialog extends DialogWrapper {
+final class ExerciseDialog extends Modern.Dialog {
     /** תיקיית קוד אפשרית: התיקייה, ושם להצגה */
     static final class Target {
         final File dir;
@@ -65,7 +64,7 @@ final class ExerciseDialog extends DialogWrapper {
     private Scaffold.Options result;
 
     ExerciseDialog(Project project, List<Target> targets, String preset) {
-        super(project, true);
+        super(project);
         this.targets = targets;
         this.preset = preset;
         setTitle("תרגיל חדש");
@@ -162,7 +161,7 @@ final class ExerciseDialog extends DialogWrapper {
             }
         });
         Forms.rtl(root, values, className, functionName, returnCombo, previewType, preview, targetCombo, count);
-        return root;
+        return Modern.Dialog.wrap(root);
     }
 
     private void update() {

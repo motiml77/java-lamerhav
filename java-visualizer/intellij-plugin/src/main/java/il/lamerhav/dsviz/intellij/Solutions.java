@@ -16,7 +16,6 @@ import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.colors.EditorFontType;
 import com.intellij.openapi.editor.markup.GutterIconRenderer;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
@@ -85,11 +84,11 @@ public final class Solutions implements LineMarkerProvider {
     }
 
     /** החלון עם ההצעה: הסעיף, האם נבדקה, והקוד (משמאל לימין). "העתקה" — ללוח */
-    static final class SolutionDialog extends DialogWrapper {
+    static final class SolutionDialog extends Modern.Dialog {
         private final IjShared.Solution s;
 
         SolutionDialog(Project project, IjShared.Solution s) {
-            super(project, true);
+            super(project);
             this.s = s;
             setTitle(TITLE + (s.label.isEmpty() ? "" : " — " + s.label));
             setOKButtonText("סגירה");
@@ -123,7 +122,7 @@ public final class Solutions implements LineMarkerProvider {
             JBLabel status = new JBLabel(statusText(s.status));
             root.add(status, BorderLayout.SOUTH);
             Forms.rtl(root, sp);
-            return root;
+            return Modern.Dialog.wrap(root);
         }
     }
 }

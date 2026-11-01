@@ -105,7 +105,7 @@ final class Autotest {
             case "submitdialog": later(() -> {
                 SubmitDialog d = new SubmitDialog(project, ProjectFiles.targets(project));
                 for (File f : files(arg)) d.add(f, f.getName());
-                if (d.showAndGet()) Submitter.submit(project, d.items(), d.note(), d.target());
+                Submitter.runDialog(project, d);
             }); break;
             case "submit": later(() -> {
                 List<SubmitDialog.Item> items = new ArrayList<SubmitDialog.Item>();

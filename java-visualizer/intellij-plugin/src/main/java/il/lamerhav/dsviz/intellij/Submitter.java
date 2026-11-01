@@ -7,18 +7,25 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ReadAction;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.module.Module;
+import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.module.ModuleUtilCore;
-import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
-import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ModuleRootManager;
+import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -29,6 +36,7 @@ import il.lamerhav.dsviz.IjShared;
  * "שליחת תרגיל" ב-IntelliJ: אותו מנוע כמו ב-Eclipse וב-VS Code (ExercisePipeline שבתוך dsviz.jar, דרך SubmitCli בתהליך Java נפרד —
  * עם ה-JDK שנמצא, כדי שבדיקת הקומפילציה ובדיקת ההצעות לפתרון ירוצו ב-javac אמיתי). SubmitCli שולח לשרת, בונה את הקבצים
  * בחבילה משלהם (src/ex01_stacks...), בודק שהם מתקמפלים (ואם לא — תיקון אחד), בודק את ההצעות לפתרון ושומר אותן בצד (‎~/.dsviz/solutions.json).
+ * הבנייה מוצגת בחלון עצמו (SubmitDialog), ואחריה הודעה קצרה אחת (Created).
  */
 public final class Submitter {
     private Submitter() {}
@@ -45,7 +53,14 @@ public final class Submitter {
         final List<String[]> others = new ArrayList<String[]>();
     }
 
-    /** הפעולה מהתפריט: בדיקת חיבור → החלון → שליחה ברקע (עם חלון התקדמות) → פתיחת הקבצים */
+    /** ההודעות של SubmitCli ({"progress": …}) והאם ביטלו */
+    interface Listener {
+        void progress(String text);
+
+        boolean cancelled();
+    }
+
+    /** הפעולה מהתפריט: בדיקת חיבור → החלון (בו גם הבנייה) → פתיחת הקבצים והודעה קצרה */
     public static void run(Project project) {
         if (!IjShared.workerConfigured()) {
             Say.error(project, "השרת של \"שליחת תרגיל\" לא מוגדר.", TITLE);
@@ -62,9 +77,12 @@ public final class Submitter {
             Say.info(project, "פתחו פרויקט Java ונסו שוב.", TITLE);
             return;
         }
-        SubmitDialog d = new SubmitDialog(project, targets);
-        if (!d.showAndGet()) return;
-        submit(project, d.items(), d.note(), d.target());
+        runDialog(project, new SubmitDialog(project, targets));
+    }
+
+    /** החלון: הטופס, הבנייה, ובסוף (אם נוצר) — פתיחת הקבצים */
+    static void runDialog(Project project, SubmitDialog d) {
+        if (d.showAndGet() && d.outcome() != null) finish(project, d.runTarget(), d.outcome());
     }
 
     /**
@@ -93,40 +111,56 @@ public final class Submitter {
     }
 
     static void offline(Project project) {
-        Say.warn(project, "כדי לשלוח תרגיל צריך חיבור לאינטרנט, וכרגע אין חיבור.\n\nבדקו את החיבור (Wi-Fi או כבל) ונסו שוב.\n"
-                + "כל שאר הכלים — הרצה ויזואלית, הוספת מבנה נתונים, דוגמאות פתורות — עובדים גם בלי אינטרנט.", TITLE + " — אין חיבור לאינטרנט");
+        Notice.Spec s = new Notice.Spec(Modern.Kind.WARN, TITLE, "אין חיבור לאינטרנט")
+                .text("כדי לשלוח תרגיל צריך אינטרנט. בודקים את החיבור ומנסים שוב.\nהרצה ויזואלית, הוספת מבנה נתונים ודוגמאות פתורות עובדים גם בלי אינטרנט.")
+                .buttons("נסו שוב", "סגירה");
+        s.onPrimary = () -> run(project);
+        Notice.show(project, s);
     }
 
-    /** השליחה עצמה (גם לבדיקות ולצילומי מסך — בלי החלון) */
+    /** השליחה בלי שלב הבחירה (לבדיקות ולצילומי מסך): החלון נפתח ישר בבנייה */
     public static void submit(Project project, List<SubmitDialog.Item> items, String note, ExerciseDialog.Target target) {
+        SubmitDialog d = new SubmitDialog(project, Collections.singletonList(target));
+        for (SubmitDialog.Item it : items) d.add(it.file, it.name);
+        d.autoStart();
+        runDialog(project, d);
+    }
+
+    /** לפני השליחה (בחוט של המסך): תיקיית הקוד, הספרייה וה-JDK. מחזיר שגיאה קצרה, או null */
+    static String prepare(Project project, ExerciseDialog.Target target) {
         try {
             ProjectFiles.ensureSourceRoot(project, target.dir);
         } catch (Exception e) {
-            Say.error(project, "לא הצלחתי להכין את תיקיית הקוד: " + e.getMessage(), TITLE);
-            return;
+            return "לא הצלחתי להכין את תיקיית הקוד: " + e.getMessage();
         }
-        File lib = Dsviz.libraryJar();
-        JdkFinder.Found jdk = JdkFinder.find(null, 0);
-        if (lib == null || jdk == null) {
-            Say.error(project, lib == null ? "הספרייה dsviz.jar חסרה בתוסף — התקינו מחדש את DSViz."
-                    : "לא נמצאה Java (JDK) — התקינו מחדש את DSViz (ההתקנה כוללת Java 21).", TITLE);
-            return;
+        if (Dsviz.libraryJar() == null) return "הספרייה dsviz.jar חסרה בתוסף. התקינו מחדש את DSViz.";
+        if (JdkFinder.find(null, 0) == null) return "לא נמצאה Java (JDK). התקינו מחדש את DSViz (ההתקנה כוללת Java 21).";
+        return null;
+    }
+
+    /** השליחה האמיתית (רצה ברקע): SubmitCli עם כל השמות שכבר תפוסים בפרויקט */
+    static SubmitDialog.Runner defaultRunner(Project project) {
+        return (items, note, target, listener) -> {
+            List<String> taken = ReadAction.compute(() -> takenNames(project, target.dir));
+            return runCli(JdkFinder.find(null, 0), Dsviz.libraryJar(), target.dir, items, note, taken, listener);
+        };
+    }
+
+    /**
+     * השמות שכבר תפוסים — כדי שהחבילה של התרגיל (ex01_stacks...) לא תתנגש בחבילה קיימת: כל התיקיות שבראש כל תיקיות הקוד
+     * (גם בדיקות) של כל המודולים, ובתיקייה שנבחרה. (SubmitCli מוסיף אותם לשמות שבתיקייה שנבחרה — "taken" במניפסט.)
+     */
+    static List<String> takenNames(Project project, File chosen) {
+        TreeSet<String> out = new TreeSet<String>();
+        List<VirtualFile> roots = new ArrayList<VirtualFile>(Arrays.asList(ProjectRootManager.getInstance(project).getContentSourceRoots()));
+        for (Module m : ModuleManager.getInstance(project).getModules()) roots.addAll(Arrays.asList(ModuleRootManager.getInstance(m).getSourceRoots(true)));
+        for (VirtualFile r : roots) {
+            if (r == null || !r.isValid() || !r.isDirectory()) continue;
+            for (VirtualFile c : r.getChildren()) if (c.isDirectory()) out.add(c.getName());
         }
-        ProgressManager.getInstance().run(new Task.Modal(project, TITLE, true) {
-            Outcome out;
-
-            @Override
-            public void run(ProgressIndicator indicator) {
-                indicator.setIndeterminate(true);
-                indicator.setText("מכין את הקבצים…");
-                out = runCli(jdk, lib, target.dir, items, note, indicator);
-            }
-
-            @Override
-            public void onSuccess() {
-                finish(project, target, out);
-            }
-        });
+        String[] names = chosen == null ? null : chosen.list();
+        if (names != null) for (String n : names) if (new File(chosen, n).isDirectory()) out.add(n);
+        return new ArrayList<String>(out);
     }
 
     /** הפקודה של SubmitCli */
@@ -147,34 +181,44 @@ public final class Submitter {
         return cmd;
     }
 
-    static Outcome runCli(JdkFinder.Found jdk, File lib, File out, List<SubmitDialog.Item> items, String note, ProgressIndicator indicator) {
+    /** המניפסט ל-SubmitCli (JSON) */
+    static Map<String, Object> manifest(String java, File lib, File out, List<SubmitDialog.Item> items, String note, Collection<String> taken) {
+        Map<String, Object> man = new LinkedHashMap<String, Object>();
+        man.put("lang", "java");
+        man.put("out", out.getAbsolutePath());
+        man.put("store", Dsviz.solutionStore().getAbsolutePath());
+        man.put("lib", lib.getAbsolutePath());
+        man.put("java", java);
+        man.put("note", note == null ? "" : note);
+        man.put("client", CLIENT);
+        man.put("taken", new ArrayList<Object>(taken == null ? Collections.<String>emptyList() : taken));
+        List<Object> list = new ArrayList<Object>();
+        for (SubmitDialog.Item it : items) {
+            Map<String, Object> j = new LinkedHashMap<String, Object>();
+            j.put("path", it.file.getAbsolutePath());
+            j.put("name", it.name);
+            list.add(j);
+        }
+        man.put("items", list);
+        return man;
+    }
+
+    static Outcome runCli(JdkFinder.Found jdk, File lib, File out, List<SubmitDialog.Item> items, String note, Listener listener) {
+        return runCli(jdk, lib, out, items, note, Collections.<String>emptyList(), listener);
+    }
+
+    static Outcome runCli(JdkFinder.Found jdk, File lib, File out, List<SubmitDialog.Item> items, String note, Collection<String> taken, Listener listener) {
         Outcome res = new Outcome();
         Process p = null;
         try {
-            Map<String, Object> man = new LinkedHashMap<String, Object>();
-            man.put("lang", "java");
-            man.put("out", out.getAbsolutePath());
-            man.put("store", Dsviz.solutionStore().getAbsolutePath());
-            man.put("lib", lib.getAbsolutePath());
-            man.put("java", jdk.java());
-            man.put("note", note == null ? "" : note);
-            man.put("client", CLIENT);
-            List<Object> list = new ArrayList<Object>();
-            for (SubmitDialog.Item it : items) {
-                Map<String, Object> j = new LinkedHashMap<String, Object>();
-                j.put("path", it.file.getAbsolutePath());
-                j.put("name", it.name);
-                list.add(j);
-            }
-            man.put("items", list);
             File manifest = File.createTempFile("dsviz-submit-", ".json");
-            Files.write(manifest.toPath(), IjShared.toJson(man).getBytes(StandardCharsets.UTF_8));
+            Files.write(manifest.toPath(), IjShared.toJson(manifest(jdk.java(), lib, out, items, note, taken)).getBytes(StandardCharsets.UTF_8));
             p = new ProcessBuilder(command(jdk.java(), lib, manifest)).redirectErrorStream(true).start();
             p.getOutputStream().close();
             final Process proc = p;
             Thread watch = new Thread(() -> {
                 while (proc.isAlive()) {
-                    if (indicator != null && indicator.isCanceled()) { proc.destroyForcibly(); return; }
+                    if (listener != null && listener.cancelled()) { proc.destroyForcibly(); return; }
                     try { Thread.sleep(200); } catch (InterruptedException e) { return; }
                 }
             });
@@ -185,27 +229,14 @@ public final class Submitter {
                 for (String line; (line = r.readLine()) != null;) {
                     Map<String, Object> m = IjShared.parseJsonLine(line);
                     if (m == null) { other.append(line).append('\n'); continue; }
-                    if (m.containsKey("progress") && indicator != null) indicator.setText(IjShared.str(m.get("progress")));
+                    if (m.containsKey("progress") && listener != null) listener.progress(IjShared.str(m.get("progress")));
                     if (m.containsKey("error")) res.error = IjShared.str(m.get("error"));
-                    if (m.containsKey("done")) {
-                        res.folder = IjShared.str(m.get("folder"));
-                        res.focus = IjShared.str(m.get("focus"));
-                        res.solutionStatus = IjShared.str(m.get("solutionStatus"));
-                        res.line = (int) num(m.get("line"));
-                        res.tasks = (int) num(m.get("tasks"));
-                        for (Object o : IjShared.arr(m.get("files"))) res.files.add(IjShared.str(o));
-                        for (Object o : IjShared.arr(m.get("errors"))) res.errors.add(IjShared.str(o));
-                        for (Object o : IjShared.arr(m.get("others"))) {
-                            Map<String, Object> q = IjShared.obj(o);
-                            String text = IjShared.str(q.get("text")).trim();
-                            if (!text.isEmpty()) res.others.add(new String[] { IjShared.str(q.get("label")), text });
-                        }
-                    }
+                    if (m.containsKey("done")) read(res, m);
                 }
             }
             p.waitFor();
             manifest.delete();
-            if (indicator != null && indicator.isCanceled()) res.error = res.files.isEmpty() ? "בוטל." : null;
+            if (listener != null && listener.cancelled()) res.error = res.files.isEmpty() ? "בוטל." : null;
             else if (res.error == null && res.files.isEmpty())
                 res.error = "לא הצלחתי ליצור את התרגיל." + (other.length() > 0 ? "\n" + other.toString().trim() : "");
         } catch (Exception e) {
@@ -213,6 +244,22 @@ public final class Submitter {
             if (p != null) p.destroyForcibly();
         }
         return res;
+    }
+
+    /** השורה {"done": true, ...} */
+    static void read(Outcome res, Map<String, Object> m) {
+        res.folder = IjShared.str(m.get("folder"));
+        res.focus = IjShared.str(m.get("focus"));
+        res.solutionStatus = IjShared.str(m.get("solutionStatus"));
+        res.line = (int) num(m.get("line"));
+        res.tasks = (int) num(m.get("tasks"));
+        for (Object o : IjShared.arr(m.get("files"))) res.files.add(IjShared.str(o));
+        for (Object o : IjShared.arr(m.get("errors"))) res.errors.add(IjShared.str(o));
+        for (Object o : IjShared.arr(m.get("others"))) {
+            Map<String, Object> q = IjShared.obj(o);
+            String text = IjShared.str(q.get("text")).trim();
+            if (!text.isEmpty()) res.others.add(new String[] { IjShared.str(q.get("label")), text });
+        }
     }
 
     /**
@@ -230,56 +277,31 @@ public final class Submitter {
     }
 
     static String clean(String text) {
-        return text.replaceAll("[\u202A-\u202E\u2066-\u2069]", "");
+        return text.replaceAll("[‪-‮⁦-⁩]", "");
     }
 
     private static double num(Object o) {
         return o instanceof Number ? ((Number) o).doubleValue() : 0;
     }
 
-    /** "2 סעיפים בקוד" / "סעיף אחד בקוד" */
-    static String codeTasks(int n) {
-        return (n == 1 ? "סעיף אחד" : n + " סעיפים") + " בקוד";
+    private static final Pattern MAIN = Pattern.compile("\\bstatic\\s+void\\s+main\\s*\\(");
+
+    /** הקובץ עם main מבין הקבצים שנוצרו, או null */
+    static String mainFile(List<String> files) {
+        for (String f : files) {
+            try {
+                if (MAIN.matcher(new String(Files.readAllBytes(new File(f).toPath()), StandardCharsets.UTF_8)).find()) return f;
+            } catch (Exception ignored) {
+                // הבא
+            }
+        }
+        return null;
     }
 
     /**
-     * בקוד שנוצר אין את הטקסט של התרגיל — אז הסעיפים שעונים עליהם במילים (others מ-SubmitCli) מופיעים בהודעה אחרי שהתרגיל נוצר,
-     * וגם כשאין בכלל סעיפים בקוד. "" — אין מה להוסיף. אותו נוסח כמו AiScaffold.othersText (Eclipse, Visual Studio) ו-submit.js (VS Code).
+     * אחרי השליחה: רענון, הספרייה במודול, פתיחת הקבצים — הקובץ עם main בלשונית שליד הקובץ של סעיף א (כדי שיהיה קל להריץ),
+     * והקובץ של סעיף א אחרון, עם הסמן במקום התשובה. המקום של כל תשובה מסומן בצהוב (AnswerMarks), והודעה קצרה אחת (Created).
      */
-    static String othersText(int tasks, List<String[]> others) {
-        StringBuilder b = new StringBuilder();
-        if (tasks == 0) b.append("בתרגיל אין סעיפים שכותבים בהם קוד.");
-        if (others != null && !others.isEmpty()) {
-            if (b.length() > 0) b.append("\n\n");
-            b.append("סעיפים שעונים עליהם במילים (בלי קוד):");
-            for (String[] o : others) b.append('\n').append(otherLine(o[0], o[1]));
-        }
-        return b.toString();
-    }
-
-    /** "ג — מהי סיבוכיות זמן הריצה...": שורה אחת, ועד 200 תווים (ואז "…") */
-    static String otherLine(String label, String text) {
-        String t = text == null ? "" : text.replaceAll("\\s+", " ").trim();
-        if (t.length() > 200) {
-            int cut = t.lastIndexOf(' ', 200);
-            t = t.substring(0, cut > 150 ? cut : 200).trim() + "…";
-        }
-        String l = label == null ? "" : label.trim();
-        return l.isEmpty() ? t : l + " — " + t;
-    }
-
-    /** תוכן ההודעה (Notification — HTML): מימין לשמאל, שורה לכל \n, וטקסט התרגיל בלי תגים (למשל "i < n") */
-    static String notificationHtml(String text) {
-        StringBuilder b = new StringBuilder("<div dir='rtl'>");
-        String[] lines = text.split("\n", -1);
-        for (int i = 0; i < lines.length; i++) {
-            if (i > 0) b.append("<br>");
-            if (!lines[i].isEmpty()) b.append('‏').append(lines[i].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"));
-        }
-        return b.append("</div>").toString();
-    }
-
-    /** אחרי השליחה: רענון, הספרייה במודול, פתיחת הקבצים (האחרון — עם הסעיף הראשון והסמן במקום הפתרון) */
     static void finish(Project project, ExerciseDialog.Target target, Outcome out) {
         if (out == null) return;
         if (out.error != null && out.files.isEmpty()) {
@@ -296,28 +318,37 @@ public final class Submitter {
         }
         VirtualFile focus = out.focus.isEmpty() ? null : LocalFileSystem.getInstance().refreshAndFindFileByPath(out.focus.replace('\\', '/'));
         if (focus == null && !files.isEmpty()) focus = files.get(0);
+        String mainPath = mainFile(out.files);
+        VirtualFile main = mainPath == null ? null : LocalFileSystem.getInstance().refreshAndFindFileByPath(mainPath.replace('\\', '/'));
+        File folder = folderOf(target, out);
+        AnswerMarks.get(project).track(folder);
         if (focus != null) {
             Module m = ModuleUtilCore.findModuleForFile(focus, project);
             if (m != null && LibrarySetup.needs(m)) LibrarySetup.add(m);
         }
-        for (VirtualFile f : files) if (!f.equals(focus)) ProjectFiles.open(project, f, 0);
-        if (focus != null) ProjectFiles.open(project, focus, out.line);
-        DaemonCodeAnalyzer.getInstance(project).restart();
-        // בקוד אין את הטקסט של התרגיל: הסעיפים שעונים עליהם במילים (ותרגיל בלי סעיפים בקוד) — בהודעה
-        String words = othersText(out.tasks, out.others);
-        if (!out.errors.isEmpty()) {
-            Say.warn(project, "התרגיל נוצר (בתיקייה " + out.folder + "), אבל יש בו " + out.errors.size() + " שגיאות קומפילציה (מסומנות באדום בקוד):\n\n"
-                    + String.join("\n", out.errors.subList(0, Math.min(4, out.errors.size())))
-                    + "\n\nבדרך כלל זה ב-main (הנתונים לדוגמה) — אפשר לתקן, או לשלוח שוב." + (words.isEmpty() ? "" : "\n\n" + words), TITLE);
-        } else if (out.tasks == 0) {
-            Say.info(project, "התרגיל נוצר (בתיקייה " + out.folder + ").\n\n" + words, TITLE);
-        } else {
-            String sol = out.solutionStatus.isEmpty() ? "" : "\nליד כל פעולה של סעיף יש מנורה 💡 בצד שמאל — \"הצעה לפתרון\" (כדאי לנסות קודם לבד).";
-            Dsviz.notify(project, "התרגיל נוצר — " + out.folder,
-                    notificationHtml("בתרגיל " + codeTasks(out.tasks) + ". הסמן מחכה במקום הפתרון של הסעיף הראשון, ו\"הרצה ויזואלית\" מראה כל שורה." + sol
-                            + (words.isEmpty() ? "" : "\n\n" + words)),
-                    com.intellij.notification.NotificationType.INFORMATION);
+        FileEditorManager fem = FileEditorManager.getInstance(project);
+        for (VirtualFile f : openOrder(files, focus, main)) {
+            if (f.equals(focus)) ProjectFiles.open(project, f, out.line);
+            else fem.openFile(f, false);
         }
+        DaemonCodeAnalyzer.getInstance(project).restart();
+        Created.show(project, out, folder, focus == null ? "" : Created.firstLabel(focus, out.line));
         ApplicationManager.getApplication().invokeLater(() -> DaemonCodeAnalyzer.getInstance(project).restart());
+    }
+
+    /** הסדר שבו פותחים: שאר הקבצים, אחריהם main, ובסוף הקובץ של סעיף א (הלשונית הפעילה, ו-main בלשונית שלידה) */
+    static <T> List<T> openOrder(List<T> files, T focus, T main) {
+        List<T> order = new ArrayList<T>();
+        for (T f : files) if (!f.equals(focus) && !f.equals(main)) order.add(f);
+        if (main != null && !main.equals(focus)) order.add(main);
+        if (focus != null) order.add(focus);
+        return order;
+    }
+
+    /** התיקייה (החבילה) של התרגיל */
+    static File folderOf(ExerciseDialog.Target target, Outcome out) {
+        if (!out.folder.isEmpty()) return new File(target.dir, out.folder);
+        if (!out.files.isEmpty()) return new File(out.files.get(0)).getParentFile();
+        return target.dir;
     }
 }
