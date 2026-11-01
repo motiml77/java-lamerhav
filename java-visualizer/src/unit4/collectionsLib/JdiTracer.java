@@ -111,7 +111,7 @@ final class JdiTracer {
             cmd.add("-Xdock:name=DSViz");
             cmd.add("-Dapple.awt.application.name=DSViz");
         }
-        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview", "dsviz.conditions", "dsviz.loopArrowFreeze", "dsviz.input", "dsviz.inputDelay", "dsviz.licenseUrl", "dsviz.license", "user.home", "dsviz.varsFrame" }) {
+        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview", "dsviz.conditions", "dsviz.loopArrowFreeze", "dsviz.animFreeze", "dsviz.anim", "dsviz.input", "dsviz.inputDelay", "dsviz.licenseUrl", "dsviz.license", "user.home", "dsviz.varsFrame" }) {
             String v = System.getProperty(p);
             if (v != null) cmd.add("-D" + p + "=" + v);
         }

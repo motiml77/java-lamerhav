@@ -121,6 +121,8 @@ final class Model {
         View sub;                          // אם הערך הוא מבנה (מחסנית / תור / רשימה / עץ) — מצויר בתוך התא
         final List<String> labels = new ArrayList<String>(); // שמות מ-Viz.point
         boolean lost;                      // אף משתנה לא מצביע על החוליה, ואי אפשר להגיע אליה (רשימה מקושרת)
+        /** זהות החוליה / הצומת (אותה חוליה בכל הצעדים — בשביל ההנפשה, StructAnim); 0 = לא ידוע (למשל הרצה של C#) */
+        int id;
     }
 
     /** שרשרת של Node */
