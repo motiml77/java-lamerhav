@@ -806,3 +806,33 @@ pre.code {
   .bar .bar-end { margin-inline-start: auto; }
   .end .get { justify-items: start; }
 }
+
+/* שליחת תרגיל (#exercise): התרגיל נבנה, ואז הקוד — במקום שבו כותבים את התשובה */
+.buildplay { font-size: var(--t-14); line-height: 1.5; }
+.buildplay .win-title .file { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.buildplay .win-title .fp-what { margin-inline-start: auto; white-space: nowrap; }
+@media (max-width: 560px) { .buildplay .win-title .fp-what { display: none; } }
+.bp-stage { display: grid; min-width: 0; background: var(--page); }
+.bp-build, .bp-code { grid-area: 1 / 1; min-width: 0; transition: opacity 0.5s var(--ease), visibility 0.5s; }
+.bp-build { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-16); align-content: center; padding: var(--s-24); }
+.bp-pages { display: grid; gap: 6px; padding: var(--s-12); background: #fff; border: 1px solid var(--line-2); border-radius: var(--r-sm); }
+.bp-pages img { width: 100%; }
+.buildplay.building .bp-pages { animation: bp-read 1.6s var(--ease) infinite alternate; }
+@keyframes bp-read { from { opacity: 1; } to { opacity: 0.72; } }
+.bp-code { padding: var(--s-16); display: grid; gap: var(--s-16); align-content: start; opacity: 0; visibility: hidden; }
+.buildplay.show-code .bp-build { opacity: 0; visibility: hidden; }
+.buildplay.show-code .bp-code { opacity: 1; visibility: visible; }
+.bp-code .fp-solbox { max-width: 640px; }
+.fp-ed .ide-code .l.ans { background: rgba(232, 161, 0, 0.12); box-shadow: inset 3px 0 0 var(--hi-bar); }
+.bp-cap { margin: var(--s-12) 0 0; font-size: var(--t-14); color: var(--muted); line-height: 1.55; }
+.bp-cap .ib { display: inline; vertical-align: -2px; }
+@media (min-width: 720px) {
+  .bp-build { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); padding: var(--s-32); }
+  .bp-code { padding: var(--s-24); }
+}
+@media (prefers-reduced-motion: reduce) { .bp-build, .bp-code { transition: none; } .buildplay.building .bp-pages { animation: none; } }
+/* הקוד ממלא את כל הגובה של האזור (בטלפון הבנייה גבוהה יותר) */
+.bp-code { display: flex; flex-direction: column; }
+.bp-code .fp-ed { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 300px; }
+.bp-code .fp-ed .ide-code { flex: 1 1 auto; height: auto; min-height: 300px; max-height: 560px; }
+@media (min-width: 720px) { .bp-code .fp-ed .ide-code { min-height: 380px; } }

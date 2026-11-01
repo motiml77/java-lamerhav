@@ -1,8 +1,7 @@
-// "שליחת תרגיל", שלב אחרי שלב (העמוד הראשי, #exercise): הדף, מה ש-Gemini החזיר, החבילה, הקובץ וההרצה.
-// ההצעה לפתרון היא לא שלב: היא נפתחת רק כשלוחצים על המנורה ליד סעיף בקובץ (שלב 4).
-// כל מה שמוצג אמיתי: שלושת הצילומים הם הקבצים שנשלחו, EXERCISE היא התשובה של Gemini עליהם (בלי שינוי), והחבילה והקוד
-// נבנים כאן מהתשובה ב-assets/scaffold.js, שמפיק בדיוק את מה שהתוסף מפיק (tools/test/scaffold-parity.js, אותו JSON
-// נמצא שם ב-ai/parity/5-gemini-balanced-java.json). הצילומים של ההרצה ושל ההצעה לפתרון מ-IntelliJ IDEA, על אותו תרגיל.
+// "שליחת תרגיל" בעמוד הראשי (#exercise): התרגיל נבנה (דף התרגיל + ההודעות של שורת ההתקדמות), ואז הקוד עצמו —
+// בדיוק במקום שבו התלמיד כותב את התשובה, עם הסמן בסעיף א. ההצעה לפתרון נפתחת רק כשלוחצים על המנורה ליד סעיף.
+// כל מה שמוצג אמיתי: שלושת הצילומים הם הדף שנשלח, EXERCISE היא התשובה של Gemini עליו (בלי שינוי), והקוד נבנה כאן
+// ב-assets/scaffold.js, שמפיק בדיוק את מה שהתוסף מפיק (tools/test/scaffold-parity.js, ai/parity/5-gemini-balanced-java.json).
 (function () {
   var root = document.querySelector('[data-flow]');
   if (!root) return;
@@ -10,32 +9,9 @@
 
   var EXERCISE = {"title":"תור מאוזן ומחסנית תורים","summary":"בדיקה האם תור של מספרים שלמים מאוזן (סכום המספרים החיוביים שווה לסכום הערכים המוחלטים של השליליים), וספירת תורים מאוזנים במחסנית תורים.","topic":"queues_and_stacks","mainClass":"BalancedQueues","imports":[],"classes":[],"tasks":[{"label":"א","kind":"method","className":"BalancedQueues","isStatic":true,"returnType":"boolean","methodName":"isBalanced","parameters":[{"type":"Queue<Integer>","name":"q"}],"instructions":"תור \"מאוזן\" הוא תור של מספרים שלמים שבו סכום המספרים החיוביים שווה לסכום הערכים המוחלטים של המספרים השליליים.\nכתבו פעולה isBalanced המקבלת תור של מספרים שלמים ומחזירה אמת אם התור מאוזן, ושקר אחרת. התור צריך להישאר כפי שהיה. ניתן להשתמש בפעולה sumPositive הנתונה."},{"label":"ב","kind":"method","className":"BalancedQueues","isStatic":true,"returnType":"int","methodName":"countBalanced","parameters":[{"type":"Stack<Queue<Integer>>","name":"st"}],"instructions":"כתבו פעולה המקבלת מחסנית של תורים של מספרים שלמים, ומחזירה כמה מהתורים במחסנית הם מאוזנים. השתמשו בפעולה שכתבתם בסעיף א."}],"givenCode":[{"className":"BalancedQueues","code":"public static int sumPositive(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int sum = 0;\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        if (x > 0) sum += x;\n        temp.insert(x);\n    }\n    while (!temp.isEmpty()) q.insert(temp.remove());\n    return sum;\n}"}],"otherQuestions":[{"label":"ג","text":"מהי סיבוכיות זמן הריצה של הפעולה שכתבתם בסעיף ב? נמקו."}],"mainCode":"// יצירת תור מאוזן: 5 חיובי, -2 ו- -3 סכומם בערך מוחלט 5\nQueue<Integer> q1 = new Queue<Integer>();\nq1.insert(5);\nq1.insert(-2);\nq1.insert(-3);\nSystem.out.println(\"תור 1: \" + q1);\nSystem.out.println(\"סעיף א (תור 1 מאוזן?): \" + isBalanced(q1));\n\n// יצירת תור לא מאוזן: חיובי 4, שלילי בערך מוחלט 1\nQueue<Integer> q2 = new Queue<Integer>();\nq2.insert(4);\nq2.insert(-1);\nSystem.out.println(\"תור 2: \" + q2);\nSystem.out.println(\"סעיף א (תור 2 מאוזן?): \" + isBalanced(q2));\n\n// יצירת תור מאוזן נוסף: -7 וסכום חיוביים 3+4=7\nQueue<Integer> q3 = new Queue<Integer>();\nq3.insert(-7);\nq3.insert(3);\nq3.insert(4);\n\n// יצירת מחסנית המכילה 3 תורים (מתוכם 2 מאוזנים)\nStack<Queue<Integer>> st = new Stack<Queue<Integer>>();\nst.push(q1);\nst.push(q2);\nst.push(q3);\nSystem.out.println(\"סעיף ב (מספר תורים מאוזנים במחסנית): \" + countBalanced(st));","expectedOutput":"תור 1: [5,-2,-3]\nסעיף א (תור 1 מאוזן?): true\nתור 2: [4,-1]\nסעיף א (תור 2 מאוזן?): false\nסעיף ב (מספר תורים מאוזנים במחסנית): 2","language":"java"};
 
-  var tabs = Array.prototype.slice.call(root.querySelectorAll('.fp-steps [role=tab]'));
-  var panes = tabs.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
-  var prev = root.querySelector('[data-fprev]');
-  var next = root.querySelector('[data-fnext]');
-  var play = root.querySelector('[data-fplay]');
-  var now = root.querySelector('[data-fnow]');
-  // כמה זמן כל שלב על המסך כשמריצים (מ"ש)
-  var DUR = [3600, 5400, 3800, 5200, 4600];
-  var at = 0, timer = null, playing = false, touched = false, seq = [];
-
+  var seq = [];
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function later(fn, ms) { seq.push(setTimeout(fn, ms)); }
-  function clearSeq() { seq.forEach(clearTimeout); seq = []; }
-
-  // ---------------------------------------------------------------- שלב 2: ההמתנה — ההודעות שבשורת ההתקדמות, אחת אחרי השנייה
-  var msgs = Array.prototype.slice.call(root.querySelectorAll('[data-fmsgs] li'));
-  var bar = root.querySelector('[data-fbar]');
-  function progress() {
-    var step = function (k) {
-      msgs.forEach(function (li, n) { li.classList.toggle('done', n < k); li.classList.toggle('now', n === k); });
-      bar.style.transform = 'scaleX(' + Math.min(1, (k + 1) / msgs.length) + ')';
-    };
-    if (calm) { step(msgs.length - 1); return; }
-    step(0);
-    msgs.forEach(function (li, n) { if (n) later(function () { step(n); }, n * 900); });
-  }
 
   // ---------------------------------------------------------------- הקוד: נבנה בדפדפן ב-scaffold.js
   var built = null, waiting = [];
@@ -101,18 +77,20 @@
   }
 
   var codeEl = root.querySelector('[data-fcode]');
-  var legendEl = root.querySelector('[data-flegend]');
   var PARTS = [];
 
-  function lines(b, upto, bulbs) {
-    var ls = b.main.code.split('\n'), cur = b.main.cursorLine, html = '';
+  function lines(b) {
+    var ls = b.main.code.split('\n'), cur = b.main.cursorLine, html = '', heads = {}, ans = {};
     if (ls[ls.length - 1] === '') ls.pop();
-    var heads = {};
-    PARTS.forEach(function (p) { if (p.task) heads[p.from] = p.task; });
-    for (var i = 0; i < Math.min(ls.length, upto || ls.length); i++) {
+    PARTS.forEach(function (p) {
+      if (!p.task) return;
+      heads[p.from] = p.task;
+      for (var k = p.from + 1; k < p.to; k++) ans[k] = true;   // גוף הפעולה — כאן כותבים
+    });
+    for (var i = 0; i < ls.length; i++) {
       var body = i === cur ? esc(ls[i]) + '<i class="caret" aria-hidden="true"></i>' : paint(ls[i]);
-      var bulb = heads[i] !== undefined ? '<button type="button" class="fp-bulb" data-bulb="' + heads[i] + '" aria-label="הצעה לפתרון לסעיף ' + heads[i] + '"' + (bulbs ? ' aria-expanded="false"' : '') + '><img src="assets/bulb.svg" alt="" width="14" height="14"></button>' : '';
-      html += '<span class="l' + (i === cur ? ' cur' : '') + '" data-i="' + i + '"><span class="n">' + (i + 1) + '</span>' + bulb + (body || ' ') + '</span>';
+      var bulb = heads[i] !== undefined ? '<button type="button" class="fp-bulb" data-bulb="' + heads[i] + '" aria-label="הצעה לפתרון לסעיף ' + heads[i] + '" aria-expanded="false"><img src="assets/bulb.svg" alt="" width="14" height="14"></button>' : '';
+      html += '<span class="l' + (i === cur ? ' cur' : '') + (ans[i] ? ' ans' : '') + '" data-i="' + i + '"><span class="n">' + (i + 1) + '</span>' + bulb + (body || ' ') + '</span>';
     }
     return html;
   }
@@ -120,52 +98,36 @@
   function fill(b) {
     if (b.error) { codeEl.innerHTML = '<span class="l"><span class="n"></span>// הקוד לא נטען. מרעננים את הדף ומנסים שוב.</span>'; return; }
     PARTS = parts(b);
-    codeEl.innerHTML = lines(b, 0, true);
-    legendEl.innerHTML = PARTS.map(function (p) {
-      return '<button type="button" data-part="' + p.id + '"><span>' + p.label + '</span><small>' + (p.from === p.to ? 'שורה ' + (p.from + 1) : 'שורות <bdi dir="ltr">' + (p.from + 1) + '–' + (p.to + 1) + '</bdi>') + '</small></button>';
-    }).join('');
-    root.querySelector('[data-fpkg]').textContent = b.pkg;
-    root.querySelector('[data-fpkg2]').textContent = b.pkg;
-    root.querySelector('[data-ffile]').textContent = b.main.fileName;
+    codeEl.innerHTML = lines(b);
     root.querySelector('[data-ftitle]').textContent = b.pkg + '/' + b.main.fileName;
-    root.querySelector('[data-ffiles]').innerHTML = b.files.map(function (f, i) {
-      return '<li class="new" style="--i:' + (i + 1) + '"><span class="ff">' + esc(f.fileName) + '</span></li>';
-    }).join('');
-    var n = b.e.tasks.length;
-    root.querySelector('[data-fcount]').textContent = (n === 1 ? 'סעיף אחד' : n + ' סעיפים') + ' בקוד';
-    // סעיפים שעונים עליהם במילים — מופיעים בהודעה, לא בקוד
-    var others = b.e.others || [], oEl = root.querySelector('[data-fothers]');
-    oEl.hidden = !others.length;
-    oEl.innerHTML = others.length ? '<p>סעיפים שעונים עליהם במילים (בלי קוד):</p>' + others.map(function (o) { return '<p>' + esc(o.label) + ' — ' + esc(o.text.replace(/\s+/g, ' ')) + '</p>'; }).join('') : '';
-    // שלב 5: מה שכתוב מעל main
-    root.querySelector('[data-fexpect]').innerHTML = (b.e.expectedOutput || '').split('\n').map(function (l) { return '<span class="l" dir="auto">' + esc(l) + '</span>'; }).join('');
     root.classList.add('fp-built');
-    if (at === 3) mark(PARTS[0] && PARTS[0].id, false);
+    if (root.classList.contains('show-code')) focusAnswer();
   }
 
-  // מסמן חלק בקובץ וגולל אליו (בתוך העורך בלבד)
-  function mark(id, smooth) {
-    var p = null;
-    PARTS.forEach(function (x) { if (x.id === id) p = x; });
-    var ls = codeEl.children;
-    for (var i = 0; i < ls.length; i++) ls[i].classList.toggle('sel', !!p && i >= p.from && i <= p.to);
-    legendEl.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-part') === id ? 'true' : 'false'); });
-    if (!p || !ls[p.from]) return;
-    var top = Math.max(0, ls[p.from].offsetTop - 2 * ls[p.from].offsetHeight);
-    if (codeEl.scrollTo) codeEl.scrollTo({ top: top, behavior: smooth && !calm ? 'smooth' : 'auto' });
-    else codeEl.scrollTop = top;
+  // גוללים בתוך העורך כך שהסעיף הראשון והמקום של התשובה בראש
+  function focusAnswer() {
+    var first = PARTS.filter(function (p) { return p.task; })[0], ls = codeEl.children;
+    if (!first || !ls[first.from]) return;
+    codeEl.scrollTop = Math.max(0, ls[first.from].offsetTop - ls[first.from].offsetHeight);
   }
-  legendEl.addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-part]');
-    if (!b) return;
-    stop();
-    mark(b.getAttribute('data-part'), true);
-  });
 
-  function tour() {
-    mark(PARTS[0] && PARTS[0].id, false);
-    if (!playing || calm) return;
-    PARTS.slice(1).forEach(function (p, n) { later(function () { mark(p.id, true); }, 1100 + n * 950); });
+  // ---------------------------------------------------------------- הבנייה: ההודעות של שורת ההתקדמות, אחת אחרי השנייה
+  var msgs = Array.prototype.slice.call(root.querySelectorAll('[data-fmsgs] li'));
+  var bar = root.querySelector('[data-fbar]');
+  function step(k) {
+    msgs.forEach(function (li, n) { li.classList.toggle('done', n < k); li.classList.toggle('now', n === k); });
+    bar.style.transform = 'scaleX(' + Math.min(1, (k + 1) / msgs.length) + ')';
+  }
+  function showCode() {
+    root.classList.remove('building');
+    root.classList.add('show-code');
+    scaffold(function (b) { if (!root.classList.contains('fp-built')) fill(b); else focusAnswer(); });
+  }
+  function build() {
+    root.classList.add('building');
+    step(0);
+    msgs.forEach(function (li, n) { if (n) later(function () { step(n); }, n * 850); });
+    later(function () { step(msgs.length); showCode(); }, msgs.length * 850 + 500);
   }
 
   // ---------------------------------------------------------------- המנורה: ההצעה נפתחת רק כשבוחרים ללחוץ
@@ -187,11 +149,7 @@
   root.addEventListener('click', function (e) {
     var b = e.target.closest('[data-bulb]');
     if (b) {
-      stop();
-      var task = b.getAttribute('data-bulb');
-      var again = b.getAttribute('aria-expanded') === 'true';
-      if (at !== 3) show(3);
-      solution(again ? null : task);
+      solution(b.getAttribute('aria-expanded') === 'true' ? null : b.getAttribute('data-bulb'));
       var open = solBox.querySelector('[data-sol-open]:not([hidden])');
       if (open && open.scrollIntoView) open.scrollIntoView({ block: 'nearest', behavior: calm ? 'auto' : 'smooth' });
       return;
@@ -199,97 +157,19 @@
     if (e.target.closest('[data-sol-close]')) { solution(null); var first = codeEl.querySelector('[data-bulb]'); if (first) first.focus(); }
   });
 
-  // ---------------------------------------------------------------- השלבים
-  function show(i) {
-    clearSeq();
-    if (timer) { clearTimeout(timer); timer = null; }
-    at = i;
-    tabs.forEach(function (t, n) {
-      var on = n === i;
-      t.setAttribute('aria-selected', on ? 'true' : 'false');
-      t.tabIndex = on ? 0 : -1;
-      t.classList.toggle('done', n < i);
-      panes[n].classList.toggle('on', on);
-      panes[n].setAttribute('aria-hidden', on ? 'false' : 'true');
-    });
-    var t = tabs[i].querySelector('.st');
-    now.innerHTML = '<b>' + t.querySelector('b').innerHTML + '</b> ' + t.querySelector('small').innerHTML;
-    prev.disabled = i === 0;
-    next.disabled = i === tabs.length - 1;   // בשלב האחרון נעצרים — לא מתחילים שוב לבד
-    play.disabled = i === tabs.length - 1 && !playing;
-    if (i === 1) progress();
-    if (i >= 2) scaffold(function (b) { if (!root.classList.contains('fp-built')) fill(b); if (at === 3) tour(); });
-    if (i === 3) solution(null);
-    if (playing) {
-      root.style.setProperty('--fp-dur', DUR[i] + 'ms');
-      tabs.forEach(function (x) { x.classList.remove('run'); });
-      void tabs[i].offsetWidth;   // שהפס יתחיל מההתחלה
-      tabs[i].classList.add('run');
-      if (i < tabs.length - 1) timer = setTimeout(function () { show(i + 1); }, DUR[i]);
-      else setPlaying(false);
-    }
-  }
-
-  function setPlaying(on) {
-    playing = on;
-    root.classList.toggle('playing', on);
-    play.setAttribute('aria-pressed', on ? 'true' : 'false');
-    play.textContent = on ? 'עצירה' : 'הפעלה';
-    play.disabled = !on && at === tabs.length - 1;
-    tabs.forEach(function (t) { t.classList.remove('run'); });
-    if (!on && timer) { clearTimeout(timer); timer = null; }
-  }
-  function stop() { touched = true; if (playing) setPlaying(false); }
-  function start() {
-    touched = true;
-    setPlaying(true);
-    show(at);
-  }
-
-  tabs.forEach(function (t, n) {
-    t.addEventListener('click', function () { stop(); show(n); });
-  });
-  prev.addEventListener('click', function () { stop(); if (at > 0) show(at - 1); });
-  next.addEventListener('click', function () { stop(); if (at < tabs.length - 1) show(at + 1); });
-  play.addEventListener('click', function () { if (playing) stop(); else start(); });
-
-  // מקלדת: חצים בין השלבים (מימין לשמאל: שמאלה ולמטה = הבא), Home / End, ורווח מפעיל ועוצר
-  root.addEventListener('keydown', function (e) {
-    var el = e.target;
-    if (el.closest && el.closest('.fp-legend, [data-solbox]')) return;
-    var k = e.key, j = null;
-    if (k === 'ArrowLeft' || k === 'ArrowDown') j = Math.min(at + 1, tabs.length - 1);
-    else if (k === 'ArrowRight' || k === 'ArrowUp') j = Math.max(at - 1, 0);
-    else if (k === 'Home') j = 0;
-    else if (k === 'End') j = tabs.length - 1;
-    else if ((k === ' ' || k === 'Spacebar') && !/^(BUTTON|A|INPUT)$/.test(el.tagName)) { e.preventDefault(); if (playing) stop(); else if (at < tabs.length - 1) start(); return; }
-    if (j === null) return;
-    if (el.tagName === 'PRE' && (k === 'ArrowDown' || k === 'ArrowUp' || k === 'Home' || k === 'End')) return;   // גלילה בתוך הקוד
-    e.preventDefault();
-    stop();
-    show(j);
-    if (el.getAttribute('role') === 'tab') tabs[j].focus();
-  });
-
+  // הקוד נטען כשמתקרבים לאזור; הבנייה מוצגת פעם אחת כשהאזור על המסך, ואז נשארים על הקוד.
+  // בלי תנועה (או בלי IntersectionObserver) — ישר הקוד
   root.classList.add('ready');
-  show(0);
-
-  // הקוד נטען כשמתקרבים לאזור (לא עם העמוד); ההרצה מתחילה לבד פעם אחת כשהנגן על המסך —
-  // לא כשמבקשים פחות תנועה, ולא אחרי שנגעו בו
-  if (!('IntersectionObserver' in window)) { scaffold(function () {}); return; }
+  step(0);
+  if (calm || !('IntersectionObserver' in window)) { showCode(); return; }
   var near = new IntersectionObserver(function (es) {
     if (es.some(function (x) { return x.isIntersecting; })) { near.disconnect(); scaffold(function (b) { if (!root.classList.contains('fp-built')) fill(b); }); }
   }, { rootMargin: '600px 0px' });
   near.observe(root);
-  if (calm) return;
   var io = new IntersectionObserver(function (es) {
-    es.forEach(function (x) {
-      if (!x.isIntersecting || touched || playing) return;
-      io.disconnect();
-      touched = true;
-      setPlaying(true);
-      show(at);
-    });
-  }, { threshold: 0.55 });
+    if (!es.some(function (x) { return x.isIntersecting; })) return;
+    io.disconnect();
+    build();
+  }, { threshold: 0.5 });
   io.observe(root);
 })();

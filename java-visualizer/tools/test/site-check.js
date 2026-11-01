@@ -5,7 +5,7 @@
 //  • כפתור ההורדה לפי מערכת ההפעלה (Windows / Mac) והאפשרות השנייה תמיד גלויה; ספירה: לחיצה על ההורדה ל-Windows
 //    והעתקה של שורת ה-Mac שולחות /v1/count/windows ו-/v1/count/mac; המונה מוצג רק כשהשרת סופר
 //  • "תמכו בפרויקט" בראש ובתחתית של כל עמוד, אותו קישור כמו בחלון ההרצה
-//  • שליחת תרגיל, שלב אחרי שלב: השלבים, הקוד שנבנה בדפדפן זהה ל-scaffold.js, ההצעה סגורה עד לחיצה, ההפעלה לבד ובלי תנועה
+//  • שליחת תרגיל: הבנייה ואז הקוד במקום התשובה, זהה ל-scaffold.js, ההצעה רק בלחיצה על המנורה, פעם אחת ובלי תנועה
 //  • נסו בעצמכם: כל כפתור משנה את הציור ומוסיף שורת Java; ההדגמה (רווח / Home / End); המונה עולה בהדרגה; "מה חדש"
 //  • צילומי מסך של כל עמוד ושל כל אזור — לתיקייה שמקבלים (ברירת מחדל build/test/site-check)
 //   node site-check.js [out-dir]
@@ -282,79 +282,36 @@ function serve() {
       await page.goto(base + 'index.html?os=win');
       await page.addStyleTag({ content: '.bar{position:static!important}' });
       await page.waitForSelector('[data-flow].ready');
-      const sel = () => page.$$eval('[data-flow] .fp-steps [role=tab]', ts => ts.findIndex(t => t.getAttribute('aria-selected') === 'true'));
-      const vis = n => page.isVisible('#fp-' + n + ' .fp-cap');
-      assert.strictEqual(await page.$$eval('[data-flow] .fp-steps [role=tab]', l => l.length), 5, '5 שלבים (ההצעה לפתרון היא לא שלב)');
-      assert.ok(await vis(1) && !(await vis(2)), 'שלב 1 גלוי, והשאר מוסתרים');
-      assert.ok(await page.$$eval('#exercise img[src*="img/"]', l => l.length >= 10 && l.every(i => i.loading === 'lazy')), 'הצילומים בנגן נטענים רק כשמגיעים אליהם');
+      assert.ok(!(await page.$('[data-flow] [role=tab]')) && !(await page.$('[data-fnext]')), 'בלי שלבים ובלי כפתורי ניווט — רק הבנייה ואז הקוד');
       await page.locator('[data-flow]').scrollIntoViewIfNeeded();
-      // הבא / הקודם
-      await page.click('[data-fnext]');
-      assert.strictEqual(await sel(), 1, 'הבא → שלב 2');
-      assert.ok(await vis(2) && !(await vis(1)), 'שלב 2 גלוי');
-      // שלב 2: מה שרואים בזמן ההמתנה — ההודעות של שורת ההתקדמות (בלי תנועה: כולן כבר עברו)
-      const msgs = await page.$$eval('[data-fmsgs] li', l => l.map(x => x.textContent));
-      assert.ok(msgs.length === 5 && msgs[1].startsWith('שולח את התרגיל') && msgs[3] === 'בודק שהקוד מתקמפל…', 'הודעות ההתקדמות: ' + msgs.join(' | '));
-      assert.ok(await page.$eval('[data-fmsgs] li:last-child', li => li.classList.contains('now')), 'בלי תנועה: ההודעה האחרונה מסומנת מיד');
-      assert.ok(!(await page.$('[data-ffields]')), 'בלי תצוגה פנימית של מה ש-Gemini החזיר');
-      await page.click('[data-fprev]');
-      assert.strictEqual(await sel(), 0, 'הקודם → שלב 1');
-      // מקלדת: שמאלה = הבא, End / Home
-      await page.focus('#fs-1');
-      await page.keyboard.press('ArrowLeft');
-      assert.strictEqual(await sel(), 1, 'חץ שמאלה → שלב 2');
-      await page.keyboard.press('End');
-      assert.strictEqual(await sel(), 4, 'End → שלב 5');
-      assert.ok(await page.$eval('[data-fnext]', b => b.disabled) && await page.$eval('[data-fplay]', b => b.disabled), 'בשלב האחרון "הבא" ו"הפעלה" כבויים — לא מתחילים שוב');
-      assert.ok(!/מההתחלה/.test(await page.textContent('[data-flow] .fp-nav')), 'אין כפתור "מההתחלה"');
-      await page.keyboard.press('Home');
-      assert.strictEqual(await sel(), 0, 'Home → שלב 1');
-      // שלב 3: החבילה, מהקוד של scaffold.js בדפדפן
-      await page.click('#fs-3');
-      await page.waitForSelector('[data-flow].fp-built', { timeout: 5000 });
-      assert.strictEqual(await page.textContent('[data-fpkg]'), pkg, 'שם החבילה');
-      assert.deepStrictEqual(await page.$$eval('[data-ffiles] .ff', l => l.map(x => x.textContent)), files.map(f => f.fileName), 'הקבצים בחבילה');
-      assert.strictEqual(await page.textContent('[data-fcount]'), ex.tasks.length + ' סעיפים בקוד', 'מספר הסעיפים בהודעה (כמו ב-IntelliJ)');
-      assert.ok(/ג — מהי סיבוכיות/.test(await page.textContent('[data-fothers]')) && await page.isVisible('[data-fothers]'), 'סעיף ג (במילים) מופיע בהודעה');
-      // שלב 4: הקוד שמוצג הוא בדיוק מה שהתוסף בונה מאותה תשובה (scaffold-parity בודק שזה זהה ל-AiScaffold.java)
-      await page.click('#fs-4');
+      // בלי תנועה: ישר הקוד
+      await page.waitForSelector('[data-flow].fp-built.show-code', { timeout: 5000 });
+      assert.ok(!(await page.isVisible('[data-fbuild]')) && await page.isVisible('[data-fcode]'), 'בלי תנועה: ישר הקוד');
       const code = await page.$eval('[data-fcode]', pre => [...pre.children].map(l => { const c = l.cloneNode(true); c.querySelectorAll('.n, .fp-bulb, .caret').forEach(x => x.remove()); return c.textContent; }).join('\n'));
-      assert.strictEqual(blank(code), blank(files[0].code.replace(/\n$/, '')), 'הקוד בשלב 4 שונה ממה ש-scaffold.js בונה');
+      assert.strictEqual(blank(code), blank(files[0].code.replace(/\n$/, '')), 'הקוד שמוצג שונה ממה ש-scaffold.js בונה');
       assert.strictEqual(+(await page.getAttribute('[data-fcode] .l.cur', 'data-i')), files[0].cursorLine, 'הסמן בסעיף הראשון');
       assert.ok(await page.$('[data-fcode] .l.cur .caret'), 'סמן מהבהב בשורה');
+      assert.ok(await page.$eval('[data-fcode] .l.cur', l => l.classList.contains('ans')), 'שורת הסמן מסומנת כמקום התשובה');
+      assert.ok((await page.$$eval('[data-fcode] .l.ans', l => l.length)) >= ex.tasks.length * 2, 'בכל סעיף מסומן המקום של התשובה');
+      const vis = await page.$eval('[data-fcode]', pre => { const l = pre.querySelector('.l.cur'); return l.offsetTop >= pre.scrollTop && l.offsetTop + l.offsetHeight <= pre.scrollTop + pre.clientHeight; });
+      assert.ok(vis, 'שורת התשובה נראית בעורך בלי לגלול');
       assert.strictEqual(await page.$$eval('[data-fcode] .fp-bulb', l => l.length), ex.tasks.length, 'מנורה ליד כל סעיף');
-      const legend = await page.$$eval('[data-flegend] button', l => l.map(b => b.getAttribute('data-part')));
-      assert.deepStrictEqual(legend, ['task-א', 'task-ב', 'given', 'expected', 'main'], 'מה יש בקובץ: ' + legend);
-      await page.click('[data-flegend] [data-part=main]');
-      await page.waitForTimeout(100);
-      const mainSel = await page.$$eval('[data-fcode] .l.sel', l => l.map(x => x.textContent));
-      assert.ok(mainSel.length > 10 && /void main\(/.test(mainSel[0]) && await page.$eval('[data-fcode]', p => p.scrollTop) > 0, 'לחיצה על main מסמנת וגוללת: ' + mainSel[0]);
-      await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, label + '-flow-4-main.png') });
+      assert.strictEqual(await page.textContent('[data-ftitle]'), pkg + '/' + files[0].fileName, 'שם הקובץ');
+      await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, label + '-flow-code.png') });
       // ההצעה לפתרון: לא מוצגת עד שבוחרים ללחוץ על המנורה ליד הסעיף
-      assert.ok(!(await page.isVisible('[data-solbox]')) && !(await page.isVisible('[data-sol-open=א]')), 'ההצעה לא מוצגת לפני לחיצה');
+      assert.ok(!(await page.isVisible('[data-solbox]')), 'ההצעה לא מוצגת לפני לחיצה');
       await page.click('[data-fcode] [data-bulb=א]');
-      assert.ok(await sel() === 3 && await page.isVisible('[data-sol-open=א] img'), 'מנורה של סעיף א פותחת את ההצעה, באותו שלב');
+      assert.ok(await page.isVisible('[data-sol-open=א] img'), 'מנורה של סעיף א פותחת את ההצעה');
       assert.strictEqual(await page.getAttribute('[data-fcode] [data-bulb=א]', 'aria-expanded'), 'true');
-      await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, label + '-flow-4-open.png') });
+      await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, label + '-flow-open.png') });
       await page.click('[data-sol-open=א] [data-sol-close]');
       assert.ok(!(await page.isVisible('[data-solbox]')), 'סגירה');
       await page.click('[data-fcode] [data-bulb=ב]');
       assert.ok(await page.isVisible('[data-sol-open=ב]'), 'סעיף ב: הודעה');
       await page.click('[data-fcode] [data-bulb=ב]');
       assert.ok(!(await page.isVisible('[data-solbox]')), 'לחיצה שנייה על המנורה סוגרת');
-      // שלב 5: מה שכתוב מעל main — אותן שורות כמו בקובץ
-      await page.click('#fs-5');
-      const expect = await page.$$eval('[data-fexpect] .l', l => l.map(x => x.textContent));
-      assert.strictEqual(expect.join('\n'), ex.expectedOutput, 'מה צריך להיות מודפס: ' + expect.join(' | '));
-      await page.click('#fs-4');
-      // אין בדף הערות טכניות (שמות קבצים של האתר, שם המודל)
       const txt = await page.textContent('#exercise');
-      assert.ok(!/scaffold\.js|assets\/|gemini-flash|SHA-256/.test(txt), 'הערה טכנית באזור שליחת תרגיל');
-      for (let n = 1; n <= 5; n++) {
-        await page.click('#fs-' + n);
-        await page.waitForTimeout(60);
-        await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, label + '-flow-' + n + '.png') });
-      }
+      assert.ok(!/scaffold\.js|assets\/|gemini-flash|SHA-256|מההתחלה/.test(txt), 'הערה טכנית או "מההתחלה" באזור שליחת תרגיל');
       // לנסות באתר, והלשוניות עם הצילומים מכל סביבה
       assert.ok(/נסו עכשיו בדפדפן, בלי התקנה/.test(await page.textContent('#exercise .fp-after a.btn[href="bagrut.html"]')), 'הקישור ל-bagrut.html');
       await page.click('#t-sub-ecl');
@@ -366,7 +323,7 @@ function serve() {
       await ctx.close();
     }
 
-    // בלי "פחות תנועה": הנגן מתחיל לבד פעם אחת כשהוא על המסך, עוצר בלחיצה, ו"הפעלה" ממשיכה
+    // בלי "פחות תנועה": כשהאזור על המסך — התרגיל נבנה (ההודעות של שורת ההתקדמות), ואז הקוד, פעם אחת
     const ctx = await context({ width: 1366, height: 900 });
     const page = await ctx.newPage();
     const errors = [];
@@ -374,38 +331,27 @@ function serve() {
     await page.goto(base + 'index.html?os=win');
     await page.addStyleTag({ content: '.bar{position:static!important}' });
     await page.waitForSelector('[data-flow].ready');
-    const sel = () => page.$$eval('[data-flow] .fp-steps [role=tab]', ts => ts.findIndex(t => t.getAttribute('aria-selected') === 'true'));
-    assert.strictEqual(await sel(), 0);
+    assert.ok(!(await page.$eval('[data-flow]', r => r.classList.contains('show-code'))), 'לפני שמגיעים לאזור — עוד לא הקוד');
     await page.addStyleTag({ content: 'html{scroll-behavior:auto!important}' });
     await page.evaluate(() => document.querySelector('[data-flow]').scrollIntoView({ block: 'center' }));
-    await page.waitForTimeout(400);
-    assert.ok(await page.$eval('[data-flow]', r => r.classList.contains('playing')), 'הנגן התחיל לבד');
-    await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, 'anim-flow-1.png') });
-    await page.waitForTimeout(3700);
-    assert.strictEqual(await sel(), 1, 'אחרי 3.6 שניות: שלב 2');
     await page.waitForTimeout(1300);
-    await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, 'anim-flow-2-waiting.png') });
+    assert.ok(await page.$eval('[data-flow]', r => r.classList.contains('building')) && await page.isVisible('[data-fbuild]'), 'התרגיל נבנה');
     const prog = await page.$$eval('[data-fmsgs] li', l => [l.filter(x => x.classList.contains('done')).length, l.findIndex(x => x.classList.contains('now'))]);
-    assert.ok(prog[0] >= 1 && prog[1] >= 1, 'ההמתנה: ההודעות של שורת ההתקדמות מתקדמות אחת אחרי השנייה (' + prog + ')');
+    assert.ok(prog[0] >= 1 && prog[1] >= 1, 'ההודעות של שורת ההתקדמות מתקדמות (' + prog + ')');
+    await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, 'anim-flow-building.png') });
     await page.waitForTimeout(4400);
-    assert.strictEqual(await sel(), 2, 'שלב 3');
-    await page.waitForTimeout(500);
-    await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, 'anim-flow-3-tree.png') });
-    await page.waitForTimeout(3600);
-    assert.strictEqual(await sel(), 3, 'שלב 4');
-    await page.waitForTimeout(2200);
-    await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, 'anim-flow-4-tour.png') });
-    await page.click('#fs-2');
-    assert.ok(!(await page.$eval('[data-flow]', r => r.classList.contains('playing'))) && await sel() === 1, 'לחיצה על שלב עוצרת');
-    await page.waitForTimeout(4000);
-    assert.strictEqual(await sel(), 1, 'אחרי עצירה לא ממשיך לבד');
-    await page.click('[data-fplay]');
-    assert.strictEqual(await page.getAttribute('[data-fplay]', 'aria-pressed'), 'true', '"הפעלה" ממשיכה');
-    await page.click('[data-fplay]');
-    assert.strictEqual(await page.getAttribute('[data-fplay]', 'aria-pressed'), 'false', '"עצירה"');
-    assert.deepStrictEqual(errors, [], 'שגיאות (הנגן רץ לבד)');
+    assert.ok(await page.$eval('[data-flow]', r => r.classList.contains('show-code') && !r.classList.contains('building')), 'אחרי הבנייה — הקוד');
+    await page.waitForTimeout(600);
+    assert.ok(await page.isVisible('[data-fcode] .l.cur .caret') && !(await page.isVisible('[data-fbuild]')), 'הקוד במקום התשובה, והבנייה נעלמה');
+    await (await page.$('[data-flow]')).screenshot({ path: path.join(OUT, 'anim-flow-code.png') });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => document.querySelector('[data-flow]').scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(400);
+    assert.ok(await page.$eval('[data-flow]', r => r.classList.contains('show-code') && !r.classList.contains('building')), 'לא נבנה שוב כשחוזרים');
+    assert.deepStrictEqual(errors, [], 'שגיאות (הבנייה)');
     await ctx.close();
-    pass('שליחת תרגיל, שלב אחרי שלב: 5 שלבים (הבא / הקודם / חצים / Home / End), מה Gemini החזיר, החבילה ' + pkg + ' והקוד זהים ל-scaffold.js, סמן בשורה ' + (files[0].cursorLine + 1) + ', ההצעה רק בלחיצה על המנורה (לא שלב), בלי הערות טכניות, מתחיל לבד פעם אחת ונעצר בלחיצה, בלי תנועה כשמבקשים');
+    pass('שליחת תרגיל: התרגיל נבנה (ההודעות של שורת ההתקדמות) ואז הקוד — החבילה ' + pkg + ' והקוד זהים ל-scaffold.js, הסמן בשורה ' + (files[0].cursorLine + 1) + ' ונראה בעורך, המקום של התשובה מסומן בכל סעיף, ההצעה רק בלחיצה על המנורה; פעם אחת, ובלי תנועה — ישר הקוד');
   }
 
   // ---- נסו בעצמכם (#playground): הכפתורים משנים את הציור, והשורה ב-Java נוספת ומסומנת
