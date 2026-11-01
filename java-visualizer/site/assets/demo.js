@@ -131,17 +131,50 @@
     next.textContent = at === steps.length - 1 ? 'מההתחלה' : 'הבא';
   }
 
+  // הפעלה / עצירה: כפתור, רווח במקלדת, או לבד פעם אחת כשההדגמה על המסך
+  var play = root.querySelector('[data-play]');
+  function playing(on) {
+    if (!play) return;
+    play.setAttribute('aria-pressed', on ? 'true' : 'false');
+    play.textContent = on ? 'עצירה' : 'הפעלה';
+  }
   function stop() {
     touched = true;
     if (timer) { clearInterval(timer); timer = null; }
+    playing(false);
+  }
+  function run() {
+    if (timer) clearInterval(timer);
+    playing(true);
+    timer = setInterval(function () {
+      if (at >= steps.length - 1) { clearInterval(timer); timer = null; touched = true; playing(false); return; }
+      at++;
+      render();
+    }, 1100);
+  }
+  function toggle() {
+    if (timer) { stop(); return; }
+    touched = true;
+    if (at >= steps.length - 1) { at = 0; render(); }
+    run();
   }
   prev.addEventListener('click', function () { stop(); if (at > 0) { at--; render(); } });
   next.addEventListener('click', function () { stop(); at = at === steps.length - 1 ? 0 : at + 1; render(); });
   range.addEventListener('input', function () { stop(); at = +range.value; render(); });
+  if (play) play.addEventListener('click', toggle);
+  // מקלדת (כשההדגמה בפוקוס): מימין לשמאל, שמאלה = קדימה; רווח מפעיל ועוצר; Home / End — הצעד הראשון והאחרון
   root.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === ' ' || k === 'Spacebar') {
+      if (e.target.tagName === 'BUTTON') return;   // רווח על כפתור לוחץ עליו
+      e.preventDefault();
+      toggle();
+      return;
+    }
     if (e.target === range) return;
-    if (e.key === 'ArrowLeft') { e.preventDefault(); next.click(); }   // מימין לשמאל: שמאלה = קדימה
-    if (e.key === 'ArrowRight') { e.preventDefault(); prev.click(); }
+    if (k === 'ArrowLeft') { e.preventDefault(); next.click(); }
+    else if (k === 'ArrowRight') { e.preventDefault(); prev.click(); }
+    else if (k === 'Home' || k === 'End') { e.preventDefault(); stop(); at = k === 'Home' ? 0 : steps.length - 1; render(); }
   });
 
   render();
@@ -153,11 +186,8 @@
   var io = new IntersectionObserver(function (es) {
     es.forEach(function (e) {
       if (!e.isIntersecting || touched || timer) return;
-      timer = setInterval(function () {
-        if (at >= steps.length - 1) { clearInterval(timer); timer = null; touched = true; return; }
-        at++;
-        render();
-      }, 1100);
+      io.disconnect();
+      run();
     });
   }, { threshold: 0.6 });
   io.observe(root);
