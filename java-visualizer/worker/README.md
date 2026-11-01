@@ -38,6 +38,14 @@ Eclipse (התלמיד)  ──קבצים──▶  השרת הזה (Cloudflare) 
    ```
    בסוף מופיעה הכתובת שלו, למשל `https://dsviz-exercise.שם-שלכם.workers.dev`.
 5. בודקים שהוא עובד: פותחים בדפדפן את `<הכתובת>/v1/health` — צריך להופיע `"ok":true`.
+
+### עדכון מהדפדפן (בלי להוריד את הפרויקט ובלי wrangler)
+`worker-bundle.js` הוא כל השרת בקובץ אחד (נבנה מ-`src/` עם `npm run bundle`):
+1. פותחים את [worker-bundle.js](https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/worker/worker-bundle.js), ‏Ctrl+A ואז Ctrl+C.
+2. [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → `dsviz-exercise` → **Edit code** (למעלה מימין).
+3. בעורך: לוחצים בתוך הקובץ הראשי (בדרך כלל `worker.js` / `index.js`), ‏Ctrl+A, מדביקים (Ctrl+V), ו-**Deploy**.
+4. בודקים: `https://dsviz-exercise.motiml77.workers.dev/v1/health` — הגרסה (`"version"`) צריכה להיות החדשה.
+המפתחות (Secrets), הגבלת הקצב וה-KV נשמרים בהגדרות של ה-Worker — לא צריך להגדיר אותם שוב.
 6. **מחברים את התוסף:** כותבים את הכתובת בקובץ `eclipse-plugin/ai.properties` (בשורה `url=`) ובונים מחדש
    (`sh tools/build-all.sh`) — או שולחים לי את הכתובת ואעדכן ואבנה את ההתקנה.
 
