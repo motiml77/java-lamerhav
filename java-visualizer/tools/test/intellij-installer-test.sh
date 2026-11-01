@@ -25,6 +25,13 @@ done
 [ -d "$T/cfg/IntelliJIdea2023.1/plugins/dsviz-intellij" ] && fail "הותקן בגרסה ישנה"
 [ -d "$T/cfg/PyCharm2024.2/plugins" ] && fail "הותקן ב-PyCharm"
 bash "$S" install "$T/src/dsviz-intellij" | grep -q "כבר מותקנת" || fail "התקנה שנייה העתיקה שוב"
+# שדרוג: בהתקנה הקודמת היה jar אחר ב-lib (שם אחר / גרסה אחרת) — אחרי העדכון הוא לא נשאר (התיקייה מוחלפת כולה)
+echo old > "$T/cfg/IdeaIC2024.3/plugins/dsviz-intellij/lib/dsviz-intellij-1.0.0.jar"
+echo "build 2" > "$T/src/dsviz-intellij/lib/new-build.txt"
+bash "$S" install "$T/src/dsviz-intellij" >/dev/null || fail "העדכון נכשל"
+[ ! -e "$T/cfg/IdeaIC2024.3/plugins/dsviz-intellij/lib/dsviz-intellij-1.0.0.jar" ] && [ -f "$T/cfg/IdeaIC2024.3/plugins/dsviz-intellij/lib/new-build.txt" ] \
+    || fail "עדכון: jar ישן נשאר ב-lib, או שהחדש לא הועתק"
+[ -z "$(find "$T/cfg" -name '.dsviz-intellij.new')" ] || fail "עדכון: נשארה תיקייה זמנית"
 # IntelliJ שהותקן אחרי DSViz — ההרצה הבאה (העדכון היומי) מוסיפה גם אותו
 mkdir -p "$T/cfg/IdeaIC2026.2"
 bash "$S" install "$T/src/dsviz-intellij" >/dev/null && [ -d "$T/cfg/IdeaIC2026.2/plugins/dsviz-intellij/lib" ] || fail "IntelliJ חדש לא קיבל את התוסף"

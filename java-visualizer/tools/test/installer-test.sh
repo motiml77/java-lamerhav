@@ -91,6 +91,68 @@ for p in 'Microsoft VS Code Insiders\bin\code-insiders.cmd' 'VSCodium\bin\codium
     grep -qF -- "$p" "$NSI" || fail "setup.nsi: חסר $p"
 done
 ok "Windows: setup.nsi מתקין ב-VS Code Insiders / VSCodium / Cursor ומסיר מהם"
+
+# ---------------------------------------------------------------- 2ב. שדרוג: גרסה חדשה תמיד מחליפה את הישנה (בכל סביבה)
+# Eclipse זוכר תוסף לפי השם והגרסה: כש-Bundle-Version היה תמיד 1.0.1, מטמון ישן (או עותק ישן במקום אחר) השאיר את הקוד הישן טעון.
+BA="$ROOT/tools/build-all.sh"
+grep -q 's/^Bundle-Version: .*/Bundle-Version: $VERSION.v$BUILDNO/' "$BA" && grep -q '^BUILDNO=${BUILDNO:-$(date -u +%Y%m%d%H%M)}' "$BA" \
+    && [ "$(grep -c -- '--manifest "$MF"' "$BA")" = 2 ] && ! grep -q -- '--manifest eclipse-plugin/META-INF/MANIFEST.MF' "$BA" \
+    || fail "build-all.sh: לתוסף ל-Eclipse חסר Bundle-Version ייחודי לכל בנייה (1.0.1.v<מספר>)"
+grep -q "p.version='\${VERSION%.\*}.\$BUILDNO'" "$BA" && grep -q 'cp ../build/vscode-package.json package.json' "$BA" \
+    || fail "build-all.sh: לתוסף ל-VS Code חסרה גרסה ייחודית לכל בנייה"
+ok "build-all.sh: Eclipse 1.0.1.v<בנייה> ו-VS Code 1.0.<בנייה> — כל בנייה גבוהה מהקודמת"
+# Mac: make-p2.py auto משאיר את ה-qualifier של הבנייה (v… > c<hash> של התקנות קודמות)
+MP=$(mktemp -d "$OUT/p2.XXXX")
+mkdir -p "$MP/j/META-INF" && printf 'Manifest-Version: 1.0\r\nBundle-ManifestVersion: 2\r\nBundle-SymbolicName: il.lamerhav.dsviz;singleton:=true\r\nBundle-Version: 1.0.1.v202611011200\r\n\r\n' > "$MP/j/META-INF/MANIFEST.MF"
+(cd "$MP/j" && python3 -c "import zipfile; z=zipfile.ZipFile('../p.jar','w'); z.write('META-INF/MANIFEST.MF')")
+python3 "$ROOT/installer/mac/make-p2.py" "$MP/p.jar" "$MP/repo" auto > /dev/null && [ -f "$MP/repo/plugins/il.lamerhav.dsviz_1.0.1.v202611011200.jar" ] \
+    || fail "Mac: make-p2.py auto לא שמר את גרסת הבנייה ($(ls "$MP/repo/plugins" 2>/dev/null))"
+ok "Mac: מאגר ה-p2 עם גרסת הבנייה (1.0.1.v202611011200) — p2 מחליף את הישנה (-uninstallIU)"
+grep -q 'eclipse_clean_old "$app"' "$ROOT/installer/mac/install.sh" && grep -q "find \"\$home/dropins\" -name \"\${BUNDLE_ID}_\*\" -prune" "$ROOT/installer/mac/install.sh" \
+    || fail "Mac: install.sh לא מנקה עותקים ישנים ב-dropins ואת המטמון"
+# Linux: install.sh — עותק ישן בתת-תיקייה של dropins ומטמון נמחקים
+LE="$OUT/lin-eclipse"; mkdir -p "$LE/dropins/old/plugins" "$LE/configuration/org.eclipse.osgi"
+: > "$LE/dropins/old/plugins/il.lamerhav.dsviz_1.0.1.jar"; : > "$LE/dropins/il.lamerhav.dsviz.it_1.0.0.jar"
+sed -n '/^install_eclipse() {/,/^}/p' "$ROOT/installer/install.sh" > "$OUT/lin.sh"
+( PLUGIN="$OUT/new.jar"; : > "$PLUGIN"; found=0; HOME="$OUT/lin-home"; . "$OUT/lin.sh"; install_eclipse "$LE" ) > /dev/null
+[ ! -e "$LE/dropins/old/plugins/il.lamerhav.dsviz_1.0.1.jar" ] && [ -e "$LE/dropins/new.jar" ] && [ -e "$LE/dropins/il.lamerhav.dsviz.it_1.0.0.jar" ] \
+    && [ ! -d "$LE/configuration/org.eclipse.osgi" ] && ok "Linux: install.sh מוחק עותק ישן (גם בתת-תיקייה של dropins) ואת המטמון" \
+    || fail "Linux: install.sh השאיר עותק ישן / מטמון"
+# Windows: לפני ההעתקה — clean-eclipse.ps1 (כל עותק ישן, bundles.info, המטמון), ו-Eclipse מההתקנה הקודמת תמיד מקבל את החדש
+for p in 'File "clean-eclipse.ps1"' '-File "$INSTDIR\clean-eclipse.ps1" "$0"' '-File "$INSTDIR\clean-eclipse.ps1" "$4"' \
+         'CopyFiles /SILENT "$INSTDIR\eclipse-dirs.txt" "$PLUGINSDIR\eclipse-prev.txt"' '"$PLUGINSDIR\eclipse-found.txt" "$PLUGINSDIR\eclipse-prev.txt"' \
+         'RMDir /r "$INSTDIR\intellij"' 'RMDir /r "$INSTDIR\cs"' 'RMDir /r "$0\configuration\org.eclipse.osgi"'; do
+    grep -qF -- "$p" "$NSI" || fail "setup.nsi: חסר $p"
+done
+awk '/clean-eclipse.ps1" "\$0"/{c=NR} /CopyFiles \/SILENT "\$INSTDIR\\\$\{PLUGIN\}"/{p=NR} END{exit !(c && p && c < p)}' "$NSI" \
+    || fail "setup.nsi: clean-eclipse.ps1 צריך לרוץ לפני שמעתיקים את התוסף החדש"
+ok "Windows: setup.nsi מנקה כל עותק ישן לפני ההעתקה, וכולל את ה-Eclipse מההתקנה הקודמת"
+PWSH=$(command -v pwsh || true)
+if [ -n "$PWSH" ]; then
+    WE="$OUT/win-eclipse"; WH="$OUT/win-home"
+    mkdir -p "$WE/dropins/dsviz/eclipse/plugins" "$WE/plugins" "$WE/configuration/org.eclipse.osgi/x" "$WE/configuration/org.eclipse.equinox.simpleconfigurator" \
+             "$WH/.eclipse/epp_4.31_1/configuration/org.eclipse.osgi"
+    mkjar() { python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1],'w'); z.writestr('META-INF/MANIFEST.MF','Bundle-SymbolicName: '+sys.argv[2]+'\r\nBundle-Version: 1.0.1\r\n')" "$1" "$2"; }
+    mkjar "$WE/dropins/il.lamerhav.dsviz_1.0.1.jar" 'il.lamerhav.dsviz;singleton:=true'
+    mkjar "$WE/dropins/dsviz (1).jar" 'il.lamerhav.dsviz;singleton:=true'        # הורד שוב בדפדפן, בשם אחר
+    mkjar "$WE/dropins/dsviz/eclipse/plugins/il.lamerhav.dsviz_1.0.0.jar" 'il.lamerhav.dsviz'
+    mkjar "$WE/plugins/il.lamerhav.dsviz_1.0.1.jar" 'il.lamerhav.dsviz;singleton:=true'
+    mkjar "$WE/dropins/il.lamerhav.dsviz.it_1.0.0.jar" 'il.lamerhav.dsviz.it'   # תוסף אחר — נשאר
+    mkjar "$WE/dropins/other.jar" 'org.example.other'
+    printf 'il.lamerhav.dsviz,1.0.1,plugins/il.lamerhav.dsviz_1.0.1.jar,4,false\norg.example,1.0.0,plugins/org.example.jar,4,false\n' \
+        > "$WE/configuration/org.eclipse.equinox.simpleconfigurator/bundles.info"
+    "$PWSH" -NoProfile -File "$ROOT/installer/clean-eclipse.ps1" "$WE" -UserHome "$WH" > "$OUT/clean-eclipse.txt" 2>&1
+    left=$(cd "$WE" && find dropins plugins -type f | sort | tr '\n' ' ')
+    [ "$left" = "dropins/il.lamerhav.dsviz.it_1.0.0.jar dropins/other.jar " ] && [ ! -d "$WE/configuration/org.eclipse.osgi" ] \
+        && [ ! -d "$WH/.eclipse/epp_4.31_1/configuration/org.eclipse.osgi" ] \
+        && ! grep -q '^il.lamerhav.dsviz,' "$WE/configuration/org.eclipse.equinox.simpleconfigurator/bundles.info" \
+        && grep -q '^org.example,' "$WE/configuration/org.eclipse.equinox.simpleconfigurator/bundles.info" \
+        && ok "Windows: clean-eclipse.ps1 (pwsh) — כל העותקים הישנים, השורה ב-bundles.info והמטמונים נמחקו; תוספים אחרים נשארו" \
+        || { cat "$OUT/clean-eclipse.txt"; fail "Windows: clean-eclipse.ps1 — נשאר: $left"; }
+else
+    echo "  (אין pwsh — מדלגים על ההרצה של clean-eclipse.ps1)"
+fi
+
 if command -v makensis >/dev/null 2>&1; then
     B="$OUT/nsis/build"; R="$OUT/nsis/release"
     mkdir -p "$B/light" "$B/help" "$B/project" "$B/jre-windows/bin" "$B/dsviz-cs-win" "$B/project-cs" "$B/vs-template" "$B/intellij/dsviz-intellij/lib" "$R"
