@@ -267,11 +267,14 @@ function serve() {
     await page.keyboard.press('ArrowRight');
     assert.strictEqual(await page.getAttribute('#t-tree', 'aria-selected'), 'true', 'חיצים בלשוניות');
     await page.click('[role=tab]#t-stack');
+    // צילום של אזור: בלי הסרגל העליון הדביק מעליו
+    await page.addStyleTag({ content: '.bar{position:static!important}' });
     for (const id of ['run', 'errors', 'exercise', 'teachers', 'install', 'faq', 'support']) {
       const el = await page.$('#' + id);
       await el.screenshot({ path: path.join(OUT, label + '-index-' + id + '.png') });
     }
     await page.goto(base + 'install.html?os=mac');
+    await page.addStyleTag({ content: '.bar{position:static!important}' });
     for (const id of ['windows', 'mac', 'vscode', 'intellij']) {
       const el = await page.$('#' + id);
       await el.screenshot({ path: path.join(OUT, label + '-install-' + id + '.png') });
