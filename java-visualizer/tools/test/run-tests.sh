@@ -272,6 +272,14 @@ javac -encoding UTF-8 -cp "$JAR" -d "$LB" loops/LoopArrowPaint.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$LB:$JAR" unit4.collectionsLib.LoopArrowPaint > "$LB/paint.txt" 2>&1 \
     && grep -q MARK-END "$LB/paint.txt" && grep '^  ok' "$LB/paint.txt" || { cat "$LB/paint.txt"; exit 1; }
 
+echo "== 5ח2. הנפשה של הכנסה / הוצאה: push / pop, insert / remove בתור, חוליה שנכנסת לרשימה / יוצאת ממנה — כמה רגעים מכל הנפשה, בלי חלון"
+# האיבר זז בכיוון הנכון מרגע לרגע, מה שהוצא נמחק, ובסוף — בדיוק הציור הרגיל (התמונות נשמרות ב-structanim/frames)
+SA="$W/structanim"
+mkdir -p "$SA"
+javac -encoding UTF-8 -cp "$JAR" -d "$SA" anim/StructAnimPaint.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$SA:$JAR" unit4.collectionsLib.StructAnimPaint "$SA/frames" > "$SA/paint.txt" 2>&1 \
+    && grep -q MARK-END "$SA/paint.txt" && grep '^  ok' "$SA/paint.txt" || { cat "$SA/paint.txt"; exit 1; }
+
 echo "== 5ט. קלט מהמקלדת (Scanner / BufferedReader / System.in.read): השורה שמחכה, מה שהוקלד כצעד INPUT, והפלט"
 # בלי חלון: dsviz.input "מקליד" את השורות כשהתוכנית מחכה (מקובץ UTF-8 — עברית בלי תלות בקידוד של שורת הפקודה)
 I="$W/input"
@@ -397,6 +405,10 @@ echo "== 9א. האתר בונה את הקוד כמו Eclipse: site/assets/scaffo
 node scaffold-parity.js "$W/parity" > "$W/parity.txt" 2>&1 && echo "  ok  $(grep -c '^ *ok' "$W/parity.txt") השוואות זהות" || { cat "$W/parity.txt"; exit 1; }
 echo "== 9ב. האתר: שאלת בגרות לקוד (בדפדפן, מול קוד השרת) ומונה ההורדות"
 node site-bagrut-test.js "$W" > "$W/site.txt" 2>&1 && grep -E '^  (ok|FAIL)|עברו' "$W/site.txt" || { cat "$W/site.txt"; exit 1; }
+echo "== 9ג. האתר: כל העמודים — קישורים, alt / meta / og, בלי גלילה הצידה (1366 ו-390), בלי שגיאות, כפתור ההורדה לפי מערכת ההפעלה, ספירה ותרומה"
+node site-check.js "$W/site-check" > "$W/site-check.txt" 2>&1 && grep -E '^  (ok|FAIL)|עברו|מדלגים' "$W/site-check.txt" || { cat "$W/site-check.txt"; exit 1; }
+echo "== 9ד. ההתקנות: VS Code Insiders / VSCodium / Cursor ב-Mac (אפליקציות מדומות) וב-Windows, ו-setup.nsi מתקמפל (makensis)"
+bash installer-test.sh "$W" || exit 1
 
 echo "== 10. המורה בעברית (Eclipse): תרגום כל הודעות הקומפיילר, מיקום מדויק של הבעיה, ואזהרות על טעויות נפוצות"
 DEPS="$(cd ../../build/eclipse-deps && pwd)"
@@ -426,6 +438,10 @@ conds "$LN/out.txt" \
     '[שרשרת #37: n: 5(list,n)→3(p)→4(q)→7→1→9(t)→null]'
 ! grep -q 'אבד' "$LN/out.txt" && echo "  ok  אין אזהרת 'אבדה' שגויה (אין חוליה בלי מצביע) בכל הצעדים" \
     || { echo "  FAIL חוליה סומנה כאבודה בלי סיבה"; grep 'אבד' "$LN/out.txt"; exit 1; }
+
+echo "== IntelliJ IDEA: ההתקנה האוטומטית מוצאת כל IntelliJ (2024.2+), מדלגת על ישנים, ומסירה (בלי רשת; הבדיקות בתוך IntelliJ — intellij-it.sh)"
+IJZIP=$(ls ../../release/dsviz-intellij-*.zip ../../intellij-plugin/build/distributions/dsviz-intellij-*.zip 2>/dev/null | head -1)
+if [ -n "$IJZIP" ]; then bash ./intellij-installer-test.sh "$IJZIP"; else echo "  (התוסף ל-IntelliJ לא נבנה — tools/build-all.sh עם Gradle; דילוג)"; fi
 
 echo "== C# (Visual Studio / VS Code / Rider)"
 sh ./cs-tests.sh

@@ -542,12 +542,19 @@ await test('הורדה דרך /dl/windows: נספרת ומפנה לקובץ; /v1
   const res = await worker.fetch(new Request('https://w.example/v1/stats', { headers: { origin: 'https://example.org' } }), env, {});
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
   const body = await res.json();
-  assert.deepEqual(body.downloads, { windows: 2, zip: 1, total: 8 });
+  assert.deepEqual(body.downloads, { windows: 2, zip: 1, mac: 0, total: 8 });
   // האתר מוריד ישירות מ-GitHub ושולח "נספר" ברקע
   const beacon = await worker.fetch(new Request('https://w.example/v1/count/zip', { method: 'POST', body: '' }), env, {});
   assert.equal(beacon.status, 204);
   assert.equal(beacon.headers.get('access-control-allow-origin'), '*');
   assert.equal(STATS.m.get('dl:zip'), '2');
+  // Mac: אין קובץ — האתר סופר העתקה של פקודת ההתקנה (curl ... | bash)
+  for (let i = 0; i < 3; i++) assert.equal((await worker.fetch(new Request('https://w.example/v1/count/mac', { method: 'POST', body: '' }), env, {})).status, 204);
+  const after = await (await worker.fetch(new Request('https://w.example/v1/stats'), env, {})).json();
+  assert.deepEqual(after.downloads, { windows: 2, zip: 2, mac: 3, total: 12 });
+  const linux = await worker.fetch(new Request('https://w.example/v1/count/linux', { method: 'POST', body: '' }), env, {});
+  assert.notEqual(linux.status, 204);
+  assert.equal(STATS.m.has('dl:linux'), false);
   const none = await call(new Request('https://w.example/v1/stats'), ENV);
   assert.equal(none.body.counting, false);
   const other = await worker.fetch(new Request('https://w.example/dl/linux'), ENV, {});

@@ -5,33 +5,45 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DSViz: פרטיות</title>
 <meta name="description" content="מה DSViz שולח לאינטרנט ומה נשאר על המחשב.">
-<meta name="theme-color" content="#F1F3F7">
+<meta name="theme-color" content="#FAFAFB">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="he_IL">
+<meta property="og:site_name" content="DSViz">
+<meta property="og:title" content="פרטיות: DSViz">
+<meta property="og:description" content="מה DSViz שולח לאינטרנט ומה נשאר על המחשב.">
+<meta property="og:image" content="https://motiml77.github.io/java-lamerhav/assets/og.png">
+<link rel="canonical" href="https://motiml77.github.io/java-lamerhav/privacy.html">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>!function(d){var q=/[?&]os=(mac|win|other)\b/.exec(location.search),n=navigator,p=(n.userAgentData&&n.userAgentData.platform)||n.platform||"";d.setAttribute("data-os",q?q[1]:/mac/i.test(p)&&!(n.maxTouchPoints>1)?"mac":/win/i.test(p)||/Windows/.test(n.userAgent)?"win":"other");d.className+=" js"}(document.documentElement)</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
 <a class="skip" href="#main">דילוג לתוכן</a>
 
 <header class="bar">
-  <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
-    DSViz
-  </a>
-  <nav aria-label="ניווט בעמוד">
-    <a href="./#run">הרצה ויזואלית</a>
-    <a href="./#errors">הסברים בעברית</a>
-    <a href="bagrut.html">שאלת בגרות לקוד</a>
-    <a href="./#teachers">למורים</a>
-    <a href="./#install">התקנה</a>
-  </nav>
-  <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" height="36"></a>
-  <a class="btn small" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+  <div class="wrap bar-in">
+    <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
+      DSViz
+    </a>
+    <nav aria-label="ניווט באתר">
+      <a href="./#run">הרצה ויזואלית</a>
+      <a href="./#errors">הסברים בעברית</a>
+      <a href="bagrut.html">שאלת בגרות לקוד</a>
+      <a href="install.html">התקנה</a>
+    </nav>
+    <div class="bar-end">
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="180" height="34"></a>
+      <a class="btn btn-sm dl-win" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+      <a class="btn btn-sm dl-mac" href="install.html#mac">התקנה ל-Mac</a>
+    </div>
+  </div>
 </header>
 
-<main id="main" class="page">
+<main id="main" class="wrap page">
 <h1>פרטיות</h1>
 <p>בקצרה: רוב מה ש-DSViz עושה קורה על המחשב שלכם, בלי אינטרנט. הדבר היחיד שנשלח החוצה הוא דף תרגיל, וגם זה רק כשבוחרים "שליחת תרגיל" או מעלים שאלה באתר.</p>
 
@@ -45,21 +57,33 @@
 <p>בדף <a href="bagrut.html">שאלת בגרות לקוד</a> הקבצים שבחרתם עוברים באותה דרך: לשרת הביניים של DSViz ומשם ל-Gemini. קובצי Word נפתחים בדפדפן שלכם, ורק הטקסט והתמונות שבתוכם נשלחים. הקוד שחוזר נבנה בדפדפן, ולא נשמר בשרת.</p>
 
 <h2>עדכונים</h2>
-<p>כשסוגרים את Eclipse, התוכנה בודקת ב-GitHub אם יש גרסה חדשה (הקובץ version.json), ואם יש, מורידה אותה משם. לא נשלח שום מידע מזהה.</p>
+<p>מדי פעם (ב-Windows בכניסה למחשב ובסגירת Eclipse, ב-Mac פעם ביום) התוכנה בודקת ב-GitHub אם יש גרסה חדשה, ואם יש, מורידה אותה משם. לא נשלח שום מידע מזהה.</p>
 
 <h2>האתר הזה</h2>
-<p>אין באתר עוגיות ואין כלי מעקב. הגופנים נטענים מ-Google Fonts, ותאריך הגרסה נקרא מ-GitHub. כפתורי ההורדה עוברים דרך השרת של DSViz, שמוסיף 1 למונה ההורדות ומעביר לקובץ ב-GitHub. נשמר רק המספר, בלי שום פרט על מי שהוריד.</p>
+<p>אין באתר עוגיות ואין כלי מעקב. הגופנים נטענים מ-Google Fonts, ותאריך הגרסה נקרא מ-GitHub. ההורדה עצמה ישירות מ-GitHub. כשלוחצים על הורדה, או מעתיקים את שורת ההתקנה ל-Mac, הדפדפן שולח לשרת של DSViz בקשה ריקה שמוסיפה 1 למונה ההורדות. נשמר רק המספר, בלי שום פרט על מי שהוריד.</p>
+
+<h2>תרומה ב-PayPal</h2>
+<p>הכפתור "תמכו בפרויקט" מוביל לדף התרומה של PayPal. בעמוד הראשי יש גם כפתור תרומה של PayPal בתוך הדף: הקוד שלו נטען מ-PayPal רק כשגוללים אליו. מה שממלאים בתרומה עובר ישירות ל-PayPal, לפי מדיניות הפרטיות שלה, ולא דרך DSViz.</p>
 
 <h2>יצירת קשר</h2>
 <p>שאלות על פרטיות או בקשה למחוק משהו: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a>.</p>
-<p class="quiet">עודכן ב-30 באוקטובר 2026.</p>
+<p class="quiet">עודכן ב-1 בנובמבר 2026.</p>
 
 </main>
 
 <footer class="foot">
-  <p>© 2026 מוטי לוי. שאלות והערות: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
-  <p class="foot-end"><a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" height="36"></a> <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" height="36"></a><a href="privacy.html">פרטיות</a></p>
+  <div class="wrap foot-in">
+    <p>© 2026 מוטי לוי · <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
+    <p class="foot-links">
+      <a href="./">לעמוד הראשי</a>
+      <a href="install.html">התקנה</a>
+      <a href="privacy.html">פרטיות</a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="159" height="30"></a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" width="163" height="30"></a>
+    </p>
+  </div>
 </footer>
+<script src="assets/site.js" defer></script>
 <script src="assets/downloads.js" defer></script>
 </body>
 </html>

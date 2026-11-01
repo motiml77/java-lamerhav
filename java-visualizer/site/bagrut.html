@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>שאלת בגרות לקוד: DSViz</title>
 <meta name="description" content="מעלים שאלת בגרות במבני נתונים (PDF, Word או צילום) ומקבלים קובצי Java או C# מוכנים: פעולה ריקה לכל סעיף, המחלקות מהשאלה ו-main עם נתונים לדוגמה. ואם רוצים, גם הצעה לפתרון.">
-<meta name="theme-color" content="#F1F3F7">
+<meta name="theme-color" content="#FAFAFB">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="he_IL">
 <meta property="og:title" content="שאלת בגרות לקוד">
@@ -13,30 +13,36 @@
 <meta property="og:image" content="https://motiml77.github.io/java-lamerhav/assets/og.png">
 <link rel="canonical" href="https://motiml77.github.io/java-lamerhav/bagrut.html">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>!function(d){var q=/[?&]os=(mac|win|other)\b/.exec(location.search),n=navigator,p=(n.userAgentData&&n.userAgentData.platform)||n.platform||"";d.setAttribute("data-os",q?q[1]:/mac/i.test(p)&&!(n.maxTouchPoints>1)?"mac":/win/i.test(p)||/Windows/.test(n.userAgent)?"win":"other");d.className+=" js"}(document.documentElement)</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
 <a class="skip" href="#main">דילוג לתוכן</a>
 
 <header class="bar">
-  <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
-    DSViz
-  </a>
-  <nav aria-label="ניווט באתר">
-    <a href="./#run">הרצה ויזואלית</a>
-    <a href="./#errors">הסברים בעברית</a>
-    <a href="bagrut.html" aria-current="page">שאלת בגרות לקוד</a>
-    <a href="./#install">התקנה</a>
-  </nav>
-  <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" height="36"></a>
-  <a class="btn small" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+  <div class="wrap bar-in">
+    <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
+      DSViz
+    </a>
+    <nav aria-label="ניווט באתר">
+      <a href="./#run">הרצה ויזואלית</a>
+      <a href="./#errors">הסברים בעברית</a>
+      <a href="bagrut.html" aria-current="page">שאלת בגרות לקוד</a>
+      <a href="install.html">התקנה</a>
+    </nav>
+    <div class="bar-end">
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="180" height="34"></a>
+      <a class="btn btn-sm dl-win" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+      <a class="btn btn-sm dl-mac" href="install.html#mac">התקנה ל-Mac</a>
+    </div>
+  </div>
 </header>
 
-<main id="main" class="bagrut">
+<main id="main" class="wrap bagrut">
   <div class="bg-head">
     <h1>שאלת בגרות לקוד</h1>
     <p class="lead">מעלים את דף השאלה, ומקבלים קובצי Java מוכנים: פעולה ריקה לכל סעיף, המחלקות שהשאלה מתארת, ו-main שבונה נתונים לדוגמה ומדפיס את התוצאות. ואם נתקעים, יש גם הצעה לפתרון.</p>
@@ -53,7 +59,7 @@
     <fieldset class="lang">
       <legend>השפה</legend>
       <label><input type="radio" name="lang" value="java" checked> Java</label>
-      <label><input type="radio" name="lang" value="csharp"> C#</label>
+      <label><input type="radio" name="lang" value="csharp"> <bdi>C#</bdi></label>
     </fieldset>
 
     <label class="note-field">
@@ -111,12 +117,21 @@
 </main>
 
 <footer class="foot">
-  <p>© 2026 מוטי לוי. שאלות והערות: <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
-  <p class="foot-end"><a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" height="36"></a> <a class="donate" href="https://www.paypal.com/donate/?business=motiml77%40gmail.com&amp;currency_code=ILS&amp;item_name=DSViz" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" height="36"></a><a href="privacy.html">פרטיות</a></p>
+  <div class="wrap foot-in">
+    <p>© 2026 מוטי לוי · <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
+    <p class="foot-links">
+      <a href="./">לעמוד הראשי</a>
+      <a href="install.html">התקנה</a>
+      <a href="privacy.html">פרטיות</a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="159" height="30"></a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" width="163" height="30"></a>
+    </p>
+  </div>
 </footer>
 
 <script src="assets/scaffold.js" defer></script>
 <script src="assets/bagrut.js" defer></script>
+<script src="assets/site.js" defer></script>
 <script src="assets/downloads.js" defer></script>
 </body>
 </html>

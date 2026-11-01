@@ -18,7 +18,7 @@ const TUTORIALS = [
  * לב קטן בקו, ובריחוף — גוון ורוד עדין והלב מתמלא. בדף צר נשאר רק הלב. אותו קישור כמו Theme.DONATE_URL.
  * בלי משתני CSS ובלי gap — כדי שייראה נכון גם בדפדפן הישן שבתוך Eclipse ישן (IE).
  */
-const DONATE_URL = 'https://www.paypal.com/donate/?business=motiml77%40gmail.com&currency_code=ILS&item_name=DSViz';
+const DONATE_URL = 'https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2';
 /** התג — תמונה (media/donate-java.png / donate-cs.png), מוטמעת בדף (data:) כדי שתופיע בכל מקום: Webview, Eclipse, דפדפן. גובה 36 בתצוגה */
 const DONATE_CSS = `.donate { display: inline-block; flex: none; line-height: 0; border-radius: 999px; cursor: pointer; transition: transform .12s, filter .12s; }
 .donate img { height: 36px; width: auto; display: block; }

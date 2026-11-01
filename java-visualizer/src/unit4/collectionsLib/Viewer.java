@@ -665,8 +665,9 @@ final class Viewer extends JFrame {
         updateCounter();
     }
 
+    /** "הבא" / הפעלה אוטומטית: צעד אחד קדימה — עם הנפשה של מה שנוסף / הוצא במבנים (StructAnim) */
     private void next() {
-        if (pos < vis.size() - 1) showPos(pos + 1);
+        if (pos < vis.size() - 1) showPos(pos + 1, true);
     }
 
     private void prev() {
@@ -698,7 +699,17 @@ final class Viewer extends JFrame {
     }
 
     private void showPos(int p) {
+        showPos(p, false);
+    }
+
+    /**
+     * מציגים את הצעד p. forward — הגענו אליו ב"הבא" (או בהפעלה האוטומטית): אם זה בדיוק הצעד שאחרי מה שמוצג —
+     * המבנים מונפשים (איבר נכנס / יוצא). אחורה, קפיצה (סרגל הזמן, Home / End, לחיצה על צעד) — בלי הנפשה
+     */
+    private void showPos(int p, boolean forward) {
         if (p < 0 || p >= vis.size()) return;
+        boolean animate = forward && p == pos + 1;
+        int interval = player.isRunning() ? delay() : 0;
         pos = p;
         Step s = Recorder.step(vis.get(p));
         adjusting = true;
@@ -706,7 +717,7 @@ final class Viewer extends JFrame {
         adjusting = false;
         updateCounter();
 
-        structs.setStep(s);
+        structs.setStep(s, animate, interval);
         objDock.setStep(s);
         // רקורסיה: כל עוד הצעד בתוך הרקורסיה — מעקב הרקורסיה (כרטיס לכל קריאה, והמבנים בקטן מתחת); אחר כך — חזרה למבנים
         boolean rec;
@@ -715,10 +726,11 @@ final class Viewer extends JFrame {
         } catch (RuntimeException e) {
             rec = false;
         }
-        if (rec != recursionShown) showView(rec);
+        boolean switched = rec != recursionShown;
+        if (switched) showView(rec);
         if (recursionShown) {
             recursion.setStep(vis.get(p));
-            miniStructs.setStep(s);
+            miniStructs.setStep(s, animate && !switched, interval);
             boolean show = !s.views.isEmpty();
             if (miniBox.isVisible() != show) {
                 miniBox.setVisible(show);

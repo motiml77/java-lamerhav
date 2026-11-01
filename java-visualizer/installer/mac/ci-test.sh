@@ -2,7 +2,7 @@
 # בדיקה מקצה לקצה של ההתקנה ל-Mac, על Mac אמיתי (GitHub Actions: macos-26 = Apple Silicon, macos-15-intel = Intel).
 # מתקינים בדיוק כמו תלמיד (curl ... | bash מה-GitHub Release שהרגע פורסם), ובודקים: Java ו-javac שבהתקנה, הרצה שורה-שורה
 # (טקסט), C# (dsviz-cs + TraceViewer --check), MSBuild (DSViz.targets), החלון האמיתי (צילומי מסך: Java, C#, קלט מהמקלדת,
-# לולאה שלא נגמרת), VS Code (code --list-extensions), Eclipse (p2 + הפעלה אמיתית — AutoSetup יוצר את הפרויקט),
+# לולאה שלא נגמרת), VS Code (code --list-extensions), Eclipse (p2 + הפעלה אמיתית — AutoSetup יוצר את הפרויקט), IntelliJ IDEA (תיקיות הגדרות),
 # הרצה חוזרת (עדכון — קבצי התלמיד נשמרים), עדכון אוטומטי (update.sh, מ-VS Code ומ-Eclipse), Gatekeeper (קבצים "מהדפדפן"), הסרה.
 # שימוש (ב-workflow): CHANNEL=mac-test SHA=<commit> BUILD=<מספר בנייה> bash java-visualizer/installer/mac/ci-test.sh
 # קודם: brew install --cask visual-studio-code eclipse-java
@@ -45,6 +45,13 @@ info "macOS $(sw_vers -productVersion) $(uname -m), $(spctl --status 2>&1)"
 # תלמיד כבר פתח את Eclipse ואת VS Code לפחות פעם אחת (אישר "הורד מהאינטרנט") — Homebrew משאיר אותם עם quarantine
 xattr -dr com.apple.quarantine "$ECL_APP" "/Applications/Visual Studio Code.app" 2>/dev/null
 shot 00-desktop
+# VSCodium מדומה ב-~/Applications (סקריפט שרושם את הפקודות): ההתקנה מתקינה את התוסף גם בגרסאות אחרות של VS Code
+FAKE="$HOME/Applications/VSCodium.app/Contents/Resources/app/bin"; mkdir -p "$FAKE"
+printf '#!/bin/sh\necho "$@" >> "%s"\n' "$OUT/logs/fake-codium.txt" > "$FAKE/codium"; chmod +x "$FAKE/codium"
+
+# IntelliJ IDEA: תיקיות הגדרות כמו של תלמיד שכבר פתח IntelliJ (בלי להוריד את IntelliJ עצמו, ‎~1GB) — 2025.1 (נתמך) ו-2023.2 (ישן)
+JB="$HOME/Library/Application Support/JetBrains"
+mkdir -p "$JB/IdeaIC2025.1" "$JB/IntelliJIdea2023.2"
 
 sec "1. התקנה כמו תלמיד: curl -fsSL .../install.sh | bash  (ערוץ $CHANNEL)"
 curl -fsSL "$URL" | DSVIZ_CHANNEL="$CHANNEL" DSVIZ_LANG=both bash > "$OUT/logs/install-1.log" 2>&1
@@ -61,6 +68,18 @@ check "תיקיית התרגילים Java (Main.java, lib/dsviz.jar, .project)" 
 check "תיקיית התרגילים C# (sln, lib/Unit4.CollectionsLib.dll)" test -f "$HOME/Documents/DataStructures-CS/DataStructures-CS.sln" -a -f "$HOME/Documents/DataStructures-CS/lib/Unit4.CollectionsLib.dll"
 check "DSViz.targets ב-ImportAfter של MSBuild (Mac)" test -f "$HOME/Library/Application Support/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter/DSViz.targets"
 check "update.sh / uninstall.sh בהתקנה" test -x "$APP/update.sh" -a -x "$APP/uninstall.sh"
+LA="$HOME/Library/LaunchAgents/il.lamerhav.dsviz.update.plist"
+check "LaunchAgent לעדכון האוטומטי: plist תקין" plutil -lint "$LA"
+check "LaunchAgent טעון (launchctl print gui/UID/il.lamerhav.dsviz.update)" launchctl print "gui/$(id -u)/il.lamerhav.dsviz.update"
+check "~/Library/Application Support/DSViz/ides.txt (הסביבות שבמחשב, בשביל update.sh)" test -s "$APP/ides.txt"
+check "VSCodium (מדומה): התוסף הותקן גם בו (--install-extension dsviz-*.vsix)" grep -q -- '--install-extension .*dsviz-.*\.vsix --force' "$OUT/logs/fake-codium.txt"
+
+check "IntelliJ IDEA 2025.1: התוסף הותקן אוטומטית (plugins/dsviz-intellij עם lib ו-runtime/dsviz.jar)" sh -c "ls \"$JB/IdeaIC2025.1/plugins/dsviz-intellij/lib/\"*.jar && test -f \"$JB/IdeaIC2025.1/plugins/dsviz-intellij/runtime/dsviz.jar\""
+check "IntelliJ IDEA 2023.2 (ישן מדי): דילוג" test ! -e "$JB/IntelliJIdea2023.2/plugins/dsviz-intellij"
+# IntelliJ שהותקן אחרי DSViz: העדכון האוטומטי (update.sh) מוסיף לו את התוסף — גם בלי בנייה חדשה
+mkdir -p "$JB/IntelliJIdea2026.1"
+bash "$APP/update.sh" --force >/dev/null 2>&1
+check "IntelliJ שהותקן אחרי DSViz: update.sh הוסיף לו את התוסף" sh -c "ls \"$JB/IntelliJIdea2026.1/plugins/dsviz-intellij/lib/\"*.jar"
 
 sec "2. Java 21 שבהתקנה"
 "$J/java" -version > "$OUT/logs/java-version.txt" 2>&1; "$J/javac" -version >> "$OUT/logs/java-version.txt" 2>&1
@@ -254,6 +273,10 @@ check "uninstall.sh: התיקייה נמחקה" test ! -e "$APP"
 check "uninstall.sh: ~/.dsviz/jdk-path.txt נמחק" test ! -e "$HOME/.dsviz/jdk-path.txt"
 check "uninstall.sh: התוסף הוסר מ-VS Code" sh -c "! '$CODE' --list-extensions | grep -qi lamerhav.dsviz"
 check "uninstall.sh: התוסף הוסר מ-Eclipse (p2)" sh -c "! grep -q '^il.lamerhav.dsviz,' '$INFO'"
+check "uninstall.sh: ה-LaunchAgent הוסר ולא טעון" sh -c "test ! -e '$LA' && ! launchctl print gui/\$(id -u)/il.lamerhav.dsviz.update >/dev/null 2>&1"
+check "uninstall.sh: התוסף הוסר גם מ-VSCodium (מדומה)" grep -q -- '--uninstall-extension lamerhav.dsviz' "$OUT/logs/fake-codium.txt"
+rm -rf "$HOME/Applications/VSCodium.app"
+check "uninstall.sh: התוסף הוסר מכל IntelliJ IDEA" sh -c "! ls -d \"$JB\"/*/plugins/dsviz-intellij 2>/dev/null | grep -q ."
 check "uninstall.sh: DSViz.targets הוסר" test ! -e "$HOME/Library/Application Support/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter/DSViz.targets"
 check "uninstall.sh: תיקיות התרגילים נשארו (העבודה של התלמיד)" test -f "$HOME/Documents/DataStructures/src/MyWork.java" -a -d "$HOME/Documents/DataStructures-CS"
 

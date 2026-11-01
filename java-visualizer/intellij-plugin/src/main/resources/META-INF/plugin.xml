@@ -1,0 +1,78 @@
+<idea-plugin>
+    <id>il.lamerhav.dsviz</id>
+    <name>DSViz - Data Structures Visualizer</name>
+    <vendor email="motiml77@gmail.com">Moti Levi</vendor>
+    <description><![CDATA[
+    <p>DSViz is a free data-structures visualizer for Israeli high-school students (Hebrew UI, "מבני נתונים"): visual line-by-line run, exercise scaffolding, course library auto-setup.</p>
+    <p dir="rtl">DSViz — הדמיה של מבני נתונים לתלמידי תיכון (יחידה 4, Java). חינמי.</p>
+    <ul dir="rtl">
+      <li><b>הרצה ויזואלית</b> — חלון שמראה כל שורה בקוד, את המשתנים ואת מבני הנתונים (מחסנית, תור, רשימה מקושרת, עץ בינארי, מערכים).</li>
+      <li><b>תרגיל חדש</b> ו<b>הוסף מבנה נתונים</b> — קוד מוכן עם נתוני דמה, גם מבנה בתוך מבנה.</li>
+      <li><b>שליחת תרגיל</b> — מצרפים את דף התרגיל ומקבלים מחלקות, main ופעולה לכל סעיף, ו-💡 הצעה לפתרון.</li>
+      <li>ספריית הקורס (unit4.collectionsLib) נוספת אוטומטית לכל מודול Java.</li>
+    </ul>
+    <p>© 2026 Moti Levi, motiml77@gmail.com</p>
+    ]]></description>
+    <change-notes><![CDATA[<p>1.0.1 — הגרסה הראשונה ל-IntelliJ IDEA.</p>]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>com.intellij.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="DSViz" displayType="BALLOON"/>
+        <postStartupActivity implementation="il.lamerhav.dsviz.intellij.DsvizStartup"/>
+        <runLineMarkerContributor language="JAVA" implementationClass="il.lamerhav.dsviz.intellij.RunLineMarker"/>
+        <codeInsight.lineMarkerProvider language="JAVA" implementationClass="il.lamerhav.dsviz.intellij.Solutions"/>
+        <toolWindow id="DSViz" anchor="right" icon="/icons/run.png" factoryClass="il.lamerhav.dsviz.intellij.DsvizToolWindow"/>
+    </extensions>
+
+    <actions>
+        <action id="DSViz.Run" class="il.lamerhav.dsviz.intellij.Actions$Run" text="הרצה ויזואלית" icon="/icons/run.png"
+                description="הרצה בחלון שמראה כל שורה, את המשתנים ואת מבני הנתונים (הרצה רגילה — רק לקונסול)">
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt R"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt shift R" replace-all="true"/>
+            <add-to-group group-id="RunMenu" anchor="first"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="first"/>
+            <add-to-group group-id="MainToolbarRight" anchor="first"/>
+            <add-to-group group-id="NavBarToolBar" anchor="first"/>
+            <add-to-group group-id="EditorContextBarMenu" anchor="first"/>
+        </action>
+        <action id="DSViz.NewExercise" class="il.lamerhav.dsviz.intellij.Actions$NewExercise" text="תרגיל חדש…" icon="/icons/new.png"
+                description="תרגיל חדש במבני נתונים — בוחרים מבנה ומקבלים תרגיל מוכן">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="DSViz.Run"/>
+        </action>
+        <action id="DSViz.Insert" class="il.lamerhav.dsviz.intellij.Actions$Insert" text="הוסף מבנה נתונים…" icon="/icons/insert.png"
+                description="הוסף מבנה נתונים לקוד במקום הסמן — בוחרים מבנה, ערכים ושם, ורואים איך הוא ייראה">
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift I"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="DSViz.Run"/>
+        </action>
+        <action id="DSViz.Submit" class="il.lamerhav.dsviz.intellij.Actions$Submit" text="שליחת תרגיל (PDF / Word / תמונה)…" icon="/icons/send.png"
+                description="שליחת תרגיל: מצרפים את דף התרגיל ומקבלים קובץ מוכן — מחלקות, main ופעולה לכל סעיף">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="DSViz.NewExercise"/>
+        </action>
+        <action id="DSViz.Examples" class="il.lamerhav.dsviz.intellij.Actions$Examples" text="דוגמאות פתורות…" icon="/icons/examples.png"
+                description="העתקת דוגמאות פתורות לפרויקט ופתיחה"/>
+        <action id="DSViz.Help" class="il.lamerhav.dsviz.intellij.Actions$HelpAction" text="הדרכה לשימוש (?)…" icon="/icons/help.png"
+                description="סרטונים קצרים שמסבירים איך משתמשים"/>
+        <action id="DSViz.Power" class="il.lamerhav.dsviz.intellij.Actions$Power" text="כיבוי DSViz" icon="/icons/power-off.png"
+                description="מכבה את כל היכולות של DSViz (נשאר רק IntelliJ) — או מפעיל אותן מחדש"/>
+
+        <!-- התפריט העליון "מבני נתונים" (אחרי Tools) -->
+        <group id="DSViz.Menu" text="מבני נתונים" popup="true">
+            <reference ref="DSViz.NewExercise"/>
+            <reference ref="DSViz.Submit"/>
+            <separator/>
+            <reference ref="DSViz.Insert"/>
+            <separator/>
+            <reference ref="DSViz.Run"/>
+            <separator/>
+            <reference ref="DSViz.Examples"/>
+            <reference ref="DSViz.Help"/>
+            <separator/>
+            <reference ref="DSViz.Power"/>
+            <add-to-group group-id="MainMenu" anchor="after" relative-to-action="ToolsMenu"/>
+        </group>
+    </actions>
+</idea-plugin>

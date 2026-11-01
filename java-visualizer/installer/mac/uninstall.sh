@@ -2,7 +2,7 @@
 # הסרת DSViz מה-Mac. מריצים בטרמינל:
 #   "$HOME/Library/Application Support/DSViz/uninstall.sh"
 # או: curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/uninstall.sh | bash
-# מסיר: התוסף מ-VS Code ומכל Eclipse, DSViz.targets (C#), התיקייה ~/Library/Application Support/DSViz, הנתיבים ב-~/.dsviz.
+# מסיר: התוסף מ-VS Code, מכל Eclipse ומכל IntelliJ IDEA, DSViz.targets (C#), התיקייה ~/Library/Application Support/DSViz, הנתיבים ב-~/.dsviz.
 # לא נוגע: בתיקיות התרגילים במסמכים (DataStructures, DataStructures-CS — העבודה שלכם), וב-‎.NET SDK שב-~/.dotnet.
 main() {
 APP="$HOME/Library/Application Support/DSViz"
@@ -34,6 +34,17 @@ for c in "$(command -v code 2>/dev/null)" "/Applications/Visual Studio Code.app/
     fi
     break
 done
+# ---- העדכון האוטומטי (LaunchAgent)
+LA="$HOME/Library/LaunchAgents/il.lamerhav.dsviz.update.plist"
+if [ -f "$LA" ]; then
+    launchctl bootout "gui/$(id -u)/il.lamerhav.dsviz.update" >/dev/null 2>&1 || launchctl unload -w "$LA" >/dev/null 2>&1
+    rm -f "$LA" && ok "העדכון האוטומטי ברקע הוסר" "Auto-update LaunchAgent removed"
+fi
+# VS Code Insiders / VSCodium / Cursor (נרשמו ב-vscode-forks.txt בהתקנה)
+while IFS= read -r c; do
+    [ -n "$c" ] && [ -x "$c" ] || continue
+    with_timeout 120 "$c" --uninstall-extension lamerhav.dsviz >/dev/null 2>&1 && ok "${c%%.app/*}: התוסף הוסר" "Extension removed ($c)"
+done < <(cat "$APP/vscode-forks.txt" 2>/dev/null)
 
 # ---- Eclipse: כל מקום שבו התוסף רשום (eclipse.txt), וגם כל Eclipse שנמצא בו התוסף (מהתקנה ישנה / ידנית)
 ECLS=$( { cut -d'|' -f1 "$APP/eclipse.txt" 2>/dev/null
@@ -75,6 +86,13 @@ while IFS= read -r app; do
 done <<EOF
 $ECLS
 EOF
+
+# ---- IntelliJ IDEA: מכל הגרסאות (~/Library/Application Support/JetBrains/<IdeaIC… / IntelliJIdea…>/plugins/dsviz-intellij)
+for d in "$HOME/Library/Application Support/JetBrains"/IdeaIC* "$HOME/Library/Application Support/JetBrains"/IntelliJIdea* \
+         "$HOME/Library/Application Support/JetBrains"/IdeaIE*; do
+    [ -d "$d/plugins/dsviz-intellij" ] || continue
+    rm -rf "$d/plugins/dsviz-intellij" && ok "IntelliJ IDEA $(basename "$d"): התוסף הוסר" "IntelliJ plugin removed from $(basename "$d")"
+done
 
 # ---- C# (MSBuild) — משאירים את התיקייה ImportAfter (יכולים להיות בה קבצים של תוכנות אחרות)
 for d in "$HOME/Library/Application Support/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter" \

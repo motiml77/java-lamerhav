@@ -69,14 +69,17 @@
 
 ---
 
-## התקנה בכל מחשב (Eclipse, VS Code, Visual Studio)
+## התקנה בכל מחשב (Eclipse, VS Code, IntelliJ IDEA, Visual Studio)
 
 **Windows — [קישור קבוע להורדה](https://github.com/motiml77/java-lamerhav/raw/master/java-visualizer/release/DSViz-Setup.exe) (קישור קצר: [is.gd/dsjava](https://is.gd/dsjava)):** לחיצה כפולה → הבא → בוחרים שפה (Java / C# / שתיהן) → סיום.
 (הקישור מוביל תמיד לגרסה האחרונה שב-`master`, והנתיב לא משתנה — אפשר לתת אותו לתלמידים או לקצר אותו.)
 
 תוכנית ההתקנה (בעברית, בלי הרשאות מנהל):
 - מוצאת לבד את VS Code ואת **כל** ההתקנות של Eclipse במחשב (בתיקיית המשתמש, בשולחן העבודה, בהורדות, ב-`C:\`, ב-Program Files...)
-  ומתקינה בכל אחת. היא שואלת איפה Eclipse רק אם לא נמצא **שום** דבר (לא VS Code ולא Eclipse).
+  ומתקינה בכל אחת. היא שואלת איפה Eclipse רק אם לא נמצא **שום** דבר (לא VS Code, לא Eclipse ולא IntelliJ).
+- **IntelliJ IDEA** (Community ו-Ultimate, התקנה רגילה ו-JetBrains Toolbox, 2024.2 ומעלה): ההתקנה מוצאת את **כל** הגרסאות לפי תיקיות ההגדרות
+  (`%APPDATA%\JetBrains\IdeaIC…` / `IntelliJIdea…`, וגם IntelliJ מותקן שעוד לא נפתח) ומתקינה לכל אחת את התוסף (`plugins\dsviz-intellij`) — בלי שאלות.
+  אם IntelliJ פתוח היא מבקשת לסגור אותו (כמו Eclipse). IntelliJ שיותקן **אחרי** DSViz מקבל את התוסף לבד בכניסה הבאה ל-Windows (`update.ps1`).
 - **הכול בפנים:** כולל Java 21 מקוצרת (java, javac, חלון, הרצה שורה-שורה — כ-67MB, ההתקנה כולה כ-44MB).
   התוסף של VS Code מקמפל ומריץ איתה בעצמו (בטרמינל של VS Code, כולל קלט מהמקלדת), כך שהרצה לא תלויה באינטרנט.
   שגיאות קומפילציה מסומנות באדום בקוד.
@@ -123,20 +126,21 @@ curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-
 - בלי סיסמה ובלי הרשאות מנהל; שואלת באיזו שפה לומדים (Java / C# / שתיהן). מתקינה ל-`~/Library/Application Support/DSViz`:
   Java 21 מקוצרת (כמו ב-Windows — `java`, `javac`, הרצה שורה-שורה), `dsviz.jar`, `dsviz-cs` (C#, כולל ‎.NET — לא צריך להתקין כלום),
   התוסף ל-VS Code (דרך `code`), התוסף לכל Eclipse שנמצא (`/Applications/Eclipse*.app`, `~/Applications`, `~/eclipse` — Eclipse עצמו מתקין אותו, p2),
+  התוסף לכל IntelliJ IDEA ‏2024.2+ (`~/Library/Application Support/JetBrains/IdeaIC…|IntelliJIdea…/plugins` — גם Toolbox, גם IntelliJ שעוד לא נפתח),
   תיקיות התרגילים במסמכים (עבודה קיימת לא נדרסת), ול-C#: `DSViz.targets` (ההפניה לספרייה בכל פרויקט) ו-‎.NET SDK ב-`~/.dotnet` אם רוצים.
 - **למה פקודה ולא קובץ להורדה:** קבצים ש-`curl` מוריד לא מסומנים "הורד מהאינטרנט", ולכן macOS לא חוסם אותם — בלי Apple Developer ID.
   קובץ (‎`.command` / ‎`.pkg` / ‎`.app`) שהורד בדפדפן ולא נחתם ואושר ע"י Apple — נחסם מ-macOS 15 (ו-"Open Anyway" דורש סיסמת מנהל).
   כל קובץ שמורד נבדק מול SHA-256.
-- **עדכונים:** אוטומטיים, פעם ביום (התוסף של VS Code כשהוא נפתח, והתוסף של Eclipse כשהוא נסגר, מפעילים את `update.sh` של ההתקנה). הרצה חוזרת של הפקודה = עדכון.
+- **עדכונים:** אוטומטיים, פעם ביום (התוסף של VS Code / IntelliJ כשהם נפתחים, והתוסף של Eclipse כשהוא נסגר, מפעילים את `update.sh` של ההתקנה; הוא גם מוסיף את התוסף ל-IntelliJ שהותקן אחר כך). הרצה חוזרת של הפקודה = עדכון.
 - **הסרה:** `"$HOME/Library/Application Support/DSViz/uninstall.sh"`.
 - אפשרויות: `... | DSVIZ_LANG=both DSVIZ_DOTNET=1 bash` (בלי שאלות), `DSVIZ_CHANNEL=mac-test` (גרסת הבדיקה). פרטים: [`installer/mac/install.sh`](installer/mac/install.sh).
 - החבילות (`dsviz-mac-arm64/x64-*.tar.gz`, ‏`dsviz-mac.json`) נבנות ונבדקות על Mac אמיתי ב-GitHub Actions ([`.github/workflows/dsviz-mac.yml`](../.github/workflows/dsviz-mac.yml)) ומתפרסמות כ-GitHub Release ‏`mac-latest`.
 
 **Linux — [`release/dsviz-install.zip`](release/dsviz-install.zip):** פותחים, ומריצים `./install.sh`.
 
-אחרי ההתקנה — סוגרים ופותחים מחדש את VS Code / Eclipse.
+אחרי ההתקנה — סוגרים ופותחים מחדש את VS Code / Eclipse / IntelliJ IDEA.
 
-נדרש במחשב: VS Code ו/או Eclipse (כל גרסה מהשנים האחרונות, מ-2020-09 ומעלה, גם הגרסאות החדשות ביותר; נבדק על 2020-09, 2022-03, 2024-03 ו-2026-09). ב-Windows וב-Mac, Java כלולה בהתקנה.
+נדרש במחשב: VS Code, Eclipse ו/או IntelliJ IDEA ‏2024.2 ומעלה (Eclipse: כל גרסה מהשנים האחרונות, מ-2020-09 ומעלה, גם הגרסאות החדשות ביותר; נבדק על 2020-09, 2022-03, 2024-03 ו-2026-09). ב-Windows וב-Mac, Java כלולה בהתקנה.
 
 - **זיהוי Eclipse:** ההתקנה מחפשת לבד — Eclipse שרץ עכשיו, התיקיות הרגילות וכל הכוננים, בכל שם תיקייה (רק Eclipse ל-Java). Eclipse בתיקייה מוגנת (Program Files) דורש להריץ את ההתקנה כמנהל — ההתקנה אומרת את זה במפורש.
 - **ספריית הקורס בכל פרויקט:** בכל פתיחה של Eclipse, ובכל פרויקט Java שנוצר או נפתח, אם חסרה בו הספרייה (`Stack`, `Queue`, `Node`, `BinNode`...) היא נוספת לו לבד (`lib/dsviz.jar` ב-Build Path), גם בפרויקט שהתלמיד יצר בעצמו. פרויקט שכבר יש בו ספרייה כזו (למשל ה-jar המקורי של הקורס) לא נוגעים בו.
@@ -158,6 +162,15 @@ curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-
 "הרצה ויזואלית" ו"דוגמאות פתורות". כפתור ה-Run הרגיל של Eclipse מריץ כרגיל — הפלט רק בקונסול.
 בחלון "תרגיל חדש" בוחרים מבנה, טיפוס, מה הפעולה מחזירה ורקורסיה — ולוחצים **יצירת התרגיל**. החלון קטן ופשוט, והקוד נוצר רק בסוף.
 אם אין פרויקט מתאים נוצר פרויקט `DataStructures`, והספרייה נוספת ל-Build Path אוטומטית.
+
+**IntelliJ IDEA** (Community / Ultimate, 2024.2 ומעלה — [`intellij-plugin/`](intellij-plugin)): בתפריט העליון **מבני נתונים**, חלון **DSViz** בצד ימין
+(כפתורים גדולים בעברית), ולחיצה ימנית בקוד: "תרגיל חדש", "שליחת תרגיל", "הוסף מבנה נתונים" (עם ציור חי של המבנה והקוד שייכנס),
+"הרצה ויזואלית", "דוגמאות פתורות", "הדרכה לשימוש" ו"כיבוי". **הרצה ויזואלית** גם בתפריט Run, בכפתור בסרגל העליון, בתפריט של החץ הירוק ליד `main`
+ובקיצור `Ctrl+Alt+R`: IntelliJ מקמפל את המודול, ועם שגיאות בקובץ (או בקבצים שהוא משתמש בהם) מופיע חלון בעברית והקובץ נפתח בשגיאה הראשונה;
+אחרת החלון נפתח, והפלט (וגם הקלט מהמקלדת) בחלון Run של IntelliJ. מחלקה בלי `main` — מריצים את המחלקה שמשתמשת בה (או מוצע להוסיף `main` קצרה).
+בכל פתיחה של פרויקט, לכל מודול Java בלי הספרייה נוספים לבד `lib/dsviz.jar` וספרייה של המודול (עם קוד המקור) — גם בפרויקטים שנוצרו לפני ההתקנה;
+פרויקט בלי JDK מקבל את Java 21 של ההתקנה. (מודולים של Gradle / Maven לא משנים — שם ההרצה הוויזואלית מוסיפה את הספרייה בזמן ההרצה.)
+"💡 הצעה לפתרון" — מנורה בצד ליד הכותרת של כל פעולה של סעיף בתרגיל שנוצר ב"שליחת תרגיל" (רק אם יש לה הצעה). בדיקות: [`tools/test/intellij-it.sh`](tools/test/intellij-it.sh).
 
 | בחירה | אפשרויות |
 |---|---|

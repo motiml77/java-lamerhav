@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>התקנה: DSViz</title>
+<meta name="description" content="איך מתקינים את DSViz ב-Windows וב-Mac, ומה קורה לבד בכל סביבה: Eclipse, VS Code, Visual Studio, IntelliJ IDEA ו-C# ב-Mac.">
+<meta name="theme-color" content="#FAFAFB">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="he_IL">
+<meta property="og:site_name" content="DSViz">
+<meta property="og:title" content="התקנה של DSViz">
+<meta property="og:description" content="קובץ אחד ב-Windows, שורה אחת ב-Mac. מה קורה לבד בכל סביבה, ומה נשאר לכם לעשות.">
+<meta property="og:url" content="https://motiml77.github.io/java-lamerhav/install.html">
+<meta property="og:image" content="https://motiml77.github.io/java-lamerhav/assets/og.png">
+<link rel="canonical" href="https://motiml77.github.io/java-lamerhav/install.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>!function(d){var q=/[?&]os=(mac|win|other)\b/.exec(location.search),n=navigator,p=(n.userAgentData&&n.userAgentData.platform)||n.platform||"";d.setAttribute("data-os",q?q[1]:/mac/i.test(p)&&!(n.maxTouchPoints>1)?"mac":/win/i.test(p)||/Windows/.test(n.userAgent)?"win":"other");d.className+=" js"}(document.documentElement)</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">דילוג לתוכן</a>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
+      DSViz
+    </a>
+    <nav aria-label="ניווט באתר">
+      <a href="./#run">הרצה ויזואלית</a>
+      <a href="./#errors">הסברים בעברית</a>
+      <a href="bagrut.html">שאלת בגרות לקוד</a>
+      <a href="install.html" aria-current="page">התקנה</a>
+    </nav>
+    <div class="bar-end">
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="180" height="34"></a>
+      <a class="btn btn-sm dl-win" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+      <a class="btn btn-sm dl-mac" href="#mac">התקנה ל-Mac</a>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="wrap docs">
+  <aside class="toc">
+    <nav aria-label="תוכן העניינים">
+      <p>בעמוד הזה</p>
+      <ol>
+        <li><a href="#start">מתחילים</a></li>
+        <li><a href="#windows">Windows</a></li>
+        <li><a href="#mac">Mac</a></li>
+        <li><a href="#eclipse">Eclipse</a></li>
+        <li><a href="#vscode">VS Code</a></li>
+        <li><a href="#visual-studio">Visual Studio (<bdi>C#</bdi>)</a></li>
+        <li><a href="#mac-cs"><bdi>C#</bdi> ב-Mac</a></li>
+        <li><a href="#intellij">IntelliJ IDEA</a></li>
+        <li><a href="#web">בלי התקנה</a></li>
+        <li><a href="#updates">עדכונים והסרה</a></li>
+        <li><a href="#trouble">כשמשהו לא עובד</a></li>
+      </ol>
+    </nav>
+  </aside>
+
+  <article class="doc">
+    <header>
+      <h1>התקנה</h1>
+      <p>ב-Windows קובץ אחד, ב-Mac שורה אחת. ההתקנה מוצאת לבד את סביבות הפיתוח שבמחשב ומתקינה בכל אחת. בכל סביבה כתוב כאן מה קורה לבד ומה, אם בכלל, נשאר לכם לעשות.</p>
+    </header>
+
+    <section id="start" aria-labelledby="h-start">
+      <h2 id="h-start">מתחילים</h2>
+      <p>הכפתור מתאים למחשב שאתם גולשים ממנו. האפשרות השנייה תמיד מתחתיו.</p>
+      <div class="get" data-get>
+        <div class="get-win">
+          <a class="btn btn-primary" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה ל-Windows</a>
+          <span class="get-meta">DSViz-Setup.exe · 84 MB</span>
+        </div>
+        <div class="get-mac" data-cmd-box>
+          <p class="get-label">ב-Mac מדביקים את השורה הזו ב-Terminal:</p>
+          <div class="cmd"><code data-cmd>curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash</code><button type="button" class="copy" data-copy-cmd>העתקה</button></div>
+        </div>
+        <p class="get-alt">
+          <span class="alt-mac">יש לכם Mac? <a href="#mac">שורת ההתקנה ל-Terminal</a>.</span>
+          <span class="alt-win">יש לכם Windows? <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדת DSViz-Setup.exe</a>.</span>
+        </p>
+        <span class="count" data-downloads hidden></span>
+      </div>
+      <p class="quiet">הקישורים קבועים: אותו קישור מוריד תמיד את הגרסה האחרונה (גם הקיצור <a href="https://is.gd/dsjava">is.gd/dsjava</a>). Java 21 כלולה בהתקנה, ולא צריך להתקין שום דבר לפני.</p>
+    </section>
+
+    <section id="windows" aria-labelledby="h-windows">
+      <h2 id="h-windows">Windows <span class="tag auto">קובץ אחד לכל הסביבות</span></h2>
+      <ol>
+        <li>מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">DSViz-Setup.exe</a> ומריצים אותו. לא צריך הרשאות מנהל.</li>
+        <li>אם מופיע "Windows protected your PC": לוחצים <b>More info</b> ואז <b>Run anyway</b>. הקובץ עוד לא חתום דיגיטלית.</li>
+        <li>בוחרים באיזו שפה לומדים: Java, <bdi>C#</bdi> או שתיהן. <bdi>C#</bdi> מסומן מראש כשיש במחשב Visual Studio או Rider.</li>
+        <li>פותחים מחדש את הסביבה. ב-Eclipse מופיע התפריט "מבני נתונים", וב-VS Code הסמל "מבני נתונים" בסרגל הצד.</li>
+      </ol>
+      <div class="who">
+        <div>
+          <h3><span class="tag auto">לבד</span> מה ההתקנה עושה</h3>
+          <ul>
+            <li>מתקינה Java 21 (בתוך תיקיית ההתקנה, לא נוגעת ב-Java אחרת)</li>
+            <li>מוצאת כל Eclipse בכל הכוננים ומתקינה בו את התוסף</li>
+            <li>מתקינה את התוסף ב-VS Code, VS Code Insiders, VSCodium ו-Cursor</li>
+            <li>מתקינה את התוסף בכל IntelliJ IDEA (2024.2 ומעלה)</li>
+            <li>ב-<bdi>C#</bdi>: Visual Studio, Rider ו-dotnet מכירים את הספרייה בכל פרויקט</li>
+            <li>יוצרת תיקיית תרגילים במסמכים (עבודה קיימת לא נדרסת)</li>
+            <li>מתעדכנת לבד, ברקע</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="tag once">פעם אחת</span> מה עושים אתם</h3>
+          <ul>
+            <li>מאשרים את האזהרה של Windows (More info, Run anyway)</li>
+            <li>בוחרים שפה ולוחצים "הבא"</li>
+            <li>אם Eclipse או IntelliJ פתוחים, ההתקנה מציעה לסגור אותם</li>
+          </ul>
+        </div>
+      </div>
+      <p class="quiet">במעבדה: <code dir="ltr">DSViz-Setup.exe /S</code> מתקין בשקט, ו-<code dir="ltr">/LANG=java</code>, <code dir="ltr">/LANG=cs</code> או <code dir="ltr">/LANG=both</code> קובעים את השפה. ב-Linux: מורידים את <a href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/dsviz-install.zip">dsviz-install.zip</a>, פותחים ומריצים את install.sh (שם צריך JDK 17 או 21).</p>
+    </section>
+
+    <section id="mac" aria-labelledby="h-mac">
+      <h2 id="h-mac">Mac <span class="tag auto">שורה אחת, בלי סיסמה</span></h2>
+      <ol>
+        <li>פותחים את Terminal: <kbd>Cmd</kbd> + רווח, כותבים Terminal ולוחצים Enter.</li>
+        <li>מעתיקים את השורה ומדביקים אותה בחלון של Terminal:
+          <div class="cmd" data-cmd-box><code data-cmd>curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/install.sh | bash</code><button type="button" class="copy" data-copy-cmd>העתקה</button></div>
+        </li>
+        <li>לוחצים Enter. ההתקנה שואלת באיזו שפה לומדים, ומשם עושה הכול לבד.</li>
+      </ol>
+      <p>ככה זה נראה בטרמינל (מקוצר; ליד כל שורה באנגלית מופיעה גם שורה בעברית):</p>
+<pre class="term" aria-label="הפלט של ההתקנה בטרמינל, מקוצר">[1/8] Downloading DSViz (Java 21 runtime, visual runners, IDE plugins)
+      <span class="ok">✓</span> Downloaded and verified
+[2/8] Which language are you learning? (Java / C#)
+      1) Java   2) C#   3) both   [1]: 1
+[3/8] Exercise folders in Documents
+[4/8] VS Code extension
+      <span class="ok">✓</span> Extension installed
+[5/8] Eclipse plugin
+      <span class="ok">✓</span> Eclipse Java.app: plugin installed
+[6/8] IntelliJ IDEA
+[8/8] Done
+      <span class="ok">✓</span> Auto-update: at login and once a day
+All set! Restart VS Code / Eclipse / IntelliJ IDEA.</pre>
+      <div class="who">
+        <div>
+          <h3><span class="tag auto">לבד</span> מה ההתקנה עושה</h3>
+          <ul>
+            <li>Java 21 ל-<code dir="ltr">~/Library/Application Support/DSViz</code>, בלי סיסמת מנהל</li>
+            <li>התוסף לכל Eclipse שנמצא (Eclipse עצמו מתקין אותו)</li>
+            <li>התוסף ל-VS Code, VS Code Insiders, VSCodium ו-Cursor</li>
+            <li>התוסף לכל IntelliJ IDEA (2024.2 ומעלה)</li>
+            <li>ב-<bdi>C#</bdi>: הספרייה בכל פרויקט, ואם צריך ‎.NET SDK 8</li>
+            <li>תיקיות תרגילים במסמכים</li>
+            <li>עדכון בכניסה למחשב ופעם ביום, ברקע; סביבה שתתקינו אחר כך מקבלת את התוסף לבד</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="tag once">פעם אחת</span> מה עושים אתם</h3>
+          <ul>
+            <li>מדביקים את השורה ולוחצים Enter</li>
+            <li>בוחרים שפה (או Enter ל-Java)</li>
+            <li>אם Eclipse פתוח: סוגרים אותו (<kbd>Cmd</kbd>+<kbd>Q</kbd>) ולוחצים Enter</li>
+            <li>בפעם הראשונה macOS שואל אם לתת גישה לתיקיית המסמכים: "אישור"</li>
+            <li>אם מופיעה ההודעה "Background Items Added" (פריט רקע: bash): זה העדכון האוטומטי, לא צריך לעשות כלום</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note-box"><p><b>למה שורה ולא קובץ?</b> macOS חוסם קבצים שהורדו בדפדפן כשהם לא חתומים ע"י Apple ("מפתח לא מזוהה"), ואת החסימה אפשר לעקוף רק עם סיסמת מנהל. קבצים ש-curl מוריד לא מסומנים כ"הורדו מהאינטרנט", ולכן אין חסימה ואין שאלה. כל קובץ נבדק מול SHA-256 לפני שהוא מותקן. Apple Silicon ו-Intel, macOS 12 ומעלה.</p></div>
+    </section>
+
+    <section id="eclipse" aria-labelledby="h-eclipse">
+      <h2 id="h-eclipse">Eclipse</h2>
+      <p>כל גרסה מ-2020-09 ועד היום, בגרסה ל-Java (Eclipse IDE for Java Developers). ההתקנה ב-Windows או ב-Mac מוצאת אותו לבד, גם כשיש כמה.</p>
+      <div class="who">
+        <div>
+          <h3><span class="tag auto">לבד</span></h3>
+          <ul>
+            <li>התוסף נכנס לכל Eclipse שנמצא, וקידוד UTF-8 מוגדר (עברית תקינה בקוד ובפלט)</li>
+            <li>הספרייה unit4.collectionsLib נוספת לכל פרויקט Java, גם לפרויקט חדש שיוצרים, בלי Build Path</li>
+            <li>חלון "הסברים בעברית" נפתח בצד</li>
+            <li>בכל סגירה של Eclipse נבדק אם יש עדכון</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="tag once">פעם אחת</span></h3>
+          <ul>
+            <li>Eclipse סגור בזמן ההתקנה (ההתקנה מציעה לסגור אותו)</li>
+            <li>Eclipse בתיקייה מוגנת (Program Files): מריצים את ההתקנה כמנהל, לחיצה ימנית ← "הפעל כמנהל"</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="vscode" aria-labelledby="h-vscode">
+      <h2 id="h-vscode">VS Code</h2>
+      <p>אותו תוסף ל-Java ול-<bdi>C#</bdi>: הרצה ויזואלית, תרגיל חדש, הוסף מבנה נתונים ושליחת תרגיל, בשורת המצב ובסרגל הצד.</p>
+      <div class="who">
+        <div>
+          <h3><span class="tag auto">לבד</span></h3>
+          <ul>
+            <li>התוסף מותקן ב-VS Code, ב-VS Code Insiders, ב-VSCodium וב-Cursor</li>
+            <li>התוספים של Microsoft (Java או <bdi>C#</bdi>) יורדים ברקע, להשלמה אוטומטית וצבעים</li>
+            <li>תיקייה שיש בה קוד שמשתמש ב-Stack, Queue, Node או BinNode של הקורס מקבלת את הספרייה (<code dir="ltr">lib/dsviz.jar</code>) לבד, ברגע שפותחים או שומרים</li>
+            <li>בפעם הראשונה מוצעת תיקיית התרגילים, עם תרגיל לדוגמה</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="tag once">פעם אחת</span></h3>
+          <ul>
+            <li>פותחים מחדש את VS Code אחרי ההתקנה</li>
+            <li>התקנתם VS Code אחרי DSViz? ב-Mac התוסף נוסף לבד בבדיקה היומית; ב-Windows מריצים שוב את DSViz-Setup.exe</li>
+          </ul>
+        </div>
+      </div>
+      <p class="quiet">פרויקט Maven או Gradle לא משתנה לבד: שם מוסיפים את <code dir="ltr">lib/dsviz.jar</code> לתלויות בעצמכם.</p>
+    </section>
+
+    <section id="visual-studio" aria-labelledby="h-vs">
+      <h2 id="h-vs">Visual Studio (<bdi>C#</bdi>)</h2>
+      <p>בוחרים <bdi>C#</bdi> במסך השפה של ההתקנה ב-Windows. מאותו רגע, בכל פרויקט <bdi>C#</bdi> מסוג קונסול, חדש או קיים, בכל תיקייה:</p>
+      <div class="who">
+        <div>
+          <h3><span class="tag auto">לבד</span></h3>
+          <ul>
+            <li>הפניה ל-Unit4.CollectionsLib, כך ש-Stack, Queue, Node ו-BinNode מוכרים, גם ב-IntelliSense</li>
+            <li>"הרצה ויזואלית" מופיעה בתפריט שליד כפתור ההפעלה הירוק</li>
+            <li>תבנית פרויקט חדשה: "תרגיל מבני נתונים (DSViz)"</li>
+            <li>תיקיית תרגילים מוכנה (DataStructures-CS) עם קיצור בשולחן העבודה</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="tag once">בכל הרצה</span></h3>
+          <ul>
+            <li>בוחרים "הרצה ויזואלית" ליד הכפתור הירוק, ולוחצים F5</li>
+            <li>תרגיל חדש, הוסף מבנה נתונים ושליחת תרגיל: מהקיצורים בשולחן העבודה ובתפריט התחל</li>
+          </ul>
+        </div>
+      </div>
+      <p class="quiet">זה עובד דרך נקודת ההרחבה הרגילה של MSBuild (ImportAfter, ברמת המשתמש), ולכן גם <code dir="ltr">dotnet build</code> ו-Rider מכירים את הספרייה. פרויקט שלא רוצים שייגע בו: <code dir="ltr">&lt;DSVizDisable&gt;true&lt;/DSVizDisable&gt;</code> בקובץ ה-csproj.</p>
+    </section>
+
+    <section id="mac-cs" aria-labelledby="h-mac-cs">
+      <h2 id="h-mac-cs"><bdi>C#</bdi> ב-Mac</h2>
+      <p>Visual Studio for Mac הופסק ב-2024, ולכן ב-Mac עובדים ב-<bdi>C#</bdi> עם <b>VS Code</b>, עם <b>Rider</b> או עם <code dir="ltr">dotnet</code> בטרמינל. כשבוחרים C# בהתקנה:</p>
+      <ul>
+        <li>כל פרויקט <bdi>C#</bdi> מכיר את Unit4.CollectionsLib, בלי להוסיף הפניה (אותו קובץ MSBuild כמו ב-Windows).</li>
+        <li>ההרצה הוויזואלית של <bdi>C#</bdi> כלולה, ועובדת גם בלי ‎.NET SDK.</li>
+        <li>אם אין ‎.NET SDK, ההתקנה שואלת אם להתקין את גרסה 8 (כ-200 מגה, ל-<code dir="ltr">~/.dotnet</code>, בלי סיסמה). צריך אותו בשביל <code dir="ltr">dotnet build</code> ו-F5 ב-VS Code.</li>
+      </ul>
+    </section>
+
+    <!-- ===== IntelliJ IDEA: הקטע הזה מתאר את מה שהתוסף ל-IntelliJ וההתקנות עושים (intellij-plugin/, installer/intellij.ps1,
+         installer/mac/intellij.sh). לעדכן כאן אם משהו משתנה. ===== -->
+    <section id="intellij" aria-labelledby="h-intellij" data-block="intellij">
+      <h2 id="h-intellij">IntelliJ IDEA</h2>
+      <p>IntelliJ IDEA מגרסה 2024.2 ומעלה, Community או Ultimate, בהתקנה רגילה או דרך JetBrains Toolbox. ההתקנה ב-Windows וב-Mac מוצאת כל אחת מהן ומתקינה בה את התוסף בשקט.</p>
+      <div class="who">
+        <div>
+          <h3><span class="tag auto">לבד</span></h3>
+          <ul>
+            <li>התוסף נכנס לכל IntelliJ IDEA שנמצא, גם כשיש כמה</li>
+            <li>כל פרויקט Java מקבל בפתיחה את הספרייה unit4.collectionsLib ו-JDK, גם פרויקט ישן</li>
+            <li>תיקיית התרגילים (DataStructures במסמכים) נפתחת ישר ב-IntelliJ</li>
+            <li>עדכונים: ב-Windows בכניסה למחשב, ב-Mac פעם ביום; ההסרה מוציאה את התוסף</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="tag once">פעם אחת</span></h3>
+          <ul>
+            <li>IntelliJ סגור בזמן ההתקנה (ב-Windows ההתקנה מציעה לסגור אותו)</li>
+            <li>פותחים מחדש את IntelliJ</li>
+          </ul>
+        </div>
+      </div>
+      <p>התפריט "מבני נתונים" (אחרי Tools) והחלון DSViz בצד: תרגיל חדש, שליחת תרגיל, הוסף מבנה נתונים, הרצה ויזואלית (<kbd dir="ltr">Ctrl+Alt+R</kbd>, או החץ הירוק ליד main), דוגמאות פתורות, הדרכה וכיבוי. ההצעה לפתרון מופיעה רק כמנורה קטנה בשוליים, ליד הפעולות של תרגיל ששלחתם.</p>
+      <figure>
+        <img class="frame" src="assets/img/intellij-menu.webp" alt="IntelliJ IDEA: התפריט מבני נתונים עם תרגיל חדש, שליחת תרגיל, הוסף מבנה נתונים, הרצה ויזואלית, דוגמאות פתורות, הדרכה לשימוש וכיבוי DSViz" width="821" height="657" loading="lazy">
+        <figcaption>התפריט "מבני נתונים" ב-IntelliJ IDEA.</figcaption>
+      </figure>
+      <figure>
+        <img class="frame" src="assets/img/intellij-gutter.webp" alt="IntelliJ IDEA: תרגיל ששלחתם, עם מנורה בשוליים ליד כל פעולה של סעיף; ההצעה לפתרון נפתחת בלחיצה עליה" width="821" height="600" loading="lazy">
+        <figcaption>תרגיל ששלחתם: המנורה בשוליים, ליד כל סעיף, פותחת את ההצעה לפתרון.</figcaption>
+      </figure>
+    </section>
+    <!-- ===== סוף הקטע של IntelliJ IDEA ===== -->
+
+    <section id="web" aria-labelledby="h-web">
+      <h2 id="h-web">בלי התקנה</h2>
+      <p>בדף <a href="bagrut.html">שאלת בגרות לקוד</a> מעלים את דף השאלה (PDF, Word או צילום) ומקבלים קובצי Java או <bdi>C#</bdi> מוכנים: פעולה ריקה לכל סעיף, המחלקות מהשאלה ו-main עם נתונים לדוגמה, ואם רוצים גם הצעה לפתרון. הכול בדפדפן, בלי להתקין כלום. הדף עובר דרך השרת של DSViz ל-Gemini של Google; הפרטים בדף <a href="privacy.html">פרטיות</a>.</p>
+    </section>
+
+    <section id="updates" aria-labelledby="h-updates">
+      <h2 id="h-updates">עדכונים והסרה</h2>
+      <h3>עדכונים</h3>
+      <ul>
+        <li><b>Windows:</b> בכל כניסה ל-Windows ובכל סגירה של Eclipse נבדק אם יש גרסה חדשה. אם יש, היא יורדת, נבדקת (SHA-256) ומותקנת בשקט עם אותן שפות, אחרי ש-Eclipse נסגר.</li>
+        <li><b>Mac:</b> בכניסה למחשב ופעם ביום (פריט רקע של המשתמש, בלי סיסמה), וגם כש-VS Code או IntelliJ נפתחים וכש-Eclipse נסגר. סביבת פיתוח שהותקנה אחרי DSViz מקבלת את התוסף באותה בדיקה. היומן: <code dir="ltr">~/Library/Logs/DSViz/update.log</code>. אפשר גם להריץ שוב את שורת ההתקנה.</li>
+      </ul>
+      <h3>הסרה</h3>
+      <ul>
+        <li><b>Windows:</b> הגדרות ← אפליקציות ← "מבני נתונים — הרצה ויזואלית" ← הסרה, או "הסרה" בתפריט התחל.</li>
+        <li><b>Mac:</b> <code dir="ltr">bash ~/Library/Application\ Support/DSViz/uninstall.sh</code></li>
+      </ul>
+      <p class="quiet">ההסרה מוציאה את התוספים מכל הסביבות. תיקיות התרגילים במסמכים נשארות, כי יש בהן את העבודה שלכם.</p>
+    </section>
+
+    <section id="trouble" aria-labelledby="h-trouble">
+      <h2 id="h-trouble">כשמשהו לא עובד</h2>
+      <div class="faq">
+        <details>
+          <summary>ב-Mac: "macOS לא נתן להתקין את התוסף" ב-Eclipse</summary>
+          <p>ב-macOS 13 ומעלה הטרמינל צריך הרשאה לשנות אפליקציות. הגדרות המערכת ← פרטיות ואבטחה ← ניהול אפליקציות ← מפעילים את Terminal, ומריצים שוב את השורה. או ב-Eclipse: Help ← Install New Software ← Add ← Archive, ובוחרים את <code dir="ltr">~/Library/Application Support/DSViz/eclipse/dsviz-eclipse-site.zip</code>.</p>
+        </details>
+        <details>
+          <summary>ההתקנה לא מצאה את Eclipse</summary>
+          <p>ב-Windows ההתקנה שואלת איפה הוא נמצא (התיקייה שבה eclipse.exe). ב-Mac: <code dir="ltr">curl -fsSL …/install.sh | DSVIZ_ECLIPSE="/path/Eclipse.app" bash</code>.</p>
+        </details>
+        <details>
+          <summary>ב-VS Code הקוד מסומן באדום: Queue cannot be resolved</summary>
+          <p>שומרים את הקובץ: התוסף מוסיף את הספרייה לתיקייה ברגע שהוא רואה קוד שמשתמש בה. בפרויקט Maven או Gradle מוסיפים את <code dir="ltr">lib/dsviz.jar</code> לתלויות. ואם בתיקייה כבר יש jar אחר של unit4 (המקורי של הבגרות), התוסף לא נוגע בה.</p>
+        </details>
+        <details>
+          <summary>אני רוצה לבדוק שהכול עובד</summary>
+          <p>פותחים את תיקיית התרגילים (DataStructures במסמכים), פותחים את Main.java, ולוחצים "הרצה ויזואלית". אמור להיפתח חלון עם הקוד, המשתנים והמחסנית.</p>
+        </details>
+      </div>
+    </section>
+  </article>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <p>© 2026 מוטי לוי · <a href="mailto:motiml77@gmail.com">motiml77@gmail.com</a></p>
+    <p class="foot-links">
+      <a href="./">לעמוד הראשי</a>
+      <a href="bagrut.html">שאלת בגרות לקוד</a>
+      <a href="privacy.html">פרטיות</a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="159" height="30"></a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" width="163" height="30"></a>
+    </p>
+  </div>
+</footer>
+
+<script src="assets/site.js" defer></script>
+<script src="assets/downloads.js" defer></script>
+</body>
+</html>

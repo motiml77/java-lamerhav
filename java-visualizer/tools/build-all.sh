@@ -3,10 +3,11 @@
 #   dsviz.jar                    — הספרייה (גם לשימוש ידני בכל פרויקט)
 #   il.lamerhav.dsviz_1.0.1.jar  — התוסף ל-Eclipse (מעתיקים לתיקיית dropins)
 #   dsviz-1.0.1.vsix             — התוסף ל-VS Code
+#   dsviz-intellij-1.0.1.zip     — התוסף ל-IntelliJ IDEA (Settings ← Plugins ← Install Plugin from Disk; ההתקנות מתקינות לבד)
 #   DSViz-Setup.exe              — תוכנית התקנה ל-Windows (מוצאת לבד את VS Code ואת Eclipse; Java 21 כלולה)
 #   dsviz-install.zip            — התקנה ל-Linux, התוספים והמדריך (בלי ה-exe של Windows)
 # ל-Mac: פקודה אחת בטרמינל (installer/mac/install.sh) — החבילות נבנות ב-GitHub Actions (.github/workflows/dsviz-mac.yml)
-# דרישות לבנייה: JDK 11+, Python 3, Node.js, NSIS (makensis) — רק למי שבונה, לא למי שמתקין
+# דרישות לבנייה: JDK 11+ (ל-IntelliJ: JDK 21 + Gradle 8.5+ ואינטרנט בפעם הראשונה), Python 3, Node.js, NSIS (makensis) — רק למי שבונה
 set -e
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
@@ -72,6 +73,19 @@ echo "release/il.lamerhav.dsviz_$VERSION.jar"
 mkdir -p build/light && rm -rf "$OUT/resources/help"
 jar --create --file "build/light/il.lamerhav.dsviz_$VERSION.jar" --manifest eclipse-plugin/META-INF/MANIFEST.MF -C "$OUT" .
 
+echo "== IntelliJ IDEA"
+# Gradle + IntelliJ Platform Gradle Plugin (intellij-plugin/build.gradle.kts). בפעם הראשונה מוריד את IntelliJ 2024.2 שמולו בונים (~700MB).
+# IDEA_DIR=<IntelliJ מחולץ> — בונים מולו בלי להוריד. בלי Gradle — מדלגים (שאר ההתקנה נבנית; ההתקנה מדלגת על IntelliJ)
+rm -rf build/intellij
+if command -v gradle >/dev/null 2>&1 && (cd intellij-plugin && gradle --no-daemon -q ${IDEA_DIR:+-PideDir=$IDEA_DIR} buildPlugin); then
+    cp "intellij-plugin/build/distributions/dsviz-intellij-$VERSION.zip" release/
+    # להתקנות: התיקייה dsviz-intellij בלי runtime/dsviz.jar — ההתקנה מעתיקה לשם את dsviz.jar שכבר בה (לא פעמיים באותה חבילה)
+    mkdir -p build/intellij && (cd build/intellij && unzip -q "$ROOT/release/dsviz-intellij-$VERSION.zip") && rm -rf build/intellij/dsviz-intellij/runtime
+    echo "release/dsviz-intellij-$VERSION.zip"
+else
+    echo "  (אין Gradle או שהבנייה נכשלה — התוסף ל-IntelliJ לא נבנה)"
+fi
+
 echo "== VS Code"
 cd vscode-extension
 rm -rf resources && mkdir -p resources/examples
@@ -117,6 +131,7 @@ cp installer/install.sh installer/README-he.html "$PKG/"
 # בלי DSViz-Setup.exe: הוא רק ל-Windows, והוא כבר קובץ נפרד בתיקיית release
 cp -R build/project "$PKG/project"
 cp "release/dsviz-$VERSION.vsix" "release/il.lamerhav.dsviz_$VERSION.jar" release/dsviz.jar "$PKG/"
+[ -f "release/dsviz-intellij-$VERSION.zip" ] && cp "release/dsviz-intellij-$VERSION.zip" "$PKG/"
 rm -f release/dsviz-install.zip
 (cd build && python3 -c "
 import zipfile, os
