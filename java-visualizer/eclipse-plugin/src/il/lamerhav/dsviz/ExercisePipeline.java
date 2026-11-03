@@ -49,6 +49,8 @@ final class ExercisePipeline {
         final List<String[]> others = new ArrayList<String[]>();
         String solutionStatus = "";   // ok / ran / failed / unchecked ("" — אין הצעות)
         final List<SolutionStore.Entry> entries = new ArrayList<SolutionStore.Entry>();
+        /** לא הצלחנו לכתוב את הקבצים (תיקייה לקריאה בלבד / נמחקה) — הודעה בעברית לתלמיד; אז אין קבצים ואין "התרגיל נוצר" */
+        String writeError;
     }
 
     // ------------------------------------------------------------------ Java
@@ -71,6 +73,7 @@ final class ExercisePipeline {
         r.folderName = pkg;
         File dir = new File(src, pkg);
         List<AiScaffold.GeneratedFile> generated = write(e, pkg, sources, dir, r);
+        if (r.writeError != null) return r;
         p.say("בודק שהקוד מתקמפל…");
         compileJava(r, generated, e, lib);
         if (!r.errors.isEmpty() && client != null && !p.cancelled()) {
@@ -82,6 +85,7 @@ final class ExercisePipeline {
                 e = AiScaffold.read(raw);
                 for (File f : r.files) f.delete();
                 generated = write(e, pkg, sources, dir, r);
+                if (r.writeError != null) return r;
                 p.say("בודק שוב…");
                 compileJava(r, generated, e, lib);
             } catch (WorkerClient.AiError ignored) {
@@ -372,7 +376,13 @@ final class ExercisePipeline {
             try {
                 Files.write(f.toPath(), g.code.getBytes(StandardCharsets.UTF_8));
             } catch (IOException ex) {
-                r.errors.add(f.getName() + ": " + ex.getMessage());
+                // בלי זה הקובץ נרשם כאילו נוצר, והתלמיד קיבל "התרגיל נוצר" על תיקייה ריקה
+                for (File w : r.files) w.delete();
+                r.files.clear();
+                r.focus = null;
+                r.writeError = "לא הצלחתי לכתוב את קובצי התרגיל לתיקייה " + dir.getName()
+                        + " — אולי התיקייה לקריאה בלבד, או שהיא נמחקה. בחרו תיקייה אחרת ונסו שוב.";
+                return gen;
             }
             r.files.add(f);
             if (g.cursorLine >= 0) {

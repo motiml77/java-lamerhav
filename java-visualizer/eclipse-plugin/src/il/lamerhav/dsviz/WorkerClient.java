@@ -211,7 +211,7 @@ final class WorkerClient {
             throw new AiError("offline", "אין חיבור לשרת. בדקו שיש חיבור לאינטרנט ונסו שוב.");
         } catch (IOException e) {
             if (cancelled) throw new AiError("cancel", "השליחה בוטלה.");
-            throw new AiError("network", "תקלה בתקשורת עם השרת: " + e.getMessage());
+            throw new AiError("network", "החיבור לשרת נקטע באמצע. בדקו שיש חיבור לאינטרנט ונסו שוב.");
         } finally {
             pending = null;
             c.disconnect();
