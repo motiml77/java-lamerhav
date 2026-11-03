@@ -47,6 +47,10 @@ public class EdgeSubmitTest extends BasePlatformTestCase {
         try {
             System.clearProperty("dsviz.worker");
             server.stop(0);
+            synchronized (temp) {
+                for (File f : temp) com.intellij.openapi.util.io.FileUtil.delete(f);
+                temp.clear();
+            }
         } finally {
             super.tearDown();
         }
@@ -93,14 +97,25 @@ public class EdgeSubmitTest extends BasePlatformTestCase {
 
     // ------------------------------------------------------------------ עזר
 
+    /** קבצים ותיקיות זמניים — נמחקים בסוף כל בדיקה (יש כאן קבצים של 11MB) */
+    private static final List<File> temp = Collections.synchronizedList(new ArrayList<File>());
+
+    private static File tmpDir() throws java.io.IOException {
+        File d = Files.createTempDirectory("dsviz-edge-sub").toFile();
+        temp.add(d);
+        return d;
+    }
+
     private static File png() throws Exception {
-        File img = File.createTempFile("page", ".png");
+        File img = File.createTempFile("dsviz-edge-page", ".png");
+        temp.add(img);
         javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(120, 80, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", img);
         return img;
     }
 
     private static File file(String suffix, byte[] data) throws Exception {
-        File f = File.createTempFile("edge", suffix);
+        File f = File.createTempFile("dsviz-edge", suffix);
+        temp.add(f);
         Files.write(f.toPath(), data);
         return f;
     }
@@ -125,7 +140,7 @@ public class EdgeSubmitTest extends BasePlatformTestCase {
     // ------------------------------------------------------------------ הקבצים
 
     public void testBadFilesAreRejectedInHebrew() throws Exception {
-        File out = Files.createTempDirectory("dsviz-sub").toFile();
+        File out = tmpDir();
         assertFailedInHebrew("בלי קבצים", submit(out, items(), "", null));
         assertFailedInHebrew("Word ישן (.doc)", submit(out, items(file(".doc", "word97".getBytes(StandardCharsets.UTF_8))), "", null));
         assertFailedInHebrew("zip", submit(out, items(file(".zip", new byte[] { 'P', 'K', 3, 4, 0, 0, 1, 2, 3 })), "", null));
@@ -143,7 +158,7 @@ public class EdgeSubmitTest extends BasePlatformTestCase {
     }
 
     public void testDialogRejectsBadFilesRightAway() throws Exception {
-        File dir = Files.createTempDirectory("dsviz-sd").toFile();
+        File dir = tmpDir();
         SubmitDialog d = new SubmitDialog(getProject(), Arrays.asList(new ExerciseDialog.Target(dir, "src")));
         try {
             ValidationInfo v = d.doValidate();
@@ -174,7 +189,7 @@ public class EdgeSubmitTest extends BasePlatformTestCase {
     // ------------------------------------------------------------------ השרת
 
     public void testServerProblemsGiveShortHebrewErrors() throws Exception {
-        File out = Files.createTempDirectory("dsviz-sub").toFile();
+        File out = tmpDir();
         File page = png();
         for (String sc : new String[] { "busy", "e500", "garbage", "notexercise", "empty", "reset" })
             assertFailedInHebrew("שרת: " + sc, submit(out, items(page), "scenario:" + sc, null));
@@ -184,7 +199,7 @@ public class EdgeSubmitTest extends BasePlatformTestCase {
     }
 
     public void testSameExerciseTwiceAndLongNoteWithEmoji() throws Exception {
-        File out = Files.createTempDirectory("dsviz-sub").toFile();
+        File out = tmpDir();
         String note = "רק סעיפים א-ב בבקשה 🙏😀 " + "ארוך מאוד ".repeat(400) + "👍";
         Submitter.Outcome a = submit(out, items(png()), note, null);
         assertNull(a.error, a.error);
@@ -204,7 +219,7 @@ public class EdgeSubmitTest extends BasePlatformTestCase {
     }
 
     public void testCancelMidwayStopsQuickly() throws Exception {
-        File out = Files.createTempDirectory("dsviz-sub").toFile();
+        File out = tmpDir();
         AtomicBoolean cancel = new AtomicBoolean();
         List<String> progress = Collections.synchronizedList(new ArrayList<String>());
         Submitter.Listener l = new Submitter.Listener() {
@@ -231,14 +246,15 @@ public class EdgeSubmitTest extends BasePlatformTestCase {
 
     public void testTargetFolderUnwritableOrDeletedDuringBuild() throws Exception {
         // תיקייה שאי אפשר לכתוב בה (כאן: "תיקייה" שהיא בעצם קובץ — כך זה נכשל גם כשהבדיקות רצות כ-root)
-        File blocker = File.createTempFile("not-a-dir", ".txt");
+        File blocker = File.createTempFile("dsviz-edge-not-a-dir", ".txt");
+        temp.add(blocker);
         File bad = new File(blocker, "src");
         String why = Submitter.prepare(getProject(), new ExerciseDialog.Target(bad, "src"));
         assertNotNull(why);
         EdgeSupport.assertStudentText("prepare", why);
         assertFailedInHebrew("SubmitCli לתיקייה שאי אפשר ליצור", submit(bad, items(png()), "", null));
         // התיקייה נמחקה בזמן שהשרת עונה
-        File out = Files.createTempDirectory("dsviz-sub").toFile();
+        File out = tmpDir();
         Thread killer = new Thread(() -> {
             try {
                 Thread.sleep(2500);
@@ -257,7 +273,7 @@ public class EdgeSubmitTest extends BasePlatformTestCase {
     // ------------------------------------------------------------------ החלון: לחיצה כפולה, ביטול
 
     public void testDoubleClickSendRunsOnceAndCancelStops() throws Exception {
-        File dir = Files.createTempDirectory("dsviz-sd").toFile();
+        File dir = tmpDir();
         SubmitDialog d = new SubmitDialog(getProject(), Arrays.asList(new ExerciseDialog.Target(dir, "src")));
         try {
             d.add(png(), "דף.png");

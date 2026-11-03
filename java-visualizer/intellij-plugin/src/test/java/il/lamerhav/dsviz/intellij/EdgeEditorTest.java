@@ -233,7 +233,7 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
     // ------------------------------------------------------------------ תרגיל חדש
 
     public void testNewExerciseNames() throws Exception {
-        File dir = Files.createTempDirectory("dsviz-new").toFile();
+        File dir = com.intellij.openapi.util.io.FileUtil.createTempDirectory("dsviz-edge-dsviz-new", null, true);
         Files.write(new File(dir, "Targil1.java").toPath(), "public class Targil1 { }".getBytes(StandardCharsets.UTF_8));
         ExerciseDialog d = new ExerciseDialog(getProject(), Arrays.asList(new ExerciseDialog.Target(dir, "src")), "stack");
         try {
@@ -252,7 +252,7 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
     }
 
     public void testNewExerciseIntoFolderThatCannotBeCreated() throws Exception {
-        File blocker = File.createTempFile("not-a-dir", ".txt");   // "תיקייה" שהיא בעצם קובץ — אי אפשר ליצור בה כלום (כמו תיקייה לקריאה בלבד)
+        File blocker = com.intellij.openapi.util.io.FileUtil.createTempFile("dsviz-edge-not-a-dir", ".txt", true);   // "תיקייה" שהיא בעצם קובץ — אי אפשר ליצור בה כלום (כמו תיקייה לקריאה בלבד)
         ExerciseDialog.Target t = new ExerciseDialog.Target(new File(blocker, "src"), "src");
         ExerciseDialog d = new ExerciseDialog(getProject(), Arrays.asList(t), "queue");
         il.lamerhav.dsviz.Scaffold.Options o;
@@ -269,7 +269,7 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
     }
 
     public void testExamplesTwiceAndHelpPage() throws Exception {
-        File src = Files.createTempDirectory("dsviz-ex").toFile();
+        File src = com.intellij.openapi.util.io.FileUtil.createTempDirectory("dsviz-edge-dsviz-ex", null, true);
         List<com.intellij.openapi.vfs.VirtualFile> a = ProjectFiles.copyExamples(getProject(), src);
         File stack = new File(src, "examples/StackExamples.java");
         Files.write(stack.toPath(), "// שיניתי\n".getBytes(StandardCharsets.UTF_8), java.nio.file.StandardOpenOption.APPEND);
@@ -354,7 +354,7 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
     }
 
     public void testSolutionAfterRenameAndWithBrokenStore() throws Exception {
-        File store = File.createTempFile("dsviz-solutions", ".json");
+        File store = com.intellij.openapi.util.io.FileUtil.createTempFile("dsviz-edge-dsviz-solutions", ".json", true);
         store.delete();
         System.setProperty("dsviz.solutions", store.getAbsolutePath());
         Solutions s = new Solutions();
@@ -398,7 +398,7 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
 
     private IjShared.Solution solution(String label, String code, String status) {
         try {
-            File store = File.createTempFile("dsviz-sol", ".json");
+            File store = com.intellij.openapi.util.io.FileUtil.createTempFile("dsviz-edge-dsviz-sol", ".json", true);
             store.delete();
             IjShared.addSolution(store, "/p/src/ex01/T.java", "T", "f", Arrays.asList("x"), label, code, status);
             return IjShared.findSolution(store, "/p/src/ex01/T.java", "T", "f", 1);
@@ -463,7 +463,7 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
     public void testLibraryCopyInOddProjectFolders() throws Exception {
         File src = Dsviz.libraryJar();
         // רגיל
-        File p1 = Files.createTempDirectory("dsviz-p1").toFile();
+        File p1 = com.intellij.openapi.util.io.FileUtil.createTempDirectory("dsviz-edge-dsviz-p1", null, true);
         File c1 = LibrarySetup.copyJar(p1, src);
         assertEquals(new File(p1, "lib/dsviz.jar"), c1);
         assertTrue(Arrays.equals(Files.readAllBytes(src.toPath()), Files.readAllBytes(c1.toPath())));
@@ -476,17 +476,17 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
         LibrarySetup.copyJar(p1, src);
         assertEquals(1_000_000_000_000L, c1.lastModified());
         // lib הוא קובץ (אי אפשר ליצור בו כלום — כמו תיקייה לקריאה בלבד) — ה-jar של התוסף, בלי חריגה
-        File p2 = Files.createTempDirectory("dsviz-p2").toFile();
+        File p2 = com.intellij.openapi.util.io.FileUtil.createTempDirectory("dsviz-edge-dsviz-p2", null, true);
         Files.write(new File(p2, "lib").toPath(), new byte[] { 1 });
         assertEquals(src, LibrarySetup.copyJar(p2, src));
         // lib/dsviz.jar הוא תיקייה עם קבצים
-        File p3 = Files.createTempDirectory("dsviz-p3").toFile();
+        File p3 = com.intellij.openapi.util.io.FileUtil.createTempDirectory("dsviz-edge-dsviz-p3", null, true);
         new File(p3, "lib/dsviz.jar/x").mkdirs();
         assertEquals(src, LibrarySetup.copyJar(p3, src));
     }
 
     public void testStudentsOwnUnit4Jar() throws Exception {
-        File own = File.createTempFile("unit4-", ".jar");
+        File own = com.intellij.openapi.util.io.FileUtil.createTempFile("dsviz-edge-unit4-", ".jar", true);
         Files.copy(Dsviz.libraryJar().toPath(), own.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         com.intellij.openapi.vfs.VirtualFile jar = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(own);
         ModuleRootModificationUtil.addModuleLibrary(getModule(), "unit4", Arrays.asList("jar://" + jar.getPath() + "!/"), java.util.Collections.<String>emptyList());

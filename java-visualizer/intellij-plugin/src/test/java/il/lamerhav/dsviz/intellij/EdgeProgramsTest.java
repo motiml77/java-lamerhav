@@ -51,6 +51,8 @@ public class EdgeProgramsTest extends BasePlatformTestCase {
     private static synchronized void compileAll() throws Exception {
         if (bin != null) return;
         work = Files.createTempDirectory("dsviz-edge").toFile();
+        File w = work;
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> com.intellij.openapi.util.io.FileUtil.delete(w)));
         File src = new File(work, "src");
         copy(programs(), src);
         // CRLF + טאבים — נוצר כאן (שלא יתוקן ע"י git)

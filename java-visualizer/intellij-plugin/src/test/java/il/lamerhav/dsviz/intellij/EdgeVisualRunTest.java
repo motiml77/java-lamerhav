@@ -237,7 +237,7 @@ public class EdgeVisualRunTest extends LightJavaCodeInsightFixtureTestCase {
         boolean inherited = com.intellij.openapi.roots.ModuleRootManager.getInstance(m).isSdkInherited();
         File dir;
         try {
-            dir = java.nio.file.Files.createTempDirectory("deleted-jdk").toFile();
+            dir = com.intellij.openapi.util.io.FileUtil.createTempDirectory("dsviz-edge-deleted-jdk", null, true);
         } catch (java.io.IOException e) {
             throw new RuntimeException(e);
         }

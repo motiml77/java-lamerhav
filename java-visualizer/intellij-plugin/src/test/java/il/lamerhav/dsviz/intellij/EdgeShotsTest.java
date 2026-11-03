@@ -46,7 +46,7 @@ public class EdgeShotsTest extends BasePlatformTestCase {
             for (int i = 0; i < specs.length; i++) save(specs[i], new File(dir, names[i] + ".png"));
             // שליחת תרגיל לתיקייה שאי אפשר לכתוב בה
             SubmitDialog.Build b = new SubmitDialog.Build();
-            File img = File.createTempFile("page", ".png");
+            File img = com.intellij.openapi.util.io.FileUtil.createTempFile("dsviz-edge-page", ".png", true);
             javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(60, 40, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", img);
             b.reset(Arrays.asList(new SubmitDialog.Item(img, "דף התרגיל.png")));
             b.progress("שולח את התרגיל… (בדרך כלל עד דקה)");
