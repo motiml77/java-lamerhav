@@ -209,7 +209,10 @@ final class Recorder {
             Step st = steps.get(steps.size() - 1);
             try {
                 Model.ProblemView p = Problems.attach(st);
-                if (textMode && p != null) out.println("      [כרטיס " + p.kind + (p.name != null ? " " + p.name : "") + (p.op != null ? " " + p.op : "") + "]");
+                if (textMode && p != null) {
+                    out.println("      [כרטיס " + p.kind + (p.name != null ? " " + p.name : "") + (p.op != null ? " " + p.op : "") + "]");
+                    out.println("      " + p.what + " — " + p.why);   // ההסבר בעברית שבכרטיס (בלי חלון — לבדיקות)
+                }
                 Object ln = lastNode.get();
                 if (p != null && "null".equals(p.kind) && p.name != null && !p.name.endsWith(")") && ln instanceof Node && ((Node<?>) ln).next == null)
                     for (View v : st.views)
@@ -268,6 +271,15 @@ final class Recorder {
     }
 
     private static void onOutput(String text) {
+        busyEnter();
+        try {
+            outputNow(text);
+        } finally {
+            busyExit();
+        }
+    }
+
+    private static void outputNow(String text) {
         synchronized (LOCK) {
             if (lineMode) drainLines();   // השורות שלפני ההדפסה — בלי הטקסט החדש
             output.append(text);
@@ -776,6 +788,40 @@ final class Recorder {
     }
 
     static void recordAt(Kind kind, Object target, Mark mark, String ghost, String text, StackTraceElement[] trace) {
+        busyEnter();
+        try {
+            recordNow(kind, target, mark, ghost, text, trace);
+        } finally {
+            busyExit();
+        }
+    }
+
+    // ------------------------------------------------------------ הרצה שורה-שורה: הספרייה עובדת — ה-Tracer לא צועד בה
+    // בזמן שה-Tracer צועד שורה-שורה, כל קריאה לפעולה בחוט של main עוברת דרך ממשק הדיבאג (גם בקוד של הספרייה, שמסונן
+    // רק אחר כך) — ובמחסנית עמוקה (רקורסיה) זה איטי מאוד: רקורסיה על רשימה של 50 חוליות נמשכה כמעט דקה.
+    // לכן העבודה של הספרייה מסומנת ב-busyStart / busyEnd, וה-Tracer (נקודות עצירה) מכבה את הצעידה ביניהן.
+
+    private static int busyDepth;
+    /** החוט של main של התלמיד בהרצה שורה-שורה (LineByLine), או null */
+    static volatile Thread tracedThread;
+
+    private static void busyEnter() {
+        if (Thread.currentThread() == tracedThread && busyDepth++ == 0) busyStart();
+    }
+
+    private static void busyExit() {
+        if (Thread.currentThread() == tracedThread && --busyDepth == 0) busyEnd();
+    }
+
+    /** ה-Tracer שם כאן נקודת עצירה: מכאן הספרייה עובדת — מפסיקים לצעוד */
+    static void busyStart() {
+    }
+
+    /** ה-Tracer שם כאן נקודת עצירה: חוזרים לקוד של התלמיד — ממשיכים לצעוד */
+    static void busyEnd() {
+    }
+
+    private static void recordNow(Kind kind, Object target, Mark mark, String ghost, String text, StackTraceElement[] trace) {
         if (kind == Kind.CHANGE || kind == Kind.CREATE) mutations++;   // לולאה שלא נגמרת: ה-Tracer בודק אם משהו במבנים השתנה (LoopGuard)
         synchronized (LOCK) {
             if (loopStopped) return;   // הלולאה שלא נגמרת נעצרה — הצעד שלה (עם הכרטיס) הוא האחרון
@@ -784,6 +830,7 @@ final class Recorder {
             start();
             boolean always = kind == Kind.END || kind == Kind.ERROR; // שגיאה וסיום מוצגים תמיד
             if (steps.size() >= maxSteps) {
+                if (lineMode) linesFull = true;   // גם ה-Tracer מפסיק לצעוד (כמו כשהמגבלה מגיעה משורות) — התוכנית ממשיכה במהירות רגילה
                 if (!limitReached && !always) {
                     limitReached = true;
                     // שורה-שורה: התוכנית ממשיכה, ולולאה שלא נגמרת נעצרת עם כרטיס משלה (LoopGuard) — כאן רק הערה
@@ -1175,8 +1222,11 @@ final class Recorder {
         v.stack = o instanceof Stack;
         v.focus = focus;
         int n = items.size();
+        // מחסנית / תור ענקיים (אלפי איברים): מציירים רק את MAX_CELLS הראשונים ותא "…עוד N" — בלי זה כל צעד העתיק את כל
+        // האיברים, ו-10,000 פעולות push נמשכו דקות (והזיכרון התמלא)
+        int shown = Math.min(n, MAX_CELLS);
         boolean anySub = false;
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < shown; i++) {
             Object item = v.stack ? items.get(n - 1 - i) : items.get(i);
             v.items.add(str(item));
             v.objs.add(objOf(item));
@@ -1185,11 +1235,16 @@ final class Recorder {
             anySub |= sub != null;
             if (sub != null && sub.focus) v.focus = true;   // המבנה הפנימי הוא שנגעו בו — גם החיצוני מסומן (וגלילה אליו)
         }
+        if (shown < n) {
+            v.items.add("…עוד " + (n - shown));
+            v.objs.add(null);
+            v.subs.add(null);
+        }
         if (!anySub) v.subs.clear();
         if (focus) {
             v.mark = mark;
             v.ghost = ghost;
-            v.markIndex = (!v.stack && mark == Mark.NEW) ? n - 1 : 0;
+            v.markIndex = (!v.stack && mark == Mark.NEW) ? v.items.size() - 1 : 0;
         }
         return v;
     }
@@ -1598,6 +1653,15 @@ final class Recorder {
     }
 
     static void drainLines() {
+        busyEnter();
+        try {
+            drainNow();
+        } finally {
+            busyExit();
+        }
+    }
+
+    private static void drainNow() {
         synchronized (LOCK) {
             if (!enabled || !active || !lineMode || loopStoppedDone) return;
             start();   // גם תוכנית בלי מבנים בכלל מקבלת חלון
