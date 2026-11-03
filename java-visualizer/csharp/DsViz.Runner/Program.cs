@@ -24,9 +24,38 @@ namespace DsViz
     /// </summary>
     internal static class Program
     {
+        /// <summary>
+        /// בלי חריגה שלא נתפסה: ב-Visual Studio הפרופיל "הרצה ויזואלית" רץ תחת הדיבאגר, וחריגה כזו עוצרת אותו בתוך הקוד של .NET.
+        /// במקום זה — הודעה קצרה בעברית בחלון, ויציאה.
+        /// </summary>
         static int Main(string[] args)
         {
             try { Console.OutputEncoding = new UTF8Encoding(false); } catch (Exception) { }
+            try
+            {
+                return Run(args.Select(CleanArg).ToArray());
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine("הרצה ויזואלית: משהו השתבש (" + e.GetType().Name + ": " + e.Message + ").");
+                Console.Error.WriteLine("נסו שוב. אם זה חוזר — מתקינים מחדש את DSViz מ-https://is.gd/dsjava");
+                return 3;
+            }
+        }
+
+        /// <summary>
+        /// ארגומנט נקי: Windows הופך "C:\dir\" (לוכסן לפני המרכאה הסוגרת) ל-C:\dir" — עם מרכאה בסוף.
+        /// כך עברו נתיבים מהפרופיל הישן ("$(ProjectDir)" כש-ProjectDir נגמר בלוכסן). מסירים מרכאות ורווחים מהקצוות.
+        /// </summary>
+        internal static string CleanArg(string a)
+        {
+            if (a == null) return a;
+            string t = a.Trim().Trim('"').Trim();
+            return t.Length == 0 ? a : t;
+        }
+
+        static int Run(string[] args)
+        {
             if (args.Length > 0 && args[0] == "--check") return Check(args.Skip(1).ToArray());
             if (args.Length > 1 && args[0] == "--check-project") return CheckProject(args[1]);
             if (args.Length > 1 && args[0] == "--ensure-profile") return EnsureProfile(args[1]);
@@ -497,6 +526,19 @@ namespace DsViz
     internal static class LaunchProfile
     {
         const string Name = "הרצה ויזואלית";
+        /// <summary>הנקודה בסוף: ProjectDir נגמר בלוכסן, ו-"...\" לפני מרכאה סוגרת נקרא ב-Windows כמרכאה בתוך הנתיב</summary>
+        internal const string Args = "\"$(ProjectDir).\"";
+        internal const string OldArgs = "\"$(ProjectDir)\"";
+
+        static void Write(string file, System.Text.Json.Nodes.JsonNode root)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(file));
+            File.WriteAllText(file, root.ToJsonString(new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            }), new UTF8Encoding(false));
+        }
 
         public static bool Ensure(ProjectInfo p)
         {
@@ -511,7 +553,15 @@ namespace DsViz
                 if (root == null) return false;
                 var profiles = root["profiles"] as System.Text.Json.Nodes.JsonObject;
                 if (profiles == null) { profiles = new System.Text.Json.Nodes.JsonObject(); root["profiles"] = profiles; }
-                if (profiles.ContainsKey(Name)) return false;
+                if (profiles.ContainsKey(Name))
+                {
+                    // פרופיל מגרסה ישנה: "$(ProjectDir)" — הנתיב הגיע עם מרכאה בסוף. מתקנים אותו במקום, בלי לגעת בשאר
+                    var old = profiles[Name] as System.Text.Json.Nodes.JsonObject;
+                    if (old == null || (string)old["commandLineArgs"] != OldArgs) return false;
+                    old["commandLineArgs"] = Args;
+                    Write(file, root);
+                    return true;
+                }
                 // ההרצה הרגילה נשארת ראשונה (F5 כמו קודם)
                 if (!profiles.Any(kv => (string)kv.Value?["commandName"] == "Project"))
                     profiles.Add("הרצה רגילה", new System.Text.Json.Nodes.JsonObject { ["commandName"] = "Project" });
@@ -522,15 +572,10 @@ namespace DsViz
                     ["executablePath"] = OperatingSystem.IsWindows() || string.IsNullOrEmpty(Environment.ProcessPath)
                         || Path.GetFileName(Environment.ProcessPath) != "dsviz-cs"
                         ? "%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe" : Environment.ProcessPath,
-                    ["commandLineArgs"] = "\"$(ProjectDir)\"",
+                    ["commandLineArgs"] = Args,
                     ["workingDirectory"] = "$(ProjectDir)"
                 });
-                Directory.CreateDirectory(Path.GetDirectoryName(file));
-                File.WriteAllText(file, root.ToJsonString(new System.Text.Json.JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                }), new UTF8Encoding(false));
+                Write(file, root);
                 return true;
             }
             catch (Exception)

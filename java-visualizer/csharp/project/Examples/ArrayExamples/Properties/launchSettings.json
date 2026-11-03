@@ -3,7 +3,7 @@
     "הרצה ויזואלית": {
       "commandName": "Executable",
       "executablePath": "%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe",
-      "commandLineArgs": "\"$(ProjectDir)\"",
+      "commandLineArgs": "\"$(ProjectDir).\"",
       "workingDirectory": "$(ProjectDir)"
     },
     "הרצה רגילה": {

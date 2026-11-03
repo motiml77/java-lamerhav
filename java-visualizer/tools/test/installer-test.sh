@@ -91,6 +91,20 @@ for p in 'Microsoft VS Code Insiders\bin\code-insiders.cmd' 'VSCodium\bin\codium
     grep -qF -- "$p" "$NSI" || fail "setup.nsi: חסר $p"
 done
 ok "Windows: setup.nsi מתקין ב-VS Code Insiders / VSCodium / Cursor ומסיר מהם"
+# חלון צף בזמן עדכון אוטומטי: update.ps1 מפעיל את notify.ps1 (מתעדכן…) ומחכה להתקנה; ההתקנה בסוף /UPDATE מראה "עודכן";
+# notify.ps1 מימין לשמאל ולא לוקח פוקוס; ב-Mac — התראה של macOS לפני ואחרי
+W="$ROOT/installer"
+grep -q "notify.ps1" "$W/update.ps1" && grep -q "'-State', 'updating', '-WatchPid'" "$W/update.ps1" && grep -q '$p.WaitForExit()' "$W/update.ps1" \
+  && grep -q 'File "notify.ps1"' "$W/setup.nsi" && grep -q 'notify.ps1" -State done' "$W/setup.nsi" && grep -q 'StrCpy $UPDATING "1"' "$W/setup.nsi" \
+  && grep -q 'RightToLeftLayout = true' "$W/notify.ps1" && grep -q 'ShowWithoutActivation' "$W/notify.ps1" \
+  && [ "$(od -An -tx1 -N3 "$W/notify.ps1" | tr -d ' ')" = "efbbbf" ] \
+  && grep -q 'notify "DSViz מתעדכן' "$W/mac/update.sh" && grep -q 'notify "DSViz עודכן' "$W/mac/update.sh" \
+  || fail "חלון העדכון: חסר חיבור ב-update.ps1 / setup.nsi / notify.ps1 / mac/update.sh"
+if command -v pwsh >/dev/null 2>&1; then
+    pwsh -NoProfile -Command "\$null = [System.Management.Automation.Language.Parser]::ParseFile('$W/notify.ps1', [ref]\$null, [ref]\$e); if (\$e.Count) { \$e; exit 1 }" \
+        || fail "notify.ps1: שגיאת תחביר"
+fi
+ok "עדכון אוטומטי: חלון צף 'מתעדכן…' בזמן ההתקנה ו'עודכן' בסופה (Windows, מימין לשמאל, בלי פוקוס), והתראות ב-Mac"
 
 # ---------------------------------------------------------------- 2ב. שדרוג: גרסה חדשה תמיד מחליפה את הישנה (בכל סביבה)
 # Eclipse זוכר תוסף לפי השם והגרסה: כש-Bundle-Version היה תמיד 1.0.1, מטמון ישן (או עותק ישן במקום אחר) השאיר את הקוד הישן טעון.
