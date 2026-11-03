@@ -174,6 +174,7 @@ public class Edge implements IApplication {
         if (only.isEmpty() || only.contains("B")) submitCases();
         if (only.isEmpty() || only.contains("E")) solutionCases();
         if (only.isEmpty() || only.contains("G")) guiRuns();
+        if (only.isEmpty() || only.contains("M")) wizardModuleRuns();
     }
 
     // ================================================================== A. הרצה ויזואלית
@@ -404,6 +405,45 @@ public class Edge implements IApplication {
         R r = visual(f, 60);
         check("A-module-info", "פרויקט עם module-info.java: רץ, או הודעה בעברית — בלי חלון שגיאה",
                 r.foreign.isEmpty() && r.newLog.isEmpty() && (r.say != null ? r.sayRtl && hebrew(r.sayText) : r.ended && r.out.contains("מודול 4")), r.brief());
+    }
+
+    /**
+     * פרויקט חדש כמו שהאשף של Eclipse יוצר ("Create module-info.java" מסומן כברירת מחדל): module-info.java בתיקיית src,
+     * שם המודול כשם הפרויקט, והמחלקה בחבילה באותו שם — "הרצה ויזואלית" חייבת לרוץ, לא ליפול ב-FindException: Module stam not found
+     */
+    private void wizardModuleRuns() throws Exception {
+        System.setProperty("dsviz.it.vmargs", HEADLESS);
+        IJavaProject jp = ui(() -> {
+            IProject p = ResourcesPlugin.getWorkspace().getRoot().getProject("stam");
+            if (!p.exists()) p.create(null);
+            p.open(null);
+            IProjectDescription d = p.getDescription();
+            d.setNatureIds(new String[] { JavaCore.NATURE_ID });
+            p.setDescription(d, null);
+            IFolder s = p.getFolder("src");
+            if (!s.exists()) s.create(true, true, null);
+            IJavaProject jj = JavaCore.create(p);
+            jj.setRawClasspath(new IClasspathEntry[] { JavaCore.newSourceEntry(s.getFullPath()),
+                    JavaCore.newContainerEntry(new Path("org.eclipse.jdt.launching.JRE_CONTAINER")) }, p.getFolder("bin").getFullPath(), null);
+            return jj;
+        });
+        IFolder src = jp.getProject().getFolder("src");
+        createIn(src, "module-info.java", "module stam {\n}\n");
+        IFolder pkg = src.getFolder("stam");
+        if (!pkg.exists()) pkg.create(true, true, null);
+        IFile f = createIn(pkg, "Main.java", "package stam;\n\npublic class Main {\n\n    public static void main(String[] args) {\n        // TODO Auto-generated method stub\n\n"
+                + "        String str = \"Moti Levi\";\n        for (int i=0;i<str.length(); i++)\n            System.out.println(str.charAt(i));\n    }\n\n}\n");
+        R r = visual(f, 90);
+        check("M-wizard-module", "פרויקט חדש עם module-info.java (כמו שהאשף יוצר): ההרצה הוויזואלית רצה עד הסוף, בלי FindException",
+                r.say == null && r.ended && r.out.replace("\r", "").replace("\n", "").contains("Moti Levi") && !r.out.contains("FindException"), r.brief());
+        check("M-wizard-module-clean", "בלי חלון שגיאה ובלי שגיאה ב-Error Log", r.foreign.isEmpty() && r.newLog.isEmpty() && !r.out.contains("Module stam not found"), r.brief());
+        // הצעד הבא של תלמיד: להשתמש בספריית הקורס (Stack / Queue) באותו פרויקט מודולרי
+        IFile g = createIn(pkg, "UsesLib.java", "package stam;\n\nimport unit4.collectionsLib.*;\n\npublic class UsesLib {\n    public static void main(String[] args) {\n"
+                + "        Stack<Integer> st = new Stack<Integer>();\n        st.push(7);\n        st.push(9);\n        System.out.println(\"מחסנית \" + st.pop() + st.pop());\n    }\n}\n");
+        R r2 = visual(g, 90);
+        check("M-wizard-module-lib", "פרויקט מודולרי + ספריית הקורס (Stack): רץ ויזואלית, או הודעה קצרה בעברית — לא שגיאה באנגלית",
+                r2.foreign.isEmpty() && r2.newLog.isEmpty() && (r2.say != null ? r2.sayRtl && hebrew(r2.sayText) : r2.ended && r2.out.replace("\r", "").replace("\n", "").contains("מחסנית 97")), r2.brief());
+        System.clearProperty("dsviz.it.vmargs");
     }
 
     private void mavenProject() throws Exception {

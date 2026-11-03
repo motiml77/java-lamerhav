@@ -1,0 +1,63 @@
+# DSViz ב-Visual Studio אמיתי: מתקין את DSViz-Setup.exe על מחשב Windows של GitHub (יש בו Visual Studio) כמו תלמיד,
+# ועובר על מה שתלמיד עושה: פרויקט חדש (Console App, top-level / Main / .NET Framework / נתיב בעברית), "הרצה ויזואלית",
+# החלונות של C#, שליחת תרגיל (שרת מדומה + Gemini אמיתי) — הפרויקט נוצר בפתרון, נבנה ב-MSBuild של Visual Studio ורץ —
+# ולבסוף פותח את Visual Studio עצמו ולוחץ על כפתור ההפעלה. התוצאות (summary.txt, צילומי מסך) — ב-Artifacts.
+name: DSViz visual studio
+on:
+  push:
+    branches: [master, ccr-66784144-dygsmb]
+    paths:
+      - '.github/workflows/dsviz-vs.yml'
+      - 'java-visualizer/tools/test/windows-vs/**'
+      - 'java-visualizer/installer/DSViz.targets'
+      - 'java-visualizer/csharp/**'
+      - 'java-visualizer/release/DSViz-Setup.exe'
+  workflow_dispatch:
+    inputs:
+      live:
+        description: 'גם שליחה אמיתית ל-Gemini'
+        default: 'true'
+concurrency:
+  group: dsviz-vs-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  vs:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Visual Studio שיש במחשב
+        shell: powershell
+        run: |
+          $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          & $vw -all -products * -format text -property displayName,catalog_productDisplayVersion,installationPath
+          Get-ChildItem "$env:USERPROFILE\Documents" | Select-Object Name
+          Add-Type -AssemblyName System.Windows.Forms
+          [Windows.Forms.SystemInformation]::VirtualScreen
+      - name: בדיקות Visual Studio
+        shell: powershell
+        run: |
+          $live = '${{ github.event.inputs.live }}' -ne 'false'
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs\vs-test.ps1" `
+            -Setup "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" `
+            -Out "$env:GITHUB_WORKSPACE\vs-ci" `
+            -Fixtures "$env:GITHUB_WORKSPACE\java-visualizer\tools\test" `
+            -Harness "$env:GITHUB_WORKSPACE\java-visualizer\tutorials\harness" `
+            -Live $live
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vs-${{ matrix.os }}
+          path: vs-ci
+          retention-days: 14

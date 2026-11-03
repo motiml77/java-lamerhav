@@ -239,8 +239,14 @@ printf 'using System;\nnamespace GoldWater { class Program { static void Main(st
 viz "$VS" --trace "$W/vs3.trace" > "$W/vs3.out" 2>&1 || true; grep -q 'CS0017' "$W/vs3.out" && grep -q 'יותר מפעולת Main אחת' "$W/vs3.out" \
     && echo "כמה Main: הסבר בעברית" || { echo "כמה Main: חסר הסבר"; cat "$W/vs3.out"; exit 1; }
 sed -i 's/<ImplicitUsings>disable/<ImplicitUsings>enable/' "$VS/GoldWater.csproj"
-viz "$VS/Recursion.cs" --trace "$W/vs4.trace" > "$W/vs4.out" 2>&1 || true; grep -q 'ImplicitUsings>disable' "$W/vs4.out" \
-    && echo "Stack של ‎.NET מול Stack של הספרייה: הסבר בעברית" || { echo "ImplicitUsings: חסר הסבר"; cat "$W/vs4.out"; exit 1; }
+# ImplicitUsings פעיל + הקוד משתמש בספרייה: System.Collections.Generic לא מוסתר — Stack של הספרייה לא דו-משמעי (כמו DSViz.targets)
+viz "$VS/Recursion.cs" --trace "$W/vs4.trace" > "$W/vs4.out" 2>&1 && grep -q '^10 2$' "$W/vs4.out" \
+    && echo "ImplicitUsings פעיל: Stack / Queue של הספרייה לא דו-משמעיים" || { echo "ImplicitUsings: Stack דו-משמעי"; cat "$W/vs4.out"; exit 1; }
+# ומי שכתב בעצמו using System.Collections.Generic; — הסבר בעברית
+cp "$VS/Recursion.cs" "$VS/Recursion.bak" && sed -i '1i using System.Collections.Generic;' "$VS/Recursion.cs"
+viz "$VS/Recursion.cs" --trace "$W/vs4b.trace" > "$W/vs4b.out" 2>&1 || true; grep -q 'CS0104' "$W/vs4b.out" && grep -q 'מוחקים את השורה using System.Collections.Generic' "$W/vs4b.out" \
+    && echo "Stack של .NET מול Stack של הספרייה (using ידני): הסבר בעברית" || { echo "CS0104: חסר הסבר"; cat "$W/vs4b.out"; exit 1; }
+mv "$VS/Recursion.bak" "$VS/Recursion.cs"
 mkdir -p "$W/vs/Top" && cp calls/vs/Top.cs "$W/vs/Top/Program.cs" && printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>\n' > "$W/vs/Top/Top.csproj"
 viz "$W/vs/Top" --trace "$W/top.trace" > "$W/top.out" 2>&1 && grep -q '^8$' "$W/top.out" \
     && grep -qP '^STEP\tLINE\t.*שורה 4:' "$W/top.trace" && grep -qP '^STEP\tCREATE\t.*מחסנית ריקה: s$' "$W/top.trace" \
@@ -493,5 +499,26 @@ printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputT
 msb "$W/new9" | grep -q 'Build succeeded' && grep -q 'הרצה ויזואלית' "$W/new9/Properties/launchSettings.json" \
     && echo "TargetFrameworks (כמה מסגרות): תקין" || { echo "TargetFrameworks: נכשל"; exit 1; }
 
+# יא. פרויקט קונסול חדש של Visual Studio (ImplicitUsings פעיל, top-level) + using Unit4.CollectionsLib + Stack: נבנה ורץ (בלי CS0104)
+rm -rf "$W/new11" && mkdir -p "$W/new11"
+printf 'using Unit4.CollectionsLib;\n\nStack<int> s = new Stack<int>(); s.Push(1); s.Push(2);\nQueue<int> q = new Queue<int>(); q.Insert(7);\nConsole.WriteLine(s.Pop() + q.Remove());\n' > "$W/new11/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup></Project>\n' > "$W/new11/New11.csproj"
+msb "$W/new11" | grep -q 'Build succeeded' && [ "$(dotnet "$W/new11/bin/Debug/net8.0/New11.dll")" = 9 ] \
+    && echo "ImplicitUsings פעיל + Stack / Queue של הספרייה: נבנה ורץ בלי CS0104 (כמו בפרויקט חדש של Visual Studio)" || { echo "ImplicitUsings + Stack: נכשל"; msb "$W/new11" 2>&1 | head -5; exit 1; }
+# יב. ImplicitUsings פעיל, בלי הספרייה בקוד: System.Collections.Generic נשאר מוסתר (List בלי using) — לא נוגעים בפרויקטים אחרים של התלמיד
+rm -rf "$W/new12" && mkdir -p "$W/new12"
+printf 'var l = new List<int> { 3, 4 };\nConsole.WriteLine(l.Count);\n' > "$W/new12/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new12/New12.csproj"
+msb "$W/new12" | grep -q 'Build succeeded' && [ "$(dotnet "$W/new12/bin/Debug/net8.0/New12.dll")" = 2 ] \
+    && echo "ImplicitUsings פעיל, בלי הספרייה בקוד: List בלי using ממשיך לעבוד" || { echo "ImplicitUsings בפרויקט בלי הספרייה: נשבר"; exit 1; }
+# יג. נתיב בעברית ורווחים (ה-target קורא את קובצי הקוד)
+rm -rf "$W/new13" && mkdir -p "$W/new13/מבני נתונים/תרגיל 1"
+cp "$W/new11/Program.cs" "$W/new11/New11.csproj" "$W/new13/מבני נתונים/תרגיל 1/"
+msb "$W/new13/מבני נתונים/תרגיל 1" | grep -q 'Build succeeded' \
+    && echo "נתיב בעברית ורווחים: נבנה" || { echo "נתיב בעברית: נכשל"; exit 1; }
+# יד. פרופיל שנוצר ע"י "שליחת תרגיל" (CsSolution.LAUNCH, vscode cs.js): עם נקודה — כמו הפרופיל של dsviz-cs
+grep -q 'ProjectDir).\\\\' "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java" && grep -q "ProjectDir).\"'" "$ROOT/vscode-extension/cs.js" \
+    && echo "פרופיל הרצה בפרויקטים שנוצרים משליחת תרגיל: עם נקודה בסוף הנתיב" || { echo "פרופיל ישן בקוד שיוצר פרויקטים"; exit 1; }
+
 unset XDG_DATA_HOME
-echo "DSViz.targets: 10 תרחישים נבדקו (פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, כמה מסגרות)"
+echo "DSViz.targets: 14 תרחישים נבדקו (ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, כמה מסגרות)"

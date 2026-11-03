@@ -96,4 +96,25 @@
           StandardOutputImportance="Low" StandardErrorImportance="Low" />
   </Target>
 
+  <!--
+    3. Stack / Queue כפולים. בפרויקט קונסול חדש של Visual Studio (‎.NET 6+) ‎ImplicitUsings‎ פעיל, כלומר
+    ‎using System.Collections.Generic;‎ "מוסתר" בכל קובץ — ואז ‎Stack<int>‎ ו-‎Queue<int>‎ מהספרייה (using Unit4.CollectionsLib;)
+    נתקלים ב-‎CS0104‎ (הפניה דו-משמעית) — שגיאה באנגלית שתלמיד לא יכול לתקן, כי אין שורה למחוק. כשהקוד של הפרויקט
+    משתמש בספרייה — מוציאים את System.Collections.Generic מהרשימה המוסתרת (כמו שהיה בתבנית הישנה אחרי שמוחקים את
+    השורה). מי שצריך List — כותב בראש הקובץ ‎using System.Collections.Generic;‎ (ואז יקרא ל-Stack בשם המלא).
+    רץ לפני יצירת קובץ ה-global usings (גם בבנייה של עיצוב-זמן, כדי ש-IntelliSense לא יסמן אדום).
+  -->
+  <Target Name="DSVizResolveImplicitUsings" BeforeTargets="GenerateGlobalUsings"
+          Condition="'$(_DSVizExe)' == 'true' and ('$(ImplicitUsings)' == 'enable' or '$(ImplicitUsings)' == 'true')">
+    <ItemGroup>
+      <_DSVizCsFile Include="@(Compile)" Condition="'%(Extension)' == '.cs' and Exists('%(FullPath)')" />
+    </ItemGroup>
+    <ItemGroup>
+      <_DSVizLibSource Include="@(_DSVizCsFile)" Condition="$([System.IO.File]::ReadAllText('%(FullPath)').Contains('Unit4.CollectionsLib'))" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_DSVizLibSource)' != ''">
+      <Using Remove="System.Collections.Generic" />
+    </ItemGroup>
+  </Target>
+
 </Project>

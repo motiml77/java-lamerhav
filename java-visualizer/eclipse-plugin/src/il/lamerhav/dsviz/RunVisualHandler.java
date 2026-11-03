@@ -34,6 +34,8 @@ import org.eclipse.ui.ide.IDE;
 public class RunVisualHandler extends AbstractHandler {
     private static final String VM_ARGS = "-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Ddsviz.visual=true";
     private static final String LINE_RUNNER = "unit4.collectionsLib.LineByLine";
+    /** באיזה פרויקט ההרצה (כשלא מציינים אותו ל-JDT — פרויקט עם module-info.java, ראו setup) */
+    private static final String ATTR_DSVIZ_PROJECT = "il.lamerhav.dsviz.project";
 
     @Override
     public Object execute(ExecutionEvent event) {
@@ -421,7 +423,8 @@ public class RunVisualHandler extends AbstractHandler {
         for (ILaunchConfiguration c : mgr.getLaunchConfigurations(type)) {
             if (LINE_RUNNER.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME, ""))
                     && main.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_PROGRAM_ARGUMENTS, ""))
-                    && project.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, ""))) {
+                    && (project.equals(c.getAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, ""))
+                        || project.equals(c.getAttribute(ATTR_DSVIZ_PROJECT, "")))) {
                 ILaunchConfigurationWorkingCopy wc = c.getWorkingCopy();
                 setup(wc, jp);   // בכל הרצה מחדש: ה-classpath של הפרויקט יכול להשתנות
                 return wc.doSave();
@@ -429,7 +432,6 @@ public class RunVisualHandler extends AbstractHandler {
         }
         String simple = main.substring(main.lastIndexOf('.') + 1) + " (הרצה ויזואלית)";
         ILaunchConfigurationWorkingCopy wc = type.newInstance(null, mgr.generateLaunchConfigurationName(simple));
-        wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, project);
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME, LINE_RUNNER);
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROGRAM_ARGUMENTS, main);
         setup(wc, jp);
@@ -462,13 +464,59 @@ public class RunVisualHandler extends AbstractHandler {
         }
     }
 
+    /** יש בפרויקט module-info.java (מודול של Java 9+) */
+    static boolean isModular(org.eclipse.jdt.core.IJavaProject jp) {
+        try {
+            return jp.getModuleDescription() != null;
+        } catch (CoreException e) {
+            return false;
+        }
+    }
+
+    /**
+     * ה-classpath של פרויקט מודולרי כרשימה של מיקומים (תיקיות הפלט וקובצי ה-jar) — הספרייה שלנו קודם, ואחריה מה שהפרויקט צריך.
+     * הכול ב-classpath, לא ב-module path: ההרצה הוויזואלית לא צריכה את המודולים.
+     */
+    static List<String> plainClasspath(org.eclipse.jdt.core.IJavaProject jp) throws CoreException {
+        List<String> cp = new ArrayList<String>();
+        java.util.Set<String> seen = new java.util.LinkedHashSet<String>();
+        java.io.File lib = libraryJar();
+        if (lib != null) seen.add(lib.getAbsolutePath());
+        for (String loc : JavaRuntime.computeDefaultRuntimeClassPath(jp)) seen.add(loc);
+        for (String loc : seen) {
+            org.eclipse.jdt.launching.IRuntimeClasspathEntry e = JavaRuntime.newArchiveRuntimeClasspathEntry(new org.eclipse.core.runtime.Path(loc));
+            e.setClasspathProperty(org.eclipse.jdt.launching.IRuntimeClasspathEntry.USER_CLASSES);
+            cp.add(e.getMemento());
+        }
+        return cp;
+    }
+
     private static void setup(ILaunchConfigurationWorkingCopy wc, org.eclipse.jdt.core.IJavaProject jp) throws CoreException {
         // Java 21 שבהתקנה (עם ממשק הדיבאג) — אלא אם הפרויקט מקומפל לגרסה חדשה יותר
         String jre = targetVersion(jp) <= 21 ? bundledJre() : null;
+        // פרויקט עם module-info.java (Eclipse יוצר אותו כברירת מחדל בפרויקט חדש): אם מוסרים ל-JDT את הפרויקט, הוא מריץ "‎-m stam/...‎"
+        // והמחלקה שלנו (LineByLine) לא במודול של התלמיד — "FindException: Module stam not found". לכן מריצים כמו ב-classpath רגיל,
+        // בלי מודולים: בלי שם הפרויקט, עם מיקומי ה-classpath של הפרויקט כרשימה, ועם תיקיית העבודה של הפרויקט. (בפרויקט רגיל — כמו תמיד)
+        boolean modular = isModular(jp);
+        String project = jp.getProject().getName();
+        if (modular) {
+            wc.removeAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME);
+            wc.setAttribute(ATTR_DSVIZ_PROJECT, project);
+            if (jp.getProject().getLocation() != null)
+                wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_WORKING_DIRECTORY, jp.getProject().getLocation().toOSString());
+            if (jre == null) {
+                org.eclipse.jdt.launching.IVMInstall vm = JavaRuntime.getVMInstall(jp);
+                if (vm != null) jre = JavaRuntime.newJREContainerPath(vm).toPortableString();
+            }
+        } else {
+            wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME, project);
+            wc.removeAttribute(ATTR_DSVIZ_PROJECT);
+            wc.removeAttribute(IJavaLaunchConfigurationConstants.ATTR_WORKING_DIRECTORY);
+        }
         if (jre != null) wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_JRE_CONTAINER_PATH, jre);
         else wc.removeAttribute(IJavaLaunchConfigurationConstants.ATTR_JRE_CONTAINER_PATH);
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_DEFAULT_CLASSPATH, false);
-        wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_CLASSPATH, launchClasspath(jp));
+        wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_CLASSPATH, modular ? plainClasspath(jp) : launchClasspath(jp));
         // ‎-Ddsviz.it.vmargs=...‎ — רק לבדיקות (tools/test/eclipse-it, למשל הרצה בלי חלון: ‎-Djava.awt.headless=true‎)
         String extra = System.getProperty("dsviz.it.vmargs", "").trim();
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_VM_ARGUMENTS, extra.isEmpty() ? VM_ARGS : VM_ARGS + " " + extra);

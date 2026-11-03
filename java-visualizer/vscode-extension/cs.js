@@ -47,7 +47,7 @@ const LAUNCH = {
         'הרצה ויזואלית': {
             commandName: 'Executable',
             executablePath: '%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe',
-            commandLineArgs: '"$(ProjectDir)"',
+            commandLineArgs: '"$(ProjectDir)."',   // הנקודה בסוף: ProjectDir נגמר בלוכסן, ו-"...\\" לפני מרכאה סוגרת נקרא כמרכאה בתוך הנתיב
             workingDirectory: '$(ProjectDir)'
         },
         'הרצה רגילה': { commandName: 'Project' }
