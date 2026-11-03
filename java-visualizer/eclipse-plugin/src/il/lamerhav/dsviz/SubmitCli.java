@@ -123,11 +123,23 @@ public final class SubmitCli {
                 emit("error", bad);
                 System.exit(1);
             }
-            r = ExercisePipeline.csharp(wc, raw, names, outDir.toPath(), cs, p, taken);
+            try {
+                r = ExercisePipeline.csharp(wc, raw, names, outDir.toPath(), cs, p, taken);
+            } catch (java.io.IOException e) {   // לא בהודעה באנגלית של Java
+                emit("error", "לא הצלחתי לכתוב את קובצי התרגיל לתיקייה " + outDir.getName()
+                        + " — אולי התיקייה לקריאה בלבד, או שהיא נמחקה. בחרו תיקייה אחרת ונסו שוב.");
+                System.exit(1);
+                return;
+            }
         } else {
             String libPath = Json.str(m.get("lib")), java = Json.str(m.get("java"));
             File lib = libPath.isEmpty() ? null : new File(libPath);
             r = ExercisePipeline.java(wc, raw, names, outDir, lib, java.isEmpty() ? null : java, p, taken);
+        }
+        if (r.writeError != null) {   // התיקייה לקריאה בלבד / נמחקה — לא "התרגיל נוצר"
+            emit("error", r.writeError);
+            System.exit(1);
+            return;
         }
         if (!r.entries.isEmpty()) new SolutionStore(store).add(r.entries);
         Map<String, Object> done = new LinkedHashMap<String, Object>();

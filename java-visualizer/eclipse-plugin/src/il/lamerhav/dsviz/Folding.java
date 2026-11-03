@@ -34,14 +34,16 @@ public final class Folding {
     public static void collapseGiven(final IEditorPart editor, final IFile file) {
         if (!(editor instanceof ITextEditor)) return;
         final int revealOffset = cursor((ITextEditor) editor);
-        final Display d = editor.getSite().getShell().getDisplay();
+        final org.eclipse.swt.widgets.Shell shell = editor.getSite().getShell();
+        final Display d = shell.getDisplay();
         d.timerExec(EVERY_MS, new Runnable() {
             int left = TRIES;
 
             @Override
             public void run() {
                 try {
-                    if (editor.getSite().getShell().isDisposed()) return;
+                    // העורך נסגר בינתיים (למשל תיקיית התרגיל נמחקה): getSite().getShell() על עורך סגור נרשם כשגיאה ב-Error Log
+                    if (shell.isDisposed() || ((ITextEditor) editor).getDocumentProvider() == null) return;
                     if (tryCollapse((ITextEditor) editor, file, revealOffset)) return;
                 } catch (Throwable e) {
                     return;   // לא קריטי — הקוד פשוט נשאר פתוח

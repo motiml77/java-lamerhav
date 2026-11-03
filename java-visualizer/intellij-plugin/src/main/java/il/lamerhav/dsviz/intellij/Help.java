@@ -46,7 +46,7 @@ public final class Help {
         try {
             BrowserUtil.browse(playerPage(d.chosen()));
         } catch (Exception e) {
-            Say.error(project, "לא הצלחתי לפתוח את ההדרכה: " + e.getMessage(), TITLE);
+            Say.error(project, Say.failed("לא הצלחתי לפתוח את ההדרכה", e), TITLE);
         }
     }
 

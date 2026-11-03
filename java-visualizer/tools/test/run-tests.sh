@@ -5,8 +5,15 @@ cd "$(dirname "$0")"
 W=../../build/test
 JAR="$(cd ../../release && pwd)/dsviz.jar"
 rm -rf "$W" && mkdir -p "$W"
+# מריץ פקודה ומציג רק את N השורות האחרונות — אבל אם היא נכשלה: כל הפלט, והבדיקות נעצרות (בלי "| tail" שמסתיר כישלון)
+LAST_OUT="$(cd "$W" && pwd)/.last-output"
+last() {
+    n=$1; shift
+    if "$@" > "$LAST_OUT" 2>&1; then tail -n "$n" "$LAST_OUT"; else
+        st=$?; cat "$LAST_OUT"; echo "נכשל ($st): $*"; exit 1; fi
+}
 echo "== 1. התבניות של VS Code ושל Eclipse מפיקות קוד זהה (תרגילים + הוספה לקוד)"
-node combos.js "$W/js" | tail -1
+last 1 node combos.js "$W/js"
 javac -encoding UTF-8 -d "$W/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java ScaffoldAll.java
 java -cp "$W/cls" ScaffoldAll "$W/combos.txt" "$W/java" >/dev/null
 diff -r "$W/js" "$W/java" && echo "זהה"
@@ -65,9 +72,9 @@ grep -qF "for (int i = 0; i < 4; i++) סיבוב 2, i=1 [0,(1),2,3], תנאי: 1
     && echo "לולאות: סיבובים, תנאי עם ערכים, סרגל ערכים / מערך, תור / מחסנית / רשימה, היסטוריה ב-while, ולולאות מקוננות" \
     || { echo "נכשל: לולאות"; grep -h "לולאה\|הזוגות" "$L2" "$L3" | head -30; exit 1; }
 echo "== 3. התוסף של VS Code (מול חיקוי של ה-API)"
-node vscode-test.js | tail -2
+last 2 node vscode-test.js
 echo "== 3ב. החלון \"הוסף מבנה נתונים\" של VS Code בדפדפן (Chromium): לחיצות, ערכים אקראיים, בדיקת שם, ציור"
-node addstructure-test.js "$W" | tail -1
+last 1 node addstructure-test.js "$W"
 echo "== 4. הרצה שורה אחר שורה (JDI) — כל שורה מתועדת עם המשתנים"
 L="$W/lines"
 mkdir -p "$L"
@@ -377,7 +384,7 @@ grep -q 'סכום: 25' "$W/ne/out.txt" && grep -q 'כמה מספרים בתור�
     && echo "  ok  דוגמאות מבנה בתוך מבנה (NestedExamples): רצות ומחשבות נכון" || { echo "  FAIL NestedExamples"; cat "$W/ne/out.txt"; exit 1; }
 
 echo "== 9. שליחת תרגיל: השרת (Worker), הכנת הקבצים, ובניית המעטפת מהתשובה — מתקמפלת ורצה"
-(cd ../../worker && node test/worker-test.mjs | tail -1)
+(cd ../../worker && last 1 node test/worker-test.mjs)
 mkdir -p "$W/ai/cls" "$W/ai/src" "$W/ai/bin"
 javac -encoding UTF-8 -d "$W/ai/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Json.java ../../eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java \
     ../../eclipse-plugin/src/il/lamerhav/dsviz/ExerciseFiles.java ../../eclipse-plugin/src/il/lamerhav/dsviz/WorkerClient.java AiScaffoldTest.java ExerciseFilesTest.java

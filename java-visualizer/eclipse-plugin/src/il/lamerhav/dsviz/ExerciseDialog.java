@@ -301,6 +301,16 @@ public class ExerciseDialog extends Dialog {
         }
     }
 
+    /** קובץ באותו שם — גם באותיות גדולות / קטנות אחרות (ב-Windows ‎targil1.java‎ ו-‎Targil1.java‎ הם אותו קובץ, ו-Eclipse נכשל ביצירה) */
+    private static boolean existsIgnoreCase(IContainer src, String name) {
+        try {
+            for (org.eclipse.core.resources.IResource r : src.members()) if (r.getName().equalsIgnoreCase(name)) return true;
+        } catch (org.eclipse.core.runtime.CoreException e) {
+            // התיקייה לא נקראה — בודקים רק את השם המדויק
+        }
+        return src.getFile(new Path(name)).exists();
+    }
+
     private void doUpdate() {
         String outer = selected(structureButtons, "stack"), type = selected(typeButtons, "Integer");
         // "מה יש בכל תא?": אפשרי במחסנית, תור, רשימה, עץ ומערך; במטריצה ובעץ חיפוש — רק ערכים רגילים
@@ -394,7 +404,7 @@ public class ExerciseDialog extends Dialog {
         } catch (IllegalArgumentException e) {
             error = e.getMessage();
         }
-        if (error == null && src != null && src.getFile(new Path(o.className + ".java")).exists())
+        if (error == null && src != null && existsIgnoreCase(src, o.className + ".java"))
             error = "כבר קיים קובץ בשם " + o.className + ".java";
         errorLabel.setText(error == null ? "" : error);
         ok.setEnabled(error == null);

@@ -533,7 +533,8 @@ async function addDialog(command, state, steps) {
             assert.deepStrictEqual(stages, [0, 1, 2, 3, 4], 'השלבים: ' + JSON.stringify(p.posted.filter(m => m.type === 'progress')));
             // השמות התפוסים במניפסט: התיקיות שבראש כל תיקיית קוד (src, java.project.sourcePaths, התיקייה הפתוחה עצמה)
             assert(manifest && ['ex01_queues', 'ex02_trees', 'mywork', 'src', 'code'].every(n => manifest.taken.includes(n)), JSON.stringify(manifest && manifest.taken));
-            const f = path.join(wsS, 'src', 'ex01_stacks', 'StackTargil.java');
+            // המספור ממשיך אחרי התרגילים שכבר בפרויקט (ex01_queues, ex02_trees) — ex03
+            const f = path.join(wsS, 'src', 'ex03_stacks', 'StackTargil.java');
             assert(fs.existsSync(f), 'נוצר ' + f);
             assert(openedFiles[0] && openedFiles[0].focus === f && openedFiles[0].line > 0 && openedFiles[0].main === f, JSON.stringify(openedFiles));
             const text = fs.readFileSync(f, 'utf8');
@@ -558,7 +559,7 @@ async function addDialog(command, state, steps) {
             await sol.handler({ type: 'copy', text: null });
             assert(clipboard && clipboard.includes('countEven'), 'העתקה');
             // ההדגשה של הסעיפים שעוד לא ענו עליהם: הקובץ נזכר (workspaceState), שני גופים מודגשים; כותבים קוד — נשאר אחד
-            assert((wsState.get('dsviz.submittedFiles') || []).some(x => x.endsWith('ex01_stacks/stacktargil.java')), JSON.stringify([...wsState]));
+            assert((wsState.get('dsviz.submittedFiles') || []).some(x => x.endsWith('ex03_stacks/stacktargil.java')), JSON.stringify([...wsState]));
             let cur = text;
             const set = [];
             const doc = { uri: { fsPath: f }, getText: () => cur };
@@ -577,7 +578,7 @@ async function addDialog(command, state, steps) {
             api.decorate({ document: { uri: { fsPath: path.join(wsS, 'Other.java') }, getText: () => text }, setDecorations: (t, r) => notMine.push(r) });
             assert.strictEqual(notMine.length, 0, 'רק בקבצים שנוצרו ב"שליחת תרגיל"');
             vscode.window.visibleTextEditors = [];
-            log.push('submit: ex01_stacks + שלבים 0-4 + 2 × 💡 + הודעה קצרה + "הצגה" לסעיף ג + הדגשה של הסעיפים הריקים');
+            log.push('submit: ex03_stacks (אחרי ex01, ex02 שבפרויקט) + שלבים 0-4 + 2 × 💡 + הודעה קצרה + "הצגה" לסעיף ג + הדגשה של הסעיפים הריקים');
 
             // ההודעה עצמה (doneMessage) והתוויות של הסעיפים במילים — יחיד / רבים
             assert.strictEqual(sub.wordLabels([]), '');
@@ -596,7 +597,7 @@ async function addDialog(command, state, steps) {
                 && JSON.stringify(withErr.buttons) === JSON.stringify([sub.JUMP, sub.SHOW]), JSON.stringify(withErr));
             assert.strictEqual(sub.doneMessage({ tasks: 1, errors: ['A.java:3: x'] }).text, 'התרגיל נוצר · יש שגיאת קומפילציה אחת');
             // "מעבר לשגיאה": נפתח הקובץ בשורה של השגיאה הראשונה
-            const errFile = path.join(wsS, 'src', 'ex01_stacks', 'StackTargil.java');
+            const errFile = path.join(wsS, 'src', 'ex03_stacks', 'StackTargil.java');
             openedSeq.length = 0;
             onMessage = (t, b) => (b.includes(sub.JUMP) ? sub.JUMP : undefined);
             await api.showDone({ focus: errFile, line: 8, tasks: 2, files: [errFile], errors: ["StackTargil.java:12: ';' expected"], others: [] });

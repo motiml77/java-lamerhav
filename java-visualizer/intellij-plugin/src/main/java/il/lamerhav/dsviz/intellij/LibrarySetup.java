@@ -125,7 +125,15 @@ public final class LibrarySetup {
     static File copyInto(Module m, File src) {
         VirtualFile[] roots = ModuleRootManager.getInstance(m).getContentRoots();
         if (roots.length == 0 || roots[0].getFileSystem() != LocalFileSystem.getInstance()) return src;
-        File dest = new File(roots[0].getPath(), "lib" + File.separator + Dsviz.JAR_NAME);
+        return copyJar(new File(roots[0].getPath()), src);
+    }
+
+    /**
+     * ‎<dir>/lib/dsviz.jar — מעתיקים אם חסר או שונה (גרסה אחרת מוחלפת בגרסה של התוסף). אי אפשר לכתוב שם (תיקייה לקריאה בלבד,
+     * lib שהוא קובץ, הקובץ נעול) — ה-jar שבתוך התוסף, בלי הודעה ובלי חריגה.
+     */
+    static File copyJar(File dir, File src) {
+        File dest = new File(dir, "lib" + File.separator + Dsviz.JAR_NAME);
         try {
             if (!dest.isFile() || !Arrays.equals(Files.readAllBytes(dest.toPath()), Files.readAllBytes(src.toPath()))) {
                 dest.getParentFile().mkdirs();

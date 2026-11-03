@@ -14,7 +14,7 @@ RUNNER="$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/dsviz-cs.dll"
 viz() { dotnet "$RUNNER" "$@"; }
 
 echo "== 6. תבניות C#: כל התרגילים וכל קטעי הקוד מתקמפלים"
-node cs-combos.js "$W/gen" | tail -1
+node cs-combos.js "$W/gen" > "$W/.combos.out" 2>&1 || { cat "$W/.combos.out"; exit 1; }; tail -1 "$W/.combos.out"
 mkdir -p "$W/chk"
 for f in "$W"/gen/C*.cs; do cp "$f" "$W/chk/"; done
 n=0

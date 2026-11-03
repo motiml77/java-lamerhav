@@ -80,6 +80,9 @@ final class JdiTracer {
     private volatile boolean busy, sampling, finished, stopped;
     private Thread watcher;
     private int maxSteps = -1;
+    private final List<EventRequest> busyRequests = new ArrayList<>();
+    private boolean resumed;
+    private int busyEnds;
     private static final boolean DEBUG_LOOPS = Boolean.getBoolean("dsviz.debugLoops");
 
     static int run(String mainClass, String[] args) throws Exception {
@@ -174,6 +177,8 @@ final class JdiTracer {
                     } else if (e instanceof BreakpointEvent && e.request().getProperty("done") != null) {
                         finished = true;
                         stopTracing();
+                    } else if (e instanceof BreakpointEvent && e.request().getProperty("busy") != null) {
+                        onBusy(Boolean.TRUE.equals(e.request().getProperty("busy")));
                     } else if (e instanceof BreakpointEvent) {
                         erm.deleteEventRequest(e.request());
                         mainThread = ((BreakpointEvent) e).thread();
@@ -208,7 +213,7 @@ final class JdiTracer {
      * שבתהליך התוכנית — בלי להריץ שם קוד (כל פנייה לתהליך יקרה; הרצת קוד שם יקרה במיוחד).
      */
     private void onLine(Location loc) throws Exception {
-        if (!tracing) return;
+        if (!tracing || excluded(loc.declaringType().name())) return;
         if (recorder == null) {
             List<ReferenceType> r = vm.classesByName("unit4.collectionsLib.Recorder");
             if (r.isEmpty()) return;
@@ -225,12 +230,35 @@ final class JdiTracer {
             objBuffer = ob instanceof ArrayReference ? (ArrayReference) ob : null;
             if (buffer == null) { stopTracing(); return; }
             capacity = buffer.length();
+            // העבודה של הספרייה בחוט של main (Recorder.busyStart / busyEnd): בלי לצעוד בה (בגרסה ישנה של הספרייה — אין)
+            for (String n : new String[] { "busyStart", "busyEnd" }) {
+                for (Method m : recorder.methodsByName(n)) {
+                    BreakpointRequest bp = vm.eventRequestManager().createBreakpointRequest(m.location());
+                    bp.addThreadFilter(mainThread);
+                    bp.setSuspendPolicy(EventRequest.SUSPEND_EVENT_THREAD);
+                    bp.putProperty("busy", n.equals("busyStart"));
+                    bp.enable();
+                    busyRequests.add(bp);
+                }
+            }
+        }
+        if (resumed) {
+            // אחרי busyEnd הצעידה מתחילה מחדש בתוך הספרייה, והצעד הראשון הוא באמצע השורה שקראה לה — כבר תועדה
+            resumed = false;
+            if (!atLineStart(loc)) return;
         }
         if (++lines % 50 == 0 && (((BooleanValue) recorder.getValue(fullField)).value() || written >= maxSteps())) {
             capReached();
             return;
         }
 
+        // רקורסיה עמוקה מאוד (כנראה בלי תנאי עצירה): כל צעד שולח את כל המחסנית, כך שהתיעוד היה נמשך דקות.
+        // מעל MAX_DEPTH מפסיקים לעקוב — התוכנית ממשיכה בלי ציור, ו-StackOverflowError (אם יש) מגיע כצעד האחרון עם ההסבר.
+        // (עדיין לא מיד: ה-JVM ממשיך לעדכן את ממשק הדיבאג על המסגרות שכבר צעדו בהן — בערך חצי דקה ברקורסיה בלי סוף)
+        if (mainThread.frameCount() > MAX_DEPTH) {
+            stopTracing();
+            return;
+        }
         List<StackFrame> frames = mainThread.frames();
         if (insideRecorder(frames)) return;   // קוד של התלמיד (למשל toString) שהציור קרא לו — לא צעד של התוכנית
         String meta = meta(frames);
@@ -337,6 +365,9 @@ final class JdiTracer {
 
     /** כמה פעולות שמחכות (מתחת לפעולה שרצה) שולחות את המשתנים שלהן, וכמה משתנים לכל אחת */
     private static final int FRAME_VARS_DEPTH = 10, FRAME_VARS_MAX = 20, FRAME_SNAPSHOTS = 6;
+    /** עומק המחסנית שמעליו מפסיקים לתעד (רקורסיה בלי תנאי עצירה) — הרבה מעל רקורסיה רגילה של תרגיל */
+    /** עומק המחסנית שמעליו מפסיקים לעקוב (רקורסיה עמוקה מאוד, כנראה בלי תנאי עצירה) — הרבה מעל רקורסיה רגילה של תרגיל */
+    private static final int MAX_DEPTH = 400;
 
     /**
      * המשתנים של הפעולות שקראו לפעולה הנוכחית (במעקב המשתנים אפשר לבחור פעולה שמחכה ולראות את המשתנים שלה):
@@ -442,6 +473,7 @@ final class JdiTracer {
     private void onExit(MethodExitEvent e) throws Exception {
         if (!tracing || recorder == null) return;
         Method m = e.method();
+        if (excluded(m.declaringType().name())) return;
         if (m.isSynthetic() || m.isStaticInitializer() || m.isConstructor() || m.name().startsWith("lambda$")) return;
         if (m.name().equals("main") && m.isStatic()) return;   // סוף התוכנית — יש לזה צעד משלו
         StringBuilder meta = new StringBuilder("\u0005");
@@ -532,7 +564,7 @@ final class JdiTracer {
         String n = o.referenceType().name();
         return !(o instanceof StringReference) && !(o instanceof ArrayReference) && o.referenceType() instanceof ClassType
                 && !n.startsWith("java.") && !n.startsWith("javax.") && !n.startsWith("jdk.") && !n.startsWith("sun.")
-                && !n.startsWith("com.sun.") && !n.startsWith("unit4.collectionsLib.") && !((ClassType) o.referenceType()).isEnum();
+                && !n.startsWith("com.sun.") && !n.startsWith("unit4.collectionsLib.") && !n.contains("$$Lambda") && !((ClassType) o.referenceType()).isEnum();
     }
 
     /** תיאור אובייקט של מחלקה כללית: \u000E סוג \u000F מאפיין \u0010 ערך ... (ה-Recorder בונה ממנו כרטיס) */
@@ -595,6 +627,7 @@ final class JdiTracer {
     }
 
     private static boolean excluded(String cls) {
+        if (cls.contains("$$Lambda")) return true;   // המחלקה שה-JVM יוצר ל-lambda (בלי קוד מקור: "שורה -1") — הקוד עצמו ב-lambda$main$0
         for (String x : EXCLUDE) if (cls.startsWith(x.substring(0, x.length() - 1))) return true;
         return false;
     }
@@ -681,6 +714,7 @@ final class JdiTracer {
         ReferenceType type = o.referenceType();
         String name = type.name();
         String res;
+        if (name.contains("$$Lambda")) return "(lambda)";   // Runnable r = () -> ... — בלי השם הפנימי של ה-JVM
         if (o instanceof StringReference) {
             return "\"" + shorten(((StringReference) o).value(), depth == 0 ? 80 : 30) + "\"";   // משתנה מחרוזת: ארוך יותר (מוצג גם כתאים)
         } else if (name.startsWith("unit4.collectionsLib.") && type instanceof ClassType
@@ -1089,8 +1123,40 @@ final class JdiTracer {
         b.append('@').append(id);
     }
 
+    /** הספרייה מתחילה לעבוד (true) / מסיימת (false) בחוט של main: מכבים / מדליקים את הצעידה ואת היציאות מפעולות */
+    private void onBusy(boolean start) {
+        if (start) {
+            if (step != null) step.disable();
+            if (exits != null) exits.disable();
+        } else if (tracing) {
+            // לולאה בשורה אחת (for (...) s.push(i);) לא מגיעה לבדיקה שב-onLine: גם כאן בודקים מדי פעם אם התיעוד מלא
+            if (++busyEnds % 50 == 0 && recorder != null && ((BooleanValue) recorder.getValue(fullField)).value()) {
+                capReached();
+                return;
+            }
+            if (exits != null) exits.enable();
+            if (step != null) {
+                step.enable();
+                resumed = true;
+            }
+        }
+    }
+
+    private static boolean atLineStart(Location loc) {
+        try {
+            for (Location l : loc.method().locationsOfLine(loc.lineNumber())) if (l.codeIndex() == loc.codeIndex()) return true;
+            return false;
+        } catch (AbsentInformationException e) {
+            return true;
+        }
+    }
+
     private void stopTracing() {
         tracing = false;
+        for (EventRequest r : busyRequests) {
+            try { vm.eventRequestManager().deleteEventRequest(r); } catch (Exception ignored) {}
+        }
+        busyRequests.clear();
         if (step != null) {
             try { vm.eventRequestManager().deleteEventRequest(step); } catch (Exception ignored) {}
             step = null;

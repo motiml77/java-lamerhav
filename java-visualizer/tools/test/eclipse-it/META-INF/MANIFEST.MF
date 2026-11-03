@@ -15,4 +15,5 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.jface,
  org.eclipse.e4.ui.model.workbench,
  org.eclipse.e4.ui.workbench,
+ org.eclipse.debug.core,
  il.lamerhav.dsviz
