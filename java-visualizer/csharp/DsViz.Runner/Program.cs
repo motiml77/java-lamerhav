@@ -104,8 +104,10 @@ namespace DsViz
                 trees.Add(tree);
             }
             // כמו Directory.Build.props של תיקיית התרגילים: פעולות העזר מהספרייה (Size / Duplicate) בלי Helpers. — תמיד
+            // כמו DSViz.targets: כשהקוד משתמש בספרייה — System.Collections.Generic לא ברשימה המוסתרת (אחרת Stack / Queue דו-משמעיים, CS0104)
+            bool usesLib = trees.Any(t => t.GetText().ToString().Contains("Unit4.CollectionsLib"));
             trees.Add(CSharpSyntaxTree.ParseText("global using static global::Unit4.CollectionsLib.Helpers; " + (project.ImplicitUsings ?
-                    "global using global::System; global using global::System.Collections.Generic; global using global::System.IO; " +
+                    "global using global::System; " + (usesLib ? "" : "global using global::System.Collections.Generic; ") + "global using global::System.IO; " +
                     "global using global::System.Linq; global using global::System.Net.Http; global using global::System.Threading; " +
                     "global using global::System.Threading.Tasks;" : ""), parse, "GlobalUsings.g.cs"));
 
@@ -291,8 +293,8 @@ namespace DsViz
             if (ids.Contains("CS0017"))
                 yield return "← בפרויקט יש יותר מפעולת Main אחת. מריצים את הקובץ שרוצים: dsviz-cs \"<הקובץ>.cs\" — ירוץ ה-Main שבו (ושאר הקבצים בפרויקט נכללים).";
             if (errors.Any(e => e.Id == "CS0104" && e.GetMessage().Contains("Unit4.CollectionsLib") && e.GetMessage().Contains("System.Collections.Generic")))
-                yield return "← Stack / Queue קיימים גם ב-‎.NET (System.Collections.Generic) וגם בספרייה. בקובץ ה-‎.csproj משנים ל-<ImplicitUsings>disable</ImplicitUsings>,"
-                    + " או מוחקים את השורה using System.Collections.Generic; (אותה שגיאה מופיעה גם ב-Visual Studio).";
+                yield return "← Stack / Queue קיימים גם ב-‎.NET (System.Collections.Generic) וגם בספרייה. מוחקים את השורה using System.Collections.Generic; מראש הקובץ"
+                    + " (אותה שגיאה מופיעה גם ב-Visual Studio). אם צריך גם List — כותבים בשם המלא: System.Collections.Generic.List<int>.";
             if (errors.Any(e => e.Id == "CS0103" && e.GetMessage().Contains("'Console'")))
                 yield return "← חסרה בראש הקובץ השורה: using System;";
             if (ids.Contains("CS0246") && errors.Any(e => e.GetMessage().Contains("'Unit4'")))

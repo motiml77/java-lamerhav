@@ -42,8 +42,9 @@ function Shot([string]$name) {
 function Windows() {
     Get-Process | Where-Object { $_.MainWindowTitle } | ForEach-Object { "$($_.ProcessName)[$($_.Id)]: $($_.MainWindowTitle)" }
 }
+# חלון של DSViz = תהליך javaw עם חלון (כותרת): "הרצה ויזואלית — מבני נתונים", "שליחת תרגיל — C#" וכו'
 function Viewers() {
-    @(Get-CimInstance Win32_Process -Filter "Name='javaw.exe' or Name='java.exe'" | Where-Object { $_.CommandLine -match 'TraceViewer|CsTool' })
+    @(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle })
 }
 function KillDsviz() {
     Get-CimInstance Win32_Process -Filter "Name='javaw.exe' or Name='java.exe' or Name='dsviz-cs.exe'" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -103,33 +104,29 @@ function Profile([string]$projDir) {
     $j = Get-Content $f -Raw -Encoding utf8 | ConvertFrom-Json
     return $j.profiles.'הרצה ויזואלית'
 }
-# מריצים את הפרופיל כמו Visual Studio: %משתני סביבה% ו-$(ProjectDir) (נגמר ב-\) מוחלפים, ו-workingDirectory
-function RunLikeVs([string]$id, [string]$projDir, [string]$name, [int]$wait = 25, [string]$stdin = '') {
+# מריצים את הפרופיל בדיוק כמו ש-Visual Studio מריץ אותו (%משתני סביבה% ו-$(ProjectDir) שנגמר ב-\ מוחלפים, בלי ארגומנטים נוספים),
+# ובודקים שנפתח החלון של DSViz. לפני כן — הרצה ישירה עם קובץ הקלטה: התוכנית רצה עד הסוף
+function RunLikeVs([string]$id, [string]$projDir, [string]$name, [int]$wait = 40) {
     $pr = Profile $projDir
     if (-not $pr) { Fail $id "אין פרופיל 'הרצה ויזואלית' ב-$projDir"; return }
+    $trace = Join-Path $Out "$name.trace.txt"
+    $o = Join-Path $Out "$name.out.txt"; $e = Join-Path $Out "$name.err.txt"
+    $p = Start-Process $runner -ArgumentList "`"$($projDir.TrimEnd('\'))`" --trace `"$trace`"" -PassThru -Wait -NoNewWindow -RedirectStandardOutput $o -RedirectStandardError $e
+    $err = (Get-Content $e -Raw -Encoding utf8)
+    $lines = if (Test-Path $trace) { @(Get-Content $trace -Encoding utf8).Count } else { 0 }
+    Check "$id-trace" ($p.ExitCode -eq 0 -and $lines -gt 5) "הרצה ויזואלית של $name רצה עד הסוף ($lines שורות בהקלטה)" "קוד $($p.ExitCode); $err"
     $pd = $projDir.TrimEnd('\') + '\'
     $exe = [Environment]::ExpandEnvironmentVariables($pr.executablePath)
     $args1 = $pr.commandLineArgs.Replace('$(ProjectDir)', $pd)
     $wd = $pr.workingDirectory.Replace('$(ProjectDir)', $pd)
-    Info "מריצים: `"$exe`" $args1 (בתיקייה $wd)"
-    # קודם בדיקה עם קובץ הרצה (בלי חלון): התוכנית רצה עד הסוף
-    $trace = Join-Path $Out "$name.trace.txt"
-    $o = Join-Path $Out "$name.out.txt"; $e = Join-Path $Out "$name.err.txt"
-    $inF = $null
-    if ($stdin) { $inF = Join-Path $Out "$name.in.txt"; $stdin | Set-Content $inF -Encoding utf8 }
-    $extra = "--trace `"$trace`"" + $(if ($inF) { " --input `"$inF`"" } else { '' })
-    $p = Start-Process $exe -ArgumentList "$args1 $extra" -WorkingDirectory $wd -PassThru -Wait -NoNewWindow -RedirectStandardOutput $o -RedirectStandardError $e
-    $err = (Get-Content $e -Raw -Encoding utf8)
-    $lines = if (Test-Path $trace) { @(Get-Content $trace -Encoding utf8).Count } else { 0 }
-    Check "$id-trace" ($p.ExitCode -eq 0 -and $lines -gt 5) "הרצה ויזואלית של $name רצה עד הסוף ($lines שורות בהקלטה)" "קוד $($p.ExitCode); $err"
-    # ואז בדיוק כמו Visual Studio (בחלון קונסול חדש): נפתח החלון של DSViz
+    Info "כמו Visual Studio: $exe $args1 (בתיקייה $wd)"
     KillDsviz
     $p2 = Start-Process $exe -ArgumentList $args1 -WorkingDirectory $wd -PassThru
     $seen = $false
     for ($i = 0; $i -lt $wait; $i++) { Start-Sleep 1; if ((Viewers).Count -gt 0) { $seen = $true; break } }
-    Start-Sleep 4
+    Start-Sleep 5
     Shot "$name-viewer"
-    Check "$id-window" $seen "החלון של DSViz נפתח ($name)" "חלונות: $((Windows) -join ' ; ')"
+    Check "$id-window" $seen "החלון של DSViz נפתח כשמריצים את הפרופיל כמו Visual Studio ($name)" "חלונות: $((Windows) -join ' ; ')"
     KillDsviz; Stop-Process -Id $p2.Id -Force -ErrorAction SilentlyContinue
 }
 
@@ -321,6 +318,32 @@ function SubmitCli([string]$id, [string[]]$files, [string]$url, [string]$note = 
     $script:lastErr = (Get-Content $e -Raw -Encoding utf8)
     return $lines
 }
+# התלמיד כותב את הפתרון: מחליף כל פעולה-שלד (ריקה) בהצעה לפתרון ששמורה בצד (solutions.json) — כך בודקים שהפרויקט שנוצר באמת עובד
+function ApplySolutions([string]$folderDir) {
+    $sol = (Get-Content (Join-Path $home2 'solutions.json') -Raw -Encoding utf8 | ConvertFrom-Json).solutions
+    $applied = 0
+    foreach ($f in Get-ChildItem $folderDir -Filter '*.cs') {
+        $text = [IO.File]::ReadAllText($f.FullName)
+        foreach ($e in $sol) {
+            if (([IO.Path]::GetFullPath($e.path)) -ne $f.FullName) { continue }
+            $k = $text.IndexOf(' ' + $e.method + '(')
+            if ($k -lt 0) { continue }
+            $start = $text.LastIndexOf("`n", $k) + 1
+            $open = $text.IndexOf('{', $k)
+            $depth = 0; $end = -1
+            for ($c = $open; $c -lt $text.Length; $c++) {
+                if ($text[$c] -eq '{') { $depth++ } elseif ($text[$c] -eq '}') { $depth--; if ($depth -eq 0) { $end = $c; break } }
+            }
+            if ($end -lt 0) { continue }
+            $indent = [regex]::Match($text.Substring($start), '^[ \t]*').Value
+            $code = ($e.code -split "`n" | ForEach-Object { $indent + $_.TrimEnd("`r") }) -join "`r`n"
+            $text = $text.Substring(0, $start) + $code + $text.Substring($end + 1)
+            $applied++
+        }
+        [IO.File]::WriteAllText($f.FullName, $text, (New-Object Text.UTF8Encoding($true)))
+    }
+    return $applied
+}
 # בודק פרויקט שנוצר מהשליחה: קבצים, רישום בפתרון, בנייה ב-MSBuild של Visual Studio, הרצה ויזואלית
 function VerifyCreated([string]$id, $done, [bool]$expectSolutionCheck) {
     $folder = $done.folder
@@ -336,10 +359,15 @@ function VerifyCreated([string]$id, $done, [bool]$expectSolutionCheck) {
     Check "$id-focus" ($done.focus -and (Test-Path $done.focus)) "הקובץ שנפתח לתלמיד (הסמן בסעיף א) קיים: $($done.focus) שורה $($done.line)"
     $errs = @($done.errors)
     Check "$id-noerrors" ($errs.Count -eq 0) "אין שגיאות קומפילציה בתרגיל שנוצר" ($errs -join ' | ')
+    # תרגיל חדש = פעולות ריקות: השגיאה היחידה שמותרת היא "לא כל הנתיבים מחזירים ערך" (CS0161) — התלמיד עוד לא כתב את הפתרון
+    $b = Build (Join-Path $dir "$folder.csproj") "$id-skeleton"
+    $codes = @([regex]::Matches($b.Text, 'error (CS\d+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    $other = @($codes | Where-Object { $_ -ne 'CS0161' })
+    Check "$id-skeleton" ($other.Count -eq 0) "התרגיל החדש (לפני שהתלמיד כותב): אין שגיאות חוץ מ-CS0161 (פעולה בלי return): $($codes -join ',')" (($b.Text -split "`n" | Select-String 'error' | Select-Object -First 4) -join ' | ')
+    $n = ApplySolutions $dir
+    Check "$id-solve" ($n -gt 0 -or $done.tasks -eq 0) "הוכנסו $n הצעות לפתרון (כמו תלמיד שכתב את הפעולות)"
     $b = Build (Join-Path $dir "$folder.csproj") $id
-    Check "$id-build" ($b.Code -eq 0) "$folder נבנה ב-MSBuild של Visual Studio" (($b.Text -split "`n" | Select-String 'error' | Select-Object -First 4) -join ' | ')
-    $b2 = Build (Join-Path $csDir 'DataStructures-CS.sln') "$id-sln"
-    Check "$id-sln-build" ($b2.Code -eq 0) "כל הפתרון (כולל התרגיל החדש) נבנה" (($b2.Text -split "`n" | Select-String 'error' | Select-Object -First 4) -join ' | ')
+    Check "$id-build" ($b.Code -eq 0) "$folder נבנה ב-MSBuild של Visual Studio אחרי שהפעולות נכתבו" (($b.Text -split "`n" | Select-String 'error' | Select-Object -First 4) -join ' | ')
     Check "$id-profile" ($null -ne (Profile $dir)) "פרופיל 'הרצה ויזואלית' בפרויקט החדש"
     if (Profile $dir) { RunLikeVs $id $dir $id }
     Check "$id-solutions" (Test-Path (Join-Path $home2 'solutions.json')) "ההצעות לפתרון נשמרו בצד (לא בקוד של התלמיד): $($done.solutionStatus)"
@@ -377,8 +405,7 @@ $guiRoot = Join-Path $env:TEMP 'dsviz-gui-root'
 Remove-Item $guiRoot -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item $csDir $guiRoot -Recurse
 $script1 = Join-Path $Out 'gui1.txt'
-@("pasteimg $photo", 'text 0 רק שאלה 1', 'shot form', 'click שליחה ויצירת התרגיל', 'waitwin שליחת תרגיל — C#', 'wait 2500', 'shot card', 'click הצגה', 'shot show') |
-    Set-Content $script1 -Encoding utf8
+[IO.File]::WriteAllLines($script1, [string[]]@("pasteimg $photo", 'text 0 רק שאלה 1', 'shot form', 'click שליחה ויצירת התרגיל', 'waitwin שליחת תרגיל — C#', 'wait 2500', 'shot card', 'click הצגה', 'shot show'), (New-Object Text.UTF8Encoding($false)))
 $env:DSVIZ_WORKER_URL = 'http://127.0.0.1:8797'
 $env:DSVIZ_CS = $runner
 $o = Join-Path $Out 'gui1.out.txt'; $e = Join-Path $Out 'gui1.err.txt'
@@ -398,7 +425,7 @@ Check 'gui-created' (@(Get-ChildItem (Join-Path $guiRoot 'Exercises') -Directory
 if ($Live) {
     Log "== 5ג. Gemini אמיתי (שרת השליחה האמיתי): דף תרגיל ← תרגיל ב-C# שנבנה ורץ"
     foreach ($case in @(
-            @{ Id = 'live1'; Files = @((Join-Path $aiFiles 'photo.jpg')); Note = '' },
+            @{ Id = 'live1'; Files = @((Join-Path $aiFiles 'exam-page-1.png')); Note = '' },   # תמונה של דף מבחן (רשימה מקושרת + תור)
             @{ Id = 'live2'; Files = @((Join-Path $aiFiles 'targil.docx')); Note = 'סעיף א בלבד' })) {
         $r = SubmitCli $case.Id $case.Files '' $case.Note
         $done = $r | Where-Object { $_.done } | Select-Object -Last 1
@@ -413,77 +440,101 @@ if ($Live) {
 
 # ------------------------------------------------------------------ 6. Visual Studio עצמו
 if (-not $NoGui) {
-    Log "== 6. Visual Studio: פותחים את הפתרון ולוחצים על כפתור ההפעלה"
+    Log "== 6. Visual Studio: פותחים פרויקט ולוחצים על כפתור ההפעלה"
     Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
-    function OpenVs([string]$id, [string]$target, [string]$title, [string]$projDir, [string]$profileName) {
+    Add-Type -Namespace Win -Name Mouse -MemberDefinition '[DllImport("user32.dll")] public static extern void mouse_event(int f, int dx, int dy, int d, int e); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);'
+    function ClickEl($el) {
+        try { $el.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke(); return 'invoke' } catch { }
+        try {
+            $r = $el.Current.BoundingRectangle
+            [Win.Mouse]::SetCursorPos([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2)) | Out-Null
+            Start-Sleep -Milliseconds 300
+            [Win.Mouse]::mouse_event(2, 0, 0, 0, 0); [Win.Mouse]::mouse_event(4, 0, 0, 0, 0)
+            return 'mouse'
+        } catch { return $null }
+    }
+    # כל הרכיבים של Visual Studio (כל החלונות של התהליך). שם → רכיב
+    function VsElements([int]$vsPid) {
+        $cond = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ProcessIdProperty, $vsPid)
+        try { return @([Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Descendants, $cond)) } catch { return @() }
+    }
+    # בהפעלה ראשונה של Visual Studio במחשב חדש: חלון התחברות, בחירת ערכת נושא וכו'. מדלגים עליהם כמו תלמיד ("Skip and add accounts later")
+    function SkipFirstRun([int]$vsPid) {
+        $skip = 'Skip and add accounts later|Not now, maybe later|Start Visual Studio|^Skip$|Continue without code|No thanks|^Close$'
+        foreach ($el in (VsElements $vsPid)) {
+            $n = ''
+            try { $n = $el.Current.Name } catch { }
+            if ($n -and $n -match $skip -and $el.Current.ControlType.ProgrammaticName -match 'Button|Hyperlink|Text') {
+                $how = ClickEl $el
+                if ($how) { Info "חלון הפעלה ראשונה: לחצנו על '$n' ($how)"; return $true }
+            }
+        }
+        return $false
+    }
+    function OpenVs([string]$id, [string]$target, [string]$title, [string]$projDir, [string]$profileName, [int]$readyMin = 9) {
         KillDsviz
         Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
+        Start-Sleep 3
         if ($profileName) {
             # הפרופיל שנבחר בתפריט שליד כפתור ההפעלה נשמר ב-.csproj.user — כמו שתלמיד בוחר "הרצה ויזואלית" פעם אחת
             $cp = Get-ChildItem $projDir -Filter '*.csproj' | Select-Object -First 1
-            @"
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
-    <ActiveDebugProfile>$profileName</ActiveDebugProfile>
-  </PropertyGroup>
-</Project>
-"@ | Set-Content ($cp.FullName + '.user') -Encoding utf8
+            $u = "<?xml version=`"1.0`" encoding=`"utf-8`"?>`r`n<Project ToolsVersion=`"Current`" xmlns=`"http://schemas.microsoft.com/developer/msbuild/2003`">`r`n  <PropertyGroup>`r`n    <ActiveDebugProfile>$profileName</ActiveDebugProfile>`r`n  </PropertyGroup>`r`n</Project>`r`n"
+            [IO.File]::WriteAllText($cp.FullName + '.user', $u, (New-Object Text.UTF8Encoding($false)))
         }
         $t0 = Get-Date
         $vsP = Start-Process $devenv -ArgumentList "`"$target`"" -PassThru
-        $ready = $false
-        for ($i = 0; $i -lt 300; $i++) {
-            Start-Sleep 2
+        $ready = $false; $k = 0
+        while (((Get-Date) - $t0).TotalMinutes -lt $readyMin) {
+            Start-Sleep 5; $k++
+            $vsP.Refresh()
+            if ($vsP.HasExited) { Info "devenv נסגר (קוד $($vsP.ExitCode))"; break }
+            if (SkipFirstRun $vsP.Id) { Start-Sleep 3 }
             $vsP.Refresh()
             if ($vsP.MainWindowTitle -like "*$title*") { $ready = $true; break }
+            if ($k % 12 -eq 0) { Info ("ממתינים ל-Visual Studio ({0:N0} שניות): '{1}'" -f ((Get-Date) - $t0).TotalSeconds, $vsP.MainWindowTitle); Shot "$id-wait$k" }
         }
-        Info ("Visual Studio נפתח תוך {0:N0} שניות: '{1}'" -f ((Get-Date) - $t0).TotalSeconds, $vsP.MainWindowTitle)
-        Info "חלונות: $((Windows) -join ' ; ')"
-        Start-Sleep 60   # טעינת הפרויקטים והבנייה של עיצוב-זמן
+        Info ("Visual Studio: {0:N0} שניות, כותרת '{1}'" -f ((Get-Date) - $t0).TotalSeconds, $vsP.MainWindowTitle)
+        Check "$id-open" $ready "Visual Studio פתח את $title" "כותרת: $($vsP.MainWindowTitle) · חלונות: $((Windows) -join ' ; ')"
+        if (-not $ready) { Shot "$id-opened"; Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force; return }
+        Start-Sleep 45   # טעינת הפרויקט, הבנייה של עיצוב-זמן ו-IntelliSense
+        SkipFirstRun $vsP.Id | Out-Null
         Shot "$id-opened"
-        Check "$id-open" $ready "Visual Studio פתח את $title" "כותרת: $($vsP.MainWindowTitle)"
-        if (-not $ready) { return }
         # הכפתור הירוק: שמו הוא שם הפרופיל שנבחר. מחפשים אותו (ואת הפרופילים) בסרגל הכלים
-        $names = @()
-        $start = $null
-        try {
-            $root = [Windows.Automation.AutomationElement]::FromHandle($vsP.MainWindowHandle)
-            $all = $root.FindAll([Windows.Automation.TreeScope]::Descendants, [Windows.Automation.Condition]::TrueCondition)
-            foreach ($el in $all) {
-                $n = $el.Current.Name
-                if ($n -and ($n -match 'ויזואלית|רגילה|Start|הפעלה|ConsoleApp|Exercise|Debug Target')) {
-                    $names += "$($el.Current.ControlType.ProgrammaticName.Replace('ControlType.', '')):$n"
-                    if (-not $start -and $profileName -and $n -like "*$profileName*") { $start = $el }
-                }
+        $names = @(); $start = $null
+        foreach ($el in (VsElements $vsP.Id)) {
+            $n = ''
+            try { $n = $el.Current.Name } catch { }
+            if ($n -and $n -match 'ויזואלית|רגילה|Start|Debug Target|Continue|ConsoleApp|Ex\d\d') {
+                $names += "$($el.Current.ControlType.ProgrammaticName.Replace('ControlType.', '')):$n"
+                if (-not $start -and $profileName -and $n -like "*$profileName*" -and $el.Current.ControlType.ProgrammaticName -match 'Button|SplitButton') { $start = $el }
             }
-        } catch { Info "UIAutomation: $_" }
+        }
         $names | Select-Object -Unique | Set-Content (Join-Path $Out "$id-uia.txt") -Encoding utf8
         Info "בסרגל: $((($names | Select-Object -Unique) | Select-Object -First 12) -join ' ; ')"
         if ($profileName) { Check "$id-button" ($null -ne $start) "ליד כפתור ההפעלה מופיע '$profileName'" }
-        # לוחצים: Invoke על הכפתור (ואם אין — F5)
-        $clicked = $false
-        if ($start) {
-            try { $start.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke(); $clicked = $true; Info "לחיצה על '$($start.Current.Name)'" } catch { Info "Invoke: $_" }
-        }
-        if (-not $clicked) {
+        # מפעילים: לחיצה על הכפתור (ואם לא נמצא — Ctrl+F5 = Start Without Debugging)
+        $how = $null
+        if ($start) { $how = ClickEl $start; if ($how) { Info "לחצנו על '$($start.Current.Name)' ($how)" } }
+        if (-not $how) {
             $wsh = New-Object -ComObject WScript.Shell
-            [void]$wsh.AppActivate($vsP.Id); Start-Sleep 1; $wsh.SendKeys('{F5}'); Info "F5"
+            [void]$wsh.AppActivate($vsP.Id); Start-Sleep 1; $wsh.SendKeys('^{F5}'); Info "Ctrl+F5"
         }
         $seen = $false
-        for ($i = 0; $i -lt 120; $i++) { Start-Sleep 1; if ((Viewers).Count -gt 0) { $seen = $true; break } }
+        for ($i = 0; $i -lt 150; $i++) { Start-Sleep 1; if ((Viewers).Count -gt 0) { $seen = $true; break } }
         Start-Sleep 6
         Shot "$id-run"
         Info "חלונות: $((Windows) -join ' ; ')"
-        Check "$id-viewer" $seen "אחרי לחיצה על כפתור ההפעלה נפתח החלון של DSViz" "חלונות: $((Windows) -join ' ; ')"
+        Check "$id-viewer" $seen "Visual Studio: אחרי לחיצה על כפתור ההפעלה נפתח החלון של DSViz" "חלונות: $((Windows) -join ' ; ')"
         KillDsviz
         Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
         Start-Sleep 3
     }
-    # א. הקיצור "תרגילי C# (מבני נתונים)" — הפתרון המוכן, "הרצה ויזואלית" ראשון בתפריט → F5 מריץ ויזואלית
-    OpenVs 'vs-sln' (Join-Path $csDir 'DataStructures-CS.sln') 'DataStructures-CS' (Join-Path $csDir 'Exercise') ''
-    # ב. פרויקט חדש שהתלמיד יצר, ובחר "הרצה ויזואלית" בתפריט שליד הכפתור
-    OpenVs 'vs-new' (Join-Path $repos 'ConsoleApp1\ConsoleApp1\ConsoleApp1.csproj') 'ConsoleApp1' (Join-Path $repos 'ConsoleApp1\ConsoleApp1') 'הרצה ויזואלית'
+    # א. תרגיל שנוצר משליחה (ואחרי שהתלמיד כתב את הפתרון): פותחים את הפרויקט ולוחצים על "הרצה ויזואלית"
+    $exCsproj = Get-ChildItem (Join-Path $csDir 'Exercises') -Recurse -Filter 'Ex01_*.csproj' | Select-Object -First 1
+    if ($exCsproj) { OpenVs 'vs-exercise' $exCsproj.FullName 'Ex01_' $exCsproj.DirectoryName 'הרצה ויזואלית' 9 }
+    else { Fail 'vs-exercise-missing' "אין פרויקט תרגיל שנוצר" }
+    # ב. פרויקט קונסול חדש שהתלמיד יצר (top-level, ImplicitUsings) — פותחים ולוחצים על "הרצה ויזואלית"
+    OpenVs 'vs-new' (Join-Path $repos 'ConsoleApp1\ConsoleApp1\ConsoleApp1.csproj') 'ConsoleApp1' (Join-Path $repos 'ConsoleApp1\ConsoleApp1') 'הרצה ויזואלית' 5
 }
 
 # ------------------------------------------------------------------ סיכום

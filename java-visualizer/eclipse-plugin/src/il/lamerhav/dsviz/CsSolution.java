@@ -41,7 +41,7 @@ public final class CsSolution {
             + "    \"הרצה ויזואלית\": {\n"
             + "      \"commandName\": \"Executable\",\n"
             + "      \"executablePath\": \"%LOCALAPPDATA%\\\\DSViz\\\\cs\\\\dsviz-cs.exe\",\n"
-            + "      \"commandLineArgs\": \"\\\"$(ProjectDir)\\\"\",\n"
+            + "      \"commandLineArgs\": \"\\\"$(ProjectDir).\\\"\",\n"   // הנקודה בסוף: ProjectDir נגמר בלוכסן, ו-"...\\" לפני מרכאה סוגרת נקרא כמרכאה בתוך הנתיב
             + "      \"workingDirectory\": \"$(ProjectDir)\"\n"
             + "    },\n"
             + "    \"הרצה רגילה\": {\n"
