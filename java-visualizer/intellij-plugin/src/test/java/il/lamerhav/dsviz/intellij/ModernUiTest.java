@@ -441,7 +441,7 @@ public class ModernUiTest extends BasePlatformTestCase {
         }
     }
 
-    private static JPanel footer(JButton... buttons) {
+    static JPanel footer(JButton... buttons) {
         JPanel p = Modern.panel(new java.awt.FlowLayout(java.awt.FlowLayout.TRAILING, JBUI.scale(8), 0));
         p.setBorder(JBUI.Borders.empty(4, 20, 16, 20));
         for (JButton b : buttons) p.add(b);
@@ -450,7 +450,7 @@ public class ModernUiTest extends BasePlatformTestCase {
     }
 
     /** חלון מדומה: שורת כותרת, התוכן והכפתורים */
-    private static JComponent window(String title, JComponent body, JComponent south, int width) {
+    static JComponent window(String title, JComponent body, JComponent south, int width) {
         JPanel w = new JPanel(new java.awt.BorderLayout());
         w.setBackground(Modern.PANEL);
         JLabel t = new JLabel(title, javax.swing.SwingConstants.CENTER);
@@ -476,7 +476,7 @@ public class ModernUiTest extends BasePlatformTestCase {
     }
 
     /** בלון מדומה של IntelliJ: הכותרת, התוכן (אותו HTML, ב-JEditorPane של IntelliJ) והפעולה */
-    private static JComponent balloon(Created.Text t, String action) {
+    static JComponent balloon(Created.Text t, String action) {
         JPanel w = new JPanel(new java.awt.BorderLayout(0, JBUI.scale(6)));
         w.setBackground(new JBColor(0xFFFFFF, 0x2B2D30));
         w.setBorder(javax.swing.BorderFactory.createCompoundBorder(new Modern.Round(new JBColor(0xD3D5DB, 0x4E5157), 8, 0, 0), JBUI.Borders.empty(10, 14)));
