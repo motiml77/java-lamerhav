@@ -291,4 +291,12 @@ final class ExerciseDialog extends Modern.Dialog {
         insides.select(inside == null ? "" : inside);
         update();
     }
+
+    /** לבדיקות: התלמיד מקליד שם מחלקה; מחזיר את השורה האדומה ("" — אין שגיאה) */
+    String typeClassName(String name) {
+        classEdited = true;
+        className.setText(name);
+        update();
+        return errorLabel.getText().trim();
+    }
 }

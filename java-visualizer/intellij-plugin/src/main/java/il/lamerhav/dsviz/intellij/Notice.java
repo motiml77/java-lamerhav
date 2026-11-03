@@ -126,14 +126,25 @@ final class Notice extends Modern.Dialog {
         return body;
     }
 
+    /**
+     * לבדיקות: כל הודעה עוברת כאן במקום להיפתח — מקבל את ההודעה ומחזיר את "הלחיצה" (true = הכפתור הראשי).
+     * null (תמיד, מחוץ לבדיקות) — החלון נפתח כרגיל.
+     */
+    static volatile java.util.function.Function<Spec, Boolean> interceptor;
+
     /** הצגה (חלון מודאלי) */
     void open() {
-        show();
+        if (interceptor != null) ask();
+        else show();
     }
 
     /** הצגה: true אם לחצו על הכפתור הראשי */
     boolean ask() {
-        return showAndGet();
+        java.util.function.Function<Spec, Boolean> i = interceptor;
+        if (i == null) return showAndGet();
+        boolean ok = Boolean.TRUE.equals(i.apply(spec));
+        close(ok ? OK_EXIT_CODE : CANCEL_EXIT_CODE);
+        return ok;
     }
 
     static Notice show(Project project, Spec spec) {
