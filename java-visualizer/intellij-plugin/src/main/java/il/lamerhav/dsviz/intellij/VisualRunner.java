@@ -71,13 +71,28 @@ public final class VisualRunner {
 
     // ------------------------------------------------------------------ מאיפה מריצים
 
-    /** המחלקה עם main בקובץ (הראשונה), או null */
+    /**
+     * המחלקה עם main בקובץ, או null. כשיש כמה: המחלקה ששמה כשם הקובץ, אחריה מחלקה עליונה אחרת, ורק אז מחלקה פנימית
+     * (תלמיד שכתב main גם במחלקת עזר — מריצים את התרגיל עצמו).
+     */
     public static PsiClass mainClassIn(PsiJavaFile file) {
+        VirtualFile vf = file.getVirtualFile();
+        String base = vf != null ? vf.getNameWithoutExtension() : file.getName().replaceFirst("\\.java$", "");
+        for (PsiClass c : file.getClasses()) if (base.equals(c.getName()) && PsiMethodUtil.hasMainMethod(c)) return c;
+        for (PsiClass c : file.getClasses()) if (c.getQualifiedName() != null && PsiMethodUtil.hasMainMethod(c)) return c;
         for (PsiClass c : PsiTreeUtil.findChildrenOfType(file, PsiClass.class)) {
             if (c.getQualifiedName() != null && PsiMethodUtil.hasMainMethod(c)) return c;
         }
-        for (PsiClass c : file.getClasses()) if (PsiMethodUtil.hasMainMethod(c)) return c;
         return null;
+    }
+
+    /** כמו mainClassIn, אבל קודם המחלקה שבה הסמן (או ה-main שליד הכפתור בצד) — אם יש בה main */
+    public static PsiClass mainClassIn(PsiJavaFile file, com.intellij.psi.PsiElement at) {
+        PsiClass c = at == null || at.getContainingFile() != file ? null : PsiTreeUtil.getParentOfType(at, PsiClass.class, false);
+        for (; c != null; c = PsiTreeUtil.getParentOfType(c, PsiClass.class)) {
+            if (c.getQualifiedName() != null && PsiMethodUtil.hasMainMethod(c)) return c;
+        }
+        return mainClassIn(file);
     }
 
     /**
@@ -113,7 +128,12 @@ public final class VisualRunner {
 
     /** הפעולה (מהתפריט, מהסרגל, מהגאטר): הקובץ הפתוח → המחלקה להריץ → קומפילציה → הרצה */
     public static void run(Project project, PsiJavaFile file) {
-        PsiClass main = mainClassIn(file);
+        run(project, file, null);
+    }
+
+    /** at — המקום של הסמן / הכפתור שבצד (או null): אם הוא בתוך מחלקה עם main — היא שרצה */
+    public static void run(Project project, PsiJavaFile file, com.intellij.psi.PsiElement at) {
+        PsiClass main = mainClassIn(file, at);
         if (main == null) {
             PsiClass[] classes = file.getClasses();
             if (classes.length == 0) {
@@ -121,6 +141,11 @@ public final class VisualRunner {
                 return;
             }
             main = mainInPackage(file, classes[0]);
+            if (main == null && com.intellij.openapi.project.DumbService.isDumb(project)) {
+                // מי משתמש במחלקה — רק אחרי ש-IntelliJ סיים לסרוק את הפרויקט (אינדקס)
+                Say.info(project, "IntelliJ עוד סורק את הפרויקט.\nבקובץ " + file.getName() + " אין main — נסו שוב בעוד כמה שניות.", TITLE);
+                return;
+            }
             List<PsiClass> users = main != null ? java.util.Collections.singletonList(main) : mainsUsing(classes[0]);
             if (users.size() == 1) main = users.get(0);
             else if (users.size() > 1) {
@@ -147,21 +172,129 @@ public final class VisualRunner {
             Say.info(project, "פתחו קובץ Java (תרגיל) מתוך הפרויקט, ואז לחצו \"הרצה ויזואלית\".", TITLE);
             return;
         }
+        if (!begin(project)) {
+            // לחיצה שנייה בזמן שההרצה הקודמת עוד מתקמפלת / עולה — לא מריצים פעמיים
+            Dsviz.notify(project, TITLE, "ההרצה הוויזואלית כבר מתחילה — רגע…", com.intellij.notification.NotificationType.INFORMATION);
+            return;
+        }
         PsiDocumentManager.getInstance(project).commitAllDocuments();
         FileDocumentManager.getInstance().saveAllDocuments();
+        Notice.Spec noJdk = checkSdk(project, module);
+        if (noJdk != null) {
+            end(project);
+            Notice.show(project, noJdk);
+            return;
+        }
         // פרויקט של התלמיד (כל פרויקט Java): לא משנים בו כלום מלבד הוספת ספריית הקורס אם אין בו בכלל (כדי ש-Queue וכו' יתקמפלו)
         if (Dsviz.libraryJar() != null && ReadAction.compute(() -> LibrarySetup.needs(module))) LibrarySetup.add(module);
         String source = psi.getText();
-        CompilerManager.getInstance(project).make(module, (aborted, errors, warnings, ctx) -> {
-            if (aborted || project.isDisposed()) return;
-            List<CompilerMessage> relevant = relevantErrors(ctx, vf, source);
-            if (!relevant.isEmpty()) {
-                warn(project, relevant);
-                return;
+        try {
+            compiler.make(project, module, (aborted, errors, warnings, ctx) -> {
+                if (aborted || project.isDisposed()) {
+                    end(project);
+                    return;
+                }
+                List<CompilerMessage> relevant = relevantErrors(ctx, vf, source);
+                if (!relevant.isEmpty()) {
+                    end(project);
+                    warn(project, relevant);
+                    return;
+                }
+                boolean otherErrors = errors > 0;
+                ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                    try {
+                        launch(project, module, mainName, vf, otherErrors);
+                    } finally {
+                        end(project);
+                    }
+                });
+            });
+        } catch (RuntimeException e) {
+            end(project);
+            throw e;
+        }
+    }
+
+    /** הקומפילציה (CompilerManager.make) — בבדיקות מוחלפת */
+    interface Compiler {
+        void make(Project project, Module module, com.intellij.openapi.compiler.CompileStatusNotification done);
+    }
+
+    static Compiler compiler = (project, module, done) -> CompilerManager.getInstance(project).make(module, done);
+
+    // ------------------------------------------------------------------ לא מריצים פעמיים
+
+    private static final com.intellij.openapi.util.Key<Long> STARTING = com.intellij.openapi.util.Key.create("dsviz.visual.starting");
+
+    /** מתחילים הרצה (false — הקודמת עוד מתקמפלת / עולה; אחרי 2 דקות בכל זאת מתחילים, למקרה שמשהו נתקע) */
+    static synchronized boolean begin(Project project) {
+        Long t = project.getUserData(STARTING);
+        long now = System.currentTimeMillis();
+        if (t != null && now - t < 120_000) return false;
+        project.putUserData(STARTING, now);
+        return true;
+    }
+
+    static synchronized void end(Project project) {
+        project.putUserData(STARTING, null);
+    }
+
+    // ------------------------------------------------------------------ בדיקות לפני ההרצה
+
+    /** למודול אין JDK (או שהוא נמחק מהמחשב)? מנסים את ה-Java של ההתקנה; אם אין — הודעה קצרה מה עושים. null = יש */
+    static Notice.Spec checkSdk(Project project, Module module) {
+        Sdk sdk = ModuleRootManager.getInstance(module).getSdk();
+        if (sdk == null) {
+            try {
+                LibrarySetup.ensureSdk(project);
+            } catch (Throwable ignored) {
+                // נשאר בלי JDK
             }
-            boolean otherErrors = errors > 0;
-            ApplicationManager.getApplication().executeOnPooledThread(() -> launch(project, module, mainName, vf, otherErrors));
-        });
+            sdk = ModuleRootManager.getInstance(module).getSdk();
+        }
+        String home = sdk == null ? null : sdk.getHomePath();
+        if (sdk != null && home != null && new File(home).isDirectory()) return null;
+        Notice.Spec s = new Notice.Spec(Modern.Kind.WARN, TITLE, sdk == null ? "לפרויקט לא נבחרה Java (JDK)" : "ה-Java (JDK) של הפרויקט לא נמצאה במחשב")
+                .text("בלי JDK אי אפשר לקמפל את הקוד.\nבוחרים JDK בתפריט File, בחלון Project Structure, ומריצים שוב.")
+                .buttons("פתיחת ההגדרות", "סגירה");
+        s.onPrimary = () -> {
+            if (!project.isDisposed()) com.intellij.openapi.roots.ui.configuration.ProjectSettingsService.getInstance(project).openProjectSettings();
+        };
+        return s;
+    }
+
+    /** הקידוד שבו Java מעבירה לתהליך את שורת הפקודה (ב-Windows שלא מוגדר לעברית — בלי עברית) */
+    static java.nio.charset.Charset commandCharset() {
+        try {
+            return java.nio.charset.Charset.forName(System.getProperty("sun.jnu.encoding", java.nio.charset.Charset.defaultCharset().name()));
+        } catch (Exception e) {
+            return StandardCharsets.UTF_8;
+        }
+    }
+
+    /**
+     * שם המחלקה או תיקייה ב-classpath שאי אפשר להעביר ל-Java במחשב הזה (עברית / אמוג'י כשהמחשב לא מוגדר לעברית):
+     * Java הייתה נכשלת עם "Could not find or load main class ???" באנגלית — במקום זה הודעה קצרה מה עושים. null = הכול בסדר
+     */
+    static Notice.Spec checkEncoding(String mainName, List<String> classpath, File workDir, java.nio.charset.Charset cs) {
+        java.nio.charset.CharsetEncoder enc = cs.newEncoder();
+        if (!enc.canEncode(mainName)) {
+            String simple = mainName.substring(mainName.lastIndexOf('.') + 1);
+            return new Notice.Spec(Modern.Kind.WARN, TITLE, "יש עברית בשם של המחלקה או החבילה")
+                    .text("המחשב הזה לא מוגדר לעברית, ולכן Java לא מצליחה להריץ את " + simple + ".\n"
+                            + "נותנים לה שם באנגלית (Shift+F6 על השם) ומריצים שוב.");
+        }
+        List<String> paths = new ArrayList<String>(classpath);
+        if (workDir != null) paths.add(workDir.getPath());
+        for (String p : paths) {
+            if (enc.canEncode(p)) continue;
+            String folder = p;   // רק השם שבעייתי (נתיב שלם עם עברית באמצע מתבלגן בטקסט מימין לשמאל)
+            for (String part : p.split("[/\\\\]")) if (!enc.canEncode(part)) { folder = part; break; }
+            return new Notice.Spec(Modern.Kind.WARN, TITLE, "יש עברית בשם של תיקייה")
+                    .text("בנתיב של הפרויקט יש תיקייה בשם \"" + folder + "\", והמחשב הזה לא מוגדר לעברית — ולכן Java לא מצליחה לקרוא אותה.\n"
+                            + "מעבירים את הפרויקט לתיקייה ששמה באנגלית ומריצים שוב.");
+        }
+        return null;
     }
 
     /**
@@ -245,7 +378,7 @@ public final class VisualRunner {
         JdkFinder.Found jdk = JdkFinder.find(sdk == null ? null : sdk.getHomePath(), targetVersion(project, module));
         if (jdk == null) {
             ApplicationManager.getApplication().invokeLater(() -> Say.error(project,
-                    "לא נמצאה Java (JDK) להרצה.\nאפשר להתקין מחדש את DSViz (ההתקנה כוללת Java 21), או לבחור JDK לפרויקט ב-File ← Project Structure.", TITLE));
+                    "לא נמצאה Java (JDK) להרצה.\nאפשר להתקין מחדש את DSViz (ההתקנה כוללת Java 21), או לבחור JDK לפרויקט בתפריט File, בחלון Project Structure.", TITLE));
             return;
         }
         List<String> cp = classpath(module);
@@ -255,6 +388,13 @@ public final class VisualRunner {
             if (out != null) cp.add(1, out.getAbsolutePath());
         }
         File dir = new File(project.getBasePath() == null ? System.getProperty("user.home") : project.getBasePath());
+        Notice.Spec badName = checkEncoding(mainName, cp, dir, commandCharset());
+        if (badName != null) {
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (!project.isDisposed()) Notice.show(project, badName);
+            });
+            return;
+        }
         GeneralCommandLine cmd = commandLine(jdk.java(), cp, mainName, dir);
         ApplicationManager.getApplication().invokeLater(() -> start(project, cmd, mainName, module, mainFile));
     }
@@ -269,12 +409,14 @@ public final class VisualRunner {
                     .withActivateToolWindow(true)
                     .withFocusToolWindow(false)
                     .withRerun(() -> {
+                        if (project.isDisposed()) return;
                         PsiFile f = ReadAction.compute(() -> mainFile.isValid() ? com.intellij.psi.PsiManager.getInstance(project).findFile(mainFile) : null);
                         if (f instanceof PsiJavaFile) run(project, (PsiJavaFile) f);
+                        else Say.info(project, "הקובץ " + mainFile.getName() + " כבר לא קיים — פתחו את התרגיל ולחצו שוב \"הרצה ויזואלית\".", TITLE);
                     })
                     .run();
         } catch (ExecutionException e) {
-            Say.error(project, "לא הצלחתי להריץ: " + e.getMessage(), TITLE);
+            Say.error(project, Say.failed("לא הצלחתי להריץ את התוכנית", e), TITLE);
         }
     }
 

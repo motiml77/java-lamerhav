@@ -297,7 +297,7 @@ final class SubmitDialog extends Modern.Dialog {
                 out = run.run(items, n, t, l);
             } catch (Throwable e) {
                 out = new Submitter.Outcome();
-                out.error = "לא הצלחתי ליצור את התרגיל: " + e.getMessage();
+                out.error = Say.failed("לא הצלחתי ליצור את התרגיל", e);
             }
             Submitter.Outcome o = out;
             ApplicationManager.getApplication().invokeLater(() -> done(id, o), ModalityState.any());
@@ -365,7 +365,7 @@ final class SubmitDialog extends Modern.Dialog {
     private void choose() {
         FileChooserDescriptor d = new FileChooserDescriptor(true, false, false, false, false, true);
         d.setTitle("בחירת דף התרגיל");
-        d.withFileFilter(f -> f.getExtension() != null && f.getExtension().toLowerCase().matches("pdf|docx|doc|png|jpg|jpeg|gif|bmp|webp|txt"));
+        d.withFileFilter(f -> f.getExtension() != null && f.getExtension().toLowerCase().matches(TYPES + "|doc"));
         for (VirtualFile f : FileChooser.chooseFiles(d, project, null)) add(new File(f.getPath()), f.getName());
     }
 
@@ -415,11 +415,49 @@ final class SubmitDialog extends Modern.Dialog {
         return false;
     }
 
-    /** מוסיף קובץ לרשימה (גם לבדיקות ולצילומי מסך) */
+    /** כמה קבצים לכל היותר, ועד איזה גודל כל אחד (כמו ExerciseFiles — כאן כדי לומר מיד, ולא רק אחרי "שליחה") */
+    static final int MAX_FILES = 10;
+    static final long MAX_BYTES = 10L * 1024 * 1024;
+    static final String TYPES = "pdf|docx|docm|png|jpg|jpeg|gif|bmp|webp|txt";
+
+    private String rejected;
+
+    /**
+     * מוסיף קובץ לרשימה (גם לבדיקות ולצילומי מסך). קובץ שאי אפשר לשלוח (ריק, סוג לא נתמך, גדול מדי, יותר מ-10) — לא נכנס,
+     * ושורה אדומה קצרה בעברית מתחת לאזור הקבצים אומרת למה.
+     */
     void add(File f, String name) {
         if (!f.isFile()) return;
-        model.add(new Item(f, name));
-        if (drop != null) drop.refresh();
+        String bad = check(f, name, model.size());
+        rejected = bad;
+        if (bad == null) model.add(new Item(f, name));
+        if (drop != null) {
+            drop.refresh();
+            setErrorText(bad, drop);
+        }
+    }
+
+    /** למה אי אפשר לצרף את הקובץ, או null */
+    static String check(File f, String name, int already) {
+        String ext = extOf(name);
+        if (already >= MAX_FILES) return "אפשר לצרף עד " + MAX_FILES + " קבצים.";
+        if (f.length() == 0) return "הקובץ " + name + " ריק.";
+        if (ext.matches("doc|rtf|odt")) return "את הקובץ " + name + " צריך קודם לשמור ב-Word כ-PDF או כ-DOCX (שמירה בשם…).";
+        if (ext.matches("heic|heif")) return "תמונות HEIC (מאייפון) לא נתמכות — שמרו כ-JPG או שלחו צילום מסך.";
+        if (!ext.matches(TYPES)) return "את הקובץ " + name + " אי אפשר לשלוח — שולחים PDF, Word (docx) או תמונה.";
+        if (f.length() > MAX_BYTES) return "הקובץ " + name + " גדול מדי (עד 10MB). שלחו רק את עמודי התרגיל, או צילומי מסך.";
+        return null;
+    }
+
+    /** הסוג לפי סוף השם (pdf, docx...) באותיות קטנות */
+    static String extOf(String name) {
+        int dot = name == null ? -1 : name.lastIndexOf('.');
+        return dot < 0 ? "" : name.substring(dot + 1).toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /** למה הקובץ האחרון לא נכנס (לבדיקות), או null */
+    String rejected() {
+        return rejected;
     }
 
     private void removeItem(Item it) {

@@ -251,6 +251,13 @@ final class InsertDialog extends Modern.Dialog {
         return chosenClass;
     }
 
+    /** לבדיקות: התלמיד מקליד שם; מחזיר את השורה האדומה ("" — אין שגיאה) */
+    String typeName(String n) {
+        name.setText(n);
+        update();
+        return errorLabel.getText().trim();
+    }
+
     /** לבדיקות ולצילומי מסך: בחירת מבנה */
     void choose(String structure, String inside) {
         structures.select(structure);

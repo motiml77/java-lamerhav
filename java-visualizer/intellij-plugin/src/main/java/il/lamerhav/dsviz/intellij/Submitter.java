@@ -42,6 +42,7 @@ public final class Submitter {
     private Submitter() {}
 
     static final String TITLE = "שליחת תרגיל";
+    private static final com.intellij.openapi.diagnostic.Logger LOG = com.intellij.openapi.diagnostic.Logger.getInstance(Submitter.class);
     static final String CLIENT = "dsviz-intellij/" + Dsviz.VERSION;
 
     /** התוצאה של SubmitCli (השורה {"done": true, ...}) או שגיאה */
@@ -131,8 +132,9 @@ public final class Submitter {
         try {
             ProjectFiles.ensureSourceRoot(project, target.dir);
         } catch (Exception e) {
-            return "לא הצלחתי להכין את תיקיית הקוד: " + e.getMessage();
+            return Say.failed("לא הצלחתי להכין את תיקיית הקוד", e);
         }
+        if (!java.nio.file.Files.isWritable(target.dir.toPath())) return "אין הרשאה לכתוב בתיקייה " + target.dir.getName() + ". בחרו תיקייה אחרת.";
         if (Dsviz.libraryJar() == null) return "הספרייה dsviz.jar חסרה בתוסף. התקינו מחדש את DSViz.";
         if (JdkFinder.find(null, 0) == null) return "לא נמצאה Java (JDK). התקינו מחדש את DSViz (ההתקנה כוללת Java 21).";
         return null;
@@ -230,17 +232,29 @@ public final class Submitter {
                     Map<String, Object> m = IjShared.parseJsonLine(line);
                     if (m == null) { other.append(line).append('\n'); continue; }
                     if (m.containsKey("progress") && listener != null) listener.progress(IjShared.str(m.get("progress")));
-                    if (m.containsKey("error")) res.error = IjShared.str(m.get("error"));
+                    if (m.containsKey("error")) {
+                        // ההודעה של SubmitCli — בעברית; זנב טכני באנגלית (נתיב, "Permission denied"...) נחתך
+                        String err = Say.clean(IjShared.str(m.get("error")));
+                        res.error = err.isEmpty() ? "לא הצלחתי ליצור את התרגיל." : err;
+                    }
                     if (m.containsKey("done")) read(res, m);
                 }
             }
             p.waitFor();
             manifest.delete();
+            // SubmitCli מדווח על הקבצים גם כשלא הצליח לכתוב אותם (תיקייה לקריאה בלבד / שנמחקה באמצע) — סומכים רק על מה שבאמת בדיסק
+            int reported = res.files.size();
+            res.files.removeIf(f -> !new File(f).isFile());
+            if (reported > 0 && res.files.isEmpty() && res.error == null)
+                res.error = "אי אפשר לשמור בתיקייה " + out.getName() + " — אין הרשאה, או שהיא נמחקה.";
             if (listener != null && listener.cancelled()) res.error = res.files.isEmpty() ? "בוטל." : null;
-            else if (res.error == null && res.files.isEmpty())
-                res.error = "לא הצלחתי ליצור את התרגיל." + (other.length() > 0 ? "\n" + other.toString().trim() : "");
+            else if (res.error == null && res.files.isEmpty()) {
+                // בלי שורת JSON (למשל Java נכשלה לעלות): לתלמיד — משפט בעברית; הפלט הטכני — רק ל-idea.log
+                res.error = "לא הצלחתי ליצור את התרגיל. נסו שוב, ואם זה חוזר — התקינו מחדש את DSViz.";
+                if (other.length() > 0) LOG.warn("SubmitCli: " + other.toString().trim());
+            }
         } catch (Exception e) {
-            res.error = "לא הצלחתי ליצור את התרגיל: " + e.getMessage();
+            res.error = Say.failed("לא הצלחתי ליצור את התרגיל", e);
             if (p != null) p.destroyForcibly();
         }
         return res;

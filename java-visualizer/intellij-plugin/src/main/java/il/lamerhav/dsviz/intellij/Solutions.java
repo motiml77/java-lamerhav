@@ -60,7 +60,14 @@ public final class Solutions implements LineMarkerProvider {
         VirtualFile vf = f == null ? null : f.getVirtualFile();
         PsiClass c = m.getContainingClass();
         if (vf == null || c == null || c.getName() == null) return null;
-        return IjShared.findSolution(Dsviz.solutionStore(), vf.getPath(), c.getName(), m.getName(), m.getParameterList().getParametersCount());
+        try {
+            return IjShared.findSolution(Dsviz.solutionStore(), vf.getPath(), c.getName(), m.getName(), m.getParameterList().getParametersCount());
+        } catch (com.intellij.openapi.progress.ProcessCanceledException e) {
+            throw e;
+        } catch (Throwable e) {
+            // solutions.json פגום כך שגם הקורא נופל (למשל מקונן עמוק מאוד — StackOverflowError): בלי מנורות, ובלי שגיאה אדומה ב-IntelliJ
+            return null;
+        }
     }
 
     /** ההצעה לפעולה שבמקום הסמן (לבדיקות ולצילומי מסך — כמו לחיצה על המנורה), או null */

@@ -41,6 +41,57 @@ public final class Say {
         Notice.show(project, spec(Modern.Kind.ERROR, title, text));
     }
 
+    // ------------------------------------------------------------------ בלי אנגלית בהודעות
+
+    private static final java.util.regex.Pattern HEBREW = java.util.regex.Pattern.compile("[א-ת]");
+    private static final java.util.regex.Pattern LATIN = java.util.regex.Pattern.compile("[A-Za-z]");
+
+    static boolean hasHebrew(String s) {
+        return s != null && HEBREW.matcher(s).find();
+    }
+
+    /**
+     * הודעה לתלמיד בלי פרטים טכניים באנגלית: שורות בלי עברית (stack trace, פלט של Java) נמחקות, וזנב אנגלי אחרי ":"
+     * ("לא הצלחתי לקרוא את הקובץ: /tmp/x (Permission denied)") נחתך. הודעה בלי עברית בכלל — "" (המתקשר שם משפט משלו).
+     */
+    static String clean(String msg) {
+        if (msg == null) return "";
+        StringBuilder out = new StringBuilder();
+        for (String line : msg.split("\\r?\\n")) {
+            String l = line.trim();
+            if (!hasHebrew(l)) continue;
+            int colon = l.lastIndexOf(": ");
+            if (colon > 0) {
+                String tail = l.substring(colon + 2);
+                boolean technical = LATIN.matcher(tail).find() && (!hasHebrew(tail) || tail.matches("(?s)\\s*([A-Za-z]:)?[/\\\\].*"));   // אנגלית, או נתיב
+                if (technical) l = l.substring(0, colon).trim() + ".";
+            }
+            if (out.length() > 0) out.append('\n');
+            out.append(l);
+        }
+        return out.toString();
+    }
+
+    /** הסיבה בעברית לשגיאה של קבצים / תהליך (בלי ההודעה באנגלית של Java), או "" */
+    static String reason(Throwable e) {
+        if (e == null) return "";
+        String m = String.valueOf(e.getMessage());
+        String low = m.toLowerCase(java.util.Locale.ROOT);
+        if (e instanceof java.nio.file.AccessDeniedException || low.contains("permission denied") || low.contains("access is denied")
+                || low.contains("read-only") || low.contains("operation not permitted") || low.contains("cannot create") || low.contains("could not create"))
+            return "אין הרשאה לכתוב בתיקייה הזאת";
+        if (low.contains("no space left") || low.contains("not enough space") || low.contains("disk full")) return "אין מספיק מקום בדיסק";
+        if (e instanceof java.nio.file.NoSuchFileException || e instanceof java.io.FileNotFoundException || low.contains("not a directory")
+                || low.contains("no such file")) return "הקובץ או התיקייה לא נמצאו";
+        return clean(m);
+    }
+
+    /** "לא הצלחתי X" + הסיבה בעברית אם יש ("לא הצלחתי ליצור את התרגיל: אין הרשאה לכתוב בתיקייה הזאת") */
+    static String failed(String what, Throwable e) {
+        String r = reason(e);
+        return what + (r.isEmpty() ? "." : ": " + r);
+    }
+
     /** שאלה: true אם בחרו yes */
     public static boolean ask(Project project, String text, String title, String yes, String no) {
         return new Notice(project, spec(Modern.Kind.QUESTION, title, text).buttons(yes, no)).ask();

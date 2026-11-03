@@ -118,7 +118,7 @@ public final class AnswerMarks implements Disposable {
     /** מחשב מחדש את המקומות ומעדכן את הסימון (רק אם משהו השתנה) */
     void refresh(Document doc) {
         if (project.isDisposed()) return;
-        List<Range> now = ranges(doc.getCharsSequence());
+        List<Range> now = Dsviz.on() ? ranges(doc.getCharsSequence()) : Collections.<Range>emptyList();   // כבוי — בלי צהוב
         List<RangeHighlighter> old = marks.get(doc);
         if (old == null) return;
         if (same(old, now)) return;
@@ -132,6 +132,15 @@ public final class AnswerMarks implements Disposable {
             h.setThinErrorStripeMark(true);
             old.add(h);
         }
+    }
+
+    /** אחרי כיבוי / הפעלה: הצהוב נעלם / חוזר בכל המסמכים */
+    void refreshAll() {
+        List<Document> docs;
+        synchronized (marks) {
+            docs = new ArrayList<Document>(marks.keySet());
+        }
+        for (Document d : docs) refresh(d);
     }
 
     /** הסימונים שעל המסמך עכשיו (לבדיקות) */

@@ -22,8 +22,11 @@ import il.lamerhav.dsviz.Scaffold;
 public final class Actions {
     private Actions() {}
 
-    /** בסיס: מוסתרת כש-DSViz כבוי (הלחצן "כיבוי") */
-    abstract static class Base extends AnAction {
+    /**
+     * בסיס: מוסתרת כש-DSViz כבוי (הלחצן "כיבוי"). עובדות גם בזמן ש-IntelliJ סורק את הפרויקט (DumbAware) — תלמיד שפותח פרויקט
+     * ולוחץ מיד לא מקבל "not available while indexing" באנגלית; מה שבאמת צריך את האינדקס מחכה לו או אומר בעברית לנסות שוב.
+     */
+    abstract static class Base extends AnAction implements DumbAware {
         @Override
         public ActionUpdateThread getActionUpdateThread() {
             return ActionUpdateThread.BGT;
@@ -68,8 +71,18 @@ public final class Actions {
                 Say.info(project, "פתחו קובץ Java (תרגיל) ואז לחצו \"הרצה ויזואלית\".", VisualRunner.TITLE);
                 return;
             }
-            VisualRunner.run(project, (PsiJavaFile) f);
+            VisualRunner.run(project, (PsiJavaFile) f, at(e, f));
         }
+    }
+
+    /** איפה לחצו: ה-main שליד הכפתור שבצד (Location), או הסמן בעורך של הקובץ — כדי להריץ את המחלקה הזאת כשיש כמה main */
+    static com.intellij.psi.PsiElement at(AnActionEvent e, PsiFile f) {
+        com.intellij.execution.Location<?> loc = e.getData(com.intellij.execution.Location.DATA_KEY);
+        if (loc != null && loc.getPsiElement().getContainingFile() == f) return loc.getPsiElement();
+        Editor editor = e.getData(CommonDataKeys.EDITOR);
+        if (editor == null || e.getProject() == null) return null;
+        PsiFile inEditor = com.intellij.psi.PsiDocumentManager.getInstance(e.getProject()).getPsiFile(editor.getDocument());
+        return inEditor == f ? f.findElementAt(editor.getCaretModel().getOffset()) : null;
     }
 
     // ------------------------------------------------------------------ תרגיל חדש
@@ -88,7 +101,7 @@ public final class Actions {
     public static void newExercise(Project project, String preset) {
         List<ExerciseDialog.Target> targets = ProjectFiles.targets(project);
         if (targets.isEmpty()) {
-            Say.info(project, "פתחו פרויקט Java (או צרו חדש: File ← New ← Project) ונסו שוב.", "תרגיל חדש");
+            Say.info(project, "פתחו פרויקט Java (או צרו פרויקט חדש בתפריט File) ונסו שוב.", "תרגיל חדש");
             return;
         }
         ExerciseDialog d = new ExerciseDialog(project, targets, preset);
@@ -111,7 +124,7 @@ public final class Actions {
             StructureInserter.showClassInfo(project, o.type);
             return f;
         } catch (Exception ex) {
-            Say.error(project, "לא הצלחתי ליצור את התרגיל: " + ex.getMessage(), "תרגיל חדש");
+            Say.error(project, Say.failed("לא הצלחתי ליצור את התרגיל", ex), "תרגיל חדש");
             return null;
         }
     }
@@ -178,11 +191,11 @@ public final class Actions {
                 LibrarySetup.add(m);
             ProjectFiles.open(project, files.get(k), 0);
         } catch (Exception ex) {
-            Say.error(project, "לא הצלחתי להעתיק את הדוגמאות: " + ex.getMessage(), "דוגמאות פתורות");
+            Say.error(project, Say.failed("לא הצלחתי להעתיק את הדוגמאות", ex), "דוגמאות פתורות");
         }
     }
 
-    public static final class HelpAction extends Base implements DumbAware {
+    public static final class HelpAction extends Base {
         @Override
         public void actionPerformed(AnActionEvent e) {
             Help.run(e.getProject());
@@ -220,6 +233,7 @@ public final class Actions {
             Dsviz.setOn(on);
             if (p != null) {
                 if (on) LibrarySetup.ensureAll(p);
+                AnswerMarks.get(p).refreshAll();
                 com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(p).restart();
                 DsvizToolWindow.refresh(p);
             }
