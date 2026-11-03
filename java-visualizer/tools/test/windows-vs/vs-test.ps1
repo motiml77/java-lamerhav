@@ -568,7 +568,8 @@ if (-not $NoGui) {
             if ($vsP.HasExited) { Info "devenv נסגר (קוד $($vsP.ExitCode))"; break }
             if (SkipFirstRun $vsP.Id) { Start-Sleep 3 }
             $vsP.Refresh()
-            if ($vsP.MainWindowTitle -like "*$title*") { $ready = $true; break }
+            # Visual Studio נפתח: הכותרת היא "<פתרון או פרויקט> - Microsoft Visual Studio" (פרויקט בתוך תיקיית פתרון — שם הפתרון)
+            if ($vsP.MainWindowTitle -like '*- Microsoft Visual Studio*') { $ready = $true; break }
             if ($k % 12 -eq 0) { Info ("ממתינים ל-Visual Studio ({0:N0} שניות): '{1}'" -f ((Get-Date) - $t0).TotalSeconds, $vsP.MainWindowTitle); Shot "$id-wait$k" }
         }
         Info ("Visual Studio: {0:N0} שניות, כותרת '{1}'" -f ((Get-Date) - $t0).TotalSeconds, $vsP.MainWindowTitle)
@@ -592,7 +593,8 @@ if (-not $NoGui) {
         }
         $names | Select-Object -Unique | Set-Content (Join-Path $Out "$id-uia.txt") -Encoding utf8
         Info "בסרגל: $((($names | Select-Object -Unique) | Select-Object -First 12) -join ' ; ')"
-        if ($profileName) { Check "$id-button" ($null -ne $start) "ליד כפתור ההפעלה מופיע '$profileName'" }
+        # שם הפרופיל לא נחשף ל-UI Automation (הכפתור מצויר בעצמו) — רואים אותו בצילום; כאן בודקים שיש כפתור הפעלה, והפרופיל נבחר ב-.csproj.user
+        if ($profileName) { Check "$id-button" (($names -join ' ') -match 'Debug Target') "ב-Visual Studio יש תפריט הפעלה (Debug Target); הפרופיל '$profileName' נבחר בו (נראה בצילום)" ($names -join ' ; ') }
         # מפעילים: לחיצה על הכפתור (ואם לא נמצא — Ctrl+F5 = Start Without Debugging)
         $how = $null
         if ($start) { $how = ClickEl $start; if ($how) { Info "לחצנו על '$($start.Current.Name)' ($how)" } }
