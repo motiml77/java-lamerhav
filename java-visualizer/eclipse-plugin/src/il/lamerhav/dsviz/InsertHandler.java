@@ -20,8 +20,32 @@ public class InsertHandler extends AbstractHandler {
     private static final Pattern IMPORT = Pattern.compile("import\\s+unit4\\.collectionsLib\\.\\*\\s*;");
     private static final Pattern PACKAGE = Pattern.compile("(?m)^\\s*package\\s+[\\w.]+\\s*;");
 
+    /** אם offset בתוך הערה /* ... *\/ או טקסט """...""" של כמה שורות — המקום שבו היא נגמרת; אחרת -1 */
+    static int commentEnd(String t, int offset) {
+        int n = t.length(), i = 0;
+        while (i < n) {
+            char c = t.charAt(i), d = i + 1 < n ? t.charAt(i + 1) : 0;
+            if (c == '/' && d == '/') {
+                while (i < n && t.charAt(i) != '\n') i++;
+            } else if (c == '/' && d == '*' || c == '"' && t.startsWith("\"\"\"", i)) {
+                String close = c == '/' ? "*/" : "\"\"\"";
+                int j = t.indexOf(close, i + close.length());
+                j = j < 0 ? n : j + close.length();
+                if (offset > i && offset < j && t.substring(i, Math.min(j, n)).indexOf('\n') >= 0) return Math.min(j, n) - 1;
+                i = j;
+            } else if (c == '"' || c == '\'') {
+                int j = i + 1;
+                while (j < n && t.charAt(j) != c && t.charAt(j) != '\n') j += t.charAt(j) == '\\' ? 2 : 1;
+                i = j + 1;
+            } else i++;
+            if (i > offset) break;
+        }
+        return -1;
+    }
+
     @Override
     public Object execute(ExecutionEvent event) {
+        if (!Power.on()) return null;   // DSViz כבוי: גם אם הגיעו לפקודה בלי הכפתור (Quick Access, Ctrl+3) — לא עושים כלום
         Shell shell = Ui.shell(event);
         IEditorPart part = HandlerUtil.getActiveEditor(event);
         ITextEditor ed = part == null ? null : part.getAdapter(ITextEditor.class);
@@ -41,6 +65,13 @@ public class InsertHandler extends AbstractHandler {
             String indent = blank ? (lineText.isEmpty() ? "        " : lineText) : (m.find() ? m.group() : "");
 
             int insertAt = blank ? line.getOffset() : line.getOffset() + line.getLength();   // כאן ייכנס הקוד — לפי זה נבדק שהשם לא מתנגש
+            // הסמן בתוך הערה של כמה שורות (/* ... */) או טקסט של כמה שורות: הקוד נכנס אחרי סוף ההערה, ולא לתוכה
+            int commentEnd = commentEnd(doc.get(), insertAt);
+            if (commentEnd > 0) {
+                line = doc.getLineInformation(doc.getLineOfOffset(commentEnd));
+                blank = false;
+                insertAt = line.getOffset() + line.getLength();
+            }
             // שכבת הגנה: אי אפשר להכניס משתנה / פקודות מחוץ לפעולה (בגוף המחלקה או אחריה) — מזהירים ולא פותחים את החלון
             if (!NameCheck.insideFunction(doc.get(), insertAt)) {
                 Say.warn(shell, "הוסף מבנה נתונים — הסמן לא במקום הנכון",

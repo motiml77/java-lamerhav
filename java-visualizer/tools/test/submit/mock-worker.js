@@ -21,7 +21,14 @@ http.createServer((req, res) => {
       const m = /scenario:([A-Za-z0-9_-]+)/.exec(text) || /"_scenario"\s*:\s*"([A-Za-z0-9_-]+)"/.exec(text);
       const name = m ? m[1] : 'default';
       if (name === 'error') return setTimeout(() => send({ ok: false, code: 'busy', error: 'השרת עמוס כרגע. נסו שוב בעוד דקה.' }, 503), delay);
-      ex = JSON.parse(fs.readFileSync(path.join(file, name + '.json'), 'utf8'));
+      // תרחישי קצה (בדיקות Eclipse — tools/test/eclipse-it/src/.../Edge.java): לא תרגיל, 500 עם HTML, JSON שבור, ניתוק, איטי מאוד
+      if (name === 'notex') return setTimeout(() => send({ ok: false, code: 'not_exercise', error: 'לא מצאתי בקבצים תרגיל תכנות. שלחו את דף התרגיל (צילום ברור או PDF).' }, 422), delay);
+      if (name === 'http500') return setTimeout(() => { res.writeHead(500, { 'content-type': 'text/html' }); res.end('<html><body>Internal Server Error</body></html>'); }, delay);
+      if (name === 'badjson') return setTimeout(() => { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok": true, "exercise": {"title": '); }, delay);
+      if (name === 'reset') return setTimeout(() => req.socket.destroy(), delay);
+      if (name === 'slow') return setTimeout(() => send({ ok: false, code: 'busy', error: 'איטי' }, 503), 60000);
+      try { ex = JSON.parse(fs.readFileSync(path.join(file, name + '.json'), 'utf8')); }
+      catch (e) { return send({ ok: false, code: 'busy', error: 'אין תרחיש ' + name + ' בשרת המדומה.' }, 500); }   // לא נופלים
     } else ex = JSON.parse(fs.readFileSync(file, 'utf8'));
     setTimeout(() => send({ ok: true, exercise: ex }), req.url === '/v1/repair' ? repairDelay : delay);
   });

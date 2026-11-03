@@ -18,6 +18,7 @@ import org.eclipse.ui.handlers.HandlerUtil;
 public class ExamplesHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) {
+        if (!Power.on()) return null;   // DSViz כבוי: גם אם הגיעו לפקודה בלי הכפתור (Quick Access, Ctrl+3) — לא עושים כלום
         Shell shell = Ui.shell(event);
         try {
             IJavaProject jp = chooseProject(shell, Ui.currentProject(event));

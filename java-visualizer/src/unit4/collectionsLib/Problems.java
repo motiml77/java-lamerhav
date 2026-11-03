@@ -23,6 +23,13 @@ final class Problems {
     private static final Pattern NPE_VAR = Pattern.compile("because \"([\\w$.<>]+)\" is null");
     private static final Pattern NPE_RET = Pattern.compile("because the return value of \"(?:[\\w$]+\\.)*([\\w$]+)\\.([\\w$]+)\\([^\"]*\\)\" is null");
     private static final Pattern INDEX = Pattern.compile("Index (-?\\d+) out of bounds for length (\\d+)");
+    private static final Pattern CAST = Pattern.compile("class ([\\w.$]+) cannot be cast to class ([\\w.$]+)");
+    private static final Pattern INPUT = Pattern.compile("For input string: \"([^\"]{0,40})\"");
+
+    /** java.lang.Integer → Integer, Outer$Inner → Inner */
+    private static String simple(String cls) {
+        return cls.replaceAll("^.*[.$]", "");
+    }
 
     /** מוסיף לצעד השגיאה את הכרטיס (בראש התצוגה), ומסמן את המבנה שנכשל. מחזיר את הכרטיס (או null) */
     static ProblemView attach(Step s) {
@@ -194,6 +201,47 @@ final class Problems {
             p.what = "אין עוד קלט";
             p.why = "התוכנית ניסתה לקרוא קלט, אבל הקלט נגמר (למשל אחרי שלוחצים \"סיום הקלט\").";
             p.hint = "בודקים קודם שיש עוד קלט:  " + code("while (in.hasNextInt())");
+            return p;
+        }
+        // שגיאות נפוצות נוספות — הסבר בעברית במקום ההודעה באנגלית של Java
+        if (t.startsWith("IndexOutOfBoundsException")) {   // ArrayList.get / remove
+            p.kind = "index";
+            p.what = "גישה למקום שלא קיים ברשימה";
+            p.why = m.find() ? "ברשימה יש " + m.group(2) + " איברים: מ-0 עד " + (Integer.parseInt(m.group(2)) - 1) + "." : "האינדקס קטן מ-0, או גדול מהמקום האחרון.";
+            p.hint = "בלולאה על רשימה:  " + code("i < list.size()") + "  (ולא <=).";
+            return p;
+        }
+        Matcher cast = CAST.matcher(t);
+        if (t.startsWith("ClassCastException")) {
+            p.what = cast.find() ? "אי אפשר להפוך " + code(simple(cast.group(1))) + " ל-" + code(simple(cast.group(2))) : "המרה (casting) לטיפוס לא מתאים";
+            p.why = "בסוגריים של ההמרה כתוב טיפוס אחר מהטיפוס האמיתי של האובייקט.";
+            p.hint = "בודקים לפני ההמרה:  " + code("if (x instanceof Integer)");
+            return p;
+        }
+        if (t.startsWith("NumberFormatException")) {
+            Matcher in = INPUT.matcher(t);
+            p.what = in.find() ? "אי אפשר להפוך את " + code("\"" + in.group(1) + "\"") + " למספר" : "אי אפשר להפוך את הטקסט למספר";
+            p.why = code("Integer.parseInt") + " מקבל רק ספרות (אולי עם מינוס) — בלי אותיות, רווחים או נקודה.";
+            p.hint = "בודקים את הטקסט לפני ההמרה, או קוראים מספר ישר עם " + code("nextInt()") + ".";
+            return p;
+        }
+        if (t.startsWith("FileNotFoundException")) {
+            p.what = "הקובץ לא נמצא";
+            p.why = "אין קובץ בשם הזה בתיקייה שבה התוכנית רצה (בדרך כלל תיקיית הפרויקט).";
+            p.hint = "בודקים את השם ואת הסיומת, ושמים את הקובץ בתיקיית הפרויקט.";
+            return p;
+        }
+        if (t.startsWith("NegativeArraySizeException")) {
+            p.kind = "index";
+            p.what = "יצירת מערך בגודל שלילי";
+            p.why = "הגודל שבתוך " + code("new int[...]") + " יצא קטן מ-0.";
+            p.hint = "בודקים את החישוב של הגודל לפני היצירה.";
+            return p;
+        }
+        if (t.startsWith("OutOfMemoryError")) {
+            p.what = "הזיכרון נגמר";
+            p.why = "התוכנית יצרה יותר מדי אובייקטים או מערך ענקי — אולי לולאה שמוסיפה בלי סוף.";
+            p.hint = "בודקים שהלולאה שמוסיפה איברים נגמרת.";
             return p;
         }
         p.what = "התוכנית נעצרה בשגיאה";

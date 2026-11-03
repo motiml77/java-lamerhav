@@ -37,6 +37,7 @@ public class RunVisualHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) {
+        if (!Power.on()) return null;   // DSViz כבוי: גם אם הגיעו לפקודה בלי הכפתור (Quick Access, Ctrl+3) — לא עושים כלום
         Shell shell = Ui.shell(event);
         IFile file = Ui.currentFile(event);
         if (file == null || !"java".equals(file.getFileExtension())) {
@@ -65,11 +66,45 @@ public class RunVisualHandler extends AbstractHandler {
                 warn(shell, HandlerUtil.getActiveWorkbenchWindow(event).getActivePage(), errors);
                 return null;
             }
+            String bad = unencodable(main, file);
+            if (bad != null) {
+                Say.warn(shell, "הרצה ויזואלית", "במחשב הזה Java לא יכולה להריץ תוכנית שיש בשם שלה עברית: " + bad + "\n\n"
+                        + "שנו את השם לאנגלית (קליק ימני על הקובץ או על התיקייה ← Refactor ← Rename) ולחצו שוב \"הרצה ויזואלית\".");
+                return null;
+            }
+            if (launchedJustNow(main, file.getProject().getName())) return null;   // לחיצה כפולה — חלון אחד
             DebugUITools.launch(config(JavaCore.create(file.getProject()), main), ILaunchManager.RUN_MODE);
         } catch (CoreException e) {
             Ui.error(shell, "לא הצלחתי להריץ.", e);
         }
         return null;
+    }
+
+    /**
+     * שם המחלקה ונתיב הפרויקט עוברים ל-Java בשורת הפקודה. ב-Windows שלא מוגדר לעברית (קידוד המערכת לא עברי) אותיות עבריות
+     * הופכות ל-"???" ו-Java לא מוצאת את המחלקה ("Could not find or load main class"). מחזיר את השם הבעייתי, או null.
+     */
+    static String unencodable(String mainClass, IFile file) {
+        String enc = System.getProperty("dsviz.it.jnu", System.getProperty("sun.jnu.encoding", ""));   // dsviz.it.jnu — רק לבדיקות
+        java.nio.charset.CharsetEncoder ce;
+        try {
+            ce = java.nio.charset.Charset.forName(enc).newEncoder();
+        } catch (Exception e) {
+            return null;   // קידוד לא ידוע — לא חוסמים
+        }
+        if (!ce.canEncode(mainClass)) return mainClass;
+        org.eclipse.core.runtime.IPath loc = file.getProject().getLocation();
+        if (loc != null && !ce.canEncode(loc.toOSString())) return loc.toOSString();
+        return null;
+    }
+
+    private static final java.util.Map<String, Long> lastLaunch = new java.util.HashMap<String, Long>();
+
+    /** אותה מחלקה כבר הופעלה לפני פחות משתי שניות (לחיצה כפולה על הכפתור) — לא פותחים חלון שני */
+    static synchronized boolean launchedJustNow(String main, String project) {
+        long now = System.currentTimeMillis();
+        Long last = lastLaunch.put(project + "/" + main, now);
+        return last != null && now - last < 2000;
     }
 
     /** שגיאה אחת שחוסמת את ההרצה: איפה, משפט אחד בעברית, ושורת הקוד */
@@ -434,7 +469,9 @@ public class RunVisualHandler extends AbstractHandler {
         else wc.removeAttribute(IJavaLaunchConfigurationConstants.ATTR_JRE_CONTAINER_PATH);
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_DEFAULT_CLASSPATH, false);
         wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_CLASSPATH, launchClasspath(jp));
-        wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_VM_ARGUMENTS, VM_ARGS);
+        // ‎-Ddsviz.it.vmargs=...‎ — רק לבדיקות (tools/test/eclipse-it, למשל הרצה בלי חלון: ‎-Djava.awt.headless=true‎)
+        String extra = System.getProperty("dsviz.it.vmargs", "").trim();
+        wc.setAttribute(IJavaLaunchConfigurationConstants.ATTR_VM_ARGUMENTS, extra.isEmpty() ? VM_ARGS : VM_ARGS + " " + extra);
         wc.setAttribute(IDebugUIConstants.ATTR_CONSOLE_ENCODING, "UTF-8");
         wc.setAttribute(IDebugUIConstants.ATTR_PRIVATE, true);
     }

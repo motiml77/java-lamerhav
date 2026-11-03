@@ -37,6 +37,7 @@ import org.eclipse.ui.handlers.HandlerUtil;
 public class SubmitHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) {
+        if (!Power.on()) return null;   // DSViz כבוי: גם אם הגיעו לפקודה בלי הכפתור (Quick Access, Ctrl+3) — לא עושים כלום
         Shell shell = Ui.shell(event);
         IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
         WorkerClient client = WorkerClient.configured();

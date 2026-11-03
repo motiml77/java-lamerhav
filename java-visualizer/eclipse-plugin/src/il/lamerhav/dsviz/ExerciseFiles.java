@@ -90,7 +90,7 @@ final class ExerciseFiles {
         try {
             data = Files.readAllBytes(f.toPath());
         } catch (IOException e) {
-            throw new UserError("לא הצלחתי לקרוא את הקובץ " + name + ": " + e.getMessage());
+            throw new UserError("לא הצלחתי לקרוא את הקובץ " + name + " (אולי הוא פתוח בתוכנה אחרת?).");
         }
         return fromBytes(name, ext, data);
     }
@@ -176,7 +176,7 @@ final class ExerciseFiles {
             }
             return new Part("image/jpeg", jpeg(rgb, 0.88f));
         } catch (IOException e) {
-            throw new UserError("לא הצלחתי להכין את התמונה " + name + ": " + e.getMessage());
+            throw new UserError("לא הצלחתי להכין את התמונה " + name + ". שלחו אותה כ-PNG או JPG.");
         }
     }
 

@@ -79,19 +79,50 @@ public final class LineByLine {
         if (isChild()) {
             Recorder.initLineMode();
             Recorder.preload();
+            Recorder.tracedThread = Thread.currentThread();   // ה-Tracer לא צועד בעבודה של הספרייה בחוט הזה (busyStart)
         }
         // קלט מהמקלדת (Scanner): System.in מתחלף בזרם שמחכה גם להקלדה בחלון — לפני main, כי Scanner שומר את הזרם כשהוא נוצר
         Keyboard.install(!java.awt.GraphicsEnvironment.isHeadless() && !Recorder.textMode);
-        Method main = Class.forName(mainClass).getMethod("main", String[].class);
+        Method main;
+        try {
+            main = Class.forName(mainClass).getMethod("main", String[].class);
+            try {
+                main.setAccessible(true);   // מחלקה בלי public (class Targil { ... }) — java רגיל מריץ אותה, וגם אנחנו
+            } catch (RuntimeException inModule) {
+                // מחלקה ב-module שלא פתוח — public רגיל עובד גם בלי זה
+            }
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+            // למשל שם בעברית ב-Windows שלא מוגדר לעברית: השם מגיע כ-"???" — הודעה בעברית במקום ההודעה של Java
+            System.err.println("לא מצאתי את המחלקה " + mainClass + " להרצה. אם בשם המחלקה, החבילה או התיקייה יש עברית — "
+                    + "שנו את השם לאנגלית ונסו שוב.");
+            Recorder.active = false;
+            System.exit(1);
+            return;
+        }
         try {
             main.invoke(null, (Object) args);
         } catch (InvocationTargetException e) {
-            Recorder.failed(e.getCause());   // השגיאה כצעד אחרון בחלון — עם הסבר מה קרה (Problems)
-            throw e.getCause();
+            Throwable c = e.getCause();
+            Recorder.failed(c);   // השגיאה כצעד אחרון בחלון — עם הסבר מה קרה (Problems)
+            // בקונסול: שורה בעברית, ובהודעה של Java רק השורות בקוד של התלמיד (בלי ההרצה דרך reflection ו-LineByLine)
+            if (isChild() && !Recorder.textMode) System.err.println("התוכנית נעצרה בשגיאה — ההסבר בחלון ההרצה הוויזואלית (הצעד האחרון).");
+            onlyStudentFrames(c);
+            throw c;
         } finally {
             mainDone();
             Recorder.drainLines();   // השורות האחרונות (אחרי הפעולה האחרונה על מבנה)
         }
+    }
+
+    /** משאיר במחסנית של השגיאה רק את השורות בקוד של התלמיד (אם אין אף אחת — לא משנה כלום) */
+    static void onlyStudentFrames(Throwable t) {
+        java.util.List<StackTraceElement> keep = new java.util.ArrayList<StackTraceElement>();
+        for (StackTraceElement s : t.getStackTrace()) {
+            String c = s.getClassName();
+            if (c.startsWith("java.") || c.startsWith("javax.") || c.startsWith("jdk.") || c.startsWith("sun.") || c.startsWith("unit4.collectionsLib.")) continue;
+            keep.add(s);
+        }
+        if (!keep.isEmpty()) t.setStackTrace(keep.toArray(new StackTraceElement[0]));
     }
 
     /** ה-JdiTracer שם כאן נקודת עצירה: main של התלמיד הסתיים — מפסיקים לעקוב שורה-שורה */
