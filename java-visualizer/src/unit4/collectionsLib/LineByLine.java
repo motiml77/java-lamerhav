@@ -86,6 +86,11 @@ public final class LineByLine {
         Method main;
         try {
             main = Class.forName(mainClass).getMethod("main", String[].class);
+            try {
+                main.setAccessible(true);   // מחלקה בלי public (class Targil { ... }) — java רגיל מריץ אותה, וגם אנחנו
+            } catch (RuntimeException inModule) {
+                // מחלקה ב-module שלא פתוח — public רגיל עובד גם בלי זה
+            }
         } catch (ClassNotFoundException | NoClassDefFoundError e) {
             // למשל שם בעברית ב-Windows שלא מוגדר לעברית: השם מגיע כ-"???" — הודעה בעברית במקום ההודעה של Java
             System.err.println("לא מצאתי את המחלקה " + mainClass + " להרצה. אם בשם המחלקה, החבילה או התיקייה יש עברית — "
