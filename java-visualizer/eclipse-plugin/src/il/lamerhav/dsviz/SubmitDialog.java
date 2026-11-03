@@ -636,7 +636,7 @@ public class SubmitDialog extends Dialog {
             IContainer src = ProjectSetup.prepare(jp, Ui.resolver(getShell()));
             build = new SubmitHandler.Build(client, raw, sourceNames(), jp, src);
         } catch (CoreException e) {
-            failed("לא הצלחתי להכין את הפרויקט: " + e.getStatus().getMessage());
+            failed(buildProblem(e, project));
             return;
         }
         building = true;
@@ -648,12 +648,11 @@ public class SubmitDialog extends Dialog {
             try {
                 b.run(monitor);
             } catch (java.lang.reflect.InvocationTargetException e) {
-                Throwable c = e.getCause();
-                error = c != null && c.getMessage() != null ? c.getMessage() : e.getMessage();
+                error = buildProblem(e.getCause() != null ? e.getCause() : e, b.jp);
             } catch (InterruptedException | OperationCanceledException e) {
                 stopped = true;
             } catch (RuntimeException e) {
-                error = e.toString();
+                error = buildProblem(e, b.jp);
             }
             final String fe = error;
             final boolean fs = stopped || monitor.isCanceled();
@@ -673,7 +672,7 @@ public class SubmitDialog extends Dialog {
             return;
         }
         if (err != null) {
-            failed("לא הצלחתי ליצור את התרגיל: " + err);
+            failed(err);
             return;
         }
         stages.finish();
@@ -683,6 +682,23 @@ public class SubmitDialog extends Dialog {
             setReturnCode(OK);
             close();
         });
+    }
+
+    /**
+     * למה הבנייה נכשלה — במשפט בעברית (ההודעה של Eclipse, למשל "Resource '/X' is not open", נכתבת רק ליומן של Eclipse):
+     * הפרויקט נמחק / נסגר בזמן השליחה, או שאי אפשר לכתוב לתיקייה שלו
+     */
+    static String buildProblem(Throwable t, IJavaProject project) {
+        try {
+            org.eclipse.core.runtime.Platform.getLog(SubmitDialog.class).log(new org.eclipse.core.runtime.Status(
+                    org.eclipse.core.runtime.IStatus.WARNING, "il.lamerhav.dsviz", "שליחת תרגיל: הבנייה נכשלה", t));
+        } catch (Throwable ignored) {
+            // בלי יומן
+        }
+        org.eclipse.core.resources.IProject p = project == null ? null : project.getProject();
+        if (p != null && !p.exists()) return "הפרויקט " + p.getName() + " נמחק בזמן השליחה. בחרו פרויקט אחר ונסו שוב.";
+        if (p != null && !p.isOpen()) return "הפרויקט " + p.getName() + " נסגר בזמן השליחה. פתחו אותו (קליק ימני ← Open Project) ונסו שוב.";
+        return "לא הצלחתי לכתוב את קובצי התרגיל לפרויקט — אולי התיקייה שלו לקריאה בלבד. נסו שוב, או בחרו פרויקט אחר.";
     }
 
     /** שגיאה: שורה אדומה אחת, והכפתור "נסו שוב" (שחוזר לטופס עם אותם קבצים) */
