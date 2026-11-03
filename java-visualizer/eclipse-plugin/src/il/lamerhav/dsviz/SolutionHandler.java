@@ -22,6 +22,7 @@ import org.eclipse.ui.texteditor.ITextEditor;
 public class SolutionHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) {
+        if (!Power.on()) return null;   // DSViz כבוי: גם אם הגיעו לפקודה בלי הכפתור (Quick Access, Ctrl+3) — לא עושים כלום
         Shell shell = Ui.shell(event);
         IEditorPart part = HandlerUtil.getActiveEditor(event);
         ITextEditor editor = part instanceof ITextEditor ? (ITextEditor) part : part == null ? null : part.getAdapter(ITextEditor.class);

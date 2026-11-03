@@ -37,6 +37,7 @@ public class RunVisualHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) {
+        if (!Power.on()) return null;   // DSViz כבוי: גם אם הגיעו לפקודה בלי הכפתור (Quick Access, Ctrl+3) — לא עושים כלום
         Shell shell = Ui.shell(event);
         IFile file = Ui.currentFile(event);
         if (file == null || !"java".equals(file.getFileExtension())) {
