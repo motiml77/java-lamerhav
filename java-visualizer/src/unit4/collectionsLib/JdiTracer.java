@@ -564,7 +564,7 @@ final class JdiTracer {
         String n = o.referenceType().name();
         return !(o instanceof StringReference) && !(o instanceof ArrayReference) && o.referenceType() instanceof ClassType
                 && !n.startsWith("java.") && !n.startsWith("javax.") && !n.startsWith("jdk.") && !n.startsWith("sun.")
-                && !n.startsWith("com.sun.") && !n.startsWith("unit4.collectionsLib.") && !((ClassType) o.referenceType()).isEnum();
+                && !n.startsWith("com.sun.") && !n.startsWith("unit4.collectionsLib.") && !n.contains("$$Lambda") && !((ClassType) o.referenceType()).isEnum();
     }
 
     /** תיאור אובייקט של מחלקה כללית: \u000E סוג \u000F מאפיין \u0010 ערך ... (ה-Recorder בונה ממנו כרטיס) */
