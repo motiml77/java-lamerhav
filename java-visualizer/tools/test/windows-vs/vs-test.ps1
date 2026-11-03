@@ -390,7 +390,12 @@ function VerifyCreated([string]$id, $done, [bool]$expectSolutionCheck) {
     $cs = @(Get-ChildItem $dir -Filter '*.cs' -ErrorAction SilentlyContinue)
     Check "$id-classes" ($cs.Count -gt 0) "נוצרו מחלקות: $(($cs | ForEach-Object Name) -join ', ')"
     $here = @($cs | Select-String -Pattern 'כאן עונים' -SimpleMatch)
-    Check "$id-stubs" ($here.Count -gt 0 -or $done.tasks -eq 0) "יש מקום מסומן לתלמיד ('כאן עונים'): $($here.Count) · סעיפים: $($done.tasks)"
+    Check "$id-stubs" ($here.Count -gt 0 -or $done.tasks -le 1) "יש מקום מסומן לתלמיד ('כאן עונים'): $($here.Count) · סעיפים: $($done.tasks)"
+    # הקוד שנוצר — לארטיפקט (לבדיקה ידנית) ולתחילת הלוג
+    $keep = Join-Path $Out "created\$id"
+    New-Item -ItemType Directory -Force $keep | Out-Null
+    foreach ($kf in @(Get-ChildItem $dir -Recurse -File | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' -and $_.Extension -in '.cs', '.csproj', '.json' })) { Copy-Item $kf.FullName (Join-Path $keep $kf.Name) -Force }
+    if ($cs.Count -gt 0) { Info ("[$id] התחלת $($cs[0].Name):`r`n" + ((Get-Content $cs[0].FullName -TotalCount 30 -Encoding utf8) -join "`r`n")) }
     Check "$id-main" (($cs | Select-String -Pattern 'static void Main|static int Main|Main\(' | Select-Object -First 1) -ne $null) "יש Main"
     Check "$id-focus" ($done.focus -and (Test-Path $done.focus)) "הקובץ שנפתח לתלמיד (הסמן בסעיף א) קיים: $($done.focus) שורה $($done.line)"
     $errs = @($done.errors)
@@ -523,15 +528,23 @@ if (-not $NoGui) {
         $cond = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ProcessIdProperty, $vsPid)
         try { return @([Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Descendants, $cond)) } catch { return @() }
     }
-    # בהפעלה ראשונה של Visual Studio במחשב חדש: חלון התחברות, בחירת ערכת נושא וכו'. מדלגים עליהם כמו תלמיד ("Skip and add accounts later")
+    # בהפעלה ראשונה של Visual Studio במחשב חדש: חלון התחברות, בחירת ערכת נושא וכו'. מדלגים עליהם כמו תלמיד ("Skip and add accounts later").
+    # בלי ללחוץ על ה-X של חלון ההתחברות — הוא שואל "Are you sure you want to exit?" וסוגר את Visual Studio
+    function ElName($el) { try { return $el.Current.Name } catch { return '' } }
     function SkipFirstRun([int]$vsPid) {
-        $skip = 'Skip and add accounts later|Not now, maybe later|Start Visual Studio|^Skip$|Continue without code|No thanks|^Close$'
-        foreach ($el in (VsElements $vsPid)) {
-            $n = ''
-            try { $n = $el.Current.Name } catch { }
-            if ($n -and $n -match $skip -and $el.Current.ControlType.ProgrammaticName -match 'Button|Hyperlink|Text') {
-                $how = ClickEl $el
-                if ($how) { Info "חלון הפעלה ראשונה: לחצנו על '$n' ($how)"; return $true }
+        $els = VsElements $vsPid
+        foreach ($el in $els) {   # אם יצא חלון "לצאת מ-Visual Studio?" — עונים "No"
+            if ((ElName $el) -match 'Are you sure you want to exit') {
+                foreach ($b in $els) { if ((ElName $b) -eq 'No' -and $b.Current.ControlType.ProgrammaticName -match 'Button') { $how = ClickEl $b; Info "ענינו 'No' לשאלת היציאה ($how)"; return $true } }
+            }
+        }
+        foreach ($pat in @('Skip and add accounts later', 'Not now, maybe later', 'Start Visual Studio', 'Continue without code')) {
+            foreach ($el in $els) {
+                $n = ElName $el
+                if ($n -and $n -match $pat -and $el.Current.ControlType.ProgrammaticName -match 'Button|Hyperlink|Text') {
+                    $how = ClickEl $el
+                    if ($how) { Info "חלון הפעלה ראשונה: לחצנו על '$n' ($how)"; return $true }
+                }
             }
         }
         return $false
