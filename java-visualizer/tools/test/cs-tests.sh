@@ -476,6 +476,16 @@ printf '{ "profiles": { oops\n' > "$W/new8/Properties/launchSettings.json"
 msb "$W/new8" | grep -q 'Build succeeded' && [ "$(cat "$W/new8/Properties/launchSettings.json")" = '{ "profiles": { oops' ] \
     && echo "אידמפוטנטי, ו-launchSettings.json פגום לא שובר את הבנייה (והקובץ לא נדרס)" || { echo "launchSettings.json פגום: בעיה"; exit 1; }
 
+# ט2. פרופיל מגרסה ישנה ("$(ProjectDir)" — ב-Windows הנתיב מגיע עם מרכאה בסוף): --ensure-profile מתקן ל-"$(ProjectDir).",
+#     ו-dsviz-cs מקבל גם נתיב עם מרכאה בסוף (C:\...\Targil2") — בלי חריגה שעוצרת את Visual Studio
+sed -i 's|"$(ProjectDir)\.\\"|"$(ProjectDir)\\"|' "$W/new2/Properties/launchSettings.json"
+grep -q '"\\"$(ProjectDir)\\""' "$W/new2/Properties/launchSettings.json" || { echo "הכנת פרופיל ישן נכשלה"; cat "$W/new2/Properties/launchSettings.json"; exit 1; }
+viz --ensure-profile "$W/new2" && grep -q '"\\"$(ProjectDir).\\""' "$W/new2/Properties/launchSettings.json" && grep -q '"שלי"' "$W/new2/Properties/launchSettings.json" \
+    || { echo "פרופיל ישן לא תוקן"; cat "$W/new2/Properties/launchSettings.json"; exit 1; }
+viz "$W/new8/\"" --trace "$W/q.trace" > "$W/q.out" 2>&1; rc=$?
+[ $rc -ne 3 ] && ! grep -q 'Unhandled exception' "$W/q.out" && grep -q 'hi' "$W/q.out" \
+    && echo "פרופיל ישן תוקן ל-\"\$(ProjectDir).\", ונתיב עם מרכאה בסוף עובד" || { echo "נתיב עם מרכאה בסוף: נכשל ($rc)"; cat "$W/q.out"; exit 1; }
+
 # י. כמה מסגרות (TargetFrameworks) — הבנייה החיצונית לא נשברת, והבנייה הפנימית מקבלת הכול
 rm -rf "$W/new9" && mkdir -p "$W/new9"
 printf 'using System;\nusing Unit4.CollectionsLib;\nConsole.WriteLine(new Stack<int>().IsEmpty());\n' > "$W/new9/Program.cs"

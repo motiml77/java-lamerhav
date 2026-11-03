@@ -75,6 +75,7 @@ ShowUninstDetails show
 Var CODE          ; הנתיב ל-code.cmd של VS Code (ריק אם לא נמצא)
 Var ECLIPSES      ; כמה התקנות Eclipse קיבלו את התוסף
 Var EXTS          ; תוספים של Microsoft ל-VS Code שמורידים ברקע (מופרדים ברווח)
+Var UPDATING      ; 1 — עדכון אוטומטי (/UPDATE): בסוף מופיע חלון קטן "DSViz עודכן"
 Var FORKS         ; VS Code Insiders / VSCodium / Cursor שקיבלו את התוסף (שמות, מופרדים ברווח; ריק אם אין)
 
 
@@ -297,6 +298,7 @@ Section "-core"
   File "icon.ico"
   File "update.ps1"
   File "intellij.ps1"
+  File "notify.ps1"
   File "clean-eclipse.ps1"
   ; התוסף ל-IntelliJ IDEA (התיקייה dsviz-intellij כמו שהיא בתוך plugins). הספרייה (runtime\dsviz.jar) — אותו קובץ כמו $INSTDIR\dsviz.jar,
   ; מועתק במחשב ולא נכלל פעמיים בהתקנה
@@ -515,6 +517,9 @@ Function .onInit
   ClearErrors
   ${GetOptions} $R0 "/UPDATE" $R3
   ${IfNot} ${Errors}
+    StrCpy $UPDATING "1"
+  ${EndIf}
+  ${If} $UPDATING == "1"
   ${AndIf} ${FileExists} "$INSTDIR\lang.txt"
     FileOpen $R4 "$INSTDIR\lang.txt" r
     FileRead $R4 $R1
@@ -536,6 +541,14 @@ Function .onInit
     ${If} $R2 == "1"
       !insertmacro SelectSection ${SEC_CS}
     ${EndIf}
+  ${EndIf}
+FunctionEnd
+
+; עדכון אוטומטי שהסתיים: חלון קטן בפינה — "DSViz עודכן לגרסה החדשה" (נעלם לבד, לא לוקח פוקוס). לא מחכים לו
+Function .onInstSuccess
+  ${If} $UPDATING == "1"
+  ${AndIf} ${FileExists} "$INSTDIR\notify.ps1"
+    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\notify.ps1" -State done'
   ${EndIf}
 FunctionEnd
 

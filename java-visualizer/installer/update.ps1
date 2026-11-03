@@ -86,7 +86,15 @@ try {
     if (EclipseRunning) { Log "Eclipse עדיין פתוח — ננסה בפעם הבאה"; exit 0 }
 
     Log "מתקין את הגרסה החדשה..."
-    $p = Start-Process -FilePath $exe -ArgumentList '/S', '/UPDATE' -PassThru -Wait -WindowStyle Hidden
+    $p = Start-Process -FilePath $exe -ArgumentList '/S', '/UPDATE' -PassThru -WindowStyle Hidden
+    # חלון קטן בפינה: "DSViz מתעדכן לגרסה חדשה…" — נסגר לבד כשההתקנה נגמרת; בסופה ההתקנה מראה "DSViz עודכן"
+    try {
+        $notify = Join-Path $dir 'notify.ps1'
+        if (Test-Path -LiteralPath $notify) {
+            Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$notify`"", '-State', 'updating', '-WatchPid', $p.Id
+        }
+    } catch { }
+    $p.WaitForExit()
     Log "ההתקנה הסתיימה (קוד $($p.ExitCode))"
     Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue
 } catch {

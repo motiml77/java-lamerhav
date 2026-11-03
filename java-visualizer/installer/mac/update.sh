@@ -63,6 +63,12 @@ if ! curl -fsSL --retry 2 --connect-timeout 20 --max-time 60 -o "$TMP/v.json" "$
     echo "offline / no version file ($BASE)"; return 0
 fi
 jget() { sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\{0,1\}\([^\",}]*\)\"\{0,1\}.*/\1/p" "$2" | head -1; }
+# הודעה קטנה בפינה של המסך (מרכז ההתראות של macOS) — בזמן עדכון אוטומטי ובסופו. בלי מסך / בבדיקות — כלום
+notify() {
+    [ -n "${DSVIZ_NO_NOTIFY:-}" ] && return 0
+    command -v osascript >/dev/null 2>&1 || return 0
+    osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1 || true
+}
 REMOTE=$(jget build "$TMP/v.json" | tr -cd '0-9')
 LOCAL=$(cat "$APP/build.txt" 2>/dev/null | tr -cd '0-9')
 echo "installed: ${LOCAL:-none}  published: ${REMOTE:-?}  channel: $CHANNEL"
@@ -73,7 +79,8 @@ if [ -n "$REMOTE" ] && { [ -z "$LOCAL" ] || [ "$REMOTE" -gt "$LOCAL" ]; }; then
     GOT=$(shasum -a 256 "$TMP/install.sh" 2>/dev/null | awk '{print $1}')
     [ "$GOT" = "$SHA" ] || { echo "installer checksum mismatch ($GOT != $SHA)"; return 0; }
     echo "updating to build $REMOTE"
-    /bin/bash "$TMP/install.sh" --update $AFTER
+    notify "DSViz מתעדכן לגרסה חדשה…" "זה לוקח כדקה, ברקע. לא צריך לעשות כלום."
+    if /bin/bash "$TMP/install.sh" --update $AFTER; then notify "DSViz עודכן לגרסה החדשה" "אפשר להמשיך לעבוד כרגיל."; fi
 elif [ -f "$APP/eclipse-pending" ] && [ -x "$APP/install.sh" ]; then
     echo "completing the Eclipse plugin"
     /bin/bash "$APP/install.sh" --update --no-download $AFTER
