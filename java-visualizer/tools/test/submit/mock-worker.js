@@ -27,7 +27,8 @@ http.createServer((req, res) => {
       if (name === 'badjson') return setTimeout(() => { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok": true, "exercise": {"title": '); }, delay);
       if (name === 'reset') return setTimeout(() => req.socket.destroy(), delay);
       if (name === 'slow') return setTimeout(() => send({ ok: false, code: 'busy', error: 'איטי' }, 503), 60000);
-      ex = JSON.parse(fs.readFileSync(path.join(file, name + '.json'), 'utf8'));
+      try { ex = JSON.parse(fs.readFileSync(path.join(file, name + '.json'), 'utf8')); }
+      catch (e) { return send({ ok: false, code: 'busy', error: 'אין תרחיש ' + name + ' בשרת המדומה.' }, 500); }   // לא נופלים
     } else ex = JSON.parse(fs.readFileSync(file, 'utf8'));
     setTimeout(() => send({ ok: true, exercise: ex }), req.url === '/v1/repair' ? repairDelay : delay);
   });

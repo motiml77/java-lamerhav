@@ -94,10 +94,15 @@ public class Edge implements IApplication {
             @Override
             public void logging(IStatus s, String plugin) {
                 if (s.getSeverity() < IStatus.ERROR) return;
+                if (String.valueOf(s.getMessage()).contains("no underlying browser")) return;   // אין WebKit ב-Xvfb (חלון של Eclipse, לא שלנו)
                 String t = s.getMessage() + (s.getException() == null ? "" : " " + s.getException());
                 StringBuilder trace = new StringBuilder();
                 if (s.getException() != null) for (StackTraceElement e : s.getException().getStackTrace()) trace.append(e).append(' ');
-                if (t.contains("il.lamerhav") || trace.indexOf("il.lamerhav.dsviz") >= 0 || "il.lamerhav.dsviz".equals(plugin))
+                // תקלה של Eclipse עצמו בכל עריכה של מסמך ב-Xvfb (Undo של חלון בלי הקשר) — לא שלנו
+                if (trace.indexOf("OperationHistoryActionHandler$HistoryListener") >= 0) return;
+                // רק מה שקשור לתוסף (לא לבדיקה עצמה — il.lamerhav.dsviz.it, למשל doc.set כשמחזירים קובץ למקור)
+                if (t.contains("il.lamerhav") || java.util.regex.Pattern.compile("il\\.lamerhav\\.dsviz\\.(?!it\\.)").matcher(trace).find()
+                        || "il.lamerhav.dsviz".equals(plugin))
                     logged.add(plugin + ": " + t + " @ " + trace.substring(0, Math.min(400, trace.length())));
             }
         });
@@ -105,14 +110,14 @@ public class Edge implements IApplication {
         DebugPlugin.getDefault().addDebugEventListener(events -> {
             for (org.eclipse.debug.core.DebugEvent ev : events) {
                 if (ev.getKind() != org.eclipse.debug.core.DebugEvent.CREATE || !(ev.getSource() instanceof IProcess)) continue;
-                IProcess p = (IProcess) ev.getSource();
+                IProcess pr = (IProcess) ev.getSource();
                 StringBuffer b = new StringBuffer();
-                outputs.put(p, b);
-                if (p.getStreamsProxy() == null) continue;
+                outputs.put(pr, b);
+                if (pr.getStreamsProxy() == null) continue;
                 org.eclipse.debug.core.IStreamListener l = (text, mon) -> b.append(text);
-                b.append(p.getStreamsProxy().getOutputStreamMonitor().getContents()).append(p.getStreamsProxy().getErrorStreamMonitor().getContents());
-                p.getStreamsProxy().getOutputStreamMonitor().addListener(l);
-                p.getStreamsProxy().getErrorStreamMonitor().addListener(l);
+                b.append(pr.getStreamsProxy().getOutputStreamMonitor().getContents()).append(pr.getStreamsProxy().getErrorStreamMonitor().getContents());
+                pr.getStreamsProxy().getOutputStreamMonitor().addListener(l);
+                pr.getStreamsProxy().getErrorStreamMonitor().addListener(l);
             }
         });
         display = PlatformUI.createDisplay();
@@ -668,7 +673,7 @@ public class Edge implements IApplication {
             check(id, desc, "ANY".equals(expectSay) && hebrew(text), "say: " + text);
             return;
         }
-        Object d = s.getData();
+        Object d = ui(() -> s.getData());
         if (name != null && !name.isEmpty()) {
             ui(() -> {
                 Object nf = field(d, "nameField");
@@ -723,8 +728,10 @@ public class Edge implements IApplication {
             ed.doSave(null);
             return null;
         });
-        check(id, desc, changed && errs.isEmpty() && !inComment && logged.size() == logBefore && foreignShells().isEmpty(),
-                "changed=" + changed + " inComment=" + inComment + " errors=" + errs + " inserted=" + inserted.replace('\n', '|'));
+        List<String> fs = foreignShells();
+        check(id, desc, changed && errs.isEmpty() && !inComment && logged.size() == logBefore && fs.isEmpty(),
+                "changed=" + changed + " inComment=" + inComment + " errors=" + errs + " log=" + logged.subList(logBefore, logged.size()) + " foreign=" + fs
+                + " inserted=" + inserted.replace('\n', '|'));
         closeForeign();
     }
 
@@ -740,12 +747,13 @@ public class Edge implements IApplication {
 
     private void dialogsAndPower() throws Exception {
         // תרגיל חדש: שמות לא חוקיים, קובץ שכבר קיים
+        file("Fine.java", "public class Fine {\n    public static void main(String[] args) {\n        System.out.println(\"תקין\");\n    }\n}\n");
         ui(() -> { page().activate(IDE.openEditor(page(), src.getFile(new Path("Fine.java")), true)); return null; });
         command("il.lamerhav.dsviz.newExercise");
         Shell d = waitShell(x -> x.getData() != null && x.getData().getClass().getSimpleName().equals("ExerciseDialog"), 10000);
         if (d == null) fail("D-newex", "החלון \"תרגיל חדש\" לא נפתח", String.valueOf(foreignShells()));
         else {
-            Object dlg = d.getData();
+            Object dlg = ui(() -> d.getData());
             ui(() -> {   // הפרויקט Edge
                 org.eclipse.swt.widgets.Combo c = (org.eclipse.swt.widgets.Combo) field(dlg, "projectCombo");
                 for (int i = 0; i < c.getItems().length; i++) if (c.getItem(i).startsWith("Edge")) { c.select(i); c.notifyListeners(SWT.Selection, new Event()); }
@@ -753,13 +761,23 @@ public class Edge implements IApplication {
             });
             for (String[] t : new String[][] { { "D-newex-digit", "1Targil" }, { "D-newex-reserved", "class" }, { "D-newex-space", "My Targil" },
                     { "D-newex-hebrew", "תרגיל" }, { "D-newex-exists", "Fine" }, { "D-newex-empty", "" } }) {
-                ui(() -> { ((Text) field(dlg, "classText")).setText(t[1]); return null; });
+                ui(() -> {   // כמו הקלדה של התלמיד (classEdited — השם לא מוחלף בשם המוצע)
+                    Field ce = dlg.getClass().getDeclaredField("classEdited");
+                    ce.setAccessible(true);
+                    ce.setBoolean(dlg, true);
+                    ((Text) field(dlg, "classText")).setText(t[1]);
+                    return null;
+                });
                 sleep(250);
                 String err = ui(() -> ((Label) field(dlg, "errorLabel")).getText());
                 boolean ok = ui(() -> ((Control) field(dlg, "ok")).getEnabled());
                 boolean hebName = t[1].equals("תרגיל");
                 check(t[0], "שם מחלקה \"" + t[1] + "\": " + (hebName ? "מותר, או הודעה בעברית" : "הודעה בעברית והכפתור כבוי"),
-                        hebName ? ok || hebrew(err) && !englishSentence(err) : !ok && hebrew(err) && !englishSentence(err), "ok=" + ok + " err=" + err);
+                        hebName ? ok || hebrew(err) && !englishSentence(err) : !ok && hebrew(err) && !englishSentence(err), "ok=" + ok + " err=" + err
+                        + " class=" + ui(() -> ((Text) field(dlg, "classText")).getText()) + " project=" + ui(() -> {
+                            Object jp = invoke(dlg, "selectedProject");
+                            return jp == null ? "null" : jp + " src=" + il.lamerhav.dsviz.ProjectSetup.existingSource((IJavaProject) jp);
+                        }));
             }
             ui(() -> { d.close(); return null; });
         }
@@ -895,12 +913,7 @@ public class Edge implements IApplication {
         big[0] = '%'; big[1] = 'P'; big[2] = 'D'; big[3] = 'F';
         Files.write(bigPdf.toPath(), big);
         File photo = new File(attach, "photo.jpg");
-        ui(() -> {
-            IJavaProject jp = il.lamerhav.dsviz.ProjectSetup.createProject("SubEdge");
-            Class<?> resolver = Class.forName("il.lamerhav.dsviz.ProjectSetup$ConflictResolver");
-            il.lamerhav.dsviz.ProjectSetup.class.getMethod("prepare", IJavaProject.class, resolver).invoke(null, jp, null);
-            return null;
-        });
+        subProject();
 
         Shell dlg = openSubmit();
         status("B-nofiles", "בלי קבצים: \"שליחה\" — הודעה בעברית", dlg, Collections.<File>emptyList(), true, "עוד לא צירפתם");
@@ -915,7 +928,7 @@ public class Edge implements IApplication {
             Files.copy(photo.toPath(), c.toPath());
             eleven.add(c);
         }
-        status("B-eleven", "11 תמונות: \"שליחה\" — הודעה בעברית", dlg, eleven, true, "עד 10");
+        status("B-eleven", "11 תמונות: התמונה ה-11 לא מצורפת — הודעה בעברית", dlg, eleven, false, "עד 10");
         clearItems(dlg);
         // PDF פגום — נשלח (השרת יחליט); השרת עונה "לא תרגיל"
         serverError("B-badpdf-notex", "PDF פגום, והשרת עונה \"לא מצאתי תרגיל\": הודעה בעברית ו\"נסו שוב\"", dlg, Arrays.asList(badPdf), "scenario:notex", "לא מצאתי");
@@ -939,18 +952,21 @@ public class Edge implements IApplication {
         String st = ui(() -> d1.isDisposed() ? "closed" : labels(d1));
         check("B-cancel", "ביטול באמצע השליחה: חוזרים לטופס עם הודעה בעברית", st.contains("השליחה בוטלה"), st);
         // כיבוי DSViz בזמן שחלון הבנייה פתוח
-        prepare(dlg, Collections.<File>emptyList(), "scenario:slow");
-        ui(() -> { invoke(d1.getData(), "send"); return null; });
+        ui(() -> { if (!d1.isDisposed()) d1.close(); return null; });
+        dlg = openSubmit();
+        final Shell d2 = dlg;
+        prepare(dlg, Arrays.asList(photo), "scenario:slow");
+        ui(() -> { invoke(d2.getData(), "send"); return null; });
         sleep(1200);
         int logBefore = logged.size();
         ui(() -> { il.lamerhav.dsviz.PowerHandler.apply(false); return null; });
         sleep(1200);
-        ui(() -> { if (!d1.isDisposed()) invoke(d1.getData(), "cancel"); return null; });
+        ui(() -> { if (!d2.isDisposed()) invoke(d2.getData(), "cancel"); return null; });
         sleep(1200);
         ui(() -> { il.lamerhav.dsviz.PowerHandler.apply(true); return null; });
         sleep(800);
         check("B-power-during", "כיבוי DSViz בזמן שליחה: בלי שגיאה, ואפשר להמשיך", logged.size() == logBefore && foreignShells().isEmpty(), "log=" + logged.subList(logBefore, logged.size()));
-        ui(() -> { if (!d1.isDisposed()) d1.close(); return null; });
+        ui(() -> { if (!d2.isDisposed()) d2.close(); return null; });
         closeForeign();
         // אותו תרגיל פעמיים — חבילה חדשה (ex02); הערה ארוכה עם אמוג'י
         StringBuilder note = new StringBuilder("scenario:nowords ");
@@ -986,7 +1002,7 @@ public class Edge implements IApplication {
         command("il.lamerhav.dsviz.submit");
         Shell any = waitShell(x -> x.getData("dsviz.say") != null || x.getData() != null && x.getData().getClass().getSimpleName().equals("SubmitDialog"), 20000);
         String offline;
-        if (any != null && any.getData("dsviz.say") != null) {
+        if (any != null && ui(() -> any.getData("dsviz.say") != null)) {
             offline = "SAY " + ui(() -> labels(any));
             ui(() -> { closeSay(any); return null; });
         } else if (any != null) {
@@ -999,6 +1015,17 @@ public class Edge implements IApplication {
         System.setProperty("dsviz.worker", keep);
         check("B-offline", "אין חיבור לשרת: הודעה בעברית", (offline.contains("אין חיבור") || offline.contains("אינטרנט")) && logged.size() == lb, offline);
         closeForeign();
+    }
+
+    /** הפרויקט שאליו שולחים תרגילים */
+    private void subProject() throws Exception {
+        if (ResourcesPlugin.getWorkspace().getRoot().getProject("SubEdge").exists()) return;
+        ui(() -> {
+            IJavaProject jp = il.lamerhav.dsviz.ProjectSetup.createProject("SubEdge");
+            Class<?> resolver = Class.forName("il.lamerhav.dsviz.ProjectSetup$ConflictResolver");
+            il.lamerhav.dsviz.ProjectSetup.class.getMethod("prepare", IJavaProject.class, resolver).invoke(null, jp, null);
+            return null;
+        });
     }
 
     private Shell openSubmit() throws Exception {
@@ -1060,7 +1087,7 @@ public class Edge implements IApplication {
         if (id.equals("B-reset")) shot(dlg, "submit-reset.png");
         if (id.equals("B-badpdf-notex")) shot(dlg, "submit-notex.png");
         ui(() -> { if (!dlg.isDisposed()) dlg.close(); return null; });
-        check(id, desc, st.contains(expect) && st.contains("נסו שוב") && logged.size() == lb && !st.matches(".*[A-Za-z]{3,} [a-z]{3,} [a-z]{3,}.*"), st);
+        check(id, desc, st.contains(expect) && st.contains("התרגיל לא נוצר") && logged.size() == lb && !st.matches(".*[A-Za-z]{3,} [a-z]{3,} [a-z]{3,}.*"), st);
     }
 
     /** שליחה מלאה עד ההודעה בפינה. מחזיר "TOAST ..." או "ERROR ..." */
@@ -1131,6 +1158,7 @@ public class Edge implements IApplication {
 
     private void solutionCases() throws Exception {
         // תרגיל עם הצעות (התרחיש words), ואז: שינוי שם הפעולה, מחיקת התיקייה, solutions.json פגום / חסר
+        subProject();
         String res = buildOk(Arrays.asList(new File(attach, "photo.jpg")), "scenario:words", "SubEdge");
         if (!res.startsWith("TOAST")) {
             fail("E-setup", "יצירת תרגיל עם הצעות לפתרון", res);

@@ -26,7 +26,7 @@ rm -f "$ECL"/dropins/il.lamerhav.dsviz*.jar
 cp "$E"/dropins/*.jar "$ECL/dropins/"
 PORT="${EDGE_PORT:-8823}"
 MOCK_DELAY_MS=1500 node "$ROOT/tools/test/submit/mock-worker.js" "$PORT" "$(pwd)/submit" "$E/mock.log" & MOCKP=$!
-xvfb-run -a -s "-screen 0 1600x1000x24" timeout "${EDGE_TIMEOUT:-2400}" java -Dfile.encoding=UTF-8 -Ddsviz.worker="http://127.0.0.1:$PORT" \
+LC_ALL=C.UTF-8 xvfb-run -a -s "-screen 0 1600x1000x24" timeout "${EDGE_TIMEOUT:-2400}" java -Dfile.encoding=UTF-8 -Ddsviz.worker="http://127.0.0.1:$PORT" \
     -Dedge.mocklog="$E/mock.log" -Dedge.only="$EDGE_ONLY" \
     -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog -data "$E/ws" \
     -application il.lamerhav.dsviz.it.edge "$E/out.txt" "$SHOTS" "$ROOT/tools/test/ai/files" > "$E/eclipse.log" 2>&1 || true
