@@ -127,4 +127,10 @@ if command -v node >/dev/null 2>&1; then
 else
     echo "  (אין node — מדלגים על שליחת תרגיל מקצה לקצה)"
 fi
+# מקרי קצה של תלמידים (edge.sh, כ-35 דקות): הרצה ויזואלית על כל מה שתלמיד יכול לכתוב, שליחה מול תשובות שבורות, הוספה במקומות מוזרים,
+# כיבוי, הצעה לפתרון והמורה בעברית. EDGE=0 — מדלגים
+if [ "${EDGE:-1}" != 0 ] && command -v node >/dev/null 2>&1 && command -v xdotool >/dev/null 2>&1; then
+    echo "== מקרי קצה (edge.sh)"
+    sh ./edge.sh "$ECL" || FAILED=1
+fi
 exit $FAILED

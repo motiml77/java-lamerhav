@@ -574,7 +574,7 @@ public class Edge implements IApplication {
         sleep(5000);
         long pid = childPid("SlowShow");
         String win = sh("xdotool", "search", "--pid", String.valueOf(pid)).trim();
-        for (String w : win.split("\\s+")) if (!w.isEmpty()) sh("xdotool", "windowclose", w);
+        for (String w : win.split("\\s+")) if (!w.isEmpty()) sh("xdotool", "windowkill", w);   // כמו סגירת החלון (בלי מנהל חלונות ב-Xvfb אין כפתור X)
         boolean closed = waitFor(() -> childPid("SlowShow") < 0, 8000);
         List<ILaunch> l2 = new ArrayList<ILaunch>();
         for (ILaunch l : DebugPlugin.getDefault().getLaunchManager().getLaunches()) if (!before.contains(l)) l2.add(l);
