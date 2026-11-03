@@ -88,6 +88,24 @@ public class SwingScript {
     static long run(String cmd, String arg, File out) throws Exception {
         final Object[] res = { 300L };
         if (cmd.equals("wait")) return Long.parseLong(arg);
+        if (cmd.equals("waittext")) {   // waittext <טקסט>[|<ms>] — ממתין עד שבחלון מופיע רכיב עם הטקסט (שליחה אמיתית ל-Gemini: עד כמה דקות)
+            int bar = arg.lastIndexOf('|');
+            final String want = bar < 0 ? arg : arg.substring(0, bar);
+            long end = System.currentTimeMillis() + (bar < 0 ? 180000 : Long.parseLong(arg.substring(bar + 1)));
+            while (System.currentTimeMillis() < end) {
+                final boolean[] found = { false };
+                SwingUtilities.invokeAndWait(() -> {
+                    JRootPane r = win instanceof JDialog ? ((JDialog) win).getRootPane() : ((JFrame) win).getRootPane();
+                    for (Component k : all(r, new ArrayList<Component>())) {
+                        String t = k.isShowing() ? text(k) : null;
+                        if (t != null && t.contains(want)) found[0] = true;
+                    }
+                });
+                if (found[0]) return 800;
+                Thread.sleep(500);
+            }
+            throw new IllegalStateException("text not found: " + want);
+        }
         if (cmd.equals("waitwin")) {
             Window w = waitWindow(arg, 120000);
             if (w == null) throw new IllegalStateException("window not found: " + arg);

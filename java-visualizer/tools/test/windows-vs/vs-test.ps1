@@ -50,6 +50,42 @@ function KillDsviz() {
     Get-CimInstance Win32_Process -Filter "Name='javaw.exe' or Name='java.exe' or Name='dsviz-cs.exe'" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 
+# מסך גדול: ברירת המחדל של המחשב ב-GitHub היא 1024x768 — מגדילים (עד 1920x1080), כדי שבצילומי המסך Visual Studio יהיה חלון גדול וברור
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class Screen2 {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DEVMODE {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+        public ushort dmSpecVersion; public ushort dmDriverVersion; public ushort dmSize; public ushort dmDriverExtra; public uint dmFields;
+        public int dmPositionX; public int dmPositionY; public uint dmDisplayOrientation; public uint dmDisplayFixedOutput;
+        public short dmColor; public short dmDuplex; public short dmYResolution; public short dmTTOption; public short dmCollate;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+        public ushort dmLogPixels; public uint dmBitsPerPel; public uint dmPelsWidth; public uint dmPelsHeight; public uint dmDisplayFlags; public uint dmDisplayFrequency;
+        public uint dmICMMethod; public uint dmICMIntent; public uint dmMediaType; public uint dmDitherType; public uint dmReserved1; public uint dmReserved2; public uint dmPanningWidth; public uint dmPanningHeight;
+    }
+    [DllImport("user32.dll", CharSet = CharSet.Ansi)] static extern bool EnumDisplaySettings(string dev, int mode, ref DEVMODE dm);
+    [DllImport("user32.dll", CharSet = CharSet.Ansi)] static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
+    public static int Set(int w, int h) {
+        DEVMODE dm = new DEVMODE();
+        dm.dmSize = (ushort)Marshal.SizeOf(typeof(DEVMODE));
+        if (!EnumDisplaySettings(null, -1, ref dm)) return -100;
+        dm.dmPelsWidth = (uint)w; dm.dmPelsHeight = (uint)h;
+        dm.dmFields = 0x80000 | 0x100000;
+        return ChangeDisplaySettings(ref dm, 1);
+    }
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+}
+'@
+foreach ($res in @(@(1920, 1080), @(1680, 1050), @(1600, 1200), @(1600, 900), @(1440, 900), @(1280, 1024))) {
+    $rc = [Screen2]::Set($res[0], $res[1])
+    if ($rc -eq 0) { break }
+}
+Start-Sleep 3
+Info "מסך: $([Windows.Forms.SystemInformation]::VirtualScreen.Size)"
+
 $docs = [Environment]::GetFolderPath('MyDocuments')
 $dsviz = Join-Path $env:LOCALAPPDATA 'DSViz'
 $runner = Join-Path $dsviz 'cs\dsviz-cs.exe'
@@ -296,13 +332,13 @@ Log "== 5. שליחת תרגיל ב-C# — הפרויקט נוצר בפתרון,
 $jar = Join-Path $dsviz 'dsviz.jar'
 $java = Join-Path $dsviz 'jdk\bin\java.exe'
 $home2 = Join-Path $Out 'submit-home'
-New-Item -ItemType Directory -Force $home2 | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $home2 '.dsviz') | Out-Null
 $aiFiles = Join-Path $Fixtures 'ai\files'
 
 # מריץ את SubmitCli (אותו מנוע של החלון "שליחת תרגיל ב-C#") ומחזיר את השורות שהוא כותב (progress / error / done)
 function SubmitCli([string]$id, [string[]]$files, [string]$url, [string]$note = '') {
     $items = @($files | ForEach-Object { @{ path = $_; name = [IO.Path]::GetFileName($_) } })
-    $m = @{ lang = 'csharp'; out = $csDir; store = (Join-Path $home2 'solutions.json'); cs = @($runner); note = $note; items = $items; taken = @() }
+    $m = @{ lang = 'csharp'; out = $csDir; store = (Join-Path $home2 '.dsviz\solutions.json'); cs = @($runner); note = $note; items = $items; taken = @() }
     $mf = Join-Path $Out "$id.manifest.json"
     [IO.File]::WriteAllText($mf, ($m | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
     if ($url) { $env:DSVIZ_WORKER_URL = $url } else { Remove-Item Env:\DSVIZ_WORKER_URL -ErrorAction SilentlyContinue }
@@ -320,7 +356,7 @@ function SubmitCli([string]$id, [string[]]$files, [string]$url, [string]$note = 
 }
 # התלמיד כותב את הפתרון: מחליף כל פעולה-שלד (ריקה) בהצעה לפתרון ששמורה בצד (solutions.json) — כך בודקים שהפרויקט שנוצר באמת עובד
 function ApplySolutions([string]$folderDir) {
-    $sol = (Get-Content (Join-Path $home2 'solutions.json') -Raw -Encoding utf8 | ConvertFrom-Json).solutions
+    $sol = (Get-Content (Join-Path $home2 '.dsviz\solutions.json') -Raw -Encoding utf8 | ConvertFrom-Json).solutions
     $applied = 0
     foreach ($f in Get-ChildItem $folderDir -Filter '*.cs') {
         $text = [IO.File]::ReadAllText($f.FullName)
@@ -370,7 +406,7 @@ function VerifyCreated([string]$id, $done, [bool]$expectSolutionCheck) {
     Check "$id-build" ($b.Code -eq 0) "$folder נבנה ב-MSBuild של Visual Studio אחרי שהפעולות נכתבו" (($b.Text -split "`n" | Select-String 'error' | Select-Object -First 4) -join ' | ')
     Check "$id-profile" ($null -ne (Profile $dir)) "פרופיל 'הרצה ויזואלית' בפרויקט החדש"
     if (Profile $dir) { RunLikeVs $id $dir $id }
-    Check "$id-solutions" (Test-Path (Join-Path $home2 'solutions.json')) "ההצעות לפתרון נשמרו בצד (לא בקוד של התלמיד): $($done.solutionStatus)"
+    Check "$id-solutions" (Test-Path (Join-Path $home2 '.dsviz\solutions.json')) "ההצעות לפתרון נשמרו בצד (לא בקוד של התלמיד): $($done.solutionStatus)"
 }
 
 # א. שרת מדומה — בלי רשת: בודק את כל מה שלנו (יצירת הפרויקט, השמות, הרישום בפתרון, הבנייה) בלי תלות ב-Gemini
@@ -420,6 +456,35 @@ Check 'gui-card' (((ShotJson 'card') -match 'התרגיל נוצר') -and ((Shot
 Check 'gui-others' (((ShotJson 'card') -match 'עונים במילים') -and -not ((ShotJson 'card') -match 'מהי סיבוכיות')) "הסעיף שעונים עליו במילים — בהודעה הקצרה, והטקסט שלו לא בכרטיס"
 Check 'gui-show' ((ShotJson 'show') -match 'מהי סיבוכיות זמן הריצה') "'הצגה' פותח את הסעיף במילים"
 Check 'gui-created' (@(Get-ChildItem (Join-Path $guiRoot 'Exercises') -Directory | Where-Object { $_.Name -like 'Ex*_Stacks*' }).Count -ge 1) "הפרויקט נוצר בתיקיית התרגילים"
+
+# ב2. החלון "שליחת תרגיל ב-C#" מול Gemini האמיתי: הדבקת תמונה של דף תרגיל → שליחה → תצוגת הבנייה → הכרטיס "התרגיל נוצר"; ואז החלון "הצעה לפתרון"
+function SwingRun([string]$id, [string[]]$lines, [string]$mainArgs, [int]$timeoutSec = 400) {
+    $sf = Join-Path $Out "$id.script.txt"
+    [IO.File]::WriteAllLines($sf, [string[]]$lines, (New-Object Text.UTF8Encoding($false)))
+    $o = Join-Path $Out "$id.out.txt"; $e = Join-Path $Out "$id.err.txt"
+    $env:DSVIZ_CS = $runner
+    $p = Start-Process $java -ArgumentList "-Duser.home=`"$home2`" -Dfile.encoding=UTF-8 -Ddsviz.noOpen=true -cp `"$cls;$jar`" SwingScript `"$sf`" `"$(Join-Path $Out 'gui-shots')`" $mainArgs" -PassThru -NoNewWindow -RedirectStandardOutput $o -RedirectStandardError $e
+    if (-not $p.WaitForExit($timeoutSec * 1000)) { Stop-Process -Id $p.Id -Force; Info "החלון $id לא הסתיים בזמן" }
+    Remove-Item Env:\DSVIZ_CS -ErrorAction SilentlyContinue
+    return (Get-Content $e -Raw -Encoding utf8)
+}
+if ($Live) {
+    Log "== 5ב2. החלון 'שליחת תרגיל ב-C#' מול Gemini האמיתי"
+    $guiRoot2 = Join-Path $env:TEMP 'dsviz-gui-root2'
+    Remove-Item $guiRoot2 -Recurse -Force -ErrorAction SilentlyContinue
+    Copy-Item $csDir $guiRoot2 -Recurse
+    Remove-Item Env:\DSVIZ_WORKER_URL -ErrorAction SilentlyContinue
+    $page = Join-Path $aiFiles 'exam-page-1.png'
+    $errG = SwingRun 'gui-live' @("pasteimg $page", 'shot live-form', 'click שליחה ויצירת התרגיל', 'wait 4000', 'shot live-building', 'waittext התרגיל נוצר|300000', 'shot live-card', 'click הצגה', 'shot live-show') "il.lamerhav.dsviz.cs.CsTool submit `"$guiRoot2`""
+    $cardG = ShotJson 'live-card'
+    Check 'gui-live-card' (($cardG -match 'התרגיל נוצר') -and ($cardG -match 'Ex\d\d_')) "Gemini אמיתי דרך החלון: הכרטיס 'התרגיל נוצר' עם שם הפרויקט" $errG
+    Check 'gui-live-project' (@(Get-ChildItem (Join-Path $guiRoot2 'Exercises') -Directory -ErrorAction SilentlyContinue).Count -ge 1) "הפרויקט שביקש Gemini נוצר בתיקיית התרגילים (דרך החלון)"
+    Log "== 5ב3. החלון 'הצעה לפתרון ב-C#' — ההצעות ש-Gemini נתן, נבדקו והשמורות בצד"
+    $errS = SwingRun 'gui-solution' @('shot sol-list', 'select 1', 'wait 800', 'shot sol-1', 'select 0', 'wait 800', 'shot sol-0') "il.lamerhav.dsviz.cs.CsTool solution `"$guiRoot2`"" 120
+    $sol1 = ShotJson 'sol-1'; $sol0 = ShotJson 'sol-0'
+    Check 'gui-solution-open' ((ShotJson 'sol-list') -match 'הצעה לפתרון|פתרון') "החלון 'הצעה לפתרון ב-C#' נפתח עם רשימת התרגילים והסעיפים" $errS
+    Check 'gui-solution-text' (($sol1 -match 'נבדק') -or ($sol0 -match 'נבדק')) "ההצעה לפתרון מוצגת ומסומנת 'נבדק: הרצנו את main' (ההצעה של Gemini עברה בדיקה)" "$sol0 | $sol1"
+}
 
 # ג. Gemini אמיתי (השרת של Cloudflare): אותו מסלול כמו תלמיד. דף תרגיל → תרגיל בפרויקט → בנייה → הרצה ויזואלית
 if ($Live) {
@@ -496,8 +561,11 @@ if (-not $NoGui) {
         Info ("Visual Studio: {0:N0} שניות, כותרת '{1}'" -f ((Get-Date) - $t0).TotalSeconds, $vsP.MainWindowTitle)
         Check "$id-open" $ready "Visual Studio פתח את $title" "כותרת: $($vsP.MainWindowTitle) · חלונות: $((Windows) -join ' ; ')"
         if (-not $ready) { Shot "$id-opened"; Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force; return }
+        [Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null   # SW_MAXIMIZE — חלון גדול, שרואים בו את Visual Studio
+        [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
         Start-Sleep 45   # טעינת הפרויקט, הבנייה של עיצוב-זמן ו-IntelliSense
         SkipFirstRun $vsP.Id | Out-Null
+        [Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null
         Shot "$id-opened"
         # הכפתור הירוק: שמו הוא שם הפרופיל שנבחר. מחפשים אותו (ואת הפרופילים) בסרגל הכלים
         $names = @(); $start = $null
@@ -520,6 +588,7 @@ if (-not $NoGui) {
             [void]$wsh.AppActivate($vsP.Id); Start-Sleep 1; $wsh.SendKeys('^{F5}'); Info "Ctrl+F5"
         }
         $seen = $false
+        Start-Sleep 2; Shot "$id-clicked"
         for ($i = 0; $i -lt 150; $i++) { Start-Sleep 1; if ((Viewers).Count -gt 0) { $seen = $true; break } }
         Start-Sleep 6
         Shot "$id-run"
