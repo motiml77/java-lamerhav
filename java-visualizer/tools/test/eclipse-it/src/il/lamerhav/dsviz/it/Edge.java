@@ -437,6 +437,12 @@ public class Edge implements IApplication {
         check("M-wizard-module", "פרויקט חדש עם module-info.java (כמו שהאשף יוצר): ההרצה הוויזואלית רצה עד הסוף, בלי FindException",
                 r.say == null && r.ended && r.out.replace("\r", "").replace("\n", "").contains("Moti Levi") && !r.out.contains("FindException"), r.brief());
         check("M-wizard-module-clean", "בלי חלון שגיאה ובלי שגיאה ב-Error Log", r.foreign.isEmpty() && r.newLog.isEmpty() && !r.out.contains("Module stam not found"), r.brief());
+        // הצעד הבא של תלמיד: להשתמש בספריית הקורס (Stack / Queue) באותו פרויקט מודולרי
+        IFile g = createIn(pkg, "UsesLib.java", "package stam;\n\nimport unit4.collectionsLib.*;\n\npublic class UsesLib {\n    public static void main(String[] args) {\n"
+                + "        Stack<Integer> st = new Stack<Integer>();\n        st.push(7);\n        st.push(9);\n        System.out.println(\"מחסנית \" + st.pop() + st.pop());\n    }\n}\n");
+        R r2 = visual(g, 90);
+        check("M-wizard-module-lib", "פרויקט מודולרי + ספריית הקורס (Stack): רץ ויזואלית, או הודעה קצרה בעברית — לא שגיאה באנגלית",
+                r2.foreign.isEmpty() && r2.newLog.isEmpty() && (r2.say != null ? r2.sayRtl && hebrew(r2.sayText) : r2.ended && r2.out.replace("\r", "").replace("\n", "").contains("מחסנית 97")), r2.brief());
         System.clearProperty("dsviz.it.vmargs");
     }
 
