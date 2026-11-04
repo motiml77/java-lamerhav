@@ -131,14 +131,70 @@ public class BankHandler extends AbstractHandler {
                 "מסמנים V ירוק, וקבצי התרגיל נמחקים מהפרויקט (" + names + ") — כדי שלא יצטברו תרגילים ישנים.\n\n"
                 + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.", "V ומחיקת הקבצים", "ביטול")) return false;
         BankProgress.get().setDone(q.id, true);
-        for (IResource r : folders) {
-            try {
-                r.delete(true, null);
-            } catch (CoreException e) {
-                // קובץ נעול — נשאר; ה-V נשמר בכל מקרה
-            }
-        }
+        for (IResource r : folders) cleanUp(r);
+        BankProgress.get().forgetCreated(q.id);
         return true;
+    }
+
+    /**
+     * מוחק תרגיל אחד עם כל מה שנוצר בשבילו: סוגר את הלשוניות של הקבצים שלו (בלי לשמור), מוחק את החבילה מתיקיית המקור ואת
+     * הקבצים המקומפלים שלה (bin), ומוחק את ההצעות לפתרון ששמורות לקבצים שלה (solutions.json).
+     */
+    static void cleanUp(IResource folder) {
+        final String prefix = folder.getFullPath().toString() + "/";
+        // 1. הלשוניות בעורך
+        Runnable close = () -> {
+            for (org.eclipse.ui.IWorkbenchWindow w : org.eclipse.ui.PlatformUI.getWorkbench().getWorkbenchWindows()) {
+                for (IWorkbenchPage page : w.getPages()) {
+                    List<org.eclipse.ui.IEditorReference> refs = new ArrayList<org.eclipse.ui.IEditorReference>();
+                    for (org.eclipse.ui.IEditorReference ref : page.getEditorReferences()) {
+                        try {
+                            IFile f = ref.getEditorInput().getAdapter(IFile.class);
+                            if (f != null && f.getFullPath().toString().startsWith(prefix)) refs.add(ref);
+                        } catch (PartInitException e) {
+                            // לשונית שלא נטענה — מדלגים
+                        }
+                    }
+                    if (!refs.isEmpty()) page.closeEditors(refs.toArray(new org.eclipse.ui.IEditorReference[0]), false);
+                }
+            }
+        };
+        org.eclipse.swt.widgets.Display d = org.eclipse.swt.widgets.Display.getDefault();
+        if (d.getThread() == Thread.currentThread()) close.run();
+        else d.syncExec(close);
+        // 2. הקבצים המקומפלים (bin/<חבילה>) — לפני מחיקת המקור, כשעוד יודעים איפה הם
+        try {
+            IJavaProject jp = org.eclipse.jdt.core.JavaCore.create(folder.getProject());
+            if (jp != null && jp.exists()) {
+                IResource out = ResourcesPlugin.getWorkspace().getRoot().findMember(jp.getOutputLocation().append(folder.getName()));
+                if (out != null && out.exists()) out.delete(true, null);
+            }
+        } catch (CoreException e) {
+            // נמחק בבנייה הבאה
+        }
+        // 3. החבילה עצמה
+        try {
+            folder.delete(true, null);
+        } catch (CoreException e) {
+            // קובץ נעול — נשאר
+        }
+        // 4. ההצעות לפתרון של הקבצים שנמחקו (SolutionStore — באותה חבילה; בלי לשנות את התוסף הראשי)
+        try {
+            SolutionStore store = SolutionMinings.store();
+            synchronized (store) {
+                java.lang.reflect.Method load = SolutionStore.class.getDeclaredMethod("load"), save = SolutionStore.class.getDeclaredMethod("save");
+                java.lang.reflect.Field entries = SolutionStore.class.getDeclaredField("entries");
+                load.setAccessible(true);
+                save.setAccessible(true);
+                entries.setAccessible(true);
+                load.invoke(store);
+                @SuppressWarnings("unchecked")
+                List<SolutionStore.Entry> list = (List<SolutionStore.Entry>) entries.get(store);
+                if (list.removeIf(e -> e.path.startsWith(prefix))) save.invoke(store);
+            }
+        } catch (Exception e) {
+            // לא נמחקו — הן לא יופיעו ממילא (הקבצים לא קיימים)
+        }
     }
 
     /** השורה (מ-0) של "כאן עונים" הראשון בקובץ, או 0 */
@@ -187,6 +243,11 @@ public class BankHandler extends AbstractHandler {
         List<String> out = new ArrayList<String>();
         for (SolutionStore.Entry e : SolutionMinings.store().forFile(path)) out.add(e.cls + "." + e.method + " " + e.label + " " + e.status);
         return out;
+    }
+
+    /** לאיזו שאלה שייך קובץ (לפי מה שנוצר), או null */
+    public static String questionOfForTest(String path) {
+        return BankProgress.get().questionOf(path);
     }
 
     public static boolean doneForTest(String id) {

@@ -203,19 +203,27 @@ public class BankIt implements IApplication {
         sleep(800);
         out.println("FLOAT-REOPEN question=" + handler.getMethod("floatQuestionForTest").invoke(null));
 
-        // 6. "סיימתי": V, וקבצי התרגיל נמחקים
-        out.println("COMPLETE " + handler.getMethod("completeForTest", String.class).invoke(null, STACK));
+        // 6. "סיימתי את התרגיל" — כמו תלמיד: לחיצה על הכפתור בחלון הצף, אישור — והתרגיל נמחק עם כל המעטפת שלו
+        // לפני: קבצי המקור, הקבצים המקומפלים (bin), הלשוניות בעורך וההצעות לפתרון השמורות
+        ui(() -> { BankIt.this.build(); return null; });
+        out.println("BEFORE-DONE " + ui(() -> leftovers(files)));
+        ui(() -> { handler.getMethod("openExistingForTest", IWorkbenchPage.class, String.class).invoke(null, page(), STACK); return null; });
         sleep(800);
-        out.println("AFTER-COMPLETE done=" + handler.getMethod("doneForTest", String.class).invoke(null, STACK) + " files-left="
-                + ui(() -> {
-                    int n = 0;
-                    for (String f : files) if (!f.startsWith("ERROR") && ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(f)).exists()) n++;
-                    return n;
-                }) + " folder-left=" + ui(() -> ResourcesPlugin.getWorkspace().getRoot().getFolder(new Path("/Students/src/ex01_stacks")).exists()));
-        out.println("FLOAT-AFTER-DONE " + handler.getMethod("floatShownForTest").invoke(null).toString().contains("DONE true"));
-        Shell fl2 = ui(() -> (Shell) handler.getMethod("floatShellForTest").invoke(null));
-        shot(fl2, "bank-float-done.png");
-        if (fl2 != null) ui(() -> { fl2.close(); return null; });
+        Shell fl3 = ui(() -> (Shell) handler.getMethod("floatShellForTest").invoke(null));
+        Control doneBtn = ui(() -> {
+            for (Control c : all(fl3)) if (c.getClass().getName().endsWith("BankFloat$DoneButton")) return c;
+            return null;
+        });
+        out.println("DONE-BUTTON " + (doneBtn != null));
+        display.asyncExec(() -> click(doneBtn));   // החלון "בטוח?" מודאלי — לוחצים ברקע
+        Shell ask = waitSay(10000);
+        out.println("ASK " + (ask != null) + (ask == null ? "" : " text=" + ui(() -> labels(ask))));
+        if (ask != null) shot(ask, "bank-done-ask.png");
+        if (ask != null) ui(() -> { click(find(ask, "primary")); return null; });
+        sleep(1500);
+        out.println("AFTER-DONE done=" + handler.getMethod("doneForTest", String.class).invoke(null, STACK) + " float-closed=" + ui(() -> fl3.isDisposed()));
+        out.println("AFTER-DONE " + ui(() -> leftovers(files)));
+        shotWindow("bank-after-done.png");
 
         // 7. החלון שוב: התרגיל נמחק — "צור תרגיל" מחדש, ו-V בעץ
         Shell dlg2 = ui(() -> (Shell) handler.getMethod("openDialogForTest", Shell.class, String.class, String.class)
@@ -239,6 +247,55 @@ public class BankIt implements IApplication {
         Method m = d.getClass().getDeclaredMethod("select", String.class, String.class);
         m.setAccessible(true);
         m.invoke(d, topic, q);
+    }
+
+    /** מה נשאר מהתרגיל: קבצים, תיקיית החבילה, תיקייה ב-bin, לשוניות פתוחות, הצעות לפתרון שמורות, ורישום "נוצר" */
+    private String leftovers(List<String> files) throws Exception {
+        int src = 0, sols = 0, tabs = 0;
+        for (String f : files) {
+            if (f.startsWith("ERROR")) continue;
+            if (ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(f)).exists()) src++;
+            sols += ((List<?>) handler.getMethod("solutionsForTest", String.class).invoke(null, f)).size();
+        }
+        for (org.eclipse.ui.IEditorReference r : page().getEditorReferences()) if (r.getName().startsWith("StackTargil1")) tabs++;
+        boolean folder = ResourcesPlugin.getWorkspace().getRoot().getFolder(new Path("/Students/src/ex01_stacks")).exists();
+        boolean bin = ResourcesPlugin.getWorkspace().getRoot().getFolder(new Path("/Students/bin/ex01_stacks")).exists();
+        String owner = (String) Class.forName("il.lamerhav.dsviz.BankHandler").getMethod("questionOfForTest", String.class).invoke(null, "/Students/src/ex01_stacks/X.java");
+        return "src-files=" + src + " folder=" + folder + " bin=" + bin + " tabs=" + tabs + " solutions=" + sols + " owner=" + owner;
+    }
+
+    private void build() throws Exception {
+        ResourcesPlugin.getWorkspace().build(org.eclipse.core.resources.IncrementalProjectBuilder.INCREMENTAL_BUILD, null);
+    }
+
+    private Shell waitSay(long ms) throws Exception {
+        long end = System.currentTimeMillis() + ms;
+        while (System.currentTimeMillis() < end) {
+            Shell s = ui(() -> {
+                for (Shell x : display.getShells()) if (!x.isDisposed() && x.isVisible() && x.getData("dsviz.say") != null) return x;
+                return null;
+            });
+            if (s != null) return s;
+            sleep(200);
+        }
+        return null;
+    }
+
+    private static Control find(Composite c, String sayData) {
+        for (Control k : all(c)) if (sayData.equals(k.getData("dsviz.say"))) return k;
+        return null;
+    }
+
+    private static void click(Control c) {
+        if (c == null) return;
+        for (int type : new int[] { SWT.MouseDown, SWT.MouseUp }) {
+            org.eclipse.swt.widgets.Event e = new org.eclipse.swt.widgets.Event();
+            e.x = 2;
+            e.y = 2;
+            e.button = 1;
+            e.widget = c;
+            c.notifyListeners(type, e);
+        }
     }
 
     private static String tree(Shell dlg) throws Exception {

@@ -101,6 +101,18 @@ final class BankProgress {
         fire();
     }
 
+    /** שוכחים את מה שנוצר מהשאלה (אחרי שהקבצים נמחקו) — כדי שתרגיל חדש באותה תיקייה לא ייחשב שייך לשאלה הזאת */
+    void forgetCreated(String id) {
+        synchronized (this) {
+            load();
+            Map<String, Object> q = Json.obj(questions.get(id));
+            if (!q.containsKey("created")) return;
+            entry(id).remove("created");
+            save();
+        }
+        fire();
+    }
+
     /** כל מה שנוצר מהשאלה — מהישן לחדש */
     synchronized List<Created> createdOf(String id) {
         load();
