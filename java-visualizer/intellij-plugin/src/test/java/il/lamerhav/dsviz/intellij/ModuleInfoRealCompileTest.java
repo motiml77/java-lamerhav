@@ -56,13 +56,13 @@ public class ModuleInfoRealCompileTest extends JavaCodeInsightFixtureTestCase {
         myFixture.addFileToProject("app/Main.java", "package app;\nimport unit4.collectionsLib.Stack;\npublic class Main {\n"
                 + "    public static void main(String[] a) { Stack<Integer> s = new Stack<Integer>(); s.push(3); System.out.println(s.top()); }\n}\n");
         com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+        // כמו VisualRunner: בפתיחת פרויקט (DsvizStartup) הספרייה כבר נוספה למודול; ה-module-info נוצר אחר כך — חסר רק requires
         com.intellij.openapi.module.Module mod = getModule();
-        String why = "isJava=" + LibrarySetup.isJava(mod) + " external=" + LibrarySetup.externalModule(mod) + " hasLib=" + LibrarySetup.hasLibrary(mod)
-                + " probe=" + (com.intellij.psi.JavaPsiFacade.getInstance(getProject()).findClass(LibrarySetup.PROBE, mod.getModuleWithDependenciesAndLibrariesScope(false)) != null)
-                + " uses=" + com.intellij.openapi.application.ReadAction.compute(() -> LibrarySetup.usesCourseLibrary(mod))
-                + " type=" + com.intellij.openapi.module.ModuleType.get(mod).getId();
-        assertTrue(why, LibrarySetup.needs(getModule()));
-        LibrarySetup.add(getModule());   // הספרייה + "requires dsviz;"
+        if (com.intellij.openapi.application.ReadAction.compute(() -> LibrarySetup.needs(mod))) LibrarySetup.add(mod);
+        else {
+            assertTrue("הספרייה כבר שם — חסר רק requires dsviz", com.intellij.openapi.application.ReadAction.compute(() -> LibrarySetup.needsRequires(mod)));
+            LibrarySetup.addRequires(mod);
+        }
         com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
         assertTrue(com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(mi.getVirtualFile()).getText().contains("requires dsviz;"));
         List<String> ok = errors(tester.rebuild());
