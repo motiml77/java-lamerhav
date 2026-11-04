@@ -136,11 +136,35 @@ Check 'install' ($p.ExitCode -eq 0 -and (Test-Path $sln) -and (Test-Path $runner
 $o = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Lab 'install-bank-vs.ps1') 2>&1
 Info "install-bank-vs.ps1: $($o -join ' ')"
 $ws = New-Object -ComObject WScript.Shell
+Info "בשולחן העבודה: $((Get-ChildItem $desk -Filter '*.lnk' | ForEach-Object Name) -join ', ')"
 foreach ($n in @('מאגר תרגילים C#', 'השאלה — מאגר תרגילים C#')) {
     $l = Join-Path $desk "$n.lnk"
-    $ok = Test-Path $l
-    $s = if ($ok) { $ws.CreateShortcut($l) } else { $null }
-    Check 'shortcut' ($ok -and (Test-Path $s.TargetPath) -and $s.Arguments -match 'dsviz-bank-vs.jar' -and $s.Arguments -match 'DataStructures-CS') "בשולחן העבודה: הקיצור '$n'" $(if ($s) { "$($s.TargetPath) $($s.Arguments)" } else { 'אין' })
+    $ok = Test-Path -LiteralPath $l
+    $tgt = ''; $arg = ''
+    if ($ok) {
+        # WScript לא קורא קובץ עם שם בעברית — קוראים עותק בשם באנגלית
+        $tmp = Join-Path $env:TEMP 'dsviz-check.lnk'
+        Copy-Item -LiteralPath $l $tmp -Force
+        $s = $ws.CreateShortcut($tmp)
+        $tgt = [string]$s.TargetPath; $arg = [string]$s.Arguments
+        Remove-Item $tmp -Force
+    }
+    $good = $ok -and $tgt -and (Test-Path -LiteralPath $tgt) -and $arg -match 'dsviz-bank-vs.jar' -and $arg -match 'DataStructures-CS'
+    Check 'shortcut' $good "בשולחן העבודה: הקיצור '$n'" "קיים: $ok · $tgt $arg"
+}
+# לחיצה כפולה על הקיצור "מאגר תרגילים C#" — כמו תלמיד: החלון נפתח
+$bankLnk = Join-Path $desk 'מאגר תרגילים C#.lnk'
+if (Test-Path -LiteralPath $bankLnk) {
+    Start-Process -FilePath $bankLnk
+    $seen = $false
+    for ($i = 0; $i -lt 60; $i++) {
+        Start-Sleep 1
+        if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים' }).Count -gt 0) { $seen = $true; break }
+    }
+    Start-Sleep 4
+    Shot '00-shortcut-bank-window'
+    Check 'shortcut-open' $seen "לחיצה כפולה על הקיצור 'מאגר תרגילים C#' פותחת את חלון המאגר" ((Windows) -join ' ; ')
+    Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים' } | Stop-Process -Force
 }
 $jar = Join-Path $dsviz 'lab\dsviz-bank-vs.jar'
 Check 'lab-jar' (Test-Path $jar) "התוספת הועתקה: $jar"
