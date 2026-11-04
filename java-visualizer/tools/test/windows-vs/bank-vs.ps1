@@ -277,14 +277,18 @@ if ($ready) {
     Info "Reload אחרי המחיקה: $rl"
     Start-Sleep 20
     Shot '10-vs-after-done'
-    if ($name) { Check 'vs-project-gone' (-not (HasElement $vsP.Id ("^" + [regex]::Escape($name) + "$"))) "ב-Visual Studio הפרויקט $name כבר לא מופיע" }
+}
+# המחיקה עצמה נבדקת ב-BankVsIt (done-dir / done-sln) לפני התרגיל השני — שמקבל שוב את אותו שם (Ex01_...) ונשאר בכוונה עם קובץ של התלמיד
+$keepF = Join-Path $it 'keep-project.txt'
+$keep = if (Test-Path $keepF) { (Get-Content $keepF -Raw -Encoding utf8).Trim() } else { '' }
+if ($keep) {
+    Check 'keep-mine' (Test-Path (Join-Path $keep 'MyHelper.cs')) "התרגיל השני: הקובץ של התלמיד (MyHelper.cs) נשאר בפרויקט $(Split-Path $keep -Leaf)"
+    Check 'keep-ex-files' (@(Get-ChildItem $keep -Filter 'StackTargil*.cs').Count -eq 0) "התרגיל השני: קבצי התרגיל נמחקו"
 }
 if ($dir) {
-    Check 'gone-dir' (-not (Test-Path $dir)) "התיקייה של $name נמחקה מהדיסק"
-    Check 'gone-sln' (-not ((Get-Content $sln -Raw -Encoding utf8) -match [regex]::Escape("`"$name`""))) "$name הוצא מ-DataStructures-CS.sln"
     $b = & $msbuild $sln /restore /nologo /v:m /p:Configuration=Debug 2>&1
     $b | Set-Content (Join-Path $Out 'build-solution-after.txt') -Encoding utf8
-    Check 'sln-builds' ($LASTEXITCODE -eq 0) "אחרי המחיקה הפתרון כולו עדיין נבנה ב-MSBuild" (($b | Select-Object -Last 8) -join ' | ')
+    Check 'sln-builds' ($LASTEXITCODE -eq 0) "אחרי 'סיימתי' הפתרון כולו (עם הפרויקט שנשאר) עדיין נבנה ב-MSBuild" (($b | Select-Object -Last 8) -join ' | ')
 }
 $res = Join-Path $it 'bank-vs-result.txt'
 if (Test-Path $res) {

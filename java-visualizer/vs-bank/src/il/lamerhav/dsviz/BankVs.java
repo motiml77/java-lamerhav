@@ -117,45 +117,126 @@ public final class BankVs {
 
     // ------------------------------------------------------------------ "סיימתי"
 
+    /** מה נמחק מתרגיל אחד: רק מה שנוצר ממנו — ולא שום קובץ אחר של התלמיד */
+    static final class Removal {
+        final File dir;
+        /** קבצי ה-.cs שנוצרו מהתרגיל (רק ישירות בתיקיית הפרויקט) */
+        final List<File> files = new ArrayList<File>();
+        /** קבצים / תיקיות אחרים בתיקייה שלא נוצרו מהתרגיל — אם יש, הפרויקט נשאר (רק קבצי התרגיל נמחקים) */
+        final List<String> others = new ArrayList<String>();
+        /** הפרויקט בתוך Exercises של תיקיית התרגילים (אחרת — לא מוחקים תיקייה בכלל) */
+        boolean inExercises;
+
+        Removal(File dir) {
+            this.dir = dir;
+        }
+
+        /** אין בתיקייה שום דבר של התלמיד — מוחקים את הפרויקט כולו (תיקייה + רישום בפתרון) */
+        boolean wholeProject() {
+            return inExercises && others.isEmpty();
+        }
+    }
+
+    /** מה נוצר מהתרגיל בתיקייה, ומה עוד יש בה. מה שנוצר: קבצי ה-.cs שלו, ‎<שם>.csproj(.user)‎, Properties\launchSettings.json, bin, obj */
+    static Removal plan(BankProgress.Created c) {
+        File dir = new File(c.folder);
+        Removal r = new Removal(dir);
+        try {
+            File ex = CsSolution.exercisesDir(root).toFile().getCanonicalFile();
+            r.inExercises = dir.getCanonicalFile().getParentFile().equals(ex);
+        } catch (IOException e) {
+            r.inExercises = false;
+        }
+        java.util.Set<String> made = new java.util.HashSet<String>();
+        for (String p : c.files) {
+            File f = new File(p);
+            if (f.isFile() && f.getParentFile() != null && f.getParentFile().getAbsoluteFile().equals(dir.getAbsoluteFile())) {
+                r.files.add(f);
+                made.add(f.getName().toLowerCase());
+            }
+        }
+        String[] names = dir.list();
+        if (names != null) {
+            for (String n : names) {
+                String l = n.toLowerCase();
+                if (made.contains(l) || l.equals(dir.getName().toLowerCase() + ".csproj") || l.equals(dir.getName().toLowerCase() + ".csproj.user")
+                        || l.equals("bin") || l.equals("obj")) continue;
+                if (l.equals("properties")) {
+                    String[] p = new File(dir, n).list();
+                    boolean onlyLaunch = p != null && (p.length == 0 || p.length == 1 && p[0].equalsIgnoreCase("launchSettings.json"));
+                    if (onlyLaunch) continue;
+                }
+                r.others.add(n);
+            }
+        }
+        return r;
+    }
+
     /**
-     * סימון ירוק, ומחיקה של כל מה שנוצר מהשאלה: הפרויקט (התיקייה כולה), הרישום בפתרון, ההצעות לפתרון השמורות, והשיוך לשאלה.
-     * ask — שואלים קודם (בחלון בעברית). מחזיר false אם התלמיד ביטל.
+     * סימון ירוק, ומחיקה של מה שנוצר מהשאלה — ורק של זה: אם בתיקיית הפרויקט אין שום דבר אחר, הפרויקט נמחק כולו (התיקייה והרישום
+     * בפתרון); אם התלמיד הוסיף שם קבצים משלו — נמחקים רק קבצי התרגיל, והפרויקט עם הקבצים שלו נשאר. גם ההצעות לפתרון השמורות
+     * והשיוך לשאלה נמחקים. ask — שואלים קודם (בחלון בעברית, עם הרשימה). מחזיר false אם התלמיד ביטל.
      */
     static boolean complete(Component parent, BankStore.Question q, boolean ask) {
-        List<File> dirs = projects(q);
-        StringBuilder names = new StringBuilder();
-        for (File d : dirs) names.append(names.length() == 0 ? "" : ", ").append(d.getName());
-        if (ask && !dirs.isEmpty() && RtlDialog.ask(parent, "סיימתי את התרגיל", RtlDialog.Kind.OK, "סיימתי את התרגיל",
-                "השאלה תסומן בסימן ירוק, והפרויקט של התרגיל יימחק מהפתרון — כדי שלא יצטברו תרגילים ישנים.\n\n"
+        List<Removal> plans = new ArrayList<Removal>();
+        for (BankProgress.Created c : BankProgress.get().createdOf(q.id)) {
+            Removal r = plan(c);
+            if (!r.files.isEmpty() || r.dir.isDirectory() && r.wholeProject()) plans.add(r);
+        }
+        StringBuilder what = new StringBuilder();
+        for (Removal r : plans) {
+            List<String> n = new ArrayList<String>();
+            for (File f : r.files) n.add(f.getName());
+            what.append(what.length() == 0 ? "" : "\n");
+            if (r.wholeProject()) what.append("הפרויקט שיימחק מהפתרון: ").append(r.dir.getName()).append(n.isEmpty() ? "" : " (" + String.join(", ", n) + ")");
+            else what.append("קבצי התרגיל שיימחקו: ").append(String.join(", ", n)).append("\nהפרויקט ").append(r.dir.getName())
+                    .append(" נשאר — יש בו עוד קבצים שלך: ").append(String.join(", ", r.others));
+        }
+        if (ask && !plans.isEmpty() && RtlDialog.ask(parent, "סיימתי את התרגיל", RtlDialog.Kind.OK, "סיימתי את התרגיל",
+                "השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו — כדי שלא יצטברו תרגילים ישנים.\n\n"
                 + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
-                + (dirs.size() == 1 ? "הפרויקט שיימחק: " : "הפרויקטים שיימחקו: ") + names, "סיום ומחיקה", "ביטול") != 0) return false;
+                + what + "\nרק מה שנוצר מהתרגיל נמחק — קבצים אחרים לא נמחקים.", "סיום ומחיקה", "ביטול") != 0) return false;
         BankProgress.get().setDone(q.id, true);
         List<String> left = new ArrayList<String>();
-        for (File d : dirs) {
-            String why = removeProject(d);
-            if (why != null) left.add(why);
-        }
+        for (Removal r : plans) left.addAll(remove(r));
         BankProgress.get().forgetCreated(q.id);
         if (!left.isEmpty() && parent != null)
             RtlDialog.show(parent, "סיימתי את התרגיל", RtlDialog.Kind.WARN, "חלק מהקבצים לא נמחקו",
-                    String.join("\n", left) + "\n\nכנראה שהתוכנית עדיין רצה, או שקובץ פתוח בתוכנה אחרת. אפשר למחוק את התיקייה ידנית.");
+                    String.join("\n", left) + "\n\nכנראה שהתוכנית עדיין רצה, או שקובץ פתוח בתוכנה אחרת. אפשר למחוק אותם ידנית.");
         return true;
     }
 
-    /** מוחק פרויקט אחד: הרישום בפתרון, ההצעות השמורות שלו, והתיקייה. null — הכול נמחק; אחרת — מה נשאר */
-    static String removeProject(File dir) {
+    /** מוחק לפי התוכנית. מחזיר מה שלא הצליח להימחק */
+    static List<String> remove(Removal r) {
+        List<String> left = new ArrayList<String>();
+        forgetSolutions(r.files);
+        for (File f : r.files) {
+            for (int i = 0; i < 6 && f.exists(); i++) {
+                f.delete();
+                if (f.exists()) sleep(500);
+            }
+            if (f.exists()) left.add(f.getPath());
+        }
+        if (!r.wholeProject() || !r.dir.isDirectory()) return left;
         Path sln = CsSolution.solution(root);
         try {
-            if (sln != null) unregister(sln, dir.getName());
+            if (sln != null) unregister(sln, r.dir.getName());
         } catch (IOException e) {
-            // הפתרון לא עודכן — Visual Studio יראה פרויקט חסר; התיקייה בכל זאת נמחקת
+            // הפתרון לא עודכן — Visual Studio יראה פרויקט חסר
         }
-        forgetSolutions(dir);
-        for (int i = 0; i < 6 && dir.exists(); i++) {
-            delete(dir);
-            if (dir.exists()) sleep(500);   // קובץ שנעול לרגע (הבנייה של Visual Studio) — מנסים שוב
+        // רק מה שהתוכנית מצאה: ‎.csproj(.user)‎, Properties\launchSettings.json, bin, obj — ואז התיקייה (ריקה)
+        for (String n : new String[] { r.dir.getName() + ".csproj", r.dir.getName() + ".csproj.user", "Properties" + File.separator + "launchSettings.json" })
+            new File(r.dir, n).delete();
+        new File(r.dir, "Properties").delete();
+        for (String n : new String[] { "bin", "obj" }) {
+            File b = new File(r.dir, n);
+            for (int i = 0; i < 6 && b.exists(); i++) {
+                delete(b);
+                if (b.exists()) sleep(500);   // קובץ שנעול לרגע (הבנייה של Visual Studio) — מנסים שוב
+            }
         }
-        return dir.exists() ? dir.getPath() : null;
+        if (!r.dir.delete() && r.dir.exists()) left.add(r.dir.getPath());
+        return left;
     }
 
     /** מוציא את הפרויקט מקובץ ה-.sln: Project ... EndProject, וכל השורות עם ה-GUID שלו (Debug / Release, תיקיות) */
@@ -181,10 +262,11 @@ public final class BankVs {
         Files.write(sln, ((bom ? "\uFEFF" : "") + String.join(nl, out)).getBytes(StandardCharsets.UTF_8));
     }
 
-    /** מוחק מ-~/.dsviz/solutions.json את ההצעות של הקבצים שבתיקייה (שלא יופיעו ב"הצעה לפתרון ב-C#" אחרי שהתרגיל נמחק) */
+    /** מוחק מ-~/.dsviz/solutions.json את ההצעות של הקבצים האלה (שלא יופיעו ב"הצעה לפתרון ב-C#" אחרי שהתרגיל נמחק) */
     @SuppressWarnings("unchecked")
-    static void forgetSolutions(File dir) {
-        String prefix = slash(dir.getAbsolutePath()) + "/";
+    static void forgetSolutions(List<File> files) {
+        java.util.Set<String> paths = new java.util.HashSet<String>();
+        for (File f : files) paths.add(slash(f.getAbsolutePath()).toLowerCase());
         try {
             SolutionStore s = new SolutionStore(VsSubmit.storeFile());
             Method load = SolutionStore.class.getDeclaredMethod("load"), save = SolutionStore.class.getDeclaredMethod("save");
@@ -196,7 +278,7 @@ public final class BankVs {
                 load.invoke(s);
                 boolean changed = false;
                 for (Iterator<SolutionStore.Entry> it = ((List<SolutionStore.Entry>) f.get(s)).iterator(); it.hasNext();) {
-                    if (slash(it.next().path).toLowerCase().startsWith(prefix.toLowerCase())) {
+                    if (paths.contains(slash(it.next().path).toLowerCase())) {
                         it.remove();
                         changed = true;
                     }

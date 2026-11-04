@@ -171,7 +171,7 @@ public final class BankVsIt {
             if (b != null) b.click();
         });
         JDialog ask = waitDialog("סיימתי את התרגיל", 10000);
-        check("done-ask", ask != null && texts(ask).contains("הפרויקט שיימחק: " + dir.getName()) && !texts(ask).matches(".*\\bV\\b.*"),
+        check("done-ask", ask != null && texts(ask).contains("הפרויקט שיימחק מהפתרון: " + dir.getName()) && texts(ask).contains("רק מה שנוצר מהתרגיל נמחק") && !texts(ask).matches(".*\\bV\\b.*"),
                 "'סיימתי את התרגיל' שואל לפני המחיקה (בעברית בלבד, עם שם הפרויקט)", ask == null ? "אין חלון" : texts(ask));
         if (ask == null) return;
         pause(500);
@@ -192,6 +192,35 @@ public final class BankVsIt {
         check("done-solutions", BankVs.solutionsUnder(dir) == 0, "ההצעות לפתרון של התרגיל נמחקו", "");
         check("done-forget", BankProgress.get().createdOf(sq.id).isEmpty(), "השיוך של התרגיל לשאלה נמחק", "");
         Files.write(new File(out, "sln-after.txt").toPath(), sln2.getBytes(StandardCharsets.UTF_8));
+
+        // 8ב. קבצים אחרים של התלמיד לא נמחקים: תרגיל נוסף, והתלמיד הוסיף קובץ משלו לפרויקט (ועוד קובץ בתיקיית התרגילים)
+        BankStore.Question q2 = null;
+        for (BankStore.Question x : BankVs.store.questions) if (x.id.equals("stack-max-contains")) q2 = x;
+        final BankStore.Question kq = q2;
+        ExercisePipeline.Result r2 = BankVs.create(kq, new ExercisePipeline.Progress() {
+            public void say(String text) { }
+
+            public boolean cancelled() { return false; }
+        });
+        File dir2 = CsSolution.exercisesDir(BankVs.root).resolve(r2.folderName).toFile();
+        File mine = new File(dir2, "MyHelper.cs"), notes = BankVs.root.resolve("my-notes.txt").toFile();
+        Files.write(mine.toPath(), "public static class MyHelper\n{\n    public static int Twice(int x) { return 2 * x; }\n\n    public static void Main() { System.Console.WriteLine(Twice(21)); }\n}\n".getBytes(StandardCharsets.UTF_8));
+        Files.write(notes.toPath(), "שלי".getBytes(StandardCharsets.UTF_8));
+        List<File> made2 = new ArrayList<File>(r2.files);
+        BankVs.Removal plan2 = BankVs.plan(BankProgress.get().createdOf(kq.id).get(0));
+        log("  ..   KEEP plan: files=" + plan2.files + " others=" + plan2.others + " whole=" + plan2.wholeProject());
+        check("keep-plan", !plan2.wholeProject() && plan2.others.contains("MyHelper.cs") && plan2.files.size() == made2.size(),
+                "תרגיל שהתלמיד הוסיף לו קובץ משלו: רק קבצי התרגיל יימחקו, הפרויקט נשאר", plan2.others.toString());
+        BankVs.complete(null, kq, false);
+        int left2 = 0;
+        for (File f : made2) if (f.exists()) left2++;
+        String sln3 = new String(Files.readAllBytes(CsSolution.solution(BankVs.root)), StandardCharsets.UTF_8);
+        check("keep-files", left2 == 0, "קבצי התרגיל נמחקו (" + made2.size() + ")", String.valueOf(left2));
+        check("keep-mine", mine.isFile() && notes.isFile(), "הקובץ של התלמיד בפרויקט (MyHelper.cs) והקובץ שלו בתיקיית התרגילים — נשארו", "");
+        check("keep-project", dir2.isDirectory() && new File(dir2, dir2.getName() + ".csproj").isFile() && sln3.contains("\"" + dir2.getName() + "\""),
+                "הפרויקט " + dir2.getName() + " (עם הקובץ של התלמיד) נשאר בפתרון", "");
+        check("keep-other-sln", sln3.contains("\"Exercise\"") && sln3.contains("\"StackExamples\""), "שאר הפרויקטים בפתרון לא נגעו", "");
+        Files.write(new File(out, "keep-project.txt").toPath(), dir2.getAbsolutePath().getBytes(StandardCharsets.UTF_8));
 
         // 9. המאגר שוב: הסימן הירוק בעץ ו"צור תרגיל" (לא "פתח")
         ui(() -> { BankVsWindow.open(null, "stack-sum-size"); return null; });

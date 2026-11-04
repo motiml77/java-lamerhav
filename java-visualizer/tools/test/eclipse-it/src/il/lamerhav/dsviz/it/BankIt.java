@@ -237,6 +237,25 @@ public class BankIt implements IApplication {
         out.println("PREVIEW-LONG " + ui(() -> preview(dlg2)));
         shot(dlg2, "bank-dialog-long.png");
         ui(() -> { dlg2.close(); return null; });
+        // 8. קבצים אחרים של התלמיד לא נמחקים: תרגיל נוסף, והתלמיד הוסיף קובץ משלו לאותה חבילה ועוד קובץ בפרויקט
+        @SuppressWarnings("unchecked")
+        List<String> made2 = ui(() -> (List<String>) handler.getMethod("createForTest", String.class, String.class).invoke(null, "stack-max-contains", "Students"));
+        String pkg2 = made2.get(0).substring(0, made2.get(0).lastIndexOf('/'));
+        ui(() -> {
+            ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(pkg2 + "/MyHelper.java")).create(
+                    new java.io.ByteArrayInputStream(("package " + pkg2.substring(pkg2.lastIndexOf('/') + 1) + ";\npublic class MyHelper { }\n").getBytes(StandardCharsets.UTF_8)), true, null);
+            ResourcesPlugin.getWorkspace().getRoot().getFile(new Path("/Students/src/Mine.java")).create(
+                    new java.io.ByteArrayInputStream("public class Mine { }\n".getBytes(StandardCharsets.UTF_8)), true, null);
+            BankIt.this.build();
+            return null;
+        });
+        sleep(500);
+        out.println("KEEP-DONE " + ui(() -> handler.getMethod("completeForTest", String.class).invoke(null, "stack-max-contains")));
+        int left2 = 0;
+        for (String f : made2) if (ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(f)).exists()) left2++;
+        out.println("KEEP created-left=" + left2 + " helper=" + ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(pkg2 + "/MyHelper.java")).exists()
+                + " folder=" + ResourcesPlugin.getWorkspace().getRoot().getFolder(new Path(pkg2)).exists()
+                + " mine=" + ResourcesPlugin.getWorkspace().getRoot().getFile(new Path("/Students/src/Mine.java")).exists());
         out.println("PROGRESS-FILE " + new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("dsviz.bankProgress")).toPath()), StandardCharsets.UTF_8).length());
     }
 

@@ -118,32 +118,50 @@ public class BankHandler extends AbstractHandler {
      * בתרגילים ישנים. ask — שואלים קודם (מחיקה). מחזיר true אם סומן.
      */
     static boolean complete(Shell shell, BankStore.Question q, boolean ask) {
-        List<IResource> folders = new ArrayList<IResource>();
-        StringBuilder names = new StringBuilder();
-        for (BankProgress.Created c : BankProgress.get().createdOf(q.id)) {
-            IResource r = c.folder.isEmpty() ? null : ResourcesPlugin.getWorkspace().getRoot().findMember(new Path(c.folder));
-            if (r != null && r.exists() && !folders.contains(r)) {
-                folders.add(r);
-                names.append(names.length() == 0 ? "" : ", ").append(r.getName());
-            }
-        }
-        if (ask && !folders.isEmpty() && !Say.ask(shell, "סיימתי את התרגיל",
+        List<BankProgress.Created> made = BankProgress.get().createdOf(q.id);
+        List<String> names = new ArrayList<String>();
+        for (BankProgress.Created c : made) for (IFile f : createdFiles(c)) names.add(f.getName());
+        if (ask && !names.isEmpty() && !Say.ask(shell, "סיימתי את התרגיל",
                 "השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו מהפרויקט — כדי שלא יצטברו תרגילים ישנים.\n\n"
                 + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
-                + (folders.size() == 1 ? "התיקייה שתימחק: " : "התיקיות שיימחקו: ") + names, "סיום ומחיקה", "ביטול")) return false;
+                + (names.size() == 1 ? "הקובץ שיימחק: " : "הקבצים שיימחקו: ") + String.join(", ", names)
+                + "\nרק הקבצים שנוצרו מהתרגיל — קבצים אחרים לא נמחקים.", "סיום ומחיקה", "ביטול")) return false;
         BankProgress.get().setDone(q.id, true);
-        for (IResource r : folders) cleanUp(r);
+        List<String> kept = new ArrayList<String>();
+        for (BankProgress.Created c : made) kept.addAll(cleanUp(c));
         BankProgress.get().forgetCreated(q.id);
+        if (!kept.isEmpty() && shell != null)
+            Say.info(shell, "סיימתי את התרגיל", "קבצי התרגיל נמחקו. בתיקייה יש עוד קבצים שלא נוצרו מהתרגיל — הם נשארו במקומם:\n" + String.join(", ", kept));
         return true;
     }
 
     /**
-     * מוחק תרגיל אחד עם כל מה שנוצר בשבילו: סוגר את הלשוניות של הקבצים שלו (בלי לשמור), מוחק את החבילה מתיקיית המקור ואת
-     * הקבצים המקומפלים שלה (bin), ומוחק את ההצעות לפתרון ששמורות לקבצים שלה (solutions.json).
+     * הקבצים שנוצרו מהתרגיל ועדיין קיימים — רק בתוך התיקייה של התרגיל (חבילה בתיקיית מקור: ‎/פרויקט/src/ex01_stacks‎),
+     * כדי שלעולם לא יימחק קובץ אחר של התלמיד
      */
-    static void cleanUp(IResource folder) {
-        final String prefix = folder.getFullPath().toString() + "/";
-        // 1. הלשוניות בעורך
+    static List<IFile> createdFiles(BankProgress.Created c) {
+        List<IFile> out = new ArrayList<IFile>();
+        if (c.folder.isEmpty() || new Path(c.folder).segmentCount() < 3) return out;
+        for (String p : c.files) {
+            if (!p.startsWith(c.folder + "/") || p.substring(c.folder.length() + 1).contains("/")) continue;
+            IResource r = ResourcesPlugin.getWorkspace().getRoot().findMember(new Path(p));
+            if (r instanceof IFile && r.exists() && !out.contains(r)) out.add((IFile) r);
+        }
+        return out;
+    }
+
+    /**
+     * מוחק תרגיל אחד — רק מה שנוצר בשבילו: הלשוניות של הקבצים שלו (בלי לשמור), הקבצים עצמם, הקבצים המקומפלים שלהם (bin),
+     * וההצעות לפתרון ששמורות להם. התיקייה (והתיקייה שלה ב-bin) נמחקת רק אם לא נשאר בה כלום.
+     * מחזיר את הקבצים האחרים שנשארו בתיקייה (של התלמיד — לא נוגעים בהם).
+     */
+    static List<String> cleanUp(BankProgress.Created c) {
+        final List<IFile> files = createdFiles(c);
+        final java.util.Set<String> paths = new java.util.HashSet<String>();
+        for (IFile f : files) paths.add(f.getFullPath().toString());
+        List<String> kept = new ArrayList<String>();
+        IResource folder = c.folder.isEmpty() ? null : ResourcesPlugin.getWorkspace().getRoot().findMember(new Path(c.folder));
+        // 1. הלשוניות בעורך — רק של הקבצים האלה
         Runnable close = () -> {
             for (org.eclipse.ui.IWorkbenchWindow w : org.eclipse.ui.PlatformUI.getWorkbench().getWorkbenchWindows()) {
                 for (IWorkbenchPage page : w.getPages()) {
@@ -151,7 +169,7 @@ public class BankHandler extends AbstractHandler {
                     for (org.eclipse.ui.IEditorReference ref : page.getEditorReferences()) {
                         try {
                             IFile f = ref.getEditorInput().getAdapter(IFile.class);
-                            if (f != null && f.getFullPath().toString().startsWith(prefix)) refs.add(ref);
+                            if (f != null && paths.contains(f.getFullPath().toString())) refs.add(ref);
                         } catch (PartInitException e) {
                             // לשונית שלא נטענה — מדלגים
                         }
@@ -163,23 +181,46 @@ public class BankHandler extends AbstractHandler {
         org.eclipse.swt.widgets.Display d = org.eclipse.swt.widgets.Display.getDefault();
         if (d.getThread() == Thread.currentThread()) close.run();
         else d.syncExec(close);
-        // 2. הקבצים המקומפלים (bin/<חבילה>) — לפני מחיקת המקור, כשעוד יודעים איפה הם
+        // 2. הקבצים המקומפלים שלהם (bin/<חבילה>/Name.class ו-Name$...class) — לפני מחיקת המקור
+        IContainer out = null;
         try {
-            IJavaProject jp = org.eclipse.jdt.core.JavaCore.create(folder.getProject());
+            IJavaProject jp = folder == null ? null : org.eclipse.jdt.core.JavaCore.create(folder.getProject());
             if (jp != null && jp.exists()) {
-                IResource out = ResourcesPlugin.getWorkspace().getRoot().findMember(jp.getOutputLocation().append(folder.getName()));
-                if (out != null && out.exists()) out.delete(true, null);
+                IResource o = ResourcesPlugin.getWorkspace().getRoot().findMember(jp.getOutputLocation().append(folder.getName()));
+                if (o instanceof IContainer && o.exists()) {
+                    out = (IContainer) o;
+                    for (IFile f : files) {
+                        String base = f.getName().replaceAll("\\.java$", "");
+                        for (IResource k : out.members()) {
+                            String n = k.getName();
+                            if (k instanceof IFile && (n.equals(base + ".class") || n.startsWith(base + "$") && n.endsWith(".class"))) k.delete(true, null);
+                        }
+                    }
+                }
             }
         } catch (CoreException e) {
             // נמחק בבנייה הבאה
         }
-        // 3. החבילה עצמה
-        try {
-            folder.delete(true, null);
-        } catch (CoreException e) {
-            // קובץ נעול — נשאר
+        // 3. הקבצים עצמם
+        for (IFile f : files) {
+            try {
+                f.delete(true, null);
+            } catch (CoreException e) {
+                kept.add(f.getName());
+            }
         }
-        // 4. ההצעות לפתרון של הקבצים שנמחקו (SolutionStore — באותה חבילה; בלי לשנות את התוסף הראשי)
+        // 4. התיקייה — רק אם ריקה (קבצים אחרים של התלמיד נשארים, עם התיקייה)
+        try {
+            if (folder instanceof IContainer && folder.exists()) {
+                IResource[] rest = ((IContainer) folder).members();
+                if (rest.length == 0) folder.delete(true, null);
+                else for (IResource r : rest) kept.add(r.getName());
+            }
+            if (out != null && out.exists() && out.members().length == 0) out.delete(true, null);
+        } catch (CoreException e) {
+            // נשאר
+        }
+        // 5. ההצעות לפתרון של הקבצים שנמחקו (SolutionStore — באותה חבילה; בלי לשנות את התוסף הראשי)
         try {
             SolutionStore store = SolutionMinings.store();
             synchronized (store) {
@@ -191,11 +232,12 @@ public class BankHandler extends AbstractHandler {
                 load.invoke(store);
                 @SuppressWarnings("unchecked")
                 List<SolutionStore.Entry> list = (List<SolutionStore.Entry>) entries.get(store);
-                if (list.removeIf(e -> e.path.startsWith(prefix))) save.invoke(store);
+                if (list.removeIf(e -> paths.contains(e.path))) save.invoke(store);
             }
         } catch (Exception e) {
             // לא נמחקו — הן לא יופיעו ממילא (הקבצים לא קיימים)
         }
+        return kept;
     }
 
     /** השורה (מ-0) של "כאן עונים" הראשון בקובץ, או 0 */
