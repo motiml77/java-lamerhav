@@ -30,6 +30,7 @@ public class ModuleInfoRealCompileTest extends JavaCodeInsightFixtureTestCase {
         super.setUp();
         Dsviz.setOn(true);
         Sdk jdk = JavaAwareProjectJdkTableImpl.getInstanceEx().getInternalJdk();
+        com.intellij.openapi.application.WriteAction.runAndWait(() -> com.intellij.openapi.projectRoots.ProjectJdkTable.getInstance().addJdk(jdk, getTestRootDisposable()));
         ModuleRootModificationUtil.setModuleSdk(getModule(), jdk);
         IdeaTestUtil.setModuleLanguageLevel(getModule(), LanguageLevel.JDK_21, getTestRootDisposable());
         tester = new CompilerTester(getModule());
