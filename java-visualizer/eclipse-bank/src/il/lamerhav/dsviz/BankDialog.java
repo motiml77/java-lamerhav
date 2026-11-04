@@ -538,7 +538,7 @@ public class BankDialog extends Dialog {
                 if (e.button != 1) return;
                 if (onClick != null) onClick.run();   // ה-V מסומן רק בחלון "השאלה" ("סיימתי את התרגיל") — כאן רק מוצג
             });
-            if (!topic) setToolTipText("V ירוק — כבר עשית את התרגיל (מסמנים בחלון \"השאלה\": \"סיימתי את התרגיל\")");
+            if (!topic) setToolTipText("סימון ירוק — כבר עשית את התרגיל (מסמנים בחלון \"השאלה\": \"סיימתי את התרגיל\")");
         }
 
         void setSelected(boolean s) {

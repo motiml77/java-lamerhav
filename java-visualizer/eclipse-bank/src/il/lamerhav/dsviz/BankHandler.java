@@ -128,8 +128,9 @@ public class BankHandler extends AbstractHandler {
             }
         }
         if (ask && !folders.isEmpty() && !Say.ask(shell, "סיימתי את התרגיל",
-                "מסמנים V ירוק, וקבצי התרגיל נמחקים מהפרויקט (" + names + ") — כדי שלא יצטברו תרגילים ישנים.\n\n"
-                + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.", "V ומחיקת הקבצים", "ביטול")) return false;
+                "השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו מהפרויקט — כדי שלא יצטברו תרגילים ישנים.\n\n"
+                + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
+                + (folders.size() == 1 ? "התיקייה שתימחק: " : "התיקיות שיימחקו: ") + names, "סיום ומחיקה", "ביטול")) return false;
         BankProgress.get().setDone(q.id, true);
         for (IResource r : folders) cleanUp(r);
         BankProgress.get().forgetCreated(q.id);

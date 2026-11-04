@@ -246,7 +246,7 @@ final class BankFloat {
             super(parent, SWT.NO_FOCUS | SWT.LEFT_TO_RIGHT | SWT.DOUBLE_BUFFERED);
             this.done = done;
             setCursor(getDisplay().getSystemCursor(SWT.CURSOR_HAND));
-            setToolTipText(done ? "לחיצה מבטלת את הסימון" : "V ירוק — והקבצים של התרגיל נמחקים, כדי שהפרויקט לא יתמלא בתרגילים ישנים");
+            setToolTipText(done ? "לחיצה מבטלת את הסימון" : "סימון ירוק — והקבצים של התרגיל נמחקים, כדי שהפרויקט לא יתמלא בתרגילים ישנים");
             addListener(SWT.Paint, e -> paint(e.gc));
             addListener(SWT.MouseEnter, e -> { hover = true; redraw(); });
             addListener(SWT.MouseExit, e -> { hover = false; redraw(); });
@@ -270,7 +270,7 @@ final class BankFloat {
             gc.setForeground(Look.color(d, Look.OK));
             gc.setLineWidth(done ? 1 : 2);
             gc.drawRoundRectangle(1, 1, s.x - 3, s.y - 3, 16, 16);
-            String text = RtlText.rtl(done ? "עשיתי את התרגיל" : "סיימתי את התרגיל — V");
+            String text = RtlText.rtl(done ? "עשיתי את התרגיל" : "סיימתי את התרגיל");
             gc.setFont(Look.font(d, 0, SWT.BOLD));
             Point e = gc.textExtent(text);
             int iconW = 20, total = e.x + iconW + 8, x = (s.x - total) / 2;
