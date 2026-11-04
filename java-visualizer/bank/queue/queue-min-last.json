@@ -73,5 +73,78 @@
     "otherQuestions": [],
     "mainCode": "Queue<Integer> q = new Queue<Integer>();\nq.insert(7);\nq.insert(2);\nq.insert(9);\nq.insert(4);\nSystem.out.println(\"סעיף א: \" + minQueue(q));\nSystem.out.println(\"סעיף ב: \" + lastValue(q));\nSystem.out.println(\"התור אחרי: \" + q);",
     "expectedOutput": "סעיף א: 2\nסעיף ב: 4\nהתור אחרי: [7,2,9,4]"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון תור לא ריק של מספרים שלמים. בסיום כל פעולה התור צריך להיות כמו שהיה בהתחלה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה MinQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2.",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                7,
+                2,
+                9,
+                4
+              ],
+              "caption": "התור q (7 בראש)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה LastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "הקטן ביותר בתור והאיבר האחרון",
+      "topic": "queues",
+      "mainClass": "QueueTargil2",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "QueueTargil2",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "MinQueue",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה MinQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2.",
+          "solution": "public static int MinQueue(Queue<int> q)\n{\n    Queue<int> temp = new Queue<int>();\n    int min = q.Head();\n    while (!q.IsEmpty())\n    {\n        int x = q.Remove();\n        if (x < min)\n        {\n            min = x;\n        }\n        temp.Insert(x);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n    return min;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "QueueTargil2",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "LastValue",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה LastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4.",
+          "solution": "public static int LastValue(Queue<int> q)\n{\n    Queue<int> temp = new Queue<int>();\n    int last = 0;\n    while (!q.IsEmpty())\n    {\n        last = q.Remove();\n        temp.Insert(last);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n    return last;\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "Queue<int> q = new Queue<int>();\nq.Insert(7);\nq.Insert(2);\nq.Insert(9);\nq.Insert(4);\nConsole.WriteLine(\"סעיף א: \" + MinQueue(q));\nConsole.WriteLine(\"סעיף ב: \" + LastValue(q));\nConsole.WriteLine(\"התור אחרי: \" + q);",
+      "expectedOutput": "סעיף א: 2\nסעיף ב: 4\nהתור אחרי: [7,2,9,4]"
+    }
   }
 }

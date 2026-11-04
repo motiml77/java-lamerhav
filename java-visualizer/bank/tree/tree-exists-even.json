@@ -79,5 +79,84 @@
     "otherQuestions": [],
     "mainCode": "BinNode<Integer> t = new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(2), 4, null), 6, new BinNode<Integer>(new BinNode<Integer>(8), 9, null));\nSystem.out.println(\"סעיף א: \" + exists(t, 8) + \" \" + exists(t, 5));\nSystem.out.println(\"סעיף ב: \" + countEven(t));",
     "expectedOutput": "סעיף א: true false\nסעיף ב: 4"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון עץ בינארי של מספרים שלמים. בשני הסעיפים יש לכתוב פעולה רקורסיבית.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה Exists, המקבלת עץ בינארי t ומספר x, ומחזירה true אם x נמצא באחד מצומתי העץ, אחרת — false.",
+          "figures": [
+            {
+              "type": "tree",
+              "values": [
+                6,
+                4,
+                9,
+                2,
+                null,
+                8
+              ],
+              "caption": "העץ t"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה CountEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "חיפוש בעץ וצמתים זוגיים",
+      "topic": "trees",
+      "mainClass": "TreeTargil3",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "TreeTargil3",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "Exists",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            },
+            {
+              "type": "int",
+              "name": "x"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Exists, המקבלת עץ בינארי t ומספר x, ומחזירה true אם x נמצא באחד מצומתי העץ, אחרת — false.",
+          "solution": "public static bool Exists(BinNode<int> t, int x)\n{\n    if (t == null)\n    {\n        return false;\n    }\n    if (t.GetValue() == x)\n    {\n        return true;\n    }\n    return Exists(t.GetLeft(), x) || Exists(t.GetRight(), x);\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "TreeTargil3",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountEven",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4.",
+          "solution": "public static int CountEven(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    int here = t.GetValue() % 2 == 0 ? 1 : 0;\n    return here + CountEven(t.GetLeft()) + CountEven(t.GetRight());\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "BinNode<int> t = new BinNode<int>(new BinNode<int>(new BinNode<int>(2), 4, null), 6, new BinNode<int>(new BinNode<int>(8), 9, null));\nConsole.WriteLine(\"סעיף א: \" + Exists(t, 8) + \" \" + Exists(t, 5));\nConsole.WriteLine(\"סעיף ב: \" + CountEven(t));",
+      "expectedOutput": "סעיף א: True False\nסעיף ב: 4"
+    }
   }
 }

@@ -103,6 +103,9 @@ final class BankStore {
         { "stack", "מחסנית" }, { "queue", "תור" }, { "list", "שרשרת חוליות" }, { "tree", "עץ בינארי" },
     };
 
+    /** גרסת C# (Visual Studio): הנוסח והתרגיל מהשדה "csharp" של כל שאלה; שאלה בלי גרסת C# לא נטענת */
+    boolean csharp;
+
     final List<Topic> topics = new ArrayList<Topic>();
     final List<Question> questions = new ArrayList<Question>();
     /** שאלות שלא נטענו (קובץ פגום / חסר שדה) — {מקור, למה}. התלמיד לא רואה אותן; הבדיקות נכשלות עליהן */
@@ -112,7 +115,13 @@ final class BankStore {
 
     /** המאגר שבתוך התוסף + התיקייה המקומית */
     static BankStore load() {
+        return load(false);
+    }
+
+    /** csharp — לכלי של Visual Studio */
+    static BankStore load(boolean csharp) {
         BankStore s = new BankStore();
+        s.csharp = csharp;
         s.loadBundled(BankStore.class.getClassLoader());
         File local = localDir();
         if (local != null) s.loadDir(local);
@@ -207,7 +216,9 @@ final class BankStore {
         if (q.level == null) return "רמת קושי לא תקינה: \"" + Json.str(j.get("level")) + "\" (easy / medium / hard)";
         q.title = Json.str(j.get("title")).trim().replaceAll("\\s+", " ");
         if (q.title.isEmpty()) return "חסרה כותרת (title)";
-        Map<String, Object> question = Json.obj(j.get("question"));
+        Map<String, Object> cs = Json.obj(j.get("csharp"));
+        if (csharp && Json.obj(cs.get("exercise")).isEmpty()) return "אין גרסת C# (csharp.exercise) — python3 tools/bank-cs.py";
+        Map<String, Object> question = Json.obj(csharp && cs.containsKey("question") ? cs.get("question") : j.get("question"));
         q.intro = Json.str(question.get("intro")).trim();
         String why = figures(question.get("figures"), q.figures, "question.figures");
         if (why != null) return why;
@@ -221,9 +232,10 @@ final class BankStore {
             q.sections.add(sec);
         }
         if (q.intro.isEmpty() && q.sections.isEmpty()) return "חסר נוסח השאלה (question.intro / question.sections)";
-        q.exercise = Json.obj(j.get("exercise"));
+        q.exercise = Json.obj(csharp ? cs.get("exercise") : j.get("exercise"));
         if (Json.arr(q.exercise.get("tasks")).isEmpty()) return "בתרגיל אין סעיפים (exercise.tasks)";
-        if (!q.exercise.containsKey("language")) q.exercise.put("language", "java");
+        if (csharp) q.exercise.put("language", "csharp");
+        else if (!q.exercise.containsKey("language")) q.exercise.put("language", "java");
         if (Json.str(q.exercise.get("topic")).isEmpty()) q.exercise.put("topic", q.topic);
         return null;
     }

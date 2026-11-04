@@ -59,7 +59,8 @@ final class BankQuestionPanel {
                 ll.spacing = 8;
                 links.setLayout(ll);
                 links.setLayoutData(wide());
-                new Look.Round(links, "לפעולה " + task.methodName, false, () -> actions.jump(task));
+                Look.Round go = new Look.Round(links, label.isEmpty() ? "לפעולה" : "לפעולה של סעיף " + label, false, () -> actions.jump(task));
+                go.setToolTipText("פותח את הקובץ, והסמן בתחילת הפעולה " + task.methodName);
                 new Look.Round(links, "💡 הצעה לפתרון", false, () -> actions.solution(task));
                 if (shown != null) shown.add("SECTION-BUTTONS " + label + " " + task.methodName);
             }
@@ -205,7 +206,8 @@ final class BankQuestionPanel {
         StringBuilder b = new StringBuilder("\u200F\u202B");
         int last = 0;
         while (m.find()) {
-            b.append(s, last, m.start()).append("\u202A").append(m.group()).append("\u202C");
+            // RLM אחרי הקטע באנגלית: בלעדיו מספר שבא אחריו ("s (4 בראש)") נדבק לאנגלית ועובר לצד השני
+            b.append(s, last, m.start()).append("\u202A").append(m.group()).append("\u202C\u200F");
             last = m.end();
         }
         return b.append(s.substring(last)).append("\u202C").toString();

@@ -77,5 +77,82 @@
     "otherQuestions": [],
     "mainCode": "Stack<Integer> s = new Stack<Integer>();\ns.push(6);\ns.push(1);\ns.push(9);\ns.push(5);\nSystem.out.println(\"סעיף א: \" + maxStack(s));\nSystem.out.println(\"סעיף ב: \" + contains(s, 1) + \" \" + contains(s, 4));\nSystem.out.println(\"המחסנית אחרי: \" + s);",
     "expectedOutput": "סעיף א: 9\nסעיף ב: true false\nהמחסנית אחרי: [5,9,1,6]"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה מחסנית לא ריקה של מספרים שלמים. בסיום כל פעולה המחסנית צריכה להיות כמו שהייתה בהתחלה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה MaxStack, המקבלת מחסנית s ומחזירה את הערך הגדול ביותר בה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 9.",
+          "figures": [
+            {
+              "type": "stack",
+              "values": [
+                5,
+                9,
+                1,
+                6
+              ],
+              "caption": "המחסנית s (5 בראש)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה Contains, המקבלת מחסנית s ומספר x, ומחזירה true אם x נמצא במחסנית, אחרת — false."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "הגדול ביותר במחסנית וחיפוש",
+      "topic": "stacks",
+      "mainClass": "StackTargil2",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "StackTargil2",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "MaxStack",
+          "parameters": [
+            {
+              "type": "Stack<int>",
+              "name": "s"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה MaxStack, המקבלת מחסנית s ומחזירה את הערך הגדול ביותר בה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 9.",
+          "solution": "public static int MaxStack(Stack<int> s)\n{\n    Stack<int> temp = new Stack<int>();\n    int max = s.Top();\n    while (!s.IsEmpty())\n    {\n        int x = s.Pop();\n        if (x > max)\n        {\n            max = x;\n        }\n        temp.Push(x);\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.IsEmpty())\n    {\n        s.Push(temp.Pop());\n    }\n    return max;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "StackTargil2",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "Contains",
+          "parameters": [
+            {
+              "type": "Stack<int>",
+              "name": "s"
+            },
+            {
+              "type": "int",
+              "name": "x"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Contains, המקבלת מחסנית s ומספר x, ומחזירה true אם x נמצא במחסנית, אחרת — false.",
+          "solution": "public static bool Contains(Stack<int> s, int x)\n{\n    Stack<int> temp = new Stack<int>();\n    bool found = false;\n    while (!s.IsEmpty())\n    {\n        int y = s.Pop();\n        if (y == x)\n        {\n            found = true;\n        }\n        temp.Push(y);\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.IsEmpty())\n    {\n        s.Push(temp.Pop());\n    }\n    return found;\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "Stack<int> s = new Stack<int>();\ns.Push(6);\ns.Push(1);\ns.Push(9);\ns.Push(5);\nConsole.WriteLine(\"סעיף א: \" + MaxStack(s));\nConsole.WriteLine(\"סעיף ב: \" + Contains(s, 1) + \" \" + Contains(s, 4));\nConsole.WriteLine(\"המחסנית אחרי: \" + s);",
+      "expectedOutput": "סעיף א: 9\nסעיף ב: True False\nהמחסנית אחרי: [5,9,1,6]"
+    }
   }
 }

@@ -61,5 +61,66 @@
     "otherQuestions": [],
     "mainCode": "System.out.println(\"סעיף א: \" + isPalindrome(\"level\") + \" \" + isPalindrome(\"hello\"));\nSystem.out.println(\"סעיף ב: \" + countVowels(\"programming\"));",
     "expectedOutput": "סעיף א: true false\nסעיף ב: 3"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה מחרוזת str של אותיות קטנות באנגלית.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה: עבור \"level\" הפעולה תחזיר true, ועבור \"hello\" — false."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה CountVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "פלינדרום ותנועות",
+      "topic": "strings",
+      "mainClass": "Strings2",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Strings2",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsPalindrome",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה: עבור \"level\" הפעולה תחזיר true, ועבור \"hello\" — false.",
+          "solution": "public static bool IsPalindrome(string str)\n{\n    int i = 0, j = str.Length - 1;\n    while (i < j)\n    {\n        if (str[i] != str[j])\n        {\n            return false;\n        }\n        i++;\n        j--;\n    }\n    return true;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Strings2",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountVowels",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3.",
+          "solution": "public static int CountVowels(string str)\n{\n    int count = 0;\n    for (int i = 0; i < str.Length; i++)\n    {\n        if (\"aeiou\".IndexOf(str[i]) >= 0)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א: \" + IsPalindrome(\"level\") + \" \" + IsPalindrome(\"hello\"));\nConsole.WriteLine(\"סעיף ב: \" + CountVowels(\"programming\"));",
+      "expectedOutput": "סעיף א: True False\nסעיף ב: 3"
+    }
   }
 }

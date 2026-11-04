@@ -61,5 +61,66 @@
     "otherQuestions": [],
     "mainCode": "Student[] cls = { new Student(\"דנה\", 95), new Student(\"יוסי\", 72), new Student(\"רון\", 90), new Student(\"מיכל\", 88) };\nSystem.out.println(\"סעיף א: \" + cls[0].isExcellent() + \" \" + cls[1].isExcellent());\nSystem.out.println(\"סעיף ב: \" + countExcellent(cls));",
     "expectedOutput": "סעיף א: true false\nסעיף ב: 2"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה המחלקה Student (תלמיד), ובה התכונות name (שם) ו-grade (ציון), פעולה בונה ופעולות get.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "הוסף למחלקה Student פעולה ששמה IsExcellent, המחזירה true אם הציון של התלמיד הוא 90 ומעלה, אחרת — false."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה חיצונית ששמה CountExcellent, המקבלת מערך של תלמידים ומחזירה כמה מהם מצטיינים. השתמש בפעולה מסעיף א."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "המחלקה Student — מצטיינים",
+      "topic": "classes",
+      "mainClass": "Main",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Student",
+          "code": "public class Student\n{\n    private string name;\n    private int grade;\n\n    public Student(string name, int grade)\n    {\n        this.name = name;\n        this.grade = grade;\n    }\n\n    public string GetName() { return name; }\n    public int GetGrade() { return grade; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Student",
+          "isStatic": false,
+          "returnType": "bool",
+          "methodName": "IsExcellent",
+          "parameters": [],
+          "instructions": "הוסף למחלקה Student פעולה ששמה IsExcellent, המחזירה true אם הציון של התלמיד הוא 90 ומעלה, אחרת — false.",
+          "solution": "public bool IsExcellent()\n{\n    return grade >= 90;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Main",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountExcellent",
+          "parameters": [
+            {
+              "type": "Student[]",
+              "name": "students"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית ששמה CountExcellent, המקבלת מערך של תלמידים ומחזירה כמה מהם מצטיינים. השתמש בפעולה מסעיף א.",
+          "solution": "public static int CountExcellent(Student[] students)\n{\n    int count = 0;\n    for (int i = 0; i < students.Length; i++)\n    {\n        if (students[i].IsExcellent())\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "Student[] cls = { new Student(\"דנה\", 95), new Student(\"יוסי\", 72), new Student(\"רון\", 90), new Student(\"מיכל\", 88) };\nConsole.WriteLine(\"סעיף א: \" + cls[0].IsExcellent() + \" \" + cls[1].IsExcellent());\nConsole.WriteLine(\"סעיף ב: \" + CountExcellent(cls));",
+      "expectedOutput": "סעיף א: True False\nסעיף ב: 2"
+    }
   }
 }

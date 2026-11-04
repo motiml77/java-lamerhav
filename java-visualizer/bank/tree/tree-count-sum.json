@@ -76,5 +76,81 @@
     "otherQuestions": [],
     "mainCode": "BinNode<Integer> t = new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(1), 3, new BinNode<Integer>(6)), 8, new BinNode<Integer>(null, 10, new BinNode<Integer>(14)));\nSystem.out.println(\"סעיף א: \" + countNodes(t));\nSystem.out.println(\"סעיף ב: \" + sumTree(t));",
     "expectedOutput": "סעיף א: 6\nסעיף ב: 42"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון עץ בינארי של מספרים שלמים. בשני הסעיפים יש לכתוב פעולה רקורסיבית.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה CountNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6.",
+          "figures": [
+            {
+              "type": "tree",
+              "values": [
+                8,
+                3,
+                10,
+                1,
+                6,
+                null,
+                14
+              ],
+              "caption": "העץ t"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה SumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מספר הצמתים וסכום העץ",
+      "topic": "trees",
+      "mainClass": "TreeTargil1",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "TreeTargil1",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountNodes",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6.",
+          "solution": "public static int CountNodes(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    return 1 + CountNodes(t.GetLeft()) + CountNodes(t.GetRight());\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "TreeTargil1",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "SumTree",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה SumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42.",
+          "solution": "public static int SumTree(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    return t.GetValue() + SumTree(t.GetLeft()) + SumTree(t.GetRight());\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "BinNode<int> t = new BinNode<int>(new BinNode<int>(new BinNode<int>(1), 3, new BinNode<int>(6)), 8, new BinNode<int>(null, 10, new BinNode<int>(14)));\nConsole.WriteLine(\"סעיף א: \" + CountNodes(t));\nConsole.WriteLine(\"סעיף ב: \" + SumTree(t));",
+      "expectedOutput": "סעיף א: 6\nסעיף ב: 42"
+    }
   }
 }
