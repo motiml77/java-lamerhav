@@ -644,13 +644,17 @@ public final class BankVs {
                 + "$d.MainWindow.Activate(); break } catch { Start-Sleep -Milliseconds 1500 } }; if($i -ge 15){ exit 4 }; "
                 // התרגיל = הפרויקט שמריצים (Startup Project): הכפתור "הרצה ויזואלית" בסרגל של Visual Studio מריץ אותו מיד.
                 // שתי דרכים (מאפיין הפתרון StartupProject, ו-StartupProjects), ובודקים שזה נקלט
-                + "for($j=0; $j -lt 20; $j++){ try { $it=$d.Solution.FindProjectItem($env:DSVIZ_FILE); "
-                + "if($it -and $it.ContainingProject){ $pr=$it.ContainingProject; "
-                + "try { $d.Solution.Properties.Item('StartupProject').Value=$pr.Name } catch { Write-Output ('PROP ' + $_) }; "
-                + "$now=@($d.Solution.SolutionBuild.StartupProjects) -join ','; "
-                + "if($now -notlike ('*' + $pr.Name + '*')){ try { $d.Solution.SolutionBuild.StartupProjects=[object[]]@($pr.UniqueName) } catch { Write-Output ('SB ' + $_) }; $now=@($d.Solution.SolutionBuild.StartupProjects) -join ',' }; "
-                + "Write-Output ('STARTUP ' + $pr.UniqueName + ' -> ' + $now); if($now -like ('*' + $pr.Name + '*')){ exit 0 } } } catch { Write-Output ('FIND ' + $_) }; Start-Sleep -Milliseconds 1500 }; exit 0";
-        int code = powershell(ps, 75, "DSVIZ_FILE", f.getAbsolutePath(), "DSVIZ_LINE", String.valueOf(line));
+                // הפרויקט — לפי השם (התיקייה של הקובץ), במעבר לפי מספר על הפרויקטים של הפתרון
+                + "for($j=0; $j -lt 20; $j++){ try { $pr=$null; $c=$d.Solution.Projects.Count; "
+                + "for($q=1; $q -le $c; $q++){ $x=$d.Solution.Projects.Item($q); if($x.Name -eq $env:DSVIZ_PROJECT -or ([string]$x.UniqueName).EndsWith('\\' + $env:DSVIZ_PROJECT + '.csproj')){ $pr=$x } }; "
+                + "if($pr){ try { $d.Solution.Properties.Item('StartupProject').Value=$pr.Name } catch { Write-Output ('PROP ' + $_) }; "
+                + "$now=(@($d.Solution.SolutionBuild.StartupProjects) -join ','); "
+                + "if($now -notlike ('*' + $pr.Name + '*')){ try { $d.Solution.SolutionBuild.StartupProjects=$pr.UniqueName } catch { Write-Output ('SB1 ' + $_) }; $now=(@($d.Solution.SolutionBuild.StartupProjects) -join ',') }; "
+                + "if($now -notlike ('*' + $pr.Name + '*')){ try { $d.Solution.SolutionBuild.StartupProjects=[object[]]@($pr.UniqueName) } catch { Write-Output ('SB2 ' + $_) }; $now=(@($d.Solution.SolutionBuild.StartupProjects) -join ',') }; "
+                + "Write-Output ('STARTUP ' + $pr.UniqueName + ' -> ' + $now); if($now -like ('*' + $pr.Name + '*')){ exit 0 } } "
+                + "else { Write-Output ('NO-PROJECT ' + $env:DSVIZ_PROJECT + ' of ' + $c) } } catch { Write-Output ('FIND ' + $_) }; Start-Sleep -Milliseconds 1500 }; exit 0";
+        File dir = f.getAbsoluteFile().getParentFile();
+        int code = powershell(ps, 75, "DSVIZ_FILE", f.getAbsolutePath(), "DSVIZ_LINE", String.valueOf(line), "DSVIZ_PROJECT", dir == null ? "" : dir.getName());
         opened.add("DTE " + code);
         return code == 0;
     }
@@ -681,8 +685,10 @@ public final class BankVs {
                 + "if(-not $d.Solution.IsOpen){ Write-Output 'NOT-OPEN'; exit 5 }; "
                 + "if([IO.Path]::GetFullPath($d.Solution.FullName) -ne $sln){ Write-Output ('OTHER ' + $d.Solution.FullName); exit 5 }; "
                 + "if($env:DSVIZ_ACTION -eq 'add'){ $null=$d.Solution.AddFromFile($env:DSVIZ_ARG, $false) } "
-                + "else { $n=0; foreach($x in @($d.Solution.Projects)){ $f=''; try { $f=[IO.Path]::GetFileNameWithoutExtension([string]$x.FileName) } catch {}; "
-                + "if($x.Name -eq $env:DSVIZ_NAME -or $f -eq $env:DSVIZ_NAME){ $d.Solution.Remove($x); $n++ } }; Write-Output ('REMOVED ' + $n) }; "
+                // הפרויקטים לפי מספר (Item(1..Count)) — מעבר עם foreach על האוסף של Visual Studio ב-PowerShell לא מוצא אותם
+                + "else { $found=@(); $c=$d.Solution.Projects.Count; for($q=1; $q -le $c; $q++){ $x=$d.Solution.Projects.Item($q); Write-Output ('PROJ ' + $x.Name + ' | ' + $x.UniqueName); "
+                + "if($x.Name -eq $env:DSVIZ_NAME -or ([string]$x.UniqueName).EndsWith('\\' + $env:DSVIZ_NAME + '.csproj')){ $found += $x } }; "
+                + "foreach($x in $found){ $d.Solution.Remove($x) }; Write-Output ('REMOVED ' + $found.Count) }; "
                 + "break } catch { Write-Output ('RETRY ' + $_); Start-Sleep -Milliseconds 1500 } }; if($i -ge 20){ exit 4 }; "
                 + "for($k=0; $k -lt 10; $k++){ try { $d.Solution.SaveAs($d.Solution.FullName) } catch { Write-Output ('SAVE ' + $_) }; Start-Sleep -Milliseconds 700; "
                 + "$has=([IO.File]::ReadAllText($sln)).Contains($env:DSVIZ_WANT); "
@@ -700,7 +706,7 @@ public final class BankVs {
      */
     static int powershell(String script, int timeoutSec, String... env) {
         try {
-            String enc = java.util.Base64.getEncoder().encodeToString(script.getBytes(StandardCharsets.UTF_16LE));
+            String enc = java.util.Base64.getEncoder().encodeToString(("$ProgressPreference='SilentlyContinue'; " + script).getBytes(StandardCharsets.UTF_16LE));
             ProcessBuilder pb = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", enc);
             for (int i = 0; i + 1 < env.length; i += 2) pb.environment().put(env[i], env[i + 1]);
             File log = new File(System.getProperty("java.io.tmpdir"), "dsviz-bank-dte.txt");
