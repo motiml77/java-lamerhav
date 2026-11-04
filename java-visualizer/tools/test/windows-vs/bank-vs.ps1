@@ -320,6 +320,16 @@ if (Test-Path $res) {
 } else { Fail 'it-result' "אין תוצאות מ-BankVsIt: $(Get-Content (Join-Path $Out 'it.err.txt') -Raw -Encoding utf8)" }
 Check 'it-exit' ($itP.HasExited -and $itP.ExitCode -eq 0) "BankVsIt הסתיים בהצלחה" "קוד $(if ($itP.HasExited) { $itP.ExitCode } else { 'עדיין רץ' })"
 Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
+# הפתיחה הבאה של הכלי: מה שנשאר מהתרגיל הראשון (obj ש-Visual Studio יצר מחדש) נמחק
+$pd = Join-Path $it 'pending-dir.txt'
+$pdir = if (Test-Path $pd) { (Get-Content $pd -Raw -Encoding utf8).Trim() } else { '' }
+if ($pdir) {
+    Start-Sleep 5
+    $cp2 = Start-Process $java -ArgumentList "-Dfile.encoding=UTF-8 -cp `"$cp`" il.lamerhav.dsviz.BankVsIt `"$csDir`" `"$(Join-Path $Out 'clean')`" --clean-check `"$pdir`"" -PassThru -Wait -NoNewWindow
+    $cr = Join-Path $Out 'clean\clean-result.txt'
+    Check 'pending-clean' ((Test-Path $cr) -and ((Get-Content $cr -Raw -Encoding utf8) -match 'ok   pending-clean')) "אחרי ש-Visual Studio נסגר, בפתיחה הבאה של הכלי: מה שנשאר מהתרגיל (obj) נמחק" $(if (Test-Path $cr) { Get-Content $cr -Raw -Encoding utf8 } else { 'אין תוצאה' })
+    Check 'pending-gone' (-not (Test-Path $pdir)) "התיקייה $(Split-Path $pdir -Leaf) כבר לא קיימת"
+} else { Info "התיקייה של התרגיל נמחקה כבר ב'סיימתי' (שום דבר לא נשאר)" }
 $ok = @($script:lines | Where-Object { $_ -like '  ok *' }).Count
 Log ""
 Log "SUMMARY $ok ok / $($script:fails) FAIL — $vsName"

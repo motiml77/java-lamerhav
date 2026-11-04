@@ -93,6 +93,7 @@ public final class BankVs {
         ExercisePipeline.Result r = VsSubmit.build(null, raw, new ArrayList<String>(), root, VsSubmit.dsvizCs(), p, VsSubmit.takenNames(root));
         if (r.files.isEmpty()) throw new IOException(r.writeError != null ? r.writeError : "הקבצים לא נכתבו");
         for (File f : r.files) stripMarks(f);
+        for (SolutionStore.Entry e : r.entries) e.code = e.code.replaceAll("[\\u202A-\\u202E\\u2066-\\u2069]", "");
         if (!r.entries.isEmpty()) new SolutionStore(VsSubmit.storeFile()).add(r.entries);
         BankProgress.Created c = new BankProgress.Created();
         c.project = root.getFileName().toString();

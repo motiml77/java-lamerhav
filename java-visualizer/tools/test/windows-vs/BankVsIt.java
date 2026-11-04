@@ -43,6 +43,14 @@ public final class BankVsIt {
         out.mkdirs();
         String go = null;
         for (int i = 2; i < a.length; i++) if (a[i].equals("--go")) go = a[++i];
+        if (a.length > 3 && a[2].equals("--clean-check")) {
+            // הפתיחה הבאה של הכלי (אחרי ש-Visual Studio נסגר / שחרר): מה שנשאר מהתרגיל (obj) נמחק — ורק זה
+            File d = new File(a[3]);
+            BankVs.init(root);
+            check("pending-clean", !d.exists(), "בפתיחה הבאה של הכלי: מה שנשאר מהתרגיל (obj) נמחק", d.exists() ? BankVs.list(d).toString() : "");
+            Files.write(new File(out, "clean-result.txt").toPath(), String.join("\n", lines).getBytes(StandardCharsets.UTF_8));
+            System.exit(fails == 0 ? 0 : 1);
+        }
         try {
             run(root, go);
         } catch (Throwable t) {
@@ -202,7 +210,13 @@ public final class BankVsIt {
                 + " created=" + BankProgress.get().createdOf(sq.id).size() + " done=" + BankProgress.get().done(sq.id));
         check("done-float", ui(() -> BankVsFloat.current == null), "אחרי האישור: החלון הצף נסגר", "");
         check("done-mark", BankProgress.get().done(sq.id), "השאלה סומנה בסימן ירוק", "");
-        check("done-dir", !dir.exists(), "תיקיית הפרויקט נמחקה (כולל bin / obj)", dir.getPath() + " " + (dir.exists() ? BankVs.list(dir) : ""));
+        boolean pending = dir.exists() && BankVs.pendingFile().isFile()
+                && new String(Files.readAllBytes(BankVs.pendingFile().toPath()), StandardCharsets.UTF_8).contains(dir.getAbsolutePath());
+        boolean onlyBuild = true;
+        if (dir.exists()) for (String p : BankVs.list(dir)) onlyBuild &= p.equals("obj") || p.equals("bin") || p.startsWith("obj" + File.separator) || p.startsWith("bin" + File.separator);
+        check("done-dir", !dir.exists() || pending && onlyBuild, !dir.exists() ? "תיקיית הפרויקט נמחקה (כולל bin / obj)"
+                : "קבצי התרגיל נמחקו; נשארו רק קבצי בנייה (obj) ש-Visual Studio יצר מחדש — נרשמו למחיקה בפתיחה הבאה של הכלי", dir.getPath() + " " + (dir.exists() ? BankVs.list(dir) : ""));
+        Files.write(new File(out, "pending-dir.txt").toPath(), (dir.exists() ? dir.getAbsolutePath() : "").getBytes(StandardCharsets.UTF_8));
         check("done-sln", !sln2.contains("\"" + dir.getName() + "\"") && sln2.contains("Global") && sln2.contains("EndGlobal"),
                 "הפרויקט הוצא מהפתרון (.sln), והפתרון שלם", "");
         check("done-solutions", BankVs.solutionsUnder(dir) == 0, "ההצעות לפתרון של התרגיל נמחקו", "");

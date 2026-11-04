@@ -230,7 +230,9 @@ final class BankVsFloat {
 
         f.setContentPane(page);
         RtlDialog.rtl(page);
-        f.getContentPane().validate();
+        // אחרי החלפת התוכן בחלון שכבר מוצג (למשל אחרי שינוי בסימון) — פריסה מחדש של כל החלון; בלי זה החלון נשאר ריק (לבן)
+        f.getRootPane().revalidate();
+        f.validate();
         f.repaint();
     }
 
@@ -260,7 +262,7 @@ final class BankVsFloat {
         body.add(RtlDialog.gap(6));
         body.add(RtlDialog.label("כדאי לנסות קודם לבד. ההצעה היא דרך אחת — יש עוד דרכים נכונות.", RtlDialog.small(), RtlDialog.MUTED));
         body.add(RtlDialog.gap(10));
-        body.add(RtlDialog.codeBlock(t.solution, 520));
+        body.add(RtlDialog.codeBlock(t.solution.replaceAll("[\\u202A-\\u202E\\u2066-\\u2069]", ""), 520));   // בלי סימוני כיוון (Visual Studio מציג אותם)
         shown.add("SOLUTION " + label);
         RtlDialog.dialog(parent, "הצעה לפתרון", body, "סגירה");
     }
