@@ -386,6 +386,7 @@ if (Test-Path $res) {
     foreach ($l in (Get-Content $res -Encoding utf8)) { if ($l -like '  FAIL*') { $script:fails++ }; if ($l -notlike 'SUMMARY*') { $script:lines.Add($l); Write-Host $l } }
 } else { Fail 'it-result' "אין תוצאות מ-BankVsIt: $(Get-Content (Join-Path $Out 'it.err.txt') -Raw -Encoding utf8)" }
 Check 'it-exit' ($itP.HasExited -and $itP.ExitCode -eq 0) "BankVsIt הסתיים בהצלחה" "קוד $(if ($itP.HasExited) { $itP.ExitCode } else { 'עדיין רץ' })"
+Copy-Item (Join-Path $env:TEMP 'dsviz-bank-dte.txt') $Out -ErrorAction SilentlyContinue   # מה Visual Studio ענה (DTE) — לבירור תקלות
 Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
 # הפתיחה הבאה של הכלי: מה שנשאר מהתרגיל הראשון (obj ש-Visual Studio יצר מחדש) נמחק
 $pd = Join-Path $it 'pending-dir.txt'

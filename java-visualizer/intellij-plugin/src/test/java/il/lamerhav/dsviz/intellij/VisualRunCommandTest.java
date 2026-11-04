@@ -53,6 +53,48 @@ public class VisualRunCommandTest extends TestCase {
         assertTrue("צעד לכל שורה (JDI):\n" + out, out.matches("(?s).*שורה [0-9]+:.*total \\+= x;.*"));
     }
 
+    /**
+     * כל הדוגמאות הפתורות (מחסנית, תור, רשימה, עץ, רקורסיה, מערכים, תלמידים, מכוניות, מבנה בתוך מבנה) — בפקודה שהתוסף בונה
+     * ל"הרצה ויזואלית": כל אחת רצה עד הסוף בתוך 2 דקות, עם צעד לכל שורה, ובלי חריגה.
+     */
+    public void testAllSolvedExamplesRunToTheEnd() throws Exception {
+        File lib = Dsviz.libraryJar();
+        assertNotNull("dsviz.jar", lib);
+        File work = Files.createTempDirectory("dsviz-examples").toFile();
+        File pkg = new File(work, "examples");
+        assertTrue(pkg.mkdirs());
+        File[] all = new File(root(), "src/examples").listFiles((d, n) -> n.endsWith("Examples.java"));
+        assertNotNull(all);
+        assertTrue("יש לפחות 9 דוגמאות", all.length >= 9);
+        java.util.List<String> cmdC = new java.util.ArrayList<>(Arrays.asList(new File(System.getProperty("java.home"), "bin/javac").getPath(),
+                "-g", "-encoding", "UTF-8", "-cp", lib.getPath(), "-d", work.getPath()));
+        for (File f : all) {
+            File to = new File(pkg, f.getName());
+            Files.copy(f.toPath(), to.toPath());
+            cmdC.add(to.getPath());
+        }
+        Process c = new ProcessBuilder(cmdC).redirectErrorStream(true).start();
+        String cout = new String(c.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(cout, 0, c.waitFor());
+        StringBuilder bad = new StringBuilder();
+        for (File f : all) {
+            String cls = "examples." + f.getName().replace(".java", "");
+            GeneralCommandLine cmd = VisualRunner.commandLine(java(), Arrays.asList(lib.getPath(), work.getPath()), cls, work, "-Djava.awt.headless=true");
+            Process p = cmd.withRedirectErrorStream(true).createProcess();
+            p.getOutputStream().close();
+            java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+            Thread pump = new Thread(() -> { try { p.getInputStream().transferTo(buf); } catch (java.io.IOException ignored) { } });
+            pump.start();
+            boolean ended = p.waitFor(120, TimeUnit.SECONDS);
+            if (!ended) p.destroyForcibly();
+            pump.join(5000);
+            String out = buf.toString(StandardCharsets.UTF_8);
+            if (!ended || !out.matches("(?s).*שורה [0-9]+:.*") || out.contains("Exception in thread"))
+                bad.append(cls).append(ended ? "" : " (נתקע)").append(": ").append(out.length() > 400 ? out.substring(out.length() - 400) : out).append('\n');
+        }
+        assertEquals("כל הדוגמאות רצות עד הסוף", "", bad.toString());
+    }
+
     public void testJdkFinderReadsReleaseFile() {
         File home = new File(System.getProperty("java.home"));
         JdkFinder.Found f = JdkFinder.find(home.getPath(), 0);

@@ -190,7 +190,7 @@ public final class BankVsAll {
 
         // 4. ביטול הסימון
         BankProgress.get().setDone(q3.id, false);
-        check("undo-mark", !BankProgress.get().done(q3.id) && BankProgress.get().doneCount(BankVs.store.questions) == 26,
+        check("undo-mark", !BankProgress.get().done(q3.id) && BankProgress.get().doneCount(BankVs.store.questions) == total() - 1,
                 "לחיצה על 'עשיתי את התרגיל' מבטלת את הסימון", String.valueOf(BankProgress.get().doneCount(BankVs.store.questions)));
 
         // 5. חיפוש וסינון (החלון עצמו, בלי להציג)

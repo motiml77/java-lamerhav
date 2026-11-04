@@ -175,6 +175,35 @@ public class Edge implements IApplication {
         if (only.isEmpty() || only.contains("E")) solutionCases();
         if (only.isEmpty() || only.contains("G")) guiRuns();
         if (only.isEmpty() || only.contains("M")) wizardModuleRuns();
+        if (only.isEmpty() || only.contains("X")) examplesRuns();
+    }
+
+    // ================================================================== X. כל הדוגמאות הפתורות — "הרצה ויזואלית" אמיתית ב-Eclipse
+
+    /**
+     * כל אחת מהדוגמאות הפתורות (מחסנית, תור, רשימה, עץ, רקורסיה, מערכים, תלמידים, מכוניות, מבנה בתוך מבנה) — כמו תלמיד: פותחים
+     * את הקובץ ולוחצים "הרצה ויזואלית". כל אחת: רצה עד הסוף, בלי חריגה, בלי חלון שגיאה של Eclipse, בלי שגיאה ביומן, ובלי תקיעה.
+     */
+    private void examplesRuns() throws Exception {
+        System.setProperty("dsviz.it.vmargs", HEADLESS);
+        if (!src.getFolder(new Path("examples")).exists()) {
+            command("il.lamerhav.dsviz.examples");
+            Shell ex = waitShell(x -> x.getData() != null && x.getData().getClass().getSimpleName().equals("ExamplesDialog"), 10000);
+            if (ex != null) ui(() -> { ex.close(); return null; });
+        }
+        org.eclipse.core.resources.IFolder dir = src.getFolder(new Path("examples"));
+        List<String> names = new ArrayList<String>();
+        if (dir.exists()) for (org.eclipse.core.resources.IResource m : dir.members()) if (m.getName().endsWith("Examples.java")) names.add(m.getName());
+        java.util.Collections.sort(names);
+        check("X-examples-found", "הדוגמאות הפתורות בפרויקט: " + names.size(), names.size() >= 9, String.valueOf(names));
+        for (String n : names) {
+            long t0 = System.currentTimeMillis();
+            R r = visual(dir.getFile(new Path(n)), 180);
+            boolean steps = r.out.contains("#1 ") || r.out.contains("#2 ");
+            check("X-" + n.replace(".java", ""), n + ": הרצה ויזואלית ב-Eclipse — רצה עד הסוף (" + (System.currentTimeMillis() - t0) / 1000 + " שניות), בלי חריגה ובלי חלון שגיאה",
+                    r.ended && steps && r.say == null && r.foreign.isEmpty() && r.newLog.isEmpty() && !r.out.contains("Exception in thread"), r.brief());
+            closeForeign();
+        }
     }
 
     // ================================================================== A. הרצה ויזואלית

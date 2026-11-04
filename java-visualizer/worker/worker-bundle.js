@@ -346,7 +346,7 @@ var src_default = {
     try {
       res = await handle(request, env, ctx);
     } catch (e) {
-      if (e instanceof Fail) res = reply(e.status, { ok: false, code: e.code, error: e.message });
+      if (e instanceof Fail) res = reply(e.status, Object.assign({ ok: false, code: e.code, error: e.message }, e.detail ? { detail: String(e.detail).slice(0, 300) } : {}));
       else {
         console.error("unexpected", e && e.stack || e);
         res = reply(500, { ok: false, code: "internal", error: "\u05EA\u05E7\u05DC\u05D4 \u05D1\u05E9\u05E8\u05EA. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D1\u05E2\u05D5\u05D3 \u05D3\u05E7\u05D4." });
@@ -372,16 +372,17 @@ function withCors(request, env, res) {
   return new Response(res.body, { status: res.status, headers: h });
 }
 var Fail = class extends Error {
-  constructor(status, code, message) {
+  constructor(status, code, message, detail) {
     super(message);
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
 };
 function reply(status, obj, extra) {
   return new Response(JSON.stringify(obj), { status, headers: Object.assign({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }, extra || {}) });
 }
-var VERSION = "2026-11-01.2";
+var VERSION = "2026-11-04.1";
 async function handle(request, env, ctx) {
   const url = new URL(request.url);
   if (request.method === "GET" && (url.pathname === "/v1/health" || url.pathname === "/")) {
@@ -409,13 +410,15 @@ async function handle(request, env, ctx) {
   if (request.method !== "POST") throw new Fail(405, "method", "\u05E8\u05E7 POST");
   if (url.pathname === "/v1/license") return reply(200, await license(request, env));
   const site = url.pathname === "/v1/site/exercise";
-  if (url.pathname !== "/v1/exercise" && url.pathname !== "/v1/repair" && !site) throw new Fail(404, "not_found", "\u05DB\u05EA\u05D5\u05D1\u05EA \u05DC\u05D0 \u05DE\u05D5\u05DB\u05E8\u05EA");
+  const probe = url.pathname === "/v1/health/gemini";
+  if (url.pathname !== "/v1/exercise" && url.pathname !== "/v1/repair" && !site && !probe) throw new Fail(404, "not_found", "\u05DB\u05EA\u05D5\u05D1\u05EA \u05DC\u05D0 \u05DE\u05D5\u05DB\u05E8\u05EA");
   if (site) {
     if (!siteOrigin(request, env)) throw new Fail(403, "origin", "\u05D0\u05E4\u05E9\u05E8 \u05DC\u05E9\u05DC\u05D5\u05D7 \u05DE\u05DB\u05D0\u05DF \u05E8\u05E7 \u05DE\u05D4\u05D0\u05EA\u05E8 \u05E9\u05DC DSViz.");
   } else if (env.APP_KEY && request.headers.get("x-dsviz-key") !== env.APP_KEY) throw new Fail(401, "key", "\u05D4\u05E9\u05E8\u05EA \u05DC\u05D0 \u05DE\u05DB\u05D9\u05E8 \u05D0\u05EA \u05D4\u05EA\u05D5\u05E1\u05E3 \u05D4\u05D6\u05D4 (\u05DE\u05E4\u05EA\u05D7 \u05E9\u05D2\u05D5\u05D9). \u05E2\u05D3\u05DB\u05E0\u05D5 \u05D0\u05EA \u05D4\u05EA\u05D5\u05E1\u05E3.");
   if (!env.GEMINI_API_KEY) throw new Fail(503, "config", "\u05D4\u05E9\u05E8\u05EA \u05E2\u05D3\u05D9\u05D9\u05DF \u05DC\u05D0 \u05D4\u05D5\u05D2\u05D3\u05E8 (\u05D7\u05E1\u05E8 \u05DE\u05E4\u05EA\u05D7 Gemini).");
   const ip = request.headers.get("cf-connecting-ip") || "local";
   await rateLimit(env, ip, site);
+  if (probe) return reply(200, { ok: true, version: VERSION, models: await probeGemini(env) });
   const declared = +(request.headers.get("content-length") || 0);
   if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, "too_big", "\u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D2\u05D3\u05D5\u05DC\u05D9\u05DD \u05DE\u05D3\u05D9 (\u05E2\u05D3 14MB \u05D1\u05D9\u05D7\u05D3).");
   let req;
@@ -557,7 +560,7 @@ async function askGemini(env, userParts, lang) {
   const head = '{"systemInstruction":' + JSON.stringify({ parts: [{ text: systemPrompt(lang) }] }) + ',"contents":[{"role":"user","parts":[' + userParts.join(",") + "]}]";
   const bodyFor = (c) => head + ',"generationConfig":' + JSON.stringify(c) + "}";
   const base = env.GEMINI_BASE || GEMINI_BASE;
-  let last = null, busy = false;
+  let last = null, busy = false, config = null;
   for (const model of models(env)) {
     let res, raw;
     try {
@@ -585,6 +588,12 @@ async function askGemini(env, userParts, lang) {
     }
     if (!res.ok) {
       console.error("gemini", model, res.status, raw.slice(0, 500));
+      const g = googleError(raw);
+      if (serverSide(res.status, g)) {
+        config = `${model}: ${res.status} ${g.status} ${g.reason}`.trim();
+        last = config;
+        continue;
+      }
       throw new Fail(502, "gemini", "Gemini \u05DC\u05D0 \u05D4\u05E6\u05DC\u05D9\u05D7 \u05DC\u05E7\u05E8\u05D5\u05D0 \u05D0\u05EA \u05D4\u05E7\u05D1\u05E6\u05D9\u05DD. \u05E0\u05E1\u05D5 \u05DC\u05E9\u05DC\u05D5\u05D7 \u05E6\u05D9\u05DC\u05D5\u05DD \u05DE\u05E1\u05DA \u05D1\u05E8\u05D5\u05E8 \u05D0\u05D5 PDF.");
     }
     let data = null, finish = "";
@@ -602,8 +611,41 @@ async function askGemini(env, userParts, lang) {
     return { data, model };
   }
   console.error("all models failed", last);
+  if (config && !busy) throw new Fail(503, "service", "\u05E9\u05DC\u05D9\u05D7\u05EA \u05EA\u05E8\u05D2\u05D9\u05DC \u05DC\u05D0 \u05D6\u05DE\u05D9\u05E0\u05D4 \u05DB\u05E8\u05D2\u05E2 \u05D1\u05D2\u05DC\u05DC \u05EA\u05E7\u05DC\u05D4 \u05D1\u05E9\u05E8\u05EA (\u05DC\u05D0 \u05D1\u05E7\u05D1\u05E6\u05D9\u05DD \u05E9\u05DC\u05DB\u05DD). \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05DE\u05D0\u05D5\u05D7\u05E8 \u05D9\u05D5\u05EA\u05E8.", config);
   if (busy) throw new Fail(429, "quota", "\u05D4\u05D2\u05E2\u05E0\u05D5 \u05DC\u05DE\u05DB\u05E1\u05D4 \u05E9\u05DC Gemini \u05DC\u05E2\u05DB\u05E9\u05D9\u05D5. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D1\u05E2\u05D5\u05D3 \u05D3\u05E7\u05D4 (\u05D0\u05D5 \u05DE\u05D7\u05E8, \u05D0\u05DD \u05E0\u05D2\u05DE\u05E8\u05D4 \u05D4\u05DE\u05DB\u05E1\u05D4 \u05D4\u05D9\u05D5\u05DE\u05D9\u05EA).");
   throw new Fail(502, "gemini", "\u05DC\u05D0 \u05D4\u05EA\u05E7\u05D1\u05DC\u05D4 \u05EA\u05E9\u05D5\u05D1\u05D4 \u05EA\u05E7\u05D9\u05E0\u05D4 \u05DE-Gemini. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.");
+}
+function googleError(raw) {
+  try {
+    const e = JSON.parse(raw).error || {};
+    const reason = (Array.isArray(e.details) ? e.details : []).map((d) => d && d.reason).filter(Boolean)[0] || "";
+    return { status: String(e.status || ""), reason: String(reason), message: String(e.message || "").slice(0, 200) };
+  } catch (x) {
+    return { status: "", reason: "", message: String(raw || "").slice(0, 200) };
+  }
+}
+function serverSide(http, g) {
+  return http === 401 || http === 403 || /API_KEY|SERVICE_DISABLED|BILLING|ACCESS_TOKEN|CONSUMER_SUSPENDED/i.test(g.reason) || /UNAUTHENTICATED|PERMISSION_DENIED|FAILED_PRECONDITION/.test(g.status) || /api key|billing|not supported for generateContent|location is not supported/i.test(g.message);
+}
+async function probeGemini(env) {
+  const base = env.GEMINI_BASE || GEMINI_BASE;
+  const out = [];
+  for (const model of models(env)) {
+    try {
+      const res = await fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 16 } }),
+        signal: AbortSignal.timeout(2e4)
+      });
+      const raw = await res.text();
+      const g = res.ok ? { status: "OK", reason: "", message: "" } : googleError(raw);
+      out.push({ model, http: res.status, status: g.status, reason: g.reason, message: g.message, serverSide: !res.ok && serverSide(res.status, g) });
+    } catch (e) {
+      out.push({ model, http: 0, status: e && e.name === "TimeoutError" ? "TIMEOUT" : "NETWORK", reason: "", message: String(e).slice(0, 200) });
+    }
+  }
+  return out;
 }
 function stripFence(t) {
   const s = String(t || "").trim();
@@ -694,6 +736,8 @@ async function rateLimit(env, ip, site) {
 }
 export {
   src_default as default,
+  googleError,
   licenseSignature,
+  serverSide,
   verifyLicense
 };

@@ -643,26 +643,16 @@ public final class BankVs {
                 + "if([int]$env:DSVIZ_LINE -gt 0){ $d.ActiveDocument.Selection.GotoLine([int]$env:DSVIZ_LINE, $true) }; "
                 + "$d.MainWindow.Activate(); break } catch { Start-Sleep -Milliseconds 1500 } }; if($i -ge 15){ exit 4 }; "
                 // התרגיל = הפרויקט שמריצים (Startup Project): הכפתור "הרצה ויזואלית" בסרגל של Visual Studio מריץ אותו מיד.
-                // אחרי היצירה Visual Studio טוען קודם את הפרויקט החדש — מחכים שיופיע
+                // שתי דרכים (מאפיין הפתרון StartupProject, ו-StartupProjects), ובודקים שזה נקלט
                 + "for($j=0; $j -lt 20; $j++){ try { $it=$d.Solution.FindProjectItem($env:DSVIZ_FILE); "
-                + "if($it -and $it.ContainingProject){ $d.Solution.SolutionBuild.StartupProjects=$it.ContainingProject.UniqueName; "
-                + "Write-Output ('STARTUP ' + $it.ContainingProject.UniqueName); exit 0 } } catch {}; Start-Sleep -Milliseconds 1500 }; exit 0";
-        try {
-            ProcessBuilder pb = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps);
-            pb.environment().put("DSVIZ_FILE", f.getAbsolutePath());
-            pb.environment().put("DSVIZ_LINE", String.valueOf(line));
-            pb.redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(new File(System.getProperty("java.io.tmpdir"), "dsviz-bank-dte.txt")));
-            Process p = pb.start();
-            p.getOutputStream().close();
-            if (!p.waitFor(75, java.util.concurrent.TimeUnit.SECONDS)) {
-                p.destroyForcibly();
-                return false;
-            }
-            opened.add("DTE " + p.exitValue());
-            return p.exitValue() == 0;
-        } catch (Exception e) {
-            return false;
-        }
+                + "if($it -and $it.ContainingProject){ $pr=$it.ContainingProject; "
+                + "try { $d.Solution.Properties.Item('StartupProject').Value=$pr.Name } catch { Write-Output ('PROP ' + $_) }; "
+                + "$now=@($d.Solution.SolutionBuild.StartupProjects) -join ','; "
+                + "if($now -notlike ('*' + $pr.Name + '*')){ try { $d.Solution.SolutionBuild.StartupProjects=[object[]]@($pr.UniqueName) } catch { Write-Output ('SB ' + $_) }; $now=@($d.Solution.SolutionBuild.StartupProjects) -join ',' }; "
+                + "Write-Output ('STARTUP ' + $pr.UniqueName + ' -> ' + $now); if($now -like ('*' + $pr.Name + '*')){ exit 0 } } } catch { Write-Output ('FIND ' + $_) }; Start-Sleep -Milliseconds 1500 }; exit 0";
+        int code = powershell(ps, 75, "DSVIZ_FILE", f.getAbsolutePath(), "DSVIZ_LINE", String.valueOf(line));
+        opened.add("DTE " + code);
+        return code == 0;
     }
 
     /**
@@ -681,32 +671,52 @@ public final class BankVs {
      */
     static boolean inOpenVs(String action, Path sln, String arg) {
         if (ij || Boolean.getBoolean("dsviz.noOpen") || !windows() || sln == null || !vsRunning()) return false;
+        String name = action.equals("add") ? new File(arg).getName().replaceFirst("\\.csproj$", "") : arg;
+        // אחרי השמירה בודקים את קובץ ה-.sln עצמו: הפרויקט באמת נוסף / יצא. לא — קוד 6, ואז משנים את הקובץ בעצמנו
         String ps = "$ErrorActionPreference='Stop'; $d=$null; "
                 + "foreach($p in 'VisualStudio.DTE.18.0','VisualStudio.DTE.17.0','VisualStudio.DTE'){ try { $d=[Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }; "
-                + "if(-not $d){ exit 3 }; "
+                + "if(-not $d){ Write-Output 'NO-DTE'; exit 3 }; "
+                + "$sln=[IO.Path]::GetFullPath($env:DSVIZ_SLN); "
                 + "for($i=0; $i -lt 20; $i++){ try { "
-                + "if(-not $d.Solution.IsOpen){ exit 5 }; "
-                + "if([IO.Path]::GetFullPath($d.Solution.FullName) -ne [IO.Path]::GetFullPath($env:DSVIZ_SLN)){ exit 5 }; "
+                + "if(-not $d.Solution.IsOpen){ Write-Output 'NOT-OPEN'; exit 5 }; "
+                + "if([IO.Path]::GetFullPath($d.Solution.FullName) -ne $sln){ Write-Output ('OTHER ' + $d.Solution.FullName); exit 5 }; "
                 + "if($env:DSVIZ_ACTION -eq 'add'){ $null=$d.Solution.AddFromFile($env:DSVIZ_ARG, $false) } "
-                + "else { foreach($x in @($d.Solution.Projects)){ if($x.Name -eq $env:DSVIZ_ARG){ $d.Solution.Remove($x) } } }; "
-                + "break } catch { Start-Sleep -Milliseconds 1500 } }; if($i -ge 20){ exit 4 }; "
-                + "for($k=0; $k -lt 10; $k++){ try { $d.Solution.SaveAs($d.Solution.FullName); exit 0 } catch { Start-Sleep -Milliseconds 1500 } }; exit 0";
+                + "else { $n=0; foreach($x in @($d.Solution.Projects)){ $f=''; try { $f=[IO.Path]::GetFileNameWithoutExtension([string]$x.FileName) } catch {}; "
+                + "if($x.Name -eq $env:DSVIZ_NAME -or $f -eq $env:DSVIZ_NAME){ $d.Solution.Remove($x); $n++ } }; Write-Output ('REMOVED ' + $n) }; "
+                + "break } catch { Write-Output ('RETRY ' + $_); Start-Sleep -Milliseconds 1500 } }; if($i -ge 20){ exit 4 }; "
+                + "for($k=0; $k -lt 10; $k++){ try { $d.Solution.SaveAs($d.Solution.FullName) } catch { Write-Output ('SAVE ' + $_) }; Start-Sleep -Milliseconds 700; "
+                + "$has=([IO.File]::ReadAllText($sln)).Contains($env:DSVIZ_WANT); "
+                + "if(($env:DSVIZ_ACTION -eq 'add') -eq $has){ Write-Output ('OK ' + $env:DSVIZ_ACTION + ' ' + $env:DSVIZ_NAME); exit 0 }; Start-Sleep -Milliseconds 800 }; "
+                + "Write-Output ('NOT-SAVED ' + $env:DSVIZ_ACTION); exit 6";
+        int code = powershell(ps, 70, "DSVIZ_ACTION", action, "DSVIZ_SLN", sln.toAbsolutePath().toString(), "DSVIZ_ARG", arg,
+                "DSVIZ_NAME", name, "DSVIZ_WANT", "\"" + name + "\"");
+        opened.add("VS-" + action.toUpperCase(java.util.Locale.ROOT) + " " + code);
+        return code == 0;
+    }
+
+    /**
+     * PowerShell עם התסריט מקודד (‎-EncodedCommand‎ — בלי בעיות של מרכאות בשורת הפקודה של Windows), ומשתני סביבה (שם, ערך, ...).
+     * הפלט נכתב ליומן dsviz-bank-dte.txt בתיקייה הזמנית. מחזיר את קוד היציאה, או ‎-1‎ אם לא נגמר בזמן / לא רץ.
+     */
+    static int powershell(String script, int timeoutSec, String... env) {
         try {
-            ProcessBuilder pb = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps);
-            pb.environment().put("DSVIZ_ACTION", action);
-            pb.environment().put("DSVIZ_SLN", sln.toAbsolutePath().toString());
-            pb.environment().put("DSVIZ_ARG", arg);
-            pb.redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(new File(System.getProperty("java.io.tmpdir"), "dsviz-bank-dte.txt")));
+            String enc = java.util.Base64.getEncoder().encodeToString(script.getBytes(StandardCharsets.UTF_16LE));
+            ProcessBuilder pb = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", enc);
+            for (int i = 0; i + 1 < env.length; i += 2) pb.environment().put(env[i], env[i + 1]);
+            File log = new File(System.getProperty("java.io.tmpdir"), "dsviz-bank-dte.txt");
+            try (java.io.Writer w = new java.io.OutputStreamWriter(new java.io.FileOutputStream(log, true), StandardCharsets.UTF_8)) {
+                w.write("--- " + new java.util.Date() + " " + (env.length > 1 ? env[1] : "") + "\n");
+            }
+            pb.redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(log));
             Process p = pb.start();
             p.getOutputStream().close();
-            if (!p.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (!p.waitFor(timeoutSec, java.util.concurrent.TimeUnit.SECONDS)) {
                 p.destroyForcibly();
-                return false;
+                return -1;
             }
-            opened.add("VS-" + action.toUpperCase(java.util.Locale.ROOT) + " " + p.exitValue());
-            return p.exitValue() == 0;
+            return p.exitValue();
         } catch (Exception e) {
-            return false;
+            return -1;
         }
     }
 

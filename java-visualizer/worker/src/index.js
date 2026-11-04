@@ -60,7 +60,7 @@ export default {
     try {
       res = await handle(request, env, ctx);
     } catch (e) {
-      if (e instanceof Fail) res = reply(e.status, { ok: false, code: e.code, error: e.message });
+      if (e instanceof Fail) res = reply(e.status, Object.assign({ ok: false, code: e.code, error: e.message }, e.detail ? { detail: String(e.detail).slice(0, 300) } : {}));
       else {
         console.error('unexpected', e && e.stack || e);
         res = reply(500, { ok: false, code: 'internal', error: 'תקלה בשרת. נסו שוב בעוד דקה.' });
@@ -90,7 +90,7 @@ function withCors(request, env, res) {
 }
 
 class Fail extends Error {
-  constructor(status, code, message) { super(message); this.status = status; this.code = code; }
+  constructor(status, code, message, detail) { super(message); this.status = status; this.code = code; this.detail = detail; }
 }
 
 function reply(status, obj, extra) {
@@ -98,7 +98,7 @@ function reply(status, obj, extra) {
 }
 
 /** גרסת השרת — מופיעה ב-/v1/health, כדי לראות שהעדכון עלה (מעדכנים בכל שינוי בהנחיות / בקוד) */
-const VERSION = '2026-11-01.2';
+const VERSION = '2026-11-04.1';
 
 async function handle(request, env, ctx) {
   const url = new URL(request.url);
@@ -125,7 +125,8 @@ async function handle(request, env, ctx) {
   if (request.method !== 'POST') throw new Fail(405, 'method', 'רק POST');
   if (url.pathname === '/v1/license') return reply(200, await license(request, env));
   const site = url.pathname === '/v1/site/exercise';
-  if (url.pathname !== '/v1/exercise' && url.pathname !== '/v1/repair' && !site) throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
+  const probe = url.pathname === '/v1/health/gemini';
+  if (url.pathname !== '/v1/exercise' && url.pathname !== '/v1/repair' && !site && !probe) throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
 
   if (site) {
     if (!siteOrigin(request, env)) throw new Fail(403, 'origin', 'אפשר לשלוח מכאן רק מהאתר של DSViz.');
@@ -134,6 +135,7 @@ async function handle(request, env, ctx) {
 
   const ip = request.headers.get('cf-connecting-ip') || 'local';
   await rateLimit(env, ip, site);
+  if (probe) return reply(200, { ok: true, version: VERSION, models: await probeGemini(env) });
 
   const declared = +(request.headers.get('content-length') || 0);
   if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 14MB ביחד).');
@@ -306,7 +308,7 @@ async function askGemini(env, userParts, lang) {
     + ',"contents":[{"role":"user","parts":[' + userParts.join(',') + ']}]';
   const bodyFor = c => head + ',"generationConfig":' + JSON.stringify(c) + '}';
   const base = env.GEMINI_BASE || GEMINI_BASE;
-  let last = null, busy = false;
+  let last = null, busy = false, config = null;
   for (const model of models(env)) {
     let res, raw;
     try {
@@ -335,6 +337,14 @@ async function askGemini(env, userParts, lang) {
     }
     if (!res.ok) {
       console.error('gemini', model, res.status, raw.slice(0, 500));
+      const g = googleError(raw);
+      // מפתח לא תקין / שבוטל / בלי הרשאה / חיוב: זו תקלה בשרת, לא בקבצים של התלמיד (Google מחזיר גם על מפתח שגוי 400) — מנסים
+      // את המודל הבא, ובסוף הודעה שהשירות לא זמין (ולא "לא הצליח לקרוא את הקבצים")
+      if (serverSide(res.status, g)) {
+        config = `${model}: ${res.status} ${g.status} ${g.reason}`.trim();
+        last = config;
+        continue;
+      }
       throw new Fail(502, 'gemini', 'Gemini לא הצליח לקרוא את הקבצים. נסו לשלוח צילום מסך ברור או PDF.');
     }
     let data = null, finish = '';
@@ -352,8 +362,50 @@ async function askGemini(env, userParts, lang) {
     return { data, model };
   }
   console.error('all models failed', last);
+  if (config && !busy) throw new Fail(503, 'service', 'שליחת תרגיל לא זמינה כרגע בגלל תקלה בשרת (לא בקבצים שלכם). נסו שוב מאוחר יותר.', config);
   if (busy) throw new Fail(429, 'quota', 'הגענו למכסה של Gemini לעכשיו. נסו שוב בעוד דקה (או מחר, אם נגמרה המכסה היומית).');
   throw new Fail(502, 'gemini', 'לא התקבלה תשובה תקינה מ-Gemini. נסו שוב.');
+}
+
+/** השגיאה של Google (בלי שום סוד): status ‏(INVALID_ARGUMENT / PERMISSION_DENIED ...), reason ‏(API_KEY_INVALID ...), והודעה קצרה */
+export function googleError(raw) {
+  try {
+    const e = JSON.parse(raw).error || {};
+    const reason = (Array.isArray(e.details) ? e.details : []).map(d => d && d.reason).filter(Boolean)[0] || '';
+    return { status: String(e.status || ''), reason: String(reason), message: String(e.message || '').slice(0, 200) };
+  } catch (x) {
+    return { status: '', reason: '', message: String(raw || '').slice(0, 200) };
+  }
+}
+
+/** תקלה בצד השרת (מפתח / הרשאה / חיוב / השירות כבוי) — ולא בקבצים */
+export function serverSide(http, g) {
+  return http === 401 || http === 403
+    || /API_KEY|SERVICE_DISABLED|BILLING|ACCESS_TOKEN|CONSUMER_SUSPENDED/i.test(g.reason)
+    || /UNAUTHENTICATED|PERMISSION_DENIED|FAILED_PRECONDITION/.test(g.status)
+    || /api key|billing|not supported for generateContent|location is not supported/i.test(g.message);
+}
+
+/** בדיקה חיה של כל מודל — בקשה קטנה ("ping"): מה Google עונה (בלי המפתח עצמו). ‏POST ‎/v1/health/gemini‎ עם המפתח של התוסף */
+async function probeGemini(env) {
+  const base = env.GEMINI_BASE || GEMINI_BASE;
+  const out = [];
+  for (const model of models(env)) {
+    try {
+      const res = await fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }], generationConfig: { maxOutputTokens: 16 } }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const raw = await res.text();
+      const g = res.ok ? { status: 'OK', reason: '', message: '' } : googleError(raw);
+      out.push({ model, http: res.status, status: g.status, reason: g.reason, message: g.message, serverSide: !res.ok && serverSide(res.status, g) });
+    } catch (e) {
+      out.push({ model, http: 0, status: e && e.name === 'TimeoutError' ? 'TIMEOUT' : 'NETWORK', reason: '', message: String(e).slice(0, 200) });
+    }
+  }
+  return out;
 }
 
 function stripFence(t) {

@@ -376,6 +376,47 @@ await test('Gemini דוחה את הקובץ (400) → הודעה, בלי לנס�
   assert.equal(calls.length, 1);
 });
 
+await test('מפתח Gemini לא תקין (Google מחזיר 400 API_KEY_INVALID) → מנסים את המודל הבא, ובסוף "תקלה בשרת" (לא "לא הצליח לקרוא את הקבצים")', async () => {
+  const bad = { status: 400, json: { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT',
+    details: [{ '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'API_KEY_INVALID' }] } } };
+  script = [bad, bad];
+  const orig = console.error; console.error = () => {};
+  let r;
+  try { r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] })); } finally { console.error = orig; }
+  assert.equal(r.status, 503);
+  assert.equal(r.body.code, 'service');
+  assert.ok(!r.body.error.includes('לא הצליח לקרוא'), r.body.error);
+  assert.ok(/API_KEY_INVALID/.test(r.body.detail), r.body.detail);
+  assert.equal(calls.length, 2);
+});
+
+await test('הרשאה (403 PERMISSION_DENIED) במודל הראשון → המודל השני עונה', async () => {
+  script = [{ status: 403, json: { error: { code: 403, message: 'Permission denied', status: 'PERMISSION_DENIED' } } }, { status: 200, json: geminiOk(SAMPLE) }];
+  const orig = console.error; console.error = () => {};
+  let r;
+  try { r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] })); } finally { console.error = orig; }
+  assert.equal(r.status, 200);
+  assert.equal(r.body.model, 'model-b');
+});
+
+await test('בדיקה חיה של המודלים (POST /v1/health/gemini): מה Google עונה לכל מודל, בלי המפתח', async () => {
+  script = [{ status: 200, json: geminiOk({ x: 1 }) },
+            { status: 400, json: { error: { code: 400, message: 'API key not valid.', status: 'INVALID_ARGUMENT', details: [{ reason: 'API_KEY_INVALID' }] } } }];
+  const r = await call(new Request('https://w.example/v1/health/gemini', { method: 'POST' }));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.models.length, 2);
+  assert.deepEqual([r.body.models[0].model, r.body.models[0].http, r.body.models[0].status], ['model-a', 200, 'OK']);
+  assert.deepEqual([r.body.models[1].http, r.body.models[1].reason, r.body.models[1].serverSide], [400, 'API_KEY_INVALID', true]);
+  assert.ok(!JSON.stringify(r.body).includes('test-key'), 'המפתח לא מופיע בתשובה');
+  assert.equal(JSON.parse(calls[0].init.body).contents[0].parts[0].text, 'ping');
+});
+
+await test('בדיקה חיה בלי המפתח של התוסף → 401', async () => {
+  const r = await call(new Request('https://w.example/v1/health/gemini', { method: 'POST' }), Object.assign({}, ENV, { APP_KEY: 'app' }));
+  assert.equal(r.status, 401);
+  assert.equal(calls.length, 0);
+});
+
 await test('תיקון: הקוד והשגיאות נשלחים, והתשובה חוזרת', async () => {
   const req = new Request('https://w.example/v1/repair', {
     method: 'POST', headers: { 'content-type': 'application/json' },
