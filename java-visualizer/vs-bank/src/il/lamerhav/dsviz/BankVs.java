@@ -57,6 +57,7 @@ public final class BankVs {
         if (System.getProperty("dsviz.bankProgress") == null)
             System.setProperty("dsviz.bankProgress", Paths.get(System.getProperty("user.home"), ".dsviz", "bank-progress-cs.json").toString());
         root = r.toAbsolutePath();
+        cleanPending();
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
             compactFonts();
@@ -91,6 +92,7 @@ public final class BankVs {
         Map<String, Object> raw = Json.obj(Json.parse(Json.write(q.exercise)));   // עותק: המנוע משנה את המפה
         ExercisePipeline.Result r = VsSubmit.build(null, raw, new ArrayList<String>(), root, VsSubmit.dsvizCs(), p, VsSubmit.takenNames(root));
         if (r.files.isEmpty()) throw new IOException(r.writeError != null ? r.writeError : "הקבצים לא נכתבו");
+        for (File f : r.files) stripMarks(f);
         if (!r.entries.isEmpty()) new SolutionStore(VsSubmit.storeFile()).add(r.entries);
         BankProgress.Created c = new BankProgress.Created();
         c.project = root.getFileName().toString();
@@ -99,6 +101,20 @@ public final class BankVs {
         for (File f : r.files) c.files.add(slash(f.getPath()));
         BankProgress.get().created(q.id, c);
         return r;
+    }
+
+    /**
+     * Visual Studio מציג את סימוני הכיוון הבלתי נראים (RLE / PDF שבהערות בעברית) כתוויות "u+202B" בתוך הקוד — מוחקים אותם מהקבצים
+     * שנוצרו (בעורך של Visual Studio ההערות בעברית מוצגות טוב גם בלעדיהם)
+     */
+    static void stripMarks(File f) {
+        try {
+            String t = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+            String c = t.replaceAll("[\u202A-\u202E\u2066-\u2069]", "");
+            if (!c.equals(t)) Files.write(f.toPath(), c.getBytes(StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+            // נשאר כמו שהוא
+        }
     }
 
     static String slash(String p) {
@@ -235,8 +251,73 @@ public final class BankVs {
                 if (b.exists()) sleep(500);   // קובץ שנעול לרגע (הבנייה של Visual Studio) — מנסים שוב
             }
         }
-        if (!r.dir.delete() && r.dir.exists()) left.add(r.dir.getPath());
+        if (!r.dir.delete() && r.dir.exists()) {
+            // נשארו רק קבצי בנייה (bin / obj) ש-Visual Studio עוד מחזיק — נמחקים בפעם הבאה שהכלי נפתח (pending), ולא נוגעים בשום דבר אחר
+            List<String> rest = list(r.dir);
+            boolean onlyBuild = true;
+            for (String p : rest) onlyBuild &= p.startsWith("bin" + File.separator) || p.startsWith("obj" + File.separator) || p.equals("bin") || p.equals("obj");
+            if (onlyBuild) addPending(r.dir);
+            else left.add(r.dir.getPath());
+        }
         return left;
+    }
+
+    /** כל מה שבתיקייה (נתיבים יחסיים) — להודעות ולבדיקות */
+    static List<String> list(File dir) {
+        List<String> out = new ArrayList<String>();
+        list(dir, "", out);
+        return out;
+    }
+
+    private static void list(File d, String pre, List<String> out) {
+        File[] k = d.listFiles();
+        if (k == null) return;
+        for (File f : k) {
+            out.add(pre + f.getName());
+            if (f.isDirectory()) list(f, pre + f.getName() + File.separator, out);
+        }
+    }
+
+    static File pendingFile() {
+        return Paths.get(System.getProperty("user.home"), ".dsviz", "bank-cs-pending.txt").toFile();
+    }
+
+    static synchronized void addPending(File dir) {
+        try {
+            List<String> l = pendingFile().isFile() ? new ArrayList<String>(Files.readAllLines(pendingFile().toPath(), StandardCharsets.UTF_8)) : new ArrayList<String>();
+            if (!l.contains(dir.getAbsolutePath())) l.add(dir.getAbsolutePath());
+            pendingFile().getParentFile().mkdirs();
+            Files.write(pendingFile().toPath(), String.join("\n", l).getBytes(StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+            // לא נרשם — התיקייה (רק bin / obj) נשארת
+        }
+    }
+
+    /**
+     * תרגילים שנמחקו אבל Visual Studio החזיק את קבצי הבנייה שלהם: מוחקים את bin / obj ואת התיקייה — רק אם עדיין אין בה שום דבר אחר
+     * (אם בינתיים נוסף שם קובץ — לא נוגעים). נקרא כשהכלי נפתח.
+     */
+    static synchronized void cleanPending() {
+        if (!pendingFile().isFile()) return;
+        List<String> keep = new ArrayList<String>();
+        try {
+            for (String p : Files.readAllLines(pendingFile().toPath(), StandardCharsets.UTF_8)) {
+                if (p.trim().isEmpty()) continue;
+                File d = new File(p.trim());
+                if (!d.isDirectory()) continue;
+                String[] names = d.list();
+                boolean onlyBuild = names != null;
+                if (names != null) for (String n : names) onlyBuild &= n.equalsIgnoreCase("bin") || n.equalsIgnoreCase("obj");
+                if (!onlyBuild) continue;   // יש שם משהו אחר — לא שלנו למחוק
+                delete(new File(d, "bin"));
+                delete(new File(d, "obj"));
+                if (!d.delete()) keep.add(d.getAbsolutePath());
+            }
+            if (keep.isEmpty()) pendingFile().delete();
+            else Files.write(pendingFile().toPath(), String.join("\n", keep).getBytes(StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+            // בפעם הבאה
+        }
     }
 
     /** מוציא את הפרויקט מקובץ ה-.sln: Project ... EndProject, וכל השורות עם ה-GUID שלו (Debug / Release, תיקיות) */
@@ -365,6 +446,23 @@ public final class BankVs {
             } else if (java.awt.Desktop.isDesktopSupported()) java.awt.Desktop.getDesktop().open(f);
         } catch (IOException ignored) {
             // לא נפתח
+        }
+    }
+
+    /**
+     * "הרצה ויזואלית" מהחלון הצף — אותו דבר כמו הפרופיל "הרצה ויזואלית" של הפרויקט ב-Visual Studio (dsviz-cs על תיקיית הפרויקט),
+     * בלי לבחור קודם Startup Project. מריץ את מה ששמור בדיסק (ב-Visual Studio שומרים קודם: Ctrl+S).
+     */
+    static void runVisual(File projectDir) {
+        opened.add("RUN " + projectDir.getName());
+        if (Boolean.getBoolean("dsviz.noOpen")) return;
+        List<String> cmd = new ArrayList<String>(VsSubmit.dsvizCs());
+        cmd.add(projectDir.getAbsolutePath());
+        try {
+            new ProcessBuilder(cmd).directory(projectDir).redirectErrorStream(true)
+                    .redirectOutput(ProcessBuilder.Redirect.appendTo(new File(System.getProperty("java.io.tmpdir"), "dsviz-bank-run.txt"))).start();
+        } catch (IOException ignored) {
+            // לא רץ
         }
     }
 

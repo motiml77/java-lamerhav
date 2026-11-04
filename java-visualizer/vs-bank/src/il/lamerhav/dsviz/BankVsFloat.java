@@ -106,12 +106,47 @@ final class BankVsFloat {
                 if (current == f) current = null;
             }
         });
+        if (lastBounds == null) lastBounds = savedBounds();
         if (lastBounds != null) f.setBounds(lastBounds);
         else {
+            // ברירת מחדל: מימין, אבל לא על Solution Explorer של Visual Studio (העמודה הימנית) — משמאל לה
             Rectangle s = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-            f.setBounds(s.x + s.width - WIDTH - 12, s.y + 40, WIDTH, Math.min(s.height - 80, 900));
+            int x = s.width >= 1600 ? s.x + s.width - WIDTH - 380 : s.x + s.width - WIDTH - 12;
+            f.setBounds(x, s.y + 60, WIDTH, Math.min(s.height - 100, 880));
         }
+        f.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentMoved(java.awt.event.ComponentEvent e) { saveBounds(f.getBounds()); }
+
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) { saveBounds(f.getBounds()); }
+        });
         f.setVisible(true);
+    }
+
+    /** המקום והגודל שהתלמיד בחר לחלון — נשמרים, כדי שבפעם הבאה ייפתח באותו מקום */
+    static File boundsFile() {
+        return Paths.get(System.getProperty("user.home"), ".dsviz", "bank-cs-float.txt").toFile();
+    }
+
+    static Rectangle savedBounds() {
+        try {
+            String[] p = new String(Files.readAllBytes(boundsFile().toPath()), StandardCharsets.UTF_8).trim().split(",");
+            Rectangle r = new Rectangle(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2]), Integer.parseInt(p[3]));
+            Rectangle s = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+            return s.intersects(r) && r.width >= 300 && r.height >= 300 ? r : null;   // מסך אחר / קטן — ברירת המחדל
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    static void saveBounds(Rectangle r) {
+        try {
+            boundsFile().getParentFile().mkdirs();
+            Files.write(boundsFile().toPath(), (r.x + "," + r.y + "," + r.width + "," + r.height).getBytes(StandardCharsets.UTF_8));
+        } catch (Exception ignored) {
+            // לא נשמר
+        }
     }
 
     /** התוכן (שוב אחרי כל שינוי ב-V) */
@@ -130,11 +165,19 @@ final class BankVsFloat {
         if (!projects.isEmpty()) {
             top.add(RtlDialog.gap(8));
             String name = projects.get(projects.size() - 1).getName();
+            final File proj = projects.get(projects.size() - 1);
             JPanel how = BankVsPanel.column();
-            how.add(RtlDialog.label("התרגיל בפתרון: " + name, RtlDialog.bold(), RtlDialog.INK));
-            how.add(RtlDialog.gap(3));
-            how.add(BankVsPanel.text("מריצים: ב-Solution Explorer קליק ימני על " + name + " ובוחרים Set as Startup Project, "
-                    + "ואז \"הרצה ויזואלית\" ליד הכפתור הירוק.", WIDTH - 64, RtlDialog.INK_2));
+            JPanel row = new JPanel(new BorderLayout(10, 0));
+            row.setOpaque(false);
+            row.add(RtlDialog.label("התרגיל בפתרון: " + name, RtlDialog.bold(), RtlDialog.INK), BorderLayout.CENTER);
+            javax.swing.JButton run = RtlDialog.primary("הרצה ויזואלית");
+            run.setToolTipText(RtlDialog.rtl("מריץ את התרגיל בהרצה ויזואלית — מה ששמור בקובץ (ב-Visual Studio שומרים קודם: Ctrl+S)"));
+            run.addActionListener(e -> BankVs.runVisual(proj));
+            row.add(run, BorderLayout.LINE_END);
+            row.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            how.add(row);
+            how.add(RtlDialog.gap(4));
+            how.add(RtlDialog.label("כותבים את הפתרון, שומרים (Ctrl+S) ולוחצים \"הרצה ויזואלית\".", RtlDialog.small(), RtlDialog.INK_2));
             RtlDialog.Panel box = new RtlDialog.Panel(new BorderLayout(), new Color(0xEEF4FF), new Color(0xC9D8F5));
             box.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
             box.add(how, BorderLayout.CENTER);

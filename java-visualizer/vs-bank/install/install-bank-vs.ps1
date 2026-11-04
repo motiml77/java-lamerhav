@@ -23,12 +23,17 @@ New-Item -ItemType Directory -Force $lab | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'dsviz-bank-vs.jar') $jar -Force
 $ws = New-Object -ComObject WScript.Shell
 foreach ($n in $links.Keys) {
-    $s = $ws.CreateShortcut((Join-Path $desk "$n.lnk"))
+    # WScript.Shell לא שומר קיצור עם שם בעברית — שומרים בשם זמני באנגלית ומשנים את השם
+    $tmp = Join-Path $desk "dsviz-bank-$($links[$n]).lnk"
+    $final = Join-Path $desk "$n.lnk"
+    $s = $ws.CreateShortcut($tmp)
     $s.TargetPath = $javaw
     $s.Arguments = "-cp `"$(Join-Path $dsviz 'dsviz.jar');$jar`" il.lamerhav.dsviz.BankVs $($links[$n]) `"$csDir`""
     $s.WorkingDirectory = $dsviz
     $ico = Join-Path $dsviz 'icon.ico'
     if (Test-Path $ico) { $s.IconLocation = $ico }
     $s.Save()
+    Remove-Item $final -Force -ErrorAction SilentlyContinue
+    Move-Item $tmp $final -Force
 }
 Write-Host 'הותקן: בשולחן העבודה יש "מאגר תרגילים C#" ו"השאלה — מאגר תרגילים C#".'

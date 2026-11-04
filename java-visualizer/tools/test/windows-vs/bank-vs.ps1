@@ -175,6 +175,7 @@ $java = Join-Path $dsviz 'jdk\bin\java.exe'
 $cp = "$(Join-Path $dsviz 'dsviz.jar');$jar;$TestCp"
 $itP = Start-Process $java -ArgumentList "-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -cp `"$cp`" il.lamerhav.dsviz.BankVsIt `"$csDir`" `"$it`" --go `"$go`"" `
     -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $Out 'it.out.txt') -RedirectStandardError (Join-Path $Out 'it.err.txt')
+$null = $itP.Handle   # בלי זה ExitCode ריק בסוף
 Start-Sleep 12
 Shot '02-bank-window-over-vs'
 $created = Join-Path $it 'created.txt'
@@ -189,6 +190,10 @@ if ($ready -and $dir) {
     Info "Reload: $rl"
     Start-Sleep 25
     Shot '05-vs-reloaded-with-float'
+    # Solution Explorer (Ctrl+Alt+L) — רואים בו את הפרויקט החדש
+    $wsh = New-Object -ComObject WScript.Shell
+    [void]$wsh.AppActivate($vsP.Id); Start-Sleep 1; $wsh.SendKeys('^%l'); Start-Sleep 4
+    Shot '05b-solution-explorer'
     Check 'vs-project' (HasElement $vsP.Id ([regex]::Escape($name))) "ב-Visual Studio (Solution Explorer) מופיע הפרויקט החדש $name"
 }
 New-Item -ItemType File -Force "$go.1" | Out-Null
@@ -224,7 +229,8 @@ if ($dir) {
             }
             if ($end -lt 0) { continue }
             $indent = [regex]::Match($text.Substring($start), '^[ \t]*').Value
-            $code = ($e.code -split "`n" | ForEach-Object { $indent + $_.TrimEnd("`r") }) -join "`r`n"
+            $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }   # אותם סופי שורות כמו בקובץ (אחרת Visual Studio שואל על Line Endings)
+            $code = ($e.code -split "`n" | ForEach-Object { $indent + $_.TrimEnd("`r") }) -join $nl
             $text = $text.Substring(0, $start) + $code + $text.Substring($end + 1)
             $applied++
         }
@@ -266,10 +272,25 @@ if ($dir) {
 }
 Shot '08-before-done'
 New-Item -ItemType File -Force "$go.2" | Out-Null
+# "הרצה ויזואלית" מהכפתור בחלון הצף
+$ran = Join-Path $it 'ran.txt'
+for ($i = 0; $i -lt 120 -and -not (Test-Path $ran) -and -not $itP.HasExited; $i++) { Start-Sleep 1 }
+$seen = $false
+for ($i = 0; $i -lt 90; $i++) {
+    Start-Sleep 1
+    if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' }).Count -gt 0) { $seen = $true; break }
+}
+Start-Sleep 6
+Shot '08b-float-run-button'
+Check 'float-run-window' $seen "הכפתור 'הרצה ויזואלית' בחלון הצף פתח את ההרצה הוויזואלית של התרגיל" ((Windows) -join ' ; ')
+Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' } | Stop-Process -Force
+Get-Process dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force
+New-Item -ItemType File -Force "$go.3" | Out-Null
 
 # ------------------------------------------------------------------ 6. "סיימתי את התרגיל"
 Log "== 6. 'סיימתי את התרגיל' — הפרויקט נמחק"
-$itP.WaitForExit(180000) | Out-Null
+$doneF = Join-Path $it 'done.txt'
+for ($i = 0; $i -lt 180 -and -not (Test-Path $doneF) -and -not $itP.HasExited; $i++) { Start-Sleep 1 }
 Start-Sleep 2
 if ($ready) {
     $script:shotPrefix = '09'
@@ -278,6 +299,8 @@ if ($ready) {
     Start-Sleep 20
     Shot '10-vs-after-done'
 }
+New-Item -ItemType File -Force "$go.4" | Out-Null
+$itP.WaitForExit(240000) | Out-Null
 # המחיקה עצמה נבדקת ב-BankVsIt (done-dir / done-sln) לפני התרגיל השני — שמקבל שוב את אותו שם (Ex01_...) ונשאר בכוונה עם קובץ של התלמיד
 $keepF = Join-Path $it 'keep-project.txt'
 $keep = if (Test-Path $keepF) { (Get-Content $keepF -Raw -Encoding utf8).Trim() } else { '' }

@@ -162,6 +162,15 @@ public final class BankVsIt {
             ui(() -> { BankVsFloat.render(); return null; });
             pause(800);
         }
+        // 7ב. "הרצה ויזואלית" מהחלון הצף (בלי Set as Startup Project)
+        BankVs.opened.clear();
+        click(ui(() -> BankVsFloat.current), "הרצה ויזואלית");
+        pause(500);
+        check("float-run", BankVs.opened.toString().contains("RUN " + dir.getName()), "'הרצה ויזואלית' בחלון הצף מריץ את " + dir.getName(), BankVs.opened.toString());
+        if (go != null) {
+            Files.write(new File(out, "ran.txt").toPath(), "ok".getBytes(StandardCharsets.UTF_8));
+            waitFile(go + ".3");
+        }
 
         // 8. "סיימתי את התרגיל" — כמו תלמיד: לחיצה, החלון שואל, "סיום ומחיקה"
         final JFrame fl2 = ui(() -> BankVsFloat.current);
@@ -181,12 +190,19 @@ public final class BankVsIt {
         end = System.currentTimeMillis() + 30000;
         while (System.currentTimeMillis() < end && ui(() -> BankVsFloat.current != null)) pause(300);
         pause(1000);
+        if (dir.exists()) log("  ..   נשאר אחרי 'סיימתי' (Visual Studio מחזיק): " + BankVs.list(dir));
+        if (go != null) {
+            // Visual Studio טוען מחדש את הפתרון (בלי הפרויקט) ומשחרר את קבצי הבנייה; בפתיחה הבאה של הכלי — מה שנשאר (bin / obj) נמחק
+            Files.write(new File(out, "done.txt").toPath(), "ok".getBytes(StandardCharsets.UTF_8));
+            waitFile(go + ".4");
+        }
+        BankVs.cleanPending();
         String sln2 = new String(Files.readAllBytes(CsSolution.solution(BankVs.root)), StandardCharsets.UTF_8);
         log("  ..   AFTER-DONE dir=" + dir.exists() + " sln=" + sln2.contains("\"" + dir.getName() + "\"") + " solutions=" + BankVs.solutionsUnder(dir)
                 + " created=" + BankProgress.get().createdOf(sq.id).size() + " done=" + BankProgress.get().done(sq.id));
         check("done-float", ui(() -> BankVsFloat.current == null), "אחרי האישור: החלון הצף נסגר", "");
         check("done-mark", BankProgress.get().done(sq.id), "השאלה סומנה בסימן ירוק", "");
-        check("done-dir", !dir.exists(), "תיקיית הפרויקט נמחקה (כולל bin / obj)", dir.getPath());
+        check("done-dir", !dir.exists(), "תיקיית הפרויקט נמחקה (כולל bin / obj)", dir.getPath() + " " + (dir.exists() ? BankVs.list(dir) : ""));
         check("done-sln", !sln2.contains("\"" + dir.getName() + "\"") && sln2.contains("Global") && sln2.contains("EndGlobal"),
                 "הפרויקט הוצא מהפתרון (.sln), והפתרון שלם", "");
         check("done-solutions", BankVs.solutionsUnder(dir) == 0, "ההצעות לפתרון של התרגיל נמחקו", "");
