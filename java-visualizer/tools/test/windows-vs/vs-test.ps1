@@ -549,7 +549,7 @@ if (-not $NoGui) {
         }
         return $false
     }
-    function OpenVs([string]$id, [string]$target, [string]$title, [string]$projDir, [string]$profileName, [int]$readyMin = 9) {
+    function OpenVs([string]$id, [string]$target, [string]$title, [string]$projDir, [string]$profileName, [int]$readyMin = 9, [bool]$Run = $true) {
         KillDsviz
         Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
         Start-Sleep 3
@@ -581,6 +581,17 @@ if (-not $NoGui) {
         SkipFirstRun $vsP.Id | Out-Null
         [Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null
         Shot "$id-opened"
+        if (-not $Run) {
+            # פרויקט חדש לגמרי שנפתח ב-Visual Studio בלי שום בנייה קודמת: ההטמעה האוטומטית (DSViz.targets) צריכה ליצור לבד את הפרופיל
+            $lf = Join-Path $projDir 'Properties\launchSettings.json'
+            for ($w = 0; $w -lt 24 -and -not (Test-Path $lf); $w++) { Start-Sleep 5 }
+            $has = (Test-Path $lf) -and ((Get-Content $lf -Raw -Encoding utf8) -match 'הרצה ויזואלית')
+            Check "$id-autoprofile" $has "פרויקט חדש שנפתח ב-Visual Studio בלי בנייה קודמת: הפרופיל 'הרצה ויזואלית' נוסף לבד" $(if (Test-Path $lf) { Get-Content $lf -Raw -Encoding utf8 } else { 'אין launchSettings.json' })
+            Start-Sleep 5; Shot "$id-profile-shown"
+            Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
+            Start-Sleep 3
+            return
+        }
         # הכפתור הירוק: שמו הוא שם הפרופיל שנבחר. מחפשים אותו (ואת הפרופילים) בסרגל הכלים
         $names = @(); $start = $null
         foreach ($el in (VsElements $vsP.Id)) {
@@ -619,6 +630,14 @@ if (-not $NoGui) {
     else { Fail 'vs-exercise-missing' "אין פרויקט תרגיל שנוצר" }
     # ב. פרויקט קונסול חדש שהתלמיד יצר (top-level, ImplicitUsings) — פותחים ולוחצים על "הרצה ויזואלית"
     OpenVs 'vs-new' (Join-Path $repos 'ConsoleApp1\ConsoleApp1\ConsoleApp1.csproj') 'ConsoleApp1' (Join-Path $repos 'ConsoleApp1\ConsoleApp1') 'הרצה ויזואלית' 5
+    # ג. פרויקט חדש לגמרי (dotnet new, בלי בנייה, בלי launchSettings) — כמו תלמיד שפתח "Create a new project" ב-Visual Studio
+    $fresh = Join-Path $repos 'ConsoleAppFresh\ConsoleAppFresh'
+    New-Item -ItemType Directory -Force $fresh | Out-Null
+    & dotnet new console -n ConsoleAppFresh -o $fresh --framework net8.0 --force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $fresh 'Program.cs'), $code, (New-Object Text.UTF8Encoding($true)))
+    Remove-Item (Join-Path $fresh 'Properties') -Recurse -Force -ErrorAction SilentlyContinue
+    Info "פרויקט חדש לגמרי: launchSettings.json קיים לפני הפתיחה? $(Test-Path (Join-Path $fresh 'Properties\launchSettings.json'))"
+    OpenVs 'vs-fresh' (Join-Path $fresh 'ConsoleAppFresh.csproj') 'ConsoleAppFresh' $fresh '' 5 $false
 }
 
 # ------------------------------------------------------------------ סיכום

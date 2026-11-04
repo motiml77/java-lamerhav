@@ -5,6 +5,7 @@
 #      ומקצה לקצה: הפקודה שהתוסף בונה מריצה את LineByLine על Main.java ומפיקה צעדים, ו"שליחת תרגיל" בלי שרת — הודעה בעברית.
 #   2. gradle buildPlugin verifyPlugin — הזיפ של התוסף, ו-Plugin Verifier של JetBrains מול IntelliJ 2024.2.
 #   3. intellij-installer-test.sh — ההתקנה האוטומטית (installer/mac/intellij.sh) בתיקיות מדומות.
+#   4. ij-build-files.sh — מול mvn / gradle / javac אמיתיים: פרויקט Maven / Gradle / module-info עם הספרייה ובלעדיה (אם mvn ו-gradle מותקנים).
 # IDEA_DIR=<IntelliJ מחולץ> — בודקים מולו בלי להוריד. VERIFY_IDES=dir1,dir2 — עוד גרסאות ל-Plugin Verifier.
 set -e
 cd "$(dirname "$0")/../../intellij-plugin"
@@ -12,3 +13,4 @@ cd "$(dirname "$0")/../../intellij-plugin"
 gradle --no-daemon -q ${IDEA_DIR:+-PideDir=$IDEA_DIR} ${VERIFY_IDES:+-PverifyIdeDirs=$VERIFY_IDES} test buildPlugin verifyPlugin
 echo "IntelliJ: הבדיקות עברו, והתוסף עבר את Plugin Verifier"
 bash ../tools/test/intellij-installer-test.sh build/distributions/dsviz-intellij-*.zip
+if command -v mvn >/dev/null 2>&1 && command -v gradle >/dev/null 2>&1; then sh ../tools/test/ij-build-files.sh; else echo "(אין mvn / gradle — מדלגים על ij-build-files.sh)"; fi
