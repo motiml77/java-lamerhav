@@ -67,6 +67,7 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
         try {
             Dsviz.setOn(true);
             LibrarySetup.externalOverride = null;
+            removeAddedRoots();
             System.clearProperty("dsviz.solutions");
             removeLibraries(getModule());
         } finally {
@@ -548,6 +549,17 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
 
     // ------------------------------------------------------------------ Maven / Gradle (המודול נחשב "חיצוני"; הקבצים אמיתיים בתיקייה זמנית)
 
+    /** תיקיות הפרויקט הזמניות שנוספו למודול בבדיקה — מוסרות בסוף (המודול משותף לכל הבדיקות) */
+    private final List<String> addedRoots = new java.util.ArrayList<String>();
+
+    private void removeAddedRoots() {
+        if (addedRoots.isEmpty()) return;
+        ModuleRootModificationUtil.updateModel(getModule(), model -> {
+            for (com.intellij.openapi.roots.ContentEntry e : model.getContentEntries()) if (addedRoots.contains(e.getUrl())) model.removeContentEntry(e);
+        });
+        addedRoots.clear();
+    }
+
     private java.io.File externalProject(String buildFileName, String buildFile) throws Exception {
         java.io.File dir = com.intellij.openapi.util.io.FileUtil.createTempDirectory("dsviz-ext-", null);
         Files.write(new File(dir, buildFileName).toPath(), buildFile.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -557,6 +569,7 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
         com.intellij.openapi.vfs.VirtualFile root = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(dir);
         com.intellij.openapi.vfs.VirtualFile src = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(new File(dir, "src/main/java"));
         ModuleRootModificationUtil.updateModel(getModule(), model -> model.addContentEntry(root).addSourceFolder(src, false));
+        addedRoots.add(root.getUrl());
         LibrarySetup.externalOverride = m -> true;
         com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
         return dir;

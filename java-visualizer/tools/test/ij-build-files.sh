@@ -42,7 +42,7 @@ cat > "$W/mvn/pom.xml" <<'XML'
 XML
 if (cd "$W/mvn" && mvn -q -B compile > "$W/mvn-before.log" 2>&1); then echo "  FAIL Maven: נבנה גם בלי התלות"; FAIL=1; else grep -q "package unit4.collectionsLib does not exist" "$W/mvn-before.log" && echo "  ok   Maven לפני: לא נבנה — package unit4.collectionsLib does not exist" || { echo "  FAIL Maven לפני: כשל אחר"; tail -15 "$W/mvn-before.log"; FAIL=1; }; fi
 edit maven "$W/mvn/pom.xml" > "$W/mvn/pom.new" && mv "$W/mvn/pom.new" "$W/mvn/pom.xml"
-(cd "$W/mvn" && mvn -q -B compile > "$W/mvn-after.log" 2>&1) && [ "$(java -cp "$W/mvn/target/classes:$JAR" app.Main 2>&1 | grep -v 'Picked up')" = "תור 47" ] && echo "  ok   Maven אחרי העריכה של התוסף: נבנה ורץ (תור 47)" || { echo "  FAIL Maven אחרי העריכה"; tail -20 "$W/mvn-after.log"; FAIL=1; }
+(cd "$W/mvn" && mvn -q -B compile > "$W/mvn-after.log" 2>&1) && [ "$(java -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 -cp "$W/mvn/target/classes:$JAR" app.Main 2>&1 | grep -v 'Picked up')" = "תור 47" ] && echo "  ok   Maven אחרי העריכה של התוסף: נבנה ורץ (תור 47)" || { echo "  FAIL Maven אחרי העריכה"; tail -20 "$W/mvn-after.log"; FAIL=1; }
 # ---- Gradle (Groovy ו-Kotlin)
 for kind in groovy kotlin; do
     proj "gr-$kind"
@@ -54,7 +54,7 @@ for kind in groovy kotlin; do
     echo "rootProject.name = 'stam'" > "$W/gr-$kind/settings.gradle"
     if (cd "$W/gr-$kind" && gradle --no-daemon -q compileJava > "$W/gr-$kind-before.log" 2>&1); then echo "  FAIL Gradle ($kind): נבנה גם בלי התלות"; FAIL=1; else grep -q "does not exist" "$W/gr-$kind-before.log" && echo "  ok   Gradle ($kind) לפני: לא נבנה" || { echo "  FAIL Gradle ($kind) לפני: כשל אחר"; tail -10 "$W/gr-$kind-before.log"; FAIL=1; }; fi
     edit $mode "$W/gr-$kind/$f" > "$W/gr-$kind/$f.new" && mv "$W/gr-$kind/$f.new" "$W/gr-$kind/$f"
-    (cd "$W/gr-$kind" && gradle --no-daemon -q compileJava > "$W/gr-$kind-after.log" 2>&1) && [ "$(java -cp "$W/gr-$kind/build/classes/java/main:$JAR" app.Main 2>&1 | grep -v 'Picked up')" = "תור 47" ] \
+    (cd "$W/gr-$kind" && gradle --no-daemon -q compileJava > "$W/gr-$kind-after.log" 2>&1) && [ "$(java -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 -cp "$W/gr-$kind/build/classes/java/main:$JAR" app.Main 2>&1 | grep -v 'Picked up')" = "תור 47" ] \
         && echo "  ok   Gradle ($kind) אחרי העריכה של התוסף: נבנה ורץ (תור 47)" || { echo "  FAIL Gradle ($kind) אחרי העריכה"; tail -20 "$W/gr-$kind-after.log"; FAIL=1; }
 done
 # ---- module-info: javac עם הספרייה ב-module-path (שם הקובץ dsviz.jar — מודול אוטומטי "dsviz")
@@ -63,5 +63,5 @@ printf 'module stam {\n}\n' > "$W/mod/src/module-info.java"
 if javac --release 21 -cp "$W/mod/lib/dsviz.jar" -d "$W/mod/out0" "$W/mod/src/module-info.java" "$W/mod/src/app/Main.java" > "$W/mod-before.log" 2>&1; then echo "  FAIL module-info: נבנה בלי requires"; FAIL=1; else grep -q "is not visible" "$W/mod-before.log" && echo "  ok   module-info לפני: package unit4.collectionsLib is not visible" || { echo "  FAIL module-info לפני: כשל אחר"; cat "$W/mod-before.log"; FAIL=1; }; fi
 edit requires "$W/mod/src/module-info.java" > "$W/mod/mi.new" && mv "$W/mod/mi.new" "$W/mod/src/module-info.java"
 javac --release 21 -p "$W/mod/lib" -d "$W/mod/out" "$W/mod/src/module-info.java" "$W/mod/src/app/Main.java" > "$W/mod-after.log" 2>&1 \
-    && [ "$(java -cp "$W/mod/out:$JAR" app.Main 2>&1 | grep -v 'Picked up')" = "תור 47" ] && echo "  ok   module-info אחרי requires dsviz: נבנה, וגם רץ ב-classpath רגיל (כמו ההרצה הוויזואלית) — תור 47" || { echo "  FAIL module-info אחרי requires"; cat "$W/mod-after.log"; FAIL=1; }
+    && [ "$(java -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 -cp "$W/mod/out:$JAR" app.Main 2>&1 | grep -v 'Picked up')" = "תור 47" ] && echo "  ok   module-info אחרי requires dsviz: נבנה, וגם רץ ב-classpath רגיל (כמו ההרצה הוויזואלית) — תור 47" || { echo "  FAIL module-info אחרי requires"; cat "$W/mod-after.log"; FAIL=1; }
 [ $FAIL = 0 ]

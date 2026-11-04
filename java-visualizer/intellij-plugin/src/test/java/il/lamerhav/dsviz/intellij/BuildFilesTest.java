@@ -63,7 +63,7 @@ public class BuildFilesTest extends TestCase {
         String out = BuildFiles.maven(in);
         int dm = out.indexOf("</dependencyManagement>");
         assertTrue("התלות מחוץ ל-dependencyManagement: " + out, out.indexOf("il.lamerhav") > dm);
-        assertTrue("ולא בתוך build: " + out, out.indexOf("il.lamerhav") < out.indexOf("<build>"));
+        assertTrue("ולא בתוך build: " + out, out.indexOf("il.lamerhav") > out.indexOf("</build>"));
     }
 
     public void testMavenAlreadyThereAndCommentedDependencies() {
