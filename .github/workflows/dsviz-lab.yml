@@ -1,5 +1,7 @@
-# "מאגר תרגילים" — גרסת בדיקה ל-Eclipse (רק למורה, לא לתלמידים): בונה את ההרחבה il.lamerhav.dsviz.bank_1.0.0.jar
-# (אחרי שכל שאלה במאגר נבדקת), ומעלה אותה כ-Artifact. מורידים מעמוד הריצה ב-GitHub (צריך להיות מחובר), ומעתיקים ל-dropins.
+# "מאגר תרגילים" — גרסת בדיקה (רק למורה, לא לתלמידים), אחרי שכל שאלה במאגר נבדקת (Java וגם C#):
+#   Eclipse: ההרחבה il.lamerhav.dsviz.bank_1.0.0.jar (Artifact: dsviz-exercise-bank-eclipse) — מעתיקים ל-dropins
+#   Visual Studio: dsviz-bank-vs.jar + install.cmd (Artifact: dsviz-exercise-bank-vs) — ונבדק על Windows עם Visual Studio אמיתי:
+#     התקנה, החלונות, יצירת תרגיל, Reload ב-Visual Studio, בנייה, פלט, הרצה ויזואלית, "סיימתי" (צילומי מסך: Artifact vs-bank-test)
 # לא נוגע ב-release/ ולא בקישור הקבוע — התלמידים לא מקבלים את זה.
 name: DSViz lab (exercise bank)
 on:
@@ -11,6 +13,11 @@ on:
       - 'java-visualizer/bank/**'
       - 'java-visualizer/tools/build-bank.sh'
       - 'java-visualizer/tools/test/bank/**'
+      - 'java-visualizer/tools/test/bank-check.sh'
+      - 'java-visualizer/vs-bank/**'
+      - 'java-visualizer/tools/build-bank-vs.sh'
+      - 'java-visualizer/tools/test/windows-vs/bank-vs.ps1'
+      - 'java-visualizer/tools/test/windows-vs/BankVsIt.java'
   workflow_dispatch:
 
 jobs:
@@ -29,3 +36,56 @@ jobs:
           name: dsviz-exercise-bank-eclipse
           path: java-visualizer/build/lab/
           retention-days: 30
+
+  vs-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - name: בדיקת השאלות (גם C#) ובניית התוספת ל-Visual Studio
+        working-directory: java-visualizer
+        run: |
+          sh tools/build-bank-vs.sh
+          mkdir -p build/bank-vs-test
+          javac -encoding UTF-8 -nowarn -cp release/dsviz.jar:build/lab-vs/dsviz-bank-vs.jar -d build/bank-vs-test tools/test/windows-vs/BankVsIt.java
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsviz-exercise-bank-vs
+          path: java-visualizer/build/lab-vs/
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bank-vs-test-classes
+          path: java-visualizer/build/bank-vs-test/
+          retention-days: 3
+
+  vs-test:
+    needs: vs-build
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: dsviz-exercise-bank-vs, path: lab-vs }
+      - uses: actions/download-artifact@v4
+        with: { name: bank-vs-test-classes, path: bank-vs-test }
+      - name: מאגר תרגילים ב-Visual Studio אמיתי
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs\bank-vs.ps1" `
+            -Setup "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" `
+            -Lab "$env:GITHUB_WORKSPACE\lab-vs" `
+            -Out "$env:GITHUB_WORKSPACE\vs-bank-test" `
+            -Bank "$env:GITHUB_WORKSPACE\java-visualizer\bank" `
+            -TestCp "$env:GITHUB_WORKSPACE\bank-vs-test"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vs-bank-test
+          path: vs-bank-test
+          retention-days: 14
