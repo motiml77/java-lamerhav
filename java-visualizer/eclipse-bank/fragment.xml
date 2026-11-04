@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<!--
+  "מאגר תרגילים" — הרחבה (fragment) של DSViz ל-Eclipse, לבדיקה בלבד: מעתיקים את il.lamerhav.dsviz.bank_*.jar לתיקיית dropins
+  ליד התוסף הראשי. לא חלק מההתקנה לתלמידים, והעדכון האוטומטי (שמחליף רק il.lamerhav.dsviz_*.jar) לא נוגע בה.
+-->
+<fragment>
+   <extension point="org.eclipse.ui.commands">
+      <command id="il.lamerhav.dsviz.bank" categoryId="il.lamerhav.dsviz.category"
+               name="מאגר תרגילים" description="בוחרים נושא ושאלה מהמאגר — ונוצר תרגיל מוכן עם פעולה לכל סעיף, main והצעה לפתרון"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.handlers">
+      <handler commandId="il.lamerhav.dsviz.bank" class="il.lamerhav.dsviz.BankHandler"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.commandImages">
+      <image commandId="il.lamerhav.dsviz.bank" icon="icons/bank.png"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.menus">
+      <!-- בסרגל של DSViz, לפני "הרצה ויזואלית" -->
+      <menuContribution locationURI="toolbar:il.lamerhav.dsviz.toolbar?before=run">
+         <command commandId="il.lamerhav.dsviz.bank" label="מאגר תרגילים" mode="FORCE_TEXT" id="il.lamerhav.dsviz.bank.toolbar"
+                  tooltip="מאגר תרגילים: בוחרים נושא ושאלה (קל / בינוני / קשה) — ונוצר תרגיל מוכן, עם הצעה לפתרון לכל סעיף" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+      </menuContribution>
+      <!-- בתפריט "מבני נתונים" -->
+      <menuContribution locationURI="menu:il.lamerhav.dsviz.menu?after=additions">
+         <command commandId="il.lamerhav.dsviz.bank" label="מאגר תרגילים..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+         <command commandId="org.eclipse.ui.views.showView" label="חלון השאלה (מאגר תרגילים)" style="push">
+            <parameter name="org.eclipse.ui.views.showView.viewId" value="il.lamerhav.dsviz.bankView"/>
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+      </menuContribution>
+   </extension>
+
+   <extension point="org.eclipse.ui.views">
+      <view id="il.lamerhav.dsviz.bankView" category="il.lamerhav.dsviz.views" name="השאלה"
+            class="il.lamerhav.dsviz.BankView" icon="icons/bank.png"/>
+   </extension>
+
+   <!-- חלון השאלה — בצד ימין, באותו מקום כמו "הסברים בעברית" (נפתח כשנוצר תרגיל מהמאגר) -->
+   <extension point="org.eclipse.ui.perspectiveExtensions">
+      <perspectiveExtension targetID="org.eclipse.jdt.ui.JavaPerspective">
+         <view id="il.lamerhav.dsviz.bankView" relative="il.lamerhav.dsviz.mentorView" relationship="stack" visible="false"/>
+      </perspectiveExtension>
+   </extension>
+</fragment>

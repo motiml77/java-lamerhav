@@ -1,0 +1,99 @@
+{
+  "id": "sample-stack-even",
+  "topic": "stack",
+  "level": "medium",
+  "title": "זוגיים והסרה במחסנית (שאלת דוגמה)",
+  "question": {
+    "intro": "שאלת דוגמה לבדיקת המאגר — תוחלף בשאלות אמיתיות.\nנתונה מחסנית של מספרים שלמים.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתבו פעולה המקבלת מחסנית של מספרים שלמים ומחזירה את מספר האיברים הזוגיים בה. בסוף הפעולה המחסנית צריכה להיות כמו בהתחלה. לדוגמה: עבור המחסנית 4, 7, 2, 9 (4 בראש) יוחזר 2.",
+        "figures": [
+          {
+            "type": "stack",
+            "values": [
+              4,
+              7,
+              2,
+              9
+            ],
+            "caption": "המחסנית s (4 בראש) — יוחזר 2"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתבו פעולה המקבלת מחסנית ומספר x ומוציאה מהמחסנית את כל המופעים של x. הסדר של שאר האיברים לא ישתנה.",
+        "figures": [
+          {
+            "type": "stack",
+            "values": [
+              3,
+              5,
+              3
+            ],
+            "caption": "לפני: removeAll(s, 3)"
+          },
+          {
+            "type": "stack",
+            "values": [
+              5
+            ],
+            "caption": "אחרי"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "זוגיים והסרה במחסנית",
+    "topic": "stacks",
+    "mainClass": "StackTargil",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "StackTargil",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countEven",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "s"
+          }
+        ],
+        "instructions": "מחזירה את מספר האיברים הזוגיים במחסנית; המחסנית נשארת כמו בהתחלה.",
+        "solution": "public static int countEven(Stack<Integer> s) {\n    // מעבירים את האיברים למחסנית עזר, וסופרים את הזוגיים\n    Stack<Integer> temp = new Stack<Integer>();\n    int count = 0;\n    while (!s.isEmpty()) {\n        int x = s.pop();\n        if (x % 2 == 0) {\n            count++;\n        }\n        temp.push(x);\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n    return count;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "StackTargil",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "removeAll",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "s"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "מוציאה מהמחסנית את כל המופעים של x; הסדר של השאר לא משתנה.",
+        "solution": "public static void removeAll(Stack<Integer> s, int x) {\n    // מעבירים למחסנית עזר רק את האיברים ששונים מ-x\n    Stack<Integer> temp = new Stack<Integer>();\n    while (!s.isEmpty()) {\n        int y = s.pop();\n        if (y != x) {\n            temp.push(y);\n        }\n    }\n    // מחזירים אותם — הסדר נשמר\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "// מחסנית לבדיקה של סעיף א\nStack<Integer> s1 = new Stack<Integer>();\ns1.push(9);\ns1.push(2);\ns1.push(7);\ns1.push(4);\nSystem.out.println(\"מחסנית: \" + s1);\nSystem.out.println(\"סעיף א: \" + countEven(s1));\n\n// מחסנית נפרדת לסעיף ב\nStack<Integer> s2 = new Stack<Integer>();\ns2.push(3);\ns2.push(5);\ns2.push(3);\nremoveAll(s2, 3);\nSystem.out.println(\"סעיף ב (אחרי): \" + s2);",
+    "expectedOutput": "מחסנית: [4,7,2,9]\nסעיף א: 2\nסעיף ב (אחרי): [5]"
+  }
+}
