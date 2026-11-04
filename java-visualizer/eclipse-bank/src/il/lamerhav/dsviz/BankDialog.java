@@ -1,8 +1,11 @@
 package il.lamerhav.dsviz;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
@@ -23,14 +26,18 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 
 /**
- * "מאגר תרגילים": מימין — הנושאים (עם כמה שאלות סומנו V מתוך כמה), באמצע — השאלות של הנושא מהקלה לקשה: נקודה בצבע הקושי
- * (ירוק קל, כתום בינוני, אדום קשה), הכותרת, ובקצה — עיגול שלוחצים עליו כדי לסמן V ירוק ("כבר עשיתי"). מתחת — נוסח השאלה.
- * בתחתית: לאיזה פרויקט, ו"צור תרגיל" (או "פתח את התרגיל" — אם כבר נוצר והקבצים עוד שם; ואז גם "צור עותק חדש").
+ * "מאגר תרגילים" — בסגנון של אתרי תרגול (LeetCode):
+ *   סרגל צד (מימין): חיפוש, סינון לפי קושי (הכול / קל / בינוני / קשה), ועץ נפתח — נושא (עם פס התקדמות ו"כמה V מתוך כמה"),
+ *   ומתחתיו השאלות בשורות קומפקטיות: נקודה בצבע הקושי, הכותרת, ועיגול שלוחצים עליו לסמן V ירוק ("כבר עשיתי").
+ *   מעל הסרגל — סיכום ההתקדמות לכל רמת קושי. כל השאר — הנוסח של השאלה שנבחרה (כרטיסים, ציורים של המבנים, הפלט הרצוי).
+ * בתחתית: לאיזה פרויקט, ו"צור תרגיל" (או "פתח את התרגיל" — אם כבר נוצר; ואז גם "צור עותק חדש").
  * החלון רק בוחר — את התרגיל בונה BankHandler אחרי שהחלון נסגר.
  */
 public class BankDialog extends Dialog {
     /** מה נבחר: CREATE — ליצור (גם אם כבר נוצר — עותק חדש), OPEN — לפתוח את מה שכבר נוצר */
     enum Action { CREATE, OPEN }
+
+    private static final int SIDEBAR = 330, TOPIC_H = 44, Q_H = 34;
 
     private final BankStore store;
     private final BankProgress progress;
@@ -38,24 +45,30 @@ public class BankDialog extends Dialog {
     private final String newProjectName;
     private final IProject preferred;
 
-    private String topicId;
     private BankStore.Question selected;
     private Action action = Action.CREATE;
     private IJavaProject chosenProject;
     private boolean newProject;
+    private final Set<String> expanded = new HashSet<String>();
+    private String search = "";
+    /** סינון לפי קושי: null — הכול */
+    private BankStore.Level levelFilter;
 
+    /** השורות בעץ (נושאים ושאלות) — לבדיקות: topicRows */
     private final List<Row> topicRows = new ArrayList<Row>();
     private final List<Row> questionRows = new ArrayList<Row>();
-    private Composite questionList;
-    private ScrolledComposite questionScroll;
-    private Label listTitle, status;
-    private ScrolledComposite previewScroll;
-    private Composite previewBody;
-    /** לבדיקות: מה מוצג בנוסח */
+    /** לבדיקות: מה מוצג בעץ ("TOPIC id open 1/3", "Q id medium done") ובנוסח */
+    final List<String> treeShown = new ArrayList<String>();
     final List<String> previewShown = new ArrayList<String>();
+
+    private ScrolledComposite treeScroll, previewScroll;
+    private Composite tree, previewBody;
+    private Canvas stats;
+    private Label status;
     private Combo projectCombo;
     private Look.Round createButton, copyButton;
     private Composite buttons;
+    private final List<Look.Chip> filterChips = new ArrayList<Look.Chip>();
     private final Runnable onProgress = () -> Display.getDefault().asyncExec(this::refreshMarks);
 
     public BankDialog(Shell parent, BankStore store, BankProgress progress, List<IJavaProject> projects, String newProjectName, IProject preferred) {
@@ -65,10 +78,15 @@ public class BankDialog extends Dialog {
         this.projects = projects;
         this.newProjectName = newProjectName;
         this.preferred = preferred;
-        setShellStyle(SWT.DIALOG_TRIM | SWT.RESIZE | SWT.RIGHT_TO_LEFT | SWT.APPLICATION_MODAL);
-        topicId = store.topics.isEmpty() ? "" : store.topics.get(0).id;
-        for (BankStore.Topic t : store.topics) {   // הנושא הראשון שיש בו שאלות
-            if (!store.of(t.id).isEmpty()) { topicId = t.id; break; }
+        setShellStyle(SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.RIGHT_TO_LEFT | SWT.APPLICATION_MODAL);
+        // בהתחלה פתוח הנושא הראשון שיש בו שאלות, ונבחרת השאלה הראשונה בו שעוד לא סומנה
+        for (BankStore.Topic t : store.topics) {
+            List<BankStore.Question> qs = store.of(t.id);
+            if (qs.isEmpty()) continue;
+            expanded.add(t.id);
+            for (BankStore.Question q : qs) if (!progress.done(q.id)) { selected = q; break; }
+            if (selected == null) selected = qs.get(0);
+            break;
         }
     }
 
@@ -83,10 +101,14 @@ public class BankDialog extends Dialog {
 
     String newProjectName() { return newProjectName; }
 
-    /** לבדיקות: בוחרים נושא ושאלה כאילו לחצו עליהם */
+    /** לבדיקות: פותחים נושא ובוחרים בו שאלה (questionId ריק — רק פותחים) */
     void select(String topic, String questionId) {
-        showTopic(topic);
-        for (Row r : questionRows) if (((BankStore.Question) r.getData()).id.equals(questionId)) choose(r);
+        expanded.add(topic);
+        BankStore.Question q = questionId == null || questionId.isEmpty() ? null : store.find(questionId);
+        selected = q;
+        rebuildTree();
+        showPreview(q);
+        updateButtons();
     }
 
     // ------------------------------------------------------------------ החלון
@@ -103,7 +125,7 @@ public class BankDialog extends Dialog {
 
     @Override
     protected Point getInitialSize() {
-        Point p = new Point(980, 760);
+        Point p = new Point(1060, 780);
         org.eclipse.swt.graphics.Rectangle s = getShell().getMonitor().getClientArea();
         return new Point(Math.min(p.x, s.width - 40), Math.min(p.y, s.height - 60));
     }
@@ -115,80 +137,72 @@ public class BankDialog extends Dialog {
         GridLayout al = (GridLayout) area.getLayout();
         al.marginWidth = 16;
         al.marginHeight = 8;
-        al.verticalSpacing = 6;
+        al.verticalSpacing = 8;
         area.setBackground(Look.color(d, Look.BG));
         area.setBackgroundMode(SWT.INHERIT_DEFAULT);
-        Look.header(area, "מאגר תרגילים", "בוחרים נושא ושאלה — ונוצר תרגיל מוכן: פעולה לכל סעיף, main שמריץ אותן, ו-💡 הצעה לפתרון ליד כל סעיף.");
+        Look.header(area, "מאגר תרגילים", "בוחרים שאלה מהרשימה — ונוצר תרגיל מוכן: פעולה לכל סעיף, main שמריץ אותן, ו-💡 הצעה לפתרון ליד כל סעיף.");
 
         Composite main = new Composite(area, SWT.NONE);
         GridLayout ml = new GridLayout(2, false);
         ml.marginWidth = 0;
         ml.marginHeight = 0;
-        ml.horizontalSpacing = 10;
+        ml.horizontalSpacing = 12;
         main.setLayout(ml);
         main.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 
-        // הנושאים
-        GridData tg = new GridData(SWT.FILL, SWT.FILL, false, true);
-        tg.widthHint = 210;
-        Composite topics = Look.card(main, tg);
-        Look.section(topics, "נושאים", 0);
-        for (BankStore.Topic t : store.topics) {
-            Row r = new Row(topics, 38, true);
-            r.setData(t);
-            r.onClick = () -> showTopic(t.id);
-            GridData rg = new GridData(SWT.FILL, SWT.TOP, true, false);
-            rg.heightHint = 38;
-            r.setLayoutData(rg);
-            topicRows.add(r);
-        }
+        // ---- סרגל הצד
+        GridData sg = new GridData(SWT.FILL, SWT.FILL, false, true);
+        sg.widthHint = SIDEBAR;
+        Composite side = Look.card(main, sg);
+        ((GridLayout) side.getLayout()).verticalSpacing = 8;
+        stats = new Canvas(side, SWT.NO_FOCUS | SWT.LEFT_TO_RIGHT | SWT.DOUBLE_BUFFERED);
+        GridData stg = new GridData(SWT.FILL, SWT.TOP, true, false);
+        stg.heightHint = 58;
+        stats.setLayoutData(stg);
+        stats.addListener(SWT.Paint, e -> paintStats(e.gc, stats.getSize()));
 
-        // השאלות (כרטיס עליון) + הנוסח של השאלה שנבחרה (כרטיסים, עם ציורים של המבנים)
-        Composite right = new Composite(main, SWT.NONE);
-        GridLayout rl = new GridLayout(1, false);
-        rl.marginWidth = 0;
-        rl.marginHeight = 0;
-        rl.verticalSpacing = 8;
-        right.setLayout(rl);
-        right.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-        Composite listCard = Look.card(right, new GridData(SWT.FILL, SWT.TOP, true, false));
-        Composite head = new Composite(listCard, SWT.NONE);
-        GridLayout hl = new GridLayout(2, false);
-        hl.marginWidth = 0;
-        hl.marginHeight = 0;
-        head.setLayout(hl);
-        head.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-        listTitle = Look.section(head, "", 0);
-        Canvas legend = new Canvas(head, SWT.NO_FOCUS | SWT.LEFT_TO_RIGHT | SWT.DOUBLE_BUFFERED);
-        GridData lg = new GridData(SWT.END, SWT.CENTER, false, false);
-        lg.widthHint = 210;
-        lg.heightHint = 20;
-        legend.setLayoutData(lg);
-        legend.addListener(SWT.Paint, e -> paintLegend(e.gc, legend.getSize()));
+        Look.HintText searchBox = new Look.HintText(side, SWT.SINGLE | SWT.BORDER | SWT.RIGHT_TO_LEFT | SWT.SEARCH);
+        searchBox.setHint("🔍  חיפוש שאלה…");
+        searchBox.text.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        searchBox.text.addListener(SWT.Modify, e -> {
+            String v = searchBox.value().trim();
+            if (v.equals(search)) return;
+            search = v;
+            rebuildTree();
+        });
 
-        GridLayout ql = new GridLayout(1, false);
-        ql.marginWidth = 0;
-        ql.marginHeight = 0;
-        ql.verticalSpacing = 4;
-        Composite[] content = new Composite[1];
-        questionScroll = Look.scroll(listCard, ql, content);
-        questionList = content[0];
-        questionList.setBackground(Look.color(d, Look.CARD));
-        GridData sg = (GridData) questionScroll.getLayoutData();
-        sg.heightHint = 150;                 // כ-3 שאלות; יותר — גוללים
-        sg.grabExcessVerticalSpace = false;  // המקום הנוסף — לנוסח השאלה
-        questionScroll.setBackground(Look.color(d, Look.CARD));
+        Composite filters = new Composite(side, SWT.NONE);
+        GridLayout fl = new GridLayout(4, true);
+        fl.marginWidth = 0;
+        fl.marginHeight = 0;
+        fl.horizontalSpacing = 6;
+        filters.setLayout(fl);
+        filters.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+        Look.Chip all = Look.chip(filters, "הכול", null, filterChips, 28, 60, this::filterChanged);
+        all.setSelection(true);
+        for (BankStore.Level l : BankStore.Level.values()) Look.chip(filters, l.title, l, filterChips, 28, 60, this::filterChanged);
 
+        GridLayout tl = new GridLayout(1, false);
+        tl.marginWidth = 0;
+        tl.marginHeight = 0;
+        tl.verticalSpacing = 2;
+        Composite[] tc = new Composite[1];
+        treeScroll = Look.scroll(side, tl, tc);
+        tree = tc[0];
+        tree.setBackground(Look.color(d, Look.CARD));
+        treeScroll.setBackground(Look.color(d, Look.CARD));
+
+        // ---- הנוסח של השאלה
         GridLayout pl = new GridLayout(1, false);
         pl.marginWidth = 2;
         pl.marginHeight = 0;
         pl.verticalSpacing = 8;
         Composite[] pc = new Composite[1];
-        previewScroll = Look.scroll(right, pl, pc);
+        previewScroll = Look.scroll(main, pl, pc);
         previewBody = pc[0];
         previewBody.setOrientation(SWT.RIGHT_TO_LEFT);
 
-        // הפרויקט + מצב
+        // ---- הפרויקט + מצב
         Composite bottom = new Composite(area, SWT.NONE);
         GridLayout bl = new GridLayout(3, false);
         bl.marginWidth = 4;
@@ -213,7 +227,8 @@ public class BankDialog extends Dialog {
         status.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
         Look.applyFont(area, -1);
-        showTopic(topicId);
+        rebuildTree();
+        showPreview(selected);
         return area;
     }
 
@@ -240,69 +255,124 @@ public class BankDialog extends Dialog {
         return buttons;
     }
 
-    // ------------------------------------------------------------------ בחירה
+    // ------------------------------------------------------------------ העץ
 
-    private void showTopic(String id) {
-        topicId = id;
-        for (Row r : topicRows) r.setSelected(((BankStore.Topic) r.getData()).id.equals(id));
-        for (Control c : questionList.getChildren()) c.dispose();   // השורות (וההודעה "עוד אין שאלות") של הנושא הקודם
-        questionRows.clear();
-        BankStore.Topic t = store.topic(id);
-        List<BankStore.Question> qs = store.of(id);
-        listTitle.setText(t == null ? "" : "השאלות בנושא " + t.title + (qs.isEmpty() ? "" : " (" + qs.size() + ")"));
-        Row first = null;
-        for (BankStore.Question q : qs) {
-            Row r = new Row(questionList, 44, false);
-            r.setData(q);
-            r.onClick = () -> choose(r);
-            r.onMark = () -> progress.setDone(q.id, !progress.done(q.id));
-            r.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-            questionRows.add(r);
-            if (first == null) first = r;
+    /** השאלות של הנושא שעוברות את החיפוש ואת הסינון */
+    private List<BankStore.Question> visible(String topicId) {
+        List<BankStore.Question> out = new ArrayList<BankStore.Question>();
+        String s = search.toLowerCase(Locale.ROOT);
+        for (BankStore.Question q : store.of(topicId)) {
+            if (levelFilter != null && q.level != levelFilter) continue;
+            if (!s.isEmpty() && !q.title.toLowerCase(Locale.ROOT).contains(s) && !q.intro.toLowerCase(Locale.ROOT).contains(s)) continue;
+            out.add(q);
         }
-        if (qs.isEmpty()) {
-            Label empty = new Label(questionList, SWT.WRAP);
-            empty.setText("עוד אין שאלות בנושא הזה.");
-            empty.setForeground(Look.color(questionList.getDisplay(), Look.MUTED));
-            empty.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-            empty.setFont(Look.font(questionList.getDisplay(), -1, SWT.NORMAL));
-        }
-        // גובה הרשימה לפי מספר השאלות (עד 4 בלי גלילה) — כל השאר לנוסח השאלה ולציורים
-        ((GridData) questionScroll.getLayoutData()).heightHint = Math.max(1, Math.min(qs.size(), 4)) * 48;
-        questionScroll.getParent().getParent().getParent().layout(true, true);
-        questionList.layout(true, true);
-        Look.updateScroll(questionScroll);
-        Look.wheel(questionScroll);
-        questionScroll.setOrigin(0, 0);
-        selected = null;
-        if (first != null) choose(first);
-        else {
-            showPreview(null);
-            updateButtons();
-        }
-        listTitle.getParent().layout(true, true);
+        return out;
     }
 
-    private void choose(Row r) {
-        selected = (BankStore.Question) r.getData();
-        for (Row o : questionRows) o.setSelected(o == r);
-        showPreview(selected);
+    private boolean filtering() {
+        return !search.isEmpty() || levelFilter != null;
+    }
+
+    private void rebuildTree() {
+        if (tree == null) return;
+        Display d = tree.getDisplay();
+        tree.setRedraw(false);
+        try {
+            for (Control c : tree.getChildren()) c.dispose();
+            topicRows.clear();
+            questionRows.clear();
+            treeShown.clear();
+            Row selRow = null;
+            for (BankStore.Topic t : store.topics) {
+                List<BankStore.Question> all = store.of(t.id), qs = visible(t.id);
+                if (filtering() && qs.isEmpty()) continue;   // בחיפוש — רק נושאים שיש בהם תוצאות
+                boolean open = expanded.contains(t.id) || filtering();
+                Row tr = new Row(tree, true);
+                tr.setData(t);
+                tr.open = open;
+                tr.onClick = () -> {
+                    if (!expanded.remove(t.id)) expanded.add(t.id);
+                    rebuildTree();
+                };
+                tr.setLayoutData(rowData(TOPIC_H));
+                topicRows.add(tr);
+                treeShown.add("TOPIC " + t.id + (open ? " open " : " closed ") + progress.doneCount(all) + "/" + all.size());
+                if (!open) continue;
+                if (qs.isEmpty()) {
+                    Label empty = new Label(tree, SWT.WRAP | SWT.RIGHT_TO_LEFT);
+                    empty.setText("עוד אין שאלות בנושא הזה.");
+                    empty.setForeground(Look.color(d, Look.MUTED));
+                    empty.setFont(Look.font(d, -1, SWT.NORMAL));
+                    GridData eg = rowData(SWT.DEFAULT);
+                    eg.horizontalIndent = 30;
+                    eg.verticalIndent = 2;
+                    empty.setLayoutData(eg);
+                }
+                for (BankStore.Question q : qs) {
+                    Row r = new Row(tree, false);
+                    r.setData(q);
+                    r.onClick = () -> choose(q);
+                    r.onMark = () -> progress.setDone(q.id, !progress.done(q.id));
+                    r.setLayoutData(rowData(Q_H));
+                    if (q == selected) { r.setSelected(true); selRow = r; }
+                    questionRows.add(r);
+                    treeShown.add("Q " + q.id + " " + q.level.id + (progress.done(q.id) ? " done" : ""));
+                }
+            }
+            if (topicRows.isEmpty()) {
+                Label none = new Label(tree, SWT.WRAP | SWT.RIGHT_TO_LEFT);
+                none.setText("לא נמצאו שאלות.");
+                none.setForeground(Look.color(d, Look.MUTED));
+                none.setLayoutData(rowData(SWT.DEFAULT));
+            }
+            tree.layout(true, true);
+            Look.updateScroll(treeScroll);
+            Look.wheel(treeScroll);
+            if (selRow != null) reveal(selRow);
+        } finally {
+            tree.setRedraw(true);
+        }
+        if (stats != null) stats.redraw();
+    }
+
+    private static GridData rowData(int h) {
+        GridData g = new GridData(SWT.FILL, SWT.TOP, true, false);
+        if (h != SWT.DEFAULT) g.heightHint = h;
+        return g;
+    }
+
+    private void reveal(Row r) {
+        Point o = treeScroll.getOrigin();
+        int y = r.getLocation().y, h = treeScroll.getClientArea().height;
+        if (y < o.y) treeScroll.setOrigin(0, y);
+        else if (y + r.getSize().y > o.y + h) treeScroll.setOrigin(0, y + r.getSize().y - h);
+    }
+
+    private void filterChanged() {
+        for (Look.Chip c : filterChips) if (c.getSelection()) levelFilter = (BankStore.Level) c.getData();
+        rebuildTree();
+    }
+
+    private void choose(BankStore.Question q) {
+        selected = q;
+        for (Row o : questionRows) o.setSelected(o.getData() == q);
+        showPreview(q);
         updateButtons();
-        // השורה שנבחרה — בתוך האזור הנראה
-        Point o = questionScroll.getOrigin();
-        int y = r.getLocation().y, h = questionScroll.getClientArea().height;
-        if (y < o.y) questionScroll.setOrigin(0, y);
-        else if (y + r.getSize().y > o.y + h) questionScroll.setOrigin(0, y + r.getSize().y - h);
     }
 
     private void showPreview(BankStore.Question q) {
+        if (previewBody == null) return;
         previewBody.setRedraw(false);
         try {
             for (Control c : previewBody.getChildren()) c.dispose();
             previewShown.clear();
             if (q != null) {
-                BankQuestionPanel.titleRow(previewBody, q, store.topic(q.topic) == null ? null : store.topic(q.topic).title, previewShown);
+                BankStore.Topic t = store.topic(q.topic);
+                BankQuestionPanel.titleRow(previewBody, q, t == null ? null : t.title, previewShown);
                 BankQuestionPanel.build(previewBody, q, null, previewShown);
+            } else {
+                Composite c = Look.card(previewBody, BankQuestionPanel.wide());
+                BankQuestionPanel.text(c, store.questions.isEmpty() ? "עוד אין שאלות במאגר." : "בוחרים שאלה מהרשימה — והנוסח שלה יופיע כאן.", 1, SWT.NORMAL, Look.MUTED, previewShown);
             }
             previewBody.layout(true, true);
             Look.updateScroll(previewScroll);
@@ -314,14 +384,22 @@ public class BankDialog extends Dialog {
     }
 
     private void random() {
-        List<BankStore.Question> qs = store.of(topicId);
-        if (qs.isEmpty()) return;
-        List<BankStore.Question> open = new ArrayList<BankStore.Question>();
-        for (BankStore.Question q : qs) if (!progress.done(q.id) && q != selected) open.add(q);
-        if (open.isEmpty()) for (BankStore.Question q : qs) if (q != selected) open.add(q);
+        List<BankStore.Question> pool = new ArrayList<BankStore.Question>(), open = new ArrayList<BankStore.Question>();
+        // מהנושא של השאלה הנוכחית (או מכל הפתוחים), עם הסינון; קודם שאלות שעוד לא עשו
+        for (BankStore.Topic t : store.topics) {
+            if (selected != null ? !t.id.equals(selected.topic) : !expanded.contains(t.id)) continue;
+            pool.addAll(visible(t.id));
+        }
+        if (pool.isEmpty()) for (BankStore.Topic t : store.topics) pool.addAll(visible(t.id));
+        for (BankStore.Question q : pool) if (!progress.done(q.id) && q != selected) open.add(q);
+        if (open.isEmpty()) for (BankStore.Question q : pool) if (q != selected) open.add(q);
         if (open.isEmpty()) return;
         BankStore.Question pick = open.get(new Random().nextInt(open.size()));
-        for (Row r : questionRows) if (r.getData() == pick) choose(r);
+        expanded.add(pick.topic);
+        selected = pick;
+        rebuildTree();
+        showPreview(pick);
+        updateButtons();
     }
 
     /** מה שכבר נוצר מהשאלה שנבחרה — אם הקבצים עוד בסביבת העבודה; אחרת null */
@@ -329,10 +407,7 @@ public class BankDialog extends Dialog {
         if (selected == null) return null;
         List<BankProgress.Created> all = progress.createdOf(selected.id);
         for (int i = all.size() - 1; i >= 0; i--) {
-            BankProgress.Created c = all.get(i);
-            for (String f : c.files) {
-                if (ResourcesPlugin.getWorkspace().getRoot().findMember(f) != null) return c;
-            }
+            for (String f : all.get(i).files) if (ResourcesPlugin.getWorkspace().getRoot().findMember(f) != null) return all.get(i);
         }
         return null;
     }
@@ -340,10 +415,11 @@ public class BankDialog extends Dialog {
     private void updateButtons() {
         if (createButton == null) return;
         BankProgress.Created c = existing();
-        createButton.setEnabled(selected != null);
         setText(createButton, c != null ? "פתח את התרגיל" : "צור תרגיל");
+        createButton.setEnabled(selected != null);
         copyButton.setVisible(c != null);
-        ((GridData) layoutData(copyButton)).exclude = c == null;
+        if (!(copyButton.getLayoutData() instanceof GridData)) copyButton.setLayoutData(new GridData());
+        ((GridData) copyButton.getLayoutData()).exclude = c == null;
         if (status != null) {
             String folder = c == null ? "" : c.folder.substring(c.folder.lastIndexOf('/') + 1);
             status.setText(c == null ? "" : "כבר יצרת את התרגיל הזה (" + folder + ") — \"פתח את התרגיל\" ממשיך מאיפה שעצרת.");
@@ -352,19 +428,12 @@ public class BankDialog extends Dialog {
         buttons.layout(true, true);
     }
 
-    private static Object layoutData(Control c) {
-        if (!(c.getLayoutData() instanceof GridData)) c.setLayoutData(new GridData());
-        return c.getLayoutData();
-    }
-
     /** הטקסט של כפתור Round קבוע — מחליפים כפתור בכפתור באותו מקום */
     private void setText(Look.Round b, String text) {
         if (text.equals(b.getData("text"))) return;
-        Composite parent = b.getParent();
-        Look.Round n = new Look.Round(parent, text, true, () -> finish(existing() != null ? Action.OPEN : Action.CREATE));
+        Look.Round n = new Look.Round(b.getParent(), text, true, () -> finish(existing() != null ? Action.OPEN : Action.CREATE));
         n.setData("text", text);
         n.moveAbove(b);
-        n.setEnabled(b.getEnabled());
         b.dispose();
         createButton = n;
     }
@@ -382,34 +451,67 @@ public class BankDialog extends Dialog {
         if (getShell() == null || getShell().isDisposed()) return;
         for (Row r : topicRows) r.redraw();
         for (Row r : questionRows) r.redraw();
+        if (stats != null) stats.redraw();
     }
 
-    private void paintLegend(GC gc, Point size) {
-        Display d = gc.getDevice() instanceof Display ? (Display) gc.getDevice() : Display.getDefault();
+    // ------------------------------------------------------------------ סיכום ההתקדמות
+
+    /** "פתרת 3 מתוך 12", ופס לכל רמת קושי: ● קל 2/5 ● בינוני 1/4 ● קשה 0/3 */
+    private void paintStats(GC gc, Point s) {
+        Display d = Display.getCurrent();
         gc.setAntialias(SWT.ON);
-        gc.setFont(Look.font(d, -2, SWT.NORMAL));
-        int x = size.x - 4;   // מימין לשמאל: ● קל   ● בינוני   ● קשה — הנקודה מימין למילה, כמו בשורות
+        gc.setTextAntialias(SWT.ON);
+        gc.setBackground(Look.color(d, Look.CARD));
+        gc.fillRectangle(0, 0, s.x, s.y);
+        int done = progress.doneCount(store.questions), total = store.questions.size();
+        gc.setFont(Look.font(d, 0, SWT.BOLD));
+        String head = RtlText.rtl("ההתקדמות שלי");
+        Point he = gc.textExtent(head);
+        gc.setForeground(Look.color(d, Look.TEXT));
+        gc.drawString(head, s.x - 4 - he.x, 0, true);
+        gc.setFont(Look.font(d, 0, SWT.BOLD));
+        String count = RtlText.rtl(done + " מתוך " + total);
+        Point ce = gc.textExtent(count);
+        gc.setForeground(Look.color(d, done > 0 && done == total ? Look.OK : Look.TEXT));
+        gc.drawString(count, 4, 0, true);
+        // שלוש קופסאות קטנות — רמה, כמה מתוך כמה, ופס
+        int y = he.y + 6, w = (s.x - 8 - 2 * 8) / 3, x = s.x - 4 - w;
         for (BankStore.Level l : BankStore.Level.values()) {
-            x -= 10;
-            gc.setBackground(Look.color(d, l.color));
-            gc.fillOval(x, size.y / 2 - 5, 10, 10);
-            Point e = gc.textExtent(l.title);
-            x -= 5 + e.x;
+            int n = 0, k = 0;
+            for (BankStore.Question q : store.questions) if (q.level == l) { n++; if (progress.done(q.id)) k++; }
+            gc.setFont(Look.font(d, -2, SWT.BOLD));
+            String t = RtlText.rtl(l.title);
+            Point te = gc.textExtent(t);
+            gc.setForeground(Look.color(d, l.color));
+            gc.drawString(t, x + w - te.x, y, true);
+            gc.setFont(Look.font(d, -2, SWT.NORMAL));
             gc.setForeground(Look.color(d, Look.MUTED));
-            gc.drawString(l.title, x, (size.y - e.y) / 2, true);
-            x -= 16;
+            gc.drawString(k + "/" + n, x, y, true);
+            int by = y + te.y + 3;
+            gc.setBackground(Look.color(d, 0xE9EDF3));
+            gc.fillRoundRectangle(x, by, w, 6, 6, 6);
+            if (n > 0 && k > 0) {
+                gc.setBackground(Look.color(d, l.color));
+                int fw = Math.max(6, w * k / n);
+                gc.fillRoundRectangle(x + w - fw, by, fw, 6, 6, 6);   // מתמלא מימין לשמאל
+            }
+            x -= w + 8;
         }
     }
 
-    // ------------------------------------------------------------------ שורה (נושא / שאלה)
+    // ------------------------------------------------------------------ שורה בעץ (נושא / שאלה)
 
-    /** שורה מצוירת: נושא (כותרת + "כמה V מתוך כמה") או שאלה (נקודת קושי, כותרת, רמה, ועיגול ה-V) */
+    /**
+     * שורה מצוירת. נושא: חץ פתיחה, השם, כמה V מתוך כמה ופס התקדמות דק. שאלה (מוזחת פנימה): נקודת קושי, הכותרת,
+     * ובקצה השמאלי — עיגול ה-V (לחיצה עליו מסמנת / מבטלת; לחיצה בשאר השורה בוחרת את השאלה).
+     */
     private final class Row extends Canvas {
         private final boolean topic;
         private boolean selectedRow, hover;
+        boolean open;
         Runnable onClick, onMark;
 
-        Row(Composite parent, int height, boolean topic) {
+        Row(Composite parent, boolean topic) {
             super(parent, SWT.NO_FOCUS | SWT.LEFT_TO_RIGHT | SWT.DOUBLE_BUFFERED);
             this.topic = topic;
             setCursor(getDisplay().getSystemCursor(SWT.CURSOR_HAND));
@@ -418,7 +520,7 @@ public class BankDialog extends Dialog {
             addListener(SWT.MouseExit, e -> { hover = false; redraw(); });
             addListener(SWT.MouseUp, e -> {
                 if (e.button != 1) return;
-                if (!topic && onMark != null && e.x < 44) onMark.run();   // העיגול של ה-V (בצד שמאל)
+                if (!topic && onMark != null && e.x < 34) onMark.run();   // העיגול של ה-V (בצד שמאל)
                 else if (onClick != null) onClick.run();
             });
             if (!topic) setToolTipText("לחיצה על העיגול משמאל — V ירוק: כבר עשיתי את התרגיל הזה");
@@ -431,7 +533,7 @@ public class BankDialog extends Dialog {
 
         @Override
         public Point computeSize(int wHint, int hHint, boolean changed) {
-            return new Point(wHint == SWT.DEFAULT ? 200 : wHint, topic ? 38 : 44);
+            return new Point(wHint == SWT.DEFAULT ? 200 : wHint, topic ? TOPIC_H : Q_H);
         }
 
         private void paint(GC gc) {
@@ -439,15 +541,8 @@ public class BankDialog extends Dialog {
             Point s = getSize();
             gc.setAntialias(SWT.ON);
             gc.setTextAntialias(SWT.ON);
-            gc.setBackground(getParent().getBackground());
+            gc.setBackground(Look.color(d, Look.CARD));
             gc.fillRectangle(0, 0, s.x, s.y);
-            int fill = selectedRow ? Look.ACCENT_SOFT : hover ? Look.SURFACE : Look.CARD;
-            gc.setBackground(Look.color(d, fill));
-            gc.fillRoundRectangle(0, 1, s.x - 1, s.y - 3, 14, 14);
-            if (selectedRow) {
-                gc.setForeground(Look.color(d, Look.ACCENT));
-                gc.drawRoundRectangle(0, 1, s.x - 1, s.y - 3, 14, 14);
-            }
             if (topic) paintTopic(gc, d, s);
             else paintQuestion(gc, d, s);
         }
@@ -455,64 +550,77 @@ public class BankDialog extends Dialog {
         private void paintTopic(GC gc, Display d, Point s) {
             BankStore.Topic t = (BankStore.Topic) getData();
             List<BankStore.Question> qs = store.of(t.id);
-            gc.setFont(Look.font(d, 0, selectedRow ? SWT.BOLD : SWT.NORMAL));
+            int done = progress.doneCount(qs);
+            if (hover) {
+                gc.setBackground(Look.color(d, Look.SURFACE));
+                gc.fillRoundRectangle(0, 2, s.x - 1, s.y - 4, 12, 12);
+            }
+            // חץ: פתוח ▾ / סגור ◂ (מימין לשמאל — סגור מצביע שמאלה, לכיוון התוכן)
+            int cx = s.x - 14, cy = s.y / 2 - 3;
+            gc.setBackground(Look.color(d, Look.MUTED));
+            if (open) gc.fillPolygon(new int[] { cx - 5, cy - 2, cx + 5, cy - 2, cx, cy + 4 });
+            else gc.fillPolygon(new int[] { cx + 3, cy - 5, cx + 3, cy + 5, cx - 3, cy });
+            gc.setFont(Look.font(d, 0, SWT.BOLD));
             String title = RtlText.rtl(t.title);
             Point e = gc.textExtent(title);
             gc.setForeground(Look.color(d, Look.TEXT));
-            gc.drawString(title, s.x - 12 - e.x, (s.y - e.y) / 2, true);
-            String count = qs.isEmpty() ? "—" : progress.doneCount(qs) + "/" + qs.size();
+            gc.drawString(title, s.x - 28 - e.x, s.y / 2 - e.y / 2 - 4, true);
+            // כמה מתוך כמה + פס התקדמות דק מתחת לשם
             gc.setFont(Look.font(d, -2, SWT.NORMAL));
+            String count = qs.isEmpty() ? "—" : done + "/" + qs.size();
             Point c = gc.textExtent(count);
-            boolean all = !qs.isEmpty() && progress.doneCount(qs) == qs.size();
+            boolean all = !qs.isEmpty() && done == qs.size();
             gc.setForeground(Look.color(d, all ? Look.OK : Look.MUTED));
-            int x = 12;
-            if (all) {
-                check(gc, d, x + 6, s.y / 2, 6, Look.OK);
-                x += 18;
+            gc.drawString(count, 10, s.y / 2 - c.y / 2 - 4, true);
+            int bw = s.x - 38, bx = 10, by = s.y - 9;
+            gc.setBackground(Look.color(d, 0xE9EDF3));
+            gc.fillRoundRectangle(bx, by, bw, 4, 4, 4);
+            if (done > 0) {
+                gc.setBackground(Look.color(d, Look.OK));
+                int fw = Math.max(4, bw * done / qs.size());
+                gc.fillRoundRectangle(bx + bw - fw, by, fw, 4, 4, 4);
             }
-            gc.drawString(count, x, (s.y - c.y) / 2, true);
         }
 
         private void paintQuestion(GC gc, Display d, Point s) {
             BankStore.Question q = (BankStore.Question) getData();
             boolean done = progress.done(q.id);
-            // נקודת הקושי — בצד ימין
+            if (selectedRow || hover) {
+                gc.setBackground(Look.color(d, selectedRow ? Look.ACCENT_SOFT : Look.SURFACE));
+                gc.fillRoundRectangle(0, 1, s.x - 1, s.y - 2, 10, 10);
+            }
+            if (selectedRow) {   // פס כחול בקצה הימני — כמו פריט נבחר ברשימת שאלות
+                gc.setBackground(Look.color(d, Look.ACCENT));
+                gc.fillRoundRectangle(s.x - 4, 5, 3, s.y - 10, 3, 3);
+            }
+            // נקודת הקושי (מוזחת פנימה מתחת לשם הנושא)
             gc.setBackground(Look.color(d, q.level.color));
-            gc.fillOval(s.x - 22, s.y / 2 - 6, 12, 12);
-            // הכותרת
-            gc.setFont(Look.font(d, 0, SWT.NORMAL));
+            gc.fillOval(s.x - 32, s.y / 2 - 4, 9, 9);
+            gc.setFont(Look.font(d, -1, selectedRow ? SWT.BOLD : SWT.NORMAL));
             String title = RtlText.rtl(q.title);
             Point e = gc.textExtent(title);
-            int right = s.x - 32, left = 110;
-            gc.setForeground(Look.color(d, done ? Look.MUTED : Look.TEXT));
+            int right = s.x - 40, left = 36;
+            gc.setForeground(Look.color(d, done && !selectedRow ? Look.MUTED : Look.TEXT));
             gc.setClipping(left, 0, Math.max(0, right - left), s.y);
             gc.drawString(title, Math.max(left, right - e.x), (s.y - e.y) / 2, true);
             gc.setClipping((org.eclipse.swt.graphics.Rectangle) null);
-            // הרמה
-            gc.setFont(Look.font(d, -2, SWT.NORMAL));
-            Point l = gc.textExtent(q.level.title);
-            gc.setForeground(Look.color(d, q.level.color));
-            gc.drawString(q.level.title, 50, (s.y - l.y) / 2, true);
-            // העיגול של ה-V — בצד שמאל
-            int cx = 24, cy = s.y / 2, r = 11;
+            if (e.x > right - left) setToolTipText(q.title);
+            // עיגול ה-V
+            int cx = 18, cy = s.y / 2, r = 9;
             if (done) {
                 gc.setBackground(Look.color(d, Look.OK));
                 gc.fillOval(cx - r, cy - r, 2 * r, 2 * r);
-                check(gc, d, cx, cy, 6, 0xFFFFFF);
+                gc.setForeground(Look.color(d, 0xFFFFFF));
+                gc.setLineWidth(2);
+                gc.setLineCap(SWT.CAP_ROUND);
+                gc.drawPolyline(new int[] { cx - 4, cy, cx - 1, cy + 3, cx + 4, cy - 3 });
+                gc.setLineWidth(1);
             } else {
-                gc.setForeground(Look.color(d, hover ? 0x9AA3B2 : 0xC9D0DC));
+                gc.setForeground(Look.color(d, hover ? 0x9AA3B2 : 0xD0D5DD));
                 gc.setLineWidth(2);
                 gc.drawOval(cx - r, cy - r, 2 * r, 2 * r);
                 gc.setLineWidth(1);
             }
-        }
-
-        private void check(GC gc, Display d, int cx, int cy, int r, int rgb) {
-            gc.setForeground(Look.color(d, rgb));
-            gc.setLineWidth(2);
-            gc.setLineCap(SWT.CAP_ROUND);
-            gc.drawPolyline(new int[] { cx - r, cy, cx - r / 3, cy + r * 2 / 3, cx + r, cy - r * 2 / 3 });
-            gc.setLineWidth(1);
         }
     }
 }

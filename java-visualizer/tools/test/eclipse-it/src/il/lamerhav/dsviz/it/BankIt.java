@@ -43,7 +43,7 @@ import org.eclipse.ui.commands.ICommandService;
  * המחלקות של ההרחבה — דרך reflection (כדי ש-run.sh יתקמפל גם בלי ההרחבה).
  *   java -Ddsviz.bankProgress=<קובץ> -jar launcher.jar -application il.lamerhav.dsviz.it.bank <out.txt> <shots-dir>
  */
-@SuppressWarnings("unchecked")
+@SuppressWarnings({ "unchecked", "rawtypes" })
 public class BankIt implements IApplication {
     private static final String STACK = "sample-stack-even", LOOPS = "sample-loops-digits";
     private PrintStream out;
@@ -131,6 +131,18 @@ public class BankIt implements IApplication {
             return b.toString();
         }));
         out.println("DIALOG-PREVIEW " + ui(() -> preview(dlg)));
+        out.println("TREE " + ui(() -> tree(dlg)));
+        // חיפוש וסינון לפי קושי
+        out.println("SEARCH-QUEUE " + ui(() -> { set(dlg, "search", "תור"); call(dlg, "rebuildTree"); return tree(dlg); }));
+        ui(() -> { set(dlg, "search", ""); return null; });
+        out.println("FILTER-HARD " + ui(() -> {
+            Object hard = Enum.valueOf((Class) Class.forName("il.lamerhav.dsviz.BankStore$Level"), "HARD");
+            set(dlg, "levelFilter", hard);
+            call(dlg, "rebuildTree");
+            return tree(dlg);
+        }));
+        shot(dlg, "bank-dialog-hard.png");
+        ui(() -> { set(dlg, "levelFilter", null); call(dlg, "rebuildTree"); return null; });
         shot(dlg, "bank-dialog.png");
         // V על שאלת הלולאות — ואז הנושא לולאות
         handler.getMethod("setDoneForTest", String.class, boolean.class).invoke(null, LOOPS, true);
@@ -221,6 +233,24 @@ public class BankIt implements IApplication {
         Method m = d.getClass().getDeclaredMethod("select", String.class, String.class);
         m.setAccessible(true);
         m.invoke(d, topic, q);
+    }
+
+    private static String tree(Shell dlg) throws Exception {
+        return String.join(" | ", (List<String>) field(dlg.getData(), "treeShown"));
+    }
+
+    private static void set(Shell dlg, String name, Object v) throws Exception {
+        Object o = dlg.getData();
+        Field f = o.getClass().getDeclaredField(name);
+        f.setAccessible(true);
+        f.set(o, v);
+    }
+
+    private static void call(Shell dlg, String name) throws Exception {
+        Object o = dlg.getData();
+        Method m = o.getClass().getDeclaredMethod(name);
+        m.setAccessible(true);
+        m.invoke(o);
     }
 
     /** מה מוצג בנוסח השאלה בחלון (שורה לכל רכיב: TEXT / FIGURE / EXPECTED) */

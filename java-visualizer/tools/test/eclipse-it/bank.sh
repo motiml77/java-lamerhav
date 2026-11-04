@@ -54,7 +54,9 @@ check "^QUESTION sample-stack-even|stack|medium" "השאלות נטענו (מח�
 [ "$(grep -c '^QUESTION ' "$OUT")" = "$(find "$ROOT/bank" -mindepth 2 -name '*.json' | wc -l)" ] && echo "  ok  כל השאלות במאגר נטענו ($(grep -c '^QUESTION ' "$OUT"))" || { echo "  FAIL לא כל השאלות נטענו"; FAILED=1; }
 check "^TOPICS לולאות | מערכים | מחרוזות | מחלקות | רקורסיה | מחסנית | תור | שרשרת חוליות | עץ בינארי | $" "הנושאים: לולאות, מערכים, מחרוזות, מחלקות, רקורסיה, מחסנית, תור, שרשרת חוליות, עץ בינארי"
 check "^DIALOG title=מאגר תרגילים rtl=true" "החלון: מימין לשמאל"
-check "^DIALOG-LABELS .*נושאים.*השאלות בנושא מחסנית" "החלון: נושאים ושאלות הנושא"
+check "^TREE TOPIC loops open 0/1 | Q sample-loops-digits easy | TOPIC arrays closed 0/0 .*TOPIC stack open 0/1 | Q sample-stack-even medium | TOPIC queue closed" "סרגל הצד: עץ נושאים — הנושא של השאלה פתוח, השאר סגורים, עם כמה V מתוך כמה"
+check "^SEARCH-QUEUE TOPIC queue open 0/1 | Q sample-queue-sum easy$" "חיפוש: \"תור\" — רק הנושא והשאלה שמתאימים"
+check "^FILTER-HARD TOPIC recursion open 0/1 | Q sample-recursion-array hard | TOPIC tree open 0/1 | Q sample-tree-leaves hard$" "סינון לפי קושי: רק השאלות הקשות"
 check "^DIALOG-BUTTONS צור תרגיל | שאלה אקראית | סגירה" "החלון: צור תרגיל / שאלה אקראית / סגירה (בלי עותק — עוד לא נוצר)"
 check "^DIALOG-PREVIEW .*TEXT סעיף א'.*TEXT סעיף ב'.*TEXT כשהכול פתור נכון, main מדפיס" "החלון: נוסח השאלה — כרטיס לכל סעיף, והפלט הרצוי"
 check "^DIALOG-PREVIEW .*FIGURE stack \[\[9\], \[2\], \[7\], \[4\]\] \"המחסנית s (4 בראש)" "ציור: מחסנית (4 בראש — נכנס אחרון)"

@@ -138,7 +138,7 @@ final class BankQuestionPanel {
             ((GridData) p.getLayoutData()).heightHint = p.computeSize(w, SWT.DEFAULT).y;
             if (!f.caption.isEmpty()) {
                 Label cap = new Label(one, SWT.CENTER | SWT.RIGHT_TO_LEFT);
-                cap.setText(RtlText.rtl(f.caption));
+                cap.setText(caption(f.caption));
                 cap.setFont(Look.font(d, -1, SWT.NORMAL));
                 cap.setForeground(Look.color(d, Look.MUTED));
                 cap.setLayoutData(new GridData(SWT.CENTER, SWT.TOP, true, false));
@@ -161,6 +161,21 @@ final class BankQuestionPanel {
         c.setBackground(Look.color(c.getDisplay(), bg));
         if (c instanceof Composite) for (Control k : ((Composite) c).getChildren()) restoreColors(k, inner);
         c.redraw();
+    }
+
+    /**
+     * כיתוב של ציור ("המחסנית s (4 בראש)", "לפני: removeAll(s, 3)"): כל השורה מימין לשמאל, וכל קטע באנגלית
+     * (שם, או קריאה לפעולה עם הסוגריים שלה) — יחידה אחת משמאל לימין, כדי שהסוגריים והפסיקים לא יתערבבו עם העברית
+     */
+    static String caption(String s) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("[A-Za-z_][A-Za-z0-9_.]*(\\([^()]*\\))?").matcher(s);
+        StringBuilder b = new StringBuilder("\u200F\u202B");
+        int last = 0;
+        while (m.find()) {
+            b.append(s, last, m.start()).append("\u202A").append(m.group()).append("\u202C");
+            last = m.end();
+        }
+        return b.append(s.substring(last)).append("\u202C").toString();
     }
 
     static Label text(Composite parent, String s, int delta, int style, int rgb, List<String> shown) {
