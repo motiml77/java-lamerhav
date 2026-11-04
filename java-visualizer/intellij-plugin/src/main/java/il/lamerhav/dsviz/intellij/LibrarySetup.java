@@ -9,6 +9,10 @@ import java.util.List;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.application.WriteAction;
+import com.intellij.openapi.command.WriteCommandAction;
+import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.psi.search.PsiSearchHelper;
 import com.intellij.openapi.externalSystem.ExternalSystemModulePropertyManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
@@ -34,7 +38,10 @@ import com.intellij.psi.search.GlobalSearchScope;
  * ספריית הקורס (unit4.collectionsLib — Stack, Queue, Node, BinNode...) בכל מודול Java — כמו LibraryEverywhere ב-Eclipse:
  * אם המחלקות עוד לא מוכרות במודול (ואין בו module-info.java), מעתיקים את dsviz.jar לתיקייה lib של המודול
  * ומוסיפים אותו כספרייה של המודול, עם קוד המקור (src/ שבתוך ה-jar — Ctrl+לחיצה על Stack פותח את הקוד).
- * מודולים של Gradle / Maven לא משנים (שם הייבוא מחדש מוחק ספריות שהוספו ידנית) — ההרצה הוויזואלית בכל זאת מוסיפה את הספרייה.
+ * מודול עם module-info.java: הספרייה נוספת רק אם הקוד באמת משתמש בה (import unit4...), ובמודול נכתב "requires dsviz;" — בלי זה javac
+ * לא נותן למודול לראות אותה ("package unit4.collectionsLib is not visible").
+ * מודולים של Gradle / Maven לא משנים מעצמם (שם הייבוא מחדש מוחק ספריות שהוספו ידנית). רק בלחיצה על "הרצה ויזואלית", כשהקוד משתמש בספרייה
+ * והיא חסרה: התלות נכתבת ב-pom.xml / build.gradle (lib/dsviz.jar בתיקיית הפרויקט), ו-IntelliJ מתבקש לטעון מחדש.
  * ספרייה אחרת של unit4 (למשל ה-jar המקורי של הקורס) נשארת; בהרצה הוויזואלית הספרייה שלנו לפניה.
  */
 public final class LibrarySetup {
@@ -54,16 +61,17 @@ public final class LibrarySetup {
                 return l;
             });
             for (Module m : need) add(m);
+            for (Module m : ModuleManager.getInstance(project).getModules()) if (ReadAction.compute(() -> needsRequires(m))) addRequires(m);
             refreshCopies(project);
         });
     }
 
-    /** המודול צריך את הספרייה? (מודול Java, לא Gradle/Maven, בלי module-info, ו-unit4.collectionsLib.Queue לא מוכר בו). קריאה בלבד */
+    /** המודול צריך את הספרייה? (מודול Java, לא Gradle/Maven, ו-unit4.collectionsLib.Queue לא מוכר בו; עם module-info — רק אם הקוד משתמש בה). קריאה בלבד */
     public static boolean needs(Module m) {
-        if (m.isDisposed() || !isJava(m) || external(m) || hasLibrary(m)) return false;
+        if (m.isDisposed() || !isJava(m) || externalModule(m) || hasLibrary(m)) return false;
         try {
             if (JavaPsiFacade.getInstance(m.getProject()).findClass(PROBE, m.getModuleWithDependenciesAndLibrariesScope(false)) != null) return false;
-            return !hasModuleInfo(m);
+            return !hasModuleInfo(m) || usesCourseLibrary(m);   // מודול (module-info) — רק אם הקוד באמת משתמש בספרייה
         } catch (com.intellij.openapi.project.IndexNotReadyException e) {
             return false;   // האינדקס עוד נבנה — ננסה שוב כשיהיה מוכן (ensureAll)
         }
@@ -84,6 +92,152 @@ public final class LibrarySetup {
     private static boolean hasModuleInfo(Module m) {
         GlobalSearchScope scope = m.getModuleContentScope();
         return !FilenameIndex.getVirtualFilesByName("module-info.java", scope).isEmpty();
+    }
+
+    /** יש בקוד של המודול import (או שימוש) ב-unit4 — הספרייה של הקורס. קריאה בלבד */
+    static boolean usesCourseLibrary(Module m) {
+        boolean[] found = { false };
+        PsiSearchHelper.getInstance(m.getProject()).processAllFilesWithWord("unit4", m.getModuleContentScope(), f -> {
+            if ("JAVA".equals(f.getFileType().getName())) found[0] = true;
+            return !found[0];
+        }, true);
+        return found[0];
+    }
+
+    /** module-info.java של המודול (הראשון), או null */
+    private static VirtualFile moduleInfo(Module m) {
+        java.util.Collection<VirtualFile> l = FilenameIndex.getVirtualFilesByName("module-info.java", m.getModuleContentScope());
+        return l.isEmpty() ? null : l.iterator().next();
+    }
+
+    /** במודול יש module-info.java, הספרייה כבר בו והקוד משתמש בה — אבל חסר "requires dsviz;". קריאה בלבד */
+    public static boolean needsRequires(Module m) {
+        if (m.isDisposed() || externalModule(m) || !hasLibrary(m)) return false;
+        try {
+            VirtualFile mi = moduleInfo(m);
+            if (mi == null || !usesCourseLibrary(m)) return false;
+            Document d = FileDocumentManager.getInstance().getDocument(mi);
+            return d != null && BuildFiles.requires(d.getText(), LIB_NAME) != null;
+        } catch (com.intellij.openapi.project.IndexNotReadyException e) {
+            return false;
+        }
+    }
+
+    /** כותב "requires dsviz;" ב-module-info.java (פעולת כתיבה של IntelliJ — אפשר לבטל ב-Ctrl+Z). מחזיר true אם נכתב */
+    public static boolean addRequires(Module m) {
+        boolean[] done = { false };
+        Runnable r = () -> {
+            VirtualFile mi = ReadAction.compute(() -> moduleInfo(m));
+            Document d = mi == null ? null : FileDocumentManager.getInstance().getDocument(mi);
+            String edited = d == null ? null : BuildFiles.requires(d.getText(), LIB_NAME);
+            if (edited == null) return;
+            WriteCommandAction.runWriteCommandAction(m.getProject(), "DSViz: requires " + LIB_NAME, null, () -> d.setText(edited));
+            FileDocumentManager.getInstance().saveDocument(d);
+            done[0] = true;
+        };
+        if (ApplicationManager.getApplication().isDispatchThread()) r.run();
+        else ApplicationManager.getApplication().invokeAndWait(r);
+        return done[0];
+    }
+
+    // ------------------------------------------------------------------ Maven / Gradle
+
+    /** לבדיקות: מי נחשב מודול של Maven / Gradle (במקום ExternalSystemModulePropertyManager) */
+    static volatile java.util.function.Predicate<Module> externalOverride;
+
+    static boolean externalModule(Module m) {
+        java.util.function.Predicate<Module> o = externalOverride;
+        return o != null ? o.test(m) : external(m);
+    }
+
+    /** מודול של Maven / Gradle שהקוד שלו משתמש בספרייה, והיא לא מוכרת בו ולא כתובה בקובץ ההגדרות. קריאה בלבד */
+    public static boolean needsBuildFile(Module m) {
+        if (m.isDisposed() || !isJava(m) || !externalModule(m) || hasLibrary(m)) return false;
+        try {
+            if (JavaPsiFacade.getInstance(m.getProject()).findClass(PROBE, m.getModuleWithDependenciesAndLibrariesScope(false)) != null) return false;
+            return usesCourseLibrary(m) && buildFile(m) != null;
+        } catch (com.intellij.openapi.project.IndexNotReadyException e) {
+            return false;
+        }
+    }
+
+    /** קובץ ההגדרות של הפרויקט (pom.xml / build.gradle.kts / build.gradle) — ראשון שנמצא בתיקיית הפרויקט */
+    static VirtualFile buildFile(Module m) {
+        VirtualFile root = buildRoot(m);
+        if (root == null) return null;
+        for (String n : new String[] { "pom.xml", "build.gradle.kts", "build.gradle" }) {
+            VirtualFile f = root.findChild(n);
+            if (f != null) return f;
+        }
+        return null;
+    }
+
+    /** תיקיית הפרויקט של Maven / Gradle: זו ש-IntelliJ קישר למודול, ואם אין — תיקיית התוכן של המודול או אחת מעליה */
+    private static VirtualFile buildRoot(Module m) {
+        try {
+            String linked = ExternalSystemModulePropertyManager.getInstance(m).getLinkedProjectPath();
+            if (linked != null) {
+                VirtualFile v = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(new File(linked));
+                if (v != null && v.isDirectory() && hasBuildFile(v)) return v;
+            }
+        } catch (Throwable ignored) {
+            // נמשיך לחפש
+        }
+        for (VirtualFile r : ModuleRootManager.getInstance(m).getContentRoots()) {
+            VirtualFile d = r;
+            for (int i = 0; d != null && i < 4; i++, d = d.getParent()) if (hasBuildFile(d)) return d;
+        }
+        return null;
+    }
+
+    private static boolean hasBuildFile(VirtualFile d) {
+        return d.findChild("pom.xml") != null || d.findChild("build.gradle.kts") != null || d.findChild("build.gradle") != null;
+    }
+
+    /**
+     * כותב את התלות ב-pom.xml / build.gradle (ומעתיק את הספרייה ל-lib/dsviz.jar בתיקיית הפרויקט), ומבקש מ-IntelliJ לטעון מחדש.
+     * מחזיר את שם הקובץ שנערך (או שכבר כתוב בו ועוד לא נטען), או null אם לא נערך כלום.
+     */
+    public static String addToBuildFile(Module m) {
+        File src = Dsviz.libraryJar();
+        if (src == null) return null;
+        String[] name = { null };
+        Runnable r = () -> {
+            VirtualFile f = ReadAction.compute(() -> buildFile(m));
+            if (f == null || f.getParent() == null) return;
+            File dir = new File(f.getParent().getPath());
+            File jar = copyJar(dir, src);
+            if (jar.equals(src)) return;   // אי אפשר לכתוב ל-lib — לא מכניסים תלות בקובץ שלא קיים
+            LocalFileSystem.getInstance().refreshAndFindFileByIoFile(jar);
+            Document d = FileDocumentManager.getInstance().getDocument(f);
+            if (d == null) return;
+            String edited = "pom.xml".equals(f.getName()) ? BuildFiles.maven(d.getText()) : BuildFiles.gradle(d.getText(), f.getName().endsWith(".kts"));
+            if (edited != null) {
+                WriteCommandAction.runWriteCommandAction(m.getProject(), "DSViz: ספריית הקורס", null, () -> d.setText(edited));
+                FileDocumentManager.getInstance().saveDocument(d);
+            } else if (!d.getText().toLowerCase(java.util.Locale.ROOT).contains("dsviz")) {
+                return;   // לא הצלחנו להכניס (קובץ שלא מכירים) — לא טוענים מחדש
+            }
+            name[0] = f.getName();   // נכתב עכשיו, או שכבר כתוב ועוד לא נטען — בשני המקרים מחכים לטעינה מחדש
+        };
+        if (ApplicationManager.getApplication().isDispatchThread()) r.run();
+        else ApplicationManager.getApplication().invokeAndWait(r);
+        if (name[0] != null) reloadExternal(m.getProject(), name[0]);
+        return name[0];
+    }
+
+    /** מבקש מ-IntelliJ לטעון מחדש את פרויקט Maven / Gradle (אם הפעולה לא קיימת בגרסה הזאת — המורה רואה את "Load changes") */
+    private static void reloadExternal(Project project, String file) {
+        String id = "pom.xml".equals(file) ? "Maven.Reimport" : "ExternalSystem.RefreshAllProjects";
+        ApplicationManager.getApplication().invokeLater(() -> {
+            try {
+                com.intellij.openapi.actionSystem.AnAction a = com.intellij.openapi.actionSystem.ActionManager.getInstance().getAction(id);
+                if (a == null || project.isDisposed()) return;
+                com.intellij.openapi.actionSystem.ActionManager.getInstance().tryToExecute(a, null, null, null, true);
+            } catch (Throwable ignored) {
+                // ייטען כשיאשרו את ההצעה של IntelliJ
+            }
+        });
     }
 
     /**
@@ -110,6 +264,7 @@ public final class LibrarySetup {
         };
         if (ApplicationManager.getApplication().isDispatchThread()) r.run();
         else ApplicationManager.getApplication().invokeAndWait(r);
+        if (ReadAction.compute(() -> hasModuleInfo(m) && usesCourseLibrary(m))) addRequires(m);   // module-info: בלי requires הספרייה לא נראית למודול
     }
 
     /** כבר יש ספרייה בשם dsviz במודול */

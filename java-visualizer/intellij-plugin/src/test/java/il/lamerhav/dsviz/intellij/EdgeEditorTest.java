@@ -66,6 +66,7 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
     protected void tearDown() throws Exception {
         try {
             Dsviz.setOn(true);
+            LibrarySetup.externalOverride = null;
             System.clearProperty("dsviz.solutions");
             removeLibraries(getModule());
         } finally {
@@ -497,9 +498,97 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
         assertTrue("ושלהם אחריה", cp.contains(own.getAbsolutePath()));
     }
 
-    public void testModuleInfoProjectIsLeftAlone() {
+    public void testModuleInfoProjectWithoutTheCourseLibraryIsLeftAlone() {
         myFixture.addFileToProject("module-info.java", "module student.app { }");
+        myFixture.addFileToProject("app/Plain.java", "package app;\npublic class Plain { public static void main(String[] a) { System.out.println(1); } }");
         com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
-        assertFalse("module-info.java — לא מוסיפים ספרייה (היא תשבור את המודול)", LibrarySetup.needs(getModule()));
+        assertFalse("module-info.java והקוד לא משתמש בספרייה — לא מוסיפים כלום", LibrarySetup.needs(getModule()));
+        assertFalse(LibrarySetup.needsRequires(getModule()));
+        assertEquals("module student.app { }", myFixture.findFileInTempDir("module-info.java") == null ? "module student.app { }"
+                : com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(myFixture.findFileInTempDir("module-info.java")).getText());
+    }
+
+    public void testModuleInfoWithCourseLibraryGetsLibraryAndRequires() {
+        com.intellij.psi.PsiFile mi = myFixture.addFileToProject("module-info.java", "module student.app {\n}\n");
+        myFixture.addFileToProject("app/Main.java", "package app;\nimport unit4.collectionsLib.Stack;\npublic class Main { public static void main(String[] a) { Stack<Integer> s = new Stack<Integer>(); s.push(1); } }");
+        com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+        assertTrue("module-info והקוד משתמש בספרייה — צריך להוסיף", LibrarySetup.needs(getModule()));
+        LibrarySetup.add(getModule());
+        com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+        assertTrue(LibrarySetup.hasLibrary(getModule()));
+        String text = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(mi.getVirtualFile()).getText();
+        assertEquals("requires dsviz — בלעדיו javac לא נותן למודול לראות את הספרייה", "module student.app {\n    requires dsviz;\n}\n", text);
+        assertFalse("פעם שנייה — אין מה לשנות", LibrarySetup.needs(getModule()));
+        assertFalse(LibrarySetup.needsRequires(getModule()));
+        LibrarySetup.addRequires(getModule());
+        assertEquals("ולא נכתב פעמיים", text, com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(mi.getVirtualFile()).getText());
+        removeLibraryAfter();
+    }
+
+    public void testModuleInfoCreatedAfterTheLibraryWasAddedGetsRequires() {
+        myFixture.addFileToProject("app/Main.java", "package app;\nimport unit4.collectionsLib.Queue;\npublic class Main { Queue<Integer> q; }");
+        com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+        LibrarySetup.add(getModule());   // עוד בלי module-info — רק הספרייה
+        com.intellij.psi.PsiFile mi = myFixture.addFileToProject("module-info.java", "module student.late {\n}\n");
+        com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+        assertTrue("הספרייה כבר שם, חסר רק requires", LibrarySetup.needsRequires(getModule()));
+        LibrarySetup.addRequires(getModule());
+        assertTrue(com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(mi.getVirtualFile()).getText().contains("requires dsviz;"));
+        removeLibraryAfter();
+    }
+
+    private void removeLibraryAfter() {
+        ModuleRootModificationUtil.updateModel(getModule(), model -> {
+            for (com.intellij.openapi.roots.OrderEntry e : model.getOrderEntries()) {
+                if (e instanceof com.intellij.openapi.roots.LibraryOrderEntry && LibrarySetup.LIB_NAME.equals(((com.intellij.openapi.roots.LibraryOrderEntry) e).getLibraryName()))
+                    model.getModuleLibraryTable().removeLibrary(((com.intellij.openapi.roots.LibraryOrderEntry) e).getLibrary());
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------ Maven / Gradle (המודול נחשב "חיצוני"; הקבצים אמיתיים בתיקייה זמנית)
+
+    private java.io.File externalProject(String buildFileName, String buildFile) throws Exception {
+        java.io.File dir = com.intellij.openapi.util.io.FileUtil.createTempDirectory("dsviz-ext-", null);
+        Files.write(new File(dir, buildFileName).toPath(), buildFile.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        new File(dir, "src/main/java/app").mkdirs();
+        Files.write(new File(dir, "src/main/java/app/Main.java").toPath(),
+                "package app;\nimport unit4.collectionsLib.Queue;\npublic class Main { public static void main(String[] a) { Queue<Integer> q = new Queue<Integer>(); q.insert(1); } }".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        com.intellij.openapi.vfs.VirtualFile root = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(dir);
+        com.intellij.openapi.vfs.VirtualFile src = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(new File(dir, "src/main/java"));
+        ModuleRootModificationUtil.updateModel(getModule(), model -> model.addContentEntry(root).addSourceFolder(src, false));
+        LibrarySetup.externalOverride = m -> true;
+        com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+        return dir;
+    }
+
+    public void testMavenModuleGetsTheDependencyInThePom() throws Exception {
+        String pom = "<project>\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>g</groupId>\n    <artifactId>a</artifactId>\n    <version>1</version>\n</project>\n";
+        File dir = externalProject("pom.xml", pom);
+        assertFalse("מודול של Maven — לא מוסיפים ספרייה ישירות למודול (הייבוא מחדש מוחק)", LibrarySetup.needs(getModule()));
+        assertTrue("הקוד משתמש בספרייה והיא חסרה — צריך לכתוב ב-pom", LibrarySetup.needsBuildFile(getModule()));
+        assertEquals("pom.xml", LibrarySetup.addToBuildFile(getModule()));
+        assertTrue("הספרייה הועתקה ל-lib של הפרויקט", new File(dir, "lib/dsviz.jar").isFile());
+        String after = new String(Files.readAllBytes(new File(dir, "pom.xml").toPath()), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(after, after.contains("<artifactId>dsviz</artifactId>") && after.contains("<systemPath>${project.basedir}/lib/dsviz.jar</systemPath>"));
+        assertEquals("פעם שנייה — לא נכתב עוד פעם (ועדיין מחכים לטעינה)", "pom.xml", LibrarySetup.addToBuildFile(getModule()));
+        assertEquals(after, new String(Files.readAllBytes(new File(dir, "pom.xml").toPath()), java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    public void testGradleModuleGetsTheDependencyInBuildGradle() throws Exception {
+        File dir = externalProject("build.gradle", "plugins {\n    id 'java'\n}\n\ndependencies {\n}\n");
+        assertTrue(LibrarySetup.needsBuildFile(getModule()));
+        assertEquals("build.gradle", LibrarySetup.addToBuildFile(getModule()));
+        String after = new String(Files.readAllBytes(new File(dir, "build.gradle").toPath()), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(after, after.contains("implementation files('lib/dsviz.jar')"));
+        assertTrue(new File(dir, "lib/dsviz.jar").isFile());
+    }
+
+    public void testExternalModuleThatDoesNotUseTheLibraryIsUntouched() throws Exception {
+        File dir = externalProject("pom.xml", "<project></project>");
+        Files.write(new File(dir, "src/main/java/app/Main.java").toPath(), "package app;\npublic class Main { }".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshIoFiles(java.util.Collections.singleton(new File(dir, "src/main/java/app/Main.java")));
+        com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+        assertFalse("הקוד לא משתמש בספרייה — לא נוגעים ב-pom", LibrarySetup.needsBuildFile(getModule()));
     }
 }

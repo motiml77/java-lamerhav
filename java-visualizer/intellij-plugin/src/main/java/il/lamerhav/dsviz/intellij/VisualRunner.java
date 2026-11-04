@@ -187,6 +187,16 @@ public final class VisualRunner {
         }
         // פרויקט של התלמיד (כל פרויקט Java): לא משנים בו כלום מלבד הוספת ספריית הקורס אם אין בו בכלל (כדי ש-Queue וכו' יתקמפלו)
         if (Dsviz.libraryJar() != null && ReadAction.compute(() -> LibrarySetup.needs(module))) LibrarySetup.add(module);
+        else if (Dsviz.libraryJar() != null && ReadAction.compute(() -> LibrarySetup.needsRequires(module))) LibrarySetup.addRequires(module);   // module-info שכבר יש בו הספרייה
+        // פרויקט Maven / Gradle שהקוד שלו משתמש בספרייה והיא חסרה: התלות נכנסת לקובץ ההגדרות, וממתינים לטעינה מחדש (בלי זה — שגיאות קומפילציה)
+        if (Dsviz.libraryJar() != null && ReadAction.compute(() -> LibrarySetup.needsBuildFile(module))) {
+            String file = LibrarySetup.addToBuildFile(module);
+            if (file != null) {
+                end(project);
+                Notice.show(project, buildFileAdded(file));
+                return;
+            }
+        }
         String source = psi.getText();
         try {
             compiler.make(project, module, (aborted, errors, warnings, ctx) -> {
@@ -261,6 +271,16 @@ public final class VisualRunner {
             if (!project.isDisposed()) com.intellij.openapi.roots.ui.configuration.ProjectSettingsService.getInstance(project).openProjectSettings();
         };
         return s;
+    }
+
+    /** נכתבה תלות בספרייה ב-pom.xml / build.gradle — מחכים שהפרויקט ייטען מחדש */
+    static Notice.Spec buildFileAdded(String file) {
+        boolean maven = "pom.xml".equals(file);
+        return new Notice.Spec(Modern.Kind.INFO, TITLE, "הוספנו את ספריית הקורס ל-" + file)
+                .text("הפרויקט הזה בנוי ב-" + (maven ? "Maven" : "Gradle") + ", ולכן הספרייה נכנסת לקובץ ההגדרות.\n"
+                        + (maven ? "אם IntelliJ מציע \"Load Maven Changes\" — לוחצים עליו" : "אם IntelliJ מציע \"Load Gradle Changes\" — לוחצים עליו")
+                        + ", ואחרי שהטעינה נגמרת לוחצים שוב \"הרצה ויזואלית\".")
+                .buttons("הבנתי", null);
     }
 
     /** הקידוד שבו Java מעבירה לתהליך את שורת הפקודה (ב-Windows שלא מוגדר לעברית — בלי עברית) */
