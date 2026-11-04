@@ -1,0 +1,77 @@
+{
+  "id": "arrays-sum-average",
+  "topic": "arrays",
+  "level": "easy",
+  "title": "סכום וממוצע של מערך",
+  "question": {
+    "intro": "נתון מערך לא ריק של מספרים שלמים.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה sum, המקבלת מערך arr ומחזירה את סכום האיברים שבו.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר 20.",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              4,
+              8,
+              6,
+              2
+            ],
+            "caption": "arr"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה average, המקבלת מערך arr ומחזירה את ממוצע האיברים שבו (מספר ממשי). מותר להשתמש בפעולה מסעיף א.\nעבור המערך שבציור הפעולה תחזיר 5.0."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "סכום וממוצע של מערך",
+    "topic": "arrays",
+    "mainClass": "Arrays2",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Arrays2",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "sum",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה sum, המקבלת מערך arr ומחזירה את סכום האיברים שבו.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר 20.",
+        "solution": "public static int sum(int[] arr) {\n    int sum = 0;\n    for (int i = 0; i < arr.length; i++) {\n        sum = sum + arr[i];\n    }\n    return sum;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Arrays2",
+        "isStatic": true,
+        "returnType": "double",
+        "methodName": "average",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה average, המקבלת מערך arr ומחזירה את ממוצע האיברים שבו (מספר ממשי). מותר להשתמש בפעולה מסעיף א.\nעבור המערך שבציור הפעולה תחזיר 5.0.",
+        "solution": "public static double average(int[] arr) {\n    return (double) sum(arr) / arr.length;\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "int[] arr = { 4, 8, 6, 2 };\nint[] other = { 1, 2 };\nSystem.out.println(\"סעיף א: \" + sum(arr));\nSystem.out.println(\"סעיף ב: \" + average(arr) + \" \" + average(other));",
+    "expectedOutput": "סעיף א: 20\nסעיף ב: 5.0 1.5"
+  }
+}

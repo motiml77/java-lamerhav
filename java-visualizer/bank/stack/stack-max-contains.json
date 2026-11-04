@@ -1,0 +1,81 @@
+{
+  "id": "stack-max-contains",
+  "topic": "stack",
+  "level": "easy",
+  "title": "הגדול ביותר במחסנית וחיפוש",
+  "question": {
+    "intro": "נתונה מחסנית לא ריקה של מספרים שלמים. בסיום כל פעולה המחסנית צריכה להיות כמו שהייתה בהתחלה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה maxStack, המקבלת מחסנית s ומחזירה את הערך הגדול ביותר בה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 9.",
+        "figures": [
+          {
+            "type": "stack",
+            "values": [
+              5,
+              9,
+              1,
+              6
+            ],
+            "caption": "המחסנית s (5 בראש)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה contains, המקבלת מחסנית s ומספר x, ומחזירה true אם x נמצא במחסנית, אחרת — false."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "הגדול ביותר במחסנית וחיפוש",
+    "topic": "stacks",
+    "mainClass": "StackTargil2",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "StackTargil2",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "maxStack",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "s"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה maxStack, המקבלת מחסנית s ומחזירה את הערך הגדול ביותר בה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 9.",
+        "solution": "public static int maxStack(Stack<Integer> s) {\n    Stack<Integer> temp = new Stack<Integer>();\n    int max = s.top();\n    while (!s.isEmpty()) {\n        int x = s.pop();\n        if (x > max) {\n            max = x;\n        }\n        temp.push(x);\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n    return max;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "StackTargil2",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "contains",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "s"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה contains, המקבלת מחסנית s ומספר x, ומחזירה true אם x נמצא במחסנית, אחרת — false.",
+        "solution": "public static boolean contains(Stack<Integer> s, int x) {\n    Stack<Integer> temp = new Stack<Integer>();\n    boolean found = false;\n    while (!s.isEmpty()) {\n        int y = s.pop();\n        if (y == x) {\n            found = true;\n        }\n        temp.push(y);\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n    return found;\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "Stack<Integer> s = new Stack<Integer>();\ns.push(6);\ns.push(1);\ns.push(9);\ns.push(5);\nSystem.out.println(\"סעיף א: \" + maxStack(s));\nSystem.out.println(\"סעיף ב: \" + contains(s, 1) + \" \" + contains(s, 4));\nSystem.out.println(\"המחסנית אחרי: \" + s);",
+    "expectedOutput": "סעיף א: 9\nסעיף ב: true false\nהמחסנית אחרי: [5,9,1,6]"
+  }
+}

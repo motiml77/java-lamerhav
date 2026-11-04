@@ -1,0 +1,80 @@
+{
+  "id": "queue-copy-contains",
+  "topic": "queue",
+  "level": "easy",
+  "title": "העתקת תור וחיפוש",
+  "question": {
+    "intro": "נתון תור של מספרים שלמים. בסיום כל פעולה התור שהתקבל צריך להיות כמו שהיה בהתחלה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה copy, המקבלת תור q ומחזירה תור חדש ובו אותם איברים באותו סדר.",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              5,
+              1,
+              8
+            ],
+            "caption": "התור q — וגם ההעתק שיוחזר"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה contains, המקבלת תור q ומספר x, ומחזירה true אם x נמצא בתור, אחרת — false."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "העתקת תור וחיפוש",
+    "topic": "queues",
+    "mainClass": "QueueTargil3",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "QueueTargil3",
+        "isStatic": true,
+        "returnType": "Queue<Integer>",
+        "methodName": "copy",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה copy, המקבלת תור q ומחזירה תור חדש ובו אותם איברים באותו סדר.",
+        "solution": "public static Queue<Integer> copy(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    Queue<Integer> result = new Queue<Integer>();\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        result.insert(x);\n        temp.insert(x);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    return result;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "QueueTargil3",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "contains",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה contains, המקבלת תור q ומספר x, ומחזירה true אם x נמצא בתור, אחרת — false.",
+        "solution": "public static boolean contains(Queue<Integer> q, int x) {\n    Queue<Integer> temp = new Queue<Integer>();\n    boolean found = false;\n    while (!q.isEmpty()) {\n        int y = q.remove();\n        if (y == x) {\n            found = true;\n        }\n        temp.insert(y);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    return found;\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "Queue<Integer> q = new Queue<Integer>();\nq.insert(5);\nq.insert(1);\nq.insert(8);\nQueue<Integer> c = copy(q);\nSystem.out.println(\"סעיף א: \" + c + \" המקורי: \" + q);\nSystem.out.println(\"סעיף ב: \" + contains(q, 8) + \" \" + contains(q, 2));",
+    "expectedOutput": "סעיף א: [5,1,8] המקורי: [5,1,8]\nסעיף ב: true false"
+  }
+}

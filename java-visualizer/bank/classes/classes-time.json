@@ -1,0 +1,65 @@
+{
+  "id": "classes-time",
+  "topic": "classes",
+  "level": "easy",
+  "title": "המחלקה Time — דקות מתחילת היום",
+  "question": {
+    "intro": "נתונה המחלקה Time (שעה ביום), ובה התכונות hours (שעות, 0 עד 23) ו-minutes (דקות, 0 עד 59), פעולה בונה ופעולות get.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסף למחלקה Time פעולה ששמה totalMinutes, המחזירה כמה דקות עברו מתחילת היום (00:00) עד השעה.\nלדוגמה: עבור השעה 2:30 הפעולה תחזיר 150."
+      },
+      {
+        "label": "ב",
+        "text": "הוסף למחלקה Time פעולה ששמה isBefore, המקבלת שעה אחרת other ומחזירה true אם השעה הנוכחית מוקדמת מ-other, אחרת — false. מותר להשתמש בפעולה מסעיף א."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "המחלקה Time — דקות מתחילת היום",
+    "topic": "classes",
+    "mainClass": "Main",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Time",
+        "code": "public class Time {\n    private int hours;\n    private int minutes;\n\n    public Time(int hours, int minutes) {\n        this.hours = hours;\n        this.minutes = minutes;\n    }\n\n    public int getHours() { return hours; }\n    public int getMinutes() { return minutes; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Time",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "totalMinutes",
+        "parameters": [],
+        "instructions": "הוסף למחלקה Time פעולה ששמה totalMinutes, המחזירה כמה דקות עברו מתחילת היום (00:00) עד השעה.\nלדוגמה: עבור השעה 2:30 הפעולה תחזיר 150.",
+        "solution": "public int totalMinutes() {\n    return hours * 60 + minutes;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Time",
+        "isStatic": false,
+        "returnType": "boolean",
+        "methodName": "isBefore",
+        "parameters": [
+          {
+            "type": "Time",
+            "name": "other"
+          }
+        ],
+        "instructions": "הוסף למחלקה Time פעולה ששמה isBefore, המקבלת שעה אחרת other ומחזירה true אם השעה הנוכחית מוקדמת מ-other, אחרת — false. מותר להשתמש בפעולה מסעיף א.",
+        "solution": "public boolean isBefore(Time other) {\n    return totalMinutes() < other.totalMinutes();\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "Time a = new Time(2, 30);\nTime b = new Time(10, 5);\nSystem.out.println(\"סעיף א: \" + a.totalMinutes() + \" \" + b.totalMinutes());\nSystem.out.println(\"סעיף ב: \" + a.isBefore(b) + \" \" + b.isBefore(a));",
+    "expectedOutput": "סעיף א: 150 605\nסעיף ב: true false"
+  }
+}

@@ -44,7 +44,7 @@ import org.eclipse.ui.commands.ICommandService;
  */
 @SuppressWarnings({ "unchecked", "rawtypes" })
 public class BankIt implements IApplication {
-    private static final String STACK = "sample-stack-even", LOOPS = "sample-loops-digits";
+    private static final String STACK = "stack-sum-size", LOOPS = "loops-sum-factorial";
     private PrintStream out;
     private Display display;
     private File shots;
@@ -149,21 +149,22 @@ public class BankIt implements IApplication {
         sleep(800);
         out.println("DONE-LOOPS " + handler.getMethod("doneForTest", String.class).invoke(null, LOOPS));
         shot(dlg, "bank-dialog-done.png");
-        ui(() -> { select(dlg, "tree", "sample-tree-leaves"); return null; });
+        ui(() -> { select(dlg, "tree", "tree-count-sum"); return null; });
         sleep(800);
         out.println("PREVIEW-TREE " + ui(() -> preview(dlg)));
         shot(dlg, "bank-dialog-tree.png");
-        ui(() -> { select(dlg, "queue", "sample-queue-sum"); return null; });
+        ui(() -> { select(dlg, "queue", "queue-sum-even"); return null; });
         sleep(800);
         out.println("PREVIEW-QUEUE " + ui(() -> preview(dlg)));
         shot(dlg, "bank-dialog-queue.png");
-        ui(() -> { select(dlg, "list", "sample-list-greater"); return null; });
+        ui(() -> { select(dlg, "list", "list-length-sum"); return null; });
         sleep(800);
         out.println("PREVIEW-LIST " + ui(() -> preview(dlg)));
         shot(dlg, "bank-dialog-list.png");
-        ui(() -> { select(dlg, "strings", ""); return null; });
+        ui(() -> { set(dlg, "search", "אין-כזאת-שאלה"); call(dlg, "rebuildTree"); return null; });
         sleep(500);
-        out.println("EMPTY-TOPIC " + ui(() -> labels(dlg)).contains("עוד אין שאלות בנושא הזה"));
+        out.println("EMPTY-TOPIC " + ui(() -> labels(dlg)).contains("לא נמצאו שאלות"));
+        ui(() -> { set(dlg, "search", ""); call(dlg, "rebuildTree"); return null; });
         shot(dlg, "bank-dialog-empty.png");
         ui(() -> { dlg.close(); return null; });
 
@@ -223,7 +224,7 @@ public class BankIt implements IApplication {
         out.println("DIALOG2-BUTTONS " + ui(() -> buttons(dlg2)));
         out.println("DIALOG2-TREE " + ui(() -> tree(dlg2)));
         shot(dlg2, "bank-dialog-existing.png");
-        ui(() -> { select(dlg2, "list", "sample-list-greater"); return null; });
+        ui(() -> { select(dlg2, "list", "test-long-list"); return null; });
         sleep(800);
         out.println("PREVIEW-LONG " + ui(() -> preview(dlg2)));
         shot(dlg2, "bank-dialog-long.png");

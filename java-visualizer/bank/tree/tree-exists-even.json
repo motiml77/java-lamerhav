@@ -1,0 +1,83 @@
+{
+  "id": "tree-exists-even",
+  "topic": "tree",
+  "level": "easy",
+  "title": "חיפוש בעץ וצמתים זוגיים",
+  "question": {
+    "intro": "נתון עץ בינארי של מספרים שלמים. בשני הסעיפים יש לכתוב פעולה רקורסיבית.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה exists, המקבלת עץ בינארי t ומספר x, ומחזירה true אם x נמצא באחד מצומתי העץ, אחרת — false.",
+        "figures": [
+          {
+            "type": "tree",
+            "values": [
+              6,
+              4,
+              9,
+              2,
+              null,
+              8
+            ],
+            "caption": "העץ t"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה countEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "חיפוש בעץ וצמתים זוגיים",
+    "topic": "trees",
+    "mainClass": "TreeTargil3",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "TreeTargil3",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "exists",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה exists, המקבלת עץ בינארי t ומספר x, ומחזירה true אם x נמצא באחד מצומתי העץ, אחרת — false.",
+        "solution": "public static boolean exists(BinNode<Integer> t, int x) {\n    if (t == null) {\n        return false;\n    }\n    if (t.getValue() == x) {\n        return true;\n    }\n    return exists(t.getLeft(), x) || exists(t.getRight(), x);\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "TreeTargil3",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countEven",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4.",
+        "solution": "public static int countEven(BinNode<Integer> t) {\n    if (t == null) {\n        return 0;\n    }\n    int here = t.getValue() % 2 == 0 ? 1 : 0;\n    return here + countEven(t.getLeft()) + countEven(t.getRight());\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "BinNode<Integer> t = new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(2), 4, null), 6, new BinNode<Integer>(new BinNode<Integer>(8), 9, null));\nSystem.out.println(\"סעיף א: \" + exists(t, 8) + \" \" + exists(t, 5));\nSystem.out.println(\"סעיף ב: \" + countEven(t));",
+    "expectedOutput": "סעיף א: true false\nסעיף ב: 4"
+  }
+}

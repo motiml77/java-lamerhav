@@ -1,0 +1,77 @@
+{
+  "id": "queue-min-last",
+  "topic": "queue",
+  "level": "easy",
+  "title": "הקטן ביותר בתור והאיבר האחרון",
+  "question": {
+    "intro": "נתון תור לא ריק של מספרים שלמים. בסיום כל פעולה התור צריך להיות כמו שהיה בהתחלה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה minQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2.",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              7,
+              2,
+              9,
+              4
+            ],
+            "caption": "התור q (7 בראש)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה lastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "הקטן ביותר בתור והאיבר האחרון",
+    "topic": "queues",
+    "mainClass": "QueueTargil2",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "QueueTargil2",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "minQueue",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה minQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2.",
+        "solution": "public static int minQueue(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int min = q.head();\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        if (x < min) {\n            min = x;\n        }\n        temp.insert(x);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    return min;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "QueueTargil2",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "lastValue",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה lastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4.",
+        "solution": "public static int lastValue(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int last = 0;\n    while (!q.isEmpty()) {\n        last = q.remove();\n        temp.insert(last);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    return last;\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "Queue<Integer> q = new Queue<Integer>();\nq.insert(7);\nq.insert(2);\nq.insert(9);\nq.insert(4);\nSystem.out.println(\"סעיף א: \" + minQueue(q));\nSystem.out.println(\"סעיף ב: \" + lastValue(q));\nSystem.out.println(\"התור אחרי: \" + q);",
+    "expectedOutput": "סעיף א: 2\nסעיף ב: 4\nהתור אחרי: [7,2,9,4]"
+  }
+}

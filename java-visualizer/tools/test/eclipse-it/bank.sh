@@ -38,8 +38,18 @@ cp "$ROOT"/release/il.lamerhav.dsviz_*.jar "$FRAG" "$ECL/dropins/"
 "$JAVA" -jar "$LAUNCH" -nosplash -consoleLog -application org.eclipse.equinox.p2.director -repository "file:$REPO" -installIU il.lamerhav.dsviz.it >> "$B/bank-p2.log" 2>&1 \
     || { echo "  FAIL התקנת תוסף הבדיקה"; tail -20 "$B/bank-p2.log"; exit 1; }
 xrun() { if [ -n "$XD" ]; then DISPLAY="$XD" "$@"; else xvfb-run -a -s "-screen 0 ${XSCREEN:-1600x1000x24}" "$@"; fi; }
+# שאלה בתיקייה המקומית (כמו ~/.dsviz/bank) — נוספת למאגר בלי בנייה; עם ציור ארוך (לבדיקת הגלילה)
+mkdir -p "$B/bank-local/list"
+python3 - "$ROOT/bank/list/list-length-sum.json" "$B/bank-local/list/test-long-list.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1], encoding='utf-8'))
+d['id'] = 'test-long-list'
+d['title'] = 'שאלה מהתיקייה המקומית'
+d['question']['sections'][0].setdefault('figures', []).append({"type": "list", "values": [5, 12, 7, 20, 3, 18, 9, 14, 2, 30, 11, 6], "caption": "שרשרת ארוכה"})
+open(sys.argv[2], 'w', encoding='utf-8').write(json.dumps(d, ensure_ascii=False))
+PY
 OUT="$B/bank/out.txt"
-xrun "$JAVA" -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Ddsviz.bankProgress="$B/bank/progress.json" -Ddsviz.debugLayout=true -jar "$LAUNCH" \
+xrun "$JAVA" -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Ddsviz.bankProgress="$B/bank/progress.json" -Ddsviz.bank="$B/bank-local" -Ddsviz.debugLayout=true -jar "$LAUNCH" \
     -nosplash -clean -consoleLog -data "$B/ws-bank" -application il.lamerhav.dsviz.it.bank "$OUT" "$B/bank" > "$B/bank/eclipse.log" 2>&1 || true
 rm -f "$ECL"/dropins/il.lamerhav.dsviz.bank_*.jar   # שאר הבדיקות (run.sh) — בלי ההרחבה
 "$JAVA" -jar "$LAUNCH" -nosplash -consoleLog -application org.eclipse.equinox.p2.director -uninstallIU il.lamerhav.dsviz.it >> "$B/bank-p2.log" 2>&1 || true
@@ -49,38 +59,37 @@ check() { grep -q -- "$1" "$OUT" && echo "  ok  $2" || { echo "  FAIL $2  ($1)";
 check "^FRAGMENT found=true resolved=true" "ההרחבה נטענה ליד התוסף (dropins)"
 check "^COMMAND defined=true handled=true" "הפקודה \"מאגר תרגילים\" קיימת ויש לה מטפל"
 check "^TOOLBAR .*מאגר תרגילים" "הכפתור \"מאגר תרגילים\" בסרגל של DSViz"
-check "^QUESTION sample-loops-digits|loops|easy" "השאלות נטענו (לולאות — קל)"
-check "^QUESTION sample-stack-even|stack|medium" "השאלות נטענו (מחסנית — בינוני)"
-[ "$(grep -c '^QUESTION ' "$OUT")" = "$(find "$ROOT/bank" -mindepth 2 -name '*.json' | wc -l)" ] && echo "  ok  כל השאלות במאגר נטענו ($(grep -c '^QUESTION ' "$OUT"))" || { echo "  FAIL לא כל השאלות נטענו"; FAILED=1; }
+check "^QUESTION loops-sum-factorial|loops|easy" "השאלות נטענו (לולאות — קל)"
+check "^QUESTION stack-sum-size|stack|easy" "השאלות נטענו (מחסנית — קל)"
+[ "$(grep -c '^QUESTION ' "$OUT")" = "$(( $(find "$ROOT/bank" -mindepth 2 -name '*.json' | wc -l) + 1 ))" ] && echo "  ok  כל השאלות במאגר נטענו ($(grep -c '^QUESTION ' "$OUT"))" || { echo "  FAIL לא כל השאלות נטענו"; FAILED=1; }
 check "^TOPICS לולאות | מערכים | מחרוזות | מחלקות | רקורסיה | מחסנית | תור | שרשרת חוליות | עץ בינארי | $" "הנושאים: לולאות, מערכים, מחרוזות, מחלקות, רקורסיה, מחסנית, תור, שרשרת חוליות, עץ בינארי"
 check "^DIALOG title=מאגר תרגילים rtl=true" "החלון: מימין לשמאל"
-check "^TREE TOPIC loops open 0/1 | Q sample-loops-digits easy | TOPIC arrays closed 0/0 .*TOPIC stack open 0/1 | Q sample-stack-even medium | TOPIC queue closed" "סרגל הצד: עץ נושאים — הנושא של השאלה פתוח, השאר סגורים, עם כמה V מתוך כמה"
-check "^SEARCH-QUEUE TOPIC queue open 0/1 | Q sample-queue-sum easy$" "חיפוש: \"תור\" — רק הנושא והשאלה שמתאימים"
-check "^FILTER-HARD TOPIC recursion open 0/1 | Q sample-recursion-array hard | TOPIC tree open 0/1 | Q sample-tree-leaves hard$" "סינון לפי קושי: רק השאלות הקשות"
+check "^TREE TOPIC loops open 0/3 | Q loops-digits-reverse easy | Q loops-divisors-prime easy | Q loops-sum-factorial easy | TOPIC arrays closed 0/3 .*TOPIC stack open 0/3 | Q stack-copy-greater easy | Q stack-max-contains easy | Q stack-sum-size easy | TOPIC queue closed" "סרגל הצד: עץ נושאים — הנושא של השאלה פתוח, השאר סגורים, עם כמה V מתוך כמה"
+check "^SEARCH-QUEUE TOPIC queue open 0/3 | Q queue-copy-contains easy | Q queue-min-last easy | Q queue-sum-even easy$" "חיפוש: \"תור\" — רק הנושא והשאלה שמתאימים"
+check "^FILTER-HARD $" "סינון לפי קושי \"קשה\": עוד אין שאלות קשות — רשימה ריקה"
 check "^DIALOG-BUTTONS צור תרגיל | שאלה אקראית | סגירה" "החלון: צור תרגיל / שאלה אקראית / סגירה (בלי עותק — עוד לא נוצר)"
 check "^DIALOG-PREVIEW .*TEXT סעיף א'.*TEXT סעיף ב'.*TEXT כשהכול פתור נכון, main מדפיס" "החלון: נוסח השאלה — כרטיס לכל סעיף, והפלט הרצוי"
 check "^DIALOG-PREVIEW .*FIGURE stack \[\[9\], \[2\], \[7\], \[4\]\] \"המחסנית s (4 בראש)" "ציור: מחסנית (4 בראש — נכנס אחרון)"
-check "^DIALOG-PREVIEW .*FIGURE stack \[\[3\], \[5\], \[3\]\] \"לפני.*FIGURE stack \[\[5\]\] \"אחרי\"" "ציור: לפני ואחרי בסעיף ב"
 check "^PREVIEW-TREE .*FIGURE tree \[\[8\], \[3\], \[10\], \[1\], \[6\], null, \[14\]\] \"העץ t\"" "ציור: עץ בינארי (לפי רמות, עם מקום ריק)"
 check "^PREVIEW-QUEUE .*FIGURE queue \[\[3\], \[8\], \[1\], \[6\]\]" "ציור: תור"
-check "^PREVIEW-LIST .*FIGURE list \[\[5\], \[12\], \[7\], \[20\]\]" "ציור: שרשרת חוליות"
+check "^PREVIEW-LIST .*FIGURE list \[\[6\], \[2\], \[9\], \[3\]\]" "ציור: שרשרת חוליות"
 check "^DONE-LOOPS true" "V ירוק נשמר"
-check "^EMPTY-TOPIC true" "נושא בלי שאלות — הודעה \"עוד אין שאלות\""
-check "^CREATED \[/Students/src/ex01_stacks/StackTargil.java\]" "התרגיל נוצר בחבילה משלו (ex01_stacks) בלי שגיאות קומפילציה"
-check "^FILE .*StackTargil.java answer-marks=2 expected-comment=true todo-free=true" "בקובץ: \"כאן עונים\" לכל סעיף, הפלט הרצוי מעל main, ובלי הפתרון"
-check "^SOLUTIONS .*StackTargil.countEven א ok, StackTargil.removeAll ב ok" "💡 הצעה לפתרון לכל סעיף — נשמרה ונבדקה"
-check "^ACTIVE-EDITOR StackTargil.java" "\"פתח את התרגיל\" פותח את אותו קובץ"
-check "^FLOAT open=true question=sample-stack-even rtl=true title=השאלה — זוגיים והסרה במחסנית" "החלון הצף \"השאלה\" נפתח עם השאלה של התרגיל"
-check "^FLOAT-SHOWN SECTION-BUTTONS א countEven" "בחלון הצף: לסעיף א — \"לפעולה\" ו-💡"
+check "^EMPTY-TOPIC true" "חיפוש בלי תוצאות — הודעה \"לא נמצאו שאלות\""
+check "^CREATED \[/Students/src/ex01_stacks/StackTargil1.java\]" "התרגיל נוצר בחבילה משלו (ex01_stacks) בלי שגיאות קומפילציה"
+check "^FILE .*StackTargil1.java answer-marks=2 expected-comment=true todo-free=true" "בקובץ: \"כאן עונים\" לכל סעיף, הפלט הרצוי מעל main, ובלי הפתרון"
+check "^SOLUTIONS .*StackTargil1.sumStack א ok, StackTargil1.sizeOf ב ok" "💡 הצעה לפתרון לכל סעיף — נשמרה ונבדקה"
+check "^ACTIVE-EDITOR StackTargil1.java" "\"פתח את התרגיל\" פותח את אותו קובץ"
+check "^FLOAT open=true question=stack-sum-size rtl=true title=השאלה — סכום וגודל של מחסנית" "החלון הצף \"השאלה\" נפתח עם השאלה של התרגיל"
+check "^FLOAT-SHOWN SECTION-BUTTONS א sumStack" "בחלון הצף: לסעיף א — \"לפעולה\" ו-💡"
 check "^FLOAT-SHOWN FIGURE stack" "בחלון הצף: הציור של המחסנית"
-check "^FLOAT-SHOWN EXPECTED מחסנית: \[4,7,2,9\] | סעיף א: 2" "בחלון הצף: הפלט הרצוי"
+check "^FLOAT-SHOWN EXPECTED סעיף א: 22 | סעיף ב: 4 | המחסנית אחרי: \[4,7,2,9\]" "בחלון הצף: הפלט הרצוי"
 check "^FLOAT-SHOWN DONE false" "בחלון הצף: \"סיימתי\""
-check "^FLOAT-REOPEN question=sample-stack-even" "סוגרים — ופותחים שוב בכפתור \"השאלה\" (לפי הקובץ שבעורך)"
+check "^FLOAT-REOPEN question=stack-sum-size" "סוגרים — ופותחים שוב בכפתור \"השאלה\" (לפי הקובץ שבעורך)"
 check "^COMPLETE true" "\"סיימתי\" (V)"
 check "^AFTER-COMPLETE done=true files-left=0 folder-left=false" "אחרי V: קבצי התרגיל והחבילה נמחקו מהפרויקט"
 check "^DIALOG2-BUTTONS צור תרגיל | שאלה אקראית | סגירה" "אחרי המחיקה: בחלון המאגר שוב \"צור תרגיל\""
-check "^DIALOG2-TREE .*Q sample-stack-even medium done" "אחרי המחיקה: ה-V נשאר בעץ"
-check "^PREVIEW-LONG .*FIGURE-SCROLL [4-9][0-9][0-9]" "ציור ארוך (שרשרת של 12 חוליות) — בגודל קריא עם גלילה הצידה"
+check "^DIALOG2-TREE .*Q stack-sum-size easy done" "אחרי המחיקה: ה-V נשאר בעץ"
+check "^PREVIEW-LONG .*FIGURE-SCROLL [4-9][0-9][0-9]" "ציור ארוך (שרשרת של 12 חוליות, משאלה בתיקייה המקומית) — בגודל קריא עם גלילה הצידה"
 grep -q "Exception" "$B/bank/eclipse.log" && grep -q "il.lamerhav.dsviz.Bank" "$B/bank/eclipse.log" && { echo "  FAIL חריגה בקוד של המאגר:"; grep -n -A6 "Exception" "$B/bank/eclipse.log" | grep -B2 -A6 "Bank" | head -30; FAILED=1; } || echo "  ok  בלי חריגות של המאגר ביומן"
 echo "  צילומים: $(ls "$B"/bank/*.png | tr '\n' ' ')"
 [ $FAILED = 0 ]

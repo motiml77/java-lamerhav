@@ -1,0 +1,90 @@
+{
+  "id": "recursion-array",
+  "topic": "recursion",
+  "level": "easy",
+  "title": "מערך ברקורסיה — סכום ומופעים",
+  "question": {
+    "intro": "נתון מערך של מספרים שלמים. בשני הסעיפים יש לכתוב פעולה רקורסיבית, בלי לולאות. הפרמטר i הוא המקום שממנו מתחילים (בקריאה הראשונה i = 0).",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה רקורסיבית ששמה sumFrom, המקבלת מערך arr ומקום i, ומחזירה את סכום האיברים מהמקום i ועד סוף המערך.\nלדוגמה: עבור המערך שבציור ו-i = 0 הפעולה תחזיר 21.",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              2,
+              7,
+              3,
+              7,
+              2
+            ],
+            "caption": "arr"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה רקורסיבית ששמה countFrom, המקבלת מערך arr, מקום i ומספר x, ומחזירה כמה פעמים x מופיע במערך מהמקום i ועד הסוף.\nעבור המערך שבציור, i = 0 ו-x = 7 הפעולה תחזיר 2."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מערך ברקורסיה — סכום ומופעים",
+    "topic": "recursion",
+    "mainClass": "Rec3",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Rec3",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "sumFrom",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          },
+          {
+            "type": "int",
+            "name": "i"
+          }
+        ],
+        "instructions": "כתוב פעולה רקורסיבית ששמה sumFrom, המקבלת מערך arr ומקום i, ומחזירה את סכום האיברים מהמקום i ועד סוף המערך.\nלדוגמה: עבור המערך שבציור ו-i = 0 הפעולה תחזיר 21.",
+        "solution": "public static int sumFrom(int[] arr, int i) {\n    if (i == arr.length) {\n        return 0;\n    }\n    return arr[i] + sumFrom(arr, i + 1);\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Rec3",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countFrom",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          },
+          {
+            "type": "int",
+            "name": "i"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה רקורסיבית ששמה countFrom, המקבלת מערך arr, מקום i ומספר x, ומחזירה כמה פעמים x מופיע במערך מהמקום i ועד הסוף.\nעבור המערך שבציור, i = 0 ו-x = 7 הפעולה תחזיר 2.",
+        "solution": "public static int countFrom(int[] arr, int i, int x) {\n    if (i == arr.length) {\n        return 0;\n    }\n    int rest = countFrom(arr, i + 1, x);\n    if (arr[i] == x) {\n        return rest + 1;\n    }\n    return rest;\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "int[] arr = { 2, 7, 3, 7, 2 };\nSystem.out.println(\"סעיף א: \" + sumFrom(arr, 0) + \" \" + sumFrom(arr, 3));\nSystem.out.println(\"סעיף ב: \" + countFrom(arr, 0, 7) + \" \" + countFrom(arr, 0, 5));",
+    "expectedOutput": "סעיף א: 21 9\nסעיף ב: 2 0"
+  }
+}

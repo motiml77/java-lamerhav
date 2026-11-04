@@ -1,0 +1,65 @@
+{
+  "id": "classes-student-excellent",
+  "topic": "classes",
+  "level": "easy",
+  "title": "המחלקה Student — מצטיינים",
+  "question": {
+    "intro": "נתונה המחלקה Student (תלמיד), ובה התכונות name (שם) ו-grade (ציון), פעולה בונה ופעולות get.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסף למחלקה Student פעולה ששמה isExcellent, המחזירה true אם הציון של התלמיד הוא 90 ומעלה, אחרת — false."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה חיצונית ששמה countExcellent, המקבלת מערך של תלמידים ומחזירה כמה מהם מצטיינים. השתמש בפעולה מסעיף א."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "המחלקה Student — מצטיינים",
+    "topic": "classes",
+    "mainClass": "Main",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Student",
+        "code": "public class Student {\n    private String name;\n    private int grade;\n\n    public Student(String name, int grade) {\n        this.name = name;\n        this.grade = grade;\n    }\n\n    public String getName() { return name; }\n    public int getGrade() { return grade; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Student",
+        "isStatic": false,
+        "returnType": "boolean",
+        "methodName": "isExcellent",
+        "parameters": [],
+        "instructions": "הוסף למחלקה Student פעולה ששמה isExcellent, המחזירה true אם הציון של התלמיד הוא 90 ומעלה, אחרת — false.",
+        "solution": "public boolean isExcellent() {\n    return grade >= 90;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Main",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countExcellent",
+        "parameters": [
+          {
+            "type": "Student[]",
+            "name": "students"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית ששמה countExcellent, המקבלת מערך של תלמידים ומחזירה כמה מהם מצטיינים. השתמש בפעולה מסעיף א.",
+        "solution": "public static int countExcellent(Student[] students) {\n    int count = 0;\n    for (int i = 0; i < students.length; i++) {\n        if (students[i].isExcellent()) {\n            count++;\n        }\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "Student[] cls = { new Student(\"דנה\", 95), new Student(\"יוסי\", 72), new Student(\"רון\", 90), new Student(\"מיכל\", 88) };\nSystem.out.println(\"סעיף א: \" + cls[0].isExcellent() + \" \" + cls[1].isExcellent());\nSystem.out.println(\"סעיף ב: \" + countExcellent(cls));",
+    "expectedOutput": "סעיף א: true false\nסעיף ב: 2"
+  }
+}
