@@ -152,6 +152,17 @@ public final class BankVs {
         boolean wholeProject() {
             return inExercises && others.isEmpty();
         }
+
+        /** התיקייה כבר לא קיימת (נמחקה ידנית), אבל הפרויקט עוד רשום בפתרון — רק מוציאים אותו מהפתרון */
+        boolean missingButRegistered() {
+            if (dir.exists() || !inExercises) return false;
+            Path sln = CsSolution.solution(root);
+            try {
+                return sln != null && new String(Files.readAllBytes(sln), StandardCharsets.UTF_8).contains("\"" + dir.getName() + "\",");
+            } catch (IOException e) {
+                return false;
+            }
+        }
     }
 
     /** מה נוצר מהתרגיל בתיקייה, ומה עוד יש בה. מה שנוצר: קבצי ה-.cs שלו, ‎<שם>.csproj(.user)‎, Properties\launchSettings.json, bin, obj */
@@ -160,7 +171,8 @@ public final class BankVs {
         Removal r = new Removal(dir);
         try {
             File ex = CsSolution.exercisesDir(root).toFile().getCanonicalFile();
-            r.inExercises = dir.getCanonicalFile().getParentFile().equals(ex);
+            File parent = dir.getAbsoluteFile().getParentFile();
+            r.inExercises = parent != null && parent.getCanonicalFile().equals(ex);
         } catch (IOException e) {
             r.inExercises = false;
         }
@@ -198,14 +210,15 @@ public final class BankVs {
         List<Removal> plans = new ArrayList<Removal>();
         for (BankProgress.Created c : BankProgress.get().createdOf(q.id)) {
             Removal r = plan(c);
-            if (!r.files.isEmpty() || r.dir.isDirectory() && r.wholeProject()) plans.add(r);
+            if (!r.files.isEmpty() || r.dir.isDirectory() && r.wholeProject() || r.missingButRegistered()) plans.add(r);
         }
         StringBuilder what = new StringBuilder();
         for (Removal r : plans) {
             List<String> n = new ArrayList<String>();
             for (File f : r.files) n.add(f.getName());
             what.append(what.length() == 0 ? "" : "\n");
-            if (r.wholeProject()) what.append("הפרויקט שיימחק מהפתרון: ").append(r.dir.getName()).append(n.isEmpty() ? "" : " (" + String.join(", ", n) + ")");
+            if (!r.dir.exists()) what.append("הפרויקט ").append(r.dir.getName()).append(" כבר נמחק מהדיסק — הוא יוצא גם מהפתרון");
+            else if (r.wholeProject()) what.append("הפרויקט שיימחק מהפתרון: ").append(r.dir.getName()).append(n.isEmpty() ? "" : " (" + String.join(", ", n) + ")");
             else what.append("קבצי התרגיל שיימחקו: ").append(String.join(", ", n)).append("\nהפרויקט ").append(r.dir.getName())
                     .append(" נשאר — יש בו עוד קבצים שלך: ").append(String.join(", ", r.others));
         }
@@ -217,6 +230,7 @@ public final class BankVs {
         List<String> left = new ArrayList<String>();
         for (Removal r : plans) left.addAll(remove(r));
         BankProgress.get().forgetCreated(q.id);
+        laterClean();
         if (!left.isEmpty() && parent != null)
             RtlDialog.show(parent, "סיימתי את התרגיל", RtlDialog.Kind.WARN, "חלק מהקבצים לא נמחקו",
                     String.join("\n", left) + "\n\nכנראה שהתוכנית עדיין רצה, או שקובץ פתוח בתוכנה אחרת. אפשר למחוק אותם ידנית.");
@@ -226,6 +240,14 @@ public final class BankVs {
     /** מוחק לפי התוכנית. מחזיר מה שלא הצליח להימחק */
     static List<String> remove(Removal r) {
         List<String> left = new ArrayList<String>();
+        if (r.missingButRegistered()) {
+            try {
+                unregister(CsSolution.solution(root), r.dir.getName());
+            } catch (IOException e) {
+                left.add(r.dir.getName());
+            }
+            return left;
+        }
         forgetSolutions(r.files);
         for (File f : r.files) {
             for (int i = 0; i < 6 && f.exists(); i++) {
@@ -252,13 +274,15 @@ public final class BankVs {
                 if (b.exists()) sleep(500);   // קובץ שנעול לרגע (הבנייה של Visual Studio) — מנסים שוב
             }
         }
+        // Visual Studio (שהפרויקט עוד טעון בו עד ה-Reload) יכול ליצור מחדש את obj אחרי המחיקה — בודקים שוב אחר כך (cleanPending
+        // מוחק רק תיקייה שיש בה bin / obj בלבד, ושוכח תיקייה שכבר לא קיימת)
+        addPending(r.dir);
         if (!r.dir.delete() && r.dir.exists()) {
             // נשארו רק קבצי בנייה (bin / obj) ש-Visual Studio עוד מחזיק — נמחקים בפעם הבאה שהכלי נפתח (pending), ולא נוגעים בשום דבר אחר
             List<String> rest = list(r.dir);
             boolean onlyBuild = true;
             for (String p : rest) onlyBuild &= p.startsWith("bin" + File.separator) || p.startsWith("obj" + File.separator) || p.equals("bin") || p.equals("obj");
-            if (onlyBuild) addPending(r.dir);
-            else left.add(r.dir.getPath());
+            if (!onlyBuild) left.add(r.dir.getPath());
         }
         return left;
     }
@@ -279,14 +303,28 @@ public final class BankVs {
         }
     }
 
+    /** בדיקה חוזרת ברקע (אחרי 30 ו-90 שניות, כל עוד הכלי פתוח) — אחרי ש-Visual Studio טען מחדש את הפתרון ושחרר את obj */
+    static void laterClean() {
+        Thread t = new Thread(() -> {
+            for (long ms : new long[] { 30000, 60000 }) {
+                sleep(ms);
+                cleanPending();
+            }
+        }, "dsviz-bank-clean");
+        t.setDaemon(true);
+        t.start();
+    }
+
     static File pendingFile() {
         return Paths.get(System.getProperty("user.home"), ".dsviz", "bank-cs-pending.txt").toFile();
     }
 
+    /** נרשם לבדיקה חוזרת: "נתיב|זמן" */
     static synchronized void addPending(File dir) {
         try {
             List<String> l = pendingFile().isFile() ? new ArrayList<String>(Files.readAllLines(pendingFile().toPath(), StandardCharsets.UTF_8)) : new ArrayList<String>();
-            if (!l.contains(dir.getAbsolutePath())) l.add(dir.getAbsolutePath());
+            l.removeIf(x -> x.split("\\|")[0].equals(dir.getAbsolutePath()));
+            l.add(dir.getAbsolutePath() + "|" + System.currentTimeMillis());
             pendingFile().getParentFile().mkdirs();
             Files.write(pendingFile().toPath(), String.join("\n", l).getBytes(StandardCharsets.UTF_8));
         } catch (IOException ignored) {
@@ -304,15 +342,26 @@ public final class BankVs {
         try {
             for (String p : Files.readAllLines(pendingFile().toPath(), StandardCharsets.UTF_8)) {
                 if (p.trim().isEmpty()) continue;
-                File d = new File(p.trim());
-                if (!d.isDirectory()) continue;
+                String[] parts = p.trim().split("\\|");
+                long at = 0;
+                try {
+                    at = parts.length > 1 ? Long.parseLong(parts[1]) : 0;
+                } catch (NumberFormatException ignored) {
+                    // שורה ישנה בלי זמן
+                }
+                File d = new File(parts[0]);
+                if (!d.isDirectory()) {
+                    // עוד לא נוצרה מחדש (או נמחקה לגמרי) — שומרים 10 דקות, אולי Visual Studio עוד יכתוב שם obj
+                    if (System.currentTimeMillis() - at < 10 * 60000) keep.add(p.trim());
+                    continue;
+                }
                 String[] names = d.list();
                 boolean onlyBuild = names != null;
                 if (names != null) for (String n : names) onlyBuild &= n.equalsIgnoreCase("bin") || n.equalsIgnoreCase("obj");
                 if (!onlyBuild) continue;   // יש שם משהו אחר — לא שלנו למחוק
                 delete(new File(d, "bin"));
                 delete(new File(d, "obj"));
-                if (!d.delete()) keep.add(d.getAbsolutePath());
+                if (!d.delete()) keep.add(p.trim());
             }
             if (keep.isEmpty()) pendingFile().delete();
             else Files.write(pendingFile().toPath(), String.join("\n", keep).getBytes(StandardCharsets.UTF_8));

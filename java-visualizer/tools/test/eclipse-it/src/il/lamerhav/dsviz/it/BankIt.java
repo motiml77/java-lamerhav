@@ -27,6 +27,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
@@ -193,6 +194,44 @@ public class BankIt implements IApplication {
         for (Object s : (List<?>) handler.getMethod("floatShownForTest").invoke(null)) out.println("FLOAT-SHOWN " + s);
         shot(fl, "bank-float.png");
         shotWindow("bank-float-workbench.png");
+        // 5ב. כותבים קוד בעורך (הקלדה אמיתית) בזמן שהחלון הצף פתוח: הוא נשאר מקדימה ולא לוקח את המיקוד
+        ui(() -> {
+            org.eclipse.ui.IEditorPart ed = page().getActiveEditor();
+            org.eclipse.swt.custom.StyledText st = (org.eclipse.swt.custom.StyledText) ed.getAdapter(Control.class);
+            page().activate(ed);
+            st.setFocus();
+            st.setCaretOffset(st.getText().indexOf("{", st.getText().indexOf("sumStack(")) + 1);
+            return null;
+        });
+        sleep(300);
+        // הקלדה דרך מטפל המקשים של העורך (כמו מקלדת אמיתית: עובר דרך ההזחה האוטומטית וכל המאזינים של העורך)
+        for (char ch : "\nint typed = 42;".toCharArray()) {
+            final char c = ch;
+            ui(() -> {
+                org.eclipse.swt.custom.StyledText st = (org.eclipse.swt.custom.StyledText) page().getActiveEditor().getAdapter(Control.class);
+                Event e = new Event();
+                e.character = c == '\n' ? '\r' : c;
+                e.keyCode = c == '\n' ? SWT.CR : c;
+                e.doit = true;
+                st.notifyListeners(SWT.KeyDown, e);
+                st.notifyListeners(SWT.KeyUp, e);
+                return null;
+            });
+            sleep(30);
+        }
+        sleep(800);
+        out.println("TYPING typed=" + ui(() -> ((org.eclipse.swt.custom.StyledText) page().getActiveEditor().getAdapter(Control.class)).getText().contains("int typed = 42;"))
+                + " editor-focus=" + ui(() -> display.getFocusControl() == page().getActiveEditor().getAdapter(Control.class))
+                + " float-visible=" + ui(() -> !fl.isDisposed() && fl.isVisible() && !fl.getMinimized())
+                + " float-owned=" + ui(() -> fl.getParent() == page().getWorkbenchWindow().getShell()));
+        ui(() -> {   // כל המסך: העורך עם השורה החדשה, והחלון הצף מעליו
+            capture(display.getBounds(), new File(shots, "bank-float-typing.png"));
+            return null;
+        });
+        ui(() -> {   // מחזירים את הקובץ כמו שהיה (בלי לשמור)
+            ((org.eclipse.ui.texteditor.ITextEditor) page().getActiveEditor()).doRevertToSaved();
+            return null;
+        });
         // סוגרים ופותחים שוב בכפתור "השאלה" (הפקודה) — עם השאלה של הקובץ שבעורך
         ui(() -> { fl.close(); return null; });
         sleep(400);

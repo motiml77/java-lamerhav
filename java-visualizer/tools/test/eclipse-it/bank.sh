@@ -86,6 +86,7 @@ check "^FLOAT-SHOWN EXPECTED סעיף א: 22 | סעיף ב: 4 | המחסנית �
 check "^FLOAT-SHOWN DONE false" "בחלון הצף: \"סיימתי\""
 check "^FLOAT-REOPEN question=stack-sum-size" "סוגרים — ופותחים שוב בכפתור \"השאלה\" (לפי הקובץ שבעורך)"
 check "^BEFORE-DONE src-files=1 folder=true bin=true tabs=1 solutions=2 owner=stack-sum-size" "לפני \"סיימתי\": יש קובץ, חבילה, קבצים מקומפלים, לשונית פתוחה והצעות לפתרון"
+check "^TYPING typed=true editor-focus=true float-visible=true float-owned=true" "כותבים קוד בעורך בזמן שהחלון הצף פתוח: ההקלדה נכנסת לעורך, והחלון נשאר מקדימה (שייך לחלון של Eclipse)"
 check "^DONE-BUTTON true" "בחלון הצף יש \"סיימתי את התרגיל\""
 check "^ASK true text=.*השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו מהפרויקט.*הקובץ שיימחק: StackTargil1.java.*רק הקבצים שנוצרו מהתרגיל" "לחיצה על \"סיימתי\" — שואלים לפני המחיקה, בעברית בלבד"
 check "^AFTER-DONE done=true float-closed=true" "אחרי האישור: V ירוק, והחלון הצף נסגר"
@@ -95,6 +96,8 @@ check "^KEEP created-left=0 helper=true folder=true mine=true" "רק קבצי ה
 check "^DIALOG2-BUTTONS צור תרגיל | שאלה אקראית | סגירה" "אחרי המחיקה: בחלון המאגר שוב \"צור תרגיל\""
 check "^DIALOG2-TREE .*Q stack-sum-size easy done" "אחרי המחיקה: ה-V נשאר בעץ"
 check "^PREVIEW-LONG .*FIGURE-SCROLL [4-9][0-9][0-9]" "ציור ארוך (שרשרת של 12 חוליות, משאלה בתיקייה המקומית) — בגודל קריא עם גלילה הצידה"
-grep -q "Exception" "$B/bank/eclipse.log" && grep -q "il.lamerhav.dsviz.Bank" "$B/bank/eclipse.log" && { echo "  FAIL חריגה בקוד של המאגר:"; grep -n -A6 "Exception" "$B/bank/eclipse.log" | grep -B2 -A6 "Bank" | head -30; FAILED=1; } || echo "  ok  בלי חריגות של המאגר ביומן"
+# חריגות ביומן שיש בהן קוד של המאגר — חוץ מאחת ידועה של Eclipse עצמו (סגירת עורך שיש לו היסטוריית undo: AbstractOperation.hasContext)
+awk 'BEGIN{RS="!ENTRY"} /Exception/ && /il\.lamerhav\.dsviz\.Bank/ && !/AbstractOperation\.hasContext/ {print "!ENTRY" $0}' "$B/bank/eclipse.log" > "$B/bank/bank-errors.log"
+[ -s "$B/bank/bank-errors.log" ] && { echo "  FAIL חריגה בקוד של המאגר:"; head -30 "$B/bank/bank-errors.log"; FAILED=1; } || echo "  ok  בלי חריגות של המאגר ביומן"
 echo "  צילומים: $(ls "$B"/bank/*.png | tr '\n' ' ')"
 [ $FAILED = 0 ]

@@ -211,7 +211,7 @@ public final class BankVsIt {
         check("done-float", ui(() -> BankVsFloat.current == null), "אחרי האישור: החלון הצף נסגר", "");
         check("done-mark", BankProgress.get().done(sq.id), "השאלה סומנה בסימן ירוק", "");
         boolean pending = dir.exists() && BankVs.pendingFile().isFile()
-                && new String(Files.readAllBytes(BankVs.pendingFile().toPath()), StandardCharsets.UTF_8).contains(dir.getAbsolutePath());
+                && new String(Files.readAllBytes(BankVs.pendingFile().toPath()), StandardCharsets.UTF_8).contains(dir.getAbsolutePath() + "|");
         boolean onlyBuild = true;
         if (dir.exists()) for (String p : BankVs.list(dir)) onlyBuild &= p.equals("obj") || p.equals("bin") || p.startsWith("obj" + File.separator) || p.startsWith("bin" + File.separator);
         check("done-dir", !dir.exists() || pending && onlyBuild, !dir.exists() ? "תיקיית הפרויקט נמחקה (כולל bin / obj)"

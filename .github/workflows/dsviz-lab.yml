@@ -18,6 +18,7 @@ on:
       - 'java-visualizer/tools/build-bank-vs.sh'
       - 'java-visualizer/tools/test/windows-vs/bank-vs.ps1'
       - 'java-visualizer/tools/test/windows-vs/BankVsIt.java'
+      - 'java-visualizer/tools/test/windows-vs/BankVsAll.java'
   workflow_dispatch:
 
 jobs:
@@ -51,7 +52,7 @@ jobs:
         run: |
           sh tools/build-bank-vs.sh
           mkdir -p build/bank-vs-test
-          javac -encoding UTF-8 -nowarn -cp release/dsviz.jar:build/lab-vs/dsviz-bank-vs.jar -d build/bank-vs-test tools/test/windows-vs/BankVsIt.java
+          javac -encoding UTF-8 -nowarn -cp release/dsviz.jar:build/lab-vs/dsviz-bank-vs.jar -d build/bank-vs-test tools/test/windows-vs/BankVsIt.java tools/test/windows-vs/BankVsAll.java
       - uses: actions/upload-artifact@v4
         with:
           name: dsviz-exercise-bank-vs
@@ -66,7 +67,7 @@ jobs:
   vs-test:
     needs: vs-build
     runs-on: windows-2022
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4

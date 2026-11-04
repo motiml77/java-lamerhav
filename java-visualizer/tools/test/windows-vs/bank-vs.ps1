@@ -229,6 +229,18 @@ for ($i = 0; $i -lt 120 -and -not (Test-Path $jumped) -and -not $itP.HasExited; 
 Info "נפתח: $(if (Test-Path $jumped) { Get-Content $jumped -Raw -Encoding utf8 } else { '-' })"
 Start-Sleep 8
 Shot '06-jump-file-in-vs'
+# כותבים קוד ב-Visual Studio (מקלדת אמיתית) בזמן שהחלון הצף פתוח — הוא נשאר מקדימה
+if ($ready) {
+    $wsh = New-Object -ComObject WScript.Shell
+    [void]$wsh.AppActivate($vsP.Id); Start-Sleep 2
+    $wsh.SendKeys('{END}{ENTER}'); Start-Sleep 1
+    $wsh.SendKeys('int typed = 42;'); Start-Sleep 2
+    Shot '06b-typing-in-vs-float-in-front'
+    $fg = (Get-Process -Id $vsP.Id).MainWindowTitle
+    Check 'vs-typing' ($fg -like '*Microsoft Visual Studio*') "כותבים קוד ב-Visual Studio בזמן שהחלון הצף פתוח (רואים בצילום שהחלון נשאר מקדימה)" $fg
+    for ($u = 0; $u -lt 4; $u++) { $wsh.SendKeys('^z'); Start-Sleep -Milliseconds 300 }   # מבטלים את ההקלדה
+    $wsh.SendKeys('^s'); Start-Sleep 1
+}
 if ($ready -and $dir) {
     $cs = Get-ChildItem $dir -Filter '*.cs' | Select-Object -First 1
     Check 'vs-file' (HasElement $vsP.Id ([regex]::Escape($cs.Name))) "הקובץ $($cs.Name) פתוח ב-Visual Studio (לשונית)" ((Windows) -join ' ; ')
@@ -354,6 +366,40 @@ if ($pdir) {
     Check 'pending-clean' ((Test-Path $cr) -and ((Get-Content $cr -Raw -Encoding utf8) -match 'ok   pending-clean')) "אחרי ש-Visual Studio נסגר, בפתיחה הבאה של הכלי: מה שנשאר מהתרגיל (obj) נמחק" $(if (Test-Path $cr) { Get-Content $cr -Raw -Encoding utf8 } else { 'אין תוצאה' })
     Check 'pending-gone' (-not (Test-Path $pdir)) "התיקייה $(Split-Path $pdir -Leaf) כבר לא קיימת"
 } else { Info "התיקייה של התרגיל נמחקה כבר ב'סיימתי' (שום דבר לא נשאר)" }
+# ------------------------------------------------------------------ 7. בדיקה רחבה: כל 27 השאלות ומקרי קצה (BankVsAll)
+Log "== 7. כל 27 השאלות: יצירה, פתרון, MSBuild של Visual Studio, הרצה; ואז 'סיימתי' על כולן ומקרי קצה"
+$all = Join-Path $Out 'all'
+New-Item -ItemType Directory -Force $all | Out-Null
+function RunAll([string]$mode) {
+    $o = Join-Path $all "$mode.out.txt"; $e = Join-Path $all "$mode.err.txt"
+    $p = Start-Process $java -ArgumentList "-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -cp `"$cp`" il.lamerhav.dsviz.BankVsAll $mode `"$csDir`" `"$all`"" -PassThru -NoNewWindow -RedirectStandardOutput $o -RedirectStandardError $e
+    $null = $p.Handle
+    $p.WaitForExit(1800000) | Out-Null
+    $r = Join-Path $all "bank-all-$mode.txt"
+    if (Test-Path $r) { foreach ($l in (Get-Content $r -Encoding utf8)) { if ($l -like '  FAIL*') { $script:fails++ }; if ($l -notlike 'SUMMARY*') { $script:lines.Add($l); Write-Host $l } } }
+    else { Fail "all-$mode" "אין תוצאות: $(Get-Content $e -Raw -Encoding utf8)" }
+}
+RunAll 'create'
+$listF = Join-Path $all 'all-projects.txt'
+if (Test-Path $listF) {
+    $b = & $msbuild $sln /restore /m /nologo /v:m /p:Configuration=Debug 2>&1
+    $b | Set-Content (Join-Path $Out 'build-all-27.txt') -Encoding utf8
+    Check 'all-msbuild' ($LASTEXITCODE -eq 0) "MSBuild של Visual Studio בנה את כל הפתרון עם 27 התרגילים (פתורים)" (($b | Select-Object -Last 8) -join ' | ')
+    $okRuns = 0; $bad = @()
+    foreach ($line in (Get-Content $listF -Encoding utf8)) {
+        if (-not $line.Trim()) { continue }
+        $parts = $line.Split('|'); $pdir = $parts[1]; $pname = Split-Path $pdir -Leaf
+        $exe = Get-ChildItem (Join-Path $pdir 'bin\Debug') -Recurse -Filter "$pname.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        $exp = (Get-Content $parts[2] -Raw -Encoding utf8).Replace("`r", '').Trim()
+        $act = if ($exe) { ((& $exe.FullName) -join "`n").Replace("`r", '').Trim() } else { '<אין exe>' }
+        if ($act -eq $exp) { $okRuns++ } else { $bad += "$($parts[0]): $act" }
+    }
+    Check 'all-exe' ($okRuns -eq 27) "כל 27 התרגילים (בנייה של Visual Studio, הרצה רגילה) מדפיסים בדיוק את הפלט הרצוי ($okRuns/27)" ($bad -join ' ;; ')
+}
+RunAll 'finish'
+$b = & $msbuild $sln /restore /m /nologo /v:m /p:Configuration=Debug 2>&1
+Check 'all-sln-after' ($LASTEXITCODE -eq 0) "אחרי 'סיימתי' על כולם — הפתרון נבנה כמו בהתחלה" (($b | Select-Object -Last 8) -join ' | ')
+
 $ok = @($script:lines | Where-Object { $_ -like '  ok *' }).Count
 Log ""
 Log "SUMMARY $ok ok / $($script:fails) FAIL — $vsName"
