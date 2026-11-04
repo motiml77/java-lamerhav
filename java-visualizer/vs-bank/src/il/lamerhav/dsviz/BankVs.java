@@ -644,17 +644,22 @@ public final class BankVs {
                 + "$d.MainWindow.Activate(); break } catch { Start-Sleep -Milliseconds 1500 } }; if($i -ge 15){ exit 4 }; "
                 // התרגיל = הפרויקט שמריצים (Startup Project): הכפתור "הרצה ויזואלית" בסרגל של Visual Studio מריץ אותו מיד.
                 // שתי דרכים (מאפיין הפתרון StartupProject, ו-StartupProjects), ובודקים שזה נקלט
-                // הפרויקט — לפי השם (התיקייה של הקובץ), במעבר לפי מספר על הפרויקטים של הפתרון
-                + "for($j=0; $j -lt 20; $j++){ try { $pr=$null; $c=$d.Solution.Projects.Count; "
-                + "for($q=1; $q -le $c; $q++){ $x=$d.Solution.Projects.Item($q); if($x.Name -eq $env:DSVIZ_PROJECT -or ([string]$x.UniqueName).EndsWith('\\' + $env:DSVIZ_PROJECT + '.csproj')){ $pr=$x } }; "
-                + "if($pr){ try { $d.Solution.Properties.Item('StartupProject').Value=$pr.Name } catch { Write-Output ('PROP ' + $_) }; "
+                // ב-PowerShell פרויקטי C# של Visual Studio מגיעים בלי שם (Name ריק) — לכן לא מחפשים אותם: קובעים לפי הנתיב של
+                // הפרויקט בפתרון (Exercises\\Ex01_Stacks\\Ex01_Stacks.csproj — כמו UniqueName), בשתי דרכים, ובודקים שנקלט
+                + "if(-not $env:DSVIZ_REL){ exit 0 }; "
+                + "for($j=0; $j -lt 20; $j++){ try { "
+                + "try { $d.Solution.SolutionBuild.StartupProjects=$env:DSVIZ_REL } catch { Write-Output ('SB1 ' + $_) }; "
                 + "$now=(@($d.Solution.SolutionBuild.StartupProjects) -join ','); "
-                + "if($now -notlike ('*' + $pr.Name + '*')){ try { $d.Solution.SolutionBuild.StartupProjects=$pr.UniqueName } catch { Write-Output ('SB1 ' + $_) }; $now=(@($d.Solution.SolutionBuild.StartupProjects) -join ',') }; "
-                + "if($now -notlike ('*' + $pr.Name + '*')){ try { $d.Solution.SolutionBuild.StartupProjects=[object[]]@($pr.UniqueName) } catch { Write-Output ('SB2 ' + $_) }; $now=(@($d.Solution.SolutionBuild.StartupProjects) -join ',') }; "
-                + "Write-Output ('STARTUP ' + $pr.UniqueName + ' -> ' + $now); if($now -like ('*' + $pr.Name + '*')){ exit 0 } } "
-                + "else { Write-Output ('NO-PROJECT ' + $env:DSVIZ_PROJECT + ' of ' + $c) } } catch { Write-Output ('FIND ' + $_) }; Start-Sleep -Milliseconds 1500 }; exit 0";
+                + "if($now -notlike ('*' + $env:DSVIZ_PROJECT + '*')){ try { $d.Solution.Properties.Item('StartupProject').Value=$env:DSVIZ_PROJECT } catch { Write-Output ('PROP ' + $_) }; $now=(@($d.Solution.SolutionBuild.StartupProjects) -join ',') }; "
+                + "if($now -notlike ('*' + $env:DSVIZ_PROJECT + '*')){ try { $d.Solution.SolutionBuild.StartupProjects=[object[]]@($env:DSVIZ_REL) } catch { Write-Output ('SB2 ' + $_) }; $now=(@($d.Solution.SolutionBuild.StartupProjects) -join ',') }; "
+                + "Write-Output ('STARTUP ' + $env:DSVIZ_REL + ' -> ' + $now); if($now -like ('*' + $env:DSVIZ_PROJECT + '*')){ exit 0 } "
+                + "} catch { Write-Output ('START ' + $_) }; Start-Sleep -Milliseconds 1500 }; exit 0";
         File dir = f.getAbsoluteFile().getParentFile();
-        int code = powershell(ps, 75, "DSVIZ_FILE", f.getAbsolutePath(), "DSVIZ_LINE", String.valueOf(line), "DSVIZ_PROJECT", dir == null ? "" : dir.getName());
+        String rel = "";
+        Path sln = root == null ? null : CsSolution.solution(root);
+        if (dir != null && sln != null && new File(dir, dir.getName() + ".csproj").isFile())
+            rel = slnRelative(sln, new File(dir, dir.getName() + ".csproj").toPath());
+        int code = powershell(ps, 75, "DSVIZ_FILE", f.getAbsolutePath(), "DSVIZ_LINE", String.valueOf(line), "DSVIZ_PROJECT", dir == null ? "" : dir.getName(), "DSVIZ_REL", rel);
         opened.add("DTE " + code);
         return code == 0;
     }
@@ -685,17 +690,20 @@ public final class BankVs {
                 + "if(-not $d.Solution.IsOpen){ Write-Output 'NOT-OPEN'; exit 5 }; "
                 + "if([IO.Path]::GetFullPath($d.Solution.FullName) -ne $sln){ Write-Output ('OTHER ' + $d.Solution.FullName); exit 5 }; "
                 + "if($env:DSVIZ_ACTION -eq 'add'){ $null=$d.Solution.AddFromFile($env:DSVIZ_ARG, $false) } "
-                // הפרויקטים לפי מספר (Item(1..Count)) — מעבר עם foreach על האוסף של Visual Studio ב-PowerShell לא מוצא אותם
-                + "else { $found=@(); $c=$d.Solution.Projects.Count; for($q=1; $q -le $c; $q++){ $x=$d.Solution.Projects.Item($q); Write-Output ('PROJ ' + $x.Name + ' | ' + $x.UniqueName); "
-                + "if($x.Name -eq $env:DSVIZ_NAME -or ([string]$x.UniqueName).EndsWith('\\' + $env:DSVIZ_NAME + '.csproj')){ $found += $x } }; "
-                + "foreach($x in $found){ $d.Solution.Remove($x) }; Write-Output ('REMOVED ' + $found.Count) }; "
+                // הפרויקט לפי הנתיב שלו בפתרון — Solution.Item(נתיב) (ב-PowerShell לפרויקטי C# אין Name); ואם לא — UniqueName דרך IDispatch
+                + "else { $n=0; try { $x=$d.Solution.Item($env:DSVIZ_REL); if($x){ $d.Solution.Remove($x); $n++ } } catch { Write-Output ('ITEM ' + $_) }; "
+                + "if($n -eq 0){ $c=$d.Solution.Projects.Count; for($q=1; $q -le $c; $q++){ $x=$d.Solution.Projects.Item($q); $un=''; "
+                + "try { $un=[string][System.__ComObject].InvokeMember('UniqueName', [Reflection.BindingFlags]::GetProperty, $null, $x, $null) } catch {}; "
+                + "Write-Output ('PROJ ' + $un); if($un -eq $env:DSVIZ_REL){ $d.Solution.Remove($x); $n++ } } }; "
+                + "Write-Output ('REMOVED ' + $n) }; "
                 + "break } catch { Write-Output ('RETRY ' + $_); Start-Sleep -Milliseconds 1500 } }; if($i -ge 20){ exit 4 }; "
                 + "for($k=0; $k -lt 10; $k++){ try { $d.Solution.SaveAs($d.Solution.FullName) } catch { Write-Output ('SAVE ' + $_) }; Start-Sleep -Milliseconds 700; "
                 + "$has=([IO.File]::ReadAllText($sln)).Contains($env:DSVIZ_WANT); "
                 + "if(($env:DSVIZ_ACTION -eq 'add') -eq $has){ Write-Output ('OK ' + $env:DSVIZ_ACTION + ' ' + $env:DSVIZ_NAME); exit 0 }; Start-Sleep -Milliseconds 800 }; "
                 + "Write-Output ('NOT-SAVED ' + $env:DSVIZ_ACTION); exit 6";
+        Path csproj = action.equals("add") ? Paths.get(arg) : CsSolution.exercisesDir(root).resolve(name).resolve(name + ".csproj");
         int code = powershell(ps, 70, "DSVIZ_ACTION", action, "DSVIZ_SLN", sln.toAbsolutePath().toString(), "DSVIZ_ARG", arg,
-                "DSVIZ_NAME", name, "DSVIZ_WANT", "\"" + name + "\"");
+                "DSVIZ_NAME", name, "DSVIZ_WANT", "\"" + name + "\"", "DSVIZ_REL", slnRelative(sln, csproj));
         opened.add("VS-" + action.toUpperCase(java.util.Locale.ROOT) + " " + code);
         return code == 0;
     }
@@ -723,6 +731,15 @@ public final class BankVs {
             return p.exitValue();
         } catch (Exception e) {
             return -1;
+        }
+    }
+
+    /** הנתיב של הפרויקט ביחס לתיקיית הפתרון, עם \\ — כמו ש-Visual Studio מזהה אותו (UniqueName / StartupProjects) */
+    static String slnRelative(Path sln, Path csproj) {
+        try {
+            return sln.toAbsolutePath().getParent().relativize(csproj.toAbsolutePath()).toString().replace('/', '\\');
+        } catch (IllegalArgumentException e) {
+            return csproj.toString();
         }
     }
 
