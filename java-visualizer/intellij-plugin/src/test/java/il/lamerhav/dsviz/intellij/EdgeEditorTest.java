@@ -597,6 +597,107 @@ public class EdgeEditorTest extends LightJavaCodeInsightFixtureTestCase {
         assertTrue(new File(dir, "lib/dsviz.jar").isFile());
     }
 
+    // ------------------------------------------------------------------ הרצה ויזואלית מלאה (VisualRunner.run) — עם ובלי הספרייה בקוד
+
+    private final List<com.intellij.openapi.compiler.CompileStatusNotification> compiles = new java.util.ArrayList<com.intellij.openapi.compiler.CompileStatusNotification>();
+
+    /** מחליף את הקומפילציה האמיתית: סופרים כמה פעמים ביקשו לקמפל (0 = ההרצה נעצרה לפני) */
+    private VisualRunner.Compiler stubCompiler() {
+        VisualRunner.Compiler real = VisualRunner.compiler;
+        compiles.clear();
+        VisualRunner.compiler = (project, module, done) -> compiles.add(done);
+        VisualRunner.end(getProject());
+        return real;
+    }
+
+    private static String read(File f) throws Exception {
+        return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+    }
+
+    private com.intellij.psi.PsiClass findClass(String fqn) {
+        return com.intellij.openapi.application.ReadAction.compute(() ->
+                com.intellij.psi.JavaPsiFacade.getInstance(getProject()).findClass(fqn, com.intellij.psi.search.GlobalSearchScope.projectScope(getProject())));
+    }
+
+    /** פרויקט Maven / Gradle שהקוד שלו לא נוגע בספרייה (קוד רגיל): "הרצה ויזואלית" מקמפלת ומריצה, ולא נוגעת בקובץ ההגדרות */
+    private void plainBuildProjectRunsAsIs(String buildFileName, String buildFile) throws Exception {
+        File dir = externalProject(buildFileName, buildFile);
+        File main = new File(dir, "src/main/java/app/Main.java");
+        Files.write(main.toPath(), "package app;\npublic class Main {\n    public static void main(String[] a) {\n        int sum = 0;\n        for (int i = 1; i <= 3; i++) sum += i;\n        System.out.println(sum);\n    }\n}\n".getBytes(StandardCharsets.UTF_8));
+        com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshIoFiles(java.util.Collections.singleton(main));
+        com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+        VisualRunner.Compiler real = stubCompiler();
+        try {
+            assertFalse("הקוד לא משתמש בספרייה", LibrarySetup.needsBuildFile(getModule()));
+            com.intellij.psi.PsiClass cls = findClass("app.Main");
+            assertNotNull(cls);
+            VisualRunner.run(getProject(), cls);
+            assertEquals("מקמפלים ומריצים כרגיל", 1, compiles.size());
+            assertTrue("בלי הודעה לתלמיד: " + seen.notices.size(), seen.notices.isEmpty());
+            assertEquals("קובץ ההגדרות כמו שהיה", buildFile, read(new File(dir, buildFileName)));
+            assertFalse("ולא נוצרה תיקיית lib בפרויקט", new File(dir, "lib").exists());
+            assertEquals("ההרצה הוויזואלית עצמה (LineByLine) מגיעה מהתוסף ולא מהפרויקט", Dsviz.libraryJar().getAbsolutePath(), VisualRunner.classpath(getModule()).get(0));
+        } finally {
+            VisualRunner.compiler = real;
+            VisualRunner.end(getProject());
+        }
+    }
+
+    public void testMavenProjectWithoutTheLibraryRunsAsIs() throws Exception {
+        plainBuildProjectRunsAsIs("pom.xml", "<project>\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>g</groupId>\n    <artifactId>a</artifactId>\n    <version>1</version>\n</project>\n");
+    }
+
+    public void testGradleGroovyProjectWithoutTheLibraryRunsAsIs() throws Exception {
+        plainBuildProjectRunsAsIs("build.gradle", "plugins {\n    id 'java'\n}\n\ndependencies {\n}\n");
+    }
+
+    public void testGradleKotlinProjectWithoutTheLibraryRunsAsIs() throws Exception {
+        plainBuildProjectRunsAsIs("build.gradle.kts", "plugins {\n    java\n}\n\ndependencies {\n}\n");
+    }
+
+    public void testModuleInfoProjectWithoutTheLibraryRunsAsIs() throws Exception {
+        PsiFile mi = myFixture.addFileToProject("module-info.java", "module student.app {\n}\n");
+        myFixture.addFileToProject("app/Plain.java", "package app;\npublic class Plain { public static void main(String[] a) { int x = 2; System.out.println(x * 3); } }");
+        com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+        VisualRunner.Compiler real = stubCompiler();
+        try {
+            VisualRunner.run(getProject(), findClass("app.Plain"));
+            assertEquals("מקמפלים ומריצים כרגיל", 1, compiles.size());
+            assertTrue("בלי הודעה לתלמיד", seen.notices.isEmpty());
+            assertEquals("module-info.java לא השתנה", "module student.app {\n}\n",
+                    com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(mi.getVirtualFile()).getText());
+            assertFalse("ולא נוספה ספרייה (הקוד לא צריך אותה)", LibrarySetup.hasLibrary(getModule()));
+        } finally {
+            VisualRunner.compiler = real;
+            VisualRunner.end(getProject());
+        }
+    }
+
+    /** ההפך: פרויקט Maven שהקוד שלו משתמש בספרייה — ההרצה נעצרת אחרי שנכתבה התלות, עם הסבר, ובלחיצה הבאה (אחרי הטעינה) מקמפלת */
+    public void testMavenProjectWithTheLibraryInCodeWritesThePomAndWaits() throws Exception {
+        File dir = externalProject("pom.xml", "<project>\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>g</groupId>\n    <artifactId>a</artifactId>\n    <version>1</version>\n</project>\n");
+        VisualRunner.Compiler real = stubCompiler();
+        try {
+            VisualRunner.run(getProject(), findClass("app.Main"));
+            assertEquals("עוד לא מקמפלים — מחכים לטעינה מחדש", 0, compiles.size());
+            Notice.Spec n = seen.last();
+            assertEquals("הוספנו את ספריית הקורס ל-pom.xml", n.heading);
+            EdgeSupport.assertStudentNotice(n);
+            assertTrue(read(new File(dir, "pom.xml")).contains("<artifactId>dsviz</artifactId>"));
+            assertTrue(new File(dir, "lib/dsviz.jar").isFile());
+            // אחרי שהטעינה נגמרה (הספרייה מוכרת) — לחיצה נוספת מקמפלת
+            LibrarySetup.add(getModule());
+            com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(getProject());
+            seen.clear();
+            VisualRunner.run(getProject(), findClass("app.Main"));
+            assertEquals(1, compiles.size());
+            assertTrue(seen.notices.isEmpty());
+        } finally {
+            VisualRunner.compiler = real;
+            VisualRunner.end(getProject());
+        }
+    }
+
     public void testExternalModuleThatDoesNotUseTheLibraryIsUntouched() throws Exception {
         File dir = externalProject("pom.xml", "<project></project>");
         Files.write(new File(dir, "src/main/java/app/Main.java").toPath(), "package app;\npublic class Main { }".getBytes(java.nio.charset.StandardCharsets.UTF_8));
