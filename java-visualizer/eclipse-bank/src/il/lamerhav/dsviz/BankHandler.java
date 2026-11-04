@@ -54,7 +54,7 @@ public class BankHandler extends AbstractHandler {
             }
             SubmitHandler.open(page, b);
             Toast.created(page, b);
-            BankView.show(page, q.id);
+            BankFloat.show(page, q.id);
         } catch (CoreException e) {
             Ui.error(shell, "לא הצלחתי ליצור את התרגיל.", e);
         }
@@ -107,10 +107,38 @@ public class BankHandler extends AbstractHandler {
             IEditorPart ed = Ui.openAt(page, focus, answerLine(focus));
             Folding.collapseGiven(ed, focus);
             AnswerHighlight.attach(ed);
-            BankView.show(page, q.id);
+            BankFloat.show(page, q.id);
         } catch (PartInitException e) {
             // הקובץ לא נפתח — נשארים עם מה שכן נפתח
         }
+    }
+
+    /**
+     * "סיימתי" (V ירוק): מסמנים, ומוחקים את קבצי התרגיל שנוצרו מהשאלה (החבילה כולה — ex03_stacks), כדי שהפרויקט לא יתמלא
+     * בתרגילים ישנים. ask — שואלים קודם (מחיקה). מחזיר true אם סומן.
+     */
+    static boolean complete(Shell shell, BankStore.Question q, boolean ask) {
+        List<IResource> folders = new ArrayList<IResource>();
+        StringBuilder names = new StringBuilder();
+        for (BankProgress.Created c : BankProgress.get().createdOf(q.id)) {
+            IResource r = c.folder.isEmpty() ? null : ResourcesPlugin.getWorkspace().getRoot().findMember(new Path(c.folder));
+            if (r != null && r.exists() && !folders.contains(r)) {
+                folders.add(r);
+                names.append(names.length() == 0 ? "" : ", ").append(r.getName());
+            }
+        }
+        if (ask && !folders.isEmpty() && !Say.ask(shell, "סיימתי את התרגיל",
+                "מסמנים V ירוק, וקבצי התרגיל נמחקים מהפרויקט (" + names + ") — כדי שלא יצטברו תרגילים ישנים.\n\n"
+                + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.", "V ומחיקת הקבצים", "ביטול")) return false;
+        BankProgress.get().setDone(q.id, true);
+        for (IResource r : folders) {
+            try {
+                r.delete(true, null);
+            } catch (CoreException e) {
+                // קובץ נעול — נשאר; ה-V נשמר בכל מקרה
+            }
+        }
+        return true;
     }
 
     /** השורה (מ-0) של "כאן עונים" הראשון בקובץ, או 0 */
@@ -163,6 +191,28 @@ public class BankHandler extends AbstractHandler {
 
     public static boolean doneForTest(String id) {
         return BankProgress.get().done(id);
+    }
+
+    /** "סיימתי" בלי לשאול: V + מחיקת הקבצים */
+    public static boolean completeForTest(String id) {
+        BankStore.Question q = BankStore.load().find(id);
+        return q != null && complete(null, q, false);
+    }
+
+    /** החלון הצף "השאלה" (אם פתוח): המעטפת, השאלה, ומה מוצג */
+    public static Shell floatShellForTest() {
+        BankFloat f = BankFloat.current();
+        return f == null ? null : f.shell();
+    }
+
+    public static String floatQuestionForTest() {
+        BankFloat f = BankFloat.current();
+        return f == null ? null : f.question();
+    }
+
+    public static List<String> floatShownForTest() {
+        BankFloat f = BankFloat.current();
+        return f == null ? new ArrayList<String>() : new ArrayList<String>(f.shown);
     }
 
     public static void setDoneForTest(String id, boolean done) {

@@ -23,6 +23,9 @@ import org.eclipse.swt.widgets.Label;
 final class BankQuestionPanel {
     private BankQuestionPanel() {}
 
+    /** ציור רחב מזה — מוצג בגודל קריא עם גלילה הצידה (ולא מוקטן עד שאי אפשר לקרוא) */
+    static final int WIDE_FIGURE = 380;
+
     /** מה אפשר לעשות מכל סעיף (רק בחלון הצד; בחלון המאגר — null) */
     interface Actions {
         void jump(AiScaffold.Task task);
@@ -128,14 +131,37 @@ final class BankQuestionPanel {
             ol.marginHeight = 0;
             ol.verticalSpacing = 2;
             one.setLayout(ol);
-            NestedPreview p = new NestedPreview(one);
-            p.setBackground(Look.color(d, Look.CARD));
-            p.set(f.type, f.inner, f.groups);
-            Point size = p.computeSize(SWT.DEFAULT, SWT.DEFAULT);
-            int w = Math.min(size.x, 300);   // "בקטנה" — ציור רחב מוקטן
-            p.setLayoutData(new GridData(SWT.CENTER, SWT.TOP, false, false, 1, 1));
-            ((GridData) p.getLayoutData()).widthHint = w;
-            ((GridData) p.getLayoutData()).heightHint = p.computeSize(w, SWT.DEFAULT).y;
+            // גודל טבעי של הציור (NestedPreview מקטין לרוחב 330 — מחשבים את הרוחב האמיתי מהיחס בין הגבהים)
+            NestedPreview probe = new NestedPreview(one);
+            probe.set(f.type, f.inner, f.groups);
+            Point small = probe.computeSize(SWT.DEFAULT, SWT.DEFAULT);
+            int fullH = probe.computeSize(20000, SWT.DEFAULT).y, smallH = Math.max(1, small.y);
+            int naturalW = fullH > smallH + 1 ? (int) Math.ceil(small.x * (double) fullH / smallH) : small.x;
+            probe.dispose();
+            NestedPreview p;
+            if (naturalW <= WIDE_FIGURE) {   // נכנס — בגודל המלא שלו
+                p = new NestedPreview(one);
+                p.setBackground(Look.color(d, Look.CARD));
+                p.set(f.type, f.inner, f.groups);
+                GridData pg = new GridData(SWT.CENTER, SWT.TOP, false, false);
+                pg.widthHint = naturalW;
+                pg.heightHint = p.computeSize(naturalW, SWT.DEFAULT).y;
+                p.setLayoutData(pg);
+            } else {   // ארוך (מערך / שרשרת / עץ גדולים) — בגודל קריא, עם גלילה הצידה
+                org.eclipse.swt.custom.ScrolledComposite sc = new org.eclipse.swt.custom.ScrolledComposite(one, SWT.H_SCROLL | SWT.LEFT_TO_RIGHT);
+                sc.setBackground(Look.color(d, Look.CARD));
+                p = new NestedPreview(sc);
+                p.setBackground(Look.color(d, Look.CARD));
+                p.set(f.type, f.inner, f.groups);
+                int h = p.computeSize(naturalW, SWT.DEFAULT).y;
+                p.setSize(naturalW, h);
+                sc.setContent(p);
+                GridData sg = new GridData(SWT.CENTER, SWT.TOP, false, false);
+                sg.widthHint = WIDE_FIGURE;
+                sg.heightHint = h + sc.getHorizontalBar().getSize().y + 4;
+                sc.setLayoutData(sg);
+                if (shown != null) shown.add("FIGURE-SCROLL " + naturalW);
+            }
             if (!f.caption.isEmpty()) {
                 Label cap = new Label(one, SWT.CENTER | SWT.RIGHT_TO_LEFT);
                 cap.setText(caption(f.caption));

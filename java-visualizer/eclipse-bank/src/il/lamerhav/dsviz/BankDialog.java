@@ -37,7 +37,7 @@ public class BankDialog extends Dialog {
     /** מה נבחר: CREATE — ליצור (גם אם כבר נוצר — עותק חדש), OPEN — לפתוח את מה שכבר נוצר */
     enum Action { CREATE, OPEN }
 
-    private static final int SIDEBAR = 330, TOPIC_H = 44, Q_H = 34;
+    private static final int SIDEBAR = 330, TOPIC_H = 40, Q_H = 30;
 
     private final BankStore store;
     private final BankProgress progress;
@@ -70,6 +70,20 @@ public class BankDialog extends Dialog {
     private Composite buttons;
     private final List<Look.Chip> filterChips = new ArrayList<Look.Chip>();
     private final Runnable onProgress = () -> Display.getDefault().asyncExec(this::refreshMarks);
+    /** האייקונים של הנושאים (icons/topics/<id>.png, 64 פיקסלים — מצוירים קטן) */
+    private final java.util.Map<String, org.eclipse.swt.graphics.Image> icons = new java.util.HashMap<String, org.eclipse.swt.graphics.Image>();
+
+    private org.eclipse.swt.graphics.Image icon(String topic) {
+        if (icons.containsKey(topic)) return icons.get(topic);
+        org.eclipse.swt.graphics.Image img = null;
+        try (java.io.InputStream in = BankDialog.class.getClassLoader().getResourceAsStream("icons/topics/" + topic + ".png")) {
+            if (in != null) img = new org.eclipse.swt.graphics.Image(Display.getCurrent(), in);
+        } catch (Exception e) {
+            // בלי אייקון
+        }
+        icons.put(topic, img);
+        return img;
+    }
 
     public BankDialog(Shell parent, BankStore store, BankProgress progress, List<IJavaProject> projects, String newProjectName, IProject preferred) {
         super(parent);
@@ -120,7 +134,10 @@ public class BankDialog extends Dialog {
         shell.setBackground(Look.color(shell.getDisplay(), Look.BG));
         shell.setBackgroundMode(SWT.INHERIT_DEFAULT);
         progress.listen(onProgress);
-        shell.addListener(SWT.Dispose, e -> progress.unlisten(onProgress));
+        shell.addListener(SWT.Dispose, e -> {
+            progress.unlisten(onProgress);
+            for (org.eclipse.swt.graphics.Image i : icons.values()) if (i != null) i.dispose();
+        });
     }
 
     @Override
@@ -312,7 +329,11 @@ public class BankDialog extends Dialog {
                     Row r = new Row(tree, false);
                     r.setData(q);
                     r.onClick = () -> choose(q);
-                    r.onMark = () -> progress.setDone(q.id, !progress.done(q.id));
+                    r.onMark = () -> {
+                        if (progress.done(q.id)) progress.setDone(q.id, false);
+                        else BankHandler.complete(getShell(), q, true);   // V — וקבצי התרגיל נמחקים (אחרי אישור)
+                        updateButtons();
+                    };
                     r.setLayoutData(rowData(Q_H));
                     if (q == selected) { r.setSelected(true); selRow = r; }
                     questionRows.add(r);
@@ -556,57 +577,71 @@ public class BankDialog extends Dialog {
                 gc.fillRoundRectangle(0, 2, s.x - 1, s.y - 4, 12, 12);
             }
             // חץ: פתוח ▾ / סגור ◂ (מימין לשמאל — סגור מצביע שמאלה, לכיוון התוכן)
-            int cx = s.x - 14, cy = s.y / 2 - 3;
-            gc.setBackground(Look.color(d, Look.MUTED));
-            if (open) gc.fillPolygon(new int[] { cx - 5, cy - 2, cx + 5, cy - 2, cx, cy + 4 });
-            else gc.fillPolygon(new int[] { cx + 3, cy - 5, cx + 3, cy + 5, cx - 3, cy });
+            int cx = s.x - 12, cy = s.y / 2;
+            gc.setBackground(Look.color(d, Look.INK2));
+            if (open) gc.fillPolygon(new int[] { cx - 4, cy - 2, cx + 4, cy - 2, cx, cy + 3 });
+            else gc.fillPolygon(new int[] { cx + 2, cy - 4, cx + 2, cy + 4, cx - 3, cy });
+            // האייקון של הנושא
+            org.eclipse.swt.graphics.Image img = icon(t.id);
+            int iconX = s.x - 24 - 26;
+            if (img != null) {
+                gc.setInterpolation(SWT.HIGH);
+                org.eclipse.swt.graphics.Rectangle b = img.getBounds();
+                gc.drawImage(img, 0, 0, b.width, b.height, iconX, (s.y - 26) / 2, 26, 26);
+            }
             gc.setFont(Look.font(d, 0, SWT.BOLD));
             String title = RtlText.rtl(t.title);
             Point e = gc.textExtent(title);
             gc.setForeground(Look.color(d, Look.TEXT));
-            gc.drawString(title, s.x - 28 - e.x, s.y / 2 - e.y / 2 - 4, true);
-            // כמה מתוך כמה + פס התקדמות דק מתחת לשם
-            gc.setFont(Look.font(d, -2, SWT.NORMAL));
+            gc.drawString(title, iconX - 8 - e.x, (s.y - e.y) / 2, true);
+            // כמה מתוך כמה, ופס התקדמות קטן לידו (רק כשיש שאלות)
+            gc.setFont(Look.font(d, -2, SWT.BOLD));
             String count = qs.isEmpty() ? "—" : done + "/" + qs.size();
             Point c = gc.textExtent(count);
             boolean all = !qs.isEmpty() && done == qs.size();
-            gc.setForeground(Look.color(d, all ? Look.OK : Look.MUTED));
-            gc.drawString(count, 10, s.y / 2 - c.y / 2 - 4, true);
-            int bw = s.x - 38, bx = 10, by = s.y - 9;
-            gc.setBackground(Look.color(d, 0xE9EDF3));
-            gc.fillRoundRectangle(bx, by, bw, 4, 4, 4);
-            if (done > 0) {
-                gc.setBackground(Look.color(d, Look.OK));
-                int fw = Math.max(4, bw * done / qs.size());
-                gc.fillRoundRectangle(bx + bw - fw, by, fw, 4, 4, 4);
+            gc.setForeground(Look.color(d, all ? Look.OK : Look.INK2));
+            gc.drawString(count, 8, (s.y - c.y) / 2, true);
+            if (!qs.isEmpty()) {
+                int bw = 44, bx = 8 + c.x + 8, by = s.y / 2 - 2;
+                gc.setBackground(Look.color(d, 0xDDE2EA));
+                gc.fillRoundRectangle(bx, by, bw, 5, 5, 5);
+                if (done > 0) {
+                    gc.setBackground(Look.color(d, Look.OK));
+                    int fw = Math.max(5, bw * done / qs.size());
+                    gc.fillRoundRectangle(bx + bw - fw, by, fw, 5, 5, 5);
+                }
             }
         }
 
         private void paintQuestion(GC gc, Display d, Point s) {
             BankStore.Question q = (BankStore.Question) getData();
             boolean done = progress.done(q.id);
+            int indent = 40;   // מוזח פנימה (שמאלה) מתחת לשם הנושא
             if (selectedRow || hover) {
-                gc.setBackground(Look.color(d, selectedRow ? Look.ACCENT_SOFT : Look.SURFACE));
-                gc.fillRoundRectangle(0, 1, s.x - 1, s.y - 2, 10, 10);
+                gc.setBackground(Look.color(d, selectedRow ? Look.ACCENT_SOFT : 0xF4F6F9));
+                gc.fillRoundRectangle(0, 2, s.x - indent + 6, s.y - 4, 8, 8);
             }
-            if (selectedRow) {   // פס כחול בקצה הימני — כמו פריט נבחר ברשימת שאלות
+            if (selectedRow) {   // פס כחול דק בקצה הימני של השורה
                 gc.setBackground(Look.color(d, Look.ACCENT));
-                gc.fillRoundRectangle(s.x - 4, 5, 3, s.y - 10, 3, 3);
+                gc.fillRectangle(s.x - indent + 3, 7, 3, s.y - 14);
             }
-            // נקודת הקושי (מוזחת פנימה מתחת לשם הנושא)
+            // קו העץ: מהנושא אל השאלות
+            gc.setForeground(Look.color(d, 0xDDE2EA));
+            gc.drawLine(s.x - 30, 0, s.x - 30, s.y);
+            // נקודת הקושי
             gc.setBackground(Look.color(d, q.level.color));
-            gc.fillOval(s.x - 32, s.y / 2 - 4, 9, 9);
-            gc.setFont(Look.font(d, -1, selectedRow ? SWT.BOLD : SWT.NORMAL));
+            gc.fillOval(s.x - indent - 12, s.y / 2 - 4, 8, 8);
+            gc.setFont(Look.font(d, -2, selectedRow ? SWT.BOLD : SWT.NORMAL));
             String title = RtlText.rtl(q.title);
             Point e = gc.textExtent(title);
-            int right = s.x - 40, left = 36;
-            gc.setForeground(Look.color(d, done && !selectedRow ? Look.MUTED : Look.TEXT));
+            int right = s.x - indent - 20, left = 32;
+            gc.setForeground(Look.color(d, selectedRow ? Look.ACCENT_DARK : Look.TEXT));
             gc.setClipping(left, 0, Math.max(0, right - left), s.y);
             gc.drawString(title, Math.max(left, right - e.x), (s.y - e.y) / 2, true);
             gc.setClipping((org.eclipse.swt.graphics.Rectangle) null);
             if (e.x > right - left) setToolTipText(q.title);
             // עיגול ה-V
-            int cx = 18, cy = s.y / 2, r = 9;
+            int cx = 16, cy = s.y / 2, r = 8;
             if (done) {
                 gc.setBackground(Look.color(d, Look.OK));
                 gc.fillOval(cx - r, cy - r, 2 * r, 2 * r);
@@ -616,7 +651,7 @@ public class BankDialog extends Dialog {
                 gc.drawPolyline(new int[] { cx - 4, cy, cx - 1, cy + 3, cx + 4, cy - 3 });
                 gc.setLineWidth(1);
             } else {
-                gc.setForeground(Look.color(d, hover ? 0x9AA3B2 : 0xD0D5DD));
+                gc.setForeground(Look.color(d, hover ? 0x8C95A5 : 0xB9C1CE));
                 gc.setLineWidth(2);
                 gc.drawOval(cx - r, cy - r, 2 * r, 2 * r);
                 gc.setLineWidth(1);

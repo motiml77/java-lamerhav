@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- מאגר תרגילים — אייקון הנושא "arrays" (המקור; ה-PNG נוצר ב-tools/make-topic-icons.js) -->
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11" fill="#E8F0FE"/>
+  <g fill="#fff" stroke="#2F6FED" stroke-width="2.4"><rect x="6" y="15" width="9" height="12" rx="1.5"/><rect x="15" y="15" width="9" height="12" rx="1.5"/><rect x="24" y="15" width="9" height="12" rx="1.5"/><rect x="33" y="15" width="9" height="12" rx="1.5"/></g><rect x="24" y="15" width="9" height="12" rx="1.5" fill="#2F6FED" opacity=".85"/><g fill="#2F6FED" font-family="Arial" font-size="6.5" font-weight="700" text-anchor="middle"><text x="10.5" y="35">0</text><text x="19.5" y="35">1</text><text x="28.5" y="35">2</text><text x="37.5" y="35">3</text></g>
+</svg>

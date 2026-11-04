@@ -30,7 +30,6 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
-import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.application.WorkbenchAdvisor;
@@ -183,50 +182,56 @@ public class BankIt implements IApplication {
         }
         out.println("MAIN " + main);
 
-        // 5. "פתח את התרגיל" + חלון הצד
+        // 5. "פתח את התרגיל" + החלון הצף "השאלה"
         ui(() -> { handler.getMethod("openExistingForTest", IWorkbenchPage.class, String.class).invoke(null, page(), STACK); return null; });
         sleep(1500);
         out.println("ACTIVE-EDITOR " + ui(() -> page().getActiveEditor() == null ? "none" : page().getActiveEditor().getEditorInput().getName()));
-        out.println("VIEW " + ui(() -> view("questionForTest")));
-        out.println("VIEW-WIDTH " + ui(() -> {
-            IViewPart v = page().findView("il.lamerhav.dsviz.bankView");
-            return v == null ? -1 : ((Control) field(v, "scroll")).getSize().x;
-        }));
-        out.println("LEFT-WIDTH " + ui(() -> {
-            IViewPart v = page().findView("org.eclipse.jdt.ui.PackageExplorer");
-            if (v == null) return -1;
-            Control c = (Control) v.getSite().getService(Control.class);
-            org.eclipse.swt.widgets.Composite x = null;
-            for (Control k : all(page().getWorkbenchWindow().getShell())) if (k instanceof org.eclipse.swt.custom.CTabFolder) {
-                for (org.eclipse.swt.custom.CTabItem it : ((org.eclipse.swt.custom.CTabFolder) k).getItems()) if (it.getText().startsWith("Package")) return k.getSize().x;
-            }
-            return -2;
-        }));
-        for (Object s : (List<?>) ui(() -> view("shownForTest"))) out.println("VIEW-SHOWN " + s);
-        shotWindow("bank-view.png");
-        handler.getMethod("setDoneForTest", String.class, boolean.class).invoke(null, STACK, true);
+        Shell fl = ui(() -> (Shell) handler.getMethod("floatShellForTest").invoke(null));
+        out.println("FLOAT open=" + (fl != null) + " question=" + handler.getMethod("floatQuestionForTest").invoke(null)
+                + (fl == null ? "" : " rtl=" + ui(() -> fl.getOrientation() == SWT.RIGHT_TO_LEFT) + " title=" + ui(() -> fl.getText())));
+        for (Object s : (List<?>) handler.getMethod("floatShownForTest").invoke(null)) out.println("FLOAT-SHOWN " + s);
+        shot(fl, "bank-float.png");
+        shotWindow("bank-float-workbench.png");
+        // סוגרים ופותחים שוב בכפתור "השאלה" (הפקודה) — עם השאלה של הקובץ שבעורך
+        ui(() -> { fl.close(); return null; });
+        sleep(400);
+        ui(() -> {
+            PlatformUI.getWorkbench().getService(org.eclipse.ui.handlers.IHandlerService.class).executeCommand("il.lamerhav.dsviz.bankQuestion", null);
+            return null;
+        });
         sleep(800);
-        out.println("VIEW-AFTER-DONE " + ui(() -> view("shownForTest")).toString().contains("DONE true"));
-        shotWindow("bank-view-done.png");
+        out.println("FLOAT-REOPEN question=" + handler.getMethod("floatQuestionForTest").invoke(null));
 
-        // 6. החלון שוב: השאלה כבר נוצרה — "פתח את התרגיל"
+        // 6. "סיימתי": V, וקבצי התרגיל נמחקים
+        out.println("COMPLETE " + handler.getMethod("completeForTest", String.class).invoke(null, STACK));
+        sleep(800);
+        out.println("AFTER-COMPLETE done=" + handler.getMethod("doneForTest", String.class).invoke(null, STACK) + " files-left="
+                + ui(() -> {
+                    int n = 0;
+                    for (String f : files) if (!f.startsWith("ERROR") && ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(f)).exists()) n++;
+                    return n;
+                }) + " folder-left=" + ui(() -> ResourcesPlugin.getWorkspace().getRoot().getFolder(new Path("/Students/src/ex01_stacks")).exists()));
+        out.println("FLOAT-AFTER-DONE " + handler.getMethod("floatShownForTest").invoke(null).toString().contains("DONE true"));
+        Shell fl2 = ui(() -> (Shell) handler.getMethod("floatShellForTest").invoke(null));
+        shot(fl2, "bank-float-done.png");
+        if (fl2 != null) ui(() -> { fl2.close(); return null; });
+
+        // 7. החלון שוב: התרגיל נמחק — "צור תרגיל" מחדש, ו-V בעץ
         Shell dlg2 = ui(() -> (Shell) handler.getMethod("openDialogForTest", Shell.class, String.class, String.class)
                 .invoke(null, page().getWorkbenchWindow().getShell(), "stack", STACK));
         sleep(1000);
         out.println("DIALOG2-BUTTONS " + ui(() -> buttons(dlg2)));
-        out.println("DIALOG2-LABELS " + ui(() -> labels(dlg2)));
+        out.println("DIALOG2-TREE " + ui(() -> tree(dlg2)));
         shot(dlg2, "bank-dialog-existing.png");
+        ui(() -> { select(dlg2, "list", "sample-list-greater"); return null; });
+        sleep(800);
+        out.println("PREVIEW-LONG " + ui(() -> preview(dlg2)));
+        shot(dlg2, "bank-dialog-long.png");
         ui(() -> { dlg2.close(); return null; });
         out.println("PROGRESS-FILE " + new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("dsviz.bankProgress")).toPath()), StandardCharsets.UTF_8).length());
     }
 
     // ------------------------------------------------------------------ עזרים
-
-    private Object view(String method) throws Exception {
-        IViewPart v = page().findView("il.lamerhav.dsviz.bankView");
-        if (v == null) return "no-view";
-        return v.getClass().getMethod(method).invoke(v);
-    }
 
     private static void select(Shell dlg, String topic, String q) throws Exception {
         Object d = dlg.getData();
