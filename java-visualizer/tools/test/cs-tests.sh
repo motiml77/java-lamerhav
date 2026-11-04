@@ -124,6 +124,14 @@ for want in 'this=d1 ב-הבנאי Dog() {name=null, age=0} this.name=שינוי
     grep -qF -- "$want" "$W/pets.txt" || { echo "אובייקט ב-C#: חסר $want"; grep 'אובייקט' "$W/pets.txt"; exit 1; }
 done
 echo "פעולה בתוך אובייקט ב-C#: $(grep -c 'אובייקט #' "$W/pets.txt") צעדים מסומנים"
+# מחלקה של התלמיד עם ToString משלה (במשתנים, במחסנית, ברשימה, במערך, בערך מוחזר): ההרצה הוויזואלית מגיעה לסוף —
+# בלי Quiet ה-ToString שנקרא בשביל התצוגה נרשם כצעדים, ומכל צעד שוב מציגים את המשתנים, וההרצה נתקעה
+timeout 60 dotnet "$RUNNER" objects/cs/OwnToString.cs --trace "$W/owntostring.trace" > "$W/owntostring.out" 2>&1 || { echo "ToString של התלמיד: ההרצה הוויזואלית נתקעה / נכשלה"; cat "$W/owntostring.out"; exit 1; }
+grep -q 'f=1/2 g=2/2 s=\[2/2,1/2\] o=2/2 2 1/2' "$W/owntostring.out" && grep -q '^STEP	END' "$W/owntostring.trace" \
+    || { echo "ToString של התלמיד: הפלט / הסוף חסרים"; cat "$W/owntostring.out"; exit 1; }
+n=$(grep -c '^STEP' "$W/owntostring.trace")
+[ "$n" -lt 200 ] || { echo "ToString של התלמיד: $n צעדים — ה-ToString של התצוגה נרשם כצעדים"; exit 1; }
+echo "מחלקה עם ToString משלה ב-C#: ההרצה הוויזואלית הגיעה לסוף ($n צעדים)"
 # רשימה מקושרת: לכל מצביע חץ וצבע משלו (כמה מצביעים לאותה חוליה), וחיבור חוליה חדשה לרשימה קיימת (באמצע/בסוף) — כמו ב-Java
 viz lists/cs/LinkNew.cs --trace "$W/linknew.trace" > "$W/linknew.out" 2>&1 || { cat "$W/linknew.out"; exit 1; }
 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/linknew.trace" > "$W/linknew.txt" 2>&1

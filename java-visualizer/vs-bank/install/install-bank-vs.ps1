@@ -28,7 +28,8 @@ foreach ($n in $links.Keys) {
     $final = Join-Path $desk "$n.lnk"
     $s = $ws.CreateShortcut($tmp)
     $s.TargetPath = $javaw
-    $s.Arguments = "-cp `"$(Join-Path $dsviz 'dsviz.jar');$jar`" il.lamerhav.dsviz.BankVs $($links[$n]) `"$csDir`""
+    # התוספת קודם: יש בה גרסה חדשה של חלקים משותפים (CsSolution — Visual Studio פתוח מוסיף את הפרויקט בעצמו), גם על התקנה ישנה
+    $s.Arguments = "-cp `"$jar;$(Join-Path $dsviz 'dsviz.jar')`" il.lamerhav.dsviz.BankVs $($links[$n]) `"$csDir`""
     $s.WorkingDirectory = $dsviz
     $ico = Join-Path $dsviz 'icon.ico'
     if (Test-Path $ico) { $s.IconLocation = $ico }

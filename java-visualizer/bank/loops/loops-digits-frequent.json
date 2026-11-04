@@ -1,0 +1,136 @@
+{
+  "id": "loops-digits-frequent",
+  "topic": "loops",
+  "level": "medium",
+  "title": "ספרות עולות והספרה השכיחה",
+  "question": {
+    "intro": "בשאלה זו n הוא מספר שלם חיובי.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה isIncreasing, המקבלת מספר שלם חיובי n ומחזירה true אם כל ספרה של n גדולה מהספרה שמשמאלה (הספרות עולות ממש, כשקוראים את המספר משמאל לימין), אחרת — false. עבור מספר בן ספרה אחת הפעולה תחזיר true.\nלדוגמה: עבור n = 1359 הפעולה תחזיר true, ועבור n = 1335 — false."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה mostFrequentDigit, המקבלת מספר שלם חיובי n ומחזירה את הספרה שמופיעה בו הכי הרבה פעמים. אם יש כמה ספרות כאלה — הפעולה תחזיר את הקטנה מביניהן.\nלדוגמה: עבור n = 1223423 הפעולה תחזיר 2, ועבור n = 5115 — 1."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "ספרות עולות והספרה השכיחה",
+    "topic": "loops",
+    "mainClass": "Loops5",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops5",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isIncreasing",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "n"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה isIncreasing, המקבלת מספר שלם חיובי n ומחזירה true אם כל ספרה של n גדולה מהספרה שמשמאלה (הספרות עולות ממש, כשקוראים את המספר משמאל לימין), אחרת — false. עבור מספר בן ספרה אחת הפעולה תחזיר true.\nלדוגמה: עבור n = 1359 הפעולה תחזיר true, ועבור n = 1335 — false.",
+        "solution": "public static boolean isIncreasing(int n) {\n    while (n >= 10) {\n        int last = n % 10;\n        int before = n / 10 % 10;\n        if (before >= last) {\n            return false;\n        }\n        n = n / 10;\n    }\n    return true;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops5",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "mostFrequentDigit",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "n"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה mostFrequentDigit, המקבלת מספר שלם חיובי n ומחזירה את הספרה שמופיעה בו הכי הרבה פעמים. אם יש כמה ספרות כאלה — הפעולה תחזיר את הקטנה מביניהן.\nלדוגמה: עבור n = 1223423 הפעולה תחזיר 2, ועבור n = 5115 — 1.",
+        "solution": "public static int mostFrequentDigit(int n) {\n    int best = 0;\n    int bestCount = 0;\n    for (int d = 0; d <= 9; d++) {\n        int count = 0;\n        int m = n;\n        while (m > 0) {\n            if (m % 10 == d) {\n                count++;\n            }\n            m = m / 10;\n        }\n        if (count > bestCount) {\n            bestCount = count;\n            best = d;\n        }\n    }\n    return best;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops5",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1: \" + check(isIncreasing(1359), true));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(isIncreasing(1335), false));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(isIncreasing(7), true));\nSystem.out.println(\"סעיף א, בדיקה 4: \" + check(isIncreasing(321), false));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(mostFrequentDigit(1223423), 2));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(mostFrequentDigit(5115), 1));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(mostFrequentDigit(900), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "בשאלה זו n הוא מספר שלם חיובי.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה IsIncreasing, המקבלת מספר שלם חיובי n ומחזירה true אם כל ספרה של n גדולה מהספרה שמשמאלה (הספרות עולות ממש, כשקוראים את המספר משמאל לימין), אחרת — false. עבור מספר בן ספרה אחת הפעולה תחזיר true.\nלדוגמה: עבור n = 1359 הפעולה תחזיר true, ועבור n = 1335 — false."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה MostFrequentDigit, המקבלת מספר שלם חיובי n ומחזירה את הספרה שמופיעה בו הכי הרבה פעמים. אם יש כמה ספרות כאלה — הפעולה תחזיר את הקטנה מביניהן.\nלדוגמה: עבור n = 1223423 הפעולה תחזיר 2, ועבור n = 5115 — 1."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "ספרות עולות והספרה השכיחה",
+      "topic": "loops",
+      "mainClass": "Loops5",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops5",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsIncreasing",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "n"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה IsIncreasing, המקבלת מספר שלם חיובי n ומחזירה true אם כל ספרה של n גדולה מהספרה שמשמאלה (הספרות עולות ממש, כשקוראים את המספר משמאל לימין), אחרת — false. עבור מספר בן ספרה אחת הפעולה תחזיר true.\nלדוגמה: עבור n = 1359 הפעולה תחזיר true, ועבור n = 1335 — false.",
+          "solution": "public static bool IsIncreasing(int n)\n{\n    while (n >= 10)\n    {\n        int last = n % 10;\n        int before = n / 10 % 10;\n        if (before >= last)\n        {\n            return false;\n        }\n        n = n / 10;\n    }\n    return true;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops5",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "MostFrequentDigit",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "n"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה MostFrequentDigit, המקבלת מספר שלם חיובי n ומחזירה את הספרה שמופיעה בו הכי הרבה פעמים. אם יש כמה ספרות כאלה — הפעולה תחזיר את הקטנה מביניהן.\nלדוגמה: עבור n = 1223423 הפעולה תחזיר 2, ועבור n = 5115 — 1.",
+          "solution": "public static int MostFrequentDigit(int n)\n{\n    int best = 0;\n    int bestCount = 0;\n    for (int d = 0; d <= 9; d++)\n    {\n        int count = 0;\n        int m = n;\n        while (m > 0)\n        {\n            if (m % 10 == d)\n            {\n                count++;\n            }\n            m = m / 10;\n        }\n        if (count > bestCount)\n        {\n            bestCount = count;\n            best = d;\n        }\n    }\n    return best;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops5",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1: \" + Check(IsIncreasing(1359), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(IsIncreasing(1335), false));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(IsIncreasing(7), true));\nConsole.WriteLine(\"סעיף א, בדיקה 4: \" + Check(IsIncreasing(321), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(MostFrequentDigit(1223423), 2));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(MostFrequentDigit(5115), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(MostFrequentDigit(900), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

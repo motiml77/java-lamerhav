@@ -1,0 +1,160 @@
+{
+  "id": "queue-last-min",
+  "topic": "queue",
+  "level": "medium",
+  "title": "סידור מחדש של תור",
+  "question": {
+    "intro": "נתון תור q לא ריק של מספרים שלמים.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה lastToFront, המקבלת תור q ומעבירה את האיבר האחרון בתור לראש התור. הסדר של שאר האיברים לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור התור שבציור, בסיום הפעולה התור יהיה (מהראש לסוף) 9, 4, 6, 3.",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              4,
+              6,
+              3,
+              9
+            ],
+            "caption": "התור q (4 בראש)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה removeMin, המקבלת תור q, מוציאה ממנו את האיבר הקטן ביותר ומחזירה אותו. אם הערך הקטן ביותר מופיע כמה פעמים — מוציאים רק את המופע הראשון שלו. הסדר של שאר האיברים לא ישתנה.\nלדוגמה: עבור התור 9, 4, 6, 3, 7 (9 בראש) הפעולה תחזיר 3, והתור יהיה 9, 4, 6, 7."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "סידור מחדש של תור",
+    "topic": "queues",
+    "mainClass": "QueueTargil6",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "QueueTargil6",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "lastToFront",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה lastToFront, המקבלת תור q ומעבירה את האיבר האחרון בתור לראש התור. הסדר של שאר האיברים לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור התור שבציור, בסיום הפעולה התור יהיה (מהראש לסוף) 9, 4, 6, 3.",
+        "solution": "public static void lastToFront(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int last = 0;\n    while (!q.isEmpty()) {\n        last = q.remove();\n        if (!q.isEmpty()) {\n            temp.insert(last);\n        }\n    }\n    q.insert(last);\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "QueueTargil6",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "removeMin",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה removeMin, המקבלת תור q, מוציאה ממנו את האיבר הקטן ביותר ומחזירה אותו. אם הערך הקטן ביותר מופיע כמה פעמים — מוציאים רק את המופע הראשון שלו. הסדר של שאר האיברים לא ישתנה.\nלדוגמה: עבור התור 9, 4, 6, 3, 7 (9 בראש) הפעולה תחזיר 3, והתור יהיה 9, 4, 6, 7.",
+        "solution": "public static int removeMin(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int min = q.head();\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        if (x < min) {\n            min = x;\n        }\n        temp.insert(x);\n    }\n    boolean removed = false;\n    while (!temp.isEmpty()) {\n        int x = temp.remove();\n        if (x == min && !removed) {\n            removed = true;\n        } else {\n            q.insert(x);\n        }\n    }\n    return min;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "QueueTargil6",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Queue<Integer> q = new Queue<Integer>();\nq.insert(4);\nq.insert(6);\nq.insert(3);\nq.insert(9);\nlastToFront(q);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(q, \"[9,4,6,3]\"));\nQueue<Integer> one = new Queue<Integer>();\none.insert(5);\nlastToFront(one);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(one, \"[5]\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(removeMin(q), 3));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(q, \"[9,4,6]\"));\nQueue<Integer> p = new Queue<Integer>();\np.insert(2);\np.insert(7);\np.insert(2);\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(removeMin(p), 2));\nSystem.out.println(\"סעיף ב, בדיקה 4: \" + check(p, \"[7,2]\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון תור q לא ריק של מספרים שלמים.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה LastToFront, המקבלת תור q ומעבירה את האיבר האחרון בתור לראש התור. הסדר של שאר האיברים לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור התור שבציור, בסיום הפעולה התור יהיה (מהראש לסוף) 9, 4, 6, 3.",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                4,
+                6,
+                3,
+                9
+              ],
+              "caption": "התור q (4 בראש)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה RemoveMin, המקבלת תור q, מוציאה ממנו את האיבר הקטן ביותר ומחזירה אותו. אם הערך הקטן ביותר מופיע כמה פעמים — מוציאים רק את המופע הראשון שלו. הסדר של שאר האיברים לא ישתנה.\nלדוגמה: עבור התור 9, 4, 6, 3, 7 (9 בראש) הפעולה תחזיר 3, והתור יהיה 9, 4, 6, 7."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "סידור מחדש של תור",
+      "topic": "queues",
+      "mainClass": "QueueTargil6",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "QueueTargil6",
+          "isStatic": true,
+          "returnType": "void",
+          "methodName": "LastToFront",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה LastToFront, המקבלת תור q ומעבירה את האיבר האחרון בתור לראש התור. הסדר של שאר האיברים לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור התור שבציור, בסיום הפעולה התור יהיה (מהראש לסוף) 9, 4, 6, 3.",
+          "solution": "public static void LastToFront(Queue<int> q)\n{\n    Queue<int> temp = new Queue<int>();\n    int last = 0;\n    while (!q.IsEmpty())\n    {\n        last = q.Remove();\n        if (!q.IsEmpty())\n        {\n            temp.Insert(last);\n        }\n    }\n    q.Insert(last);\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "QueueTargil6",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "RemoveMin",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה RemoveMin, המקבלת תור q, מוציאה ממנו את האיבר הקטן ביותר ומחזירה אותו. אם הערך הקטן ביותר מופיע כמה פעמים — מוציאים רק את המופע הראשון שלו. הסדר של שאר האיברים לא ישתנה.\nלדוגמה: עבור התור 9, 4, 6, 3, 7 (9 בראש) הפעולה תחזיר 3, והתור יהיה 9, 4, 6, 7.",
+          "solution": "public static int RemoveMin(Queue<int> q)\n{\n    Queue<int> temp = new Queue<int>();\n    int min = q.Head();\n    while (!q.IsEmpty())\n    {\n        int x = q.Remove();\n        if (x < min)\n        {\n            min = x;\n        }\n        temp.Insert(x);\n    }\n    bool removed = false;\n    while (!temp.IsEmpty())\n    {\n        int x = temp.Remove();\n        if (x == min && !removed)\n        {\n            removed = true;\n        }\n        else\n        {\n            q.Insert(x);\n        }\n    }\n    return min;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "QueueTargil6",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Queue<int> q = new Queue<int>();\nq.Insert(4);\nq.Insert(6);\nq.Insert(3);\nq.Insert(9);\nLastToFront(q);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(q, \"[9,4,6,3]\"));\nQueue<int> one = new Queue<int>();\none.Insert(5);\nLastToFront(one);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(one, \"[5]\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(RemoveMin(q), 3));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(q, \"[9,4,6]\"));\nQueue<int> p = new Queue<int>();\np.Insert(2);\np.Insert(7);\np.Insert(2);\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(RemoveMin(p), 2));\nConsole.WriteLine(\"סעיף ב, בדיקה 4: \" + Check(p, \"[7,2]\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+    }
+  }
+}

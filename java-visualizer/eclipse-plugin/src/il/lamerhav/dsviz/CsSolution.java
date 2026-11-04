@@ -95,9 +95,16 @@ public final class CsSolution {
         for (java.util.Map.Entry<String, String> f : files.entrySet())
             Files.write(dir.resolve(f.getKey()), ("\uFEFF" + f.getValue()).getBytes(StandardCharsets.UTF_8));   // עם BOM — כמו קבצים ש-Visual Studio יוצר
         Path sln = solution(root);
-        if (sln != null) register(sln, name, "Exercises\\" + name + "\\" + name + ".csproj");
+        if (sln != null && (openIde == null || !openIde.test(sln, dir.resolve(name + ".csproj"))))
+            register(sln, name, "Exercises\\" + name + "\\" + name + ".csproj");
         return dir;
     }
+
+    /**
+     * כש-Visual Studio כבר פתוח עם הפתרון: הוא מוסיף את הפרויקט בעצמו ושומר (true) — אחרת שינוי של קובץ ה-.sln מבחוץ מקפיץ ב-Visual Studio
+     * את "File Modification Detected". null / false — רושמים בקובץ.
+     */
+    public static java.util.function.BiPredicate<Path, Path> openIde;
 
     /** מוסיף את הפרויקט לקובץ ה-.sln (שורות Project ... EndProject, והגדרות Debug / Release) — בלי לשנות שום דבר אחר */
     public static void register(Path sln, String name, String relPath) throws IOException {

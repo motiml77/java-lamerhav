@@ -1,0 +1,182 @@
+{
+  "id": "tree-height-level",
+  "topic": "tree",
+  "level": "medium",
+  "title": "גובה העץ ורמות",
+  "question": {
+    "intro": "נתון עץ בינארי t של מספרים שלמים. השורש נמצא ברמה 0, הבנים שלו ברמה 1, וכן הלאה. בשני הסעיפים יש לכתוב פעולה רקורסיבית.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה height, המקבלת עץ בינארי t ומחזירה את גובה העץ — מספר הקשתות במסלול הארוך ביותר מהשורש לעלה. גובה של עץ עם צומת אחד הוא 0, וגובה של עץ ריק (null) הוא ‎-1.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+        "figures": [
+          {
+            "type": "tree",
+            "values": [
+              8,
+              3,
+              10,
+              1,
+              6,
+              null,
+              14,
+              null,
+              null,
+              4,
+              7
+            ],
+            "caption": "העץ t"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה countAtLevel, המקבלת עץ בינארי t ומספר שלם k (k ≥ 0), ומחזירה כמה צמתים יש בעץ ברמה k.\nלדוגמה: עבור העץ שבציור ו-k = 2 הפעולה תחזיר 3."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "גובה העץ ורמות",
+    "topic": "trees",
+    "mainClass": "TreeTargil4",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "TreeTargil4",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "height",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה height, המקבלת עץ בינארי t ומחזירה את גובה העץ — מספר הקשתות במסלול הארוך ביותר מהשורש לעלה. גובה של עץ עם צומת אחד הוא 0, וגובה של עץ ריק (null) הוא ‎-1.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+        "solution": "public static int height(BinNode<Integer> t) {\n    if (t == null) {\n        return -1;\n    }\n    return 1 + Math.max(height(t.getLeft()), height(t.getRight()));\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "TreeTargil4",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countAtLevel",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t"
+          },
+          {
+            "type": "int",
+            "name": "k"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countAtLevel, המקבלת עץ בינארי t ומספר שלם k (k ≥ 0), ומחזירה כמה צמתים יש בעץ ברמה k.\nלדוגמה: עבור העץ שבציור ו-k = 2 הפעולה תחזיר 3.",
+        "solution": "public static int countAtLevel(BinNode<Integer> t, int k) {\n    if (t == null) {\n        return 0;\n    }\n    if (k == 0) {\n        return 1;\n    }\n    return countAtLevel(t.getLeft(), k - 1) + countAtLevel(t.getRight(), k - 1);\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "TreeTargil4",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "BinNode<Integer> six = new BinNode<Integer>(new BinNode<Integer>(4), 6, new BinNode<Integer>(7));\nBinNode<Integer> left = new BinNode<Integer>(new BinNode<Integer>(1), 3, six);\nBinNode<Integer> right = new BinNode<Integer>(null, 10, new BinNode<Integer>(14));\nBinNode<Integer> t = new BinNode<Integer>(left, 8, right);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(height(t), 3));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(height(right), 1));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(height(new BinNode<Integer>(5)), 0));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(countAtLevel(t, 2), 3));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(countAtLevel(t, 3), 2));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(countAtLevel(t, 0), 1));\nSystem.out.println(\"סעיף ב, בדיקה 4: \" + check(countAtLevel(t, 5), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון עץ בינארי t של מספרים שלמים. השורש נמצא ברמה 0, הבנים שלו ברמה 1, וכן הלאה. בשני הסעיפים יש לכתוב פעולה רקורסיבית.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה Height, המקבלת עץ בינארי t ומחזירה את גובה העץ — מספר הקשתות במסלול הארוך ביותר מהשורש לעלה. גובה של עץ עם צומת אחד הוא 0, וגובה של עץ ריק (null) הוא ‎-1.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+          "figures": [
+            {
+              "type": "tree",
+              "values": [
+                8,
+                3,
+                10,
+                1,
+                6,
+                null,
+                14,
+                null,
+                null,
+                4,
+                7
+              ],
+              "caption": "העץ t"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה CountAtLevel, המקבלת עץ בינארי t ומספר שלם k (k ≥ 0), ומחזירה כמה צמתים יש בעץ ברמה k.\nלדוגמה: עבור העץ שבציור ו-k = 2 הפעולה תחזיר 3."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "גובה העץ ורמות",
+      "topic": "trees",
+      "mainClass": "TreeTargil4",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "TreeTargil4",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "Height",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Height, המקבלת עץ בינארי t ומחזירה את גובה העץ — מספר הקשתות במסלול הארוך ביותר מהשורש לעלה. גובה של עץ עם צומת אחד הוא 0, וגובה של עץ ריק (null) הוא ‎-1.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+          "solution": "public static int Height(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return -1;\n    }\n    return 1 + Math.Max(Height(t.GetLeft()), Height(t.GetRight()));\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "TreeTargil4",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountAtLevel",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            },
+            {
+              "type": "int",
+              "name": "k"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountAtLevel, המקבלת עץ בינארי t ומספר שלם k (k ≥ 0), ומחזירה כמה צמתים יש בעץ ברמה k.\nלדוגמה: עבור העץ שבציור ו-k = 2 הפעולה תחזיר 3.",
+          "solution": "public static int CountAtLevel(BinNode<int> t, int k)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    if (k == 0)\n    {\n        return 1;\n    }\n    return CountAtLevel(t.GetLeft(), k - 1) + CountAtLevel(t.GetRight(), k - 1);\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "TreeTargil4",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "BinNode<int> six = new BinNode<int>(new BinNode<int>(4), 6, new BinNode<int>(7));\nBinNode<int> left = new BinNode<int>(new BinNode<int>(1), 3, six);\nBinNode<int> right = new BinNode<int>(null, 10, new BinNode<int>(14));\nBinNode<int> t = new BinNode<int>(left, 8, right);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(Height(t), 3));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(Height(right), 1));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(Height(new BinNode<int>(5)), 0));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(CountAtLevel(t, 2), 3));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(CountAtLevel(t, 3), 2));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(CountAtLevel(t, 0), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 4: \" + Check(CountAtLevel(t, 5), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+    }
+  }
+}

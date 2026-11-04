@@ -124,11 +124,12 @@ final class BankVsFloat {
             public void componentResized(java.awt.event.ComponentEvent e) { saveBounds(f.getBounds()); }
         });
         f.setVisible(true);
-        if (BankVs.ij) yieldToIdeDialogs(f);
+        BankVs.watchVsDialogs();
+        yieldToIdeDialogs(f);
     }
 
     /**
-     * IntelliJ: כשהוא מציג חלון דו-שיח (למשל "יש שגיאות" בהרצה ויזואלית), החלון הצף — שתמיד מעל — היה מסתיר אותו. אז בזמן שהחלון
+     * IntelliJ / Visual Studio: כשהם מציגים חלון דו-שיח (למשל "יש שגיאות" בהרצה ויזואלית), החלון הצף — שתמיד מעל — היה מסתיר אותו. אז בזמן שהחלון
      * הזה פתוח, החלון הצף יורד אחורה; כשהוא נסגר — חוזר להיות מעל.
      */
     static void yieldToIdeDialogs(final JFrame f) {

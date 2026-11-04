@@ -1,0 +1,160 @@
+{
+  "id": "arrays-rotate-run",
+  "topic": "arrays",
+  "level": "medium",
+  "title": "הזזה מעגלית ורצף ארוך",
+  "question": {
+    "intro": "נתון מערך arr לא ריק של מספרים שלמים.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה rotateRight, המקבלת מערך arr ומזיזה כל איבר שלו מקום אחד קדימה (לאינדקס הגדול ממנו ב-1). האיבר האחרון עובר למקום הראשון (אינדקס 0). הפעולה משנה את המערך עצמו ואינה מחזירה ערך.\nלדוגמה: בסיום הפעולה המערך שבציור יהיה {9, 4, 7, 1}.",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              4,
+              7,
+              1,
+              9
+            ],
+            "caption": "arr"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה longestRun, המקבלת מערך arr ומחזירה את האורך של הרצף הארוך ביותר של איברים שווים הנמצאים זה ליד זה.\nלדוגמה: עבור המערך {5, 5, 2, 2, 2, 8, 2} הפעולה תחזיר 3."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "הזזה מעגלית ורצף ארוך",
+    "topic": "arrays",
+    "mainClass": "Arrays5",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Arrays5",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "rotateRight",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה rotateRight, המקבלת מערך arr ומזיזה כל איבר שלו מקום אחד קדימה (לאינדקס הגדול ממנו ב-1). האיבר האחרון עובר למקום הראשון (אינדקס 0). הפעולה משנה את המערך עצמו ואינה מחזירה ערך.\nלדוגמה: בסיום הפעולה המערך שבציור יהיה {9, 4, 7, 1}.",
+        "solution": "public static void rotateRight(int[] arr) {\n    int last = arr[arr.length - 1];\n    for (int i = arr.length - 1; i > 0; i--) {\n        arr[i] = arr[i - 1];\n    }\n    arr[0] = last;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Arrays5",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "longestRun",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה longestRun, המקבלת מערך arr ומחזירה את האורך של הרצף הארוך ביותר של איברים שווים הנמצאים זה ליד זה.\nלדוגמה: עבור המערך {5, 5, 2, 2, 2, 8, 2} הפעולה תחזיר 3.",
+        "solution": "public static int longestRun(int[] arr) {\n    int best = 1;\n    int run = 1;\n    for (int i = 1; i < arr.length; i++) {\n        if (arr[i] == arr[i - 1]) {\n            run++;\n        } else {\n            run = 1;\n        }\n        if (run > best) {\n            best = run;\n        }\n    }\n    return best;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Arrays5",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    if (got instanceof int[]) {\n        g = java.util.Arrays.toString((int[]) got);\n    }\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "int[] arr = { 4, 7, 1, 9 };\nrotateRight(arr);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(arr, \"[9, 4, 7, 1]\"));\nrotateRight(arr);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(arr, \"[1, 9, 4, 7]\"));\nint[] one = { 6 };\nrotateRight(one);\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(one, \"[6]\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(longestRun(new int[] { 5, 5, 2, 2, 2, 8, 2 }), 3));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(longestRun(new int[] { 6 }), 1));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(longestRun(new int[] { 3, 3, 3, 3 }), 4));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון מערך arr לא ריק של מספרים שלמים.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה RotateRight, המקבלת מערך arr ומזיזה כל איבר שלו מקום אחד קדימה (לאינדקס הגדול ממנו ב-1). האיבר האחרון עובר למקום הראשון (אינדקס 0). הפעולה משנה את המערך עצמו ואינה מחזירה ערך.\nלדוגמה: בסיום הפעולה המערך שבציור יהיה {9, 4, 7, 1}.",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                4,
+                7,
+                1,
+                9
+              ],
+              "caption": "arr"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה LongestRun, המקבלת מערך arr ומחזירה את האורך של הרצף הארוך ביותר של איברים שווים הנמצאים זה ליד זה.\nלדוגמה: עבור המערך {5, 5, 2, 2, 2, 8, 2} הפעולה תחזיר 3."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "הזזה מעגלית ורצף ארוך",
+      "topic": "arrays",
+      "mainClass": "Arrays5",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Arrays5",
+          "isStatic": true,
+          "returnType": "void",
+          "methodName": "RotateRight",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "arr"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה RotateRight, המקבלת מערך arr ומזיזה כל איבר שלו מקום אחד קדימה (לאינדקס הגדול ממנו ב-1). האיבר האחרון עובר למקום הראשון (אינדקס 0). הפעולה משנה את המערך עצמו ואינה מחזירה ערך.\nלדוגמה: בסיום הפעולה המערך שבציור יהיה {9, 4, 7, 1}.",
+          "solution": "public static void RotateRight(int[] arr)\n{\n    int last = arr[arr.Length - 1];\n    for (int i = arr.Length - 1; i > 0; i--)\n    {\n        arr[i] = arr[i - 1];\n    }\n    arr[0] = last;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Arrays5",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "LongestRun",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "arr"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה LongestRun, המקבלת מערך arr ומחזירה את האורך של הרצף הארוך ביותר של איברים שווים הנמצאים זה ליד זה.\nלדוגמה: עבור המערך {5, 5, 2, 2, 2, 8, 2} הפעולה תחזיר 3.",
+          "solution": "public static int LongestRun(int[] arr)\n{\n    int best = 1;\n    int run = 1;\n    for (int i = 1; i < arr.Length; i++)\n    {\n        if (arr[i] == arr[i - 1])\n        {\n            run++;\n        }\n        else\n        {\n            run = 1;\n        }\n        if (run > best)\n        {\n            best = run;\n        }\n    }\n    return best;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Arrays5",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    if (got is int[])\n    {\n        g = \"[\" + string.Join(\", \", (int[])got) + \"]\";\n    }\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "int[] arr = { 4, 7, 1, 9 };\nRotateRight(arr);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(arr, \"[9, 4, 7, 1]\"));\nRotateRight(arr);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(arr, \"[1, 9, 4, 7]\"));\nint[] one = { 6 };\nRotateRight(one);\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(one, \"[6]\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(LongestRun(new int[] { 5, 5, 2, 2, 2, 8, 2 }), 3));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(LongestRun(new int[] { 6 }), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(LongestRun(new int[] { 3, 3, 3, 3 }), 4));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

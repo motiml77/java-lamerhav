@@ -62,7 +62,21 @@ public final class BankVsAll {
             list.append(q.id).append('|').append(dir.getAbsolutePath()).append('|').append(exp.getAbsolutePath()).append('\n');
         }
         Files.write(new File(out, "all-projects.txt").toPath(), list.toString().getBytes(StandardCharsets.UTF_8));
-        check("all-count", n == 27, "נוצרו תרגילים מכל " + n + " השאלות", "");
+        check("all-count", n == total() && n >= 54, "נוצרו תרגילים מכל " + n + " השאלות", "");
+    }
+
+    /** כמה שאלות במאגר (בלי שאלות הבדיקה) */
+    static int total() {
+        int n = 0;
+        for (BankStore.Question q : BankVs.store.questions) if (!q.origin.contains("test-")) n++;
+        return n;
+    }
+
+    /** כמה שאלות ברמה הזו (בלי שאלות הבדיקה) */
+    static int count(String level) {
+        int n = 0;
+        for (BankStore.Question q : BankVs.store.questions) if (!q.origin.contains("test-") && q.level.id.equals(level)) n++;
+        return n;
     }
 
     /** יוצר, בודק, פותר ומריץ שאלה אחת. מחזיר את תיקיית הפרויקט */
@@ -149,7 +163,7 @@ public final class BankVsAll {
             if (!onlyBuild) { left++; leftNames.append(d.getName()).append(BankVs.list(d)).append(' '); }
         }
         String before = new String(Files.readAllBytes(new File(out, "sln-before.txt").toPath()), StandardCharsets.UTF_8);
-        check("finish-all", done == 27 && left == 0 && dirs.size() == 27, "'סיימתי' על כל " + dirs.size() + " התרגילים: 27 סומנו, ולא נשאר מהם שום קובץ", leftNames.toString());
+        check("finish-all", done == total() && left == 0 && dirs.size() == total(), "'סיימתי' על כל " + dirs.size() + " התרגילים: " + done + " סומנו, ולא נשאר מהם שום קובץ", leftNames.toString());
         check("finish-sln", projectsIn(sln()).equals(projectsIn(before)), "הפתרון חזר להיות בדיוק כמו לפני היצירה (" + projectsIn(before).size() + " פרויקטים)",
                 projectsIn(sln()).toString());
         int sols = 0;
@@ -190,8 +204,8 @@ public final class BankVsAll {
         for (String s : w.treeShown) if (s.startsWith("Q ")) easy++;
         ui(() -> { w.levelFilter = "hard"; w.rebuildTree(); return null; });
         String t3 = String.valueOf(w.treeShown);
-        check("search", t1.contains("Q tree-") && !t1.contains("Q stack-") && t2.equals("[EMPTY]") && easy == 27 && t3.equals("[EMPTY]"),
-                "חיפוש 'עץ' — רק עץ בינארי; חיפוש בלי תוצאות — 'לא נמצאו שאלות'; 'קל' — 27; 'קשה' — אין עדיין", t1 + " / " + t2 + " / " + easy + " / " + t3);
+        check("search", t1.contains("Q tree-") && !t1.contains("Q stack-") && t2.equals("[EMPTY]") && easy == count("easy") && easy >= 27 && t3.equals("[EMPTY]"),
+                "חיפוש 'עץ' — רק עץ בינארי; חיפוש בלי תוצאות — 'לא נמצאו שאלות'; 'קל' — " + easy + "; 'קשה' — אין עדיין", t1 + " / " + t2 + " / " + easy + " / " + t3);
 
         // 6. שאלה אקראית: לא מחזירה שאלה שכבר סומנה
         for (BankStore.Question x : BankVs.store.questions) BankProgress.get().setDone(x.id, !x.id.equals("strings-palindrome-vowels"));

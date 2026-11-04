@@ -1,0 +1,136 @@
+{
+  "id": "recursion-binary",
+  "topic": "recursion",
+  "level": "medium",
+  "title": "ייצוג בינארי",
+  "question": {
+    "intro": "בשני הסעיפים יש לכתוב פעולה רקורסיבית, בלי לולאות. בשאלה זו n הוא מספר שלם חיובי.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה רקורסיבית ששמה toBinary, המקבלת מספר שלם חיובי n ומחזירה מחרוזת ובה הייצוג הבינארי של n (בבסיס 2).\nלדוגמה: עבור n = 13 הפעולה תחזיר \"1101\"."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה רקורסיבית ששמה countOnes, המקבלת מספר שלם חיובי n ומחזירה כמה ספרות 1 יש בייצוג הבינארי שלו, בלי להשתמש בפעולה מסעיף א.\nלדוגמה: עבור n = 13 הפעולה תחזיר 3."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "ייצוג בינארי",
+    "topic": "recursion",
+    "mainClass": "Rec4",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Rec4",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "toBinary",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "n"
+          }
+        ],
+        "instructions": "כתוב פעולה רקורסיבית ששמה toBinary, המקבלת מספר שלם חיובי n ומחזירה מחרוזת ובה הייצוג הבינארי של n (בבסיס 2).\nלדוגמה: עבור n = 13 הפעולה תחזיר \"1101\".",
+        "solution": "public static String toBinary(int n) {\n    if (n < 2) {\n        return \"\" + n;\n    }\n    return toBinary(n / 2) + n % 2;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Rec4",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countOnes",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "n"
+          }
+        ],
+        "instructions": "כתוב פעולה רקורסיבית ששמה countOnes, המקבלת מספר שלם חיובי n ומחזירה כמה ספרות 1 יש בייצוג הבינארי שלו, בלי להשתמש בפעולה מסעיף א.\nלדוגמה: עבור n = 13 הפעולה תחזיר 3.",
+        "solution": "public static int countOnes(int n) {\n    if (n == 0) {\n        return 0;\n    }\n    return n % 2 + countOnes(n / 2);\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Rec4",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1: \" + check(toBinary(13), \"1101\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(toBinary(1), \"1\"));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(toBinary(32), \"100000\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(countOnes(13), 3));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(countOnes(255), 8));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(countOnes(64), 1));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "בשני הסעיפים יש לכתוב פעולה רקורסיבית, בלי לולאות. בשאלה זו n הוא מספר שלם חיובי.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה רקורסיבית ששמה ToBinary, המקבלת מספר שלם חיובי n ומחזירה מחרוזת ובה הייצוג הבינארי של n (בבסיס 2).\nלדוגמה: עבור n = 13 הפעולה תחזיר \"1101\"."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה רקורסיבית ששמה CountOnes, המקבלת מספר שלם חיובי n ומחזירה כמה ספרות 1 יש בייצוג הבינארי שלו, בלי להשתמש בפעולה מסעיף א.\nלדוגמה: עבור n = 13 הפעולה תחזיר 3."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "ייצוג בינארי",
+      "topic": "recursion",
+      "mainClass": "Rec4",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Rec4",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "ToBinary",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "n"
+            }
+          ],
+          "instructions": "כתוב פעולה רקורסיבית ששמה ToBinary, המקבלת מספר שלם חיובי n ומחזירה מחרוזת ובה הייצוג הבינארי של n (בבסיס 2).\nלדוגמה: עבור n = 13 הפעולה תחזיר \"1101\".",
+          "solution": "public static string ToBinary(int n)\n{\n    if (n < 2)\n    {\n        return \"\" + n;\n    }\n    return ToBinary(n / 2) + n % 2;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Rec4",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountOnes",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "n"
+            }
+          ],
+          "instructions": "כתוב פעולה רקורסיבית ששמה CountOnes, המקבלת מספר שלם חיובי n ומחזירה כמה ספרות 1 יש בייצוג הבינארי שלו, בלי להשתמש בפעולה מסעיף א.\nלדוגמה: עבור n = 13 הפעולה תחזיר 3.",
+          "solution": "public static int CountOnes(int n)\n{\n    if (n == 0)\n    {\n        return 0;\n    }\n    return n % 2 + CountOnes(n / 2);\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Rec4",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1: \" + Check(ToBinary(13), \"1101\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(ToBinary(1), \"1\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(ToBinary(32), \"100000\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(CountOnes(13), 3));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(CountOnes(255), 8));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(CountOnes(64), 1));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

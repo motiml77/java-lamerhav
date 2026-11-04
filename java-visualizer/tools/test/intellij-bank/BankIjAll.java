@@ -85,18 +85,19 @@ public final class BankIjAll {
         BankVs.outDirs.add(out);
         System.setProperty("dsviz.bankProgress", new File(work, "progress.json").getPath());
         BankVs.init(src.toPath());
-        check("load", BankVs.store.questions.size() == 27 && BankVs.store.questions.get(0).exercise.get("language").equals("java"),
+        check("load", BankVs.store.questions.size() >= 54 && BankVs.store.questions.get(0).exercise.get("language").equals("java"),
                 "המאגר נטען בגרסת Java: " + BankVs.store.questions.size() + " שאלות", "");
         BankStore.Question sq = find("stack-sum-size");
         check("java-text", sq.sections.get(0).text.contains("sumStack") && !sq.sections.get(0).text.contains("SumStack"), "בנוסח: שמות של Java (sumStack)", "");
 
-        // 1. כל 27
+        // 1. כל השאלות
+        final int total = BankVs.store.questions.size();
         List<File> dirs = new ArrayList<File>();
         for (BankStore.Question q : BankVs.store.questions) {
             File d = createOne(q);
             if (d != null) dirs.add(d);
         }
-        check("all-count", dirs.size() == 27, "נוצרו 27 תרגילים בתיקיית הקוד (חבילות ex01_ ... ex27_)", String.valueOf(dirs.size()));
+        check("all-count", dirs.size() == total, "נוצרו " + total + " תרגילים בתיקיית הקוד (חבילות ex01_ ... ex" + total + "_)", String.valueOf(dirs.size()));
 
         // 2. הגשר
         bridged.clear();
@@ -205,8 +206,8 @@ public final class BankIjAll {
             if (od.exists()) { leftClasses++; why.append(" out:").append(od.getName()).append(BankVs.list(od)); }
         }
         int sols = new SolutionStore(BankVs.solutionsFile).all().size();
-        check("finish-all", done == 27 && leftDirs == 0 && leftClasses == 0 && sols == 0,
-                "'סיימתי' על כל התרגילים: 27 סומנו, החבילות וה-class שלהן נמחקו, ואין יותר הצעות שמורות", why + " solutions=" + sols);
+        check("finish-all", done == total && leftDirs == 0 && leftClasses == 0 && sols == 0,
+                "'סיימתי' על כל התרגילים: " + done + " סומנו, החבילות וה-class שלהן נמחקו, ואין יותר הצעות שמורות", why + " solutions=" + sols);
         check("finish-mine-still", mine.isFile(), "וגם אחרי כל זה — הקובץ של התלמיד עדיין שם", "");
         check("finish-refresh", String.valueOf(bridged).contains("REFRESH"), "אחרי המחיקה IntelliJ מקבל רענון (הלשוניות של הקבצים שנמחקו נסגרות)", "");
 

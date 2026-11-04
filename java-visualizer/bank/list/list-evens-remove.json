@@ -1,0 +1,170 @@
+{
+  "id": "list-evens-remove",
+  "topic": "list",
+  "level": "medium",
+  "title": "שרשרת חדשה והוצאת חוליות",
+  "question": {
+    "intro": "נתונה הפניה first לחוליה הראשונה בשרשרת חוליות של מספרים שלמים.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה evens, המקבלת הפניה first ומחזירה הפניה לשרשרת חדשה ובה כל הערכים הזוגיים שבשרשרת, באותו סדר. השרשרת המקורית לא תשתנה. אם אין בשרשרת ערכים זוגיים — הפעולה תחזיר null.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר את השרשרת 4, 8, 2.",
+        "figures": [
+          {
+            "type": "list",
+            "values": [
+              4,
+              7,
+              8,
+              3,
+              2
+            ],
+            "caption": "first"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה removeAll, המקבלת הפניה first ומספר x, מוציאה מהשרשרת את כל החוליות שהערך בהן הוא x, ומחזירה הפניה לחוליה הראשונה בשרשרת שהתקבלה (אם כל החוליות הוצאו — null).\nלדוגמה: עבור השרשרת 3, 5, 3, 3, 8 ו-x = 3 הפעולה תחזיר את השרשרת 5, 8."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "שרשרת חדשה והוצאת חוליות",
+    "topic": "lists",
+    "mainClass": "ListTargil4",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "ListTargil4",
+        "isStatic": true,
+        "returnType": "Node<Integer>",
+        "methodName": "evens",
+        "parameters": [
+          {
+            "type": "Node<Integer>",
+            "name": "first"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה evens, המקבלת הפניה first ומחזירה הפניה לשרשרת חדשה ובה כל הערכים הזוגיים שבשרשרת, באותו סדר. השרשרת המקורית לא תשתנה. אם אין בשרשרת ערכים זוגיים — הפעולה תחזיר null.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר את השרשרת 4, 8, 2.",
+        "solution": "public static Node<Integer> evens(Node<Integer> first) {\n    Node<Integer> head = null;\n    Node<Integer> last = null;\n    Node<Integer> p = first;\n    while (p != null) {\n        if (p.getValue() % 2 == 0) {\n            Node<Integer> node = new Node<Integer>(p.getValue());\n            if (head == null) {\n                head = node;\n            } else {\n                last.setNext(node);\n            }\n            last = node;\n        }\n        p = p.getNext();\n    }\n    return head;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "ListTargil4",
+        "isStatic": true,
+        "returnType": "Node<Integer>",
+        "methodName": "removeAll",
+        "parameters": [
+          {
+            "type": "Node<Integer>",
+            "name": "first"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה removeAll, המקבלת הפניה first ומספר x, מוציאה מהשרשרת את כל החוליות שהערך בהן הוא x, ומחזירה הפניה לחוליה הראשונה בשרשרת שהתקבלה (אם כל החוליות הוצאו — null).\nלדוגמה: עבור השרשרת 3, 5, 3, 3, 8 ו-x = 3 הפעולה תחזיר את השרשרת 5, 8.",
+        "solution": "public static Node<Integer> removeAll(Node<Integer> first, int x) {\n    while (first != null && first.getValue() == x) {\n        first = first.getNext();\n    }\n    if (first == null) {\n        return null;\n    }\n    Node<Integer> p = first;\n    while (p.getNext() != null) {\n        if (p.getNext().getValue() == x) {\n            p.setNext(p.getNext().getNext());\n        } else {\n            p = p.getNext();\n        }\n    }\n    return first;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "ListTargil4",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Node<Integer> first = new Node<Integer>(4, new Node<Integer>(7, new Node<Integer>(8, new Node<Integer>(3, new Node<Integer>(2)))));\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(evens(first), \"4 -> 8 -> 2 -> null\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(first, \"4 -> 7 -> 8 -> 3 -> 2 -> null\"));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(evens(new Node<Integer>(1, new Node<Integer>(3))), \"null\"));\nNode<Integer> second = new Node<Integer>(3, new Node<Integer>(5, new Node<Integer>(3, new Node<Integer>(3, new Node<Integer>(8)))));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(removeAll(second, 3), \"5 -> 8 -> null\"));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(removeAll(new Node<Integer>(6, new Node<Integer>(6)), 6), \"null\"));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(removeAll(new Node<Integer>(1, new Node<Integer>(2)), 9), \"1 -> 2 -> null\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה הפניה first לחוליה הראשונה בשרשרת חוליות של מספרים שלמים.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה Evens, המקבלת הפניה first ומחזירה הפניה לשרשרת חדשה ובה כל הערכים הזוגיים שבשרשרת, באותו סדר. השרשרת המקורית לא תשתנה. אם אין בשרשרת ערכים זוגיים — הפעולה תחזיר null.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר את השרשרת 4, 8, 2.",
+          "figures": [
+            {
+              "type": "list",
+              "values": [
+                4,
+                7,
+                8,
+                3,
+                2
+              ],
+              "caption": "first"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה RemoveAll, המקבלת הפניה first ומספר x, מוציאה מהשרשרת את כל החוליות שהערך בהן הוא x, ומחזירה הפניה לחוליה הראשונה בשרשרת שהתקבלה (אם כל החוליות הוצאו — null).\nלדוגמה: עבור השרשרת 3, 5, 3, 3, 8 ו-x = 3 הפעולה תחזיר את השרשרת 5, 8."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "שרשרת חדשה והוצאת חוליות",
+      "topic": "lists",
+      "mainClass": "ListTargil4",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "ListTargil4",
+          "isStatic": true,
+          "returnType": "Node<int>",
+          "methodName": "Evens",
+          "parameters": [
+            {
+              "type": "Node<int>",
+              "name": "first"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Evens, המקבלת הפניה first ומחזירה הפניה לשרשרת חדשה ובה כל הערכים הזוגיים שבשרשרת, באותו סדר. השרשרת המקורית לא תשתנה. אם אין בשרשרת ערכים זוגיים — הפעולה תחזיר null.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר את השרשרת 4, 8, 2.",
+          "solution": "public static Node<int> Evens(Node<int> first)\n{\n    Node<int> head = null;\n    Node<int> last = null;\n    Node<int> p = first;\n    while (p != null)\n    {\n        if (p.GetValue() % 2 == 0)\n        {\n            Node<int> node = new Node<int>(p.GetValue());\n            if (head == null)\n            {\n                head = node;\n            }\n            else\n            {\n                last.SetNext(node);\n            }\n            last = node;\n        }\n        p = p.GetNext();\n    }\n    return head;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "ListTargil4",
+          "isStatic": true,
+          "returnType": "Node<int>",
+          "methodName": "RemoveAll",
+          "parameters": [
+            {
+              "type": "Node<int>",
+              "name": "first"
+            },
+            {
+              "type": "int",
+              "name": "x"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה RemoveAll, המקבלת הפניה first ומספר x, מוציאה מהשרשרת את כל החוליות שהערך בהן הוא x, ומחזירה הפניה לחוליה הראשונה בשרשרת שהתקבלה (אם כל החוליות הוצאו — null).\nלדוגמה: עבור השרשרת 3, 5, 3, 3, 8 ו-x = 3 הפעולה תחזיר את השרשרת 5, 8.",
+          "solution": "public static Node<int> RemoveAll(Node<int> first, int x)\n{\n    while (first != null && first.GetValue() == x)\n    {\n        first = first.GetNext();\n    }\n    if (first == null)\n    {\n        return null;\n    }\n    Node<int> p = first;\n    while (p.GetNext() != null)\n    {\n        if (p.GetNext().GetValue() == x)\n        {\n            p.SetNext(p.GetNext().GetNext());\n        }\n        else\n        {\n            p = p.GetNext();\n        }\n    }\n    return first;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "ListTargil4",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Node<int> first = new Node<int>(4, new Node<int>(7, new Node<int>(8, new Node<int>(3, new Node<int>(2)))));\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(Evens(first), \"4 -> 8 -> 2 -> null\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(first, \"4 -> 7 -> 8 -> 3 -> 2 -> null\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(Evens(new Node<int>(1, new Node<int>(3))), \"null\"));\nNode<int> second = new Node<int>(3, new Node<int>(5, new Node<int>(3, new Node<int>(3, new Node<int>(8)))));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(RemoveAll(second, 3), \"5 -> 8 -> null\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(RemoveAll(new Node<int>(6, new Node<int>(6)), 6), \"null\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(RemoveAll(new Node<int>(1, new Node<int>(2)), 9), \"1 -> 2 -> null\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

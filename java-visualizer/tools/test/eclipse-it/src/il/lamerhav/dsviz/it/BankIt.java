@@ -311,6 +311,23 @@ public class BankIt implements IApplication {
         out.println("KEEP created-left=" + left2 + " helper=" + ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(pkg2 + "/MyHelper.java")).exists()
                 + " folder=" + ResourcesPlugin.getWorkspace().getRoot().getFolder(new Path(pkg2)).exists()
                 + " mine=" + ResourcesPlugin.getWorkspace().getRoot().getFile(new Path("/Students/src/Mine.java")).exists());
+        // 9. שאלות בינוניות ב-Eclipse (Java): מחלקה עם toString, ומחסנית — הקבצים, מקום תשובה לכל סעיף, check שנתון בתרגיל, ו-main שבודק
+        for (String mid : new String[] { "stack-split-sorted", "classes-fraction", "tree-equal-mirror" }) {
+            @SuppressWarnings("unchecked")
+            List<String> mf = (List<String>) handler.getMethod("createForTest", String.class, String.class).invoke(null, mid, "Students");
+            int marks = 0, checks = 0, files3 = 0;
+            boolean helper = false, expected = false;
+            for (String f : mf) {
+                if (f.startsWith("ERROR")) continue;
+                files3++;
+                String text = read(f);
+                marks += count(text, "כאן עונים סעיף");
+                checks += count(text, "+ check(");
+                helper |= text.contains("public static String check(Object got, Object expected)") && text.contains("נתון בתרגיל");
+                expected |= text.contains("סעיף א, בדיקה 1: נכון");
+            }
+            out.println("MEDIUM " + mid + " files=" + files3 + " marks=" + marks + " checks=" + checks + " helper=" + helper + " expected=" + expected);
+        }
         out.println("PROGRESS-FILE " + new String(java.nio.file.Files.readAllBytes(new File(System.getProperty("dsviz.bankProgress")).toPath()), StandardCharsets.UTF_8).length());
     }
 

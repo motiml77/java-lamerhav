@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
  */
 public final class BankCheck {
     private static int fails;
+    /** כמה צעדים לכל היותר בהרצה הוויזואלית של שאלה (עם ההצעות לפתרון) */
+    static final int MAX_STEPS = 2000;
 
     public static void main(String[] a) throws Exception {
         File dir = new File(a[0]);
@@ -84,6 +86,11 @@ public final class BankCheck {
             if (vErr != null && !vErr.isEmpty()) { fail(where, "הרצה ויזואלית: לא מתקמפל " + vErr); return; }
             String out = visual(vis, lib, pkg + "." + e.mainClass);
             if (!out.contains("התוכנית הסתיימה") || out.contains("Exception")) fail(where, "הרצה ויזואלית לא הגיעה לסוף:\n" + tail(out));
+            // ההרצה הוויזואלית של התלמיד צריכה להיות קצרה מספיק כדי לעבור עליה (ולא להגיע למגבלת הצעדים): main עם בדיקות קטנות
+            int steps = 0;
+            java.util.regex.Matcher sm = java.util.regex.Pattern.compile("#(\\d+)").matcher(out);
+            while (sm.find()) steps = Math.max(steps, Integer.parseInt(sm.group(1)));
+            if (steps > MAX_STEPS) fail(where, "ההרצה הוויזואלית ארוכה מדי: " + steps + " צעדים (עד " + MAX_STEPS + ") — להקטין את הבדיקות ב-main");
             System.out.println("  ok   " + q.id + "  [" + q.level.title + "]  " + q.title + "  (" + e.tasks.size() + " סעיפים)");
         } finally {
             AiScaffold.testReturns = false;

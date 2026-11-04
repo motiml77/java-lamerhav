@@ -46,7 +46,7 @@ namespace Unit4.CollectionsLib
 
         public static void Enter(string cls, string method, string file, int line)
         {
-            if (!Active) return;
+            if (!Active || Quiet > 0) return;
             if (Frames.Count >= MaxDepth)
                 throw new InvalidOperationException("עומק הקריאות גדול מדי (" + MaxDepth + ") — רקורסיה בלי תנאי עצירה?");
             Frames.Add(new Frame { Class = cls, Method = method, File = file, Line = line });
@@ -54,7 +54,7 @@ namespace Unit4.CollectionsLib
 
         public static void Exit()
         {
-            if (!Active || Frames.Count == 0) return;
+            if (!Active || Quiet > 0 || Frames.Count == 0) return;
             Frame top = Frames[Frames.Count - 1];
             if (!top.Returned && !top.Faulted) AddReturn(null);
             if (Frames.Count == 1) endVars = new List<KeyValuePair<string, object>>(top.Vars);   // המשתנים של main — לצילום האחרון
@@ -64,7 +64,7 @@ namespace Unit4.CollectionsLib
 
         public static void Fault(Exception e)
         {
-            if (!Active) return;
+            if (!Active || Quiet > 0) return;
             if (Frames.Count > 0) Frames[Frames.Count - 1].Faulted = true;
             if (errorRecorded) return;
             errorRecorded = true;
@@ -79,7 +79,7 @@ namespace Unit4.CollectionsLib
 
         public static void Line(int line, object[] kv)
         {
-            if (!Active || Frames.Count == 0) return;
+            if (!Active || Quiet > 0 || Frames.Count == 0) return;
             Live?.Invoke();
             Frame top = Frames[Frames.Count - 1];
             top.Line = line;
@@ -116,7 +116,7 @@ namespace Unit4.CollectionsLib
         public static void LoopLine(int line, string info, object cmp, object bound, object[] kv)
         {
             Line(line, kv);
-            if (!Active || Frames.Count == 0 || LoopStopped) return;
+            if (!Active || Quiet > 0 || Frames.Count == 0 || LoopStopped) return;
             Frame top = Frames[Frames.Count - 1];
             string verdict;
             try { verdict = LoopGuard.Visit(Frames.Count, MethodKey(top), line, info, cmp, bound, kv, Steps.Count >= MaxSteps); }
@@ -133,7 +133,7 @@ namespace Unit4.CollectionsLib
 
         public static T Return<T>(T value)
         {
-            if (Active && Frames.Count > 0) AddReturn(FormatVar(value));
+            if (Active && Quiet == 0 && Frames.Count > 0) AddReturn(FormatVar(value));
             return value;
         }
 
@@ -249,6 +249,18 @@ namespace Unit4.CollectionsLib
         /// <summary>בתוך פעולת עזר (Helpers.Duplicate): הפעולות שבפנים לא נרשמות — רק התוצאה, בצעד אחד</summary>
         internal static int Quiet;
 
+        /// <summary>
+        /// ToString של אובייקט — רק בשביל התצוגה (משתנים, כרטיסים, ערך מוחזר). אם זו מחלקה של התלמיד (או מבנה שמכיל אובייקטים שלה),
+        /// ה-ToString שלה הוא קוד של התלמיד עם הוקים: בלי Quiet הוא היה נרשם כצעדים, ומכל צעד כזה שוב מציגים את המשתנים — שוב ToString,
+        /// וכך בלי סוף (ההרצה הוויזואלית נתקעה). בזמן הזה הקוד שלו רץ "בשקט": בלי צעדים, בלי מסגרות.
+        /// </summary>
+        static string UserText(object x)
+        {
+            Quiet++;
+            try { return x.ToString(); }
+            finally { Quiet--; }
+        }
+
         static void Record(Kind kind, object target, Mark mark, string ghost, string text)
         {
             if (!Active || Quiet > 0) return;
@@ -358,7 +370,7 @@ namespace Unit4.CollectionsLib
         /// <summary>getter: קריאה של המאפיין field של owner — מתועדת, והכרטיס של owner מוצג עם המאפיין מודגש. מחזיר את הערך</summary>
         public static T Got<T>(object owner, string field, string how, T value)
         {
-            if (!Active) return value;
+            if (!Active || Quiet > 0) return value;
             object v = value;
             string text = v is string ? Lit((string)v) : v is Array ? ArrayText((Array)v) : v == null ? "null" : Plain(v);
             AccessStep(owner, field, how, Mark.READ, "  →  " + text);
@@ -368,7 +380,7 @@ namespace Unit4.CollectionsLib
         /// <summary>setter / פעולה ששינתה את המאפיין field של owner (אחרי השינוי)</summary>
         public static void Changed(object owner, string field, string how)
         {
-            if (!Active) return;
+            if (!Active || Quiet > 0) return;
             LoopGuard.Mutations++;
             AccessStep(owner, field, how, Mark.CHANGED, "");
         }
@@ -458,7 +470,7 @@ namespace Unit4.CollectionsLib
             }
             if (x is Student || x is Car) return Str(x);
             if (x is IVizLinear || x is IVizNode || x is IVizBin) return FormatVar(x);
-            try { return Shorten(x.ToString(), 24); } catch (Exception) { return x.GetType().Name; }
+            try { return Shorten(UserText(x), 24); } catch (Exception) { return x.GetType().Name; }
         }
 
         /// <summary>שורות הכרטיס של מחלקה כללית: כותרת = שדה טקסט בשם name/title (או הראשון), ושורה שנייה = עוד שני מאפיינים</summary>
@@ -588,7 +600,7 @@ namespace Unit4.CollectionsLib
         {
             if (v is bool) return (bool)v ? "true" : "false";
             if (v is IFormattable) return ((IFormattable)v).ToString(null, CultureInfo.InvariantCulture);
-            return v.ToString();
+            return UserText(v);
         }
 
         public static string NodeRef(object node)
@@ -603,11 +615,11 @@ namespace Unit4.CollectionsLib
             try
             {
                 if (v == null) return "null";
-                if (v is IVizLinear) return ((IVizLinear)v).IsStack ? "Stack " + Shorten(v.ToString(), 40) : "Queue " + Shorten(v.ToString(), 40);
+                if (v is IVizLinear) return ((IVizLinear)v).IsStack ? "Stack " + Shorten(UserText(v), 40) : "Queue " + Shorten(UserText(v), 40);
                 if (v is IVizNode) return "Node " + NodeRef(v);
                 if (v is IVizBin) return "BinNode " + NodeRef(v);
-                if (v is Student) return "Student " + Shorten(v.ToString(), 40);
-                if (v is Car) return "Car " + Shorten(v.ToString(), 40);
+                if (v is Student) return "Student " + Shorten(UserText(v), 40);
+                if (v is Car) return "Car " + Shorten(UserText(v), 40);
                 if (v is Array) return Shorten(ArrayText((Array)v), 40);
                 return Shorten(Plain(v), 40);
             }

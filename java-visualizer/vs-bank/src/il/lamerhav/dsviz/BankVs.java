@@ -107,6 +107,7 @@ public final class BankVs {
         if (System.getProperty("dsviz.bankProgress") == null)
             System.setProperty("dsviz.bankProgress", Paths.get(System.getProperty("user.home"), ".dsviz", ij ? "bank-progress-ij.json" : "bank-progress-cs.json").toString());
         root = r.toAbsolutePath();
+        if (!ij) CsSolution.openIde = (sln, csproj) -> inOpenVs("add", sln, csproj.toString());
         cleanPending();
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
@@ -320,7 +321,11 @@ public final class BankVs {
     /** מוחק לפי התוכנית. מחזיר מה שלא הצליח להימחק */
     static List<String> remove(Removal r) {
         List<String> left = new ArrayList<String>();
+        // Visual Studio פתוח עם הפתרון: קודם הוא מוציא את הפרויקט בעצמו (ושומר) — בלי "File Modification Detected", ולפני שהקבצים נמחקים
+        Path vsSln = ij || !(r.missingButRegistered() || (r.wholeProject() && r.dir.isDirectory())) ? null : CsSolution.solution(root);
+        boolean byVs = vsSln != null && inOpenVs("remove", vsSln, r.dir.getName());
         if (r.missingButRegistered()) {
+            if (byVs) return left;
             try {
                 unregister(CsSolution.solution(root), r.dir.getName());
             } catch (IOException e) {
@@ -348,7 +353,7 @@ public final class BankVs {
         if (!r.wholeProject() || !r.dir.isDirectory()) return left;
         Path sln = CsSolution.solution(root);
         try {
-            if (sln != null) unregister(sln, r.dir.getName());
+            if (sln != null && !byVs) unregister(sln, r.dir.getName());
         } catch (IOException e) {
             // הפתרון לא עודכן — Visual Studio יראה פרויקט חסר
         }
@@ -669,9 +674,98 @@ public final class BankVs {
         return send(cmd, args);
     }
 
-    /** IntelliJ מציג עכשיו חלון דו-שיח (למשל שגיאות בהרצה ויזואלית) — שהחלון הצף לא יסתיר אותו */
+    /**
+     * Visual Studio פתוח עם הפתרון הזה: הוא עצמו מוסיף את הפרויקט ("add", ‏arg = ה-.csproj) או מוציא אותו ("remove", ‏arg = השם),
+     * דרך האוטומציה שלו (DTE), ושומר את הפתרון. כך אין "File Modification Detected" (שינוי של ה-.sln מבחוץ), והפרויקט מופיע מיד.
+     * false — Visual Studio לא פתוח / פתוח עם פתרון אחר / לא הצליח: ואז משנים את קובץ ה-.sln עצמו.
+     */
+    static boolean inOpenVs(String action, Path sln, String arg) {
+        if (ij || Boolean.getBoolean("dsviz.noOpen") || !windows() || sln == null || !vsRunning()) return false;
+        String ps = "$ErrorActionPreference='Stop'; $d=$null; "
+                + "foreach($p in 'VisualStudio.DTE.18.0','VisualStudio.DTE.17.0','VisualStudio.DTE'){ try { $d=[Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }; "
+                + "if(-not $d){ exit 3 }; "
+                + "for($i=0; $i -lt 20; $i++){ try { "
+                + "if(-not $d.Solution.IsOpen){ exit 5 }; "
+                + "if([IO.Path]::GetFullPath($d.Solution.FullName) -ne [IO.Path]::GetFullPath($env:DSVIZ_SLN)){ exit 5 }; "
+                + "if($env:DSVIZ_ACTION -eq 'add'){ $null=$d.Solution.AddFromFile($env:DSVIZ_ARG, $false) } "
+                + "else { foreach($x in @($d.Solution.Projects)){ if($x.Name -eq $env:DSVIZ_ARG){ $d.Solution.Remove($x) } } }; "
+                + "break } catch { Start-Sleep -Milliseconds 1500 } }; if($i -ge 20){ exit 4 }; "
+                + "for($k=0; $k -lt 10; $k++){ try { $d.Solution.SaveAs($d.Solution.FullName); exit 0 } catch { Start-Sleep -Milliseconds 1500 } }; exit 0";
+        try {
+            ProcessBuilder pb = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps);
+            pb.environment().put("DSVIZ_ACTION", action);
+            pb.environment().put("DSVIZ_SLN", sln.toAbsolutePath().toString());
+            pb.environment().put("DSVIZ_ARG", arg);
+            pb.redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(new File(System.getProperty("java.io.tmpdir"), "dsviz-bank-dte.txt")));
+            Process p = pb.start();
+            p.getOutputStream().close();
+            if (!p.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)) {
+                p.destroyForcibly();
+                return false;
+            }
+            opened.add("VS-" + action.toUpperCase(java.util.Locale.ROOT) + " " + p.exitValue());
+            return p.exitValue() == 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    static boolean windows() {
+        return System.getProperty("os.name", "").startsWith("Windows");
+    }
+
+    /** IntelliJ / Visual Studio מציג עכשיו חלון דו-שיח (למשל שגיאות בהרצה, או "פתיחת קובץ") — שהחלון הצף לא יסתיר אותו */
     static boolean ideDialog() {
-        return ij && "1".equals(send("DIALOG"));
+        return ij ? "1".equals(send("DIALOG")) : vsDialog;
+    }
+
+    private static volatile boolean vsDialog;
+    private static boolean vsWatching;
+
+    /**
+     * Visual Studio: תהליך PowerShell אחד ברקע בודק כל ‎0.6‎ שניות אם החלון שמקדימה הוא חלון דו-שיח של Visual Studio (חלון של devenv
+     * שיש לו חלון-אב — הדו-שיחים; לחלון הראשי אין), ומדפיס 1 / 0 כשזה משתנה. נסגר לבד כשהכלי נסגר.
+     */
+    static synchronized void watchVsDialogs() {
+        if (ij || vsWatching || Boolean.getBoolean("dsviz.noOpen") || !windows()) return;
+        vsWatching = true;
+        String pid = java.lang.management.ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
+        String ps = "Add-Type -Namespace DsViz -Name W -MemberDefinition '"
+                + "[DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow(); "
+                + "[DllImport(\"user32.dll\")] public static extern IntPtr GetWindow(IntPtr h, uint c); "
+                + "[DllImport(\"user32.dll\")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);'; "
+                + "$last=''; while($true){ "
+                + "if(-not (Get-Process -Id ([int]$env:DSVIZ_PARENT) -ErrorAction SilentlyContinue)){ exit 0 }; "
+                + "$s='0'; $h=[DsViz.W]::GetForegroundWindow(); "
+                + "if($h -ne [IntPtr]::Zero -and [DsViz.W]::GetWindow($h, 4) -ne [IntPtr]::Zero){ "
+                + "$p=[uint32]0; [void][DsViz.W]::GetWindowThreadProcessId($h, [ref]$p); "
+                + "if((Get-Process -Id ([int]$p) -ErrorAction SilentlyContinue).ProcessName -eq 'devenv'){ $s='1' } }; "
+                + "if($s -ne $last){ [Console]::Out.WriteLine($s); [Console]::Out.Flush(); $last=$s }; "
+                + "Start-Sleep -Milliseconds 600 }";
+        String enc = java.util.Base64.getEncoder().encodeToString(ps.getBytes(StandardCharsets.UTF_16LE));
+        try {
+            ProcessBuilder pb = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", enc);
+            pb.environment().put("DSVIZ_PARENT", pid);
+            pb.redirectErrorStream(true);
+            final Process p = pb.start();
+            p.getOutputStream().close();
+            Runtime.getRuntime().addShutdownHook(new Thread(p::destroy));
+            Thread t = new Thread(() -> {
+                try (java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+                    for (String l; (l = in.readLine()) != null;) {
+                        l = l.trim();
+                        if (l.equals("1") || l.equals("0")) vsDialog = l.equals("1");
+                    }
+                } catch (IOException ignored) {
+                    // התהליך נסגר
+                }
+                vsDialog = false;
+            }, "dsviz-vs-dialogs");
+            t.setDaemon(true);
+            t.start();
+        } catch (IOException e) {
+            vsWatching = false;
+        }
     }
 
     static String send(String cmd, String... args) {

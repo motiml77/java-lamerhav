@@ -11,7 +11,9 @@ OUT=build/bank-vs
 rm -rf "$OUT" && mkdir -p "$OUT/bank" "$OUT/icons/topics"
 # נגד dsviz.jar של ההתקנה (VsSubmit, ExercisePipeline, RtlDialog, NestedDiagram...); BankStore ו-BankProgress — מ-eclipse-bank (בלי Eclipse)
 javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp release/dsviz.jar -d "$OUT" \
-    $(find vs-bank/src -name '*.java') eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java
+    $(find vs-bank/src -name '*.java') eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java \
+    eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java
+# CsSolution בתוך התוספת (והיא קודם ב-classpath): Visual Studio פתוח מוסיף / מוציא את הפרויקט בעצמו — גם כשה-dsviz.jar של ההתקנה ישן
 cp eclipse-bank/icons/bank.png eclipse-bank/icons/question.png "$OUT/icons/"
 cp eclipse-bank/icons/topics/*.png "$OUT/icons/topics/"
 cp bank/topics.json "$OUT/bank/"

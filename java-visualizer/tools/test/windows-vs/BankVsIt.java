@@ -66,6 +66,9 @@ public final class BankVsIt {
         BankVs.init(root);
         check("load", BankVs.store.questions.size() >= 27 && BankVs.store.problems.isEmpty(),
                 "המאגר נטען: " + BankVs.store.questions.size() + " שאלות בגרסת C#", String.valueOf(BankVs.store.problems.size()));
+        // CsSolution מהתוספת עצמה (היא קודם ב-classpath) — כך Visual Studio הפתוח מוסיף את הפרויקט בעצמו גם על התקנה ישנה של DSViz
+        String csFrom = String.valueOf(CsSolution.class.getProtectionDomain().getCodeSource().getLocation());
+        if (windows) check("lab-first", csFrom.contains("dsviz-bank-vs.jar"), "החלקים המשותפים (CsSolution) נטענים מהתוספת, לא מההתקנה", csFrom);
         BankStore.Question q = null;
         for (BankStore.Question x : BankVs.store.questions) if (x.id.equals("stack-sum-size")) q = x;
         final BankStore.Question sq = q;
@@ -92,7 +95,8 @@ public final class BankVsIt {
         click(w.frame, "בינוני");
         pause(500);
         shot(w.frame, "03-filter-medium");
-        check("filter", ui(() -> w.treeShown.toString()).equals("[EMPTY]"), "סינון 'בינוני' — עוד אין שאלות: 'לא נמצאו שאלות'", ui(() -> w.treeShown.toString()));
+        String med = ui(() -> w.treeShown.toString());
+        check("filter", med.contains(" medium") && !med.contains(" easy") && !med.equals("[EMPTY]"), "סינון 'בינוני': רק השאלות הבינוניות", med);
         click(w.frame, "הכול");
         ui(() -> { find(w.frame, JTextField.class).setText("מחסנית"); return null; });
         pause(500);
@@ -113,6 +117,8 @@ public final class BankVsIt {
 
         // 5. "צור תרגיל"
         File ex = CsSolution.exercisesDir(BankVs.root).toFile();
+        final boolean vsOpen = windows && BankVs.vsRunning();
+        BankVs.opened.clear();
         click(w.frame, "צור תרגיל");
         long end = System.currentTimeMillis() + 240000;
         while (System.currentTimeMillis() < end && ui(() -> BankVsFloat.current == null || !BankVsFloat.current.isShowing())) pause(500);
@@ -127,6 +133,9 @@ public final class BankVsIt {
         String sln = new String(Files.readAllBytes(CsSolution.solution(BankVs.root)), StandardCharsets.UTF_8);
         check("files", cs != null && cs.length >= 1 && new File(dir, dir.getName() + ".csproj").isFile(), "בפרויקט: .csproj וקבצי .cs (" + (cs == null ? 0 : cs.length) + ")", "");
         check("sln", sln.contains("\"" + dir.getName() + "\""), "הפרויקט רשום בפתרון DataStructures-CS.sln", "");
+        // Visual Studio פתוח עם הפתרון: הוא עצמו מוסיף את הפרויקט (DTE) — בלי שינוי של ה-.sln מבחוץ, ולכן בלי "File Modification Detected"
+        if (vsOpen) check("vs-add", BankVs.opened.toString().contains("VS-ADD 0"),
+                "Visual Studio פתוח: הפרויקט נוסף דרך Visual Studio עצמו ונשמר — בלי החלון 'File Modification Detected'", BankVs.opened.toString());
         String code = cs == null || cs.length == 0 ? "" : new String(Files.readAllBytes(cs[0].toPath()), StandardCharsets.UTF_8);
         check("code", code.contains("SumStack(Stack<int> s)") && code.contains("SizeOf(Stack<int> s)") && code.contains("Console.WriteLine"),
                 "הקוד: SumStack ו-SizeOf (Stack<int>), ו-Main שמדפיס", code.length() > 600 ? code.substring(0, 600) : code);
@@ -181,7 +190,21 @@ public final class BankVsIt {
                 "בחלון הצף אין כפתור הרצה — מריצים מהכפתור 'הרצה ויזואלית' שבסרגל של Visual Studio", ft2);
         if (go != null) {
             Files.write(new File(out, "ran.txt").toPath(), "ok".getBytes(StandardCharsets.UTF_8));
+            // חלון דו-שיח של Visual Studio (הסקריפט פותח "Open File"): החלון הצף — שתמיד מעל — יורד אחורה כדי לא להסתיר אותו
+            waitFile(go + ".dlg");
+            if (windows) {
+                pause(2500);
+                String sh = ui(() -> BankVsFloat.shown.toString());
+                check("vs-dialog-yield", ui(() -> BankVsFloat.current != null && !BankVsFloat.current.isAlwaysOnTop()) && sh.contains("YIELD"),
+                        "חלון דו-שיח של Visual Studio פתוח — החלון הצף יורד אחורה ולא מסתיר אותו", sh);
+            }
+            Files.write(new File(out, "dialog-checked.txt").toPath(), "ok".getBytes(StandardCharsets.UTF_8));
             waitFile(go + ".3");
+            if (windows) {
+                pause(2500);
+                check("vs-dialog-back", ui(() -> BankVsFloat.current != null && BankVsFloat.current.isAlwaysOnTop()) && ui(() -> BankVsFloat.shown.toString()).contains("ON-TOP"),
+                        "החלון של Visual Studio נסגר — החלון הצף שוב תמיד מעל", ui(() -> BankVsFloat.shown.toString()));
+            }
         }
 
         // 8. "סיימתי את התרגיל" — כמו תלמיד: לחיצה, החלון שואל, "סיום ומחיקה"

@@ -1,0 +1,208 @@
+{
+  "id": "tree-equal-mirror",
+  "topic": "tree",
+  "level": "medium",
+  "title": "עצים זהים ועץ מראה",
+  "question": {
+    "intro": "נתונים עצים בינאריים של מספרים שלמים. בשני הסעיפים יש לכתוב פעולה רקורסיבית.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה isEqual, המקבלת שני עצים בינאריים t1 ו-t2 (כל אחד מהם יכול להיות null), ומחזירה true אם יש להם אותו מבנה ואותם ערכים באותם מקומות, אחרת — false."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה mirror, המקבלת עץ בינארי t ומחליפה בכל צומת בעץ בין הבן השמאלי לבן הימני (העץ הופך לתמונת המראה של עצמו). הפעולה אינה מחזירה ערך.\nלדוגמה: בסיום הפעולה העץ שבציור הראשון ייראה כמו העץ שבציור השני.",
+        "figures": [
+          {
+            "type": "tree",
+            "values": [
+              5,
+              12,
+              3,
+              null,
+              7,
+              9,
+              4
+            ],
+            "caption": "העץ t לפני הפעולה"
+          },
+          {
+            "type": "tree",
+            "values": [
+              5,
+              3,
+              12,
+              4,
+              9,
+              7,
+              null
+            ],
+            "caption": "העץ t אחרי הפעולה"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "עצים זהים ועץ מראה",
+    "topic": "trees",
+    "mainClass": "TreeTargil5",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "TreeTargil5",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isEqual",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t1"
+          },
+          {
+            "type": "BinNode<Integer>",
+            "name": "t2"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה isEqual, המקבלת שני עצים בינאריים t1 ו-t2 (כל אחד מהם יכול להיות null), ומחזירה true אם יש להם אותו מבנה ואותם ערכים באותם מקומות, אחרת — false.",
+        "solution": "public static boolean isEqual(BinNode<Integer> t1, BinNode<Integer> t2) {\n    if (t1 == null && t2 == null) {\n        return true;\n    }\n    if (t1 == null || t2 == null) {\n        return false;\n    }\n    return t1.getValue().equals(t2.getValue()) && isEqual(t1.getLeft(), t2.getLeft()) && isEqual(t1.getRight(), t2.getRight());\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "TreeTargil5",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "mirror",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה mirror, המקבלת עץ בינארי t ומחליפה בכל צומת בעץ בין הבן השמאלי לבן הימני (העץ הופך לתמונת המראה של עצמו). הפעולה אינה מחזירה ערך.\nלדוגמה: בסיום הפעולה העץ שבציור הראשון ייראה כמו העץ שבציור השני.",
+        "solution": "public static void mirror(BinNode<Integer> t) {\n    if (t == null) {\n        return;\n    }\n    BinNode<Integer> temp = t.getLeft();\n    t.setLeft(t.getRight());\n    t.setRight(temp);\n    mirror(t.getLeft());\n    mirror(t.getRight());\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "TreeTargil5",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      },
+      {
+        "className": "TreeTargil5",
+        "code": "public static String treeText(BinNode<Integer> t) {\n    if (t == null) {\n        return \"-\";\n    }\n    if (!t.hasLeft() && !t.hasRight()) {\n        return \"\" + t.getValue();\n    }\n    return t.getValue() + \"(\" + treeText(t.getLeft()) + \",\" + treeText(t.getRight()) + \")\";\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "BinNode<Integer> t1 = new BinNode<Integer>(new BinNode<Integer>(null, 12, new BinNode<Integer>(7)), 5, new BinNode<Integer>(new BinNode<Integer>(9), 3, new BinNode<Integer>(4)));\nBinNode<Integer> t2 = new BinNode<Integer>(new BinNode<Integer>(null, 12, new BinNode<Integer>(7)), 5, new BinNode<Integer>(new BinNode<Integer>(9), 3, new BinNode<Integer>(4)));\nBinNode<Integer> t3 = new BinNode<Integer>(new BinNode<Integer>(null, 12, new BinNode<Integer>(7)), 5, new BinNode<Integer>(new BinNode<Integer>(9), 3, new BinNode<Integer>(8)));\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(isEqual(t1, t2), true));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(isEqual(t1, t3), false));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(isEqual(t1, null), false));\nSystem.out.println(\"סעיף א, בדיקה 4: \" + check(isEqual(null, null), true));\nmirror(t1);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(treeText(t1), \"5(3(4,9),12(7,-))\"));\nmirror(t1);\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(treeText(t1), \"5(12(-,7),3(9,4))\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונים עצים בינאריים של מספרים שלמים. בשני הסעיפים יש לכתוב פעולה רקורסיבית.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה IsEqual, המקבלת שני עצים בינאריים t1 ו-t2 (כל אחד מהם יכול להיות null), ומחזירה true אם יש להם אותו מבנה ואותם ערכים באותם מקומות, אחרת — false."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה Mirror, המקבלת עץ בינארי t ומחליפה בכל צומת בעץ בין הבן השמאלי לבן הימני (העץ הופך לתמונת המראה של עצמו). הפעולה אינה מחזירה ערך.\nלדוגמה: בסיום הפעולה העץ שבציור הראשון ייראה כמו העץ שבציור השני.",
+          "figures": [
+            {
+              "type": "tree",
+              "values": [
+                5,
+                12,
+                3,
+                null,
+                7,
+                9,
+                4
+              ],
+              "caption": "העץ t לפני הפעולה"
+            },
+            {
+              "type": "tree",
+              "values": [
+                5,
+                3,
+                12,
+                4,
+                9,
+                7,
+                null
+              ],
+              "caption": "העץ t אחרי הפעולה"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "עצים זהים ועץ מראה",
+      "topic": "trees",
+      "mainClass": "TreeTargil5",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "TreeTargil5",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsEqual",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t1"
+            },
+            {
+              "type": "BinNode<int>",
+              "name": "t2"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה IsEqual, המקבלת שני עצים בינאריים t1 ו-t2 (כל אחד מהם יכול להיות null), ומחזירה true אם יש להם אותו מבנה ואותם ערכים באותם מקומות, אחרת — false.",
+          "solution": "public static bool IsEqual(BinNode<int> t1, BinNode<int> t2)\n{\n    if (t1 == null && t2 == null)\n    {\n        return true;\n    }\n    if (t1 == null || t2 == null)\n    {\n        return false;\n    }\n    return t1.GetValue() == t2.GetValue() && IsEqual(t1.GetLeft(), t2.GetLeft()) && IsEqual(t1.GetRight(), t2.GetRight());\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "TreeTargil5",
+          "isStatic": true,
+          "returnType": "void",
+          "methodName": "Mirror",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Mirror, המקבלת עץ בינארי t ומחליפה בכל צומת בעץ בין הבן השמאלי לבן הימני (העץ הופך לתמונת המראה של עצמו). הפעולה אינה מחזירה ערך.\nלדוגמה: בסיום הפעולה העץ שבציור הראשון ייראה כמו העץ שבציור השני.",
+          "solution": "public static void Mirror(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return;\n    }\n    BinNode<int> temp = t.GetLeft();\n    t.SetLeft(t.GetRight());\n    t.SetRight(temp);\n    Mirror(t.GetLeft());\n    Mirror(t.GetRight());\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "TreeTargil5",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        },
+        {
+          "className": "TreeTargil5",
+          "code": "public static string TreeText(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return \"-\";\n    }\n    if (!t.HasLeft() && !t.HasRight())\n    {\n        return \"\" + t.GetValue();\n    }\n    return t.GetValue() + \"(\" + TreeText(t.GetLeft()) + \",\" + TreeText(t.GetRight()) + \")\";\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "BinNode<int> t1 = new BinNode<int>(new BinNode<int>(null, 12, new BinNode<int>(7)), 5, new BinNode<int>(new BinNode<int>(9), 3, new BinNode<int>(4)));\nBinNode<int> t2 = new BinNode<int>(new BinNode<int>(null, 12, new BinNode<int>(7)), 5, new BinNode<int>(new BinNode<int>(9), 3, new BinNode<int>(4)));\nBinNode<int> t3 = new BinNode<int>(new BinNode<int>(null, 12, new BinNode<int>(7)), 5, new BinNode<int>(new BinNode<int>(9), 3, new BinNode<int>(8)));\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(IsEqual(t1, t2), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(IsEqual(t1, t3), false));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(IsEqual(t1, null), false));\nConsole.WriteLine(\"סעיף א, בדיקה 4: \" + Check(IsEqual(null, null), true));\nMirror(t1);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(TreeText(t1), \"5(3(4,9),12(7,-))\"));\nMirror(t1);\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(TreeText(t1), \"5(12(-,7),3(9,4))\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+    }
+  }
+}

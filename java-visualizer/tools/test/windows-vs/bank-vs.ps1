@@ -1,7 +1,7 @@
 ﻿# "מאגר תרגילים" ל-Visual Studio (גרסת בדיקה) על Windows אמיתי עם Visual Studio — כמו תלמיד, עם צילומי מסך:
 #   1. מתקינים את DSViz-Setup.exe (שקט, חבילת C#), ואת התוספת (install-bank-vs.ps1 — כמו לחיצה כפולה על install.cmd): הקיצורים בשולחן העבודה
 #   2. פותחים את Visual Studio עם הפתרון DataStructures-CS
-#   3. BankVsIt: חלון המאגר, נושא ושאלה, סינון, חיפוש, "צור תרגיל" → החלון הצף; Visual Studio טוען מחדש (Reload) ורואים את הפרויקט החדש
+#   3. BankVsIt: חלון המאגר, נושא ושאלה, סינון, חיפוש, "צור תרגיל" → החלון הצף; Visual Studio (פתוח) מוסיף את הפרויקט בעצמו — בלי "File Modification Detected"
 #   4. "לפעולה של סעיף א" → הקובץ נפתח ב-Visual Studio
 #   5. התלמיד כותב את הפתרון (ההצעות השמורות), MSBuild של Visual Studio בונה, והתוכנית מדפיסה בדיוק את הפלט הרצוי; "הרצה ויזואלית" נפתחת
 #   6. "סיימתי את התרגיל" → הפרויקט נמחק מהדיסק ומהפתרון, והפתרון עדיין נבנה
@@ -196,7 +196,7 @@ Log "== 3. מאגר תרגילים: חלון, נושא, שאלה, 'צור תרג
 $it = Join-Path $Out 'it'
 $go = Join-Path $Out 'go'
 $java = Join-Path $dsviz 'jdk\bin\java.exe'
-$cp = "$(Join-Path $dsviz 'dsviz.jar');$jar;$TestCp"
+$cp = "$jar;$(Join-Path $dsviz 'dsviz.jar');$TestCp"
 $itP = Start-Process $java -ArgumentList "-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -cp `"$cp`" il.lamerhav.dsviz.BankVsIt `"$csDir`" `"$it`" --go `"$go`"" `
     -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $Out 'it.out.txt') -RedirectStandardError (Join-Path $Out 'it.err.txt')
 $null = $itP.Handle   # בלי זה ExitCode ריק בסוף
@@ -210,9 +210,10 @@ $name = if ($dir) { Split-Path $dir -Leaf } else { '' }
 Shot '03-created-float'
 if ($ready -and $dir) {
     $script:shotPrefix = '04'
-    $rl = ClickReload $vsP.Id 60
-    Info "Reload: $rl"
-    Start-Sleep 25
+    # Visual Studio כבר פתוח עם הפתרון: הכלי מוסיף את הפרויקט דרך Visual Studio עצמו — אסור שיופיע 'File Modification Detected'
+    $rl = ClickReload $vsP.Id 20
+    Check 'vs-no-reload' (-not $rl) "Visual Studio לא שאל 'File Modification Detected' (Reload) — הפרויקט נוסף ישירות"
+    Start-Sleep 10
     Shot '05-vs-reloaded-with-float'
     # Solution Explorer (Ctrl+Alt+L) — רואים בו את הפרויקט החדש
     $wsh = New-Object -ComObject WScript.Shell
@@ -338,6 +339,17 @@ if ($ready -and $dir) {
     Check 'vs-toolbar-run' $seen "▶ 'הרצה ויזואלית' בסרגל של Visual Studio הריץ את התרגיל בהרצה הוויזואלית" ((Windows) -join ' ; ')
     Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' } | Stop-Process -Force
     Get-Process dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force
+    # חלון דו-שיח של Visual Studio ("Open File", Ctrl+O): החלון הצף יורד אחורה (BankVsIt בודק), וכשנסגר — חוזר להיות מעל
+    [void]$wsh.AppActivate($vsP.Id); Start-Sleep 2
+    $wsh.SendKeys('^o'); Start-Sleep 5
+    Shot '08c-vs-dialog-float-behind'
+}
+New-Item -ItemType File -Force "$go.dlg" | Out-Null
+$dlgF = Join-Path $it 'dialog-checked.txt'
+for ($i = 0; $i -lt 90 -and -not (Test-Path $dlgF) -and -not $itP.HasExited; $i++) { Start-Sleep 1 }
+if ($ready -and $dir) {
+    $wsh.SendKeys('{ESC}'); Start-Sleep 4
+    Shot '08d-vs-dialog-closed-float-back'
 }
 New-Item -ItemType File -Force "$go.3" | Out-Null
 
@@ -348,9 +360,10 @@ for ($i = 0; $i -lt 180 -and -not (Test-Path $doneF) -and -not $itP.HasExited; $
 Start-Sleep 2
 if ($ready) {
     $script:shotPrefix = '09'
-    $rl = ClickReload $vsP.Id 45
-    Info "Reload אחרי המחיקה: $rl"
-    Start-Sleep 20
+    # 'סיימתי': Visual Studio עצמו מוציא את הפרויקט מהפתרון — גם כאן בלי 'File Modification Detected'
+    $rl = ClickReload $vsP.Id 20
+    Check 'vs-no-reload-done' (-not $rl) "אחרי 'סיימתי' Visual Studio לא שאל 'File Modification Detected' — הפרויקט הוצא ישירות"
+    Start-Sleep 10
     Shot '10-vs-after-done'
 }
 New-Item -ItemType File -Force "$go.4" | Out-Null
@@ -384,8 +397,8 @@ if ($pdir) {
     Check 'pending-clean' ((Test-Path $cr) -and ((Get-Content $cr -Raw -Encoding utf8) -match 'ok   pending-clean')) "אחרי ש-Visual Studio נסגר, בפתיחה הבאה של הכלי: מה שנשאר מהתרגיל (obj) נמחק" $(if (Test-Path $cr) { Get-Content $cr -Raw -Encoding utf8 } else { 'אין תוצאה' })
     Check 'pending-gone' (-not (Test-Path $pdir)) "התיקייה $(Split-Path $pdir -Leaf) כבר לא קיימת"
 } else { Info "התיקייה של התרגיל נמחקה כבר ב'סיימתי' (שום דבר לא נשאר)" }
-# ------------------------------------------------------------------ 7. בדיקה רחבה: כל 27 השאלות ומקרי קצה (BankVsAll)
-Log "== 7. כל 27 השאלות: יצירה, פתרון, MSBuild של Visual Studio, הרצה; ואז 'סיימתי' על כולן ומקרי קצה"
+# ------------------------------------------------------------------ 7. בדיקה רחבה: כל השאלות ומקרי קצה (BankVsAll)
+Log "== 7. כל השאלות: יצירה, פתרון, MSBuild של Visual Studio, הרצה; ואז 'סיימתי' על כולן ומקרי קצה"
 $all = Join-Path $Out 'all'
 New-Item -ItemType Directory -Force $all | Out-Null
 function RunAll([string]$mode) {
@@ -401,9 +414,9 @@ RunAll 'create'
 $listF = Join-Path $all 'all-projects.txt'
 if (Test-Path $listF) {
     $b = & $msbuild $sln /restore /m /nologo /v:m /p:Configuration=Debug 2>&1
-    $b | Set-Content (Join-Path $Out 'build-all-27.txt') -Encoding utf8
-    Check 'all-msbuild' ($LASTEXITCODE -eq 0) "MSBuild של Visual Studio בנה את כל הפתרון עם 27 התרגילים (פתורים)" (($b | Select-Object -Last 8) -join ' | ')
-    $okRuns = 0; $bad = @()
+    $b | Set-Content (Join-Path $Out 'build-all.txt') -Encoding utf8
+    Check 'all-msbuild' ($LASTEXITCODE -eq 0) "MSBuild של Visual Studio בנה את כל הפתרון עם כל התרגילים (פתורים)" (($b | Select-Object -Last 8) -join ' | ')
+    $okRuns = 0; $bad = @(); $nAll = @(Get-Content $listF -Encoding utf8 | Where-Object { $_.Trim() }).Count
     foreach ($line in (Get-Content $listF -Encoding utf8)) {
         if (-not $line.Trim()) { continue }
         $parts = $line.Split('|'); $pdir = $parts[1]; $pname = Split-Path $pdir -Leaf
@@ -412,7 +425,7 @@ if (Test-Path $listF) {
         $act = if ($exe) { ((& $exe.FullName) -join "`n").Replace("`r", '').Trim() } else { '<אין exe>' }
         if ($act -eq $exp) { $okRuns++ } else { $bad += "$($parts[0]): $act" }
     }
-    Check 'all-exe' ($okRuns -eq 27) "כל 27 התרגילים (בנייה של Visual Studio, הרצה רגילה) מדפיסים בדיוק את הפלט הרצוי ($okRuns/27)" ($bad -join ' ;; ')
+    Check 'all-exe' ($okRuns -eq $nAll -and $nAll -ge 54) "כל $nAll התרגילים (בנייה של Visual Studio, הרצה רגילה) מדפיסים בדיוק את הפלט הרצוי ($okRuns/$nAll)" ($bad -join ' ;; ')
 }
 RunAll 'finish'
 $b = & $msbuild $sln /restore /m /nologo /v:m /p:Configuration=Debug 2>&1

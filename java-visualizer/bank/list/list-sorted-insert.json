@@ -1,0 +1,166 @@
+{
+  "id": "list-sorted-insert",
+  "topic": "list",
+  "level": "medium",
+  "title": "שרשרת ממוינת",
+  "question": {
+    "intro": "נתונה הפניה first לחוליה הראשונה בשרשרת חוליות של מספרים שלמים, ממוינת בסדר עולה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה insertSorted, המקבלת הפניה first (יכולה להיות null) ומספר x, מכניסה לשרשרת חוליה חדשה עם הערך x כך שהשרשרת תישאר ממוינת, ומחזירה הפניה לחוליה הראשונה בשרשרת שהתקבלה.\nלדוגמה: עבור השרשרת שבציור ו-x = 6 השרשרת תהיה 2, 5, 6, 9.",
+        "figures": [
+          {
+            "type": "list",
+            "values": [
+              2,
+              5,
+              9
+            ],
+            "caption": "first"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה removeDuplicates, המקבלת הפניה first לשרשרת ממוינת לא ריקה, ומוציאה ממנה חוליות כך שכל ערך יופיע בה פעם אחת בלבד. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור השרשרת 1, 1, 4, 7, 7, 7, בסיום הפעולה השרשרת תהיה 1, 4, 7."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "שרשרת ממוינת",
+    "topic": "lists",
+    "mainClass": "ListTargil5",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "ListTargil5",
+        "isStatic": true,
+        "returnType": "Node<Integer>",
+        "methodName": "insertSorted",
+        "parameters": [
+          {
+            "type": "Node<Integer>",
+            "name": "first"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה insertSorted, המקבלת הפניה first (יכולה להיות null) ומספר x, מכניסה לשרשרת חוליה חדשה עם הערך x כך שהשרשרת תישאר ממוינת, ומחזירה הפניה לחוליה הראשונה בשרשרת שהתקבלה.\nלדוגמה: עבור השרשרת שבציור ו-x = 6 השרשרת תהיה 2, 5, 6, 9.",
+        "solution": "public static Node<Integer> insertSorted(Node<Integer> first, int x) {\n    Node<Integer> node = new Node<Integer>(x);\n    if (first == null || x <= first.getValue()) {\n        node.setNext(first);\n        return node;\n    }\n    Node<Integer> p = first;\n    while (p.getNext() != null && p.getNext().getValue() < x) {\n        p = p.getNext();\n    }\n    node.setNext(p.getNext());\n    p.setNext(node);\n    return first;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "ListTargil5",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "removeDuplicates",
+        "parameters": [
+          {
+            "type": "Node<Integer>",
+            "name": "first"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה removeDuplicates, המקבלת הפניה first לשרשרת ממוינת לא ריקה, ומוציאה ממנה חוליות כך שכל ערך יופיע בה פעם אחת בלבד. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור השרשרת 1, 1, 4, 7, 7, 7, בסיום הפעולה השרשרת תהיה 1, 4, 7.",
+        "solution": "public static void removeDuplicates(Node<Integer> first) {\n    Node<Integer> p = first;\n    while (p.getNext() != null) {\n        if (p.getNext().getValue().equals(p.getValue())) {\n            p.setNext(p.getNext().getNext());\n        } else {\n            p = p.getNext();\n        }\n    }\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "ListTargil5",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Node<Integer> first = new Node<Integer>(2, new Node<Integer>(5, new Node<Integer>(9)));\nfirst = insertSorted(first, 6);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(first, \"2 -> 5 -> 6 -> 9 -> null\"));\nfirst = insertSorted(first, 1);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(first, \"1 -> 2 -> 5 -> 6 -> 9 -> null\"));\nfirst = insertSorted(first, 12);\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(first, \"1 -> 2 -> 5 -> 6 -> 9 -> 12 -> null\"));\nSystem.out.println(\"סעיף א, בדיקה 4: \" + check(insertSorted(null, 4), \"4 -> null\"));\nNode<Integer> d = new Node<Integer>(1, new Node<Integer>(1, new Node<Integer>(4, new Node<Integer>(7, new Node<Integer>(7, new Node<Integer>(7))))));\nremoveDuplicates(d);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(d, \"1 -> 4 -> 7 -> null\"));\nNode<Integer> e = new Node<Integer>(3, new Node<Integer>(3));\nremoveDuplicates(e);\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(e, \"3 -> null\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה הפניה first לחוליה הראשונה בשרשרת חוליות של מספרים שלמים, ממוינת בסדר עולה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה InsertSorted, המקבלת הפניה first (יכולה להיות null) ומספר x, מכניסה לשרשרת חוליה חדשה עם הערך x כך שהשרשרת תישאר ממוינת, ומחזירה הפניה לחוליה הראשונה בשרשרת שהתקבלה.\nלדוגמה: עבור השרשרת שבציור ו-x = 6 השרשרת תהיה 2, 5, 6, 9.",
+          "figures": [
+            {
+              "type": "list",
+              "values": [
+                2,
+                5,
+                9
+              ],
+              "caption": "first"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה RemoveDuplicates, המקבלת הפניה first לשרשרת ממוינת לא ריקה, ומוציאה ממנה חוליות כך שכל ערך יופיע בה פעם אחת בלבד. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור השרשרת 1, 1, 4, 7, 7, 7, בסיום הפעולה השרשרת תהיה 1, 4, 7."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "שרשרת ממוינת",
+      "topic": "lists",
+      "mainClass": "ListTargil5",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "ListTargil5",
+          "isStatic": true,
+          "returnType": "Node<int>",
+          "methodName": "InsertSorted",
+          "parameters": [
+            {
+              "type": "Node<int>",
+              "name": "first"
+            },
+            {
+              "type": "int",
+              "name": "x"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה InsertSorted, המקבלת הפניה first (יכולה להיות null) ומספר x, מכניסה לשרשרת חוליה חדשה עם הערך x כך שהשרשרת תישאר ממוינת, ומחזירה הפניה לחוליה הראשונה בשרשרת שהתקבלה.\nלדוגמה: עבור השרשרת שבציור ו-x = 6 השרשרת תהיה 2, 5, 6, 9.",
+          "solution": "public static Node<int> InsertSorted(Node<int> first, int x)\n{\n    Node<int> node = new Node<int>(x);\n    if (first == null || x <= first.GetValue())\n    {\n        node.SetNext(first);\n        return node;\n    }\n    Node<int> p = first;\n    while (p.GetNext() != null && p.GetNext().GetValue() < x)\n    {\n        p = p.GetNext();\n    }\n    node.SetNext(p.GetNext());\n    p.SetNext(node);\n    return first;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "ListTargil5",
+          "isStatic": true,
+          "returnType": "void",
+          "methodName": "RemoveDuplicates",
+          "parameters": [
+            {
+              "type": "Node<int>",
+              "name": "first"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה RemoveDuplicates, המקבלת הפניה first לשרשרת ממוינת לא ריקה, ומוציאה ממנה חוליות כך שכל ערך יופיע בה פעם אחת בלבד. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור השרשרת 1, 1, 4, 7, 7, 7, בסיום הפעולה השרשרת תהיה 1, 4, 7.",
+          "solution": "public static void RemoveDuplicates(Node<int> first)\n{\n    Node<int> p = first;\n    while (p.GetNext() != null)\n    {\n        if (p.GetNext().GetValue() == p.GetValue())\n        {\n            p.SetNext(p.GetNext().GetNext());\n        }\n        else\n        {\n            p = p.GetNext();\n        }\n    }\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "ListTargil5",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Node<int> first = new Node<int>(2, new Node<int>(5, new Node<int>(9)));\nfirst = InsertSorted(first, 6);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(first, \"2 -> 5 -> 6 -> 9 -> null\"));\nfirst = InsertSorted(first, 1);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(first, \"1 -> 2 -> 5 -> 6 -> 9 -> null\"));\nfirst = InsertSorted(first, 12);\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(first, \"1 -> 2 -> 5 -> 6 -> 9 -> 12 -> null\"));\nConsole.WriteLine(\"סעיף א, בדיקה 4: \" + Check(InsertSorted(null, 4), \"4 -> null\"));\nNode<int> d = new Node<int>(1, new Node<int>(1, new Node<int>(4, new Node<int>(7, new Node<int>(7, new Node<int>(7))))));\nRemoveDuplicates(d);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(d, \"1 -> 4 -> 7 -> null\"));\nNode<int> e = new Node<int>(3, new Node<int>(3));\nRemoveDuplicates(e);\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(e, \"3 -> null\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+    }
+  }
+}

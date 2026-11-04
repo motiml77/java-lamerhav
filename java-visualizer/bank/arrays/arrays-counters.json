@@ -1,0 +1,164 @@
+{
+  "id": "arrays-counters",
+  "topic": "arrays",
+  "level": "medium",
+  "title": "מערך מונים",
+  "question": {
+    "intro": "נתון מערך arr לא ריק של ספרות (מספרים שלמים מ-0 עד 9).",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה countDigits, המקבלת מערך arr ומחזירה מערך מונים חדש בגודל 10: בתא שבאינדקס d יהיה מספר הפעמים שהספרה d מופיעה ב-arr.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר {0, 0, 2, 1, 0, 0, 0, 3, 0, 0}.",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              7,
+              2,
+              3,
+              7,
+              2,
+              7
+            ],
+            "caption": "arr"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה mostCommon, המקבלת מערך arr ומחזירה את הספרה שמופיעה בו הכי הרבה פעמים. אם יש כמה ספרות כאלה — הפעולה תחזיר את הקטנה מביניהן. יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר 7."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מערך מונים",
+    "topic": "arrays",
+    "mainClass": "Arrays6",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Arrays6",
+        "isStatic": true,
+        "returnType": "int[]",
+        "methodName": "countDigits",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countDigits, המקבלת מערך arr ומחזירה מערך מונים חדש בגודל 10: בתא שבאינדקס d יהיה מספר הפעמים שהספרה d מופיעה ב-arr.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר {0, 0, 2, 1, 0, 0, 0, 3, 0, 0}.",
+        "solution": "public static int[] countDigits(int[] arr) {\n    int[] counts = new int[10];\n    for (int i = 0; i < arr.length; i++) {\n        counts[arr[i]]++;\n    }\n    return counts;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Arrays6",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "mostCommon",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה mostCommon, המקבלת מערך arr ומחזירה את הספרה שמופיעה בו הכי הרבה פעמים. אם יש כמה ספרות כאלה — הפעולה תחזיר את הקטנה מביניהן. יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר 7.",
+        "solution": "public static int mostCommon(int[] arr) {\n    int[] counts = countDigits(arr);\n    int best = 0;\n    for (int d = 1; d < 10; d++) {\n        if (counts[d] > counts[best]) {\n            best = d;\n        }\n    }\n    return best;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Arrays6",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    if (got instanceof int[]) {\n        g = java.util.Arrays.toString((int[]) got);\n    }\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "int[] arr = { 7, 2, 3, 7, 2, 7 };\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(countDigits(arr), \"[0, 0, 2, 1, 0, 0, 0, 3, 0, 0]\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(countDigits(new int[] { 0, 9 }), \"[1, 0, 0, 0, 0, 0, 0, 0, 0, 1]\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(mostCommon(arr), 7));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(mostCommon(new int[] { 4, 1, 4, 1 }), 1));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(mostCommon(new int[] { 9 }), 9));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון מערך arr לא ריק של ספרות (מספרים שלמים מ-0 עד 9).",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה CountDigits, המקבלת מערך arr ומחזירה מערך מונים חדש בגודל 10: בתא שבאינדקס d יהיה מספר הפעמים שהספרה d מופיעה ב-arr.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר {0, 0, 2, 1, 0, 0, 0, 3, 0, 0}.",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                7,
+                2,
+                3,
+                7,
+                2,
+                7
+              ],
+              "caption": "arr"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה MostCommon, המקבלת מערך arr ומחזירה את הספרה שמופיעה בו הכי הרבה פעמים. אם יש כמה ספרות כאלה — הפעולה תחזיר את הקטנה מביניהן. יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר 7."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מערך מונים",
+      "topic": "arrays",
+      "mainClass": "Arrays6",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Arrays6",
+          "isStatic": true,
+          "returnType": "int[]",
+          "methodName": "CountDigits",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "arr"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountDigits, המקבלת מערך arr ומחזירה מערך מונים חדש בגודל 10: בתא שבאינדקס d יהיה מספר הפעמים שהספרה d מופיעה ב-arr.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר {0, 0, 2, 1, 0, 0, 0, 3, 0, 0}.",
+          "solution": "public static int[] CountDigits(int[] arr)\n{\n    int[] counts = new int[10];\n    for (int i = 0; i < arr.Length; i++)\n    {\n        counts[arr[i]]++;\n    }\n    return counts;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Arrays6",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "MostCommon",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "arr"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה MostCommon, המקבלת מערך arr ומחזירה את הספרה שמופיעה בו הכי הרבה פעמים. אם יש כמה ספרות כאלה — הפעולה תחזיר את הקטנה מביניהן. יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור המערך שבציור הפעולה תחזיר 7.",
+          "solution": "public static int MostCommon(int[] arr)\n{\n    int[] counts = CountDigits(arr);\n    int best = 0;\n    for (int d = 1; d < 10; d++)\n    {\n        if (counts[d] > counts[best])\n        {\n            best = d;\n        }\n    }\n    return best;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Arrays6",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    if (got is int[])\n    {\n        g = \"[\" + string.Join(\", \", (int[])got) + \"]\";\n    }\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "int[] arr = { 7, 2, 3, 7, 2, 7 };\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(CountDigits(arr), \"[0, 0, 2, 1, 0, 0, 0, 3, 0, 0]\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(CountDigits(new int[] { 0, 9 }), \"[1, 0, 0, 0, 0, 0, 0, 0, 0, 1]\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(MostCommon(arr), 7));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(MostCommon(new int[] { 4, 1, 4, 1 }), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(MostCommon(new int[] { 9 }), 9));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}
