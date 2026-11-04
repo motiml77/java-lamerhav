@@ -68,7 +68,7 @@ check "^TREE TOPIC loops open 0/3 | Q loops-digits-reverse easy | Q loops-diviso
 check "^SEARCH-QUEUE TOPIC queue open 0/3 | Q queue-copy-contains easy | Q queue-min-last easy | Q queue-sum-even easy$" "חיפוש: \"תור\" — רק הנושא והשאלה שמתאימים"
 check "^FILTER-HARD $" "סינון לפי קושי \"קשה\": עוד אין שאלות קשות — רשימה ריקה"
 check "^DIALOG-BUTTONS צור תרגיל | שאלה אקראית | סגירה" "החלון: צור תרגיל / שאלה אקראית / סגירה (בלי עותק — עוד לא נוצר)"
-check "^DIALOG-PREVIEW .*TEXT סעיף א'.*TEXT סעיף ב'.*TEXT כשהכול פתור נכון, main מדפיס" "החלון: נוסח השאלה — כרטיס לכל סעיף, והפלט הרצוי"
+check "^DIALOG-PREVIEW .*TEXT סעיף א'.*TEXT סעיף ב'.*TEXT כשהכול פתור נכון, התוכנית מדפיסה" "החלון: נוסח השאלה — כרטיס לכל סעיף, והפלט הרצוי"
 check "^DIALOG-PREVIEW .*FIGURE stack \[\[9\], \[2\], \[7\], \[4\]\] \"המחסנית s (4 בראש)" "ציור: מחסנית (4 בראש — נכנס אחרון)"
 check "^PREVIEW-TREE .*FIGURE tree \[\[8\], \[3\], \[10\], \[1\], \[6\], null, \[14\]\] \"העץ t\"" "ציור: עץ בינארי (לפי רמות, עם מקום ריק)"
 check "^PREVIEW-QUEUE .*FIGURE queue \[\[3\], \[8\], \[1\], \[6\]\]" "ציור: תור"

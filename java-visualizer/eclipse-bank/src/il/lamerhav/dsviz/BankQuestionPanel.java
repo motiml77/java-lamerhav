@@ -16,7 +16,7 @@ import org.eclipse.swt.widgets.Label;
 /**
  * נוסח של שאלה מהמאגר — אותה תצוגה בחלון "מאגר תרגילים" ובחלון הצד "השאלה":
  *   כרטיס פתיחה (הטקסט + ציורים), כרטיס לכל סעיף ("סעיף א'" בולט, הטקסט, ציורים קטנים של המבנים, ובחלון הצד — "לפעולה" ו-💡),
- *   וכרטיס "כשהכול פתור נכון, main מדפיס" עם הפלט בגופן של קוד.
+ *   וכרטיס "כשהכול פתור נכון, התוכנית מדפיסה" עם הפלט כמו בקונסול.
  * הציורים — NestedPreview (אותו ציור כמו בחלון ההרצה ובחלון "הוסף מבנה נתונים"): מחסנית פתוחה למעלה, תור כצינור עם חיצים,
  * שרשרת חוליות עם חיצים ו-null, עץ, מערך עם מקומות.
  */
@@ -67,19 +67,26 @@ final class BankQuestionPanel {
         String expected = q.expectedOutput();
         if (!expected.isEmpty()) {
             Composite c = Look.card(parent, wide());
-            text(c, "כשהכול פתור נכון, main מדפיס:", 0, SWT.BOLD, Look.TEXT, shown);
+            text(c, "כשהכול פתור נכון, התוכנית מדפיסה:", 0, SWT.BOLD, Look.TEXT, shown);
             Composite box = Look.panel(c, Look.SURFACE, Look.BORDER, 6, 10, 8);
             ((Composite) box.getParent()).setLayoutData(wide());
+            // בדיוק כמו בקונסול של Eclipse (שם התלמיד יראה את הפלט): כל שורה משמאל לימין, בגופן רגיל — המספרים באותו סדר
+            Composite lines = new Composite(box, SWT.LEFT_TO_RIGHT);
+            GridLayout ll = new GridLayout(1, false);
+            ll.marginWidth = 0;
+            ll.marginHeight = 0;
+            ll.verticalSpacing = 2;
+            lines.setLayout(ll);
+            lines.setLayoutData(fill());
             for (String line : expected.split("\n")) {
-                Label l = new Label(box, SWT.WRAP | SWT.RIGHT_TO_LEFT);
-                // פלט של תוכנית: כל השורה בכיוון עברי אחד (כמו בהערה מעל main) — בלי לפרק את [3,8,1,6] למספרים נפרדים
-                l.setText(line.isEmpty() ? " " : "\u200F\u202B" + line + "\u202C");
-                l.setFont(Look.mono(parent.getDisplay(), 0));
+                Label l = new Label(lines, SWT.WRAP | SWT.LEFT_TO_RIGHT);
+                l.setText(line.isEmpty() ? " " : line);
+                l.setFont(Look.font(parent.getDisplay(), 0, SWT.NORMAL));
                 l.setForeground(Look.color(parent.getDisplay(), Look.INK2));
                 l.setLayoutData(fill());
             }
             if (shown != null) shown.add("EXPECTED " + expected.replace("\n", " | "));
-            text(c, "מריצים את main (\"הרצה ויזואלית\") ובודקים שזה מה שמודפס.", -1, SWT.NORMAL, Look.MUTED, shown);
+            text(c, "מריצים את התוכנית בכפתור \"הרצה ויזואלית\", ובודקים שזה מה שמודפס.", -1, SWT.NORMAL, Look.MUTED, shown);
         }
     }
 

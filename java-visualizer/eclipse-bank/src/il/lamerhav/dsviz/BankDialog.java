@@ -157,7 +157,7 @@ public class BankDialog extends Dialog {
         al.verticalSpacing = 8;
         area.setBackground(Look.color(d, Look.BG));
         area.setBackgroundMode(SWT.INHERIT_DEFAULT);
-        Look.header(area, "מאגר תרגילים", "בוחרים שאלה מהרשימה — ונוצר תרגיל מוכן: פעולה לכל סעיף, main שמריץ אותן, ו-💡 הצעה לפתרון ליד כל סעיף.");
+        Look.header(area, "מאגר תרגילים", "בוחרים שאלה מהרשימה — ונוצר תרגיל מוכן: פעולה לכל סעיף, תוכנית ראשית שמריצה אותן, והצעה לפתרון לכל סעיף.");
 
         Composite main = new Composite(area, SWT.NONE);
         GridLayout ml = new GridLayout(2, false);
@@ -329,11 +329,6 @@ public class BankDialog extends Dialog {
                     Row r = new Row(tree, false);
                     r.setData(q);
                     r.onClick = () -> choose(q);
-                    r.onMark = () -> {
-                        if (progress.done(q.id)) progress.setDone(q.id, false);
-                        else BankHandler.complete(getShell(), q, true);   // V — וקבצי התרגיל נמחקים (אחרי אישור)
-                        updateButtons();
-                    };
                     r.setLayoutData(rowData(Q_H));
                     if (q == selected) { r.setSelected(true); selRow = r; }
                     questionRows.add(r);
@@ -524,13 +519,13 @@ public class BankDialog extends Dialog {
 
     /**
      * שורה מצוירת. נושא: חץ פתיחה, השם, כמה V מתוך כמה ופס התקדמות דק. שאלה (מוזחת פנימה): נקודת קושי, הכותרת,
-     * ובקצה השמאלי — עיגול ה-V (לחיצה עליו מסמנת / מבטלת; לחיצה בשאר השורה בוחרת את השאלה).
+     * ובקצה השמאלי — עיגול ה-V (רק מוצג: מסמנים בחלון הצף "השאלה"; לחיצה בכל השורה בוחרת את השאלה).
      */
     private final class Row extends Canvas {
         private final boolean topic;
         private boolean selectedRow, hover;
         boolean open;
-        Runnable onClick, onMark;
+        Runnable onClick;
 
         Row(Composite parent, boolean topic) {
             super(parent, SWT.NO_FOCUS | SWT.LEFT_TO_RIGHT | SWT.DOUBLE_BUFFERED);
@@ -541,10 +536,9 @@ public class BankDialog extends Dialog {
             addListener(SWT.MouseExit, e -> { hover = false; redraw(); });
             addListener(SWT.MouseUp, e -> {
                 if (e.button != 1) return;
-                if (!topic && onMark != null && e.x < 34) onMark.run();   // העיגול של ה-V (בצד שמאל)
-                else if (onClick != null) onClick.run();
+                if (onClick != null) onClick.run();   // ה-V מסומן רק בחלון "השאלה" ("סיימתי את התרגיל") — כאן רק מוצג
             });
-            if (!topic) setToolTipText("לחיצה על העיגול משמאל — V ירוק: כבר עשיתי את התרגיל הזה");
+            if (!topic) setToolTipText("V ירוק — כבר עשית את התרגיל (מסמנים בחלון \"השאלה\": \"סיימתי את התרגיל\")");
         }
 
         void setSelected(boolean s) {
