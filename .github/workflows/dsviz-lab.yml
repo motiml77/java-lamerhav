@@ -2,6 +2,8 @@
 #   Eclipse: ההרחבה il.lamerhav.dsviz.bank_1.0.0.jar (Artifact: dsviz-exercise-bank-eclipse) — מעתיקים ל-dropins
 #   Visual Studio: dsviz-bank-vs.jar + install.cmd (Artifact: dsviz-exercise-bank-vs) — ונבדק על Windows עם Visual Studio אמיתי:
 #     התקנה, החלונות, יצירת תרגיל, Reload ב-Visual Studio, בנייה, פלט, הרצה ויזואלית, "סיימתי" (צילומי מסך: Artifact vs-bank-test)
+#   IntelliJ: dsviz-bank-intellij-1.0.0.zip (Artifact: dsviz-exercise-bank-intellij) — אחרי הבדיקה הרחבה (27 שאלות, הגשר, סיימתי)
+#     והבדיקות של התוסף בתוך IntelliJ
 # לא נוגע ב-release/ ולא בקישור הקבוע — התלמידים לא מקבלים את זה.
 name: DSViz lab (exercise bank)
 on:
@@ -19,6 +21,9 @@ on:
       - 'java-visualizer/tools/test/windows-vs/bank-vs.ps1'
       - 'java-visualizer/tools/test/windows-vs/BankVsIt.java'
       - 'java-visualizer/tools/test/windows-vs/BankVsAll.java'
+      - 'java-visualizer/intellij-bank/**'
+      - 'java-visualizer/tools/test/intellij-bank/**'
+      - 'java-visualizer/tools/build-bank-ij.sh'
   workflow_dispatch:
 
 jobs:
@@ -89,4 +94,31 @@ jobs:
         with:
           name: vs-bank-test
           path: vs-bank-test
+          retention-days: 14
+
+  ij-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - name: מאגר תרגילים ל-IntelliJ — בדיקות ובנייה
+        working-directory: java-visualizer
+        run: sh tools/build-bank-ij.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsviz-exercise-bank-intellij
+          path: java-visualizer/build/lab-ij/
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ij-bank-test
+          path: |
+            java-visualizer/build/bank-ij-all/work/bank-ij-result.txt
+            java-visualizer/build/bank-ij-all/work/*.png
+            java-visualizer/intellij-bank/build/reports/tests/
           retention-days: 14

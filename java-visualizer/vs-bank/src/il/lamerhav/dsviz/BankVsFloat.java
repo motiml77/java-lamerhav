@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.BorderFactory;
-import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -36,7 +35,7 @@ import javax.swing.SwingUtilities;
 /**
  * החלון הצף "השאלה" ליד Visual Studio: הנוסח של השאלה, הציורים, "לפעולה של סעיף א" (פותח את הקובץ ב-Visual Studio, בפעולה),
  * "הצעה לפתרון" לכל סעיף, הפלט הרצוי, ובסוף "סיימתי את התרגיל" — סימון ירוק, והפרויקט נמחק (BankVs.complete).
- * סוגרים ופותחים מתי שרוצים (הקיצור "השאלה — מאגר תרגילים C#" פותח את השאלה האחרונה); "תמיד מעל Visual Studio" — כברירת מחדל.
+ * סוגרים ופותחים מתי שרוצים (הקיצור "השאלה — מאגר תרגילים C#" פותח את השאלה האחרונה); תמיד מעל התוכנה (קבוע; אפשר למזער את החלון).
  */
 final class BankVsFloat {
     private BankVsFloat() {}
@@ -44,12 +43,14 @@ final class BankVsFloat {
     static final int WIDTH = 470;
     static JFrame current;
     static BankStore.Question question;
+    /** "סיימתי את התרגיל" נלחץ: הנוסח של האישור (מוצג בחלון במקום השאלה), או null */
+    static String confirm;
     private static Rectangle lastBounds;
     /** לבדיקות: מה מוצג */
     static final List<String> shown = new ArrayList<String>();
 
     static File lastFile() {
-        return Paths.get(System.getProperty("user.home"), ".dsviz", "bank-cs-last.txt").toFile();
+        return Paths.get(System.getProperty("user.home"), ".dsviz", BankVs.ij ? "bank-ij-last.txt" : "bank-cs-last.txt").toFile();
     }
 
     /** השאלה האחרונה שנפתחה בחלון הצף (או שנוצר ממנה תרגיל) */
@@ -64,7 +65,7 @@ final class BankVsFloat {
         for (BankStore.Question x : BankVs.store.questions) if (x.id.equals(id)) q = x;
         if (q == null) {
             RtlDialog.show(parent, "השאלה", RtlDialog.Kind.INFO, "עוד לא נבחרה שאלה",
-                    "פותחים את \"מאגר תרגילים\", בוחרים שאלה ויוצרים ממנה תרגיל — והשאלה תופיע כאן, ליד Visual Studio.");
+                    "פותחים את \"מאגר תרגילים\", בוחרים שאלה ויוצרים ממנה תרגיל — והשאלה תופיע כאן, ליד " + BankVs.ide() + ".");
             BankVsWindow.open(null, null);
             return;
         }
@@ -73,6 +74,7 @@ final class BankVsFloat {
 
     static void show(BankStore.Question q) {
         question = q;
+        confirm = null;
         try {
             File f = lastFile();
             f.getParentFile().mkdirs();
@@ -86,7 +88,7 @@ final class BankVsFloat {
         }
         final JFrame f = new JFrame(RtlDialog.rtl("השאלה — " + q.title));
         f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        f.setAlwaysOnTop(true);
+        f.setAlwaysOnTop(true);   // תמיד מעל התוכנה (הגדרה קבועה); מי שרוצה — ממזער את החלון
         try {
             f.setIconImage(javax.imageio.ImageIO.read(BankVsFloat.class.getResource("/icons/question.png")));
         } catch (Exception ignored) {
@@ -111,7 +113,7 @@ final class BankVsFloat {
         else {
             // ברירת מחדל: מימין, אבל לא על Solution Explorer של Visual Studio (העמודה הימנית) — משמאל לה
             Rectangle s = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-            int x = s.width >= 1600 ? s.x + s.width - WIDTH - 380 : s.x + s.width - WIDTH - 12;
+            int x = s.width >= 1600 && !BankVs.ij ? s.x + s.width - WIDTH - 380 : s.x + s.width - WIDTH - 12;   // IntelliJ: בקצה הימני (כלי הצד שם צרים)
             f.setBounds(x, s.y + 60, WIDTH, Math.min(s.height - 100, 880));
         }
         f.addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -122,11 +124,41 @@ final class BankVsFloat {
             public void componentResized(java.awt.event.ComponentEvent e) { saveBounds(f.getBounds()); }
         });
         f.setVisible(true);
+        if (BankVs.ij) yieldToIdeDialogs(f);
+    }
+
+    /**
+     * IntelliJ: כשהוא מציג חלון דו-שיח (למשל "יש שגיאות" בהרצה ויזואלית), החלון הצף — שתמיד מעל — היה מסתיר אותו. אז בזמן שהחלון
+     * הזה פתוח, החלון הצף יורד אחורה; כשהוא נסגר — חוזר להיות מעל.
+     */
+    static void yieldToIdeDialogs(final JFrame f) {
+        Thread t = new Thread(() -> {
+            boolean down = false;
+            while (f.isDisplayable()) {
+                final boolean d = BankVs.ideDialog();
+                if (d != down) {
+                    down = d;
+                    SwingUtilities.invokeLater(() -> {
+                        if (!f.isDisplayable()) return;
+                        f.setAlwaysOnTop(!d);
+                        if (d) f.toBack();   // וכשנסגר — שוב מעל (בלי לקחת את המקלדת מהעורך)
+                        shown.add(d ? "YIELD" : "ON-TOP");
+                    });
+                }
+                try {
+                    Thread.sleep(700);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+        }, "dsviz-float-yield");
+        t.setDaemon(true);
+        t.start();
     }
 
     /** המקום והגודל שהתלמיד בחר לחלון — נשמרים, כדי שבפעם הבאה ייפתח באותו מקום */
     static File boundsFile() {
-        return Paths.get(System.getProperty("user.home"), ".dsviz", "bank-cs-float.txt").toFile();
+        return Paths.get(System.getProperty("user.home"), ".dsviz", BankVs.ij ? "bank-ij-float.txt" : "bank-cs-float.txt").toFile();
     }
 
     static Rectangle savedBounds() {
@@ -160,24 +192,16 @@ final class BankVsFloat {
         JPanel top = BankVsPanel.column();
         top.setBorder(BorderFactory.createEmptyBorder(12, 16, 8, 16));
         top.add(BankVsPanel.titleRow(q, BankVs.topicTitle(q.topic)));
-        // איפה התרגיל: הפרויקט בפתרון, ואיך מריצים
+        // איפה התרגיל, ואיך מריצים
         List<File> projects = BankVs.projects(q);
         if (!projects.isEmpty()) {
             top.add(RtlDialog.gap(8));
             String name = projects.get(projects.size() - 1).getName();
-            final File proj = projects.get(projects.size() - 1);
             JPanel how = BankVsPanel.column();
-            JPanel row = new JPanel(new BorderLayout(10, 0));
-            row.setOpaque(false);
-            row.add(RtlDialog.label("התרגיל בפתרון: " + name, RtlDialog.bold(), RtlDialog.INK), BorderLayout.CENTER);
-            javax.swing.JButton run = RtlDialog.primary("הרצה ויזואלית");
-            run.setToolTipText(RtlDialog.rtl("מריץ את התרגיל בהרצה ויזואלית — מה ששמור בקובץ (ב-Visual Studio שומרים קודם: Ctrl+S)"));
-            run.addActionListener(e -> BankVs.runVisual(proj));
-            row.add(run, BorderLayout.LINE_END);
-            row.setAlignmentX(Component.RIGHT_ALIGNMENT);
-            how.add(row);
+            how.add(RtlDialog.label("שם התרגיל: " + name, RtlDialog.bold(), RtlDialog.INK));
             how.add(RtlDialog.gap(4));
-            how.add(RtlDialog.label("כותבים את הפתרון, שומרים (Ctrl+S) ולוחצים \"הרצה ויזואלית\".", RtlDialog.small(), RtlDialog.INK_2));
+            // מריצים מהתוכנה עצמה, איפה שכותבים את הקוד: הכפתור "הרצה ויזואלית" של DSViz בסרגל העליון
+            how.add(RtlDialog.label("כותבים את התשובה בכל סעיף, ומריצים בכפתור \"הרצה ויזואלית\" שבסרגל העליון.", RtlDialog.small(), RtlDialog.INK_2));
             RtlDialog.Panel box = new RtlDialog.Panel(new BorderLayout(), new Color(0xEEF4FF), new Color(0xC9D8F5));
             box.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
             box.add(how, BorderLayout.CENTER);
@@ -185,48 +209,68 @@ final class BankVsFloat {
             top.add(box);
             shown.add("PROJECT " + name);
         }
-        final JCheckBox pin = new JCheckBox(RtlDialog.rtl("תמיד מעל Visual Studio"), f.isAlwaysOnTop());
-        pin.setOpaque(false);
-        pin.setFont(RtlDialog.small());
-        pin.setForeground(RtlDialog.MUTED);
-        pin.setAlignmentX(Component.RIGHT_ALIGNMENT);
-        pin.addActionListener(e -> f.setAlwaysOnTop(pin.isSelected()));
-        top.add(RtlDialog.gap(4));
-        top.add(pin);
         page.add(top, BorderLayout.NORTH);
 
-        JPanel body = BankVsPanel.column();
-        body.setBorder(BorderFactory.createEmptyBorder(4, 14, 14, 14));
-        body.add(BankVsPanel.build(q, WIDTH - 60, new BankVsPanel.Actions() {
-            public void jump(AiScaffold.Task t) {
-                BankVsFloat.jump(f, q, t);
-            }
+        if (confirm != null) {
+            // "סיימתי את התרגיל": האישור בתוך החלון עצמו (במקום השאלה) — בלי חלון נוסף שמכסה אותו
+            page.add(confirmPage(f, q, confirm), BorderLayout.CENTER);
+            JPanel foot = RtlDialog.footer();
+            javax.swing.JButton yes = RtlDialog.primary("סיום ומחיקה"), no = RtlDialog.secondary("ביטול");
+            yes.addActionListener(e -> {
+                confirm = null;
+                if (BankVs.complete(f, q, false)) f.dispose();
+                else render();
+            });
+            no.addActionListener(e -> {
+                confirm = null;
+                render();
+            });
+            foot.add(yes);
+            foot.add(no);
+            page.add(foot, BorderLayout.SOUTH);
+            shown.add("DONE-CONFIRM");
+        } else {
+            JPanel body = BankVsPanel.column();
+            body.setBorder(BorderFactory.createEmptyBorder(4, 14, 14, 14));
+            body.add(BankVsPanel.build(q, WIDTH - 60, new BankVsPanel.Actions() {
+                public void jump(AiScaffold.Task t) {
+                    BankVsFloat.jump(f, q, t);
+                }
 
-            public void solution(AiScaffold.Task t) {
-                BankVsFloat.solution(f, t);
-            }
-        }));
-        JPanel holder = new JPanel(new BorderLayout());
-        holder.setBackground(RtlDialog.PAGE);
-        holder.add(body, BorderLayout.NORTH);
-        JScrollPane sp = new JScrollPane(holder, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        sp.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, RtlDialog.LINE));
-        sp.getVerticalScrollBar().setUnitIncrement(18);
-        sp.getViewport().setBackground(RtlDialog.PAGE);
-        page.add(sp, BorderLayout.CENTER);
+                public void solution(AiScaffold.Task t) {
+                    BankVsFloat.solution(f, t);
+                }
+            }));
+            JPanel holder = new JPanel(new BorderLayout());
+            holder.setBackground(RtlDialog.PAGE);
+            holder.add(body, BorderLayout.NORTH);
+            JScrollPane sp = new JScrollPane(holder, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            sp.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, RtlDialog.LINE));
+            sp.getVerticalScrollBar().setUnitIncrement(18);
+            sp.getViewport().setBackground(RtlDialog.PAGE);
+            page.add(sp, BorderLayout.CENTER);
 
-        boolean done = BankProgress.get().done(q.id);
-        JPanel foot = new JPanel(new BorderLayout());
-        foot.setBackground(RtlDialog.PANEL);
-        foot.setBorder(BorderFactory.createEmptyBorder(10, 16, 12, 16));
-        DoneButton db = new DoneButton(done, () -> {
-            if (BankProgress.get().done(q.id)) BankProgress.get().setDone(q.id, false);
-            else if (BankVs.complete(f, q, true)) f.dispose();
-        });
-        foot.add(db, BorderLayout.CENTER);
-        page.add(foot, BorderLayout.SOUTH);
-        shown.add("DONE-BUTTON " + (done ? "done" : "todo"));
-        for (BankStore.Section s : q.sections) shown.add("SECTION " + s.label);
+            boolean done = BankProgress.get().done(q.id);
+            JPanel foot = new JPanel(new BorderLayout());
+            foot.setBackground(RtlDialog.PANEL);
+            foot.setBorder(BorderFactory.createEmptyBorder(10, 16, 12, 16));
+            DoneButton db = new DoneButton(done, () -> {
+                if (BankProgress.get().done(q.id)) BankProgress.get().setDone(q.id, false);
+                else {
+                    String text = BankVs.doneText(q);
+                    if (text == null) {   // אין קבצים למחוק — רק הסימון
+                        if (BankVs.complete(f, q, false)) f.dispose();
+                    } else {
+                        confirm = text;
+                        render();
+                    }
+                }
+            });
+            foot.add(db, BorderLayout.CENTER);
+            page.add(foot, BorderLayout.SOUTH);
+            shown.add("DONE-BUTTON " + (done ? "done" : "todo"));
+            for (BankStore.Section s : q.sections) shown.add("SECTION " + s.label);
+        }
 
         f.setContentPane(page);
         RtlDialog.rtl(page);
@@ -234,6 +278,25 @@ final class BankVsFloat {
         f.getRootPane().revalidate();
         f.validate();
         f.repaint();
+    }
+
+    /** דף האישור של "סיימתי את התרגיל": כותרת, מה יקרה ומה יימחק */
+    static JComponent confirmPage(JFrame f, BankStore.Question q, String text) {
+        JPanel card = BankVsPanel.column();
+        card.add(RtlDialog.heading(RtlDialog.Kind.OK, "סיימתי את התרגיל"));
+        card.add(RtlDialog.gap(10));
+        card.add(RtlDialog.rich(text, WIDTH - 90, RtlDialog.INK_2, true));
+        RtlDialog.Panel box = new RtlDialog.Panel(new BorderLayout(), Color.WHITE, RtlDialog.LINE);
+        box.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+        box.add(card, BorderLayout.CENTER);
+        JPanel holder = new JPanel(new BorderLayout());
+        holder.setBackground(RtlDialog.PAGE);
+        holder.setBorder(BorderFactory.createEmptyBorder(10, 14, 14, 14));
+        holder.add(box, BorderLayout.NORTH);
+        JScrollPane sp = new JScrollPane(holder, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        sp.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, RtlDialog.LINE));
+        sp.getViewport().setBackground(RtlDialog.PAGE);
+        return sp;
     }
 
     /** "לפעולה של סעיף א": פותח ב-Visual Studio את הקובץ של הפעולה, בשורה שלה */
@@ -245,9 +308,9 @@ final class BankVsFloat {
             return;
         }
         File dir = projects.get(projects.size() - 1);
-        File file = new File(dir, t.className + ".cs");
+        File file = new File(dir, t.className + BankVs.ext());
         if (!file.isFile()) {
-            File[] cs = dir.listFiles((d, n) -> n.endsWith(".cs"));
+            File[] cs = dir.listFiles((d, n) -> n.endsWith(BankVs.ext()));
             for (File c : cs == null ? new File[0] : cs) if (BankVs.methodLine(c, t.methodName) > 0) file = c;
         }
         BankVs.openFile(file, BankVs.methodLine(file, t.methodName));
@@ -275,7 +338,7 @@ final class BankVsFloat {
         DoneButton(boolean done, final Runnable toggle) {
             this.done = done;
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            setToolTipText(RtlDialog.rtl(done ? "לחיצה מבטלת את הסימון" : "סימון ירוק — והפרויקט של התרגיל נמחק, כדי שהפתרון לא יתמלא בתרגילים ישנים"));
+            setToolTipText(RtlDialog.rtl(done ? "לחיצה מבטלת את הסימון" : "סימון ירוק — וקבצי התרגיל נמחקים, כדי שלא יצטברו תרגילים ישנים"));
             setPreferredSize(new Dimension(200, 42));
             setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
             putClientProperty("ltr", Boolean.TRUE);

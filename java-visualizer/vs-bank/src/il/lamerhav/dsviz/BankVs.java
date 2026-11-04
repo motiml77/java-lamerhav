@@ -36,32 +36,82 @@ public final class BankVs {
 
     static final String TITLE = "מאגר תרגילים — C#";
     static Path root;
+
+    // ---- מצב IntelliJ (Java): התוסף dsviz-bank מפעיל את הכלי עם --ij, ומקבל ממנו בקשות בגשר מקומי (פתיחת קובץ, הרצה ויזואלית, רענון)
+    /** IntelliJ (Java) — root היא תיקיית הקוד (src) של הפרויקט, והתרגיל הוא חבילה ex01_... בתוכה */
+    static boolean ij;
+    static File lib, solutionsFile;
+    static String javaExe, token = "", projectName = "";
+    static int port;
+    /** תיקיות הפלט של הקומפילציה (IntelliJ: out/production/<מודול>) — מוחקים משם רק את ה-class של קבצי התרגיל */
+    static final List<File> outDirs = new ArrayList<File>();
+
+    static String title() {
+        return ij ? "מאגר תרגילים — IntelliJ" : TITLE;
+    }
+
+    static String ide() {
+        return ij ? "IntelliJ" : "Visual Studio";
+    }
+
+    /** איפה התרגיל נוצר — לטקסט בחלונות */
+    static String where() {
+        return ij ? "בפרויקט " + projectName : "ב-Visual Studio";
+    }
+
+    static String ext() {
+        return ij ? ".java" : ".cs";
+    }
+
+    static File storeFile() {
+        return ij && solutionsFile != null ? solutionsFile : VsSubmit.storeFile();
+    }
     static BankStore store;
     /** בדיקות: מה היה נפתח ב-Visual Studio (עם -Ddsviz.noOpen=true לא נפתח כלום) */
-    static final List<String> opened = new ArrayList<String>();
+    static final List<String> opened = java.util.Collections.synchronizedList(new ArrayList<String>());
 
     public static void main(final String[] a) throws Exception {
         if (a.length < 2) {
             System.err.println("שימוש: BankVs bank|question <תיקיית DataStructures-CS>");
             System.exit(2);
         }
-        init(Paths.get(a[1]));
+        configure(a);
         SwingUtilities.invokeAndWait(() -> {
             if (a[0].equals("question")) BankVsFloat.showLast(null);
             else BankVsWindow.open(null, null);
         });
     }
 
+    /** הארגומנטים (גם לתסריטי הבדיקה): <מצב> <תיקייה> [--ij --lib --java --store --port --token --project --out], ואז init */
+    static void configure(String[] a) throws Exception {
+        for (int i = 2; i < a.length; i++) {
+            String k = a[i], v = i + 1 < a.length ? a[i + 1] : "";
+            switch (k) {
+                case "--ij": ij = true; continue;
+                case "--lib": lib = new File(v); break;
+                case "--java": javaExe = v; break;
+                case "--store": solutionsFile = new File(v); break;
+                case "--port": port = Integer.parseInt(v); break;
+                case "--token": token = v; break;
+                case "--project": projectName = v; break;
+                case "--out": for (String o : v.split(java.util.regex.Pattern.quote(File.pathSeparator))) if (!o.isEmpty()) outDirs.add(new File(o)); break;
+                default: continue;
+            }
+            i++;
+        }
+        init(Paths.get(a[1]));
+    }
+
     /** הכנה (גם לבדיקות): ההתקדמות של C#, העיצוב, והמאגר */
     static void init(Path r) throws Exception {
         if (System.getProperty("dsviz.bankProgress") == null)
-            System.setProperty("dsviz.bankProgress", Paths.get(System.getProperty("user.home"), ".dsviz", "bank-progress-cs.json").toString());
+            System.setProperty("dsviz.bankProgress", Paths.get(System.getProperty("user.home"), ".dsviz", ij ? "bank-progress-ij.json" : "bank-progress-cs.json").toString());
         root = r.toAbsolutePath();
         cleanPending();
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
             compactFonts();
-            store = BankStore.load(true);
+            store = BankStore.load(!ij);
         });
     }
 
@@ -90,14 +140,23 @@ public final class BankVs {
     /** יוצר את הפרויקט מהשאלה (בלי Gemini), שומר את ההצעות לפתרון בצד, ורושם אותו כשייך לשאלה */
     static ExercisePipeline.Result create(BankStore.Question q, ExercisePipeline.Progress p) throws Exception {
         Map<String, Object> raw = Json.obj(Json.parse(Json.write(q.exercise)));   // עותק: המנוע משנה את המפה
-        ExercisePipeline.Result r = VsSubmit.build(null, raw, new ArrayList<String>(), root, VsSubmit.dsvizCs(), p, VsSubmit.takenNames(root));
+        ExercisePipeline.Result r;
+        if (ij) {
+            // IntelliJ: חבילה ex01_... בתיקיית הקוד, קומפילציה ובדיקת ההצעות מול dsviz.jar (בלי Gemini)
+            List<String> taken = new ArrayList<String>();
+            String[] names = root.toFile().list();
+            if (names != null) for (String n : names) if (new File(root.toFile(), n).isDirectory()) taken.add(n);
+            r = ExercisePipeline.java(null, raw, new ArrayList<String>(), root.toFile(), lib, javaExe, p, taken);
+        } else {
+            r = VsSubmit.build(null, raw, new ArrayList<String>(), root, VsSubmit.dsvizCs(), p, VsSubmit.takenNames(root));
+        }
         if (r.files.isEmpty()) throw new IOException(r.writeError != null ? r.writeError : "הקבצים לא נכתבו");
         for (File f : r.files) stripMarks(f);
         for (SolutionStore.Entry e : r.entries) e.code = e.code.replaceAll("[\\u202A-\\u202E\\u2066-\\u2069]", "");
-        if (!r.entries.isEmpty()) new SolutionStore(VsSubmit.storeFile()).add(r.entries);
+        if (!r.entries.isEmpty()) new SolutionStore(storeFile()).add(r.entries);
         BankProgress.Created c = new BankProgress.Created();
         c.project = root.getFileName().toString();
-        c.folder = slash(CsSolution.exercisesDir(root).resolve(r.folderName).toString());
+        c.folder = slash((ij ? root : CsSolution.exercisesDir(root)).resolve(r.folderName).toString());
         c.focus = r.focus == null ? "" : slash(r.focus.getPath());
         for (File f : r.files) c.files.add(slash(f.getPath()));
         BankProgress.get().created(q.id, c);
@@ -155,7 +214,7 @@ public final class BankVs {
 
         /** התיקייה כבר לא קיימת (נמחקה ידנית), אבל הפרויקט עוד רשום בפתרון — רק מוציאים אותו מהפתרון */
         boolean missingButRegistered() {
-            if (dir.exists() || !inExercises) return false;
+            if (ij || dir.exists() || !inExercises) return false;
             Path sln = CsSolution.solution(root);
             try {
                 return sln != null && new String(Files.readAllBytes(sln), StandardCharsets.UTF_8).contains("\"" + dir.getName() + "\",");
@@ -170,7 +229,7 @@ public final class BankVs {
         File dir = new File(c.folder);
         Removal r = new Removal(dir);
         try {
-            File ex = CsSolution.exercisesDir(root).toFile().getCanonicalFile();
+            File ex = (ij ? root : CsSolution.exercisesDir(root)).toFile().getCanonicalFile();
             File parent = dir.getAbsoluteFile().getParentFile();
             r.inExercises = parent != null && parent.getCanonicalFile().equals(ex);
         } catch (IOException e) {
@@ -188,7 +247,12 @@ public final class BankVs {
         if (names != null) {
             for (String n : names) {
                 String l = n.toLowerCase();
-                if (made.contains(l) || l.equals(dir.getName().toLowerCase() + ".csproj") || l.equals(dir.getName().toLowerCase() + ".csproj.user")
+                if (made.contains(l)) continue;
+                if (ij) {   // IntelliJ: בחבילה יש רק את קבצי התרגיל; כל דבר אחר — של התלמיד
+                    r.others.add(n);
+                    continue;
+                }
+                if (l.equals(dir.getName().toLowerCase() + ".csproj") || l.equals(dir.getName().toLowerCase() + ".csproj.user")
                         || l.equals("bin") || l.equals("obj")) continue;
                 if (l.equals("properties")) {
                     String[] p = new File(dir, n).list();
@@ -201,31 +265,47 @@ public final class BankVs {
         return r;
     }
 
+    /** מה יימחק מהשאלה (רק מה שנוצר ממנה) */
+    static List<Removal> plans(BankStore.Question q) {
+        List<Removal> plans = new ArrayList<Removal>();
+        for (BankProgress.Created c : BankProgress.get().createdOf(q.id)) {
+            Removal r = plan(c);
+            if (!r.files.isEmpty() || r.dir.isDirectory() && r.wholeProject() || r.missingButRegistered()) plans.add(r);
+        }
+        return plans;
+    }
+
+    /** הנוסח של "סיימתי את התרגיל" (מה יקרה ומה יימחק), או null אם אין מה למחוק */
+    static String doneText(BankStore.Question q) {
+        List<Removal> plans = plans(q);
+        if (plans.isEmpty()) return null;
+        StringBuilder what = new StringBuilder();
+        for (Removal r : plans) {
+            List<String> n = new ArrayList<String>();
+            for (File f : r.files) n.add(f.getName());
+            what.append(what.length() == 0 ? "" : "\n");
+            if (ij) {
+                what.append(n.size() == 1 ? "הקובץ שיימחק: " : "הקבצים שיימחקו: ").append(String.join(", ", n));
+                if (!r.others.isEmpty()) what.append("\nהחבילה ").append(r.dir.getName()).append(" נשארת — יש בה עוד קבצים שלך: ").append(String.join(", ", r.others));
+            } else if (!r.dir.exists()) what.append("הפרויקט ").append(r.dir.getName()).append(" כבר נמחק מהמחשב — הוא יוצא גם מ-Visual Studio");
+            else if (r.wholeProject()) what.append("התרגיל שיימחק: ").append(r.dir.getName()).append(n.isEmpty() ? "" : " (" + String.join(", ", n) + ")");
+            else what.append("קבצי התרגיל שיימחקו: ").append(String.join(", ", n)).append("\nהתרגיל ").append(r.dir.getName())
+                    .append(" נשאר ב-Visual Studio — יש בו עוד קבצים שלך: ").append(String.join(", ", r.others));
+        }
+        return "השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו — כדי שלא יצטברו תרגילים ישנים.\n\n"
+                + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
+                + what + "\nרק מה שנוצר מהתרגיל נמחק — קבצים אחרים לא נמחקים.";
+    }
+
     /**
      * סימון ירוק, ומחיקה של מה שנוצר מהשאלה — ורק של זה: אם בתיקיית הפרויקט אין שום דבר אחר, הפרויקט נמחק כולו (התיקייה והרישום
      * בפתרון); אם התלמיד הוסיף שם קבצים משלו — נמחקים רק קבצי התרגיל, והפרויקט עם הקבצים שלו נשאר. גם ההצעות לפתרון השמורות
      * והשיוך לשאלה נמחקים. ask — שואלים קודם (בחלון בעברית, עם הרשימה). מחזיר false אם התלמיד ביטל.
      */
     static boolean complete(Component parent, BankStore.Question q, boolean ask) {
-        List<Removal> plans = new ArrayList<Removal>();
-        for (BankProgress.Created c : BankProgress.get().createdOf(q.id)) {
-            Removal r = plan(c);
-            if (!r.files.isEmpty() || r.dir.isDirectory() && r.wholeProject() || r.missingButRegistered()) plans.add(r);
-        }
-        StringBuilder what = new StringBuilder();
-        for (Removal r : plans) {
-            List<String> n = new ArrayList<String>();
-            for (File f : r.files) n.add(f.getName());
-            what.append(what.length() == 0 ? "" : "\n");
-            if (!r.dir.exists()) what.append("הפרויקט ").append(r.dir.getName()).append(" כבר נמחק מהדיסק — הוא יוצא גם מהפתרון");
-            else if (r.wholeProject()) what.append("הפרויקט שיימחק מהפתרון: ").append(r.dir.getName()).append(n.isEmpty() ? "" : " (" + String.join(", ", n) + ")");
-            else what.append("קבצי התרגיל שיימחקו: ").append(String.join(", ", n)).append("\nהפרויקט ").append(r.dir.getName())
-                    .append(" נשאר — יש בו עוד קבצים שלך: ").append(String.join(", ", r.others));
-        }
-        if (ask && !plans.isEmpty() && RtlDialog.ask(parent, "סיימתי את התרגיל", RtlDialog.Kind.OK, "סיימתי את התרגיל",
-                "השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו — כדי שלא יצטברו תרגילים ישנים.\n\n"
-                + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
-                + what + "\nרק מה שנוצר מהתרגיל נמחק — קבצים אחרים לא נמחקים.", "סיום ומחיקה", "ביטול") != 0) return false;
+        String text = ask ? doneText(q) : null;
+        if (text != null && RtlDialog.ask(parent, "סיימתי את התרגיל", RtlDialog.Kind.OK, "סיימתי את התרגיל", text, "סיום ומחיקה", "ביטול") != 0) return false;
+        List<Removal> plans = plans(q);
         BankProgress.get().setDone(q.id, true);
         List<String> left = new ArrayList<String>();
         for (Removal r : plans) left.addAll(remove(r));
@@ -256,6 +336,15 @@ public final class BankVs {
             }
             if (f.exists()) left.add(f.getPath());
         }
+        if (ij) {
+            deleteClasses(r);
+            if (r.wholeProject() && r.dir.isDirectory()) {
+                String[] rest = r.dir.list();
+                if (rest != null && rest.length == 0 && !r.dir.delete()) left.add(r.dir.getPath());
+            }
+            bridge("REFRESH", root.toString());
+            return left;
+        }
         if (!r.wholeProject() || !r.dir.isDirectory()) return left;
         Path sln = CsSolution.solution(root);
         try {
@@ -285,6 +374,27 @@ public final class BankVs {
             if (!onlyBuild) left.add(r.dir.getPath());
         }
         return left;
+    }
+
+    /**
+     * IntelliJ: הקבצים המקומפלים של קבצי התרגיל בכל תיקיית פלט (out/production/<מודול>/ex01_.../Name.class ו-Name$...class) —
+     * רק הם; תיקיית החבילה שם נמחקת רק אם נשארה ריקה
+     */
+    static void deleteClasses(Removal r) {
+        for (File out : outDirs) {
+            File pkg = new File(out, r.dir.getName());
+            File[] k = pkg.listFiles();
+            if (k == null) continue;
+            for (File f : r.files) {
+                String base = f.getName().replaceAll("\\.java$", "");
+                for (File c : k) {
+                    String n = c.getName();
+                    if (c.isFile() && (n.equals(base + ".class") || n.startsWith(base + "$") && n.endsWith(".class"))) c.delete();
+                }
+            }
+            String[] rest = pkg.list();
+            if (rest != null && rest.length == 0) pkg.delete();
+        }
     }
 
     /** כל מה שבתיקייה (נתיבים יחסיים) — להודעות ולבדיקות */
@@ -399,7 +509,7 @@ public final class BankVs {
         java.util.Set<String> paths = new java.util.HashSet<String>();
         for (File f : files) paths.add(slash(f.getAbsolutePath()).toLowerCase());
         try {
-            SolutionStore s = new SolutionStore(VsSubmit.storeFile());
+            SolutionStore s = new SolutionStore(storeFile());
             Method load = SolutionStore.class.getDeclaredMethod("load"), save = SolutionStore.class.getDeclaredMethod("save");
             Field f = SolutionStore.class.getDeclaredField("entries");
             load.setAccessible(true);
@@ -425,7 +535,7 @@ public final class BankVs {
     static int solutionsUnder(File dir) {
         String prefix = slash(dir.getAbsolutePath()).toLowerCase() + "/";
         int n = 0;
-        for (SolutionStore.Entry e : new SolutionStore(VsSubmit.storeFile()).all()) if (slash(e.path).toLowerCase().startsWith(prefix)) n++;
+        for (SolutionStore.Entry e : new SolutionStore(storeFile()).all()) if (slash(e.path).toLowerCase().startsWith(prefix)) n++;
         return n;
     }
 
@@ -467,6 +577,10 @@ public final class BankVs {
 
     /** הפתרון ב-Visual Studio: אם Visual Studio לא פתוח — פותחים אותו עם הפתרון; אם פתוח — הוא יציע Reload לבד */
     static void openSolution() {
+        if (ij) {
+            bridge("REFRESH", root.toString());
+            return;
+        }
         Path sln = CsSolution.solution(root);
         if (sln == null) return;
         opened.add("SLN " + sln);
@@ -483,36 +597,94 @@ public final class BankVs {
     /** פותח קובץ ב-Visual Studio שכבר פתוח (devenv /edit), והסמן בשורה (מ-1) */
     static void openFile(File f, int line) {
         opened.add("FILE " + f.getName() + ":" + line);
+        if (ij) {
+            bridge("OPEN", f.getAbsolutePath(), String.valueOf(line));
+            return;
+        }
         if (Boolean.getBoolean("dsviz.noOpen")) return;
-        String dv = devenv();
+        // ברקע — כדי שהחלונות לא ייתקעו בזמן ש-Visual Studio עסוק
+        Thread t = new Thread(() -> {
+            // Visual Studio כבר פתוח: פותחים את הקובץ בו (DTE) — devenv /edit פותח לפעמים Visual Studio נוסף כשהפתוח עסוק
+            if (vsRunning() && openInRunningVs(f, line)) return;
+            String dv = devenv();
+            try {
+                if (dv != null) {
+                    List<String> cmd = new ArrayList<String>(java.util.Arrays.asList(dv, "/edit", f.getPath()));
+                    if (line > 0) {
+                        cmd.add("/command");
+                        cmd.add("Edit.GoTo " + line);
+                    }
+                    new ProcessBuilder(cmd).start();
+                } else if (java.awt.Desktop.isDesktopSupported()) java.awt.Desktop.getDesktop().open(f);
+            } catch (IOException ignored) {
+                // לא נפתח
+            }
+        }, "dsviz-open");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /**
+     * פותח את הקובץ ב-Visual Studio שכבר פתוח, דרך האוטומציה שלו (DTE, ב-PowerShell): הקובץ נפתח באותו חלון, הסמן בשורה,
+     * ו-Visual Studio עולה מקדימה; והפרויקט של הקובץ נהיה ה-Startup Project (כדי ש"הרצה ויזואלית" בסרגל תריץ את התרגיל). כש-Visual Studio עסוק ("Working on it") הוא דוחה את הקריאה — מנסים שוב כמה פעמים.
+     * מחזיר false אם לא הצליח (ואז devenv /edit).
+     */
+    static boolean openInRunningVs(File f, int line) {
+        String ps = "$ErrorActionPreference='Stop'; $d=$null; "
+                + "foreach($p in 'VisualStudio.DTE.18.0','VisualStudio.DTE.17.0','VisualStudio.DTE'){ try { $d=[Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }; "
+                + "if(-not $d){ exit 3 }; "
+                + "for($i=0; $i -lt 15; $i++){ try { "
+                + "$null=$d.ItemOperations.OpenFile($env:DSVIZ_FILE); "
+                + "if([int]$env:DSVIZ_LINE -gt 0){ $d.ActiveDocument.Selection.GotoLine([int]$env:DSVIZ_LINE, $true) }; "
+                + "$d.MainWindow.Activate(); break } catch { Start-Sleep -Milliseconds 1500 } }; if($i -ge 15){ exit 4 }; "
+                // התרגיל = הפרויקט שמריצים (Startup Project): הכפתור "הרצה ויזואלית" בסרגל של Visual Studio מריץ אותו מיד.
+                // אחרי היצירה Visual Studio טוען קודם את הפרויקט החדש — מחכים שיופיע
+                + "for($j=0; $j -lt 20; $j++){ try { $it=$d.Solution.FindProjectItem($env:DSVIZ_FILE); "
+                + "if($it -and $it.ContainingProject){ $d.Solution.SolutionBuild.StartupProjects=$it.ContainingProject.UniqueName; "
+                + "Write-Output ('STARTUP ' + $it.ContainingProject.UniqueName); exit 0 } } catch {}; Start-Sleep -Milliseconds 1500 }; exit 0";
         try {
-            if (dv != null) {
-                List<String> cmd = new ArrayList<String>(java.util.Arrays.asList(dv, "/edit", f.getPath()));
-                if (line > 0) {
-                    cmd.add("/command");
-                    cmd.add("Edit.GoTo " + line);
-                }
-                new ProcessBuilder(cmd).start();
-            } else if (java.awt.Desktop.isDesktopSupported()) java.awt.Desktop.getDesktop().open(f);
-        } catch (IOException ignored) {
-            // לא נפתח
+            ProcessBuilder pb = new ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps);
+            pb.environment().put("DSVIZ_FILE", f.getAbsolutePath());
+            pb.environment().put("DSVIZ_LINE", String.valueOf(line));
+            pb.redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(new File(System.getProperty("java.io.tmpdir"), "dsviz-bank-dte.txt")));
+            Process p = pb.start();
+            p.getOutputStream().close();
+            if (!p.waitFor(75, java.util.concurrent.TimeUnit.SECONDS)) {
+                p.destroyForcibly();
+                return false;
+            }
+            opened.add("DTE " + p.exitValue());
+            return p.exitValue() == 0;
+        } catch (Exception e) {
+            return false;
         }
     }
 
     /**
-     * "הרצה ויזואלית" מהחלון הצף — אותו דבר כמו הפרופיל "הרצה ויזואלית" של הפרויקט ב-Visual Studio (dsviz-cs על תיקיית הפרויקט),
-     * בלי לבחור קודם Startup Project. מריץ את מה ששמור בדיסק (ב-Visual Studio שומרים קודם: Ctrl+S).
+     * גשר ל-IntelliJ: שורה אחת ל-127.0.0.1:port — "token\tפקודה\tארגומנטים". התוסף פותח קובץ (OPEN) או מרענן (REFRESH).
+     * בלי גשר (בדיקות) — רק נרשם ב-opened. מחזיר את התשובה ("OK ..."), או null.
      */
-    static void runVisual(File projectDir) {
-        opened.add("RUN " + projectDir.getName());
-        if (Boolean.getBoolean("dsviz.noOpen")) return;
-        List<String> cmd = new ArrayList<String>(VsSubmit.dsvizCs());
-        cmd.add(projectDir.getAbsolutePath());
-        try {
-            new ProcessBuilder(cmd).directory(projectDir).redirectErrorStream(true)
-                    .redirectOutput(ProcessBuilder.Redirect.appendTo(new File(System.getProperty("java.io.tmpdir"), "dsviz-bank-run.txt"))).start();
-        } catch (IOException ignored) {
-            // לא רץ
+    static String bridge(String cmd, String... args) {
+        opened.add("BRIDGE " + cmd + " " + String.join(" ", args));
+        return send(cmd, args);
+    }
+
+    /** IntelliJ מציג עכשיו חלון דו-שיח (למשל שגיאות בהרצה ויזואלית) — שהחלון הצף לא יסתיר אותו */
+    static boolean ideDialog() {
+        return ij && "1".equals(send("DIALOG"));
+    }
+
+    static String send(String cmd, String... args) {
+        if (port <= 0 || Boolean.getBoolean("dsviz.noOpen")) return null;
+        try (java.net.Socket so = new java.net.Socket()) {
+            so.connect(new java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), port), 3000);
+            so.setSoTimeout(15000);
+            java.io.Writer w = new java.io.OutputStreamWriter(so.getOutputStream(), StandardCharsets.UTF_8);
+            w.write(token + "\t" + cmd + (args.length == 0 ? "" : "\t" + String.join("\t", args)) + "\n");
+            w.flush();
+            return new java.io.BufferedReader(new java.io.InputStreamReader(so.getInputStream(), StandardCharsets.UTF_8)).readLine();
+        } catch (IOException e) {
+            return null;   // IntelliJ נסגר — לא נופלים
         }
     }
 

@@ -191,6 +191,7 @@ public class BankIt implements IApplication {
         Shell fl = ui(() -> (Shell) handler.getMethod("floatShellForTest").invoke(null));
         out.println("FLOAT open=" + (fl != null) + " question=" + handler.getMethod("floatQuestionForTest").invoke(null)
                 + (fl == null ? "" : " rtl=" + ui(() -> fl.getOrientation() == SWT.RIGHT_TO_LEFT) + " title=" + ui(() -> fl.getText())));
+        out.println("FLOAT-MIN " + (fl != null && ui(() -> (fl.getStyle() & SWT.MIN) != 0)));
         for (Object s : (List<?>) handler.getMethod("floatShownForTest").invoke(null)) out.println("FLOAT-SHOWN " + s);
         shot(fl, "bank-float.png");
         shotWindow("bank-float-workbench.png");
@@ -254,11 +255,26 @@ public class BankIt implements IApplication {
             return null;
         });
         out.println("DONE-BUTTON " + (doneBtn != null));
-        display.asyncExec(() -> click(doneBtn));   // החלון "בטוח?" מודאלי — לוחצים ברקע
-        Shell ask = waitSay(10000);
-        out.println("ASK " + (ask != null) + (ask == null ? "" : " text=" + ui(() -> labels(ask))));
-        if (ask != null) shot(ask, "bank-done-ask.png");
-        if (ask != null) ui(() -> { click(find(ask, "primary")); return null; });
+        // קודם "ביטול": חוזרים לשאלה, ושום דבר לא נמחק
+        ui(() -> { click(doneBtn); return null; });
+        sleep(600);
+        ui(() -> { click(find(fl3, "cancel")); return null; });
+        sleep(600);
+        out.println("CANCEL confirm=" + (ui(() -> find(fl3, "primary")) != null) + " " + ui(() -> leftovers(files)));
+        // "סיימתי": האישור מופיע בתוך החלון הצף עצמו (במקום השאלה) — בלי חלון נוסף שמכסה אותו
+        Control doneBtn2 = ui(() -> {
+            for (Control c : all(fl3)) if (c.getClass().getName().endsWith("BankFloat$DoneButton")) return c;
+            return null;
+        });
+        ui(() -> { click(doneBtn2); return null; });
+        sleep(800);
+        boolean extraShell = ui(() -> {
+            for (Shell sh : display.getShells()) if (sh != fl3 && sh.isVisible() && sh.getData("dsviz.say") != null) return true;
+            return false;
+        });
+        out.println("ASK " + (ui(() -> find(fl3, "primary")) != null) + " inline=" + !extraShell + " text=" + ui(() -> labels(fl3)));
+        shot(fl3, "bank-done-ask.png");
+        ui(() -> { click(find(fl3, "primary")); return null; });
         sleep(1500);
         out.println("AFTER-DONE done=" + handler.getMethod("doneForTest", String.class).invoke(null, STACK) + " float-closed=" + ui(() -> fl3.isDisposed()));
         out.println("AFTER-DONE " + ui(() -> leftovers(files)));

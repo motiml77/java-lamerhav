@@ -44,6 +44,8 @@ final class BankFloat {
     private final ScrolledComposite scroll;
     private final Composite body;
     private String questionId;
+    /** "סיימתי את התרגיל" נלחץ: הנוסח של האישור (מוצג בחלון במקום השאלה), או null */
+    private String confirm;
     final List<String> shown = new ArrayList<String>();
     private final Runnable onProgress;
     private final IPartListener2 parts = new IPartListener2() {
@@ -78,7 +80,7 @@ final class BankFloat {
         this.page = page;
         Shell parent = page.getWorkbenchWindow().getShell();
         Display d = parent.getDisplay();
-        shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MODELESS | SWT.RIGHT_TO_LEFT);
+        shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.MIN | SWT.RESIZE | SWT.MODELESS | SWT.RIGHT_TO_LEFT);   // אפשר למזער
         shell.setText("השאלה");
         shell.setData("dsviz.bankFloat", Boolean.TRUE);
         shell.setBackground(Look.color(d, Look.BG));
@@ -122,6 +124,7 @@ final class BankFloat {
     }
 
     void setQuestion(String id) {
+        if (!id.equals(questionId)) confirm = null;
         questionId = id;
         render();
     }
@@ -151,6 +154,8 @@ final class BankFloat {
                 shell.setText("השאלה — " + q.title);
                 BankStore.Topic t = store.topic(q.topic);
                 BankQuestionPanel.titleRow(body, q, t == null ? null : t.title, shown);
+                if (confirm != null) confirmCard(q);
+                else {
                 BankQuestionPanel.build(body, q, new BankQuestionPanel.Actions() {
                     @Override
                     public void jump(AiScaffold.Task task) {
@@ -165,12 +170,22 @@ final class BankFloat {
                 final boolean done = BankProgress.get().done(q.id);
                 DoneButton db = new DoneButton(body, done, () -> {
                     if (done) BankProgress.get().setDone(q.id, false);
-                    else if (BankHandler.complete(shell, q, true)) shell.dispose();   // סיימתי: V, הקבצים נמחקו — החלון נסגר
+                    else {
+                        // סיימתי: שואלים בתוך החלון עצמו (במקום השאלה) — בלי חלון נוסף שמכסה אותו
+                        String text = BankHandler.doneText(q);
+                        if (text == null) {
+                            if (BankHandler.complete(shell, q, false)) shell.dispose();
+                        } else {
+                            confirm = text;
+                            render();
+                        }
+                    }
                 });
                 GridData dg = new GridData(SWT.FILL, SWT.TOP, true, false);
                 dg.verticalIndent = 4;
                 db.setLayoutData(dg);
                 shown.add("DONE " + done);
+                }
             }
             body.layout(true, true);
             Look.updateScroll(scroll);
@@ -181,6 +196,32 @@ final class BankFloat {
         Display d = body.getDisplay();
         d.asyncExec(() -> BankQuestionPanel.restoreColors(body, Look.BG));
         d.timerExec(400, () -> BankQuestionPanel.restoreColors(body, Look.BG));
+    }
+
+    /** "סיימתי את התרגיל": האישור בכרטיס בתוך החלון — מה יקרה ומה יימחק, "סיום ומחיקה" / "ביטול" */
+    private void confirmCard(final BankStore.Question q) {
+        Composite card = Look.card(body, BankQuestionPanel.wide());
+        BankQuestionPanel.text(card, "סיימתי את התרגיל", 1, SWT.BOLD, Look.TEXT, shown);
+        BankQuestionPanel.text(card, confirm, 0, SWT.NORMAL, Look.INK2, shown);
+        Composite bar = new Composite(card, SWT.NONE);
+        GridLayout l = new GridLayout(2, false);
+        l.marginWidth = 0;
+        l.marginHeight = 8;
+        l.horizontalSpacing = 10;
+        bar.setLayout(l);
+        bar.setLayoutData(new GridData(SWT.BEGINNING, SWT.TOP, false, false));
+        Look.Round yes = new Look.Round(bar, "סיום ומחיקה", true, () -> {
+            confirm = null;
+            if (BankHandler.complete(shell, q, false)) shell.dispose();
+            else render();
+        });
+        yes.setData("dsviz.say", "primary");
+        Look.Round no = new Look.Round(bar, "ביטול", false, () -> {
+            confirm = null;
+            render();
+        });
+        no.setData("dsviz.say", "cancel");
+        shown.add("DONE-CONFIRM");
     }
 
     // ------------------------------------------------------------------ פעולות

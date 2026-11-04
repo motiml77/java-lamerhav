@@ -113,19 +113,25 @@ public class BankHandler extends AbstractHandler {
         }
     }
 
+    /** הנוסח של "סיימתי את התרגיל" (מה יקרה ומה יימחק), או null אם אין קבצים למחוק */
+    static String doneText(BankStore.Question q) {
+        List<String> names = new ArrayList<String>();
+        for (BankProgress.Created c : BankProgress.get().createdOf(q.id)) for (IFile f : createdFiles(c)) names.add(f.getName());
+        if (names.isEmpty()) return null;
+        return "השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו מהפרויקט — כדי שלא יצטברו תרגילים ישנים.\n\n"
+                + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
+                + (names.size() == 1 ? "הקובץ שיימחק: " : "הקבצים שיימחקו: ") + String.join(", ", names)
+                + "\nרק הקבצים שנוצרו מהתרגיל — קבצים אחרים לא נמחקים.";
+    }
+
     /**
      * "סיימתי" (V ירוק): מסמנים, ומוחקים את קבצי התרגיל שנוצרו מהשאלה (החבילה כולה — ex03_stacks), כדי שהפרויקט לא יתמלא
      * בתרגילים ישנים. ask — שואלים קודם (מחיקה). מחזיר true אם סומן.
      */
     static boolean complete(Shell shell, BankStore.Question q, boolean ask) {
         List<BankProgress.Created> made = BankProgress.get().createdOf(q.id);
-        List<String> names = new ArrayList<String>();
-        for (BankProgress.Created c : made) for (IFile f : createdFiles(c)) names.add(f.getName());
-        if (ask && !names.isEmpty() && !Say.ask(shell, "סיימתי את התרגיל",
-                "השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו מהפרויקט — כדי שלא יצטברו תרגילים ישנים.\n\n"
-                + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
-                + (names.size() == 1 ? "הקובץ שיימחק: " : "הקבצים שיימחקו: ") + String.join(", ", names)
-                + "\nרק הקבצים שנוצרו מהתרגיל — קבצים אחרים לא נמחקים.", "סיום ומחיקה", "ביטול")) return false;
+        String text = ask ? doneText(q) : null;
+        if (text != null && !Say.ask(shell, "סיימתי את התרגיל", text, "סיום ומחיקה", "ביטול")) return false;
         BankProgress.get().setDone(q.id, true);
         List<String> kept = new ArrayList<String>();
         for (BankProgress.Created c : made) kept.addAll(cleanUp(c));

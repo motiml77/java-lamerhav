@@ -88,7 +88,7 @@ final class BankVsPanel {
                 links.setOpaque(false);
                 links.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
                 JButton go = RtlDialog.secondary(label.isEmpty() ? "לפעולה" : "לפעולה של סעיף " + label);
-                go.setToolTipText(RtlDialog.rtl("פותח ב-Visual Studio את הקובץ, בפעולה " + task.methodName));
+                go.setToolTipText(RtlDialog.rtl("פותח ב-" + BankVs.ide() + " את הקובץ, בפעולה " + task.methodName));
                 go.addActionListener(e -> actions.jump(task));
                 go.putClientProperty("dsviz.id", "jump-" + label);
                 JButton sol = RtlDialog.secondary("הצעה לפתרון");
@@ -120,7 +120,7 @@ final class BankVsPanel {
             box.setAlignmentX(Component.RIGHT_ALIGNMENT);
             c.add(box);
             c.add(RtlDialog.gap(6));
-            c.add(RtlDialog.label("מריצים בכפתור \"הרצה ויזואלית\" (ליד הכפתור הירוק), ובודקים שזה מה שמודפס.", RtlDialog.small(), RtlDialog.MUTED));
+            c.add(RtlDialog.label("מריצים ב\"הרצה ויזואלית\", ובודקים שזה מה שמודפס.", RtlDialog.small(), RtlDialog.MUTED));
             col.add(card(c));
         }
         return col;

@@ -135,6 +135,11 @@ public final class BankVsIt {
         final JFrame fl = ui(() -> BankVsFloat.current);
         shot(fl, "07-float");
         String fs = ui(() -> BankVsFloat.shown.toString());
+        String ft = ui(() -> texts(fl));
+        check("float-wording", ft.contains("שם התרגיל: " + dir.getName()) && ft.contains("כותבים את התשובה בכל סעיף") && !ft.contains("בפתרון") && !ft.contains("תמיד מעל"),
+                "בחלון הצף: 'שם התרגיל: ...' (בלי 'פתרון' במובן של Visual Studio — 'פתרון' רק לתשובה)", ft);
+        check("float-on-top", ui(() -> fl.isAlwaysOnTop() && !fl.isUndecorated() && fl.isResizable()),
+                "החלון הצף תמיד מעל (קבוע, בלי תיבת סימון), ועם כפתורי מזעור והגדלה רגילים", "");
         check("float-content", fs.contains("PROJECT " + dir.getName()) && fs.contains("DONE-BUTTON todo") && fs.contains("SECTION א"),
                 "בחלון הצף: שם הפרויקט, הסעיפים, 'סיימתי את התרגיל'", fs);
 
@@ -170,11 +175,10 @@ public final class BankVsIt {
             ui(() -> { BankVsFloat.render(); return null; });
             pause(800);
         }
-        // 7ב. "הרצה ויזואלית" מהחלון הצף (בלי Set as Startup Project)
-        BankVs.opened.clear();
-        click(ui(() -> BankVsFloat.current), "הרצה ויזואלית");
-        pause(500);
-        check("float-run", BankVs.opened.toString().contains("RUN " + dir.getName()), "'הרצה ויזואלית' בחלון הצף מריץ את " + dir.getName(), BankVs.opened.toString());
+        // 7ב. בחלון הצף אין כפתור הרצה — מריצים מהכפתור "הרצה ויזואלית" שבסרגל של Visual Studio (הפרופיל של הפרויקט)
+        String ft2 = ui(() -> texts(BankVsFloat.current));
+        check("float-no-run", !ft2.contains("| הרצה ויזואלית |") && ft2.contains("ומריצים בכפתור \"הרצה ויזואלית\" שבסרגל העליון"),
+                "בחלון הצף אין כפתור הרצה — מריצים מהכפתור 'הרצה ויזואלית' שבסרגל של Visual Studio", ft2);
         if (go != null) {
             Files.write(new File(out, "ran.txt").toPath(), "ok".getBytes(StandardCharsets.UTF_8));
             waitFile(go + ".3");
@@ -183,18 +187,27 @@ public final class BankVsIt {
         // 8. "סיימתי את התרגיל" — כמו תלמיד: לחיצה, החלון שואל, "סיום ומחיקה"
         final JFrame fl2 = ui(() -> BankVsFloat.current);
         if (fl2 == null) { fail("float-gone", "החלון הצף נסגר לפני 'סיימתי'"); return; }
-        SwingUtilities.invokeLater(() -> {
-            BankVsFloat.DoneButton b = find(fl2, BankVsFloat.DoneButton.class);
-            if (b != null) b.click();
-        });
-        JDialog ask = waitDialog("סיימתי את התרגיל", 10000);
-        check("done-ask", ask != null && texts(ask).contains("הפרויקט שיימחק מהפתרון: " + dir.getName()) && texts(ask).contains("רק מה שנוצר מהתרגיל נמחק") && !texts(ask).matches(".*\\bV\\b.*"),
-                "'סיימתי את התרגיל' שואל לפני המחיקה (בעברית בלבד, עם שם הפרויקט)", ask == null ? "אין חלון" : texts(ask));
-        if (ask == null) return;
+        // קודם "ביטול": חוזרים לשאלה, ושום דבר לא נמחק
+        ui(() -> { find(fl2, BankVsFloat.DoneButton.class).click(); return null; });
+        pause(400);
+        click(fl2, "ביטול");
+        pause(300);
+        String bt = ui(() -> texts(fl2) + BankVsFloat.shown);
+        check("done-cancel", ui(() -> BankVsFloat.confirm == null && fl2.isShowing()) && bt.contains("לפעולה של סעיף") && bt.contains("DONE-BUTTON todo") && dir.isDirectory(),
+                "'סיימתי' ואז 'ביטול' — חוזרים לשאלה, ושום דבר לא נמחק", bt);
+        // ועכשיו באמת: האישור מופיע בתוך החלון הצף עצמו (במקום השאלה) — בלי חלון נוסף שמכסה אותו
+        ui(() -> { find(fl2, BankVsFloat.DoneButton.class).click(); return null; });
         pause(500);
-        shot(ask, "10-done-ask");
+        String at = ui(() -> texts(fl2));
+        boolean extra = ui(() -> { for (Window x : Window.getWindows()) if (x instanceof JDialog && x.isShowing()) return true; return false; });
+        check("done-ask", ui(() -> BankVsFloat.confirm != null) && !extra && at.contains("התרגיל שיימחק: " + dir.getName()) && !at.contains("מהפתרון")
+                && at.contains("רק מה שנוצר מהתרגיל נמחק") && at.contains("סיום ומחיקה") && !at.contains("לפעולה של סעיף") && !at.matches(".*\\bV\\b.*"),
+                "'סיימתי את התרגיל' — האישור בתוך החלון הצף (בעברית בלבד, עם שם התרגיל), בלי חלון נוסף שמכסה", at);
+        if (ui(() -> BankVsFloat.confirm == null)) return;
+        pause(500);
+        shot(fl2, "10-done-ask");
         if (windows) shotScreen("10-done-ask-screen");
-        SwingUtilities.invokeLater(() -> clickNow(ask, "סיום ומחיקה"));
+        SwingUtilities.invokeLater(() -> clickNow(fl2, "סיום ומחיקה"));
         end = System.currentTimeMillis() + 30000;
         while (System.currentTimeMillis() < end && ui(() -> BankVsFloat.current != null)) pause(300);
         pause(1000);

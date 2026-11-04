@@ -91,7 +91,7 @@ final class BankVsWindow {
     }
 
     BankVsWindow() {
-        frame = new JFrame(RtlDialog.rtl(BankVs.TITLE));
+        frame = new JFrame(RtlDialog.rtl(BankVs.title()));
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         try {
             frame.setIconImage(ImageIO.read(BankVsWindow.class.getResource("/icons/bank.png")));
@@ -110,7 +110,7 @@ final class BankVsWindow {
         sideTop.setBorder(BorderFactory.createEmptyBorder(14, 14, 8, 14));
         sideTop.add(RtlDialog.label("מאגר תרגילים", RtlDialog.bold().deriveFont(Font.BOLD, 18f), RtlDialog.INK));
         sideTop.add(RtlDialog.gap(2));
-        sideTop.add(RtlDialog.label("ל-Visual Studio", RtlDialog.small(), RtlDialog.MUTED));
+        sideTop.add(RtlDialog.label("ל-" + BankVs.ide(), RtlDialog.small(), RtlDialog.MUTED));
         sideTop.add(RtlDialog.gap(10));
         stats = new Stats();
         stats.setAlignmentX(Component.RIGHT_ALIGNMENT);
@@ -173,7 +173,7 @@ final class BankVsWindow {
         center.setBackground(RtlDialog.PAGE);
         JPanel head = BankVsPanel.column();
         head.setBorder(BorderFactory.createEmptyBorder(14, 20, 6, 20));
-        head.add(RtlDialog.label("בוחרים שאלה מהרשימה — ונוצר תרגיל מוכן בפתרון DataStructures-CS: פעולה לכל סעיף, Main שמריץ אותן, והצעה לפתרון לכל סעיף.",
+        head.add(RtlDialog.label("בוחרים שאלה מהרשימה — ונוצר תרגיל מוכן " + BankVs.where() + ": פעולה לכל סעיף, " + (BankVs.ij ? "main" : "Main") + " שמריץ אותן, והצעה לפתרון לכל סעיף.",
                 RtlDialog.small(), RtlDialog.MUTED));
         center.add(head, BorderLayout.NORTH);
         center.add(previewScroll, BorderLayout.CENTER);
@@ -464,7 +464,7 @@ final class BankVsWindow {
             frame.getRootPane().setDefaultButton(create);
         } else {
             JButton openIt = RtlDialog.primary("פתח את התרגיל");
-            openIt.setToolTipText(RtlDialog.rtl("הפרויקט " + projects.get(projects.size() - 1).getName() + " כבר בפתרון — ממשיכים מאיפה שעצרתם"));
+            openIt.setToolTipText(RtlDialog.rtl("הפרויקט " + projects.get(projects.size() - 1).getName() + " כבר ב-" + BankVs.ide() + " — ממשיכים מאיפה שעצרתם"));
             openIt.addActionListener(e -> {
                 BankVs.openSolution();
                 BankVsFloat.show(q);
@@ -501,12 +501,13 @@ final class BankVsWindow {
 
     /** בונה את התרגיל (חלון קטן עם התקדמות), ואז: הפתרון ב-Visual Studio, החלון הצף של השאלה, והחלון הזה נסגר */
     void create(final BankStore.Question q) {
-        String bad = CsSolution.check(BankVs.root);
+        String bad = BankVs.ij ? (java.nio.file.Files.isDirectory(BankVs.root) && java.nio.file.Files.isWritable(BankVs.root) ? null
+                : "אין אפשרות לכתוב בתיקיית הקוד של הפרויקט: " + BankVs.root) : CsSolution.check(BankVs.root);
         if (bad != null) {
-            RtlDialog.show(frame, BankVs.TITLE, RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + "\nמריצים שוב את ההתקנה (DSViz-Setup.exe) עם חבילת C#.");
+            RtlDialog.show(frame, BankVs.title(), RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + (BankVs.ij ? "" : "\nמריצים שוב את ההתקנה (DSViz-Setup.exe) עם חבילת C#."));
             return;
         }
-        final JDialog wait = new JDialog(frame, RtlDialog.rtl(BankVs.TITLE), false);
+        final JDialog wait = new JDialog(frame, RtlDialog.rtl(BankVs.title()), false);
         JPanel body = BankVsPanel.column();
         body.setBorder(BorderFactory.createEmptyBorder(18, 22, 18, 22));
         body.setBackground(RtlDialog.PANEL);
@@ -555,10 +556,10 @@ final class BankVsWindow {
                     r = get();
                 } catch (Exception ex) {
                     Throwable c = ex.getCause() != null ? ex.getCause() : ex;
-                    RtlDialog.show(frame, BankVs.TITLE, RtlDialog.Kind.ERROR, "התרגיל לא נוצר", String.valueOf(c.getMessage()));
+                    RtlDialog.show(frame, BankVs.title(), RtlDialog.Kind.ERROR, "התרגיל לא נוצר", String.valueOf(c.getMessage()));
                     return;
                 }
-                if (!r.errors.isEmpty()) RtlDialog.errors(frame, BankVs.TITLE, "התרגיל נוצר, אבל יש בו שגיאות קומפילציה", r.errors);
+                if (!r.errors.isEmpty()) RtlDialog.errors(frame, BankVs.title(), "התרגיל נוצר, אבל יש בו שגיאות קומפילציה", r.errors);
                 BankVs.openSolution();
                 BankVsFloat.show(q);
                 if (r.focus != null) BankVs.openFile(r.focus, r.line + 1);

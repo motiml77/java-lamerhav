@@ -218,7 +218,9 @@ if ($ready -and $dir) {
     $wsh = New-Object -ComObject WScript.Shell
     [void]$wsh.AppActivate($vsP.Id); Start-Sleep 1; $wsh.SendKeys('^%l'); Start-Sleep 4
     Shot '05b-solution-explorer'
-    Check 'vs-project' (HasElement $vsP.Id ([regex]::Escape($name))) "ב-Visual Studio (Solution Explorer) מופיע הפרויקט החדש $name"
+    $seenP = $false
+    for ($w = 0; $w -lt 12 -and -not $seenP; $w++) { $seenP = HasElement $vsP.Id ([regex]::Escape($name)); if (-not $seenP) { Start-Sleep 5 } }
+    Check 'vs-project' $seenP "ב-Visual Studio (Solution Explorer) מופיע הפרויקט החדש $name"
 }
 New-Item -ItemType File -Force "$go.1" | Out-Null
 
@@ -243,7 +245,10 @@ if ($ready) {
 }
 if ($ready -and $dir) {
     $cs = Get-ChildItem $dir -Filter '*.cs' | Select-Object -First 1
-    Check 'vs-file' (HasElement $vsP.Id ([regex]::Escape($cs.Name))) "הקובץ $($cs.Name) פתוח ב-Visual Studio (לשונית)" ((Windows) -join ' ; ')
+    Check 'vs-file' (HasElement $vsP.Id ([regex]::Escape($cs.Name))) "הקובץ $($cs.Name) פתוח ב-Visual Studio (לשונית) — באותו חלון" ((Windows) -join ' ; ')
+    $devs = @(Get-Process devenv -ErrorAction SilentlyContinue)
+    Check 'vs-single' ($devs.Count -eq 1) "'לפעולה של סעיף א' לא פתח עוד Visual Studio — יש רק חלון אחד ($($devs.Count))" ((Windows) -join ' ; ')
+    Info "DTE: $(if (Test-Path (Join-Path $env:TEMP 'dsviz-bank-dte.txt')) { Get-Content (Join-Path $env:TEMP 'dsviz-bank-dte.txt') -Raw } else { '-' }) · $(if (Test-Path $jumped) { Get-Content $jumped -Raw -Encoding utf8 })"
 }
 
 # ------------------------------------------------------------------ 5. התלמיד פותר: בנייה, פלט, הרצה ויזואלית
@@ -308,19 +313,32 @@ if ($dir) {
 }
 Shot '08-before-done'
 New-Item -ItemType File -Force "$go.2" | Out-Null
-# "הרצה ויזואלית" מהכפתור בחלון הצף
+# "הרצה ויזואלית" מהסרגל של Visual Studio עצמו (בחלון הצף אין כפתור הרצה): התרגיל נהיה לבד ה-Startup Project כשנפתח,
+# ולחיצה על ▶ "הרצה ויזואלית" (כמו Ctrl+F5) מריצה את הפרופיל של התרגיל
 $ran = Join-Path $it 'ran.txt'
 for ($i = 0; $i -lt 120 -and -not (Test-Path $ran) -and -not $itP.HasExited; $i++) { Start-Sleep 1 }
-$seen = $false
-for ($i = 0; $i -lt 90; $i++) {
-    Start-Sleep 1
-    if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' }).Count -gt 0) { $seen = $true; break }
+if ($ready -and $dir) {
+    $startup = ''
+    try {
+        $d = $null
+        foreach ($p in 'VisualStudio.DTE.18.0', 'VisualStudio.DTE.17.0', 'VisualStudio.DTE') { try { $d = [Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }
+        if ($d) { $startup = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') }
+    } catch { $startup = "שגיאה: $_" }
+    Check 'vs-startup' ($startup -match [regex]::Escape($name)) "התרגיל $name הוא ה-Startup Project — ▶ 'הרצה ויזואלית' בסרגל של Visual Studio מריץ אותו" $startup
+    $wsh = New-Object -ComObject WScript.Shell
+    [void]$wsh.AppActivate($vsP.Id); Start-Sleep 2
+    $wsh.SendKeys('^{F5}')
+    $seen = $false
+    for ($i = 0; $i -lt 180; $i++) {
+        Start-Sleep 1
+        if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' }).Count -gt 0) { $seen = $true; break }
+    }
+    Start-Sleep 6
+    Shot '08b-vs-toolbar-run'
+    Check 'vs-toolbar-run' $seen "▶ 'הרצה ויזואלית' בסרגל של Visual Studio הריץ את התרגיל בהרצה הוויזואלית" ((Windows) -join ' ; ')
+    Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' } | Stop-Process -Force
+    Get-Process dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force
 }
-Start-Sleep 6
-Shot '08b-float-run-button'
-Check 'float-run-window' $seen "הכפתור 'הרצה ויזואלית' בחלון הצף פתח את ההרצה הוויזואלית של התרגיל" ((Windows) -join ' ; ')
-Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' } | Stop-Process -Force
-Get-Process dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force
 New-Item -ItemType File -Force "$go.3" | Out-Null
 
 # ------------------------------------------------------------------ 6. "סיימתי את התרגיל"
