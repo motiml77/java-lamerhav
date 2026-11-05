@@ -5,6 +5,8 @@
   "scripts": {
     "test": "node test/worker-test.mjs",
     "deploy": "npx --yes wrangler@4 deploy",
-    "bundle": "npx --yes esbuild@0.24.0 src/index.js --bundle --format=esm --platform=neutral --external:node:buffer --outfile=worker-bundle.js"
+    "bundle": "node tools/gen-assets.mjs && npx --yes esbuild@0.24.0 src/index.js --bundle --format=esm --platform=neutral --external:node:buffer --outfile=worker-bundle.js",
+    "assets": "node tools/gen-assets.mjs",
+    "test:access": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node access-test.mjs\""
   }
 }

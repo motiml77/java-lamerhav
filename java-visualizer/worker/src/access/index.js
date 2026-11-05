@@ -1,0 +1,913 @@
+// כניסה למאגר התרגילים ולשליחת תרגיל: מורים, עמדות מחשב, תלמידים, ומסוף ההנהלה.
+//
+// מי מחליט: רק השרת. Firestore סגור לכל מחשב (כללי האבטחה: הכול חסום) — השרת ניגש בשם חשבון השירות.
+//   • מורה      — חשבון Google שההנהלה הגדירה (teachers/{email}). רואה את הקוד שלו ואת העמדות — לא משנה את מספרן.
+//   • עמדת מחשב — קוד המורה + שם למחשב. היתר אחד יורד מהמורה, בטרנזקציה. אותו מחשב שמתחבר שוב — אותו היתר.
+//   • תלמיד     — חשבון Google + תשלום (או הענקה ידנית מההנהלה): students/{email}.accessUntil.
+//   • הנהלה     — רק כתובות שב-ADMIN_EMAILS (בהגדרות השרת, לא ב-Firestore — אף אחד לא יכול "להוסיף את עצמו").
+//
+// הכניסה במחשב: "כרטיס" (token) ששמור במחשב, ו"אישור" (pass) חתום עם תאריך תפוגה — המאגר נפתח בלי אינטרנט
+// עד offlineDays ימים. החתימה: RSA (PASS_KEY — סוד בשרת); המפתח הציבורי בתוך התוספים.
+//
+// כבוי כל עוד ACCESS לא "on" (וכל עוד אין FIREBASE_PROJECT_ID) — אז השרת עובד בדיוק כמו קודם.
+
+import { Fail, reply } from '../http.js';
+import { db, timeId } from './firestore.js';
+import { verifyIdToken, AuthError, projectId, firestoreEmulator } from './google.js';
+import { sha256, sha256Hex, randomToken, teacherCode, normalizeCode, showCode, sameText, b64url, b64urlJson, importRsaPrivate, signRs256, publicSpki } from './crypto.js';
+import { payProvider, PAY_PROVIDERS } from './pay.js';
+import { servePage } from './pages.js';
+
+export const DEFAULTS = {
+  price: 0,                     // ₪ — 0 = עוד לא נקבע (אי אפשר לשלם)
+  accessUntil: '2027-08-31',    // תשלום פותח את המאגר עד התאריך הזה
+  offlineDays: 14,              // ימים שהמאגר נפתח בלי אינטרנט
+  studentDevices: 3,
+  teacherDevices: 5,
+  defaultSeats: 30,
+  requireLoginForGemini: false, // שליחת תרגיל ל-Gemini רק למחוברים
+  geminiTeacher: 50, geminiStation: 15, geminiStudent: 20,   // שליחות ביום
+};
+const SETTING_LIMITS = {
+  price: [0, 5000], offlineDays: [1, 60], studentDevices: [1, 20], teacherDevices: [1, 50], defaultSeats: [0, 2000],
+  geminiTeacher: [0, 1000], geminiStation: [0, 1000], geminiStudent: [0, 1000],
+};
+
+const SESSION_TOUCH_MS = 6 * 3600 * 1000;   // מעדכנים "נראה לאחרונה" לכל היותר פעם ב-6 שעות (חוסך כתיבות)
+let settingsCache = { at: 0, pid: '', value: null };
+let keyCache = { pem: '', key: null, spki: '' };
+
+export function accessEnabled(env) {
+  return String(env.ACCESS || '').toLowerCase() === 'on' && !!projectId(env);
+}
+
+// ------------------------------------------------------------------ עזרים
+
+const nowIso = () => new Date().toISOString();
+const today = () => nowIso().slice(0, 10);
+const clip = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n);
+const normEmail = e => String(e || '').trim().toLowerCase();
+const emailOk = e => /^[^\s@/]{1,64}@[^\s@/]{1,190}\.[^\s@/.]{2,}$/.test(e);
+const dateOk = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) && !isNaN(Date.parse(d));
+const machineOk = m => /^[a-f0-9]{16,64}$/.test(String(m || ''));
+const intIn = (v, lo, hi) => Number.isInteger(+v) && +v >= lo && +v <= hi;
+
+async function readJson(request) {
+  const text = await request.text();
+  if (text.length > 200000) throw new Fail(413, 'too_big', 'הבקשה גדולה מדי.');
+  try { return text ? JSON.parse(text) || {} : {}; } catch (e) { throw new Fail(400, 'format', 'לא הצלחתי לקרוא את הבקשה'); }
+}
+
+export function admins(env) {
+  return String(env.ADMIN_EMAILS || '').split(',').map(normEmail).filter(Boolean);
+}
+
+export async function settings(env, fresh) {
+  const pid = projectId(env);
+  if (!fresh && settingsCache.value && settingsCache.pid === pid && Date.now() - settingsCache.at < 30000) return settingsCache.value;
+  const d = await db(env).get('config/settings');
+  const value = Object.assign({}, DEFAULTS, d || {});
+  settingsCache = { at: Date.now(), pid, value };
+  return value;
+}
+
+async function passKey(env) {
+  const pem = env.PASS_KEY || '';
+  if (!pem) return null;
+  if (keyCache.pem !== pem) keyCache = { pem, key: await importRsaPrivate(pem), spki: '' };
+  return keyCache.key;
+}
+
+async function log(store, actor, action, target, detail) {
+  try {
+    await store.set('log/' + timeId(), { at: nowIso(), actor: clip(actor, 120), action, target: clip(target, 200), detail: clip(detail, 400) });
+  } catch (e) {
+    console.error('log', e && e.message);
+  }
+}
+
+async function webUser(request, env) {
+  const m = /^Bearer\s+(\S+)$/.exec(request.headers.get('authorization') || '');
+  if (!m) throw new Fail(401, 'login', 'צריך להתחבר עם Google.');
+  try {
+    return await verifyIdToken(env, m[1]);
+  } catch (e) {
+    if (e instanceof AuthError) throw new Fail(401, 'login', 'הכניסה פגה — מתחברים שוב.');
+    throw e;
+  }
+}
+
+async function adminUser(request, env) {
+  const u = await webUser(request, env);
+  if (!admins(env).includes(u.email)) throw new Fail(403, 'admin', 'החשבון הזה לא מוגדר כמנהל.');
+  return u;
+}
+
+// ------------------------------------------------------------------ אישור חתום (pass)
+
+/**
+ * האישור שהמחשב שומר: base64url(JSON).base64url(RSA-SHA256). התוסף בודק את החתימה עם המפתח הציבורי,
+ * שהמחשב הוא אותו מחשב (mid), ושהתאריך לא עבר (exp — לפי השעון של השרת ביום האישור).
+ */
+async function makePass(env, s, p) {
+  const key = await passKey(env);
+  if (!key) return '';
+  const now = Math.floor(Date.now() / 1000);
+  let exp = now + s.offlineDays * 86400;
+  if (p.until) exp = Math.min(exp, Math.floor(Date.parse(p.until + 'T23:59:59Z') / 1000));
+  const payload = { v: 1, kind: p.kind, sub: p.sub, name: p.name || '', email: p.email || '', until: p.until || '', mid: p.machine || '', iat: now, exp };
+  if (p.teacher) payload.teacher = p.teacher;
+  const text = b64urlJson(payload);
+  return text + '.' + b64url(await signRs256(key, text));
+}
+
+// ------------------------------------------------------------------ כרטיסי כניסה (token)
+
+/** u.<sid>.<secret> — מורה / תלמיד (נשמר אצל המשתמש);  s.<stationId>.<secret> — עמדת מחשב (לכל המחשב) */
+function parseToken(token) {
+  const m = /^([us])\.([A-Za-z0-9_-]{8,64})\.([A-Za-z0-9_-]{20,100})$/.exec(String(token || '').trim());
+  return m ? { kind: m[1], id: m[2], secret: m[3] } : null;
+}
+
+async function teacherView(t, stations) {
+  return {
+    email: t.email, name: t.name || '', school: t.school || '', code: showCode(t.code), seats: t.seats || 0, used: t.used || 0, active: !!t.active,
+    stations: stations ? stations.map(x => ({ id: x._id, name: x.name, claimedAt: x.claimedAt, lastSeen: x.lastSeen })) : undefined,
+  };
+}
+
+/** בודק כרטיס: מי זה, והאם מותר לו עכשיו. status: ok / pay / blocked / not-teacher / revoked / invalid */
+export async function resolveToken(env, token, machine) {
+  const store = db(env);
+  const p = parseToken(token);
+  if (!p) return { status: 'invalid' };
+  const hash = await sha256Hex(p.secret);
+  if (p.kind === 's') {
+    const st = await store.get('stations/' + p.id);
+    if (!st || !sameText(st.tokenHash, hash)) return { status: st && !st.active ? 'revoked' : 'invalid' };
+    if (machine && st.machine && st.machine !== machine) return { status: 'invalid' };
+    if (!st.active) return { status: 'revoked' };
+    const t = await store.get('teachers/' + st.teacher);
+    const base = { kind: 'station', subject: 'station:' + p.id, station: { id: p.id, name: st.name, teacher: st.teacher }, machine: st.machine,
+      profile: { role: 'station', name: st.name, email: '' }, teacher: t ? { name: t.name || '', school: t.school || '' } : null };
+    if (!t || !t.active) return Object.assign(base, { status: 'blocked' });
+    if (!st.lastSeen || Date.now() - Date.parse(st.lastSeen) > SESSION_TOUCH_MS) {
+      await store.merge('stations/' + p.id, { lastSeen: nowIso() }).catch(() => {});
+    }
+    return Object.assign(base, { status: 'ok' });
+  }
+  const se = await store.get('sessions/' + p.id);
+  if (!se || se.revoked || !sameText(se.tokenHash, hash)) return { status: se && se.revoked ? 'revoked' : 'invalid' };
+  if (machine && se.machine && se.machine !== machine) return { status: 'invalid' };
+  const profile = { role: se.role, email: se.email, name: se.name || '' };
+  const touch = () => (!se.lastSeen || Date.now() - Date.parse(se.lastSeen) > SESSION_TOUCH_MS
+    ? store.merge('sessions/' + p.id, { lastSeen: nowIso() }).catch(() => {}) : null);
+  if (se.role === 'teacher') {
+    const t = await store.get('teachers/' + se.email);
+    const base = { kind: 'teacher', subject: 'teacher:' + se.email, session: p.id, machine: se.machine, profile };
+    if (!t) return Object.assign(base, { status: 'not-teacher' });
+    if (!t.active) return Object.assign(base, { status: 'blocked' });
+    await touch();
+    return Object.assign(base, { status: 'ok', teacher: await teacherView(t) });
+  }
+  const st = await store.get('students/' + se.email);
+  const until = st && st.accessUntil || '';
+  await touch();
+  return { kind: 'student', subject: 'student:' + se.email, session: p.id, machine: se.machine, profile, until,
+    status: until && until >= today() ? 'ok' : 'pay' };
+}
+
+async function accessReply(env, r, extra) {
+  const s = await settings(env);
+  const out = { ok: true, status: r.status, profile: r.profile || null };
+  if (r.teacher) out.teacher = r.teacher;
+  if (r.station) out.station = { id: r.station.id, name: r.station.name };
+  if (r.until) out.until = r.until;
+  Object.assign(out, extra || {});
+  if (r.status === 'ok') {
+    out.pass = await makePass(env, s, {
+      kind: r.kind, sub: r.subject, name: r.profile && r.profile.name, email: r.profile && r.profile.email, machine: r.machine,
+      until: r.kind === 'student' ? r.until : '', teacher: r.kind === 'station' && r.teacher ? r.teacher.name : undefined,
+    });
+  }
+  if (r.status === 'pay') Object.assign(out, { price: s.price, accessUntil: s.accessUntil, canPay: s.price > 0 && !!payProvider(env) });
+  return out;
+}
+
+// ------------------------------------------------------------------ כניסה עם Google (מהדפדפן) → קוד חד-פעמי → התוסף
+
+/**
+ * הדף /signin (בדפדפן) שולח לכאן את הכניסה של Google ואת ה-challenge של התוסף, ומקבל קוד חד-פעמי לחמש דקות.
+ * הדף מעביר את הקוד לתוסף (http://127.0.0.1:port), והתוסף מממש אותו עם ה-verifier — רק מי שיצר את ה-challenge יכול.
+ */
+async function exchange(request, env) {
+  const b = await readJson(request);
+  const user = await verifyIdToken(env, b.idToken).catch(e => { throw new Fail(401, 'login', 'הכניסה עם Google לא הצליחה. נסו שוב.'); });
+  const role = b.role === 'teacher' ? 'teacher' : 'student';
+  if (!/^[A-Za-z0-9_-]{43}$/.test(String(b.challenge || ''))) throw new Fail(400, 'format', 'חסר קוד מהתוכנה — פותחים את הכניסה מתוך DSViz.');
+  const code = randomToken(24);
+  await db(env).set('authCodes/' + code, {
+    uid: user.uid, email: user.email, name: user.name, picture: user.picture, role, challenge: b.challenge,
+    exp: Date.now() + 5 * 60 * 1000, createdAt: nowIso(),
+  });
+  return { ok: true, code };
+}
+
+async function newSession(env, s, who, role, machine, machineName, client) {
+  const store = db(env);
+  const limit = role === 'teacher' ? s.teacherDevices : s.studentDevices;
+  const mine = (await store.query('sessions', { where: [['email', '==', who.email]] })).filter(x => !x.revoked);
+  const same = mine.filter(x => x.machine === machine);
+  const others = mine.filter(x => x.machine !== machine);
+  if (others.length >= limit) {
+    return { status: 'devices', limit, devices: others.map(x => ({ name: x.machineName || '', lastSeen: x.lastSeen || x.createdAt })) };
+  }
+  const sid = randomToken(12), secret = randomToken(32);
+  const at = nowIso();
+  await store.commit(async w => {
+    for (const x of same) w.update('sessions/' + x._id, { revoked: true, revokedAt: at, revokedBy: 'same-machine' });
+    w.create('sessions/' + sid, {
+      email: who.email, uid: who.uid || '', name: who.name || '', role, machine, machineName: clip(machineName, 60), client: clip(client, 60),
+      tokenHash: await sha256Hex(secret), revoked: false, createdAt: at, lastSeen: at,
+    });
+  });
+  return { status: 'new', token: 'u.' + sid + '.' + secret, sid };
+}
+
+/** התוסף מממש את הקוד: מקבל כרטיס (אם מותר) ואת המצב — ok / pay / not-teacher / blocked / devices */
+async function redeem(request, env) {
+  const b = await readJson(request);
+  const store = db(env);
+  const code = String(b.code || '');
+  if (!/^[A-Za-z0-9_-]{20,64}$/.test(code)) throw new Fail(400, 'format', 'קוד כניסה לא תקין');
+  if (!machineOk(b.machine)) throw new Fail(400, 'format', 'חסר מזהה מחשב');
+  const doc = await store.tx(async t => {
+    const d = await t.get('authCodes/' + code);
+    if (d) t.remove('authCodes/' + code);   // פעם אחת בלבד
+    return d;
+  });
+  if (!doc || doc.exp < Date.now()) throw new Fail(400, 'expired', 'הכניסה פגה. לוחצים שוב על "התחברות".');
+  const want = b64url(await sha256(String(b.verifier || '')));
+  if (!sameText(want, doc.challenge)) throw new Fail(400, 'expired', 'הכניסה לא תואמת לחלון הזה. לוחצים שוב על "התחברות".');
+  const s = await settings(env);
+  const who = { email: doc.email, uid: doc.uid, name: doc.name };
+  const profile = { role: doc.role, email: doc.email, name: doc.name || '', picture: doc.picture || '' };
+
+  if (doc.role === 'teacher') {
+    const t = await store.get('teachers/' + doc.email);
+    if (!t) return { ok: true, status: 'not-teacher', profile };
+    if (!t.active) return { ok: true, status: 'blocked', profile };
+  }
+  const ses = await newSession(env, s, who, doc.role, b.machine, b.machineName, b.client);
+  if (ses.status === 'devices') return { ok: true, status: 'devices', profile, limit: ses.limit, devices: ses.devices };
+  if (doc.role === 'student') {
+    await store.merge('students/' + doc.email, { email: doc.email, uid: doc.uid, name: doc.name || '', lastSignIn: nowIso() });
+  } else {
+    await store.merge('teachers/' + doc.email, { lastSignIn: nowIso(), uid: doc.uid });
+  }
+  await log(store, doc.email, doc.role === 'teacher' ? 'signin.teacher' : 'signin.student', clip(b.machineName, 60), '');
+  const r = await resolveToken(env, ses.token, b.machine);
+  return accessReply(env, r, { token: ses.token });
+}
+
+async function check(request, env) {
+  const b = await readJson(request);
+  const r = await resolveToken(env, b.token, machineOk(b.machine) ? b.machine : '');
+  return accessReply(env, r);
+}
+
+async function logout(request, env) {
+  const b = await readJson(request);
+  const p = parseToken(b.token);
+  if (p && p.kind === 'u') {
+    const store = db(env);
+    const se = await store.get('sessions/' + p.id);
+    if (se && sameText(se.tokenHash, await sha256Hex(p.secret)) && !se.revoked) {
+      await store.update('sessions/' + p.id, { revoked: true, revokedAt: nowIso(), revokedBy: 'logout' });
+    }
+  }
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------ עמדת מחשב: קוד המורה
+
+async function claim(request, env) {
+  const b = await readJson(request);
+  const store = db(env);
+  const code = normalizeCode(b.code);
+  const name = clip(b.name, 60);
+  if (!machineOk(b.machine)) throw new Fail(400, 'format', 'חסר מזהה מחשב');
+  if (!name) throw new Fail(400, 'name', 'כתבו שם למחשב — למשל "מעבדה 2 · עמדה 14".');
+  if (!code) return { ok: true, status: 'bad-code' };
+  await badCodeLimit(env, request, false);
+  const secret = randomToken(32);
+  const hash = await sha256Hex(secret);
+  const at = nowIso();
+  const res = await store.tx(async t => {
+    const c = await t.get('teacherCodes/' + code);
+    if (!c) return { status: 'bad-code' };
+    const stationId = (await sha256Hex(c.teacher + '|' + b.machine)).slice(0, 32);
+    const [teacher, st] = await t.getMany(['teachers/' + c.teacher, 'stations/' + stationId]);
+    if (!teacher || teacher.code !== code) return { status: 'bad-code' };
+    if (!teacher.active) return { status: 'blocked', teacher };
+    if (st && st.active) {   // אותו מחשב מתחבר שוב (התקנה מחדש...) — אותו היתר, כרטיס חדש
+      t.update('stations/' + stationId, { tokenHash: hash, name, lastSeen: at, client: clip(b.client, 60) });
+      return { status: 'ok', stationId, teacher, again: true };
+    }
+    if ((teacher.used || 0) >= (teacher.seats || 0)) return { status: 'full', teacher };
+    t.set('stations/' + stationId, {
+      teacher: c.teacher, teacherName: teacher.name || '', name, machine: b.machine, tokenHash: hash, active: true,
+      claimedAt: at, lastSeen: at, client: clip(b.client, 60),
+    });
+    t.update('teachers/' + c.teacher, { updatedAt: at }, { used: 1 });
+    return { status: 'ok', stationId, teacher };
+  });
+  if (res.status === 'bad-code') {
+    await badCodeLimit(env, request, true);
+    await log(store, 'מחשב: ' + name, 'station.bad-code', '', '');
+    return { ok: true, status: 'bad-code' };
+  }
+  const tv = res.teacher ? { name: res.teacher.name || '', school: res.teacher.school || '', seats: res.teacher.seats || 0, used: (res.teacher.used || 0) + (res.status === 'ok' && !res.again ? 1 : 0) } : null;
+  if (res.status !== 'ok') return { ok: true, status: res.status, teacher: tv };
+  await log(store, 'מחשב: ' + name, res.again ? 'station.again' : 'station.claim', res.teacher.email, `${tv.used}/${tv.seats}`);
+  const token = 's.' + res.stationId + '.' + secret;
+  const r = await resolveToken(env, token, b.machine);
+  return accessReply(env, r, { token, teacher: tv });
+}
+
+/** קוד שגוי שוב ושוב מאותה כתובת: עד 30 בשעה (רק אם יש KV בשם USAGE) */
+async function badCodeLimit(env, request, failed) {
+  if (!env.USAGE || typeof env.USAGE.get !== 'function') return;
+  const ip = request.headers.get('cf-connecting-ip') || 'local';
+  const key = 'badcode:' + new Date().toISOString().slice(0, 13) + ':' + ip;
+  const n = +(await env.USAGE.get(key)) || 0;
+  if (n >= 30) throw new Fail(429, 'rate', 'יותר מדי ניסיונות עם קוד שגוי. נסו שוב בעוד שעה.');
+  if (failed) await env.USAGE.put(key, String(n + 1), { expirationTtl: 7200 });
+}
+
+// ------------------------------------------------------------------ שליחת תרגיל ל-Gemini: רק למחוברים (אם המתג דולק)
+
+/**
+ * נקרא לפני כל שליחה ל-Gemini מהתוספים. מחזיר null (פתוח לכולם — כמו קודם) או {subject} — המפתח להגבלת הקצב,
+ * כדי שכיתה שלמה מאחורי אותה כתובת IP לא תיחסם כמו "מחשב אחד".
+ */
+export async function geminiGate(request, env) {
+  if (!accessEnabled(env)) return null;
+  const s = await settings(env);
+  const token = request.headers.get('x-dsviz-access') || '';
+  if (!s.requireLoginForGemini && !token) return null;
+  if (!token) throw new Fail(401, 'login', 'שליחת תרגיל פתוחה למורים, לעמדות מחשב בכיתה ולתלמידים רשומים — צריך להתחבר (פעם אחת במחשב). אם אין כפתור התחברות — עדכנו את DSViz.');
+  const r = await resolveToken(env, token, request.headers.get('x-dsviz-machine') || '');
+  if (r.status !== 'ok') {
+    if (!s.requireLoginForGemini) return null;   // מתג כבוי: כרטיס שפג לא חוסם (רק לא נספר לפי משתמש)
+    if (r.status === 'pay') throw new Fail(403, 'pay', 'שליחת תרגיל פתוחה לתלמידים רשומים — צריך לפתוח את המאגר (תשלום).');
+    if (r.status === 'blocked') throw new Fail(403, 'blocked', 'הגישה של המורה הזה הושבתה. פונים למורה או להנהלה.');
+    throw new Fail(401, 'login', 'הכניסה במחשב הזה כבר לא בתוקף — מתחברים שוב.');
+  }
+  if (s.requireLoginForGemini) {
+    const limit = r.kind === 'teacher' ? s.geminiTeacher : r.kind === 'station' ? s.geminiStation : s.geminiStudent;
+    const store = db(env);
+    const key = 'usage/' + today() + '_' + (await sha256Hex(r.subject)).slice(0, 24);
+    const u = await store.get(key);
+    if (u && u.n >= limit) throw new Fail(429, 'daily', 'הגעתם למספר השליחות המרבי להיום. נסו שוב מחר.');
+    await store.merge(key, { subject: r.subject, day: today() }, { n: 1 });
+  }
+  return { subject: r.subject, kind: r.kind };
+}
+
+// ------------------------------------------------------------------ דפי הדפדפן: החשבון שלי (מורה / תלמיד)
+
+async function me(request, env) {
+  const u = await webUser(request, env);
+  const store = db(env);
+  const s = await settings(env);
+  const [t, st] = await store.getMany(['teachers/' + u.email, 'students/' + u.email]);
+  const [stations, requests, sessions, payments] = await Promise.all([
+    t ? store.query('stations', { where: [['teacher', '==', u.email]] }) : [],
+    store.query('requests', { where: [['email', '==', u.email]] }),
+    store.query('sessions', { where: [['email', '==', u.email]] }),
+    store.query('payments', { where: [['email', '==', u.email]] }),
+  ]);
+  const until = st && st.accessUntil || '';
+  return {
+    ok: true, email: u.email, name: u.name, picture: u.picture, admin: admins(env).includes(u.email),
+    teacher: t ? await teacherView(t, stations.filter(x => x.active).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'))) : null,
+    student: { until, open: !!until && until >= today(), source: st && st.source || '' },
+    requests: requests.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 12).map(r => ({
+      id: r._id, kind: r.kind, amount: r.amount || 0, stationName: r.stationName || '', status: r.status, createdAt: r.createdAt, decidedAt: r.decidedAt || '', reason: r.reason || '',
+    })),
+    devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt })),
+    payments: payments.filter(p => p.status !== 'pending').sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ amount: p.amount, status: p.status, createdAt: p.createdAt, paidAt: p.paidAt || '' })),
+    price: s.price, accessUntil: s.accessUntil, canPay: s.price > 0 && !!payProvider(env), offlineDays: s.offlineDays,
+  };
+}
+
+async function myRequest(request, env) {
+  const u = await webUser(request, env);
+  const b = await readJson(request);
+  const store = db(env);
+  const kind = ['teacher', 'seats', 'release'].includes(b.kind) ? b.kind : '';
+  if (!kind) throw new Fail(400, 'format', 'סוג בקשה לא מוכר');
+  const t = await store.get('teachers/' + u.email);
+  const open = (await store.query('requests', { where: [['email', '==', u.email]] })).filter(r => r.status === 'open' && r.kind === kind);
+  const doc = { kind, email: u.email, name: u.name || '', note: clip(b.note, 300), status: 'open', createdAt: nowIso() };
+  if (kind === 'teacher') {
+    if (t) throw new Fail(400, 'exists', 'החשבון כבר מוגדר כמורה — נכנסים שוב.');
+    if (open.length) return { ok: true, id: open[0]._id, already: true };
+    Object.assign(doc, { school: clip(b.school, 120), computers: intIn(b.computers, 0, 2000) ? +b.computers : 0 });
+  } else {
+    if (!t || !t.active) throw new Fail(403, 'teacher', 'רק מורה פעיל יכול לשלוח בקשה כזו.');
+    doc.school = t.school || '';
+    if (kind === 'seats') {
+      if (!intIn(b.amount, 1, 500)) throw new Fail(400, 'amount', 'כמה עמדות? מספר בין 1 ל-500.');
+      doc.amount = +b.amount;
+      doc.before = { seats: t.seats || 0, used: t.used || 0 };
+    } else {
+      const st = await store.get('stations/' + clip(b.stationId, 64));
+      if (!st || st.teacher !== u.email || !st.active) throw new Fail(400, 'station', 'המחשב לא נמצא ברשימה שלך.');
+      if (open.some(r => r.stationId === st._id)) return { ok: true, id: open.find(r => r.stationId === st._id)._id, already: true };
+      Object.assign(doc, { stationId: st._id, stationName: st.name || '' });
+    }
+  }
+  const id = timeId();
+  await store.set('requests/' + id, doc);
+  await log(store, u.email, 'request.' + kind, doc.stationName || '', doc.amount ? String(doc.amount) : doc.school || '');
+  return { ok: true, id };
+}
+
+async function myNewCode(request, env) {
+  const u = await webUser(request, env);
+  const store = db(env);
+  const t = await store.get('teachers/' + u.email);
+  if (!t || !t.active) throw new Fail(403, 'teacher', 'רק מורה פעיל.');
+  const code = await replaceCode(store, t);
+  await log(store, u.email, 'teacher.new-code', u.email, '');
+  return { ok: true, code: showCode(code) };
+}
+
+async function myRevokeDevice(request, env) {
+  const u = await webUser(request, env);
+  const b = await readJson(request);
+  const store = db(env);
+  const se = await store.get('sessions/' + clip(b.id, 64));
+  if (!se || se.email !== u.email) throw new Fail(404, 'not_found', 'המחשב לא נמצא.');
+  if (!se.revoked) await store.update('sessions/' + se._id, { revoked: true, revokedAt: nowIso(), revokedBy: 'self' });
+  return { ok: true };
+}
+
+async function assignCode(store, email) {
+  for (let i = 0; i < 8; i++) {
+    const c = teacherCode();
+    if (await store.create('teacherCodes/' + c, { teacher: email, createdAt: nowIso() })) return c;
+  }
+  throw new Fail(500, 'internal', 'לא הצלחתי ליצור קוד מורה. נסו שוב.');
+}
+
+async function replaceCode(store, t) {
+  const code = await assignCode(store, t.email);
+  await store.commit(w => {
+    w.update('teachers/' + t.email, { code, updatedAt: nowIso() });
+    if (t.code) w.remove('teacherCodes/' + t.code);
+  });
+  return code;
+}
+
+// ------------------------------------------------------------------ תשלום (שירות התשלום נבחר בהגדרות — pay.js)
+
+async function payStart(request, env) {
+  const u = await webUser(request, env);
+  const s = await settings(env);
+  const provider = payProvider(env);
+  if (!provider || !(s.price > 0)) throw new Fail(503, 'pay_off', 'התשלום עוד לא פתוח. נסו שוב בקרוב.');
+  const store = db(env);
+  const st = await store.get('students/' + u.email);
+  if (st && st.accessUntil && st.accessUntil >= s.accessUntil) return { ok: true, already: true };
+  const pid = timeId() + randomToken(4).replace(/[-_]/g, 'x');
+  const pay = { email: u.email, uid: u.uid, name: u.name || '', amount: s.price, currency: 'ILS', provider: provider.id, status: 'pending', createdAt: nowIso(), accessUntil: s.accessUntil };
+  await store.set('payments/' + pid, pay);
+  const origin = new URL(request.url).origin;
+  const made = await provider.create(env, { id: pid, ...pay }, origin);
+  await store.merge('payments/' + pid, { providerRef: clip(made.ref, 120) });
+  return { ok: true, url: made.url, id: pid };
+}
+
+async function payNotify(request, env, providerId) {
+  const provider = payProvider(env);
+  if (!provider || provider.id !== providerId) throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
+  const store = db(env);
+  const n = await provider.verify(env, request, store);   // {id, status: paid|refunded|failed, ref, amount}
+  if (!n || !n.id) return { ok: true, ignored: true };
+  await settlePayment(env, n);
+  return provider.ack ? provider.ack() : { ok: true };
+}
+
+/** תשלום שאושר / הוחזר — פעם אחת לכל עסקה (גם אם ההודעה מגיעה כמה פעמים) */
+export async function settlePayment(env, n) {
+  const store = db(env);
+  const result = await store.tx(async t => {
+    const p = await t.get('payments/' + n.id);
+    if (!p) return { skip: 'unknown' };
+    if (n.amount !== undefined && +n.amount !== +p.amount && n.status === 'paid') {
+      t.update('payments/' + n.id, { status: 'mismatch', note: `סכום ${n.amount} במקום ${p.amount}`, updatedAt: nowIso() });
+      return { skip: 'mismatch', p };
+    }
+    if (p.status === n.status) return { skip: 'same', p };
+    const st = await t.get('students/' + p.email);
+    const at = nowIso();
+    if (n.status === 'paid' && (p.status === 'pending' || p.status === 'failed')) {
+      t.update('payments/' + n.id, { status: 'paid', paidAt: at, providerRef: clip(n.ref || p.providerRef, 120) });
+      const until = st && st.accessUntil && st.accessUntil > p.accessUntil ? st.accessUntil : p.accessUntil;
+      t.merge('students/' + p.email, { email: p.email, accessUntil: until, source: 'payment', lastPayment: n.id, paidAt: at });
+      return { done: 'paid', p };
+    }
+    if (n.status === 'refunded' && p.status === 'paid') {
+      t.update('payments/' + n.id, { status: 'refunded', refundedAt: at });
+      if (st && st.lastPayment === n.id) t.merge('students/' + p.email, { accessUntil: null, source: 'refunded' });
+      return { done: 'refunded', p };
+    }
+    if (n.status === 'failed' && p.status === 'pending') {
+      t.update('payments/' + n.id, { status: 'failed', updatedAt: at });
+      return { done: 'failed', p };
+    }
+    return { skip: 'state', p };
+  });
+  if (result.done) await log(store, 'תשלום', 'payment.' + result.done, result.p.email, `${result.p.amount} ₪`);
+  return result;
+}
+
+// ------------------------------------------------------------------ מסוף ההנהלה
+
+function teacherRow(t) {
+  return {
+    email: t.email || t._id, name: t.name || '', school: t.school || '', code: showCode(t.code), seats: t.seats || 0, used: t.used || 0,
+    active: !!t.active, note: t.note || '', createdAt: t.createdAt || '', lastSignIn: t.lastSignIn || '',
+  };
+}
+
+async function adminOverview(env) {
+  const store = db(env);
+  const monthStart = today().slice(0, 8) + '01';
+  const [teachers, requests, students, payments, recent] = await Promise.all([
+    store.query('teachers'),
+    store.query('requests', { where: [['status', '==', 'open']] }),
+    store.query('students', { where: [['accessUntil', '>=', today()]] }),
+    store.query('payments', { where: [['createdAt', '>=', monthStart]] }),
+    store.query('log', { orderBy: ['at', 'desc'], limit: 15 }),
+  ]);
+  const active = teachers.filter(t => t.active);
+  const full = active.filter(t => (t.seats || 0) > 0 && (t.used || 0) >= (t.seats || 0));
+  return {
+    ok: true,
+    counts: {
+      teachers: active.length, teachersBlocked: teachers.length - active.length,
+      seats: active.reduce((n, t) => n + (t.seats || 0), 0), used: active.reduce((n, t) => n + (t.used || 0), 0),
+      students: students.length, studentsPaid: students.filter(s => s.source === 'payment').length, studentsManual: students.filter(s => s.source === 'manual').length,
+      paymentsMonth: payments.filter(p => p.status === 'paid' || p.status === 'refunded').length, refundsMonth: payments.filter(p => p.status === 'refunded').length,
+      openRequests: requests.length,
+    },
+    requests: requests.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).map(requestRow),
+    full: full.map(teacherRow),
+    recent: recent.map(l => ({ at: l.at, actor: l.actor, action: l.action, target: l.target, detail: l.detail })),
+  };
+}
+
+function requestRow(r) {
+  return {
+    id: r._id, kind: r.kind, email: r.email, name: r.name || '', school: r.school || '', amount: r.amount || 0, computers: r.computers || 0,
+    stationId: r.stationId || '', stationName: r.stationName || '', note: r.note || '', status: r.status, createdAt: r.createdAt,
+    decidedAt: r.decidedAt || '', decidedBy: r.decidedBy || '', reason: r.reason || '', result: r.result || '', before: r.before || null,
+  };
+}
+
+async function adminTeachers(env) {
+  const store = db(env);
+  const teachers = await store.query('teachers');
+  return { ok: true, teachers: teachers.map(teacherRow).sort((a, b) => a.name.localeCompare(b.name, 'he') || a.email.localeCompare(b.email)) };
+}
+
+async function adminTeacher(env, url) {
+  const store = db(env);
+  const email = normEmail(url.searchParams.get('email'));
+  const t = await store.get('teachers/' + email);
+  if (!t) throw new Fail(404, 'not_found', 'המורה לא נמצא.');
+  const stations = await store.query('stations', { where: [['teacher', '==', email]] });
+  return {
+    ok: true, teacher: teacherRow(t),
+    stations: stations.filter(x => x.active).map(x => ({ id: x._id, name: x.name, claimedAt: x.claimedAt, lastSeen: x.lastSeen }))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), 'he')),
+  };
+}
+
+/** הוספת מורה או שינוי: מכסה, השבתה, שם, בית ספר, הערה. מחזיר מה השתנה (לרישום ביומן) */
+async function adminSaveTeacher(env, u, b) {
+  const store = db(env);
+  const s = await settings(env);
+  const email = normEmail(b.email);
+  if (!emailOk(email)) throw new Fail(400, 'email', 'כתובת המייל לא תקינה.');
+  if (b.seats !== undefined && !intIn(b.seats, 0, 10000)) throw new Fail(400, 'seats', 'מספר העמדות: בין 0 ל-10000.');
+  const at = nowIso();
+  if (b.create) {
+    const exists = await store.get('teachers/' + email);
+    if (exists) throw new Fail(409, 'exists', 'המורה כבר ברשימה.');
+    const code = await assignCode(store, email);
+    const seats = b.seats !== undefined ? +b.seats : s.defaultSeats;
+    const ok = await store.create('teachers/' + email, {
+      email, name: clip(b.name, 80), school: clip(b.school, 120), seats, used: 0, code, active: true, note: clip(b.note, 300),
+      createdAt: at, updatedAt: at, createdBy: u.email,
+    });
+    if (!ok) { await store.remove('teacherCodes/' + code); throw new Fail(409, 'exists', 'המורה כבר ברשימה.'); }
+    await log(store, u.email, 'teacher.add', email, `${seats} עמדות`);
+    return { created: true, seats };
+  }
+  const changes = [];
+  await store.tx(async t => {
+    const cur = await t.get('teachers/' + email);
+    if (!cur) throw new Fail(404, 'not_found', 'המורה לא נמצא.');
+    const upd = { updatedAt: at };
+    changes.length = 0;
+    if (b.seats !== undefined && +b.seats !== cur.seats) { upd.seats = +b.seats; changes.push(`מכסה ${cur.seats || 0} ← ${+b.seats}`); }
+    if (b.active !== undefined && !!b.active !== !!cur.active) { upd.active = !!b.active; changes.push(b.active ? 'הופעל' : 'הושבת'); }
+    for (const [k, n] of [['name', 80], ['school', 120], ['note', 300]]) {
+      if (b[k] !== undefined && clip(b[k], n) !== (cur[k] || '')) { upd[k] = clip(b[k], n); changes.push(k); }
+    }
+    t.update('teachers/' + email, upd);
+  });
+  if (changes.length) await log(store, u.email, 'teacher.update', email, changes.join(', '));
+  return { changes };
+}
+
+async function adminReleaseStation(env, u, id, why) {
+  const store = db(env);
+  const out = await store.tx(async t => {
+    const st = await t.get('stations/' + id);
+    if (!st) throw new Fail(404, 'not_found', 'העמדה לא נמצאה.');
+    if (!st.active) return { already: true, st };
+    const teacher = await t.get('teachers/' + st.teacher);
+    const at = nowIso();
+    t.update('stations/' + id, { active: false, releasedAt: at, releasedBy: u.email });
+    if (teacher) t.update('teachers/' + st.teacher, { used: Math.max(0, (teacher.used || 0) - 1), updatedAt: at });
+    return { st };
+  });
+  if (!out.already) await log(store, u.email, 'station.release', out.st.teacher, `${out.st.name}${why ? ' · ' + why : ''}`);
+  return out;
+}
+
+async function adminStations(env, url) {
+  const store = db(env);
+  const teacher = normEmail(url.searchParams.get('teacher'));
+  const list = teacher ? await store.query('stations', { where: [['teacher', '==', teacher]] }) : await store.query('stations', { where: [['active', '==', true]] });
+  return {
+    ok: true,
+    stations: list.filter(x => x.active).map(x => ({ id: x._id, name: x.name, teacher: x.teacher, teacherName: x.teacherName || '', claimedAt: x.claimedAt, lastSeen: x.lastSeen }))
+      .sort((a, b) => String(a.lastSeen).localeCompare(String(b.lastSeen))),
+  };
+}
+
+async function adminStudents(env, url) {
+  const store = db(env);
+  const all = await store.query('students', { limit: 5000 });
+  const t = today();
+  const rows = all.map(s => ({
+    email: s.email || s._id, name: s.name || '', until: s.accessUntil || '', open: !!s.accessUntil && s.accessUntil >= t, source: s.source || '',
+    note: s.note || '', paidAt: s.paidAt || '', lastSignIn: s.lastSignIn || '',
+  }));
+  return { ok: true, students: rows.sort((a, b) => String(b.paidAt || b.lastSignIn).localeCompare(String(a.paidAt || a.lastSignIn))) };
+}
+
+async function adminStudent(env, url) {
+  const store = db(env);
+  const email = normEmail(url.searchParams.get('email'));
+  const [st, payments, sessions] = await Promise.all([
+    store.get('students/' + email),
+    store.query('payments', { where: [['email', '==', email]] }),
+    store.query('sessions', { where: [['email', '==', email]] }),
+  ]);
+  return {
+    ok: true, email,
+    student: st ? { name: st.name || '', until: st.accessUntil || '', source: st.source || '', note: st.note || '' } : null,
+    payments: payments.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ id: p._id, amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '', createdAt: p.createdAt, paidAt: p.paidAt || '' })),
+    devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt })),
+  };
+}
+
+/** הענקה / הארכה / ביטול של גישה לתלמידים (גם רשימה) */
+async function adminGrant(env, u, b) {
+  const store = db(env);
+  const emails = (Array.isArray(b.emails) ? b.emails : String(b.email || '').split(/[\s,;]+/)).map(normEmail).filter(Boolean);
+  if (!emails.length) throw new Fail(400, 'email', 'חסרה כתובת מייל.');
+  if (emails.length > 500) throw new Fail(400, 'email', 'עד 500 כתובות בבת אחת.');
+  const bad = emails.filter(e => !emailOk(e));
+  if (bad.length) throw new Fail(400, 'email', 'כתובות לא תקינות: ' + bad.slice(0, 5).join(', '));
+  const revoke = b.mode === 'revoke';
+  if (!revoke && !dateOk(b.until)) throw new Fail(400, 'until', 'תאריך לא תקין.');
+  const at = nowIso();
+  for (let i = 0; i < emails.length; i += 200) {
+    await store.commit(w => {
+      for (const e of emails.slice(i, i + 200)) {
+        w.merge('students/' + e, revoke
+          ? { email: e, accessUntil: null, source: 'revoked', note: clip(b.note, 200), updatedAt: at, updatedBy: u.email }
+          : { email: e, accessUntil: b.until, source: 'manual', note: clip(b.note, 200), updatedAt: at, updatedBy: u.email });
+      }
+    });
+  }
+  await log(store, u.email, revoke ? 'student.revoke' : 'student.grant', emails.length === 1 ? emails[0] : `${emails.length} תלמידים`, `${revoke ? '' : 'עד ' + b.until}${b.note ? ' · ' + clip(b.note, 120) : ''}`);
+  return { ok: true, count: emails.length };
+}
+
+async function adminRequests(env, url) {
+  const store = db(env);
+  const done = url.searchParams.get('status') === 'done';
+  const list = done
+    ? (await store.query('requests', { orderBy: ['createdAt', 'desc'], limit: 200 })).filter(r => r.status !== 'open')
+    : await store.query('requests', { where: [['status', '==', 'open']] });
+  return { ok: true, requests: list.sort((a, b) => done ? String(b.decidedAt).localeCompare(String(a.decidedAt)) : String(a.createdAt).localeCompare(String(b.createdAt))).map(requestRow) };
+}
+
+async function adminDecide(env, u, b) {
+  const store = db(env);
+  const r = await store.get('requests/' + clip(b.id, 64));
+  if (!r) throw new Fail(404, 'not_found', 'הבקשה לא נמצאה.');
+  if (r.status !== 'open') throw new Fail(409, 'done', 'הבקשה כבר טופלה.');
+  const at = nowIso();
+  let result = '';
+  if (b.decision === 'approve') {
+    if (r.kind === 'teacher') {
+      const seats = b.seats !== undefined ? +b.seats : (await settings(env)).defaultSeats;
+      const exists = await store.get('teachers/' + r.email);
+      if (exists) await adminSaveTeacher(env, u, { email: r.email, active: true, seats: b.seats !== undefined ? seats : undefined });
+      else await adminSaveTeacher(env, u, { email: r.email, name: r.name, school: r.school, seats, create: true });
+      result = `הוגדר כמורה · ${seats} עמדות`;
+    } else if (r.kind === 'seats') {
+      const add = b.amount !== undefined ? +b.amount : r.amount;
+      if (!intIn(add, 1, 2000)) throw new Fail(400, 'amount', 'כמה להוסיף? מספר בין 1 ל-2000.');
+      const t = await store.get('teachers/' + r.email);
+      if (!t) throw new Fail(404, 'not_found', 'המורה לא נמצא.');
+      await adminSaveTeacher(env, u, { email: r.email, seats: (t.seats || 0) + add });
+      result = `מכסה ${t.seats || 0} ← ${(t.seats || 0) + add}`;
+    } else if (r.kind === 'release') {
+      await adminReleaseStation(env, u, r.stationId, 'לפי בקשת המורה');
+      result = `שוחרר: ${r.stationName}`;
+    }
+    await store.update('requests/' + r._id, { status: 'approved', decidedAt: at, decidedBy: u.email, result });
+  } else if (b.decision === 'decline') {
+    await store.update('requests/' + r._id, { status: 'declined', decidedAt: at, decidedBy: u.email, reason: clip(b.reason, 300) });
+    await log(store, u.email, 'request.decline', r.email, r.kind);
+  } else {
+    throw new Fail(400, 'format', 'אישור או דחייה?');
+  }
+  return { ok: true, result };
+}
+
+async function adminLog(env, url) {
+  const store = db(env);
+  const limit = Math.min(500, Math.max(10, +url.searchParams.get('limit') || 100));
+  const before = url.searchParams.get('before');
+  const list = before
+    ? await store.query('log', { where: [['at', '<', before]], orderBy: ['at', 'desc'], limit })
+    : await store.query('log', { orderBy: ['at', 'desc'], limit });
+  return { ok: true, log: list.map(l => ({ at: l.at, actor: l.actor, action: l.action, target: l.target, detail: l.detail })) };
+}
+
+async function adminPayments(env, url) {
+  const store = db(env);
+  const list = await store.query('payments', { orderBy: ['createdAt', 'desc'], limit: Math.min(1000, +url.searchParams.get('limit') || 300) });
+  return {
+    ok: true,
+    payments: list.filter(p => p.status !== 'pending' || Date.now() - Date.parse(p.createdAt) < 86400000).map(p => ({
+      id: p._id, email: p.email, name: p.name || '', amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '', createdAt: p.createdAt, paidAt: p.paidAt || '',
+    })),
+  };
+}
+
+async function adminSettings(env, u, b) {
+  const store = db(env);
+  if (b) {
+    const upd = {};
+    const changes = [];
+    const cur = await settings(env, true);
+    for (const [k, [lo, hi]] of Object.entries(SETTING_LIMITS)) {
+      if (b[k] === undefined) continue;
+      if (!intIn(b[k], lo, hi)) throw new Fail(400, 'format', `ערך לא תקין: ${k}`);
+      if (+b[k] !== cur[k]) { upd[k] = +b[k]; changes.push(`${k}: ${cur[k]} ← ${+b[k]}`); }
+    }
+    if (b.accessUntil !== undefined) {
+      if (!dateOk(b.accessUntil)) throw new Fail(400, 'format', 'תאריך לא תקין.');
+      if (b.accessUntil !== cur.accessUntil) { upd.accessUntil = b.accessUntil; changes.push(`accessUntil: ${cur.accessUntil} ← ${b.accessUntil}`); }
+    }
+    if (b.requireLoginForGemini !== undefined && !!b.requireLoginForGemini !== !!cur.requireLoginForGemini) {
+      upd.requireLoginForGemini = !!b.requireLoginForGemini;
+      changes.push(b.requireLoginForGemini ? 'Gemini: רק למחוברים' : 'Gemini: פתוח לכולם');
+    }
+    if (changes.length) {
+      upd.updatedAt = nowIso(); upd.updatedBy = u.email;
+      await store.merge('config/settings', upd);
+      settingsCache.at = 0;
+      await log(store, u.email, 'settings', '', changes.join(', '));
+    }
+  }
+  const s = await settings(env, true);
+  const key = await passKey(env);
+  return {
+    ok: true, settings: Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, s[k]])),
+    admins: admins(env), provider: payProvider(env) ? payProvider(env).id : '', providers: PAY_PROVIDERS,
+    passKey: !!key, signedIn: u.email,
+  };
+}
+
+// ------------------------------------------------------------------ ניתוב
+
+const JSON_ROUTES = {
+  'GET /v1/access/config': async (req, env) => {
+    const s = await settings(env);
+    return {
+      ok: true, enabled: true, requireLogin: !!s.requireLoginForGemini, price: s.price, accessUntil: s.accessUntil, offlineDays: s.offlineDays,
+      canPay: s.price > 0 && !!payProvider(env),
+      firebase: { apiKey: env.FIREBASE_API_KEY || '', authDomain: env.FIREBASE_AUTH_DOMAIN || (projectId(env) + '.firebaseapp.com'), projectId: projectId(env) },
+      emulator: firestoreEmulator(env) ? { auth: env.FIREBASE_AUTH_EMULATOR_HOST || '' } : undefined,
+    };
+  },
+  'GET /v1/access/key': async (req, env) => {
+    const key = await passKey(env);
+    if (!key) throw new Fail(503, 'config', 'PASS_KEY לא הוגדר');
+    if (!keyCache.spki) keyCache.spki = await publicSpki(key);
+    return { ok: true, spki: keyCache.spki };
+  },
+  'POST /v1/auth/exchange': exchange,
+  'POST /v1/auth/redeem': redeem,
+  'POST /v1/access/check': check,
+  'POST /v1/access/logout': logout,
+  'POST /v1/station/claim': claim,
+  'GET /v1/me': me,
+  'POST /v1/me/request': myRequest,
+  'POST /v1/me/new-code': myNewCode,
+  'POST /v1/me/devices/revoke': myRevokeDevice,
+  'POST /v1/pay/start': payStart,
+};
+
+const ADMIN_ROUTES = {
+  'GET /v1/admin/overview': (env, u, url) => adminOverview(env),
+  'GET /v1/admin/teachers': (env, u, url) => adminTeachers(env),
+  'GET /v1/admin/teacher': (env, u, url) => adminTeacher(env, url),
+  'POST /v1/admin/teacher': async (env, u, url, b) => Object.assign({ ok: true }, await adminSaveTeacher(env, u, b)),
+  'POST /v1/admin/teacher/new-code': async (env, u, url, b) => {
+    const store = db(env);
+    const t = await store.get('teachers/' + normEmail(b.email));
+    if (!t) throw new Fail(404, 'not_found', 'המורה לא נמצא.');
+    const code = await replaceCode(store, t);
+    await log(store, u.email, 'teacher.new-code', t.email, '');
+    return { ok: true, code: showCode(code) };
+  },
+  'GET /v1/admin/stations': (env, u, url) => adminStations(env, url),
+  'POST /v1/admin/station/release': async (env, u, url, b) => { await adminReleaseStation(env, u, clip(b.id, 64), clip(b.reason, 120)); return { ok: true }; },
+  'GET /v1/admin/students': (env, u, url) => adminStudents(env, url),
+  'GET /v1/admin/student': (env, u, url) => adminStudent(env, url),
+  'POST /v1/admin/student': (env, u, url, b) => adminGrant(env, u, b),
+  'POST /v1/admin/session/revoke': async (env, u, url, b) => {
+    const store = db(env);
+    const se = await store.get('sessions/' + clip(b.id, 64));
+    if (!se) throw new Fail(404, 'not_found', 'לא נמצא.');
+    if (!se.revoked) await store.update('sessions/' + se._id, { revoked: true, revokedAt: nowIso(), revokedBy: u.email });
+    await log(store, u.email, 'session.revoke', se.email, se.machineName || '');
+    return { ok: true };
+  },
+  'GET /v1/admin/payments': (env, u, url) => adminPayments(env, url),
+  'GET /v1/admin/requests': (env, u, url) => adminRequests(env, url),
+  'POST /v1/admin/request': (env, u, url, b) => adminDecide(env, u, b),
+  'GET /v1/admin/log': (env, u, url) => adminLog(env, url),
+  'GET /v1/admin/settings': (env, u) => adminSettings(env, u, null),
+  'POST /v1/admin/settings': (env, u, url, b) => adminSettings(env, u, b),
+};
+
+/** מחזיר Response לנתיבים של הכניסה, או null אם הנתיב לא שלנו */
+export async function handleAccess(request, env, ctx, url) {
+  const path = url.pathname;
+  const isOurs = path.startsWith('/v1/access/') || path.startsWith('/v1/auth/') || path.startsWith('/v1/station/') || path === '/v1/me' || path.startsWith('/v1/me/')
+    || path.startsWith('/v1/admin/') || path.startsWith('/v1/pay/') || path.startsWith('/pay/')
+    || ['/signin', '/welcome', '/account', '/admin'].includes(path) || path.startsWith('/static/');
+  if (!isOurs) return null;
+  if (!accessEnabled(env)) {
+    if (path === '/v1/access/config') return reply(200, { ok: true, enabled: false });
+    throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
+  }
+  if (request.method === 'GET' && !path.startsWith('/v1/')) {
+    const page = await servePage(path, env, url);
+    if (page) return page;
+  }
+  const notify = /^\/v1\/pay\/notify\/([a-z0-9-]{2,20})$/.exec(path);
+  if (notify) return reply(200, await payNotify(request, env, notify[1]));
+  const provider = payProvider(env);
+  if (provider && provider.routes) {
+    const r = await provider.routes(request, env, url, { settlePayment: n => settlePayment(env, n), db: () => db(env) });
+    if (r) return r;
+  }
+  const key = request.method + ' ' + path;
+  if (JSON_ROUTES[key]) return reply(200, await JSON_ROUTES[key](request, env, url));
+  if (ADMIN_ROUTES[key]) {
+    const u = await adminUser(request, env);
+    const b = request.method === 'POST' ? await readJson(request) : null;
+    return reply(200, await ADMIN_ROUTES[key](env, u, url, b));
+  }
+  throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
+}
+
+export const _test = { reset() { settingsCache = { at: 0, pid: '', value: null }; keyCache = { pem: '', key: null, spki: '' }; } };

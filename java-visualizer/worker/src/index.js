@@ -24,11 +24,16 @@
 //   GET  /v1/stats              כמה הורדות היו — {downloads: {windows, zip, mac, total}} (פתוח לכל אתר)
 //   POST /v1/site/exercise      כמו /v1/exercise, מהאתר (העלאת שאלת בגרות): רק מהכתובות שב-SITE_ORIGINS, בלי מפתח-אפליקציה,
 //                               ועם מכסה יומית קטנה יותר (SITE_DAILY_LIMIT, ברירת מחדל 8)
+//   כניסה למאגר התרגילים ולשליחת תרגיל (מורים, עמדות מחשב, תלמידים, מסוף ההנהלה) — src/access/ (כבוי כל עוד ACCESS לא "on"):
+//     /signin /welcome /account /admin, ‎/v1/auth/*‎, ‎/v1/access/*‎, ‎/v1/station/claim‎, ‎/v1/me*‎, ‎/v1/admin/*‎, ‎/v1/pay/*‎
+//     ושליחה ל-Gemini עם הכותרת x-dsviz-access (כרטיס הכניסה) — חובה רק כשההנהלה הדליקה "רק למחוברים"
 //   POST /v1/license    application/json: {client, machine, code} → {ok, locked, licensed, message, payUrl}
 //                       נעילה לתשלום של התצוגה הוויזואלית: כבויה כל עוד PAYWALL לא "on" (ראו README.md — "נעילה לתשלום")
 
 import { Buffer } from 'node:buffer';
 import { systemPrompt, repairPrompt, solutionPrompt, language, RESPONSE_SCHEMA } from './prompt.js';
+import { Fail, reply } from './http.js';
+import { accessEnabled, handleAccess, geminiGate } from './access/index.js';
 
 const LIMITS = {
   files: 10,
@@ -60,7 +65,7 @@ export default {
     try {
       res = await handle(request, env, ctx);
     } catch (e) {
-      if (e instanceof Fail) res = reply(e.status, Object.assign({ ok: false, code: e.code, error: e.message }, e.detail ? { detail: String(e.detail).slice(0, 300) } : {}));
+      if (e instanceof Fail) res = reply(e.status, Object.assign({ ok: false, code: e.code, error: e.message }, e.detail ? { detail: String(e.detail).slice(0, 300) } : {}, e.extra || {}));
       else {
         console.error('unexpected', e && e.stack || e);
         res = reply(500, { ok: false, code: 'internal', error: 'תקלה בשרת. נסו שוב בעוד דקה.' });
@@ -89,13 +94,6 @@ function withCors(request, env, res) {
   return new Response(res.body, { status: res.status, headers: h });
 }
 
-class Fail extends Error {
-  constructor(status, code, message, detail) { super(message); this.status = status; this.code = code; this.detail = detail; }
-}
-
-function reply(status, obj, extra) {
-  return new Response(JSON.stringify(obj), { status, headers: Object.assign({ 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }, extra || {}) });
-}
 
 /** גרסת השרת — מופיעה ב-/v1/health, כדי לראות שהעדכון עלה (מעדכנים בכל שינוי בהנחיות / בקוד) */
 const VERSION = '2026-11-04.1';
@@ -122,6 +120,9 @@ async function handle(request, env, ctx) {
     if (!siteOrigin(request, env)) throw new Fail(403, 'origin', 'האתר הזה לא מורשה');
     return new Response(null, { status: 204, headers: { 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400' } });
   }
+  // כניסה למאגר / שליחת תרגיל: מורים, עמדות, תלמידים, מסוף ההנהלה (access/) — כבוי כל עוד ACCESS לא "on"
+  const acc = await handleAccess(request, env, ctx, url);
+  if (acc) return acc;
   if (request.method !== 'POST') throw new Fail(405, 'method', 'רק POST');
   if (url.pathname === '/v1/license') return reply(200, await license(request, env));
   const site = url.pathname === '/v1/site/exercise';
@@ -134,7 +135,9 @@ async function handle(request, env, ctx) {
   if (!env.GEMINI_API_KEY) throw new Fail(503, 'config', 'השרת עדיין לא הוגדר (חסר מפתח Gemini).');
 
   const ip = request.headers.get('cf-connecting-ip') || 'local';
-  await rateLimit(env, ip, site);
+  // מחובר (מורה / עמדה / תלמיד): נבדק כאן, וההגבלה היא לפי המשתמש — כיתה שלמה מאחורי אותה כתובת IP לא נחסמת כמו "מחשב אחד"
+  const gate = site || probe ? null : await geminiGate(request, env);
+  await rateLimit(env, gate ? gate.subject : ip, site);
   if (probe) return reply(200, { ok: true, version: VERSION, models: await probeGemini(env) });
 
   const declared = +(request.headers.get('content-length') || 0);
