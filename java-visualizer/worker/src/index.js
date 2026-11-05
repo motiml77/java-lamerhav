@@ -132,7 +132,7 @@ async function handle(request, env, ctx) {
   if (site) {
     if (!siteOrigin(request, env)) throw new Fail(403, 'origin', 'אפשר לשלוח מכאן רק מהאתר של DSViz.');
   } else if (env.APP_KEY && request.headers.get('x-dsviz-key') !== env.APP_KEY) throw new Fail(401, 'key', 'השרת לא מכיר את התוסף הזה (מפתח שגוי). עדכנו את התוסף.');
-  if (!env.GEMINI_API_KEY) throw new Fail(503, 'config', 'השרת עדיין לא הוגדר (חסר מפתח Gemini).');
+  if (!env.GEMINI_API_KEY) throw new Fail(503, 'config', 'השרת עדיין לא הוגדר (חסר מפתח ה-AI).');
 
   const ip = request.headers.get('cf-connecting-ip') || 'local';
   // מחובר (מורה / עמדה / תלמיד): נבדק כאן, וההגבלה היא לפי המשתמש — כיתה שלמה מאחורי אותה כתובת IP לא נחסמת כמו "מחשב אחד"
@@ -348,7 +348,7 @@ async function askGemini(env, userParts, lang) {
         last = config;
         continue;
       }
-      throw new Fail(502, 'gemini', 'Gemini לא הצליח לקרוא את הקבצים. נסו לשלוח צילום מסך ברור או PDF.');
+      throw new Fail(502, 'gemini', 'שרת ה-AI לא הצליח לקרוא את הקבצים. נסו לשלוח צילום מסך ברור או PDF.');
     }
     let data = null, finish = '';
     try {
@@ -366,8 +366,8 @@ async function askGemini(env, userParts, lang) {
   }
   console.error('all models failed', last);
   if (config && !busy) throw new Fail(503, 'service', 'שליחת תרגיל לא זמינה כרגע בגלל תקלה בשרת (לא בקבצים שלכם). נסו שוב מאוחר יותר.', config);
-  if (busy) throw new Fail(429, 'quota', 'הגענו למכסה של Gemini לעכשיו. נסו שוב בעוד דקה (או מחר, אם נגמרה המכסה היומית).');
-  throw new Fail(502, 'gemini', 'לא התקבלה תשובה תקינה מ-Gemini. נסו שוב.');
+  if (busy) throw new Fail(429, 'quota', 'שרת ה-AI עמוס לעכשיו (מכסת השימוש הגיעה למקסימום). נסו שוב בעוד דקה (או מחר, אם נגמרה המכסה היומית).');
+  throw new Fail(502, 'gemini', 'לא התקבלה תשובה תקינה משרת ה-AI. נסו שוב.');
 }
 
 /** השגיאה של Google (בלי שום סוד): status ‏(INVALID_ARGUMENT / PERMISSION_DENIED ...), reason ‏(API_KEY_INVALID ...), והודעה קצרה */
@@ -420,7 +420,7 @@ function stripFence(t) {
 // ------------------------------------------------------------------ בדיקה בסיסית של התשובה (הבדיקה המלאה — בתוסף)
 
 function check(d, previous) {
-  if (!d || typeof d !== 'object') throw new Fail(502, 'gemini', 'לא התקבלה תשובה תקינה מ-Gemini. נסו שוב.');
+  if (!d || typeof d !== 'object') throw new Fail(502, 'gemini', 'לא התקבלה תשובה תקינה משרת ה-AI. נסו שוב.');
   if (d.isExercise === false) {
     throw new Fail(422, 'not_exercise', String(d.problem || 'לא מצאתי בקבצים תרגיל תכנות. שלחו את דף התרגיל (צילום ברור או PDF).').slice(0, 400));
   }

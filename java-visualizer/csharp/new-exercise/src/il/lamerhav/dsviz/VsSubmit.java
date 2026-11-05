@@ -158,7 +158,7 @@ public final class VsSubmit {
 
     // ------------------------------------------------------------------ השלבים (מה ש-ExercisePipeline אומר תוך כדי)
 
-    static final String[] STAGES = { "מכין את הקבצים", "שולח ל-Gemini", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
+    static final String[] STAGES = { "מכין את הקבצים", "שולח לשרת ה-AI שלנו", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
 
     /** הודעה מהבנייה → מספר השלב (0-4), או -1: שורה אפורה מתחת לשלב הנוכחי (noteOf) — כמו stageFor ב-VS Code */
     static int stageOf(String text) {
@@ -369,7 +369,7 @@ public final class VsSubmit {
             body.add(RtlDialog.label("למשל: \"רק שאלה 2\", או: \"הפעולה בסעיף ב צריכה להיות רקורסיבית\"", RtlDialog.small(), RtlDialog.MUTED));
             body.add(RtlDialog.gap(10));
             body.add(RtlDialog.label("הפרויקט נכנס לתיקייה Exercises שב-" + root.getFileName() + ", ולפתרון של Visual Studio.", RtlDialog.small(), RtlDialog.MUTED));
-            body.add(RtlDialog.label("הדף עובר דרך השרת של DSViz ל-Gemini של Google. לא לשלוח דפים עם פרטים אישיים.", RtlDialog.small(), RtlDialog.MUTED));
+            body.add(RtlDialog.label("הדף עובר דרך השרת של DSViz לשרת ה-AI שלנו. לא לשלוח דפים עם פרטים אישיים.", RtlDialog.small(), RtlDialog.MUTED));
             body.add(RtlDialog.gap(8));
             body.add(status);
             JPanel foot = RtlDialog.footer();
