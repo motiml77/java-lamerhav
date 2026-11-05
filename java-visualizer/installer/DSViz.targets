@@ -89,8 +89,13 @@
     <PropertyGroup>
       <_DSVizLaunchText>@(_DSVizLaunchLines)</_DSVizLaunchText>
       <_DSVizHasProfile Condition="$(_DSVizLaunchText.Contains('הרצה ויזואלית')) and ($(_DSVizLaunchText.Contains('שליחת תרגיל')) or '$(OS)' != 'Windows_NT')">true</_DSVizHasProfile>
+      <!-- פרופיל מגרסה ישנה: "commandLineArgs": "\"$(ProjectDir)\"" — ProjectDir נגמר בלוכסן, וב-Windows הנתיב מגיע
+           עם מרכאה בסוף (C:\...\Targil3"). dsviz-cs ‎-‎-ensure-profile מתקן ל-"$(ProjectDir)." (רק את הארגומנט הזה).
+           ב-Mac / Linux ‏MSBuild הופך \ ל-/ בשורות שנקראו מהקובץ — לכן שתי הצורות -->
+      <_DSVizOldProfile Condition="'$(_DSVizHasProfile)' == 'true' and ('$(_DSVizLaunchText.Contains(`ProjectDir)\&quot;`))' == 'True'
+          or '$(_DSVizLaunchText.Contains(`ProjectDir)/&quot;`))' == 'True')">true</_DSVizOldProfile>
     </PropertyGroup>
-    <Exec Condition="'$(_DSVizHasProfile)' != 'true'"
+    <Exec Condition="'$(_DSVizHasProfile)' != 'true' or '$(_DSVizOldProfile)' == 'true'"
           Command="&quot;$(DSVizRunner)&quot; --ensure-profile &quot;$(MSBuildProjectDirectory)&quot;"
           ContinueOnError="true" IgnoreExitCode="true" EchoOff="true" Timeout="60000"
           StandardOutputImportance="Low" StandardErrorImportance="Low" />

@@ -33,7 +33,12 @@ namespace DsViz
             try { Console.OutputEncoding = new UTF8Encoding(false); } catch (Exception) { }
             try
             {
-                return Run(args.Select(CleanArg).ToArray());
+                return Run(NormalizeArgs(args));
+            }
+            catch (UserError e)
+            {
+                Console.Error.WriteLine(e.Message);
+                return 2;
             }
             catch (Exception e)
             {
@@ -52,6 +57,74 @@ namespace DsViz
             if (a == null) return a;
             string t = a.Trim().Trim('"').Trim();
             return t.Length == 0 ? a : t;
+        }
+
+        /// <summary>
+        /// הארגומנטים אחרי ניקוי. ב-Windows ‎"C:\dir\" arg2‎ לא נגמר במרכאה: ה-\" נקרא כמרכאה בתוך הנתיב, ההמשך נשאר "בתוך מרכאות",
+        /// וכל מה שאחריו נבלע לארגומנט אחד: ‎C:\dir" arg2‎. מפצלים אותו בחזרה: מה שלפני המרכאה — הנתיב, ומה שאחריה — ארגומנטים
+        /// נפרדים (לפי הכללים של שורת הפקודה ב-Windows). מה שאחרי "--" (ארגומנטים לתוכנית של התלמיד) לא נוגעים בו.
+        /// </summary>
+        internal static string[] NormalizeArgs(string[] args)
+        {
+            var result = new List<string>();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "--") { result.AddRange(args.Skip(i)); break; }
+                result.AddRange(SplitSwallowed(args[i], 0));
+            }
+            return result.ToArray();
+        }
+
+        static IEnumerable<string> SplitSwallowed(string a, int depth)
+        {
+            if (a == null) return new[] { a };
+            string t = a.Trim().TrimStart('"');
+            int q = t.IndexOf('"');
+            // בלי מרכאה באמצע (או שזה באמת שם של קובץ / תיקייה קיימים — ב-Mac / Linux מרכאה מותרת בשם)
+            if (q < 0 || q == t.TrimEnd('"', ' ').Length || depth > 8 || File.Exists(a) || Directory.Exists(a)) return new[] { CleanArg(a) };
+            var parts = new List<string>();
+            string head = t.Substring(0, q).Trim();
+            if (head.Length > 0) parts.Add(head);
+            foreach (string rest in SplitCommandLine(t.Substring(q + 1)))
+                parts.AddRange(SplitSwallowed(rest, depth + 1));
+            return parts;
+        }
+
+        /// <summary>פיצול שורת פקודה לפי הכללים של Windows (CommandLineToArgvW): רווחים מפרידים, מרכאות מקבצות, \" — מרכאה בתוך ארגומנט</summary>
+        internal static List<string> SplitCommandLine(string s)
+        {
+            var args = new List<string>();
+            var cur = new StringBuilder();
+            bool inQuotes = false, have = false;
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (c == '\\')
+                {
+                    int n = 0;
+                    while (i < s.Length && s[i] == '\\') { n++; i++; }
+                    if (i < s.Length && s[i] == '"')
+                    {
+                        cur.Append('\\', n / 2);
+                        if (n % 2 == 1) cur.Append('"'); else i--;   // מספר זוגי: המרכאה פותחת / סוגרת (נקראת שוב בסיבוב הבא)
+                    }
+                    else { cur.Append('\\', n); i--; }
+                    have = true;
+                }
+                else if (c == '"')
+                {
+                    if (inQuotes && i + 1 < s.Length && s[i + 1] == '"') { cur.Append('"'); i++; }
+                    else inQuotes = !inQuotes;
+                    have = true;
+                }
+                else if ((c == ' ' || c == '\t') && !inQuotes)
+                {
+                    if (have) { args.Add(cur.ToString()); cur.Clear(); have = false; }
+                }
+                else { cur.Append(c); have = true; }
+            }
+            if (have) args.Add(cur.ToString());
+            return args;
         }
 
         static int Run(string[] args)
@@ -425,6 +498,12 @@ namespace DsViz
         }
     }
 
+    /// <summary>שגיאה של מי שמריץ (נתיב שלא קיים וכו') — מודפסת כמו שהיא, בעברית, בלי שם של חריגה</summary>
+    internal sealed class UserError : Exception
+    {
+        public UserError(string message) : base(message) { }
+    }
+
     internal sealed class ProjectInfo
     {
         public string Name, Dir;
@@ -436,8 +515,38 @@ namespace DsViz
         public bool SdkStyle;          // פרויקט ‎.NET חדש (<Project Sdk=...>) — יש לו launchSettings.json
         public LanguageVersion LangVersion = LanguageVersion.Latest;
 
+        /// <summary>
+        /// הנתיב שביקשו להריץ, מנורמל: בלי מרכאות / רווחים בקצוות, נתיב מלא. קובץ שאינו .cs / .csproj (למשל .sln) — התיקייה שלו.
+        /// נתיב שלא קיים — UserError עם הסבר בעברית (ולא חריגה של .NET מתוך Directory.EnumerateFiles).
+        /// </summary>
+        internal static string ResolveTarget(string target)
+        {
+            string t = (target ?? "").Trim().Trim('"').Trim();
+            string full = null;
+            if (t.Length > 0)
+            {
+                try { full = Path.GetFullPath(t); } catch (Exception) { }
+            }
+            if (full != null && File.Exists(full))
+            {
+                if (full.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) || full.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)) return full;
+                return Path.GetDirectoryName(full);
+            }
+            if (full != null && Directory.Exists(full))
+            {
+                // C:\dir\ — בלי הלוכסן בסוף (GetFullPath כבר הוריד את ה-"." של C:\dir\.); השם של הפרויקט נלקח מהתיקייה
+                string root = Path.GetPathRoot(full) ?? "";
+                return full.Length > root.Length ? Path.TrimEndingDirectorySeparator(full) : full;
+            }
+            throw new UserError("הרצה ויזואלית: לא נמצאו תיקייה או קובץ בשם \"" + (t.Length > 0 ? t : target) + "\"." + Environment.NewLine
+                + "ב-Visual Studio: בקובץ Properties\\launchSettings.json של הפרויקט, בפרופיל \"הרצה ויזואלית\", צריך להיות:" + Environment.NewLine
+                + "    \"commandLineArgs\": \"\\\"$(ProjectDir).\\\"\"," + Environment.NewLine
+                + "משורת הפקודה: dsviz-cs <תיקיית פרויקט | קובץ .csproj | קובץ .cs>");
+        }
+
         public static ProjectInfo Load(string target)
         {
+            target = ResolveTarget(target);
             var p = new ProjectInfo();
             string csproj = null;
             if (File.Exists(target) && target.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
@@ -479,8 +588,11 @@ namespace DsViz
                 catch (Exception) { }
             }
             string[] skip = { "bin", "obj", "node_modules" };
-            foreach (string f in Directory.EnumerateFiles(p.Dir, "*.cs", SearchOption.AllDirectories))
+            // IgnoreInaccessible: תיקייה בלי הרשאה בתוך הפרויקט (למשל פרויקט שנמצא ישר ב"מסמכים") לא עוצרת את ההרצה
+            var walk = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 };
+            foreach (string f in Directory.EnumerateFiles(p.Dir, "*.cs", walk))
             {
+                if (!f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) continue;
                 string rel = f.Substring(p.Dir.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 string[] parts = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 if (parts.Take(parts.Length - 1).Any(d => skip.Contains(d) || d.StartsWith("."))) continue;
@@ -511,7 +623,8 @@ namespace DsViz
         /// </summary>
         public static ProjectInfo LoadProjectOnly(string dir)
         {
-            var p = new ProjectInfo { Dir = Path.GetFullPath(dir) };
+            var p = new ProjectInfo { Dir = ResolveTarget(dir) };
+            if (File.Exists(p.Dir)) p.Dir = Path.GetDirectoryName(p.Dir);   // נתנו קובץ .csproj / .cs — התיקייה שלו
             string csproj = null;
             try { csproj = Directory.GetFiles(p.Dir, "*.csproj").FirstOrDefault(); } catch (Exception) { }
             if (csproj == null) return p;
@@ -578,6 +691,24 @@ namespace DsViz
         internal const string Args = "\"$(ProjectDir).\"";
         internal const string OldArgs = "\"$(ProjectDir)\"";
 
+        /// <summary>
+        /// commandLineArgs מתוקן לפרופיל קיים, או null אם אין מה לתקן. הצורות הישנות: "$(ProjectDir)" (ב-Windows הנתיב מגיע
+        /// עם מרכאה בסוף, וכל מה שאחריו נבלע לאותו ארגומנט) ו-$(ProjectDir) בלי מרכאות (נשבר בנתיב עם רווחים). מה שבא אחריהן נשמר.
+        /// </summary>
+        internal static string Migrate(string args)
+        {
+            if (args == null) return null;
+            string t = args.TrimStart();
+            foreach (string old in new[] { OldArgs, "$(ProjectDir)" })
+            {
+                if (!t.StartsWith(old, StringComparison.Ordinal)) continue;
+                string rest = t.Substring(old.Length);
+                if (rest.Length > 0 && rest[0] != ' ' && rest[0] != '\t') continue;   // למשל "$(ProjectDir)." — כבר תקין
+                return Args + rest;
+            }
+            return null;
+        }
+
         static void Write(string file, System.Text.Json.Nodes.JsonNode root)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(file));
@@ -639,8 +770,9 @@ namespace DsViz
                 {
                     // פרופיל מגרסה ישנה: "$(ProjectDir)" — הנתיב הגיע עם מרכאה בסוף. מתקנים אותו במקום, בלי לגעת בשאר
                     var old = profiles[Name] as System.Text.Json.Nodes.JsonObject;
+                    string fixedArgs = old == null ? null : Migrate(old["commandLineArgs"] is System.Text.Json.Nodes.JsonValue v && v.TryGetValue(out string s) ? s : null);
                     bool changed = false;
-                    if (old != null && (string)old["commandLineArgs"] == OldArgs) { old["commandLineArgs"] = Args; changed = true; }
+                    if (fixedArgs != null) { old["commandLineArgs"] = fixedArgs; changed = true; }
                     if (AddTools(profiles)) changed = true;   // פרויקט שכבר יש בו הרצה ויזואלית — מקבל גם את כפתורי הכלים
                     if (changed) Write(file, root);
                     return changed;

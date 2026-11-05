@@ -12,7 +12,9 @@ $dir = $PSScriptRoot
 $log = Join-Path $dir 'update.log'
 $versionUrl = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/version.json'
 function Log([string]$m) { try { Add-Content -LiteralPath $log -Value ("{0:yyyy-MM-dd HH:mm}  {1}" -f (Get-Date), $m) -Encoding UTF8 } catch { } }
-function EclipseRunning { return [bool](Get-Process -Name eclipse -ErrorAction SilentlyContinue) }
+# Eclipse (קובצי התוסף נעולים), או הרצה ויזואלית של C# (dsviz-cs.exe והקבצים שלו נעולים בזמן ריצה, וההתקנה מוחקת ומחליפה את התיקייה cs —
+# עלולים להישאר בה קבצים ישנים, בזמן ש-build.txt כבר אומר שהגרסה החדשה מותקנת, כך שהעדכון לא היה מנסה שוב)
+function EclipseRunning { return [bool](Get-Process -Name eclipse, dsviz-cs -ErrorAction SilentlyContinue) }
 
 # סרטוני ההדרכה (help\, help\vscode\, help\vs\ — a.mp4 ... e.mp4) שעוד לא במחשב: מורידים מהאתר לקובץ זמני ואז משנים את השם
 function SyncVideos {
@@ -80,10 +82,10 @@ try {
     $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLower()
     if ($hash -ne ([string]$v.sha256).ToLower()) { Log "הקובץ שהורד לא תקין (SHA-256) — מדלגים"; Remove-Item -LiteralPath $exe -Force; exit 0 }
 
-    # מחכים ש-Eclipse ייסגר (עד 12 שעות), כדי לא להפריע לעבודה
+    # מחכים ש-Eclipse (והרצה ויזואלית של C#) ייסגרו (עד 12 שעות), כדי לא להפריע לעבודה
     $waited = 0
     while ((EclipseRunning) -and $waited -lt 720) { Start-Sleep -Seconds 60; $waited++ }
-    if (EclipseRunning) { Log "Eclipse עדיין פתוח — ננסה בפעם הבאה"; exit 0 }
+    if (EclipseRunning) { Log "Eclipse / הרצה ויזואלית עדיין פתוחים — ננסה בפעם הבאה"; exit 0 }
 
     Log "מתקין את הגרסה החדשה..."
     $p = Start-Process -FilePath $exe -ArgumentList '/S', '/UPDATE' -PassThru -WindowStyle Hidden
