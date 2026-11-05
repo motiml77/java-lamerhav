@@ -62,16 +62,15 @@ await api('POST', '/v1/admin/teacher', { email: 'avi.shalom@gmail.com', active: 
 const ronitStations = await store.query('stations', { where: [['teacher', '==', 'ronit.a@school.org.il']] });
 const old = new Date(Date.now() - 40 * 86400000).toISOString();
 await store.merge('stations/' + ronitStations[0]._id, { name: 'ספרייה · מחשב 1', lastSeen: old });
-await api('POST', '/v1/me/request', { kind: 'seats', amount: 10, note: 'נפתחה מעבדה חדשה בקומה 2 עם 10 מחשבים.' }, await idToken('sara.cohen@ort.org.il', 'שרה כהן'));
 await api('POST', '/v1/me/request', { kind: 'release', stationId: ronitStations[0]._id, note: 'המחשב הוחלף בחדש.' }, await idToken('ronit.a@school.org.il', 'רונית אברהם'));
 await api('POST', '/v1/me/request', { kind: 'teacher', school: 'תיכון עירוני ד׳, תל אביב', computers: 28 }, await idToken('david.levi@gmail.com', 'דוד לוי'));
-await api('POST', '/v1/admin/settings', { price: 60, accessUntil: '2027-08-31' }, admin);
+await api('POST', '/v1/admin/settings', { price: 60, accessUntil: '2027-08-31', packages: [{ seats: 10, price: 300 }, { seats: 20, price: 550 }, { seats: 30, price: 750 }] }, admin);
 for (const [email, name] of [['noa.k@gmail.com', 'נועה כץ'], ['tamar.r@gmail.com', 'תמר רוזן'], ['michael.d@gmail.com', 'מיכאל דהן']]) {
   const tok = await idToken(email, name);
   await api('GET', '/v1/me', null, tok);
   await store.merge('students/' + email, { email, name, lastSignIn: new Date().toISOString() });
   const s = await api('POST', '/v1/pay/start', {}, tok);
-  await api('POST', '/v1/pay/notify/demo', { id: s.id, status: 'paid', amount: 60 });
+  await api('POST', '/v1/pay/notify/demo', { id: s.id, status: 'paid', amount: 60, payer: { name, phone: '05' + String(Math.floor(2e7 + Math.random() * 7e7)), email } });
   if (email.startsWith('michael')) await api('POST', '/v1/pay/notify/demo', { id: s.id, status: 'refunded' });
 }
 await api('POST', '/v1/admin/student', { emails: ['itay.sh@gmail.com', 'shira.b@gmail.com'], until: '2027-08-31', note: 'הסכם עם תיכון הדר' }, admin);
@@ -149,17 +148,18 @@ await step('הוספת מורה מהטופס', async () => {
   assert.equal((await api('GET', '/v1/admin/teacher?email=new.teacher@gmail.com', null, admin)).teacher.seats, 12);
 });
 
-await step('בקשות: אישור תוספת עמדות (30 ← 40) ושחרור מחשב', async () => {
+await step('בקשות: הרשאת מורה (עם מספר עמדות) ושחרור מחשב', async () => {
   await page.click('.nav a[href="#requests"]');
   await page.waitForSelector('article.req');
   await shot(page, '04-admin-requests');
-  const sara = page.locator('article.req', { hasText: 'שרה כהן' });
-  await sara.locator('button:has-text("אישור")').click();
-  await page.waitForSelector('.toast:has-text("30 ← 40")');
+  const david = page.locator('article.req', { hasText: 'דוד לוי' });
+  await david.locator('input').fill('5');
+  await david.locator('button:has-text("הגדרה כמורה")').click();
+  await page.waitForSelector('.toast:has-text("הוגדר כמורה")');
   const ronit = page.locator('article.req', { hasText: 'רונית' });
   await ronit.locator('button:has-text("שחרור המחשב")').click();
   await page.waitForSelector('.toast:has-text("שוחרר")');
-  assert.equal((await api('GET', '/v1/admin/teacher?email=sara.cohen@ort.org.il', null, admin)).teacher.seats, 40);
+  assert.equal((await api('GET', '/v1/admin/teacher?email=david.levi@gmail.com', null, admin)).teacher.seats, 5);
   assert.equal((await api('GET', '/v1/admin/teacher?email=ronit.a@school.org.il', null, admin)).teacher.used, 17);
 });
 
@@ -178,6 +178,7 @@ await step('תלמידים: רשימה, פרטים, הענקה ידנית; תש�
   await page.click('button[role=tab]:has-text("תשלומים")');
   await page.waitForSelector('th:has-text("אסמכתה")');
   assert.match(await page.textContent('#content'), /הוחזר/);
+  assert.match(await page.textContent('#content'), /05\d{8}/, 'טלפון המשלם מוצג');
   await shot(page, '07-admin-payments');
 });
 
@@ -256,16 +257,20 @@ await step('מורה מתוך התוכנה: כניסה → הצלחה; הלוח 
   await googlePopup(teacher, '.gbtn', 'sara.cohen@ort.org.il', 'שרה כהן');
   await teacher.waitForURL(/\/welcome\?r=ok&role=teacher/);
   assert.equal(appSrv.result().status, 'ok');
-  assert.equal(appSrv.result().teacher.seats, 40);
+  assert.equal(appSrv.result().teacher.seats, 30);
   await teacher.click('a:has-text("ללוח המורה")');
   await teacher.waitForSelector('.codebox');
   assert.equal(await teacher.locator('button:has-text("שחרור")').count(), 0, 'למורה אין כפתור שחרור');
   await shot(teacher, '14-teacher-panel');
-  await teacher.click('button:has-text("בקשת עמדות נוספות")');
-  await teacher.fill('#rq-n', '5');
-  await shot(teacher, '15-teacher-request');
-  await teacher.click('dialog button:has-text("שליחת הבקשה")');
-  await teacher.waitForSelector('.pill:has-text("ממתינה")');
+  await shot(teacher, '15-teacher-packages');
+  await teacher.click('.pack:has-text("20") button');
+  await teacher.waitForURL(/\/pay\/demo/);
+  await teacher.fill('#ph', '052-7654321');
+  await teacher.click('#pay');
+  await teacher.waitForSelector('.toast:has-text("נוספו 20 עמדות")', { timeout: 30000 });
+  await teacher.waitForSelector('text=מתוך 50 בשימוש');
+  const pay = (await api('GET', '/v1/admin/payments', null, admin)).payments.find(p => p.kind === 'seats');
+  assert.deepEqual([pay.seats, pay.amount, pay.payerPhone], [20, 550, '052-7654321']);
   appSrv.close();
 });
 

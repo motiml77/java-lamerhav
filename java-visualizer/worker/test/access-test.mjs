@@ -123,7 +123,7 @@ await test('עמדת מחשב: קוד שגוי / בלי שם → הודעה; ק�
   assert.equal(p.kind, 'station');
   assert.equal(p.mid, m1);
   assert.equal(p.teacher, 'שרה כהן');
-  assert.ok(p.exp - p.iat >= 13 * 86400 && p.exp - p.iat <= 14 * 86400 + 5);
+  assert.ok(p.exp - p.iat > 5 * 365 * 86400, 'אחרי הכניסה הראשונה — בלי הגבלה בלי אינטרנט');
   assert.deepEqual([r.body.teacher.used, r.body.teacher.seats], [1, 2]);
   st1 = r.body.token;
 });
@@ -212,37 +212,50 @@ await test('חשבון שעוד לא מורה: not-teacher → בקשת הרשא
   assert.equal(again.teacher.seats, 25);
 });
 
-await test('מורה מבקש עמדות נוספות ושחרור מחשב — רק ההנהלה משנה; אחרי האישור המכסה והעמדות מתעדכנות', async () => {
+await test('מורה: אין "בקשת עמדות" — קונה חבילה; אחרי התשלום העמדות מתווספות לבד, ופרטי המשלם נשמרים; שחרור מחשב — בבקשה להנהלה', async () => {
   const tok = await idToken('teacher1@test.dev');
   const me = (await call('GET', '/v1/me', { token: tok })).body;
   assert.equal(me.teacher.code, code1);
   assert.equal(me.teacher.stations.length, 2);
-  const seats = await call('POST', '/v1/me/request', { token: tok, body: { kind: 'seats', amount: 3, note: 'מעבדה חדשה' } });
+  assert.deepEqual(me.packages, [], 'אין חבילות למכירה עד שההנהלה קובעת מחיר');
+  assert.equal((await call('POST', '/v1/me/request', { token: tok, body: { kind: 'seats', amount: 3 } })).status, 400);
+  assert.equal((await call('POST', '/v1/pay/start', { token: tok, body: { kind: 'seats', package: 0 } })).status, 400);
+  await call('POST', '/v1/admin/settings', { token: admin, body: { packages: [{ seats: 10, price: 300 }, { seats: 20, price: 500 }, { seats: 30, price: 0 }] } });
+  const packs = (await call('GET', '/v1/me', { token: tok })).body.packages;
+  assert.deepEqual(packs.map(p => [p.seats, p.price]), [[10, 300], [20, 500]]);
+  // תלמיד לא קונה עמדות
+  assert.equal((await call('POST', '/v1/pay/start', { token: await idToken('pupil@test.dev'), body: { kind: 'seats', package: 0 } })).status, 403);
+  const start = await call('POST', '/v1/pay/start', { token: tok, body: { kind: 'seats', package: 1 } });
+  assert.equal(start.status, 200, JSON.stringify(start.body));
+  await call('POST', '/v1/pay/notify/demo', { body: { id: start.body.id, status: 'paid', amount: 500, payer: { name: 'שרה כהן', phone: '050-1234567', email: 'sara@x.com' } } });
+  await call('POST', '/v1/pay/notify/demo', { body: { id: start.body.id, status: 'paid', amount: 500 } });   // הודעה כפולה
+  let t = (await call('GET', '/v1/admin/teacher?email=teacher1@test.dev', { token: admin })).body;
+  assert.equal(t.teacher.seats, 22, 'נוספו 20 עמדות, פעם אחת');
+  const pay = (await call('GET', '/v1/admin/payments', { token: admin })).body.payments.find(p => p.id === start.body.id);
+  assert.deepEqual([pay.kind, pay.seats, pay.payerName, pay.payerPhone, pay.payerEmail, pay.status], ['seats', 20, 'שרה כהן', '050-1234567', 'sara@x.com', 'paid']);
+  assert.ok((await call('GET', '/v1/admin/log', { token: admin })).body.log.some(l => l.action === 'payment.seats' && /2 ← 22/.test(l.detail)));
+  // החזר → העמדות יורדות
+  await call('POST', '/v1/pay/notify/demo', { body: { id: start.body.id, status: 'refunded' } });
+  t = (await call('GET', '/v1/admin/teacher?email=teacher1@test.dev', { token: admin })).body;
+  assert.equal(t.teacher.seats, 2);
+  // שחרור מחשב — רק ההנהלה; המורה מבקש
   const other = me.teacher.stations.find(s => s.name === 'עמדה 3');
-  const rel = await call('POST', '/v1/me/request', { token: tok, body: { kind: 'release', stationId: other.id } });
-  assert.equal(seats.status, 200);
-  assert.equal(rel.status, 200);
-  // אין נתיב שבו המורה משנה מספר עמדות או משחרר בעצמו
+  assert.equal((await call('POST', '/v1/me/request', { token: tok, body: { kind: 'release', stationId: other.id } })).status, 200);
   assert.equal((await call('POST', '/v1/admin/teacher', { token: tok, body: { email: 'teacher1@test.dev', seats: 99 } })).status, 403);
   assert.equal((await call('POST', '/v1/admin/station/release', { token: tok, body: { id: other.id } })).status, 403);
   const reqs = (await call('GET', '/v1/admin/requests', { token: admin })).body.requests.filter(r => r.email === 'teacher1@test.dev');
   for (const r of reqs) assert.equal((await call('POST', '/v1/admin/request', { token: admin, body: { id: r.id, decision: 'approve' } })).status, 200);
-  const t = (await call('GET', '/v1/admin/teacher?email=teacher1@test.dev', { token: admin })).body;
-  assert.equal(t.teacher.seats, 5);
+  t = (await call('GET', '/v1/admin/teacher?email=teacher1@test.dev', { token: admin })).body;
   assert.equal(t.teacher.used, 1);
-  const mine = (await call('GET', '/v1/me', { token: tok })).body.requests;
-  assert.ok(mine.every(r => r.status === 'approved'), JSON.stringify(mine));
-  const done = (await call('GET', '/v1/admin/requests?status=done', { token: admin })).body.requests;
-  assert.ok(done.some(r => r.result === 'מכסה 2 ← 5'));
+  assert.ok((await call('GET', '/v1/me', { token: tok })).body.requests.every(r => r.status === 'approved'));
 });
 
-await test('קוד חדש למורה: העמדות הקיימות נשארות; הקוד הישן מפסיק לעבוד', async () => {
+await test('קוד המורה קבוע: אין "קוד חדש" (לא למורה ולא בהנהלה)', async () => {
   const tok = await idToken('teacher1@test.dev');
-  const r = await call('POST', '/v1/me/new-code', { token: tok, body: {} });
-  assert.notEqual(r.body.code, code1);
-  assert.equal((await call('POST', '/v1/station/claim', { body: { code: code1, name: 'x', machine: machine() } })).body.status, 'bad-code');
+  assert.equal((await call('POST', '/v1/me/new-code', { token: tok, body: {} })).status, 404);
+  assert.equal((await call('POST', '/v1/admin/teacher/new-code', { token: admin, body: { email: 'teacher1@test.dev' } })).status, 404);
+  assert.equal((await call('GET', '/v1/me', { token: tok })).body.teacher.code, code1);
   assert.equal((await call('POST', '/v1/access/check', { body: { token: st1, machine: m1 } })).body.status, 'ok');
-  code1 = r.body.code;
 });
 
 await test('השבתת מורה: העמדות שלו והכניסה שלו ננעלות; הפעלה מחדש פותחת', async () => {

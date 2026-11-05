@@ -8,12 +8,12 @@ let me = null;
 const STATUS = { open: ['ממתינה', 'orange'], approved: ['אושרה', 'green'], declined: ['נדחתה', 'gray'] };
 
 function requestText(r) {
-  if (r.kind === 'seats') return `${r.amount} עמדות נוספות`;
+  if (r.kind === 'seats') return `${r.amount} עמדות נוספות`;   // בקשות ישנות
   if (r.kind === 'release') return `שחרור ״${r.stationName}״`;
   return 'הרשאת מורה';
 }
 
-function requestDialog(kind, station) {
+function requestDialog(kind, station) {   // רק "לשחרר מחשב" — עמדות נוספות קונים בחבילה
   const d = h('dialog', { class: 'modal', 'aria-labelledby': 'rq-t' });
   const amount = h('input', { class: 'field num', type: 'number', min: '1', max: '500', value: '5', id: 'rq-n', style: { width: '96px' } });
   const note = h('textarea', { class: 'field', rows: '2', id: 'rq-note', placeholder: kind === 'seats' ? 'למשל: נפתחה מעבדה חדשה עם 10 מחשבים' : 'למשל: המחשב הוחלף בחדש' });
@@ -40,11 +40,6 @@ function requestDialog(kind, station) {
 function teacherCards(t) {
   const copy = h('button', { type: 'button', class: 'btn primary grow' }, 'העתקת הקוד');
   copy.onclick = async () => { try { await navigator.clipboard.writeText(t.code); toast('הקוד הועתק'); } catch (e) { toast(t.code); } };
-  const fresh = h('button', { type: 'button', class: 'btn grow' }, 'קוד חדש');
-  fresh.onclick = async () => {
-    if (!await ask({ title: 'להחליף את קוד המורה?', text: 'העמדות שכבר מחוברות נשארות מחוברות. הקוד הישן מפסיק לעבוד מיד — מחשבים חדשים יצטרכו את הקוד החדש.', ok: 'החלפת הקוד' })) return;
-    busy(fresh, async () => { await api('POST', '/v1/me/new-code', {}); toast('נוצר קוד חדש'); load(); });
-  };
   const free = Math.max(0, t.seats - t.used);
   const pct = t.seats ? Math.min(100, Math.round(100 * t.used / t.seats)) : 100;
   const stations = t.stations || [];
@@ -54,8 +49,8 @@ function teacherCards(t) {
       h('h2', null, 'קוד המורה'),
       h('p', { class: 'muted' }, 'מקלידים את הקוד הזה פעם אחת בכל מחשב של הכיתה ("עמדת מחשב"). כל מחשב שמתחבר משתמש בהיתר אחד.'),
       h('div', { class: 'codebox' }, h('span', { class: 'mono' }, t.code)),
-      h('div', { class: 'row' }, copy, fresh),
-      h('p', { class: 'small muted' }, 'קוד חדש — העמדות שכבר מחוברות נשארות; הקוד הישן מפסיק לעבוד.')),
+      h('div', { class: 'row' }, copy),
+      h('p', { class: 'small muted' }, 'הקוד קבוע — אותו קוד לכל השנים.')),
     h('section', { class: 'card' },
       h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'baseline' } }, h('h2', null, 'עמדות מחשב'),
         h('span', { class: 'muted' }, h('b', { style: { color: 'var(--ink)', fontSize: '20px' } }, String(t.used)), ` מתוך ${t.seats} בשימוש`)),
@@ -66,10 +61,33 @@ function teacherCards(t) {
         pendingRelease.has(s.name) ? h('span', { class: 'pill orange' }, 'בקשה נשלחה')
           : h('a', { href: '#', class: 'small', style: { fontWeight: 600 }, onclick: e => { e.preventDefault(); requestDialog('release', s); } }, 'בקשה לשחרר')))
         : h('div', { class: 'empty' }, 'עוד אין מחשבים מחוברים.')),
-      h('div', { class: 'row wrap', style: { justifyContent: 'space-between' } },
-        h('button', { type: 'button', class: 'btn', onclick: () => requestDialog('seats') }, 'בקשת עמדות נוספות'),
-        h('span', { class: 'small muted' }, 'את מספר העמדות קובעת ההנהלה.'))),
+      h('span', { class: 'small muted' }, 'מחשב שהוחלף? "בקשה לשחרר" — וההנהלה מחזירה את ההיתר.')),
+    packagesCard(),
   ];
+}
+
+function packagesCard() {
+  const list = me.packages || [];
+  return h('section', { class: 'card', style: { gridColumn: '1 / -1' } },
+    h('div', { class: 'row wrap', style: { justifyContent: 'space-between', alignItems: 'baseline' } }, h('h2', null, 'עוד עמדות מחשב'),
+      h('span', { class: 'small muted' }, 'העמדות מתווספות מיד אחרי התשלום.')),
+    list.length ? h('div', { class: 'packs' }, list.map(p => {
+      const b = h('button', { type: 'button', class: 'btn primary wide' }, `קנייה · ${p.price} ₪`);
+      b.onclick = () => busy(b, async () => { const r = await api('POST', '/v1/pay/start', { kind: 'seats', package: p.index }); location.href = r.url; });
+      return h('div', { class: 'pack' }, h('div', { class: 'display', style: { fontSize: '30px', fontWeight: 700 } }, String(p.seats)), h('div', { class: 'muted' }, 'עמדות נוספות'), b);
+    })) : h('p', { class: 'muted' }, 'החבילות עוד לא פתוחות לקנייה. בינתיים — פונים להנהלה.'));
+}
+
+async function waitSeats() {
+  // חזרה מדף התשלום: מחכים שהתשלום יאושר (בדרך כלל כמה שניות) ואז מציגים את המספר החדש
+  const since = Date.now() - 15 * 60000;
+  for (let i = 0; i < 40; i++) {
+    const m = await api('GET', '/v1/me').catch(() => null);
+    const paid = m && m.payments.find(p => p.kind === 'seats' && p.status === 'paid' && Date.parse(p.paidAt) > since);
+    if (paid) { history.replaceState(null, '', '/account'); toast(`התשלום התקבל — נוספו ${paid.seats} עמדות`); return; }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  toast('התשלום עוד לא אושר. אם חויבת — העמדות יתווספו לבד בדקות הקרובות.', true);
 }
 
 function requestsCard() {
@@ -88,7 +106,7 @@ function studentCard() {
       : h('div', { class: 'stack' }, h('div', { class: 'row' }, h('span', { class: 'pill gray' }, 'סגור'), h('span', { class: 'muted' }, me.canPay ? `תשלום אחד של ${me.price} ₪ פותח עד ${fmtDate(me.accessUntil)}` : 'התשלום עוד לא פתוח')),
         me.canPay ? h('a', { class: 'btn primary', href: '/welcome?r=pay', style: { alignSelf: 'flex-start' } }, 'לתשלום') : null),
     me.payments.length ? h('div', { class: 'list' }, me.payments.map(p => h('div', { class: 'item' },
-      h('div', { class: 'grow' }, `${p.amount} ₪ · ${fmtDate(p.paidAt || p.createdAt)}`),
+      h('div', { class: 'grow' }, `${p.kind === 'seats' ? `חבילת ${p.seats} עמדות · ` : ''}${p.amount} ₪ · ${fmtDate(p.paidAt || p.createdAt)}`),
       h('span', { class: 'pill ' + (p.status === 'paid' ? 'green' : 'gray') }, p.status === 'paid' ? 'שולם' : p.status === 'refunded' ? 'הוחזר' : 'לא הושלם')))) : null);
 }
 
@@ -129,6 +147,9 @@ async function main() {
       h('h1', null, 'החשבון שלי'), h('p', { class: 'muted', style: { lineHeight: '1.6' } }, 'מורים רואים כאן את קוד המורה ואת העמדות; תלמידים — את מצב המאגר והתשלומים.'), b)));
     return;
   }
-  try { await load(); } catch (e) { app.replaceChildren(topBar(user), h('div', { class: 'loading' }, e.message)); }
+  try {
+    if (new URLSearchParams(location.search).get('r') === 'paid') { await load(); await waitSeats(); }
+    await load();
+  } catch (e) { app.replaceChildren(topBar(user), h('div', { class: 'loading' }, e.message)); }
 }
 main();

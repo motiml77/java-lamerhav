@@ -1,6 +1,6 @@
 // שירות התשלום — שכבה אחת שכל ספק מתחבר אליה. הספק נבחר ב-PAY_PROVIDER (עוד לא נבחר — ראו README, "תשלום").
 //
-// ספק = { id, create(env, payment, origin) → {url, ref}, verify(env, request, store) → {id, status, amount, ref} | null,
+// ספק = { id, create(env, payment, origin) → {url, ref}, verify(env, request, store) → {id, status, amount, ref, payer: {name, email, phone}} | null,
 //         routes?(request, env, url, helpers) → Response | null, ack?() → גוף התשובה לספק }
 // verify חייב לאמת מול הספק (שאילתה חוזרת מהשרת / חתימה) — לא סומכים על ההודעה לבדה.
 //
@@ -23,16 +23,19 @@ const DEMO = {
   },
   async verify(env, request) {
     const b = await request.json().catch(() => ({}));
-    return b && b.id ? { id: String(b.id), status: b.status || 'paid', amount: b.amount, ref: 'demo-' + b.id } : null;
+    return b && b.id ? { id: String(b.id), status: b.status || 'paid', amount: b.amount, ref: 'demo-' + b.id, payer: b.payer || null } : null;
   },
   async routes(request, env, url, h) {
     if (url.pathname !== '/pay/demo' || request.method !== 'GET') return null;
     const id = String(url.searchParams.get('id') || '').replace(/[^A-Za-z0-9_-]/g, '');
     const p = id ? await h.db().get('payments/' + id) : null;
     if (!p) return page('תשלום', '<h1>התשלום לא נמצא</h1>');
-    return page('תשלום לבדיקה', `<h1 style="margin:0">תשלום לבדיקה</h1><p>${p.amount} ₪ · ${p.email}</p>
+    const back = p.kind === 'seats' ? '/account?r=paid' : '/welcome?r=paid';
+    return page('תשלום לבדיקה', `<h1 style="margin:0">תשלום לבדיקה</h1><p>${p.title || ''} · ${p.amount} ₪</p>
+<input id="nm" placeholder="שם המשלם" value="${p.name || ''}" style="height:44px;border:1.5px solid #C9D2E3;border-radius:10px;padding:0 12px;font:15px system-ui">
+<input id="ph" placeholder="טלפון" value="050-1234567" dir="ltr" style="height:44px;border:1.5px solid #C9D2E3;border-radius:10px;padding:0 12px;font:15px system-ui">
 <button id="pay" type="button">תשלום (בדיקה)</button>
-<script>document.getElementById('pay').onclick=async()=>{await fetch('/v1/pay/notify/demo',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:${JSON.stringify(id)},status:'paid',amount:${+p.amount}})});location.href='/welcome?r=paid';};</script>`);
+<script>document.getElementById('pay').onclick=async()=>{await fetch('/v1/pay/notify/demo',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:${JSON.stringify(id)},status:'paid',amount:${+p.amount},payer:{name:document.getElementById('nm').value,phone:document.getElementById('ph').value,email:${JSON.stringify(p.email)}}})});location.href=${JSON.stringify(back)};};</script>`);
   },
 };
 

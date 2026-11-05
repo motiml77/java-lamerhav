@@ -22,7 +22,7 @@ const ACTIONS = {
   'station.bad-code': 'ניסיון חיבור עם קוד מורה שגוי', 'station.release': 'עמדה שוחררה', 'teacher.add': 'מורה נוסף', 'teacher.update': 'שינוי אצל מורה',
   'teacher.new-code': 'קוד מורה חדש', 'request.teacher': 'בקשת הרשאת מורה', 'request.seats': 'בקשת עמדות נוספות', 'request.release': 'בקשה לשחרר מחשב',
   'request.decline': 'בקשה נדחתה', 'student.grant': 'הענקת גישה לתלמיד', 'student.revoke': 'ביטול גישה לתלמיד', 'session.revoke': 'מחשב נותק',
-  'payment.paid': 'תשלום התקבל', 'payment.refunded': 'החזר כספי', 'payment.failed': 'תשלום נכשל', settings: 'שינוי בהגדרות',
+  'payment.paid': 'תשלום התקבל', 'payment.seats': 'חבילת עמדות נקנתה', 'payment.refunded': 'החזר כספי', 'payment.failed': 'תשלום נכשל', settings: 'שינוי בהגדרות',
 };
 const dotFor = a => (a.startsWith('payment.') ? 'green' : a === 'station.bad-code' ? 'warn' : /^(teacher|student|settings|session|request\.decline)/.test(a) ? 'dark' : '');
 const REQ_KIND = { teacher: ['הרשאת מורה', 'blue'], seats: ['תוספת עמדות', 'orange'], release: ['שחרור מחשב', 'purple'] };
@@ -210,7 +210,7 @@ async function requests(arg) {
     ? (r.requests.length ? doneTable() : h('div', { class: 'empty' }, 'עוד אין בקשות שטופלו.'))
     : (r.requests.length ? r.requests.map(x => requestCard(x, { after: render })) : h('div', { class: 'card' }, h('div', { class: 'empty' }, 'אין בקשות פתוחות.')));
   return [h('div', { class: 'stack', style: { gap: '6px' } }, h('h1', null, 'בקשות'),
-    h('p', { class: 'muted' }, 'מורים מבקשים כאן עמדות נוספות או שחרור של מחשב, וחשבונות שנכנסו כמורה מבקשים הרשאה. רק כאן משנים את מספר העמדות.')), tabs, list,
+    h('p', { class: 'muted' }, 'מורים מבקשים כאן לשחרר מחשב שהוחלף, וחשבונות שנכנסו כמורה מבקשים הרשאה. עמדות נוספות המורים קונים בחבילות — ומתווספות לבד אחרי התשלום.')), tabs, list,
   h('p', { class: 'small muted' }, 'כל אישור ודחייה נרשמים ביומן הפעולות, והמורה רואה את התשובה בלוח שלו.')];
 }
 
@@ -271,14 +271,9 @@ async function teacherDrawer(email) {
   update();
   const copy = h('button', { type: 'button', class: 'btn sm' }, 'העתקה');
   copy.onclick = async () => { try { await navigator.clipboard.writeText(t.code); toast('הקוד הועתק'); } catch (e) { toast(t.code); } };
-  const newCode = h('button', { type: 'button', class: 'btn sm' }, 'קוד חדש');
-  newCode.onclick = async () => {
-    if (!await ask({ title: 'להחליף את קוד המורה?', text: 'העמדות שכבר מחוברות נשארות. הקוד הישן מפסיק לעבוד מיד.', ok: 'החלפה' })) return;
-    busy(newCode, async () => { await api('POST', '/v1/admin/teacher/new-code', { email: t.email }); cache.teachers = null; toast('נוצר קוד חדש'); render(); });
-  };
   const toggle = h('button', { type: 'button', class: t.active ? 'btn sm danger' : 'btn sm primary' }, t.active ? 'השבתת המורה' : 'הפעלה מחדש');
   toggle.onclick = async () => {
-    if (t.active && !await ask({ title: `להשבית את ${t.name || t.email}?`, text: `הלוח של המורה נסגר, והמחשבים שלו ננעלים בבדיקה הבאה (עד ${settingsCache.offlineDays} יום בלי אינטרנט). אפשר להפעיל מחדש בכל רגע.`, ok: 'השבתה', danger: true })) return;
+    if (t.active && !await ask({ title: `להשבית את ${t.name || t.email}?`, text: `הלוח של המורה נסגר, וכל מחשב שלו ננעל בפעם הבאה שהוא מחובר לאינטרנט. אפשר להפעיל מחדש בכל רגע.`, ok: 'השבתה', danger: true })) return;
     busy(toggle, async () => { await api('POST', '/v1/admin/teacher', { email: t.email, active: !t.active }); cache.teachers = null; toast(t.active ? 'המורה הושבת' : 'המורה הופעל'); render(); });
   };
   const edit = h('button', { type: 'button', class: 'btn sm' }, 'עריכת פרטים');
@@ -287,7 +282,7 @@ async function teacherDrawer(email) {
     const stale = daysSince(s.lastSeen) > 30;
     const rel = h('button', { type: 'button', class: 'btn sm' }, 'שחרור');
     rel.onclick = async () => {
-      if (!await ask({ title: `לשחרר את ״${s.name}״?`, text: `ההיתר חוזר ל${t.name || 'מורה'}. המחשב הזה ננעל בבדיקה הבאה (עד ${settingsCache.offlineDays} יום בלי אינטרנט), ויצטרך קוד מורה כדי להתחבר שוב.`, ok: 'שחרור' })) return;
+      if (!await ask({ title: `לשחרר את ״${s.name}״?`, text: `ההיתר חוזר ל${t.name || 'מורה'}. המחשב הזה ננעל בפעם הבאה שהוא מחובר לאינטרנט, ויצטרך את קוד המורה כדי להתחבר שוב.`, ok: 'שחרור' })) return;
       busy(rel, async () => { await api('POST', '/v1/admin/station/release', { id: s.id }); cache.teachers = null; toast('העמדה שוחררה'); render(); });
     };
     return h('div', { class: 'item' + (stale ? ' stale' : '') }, h('div', { class: 'grow' }, h('div', { style: { fontWeight: 600 } }, s.name),
@@ -304,7 +299,7 @@ async function teacherDrawer(email) {
         h('button', { type: 'button', class: 'btn', 'aria-label': 'עוד עמדה', onclick: () => step(1) }, icon(ICONS.plus, 18, '#17213A', 2.4))),
       h('div', { class: 'row' }, [5, 10, 20].map(k => h('button', { type: 'button', class: 'btn sm grow', onclick: () => step(k) }, '‎+' + k))),
       preview, h('div', { class: 'row' }, save, reset)),
-    h('section', { class: 'row wrap' }, h('div', { class: 'grow stack', style: { gap: '2px' } }, h('span', { class: 'small muted', style: { fontWeight: 600 } }, 'קוד המורה'), h('span', { class: 'mono', style: { fontSize: '20px', textAlign: 'right' } }, t.code)), copy, newCode),
+    h('section', { class: 'row wrap' }, h('div', { class: 'grow stack', style: { gap: '2px' } }, h('span', { class: 'small muted', style: { fontWeight: 600 } }, 'קוד המורה'), h('span', { class: 'mono', style: { fontSize: '20px', textAlign: 'right' } }, t.code)), copy),
     h('section', { class: 'stack' }, h('h3', null, `המחשבים של ${t.name || 'המורה'} (${d.stations.length})`),
       h('div', { class: 'list' }, stations.length ? stations : h('div', { class: 'empty' }, 'עוד אין מחשבים מחוברים.'))),
     t.note ? h('div', { class: 'note' }, t.note) : null,
@@ -423,7 +418,7 @@ async function studentDialog(email) {
     h('div', { class: 'row' }, open ? h('span', { class: 'pill green' }, `פתוח עד ${fmtDate(s.until)}`) : h('span', { class: 'pill gray' }, 'סגור'), s.source === 'manual' ? h('span', { class: 'pill purple' }, 'הענקה ידנית') : null),
     s.note ? h('div', { class: 'note' }, s.note) : null,
     h('h3', null, 'תשלומים'),
-    h('div', { class: 'list' }, r.payments.length ? r.payments.map(p => h('div', { class: 'item' }, h('div', { class: 'grow' }, `${p.amount} ₪ · ${fmtDate(p.paidAt || p.createdAt)}`, p.ref ? h('span', { class: 'small muted ltr' }, ' ' + p.ref) : null),
+    h('div', { class: 'list' }, r.payments.length ? r.payments.map(p => h('div', { class: 'item' }, h('div', { class: 'grow' }, `${p.amount} ₪ · ${fmtDate(p.paidAt || p.createdAt)}`, p.payerName ? ` · ${p.payerName}` : '', p.payerPhone ? h('span', { class: 'ltr' }, ' · ' + p.payerPhone) : null, p.ref ? h('span', { class: 'small muted ltr' }, ' ' + p.ref) : null),
       h('span', { class: 'pill ' + (p.status === 'paid' ? 'green' : 'gray') }, ({ paid: 'שולם', refunded: 'הוחזר', pending: 'לא הושלם', failed: 'נכשל', mismatch: 'סכום לא תואם' })[p.status] || p.status)))
       : h('div', { class: 'empty' }, 'אין תשלומים.')),
     h('h3', null, 'מחשבים מחוברים'),
@@ -447,14 +442,17 @@ async function payments() {
     h('div', { class: 'titlebar' }, h('h1', null, 'תלמידים ותשלומים'), h('span', { class: 'small muted' }, `${paid.length} תשלומים · ${total.toLocaleString('he-IL')} ₪ (ברשימה למטה)`)),
     h('div', { class: 'tabs', role: 'tablist' }, h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', onclick: () => { location.hash = '#students'; } }, 'תלמידים'),
       h('button', { type: 'button', role: 'tab', 'aria-selected': 'true' }, `תשלומים · ${r.payments.length}`)),
-    h('div', { class: 'tablewrap' }, h('table', { class: 't' },
-      h('thead', null, h('tr', null, ['תאריך', 'תלמיד', 'סכום', 'מצב', 'אסמכתה'].map(x => h('th', null, x)))),
+    h('div', { class: 'tablewrap' }, h('table', { class: 't', style: { minWidth: '900px' } },
+      h('thead', null, h('tr', null, ['תאריך', 'מה נקנה', 'חשבון', 'המשלם', 'טלפון', 'סכום', 'מצב', 'אסמכתה'].map(x => h('th', null, x)))),
       h('tbody', null, r.payments.length ? r.payments.map(p => h('tr', null,
         h('td', null, fmtDate(p.paidAt || p.createdAt)),
+        h('td', null, p.kind === 'seats' ? h('span', { class: 'pill blue' }, `חבילת ${p.seats} עמדות`) : h('span', { class: 'pill gray' }, 'מאגר לתלמיד')),
         h('td', null, h('div', { class: 'cellname' }, h('b', null, p.name || '—'), h('span', { class: 'ltr' }, p.email))),
+        h('td', null, h('div', { class: 'cellname' }, h('b', null, p.payerName || '—'), p.payerEmail && p.payerEmail !== p.email ? h('span', { class: 'ltr' }, p.payerEmail) : null)),
+        h('td', { class: 'ltr' }, p.payerPhone ? h('a', { href: 'tel:' + p.payerPhone.replace(/[^0-9+]/g, '') }, p.payerPhone) : '—'),
         h('td', null, `${p.amount} ₪`), h('td', null, h('span', { class: 'pill ' + (label[p.status] || ['', 'gray'])[1] }, (label[p.status] || [p.status])[0])),
         h('td', { class: 'small muted ltr' }, p.ref || '')))
-        : h('tr', null, h('td', { colspan: '5' }, h('div', { class: 'empty' }, 'עוד אין תשלומים.')))))));
+        : h('tr', null, h('td', { colspan: '8' }, h('div', { class: 'empty' }, 'עוד אין תשלומים.')))))));
 }
 
 // ------------------------------------------------------------------ יומן
@@ -499,8 +497,13 @@ async function settingsView() {
       h('div', { class: 'form3' }, num('price', 'מחיר (₪) — 0 = עוד לא פתוח', s.price, 0, 5000),
         h('label', { class: 'lbl', for: 's-until' }, 'תשלום פותח את המאגר עד', until),
         h('div', { class: 'lbl' }, 'שירות התשלום', h('span', { class: 'field', style: { display: 'flex', alignItems: 'center', background: 'var(--bg)', borderColor: 'var(--bg)', fontWeight: 600, color: 'var(--muted)' } }, r.provider || 'עוד לא נבחר')))),
+    h('section', { class: 'card' }, h('h2', null, 'חבילות עמדות למורים'),
+      h('p', { class: 'small muted' }, 'המורה קונה חבילה בלוח שלו, והעמדות מתווספות לו מיד אחרי שהתשלום מאושר. מחיר 0 — החבילה לא מוצגת.'),
+      h('div', { class: 'form3' }, (s.packages || []).map((p, i) => h('div', { class: 'stack', style: { gap: '8px', background: 'var(--bg)', borderRadius: '12px', padding: '12px' } },
+        h('label', { class: 'lbl', for: 'pk-s' + i }, 'עמדות', h('input', { class: 'field', type: 'number', min: '1', max: '500', id: 'pk-s' + i, value: String(p.seats), 'data-pk': i, 'data-f': 'seats' })),
+        h('label', { class: 'lbl', for: 'pk-p' + i }, 'מחיר (₪)', h('input', { class: 'field', type: 'number', min: '0', max: '20000', id: 'pk-p' + i, value: String(p.price), 'data-pk': i, 'data-f': 'price' })))))),
     h('section', { class: 'card' }, h('h2', null, 'עמדות ומחשבים'),
-      h('div', { class: 'form2' }, num('defaultSeats', 'עמדות למורה חדש', s.defaultSeats, 0, 2000), num('offlineDays', 'ימים שהמאגר נפתח בלי אינטרנט', s.offlineDays, 1, 60),
+      h('div', { class: 'form2' }, num('defaultSeats', 'עמדות חינם למורה חדש', s.defaultSeats, 0, 2000), num('offlineDays', 'ימים בלי אינטרנט (0 = בלי הגבלה)', s.offlineDays, 0, 365),
         num('studentDevices', 'מחשבים לכל תלמיד', s.studentDevices, 1, 20), num('teacherDevices', 'מחשבים לכל מורה', s.teacherDevices, 1, 50))),
     h('section', { class: 'card' }, h('h2', null, 'מנהלים'),
       h('div', { class: 'stack' }, r.admins.map((a, i) => h('div', { class: 'row' }, h('span', { class: 'ltr', style: { fontWeight: 600 } }, a), i === 0 ? h('span', { class: 'pill blue' }, 'מנהל ראשי') : null))),
@@ -510,6 +513,7 @@ async function settingsView() {
   save.onclick = () => busy(save, async () => {
     const body = { requireLoginForGemini: gem.checked, accessUntil: until.value };
     for (const f of form.querySelectorAll('input[data-key]')) body[f.dataset.key] = +f.value;
+    body.packages = (s.packages || []).map((p, i) => ({ seats: +form.querySelector(`[data-pk="${i}"][data-f="seats"]`).value, price: +form.querySelector(`[data-pk="${i}"][data-f="price"]`).value }));
     if (gem.checked && !s.requireLoginForGemini && !await ask({ title: 'להדליק "רק למחוברים"?', text: 'מעכשיו מי שלא מחובר (או שהגרסה אצלו ישנה) לא יוכל לשלוח תרגיל ל-Gemini.', ok: 'הדלקה' })) return;
     await api('POST', '/v1/admin/settings', body);
     toast('נשמר — נכנס לתוקף תוך דקה');

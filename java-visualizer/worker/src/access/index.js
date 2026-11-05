@@ -1,13 +1,13 @@
 // כניסה למאגר התרגילים ולשליחת תרגיל: מורים, עמדות מחשב, תלמידים, ומסוף ההנהלה.
 //
 // מי מחליט: רק השרת. Firestore סגור לכל מחשב (כללי האבטחה: הכול חסום) — השרת ניגש בשם חשבון השירות.
-//   • מורה      — חשבון Google שההנהלה הגדירה (teachers/{email}). רואה את הקוד שלו ואת העמדות — לא משנה את מספרן.
+//   • מורה      — חשבון Google שההנהלה הגדירה (teachers/{email}). קוד קבוע. רואה את העמדות; מוסיף עמדות רק בקניית חבילה.
 //   • עמדת מחשב — קוד המורה + שם למחשב. היתר אחד יורד מהמורה, בטרנזקציה. אותו מחשב שמתחבר שוב — אותו היתר.
 //   • תלמיד     — חשבון Google + תשלום (או הענקה ידנית מההנהלה): students/{email}.accessUntil.
 //   • הנהלה     — רק כתובות שב-ADMIN_EMAILS (בהגדרות השרת, לא ב-Firestore — אף אחד לא יכול "להוסיף את עצמו").
 //
-// הכניסה במחשב: "כרטיס" (token) ששמור במחשב, ו"אישור" (pass) חתום עם תאריך תפוגה — המאגר נפתח בלי אינטרנט
-// עד offlineDays ימים. החתימה: RSA (PASS_KEY — סוד בשרת); המפתח הציבורי בתוך התוספים.
+// הכניסה במחשב: "כרטיס" (token) ששמור במחשב, ו"אישור" (pass) חתום — אחרי הכניסה הראשונה (עם אינטרנט) המאגר נפתח
+// בלי אינטרנט (offlineDays = 0: בלי הגבלה). כשיש אינטרנט התוסף בודק שוב, וכך עמדה ששוחררה / מורה שהושבת ננעלים. החתימה: RSA (PASS_KEY — סוד בשרת); המפתח הציבורי בתוך התוספים.
 //
 // כבוי כל עוד ACCESS לא "on" (וכל עוד אין FIREBASE_PROJECT_ID) — אז השרת עובד בדיוק כמו קודם.
 
@@ -21,15 +21,16 @@ import { servePage } from './pages.js';
 export const DEFAULTS = {
   price: 0,                     // ₪ — 0 = עוד לא נקבע (אי אפשר לשלם)
   accessUntil: '2027-08-31',    // תשלום פותח את המאגר עד התאריך הזה
-  offlineDays: 14,              // ימים שהמאגר נפתח בלי אינטרנט
+  offlineDays: 0,               // ימים שהמאגר נפתח בלי אינטרנט — 0 = בלי הגבלה (רק הכניסה הראשונה צריכה אינטרנט)
   studentDevices: 3,
   teacherDevices: 5,
-  defaultSeats: 30,
+  defaultSeats: 0,              // מורה חדש מקבל — ואת השאר קונה בחבילות
+  packages: [{ seats: 10, price: 0 }, { seats: 20, price: 0 }, { seats: 30, price: 0 }],   // חבילות עמדות למורים (מחיר 0 = לא נמכרת)
   requireLoginForGemini: false, // שליחת תרגיל ל-Gemini רק למחוברים
   geminiTeacher: 50, geminiStation: 15, geminiStudent: 20,   // שליחות ביום
 };
 const SETTING_LIMITS = {
-  price: [0, 5000], offlineDays: [1, 60], studentDevices: [1, 20], teacherDevices: [1, 50], defaultSeats: [0, 2000],
+  price: [0, 5000], offlineDays: [0, 365], studentDevices: [1, 20], teacherDevices: [1, 50], defaultSeats: [0, 2000],
   geminiTeacher: [0, 1000], geminiStation: [0, 1000], geminiStudent: [0, 1000],
 };
 
@@ -113,7 +114,7 @@ async function makePass(env, s, p) {
   const key = await passKey(env);
   if (!key) return '';
   const now = Math.floor(Date.now() / 1000);
-  let exp = now + s.offlineDays * 86400;
+  let exp = now + (s.offlineDays > 0 ? s.offlineDays : 3650) * 86400;   // 0 = בלי הגבלה (10 שנים); הנעילה מגיעה בבדיקה הבאה עם אינטרנט
   if (p.until) exp = Math.min(exp, Math.floor(Date.parse(p.until + 'T23:59:59Z') / 1000));
   const payload = { v: 1, kind: p.kind, sub: p.sub, name: p.name || '', email: p.email || '', until: p.until || '', mid: p.machine || '', iat: now, exp };
   if (p.teacher) payload.teacher = p.teacher;
@@ -397,8 +398,9 @@ async function me(request, env) {
       id: r._id, kind: r.kind, amount: r.amount || 0, stationName: r.stationName || '', status: r.status, createdAt: r.createdAt, decidedAt: r.decidedAt || '', reason: r.reason || '',
     })),
     devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt })),
-    payments: payments.filter(p => p.status !== 'pending').sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ amount: p.amount, status: p.status, createdAt: p.createdAt, paidAt: p.paidAt || '' })),
+    payments: payments.filter(p => p.status !== 'pending').sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ kind: p.kind || 'student', seats: p.seats || 0, amount: p.amount, status: p.status, createdAt: p.createdAt, paidAt: p.paidAt || '' })),
     price: s.price, accessUntil: s.accessUntil, canPay: s.price > 0 && !!payProvider(env), offlineDays: s.offlineDays,
+    packages: t && payProvider(env) ? (s.packages || []).map((p, i) => ({ index: i, seats: p.seats, price: p.price })).filter(p => p.price > 0) : [],
   };
 }
 
@@ -406,7 +408,7 @@ async function myRequest(request, env) {
   const u = await webUser(request, env);
   const b = await readJson(request);
   const store = db(env);
-  const kind = ['teacher', 'seats', 'release'].includes(b.kind) ? b.kind : '';
+  const kind = ['teacher', 'release'].includes(b.kind) ? b.kind : '';   // עמדות נוספות — רק בקניית חבילה
   if (!kind) throw new Fail(400, 'format', 'סוג בקשה לא מוכר');
   const t = await store.get('teachers/' + u.email);
   const open = (await store.query('requests', { where: [['email', '==', u.email]] })).filter(r => r.status === 'open' && r.kind === kind);
@@ -418,11 +420,7 @@ async function myRequest(request, env) {
   } else {
     if (!t || !t.active) throw new Fail(403, 'teacher', 'רק מורה פעיל יכול לשלוח בקשה כזו.');
     doc.school = t.school || '';
-    if (kind === 'seats') {
-      if (!intIn(b.amount, 1, 500)) throw new Fail(400, 'amount', 'כמה עמדות? מספר בין 1 ל-500.');
-      doc.amount = +b.amount;
-      doc.before = { seats: t.seats || 0, used: t.used || 0 };
-    } else {
+    {
       const st = await store.get('stations/' + clip(b.stationId, 64));
       if (!st || st.teacher !== u.email || !st.active) throw new Fail(400, 'station', 'המחשב לא נמצא ברשימה שלך.');
       if (open.some(r => r.stationId === st._id)) return { ok: true, id: open.find(r => r.stationId === st._id)._id, already: true };
@@ -433,16 +431,6 @@ async function myRequest(request, env) {
   await store.set('requests/' + id, doc);
   await log(store, u.email, 'request.' + kind, doc.stationName || '', doc.amount ? String(doc.amount) : doc.school || '');
   return { ok: true, id };
-}
-
-async function myNewCode(request, env) {
-  const u = await webUser(request, env);
-  const store = db(env);
-  const t = await store.get('teachers/' + u.email);
-  if (!t || !t.active) throw new Fail(403, 'teacher', 'רק מורה פעיל.');
-  const code = await replaceCode(store, t);
-  await log(store, u.email, 'teacher.new-code', u.email, '');
-  return { ok: true, code: showCode(code) };
 }
 
 async function myRevokeDevice(request, env) {
@@ -463,30 +451,34 @@ async function assignCode(store, email) {
   throw new Fail(500, 'internal', 'לא הצלחתי ליצור קוד מורה. נסו שוב.');
 }
 
-async function replaceCode(store, t) {
-  const code = await assignCode(store, t.email);
-  await store.commit(w => {
-    w.update('teachers/' + t.email, { code, updatedAt: nowIso() });
-    if (t.code) w.remove('teacherCodes/' + t.code);
-  });
-  return code;
-}
-
 // ------------------------------------------------------------------ תשלום (שירות התשלום נבחר בהגדרות — pay.js)
 
+/** תשלום: תלמיד (פתיחת המאגר עד accessUntil) או מורה (חבילת עמדות — מתווספת מיד אחרי שהתשלום מאושר) */
 async function payStart(request, env) {
   const u = await webUser(request, env);
+  const b = await readJson(request);
   const s = await settings(env);
   const provider = payProvider(env);
-  if (!provider || !(s.price > 0)) throw new Fail(503, 'pay_off', 'התשלום עוד לא פתוח. נסו שוב בקרוב.');
+  if (!provider) throw new Fail(503, 'pay_off', 'התשלום עוד לא פתוח. נסו שוב בקרוב.');
   const store = db(env);
-  const st = await store.get('students/' + u.email);
-  if (st && st.accessUntil && st.accessUntil >= s.accessUntil) return { ok: true, already: true };
   const pid = timeId() + randomToken(4).replace(/[-_]/g, 'x');
-  const pay = { email: u.email, uid: u.uid, name: u.name || '', amount: s.price, currency: 'ILS', provider: provider.id, status: 'pending', createdAt: nowIso(), accessUntil: s.accessUntil };
+  let pay;
+  if (b.kind === 'seats') {
+    const t = await store.get('teachers/' + u.email);
+    if (!t || !t.active) throw new Fail(403, 'teacher', 'רק מורה פעיל יכול לקנות עמדות.');
+    const pk = (s.packages || [])[+b.package];
+    if (!pk || !(pk.price > 0)) throw new Fail(400, 'package', 'החבילה הזו לא נמכרת כרגע.');
+    pay = { kind: 'seats', seats: pk.seats, amount: pk.price, title: `חבילת ${pk.seats} עמדות` };
+  } else {
+    if (!(s.price > 0)) throw new Fail(503, 'pay_off', 'התשלום עוד לא פתוח. נסו שוב בקרוב.');
+    const st = await store.get('students/' + u.email);
+    if (st && st.accessUntil && st.accessUntil >= s.accessUntil) return { ok: true, already: true };
+    pay = { kind: 'student', amount: s.price, accessUntil: s.accessUntil, title: 'מאגר התרגילים לשנת הלימודים' };
+  }
+  Object.assign(pay, { email: u.email, uid: u.uid, name: u.name || '', currency: 'ILS', provider: provider.id, status: 'pending', createdAt: nowIso() });
   await store.set('payments/' + pid, pay);
   const origin = new URL(request.url).origin;
-  const made = await provider.create(env, { id: pid, ...pay }, origin);
+  const made = await provider.create(env, Object.assign({ id: pid }, pay), origin);
   await store.merge('payments/' + pid, { providerRef: clip(made.ref, 120) });
   return { ok: true, url: made.url, id: pid };
 }
@@ -512,18 +504,35 @@ export async function settlePayment(env, n) {
       return { skip: 'mismatch', p };
     }
     if (p.status === n.status) return { skip: 'same', p };
-    const st = await t.get('students/' + p.email);
+    const seats = p.kind === 'seats';
     const at = nowIso();
-    if (n.status === 'paid' && (p.status === 'pending' || p.status === 'failed')) {
-      t.update('payments/' + n.id, { status: 'paid', paidAt: at, providerRef: clip(n.ref || p.providerRef, 120) });
-      const until = st && st.accessUntil && st.accessUntil > p.accessUntil ? st.accessUntil : p.accessUntil;
-      t.merge('students/' + p.email, { email: p.email, accessUntil: until, source: 'payment', lastPayment: n.id, paidAt: at });
-      return { done: 'paid', p };
-    }
-    if (n.status === 'refunded' && p.status === 'paid') {
-      t.update('payments/' + n.id, { status: 'refunded', refundedAt: at });
-      if (st && st.lastPayment === n.id) t.merge('students/' + p.email, { accessUntil: null, source: 'refunded' });
-      return { done: 'refunded', p };
+    // פרטי המשלם כמו שהשירות החזיר (שם, מייל, טלפון) — מוצגים במסוף ההנהלה
+    const payer = n.payer ? { payerName: clip(n.payer.name, 80), payerEmail: clip(n.payer.email, 120), payerPhone: clip(n.payer.phone, 30) } : {};
+    if (seats) {
+      const teacher = await t.get('teachers/' + p.email);
+      if (n.status === 'paid' && (p.status === 'pending' || p.status === 'failed')) {
+        t.update('payments/' + n.id, Object.assign({ status: 'paid', paidAt: at, providerRef: clip(n.ref || p.providerRef, 120) }, payer));
+        if (teacher) t.update('teachers/' + p.email, { updatedAt: at }, { seats: p.seats });
+        return { done: 'seats', p, before: teacher ? teacher.seats || 0 : 0 };
+      }
+      if (n.status === 'refunded' && p.status === 'paid') {
+        t.update('payments/' + n.id, { status: 'refunded', refundedAt: at });
+        if (teacher) t.update('teachers/' + p.email, { seats: Math.max(0, (teacher.seats || 0) - p.seats), updatedAt: at });
+        return { done: 'refunded', p };
+      }
+    } else {
+      const st = await t.get('students/' + p.email);
+      if (n.status === 'paid' && (p.status === 'pending' || p.status === 'failed')) {
+        t.update('payments/' + n.id, Object.assign({ status: 'paid', paidAt: at, providerRef: clip(n.ref || p.providerRef, 120) }, payer));
+        const until = st && st.accessUntil && st.accessUntil > p.accessUntil ? st.accessUntil : p.accessUntil;
+        t.merge('students/' + p.email, { email: p.email, accessUntil: until, source: 'payment', lastPayment: n.id, paidAt: at, phone: payer.payerPhone || (st && st.phone) || '' });
+        return { done: 'paid', p };
+      }
+      if (n.status === 'refunded' && p.status === 'paid') {
+        t.update('payments/' + n.id, { status: 'refunded', refundedAt: at });
+        if (st && st.lastPayment === n.id) t.merge('students/' + p.email, { accessUntil: null, source: 'refunded' });
+        return { done: 'refunded', p };
+      }
     }
     if (n.status === 'failed' && p.status === 'pending') {
       t.update('payments/' + n.id, { status: 'failed', updatedAt: at });
@@ -531,7 +540,10 @@ export async function settlePayment(env, n) {
     }
     return { skip: 'state', p };
   });
-  if (result.done) await log(store, 'תשלום', 'payment.' + result.done, result.p.email, `${result.p.amount} ₪`);
+  if (result.done) {
+    const what = result.done === 'seats' ? `חבילת ${result.p.seats} עמדות · ${result.before} ← ${result.before + result.p.seats}` : '';
+    await log(store, 'תשלום', 'payment.' + result.done, result.p.email, [`${result.p.amount} ₪`, what].filter(Boolean).join(' · '));
+  }
   return result;
 }
 
@@ -685,7 +697,7 @@ async function adminStudent(env, url) {
   return {
     ok: true, email,
     student: st ? { name: st.name || '', until: st.accessUntil || '', source: st.source || '', note: st.note || '' } : null,
-    payments: payments.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ id: p._id, amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '', createdAt: p.createdAt, paidAt: p.paidAt || '' })),
+    payments: payments.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ id: p._id, kind: p.kind || 'student', seats: p.seats || 0, amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '', createdAt: p.createdAt, paidAt: p.paidAt || '', payerName: p.payerName || '', payerPhone: p.payerPhone || '', payerEmail: p.payerEmail || '' })),
     devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt })),
   };
 }
@@ -774,7 +786,8 @@ async function adminPayments(env, url) {
   return {
     ok: true,
     payments: list.filter(p => p.status !== 'pending' || Date.now() - Date.parse(p.createdAt) < 86400000).map(p => ({
-      id: p._id, email: p.email, name: p.name || '', amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '', createdAt: p.createdAt, paidAt: p.paidAt || '',
+      id: p._id, email: p.email, name: p.name || '', kind: p.kind || 'student', seats: p.seats || 0, amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '',
+      createdAt: p.createdAt, paidAt: p.paidAt || '', payerName: p.payerName || '', payerEmail: p.payerEmail || '', payerPhone: p.payerPhone || '',
     })),
   };
 }
@@ -793,6 +806,11 @@ async function adminSettings(env, u, b) {
     if (b.accessUntil !== undefined) {
       if (!dateOk(b.accessUntil)) throw new Fail(400, 'format', 'תאריך לא תקין.');
       if (b.accessUntil !== cur.accessUntil) { upd.accessUntil = b.accessUntil; changes.push(`accessUntil: ${cur.accessUntil} ← ${b.accessUntil}`); }
+    }
+    if (b.packages !== undefined) {
+      if (!Array.isArray(b.packages) || b.packages.length > 6 || !b.packages.every(p => p && intIn(p.seats, 1, 500) && intIn(p.price, 0, 20000))) throw new Fail(400, 'format', 'חבילות: עד 6, עמדות 1–500, מחיר 0–20000.');
+      const pk = b.packages.map(p => ({ seats: +p.seats, price: +p.price }));
+      if (JSON.stringify(pk) !== JSON.stringify(cur.packages)) { upd.packages = pk; changes.push('חבילות: ' + pk.map(p => `${p.seats}=${p.price}₪`).join(', ')); }
     }
     if (b.requireLoginForGemini !== undefined && !!b.requireLoginForGemini !== !!cur.requireLoginForGemini) {
       upd.requireLoginForGemini = !!b.requireLoginForGemini;
@@ -839,7 +857,6 @@ const JSON_ROUTES = {
   'POST /v1/station/claim': claim,
   'GET /v1/me': me,
   'POST /v1/me/request': myRequest,
-  'POST /v1/me/new-code': myNewCode,
   'POST /v1/me/devices/revoke': myRevokeDevice,
   'POST /v1/pay/start': payStart,
 };
@@ -849,14 +866,6 @@ const ADMIN_ROUTES = {
   'GET /v1/admin/teachers': (env, u, url) => adminTeachers(env),
   'GET /v1/admin/teacher': (env, u, url) => adminTeacher(env, url),
   'POST /v1/admin/teacher': async (env, u, url, b) => Object.assign({ ok: true }, await adminSaveTeacher(env, u, b)),
-  'POST /v1/admin/teacher/new-code': async (env, u, url, b) => {
-    const store = db(env);
-    const t = await store.get('teachers/' + normEmail(b.email));
-    if (!t) throw new Fail(404, 'not_found', 'המורה לא נמצא.');
-    const code = await replaceCode(store, t);
-    await log(store, u.email, 'teacher.new-code', t.email, '');
-    return { ok: true, code: showCode(code) };
-  },
   'GET /v1/admin/stations': (env, u, url) => adminStations(env, url),
   'POST /v1/admin/station/release': async (env, u, url, b) => { await adminReleaseStation(env, u, clip(b.id, 64), clip(b.reason, 120)); return { ok: true }; },
   'GET /v1/admin/students': (env, u, url) => adminStudents(env, url),
