@@ -256,6 +256,8 @@ public final class LibrarySetup {
     public static void add(Module m) {
         File src = Dsviz.libraryJar();
         if (src == null) return;
+        // ההחלטה על requires נעשית לפני שינוי המודול: אחריו האינדקס נבנה מחדש, וחיפוש מילים בו נכשל (ProcessCanceledException)
+        boolean requires = moduleNeedsRequires(m);
         Runnable r = () -> {
             if (m.isDisposed() || hasLibrary(m)) return;
             File jar = copyInto(m, src);
@@ -273,7 +275,15 @@ public final class LibrarySetup {
         };
         if (ApplicationManager.getApplication().isDispatchThread()) r.run();
         else ApplicationManager.getApplication().invokeAndWait(r);
-        if (ReadAction.compute(() -> hasModuleInfo(m) && usesCourseLibrary(m))) addRequires(m);   // module-info: בלי requires הספרייה לא נראית למודול
+        if (requires) addRequires(m);   // module-info: בלי requires הספרייה לא נראית למודול
+    }
+
+    private static boolean moduleNeedsRequires(Module m) {
+        try {
+            return ReadAction.compute(() -> hasModuleInfo(m) && usesCourseLibrary(m));
+        } catch (com.intellij.openapi.project.IndexNotReadyException e) {
+            return false;
+        }
     }
 
     /** כבר יש ספרייה בשם dsviz במודול */

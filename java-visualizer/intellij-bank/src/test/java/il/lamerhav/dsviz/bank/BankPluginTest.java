@@ -44,7 +44,9 @@ public class BankPluginTest extends JavaCodeInsightFixtureTestCase {
                 com.intellij.openapi.projectRoots.ProjectJdkTable.getInstance().addJdk(sdk, getTestRootDisposable()));
         ModuleRootModificationUtil.setModuleSdk(getModule(), sdk);
         // ספריית הקורס (release/dsviz.jar) — מחוץ לתיקיות שבדיקות של IntelliJ מרשות לגשת אליהן
-        com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess.allowRootAccess(getTestRootDisposable(), new File(System.getProperty("dsviz.lib")).getParent());
+        // גם הנתיב כפי שהוא וגם הקנוני (קישור סימבולי / שם אחר של אותה תיקייה) — ההוספה רצה בחוט אחר ובודקת מול שניהם
+        File lib = new File(System.getProperty("dsviz.lib"));
+        com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess.allowRootAccess(getTestRootDisposable(), lib.getParent(), lib.getCanonicalFile().getParent());
         com.intellij.openapi.application.WriteAction.runAndWait(() -> com.intellij.openapi.roots.ProjectRootManager.getInstance(getProject()).setProjectSdk(sdk));
     }
 
