@@ -124,9 +124,20 @@ public final class ProjectSetup {
             entries.removeAll(conflicts);
             changed = true;
         }
+        // פרויקט עם module-info.java (Eclipse יוצר אותו כברירת מחדל בפרויקט חדש): מודול לא קורא את ה-classpath ("The package
+        // unit4.collectionsLib is not accessible"), לכן הספרייה נכנסת ל-module path (כמודול אוטומטי) ו-module-info מקבל requires
+        boolean modular = isModular(jp);
         if (!hasJar) {
-            entries.add(JavaCore.newLibraryEntry(jar.getFullPath(), jar.getFullPath(), new Path("src")));
+            entries.add(libraryEntry(jar, modular));
             changed = true;
+        } else if (modular) {
+            for (int i = 0; i < entries.size(); i++) {
+                IClasspathEntry e = entries.get(i);
+                if (e.getEntryKind() == IClasspathEntry.CPE_LIBRARY && e.getPath().equals(jar.getFullPath()) && !isModulePath(e)) {
+                    entries.set(i, libraryEntry(jar, true));
+                    changed = true;
+                }
+            }
         }
         if (src == null && needSource) {
             IFolder f = p.getFolder("src");
@@ -136,7 +147,89 @@ public final class ProjectSetup {
             changed = true;
         }
         if (changed) jp.setRawClasspath(entries.toArray(new IClasspathEntry[0]), null);
+        if (modular) requireLibrary(jp);
         return src;
+    }
+
+    /** שם המודול האוטומטי של lib/dsviz.jar (Eclipse / Java לוקחים אותו משם הקובץ) */
+    static final String MODULE_NAME = "dsviz";
+    private static final String MODULE_ATTR = "module";
+
+    private static IClasspathEntry libraryEntry(IFile jar, boolean modulePath) {
+        if (!modulePath) return JavaCore.newLibraryEntry(jar.getFullPath(), jar.getFullPath(), new Path("src"));
+        return JavaCore.newLibraryEntry(jar.getFullPath(), jar.getFullPath(), new Path("src"), new org.eclipse.jdt.core.IAccessRule[0],
+                new org.eclipse.jdt.core.IClasspathAttribute[] { JavaCore.newClasspathAttribute(MODULE_ATTR, "true") }, false);
+    }
+
+    private static boolean isModulePath(IClasspathEntry e) {
+        for (org.eclipse.jdt.core.IClasspathAttribute a : e.getExtraAttributes())
+            if (MODULE_ATTR.equals(a.getName()) && "true".equals(a.getValue())) return true;
+        return false;
+    }
+
+    /** יש בפרויקט module-info.java (מודול של Java 9+). ב-Eclipse ישן בלי מודולים — false */
+    public static boolean isModular(IJavaProject jp) {
+        try {
+            return jp.getModuleDescription() != null;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    /**
+     * פרויקט מודולרי שכבר יש בו את הספרייה ב-classpath הרגיל (הוכנס בגרסה קודמת, או ע"י Build Path ידני של lib/dsviz.jar):
+     * מעבירים אותה ל-module path ומוסיפים requires — כדי ש-import unit4.collectionsLib.* יתקמפל. לא נוגע בפרויקט בלי הספרייה שלנו.
+     */
+    public static void repairModular(IJavaProject jp) throws CoreException {
+        if (!isModular(jp)) return;
+        IFile jar = jp.getProject().getFolder("lib").getFile(JAR_NAME);
+        if (!jar.exists()) return;
+        IClasspathEntry[] raw = jp.getRawClasspath();
+        List<IClasspathEntry> entries = new ArrayList<IClasspathEntry>(Arrays.asList(raw));
+        boolean has = false, changed = false;
+        for (int i = 0; i < entries.size(); i++) {
+            IClasspathEntry e = entries.get(i);
+            if (e.getEntryKind() == IClasspathEntry.CPE_LIBRARY && e.getPath().equals(jar.getFullPath())) {
+                has = true;
+                if (!isModulePath(e)) {
+                    entries.set(i, libraryEntry(jar, true));
+                    changed = true;
+                }
+            }
+        }
+        if (!has) return;
+        if (changed) jp.setRawClasspath(entries.toArray(new IClasspathEntry[0]), null);
+        requireLibrary(jp);
+    }
+
+    /** lib/dsviz.jar של התוסף כבר ב-Build Path של הפרויקט */
+    public static boolean hasOurJar(IJavaProject jp) {
+        try {
+            IPath jar = jp.getProject().getFolder("lib").getFile(JAR_NAME).getFullPath();
+            for (IClasspathEntry e : jp.getRawClasspath())
+                if (e.getEntryKind() == IClasspathEntry.CPE_LIBRARY && e.getPath().equals(jar)) return true;
+        } catch (CoreException ignored) {}
+        return false;
+    }
+
+    /** מוסיף ל-module-info.java: requires dsviz; (אם עוד לא כתוב) */
+    private static void requireLibrary(IJavaProject jp) throws CoreException {
+        IResource r;
+        try {
+            org.eclipse.jdt.core.IModuleDescription md = jp.getModuleDescription();
+            r = md == null ? null : md.getResource();
+        } catch (Throwable e) {
+            return;
+        }
+        if (!(r instanceof IFile) || !r.exists()) return;
+        IFile f = (IFile) r;
+        String text = new String(read(f), StandardCharsets.UTF_8);
+        if (java.util.regex.Pattern.compile("\\brequires\\s+(?:transitive\\s+|static\\s+)*" + MODULE_NAME + "\\s*;").matcher(text).find()) return;
+        int brace = text.indexOf('{');
+        if (brace < 0) return;
+        String nl = text.contains("\r\n") ? "\r\n" : "\n";
+        String patched = text.substring(0, brace + 1) + nl + "\trequires " + MODULE_NAME + ";" + text.substring(brace + 1);
+        f.setContents(new ByteArrayInputStream(patched.getBytes(StandardCharsets.UTF_8)), true, true, null);
     }
 
     /** תיקיית הקוד הקיימת (בלי לשנות כלום), או null */

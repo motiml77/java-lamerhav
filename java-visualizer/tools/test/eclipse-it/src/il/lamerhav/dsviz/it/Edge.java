@@ -175,6 +175,36 @@ public class Edge implements IApplication {
         if (only.isEmpty() || only.contains("E")) solutionCases();
         if (only.isEmpty() || only.contains("G")) guiRuns();
         if (only.isEmpty() || only.contains("M")) wizardModuleRuns();
+        if (only.isEmpty() || only.contains("N")) moduleLibraryCompiles();
+        if (only.isEmpty() || only.contains("X")) examplesRuns();
+    }
+
+    // ================================================================== X. כל הדוגמאות הפתורות — "הרצה ויזואלית" אמיתית ב-Eclipse
+
+    /**
+     * כל אחת מהדוגמאות הפתורות (מחסנית, תור, רשימה, עץ, רקורסיה, מערכים, תלמידים, מכוניות, מבנה בתוך מבנה) — כמו תלמיד: פותחים
+     * את הקובץ ולוחצים "הרצה ויזואלית". כל אחת: רצה עד הסוף, בלי חריגה, בלי חלון שגיאה של Eclipse, בלי שגיאה ביומן, ובלי תקיעה.
+     */
+    private void examplesRuns() throws Exception {
+        System.setProperty("dsviz.it.vmargs", HEADLESS);
+        if (!src.getFolder(new Path("examples")).exists()) {
+            command("il.lamerhav.dsviz.examples");
+            Shell ex = waitShell(x -> x.getData() != null && x.getData().getClass().getSimpleName().equals("ExamplesDialog"), 10000);
+            if (ex != null) ui(() -> { ex.close(); return null; });
+        }
+        org.eclipse.core.resources.IFolder dir = src.getFolder(new Path("examples"));
+        List<String> names = new ArrayList<String>();
+        if (dir.exists()) for (org.eclipse.core.resources.IResource m : dir.members()) if (m.getName().endsWith("Examples.java")) names.add(m.getName());
+        java.util.Collections.sort(names);
+        check("X-examples-found", "הדוגמאות הפתורות בפרויקט: " + names.size(), names.size() >= 9, String.valueOf(names));
+        for (String n : names) {
+            long t0 = System.currentTimeMillis();
+            R r = visual(dir.getFile(new Path(n)), 180);
+            boolean steps = r.out.contains("#1 ") || r.out.contains("#2 ");
+            check("X-" + n.replace(".java", ""), n + ": הרצה ויזואלית ב-Eclipse — רצה עד הסוף (" + (System.currentTimeMillis() - t0) / 1000 + " שניות), בלי חריגה ובלי חלון שגיאה",
+                    r.ended && steps && r.say == null && r.foreign.isEmpty() && r.newLog.isEmpty() && !r.out.contains("Exception in thread"), r.brief());
+            closeForeign();
+        }
     }
 
     // ================================================================== A. הרצה ויזואלית
@@ -443,6 +473,116 @@ public class Edge implements IApplication {
         R r2 = visual(g, 90);
         check("M-wizard-module-lib", "פרויקט מודולרי + ספריית הקורס (Stack): רץ ויזואלית, או הודעה קצרה בעברית — לא שגיאה באנגלית",
                 r2.foreign.isEmpty() && r2.newLog.isEmpty() && (r2.say != null ? r2.sayRtl && hebrew(r2.sayText) : r2.ended && r2.out.replace("\r", "").replace("\n", "").contains("מחסנית 97")), r2.brief());
+        System.clearProperty("dsviz.it.vmargs");
+    }
+
+    /** שגיאות קומפילציה (Problems) של פרויקט אחרי בנייה מלאה */
+    private List<String> buildErrors(IProject p) throws Exception {
+        p.build(org.eclipse.core.resources.IncrementalProjectBuilder.FULL_BUILD, null);
+        ResourcesPlugin.getWorkspace().getRoot().refreshLocal(org.eclipse.core.resources.IResource.DEPTH_INFINITE, null);
+        sleep(1500);
+        List<String> errs = new ArrayList<String>();
+        for (org.eclipse.core.resources.IMarker m : p.findMarkers(org.eclipse.jdt.core.IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, true, org.eclipse.core.resources.IResource.DEPTH_INFINITE))
+            if (m.getAttribute(org.eclipse.core.resources.IMarker.SEVERITY, 0) == org.eclipse.core.resources.IMarker.SEVERITY_ERROR)
+                errs.add(m.getResource().getName() + ":" + m.getAttribute(org.eclipse.core.resources.IMarker.LINE_NUMBER, 0) + " " + m.getAttribute(org.eclipse.core.resources.IMarker.MESSAGE, ""));
+        return errs;
+    }
+
+    /**
+     * מקרה של תלמיד: פרויקט חדש מהאשף (עם module-info.java) ואז תרגיל מהמאגר שמוסיף את ספריית הקורס — import unit4.collectionsLib.*
+     * חייב להתקמפל ("The package unit4.collectionsLib is not accessible" = הספרייה ב-classpath והמודול של התלמיד לא קורא אותה),
+     * וגם להמשיך להתקמפל אחרי שהתוסף מופעל שוב / נוצר תרגיל נוסף, ולרוץ ויזואלית.
+     */
+    private void moduleLibraryCompiles() throws Exception {
+        System.setProperty("dsviz.it.vmargs", HEADLESS);
+        IJavaProject jp = ui(() -> {
+            IProject p = ResourcesPlugin.getWorkspace().getRoot().getProject("moti");
+            if (!p.exists()) p.create(null);
+            p.open(null);
+            IProjectDescription d = p.getDescription();
+            d.setNatureIds(new String[] { JavaCore.NATURE_ID });
+            p.setDescription(d, null);
+            p.setDefaultCharset("UTF-8", null);
+            IFolder s = p.getFolder("src");
+            if (!s.exists()) s.create(true, true, null);
+            IJavaProject jj = JavaCore.create(p);
+            jj.setRawClasspath(new IClasspathEntry[] { JavaCore.newSourceEntry(s.getFullPath()),
+                    JavaCore.newContainerEntry(new Path("org.eclipse.jdt.launching.JRE_CONTAINER")) }, p.getFolder("bin").getFullPath(), null);
+            jj.setOption(JavaCore.COMPILER_COMPLIANCE, "17");
+            jj.setOption(JavaCore.COMPILER_SOURCE, "17");
+            jj.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, "17");
+            return jj;
+        });
+        IFolder s = jp.getProject().getFolder("src");
+        createIn(s, "module-info.java", "module moti {\n}\n");
+        IContainer root = ui(() -> (IContainer) il.lamerhav.dsviz.ProjectSetup.class.getMethod("prepare", IJavaProject.class,
+                Class.forName("il.lamerhav.dsviz.ProjectSetup$ConflictResolver")).invoke(null, jp, null));
+        IFolder pkg = s.getFolder("ex01_strings");
+        if (!pkg.exists()) pkg.create(true, true, null);
+        createIn(pkg, "Strings1.java", "package ex01_strings;\n\nimport unit4.collectionsLib.*;\n\npublic class Strings1 {\n    public static int countChar(String str, char ch) {\n"
+                + "        int counter = 0;\n        for (int i = 0; i < str.length(); i++) {\n            if (str.charAt(i) == ch) {\n                counter++;\n            }\n        }\n        return counter;\n    }\n}\n");
+        IFile main = createIn(pkg, "Main.java", "package ex01_strings;\n\nimport unit4.collectionsLib.*;\n\npublic class Main {\n    public static void main(String[] args) {\n"
+                + "        Stack<Integer> st = new Stack<Integer>();\n        st.push(7);\n        System.out.println(\"ספרייה \" + st.pop() + Strings1.countChar(\"banana\", 'a'));\n    }\n}\n");
+        List<String> e1 = buildErrors(jp.getProject());
+        check("N-module-lib-compiles", "פרויקט מודולרי + ספריית הקורס (אחרי prepare): import unit4.collectionsLib.* מתקמפל, בלי 'is not accessible'", e1.isEmpty(), String.valueOf(e1));
+        // התוסף מופעל שוב / נוצר תרגיל נוסף — לא שובר
+        ui(() -> il.lamerhav.dsviz.ProjectSetup.prepare(jp, null, false));
+        il.lamerhav.dsviz.LibraryEverywhere.ensure(jp);
+        List<String> e2 = buildErrors(jp.getProject());
+        check("N-module-lib-again", "אחרי הכנה חוזרת של הפרויקט: עדיין מתקמפל", e2.isEmpty(), String.valueOf(e2));
+        R r = visual(main, 90);
+        check("N-module-lib-runs", "ובהרצה ויזואלית: רץ עד הסוף", r.say == null && r.ended && r.out.replace("\r", "").replace("\n", "").contains("ספרייה 73"), r.brief());
+        // פרויקט שכבר "שבור" מגרסה קודמת: הספרייה ב-classpath רגיל, module-info בלי requires — התוסף מתקן לבד (LibraryEverywhere)
+        IJavaProject old = ui(() -> {
+            IJavaProject jj = il.lamerhav.dsviz.ProjectSetup.createProject("OldBroken");
+            il.lamerhav.dsviz.ProjectSetup.prepare(jj, null);
+            IClasspathEntry[] raw = jj.getRawClasspath();
+            for (int i = 0; i < raw.length; i++)
+                if (raw[i].getEntryKind() == IClasspathEntry.CPE_LIBRARY)
+                    raw[i] = JavaCore.newLibraryEntry(raw[i].getPath(), raw[i].getSourceAttachmentPath(), raw[i].getSourceAttachmentRootPath());
+            jj.setRawClasspath(raw, null);
+            jj.setOption(JavaCore.COMPILER_COMPLIANCE, "17");
+            jj.setOption(JavaCore.COMPILER_SOURCE, "17");
+            jj.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, "17");
+            return jj;
+        });
+        IFolder os = old.getProject().getFolder("src");
+        createIn(os, "module-info.java", "module oldbroken {\n}\n");
+        IFolder opkg = os.getFolder("oldbroken");
+        if (!opkg.exists()) opkg.create(true, true, null);
+        createIn(opkg, "Use.java", "package oldbroken;\n\nimport unit4.collectionsLib.*;\n\npublic class Use {\n    Stack<Integer> st = new Stack<Integer>();\n}\n");
+        List<String> before = buildErrors(old.getProject());
+        il.lamerhav.dsviz.LibraryEverywhere.ensure(old);
+        List<String> after = buildErrors(old.getProject());
+        check("N-module-repair", "פרויקט מודולרי ישן עם הספרייה ב-classpath: לפני — שגיאה (" + before.size() + "), אחרי התיקון האוטומטי — בלי שגיאות",
+                after.isEmpty(), before + " => " + after);   // (ייתכן שהתיקון כבר רץ ברקע לפני "לפני")
+        // פרויקט חדש לגמרי מהאשף: module-info.java ואין עדיין שום ספרייה — התוסף מוסיף אותה לבד (בלי לעשות כלום ידנית)
+        IJavaProject fresh = ui(() -> {
+            IProject p = ResourcesPlugin.getWorkspace().getRoot().getProject("fresh");
+            if (!p.exists()) p.create(null);
+            p.open(null);
+            IProjectDescription d = p.getDescription();
+            d.setNatureIds(new String[] { JavaCore.NATURE_ID });
+            p.setDescription(d, null);
+            IFolder fs = p.getFolder("src");
+            if (!fs.exists()) fs.create(true, true, null);
+            IJavaProject jj = JavaCore.create(p);
+            jj.setRawClasspath(new IClasspathEntry[] { JavaCore.newSourceEntry(fs.getFullPath()),
+                    JavaCore.newContainerEntry(new Path("org.eclipse.jdt.launching.JRE_CONTAINER")) }, p.getFolder("bin").getFullPath(), null);
+            jj.setOption(JavaCore.COMPILER_COMPLIANCE, "17");
+            jj.setOption(JavaCore.COMPILER_SOURCE, "17");
+            jj.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, "17");
+            return jj;
+        });
+        IFolder fsrc = fresh.getProject().getFolder("src");
+        createIn(fsrc, "module-info.java", "module fresh {\n}\n");
+        IFolder fpkg = fsrc.getFolder("fresh");
+        if (!fpkg.exists()) fpkg.create(true, true, null);
+        createIn(fpkg, "Main.java", "package fresh;\n\nimport unit4.collectionsLib.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Queue<Integer> q = new Queue<Integer>();\n        q.insert(5);\n        System.out.println(\"חדש \" + q.remove());\n    }\n}\n");
+        List<String> fb = buildErrors(fresh.getProject());
+        il.lamerhav.dsviz.LibraryEverywhere.ensure(fresh);
+        List<String> fa = buildErrors(fresh.getProject());
+        check("N-module-fresh", "פרויקט חדש עם module-info.java ובלי ספרייה: לפני — שגיאה (" + fb.size() + "), אחרי שהתוסף מכין אותו לבד — מתקמפל", !fb.isEmpty() && fa.isEmpty(), fb + " => " + fa);
         System.clearProperty("dsviz.it.vmargs");
     }
 

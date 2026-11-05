@@ -124,6 +124,14 @@ for want in 'this=d1 ב-הבנאי Dog() {name=null, age=0} this.name=שינוי
     grep -qF -- "$want" "$W/pets.txt" || { echo "אובייקט ב-C#: חסר $want"; grep 'אובייקט' "$W/pets.txt"; exit 1; }
 done
 echo "פעולה בתוך אובייקט ב-C#: $(grep -c 'אובייקט #' "$W/pets.txt") צעדים מסומנים"
+# מחלקה של התלמיד עם ToString משלה (במשתנים, במחסנית, ברשימה, במערך, בערך מוחזר): ההרצה הוויזואלית מגיעה לסוף —
+# בלי Quiet ה-ToString שנקרא בשביל התצוגה נרשם כצעדים, ומכל צעד שוב מציגים את המשתנים, וההרצה נתקעה
+timeout 60 dotnet "$RUNNER" objects/cs/OwnToString.cs --trace "$W/owntostring.trace" > "$W/owntostring.out" 2>&1 || { echo "ToString של התלמיד: ההרצה הוויזואלית נתקעה / נכשלה"; cat "$W/owntostring.out"; exit 1; }
+grep -q 'f=1/2 g=2/2 s=\[2/2,1/2\] o=2/2 2 1/2' "$W/owntostring.out" && grep -q '^STEP	END' "$W/owntostring.trace" \
+    || { echo "ToString של התלמיד: הפלט / הסוף חסרים"; cat "$W/owntostring.out"; exit 1; }
+n=$(grep -c '^STEP' "$W/owntostring.trace")
+[ "$n" -lt 200 ] || { echo "ToString של התלמיד: $n צעדים — ה-ToString של התצוגה נרשם כצעדים"; exit 1; }
+echo "מחלקה עם ToString משלה ב-C#: ההרצה הוויזואלית הגיעה לסוף ($n צעדים)"
 # רשימה מקושרת: לכל מצביע חץ וצבע משלו (כמה מצביעים לאותה חוליה), וחיבור חוליה חדשה לרשימה קיימת (באמצע/בסוף) — כמו ב-Java
 viz lists/cs/LinkNew.cs --trace "$W/linknew.trace" > "$W/linknew.out" 2>&1 || { cat "$W/linknew.out"; exit 1; }
 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/linknew.trace" > "$W/linknew.txt" 2>&1
@@ -491,6 +499,37 @@ viz --ensure-profile "$W/new2" && grep -q '"\\"$(ProjectDir).\\""' "$W/new2/Prop
 viz "$W/new8/\"" --trace "$W/q.trace" > "$W/q.out" 2>&1; rc=$?
 [ $rc -ne 3 ] && ! grep -q 'Unhandled exception' "$W/q.out" && grep -q 'hi' "$W/q.out" \
     && echo "פרופיל ישן תוקן ל-\"\$(ProjectDir).\", ונתיב עם מרכאה בסוף עובד" || { echo "נתיב עם מרכאה בסוף: נכשל ($rc)"; cat "$W/q.out"; exit 1; }
+# ט3. מה ש-Windows נותן ל-dsviz-cs מפרופיל ישן (כללי CommandLineToArgvW: ‎"C:\dir\"‎ → ‎C:\dir"‎, וכל מה שאחריו נבלע לאותו ארגומנט):
+#     ‎"C:\dir\" --trace t‎ → ארגומנט אחד ‎C:\dir" --trace t‎; נתיב בעברית עם רווחים; מרכאה רק בהתחלה; קובץ .csproj; נתיב שלא קיים —
+#     הודעה בעברית (קוד 2), בלי חריגה שלא נתפסה (שב-Visual Studio עוצרת את הדיבאגר בתוך .NET)
+rm -f "$W/q2.trace" && viz "$W/new8\" --trace $W/q2.trace" > "$W/q2.out" 2>&1 && [ -s "$W/q2.trace" ] && grep -q 'hi' "$W/q2.out" \
+    || { echo "ארגומנטים שנבלעו אחרי נתיב עם מרכאה: נכשל"; cat "$W/q2.out"; exit 1; }
+rm -rf "$W/heb q" && mkdir -p "$W/heb q/מבני נתונים/תרגיל 3" && cp "$W/new8/Program.cs" "$W/new8/New8.csproj" "$W/heb q/מבני נתונים/תרגיל 3/"
+viz "$W/heb q/מבני נתונים/תרגיל 3\"" --trace "$W/q3.trace" > "$W/q3.out" 2>&1 && grep -q 'hi' "$W/q3.out" \
+    && viz "\"$W/new8" --trace "$W/q4.trace" > "$W/q4.out" 2>&1 && grep -q 'hi' "$W/q4.out" \
+    && viz " $W/new8/New8.csproj\" " --trace "$W/q5.trace" > "$W/q5.out" 2>&1 && grep -q 'hi' "$W/q5.out" \
+    && viz --check-project "$W/new8\"" | grep -q '^errors: 0' \
+    || { echo "נתיב בעברית / מרכאה בהתחלה / csproj עם מרכאה: נכשל"; cat "$W/q3.out" "$W/q4.out" "$W/q5.out"; exit 1; }
+rc=0; viz "$W/no-such-dir\"" --trace "$W/q6.trace" > "$W/q6.out" 2>&1 || rc=$?
+[ $rc -eq 2 ] && grep -q 'לא נמצאו תיקייה או קובץ' "$W/q6.out" && grep -qF '"\"$(ProjectDir).\""' "$W/q6.out" && ! grep -q 'Exception' "$W/q6.out" \
+    || { echo "נתיב שלא קיים: צריך הודעה בעברית וקוד 2 ($rc)"; cat "$W/q6.out"; exit 1; }
+rc=0; viz --check-project "$W/no-such-dir" > "$W/q7.out" 2>&1 || rc=$?
+[ $rc -eq 2 ] && grep -q 'לא נמצאו תיקייה או קובץ' "$W/q7.out" || { echo "--check-project לנתיב שלא קיים: $rc"; cat "$W/q7.out"; exit 1; }
+viz --ensure-profile "$W/no-such-dir\"" && [ ! -e "$W/no-such-dir" ] || { echo "--ensure-profile לנתיב שלא קיים נכשל"; exit 1; }
+echo "ארגומנטים כמו ש-Windows מעביר מפרופיל ישן (נבלעו / עברית ורווחים / מרכאה בהתחלה / csproj), ונתיב שלא קיים — הודעה בעברית"
+# ט4. פרויקט של התלמיד שכבר יש בו פרופיל ישן ("$(ProjectDir)", גם עם ארגומנטים אחריו): הבנייה (DSViz.targets) מתקנת אותו לבד —
+#     גם כשהפרופיל כבר קיים — ואחרי התיקון בנייה נוספת לא מריצה את dsviz-cs שוב
+sed -i 's|"\\"$(ProjectDir)\.\\""|"\\"$(ProjectDir)\\" --input in.txt"|' "$W/new2/Properties/launchSettings.json"
+grep -qF '"\"$(ProjectDir)\" --input in.txt"' "$W/new2/Properties/launchSettings.json" || { echo "הכנת פרופיל ישן (ט4) נכשלה"; cat "$W/new2/Properties/launchSettings.json"; exit 1; }
+rm -f "$FAKE/DSViz/cs/calls.log"
+msb "$W/new2" | grep -q 'Build succeeded' && grep -qF '"\"$(ProjectDir).\" --input in.txt"' "$W/new2/Properties/launchSettings.json" \
+    && grep -q '"שלי"' "$W/new2/Properties/launchSettings.json" && grep -q 'ensure-profile' "$FAKE/DSViz/cs/calls.log" \
+    || { echo "DSViz.targets לא תיקן פרופיל ישן בפרויקט קיים"; cat "$W/new2/Properties/launchSettings.json"; exit 1; }
+rm -f "$FAKE/DSViz/cs/calls.log"
+msb "$W/new2" | grep -q 'Build succeeded' && [ ! -f "$FAKE/DSViz/cs/calls.log" ] \
+    || { echo "אחרי התיקון: הבנייה עדיין מריצה את dsviz-cs"; cat "$FAKE/DSViz/cs/calls.log"; exit 1; }
+sed -i 's|"\\"$(ProjectDir)\.\\" --input in.txt"|"\\"$(ProjectDir).\\""|' "$W/new2/Properties/launchSettings.json"
+echo "פרופיל ישן בפרויקט קיים (גם עם ארגומנטים אחריו): הבנייה מתקנת אותו לבד, ובנייה נוספת לא מריצה שוב את dsviz-cs"
 
 # י. כמה מסגרות (TargetFrameworks) — הבנייה החיצונית לא נשברת, והבנייה הפנימית מקבלת הכול
 rm -rf "$W/new9" && mkdir -p "$W/new9"
@@ -521,4 +560,4 @@ grep -q 'ProjectDir).\\\\' "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/CsSolutio
     && echo "פרופיל הרצה בפרויקטים שנוצרים משליחת תרגיל: עם נקודה בסוף הנתיב" || { echo "פרופיל ישן בקוד שיוצר פרויקטים"; exit 1; }
 
 unset XDG_DATA_HOME
-echo "DSViz.targets: 14 תרחישים נבדקו (ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, כמה מסגרות)"
+echo "DSViz.targets: 16 תרחישים נבדקו (ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"
