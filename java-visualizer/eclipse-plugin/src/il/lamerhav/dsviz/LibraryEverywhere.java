@@ -73,8 +73,11 @@ public final class LibraryEverywhere {
 
     public static void ensure(IJavaProject jp) {
         try {
+            if (hasModuleInfo(jp)) {
+                ProjectSetup.repairModular(jp);   // הספרייה שלנו כבר בפרויקט ב-classpath רגיל — מעבירים ל-module path (אחרת "החבילה לא נגישה")
+                return;
+            }
             if (jp.findType(PROBE) != null) return;   // כבר יש (הספרייה שלנו, ה-jar המקורי של הקורס, או קוד מקור)
-            if (hasModuleInfo(jp)) return;
             ProjectSetup.prepare(jp, null, false);
         } catch (Throwable e) {
             // פרויקט שלא מצליחים לעדכן (קריאה בלבד וכו') — נשאר כמו שהוא
