@@ -14,6 +14,11 @@
 - במסוף ההנהלה רואים לכל תשלום: מה נקנה, חשבון, שם המשלם, טלפון, מייל, סכום, מצב, אסמכתה.
 - העדפה: שירות תשלום שרק סולק (בלי קבלות אוטומטיות) — השוואה חדשה בדרך.
 
+## Firebase — מה כבר קיים (5.11.2026)
+- פרויקט dsviz-access (בחשבון mordechai.l.91@gmail.com). כניסה עם Google — מופעלת (נבדק). Firestore — קיים, סגור (403 מבחוץ).
+- הגדרות האתר ב-wrangler.toml (ציבוריות). חסר: מפתח חשבון שירות (GOOGLE_SA_JSON בסביבה) ו-CLOUDFLARE_API_TOKEN.
+- לעשות כשיש מפתחות: Authorized domain ל-dsviz-exercise.motiml77.workers.dev, כללי Firestore "הכול חסום", סודות ל-Worker, פריסה עם ACCESS כבוי, בדיקה.
+
 ## מה הלאה (לפי הסדר)
 1. Firebase — פרויקט חדש ונפרד (לא exams-a93fb). סודות בסביבה: GOOGLE_SA_JSON (חשבון שירות Owner על הפרויקט החדש בלבד).
    לעשות: להפעיל APIs (firestore, identitytoolkit, firebase), ליצור Firestore (me-west1), כללים "הכול חסום",
