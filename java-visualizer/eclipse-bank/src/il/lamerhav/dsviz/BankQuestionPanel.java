@@ -61,7 +61,8 @@ final class BankQuestionPanel {
                 links.setLayoutData(wide());
                 Look.Round go = new Look.Round(links, label.isEmpty() ? "לפעולה" : "לפעולה של סעיף " + label, false, () -> actions.jump(task));
                 go.setToolTipText("פותח את הקובץ, והסמן בתחילת הפעולה " + task.methodName);
-                new Look.Round(links, "💡 הצעה לפתרון", false, () -> actions.solution(task));
+                Look.Round hint = new Look.Round(links, "הצעה לפתרון", false, () -> actions.solution(task));
+                hint.setIcon(SolutionMinings.icon(links.getDisplay()));   // המנורה המצוירת — כמו בשורה שמעל הפעולה בעורך (אמוג'י יוצא ריבוע ריק)
                 if (shown != null) shown.add("SECTION-BUTTONS " + label + " " + task.methodName);
             }
         }

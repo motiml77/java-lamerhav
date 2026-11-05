@@ -13,7 +13,7 @@ namespace DsViz.VsExtension
 {
     /// <summary>
     /// DSViz ב-Visual Studio: סרגל כלים בפני עצמו בראש החלון (DsVizPackage.vsct): תרגיל חדש · הוספת מבנה נתונים · מאגר שאלות ·
-    /// שליחת תרגיל · הצעה לפתרון · הרצה ויזואלית · הדרכה. כל כפתור מפעיל את הכלי של ההתקנה (%LOCALAPPDATA%\DSViz\cs\dsviz-cs.exe --tool ...)
+    /// שליחת תרגיל · הרצה ויזואלית · הדרכה. כל כפתור מפעיל את הכלי של ההתקנה (%LOCALAPPDATA%\DSViz\cs\dsviz-cs.exe --tool ...)
     /// — אותם חלונות כמו בקיצורים של ההתקנה; "הרצה ויזואלית" מריצה את קובץ ה-C# הפתוח.
     /// </summary>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
@@ -46,7 +46,6 @@ namespace DsViz.VsExtension
             Add(mcs, 0x0102, () => Tool("insert"));
             Add(mcs, 0x0103, () => Tool("bank"));
             Add(mcs, 0x0104, () => Tool("submit"));
-            Add(mcs, 0x0105, () => Tool("solution"));
             Add(mcs, 0x0106, VisualRun);
             Add(mcs, 0x0107, () => Tool("help"));
             ShowToolbarOnce();

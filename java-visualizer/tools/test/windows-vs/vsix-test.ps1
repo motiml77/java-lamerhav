@@ -89,7 +89,7 @@ if ($ready) {
     $names = @()
     for ($i = 0; $i -lt 30; $i++) {   # עד 90 שניות: ההרחבה נטענת אחרי שהחלון עולה — יוצאים ברגע שהכפתורים נמצאו
         Start-Sleep 3
-        $names = @(VsElements $p.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -match 'תרגיל חדש|מאגר שאלות|הוספת מבנה נתונים|שליחת תרגיל|הצעה לפתרון|DSViz' })
+        $names = @(VsElements $p.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -match 'תרגיל חדש|מאגר שאלות|הוספת מבנה נתונים|שליחת תרגיל|הרצה ויזואלית|DSViz' })
         if (@($names | Select-Object -Unique).Count -ge 4) { break }
     }
     Shot 'vs-toolbar'

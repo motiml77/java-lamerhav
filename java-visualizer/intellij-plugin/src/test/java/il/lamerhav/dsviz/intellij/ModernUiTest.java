@@ -63,7 +63,7 @@ public class ModernUiTest extends BasePlatformTestCase {
         assertTrue(t.html, t.html.contains("3 סעיפים · הסמן בסעיף א"));
         assertTrue(t.html, t.html.contains("<small>בתיקייה ex01_stacks</small>"));
         assertTrue(t.html, t.html.contains("סעיפים ג, ד: עונים במילים"));
-        assertTrue(t.html, t.html.contains("💡 ליד כל סעיף — הצעה לפתרון"));
+        assertTrue(t.html, t.html.contains("ליד כל סעיף — הצעה לפתרון") && !t.html.contains("💡"));
         assertFalse("בלי הטקסט של הסעיפים (ובלי הקוד שבו) בהודעה", t.html.contains("public static") || t.html.contains("ונמקו"));
         assertTrue("\"הצגה\" — רק כשיש סעיפים במילים", t.show);
         assertFalse(t.jump);
@@ -71,7 +71,7 @@ public class ModernUiTest extends BasePlatformTestCase {
 
         Created.Text none = Created.text(outcome(2, ""), "", "#646C7A");
         assertFalse(none.show);
-        assertFalse("בלי הצעות — בלי 💡", none.html.contains("💡"));
+        assertFalse("בלי הצעות — בלי השורה על ההצעות", none.html.contains("הצעה לפתרון"));
         assertTrue(none.html.contains("2 סעיפים · הסמן בסעיף הראשון"));
         assertTrue(Created.text(outcome(1, "ok"), "", "#000").html.contains("סעיף אחד · הסמן במקום התשובה"));
 

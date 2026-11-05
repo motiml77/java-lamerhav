@@ -116,6 +116,17 @@ final class Forms {
     }
 
     /** כותרת החלון: שם גדול ומשפט הסבר */
+    /** כותרת עם סמל מצויר (המנורה) במקום אמוג'י — הגופנים של Java ב-Windows לא מציירים אמוג'י והוא יוצא כריבוע ריק */
+    static JPanel header(javax.swing.Icon icon, String title, String subtitle) {
+        JPanel p = header(title, subtitle);
+        if (p.getComponentCount() > 0 && p.getComponent(0) instanceof JBLabel) {
+            JBLabel t = (JBLabel) p.getComponent(0);
+            t.setIcon(icon);
+            t.setIconTextGap(JBUI.scale(8));
+        }
+        return p;
+    }
+
     static JPanel header(String title, String subtitle) {
         JPanel p = new JPanel(new GridLayout(0, 1, 0, JBUI.scale(2)));
         JBLabel t = new JBLabel(title);
