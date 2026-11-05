@@ -1,4 +1,4 @@
-# מתקין / מסיר את ההרחבה של DSViz (סרגל הכלים) בכל Visual Studio שנמצא במחשב.
+﻿# מתקין / מסיר את ההרחבה של DSViz (סרגל הכלים) בכל Visual Studio שנמצא במחשב.
 #   install-vsix.ps1 <DsViz.VsExtension.vsix>           — התקנה (למשתמש הנוכחי, בלי הרשאות מנהל)
 #   install-vsix.ps1 -Uninstall                          — הסרה
 # כל תקלה כאן לא עוצרת את ההתקנה של DSViz (Visual Studio ישן מ-17.14 לא מקבל את ההרחבה — והכפתורים נשארים בתפריט ההפעלה).
