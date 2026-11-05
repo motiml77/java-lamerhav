@@ -47,6 +47,19 @@
 
   <!-- קומפילציית ה-vsct לתפריטים/סרגל כלים ידנית עם VSCT.exe מהחבילה, והטמעה ב-dll בשם Menus.ctmenu (בלי זה אין סרגל כלים).
        הפרויקט הוא SDK-style, ומטרות ה-VSCTCompile של VSSDK לא רצות בו, לכן עושים זאת בעצמנו. -->
+  <UsingTask TaskName="DsVizWriteResources" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Cto Required="true" />
+      <Out Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Reference Include="System.Windows.Forms" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        using (var w = new System.Resources.ResourceWriter(Out)) { w.AddResource("Menus.ctmenu", System.IO.File.ReadAllBytes(Cto)); w.Generate(); }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
   <Target Name="DsVizCompileVsct" BeforeTargets="AssignTargetPaths;CoreCompile;PrepareResources" DependsOnTargets="">
     <PropertyGroup>
       <_VsctExe>$(NuGetPackageRoot)microsoft.vssdk.buildtools\17.14.2120\tools\vssdk\bin\VSCT.exe</_VsctExe>
@@ -59,8 +72,10 @@
     <MakeDir Directories="$(_VsctWork)" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\DsVizPackage.vsct;$(_VsctInc)\stdidcmd.h;$(_VsctInc)\vsshlids.h;$(_VsctInc)\sharedids.h;$(_VsctInc)\virtkeys.h;$(_VsctInc)\MnuHelpIds.h;$(_VsctInc)\sccmnid.h;$(_VsctInc)\wbids.h;$(_VsctInc)\editids.h;$(_VsctInc)\venusids.h" DestinationFolder="$(_VsctWork)" />
     <Exec WorkingDirectory="$(_VsctWork)" Command="&quot;$(_VsctExe)&quot; DsVizPackage.vsct DsVizPackage.cto" />
+    <!-- VS מחפש את Menus.ctmenu בתוך משאב מנוהל בשם VSPackage.resources (כך VSSDK ממזג את ה-cto), לא כמשאב עצמאי -->
+    <DsVizWriteResources Cto="$(_VsctOut)" Out="$(_VsctWork)VSPackage.resources" />
     <ItemGroup>
-      <EmbeddedResource Include="$(_VsctOut)" LogicalName="Menus.ctmenu" />
+      <EmbeddedResource Include="$(_VsctWork)VSPackage.resources" LogicalName="VSPackage.resources" />
     </ItemGroup>
     <Message Importance="high" Text="DSViz: Menus.ctmenu = $(_VsctOut) ($([System.IO.File]::Exists('$(_VsctOut)')))" />
   </Target>
