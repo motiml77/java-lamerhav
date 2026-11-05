@@ -53,7 +53,6 @@
       <Out Required="true" />
     </ParameterGroup>
     <Task>
-      <Reference Include="System.Windows.Forms" />
       <Code Type="Fragment" Language="cs"><![CDATA[
         using (var w = new System.Resources.ResourceWriter(Out)) { w.AddResource("Menus.ctmenu", System.IO.File.ReadAllBytes(Cto)); w.Generate(); }
       ]]></Code>
