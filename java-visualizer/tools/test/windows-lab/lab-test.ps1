@@ -1,6 +1,6 @@
 ﻿# גרסת הבדיקה על Windows אמיתי: DSViz-Lab-Setup.exe ו-DSViz-Admin-Setup.exe בשקט, ואז:
 # הקבצים במקום, הקיצורים, מסך הכניסה שנפתח לפני המאגר (צילום), ועמדת מחשב אמיתית מול השרת עם קוד המורה.
-param([string]$Dir, [string]$Out, [string]$Code)
+param([string]$Dir, [string]$Out, [string]$Code, [string]$Src)
 $ErrorActionPreference = 'Continue'
 New-Item -ItemType Directory -Force $Out | Out-Null
 $script:fails = 0
@@ -44,8 +44,11 @@ Check 'בלי כניסה — נפתח "כניסה למאגר התרגילים"' 
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
 # עמדת מחשב אמיתית: הקוד של המורה מול השרת, ואחר כך בלי אינטרנט
 if ($Code) {
+    $cls = Join-Path $env:RUNNER_TEMP 'cls'
+    New-Item -ItemType Directory -Force $cls | Out-Null
+    javac -encoding UTF-8 -nowarn -cp "$d\dsviz.jar" -d $cls $Src
     $w = Join-Path $env:RUNNER_TEMP 'live'
-    & "$d\jdk\bin\java.exe" -Dfile.encoding=UTF-8 -cp "$env:RUNNER_TEMP\cls;$d\dsviz.jar" il.lamerhav.dsviz.LiveClaim $w $Code "בדיקת התקנה (GitHub) - למחוק"
+    & "$d\jdk\bin\java.exe" -Dfile.encoding=UTF-8 -cp "$cls;$d\dsviz.jar" il.lamerhav.dsviz.LiveClaim $w $Code "בדיקת התקנה (GitHub) - למחוק"
     Check 'עמדה: הקוד התקבל בשרת, והמחשב מזוהה גם בלי אינטרנט' ($LASTEXITCODE -eq 0)
     # עכשיו המאגר נפתח מיד (בלי מסך כניסה)
     $p = Start-Process "$d\jdk\bin\javaw.exe" -ArgumentList "-Ddsviz.machineDir=`"$w\machine`" -Ddsviz.home=`"$w\user`" -cp `"$d\lab\dsviz-bank-vs.jar;$d\dsviz.jar`" il.lamerhav.dsviz.BankVs bank `"$csDir`"" -PassThru

@@ -21,17 +21,9 @@ jobs:
         with: { lfs: false }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '21' }
-      - name: קומפילציה של בדיקת העמדה
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\cls" | Out-Null
-          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\lib" | Out-Null
-          # הספרייה מתוך תוכנית ההתקנה עוד לא מותקנת — מקמפלים מול קוד המקור של Account
-          javac -encoding UTF-8 -nowarn -d "$env:RUNNER_TEMP\cls" java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/Account.java java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/Json.java java-visualizer/tools/test/access/LiveClaim.java
-          Remove-Item "$env:RUNNER_TEMP\cls\il\lamerhav\dsviz\Account*.class", "$env:RUNNER_TEMP\cls\il\lamerhav\dsviz\Json*.class"
       - name: התקנה ובדיקה
         shell: pwsh
-        run: java-visualizer/tools/test/windows-lab/lab-test.ps1 -Dir java-visualizer/lab-release -Out "$env:RUNNER_TEMP\shots" -Code W8S2
+        run: java-visualizer/tools/test/windows-lab/lab-test.ps1 -Dir java-visualizer/lab-release -Out "$env:RUNNER_TEMP\shots" -Code W8S2 -Src java-visualizer/tools/test/access/LiveClaim.java
       - uses: actions/upload-artifact@v4
         if: always()
         with:
