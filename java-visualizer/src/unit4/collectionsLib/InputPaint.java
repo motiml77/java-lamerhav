@@ -56,15 +56,15 @@ final class InputPaint {
 
     private static void tag(Graphics2D g, JTextComponent c, int line, Rectangle r, String text, boolean filled,
             Map<Integer, Integer> used, float pulse) {
-        Font f = Theme.smallBold;
+        Font f = Theme.z(Theme.smallBold);
         TextLayout tl = CondPaint.rtl(text, f, g.getFontRenderContext());
-        int h = Math.min(r.height - 2, 20), y = r.y + (r.height - h) / 2;
+        int h = Math.min(r.height - 2, (int) Math.round(20 * Theme.zoom)), y = r.y + (r.height - h) / 2;
         int iw = 15, w = (int) Math.ceil(tl.getAdvance()) + iw + 26;
         Integer after = used.get(line);
         int x = after == null ? CondPaint.lineEndX(c, line) + 22 : after + 8;
         Rectangle vis = c.getVisibleRect();
         int right = vis.x + vis.width - 10;
-        if (x + w > right) x = Math.max(after == null ? vis.x + 40 : after + 8, right - w);   // צמוד לקצה של מה שרואים
+        if (x + w > right) x = Math.max(after == null ? Math.max(vis.x + 40, CondPaint.codeEndX(c, line) + 22) : after + 8, right - w);   // לא על הקוד   // צמוד לקצה של מה שרואים
         used.put(line, x + w);
         Color fg;
         if (filled) {

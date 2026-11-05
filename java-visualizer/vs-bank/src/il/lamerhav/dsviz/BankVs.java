@@ -112,8 +112,32 @@ public final class BankVs {
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
             compactFonts();
+            BankZoom.init();   // הגודל שנבחר בפעם הקודמת (Ctrl + / Ctrl −)
+            BankZoom.listen(BankVs::zoomChanged);
             store = BankStore.load(!ij);
         });
+    }
+
+    /** גודל התצוגה השתנה: החלון הצף נבנה מחדש, והחלון הראשי נפתח מחדש באותו מקום ועל אותה שאלה */
+    static void zoomChanged() {
+        BankVsFloat.render();
+        BankVsWindow w = BankVsWindow.current;
+        if (w != null && w.frame.isDisplayable()) {
+            java.awt.Rectangle b = w.frame.getBounds();
+            int state = w.frame.getExtendedState();
+            String id = w.selected != null ? w.selected.id : null;
+            java.util.Set<String> open = new java.util.HashSet<String>(w.open);
+            w.frame.dispose();
+            BankVsWindow.current = null;
+            BankVsWindow.open(null, id);
+            BankVsWindow n = BankVsWindow.current;
+            if (n != null) {
+                n.frame.setBounds(b);
+                n.frame.setExtendedState(state);
+                n.open.addAll(open);
+                n.rebuildTree();
+            }
+        }
     }
 
     /** גופנים כמו בשאר החלונות של C# (CsTool) */

@@ -40,6 +40,46 @@ public final class Theme {
     public static final Color CHANGED = new Color(0xFFF0B3);     // משתנה שהשתנה
 
     public static Font ui, uiBold, small, smallBold, title, big, mono, monoBig;
+
+    // ------------------------------------------------------------ הגדלה / הקטנה של תוכן החלון (Ctrl+ / Ctrl- / Ctrl+0)
+    /** גודל התוכן: 1 = רגיל. הטקסט (קוד, פלט, משתנים) מקבל גופן גדול יותר; הציורים (מבנים, רקורסיה) גדלים כיחידה אחת */
+    public static double zoom = 1;
+    static final double[] ZOOMS = { 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2 };
+
+    /** הגופן בגודל התוכן הנוכחי */
+    public static Font z(Font f) {
+        return f == null || zoom == 1 ? f : f.deriveFont((float) (f.getSize2D() * zoom));
+    }
+
+    /** הגודל הבא למעלה (dir=1) / למטה (dir=-1) */
+    public static double stepZoom(double cur, int dir) {
+        if (dir > 0) { for (double s : ZOOMS) if (s > cur + 1e-6) return s; return ZOOMS[ZOOMS.length - 1]; }
+        for (int i = ZOOMS.length - 1; i >= 0; i--) if (ZOOMS[i] < cur - 1e-6) return ZOOMS[i];
+        return ZOOMS[0];
+    }
+
+    /** הגודל שנבחר בפעם הקודמת (לכל סוג חלון) — ~/.dsviz/zoom.properties */
+    public static double savedZoom(String key) {
+        java.util.Properties p = new java.util.Properties();
+        try (java.io.InputStream in = new java.io.FileInputStream(zoomFile())) { p.load(in); } catch (Exception e) { return 1; }
+        try {
+            double v = Double.parseDouble(p.getProperty(key, "1"));
+            return v >= ZOOMS[0] && v <= ZOOMS[ZOOMS.length - 1] ? v : 1;
+        } catch (NumberFormatException e) { return 1; }
+    }
+
+    public static void saveZoom(String key, double v) {
+        java.util.Properties p = new java.util.Properties();
+        java.io.File f = zoomFile();
+        try (java.io.InputStream in = new java.io.FileInputStream(f)) { p.load(in); } catch (Exception ignored) { /* חדש */ }
+        p.setProperty(key, String.valueOf(v));
+        f.getParentFile().mkdirs();
+        try (java.io.OutputStream out = new java.io.FileOutputStream(f)) { p.store(out, "DSViz zoom"); } catch (Exception ignored) { /* לא חשוב */ }
+    }
+
+    private static java.io.File zoomFile() {
+        return new java.io.File(new java.io.File(System.getProperty("user.home"), ".dsviz"), "zoom.properties");
+    }
     static String family = Font.DIALOG, boldFamily = Font.DIALOG;
     static int boldStyle = Font.BOLD;
     private static boolean installed;

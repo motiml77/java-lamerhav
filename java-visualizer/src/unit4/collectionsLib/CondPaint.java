@@ -68,7 +68,7 @@ final class CondPaint {
         if (r == null) return;
         Font mono = chipMono();
         FontRenderContext frc = g.getFontRenderContext();
-        int h = Math.min(r.height - 2, 20), y = r.y + (r.height - h) / 2;
+        int h = Math.min(r.height - 2, (int) Math.round(20 * Theme.zoom)), y = r.y + (r.height - h) / 2;
         // רוחב: הפילים של המשתנים, הערכים, והתגית
         FontMetrics fm = g.getFontMetrics(mono);
         int w = pillsWidth(fm, k);
@@ -95,7 +95,7 @@ final class CondPaint {
     // ------------------------------------------------------------ חלקי השבב (משותף לתנאי פשוט ולתנאי מורכב)
 
     private static Font chipMono() {
-        return Theme.mono.deriveFont(Theme.mono.getSize2D() - 1.5f);
+        return Theme.z(Theme.mono.deriveFont(Theme.mono.getSize2D() - 1.5f));
     }
 
     private static int pillsWidth(FontMetrics fm, Check k) {
@@ -139,11 +139,11 @@ final class CondPaint {
 
     private static TextLayout resultLayout(Check k, FontRenderContext frc) {
         String label = k.result == null ? "בודקים…" : k.result ? "מתקיים" + (k.outcome.isEmpty() ? "" : " · " + k.outcome) : "לא מתקיים" + (k.outcome.isEmpty() ? "" : " · " + k.outcome);
-        return rtl(label, Theme.smallBold != null ? Theme.smallBold : Theme.small, frc);
+        return rtl(label, Theme.smallBold != null ? Theme.z(Theme.smallBold) : Theme.z(Theme.small), frc);
     }
 
     private static int resultWidth(Graphics2D g, Check k, TextLayout tl) {
-        return (int) Math.ceil(tl.getAdvance()) + g.getFontMetrics(Theme.small).stringWidth(resultMark(k)) + 22;
+        return (int) Math.ceil(tl.getAdvance()) + g.getFontMetrics(Theme.z(Theme.small)).stringWidth(resultMark(k)) + 22;
     }
 
     /** התגית הצבעונית: ✓ מתקיים · נכנסים ל-if */
@@ -153,8 +153,8 @@ final class CondPaint {
         g.fillRoundRect(x, y, tagW, h, h, h);
         g.setColor(Color.WHITE);
         // מימין לשמאל: הסימן (✓ / ✗) מימין, הטקסט משמאלו
-        g.setFont(Theme.small);
-        FontMetrics sm = g.getFontMetrics(Theme.small);
+        g.setFont(Theme.z(Theme.small));
+        FontMetrics sm = g.getFontMetrics(Theme.z(Theme.small));
         int markX = x + tagW - 9 - sm.stringWidth(mark);
         g.drawString(mark, markX, y + (h + sm.getAscent() - sm.getDescent()) / 2);
         tl.draw(g, markX - 5 - tl.getAdvance(), y + (h + tl.getAscent() - tl.getDescent()) / 2f);
@@ -187,7 +187,7 @@ final class CondPaint {
         Font mono = chipMono();
         FontRenderContext frc = g.getFontRenderContext();
         FontMetrics fm = g.getFontMetrics(mono);
-        int h = Math.min(r.height - 2, 20), y = r.y + (r.height - h) / 2;
+        int h = Math.min(r.height - 2, (int) Math.round(20 * Theme.zoom)), y = r.y + (r.height - h) / 2;
         int wPills = pillsWidth(fm, k);
         java.util.List<Seg> segs = segments(k);
         int wVals = segsWidth(g, segs, fm) + fm.stringWidth("→ ") + 4 + 12;
@@ -256,14 +256,14 @@ final class CondPaint {
     }
 
     private static Font markFont() {
-        return (Theme.smallBold != null ? Theme.smallBold : Theme.small).deriveFont(11f);
+        return Theme.z((Theme.smallBold != null ? Theme.smallBold : Theme.small).deriveFont(11f));
     }
 
     private static int segsWidth(Graphics2D g, java.util.List<Seg> segs, FontMetrics fm) {
         FontMetrics mk = g.getFontMetrics(markFont());
         int w = 0;
         for (Seg s : segs) {
-            if (s.skipped) w += (int) Math.ceil(rtl(s.text, Theme.small.deriveFont(11f), g.getFontRenderContext()).getAdvance()) + 12;
+            if (s.skipped) w += (int) Math.ceil(rtl(s.text, Theme.z(Theme.small.deriveFont(11f)), g.getFontRenderContext()).getAdvance()) + 12;
             else w += fm.stringWidth(s.text) + (s.mark == null ? 0 : mk.stringWidth(s.mark) + 3);
         }
         return w;
@@ -274,7 +274,7 @@ final class CondPaint {
         FontMetrics mm = g.getFontMetrics(mk);
         for (Seg s : segs) {
             if (s.skipped) {   // "לא נבדק" — פיל אפור מקווקו
-                TextLayout tl = rtl(s.text, Theme.small.deriveFont(11f), g.getFontRenderContext());
+                TextLayout tl = rtl(s.text, Theme.z(Theme.small.deriveFont(11f)), g.getFontRenderContext());
                 int pw = (int) Math.ceil(tl.getAdvance()) + 10;
                 Graphics2D d = (Graphics2D) g.create();
                 d.setColor(new Color(0xF3F4F6));
@@ -370,12 +370,12 @@ final class CondPaint {
      */
     private static void why(Graphics2D g, JTextComponent c, Check k, int chipX, int chipRight, java.util.Map<Integer, Integer> used) {
         Rectangle r = lineRect(c, k.block.line);
-        Font f = Theme.small;
+        Font f = Theme.z(Theme.small);
         TextLayout tl = rtl(k.why, f, g.getFontRenderContext());
         FontMetrics sm = g.getFontMetrics(f);
         String mark = resultMark(k);
         Color col = resultColor(k);
-        int h = Math.min(r.height - 2, 20);
+        int h = Math.min(r.height - 2, (int) Math.round(20 * Theme.zoom));
         int w = (int) Math.ceil(tl.getAdvance()) + sm.stringWidth(mark) + 24;
         Rectangle vis = c.getVisibleRect();
         int right = vis.x + vis.width - 10;
@@ -402,7 +402,7 @@ final class CondPaint {
         used.put(row, Math.max(used.containsKey(row) ? used.get(row) : 0, x + w));
         // קו קטן מהשבב אל ההסבר
         int cx = Math.min(x + w, chipRight) - h / 2 - 2, cy1 = row > k.block.line ? y : y + h;
-        int cy2 = row > k.block.line ? r.y + (r.height + Math.min(r.height - 2, 20)) / 2 + 2 : r.y + (r.height - Math.min(r.height - 2, 20)) / 2 - 2;
+        int cy2 = row > k.block.line ? r.y + (r.height + Math.min(r.height - 2, (int) Math.round(20 * Theme.zoom))) / 2 + 2 : r.y + (r.height - Math.min(r.height - 2, (int) Math.round(20 * Theme.zoom))) / 2 - 2;
         Graphics2D d = (Graphics2D) g.create();
         d.setColor(col);
         d.setStroke(new BasicStroke(1.4f));
@@ -456,10 +456,10 @@ final class CondPaint {
     static void tag(Graphics2D g, JTextComponent c, int line, String mark, String text, Color col, java.util.Map<Integer, Integer> used) {
         Rectangle r = lineRect(c, line);
         if (r == null) return;
-        Font f = Theme.small;
+        Font f = Theme.z(Theme.small);
         TextLayout tl = rtl(text, f, g.getFontRenderContext());
         FontMetrics sm = g.getFontMetrics(f);
-        int h = Math.min(r.height - 2, 20), y = r.y + (r.height - h) / 2;
+        int h = Math.min(r.height - 2, (int) Math.round(20 * Theme.zoom)), y = r.y + (r.height - h) / 2;
         int w = (int) Math.ceil(tl.getAdvance()) + sm.stringWidth(mark) + 24;
         Integer after = used.get(line);
         int x = after == null ? place(c, line, r, w) : after + 8;
@@ -503,8 +503,44 @@ final class CondPaint {
         int x = lineEndX(c, line) + 22;
         Rectangle vis = c.getVisibleRect();
         int right = vis.x + vis.width - 10;
-        if (x + w > right) x = Math.max(vis.x + 40, right - w);
+        // אין מקום אחרי השורה: מזיזים שמאלה (עד קצה החלון) — אבל לעולם לא על הקוד עצמו, רק על ההערה שאחריו.
+        // (בהגדלה גדולה / חלון צר — השבב ממשיך מעבר לקצה, וגוללים אליו, במקום שיסתיר את הקוד)
+        if (x + w > right) x = Math.max(codeEndX(c, line) + 22, Math.max(vis.x + 40, right - w));
         return x;
+    }
+
+    /** הסוף של הקוד בשורה — בלי הערה (// או /*) שבסופה */
+    @SuppressWarnings("deprecation")
+    static int codeEndX(JTextComponent c, int line) {
+        Element root = c.getDocument().getDefaultRootElement();
+        Element e = root.getElement(line - 1);
+        try {
+            String s = c.getDocument().getText(e.getStartOffset(), e.getEndOffset() - e.getStartOffset());
+            int cut = commentStart(s);
+            if (cut < 0) return lineEndX(c, line);
+            while (cut > 0 && Character.isWhitespace(s.charAt(cut - 1))) cut--;
+            int x = 0;
+            for (int o = 0; o < cut; o++) {
+                Rectangle q = c.modelToView(e.getStartOffset() + o + 1);
+                if (q != null) x = Math.max(x, q.x);
+            }
+            return x;
+        } catch (BadLocationException ex) {
+            return lineEndX(c, line);
+        }
+    }
+
+    /** איפה מתחילה הערה בשורה (מחוץ למחרוזות), או -1 */
+    static int commentStart(String s) {
+        boolean str = false, chr = false;
+        for (int i = 0; i < s.length() - 1; i++) {
+            char ch = s.charAt(i);
+            if ((str || chr) && ch == '\\') { i++; continue; }
+            if (!chr && ch == '"') str = !str;
+            else if (!str && ch == '\'') chr = !chr;
+            else if (!str && !chr && ch == '/' && (s.charAt(i + 1) == '/' || s.charAt(i + 1) == '*')) return i;
+        }
+        return -1;
     }
 
     @SuppressWarnings("deprecation")

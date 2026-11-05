@@ -161,6 +161,8 @@ final class Viewer extends JFrame {
 
     private Viewer() {
         super(TITLE);
+        Theme.zoom = Theme.savedZoom("viewer");   // הגודל שנבחר בפעם הקודמת
+        varsPanel.zoomChanged();
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setIconImage(appIcon());
 
@@ -187,6 +189,8 @@ final class Viewer extends JFrame {
         nav.add(playBtn);
         nav.add(speedLabel);
         nav.add(speed);
+        nav.add(Box(10));
+        nav.add(zoomTools());
 
         timeline.setFocusable(false);
         timeline.setOpaque(false);
@@ -263,7 +267,7 @@ final class Viewer extends JFrame {
         // --- הקוד
         code.setEditable(false);
         code.setBackground(Color.WHITE);
-        code.setFont(Theme.mono);
+        code.setFont(Theme.z(Theme.mono));
         code.setForeground(Theme.TEXT);
         code.setFocusable(false);
         code.setMargin(new java.awt.Insets(6, 10, 6, 10));
@@ -281,9 +285,6 @@ final class Viewer extends JFrame {
         // --- התצוגה הוויזואלית
         JScrollPane structScroll = scroll(structs);
         structScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        structs.setZoomListener(new Runnable() {
-            public void run() { zoomLabel.setText(structs.zoomText()); }
-        });
         // שתי לשוניות: המבנים, ומעקב הרקורסיה (כל קריאה = כרטיס)
         JScrollPane recScroll = scroll(recursion);
         JPanel structPage = new JPanel(new BorderLayout());
@@ -318,7 +319,8 @@ final class Viewer extends JFrame {
         viewPages.add(structPage, "structs");
         viewPages.add(recPage, "recursion");
         JPanel viewTools = row(10);
-        viewTools.add(zoomBox = zoomTools());
+        viewTools.add(zoomBox = new JPanel());   // (הגדלה / הקטנה — בסרגל העליון, לכל החלון)
+        zoomBox.setOpaque(false);
         Card structCard = new Card(null, null, viewTools, viewPages);
         recScroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
@@ -328,7 +330,7 @@ final class Viewer extends JFrame {
         // --- פלט
         console.setEditable(false);
         console.setBackground(Color.WHITE);
-        console.setFont(Theme.mono);
+        console.setFont(Theme.z(Theme.mono));
         console.setForeground(Theme.TEXT);
         console.setMargin(new java.awt.Insets(6, 10, 6, 10));
         JScrollPane consoleScroll = scroll(console);
@@ -434,7 +436,12 @@ final class Viewer extends JFrame {
     }
 
     private static JScrollPane scroll(JComponent c) {
-        JScrollPane s = new JScrollPane(c);
+        JScrollPane s = new JScrollPane(c) {
+            @Override
+            protected void processMouseWheelEvent(java.awt.event.MouseWheelEvent e) {
+                if (!e.isControlDown()) super.processMouseWheelEvent(e);   // Ctrl + גלגלת = הגדלה / הקטנה, לא גלילה
+            }
+        };
         s.setBorder(BorderFactory.createEmptyBorder());
         s.setViewportBorder(null);
         s.getViewport().setBackground(Color.WHITE);
@@ -472,21 +479,48 @@ final class Viewer extends JFrame {
         zoomBox.setVisible(!rec);
     }
 
+    /** הגדלה / הקטנה של כל התוכן (קוד, משתנים, פלט, מבנים, רקורסיה) — גם Ctrl + / Ctrl − / Ctrl 0 ו-Ctrl + גלגלת */
     private JComponent zoomTools() {
         JPanel p = row(2);
-        JButton out = small("–", "הקטנה"), in = small("+", "הגדלה"), fit = small("התאמה", "התאמה לגודל החלון");
-        out.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { structs.zoomBy(1 / 1.2); } });
-        in.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { structs.zoomBy(1.2); } });
-        fit.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { structs.fit(); } });
+        JButton out = small("−", "הקטנת התצוגה  (Ctrl −)"), in = small("+", "הגדלת התצוגה  (Ctrl +)");
+        out.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { zoomStep(-1); } });
+        in.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { zoomStep(1); } });
         zoomLabel.setFont(Theme.small);
         zoomLabel.setForeground(Theme.MUTED);
-        zoomLabel.setPreferredSize(new Dimension(42, 20));
+        zoomLabel.setPreferredSize(new Dimension(46, 20));
         zoomLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        p.add(fit);
+        zoomLabel.setToolTipText("גודל התצוגה — לחיצה מחזירה ל-100%  (Ctrl 0)");
+        zoomLabel.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        zoomLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseClicked(java.awt.event.MouseEvent e) { setZoom(1); }
+        });
+        zoomLabel.setText(Math.round(Theme.zoom * 100) + "%");
         p.add(in);
         p.add(zoomLabel);
         p.add(out);
         return p;
+    }
+
+    private void zoomStep(int dir) {
+        setZoom(Theme.stepZoom(Theme.zoom, dir));
+    }
+
+    /** גודל חדש לכל התוכן: גופני הטקסט, גובה השורות, והציורים (מבנים, רקורסיה, הכרטיס של האובייקט) — ונשמר לפעם הבאה */
+    void setZoom(double z) {
+        if (Math.abs(z - Theme.zoom) < 1e-6) return;
+        Theme.zoom = z;
+        Theme.saveZoom("viewer", z);
+        zoomLabel.setText(Math.round(z * 100) + "%");
+        code.setFont(Theme.z(Theme.mono));
+        console.setFont(Theme.z(Theme.mono));
+        inputBar.field.setFont(Theme.z(Theme.monoBig));
+        varsPanel.zoomChanged();
+        for (JComponent c : new JComponent[] { gutter, code, console, structs, miniStructs, recursion, objDock, callStrip }) {
+            c.revalidate();
+            c.repaint();
+        }
+        getContentPane().revalidate();
+        getContentPane().repaint();
     }
 
     private static JButton small(String text, String tip) {
@@ -551,6 +585,33 @@ final class Viewer extends JFrame {
         bind(root, im, "first", new Runnable() { public void run() { showPos(0); } }, KeyEvent.VK_HOME);
         bind(root, im, "last", new Runnable() { public void run() { showPos(vis.size() - 1); } }, KeyEvent.VK_END);
         bind(root, im, "play", new Runnable() { public void run() { togglePlay(); } }, KeyEvent.VK_P);
+        // הגדלה / הקטנה: Ctrl (ב-Mac גם Cmd) + / − / 0
+        int[] mods = { java.awt.event.InputEvent.CTRL_DOWN_MASK, java.awt.event.InputEvent.META_DOWN_MASK };
+        for (int m : mods) {
+            for (int k : new int[] { KeyEvent.VK_EQUALS, KeyEvent.VK_PLUS, KeyEvent.VK_ADD }) {
+                im.put(KeyStroke.getKeyStroke(k, m), "zoomIn");
+                im.put(KeyStroke.getKeyStroke(k, m | java.awt.event.InputEvent.SHIFT_DOWN_MASK), "zoomIn");
+            }
+            for (int k : new int[] { KeyEvent.VK_MINUS, KeyEvent.VK_SUBTRACT }) im.put(KeyStroke.getKeyStroke(k, m), "zoomOut");
+            for (int k : new int[] { KeyEvent.VK_0, KeyEvent.VK_NUMPAD0 }) im.put(KeyStroke.getKeyStroke(k, m), "zoomReset");
+        }
+        root.getActionMap().put("zoomIn", new AbstractAction() { public void actionPerformed(ActionEvent e) { zoomStep(1); } });
+        root.getActionMap().put("zoomOut", new AbstractAction() { public void actionPerformed(ActionEvent e) { zoomStep(-1); } });
+        root.getActionMap().put("zoomReset", new AbstractAction() { public void actionPerformed(ActionEvent e) { setZoom(1); } });
+        // Ctrl + גלגלת העכבר — בכל מקום בחלון (ובלי לגלול באותו רגע)
+        java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(new java.awt.event.AWTEventListener() {
+            private long last;
+            public void eventDispatched(java.awt.AWTEvent ev) {
+                if (!(ev instanceof java.awt.event.MouseWheelEvent)) return;
+                java.awt.event.MouseWheelEvent w = (java.awt.event.MouseWheelEvent) ev;
+                if (!w.isControlDown() || javax.swing.SwingUtilities.getWindowAncestor(w.getComponent()) != Viewer.this) return;
+                w.consume();
+                long now = System.currentTimeMillis();
+                if (now - last < 120 || w.getWheelRotation() == 0) return;   // גלגלת מהירה / משטח מגע — צעד אחד בכל פעם
+                last = now;
+                zoomStep(w.getWheelRotation() < 0 ? 1 : -1);
+            }
+        }, java.awt.AWTEvent.MOUSE_WHEEL_EVENT_MASK);
     }
 
     private void bind(JComponent root, InputMap im, String name, final Runnable r, int... codes) {
@@ -1086,7 +1147,7 @@ final class Viewer extends JFrame {
     private final class Gutter extends JComponent {
         @Override
         public Dimension getPreferredSize() {
-            FontMetrics fm = getFontMetrics(Theme.mono);
+            FontMetrics fm = getFontMetrics(code.getFont());
             int digits = Math.max(2, String.valueOf(code.getLineCount()).length());
             return new Dimension(fm.charWidth('0') * digits + 30, code.getPreferredSize().height);
         }
@@ -1102,7 +1163,7 @@ final class Viewer extends JFrame {
             g.fillRect(clip.x, clip.y, clip.width, clip.height);
             g.setColor(Theme.BORDER);
             g.drawLine(getWidth() - 1, clip.y, getWidth() - 1, clip.y + clip.height);
-            FontMetrics fm = g.getFontMetrics(Theme.mono);
+            FontMetrics fm = g.getFontMetrics(code.getFont());
             int n = code.getLineCount();
             for (int i = 0; i < n; i++) {
                 Rectangle r;
@@ -1123,7 +1184,7 @@ final class Viewer extends JFrame {
                     g.fill(a);
                 }
                 String s = String.valueOf(i + 1);
-                g.setFont(cur ? Theme.mono.deriveFont(Font.BOLD) : Theme.mono);
+                g.setFont(cur ? code.getFont().deriveFont(Font.BOLD) : code.getFont());
                 g.setColor(cur ? Theme.TEXT : new Color(0xA0A7B4));
                 g.drawString(s, getWidth() - 10 - fm.stringWidth(s), r.y + fm.getAscent() + (r.height - fm.getHeight()) / 2);
             }
@@ -1256,7 +1317,7 @@ final class Viewer extends JFrame {
             head.add(where);
             add(head, BorderLayout.NORTH);
 
-            field.setFont(Theme.monoBig);
+            field.setFont(Theme.z(Theme.monoBig));
             field.setForeground(Theme.TEXT);
             field.setToolTipText(Syntax.csharp ? "אפשר להקליד גם בחלון הקונסול / בטרמינל של VS Code"
                     : "אפשר להקליד גם בקונסול של Eclipse / בטרמינל של VS Code");
