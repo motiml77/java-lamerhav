@@ -61,21 +61,20 @@ public final class AccessGate {
             refreshLater();
             return;
         }
-        // אין כניסה במחשב: שואלים את השרת אם הכניסה בכלל פעילה (בלי אינטרנט — מסך הכניסה, עם הסבר)
-        new SwingWorker<Boolean, Void>() {
-            @Override
-            protected Boolean doInBackground() {
-                return serverRequiresLogin();
-            }
-
-            @Override
-            protected void done() {
-                boolean need;
-                try { need = get(); } catch (Exception e) { need = true; }
-                if (!need) open.run();
+        // אין כניסה במחשב: שואלים את השרת אם הכניסה בכלל פעילה (בלי אינטרנט — מסך הכניסה, עם הסבר).
+        // חוט רגיל (לא SwingWorker, שהחוטים שלו "daemon"): בכלי של Visual Studio עוד אין שום חלון פתוח,
+        // ובלי חוט כזה Java נסגרת לפני שהתשובה מגיעה — ומסך הכניסה לא נפתח
+        Thread t = new Thread(() -> {
+            boolean need;
+            try { need = serverRequiresLogin(); } catch (Throwable e) { need = true; }
+            final boolean show = need;
+            SwingUtilities.invokeLater(() -> {
+                if (!show) open.run();
                 else new AccessGate.Dialog(parent, open).setVisible(true);
-            }
-        }.execute();
+            });
+        }, "dsviz-access");
+        t.setDaemon(false);
+        t.start();
     }
 
     /** הכניסה פעילה בשרת? (בלי אינטרנט — true: אי אפשר לדעת, והמסך מסביר) */
@@ -152,7 +151,7 @@ public final class AccessGate {
             root.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
             code.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
             setContentPane(root);
-            setSize(760, 520);
+            setSize(760, 450);
             setLocationRelativeTo(parent);
             addWindowListener(new java.awt.event.WindowAdapter() {
                 @Override
