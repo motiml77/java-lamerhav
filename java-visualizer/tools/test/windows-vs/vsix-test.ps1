@@ -139,16 +139,28 @@ if ($ready) {
     ($names | Select-Object -Unique) | Set-Content (Join-Path $Out 'toolbar-uia.txt') -Encoding utf8
     Info "רכיבים של DSViz ב-Visual Studio: $((($names | Select-Object -Unique)) -join ' ; ')"
     Check 'toolbar-buttons' (@($names | Select-Object -Unique).Count -ge 3) 'בסרגל הכלים של DSViz נמצאו הכפתורים (תרגיל חדש / הוספת מבנה נתונים ...)' (($names | Select-Object -Unique) -join ' ; ')
-    Check 'bank-hidden' (-not ($names -contains 'מאגר שאלות')) 'בלי מאגר שאלות מותקן — הכפתור "מאגר שאלות" מוסתר' (($names | Select-Object -Unique) -join ' ; ')
+    # הכפתור "מאגר שאלות": האם הוא באמת נראה (קיים, מופעל ולא מחוץ למסך) — לא רק שהשם קיים בעץ
+    function BankState() {
+        $els = @(VsElements $p.Id | Where-Object { (ElName $_) -eq 'מאגר שאלות' })
+        if ($els.Count -eq 0) { return 'absent' }
+        $c = $els[0].Current
+        return ("present enabled={0} offscreen={1} rect={2}" -f $c.IsEnabled, $c.IsOffscreen, $c.BoundingRectangle)
+    }
+    $bankBefore = BankState
+    Info "מאגר שאלות (בלי jar): $bankBefore"
+    Check 'bank-hidden' ($bankBefore -eq 'absent' -or $bankBefore -match 'offscreen=True' -or $bankBefore -match 'rect=Empty') 'בלי מאגר שאלות מותקן — הכפתור "מאגר שאלות" מוסתר' $bankBefore
+    Shot 'vs-toolbar-nobank'
     # מאגר השאלות מותקן (קובץ ה-jar של המעבדה) → הכפתור מופיע (BeforeQueryStatus), בלי להפעיל מחדש את Visual Studio
     New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\DSViz\lab" | Out-Null
     Set-Content "$env:LOCALAPPDATA\DSViz\lab\dsviz-bank-vs.jar" 'dummy'
-    $bankShown = $false
-    for ($i = 0; $i -lt 15 -and -not $bankShown; $i++) {
+    $bankShown = $false; $bankAfter = ''
+    for ($i = 0; $i -lt 20 -and -not $bankShown; $i++) {
         Start-Sleep 3
-        $bankShown = @(VsElements $p.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -eq 'מאגר שאלות' }).Count -gt 0
+        $bankAfter = BankState
+        $bankShown = $bankAfter -match 'enabled=True offscreen=False'
     }
-    Check 'bank-visible' $bankShown 'אחרי התקנת dsviz-bank-vs.jar — הכפתור "מאגר שאלות" מופיע בסרגל'
+    Info "מאגר שאלות (עם jar): $bankAfter"
+    Check 'bank-visible' $bankShown 'אחרי התקנת dsviz-bank-vs.jar — הכפתור "מאגר שאלות" מופיע בסרגל (מופעל)' $bankAfter
     Shot 'vs-toolbar-bank'
 
     # ---- "הצעה לפתרון" בתוך הקוד: פותחים את קובץ התרגיל (מופע ה-Visual Studio שפתוח) ומחפשים את המנורות בשולי העורך

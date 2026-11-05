@@ -104,8 +104,45 @@ namespace DsViz.VsExtension
                 var c = (OleMenuCommand)s;
                 c.Visible = on;
                 c.Enabled = on;
+                if (on != _bankOn)
+                {
+                    _bankOn = on;
+                    SolutionHints.Log("bank button: " + (on ? "shown" : "hidden"));
+                    SyncBankControl(on);
+                }
             };
             mcs.AddCommand(cmd);
+            SyncBankControl(File.Exists(BankJar));
+        }
+
+        bool? _bankOn;
+
+        /// <summary>
+        /// בנוסף ל-DynamicVisibility של הפקודה: מסתיר / מציג את הכפתור גם דרך DTE (CommandBars). בסרגל כלים הסתרה דרך הפקודה לבדה
+        /// לא תמיד מעלימה את הכפתור (הוא נשאר אפור) — כאן מוודאים שהוא נעלם כשהמאגר לא מותקן.
+        /// </summary>
+        void SyncBankControl(bool on)
+        {
+            try
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                if (dte == null) return;
+                dynamic bar = ((dynamic)dte.CommandBars)["DSViz"];
+                foreach (dynamic ctl in bar.Controls)
+                {
+                    string cap = ctl.Caption;
+                    if (cap != null && cap.Contains("מאגר שאלות"))
+                    {
+                        if (ctl.Visible != on) ctl.Visible = on;
+                        SolutionHints.Log("bank control visible=" + on);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                SolutionHints.Log("bank control sync failed: " + ex.Message, true);
+            }
         }
 
         void Add(OleMenuCommandService mcs, int id, Action action)
