@@ -1,31 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- הרחבה ל-Visual Studio (VisualStudio.Extensibility, מחוץ לתהליך): סרגל כלים של DSViz בפני עצמו, בראש החלון.
-       בנייה: dotnet build -c Release (על Windows; ב-CI: .github/workflows/dsviz-vs.yml) → bin\Release\...\DsViz.VsExtension.vsix -->
+  <!-- הרחבה ל-Visual Studio (VSIX רגיל, בתוך התהליך): סרגל כלים של DSViz בפני עצמו, בראש החלון (DefaultDocked), בלי הרשאות מנהל להתקנה.
+       בנייה: msbuild /restore -p:Configuration=Release (על Windows; ב-CI: .github/workflows/dsviz-vsix.yml) → bin\Release\net472\DsViz.VsExtension.vsix -->
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <LangVersion>12</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>disable</ImplicitUsings>
-    <!-- בתוך התהליך של Visual Studio (extension רגילה, לא "מחוץ לתהליך"): מותקנת למשתמש הנוכחי בלי הרשאות מנהל. מחוץ-לתהליך דורשת את Visual Studio Installer + הרשאות מנהל -->
-    <VssdkCompatibleExtension>true</VssdkCompatibleExtension>
+    <LangVersion>latest</LangVersion>
     <RootNamespace>DsViz.VsExtension</RootNamespace>
     <AssemblyName>DsViz.VsExtension</AssemblyName>
     <Version>1.0.1</Version>
-    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <UseCodebase>true</UseCodebase>
     <CreateVsixContainer>true</CreateVsixContainer>
-    <ExtensionAssemblyVersion>1.0.1</ExtensionAssemblyVersion>
+    <DeployExtension>false</DeployExtension>
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <IncludeDebugSymbolsInVSIXContainer>false</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInLocalVSIXDeployment>false</IncludeDebugSymbolsInLocalVSIXDeployment>
+    <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
+    <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.VisualStudio.Extensibility.Sdk" Version="17.14.40608" />
-    <PackageReference Include="Microsoft.VisualStudio.Extensibility.Build" Version="17.14.40608" />
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.12.40392" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.14.2120" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="source.extension.vsixmanifest"><SubType>Designer</SubType></None>
-    <Content Include=".vsextension\string-resources.json" />
+    <VSCTCompile Include="DsVizPackage.vsct"><ResourceName>Menus.ctmenu</ResourceName></VSCTCompile>
   </ItemGroup>
 
 </Project>
