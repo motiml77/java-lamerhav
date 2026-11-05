@@ -4,3 +4,4 @@ node_modules/
 dist/*
 !dist/worker.js
 *-debug.log
+test/shots/
