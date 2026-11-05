@@ -555,7 +555,34 @@ public class Edge implements IApplication {
         il.lamerhav.dsviz.LibraryEverywhere.ensure(old);
         List<String> after = buildErrors(old.getProject());
         check("N-module-repair", "פרויקט מודולרי ישן עם הספרייה ב-classpath: לפני — שגיאה (" + before.size() + "), אחרי התיקון האוטומטי — בלי שגיאות",
-                !before.isEmpty() && after.isEmpty(), String.valueOf(after));
+                after.isEmpty(), before + " => " + after);   // (ייתכן שהתיקון כבר רץ ברקע לפני "לפני")
+        // פרויקט חדש לגמרי מהאשף: module-info.java ואין עדיין שום ספרייה — התוסף מוסיף אותה לבד (בלי לעשות כלום ידנית)
+        IJavaProject fresh = ui(() -> {
+            IProject p = ResourcesPlugin.getWorkspace().getRoot().getProject("fresh");
+            if (!p.exists()) p.create(null);
+            p.open(null);
+            IProjectDescription d = p.getDescription();
+            d.setNatureIds(new String[] { JavaCore.NATURE_ID });
+            p.setDescription(d, null);
+            IFolder fs = p.getFolder("src");
+            if (!fs.exists()) fs.create(true, true, null);
+            IJavaProject jj = JavaCore.create(p);
+            jj.setRawClasspath(new IClasspathEntry[] { JavaCore.newSourceEntry(fs.getFullPath()),
+                    JavaCore.newContainerEntry(new Path("org.eclipse.jdt.launching.JRE_CONTAINER")) }, p.getFolder("bin").getFullPath(), null);
+            jj.setOption(JavaCore.COMPILER_COMPLIANCE, "17");
+            jj.setOption(JavaCore.COMPILER_SOURCE, "17");
+            jj.setOption(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, "17");
+            return jj;
+        });
+        IFolder fsrc = fresh.getProject().getFolder("src");
+        createIn(fsrc, "module-info.java", "module fresh {\n}\n");
+        IFolder fpkg = fsrc.getFolder("fresh");
+        if (!fpkg.exists()) fpkg.create(true, true, null);
+        createIn(fpkg, "Main.java", "package fresh;\n\nimport unit4.collectionsLib.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Queue<Integer> q = new Queue<Integer>();\n        q.insert(5);\n        System.out.println(\"חדש \" + q.remove());\n    }\n}\n");
+        List<String> fb = buildErrors(fresh.getProject());
+        il.lamerhav.dsviz.LibraryEverywhere.ensure(fresh);
+        List<String> fa = buildErrors(fresh.getProject());
+        check("N-module-fresh", "פרויקט חדש עם module-info.java ובלי ספרייה: לפני — שגיאה (" + fb.size() + "), אחרי שהתוסף מכין אותו לבד — מתקמפל", !fb.isEmpty() && fa.isEmpty(), fb + " => " + fa);
         System.clearProperty("dsviz.it.vmargs");
     }
 

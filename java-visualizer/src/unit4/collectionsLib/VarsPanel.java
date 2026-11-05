@@ -90,7 +90,7 @@ final class VarsPanel extends JPanel {
         table.getColumnModel().getColumn(0).setMaxWidth(220);
         table.getColumnModel().getColumn(1).setPreferredWidth(300);
         table.setDefaultRenderer(Object.class, new Renderer());
-        table.setRowHeight((int) Math.round(22 * Theme.zoom));
+        table.setRowHeight((int) Math.round(22 * Theme.varsZoom));
         table.setTableHeader(null);   // קומפקטי: "שם | ערך" בלי כותרת
         JScrollPane scroll = new JScrollPane(table) {
             @Override
@@ -120,7 +120,7 @@ final class VarsPanel extends JPanel {
                 pick((Integer) k);
             }
         });
-        stripLabel.setFont(Theme.z(Theme.small));
+        stripLabel.setFont(Theme.zv(Theme.small));
         stripLabel.setForeground(Theme.MUTED);
         strip.setOpaque(false);
         strip.setBorder(BorderFactory.createEmptyBorder(6, 6, 2, 6));
@@ -325,13 +325,13 @@ final class VarsPanel extends JPanel {
     // ------------------------------------------------------------ רכיבים
 
     /** הטבלה — וכשאין משתנים: הודעה באמצע במקום טבלה ריקה */
-    /** הגדלה / הקטנה (Theme.zoom): גובה השורות והגופנים שנקבעו פעם אחת */
+    /** הגדלה / הקטנה (Theme.varsZoom): גובה השורות והגופנים שנקבעו פעם אחת */
     void zoomChanged() {
-        table.setRowHeight((int) Math.round(22 * Theme.zoom));
-        stripLabel.setFont(Theme.z(Theme.small));
-        note.setFont(Theme.z(Theme.smallBold));
+        table.setRowHeight((int) Math.round(22 * Theme.varsZoom));
+        stripLabel.setFont(Theme.zv(Theme.small));
+        note.setFont(Theme.zv(Theme.smallBold));
         combo.setRenderer(new FrameRenderer());
-        combo.setFont(Theme.z(Theme.small));
+        combo.setFont(Theme.zv(Theme.small));
         revalidate();
         repaint();
     }
@@ -350,7 +350,7 @@ final class VarsPanel extends JPanel {
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             Rectangle vis = getVisibleRect();
-            TextLayout tl = CondPaint.rtl(empty, Theme.z(Theme.ui), g.getFontRenderContext());
+            TextLayout tl = CondPaint.rtl(empty, Theme.zv(Theme.ui), g.getFontRenderContext());
             g.setColor(Theme.MUTED);
             float x = vis.x + Math.max(8, (vis.width - tl.getAdvance()) / 2f);
             tl.draw(g, x, vis.y + Math.min(vis.height / 2f, 46) + tl.getAscent() / 2f);
@@ -364,7 +364,7 @@ final class VarsPanel extends JPanel {
             super.getTableCellRendererComponent(t, v, false, false, row, col);
             setBackground(changedRows.contains(row) ? Theme.CHANGED : Color.WHITE);
             setForeground(Theme.TEXT);
-            setFont(col == 0 ? Theme.z(Theme.mono.deriveFont(Font.BOLD)) : Theme.z(Theme.mono));
+            setFont(col == 0 ? Theme.zv(Theme.mono.deriveFont(Font.BOLD)) : Theme.zv(Theme.mono));
             setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
             setHorizontalAlignment(col == 0 ? SwingConstants.RIGHT : SwingConstants.LEFT);
             setToolTipText(v == null ? null : String.valueOf(v));
@@ -383,14 +383,14 @@ final class VarsPanel extends JPanel {
 
         FrameRenderer() {
             super(new BorderLayout(8, 0));
-            name.setFont(Theme.z(Theme.mono.deriveFont(Theme.mono.getSize2D() - 1f)));
-            meta.setFont(Theme.z(Theme.small));
+            name.setFont(Theme.zv(Theme.mono.deriveFont(Theme.mono.getSize2D() - 1f)));
+            meta.setFont(Theme.zv(Theme.small));
             add(name, BorderLayout.LINE_START);
             add(meta, BorderLayout.LINE_END);
             setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
             closedLabel.setOpaque(true);
             closedLabel.setBackground(Color.WHITE);
-            closedLabel.setFont(Theme.z(Theme.mono.deriveFont(Font.BOLD, Theme.mono.getSize2D() - 1f)));
+            closedLabel.setFont(Theme.zv(Theme.mono.deriveFont(Font.BOLD, Theme.mono.getSize2D() - 1f)));
             closedLabel.setHorizontalTextPosition(SwingConstants.LEADING);
             closedLabel.setIconTextGap(8);
             closedLabel.setBorder(BorderFactory.createEmptyBorder(1, 8, 1, 8));
@@ -411,12 +411,12 @@ final class VarsPanel extends JPanel {
             }
             if (k < 0) {   // ברקורסיה עמוקה — הקריאות שבאמצע לא ברשימה
                 name.setText("\u200F… עוד " + FrameViz.skipped(s) + " קריאות באמצע");
-                name.setFont(Theme.z(Theme.small));
+                name.setFont(Theme.zv(Theme.small));
                 name.setForeground(Theme.MUTED);
                 meta.setText("");
                 return this;
             }
-            name.setFont(Theme.z(Theme.mono.deriveFont(k == shown ? Font.BOLD : Font.PLAIN, Theme.mono.getSize2D() - 1f)));
+            name.setFont(Theme.zv(Theme.mono.deriveFont(k == shown ? Font.BOLD : Font.PLAIN, Theme.mono.getSize2D() - 1f)));
             name.setText(lrm(FrameViz.title(s, k)));
             name.setForeground(Theme.TEXT);
             Frame f = s.calls.get(k);
@@ -467,7 +467,7 @@ final class VarsPanel extends JPanel {
         private Color bg = Color.WHITE, line = Theme.BORDER;
 
         Note() {
-            setFont(Theme.z(Theme.smallBold));
+            setFont(Theme.zv(Theme.smallBold));
             setOpaque(false);
             setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
             setHorizontalAlignment(SwingConstants.RIGHT);

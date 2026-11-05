@@ -383,8 +383,8 @@ final class RecursionPanel extends JPanel {
 
     private double computeZoom() {
         int avail = getParent() != null && getParent().getWidth() > 100 ? getParent().getWidth() - 4 : 600;
-        // כמו המבנים: התאמה לרוחב, ומעליה ההגדלה של כל החלון (Theme.zoom)
-        return (contentW <= 0 ? 1 : Math.max(0.6, Math.min(1, avail / (double) contentW))) * Theme.zoom;
+        // כמו המבנים: התאמה לרוחב, ומעליה ההגדלה של כל החלון (Theme.visZoom)
+        return (contentW <= 0 ? 1 : Math.max(0.6, Math.min(1, avail / (double) contentW))) * Theme.visZoom;
     }
 
     // ------------------------------------------------------------ ציור

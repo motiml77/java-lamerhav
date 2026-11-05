@@ -202,6 +202,16 @@ public final class ProjectSetup {
         requireLibrary(jp);
     }
 
+    /** lib/dsviz.jar של התוסף כבר ב-Build Path של הפרויקט */
+    public static boolean hasOurJar(IJavaProject jp) {
+        try {
+            IPath jar = jp.getProject().getFolder("lib").getFile(JAR_NAME).getFullPath();
+            for (IClasspathEntry e : jp.getRawClasspath())
+                if (e.getEntryKind() == IClasspathEntry.CPE_LIBRARY && e.getPath().equals(jar)) return true;
+        } catch (CoreException ignored) {}
+        return false;
+    }
+
     /** מוסיף ל-module-info.java: requires dsviz; (אם עוד לא כתוב) */
     private static void requireLibrary(IJavaProject jp) throws CoreException {
         IResource r;

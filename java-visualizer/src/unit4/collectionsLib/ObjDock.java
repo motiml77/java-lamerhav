@@ -36,7 +36,7 @@ final class ObjDock extends JPanel {
     }
 
     private int cols() {
-        int avail = getParent() != null && getParent().getWidth() > 100 ? (int) ((getParent().getWidth() - 40) / Theme.zoom) : 560;
+        int avail = getParent() != null && getParent().getWidth() > 100 ? (int) ((getParent().getWidth() - 40) / Theme.visZoom) : 560;
         for (int c = 1; c <= 3; c++) {
             if (c < ObjCard.columnsFor(access.obj.fields.size(), 3)) continue;
             if (ObjCard.table(this, null, access.obj, 0, 0, null, c).width <= avail) return c;
@@ -48,7 +48,7 @@ final class ObjDock extends JPanel {
     public Dimension getPreferredSize() {
         if (access == null || access.obj == null) return new Dimension(10, 0);
         Dimension t = ObjCard.table(this, null, access.obj, 0, 0, null, cols());
-        return new Dimension((int) Math.ceil((t.width + 40) * Theme.zoom), (int) Math.ceil((32 + t.height + 14) * Theme.zoom));
+        return new Dimension((int) Math.ceil((t.width + 40) * Theme.visZoom), (int) Math.ceil((32 + t.height + 14) * Theme.visZoom));
     }
 
     @Override
@@ -58,7 +58,7 @@ final class ObjDock extends JPanel {
         Graphics2D g = (Graphics2D) g0.create();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        g.scale(Theme.zoom, Theme.zoom);   // הגדלת החלון: כל הכרטיס גדל כיחידה אחת
+        g.scale(Theme.visZoom, Theme.visZoom);   // הגדלת החלון: כל הכרטיס גדל כיחידה אחת
         Color accent = ObjCard.darker(StructPanel.color(access.mark));
         g.setColor(accent);
         g.setStroke(new BasicStroke(2f));

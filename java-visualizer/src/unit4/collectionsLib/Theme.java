@@ -44,11 +44,22 @@ public final class Theme {
     // ------------------------------------------------------------ הגדלה / הקטנה של תוכן החלון (Ctrl+ / Ctrl- / Ctrl+0)
     /** גודל התוכן: 1 = רגיל. הטקסט (קוד, פלט, משתנים) מקבל גופן גדול יותר; הציורים (מבנים, רקורסיה) גדלים כיחידה אחת */
     public static double zoom = 1;
+    /** גודל נפרד לכל חלק: התצוגה הוויזואלית (מבנים, רקורסיה, כרטיס האובייקט), מעקב המשתנים והפלט. zoom = הקוד (ומה שמצויר עליו) */
+    public static double visZoom = 1, varsZoom = 1, outZoom = 1;
     static final double[] ZOOMS = { 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2 };
 
     /** הגופן בגודל התוכן הנוכחי */
     public static Font z(Font f) {
         return f == null || zoom == 1 ? f : f.deriveFont((float) (f.getSize2D() * zoom));
+    }
+
+    /** הגופן בגודל של מעקב המשתנים / של הפלט */
+    public static Font zv(Font f) {
+        return f == null || varsZoom == 1 ? f : f.deriveFont((float) (f.getSize2D() * varsZoom));
+    }
+
+    public static Font zo(Font f) {
+        return f == null || outZoom == 1 ? f : f.deriveFont((float) (f.getSize2D() * outZoom));
     }
 
     /** הגודל הבא למעלה (dir=1) / למטה (dir=-1) */

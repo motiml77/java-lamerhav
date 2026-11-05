@@ -313,8 +313,8 @@ final class StructPanel extends JPanel {
         double fit = (viewportWidth() - 4) / (double) natural.width;
         if (fitHeight && getParent() != null && getParent().getHeight() > 40)
             fit = Math.min(fit, (getParent().getHeight() - 4) / (double) natural.height);
-        // ההגדלה של כל החלון (Theme.zoom) — מעל ההתאמה האוטומטית: המבנים גדלים כיחידה אחת (וגוללים אם צריך)
-        double z = manualZoom > 0 ? manualZoom : Math.max(fitHeight ? 0.5 : 0.7, Math.min(1, fit)) * Theme.zoom;
+        // ההגדלה של כל החלון (Theme.visZoom) — מעל ההתאמה האוטומטית: המבנים גדלים כיחידה אחת (וגוללים אם צריך)
+        double z = manualZoom > 0 ? manualZoom : Math.max(fitHeight ? 0.5 : 0.7, Math.min(1, fit)) * Theme.visZoom;
         if (z != zoom) {
             zoom = z;
             if (zoomListener != null) {
