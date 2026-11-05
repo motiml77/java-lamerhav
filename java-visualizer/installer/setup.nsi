@@ -431,6 +431,12 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   File "DSViz.targets"
   SetOutPath "$INSTDIR"
   DetailPrint "Visual Studio: בכל פרויקט C# מופיעה לבד 'הרצה ויזואלית' ליד כפתור ההפעלה (${MSBUILD_IMPORTAFTER})"
+  ; סרגל הכלים של DSViz בראש Visual Studio (הרחבה): מותקן בכל Visual Studio שנמצא (installer/install-vsix.ps1). תקלה כאן לא עוצרת את ההתקנה
+  ${If} ${FileExists} "$INSTDIR\cs\DsViz.VsExtension.vsix"
+    DetailPrint "Visual Studio: מתקין את סרגל הכלים של DSViz..."
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\cs\install-vsix.ps1" "$INSTDIR\cs\DsViz.VsExtension.vsix"'
+    Pop $0
+  ${EndIf}
 
   ; תיקיית תרגילים מוכנה (Documents\DataStructures-CS): פתרון של Visual Studio עם תרגיל ודוגמאות
   ${IfNot} ${FileExists} "${PROJECT_CS_DIR}\DataStructures-CS.sln"
@@ -804,6 +810,10 @@ Section "Uninstall"
     FileClose $3
   ${EndIf}
   Delete "$INSTDIR\vs-templates.txt"
+  ${If} ${FileExists} "$INSTDIR\cs\install-vsix.ps1"
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\cs\install-vsix.ps1" -Uninstall'
+    Pop $0
+  ${EndIf}
   RMDir /r "$INSTDIR\cs"
   RMDir /r "$INSTDIR\cs-project"
   RMDir /r "$INSTDIR\vs-template"

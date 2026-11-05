@@ -289,8 +289,19 @@ namespace DsViz
                 if (root == null) root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "DataStructures-CS");
                 var psi = new ProcessStartInfo(java) { UseShellExecute = false, CreateNoWindow = true };
                 psi.ArgumentList.Add("-cp");
-                psi.ArgumentList.Add(jar);
-                psi.ArgumentList.Add("il.lamerhav.dsviz.cs.CsTool");
+                if (mode == "bank" || mode == "question")
+                {
+                    // מאגר שאלות (גרסת המעבדה): dsviz-bank-vs.jar שליד ההתקנה, לפני dsviz.jar (יש בו חלקים עדכניים יותר)
+                    string bank = Path.Combine(install, "lab", "dsviz-bank-vs.jar");
+                    if (!File.Exists(bank)) { Console.Error.WriteLine("DSViz: מאגר השאלות לא מותקן"); return 0; }
+                    psi.ArgumentList.Add(bank + Path.PathSeparator + jar);
+                    psi.ArgumentList.Add("il.lamerhav.dsviz.BankVs");
+                }
+                else
+                {
+                    psi.ArgumentList.Add(jar);
+                    psi.ArgumentList.Add("il.lamerhav.dsviz.cs.CsTool");
+                }
                 psi.ArgumentList.Add(mode);
                 psi.ArgumentList.Add(root);
                 Process.Start(psi);
