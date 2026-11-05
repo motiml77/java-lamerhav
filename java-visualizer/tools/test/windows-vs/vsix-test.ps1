@@ -150,18 +150,10 @@ if ($ready) {
     Info "מאגר שאלות (בלי jar): $bankBefore"
     Check 'bank-hidden' ($bankBefore -eq 'absent' -or $bankBefore -match 'offscreen=True' -or $bankBefore -match 'rect=Empty') 'בלי מאגר שאלות מותקן — הכפתור "מאגר שאלות" מוסתר' $bankBefore
     Shot 'vs-toolbar-nobank'
-    # מאגר השאלות מותקן (קובץ ה-jar של המעבדה) → הכפתור מופיע (BeforeQueryStatus), בלי להפעיל מחדש את Visual Studio
+    # מאגר השאלות מותקן (קובץ ה-jar של המעבדה) אחרי ש-Visual Studio כבר פתוח: הכפתור מופיע בפעם הבאה ש-VS בודק את הפקודות
+    # (למשל כשעוברים לקובץ אחר — בהמשך הבדיקה); אצל תלמיד ההתקנה קודמת להפעלה, והכפתור מוצג כבר בטעינה.
     New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\DSViz\lab" | Out-Null
     Set-Content "$env:LOCALAPPDATA\DSViz\lab\dsviz-bank-vs.jar" 'dummy'
-    $bankShown = $false; $bankAfter = ''
-    for ($i = 0; $i -lt 20 -and -not $bankShown; $i++) {
-        Start-Sleep 3
-        $bankAfter = BankState
-        $bankShown = $bankAfter -match 'enabled=True offscreen=False'
-    }
-    Info "מאגר שאלות (עם jar): $bankAfter"
-    Check 'bank-visible' $bankShown 'אחרי התקנת dsviz-bank-vs.jar — הכפתור "מאגר שאלות" מופיע בסרגל (מופעל)' $bankAfter
-    Shot 'vs-toolbar-bank'
 
     # ---- "הצעה לפתרון" בתוך הקוד: פותחים את קובץ התרגיל (מופע ה-Visual Studio שפתוח) ומחפשים את המנורות בשולי העורך
     Start-Process $devenv -ArgumentList "/Edit `"$plain`"" -WindowStyle Hidden
@@ -180,6 +172,15 @@ if ($ready) {
     Info "מנורות 'הצעה לפתרון' בעורך: $($lamps.Count) (בקובץ רגיל: $plainLamps)"
     Check 'glyph-lamps' ($lamps.Count -ge 2) 'ליד כל פעולה עם הצעה (Sum, Count) יש מנורה בשולי העורך' "$($lamps.Count)"
     Check 'plain-no-lamps' ($plainLamps -eq 0) 'בקובץ C# רגיל אין מנורות' "$plainLamps"
+    $bankShown = $false; $bankAfter = ''
+    for ($i = 0; $i -lt 10 -and -not $bankShown; $i++) {
+        $bankAfter = BankState
+        $bankShown = $bankAfter -match 'enabled=True offscreen=False'
+        if (-not $bankShown) { Start-Sleep 3 }
+    }
+    Info "מאגר שאלות (עם jar): $bankAfter"
+    Check 'bank-visible' $bankShown 'אחרי התקנת dsviz-bank-vs.jar — הכפתור "מאגר שאלות" מופיע בסרגל (מופעל)' $bankAfter
+    Shot 'vs-toolbar-bank'
     if ($lamps.Count -gt 0) {
         $how = ClickEl $lamps[0]
         Info "לחיצה על המנורה: $how"
