@@ -39,10 +39,16 @@ jobs:
           Write-Host "MSBuild: $msb"
           & $msb "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\DsViz.VsExtension.csproj" /restore /p:Configuration=Release /v:m
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $vsix = Get-ChildItem "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\bin" -Recurse -Filter *.vsix | Select-Object -First 1   # רק מה שנבנה עכשיו (לא מה שבתיקייה prebuilt)
-          if (-not $vsix) { Write-Host 'לא נוצר VSIX'; exit 1 }
+          $bin = "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\bin\Release\net472"
+          Get-ChildItem "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\bin", "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\obj" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in '.pkgdef', '.vsixmanifest', '.vsix', '.dll' -and $_.Name -like 'DsViz*' -or $_.Extension -in '.pkgdef', '.vsix' } | Select-Object FullName, Length | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
           New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\out" | Out-Null
-          Copy-Item $vsix.FullName "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix"
+          $built = Get-ChildItem "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\bin" -Recurse -Filter *.vsix | Select-Object -First 1
+          if ($built) { Copy-Item $built.FullName "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix" }
+          else {
+            Write-Host 'msbuild לא יצר VSIX — אורזים ידנית'
+            & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs\pack-vsix.ps1" -Bin $bin -SourceManifest "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\source.extension.vsixmanifest" -OutFile "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix"
+          }
           Get-Item "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix" | Select-Object Name, Length
       - name: התקנה ב-Visual Studio, פתיחה וחיפוש הכפתורים (צילום)
         shell: powershell
