@@ -35,9 +35,9 @@ simple = { limit = 6, period = 60 }
 
 # מונה הורדות (לא חובה): יוצרים KV בשם STATS (npx wrangler kv namespace create STATS),
 # מעתיקים את ה-id שמתקבל לכאן ומורידים את ה-#. האתר מוריד דרך /dl/windows ו-/dl/zip ומציג את /v1/stats.
-# [[kv_namespaces]]
-# binding = "STATS"
-# id = "<the id>"
+[[kv_namespaces]]
+binding = "STATS"
+id = "b9ac1d322427407dbcd5aba5b316b41e"
 # הורדות מלפני שהמונה התחיל (לא חובה) — שורה בתוך [vars] למעלה:
 # DOWNLOADS_BEFORE = "0"
 #
