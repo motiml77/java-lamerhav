@@ -592,7 +592,6 @@ namespace DsViz
             new KeyValuePair<string, string>("תרגיל חדש", "new"),
             new KeyValuePair<string, string>("הוספת מבנה נתונים", "insert"),
             new KeyValuePair<string, string>("שליחת תרגיל", "submit"),
-            new KeyValuePair<string, string>("הצעה לפתרון", "solution"),
         };
 
         static string RunnerPath()
