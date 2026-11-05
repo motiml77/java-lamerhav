@@ -1,4 +1,6 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
 
   <!-- הרחבה ל-Visual Studio (VSIX רגיל, בתוך התהליך): סרגל כלים של DSViz בפני עצמו, בראש החלון (DefaultDocked), בלי הרשאות מנהל להתקנה.
        בנייה: msbuild /restore -p:Configuration=Release (על Windows; ב-CI: .github/workflows/dsviz-vsix.yml) → bin\Release\net472\DsViz.VsExtension.vsix -->
@@ -34,5 +36,14 @@
     <None Include="source.extension.vsixmanifest"><SubType>Designer</SubType></None>
     <VSCTCompile Include="DsVizPackage.vsct"><ResourceName>Menus.ctmenu</ResourceName></VSCTCompile>
   </ItemGroup>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+  <!-- המטרות של VSSDK (vsct, pkgdef, הרכבת ה-VSIX) מגיעות מ-Visual Studio עצמו (עומס העבודה "Visual Studio extension development"), לא מהחבילה -->
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">17.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="Exists('$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets')" />
 
 </Project>
