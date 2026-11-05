@@ -321,7 +321,9 @@ Section "-core"
   ; דפי ההדרכה (הכפתור ?) בלי הסרטונים עצמם — כדי שההתקנה תישאר מתחת ל-100MB (המגבלה של GitHub).
   ; הנגן מנגן מהאתר כשאין עותק במחשב, ו-update.ps1 -Videos מוריד אותם ברקע (מיד אחרי ההתקנה ובכל כניסה ל-Windows)
   File /r /x *.mp4 "${BUILD}\help\*.*"
-  Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\update.ps1" -Videos'   ; ברקע — לא מחכים
+  DetailPrint "מוריד את סרטוני ההדרכה (מאחורי הקלעים)..."
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\update.ps1" -Videos'   ; בלי חלון — וההתקנה מחכה שיסתיים
+  Pop $0
   SetOutPath "$INSTDIR\project"
   File /r "${BUILD}\project\*.*"
   SetOutPath "$INSTDIR"
@@ -713,8 +715,10 @@ Section "-extensions"
   ; בזה אחר זה (כדי ש-VS Code לא יקבל כמה התקנות במקביל). ההתקנה לא מחכה להם. בלי אינטרנט — מדלגים בשקט
   ${If} $CODE != ""
   ${AndIf} $EXTS != ""
-    DetailPrint "VS Code: יורדים ומותקנים ברקע:$EXTS"
-    ExecShell "open" "$SYSDIR\cmd.exe" '/c for %e in ($EXTS) do "$CODE" --install-extension %e' SW_HIDE
+    DetailPrint "VS Code: מתקין (מאחורי הקלעים, בלי חלון):$EXTS"
+    ; nsExec — בלי חלון cmd, וההתקנה מחכה שכל התוספים יסתיימו ורק אז מודיעה שנגמר
+    nsExec::ExecToLog '"$SYSDIR\cmd.exe" /c for %e in ($EXTS) do "$CODE" --install-extension %e'
+    Pop $0
   ${EndIf}
 SectionEnd
 
