@@ -263,10 +263,6 @@ final class Look {
             return new Point(wHint != SWT.DEFAULT ? wHint : Math.max(minWidth, textWidth + 26), hHint != SWT.DEFAULT ? hHint : height);
         }
 
-        private int iconW() {
-            return icon == null || icon.isDisposed() ? 0 : icon.getBounds().width;
-        }
-
         private void paint(GC target) {
             Point s = getSize();
             if (s.x < 1 || s.y < 1) return;
@@ -377,6 +373,10 @@ final class Look {
                 gc.dispose();
             }
             return new Point(Math.max(primary ? 130 : 80, textWidth + 36 + (icon != null ? iconW() + 6 : 0)), 32);
+        }
+
+        private int iconW() {
+            return icon == null || icon.isDisposed() ? 0 : icon.getBounds().width;
         }
 
         private void paint(GC target) {
