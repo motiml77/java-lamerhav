@@ -9,6 +9,7 @@ on:
       - '.github/workflows/dsviz-vsix.yml'
       - 'java-visualizer/csharp/vs-extension/**'
       - 'java-visualizer/installer/install-vsix.ps1'
+      - 'java-visualizer/tools/test/windows-vs/vsix-test.ps1'
   workflow_dispatch:
 permissions:
   contents: write
@@ -43,31 +44,14 @@ jobs:
           New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\out" | Out-Null
           Copy-Item $vsix.FullName "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix"
           Get-Item "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix" | Select-Object Name, Length
-      - name: התקנה ב-Visual Studio ופתיחה (צילום)
+      - name: התקנה ב-Visual Studio, פתיחה וחיפוש הכפתורים (צילום)
         shell: powershell
         run: |
-          $out = "$env:GITHUB_WORKSPACE\out"
-          & "$env:GITHUB_WORKSPACE\java-visualizer\installer\install-vsix.ps1" "$out\DsViz.VsExtension.vsix"
-          $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-          $vs = & $vw -latest -prerelease -products * -requires Microsoft.Component.MSBuild -property installationPath
-          $devenv = Join-Path $vs 'Common7\IDE\devenv.exe'
-          # פרויקט קונסול לפתיחה
-          $proj = "$env:RUNNER_TEMP\Targil1"
-          dotnet new console -n Targil1 -o $proj --force | Out-Null
-          Get-ChildItem "$env:LOCALAPPDATA\Microsoft\VisualStudio" -Recurse -Filter extension.vsixmanifest -ErrorAction SilentlyContinue |
-            Where-Object { (Get-Content $_.FullName -Raw) -match 'DsViz.VisualStudio.Toolbar' } | Select-Object FullName | Format-List
-          Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hidden
-          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          function Shot($name) {
-            $b = [Windows.Forms.SystemInformation]::VirtualScreen
-            $bmp = New-Object Drawing.Bitmap $b.Width, $b.Height
-            $g = [Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Left, $b.Top, 0, 0, $bmp.Size)
-            $bmp.Save("$out\$name.png"); $g.Dispose(); $bmp.Dispose()
-          }
-          $p = Start-Process $devenv -ArgumentList "`"$proj\Program.cs`"" -PassThru
-          Start-Sleep -Seconds 150
-          Shot 'vs-open'
-          Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs\vsix-test.ps1" `
+            -Vsix "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix" `
+            -Out "$env:GITHUB_WORKSPACE\out\vs" `
+            -Installer "$env:GITHUB_WORKSPACE\java-visualizer\installer\install-vsix.ps1"
+          exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
