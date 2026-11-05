@@ -39,7 +39,7 @@ jobs:
           Write-Host "MSBuild: $msb"
           & $msb "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\DsViz.VsExtension.csproj" /restore /p:Configuration=Release /v:m
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $vsix = Get-ChildItem "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension" -Recurse -Filter *.vsix | Select-Object -First 1
+          $vsix = Get-ChildItem "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\bin" -Recurse -Filter *.vsix | Select-Object -First 1   # רק מה שנבנה עכשיו (לא מה שבתיקייה prebuilt)
           if (-not $vsix) { Write-Host 'לא נוצר VSIX'; exit 1 }
           New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\out" | Out-Null
           Copy-Item $vsix.FullName "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix"
