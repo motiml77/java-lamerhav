@@ -105,7 +105,7 @@ final class Created {
             int n = out.errors.size();
             t.title = Modern.RLM + "התרגיל נוצר · " + (n == 1 ? "יש שגיאת קומפילציה אחת" : "יש " + n + " שגיאות קומפילציה");
             t.jump = true;
-        } else if (out.tasks > 0 && !out.solutionStatus.isEmpty()) lines.add("💡 ליד כל סעיף — הצעה לפתרון");
+        } else if (out.tasks > 0 && !out.solutionStatus.isEmpty()) lines.add("ליד כל סעיף — הצעה לפתרון");
         StringBuilder b = new StringBuilder("<div dir='rtl' style='text-align:right'>");
         for (String l : lines) b.append("<div>").append(Modern.RLM).append(l).append("</div>");
         t.html = b.append("</div>").toString();

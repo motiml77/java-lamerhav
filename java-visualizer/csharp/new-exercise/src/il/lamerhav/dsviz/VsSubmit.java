@@ -810,6 +810,14 @@ public final class VsSubmit {
 
     /** חלון (לא חוסם — אפשר להשאיר אותו פתוח ליד Visual Studio): התרגילים והסעיפים, ולחיצה על סעיף מראה את ההצעה */
     public static void solutions(Path root) {
+        solutions(root, null, null, -1);
+    }
+
+    /**
+     * כמו solutions(root), וכשהחלון נפתח מהמנורה שליד פעולה בעורך (Visual Studio): ממקד בהצעה של אותה פעולה —
+     * file הקובץ, method שם הפעולה, paramCount מספר הפרמטרים (כמו המפתח של SolutionStore.find). לא נמצא — החלון נפתח כרגיל.
+     */
+    public static void solutions(Path root, String file, String method, int paramCount) {
         List<SolutionStore.Entry> all = new SolutionStore(storeFile()).all();
         JFrame f = new JFrame("הצעה לפתרון — C#");
         f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -923,6 +931,11 @@ public final class VsSubmit {
             copy.setEnabled(true);
         });
         f.getRootPane().putClientProperty("dsviz.list", list);
+        SolutionStore.Entry focus = focusEntry(sorted, file, method, paramCount);
+        if (focus != null) {
+            list.setSelectedValue(focus, true);
+            list.ensureIndexIsVisible(list.getSelectedIndex());
+        }
         f.setContentPane(content);
         rtl(content);
         code.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
@@ -931,6 +944,32 @@ public final class VsSubmit {
         f.pack();
         f.setLocationRelativeTo(null);
         f.setVisible(true);
+    }
+
+    /** ההצעה שהמנורה בעורך מצביעה עליה: אותו קובץ (או אותה תיקייה וקובץ), אותה פעולה, אותו מספר פרמטרים; הכי חדשה. null — אין */
+    static SolutionStore.Entry focusEntry(List<SolutionStore.Entry> entries, String file, String method, int paramCount) {
+        if (method == null || method.isEmpty()) return null;
+        String want = file == null ? "" : file.replace('\\', '/');
+        String tail = lastTwo(want);
+        SolutionStore.Entry best = null;
+        boolean bestExact = false;
+        for (SolutionStore.Entry e : entries) {
+            if (!e.method.equals(method) || (paramCount >= 0 && e.params.size() != paramCount)) continue;
+            String p = e.path.replace('\\', '/');
+            boolean exact = !want.isEmpty() && p.equalsIgnoreCase(want);
+            if (!exact && !(tail.length() > 0 && lastTwo(p).equalsIgnoreCase(tail))) continue;
+            if (best == null || (exact && !bestExact) || (exact == bestExact && e.time >= best.time)) {
+                best = e;
+                bestExact = exact;
+            }
+        }
+        return best;
+    }
+
+    /** התיקייה והקובץ: ex01_stacks/StackTargil.cs */
+    private static String lastTwo(String path) {
+        String[] parts = path.split("/");
+        return parts.length < 2 ? "" : parts[parts.length - 2] + "/" + parts[parts.length - 1];
     }
 
     static String[] status(String s) {

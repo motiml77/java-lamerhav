@@ -1,0 +1,79 @@
+# סרגל הכלים של DSViz ב-Visual Studio (הרחבה, csharp/vs-extension): בונה את ה-VSIX על Windows, מתקין אותו ב-Visual Studio האמיתי של
+# המחשב, פותח את Visual Studio ומצלם. אם הבנייה הצליחה — שומר את ה-VSIX ב-csharp/vs-extension/prebuilt (build-all.sh אורז אותו
+# להתקנה). התוצאות (הצילומים וה-VSIX) — ב-Artifacts.
+name: DSViz visual studio toolbar
+on:
+  push:
+    branches: [feature/login-access, master]
+    paths:
+      - '.github/workflows/dsviz-vsix.yml'
+      - 'java-visualizer/csharp/vs-extension/**'
+      - 'java-visualizer/installer/install-vsix.ps1'
+      - 'java-visualizer/tools/test/windows-vs/vsix-test.ps1'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: dsviz-vsix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vsix:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: nuget-vsix-${{ hashFiles('java-visualizer/csharp/vs-extension/DsViz.VsExtension.csproj') }}
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - name: בנייה (MSBuild של Visual Studio)
+        shell: powershell
+        run: |
+          $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          & $vw -all -prerelease -products * -format text -property displayName,catalog_productDisplayVersion,installationPath
+          $msb = & $vw -latest -prerelease -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          Write-Host "MSBuild: $msb"
+          & $msb "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\DsViz.VsExtension.csproj" /restore /p:Configuration=Release /v:m
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $bin = "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\bin\Release\net472"
+          Get-ChildItem "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\bin", "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\obj" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in '.pkgdef', '.vsixmanifest', '.vsix', '.dll' -and $_.Name -like 'DsViz*' -or $_.Extension -in '.pkgdef', '.vsix' } | Select-Object FullName, Length | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
+          New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\out" | Out-Null
+          $built = Get-ChildItem "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\bin" -Recurse -Filter *.vsix | Select-Object -First 1
+          if ($built) { Copy-Item $built.FullName "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix" }
+          else {
+            Write-Host 'msbuild לא יצר VSIX — אורזים ידנית'
+            & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs\pack-vsix.ps1" -Bin $bin -SourceManifest "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\source.extension.vsixmanifest" -OutFile "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix"
+          }
+          Get-Item "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix" | Select-Object Name, Length
+      - name: התקנה ב-Visual Studio, פתיחה וחיפוש הכפתורים (צילום)
+        timeout-minutes: 35
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs\vsix-test.ps1" `
+            -Vsix "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix" `
+            -Out "$env:GITHUB_WORKSPACE\out\vs" `
+            -Installer "$env:GITHUB_WORKSPACE\java-visualizer\installer\install-vsix.ps1"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vsix-${{ matrix.os }}
+          path: out
+      - name: שמירת ה-VSIX בענף (ל-build-all.sh)
+        if: success() && github.event_name == 'push'
+        shell: bash
+        run: |
+          D=java-visualizer/csharp/vs-extension/prebuilt
+          mkdir -p $D && cp out/DsViz.VsExtension.vsix $D/
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $D/DsViz.VsExtension.vsix
+          git diff --cached --quiet || { git commit -m "DSViz: הרחבה ל-Visual Studio (סרגל כלים) — בנייה מ-CI"; git pull --rebase origin ${GITHUB_REF_NAME} && git push origin HEAD:${GITHUB_REF_NAME}; }

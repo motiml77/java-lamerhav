@@ -73,8 +73,14 @@ public final class LibraryEverywhere {
 
     public static void ensure(IJavaProject jp) {
         try {
+            if (hasModuleInfo(jp)) {
+                // פרויקט מודולרי (Eclipse יוצר module-info.java בכל פרויקט חדש): הספרייה נכנסת כמו בכל פרויקט — כמודול (module path +
+                // requires dsviz), ואם היא כבר בפרויקט ב-classpath רגיל מעבירים אותה (אחרת "החבילה לא נגישה"). ספרייה אחרת של הקורס — לא נוגעים
+                if (jp.findType(PROBE) != null && !ProjectSetup.hasOurJar(jp)) return;
+                ProjectSetup.prepare(jp, null, false);
+                return;
+            }
             if (jp.findType(PROBE) != null) return;   // כבר יש (הספרייה שלנו, ה-jar המקורי של הקורס, או קוד מקור)
-            if (hasModuleInfo(jp)) return;
             ProjectSetup.prepare(jp, null, false);
         } catch (Throwable e) {
             // פרויקט שלא מצליחים לעדכן (קריאה בלבד וכו') — נשאר כמו שהוא

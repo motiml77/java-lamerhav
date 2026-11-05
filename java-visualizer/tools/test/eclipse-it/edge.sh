@@ -5,7 +5,7 @@
 # להריץ אחרי בניית הספרייה והתוסף (tools/build-all.sh, או רק החלקים של הספרייה ו-Eclipse). צריך xvfb-run, xdotool ו-node.
 #   sh tools/test/eclipse-it/edge.sh [תיקיית eclipse]          — הכול (כ-25 דקות)
 #   EDGE_ONLY=AC sh tools/test/eclipse-it/edge.sh              — רק חלק מהקבוצות (A הרצה, B שליחה, C הוספה, D חלונות וכיבוי,
-#                                                                E הצעה לפתרון, F המורה בעברית, G הרצה עם חלון)
+#                                                                E הצעה לפתרון, F המורה בעברית, G הרצה עם חלון, X כל הדוגמאות הפתורות)
 # צילומי המסך: EDGE_SHOTS=<תיקייה> (ברירת מחדל: build/eclipse-it/edge). run.sh מריץ את זה בסוף (EDGE=0 — מדלגים)
 set -e
 cd "$(dirname "$0")"

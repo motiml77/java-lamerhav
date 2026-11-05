@@ -384,17 +384,17 @@ final class LoopCard {
     static void paintTag(Graphics2D g, JTextComponent c, int line, Map<Integer, Integer> used) {
         Rectangle r = CondPaint.lineRect(c, line);
         if (r == null) return;
-        Font f = Theme.smallBold != null ? Theme.smallBold : Theme.small;
+        Font f = Theme.smallBold != null ? Theme.z(Theme.smallBold) : Theme.z(Theme.small);
         if (f == null) f = new Font(Font.DIALOG, Font.BOLD, 13);
         String text = "הלולאה לא נגמרת";
         TextLayout tl = CondPaint.rtl(text, f, g.getFontRenderContext());
-        int h = Math.min(r.height - 2, 20), y = r.y + (r.height - h) / 2;
+        int h = Math.min(r.height - 2, (int) Math.round(20 * Theme.zoom)), y = r.y + (r.height - h) / 2;
         int sym = h + 6;   // הסימן ∞ — מצויר (לא תלוי בגופן)
         int w = (int) Math.ceil(tl.getAdvance()) + sym + 18;
         Integer after = used.get(line);
         int x = after != null ? after + 8 : CondPaint.lineEndX(c, line) + 22;
         Rectangle vis = c.getVisibleRect();
-        if (x + w > vis.x + vis.width - 10) x = Math.max(vis.x + 40, vis.x + vis.width - 10 - w);
+        if (x + w > vis.x + vis.width - 10) x = Math.max(after != null ? after + 8 : CondPaint.codeEndX(c, line) + 22, Math.max(vis.x + 40, vis.x + vis.width - 10 - w));   // לא על הקוד
         used.put(line, x + w);
         g.setColor(new Color(255, 255, 255, 240));
         g.fillRoundRect(x, y, w, h, h, h);

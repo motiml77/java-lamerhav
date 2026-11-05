@@ -289,6 +289,23 @@ FunctionEnd
 
 ; ------------------------------------------------------------ רכיבים
 Section "-core"
+  ; ניקוי ההתקנה הקודמת (כשמתקינים על קיימת): קיצורים בשולחן העבודה (כבר לא נוצרים), קיצורי תפריט התחלה, קבצים ותיקיות מגרסה קודמת —
+  ; כך כל התיקונים נכנסים, בלי שיישאר משהו ישן. לא נוגעים בעבודה של התלמיד (תיקיות התרגילים במסמכים), ב-JDK ובסרטונים שכבר ירדו.
+  Delete "$DESKTOP\תרגילי C# (מבני נתונים).lnk"
+  Delete "$DESKTOP\תרגיל חדש ב-C#.lnk"
+  Delete "$DESKTOP\הוסף מבנה נתונים ל-C#.lnk"
+  Delete "$DESKTOP\שליחת תרגיל ב-C#.lnk"
+  Delete "$DESKTOP\הצעה לפתרון ב-C#.lnk"
+  Delete "$DESKTOP\תרגילי מבני נתונים (VS Code).lnk"
+  RMDir /r "$SMPROGRAMS\מבני נתונים"
+  Delete "$INSTDIR\*.vsix"
+  Delete "$INSTDIR\il.lamerhav.dsviz_*.jar"
+  Delete "$INSTDIR\dsviz.jar"
+  RMDir /r "$INSTDIR\project"
+  RMDir /r "$INSTDIR\cs"
+  RMDir /r "$INSTDIR\cs-project"
+  RMDir /r "$INSTDIR\vs-template"
+  RMDir /r "$INSTDIR\intellij"
   SetOutPath "$INSTDIR"
   ; התוספים בלי הסרטונים (הם נשמרים פעם אחת, בתיקייה help שלמטה) — כדי שההתקנה לא תכפיל אותם
   File "${BUILD}\light\${VSIX}"
@@ -321,7 +338,9 @@ Section "-core"
   ; דפי ההדרכה (הכפתור ?) בלי הסרטונים עצמם — כדי שההתקנה תישאר מתחת ל-100MB (המגבלה של GitHub).
   ; הנגן מנגן מהאתר כשאין עותק במחשב, ו-update.ps1 -Videos מוריד אותם ברקע (מיד אחרי ההתקנה ובכל כניסה ל-Windows)
   File /r /x *.mp4 "${BUILD}\help\*.*"
-  Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\update.ps1" -Videos'   ; ברקע — לא מחכים
+  DetailPrint "מוריד את סרטוני ההדרכה (מאחורי הקלעים)..."
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\update.ps1" -Videos'   ; בלי חלון — וההתקנה מחכה שיסתיים
+  Pop $0
   SetOutPath "$INSTDIR\project"
   File /r "${BUILD}\project\*.*"
   SetOutPath "$INSTDIR"
@@ -431,6 +450,12 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   File "DSViz.targets"
   SetOutPath "$INSTDIR"
   DetailPrint "Visual Studio: בכל פרויקט C# מופיעה לבד 'הרצה ויזואלית' ליד כפתור ההפעלה (${MSBUILD_IMPORTAFTER})"
+  ; סרגל הכלים של DSViz בראש Visual Studio (הרחבה): מותקן בכל Visual Studio שנמצא (installer/install-vsix.ps1). תקלה כאן לא עוצרת את ההתקנה
+  ${If} ${FileExists} "$INSTDIR\cs\DsViz.VsExtension.vsix"
+    DetailPrint "Visual Studio: מתקין את סרגל הכלים של DSViz..."
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\cs\install-vsix.ps1" "$INSTDIR\cs\DsViz.VsExtension.vsix"'
+    Pop $0
+  ${EndIf}
 
   ; תיקיית תרגילים מוכנה (Documents\DataStructures-CS): פתרון של Visual Studio עם תרגיל ודוגמאות
   ${IfNot} ${FileExists} "${PROJECT_CS_DIR}\DataStructures-CS.sln"
@@ -447,19 +472,14 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   FileOpen $0 "$PROFILE\.dsviz\project-cs-path.txt" w
   FileWriteUTF16LE /BOM $0 "${PROJECT_CS_DIR}"
   FileClose $0
-  CreateShortcut "$DESKTOP\תרגילי C# (מבני נתונים).lnk" "${PROJECT_CS_DIR}\DataStructures-CS.sln" "" "$INSTDIR\icon.ico"
   ; החלונות "תרגיל חדש" ו"הוסף מבנה נתונים" ל-C# (אותם חלונות כמו ב-Eclipse וב-VS Code) — מקיצור, בשביל Visual Studio / Rider
-  CreateShortcut "$DESKTOP\תרגיל חדש ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool new "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   CreateDirectory "$SMPROGRAMS\מבני נתונים"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool new "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   Delete "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk"   ; השם מגרסה קודמת
-  CreateShortcut "$DESKTOP\הוסף מבנה נתונים ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool insert "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool help "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\הוסף מבנה נתונים ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool insert "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   ; "שליחת תרגיל" (דף התרגיל → פרויקט מוכן בפתרון) ו"הצעה לפתרון" (חלון שנשאר פתוח ליד Visual Studio) — כמו ב-Eclipse וב-VS Code
-  CreateShortcut "$DESKTOP\שליחת תרגיל ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool submit "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\שליחת תרגיל ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool submit "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
-  CreateShortcut "$DESKTOP\הצעה לפתרון ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool solution "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\הצעה לפתרון ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool solution "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
 
   ; תבנית פרויקט חדש ב-Visual Studio: "תרגיל מבני נתונים (DSViz)"
@@ -597,14 +617,11 @@ Section "-javaproject"
   FileOpen $0 "$PROFILE\.dsviz\project-path.txt" w
   FileWriteUTF16LE /BOM $0 "${PROJECT_DIR}"
   FileClose $0
-  ; קיצור דרך בשולחן העבודה שפותח את תיקיית התרגילים ב-VS Code
   ${If} $CODE != ""
     ${GetParent} $CODE $1
     ${GetParent} $1 $1
     ${If} ${FileExists} "$1\Code.exe"
     ${AndIf} ${FileExists} "${PROJECT_DIR}\.project"
-      CreateShortcut "$DESKTOP\תרגילי מבני נתונים (VS Code).lnk" "$1\Code.exe" '"${PROJECT_DIR}"' "$INSTDIR\icon.ico"
-      DetailPrint "VS Code: נוצר קיצור דרך בשולחן העבודה"
     ${EndIf}
   ${EndIf}
 SectionEnd
@@ -707,8 +724,10 @@ Section "-extensions"
   ; בזה אחר זה (כדי ש-VS Code לא יקבל כמה התקנות במקביל). ההתקנה לא מחכה להם. בלי אינטרנט — מדלגים בשקט
   ${If} $CODE != ""
   ${AndIf} $EXTS != ""
-    DetailPrint "VS Code: יורדים ומותקנים ברקע:$EXTS"
-    ExecShell "open" "$SYSDIR\cmd.exe" '/c for %e in ($EXTS) do "$CODE" --install-extension %e' SW_HIDE
+    DetailPrint "VS Code: מתקין (מאחורי הקלעים, בלי חלון):$EXTS"
+    ; nsExec — בלי חלון cmd, וההתקנה מחכה שכל התוספים יסתיימו ורק אז מודיעה שנגמר
+    nsExec::ExecToLog '"$SYSDIR\cmd.exe" /c for %e in ($EXTS) do "$CODE" --install-extension %e'
+    Pop $0
   ${EndIf}
 SectionEnd
 
@@ -804,6 +823,10 @@ Section "Uninstall"
     FileClose $3
   ${EndIf}
   Delete "$INSTDIR\vs-templates.txt"
+  ${If} ${FileExists} "$INSTDIR\cs\install-vsix.ps1"
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\cs\install-vsix.ps1" -Uninstall'
+    Pop $0
+  ${EndIf}
   RMDir /r "$INSTDIR\cs"
   RMDir /r "$INSTDIR\cs-project"
   RMDir /r "$INSTDIR\vs-template"

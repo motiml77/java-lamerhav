@@ -45,7 +45,7 @@ public final class Solutions implements LineMarkerProvider {
         if (m.getNameIdentifier() != element) return null;
         IjShared.Solution s = find(m);
         if (s == null) return null;
-        String tip = "💡 " + TITLE + (s.label.isEmpty() ? "" : " — " + s.label) + " (כדאי לנסות קודם לבד)";
+        String tip = TITLE + (s.label.isEmpty() ? "" : " — " + s.label) + " (כדאי לנסות קודם לבד)";
         return new LineMarkerInfo<PsiElement>(element, element.getTextRange(), Dsviz.SOLUTION, e -> tip,
                 (event, el) -> {
                     PsiMethod method = PsiTreeUtil.getParentOfType(el, PsiMethod.class);
@@ -116,7 +116,7 @@ public final class Solutions implements LineMarkerProvider {
         @Override
         protected JComponent createCenterPanel() {
             JPanel root = new JPanel(new BorderLayout(0, JBUI.scale(6)));
-            root.add(Forms.header("💡 " + TITLE + (s.label.isEmpty() ? "" : " — " + s.label),
+            root.add(Forms.header(Dsviz.SOLUTION, TITLE + (s.label.isEmpty() ? "" : " — " + s.label),
                     "הצעה אחת אפשרית לפעולה " + s.method + " — יש עוד דרכים נכונות. כדאי לנסות קודם לבד."), BorderLayout.NORTH);
             JBTextArea code = new JBTextArea(Submitter.clean(s.code));
             code.setEditable(false);

@@ -132,7 +132,6 @@ final class Viewer extends JFrame {
     private final StructPanel miniStructs = new StructPanel();
     private final JPanel miniBox = new JPanel(new BorderLayout());
     private final JPanel viewPages = new JPanel(new java.awt.CardLayout());
-    private JComponent zoomBox;
     private boolean recursionShown;
     private final JLabel zoomLabel = new JLabel("100%");
 
@@ -161,6 +160,11 @@ final class Viewer extends JFrame {
 
     private Viewer() {
         super(TITLE);
+        Theme.zoom = Theme.savedZoom("viewer");   // הגודל שנבחר בפעם הקודמת (לכל חלק בנפרד)
+        Theme.visZoom = Theme.savedZoom("viewer.vis");
+        Theme.varsZoom = Theme.savedZoom("viewer.vars");
+        Theme.outZoom = Theme.savedZoom("viewer.out");
+        varsPanel.zoomChanged();
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setIconImage(appIcon());
 
@@ -187,6 +191,8 @@ final class Viewer extends JFrame {
         nav.add(playBtn);
         nav.add(speedLabel);
         nav.add(speed);
+        nav.add(Box(10));
+        nav.add(zoomTools());
 
         timeline.setFocusable(false);
         timeline.setOpaque(false);
@@ -224,11 +230,16 @@ final class Viewer extends JFrame {
         mainBtn.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 showMain = mainBtn.isSelected();
+                Theme.saveBool("viewer.showMain", showMain);   // נשאר כמו שהמשתמש בחר גם בהרצות הבאות
                 recursion.setHideMain(!showMain);
                 rebuildVisible();
             }
         });
         mainBtn.setVisible(false);
+        // "להציג גם main" — דלוק כברירת מחדל; רק אם המשתמש כיבה, הוא נשאר כבוי
+        showMain = Theme.savedBool("viewer.showMain", true);
+        mainBtn.setSelected(showMain);
+        recursion.setHideMain(!showMain);
         info.add(mainBtn);
 
         // בקצה הסרגל, אחרי פס המידע: "תמכו בפרויקט" — כפתור שקט באותו גובה (BorderLayout — שניהם נמתחים לאותו גובה)
@@ -263,7 +274,7 @@ final class Viewer extends JFrame {
         // --- הקוד
         code.setEditable(false);
         code.setBackground(Color.WHITE);
-        code.setFont(Theme.mono);
+        code.setFont(Theme.z(Theme.mono));
         code.setForeground(Theme.TEXT);
         code.setFocusable(false);
         code.setMargin(new java.awt.Insets(6, 10, 6, 10));
@@ -276,14 +287,11 @@ final class Viewer extends JFrame {
         callStrip.setVisible(false);
         codeBody.add(callStrip, BorderLayout.NORTH);
         codeBody.add(codeScroll, BorderLayout.CENTER);
-        Card codeCard = new Card("הקוד", codeSub, null, codeBody);
+        Card codeCard = new Card("הקוד", codeSub, partZoomTools(PART_CODE), codeBody);
 
         // --- התצוגה הוויזואלית
         JScrollPane structScroll = scroll(structs);
         structScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        structs.setZoomListener(new Runnable() {
-            public void run() { zoomLabel.setText(structs.zoomText()); }
-        });
         // שתי לשוניות: המבנים, ומעקב הרקורסיה (כל קריאה = כרטיס)
         JScrollPane recScroll = scroll(recursion);
         JPanel structPage = new JPanel(new BorderLayout());
@@ -317,32 +325,32 @@ final class Viewer extends JFrame {
         viewPages.setOpaque(false);
         viewPages.add(structPage, "structs");
         viewPages.add(recPage, "recursion");
-        JPanel viewTools = row(10);
-        viewTools.add(zoomBox = zoomTools());
-        Card structCard = new Card(null, null, viewTools, viewPages);
+        Card structCard = new Card("התצוגה הוויזואלית", null, partZoomTools(PART_VIS), viewPages);
         recScroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
         // --- מעקב משתנים
-        Card varsCard = new Card("מעקב משתנים", varsSub, null, varsPanel);
+        Card varsCard = new Card("מעקב משתנים", varsSub, partZoomTools(PART_VARS), varsPanel);
 
         // --- פלט
         console.setEditable(false);
         console.setBackground(Color.WHITE);
-        console.setFont(Theme.mono);
+        console.setFont(Theme.zo(Theme.mono));
         console.setForeground(Theme.TEXT);
         console.setMargin(new java.awt.Insets(6, 10, 6, 10));
         JScrollPane consoleScroll = scroll(console);
-        Card outCard = new Card("פלט", label("\u200ESystem.out\u200E עד הצעד הזה", Theme.small, Theme.MUTED), null, consoleScroll);
+        Card outCard = new Card("פלט", label("\u200ESystem.out\u200E עד הצעד הזה", Theme.small, Theme.MUTED), partZoomTools(PART_OUT), consoleScroll);
 
-        // --- סידור: משמאל — הקוד, ומתחתיו מעקב משתנים ופלט; מימין — התצוגה הוויזואלית לכל הגובה
-        JComponent under = Recorder.lineMode ? split(JSplitPane.HORIZONTAL_SPLIT, varsCard, outCard, 0.5) : outCard;
-        JSplitPane left = split(JSplitPane.VERTICAL_SPLIT, codeCard, under, 0.7);
-        // מתחת לקוד, לפלט ולמשתנים: הפס "התוכנית מחכה לקלט" (רק כשהיא מחכה)
+        // --- סידור (על המסך): משמאל — הקוד, מימין — התצוגה הוויזואלית; למטה — מעקב משתנים ופלט. כל הקווים ניתנים לגרירה.
+        JComponent under = Recorder.lineMode ? split(JSplitPane.HORIZONTAL_SPLIT, outCard, varsCard, 0.5) : outCard;
+        // הקוד לכל הגובה (שמאל); מימין — התצוגה הוויזואלית, ומתחתיה הפלט ומעקב המשתנים
+        JSplitPane right = split(JSplitPane.VERTICAL_SPLIT, structCard, under, 0.7);
+        JSplitPane top = split(JSplitPane.HORIZONTAL_SPLIT, codeCard, right, 0.4);
+        // מתחת לכול: הפס "התוכנית מחכה לקלט" (רק כשהיא מחכה)
         leftBox.setOpaque(false);
-        leftBox.add(left, BorderLayout.CENTER);
+        leftBox.add(top, BorderLayout.CENTER);
         inputBar.setVisible(false);
         leftBox.add(inputBar, BorderLayout.SOUTH);
-        JSplitPane main = split(JSplitPane.HORIZONTAL_SPLIT, leftBox, structCard, 0.55);
+        JComponent main = leftBox;
 
         JPanel root = new JPanel(new BorderLayout(0, 10));
         root.setBackground(Theme.BG);
@@ -434,7 +442,12 @@ final class Viewer extends JFrame {
     }
 
     private static JScrollPane scroll(JComponent c) {
-        JScrollPane s = new JScrollPane(c);
+        JScrollPane s = new JScrollPane(c) {
+            @Override
+            protected void processMouseWheelEvent(java.awt.event.MouseWheelEvent e) {
+                if (!e.isControlDown()) super.processMouseWheelEvent(e);   // Ctrl + גלגלת = הגדלה / הקטנה, לא גלילה
+            }
+        };
         s.setBorder(BorderFactory.createEmptyBorder());
         s.setViewportBorder(null);
         s.getViewport().setBackground(Color.WHITE);
@@ -449,6 +462,10 @@ final class Viewer extends JFrame {
         s.setBorder(BorderFactory.createEmptyBorder());
         s.setOpaque(false);
         s.setContinuousLayout(true);
+        s.setOneTouchExpandable(true);   // חצים קטנים על הקו: מקפלים חלק / מחזירים
+        s.setDividerSize(10);
+        if (a instanceof JComponent) ((JComponent) a).setMinimumSize(new Dimension(60, 40));
+        if (b instanceof JComponent) ((JComponent) b).setMinimumSize(new Dimension(60, 40));
         splits.add(s);
         splitRatios.add(ratio);
         return s;
@@ -469,24 +486,108 @@ final class Viewer extends JFrame {
     private void showView(boolean rec) {
         recursionShown = rec;
         ((java.awt.CardLayout) viewPages.getLayout()).show(viewPages, rec ? "recursion" : "structs");
-        zoomBox.setVisible(!rec);
     }
 
+    /** הגדלה / הקטנה של כל התוכן (קוד, משתנים, פלט, מבנים, רקורסיה) — גם Ctrl + / Ctrl − / Ctrl 0 ו-Ctrl + גלגלת */
     private JComponent zoomTools() {
         JPanel p = row(2);
-        JButton out = small("–", "הקטנה"), in = small("+", "הגדלה"), fit = small("התאמה", "התאמה לגודל החלון");
-        out.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { structs.zoomBy(1 / 1.2); } });
-        in.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { structs.zoomBy(1.2); } });
-        fit.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { structs.fit(); } });
+        JButton out = small("−", "הקטנת התצוגה  (Ctrl −)"), in = small("+", "הגדלת התצוגה  (Ctrl +)");
+        out.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { zoomStep(-1); } });
+        in.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { zoomStep(1); } });
         zoomLabel.setFont(Theme.small);
         zoomLabel.setForeground(Theme.MUTED);
-        zoomLabel.setPreferredSize(new Dimension(42, 20));
+        zoomLabel.setPreferredSize(new Dimension(46, 20));
         zoomLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        p.add(fit);
+        zoomLabel.setToolTipText("גודל התצוגה — לחיצה מחזירה ל-100%  (Ctrl 0)");
+        zoomLabel.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        zoomLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseClicked(java.awt.event.MouseEvent e) { setZoom(1); }
+        });
+        zoomLabel.setText(Math.round(Theme.zoom * 100) + "%");
         p.add(in);
         p.add(zoomLabel);
         p.add(out);
         return p;
+    }
+
+    private void zoomStep(int dir) {
+        setZoom(Theme.stepZoom(Theme.zoom, dir));
+    }
+
+    /** כל החלקים בבת אחת (הסרגל העליון, Ctrl + / − / 0, Ctrl + גלגלת) */
+    void setZoom(double z) {
+        for (int part = 0; part < 4; part++) setPartZoom(part, z);
+    }
+
+    static final int PART_CODE = 0, PART_VIS = 1, PART_VARS = 2, PART_OUT = 3;
+    private static final String[] PART_KEY = { "viewer", "viewer.vis", "viewer.vars", "viewer.out" };
+    private static final String[] PART_NAME = { "הקוד", "התצוגה הוויזואלית", "מעקב המשתנים", "הפלט" };
+    private final JLabel[] partLabel = new JLabel[4];
+
+    private static double partZoom(int part) {
+        switch (part) {
+            case PART_VIS: return Theme.visZoom;
+            case PART_VARS: return Theme.varsZoom;
+            case PART_OUT: return Theme.outZoom;
+            default: return Theme.zoom;
+        }
+    }
+
+    /** כפתורי הגדלה / הקטנה בכותרת של כל חלק — כל חלק בגודל משלו */
+    private JComponent partZoomTools(final int part) {
+        JPanel p = row(2);
+        JButton out = small("−", "הקטנה — " + PART_NAME[part]), in = small("+", "הגדלה — " + PART_NAME[part]);
+        out.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setPartZoom(part, Theme.stepZoom(partZoom(part), -1)); } });
+        in.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setPartZoom(part, Theme.stepZoom(partZoom(part), 1)); } });
+        JLabel l = label(Math.round(partZoom(part) * 100) + "%", Theme.small, Theme.MUTED);
+        l.setPreferredSize(new Dimension(44, 20));
+        l.setHorizontalAlignment(SwingConstants.CENTER);
+        l.setToolTipText("גודל " + PART_NAME[part] + " — לחיצה מחזירה ל-100%");
+        l.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        l.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseClicked(java.awt.event.MouseEvent e) { setPartZoom(part, 1); }
+        });
+        partLabel[part] = l;
+        p.add(in);
+        p.add(l);
+        p.add(out);
+        return p;
+    }
+
+    /** גודל חדש לחלק אחד: גופנים, גובה שורות והציורים שלו — ונשמר לפעם הבאה */
+    void setPartZoom(int part, double z) {
+        if (Math.abs(z - partZoom(part)) < 1e-6) return;
+        Theme.saveZoom(PART_KEY[part], z);
+        JComponent[] repaint;
+        switch (part) {
+            case PART_VIS:
+                Theme.visZoom = z;
+                repaint = new JComponent[] { structs, miniStructs, recursion, objDock };
+                break;
+            case PART_VARS:
+                Theme.varsZoom = z;
+                varsPanel.zoomChanged();
+                repaint = new JComponent[] { varsPanel };
+                break;
+            case PART_OUT:
+                Theme.outZoom = z;
+                console.setFont(Theme.zo(Theme.mono));
+                repaint = new JComponent[] { console };
+                break;
+            default:
+                Theme.zoom = z;
+                zoomLabel.setText(Math.round(z * 100) + "%");
+                code.setFont(Theme.z(Theme.mono));
+                inputBar.field.setFont(Theme.z(Theme.monoBig));
+                repaint = new JComponent[] { gutter, code, callStrip };
+        }
+        if (partLabel[part] != null) partLabel[part].setText(Math.round(z * 100) + "%");
+        for (JComponent c : repaint) {
+            c.revalidate();
+            c.repaint();
+        }
+        getContentPane().revalidate();
+        getContentPane().repaint();
     }
 
     private static JButton small(String text, String tip) {
@@ -551,6 +652,33 @@ final class Viewer extends JFrame {
         bind(root, im, "first", new Runnable() { public void run() { showPos(0); } }, KeyEvent.VK_HOME);
         bind(root, im, "last", new Runnable() { public void run() { showPos(vis.size() - 1); } }, KeyEvent.VK_END);
         bind(root, im, "play", new Runnable() { public void run() { togglePlay(); } }, KeyEvent.VK_P);
+        // הגדלה / הקטנה: Ctrl (ב-Mac גם Cmd) + / − / 0
+        int[] mods = { java.awt.event.InputEvent.CTRL_DOWN_MASK, java.awt.event.InputEvent.META_DOWN_MASK };
+        for (int m : mods) {
+            for (int k : new int[] { KeyEvent.VK_EQUALS, KeyEvent.VK_PLUS, KeyEvent.VK_ADD }) {
+                im.put(KeyStroke.getKeyStroke(k, m), "zoomIn");
+                im.put(KeyStroke.getKeyStroke(k, m | java.awt.event.InputEvent.SHIFT_DOWN_MASK), "zoomIn");
+            }
+            for (int k : new int[] { KeyEvent.VK_MINUS, KeyEvent.VK_SUBTRACT }) im.put(KeyStroke.getKeyStroke(k, m), "zoomOut");
+            for (int k : new int[] { KeyEvent.VK_0, KeyEvent.VK_NUMPAD0 }) im.put(KeyStroke.getKeyStroke(k, m), "zoomReset");
+        }
+        root.getActionMap().put("zoomIn", new AbstractAction() { public void actionPerformed(ActionEvent e) { zoomStep(1); } });
+        root.getActionMap().put("zoomOut", new AbstractAction() { public void actionPerformed(ActionEvent e) { zoomStep(-1); } });
+        root.getActionMap().put("zoomReset", new AbstractAction() { public void actionPerformed(ActionEvent e) { setZoom(1); } });
+        // Ctrl + גלגלת העכבר — בכל מקום בחלון (ובלי לגלול באותו רגע)
+        java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(new java.awt.event.AWTEventListener() {
+            private long last;
+            public void eventDispatched(java.awt.AWTEvent ev) {
+                if (!(ev instanceof java.awt.event.MouseWheelEvent)) return;
+                java.awt.event.MouseWheelEvent w = (java.awt.event.MouseWheelEvent) ev;
+                if (!w.isControlDown() || javax.swing.SwingUtilities.getWindowAncestor(w.getComponent()) != Viewer.this) return;
+                w.consume();
+                long now = System.currentTimeMillis();
+                if (now - last < 120 || w.getWheelRotation() == 0) return;   // גלגלת מהירה / משטח מגע — צעד אחד בכל פעם
+                last = now;
+                zoomStep(w.getWheelRotation() < 0 ? 1 : -1);
+            }
+        }, java.awt.AWTEvent.MOUSE_WHEEL_EVENT_MASK);
     }
 
     private void bind(JComponent root, InputMap im, String name, final Runnable r, int... codes) {
@@ -1086,7 +1214,7 @@ final class Viewer extends JFrame {
     private final class Gutter extends JComponent {
         @Override
         public Dimension getPreferredSize() {
-            FontMetrics fm = getFontMetrics(Theme.mono);
+            FontMetrics fm = getFontMetrics(code.getFont());
             int digits = Math.max(2, String.valueOf(code.getLineCount()).length());
             return new Dimension(fm.charWidth('0') * digits + 30, code.getPreferredSize().height);
         }
@@ -1102,7 +1230,7 @@ final class Viewer extends JFrame {
             g.fillRect(clip.x, clip.y, clip.width, clip.height);
             g.setColor(Theme.BORDER);
             g.drawLine(getWidth() - 1, clip.y, getWidth() - 1, clip.y + clip.height);
-            FontMetrics fm = g.getFontMetrics(Theme.mono);
+            FontMetrics fm = g.getFontMetrics(code.getFont());
             int n = code.getLineCount();
             for (int i = 0; i < n; i++) {
                 Rectangle r;
@@ -1123,7 +1251,7 @@ final class Viewer extends JFrame {
                     g.fill(a);
                 }
                 String s = String.valueOf(i + 1);
-                g.setFont(cur ? Theme.mono.deriveFont(Font.BOLD) : Theme.mono);
+                g.setFont(cur ? code.getFont().deriveFont(Font.BOLD) : code.getFont());
                 g.setColor(cur ? Theme.TEXT : new Color(0xA0A7B4));
                 g.drawString(s, getWidth() - 10 - fm.stringWidth(s), r.y + fm.getAscent() + (r.height - fm.getHeight()) / 2);
             }
@@ -1256,7 +1384,7 @@ final class Viewer extends JFrame {
             head.add(where);
             add(head, BorderLayout.NORTH);
 
-            field.setFont(Theme.monoBig);
+            field.setFont(Theme.z(Theme.monoBig));
             field.setForeground(Theme.TEXT);
             field.setToolTipText(Syntax.csharp ? "אפשר להקליד גם בחלון הקונסול / בטרמינל של VS Code"
                     : "אפשר להקליד גם בקונסול של Eclipse / בטרמינל של VS Code");
@@ -1341,7 +1469,7 @@ final class Viewer extends JFrame {
                 sub.setForeground(Theme.MUTED);
                 titles.add(sub);
             }
-            head.add(titles, BorderLayout.LINE_START);
+            head.add(titles, BorderLayout.CENTER);   // במרכז: כשהכרטיס צר הכותרת נחתכת, ולא עולה על הכפתורים
             if (tools != null) head.add(tools, BorderLayout.LINE_END);
             add(head, BorderLayout.NORTH);
             JPanel body = new JPanel(new BorderLayout());

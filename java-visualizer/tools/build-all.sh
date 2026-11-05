@@ -25,6 +25,12 @@ dotnet build csharp/Unit4.CollectionsLib/Unit4.CollectionsLib.csproj -c Release 
 rm -rf build/dsviz-cs-win
 dotnet publish csharp/DsViz.Runner/DsViz.Runner.csproj -c Release -r win-x64 --self-contained -p:PublishReadyToRun=true -p:DebugType=none \
     -o build/dsviz-cs-win -v q --nologo
+# סרגל הכלים של DSViz ב-Visual Studio (הרחבה, נבנית ב-CI של Windows — .github/workflows/dsviz-vsix.yml — ונשמרת ב-csharp/vs-extension/prebuilt)
+if [ -f csharp/vs-extension/prebuilt/DsViz.VsExtension.vsix ]; then
+    cp csharp/vs-extension/prebuilt/DsViz.VsExtension.vsix installer/install-vsix.ps1 build/dsviz-cs-win/
+else
+    echo "  (אין csharp/vs-extension/prebuilt/DsViz.VsExtension.vsix — ההתקנה בלי סרגל הכלים של Visual Studio)"
+fi
 # התוסף של VS Code: הספרייה ודוגמאות C# (נכנסים ל-resources/cs בשלב של VS Code)
 rm -rf build/cs-resources && mkdir -p build/cs-resources/lib build/cs-resources/Examples
 cp build/cs-lib/Unit4.CollectionsLib.dll build/cs-resources/lib/

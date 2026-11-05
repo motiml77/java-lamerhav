@@ -152,6 +152,10 @@ function RunLikeVs([string]$id, [string]$projDir, [string]$name, [int]$wait = 40
     $lines = if (Test-Path $trace) { @(Get-Content $trace -Encoding utf8).Count } else { 0 }
     Check "$id-trace" ($p.ExitCode -eq 0 -and $lines -gt 5) "הרצה ויזואלית של $name רצה עד הסוף ($lines שורות בהקלטה)" "קוד $($p.ExitCode); $err"
     $pd = $projDir.TrimEnd('\') + '\'
+    # פרופיל מגרסה ישנה ("$(ProjectDir)" שנגמר ב-\): Windows מעביר C:\...\name" --trace ... כארגומנט אחד — dsviz-cs מפצל ומריץ, בלי חריגה
+    $trace2 = Join-Path $Out "$name.old.trace.txt"
+    $p3 = Start-Process $runner -ArgumentList "`"$pd`" --trace `"$trace2`"" -PassThru -Wait -NoNewWindow -RedirectStandardOutput "$o.old.txt" -RedirectStandardError "$e.old.txt"
+    Check "$id-oldprofile" ($p3.ExitCode -eq 0 -and (Test-Path $trace2)) "פרופיל ישן (נתיב שנגמר ב-\ לפני מרכאה): ההרצה של $name עברה" "קוד $($p3.ExitCode); $(Get-Content "$e.old.txt" -Raw -Encoding utf8)"
     $exe = [Environment]::ExpandEnvironmentVariables($pr.executablePath)
     $args1 = $pr.commandLineArgs.Replace('$(ProjectDir)', $pd)
     $wd = $pr.workingDirectory.Replace('$(ProjectDir)', $pd)

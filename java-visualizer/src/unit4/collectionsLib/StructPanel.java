@@ -313,7 +313,8 @@ final class StructPanel extends JPanel {
         double fit = (viewportWidth() - 4) / (double) natural.width;
         if (fitHeight && getParent() != null && getParent().getHeight() > 40)
             fit = Math.min(fit, (getParent().getHeight() - 4) / (double) natural.height);
-        double z = manualZoom > 0 ? manualZoom : Math.max(fitHeight ? 0.5 : 0.7, Math.min(1, fit));
+        // ההגדלה של כל החלון (Theme.visZoom) — מעל ההתאמה האוטומטית: המבנים גדלים כיחידה אחת (וגוללים אם צריך)
+        double z = manualZoom > 0 ? manualZoom : Math.max(fitHeight ? 0.5 : 0.7, Math.min(1, fit)) * Theme.visZoom;
         if (z != zoom) {
             zoom = z;
             if (zoomListener != null) {
@@ -557,7 +558,7 @@ final class StructPanel extends JPanel {
 
     /**
      * כרטיס לולאה: הכותרת (קוד), מספר הסיבוב, התנאי — עם הערכים ומה יצא (צבוע צהוב כשבודקים אותו עכשיו),
-     * ומה שהלולאה עוברת עליו: ב-for שסופר — "סרגל" הערכים (במערך: כל המערך, עם האיברים), בתור / מחסנית — מה נשאר בהם,
+     * ומה שהלולאה עוברת עליו: ב-for שסופר — ציר דק עם תג הערך (drawAxis; במערך: כל המערך, עם האיברים), בתור / מחסנית — מה נשאר בהם,
      * ברשימה — על מה המצביע, וב-while — איך המשתנה שבתנאי השתנה מסיבוב לסיבוב.
      */
     private Dimension drawLoop(Graphics2D g, LoopView v, int x0, int y) {
@@ -572,7 +573,8 @@ final class StructPanel extends JPanel {
         String subjLabel = arr && v.subjectKind != null ? "עובר על ה" + v.subjectKind + " " + v.subjectName : null;
         String hist = v.history.isEmpty() ? null : String.join("  →  ", v.history);
         String histLbl = hist == null ? null : "הערך של " + v.historyVar + " בתחילת כל סיבוב:";
-        int trackW = n == 0 ? 0 : (n + 1) * cw + 20;
+        boolean axis = !arr && v.axisCount > 0 && v.var != null;   // for שסופר (לא על מערך): תג עם הערך + ציר דק, במקום שורת תיבות
+        int trackW = axis ? AXIS_W : n == 0 ? 0 : (n + 1) * cw + 20;
         int structW = v.structItems.isEmpty() ? 0 : v.structItems.size() * 34 + 140;
         int lblW = textWidth("בודקים — יוצאים מהלולאה", SMALL_B);
         int w = Math.max(340, 24 + max(textWidth(v.header, mono) + textWidth(badge, SMALL_B) + textWidth(v.title, SMALL) + 64,
@@ -580,7 +582,7 @@ final class StructPanel extends JPanel {
                 trackW, structW, v.structNote == null ? 0 : textWidth(v.structNote, SMALL_B) + 30,
                 hist == null ? 0 : textWidth(hist, monoP) + textWidth(histLbl, SMALL) + 40,
                 v.note == null ? 0 : textWidth(v.note, SMALL_B) + 30));
-        int h = 14 + 22 + (cond != null ? 28 : 0) + (subjLabel != null ? 20 : 0) + (n > 0 ? 22 + ch + (arr ? 34 : 20) : v.var != null && v.varValue != null ? 22 : 0)
+        int h = 14 + 22 + (cond != null ? 28 : 0) + (subjLabel != null ? 20 : 0) + (axis ? AXIS_H : n > 0 ? 22 + ch + (arr ? 34 : 20) : v.var != null && v.varValue != null ? 22 : 0)
                 + (v.structItems.isEmpty() ? 0 : 40) + (v.structNote != null ? 22 : 0) + (hist != null ? 24 : 0) + (v.note != null ? 24 : 0) + 8;
         if (g == null) return new Dimension(w + (x - x0), h);
 
@@ -634,6 +636,11 @@ final class StructPanel extends JPanel {
             g.drawString(subjLabel, x + w - 18 - textWidth(subjLabel, SMALL_B), cy + 12);
             cy += 20;
         }
+        // הציר: תג עם הערך הנוכחי, ומתחתיו קו דק — רק ההתחלה והיציאה ממוספרות
+        if (axis) {
+            drawAxis(g, v, accent, mono, x + 16, x + w - 16, cy);
+            cy += AXIS_H;
+        } else
         // הסרגל: הערכים של המשתנה (במערך — כל המערך: האיבר בתא, האינדקס מתחת)
         if (n > 0) {
             int tx = x + 16, top = cy + 18;
@@ -724,6 +731,78 @@ final class StructPanel extends JPanel {
             g.drawString(v.note, x + w - 18 - textWidth(v.note, SMALL_B), cy + 15);
         }
         return new Dimension(w + (x - x0), h);
+    }
+
+    private static final int AXIS_W = 380, AXIS_H = 76, AXIS_DOTS = 30;
+    private static final Color AXIS_TODO = new Color(0xC9CFDA);
+
+    /**
+     * ציר הערכים של for שסופר: תג אחד בולט עם הערך עכשיו (i = 3), ומתחתיו קו דק מההתחלה עד היציאה. כל סיבוב — נקודה
+     * קטנה (כבר עבר: ירוק, עכשיו: גדולה בצבע הלולאה, עוד לא: ריקה); בלולאה ארוכה (יותר מ-30 סיבובים) — קו רציף עם התקדמות,
+     * בלי נקודות. ממוספרים רק הקצוות: הערך הראשון והערך שבו יוצאים מהלולאה. הציר תמיד זז משמאל לימין (גם ב-i--).
+     * left / right = הגבולות של הכרטיס (עם שוליים), top = השורה העליונה של הציר.
+     */
+    private void drawAxis(Graphics2D g, LoopView v, Color accent, Font mono, int left, int right, int top) {
+        long count = v.axisCount, exit = v.axisStart + count * v.axisStep;
+        boolean done = v.axisStep > 0 ? v.axisNow >= exit : v.axisNow <= exit;   // כבר יצאנו (הערך עבר את האחרון)
+        int xa = left + 14, xb = right - 14, axisY = top + 44;
+        // התג: i = 3
+        String tag = v.var + " = " + v.axisNow;
+        int th = 24, tw = textWidth(tag, mono) + 22;
+        g.setColor(done ? MUTED : accent);
+        g.fillRoundRect(left, top + 2, tw, th, th, th);
+        g.setColor(Color.WHITE);
+        center(g, tag, mono, left + tw / 2, top + 2 + th / 2);
+        // "יציאה" מעל קצה הציר
+        g.setColor(done ? GHOST : MUTED);
+        center(g, "יציאה", SMALL, xb, top + 2 + th / 2);
+        // מקום של ערך על הציר: ההתחלה בקצה אחד, היציאה בקצה השני (ערך שמחוץ לטווח — נצמד לקצה)
+        double span = (double) (exit - v.axisStart);
+        double fNow = Math.max(0, Math.min(1, (v.axisNow - v.axisStart) / span));
+        int xNow = xa + (int) Math.round(fNow * (xb - xa));
+        // הקו: מה שעבר (ירוק) ומה שנשאר (אפור)
+        g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(AXIS_TODO);
+        g.drawLine(xNow, axisY, xb, axisY);
+        g.setColor(DONE_LINE);
+        g.drawLine(xa, axisY, xNow, axisY);
+        // הנקודות (לולאה קצרה): נקודה לכל סיבוב
+        if (count <= AXIS_DOTS) {
+            for (long k = 0; k < count; k++) {
+                long val = v.axisStart + k * v.axisStep;
+                int dx = xa + (int) Math.round((double) (val - v.axisStart) / span * (xb - xa));
+                boolean past = v.axisStep > 0 ? val < v.axisNow : val > v.axisNow;
+                if (val == v.axisNow && !done) continue;   // הנוכחית — מצוירת בסוף, גדולה
+                g.setColor(past ? DONE_LINE : Color.WHITE);
+                g.fillOval(dx - 4, axisY - 4, 8, 8);
+                g.setColor(past ? DONE_LINE : AXIS_TODO);
+                g.setStroke(new BasicStroke(1.6f));
+                g.drawOval(dx - 4, axisY - 4, 8, 8);
+            }
+        }
+        // היציאה: טבעת מקווקוות (אדומה כשכבר יצאנו)
+        g.setColor(done ? GHOST_BG : Color.WHITE);
+        g.fillOval(xb - 6, axisY - 6, 12, 12);
+        g.setColor(done ? GHOST : AXIS_TODO);
+        g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] { 2.5f, 2f }, 0f));
+        g.drawOval(xb - 6, axisY - 6, 12, 12);
+        // המקום הנוכחי
+        if (!done) {
+            g.setColor(Color.WHITE);
+            g.fillOval(xNow - 9, axisY - 9, 18, 18);
+            g.setColor(accent);
+            g.fillOval(xNow - 7, axisY - 7, 14, 14);
+        }
+        // המספרים: רק ההתחלה והיציאה (ובלולאה ארוכה — כמה סיבובים יש)
+        g.setColor(INK);
+        center(g, String.valueOf(v.axisStart), SMALL_B, xa, top + 62);
+        g.setColor(done ? GHOST : INK);
+        center(g, String.valueOf(exit), SMALL_B, xb, top + 62);
+        if (count > AXIS_DOTS) {
+            g.setColor(MUTED);
+            center(g, count + " סיבובים בסך הכול", SMALL, (xa + xb) / 2, top + 62);
+        }
+        g.setStroke(THIN);
     }
 
     private static int max(int... xs) {

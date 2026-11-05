@@ -330,6 +330,15 @@ final class Look {
         private int textWidth = -1;
         private Image cache;
         private String cacheKey;
+        /** סמל קטן (למשל המנורה) מימין לטקסט — במקום אמוג'י, שהגופן של SWT ב-Windows לא מצייר (יוצא ריבוע ריק) */
+        private Image icon;
+
+        void setIcon(Image icon) {
+            this.icon = icon;
+            textWidth = -1;
+            if (cache != null) { cache.dispose(); cache = null; }
+            redraw();
+        }
 
         Round(Composite parent, String text, boolean primary, final Runnable action) {
             super(parent, SWT.NO_BACKGROUND | SWT.LEFT_TO_RIGHT | SWT.NO_FOCUS);
@@ -363,7 +372,11 @@ final class Look {
                 textWidth = gc.textExtent(text).x;
                 gc.dispose();
             }
-            return new Point(Math.max(primary ? 130 : 80, textWidth + 36), 32);
+            return new Point(Math.max(primary ? 130 : 80, textWidth + 36 + (icon != null ? iconW() + 6 : 0)), 32);
+        }
+
+        private int iconW() {
+            return icon == null || icon.isDisposed() ? 0 : icon.getBounds().width;
         }
 
         private void paint(GC target) {
@@ -399,7 +412,9 @@ final class Look {
             gc.setFont(font(d, 0, primary ? SWT.BOLD : SWT.NORMAL));
             Point e = gc.textExtent(text);
             gc.setForeground(color(d, ink));
-            gc.drawString(text, (s.x - e.x) / 2, (s.y - e.y) / 2, true);
+            int iw = iconW(), total = e.x + (iw > 0 ? iw + 6 : 0), x0 = (s.x - total) / 2;
+            gc.drawString(text, x0, (s.y - e.y) / 2, true);
+            if (iw > 0) gc.drawImage(icon, x0 + e.x + 6, (s.y - icon.getBounds().height) / 2);
         }
     }
 

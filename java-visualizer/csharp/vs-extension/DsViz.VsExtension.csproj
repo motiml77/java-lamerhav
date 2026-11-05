@@ -1,0 +1,90 @@
+<Project>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <!-- הרחבה ל-Visual Studio (VSIX רגיל, בתוך התהליך): סרגל כלים של DSViz בפני עצמו, בראש החלון (DefaultDocked), בלי הרשאות מנהל להתקנה.
+       בנייה: msbuild /restore -p:Configuration=Release (על Windows; ב-CI: .github/workflows/dsviz-vsix.yml) → bin\Release\net472\DsViz.VsExtension.vsix -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>DsViz.VsExtension</RootNamespace>
+    <AssemblyName>DsViz.VsExtension</AssemblyName>
+    <Version>1.0.1</Version>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <UseCodebase>true</UseCodebase>
+    <CreateVsixContainer>true</CreateVsixContainer>
+    <DeployExtension>false</DeployExtension>
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <IncludeDebugSymbolsInVSIXContainer>false</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInLocalVSIXDeployment>false</IncludeDebugSymbolsInLocalVSIXDeployment>
+    <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
+    <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.12.40392" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.14.2120" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Design" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="Microsoft.CSharp" />
+    <!-- "הצעה לפתרון" בתוך הקוד (רכיב MEF + מנורה ב-WPF): MEF, WPF, וקריאת ה-JSON של החנות -->
+    <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="source.extension.vsixmanifest"><SubType>Designer</SubType></None>
+  </ItemGroup>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+  <!-- המטרות של VSSDK (vsct, pkgdef, הרכבת ה-VSIX) מגיעות מ-Visual Studio עצמו (עומס העבודה "Visual Studio extension development"), לא מהחבילה -->
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">17.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="Exists('$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets')" />
+
+  <!-- קומפילציית ה-vsct לתפריטים/סרגל כלים ידנית עם VSCT.exe מהחבילה, והטמעה ב-dll בשם Menus.ctmenu (בלי זה אין סרגל כלים).
+       הפרויקט הוא SDK-style, ומטרות ה-VSCTCompile של VSSDK לא רצות בו, לכן עושים זאת בעצמנו. -->
+  <UsingTask TaskName="DsVizWriteResources" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Cto Required="true" />
+      <Out Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        using (var w = new System.Resources.ResourceWriter(Out)) { w.AddResource("Menus.ctmenu", System.IO.File.ReadAllBytes(Cto)); w.Generate(); }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="DsVizCompileVsct" BeforeTargets="AssignTargetPaths;CoreCompile;PrepareResources" DependsOnTargets="">
+    <PropertyGroup>
+      <_VsctExe>$(NuGetPackageRoot)microsoft.vssdk.buildtools\17.14.2120\tools\vssdk\bin\VSCT.exe</_VsctExe>
+      <_VsctInc>$(NuGetPackageRoot)microsoft.vssdk.buildtools\17.14.2120\tools\vssdk\inc</_VsctInc>
+    </PropertyGroup>
+    <PropertyGroup>
+      <_VsctWork>$(MSBuildProjectDirectory)\$(IntermediateOutputPath)vsct\</_VsctWork>
+      <_VsctOut>$(_VsctWork)DsVizPackage.cto</_VsctOut>
+    </PropertyGroup>
+    <MakeDir Directories="$(_VsctWork)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\DsVizPackage.vsct;$(_VsctInc)\stdidcmd.h;$(_VsctInc)\vsshlids.h;$(_VsctInc)\sharedids.h;$(_VsctInc)\virtkeys.h;$(_VsctInc)\MnuHelpIds.h;$(_VsctInc)\sccmnid.h;$(_VsctInc)\wbids.h;$(_VsctInc)\editids.h;$(_VsctInc)\venusids.h" DestinationFolder="$(_VsctWork)" />
+    <Exec WorkingDirectory="$(_VsctWork)" Command="&quot;$(_VsctExe)&quot; DsVizPackage.vsct DsVizPackage.cto" />
+    <!-- VS מחפש את Menus.ctmenu בתוך משאב מנוהל בשם VSPackage.resources (כך VSSDK ממזג את ה-cto), לא כמשאב עצמאי -->
+    <DsVizWriteResources Cto="$(_VsctOut)" Out="$(_VsctWork)VSPackage.resources" />
+    <ItemGroup>
+      <EmbeddedResource Include="$(_VsctWork)VSPackage.resources" LogicalName="VSPackage.resources" />
+    </ItemGroup>
+    <Message Importance="high" Text="DSViz: Menus.ctmenu = $(_VsctOut) ($([System.IO.File]::Exists('$(_VsctOut)')))" />
+  </Target>
+
+</Project>
