@@ -4,7 +4,7 @@ window.META = {
   pal: ['#2f6fed', '#22d3ee', '#865fc5'], poster: 14,
   outro: 'סרגל הכלים של DSViz · תרגיל חדש · מאגר שאלות · הרצה ויזואלית',
   steps: [
-    ['פותחים את תיקיית התרגילים', 'בשולחן העבודה: "תרגילי C# (מבני נתונים)" — נפתח Visual Studio עם הפתרון והספרייה כבר מוכנות.', 'פותחים את התיקייה'],
+    ['פרויקט חדש מהתבנית של DSViz', 'File ← New ← Project, מחפשים "DSViz" ובוחרים "תרגיל מבני נתונים (DSViz)" — פרויקט קונסול עם הספרייה כבר מחוברת.', 'פרויקט חדש'],
     ['סרגל הכלים של DSViz', 'בראש החלון, בפני עצמו: תרגיל חדש · הוספת מבנה · מאגר שאלות · שליחה · הצעה לפתרון · הרצה ויזואלית.', 'סרגל הכלים'],
     ['"תרגיל חדש"', 'בוחרים מבנה נתונים ולוחצים "יצירת התרגיל" — הפרויקט נוצר בפתרון.', 'תרגיל חדש'],
     ['"מאגר שאלות"', 'שאלה מוכנה מהמאגר: בוחרים (או "שאלה אקראית") ולוחצים "צור תרגיל".', 'מאגר שאלות'],
@@ -22,10 +22,18 @@ window.SCRIPT = B => {
   B.code(['using System;', 'using Unit4.CollectionsLib;', '', 'class Program', '{', '    static void Main(string[] args)', '    {', '', '    }', '}'], { file: 'Program.cs' });
   B.intro(2.8);
 
-  // 1. פותחים את התיקייה
-  B.step(0).wait(.5);
-  B.bubble('שולחן העבודה ← "תרגילי C# (מבני נתונים)"', { x: 640, y: 380 }, { kind: 'info', dur: 2.6, wait: 2.8 });
-  B.explain('tree:Exercise', 'נפתח Visual Studio עם הפתרון — הספרייה של DSViz כבר מחוברת, ואין מה להתקין', { side: 'left', dur: 3.2 });
+  // 1. פרויקט חדש מהתבנית של DSViz
+  B.step(0).wait(.4);
+  B.bubble('File ← New ← Project  (Ctrl+Shift+N)', { x: 640, y: 330 }, { kind: 'info', dur: 2.4, wait: 2.6 });
+  B.dialog('f_open/p0', 'Create a new project', { wait: 1.2 });
+  B.explain('dlg:text:0', 'בחיפוש כותבים DSViz', { side: 'bottom', dur: 2.4 });
+  B.press('dlg:chip:' + D.tmpl, 'בוחרים "תרגיל מבני נתונים (DSViz)"', { hold: 1.6 });
+  B.press('dlg:round:Next', 'Next', { hold: 1.2 }).swap('f_open/p1').wait(.8);
+  B.explain('dlg:text:0', 'שם לפרויקט (אפשר להשאיר Targil1)', { side: 'bottom', dur: 2.4 });
+  B.press('dlg:round:Create', 'Create', { hold: 1.4 }).closeDialog(.4);
+  B.files([[0, "Solution 'Targil1' (1 of 1 project)"], [1, 'Targil1'], [2, 'Properties'], [2, 'lib'], [2, 'Program.cs', true]]);
+  B.code(D.tmplCode, { file: 'Program.cs' });
+  B.explain('tree:Targil1', 'נפתח פרויקט עם תרגיל מחסנית מוכן — והספרייה של DSViz כבר מחוברת', { kind: 'ok', side: 'left', dur: 3.2 });
 
   // 2. סרגל הכלים
   B.step(1).wait(.3);

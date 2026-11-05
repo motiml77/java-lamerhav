@@ -26,6 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="System.Design" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="source.extension.vsixmanifest"><SubType>Designer</SubType></None>
     <VSCTCompile Include="DsVizPackage.vsct"><ResourceName>Menus.ctmenu</ResourceName></VSCTCompile>
   </ItemGroup>

@@ -130,6 +130,33 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
     }
     return out;
   },
+  /** חלון של הסביבה שאי אפשר לצלם כאן (למשל "Create a new project" של Visual Studio): HTML → תמונה + מיקומי הרכיבים לפי data-c="סוג|טקסט" */
+  async mock(name, shots) {
+    let pw;
+    for (const p of ['playwright', '/opt/node-tools/node_modules/playwright']) { try { pw = require(p); break; } catch (e) { } }
+    const dir = path.join(W, 'dlg', name);
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(dir, { recursive: true });
+    const b = await pw.chromium.launch();
+    const out = {};
+    for (const [key, shot] of Object.entries(shots)) {
+      const pg = await b.newPage({ viewport: { width: shot.w, height: shot.h } });
+      await pg.setContent(shot.html, { waitUntil: 'load' });
+      await pg.screenshot({ path: path.join(dir, key + '.png') });
+      const controls = await pg.evaluate(() => [...document.querySelectorAll('[data-c]')].map(e => {
+        const r = e.getBoundingClientRect(), [type, text] = e.getAttribute('data-c').split('|');
+        return { type, text, x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), enabled: true };
+      }));
+      let ti = 0;
+      for (const c of controls) if (c.type === 'Text') c.index = ti++;
+      const js = { w: shot.w, h: shot.h, controls, src: `work/${wid}/dlg/${name}/${key}.png` };
+      this.assets[`${name}/${key}`] = js;
+      out[key] = js;
+      await pg.close();
+    }
+    await b.close();
+    return out;
+  },
   write(file, text) { fs.writeFileSync(path.join(W, file), text); },
 };
 
