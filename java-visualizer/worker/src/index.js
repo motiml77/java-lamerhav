@@ -37,8 +37,8 @@ import { accessEnabled, handleAccess, geminiGate } from './access/index.js';
 
 const LIMITS = {
   files: 10,
-  fileBytes: 10 * 1024 * 1024,
-  totalBytes: 14 * 1024 * 1024,   // ב-base64 זה כ-19MB — מתחת למגבלת 20MB של בקשה ל-Gemini
+  fileBytes: 1024 * 1024,
+  totalBytes: 1024 * 1024,   // הגבלה של בעל המערכת: עד 1MB ביחד לכל שליחה
   textChars: 60000,
   noteChars: 600,
   repairChars: 120000,
@@ -141,7 +141,7 @@ async function handle(request, env, ctx) {
   if (probe) return reply(200, { ok: true, version: VERSION, models: env.OPENAI_API_KEY ? await probeOpenAI(env) : await probeGemini(env) });
 
   const declared = +(request.headers.get('content-length') || 0);
-  if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 14MB ביחד).');
+  if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 1MB ביחד).');
 
   let req;
   if (url.pathname === '/v1/exercise' || site) req = await exerciseParts(request);
@@ -226,10 +226,10 @@ async function exerciseParts(request) {
   if (files.length > LIMITS.files) throw new Fail(413, 'too_many', `אפשר לשלוח עד ${LIMITS.files} קבצים.`);
   let total = 0;
   for (const f of files) {
-    if (f.size > LIMITS.fileBytes) throw new Fail(413, 'too_big', 'אחד הקבצים גדול מדי (עד 10MB).');
+    if (f.size > LIMITS.fileBytes) throw new Fail(413, 'too_big', 'אחד הקבצים גדול מדי (עד 1MB).');
     total += f.size;
   }
-  if (total > LIMITS.totalBytes) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 14MB ביחד).');
+  if (total > LIMITS.totalBytes) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 1MB ביחד).');
 
   // החלקים לבקשה ל-Gemini — כמחרוזות JSON מוכנות. הקבצים עצמם לא עוברים JSON.parse/stringify (זה איטי מאוד
   // בקבצים גדולים, ול-Worker יש מגבלת זמן מעבד) — ה-base64 נוצר בקוד מקומי ומשורשר כמו שהוא.

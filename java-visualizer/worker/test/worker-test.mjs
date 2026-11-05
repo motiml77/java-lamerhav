@@ -573,8 +573,18 @@ await test('מכסה יומית (KV)', async () => {
   assert.equal((await call(req(), env)).status, 429);
 });
 
-await test('קובץ גדול (8MB) — הבקשה נבנית בלי JSON.stringify על הקובץ', async () => {
-  const big = new Uint8Array(8 * 1024 * 1024);
+await test('מעל 1MB — נדחה (קובץ בודד וגם ביחד)', async () => {
+  const big = new Uint8Array(1024 * 1024 + 10); big.set(PDF);
+  let r = await call(exerciseRequest({ files: [{ bytes: big, name: 'big.pdf', type: 'application/pdf' }] }));
+  assert.equal(r.status, 413);
+  assert.match(r.body.error, /1MB/);
+  const half = new Uint8Array(600 * 1024); half.set(PDF);
+  r = await call(exerciseRequest({ files: [{ bytes: half, name: 'a.pdf', type: 'application/pdf' }, { bytes: half, name: 'b.pdf', type: 'application/pdf' }] }));
+  assert.equal(r.status, 413);
+});
+
+await test('קובץ של כמעט 1MB — הבקשה נבנית בלי JSON.stringify על הקובץ', async () => {
+  const big = new Uint8Array(1000 * 1024);
   big.set(PDF);
   const t0 = performance.now();
   const r = await call(exerciseRequest({ files: [{ bytes: big, name: 'big.pdf', type: 'application/pdf' }] }));
@@ -582,7 +592,7 @@ await test('קובץ גדול (8MB) — הבקשה נבנית בלי JSON.string
   assert.equal(r.status, 200);
   const sent = JSON.parse(calls[0].init.body);
   assert.equal(Buffer.from(sent.contents[0].parts.find(p => p.inlineData).inlineData.data, 'base64').length, big.length);
-  console.log(`   (8MB: ${ms.toFixed(0)}ms בסך הכול, כולל בניית FormData בבדיקה)`);
+  console.log(`   (1MB: ${ms.toFixed(0)}ms בסך הכול, כולל בניית FormData בבדיקה)`);
 });
 
 // ------------------------------------------------------------------ נעילה לתשלום

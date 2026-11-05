@@ -2057,9 +2057,9 @@ async function handleAccess(request, env, ctx, url) {
 // src/index.js
 var LIMITS = {
   files: 10,
-  fileBytes: 10 * 1024 * 1024,
-  totalBytes: 14 * 1024 * 1024,
-  // ב-base64 זה כ-19MB — מתחת למגבלת 20MB של בקשה ל-Gemini
+  fileBytes: 1024 * 1024,
+  totalBytes: 1024 * 1024,
+  // הגבלה של בעל המערכת: עד 1MB ביחד לכל שליחה
   textChars: 6e4,
   noteChars: 600,
   repairChars: 12e4
@@ -2150,7 +2150,7 @@ async function handle(request, env, ctx) {
   await rateLimit(env, gate ? gate.subject : ip, site);
   if (probe) return reply(200, { ok: true, version: VERSION, models: env.OPENAI_API_KEY ? await probeOpenAI(env) : await probeGemini(env) });
   const declared = +(request.headers.get("content-length") || 0);
-  if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, "too_big", "\u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D2\u05D3\u05D5\u05DC\u05D9\u05DD \u05DE\u05D3\u05D9 (\u05E2\u05D3 14MB \u05D1\u05D9\u05D7\u05D3).");
+  if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, "too_big", "\u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D2\u05D3\u05D5\u05DC\u05D9\u05DD \u05DE\u05D3\u05D9 (\u05E2\u05D3 1MB \u05D1\u05D9\u05D7\u05D3).");
   let req;
   if (url.pathname === "/v1/exercise" || site) req = await exerciseParts(request);
   else req = await repairParts(request);
@@ -2225,10 +2225,10 @@ async function exerciseParts(request) {
   if (files.length > LIMITS.files) throw new Fail(413, "too_many", `\u05D0\u05E4\u05E9\u05E8 \u05DC\u05E9\u05DC\u05D5\u05D7 \u05E2\u05D3 ${LIMITS.files} \u05E7\u05D1\u05E6\u05D9\u05DD.`);
   let total = 0;
   for (const f of files) {
-    if (f.size > LIMITS.fileBytes) throw new Fail(413, "too_big", "\u05D0\u05D7\u05D3 \u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9 (\u05E2\u05D3 10MB).");
+    if (f.size > LIMITS.fileBytes) throw new Fail(413, "too_big", "\u05D0\u05D7\u05D3 \u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9 (\u05E2\u05D3 1MB).");
     total += f.size;
   }
-  if (total > LIMITS.totalBytes) throw new Fail(413, "too_big", "\u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D2\u05D3\u05D5\u05DC\u05D9\u05DD \u05DE\u05D3\u05D9 (\u05E2\u05D3 14MB \u05D1\u05D9\u05D7\u05D3).");
+  if (total > LIMITS.totalBytes) throw new Fail(413, "too_big", "\u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D2\u05D3\u05D5\u05DC\u05D9\u05DD \u05DE\u05D3\u05D9 (\u05E2\u05D3 1MB \u05D1\u05D9\u05D7\u05D3).");
   const howMany = files.length + texts.length;
   const parts = [JSON.stringify({ text: orderNotice(howMany) })];
   for (const [i, f] of files.entries()) {

@@ -40,8 +40,9 @@ final class ExerciseFiles {
     private ExerciseFiles() {}
 
     static final int MAX_ITEMS = 10;
-    static final long MAX_TOTAL = 14L * 1024 * 1024, MAX_FILE = 10L * 1024 * 1024;
+    static final long MAX_TOTAL = 1024L * 1024, MAX_FILE = 1024L * 1024;
     static final int MAX_SIDE = 2000, MAX_TEXT = 60000;
+    static final long IMG_BUDGET = 700L * 1024;   // תמונה אחת מכווצת עד כאן, כדי שכמה תמונות ייכנסו ב-1MB ביחד
 
     /** שגיאה שמוצגת לתלמיד כמו שהיא */
     static final class UserError extends Exception {
@@ -97,7 +98,7 @@ final class ExerciseFiles {
 
     static Item fromBytes(String name, String ext, byte[] data) throws UserError {
         if (isPdf(data)) {
-            if (data.length > MAX_FILE) throw new UserError("קובץ ה-PDF " + name + " גדול מדי (עד 10MB). אפשר לשלוח רק את העמודים של התרגיל, או צילומי מסך.");
+            if (data.length > MAX_FILE) throw new UserError("קובץ ה-PDF " + name + " גדול מדי (עד 1MB). אפשר לשלוח רק את העמודים של התרגיל, או צילומי מסך.");
             Item it = new Item(name, "pdf");
             it.parts.add(new Part("application/pdf", data));
             return it;
@@ -146,7 +147,7 @@ final class ExerciseFiles {
             }
         }
         if (files > MAX_ITEMS) throw new UserError("אפשר לשלוח עד " + MAX_ITEMS + " קבצים ותמונות ביחד (כולל תמונות שבתוך קובצי Word).");
-        if (total > MAX_TOTAL) throw new UserError("הקבצים גדולים מדי ביחד (עד 14MB). הסירו חלק מהם, או שלחו רק את עמודי התרגיל.");
+        if (total > MAX_TOTAL) throw new UserError("הקבצים גדולים מדי ביחד (עד 1MB). הסירו חלק מהם, או שלחו רק את עמודי התרגיל.");
         if (text > MAX_TEXT) throw new UserError("יש יותר מדי טקסט — שלחו רק את התרגיל עצמו.");
     }
 
@@ -166,15 +167,22 @@ final class ExerciseFiles {
         if (img == null) throw new UserError("הקובץ " + name + " הוא לא תמונה שאפשר לקרוא (שלחו PDF, PNG, JPG או Word).");
         int w = img.getWidth(), h = img.getHeight();
         boolean small = Math.max(w, h) <= MAX_SIDE;
-        if (small && isJpeg(data) && data.length <= 2L * 1024 * 1024) return new Part("image/jpeg", data);
-        if (small && isPng(data) && data.length <= 1536L * 1024) return new Part("image/png", data);
+        if (small && isJpeg(data) && data.length <= IMG_BUDGET) return new Part("image/jpeg", data);
+        if (small && isPng(data) && data.length <= IMG_BUDGET) return new Part("image/png", data);
         BufferedImage rgb = scaled(img, small ? 1 : (double) MAX_SIDE / Math.max(w, h));
         try {
             if (isPng(data) || !isJpeg(data)) {   // צילומי מסך: PNG שומר על טקסט חד — אם הוא לא גדול מדי
                 byte[] png = png(rgb);
-                if (png.length <= 1536L * 1024) return new Part("image/png", png);
+                if (png.length <= IMG_BUDGET) return new Part("image/png", png);
             }
-            return new Part("image/jpeg", jpeg(rgb, 0.88f));
+            // מכווצים עד שנכנס בתקציב (כל השליחה מוגבלת ל-1MB): קודם איכות, ואז גודל
+            for (double k = 1; ; k *= 0.8) {
+                BufferedImage cur = k == 1 ? rgb : scaled(rgb, k);
+                for (float q : new float[] { 0.88f, 0.7f, 0.55f }) {
+                    byte[] j = jpeg(cur, q);
+                    if (j.length <= IMG_BUDGET || (k < 0.3 && q == 0.55f)) return new Part("image/jpeg", j);
+                }
+            }
         } catch (IOException e) {
             throw new UserError("לא הצלחתי להכין את התמונה " + name + ". שלחו אותה כ-PNG או JPG.");
         }
