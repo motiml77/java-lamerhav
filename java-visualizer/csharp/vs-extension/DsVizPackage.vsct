@@ -34,6 +34,9 @@
       </Button>
       <Button guid="guidDsVizCmdSet" id="CmdBank" priority="0x0300" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
+        <!-- מאגר השאלות הוא של המעבדה בלבד: מוצג רק כשהוא מותקן (BeforeQueryStatus ב-DsVizPackage) -->
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>TextOnly</CommandFlag>
         <Strings><ButtonText>מאגר שאלות</ButtonText></Strings>
       </Button>

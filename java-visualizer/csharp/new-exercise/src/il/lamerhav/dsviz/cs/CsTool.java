@@ -66,13 +66,25 @@ public final class CsTool {
         }
         final String mode = args[0];
         final Path root = Paths.get(args[1]);
-        String preset = null, shot = null;
+        String preset = null, shot = null, focusFile = null, focusMethod = null;
+        int focusParams = -1;
         boolean open = true;
         for (int i = 2; i < args.length; i++) {
             if (args[i].equals("--preset") && i + 1 < args.length) preset = args[++i];
             else if (args[i].equals("--shot") && i + 1 < args.length) shot = args[++i];
             else if (args[i].equals("--no-open")) open = false;
+            else if (args[i].equals("--file") && i + 1 < args.length) focusFile = args[++i];        // "הצעה לפתרון": הקובץ והפעולה שממקדים בהם (המנורה בעורך)
+            else if (args[i].equals("--method") && i + 1 < args.length) focusMethod = args[++i];
+            else if (args[i].equals("--params") && i + 1 < args.length) {
+                try {
+                    focusParams = Integer.parseInt(args[++i].trim());
+                } catch (NumberFormatException ignored) {
+                    focusParams = -1;
+                }
+            }
         }
+        final String fFile = focusFile, fMethod = focusMethod;
+        final int fParams = focusParams;
         final String fPreset = preset, fShot = shot;
         final boolean fOpen = open;
         SwingUtilities.invokeAndWait(new Runnable() {
@@ -82,7 +94,7 @@ public final class CsTool {
                 if (mode.equals("help")) help(fShot);
                 else if (mode.equals("submit")) il.lamerhav.dsviz.VsSubmit.submit(root);       // שליחת תרגיל ב-C#
                 else if (mode.equals("solution")) {                                            // הצעה לפתרון ב-C# (חלון שנשאר פתוח)
-                    il.lamerhav.dsviz.VsSubmit.solutions(root);
+                    il.lamerhav.dsviz.VsSubmit.solutions(root, fFile, fMethod, fParams);
                     return;
                 }
                 else if (mode.equals("insert")) insert(root, fPreset, fShot);

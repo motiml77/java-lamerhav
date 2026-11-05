@@ -11,6 +11,7 @@ if (-not $pkgdef) { throw "לא נמצא pkgdef ב-$Bin" }
 Copy-Item $pkgdef.FullName (Join-Path $stage 'DsViz.VsExtension.pkgdef')
 $m = [IO.File]::ReadAllText($SourceManifest)
 $m = [regex]::Replace($m, '<Asset Type="Microsoft.VisualStudio.VsPackage"[^>]*/>', '<Asset Type="Microsoft.VisualStudio.VsPackage" Path="DsViz.VsExtension.pkgdef" />')
+$m = [regex]::Replace($m, '<Asset Type="Microsoft.VisualStudio.MefComponent"[^>]*/>', '<Asset Type="Microsoft.VisualStudio.MefComponent" Path="DsViz.VsExtension.dll" />')
 [IO.File]::WriteAllText((Join-Path $stage 'extension.vsixmanifest'), $m, (New-Object Text.UTF8Encoding($false)))
 $ct = '<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="vsixmanifest" ContentType="text/xml" /><Default Extension="dll" ContentType="application/octet-stream" /><Default Extension="pkgdef" ContentType="text/plain" /></Types>'
 [IO.File]::WriteAllText((Join-Path $stage '[Content_Types].xml'), $ct, (New-Object Text.UTF8Encoding($false)))

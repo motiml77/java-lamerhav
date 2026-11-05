@@ -67,6 +67,49 @@ if (@($found).Count -eq 0) { Info 'ההרחבה לא הותקנה — לא פו�
 Start-Sleep 2
 Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hidden
 
+# תרגיל ש-DSViz "יצר": קובץ עם שתי פעולות שיש להן הצעה בחנות (~/.dsviz/solutions.json — אותו פורמט כמו של VsSubmit), וקובץ רגיל בלי הצעות
+$exDir = Join-Path $env:RUNNER_TEMP 'Exercises\Ex01_Hints'
+New-Item -ItemType Directory -Force $exDir | Out-Null
+$body = @'
+using System;
+using System.Collections.Generic;
+
+public class Targil
+{
+    public static int Sum(Stack<int> s, int k)
+    {
+        // כאן כותבים את התשובה
+        return 0;
+    }
+
+    public static int Count(Dictionary<string, List<int>> d)
+    {
+        // כאן כותבים את התשובה
+        return 0;
+    }
+
+    public static void Main(string[] args)
+    {
+        Console.WriteLine(Count(null));
+    }
+}
+'@
+$hinted = Join-Path $exDir 'Targil.cs'
+$plain = Join-Path $exDir 'Plain.cs'
+Set-Content $hinted $body -Encoding UTF8
+Set-Content $plain ($body -replace 'class Targil', 'class Plain') -Encoding UTF8
+$storeDir = Join-Path $env:USERPROFILE '.dsviz'
+New-Item -ItemType Directory -Force $storeDir | Out-Null
+$store = @{ solutions = @(
+    @{ path = $hinted.Replace('\', '/'); class = 'Targil'; method = 'Sum'; params = @('Stack<int>', 'int'); label = 'א'; status = 'ok'; time = '2'; code = 'public static int Sum(Stack<int> s, int k) { return 1; }' },
+    @{ path = $hinted.Replace('\', '/'); class = 'Targil'; method = 'Count'; params = @('Dictionary<string, List<int>>'); label = 'ב'; status = 'ok'; time = '1'; code = 'public static int Count(Dictionary<string, List<int>> d) { return 2; }' }
+) }
+[IO.File]::WriteAllText((Join-Path $storeDir 'solutions.json'), ($store | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
+Info "חנות ההצעות: $storeDir\solutions.json ; קובץ עם הצעות: $hinted"
+$env:DSVIZ_VS_TRACE = '1'   # עקבות של הרכיב (MEF) גם ל-%LOCALAPPDATA%\DSViz\vs-trace.log
+Remove-Item "$env:LOCALAPPDATA\DSViz\vs-trace.log" -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:LOCALAPPDATA\DSViz\lab" -Recurse -Force -ErrorAction SilentlyContinue   # בלי מאגר שאלות מותקן: הכפתור "מאגר שאלות" מוסתר
+
 $proj = Join-Path $env:RUNNER_TEMP 'Targil1'
 dotnet new console -n Targil1 -o $proj --force | Out-Null
 $t0 = Get-Date
@@ -95,7 +138,42 @@ if ($ready) {
     Shot 'vs-toolbar'
     ($names | Select-Object -Unique) | Set-Content (Join-Path $Out 'toolbar-uia.txt') -Encoding utf8
     Info "רכיבים של DSViz ב-Visual Studio: $((($names | Select-Object -Unique)) -join ' ; ')"
-    Check 'toolbar-buttons' (@($names | Select-Object -Unique).Count -ge 3) 'בסרגל הכלים של DSViz נמצאו הכפתורים (תרגיל חדש / מאגר שאלות ...)' (($names | Select-Object -Unique) -join ' ; ')
+    Check 'toolbar-buttons' (@($names | Select-Object -Unique).Count -ge 3) 'בסרגל הכלים של DSViz נמצאו הכפתורים (תרגיל חדש / הוספת מבנה נתונים ...)' (($names | Select-Object -Unique) -join ' ; ')
+    Check 'bank-hidden' (-not ($names -contains 'מאגר שאלות')) 'בלי מאגר שאלות מותקן — הכפתור "מאגר שאלות" מוסתר' (($names | Select-Object -Unique) -join ' ; ')
+    # מאגר השאלות מותקן (קובץ ה-jar של המעבדה) → הכפתור מופיע (BeforeQueryStatus), בלי להפעיל מחדש את Visual Studio
+    New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\DSViz\lab" | Out-Null
+    Set-Content "$env:LOCALAPPDATA\DSViz\lab\dsviz-bank-vs.jar" 'dummy'
+    $bankShown = $false
+    for ($i = 0; $i -lt 15 -and -not $bankShown; $i++) {
+        Start-Sleep 3
+        $bankShown = @(VsElements $p.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -eq 'מאגר שאלות' }).Count -gt 0
+    }
+    Check 'bank-visible' $bankShown 'אחרי התקנת dsviz-bank-vs.jar — הכפתור "מאגר שאלות" מופיע בסרגל'
+    Shot 'vs-toolbar-bank'
+
+    # ---- "הצעה לפתרון" בתוך הקוד: פותחים את קובץ התרגיל (מופע ה-Visual Studio שפתוח) ומחפשים את המנורות בשולי העורך
+    Start-Process $devenv -ArgumentList "/Edit `"$plain`"" -WindowStyle Hidden
+    Start-Sleep 12
+    Shot 'vs-plain'
+    $plainLamps = @(VsElements $p.Id | Where-Object { (ElName $_) -eq 'הצעה לפתרון' }).Count
+    Start-Process $devenv -ArgumentList "/Edit `"$hinted`"" -WindowStyle Hidden
+    $lamps = @()
+    for ($i = 0; $i -lt 30; $i++) {   # עד 90 שניות: שירות השפה של C# נטען לאט
+        Start-Sleep 3
+        $lamps = @(VsElements $p.Id | Where-Object { (ElName $_) -eq 'הצעה לפתרון' })
+        if ($lamps.Count -ge 2) { break }
+    }
+    Start-Sleep 2
+    Shot 'vs-glyph'
+    Info "מנורות 'הצעה לפתרון' בעורך: $($lamps.Count) (בקובץ רגיל: $plainLamps)"
+    Check 'glyph-lamps' ($lamps.Count -ge 2) 'ליד כל פעולה עם הצעה (Sum, Count) יש מנורה בשולי העורך' "$($lamps.Count)"
+    Check 'plain-no-lamps' ($plainLamps -eq 0) 'בקובץ C# רגיל אין מנורות' "$plainLamps"
+    if ($lamps.Count -gt 0) {
+        $how = ClickEl $lamps[0]
+        Info "לחיצה על המנורה: $how"
+        Start-Sleep 4
+        Shot 'vs-glyph-click'
+    }
     if ($names.Count -eq 0) {
         # הסרגל לא מוצג כברירת מחדל? פותחים View ← Toolbars בצילום
         $wsh = New-Object -ComObject WScript.Shell; [void]$wsh.AppActivate($p.Id)
@@ -110,5 +188,24 @@ Get-ChildItem "$env:APPDATA\Microsoft\VisualStudio" -Recurse -Filter ActivityLog
     Copy-Item $_.FullName (Join-Path $Out ('ActivityLog-' + $_.Directory.Name + '.xml')) -ErrorAction SilentlyContinue
     Select-String -Path $_.FullName -Pattern 'DsViz|7b2f4d1e|vsixmanifest|ctmenu|Menus' -ErrorAction SilentlyContinue | Select-Object -First 25 | ForEach-Object { Info "  log| $($_.Line.Trim())" }
 }
+# עקבות הרכיב (MEF) ויומן ההרכבה של Visual Studio
+$trace = "$env:LOCALAPPDATA\DSViz\vs-trace.log"
+$traceText = ''
+if (Test-Path $trace) { Copy-Item $trace (Join-Path $Out 'vs-trace.log'); $traceText = Get-Content $trace -Raw; Get-Content $trace | Select-Object -First 30 | ForEach-Object { Info "  trace| $_" } }
+else { Info 'אין vs-trace.log — הרכיב לא כתב כלום' }
+$logText = ''
+Get-ChildItem "$env:APPDATA\Microsoft\VisualStudio" -Recurse -Filter ActivityLog.xml -ErrorAction SilentlyContinue | ForEach-Object { $logText += (Get-Content $_.FullName -Raw) }
+Get-ChildItem "$env:LOCALAPPDATA\Microsoft\VisualStudio" -Recurse -Filter *.err -ErrorAction SilentlyContinue | ForEach-Object {
+    Copy-Item $_.FullName (Join-Path $Out ('mef-' + $_.Name)) -ErrorAction SilentlyContinue
+    Info "MEF err: $($_.FullName)"
+    Get-Content $_.FullName -TotalCount 20 | ForEach-Object { Info "  err| $_" }
+}
+$inLog = { param($rx) ($logText -match $rx) -or ($traceText -match $rx) }
+Check 'mef-loaded' (& $inLog 'MEF tagger provider active') 'רכיב ה-MEF (tagger) נטען (שורה ביומן: MEF tagger provider active)'
+Check 'mef-glyph-factory' (& $inLog 'MEF glyph factory created') 'ה-glyph factory נוצר'
+Check 'mef-tags' (& $inLog 'solution tags: 2 in .*Targil\.cs') 'נוצרו 2 תגים בקובץ התרגיל (ביומן: solution tags: 2 in ...Targil.cs)'
+Check 'mef-tags-activitylog' ($logText -match 'solution tags: 2') 'השורה נמצאת גם ביומן הפעילות (ActivityLog.xml)'
+Check 'mef-plain-none' (-not ($traceText -match 'solution tags: [1-9]\d* in .*Plain\.cs')) 'בקובץ הרגיל לא נוצרו תגים'
+Check 'mef-glyph-click' (& $inLog 'solution glyph clicked') 'לחיצה על המנורה הגיעה לרכיב (solution glyph clicked)'
 Info "כישלונות: $script:fail"
 exit $(if ($script:fail -gt 0) { 1 } else { 0 })

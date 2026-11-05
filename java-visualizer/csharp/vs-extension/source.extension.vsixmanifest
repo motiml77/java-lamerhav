@@ -3,7 +3,7 @@
   <Metadata>
     <Identity Id="DsViz.VisualStudio.Toolbar.6f3c1c0e-4a52-4e7e-9d1b-5b2f0c8e7a11" Version="1.0.1" Language="en-US" Publisher="Moti Levi" />
     <DisplayName>DSViz - Data Structures</DisplayName>
-    <Description xml:space="preserve">DSViz toolbar: new exercise, add data structure, question bank, submit, solution hint and visual run.</Description>
+    <Description xml:space="preserve">DSViz toolbar (new exercise, add data structure, submit, visual run) and a solution-hint lamp next to each task method of a DSViz exercise.</Description>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,)">
@@ -18,5 +18,6 @@
   </Prerequisites>
   <Assets>
     <Asset Type="Microsoft.VisualStudio.VsPackage" d:Source="Project" d:ProjectName="%CurrentProject%" Path="|%CurrentProject%;PkgdefProjectOutputGroup|" />
+    <Asset Type="Microsoft.VisualStudio.MefComponent" d:Source="Project" d:ProjectName="%CurrentProject%" Path="|%CurrentProject%|" />
   </Assets>
 </PackageManifest>

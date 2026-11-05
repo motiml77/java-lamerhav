@@ -59,7 +59,7 @@ namespace DsViz
             if (args.Length > 0 && args[0] == "--check") return Check(args.Skip(1).ToArray());
             if (args.Length > 1 && args[0] == "--check-project") return CheckProject(args[1]);
             if (args.Length > 1 && args[0] == "--ensure-profile") return EnsureProfile(args[1]);
-            if (args.Length > 1 && args[0] == "--tool") return LaunchTool(args[1], args.Length > 2 ? args[2] : "");
+            if (args.Length > 1 && args[0] == "--tool") return LaunchTool(args[1], args.Length > 2 ? args[2] : "", args.Skip(3).ToArray());
             string target = null, traceOut = null, inputFile = null;
             var progArgs = new List<string>();
             for (int i = 0; i < args.Length; i++)
@@ -275,7 +275,7 @@ namespace DsViz
         /// הכפתור הירוק. כל אחד מפעיל כאן את אותו חלון Swing שבקיצורים של ההתקנה (CsTool): java -cp dsviz.jar ...CsTool &lt;מצב&gt; &lt;תיקיית התרגילים&gt;.
         /// תיקיית התרגילים: זו שמעל הפרויקט הנוכחי (DataStructures-CS.sln), ואם הפרויקט במקום אחר — DataStructures-CS שבמסמכים.
         /// </summary>
-        static int LaunchTool(string mode, string projectDir)
+        static int LaunchTool(string mode, string projectDir, string[] extra)
         {
             try
             {
@@ -304,6 +304,8 @@ namespace DsViz
                 }
                 psi.ArgumentList.Add(mode);
                 psi.ArgumentList.Add(root);
+                // "הצעה לפתרון" מהמנורה שליד הפעולה בעורך: --file קובץ --method פעולה --params מספר-פרמטרים (החלון נפתח ממוקד בה)
+                if (mode == "solution") foreach (string x in extra) psi.ArgumentList.Add(x);
                 Process.Start(psi);
             }
             catch (Exception e)

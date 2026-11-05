@@ -27,14 +27,14 @@ namespace DsViz.VsExtension
         public const string PackageGuid = "7b2f4d1e-9c3a-4e68-b0d5-1a8c6f3e2d97";
         static readonly Guid CmdSet = new Guid("a1f6a3c2-5d9e-4b7a-8c11-3e7f2d9b6a40");
 
-        static string InstallDir
-        {
-            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DSViz"); }
-        }
+        static string InstallDir { get { return DsVizTool.InstallDir; } }
 
-        static string Runner
+        static string Runner { get { return DsVizTool.Runner; } }
+
+        /// <summary>מאגר השאלות הוא של המעבדה בלבד — קיים רק כשהקובץ הזה מותקן</summary>
+        static string BankJar
         {
-            get { return Path.Combine(InstallDir, "cs", "dsviz-cs.exe"); }
+            get { return Path.Combine(InstallDir, "lab", "dsviz-bank-vs.jar"); }
         }
 
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
@@ -44,7 +44,7 @@ namespace DsViz.VsExtension
             if (mcs == null) return;
             Add(mcs, 0x0101, () => Tool("new"));
             Add(mcs, 0x0102, () => Tool("insert"));
-            Add(mcs, 0x0103, () => Tool("bank"));
+            AddBank(mcs);
             Add(mcs, 0x0104, () => Tool("submit"));
             Add(mcs, 0x0106, VisualRun);
             Add(mcs, 0x0107, () => Tool("help"));
@@ -89,6 +89,25 @@ namespace DsViz.VsExtension
             }
         }
 
+        /// <summary>"מאגר שאלות": נראה רק כשהמאגר מותקן (בגרסה הציבורית אין אותו)</summary>
+        void AddBank(OleMenuCommandService mcs)
+        {
+            var cmd = new OleMenuCommand((s, e) =>
+            {
+                try { Tool("bank"); }
+                catch (Exception ex) { Say("DSViz: " + ex.Message); }
+            }, new CommandID(CmdSet, 0x0103));
+            cmd.BeforeQueryStatus += (s, e) =>
+            {
+                bool on = false;
+                try { on = File.Exists(BankJar); } catch (Exception) { }
+                var c = (OleMenuCommand)s;
+                c.Visible = on;
+                c.Enabled = on;
+            };
+            mcs.AddCommand(cmd);
+        }
+
         void Add(OleMenuCommandService mcs, int id, Action action)
         {
             mcs.AddCommand(new MenuCommand((s, e) =>
@@ -113,9 +132,7 @@ namespace DsViz.VsExtension
 
         static void Start(params string[] args)
         {
-            var parts = new System.Collections.Generic.List<string>();
-            foreach (string a in args) parts.Add("\"" + a.Replace("\"", "\\\"") + "\"");
-            Process.Start(new ProcessStartInfo(Runner, string.Join(" ", parts)) { UseShellExecute = false, CreateNoWindow = true });
+            DsVizTool.Start(args);
         }
 
         void Tool(string mode)
