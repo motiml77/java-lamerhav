@@ -80,7 +80,7 @@ public final class BankVsIt {
         final BankVsWindow w = BankVsWindow.current;
         pause(1500);
         shot(w.frame, "01-bank-window");
-        check("tree", ui(() -> w.treeShown.toString()).contains("TOPIC loops open"), "העץ: הנושא הראשון פתוח עם השאלות", ui(() -> w.treeShown.toString()));
+        check("tree", ui(() -> w.treeShown.toString()).contains("TOPIC loops closed"), "העץ: כל הנושאים סגורים בפתיחה", ui(() -> w.treeShown.toString()));
 
         // 2. נושא מחסנית ושאלה
         ui(() -> { w.select("stack-sum-size"); return null; });

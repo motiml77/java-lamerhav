@@ -71,6 +71,8 @@ public final class AccountIt {
         Account.Result t = Account.signIn("teacher", null, null, 30000);
         check("מורה נכנס דרך הדפדפן (" + t.status + " " + t.message + ")", t.ok());
         check("המאגר פתוח כמורה", Account.current() != null && Account.current().isTeacher());
+        check("הקוד של המורה נשמר במחשב (לעמדת הניהול)", Account.teacherCode().replace("-", "").equals(code.replace("-", "")) && !Account.teacherCode().isEmpty());
+        check("כתובת עמדת הניהול", Account.managementUrl().endsWith("/account"));
         Account.signOut();
         check("התנתקות — סגור", Account.current() == null);
 

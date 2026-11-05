@@ -437,7 +437,32 @@ public final class Account {
         d.put("name", Json.str(prof.get("name")));
         d.put("role", Json.str(prof.get("role")));
         d.put("checkedAt", (double) System.currentTimeMillis());
+        // מורה: הקוד של המורה (4 תווים) והמקומות — נשמרים כדי שאפשר יהיה לראות אותם בכל פעם מתוך התוכנה, גם בלי אינטרנט
+        Map<String, Object> t = Json.obj(r.body.get("teacher"));
+        if (!Json.str(t.get("code")).isEmpty()) {
+            d.put("teacherCode", Json.str(t.get("code")));
+            d.put("teacherSeats", t.get("seats"));
+            d.put("teacherUsed", t.get("used"));
+        }
         save(f, d);
+    }
+
+    /** הקוד של המורה המחובר (כמו שנשמר בכניסה / בבדיקה האחרונה מול השרת), או "" */
+    public static String teacherCode() {
+        Map<String, Object> u = userState();
+        return u == null ? "" : Json.str(u.get("teacherCode"));
+    }
+
+    /** כתובת עמדת הניהול של המורה (קוד, עמדות, תשלום) — בדפדפן */
+    public static String managementUrl() {
+        String base = serverUrl();
+        return base.isEmpty() ? "" : base + "/account";
+    }
+
+    /** פותח את עמדת הניהול של המורה בדפדפן */
+    public static void openManagement() {
+        String u = managementUrl();
+        if (!u.isEmpty()) browser.accept(u);
     }
 
     // ------------------------------------------------------------------ עמדת מחשב

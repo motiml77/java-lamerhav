@@ -139,7 +139,6 @@ public final class AccessGate {
                     : parent instanceof Window ? (Window) parent : null, "כניסה למאגר התרגילים", ModalityType.MODELESS);
             this.open = open;
             setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-            setAlwaysOnTop(true);
             JPanel root = new JPanel(new BorderLayout());
             root.setBackground(PAGE);
             root.add(header(), BorderLayout.NORTH);
@@ -398,6 +397,84 @@ public final class AccessGate {
             cards.show(body, "message");
             p.revalidate();
             p.repaint();
+        }
+    }
+
+    // ------------------------------------------------------------------ עמדת ניהול של המורה
+
+    /** האם המחשב מחובר כמורה (אז מציגים את הכפתור "עמדת ניהול") */
+    public static boolean isTeacher() {
+        Account.Access a = disabled() ? null : Account.current();
+        return a != null && a.isTeacher();
+    }
+
+    /**
+     * "עמדת ניהול" של המורה, בכל פעם שרוצים: הקוד של המורה (לחיבור עמדות מחשב) עם כפתור העתקה, וכפתור שפותח את
+     * עמדת הניהול בדפדפן (עמדות, מקומות, תשלום). החלון רגיל — לא מעל שאר המסכים.
+     */
+    public static void showTeacherPanel(final Component parent) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new TeacherPanel(parent).setVisible(true);
+            }
+        });
+    }
+
+    static final class TeacherPanel extends JDialog {
+        private static final long serialVersionUID = 1L;
+
+        TeacherPanel(Component parent) {
+            super(parent == null ? null : SwingUtilities.getWindowAncestor(parent) != null ? SwingUtilities.getWindowAncestor(parent)
+                    : parent instanceof Window ? (Window) parent : null, "עמדת ניהול", ModalityType.MODELESS);
+            setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+            Account.Access a = Account.current();
+            final String codeText = Account.teacherCode();
+            JPanel root = new JPanel(new BorderLayout());
+            root.setBackground(PAGE);
+            JPanel col = column();
+            col.setBorder(BorderFactory.createEmptyBorder(22, 28, 22, 28));
+            col.add(text("עמדת ניהול של המורה", 22, true, INK));
+            col.add(Box.createVerticalStrut(4));
+            col.add(text(a == null ? "" : a.label(), 14, false, MUTED));
+            col.add(Box.createVerticalStrut(16));
+            col.add(text("הקוד שלך לחיבור עמדות מחשב", 14, true, INK));
+            col.add(Box.createVerticalStrut(6));
+            JLabel big = new JLabel(codeText.isEmpty() ? "—" : codeText, SwingConstants.CENTER);
+            big.setFont(new Font(Font.MONOSPACED, Font.BOLD, 40));
+            big.setForeground(BLUE);
+            big.setOpaque(true);
+            big.setBackground(BLUE_SOFT);
+            big.setBorder(BorderFactory.createEmptyBorder(10, 24, 10, 24));
+            big.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            col.add(big);
+            col.add(Box.createVerticalStrut(6));
+            col.add(wrap(codeText.isEmpty() ? "הקוד עוד לא נטען. נכנסים לעמדת הניהול בדפדפן (הכפתור למטה) — שם הוא מוצג תמיד."
+                    : "מקלידים אותו בכל מחשב במעבדה, במסך \"עמדת מחשב\". הקוד נשמר כאן — אפשר לחזור לכאן בכל פעם.", 13, MUTED, 400));
+            col.add(Box.createVerticalStrut(16));
+            JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+            row.setOpaque(false);
+            row.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            JButton open = primary("פתח עמדת ניהול בדפדפן");
+            open.addActionListener(e -> Account.openManagement());
+            JButton copy = secondary("העתק קוד");
+            copy.setEnabled(!codeText.isEmpty());
+            copy.addActionListener(e -> {
+                java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(codeText), null);
+                copy.setText(RLM + "הועתק");
+            });
+            JButton close = secondary("סגירה");
+            close.addActionListener(e -> dispose());
+            row.add(open);
+            row.add(copy);
+            row.add(close);
+            col.add(row);
+            root.add(col, BorderLayout.CENTER);
+            root.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+            setContentPane(root);
+            pack();
+            setMinimumSize(new Dimension(480, 0));
+            setLocationRelativeTo(parent);
         }
     }
 

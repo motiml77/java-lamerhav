@@ -93,15 +93,7 @@ public class BankDialog extends Dialog {
         this.newProjectName = newProjectName;
         this.preferred = preferred;
         setShellStyle(SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.RIGHT_TO_LEFT | SWT.APPLICATION_MODAL);
-        // בהתחלה פתוח הנושא הראשון שיש בו שאלות, ונבחרת השאלה הראשונה בו שעוד לא סומנה
-        for (BankStore.Topic t : store.topics) {
-            List<BankStore.Question> qs = store.of(t.id);
-            if (qs.isEmpty()) continue;
-            expanded.add(t.id);
-            for (BankStore.Question q : qs) if (!progress.done(q.id)) { selected = q; break; }
-            if (selected == null) selected = qs.get(0);
-            break;
-        }
+        // בהתחלה כל הנושאים סגורים ושום שאלה לא נבחרה: התלמיד פותח בעצמו את הנושא שהוא רוצה
     }
 
     // ------------------------------------------------------------------ מה נבחר (אחרי OK)
@@ -262,6 +254,8 @@ public class BankDialog extends Dialog {
         createButton = new Look.Round(buttons, "צור תרגיל", true, () -> finish(existing() != null ? Action.OPEN : Action.CREATE));
         copyButton = new Look.Round(buttons, "צור עותק חדש", false, () -> finish(Action.CREATE));
         new Look.Round(buttons, "שאלה אקראית", false, this::random);
+        if (AccessGate.isTeacher())   // מורה: חוזר לעמדת הניהול והקוד בכל פעם
+            new Look.Round(buttons, "עמדת ניהול", false, () -> AccessGate.showTeacherPanel(null));
         new Look.Round(buttons, "סגירה", false, this::cancelPressed);
         Label c = new Label(buttons, SWT.LEFT_TO_RIGHT);
         c.setText(Look.COPYRIGHT);

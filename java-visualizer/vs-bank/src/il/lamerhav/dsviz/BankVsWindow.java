@@ -87,8 +87,10 @@ final class BankVsWindow {
                 break;
             }
         }
-        if (first == null && !BankVs.store.questions.isEmpty()) first = BankVs.store.questions.get(0);
-        if (first != null) current.select(first.id);
+        // בלי id מפורש (פתיחה רגילה) — הכול סגור ושום שאלה לא נבחרה; עם id (חזרה לשאלה מסוימת) — נפתח הנושא שלה
+        if (id != null && first != null) current.select(first.id);
+        else if (topic != null && first != null) current.select(first.id);
+        else current.rebuildTree();
         current.frame.setVisible(true);
     }
 
@@ -495,6 +497,11 @@ final class BankVsWindow {
             if (!pool.isEmpty()) select(pool.get(new Random().nextInt(pool.size())).id);
         });
         buttons.add(random);
+        if (AccessGate.isTeacher()) {   // מורה: חוזר לעמדת הניהול והקוד בכל פעם
+            JButton manage = RtlDialog.secondary("עמדת ניהול");
+            manage.addActionListener(e -> AccessGate.showTeacherPanel(frame));
+            buttons.add(manage);
+        }
         JButton close = RtlDialog.secondary("סגירה");
         close.addActionListener(e -> frame.dispose());
         buttons.add(close);

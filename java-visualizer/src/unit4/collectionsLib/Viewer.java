@@ -539,8 +539,8 @@ final class Viewer extends JFrame {
         JButton out = small("−", "הקטנה — " + PART_NAME[part]), in = small("+", "הגדלה — " + PART_NAME[part]);
         out.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setPartZoom(part, Theme.stepZoom(partZoom(part), -1)); } });
         in.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setPartZoom(part, Theme.stepZoom(partZoom(part), 1)); } });
-        JLabel l = label(Math.round(partZoom(part) * 100) + "%", Theme.small, Theme.MUTED);
-        l.setPreferredSize(new Dimension(44, 20));
+        JLabel l = label(Math.round(partZoom(part) * 100) + "%", Theme.small.deriveFont(Theme.small.getSize2D() - 2f), Theme.MUTED);
+        l.setPreferredSize(new Dimension(38, 18));
         l.setHorizontalAlignment(SwingConstants.CENTER);
         l.setToolTipText("גודל " + PART_NAME[part] + " — לחיצה מחזירה ל-100%");
         l.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
@@ -1460,12 +1460,13 @@ final class Viewer extends JFrame {
             head.setOpaque(false);
             head.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.BORDER),
-                    BorderFactory.createEmptyBorder(8, 14, 8, 10)));
-            JPanel titles = new JPanel(new FlowLayout(FlowLayout.LEADING, 10, 0));
+                    BorderFactory.createEmptyBorder(3, 12, 3, 8)));
+            JPanel titles = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
             titles.setOpaque(false);
-            if (title != null) titles.add(label(title, Theme.title, Theme.TEXT));
+            // כותרות קטנות — שיתפסו פחות מקום ויישאר יותר לתוכן הכרטיס
+            if (title != null) titles.add(label(title, Theme.title.deriveFont(Theme.title.getSize2D() - 4f), Theme.TEXT));
             if (sub != null) {
-                sub.setFont(Theme.small);
+                sub.setFont(Theme.small.deriveFont(Theme.small.getSize2D() - 3f));
                 sub.setForeground(Theme.MUTED);
                 titles.add(sub);
             }
