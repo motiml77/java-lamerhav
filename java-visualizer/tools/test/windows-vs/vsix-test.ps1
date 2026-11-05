@@ -47,6 +47,9 @@ function SkipFirstRun([int]$vsPid) {
     return $false
 }
 
+# שומר: אם משהו נתקע (חלון מודאלי ב-VS שחוסם את UI Automation) — אחרי 22 דקות סוגרים את Visual Studio כדי שהבדיקה תמשיך ותשמור צילומים ויומנים
+Start-Process powershell -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 1320; Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force' -WindowStyle Hidden | Out-Null
+
 $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 $vs = & $vw -latest -prerelease -products * -requires Microsoft.Component.MSBuild -property installationPath
 $devenv = Join-Path $vs 'Common7\IDE\devenv.exe'

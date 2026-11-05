@@ -55,6 +55,7 @@ jobs:
           }
           Get-Item "$env:GITHUB_WORKSPACE\out\DsViz.VsExtension.vsix" | Select-Object Name, Length
       - name: התקנה ב-Visual Studio, פתיחה וחיפוש הכפתורים (צילום)
+        timeout-minutes: 35
         shell: powershell
         run: |
           & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs\vsix-test.ps1" `
