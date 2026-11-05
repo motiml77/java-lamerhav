@@ -88,3 +88,13 @@ sh tools/test/cs-tests.sh          # בדיקות C#: תבניות (2331 קבצ�
 `javaw -cp dsviz.jar il.lamerhav.dsviz.cs.CsTool new|insert <תיקיית DataStructures-CS>`.
 `ScaffoldCs` ממיר את הקוד של `Scaffold` (Eclipse) ל-C# באותה המרה כמו `vscode-extension/templates-cs.js` (נבדק קובץ-קובץ ב-`tools/test/cs-tests.sh`, סעיף 8).
 `CsProject` כותב `Exercises\<שם>\` (`.csproj`, `Program.cs`, `launchSettings.json`) ורושם את הפרויקט בקובץ ה-`.sln`.
+
+## סרגל הכלים של DSViz ב-Visual Studio (הרחבה)
+
+`csharp/vs-extension/` — הרחבה ל-Visual Studio (VisualStudio.Extensibility, מחוץ לתהליך, דורשת Visual Studio 2022 17.14 ומעלה) עם סרגל כלים בפני עצמו
+(View ← Toolbars ← "DSViz — מבני נתונים"): תרגיל חדש · הוספת מבנה נתונים · מאגר שאלות · שליחת תרגיל · הצעה לפתרון · הרצה ויזואלית · הדרכה.
+כל כפתור מפעיל את הכלי של ההתקנה (`dsviz-cs.exe --tool <מצב>` — אותם חלונות כמו בקיצורים), וההרצה הוויזואלית מריצה את קובץ ה-C# הפתוח.
+- נבנית ב-CI של Windows (`.github/workflows/dsviz-vsix.yml`), שמתקין אותה גם ב-Visual Studio האמיתי של המכונה ומצלם; ה-VSIX נשמר ב-`vs-extension/prebuilt/`.
+- `tools/build-all.sh` אורז אותו להתקנה, ו-`installer/install-vsix.ps1` מתקין אותו בכל Visual Studio שנמצא (ומסיר בהסרה). Visual Studio ישן יותר — לא מקבל את ההרחבה.
+- גיבוי בכל גרסה של Visual Studio: אותם כלים כפרופילי הרצה בתפריט שליד הכפתור הירוק ("תרגיל חדש", "הוספת מבנה נתונים", "שליחת תרגיל", "הצעה לפתרון") — `DSViz.targets` ← `dsviz-cs --ensure-profile`.
+

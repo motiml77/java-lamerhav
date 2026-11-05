@@ -104,7 +104,7 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
     return out;
   },
   /** חלון Swing של Visual Studio (CsTool ...) לפי תסריט — harness/SwingScript.java; env: משתני סביבה (שרת מדומה וכו') */
-  swing(name, toolArgs, lines, env, sysProps) {
+  swing(name, toolArgs, lines, env, sysProps, opts) {
     const dir = path.join(W, 'dlg', name);
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
@@ -118,7 +118,7 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
     const jar = process.env.DSVIZ_SWING_JAR || path.join(ROOT, 'release', 'dsviz.jar');   // אפשר לצלם עם jar אחר (בלי לבנות את release)
     const e = Object.assign({}, process.env, { DISPLAY: xd }, env || {});
     delete e.JAVA_TOOL_OPTIONS;
-    sh('java', [...(sysProps || []), '-Ddsviz.noOpen=true', '-cp', cls + path.delimiter + jar, 'SwingScript', sf, dir, 'il.lamerhav.dsviz.cs.CsTool', ...toolArgs], { stdio: 'inherit', env: e });
+    sh('java', [...(sysProps || []), '-Ddsviz.noOpen=true', '-cp', cls + path.delimiter + ((opts && opts.cp) ? opts.cp + path.delimiter : '') + jar, 'SwingScript', sf, dir, (opts && opts.cls) || 'il.lamerhav.dsviz.cs.CsTool', ...toolArgs], { stdio: 'inherit', env: e });   // opts.cls / opts.cp — כלי אחר (מאגר השאלות)
     const out = {};
     for (const l of lines) {
       const m = /^shot (\S+)/.exec(l.trim());

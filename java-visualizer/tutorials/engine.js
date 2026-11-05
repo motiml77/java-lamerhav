@@ -54,6 +54,16 @@
       <div class="toolbar"><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-sep"></div><div class="tb-ico"></div><div class="tb-ico"></div>
         <div class="tb-sep"></div><div class="tb-btn" style="font-size:15px">Debug ▾</div><div class="tb-btn" style="font-size:15px">Any CPU ▾</div>
         <div class="tb-btn run" id="tbRun"><i>▶</i>הרצה ויזואלית ▾</div><div class="tb-sep"></div><div class="tb-ico"></div><div class="tb-ico"></div><div class="tb-ico"></div></div>
+      <div class="toolbar dsbar"><div class="dsname">DSViz — מבני נתונים</div>
+        <div class="tb-btn" id="vbNew"><i style="background:#2f6fed">+</i>תרגיל חדש</div>
+        <div class="tb-btn" id="vbInsert"><i style="background:#7c3aed">▦</i>הוספת מבנה נתונים</div>
+        <div class="tb-btn" id="vbBank"><i style="background:#0e9f6e">▤</i>מאגר שאלות</div>
+        <div class="tb-sep"></div>
+        <div class="tb-btn" id="vbSubmit"><i style="background:#7c5cf0">➤</i>שליחת תרגיל</div>
+        <div class="tb-btn" id="vbSolution"><i style="background:#d97706">💡</i>הצעה לפתרון</div>
+        <div class="tb-sep"></div>
+        <div class="tb-btn" id="vbRun"><i style="background:#1e8f3e">▶</i>הרצה ויזואלית</div>
+        <div class="tb-btn" id="vbHelp"><i style="background:#64748b">?</i>הדרכה</div></div>
       <div class="body">
         <div class="editor"><div class="tabs"><div class="tab" id="tabName">Program.cs</div></div>
           <div id="code"><div id="lines"></div><div id="caret"></div></div></div>
@@ -126,7 +136,7 @@
       if (typeof target === 'object') return target;
       const [kind, ...rest] = target.split(':');
       const arg = rest.join(':');
-      if (kind === 'tb' || kind === 'sb' || kind === 'ds' || kind === 'tk') {   // כפתור: tb:add (סרגל), sb:run (שורת המצב של VS Code), ds:examples (הלוח של VS Code), tk:start
+      if (kind === 'tb' || kind === 'sb' || kind === 'ds' || kind === 'tk' || kind === 'vb') {   // כפתור: tb:add (סרגל), sb:run (שורת המצב של VS Code), ds:examples (הלוח של VS Code), tk:start
         return this.rectOf(tbEl(kind, arg), 'center');
       }
       if (kind === 'menu') return this.rectOf(menuAnchor(), 'center');   // פותחים את התפריט של הסביבה
@@ -209,7 +219,7 @@
       if (typeof target === 'object') return target.w ? target : { x: target.x - 24, y: target.y - 18, w: 48, h: 36 };
       const [kind, ...rest] = target.split(':');
       const arg = rest.join(':');
-      if (kind === 'tb' || kind === 'sb' || kind === 'ds' || kind === 'tk') return this.rectOf(tbEl(kind, arg), 'rect');
+      if (kind === 'tb' || kind === 'sb' || kind === 'ds' || kind === 'tk' || kind === 'vb') return this.rectOf(tbEl(kind, arg), 'rect');
       if (kind === 'menu') return this.rectOf(menuAnchor(), 'rect');
       if (kind === 'menuitem') { const m = this.menuGeom(), i = MENU_ITEMS.findIndex(t => t !== '---' && t.includes(arg)); return { x: m.left + 4, y: m.top + m.ys[i], w: MENU_W - 8, h: MI_H }; }
       if (kind === 'dlg') { const r = this.dlgRect(arg.split('@')[0]); return { x: r.x, y: r.y, w: r.w, h: r.h }; }
@@ -363,7 +373,8 @@
   const TB = { tb: { add: 'tbAdd', new: 'tbNew', run: 'tbRun', help: 'tbHelp', submit: 'tbSubmit', power: 'tbPower' },
                sb: { submit: 'sbSubmit', run: 'sbRun', add: 'sbAdd', help: 'sbHelp' },
                ds: { submit: 'dsSubmit', examples: 'dsExamples', stack: 'dsStack', queue: 'dsQueue', list: 'dsList', tree: 'dsTree' },
-               tk: { start: 'tkStart' } };
+               tk: { start: 'tkStart' },
+               vb: { new: 'vbNew', insert: 'vbInsert', bank: 'vbBank', submit: 'vbSubmit', solution: 'vbSolution', run: 'vbRun', help: 'vbHelp' } };
   function tbEl(kind, name) {
     const el = $(TB[kind] && TB[kind][name]);
     if (!el) throw new Error('no button ' + kind + ':' + name + ' in ' + IDE);
