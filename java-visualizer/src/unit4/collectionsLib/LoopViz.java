@@ -288,6 +288,13 @@ final class LoopViz {
 
     /** הערכים של המשתנה מההתחלה ועד הגבול (רק אם יש עד 40), ואיפה הוא עכשיו */
     private static void track(LoopView v, Loop l, int start, int bound, int now) {
+        long count = iterations(start, l.op, bound, l.stepBy);
+        if (count > 0) {   // לציור הציר (StructPanel): לא תלוי באורך הלולאה
+            v.axisStart = start;
+            v.axisStep = l.stepBy;
+            v.axisCount = count;
+            v.axisNow = now;
+        }
         List<Integer> vals = values(start, l.op, bound, l.stepBy);
         if (vals == null || vals.isEmpty() || vals.size() > MAX_TRACK) {
             v.var = l.var;
@@ -303,6 +310,23 @@ final class LoopViz {
 
     private static boolean passed(int now, int last, int step) {
         return step > 0 ? now > last : now < last;
+    }
+
+    /** כמה סיבובים תרוץ לולאה שסופרת (בנוסחה, בלי לעבור על כולם) — 0 אם אין סיבובים, או אם היא לא נגמרת / לא סופרת בצורה פשוטה */
+    static long iterations(int start, String op, int bound, int step) {
+        if (step == 0) return 0;
+        long s = start, b = bound, k = step;
+        switch (op) {
+            case "<": return k > 0 && s < b ? (b - s + k - 1) / k : 0;
+            case "<=": return k > 0 && s <= b ? (b - s) / k + 1 : 0;
+            case ">": return k < 0 && s > b ? (s - b - k - 1) / -k : 0;
+            case ">=": return k < 0 && s >= b ? (s - b) / -k + 1 : 0;
+            case "!=": {
+                long d = b - s;
+                return d != 0 && d % k == 0 && d / k > 0 ? d / k : 0;
+            }
+            default: return 0;
+        }
     }
 
     /** כל הערכים שהמשתנה יקבל, או null אם הלולאה לא סופרת בצורה פשוטה */
