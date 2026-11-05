@@ -49,6 +49,32 @@ namespace DsViz.VsExtension
             Add(mcs, 0x0105, () => Tool("solution"));
             Add(mcs, 0x0106, VisualRun);
             Add(mcs, 0x0107, () => Tool("help"));
+            ShowToolbarOnce();
+        }
+
+        /// <summary>
+        /// סרגל שנוסף אחרי שמשתמש כבר פתח את Visual Studio לא תמיד מוצג לבד (DefaultDocked חל על פרופיל חדש) —
+        /// בפעם הראשונה מדליקים אותו דרך DTE. אחר כך המשתמש שולט (View ← Toolbars ← DSViz) והבחירה נשמרת.
+        /// </summary>
+        void ShowToolbarOnce()
+        {
+            try
+            {
+                string flag = Path.Combine(InstallDir, "vs-toolbar-shown");
+                if (File.Exists(flag)) return;
+                var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                if (dte == null) return;
+                dynamic bars = dte.CommandBars;
+                dynamic bar = bars["DSViz"];
+                bar.Visible = true;
+                Directory.CreateDirectory(InstallDir);
+                File.WriteAllText(flag, DateTime.Now.ToString("s"));
+                ActivityLog.LogInformation("DsViz", "toolbar shown");
+            }
+            catch (Exception ex)
+            {
+                ActivityLog.LogWarning("DsViz", "toolbar show failed: " + ex.Message);
+            }
         }
 
         void Add(OleMenuCommandService mcs, int id, Action action)
