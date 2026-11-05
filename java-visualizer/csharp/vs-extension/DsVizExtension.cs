@@ -1,3 +1,4 @@
+using System;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
 
@@ -13,12 +14,8 @@ internal class DsVizExtension : Extension
 {
     public override ExtensionConfiguration ExtensionConfiguration => new()
     {
-        Metadata = new(
-            id: "DsViz.VisualStudio.Toolbar.6f3c1c0e-4a52-4e7e-9d1b-5b2f0c8e7a11",
-            version: ExtensionAssemblyVersion,
-            publisherName: "Moti Levi",
-            displayName: "DSViz — מבני נתונים",
-            description: "סרגל כלים: תרגיל חדש, הוספת מבנה נתונים, מאגר שאלות, שליחת תרגיל, הצעה לפתרון והרצה ויזואלית."),
+        RequiresInProcessHosting = true,   // extension בתוך התהליך של Visual Studio — מותקנת למשתמש, בלי הרשאות מנהל
+        // Metadata — ב-source.extension.vsixmanifest (extension בתוך התהליך)
     };
 
     [VisualStudioContribution]

@@ -1,4 +1,8 @@
+using System;
 using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
 using Microsoft.VisualStudio.Extensibility.Shell;
@@ -15,8 +19,10 @@ internal static class DsVizTools
 
     public static void Start(params string[] args)
     {
-        var psi = new ProcessStartInfo(Runner) { UseShellExecute = false, CreateNoWindow = true };
-        foreach (string a in args) psi.ArgumentList.Add(a);
+        // net472: אין ArgumentList — מרכאות לכל ארגומנט
+        var parts = new System.Collections.Generic.List<string>();
+        foreach (string a in args) parts.Add("\"" + a.Replace("\"", "\\\"") + "\"");
+        var psi = new ProcessStartInfo(Runner, string.Join(" ", parts)) { UseShellExecute = false, CreateNoWindow = true };
         Process.Start(psi);
     }
 

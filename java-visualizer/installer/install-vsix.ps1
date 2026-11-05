@@ -1,4 +1,14 @@
-﻿# מתקין / מסיר את ההרחבה של DSViz (סרגל הכלים) בכל Visual Studio שנמצא במחשב.
+﻿$instances = @(& $vswhere -all -prerelease -products * -format json | ConvertFrom-Json)
+foreach ($i in $instances) {
+    $inst = Join-Path $i.installationPath 'Common7\IDE\VSIXInstaller.exe'
+    if (-not (Test-Path $inst)) { continue }
+    $argList = if ($Uninstall) { @('/quiet', "/instanceIds:$($i.instanceId)", "/uninstall:$id") } else { @('/quiet', "/instanceIds:$($i.instanceId)", "`\"$Vsix`\"") }
+    Write-Host "Visual Studio $($i.catalog.productDisplayVersion) ב-$($i.installationPath)"
+    $proc = Start-Process $inst -ArgumentList $argList -PassThru -WindowStyle Hidden
+    if (-not $proc.WaitForExit(180000)) { try { $proc.Kill() } catch {} ; Write-Host '  לא הסתיים בזמן (ייתכן ש-Visual Studio פתוח) — מדלגים' }
+    else { Write-Host "  קוד יציאה $($proc.ExitCode)" }
+}
+# מתקין / מסיר את ההרחבה של DSViz (סרגל הכלים) בכל Visual Studio שנמצא במחשב.
 #   install-vsix.ps1 <DsViz.VsExtension.vsix>           — התקנה (למשתמש הנוכחי, בלי הרשאות מנהל)
 #   install-vsix.ps1 -Uninstall                          — הסרה
 # כל תקלה כאן לא עוצרת את ההתקנה של DSViz (Visual Studio ישן מ-17.14 לא מקבל את ההרחבה — והכפתורים נשארים בתפריט ההפעלה).
