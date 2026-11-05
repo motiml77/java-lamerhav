@@ -91,6 +91,46 @@ public final class AccountIt {
         Account.refresh();
         check("אחרי בדיקה עם אינטרנט — העמדה נמחקה", Account.current() == null);
 
+        // מעבדה: מחשבים משוכפלים מתמונה אחת (אותו מזהה Windows בכולם) — כל מחשב עמדה נפרדת, ולא דורסים זה את זה
+        String lab = "it.lab" + System.nanoTime() + "@test.dev";
+        api("POST", "/v1/admin/teacher", admin, "{\"create\":true,\"email\":\"" + lab + "\",\"name\":\"מורה מעבדה\",\"seats\":3}");
+        String labCode = Json.str(Json.obj(Json.obj(Json.parse(api("GET", "/v1/admin/teacher?email=" + lab, admin, null))).get("teacher")).get("code"));
+        System.setProperty("dsviz.hostname", "LAB-01");
+        cloned(work, "lab1");
+        String id1 = Account.machine();
+        check("מחשב משובט 1 — עמדה", Account.claimStation(labCode, "מעבדה · עמדה 1").ok() && Account.current() != null);
+        System.setProperty("dsviz.hostname", "LAB-02");
+        cloned(work, "lab2");
+        String id2 = Account.machine();
+        check("מחשב משובט 2 — מזהה שונה (אותו מזהה Windows)", !id1.equals(id2));
+        check("מחשב משובט 2 — עמדה נפרדת", Account.claimStation(labCode, "מעבדה · עמדה 2").ok() && Account.current() != null);
+        System.setProperty("dsviz.hostname", "LAB-03");
+        cloned(work, "lab3");
+        check("מחשב משובט 3 — עמדה שלישית", Account.claimStation(labCode, "מעבדה · עמדה 3").ok());
+        Account.Result lab4 = null;
+        System.setProperty("dsviz.hostname", "LAB-04");
+        cloned(work, "lab4");
+        lab4 = Account.claimStation(labCode, "מעבדה · עמדה 4");
+        check("מחשב רביעי — אין עוד היתרים (3 עמדות)", "full".equals(lab4.status));
+        Map<String, Object> labInfo = Json.obj(Json.obj(Json.parse(api("GET", "/v1/admin/teacher?email=" + lab, admin, null))).get("teacher"));
+        check("בניהול: 3 עמדות בשימוש", "3".equals(String.valueOf(labInfo.get("used")).replace(".0", "")));
+        // הפעלה מחדש של מחשב 1 (אותו מחשב) — לא נעלם ולא דורס את האחרים
+        System.setProperty("dsviz.hostname", "LAB-01");
+        cloned(work, "lab1");
+        check("אותו מחשב אחרי הפעלה מחדש — אותו מזהה", id1.equals(Account.machine()));
+        check("אותו מחשב — עדיין פתוח", Account.current() != null && Account.refresh().ok());
+        System.setProperty("dsviz.hostname", "LAB-02");
+        cloned(work, "lab2");
+        check("מחשב 2 — עדיין פתוח (לא נדרס)", Account.current() != null && Account.refresh().ok());
+        // העתקה של כל תיקיית ההתקנה למחשב אחר (שם שונה) — מזהה חדש, לא פותח
+        File src1 = new File(work, "lab1/machine");
+        File dst = new File(work, "labcopy/machine");
+        dst.mkdirs();
+        for (File f : src1.listFiles()) Files.copy(f.toPath(), new File(dst, f.getName()).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        System.setProperty("dsviz.hostname", "LAB-05");
+        cloned(work, "labcopy");
+        check("העתקת הקבצים למחשב בשם אחר — מזהה אחר ולא פתוח", !id1.equals(Account.machine()) && Account.current() == null);
+
         System.out.println("\n" + pass + " עברו, " + fail + " נכשלו");
         System.exit(fail == 0 ? 0 : 1);
     }
@@ -99,6 +139,14 @@ public final class AccountIt {
         System.setProperty("dsviz.machine", pc + "-id");
         System.setProperty("dsviz.machineDir", new File(work, pc + "/machine").getPath());
         System.setProperty("dsviz.home", new File(work, pc + "/" + user).getPath());
+        Account.resetForTest();
+    }
+
+    /** מחשב משובט: אותו מזהה Windows (dsviz.machine) בכל המחשבים, תיקיית מחשב משלו */
+    static void cloned(File work, String pc) {
+        System.setProperty("dsviz.machine", "same-windows-guid-from-image");
+        System.setProperty("dsviz.machineDir", new File(work, pc + "/machine").getPath());
+        System.setProperty("dsviz.home", new File(work, pc + "/user").getPath());
         Account.resetForTest();
     }
 

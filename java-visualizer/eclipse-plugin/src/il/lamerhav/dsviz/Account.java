@@ -156,10 +156,44 @@ public final class Account {
         if (machineHash == null) {
             String raw = System.getProperty("dsviz.machine");
             if (raw == null || raw.isEmpty()) raw = osMachineId();
+            // במעבדות מחשבים משוכפלים מתמונה אחת (אותו MachineGuid בכולם) — בלי תוספת, כל המחשבים נחשבו עמדה אחת ודרסו זה את זה.
+            // לכן מוסיפים מזהה אקראי שנוצר פעם אחת בכל מחשב (ונוצר מחדש אם שם המחשב שונה — העתק של תמונה עם המזהה)
+            raw = raw + "|" + installId();
             machineRaw = raw;
             machineHash = hex(sha256("dsviz|" + raw)).substring(0, 32);
         }
         return machineHash;
+    }
+
+    /**
+     * מזהה אקראי של ההתקנה במחשב הזה, בקובץ install-id (שורה 1: המזהה, שורה 2: שם המחשב). אם הקובץ הועתק למחשב אחר (שם המחשב שונה) —
+     * יוצרים מזהה חדש. אי אפשר לכתוב קובץ בשום מקום — משתמשים בשם המחשב (עדיין שונה בין מחשבים).
+     */
+    static String installId() {
+        String host = machineName();
+        File[] dirs = { machineDir(), userDir() };
+        for (File dir : dirs) {
+            File f = new File(dir, "install-id");
+            try {
+                if (!f.isFile()) continue;
+                String[] lines = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).split("\\r?\\n");
+                if (lines.length >= 2 && lines[0].trim().length() >= 16 && lines[1].trim().equals(host)) return lines[0].trim();
+            } catch (IOException ignored) {
+                // נבדוק את התיקייה הבאה
+            }
+        }
+        String id = UUID.randomUUID().toString().replace("-", "");
+        byte[] data = (id + "\n" + host + "\n").getBytes(StandardCharsets.UTF_8);
+        for (File dir : dirs) {
+            try {
+                dir.mkdirs();
+                Files.write(new File(dir, "install-id").toPath(), data);
+                return id;
+            } catch (IOException ignored) {
+                // נסה את התיקייה הבאה
+            }
+        }
+        return "host-" + host;
     }
 
     private static String osMachineId() {
@@ -214,7 +248,8 @@ public final class Account {
     }
 
     static String machineName() {
-        String n = System.getenv("COMPUTERNAME");
+        String n = System.getProperty("dsviz.hostname");   // לבדיקות
+        if (n == null || n.isEmpty()) n = System.getenv("COMPUTERNAME");
         if (n == null || n.isEmpty()) {
             try { n = InetAddress.getLocalHost().getHostName(); } catch (Exception e) { n = ""; }
         }
