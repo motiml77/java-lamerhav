@@ -51,10 +51,14 @@
     <PropertyGroup>
       <_VsctExe>$(NuGetPackageRoot)microsoft.vssdk.buildtools\17.14.2120\tools\vssdk\bin\VSCT.exe</_VsctExe>
       <_VsctInc>$(NuGetPackageRoot)microsoft.vssdk.buildtools\17.14.2120\tools\vssdk\inc</_VsctInc>
-      <_VsctOut>$(MSBuildProjectDirectory)\$(IntermediateOutputPath)DsVizPackage.cto</_VsctOut>
     </PropertyGroup>
-    <MakeDir Directories="$(MSBuildProjectDirectory)\$(IntermediateOutputPath)" />
-    <Exec Command="&quot;$(_VsctExe)&quot; &quot;$(MSBuildProjectDirectory)\DsVizPackage.vsct&quot; &quot;$(_VsctOut)&quot; -I &quot;$(_VsctInc)&quot;" />
+    <PropertyGroup>
+      <_VsctWork>$(MSBuildProjectDirectory)\$(IntermediateOutputPath)vsct\</_VsctWork>
+      <_VsctOut>$(_VsctWork)DsVizPackage.cto</_VsctOut>
+    </PropertyGroup>
+    <MakeDir Directories="$(_VsctWork)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\DsVizPackage.vsct;$(_VsctInc)\stdidcmd.h;$(_VsctInc)\vsshlids.h;$(_VsctInc)\sharedids.h;$(_VsctInc)\virtkeys.h;$(_VsctInc)\MnuHelpIds.h;$(_VsctInc)\sccmnid.h;$(_VsctInc)\wbids.h;$(_VsctInc)\editids.h;$(_VsctInc)\venusids.h" DestinationFolder="$(_VsctWork)" />
+    <Exec WorkingDirectory="$(_VsctWork)" Command="&quot;$(_VsctExe)&quot; DsVizPackage.vsct DsVizPackage.cto" />
     <ItemGroup>
       <EmbeddedResource Include="$(_VsctOut)" LogicalName="Menus.ctmenu" />
     </ItemGroup>
