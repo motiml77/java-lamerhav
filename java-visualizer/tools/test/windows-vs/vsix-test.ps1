@@ -63,6 +63,7 @@ Get-ChildItem $env:TEMP -Filter 'dd_VSIXInstaller*.log' -ErrorAction SilentlyCon
 $found = Get-ChildItem "$env:LOCALAPPDATA\Microsoft\VisualStudio", "$env:ProgramData\Microsoft\VisualStudio" -Recurse -Filter extension.vsixmanifest -ErrorAction SilentlyContinue |
     Where-Object { (Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue) -match 'DsViz.VisualStudio.Toolbar' }
 Check 'vsix-installed' (@($found).Count -gt 0) 'ההרחבה הותקנה ב-Visual Studio (extension.vsixmanifest נמצא)' "$(@($found).Count)"
+if (@($found).Count -eq 0) { Info 'ההרחבה לא הותקנה — לא פותחים את Visual Studio (נכשלים מהר)'; Info "כישלונות: $script:fail"; exit 1 }
 Start-Sleep 2
 Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hidden
 
@@ -84,10 +85,10 @@ Check 'vs-open' $ready 'Visual Studio נפתח' $p.MainWindowTitle
 if ($ready) {
     [Win.Mouse]::ShowWindow($p.MainWindowHandle, 3) | Out-Null
     [Win.Mouse]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
-    Start-Sleep 20; SkipFirstRun $p.Id | Out-Null
+    Start-Sleep 5; SkipFirstRun $p.Id | Out-Null
     $names = @()
-    for ($i = 0; $i -lt 18; $i++) {   # עד 90 שניות: ההרחבה (תהליך נפרד) נטענת אחרי שהחלון עולה
-        Start-Sleep 5
+    for ($i = 0; $i -lt 30; $i++) {   # עד 90 שניות: ההרחבה נטענת אחרי שהחלון עולה — יוצאים ברגע שהכפתורים נמצאו
+        Start-Sleep 3
         $names = @(VsElements $p.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -match 'תרגיל חדש|מאגר שאלות|הוספת מבנה נתונים|שליחת תרגיל|הצעה לפתרון|DSViz' })
         if ($names.Count -ge 3) { break }
     }
