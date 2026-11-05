@@ -61,6 +61,7 @@ final class BankFloat {
         current.setQuestion(questionId);
         current.shell.setVisible(true);
         current.shell.setActive();
+        BankQuestionSource.refresh();
         return current;
     }
 
@@ -113,6 +114,8 @@ final class BankFloat {
         shell.addListener(SWT.Dispose, e -> {
             BankProgress.get().unlisten(onProgress);
             page.removePartListener(parts);
+            if (current == BankFloat.this) current = null;
+            BankQuestionSource.refresh();
         });
         shell.open();
     }
