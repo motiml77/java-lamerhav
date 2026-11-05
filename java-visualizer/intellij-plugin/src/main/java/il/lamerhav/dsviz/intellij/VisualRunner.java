@@ -134,6 +134,13 @@ public final class VisualRunner {
 
     /** at — המקום של הסמן / הכפתור שבצד (או null): אם הוא בתוך מחלקה עם main — היא שרצה */
     public static void run(Project project, PsiJavaFile file, com.intellij.psi.PsiElement at) {
+        // חיפוש ה-main בקובץ הפתוח (בחוט המסך, מלחיצה על הכפתור) — קריאות קצרות לאינדקס; מסומן כמותר כדי שלא יירשם SEVERE
+        try (com.intellij.openapi.application.AccessToken ignored = com.intellij.util.SlowOperations.knownIssue("DSVIZ-RUN")) {
+            runImpl(project, file, at);
+        }
+    }
+
+    private static void runImpl(Project project, PsiJavaFile file, com.intellij.psi.PsiElement at) {
         PsiClass main = mainClassIn(file, at);
         if (main == null) {
             PsiClass[] classes = file.getClasses();

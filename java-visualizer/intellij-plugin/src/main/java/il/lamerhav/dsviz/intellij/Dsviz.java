@@ -54,6 +54,14 @@ public final class Dsviz {
 
     /** התיקייה של התוסף (‎…/plugins/dsviz-intellij) — לפי המקום של ה-jar של התוסף (lib/…jar), או null בבדיקות */
     public static Path pluginDir() {
+        // ב-IntelliJ אמיתי ה-CodeSource של מחלקת התוסף ריק (PluginClassLoader) — לכן קודם מבקשים מ-IntelliJ את תיקיית התוסף
+        try {
+            com.intellij.ide.plugins.IdeaPluginDescriptor d = com.intellij.ide.plugins.PluginManagerCore.getPlugin(com.intellij.openapi.extensions.PluginId.getId(PLUGIN_ID));
+            Path dir = d == null ? null : d.getPluginPath();
+            if (dir != null && Files.isDirectory(dir.resolve("runtime"))) return dir;
+        } catch (Throwable ignored) {
+            // נמשיך ל-CodeSource
+        }
         try {
             Path jar = Path.of(Dsviz.class.getProtectionDomain().getCodeSource().getLocation().toURI());
             Path dir = jar.getParent() == null ? null : jar.getParent().getParent();
