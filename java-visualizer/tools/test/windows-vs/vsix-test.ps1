@@ -51,8 +51,15 @@ $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswh
 $vs = & $vw -latest -prerelease -products * -requires Microsoft.Component.MSBuild -property installationPath
 $devenv = Join-Path $vs 'Common7\IDE\devenv.exe'
 Info "Visual Studio: $vs"
+Info ("גרסת Visual Studio: " + (& $vw -latest -prerelease -products * -property catalog_productDisplayVersion))
 & $Installer $Vsix
 Start-Sleep 5
+# היומן של VSIXInstaller — למה ההתקנה נכשלה (אם נכשלה)
+Get-ChildItem $env:TEMP -Filter 'dd_VSIXInstaller*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 | ForEach-Object {
+    Info "יומן ההתקנה: $($_.FullName)"
+    Copy-Item $_.FullName (Join-Path $Out 'vsixinstaller.log') -ErrorAction SilentlyContinue
+    (Get-Content $_.FullName -Tail 40) | ForEach-Object { Info "  | $_" }
+}
 $found = Get-ChildItem "$env:LOCALAPPDATA\Microsoft\VisualStudio", "$env:ProgramData\Microsoft\VisualStudio" -Recurse -Filter extension.vsixmanifest -ErrorAction SilentlyContinue |
     Where-Object { (Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue) -match 'DsViz.VisualStudio.Toolbar' }
 Check 'vsix-installed' (@($found).Count -gt 0) 'ההרחבה הותקנה ב-Visual Studio (extension.vsixmanifest נמצא)' "$(@($found).Count)"
