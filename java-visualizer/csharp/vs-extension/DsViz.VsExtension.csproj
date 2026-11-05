@@ -47,7 +47,7 @@
 
   <!-- קומפילציית ה-vsct לתפריטים/סרגל כלים ידנית עם VSCT.exe מהחבילה, והטמעה ב-dll בשם Menus.ctmenu (בלי זה אין סרגל כלים).
        הפרויקט הוא SDK-style, ומטרות ה-VSCTCompile של VSSDK לא רצות בו, לכן עושים זאת בעצמנו. -->
-  <Target Name="DsVizCompileVsct" BeforeTargets="CoreCompile;PrepareResources" DependsOnTargets="">
+  <Target Name="DsVizCompileVsct" BeforeTargets="AssignTargetPaths;CoreCompile;PrepareResources" DependsOnTargets="">
     <PropertyGroup>
       <_VsctExe>$(NuGetPackageRoot)microsoft.vssdk.buildtools\17.14.2120\tools\vssdk\bin\VSCT.exe</_VsctExe>
       <_VsctInc>$(NuGetPackageRoot)microsoft.vssdk.buildtools\17.14.2120\tools\vssdk\inc</_VsctInc>
@@ -60,8 +60,9 @@
     <Copy SourceFiles="$(MSBuildProjectDirectory)\DsVizPackage.vsct;$(_VsctInc)\stdidcmd.h;$(_VsctInc)\vsshlids.h;$(_VsctInc)\sharedids.h;$(_VsctInc)\virtkeys.h;$(_VsctInc)\MnuHelpIds.h;$(_VsctInc)\sccmnid.h;$(_VsctInc)\wbids.h;$(_VsctInc)\editids.h;$(_VsctInc)\venusids.h" DestinationFolder="$(_VsctWork)" />
     <Exec WorkingDirectory="$(_VsctWork)" Command="&quot;$(_VsctExe)&quot; DsVizPackage.vsct DsVizPackage.cto" />
     <ItemGroup>
-      <EmbeddedResource Include="$(_VsctOut)" LogicalName="Menus.ctmenu" />
+      <EmbeddedResource Include="$(_VsctOut)" LogicalName="Menus.ctmenu" Condition="'@(EmbeddedResource)' == '' Or !$([System.String]::Copy('@(EmbeddedResource->'%(LogicalName)')').Contains('Menus.ctmenu'))" />
     </ItemGroup>
+    <Message Importance="high" Text="DSViz: Menus.ctmenu = $(_VsctOut) ($([System.IO.File]::Exists('$(_VsctOut)')))" />
   </Target>
 
 </Project>

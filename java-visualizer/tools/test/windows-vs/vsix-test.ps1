@@ -70,7 +70,7 @@ Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hi
 $proj = Join-Path $env:RUNNER_TEMP 'Targil1'
 dotnet new console -n Targil1 -o $proj --force | Out-Null
 $t0 = Get-Date
-$p = Start-Process $devenv -ArgumentList "`"$proj\Targil1.csproj`"" -PassThru
+$p = Start-Process $devenv -ArgumentList "`"$proj\Targil1.csproj`" /log" -PassThru
 $ready = $false
 while (((Get-Date) - $t0).TotalMinutes -lt 9) {
     Start-Sleep 5
@@ -104,5 +104,11 @@ if ($ready) {
     }
 }
 Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep 3
+# יומן הפעילות של Visual Studio: האם ההרחבה נטענה, שגיאות בטעינה
+Get-ChildItem "$env:APPDATA\Microsoft\VisualStudio" -Recurse -Filter ActivityLog.xml -ErrorAction SilentlyContinue | ForEach-Object {
+    Copy-Item $_.FullName (Join-Path $Out ('ActivityLog-' + $_.Directory.Name + '.xml')) -ErrorAction SilentlyContinue
+    Select-String -Path $_.FullName -Pattern 'DsViz|7b2f4d1e|vsixmanifest|ctmenu|Menus' -ErrorAction SilentlyContinue | Select-Object -First 25 | ForEach-Object { Info "  log| $($_.Line.Trim())" }
+}
 Info "כישלונות: $script:fail"
 exit $(if ($script:fail -gt 0) { 1 } else { 0 })
