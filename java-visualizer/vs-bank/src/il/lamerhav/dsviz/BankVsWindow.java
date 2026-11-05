@@ -1,5 +1,6 @@
 package il.lamerhav.dsviz;
 
+import unit4.collectionsLib.Theme;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -52,7 +53,8 @@ import javax.swing.event.DocumentListener;
  * למטה: "צור תרגיל" (או "פתח את התרגיל" אם כבר נוצר), "צור עותק חדש", "שאלה אקראית", "סגירה".
  */
 final class BankVsWindow {
-    static final int SIDEBAR = 330, TOPIC_H = 40, Q_H = 30, PREVIEW_W = 640;
+    /** הגדלים — בגודל התצוגה הנוכחי (BankZoom) */
+    static int SIDEBAR = 330, TOPIC_H = 40, Q_H = 30, PREVIEW_W = 640;
 
     static BankVsWindow current;
     /** לבדיקות: מה מוצג בעץ ובתצוגה */
@@ -108,7 +110,12 @@ final class BankVsWindow {
         side.setPreferredSize(new Dimension(SIDEBAR, 10));
         JPanel sideTop = BankVsPanel.column();
         sideTop.setBorder(BorderFactory.createEmptyBorder(14, 14, 8, 14));
-        sideTop.add(RtlDialog.label("מאגר תרגילים", RtlDialog.bold().deriveFont(Font.BOLD, 18f), RtlDialog.INK));
+        JPanel titleRow = new JPanel(new BorderLayout());
+        titleRow.setOpaque(false);
+        titleRow.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        titleRow.add(RtlDialog.label("מאגר תרגילים", Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 18f)), RtlDialog.INK), BorderLayout.LINE_START);
+        titleRow.add(BankZoom.controls(), BorderLayout.LINE_END);
+        sideTop.add(titleRow);
         sideTop.add(RtlDialog.gap(2));
         sideTop.add(RtlDialog.label("ל-" + BankVs.ide(), RtlDialog.small(), RtlDialog.MUTED));
         sideTop.add(RtlDialog.gap(10));
@@ -165,7 +172,7 @@ final class BankVsWindow {
 
         // ---- התצוגה (במרכז)
         preview.setBackground(RtlDialog.PAGE);
-        previewScroll = new JScrollPane(preview, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        previewScroll = new JScrollPane(preview, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);   // קוד רחב (בהגדלה) — גוללים, לא נחתך
         previewScroll.setBorder(BorderFactory.createEmptyBorder());
         previewScroll.getVerticalScrollBar().setUnitIncrement(18);
         previewScroll.getViewport().setBackground(RtlDialog.PAGE);
@@ -187,6 +194,7 @@ final class BankVsWindow {
         page.add(center, BorderLayout.CENTER);
 
         frame.setContentPane(page);
+        BankZoom.install(frame);
         styleChips();
         rebuildTree();
         RtlDialog.rtl(page);
@@ -337,7 +345,7 @@ final class BankVsWindow {
             Image im = icon(t.id);
             if (im != null) g.drawImage(im, x - 26, cy - 13, 26, 26, null);
             x -= 34;
-            g.setFont(RtlDialog.bold().deriveFont(Font.BOLD, 14f));
+            g.setFont(Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 14f)));
             g.setColor(RtlDialog.INK);
             FontMetrics fm = g.getFontMetrics();
             g.drawString(t.title, x - fm.stringWidth(t.title), cy + fm.getAscent() / 2 - 2);
@@ -402,7 +410,7 @@ final class BankVsWindow {
             g.setColor(BankVsPanel.level(q.level));
             g.fillOval(x - 8, cy - 4, 8, 8);
             x -= 16;
-            g.setFont(sel ? RtlDialog.bold().deriveFont(Font.BOLD, 12.5f) : RtlDialog.ui().deriveFont(12.5f));
+            g.setFont(Theme.z(sel ? RtlDialog.bold().deriveFont(Font.BOLD, 12.5f) : RtlDialog.ui().deriveFont(12.5f)));
             g.setColor(RtlDialog.INK);
             FontMetrics fm = g.getFontMetrics();
             String t = q.title;
@@ -447,7 +455,9 @@ final class BankVsWindow {
         col.setBorder(BorderFactory.createEmptyBorder(6, 20, 20, 20));
         col.add(BankVsPanel.titleRow(q, BankVs.topicTitle(q.topic)));
         col.add(RtlDialog.gap(12));
-        col.add(BankVsPanel.build(q, PREVIEW_W, null));
+        // רוחב התצוגה לפי המקום שבאמת יש בחלון (גם בהגדלה — הטקסט יורד שורה במקום להיחתך)
+        int room = frame.getWidth() > 0 ? frame.getWidth() - SIDEBAR - 110 : PREVIEW_W;
+        col.add(BankVsPanel.build(q, Math.max(300, Math.min(PREVIEW_W, room)), null));
         preview.add(col, BorderLayout.NORTH);
         previewShown.add("TITLE " + q.title);
         for (BankStore.Section s : q.sections) previewShown.add("SECTION " + s.label + " " + s.text.replace("\n", " | "));
@@ -492,6 +502,11 @@ final class BankVsWindow {
         RtlDialog.rtl(buttons);
         preview.revalidate();
         preview.repaint();
+        // אם בכל זאת רחב מהחלון (קוד ארוך בהגדלה גדולה) — מתחילים מימין, כמו שקוראים
+        SwingUtilities.invokeLater(() -> {
+            javax.swing.JScrollBar h = previewScroll.getHorizontalScrollBar();
+            h.setValue(h.getMaximum());
+        });
         buttons.revalidate();
         buttons.repaint();
         SwingUtilities.invokeLater(() -> previewScroll.getVerticalScrollBar().setValue(0));
@@ -512,7 +527,7 @@ final class BankVsWindow {
         body.setBorder(BorderFactory.createEmptyBorder(18, 22, 18, 22));
         body.setBackground(RtlDialog.PANEL);
         body.setOpaque(true);
-        body.add(RtlDialog.label("יוצר את התרגיל…", RtlDialog.bold().deriveFont(Font.BOLD, 15f), RtlDialog.INK));
+        body.add(RtlDialog.label("יוצר את התרגיל…", Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 15f)), RtlDialog.INK));
         body.add(RtlDialog.gap(6));
         final JLabel stage = RtlDialog.label("מכין את הקבצים", RtlDialog.ui(), RtlDialog.INK_2);
         body.add(stage);
@@ -573,8 +588,12 @@ final class BankVsWindow {
     /** "ההתקדמות שלי": X מתוך Y, ופס לכל רמה */
     final class Stats extends JComponent {
         Stats() {
-            setPreferredSize(new Dimension(SIDEBAR - 28, 74));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 74));
+            setPreferredSize(new Dimension(SIDEBAR - 28, BankZoom.px(74)));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, BankZoom.px(74)));
+        }
+
+        private Font base(Font f) {
+            return f.deriveFont((float) (f.getSize2D() / Theme.zoom));
         }
 
         @Override
@@ -582,18 +601,20 @@ final class BankVsWindow {
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            int w = getWidth();
+            // הגדלה: כל הכרטיס גדל כיחידה אחת (המיקומים כאן קבועים — לכן מקטינים את הגופנים בחזרה ומגדילים את הציור)
+            g.scale(Theme.zoom, Theme.zoom);
+            int w = (int) Math.round(getWidth() / Theme.zoom);
             g.setColor(RtlDialog.SUNK);
-            g.fillRoundRect(0, 0, w - 1, getHeight() - 1, 12, 12);
+            g.fillRoundRect(0, 0, w - 1, (int) Math.round(getHeight() / Theme.zoom) - 1, 12, 12);
             List<BankStore.Question> all = BankVs.store.questions;
             int done = BankProgress.get().doneCount(all);
-            g.setFont(RtlDialog.bold());
+            g.setFont(base(RtlDialog.bold()));
             FontMetrics fm = g.getFontMetrics();
             g.setColor(RtlDialog.INK);
             String head = "ההתקדמות שלי";
             g.drawString(head, w - 12 - fm.stringWidth(head), 20);
             String c = done + " מתוך " + all.size();
-            g.setFont(RtlDialog.small());
+            g.setFont(base(RtlDialog.small()));
             g.setColor(RtlDialog.MUTED);
             g.drawString(c, 12, 20);
             int y = 34;

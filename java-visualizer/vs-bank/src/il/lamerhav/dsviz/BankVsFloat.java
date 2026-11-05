@@ -1,5 +1,6 @@
 package il.lamerhav.dsviz;
 
+import unit4.collectionsLib.Theme;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -95,6 +96,7 @@ final class BankVsFloat {
             // בלי סמל
         }
         current = f;
+        BankZoom.install(f);
         render();
         final Runnable onChange = () -> SwingUtilities.invokeLater(() -> {
             if (current == f && f.isDisplayable()) render();
@@ -192,6 +194,11 @@ final class BankVsFloat {
         page.setBackground(RtlDialog.PAGE);
         JPanel top = BankVsPanel.column();
         top.setBorder(BorderFactory.createEmptyBorder(12, 16, 8, 16));
+        JPanel zoomRow = new JPanel(new BorderLayout());
+        zoomRow.setOpaque(false);
+        zoomRow.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        zoomRow.add(BankZoom.controls(), BorderLayout.LINE_END);
+        top.add(zoomRow);
         top.add(BankVsPanel.titleRow(q, BankVs.topicTitle(q.topic)));
         // איפה התרגיל, ואיך מריצים
         List<File> projects = BankVs.projects(q);
@@ -245,7 +252,7 @@ final class BankVsFloat {
             JPanel holder = new JPanel(new BorderLayout());
             holder.setBackground(RtlDialog.PAGE);
             holder.add(body, BorderLayout.NORTH);
-            JScrollPane sp = new JScrollPane(holder, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            JScrollPane sp = new JScrollPane(holder, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
             sp.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, RtlDialog.LINE));
             sp.getVerticalScrollBar().setUnitIncrement(18);
             sp.getViewport().setBackground(RtlDialog.PAGE);
@@ -294,7 +301,7 @@ final class BankVsFloat {
         holder.setBackground(RtlDialog.PAGE);
         holder.setBorder(BorderFactory.createEmptyBorder(10, 14, 14, 14));
         holder.add(box, BorderLayout.NORTH);
-        JScrollPane sp = new JScrollPane(holder, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        JScrollPane sp = new JScrollPane(holder, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         sp.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, RtlDialog.LINE));
         sp.getViewport().setBackground(RtlDialog.PAGE);
         return sp;
@@ -381,7 +388,7 @@ final class BankVsFloat {
             g.setColor(green);
             g.setStroke(new BasicStroke(done ? 1f : 2f));
             g.drawRoundRect(1, 1, w - 3, h - 3, 14, 14);
-            Font font = RtlDialog.bold().deriveFont(Font.BOLD, 14f);
+            Font font = Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 14f));
             g.setFont(font);
             String t = text();
             int tw = g.getFontMetrics().stringWidth(t), iw = 18, total = tw + iw + 8, x = (w - total) / 2;

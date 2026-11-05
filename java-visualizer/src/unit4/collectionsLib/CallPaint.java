@@ -198,7 +198,11 @@ final class CallPaint {
 
         Strip() {
             setOpaque(true);
-            setPreferredSize(new Dimension(100, 54));
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(100, (int) Math.round(54 * Theme.zoom));
         }
 
         void set(State st, List<Frame> calls) {
@@ -212,7 +216,8 @@ final class CallPaint {
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            int w = getWidth(), h = getHeight();
+            g.scale(Theme.zoom, Theme.zoom);   // הגדלת החלון: כל הפס גדל כיחידה אחת
+            int w = (int) Math.round(getWidth() / Theme.zoom), h = (int) Math.round(getHeight() / Theme.zoom);
             g.setColor(new Color(0xF8FAFC));
             g.fillRect(0, 0, w, h);
             g.setColor(Theme.BORDER);

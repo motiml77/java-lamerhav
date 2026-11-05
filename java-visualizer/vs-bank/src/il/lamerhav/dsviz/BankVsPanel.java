@@ -1,5 +1,6 @@
 package il.lamerhav.dsviz;
 
+import unit4.collectionsLib.Theme;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -53,7 +54,7 @@ final class BankVsPanel {
         JPanel row = new JPanel(new BorderLayout(8, 0));
         row.setOpaque(false);
         row.add(dot(level(q.level), 10), BorderLayout.LINE_START);
-        row.add(RtlDialog.label(q.title, RtlDialog.bold().deriveFont(Font.BOLD, 17f), RtlDialog.INK), BorderLayout.CENTER);
+        row.add(RtlDialog.label(q.title, Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 17f)), RtlDialog.INK), BorderLayout.CENTER);
         row.setAlignmentX(Component.RIGHT_ALIGNMENT);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
         col.add(row);
@@ -78,7 +79,7 @@ final class BankVsPanel {
         for (BankStore.Section s : q.sections) {
             JPanel c = column();
             String label = s.label.replaceAll("['׳]+$", "");
-            c.add(RtlDialog.label(label.isEmpty() ? "סעיף" : "סעיף " + label + "'", RtlDialog.bold().deriveFont(Font.BOLD, 14f), RtlDialog.ACCENT_2));
+            c.add(RtlDialog.label(label.isEmpty() ? "סעיף" : "סעיף " + label + "'", Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 14f)), RtlDialog.ACCENT_2));
             c.add(RtlDialog.gap(4));
             c.add(text(s.text, width - 32, RtlDialog.INK));
             figures(c, s.figures);
@@ -110,17 +111,30 @@ final class BankVsPanel {
         String expected = q.expectedOutput();
         if (!expected.isEmpty()) {
             JPanel c = column();
-            c.add(RtlDialog.label("כשהכול פתור נכון, התוכנית מדפיסה:", RtlDialog.bold(), RtlDialog.INK));
+            c.add(wrapped(RtlDialog.paragraph("כשהכול פתור נכון, התוכנית מדפיסה:", RtlDialog.bold(), RtlDialog.INK, width - 40, true)));   // יורד שורה בהגדלה
             c.add(RtlDialog.gap(6));
             // כמו בחלון הפלט: משמאל לימין, שורה-שורה ("[4,7,2,9]" לא מתהפך)
             // כמו בחלון הפלט: כל שורה משמאל לימין ("סעיף א: 22", "[4,7,2,9]" — לא מתהפך)
             JComponent out = new ConsoleLines(expected);
+            int room = width - 40;
+            if (out.getPreferredSize().width > room) {
+                // שורה ארוכה (בהגדלה גדולה) — גלילה לצד רק בתוך הפלט, ושאר השאלה נשארת ברוחב החלון
+                JScrollPane sp = new JScrollPane(out, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                sp.setBorder(BorderFactory.createEmptyBorder());
+                sp.setOpaque(false);
+                sp.getViewport().setOpaque(false);
+                sp.applyComponentOrientation(java.awt.ComponentOrientation.LEFT_TO_RIGHT);
+                Dimension s = new Dimension(room, out.getPreferredSize().height + sp.getHorizontalScrollBar().getPreferredSize().height + 2);
+                sp.setPreferredSize(s);
+                sp.setMaximumSize(new Dimension(Integer.MAX_VALUE, s.height));
+                out = sp;
+            }
             RtlDialog.Panel box = new RtlDialog.Panel(new BorderLayout(), RtlDialog.SUNK, RtlDialog.LINE);
             box.add(out, BorderLayout.CENTER);
             box.setAlignmentX(Component.RIGHT_ALIGNMENT);
             c.add(box);
             c.add(RtlDialog.gap(6));
-            c.add(RtlDialog.label("מריצים ב\"הרצה ויזואלית\", ובודקים שזה מה שמודפס.", RtlDialog.small(), RtlDialog.MUTED));
+            c.add(wrapped(RtlDialog.paragraph("מריצים ב\"הרצה ויזואלית\", ובודקים שזה מה שמודפס.", RtlDialog.small(), RtlDialog.MUTED, width - 40, true)));
             col.add(card(c));
         }
         return col;
@@ -136,16 +150,16 @@ final class BankVsPanel {
             JPanel one = new JPanel();
             one.setLayout(new BoxLayout(one, BoxLayout.Y_AXIS));
             one.setOpaque(false);
-            JComponent d = il.lamerhav.dsviz.cs.BankFigure.of(f.type, f.inner, f.groups);
+            JComponent d = BankZoom.scaled(il.lamerhav.dsviz.cs.BankFigure.of(f.type, f.inner, f.groups));
             Dimension p = d.getPreferredSize();
             JComponent shown = d;
-            if (p.width > WIDE_FIGURE) {
+            if (p.width > BankZoom.px(WIDE_FIGURE)) {
                 JScrollPane sp = new JScrollPane(d, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
                 sp.setBorder(BorderFactory.createEmptyBorder());
                 sp.setOpaque(false);
                 sp.getViewport().setOpaque(false);
                 sp.getHorizontalScrollBar().setUnitIncrement(16);
-                Dimension s = new Dimension(WIDE_FIGURE, p.height + sp.getHorizontalScrollBar().getPreferredSize().height + 4);
+                Dimension s = new Dimension(BankZoom.px(WIDE_FIGURE), p.height + sp.getHorizontalScrollBar().getPreferredSize().height + 4);
                 sp.setPreferredSize(s);
                 sp.setMaximumSize(s);
                 sp.putClientProperty("dsviz.id", "figure-scroll");
@@ -202,6 +216,11 @@ final class BankVsPanel {
         return p;
     }
 
+    private static JComponent wrapped(JComponent p) {
+        p.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        return p;
+    }
+
     static AiScaffold.Task taskOf(AiScaffold.Exercise ex, String label) {
         String l = label.replaceAll("[\\s'׳.]", "");
         for (AiScaffold.Task t : ex.tasks) if (t.label.replaceAll("[\\s'׳.]", "").equals(l)) return t;
@@ -229,7 +248,7 @@ final class BankVsPanel {
 
         ConsoleLines(String text) {
             lines = text.split("\n", -1);
-            setFont(RtlDialog.mono(13f));
+            setFont(Theme.z(RtlDialog.mono(13f)));
             setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
             java.awt.FontMetrics fm = getFontMetrics(getFont());
             int w = 0;
