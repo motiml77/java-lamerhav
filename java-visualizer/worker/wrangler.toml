@@ -10,14 +10,14 @@ compatibility_flags = ["nodejs_compat"]
 # gemini-flash-lite-latest = קטן יותר, עם מכסה חינמית יומית גדולה יותר — גיבוי.
 MODELS = "gemini-flash-latest,gemini-flash-lite-latest"
 
-# כניסה למאגר התרגילים (מורים / עמדות / תלמידים / מסוף ההנהלה) — src/access/. כבוי עד ש-ACCESS = "on".
+# כניסה למאגר התרגילים (מורים / עמדות / תלמידים / מסוף ההנהלה) — src/access/. ACCESS = "on": הכניסה פעילה; השליחה ל-Gemini נשארת פתוחה לכולם עד שמדליקים "רק למחוברים" במסוף ההנהלה.
 # פרויקט Firebase נפרד (לא exams-a93fb). apiKey של Firebase לאתר הוא ציבורי (מופיע בכל דף) — לא סוד.
 # הסודות (לא כאן!): FIREBASE_SERVICE_ACCOUNT (המפתח של חשבון השירות), PASS_KEY (tools/pass-key.mjs) — npx wrangler@4 secret put ...
-ACCESS = "off"
+ACCESS = "on"
 FIREBASE_PROJECT_ID = "dsviz-access"
 FIREBASE_API_KEY = "AIzaSyAv3WAay63CrsKiOFtplEsVFMMbAMHYDG8"
 FIREBASE_AUTH_DOMAIN = "dsviz-access.firebaseapp.com"
-ADMIN_EMAILS = "motiml77@gmail.com,mordechai.l.91@gmail.com"
+ADMIN_EMAILS = "motiml77@gmail.com"
 
 # הגבלת קצב לפי כתובת IP: עד 6 שליחות בדקה מכל מחשב (מגן על המכסה של Gemini מפני הצפה)
 [[ratelimits]]

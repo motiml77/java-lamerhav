@@ -96,6 +96,9 @@ public final class Account {
     /** איך פותחים את הדפדפן (בבדיקות — מוחלף) */
     public static volatile java.util.function.Consumer<String> browser = Account::openBrowser;
 
+    /** המפתח הציבורי של השרת (החתימה על האישור). ציבורי — לא סוד; המפתח הפרטי נמצא רק בשרת (PASS_KEY) */
+    static final String PASS_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzcPy66SILXotJ2VPxjt93e7dGBR1chdnNh6Ptgr6KYXn5DGhSYEbkT3dsFKWO96QQCw/wG/bsQmqtLDxLHgjzOxjmYMGxyLmBkhHfywmYBl8JvRRPkWUn5AqZI5VgQ7cqeF4vbjMIOeb3jR3GB4QhfaI04v+4mAna6KQEC0drXfhT5oMuOhbfxH2t77tCC1iUkAnnfA/VprWcvPyieyzdTxZ4/r4e9VS5hTGceRsKpsdC7/Euy31vqrJxeVLV7Mwc1PkAMk0ghEJtSRBbvZdRUv5X5K8DLAjVpEVRHlq2XwobMI2c8oSU8qGESGsUk/R1lGUWIqGOXE+UdW6ODPVjQIDAQAB";
+
     private static final SecureRandom RANDOM = new SecureRandom();
     private static volatile String machineRaw, machineHash;
     private static volatile String lastError = "";
@@ -113,6 +116,7 @@ public final class Account {
         String k = System.getProperty("dsviz.passKey");
         if (k == null || k.isEmpty()) k = System.getenv("DSVIZ_PASS_KEY");
         if (k == null || k.isEmpty()) k = props("/resources/access.properties").getProperty("passKey", "");
+        if (k == null || k.isEmpty()) k = PASS_KEY;
         return k.trim();
     }
 

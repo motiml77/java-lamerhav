@@ -184,6 +184,12 @@ final class WorkerClient {
             c.setRequestProperty("Accept", "application/json");
             c.setRequestProperty("Content-Type", contentType);
             if (!key.isEmpty()) c.setRequestProperty("X-DSViz-Key", key);
+            // הכניסה (מורה / עמדת מחשב / תלמיד) — השרת דורש אותה רק כשההנהלה הדליקה "שליחה ל-Gemini רק למחוברים"
+            try {
+                for (Map.Entry<String, String> h : Account.headers().entrySet()) c.setRequestProperty(h.getKey(), h.getValue());
+            } catch (Throwable ignored) {
+                // בלי כניסה — שולחים כמו קודם
+            }
             c.setDoOutput(true);
             c.setFixedLengthStreamingMode(body.length);
             pending = c;
