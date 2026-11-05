@@ -18,8 +18,8 @@ window.SCRIPT = B => {
   // מלבן שמכסה כמה כפתורים בסרגל
   const U = (...ts) => { const rs = ts.map(t => B.rectOfTarget(t)); const x = Math.min(...rs.map(r => r.x)), y = Math.min(...rs.map(r => r.y)); return { x: x - 6, y: y - 4, w: Math.max(...rs.map(r => r.x + r.w)) - x + 12, h: Math.max(...rs.map(r => r.y + r.h)) - y + 8 }; };
   const base = [[0, SLN + ' (10 of 10 projects)'], [1, 'Examples'], [1, 'Exercise']];
-  B.files(base);
-  B.code(['using System;', 'using Unit4.CollectionsLib;', '', 'class Program', '{', '    static void Main(string[] args)', '    {', '', '    }', '}'], { file: 'Program.cs' });
+  B.files([[0, 'No solution loaded']]);
+  B.code(['', '', ''], { file: 'Start Page' });
   B.intro(2.8);
 
   // 1. פרויקט חדש מהתבנית של DSViz
