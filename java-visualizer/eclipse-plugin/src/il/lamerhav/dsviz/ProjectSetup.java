@@ -64,15 +64,17 @@ public final class ProjectSetup {
 
     public static IJavaProject createProject(String name) throws CoreException {
         IProject p = ResourcesPlugin.getWorkspace().getRoot().getProject(name);
-        p.create(null);
+        if (!p.exists()) p.create(null);
         p.open(null);
+        // הפרויקט נמחק מ-Eclipse אבל התיקייה נשארה בדיסק (src, lib...): מרעננים — אחרת "Resource ... already exists"
+        p.refreshLocal(org.eclipse.core.resources.IResource.DEPTH_INFINITE, null);
         IProjectDescription d = p.getDescription();
         d.setNatureIds(new String[] { JavaCore.NATURE_ID });
         d.setComment("תרגילי מבני נתונים עם הרצה ויזואלית");
         p.setDescription(d, null);
         p.setDefaultCharset("UTF-8", null);
         IFolder src = p.getFolder("src");
-        src.create(true, true, null);
+        if (!src.exists()) src.create(true, true, null);
         IFolder bin = p.getFolder("bin");
         if (!bin.exists()) bin.create(true, true, null);
         IJavaProject jp = JavaCore.create(p);
