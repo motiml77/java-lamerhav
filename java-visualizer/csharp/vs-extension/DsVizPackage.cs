@@ -67,6 +67,17 @@ namespace DsViz.VsExtension
                 dynamic bars = dte.CommandBars;
                 dynamic bar = bars["DSViz"];
                 bar.Visible = true;
+                // שורה משלו מתחת לסרגלים הרגילים (בלי זה הוא נדחס לשורה הראשונה ורוב הכפתורים נעלמים לחץ "עוד")
+                try
+                {
+                    bar.Position = 1;   // msoBarTop
+                    bar.RowIndex = 3;
+                    bar.Left = 0;
+                }
+                catch (Exception ex2)
+                {
+                    ActivityLog.LogWarning("DsViz", "toolbar row failed: " + ex2.Message);
+                }
                 Directory.CreateDirectory(InstallDir);
                 File.WriteAllText(flag, DateTime.Now.ToString("s"));
                 ActivityLog.LogInformation("DsViz", "toolbar shown");

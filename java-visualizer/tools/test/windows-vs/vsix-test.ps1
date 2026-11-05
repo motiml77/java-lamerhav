@@ -90,7 +90,7 @@ if ($ready) {
     for ($i = 0; $i -lt 30; $i++) {   # עד 90 שניות: ההרחבה נטענת אחרי שהחלון עולה — יוצאים ברגע שהכפתורים נמצאו
         Start-Sleep 3
         $names = @(VsElements $p.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -match 'תרגיל חדש|מאגר שאלות|הוספת מבנה נתונים|שליחת תרגיל|הצעה לפתרון|DSViz' })
-        if ($names.Count -ge 3) { break }
+        if (@($names | Select-Object -Unique).Count -ge 4) { break }
     }
     Shot 'vs-toolbar'
     ($names | Select-Object -Unique) | Set-Content (Join-Path $Out 'toolbar-uia.txt') -Encoding utf8
