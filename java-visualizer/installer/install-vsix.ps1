@@ -12,6 +12,10 @@ foreach ($i in $instances) {
     $inst = Join-Path $i.installationPath 'Common7\IDE\VSIXInstaller.exe'
     if (-not (Test-Path $inst)) { continue }
     $q = [string][char]34
+    if (-not $Uninstall) {   # מנקים את הגרסה הקודמת (אותה גרסה לא מוחלפת לבד) ואז מתקינים מחדש
+        $un = Start-Process $inst -ArgumentList @('/quiet', "/instanceIds:$($i.instanceId)", "/uninstall:$id") -PassThru -WindowStyle Hidden
+        if (-not $un.WaitForExit(120000)) { try { $un.Kill() } catch {} }
+    }
     if ($Uninstall) { $argList = @('/quiet', "/instanceIds:$($i.instanceId)", "/uninstall:$id") }
     else { $argList = @('/quiet', "/instanceIds:$($i.instanceId)", ($q + $Vsix + $q)) }
     Write-Host "Visual Studio $($i.catalog.productDisplayVersion) ב-$($i.installationPath)"
