@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Continue'
 New-Item -ItemType Directory -Force $Out | Out-Null
 $summary = Join-Path $Out 'summary.txt'
 function Info($m) { Write-Host $m; Add-Content $summary $m -Encoding utf8 }
-$script:fail = 0
+$script:fail = 0   # (בדיקת הרכיבים של VS: סרגל כלים, מאגר שאלות מותנה, מנורות הצעה לפתרון)
 function Check($id, [bool]$ok, $what, $detail = '') { if ($ok) { Info "  ok   $id  $what" } else { $script:fail++; Info "  FAIL $id  $what  ($detail)" } }
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing, UIAutomationClient, UIAutomationTypes
 Add-Type -Namespace Win -Name Mouse -MemberDefinition '[DllImport("user32.dll")] public static extern void mouse_event(int f, int dx, int dy, int d, int e); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);'
