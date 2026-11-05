@@ -337,10 +337,10 @@ function exercise(headers = {}) {
   return worker.fetch(new Request(BASE + '/v1/exercise', { method: 'POST', body: fd, headers }), ENV, {});
 }
 
-await test('שליחה ל-Gemini: מתג כבוי — פתוח לכולם; דולק — רק מחוברים, תלמיד שלא שילם נחסם, ומכסה יומית לפי משתמש', async () => {
+await test('שליחה ל-Gemini: מתג כבוי — פתוח לכולם; דולק — רק מחוברים, תלמיד שלא שילם נחסם, ומנה חודשית לפי מורה', async () => {
   let r = await exercise();
   assert.equal(r.status, 200, 'מתג כבוי');
-  await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: true, geminiStation: 2 } });
+  await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: true, monthlyPerSeat: 1 } });
   r = await exercise();
   assert.equal(r.status, 401);
   assert.equal((await r.json()).code, 'login');
@@ -350,7 +350,7 @@ await test('שליחה ל-Gemini: מתג כבוי — פתוח לכולם; דו�
   assert.equal(r.status, 200);
   r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
   assert.equal(r.status, 429);
-  assert.equal((await r.json()).code, 'daily');
+  assert.equal((await r.json()).code, 'monthly');
   const unpaid = await signIn('unpaid@test.dev', 'student');
   r = await exercise({ 'x-dsviz-access': unpaid.token, 'x-dsviz-machine': unpaid.machine });
   assert.equal(r.status, 403);

@@ -313,6 +313,50 @@ await test('מכסה של המודל הראשון נגמרה → עוברים ל
   assert.equal(calls.length, 2);
 });
 
+function openaiOk(obj) {
+  return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(obj) } }], usage: { prompt_tokens: 100, completion_tokens: 50 } };
+}
+const OENV = { OPENAI_API_KEY: 'sk-test', OPENAI_MODELS: 'gpt-x' };
+
+await test('OpenAI: PDF כקובץ, תמונה כ-image_url, סכמה ומפתח בכותרת; בלי מפתח Gemini', async () => {
+  script = [{ status: 200, json: openaiOk(SAMPLE) }];
+  const r = await call(exerciseRequest({
+    files: [{ bytes: PDF, name: 'targil.pdf', type: 'application/pdf' }, { bytes: PNG, name: 'a.png', type: 'image/png' }],
+    meta: { texts: [{ name: 'w.docx', text: 'כתבו פעולה...' }] },
+  }), OENV);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.model, 'gpt-x');
+  assert.equal(r.body.exercise.tasks[0].methodName, 'countEven');
+  assert.match(String(calls[0].url), /api\.openai\.com\/v1\/chat\/completions/);
+  assert.equal(calls[0].init.headers.authorization, 'Bearer sk-test');
+  const body = JSON.parse(calls[0].init.body);
+  assert.equal(body.model, 'gpt-x');
+  assert.equal(body.response_format.type, 'json_schema');
+  assert.equal(body.response_format.json_schema.schema.type, 'object');
+  const parts = body.messages[1].content;
+  assert.ok(parts.some(p => p.type === 'file' && p.file.file_data.startsWith('data:application/pdf;base64,')));
+  assert.ok(parts.some(p => p.type === 'image_url' && p.image_url.url.startsWith('data:image/png;base64,')));
+  assert.ok(parts.some(p => p.type === 'text' && /כתבו פעולה/.test(p.text)));
+});
+
+await test('OpenAI: 429 → הודעת עומס; נגמר הכסף בחשבון → תקלת שרת (503)', async () => {
+  script = [{ status: 429, json: { error: { code: 'rate_limit_exceeded' } } }];
+  let r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }), OENV);
+  assert.equal(r.status, 429);
+  script = [{ status: 429, json: { error: { code: 'insufficient_quota' } } }];
+  r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }), OENV);
+  assert.equal(r.status, 503);
+  assert.equal(r.body.code, 'service');
+});
+
+await test('OpenAI: בדיקה חיה (health/gemini) מחזירה את המצב בלי המפתח', async () => {
+  script = [{ status: 200, json: openaiOk({ x: 1 }) }];
+  const r = await call(new Request('https://w.example/v1/health/gemini', { method: 'POST' }), OENV);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.models.map(m => [m.model, m.http, m.status]), [['gpt-x', 200, 'OK']]);
+  assert.ok(!JSON.stringify(r.body).includes('sk-test'));
+});
+
 await test('כל המודלים במכסה → הודעה ברורה', async () => {
   script = [{ status: 429, text: '{}' }, { status: 503, text: '{}' }];
   const r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }));

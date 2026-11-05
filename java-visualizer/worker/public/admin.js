@@ -492,7 +492,7 @@ async function settingsView() {
           h('p', { class: 'muted', style: { lineHeight: '1.55' } }, 'כשהמתג דולק, רק מורה, עמדת מחשב מחוברת ותלמיד ששילם יכולים לשלוח תרגיל ולקבל הצעה לפתרון. כשהוא כבוי — כמו היום, כל מי שמותקן אצלו DSViz.')),
         h('label', { class: 'switch', for: 's-gem' }, h('span', { class: 'sr' }, 'רק למחוברים'), gem, h('span', { class: 'track', 'aria-hidden': 'true' }, h('span', { class: 'knob' })), gemLabel)),
       h('div', { class: 'warn-box' }, 'מדליקים רק אחרי שכל המחשבים עודכנו לגרסה עם ההתחברות — מחשב עם גרסה ישנה יקבל ״צריך להתחבר / לעדכן את DSViz״.'),
-      h('div', { class: 'form3' }, num('geminiTeacher', 'שליחות ביום — מורה', s.geminiTeacher, 0, 1000), num('geminiStation', 'שליחות ביום — עמדה', s.geminiStation, 0, 1000), num('geminiStudent', 'שליחות ביום — תלמיד', s.geminiStudent, 0, 1000))),
+      h('div', { class: 'form3' }, num('monthlyPerSeat', 'שליחות בחודש — לכל עמדה של מורה (מנה משותפת)', s.monthlyPerSeat, 0, 1000), num('monthlyStudent', 'שליחות בחודש — תלמיד רשום', s.monthlyStudent, 0, 5000))),
     h('section', { class: 'card' }, h('h2', null, 'תשלום תלמידים'),
       h('div', { class: 'form3' }, num('price', 'מחיר (₪) — 0 = עוד לא פתוח', s.price, 0, 5000),
         h('label', { class: 'lbl', for: 's-until' }, 'תשלום פותח את המאגר עד', until),

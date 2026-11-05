@@ -27,11 +27,12 @@ export const DEFAULTS = {
   defaultSeats: 0,              // מורה חדש מקבל — ואת השאר קונה בחבילות
   packages: [{ seats: 10, price: 0 }, { seats: 20, price: 0 }, { seats: 30, price: 0 }],   // חבילות עמדות למורים (מחיר 0 = לא נמכרת)
   requireLoginForGemini: false, // שליחת תרגיל ל-Gemini רק למחוברים
-  geminiTeacher: 50, geminiStation: 15, geminiStudent: 20,   // שליחות ביום
+  monthlyPerSeat: 4,            // שליחות בחודש לכל עמדה של המורה (מנה משותפת: המורה + כל העמדות שלו)
+  monthlyStudent: 30,           // שליחות בחודש לתלמיד רשום (מייל)
 };
 const SETTING_LIMITS = {
   price: [0, 5000], offlineDays: [0, 365], studentDevices: [1, 20], teacherDevices: [1, 50], defaultSeats: [0, 2000],
-  geminiTeacher: [0, 1000], geminiStation: [0, 1000], geminiStudent: [0, 1000],
+  monthlyPerSeat: [0, 1000], monthlyStudent: [0, 5000],
 };
 
 const SESSION_TOUCH_MS = 6 * 3600 * 1000;   // מעדכנים "נראה לאחרונה" לכל היותר פעם ב-6 שעות (חוסך כתיבות)
@@ -46,6 +47,7 @@ export function accessEnabled(env) {
 
 const nowIso = () => new Date().toISOString();
 const today = () => nowIso().slice(0, 10);
+const month = () => nowIso().slice(0, 7);
 const clip = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n);
 const normEmail = e => String(e || '').trim().toLowerCase();
 const emailOk = e => /^[^\s@/]{1,64}@[^\s@/]{1,190}\.[^\s@/.]{2,}$/.test(e);
@@ -366,15 +368,25 @@ export async function geminiGate(request, env) {
     if (r.status === 'blocked') throw new Fail(403, 'blocked', 'הגישה של המורה הזה הושבתה. פונים למורה או להנהלה.');
     throw new Fail(401, 'login', 'הכניסה במחשב הזה כבר לא בתוקף — מתחברים שוב.');
   }
-  if (s.requireLoginForGemini) {
-    const limit = r.kind === 'teacher' ? s.geminiTeacher : r.kind === 'station' ? s.geminiStation : s.geminiStudent;
-    const store = db(env);
-    const key = 'usage/' + today() + '_' + (await sha256Hex(r.subject)).slice(0, 24);
-    const u = await store.get(key);
-    if (u && u.n >= limit) throw new Fail(429, 'daily', 'הגעתם למספר השליחות המרבי להיום. נסו שוב מחר.');
-    await store.merge(key, { subject: r.subject, day: today() }, { n: 1 });
+  // מונה חודשי (Firestore, מוסיפים באטומיות): מורה ועמדות שלו חולקים מנה אחת = שליחות-לעמדה × מספר העמדות (לפחות עמדה אחת, כדי שמורה בלי עמדות יוכל לנסות).
+  // תלמיד רשום — מנה אישית. עמדת מחשב נספרת על המורה שהפעיל אותה. המונה נספר תמיד (להנהלה), והחסימה — רק כשהמתג "רק למחוברים" דולק.
+  const owner = r.kind === 'station' ? r.station.teacher : r.kind === 'teacher' ? r.profile.email : r.profile.email;
+  const store = db(env);
+  let limit = s.monthlyStudent;
+  if (r.kind !== 'student') {
+    const t = await store.get('teachers/' + owner);
+    limit = s.monthlyPerSeat * Math.max(1, t && t.seats || 0);
   }
-  return { subject: r.subject, kind: r.kind };
+  const key = 'usage/' + month() + '_' + (await sha256Hex((r.kind === 'student' ? 'student:' : 'teacher:') + owner)).slice(0, 24);
+  const u = await store.get(key);
+  if (s.requireLoginForGemini && u && u.n >= limit) {
+    throw new Fail(429, 'monthly', r.kind === 'student'
+      ? `ניצלתם את ${limit} השליחות של החודש. המנה מתחדשת בתחילת החודש הבא.`
+      : `המורה ניצל את ${limit} השליחות של החודש (${s.monthlyPerSeat} לכל עמדה). המנה מתחדשת בתחילת החודש הבא, או אפשר לקנות עוד עמדות.`);
+  }
+  await store.merge(key, { owner, month: month(), kind: r.kind === 'student' ? 'student' : 'teacher', limit }, { n: 1 });
+  const refund = () => store.merge(key, {}, { n: -1 }).catch(() => {});   // שליחה שנכשלה בגלל השרת — לא נספרת
+  return { subject: r.subject, kind: r.kind, refund };
 }
 
 // ------------------------------------------------------------------ דפי הדפדפן: החשבון שלי (מורה / תלמיד)

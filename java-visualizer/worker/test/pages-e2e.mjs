@@ -187,13 +187,13 @@ await step('הגדרות: המתג של Gemini נשמר; יומן הפעולות
   await page.waitForSelector('#s-gem', { state: 'attached' });
   await shot(page, '08-admin-settings');
   await page.click('label.switch');
-  await page.fill('#s-geminiStudent', '25');
+  await page.fill('#s-monthlyStudent', '25');
   await page.click('button:has-text("שמירת השינויים")');
   await page.click('dialog button:has-text("הדלקה")');
   await page.waitForSelector('.toast:has-text("נשמר")');
   const s = await api('GET', '/v1/admin/settings', null, admin);
   assert.equal(s.settings.requireLoginForGemini, true);
-  assert.equal(s.settings.geminiStudent, 25);
+  assert.equal(s.settings.monthlyStudent, 25);
   await api('POST', '/v1/admin/settings', { requireLoginForGemini: false }, admin);
   await page.click('.nav a[href="#log"]');
   await page.waitForSelector('.feed li');
