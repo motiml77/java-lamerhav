@@ -53,17 +53,19 @@ public final class LibrarySetup {
     /** כל המודולים בפרויקט (כשהאינדקס מוכן). רץ בהפתיחה של פרויקט, ושוב כשנוסף מודול */
     public static void ensureAll(Project project) {
         if (!Dsviz.on() || project.isDisposed()) return;
-        DumbService.getInstance(project).runWhenSmart(() -> {
-            List<Module> need = ReadAction.compute(() -> {
-                List<Module> l = new ArrayList<Module>();
-                if (project.isDisposed()) return l;
-                for (Module m : ModuleManager.getInstance(project).getModules()) if (needs(m)) l.add(m);
-                return l;
-            });
-            for (Module m : need) add(m);
-            for (Module m : ModuleManager.getInstance(project).getModules()) if (ReadAction.compute(() -> needsRequires(m))) addRequires(m);
-            refreshCopies(project);
-        });
+        // הבדיקה (חיפוש מחלקה באינדקס) לא רצה בחוט של המסך — שם IntelliJ אוסר פעולות איטיות (SEVERE "Slow operations are prohibited on EDT")
+        // והספרייה לא נוספת. קריאה לא חוסמת, כשהאינדקס מוכן, ואז ההוספה עצמה (בחוט המסך, ב-add).
+        ReadAction.nonBlocking(() -> {
+            List<Module> l = new ArrayList<Module>();
+            if (project.isDisposed()) return l;
+            for (Module m : ModuleManager.getInstance(project).getModules()) if (needs(m)) l.add(m);
+            return l;
+        }).inSmartMode(project).expireWith(project).submit(com.intellij.util.concurrency.AppExecutorUtil.getAppExecutorService())
+                .onSuccess(need -> {
+                    for (Module m : need) add(m);
+                    for (Module m : ModuleManager.getInstance(project).getModules()) if (ReadAction.compute(() -> needsRequires(m))) addRequires(m);
+                    ApplicationManager.getApplication().invokeLater(() -> { if (!project.isDisposed()) refreshCopies(project); });
+                });
     }
 
     /** המודול צריך את הספרייה? (מודול Java, לא Gradle/Maven, ו-unit4.collectionsLib.Queue לא מוכר בו; עם module-info — רק אם הקוד משתמש בה). קריאה בלבד */
@@ -74,6 +76,13 @@ public final class LibrarySetup {
             return !hasModuleInfo(m) || usesCourseLibrary(m);   // מודול (module-info) — רק אם הקוד באמת משתמש בספרייה
         } catch (com.intellij.openapi.project.IndexNotReadyException e) {
             return false;   // האינדקס עוד נבנה — ננסה שוב כשיהיה מוכן (ensureAll)
+        }
+    }
+
+    /** needs לקריאה מחוט המסך (אחרי יצירת תרגיל וכד'): חיפוש יחיד באינדקס שמוכן — מסומן כמותר, כדי שלא יירשם SEVERE */
+    static boolean needsOnEdt(Module m) {
+        try (com.intellij.openapi.application.AccessToken ignored = com.intellij.util.SlowOperations.knownIssue("DSVIZ-LIB")) {
+            return needs(m);
         }
     }
 

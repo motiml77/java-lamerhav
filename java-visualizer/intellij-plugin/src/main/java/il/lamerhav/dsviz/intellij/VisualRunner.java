@@ -28,6 +28,7 @@ import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtilCore;
+import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.roots.ModuleRootManager;
@@ -186,10 +187,16 @@ public final class VisualRunner {
             return;
         }
         // פרויקט של התלמיד (כל פרויקט Java): לא משנים בו כלום מלבד הוספת ספריית הקורס אם אין בו בכלל (כדי ש-Queue וכו' יתקמפלו)
-        if (Dsviz.libraryJar() != null && ReadAction.compute(() -> LibrarySetup.needs(module))) LibrarySetup.add(module);
-        else if (Dsviz.libraryJar() != null && ReadAction.compute(() -> LibrarySetup.needsRequires(module))) LibrarySetup.addRequires(module);   // module-info שכבר יש בו הספרייה
+        // הבדיקות מחפשות מחלקות באינדקס — לא בחוט המסך (IntelliJ אוסר שם פעולות איטיות), אלא בחלון התקדמות קצר
+        boolean[] need = Dsviz.libraryJar() == null ? new boolean[3] : ProgressManager.getInstance().runProcessWithProgressSynchronously(
+                () -> ReadAction.compute(() -> {
+                    boolean lib = LibrarySetup.needs(module);
+                    return new boolean[] { lib, !lib && LibrarySetup.needsRequires(module), LibrarySetup.needsBuildFile(module) };
+                }), TITLE, false, project);
+        if (need[0]) LibrarySetup.add(module);
+        else if (need[1]) LibrarySetup.addRequires(module);   // module-info שכבר יש בו הספרייה
         // פרויקט Maven / Gradle שהקוד שלו משתמש בספרייה והיא חסרה: התלות נכנסת לקובץ ההגדרות, וממתינים לטעינה מחדש (בלי זה — שגיאות קומפילציה)
-        if (Dsviz.libraryJar() != null && ReadAction.compute(() -> LibrarySetup.needsBuildFile(module))) {
+        if (need[2]) {
             String file = LibrarySetup.addToBuildFile(module);
             if (file != null) {
                 end(project);

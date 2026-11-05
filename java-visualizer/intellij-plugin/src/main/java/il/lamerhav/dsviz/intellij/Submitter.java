@@ -338,7 +338,7 @@ public final class Submitter {
         AnswerMarks.get(project).track(folder);
         if (focus != null) {
             Module m = ModuleUtilCore.findModuleForFile(focus, project);
-            if (m != null && LibrarySetup.needs(m)) LibrarySetup.add(m);
+            if (m != null && LibrarySetup.needsOnEdt(m)) LibrarySetup.add(m);
         }
         FileEditorManager fem = FileEditorManager.getInstance(project);
         for (VirtualFile f : openOrder(files, focus, main)) {

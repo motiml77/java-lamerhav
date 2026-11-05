@@ -60,7 +60,7 @@
     <Copy SourceFiles="$(MSBuildProjectDirectory)\DsVizPackage.vsct;$(_VsctInc)\stdidcmd.h;$(_VsctInc)\vsshlids.h;$(_VsctInc)\sharedids.h;$(_VsctInc)\virtkeys.h;$(_VsctInc)\MnuHelpIds.h;$(_VsctInc)\sccmnid.h;$(_VsctInc)\wbids.h;$(_VsctInc)\editids.h;$(_VsctInc)\venusids.h" DestinationFolder="$(_VsctWork)" />
     <Exec WorkingDirectory="$(_VsctWork)" Command="&quot;$(_VsctExe)&quot; DsVizPackage.vsct DsVizPackage.cto" />
     <ItemGroup>
-      <EmbeddedResource Include="$(_VsctOut)" LogicalName="Menus.ctmenu" Condition="'@(EmbeddedResource)' == '' Or !$([System.String]::Copy('@(EmbeddedResource->'%(LogicalName)')').Contains('Menus.ctmenu'))" />
+      <EmbeddedResource Include="$(_VsctOut)" LogicalName="Menus.ctmenu" />
     </ItemGroup>
     <Message Importance="high" Text="DSViz: Menus.ctmenu = $(_VsctOut) ($([System.IO.File]::Exists('$(_VsctOut)')))" />
   </Target>

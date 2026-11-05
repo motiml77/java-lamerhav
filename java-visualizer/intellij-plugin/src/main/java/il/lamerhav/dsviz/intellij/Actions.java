@@ -117,7 +117,7 @@ public final class Actions {
             VirtualFile f = ProjectFiles.create(project, target.dir, o.className + ".java", r.code);
             com.intellij.openapi.module.Module m = com.intellij.openapi.module.ModuleUtilCore.findModuleForFile(f, project);
             if (m != null && !LibrarySetup.hasLibrary(m)) {
-                Boolean need = com.intellij.openapi.project.DumbService.getInstance(project).isDumb() ? Boolean.TRUE : LibrarySetup.needs(m);
+                Boolean need = com.intellij.openapi.project.DumbService.getInstance(project).isDumb() ? Boolean.TRUE : LibrarySetup.needsOnEdt(m);
                 if (need) LibrarySetup.add(m);
             }
             ProjectFiles.open(project, f, r.cursorLine);
@@ -187,7 +187,7 @@ public final class Actions {
             ProjectFiles.ensureSourceRoot(project, src);
             List<VirtualFile> files = ProjectFiles.copyExamples(project, src);
             com.intellij.openapi.module.Module m = com.intellij.openapi.module.ModuleUtilCore.findModuleForFile(files.get(k), project);
-            if (m != null && !LibrarySetup.hasLibrary(m) && !com.intellij.openapi.project.DumbService.getInstance(project).isDumb() && LibrarySetup.needs(m))
+            if (m != null && !LibrarySetup.hasLibrary(m) && !com.intellij.openapi.project.DumbService.getInstance(project).isDumb() && LibrarySetup.needsOnEdt(m))
                 LibrarySetup.add(m);
             ProjectFiles.open(project, files.get(k), 0);
         } catch (Exception ex) {
