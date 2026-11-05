@@ -59,6 +59,7 @@ namespace DsViz
             if (args.Length > 0 && args[0] == "--check") return Check(args.Skip(1).ToArray());
             if (args.Length > 1 && args[0] == "--check-project") return CheckProject(args[1]);
             if (args.Length > 1 && args[0] == "--ensure-profile") return EnsureProfile(args[1]);
+            if (args.Length > 1 && args[0] == "--tool") return LaunchTool(args[1], args.Length > 2 ? args[2] : "");
             string target = null, traceOut = null, inputFile = null;
             var progArgs = new List<string>();
             for (int i = 0; i < args.Length; i++)
@@ -266,6 +267,38 @@ namespace DsViz
         static int EnsureProfile(string dir)
         {
             try { LaunchProfile.Ensure(ProjectInfo.LoadProjectOnly(dir)); } catch (Exception) { }
+            return 0;
+        }
+
+        /// <summary>
+        /// כפתורי DSViz בתוך Visual Studio: פרופילי הרצה ("תרגיל חדש", "הוספת מבנה נתונים", "שליחת תרגיל", "הצעה לפתרון") בתפריט שליד
+        /// הכפתור הירוק. כל אחד מפעיל כאן את אותו חלון Swing שבקיצורים של ההתקנה (CsTool): java -cp dsviz.jar ...CsTool &lt;מצב&gt; &lt;תיקיית התרגילים&gt;.
+        /// תיקיית התרגילים: זו שמעל הפרויקט הנוכחי (DataStructures-CS.sln), ואם הפרויקט במקום אחר — DataStructures-CS שבמסמכים.
+        /// </summary>
+        static int LaunchTool(string mode, string projectDir)
+        {
+            try
+            {
+                string install = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+                string jar = Path.Combine(install, "dsviz.jar");
+                string java = Path.Combine(install, "jdk", "bin", OperatingSystem.IsWindows() ? "javaw.exe" : "java");
+                if (!File.Exists(java)) java = OperatingSystem.IsWindows() ? "javaw" : "java";
+                string root = null;
+                for (string d = string.IsNullOrWhiteSpace(projectDir) ? null : Path.GetFullPath(projectDir.Trim('"')); !string.IsNullOrEmpty(d); d = Path.GetDirectoryName(d))
+                    if (File.Exists(Path.Combine(d, "DataStructures-CS.sln"))) { root = d; break; }
+                if (root == null) root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "DataStructures-CS");
+                var psi = new ProcessStartInfo(java) { UseShellExecute = false, CreateNoWindow = true };
+                psi.ArgumentList.Add("-cp");
+                psi.ArgumentList.Add(jar);
+                psi.ArgumentList.Add("il.lamerhav.dsviz.cs.CsTool");
+                psi.ArgumentList.Add(mode);
+                psi.ArgumentList.Add(root);
+                Process.Start(psi);
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine("DSViz: " + e.Message);
+            }
             return 0;
         }
 
@@ -542,6 +575,41 @@ namespace DsViz
             }), new UTF8Encoding(false));
         }
 
+        /// <summary>כפתורי הכלים בתוך Visual Studio (Windows): שם הפרופיל ← מצב של CsTool</summary>
+        static readonly KeyValuePair<string, string>[] Tools =
+        {
+            new KeyValuePair<string, string>("תרגיל חדש", "new"),
+            new KeyValuePair<string, string>("הוספת מבנה נתונים", "insert"),
+            new KeyValuePair<string, string>("שליחת תרגיל", "submit"),
+            new KeyValuePair<string, string>("הצעה לפתרון", "solution"),
+        };
+
+        static string RunnerPath()
+        {
+            return OperatingSystem.IsWindows() || string.IsNullOrEmpty(Environment.ProcessPath) || Path.GetFileName(Environment.ProcessPath) != "dsviz-cs"
+                ? "%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe" : Environment.ProcessPath;
+        }
+
+        /// <summary>מוסיף את פרופילי הכלים החסרים. true — נוסף משהו</summary>
+        static bool AddTools(System.Text.Json.Nodes.JsonObject profiles)
+        {
+            if (!OperatingSystem.IsWindows()) return false;   // החלונות האלה מותקנים רק ב-Windows
+            bool added = false;
+            foreach (var t in Tools)
+            {
+                if (profiles.ContainsKey(t.Key)) continue;
+                profiles.Add(t.Key, new System.Text.Json.Nodes.JsonObject
+                {
+                    ["commandName"] = "Executable",
+                    ["executablePath"] = RunnerPath(),
+                    ["commandLineArgs"] = "--tool " + t.Value + " " + Args,
+                    ["workingDirectory"] = "$(ProjectDir)"
+                });
+                added = true;
+            }
+            return added;
+        }
+
         public static bool Ensure(ProjectInfo p)
         {
             if (p.Csproj == null || !p.SdkStyle) return false;
@@ -559,10 +627,11 @@ namespace DsViz
                 {
                     // פרופיל מגרסה ישנה: "$(ProjectDir)" — הנתיב הגיע עם מרכאה בסוף. מתקנים אותו במקום, בלי לגעת בשאר
                     var old = profiles[Name] as System.Text.Json.Nodes.JsonObject;
-                    if (old == null || (string)old["commandLineArgs"] != OldArgs) return false;
-                    old["commandLineArgs"] = Args;
-                    Write(file, root);
-                    return true;
+                    bool changed = false;
+                    if (old != null && (string)old["commandLineArgs"] == OldArgs) { old["commandLineArgs"] = Args; changed = true; }
+                    if (AddTools(profiles)) changed = true;   // פרויקט שכבר יש בו הרצה ויזואלית — מקבל גם את כפתורי הכלים
+                    if (changed) Write(file, root);
+                    return changed;
                 }
                 // ההרצה הרגילה נשארת ראשונה (F5 כמו קודם)
                 if (!profiles.Any(kv => (string)kv.Value?["commandName"] == "Project"))
@@ -577,6 +646,7 @@ namespace DsViz
                     ["commandLineArgs"] = Args,
                     ["workingDirectory"] = "$(ProjectDir)"
                 });
+                AddTools(profiles);
                 Write(file, root);
                 return true;
             }

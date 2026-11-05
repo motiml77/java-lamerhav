@@ -88,7 +88,7 @@
     </ReadLinesFromFile>
     <PropertyGroup>
       <_DSVizLaunchText>@(_DSVizLaunchLines)</_DSVizLaunchText>
-      <_DSVizHasProfile>$(_DSVizLaunchText.Contains('הרצה ויזואלית'))</_DSVizHasProfile>
+      <_DSVizHasProfile Condition="$(_DSVizLaunchText.Contains('הרצה ויזואלית')) and ($(_DSVizLaunchText.Contains('הצעה לפתרון')) or '$(OS)' != 'Windows_NT')">true</_DSVizHasProfile>
     </PropertyGroup>
     <Exec Condition="'$(_DSVizHasProfile)' != 'true'"
           Command="&quot;$(DSVizRunner)&quot; --ensure-profile &quot;$(MSBuildProjectDirectory)&quot;"

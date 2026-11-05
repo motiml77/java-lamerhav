@@ -230,11 +230,16 @@ final class Viewer extends JFrame {
         mainBtn.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 showMain = mainBtn.isSelected();
+                Theme.saveBool("viewer.showMain", showMain);   // נשאר כמו שהמשתמש בחר גם בהרצות הבאות
                 recursion.setHideMain(!showMain);
                 rebuildVisible();
             }
         });
         mainBtn.setVisible(false);
+        // "להציג גם main" — דלוק כברירת מחדל; רק אם המשתמש כיבה, הוא נשאר כבוי
+        showMain = Theme.savedBool("viewer.showMain", true);
+        mainBtn.setSelected(showMain);
+        recursion.setHideMain(!showMain);
         info.add(mainBtn);
 
         // בקצה הסרגל, אחרי פס המידע: "תמכו בפרויקט" — כפתור שקט באותו גובה (BorderLayout — שניהם נמתחים לאותו גובה)
