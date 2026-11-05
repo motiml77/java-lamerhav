@@ -198,7 +198,7 @@ public final class AccessGate {
             JPanel top = column();
             top.add(text(title, 18, true, INK));
             top.add(Box.createVerticalStrut(8));
-            top.add(wrap(desc, 14, MUTED, 180));
+            top.add(wrap(desc, 14, MUTED, 130));
             c.add(top, BorderLayout.CENTER);
             JButton b = primary(action);
             b.addActionListener(e -> go.run());
@@ -211,7 +211,7 @@ public final class AccessGate {
             p.setBorder(BorderFactory.createEmptyBorder(26, 30, 24, 30));
             p.add(text("חיבור עמדת מחשב", 24, true, INK));
             p.add(Box.createVerticalStrut(6));
-            p.add(wrap("את הקוד מקבלים מהמורה (4 תווים). כל מחשב שמתחבר משתמש בהיתר אחד של המורה; אותו מחשב שמתחבר שוב — בלי היתר נוסף.", 15, MUTED, 640));
+            p.add(wrap("את הקוד מקבלים מהמורה (4 תווים). כל מחשב שמתחבר משתמש בהיתר אחד של המורה; אותו מחשב שמתחבר שוב — בלי היתר נוסף.", 15, MUTED, 440));
             p.add(Box.createVerticalStrut(18));
             p.add(text("קוד המורה", 14, true, INK));
             p.add(Box.createVerticalStrut(6));
@@ -261,7 +261,7 @@ public final class AccessGate {
                     } else if ("bad-code".equals(r.status)) {
                         stationError.setText(RLM + "הקוד לא נמצא. בודקים מול המורה ומקלידים שוב.");
                     } else if ("full".equals(r.status)) {
-                        show("אין עוד היתרים", "כל " + r.teacherInt("seats") + " העמדות של " + teacherName(r) + " כבר בשימוש. המורה יכול/ה לקנות עוד עמדות בלוח שלו/ה, או לבקש מההנהלה לשחרר מחשב שהוחלף.", WARN, WARN_SOFT, true);
+                        show("אין עוד היתרים", (r.teacherInt("seats") == 1 ? "העמדה היחידה" : "כל " + r.teacherInt("seats") + " העמדות") + " של " + teacherName(r) + " כבר בשימוש. אפשר לקנות עוד עמדות בלוח המורה, או לבקש מההנהלה לשחרר מחשב שהוחלף.", WARN, WARN_SOFT, true);
                     } else if ("blocked".equals(r.status)) {
                         show("הגישה של המורה הושבתה", "פונים למורה או להנהלה.", WARN, WARN_SOFT, true);
                     } else {
@@ -285,7 +285,7 @@ public final class AccessGate {
             p.setBorder(BorderFactory.createEmptyBorder(40, 40, 30, 40));
             p.add(text("ממשיכים בדפדפן", 24, true, INK));
             p.add(Box.createVerticalStrut(10));
-            p.add(wrap("נפתח דפדפן עם הכניסה של Google. נכנסים שם — והחלון הזה ממשיך לבד.", 16, MUTED, 600));
+            p.add(wrap("נפתח דפדפן עם הכניסה של Google. נכנסים שם — והחלון הזה ממשיך לבד.", 16, MUTED, 440));
             p.add(Box.createVerticalStrut(18));
             final JLabel copy = text("הדפדפן לא נפתח? לחיצה כאן מעתיקה את הכתובת", 14, true, BLUE);
             copy.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -388,7 +388,7 @@ public final class AccessGate {
             box.setAlignmentX(Component.RIGHT_ALIGNMENT);
             box.add(text(title, 21, true, fg));
             box.add(Box.createVerticalStrut(8));
-            box.add(wrap(msg, 15, INK, 600));
+            box.add(wrap(msg, 15, INK, 420));
             p.add(box);
             if (back) {
                 p.add(Box.createVerticalStrut(18));

@@ -1,0 +1,57 @@
+# גרסת בדיקה (רק למנהל — לא לתלמידים, לא בקישור הקבוע releases/latest):
+#   java-visualizer/lab-release/DSViz-Lab-Setup.exe   — DSViz + מאגר התרגילים עם מסך הכניסה
+#   java-visualizer/lab-release/DSViz-Admin-Setup.exe — "ניהול DSViz" (מסוף ההנהלה)
+# (נבנים ב-tools/build-lab-setup.sh). קודם התקנה ובדיקה על Windows אמיתי, ואחר כך הוצאה מסוג Pre-release בשם lab-test.
+name: DSViz lab release (test)
+on:
+  push:
+    branches: [feature/login-access]
+    paths:
+      - 'java-visualizer/lab-release/**'
+      - '.github/workflows/dsviz-lab-release.yml'
+      - 'java-visualizer/tools/test/windows-lab/**'
+  workflow_dispatch:
+
+jobs:
+  windows-test:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - name: קומפילציה של בדיקת העמדה
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\cls" | Out-Null
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\lib" | Out-Null
+          # הספרייה מתוך תוכנית ההתקנה עוד לא מותקנת — מקמפלים מול קוד המקור של Account
+          javac -encoding UTF-8 -nowarn -d "$env:RUNNER_TEMP\cls" java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/Account.java java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/Json.java java-visualizer/tools/test/access/LiveClaim.java
+          Remove-Item "$env:RUNNER_TEMP\cls\il\lamerhav\dsviz\Account*.class", "$env:RUNNER_TEMP\cls\il\lamerhav\dsviz\Json*.class"
+      - name: התקנה ובדיקה
+        shell: pwsh
+        run: java-visualizer/tools/test/windows-lab/lab-test.ps1 -Dir java-visualizer/lab-release -Out "$env:RUNNER_TEMP\shots" -Code W8S2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lab-windows-shots
+          path: ${{ runner.temp }}/shots
+          retention-days: 14
+
+  publish:
+    needs: windows-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pre-release lab-test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete lab-test -R "$GITHUB_REPOSITORY" --cleanup-tag -y || true
+          gh release create lab-test -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "DSViz — גרסת בדיקה (כניסה, מאגר תרגילים, ניהול)" \
+            --notes "גרסת בדיקה בלבד — לא לתלמידים. DSViz-Lab-Setup.exe: DSViz + מאגר התרגילים עם מסך הכניסה (Eclipse, IntelliJ, Visual Studio). DSViz-Admin-Setup.exe: ניהול DSViz (מסוף ההנהלה)." \
+            java-visualizer/lab-release/DSViz-Lab-Setup.exe java-visualizer/lab-release/DSViz-Admin-Setup.exe

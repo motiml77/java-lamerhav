@@ -36,13 +36,13 @@ public class BankHandler extends AbstractHandler {
         if (!Power.on()) return null;   // DSViz כבוי
         final Shell shell = Ui.shell(event);
         final IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
-        final org.eclipse.jdt.core.IJavaProject current = Ui.currentProject(event);
+        final org.eclipse.core.resources.IProject current = Ui.currentProject(event);
         // הכניסה (מורה / עמדת מחשב / תלמיד): אחרי כניסה אחת במחשב — נפתח מיד, גם בלי אינטרנט
         AccessGate.require(null, () -> shell.getDisplay().asyncExec(() -> { if (!shell.isDisposed()) openBank(shell, page, current); }));
         return null;
     }
 
-    private void openBank(Shell shell, IWorkbenchPage page, org.eclipse.jdt.core.IJavaProject current) {
+    private void openBank(Shell shell, IWorkbenchPage page, org.eclipse.core.resources.IProject current) {
         BankStore store = BankStore.load();
         BankDialog d = new BankDialog(shell, store, BankProgress.get(), ProjectSetup.javaProjects(), ProjectSetup.freeProjectName(), current);
         if (d.open() != Window.OK || d.question() == null) return;
