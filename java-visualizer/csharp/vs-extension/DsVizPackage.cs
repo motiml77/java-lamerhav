@@ -70,7 +70,9 @@ namespace DsViz.VsExtension
                 // שורה משלו מתחת לסרגלים הרגילים (בלי זה הוא נדחס לשורה הראשונה ורוב הכפתורים נעלמים לחץ "עוד")
                 try
                 {
-                    bar.Position = 1;   // msoBarTop
+                    object cur = bar.Position;
+                    dynamic top = Enum.Parse(cur.GetType(), "msoBarTop");   // MsoBarPosition.msoBarTop (בלי הפניה לספרייה בזמן קומפילציה)
+                    bar.Position = top;
                     bar.RowIndex = 3;
                     bar.Left = 0;
                 }
