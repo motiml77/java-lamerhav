@@ -149,6 +149,116 @@ public final class Account {
         return f;
     }
 
+    // ------------------------------------------------------------------ מקום שמור ונסתר לקבצי הזיהוי
+
+    /*
+     * הקבצים שמזהים את המחשב (מורה / עמדת מחשב / המזהה של ההתקנה) נשמרים בתיקיות נסתרות שלא נמחקות בכיבוי המחשב,
+     * בהסרה או בהתקנה מחדש של DSViz, ובשני מקומות (עותק גיבוי): אם אחד נמחק — משחזרים מהשני.
+     *   Windows: ‎%LOCALAPPDATA%\Lamerhav\.cache‎ (המשתמש), ‎%APPDATA%\Lamerhav\.cache‎ (גיבוי), ‎%ProgramData%\Lamerhav\.cache‎ (כל המחשב)
+     *   Mac / Linux: ‎~/.local/share/.lamerhav‎, ‎~/.config/.lamerhav‎, ‎/Users/Shared/.lamerhav‎ (Mac)
+     * הקבצים מוצפנים (לפי המחשב), עם שמות קצרים, ומסומנים כנסתרים ב-Windows. קבצים מהמקום הישן (‎.dsviz‎, ‎ProgramData\DSViz‎)
+     * עוברים לכאן לבד בפעם הראשונה.
+     */
+
+    /** בדיקות (-Ddsviz.home / -Ddsviz.machineDir): הסידור הישן, בלי העברה ובלי גיבוי */
+    private static boolean plainDirs() {
+        String a = System.getProperty("dsviz.home"), b = System.getProperty("dsviz.machineDir");
+        return a != null && !a.isEmpty() || b != null && !b.isEmpty();
+    }
+
+    private static boolean windows() {
+        return System.getProperty("os.name", "").toLowerCase().contains("win");
+    }
+
+    private static File envDir(String var, String fallback) {
+        String v = System.getenv(var);
+        return new File(v == null || v.isEmpty() ? fallback : v);
+    }
+
+    /** המקום הראשי של המשתמש */
+    static File secureUserDir() {
+        if (plainDirs()) return userDir();
+        String home = System.getProperty("user.home");
+        if (windows()) return new File(new File(envDir("LOCALAPPDATA", home + "\\AppData\\Local"), "Lamerhav"), ".cache");
+        return new File(home, ".local/share/.lamerhav");
+    }
+
+    /** הגיבוי (מקום אחר לגמרי) */
+    static File secureBackupDir() {
+        if (plainDirs()) return null;
+        String home = System.getProperty("user.home");
+        if (windows()) return new File(new File(envDir("APPDATA", home + "\\AppData\\Roaming"), "Lamerhav"), ".cache");
+        return new File(home, ".config/.lamerhav");
+    }
+
+    /** המקום של כל המחשב (עמדת מחשב) */
+    static File secureMachineDir() {
+        if (plainDirs()) return machineDir();
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (windows()) return new File(new File(envDir("ProgramData", "C:\\ProgramData"), "Lamerhav"), ".cache");
+        if (os.contains("mac")) return new File("/Users/Shared/.lamerhav");
+        return secureUserDir();   // Linux: ‎/var/tmp‎ נמחק — נשארים אצל המשתמש
+    }
+
+    /** הגיבוי של קובץ (אותו שם, במקום הגיבוי), או null */
+    private static File backupOf(File f) {
+        File b = secureBackupDir();
+        if (b == null || f == null) return null;
+        File g = new File(b, f.getName());
+        return g.getAbsoluteFile().equals(f.getAbsoluteFile()) ? null : g;
+    }
+
+    /** מסמן כנסתר ב-Windows (הקובץ והתיקייה) */
+    private static void hide(File f) {
+        if (!windows() || plainDirs()) return;
+        for (File x : new File[] { f, f.getParentFile() }) {
+            try {
+                if (x != null && x.exists()) Files.setAttribute(x.toPath(), "dos:hidden", Boolean.TRUE);
+            } catch (Exception ignored) {
+                // לא חובה
+            }
+        }
+    }
+
+    /** כותב קובץ קטן (לא מוצפן — למזהה) במקום הראשי ובגיבוי, ומסמן כנסתר */
+    private static boolean writeBoth(File f, byte[] data) {
+        boolean ok = false;
+        for (File x : new File[] { f, backupOf(f) }) {
+            if (x == null) continue;
+            try {
+                x.getParentFile().mkdirs();
+                Files.write(x.toPath(), data);
+                hide(x);
+                ok = true;
+            } catch (IOException ignored) {
+                // נסה את הבא
+            }
+        }
+        return ok;
+    }
+
+    /** מוחק קובץ זיהוי (ההנהלה ביטלה / התנתקות) — גם את הגיבוי */
+    private static void forget(File f) {
+        if (f == null) return;
+        f.delete();
+        File b = backupOf(f);
+        if (b != null) b.delete();
+    }
+
+    /** מעביר קובץ מהמקום הישן לחדש (אם בחדש אין) ומוחק את הישן */
+    private static void migrate(File legacy, File now) {
+        try {
+            if (legacy == null || now == null || !legacy.isFile() || legacy.getAbsoluteFile().equals(now.getAbsoluteFile())) return;
+            if (!now.isFile()) {
+                byte[] data = Files.readAllBytes(legacy.toPath());
+                if (!writeBoth(now, data)) return;
+            }
+            legacy.delete();
+        } catch (Exception ignored) {
+            // נשאר במקום הישן — עדיין נקרא משם
+        }
+    }
+
     // ------------------------------------------------------------------ מזהה המחשב
 
     /** מזהה קבוע של המחשב (hash) — אותו מזהה לכל המשתמשים ולכל התוכנות (Eclipse / IntelliJ / Visual Studio) */
@@ -171,29 +281,43 @@ public final class Account {
      */
     static String installId() {
         String host = machineName();
-        File[] dirs = { machineDir(), userDir() };
-        for (File dir : dirs) {
-            File f = new File(dir, "install-id");
+        // המקומות החדשים (נסתרים, עם גיבוי) קודם, ואחריהם המקום הישן — ממנו המזהה עובר לחדש (אותו מזהה: אחרת היו
+        // אובדים העמדה והקבצים המוצפנים)
+        File mPrimary = new File(secureMachineDir(), "i.dat"), uPrimary = new File(secureUserDir(), "i.dat");
+        File[] reads = { mPrimary, uPrimary, backupOf(uPrimary), new File(machineDir(), "install-id"), new File(userDir(), "install-id") };
+        for (File f : reads) {
+            if (f == null) continue;
             try {
                 if (!f.isFile()) continue;
                 String[] lines = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).split("\\r?\\n");
-                if (lines.length >= 2 && lines[0].trim().length() >= 16 && lines[1].trim().equals(host)) return lines[0].trim();
+                if (lines.length >= 2 && lines[0].trim().length() >= 16 && lines[1].trim().equals(host)) {
+                    String id = lines[0].trim();
+                    keepInstallId(id, host, mPrimary, uPrimary);
+                    return id;
+                }
             } catch (IOException ignored) {
-                // נבדוק את התיקייה הבאה
+                // נבדוק את הבא
             }
         }
         String id = UUID.randomUUID().toString().replace("-", "");
-        byte[] data = (id + "\n" + host + "\n").getBytes(StandardCharsets.UTF_8);
-        for (File dir : dirs) {
-            try {
-                dir.mkdirs();
-                Files.write(new File(dir, "install-id").toPath(), data);
-                return id;
-            } catch (IOException ignored) {
-                // נסה את התיקייה הבאה
-            }
-        }
+        if (keepInstallId(id, host, mPrimary, uPrimary)) return id;
         return "host-" + host;
+    }
+
+    /** שומר את המזהה בכל המקומות החדשים (שחסר בהם) ומוחק את העותקים מהמקום הישן */
+    private static boolean keepInstallId(String id, String host, File mPrimary, File uPrimary) {
+        byte[] data = (id + "\n" + host + "\n").getBytes(StandardCharsets.UTF_8);
+        boolean ok = false;
+        for (File f : new File[] { mPrimary, uPrimary }) {
+            File b = backupOf(f);
+            if (f.isFile() && (b == null || b.isFile())) { ok = true; continue; }
+            if (writeBoth(f, data)) ok = true;
+        }
+        if (ok && !plainDirs()) {
+            new File(machineDir(), "install-id").delete();
+            new File(userDir(), "install-id").delete();
+        }
+        return ok;
     }
 
     private static String osMachineId() {
@@ -259,17 +383,52 @@ public final class Account {
     // ------------------------------------------------------------------ שמירה מוצפנת
 
     private static final String USER_FILE = "account.json", STATION_FILE = "station.json";
+    private static final String USER_DAT = "a.dat", STATION_DAT = "s.dat";
 
+    /** הקובץ של המשתמש המחובר (מורה / תלמיד) — במקום הנסתר; מהמקום הישן עובר לבד */
+    static File userFile() {
+        if (plainDirs()) return new File(userDir(), USER_FILE);
+        File f = new File(secureUserDir(), USER_DAT);
+        migrate(new File(userDir(), USER_FILE), f);
+        return f;
+    }
+
+    /** הקובץ של עמדת המחשב — לכל המחשב (ואם אין הרשאה — אצל המשתמש) */
     private static File stationFile() {
-        File f = new File(machineDir(), STATION_FILE);
-        if (f.isFile()) return f;
-        File u = new File(userDir(), STATION_FILE);
-        return u.isFile() ? u : f;
+        if (plainDirs()) {
+            File f = plainDirs() ? new File(machineDir(), STATION_FILE) : new File(secureMachineDir(), STATION_DAT);
+            if (f.isFile()) return f;
+            File u = new File(userDir(), STATION_FILE);
+            return u.isFile() ? u : f;
+        }
+        File m = new File(secureMachineDir(), STATION_DAT), u = new File(secureUserDir(), STATION_DAT);
+        migrate(new File(machineDir(), STATION_FILE), m);
+        migrate(new File(userDir(), STATION_FILE), m.isFile() ? u : m);
+        if (m.isFile()) return m;
+        File bm = backupOf(m);
+        if (u.isFile() || bm != null && bm.isFile()) return u.isFile() ? u : m;
+        return m;
+    }
+
+    /** מקום חלופי לעמדה כשאין הרשאה לכתוב לכל המחשב */
+    private static File stationFallback() {
+        return plainDirs() ? new File(userDir(), STATION_FILE) : new File(secureUserDir(), STATION_DAT);
     }
 
     static Map<String, Object> load(File f) {
         try {
-            if (!f.isFile()) return null;
+            if (!f.isFile()) {
+                // נמחק? משחזרים מהגיבוי
+                File b = backupOf(f);
+                if (b == null || !b.isFile()) return null;
+                try {
+                    f.getParentFile().mkdirs();
+                    Files.copy(b.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    hide(f);
+                } catch (IOException e) {
+                    f = b;   // אין הרשאה לשחזר — קוראים מהגיבוי
+                }
+            }
             Map<String, Object> outer = Json.obj(Json.parse(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)));
             byte[] all = Base64.getDecoder().decode(Json.str(outer.get("data")));
             Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
@@ -299,6 +458,17 @@ public final class Account {
             Files.write(tmp.toPath(), Json.write(outer).getBytes(StandardCharsets.UTF_8));
             Files.move(tmp.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
             f.setReadable(true, false);   // עמדה: כל המשתמשים של המחשב קוראים
+            hide(f);
+            File b = backupOf(f);
+            if (b != null) {
+                try {
+                    b.getParentFile().mkdirs();
+                    Files.copy(f.toPath(), b.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    hide(b);
+                } catch (IOException ignored) {
+                    // בלי גיבוי — הקובץ הראשי נשמר
+                }
+            }
             return true;
         } catch (Exception e) {
             lastError = String.valueOf(e);
@@ -345,7 +515,7 @@ public final class Account {
 
     /** מי מחובר עכשיו במחשב הזה — בלי אינטרנט. מורה / תלמיד (של המשתמש הזה) קודם, ואחר כך עמדה (של המחשב) */
     public static Access current() {
-        Map<String, Object> u = load(new File(userDir(), USER_FILE));
+        Map<String, Object> u = load(userFile());
         Map<String, Object> p = u == null ? null : verifyPass(Json.str(u.get("pass")));
         if (p != null) return accessOf(p);
         Map<String, Object> s = load(stationFile());
@@ -355,14 +525,14 @@ public final class Account {
 
     /** יש כרטיס של משתמש (גם בלי אישור — למשל תלמיד שעוד לא שילם) */
     public static Map<String, Object> userState() {
-        return load(new File(userDir(), USER_FILE));
+        return load(userFile());
     }
 
     /** הכותרות לשליחה ל-Gemini: x-dsviz-access (הכרטיס) + x-dsviz-machine. ריק — אם לא מחוברים */
     public static Map<String, String> headers() {
         Map<String, String> h = new LinkedHashMap<String, String>();
         String tok = "";
-        Map<String, Object> u = load(new File(userDir(), USER_FILE));
+        Map<String, Object> u = load(userFile());
         if (u != null && verifyPass(Json.str(u.get("pass"))) != null) tok = Json.str(u.get("token"));
         if (tok.isEmpty()) {
             Map<String, Object> s = load(stationFile());
@@ -474,7 +644,7 @@ public final class Account {
             String token = Json.str(r.body.get("token"));
             File f = new File(machineDir(), STATION_FILE);
             store(f, r, token);
-            if (!f.isFile()) store(new File(userDir(), STATION_FILE), r, token);   // אין הרשאה לתיקייה של המחשב
+            if (!f.isFile()) store(stationFallback(), r, token);   // אין הרשאה לתיקייה של המחשב
         }
         return r;
     }
@@ -528,7 +698,7 @@ public final class Account {
                 Result r = post("/v1/auth/redeem", map("code", q.get("code"), "verifier", verifier, "machine", machine(),
                         "machineName", machineName(), "client", WorkerClient.CLIENT));
                 String token = Json.str(r.body.get("token"));
-                if (!token.isEmpty()) store(new File(userDir(), USER_FILE), r, token);
+                if (!token.isEmpty()) store(userFile(), r, token);
                 result.set(r);
                 location = base + "/welcome?r=" + enc(r.status.matches("ok|pay|not-teacher|blocked|devices") ? r.status : "error")
                         + "&role=" + enc(role) + (r.status.matches("ok|pay|not-teacher|blocked|devices") ? "" : "&m=" + enc(r.message));
@@ -567,12 +737,12 @@ public final class Account {
      */
     public static Result refresh() {
         Result last = null;
-        File uf = new File(userDir(), USER_FILE);
+        File uf = userFile();
         Map<String, Object> u = load(uf);
         if (u != null && !Json.str(u.get("token")).isEmpty()) {
             Result r = post("/v1/access/check", map("token", Json.str(u.get("token")), "machine", machine()));
             if (!"offline".equals(r.status) && !"error".equals(r.status)) {
-                if (r.status.matches("revoked|invalid|not-teacher")) uf.delete();
+                if (r.status.matches("revoked|invalid|not-teacher")) forget(uf);
                 else store(uf, r, Json.str(u.get("token")));
             }
             last = r;
@@ -582,7 +752,7 @@ public final class Account {
         if (s != null && !Json.str(s.get("token")).isEmpty()) {
             Result r = post("/v1/access/check", map("token", Json.str(s.get("token")), "machine", machine()));
             if (!"offline".equals(r.status) && !"error".equals(r.status)) {
-                if (r.status.matches("revoked|invalid")) sf.delete();
+                if (r.status.matches("revoked|invalid")) forget(sf);
                 else store(sf, r, Json.str(s.get("token")));
             }
             if (last == null || !last.ok()) last = r;
@@ -592,7 +762,7 @@ public final class Account {
 
     /** התנתקות של המשתמש (מורה / תלמיד). עמדה לא מתנתקת מכאן — רק ההנהלה משחררת */
     public static void signOut() {
-        File uf = new File(userDir(), USER_FILE);
+        File uf = userFile();
         Map<String, Object> u = load(uf);
         if (u != null) {
             final String tok = Json.str(u.get("token"));
@@ -600,7 +770,7 @@ public final class Account {
             t.setDaemon(true);
             t.start();
         }
-        uf.delete();
+        forget(uf);
     }
 
     // ------------------------------------------------------------------ עזרים

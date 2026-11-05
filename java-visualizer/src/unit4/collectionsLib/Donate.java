@@ -31,7 +31,7 @@ final class Donate extends JComponent {
     static final String TIP = "התוכנה חינמית — אם היא עוזרת לך, אפשר לתמוך בה ב-PayPal";
     /** מתחת לרוחב החלון הזה התג קטן יותר */
     private static final int COMPACT_BELOW = 1100;
-    private static final int HEIGHT = 34, COMPACT_HEIGHT = 26;
+    private static final int HEIGHT = 27, COMPACT_HEIGHT = 26;   // בסרגל של חלון ההרצה — קטן ב-20%
 
     private static BufferedImage javaBadge, csBadge, javaLit, csLit;   // ...Lit — אותו תג מואר קצת (לריחוף)
     private boolean hover, down, compact, hooked;
