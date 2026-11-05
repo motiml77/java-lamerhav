@@ -211,7 +211,7 @@ public final class AccessGate {
             p.setBorder(BorderFactory.createEmptyBorder(26, 30, 24, 30));
             p.add(text("חיבור עמדת מחשב", 24, true, INK));
             p.add(Box.createVerticalStrut(6));
-            p.add(wrap("את הקוד מקבלים מהמורה (8 תווים). כל מחשב שמתחבר משתמש בהיתר אחד של המורה; אותו מחשב שמתחבר שוב — בלי היתר נוסף.", 15, MUTED, 640));
+            p.add(wrap("את הקוד מקבלים מהמורה (4 תווים). כל מחשב שמתחבר משתמש בהיתר אחד של המורה; אותו מחשב שמתחבר שוב — בלי היתר נוסף.", 15, MUTED, 640));
             p.add(Box.createVerticalStrut(18));
             p.add(text("קוד המורה", 14, true, INK));
             p.add(Box.createVerticalStrut(6));
@@ -241,7 +241,7 @@ public final class AccessGate {
 
         private void claim(final JButton go) {
             final String c = code.getText().trim(), n = name.getText().trim();
-            if (c.replaceAll("[\\s-]", "").length() != 8) { stationError.setText(RLM + "הקוד הוא 8 תווים, למשל K7QM-4TXP."); return; }
+            if (c.replaceAll("[\\s-]", "").length() != 4) { stationError.setText(RLM + "הקוד הוא 4 תווים, למשל K7QM."); return; }
             if (n.isEmpty()) { stationError.setText(RLM + "כתבו שם למחשב — למשל \"מעבדה 2 · עמדה 14\"."); return; }
             stationError.setText(" ");
             go.setEnabled(false);

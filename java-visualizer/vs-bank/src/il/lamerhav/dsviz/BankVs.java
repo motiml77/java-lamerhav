@@ -77,8 +77,9 @@ public final class BankVs {
         }
         configure(a);
         SwingUtilities.invokeAndWait(() -> {
-            if (a[0].equals("question")) BankVsFloat.showLast(null);
-            else BankVsWindow.open(null, null);
+            // הכניסה (מורה / עמדת מחשב / תלמיד) — אחרי כניסה אחת במחשב נפתח מיד, גם בלי אינטרנט
+            if (a[0].equals("question")) AccessGate.require(null, () -> BankVsFloat.showLast(null));
+            else AccessGate.require(null, () -> BankVsWindow.open(null, null));
         });
     }
 

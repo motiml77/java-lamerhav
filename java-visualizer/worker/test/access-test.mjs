@@ -107,14 +107,14 @@ await test('הנהלה מוסיפה מורה עם 2 עמדות → קוד מור
   assert.equal(again.status, 409);
   const t = await call('GET', '/v1/admin/teacher?email=teacher1@test.dev', { token: admin });
   assert.equal(t.body.teacher.seats, 2);
-  assert.match(t.body.teacher.code, /^[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}$/);
+  assert.match(t.body.teacher.code, /^[2-9A-HJKMNP-Z]{4}$/);
   code1 = t.body.teacher.code;
 });
 
 const m1 = machine(), m2 = machine(), m3 = machine();
 let st1;
 await test('עמדת מחשב: קוד שגוי / בלי שם → הודעה; קוד נכון (גם באותיות קטנות ובלי מקף) → כרטיס + אישור חתום', async () => {
-  assert.equal((await call('POST', '/v1/station/claim', { body: { code: 'AAAA-AAAA', name: 'x', machine: m1 } })).body.status, 'bad-code');
+  assert.equal((await call('POST', '/v1/station/claim', { body: { code: 'AAAA', name: 'x', machine: m1 } })).body.status, 'bad-code');
   assert.equal((await call('POST', '/v1/station/claim', { body: { code: code1, name: '', machine: m1 } })).status, 400);
   const r = await call('POST', '/v1/station/claim', { body: { code: code1.replace('-', '').toLowerCase(), name: 'מעבדה 2 · עמדה 1', machine: m1, client: 'test' } });
   assert.equal(r.body.status, 'ok', JSON.stringify(r.body));

@@ -336,14 +336,15 @@ async function claim(request, env) {
   return accessReply(env, r, { token, teacher: tv });
 }
 
-/** קוד שגוי שוב ושוב מאותה כתובת: עד 30 בשעה (רק אם יש KV בשם USAGE) */
+/** קוד שגוי שוב ושוב מאותה כתובת: עד 30 בשעה (KV בשם USAGE, ואם אין — STATS) */
 async function badCodeLimit(env, request, failed) {
-  if (!env.USAGE || typeof env.USAGE.get !== 'function') return;
+  const kv = env.USAGE && typeof env.USAGE.get === 'function' ? env.USAGE : env.STATS && typeof env.STATS.get === 'function' ? env.STATS : null;
+  if (!kv) return;
   const ip = request.headers.get('cf-connecting-ip') || 'local';
   const key = 'badcode:' + new Date().toISOString().slice(0, 13) + ':' + ip;
-  const n = +(await env.USAGE.get(key)) || 0;
+  const n = +(await kv.get(key)) || 0;
   if (n >= 30) throw new Fail(429, 'rate', 'יותר מדי ניסיונות עם קוד שגוי. נסו שוב בעוד שעה.');
-  if (failed) await env.USAGE.put(key, String(n + 1), { expirationTtl: 7200 });
+  if (failed) await kv.put(key, String(n + 1), { expirationTtl: 7200 });
 }
 
 // ------------------------------------------------------------------ שליחת תרגיל ל-Gemini: רק למחוברים (אם המתג דולק)

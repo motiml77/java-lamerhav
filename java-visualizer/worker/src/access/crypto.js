@@ -34,17 +34,17 @@ export function randomToken(n = 32) {
   return b64url(crypto.getRandomValues(new Uint8Array(n)));
 }
 
-/** קוד מורה: 8 תווים בלי תווים שמתבלבלים (0/O, 1/I/L) */
+/** קוד מורה: 4 תווים, בלי תווים שמתבלבלים (0/O, 1/I/L) — קל להקליד בכל מחשב. ניחוש חסום: עד 30 קודים שגויים בשעה מאותה כתובת */
 const CODE_ABC = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 export function teacherCode() {
-  const r = crypto.getRandomValues(new Uint8Array(8));
+  const r = crypto.getRandomValues(new Uint8Array(4));
   return Array.from(r, b => CODE_ABC[b % CODE_ABC.length]).join('');
 }
 export function normalizeCode(s) {
   const c = String(s || '').toUpperCase().replace(/[\s\-_]/g, '');
-  return /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/.test(c) ? c : '';
+  return /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{4}$/.test(c) ? c : '';
 }
-export const showCode = c => (c && c.length === 8 ? c.slice(0, 4) + '-' + c.slice(4) : c || '');
+export const showCode = c => c || '';
 
 /** השוואה בזמן קבוע (לטביעות) */
 export function sameText(a, b) {

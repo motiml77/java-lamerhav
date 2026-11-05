@@ -34,15 +34,22 @@ public class BankHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) {
         if (!Power.on()) return null;   // DSViz כבוי
-        Shell shell = Ui.shell(event);
-        IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
+        final Shell shell = Ui.shell(event);
+        final IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
+        final org.eclipse.jdt.core.IJavaProject current = Ui.currentProject(event);
+        // הכניסה (מורה / עמדת מחשב / תלמיד): אחרי כניסה אחת במחשב — נפתח מיד, גם בלי אינטרנט
+        AccessGate.require(null, () -> shell.getDisplay().asyncExec(() -> { if (!shell.isDisposed()) openBank(shell, page, current); }));
+        return null;
+    }
+
+    private void openBank(Shell shell, IWorkbenchPage page, org.eclipse.jdt.core.IJavaProject current) {
         BankStore store = BankStore.load();
-        BankDialog d = new BankDialog(shell, store, BankProgress.get(), ProjectSetup.javaProjects(), ProjectSetup.freeProjectName(), Ui.currentProject(event));
-        if (d.open() != Window.OK || d.question() == null) return null;
+        BankDialog d = new BankDialog(shell, store, BankProgress.get(), ProjectSetup.javaProjects(), ProjectSetup.freeProjectName(), current);
+        if (d.open() != Window.OK || d.question() == null) return;
         BankStore.Question q = d.question();
         if (d.action() == BankDialog.Action.OPEN) {
             openExisting(page, q);
-            return null;
+            return;
         }
         try {
             IJavaProject jp = d.project() != null ? d.project() : ProjectSetup.createProject(d.newProjectName());
@@ -50,7 +57,7 @@ public class BankHandler extends AbstractHandler {
             SubmitHandler.Build b = create(new ProgressMonitorDialog(shell), q, jp, src);
             if (b == null || b.files.isEmpty()) {
                 Say.warn(shell, "מאגר תרגילים", "לא הצלחתי ליצור את התרגיל. נסו שוב, או בחרו פרויקט אחר.");
-                return null;
+                return;
             }
             SubmitHandler.open(page, b);
             Toast.created(page, b);
@@ -58,7 +65,7 @@ public class BankHandler extends AbstractHandler {
         } catch (CoreException e) {
             Ui.error(shell, "לא הצלחתי ליצור את התרגיל.", e);
         }
-        return null;
+        return;
     }
 
     /**
