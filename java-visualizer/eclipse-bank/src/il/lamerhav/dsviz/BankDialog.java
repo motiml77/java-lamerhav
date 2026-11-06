@@ -238,6 +238,9 @@ public class BankDialog extends Dialog {
         Look.applyFont(area, -1);
         rebuildTree();
         showPreview(selected);
+        // העץ שנבנה לפני שהחלון קיבל את הגודל שלו (מימין לשמאל, GTK) נשאר מחוץ לתצוגה — הנושאים לא נראים עד הלחיצה הראשונה.
+        // בונים אותו שוב ברגע שהחלון פתוח (נמצא בבדיקת הכניסה האמיתית ב-Eclipse: worker/test/eclipse-gate-e2e.mjs)
+        d.asyncExec(() -> { if (tree != null && !tree.isDisposed()) rebuildTree(); });
         return area;
     }
 

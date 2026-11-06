@@ -8,7 +8,7 @@ set -e
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 BUILDNO=${BUILDNO:-$(date -u +%Y%m%d%H%M)}
-HOST=release/il.lamerhav.dsviz_1.0.1.jar
+HOST=${HOST_JAR:-release/il.lamerhav.dsviz_1.0.1.jar}   # HOST_JAR: תוסף שנבנה מהמקור (tools/test/eclipse-it/gate.sh) במקום זה שב-release/
 [ -f "$HOST" ] || { echo "חסר $HOST — מריצים קודם tools/build-all.sh"; exit 1; }
 [ -f release/dsviz.jar ] || sh tools/build-lib.sh
 sh tools/test/bank-check.sh
