@@ -6,7 +6,8 @@ import { spawn } from 'node:child_process';
 import http from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db } from '../src/access/firestore.js';
@@ -102,6 +103,20 @@ async function googlePopup(page, clickSel, email, name) {
     await popup.click('#sign-in');
   }
   await popup.waitForEvent('close', { timeout: 15000 }).catch(() => {});
+}
+
+// הלקוח האמיתי של DSViz (Account.java, אותו קוד של Eclipse / IntelliJ) — במקום fakeApp המדומה
+function realApp(role, dir) {
+  const proc = spawn('java', ['-Dstdout.encoding=UTF-8', '-cp', process.env.ACC_CLASSES || '/tmp/acc-cls', 'il.lamerhav.dsviz.TeacherSignIn', BASE, dir, role], { stdio: ['ignore', 'pipe', 'inherit'] });
+  let buf = '';
+  const waiters = [];
+  proc.stdout.on('data', d => { buf += d; waiters.splice(0).forEach(w => w()); });
+  const find = re => new Promise((ok, bad) => {
+    const t = setTimeout(() => bad(new Error('הלקוח לא ענה: ' + buf)), 90000);
+    const tick = () => { const m = re.exec(buf); if (m) { clearTimeout(t); ok(m[1]); } else waiters.push(tick); };
+    tick();
+  });
+  return { url: () => find(/^URL (\S+)/m), result: () => find(/^RESULT (\S+)/m), kill: () => proc.kill() };
 }
 const shot = (page, name) => page.screenshot({ path: join(SHOTS, name + '.png') });
 
@@ -292,6 +307,32 @@ await step('חשבון שעוד לא מורה: כניסה → בקשת הרשא�
   const reqs = await api('GET', '/v1/admin/requests', null, admin);
   assert.ok(reqs.requests.some(r => r.email === 'someone.new@gmail.com' && r.kind === 'teacher' && r.phone === '0507654321'));
   appSrv.close();
+});
+
+await step('הרשמת מורה דרך הלקוח האמיתי של DSViz: כניסה → בקשה עם טלפון → אישור → כניסה חוזרת', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'realapp-'));
+  const p = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, locale: 'he-IL', ignoreHTTPSErrors: true }).then(c => c.newPage());
+  const first = realApp('teacher', dir);
+  await p.goto(await first.url());
+  await googlePopup(p, '.gbtn', 'real.app.teacher@gmail.com', 'מורה מהתוכנה');
+  await p.waitForURL(/r=not-teacher/);
+  assert.equal(await first.result(), 'not-teacher', 'הלקוח קיבל: החשבון עוד לא מורה');
+  await p.fill('#phone', '050-111');   // לא תקין
+  await p.click('button:has-text("שליחת בקשה להנהלה")');
+  await p.waitForSelector('.toast:has-text("10 ספרות")');
+  await p.fill('#phone', '054-3219876');
+  await p.fill('#school', 'ישיבת בדיקה');
+  await p.click('button:has-text("שליחת בקשה להנהלה")');
+  await p.waitForSelector('h1:has-text("הבקשה נשלחה")');
+  const req = (await api('GET', '/v1/admin/requests', null, admin)).requests.find(r => r.email === 'real.app.teacher@gmail.com');
+  assert.equal(req.phone, '0543219876');
+  await api('POST', '/v1/admin/request', { id: req.id, decision: 'approve', seats: 3 }, admin);
+  const second = realApp('teacher', dir);
+  await p.goto(await second.url());
+  await googlePopup(p, '.gbtn', 'real.app.teacher@gmail.com', 'מורה מהתוכנה');
+  assert.equal(await second.result(), 'ok', 'אחרי האישור הלקוח נכנס כמורה');
+  const row = (await api('GET', '/v1/admin/teachers', null, admin)).teachers.find(t => t.email === 'real.app.teacher@gmail.com');
+  assert.deepEqual([row.phone, row.seats, row.sends.limit], ['0543219876', 3, 12], 'הטלפון בהנהלה, 3 עמדות, מנה 4×3');
 });
 
 await step('טלפון: מסוף ההנהלה ברוחב 390 — בלי גלילה לצד', async () => {
