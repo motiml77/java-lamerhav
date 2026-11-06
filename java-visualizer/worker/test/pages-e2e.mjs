@@ -281,11 +281,16 @@ await step('חשבון שעוד לא מורה: כניסה → בקשת הרשא�
   await googlePopup(p, '.gbtn', 'someone.new@gmail.com', 'מורה מבקש');
   await p.waitForURL(/r=not-teacher/);
   await p.fill('#school', 'תיכון חדש, חיפה');
+  await p.fill('#phone', '12345');   // לא תקין — לא נשלח
+  await p.click('button:has-text("שליחת בקשה להנהלה")');
+  await p.waitForSelector('.toast:has-text("10 ספרות")');
+  assert.ok(!(await api('GET', '/v1/admin/requests', null, admin)).requests.some(r => r.email === 'someone.new@gmail.com'));
+  await p.fill('#phone', '050-765 4321');
   await shot(p, '16-not-teacher');
   await p.click('button:has-text("שליחת בקשה להנהלה")');
   await p.waitForSelector('h1:has-text("הבקשה נשלחה")');
   const reqs = await api('GET', '/v1/admin/requests', null, admin);
-  assert.ok(reqs.requests.some(r => r.email === 'someone.new@gmail.com' && r.kind === 'teacher'));
+  assert.ok(reqs.requests.some(r => r.email === 'someone.new@gmail.com' && r.kind === 'teacher' && r.phone === '0507654321'));
   appSrv.close();
 });
 
