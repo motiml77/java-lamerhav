@@ -52,6 +52,12 @@ const clip = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]
 const normEmail = e => String(e || '').trim().toLowerCase();
 const emailOk = e => /^[^\s@/]{1,64}@[^\s@/]{1,190}\.[^\s@/.]{2,}$/.test(e);
 const dateOk = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) && !isNaN(Date.parse(d));
+/** טלפון נייד ישראלי תקני: 10 ספרות שמתחילות ב-05 (מקבל גם רווחים, מקפים, סוגריים ו-‎+972). מחזיר את 10 הספרות או '' */
+export function phoneNorm(p) {
+  let d = String(p == null ? '' : p).replace(/[\s\-().]/g, '');
+  if (/^\+?972/.test(d)) d = '0' + d.replace(/^\+?972/, '');
+  return /^05\d{8}$/.test(d) ? d : '';
+}
 const machineOk = m => /^[a-f0-9]{16,64}$/.test(String(m || ''));
 const intIn = (v, lo, hi) => Number.isInteger(+v) && +v >= lo && +v <= hi;
 
@@ -377,7 +383,7 @@ export async function geminiGate(request, env) {
     const t = await store.get('teachers/' + owner);
     limit = s.monthlyPerSeat * Math.max(1, t && t.seats || 0);
   }
-  const key = 'usage/' + month() + '_' + (await sha256Hex((r.kind === 'student' ? 'student:' : 'teacher:') + owner)).slice(0, 24);
+  const key = await usageKey(r.kind === 'student' ? 'student' : 'teacher', owner);
   const u = await store.get(key);
   if (s.requireLoginForGemini && u && u.n >= limit) {
     throw new Fail(429, 'monthly', r.kind === 'student'
@@ -405,8 +411,8 @@ async function me(request, env) {
   const until = st && st.accessUntil || '';
   return {
     ok: true, email: u.email, name: u.name, picture: u.picture, admin: admins(env).includes(u.email),
-    teacher: t ? await teacherView(t, stations.filter(x => x.active).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'))) : null,
-    student: { until, open: !!until && until >= today(), source: st && st.source || '' },
+    teacher: t ? Object.assign(await teacherView(t, stations.filter(x => x.active).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'))), { sends: (await monthlySends(env, [t]))[0], phone: t.phone || '' }) : null,
+    student: { until, open: !!until && until >= today(), source: st && st.source || '', sends: (await monthlySends(env, [{ email: u.email, kind: 'student' }]))[0] },
     requests: requests.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 12).map(r => ({
       id: r._id, kind: r.kind, amount: r.amount || 0, stationName: r.stationName || '', status: r.status, createdAt: r.createdAt, decidedAt: r.decidedAt || '', reason: r.reason || '',
     })),
@@ -429,7 +435,9 @@ async function myRequest(request, env) {
   if (kind === 'teacher') {
     if (t) throw new Fail(400, 'exists', 'החשבון כבר מוגדר כמורה — נכנסים שוב.');
     if (open.length) return { ok: true, id: open[0]._id, already: true };
-    Object.assign(doc, { school: clip(b.school, 120), computers: intIn(b.computers, 0, 2000) ? +b.computers : 0 });
+    const phone = phoneNorm(b.phone);
+    if (!phone) throw new Fail(400, 'phone', 'צריך מספר טלפון נייד תקני — 10 ספרות (למשל 050-1234567).');
+    Object.assign(doc, { school: clip(b.school, 120), phone, computers: intIn(b.computers, 0, 2000) ? +b.computers : 0 });
   } else {
     if (!t || !t.active) throw new Fail(403, 'teacher', 'רק מורה פעיל יכול לשלוח בקשה כזו.');
     doc.school = t.school || '';
@@ -562,9 +570,14 @@ export async function settlePayment(env, n) {
 
 // ------------------------------------------------------------------ מסוף ההנהלה
 
+/** מפתח המונה החודשי של מורה (כולל העמדות שלו) או של תלמיד */
+async function usageKey(kind, email) {
+  return 'usage/' + month() + '_' + (await sha256Hex(kind + ':' + normEmail(email))).slice(0, 24);
+}
+
 function teacherRow(t) {
   return {
-    email: t.email || t._id, name: t.name || '', school: t.school || '', code: showCode(t.code), seats: t.seats || 0, used: t.used || 0,
+    email: t.email || t._id, name: t.name || '', school: t.school || '', code: showCode(t.code), seats: t.seats || 0, used: t.used || 0, phone: t.phone || '',
     active: !!t.active, note: t.note || '', createdAt: t.createdAt || '', lastSignIn: t.lastSignIn || '',
   };
 }
@@ -598,18 +611,18 @@ async function adminOverview(env) {
 
 function requestRow(r) {
   return {
-    id: r._id, kind: r.kind, email: r.email, name: r.name || '', school: r.school || '', amount: r.amount || 0, computers: r.computers || 0,
+    id: r._id, kind: r.kind, email: r.email, name: r.name || '', school: r.school || '', phone: r.phone || '', amount: r.amount || 0, computers: r.computers || 0,
     stationId: r.stationId || '', stationName: r.stationName || '', note: r.note || '', status: r.status, createdAt: r.createdAt,
     decidedAt: r.decidedAt || '', decidedBy: r.decidedBy || '', reason: r.reason || '', result: r.result || '', before: r.before || null,
   };
 }
 
 /** מנת השליחות של החודש לכל מורה (מורה + העמדות שלו): n = כמה נשלחו, limit = מספר העמדות שמותר לו × המנה לעמדה — לפי ההגדרה הנוכחית, ולכן משתנה מיד כשמעדכנים עמדות */
-async function monthlySends(env, teachers) {
+async function monthlySends(env, rows) {
   const store = db(env), s = await settings(env);
-  const keys = await Promise.all(teachers.map(async t => 'usage/' + month() + '_' + (await sha256Hex('teacher:' + (t.email || t._id))).slice(0, 24)));
+  const keys = await Promise.all(rows.map(r => usageKey(r.kind || 'teacher', r.email || r._id)));
   const docs = keys.length ? await store.getMany(keys) : [];
-  return teachers.map((t, i) => ({ n: docs[i] && docs[i].n || 0, limit: s.monthlyPerSeat * Math.max(1, t.seats || 0) }));
+  return rows.map((r, i) => ({ n: docs[i] && docs[i].n || 0, limit: (r.kind || 'teacher') === 'student' ? s.monthlyStudent : s.monthlyPerSeat * Math.max(1, r.seats || 0) }));
 }
 
 async function adminTeachers(env) {
@@ -639,6 +652,10 @@ async function adminSaveTeacher(env, u, b) {
   const email = normEmail(b.email);
   if (!emailOk(email)) throw new Fail(400, 'email', 'כתובת המייל לא תקינה.');
   if (b.seats !== undefined && !intIn(b.seats, 0, 10000)) throw new Fail(400, 'seats', 'מספר העמדות: בין 0 ל-10000.');
+  if (b.phone !== undefined && String(b.phone).trim() !== '') {
+    b = Object.assign({}, b, { phone: phoneNorm(b.phone) });
+    if (!b.phone) throw new Fail(400, 'phone', 'מספר טלפון לא תקין — נייד ישראלי של 10 ספרות (למשל 050-1234567).');
+  } else if (b.phone !== undefined) b = Object.assign({}, b, { phone: '' });
   const at = nowIso();
   if (b.create) {
     const exists = await store.get('teachers/' + email);
@@ -646,7 +663,7 @@ async function adminSaveTeacher(env, u, b) {
     const code = await assignCode(store, email);
     const seats = b.seats !== undefined ? +b.seats : s.defaultSeats;
     const ok = await store.create('teachers/' + email, {
-      email, name: clip(b.name, 80), school: clip(b.school, 120), seats, used: 0, code, active: true, note: clip(b.note, 300),
+      email, name: clip(b.name, 80), school: clip(b.school, 120), phone: b.phone || '', seats, used: 0, code, active: true, note: clip(b.note, 300),
       createdAt: at, updatedAt: at, createdBy: u.email,
     });
     if (!ok) { await store.remove('teacherCodes/' + code); throw new Fail(409, 'exists', 'המורה כבר ברשימה.'); }
@@ -661,7 +678,7 @@ async function adminSaveTeacher(env, u, b) {
     changes.length = 0;
     if (b.seats !== undefined && +b.seats !== cur.seats) { upd.seats = +b.seats; changes.push(`מכסה ${cur.seats || 0} ← ${+b.seats}`); }
     if (b.active !== undefined && !!b.active !== !!cur.active) { upd.active = !!b.active; changes.push(b.active ? 'הופעל' : 'הושבת'); }
-    for (const [k, n] of [['name', 80], ['school', 120], ['note', 300]]) {
+    for (const [k, n] of [['name', 80], ['school', 120], ['note', 300], ['phone', 20]]) {
       if (b[k] !== undefined && clip(b[k], n) !== (cur[k] || '')) { upd[k] = clip(b[k], n); changes.push(k); }
     }
     t.update('teachers/' + email, upd);
@@ -703,8 +720,10 @@ async function adminStudents(env, url) {
   const t = today();
   const rows = all.map(s => ({
     email: s.email || s._id, name: s.name || '', until: s.accessUntil || '', open: !!s.accessUntil && s.accessUntil >= t, source: s.source || '',
-    note: s.note || '', paidAt: s.paidAt || '', lastSignIn: s.lastSignIn || '',
+    note: s.note || '', paidAt: s.paidAt || '', lastSignIn: s.lastSignIn || '', phone: s.phone || '',
   }));
+  const sends = await monthlySends(env, rows.map(r => ({ email: r.email, kind: 'student' })));
+  rows.forEach((r, i) => { r.sends = sends[i]; });
   return { ok: true, students: rows.sort((a, b) => String(b.paidAt || b.lastSignIn).localeCompare(String(a.paidAt || a.lastSignIn))) };
 }
 
@@ -718,7 +737,8 @@ async function adminStudent(env, url) {
   ]);
   return {
     ok: true, email,
-    student: st ? { name: st.name || '', until: st.accessUntil || '', source: st.source || '', note: st.note || '' } : null,
+    student: st ? { name: st.name || '', until: st.accessUntil || '', source: st.source || '', note: st.note || '', phone: st.phone || '' } : null,
+    sends: (await monthlySends(env, [{ email, kind: 'student' }]))[0],
     payments: payments.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ id: p._id, kind: p.kind || 'student', seats: p.seats || 0, amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '', createdAt: p.createdAt, paidAt: p.paidAt || '', payerName: p.payerName || '', payerPhone: p.payerPhone || '', payerEmail: p.payerEmail || '' })),
     devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt })),
   };
@@ -769,7 +789,7 @@ async function adminDecide(env, u, b) {
       const seats = b.seats !== undefined ? +b.seats : (await settings(env)).defaultSeats;
       const exists = await store.get('teachers/' + r.email);
       if (exists) await adminSaveTeacher(env, u, { email: r.email, active: true, seats: b.seats !== undefined ? seats : undefined });
-      else await adminSaveTeacher(env, u, { email: r.email, name: r.name, school: r.school, seats, create: true });
+      else await adminSaveTeacher(env, u, { email: r.email, name: r.name, school: r.school, phone: r.phone || '', seats, create: true });
       result = `הוגדר כמורה · ${seats} עמדות`;
     } else if (r.kind === 'seats') {
       const add = b.amount !== undefined ? +b.amount : r.amount;

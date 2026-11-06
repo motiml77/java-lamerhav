@@ -197,7 +197,13 @@ await test('חשבון שעוד לא מורה: not-teacher → בקשת הרשא
   assert.equal(r.status, 'not-teacher');
   assert.equal(r.token, undefined);
   const tok = await idToken('newteacher@test.dev', 'דוד');
-  const req = await call('POST', '/v1/me/request', { token: tok, body: { kind: 'teacher', school: 'תיכון עירוני ד׳', computers: 25 } });
+  // טלפון חובה: נייד ישראלי של 10 ספרות
+  for (const bad of [undefined, '', '123', '0212345678', '050123456', '05012345678', 'abc']) {
+    const r0 = await call('POST', '/v1/me/request', { token: tok, body: { kind: 'teacher', school: 'תיכון', phone: bad } });
+    assert.equal(r0.status, 400, String(bad));
+    assert.equal(r0.body.code, 'phone');
+  }
+  const req = await call('POST', '/v1/me/request', { token: tok, body: { kind: 'teacher', school: 'תיכון עירוני ד׳', phone: '+972 50-123 4567', computers: 25 } });
   assert.equal(req.status, 200, JSON.stringify(req.body));
   const dup = await call('POST', '/v1/me/request', { token: tok, body: { kind: 'teacher', school: 'x' } });
   assert.equal(dup.body.already, true);
@@ -205,11 +211,18 @@ await test('חשבון שעוד לא מורה: not-teacher → בקשת הרשא
   const open = ov.requests.find(x => x.email === 'newteacher@test.dev');
   assert.equal(open.kind, 'teacher');
   assert.equal(open.school, 'תיכון עירוני ד׳');
+  assert.equal(open.phone, '0501234567');
   const ap = await call('POST', '/v1/admin/request', { token: admin, body: { id: open.id, decision: 'approve', seats: 25 } });
   assert.equal(ap.status, 200, JSON.stringify(ap.body));
   const again = await signIn('newteacher@test.dev', 'teacher');
   assert.equal(again.status, 'ok');
   assert.equal(again.teacher.seats, 25);
+  const tl = (await call('GET', '/v1/admin/teachers', { token: admin })).body.teachers.find(x => x.email === 'newteacher@test.dev');
+  assert.equal(tl.phone, '0501234567', 'הטלפון עובר מהבקשה אל המורה ומוצג בהנהלה');
+  // עריכת טלפון בהנהלה: לא תקין נדחה
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'newteacher@test.dev', phone: '12345' } })).status, 400);
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'newteacher@test.dev', phone: '052-9876543' } })).status, 200);
+  assert.equal((await call('GET', '/v1/admin/teachers', { token: admin })).body.teachers.find(x => x.email === 'newteacher@test.dev').phone, '0529876543');
 });
 
 await test('מורה: אין "בקשת עמדות" — קונה חבילה; אחרי התשלום העמדות מתווספות לבד, ופרטי המשלם נשמרים; שחרור מחשב — בבקשה להנהלה', async () => {
@@ -373,6 +386,23 @@ await test('מונה חודשי בהנהלה: מוצג לכל מורה, והמנ
   const one = (await call('GET', '/v1/admin/teacher?email=teacher1@test.dev', { token: admin })).body.teacher;
   assert.equal(one.sends.limit, after.limit);
   await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', seats: 2 } });
+});
+
+await test('תלמיד מרשימת ההיתרים (הענקה ידנית) = כמו תלמיד ששילם: אותה מנה חודשית, והמונה מוצג בהנהלה ובחשבון שלו', async () => {
+  await call('POST', '/v1/admin/student', { token: admin, body: { email: 'listed@test.dev', until: '2027-08-31', note: 'רשימת בית ספר' } });
+  const s = await signIn('listed@test.dev', 'student');
+  assert.equal(s.status, 'ok', 'נכנס בלי תשלום');
+  await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: true, monthlyStudent: 2 } });
+  for (const want of [200, 200, 429]) {
+    const r = await exercise({ 'x-dsviz-access': s.token, 'x-dsviz-machine': s.machine });
+    assert.equal(r.status, want, await r.clone().text());
+  }
+  const row = (await call('GET', '/v1/admin/students', { token: admin })).body.students.find(x => x.email === 'listed@test.dev');
+  assert.deepEqual([row.sends.n, row.sends.limit], [2, 2], 'המונה בהנהלה');
+  const one = (await call('GET', '/v1/admin/student?email=listed@test.dev', { token: admin })).body;
+  assert.equal(one.sends.n, 2);
+  assert.deepEqual([(await call('GET', '/v1/me', { token: await idToken('listed@test.dev', 'listed') })).body.student?.sends?.n], [2], 'המונה בחשבון של התלמיד');
+  await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: false, monthlyStudent: 30 } });
 });
 
 await test('התנתקות: הכרטיס מבוטל בשרת', async () => {

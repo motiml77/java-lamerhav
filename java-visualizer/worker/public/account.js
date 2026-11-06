@@ -55,6 +55,7 @@ function teacherCards(t) {
       h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'baseline' } }, h('h2', null, 'עמדות מחשב'),
         h('span', { class: 'muted' }, h('b', { style: { color: 'var(--ink)', fontSize: '20px' } }, String(t.used)), ` מתוך ${t.seats} בשימוש`)),
       h('span', { class: 'bar big ' + (free ? 'ok' : 'full') }, h('span', { style: { width: pct + '%' } })),
+      t.sends ? h('div', { class: 'small', style: { marginTop: '10px' } }, 'שליחות תרגיל החודש (המורה וכל העמדות יחד): ', h('b', null, String(t.sends.n)), ` מתוך ${t.sends.limit}`, t.sends.n >= t.sends.limit ? ' — המנה נגמרה, תתחדש בתחילת החודש הבא' : '') : null,
       h('div', { class: 'small muted' }, free ? `נשארו ${free} היתרים פנויים` : 'כל ההיתרים בשימוש — מחשב חדש יקבל "אין עוד היתרים"'),
       h('div', { class: 'list' }, stations.length ? stations.map(s => h('div', { class: 'item' + (daysSince(s.lastSeen) > 30 ? ' stale' : '') },
         h('div', { class: 'grow' }, h('div', { style: { fontWeight: 600 } }, s.name), h('div', { class: 'small muted' }, (daysSince(s.lastSeen) > 30 ? 'לא נראתה ' + daysSince(s.lastSeen) + ' יום' : 'פעילה ' + ago(s.lastSeen)))),
@@ -102,6 +103,7 @@ function requestsCard() {
 function studentCard() {
   const s = me.student;
   return h('section', { class: 'card' }, h('h2', null, 'מאגר התרגילים'),
+    s.sends && s.open ? h('div', { class: 'small', style: { marginBottom: '8px' } }, 'שליחות תרגיל החודש: ', h('b', null, String(s.sends.n)), ` מתוך ${s.sends.limit}`) : null,
     s.open ? h('div', { class: 'row' }, h('span', { class: 'pill green' }, 'פתוח'), h('span', null, `עד ${fmtDate(s.until)}${s.source === 'manual' ? ' · הענקה מההנהלה' : ''}`))
       : h('div', { class: 'stack' }, h('div', { class: 'row' }, h('span', { class: 'pill gray' }, 'סגור'), h('span', { class: 'muted' }, me.canPay ? `תשלום אחד של ${me.price} ₪ פותח עד ${fmtDate(me.accessUntil)}` : 'התשלום עוד לא פתוח')),
         me.canPay ? h('a', { class: 'btn primary', href: '/welcome?r=pay', style: { alignSelf: 'flex-start' } }, 'לתשלום') : null),

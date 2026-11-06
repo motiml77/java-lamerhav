@@ -63,7 +63,7 @@ const ronitStations = await store.query('stations', { where: [['teacher', '==', 
 const old = new Date(Date.now() - 40 * 86400000).toISOString();
 await store.merge('stations/' + ronitStations[0]._id, { name: 'ספרייה · מחשב 1', lastSeen: old });
 await api('POST', '/v1/me/request', { kind: 'release', stationId: ronitStations[0]._id, note: 'המחשב הוחלף בחדש.' }, await idToken('ronit.a@school.org.il', 'רונית אברהם'));
-await api('POST', '/v1/me/request', { kind: 'teacher', school: 'תיכון עירוני ד׳, תל אביב', computers: 28 }, await idToken('david.levi@gmail.com', 'דוד לוי'));
+await api('POST', '/v1/me/request', { kind: 'teacher', school: 'תיכון עירוני ד׳, תל אביב', phone: '0501234567', computers: 28 }, await idToken('david.levi@gmail.com', 'דוד לוי'));
 await api('POST', '/v1/admin/settings', { price: 60, accessUntil: '2027-08-31', packages: [{ seats: 10, price: 300 }, { seats: 20, price: 550 }, { seats: 30, price: 750 }] }, admin);
 for (const [email, name] of [['noa.k@gmail.com', 'נועה כץ'], ['tamar.r@gmail.com', 'תמר רוזן'], ['michael.d@gmail.com', 'מיכאל דהן']]) {
   const tok = await idToken(email, name);

@@ -73,10 +73,13 @@ async function notTeacher() {
   await needUser();
   const school = h('input', { class: 'field', type: 'text', placeholder: 'שם בית הספר והעיר', id: 'school' });
   const computers = h('input', { class: 'field', type: 'number', min: '0', max: '2000', placeholder: '30', id: 'computers' });
+  const phone = h('input', { class: 'field ltr', type: 'tel', inputmode: 'numeric', placeholder: '050-1234567', id: 'phone', autocomplete: 'tel', style: { textAlign: 'left' } });
   const send = h('button', { type: 'button', class: 'btn primary lg wide' }, 'שליחת בקשה להנהלה');
   send.onclick = () => busy(send, async () => {
     if (!school.value.trim()) { school.focus(); return toast('כתבו את שם בית הספר.', true); }
-    await api('POST', '/v1/me/request', { kind: 'teacher', school: school.value, computers: +computers.value || 0 });
+    let ph = phone.value.replace(/[\s\-().]/g, '').replace(/^\+?972/, '0');
+    if (!/^05\d{8}$/.test(ph)) { phone.focus(); return toast('כתבו נייד תקני של 10 ספרות, למשל 050-1234567.', true); }
+    await api('POST', '/v1/me/request', { kind: 'teacher', school: school.value, phone: ph, computers: +computers.value || 0 });
     done('הבקשה נשלחה', 'אחרי שההנהלה מאשרת, נכנסים שוב מתוך DSViz עם אותו חשבון — והלוח של המורה נפתח.');
   });
   show(
@@ -85,6 +88,7 @@ async function notTeacher() {
     h('p', { class: 'muted', style: { lineHeight: '1.6' } }, 'את המורים מגדירה ההנהלה. אפשר לשלוח בקשה מכאן — אחרי האישור נכנסים שוב עם אותו חשבון.'),
     h('div', { class: 'stack', style: { width: '100%', textAlign: 'right', gap: '12px' } },
       h('label', { class: 'lbl', for: 'school' }, 'בית הספר', school),
+      h('label', { class: 'lbl', for: 'phone' }, 'טלפון נייד (10 ספרות)', phone),
       h('label', { class: 'lbl', for: 'computers' }, 'כמה מחשבים יש בכיתה (בערך)', computers)),
     send,
     h('a', { href: '#', class: 'small', onclick: async e => { e.preventDefault(); await logoutWeb(); user = null; notTeacher(); } }, 'כניסה עם חשבון אחר'));

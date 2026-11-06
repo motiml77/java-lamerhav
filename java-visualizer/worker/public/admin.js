@@ -62,7 +62,7 @@ function searchBox() {
     if (q.length < 2) { results.hidden = true; return; }
     const [teachers, students, stations] = await ensure();
     const hits = [];
-    for (const t of teachers) if ((t.name + ' ' + t.email + ' ' + t.school + ' ' + t.code.replace('-', '')).toLowerCase().includes(q)) hits.push(['מורה', t.name || t.email, t.email, '#teacher=' + encodeURIComponent(t.email)]);
+    for (const t of teachers) if ((t.name + ' ' + t.email + ' ' + t.school + ' ' + (t.phone || '') + ' ' + t.code.replace('-', '')).toLowerCase().includes(q)) hits.push(['מורה', t.name || t.email, t.email, '#teacher=' + encodeURIComponent(t.email)]);
     for (const s of stations) if (String(s.name).toLowerCase().includes(q)) hits.push(['מחשב', s.name, s.teacherName || s.teacher, '#teacher=' + encodeURIComponent(s.teacher)]);
     for (const s of students) if ((s.name + ' ' + s.email).toLowerCase().includes(q)) hits.push(['תלמיד', s.name || s.email, s.email, '#students=' + encodeURIComponent(s.email)]);
     results.replaceChildren(...(hits.length ? hits.slice(0, 12).map(([kind, title, sub, href]) => h('button', { type: 'button', role: 'option', onclick: () => { results.hidden = true; input.value = ''; location.hash = href; } },
@@ -148,7 +148,7 @@ function requestCard(r, { compact, after } = {}) {
   } else if (r.kind === 'release') {
     what = h('div', null, 'מבקש/ת לשחרר את ', h('b', null, `״${r.stationName}״`), '. אחרי השחרור ההיתר חוזר אליו/ה.');
   } else {
-    what = h('div', null, 'נכנס/ה כמורה, והחשבון עוד לא מוגדר.', r.computers ? ` כ-${r.computers} מחשבים בכיתה.` : '');
+    what = h('div', null, 'נכנס/ה כמורה, והחשבון עוד לא מוגדר.', r.computers ? ` כ-${r.computers} מחשבים בכיתה.` : '', r.phone ? [' טלפון: ', h('span', { class: 'ltr' }, r.phone)] : '');
     input = h('input', { class: 'field num', type: 'number', min: '0', max: '2000', value: String(r.computers || (settingsCache && settingsCache.defaultSeats) || 30), style: { width: '90px', height: '40px' }, 'aria-label': 'מספר עמדות' });
   }
   const approveLabel = r.kind === 'seats' ? 'אישור' : r.kind === 'release' ? 'שחרור המחשב' : 'הגדרה כמורה';
@@ -292,7 +292,7 @@ async function teacherDrawer(email) {
   });
   return h('aside', { class: 'drawer card', 'aria-label': 'פרטי המורה' },
     h('div', { class: 'row', style: { alignItems: 'flex-start', justifyContent: 'space-between' } },
-      h('div', { class: 'stack', style: { gap: '2px' } }, h('h2', { style: { fontSize: '21px' } }, t.name || t.email), h('span', { class: 'small muted' }, h('span', { class: 'ltr' }, t.email), t.school ? ' · ' + t.school : ''),
+      h('div', { class: 'stack', style: { gap: '2px' } }, h('h2', { style: { fontSize: '21px' } }, t.name || t.email), h('span', { class: 'small muted' }, h('span', { class: 'ltr' }, t.email), t.school ? ' · ' + t.school : '', t.phone ? [' · ', h('span', { class: 'ltr' }, t.phone)] : ''),
         t.active ? null : h('span', { class: 'pill gray', style: { alignSelf: 'flex-start', marginTop: '6px' } }, 'מושבת')),
       h('a', { class: 'btn sm', href: '#teachers', 'aria-label': 'סגירה' }, icon(ICONS.x, 16))),
     h('section', { class: 'stack', style: { background: 'var(--bg)', borderRadius: '14px', padding: '16px', gap: '12px' } },
@@ -314,14 +314,16 @@ function teacherForm(title, t, onSave) {
   const name = h('input', { class: 'field', type: 'text', id: 'tf-n', value: t ? t.name : '' });
   const school = h('input', { class: 'field', type: 'text', id: 'tf-s', value: t ? t.school : '' });
   const seats = h('input', { class: 'field', type: 'number', min: '0', max: '10000', id: 'tf-c', value: String(t ? t.seats : settingsCache.defaultSeats) });
+  const phone = h('input', { class: 'field ltr', type: 'tel', id: 'tf-p', value: t ? t.phone || '' : '', placeholder: '050-1234567', style: { textAlign: 'left' } });
   const note = h('input', { class: 'field', type: 'text', id: 'tf-o', value: t ? t.note : '', placeholder: 'למשל: הסכם עד סוף השנה' });
   const ok = h('button', { type: 'button', class: 'btn primary' }, t ? 'שמירה' : 'הוספה');
   const close = () => { d.close(); d.remove(); };
-  ok.onclick = () => busy(ok, async () => { await onSave({ email: email.value.trim(), name: name.value, school: school.value, seats: +seats.value, note: note.value }); close(); });
+  ok.onclick = () => busy(ok, async () => { await onSave({ email: email.value.trim(), name: name.value, school: school.value, phone: phone.value, seats: +seats.value, note: note.value }); close(); });
   d.append(h('div', { class: 'in' }, h('h2', { id: 'tf-t' }, title),
     t ? null : h('p', { class: 'small muted' }, 'חשבון Google של המורה. אחרי ההוספה המורה נכנס/ת מתוך DSViz ("כניסת מורה") ורואה את הקוד שלו.'),
     h('label', { class: 'lbl', for: 'tf-e' }, 'חשבון Google', email), h('label', { class: 'lbl', for: 'tf-n' }, 'שם', name),
     h('label', { class: 'lbl', for: 'tf-s' }, 'בית ספר', school), t ? null : h('label', { class: 'lbl', for: 'tf-c' }, 'מספר עמדות', seats),
+    h('label', { class: 'lbl', for: 'tf-p' }, 'טלפון נייד', phone),
     h('label', { class: 'lbl', for: 'tf-o' }, 'הערה (רק להנהלה)', note),
     h('div', { class: 'row' }, ok, h('button', { type: 'button', class: 'btn', onclick: close }, 'ביטול'))));
   d.addEventListener('cancel', e => { e.preventDefault(); close(); });
@@ -341,7 +343,7 @@ function addTeacher() {
 }
 function editTeacher(t) {
   teacherForm('עריכת פרטים', t, async v => {
-    await api('POST', '/v1/admin/teacher', { email: t.email, name: v.name, school: v.school, note: v.note });
+    await api('POST', '/v1/admin/teacher', { email: t.email, name: v.name, school: v.school, phone: v.phone, note: v.note });
     cache.teachers = null;
     toast('נשמר');
     render();
@@ -362,12 +364,15 @@ async function students(arg) {
   const sourcePill = s => s.open ? (s.source === 'manual' ? h('span', { class: 'pill purple' }, 'הענקה ידנית') : h('span', { class: 'pill green' }, 'תשלום' + (s.paidAt ? ' · ' + fmtDate(s.paidAt) : '')))
     : s.source === 'refunded' ? h('span', { class: 'pill gray' }, 'הוחזר') : s.source === 'revoked' ? h('span', { class: 'pill gray' }, 'בוטל') : h('span', { class: 'pill gray' }, 'לא שילם/ה');
   const table = h('div', { class: 'tablewrap' }, h('table', { class: 't' },
-    h('thead', null, h('tr', null, ['תלמיד', 'גישה עד', 'איך', 'כניסה אחרונה', ''].map(x => h('th', null, x)))),
+    h('thead', null, h('tr', null, ['תלמיד', 'טלפון', 'גישה עד', 'איך', 'שליחות החודש', 'כניסה אחרונה', ''].map(x => h('th', null, x)))),
     h('tbody', null, shown.length ? shown.slice(0, 400).map(s => h('tr', null,
       h('td', null, h('div', { class: 'cellname' }, h('b', null, s.name || '—'), h('span', { class: 'ltr' }, s.email))),
-      h('td', null, s.open ? fmtDate(s.until) : '—'), h('td', null, sourcePill(s)), h('td', { class: 'muted' }, s.lastSignIn ? ago(s.lastSignIn) : '—'),
+      h('td', { class: 'ltr muted' }, s.phone || '—'),
+      h('td', null, s.open ? fmtDate(s.until) : '—'), h('td', null, sourcePill(s)),
+      h('td', null, s.sends ? h('span', { class: s.sends.n >= s.sends.limit ? 'pill orange' : '' }, h('b', null, String(s.sends.n)), ` / ${s.sends.limit}`) : '—'),
+      h('td', { class: 'muted' }, s.lastSignIn ? ago(s.lastSignIn) : '—'),
       h('td', null, h('button', { type: 'button', class: 'btn sm', onclick: () => studentDialog(s.email) }, 'פרטים'))))
-      : h('tr', null, h('td', { colspan: '5' }, h('div', { class: 'empty' }, 'אין תלמידים בקבוצה הזו.'))))));
+      : h('tr', null, h('td', { colspan: '7' }, h('div', { class: 'empty' }, 'אין תלמידים בקבוצה הזו.'))))));
   if (arg && arg.includes('@')) setTimeout(() => studentDialog(arg), 0);
   return h('div', { class: 'split' },
     h('div', { class: 'grow stack', style: { gap: '16px' } },
@@ -418,6 +423,8 @@ async function studentDialog(email) {
     h('div', { class: 'row', style: { justifyContent: 'space-between' } }, h('h2', { id: 'sd-t' }, s.name || email), h('button', { type: 'button', class: 'btn sm', 'aria-label': 'סגירה', onclick: close }, icon(ICONS.x, 16))),
     h('div', { class: 'small muted ltr', style: { textAlign: 'right' } }, email),
     h('div', { class: 'row' }, open ? h('span', { class: 'pill green' }, `פתוח עד ${fmtDate(s.until)}`) : h('span', { class: 'pill gray' }, 'סגור'), s.source === 'manual' ? h('span', { class: 'pill purple' }, 'הענקה ידנית') : null),
+    s.phone ? h('div', { class: 'small muted' }, 'טלפון: ', h('span', { class: 'ltr' }, s.phone)) : null,
+    r.sends ? h('div', null, 'שליחות תרגיל החודש: ', h('b', null, String(r.sends.n)), ` מתוך ${r.sends.limit}`) : null,
     s.note ? h('div', { class: 'note' }, s.note) : null,
     h('h3', null, 'תשלומים'),
     h('div', { class: 'list' }, r.payments.length ? r.payments.map(p => h('div', { class: 'item' }, h('div', { class: 'grow' }, `${p.amount} ₪ · ${fmtDate(p.paidAt || p.createdAt)}`, p.payerName ? ` · ${p.payerName}` : '', p.payerPhone ? h('span', { class: 'ltr' }, ' · ' + p.payerPhone) : null, p.ref ? h('span', { class: 'small muted ltr' }, ' ' + p.ref) : null),
