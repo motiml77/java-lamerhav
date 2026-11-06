@@ -227,17 +227,18 @@ async function teachers(selected) {
   const shown = all.filter(groups[teacherFilter][1]);
   const filters = h('div', { class: 'filters' }, Object.entries(groups).map(([id, [label, fn]]) => h('button', { type: 'button', 'aria-pressed': String(teacherFilter === id), onclick: () => { teacherFilter = id; render(); } }, `${label} · ${all.filter(fn).length}`)));
   const table = h('div', { class: 'tablewrap' }, h('table', { class: 't' },
-    h('thead', null, h('tr', null, ['מורה', 'בית ספר', 'עמדות', 'כניסה אחרונה', 'מצב'].map(x => h('th', null, x)))),
+    h('thead', null, h('tr', null, ['מורה', 'בית ספר', 'עמדות', 'שליחות החודש', 'כניסה אחרונה', 'מצב'].map(x => h('th', null, x)))),
     h('tbody', null, shown.length ? shown.map(t => {
       const pct = t.seats ? Math.min(100, Math.round(100 * t.used / t.seats)) : (t.used ? 100 : 0);
       const tr = h('tr', { class: 'click' + (t.email === selected ? ' sel' : ''), tabindex: '0', onclick: () => { location.hash = '#teacher=' + encodeURIComponent(t.email); }, onkeydown: e => { if (e.key === 'Enter') location.hash = '#teacher=' + encodeURIComponent(t.email); } },
         h('td', null, h('div', { class: 'cellname' }, h('b', null, t.name || '—'), h('span', { class: 'ltr' }, t.email))),
         h('td', null, t.school || '—'),
         h('td', null, h('div', { class: 'seats' }, h('span', null, h('b', null, String(t.used)), ` / ${t.seats}`), h('span', { class: 'bar' + (full(t) ? ' full' : '') }, h('span', { style: { width: pct + '%' } })))),
+        h('td', null, t.sends ? h('span', { class: t.sends.n >= t.sends.limit ? 'pill orange' : '' }, h('b', null, String(t.sends.n)), ` / ${t.sends.limit}`) : '—'),
         h('td', { class: 'muted' }, t.lastSignIn ? ago(t.lastSignIn) : 'עוד לא נכנס/ה'),
         h('td', null, t.active ? h('span', { class: 'pill green' }, 'פעיל') : h('span', { class: 'pill gray' }, 'מושבת')));
       return tr;
-    }) : h('tr', null, h('td', { colspan: '5' }, h('div', { class: 'empty' }, all.length ? 'אין מורים בקבוצה הזו.' : 'עוד אין מורים — מוסיפים בכפתור "הוספת מורה".'))))));
+    }) : h('tr', null, h('td', { colspan: '6' }, h('div', { class: 'empty' }, all.length ? 'אין מורים בקבוצה הזו.' : 'עוד אין מורים — מוסיפים בכפתור "הוספת מורה".'))))));
   const main = h('div', { class: 'grow stack', style: { gap: '16px' } },
     h('div', { class: 'titlebar' }, h('h1', null, 'מורים ועמדות'), h('button', { type: 'button', class: 'btn primary', onclick: addTeacher }, icon(ICONS.plus, 18, '#fff', 2.4), 'הוספת מורה')),
     filters, table, h('p', { class: 'small muted' }, 'לוחצים על מורה כדי לשנות את מספר העמדות, לראות את המחשבים שלו ולשחרר עמדה.'));
@@ -256,8 +257,9 @@ async function teacherDrawer(email) {
     const n = Math.max(0, Math.round(+val.value || 0));
     const changed = n !== t.seats;
     save.disabled = !changed; reset.disabled = !changed;
-    if (!changed) preview.textContent = `${t.used} בשימוש · ${Math.max(0, t.seats - t.used)} פנויות.`;
-    else if (n >= t.used) preview.replaceChildren(`${t.seats} ← `, h('b', null, String(n)), `: אחרי השמירה יהיו ${n - t.used} עמדות פנויות. העמדות שכבר מחוברות לא משתנות.`);
+    const sends = t.sends ? ` · שליחות החודש: ${t.sends.n} מתוך ${t.sends.limit}` : '';
+    if (!changed) preview.textContent = `${t.used} בשימוש · ${Math.max(0, t.seats - t.used)} פנויות${sends}.`;
+    else if (n >= t.used) preview.replaceChildren(`${t.seats} ← `, h('b', null, String(n)), `: אחרי השמירה יהיו ${n - t.used} עמדות פנויות, ומנת השליחות החודשית תהיה ${n * (settingsCache.monthlyPerSeat || 0)}. העמדות שכבר מחוברות לא משתנות.`);
     else preview.replaceChildren(`${t.seats} ← `, h('b', null, String(n)), `: פחות מ-${t.used} העמדות שבשימוש. אף עמדה לא תנותק — רק עמדות חדשות לא יוכלו להתחבר עד שישתחררו ${t.used - n}.`);
   };
   const step = k => { val.value = String(Math.max(0, (+val.value || 0) + k)); update(); };

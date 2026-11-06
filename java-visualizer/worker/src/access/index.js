@@ -604,10 +604,19 @@ function requestRow(r) {
   };
 }
 
+/** מנת השליחות של החודש לכל מורה (מורה + העמדות שלו): n = כמה נשלחו, limit = מספר העמדות שמותר לו × המנה לעמדה — לפי ההגדרה הנוכחית, ולכן משתנה מיד כשמעדכנים עמדות */
+async function monthlySends(env, teachers) {
+  const store = db(env), s = await settings(env);
+  const keys = await Promise.all(teachers.map(async t => 'usage/' + month() + '_' + (await sha256Hex('teacher:' + (t.email || t._id))).slice(0, 24)));
+  const docs = keys.length ? await store.getMany(keys) : [];
+  return teachers.map((t, i) => ({ n: docs[i] && docs[i].n || 0, limit: s.monthlyPerSeat * Math.max(1, t.seats || 0) }));
+}
+
 async function adminTeachers(env) {
   const store = db(env);
   const teachers = await store.query('teachers');
-  return { ok: true, teachers: teachers.map(teacherRow).sort((a, b) => a.name.localeCompare(b.name, 'he') || a.email.localeCompare(b.email)) };
+  const sends = await monthlySends(env, teachers);
+  return { ok: true, teachers: teachers.map((t, i) => Object.assign(teacherRow(t), { sends: sends[i] })).sort((a, b) => a.name.localeCompare(b.name, 'he') || a.email.localeCompare(b.email)) };
 }
 
 async function adminTeacher(env, url) {
@@ -617,7 +626,7 @@ async function adminTeacher(env, url) {
   if (!t) throw new Fail(404, 'not_found', 'המורה לא נמצא.');
   const stations = await store.query('stations', { where: [['teacher', '==', email]] });
   return {
-    ok: true, teacher: teacherRow(t),
+    ok: true, teacher: Object.assign(teacherRow(t), { sends: (await monthlySends(env, [t]))[0] }),
     stations: stations.filter(x => x.active).map(x => ({ id: x._id, name: x.name, claimedAt: x.claimedAt, lastSeen: x.lastSeen }))
       .sort((a, b) => String(a.name).localeCompare(String(b.name), 'he')),
   };

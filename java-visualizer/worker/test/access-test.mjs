@@ -360,6 +360,21 @@ await test('שליחה ל-Gemini: מתג כבוי — פתוח לכולם; דו�
   await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: false } });
 });
 
+await test('מונה חודשי בהנהלה: מוצג לכל מורה, והמנה משתנה מיד כשמעדכנים את מספר העמדות', async () => {
+  let list = (await call('GET', '/v1/admin/teachers', { token: admin })).body.teachers;
+  const t1 = list.find(t => t.email === 'teacher1@test.dev');
+  assert.ok(t1.sends && t1.sends.n >= 2, JSON.stringify(t1.sends));   // השליחות מהבדיקה הקודמת (עמדה אחת של המורה)
+  const before = t1.sends.limit;
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', seats: 5 } });
+  list = (await call('GET', '/v1/admin/teachers', { token: admin })).body.teachers;
+  const after = list.find(t => t.email === 'teacher1@test.dev').sends;
+  assert.equal(after.limit, (before / 2) * 5);
+  assert.equal(after.n, t1.sends.n);
+  const one = (await call('GET', '/v1/admin/teacher?email=teacher1@test.dev', { token: admin })).body.teacher;
+  assert.equal(one.sends.limit, after.limit);
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', seats: 2 } });
+});
+
 await test('התנתקות: הכרטיס מבוטל בשרת', async () => {
   const s = await signIn('bye@test.dev', 'student');
   await call('POST', '/v1/access/logout', { body: { token: s.token } });
