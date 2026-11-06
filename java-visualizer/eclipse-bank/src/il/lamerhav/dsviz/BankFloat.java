@@ -59,10 +59,39 @@ final class BankFloat {
     static BankFloat show(IWorkbenchPage page, String questionId) {
         if (current == null || current.shell.isDisposed()) current = new BankFloat(page);
         current.setQuestion(questionId);
-        current.shell.setVisible(true);
-        current.shell.setActive();
+        current.reveal();
         BankQuestionSource.refresh();
         return current;
+    }
+
+    /**
+     * מביא את החלון לקדמה: אם מוזער — משחזר; אם הוא מחוץ למסך (או קטן מדי, כמו שחלון ממוזער מדווח בחלק מהמערכות) — מחזיר לצד ימין של Eclipse.
+     * מקום שהמשתמש בחר (בתוך המסך) נשמר.
+     */
+    private void reveal() {
+        if (shell.getMinimized()) shell.setMinimized(false);
+        if (!usable(shell.getBounds())) {
+            lastBounds = null;
+            shell.setBounds(defaultBounds(shell.getParent().getBounds()));
+        }
+        shell.setVisible(true);
+        shell.setActive();
+        shell.forceActive();
+    }
+
+    /** ברירת המחדל: בצד ימין של חלון Eclipse, בערך שליש מהרוחב */
+    private static Rectangle defaultBounds(Rectangle pb) {
+        return new Rectangle(pb.x + pb.width - Math.min(540, pb.width / 3) - 30, pb.y + 110, Math.min(540, Math.max(420, pb.width / 3)), Math.min(720, pb.height - 160));
+    }
+
+    /** מקום סביר לחלון: גודל מינימלי, ולפחות חלק ממנו נראה באחד המסכים */
+    private static boolean usable(Rectangle r) {
+        if (r == null || r.width < 200 || r.height < 200) return false;
+        for (org.eclipse.swt.widgets.Monitor m : Display.getDefault().getMonitors()) {
+            Rectangle i = m.getClientArea().intersection(r);
+            if (i.width >= 150 && i.height >= 100) return true;
+        }
+        return false;
     }
 
     /** החלון הפתוח, או null */
@@ -100,12 +129,11 @@ final class BankFloat {
         body.setOrientation(SWT.RIGHT_TO_LEFT);
         // מקום: האחרון, ואם אין — בצד ימין של חלון Eclipse, בערך שליש מהרוחב
         Rectangle pb = parent.getBounds();
-        Rectangle b = lastBounds != null ? lastBounds
-                : new Rectangle(pb.x + pb.width - Math.min(540, pb.width / 3) - 30, pb.y + 110, Math.min(540, Math.max(420, pb.width / 3)), Math.min(720, pb.height - 160));
+        Rectangle b = usable(lastBounds) ? lastBounds : defaultBounds(pb);
         shell.setBounds(b);
-        shell.addListener(SWT.Move, e -> lastBounds = shell.getBounds());
+        shell.addListener(SWT.Move, e -> remember());
         shell.addListener(SWT.Resize, e -> {
-            lastBounds = shell.getBounds();
+            remember();
             Look.updateScroll(scroll);
         });
         onProgress = () -> d.asyncExec(() -> { if (!body.isDisposed()) render(); });
@@ -118,6 +146,13 @@ final class BankFloat {
             BankQuestionSource.refresh();
         });
         shell.open();
+    }
+
+    /** זוכר את המקום האחרון — לא כשהחלון ממוזער (שם המערכת מדווחת על מקום שאינו אמיתי) */
+    private void remember() {
+        if (shell.isDisposed() || shell.getMinimized()) return;
+        Rectangle r = shell.getBounds();
+        if (usable(r)) lastBounds = r;
     }
 
     private void follow(IWorkbenchPart part) {

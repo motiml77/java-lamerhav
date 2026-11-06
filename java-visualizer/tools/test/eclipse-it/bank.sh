@@ -91,6 +91,7 @@ check "^FLOAT-SHOWN FIGURE stack" "בחלון הצף: הציור של המחסנ
 check "^FLOAT-SHOWN EXPECTED סעיף א: 22 | סעיף ב: 4 | המחסנית אחרי: \[4,7,2,9\]" "בחלון הצף: הפלט הרצוי"
 check "^FLOAT-SHOWN DONE false" "בחלון הצף: \"סיימתי\""
 check "^FLOAT-REOPEN question=stack-sum-size" "סוגרים — ופותחים שוב בכפתור \"השאלה\" (לפי הקובץ שבעורך)"
+check "^FLOAT-REVEAL minimized=false visible=true onscreen=true right=true" "\"השאלה\" על חלון ממוזער / מחוץ למסך: החלון חוזר פתוח, בתוך המסך, בצד ימין"
 check "^BEFORE-DONE src-files=1 folder=true bin=true tabs=1 solutions=2 owner=stack-sum-size" "לפני \"סיימתי\": יש קובץ, חבילה, קבצים מקומפלים, לשונית פתוחה והצעות לפתרון"
 check "^TYPING typed=true editor-focus=true float-visible=true float-owned=true" "כותבים קוד בעורך בזמן שהחלון הצף פתוח: ההקלדה נכנסת לעורך, והחלון נשאר מקדימה (שייך לחלון של Eclipse)"
 check "^DONE-BUTTON true" "בחלון הצף יש \"סיימתי את התרגיל\""

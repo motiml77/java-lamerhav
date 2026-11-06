@@ -242,6 +242,21 @@ public class BankIt implements IApplication {
         });
         sleep(800);
         out.println("FLOAT-REOPEN question=" + handler.getMethod("floatQuestionForTest").invoke(null));
+        // חלון שהמשתמש מיזער / שהמערכת העבירה למקום לא אמיתי: "השאלה" מחזיר אותו פתוח, בתוך המסך, בצד ימין
+        ui(() -> {
+            Shell s = (Shell) handler.getMethod("floatShellForTest").invoke(null);
+            s.setMinimized(true);
+            s.setBounds(-32000, -32000, 160, 28);
+            PlatformUI.getWorkbench().getService(org.eclipse.ui.handlers.IHandlerService.class).executeCommand("il.lamerhav.dsviz.bankQuestion", null);
+            return null;
+        });
+        sleep(800);
+        out.println("FLOAT-REVEAL " + ui(() -> {
+            Shell s = (Shell) handler.getMethod("floatShellForTest").invoke(null);
+            org.eclipse.swt.graphics.Rectangle b = s.getBounds(), a = s.getDisplay().getClientArea();
+            return "minimized=" + s.getMinimized() + " visible=" + s.isVisible() + " onscreen=" + (a.intersection(b).width >= 300 && a.intersection(b).height >= 300)
+                    + " right=" + (b.x + b.width / 2 > a.x + a.width / 2);
+        }));
 
         // 6. "סיימתי את התרגיל" — כמו תלמיד: לחיצה על הכפתור בחלון הצף, אישור — והתרגיל נמחק עם כל המעטפת שלו
         // לפני: קבצי המקור, הקבצים המקומפלים (bin), הלשוניות בעורך וההצעות לפתרון השמורות

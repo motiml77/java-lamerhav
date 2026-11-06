@@ -84,7 +84,7 @@ final class BankVsFloat {
             // לא נשמר — לא נורא
         }
         if (current != null) {
-            lastBounds = current.getBounds();
+            if (usable(current)) lastBounds = current.getBounds();   // חלון ממוזער מדווח על מקום מחוץ למסך — לא זוכרים אותו
             current.dispose();
         }
         final JFrame f = new JFrame(RtlDialog.rtl("השאלה — " + q.title));
@@ -106,11 +106,11 @@ final class BankVsFloat {
             @Override
             public void windowClosed(WindowEvent e) {
                 BankProgress.get().unlisten(onChange);
-                lastBounds = f.getBounds();
+                if (usable(f)) lastBounds = f.getBounds();
                 if (current == f) current = null;
             }
         });
-        if (lastBounds == null) lastBounds = savedBounds();
+        if (!usableBounds(lastBounds)) lastBounds = savedBounds();
         if (lastBounds != null) f.setBounds(lastBounds);
         else {
             // ברירת מחדל: מימין, אבל לא על Solution Explorer של Visual Studio (העמודה הימנית) — משמאל לה
@@ -120,12 +120,14 @@ final class BankVsFloat {
         }
         f.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
-            public void componentMoved(java.awt.event.ComponentEvent e) { saveBounds(f.getBounds()); }
+            public void componentMoved(java.awt.event.ComponentEvent e) { if (usable(f)) saveBounds(f.getBounds()); }
 
             @Override
-            public void componentResized(java.awt.event.ComponentEvent e) { saveBounds(f.getBounds()); }
+            public void componentResized(java.awt.event.ComponentEvent e) { if (usable(f)) saveBounds(f.getBounds()); }
         });
+        f.setExtendedState(java.awt.Frame.NORMAL);   // תמיד פתוח (לא ממוזער) בצד ימין
         f.setVisible(true);
+        f.toFront();
         BankVs.watchVsDialogs();
         yieldToIdeDialogs(f);
     }
@@ -164,12 +166,26 @@ final class BankVsFloat {
         return Paths.get(System.getProperty("user.home"), ".dsviz", BankVs.ij ? "bank-ij-float.txt" : "bank-cs-float.txt").toFile();
     }
 
+    /** החלון פתוח (לא ממוזער) ובמקום סביר */
+    private static boolean usable(JFrame f) {
+        return (f.getExtendedState() & java.awt.Frame.ICONIFIED) == 0 && usableBounds(f.getBounds());
+    }
+
+    /** מקום סביר: גודל מינימלי, ולפחות חלק ממנו על מסך */
+    private static boolean usableBounds(Rectangle r) {
+        if (r == null || r.width < 300 || r.height < 300) return false;
+        for (java.awt.GraphicsDevice d : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+            Rectangle i = d.getDefaultConfiguration().getBounds().intersection(r);
+            if (i.width >= 150 && i.height >= 100) return true;
+        }
+        return false;
+    }
+
     static Rectangle savedBounds() {
         try {
             String[] p = new String(Files.readAllBytes(boundsFile().toPath()), StandardCharsets.UTF_8).trim().split(",");
             Rectangle r = new Rectangle(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2]), Integer.parseInt(p[3]));
-            Rectangle s = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-            return s.intersects(r) && r.width >= 300 && r.height >= 300 ? r : null;   // מסך אחר / קטן — ברירת המחדל
+            return usableBounds(r) ? r : null;   // מסך אחר / קטן — ברירת המחדל
         } catch (Exception e) {
             return null;
         }

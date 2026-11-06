@@ -125,6 +125,17 @@ public final class BankVsIt {
         pause(1500);
         check("float", ui(() -> BankVsFloat.current != null && BankVsFloat.current.isShowing()), "אחרי 'צור תרגיל': החלון הצף 'השאלה' נפתח", "");
         check("bank-closed", ui(() -> BankVsWindow.current == null), "חלון המאגר נסגר", "");
+        // חלון שהמשתמש מיזער (במערכת מדווח על מקום לא אמיתי): "השאלה" פותח אותו שוב רגיל, בתוך המסך, בצד ימין
+        ui(() -> { BankVsFloat.current.setBounds(-32000, -32000, 160, 28); return null; });
+        ui(() -> { BankVsFloat.showLast(null); return null; });
+        pause(1000);
+        String rev = ui(() -> {
+            JFrame f = BankVsFloat.current;
+            java.awt.Rectangle b = f.getBounds(), sc = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+            return "iconified=" + ((f.getExtendedState() & java.awt.Frame.ICONIFIED) != 0) + " onscreen=" + (sc.intersection(b).width >= 300 && sc.intersection(b).height >= 300)
+                    + " right=" + (b.x + b.width / 2 > sc.x + sc.width / 2);
+        });
+        check("reveal", "iconified=false onscreen=true right=true".equals(rev), "'השאלה' על חלון ממוזער / מחוץ למסך: חוזר פתוח, בתוך המסך, בצד ימין", rev);
         List<File> projects = BankVs.projects(sq);
         check("project", projects.size() == 1, "נוצר פרויקט: " + (projects.isEmpty() ? "-" : projects.get(0).getName()), String.valueOf(projects));
         if (projects.isEmpty()) return;
