@@ -317,11 +317,11 @@ await step('הרשמת מורה דרך הלקוח האמיתי של DSViz: כנ�
   await googlePopup(p, '.gbtn', 'real.app.teacher@gmail.com', 'מורה מהתוכנה');
   await p.waitForURL(/r=not-teacher/);
   assert.equal(await first.result(), 'not-teacher', 'הלקוח קיבל: החשבון עוד לא מורה');
+  await p.fill('#school', 'ישיבת בדיקה');
   await p.fill('#phone', '050-111');   // לא תקין
   await p.click('button:has-text("שליחת בקשה להנהלה")');
   await p.waitForSelector('.toast:has-text("10 ספרות")');
   await p.fill('#phone', '054-3219876');
-  await p.fill('#school', 'ישיבת בדיקה');
   await p.click('button:has-text("שליחת בקשה להנהלה")');
   await p.waitForSelector('h1:has-text("הבקשה נשלחה")');
   const req = (await api('GET', '/v1/admin/requests', null, admin)).requests.find(r => r.email === 'real.app.teacher@gmail.com');
