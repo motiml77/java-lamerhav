@@ -151,7 +151,9 @@ function HandleOpenWith([int]$sec = 30) {
     # (החלון במרכז המסך, 'Visual Studio' כבר מסומן כברירת מחדל; המיקום יחסי לגודל המסך — כך נראה בצילום 1920x1080)
     $b = [Windows.Forms.SystemInformation]::VirtualScreen
     Shot "$script:shotPrefix-before-blind-click"
-    [Win.Mouse]::SetCursorPos([int]($b.Width * 1062 / 1920), [int]($b.Height * 822 / 1080)) | Out-Null
+    # Windows Server 2022: "How do you want to open this file?" -> OK (Visual Studio 2022 מסומן) · Windows 2025: "Select an app" -> Just once
+    if ([Environment]::OSVersion.Version.Build -ge 26000) { $bx = 1062; $by = 822 } else { $bx = 1027; $by = 673 }
+    [Win.Mouse]::SetCursorPos([int]($b.Width * $bx / 1920), [int]($b.Height * $by / 1080)) | Out-Null
     Start-Sleep -Milliseconds 400
     [Win.Mouse]::mouse_event(2, 0, 0, 0, 0); [Win.Mouse]::mouse_event(4, 0, 0, 0, 0)
     Info "חלון 'Select an app to open this .sln file' לא נחשף ל-UIA — לחיצת עכבר ב-'Just once' לפי מיקום (Visual Studio = ברירת המחדל)"
@@ -337,6 +339,12 @@ Info ("תוכן הטופס: " + ((JsonTexts (ShotJson 'submit' 'form')) -join ' 
 $script:shotPrefix = '12-submit'
 $chooser = HandleOpenWith 30
 Info "חלון בחירת אפליקציה ל-.sln: $chooser"
+# ההפעלה מהחלון של Windows יכולה להרים עוד Visual Studio (אין כאן VS Version Selector שמעביר לחלון הקיים) — סוגרים אותו; ואז חוזרים לחלון המקורי: כמו תלמיד שחוזר ל-Visual Studio
+Start-Sleep 5
+Get-Process devenv -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $vsP.Id } | ForEach-Object { Info "נפתח Visual Studio נוסף (pid $($_.Id)) מההפעלה של ה-.sln — סוגרים אותו"; Stop-Process -Id $_.Id -Force }
+Start-Sleep 3
+[Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null
+[Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
 $reload = ClickReload $vsP.Id 40
 Info "Visual Studio שאל Reload: $reload"
 Start-Sleep 15
