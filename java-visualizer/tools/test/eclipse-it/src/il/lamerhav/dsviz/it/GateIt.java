@@ -114,6 +114,9 @@ public class GateIt implements IApplication {
         out.println("ACCESS-BEFORE " + (Account.current() == null ? "none" : Account.current().label()));
         screen("0-workbench");
 
+        // 0b. "עמדת ניהול" בסרגל: לפני כניסה כמורה — אפור
+        sleep(1500);
+        out.println("TEACHER-BTN-BEFORE " + teacherBtn());
         // 1. הכפתור "מאגר תרגילים" בסרגל (הפקודה שלו) → המסך האמיתי של הכניסה
         out.println("TOOLBAR-COMMAND " + ui(() -> PlatformUI.getWorkbench().getService(org.eclipse.ui.commands.ICommandService.class)
                 .getCommand("il.lamerhav.dsviz.bank").isHandled()));
@@ -174,6 +177,51 @@ public class GateIt implements IApplication {
         }
         Account.Access acc = Account.current();
         out.println("ACCESS-AFTER " + (acc == null ? "none" : acc.label() + " teacher=" + acc.isTeacher()));
+
+        // 5b. אחרי כניסה כמורה: "עמדת ניהול" בסרגל נהיה פעיל; לחיצה עליו פותחת את חלון המורה מקדימה
+        String tb = "";
+        for (int i = 0; i < 20; i++) {
+            tb = teacherBtn();
+            if (tb.contains("enabled=true")) break;
+            sleep(500);
+        }
+        out.println("TEACHER-BTN-AFTER " + tb);
+        screen("7-toolbar-teacher");
+        display.asyncExec(() -> {
+            try {
+                PlatformUI.getWorkbench().getService(org.eclipse.ui.handlers.IHandlerService.class).executeCommand("il.lamerhav.dsviz.teacherPanel", null);
+            } catch (Exception e) {
+                out.println("ERROR teacherPanel " + e);
+            }
+        });
+        Window tp = null;
+        for (int i = 0; i < 40 && tp == null; i++) {
+            sleep(250);
+            for (Window x : Window.getWindows()) if (x.isShowing() && x instanceof javax.swing.JDialog && "עמדת ניהול".equals(((javax.swing.JDialog) x).getTitle())) tp = x;
+        }
+        out.println("TEACHER-PANEL-OPEN " + (tp != null));
+        if (tp != null) {
+            final Window tpw = tp;
+            sleep(900);
+            out.println("TEACHER-PANEL-FRONT " + ui(() -> "active=" + tpw.isActive() + " focused=" + tpw.isFocused() + " visible=" + tpw.isShowing()
+                    + " onscreen=" + java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().intersects(tpw.getBounds())));
+            screen("8-teacher-panel-front");
+            out.println("TEACHER-PANEL-TEXT " + oneLine(visibleText(tp)));
+            // לחיצה נוספת על הכפתור כשהחלון פתוח — לא פותחת עוד חלון
+            display.asyncExec(() -> {
+                try {
+                    PlatformUI.getWorkbench().getService(org.eclipse.ui.handlers.IHandlerService.class).executeCommand("il.lamerhav.dsviz.teacherPanel", null);
+                } catch (Exception e) {
+                    out.println("ERROR teacherPanel2 " + e);
+                }
+            });
+            sleep(1000);
+            int n = 0;
+            for (Window x : Window.getWindows()) if (x.isShowing() && x instanceof javax.swing.JDialog && "עמדת ניהול".equals(((javax.swing.JDialog) x).getTitle())) n++;
+            out.println("TEACHER-PANEL-COUNT " + n);
+            final Window tpc = tp;
+            javax.swing.SwingUtilities.invokeAndWait(() -> tpc.dispose());
+        }
 
         // 6. המאגר (חלון SWT "מאגר תרגילים") נפתח
         Shell bank = null;
@@ -318,6 +366,15 @@ public class GateIt implements IApplication {
     }
 
     /** כל המסך (Robot) — כמו שהמשתמש רואה: החלון מעל Eclipse */
+    /** מצב הפקודה "עמדת ניהול" (הכפתור בסרגל): מוגדרת, מטופלת, פעילה */
+    private String teacherBtn() throws Exception {
+        return ui(() -> {
+            org.eclipse.core.commands.Command c = PlatformUI.getWorkbench().getService(org.eclipse.ui.commands.ICommandService.class)
+                    .getCommand("il.lamerhav.dsviz.teacherPanel");
+            return "defined=" + c.isDefined() + " handled=" + c.isHandled() + " enabled=" + c.isEnabled();
+        });
+    }
+
     private void screen(String name) throws Exception {
         sleep(300);
         java.awt.Dimension d = Toolkit.getDefaultToolkit().getScreenSize();

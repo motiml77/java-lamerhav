@@ -38,7 +38,7 @@ public class BankHandler extends AbstractHandler {
         final IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
         final org.eclipse.core.resources.IProject current = Ui.currentProject(event);
         // הכניסה (מורה / עמדת מחשב / תלמיד): אחרי כניסה אחת במחשב — נפתח מיד, גם בלי אינטרנט
-        AccessGate.require(null, () -> shell.getDisplay().asyncExec(() -> { if (!shell.isDisposed()) openBank(shell, page, current); }));
+        AccessGate.require(null, () -> shell.getDisplay().asyncExec(() -> { TeacherSource.refresh(); if (!shell.isDisposed()) openBank(shell, page, current); }));
         return null;
     }
 

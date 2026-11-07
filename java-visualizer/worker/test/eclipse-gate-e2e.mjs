@@ -164,6 +164,11 @@ try {
   has(/^SUCCESS true$/m, 'החלון: "נכנסת בהצלחה"');
   has(/^ACCESS-AFTER מורה: .* teacher=true$/m, 'התוכנה זוכרת מורה');
   has(/^BANK-OPEN true$/m, 'המאגר נפתח אחרי הכניסה');
+  has(/^TEACHER-BTN-BEFORE defined=true handled=true enabled=false$/m, '"עמדת ניהול" בסרגל: קיים ואפור לפני כניסה כמורה');
+  has(/^TEACHER-BTN-AFTER defined=true handled=true enabled=true$/m, '"עמדת ניהול" בסרגל: פעיל אחרי כניסה כמורה');
+  has(/^TEACHER-PANEL-OPEN true$/m, 'לחיצה על "עמדת ניהול" פותחת את חלון המורה');
+  has(/^TEACHER-PANEL-FRONT active=true focused=true visible=true onscreen=true$/m, 'חלון המורה מקדימה (פעיל, בפוקוס, בתוך המסך)');
+  has(/^TEACHER-PANEL-COUNT 1$/m, 'לחיצה נוספת לא פותחת עוד חלון');
   has(/^BANK-RTL true /m, 'חלון המאגר מימין לשמאל');
   has(/^BANK-DIAG rows=9 first=Rectangle \{0, 0, /m, 'המאגר: כל 9 הנושאים מצוירים בתוך הסרגל (לא מחוץ לתצוגה)');
   has(/^BANK2-DIAG rows=9 first=Rectangle \{0, 0, /m, 'פתיחה שנייה של המאגר (בלי מסך כניסה) — גם כן');

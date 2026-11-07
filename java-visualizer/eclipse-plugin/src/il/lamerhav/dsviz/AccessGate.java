@@ -410,13 +410,49 @@ public final class AccessGate {
 
     /**
      * "עמדת ניהול" של המורה, בכל פעם שרוצים: הקוד של המורה (לחיבור עמדות מחשב) עם כפתור העתקה, וכפתור שפותח את
-     * עמדת הניהול בדפדפן (עמדות, מקומות, תשלום). החלון רגיל — לא מעל שאר המסכים.
+     * עמדת הניהול בדפדפן (עמדות, מקומות, תשלום). נפתח תמיד מקדימה (אחר כך חלון רגיל).
      */
+    private static TeacherPanel teacherPanel;
+
+    /**
+     * מביא את החלון לקדמת המסך (גם כשהחלון הראשי של Eclipse / IntelliJ הוא זה שבפוקוס): "תמיד מעל" לרגע קצר מכריח את מערכת
+     * ההפעלה להציג אותו מלפנים, ואז הוא חלון רגיל — לא מסתיר דברים אחרים אחרי שעוברים הלאה.
+     */
+    static void front(final java.awt.Window w) {
+        try {
+            if ((w instanceof java.awt.Frame) && (((java.awt.Frame) w).getExtendedState() & java.awt.Frame.ICONIFIED) != 0)
+                ((java.awt.Frame) w).setExtendedState(java.awt.Frame.NORMAL);
+            w.setAlwaysOnTop(true);
+            w.toFront();
+            w.requestFocus();
+            javax.swing.Timer t = new javax.swing.Timer(400, e -> {
+                if (w.isDisplayable()) w.setAlwaysOnTop(false);
+            });
+            t.setRepeats(false);
+            t.start();
+        } catch (RuntimeException ignored) {
+            // לא מצליחים להקדים — החלון עדיין פתוח
+        }
+    }
+
     public static void showTeacherPanel(final Component parent) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new TeacherPanel(parent).setVisible(true);
+                if (teacherPanel != null && teacherPanel.isDisplayable()) {   // כבר פתוח — רק מביאים לקדמה
+                    front(teacherPanel);
+                    return;
+                }
+                final TeacherPanel p = new TeacherPanel(parent);
+                teacherPanel = p;
+                p.addWindowListener(new java.awt.event.WindowAdapter() {
+                    @Override
+                    public void windowClosed(java.awt.event.WindowEvent e) {
+                        if (teacherPanel == p) teacherPanel = null;
+                    }
+                });
+                p.setVisible(true);
+                front(p);
             }
         });
     }

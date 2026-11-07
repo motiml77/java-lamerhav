@@ -10,6 +10,8 @@
                name="מאגר תרגילים" description="בוחרים נושא ושאלה מהמאגר — ונוצר תרגיל מוכן עם פעולה לכל סעיף, main והצעה לפתרון"/>
       <command id="il.lamerhav.dsviz.bankQuestion" categoryId="il.lamerhav.dsviz.category"
                name="השאלה" description="חלון צף עם הנוסח של השאלה מהמאגר (של התרגיל שפתוח בעורך)"/>
+      <command id="il.lamerhav.dsviz.teacherPanel" categoryId="il.lamerhav.dsviz.category"
+               name="עמדת ניהול" description="עמדת הניהול של המורה: הקוד לחיבור עמדות מחשב, ופתיחת עמדת הניהול בדפדפן (פעיל רק למורה מחובר)"/>
    </extension>
 
    <extension point="org.eclipse.ui.handlers">
@@ -20,17 +22,27 @@
             <with variable="il.lamerhav.dsviz.bankQuestion"><equals value="true"/></with>
          </enabledWhen>
       </handler>
+      <!-- "עמדת ניהול" פעיל רק למורה שמחובר באמת -->
+      <handler commandId="il.lamerhav.dsviz.teacherPanel" class="il.lamerhav.dsviz.TeacherPanelHandler">
+         <enabledWhen>
+            <with variable="il.lamerhav.dsviz.teacher"><equals value="true"/></with>
+         </enabledWhen>
+      </handler>
    </extension>
 
    <extension point="org.eclipse.ui.services">
       <sourceProvider provider="il.lamerhav.dsviz.BankQuestionSource">
          <variable name="il.lamerhav.dsviz.bankQuestion" priorityLevel="workbench"/>
       </sourceProvider>
+      <sourceProvider provider="il.lamerhav.dsviz.TeacherSource">
+         <variable name="il.lamerhav.dsviz.teacher" priorityLevel="workbench"/>
+      </sourceProvider>
    </extension>
 
    <extension point="org.eclipse.ui.commandImages">
       <image commandId="il.lamerhav.dsviz.bank" icon="icons/bank.png"/>
       <image commandId="il.lamerhav.dsviz.bankQuestion" icon="icons/question.png"/>
+      <image commandId="il.lamerhav.dsviz.teacherPanel" icon="icons/teacher.png"/>
    </extension>
 
    <extension point="org.eclipse.ui.menus">
@@ -42,6 +54,10 @@
          </command>
          <command commandId="il.lamerhav.dsviz.bankQuestion" label="השאלה" mode="FORCE_TEXT" id="il.lamerhav.dsviz.bankQuestion.toolbar"
                   tooltip="השאלה: חלון צף עם הנוסח של התרגיל מהמאגר — סוגרים ופותחים מתי שרוצים" style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+         <command commandId="il.lamerhav.dsviz.teacherPanel" label="עמדת ניהול" mode="FORCE_TEXT" id="il.lamerhav.dsviz.teacherPanel.toolbar"
+                  tooltip="עמדת ניהול של המורה: הקוד לחיבור עמדות מחשב ופתיחת עמדת הניהול בדפדפן (פעיל רק אחרי כניסה כמורה)" style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
       </menuContribution>

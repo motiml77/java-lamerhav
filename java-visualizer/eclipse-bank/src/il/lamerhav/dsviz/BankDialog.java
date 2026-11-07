@@ -248,7 +248,7 @@ public class BankDialog extends Dialog {
     protected Control createButtonBar(Composite parent) {
         buttons = new Composite(parent, SWT.NONE);
         buttons.setBackground(Look.color(parent.getDisplay(), Look.BG));
-        GridLayout l = new GridLayout(5, false);
+        GridLayout l = new GridLayout(4, false);
         l.marginWidth = 20;
         l.marginHeight = 10;
         l.horizontalSpacing = 10;
@@ -257,8 +257,6 @@ public class BankDialog extends Dialog {
         createButton = new Look.Round(buttons, "צור תרגיל", true, () -> finish(existing() != null ? Action.OPEN : Action.CREATE));
         copyButton = new Look.Round(buttons, "צור עותק חדש", false, () -> finish(Action.CREATE));
         new Look.Round(buttons, "שאלה אקראית", false, this::random);
-        if (AccessGate.isTeacher())   // מורה: חוזר לעמדת הניהול והקוד בכל פעם
-            new Look.Round(buttons, "עמדת ניהול", false, () -> AccessGate.showTeacherPanel(null));
         new Look.Round(buttons, "סגירה", false, this::cancelPressed);
         Label c = new Label(buttons, SWT.LEFT_TO_RIGHT);
         c.setText(Look.COPYRIGHT);
