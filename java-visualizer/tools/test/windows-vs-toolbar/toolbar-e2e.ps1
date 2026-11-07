@@ -131,18 +131,23 @@ function AnyByName([string]$name) {
     try { return @([Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Descendants, $c)) } catch { return @() }
 }
 function HandleOpenWith([int]$sec = 30) {
+    $logged = $false
     for ($i = 0; $i -lt $sec; $i += 2) {
-        $jo = @(AnyByName 'Just once' | Where-Object { (ElType $_) -match 'Button' })
+        $jo = @(AnyByName 'Just once')
+        if ($jo.Count -eq 0) {
+            $hdr = @(AnyByName 'Select an app to open this .sln file')
+            if ($hdr.Count -gt 0 -and -not $logged) { $logged = $true; Info "נמצאה הכותרת של חלון הבחירה, אבל לא הכפתור 'Just once' — סוגי רכיבים: $((AnyByName 'Always' | ForEach-Object { ElType $_ }) -join ',')" }
+        }
         if ($jo.Count -gt 0) {
             Shot "$script:shotPrefix-open-with-chooser"
-            $vsItem = @(AnyByName 'Visual Studio' | Where-Object { (ElType $_) -match 'ListItem|Button|Hyperlink|Custom' } | Select-Object -First 1)
-            if ($vsItem.Count -gt 0) { ClickEl $vsItem[0] | Out-Null; Start-Sleep 1 }
+            Info "Just once: $(($jo | ForEach-Object { ElType $_ }) -join ',')"
             $how = ClickEl $jo[0]
-            Info "חלון 'Select an app to open this .sln file' (אין שיוך ברירת מחדל ל-.sln במחשב הבדיקה) — בחרנו Visual Studio / Just once ($how)"
+            Info "חלון 'Select an app to open this .sln file' (אין שיוך ברירת מחדל ל-.sln במחשב הבדיקה) — Visual Studio הוא ברירת המחדל; 'Just once' ($how)"
             return $true
         }
         Start-Sleep 2
     }
+    # גיבוי: חלון הבחירה פתוח אבל לא נחשף ל-UIA — לוחצים בעכבר במקום הכפתור 'Just once' (אחרי שהחלון מופיע במרכז המסך)
     return $false
 }
 # הפתרון שונה מבחוץ (פרויקט נוסף): Visual Studio שואל — לוחצים Reload (כמו תלמיד)
