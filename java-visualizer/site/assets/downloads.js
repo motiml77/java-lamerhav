@@ -18,7 +18,7 @@
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a[href]');
     if (!a) return;
-    var kind = /DSViz-Setup\.exe$/.test(a.href) ? 'windows' : /dsviz-install\.zip$/.test(a.href) ? 'zip' : null;
+    var kind = /DSViz-(Lab-)?Setup\.exe$/.test(a.href) ? 'windows' : /dsviz-install\.zip$/.test(a.href) ? 'zip' : null;
     if (kind) count(kind);
   });
 
