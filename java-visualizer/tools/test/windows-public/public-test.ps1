@@ -166,7 +166,7 @@ switch ($Scenario) {
         New-Item -ItemType Directory -Force $parts, $outd | Out-Null
         Copy-Item $Setup "$parts\DSViz-Setup.exe" -Force
         Push-Location (Split-Path $LabNsi -Parent)
-        & $mk /V2 "/DBUILDNO=1" "/DOUTDIR=$outd" "/DPARTS=$parts" (Split-Path $LabNsi -Leaf)
+        & $mk /V2 "/DBUILDNO=1" "/DNOAMD64=1" "/DOUTDIR=$outd" "/DPARTS=$parts" (Split-Path $LabNsi -Leaf)
         Pop-Location
         Check 'העטיפה (DSViz-Lab-Setup.exe) נבנתה' (Test-Path "$outd\DSViz-Lab-Setup.exe")
         Write-Host "     גודל העטיפה: $([int]((Get-Item "$outd\DSViz-Lab-Setup.exe").Length / 1MB)) MB"

@@ -2,7 +2,9 @@
 ; נשארה בשביל הקישור הישן (lab-test) ובשביל מי שהתקין דרכה — אין בה שום דבר שאין בהתקנה הציבורית.
 ; בנייה: tools/build-lab-setup.sh
 SetCompressor /SOLID lzma
-Target amd64-unicode
+!ifndef NOAMD64   ; בבדיקה על Windows (NSIS מ-choco) אין stub ל-64 ביט — לעטיפה זה לא משנה
+  Target amd64-unicode
+!endif
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !ifndef OUTDIR

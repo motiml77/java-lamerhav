@@ -387,7 +387,7 @@ echo "== 9. שליחת תרגיל: השרת (Worker), הכנת הקבצים, ו�
 (cd ../../worker && last 1 node test/worker-test.mjs)
 mkdir -p "$W/ai/cls" "$W/ai/src" "$W/ai/bin"
 javac -encoding UTF-8 -d "$W/ai/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Json.java ../../eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java \
-    ../../eclipse-plugin/src/il/lamerhav/dsviz/ExerciseFiles.java ../../eclipse-plugin/src/il/lamerhav/dsviz/WorkerClient.java AiScaffoldTest.java ExerciseFilesTest.java
+    ../../eclipse-plugin/src/il/lamerhav/dsviz/ExerciseFiles.java ../../eclipse-plugin/src/il/lamerhav/dsviz/WorkerClient.java ../../eclipse-plugin/src/il/lamerhav/dsviz/Account.java AiScaffoldTest.java ExerciseFilesTest.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/ai/cls" il.lamerhav.dsviz.ExerciseFilesTest ai/files
 java -Dstdout.encoding=UTF-8 -cp "$W/ai/cls" il.lamerhav.dsviz.AiScaffoldTest ai "$W/ai/src"
 javac -encoding UTF-8 -cp "$JAR" -d "$W/ai/bin" $(find "$W/ai/src" -name '*.java')
