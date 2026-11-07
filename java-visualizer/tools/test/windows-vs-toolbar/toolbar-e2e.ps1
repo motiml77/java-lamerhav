@@ -351,7 +351,7 @@ if ($new.Count -ge 1) {
     $other = @($codes | Where-Object { $_ -ne 'CS0161' })
     Check 'submit-skeleton' ($other.Count -eq 0) "אין שגיאות קומפילציה חוץ מ-CS0161 (פעולה ריקה בלי return): $($codes -join ',')" (($b | Select-String 'error' | Select-Object -First 4) -join ' | ')
     # הפרויקט החדש ב-Visual Studio הפתוח (אחרי ש-Visual Studio טען מחדש את הפתרון): DTE.Solution.FindProjectItem
-    $d = GetDte()
+    $d = GetDte
     $pi = $null; $cnt = ''
     try { $pi = $d.Solution.FindProjectItem($cs[0].FullName); $cnt = $d.Solution.Projects.Count } catch { Info "DTE: $_" }
     $docName = ''; try { $docName = $d.ActiveDocument.FullName } catch { }
