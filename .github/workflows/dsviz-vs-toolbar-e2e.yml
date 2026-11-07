@@ -1,0 +1,51 @@
+# סרגל הכלים של DSViz ב-Visual Studio האמיתי, עם ההתקנה החדשה ביותר (DSViz-Lab-Setup.exe): לוחצים על הכפתורים בסרגל
+# ('שליחת תרגיל' -> AI אמיתי, 'מאגר תרגילים' -> מסך כניסה / חלון המאגר / 'צור תרגיל') ומצלמים כל שלב. התוצאות — ב-Artifacts.
+# הרצה: דחיפה (push) לענף ccr-66784144-dygsmb עם שינוי באחד הקבצים שלמטה.
+name: DSViz visual studio toolbar e2e
+on:
+  push:
+    branches: [ccr-66784144-dygsmb]
+    paths:
+      - '.github/workflows/dsviz-vs-toolbar-e2e.yml'
+      - 'java-visualizer/tools/test/windows-vs-toolbar/**'
+  workflow_dispatch:
+concurrency:
+  group: dsviz-vs-toolbar-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  toolbar:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - name: Visual Studio שיש במחשב
+        shell: powershell
+        run: |
+          $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          & $vw -all -prerelease -products * -format text -property displayName,catalog_productDisplayVersion,installationPath
+      - name: סרגל הכלים (התקנה, Visual Studio, לחיצות)
+        timeout-minutes: 90
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\toolbar-e2e.ps1" `
+            -Lab "$env:GITHUB_WORKSPACE\java-visualizer\lab-release\DSViz-Lab-Setup.exe" `
+            -Out "$env:GITHUB_WORKSPACE\toolbar-ci" `
+            -Here "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar" `
+            -Harness "$env:GITHUB_WORKSPACE\java-visualizer\tutorials\harness" `
+            -Page "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\ai\files\exam-page-1.png"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: toolbar-${{ matrix.os }}
+          path: toolbar-ci
+          retention-days: 14
