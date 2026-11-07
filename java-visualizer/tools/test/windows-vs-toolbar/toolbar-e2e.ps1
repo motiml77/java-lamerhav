@@ -147,8 +147,17 @@ function HandleOpenWith([int]$sec = 30) {
         }
         Start-Sleep 2
     }
-    # גיבוי: חלון הבחירה פתוח אבל לא נחשף ל-UIA — לוחצים בעכבר במקום הכפתור 'Just once' (אחרי שהחלון מופיע במרכז המסך)
-    return $false
+    # גיבוי: חלון הבחירה של Windows (Shell) לא נחשף ל-UIA מהתהליך הזה — לוחצים בעכבר במקום הכפתור 'Just once'
+    # (החלון במרכז המסך, 'Visual Studio' כבר מסומן כברירת מחדל; המיקום יחסי לגודל המסך — כך נראה בצילום 1920x1080)
+    $b = [Windows.Forms.SystemInformation]::VirtualScreen
+    Shot "$script:shotPrefix-before-blind-click"
+    [Win.Mouse]::SetCursorPos([int]($b.Width * 1062 / 1920), [int]($b.Height * 822 / 1080)) | Out-Null
+    Start-Sleep -Milliseconds 400
+    [Win.Mouse]::mouse_event(2, 0, 0, 0, 0); [Win.Mouse]::mouse_event(4, 0, 0, 0, 0)
+    Info "חלון 'Select an app to open this .sln file' לא נחשף ל-UIA — לחיצת עכבר ב-'Just once' לפי מיקום (Visual Studio = ברירת המחדל)"
+    Start-Sleep 3
+    Shot "$script:shotPrefix-after-blind-click"
+    return $true
 }
 # הפתרון שונה מבחוץ (פרויקט נוסף): Visual Studio שואל — לוחצים Reload (כמו תלמיד)
 function ClickReload([int]$vsPid, [int]$sec = 60) {
