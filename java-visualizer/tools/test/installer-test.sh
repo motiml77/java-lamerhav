@@ -167,13 +167,29 @@ else
     echo "  (אין pwsh — מדלגים על ההרצה של clean-eclipse.ps1)"
 fi
 
+# "מאגר התרגילים": setup.nsi מתקין אותו בכל התקנה ועדכון (גם /UPDATE), מסיר אותו, ומחליף את גרסת הבדיקה הישנה (DSViz-Lab);
+# update.ps1 משלים אותו ל-IntelliJ שהותקן אחר כך; והעטיפה הישנה (lab.nsi) רק מריצה את ההתקנה הציבורית
+for p in 'Section "-bank"' 'bank-install.ps1"' 'bank-install.ps1" -NoVs' 'bank-install.ps1" -Remove' 'DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz-Lab"' \
+         'File "..\vs-bank\install\install-bank-vs.ps1"'; do
+    grep -qF -- "$p" "$NSI" || fail "setup.nsi: מאגר התרגילים — חסר $p"
+done
+grep -q "bank-install.ps1.*\n*" "$ROOT/installer/update.ps1" && grep -q -- "-Only intellij" "$ROOT/installer/update.ps1" || fail "update.ps1: חסרה התקנת המאגר ל-IntelliJ"
+grep -qF 'DSViz-Setup.exe" /S' "$ROOT/installer/lab/lab.nsi" && ! grep -q 'WriteUninstaller' "$ROOT/installer/lab/lab.nsi" || fail "lab.nsi: צריך להיות עטיפה דקה"
+if command -v pwsh >/dev/null 2>&1; then
+    pwsh -NoProfile -Command '$e=$null; [void][System.Management.Automation.Language.Parser]::ParseFile($args[0],[ref]$null,[ref]$e); if($e){$e;exit 1}' "$ROOT/installer/bank-install.ps1" \
+        || fail "bank-install.ps1: שגיאת תחביר"
+fi
+ok "Windows: מאגר התרגילים — setup.nsi / update.ps1 / lab.nsi מחוברים"
+
 if command -v makensis >/dev/null 2>&1; then
     B="$OUT/nsis/build"; R="$OUT/nsis/release"
     mkdir -p "$B/light" "$B/help" "$B/project" "$B/jre-windows/bin" "$B/dsviz-cs-win" "$B/project-cs" "$B/vs-template" "$B/intellij/dsviz-intellij/lib" "$R"
     for f in light/dsviz-1.0.1.vsix light/il.lamerhav.dsviz_1.0.1.jar help/index.html project/README.txt jre-windows/bin/java.exe \
              dsviz-cs-win/dsviz-cs.exe project-cs/README.txt vs-template/DSViz-Exercise.zip intellij/dsviz-intellij/lib/dsviz-intellij.jar; do echo x > "$B/$f"; done
     echo x > "$R/dsviz.jar"
-    (cd "$ROOT/installer" && makensis -V2 -WX -DBUILD="$B" -DRELEASE="$R" setup.nsi) > "$OUT/makensis.txt" 2>&1 \
+    BK="$OUT/nsis/bank"; mkdir -p "$BK"
+    for f in il.lamerhav.dsviz.bank_1.0.0.jar dsviz-bank-vs.jar dsviz-bank-intellij-1.0.0.zip; do echo x > "$BK/$f"; done
+    (cd "$ROOT/installer" && makensis -V2 -WX -DBUILD="$B" -DRELEASE="$R" -DBANKDIR="$BK" setup.nsi) > "$OUT/makensis.txt" 2>&1 \
         && [ -s "$R/DSViz-Setup.exe" ] && ok "Windows: setup.nsi מתקמפל ב-makensis בלי אזהרות ($(du -k "$R/DSViz-Setup.exe" | cut -f1)K עם קבצים מדומים)" \
         || { tail -30 "$OUT/makensis.txt"; fail "Windows: makensis נכשל"; }
 else

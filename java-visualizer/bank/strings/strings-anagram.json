@@ -1,0 +1,152 @@
+{
+  "id": "strings-anagram",
+  "topic": "strings",
+  "level": "medium",
+  "title": "אנגרמות",
+  "question": {
+    "intro": "שתי מחרוזות הן אנגרמה זו של זו אם הן בנויות מאותן אותיות בדיוק, וכל אות מופיעה בשתיהן אותו מספר פעמים (הסדר יכול להיות שונה).\nלדוגמה, \"listen\" ו-\"silent\" הן אנגרמות.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה removeFirst, המקבלת מחרוזת str ותו ch, ומחזירה מחרוזת חדשה שבה המופע הראשון של ch הוסר. אם ch אינו מופיע ב-str — הפעולה תחזיר את str כמו שהיא.\nלדוגמה: עבור \"banana\" והתו 'n' הפעולה תחזיר \"baana\"."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה isAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה: עבור \"listen\" ו-\"silent\" הפעולה תחזיר true, ועבור \"aab\" ו-\"abb\" — false."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "אנגרמות",
+    "topic": "strings",
+    "mainClass": "Strings6",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Strings6",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "removeFirst",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "str"
+          },
+          {
+            "type": "char",
+            "name": "ch"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה removeFirst, המקבלת מחרוזת str ותו ch, ומחזירה מחרוזת חדשה שבה המופע הראשון של ch הוסר. אם ch אינו מופיע ב-str — הפעולה תחזיר את str כמו שהיא.\nלדוגמה: עבור \"banana\" והתו 'n' הפעולה תחזיר \"baana\".",
+        "solution": "public static String removeFirst(String str, char ch) {\n    int i = str.indexOf(ch);\n    if (i == -1) {\n        return str;\n    }\n    return str.substring(0, i) + str.substring(i + 1);\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Strings6",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isAnagram",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "s1"
+          },
+          {
+            "type": "String",
+            "name": "s2"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה isAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה: עבור \"listen\" ו-\"silent\" הפעולה תחזיר true, ועבור \"aab\" ו-\"abb\" — false.",
+        "solution": "public static boolean isAnagram(String s1, String s2) {\n    if (s1.length() != s2.length()) {\n        return false;\n    }\n    for (int i = 0; i < s1.length(); i++) {\n        String shorter = removeFirst(s2, s1.charAt(i));\n        if (shorter.length() == s2.length()) {\n            return false;\n        }\n        s2 = shorter;\n    }\n    return true;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Strings6",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1: \" + check(removeFirst(\"banana\", 'n'), \"baana\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(removeFirst(\"java\", 'x'), \"java\"));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(removeFirst(\"abc\", 'a'), \"bc\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(isAnagram(\"listen\", \"silent\"), true));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(isAnagram(\"aab\", \"abb\"), false));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(isAnagram(\"abc\", \"ab\"), false));\nSystem.out.println(\"סעיף ב, בדיקה 4: \" + check(isAnagram(\"dusty\", \"study\"), true));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "שתי מחרוזות הן אנגרמה זו של זו אם הן בנויות מאותן אותיות בדיוק, וכל אות מופיעה בשתיהן אותו מספר פעמים (הסדר יכול להיות שונה).\nלדוגמה, \"listen\" ו-\"silent\" הן אנגרמות.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה RemoveFirst, המקבלת מחרוזת str ותו ch, ומחזירה מחרוזת חדשה שבה המופע הראשון של ch הוסר. אם ch אינו מופיע ב-str — הפעולה תחזיר את str כמו שהיא.\nלדוגמה: עבור \"banana\" והתו 'n' הפעולה תחזיר \"baana\"."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה IsAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה: עבור \"listen\" ו-\"silent\" הפעולה תחזיר true, ועבור \"aab\" ו-\"abb\" — false."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "אנגרמות",
+      "topic": "strings",
+      "mainClass": "Strings6",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Strings6",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "RemoveFirst",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            },
+            {
+              "type": "char",
+              "name": "ch"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה RemoveFirst, המקבלת מחרוזת str ותו ch, ומחזירה מחרוזת חדשה שבה המופע הראשון של ch הוסר. אם ch אינו מופיע ב-str — הפעולה תחזיר את str כמו שהיא.\nלדוגמה: עבור \"banana\" והתו 'n' הפעולה תחזיר \"baana\".",
+          "solution": "public static string RemoveFirst(string str, char ch)\n{\n    int i = str.IndexOf(ch);\n    if (i == -1)\n    {\n        return str;\n    }\n    return str.Substring(0, i) + str.Substring(i + 1);\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Strings6",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsAnagram",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "s1"
+            },
+            {
+              "type": "string",
+              "name": "s2"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה IsAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה: עבור \"listen\" ו-\"silent\" הפעולה תחזיר true, ועבור \"aab\" ו-\"abb\" — false.",
+          "solution": "public static bool IsAnagram(string s1, string s2)\n{\n    if (s1.Length != s2.Length)\n    {\n        return false;\n    }\n    for (int i = 0; i < s1.Length; i++)\n    {\n        string shorter = RemoveFirst(s2, s1[i]);\n        if (shorter.Length == s2.Length)\n        {\n            return false;\n        }\n        s2 = shorter;\n    }\n    return true;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Strings6",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1: \" + Check(RemoveFirst(\"banana\", 'n'), \"baana\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(RemoveFirst(\"java\", 'x'), \"java\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(RemoveFirst(\"abc\", 'a'), \"bc\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(IsAnagram(\"listen\", \"silent\"), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(IsAnagram(\"aab\", \"abb\"), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(IsAnagram(\"abc\", \"ab\"), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 4: \" + Check(IsAnagram(\"dusty\", \"study\"), true));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+    }
+  }
+}

@@ -104,7 +104,7 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
     return out;
   },
   /** חלון Swing של Visual Studio (CsTool ...) לפי תסריט — harness/SwingScript.java; env: משתני סביבה (שרת מדומה וכו') */
-  swing(name, toolArgs, lines, env, sysProps) {
+  swing(name, toolArgs, lines, env, sysProps, opts) {
     const dir = path.join(W, 'dlg', name);
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
@@ -118,7 +118,7 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
     const jar = process.env.DSVIZ_SWING_JAR || path.join(ROOT, 'release', 'dsviz.jar');   // אפשר לצלם עם jar אחר (בלי לבנות את release)
     const e = Object.assign({}, process.env, { DISPLAY: xd }, env || {});
     delete e.JAVA_TOOL_OPTIONS;
-    sh('java', [...(sysProps || []), '-Ddsviz.noOpen=true', '-cp', cls + path.delimiter + jar, 'SwingScript', sf, dir, 'il.lamerhav.dsviz.cs.CsTool', ...toolArgs], { stdio: 'inherit', env: e });
+    sh('java', [...(sysProps || []), '-Ddsviz.noOpen=true', '-cp', cls + path.delimiter + ((opts && opts.cp) ? opts.cp + path.delimiter : '') + jar, 'SwingScript', sf, dir, (opts && opts.cls) || 'il.lamerhav.dsviz.cs.CsTool', ...toolArgs], { stdio: 'inherit', env: e });   // opts.cls / opts.cp — כלי אחר (מאגר השאלות)
     const out = {};
     for (const l of lines) {
       const m = /^shot (\S+)/.exec(l.trim());
@@ -128,6 +128,33 @@ for f in glob.glob(os.path.join(sys.argv[1], 's-*.png')):
       this.assets[`${name}/${m[1]}`] = js;
       out[m[1]] = js;
     }
+    return out;
+  },
+  /** חלון של הסביבה שאי אפשר לצלם כאן (למשל "Create a new project" של Visual Studio): HTML → תמונה + מיקומי הרכיבים לפי data-c="סוג|טקסט" */
+  async mock(name, shots) {
+    let pw;
+    for (const p of ['playwright', '/opt/node-tools/node_modules/playwright']) { try { pw = require(p); break; } catch (e) { } }
+    const dir = path.join(W, 'dlg', name);
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(dir, { recursive: true });
+    const b = await pw.chromium.launch();
+    const out = {};
+    for (const [key, shot] of Object.entries(shots)) {
+      const pg = await b.newPage({ viewport: { width: shot.w, height: shot.h } });
+      await pg.setContent(shot.html, { waitUntil: 'load' });
+      await pg.screenshot({ path: path.join(dir, key + '.png') });
+      const controls = await pg.evaluate(() => [...document.querySelectorAll('[data-c]')].map(e => {
+        const r = e.getBoundingClientRect(), [type, text] = e.getAttribute('data-c').split('|');
+        return { type, text, x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), enabled: true };
+      }));
+      let ti = 0;
+      for (const c of controls) if (c.type === 'Text') c.index = ti++;
+      const js = { w: shot.w, h: shot.h, controls, src: `work/${wid}/dlg/${name}/${key}.png` };
+      this.assets[`${name}/${key}`] = js;
+      out[key] = js;
+      await pg.close();
+    }
+    await b.close();
     return out;
   },
   write(file, text) { fs.writeFileSync(path.join(W, file), text); },

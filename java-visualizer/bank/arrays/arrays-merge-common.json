@@ -1,0 +1,194 @@
+{
+  "id": "arrays-merge-common",
+  "topic": "arrays",
+  "level": "medium",
+  "title": "מיזוג מערכים ממוינים",
+  "question": {
+    "intro": "נתונים שני מערכים a ו-b של מספרים שלמים. כל אחד מהם ממוין בסדר עולה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה merge, המקבלת שני מערכים ממוינים a ו-b, ומחזירה מערך חדש, ממוין בסדר עולה, ובו כל האיברים של שני המערכים. יש לעבור על כל מערך פעם אחת בלבד (בלי למיין מחדש).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר את המערך {1, 2, 4, 5, 7, 9, 10}.",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              2,
+              5,
+              9
+            ],
+            "caption": "a"
+          },
+          {
+            "type": "array",
+            "values": [
+              1,
+              4,
+              7,
+              10
+            ],
+            "caption": "b"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "בסעיף זה בכל אחד מהמערכים אין ערך שמופיע יותר מפעם אחת. כתוב פעולה ששמה countCommon, המקבלת שני מערכים ממוינים a ו-b, ומחזירה כמה ערכים מופיעים בשני המערכים. יש לעבור על כל מערך פעם אחת בלבד.\nלדוגמה: עבור a = {1, 3, 5, 8} ו-b = {2, 3, 8, 9, 11} הפעולה תחזיר 2."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מיזוג מערכים ממוינים",
+    "topic": "arrays",
+    "mainClass": "Arrays4",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Arrays4",
+        "isStatic": true,
+        "returnType": "int[]",
+        "methodName": "merge",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "a"
+          },
+          {
+            "type": "int[]",
+            "name": "b"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה merge, המקבלת שני מערכים ממוינים a ו-b, ומחזירה מערך חדש, ממוין בסדר עולה, ובו כל האיברים של שני המערכים. יש לעבור על כל מערך פעם אחת בלבד (בלי למיין מחדש).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר את המערך {1, 2, 4, 5, 7, 9, 10}.",
+        "solution": "public static int[] merge(int[] a, int[] b) {\n    int[] result = new int[a.length + b.length];\n    int i = 0;\n    int j = 0;\n    int k = 0;\n    while (i < a.length && j < b.length) {\n        if (a[i] <= b[j]) {\n            result[k] = a[i];\n            i++;\n        } else {\n            result[k] = b[j];\n            j++;\n        }\n        k++;\n    }\n    while (i < a.length) {\n        result[k] = a[i];\n        i++;\n        k++;\n    }\n    while (j < b.length) {\n        result[k] = b[j];\n        j++;\n        k++;\n    }\n    return result;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Arrays4",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countCommon",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "a"
+          },
+          {
+            "type": "int[]",
+            "name": "b"
+          }
+        ],
+        "instructions": "בסעיף זה בכל אחד מהמערכים אין ערך שמופיע יותר מפעם אחת. כתוב פעולה ששמה countCommon, המקבלת שני מערכים ממוינים a ו-b, ומחזירה כמה ערכים מופיעים בשני המערכים. יש לעבור על כל מערך פעם אחת בלבד.\nלדוגמה: עבור a = {1, 3, 5, 8} ו-b = {2, 3, 8, 9, 11} הפעולה תחזיר 2.",
+        "solution": "public static int countCommon(int[] a, int[] b) {\n    int i = 0;\n    int j = 0;\n    int count = 0;\n    while (i < a.length && j < b.length) {\n        if (a[i] == b[j]) {\n            count++;\n            i++;\n            j++;\n        } else if (a[i] < b[j]) {\n            i++;\n        } else {\n            j++;\n        }\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Arrays4",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    if (got instanceof int[]) {\n        g = java.util.Arrays.toString((int[]) got);\n    }\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "int[] a = { 2, 5, 9 };\nint[] b = { 1, 4, 7, 10 };\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(merge(a, b), \"[1, 2, 4, 5, 7, 9, 10]\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(merge(b, new int[0]), \"[1, 4, 7, 10]\"));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(merge(new int[] { 3, 3 }, new int[] { 3 }), \"[3, 3, 3]\"));\nint[] c = { 1, 3, 5, 8 };\nint[] d = { 2, 3, 8, 9, 11 };\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(countCommon(c, d), 2));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(countCommon(a, b), 0));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(countCommon(c, c), 4));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונים שני מערכים a ו-b של מספרים שלמים. כל אחד מהם ממוין בסדר עולה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה Merge, המקבלת שני מערכים ממוינים a ו-b, ומחזירה מערך חדש, ממוין בסדר עולה, ובו כל האיברים של שני המערכים. יש לעבור על כל מערך פעם אחת בלבד (בלי למיין מחדש).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר את המערך {1, 2, 4, 5, 7, 9, 10}.",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                2,
+                5,
+                9
+              ],
+              "caption": "a"
+            },
+            {
+              "type": "array",
+              "values": [
+                1,
+                4,
+                7,
+                10
+              ],
+              "caption": "b"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "בסעיף זה בכל אחד מהמערכים אין ערך שמופיע יותר מפעם אחת. כתוב פעולה ששמה CountCommon, המקבלת שני מערכים ממוינים a ו-b, ומחזירה כמה ערכים מופיעים בשני המערכים. יש לעבור על כל מערך פעם אחת בלבד.\nלדוגמה: עבור a = {1, 3, 5, 8} ו-b = {2, 3, 8, 9, 11} הפעולה תחזיר 2."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מיזוג מערכים ממוינים",
+      "topic": "arrays",
+      "mainClass": "Arrays4",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Arrays4",
+          "isStatic": true,
+          "returnType": "int[]",
+          "methodName": "Merge",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "a"
+            },
+            {
+              "type": "int[]",
+              "name": "b"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Merge, המקבלת שני מערכים ממוינים a ו-b, ומחזירה מערך חדש, ממוין בסדר עולה, ובו כל האיברים של שני המערכים. יש לעבור על כל מערך פעם אחת בלבד (בלי למיין מחדש).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר את המערך {1, 2, 4, 5, 7, 9, 10}.",
+          "solution": "public static int[] Merge(int[] a, int[] b)\n{\n    int[] result = new int[a.Length + b.Length];\n    int i = 0;\n    int j = 0;\n    int k = 0;\n    while (i < a.Length && j < b.Length)\n    {\n        if (a[i] <= b[j])\n        {\n            result[k] = a[i];\n            i++;\n        }\n        else\n        {\n            result[k] = b[j];\n            j++;\n        }\n        k++;\n    }\n    while (i < a.Length)\n    {\n        result[k] = a[i];\n        i++;\n        k++;\n    }\n    while (j < b.Length)\n    {\n        result[k] = b[j];\n        j++;\n        k++;\n    }\n    return result;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Arrays4",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountCommon",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "a"
+            },
+            {
+              "type": "int[]",
+              "name": "b"
+            }
+          ],
+          "instructions": "בסעיף זה בכל אחד מהמערכים אין ערך שמופיע יותר מפעם אחת. כתוב פעולה ששמה CountCommon, המקבלת שני מערכים ממוינים a ו-b, ומחזירה כמה ערכים מופיעים בשני המערכים. יש לעבור על כל מערך פעם אחת בלבד.\nלדוגמה: עבור a = {1, 3, 5, 8} ו-b = {2, 3, 8, 9, 11} הפעולה תחזיר 2.",
+          "solution": "public static int CountCommon(int[] a, int[] b)\n{\n    int i = 0;\n    int j = 0;\n    int count = 0;\n    while (i < a.Length && j < b.Length)\n    {\n        if (a[i] == b[j])\n        {\n            count++;\n            i++;\n            j++;\n        }\n        else if (a[i] < b[j])\n        {\n            i++;\n        }\n        else\n        {\n            j++;\n        }\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Arrays4",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    if (got is int[])\n    {\n        g = \"[\" + string.Join(\", \", (int[])got) + \"]\";\n    }\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "int[] a = { 2, 5, 9 };\nint[] b = { 1, 4, 7, 10 };\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(Merge(a, b), \"[1, 2, 4, 5, 7, 9, 10]\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(Merge(b, new int[0]), \"[1, 4, 7, 10]\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(Merge(new int[] { 3, 3 }, new int[] { 3 }), \"[3, 3, 3]\"));\nint[] c = { 1, 3, 5, 8 };\nint[] d = { 2, 3, 8, 9, 11 };\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(CountCommon(c, d), 2));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(CountCommon(a, b), 0));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(CountCommon(c, c), 4));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

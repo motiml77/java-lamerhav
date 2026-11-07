@@ -1,0 +1,116 @@
+{
+  "id": "classes-rectangle",
+  "topic": "classes",
+  "level": "easy",
+  "title": "המחלקה Rectangle — שטח והיקף",
+  "question": {
+    "intro": "נתונה המחלקה Rectangle (מלבן), ובה התכונות width (רוחב) ו-height (גובה), פעולה בונה ופעולות get לתכונות.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסף למחלקה Rectangle פעולה ששמה area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12."
+      },
+      {
+        "label": "ב",
+        "text": "הוסף למחלקה Rectangle פעולה ששמה perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "המחלקה Rectangle — שטח והיקף",
+    "topic": "classes",
+    "mainClass": "Main",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Rectangle",
+        "code": "public class Rectangle {\n    private int width;\n    private int height;\n\n    public Rectangle(int width, int height) {\n        this.width = width;\n        this.height = height;\n    }\n\n    public int getWidth() { return width; }\n    public int getHeight() { return height; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Rectangle",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "area",
+        "parameters": [],
+        "instructions": "הוסף למחלקה Rectangle פעולה ששמה area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12.",
+        "solution": "public int area() {\n    return width * height;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Rectangle",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "perimeter",
+        "parameters": [],
+        "instructions": "הוסף למחלקה Rectangle פעולה ששמה perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14.",
+        "solution": "public int perimeter() {\n    return 2 * (width + height);\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "Rectangle r = new Rectangle(4, 3);\nSystem.out.println(\"סעיף א: \" + r.area());\nSystem.out.println(\"סעיף ב: \" + r.perimeter());",
+    "expectedOutput": "סעיף א: 12\nסעיף ב: 14"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה המחלקה Rectangle (מלבן), ובה התכונות width (רוחב) ו-height (גובה), פעולה בונה ופעולות get לתכונות.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "הוסף למחלקה Rectangle פעולה ששמה Area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12."
+        },
+        {
+          "label": "ב",
+          "text": "הוסף למחלקה Rectangle פעולה ששמה Perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "המחלקה Rectangle — שטח והיקף",
+      "topic": "classes",
+      "mainClass": "Main",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Rectangle",
+          "code": "public class Rectangle\n{\n    private int width;\n    private int height;\n\n    public Rectangle(int width, int height)\n    {\n        this.width = width;\n        this.height = height;\n    }\n\n    public int GetWidth() { return width; }\n    public int GetHeight() { return height; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Rectangle",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "Area",
+          "parameters": [],
+          "instructions": "הוסף למחלקה Rectangle פעולה ששמה Area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12.",
+          "solution": "public int Area()\n{\n    return width * height;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Rectangle",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "Perimeter",
+          "parameters": [],
+          "instructions": "הוסף למחלקה Rectangle פעולה ששמה Perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14.",
+          "solution": "public int Perimeter()\n{\n    return 2 * (width + height);\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "Rectangle r = new Rectangle(4, 3);\nConsole.WriteLine(\"סעיף א: \" + r.Area());\nConsole.WriteLine(\"סעיף ב: \" + r.Perimeter());",
+      "expectedOutput": "סעיף א: 12\nסעיף ב: 14"
+    }
+  }
+}

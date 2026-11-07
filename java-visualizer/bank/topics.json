@@ -1,0 +1,13 @@
+{
+  "topics": [
+    { "id": "loops", "title": "לולאות" },
+    { "id": "arrays", "title": "מערכים" },
+    { "id": "strings", "title": "מחרוזות" },
+    { "id": "classes", "title": "מחלקות" },
+    { "id": "recursion", "title": "רקורסיה" },
+    { "id": "stack", "title": "מחסנית" },
+    { "id": "queue", "title": "תור" },
+    { "id": "list", "title": "שרשרת חוליות" },
+    { "id": "tree", "title": "עץ בינארי" }
+  ]
+}

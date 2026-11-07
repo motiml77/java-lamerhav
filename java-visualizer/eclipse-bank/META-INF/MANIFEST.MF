@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: DSViz - Exercise bank (lab)
+Bundle-SymbolicName: il.lamerhav.dsviz.bank;singleton:=true
+Bundle-Version: 1.0.0
+Bundle-Vendor: Moti Levi (motiml77@gmail.com)
+Bundle-Copyright: © 2026 Moti Levi, motiml77@gmail.com
+Fragment-Host: il.lamerhav.dsviz;bundle-version="1.0.1"
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Automatic-Module-Name: il.lamerhav.dsviz.bank

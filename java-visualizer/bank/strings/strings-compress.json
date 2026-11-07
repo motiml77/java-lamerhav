@@ -1,0 +1,136 @@
+{
+  "id": "strings-compress",
+  "topic": "strings",
+  "level": "medium",
+  "title": "דחיסת מחרוזת",
+  "question": {
+    "intro": "נתונה מחרוזת של אותיות קטנות באנגלית. בדחיסה, כל רצף של אותיות זהות הנמצאות זו ליד זו מוחלף באות, ואחריה מספר הפעמים שהיא מופיעה ברצף. בשאלה זו אורך כל רצף הוא לכל היותר 9.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה compress, המקבלת מחרוזת str לא ריקה ומחזירה את המחרוזת הדחוסה.\nלדוגמה: עבור \"aaabccdddd\" הפעולה תחזיר \"a3b1c2d4\"."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה expand, המקבלת מחרוזת דחוסה str ומחזירה את המחרוזת המקורית.\nלדוגמה: עבור \"a3b1c2\" הפעולה תחזיר \"aaabcc\"."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "דחיסת מחרוזת",
+    "topic": "strings",
+    "mainClass": "Strings4",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Strings4",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "compress",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "str"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה compress, המקבלת מחרוזת str לא ריקה ומחזירה את המחרוזת הדחוסה.\nלדוגמה: עבור \"aaabccdddd\" הפעולה תחזיר \"a3b1c2d4\".",
+        "solution": "public static String compress(String str) {\n    String result = \"\";\n    int count = 1;\n    for (int i = 1; i <= str.length(); i++) {\n        if (i < str.length() && str.charAt(i) == str.charAt(i - 1)) {\n            count++;\n        } else {\n            result = result + str.charAt(i - 1) + count;\n            count = 1;\n        }\n    }\n    return result;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Strings4",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "expand",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "str"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה expand, המקבלת מחרוזת דחוסה str ומחזירה את המחרוזת המקורית.\nלדוגמה: עבור \"a3b1c2\" הפעולה תחזיר \"aaabcc\".",
+        "solution": "public static String expand(String str) {\n    String result = \"\";\n    for (int i = 0; i < str.length(); i = i + 2) {\n        char ch = str.charAt(i);\n        int times = str.charAt(i + 1) - '0';\n        for (int k = 0; k < times; k++) {\n            result = result + ch;\n        }\n    }\n    return result;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Strings4",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1: \" + check(compress(\"aaabccdddd\"), \"a3b1c2d4\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(compress(\"z\"), \"z1\"));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(compress(\"abba\"), \"a1b2a1\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(expand(\"a3b1c2\"), \"aaabcc\"));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(expand(\"x1y4\"), \"xyyyy\"));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(expand(compress(\"hello\")), \"hello\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה מחרוזת של אותיות קטנות באנגלית. בדחיסה, כל רצף של אותיות זהות הנמצאות זו ליד זו מוחלף באות, ואחריה מספר הפעמים שהיא מופיעה ברצף. בשאלה זו אורך כל רצף הוא לכל היותר 9.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה Compress, המקבלת מחרוזת str לא ריקה ומחזירה את המחרוזת הדחוסה.\nלדוגמה: עבור \"aaabccdddd\" הפעולה תחזיר \"a3b1c2d4\"."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה Expand, המקבלת מחרוזת דחוסה str ומחזירה את המחרוזת המקורית.\nלדוגמה: עבור \"a3b1c2\" הפעולה תחזיר \"aaabcc\"."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "דחיסת מחרוזת",
+      "topic": "strings",
+      "mainClass": "Strings4",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Strings4",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "Compress",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Compress, המקבלת מחרוזת str לא ריקה ומחזירה את המחרוזת הדחוסה.\nלדוגמה: עבור \"aaabccdddd\" הפעולה תחזיר \"a3b1c2d4\".",
+          "solution": "public static string Compress(string str)\n{\n    string result = \"\";\n    int count = 1;\n    for (int i = 1; i <= str.Length; i++)\n    {\n        if (i < str.Length && str[i] == str[i - 1])\n        {\n            count++;\n        }\n        else\n        {\n            result = result + str[i - 1] + count;\n            count = 1;\n        }\n    }\n    return result;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Strings4",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "Expand",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Expand, המקבלת מחרוזת דחוסה str ומחזירה את המחרוזת המקורית.\nלדוגמה: עבור \"a3b1c2\" הפעולה תחזיר \"aaabcc\".",
+          "solution": "public static string Expand(string str)\n{\n    string result = \"\";\n    for (int i = 0; i < str.Length; i = i + 2)\n    {\n        char ch = str[i];\n        int times = str[i + 1] - '0';\n        for (int k = 0; k < times; k++)\n        {\n            result = result + ch;\n        }\n    }\n    return result;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Strings4",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1: \" + Check(Compress(\"aaabccdddd\"), \"a3b1c2d4\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(Compress(\"z\"), \"z1\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(Compress(\"abba\"), \"a1b2a1\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(Expand(\"a3b1c2\"), \"aaabcc\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(Expand(\"x1y4\"), \"xyyyy\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(Expand(Compress(\"hello\")), \"hello\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

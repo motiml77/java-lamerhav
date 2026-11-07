@@ -1,0 +1,162 @@
+{
+  "id": "stack-split-sorted",
+  "topic": "stack",
+  "level": "medium",
+  "title": "פיצול מחסנית ובדיקת סדר",
+  "question": {
+    "intro": "נתונה מחסנית s של מספרים שלמים.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה splitEven, המקבלת מחסנית s, מוציאה ממנה את כל האיברים הזוגיים, ומחזירה מחסנית חדשה ובה האיברים האלה. בסיום הפעולה יישארו ב-s רק האיברים האי-זוגיים. בשתי המחסניות האיברים יהיו באותו סדר שבו היו ב-s.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר מחסנית ובה (מהראש למטה) 4, 8, 2, וב-s יישארו (מהראש למטה) 3, 5.",
+        "figures": [
+          {
+            "type": "stack",
+            "values": [
+              4,
+              3,
+              8,
+              5,
+              2
+            ],
+            "caption": "המחסנית s (4 בראש)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה isSorted, המקבלת מחסנית s ומחזירה true אם האיברים בה מסודרים בסדר עולה מהראש לתחתית (כל איבר אינו גדול מהאיבר שמתחתיו), אחרת — false. בסיום הפעולה המחסנית תהיה כמו שהייתה בהתחלה."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "פיצול מחסנית ובדיקת סדר",
+    "topic": "stacks",
+    "mainClass": "StackTargil5",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "StackTargil5",
+        "isStatic": true,
+        "returnType": "Stack<Integer>",
+        "methodName": "splitEven",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "s"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה splitEven, המקבלת מחסנית s, מוציאה ממנה את כל האיברים הזוגיים, ומחזירה מחסנית חדשה ובה האיברים האלה. בסיום הפעולה יישארו ב-s רק האיברים האי-זוגיים. בשתי המחסניות האיברים יהיו באותו סדר שבו היו ב-s.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר מחסנית ובה (מהראש למטה) 4, 8, 2, וב-s יישארו (מהראש למטה) 3, 5.",
+        "solution": "public static Stack<Integer> splitEven(Stack<Integer> s) {\n    Stack<Integer> odd = new Stack<Integer>();\n    Stack<Integer> even = new Stack<Integer>();\n    while (!s.isEmpty()) {\n        int x = s.pop();\n        if (x % 2 == 0) {\n            even.push(x);\n        } else {\n            odd.push(x);\n        }\n    }\n    Stack<Integer> result = new Stack<Integer>();\n    while (!even.isEmpty()) {\n        result.push(even.pop());\n    }\n    while (!odd.isEmpty()) {\n        s.push(odd.pop());\n    }\n    return result;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "StackTargil5",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isSorted",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "s"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה isSorted, המקבלת מחסנית s ומחזירה true אם האיברים בה מסודרים בסדר עולה מהראש לתחתית (כל איבר אינו גדול מהאיבר שמתחתיו), אחרת — false. בסיום הפעולה המחסנית תהיה כמו שהייתה בהתחלה.",
+        "solution": "public static boolean isSorted(Stack<Integer> s) {\n    Stack<Integer> temp = new Stack<Integer>();\n    boolean sorted = true;\n    while (!s.isEmpty()) {\n        int x = s.pop();\n        if (!s.isEmpty() && x > s.top()) {\n            sorted = false;\n        }\n        temp.push(x);\n    }\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n    return sorted;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "StackTargil5",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Stack<Integer> s = new Stack<Integer>();\ns.push(2);\ns.push(5);\ns.push(8);\ns.push(3);\ns.push(4);\nStack<Integer> even = splitEven(s);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(even, \"[4,8,2]\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(s, \"[3,5]\"));\nStack<Integer> up = new Stack<Integer>();\nup.push(8);\nup.push(3);\nup.push(3);\nup.push(1);\nStack<Integer> mixed = new Stack<Integer>();\nmixed.push(4);\nmixed.push(9);\nmixed.push(2);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(isSorted(up), true));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(up, \"[1,3,3,8]\"));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(isSorted(mixed), false));\nSystem.out.println(\"סעיף ב, בדיקה 4: \" + check(mixed, \"[2,9,4]\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה מחסנית s של מספרים שלמים.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה SplitEven, המקבלת מחסנית s, מוציאה ממנה את כל האיברים הזוגיים, ומחזירה מחסנית חדשה ובה האיברים האלה. בסיום הפעולה יישארו ב-s רק האיברים האי-זוגיים. בשתי המחסניות האיברים יהיו באותו סדר שבו היו ב-s.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר מחסנית ובה (מהראש למטה) 4, 8, 2, וב-s יישארו (מהראש למטה) 3, 5.",
+          "figures": [
+            {
+              "type": "stack",
+              "values": [
+                4,
+                3,
+                8,
+                5,
+                2
+              ],
+              "caption": "המחסנית s (4 בראש)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה IsSorted, המקבלת מחסנית s ומחזירה true אם האיברים בה מסודרים בסדר עולה מהראש לתחתית (כל איבר אינו גדול מהאיבר שמתחתיו), אחרת — false. בסיום הפעולה המחסנית תהיה כמו שהייתה בהתחלה."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "פיצול מחסנית ובדיקת סדר",
+      "topic": "stacks",
+      "mainClass": "StackTargil5",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "StackTargil5",
+          "isStatic": true,
+          "returnType": "Stack<int>",
+          "methodName": "SplitEven",
+          "parameters": [
+            {
+              "type": "Stack<int>",
+              "name": "s"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה SplitEven, המקבלת מחסנית s, מוציאה ממנה את כל האיברים הזוגיים, ומחזירה מחסנית חדשה ובה האיברים האלה. בסיום הפעולה יישארו ב-s רק האיברים האי-זוגיים. בשתי המחסניות האיברים יהיו באותו סדר שבו היו ב-s.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר מחסנית ובה (מהראש למטה) 4, 8, 2, וב-s יישארו (מהראש למטה) 3, 5.",
+          "solution": "public static Stack<int> SplitEven(Stack<int> s)\n{\n    Stack<int> odd = new Stack<int>();\n    Stack<int> even = new Stack<int>();\n    while (!s.IsEmpty())\n    {\n        int x = s.Pop();\n        if (x % 2 == 0)\n        {\n            even.Push(x);\n        }\n        else\n        {\n            odd.Push(x);\n        }\n    }\n    Stack<int> result = new Stack<int>();\n    while (!even.IsEmpty())\n    {\n        result.Push(even.Pop());\n    }\n    while (!odd.IsEmpty())\n    {\n        s.Push(odd.Pop());\n    }\n    return result;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "StackTargil5",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsSorted",
+          "parameters": [
+            {
+              "type": "Stack<int>",
+              "name": "s"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה IsSorted, המקבלת מחסנית s ומחזירה true אם האיברים בה מסודרים בסדר עולה מהראש לתחתית (כל איבר אינו גדול מהאיבר שמתחתיו), אחרת — false. בסיום הפעולה המחסנית תהיה כמו שהייתה בהתחלה.",
+          "solution": "public static bool IsSorted(Stack<int> s)\n{\n    Stack<int> temp = new Stack<int>();\n    bool sorted = true;\n    while (!s.IsEmpty())\n    {\n        int x = s.Pop();\n        if (!s.IsEmpty() && x > s.Top())\n        {\n            sorted = false;\n        }\n        temp.Push(x);\n    }\n    while (!temp.IsEmpty())\n    {\n        s.Push(temp.Pop());\n    }\n    return sorted;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "StackTargil5",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Stack<int> s = new Stack<int>();\ns.Push(2);\ns.Push(5);\ns.Push(8);\ns.Push(3);\ns.Push(4);\nStack<int> even = SplitEven(s);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(even, \"[4,8,2]\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(s, \"[3,5]\"));\nStack<int> up = new Stack<int>();\nup.Push(8);\nup.Push(3);\nup.Push(3);\nup.Push(1);\nStack<int> mixed = new Stack<int>();\nmixed.Push(4);\nmixed.Push(9);\nmixed.Push(2);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(IsSorted(up), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(up, \"[1,3,3,8]\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(IsSorted(mixed), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 4: \" + Check(mixed, \"[2,9,4]\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+    }
+  }
+}

@@ -158,6 +158,13 @@ final class Viewer extends JFrame {
 
     private static final String TITLE = "הרצה ויזואלית — מבני נתונים";
 
+    /** סרגל השליטה (למעלה) קטן ב-20% מהגודל הרגיל — שיתפוס פחות מקום */
+    static final float BAR = 0.8f;
+
+    static Font barFont(Font f) {
+        return f.deriveFont(f.getSize2D() * BAR);
+    }
+
     private Viewer() {
         super(TITLE);
         Theme.zoom = Theme.savedZoom("viewer");   // הגודל שנבחר בפעם הקודמת (לכל חלק בנפרד)
@@ -180,9 +187,9 @@ final class Viewer extends JFrame {
 
         speed.setFocusable(false);
         speed.setOpaque(false);
-        speed.setPreferredSize(new Dimension(90, 24));
+        speed.setPreferredSize(new Dimension(72, 20));
         speed.setToolTipText("מהירות ההפעלה האוטומטית");
-        JLabel speedLabel = label("מהירות", Theme.small, Theme.MUTED);
+        JLabel speedLabel = label("מהירות", barFont(Theme.small), Theme.MUTED);
 
         JPanel nav = row(8);
         nav.add(prevBtn);
@@ -212,7 +219,7 @@ final class Viewer extends JFrame {
         opsBtn.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setOnlyOps(true); } });
         modePanel = new Pill(new Color(0xEDF0F5), Theme.BORDER);
         modePanel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        modePanel.setBorder(BorderFactory.createEmptyBorder(3, 3, 3, 3));
+        modePanel.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
         modePanel.add(allBtn);
         modePanel.add(opsBtn);
         modePanel.setVisible(false);
@@ -220,7 +227,7 @@ final class Viewer extends JFrame {
         // פס המידע: מספר הצעד, "כל שורה / רק פעולות", ומתג "להציג גם main" — בתוך מסגרת לבנה אחת
         JPanel info = new Pill(Color.WHITE, Theme.BORDER);
         info.setLayout(new FlowLayout(FlowLayout.LEADING, 0, 0));
-        info.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
+        info.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
         info.add(busy);
         info.add(counter);
         info.add(new Divider(modePanel));
@@ -250,7 +257,7 @@ final class Viewer extends JFrame {
         end.add(donate, BorderLayout.LINE_END);
 
         // שורה אחת כשיש מקום; בחלון צר (מסך קטן / Mac) — פס המידע יורד לשורה שנייה, במקום שהרכיבים יעלו זה על זה
-        final JPanel bar = new JPanel(new BarLayout(16, 8));
+        final JPanel bar = new JPanel(new BarLayout(13, 6));
         bar.setOpaque(false);
         bar.add(nav);
         bar.add(timeline);
@@ -430,14 +437,14 @@ final class Viewer extends JFrame {
 
     private static JButton button(String text, Icon icon, boolean primary, String tip) {
         JButton b = new JButton(text, icon);
-        b.setFont(Theme.uiBold);
+        b.setFont(barFont(Theme.uiBold));
         b.setFocusable(false);
-        b.setIconTextGap(8);
+        b.setIconTextGap(6);
         b.setToolTipText(tip);
         b.putClientProperty("FlatLaf.style", primary
                 ? "background: #2F6FED; foreground: #FFFFFF; hoverBackground: #2457C5; pressedBackground: #1E4AA8;"
-                  + " borderWidth: 0; arc: 12; margin: 6,16,6,16"
-                : "background: #FFFFFF; hoverBackground: #F0F3F8; borderColor: #D5DBE5; arc: 12; margin: 6,14,6,14");
+                  + " borderWidth: 0; arc: 10; margin: 4,12,4,12"
+                : "background: #FFFFFF; hoverBackground: #F0F3F8; borderColor: #D5DBE5; arc: 10; margin: 4,11,4,11");
         return b;
     }
 
@@ -494,9 +501,11 @@ final class Viewer extends JFrame {
         JButton out = small("−", "הקטנת התצוגה  (Ctrl −)"), in = small("+", "הגדלת התצוגה  (Ctrl +)");
         out.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { zoomStep(-1); } });
         in.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { zoomStep(1); } });
-        zoomLabel.setFont(Theme.small);
+        zoomLabel.setFont(barFont(Theme.small));
         zoomLabel.setForeground(Theme.MUTED);
-        zoomLabel.setPreferredSize(new Dimension(46, 20));
+        zoomLabel.setPreferredSize(new Dimension(37, 16));
+        out.setFont(barFont(Theme.smallBold));
+        in.setFont(barFont(Theme.smallBold));
         zoomLabel.setHorizontalAlignment(SwingConstants.CENTER);
         zoomLabel.setToolTipText("גודל התצוגה — לחיצה מחזירה ל-100%  (Ctrl 0)");
         zoomLabel.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
@@ -539,8 +548,8 @@ final class Viewer extends JFrame {
         JButton out = small("−", "הקטנה — " + PART_NAME[part]), in = small("+", "הגדלה — " + PART_NAME[part]);
         out.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setPartZoom(part, Theme.stepZoom(partZoom(part), -1)); } });
         in.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setPartZoom(part, Theme.stepZoom(partZoom(part), 1)); } });
-        JLabel l = label(Math.round(partZoom(part) * 100) + "%", Theme.small, Theme.MUTED);
-        l.setPreferredSize(new Dimension(44, 20));
+        JLabel l = label(Math.round(partZoom(part) * 100) + "%", Theme.small.deriveFont(Theme.small.getSize2D() - 2f), Theme.MUTED);
+        l.setPreferredSize(new Dimension(38, 18));
         l.setHorizontalAlignment(SwingConstants.CENTER);
         l.setToolTipText("גודל " + PART_NAME[part] + " — לחיצה מחזירה ל-100%");
         l.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
@@ -1460,12 +1469,13 @@ final class Viewer extends JFrame {
             head.setOpaque(false);
             head.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.BORDER),
-                    BorderFactory.createEmptyBorder(8, 14, 8, 10)));
-            JPanel titles = new JPanel(new FlowLayout(FlowLayout.LEADING, 10, 0));
+                    BorderFactory.createEmptyBorder(3, 12, 3, 8)));
+            JPanel titles = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
             titles.setOpaque(false);
-            if (title != null) titles.add(label(title, Theme.title, Theme.TEXT));
+            // כותרות קטנות — שיתפסו פחות מקום ויישאר יותר לתוכן הכרטיס
+            if (title != null) titles.add(label(title, Theme.title.deriveFont(Theme.title.getSize2D() - 4f), Theme.TEXT));
             if (sub != null) {
-                sub.setFont(Theme.small);
+                sub.setFont(Theme.small.deriveFont(Theme.small.getSize2D() - 3f));
                 sub.setForeground(Theme.MUTED);
                 titles.add(sub);
             }
@@ -1591,7 +1601,7 @@ final class Viewer extends JFrame {
 
         @Override
         public Dimension getPreferredSize() {
-            return new Dimension(21, 26);
+            return new Dimension(17, 21);
         }
 
         @Override
@@ -1688,7 +1698,7 @@ final class Viewer extends JFrame {
         }
 
         private Font fontOf(int i) {
-            return pos >= 0 && i == 1 ? Theme.uiBold.deriveFont(Theme.uiBold.getSize2D() + 2f) : Theme.small;
+            return barFont(pos >= 0 && i == 1 ? Theme.uiBold.deriveFont(Theme.uiBold.getSize2D() + 2f) : Theme.small);
         }
 
         @Override
@@ -1698,7 +1708,7 @@ final class Viewer extends JFrame {
             for (int i = 0; i < p.length; i++) w += getFontMetrics(fontOf(i)).stringWidth(p[i]) + (i > 0 ? 6 : 0);
             // רוחב קבוע לפי המספר הגדול ביותר — כדי שהפס לא "יקפוץ" בכל צעד
             if (pos >= 0) w += Math.max(0, getFontMetrics(fontOf(1)).stringWidth(String.valueOf(total)) - getFontMetrics(fontOf(1)).stringWidth(p[1]));
-            return new Dimension(w, 30);
+            return new Dimension(w, 24);
         }
 
         @Override
@@ -1729,13 +1739,13 @@ final class Viewer extends JFrame {
             setFocusPainted(false);
             setRolloverEnabled(true);
             setOpaque(false);
-            setFont(Theme.small);
+            setFont(barFont(Theme.small));
             setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         }
 
         @Override
         public Dimension getPreferredSize() {
-            return new Dimension(getFontMetrics(Theme.smallBold).stringWidth(getText()) + 28, 26);
+            return new Dimension(getFontMetrics(barFont(Theme.smallBold)).stringWidth(getText()) + 22, 21);
         }
 
         @Override
@@ -1754,7 +1764,7 @@ final class Viewer extends JFrame {
                 g.setColor(new Color(0xE2E6EE));
                 g.fillRoundRect(0, 0, w - 1, h - 2, 12, 12);
             }
-            Font f = sel ? Theme.smallBold : Theme.small;
+            Font f = barFont(sel ? Theme.smallBold : Theme.small);
             g.setFont(f);
             g.setColor(sel ? Theme.ACCENT : getModel().isRollover() ? Theme.TEXT : Theme.MUTED);
             java.awt.FontMetrics fm = g.getFontMetrics();
@@ -1765,7 +1775,7 @@ final class Viewer extends JFrame {
 
     /** מתג הפעלה (כמו בטלפון) עם תווית: כבוי — אפור; פועל — כחול. בעברית המתג מימין לתווית */
     private static final class SwitchButton extends JToggleButton {
-        private static final int TW = 34, TH = 18;
+        private static final int TW = 27, TH = 14;
 
         SwitchButton(String text) {
             super(text);
@@ -1775,13 +1785,13 @@ final class Viewer extends JFrame {
             setFocusPainted(false);
             setRolloverEnabled(true);
             setOpaque(false);
-            setFont(Theme.small);
+            setFont(barFont(Theme.small));
             setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         }
 
         @Override
         public Dimension getPreferredSize() {
-            return new Dimension(TW + 10 + getFontMetrics(Theme.small).stringWidth(getText()) + 8, 28);
+            return new Dimension(TW + 8 + getFontMetrics(barFont(Theme.small)).stringWidth(getText()) + 6, 22);
         }
 
         @Override
@@ -1796,7 +1806,7 @@ final class Viewer extends JFrame {
             g.fillOval(kx, ty + 3, k, k);
             g.setColor(Color.WHITE);
             g.fillOval(kx, ty + 2, k, k);
-            g.setFont(Theme.small);
+            g.setFont(barFont(Theme.small));
             g.setColor(on ? Theme.TEXT : Theme.MUTED);
             java.awt.FontMetrics fm = g.getFontMetrics();
             g.drawString(getText(), tx - 10 - fm.stringWidth(getText()), (h + fm.getAscent() - fm.getDescent()) / 2);
@@ -1811,14 +1821,15 @@ final class Viewer extends JFrame {
 
         Glyph(int kind) { this.kind = kind; }
 
-        public int getIconWidth() { return 14; }
-        public int getIconHeight() { return 14; }
+        public int getIconWidth() { return 11; }
+        public int getIconHeight() { return 11; }
 
         public void paintIcon(Component c, Graphics g0, int x, int y) {
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(c.isEnabled() ? c.getForeground() : new Color(0xB0B6C0));
             g.translate(x, y);
+            g.scale(BAR, BAR);   // הסמלים מצוירים ב-14 פיקסלים — בסרגל הקטן ב-20%
             switch (kind) {
                 case PREV: case NEXT: {
                     g.setStroke(new BasicStroke(2.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));

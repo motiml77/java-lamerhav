@@ -1,0 +1,136 @@
+{
+  "id": "classes-fraction",
+  "topic": "classes",
+  "level": "medium",
+  "title": "שבר",
+  "question": {
+    "intro": "נתונה המחלקה Fraction (שבר), ובה התכונות numerator (מונה) ו-denominator (מכנה) — שניהם מספרים שלמים חיוביים, פעולה בונה, פעולות get, ופעולה toString המחזירה את השבר בצורה \"3/4\".",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסף למחלקה Fraction פעולה ששמה isEqual, המקבלת שבר אחר other ומחזירה true אם שני השברים שווים בערכם, אחרת — false.\nלדוגמה: 1/2 ו-3/6 שווים, ו-2/3 ו-3/4 אינם שווים. רמז: a/b שווה ל-c/d בדיוק כאשר a·d = b·c."
+      },
+      {
+        "label": "ב",
+        "text": "הוסף למחלקה Fraction פעולה ששמה reduce, המחזירה שבר חדש השווה לשבר הנוכחי ומצומצם ככל האפשר (למונה ולמכנה אין מחלק משותף גדול מ-1). השבר הנוכחי אינו משתנה.\nלדוגמה: עבור 12/18 הפעולה תחזיר 2/3."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "שבר",
+    "topic": "classes",
+    "mainClass": "Main",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Fraction",
+        "code": "public class Fraction {\n    private int numerator;\n    private int denominator;\n\n    public Fraction(int numerator, int denominator) {\n        this.numerator = numerator;\n        this.denominator = denominator;\n    }\n\n    public int getNumerator() { return numerator; }\n    public int getDenominator() { return denominator; }\n\n    public String toString() {\n        return numerator + \"/\" + denominator;\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Fraction",
+        "isStatic": false,
+        "returnType": "boolean",
+        "methodName": "isEqual",
+        "parameters": [
+          {
+            "type": "Fraction",
+            "name": "other"
+          }
+        ],
+        "instructions": "הוסף למחלקה Fraction פעולה ששמה isEqual, המקבלת שבר אחר other ומחזירה true אם שני השברים שווים בערכם, אחרת — false.\nלדוגמה: 1/2 ו-3/6 שווים, ו-2/3 ו-3/4 אינם שווים. רמז: a/b שווה ל-c/d בדיוק כאשר a·d = b·c.",
+        "solution": "public boolean isEqual(Fraction other) {\n    return numerator * other.getDenominator() == denominator * other.getNumerator();\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Fraction",
+        "isStatic": false,
+        "returnType": "Fraction",
+        "methodName": "reduce",
+        "parameters": [],
+        "instructions": "הוסף למחלקה Fraction פעולה ששמה reduce, המחזירה שבר חדש השווה לשבר הנוכחי ומצומצם ככל האפשר (למונה ולמכנה אין מחלק משותף גדול מ-1). השבר הנוכחי אינו משתנה.\nלדוגמה: עבור 12/18 הפעולה תחזיר 2/3.",
+        "solution": "public Fraction reduce() {\n    int a = numerator;\n    int b = denominator;\n    while (b != 0) {\n        int r = a % b;\n        a = b;\n        b = r;\n    }\n    return new Fraction(numerator / a, denominator / a);\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Main",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Fraction half = new Fraction(1, 2);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(half.isEqual(new Fraction(3, 6)), true));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(new Fraction(2, 3).isEqual(new Fraction(3, 4)), false));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(new Fraction(5, 5).isEqual(new Fraction(1, 1)), true));\nFraction f = new Fraction(12, 18);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(f.reduce(), \"2/3\"));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(f, \"12/18\"));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(new Fraction(5, 7).reduce(), \"5/7\"));\nSystem.out.println(\"סעיף ב, בדיקה 4: \" + check(new Fraction(10, 5).reduce(), \"2/1\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה המחלקה Fraction (שבר), ובה התכונות numerator (מונה) ו-denominator (מכנה) — שניהם מספרים שלמים חיוביים, פעולה בונה, פעולות get, ופעולה ToString המחזירה את השבר בצורה \"3/4\".",
+      "sections": [
+        {
+          "label": "א",
+          "text": "הוסף למחלקה Fraction פעולה ששמה IsEqual, המקבלת שבר אחר other ומחזירה true אם שני השברים שווים בערכם, אחרת — false.\nלדוגמה: 1/2 ו-3/6 שווים, ו-2/3 ו-3/4 אינם שווים. רמז: a/b שווה ל-c/d בדיוק כאשר a·d = b·c."
+        },
+        {
+          "label": "ב",
+          "text": "הוסף למחלקה Fraction פעולה ששמה Reduce, המחזירה שבר חדש השווה לשבר הנוכחי ומצומצם ככל האפשר (למונה ולמכנה אין מחלק משותף גדול מ-1). השבר הנוכחי אינו משתנה.\nלדוגמה: עבור 12/18 הפעולה תחזיר 2/3."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "שבר",
+      "topic": "classes",
+      "mainClass": "Main",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Fraction",
+          "code": "public class Fraction\n{\n    private int numerator;\n    private int denominator;\n\n    public Fraction(int numerator, int denominator)\n    {\n        this.numerator = numerator;\n        this.denominator = denominator;\n    }\n\n    public int GetNumerator() { return numerator; }\n    public int GetDenominator() { return denominator; }\n\n    public override string ToString()\n    {\n        return numerator + \"/\" + denominator;\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Fraction",
+          "isStatic": false,
+          "returnType": "bool",
+          "methodName": "IsEqual",
+          "parameters": [
+            {
+              "type": "Fraction",
+              "name": "other"
+            }
+          ],
+          "instructions": "הוסף למחלקה Fraction פעולה ששמה IsEqual, המקבלת שבר אחר other ומחזירה true אם שני השברים שווים בערכם, אחרת — false.\nלדוגמה: 1/2 ו-3/6 שווים, ו-2/3 ו-3/4 אינם שווים. רמז: a/b שווה ל-c/d בדיוק כאשר a·d = b·c.",
+          "solution": "public bool IsEqual(Fraction other)\n{\n    return numerator * other.GetDenominator() == denominator * other.GetNumerator();\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Fraction",
+          "isStatic": false,
+          "returnType": "Fraction",
+          "methodName": "Reduce",
+          "parameters": [],
+          "instructions": "הוסף למחלקה Fraction פעולה ששמה Reduce, המחזירה שבר חדש השווה לשבר הנוכחי ומצומצם ככל האפשר (למונה ולמכנה אין מחלק משותף גדול מ-1). השבר הנוכחי אינו משתנה.\nלדוגמה: עבור 12/18 הפעולה תחזיר 2/3.",
+          "solution": "public Fraction Reduce()\n{\n    int a = numerator;\n    int b = denominator;\n    while (b != 0)\n    {\n        int r = a % b;\n        a = b;\n        b = r;\n    }\n    return new Fraction(numerator / a, denominator / a);\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Main",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Fraction half = new Fraction(1, 2);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(half.IsEqual(new Fraction(3, 6)), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(new Fraction(2, 3).IsEqual(new Fraction(3, 4)), false));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(new Fraction(5, 5).IsEqual(new Fraction(1, 1)), true));\nFraction f = new Fraction(12, 18);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(f.Reduce(), \"2/3\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(f, \"12/18\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(new Fraction(5, 7).Reduce(), \"5/7\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 4: \" + Check(new Fraction(10, 5).Reduce(), \"2/1\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+    }
+  }
+}

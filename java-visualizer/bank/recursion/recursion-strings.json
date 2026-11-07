@@ -1,0 +1,144 @@
+{
+  "id": "recursion-strings",
+  "topic": "recursion",
+  "level": "medium",
+  "title": "מחרוזות ברקורסיה",
+  "question": {
+    "intro": "בשני הסעיפים יש לכתוב פעולה רקורסיבית, בלי לולאות.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה רקורסיבית ששמה removeChar, המקבלת מחרוזת str ותו ch, ומחזירה מחרוזת חדשה ובה כל התווים של str חוץ מהתו ch (באותו סדר).\nלדוגמה: עבור \"banana\" והתו 'a' הפעולה תחזיר \"bnn\"."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה רקורסיבית ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה: עבור \"racecar\" הפעולה תחזיר true, ועבור \"abca\" — false."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מחרוזות ברקורסיה",
+    "topic": "recursion",
+    "mainClass": "Rec5",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Rec5",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "removeChar",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "str"
+          },
+          {
+            "type": "char",
+            "name": "ch"
+          }
+        ],
+        "instructions": "כתוב פעולה רקורסיבית ששמה removeChar, המקבלת מחרוזת str ותו ch, ומחזירה מחרוזת חדשה ובה כל התווים של str חוץ מהתו ch (באותו סדר).\nלדוגמה: עבור \"banana\" והתו 'a' הפעולה תחזיר \"bnn\".",
+        "solution": "public static String removeChar(String str, char ch) {\n    if (str.length() == 0) {\n        return \"\";\n    }\n    String rest = removeChar(str.substring(1), ch);\n    if (str.charAt(0) == ch) {\n        return rest;\n    }\n    return str.charAt(0) + rest;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Rec5",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isPalindrome",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "str"
+          }
+        ],
+        "instructions": "כתוב פעולה רקורסיבית ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה: עבור \"racecar\" הפעולה תחזיר true, ועבור \"abca\" — false.",
+        "solution": "public static boolean isPalindrome(String str) {\n    if (str.length() <= 1) {\n        return true;\n    }\n    if (str.charAt(0) != str.charAt(str.length() - 1)) {\n        return false;\n    }\n    return isPalindrome(str.substring(1, str.length() - 1));\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Rec5",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1: \" + check(removeChar(\"banana\", 'a'), \"bnn\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(removeChar(\"java\", 'x'), \"java\"));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(removeChar(\"aaa\", 'a'), \"\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(isPalindrome(\"racecar\"), true));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(isPalindrome(\"abca\"), false));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(isPalindrome(\"abba\"), true));\nSystem.out.println(\"סעיף ב, בדיקה 4: \" + check(isPalindrome(\"\"), true));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "בשני הסעיפים יש לכתוב פעולה רקורסיבית, בלי לולאות.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה רקורסיבית ששמה RemoveChar, המקבלת מחרוזת str ותו ch, ומחזירה מחרוזת חדשה ובה כל התווים של str חוץ מהתו ch (באותו סדר).\nלדוגמה: עבור \"banana\" והתו 'a' הפעולה תחזיר \"bnn\"."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה רקורסיבית ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה: עבור \"racecar\" הפעולה תחזיר true, ועבור \"abca\" — false."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מחרוזות ברקורסיה",
+      "topic": "recursion",
+      "mainClass": "Rec5",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Rec5",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "RemoveChar",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            },
+            {
+              "type": "char",
+              "name": "ch"
+            }
+          ],
+          "instructions": "כתוב פעולה רקורסיבית ששמה RemoveChar, המקבלת מחרוזת str ותו ch, ומחזירה מחרוזת חדשה ובה כל התווים של str חוץ מהתו ch (באותו סדר).\nלדוגמה: עבור \"banana\" והתו 'a' הפעולה תחזיר \"bnn\".",
+          "solution": "public static string RemoveChar(string str, char ch)\n{\n    if (str.Length == 0)\n    {\n        return \"\";\n    }\n    string rest = RemoveChar(str.Substring(1), ch);\n    if (str[0] == ch)\n    {\n        return rest;\n    }\n    return str[0] + rest;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Rec5",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsPalindrome",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            }
+          ],
+          "instructions": "כתוב פעולה רקורסיבית ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה: עבור \"racecar\" הפעולה תחזיר true, ועבור \"abca\" — false.",
+          "solution": "public static bool IsPalindrome(string str)\n{\n    if (str.Length <= 1)\n    {\n        return true;\n    }\n    if (str[0] != str[str.Length - 1])\n    {\n        return false;\n    }\n    return IsPalindrome(str.Substring(1, str.Length - 2));\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Rec5",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1: \" + Check(RemoveChar(\"banana\", 'a'), \"bnn\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(RemoveChar(\"java\", 'x'), \"java\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(RemoveChar(\"aaa\", 'a'), \"\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(IsPalindrome(\"racecar\"), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(IsPalindrome(\"abca\"), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(IsPalindrome(\"abba\"), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 4: \" + Check(IsPalindrome(\"\"), true));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+    }
+  }
+}

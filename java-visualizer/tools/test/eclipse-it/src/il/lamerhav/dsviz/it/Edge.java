@@ -176,6 +176,7 @@ public class Edge implements IApplication {
         if (only.isEmpty() || only.contains("G")) guiRuns();
         if (only.isEmpty() || only.contains("M")) wizardModuleRuns();
         if (only.isEmpty() || only.contains("N")) moduleLibraryCompiles();
+        if (only.isEmpty() || only.contains("R")) recreateDeletedProject();
         if (only.isEmpty() || only.contains("X")) examplesRuns();
     }
 
@@ -493,6 +494,22 @@ public class Edge implements IApplication {
      * חייב להתקמפל ("The package unit4.collectionsLib is not accessible" = הספרייה ב-classpath והמודול של התלמיד לא קורא אותה),
      * וגם להמשיך להתקמפל אחרי שהתוסף מופעל שוב / נוצר תרגיל נוסף, ולרוץ ויזואלית.
      */
+    /** הפרויקט נמחק מ-Eclipse (בלי למחוק מהדיסק) ויוצרים אותו שוב (תרגיל חדש) — בלי "Resource ... already exists" */
+    private void recreateDeletedProject() throws Exception {
+        String err = ui(() -> {
+            try {
+                IJavaProject a = il.lamerhav.dsviz.ProjectSetup.createProject("Recreated");
+                a.getProject().delete(false, true, null);   // נמחק מה-workspace, התיקייה (עם src) נשארת בדיסק
+                IJavaProject b = il.lamerhav.dsviz.ProjectSetup.createProject("Recreated");
+                il.lamerhav.dsviz.ProjectSetup.prepare(b, null, true);
+                return b.getProject().getFolder("src").exists() ? "" : "no src";
+            } catch (Exception e) {
+                return String.valueOf(e.getMessage());
+            }
+        });
+        check("R-recreate-deleted", "פרויקט שנמחק מ-Eclipse (התיקייה נשארה בדיסק) נוצר שוב בלי שגיאה", err.isEmpty(), err);
+    }
+
     private void moduleLibraryCompiles() throws Exception {
         System.setProperty("dsviz.it.vmargs", HEADLESS);
         IJavaProject jp = ui(() -> {
