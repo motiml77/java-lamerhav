@@ -125,6 +125,46 @@ function DescEl($el) {
     $c = $el.Current
     return ("{0} '{1}' enabled={2} offscreen={3} rect={4}" -f (ElType $el), $c.Name, $c.IsEnabled, $c.IsOffscreen, $c.BoundingRectangle)
 }
+# אחרי השליחה הכלי פותח את קובץ הפתרון (Desktop.open) — אם ב-Windows אין שיוך ברירת מחדל ל-.sln נפתח חלון "Select an app": בוחרים Visual Studio, "Just once"
+function AnyByName([string]$name) {
+    $c = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::NameProperty, $name)
+    try { return @([Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Descendants, $c)) } catch { return @() }
+}
+function HandleOpenWith([int]$sec = 30) {
+    for ($i = 0; $i -lt $sec; $i += 2) {
+        $jo = @(AnyByName 'Just once' | Where-Object { (ElType $_) -match 'Button' })
+        if ($jo.Count -gt 0) {
+            Shot "$script:shotPrefix-open-with-chooser"
+            $vsItem = @(AnyByName 'Visual Studio' | Where-Object { (ElType $_) -match 'ListItem|Button|Hyperlink|Custom' } | Select-Object -First 1)
+            if ($vsItem.Count -gt 0) { ClickEl $vsItem[0] | Out-Null; Start-Sleep 1 }
+            $how = ClickEl $jo[0]
+            Info "חלון 'Select an app to open this .sln file' (אין שיוך ברירת מחדל ל-.sln במחשב הבדיקה) — בחרנו Visual Studio / Just once ($how)"
+            return $true
+        }
+        Start-Sleep 2
+    }
+    return $false
+}
+# הפתרון שונה מבחוץ (פרויקט נוסף): Visual Studio שואל — לוחצים Reload (כמו תלמיד)
+function ClickReload([int]$vsPid, [int]$sec = 60) {
+    for ($i = 0; $i -lt $sec; $i += 2) {
+        foreach ($el in (VsElements $vsPid)) {
+            $n = ElName $el
+            if ($n -match '^(Reload|Reload All|Reload Solution|_Reload)$' -and (ElType $el) -match 'Button') {
+                Shot "$script:shotPrefix-reload-ask"
+                $how = ClickEl $el
+                Info "Visual Studio שאל אם לטעון מחדש — לחצנו '$n' ($how)"
+                return $true
+            }
+        }
+        Start-Sleep 2
+    }
+    return $false
+}
+function GetDte() {
+    foreach ($pid2 in 'VisualStudio.DTE.18.0', 'VisualStudio.DTE.17.0', 'VisualStudio.DTE') { try { return [Runtime.InteropServices.Marshal]::GetActiveObject($pid2) } catch { } }
+    return $null
+}
 function KillJava() { Get-Process javaw, java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
 
 $docs = [Environment]::GetFolderPath('MyDocuments')
@@ -280,8 +320,13 @@ $card = ShotJson 'submit' 'card'
 Check 'submit-card' (($st -eq 'done') -and ($card -match 'התרגיל נוצר') -and ($card -match 'Ex\d\d_')) "תשובה מה-AI האמיתי: הכרטיס 'התרגיל נוצר' עם שם הפרויקט" "סטטוס $st"
 Info ("תוכן הכרטיס: " + ((JsonTexts $card) -join ' | '))
 Info ("תוכן הטופס: " + ((JsonTexts (ShotJson 'submit' 'form')) -join ' | '))
-Start-Sleep 8   # הכלי פותח את הקובץ הראשון ב-Visual Studio
-Shot '12-submit-after-vs'
+$script:shotPrefix = '12-submit'
+$chooser = HandleOpenWith 30
+Info "חלון בחירת אפליקציה ל-.sln: $chooser"
+$reload = ClickReload $vsP.Id 40
+Info "Visual Studio שאל Reload: $reload"
+Start-Sleep 15
+Shot '13-submit-after-vs'
 $after = @(Get-ChildItem $exDir -Directory -ErrorAction SilentlyContinue | ForEach-Object Name)
 $new = @($after | Where-Object { $before -notcontains $_ })
 Info "תיקיות חדשות ב-Exercises: $($new -join ', ')"
@@ -305,20 +350,13 @@ if ($new.Count -ge 1) {
     $codes = @([regex]::Matches(($b -join "`n"), 'error (CS\d+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
     $other = @($codes | Where-Object { $_ -ne 'CS0161' })
     Check 'submit-skeleton' ($other.Count -eq 0) "אין שגיאות קומפילציה חוץ מ-CS0161 (פעולה ריקה בלי return): $($codes -join ',')" (($b | Select-String 'error' | Select-Object -First 4) -join ' | ')
-    # הקובץ הפתוח ב-Visual Studio והסמן בסעיף הראשון (DTE)
-    $d = $null
-    foreach ($pid2 in 'VisualStudio.DTE.18.0', 'VisualStudio.DTE.17.0', 'VisualStudio.DTE') { try { $d = [Runtime.InteropServices.Marshal]::GetActiveObject($pid2); break } catch { } }
-    $docName = ''; $line = ''
-    try { $docName = $d.ActiveDocument.FullName; $line = $d.ActiveDocument.Selection.CurrentLine } catch { Info "DTE: $_" }
-    $firstLine = 0
-    if ($cs.Count -gt 0) {
-        foreach ($c in $cs) {
-            $ln = @(Get-Content $c.FullName -Encoding utf8)
-            for ($i = 0; $i -lt $ln.Count; $i++) { if ($ln[$i] -like '*כאן עונים*') { if ($c.FullName -eq $docName -and $firstLine -eq 0) { $firstLine = $i + 1 }; break } }
-        }
-    }
-    Info "הקובץ הפתוח ב-Visual Studio: $docName · שורת הסמן: $line · שורת 'כאן עונים' הראשונה בו: $firstLine"
-    Check 'submit-focus' ($docName -and $docName.StartsWith($dir, [StringComparison]::OrdinalIgnoreCase)) 'Visual Studio פתח קובץ מהתרגיל החדש (בסעיף הראשון)' "פתוח: $docName"
+    # הפרויקט החדש ב-Visual Studio הפתוח (אחרי ש-Visual Studio טען מחדש את הפתרון): DTE.Solution.FindProjectItem
+    $d = GetDte()
+    $pi = $null; $cnt = ''
+    try { $pi = $d.Solution.FindProjectItem($cs[0].FullName); $cnt = $d.Solution.Projects.Count } catch { Info "DTE: $_" }
+    $docName = ''; try { $docName = $d.ActiveDocument.FullName } catch { }
+    Info "DTE: הקובץ $($cs[0].Name) שייך לפרויקט ב-Visual Studio: $($null -ne $pi) · קובץ פעיל: $docName · פרויקטים (שורש): $cnt"
+    Check 'submit-in-vs' ($null -ne $pi) 'אחרי הכפתור: הפרויקט החדש מופיע בפתרון שפתוח ב-Visual Studio (DTE)' "פעיל: $docName"
     $d = $null
 }
 Check 'single-vs' (@(Get-Process devenv -ErrorAction SilentlyContinue).Count -eq 1) 'לא נפתח עוד Visual Studio (חלון אחד)' "$(@(Get-Process devenv -ErrorAction SilentlyContinue).Count)"
