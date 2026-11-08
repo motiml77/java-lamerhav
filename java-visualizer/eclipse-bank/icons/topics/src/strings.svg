@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- מאגר תרגילים — אייקון הנושא "strings" (המקור; ה-PNG נוצר ב-tools/make-topic-icons.js) -->
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11" fill="#E2F6F3"/>
+  <text x="24" y="30.5" fill="#0E9F8E" font-family="Georgia,serif" font-size="17" font-weight="700" text-anchor="middle">abc</text><path d="M7 14c0-3 1.5-4.5 4-5M13 14c0-3 1.5-4.5 4-5" fill="none" stroke="#0E9F8E" stroke-width="2.4" stroke-linecap="round"/><path d="M41 34c0 3-1.5 4.5-4 5M35 34c0 3-1.5 4.5-4 5" fill="none" stroke="#0E9F8E" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

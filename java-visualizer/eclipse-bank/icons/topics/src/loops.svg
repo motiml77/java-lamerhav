@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- מאגר תרגילים — אייקון הנושא "loops" (המקור; ה-PNG נוצר ב-tools/make-topic-icons.js) -->
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11" fill="#F1EAFE"/>
+  <path d="M15 20a10 10 0 0 1 17-5" fill="none" stroke="#7C3AED" stroke-width="3.2" stroke-linecap="round"/><path d="M33 9.5v6.5h-6.5" fill="none" stroke="#7C3AED" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 28a10 10 0 0 1-17 5" fill="none" stroke="#7C3AED" stroke-width="3.2" stroke-linecap="round"/><path d="M15 38.5V32h6.5" fill="none" stroke="#7C3AED" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

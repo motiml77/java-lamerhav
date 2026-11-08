@@ -26,6 +26,11 @@
          <run class="il.lamerhav.dsviz.it.BankIt"/>
       </application>
    </extension>
+   <extension id="gate" point="org.eclipse.core.runtime.applications">
+      <application visible="true">
+         <run class="il.lamerhav.dsviz.it.GateIt"/>
+      </application>
+   </extension>
    <extension id="edge" point="org.eclipse.core.runtime.applications">
       <application visible="true">
          <run class="il.lamerhav.dsviz.it.Edge"/>

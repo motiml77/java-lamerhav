@@ -114,7 +114,8 @@ async function docx() {
   check(meta.texts.length === 1 && /שאלה 2\. כתבו/.test(meta.texts[0].text) && /קלט \| פלט/.test(meta.texts[0].text), 'הטקסט מה-Word: ' + JSON.stringify(meta.texts));
   const files = form.getAll('file');
   check(files.length === 3 && meta.names.length === 3, 'קבצים: ' + files.length + ' שמות: ' + meta.names);
-  check(files.map(f => f.type).join() === 'image/png,image/jpeg,application/pdf', 'סוגים: ' + files.map(f => f.type));
+  check(/^image\/(png|jpeg),image\/jpeg,application\/pdf$/.test(files.map(f => f.type).join()), 'סוגים: ' + files.map(f => f.type));   // צילום גדול מכווץ ל-JPEG כדי להיכנס בתקציב ה-1MB
+  check(files.reduce((n, f) => n + f.size, 0) <= 1024 * 1024, 'הקבצים ביחד עד 1MB: ' + files.reduce((n, f) => n + f.size, 0));
   check(meta.names[0] === 'שאלה.docx (1)' && meta.names[1] === 'photo.jpg', 'השמות בעברית ב-meta (כמו ב-Eclipse): ' + meta.names);
   pass('הבקשה: טקסט ה-Word (כולל טבלה), התמונה שבתוכו, הצילום וה-PDF, הערה ושפה — והשרת קיבל אותה');
   // מה השרת שלח ל-Gemini: אזהרה שהקבצים לא בהכרח לפי הסדר, וכל חלק ממוספר (גם הטקסט מה-Word)

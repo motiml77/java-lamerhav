@@ -1,0 +1,156 @@
+{
+  "id": "tree-leaves-max",
+  "topic": "tree",
+  "level": "easy",
+  "title": "עלים והערך הגדול ביותר בעץ",
+  "question": {
+    "intro": "נתון עץ בינארי לא ריק של מספרים שלמים. בשני הסעיפים יש לכתוב פעולה רקורסיבית.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה countLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+        "figures": [
+          {
+            "type": "tree",
+            "values": [
+              5,
+              12,
+              3,
+              null,
+              7,
+              9,
+              4
+            ],
+            "caption": "העץ t"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה maxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "עלים והערך הגדול ביותר בעץ",
+    "topic": "trees",
+    "mainClass": "TreeTargil2",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "TreeTargil2",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countLeaves",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+        "solution": "public static int countLeaves(BinNode<Integer> t) {\n    if (t == null) {\n        return 0;\n    }\n    if (!t.hasLeft() && !t.hasRight()) {\n        return 1;\n    }\n    return countLeaves(t.getLeft()) + countLeaves(t.getRight());\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "TreeTargil2",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "maxTree",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה maxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12.",
+        "solution": "public static int maxTree(BinNode<Integer> t) {\n    int max = t.getValue();\n    if (t.hasLeft()) {\n        max = Math.max(max, maxTree(t.getLeft()));\n    }\n    if (t.hasRight()) {\n        max = Math.max(max, maxTree(t.getRight()));\n    }\n    return max;\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "BinNode<Integer> t = new BinNode<Integer>(new BinNode<Integer>(null, 12, new BinNode<Integer>(7)), 5, new BinNode<Integer>(new BinNode<Integer>(9), 3, new BinNode<Integer>(4)));\nSystem.out.println(\"סעיף א: \" + countLeaves(t));\nSystem.out.println(\"סעיף ב: \" + maxTree(t));",
+    "expectedOutput": "סעיף א: 3\nסעיף ב: 12"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון עץ בינארי לא ריק של מספרים שלמים. בשני הסעיפים יש לכתוב פעולה רקורסיבית.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה CountLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+          "figures": [
+            {
+              "type": "tree",
+              "values": [
+                5,
+                12,
+                3,
+                null,
+                7,
+                9,
+                4
+              ],
+              "caption": "העץ t"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה MaxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "עלים והערך הגדול ביותר בעץ",
+      "topic": "trees",
+      "mainClass": "TreeTargil2",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "TreeTargil2",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountLeaves",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+          "solution": "public static int CountLeaves(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    if (!t.HasLeft() && !t.HasRight())\n    {\n        return 1;\n    }\n    return CountLeaves(t.GetLeft()) + CountLeaves(t.GetRight());\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "TreeTargil2",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "MaxTree",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה MaxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12.",
+          "solution": "public static int MaxTree(BinNode<int> t)\n{\n    int max = t.GetValue();\n    if (t.HasLeft())\n    {\n        max = Math.Max(max, MaxTree(t.GetLeft()));\n    }\n    if (t.HasRight())\n    {\n        max = Math.Max(max, MaxTree(t.GetRight()));\n    }\n    return max;\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "BinNode<int> t = new BinNode<int>(new BinNode<int>(null, 12, new BinNode<int>(7)), 5, new BinNode<int>(new BinNode<int>(9), 3, new BinNode<int>(4)));\nConsole.WriteLine(\"סעיף א: \" + CountLeaves(t));\nConsole.WriteLine(\"סעיף ב: \" + MaxTree(t));",
+      "expectedOutput": "סעיף א: 3\nסעיף ב: 12"
+    }
+  }
+}

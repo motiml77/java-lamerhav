@@ -158,7 +158,7 @@ public final class VsSubmit {
 
     // ------------------------------------------------------------------ השלבים (מה ש-ExercisePipeline אומר תוך כדי)
 
-    static final String[] STAGES = { "מכין את הקבצים", "שולח ל-Gemini", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
+    static final String[] STAGES = { "מכין את הקבצים", "שולח לשרת ה-AI שלנו", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
 
     /** הודעה מהבנייה → מספר השלב (0-4), או -1: שורה אפורה מתחת לשלב הנוכחי (noteOf) — כמו stageFor ב-VS Code */
     static int stageOf(String text) {
@@ -251,6 +251,8 @@ public final class VsSubmit {
         final JButton send = RtlDialog.primary("שליחה ויצירת התרגיל"), cancel = RtlDialog.secondary("ביטול");
         final JButton pick = RtlDialog.secondary("בחירת קבצים…"), paste = RtlDialog.secondary("הדבקה (Ctrl+V)");
         int pastedImages, pastedTexts;
+        // Visual Studio שפתוח עם הפתרון: הפרויקט נוסף דרכו (DTE) ונפתח בו — בלי Reload ובלי Visual Studio שני
+        volatile boolean addedInVs, openedInVs;
         // הבנייה
         final TopLine top = new TopLine();
         final JPanel thumbs = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
@@ -369,7 +371,7 @@ public final class VsSubmit {
             body.add(RtlDialog.label("למשל: \"רק שאלה 2\", או: \"הפעולה בסעיף ב צריכה להיות רקורסיבית\"", RtlDialog.small(), RtlDialog.MUTED));
             body.add(RtlDialog.gap(10));
             body.add(RtlDialog.label("הפרויקט נכנס לתיקייה Exercises שב-" + root.getFileName() + ", ולפתרון של Visual Studio.", RtlDialog.small(), RtlDialog.MUTED));
-            body.add(RtlDialog.label("הדף עובר דרך השרת של DSViz ל-Gemini של Google. לא לשלוח דפים עם פרטים אישיים.", RtlDialog.small(), RtlDialog.MUTED));
+            body.add(RtlDialog.label("הדף עובר דרך השרת של DSViz לשרת ה-AI שלנו. לא לשלוח דפים עם פרטים אישיים.", RtlDialog.small(), RtlDialog.MUTED));
             body.add(RtlDialog.gap(8));
             body.add(status);
             JPanel foot = RtlDialog.footer();
@@ -613,6 +615,16 @@ public final class VsSubmit {
             }
             final int me = ++run;
             startBuild();
+            addedInVs = false;
+            openedInVs = false;
+            // Visual Studio פתוח עם הפתרון: הוא עצמו מוסיף את הפרויקט (CsSolution.write קורא לזה במקום לשנות את ה-.sln מבחוץ)
+            if (VsDte.enabled()) CsSolution.openIde = new java.util.function.BiPredicate<Path, Path>() {
+                public boolean test(Path sln, Path csproj) {
+                    boolean ok = VsDte.add(sln, csproj);
+                    if (ok) addedInVs = true;
+                    return ok;
+                }
+            };
             final String text = note.getText();
             final List<String> taken = takenNames(root);
             new SwingWorker<ExercisePipeline.Result, String>() {
@@ -640,6 +652,13 @@ public final class VsSubmit {
                         }
                     }, taken);
                     if (!r.entries.isEmpty()) new SolutionStore(storeFile()).add(r.entries);
+                    if (addedInVs && r.focus != null) {
+                        // הפרויקט כבר בפתרון שפתוח ב-Visual Studio: פותחים בו את הקובץ, בסעיף הראשון ("כאן עונים")
+                        publish("פותח את התרגיל ב-Visual Studio…");
+                        Path sln = CsSolution.solution(root);
+                        Path csproj = CsSolution.exercisesDir(root).resolve(r.folderName).resolve(r.folderName + ".csproj");
+                        openedInVs = sln != null && VsDte.open(r.focus, r.line + 1, sln, csproj);
+                    }
                     return r;
                 }
 
@@ -677,7 +696,8 @@ public final class VsSubmit {
             cards.show(deck, "done");
             dlg.pack();
             dlg.setLocationRelativeTo(null);
-            if (!Boolean.getBoolean("dsviz.noOpen") && java.awt.Desktop.isDesktopSupported()) {
+            // נוסף דרך Visual Studio הפתוח — אין מה לפתוח (פתיחת ה-.sln שוב מעלה שאלת Reload או Visual Studio נוסף)
+            if (!addedInVs && !Boolean.getBoolean("dsviz.noOpen") && java.awt.Desktop.isDesktopSupported()) {
                 try {
                     Path sln = CsSolution.solution(root);
                     java.awt.Desktop.getDesktop().open((sln != null ? sln : r.focus.toPath()).toFile());
@@ -760,12 +780,23 @@ public final class VsSubmit {
             File main = r.files.isEmpty() ? null : mainFile(r.files);
             body.add(RtlDialog.label("ב-Visual Studio", RtlDialog.bold(), RtlDialog.INK));
             body.add(RtlDialog.gap(4));
-            String[] steps = {
-                "אם הוא שואל, מאשרים Reload.",
-                "ב-Solution Explorer: קליק ימני על " + r.folderName + " " + RtlDialog.ARROW + " Set as Startup Project.",
-                main == null ? "עונים במקום המסומן בכל סעיף." : "פותחים את " + main.getName() + " (שם Main), ועונים במקום המסומן.",
-                "מריצים: בתפריט שליד הכפתור הירוק בוחרים \"הרצה ויזואלית\"."
-            };
+            String[] steps;
+            if (addedInVs) {
+                // נוסף ל-Visual Studio שפתוח (DTE): אין Reload, והוא כבר Startup Project; הקובץ כבר נפתח (אם הצליח)
+                steps = new String[] {
+                    "הפרויקט " + r.folderName + " נוסף לפתרון שפתוח ב-Visual Studio, והוא פרויקט ההרצה.",
+                    openedInVs ? (main == null ? "הקובץ נפתח — עונים במקום המסומן בכל סעיף." : main.getName() + " כבר פתוח — עונים במקום המסומן.")
+                            : (main == null ? "עונים במקום המסומן בכל סעיף." : "פותחים את " + main.getName() + " (שם Main), ועונים במקום המסומן."),
+                    "מריצים: הכפתור \"הרצה ויזואלית\" בסרגל של DSViz, או בתפריט שליד הכפתור הירוק."
+                };
+            } else {
+                steps = new String[] {
+                    "אם הוא שואל, מאשרים Reload.",
+                    "ב-Solution Explorer: קליק ימני על " + r.folderName + " " + RtlDialog.ARROW + " Set as Startup Project.",
+                    main == null ? "עונים במקום המסומן בכל סעיף." : "פותחים את " + main.getName() + " (שם Main), ועונים במקום המסומן.",
+                    "מריצים: בתפריט שליד הכפתור הירוק בוחרים \"הרצה ויזואלית\"."
+                };
+            }
             for (int i = 0; i < steps.length; i++) body.add(step(i + 1, steps[i]));
             if (!r.entries.isEmpty()) {
                 body.add(RtlDialog.gap(6));

@@ -1,0 +1,170 @@
+{
+  "id": "queue-remove-reverse",
+  "topic": "queue",
+  "level": "medium",
+  "title": "הוצאה מהתור והיפוך",
+  "question": {
+    "intro": "נתון תור q של מספרים שלמים.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה removeAll, המקבלת תור q ומספר x, ומוציאה מהתור את כל האיברים השווים ל-x. הסדר של שאר האיברים בתור לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור התור שבציור ו-x = 2, בסיום הפעולה התור יהיה (מהראש לסוף) 5, 8, 1.",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              2,
+              5,
+              2,
+              8,
+              1
+            ],
+            "caption": "התור q (2 בראש)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה reverse, המקבלת תור q ומחזירה תור חדש ובו האיברים של q בסדר הפוך. בסיום הפעולה התור q יהיה כמו שהיה בהתחלה. מותר להשתמש במחסנית.\nלדוגמה: עבור התור 5, 8, 1 (5 בראש) הפעולה תחזיר את התור 1, 8, 5 (1 בראש)."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "הוצאה מהתור והיפוך",
+    "topic": "queues",
+    "mainClass": "QueueTargil4",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "QueueTargil4",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "removeAll",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה removeAll, המקבלת תור q ומספר x, ומוציאה מהתור את כל האיברים השווים ל-x. הסדר של שאר האיברים בתור לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור התור שבציור ו-x = 2, בסיום הפעולה התור יהיה (מהראש לסוף) 5, 8, 1.",
+        "solution": "public static void removeAll(Queue<Integer> q, int x) {\n    Queue<Integer> temp = new Queue<Integer>();\n    while (!q.isEmpty()) {\n        int y = q.remove();\n        if (y != x) {\n            temp.insert(y);\n        }\n    }\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "QueueTargil4",
+        "isStatic": true,
+        "returnType": "Queue<Integer>",
+        "methodName": "reverse",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה reverse, המקבלת תור q ומחזירה תור חדש ובו האיברים של q בסדר הפוך. בסיום הפעולה התור q יהיה כמו שהיה בהתחלה. מותר להשתמש במחסנית.\nלדוגמה: עבור התור 5, 8, 1 (5 בראש) הפעולה תחזיר את התור 1, 8, 5 (1 בראש).",
+        "solution": "public static Queue<Integer> reverse(Queue<Integer> q) {\n    Stack<Integer> s = new Stack<Integer>();\n    Queue<Integer> temp = new Queue<Integer>();\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        s.push(x);\n        temp.insert(x);\n    }\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    Queue<Integer> result = new Queue<Integer>();\n    while (!s.isEmpty()) {\n        result.insert(s.pop());\n    }\n    return result;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "QueueTargil4",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Queue<Integer> q = new Queue<Integer>();\nq.insert(2);\nq.insert(5);\nq.insert(2);\nq.insert(8);\nq.insert(1);\nremoveAll(q, 2);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(q, \"[5,8,1]\"));\nremoveAll(q, 7);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(q, \"[5,8,1]\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(reverse(q), \"[1,8,5]\"));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(q, \"[5,8,1]\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון תור q של מספרים שלמים.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה RemoveAll, המקבלת תור q ומספר x, ומוציאה מהתור את כל האיברים השווים ל-x. הסדר של שאר האיברים בתור לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור התור שבציור ו-x = 2, בסיום הפעולה התור יהיה (מהראש לסוף) 5, 8, 1.",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                2,
+                5,
+                2,
+                8,
+                1
+              ],
+              "caption": "התור q (2 בראש)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה Reverse, המקבלת תור q ומחזירה תור חדש ובו האיברים של q בסדר הפוך. בסיום הפעולה התור q יהיה כמו שהיה בהתחלה. מותר להשתמש במחסנית.\nלדוגמה: עבור התור 5, 8, 1 (5 בראש) הפעולה תחזיר את התור 1, 8, 5 (1 בראש)."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "הוצאה מהתור והיפוך",
+      "topic": "queues",
+      "mainClass": "QueueTargil4",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "QueueTargil4",
+          "isStatic": true,
+          "returnType": "void",
+          "methodName": "RemoveAll",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q"
+            },
+            {
+              "type": "int",
+              "name": "x"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה RemoveAll, המקבלת תור q ומספר x, ומוציאה מהתור את כל האיברים השווים ל-x. הסדר של שאר האיברים בתור לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור התור שבציור ו-x = 2, בסיום הפעולה התור יהיה (מהראש לסוף) 5, 8, 1.",
+          "solution": "public static void RemoveAll(Queue<int> q, int x)\n{\n    Queue<int> temp = new Queue<int>();\n    while (!q.IsEmpty())\n    {\n        int y = q.Remove();\n        if (y != x)\n        {\n            temp.Insert(y);\n        }\n    }\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "QueueTargil4",
+          "isStatic": true,
+          "returnType": "Queue<int>",
+          "methodName": "Reverse",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Reverse, המקבלת תור q ומחזירה תור חדש ובו האיברים של q בסדר הפוך. בסיום הפעולה התור q יהיה כמו שהיה בהתחלה. מותר להשתמש במחסנית.\nלדוגמה: עבור התור 5, 8, 1 (5 בראש) הפעולה תחזיר את התור 1, 8, 5 (1 בראש).",
+          "solution": "public static Queue<int> Reverse(Queue<int> q)\n{\n    Stack<int> s = new Stack<int>();\n    Queue<int> temp = new Queue<int>();\n    while (!q.IsEmpty())\n    {\n        int x = q.Remove();\n        s.Push(x);\n        temp.Insert(x);\n    }\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n    Queue<int> result = new Queue<int>();\n    while (!s.IsEmpty())\n    {\n        result.Insert(s.Pop());\n    }\n    return result;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "QueueTargil4",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Queue<int> q = new Queue<int>();\nq.Insert(2);\nq.Insert(5);\nq.Insert(2);\nq.Insert(8);\nq.Insert(1);\nRemoveAll(q, 2);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(q, \"[5,8,1]\"));\nRemoveAll(q, 7);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(q, \"[5,8,1]\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(Reverse(q), \"[1,8,5]\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(q, \"[5,8,1]\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+    }
+  }
+}

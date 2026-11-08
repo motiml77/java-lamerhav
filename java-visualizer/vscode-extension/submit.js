@@ -129,7 +129,7 @@ function runCli(java, jar, args, onMessage, env) {
 // ------------------------------------------------------------ תוך כדי הבנייה: השלבים (מהשורות {"progress": ...} של SubmitCli)
 
 /** השלבים שבחלון, לפי הסדר */
-const STAGES = ['מכין את הקבצים', 'שולח ל-Gemini', 'בונה את התרגיל', 'בודק שהקוד מתקמפל', 'בודק את ההצעות לפתרון'];
+const STAGES = ['מכין את הקבצים', 'שולח לשרת ה-AI שלנו', 'בונה את התרגיל', 'בודק שהקוד מתקמפל', 'בודק את ההצעות לפתרון'];
 
 /**
  * שורת progress של SubmitCli → { stage } (שלב חדש), או { note } (שורה אפורה קטנה מתחת לשלב הנוכחי: "מבקש תיקון…", "בודק שוב…").
@@ -348,7 +348,7 @@ footer .copy { margin-inline-start: auto; color: var(--muted); font-size: 11px; 
   <div class="opts"><label for="lang">שפה</label>
     <select id="lang"><option value="java"${lang === 'java' ? ' selected' : ''}>Java</option><option value="csharp"${lang === 'csharp' ? ' selected' : ''}>C#</option></select>
     <span class="where">${esc(opts.where || '')}</span></div>
-  <p class="quiet">הדף עובר דרך השרת של DSViz ל-Gemini של Google. לא לשלוח דפים עם פרטים אישיים.</p>
+  <p class="quiet">הדף עובר דרך השרת של DSViz לשרת ה-AI שלנו. לא לשלוח דפים עם פרטים אישיים.</p>
   <p class="ferr" id="status"></p>
   <footer><button class="primary" id="send">שליחה ויצירת התרגיל</button><button id="cancel">ביטול</button><span class="copy">© 2026 Moti Levi · motiml77@gmail.com</span></footer>
 </section>

@@ -5,7 +5,7 @@
 name: DSViz visual studio
 on:
   push:
-    branches: [master, ccr-66784144-dygsmb]
+    branches: [master, ccr-66784144-dygsmb, release/public-all]
     paths:
       - '.github/workflows/dsviz-vs.yml'
       - 'java-visualizer/tools/test/windows-vs/**'

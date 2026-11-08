@@ -1,0 +1,184 @@
+{
+  "id": "queue-merge-sorted",
+  "topic": "queue",
+  "level": "medium",
+  "title": "מיזוג תורים ממוינים",
+  "question": {
+    "intro": "נתונים תורים של מספרים שלמים. תור ממוין הוא תור שהאיברים בו מסודרים בסדר עולה מהראש לסוף (כל איבר אינו גדול מהאיבר שאחריו).",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה merge, המקבלת שני תורים ממוינים q1 ו-q2, ומחזירה תור חדש ממוין ובו כל האיברים של שני התורים. בסיום הפעולה q1 ו-q2 יכולים להיות ריקים.\nלדוגמה: עבור התורים שבציור הפעולה תחזיר את התור 1, 2, 4, 6, 7, 9 (1 בראש).",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              2,
+              6,
+              7
+            ],
+            "caption": "q1 (2 בראש)"
+          },
+          {
+            "type": "queue",
+            "values": [
+              1,
+              4,
+              9
+            ],
+            "caption": "q2 (1 בראש)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה isSorted, המקבלת תור q ומחזירה true אם הוא ממוין, אחרת — false. בסיום הפעולה התור q יהיה כמו שהיה בהתחלה."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מיזוג תורים ממוינים",
+    "topic": "queues",
+    "mainClass": "QueueTargil5",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "QueueTargil5",
+        "isStatic": true,
+        "returnType": "Queue<Integer>",
+        "methodName": "merge",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q1"
+          },
+          {
+            "type": "Queue<Integer>",
+            "name": "q2"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה merge, המקבלת שני תורים ממוינים q1 ו-q2, ומחזירה תור חדש ממוין ובו כל האיברים של שני התורים. בסיום הפעולה q1 ו-q2 יכולים להיות ריקים.\nלדוגמה: עבור התורים שבציור הפעולה תחזיר את התור 1, 2, 4, 6, 7, 9 (1 בראש).",
+        "solution": "public static Queue<Integer> merge(Queue<Integer> q1, Queue<Integer> q2) {\n    Queue<Integer> result = new Queue<Integer>();\n    while (!q1.isEmpty() && !q2.isEmpty()) {\n        if (q1.head() <= q2.head()) {\n            result.insert(q1.remove());\n        } else {\n            result.insert(q2.remove());\n        }\n    }\n    while (!q1.isEmpty()) {\n        result.insert(q1.remove());\n    }\n    while (!q2.isEmpty()) {\n        result.insert(q2.remove());\n    }\n    return result;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "QueueTargil5",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isSorted",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה isSorted, המקבלת תור q ומחזירה true אם הוא ממוין, אחרת — false. בסיום הפעולה התור q יהיה כמו שהיה בהתחלה.",
+        "solution": "public static boolean isSorted(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    boolean sorted = true;\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        if (!q.isEmpty() && x > q.head()) {\n            sorted = false;\n        }\n        temp.insert(x);\n    }\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    return sorted;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "QueueTargil5",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Queue<Integer> q1 = new Queue<Integer>();\nq1.insert(2);\nq1.insert(6);\nq1.insert(7);\nQueue<Integer> q2 = new Queue<Integer>();\nq2.insert(1);\nq2.insert(4);\nq2.insert(9);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(merge(q1, q2), \"[1,2,4,6,7,9]\"));\nQueue<Integer> a = new Queue<Integer>();\na.insert(3);\na.insert(5);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(merge(a, new Queue<Integer>()), \"[3,5]\"));\nQueue<Integer> up = new Queue<Integer>();\nup.insert(1);\nup.insert(4);\nup.insert(4);\nup.insert(9);\nQueue<Integer> mixed = new Queue<Integer>();\nmixed.insert(3);\nmixed.insert(8);\nmixed.insert(2);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(isSorted(up), true));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(up, \"[1,4,4,9]\"));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(isSorted(mixed), false));\nSystem.out.println(\"סעיף ב, בדיקה 4: \" + check(mixed, \"[3,8,2]\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונים תורים של מספרים שלמים. תור ממוין הוא תור שהאיברים בו מסודרים בסדר עולה מהראש לסוף (כל איבר אינו גדול מהאיבר שאחריו).",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה Merge, המקבלת שני תורים ממוינים q1 ו-q2, ומחזירה תור חדש ממוין ובו כל האיברים של שני התורים. בסיום הפעולה q1 ו-q2 יכולים להיות ריקים.\nלדוגמה: עבור התורים שבציור הפעולה תחזיר את התור 1, 2, 4, 6, 7, 9 (1 בראש).",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                2,
+                6,
+                7
+              ],
+              "caption": "q1 (2 בראש)"
+            },
+            {
+              "type": "queue",
+              "values": [
+                1,
+                4,
+                9
+              ],
+              "caption": "q2 (1 בראש)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה IsSorted, המקבלת תור q ומחזירה true אם הוא ממוין, אחרת — false. בסיום הפעולה התור q יהיה כמו שהיה בהתחלה."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מיזוג תורים ממוינים",
+      "topic": "queues",
+      "mainClass": "QueueTargil5",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "QueueTargil5",
+          "isStatic": true,
+          "returnType": "Queue<int>",
+          "methodName": "Merge",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q1"
+            },
+            {
+              "type": "Queue<int>",
+              "name": "q2"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Merge, המקבלת שני תורים ממוינים q1 ו-q2, ומחזירה תור חדש ממוין ובו כל האיברים של שני התורים. בסיום הפעולה q1 ו-q2 יכולים להיות ריקים.\nלדוגמה: עבור התורים שבציור הפעולה תחזיר את התור 1, 2, 4, 6, 7, 9 (1 בראש).",
+          "solution": "public static Queue<int> Merge(Queue<int> q1, Queue<int> q2)\n{\n    Queue<int> result = new Queue<int>();\n    while (!q1.IsEmpty() && !q2.IsEmpty())\n    {\n        if (q1.Head() <= q2.Head())\n        {\n            result.Insert(q1.Remove());\n        }\n        else\n        {\n            result.Insert(q2.Remove());\n        }\n    }\n    while (!q1.IsEmpty())\n    {\n        result.Insert(q1.Remove());\n    }\n    while (!q2.IsEmpty())\n    {\n        result.Insert(q2.Remove());\n    }\n    return result;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "QueueTargil5",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsSorted",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה IsSorted, המקבלת תור q ומחזירה true אם הוא ממוין, אחרת — false. בסיום הפעולה התור q יהיה כמו שהיה בהתחלה.",
+          "solution": "public static bool IsSorted(Queue<int> q)\n{\n    Queue<int> temp = new Queue<int>();\n    bool sorted = true;\n    while (!q.IsEmpty())\n    {\n        int x = q.Remove();\n        if (!q.IsEmpty() && x > q.Head())\n        {\n            sorted = false;\n        }\n        temp.Insert(x);\n    }\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n    return sorted;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "QueueTargil5",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Queue<int> q1 = new Queue<int>();\nq1.Insert(2);\nq1.Insert(6);\nq1.Insert(7);\nQueue<int> q2 = new Queue<int>();\nq2.Insert(1);\nq2.Insert(4);\nq2.Insert(9);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(Merge(q1, q2), \"[1,2,4,6,7,9]\"));\nQueue<int> a = new Queue<int>();\na.Insert(3);\na.Insert(5);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(Merge(a, new Queue<int>()), \"[3,5]\"));\nQueue<int> up = new Queue<int>();\nup.Insert(1);\nup.Insert(4);\nup.Insert(4);\nup.Insert(9);\nQueue<int> mixed = new Queue<int>();\nmixed.Insert(3);\nmixed.Insert(8);\nmixed.Insert(2);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(IsSorted(up), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(up, \"[1,4,4,9]\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(IsSorted(mixed), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 4: \" + Check(mixed, \"[3,8,2]\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+    }
+  }
+}

@@ -417,7 +417,7 @@ final class SubmitDialog extends Modern.Dialog {
 
     /** כמה קבצים לכל היותר, ועד איזה גודל כל אחד (כמו ExerciseFiles — כאן כדי לומר מיד, ולא רק אחרי "שליחה") */
     static final int MAX_FILES = 10;
-    static final long MAX_BYTES = 10L * 1024 * 1024;
+    static final long MAX_BYTES = 1024L * 1024;
     static final String TYPES = "pdf|docx|docm|png|jpg|jpeg|gif|bmp|webp|txt";
 
     private String rejected;
@@ -445,7 +445,7 @@ final class SubmitDialog extends Modern.Dialog {
         if (ext.matches("doc|rtf|odt")) return "את הקובץ " + name + " צריך קודם לשמור ב-Word כ-PDF או כ-DOCX (שמירה בשם…).";
         if (ext.matches("heic|heif")) return "תמונות HEIC (מאייפון) לא נתמכות — שמרו כ-JPG או שלחו צילום מסך.";
         if (!ext.matches(TYPES)) return "את הקובץ " + name + " אי אפשר לשלוח — שולחים PDF, Word (docx) או תמונה.";
-        if (f.length() > MAX_BYTES) return "הקובץ " + name + " גדול מדי (עד 10MB). שלחו רק את עמודי התרגיל, או צילומי מסך.";
+        if (f.length() > MAX_BYTES) return "הקובץ " + name + " גדול מדי (עד 1MB). שלחו רק את עמודי התרגיל, או צילומי מסך.";
         return null;
     }
 
@@ -737,7 +737,7 @@ final class SubmitDialog extends Modern.Dialog {
     // ------------------------------------------------------------------ תצוגת הבנייה
 
     /** השלבים — כמו באתר, לפי ההודעות {"progress": …} של SubmitCli */
-    static final String[] STAGES = { "מכין את הקבצים", "שולח ל-Gemini", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
+    static final String[] STAGES = { "מכין את הקבצים", "שולח לשרת ה-AI שלנו", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
 
     /** לאיזה שלב שייכת הודעה של SubmitCli; ‎-1 — הודעת משנה (תיקון / בדיקה חוזרת), שמוצגת בשורה קטנה מתחת לשלב הנוכחי */
     static int stageOf(String progress) {

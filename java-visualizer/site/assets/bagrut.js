@@ -4,7 +4,7 @@
   'use strict';
   var SERVER = 'https://dsviz-exercise.motiml77.workers.dev';
   var JSZIP = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-  var MAX_ITEMS = 10, MAX_TOTAL = 14 * 1024 * 1024, MAX_FILE = 10 * 1024 * 1024, MAX_SIDE = 2000, MAX_TEXT = 60000;
+  var MAX_ITEMS = 10, MAX_TOTAL = 1024 * 1024, MAX_FILE = 1024 * 1024, IMG_BUDGET = 700 * 1024,   /* הגבלה: עד 1MB לכל שליחה; תמונה מכווצת עד IMG_BUDGET */ MAX_SIDE = 2000, MAX_TEXT = 60000;
 
   var $ = function (sel) { return document.querySelector(sel); };
   var form = $('[data-form]'), drop = $('[data-drop]'), input = $('[data-input]'), chosen = $('[data-chosen]');
@@ -35,7 +35,7 @@
 
   function fromFile(file) {
     var name = file.name || 'קובץ';
-    if (file.size > MAX_FILE) return Promise.reject(fail('הקובץ ' + name + ' גדול מדי (עד 10MB).'));
+    if (file.size > MAX_FILE) return Promise.reject(fail('הקובץ ' + name + ' גדול מדי (עד 1MB). שולחים רק את עמודי התרגיל, או צילומי מסך.'));
     return head(file, 12).then(function (b) {
       var x = ext(name);
       if (x === 'doc') throw fail('הקובץ ' + name + ' הוא Word ישן (doc). שומרים אותו כ-docx או כ-PDF ושולחים שוב.');
@@ -51,29 +51,44 @@
   // תמונה: עד 2000 פיקסלים בצד. צילום מסך נשאר PNG (טקסט חד) אם הוא לא גדול מדי, אחרת JPEG
   function image(name, blob) {
     return head(blob, 12).then(function (b) {
-      if (isWebp(b)) {
-        if (blob.size > 4 * 1024 * 1024) throw fail('התמונה ' + name + ' גדולה מדי.');
-        return { blob: blob, mime: 'image/webp' };
-      }
       return createImageBitmap(blob).catch(function () { throw fail('הקובץ ' + name + ' הוא לא תמונה שאפשר לקרוא.'); }).then(function (img) {
         var w = img.width, h = img.height, small = Math.max(w, h) <= MAX_SIDE;
-        if (small && isJpeg(b) && blob.size <= 2 * 1024 * 1024) return { blob: blob, mime: 'image/jpeg', w: w, h: h };
-        if (small && isPng(b) && blob.size <= 1536 * 1024) return { blob: blob, mime: 'image/png', w: w, h: h };
-        var k = small ? 1 : MAX_SIDE / Math.max(w, h);
-        var c = document.createElement('canvas');
-        c.width = Math.max(1, Math.round(w * k));
-        c.height = Math.max(1, Math.round(h * k));
-        var g = c.getContext('2d');
-        g.fillStyle = '#fff';   // שקיפות → רקע לבן
-        g.fillRect(0, 0, c.width, c.height);
-        g.imageSmoothingQuality = 'high';
-        g.drawImage(img, 0, 0, c.width, c.height);
-        var out = function (type, q) { return new Promise(function (ok) { c.toBlob(ok, type, q); }); };
-        var asJpeg = function () { return out('image/jpeg', 0.88).then(function (j) { return { blob: j, mime: 'image/jpeg', w: c.width, h: c.height }; }); };
-        if (isPng(b) || !isJpeg(b)) {
-          return out('image/png').then(function (p) { return p && p.size <= 1536 * 1024 ? { blob: p, mime: 'image/png', w: c.width, h: c.height } : asJpeg(); });
+        if (small && blob.size <= IMG_BUDGET) {
+          if (isJpeg(b)) return { blob: blob, mime: 'image/jpeg', w: w, h: h };
+          if (isPng(b)) return { blob: blob, mime: 'image/png', w: w, h: h };
+          if (isWebp(b)) return { blob: blob, mime: 'image/webp', w: w, h: h };
         }
-        return asJpeg();
+        var k = small ? 1 : MAX_SIDE / Math.max(w, h);
+        // מכווצים עד שנכנס בתקציב (כל השליחה מוגבלת ל-1MB): קודם איכות JPEG, ואז גודל
+        var render = function (scale) {
+          var c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(w * scale));
+          c.height = Math.max(1, Math.round(h * scale));
+          var g = c.getContext('2d');
+          g.fillStyle = '#fff';   // שקיפות → רקע לבן
+          g.fillRect(0, 0, c.width, c.height);
+          g.imageSmoothingQuality = 'high';
+          g.drawImage(img, 0, 0, c.width, c.height);
+          return c;
+        };
+        var out = function (c, type, q) { return new Promise(function (ok) { c.toBlob(ok, type, q); }); };
+        var tryScale = function (scale, first) {
+          var c = render(scale);
+          var steps = [0.88, 0.7, 0.55];
+          var i = 0;
+          var jpeg = function () {
+            return out(c, 'image/jpeg', steps[i]).then(function (j) {
+              if (j.size <= IMG_BUDGET || (scale < 0.3 && i === steps.length - 1)) return { blob: j, mime: 'image/jpeg', w: c.width, h: c.height };
+              if (++i < steps.length) return jpeg();
+              return tryScale(scale * 0.8, false);
+            });
+          };
+          if (first && (isPng(b) || !isJpeg(b))) {   // צילום מסך: PNG שומר על טקסט חד — אם הוא נכנס בתקציב
+            return out(c, 'image/png').then(function (p) { return p && p.size <= IMG_BUDGET ? { blob: p, mime: 'image/png', w: c.width, h: c.height } : jpeg(); });
+          }
+          return jpeg();
+        };
+        return tryScale(k, true);
       });
     });
   }
@@ -229,7 +244,7 @@
     e.preventDefault();
     if (!items.length) return;
     var total = items.reduce(function (a, it) { return a + itemBytes(it); }, 0);
-    if (total > MAX_TOTAL) { say('הקבצים גדולים מדי ביחד (עד 14MB). מורידים קבצים או שולחים PDF במקום צילומים.', true); return; }
+    if (total > MAX_TOTAL) { say('הקבצים גדולים מדי ביחד (עד 1MB ביחד). מורידים קבצים, או שולחים רק את עמודי התרגיל.', true); return; }
     if (!window.DSVizScaffold) { say('הדף לא נטען עד הסוף. מרעננים ומנסים שוב.', true); return; }
     var texts = [], names = [], blobs = [], k = 0;
     items.forEach(function (it) {

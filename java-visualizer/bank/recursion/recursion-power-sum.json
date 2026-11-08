@@ -1,0 +1,134 @@
+{
+  "id": "recursion-power-sum",
+  "topic": "recursion",
+  "level": "easy",
+  "title": "חזקה וסכום ברקורסיה",
+  "question": {
+    "intro": "בשני הסעיפים יש לכתוב פעולה רקורסיבית, בלי לולאות.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה רקורסיבית ששמה power, המקבלת שני מספרים שלמים base ו-exp (exp ≥ 0), ומחזירה את base בחזקת exp.\nלדוגמה: עבור base = 2 ו-exp = 10 הפעולה תחזיר 1024."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה רקורסיבית ששמה sumTo, המקבלת מספר שלם חיובי n ומחזירה את סכום המספרים מ-1 עד n.\nלדוגמה: עבור n = 5 הפעולה תחזיר 15."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "חזקה וסכום ברקורסיה",
+    "topic": "recursion",
+    "mainClass": "Rec2",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Rec2",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "power",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "base"
+          },
+          {
+            "type": "int",
+            "name": "exp"
+          }
+        ],
+        "instructions": "כתוב פעולה רקורסיבית ששמה power, המקבלת שני מספרים שלמים base ו-exp (exp ≥ 0), ומחזירה את base בחזקת exp.\nלדוגמה: עבור base = 2 ו-exp = 10 הפעולה תחזיר 1024.",
+        "solution": "public static int power(int base, int exp) {\n    if (exp == 0) {\n        return 1;\n    }\n    return base * power(base, exp - 1);\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Rec2",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "sumTo",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "n"
+          }
+        ],
+        "instructions": "כתוב פעולה רקורסיבית ששמה sumTo, המקבלת מספר שלם חיובי n ומחזירה את סכום המספרים מ-1 עד n.\nלדוגמה: עבור n = 5 הפעולה תחזיר 15.",
+        "solution": "public static int sumTo(int n) {\n    if (n == 1) {\n        return 1;\n    }\n    return n + sumTo(n - 1);\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א: \" + power(2, 10) + \" \" + power(5, 0));\nSystem.out.println(\"סעיף ב: \" + sumTo(5) + \" \" + sumTo(1));",
+    "expectedOutput": "סעיף א: 1024 1\nסעיף ב: 15 1"
+  },
+  "csharp": {
+    "question": {
+      "intro": "בשני הסעיפים יש לכתוב פעולה רקורסיבית, בלי לולאות.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה רקורסיבית ששמה Power, המקבלת שני מספרים שלמים base ו-exp (exp ≥ 0), ומחזירה את base בחזקת exp.\nלדוגמה: עבור base = 2 ו-exp = 10 הפעולה תחזיר 1024."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה רקורסיבית ששמה SumTo, המקבלת מספר שלם חיובי n ומחזירה את סכום המספרים מ-1 עד n.\nלדוגמה: עבור n = 5 הפעולה תחזיר 15."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "חזקה וסכום ברקורסיה",
+      "topic": "recursion",
+      "mainClass": "Rec2",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Rec2",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "Power",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "base"
+            },
+            {
+              "type": "int",
+              "name": "exp"
+            }
+          ],
+          "instructions": "כתוב פעולה רקורסיבית ששמה Power, המקבלת שני מספרים שלמים base ו-exp (exp ≥ 0), ומחזירה את base בחזקת exp.\nלדוגמה: עבור base = 2 ו-exp = 10 הפעולה תחזיר 1024.",
+          "solution": "public static int Power(int base, int exp)\n{\n    if (exp == 0)\n    {\n        return 1;\n    }\n    return base * Power(base, exp - 1);\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Rec2",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "SumTo",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "n"
+            }
+          ],
+          "instructions": "כתוב פעולה רקורסיבית ששמה SumTo, המקבלת מספר שלם חיובי n ומחזירה את סכום המספרים מ-1 עד n.\nלדוגמה: עבור n = 5 הפעולה תחזיר 15.",
+          "solution": "public static int SumTo(int n)\n{\n    if (n == 1)\n    {\n        return 1;\n    }\n    return n + SumTo(n - 1);\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א: \" + Power(2, 10) + \" \" + Power(5, 0));\nConsole.WriteLine(\"סעיף ב: \" + SumTo(5) + \" \" + SumTo(1));",
+      "expectedOutput": "סעיף א: 1024 1\nסעיף ב: 15 1"
+    }
+  }
+}

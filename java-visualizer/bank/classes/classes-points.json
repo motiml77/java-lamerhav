@@ -1,0 +1,146 @@
+{
+  "id": "classes-points",
+  "topic": "classes",
+  "level": "medium",
+  "title": "נקודות במישור",
+  "question": {
+    "intro": "נתונה המחלקה Point (נקודה במישור), ובה התכונות x ו-y (מספרים שלמים), פעולה בונה ופעולות get.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסף למחלקה Point פעולה ששמה distSquared, המקבלת נקודה אחרת other ומחזירה את ריבוע המרחק בין הנקודה הנוכחית ל-other, כלומר: (x1 - x2)·(x1 - x2) + (y1 - y2)·(y1 - y2).\nלדוגמה: עבור הנקודות (1, 2) ו-(4, 6) הפעולה תחזיר 25."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה חיצונית ששמה closest, המקבלת מערך של נקודות (לפחות 2), ומחזירה את ריבוע המרחק הקטן ביותר בין שתי נקודות במערך (שתי נקודות במקומות שונים במערך). יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור הנקודות (0, 0), (5, 5), (1, 1), (9, 0) הפעולה תחזיר 2."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "נקודות במישור",
+    "topic": "classes",
+    "mainClass": "Main",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Point",
+        "code": "public class Point {\n    private int x;\n    private int y;\n\n    public Point(int x, int y) {\n        this.x = x;\n        this.y = y;\n    }\n\n    public int getX() { return x; }\n    public int getY() { return y; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Point",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "distSquared",
+        "parameters": [
+          {
+            "type": "Point",
+            "name": "other"
+          }
+        ],
+        "instructions": "הוסף למחלקה Point פעולה ששמה distSquared, המקבלת נקודה אחרת other ומחזירה את ריבוע המרחק בין הנקודה הנוכחית ל-other, כלומר: (x1 - x2)·(x1 - x2) + (y1 - y2)·(y1 - y2).\nלדוגמה: עבור הנקודות (1, 2) ו-(4, 6) הפעולה תחזיר 25.",
+        "solution": "public int distSquared(Point other) {\n    int dx = x - other.getX();\n    int dy = y - other.getY();\n    return dx * dx + dy * dy;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Main",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "closest",
+        "parameters": [
+          {
+            "type": "Point[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית ששמה closest, המקבלת מערך של נקודות (לפחות 2), ומחזירה את ריבוע המרחק הקטן ביותר בין שתי נקודות במערך (שתי נקודות במקומות שונים במערך). יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור הנקודות (0, 0), (5, 5), (1, 1), (9, 0) הפעולה תחזיר 2.",
+        "solution": "public static int closest(Point[] arr) {\n    int best = arr[0].distSquared(arr[1]);\n    for (int i = 0; i < arr.length; i++) {\n        for (int j = i + 1; j < arr.length; j++) {\n            int d = arr[i].distSquared(arr[j]);\n            if (d < best) {\n                best = d;\n            }\n        }\n    }\n    return best;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Main",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1: \" + check(new Point(1, 2).distSquared(new Point(4, 6)), 25));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(new Point(-2, 1).distSquared(new Point(1, 3)), 13));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(new Point(3, 3).distSquared(new Point(3, 3)), 0));\nPoint[] arr = { new Point(0, 0), new Point(5, 5), new Point(1, 1), new Point(9, 0) };\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(closest(arr), 2));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(closest(new Point[] { new Point(3, 4), new Point(10, 10) }), 85));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(closest(new Point[] { new Point(1, 1), new Point(4, 5), new Point(1, 1) }), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה המחלקה Point (נקודה במישור), ובה התכונות x ו-y (מספרים שלמים), פעולה בונה ופעולות get.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "הוסף למחלקה Point פעולה ששמה DistSquared, המקבלת נקודה אחרת other ומחזירה את ריבוע המרחק בין הנקודה הנוכחית ל-other, כלומר: (x1 - x2)·(x1 - x2) + (y1 - y2)·(y1 - y2).\nלדוגמה: עבור הנקודות (1, 2) ו-(4, 6) הפעולה תחזיר 25."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה חיצונית ששמה Closest, המקבלת מערך של נקודות (לפחות 2), ומחזירה את ריבוע המרחק הקטן ביותר בין שתי נקודות במערך (שתי נקודות במקומות שונים במערך). יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור הנקודות (0, 0), (5, 5), (1, 1), (9, 0) הפעולה תחזיר 2."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "נקודות במישור",
+      "topic": "classes",
+      "mainClass": "Main",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Point",
+          "code": "public class Point\n{\n    private int x;\n    private int y;\n\n    public Point(int x, int y)\n    {\n        this.x = x;\n        this.y = y;\n    }\n\n    public int GetX() { return x; }\n    public int GetY() { return y; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Point",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "DistSquared",
+          "parameters": [
+            {
+              "type": "Point",
+              "name": "other"
+            }
+          ],
+          "instructions": "הוסף למחלקה Point פעולה ששמה DistSquared, המקבלת נקודה אחרת other ומחזירה את ריבוע המרחק בין הנקודה הנוכחית ל-other, כלומר: (x1 - x2)·(x1 - x2) + (y1 - y2)·(y1 - y2).\nלדוגמה: עבור הנקודות (1, 2) ו-(4, 6) הפעולה תחזיר 25.",
+          "solution": "public int DistSquared(Point other)\n{\n    int dx = x - other.GetX();\n    int dy = y - other.GetY();\n    return dx * dx + dy * dy;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Main",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "Closest",
+          "parameters": [
+            {
+              "type": "Point[]",
+              "name": "arr"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית ששמה Closest, המקבלת מערך של נקודות (לפחות 2), ומחזירה את ריבוע המרחק הקטן ביותר בין שתי נקודות במערך (שתי נקודות במקומות שונים במערך). יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור הנקודות (0, 0), (5, 5), (1, 1), (9, 0) הפעולה תחזיר 2.",
+          "solution": "public static int Closest(Point[] arr)\n{\n    int best = arr[0].DistSquared(arr[1]);\n    for (int i = 0; i < arr.Length; i++)\n    {\n        for (int j = i + 1; j < arr.Length; j++)\n        {\n            int d = arr[i].DistSquared(arr[j]);\n            if (d < best)\n            {\n                best = d;\n            }\n        }\n    }\n    return best;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Main",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1: \" + Check(new Point(1, 2).DistSquared(new Point(4, 6)), 25));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(new Point(-2, 1).DistSquared(new Point(1, 3)), 13));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(new Point(3, 3).DistSquared(new Point(3, 3)), 0));\nPoint[] arr = { new Point(0, 0), new Point(5, 5), new Point(1, 1), new Point(9, 0) };\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(Closest(arr), 2));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(Closest(new Point[] { new Point(3, 4), new Point(10, 10) }), 85));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(Closest(new Point[] { new Point(1, 1), new Point(4, 5), new Point(1, 1) }), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

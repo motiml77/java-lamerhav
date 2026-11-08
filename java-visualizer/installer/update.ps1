@@ -60,6 +60,9 @@ try {
             $r = & (Join-Path $dir 'intellij.ps1') -Source $ij -Quiet
             if ($LASTEXITCODE -eq 3) { Log 'IntelliJ פתוח — התוסף יעודכן בפעם הבאה' }
         }
+        # מאגר התרגילים ב-IntelliJ (אחרי שהתוסף הראשי נכנס) — אותה בדיקה, גם בלי אינטרנט
+        $bank = Join-Path $dir 'bank\bank-install.ps1'
+        if ($lang -ne 'cs' -and (Test-Path -LiteralPath $bank)) { & $bank -Only intellij -Quiet | Out-Null }
     } catch { Log "IntelliJ: $($_.Exception.Message)" }
     # לא יותר מבדיקה אחת בשעה
     $stamp = Join-Path $dir 'update-check.txt'

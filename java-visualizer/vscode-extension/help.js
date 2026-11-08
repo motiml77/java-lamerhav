@@ -10,6 +10,8 @@ const TUTORIALS = [
     { id: 'c', num: '03', title: 'מבנה בתוך מבנה', desc: 'שלוש דוגמאות: מחסנית של תורים, רשימה של מחסניות ועץ של תורים — יצירת התרגיל וההרצה הוויזואלית.' },
     { id: 'd', num: '04', title: 'מוסיפים התאמות לתרגיל', desc: 'אחרי שהתרגיל נוצר: מוסיפים ידנית מבנה נוסף, משתנה x ומערך — ורואים שגם הם מופיעים בהדמיה.' },
     { id: 'e', num: '05', title: 'שליחת תרגיל והצעה לפתרון', desc: 'מעלים את דף התרגיל — צילום מסך (Ctrl+V), PDF או Word — ומקבלים קוד מוכן עם פעולה לכל סעיף; ולכל סעיף "💡 הצעה לפתרון" שנבדקה.' },
+    // הדרכה ו — רק ב-Visual Studio (הסרטון help/vs/f.mp4 קיים רק שם; הדפים מציגים רק הדרכות שיש להן סרטון)
+    { id: 'f', num: '06', title: 'עבודה ב-Visual Studio — מההתחלה', desc: 'פותחים את תיקיית התרגילים, סרגל הכלים של DSViz בראש החלון: תרגיל חדש, מאגר שאלות והרצה ויזואלית.', vsOnly: true },
 ];
 // לכל סביבה סרטונים משלה (אותן הדרכות, במסך של הסביבה): Eclipse — help/, VS Code — help/vscode/, Visual Studio — help/vs/
 
@@ -57,7 +59,7 @@ const DONATE_JS = `(function () {
 
 /** durations: { a: "1:05", ... } (אופציונלי). urlOf(file) → כתובת הקובץ בתוך התיקייה help (שונה ב-Webview ובדפדפן) */
 function page({ urlOf, durations, csp, lang }) {
-    const list = TUTORIALS.map(t => Object.assign({}, t, { dur: (durations || {})[t.id] || '', video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
+    const list = TUTORIALS.filter(t => !t.vsOnly || (durations || {})[t.id]).map(t => Object.assign({}, t, { dur: (durations || {})[t.id] || '', video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
     const data = JSON.stringify(list).replace(/</g, '\\u003c');
     return `<!doctype html>
 <html lang="he" dir="rtl"><head><meta charset="utf-8">
@@ -152,8 +154,8 @@ ${DONATE_JS}
 /** הסרטונים באתר (הענף הראשי ב-GitHub) — ההתקנה לא כוללת אותם; הנגן מנגן משם כשאין עותק במחשב, והעדכון ברקע מוריד אותם */
 const REMOTE_HELP = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/help/';
 
-function playerPage({ urlOf, csp, id: fixedId, remote, lang }) {
-    const list = TUTORIALS.map(t => ({ id: t.id, num: t.num, title: t.title, video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
+function playerPage({ urlOf, csp, id: fixedId, remote, lang, vs }) {
+    const list = TUTORIALS.filter(t => !t.vsOnly || vs).map(t => ({ id: t.id, num: t.num, title: t.title, video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
     const data = JSON.stringify(list).replace(/</g, '\\u003c');
     return `<!doctype html>
 <html lang="he" dir="rtl"><head><meta charset="utf-8">

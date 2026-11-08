@@ -1,0 +1,33 @@
+<idea-plugin>
+    <id>il.lamerhav.dsviz.bank</id>
+    <name>DSViz — Exercise Bank (lab)</name>
+    <vendor email="motiml77@gmail.com">Moti Levi</vendor>
+    <description><![CDATA[
+    <p dir="rtl">"מאגר תרגילים" ל-DSViz — גרסת בדיקה. בוחרים נושא ושאלה (קל / בינוני / קשה), ונוצר תרגיל מוכן בפרויקט: פעולה לכל סעיף,
+    main שמריץ ומדפיס, והצעה לפתרון לכל סעיף. החלון הצף "השאלה" נשאר ליד הקוד; "סיימתי" מסמן ומוחק רק את קבצי התרגיל.</p>
+    <p>Requires the DSViz plugin. Lab build — not for distribution.</p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>il.lamerhav.dsviz</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="il.lamerhav.dsviz.bank.BankAutotest"/>
+    </extensions>
+
+    <actions>
+        <action id="DSViz.Bank" class="il.lamerhav.dsviz.bank.BankActions$Bank" text="מאגר תרגילים" icon="/icons/bank.png"
+                description="מאגר תרגילים: בוחרים נושא ושאלה — ונוצר תרגיל מוכן עם פעולה לכל סעיף, main והצעה לפתרון">
+            <add-to-group group-id="MainToolbarRight" anchor="first"/>
+            <add-to-group group-id="NavBarToolBar" anchor="first"/>
+            <add-to-group group-id="ToolsMenu" anchor="first"/>
+        </action>
+        <action id="DSViz.BankQuestion" class="il.lamerhav.dsviz.bank.BankActions$Question" text="השאלה" icon="/icons/question.png"
+                description="השאלה: חלון צף עם הנוסח של התרגיל מהמאגר — נשאר מקדימה ליד הקוד">
+            <add-to-group group-id="MainToolbarRight" anchor="after" relative-to-action="DSViz.Bank"/>
+            <add-to-group group-id="NavBarToolBar" anchor="after" relative-to-action="DSViz.Bank"/>
+            <add-to-group group-id="ToolsMenu" anchor="after" relative-to-action="DSViz.Bank"/>
+        </action>
+    </actions>
+</idea-plugin>

@@ -4,7 +4,7 @@
 #   il.lamerhav.dsviz_1.0.1.jar  — התוסף ל-Eclipse (מעתיקים לתיקיית dropins)
 #   dsviz-1.0.1.vsix             — התוסף ל-VS Code
 #   dsviz-intellij-1.0.1.zip     — התוסף ל-IntelliJ IDEA (Settings ← Plugins ← Install Plugin from Disk; ההתקנות מתקינות לבד)
-#   DSViz-Setup.exe              — תוכנית התקנה ל-Windows (מוצאת לבד את VS Code ואת Eclipse; Java 21 כלולה)
+#   DSViz-Setup.exe              — תוכנית התקנה ל-Windows (מוצאת לבד את VS Code, Eclipse, IntelliJ ו-Visual Studio; Java 21 כלולה; כולל את מאגר התרגילים)
 #   dsviz-install.zip            — התקנה ל-Linux, התוספים והמדריך (בלי ה-exe של Windows)
 # ל-Mac: פקודה אחת בטרמינל (installer/mac/install.sh) — החבילות נבנות ב-GitHub Actions (.github/workflows/dsviz-mac.yml)
 # דרישות לבנייה: JDK 11+ (ל-IntelliJ: JDK 21 + Gradle 8.5+ ואינטרנט בפעם הראשונה), Python 3, Node.js, NSIS (makensis) — רק למי שבונה
@@ -134,6 +134,8 @@ cp release/dsviz.jar "$P/lib/"
 echo "== Windows installer (DSViz-Setup.exe)"
 if command -v makensis >/dev/null 2>&1; then
     tools/build-jre.sh   # Java 21 מקוצרת ל-Windows שנכנסת לתוך ההתקנה
+    # מאגר התרגילים (Eclipse, IntelliJ, Visual Studio) — נכנס להתקנה ולעדכון האוטומטי; BUILDNO אחד לכל הבנייה
+    BUILDNO=$BUILDNO sh tools/build-bank-all.sh
     # BUILDNO (למעלה) — העדכון האוטומטי מתקין כל בנייה חדשה יותר; אותו מספר כמו ב-Bundle-Version של התוסף ל-Eclipse
     (cd installer && makensis -V2 -DVERSION=$VERSION -DBUILDNO=$BUILDNO setup.nsi)
     echo "release/DSViz-Setup.exe"

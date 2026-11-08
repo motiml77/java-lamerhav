@@ -603,27 +603,44 @@ if (-not $NoGui) {
             try { $n = $el.Current.Name } catch { }
             if ($n -and $n -match 'ויזואלית|רגילה|Start|Debug Target|Continue|ConsoleApp|Ex\d\d') {
                 $names += "$($el.Current.ControlType.ProgrammaticName.Replace('ControlType.', '')):$n"
-                if (-not $start -and $profileName -and $n -like "*$profileName*" -and $el.Current.ControlType.ProgrammaticName -match 'Button|SplitButton') { $start = $el }
+                # הכפתור הירוק = ה-SplitButton 'Debug Target' (הפרופיל שנבחר מצויר בתוכו). לא מחפשים לפי שם הפרופיל: האלמנט היחיד ב-UI Automation
+                # ששמו 'הרצה ויזואלית' הוא כפתור הסרגל של DSViz (הרחבת ה-VSIX) — לחיצה עליו בלי קובץ C# פתוח רק מקפיצה הודעה (כך נכשלה הבדיקה בעבר)
+                if (-not $start -and $n -eq 'Debug Target' -and $el.Current.ControlType.ProgrammaticName -match 'SplitButton' -and -not $el.Current.IsOffscreen) { $start = $el }
             }
         }
         $names | Select-Object -Unique | Set-Content (Join-Path $Out "$id-uia.txt") -Encoding utf8
         Info "בסרגל: $((($names | Select-Object -Unique) | Select-Object -First 12) -join ' ; ')"
         # שם הפרופיל לא נחשף ל-UI Automation (הכפתור מצויר בעצמו) — רואים אותו בצילום; כאן בודקים שיש כפתור הפעלה, והפרופיל נבחר ב-.csproj.user
         if ($profileName) { Check "$id-button" (($names -join ' ') -match 'Debug Target') "ב-Visual Studio יש תפריט הפעלה (Debug Target); הפרופיל '$profileName' נבחר בו (נראה בצילום)" ($names -join ' ; ') }
-        # מפעילים: לחיצה על הכפתור (ואם לא נמצא — Ctrl+F5 = Start Without Debugging)
-        $how = $null
-        if ($start) { $how = ClickEl $start; if ($how) { Info "לחצנו על '$($start.Current.Name)' ($how)" } }
-        if (-not $how) {
+        # מפעילים: לחיצה אמיתית (עכבר) על הכפתור הירוק של הפרופיל. אם החלון לא נפתח — Ctrl+F5 (Start Without Debugging, אותו פרופיל)
+        $how = $null; $seen = $false
+        if ($start) {
+            $r = $start.Current.BoundingRectangle
+            Info ("הכפתור הירוק (Debug Target): {0}" -f $r)
+            $how = 'green-button'
+            for ($try = 1; $try -le 2 -and -not $seen; $try++) {   # הלחיצה הראשונה לפעמים נבלעת (Visual Studio 2022 עוד עסוק): לוחצים שוב לפני שחוזרים ל-Ctrl+F5
+                [Win.Mouse]::SetCursorPos([int]($r.X + [Math]::Min(24, $r.Width / 3)), [int]($r.Y + $r.Height / 2)) | Out-Null   # צד הכפתור (לא החץ שבקצה)
+                Start-Sleep -Milliseconds 400
+                [Win.Mouse]::mouse_event(2, 0, 0, 0, 0); [Win.Mouse]::mouse_event(4, 0, 0, 0, 0)
+                Info "לחצנו (עכבר) על הכפתור הירוק (ניסיון $try)"
+                Start-Sleep 2; if ($try -eq 1) { Shot "$id-clicked" }
+                for ($i = 0; $i -lt 40; $i++) { Start-Sleep 1; if ((Viewers).Count -gt 0) { $seen = $true; break } }
+            }
+            if (-not $seen) { Info "אחרי לחיצה על הכפתור הירוק לא נפתח חלון אחרי שתי לחיצות — Ctrl+F5"; Shot "$id-green-nowindow"; $how = 'ctrl-f5' }
+        }
+        if (-not $seen) {
+            if (-not $how) { $how = 'ctrl-f5' }
+            Get-Process dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
             $wsh = New-Object -ComObject WScript.Shell
             [void]$wsh.AppActivate($vsP.Id); Start-Sleep 1; $wsh.SendKeys('^{F5}'); Info "Ctrl+F5"
+            Start-Sleep 2; Shot "$id-clicked-ctrlf5"
+            for ($i = 0; $i -lt 150; $i++) { Start-Sleep 1; if ((Viewers).Count -gt 0) { $seen = $true; break } }
         }
-        $seen = $false
-        Start-Sleep 2; Shot "$id-clicked"
-        for ($i = 0; $i -lt 150; $i++) { Start-Sleep 1; if ((Viewers).Count -gt 0) { $seen = $true; break } }
+        Info "הפעלה: $how"
         Start-Sleep 6
         Shot "$id-run"
         Info "חלונות: $((Windows) -join ' ; ')"
-        Check "$id-viewer" $seen "Visual Studio: אחרי לחיצה על כפתור ההפעלה נפתח החלון של DSViz" "חלונות: $((Windows) -join ' ; ')"
+        Check "$id-viewer" $seen "Visual Studio: אחרי הפעלת הפרופיל (דרך: $how) נפתח החלון של DSViz" "חלונות: $((Windows) -join ' ; ')"
         KillDsviz
         Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
         Start-Sleep 3

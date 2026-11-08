@@ -1,0 +1,136 @@
+{
+  "id": "strings-words",
+  "topic": "strings",
+  "level": "medium",
+  "title": "מילים במשפט",
+  "question": {
+    "intro": "נתון משפט str: מחרוזת לא ריקה של מילים באנגלית. בין כל שתי מילים יש רווח אחד, ואין רווחים בהתחלה ובסוף.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה reverseWords, המקבלת משפט str ומחזירה משפט חדש ובו אותן מילים בסדר הפוך (כל מילה נשארת כמו שהיא).\nלדוגמה: עבור \"i love to code\" הפעולה תחזיר \"code to love i\"."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה longestWord, המקבלת משפט str ומחזירה את המילה הארוכה ביותר בו. אם יש כמה מילים כאלה — הפעולה תחזיר את הראשונה מביניהן.\nלדוגמה: עבור \"i love to code\" הפעולה תחזיר \"love\"."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מילים במשפט",
+    "topic": "strings",
+    "mainClass": "Strings5",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Strings5",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "reverseWords",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "str"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה reverseWords, המקבלת משפט str ומחזירה משפט חדש ובו אותן מילים בסדר הפוך (כל מילה נשארת כמו שהיא).\nלדוגמה: עבור \"i love to code\" הפעולה תחזיר \"code to love i\".",
+        "solution": "public static String reverseWords(String str) {\n    String result = \"\";\n    String word = \"\";\n    for (int i = 0; i < str.length(); i++) {\n        char ch = str.charAt(i);\n        if (ch == ' ') {\n            result = \" \" + word + result;\n            word = \"\";\n        } else {\n            word = word + ch;\n        }\n    }\n    return word + result;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Strings5",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "longestWord",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "str"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה longestWord, המקבלת משפט str ומחזירה את המילה הארוכה ביותר בו. אם יש כמה מילים כאלה — הפעולה תחזיר את הראשונה מביניהן.\nלדוגמה: עבור \"i love to code\" הפעולה תחזיר \"love\".",
+        "solution": "public static String longestWord(String str) {\n    String best = \"\";\n    String word = \"\";\n    for (int i = 0; i <= str.length(); i++) {\n        if (i == str.length() || str.charAt(i) == ' ') {\n            if (word.length() > best.length()) {\n                best = word;\n            }\n            word = \"\";\n        } else {\n            word = word + str.charAt(i);\n        }\n    }\n    return best;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Strings5",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1: \" + check(reverseWords(\"i love to code\"), \"code to love i\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(reverseWords(\"hello\"), \"hello\"));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(reverseWords(\"ab cd\"), \"cd ab\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(longestWord(\"i love to code\"), \"love\"));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(longestWord(\"we are the champions\"), \"champions\"));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(longestWord(\"ab cd\"), \"ab\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתון משפט str: מחרוזת לא ריקה של מילים באנגלית. בין כל שתי מילים יש רווח אחד, ואין רווחים בהתחלה ובסוף.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה ReverseWords, המקבלת משפט str ומחזירה משפט חדש ובו אותן מילים בסדר הפוך (כל מילה נשארת כמו שהיא).\nלדוגמה: עבור \"i love to code\" הפעולה תחזיר \"code to love i\"."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה LongestWord, המקבלת משפט str ומחזירה את המילה הארוכה ביותר בו. אם יש כמה מילים כאלה — הפעולה תחזיר את הראשונה מביניהן.\nלדוגמה: עבור \"i love to code\" הפעולה תחזיר \"love\"."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מילים במשפט",
+      "topic": "strings",
+      "mainClass": "Strings5",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Strings5",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "ReverseWords",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה ReverseWords, המקבלת משפט str ומחזירה משפט חדש ובו אותן מילים בסדר הפוך (כל מילה נשארת כמו שהיא).\nלדוגמה: עבור \"i love to code\" הפעולה תחזיר \"code to love i\".",
+          "solution": "public static string ReverseWords(string str)\n{\n    string result = \"\";\n    string word = \"\";\n    for (int i = 0; i < str.Length; i++)\n    {\n        char ch = str[i];\n        if (ch == ' ')\n        {\n            result = \" \" + word + result;\n            word = \"\";\n        }\n        else\n        {\n            word = word + ch;\n        }\n    }\n    return word + result;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Strings5",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "LongestWord",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה LongestWord, המקבלת משפט str ומחזירה את המילה הארוכה ביותר בו. אם יש כמה מילים כאלה — הפעולה תחזיר את הראשונה מביניהן.\nלדוגמה: עבור \"i love to code\" הפעולה תחזיר \"love\".",
+          "solution": "public static string LongestWord(string str)\n{\n    string best = \"\";\n    string word = \"\";\n    for (int i = 0; i <= str.Length; i++)\n    {\n        if (i == str.Length || str[i] == ' ')\n        {\n            if (word.Length > best.Length)\n            {\n                best = word;\n            }\n            word = \"\";\n        }\n        else\n        {\n            word = word + str[i];\n        }\n    }\n    return best;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Strings5",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1: \" + Check(ReverseWords(\"i love to code\"), \"code to love i\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(ReverseWords(\"hello\"), \"hello\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(ReverseWords(\"ab cd\"), \"cd ab\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(LongestWord(\"i love to code\"), \"love\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(LongestWord(\"we are the champions\"), \"champions\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(LongestWord(\"ab cd\"), \"ab\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

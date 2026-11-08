@@ -1,0 +1,59 @@
+# ההתקנה הציבורית (DSViz-Setup.exe — כוללת את מאגר התרגילים והכניסה) על Windows אמיתי של GitHub:
+#   fresh    — התקנה חדשה (/S), עדכון שני בלי כפילות, והסרה
+#   upgrade  — ההתקנה הציבורית הנוכחית מ-master ואז החדשה כמו שהעדכון האוטומטי מריץ (/S /UPDATE)
+#   lab      — DSViz-Lab-Setup.exe הישן (lab-test) ואז החדשה מעליו (/S /UPDATE)
+#   labwrap  — DSViz-Lab-Setup.exe החדש (עטיפה דקה) על מחשב נקי
+# Visual Studio אמיתי (קיצורים, jar, חלון הכניסה של המאגר); Eclipse ו-IntelliJ מדומים (אין אותם על המחשב) — ראו tools/test/windows-public/public-test.ps1
+name: DSViz public installer
+on:
+  push:
+    branches: [release/public-all]
+    paths:
+      - '.github/workflows/dsviz-public.yml'
+      - 'java-visualizer/tools/test/windows-public/**'
+      - 'java-visualizer/release/DSViz-Setup.exe'
+      - 'java-visualizer/installer/**'
+  workflow_dispatch:
+
+jobs:
+  public:
+    name: ${{ matrix.scenario }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-2022, scenario: fresh }
+          - { os: windows-2025, scenario: fresh }
+          - { os: windows-2022, scenario: upgrade }
+          - { os: windows-2022, scenario: lab }
+          - { os: windows-2022, scenario: labwrap }
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - name: NSIS (לעטיפה)
+        if: matrix.scenario == 'labwrap'
+        shell: powershell
+        run: choco install nsis -y --no-progress
+      - name: בדיקה
+        shell: powershell
+        run: |
+          $v = Get-Content "$env:GITHUB_WORKSPACE\java-visualizer\release\version.json" -Raw | ConvertFrom-Json
+          Write-Host "build: $($v.build)"
+          Get-FileHash "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" -Algorithm SHA256 | Format-List
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-public\public-test.ps1" `
+            -Scenario '${{ matrix.scenario }}' `
+            -Setup "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" `
+            -Out "$env:GITHUB_WORKSPACE\public-ci" `
+            -Build ([int64]$v.build) `
+            -LabNsi "$env:GITHUB_WORKSPACE\java-visualizer\installer\lab\lab.nsi"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-${{ matrix.scenario }}-${{ matrix.os }}
+          path: public-ci
+          retention-days: 14

@@ -16,6 +16,6 @@ for (const sub of ['', 'vscode', 'vs']) {
     }
     fs.writeFileSync(path.join(dir, 'tutorials.json'), JSON.stringify(durations, null, 2) + '\n');
     fs.writeFileSync(path.join(dir, 'index.html'), help.page({ urlOf: f => f, durations, lang: sub === 'vs' ? 'cs' : 'java' }));
-    fs.writeFileSync(path.join(dir, 'player.html'), help.playerPage({ urlOf: f => f, lang: sub === 'vs' ? 'cs' : 'java', remote: help.REMOTE_HELP + (sub ? sub + '/' : '') }));
+    fs.writeFileSync(path.join(dir, 'player.html'), help.playerPage({ urlOf: f => f, lang: sub === 'vs' ? 'cs' : 'java', vs: sub === 'vs', remote: help.REMOTE_HELP + (sub ? sub + '/' : '') }));
     console.log(path.join('help', sub, 'index.html'), JSON.stringify(durations));
 }

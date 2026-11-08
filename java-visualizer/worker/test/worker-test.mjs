@@ -313,6 +313,50 @@ await test('מכסה של המודל הראשון נגמרה → עוברים ל
   assert.equal(calls.length, 2);
 });
 
+function openaiOk(obj) {
+  return { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(obj) } }], usage: { prompt_tokens: 100, completion_tokens: 50 } };
+}
+const OENV = { OPENAI_API_KEY: 'sk-test', OPENAI_MODELS: 'gpt-x' };
+
+await test('OpenAI: PDF כקובץ, תמונה כ-image_url, סכמה ומפתח בכותרת; בלי מפתח Gemini', async () => {
+  script = [{ status: 200, json: openaiOk(SAMPLE) }];
+  const r = await call(exerciseRequest({
+    files: [{ bytes: PDF, name: 'targil.pdf', type: 'application/pdf' }, { bytes: PNG, name: 'a.png', type: 'image/png' }],
+    meta: { texts: [{ name: 'w.docx', text: 'כתבו פעולה...' }] },
+  }), OENV);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.model, 'gpt-x');
+  assert.equal(r.body.exercise.tasks[0].methodName, 'countEven');
+  assert.match(String(calls[0].url), /api\.openai\.com\/v1\/chat\/completions/);
+  assert.equal(calls[0].init.headers.authorization, 'Bearer sk-test');
+  const body = JSON.parse(calls[0].init.body);
+  assert.equal(body.model, 'gpt-x');
+  assert.equal(body.response_format.type, 'json_schema');
+  assert.equal(body.response_format.json_schema.schema.type, 'object');
+  const parts = body.messages[1].content;
+  assert.ok(parts.some(p => p.type === 'file' && p.file.file_data.startsWith('data:application/pdf;base64,')));
+  assert.ok(parts.some(p => p.type === 'image_url' && p.image_url.url.startsWith('data:image/png;base64,')));
+  assert.ok(parts.some(p => p.type === 'text' && /כתבו פעולה/.test(p.text)));
+});
+
+await test('OpenAI: 429 → הודעת עומס; נגמר הכסף בחשבון → תקלת שרת (503)', async () => {
+  script = [{ status: 429, json: { error: { code: 'rate_limit_exceeded' } } }];
+  let r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }), OENV);
+  assert.equal(r.status, 429);
+  script = [{ status: 429, json: { error: { code: 'insufficient_quota' } } }];
+  r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }), OENV);
+  assert.equal(r.status, 503);
+  assert.equal(r.body.code, 'service');
+});
+
+await test('OpenAI: בדיקה חיה (health/gemini) מחזירה את המצב בלי המפתח', async () => {
+  script = [{ status: 200, json: openaiOk({ x: 1 }) }];
+  const r = await call(new Request('https://w.example/v1/health/gemini', { method: 'POST' }), OENV);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.models.map(m => [m.model, m.http, m.status]), [['gpt-x', 200, 'OK']]);
+  assert.ok(!JSON.stringify(r.body).includes('sk-test'));
+});
+
 await test('כל המודלים במכסה → הודעה ברורה', async () => {
   script = [{ status: 429, text: '{}' }, { status: 503, text: '{}' }];
   const r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }));
@@ -374,6 +418,47 @@ await test('Gemini דוחה את הקובץ (400) → הודעה, בלי לנס�
   const r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] }));
   assert.equal(r.status, 502);
   assert.equal(calls.length, 1);
+});
+
+await test('מפתח Gemini לא תקין (Google מחזיר 400 API_KEY_INVALID) → מנסים את המודל הבא, ובסוף "תקלה בשרת" (לא "לא הצליח לקרוא את הקבצים")', async () => {
+  const bad = { status: 400, json: { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT',
+    details: [{ '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'API_KEY_INVALID' }] } } };
+  script = [bad, bad];
+  const orig = console.error; console.error = () => {};
+  let r;
+  try { r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] })); } finally { console.error = orig; }
+  assert.equal(r.status, 503);
+  assert.equal(r.body.code, 'service');
+  assert.ok(!r.body.error.includes('לא הצליח לקרוא'), r.body.error);
+  assert.ok(/API_KEY_INVALID/.test(r.body.detail), r.body.detail);
+  assert.equal(calls.length, 2);
+});
+
+await test('הרשאה (403 PERMISSION_DENIED) במודל הראשון → המודל השני עונה', async () => {
+  script = [{ status: 403, json: { error: { code: 403, message: 'Permission denied', status: 'PERMISSION_DENIED' } } }, { status: 200, json: geminiOk(SAMPLE) }];
+  const orig = console.error; console.error = () => {};
+  let r;
+  try { r = await call(exerciseRequest({ files: [{ bytes: PNG, name: 'a.png', type: 'image/png' }] })); } finally { console.error = orig; }
+  assert.equal(r.status, 200);
+  assert.equal(r.body.model, 'model-b');
+});
+
+await test('בדיקה חיה של המודלים (POST /v1/health/gemini): מה Google עונה לכל מודל, בלי המפתח', async () => {
+  script = [{ status: 200, json: geminiOk({ x: 1 }) },
+            { status: 400, json: { error: { code: 400, message: 'API key not valid.', status: 'INVALID_ARGUMENT', details: [{ reason: 'API_KEY_INVALID' }] } } }];
+  const r = await call(new Request('https://w.example/v1/health/gemini', { method: 'POST' }));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.models.length, 2);
+  assert.deepEqual([r.body.models[0].model, r.body.models[0].http, r.body.models[0].status], ['model-a', 200, 'OK']);
+  assert.deepEqual([r.body.models[1].http, r.body.models[1].reason, r.body.models[1].serverSide], [400, 'API_KEY_INVALID', true]);
+  assert.ok(!JSON.stringify(r.body).includes('test-key'), 'המפתח לא מופיע בתשובה');
+  assert.equal(JSON.parse(calls[0].init.body).contents[0].parts[0].text, 'ping');
+});
+
+await test('בדיקה חיה בלי המפתח של התוסף → 401', async () => {
+  const r = await call(new Request('https://w.example/v1/health/gemini', { method: 'POST' }), Object.assign({}, ENV, { APP_KEY: 'app' }));
+  assert.equal(r.status, 401);
+  assert.equal(calls.length, 0);
 });
 
 await test('תיקון: הקוד והשגיאות נשלחים, והתשובה חוזרת', async () => {
@@ -488,8 +573,18 @@ await test('מכסה יומית (KV)', async () => {
   assert.equal((await call(req(), env)).status, 429);
 });
 
-await test('קובץ גדול (8MB) — הבקשה נבנית בלי JSON.stringify על הקובץ', async () => {
-  const big = new Uint8Array(8 * 1024 * 1024);
+await test('מעל 1MB — נדחה (קובץ בודד וגם ביחד)', async () => {
+  const big = new Uint8Array(1024 * 1024 + 10); big.set(PDF);
+  let r = await call(exerciseRequest({ files: [{ bytes: big, name: 'big.pdf', type: 'application/pdf' }] }));
+  assert.equal(r.status, 413);
+  assert.match(r.body.error, /1MB/);
+  const half = new Uint8Array(600 * 1024); half.set(PDF);
+  r = await call(exerciseRequest({ files: [{ bytes: half, name: 'a.pdf', type: 'application/pdf' }, { bytes: half, name: 'b.pdf', type: 'application/pdf' }] }));
+  assert.equal(r.status, 413);
+});
+
+await test('קובץ של כמעט 1MB — הבקשה נבנית בלי JSON.stringify על הקובץ', async () => {
+  const big = new Uint8Array(1000 * 1024);
   big.set(PDF);
   const t0 = performance.now();
   const r = await call(exerciseRequest({ files: [{ bytes: big, name: 'big.pdf', type: 'application/pdf' }] }));
@@ -497,7 +592,7 @@ await test('קובץ גדול (8MB) — הבקשה נבנית בלי JSON.string
   assert.equal(r.status, 200);
   const sent = JSON.parse(calls[0].init.body);
   assert.equal(Buffer.from(sent.contents[0].parts.find(p => p.inlineData).inlineData.data, 'base64').length, big.length);
-  console.log(`   (8MB: ${ms.toFixed(0)}ms בסך הכול, כולל בניית FormData בבדיקה)`);
+  console.log(`   (1MB: ${ms.toFixed(0)}ms בסך הכול, כולל בניית FormData בבדיקה)`);
 });
 
 // ------------------------------------------------------------------ נעילה לתשלום

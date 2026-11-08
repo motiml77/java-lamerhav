@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- מאגר תרגילים — אייקון הנושא "recursion" (המקור; ה-PNG נוצר ב-tools/make-topic-icons.js) -->
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11" fill="#FCE7F2"/>
+  <g fill="none" stroke="#C2287A" stroke-width="2.6"><rect x="7" y="7" width="34" height="34" rx="5"/><rect x="13" y="13" width="22" height="22" rx="4" opacity=".8"/><rect x="19" y="19" width="10" height="10" rx="2.5" opacity=".6"/></g><circle cx="24" cy="24" r="2" fill="#C2287A"/>
+</svg>

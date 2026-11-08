@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- מאגר תרגילים — אייקון הנושא "classes" (המקור; ה-PNG נוצר ב-tools/make-topic-icons.js) -->
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11" fill="#FDEEE3"/>
+  <rect x="10" y="8" width="28" height="32" rx="4" fill="#fff" stroke="#DB6B1D" stroke-width="2.6"/><path d="M10 17h28" stroke="#DB6B1D" stroke-width="2.6"/><rect x="10" y="8" width="28" height="9" rx="4" fill="#DB6B1D"/><g stroke="#DB6B1D" stroke-width="2.4" stroke-linecap="round"><path d="M15 23h12M15 28h16M15 33h9"/></g>
+</svg>

@@ -25,6 +25,9 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !ifndef BUILD
   !define BUILD "..\build"
 !endif
+!ifndef BANKDIR
+  !define BANKDIR "..\build\bank-parts"   ; "מאגר התרגילים" (tools/build-bank-all.sh): תוסף Eclipse, תוסף IntelliJ, והתוספת ל-Visual Studio
+!endif
 !define PROJECT_DIR "$DOCUMENTS\DataStructures"
 !define PROJECT_CS_DIR "$DOCUMENTS\DataStructures-CS"
 ; נקודת ההרחבה של MSBuild (ברמת המשתמש) שכל פרויקט C# מסוג SDK מייבא אוטומטית — ראו installer/DSViz.targets
@@ -57,9 +60,9 @@ ShowUninstDetails show
 !define MUI_PAGE_HEADER_TEXT "בחירת שפה"
 !define MUI_PAGE_HEADER_SUBTEXT "באיזו שפה כותבים את התרגילים?"
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
-!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse, ל-IntelliJ IDEA ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse או IntelliJ פתוחים — ההתקנה תבקש לסגור אותם.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
+!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse, ל-IntelliJ IDEA ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n• מאגר התרגילים (עם כניסה): תרגילים מוכנים לפי נושא וקושי, ב-Eclipse, ב-IntelliJ וב-Visual Studio.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse או IntelliJ פתוחים — ההתקנה תבקש לסגור אותם.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
-!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nIntelliJ IDEA: התפריט 'מבני נתונים', החלון DSViz בצד ימין, ו'הרצה ויזואלית' ליד main.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה."
+!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nIntelliJ IDEA: התפריט 'מבני נתונים', החלון DSViz בצד ימין, ו'הרצה ויזואלית' ליד main.$\r$\nמאגר תרגילים: כפתור 'מאגר תרגילים' בסרגל הכלים של Eclipse ושל IntelliJ; ב-Visual Studio — הקיצור 'מאגר תרגילים C#' בשולחן העבודה.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "פתיחת המדריך"
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
@@ -719,6 +722,33 @@ Section "-intellij"
   Pop $0
 SectionEnd
 
+Section "-bank"
+  ; "מאגר התרגילים" עם מסך הכניסה — לכל סביבה שקיבלה את DSViz: Eclipse (dropins), IntelliJ IDEA, Visual Studio (C#).
+  ; רץ בכל התקנה ובכל עדכון אוטומטי (/UPDATE), בשקט וחוזר על עצמו בלי להכפיל (bank-install.ps1). בלי חלון (nsExec)
+  RMDir /r "$INSTDIR\bank"
+  SetOutPath "$INSTDIR\bank"
+  File "${BANKDIR}\il.lamerhav.dsviz.bank_*.jar"
+  File "${BANKDIR}\dsviz-bank-vs.jar"
+  File "${BANKDIR}\dsviz-bank-intellij-*.zip"
+  File "..\vs-bank\install\install-bank-vs.ps1"
+  File "bank-install.ps1"
+  SetOutPath "$INSTDIR"
+  ; גרסת הבדיקה הישנה (DSViz-Lab) — ההתקנה הזאת מחליפה אותה: מסירים את הרישום והתיקייה שלה, כדי שההסרה שלה לא תמחק את המאגר
+  ${If} ${FileExists} "$LOCALAPPDATA\DSViz-Lab\*.*"
+    RMDir /r "$LOCALAPPDATA\DSViz-Lab"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz-Lab"
+    DetailPrint "גרסת הבדיקה (DSViz-Lab) הוחלפה בהתקנה הזאת"
+  ${EndIf}
+  ${If} ${SectionIsSelected} ${SEC_CS}
+    DetailPrint "מאגר התרגילים: Eclipse, IntelliJ IDEA ו-Visual Studio..."
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1"'
+  ${Else}
+    DetailPrint "מאגר התרגילים: Eclipse ו-IntelliJ IDEA..."
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoVs'
+  ${EndIf}
+  Pop $0
+SectionEnd
+
 Section "-extensions"
   ; התוספים של Microsoft ל-VS Code (השלמה אוטומטית ל-Java / C#): יורדים ומותקנים לבד ברקע, בחלון נסתר,
   ; בזה אחר זה (כדי ש-VS Code לא יקבל כמה התקנות במקביל). ההתקנה לא מחכה להם. בלי אינטרנט — מדלגים בשקט
@@ -788,6 +818,13 @@ Section "Uninstall"
   ${EndIf}
   RMDir /r "$INSTDIR\intellij"
   Delete "$INSTDIR\intellij.ps1"
+  ; מאגר התרגילים (Eclipse, IntelliJ, Visual Studio) — לפני שמוחקים את eclipse-dirs.txt
+  ${If} ${FileExists} "$INSTDIR\bank\bank-install.ps1"
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -Remove'
+    Pop $0
+  ${EndIf}
+  RMDir /r "$INSTDIR\bank"
+  RMDir /r "$INSTDIR\lab"
 
   ; כל התקנות Eclipse שהתוסף הועתק אליהן רשומות ב-eclipse-dirs.txt (שורה לכל תיקייה)
   ClearErrors

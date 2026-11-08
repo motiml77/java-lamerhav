@@ -1,0 +1,178 @@
+{
+  "id": "stack-remove-bottom",
+  "topic": "stack",
+  "level": "medium",
+  "title": "הוצאה מהמחסנית והכנסה לתחתית",
+  "question": {
+    "intro": "נתונה מחסנית s של מספרים שלמים.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה removeAll, המקבלת מחסנית s ומספר x, ומוציאה מהמחסנית את כל האיברים השווים ל-x. הסדר של שאר האיברים במחסנית לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור המחסנית שבציור ו-x = 4, בסיום הפעולה המחסנית תהיה (מהראש למטה) 7, 1, 9.",
+        "figures": [
+          {
+            "type": "stack",
+            "values": [
+              4,
+              7,
+              1,
+              4,
+              9
+            ],
+            "caption": "המחסנית s (4 בראש)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה insertBottom, המקבלת מחסנית s ומספר x, ומכניסה את x לתחתית המחסנית (מתחת לכל האיברים). הסדר של שאר האיברים לא ישתנה.\nלדוגמה: עבור המחסנית 7, 1, 9 (7 בראש) ו-x = 5, בסיום הפעולה המחסנית תהיה (מהראש למטה) 7, 1, 9, 5."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "הוצאה מהמחסנית והכנסה לתחתית",
+    "topic": "stacks",
+    "mainClass": "StackTargil4",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "StackTargil4",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "removeAll",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "s"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה removeAll, המקבלת מחסנית s ומספר x, ומוציאה מהמחסנית את כל האיברים השווים ל-x. הסדר של שאר האיברים במחסנית לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור המחסנית שבציור ו-x = 4, בסיום הפעולה המחסנית תהיה (מהראש למטה) 7, 1, 9.",
+        "solution": "public static void removeAll(Stack<Integer> s, int x) {\n    Stack<Integer> temp = new Stack<Integer>();\n    while (!s.isEmpty()) {\n        int y = s.pop();\n        if (y != x) {\n            temp.push(y);\n        }\n    }\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "StackTargil4",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "insertBottom",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "s"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה insertBottom, המקבלת מחסנית s ומספר x, ומכניסה את x לתחתית המחסנית (מתחת לכל האיברים). הסדר של שאר האיברים לא ישתנה.\nלדוגמה: עבור המחסנית 7, 1, 9 (7 בראש) ו-x = 5, בסיום הפעולה המחסנית תהיה (מהראש למטה) 7, 1, 9, 5.",
+        "solution": "public static void insertBottom(Stack<Integer> s, int x) {\n    Stack<Integer> temp = new Stack<Integer>();\n    while (!s.isEmpty()) {\n        temp.push(s.pop());\n    }\n    s.push(x);\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "StackTargil4",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Stack<Integer> s = new Stack<Integer>();\ns.push(9);\ns.push(4);\ns.push(1);\ns.push(7);\ns.push(4);\nremoveAll(s, 4);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(s, \"[7,1,9]\"));\nremoveAll(s, 8);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(s, \"[7,1,9]\"));\ninsertBottom(s, 5);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(s, \"[7,1,9,5]\"));\nStack<Integer> empty = new Stack<Integer>();\ninsertBottom(empty, 3);\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(empty, \"[3]\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה מחסנית s של מספרים שלמים.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה RemoveAll, המקבלת מחסנית s ומספר x, ומוציאה מהמחסנית את כל האיברים השווים ל-x. הסדר של שאר האיברים במחסנית לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור המחסנית שבציור ו-x = 4, בסיום הפעולה המחסנית תהיה (מהראש למטה) 7, 1, 9.",
+          "figures": [
+            {
+              "type": "stack",
+              "values": [
+                4,
+                7,
+                1,
+                4,
+                9
+              ],
+              "caption": "המחסנית s (4 בראש)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה InsertBottom, המקבלת מחסנית s ומספר x, ומכניסה את x לתחתית המחסנית (מתחת לכל האיברים). הסדר של שאר האיברים לא ישתנה.\nלדוגמה: עבור המחסנית 7, 1, 9 (7 בראש) ו-x = 5, בסיום הפעולה המחסנית תהיה (מהראש למטה) 7, 1, 9, 5."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "הוצאה מהמחסנית והכנסה לתחתית",
+      "topic": "stacks",
+      "mainClass": "StackTargil4",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "StackTargil4",
+          "isStatic": true,
+          "returnType": "void",
+          "methodName": "RemoveAll",
+          "parameters": [
+            {
+              "type": "Stack<int>",
+              "name": "s"
+            },
+            {
+              "type": "int",
+              "name": "x"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה RemoveAll, המקבלת מחסנית s ומספר x, ומוציאה מהמחסנית את כל האיברים השווים ל-x. הסדר של שאר האיברים במחסנית לא ישתנה. הפעולה אינה מחזירה ערך.\nלדוגמה: עבור המחסנית שבציור ו-x = 4, בסיום הפעולה המחסנית תהיה (מהראש למטה) 7, 1, 9.",
+          "solution": "public static void RemoveAll(Stack<int> s, int x)\n{\n    Stack<int> temp = new Stack<int>();\n    while (!s.IsEmpty())\n    {\n        int y = s.Pop();\n        if (y != x)\n        {\n            temp.Push(y);\n        }\n    }\n    while (!temp.IsEmpty())\n    {\n        s.Push(temp.Pop());\n    }\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "StackTargil4",
+          "isStatic": true,
+          "returnType": "void",
+          "methodName": "InsertBottom",
+          "parameters": [
+            {
+              "type": "Stack<int>",
+              "name": "s"
+            },
+            {
+              "type": "int",
+              "name": "x"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה InsertBottom, המקבלת מחסנית s ומספר x, ומכניסה את x לתחתית המחסנית (מתחת לכל האיברים). הסדר של שאר האיברים לא ישתנה.\nלדוגמה: עבור המחסנית 7, 1, 9 (7 בראש) ו-x = 5, בסיום הפעולה המחסנית תהיה (מהראש למטה) 7, 1, 9, 5.",
+          "solution": "public static void InsertBottom(Stack<int> s, int x)\n{\n    Stack<int> temp = new Stack<int>();\n    while (!s.IsEmpty())\n    {\n        temp.Push(s.Pop());\n    }\n    s.Push(x);\n    while (!temp.IsEmpty())\n    {\n        s.Push(temp.Pop());\n    }\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "StackTargil4",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Stack<int> s = new Stack<int>();\ns.Push(9);\ns.Push(4);\ns.Push(1);\ns.Push(7);\ns.Push(4);\nRemoveAll(s, 4);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(s, \"[7,1,9]\"));\nRemoveAll(s, 8);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(s, \"[7,1,9]\"));\nInsertBottom(s, 5);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(s, \"[7,1,9,5]\"));\nStack<int> empty = new Stack<int>();\nInsertBottom(empty, 3);\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(empty, \"[3]\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+    }
+  }
+}

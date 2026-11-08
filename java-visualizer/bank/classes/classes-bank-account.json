@@ -1,0 +1,154 @@
+{
+  "id": "classes-bank-account",
+  "topic": "classes",
+  "level": "medium",
+  "title": "חשבון בנק",
+  "question": {
+    "intro": "נתונה המחלקה BankAccount (חשבון בנק), ובה התכונות owner (שם בעל החשבון) ו-balance (היתרה בשקלים, מספר שלם), פעולה בונה ופעולות get.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסף למחלקה BankAccount פעולה ששמה withdraw, המקבלת סכום amount (מספר שלם חיובי). אם יש בחשבון מספיק כסף (amount אינו גדול מהיתרה) — הפעולה מורידה את amount מהיתרה ומחזירה true. אחרת — היתרה אינה משתנה, והפעולה מחזירה false."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה חיצונית ששמה payAll, המקבלת מערך של חשבונות בנק ומספר amount, ומורידה את הסכום amount מכל חשבון שיש בו מספיק כסף. הפעולה מחזירה כמה חשבונות לא יכלו לשלם. יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור חשבונות עם היתרות 100, 30, 50 ו-amount = 50, היתרות יהיו 50, 30, 0, והפעולה תחזיר 1."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "חשבון בנק",
+    "topic": "classes",
+    "mainClass": "Main",
+    "imports": [],
+    "classes": [
+      {
+        "name": "BankAccount",
+        "code": "public class BankAccount {\n    private String owner;\n    private int balance;\n\n    public BankAccount(String owner, int balance) {\n        this.owner = owner;\n        this.balance = balance;\n    }\n\n    public String getOwner() { return owner; }\n    public int getBalance() { return balance; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "BankAccount",
+        "isStatic": false,
+        "returnType": "boolean",
+        "methodName": "withdraw",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "amount"
+          }
+        ],
+        "instructions": "הוסף למחלקה BankAccount פעולה ששמה withdraw, המקבלת סכום amount (מספר שלם חיובי). אם יש בחשבון מספיק כסף (amount אינו גדול מהיתרה) — הפעולה מורידה את amount מהיתרה ומחזירה true. אחרת — היתרה אינה משתנה, והפעולה מחזירה false.",
+        "solution": "public boolean withdraw(int amount) {\n    if (amount > balance) {\n        return false;\n    }\n    balance = balance - amount;\n    return true;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Main",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "payAll",
+        "parameters": [
+          {
+            "type": "BankAccount[]",
+            "name": "arr"
+          },
+          {
+            "type": "int",
+            "name": "amount"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית ששמה payAll, המקבלת מערך של חשבונות בנק ומספר amount, ומורידה את הסכום amount מכל חשבון שיש בו מספיק כסף. הפעולה מחזירה כמה חשבונות לא יכלו לשלם. יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור חשבונות עם היתרות 100, 30, 50 ו-amount = 50, היתרות יהיו 50, 30, 0, והפעולה תחזיר 1.",
+        "solution": "public static int payAll(BankAccount[] arr, int amount) {\n    int failed = 0;\n    for (int i = 0; i < arr.length; i++) {\n        if (!arr[i].withdraw(amount)) {\n            failed++;\n        }\n    }\n    return failed;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Main",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "BankAccount acc = new BankAccount(\"יוסי\", 500);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(acc.withdraw(200), true));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(acc.getBalance(), 300));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(acc.withdraw(400), false));\nSystem.out.println(\"סעיף א, בדיקה 4: \" + check(acc.getBalance(), 300));\nBankAccount[] arr = { new BankAccount(\"אבי\", 100), new BankAccount(\"רון\", 30), new BankAccount(\"דוד\", 50) };\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(payAll(arr, 50), 1));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(arr[0].getBalance() + \" \" + arr[1].getBalance() + \" \" + arr[2].getBalance(), \"50 30 0\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה המחלקה BankAccount (חשבון בנק), ובה התכונות owner (שם בעל החשבון) ו-balance (היתרה בשקלים, מספר שלם), פעולה בונה ופעולות get.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "הוסף למחלקה BankAccount פעולה ששמה Withdraw, המקבלת סכום amount (מספר שלם חיובי). אם יש בחשבון מספיק כסף (amount אינו גדול מהיתרה) — הפעולה מורידה את amount מהיתרה ומחזירה true. אחרת — היתרה אינה משתנה, והפעולה מחזירה false."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה חיצונית ששמה PayAll, המקבלת מערך של חשבונות בנק ומספר amount, ומורידה את הסכום amount מכל חשבון שיש בו מספיק כסף. הפעולה מחזירה כמה חשבונות לא יכלו לשלם. יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור חשבונות עם היתרות 100, 30, 50 ו-amount = 50, היתרות יהיו 50, 30, 0, והפעולה תחזיר 1."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "חשבון בנק",
+      "topic": "classes",
+      "mainClass": "Main",
+      "imports": [],
+      "classes": [
+        {
+          "name": "BankAccount",
+          "code": "public class BankAccount\n{\n    private string owner;\n    private int balance;\n\n    public BankAccount(string owner, int balance)\n    {\n        this.owner = owner;\n        this.balance = balance;\n    }\n\n    public string GetOwner() { return owner; }\n    public int GetBalance() { return balance; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "BankAccount",
+          "isStatic": false,
+          "returnType": "bool",
+          "methodName": "Withdraw",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "amount"
+            }
+          ],
+          "instructions": "הוסף למחלקה BankAccount פעולה ששמה Withdraw, המקבלת סכום amount (מספר שלם חיובי). אם יש בחשבון מספיק כסף (amount אינו גדול מהיתרה) — הפעולה מורידה את amount מהיתרה ומחזירה true. אחרת — היתרה אינה משתנה, והפעולה מחזירה false.",
+          "solution": "public bool Withdraw(int amount)\n{\n    if (amount > balance)\n    {\n        return false;\n    }\n    balance = balance - amount;\n    return true;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Main",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "PayAll",
+          "parameters": [
+            {
+              "type": "BankAccount[]",
+              "name": "arr"
+            },
+            {
+              "type": "int",
+              "name": "amount"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית ששמה PayAll, המקבלת מערך של חשבונות בנק ומספר amount, ומורידה את הסכום amount מכל חשבון שיש בו מספיק כסף. הפעולה מחזירה כמה חשבונות לא יכלו לשלם. יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור חשבונות עם היתרות 100, 30, 50 ו-amount = 50, היתרות יהיו 50, 30, 0, והפעולה תחזיר 1.",
+          "solution": "public static int PayAll(BankAccount[] arr, int amount)\n{\n    int failed = 0;\n    for (int i = 0; i < arr.Length; i++)\n    {\n        if (!arr[i].Withdraw(amount))\n        {\n            failed++;\n        }\n    }\n    return failed;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Main",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "BankAccount acc = new BankAccount(\"יוסי\", 500);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(acc.Withdraw(200), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(acc.GetBalance(), 300));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(acc.Withdraw(400), false));\nConsole.WriteLine(\"סעיף א, בדיקה 4: \" + Check(acc.GetBalance(), 300));\nBankAccount[] arr = { new BankAccount(\"אבי\", 100), new BankAccount(\"רון\", 30), new BankAccount(\"דוד\", 50) };\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(PayAll(arr, 50), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(arr[0].GetBalance() + \" \" + arr[1].GetBalance() + \" \" + arr[2].GetBalance(), \"50 30 0\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון"
+    }
+  }
+}

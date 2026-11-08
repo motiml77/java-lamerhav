@@ -24,16 +24,21 @@
 //   GET  /v1/stats              כמה הורדות היו — {downloads: {windows, zip, mac, total}} (פתוח לכל אתר)
 //   POST /v1/site/exercise      כמו /v1/exercise, מהאתר (העלאת שאלת בגרות): רק מהכתובות שב-SITE_ORIGINS, בלי מפתח-אפליקציה,
 //                               ועם מכסה יומית קטנה יותר (SITE_DAILY_LIMIT, ברירת מחדל 8)
+//   כניסה למאגר התרגילים ולשליחת תרגיל (מורים, עמדות מחשב, תלמידים, מסוף ההנהלה) — src/access/ (כבוי כל עוד ACCESS לא "on"):
+//     /signin /welcome /account /admin, ‎/v1/auth/*‎, ‎/v1/access/*‎, ‎/v1/station/claim‎, ‎/v1/me*‎, ‎/v1/admin/*‎, ‎/v1/pay/*‎
+//     ושליחה ל-Gemini עם הכותרת x-dsviz-access (כרטיס הכניסה) — חובה רק כשההנהלה הדליקה "רק למחוברים"
 //   POST /v1/license    application/json: {client, machine, code} → {ok, locked, licensed, message, payUrl}
 //                       נעילה לתשלום של התצוגה הוויזואלית: כבויה כל עוד PAYWALL לא "on" (ראו README.md — "נעילה לתשלום")
 
 import { Buffer } from 'node:buffer';
 import { systemPrompt, repairPrompt, solutionPrompt, language, RESPONSE_SCHEMA } from './prompt.js';
+import { Fail, reply } from './http.js';
+import { accessEnabled, handleAccess, geminiGate } from './access/index.js';
 
 const LIMITS = {
   files: 10,
-  fileBytes: 10 * 1024 * 1024,
-  totalBytes: 14 * 1024 * 1024,   // ב-base64 זה כ-19MB — מתחת למגבלת 20MB של בקשה ל-Gemini
+  fileBytes: 1024 * 1024,
+  totalBytes: 1024 * 1024,   // הגבלה של בעל המערכת: עד 1MB ביחד לכל שליחה
   textChars: 60000,
   noteChars: 600,
   repairChars: 120000,
@@ -60,7 +65,7 @@ export default {
     try {
       res = await handle(request, env, ctx);
     } catch (e) {
-      if (e instanceof Fail) res = reply(e.status, { ok: false, code: e.code, error: e.message });
+      if (e instanceof Fail) res = reply(e.status, Object.assign({ ok: false, code: e.code, error: e.message }, e.detail ? { detail: String(e.detail).slice(0, 300) } : {}, e.extra || {}));
       else {
         console.error('unexpected', e && e.stack || e);
         res = reply(500, { ok: false, code: 'internal', error: 'תקלה בשרת. נסו שוב בעוד דקה.' });
@@ -89,16 +94,9 @@ function withCors(request, env, res) {
   return new Response(res.body, { status: res.status, headers: h });
 }
 
-class Fail extends Error {
-  constructor(status, code, message) { super(message); this.status = status; this.code = code; }
-}
-
-function reply(status, obj, extra) {
-  return new Response(JSON.stringify(obj), { status, headers: Object.assign({ 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }, extra || {}) });
-}
 
 /** גרסת השרת — מופיעה ב-/v1/health, כדי לראות שהעדכון עלה (מעדכנים בכל שינוי בהנחיות / בקוד) */
-const VERSION = '2026-11-01.2';
+const VERSION = '2026-11-05.1';
 
 async function handle(request, env, ctx) {
   const url = new URL(request.url);
@@ -122,27 +120,40 @@ async function handle(request, env, ctx) {
     if (!siteOrigin(request, env)) throw new Fail(403, 'origin', 'האתר הזה לא מורשה');
     return new Response(null, { status: 204, headers: { 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400' } });
   }
+  // כניסה למאגר / שליחת תרגיל: מורים, עמדות, תלמידים, מסוף ההנהלה (access/) — כבוי כל עוד ACCESS לא "on"
+  const acc = await handleAccess(request, env, ctx, url);
+  if (acc) return acc;
   if (request.method !== 'POST') throw new Fail(405, 'method', 'רק POST');
   if (url.pathname === '/v1/license') return reply(200, await license(request, env));
   const site = url.pathname === '/v1/site/exercise';
-  if (url.pathname !== '/v1/exercise' && url.pathname !== '/v1/repair' && !site) throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
+  const probe = url.pathname === '/v1/health/gemini';
+  if (url.pathname !== '/v1/exercise' && url.pathname !== '/v1/repair' && !site && !probe) throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
 
   if (site) {
     if (!siteOrigin(request, env)) throw new Fail(403, 'origin', 'אפשר לשלוח מכאן רק מהאתר של DSViz.');
   } else if (env.APP_KEY && request.headers.get('x-dsviz-key') !== env.APP_KEY) throw new Fail(401, 'key', 'השרת לא מכיר את התוסף הזה (מפתח שגוי). עדכנו את התוסף.');
-  if (!env.GEMINI_API_KEY) throw new Fail(503, 'config', 'השרת עדיין לא הוגדר (חסר מפתח Gemini).');
+  if (!env.OPENAI_API_KEY && !env.GEMINI_API_KEY) throw new Fail(503, 'config', 'השרת עדיין לא הוגדר (חסר מפתח ה-AI).');
 
   const ip = request.headers.get('cf-connecting-ip') || 'local';
-  await rateLimit(env, ip, site);
+  // מחובר (מורה / עמדה / תלמיד): נבדק כאן, וההגבלה היא לפי המשתמש — כיתה שלמה מאחורי אותה כתובת IP לא נחסמת כמו "מחשב אחד"
+  const gate = site || probe ? null : await geminiGate(request, env);
+  await rateLimit(env, gate ? gate.subject : ip, site);
+  if (probe) return reply(200, { ok: true, version: VERSION, models: env.OPENAI_API_KEY ? await probeOpenAI(env) : await probeGemini(env) });
 
   const declared = +(request.headers.get('content-length') || 0);
-  if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 14MB ביחד).');
+  if (declared > LIMITS.totalBytes * 1.5) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 1MB ביחד).');
 
   let req;
   if (url.pathname === '/v1/exercise' || site) req = await exerciseParts(request);
   else req = await repairParts(request);
 
-  const result = await askGemini(env, req.userParts, req.lang);
+  let result;
+  try {
+    result = env.OPENAI_API_KEY ? await askOpenAI(env, req.userParts, req.lang) : await askGemini(env, req.userParts, req.lang);
+  } catch (e) {
+    if (gate && gate.refund && !(e instanceof Fail && e.status < 500 && e.status !== 429)) await gate.refund();   // תקלה בשרת ה-AI — לא מורידים מהמנה
+    throw e;
+  }
   const exercise = check(result.data, req.previous);
   exercise.language = req.lang;
   return reply(200, { ok: true, model: result.model, exercise });
@@ -215,10 +226,10 @@ async function exerciseParts(request) {
   if (files.length > LIMITS.files) throw new Fail(413, 'too_many', `אפשר לשלוח עד ${LIMITS.files} קבצים.`);
   let total = 0;
   for (const f of files) {
-    if (f.size > LIMITS.fileBytes) throw new Fail(413, 'too_big', 'אחד הקבצים גדול מדי (עד 10MB).');
+    if (f.size > LIMITS.fileBytes) throw new Fail(413, 'too_big', 'אחד הקבצים גדול מדי (עד 1MB).');
     total += f.size;
   }
-  if (total > LIMITS.totalBytes) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 14MB ביחד).');
+  if (total > LIMITS.totalBytes) throw new Fail(413, 'too_big', 'הקבצים גדולים מדי (עד 1MB ביחד).');
 
   // החלקים לבקשה ל-Gemini — כמחרוזות JSON מוכנות. הקבצים עצמם לא עוברים JSON.parse/stringify (זה איטי מאוד
   // בקבצים גדולים, ול-Worker יש מגבלת זמן מעבד) — ה-base64 נוצר בקוד מקומי ומשורשר כמו שהוא.
@@ -306,7 +317,7 @@ async function askGemini(env, userParts, lang) {
     + ',"contents":[{"role":"user","parts":[' + userParts.join(',') + ']}]';
   const bodyFor = c => head + ',"generationConfig":' + JSON.stringify(c) + '}';
   const base = env.GEMINI_BASE || GEMINI_BASE;
-  let last = null, busy = false;
+  let last = null, busy = false, config = null;
   for (const model of models(env)) {
     let res, raw;
     try {
@@ -335,7 +346,15 @@ async function askGemini(env, userParts, lang) {
     }
     if (!res.ok) {
       console.error('gemini', model, res.status, raw.slice(0, 500));
-      throw new Fail(502, 'gemini', 'Gemini לא הצליח לקרוא את הקבצים. נסו לשלוח צילום מסך ברור או PDF.');
+      const g = googleError(raw);
+      // מפתח לא תקין / שבוטל / בלי הרשאה / חיוב: זו תקלה בשרת, לא בקבצים של התלמיד (Google מחזיר גם על מפתח שגוי 400) — מנסים
+      // את המודל הבא, ובסוף הודעה שהשירות לא זמין (ולא "לא הצליח לקרוא את הקבצים")
+      if (serverSide(res.status, g)) {
+        config = `${model}: ${res.status} ${g.status} ${g.reason}`.trim();
+        last = config;
+        continue;
+      }
+      throw new Fail(502, 'gemini', 'שרת ה-AI לא הצליח לקרוא את הקבצים. נסו לשלוח צילום מסך ברור או PDF.');
     }
     let data = null, finish = '';
     try {
@@ -352,8 +371,166 @@ async function askGemini(env, userParts, lang) {
     return { data, model };
   }
   console.error('all models failed', last);
-  if (busy) throw new Fail(429, 'quota', 'הגענו למכסה של Gemini לעכשיו. נסו שוב בעוד דקה (או מחר, אם נגמרה המכסה היומית).');
-  throw new Fail(502, 'gemini', 'לא התקבלה תשובה תקינה מ-Gemini. נסו שוב.');
+  if (config && !busy) throw new Fail(503, 'service', 'שליחת תרגיל לא זמינה כרגע בגלל תקלה בשרת (לא בקבצים שלכם). נסו שוב מאוחר יותר.', config);
+  if (busy) throw new Fail(429, 'quota', 'שרת ה-AI עמוס לעכשיו (מכסת השימוש הגיעה למקסימום). נסו שוב בעוד דקה (או מחר, אם נגמרה המכסה היומית).');
+  throw new Fail(502, 'gemini', 'לא התקבלה תשובה תקינה משרת ה-AI. נסו שוב.');
+}
+
+// ------------------------------------------------------------------ OpenAI (gpt-5.6-luna) — כשמוגדר הסוד OPENAI_API_KEY הוא במקום Gemini
+
+const OPENAI_BASE = 'https://api.openai.com';
+const DEFAULT_OPENAI_MODELS = 'gpt-5.6-luna';
+
+function openaiModels(env) {
+  return String(env.OPENAI_MODELS || DEFAULT_OPENAI_MODELS).split(',').map(x => x.trim()).filter(Boolean);
+}
+
+/** סכמת התשובה של Gemini → JSON Schema רגיל (סוגים באותיות קטנות, בלי propertyOrdering) */
+export function openaiSchema(n) {
+  if (Array.isArray(n)) return n.map(openaiSchema);
+  if (n && typeof n === 'object') {
+    const o = {};
+    for (const [k, v] of Object.entries(n)) {
+      if (k === 'propertyOrdering') continue;
+      o[k] = k === 'type' && typeof v === 'string' ? v.toLowerCase() : openaiSchema(v);
+    }
+    return o;
+  }
+  return n;
+}
+const OPENAI_SCHEMA = openaiSchema(RESPONSE_SCHEMA);
+
+/** החלקים שנבנו בפורמט של Gemini (מחרוזות JSON) → חלקי תוכן של OpenAI, בלי לפרסר את ה-base64 הגדול */
+export function openaiParts(userParts) {
+  const inline = /^\{"inlineData":\{"mimeType":"([^"]+)","data":"([A-Za-z0-9+/=]*)"\}\}$/;
+  return userParts.map(p => {
+    if (p.startsWith('{"inlineData"')) {
+      const m = inline.exec(p);
+      if (!m) throw new Fail(500, 'internal', 'שגיאה פנימית בהכנת הקבצים');
+      return m[1] === 'application/pdf'
+        ? '{"type":"file","file":{"filename":"exercise.pdf","file_data":"data:application/pdf;base64,' + m[2] + '"}}'
+        : '{"type":"image_url","image_url":{"url":"data:' + m[1] + ';base64,' + m[2] + '"}}';
+    }
+    return JSON.stringify({ type: 'text', text: JSON.parse(p).text });
+  });
+}
+
+async function askOpenAI(env, userParts, lang) {
+  const base = env.OPENAI_BASE || OPENAI_BASE;
+  const content = '[' + openaiParts(userParts).join(',') + ']';
+  const bodyFor = model => '{"model":' + JSON.stringify(model)
+    + ',"messages":[{"role":"system","content":' + JSON.stringify(systemPrompt(lang)) + '},{"role":"user","content":' + content + '}]'
+    + ',"response_format":' + JSON.stringify({ type: 'json_schema', json_schema: { name: 'exercise', schema: OPENAI_SCHEMA, strict: false } })
+    + ',"max_completion_tokens":' + (+env.OPENAI_MAX_TOKENS || 30000) + '}';
+  let last = null, busy = false, config = null;
+  for (const model of openaiModels(env)) {
+    let res, raw;
+    try {
+      res = await fetch(`${base}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.OPENAI_API_KEY },
+        body: bodyFor(model),
+        signal: AbortSignal.timeout(+(env.TIMEOUT_MS || 100000)),
+      });
+      raw = await res.text();
+    } catch (e) {
+      last = `${model}: ${e && e.name === 'TimeoutError' ? 'timeout' : String(e)}`;
+      continue;
+    }
+    if (res.status === 429 || res.status >= 500 || res.status === 404) {
+      let code = '';
+      try { code = String(JSON.parse(raw).error.code || ''); } catch (e) { /* לא JSON */ }
+      if (res.status === 429 && code === 'insufficient_quota') config = `${model}: 429 insufficient_quota`;   // נגמר הכסף בחשבון — תקלה בשרת, לא עומס רגעי
+      else if (res.status === 429 || res.status === 503) busy = true;
+      last = `${model}: ${res.status} ${raw.slice(0, 300)}`;
+      continue;
+    }
+    if (!res.ok) {
+      console.error('openai', model, res.status, raw.slice(0, 500));
+      if (res.status === 401 || res.status === 403) { config = `${model}: ${res.status}`; last = config; continue; }
+      throw new Fail(502, 'ai', 'שרת ה-AI לא הצליח לקרוא את הקבצים. נסו לשלוח צילום מסך ברור או PDF.');
+    }
+    let data = null, finish = '';
+    try {
+      const j = JSON.parse(raw);
+      const ch = j.choices && j.choices[0];
+      finish = ch && ch.finish_reason || '';
+      const u = j.usage || {};
+      console.log('openai usage', model, u.prompt_tokens, u.completion_tokens);   // לבדיקת העלות האמיתית (בלי תוכן)
+      data = JSON.parse(stripFence(ch && ch.message && ch.message.content || ''));
+    } catch (e) {
+      last = `${model}: bad json (${finish})`;
+      if (finish === 'length') console.error('openai length', model, raw.length);
+      continue;
+    }
+    return { data, model };
+  }
+  console.error('all openai models failed', last);
+  if (config && !busy) throw new Fail(503, 'service', 'שליחת תרגיל לא זמינה כרגע בגלל תקלה בשרת (לא בקבצים שלכם). נסו שוב מאוחר יותר.', config);
+  if (busy) throw new Fail(429, 'quota', 'שרת ה-AI עמוס לעכשיו. נסו שוב בעוד דקה.');
+  throw new Fail(502, 'ai', 'לא התקבלה תשובה תקינה משרת ה-AI. נסו שוב.');
+}
+
+async function probeOpenAI(env) {
+  const base = env.OPENAI_BASE || OPENAI_BASE;
+  const out = [];
+  for (const model of openaiModels(env)) {
+    try {
+      const res = await fetch(`${base}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.OPENAI_API_KEY },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'ping' }], max_completion_tokens: 16 }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const raw = await res.text();
+      let e = {}; try { e = JSON.parse(raw).error || {}; } catch (x) { /* לא JSON */ }
+      out.push({ model, http: res.status, status: res.ok ? 'OK' : String(e.type || ''), reason: res.ok ? '' : String(e.code || ''), message: res.ok ? '' : String(e.message || '').slice(0, 200) });
+    } catch (e) {
+      out.push({ model, http: 0, status: e && e.name === 'TimeoutError' ? 'TIMEOUT' : 'NETWORK', reason: '', message: String(e).slice(0, 200) });
+    }
+  }
+  return out;
+}
+
+/** השגיאה של Google (בלי שום סוד): status ‏(INVALID_ARGUMENT / PERMISSION_DENIED ...), reason ‏(API_KEY_INVALID ...), והודעה קצרה */
+export function googleError(raw) {
+  try {
+    const e = JSON.parse(raw).error || {};
+    const reason = (Array.isArray(e.details) ? e.details : []).map(d => d && d.reason).filter(Boolean)[0] || '';
+    return { status: String(e.status || ''), reason: String(reason), message: String(e.message || '').slice(0, 200) };
+  } catch (x) {
+    return { status: '', reason: '', message: String(raw || '').slice(0, 200) };
+  }
+}
+
+/** תקלה בצד השרת (מפתח / הרשאה / חיוב / השירות כבוי) — ולא בקבצים */
+export function serverSide(http, g) {
+  return http === 401 || http === 403
+    || /API_KEY|SERVICE_DISABLED|BILLING|ACCESS_TOKEN|CONSUMER_SUSPENDED/i.test(g.reason)
+    || /UNAUTHENTICATED|PERMISSION_DENIED|FAILED_PRECONDITION/.test(g.status)
+    || /api key|billing|not supported for generateContent|location is not supported/i.test(g.message);
+}
+
+/** בדיקה חיה של כל מודל — בקשה קטנה ("ping"): מה Google עונה (בלי המפתח עצמו). ‏POST ‎/v1/health/gemini‎ עם המפתח של התוסף */
+async function probeGemini(env) {
+  const base = env.GEMINI_BASE || GEMINI_BASE;
+  const out = [];
+  for (const model of models(env)) {
+    try {
+      const res = await fetch(`${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }], generationConfig: { maxOutputTokens: 16 } }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const raw = await res.text();
+      const g = res.ok ? { status: 'OK', reason: '', message: '' } : googleError(raw);
+      out.push({ model, http: res.status, status: g.status, reason: g.reason, message: g.message, serverSide: !res.ok && serverSide(res.status, g) });
+    } catch (e) {
+      out.push({ model, http: 0, status: e && e.name === 'TimeoutError' ? 'TIMEOUT' : 'NETWORK', reason: '', message: String(e).slice(0, 200) });
+    }
+  }
+  return out;
 }
 
 function stripFence(t) {
@@ -365,7 +542,7 @@ function stripFence(t) {
 // ------------------------------------------------------------------ בדיקה בסיסית של התשובה (הבדיקה המלאה — בתוסף)
 
 function check(d, previous) {
-  if (!d || typeof d !== 'object') throw new Fail(502, 'gemini', 'לא התקבלה תשובה תקינה מ-Gemini. נסו שוב.');
+  if (!d || typeof d !== 'object') throw new Fail(502, 'gemini', 'לא התקבלה תשובה תקינה משרת ה-AI. נסו שוב.');
   if (d.isExercise === false) {
     throw new Fail(422, 'not_exercise', String(d.problem || 'לא מצאתי בקבצים תרגיל תכנות. שלחו את דף התרגיל (צילום ברור או PDF).').slice(0, 400));
   }

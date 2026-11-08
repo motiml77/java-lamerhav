@@ -1,0 +1,126 @@
+{
+  "id": "strings-upper-spaces",
+  "topic": "strings",
+  "level": "easy",
+  "title": "אותיות גדולות ורווחים",
+  "question": {
+    "intro": "נתונה מחרוזת str.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה countUpper, המקבלת מחרוזת str ומחזירה כמה אותיות גדולות באנגלית (A עד Z) יש בה.\nלדוגמה: עבור \"Hello World\" הפעולה תחזיר 2."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה removeSpaces, המקבלת מחרוזת str ומחזירה מחרוזת חדשה זהה ל-str אבל בלי הרווחים.\nלדוגמה: עבור \"a b  c\" הפעולה תחזיר \"abc\"."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "אותיות גדולות ורווחים",
+    "topic": "strings",
+    "mainClass": "Strings3",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Strings3",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countUpper",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "str"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countUpper, המקבלת מחרוזת str ומחזירה כמה אותיות גדולות באנגלית (A עד Z) יש בה.\nלדוגמה: עבור \"Hello World\" הפעולה תחזיר 2.",
+        "solution": "public static int countUpper(String str) {\n    int count = 0;\n    for (int i = 0; i < str.length(); i++) {\n        char c = str.charAt(i);\n        if (c >= 'A' && c <= 'Z') {\n            count++;\n        }\n    }\n    return count;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Strings3",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "removeSpaces",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "str"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה removeSpaces, המקבלת מחרוזת str ומחזירה מחרוזת חדשה זהה ל-str אבל בלי הרווחים.\nלדוגמה: עבור \"a b  c\" הפעולה תחזיר \"abc\".",
+        "solution": "public static String removeSpaces(String str) {\n    String result = \"\";\n    for (int i = 0; i < str.length(); i++) {\n        if (str.charAt(i) != ' ') {\n            result = result + str.charAt(i);\n        }\n    }\n    return result;\n}"
+      }
+    ],
+    "givenCode": [],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א: \" + countUpper(\"Hello World\"));\nSystem.out.println(\"סעיף ב: \" + removeSpaces(\"a b  c\"));",
+    "expectedOutput": "סעיף א: 2\nסעיף ב: abc"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה מחרוזת str.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה CountUpper, המקבלת מחרוזת str ומחזירה כמה אותיות גדולות באנגלית (A עד Z) יש בה.\nלדוגמה: עבור \"Hello World\" הפעולה תחזיר 2."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה RemoveSpaces, המקבלת מחרוזת str ומחזירה מחרוזת חדשה זהה ל-str אבל בלי הרווחים.\nלדוגמה: עבור \"a b  c\" הפעולה תחזיר \"abc\"."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "אותיות גדולות ורווחים",
+      "topic": "strings",
+      "mainClass": "Strings3",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Strings3",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountUpper",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountUpper, המקבלת מחרוזת str ומחזירה כמה אותיות גדולות באנגלית (A עד Z) יש בה.\nלדוגמה: עבור \"Hello World\" הפעולה תחזיר 2.",
+          "solution": "public static int CountUpper(string str)\n{\n    int count = 0;\n    for (int i = 0; i < str.Length; i++)\n    {\n        char c = str[i];\n        if (c >= 'A' && c <= 'Z')\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Strings3",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "RemoveSpaces",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "str"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה RemoveSpaces, המקבלת מחרוזת str ומחזירה מחרוזת חדשה זהה ל-str אבל בלי הרווחים.\nלדוגמה: עבור \"a b  c\" הפעולה תחזיר \"abc\".",
+          "solution": "public static string RemoveSpaces(string str)\n{\n    string result = \"\";\n    for (int i = 0; i < str.Length; i++)\n    {\n        if (str[i] != ' ')\n        {\n            result = result + str[i];\n        }\n    }\n    return result;\n}"
+        }
+      ],
+      "givenCode": [],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א: \" + CountUpper(\"Hello World\"));\nConsole.WriteLine(\"סעיף ב: \" + RemoveSpaces(\"a b  c\"));",
+      "expectedOutput": "סעיף א: 2\nסעיף ב: abc"
+    }
+  }
+}

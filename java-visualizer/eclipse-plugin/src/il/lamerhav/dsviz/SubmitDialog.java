@@ -61,7 +61,7 @@ public class SubmitDialog extends Dialog {
     private final WorkerClient client;
 
     /** השלבים — אותם שלבים כמו באתר (site/index.html, ‎#exercise‎) */
-    static final String[] STAGES = { "מכין את הקבצים", "שולח ל-Gemini", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
+    static final String[] STAGES = { "מכין את הקבצים", "שולח לשרת ה-AI שלנו", "בונה את התרגיל", "בודק שהקוד מתקמפל", "בודק את ההצעות לפתרון" };
     /** כמה זמן כל שלב לוקח בדרך כלל (שניות) ואיזה חלק מהפס הוא — רק בשביל הפס הדק למעלה */
     private static final double[] EXPECT = { 1, 25, 2, 6, 10 }, WEIGHT = { 0.04, 0.56, 0.08, 0.14, 0.18 };
 
@@ -224,7 +224,7 @@ public class SubmitDialog extends Dialog {
         projectCombo.select(Math.max(sel, 0));
 
         Label privacy = new Label(more, SWT.WRAP);
-        privacy.setText("הקבצים נשלחים לשרת של DSViz ומשם ל-Gemini (של Google) כדי לזהות את התרגיל. לא לשלוח דפים עם פרטים אישיים.");
+        privacy.setText("הקבצים נשלחים לשרת של DSViz ומשם לשרת ה-AI שלנו כדי לזהות את התרגיל. לא לשלוח דפים עם פרטים אישיים.");
         privacy.setForeground(Look.color(d, Look.MUTED));
         GridData prg = new GridData(SWT.FILL, SWT.TOP, true, false);
         prg.widthHint = 600;

@@ -1,0 +1,144 @@
+{
+  "id": "loops-perfect-numbers",
+  "topic": "loops",
+  "level": "medium",
+  "title": "מספרים מושלמים",
+  "question": {
+    "intro": "מחלק של מספר שלם חיובי n הוא מספר שלם חיובי שמחלק את n ללא שארית. מספר מושלם הוא מספר השווה לסכום המחלקים שלו הקטנים ממנו.\nלדוגמה, 6 הוא מספר מושלם, כי 6 = 1 + 2 + 3.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה sumDivisors, המקבלת מספר שלם חיובי n ומחזירה את סכום המחלקים של n הקטנים מ-n.\nלדוגמה: עבור n = 12 הפעולה תחזיר 16 (1 + 2 + 3 + 4 + 6)."
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה countPerfect, המקבלת שני מספרים שלמים חיוביים a ו-b (a ≤ b), ומחזירה כמה מספרים מושלמים יש מ-a עד b (כולל). יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור a = 1 ו-b = 30 הפעולה תחזיר 2 (המספרים 6 ו-28)."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מספרים מושלמים",
+    "topic": "loops",
+    "mainClass": "Loops4",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops4",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "sumDivisors",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "n"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה sumDivisors, המקבלת מספר שלם חיובי n ומחזירה את סכום המחלקים של n הקטנים מ-n.\nלדוגמה: עבור n = 12 הפעולה תחזיר 16 (1 + 2 + 3 + 4 + 6).",
+        "solution": "public static int sumDivisors(int n) {\n    int sum = 0;\n    for (int d = 1; d < n; d++) {\n        if (n % d == 0) {\n            sum = sum + d;\n        }\n    }\n    return sum;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops4",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countPerfect",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "a"
+          },
+          {
+            "type": "int",
+            "name": "b"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countPerfect, המקבלת שני מספרים שלמים חיוביים a ו-b (a ≤ b), ומחזירה כמה מספרים מושלמים יש מ-a עד b (כולל). יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור a = 1 ו-b = 30 הפעולה תחזיר 2 (המספרים 6 ו-28).",
+        "solution": "public static int countPerfect(int a, int b) {\n    int count = 0;\n    for (int n = a; n <= b; n++) {\n        if (sumDivisors(n) == n) {\n            count++;\n        }\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops4",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1: \" + check(sumDivisors(12), 16));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(sumDivisors(28), 28));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(sumDivisors(13), 1));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(countPerfect(1, 10), 1));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(countPerfect(25, 30), 1));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(countPerfect(7, 10), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "מחלק של מספר שלם חיובי n הוא מספר שלם חיובי שמחלק את n ללא שארית. מספר מושלם הוא מספר השווה לסכום המחלקים שלו הקטנים ממנו.\nלדוגמה, 6 הוא מספר מושלם, כי 6 = 1 + 2 + 3.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה SumDivisors, המקבלת מספר שלם חיובי n ומחזירה את סכום המחלקים של n הקטנים מ-n.\nלדוגמה: עבור n = 12 הפעולה תחזיר 16 (1 + 2 + 3 + 4 + 6)."
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה CountPerfect, המקבלת שני מספרים שלמים חיוביים a ו-b (a ≤ b), ומחזירה כמה מספרים מושלמים יש מ-a עד b (כולל). יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור a = 1 ו-b = 30 הפעולה תחזיר 2 (המספרים 6 ו-28)."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מספרים מושלמים",
+      "topic": "loops",
+      "mainClass": "Loops4",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops4",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "SumDivisors",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "n"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה SumDivisors, המקבלת מספר שלם חיובי n ומחזירה את סכום המחלקים של n הקטנים מ-n.\nלדוגמה: עבור n = 12 הפעולה תחזיר 16 (1 + 2 + 3 + 4 + 6).",
+          "solution": "public static int SumDivisors(int n)\n{\n    int sum = 0;\n    for (int d = 1; d < n; d++)\n    {\n        if (n % d == 0)\n        {\n            sum = sum + d;\n        }\n    }\n    return sum;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops4",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountPerfect",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "a"
+            },
+            {
+              "type": "int",
+              "name": "b"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountPerfect, המקבלת שני מספרים שלמים חיוביים a ו-b (a ≤ b), ומחזירה כמה מספרים מושלמים יש מ-a עד b (כולל). יש להשתמש בפעולה מסעיף א.\nלדוגמה: עבור a = 1 ו-b = 30 הפעולה תחזיר 2 (המספרים 6 ו-28).",
+          "solution": "public static int CountPerfect(int a, int b)\n{\n    int count = 0;\n    for (int n = a; n <= b; n++)\n    {\n        if (SumDivisors(n) == n)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops4",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1: \" + Check(SumDivisors(12), 16));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(SumDivisors(28), 28));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(SumDivisors(13), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(CountPerfect(1, 10), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(CountPerfect(25, 30), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(CountPerfect(7, 10), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}
