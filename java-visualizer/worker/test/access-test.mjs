@@ -388,6 +388,36 @@ await test('מונה חודשי בהנהלה: מוצג לכל מורה, והמנ
   await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', seats: 2 } });
 });
 
+await test('מנת שליחות ידנית למורה: קובעים בהנהלה, נאכפת מיד (גם על העמדות שלו), וחוזרים לברירת המחדל', async () => {
+  const get = async () => (await call('GET', '/v1/admin/teachers', { token: admin })).body.teachers.find(t => t.email === 'teacher1@test.dev');
+  const before = await get();
+  assert.equal(before.monthlyLimit, null, 'ברירת מחדל');
+  const n = before.sends.n;
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: -1 } })).status, 400);
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: 'abc' } })).status, 400);
+  await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: true, monthlyPerSeat: 4 } });
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: n + 1 } })).status, 200);
+  const manual = await get();
+  assert.deepEqual([manual.monthlyLimit, manual.sends.limit], [n + 1, n + 1], 'מוצג בהנהלה');
+  let r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  assert.equal(r.status, 200, 'שליחה אחת נוספת מותרת: ' + await r.clone().text());
+  r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  assert.equal(r.status, 429);
+  assert.equal((await r.json()).code, 'monthly');
+  // העלאה ידנית — נפתח מיד
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: n + 5 } });
+  r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  assert.equal(r.status, 200);
+  // 0 = חסום לגמרי
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: 0 } });
+  assert.equal((await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 })).status, 429);
+  // חזרה לברירת המחדל (ריק): 4 × עמדות
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: null } })).status, 200);
+  const back = await get();
+  assert.deepEqual([back.monthlyLimit, back.sends.limit], [null, 4 * Math.max(1, back.seats)]);
+  await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: false } });
+});
+
 await test('תלמיד מרשימת ההיתרים (הענקה ידנית) = כמו תלמיד ששילם: אותה מנה חודשית, והמונה מוצג בהנהלה ובחשבון שלו', async () => {
   await call('POST', '/v1/admin/student', { token: admin, body: { email: 'listed@test.dev', until: '2027-08-31', note: 'רשימת בית ספר' } });
   const s = await signIn('listed@test.dev', 'student');
