@@ -446,6 +446,9 @@ function ClickRun([string]$shot) {
     [Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null
     [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
     Start-Sleep 2
+    $dd = GetDte; $dc = '?'; $da = ''; try { $dc = $dd.Documents.Count; $da = $dd.ActiveDocument.FullName } catch { }
+    Info "מסמכים פתוחים ב-Visual Studio לפני הלחיצה: $dc · פעיל: '$da'"
+    $dd = $null
     $e = ToolbarButton $vsP.Id @('הרצה ויזואלית')
     if (-not $e) { Info 'הכפתור "הרצה ויזואלית" לא נמצא בסרגל'; Shot "$shot-nobutton"; return @() }
     Info "   $(DescEl $e)"
