@@ -1,13 +1,16 @@
-# סרגל הכלים של DSViz ב-Visual Studio האמיתי, עם ההתקנה החדשה ביותר (DSViz-Lab-Setup.exe): לוחצים על הכפתורים בסרגל
-# ('שליחת תרגיל' -> AI אמיתי, 'מאגר תרגילים' -> מסך כניסה / חלון המאגר / 'צור תרגיל') ומצלמים כל שלב. התוצאות — ב-Artifacts.
-# הרצה: דחיפה (push) לענף ccr-66784144-dygsmb עם שינוי באחד הקבצים שלמטה.
+# סרגל הכלים של DSViz ב-Visual Studio האמיתי, עם ההתקנה הציבורית (DSViz-Setup.exe): לוחצים על הכפתורים בסרגל
+# ('שליחת תרגיל' -> שרת מדומה, והפרויקט נוסף לפתרון הפתוח בלי Reload ובלי Visual Studio שני; 'הרצה ויזואלית' -> חלון DSViz;
+# 'מאגר תרגילים' -> מסך כניסה / חלון המאגר / 'צור תרגיל') ומצלמים כל שלב. התוצאות — ב-Artifacts.
+# הרצה: דחיפה (push) לענף release/public-all עם שינוי באחד הקבצים שלמטה.
 name: DSViz visual studio toolbar e2e
 on:
   push:
-    branches: [ccr-66784144-dygsmb]
+    branches: [ccr-66784144-dygsmb, release/public-all]
     paths:
       - '.github/workflows/dsviz-vs-toolbar-e2e.yml'
       - 'java-visualizer/tools/test/windows-vs-toolbar/**'
+      - 'java-visualizer/release/DSViz-Setup.exe'
+      - 'java-visualizer/csharp/**'
   workflow_dispatch:
 concurrency:
   group: dsviz-vs-toolbar-e2e-${{ github.ref }}
@@ -27,6 +30,8 @@ jobs:
         with: { lfs: false }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
       - name: Visual Studio שיש במחשב
         shell: powershell
         run: |
@@ -37,11 +42,13 @@ jobs:
         shell: powershell
         run: |
           & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\toolbar-e2e.ps1" `
-            -Lab "$env:GITHUB_WORKSPACE\java-visualizer\lab-release\DSViz-Lab-Setup.exe" `
+            -Lab "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" `
             -Out "$env:GITHUB_WORKSPACE\toolbar-ci" `
             -Here "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar" `
             -Harness "$env:GITHUB_WORKSPACE\java-visualizer\tutorials\harness" `
-            -Page "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\ai\files\exam-page-1.png"
+            -Page "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\ai\files\exam-page-1.png" `
+            -Mock "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\submit\mock-worker.js" `
+            -Exercise "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\submit\cs-stack.json"
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()

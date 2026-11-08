@@ -177,6 +177,26 @@ namespace DsViz.VsExtension
             if (Installed()) Start("--tool", mode, "");
         }
 
+        /// <summary>תיקיית ה-Startup Project של הפתרון הפתוח (או null)</summary>
+        static string StartupProjectDir(EnvDTE.DTE dte)
+        {
+            try
+            {
+                if (dte == null || dte.Solution == null || string.IsNullOrEmpty(dte.Solution.FullName)) return null;
+                var sp = dte.Solution.SolutionBuild.StartupProjects as Array;
+                if (sp == null || sp.Length == 0) return null;
+                string rel = sp.GetValue(0) as string;
+                if (string.IsNullOrEmpty(rel)) return null;
+                string full = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(dte.Solution.FullName), rel));
+                string dir = Path.GetDirectoryName(full);
+                return dir != null && Directory.Exists(dir) ? dir : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         /// <summary>הרצה ויזואלית של קובץ ה-C# הפתוח (ושאר קבצי הפרויקט שלו)</summary>
         void VisualRun()
         {
@@ -187,7 +207,14 @@ namespace DsViz.VsExtension
             try { file = dte != null && dte.ActiveDocument != null ? dte.ActiveDocument.FullName : null; } catch (Exception) { }
             if (file == null || !file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             {
-                Say("פותחים קובץ C# של התרגיל (עם Main) ולוחצים שוב.");
+                // אין קובץ C# פתוח (למשל רק "What's New"): מריצים את הפרויקט שהוא Startup Project — כמו הכפתור הירוק
+                string dir = StartupProjectDir(dte);
+                if (dir != null)
+                {
+                    Start(dir);
+                    return;
+                }
+                Say("פותחים קובץ C# של התרגיל (עם Main), או בוחרים פרויקט להרצה (קליק ימני עליו ב-Solution Explorer " + "\u2190" + " Set as Startup Project), ולוחצים שוב.");
                 return;
             }
             Start(file);

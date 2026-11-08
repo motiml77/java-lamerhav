@@ -6,8 +6,12 @@
 #   4. לוחצים על 'מאגר תרגילים' בסרגל: (א) בלי -Ddsviz.access=off -> מסך הכניסה, (ב) עם off -> חלון המאגר, בחירת שאלה, 'צור תרגיל' -> החלון הצף
 # חלונות ה-Swing שהסרגל מפעיל (תהליך javaw נפרד) לא נחשפים ל-UIA, ולכן נטען אליהם java agent (ToolbarAgent, דרך JAVA_TOOL_OPTIONS
 # ש-Visual Studio יורש) שמריץ בחלון האמיתי את אותן פקודות של tutorials/harness/SwingScript. הלחיצה על הכפתור בסרגל — אמיתית (UIA Invoke / עכבר).
+#   5. אחרי 'שליחת תרגיל': הפרויקט נוסף לפתרון שפתוח (DTE) — בלי חלון 'Select an app', בלי Reload, בלי Visual Studio שני; הקובץ נפתח ב-Visual Studio
+#   6. 'הרצה ויזואלית' בסרגל של DSViz על הפרויקט שנוצר -> נפתח החלון של DSViz (גם כשאין קובץ C# פתוח: Startup Project) — צילומים
+# -Setup: DSViz-Setup.exe (הציבורית) או DSViz-Lab-Setup.exe. -Mock/-Exercise: שרת 'שליחת תרגיל' מדומה (בלי Gemini) — תרגיל קבוע, שאפשר לפתור ולהריץ.
 param([Parameter(Mandatory = $true)][string]$Lab, [Parameter(Mandatory = $true)][string]$Out, [Parameter(Mandatory = $true)][string]$Here,
-    [Parameter(Mandatory = $true)][string]$Harness, [Parameter(Mandatory = $true)][string]$Page)
+    [Parameter(Mandatory = $true)][string]$Harness, [Parameter(Mandatory = $true)][string]$Page,
+    [string]$Mock = '', [string]$Exercise = '')
 $ErrorActionPreference = 'Continue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $OutputEncoding = [Text.Encoding]::UTF8
@@ -277,6 +281,14 @@ function RunStage([string]$mode, [string]$prefix, [string[]]$lines, [scriptblock
 function ShotJson([string]$mode, [string]$n) { $f = Join-Path $ctl "shots-$mode\$n.json"; if (Test-Path $f) { Get-Content $f -Raw -Encoding utf8 } else { '' } }
 function JsonTexts([string]$j) { @([regex]::Matches($j, '"text":"([^"]*)"') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -and $_.Trim() }) }
 
+# שרת מדומה לשליחת תרגיל (ירושה: Visual Studio -> javaw של 'שליחת תרגיל'): תרגיל קבוע, בלי רשת
+$mockProc = $null
+if ($Mock -and $Exercise) {
+    $mockProc = Start-Process node -ArgumentList "`"$((Resolve-Path $Mock).Path)`" 8796 `"$((Resolve-Path $Exercise).Path)`" `"$(Join-Path $Out 'mock-worker.log')`"" -PassThru -WindowStyle Hidden
+    Start-Sleep 2
+    $env:DSVIZ_WORKER_URL = 'http://127.0.0.1:8796'
+    Info 'שרת מדומה לשליחת תרגיל על 127.0.0.1:8796 (DSVIZ_WORKER_URL)'
+}
 # ------------------------------------------------------------------ 3. Visual Studio עם הפתרון
 Log "== 3. Visual Studio נפתח עם הפתרון DataStructures-CS"
 Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hidden
@@ -336,28 +348,33 @@ $card = ShotJson 'submit' 'card'
 Check 'submit-card' (($st -eq 'done') -and ($card -match 'התרגיל נוצר') -and ($card -match 'Ex\d\d_')) "תשובה מה-AI האמיתי: הכרטיס 'התרגיל נוצר' עם שם הפרויקט" "סטטוס $st"
 Info ("תוכן הכרטיס: " + ((JsonTexts $card) -join ' | '))
 Info ("תוכן הטופס: " + ((JsonTexts (ShotJson 'submit' 'form')) -join ' | '))
-$script:shotPrefix = '12-submit'
-$chooser = HandleOpenWith 30
-Info "חלון בחירת אפליקציה ל-.sln: $chooser"
-# ההפעלה מהחלון של Windows יכולה להרים עוד Visual Studio (אין כאן VS Version Selector שמעביר לחלון הקיים) — סוגרים אותו; ואז חוזרים לחלון המקורי: כמו תלמיד שחוזר ל-Visual Studio
-Start-Sleep 5
-Get-Process devenv -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $vsP.Id } | ForEach-Object { Info "נפתח Visual Studio נוסף (pid $($_.Id)) מההפעלה של ה-.sln — סוגרים אותו"; Stop-Process -Id $_.Id -Force }
-Start-Sleep 3
+# אחרי השליחה: הפרויקט נוסף ל-Visual Studio הפתוח דרך DTE. אסור: חלון 'Select an app' של Windows (פתיחת ה-.sln), שאלת Reload, Visual Studio שני
+Start-Sleep 6
+$chooser = @(AnyByName 'Just once').Count + @(AnyByName 'Select an app to open this .sln file').Count + @(AnyByName 'How do you want to open this file?').Count
+Check 'submit-no-chooser' ($chooser -eq 0) "אחרי השליחה לא נפתח חלון 'Select an app' של Windows (ה-.sln לא נפתח שוב)" "$chooser"
+Check 'submit-single-vs' (@(Get-Process devenv -ErrorAction SilentlyContinue).Count -eq 1) 'אחרי השליחה אין Visual Studio שני (חלון אחד)' "$(@(Get-Process devenv -ErrorAction SilentlyContinue).Count)"
+Get-Process devenv -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $vsP.Id } | ForEach-Object { Info "נפתח Visual Studio נוסף (pid $($_.Id)) — סוגרים אותו"; Stop-Process -Id $_.Id -Force }
 [Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null
 [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
-$reload = ClickReload $vsP.Id 40
-Info "Visual Studio שאל Reload: $reload"
-Start-Sleep 15
+$script:shotPrefix = '12-submit'
+$reload = ClickReload $vsP.Id 8
+Check 'submit-no-reload' (-not $reload) 'Visual Studio לא שאל Reload / File Modification Detected (הפרויקט נוסף דרכו)' "$reload"
+Check 'submit-card-no-reload' ($card -notmatch 'Reload') "בכרטיס 'התרגיל נוצר' אין 'Reload' (הפרויקט נוסף ל-Visual Studio הפתוח)"
+Check 'submit-card-added' ($card -match 'נוסף לפתרון שפתוח') "הכרטיס אומר שהפרויקט נוסף לפתרון שפתוח ב-Visual Studio" ((JsonTexts $card) -join ' | ')
+Start-Sleep 5
 Shot '13-submit-after-vs'
 $after = @(Get-ChildItem $exDir -Directory -ErrorAction SilentlyContinue | ForEach-Object Name)
 $new = @($after | Where-Object { $before -notcontains $_ })
 Info "תיקיות חדשות ב-Exercises: $($new -join ', ')"
 Check 'submit-folder' ($new.Count -ge 1) 'נוצרה תיקיית פרויקט חדשה ב-Exercises\Ex##_...' ''
+$subDir = $null; $subName = $null
 if ($new.Count -ge 1) {
     $name = $new[0]; $dir = Join-Path $exDir $name
+    $subDir = $dir; $subName = $name
     Check 'submit-name' ($name -match '^Ex\d\d_') "שם הפרויקט לפי המוסכמה: $name"
     $slnText = Get-Content $sln -Raw -Encoding utf8
-    Check 'submit-sln' ($slnText -match [regex]::Escape("$name.csproj")) 'ה-.csproj רשום בפתרון DataStructures-CS.sln'
+    Check 'submit-sln' ($slnText -match [regex]::Escape("$name.csproj")) 'ה-.csproj רשום בפתרון DataStructures-CS.sln (נשמר מ-Visual Studio)'
+    Check 'submit-sln-once' (([regex]::Matches($slnText, [regex]::Escape("$name.csproj"))).Count -eq 1) 'הפרויקט רשום בפתרון פעם אחת (לא נרשם גם בקובץ וגם ב-Visual Studio)'
     Check 'submit-csproj' (Test-Path (Join-Path $dir "$name.csproj")) 'קיים קובץ .csproj'
     $cs = @(Get-ChildItem $dir -Filter '*.cs' -ErrorAction SilentlyContinue)
     Check 'submit-classes' ($cs.Count -gt 0) "נוצרו מחלקות: $(($cs | ForEach-Object Name) -join ', ')"
@@ -372,16 +389,108 @@ if ($new.Count -ge 1) {
     $codes = @([regex]::Matches(($b -join "`n"), 'error (CS\d+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
     $other = @($codes | Where-Object { $_ -ne 'CS0161' })
     Check 'submit-skeleton' ($other.Count -eq 0) "אין שגיאות קומפילציה חוץ מ-CS0161 (פעולה ריקה בלי return): $($codes -join ',')" (($b | Select-String 'error' | Select-Object -First 4) -join ' | ')
-    # הפרויקט החדש ב-Visual Studio הפתוח (אחרי ש-Visual Studio טען מחדש את הפתרון): DTE.Solution.FindProjectItem
+    # הפרויקט החדש ב-Visual Studio הפתוח (DTE) — בלי טעינה מחדש של הפתרון
     $d = GetDte
-    $pi = $null; $cnt = ''
-    try { $pi = $d.Solution.FindProjectItem($cs[0].FullName); $cnt = $d.Solution.Projects.Count } catch { Info "DTE: $_" }
-    $docName = ''; try { $docName = $d.ActiveDocument.FullName } catch { }
-    Info "DTE: הקובץ $($cs[0].Name) שייך לפרויקט ב-Visual Studio: $($null -ne $pi) · קובץ פעיל: $docName · פרויקטים (שורש): $cnt"
-    Check 'submit-in-vs' ($null -ne $pi) 'אחרי הכפתור: הפרויקט החדש מופיע בפתרון שפתוח ב-Visual Studio (DTE)' "פעיל: $docName"
+    $pi = $null; $cnt = ''; $docName = ''; $startup = ''
+    for ($w = 0; $w -lt 20 -and -not $pi; $w++) {
+        try { $pi = $d.Solution.FindProjectItem($cs[0].FullName); $cnt = $d.Solution.Projects.Count } catch { Info "DTE: $_" }
+        if (-not $pi) { Start-Sleep 3 }
+    }
+    try { $docName = $d.ActiveDocument.FullName } catch { }
+    try { $startup = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }
+    Info "DTE: הקובץ $($cs[0].Name) שייך לפרויקט ב-Visual Studio: $($null -ne $pi) · קובץ פעיל: $docName · פרויקטים (שורש): $cnt · Startup: $startup"
+    Check 'submit-in-vs' ($null -ne $pi) 'אחרי הכפתור: הפרויקט החדש מופיע בפתרון שפתוח ב-Visual Studio (DTE), בלי טעינה מחדש' "פעיל: $docName"
+    Check 'submit-opened-file' ($docName -like "$dir*" -and $docName -like '*.cs') 'ב-Visual Studio נפתח קובץ ה-C# של התרגיל (הקובץ הפעיל)' "פעיל: $docName"
+    Check 'submit-startup' ($startup -like "*$name*") "הפרויקט החדש הוא Startup Project (הכפתור הירוק מריץ אותו): $startup"
     $d = $null
 }
 Check 'single-vs' (@(Get-Process devenv -ErrorAction SilentlyContinue).Count -eq 1) 'לא נפתח עוד Visual Studio (חלון אחד)' "$(@(Get-Process devenv -ErrorAction SilentlyContinue).Count)"
+KillJava
+Start-Sleep 3
+
+# ------------------------------------------------------------------ 5ב. 'הרצה ויזואלית' בסרגל על הפרויקט שנוצר מהשליחה
+Log "== 5ב. לחיצה על 'הרצה ויזואלית' בסרגל על הפרויקט שנוצר -> נפתח החלון של DSViz"
+function SolveProject([string]$projDir) {
+    # התלמיד כותב את הפתרון: כל פעולה-שלד מוחלפת בהצעה לפתרון ששמורה בצד (solutions.json) — כמו ב-vs-test.ps1
+    $store = Join-Path $env:USERPROFILE '.dsviz\solutions.json'
+    if (-not (Test-Path $store)) { return -1 }
+    $sol = (Get-Content $store -Raw -Encoding utf8 | ConvertFrom-Json).solutions
+    $applied = 0
+    foreach ($f in Get-ChildItem $projDir -Filter '*.cs') {
+        $text = [IO.File]::ReadAllText($f.FullName)
+        foreach ($e in $sol) {
+            if (([IO.Path]::GetFullPath($e.path)) -ne $f.FullName) { continue }
+            $k = $text.IndexOf(' ' + $e.method + '(')
+            if ($k -lt 0) { continue }
+            $start = $text.LastIndexOf("`n", $k) + 1
+            $open = $text.IndexOf('{', $k)
+            $depth = 0; $end = -1
+            for ($c = $open; $c -lt $text.Length; $c++) {
+                if ($text[$c] -eq '{') { $depth++ } elseif ($text[$c] -eq '}') { $depth--; if ($depth -eq 0) { $end = $c; break } }
+            }
+            if ($end -lt 0) { continue }
+            $indent = [regex]::Match($text.Substring($start), '^[ \t]*').Value
+            $code = ($e.code -split "`n" | ForEach-Object { $indent + $_.TrimEnd("`r") }) -join "`r`n"
+            $text = $text.Substring(0, $start) + $code + $text.Substring($end + 1)
+            $applied++
+        }
+        [IO.File]::WriteAllText($f.FullName, $text, (New-Object Text.UTF8Encoding($true)))
+    }
+    return $applied
+}
+function DsvizWindows() { @(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle }) }
+function KillDsviz() { Get-CimInstance Win32_Process -Filter "Name='javaw.exe' or Name='java.exe' or Name='dsviz-cs.exe'" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } }
+# לוחצים על כפתור 'הרצה ויזואלית' של DSViz בסרגל, ומחכים לחלון של DSViz (javaw עם כותרת). מחזיר את הכותרות
+function ClickRun([string]$shot) {
+    KillDsviz; Start-Sleep 2
+    [Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null
+    [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
+    Start-Sleep 2
+    $e = ToolbarButton $vsP.Id @('הרצה ויזואלית')
+    if (-not $e) { Info 'הכפתור "הרצה ויזואלית" לא נמצא בסרגל'; Shot "$shot-nobutton"; return @() }
+    Info "   $(DescEl $e)"
+    $how = ClickEl $e
+    Info "לחיצה על 'הרצה ויזואלית' בסרגל: $how"
+    Start-Sleep 2; Shot "$shot-clicked"
+    $titles = @()
+    for ($i = 0; $i -lt 120; $i++) {
+        Start-Sleep 1
+        $titles = @(DsvizWindows | ForEach-Object { $_.MainWindowTitle })
+        if ($titles.Count -gt 0) { break }
+    }
+    Start-Sleep 5
+    Shot "$shot-run"
+    Info ("חלונות: " + ((Windows) -join ' ; '))
+    return $titles
+}
+if ($subDir) {
+    # Visual Studio פתוח עם הקובץ: סוגרים אותו לפני שכותבים את הפתרון, ופותחים שוב אחרי (בלי שאלת 'File Modification Detected')
+    $d = GetDte
+    try { while ($d.Documents.Count -gt 0) { $d.Documents.Item(1).Close(2) } } catch { Info "DTE (סגירת מסמכים): $_" }
+    $nSolved = SolveProject $subDir
+    Info "הוכנסו $nSolved הצעות לפתרון (כמו תלמיד שכתב את הפעולות)"
+    Check 'run-solved' ($nSolved -gt 0) 'הפעולות של התרגיל נכתבו (הצעות לפתרון)'
+    $mainCs = @(Get-ChildItem $subDir -Filter '*.cs' | Where-Object { (Get-Content $_.FullName -Raw -Encoding utf8) -match 'static (void|int) Main' }) | Select-Object -First 1
+    try { $null = $d.ItemOperations.OpenFile($mainCs.FullName) } catch { Info "DTE (פתיחת הקובץ): $_" }
+    Start-Sleep 5
+    $act = ''; try { $act = $d.ActiveDocument.FullName } catch { }
+    Info "קובץ פעיל לפני הלחיצה: $act"
+    $d = $null
+    # א. עם קובץ ה-C# של התרגיל פתוח
+    $t1 = ClickRun '40-run-open-file'
+    Check 'run-toolbar-viewer' ($t1.Count -gt 0) "לחיצה על 'הרצה ויזואלית' בסרגל (קובץ C# פתוח): נפתח החלון של DSViz — $($t1 -join ' | ')" ((Windows) -join ' ; ')
+    Check 'run-toolbar-title' (($t1 -join ' ') -match 'הרצה ויזואלית') "כותרת החלון: 'הרצה ויזואלית — מבני נתונים'" ($t1 -join ' | ')
+    KillDsviz; Start-Sleep 3
+    # ב. בלי אף מסמך פתוח (רק Solution Explorer): הכפתור מריץ את ה-Startup Project
+    $d = GetDte
+    try { while ($d.Documents.Count -gt 0) { $d.Documents.Item(1).Close(2) } } catch { Info "DTE (סגירת מסמכים): $_" }
+    $d = $null
+    Start-Sleep 3
+    $t2 = ClickRun '41-run-no-doc'
+    Check 'run-toolbar-startup' ($t2.Count -gt 0) "לחיצה על 'הרצה ויזואלית' בסרגל בלי קובץ פתוח: מריץ את ה-Startup Project — נפתח החלון של DSViz: $($t2 -join ' | ')" ((Windows) -join ' ; ')
+    KillDsviz; Start-Sleep 3
+    Check 'run-single-vs' (@(Get-Process devenv -ErrorAction SilentlyContinue).Count -eq 1) 'עדיין Visual Studio אחד' ''
+}
 KillJava
 Start-Sleep 3
 
@@ -440,6 +549,7 @@ foreach ($m in 'submit', 'bank') { if (Test-Path (Join-Path $ctl "shots-$m")) { 
 Get-ChildItem "$env:APPDATA\Microsoft\VisualStudio" -Recurse -Filter ActivityLog.xml -ErrorAction SilentlyContinue | ForEach-Object {
     Copy-Item $_.FullName (Join-Path $Out ('ActivityLog-' + $_.Directory.Name + '.xml')) -ErrorAction SilentlyContinue
 }
+if ($mockProc) { Stop-Process -Id $mockProc.Id -Force -ErrorAction SilentlyContinue }
 Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
 $ok = @($script:lines | Where-Object { $_ -like '  ok *' }).Count
 Log ""
