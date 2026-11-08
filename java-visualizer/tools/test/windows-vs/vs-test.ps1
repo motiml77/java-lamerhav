@@ -617,13 +617,16 @@ if (-not $NoGui) {
         if ($start) {
             $r = $start.Current.BoundingRectangle
             Info ("הכפתור הירוק (Debug Target): {0}" -f $r)
-            [Win.Mouse]::SetCursorPos([int]($r.X + [Math]::Min(24, $r.Width / 3)), [int]($r.Y + $r.Height / 2)) | Out-Null   # צד הכפתור (לא החץ שבקצה)
-            Start-Sleep -Milliseconds 400
-            [Win.Mouse]::mouse_event(2, 0, 0, 0, 0); [Win.Mouse]::mouse_event(4, 0, 0, 0, 0)
-            $how = 'green-button'; Info "לחצנו (עכבר) על הכפתור הירוק"
-            Start-Sleep 2; Shot "$id-clicked"
-            for ($i = 0; $i -lt 90; $i++) { Start-Sleep 1; if ((Viewers).Count -gt 0) { $seen = $true; break } }
-            if (-not $seen) { Info "אחרי לחיצה על הכפתור הירוק לא נפתח חלון תוך 90 שניות — Ctrl+F5"; Shot "$id-green-nowindow"; $how = 'ctrl-f5' }
+            $how = 'green-button'
+            for ($try = 1; $try -le 2 -and -not $seen; $try++) {   # הלחיצה הראשונה לפעמים נבלעת (Visual Studio 2022 עוד עסוק): לוחצים שוב לפני שחוזרים ל-Ctrl+F5
+                [Win.Mouse]::SetCursorPos([int]($r.X + [Math]::Min(24, $r.Width / 3)), [int]($r.Y + $r.Height / 2)) | Out-Null   # צד הכפתור (לא החץ שבקצה)
+                Start-Sleep -Milliseconds 400
+                [Win.Mouse]::mouse_event(2, 0, 0, 0, 0); [Win.Mouse]::mouse_event(4, 0, 0, 0, 0)
+                Info "לחצנו (עכבר) על הכפתור הירוק (ניסיון $try)"
+                Start-Sleep 2; if ($try -eq 1) { Shot "$id-clicked" }
+                for ($i = 0; $i -lt 40; $i++) { Start-Sleep 1; if ((Viewers).Count -gt 0) { $seen = $true; break } }
+            }
+            if (-not $seen) { Info "אחרי לחיצה על הכפתור הירוק לא נפתח חלון אחרי שתי לחיצות — Ctrl+F5"; Shot "$id-green-nowindow"; $how = 'ctrl-f5' }
         }
         if (-not $seen) {
             if (-not $how) { $how = 'ctrl-f5' }
