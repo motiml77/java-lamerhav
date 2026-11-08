@@ -246,6 +246,33 @@ async function teachers(selected) {
   return h('div', { class: 'split' }, main, await teacherDrawer(selected));
 }
 
+/** מנת שליחות חודשית ידנית למורה: קובעים מספר, או חוזרים לברירת המחדל (עמדות × מנה לעמדה) */
+function quotaSection(t) {
+  const per = (settingsCache && settingsCache.monthlyPerSeat) || 0;
+  const auto = per * Math.max(1, t.seats);
+  const manual = t.monthlyLimit !== null && t.monthlyLimit !== undefined;
+  const cur = t.sends ? t.sends.limit : (manual ? t.monthlyLimit : auto);
+  const val = h('input', { class: 'field num', type: 'number', min: '0', max: '100000', value: String(cur), 'aria-label': 'מנת שליחות חודשית' });
+  const save = h('button', { type: 'button', class: 'btn primary grow' }, 'שמירה');
+  const clear = h('button', { type: 'button', class: 'btn' }, 'ברירת מחדל');
+  clear.disabled = !manual;
+  const note = h('div', { class: 'note', style: { background: '#fff', color: 'var(--ink)' } },
+    manual ? `נקבע ידנית: ${t.monthlyLimit} בחודש (ברירת המחדל הייתה ${auto}).` : `ברירת מחדל: ${per} לכל עמדה × ${Math.max(1, t.seats)} = ${auto} בחודש.`,
+    t.sends ? ` נשלחו החודש: ${t.sends.n}.` : '');
+  save.onclick = () => busy(save, async () => {
+    const n = Math.max(0, Math.round(+val.value || 0));
+    await api('POST', '/v1/admin/teacher', { email: t.email, monthlyLimit: n });
+    cache.teachers = null; toast(`מנת השליחות החודשית: ${n}`); render();
+  });
+  clear.onclick = () => busy(clear, async () => {
+    await api('POST', '/v1/admin/teacher', { email: t.email, monthlyLimit: null });
+    cache.teachers = null; toast('חזרה לברירת המחדל'); render();
+  });
+  return h('section', { class: 'stack', style: { background: 'var(--bg)', borderRadius: '14px', padding: '16px', gap: '12px' } },
+    h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'baseline' } }, h('h3', null, 'שליחות תרגיל בחודש'), h('span', { class: 'small muted' }, 'המורה וכל העמדות שלו יחד')),
+    val, note, h('div', { class: 'row' }, save, clear));
+}
+
 async function teacherDrawer(email) {
   const d = await api('GET', '/v1/admin/teacher?email=' + encodeURIComponent(email));
   const t = d.teacher;
@@ -301,6 +328,7 @@ async function teacherDrawer(email) {
         h('button', { type: 'button', class: 'btn', 'aria-label': 'עוד עמדה', onclick: () => step(1) }, icon(ICONS.plus, 18, '#17213A', 2.4))),
       h('div', { class: 'row' }, [5, 10, 20].map(k => h('button', { type: 'button', class: 'btn sm grow', onclick: () => step(k) }, '‎+' + k))),
       preview, h('div', { class: 'row' }, save, reset)),
+    quotaSection(t),
     h('section', { class: 'row wrap' }, h('div', { class: 'grow stack', style: { gap: '2px' } }, h('span', { class: 'small muted', style: { fontWeight: 600 } }, 'קוד המורה'), h('span', { class: 'mono', style: { fontSize: '20px', textAlign: 'right' } }, t.code)), copy),
     h('section', { class: 'stack' }, h('h3', null, `המחשבים של ${t.name || 'המורה'} (${d.stations.length})`),
       h('div', { class: 'list' }, stations.length ? stations : h('div', { class: 'empty' }, 'עוד אין מחשבים מחוברים.'))),
