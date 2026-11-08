@@ -4,7 +4,7 @@
 name: DSViz visual studio toolbar
 on:
   push:
-    branches: [feature/login-access, master, release/public-all]
+    branches: [feature/login-access, master]
     paths:
       - '.github/workflows/dsviz-vsix.yml'
       - 'java-visualizer/csharp/vs-extension/**'
