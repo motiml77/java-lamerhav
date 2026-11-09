@@ -148,8 +148,24 @@ public final class BankVsIt {
         if (vsOpen) check("vs-add", BankVs.opened.toString().contains("VS-ADD 0"),
                 "Visual Studio פתוח: הפרויקט נוסף דרך Visual Studio עצמו ונשמר — בלי החלון 'File Modification Detected'", BankVs.opened.toString());
         String code = cs == null || cs.length == 0 ? "" : new String(Files.readAllBytes(cs[0].toPath()), StandardCharsets.UTF_8);
-        check("code", code.contains("SumStack(Stack<int> s)") && code.contains("SizeOf(Stack<int> s)") && code.contains("Console.WriteLine"),
-                "הקוד: SumStack ו-SizeOf (Stack<int>), ו-Main שמדפיס", code.length() > 600 ? code.substring(0, 600) : code);
+        // סעיף אחרי סעיף: בהתחלה רק סעיף א (הפעולה והבדיקה שלו ב-Main)
+        check("code-first", code.contains("SumStack(Stack<int> s)") && !code.contains("SizeOf(") && code.contains("Console.WriteLine"),
+                "בהתחלה: רק SumStack (סעיף א) ו-Main שמדפיס את סעיף א", code.length() > 600 ? code.substring(0, 600) : code);
+        check("solutions-first", BankVs.solutionsUnder(dir) == 1, "הצעה לפתרון אחת (סעיף א) נשמרה בצד", String.valueOf(BankVs.solutionsUnder(dir)));
+        // "הכן סעיף ב'" בחלון הצף — כמו התלמיד: הפעולה SizeOf והבדיקות שלה נכנסים לקוד (Visual Studio פתוח — דרך העורך שלו)
+        final JFrame flp = ui(() -> BankVsFloat.current);
+        click(flp, "הכן סעיף ב'");
+        long until = System.currentTimeMillis() + 60000;
+        while (System.currentTimeMillis() < until) {
+            code = new String(Files.readAllBytes(cs[0].toPath()), StandardCharsets.UTF_8);
+            if (code.contains("SizeOf(")) break;
+            pause(500);
+        }
+        pause(1500);
+        code = new String(Files.readAllBytes(cs[0].toPath()), StandardCharsets.UTF_8);
+        check("code", code.contains("SumStack(Stack<int> s)") && code.contains("SizeOf(Stack<int> s)") && code.indexOf("SizeOf(Stack<int> s)") < code.indexOf("static void Main")
+                && code.indexOf("סעיף ב", code.indexOf("static void Main")) > 0,
+                "אחרי 'הכן סעיף ב'': SumStack ו-SizeOf (Stack<int>) לפני Main, והבדיקות של סעיף ב ב-Main", code.length() > 900 ? code.substring(0, 900) : code);
         check("solutions", BankVs.solutionsUnder(dir) == 2, "2 הצעות לפתרון נשמרו בצד (solutions.json)", String.valueOf(BankVs.solutionsUnder(dir)));
         Files.write(new File(out, "created-code.txt").toPath(), code.getBytes(StandardCharsets.UTF_8));
         final JFrame fl = ui(() -> BankVsFloat.current);

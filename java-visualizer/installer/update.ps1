@@ -1,7 +1,7 @@
 ﻿# (נשמר ב-UTF-8 עם BOM — אחרת PowerShell של Windows קורא את העברית לא נכון)
 # עדכון אוטומטי של "מבני נתונים — הרצה ויזואלית" (רץ ברקע, בחלון נסתר):
 #   - בכניסה ל-Windows (רשום ב-HKCU\...\Run), ופעם בסגירת Eclipse (התוסף מפעיל אותו עם -AfterEclipse)
-#   - בודק אם יש גרסה חדשה (version.json באתר), מוריד את ההתקנה, בודק שהקובץ שלם (SHA-256),
+#   - בודק אם יש גרסה חדשה (version.json באתר), מוריד את ההתקנה (הודעה קטנה בפינה: "נמצאה גרסה חדשה"), בודק שהקובץ שלם (SHA-256),
 #     מחכה ש-Eclipse ייסגר, ומתקין בשקט (/S /UPDATE) — עם אותן שפות שנבחרו בהתקנה. עבודה של התלמיד לא נוגעים בה.
 #   - בלי אינטרנט / שגיאה — לא עושים כלום (ננסה בפעם הבאה). יומן: update.log ליד הקובץ הזה.
 #   - IntelliJ IDEA: בכל בדיקה — התוסף נכנס לכל IntelliJ שעוד אין בו (intellij.ps1), גם IntelliJ שהותקן אחרי DSViz
@@ -15,6 +15,17 @@ function Log([string]$m) { try { Add-Content -LiteralPath $log -Value ("{0:yyyy-
 # Eclipse (קובצי התוסף נעולים), או הרצה ויזואלית של C# (dsviz-cs.exe והקבצים שלו נעולים בזמן ריצה, וההתקנה מוחקת ומחליפה את התיקייה cs —
 # עלולים להישאר בה קבצים ישנים, בזמן ש-build.txt כבר אומר שהגרסה החדשה מותקנת, כך שהעדכון לא היה מנסה שוב)
 function EclipseRunning { return [bool](Get-Process -Name eclipse, dsviz-cs -ErrorAction SilentlyContinue) }
+
+# הודעה קטנה בפינה (notify.ps1), ברקע — לא מחכים לה ולא לוקחת פוקוס: found / waiting / updating
+function Toast([string]$state, [int]$watch = 0) {
+    try {
+        $notify = Join-Path $dir 'notify.ps1'
+        if (-not (Test-Path -LiteralPath $notify)) { return }
+        $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$notify`"", '-State', $state)
+        if ($watch -gt 0) { $a += @('-WatchPid', $watch) }
+        Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList $a
+    } catch { }
+}
 
 # סרטוני ההדרכה (help\, help\vscode\, help\vs\ — a.mp4 ... e.mp4) שעוד לא במחשב: מורידים מהאתר לקובץ זמני ואז משנים את השם
 function SyncVideos {
@@ -76,6 +87,7 @@ try {
     $remote = [int64]$v.build
     if ($remote -le $local) { exit 0 }
     Log "נמצאה גרסה חדשה: $($v.version) ($remote, מותקנת: $local)"
+    Toast 'found'
 
     $exe = Join-Path $env:TEMP 'DSViz-Update.exe'
     Invoke-WebRequest -Uri $v.url -OutFile $exe -UseBasicParsing -TimeoutSec 900
@@ -84,18 +96,14 @@ try {
 
     # מחכים ש-Eclipse (והרצה ויזואלית של C#) ייסגרו (עד 12 שעות), כדי לא להפריע לעבודה
     $waited = 0
+    if (EclipseRunning) { Toast 'waiting' }
     while ((EclipseRunning) -and $waited -lt 720) { Start-Sleep -Seconds 60; $waited++ }
     if (EclipseRunning) { Log "Eclipse / הרצה ויזואלית עדיין פתוחים — ננסה בפעם הבאה"; exit 0 }
 
     Log "מתקין את הגרסה החדשה..."
     $p = Start-Process -FilePath $exe -ArgumentList '/S', '/UPDATE' -PassThru -WindowStyle Hidden
     # חלון קטן בפינה: "DSViz מתעדכן לגרסה חדשה…" — נסגר לבד כשההתקנה נגמרת; בסופה ההתקנה מראה "DSViz עודכן"
-    try {
-        $notify = Join-Path $dir 'notify.ps1'
-        if (Test-Path -LiteralPath $notify) {
-            Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$notify`"", '-State', 'updating', '-WatchPid', $p.Id
-        }
-    } catch { }
+    Toast 'updating' $p.Id
     $p.WaitForExit()
     Log "ההתקנה הסתיימה (קוד $($p.ExitCode))"
     Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue

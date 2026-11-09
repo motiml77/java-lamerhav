@@ -239,7 +239,7 @@ public final class RtlDialog {
         b.setFocusPainted(false);
         b.setOpaque(false);
         b.setForeground(ACCENT_2);
-        b.setFont(bold().deriveFont(Font.BOLD, ui().getSize2D()));
+        b.setFont(bold().deriveFont(ui().getSize2D()));
         b.setMargin(new java.awt.Insets(0, 2, 0, 2));
         b.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -640,7 +640,7 @@ public final class RtlDialog {
             in.add(paragraph(error, ui(), INK, width - 24));
             return card(in, 8, 12);
         }
-        in.add(label(LRE + e[0] + PDF + " · שורה " + e[1], bold().deriveFont(Font.BOLD, small().getSize2D()), ACCENT_2));
+        in.add(label(LRE + e[0] + PDF + " · שורה " + e[1], bold().deriveFont(small().getSize2D()), ACCENT_2));
         String he = explain(e[2], e[3]);
         in.add(gap(2));
         in.add(paragraph(he.isEmpty() ? e[2] : he, ui(), INK, width - 24));

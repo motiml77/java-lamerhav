@@ -94,7 +94,8 @@ ok "Windows: setup.nsi מתקין ב-VS Code Insiders / VSCodium / Cursor ומס
 # חלון צף בזמן עדכון אוטומטי: update.ps1 מפעיל את notify.ps1 (מתעדכן…) ומחכה להתקנה; ההתקנה בסוף /UPDATE מראה "עודכן";
 # notify.ps1 מימין לשמאל ולא לוקח פוקוס; ב-Mac — התראה של macOS לפני ואחרי
 W="$ROOT/installer"
-grep -q "notify.ps1" "$W/update.ps1" && grep -q "'-State', 'updating', '-WatchPid'" "$W/update.ps1" && grep -q '$p.WaitForExit()' "$W/update.ps1" \
+grep -q "notify.ps1" "$W/update.ps1" && grep -q "Toast 'updating' \$p.Id" "$W/update.ps1" && grep -q '$p.WaitForExit()' "$W/update.ps1" \
+  && grep -q "Toast 'found'" "$W/update.ps1" && grep -q "Toast 'waiting'" "$W/update.ps1" && grep -q "'found', 'waiting', 'updating', 'done'" "$W/notify.ps1" \
   && grep -q 'File "notify.ps1"' "$W/setup.nsi" && grep -q 'notify.ps1" -State done' "$W/setup.nsi" && grep -q 'StrCpy $UPDATING "1"' "$W/setup.nsi" \
   && grep -q 'RightToLeftLayout = true' "$W/notify.ps1" && grep -q 'ShowWithoutActivation' "$W/notify.ps1" \
   && [ "$(od -An -tx1 -N3 "$W/notify.ps1" | tr -d ' ')" = "efbbbf" ] \

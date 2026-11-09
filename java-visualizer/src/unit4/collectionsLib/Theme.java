@@ -175,6 +175,45 @@ public final class Theme {
             UIManager.put(k, new FontUIResource(ui));
     }
 
+    private static boolean rounded;
+
+    /**
+     * הגופן Rubik (עגול יותר, מסודר) לחלונות של Visual Studio — המאגר, השאלה, שליחת תרגיל, הצעה לפתרון, תרגיל חדש.
+     * רק בתהליך של הכלים האלה (BankVs / CsTool): ‎UIManager‎ משותף לכל התהליך, ובתוך IntelliJ (שמשתמש ב-RtlDialog
+     * בתוך התהליך שלו) לא נוגעים בגופן של IntelliJ עצמו. חלון ההרצה הוויזואלית נשאר עם Alef.
+     * הגופן נארז מוקטן (עברית, לטינית, סימני פיסוק — tools/build-lib.sh) ודרך StyleContext: תו שחסר בו (← ✓ מקף לא-שובר)
+     * נלקח מגופן אחר. אם הגופן לא נטען — נשארים עם Alef.
+     */
+    public static void useRounded() {
+        install();
+        if (rounded) return;
+        rounded = true;
+        String regular = register("Rubik-Regular.ttf"), medium = register("Rubik-Medium.ttf");
+        if (regular == null) return;
+        String strong = medium != null ? medium : regular;
+        int strongStyle = medium != null ? Font.PLAIN : Font.BOLD;
+        ui = font(regular, Font.PLAIN, 15);
+        uiBold = font(strong, strongStyle, 15);
+        small = font(regular, Font.PLAIN, 13);
+        smallBold = font(strong, strongStyle, 13);
+        title = font(strong, strongStyle, 15);
+        big = font(strong, strongStyle, 19);
+        family = regular;
+        boldFamily = strong;
+        boldStyle = strongStyle;
+        UIManager.put("defaultFont", new FontUIResource(ui));
+        for (String k : new String[] { "Label.font", "Button.font", "ToggleButton.font", "CheckBox.font", "Table.font",
+                "TableHeader.font", "List.font", "TextArea.font", "ToolTip.font" })
+            UIManager.put(k, new FontUIResource(k.equals("ToolTip.font") ? small : ui));
+    }
+
+    /** הגופן של הטקסט הרגיל / המודגש (Alef, או Rubik אחרי useRounded) — למשל למסמך מעוצב (JTextPane) */
+    public static String family() { return family; }
+
+    public static String boldFamily() { return boldFamily; }
+
+    public static int boldStyle() { return boldStyle; }
+
     /** גופן עם "נפילה חזרה": תו שחסר בגופן (למשל ← או אות עברית בגופן קוד) נלקח מגופן אחר */
     static Font font(String family, int style, int size) {
         return StyleContext.getDefaultStyleContext().getFont(family, style, size);

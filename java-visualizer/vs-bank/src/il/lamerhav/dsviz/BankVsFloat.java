@@ -359,7 +359,7 @@ final class BankVsFloat {
     /** בחירה בדף האישור של "סיימתי": מימין לשמאל, בגופן של החלון */
     static javax.swing.JRadioButton choice(String text, boolean selected, String id) {
         javax.swing.JRadioButton b = new javax.swing.JRadioButton(RtlDialog.rtl(text), selected);
-        b.setFont(RtlDialog.ui().deriveFont(Font.BOLD));
+        b.setFont(RtlDialog.bold().deriveFont(RtlDialog.ui().getSize2D()));
         b.setForeground(RtlDialog.INK);
         b.setOpaque(false);
         b.setFocusPainted(false);
@@ -477,7 +477,7 @@ final class BankVsFloat {
             g.setColor(green);
             g.setStroke(new BasicStroke(done ? 1f : 2f));
             g.drawRoundRect(1, 1, w - 3, h - 3, 14, 14);
-            Font font = Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 14f));
+            Font font = Theme.z(RtlDialog.bold().deriveFont(14f));
             g.setFont(font);
             String t = text();
             int tw = g.getFontMetrics().stringWidth(t), iw = 18, total = tw + iw + 8, x = (w - total) / 2;
