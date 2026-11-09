@@ -8,11 +8,11 @@
     "sections": [
       {
         "label": "א",
-        "text": "הוסף למחלקה Rectangle פעולה ששמה area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12."
+        "text": "הוסף למחלקה Rectangle פעולה ששמה area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12"
       },
       {
         "label": "ב",
-        "text": "הוסף למחלקה Rectangle פעולה ששמה perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14."
+        "text": "הוסף למחלקה Rectangle פעולה ששמה perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14"
       }
     ]
   },
@@ -37,7 +37,7 @@
         "returnType": "int",
         "methodName": "area",
         "parameters": [],
-        "instructions": "הוסף למחלקה Rectangle פעולה ששמה area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12.",
+        "instructions": "הוסף למחלקה Rectangle פעולה ששמה area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12",
         "solution": "public int area() {\n    return width * height;\n}"
       },
       {
@@ -48,7 +48,7 @@
         "returnType": "int",
         "methodName": "perimeter",
         "parameters": [],
-        "instructions": "הוסף למחלקה Rectangle פעולה ששמה perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14.",
+        "instructions": "הוסף למחלקה Rectangle פעולה ששמה perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14",
         "solution": "public int perimeter() {\n    return 2 * (width + height);\n}"
       }
     ],
@@ -63,11 +63,11 @@
       "sections": [
         {
           "label": "א",
-          "text": "הוסף למחלקה Rectangle פעולה ששמה Area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12."
+          "text": "הוסף למחלקה Rectangle פעולה ששמה Area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12"
         },
         {
           "label": "ב",
-          "text": "הוסף למחלקה Rectangle פעולה ששמה Perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14."
+          "text": "הוסף למחלקה Rectangle פעולה ששמה Perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14"
         }
       ]
     },
@@ -92,7 +92,7 @@
           "returnType": "int",
           "methodName": "Area",
           "parameters": [],
-          "instructions": "הוסף למחלקה Rectangle פעולה ששמה Area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12.",
+          "instructions": "הוסף למחלקה Rectangle פעולה ששמה Area, המחזירה את שטח המלבן.\nלדוגמה: למלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 12",
           "solution": "public int Area()\n{\n    return width * height;\n}"
         },
         {
@@ -103,7 +103,7 @@
           "returnType": "int",
           "methodName": "Perimeter",
           "parameters": [],
-          "instructions": "הוסף למחלקה Rectangle פעולה ששמה Perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14.",
+          "instructions": "הוסף למחלקה Rectangle פעולה ששמה Perimeter, המחזירה את היקף המלבן.\nלמלבן שרוחבו 4 וגובהו 3 הפעולה תחזיר 14",
           "solution": "public int Perimeter()\n{\n    return 2 * (width + height);\n}"
         }
       ],

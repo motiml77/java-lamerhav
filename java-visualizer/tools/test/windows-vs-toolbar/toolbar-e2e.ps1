@@ -517,8 +517,9 @@ $before2 = @(Get-ChildItem $exDir -Directory -ErrorAction SilentlyContinue | For
 $st = RunStage 'bank' '30-bank' @(
     '#access=off', 'waitwin מאגר', 'wait 2500', 'shot window', 'has עמדת ניהול', 'mark window',
     'bankselect stack-sum-size', 'wait 1000', 'shot selected', 'mark selected',
-    'click צור תרגיל', 'waitwin השאלה', 'wait 4000', 'shot float', 'mark float'
-) { ClickBank } 420
+    'click צור תרגיל', 'waitwin השאלה', 'wait 4000', 'shot float', 'mark float',
+    'click הכן סעיף ב''', 'wait 9000', 'shot prepared', 'mark prepared'
+) { ClickBank } 480
 Check 'bank-window' (Test-Path (Join-Path $ctl 'shots-bank\window.json')) 'הלחיצה על כפתור המאגר (עם off) פתחה את חלון המאגר' ((Windows) -join ' ; ')
 $bw = ShotJson 'bank' 'window'
 Info ("חלון המאגר: " + ((@(JsonTexts $bw) | Select-Object -First 30) -join ' | '))
@@ -543,6 +544,24 @@ if ($new2.Count -ge 1) {
     $b | Set-Content (Join-Path $Out 'build-bank.txt') -Encoding utf8
     $codes = @([regex]::Matches(($b -join "`n"), 'error (CS\d+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
     Check 'bank-skeleton' (@($codes | Where-Object { $_ -ne 'CS0161' }).Count -eq 0) "התרגיל מהמאגר: אין שגיאות חוץ מ-CS0161: $($codes -join ',')" (($b | Select-String 'error' | Select-Object -First 4) -join ' | ')
+    # "הכן סעיף ב" בחלון הצף: הפעולה של סעיף ב לפני Main, הבדיקות שלו ב-Main — בקובץ, ובעורך של Visual Studio (בלי 'הקובץ השתנה מבחוץ')
+    $bankCs = @(Get-ChildItem $dir2 -Filter '*.cs' | Where-Object { (Get-Content $_.FullName -Raw -Encoding utf8) -match 'static (void|int) Main' }) | Select-Object -First 1
+    if ($bankCs) {
+        $t2 = Get-Content $bankCs.FullName -Raw -Encoding utf8
+        $mi = $t2.IndexOf('static void Main')
+        $si = $t2.IndexOf('SizeOf(Stack')
+        Check 'bank-prepare-method' ($si -ge 0 -and $si -lt $mi) "אחרי 'הכן סעיף ב': הפעולה SizeOf נוספה לפני Main" "SizeOf@$si Main@$mi"
+        Check 'bank-prepare-main' ($mi -ge 0 -and $t2.IndexOf('סעיף ב', $mi) -gt 0) "אחרי 'הכן סעיף ב': הבדיקות של סעיף ב נוספו בסוף Main" ''
+        Check 'bank-prepare-eol' (-not ($t2 -match "[^`r]`n" -and $t2 -match "`r`n")) 'סוף שורה אחיד בקובץ (בלי Inconsistent Line Endings)' ''
+        $d = GetDte; $docText = ''
+        try { foreach ($x in $d.Documents) { if ($x.FullName -ieq $bankCs.FullName) { $td = $x.Object('TextDocument'); $docText = $td.StartPoint.CreateEditPoint().GetText($td.EndPoint) } } } catch { Info "DTE: $_" }
+        Info "   העורך: $($docText.Length) תווים · SizeOf בעורך: $($docText.Contains('SizeOf'))"
+        Check 'bank-prepare-editor' ($docText.Contains('SizeOf(Stack')) 'בעורך של Visual Studio רואים את סעיף ב (ההוספה נעשתה בתוך העורך)' ''
+        $d = $null
+        $b2 = & $msbuild (Join-Path $dir2 "$name2.csproj") /restore /nologo /v:m /p:Configuration=Debug 2>&1
+        $codes2 = @([regex]::Matches(($b2 -join "`n"), 'error (CS\d+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+        Check 'bank-prepare-build' (@($codes2 | Where-Object { $_ -ne 'CS0161' }).Count -eq 0) "אחרי 'הכן סעיף ב': אין שגיאות חוץ מ-CS0161: $($codes2 -join ',')" (($b2 | Select-String 'error' | Select-Object -First 4) -join ' | ')
+    }
     # הכפתור הירוק ("הרצה ויזואלית") מריץ את ה-Startup Project: אחרי 'צור תרגיל' הוא התרגיל מהמאגר — ולא Exercise (תרגיל המחסנית של התבנית).
     # ומעבר בין קבצים: הפרויקט של הקובץ הפעיל נהיה ה-Startup Project (StartupFollower בהרחבה) — כמו ב-Eclipse, מריצים את מה שפתוח
     $d = GetDte

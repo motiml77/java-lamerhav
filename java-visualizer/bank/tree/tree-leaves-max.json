@@ -8,7 +8,7 @@
     "sections": [
       {
         "label": "א",
-        "text": "כתוב פעולה ששמה countLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+        "text": "כתוב פעולה ששמה countLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3",
         "figures": [
           {
             "type": "tree",
@@ -27,7 +27,7 @@
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה ששמה maxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12."
+        "text": "כתוב פעולה ששמה maxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12"
       }
     ]
   },
@@ -52,7 +52,7 @@
             "name": "t"
           }
         ],
-        "instructions": "כתוב פעולה ששמה countLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+        "instructions": "כתוב פעולה ששמה countLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3",
         "solution": "public static int countLeaves(BinNode<Integer> t) {\n    if (t == null) {\n        return 0;\n    }\n    if (!t.hasLeft() && !t.hasRight()) {\n        return 1;\n    }\n    return countLeaves(t.getLeft()) + countLeaves(t.getRight());\n}"
       },
       {
@@ -68,7 +68,7 @@
             "name": "t"
           }
         ],
-        "instructions": "כתוב פעולה ששמה maxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12.",
+        "instructions": "כתוב פעולה ששמה maxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12",
         "solution": "public static int maxTree(BinNode<Integer> t) {\n    int max = t.getValue();\n    if (t.hasLeft()) {\n        max = Math.max(max, maxTree(t.getLeft()));\n    }\n    if (t.hasRight()) {\n        max = Math.max(max, maxTree(t.getRight()));\n    }\n    return max;\n}"
       }
     ],
@@ -83,7 +83,7 @@
       "sections": [
         {
           "label": "א",
-          "text": "כתוב פעולה ששמה CountLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+          "text": "כתוב פעולה ששמה CountLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3",
           "figures": [
             {
               "type": "tree",
@@ -102,7 +102,7 @@
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה ששמה MaxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12."
+          "text": "כתוב פעולה ששמה MaxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12"
         }
       ]
     },
@@ -127,7 +127,7 @@
               "name": "t"
             }
           ],
-          "instructions": "כתוב פעולה ששמה CountLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3.",
+          "instructions": "כתוב פעולה ששמה CountLeaves, המקבלת עץ בינארי t ומחזירה כמה עלים יש בו (עלה — צומת שאין לו בנים).\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 3",
           "solution": "public static int CountLeaves(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    if (!t.HasLeft() && !t.HasRight())\n    {\n        return 1;\n    }\n    return CountLeaves(t.GetLeft()) + CountLeaves(t.GetRight());\n}"
         },
         {
@@ -143,7 +143,7 @@
               "name": "t"
             }
           ],
-          "instructions": "כתוב פעולה ששמה MaxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12.",
+          "instructions": "כתוב פעולה ששמה MaxTree, המקבלת עץ בינארי t ומחזירה את הערך הגדול ביותר בעץ.\nעבור העץ שבציור הפעולה תחזיר 12",
           "solution": "public static int MaxTree(BinNode<int> t)\n{\n    int max = t.GetValue();\n    if (t.HasLeft())\n    {\n        max = Math.Max(max, MaxTree(t.GetLeft()));\n    }\n    if (t.HasRight())\n    {\n        max = Math.Max(max, MaxTree(t.GetRight()));\n    }\n    return max;\n}"
         }
       ],

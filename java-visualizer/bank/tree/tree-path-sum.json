@@ -8,7 +8,7 @@
     "sections": [
       {
         "label": "א",
-        "text": "כתוב פעולה ששמה hasPathSum, המקבלת עץ בינארי t לא ריק ומספר sum, ומחזירה true אם יש בעץ מסלול מהשורש לעלה שסכום הערכים בו שווה ל-sum, אחרת — false.\nלדוגמה: עבור העץ שבציור ו-sum = 22 הפעולה תחזיר true (5 + 4 + 11 + 2), ועבור sum = 10 — false.",
+        "text": "כתוב פעולה ששמה hasPathSum, המקבלת עץ בינארי t לא ריק ומספר sum, ומחזירה true אם יש בעץ מסלול מהשורש לעלה שסכום הערכים בו שווה ל-sum, אחרת — false.\nלדוגמה, עבור העץ שבציור:\nעבור sum = 22 הפעולה תחזיר true. המסלול: 5 + 4 + 11 + 2\nעבור sum = 10 הפעולה תחזיר false.",
         "figures": [
           {
             "type": "tree",
@@ -35,7 +35,7 @@
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה ששמה countOneChild, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ יש להם בן אחד בלבד.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 2."
+        "text": "כתוב פעולה ששמה countOneChild, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ יש להם בן אחד בלבד.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 2"
       }
     ]
   },
@@ -64,7 +64,7 @@
             "name": "sum"
           }
         ],
-        "instructions": "כתוב פעולה ששמה hasPathSum, המקבלת עץ בינארי t לא ריק ומספר sum, ומחזירה true אם יש בעץ מסלול מהשורש לעלה שסכום הערכים בו שווה ל-sum, אחרת — false.\nלדוגמה: עבור העץ שבציור ו-sum = 22 הפעולה תחזיר true (5 + 4 + 11 + 2), ועבור sum = 10 — false.",
+        "instructions": "כתוב פעולה ששמה hasPathSum, המקבלת עץ בינארי t לא ריק ומספר sum, ומחזירה true אם יש בעץ מסלול מהשורש לעלה שסכום הערכים בו שווה ל-sum, אחרת — false.\nלדוגמה, עבור העץ שבציור:\nעבור sum = 22 הפעולה תחזיר true. המסלול: 5 + 4 + 11 + 2\nעבור sum = 10 הפעולה תחזיר false.",
         "solution": "public static boolean hasPathSum(BinNode<Integer> t, int sum) {\n    int rest = sum - t.getValue();\n    if (!t.hasLeft() && !t.hasRight()) {\n        return rest == 0;\n    }\n    if (t.hasLeft() && hasPathSum(t.getLeft(), rest)) {\n        return true;\n    }\n    return t.hasRight() && hasPathSum(t.getRight(), rest);\n}"
       },
       {
@@ -80,7 +80,7 @@
             "name": "t"
           }
         ],
-        "instructions": "כתוב פעולה ששמה countOneChild, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ יש להם בן אחד בלבד.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 2.",
+        "instructions": "כתוב פעולה ששמה countOneChild, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ יש להם בן אחד בלבד.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 2",
         "solution": "public static int countOneChild(BinNode<Integer> t) {\n    if (t == null) {\n        return 0;\n    }\n    int count = countOneChild(t.getLeft()) + countOneChild(t.getRight());\n    if (t.hasLeft() != t.hasRight()) {\n        count++;\n    }\n    return count;\n}"
       }
     ],
@@ -100,7 +100,7 @@
       "sections": [
         {
           "label": "א",
-          "text": "כתוב פעולה ששמה HasPathSum, המקבלת עץ בינארי t לא ריק ומספר sum, ומחזירה true אם יש בעץ מסלול מהשורש לעלה שסכום הערכים בו שווה ל-sum, אחרת — false.\nלדוגמה: עבור העץ שבציור ו-sum = 22 הפעולה תחזיר true (5 + 4 + 11 + 2), ועבור sum = 10 — false.",
+          "text": "כתוב פעולה ששמה HasPathSum, המקבלת עץ בינארי t לא ריק ומספר sum, ומחזירה true אם יש בעץ מסלול מהשורש לעלה שסכום הערכים בו שווה ל-sum, אחרת — false.\nלדוגמה, עבור העץ שבציור:\nעבור sum = 22 הפעולה תחזיר true. המסלול: 5 + 4 + 11 + 2\nעבור sum = 10 הפעולה תחזיר false.",
           "figures": [
             {
               "type": "tree",
@@ -127,7 +127,7 @@
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה ששמה CountOneChild, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ יש להם בן אחד בלבד.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 2."
+          "text": "כתוב פעולה ששמה CountOneChild, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ יש להם בן אחד בלבד.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 2"
         }
       ]
     },
@@ -156,7 +156,7 @@
               "name": "sum"
             }
           ],
-          "instructions": "כתוב פעולה ששמה HasPathSum, המקבלת עץ בינארי t לא ריק ומספר sum, ומחזירה true אם יש בעץ מסלול מהשורש לעלה שסכום הערכים בו שווה ל-sum, אחרת — false.\nלדוגמה: עבור העץ שבציור ו-sum = 22 הפעולה תחזיר true (5 + 4 + 11 + 2), ועבור sum = 10 — false.",
+          "instructions": "כתוב פעולה ששמה HasPathSum, המקבלת עץ בינארי t לא ריק ומספר sum, ומחזירה true אם יש בעץ מסלול מהשורש לעלה שסכום הערכים בו שווה ל-sum, אחרת — false.\nלדוגמה, עבור העץ שבציור:\nעבור sum = 22 הפעולה תחזיר true. המסלול: 5 + 4 + 11 + 2\nעבור sum = 10 הפעולה תחזיר false.",
           "solution": "public static bool HasPathSum(BinNode<int> t, int sum)\n{\n    int rest = sum - t.GetValue();\n    if (!t.HasLeft() && !t.HasRight())\n    {\n        return rest == 0;\n    }\n    if (t.HasLeft() && HasPathSum(t.GetLeft(), rest))\n    {\n        return true;\n    }\n    return t.HasRight() && HasPathSum(t.GetRight(), rest);\n}"
         },
         {
@@ -172,7 +172,7 @@
               "name": "t"
             }
           ],
-          "instructions": "כתוב פעולה ששמה CountOneChild, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ יש להם בן אחד בלבד.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 2.",
+          "instructions": "כתוב פעולה ששמה CountOneChild, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ יש להם בן אחד בלבד.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 2",
           "solution": "public static int CountOneChild(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    int count = CountOneChild(t.GetLeft()) + CountOneChild(t.GetRight());\n    if (t.HasLeft() != t.HasRight())\n    {\n        count++;\n    }\n    return count;\n}"
         }
       ],

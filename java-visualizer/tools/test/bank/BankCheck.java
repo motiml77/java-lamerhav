@@ -50,6 +50,8 @@ public final class BankCheck {
         System.exit(fails == 0 ? 0 : 1);
     }
 
+    private static final java.util.regex.Pattern RTL_LIST = java.util.regex.Pattern.compile("-?\\d+(?:\\.\\d+)?(?:\\s*,\\s*-?\\d+(?:\\.\\d+)?)+");
+
     private static void check(BankStore.Question q, File lib) throws Exception {
         String where = q.origin;
         AiScaffold.Exercise e = AiScaffold.read(q.exercise);
@@ -65,6 +67,18 @@ public final class BankCheck {
             if (t.solution.isEmpty()) fail(where, "לסעיף " + t.label + " (" + t.methodName + ") אין הצעה לפתרון");
         }
         if (q.expectedOutput().isEmpty()) fail(where, "חסר הפלט הרצוי (exercise.expectedOutput) — התלמיד לא יידע אם הגיע לתוצאה");
+        // הנוסח מוצג מימין לשמאל (bank/README.md — "דוגמאות בנוסח"): רשימת ערכים רק בסוף שורה, ובלי נקודה אחרי מספר בסוף שורה
+        StringBuilder all = new StringBuilder(q.intro);
+        for (BankStore.Section sec : q.sections) all.append('\n').append(sec.text);
+        for (String line : all.toString().split("\n")) {
+            java.util.regex.Matcher m = RTL_LIST.matcher(line);
+            while (m.find()) {
+                boolean tuple = m.start() > 0 && line.charAt(m.start() - 1) == '(' && m.end() < line.length() && line.charAt(m.end()) == ')';
+                if (!tuple && line.substring(m.end()).matches(".*[\u05D0-\u05EA].*"))
+                    fail(where, "רשימת ערכים באמצע משפט (\"" + m.group() + "\") מתבלגנת מימין לשמאל — שמים אותה בסוף שורה, אחרי נקודתיים, או בציור: " + line);
+            }
+            if (line.matches(".*\\d\\.\\s*$")) fail(where, "נקודה אחרי מספר בסוף שורה מוצגת כמו \".25\" — בלי נקודה: " + line);
+        }
         String pkg = "ex01_check";
         File work = Files.createTempDirectory("bank-check").toFile();
         try {

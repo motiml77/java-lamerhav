@@ -8,7 +8,7 @@
     "sections": [
       {
         "label": "א",
-        "text": "כתוב פעולה ששמה countNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6.",
+        "text": "כתוב פעולה ששמה countNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6",
         "figures": [
           {
             "type": "tree",
@@ -27,7 +27,7 @@
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה ששמה sumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42."
+        "text": "כתוב פעולה ששמה sumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42"
       }
     ]
   },
@@ -52,7 +52,7 @@
             "name": "t"
           }
         ],
-        "instructions": "כתוב פעולה ששמה countNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6.",
+        "instructions": "כתוב פעולה ששמה countNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6",
         "solution": "public static int countNodes(BinNode<Integer> t) {\n    if (t == null) {\n        return 0;\n    }\n    return 1 + countNodes(t.getLeft()) + countNodes(t.getRight());\n}"
       },
       {
@@ -68,7 +68,7 @@
             "name": "t"
           }
         ],
-        "instructions": "כתוב פעולה ששמה sumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42.",
+        "instructions": "כתוב פעולה ששמה sumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42",
         "solution": "public static int sumTree(BinNode<Integer> t) {\n    if (t == null) {\n        return 0;\n    }\n    return t.getValue() + sumTree(t.getLeft()) + sumTree(t.getRight());\n}"
       }
     ],
@@ -83,7 +83,7 @@
       "sections": [
         {
           "label": "א",
-          "text": "כתוב פעולה ששמה CountNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6.",
+          "text": "כתוב פעולה ששמה CountNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6",
           "figures": [
             {
               "type": "tree",
@@ -102,7 +102,7 @@
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה ששמה SumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42."
+          "text": "כתוב פעולה ששמה SumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42"
         }
       ]
     },
@@ -127,7 +127,7 @@
               "name": "t"
             }
           ],
-          "instructions": "כתוב פעולה ששמה CountNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6.",
+          "instructions": "כתוב פעולה ששמה CountNodes, המקבלת עץ בינארי t ומחזירה כמה צמתים יש בו.\nלדוגמה: עבור העץ שבציור הפעולה תחזיר 6",
           "solution": "public static int CountNodes(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    return 1 + CountNodes(t.GetLeft()) + CountNodes(t.GetRight());\n}"
         },
         {
@@ -143,7 +143,7 @@
               "name": "t"
             }
           ],
-          "instructions": "כתוב פעולה ששמה SumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42.",
+          "instructions": "כתוב פעולה ששמה SumTree, המקבלת עץ בינארי t ומחזירה את סכום הערכים בכל הצמתים.\nעבור העץ שבציור הפעולה תחזיר 42",
           "solution": "public static int SumTree(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    return t.GetValue() + SumTree(t.GetLeft()) + SumTree(t.GetRight());\n}"
         }
       ],

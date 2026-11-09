@@ -12,7 +12,7 @@
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה ששמה isAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה: עבור \"listen\" ו-\"silent\" הפעולה תחזיר true, ועבור \"aab\" ו-\"abb\" — false."
+        "text": "כתוב פעולה ששמה isAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה:\nעבור \"listen\" ו-\"silent\" הפעולה תחזיר true.\nעבור \"aab\" ו-\"abb\" הפעולה תחזיר false."
       }
     ]
   },
@@ -61,7 +61,7 @@
             "name": "s2"
           }
         ],
-        "instructions": "כתוב פעולה ששמה isAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה: עבור \"listen\" ו-\"silent\" הפעולה תחזיר true, ועבור \"aab\" ו-\"abb\" — false.",
+        "instructions": "כתוב פעולה ששמה isAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה:\nעבור \"listen\" ו-\"silent\" הפעולה תחזיר true.\nעבור \"aab\" ו-\"abb\" הפעולה תחזיר false.",
         "solution": "public static boolean isAnagram(String s1, String s2) {\n    if (s1.length() != s2.length()) {\n        return false;\n    }\n    for (int i = 0; i < s1.length(); i++) {\n        String shorter = removeFirst(s2, s1.charAt(i));\n        if (shorter.length() == s2.length()) {\n            return false;\n        }\n        s2 = shorter;\n    }\n    return true;\n}"
       }
     ],
@@ -85,7 +85,7 @@
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה ששמה IsAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה: עבור \"listen\" ו-\"silent\" הפעולה תחזיר true, ועבור \"aab\" ו-\"abb\" — false."
+          "text": "כתוב פעולה ששמה IsAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה:\nעבור \"listen\" ו-\"silent\" הפעולה תחזיר true.\nעבור \"aab\" ו-\"abb\" הפעולה תחזיר false."
         }
       ]
     },
@@ -134,7 +134,7 @@
               "name": "s2"
             }
           ],
-          "instructions": "כתוב פעולה ששמה IsAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה: עבור \"listen\" ו-\"silent\" הפעולה תחזיר true, ועבור \"aab\" ו-\"abb\" — false.",
+          "instructions": "כתוב פעולה ששמה IsAnagram, המקבלת שתי מחרוזות s1 ו-s2, ומחזירה true אם הן אנגרמה זו של זו, אחרת — false. מומלץ להשתמש בפעולה מסעיף א.\nלדוגמה:\nעבור \"listen\" ו-\"silent\" הפעולה תחזיר true.\nעבור \"aab\" ו-\"abb\" הפעולה תחזיר false.",
           "solution": "public static bool IsAnagram(string s1, string s2)\n{\n    if (s1.Length != s2.Length)\n    {\n        return false;\n    }\n    for (int i = 0; i < s1.Length; i++)\n    {\n        string shorter = RemoveFirst(s2, s1[i]);\n        if (shorter.Length == s2.Length)\n        {\n            return false;\n        }\n        s2 = shorter;\n    }\n    return true;\n}"
         }
       ],

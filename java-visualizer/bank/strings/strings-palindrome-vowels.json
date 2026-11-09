@@ -8,11 +8,11 @@
     "sections": [
       {
         "label": "א",
-        "text": "כתוב פעולה ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה: עבור \"level\" הפעולה תחזיר true, ועבור \"hello\" — false."
+        "text": "כתוב פעולה ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה:\nעבור \"level\" הפעולה תחזיר true.\nעבור \"hello\" הפעולה תחזיר false."
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה ששמה countVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3."
+        "text": "כתוב פעולה ששמה countVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3"
       }
     ]
   },
@@ -37,7 +37,7 @@
             "name": "str"
           }
         ],
-        "instructions": "כתוב פעולה ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה: עבור \"level\" הפעולה תחזיר true, ועבור \"hello\" — false.",
+        "instructions": "כתוב פעולה ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה:\nעבור \"level\" הפעולה תחזיר true.\nעבור \"hello\" הפעולה תחזיר false.",
         "solution": "public static boolean isPalindrome(String str) {\n    int i = 0, j = str.length() - 1;\n    while (i < j) {\n        if (str.charAt(i) != str.charAt(j)) {\n            return false;\n        }\n        i++;\n        j--;\n    }\n    return true;\n}"
       },
       {
@@ -53,7 +53,7 @@
             "name": "str"
           }
         ],
-        "instructions": "כתוב פעולה ששמה countVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3.",
+        "instructions": "כתוב פעולה ששמה countVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3",
         "solution": "public static int countVowels(String str) {\n    int count = 0;\n    for (int i = 0; i < str.length(); i++) {\n        if (\"aeiou\".indexOf(str.charAt(i)) >= 0) {\n            count++;\n        }\n    }\n    return count;\n}"
       }
     ],
@@ -68,11 +68,11 @@
       "sections": [
         {
           "label": "א",
-          "text": "כתוב פעולה ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה: עבור \"level\" הפעולה תחזיר true, ועבור \"hello\" — false."
+          "text": "כתוב פעולה ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה:\nעבור \"level\" הפעולה תחזיר true.\nעבור \"hello\" הפעולה תחזיר false."
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה ששמה CountVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3."
+          "text": "כתוב פעולה ששמה CountVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3"
         }
       ]
     },
@@ -97,7 +97,7 @@
               "name": "str"
             }
           ],
-          "instructions": "כתוב פעולה ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה: עבור \"level\" הפעולה תחזיר true, ועבור \"hello\" — false.",
+          "instructions": "כתוב פעולה ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם המחרוזת היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false.\nלדוגמה:\nעבור \"level\" הפעולה תחזיר true.\nעבור \"hello\" הפעולה תחזיר false.",
           "solution": "public static bool IsPalindrome(string str)\n{\n    int i = 0, j = str.Length - 1;\n    while (i < j)\n    {\n        if (str[i] != str[j])\n        {\n            return false;\n        }\n        i++;\n        j--;\n    }\n    return true;\n}"
         },
         {
@@ -113,7 +113,7 @@
               "name": "str"
             }
           ],
-          "instructions": "כתוב פעולה ששמה CountVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3.",
+          "instructions": "כתוב פעולה ששמה CountVowels, המקבלת מחרוזת str ומחזירה כמה מהתווים שלה הם תנועות (a, e, i, o, u).\nלדוגמה: עבור \"programming\" הפעולה תחזיר 3",
           "solution": "public static int CountVowels(string str)\n{\n    int count = 0;\n    for (int i = 0; i < str.Length; i++)\n    {\n        if (\"aeiou\".IndexOf(str[i]) >= 0)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
         }
       ],

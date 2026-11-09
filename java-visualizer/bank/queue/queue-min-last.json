@@ -8,7 +8,7 @@
     "sections": [
       {
         "label": "א",
-        "text": "כתוב פעולה ששמה minQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2.",
+        "text": "כתוב פעולה ששמה minQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2",
         "figures": [
           {
             "type": "queue",
@@ -24,7 +24,7 @@
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה ששמה lastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4."
+        "text": "כתוב פעולה ששמה lastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4"
       }
     ]
   },
@@ -49,7 +49,7 @@
             "name": "q"
           }
         ],
-        "instructions": "כתוב פעולה ששמה minQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2.",
+        "instructions": "כתוב פעולה ששמה minQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2",
         "solution": "public static int minQueue(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int min = q.head();\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        if (x < min) {\n            min = x;\n        }\n        temp.insert(x);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    return min;\n}"
       },
       {
@@ -65,7 +65,7 @@
             "name": "q"
           }
         ],
-        "instructions": "כתוב פעולה ששמה lastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4.",
+        "instructions": "כתוב פעולה ששמה lastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4",
         "solution": "public static int lastValue(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int last = 0;\n    while (!q.isEmpty()) {\n        last = q.remove();\n        temp.insert(last);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    return last;\n}"
       }
     ],
@@ -80,7 +80,7 @@
       "sections": [
         {
           "label": "א",
-          "text": "כתוב פעולה ששמה MinQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2.",
+          "text": "כתוב פעולה ששמה MinQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2",
           "figures": [
             {
               "type": "queue",
@@ -96,7 +96,7 @@
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה ששמה LastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4."
+          "text": "כתוב פעולה ששמה LastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4"
         }
       ]
     },
@@ -121,7 +121,7 @@
               "name": "q"
             }
           ],
-          "instructions": "כתוב פעולה ששמה MinQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2.",
+          "instructions": "כתוב פעולה ששמה MinQueue, המקבלת תור q ומחזירה את הערך הקטן ביותר בו.\nלדוגמה: עבור התור שבציור הפעולה תחזיר 2",
           "solution": "public static int MinQueue(Queue<int> q)\n{\n    Queue<int> temp = new Queue<int>();\n    int min = q.Head();\n    while (!q.IsEmpty())\n    {\n        int x = q.Remove();\n        if (x < min)\n        {\n            min = x;\n        }\n        temp.Insert(x);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n    return min;\n}"
         },
         {
@@ -137,7 +137,7 @@
               "name": "q"
             }
           ],
-          "instructions": "כתוב פעולה ששמה LastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4.",
+          "instructions": "כתוב פעולה ששמה LastValue, המקבלת תור q ומחזירה את הערך שנמצא בסוף התור (האיבר שהוכנס אחרון).\nעבור התור שבציור הפעולה תחזיר 4",
           "solution": "public static int LastValue(Queue<int> q)\n{\n    Queue<int> temp = new Queue<int>();\n    int last = 0;\n    while (!q.IsEmpty())\n    {\n        last = q.Remove();\n        temp.Insert(last);\n    }\n    // מחזירים את האיברים — התור חוזר להיות כמו בהתחלה\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n    return last;\n}"
         }
       ],
