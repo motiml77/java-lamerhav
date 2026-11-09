@@ -15,7 +15,11 @@ public class Persist {
         Account.resetForTest();
         System.out.println("java: " + System.getProperty("java.home"));
         System.out.println("machine: " + Account.machine());
-        System.out.println("files: " + Account.stationFileForTest());
+        try {   // בגרסאות חדשות: איפה נשמרות העמדה והכניסה (בגרסה ישנה אין — לא חשוב לבדיקה)
+            java.lang.reflect.Method m = Account.class.getDeclaredMethod("stationFileForTest");
+            m.setAccessible(true);
+            System.out.println("files: " + m.invoke(null));
+        } catch (Exception ignored) { }
         Account.Access before = Account.current();
         System.out.println("before: " + (before == null ? null : before.kind + " / " + before.label()));
         boolean ok;
