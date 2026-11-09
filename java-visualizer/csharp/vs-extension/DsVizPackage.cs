@@ -49,6 +49,28 @@ namespace DsViz.VsExtension
             Add(mcs, 0x0106, VisualRun);
             Add(mcs, 0x0107, () => Tool("help"));
             ShowToolbarOnce();
+            FollowActiveDocument();
+        }
+
+        StartupFollower _follower;
+
+        /// <summary>הכפתור הירוק ("הרצה ויזואלית") מריץ את התרגיל שפתוח: הפרויקט של הקובץ הפעיל נהיה ה-Startup Project (StartupFollower)</summary>
+        void FollowActiveDocument()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                if (dte == null) return;
+                _follower = new StartupFollower(dte);
+                EnvDTE.Document active = null;
+                try { active = dte.ActiveDocument; } catch (Exception) { }
+                if (active != null) _follower.Follow(active);
+            }
+            catch (Exception ex)
+            {
+                SolutionHints.Log("startup follower failed: " + ex.Message, true);
+            }
         }
 
         /// <summary>
@@ -174,7 +196,51 @@ namespace DsViz.VsExtension
 
         void Tool(string mode)
         {
-            if (Installed()) Start("--tool", mode, "");
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (Installed()) Start("--tool", mode, ExercisesRoot());
+        }
+
+        /// <summary>
+        /// התיקייה של הפתרון הפתוח — אם הוא פתרון התרגילים של DSViz (DataStructures-CS.sln, עם הספרייה ו-Directory.Build.props): התרגיל
+        /// (ממאגר השאלות / שליחת תרגיל / תרגיל חדש) נוצר בפתרון שפתוח ב-Visual Studio. אחרת "" — DataStructures-CS שבמסמכים, כמו קודם.
+        /// </summary>
+        string ExercisesRoot()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                string sln = dte == null || dte.Solution == null ? null : dte.Solution.FullName;
+                if (string.IsNullOrEmpty(sln)) return "";
+                string dir = Path.GetDirectoryName(sln);
+                bool ok = File.Exists(Path.Combine(dir, "DataStructures-CS.sln")) && File.Exists(Path.Combine(dir, "lib", "Unit4.CollectionsLib.dll"))
+                    && File.Exists(Path.Combine(dir, "Directory.Build.props"));
+                return ok ? dir : "";
+            }
+            catch (Exception)
+            {
+                return "";
+            }
+        }
+
+        /// <summary>תיקיית ה-Startup Project של הפתרון הפתוח (או null)</summary>
+        static string StartupProjectDir(EnvDTE.DTE dte)
+        {
+            try
+            {
+                if (dte == null || dte.Solution == null || string.IsNullOrEmpty(dte.Solution.FullName)) return null;
+                var sp = dte.Solution.SolutionBuild.StartupProjects as Array;
+                if (sp == null || sp.Length == 0) return null;
+                string rel = sp.GetValue(0) as string;
+                if (string.IsNullOrEmpty(rel)) return null;
+                string full = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(dte.Solution.FullName), rel));
+                string dir = Path.GetDirectoryName(full);
+                return dir != null && Directory.Exists(dir) ? dir : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         /// <summary>הרצה ויזואלית של קובץ ה-C# הפתוח (ושאר קבצי הפרויקט שלו)</summary>
@@ -187,7 +253,14 @@ namespace DsViz.VsExtension
             try { file = dte != null && dte.ActiveDocument != null ? dte.ActiveDocument.FullName : null; } catch (Exception) { }
             if (file == null || !file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             {
-                Say("פותחים קובץ C# של התרגיל (עם Main) ולוחצים שוב.");
+                // אין קובץ C# פתוח (למשל רק "What's New"): מריצים את הפרויקט שהוא Startup Project — כמו הכפתור הירוק
+                string dir = StartupProjectDir(dte);
+                if (dir != null)
+                {
+                    Start(dir);
+                    return;
+                }
+                Say("פותחים קובץ C# של התרגיל (עם Main), או בוחרים פרויקט להרצה (קליק ימני עליו ב-Solution Explorer " + "\u2190" + " Set as Startup Project), ולוחצים שוב.");
                 return;
             }
             Start(file);
