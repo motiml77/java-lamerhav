@@ -105,6 +105,25 @@ public final class Theme {
         try (java.io.OutputStream out = new java.io.FileOutputStream(f)) { p.store(out, "DSViz zoom"); } catch (Exception ignored) { /* לא חשוב */ }
     }
 
+    /** יחס שנשמר (למשל המקום של קו גרירה בחלון ההרצה, 0..1) — או def */
+    public static double savedRatio(String key, double def) {
+        java.util.Properties p = new java.util.Properties();
+        try (java.io.InputStream in = new java.io.FileInputStream(zoomFile())) { p.load(in); } catch (Exception e) { return def; }
+        try {
+            double v = Double.parseDouble(p.getProperty(key, String.valueOf(def)));
+            return v >= 0.05 && v <= 0.95 ? v : def;
+        } catch (NumberFormatException e) { return def; }
+    }
+
+    public static void saveRatio(String key, double v) {
+        java.util.Properties p = new java.util.Properties();
+        java.io.File f = zoomFile();
+        try (java.io.InputStream in = new java.io.FileInputStream(f)) { p.load(in); } catch (Exception ignored) { /* חדש */ }
+        p.setProperty(key, String.valueOf(Math.round(v * 1000) / 1000.0));
+        f.getParentFile().mkdirs();
+        try (java.io.OutputStream out = new java.io.FileOutputStream(f)) { p.store(out, "DSViz zoom"); } catch (Exception ignored) { /* לא חשוב */ }
+    }
+
     private static java.io.File zoomFile() {
         return new java.io.File(new java.io.File(System.getProperty("user.home"), ".dsviz"), "zoom.properties");
     }
