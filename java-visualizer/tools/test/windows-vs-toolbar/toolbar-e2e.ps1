@@ -541,6 +541,28 @@ if ($new2.Count -ge 1) {
     $b | Set-Content (Join-Path $Out 'build-bank.txt') -Encoding utf8
     $codes = @([regex]::Matches(($b -join "`n"), 'error (CS\d+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
     Check 'bank-skeleton' (@($codes | Where-Object { $_ -ne 'CS0161' }).Count -eq 0) "התרגיל מהמאגר: אין שגיאות חוץ מ-CS0161: $($codes -join ',')" (($b | Select-String 'error' | Select-Object -First 4) -join ' | ')
+    # הכפתור הירוק ("הרצה ויזואלית") מריץ את ה-Startup Project: אחרי 'צור תרגיל' הוא התרגיל מהמאגר — ולא Exercise (תרגיל המחסנית של התבנית).
+    # ומעבר בין קבצים: הפרויקט של הקובץ הפעיל נהיה ה-Startup Project (StartupFollower בהרחבה) — כמו ב-Eclipse, מריצים את מה שפתוח
+    $d = GetDte
+    $s1 = ''
+    for ($w = 0; $w -lt 15; $w++) { try { $s1 = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }; if ($s1 -like "*$name2*") { break }; Start-Sleep 2 }
+    Check 'bank-startup' ($s1 -like "*$name2*") "אחרי 'צור תרגיל': התרגיל מהמאגר הוא ה-Startup Project (הכפתור הירוק מריץ אותו): $s1"
+    $exFile = Join-Path (Split-Path $sln) 'Exercise\Program.cs'
+    $bankFile = @(Get-ChildItem $dir2 -Filter '*.cs' | Sort-Object Name)[0].FullName
+    function StartupAfterOpen($file, $want) {
+        try { $null = $d.ItemOperations.OpenFile($file); $d.ActiveDocument.Activate() } catch { Info "DTE פתיחה: $_" }
+        $s = ''
+        for ($w = 0; $w -lt 12; $w++) { Start-Sleep 1; try { $s = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }; if ($s -like "*$want*") { break } }
+        $act = ''; try { $act = $d.ActiveDocument.FullName } catch { }
+        Info "   פעיל: $act · Startup: $s"
+        return $s
+    }
+    $s2 = StartupAfterOpen $exFile 'Exercise\Exercise.csproj'
+    Check 'follow-exercise' ($s2 -like '*Exercise\Exercise.csproj*') "מעבר ל-Exercise\Program.cs -> ה-Startup Project הוא Exercise: $s2"
+    $s3 = StartupAfterOpen $bankFile $name2
+    Check 'follow-bank' ($s3 -like "*$name2*") "חזרה לקובץ התרגיל מהמאגר ($([IO.Path]::GetFileName($bankFile))) -> ה-Startup Project הוא התרגיל מהמאגר (ולא תרגיל המחסנית): $s3"
+    Shot '36-bank-startup'
+    $d = $null
 }
 Check 'single-vs2' (@(Get-Process devenv -ErrorAction SilentlyContinue).Count -eq 1) 'עדיין Visual Studio אחד' ''
 KillJava

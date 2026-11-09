@@ -107,7 +107,7 @@ async function googlePopup(page, clickSel, email, name) {
 
 // הלקוח האמיתי של DSViz (Account.java, אותו קוד של Eclipse / IntelliJ) — במקום fakeApp המדומה
 function realApp(role, dir) {
-  const proc = spawn('java', ['-Dstdout.encoding=UTF-8', '-cp', process.env.ACC_CLASSES || '/tmp/acc-cls', 'il.lamerhav.dsviz.TeacherSignIn', BASE, dir, role], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const proc = spawn(process.env.ACC_JAVA || 'java', ['-Dstdout.encoding=UTF-8', '-cp', process.env.ACC_CLASSES || '/tmp/acc-cls', 'il.lamerhav.dsviz.TeacherSignIn', BASE, dir, role], { stdio: ['ignore', 'pipe', 'inherit'] });
   let buf = '';
   const waiters = [];
   proc.stdout.on('data', d => { buf += d; waiters.splice(0).forEach(w => w()); });
