@@ -12,7 +12,7 @@
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה רקורסיבית ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה: עבור \"racecar\" הפעולה תחזיר true, ועבור \"abca\" — false."
+        "text": "כתוב פעולה רקורסיבית ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה:\nעבור \"racecar\" הפעולה תחזיר true.\nעבור \"abca\" הפעולה תחזיר false."
       }
     ]
   },
@@ -57,7 +57,7 @@
             "name": "str"
           }
         ],
-        "instructions": "כתוב פעולה רקורסיבית ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה: עבור \"racecar\" הפעולה תחזיר true, ועבור \"abca\" — false.",
+        "instructions": "כתוב פעולה רקורסיבית ששמה isPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה:\nעבור \"racecar\" הפעולה תחזיר true.\nעבור \"abca\" הפעולה תחזיר false.",
         "solution": "public static boolean isPalindrome(String str) {\n    if (str.length() <= 1) {\n        return true;\n    }\n    if (str.charAt(0) != str.charAt(str.length() - 1)) {\n        return false;\n    }\n    return isPalindrome(str.substring(1, str.length() - 1));\n}"
       }
     ],
@@ -81,7 +81,7 @@
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה רקורסיבית ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה: עבור \"racecar\" הפעולה תחזיר true, ועבור \"abca\" — false."
+          "text": "כתוב פעולה רקורסיבית ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה:\nעבור \"racecar\" הפעולה תחזיר true.\nעבור \"abca\" הפעולה תחזיר false."
         }
       ]
     },
@@ -126,7 +126,7 @@
               "name": "str"
             }
           ],
-          "instructions": "כתוב פעולה רקורסיבית ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה: עבור \"racecar\" הפעולה תחזיר true, ועבור \"abca\" — false.",
+          "instructions": "כתוב פעולה רקורסיבית ששמה IsPalindrome, המקבלת מחרוזת str ומחזירה true אם היא פלינדרום (נקראת אותו דבר משני הכיוונים), אחרת — false. מחרוזת ריקה ומחרוזת בת תו אחד הן פלינדרום.\nלדוגמה:\nעבור \"racecar\" הפעולה תחזיר true.\nעבור \"abca\" הפעולה תחזיר false.",
           "solution": "public static bool IsPalindrome(string str)\n{\n    if (str.Length <= 1)\n    {\n        return true;\n    }\n    if (str[0] != str[str.Length - 1])\n    {\n        return false;\n    }\n    return IsPalindrome(str.Substring(1, str.Length - 2));\n}"
         }
       ],

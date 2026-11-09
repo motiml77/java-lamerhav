@@ -8,7 +8,7 @@
     "sections": [
       {
         "label": "א",
-        "text": "כתוב פעולה ששמה sumStack, המקבלת מחסנית s ומחזירה את סכום האיברים שבה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 22.",
+        "text": "כתוב פעולה ששמה sumStack, המקבלת מחסנית s ומחזירה את סכום האיברים שבה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 22",
         "figures": [
           {
             "type": "stack",
@@ -24,7 +24,7 @@
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה ששמה sizeOf, המקבלת מחסנית s ומחזירה כמה איברים יש בה.\nעבור המחסנית שבציור הפעולה תחזיר 4."
+        "text": "כתוב פעולה ששמה sizeOf, המקבלת מחסנית s ומחזירה כמה איברים יש בה.\nעבור המחסנית שבציור הפעולה תחזיר 4"
       }
     ]
   },
@@ -49,7 +49,7 @@
             "name": "s"
           }
         ],
-        "instructions": "כתוב פעולה ששמה sumStack, המקבלת מחסנית s ומחזירה את סכום האיברים שבה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 22.",
+        "instructions": "כתוב פעולה ששמה sumStack, המקבלת מחסנית s ומחזירה את סכום האיברים שבה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 22",
         "solution": "public static int sumStack(Stack<Integer> s) {\n    Stack<Integer> temp = new Stack<Integer>();\n    int sum = 0;\n    while (!s.isEmpty()) {\n        int x = s.pop();\n        sum = sum + x;\n        temp.push(x);\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n    return sum;\n}"
       },
       {
@@ -65,7 +65,7 @@
             "name": "s"
           }
         ],
-        "instructions": "כתוב פעולה ששמה sizeOf, המקבלת מחסנית s ומחזירה כמה איברים יש בה.\nעבור המחסנית שבציור הפעולה תחזיר 4.",
+        "instructions": "כתוב פעולה ששמה sizeOf, המקבלת מחסנית s ומחזירה כמה איברים יש בה.\nעבור המחסנית שבציור הפעולה תחזיר 4",
         "solution": "public static int sizeOf(Stack<Integer> s) {\n    Stack<Integer> temp = new Stack<Integer>();\n    int count = 0;\n    while (!s.isEmpty()) {\n        temp.push(s.pop());\n        count++;\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n    return count;\n}"
       }
     ],
@@ -80,7 +80,7 @@
       "sections": [
         {
           "label": "א",
-          "text": "כתוב פעולה ששמה SumStack, המקבלת מחסנית s ומחזירה את סכום האיברים שבה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 22.",
+          "text": "כתוב פעולה ששמה SumStack, המקבלת מחסנית s ומחזירה את סכום האיברים שבה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 22",
           "figures": [
             {
               "type": "stack",
@@ -96,7 +96,7 @@
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה ששמה SizeOf, המקבלת מחסנית s ומחזירה כמה איברים יש בה.\nעבור המחסנית שבציור הפעולה תחזיר 4."
+          "text": "כתוב פעולה ששמה SizeOf, המקבלת מחסנית s ומחזירה כמה איברים יש בה.\nעבור המחסנית שבציור הפעולה תחזיר 4"
         }
       ]
     },
@@ -121,7 +121,7 @@
               "name": "s"
             }
           ],
-          "instructions": "כתוב פעולה ששמה SumStack, המקבלת מחסנית s ומחזירה את סכום האיברים שבה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 22.",
+          "instructions": "כתוב פעולה ששמה SumStack, המקבלת מחסנית s ומחזירה את סכום האיברים שבה.\nלדוגמה: עבור המחסנית שבציור הפעולה תחזיר 22",
           "solution": "public static int SumStack(Stack<int> s)\n{\n    Stack<int> temp = new Stack<int>();\n    int sum = 0;\n    while (!s.IsEmpty())\n    {\n        int x = s.Pop();\n        sum = sum + x;\n        temp.Push(x);\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.IsEmpty())\n    {\n        s.Push(temp.Pop());\n    }\n    return sum;\n}"
         },
         {
@@ -137,7 +137,7 @@
               "name": "s"
             }
           ],
-          "instructions": "כתוב פעולה ששמה SizeOf, המקבלת מחסנית s ומחזירה כמה איברים יש בה.\nעבור המחסנית שבציור הפעולה תחזיר 4.",
+          "instructions": "כתוב פעולה ששמה SizeOf, המקבלת מחסנית s ומחזירה כמה איברים יש בה.\nעבור המחסנית שבציור הפעולה תחזיר 4",
           "solution": "public static int SizeOf(Stack<int> s)\n{\n    Stack<int> temp = new Stack<int>();\n    int count = 0;\n    while (!s.IsEmpty())\n    {\n        temp.Push(s.Pop());\n        count++;\n    }\n    // מחזירים את האיברים — המחסנית חוזרת להיות כמו בהתחלה\n    while (!temp.IsEmpty())\n    {\n        s.Push(temp.Pop());\n    }\n    return count;\n}"
         }
       ],

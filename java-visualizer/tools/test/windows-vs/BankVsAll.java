@@ -88,9 +88,19 @@ public final class BankVsAll {
         boolean marks = false;
         for (File f : r.files) marks |= new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).matches("(?s).*[\u202A-\u202E].*");
         boolean ok = dir.isDirectory() && new File(dir, r.folderName + ".csproj").isFile() && sln().contains("\"" + r.folderName + "\"")
-                && r.errors.isEmpty() && !marks && BankVs.solutionsUnder(dir) == tasks && BankVs.projects(q).contains(dir);
+                && r.errors.isEmpty() && !marks && BankVs.solutionsUnder(dir) == 1 && BankVs.prepared(q) == 1 && BankVs.projects(q).contains(dir);
         check("create-" + id, ok, id + " → " + r.folderName + " (" + r.files.size() + " קבצים, " + tasks + " סעיפים, בפתרון, בלי סימוני כיוון)",
                 "errors=" + r.errors + " marks=" + marks + " solutions=" + BankVs.solutionsUnder(dir));
+        // התרגיל נוצר עם סעיף א בלבד; "הכן סעיף ב" (וכו') מוסיף כל סעיף — הפעולה, הבדיקות ב-main וההצעה לפתרון
+        List<String> prepProblems = new ArrayList<String>();
+        AiScaffold.Exercise allTasks = AiScaffold.read(q.exercise);
+        for (int k = 1; k < allTasks.tasks.size(); k++) {
+            String p = BankVs.prepare(q, allTasks.tasks.get(k));
+            if (p != null) prepProblems.add(p);
+            if (BankVs.prepared(q) != k + 1) prepProblems.add("prepared=" + BankVs.prepared(q) + " אחרי סעיף " + allTasks.tasks.get(k).label);
+        }
+        check("prepare-" + q.id, prepProblems.isEmpty() && BankVs.solutionsUnder(dir) == tasks,
+                q.id + ": \"הכן סעיף\" הוסיף את כל " + (tasks - 1) + " הסעיפים הנוספים (פעולה, בדיקות ב-main, הצעה לפתרון)", String.join(" | ", prepProblems));
         int applied = solve(dir);
         String[] run = ExercisePipeline.exec(cmd(dir), dir, 120);
         String output = run == null ? "" : SolutionCheck.clean(stripHeader(run[0]));

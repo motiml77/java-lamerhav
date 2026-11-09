@@ -312,8 +312,53 @@ public final class RtlDialog {
         return segments(text, false);
     }
 
+    private static final String NUM = "(?:(?<![\\u0590-\\u05FF\\w])-)?\\d+(?:\\.\\d+)?";   // מינוס — לא אחרי "ו-" / "מ-"
+    private static final String TUPLE = "\\(\\s*" + NUM + "\\s*,\\s*" + NUM + "\\s*\\)";
+    private static final String EXPR = NUM + "(?:[-+·×*/]" + NUM + ")*";   // 1+1+1 (בלי רווחים) — פריט אחד ברשימה
+    private static final String ITEM = "(?:" + TUPLE + "|" + EXPR + ")";
+    /**
+     * ערכים שמוצגים תמיד כיחידה אחת משמאל לימין, בלי לשבור שורה באמצע: רשימה ‎"9, 4, 6, 3"‎ / ‎"{1, 2, 3}"‎ / ‎"[4,7,2]"‎, זוג ‎"(1, 2)"‎,
+     * חשבון ‎"1 + 2 + 3 = 6"‎, ומחרוזת או תו בגרשיים ‎"([]{})"‎ / ‎'a'‎ (בלי עברית בפנים). כך הסדר זהה לציור (הראש משמאל) ולא מתהפך.
+     */
+    static final Pattern VALUES = Pattern.compile(
+            "(?:[A-Za-z_]\\w*\\s*=\\s*)?[\\[{]\\s*" + ITEM + "(?:\\s*,\\s*" + ITEM + ")*\\s*[\\]}]"   // a = {1, 3, 5}
+            + "|" + ITEM + "(?:\\s*,\\s*" + ITEM + ")+"
+            + "|" + TUPLE
+            + "|" + NUM + "(?:\\s*[-+·×*/=]\\s*" + NUM + ")+"
+            + "|\"[^\"\\u0590-\\u05FF\\n]*\"|'[^'\\u0590-\\u05FF\\n]{1,2}'");
+
     /** strict — רק מה שנראה כמו קוד (סוגריים, ;, =, _, קובץ.סיומת), ולא סתם מילה באנגלית (Visual Studio, Reload) */
     static List<String[]> segments(String text, boolean strict) {
+        // קודם הערכים (רשימות, חשבון, מחרוזות בגרשיים) — יחידה אחת משמאל לימין, עם רווח שלא נשבר; ושאר הטקסט כמו קודם
+        List<String[]> out = new ArrayList<String[]>();
+        Matcher v = VALUES.matcher(text);
+        int at = 0;
+        boolean any = false;
+        while (v.find()) {
+            if (insideTicks(text, v.start())) continue;
+            any = true;
+            if (v.start() > at) out.addAll(plainSegments(text.substring(at, v.start()), strict));
+            out.add(new String[] { v.group().replace(' ', '\u00A0'), "ltr" });
+            at = v.end();
+        }
+        if (!any) out = plainSegments(text, strict);
+        else if (at < text.length()) out.addAll(plainSegments(text.substring(at), strict));
+        // "ל-other", "ו-x = 3", "מ-a": המקף אחרי אות עברית לפני קטע משמאל לימין — מקף שלא נשבר (U+2011), כדי שהאות לא תישאר לבד בסוף שורה
+        for (int i = 0; i + 1 < out.size(); i++) {
+            String[] s = out.get(i), next = out.get(i + 1);
+            if (s[1] == null && next[1] != null && s[0].matches("(?s).*[\\u05D0-\\u05EA]-")) s[0] = s[0].substring(0, s[0].length() - 1) + "\u2011";
+        }
+        return out;
+    }
+
+    /** המקום בתוך `...` (קוד מסומן) — שם הערכים נשארים חלק מהקוד */
+    private static boolean insideTicks(String text, int pos) {
+        int n = 0;
+        for (int i = 0; i < pos; i++) if (text.charAt(i) == '`') n++;
+        return n % 2 == 1;
+    }
+
+    private static List<String[]> plainSegments(String text, boolean strict) {
         List<String[]> out = new ArrayList<String[]>();
         String[] parts = text.split("(?=`)|(?<=`)");
         boolean inTick = false;
@@ -342,12 +387,22 @@ public final class RtlDialog {
                     continue;
                 }
                 int a = 0, b = seg.length();
-                while (a < b && " \t-,.:!?\"'(".indexOf(seg.charAt(a)) >= 0 && !(seg.charAt(a) == '(' && seg.indexOf(')', a) > 0)) a++;
+                while (a < b && (" \t-,.:!?\"'(".indexOf(seg.charAt(a)) >= 0 && !(seg.charAt(a) == '(' && seg.indexOf(')', a) > 0)
+                        || (seg.charAt(a) == ')' || seg.charAt(a) == ']') && count(seg.substring(a, b), '(') + count(seg.substring(a, b), '[')
+                                < count(seg.substring(a, b), ')') + count(seg.substring(a, b), ']'))) a++;
                 while (b > a && " \t,.:!?\"'".indexOf(seg.charAt(b - 1)) >= 0) b--;
                 String core = seg.substring(a, b);
                 while (core.endsWith(")") && count(core, '(') < count(core, ')')) {
                     core = core.substring(0, core.length() - 1);
                     b--;
+                }
+                // סוגר פותח בלי זוג בתוך הקטע ("b (" לפני "כולל)", "9 (19" לפני "צעדים)") — שייך לעברית שאחריו: הקטע נגמר לפניו
+                int open = unbalancedOpen(core);
+                if (open >= 0) {
+                    int keep = open;
+                    while (keep > 0 && core.charAt(keep - 1) == ' ') keep--;
+                    b = a + keep;
+                    core = core.substring(0, keep);
                 }
                 if (a > 0) out.add(new String[] { seg.substring(0, a), null });
                 boolean isCode = !core.isEmpty() && !list && (!strict || core.matches(".*[()<>\\[\\]{};=_].*|.*\\w\\.\\w.*"));
@@ -358,6 +413,19 @@ public final class RtlDialog {
         }
         if (inTick && tick.length() > 0) out.add(new String[] { "`" + tick, null });
         return out;
+    }
+
+    /** המקום של "(" או "[" הראשון שאין לו סוגר בהמשך הקטע, או -1 */
+    private static int unbalancedOpen(String s) {
+        java.util.ArrayDeque<Integer> st = new java.util.ArrayDeque<Integer>();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '(' || c == '[') st.push(i);
+            else if ((c == ')' || c == ']') && !st.isEmpty()) st.pop();
+        }
+        int first = -1;
+        for (Integer i : st) first = i;   // התחתון במחסנית = הראשון שנפתח
+        return first;
     }
 
     private static int count(String s, char c) {
@@ -455,11 +523,21 @@ public final class RtlDialog {
         StyleConstants.setAlignment(par, StyleConstants.ALIGN_RIGHT);
         StyleConstants.setLineSpacing(par, 0.15f);
         try {
-            doc.insertString(0, String.valueOf(RLM), base);
-            for (String[] s : segments(text, strict)) {
-                if (s[1] == null) doc.insertString(doc.getLength(), s[0], base);
-                else if (s[1].equals("ltr")) doc.insertString(doc.getLength(), LRE + s[0] + PDF + RLM, base);
-                else doc.insertString(doc.getLength(), LRE + s[0] + PDF + RLM, code);
+            // שורה-שורה: כל שורה מתחילה ב-RLM, וקטע משמאל לימין לא עובר משורה לשורה (בלי זה ‎"\n{1, 2}"‎ נכנס לקטע אחד)
+            String[] lines = String.valueOf(text).replace("\r", "").split("\n", -1);
+            for (int i = 0; i < lines.length; i++) {
+                doc.insertString(doc.getLength(), (i > 0 ? "\n" : "") + RLM, base);
+                String line = lines[i];
+                if (!line.trim().isEmpty() && !HEB.matcher(line).find() && line.indexOf('`') < 0) {
+                    // שורה בלי עברית (‎"{9, 4, 7, 1}"‎, ‎"a = {1, 3}"‎, נוסחה) — כולה יחידה אחת משמאל לימין
+                    doc.insertString(doc.getLength(), LRE + line.trim() + PDF + RLM, line.matches(".*[A-Za-z].*") ? code : base);
+                    continue;
+                }
+                for (String[] s : segments(line, strict)) {
+                    if (s[1] == null) doc.insertString(doc.getLength(), s[0], base);
+                    else if (s[1].equals("ltr")) doc.insertString(doc.getLength(), LRE + s[0] + PDF + RLM, base);
+                    else doc.insertString(doc.getLength(), LRE + s[0] + PDF + RLM, code);
+                }
             }
         } catch (BadLocationException ignored) {
             // לא קורה

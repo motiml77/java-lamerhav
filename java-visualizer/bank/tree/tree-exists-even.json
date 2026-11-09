@@ -26,7 +26,7 @@
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה ששמה countEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4."
+        "text": "כתוב פעולה ששמה countEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4"
       }
     ]
   },
@@ -71,7 +71,7 @@
             "name": "t"
           }
         ],
-        "instructions": "כתוב פעולה ששמה countEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4.",
+        "instructions": "כתוב פעולה ששמה countEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4",
         "solution": "public static int countEven(BinNode<Integer> t) {\n    if (t == null) {\n        return 0;\n    }\n    int here = t.getValue() % 2 == 0 ? 1 : 0;\n    return here + countEven(t.getLeft()) + countEven(t.getRight());\n}"
       }
     ],
@@ -104,7 +104,7 @@
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה ששמה CountEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4."
+          "text": "כתוב פעולה ששמה CountEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4"
         }
       ]
     },
@@ -149,7 +149,7 @@
               "name": "t"
             }
           ],
-          "instructions": "כתוב פעולה ששמה CountEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4.",
+          "instructions": "כתוב פעולה ששמה CountEven, המקבלת עץ בינארי t ומחזירה כמה צמתים בעץ מכילים מספר זוגי.\nעבור העץ שבציור הפעולה תחזיר 4",
           "solution": "public static int CountEven(BinNode<int> t)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    int here = t.GetValue() % 2 == 0 ? 1 : 0;\n    return here + CountEven(t.GetLeft()) + CountEven(t.GetRight());\n}"
         }
       ],

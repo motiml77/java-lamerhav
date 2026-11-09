@@ -8,7 +8,7 @@
     "sections": [
       {
         "label": "א",
-        "text": "כתוב פעולה ששמה length, המקבלת הפניה first ומחזירה כמה חוליות יש בשרשרת.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר 4.",
+        "text": "כתוב פעולה ששמה length, המקבלת הפניה first ומחזירה כמה חוליות יש בשרשרת.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר 4",
         "figures": [
           {
             "type": "list",
@@ -24,7 +24,7 @@
       },
       {
         "label": "ב",
-        "text": "כתוב פעולה ששמה sum, המקבלת הפניה first ומחזירה את סכום הערכים בשרשרת.\nעבור השרשרת שבציור הפעולה תחזיר 20."
+        "text": "כתוב פעולה ששמה sum, המקבלת הפניה first ומחזירה את סכום הערכים בשרשרת.\nעבור השרשרת שבציור הפעולה תחזיר 20"
       }
     ]
   },
@@ -49,7 +49,7 @@
             "name": "first"
           }
         ],
-        "instructions": "כתוב פעולה ששמה length, המקבלת הפניה first ומחזירה כמה חוליות יש בשרשרת.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר 4.",
+        "instructions": "כתוב פעולה ששמה length, המקבלת הפניה first ומחזירה כמה חוליות יש בשרשרת.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר 4",
         "solution": "public static int length(Node<Integer> first) {\n    int count = 0;\n    Node<Integer> p = first;\n    while (p != null) {\n        count++;\n        p = p.getNext();\n    }\n    return count;\n}"
       },
       {
@@ -65,7 +65,7 @@
             "name": "first"
           }
         ],
-        "instructions": "כתוב פעולה ששמה sum, המקבלת הפניה first ומחזירה את סכום הערכים בשרשרת.\nעבור השרשרת שבציור הפעולה תחזיר 20.",
+        "instructions": "כתוב פעולה ששמה sum, המקבלת הפניה first ומחזירה את סכום הערכים בשרשרת.\nעבור השרשרת שבציור הפעולה תחזיר 20",
         "solution": "public static int sum(Node<Integer> first) {\n    int sum = 0;\n    Node<Integer> p = first;\n    while (p != null) {\n        sum = sum + p.getValue();\n        p = p.getNext();\n    }\n    return sum;\n}"
       }
     ],
@@ -80,7 +80,7 @@
       "sections": [
         {
           "label": "א",
-          "text": "כתוב פעולה ששמה Length, המקבלת הפניה first ומחזירה כמה חוליות יש בשרשרת.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר 4.",
+          "text": "כתוב פעולה ששמה Length, המקבלת הפניה first ומחזירה כמה חוליות יש בשרשרת.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר 4",
           "figures": [
             {
               "type": "list",
@@ -96,7 +96,7 @@
         },
         {
           "label": "ב",
-          "text": "כתוב פעולה ששמה Sum, המקבלת הפניה first ומחזירה את סכום הערכים בשרשרת.\nעבור השרשרת שבציור הפעולה תחזיר 20."
+          "text": "כתוב פעולה ששמה Sum, המקבלת הפניה first ומחזירה את סכום הערכים בשרשרת.\nעבור השרשרת שבציור הפעולה תחזיר 20"
         }
       ]
     },
@@ -121,7 +121,7 @@
               "name": "first"
             }
           ],
-          "instructions": "כתוב פעולה ששמה Length, המקבלת הפניה first ומחזירה כמה חוליות יש בשרשרת.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר 4.",
+          "instructions": "כתוב פעולה ששמה Length, המקבלת הפניה first ומחזירה כמה חוליות יש בשרשרת.\nלדוגמה: עבור השרשרת שבציור הפעולה תחזיר 4",
           "solution": "public static int Length(Node<int> first)\n{\n    int count = 0;\n    Node<int> p = first;\n    while (p != null)\n    {\n        count++;\n        p = p.GetNext();\n    }\n    return count;\n}"
         },
         {
@@ -137,7 +137,7 @@
               "name": "first"
             }
           ],
-          "instructions": "כתוב פעולה ששמה Sum, המקבלת הפניה first ומחזירה את סכום הערכים בשרשרת.\nעבור השרשרת שבציור הפעולה תחזיר 20.",
+          "instructions": "כתוב פעולה ששמה Sum, המקבלת הפניה first ומחזירה את סכום הערכים בשרשרת.\nעבור השרשרת שבציור הפעולה תחזיר 20",
           "solution": "public static int Sum(Node<int> first)\n{\n    int sum = 0;\n    Node<int> p = first;\n    while (p != null)\n    {\n        sum = sum + p.GetValue();\n        p = p.GetNext();\n    }\n    return sum;\n}"
         }
       ],

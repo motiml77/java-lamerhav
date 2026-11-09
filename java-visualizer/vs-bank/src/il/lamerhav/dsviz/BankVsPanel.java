@@ -40,6 +40,14 @@ final class BankVsPanel {
         void jump(AiScaffold.Task t);
 
         void solution(AiScaffold.Task t);
+
+        /** כמה סעיפים כבר בקוד (התרגיל נבנה סעיף אחרי סעיף — BankSections). בלי תרגיל — כולם */
+        default int prepared() {
+            return Integer.MAX_VALUE;
+        }
+
+        /** "הכן סעיף ב": הפעולה של הסעיף והבדיקות שלו נכנסות לקוד */
+        default void prepare(AiScaffold.Task t) {}
     }
 
     static final int WIDE_FIGURE = 380;
@@ -76,7 +84,10 @@ final class BankVsPanel {
             col.add(card(c));
             col.add(RtlDialog.gap(10));
         }
+        int ready = actions == null ? Integer.MAX_VALUE : actions.prepared();
+        int index = 0;
         for (BankStore.Section s : q.sections) {
+            final int at = index++;
             JPanel c = column();
             String label = s.label.replaceAll("['׳]+$", "");
             c.add(RtlDialog.label(label.isEmpty() ? "סעיף" : "סעיף " + label + "'", Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 14f)), RtlDialog.ACCENT_2));
@@ -84,7 +95,20 @@ final class BankVsPanel {
             c.add(text(s.text, width - 32, RtlDialog.INK));
             figures(c, s.figures);
             final AiScaffold.Task task = taskOf(ex, s.label);
-            if (actions != null && task != null) {
+            if (actions != null && task != null && at >= ready) {
+                // הסעיף עוד לא בקוד: "הכן סעיף ב" (רק לסעיף הבא בתור); הפעולה והבדיקות שלו נכנסות למקום הנכון בקוד
+                c.add(RtlDialog.gap(10));
+                if (at == ready) {
+                    JButton prep = RtlDialog.primary("הכן סעיף " + label + "'");
+                    prep.setToolTipText(RtlDialog.rtl("מוסיף לקוד את הפעולה " + task.methodName + " ואת הבדיקות של הסעיף ב-main"));
+                    prep.addActionListener(e -> actions.prepare(task));
+                    prep.putClientProperty("dsviz.id", "prepare-" + label);
+                    prep.setAlignmentX(Component.RIGHT_ALIGNMENT);
+                    c.add(prep);
+                    c.add(RtlDialog.gap(4));
+                    c.add(text("הפעולה של הסעיף והבדיקות שלו ב-main ייכנסו לקוד במקום המתאים — לא משנה איפה הסמן.", width - 32, RtlDialog.MUTED));
+                } else c.add(text("אחרי סעיף " + q.sections.get(at - 1).label.replaceAll("['׳]+$", "") + "'", width - 32, RtlDialog.MUTED));
+            } else if (actions != null && task != null) {
                 JPanel links = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 0));
                 links.setOpaque(false);
                 links.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
@@ -109,9 +133,12 @@ final class BankVsPanel {
             col.add(RtlDialog.gap(10));
         }
         String expected = q.expectedOutput();
+        boolean partial = ready < q.sections.size();
+        if (partial) expected = BankSections.expectedUpTo(expected, BankSections.labels(q.exercise), ready);   // רק הסעיפים שכבר בקוד
         if (!expected.isEmpty()) {
             JPanel c = column();
-            c.add(wrapped(RtlDialog.paragraph("כשהכול פתור נכון, התוכנית מדפיסה:", RtlDialog.bold(), RtlDialog.INK, width - 40, true)));   // יורד שורה בהגדלה
+            c.add(wrapped(RtlDialog.paragraph(partial ? "כשהסעיפים שכבר בקוד פתורים נכון, התוכנית מדפיסה:" : "כשהכול פתור נכון, התוכנית מדפיסה:",
+                    RtlDialog.bold(), RtlDialog.INK, width - 40, true)));   // יורד שורה בהגדלה
             c.add(RtlDialog.gap(6));
             // כמו בחלון הפלט: משמאל לימין, שורה-שורה ("[4,7,2,9]" לא מתהפך)
             // כמו בחלון הפלט: כל שורה משמאל לימין ("סעיף א: 22", "[4,7,2,9]" — לא מתהפך)
@@ -134,7 +161,8 @@ final class BankVsPanel {
             box.setAlignmentX(Component.RIGHT_ALIGNMENT);
             c.add(box);
             c.add(RtlDialog.gap(6));
-            c.add(wrapped(RtlDialog.paragraph("מריצים ב\"הרצה ויזואלית\", ובודקים שזה מה שמודפס.", RtlDialog.small(), RtlDialog.MUTED, width - 40, true)));
+            c.add(wrapped(RtlDialog.paragraph(partial ? "מריצים ב\"הרצה ויזואלית\", ובודקים שזה מה שמודפס. כשמכינים את הסעיף הבא — מתווספות כאן גם השורות שלו."
+                    : "מריצים ב\"הרצה ויזואלית\", ובודקים שזה מה שמודפס.", RtlDialog.small(), RtlDialog.MUTED, width - 40, true)));
             col.add(card(c));
         }
         return col;
