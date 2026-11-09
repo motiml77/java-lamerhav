@@ -158,6 +158,13 @@ public class BankIt implements IApplication {
         sleep(800);
         out.println("PREVIEW-QUEUE " + ui(() -> preview(dlg)));
         shot(dlg, "bank-dialog-queue.png");
+        // נוסח עם ערבוב מספרים ועברית (מימין לשמאל): התור הבינוני, והנוסחה של הנקודות
+        ui(() -> { select(dlg, "queue", "queue-last-min"); return null; });
+        sleep(800);
+        shot(dlg, "bank-dialog-queue-medium.png");
+        ui(() -> { select(dlg, "classes", "classes-points"); return null; });
+        sleep(800);
+        shot(dlg, "bank-dialog-points.png");
         ui(() -> { select(dlg, "list", "list-length-sum"); return null; });
         sleep(800);
         out.println("PREVIEW-LIST " + ui(() -> preview(dlg)));
