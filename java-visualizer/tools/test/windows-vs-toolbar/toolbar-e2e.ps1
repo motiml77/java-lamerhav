@@ -430,7 +430,9 @@ function SolveProject([string]$projDir) {
             }
             if ($end -lt 0) { continue }
             $indent = [regex]::Match($text.Substring($start), '^[ \t]*').Value
-            $code = ($e.code -split "`n" | ForEach-Object { $indent + $_.TrimEnd("`r") }) -join "`r`n"
+            # אותו סוף שורה כמו בקובץ (LF או CRLF) — אחרת Visual Studio קופץ עם 'Inconsistent Line Endings' (חלון שחוסם את האוטומציה)
+            $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+            $code = ($e.code -split "`n" | ForEach-Object { $indent + $_.TrimEnd("`r") }) -join $nl
             $text = $text.Substring(0, $start) + $code + $text.Substring($end + 1)
             $applied++
         }
