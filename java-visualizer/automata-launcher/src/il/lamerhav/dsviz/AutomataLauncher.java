@@ -203,7 +203,7 @@ public final class AutomataLauncher {
                     File profile = new File(stateDir, "edge");
                     profile.mkdirs();
                     Process p = new ProcessBuilder(msedge, "--app=" + url, "--user-data-dir=" + profile.getAbsolutePath(), "--no-first-run",
-                            "--no-default-browser-check", "--window-size=1440,920").start();
+                            "--no-default-browser-check", "--disable-features=Translate,msEdgeTranslate", "--window-size=1440,920").start();
                     if (edge == null || !edge.isAlive()) edge = p;
                     return;
                 }
@@ -292,7 +292,11 @@ public final class AutomataLauncher {
     static byte[] inject(byte[] html) {
         String s = new String(html, StandardCharsets.UTF_8);
         String tag = "<script type=\"module\" src=\"js/access-client.js\"></script>";
-        if (s.contains("js/access-client.js")) return html;
+        // בלי ההצעה "לתרגם מעברית?" של Edge / Chrome — זו תוכנה בעברית
+        int h = s.indexOf("<head>");
+        if (h >= 0 && !s.contains("notranslate")) s = s.substring(0, h + 6) + "<meta name=\"google\" content=\"notranslate\">" + s.substring(h + 6);
+        if (!s.contains("translate=")) s = s.replaceFirst("<html(\\s|>)", "<html translate=\"no\"$1");
+        if (s.contains("js/access-client.js")) return s.getBytes(StandardCharsets.UTF_8);
         int i = s.lastIndexOf("</body>");
         s = i < 0 ? s + tag : s.substring(0, i) + tag + "\n" + s.substring(i);
         return s.getBytes(StandardCharsets.UTF_8);
