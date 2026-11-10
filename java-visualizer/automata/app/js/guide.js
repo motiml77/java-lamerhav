@@ -52,7 +52,8 @@
 
     update() {
       const empty = !this.app.machine.states.length;
-      const show = empty || this.pinned;
+      const bank = this.app.bankFloat && this.app.bankFloat.isOpen();   // החלון "השאלה" יושב באותו מקום כמו הכרטיס הצף
+      const show = empty || (this.pinned && !bank);
       this.el.hidden = !show;
       if (!show) this.el.dataset.mode = '';
       $('#guide-btn').setAttribute('aria-expanded', String(show));

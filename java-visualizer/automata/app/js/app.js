@@ -46,11 +46,15 @@
       this.side = new root.SidePanel(this, $('.side'));
       this.runPanel = new root.RunPanel(this, $('.runpanel'));
       this.popover = new root.TransitionPopover(this, $('#tpop'));
+      this.bankProgress = root.AutomataBank.Progress(store);
+      this.bank = new root.BankWindow(this);
+      this.bankFloat = new root.BankFloat(this, $('#stage'));
       root.Guide.init(this);
       this.bindTop();
       this.bindKeys();
       this.renderExamplesMenu();
       this.switchType(this.active, true);
+      this.bankFloat.restore();
       requestAnimationFrame(() => { if (!this.machine.view.placed) { const g = root.Guide.el; this.canvas.fit(g.hidden || g.dataset.mode !== 'float' ? 0 : g.offsetWidth + 24); this.machine.view.placed = true; } });
     },
 
@@ -80,6 +84,7 @@
       clearTimeout(this.saveT);
       this.saveT = setTimeout(() => {
         this.words[this.active] = this.word;
+        if (this.bankFloat && !this.bankFloat.loading) this.bankFloat.persist();   // המכונה של סעיף פתוח מהמאגר
         const ok = store.set(STORE_KEY, JSON.stringify({ v: 1, active: this.active, machines: this.machines, words: this.words, speed: this.speed }));
         if (!ok && !this.warnedStore) { this.warnedStore = true; this.toast('לא ניתן לשמור בדפדפן הזה. שמרו לקובץ כדי לא לאבד עבודה.', 'err'); }
       }, 250);
@@ -270,6 +275,7 @@
     },
 
     loadMachine(m, label, word) {
+      if (this.bankFloat && !this.bankFloat.loading) this.bankFloat.detach();   // דוגמה / קובץ / "חדש": התרגיל מהמאגר נסגר (העבודה נשמרת)
       const type = m.type;
       if (type !== this.active) this.switchType(type);
       const snap = this.snapshot();

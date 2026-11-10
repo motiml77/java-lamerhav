@@ -45,6 +45,7 @@
     beaker: '<path d="M8 3.5h4M8.6 3.5v4.6L4.4 15c-.5.8.1 1.5 1 1.5h9.2c.9 0 1.5-.7 1-1.5l-4.2-6.9V3.5"/><path d="M6.2 12.5h7.6"/>',
     tape: '<rect x="2.5" y="6.5" width="15" height="7" rx="1"/><path d="M6.5 6.5v7M10 6.5v7M13.5 6.5v7"/>',
     stack: '<rect x="5" y="3.5" width="10" height="3.6" rx="1"/><rect x="5" y="8.2" width="10" height="3.6" rx="1"/><rect x="5" y="12.9" width="10" height="3.6" rx="1"/>',
+    bank: '<path d="M6 3.5h9.2c.7 0 1.3.6 1.3 1.3V14"/><rect x="3.5" y="6" width="10.5" height="10.5" rx="1.5"/><rect x="5.6" y="8.2" width="1.8" height="1.8" rx=".4" fill="currentColor" stroke="none"/><rect x="5.6" y="12.3" width="1.8" height="1.8" rx=".4" fill="currentColor" stroke="none"/><path d="M9.2 9.1h3M9.2 13.2h3"/>',
   };
   function get(name, size) {
     const s = size || 20;

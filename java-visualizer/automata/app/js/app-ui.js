@@ -5,6 +5,7 @@
   'use strict';
   const M = root.AutomataModel, I = root.Icons, EX = root.AutomataExamples, D = root.Dialogs;
   const THEME_KEY = 'dsviz.automata.theme';
+  const store = { set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* אין אחסון */ } } };
   const $ = (s, el) => (el || document).querySelector(s);
   const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -95,6 +96,7 @@
           case 'export-svg': this.toggleMenu('save-menu', null, false); this.exportSVG(); break;
           case 'open': $('#file-input').click(); break;
           case 'new': this.newMachine(); break;
+          case 'bank': this.bank.show(this.bankFloat.q && this.bankFloat.q.id); break;
           case 'theme': this.setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); break;
           case 'help': this.showHelp(); break;
           case 'close-modal': this.closeModal(); break;
