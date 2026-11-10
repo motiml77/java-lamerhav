@@ -74,13 +74,13 @@
     Object.assign({}, base, {
       id: 'anbn',
       type: 'pda',
-      name: 'aⁿbⁿ',
+      name: 'אותו מספר a ו-b (aⁿbⁿ)',
       description: 'אוטומט מחסנית שמקבל aⁿbⁿ (n ≥ 0): דוחף A על כל a, ושולף A על כל b.',
       alphabet: ['a', 'b'],
       stackAlphabet: ['Z', 'A'],
       stackStart: 'Z',
       acceptBy: 'final',
-      states: [st('q0', -190, 0, false, { loopAngle: -90 }), st('q1', 30, 0, false, { loopAngle: -90 }), st('q2', 230, 0, true)],
+      states: [st('q0', -150, -40, false, { loopAngle: -90 }), st('q1', 150, -40, false, { loopAngle: -90 }), st('q2', 0, 130, true)],
       start: 'q0',
       transitions: [
         { id: 't1', from: 'q0', to: 'q0', labels: [{ read: 'a', pop: 'Z', push: 'AZ' }, { read: 'a', pop: 'A', push: 'AA' }] },
