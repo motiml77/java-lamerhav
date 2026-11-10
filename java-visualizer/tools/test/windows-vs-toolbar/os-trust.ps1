@@ -24,15 +24,16 @@ $hasMs = (& "$rt\bin\java.exe" --list-modules 2>&1 | Select-String 'jdk.crypto.m
 Check 'jre-mscapi' $hasMs 'ב-Java של ההתקנה יש jdk.crypto.mscapi (Windows-ROOT)'
 
 # 2. תעודת שורש "של הסינון" במאגר של Windows, ותעודה לשרת (127.0.0.1) שהיא חתמה
-$root = New-SelfSignedCertificate -Type Custom -Subject 'CN=DSViz Test Filter Root' -KeyUsage CertSign, CRLSign, DigitalSignature `
+# (לא $root: ב-PowerShell אין הבדל בין אותיות גדולות לקטנות — זה היה דורס את הפרמטר $Root)
+$ca = New-SelfSignedCertificate -Type Custom -Subject 'CN=DSViz Test Filter Root' -KeyUsage CertSign, CRLSign, DigitalSignature `
     -TextExtension @('2.5.29.19={critical}{text}ca=1&pathlength=1') -CertStoreLocation Cert:\CurrentUser\My -KeyExportPolicy Exportable -NotAfter (Get-Date).AddDays(2)
-Export-Certificate -Cert $root -FilePath (Join-Path $w 'root.cer') | Out-Null
+Export-Certificate -Cert $ca -FilePath (Join-Path $w 'root.cer') | Out-Null
 Import-Certificate -FilePath (Join-Path $w 'root.cer') -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
-$leaf = New-SelfSignedCertificate -Type Custom -Subject 'CN=127.0.0.1' -Signer $root -KeyUsage DigitalSignature, KeyEncipherment `
+$leaf = New-SelfSignedCertificate -Type Custom -Subject 'CN=127.0.0.1' -Signer $ca -KeyUsage DigitalSignature, KeyEncipherment `
     -TextExtension @('2.5.29.17={text}IPAddress=127.0.0.1&DNS=localhost', '2.5.29.37={text}1.3.6.1.5.5.7.3.1') -CertStoreLocation Cert:\CurrentUser\My -KeyExportPolicy Exportable -NotAfter (Get-Date).AddDays(2)
 $pw = ConvertTo-SecureString 'changeit' -AsPlainText -Force
 Export-PfxCertificate -Cert $leaf -FilePath (Join-Path $w 'leaf.pfx') -Password $pw -ChainOption BuildChain | Out-Null
-Check 'root-installed' ((Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Thumbprint -eq $root.Thumbprint }).Count -eq 1) 'תעודת השורש במאגר של Windows (LocalMachine\Root)'
+Check 'root-installed' ((Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Thumbprint -eq $ca.Thumbprint }).Count -eq 1) 'תעודת השורש במאגר של Windows (LocalMachine\Root)'
 
 # 3. הלקוח והשרת
 $cls = Join-Path $w 'cls'
@@ -62,7 +63,7 @@ $wrongName = Probe "$rt\bin\java.exe" @()
 Check 'hostname-checked' ($wrongName -notmatch 'STATUS ok') 'שם שרת שלא בתעודה — נכשל (בדיקת השם נשמרת, לא "סומכים על הכול")' $wrongName
 
 Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue
-Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Thumbprint -eq $root.Thumbprint } | Remove-Item -ErrorAction SilentlyContinue
+Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Thumbprint -eq $ca.Thumbprint } | Remove-Item -ErrorAction SilentlyContinue
 Log "SUMMARY $(@($script:lines | Where-Object { $_ -match '^  ok ' }).Count) ok / $script:fails FAIL"
 [IO.File]::WriteAllLines((Join-Path $Out 'os-trust-summary.txt'), [string[]]$script:lines, (New-Object Text.UTF8Encoding($false)))
 exit ([int]($script:fails -gt 0))
