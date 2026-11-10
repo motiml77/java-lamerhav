@@ -140,6 +140,12 @@ if ($FreshCs -and (Test-Path (Join-Path $FreshCs 'dsviz-cs.exe'))) {
     Copy-Item (Join-Path $FreshCs 'Unit4.CollectionsLib.dll') (Join-Path $csDir 'lib') -Force
     Info "dsviz-cs והספרייה של C# הוחלפו בבנייה מהקוד העדכני ($FreshCs)"
 }
+# סרגל הכלים של DSViz ב-Visual Studio: ההתקנה הישנה שבענף עוד בלי ההרחבה — מתקינים את זו שבנויה מהקוד (prebuilt), כמו ההתקנה החדשה
+$vsixFile = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\csharp\vs-extension\prebuilt\DsViz.VsExtension.vsix'))
+if (Test-Path $vsixFile) {
+    $vo = & powershell -NoProfile -ExecutionPolicy Bypass -File ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\installer\install-vsix.ps1'))) $vsixFile 2>&1
+    Info "סרגל הכלים (install-vsix.ps1): $($vo -join ' ')"
+}
 $o = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Lab 'install-bank-vs.ps1') 2>&1
 Info "install-bank-vs.ps1: $($o -join ' ')"
 $ws = New-Object -ComObject WScript.Shell
@@ -197,6 +203,13 @@ if ($ready) {
     Start-Sleep 40
     SkipFirstRun $vsP.Id | Out-Null
     Shot '01-vs-open'
+    # סרגל הכלים של DSViz מופיע (ההרחבה נטענת אחרי שהחלון עולה — עד דקה וחצי)
+    $tb = @()
+    for ($i = 0; $i -lt 30 -and @($tb | Select-Object -Unique).Count -lt 4; $i++) {
+        $tb = @(VsElements $vsP.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -match 'תרגיל חדש|מאגר שאלות|הוספת מבנה נתונים|שליחת תרגיל|הדרכה' })
+        if (@($tb | Select-Object -Unique).Count -lt 4) { Start-Sleep 3 }
+    }
+    Check 'vs-toolbar' (@($tb | Select-Object -Unique).Count -ge 4) "סרגל הכלים של DSViz מופיע ב-Visual Studio עם הכפתורים" ((($tb | Select-Object -Unique)) -join ' ; ')
 }
 
 # ------------------------------------------------------------------ 3. המאגר: בחירה ויצירה (BankVsIt — כמו תלמיד)
