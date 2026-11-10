@@ -141,7 +141,7 @@
         }
         const st = STATUS[p.status] + (p.status === 'stuck' && p.letter != null ? ' באות ' + p.letter : '');
         return '<button type="button" class="p-row ' + p.status + (focus === p.id ? ' focus' : '') + '" data-path="' + p.id + '" title="לחיצה מדגישה את הדרך על הקנבס">' +
-          '<span class="p-n">דרך ' + p.n + '</span><span class="p-state">' + esc(M.stateName(m, p.state)) + '</span>' +
+          '<span class="p-n">דרך ' + p.n + '</span><span class="p-state">' + esc(M.stateName(m, p.state)) + (app.hiddenStates().has(p.state) ? ' <small>(מוסתר)</small>' : '') + '</span>' +
           '<span class="p-read"><b>' + (esc(read) || 'ε') + '</b>' + esc(rest) + '</span>' + stack + '<span class="p-st">' + esc(st) + '</span></button>';
       };
       const shown = ps.slice(0, MAX_ROWS);
@@ -174,10 +174,10 @@
       const ps = st && (m.type === 'pda' || m.type === 'nfa') ? PT.paths(tr, run.index, m) : [];
       if (ps.length > 1) return h + this.pathsHTML(ps, m.type === 'pda');
       if (m.type === 'nfa' || m.type === 'dfa') {
-        const act = st ? st.active : [];
+        const act = st ? st.active : [], hid = app.hiddenStates();
         const label = m.type === 'nfa' ? 'מצבים פעילים' : 'מצב נוכחי';
         h += '<div class="mv-block mv-active"><div class="mv-label">' + label + (m.type === 'nfa' && st ? ' <span class="cnt">' + act.length + '</span>' : '') + '</div><div class="act-chips">' +
-          (st ? (act.length ? act.map((id) => '<span class="act-chip' + (tr.acceptedStates.includes(id) && run.index === tr.steps.length - 1 ? ' ok' : '') + '">' + esc(M.stateName(m, id)) + '</span>').join('') : '<span class="act-none">∅ אין</span>') : '<span class="act-none">—</span>') + '</div></div>';
+          (st ? (act.length ? act.map((id) => '<span class="act-chip' + (tr.acceptedStates.includes(id) && run.index === tr.steps.length - 1 ? ' ok' : '') + '">' + esc(M.stateName(m, id)) + (hid.has(id) ? ' <small>(מוסתר)</small>' : '') + '</span>').join('') : '<span class="act-none">∅ אין</span>') : '<span class="act-none">—</span>') + '</div></div>';
       }
       if (m.type === 'pda') h += this.stacksHTML(st, tr);
       return h;

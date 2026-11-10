@@ -130,7 +130,9 @@
 
     render() {
       const m = this.m, app = this.app, sel = app.sel, rv = app.runView || {};
-      const states = new Map(m.states.map((s) => [s.id, s]));
+      const hidden = app.hiddenStates ? app.hiddenStates() : new Set();      // "הצג מצב מלכודת" כבוי: רק לא מציירים
+      const shown = hidden.size ? m.states.filter((s) => !hidden.has(s.id)) : m.states;
+      const states = new Map(shown.map((s) => [s.id, s]));
       const issueStates = new Set(), issueEdges = new Set();
       for (const is of app.issues || []) if (is.level === 'error') { is.states.forEach((x) => issueStates.add(x)); is.transitions.forEach((x) => issueEdges.add(x)); }
       const taken = new Map();
@@ -139,7 +141,7 @@
       const list = m.transitions.filter((t) => states.has(t.from) && states.has(t.to)).map((t) => ({ id: t.id, from: t.from, to: t.to, lines: this.labelLines(t) }));
       const pv = this.preview && !M.findTransition(m, this.preview.from, this.preview.to) ? this.preview : null;
       if (pv) list.push({ id: '__preview', from: pv.from, to: pv.to, lines: ['?'] });
-      this.routes = RT.route(m.states, list, { startId: m.start, fast: !!(this.drag && this.drag.kind === 'move') });
+      this.routes = RT.route(shown, list, { startId: m.start, fast: !!(this.drag && this.drag.kind === 'move') });
 
       let edges = '', labels = '', travel = '';
       const start = states.get(m.start);
@@ -175,7 +177,7 @@
 
       let sts = '';
       const active = new Set(rv.active || []), accepted = new Set(rv.accepted || []), rejected = new Set(rv.rejected || []);
-      for (const s of m.states) {
+      for (const s of shown) {
         const cls = ['st'];
         if (sel.states.has(s.id)) cls.push('selected');
         if (s.accepting) cls.push('accepting');

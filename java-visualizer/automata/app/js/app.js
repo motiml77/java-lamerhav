@@ -41,6 +41,8 @@
       this.canvas = new root.CanvasView(this, $('#stage'));
       this.langPanel = new root.LangPanel(this);
       this.strip = new root.LangStrip(this, $('#lang-strip'));
+      this.showTrap = store.get('dsviz.automata.trap') !== '0';
+      $('#trap-toggle input').addEventListener('change', (e) => this.setShowTrap(e.target.checked));
       this.side = new root.SidePanel(this, $('.side'));
       this.runPanel = new root.RunPanel(this, $('.runpanel'));
       this.popover = new root.TransitionPopover(this, $('#tpop'));
@@ -314,7 +316,24 @@
       this.renderTop();
       root.Guide.update();
       this.strip.render();
+      this.renderTrapToggle();
       this.coach();
+    },
+
+    /** המצבים שלא מציירים: מצבי מלכודת, כשהאפשרות "הצג מצב מלכודת" כבויה. */
+    hiddenStates() { return this.showTrap === false ? M.trapStates(this.machine) : new Set(); },
+    /** תיבת הסימון "הצג מצב מלכודת": מופיעה רק כשיש במכונה מצב מלכודת. */
+    renderTrapToggle() {
+      const el = $('#trap-toggle');
+      el.hidden = !M.trapStates(this.machine).size;
+      el.querySelector('input').checked = this.showTrap !== false;
+    },
+    setShowTrap(on) {
+      this.showTrap = on;
+      store.set('dsviz.automata.trap', on ? '1' : '0');
+      if (!on) { const t = M.trapStates(this.machine); this.sel.states.forEach((id) => { if (t.has(id)) this.sel.states.delete(id); }); this.sel.trans.forEach((id) => { const x = this.machine.transitions.find((y) => y.id === id); if (x && (t.has(x.to) || t.has(x.from))) this.sel.trans.delete(id); }); }
+      this.canvas.render();
+      this.renderTrapToggle();
     },
 
     /** מריץ מילה מההתחלה (לחיצה על מילה בפס השפה, בלשונית "שפה" או בתוצאת הבדיקה). */

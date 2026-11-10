@@ -128,5 +128,26 @@
     return trap;
   }
 
-  return { validate, checkWord, completeWithTrap };
+  /**
+   * מצבי מלכודת (לאפשרות התצוגה "הצג מצב מלכודת"): מצב לא מקבל שנקרא "מלכודת", או מצב מת:
+   * לא מקבל, לא התחלתי, כל המעברים שיוצאים ממנו חוזרים אליו, ויש לו לולאה על כל אות של Σ (אז אי אפשר לצאת ממנו למצב מקבל).
+   * באס"ד, אסל"ד ואוטומט מחסנית בלבד. מחזיר Set של מזהים.
+   */
+  function trapStates(m) {
+    const out = new Set();
+    if (m.type === 'tm' || !m.states.length) return out;
+    const sigma = inputAlphabet(m);
+    for (const s of m.states) {
+      if (s.accepting || s.id === m.start) continue;
+      const outs = m.transitions.filter((t) => t.from === s.id);
+      if (s.name === 'מלכודת' && outs.every((t) => t.to === s.id)) { out.add(s.id); continue; }
+      if (!outs.length || outs.some((t) => t.to !== s.id)) continue;
+      const reads = new Set();
+      for (const t of outs) for (const l of t.labels) reads.add(l.read);
+      if (sigma.length && sigma.every((a) => reads.has(a))) out.add(s.id);
+    }
+    return out;
+  }
+
+  return { validate, checkWord, completeWithTrap, trapStates };
 });
