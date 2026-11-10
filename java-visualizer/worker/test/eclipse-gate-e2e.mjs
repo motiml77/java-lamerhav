@@ -11,6 +11,7 @@ import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, createWriteStream } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { db } from '../src/access/firestore.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -22,6 +23,7 @@ const SHOTS = process.env.SHOTS || '/tmp/eclipse-gate-shots';
 rmSync(SHOTS, { recursive: true, force: true });
 mkdirSync(SHOTS, { recursive: true });
 const EMAIL = 'gate.teacher.' + Date.now() + '@gmail.com';
+const store = db({ FIREBASE_PROJECT_ID: 'demo-dsviz', FIRESTORE_EMULATOR_HOST: FS });
 
 await fetch(`http://${FS}/emulator/v1/projects/demo-dsviz/databases/(default)/documents`, { method: 'DELETE' });
 await fetch(`http://${AUTH}/emulator/v1/projects/demo-dsviz/accounts`, { method: 'DELETE' });
@@ -174,6 +176,18 @@ try {
   has(/^BANK-DIAG rows=9 first=Rectangle \{0, 0, /m, 'המאגר: כל 9 הנושאים מצוירים בתוך הסרגל (לא מחוץ לתצוגה)');
   has(/^BANK2-DIAG rows=9 first=Rectangle \{0, 0, /m, 'פתיחה שנייה של המאגר (בלי מסך כניסה) — גם כן');
   has(/^GATE-CLOSED true$/m, 'מסך הכניסה נסגר');
+  const teacher = (await api('GET', '/v1/admin/teacher?email=' + EMAIL, null, admin)).teacher;
+  has(/^PANEL-OPEN true$/m, '"עמדת ניהול" נפתחת שוב');
+  has(new RegExp('^PANEL-TEXT .*' + EMAIL.replace(/[.]/g, '\\.') + '.*' + teacher.code + '.*עמדות מחשב בשימוש: 0 מתוך 3', 'm'), 'עמדת הניהול: המייל, הקוד (כמו בשרת) ו-0 מתוך 3');
+  has(/^SIGNOUT-ASK .*להתנתק.*במחשב הזה/m, '"התנתקות" — שואלים בעברית');
+  has(/^SIGNOUT-TOLD .*התנתקת/m, 'הודעה אחרי ההתנתקות');
+  has(/^SIGNOUT-PANEL-CLOSED true$/m, 'עמדת הניהול נסגרת');
+  has(/^SIGNOUT-ACCESS none$/m, 'הכניסה נמחקה מהמחשב');
+  has(/^TEACHER-BTN-SIGNEDOUT defined=true handled=true enabled=false$/m, '"עמדת ניהול" בסרגל נכבה מיד אחרי ההתנתקות');
+  has(/^GATE-AGAIN true$/m, '"מאגר תרגילים" אחרי ההתנתקות — מסך הכניסה');
+  const ses = (await store.query('sessions', { where: [['email', '==', EMAIL]] })).filter(x => !x.revoked);
+  assert.equal(ses.length, 0, 'הכרטיס בוטל בשרת');
+  passed++; console.log('✓ הכרטיס של המורה בוטל בשרת');
   assert.doesNotMatch(out, /^ERROR /m, 'שגיאות בזמן הבדיקה ב-Eclipse');
   assert.match(out, /^DONE$/m);
   console.log(`\n${passed} בדיקות עברו · צילומים: ${SHOTS}`);

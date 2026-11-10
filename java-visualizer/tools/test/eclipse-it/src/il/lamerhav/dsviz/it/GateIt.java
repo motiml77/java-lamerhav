@@ -286,9 +286,69 @@ public class GateIt implements IApplication {
         sleep(1500);
         out.println("TEACHER-BTN-FINAL " + teacherBtn());
         screen("9-toolbar-teacher-enabled");
+
+        // 7. עמדת הניהול: הפרטים (נטענים מהשרת), ואז "התנתקות" → הכפתור בסרגל נכבה מיד, ומסך הכניסה חוזר
+        display.asyncExec(() -> {
+            try {
+                PlatformUI.getWorkbench().getService(org.eclipse.ui.handlers.IHandlerService.class).executeCommand("il.lamerhav.dsviz.teacherPanel", null);
+            } catch (Exception e) {
+                out.println("ERROR teacherPanel3 " + e);
+            }
+        });
+        Window panel = swingDialog("עמדת ניהול", null, 10000);
+        out.println("PANEL-OPEN " + (panel != null));
+        if (panel != null) {
+            sleep(2500);   // הבדיקה מול השרת ברקע
+            out.println("PANEL-TEXT " + oneLine(visibleText(panel)));
+            window(panel, "10-teacher-panel");
+            click(panel, "התנתקות");
+            Window ask = swingDialog("התנתקות", null, 8000);
+            out.println("SIGNOUT-ASK " + (ask == null ? "none" : oneLine(visibleText(ask))));
+            if (ask != null) {
+                window(ask, "11-signout-confirm");
+                click(ask, "התנתקות");
+                Window told = swingDialog("התנתקות", ask, 15000);
+                out.println("SIGNOUT-TOLD " + (told == null ? "none" : oneLine(visibleText(told))));
+                if (told != null) {
+                    window(told, "12-signed-out");
+                    click(told, "סגירה");
+                }
+            }
+            out.println("SIGNOUT-PANEL-CLOSED " + !panel.isDisplayable());
+            out.println("SIGNOUT-ACCESS " + (Account.current() == null ? "none" : Account.current().label()));
+            String btn = "";
+            for (int i = 0; i < 20 && !(btn = teacherBtn()).contains("enabled=false"); i++) sleep(100);   // מיד — לא אחרי הבדיקה של כל 4 שניות
+            out.println("TEACHER-BTN-SIGNEDOUT " + btn);
+            screen("13-toolbar-after-signout");
+            display.asyncExec(() -> {
+                try {
+                    PlatformUI.getWorkbench().getService(org.eclipse.ui.handlers.IHandlerService.class).executeCommand("il.lamerhav.dsviz.bank", null);
+                } catch (Exception e) {
+                    out.println("ERROR command3 " + e);
+                }
+            });
+            Window again = waitGate(15000);
+            out.println("GATE-AGAIN " + (again != null));
+            if (again != null) {
+                screen("14-gate-after-signout");
+                final Window ag = again;
+                SwingUtilities.invokeAndWait(ag::dispose);
+            }
+        }
     }
 
     // ------------------------------------------------------------------ Swing
+
+    /** חלון Swing פתוח עם הכותרת (לא except) */
+    private Window swingDialog(String title, Window except, long ms) throws Exception {
+        long end = System.currentTimeMillis() + ms;
+        while (System.currentTimeMillis() < end) {
+            for (Window x : Window.getWindows())
+                if (x != except && x.isShowing() && x instanceof java.awt.Dialog && title.equals(((java.awt.Dialog) x).getTitle())) { sleep(400); return x; }
+            sleep(150);
+        }
+        return null;
+    }
 
     private Window waitGate(long ms) throws Exception {
         long end = System.currentTimeMillis() + ms;

@@ -118,6 +118,16 @@ function realApp(role, dir) {
   });
   return { url: () => find(/^URL (\S+)/m), result: () => find(/^RESULT (\S+)/m), kill: () => proc.kill() };
 }
+/** הלקוח האמיתי במצב check / offline / signout — תהליך חדש באותה תיקייה (כמו הפעלה מחדש של DSViz). מחזיר את כל הפלט */
+function realAppRun(mode, dir) {
+  return new Promise((ok, bad) => {
+    const proc = spawn(process.env.ACC_JAVA || 'java', ['-Dstdout.encoding=UTF-8', '-cp', process.env.ACC_CLASSES || '/tmp/acc-cls', 'il.lamerhav.dsviz.TeacherSignIn', BASE, dir, mode], { stdio: ['ignore', 'pipe', 'inherit'] });
+    let out = '';
+    proc.stdout.on('data', d => { out += d; });
+    const t = setTimeout(() => { proc.kill(); bad(new Error('הלקוח לא סיים: ' + out)); }, 60000);
+    proc.on('exit', () => { clearTimeout(t); ok(out); });
+  });
+}
 const shot = (page, name) => page.screenshot({ path: join(SHOTS, name + '.png') });
 
 const page = await ctx.newPage();
@@ -379,6 +389,32 @@ await step('הרשמת מורה דרך הלקוח האמיתי של DSViz: כנ�
   assert.equal(await second.result(), 'ok', 'אחרי האישור הלקוח נכנס כמורה');
   const row = (await api('GET', '/v1/admin/teachers', null, admin)).teachers.find(t => t.email === 'real.app.teacher@gmail.com');
   assert.deepEqual([row.phone, row.seats, row.sends.limit], ['0543219876', 3, 12], 'הטלפון בהנהלה, 3 עמדות, מנה 4×3');
+});
+
+await step('הלקוח האמיתי, כל הדרך: תלמיד נכנס בדפדפן → הפעלה מחדש: עדיין מחובר → בלי אינטרנט: עדיין מחובר → עם אינטרנט: נבדק → התנתקות → מסך הכניסה', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'realapp-life-'));
+  await api('POST', '/v1/admin/student', { emails: ['life.pupil@gmail.com'], until: '2027-08-31' }, admin);
+  const p = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'he-IL', ignoreHTTPSErrors: true }).then(c => c.newPage());
+  const app = realApp('student', dir);
+  const url = await app.url();
+  assert.match(url, /^http:\/\/127\.0\.0\.1:8787\/signin\?role=student&port=\d+&state=[\w-]{22}&challenge=[\w-]{43}$/, 'כתובת הכניסה: בלי סודות (רק state ו-challenge)');
+  await p.goto(url);
+  await googlePopup(p, '.gbtn', 'life.pupil@gmail.com', 'תלמידה בדיקה');
+  await p.waitForURL(/\/welcome\?r=ok&role=student/);
+  assert.equal(await app.result(), 'ok');
+  const hist = await p.evaluate(() => location.href);
+  assert.ok(!/token|pass=|u\./.test(hist), 'אין כרטיס בכתובת: ' + hist);
+  let out = await realAppRun('check', dir);
+  assert.match(out, /^ACCESS student$/m, 'הפעלה מחדש — עדיין מחובר: ' + out);
+  assert.match(out, /^REFRESH ok$/m);
+  out = await realAppRun('offline', dir);
+  assert.match(out, /^ACCESS student\nREFRESH offline\nACCESS student$/m, 'בלי אינטרנט — עדיין מחובר: ' + out);
+  out = await realAppRun('signout', dir);
+  assert.match(out, /^SIGNOUT ok\nACCESS none$/m, 'התנתקות: ' + out);
+  out = await realAppRun('check', dir);
+  assert.match(out, /^ACCESS none$/m, 'אחרי התנתקות והפעלה מחדש — לא מחובר: ' + out);
+  const sessions = await store.query('sessions', { where: [['email', '==', 'life.pupil@gmail.com']] });
+  assert.ok(sessions.length === 1 && sessions[0].revoked === true && sessions[0].revokedBy === 'logout', 'הכרטיס בוטל בשרת');
 });
 
 await step('טלפון: מסוף ההנהלה ברוחב 390 — בלי גלילה לצד', async () => {

@@ -13,6 +13,8 @@ rm -rf "$OUT" && mkdir -p "$OUT/bank" "$OUT/icons/topics"
 javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp release/dsviz.jar -d "$OUT" \
     $(find vs-bank/src -name '*.java') eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
     eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java eclipse-plugin/src/il/lamerhav/dsviz/Account.java eclipse-plugin/src/il/lamerhav/dsviz/AccessGate.java
+# המאגר של Visual Studio רץ ב-Java של ההתקנה (jlink) — כולל הכניסה (Account / AccessGate): בלי מודול שלא נכנס אליה
+sh tools/check-jre-modules.sh "$OUT" release/dsviz.jar
 # CsSolution בתוך התוספת (והיא קודם ב-classpath): Visual Studio פתוח מוסיף / מוציא את הפרויקט בעצמו — גם כשה-dsviz.jar של ההתקנה ישן
 cp eclipse-bank/icons/bank.png eclipse-bank/icons/question.png "$OUT/icons/"
 cp eclipse-bank/icons/topics/*.png "$OUT/icons/topics/"

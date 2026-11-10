@@ -248,7 +248,8 @@ public class BankDialog extends Dialog {
     protected Control createButtonBar(Composite parent) {
         buttons = new Composite(parent, SWT.NONE);
         buttons.setBackground(Look.color(parent.getDisplay(), Look.BG));
-        GridLayout l = new GridLayout(4, false);
+        boolean signOut = AccessGate.canSignOut();   // מורה / תלמיד שנכנסו עם Google (לא עמדת מחשב)
+        GridLayout l = new GridLayout(signOut ? 5 : 4, false);
         l.marginWidth = 20;
         l.marginHeight = 10;
         l.horizontalSpacing = 10;
@@ -258,6 +259,13 @@ public class BankDialog extends Dialog {
         copyButton = new Look.Round(buttons, "צור עותק חדש", false, () -> finish(Action.CREATE));
         new Look.Round(buttons, "שאלה אקראית", false, this::random);
         new Look.Round(buttons, "סגירה", false, this::cancelPressed);
+        if (signOut) {
+            // התנתקות: שואלים (חלון של הכניסה), ואחרי ההתנתקות המאגר נסגר — בפתיחה הבאה מסך הכניסה
+            final Display display = parent.getDisplay();
+            Look.Round out = new Look.Round(buttons, "התנתקות", false,
+                    () -> AccessGate.signOut(null, () -> display.asyncExec(() -> { if (getShell() != null && !getShell().isDisposed()) close(); })));
+            out.setData("dsviz.id", "signout");
+        }
         Label c = new Label(buttons, SWT.LEFT_TO_RIGHT);
         c.setText(Look.COPYRIGHT);
         c.setFont(Look.font(parent.getDisplay(), -2, SWT.NORMAL));
