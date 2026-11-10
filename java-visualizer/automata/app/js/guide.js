@@ -49,11 +49,14 @@
       const empty = !this.app.machine.states.length;
       const show = empty || this.pinned;
       this.el.hidden = !show;
+      if (!show) this.el.dataset.mode = '';
       $('#guide-btn').setAttribute('aria-expanded', String(show));
       if (!show) return;
       const mode = empty ? 'empty' : 'float';
       if (this.el.dataset.mode === mode) return;
       this.el.dataset.mode = mode;
+      // הכרטיס הצף יושב בצד שמאל: מזיזים את המכונה כדי שלא תוסתר
+      if (mode === 'float') requestAnimationFrame(() => this.app.canvas.fit(this.el.offsetWidth + 24));
       this.el.innerHTML =
         '<div class="guide-head"><h2>' + (empty ? 'בונים מכונה בשלושה צעדים' : 'איך בונים') + '</h2>' +
         (empty ? '' : '<button type="button" class="pop-x" data-g="close" aria-label="סגירת ההדרכה">' + I.get('x', 16) + '</button>') + '</div>' +

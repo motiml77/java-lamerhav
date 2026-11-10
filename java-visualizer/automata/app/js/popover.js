@@ -41,6 +41,7 @@
       this.app.canvas.preview = t ? null : { from: this.from, to: this.to };
       this.el.hidden = false;
       this.app.canvas.host.classList.add('popping');
+      this.app.hint(null);
       this.app.canvas.render();
       this.draw();
       this.reposition();
@@ -219,6 +220,7 @@
       this.rows = null;
       this.app.canvas.preview = null;
       this.app.canvas.render();
+      this.app.coach();
     }
 
     /** ליד התווית של הקשת: מתחתיה אם יש מקום, אחרת מעליה. */

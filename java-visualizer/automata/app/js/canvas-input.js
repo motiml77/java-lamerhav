@@ -60,7 +60,8 @@
     /** מתחיל מעבר מהמצב sid (החץ המקווקו), או מבטל (sid = null). */
     arm(sid) {
       this.source = sid || null;
-      this.app.hint(sid ? 'לחצו על מצב אחר כדי ליצור מעבר. לחיצה על אותו מצב: לולאה. Esc: ביטול' : null);
+      if (sid) this.app.hint('לחצו על מצב אחר כדי ליצור מעבר. לחיצה על אותו מצב: לולאה. Esc: ביטול');
+      else this.app.coach();
       this.render();
     },
 

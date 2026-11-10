@@ -53,6 +53,7 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
   await shot(p, 'ours-error');
   await p.keyboard.press('Escape');
   await p.keyboard.press('Control+z');
+  await click(p, { x: q1.x + 160, y: q1.y - 180 });
   await p.click('[data-tab=props]');
 
   // ריחוף: פח על מצב, ואז חלון האישור

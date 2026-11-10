@@ -70,16 +70,19 @@
       this.closeEditor(true);
     }
     zoomBy(f) { const s = this.size(); this.zoomAt(s.w / 2, s.h / 2, f); this.app.autosave(); }
-    fit() {
+    /** inset: פיקסלים בצד שמאל של הקנבס שמכוסים (למשל בכרטיס ההדרכה), כדי שהמכונה תיכנס לידם. */
+    fit(inset) {
       const st = this.m.states;
       const s = this.size();
+      inset = inset && s.w - inset > 420 ? inset : 0;
+      s.w -= inset;
       if (!st.length) { this.view.x = s.w / 2; this.view.y = s.h / 2; this.view.zoom = 1; this.applyView(); return; }
       const xs = st.map((q) => q.x), ys = st.map((q) => q.y);
       const pad = 100;
       const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - pad - 40, maxY = Math.max(...ys) + pad;
       const z = Math.min(1.4, Math.max(0.4, Math.min(s.w / (maxX - minX), s.h / (maxY - minY))));
       this.view.zoom = Math.round(z * 1000) / 1000;
-      this.view.x = s.w / 2 - ((minX + maxX) / 2) * z;
+      this.view.x = inset + s.w / 2 - ((minX + maxX) / 2) * z;
       this.view.y = s.h / 2 - ((minY + maxY) / 2) * z;
       this.applyView();
     }
@@ -185,7 +188,7 @@
       this.host.classList.toggle('is-empty', !m.states.length);
       this.host.classList.toggle('arming', !!this.source);
       this.host.classList.toggle('running', app.isRunning());
-      this.host.dataset.tool = app.tool;
+      this.host.dataset.activeTool = app.tool;
     }
 
     /** חץ "גומי" מהמצב שנבחר כמקור אל הסמן (או אל המצב שמתחת לסמן). */

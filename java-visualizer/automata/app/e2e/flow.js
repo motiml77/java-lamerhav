@@ -45,6 +45,7 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
     for (const dx of [-240, 0, 240]) { await p.mouse.dblclick(st.x + dx, st.y + (dx ? 0 : 110)); await p.waitForTimeout(150); }
     assert.deepEqual((await machine()).states, ['q0', 'q1', 'q2']);
     assert.equal(await visible('#guide'), false);
+    assert.match(await p.textContent('#hint'), /עכשיו מעבר/, 'רמז: מה עושים עכשיו');
   });
 
   await step('לחיצה על מצב: הוא המקור, וחץ מקווקו הולך אחרי הסמן', async () => {

@@ -32,6 +32,7 @@
       this.run = { trace, index: 0, playing: false };
       this.sel = { states: new Set(), trans: new Set() };
       this.side.render();
+      this.hint(null);
       this.canvas.closeEditor();
       return true;
     },

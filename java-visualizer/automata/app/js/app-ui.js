@@ -107,7 +107,7 @@
         if (ex) { this.toggleMenu('examples-menu', null, false); this.loadExample(ex.dataset.example); return; }
         const b = e.target.closest('[data-cmd]');
         if (b && !b.disabled) { cmd(b.dataset.cmd, b); return; }
-        const tool = e.target.closest('[data-tool]');
+        const tool = e.target.closest('.rail [data-tool]');
         if (tool) { this.setTool(tool.dataset.tool); return; }
         const tab = e.target.closest('#type-tabs [data-type]');
         if (tab) { this.switchType(tab.dataset.type); return; }

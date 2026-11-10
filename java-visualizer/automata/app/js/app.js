@@ -47,7 +47,7 @@
       this.bindKeys();
       this.renderExamplesMenu();
       this.switchType(this.active, true);
-      requestAnimationFrame(() => { if (!this.machine.view.placed) { this.canvas.fit(); this.machine.view.placed = true; } });
+      requestAnimationFrame(() => { if (!this.machine.view.placed) { const g = root.Guide.el; this.canvas.fit(g.hidden || g.dataset.mode !== 'float' ? 0 : g.offsetWidth + 24); this.machine.view.placed = true; } });
     },
 
     load() {
@@ -137,7 +137,7 @@
       const quiet = keepArm;
       this.sel.states = new Set(states || []);
       this.sel.trans = new Set(trans || []);
-      if (!keepArm && this.canvas.source) { this.canvas.source = null; this.hint(null); }
+      if (!keepArm && this.canvas.source) { this.canvas.source = null; this.coach(); }
       if (this.side.tab !== 'props' && (states.length || trans.length) && !quiet && this.side.tab !== 'issues') this.side.tab = 'props';
       this.canvas.render();
       this.side.render();
@@ -241,7 +241,7 @@
       this.tool = t;
       this.canvas.source = null;
       $$('.rail [data-tool]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === t)));
-      this.canvas.host.dataset.tool = t;
+      this.canvas.host.dataset.activeTool = t;
       this.hint(null);
     },
 
@@ -307,6 +307,18 @@
       this.runPanel.render();
       this.renderTop();
       root.Guide.update();
+      this.coach();
+    },
+
+    /** רמז קצר למעלה, לפי מה שחסר עכשיו (למי שבונה מכונה בפעם הראשונה). */
+    coach() {
+      if (!this.canvas || this.canvas.source || this.isRunning() || (this.popover && this.popover.isOpen())) return;
+      const m = this.machine;
+      let t = null;
+      if (m.states.length === 1) t = 'עוד לחיצה כפולה במקום אחר על הקנבס מוסיפה מצב שני';
+      else if (m.states.length >= 2 && !m.transitions.length) t = 'עכשיו מעבר: לוחצים על מצב, ואז על מצב אחר';
+      else if (m.transitions.length && !m.states.some((s) => s.accepting) && !(m.type === 'pda' && m.acceptBy === 'empty')) t = 'אין מצב מקבל: לוחצים על מצב, ובסרגל השחור בוחרים "מקבל"';
+      this.hint(t);
     },
 
     renderTop() {
