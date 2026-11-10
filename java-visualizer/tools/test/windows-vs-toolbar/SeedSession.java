@@ -18,6 +18,8 @@ import java.util.Map;
  *   key <קובץ-מפתח>                     — יוצר זוג מפתחות (אם אין) ומדפיס "PASSKEY <מפתח ציבורי>" — ל-DSVIZ_PASS_KEY לפני ש-Visual Studio עולה
  *   teacher|student <מייל> <קובץ-מפתח>  — שומר כניסה של מורה / תלמיד (אישור חתום במפתח הבדיקה) במקום הנסתר האמיתי של המשתמש
  *   none <-> <קובץ-מפתח>                — מוחק את הכניסה
+ *   station <שם> <קובץ-מפתח>            — עמדת מחשב (s.dat בתיקייה של כל המחשב), כמו אחרי "עמדת מחשב" עם קוד המורה
+ *   show <-> <קובץ-מפתח>                — רק מדפיס מה Account / AccessGate רואים (כמו Eclipse): "STATE <kind|none> teacher=<..> flag=<..>"
  * אחרי כל שינוי — Account.syncTeacherFlag (הסימון שהסרגל קורא). מריצים ב-Java של ההתקנה, עם dsviz-bank-vs.jar במסלול.
  */
 public class SeedSession {
@@ -37,22 +39,31 @@ public class SeedSession {
             return;
         }
         File uf = Account.userFile();
+        if (a[0].equals("show")) {
+            Account.Access c = Account.current();
+            System.out.println("STATE " + (c == null ? "none" : c.kind + " " + c.email + c.name) + " teacher=" + AccessGate.isTeacher()
+                    + " flag=" + (Account.teacherFlagFile() != null && Account.teacherFlagFile().isFile()) + " canSignOut=" + AccessGate.canSignOut());
+            return;
+        }
         if (a[0].equals("none")) {
             uf.delete();
             File b = new File(Account.secureBackupDir() == null ? uf.getParentFile() : Account.secureBackupDir(), uf.getName());
             b.delete();
         } else {
             String role = a[0], email = a[1];
+            boolean station = role.equals("station");
             PrivateKey key = KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(Base64.getDecoder().decode(lines[0].trim())));
             long now = System.currentTimeMillis() / 1000;
-            String payload = "{\"v\":1,\"kind\":\"" + role + "\",\"sub\":\"" + role + ":" + email + "\",\"name\":\"\",\"email\":\"" + email + "\",\"until\":\""
+            String payload = station
+                    ? "{\"v\":1,\"kind\":\"station\",\"sub\":\"station:seed\",\"name\":\"" + email + "\",\"email\":\"\",\"until\":\"\",\"teacher\":\"מורה בדיקה\",\"mid\":\"" + Account.machine() + "\",\"iat\":" + now + ",\"exp\":" + (now + 30L * 86400) + "}"
+                    : "{\"v\":1,\"kind\":\"" + role + "\",\"sub\":\"" + role + ":" + email + "\",\"name\":\"\",\"email\":\"" + email + "\",\"until\":\""
                     + (role.equals("student") ? "2099-08-31" : "") + "\",\"mid\":\"" + Account.machine() + "\",\"iat\":" + now + ",\"exp\":" + (now + 30L * 86400) + "}";
             String text = Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
             Signature s = Signature.getInstance("SHA256withRSA");
             s.initSign(key);
             s.update(text.getBytes(StandardCharsets.US_ASCII));
             Map<String, Object> d = new LinkedHashMap<String, Object>();
-            d.put("token", "u.seedsession." + Long.toHexString(System.nanoTime()) + "seedseedseedseed");
+            d.put("token", (station ? "s." : "u.") + "seedsession." + Long.toHexString(System.nanoTime()) + "seedseedseedseed");
             d.put("pass", text + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(s.sign()));
             d.put("status", "ok");
             d.put("email", email);
@@ -63,7 +74,7 @@ public class SeedSession {
                 d.put("teacherUsed", 12.0);
                 d.put("teacherName", "מורה בדיקה");
             }
-            Account.save(uf, d);
+            Account.save(station ? new File(Account.secureMachineDir(), "s.dat") : uf, d);
         }
         Account.syncTeacherFlag();
         Account.Access c = Account.current();

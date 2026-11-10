@@ -565,13 +565,16 @@ public final class AutomataLauncher {
         }
     }
 
-    /** מצב ההפעלה (לא זיהוי): Windows ‎%LOCALAPPDATA%\DSViz\automata‎, Mac / Linux ‎~/.dsviz/automata‎ */
+    /**
+     * מצב ההפעלה (לא זיהוי — הוא בתיקייה הנסתרת של Account): הפורט, instance.json, הפרופיל של Edge (השמירה של הדף).
+     * Windows ‎%LOCALAPPDATA%\DSViz\automata-data‎ (ליד ההתקנה, לא בתוכה — ההתקנה מחליפה את ‎DSViz\automata‎), Mac / Linux ‎~/.dsviz/automata‎
+     */
     static File defaultStateDir() {
         String d = System.getProperty("dsviz.automata.dir");
         if (d != null && !d.isEmpty()) return new File(d);
         String la = System.getenv("LOCALAPPDATA");
         if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win") && la != null && !la.isEmpty())
-            return new File(new File(la, "DSViz"), "automata");
+            return new File(new File(la, "DSViz"), "automata-data");
         return new File(new File(System.getProperty("user.home"), ".dsviz"), "automata");
     }
 

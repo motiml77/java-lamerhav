@@ -61,11 +61,11 @@ cd worker && npm run test:access-java    # SignInEdge, OsTrustTest, AccountIt, G
 עם dsviz-access בפנים, ו-`build/automata/app`). בהתקנה: `<התקנה>\automata\` ; הקיצור "מודלים חישוביים" מריץ
 `javaw -cp "automata\dsviz-automata.jar;dsviz.jar" il.lamerhav.dsviz.AutomataLauncher`.
 
-- שרת על `127.0.0.1` בלבד. הפורט נבחר באקראי בפעם הראשונה ונשמר (`%LOCALAPPDATA%\DSViz\automata\port`) — כדי שהשמירה
+- שרת על `127.0.0.1` בלבד. הפורט נבחר באקראי בפעם הראשונה ונשמר (`%LOCALAPPDATA%\DSViz\automata-data\port`) — כדי שהשמירה
   של הדף (localStorage: העבודה, ההעדפות, ההתקדמות במאגר) לא תאבד בכל הפעלה; תפוס — פורט אחר.
 - מפתח אקראי לכל הפעלה (`X-DSViz-Token`). הוא לא בשורת הפקודה: החלון נפתח עם קוד חד-פעמי (`/launch?c=…`, דקה אחת,
   פעם אחת) שמחזיר 302 ל-`/#dsviz-token=<מפתח>`; `access-client.js` שומר אותו ב-sessionStorage ומוחק אותו מהכתובת.
-- Windows: Edge `--app=<כתובת>` עם פרופיל משלו (`%LOCALAPPDATA%\DSViz\automata\edge`); בלי Edge — הדפדפן הרגיל.
+- Windows: Edge `--app=<כתובת>` עם פרופיל משלו (`%LOCALAPPDATA%\DSViz\automata-data\edge`); בלי Edge — הדפדפן הרגיל.
   Mac: הדפדפן הרגיל (`open`). הפעלה שנייה (עוד לחיצה על הקיצור) — לא שרת שני: קוד פתיחה מהשרת שרץ ועוד חלון.
 - יציאה: כשאין דף פתוח — זרם האירועים נסגר ואין פנייה ‎30‎ שניות (בהתחלה — עד ‎2‎ דקות לחלון לעלות).
 - בדיקות אבטחה בכל בקשה: `Host` = ‏`127.0.0.1:<port>` / `localhost:<port>` (נגד DNS rebinding); `Origin` (אם נשלח) — רק

@@ -33,7 +33,7 @@ VIAddVersionKey /LANG=1037 "LegalCopyright" "© 2026 Moti Levi (motiml77@gmail.c
 !define MUI_WELCOMEPAGE_TITLE "DSViz — גרסת בדיקה"
 !define MUI_WELCOMEPAGE_TEXT "מתקין את DSViz המלא (הרצה ויזואלית, תרגיל חדש, שליחת תרגיל) ואת מאגר התרגילים — ב-Eclipse, ב-IntelliJ IDEA וב-Visual Studio.$\r$\n$\r$\nבפתיחה הראשונה של מאגר התרגילים נפתח מסך כניסה: מורה (חשבון Google), עמדת מחשב בכיתה (קוד המורה) או תלמיד. צריך אינטרנט רק בכניסה הראשונה.$\r$\n$\r$\nלפני שממשיכים — סוגרים את Eclipse ו-IntelliJ."
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
-!define MUI_FINISHPAGE_TEXT "פותחים מחדש את Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nEclipse ו-IntelliJ: הכפתור 'מאגר תרגילים' בסרגל הכלים.$\r$\nVisual Studio (C#): הקיצור 'מאגר תרגילים C#' בשולחן העבודה."
+!define MUI_FINISHPAGE_TEXT "פותחים מחדש את Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nEclipse ו-IntelliJ: הכפתור 'מאגר תרגילים' בסרגל הכלים.$\r$\nVisual Studio (C#): הכפתורים 'מאגר שאלות' ו'השאלה' בסרגל של DSViz."
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_INSTFILES

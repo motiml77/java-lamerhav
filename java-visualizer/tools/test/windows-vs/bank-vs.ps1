@@ -146,40 +146,27 @@ if (Test-Path $vsixFile) {
     $vo = & powershell -NoProfile -ExecutionPolicy Bypass -File ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\installer\install-vsix.ps1'))) $vsixFile 2>&1
     Info "סרגל הכלים (install-vsix.ps1): $($vo -join ' ')"
 }
+# קיצורים מגרסה קודמת בשולחן העבודה — ההתקנה / העדכון מוחקים אותם (במקומם הכפתורים "מאגר שאלות" ו"השאלה" בסרגל של Visual Studio)
+$oldLinks = @('מאגר תרגילים C#', 'השאלה — מאגר תרגילים C#')
+foreach ($n in $oldLinks) { [IO.File]::WriteAllText((Join-Path $desk "$n.lnk"), 'old') }
 $o = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Lab 'install-bank-vs.ps1') 2>&1
 Info "install-bank-vs.ps1: $($o -join ' ')"
-$ws = New-Object -ComObject WScript.Shell
 Info "בשולחן העבודה: $((Get-ChildItem $desk -Filter '*.lnk' | ForEach-Object Name) -join ', ')"
-foreach ($n in @('מאגר תרגילים C#', 'השאלה — מאגר תרגילים C#')) {
-    $l = Join-Path $desk "$n.lnk"
-    $ok = Test-Path -LiteralPath $l
-    $tgt = ''; $arg = ''
-    if ($ok) {
-        # WScript לא קורא קובץ עם שם בעברית — קוראים עותק בשם באנגלית
-        $tmp = Join-Path $env:TEMP 'dsviz-check.lnk'
-        Copy-Item -LiteralPath $l $tmp -Force
-        $s = $ws.CreateShortcut($tmp)
-        $tgt = [string]$s.TargetPath; $arg = [string]$s.Arguments
-        Remove-Item $tmp -Force
-    }
-    $good = $ok -and $tgt -and (Test-Path -LiteralPath $tgt) -and $arg -match 'dsviz-bank-vs.jar' -and $arg -match 'DataStructures-CS'
-    Check 'shortcut' $good "בשולחן העבודה: הקיצור '$n'" "קיים: $ok · $tgt $arg"
+$left = @($oldLinks | Where-Object { Test-Path -LiteralPath (Join-Path $desk "$_.lnk") })
+Check 'no-desktop-shortcuts' ($left.Count -eq 0) 'בלי קיצורי המאגר בשולחן העבודה (גם אלה מגרסה קודמת נמחקו)' ($left -join ', ')
+# פתיחת המאגר כמו הכפתור "מאגר שאלות" בסרגל (dsviz-cs.exe --tool bank → javaw עם התוספת קודם) — החלון נפתח
+$javaw = Join-Path $dsviz 'jdk\bin\javaw.exe'
+Start-Process -FilePath $javaw -ArgumentList '-cp', '"lab\dsviz-bank-vs.jar;dsviz.jar"', 'il.lamerhav.dsviz.BankVs', 'bank' -WorkingDirectory $dsviz
+$seen = $false
+for ($i = 0; $i -lt 60; $i++) {
+    Start-Sleep 1
+    # בלי כניסה במחשב (מורה / עמדה / תלמיד) — נפתח קודם מסך הכניסה "כניסה למאגר התרגילים", וזה נכון
+    if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים|כניסה למאגר התרגילים' }).Count -gt 0) { $seen = $true; break }
 }
-# לחיצה כפולה על הקיצור "מאגר תרגילים C#" — כמו תלמיד: החלון נפתח
-$bankLnk = Join-Path $desk 'מאגר תרגילים C#.lnk'
-if (Test-Path -LiteralPath $bankLnk) {
-    Start-Process -FilePath $bankLnk
-    $seen = $false
-    for ($i = 0; $i -lt 60; $i++) {
-        Start-Sleep 1
-        # בלי כניסה במחשב (מורה / עמדה / תלמיד) — נפתח קודם מסך הכניסה "כניסה למאגר התרגילים", וזה נכון
-        if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים|כניסה למאגר התרגילים' }).Count -gt 0) { $seen = $true; break }
-    }
-    Start-Sleep 4
-    Shot '00-shortcut-bank-window'
-    Check 'shortcut-open' $seen "לחיצה כפולה על הקיצור 'מאגר תרגילים C#' פותחת את חלון המאגר (או את מסך הכניסה, כשעוד אין כניסה במחשב)" ((Windows) -join ' ; ')
-    Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים|כניסה למאגר התרגילים' } | Stop-Process -Force
-}
+Start-Sleep 4
+Shot '00-bank-window'
+Check 'bank-open' $seen "המאגר נפתח כמו מהכפתור בסרגל (חלון המאגר, או מסך הכניסה כשעוד אין כניסה במחשב)" ((Windows) -join ' ; ')
+Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים|כניסה למאגר התרגילים' } | Stop-Process -Force
 $jar = Join-Path $dsviz 'lab\dsviz-bank-vs.jar'
 Check 'lab-jar' (Test-Path $jar) "התוספת הועתקה: $jar"
 
