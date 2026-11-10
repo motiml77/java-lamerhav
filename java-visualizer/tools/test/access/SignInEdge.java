@@ -58,6 +58,8 @@ public class SignInEdge {
             { "200", "", "text/html" },
             { "200", "<html><body>האתר נחסם על ידי מערכת הסינון</body></html>", "text/html" },
             { "200", "{}", "application/json" },
+            { "200", "{\"ok\":true,\"status\":\"ok\"}", "application/json" },
+            { "200", "{\"ok\":true,\"status\":\"ok\",\"pass\":\"forged.signature\"}", "application/json" },
         };
         for (String[] g : glitches) {
             signedIn("teacher", "t1@test.dev", "u.sid12345.secretsecretsecretsecret1");

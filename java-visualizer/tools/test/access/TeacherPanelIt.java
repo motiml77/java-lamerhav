@@ -53,6 +53,9 @@ public class TeacherPanelIt {
         GateUi.waitUntil(() -> opened.get() > 0, 20000);
         check("מורה נכנס — המאגר נפתח, מורה מחובר, אפשר להתנתק", opened.get() == 1 && AccessGate.isTeacher() && AccessGate.canSignOut());
         check("כניסה — הודעה למאזינים (הכפתור 'עמדת ניהול' ב-Eclipse מתעדכן מיד)", changes.get() > before);
+        String flag = flag();
+        check("סימון למורה לסרגל של Visual Studio (teacher.flag): המייל, בלי הכרטיס (" + flag + ")",
+                flag.contains(t1) && !flag.contains(Json.str(Account.userState().get("token"))) && !flag.contains("u.") && !flag.contains("pass"));
         w.dispose();
 
         // ---- 3. עמדת הניהול: השם, המייל, הקוד (אותו קוד כמו בשרת), עמדות 0 מתוך 3
@@ -102,6 +105,7 @@ public class TeacherPanelIt {
         check("אחרי התנתקות: עמדת הניהול נסגרה", !p.isDisplayable());
         check("אחרי התנתקות: הודעה למאזינים (הכפתור נכבה)", changes.get() > before);
         check("אחרי התנתקות: הכרטיס בוטל בשרת", "revoked".equals(check(token)));
+        check("אחרי התנתקות: הסימון לסרגל של Visual Studio נמחק", flag().isEmpty());
         opened.set(0);
         SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
         w = waitDialog("כניסה למאגר התרגילים", null);
@@ -116,6 +120,12 @@ public class TeacherPanelIt {
         check("מורה אחר באותו מחשב — הקוד שלו (" + label(p, "code") + "), לא של הקודם", label(p, "code").equals(code2) && !code2.equals(code1)
                 && Account.teacherCode().equals(code2) && GateUi.visibleText(p).contains(t2) && !GateUi.visibleText(p).contains(t1));
         p.dispose();
+        // הכפתור "עמדת ניהול" בסרגל של Visual Studio מריץ את BankVs במצב teacher — אותו חלון
+        if (vsTeacher()) {
+            p = (JDialog) waitDialog("עמדת ניהול", null);
+            check("Visual Studio (BankVs teacher) — נפתחת עמדת הניהול עם הקוד", p != null && label(p, "code").equals(code2));
+            if (p != null) { GateUi.shot(p, "panel-vs-teacher"); p.dispose(); }
+        }
 
         // ---- 6. ההנהלה משביתה את המורה: פתיחת החלון → הסבר, בלי קוד, והכפתור נכבה
         AccountIt.api("POST", "/v1/admin/teacher", admin, "{\"email\":\"" + t2 + "\",\"active\":false}");
@@ -123,6 +133,7 @@ public class TeacherPanelIt {
         p = openPanel();
         check("מורה שהושבת — הסבר בחלון, בלי קוד", GateUi.visibleText(p).contains("לא פעילה") && label(p, "code").equals("—"));
         check("מורה שהושבת — כבר לא 'מורה' (הכפתור נכבה)", !AccessGate.isTeacher() && changes.get() > before);
+        check("מורה שהושבת — הסימון לסרגל של Visual Studio נמחק", flag().isEmpty());
         GateUi.shot(p, "panel-6-disabled");
         p.dispose();
         AccountIt.api("POST", "/v1/admin/teacher", admin, "{\"email\":\"" + t2 + "\",\"active\":true}");
@@ -134,6 +145,12 @@ public class TeacherPanelIt {
         AccountIt.browserEmail = student;
         Account.Result r = Account.signIn("student", null, null, 30000);
         check("תלמיד נכנס — לא מורה, אפשר להתנתק", r.ok() && !AccessGate.isTeacher() && AccessGate.canSignOut());
+        check("תלמיד — אין סימון מורה (אין 'עמדת ניהול' בסרגל של Visual Studio)", flag().isEmpty());
+        if (vsTeacher()) {   // סימון ישן (למשל מגרסה קודמת) — הכלי מסביר, לא פותח
+            Window m = waitDialog("עמדת ניהול", null);
+            check("Visual Studio (BankVs teacher) לתלמיד — הסבר 'רק למורה', בלי קוד", m != null && GateUi.visibleText(m).contains("רק למורה") && find(m, "code") == null);
+            if (m != null) { GateUi.shot(m, "panel-vs-not-teacher"); GateUi.click(m, "סגירה"); }
+        }
         AccessGate.confirmForTest = Boolean.TRUE;
         AccessGate.lastSignOut = null;
         final AtomicInteger after = new AtomicInteger();
@@ -209,6 +226,32 @@ public class TeacherPanelIt {
     static String stationToken() {
         Map<String, Object> s = Account.load(new File(System.getProperty("dsviz.machineDir"), "station.json"));
         return s == null ? "" : Json.str(s.get("token"));
+    }
+
+    /** BankVs.teacher() (vs-bank, אם במסלול המחלקות) — מה שהכפתור בסרגל של Visual Studio מריץ. false — לא במסלול */
+    static boolean vsTeacher() throws Exception {
+        final Class<?> c;
+        try { c = Class.forName("il.lamerhav.dsviz.BankVs"); } catch (ClassNotFoundException e) { System.out.println("  ..   בלי vs-bank במסלול — דילוג על BankVs teacher"); return false; }
+        new Thread(() -> {
+            try {
+                java.lang.reflect.Method m = c.getDeclaredMethod("teacher");
+                m.setAccessible(true);
+                m.invoke(null);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+        return true;
+    }
+
+    /** הסימון שסרגל הכלים של Visual Studio קורא ("" — אין) */
+    static String flag() {
+        try {
+            File f = new File(System.getProperty("dsviz.home"), "teacher.flag");
+            return f.isFile() ? new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8) : "";
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     static int num(Map<String, Object> m, String k) {

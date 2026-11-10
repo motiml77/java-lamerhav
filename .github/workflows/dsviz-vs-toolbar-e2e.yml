@@ -10,6 +10,9 @@ on:
       - '.github/workflows/dsviz-vs-toolbar-e2e.yml'
       - 'java-visualizer/tools/test/windows-vs-toolbar/**'
       - 'java-visualizer/csharp/**'
+      - 'java-visualizer/vs-bank/**'
+      - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/Account.java'
+      - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/AccessGate.java'
   workflow_dispatch:
 concurrency:
   group: dsviz-vs-toolbar-e2e-${{ github.ref }}
@@ -36,6 +39,11 @@ jobs:
         run: |
           $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
           & $vw -all -prerelease -products * -format text -property displayName,catalog_productDisplayVersion,installationPath
+      - name: המאגר מהמקור (dsviz-bank-vs.jar — הכניסה, עמדת הניהול; ההתקנה של המעבדה לא נבנית מחדש כאן)
+        shell: bash
+        run: |
+          cd java-visualizer
+          SKIP_BANK_CHECK=1 sh tools/build-bank-vs.sh
       - name: סרגל הכלים (התקנה, Visual Studio, לחיצות)
         timeout-minutes: 90
         shell: powershell
@@ -47,7 +55,9 @@ jobs:
             -Harness "$env:GITHUB_WORKSPACE\java-visualizer\tutorials\harness" `
             -Page "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\ai\files\exam-page-1.png" `
             -Mock "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\submit\mock-worker.js" `
-            -Exercise "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\submit\cs-stack.json"
+            -Exercise "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\submit\cs-stack.json" `
+            -BankJar "$env:GITHUB_WORKSPACE\java-visualizer\build\lab-vs\dsviz-bank-vs.jar" `
+            -Vsix "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\prebuilt\DsViz.VsExtension.vsix"
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()

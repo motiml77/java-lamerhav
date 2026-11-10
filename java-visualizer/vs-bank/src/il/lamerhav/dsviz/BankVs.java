@@ -71,6 +71,11 @@ public final class BankVs {
     static final List<String> opened = java.util.Collections.synchronizedList(new ArrayList<String>());
 
     public static void main(final String[] a) throws Exception {
+        // "עמדת ניהול" מסרגל הכלים של Visual Studio: רק חלון המורה (בלי המאגר)
+        if (a.length >= 1 && a[0].equals("teacher")) {
+            teacher();
+            return;
+        }
         if (a.length < 2) {
             System.err.println("שימוש: BankVs bank|question <תיקיית DataStructures-CS>");
             System.exit(2);
@@ -80,6 +85,20 @@ public final class BankVs {
             // הכניסה (מורה / עמדת מחשב / תלמיד) — אחרי כניסה אחת במחשב נפתח מיד, גם בלי אינטרנט
             if (a[0].equals("question")) AccessGate.require(null, () -> BankVsFloat.showLast(null));
             else AccessGate.require(null, () -> BankVsWindow.open(null, null));
+        });
+    }
+
+    /**
+     * עמדת הניהול של המורה (הקוד, העמדות, הדף בדפדפן, התנתקות) — אותו חלון כמו ב-Eclipse. לא מורה מחובר (הסימון בסרגל ישן) —
+     * הסבר, והסימון מתעדכן כך שהכפתור נעלם מהסרגל.
+     */
+    static void teacher() throws Exception {
+        Account.syncTeacherFlag();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            try { Theme.useRounded(); } catch (LinkageError oldLibrary) { /* הגופן הקודם */ }
+            if (AccessGate.isTeacher()) AccessGate.showTeacherPanel(null);
+            else AccessGate.tell(null, "עמדת ניהול", "עמדת הניהול פתוחה רק למורה שמחובר במחשב הזה.\nנכנסים דרך \"מאגר שאלות\" ← \"מורה\" ← \"כניסה עם Google\".");
         });
     }
 

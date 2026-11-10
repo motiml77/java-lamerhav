@@ -21,7 +21,14 @@ javac --release 8 -Xlint:-options -encoding UTF-8 -nowarn -cp "$LIB" -d "$LIB" $
     $E/Json.java $E/Account.java $E/AccessGate.java $E/WorkerClient.java $E/ExerciseFiles.java $E/AiScaffold.java $E/SolutionCheck.java \
     $E/SolutionStore.java $E/ExercisePipeline.java $E/SubmitCli.java $(find csharp/new-exercise/src -name '*.java')
 javac -encoding UTF-8 -nowarn -cp "$LIB" -d "$CLS" tools/test/access/*.java
-CP="$CLS:$LIB"
+# המאגר של Visual Studio (BankVs teacher — הכפתור "עמדת ניהול" בסרגל), כמו tools/build-bank-vs.sh
+VSB="$W/vsb"
+mkdir -p "$VSB"
+javac --release 8 -Xlint:-options -encoding UTF-8 -nowarn -cp "$LIB" -d "$VSB" $(find vs-bank/src -name '*.java') \
+    eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
+    $E/CsSolution.java $E/Account.java $E/AccessGate.java
+sh tools/check-jre-modules.sh "$VSB" "$LIB"
+CP="$CLS:$VSB:$LIB"
 J="java -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 -cp $CP"
 rc=0
 echo "=== SignInEdge"
@@ -40,5 +47,5 @@ for t in AccountIt GateUi TeacherPanelIt; do
     esac
 done
 echo "צילומים: $SHOTS"
-[ -n "$ACC_WORK" ] || rm -rf "$LIB" "$CLS"
+[ -n "$ACC_WORK" ] || rm -rf "$LIB" "$CLS" "$VSB"
 exit $rc

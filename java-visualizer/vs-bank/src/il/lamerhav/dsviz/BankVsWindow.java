@@ -528,11 +528,6 @@ final class BankVsWindow {
             if (!pool.isEmpty()) select(pool.get(new Random().nextInt(pool.size())).id);
         });
         buttons.add(random);
-        if (AccessGate.isTeacher()) {   // מורה: חוזר לעמדת הניהול והקוד בכל פעם
-            JButton manage = RtlDialog.secondary("עמדת ניהול");
-            manage.addActionListener(e -> AccessGate.showTeacherPanel(frame));
-            buttons.add(manage);
-        }
         JButton close = RtlDialog.secondary("סגירה");
         close.addActionListener(e -> frame.dispose());
         buttons.add(close);

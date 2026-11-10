@@ -48,6 +48,7 @@ namespace DsViz.VsExtension
             Add(mcs, 0x0104, () => Tool("submit"));
             Add(mcs, 0x0106, VisualRun);
             Add(mcs, 0x0107, () => Tool("help"));
+            AddTeacher(mcs);
             ShowToolbarOnce();
             FollowActiveDocument();
         }
@@ -161,6 +162,12 @@ namespace DsViz.VsExtension
         /// </summary>
         void SyncBankControl(bool on)
         {
+            SyncControl("מאגר שאלות", "bank", on);
+        }
+
+        /// <summary>מציג / מסתיר את הכפתור שהכיתוב שלו מכיל caption גם דרך DTE (CommandBars) — ראו SyncBankControl</summary>
+        void SyncControl(string caption, string tag, bool on)
+        {
             try
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
@@ -170,17 +177,119 @@ namespace DsViz.VsExtension
                 foreach (dynamic ctl in bar.Controls)
                 {
                     string cap = ctl.Caption;
-                    if (cap != null && cap.Contains("מאגר שאלות"))
+                    if (cap != null && cap.Contains(caption))
                     {
                         if (ctl.Visible != on) ctl.Visible = on;
-                        SolutionHints.Log("bank control visible=" + on);
+                        SolutionHints.Log(tag + " control visible=" + on);
                     }
                 }
             }
             catch (Exception ex)
             {
-                SolutionHints.Log("bank control sync failed: " + ex.Message, true);
+                SolutionHints.Log(tag + " control sync failed: " + ex.Message, true);
             }
+        }
+
+        // ------------------------------------------------------------------ "עמדת ניהול" — רק למורה מחובר
+
+        /// <summary>
+        /// הסימון שהכלי של Java כותב כשהמשתמש מחובר כמורה (Account.syncTeacherFlag): מייל ושם בלבד, בלי הכרטיס. הכניסה עצמה מוצפנת
+        /// ונבדקת רק ב-Java — הסימון הוא רמז לסרגל, וחלון המורה בודק שוב (מורה שהושבת: הסבר, והסימון נמחק)
+        /// </summary>
+        static string TeacherFlag
+        {
+            get { return Path.Combine(InstallDir, "teacher.flag"); }
+        }
+
+        static bool TeacherOn()
+        {
+            try { return File.Exists(BankJar) && File.Exists(TeacherFlag); }
+            catch (Exception) { return false; }
+        }
+
+        bool? _teacherOn;
+        FileSystemWatcher _teacherWatch;
+
+        /// <summary>"עמדת ניהול": כמו ב-Eclipse — בסרגל, נראה רק כשהמשתמש מחובר כמורה; פותח את חלון המורה (הקוד, העמדות, התנתקות)</summary>
+        void AddTeacher(OleMenuCommandService mcs)
+        {
+            var cmd = new OleMenuCommand((s, e) =>
+            {
+                try { Teacher(); }
+                catch (Exception ex) { Say("DSViz: " + ex.Message); }
+            }, new CommandID(CmdSet, 0x0108));
+            cmd.BeforeQueryStatus += (s, e) =>
+            {
+                bool on = TeacherOn();
+                var c = (OleMenuCommand)s;
+                c.Visible = on;
+                c.Enabled = on;
+                TeacherChanged(on);
+            };
+            mcs.AddCommand(cmd);
+            TeacherChanged(TeacherOn());
+            // כניסה / התנתקות בחלון של Java: הכפתור מתעדכן מיד (לא רק כשחוזרים ל-Visual Studio)
+            try
+            {
+                if (Directory.Exists(InstallDir))
+                {
+                    _teacherWatch = new FileSystemWatcher(InstallDir, "teacher.flag") { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite };
+                    _teacherWatch.Created += (s, e) => TeacherFlagChanged();
+                    _teacherWatch.Deleted += (s, e) => TeacherFlagChanged();
+                    _teacherWatch.Changed += (s, e) => TeacherFlagChanged();
+                    _teacherWatch.Renamed += (s, e) => TeacherFlagChanged();
+                    _teacherWatch.EnableRaisingEvents = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                SolutionHints.Log("teacher flag watch failed: " + ex.Message, true);
+            }
+        }
+
+        void TeacherChanged(bool on)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (on == _teacherOn) return;
+            _teacherOn = on;
+            SolutionHints.Log("teacher button: " + (on ? "shown" : "hidden"));
+            SyncControl("עמדת ניהול", "teacher", on);
+        }
+
+        void TeacherFlagChanged()
+        {
+            _ = JoinableTaskFactory.RunAsync(async delegate
+            {
+                await JoinableTaskFactory.SwitchToMainThreadAsync();
+                try
+                {
+                    TeacherChanged(TeacherOn());
+                    var shell = await GetServiceAsync(typeof(SVsUIShell)) as IVsUIShell;
+                    if (shell != null) shell.UpdateCommandUI(0);
+                }
+                catch (Exception ex)
+                {
+                    SolutionHints.Log("teacher refresh failed: " + ex.Message, true);
+                }
+            });
+        }
+
+        /// <summary>
+        /// חלון המורה: ה-Java של ההתקנה מריץ את BankVs במצב teacher ישירות (לא דרך dsviz-cs.exe — כך זה עובד גם עם כלי ישן יותר
+        /// בהתקנה). הכלי בודק בעצמו שהמשתמש מורה מחובר.
+        /// </summary>
+        void Teacher()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!Installed()) return;
+            if (!File.Exists(BankJar)) { Say("DSViz: מאגר השאלות לא מותקן."); return; }
+            string java = Path.Combine(InstallDir, "jdk", "bin", "javaw.exe");
+            if (!File.Exists(java)) java = "javaw";
+            // נתיבים יחסיים מתוך תיקיית ההתקנה: שם משתמש בעברית (או בשפה אחרת) ב-%LOCALAPPDATA% לא עובר בשורת הפקודה של java
+            // (הארגומנטים מפוענחים בקידוד של המערכת), אבל התיקייה הנוכחית כן
+            var psi = new ProcessStartInfo(java) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = InstallDir };
+            psi.Arguments = "-cp \"lab\\dsviz-bank-vs.jar;dsviz.jar\" il.lamerhav.dsviz.BankVs teacher";
+            Process.Start(psi);
         }
 
         void Add(OleMenuCommandService mcs, int id, Action action)

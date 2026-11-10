@@ -242,6 +242,7 @@ public final class Account {
         f.delete();
         File b = backupOf(f);
         if (b != null) b.delete();
+        syncTeacherFlag();
     }
 
     /** מעביר קובץ מהמקום הישן לחדש (אם בחדש אין) ומוחק את הישן */
@@ -635,6 +636,7 @@ public final class Account {
             d.put("teacherName", Json.str(t.get("name")));   // השם שההנהלה הגדירה (בחשבון Google לפעמים אין שם)
         }
         save(f, d);
+        syncTeacherFlag();
     }
 
     /** הקוד של המורה המחובר (כמו שנשמר בכניסה / בבדיקה האחרונה מול השרת), או "" */
@@ -858,6 +860,11 @@ public final class Account {
     /** המצבים שהשרת מחזיר על כרטיס תקף (/v1/access/check) — רק אז מעדכנים את מה ששמור (עם אישור חדש, או בלי — לא שילם / הושבת) */
     private static final String ACCESS_STATES = "ok|pay|blocked";
 
+    /** תשובה אמיתית על הכרטיס: מצב מוכר, ו-"ok" רק עם אישור חתום שנפתח במחשב הזה (אחרת היינו שומרים "מאושר" בלי אישור) */
+    private static boolean validState(Result r) {
+        return r.status.matches(ACCESS_STATES) && (!r.ok() || verifyPass(Json.str(r.body.get("pass"))) != null);
+    }
+
     /**
      * בודק מול השרת את הכרטיסים ששמורים (משתמש + עמדה) ומעדכן: אישור חדש, או מחיקה אם בוטל.
      * בלי אינטרנט — לא משנה כלום (המאגר ממשיך להיפתח עם האישור השמור). מחזיר את המצב של המשתמש (או של העמדה).
@@ -870,7 +877,7 @@ public final class Account {
         if (u != null && !Json.str(u.get("token")).isEmpty()) {
             Result r = post("/v1/access/check", map("token", Json.str(u.get("token")), "machine", machine()));
             if (r.status.matches("revoked|invalid|not-teacher")) forget(uf);
-            else if (r.status.matches(ACCESS_STATES)) store(uf, r, Json.str(u.get("token")));
+            else if (validState(r)) store(uf, r, Json.str(u.get("token")));
             // כל דבר אחר (בלי אינטרנט, 429 / 500 / 404, תשובה לא תקינה) — תקלה רגעית: האישור השמור נשאר כמו שהוא
             last = r;
         }
@@ -879,7 +886,7 @@ public final class Account {
         if (s != null && !Json.str(s.get("token")).isEmpty()) {
             Result r = post("/v1/access/check", map("token", Json.str(s.get("token")), "machine", machine()));
             if (r.status.matches("revoked|invalid")) forget(sf);
-            else if (r.status.matches(ACCESS_STATES)) store(sf, r, Json.str(s.get("token")));
+            else if (validState(r)) store(sf, r, Json.str(s.get("token")));
             if (last == null || !last.ok()) last = r;
         }
         return last == null ? new Result("none", "", null) : last;
@@ -938,6 +945,39 @@ public final class Account {
     }
 
     // ------------------------------------------------------------------ המורה המחובר (לעמדת הניהול)
+
+    /**
+     * סימון (לא סוד — רק מייל ושם, אף פעם לא הכרטיס) שהמשתמש של Windows מחובר כמורה: ‎%LOCALAPPDATA%\DSViz\teacher.flag‎.
+     * סרגל הכלים של Visual Studio (C#, לא יכול לפתוח את הקבצים המוצפנים) מציג את "עמדת ניהול" רק כשהוא קיים. הסימון הוא רק
+     * רמז לממשק — עמדת הניהול עצמה בודקת שוב את האישור החתום ואת השרת. null — אין סרגל של Visual Studio (Mac / Linux)
+     */
+    static File teacherFlagFile() {
+        String d = System.getProperty("dsviz.statusDir");
+        if (d != null && !d.isEmpty()) return new File(d, "teacher.flag");
+        if (plainDirs()) return new File(userDir(), "teacher.flag");
+        if (!windows()) return null;
+        String la = System.getenv("LOCALAPPDATA");
+        return la == null || la.isEmpty() ? null : new File(new File(la, "DSViz"), "teacher.flag");
+    }
+
+    /** מעדכן את הסימון לפי מי שמחובר עכשיו (נקרא אחרי כל שמירה / מחיקה של כניסה, ובפתיחת הכלים) */
+    public static void syncTeacherFlag() {
+        try {
+            File f = teacherFlagFile();
+            if (f == null) return;
+            Map<String, Object> t = teacherInfo();
+            if (t == null) {
+                if (f.exists()) f.delete();
+                return;
+            }
+            if (!f.getParentFile().isDirectory()) return;   // DSViz ל-Visual Studio לא מותקן — לא יוצרים תיקייה
+            byte[] text = Json.write(map("email", t.get("email"), "name", t.get("name"))).getBytes(StandardCharsets.UTF_8);
+            if (f.isFile() && java.util.Arrays.equals(Files.readAllBytes(f.toPath()), text)) return;   // בלי שינוי — הסרגל לא מתעדכן סתם
+            Files.write(f.toPath(), text);
+        } catch (Exception ignored) {
+            // רק רמז לממשק
+        }
+    }
 
     /** הפרטים של המורה המחובר, כמו שנשמרו בבדיקה האחרונה מול השרת: name, email, code, seats, used. null — לא מורה מחובר */
     public static Map<String, Object> teacherInfo() {
