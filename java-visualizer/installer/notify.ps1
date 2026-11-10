@@ -54,12 +54,17 @@ public class DsvizToast : Form {
     $sub.AutoSize = $false; $sub.Location = New-Object Drawing.Point(16, 42); $sub.Size = New-Object Drawing.Size(290, 20)
     $sub.Font = New-Object Drawing.Font($font, 9); $sub.ForeColor = $muted
     $sub.RightToLeft = 'Yes'; $sub.TextAlign = 'MiddleRight'
+    if ($State -eq 'done' -or $State -eq 'waiting') {   # שתי שורות: מתי העדכון נכנס לתוקף
+        $sub.Size = New-Object Drawing.Size(290, 36)
+        $f.Height = 100
+        $f.Location = New-Object Drawing.Point(($wa.Right - $f.Width - 16), ($wa.Bottom - $f.Height - 16))
+    }
     if ($State -eq 'done') {
         $title.Text = [string][char]0x2713 + ' DSViz עודכן לגרסה החדשה'
-        $sub.Text = 'אפשר להמשיך לעבוד כרגיל.'
+        $sub.Text = 'נכנס לתוקף בפתיחה הבאה של Eclipse / Visual Studio / IntelliJ.'
     } elseif ($State -eq 'waiting') {
         $title.Text = 'הגרסה החדשה של DSViz ירדה'
-        $sub.Text = 'היא תותקן לבד כשסוגרים את Eclipse.'
+        $sub.Text = 'כדי שתיכנס לתוקף סוגרים את Eclipse / Visual Studio — היא תותקן לבד.'
     } elseif ($State -eq 'found') {
         $title.Text = 'נמצאה גרסה חדשה של DSViz'
         $sub.Text = 'מורידים ומתקינים אותה ברקע — אפשר להמשיך לעבוד.'

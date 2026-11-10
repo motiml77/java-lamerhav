@@ -57,7 +57,7 @@ ShowUninstDetails show
 !define MUI_PAGE_HEADER_TEXT "בחירת שפה"
 !define MUI_PAGE_HEADER_SUBTEXT "באיזו שפה כותבים את התרגילים?"
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
-!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse, ל-IntelliJ IDEA ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse או IntelliJ פתוחים — ההתקנה תבקש לסגור אותם.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
+!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse, ל-IntelliJ IDEA ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse, Visual Studio או IntelliJ פתוחים — ההתקנה תבקש לסגור אותם.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
 !define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nIntelliJ IDEA: התפריט 'מבני נתונים', החלון DSViz בצד ימין, ו'הרצה ויזואלית' ליד main.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
@@ -226,6 +226,49 @@ Function EnsureEclipseClosed
   wait:
     Sleep 2000
     Call IsEclipseRunning
+    Pop $0
+    StrCmp $0 "0" 0 done
+    IntOp $1 $1 + 1
+    IntCmp $1 30 check wait check
+  done:
+  Pop $1
+  Pop $0
+FunctionEnd
+
+; ------------------------------------------------------------ Visual Studio חייב להיות סגור בזמן ההתקנה של חבילת C#
+; (את סרגל הכלים של DSViz — ההרחבה — VSIXInstaller לא מתקין כש-Visual Studio פתוח; וגם dsviz-cs / הספרייה נעולים בזמן הרצה)
+; $0 = 0 אם Visual Studio רץ
+Function IsVisualStudioRunning
+  nsExec::Exec '"$SYSDIR\cmd.exe" /c ""$SYSDIR\tasklist.exe" /NH /FI "IMAGENAME eq devenv.exe" | "$SYSDIR\find.exe" /I "devenv.exe""'
+FunctionEnd
+
+Function EnsureVisualStudioClosed
+  Push $0
+  Push $1
+  StrCpy $1 0
+  check:
+    Call IsVisualStudioRunning
+    Pop $0
+    StrCmp $0 "0" running done
+  running:
+    ${If} ${Silent}
+      ; התקנה שקטה (עדכון אוטומטי): update.ps1 כבר חיכה ש-Visual Studio ייסגר; אם בכל זאת פתוח — מחכים עד שעתיים
+      IntOp $1 $1 + 1
+      IntCmp $1 240 done 0 done
+      Sleep 30000
+      Goto check
+    ${EndIf}
+    MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "Visual Studio פתוח כרגע.$\r$\n$\r$\nכדי שסרגל הכלים של DSViz וההרצה הוויזואלית יותקנו כמו שצריך, צריך לסגור את Visual Studio בזמן ההתקנה.$\r$\n$\r$\nכן — לסגור את Visual Studio עכשיו (אם יש קבצים שלא נשמרו, Visual Studio ישאל אם לשמור)$\r$\nלא — סגרתי בעצמי, להמשיך$\r$\nביטול — לצאת מההתקנה" IDYES close IDNO check
+    Quit
+  close:
+    DetailPrint "Visual Studio: סוגר..."
+    nsExec::Exec '"$SYSDIR\taskkill.exe" /IM devenv.exe'
+    Pop $0
+    ; מחכים עד 60 שניות שייסגר (אולי הוא שואל אם לשמור)
+    StrCpy $1 0
+  wait:
+    Sleep 2000
+    Call IsVisualStudioRunning
     Pop $0
     StrCmp $0 "0" 0 done
     IntOp $1 $1 + 1
@@ -427,6 +470,7 @@ SectionEnd
 
 Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_CS
   DetailPrint "חבילת C#"
+  Call EnsureVisualStudioClosed   ; לפני שמחליפים את dsviz-cs ומתקינים את סרגל הכלים
   ; ההרצה הוויזואלית (dsviz-cs.exe — כוללת את סביבת ההרצה של .NET, לא צריך להתקין כלום)
   ; בלי קבצים מבנייה קודמת (DLL-ים שהשם שלהם השתנה וכו') — התיקיות נבנות מחדש בכל התקנה / עדכון
   RMDir /r "$INSTDIR\cs"
