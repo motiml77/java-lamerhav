@@ -75,6 +75,9 @@ test('שגיאות: הודעה בעברית, מיקום מדויק, והצעה',
   assert.match(err('').message, /עוד לא נכתבה/);
   assert.match(err('w ∈ {a,b}* | #c(w) > 1').message, /לא באלפבית/);
   assert.match(err('a^n n^m').message, /גם כאות/);
-  assert.match(err('a^(n+m)').message, /משתנה אחד/);
+  assert.match(err('a^(n-m)').message, /המשתנה m מופיע רק עם מינוס/);
+  assert.match(err('a^(5-n)').message, /לפחות משתנה אחד עם פלוס/);
+  assert.match(err('a^(n mod 2)').message, /בחזקה אי אפשר mod/);
+  assert.match(err('a^n | n ≡ 1').message, /אחרי ≡/);
   assert.match(err('a^n | n mod 0 = 1').message, /לחלק ב-0/);
 });

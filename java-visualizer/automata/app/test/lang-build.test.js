@@ -30,13 +30,15 @@ test('סיווג: טבלה של מקרים ידועים', () => {
   const table = {
     regular: ['a^n', 'a^n b^m', 'a^n b^m | n >= 2', 'a^n b^m | n mod 2 = 0, m mod 3 = 1', 'a^n b^m | n + m >= 5', 'a^n b^m | (n + m) mod 2 = 0',
       'a^n b^m | n = m, n <= 3', 'a^n b^n | n < 4', 'a^n b^m | n > 2 או m > 2', '(ab)^n c*', 'a^(2n+1)', '(a|b)*abb',
-      'w ∈ {a,b}* | #a(w) זוגי', 'w ∈ {a,b}* | |w| mod 3 = 0 וגם מסתיימת ב-ab', 'w ∈ {a,b}* | #a(w) + #b(w) > 3', 'w ∈ {a,b}* | #a(w) = |w|', 'לא מכילה aa או מתחילה ב-b'],
+      'w ∈ {a,b}* | #a(w) זוגי', 'w ∈ {a,b}* | |w| mod 3 = 0 וגם מסתיימת ב-ab', 'w ∈ {a,b}* | #a(w) + #b(w) > 3', 'w ∈ {a,b}* | #a(w) = |w|', 'לא מכילה aa או מתחילה ב-b',
+      'a^n a^n', 'a^n b^m | n != m, n = m'],
     cf: ['a^n b^n', 'a^n b^2n', 'a^n b^m | n = m', 'a^n b^m | n < m', 'a^n b^m | n != m', 'a^n b^m | m = n + 2', 'a^n b^m | 2n = 3m', 'a^n b^m | n >= m, n mod 2 = 0',
-      'a^n b^m c^m d^n', 'a^n b^n c^m d^m', 'a^n b^m c^k | n = k', '(ab)^n c^n', 'w ∈ {a,b}* | #a(w) = #b(w)', 'w ∈ {a,b}* | #a(w) > #b(w)', 'w ∈ {a,b,c}* | #a(w) + #c(w) = #b(w)', 'w ∈ {a,b}* | פלינדרום'],
+      'a^n b^m c^m d^n', 'a^n b^n c^m d^m', 'a^n b^m c^k | n = k', '(ab)^n c^n', 'w ∈ {a,b}* | #a(w) = #b(w)', 'w ∈ {a,b}* | #a(w) > #b(w)', 'w ∈ {a,b,c}* | #a(w) + #c(w) = #b(w)', 'w ∈ {a,b}* | פלינדרום',
+      'a^n b^m c^k | n + m = k', 'a^n b^m | n = m, 2n = 2m'],
     noncf: ['a^n b^n c^n', 'a^n b^n c^n d^n', 'a^n b^m c^k | n = m, m = k', 'a^n b^m c^k | n < m, m < k', 'a^n b^m c^n d^m', 'a^n b^m c^k d^l | n = k, m = l',
       'w ∈ {a,b,c}* | #a(w) = #b(w) וגם #b(w) = #c(w)'],
-    unknown: ['a^n b^m | n = m או n != m', 'a^n a^n', 'a^n b^m | 2n = 2m + 1', 'a^n b^m c^k | n + m = k', 'a^n b^m c^k | n != m, m != k', 'a^n b^m | n = m, 2n = 2m',
-      'w ∈ {a,b}* | #a(w) = #b(w) וגם |w| < 5', 'w ∈ {a,b}* | 2#a(w) = 2#b(w) + 1', 'a^n b^m | n != m, n = m'],
+    unknown: ['a^n b^m | n = m או n != m', 'a^n b^m | 2n = 2m + 1', 'a^n b^m c^k | n != m, m != k', 'a^n b^m c^k | n != m + k', 'a^(n*m)', 'a^n b^m | n*m = 6',
+      'w ∈ {a,b}* | #a(w) = #b(w) וגם |w| < 5', 'w ∈ {a,b}* | 2#a(w) = 2#b(w) + 1'],
   };
   for (const [want, list] of Object.entries(table)) for (const f of list) assert.equal(cls(f), want, f);
 });
@@ -64,7 +66,7 @@ test('כל התבניות: הסיווג נכון, והמכונה שנבנית ש
     assert.equal(r.machine.type, t.builds, t.name);
     assert.deepEqual(M.validate(r.machine).filter((i) => i.level === 'error'), [], t.name + ' בלי שגיאות תקינות');
     const v = sameAsOracle(r.machine, ast, t.builds === 'dfa' ? 2500 : 1200, t.name);
-    assert.ok(v.maxLen >= (ast.alphabet.length >= 4 ? 4 : ast.alphabet.length === 3 ? 6 : 9) && v.count > 300, t.name + ': נבדק עד אורך ' + v.maxLen);
+    assert.ok(v.maxLen >= (ast.alphabet.length >= 4 ? 4 : ast.alphabet.length === 3 ? 6 : 9) && (v.count > 300 || ast.alphabet.length === 1), t.name + ': נבדק עד אורך ' + v.maxLen);
     assert.ok(r.machine.tests.length >= 3 && S.runTests(r.machine, r.machine.tests).every((x) => x.pass), t.name + ': הבדיקות שצורפו עוברות');
     assert.equal(r.machine.language.text, t.text);
   }

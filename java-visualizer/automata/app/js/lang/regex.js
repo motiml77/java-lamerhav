@@ -46,7 +46,7 @@
     }
     function cat() {
       const a = [];
-      while (startsAtom(p.peek())) a.push(rep());
+      while (startsAtom(p.peek()) || p.is('cdot')) { if (p.is('cdot')) { p.next(); continue; } a.push(rep()); }
       if (!a.length) p.fail(p.is('eof') ? 'הביטוי נקטע באמצע' : 'כאן חסר ביטוי', 'למילה הריקה כותבים ε');
       return a.length === 1 ? a[0] : { t: 'cat', a };
     }

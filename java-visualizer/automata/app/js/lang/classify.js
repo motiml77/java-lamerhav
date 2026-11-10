@@ -121,7 +121,6 @@
   }
 
   function analyzeBlocks(ast) {
-    if (ast.blocks.some((b) => b.e.pow)) return ast.blocks.length === 1 && !ast.cond ? R('noncf', L.EXTRA_WHY.pow) : R('unknown', WHY.unk);
     const cond = nnf(ast.cond || { op: 'true' });
     const occ = {};
     ast.blocks.forEach((b, i) => { if (b.e.v) (occ[b.e.v] = occ[b.e.v] || []).push(i); });
@@ -223,12 +222,23 @@
     return R('unknown', WHY.unk);
   }
 
-  const LABEL = { regular: 'רגולרית', cf: 'חסרת הקשר, לא רגולרית', noncf: 'לא חסרת הקשר', unknown: 'לא הצלחתי לסווג' };
+  /** בלוקים: חזקות כלליות (כמה משתנים, n², 2ⁿ) עוברות ל-vec.js. אחרת הניתוח הרגיל, ואם הוא לא הכריע, ניסיון נוסף ב-vec.js. */
+  function analyzeAllBlocks(ast) {
+    if (ast.gen || ast.blocks.some((b) => b.e.pow)) {
+      if (ast.blocks.length === 1 && !ast.cond && ast.blocks[0].e.pow) return R('noncf', L.EXTRA_WHY.pow);
+      if (ast.blocks.some((b) => b.e.pow || (b.e.gen && !b.e.lin))) return L.analyzeNonlinear(ast) || R('unknown', WHY.unk);
+      return L.analyzeVec(ast) || R('unknown', WHY.unk);
+    }
+    const r = analyzeBlocks(ast);
+    return r.cls === 'unknown' ? L.analyzeVec(ast) || r : r;
+  }
+
+  const LABEL = { regular: 'רגולרית', cf: 'חסרת הקשר, לא רגולרית', cfany: 'חסרת הקשר', noncf: 'לא חסרת הקשר', unknown: 'לא הצלחתי לסווג' };
   /** מחזיר { cls, label, why, ... }. נשמר על ה-AST. */
   function analyze(ast) {
     if (!ast._an) {
       const ex = ast.kind === 'pattern' ? L.analyzePattern(ast) || R('unknown', WHY.unk) : null;
-      const r = ex ? R(ex.cls, ex.why) : ast.kind === 'regex' ? R('regular', WHY.regex) : ast.kind === 'prop' ? analyzeProp(ast) : analyzeBlocks(ast);
+      const r = ex ? R(ex.cls, ex.why) : L.isCombined(ast) ? L.combinedAnalyze(ast) : ast.kind === 'regex' ? R('regular', WHY.regex) : ast.kind === 'prop' ? analyzeProp(ast) : analyzeAllBlocks(ast);
       r.label = LABEL[r.cls];
       Object.defineProperty(ast, '_an', { value: r, enumerable: false });
     }

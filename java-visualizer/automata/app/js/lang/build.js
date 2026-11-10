@@ -93,7 +93,7 @@
     const an = L.analyze(ast);
     if (an.cls !== 'regular') throw new Error('השפה לא סווגה כרגולרית');
     if (!ast._dfa) {
-      const d = ast.kind === 'prop' ? propToDFA(ast, an) : L.determinize(L.nfaFromRegex(ast.kind === 'regex' ? ast.re : blocksToRegex(ast, an)), ast.alphabet);
+      const d = an.engine === 'vec' ? L.vecDFA(ast, an) : L.isCombined(ast) ? L.combinedDFA(ast, an) : ast.kind === 'prop' ? propToDFA(ast, an) : L.determinize(L.nfaFromRegex(ast.kind === 'regex' ? ast.re : blocksToRegex(ast, an)), ast.alphabet);
       Object.defineProperty(ast, '_dfa', { value: L.minimize(d), enumerable: false });
     }
     return ast._dfa;
@@ -106,7 +106,7 @@
       if (out.length >= cap) return;
       if (i === ast.blocks.length) { out.push(w); return; }
       const b = ast.blocks[i];
-      if (!b.e.v) { rec(i + 1, w + b.word.repeat(b.e.d)); return; }
+      if (!b.e.v && !b.e.gen) { rec(i + 1, w + b.word.repeat(b.e.d)); return; }
       for (let n = 0; w.length + n * b.word.length <= maxLen; n++) rec(i + 1, w + b.word.repeat(n));
     };
     rec(0, '');
@@ -131,14 +131,26 @@
    * בונה מכונה לנוסחה. מחזיר { ok: true, machine, kind, checked: {maxLen, count} } או { ok: false, reason }.
    * למכונה מצורפות בדיקות (המילים הקצרות בשפה ומחוצה לה), והשפה עצמה (machine.language).
    */
+  /** המכונה לשפה, לפי הסיווג (בלי בדיקה עצמית). null אם הבנייה לא נתמכת. */
+  function machineFor(ast) {
+    const an = L.analyze(ast);
+    if (an.cls === 'regular') return L.dfaToMachine(toDFA(ast));
+    if (an.cls === 'cf' || an.cls === 'cfany') {
+      if (an.engine === 'vec') return L.vecPDA(ast, an);
+      if (L.isCombined(ast)) return L.combinedPDA(ast, an);
+      let m = ast.kind === 'blocks' && an.links ? L.buildPDA(ast, an) : null;
+      if (!m) m = L.buildExtraPDA(ast);
+      if (!m && ast.kind === 'blocks') { const v = L.analyzeVec(ast); if (v && v.mode === 'C1') m = L.vecPDA(ast, v); }
+      return m;
+    }
+    if (an.cls === 'noncf') return L.buildTM(ast, an);
+    return null;
+  }
+
   function build(ast) {
     const an = L.analyze(ast);
     let m = null;
-    try {
-      if (an.cls === 'regular') m = L.dfaToMachine(toDFA(ast));
-      else if (an.cls === 'cf') m = L.buildPDA(ast, an) || L.buildExtraPDA(ast);
-      else if (an.cls === 'noncf') m = L.buildTM(ast, an);
-    } catch (e) { return { ok: false, reason: e.message || UNSUPPORTED }; }
+    try { m = machineFor(ast); } catch (e) { return { ok: false, reason: e.message || UNSUPPORTED }; }
     if (!m) return { ok: false, reason: UNSUPPORTED };
     const v = verify(m, ast, m.type === 'dfa' ? 3000 : 700);
     if (!v.ok) return { ok: false, reason: UNSUPPORTED, selfCheckFailed: v.word };
@@ -149,5 +161,5 @@
     return { ok: true, machine: m, kind: m.type, checked: { maxLen: v.maxLen, count: v.count } };
   }
 
-  Object.assign(L, { toDFA, build, verify, UNSUPPORTED });
+  Object.assign(L, { toDFA, build, machineFor, verify, UNSUPPORTED });
 });

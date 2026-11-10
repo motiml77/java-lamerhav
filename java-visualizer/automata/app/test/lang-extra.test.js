@@ -67,7 +67,7 @@ test('סיווג: רק המקרים הקלאסיים, וכל השאר "לא הצ
     'w w^R': 'cf', 'w c w^R': 'cf', 'w#w^R': 'cf', 'w ∈ {(,)}* | מאוזנת': 'cf', 'w ∈ {a,b}* | מאוזנת': 'cf',
     'ww': 'noncf', 'w#w': 'noncf', 'a^(2^n)': 'noncf', '(ab)^(2^n)': 'noncf',
     'w w^R | w ∈ {a}*': 'unknown', 'ww | w ∈ {a}*': 'unknown', 'www': 'unknown', 'w a w': 'unknown',
-    'a^(2^n) b^n': 'unknown', 'a^(2^n) | n >= 1': 'unknown', 'w ∈ {(,)}* | מאוזנת וגם |w| > 2': 'unknown', 'w ∈ {(,)}* | לא מאוזנת': 'unknown',
+    'a^(2^n) b^n': 'noncf', 'a^(2^n) | n >= 1': 'noncf', 'a^(2^n) b^(2^n)': 'noncf', 'a^(2^n) a^n': 'unknown', 'w ∈ {(,)}* | מאוזנת וגם |w| > 2': 'unknown', 'w ∈ {(,)}* | לא מאוזנת': 'unknown',
   };
   for (const f in table) assert.equal(L.analyze(P(f)).cls, table[f], f);
 });

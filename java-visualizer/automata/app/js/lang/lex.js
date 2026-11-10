@@ -11,7 +11,7 @@
   'use strict';
   const SUP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', 'ⁿ': 'n', 'ᵐ': 'm', 'ᵏ': 'k', 'ⁱ': 'i', 'ʲ': 'j', 'ˡ': 'l', 'ᵖ': 'p', 'ᴿ': 'R', '⁺': '+', '⁻': '-', '⁽': '(', '⁾': ')' };
   const KEYWORDS = new Set(['mod', 'and', 'or', 'not', 'even', 'odd']);
-  const SINGLE = { '≥': '>=', '≤': '<=', '≠': '!=', '=': '=', '<': '<', '>': '>', '+': '+', '-': '-', '−': '-', '–': '-', '*': '*', '%': 'mod', ',': ',', '(': '(', ')': ')', '{': '{', '}': '}', '∈': 'in', '∪': 'union', '∧': 'and', '&': 'and', '∨': 'or', '¬': 'not', '!': 'not', ':': ':', 'ε': 'eps', 'λ': 'eps', '∅': 'empty', 'Σ': 'sigma', '^': '^', '|': '|', '∣': '|', '.': 'dot' };
+  const SINGLE = { '≥': '>=', '≤': '<=', '≠': '!=', '=': '=', '<': '<', '>': '>', '+': '+', '-': '-', '−': '-', '–': '-', '*': '*', '%': 'mod', ',': ',', '(': '(', ')': ')', '{': '{', '}': '}', '∈': 'in', '∪': 'union', '∧': 'and', '&': 'and', '∨': 'or', '¬': 'not', '!': 'not', ':': ':', 'ε': 'eps', 'λ': 'eps', '∅': 'empty', 'Σ': 'sigma', '^': '^', '|': '|', '∣': '|', '.': 'dot', '·': 'cdot', '×': 'cdot', '∙': 'cdot', '≡': 'equiv' };
   const isHe = (c) => c >= 'א' && c <= 'ת';
   const isLat = (c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
   const isDig = (c) => c >= '0' && c <= '9';
@@ -22,7 +22,7 @@
     const push = (t, v, pos, end) => { out.push({ t, v, pos, end, sp }); sp = false; };
     while (i < text.length) {
       const c = text[i];
-      if (/\s/.test(c) || c === '·' || c === '‎' || c === '‏') { sp = sp || /\s/.test(c); i++; continue; }
+      if (/\s/.test(c) || c === '‎' || c === '‏') { sp = sp || /\s/.test(c); i++; continue; }
       const start = i;
       if (SUP[c] != null) { let v = ''; while (i < text.length && SUP[text[i]] != null) v += SUP[text[i++]]; push('sup', v, start, i); continue; }
       if (isDig(c)) { while (i < text.length && isDig(text[i])) i++; push('num', text.slice(start, i), start, i); continue; }

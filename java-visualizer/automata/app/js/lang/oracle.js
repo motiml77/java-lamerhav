@@ -20,6 +20,8 @@
       case 'sub': return evalA(a.a, env) - evalA(a.b, env);
       case 'mul': return a.k * evalA(a.a, env);
       case 'mod': return mod(evalA(a.a, env), a.m);
+      case 'prod': return evalA(a.a, env) * evalA(a.b, env);
+      case 'pw': return Math.pow(evalA(a.a, env), a.k);
     }
     throw new Error('arith ' + a.t);
   }
@@ -46,6 +48,23 @@
 
   /** מספר החזרות של בלוק כשהמשתנה שלו שווה v. */
   const reps = (e, v) => (!e.v ? e.d : e.pow ? Math.pow(e.pow, v) : e.c * v + e.d);
+  /** מספר החזרות של בלוק לפי ערכי המשתנים (גם בחזקה כללית). */
+  const countOf = (e, env) => (e.gen ? evalA(e.t, env) : reps(e, env[e.v]));
+  /**
+   * כמה גדול יכול להיות משתנה שהמילה לא קובעת לבד (למשל m ב-a^(n·m) כש-n = 0): |w| ועוד הקבועים והמודולים שבנוסחה.
+   * בכל משתנה אחר, החזקה שבה הוא מופיע עם פלוס כבר חוסמת אותו באורך המילה.
+   */
+  function slackOf(ast) {
+    if (ast._slack == null) {
+      let s = 2;
+      const walkA = (a) => { if (!a) return; if (a.t === 'num') s += Math.abs(a.v); if (a.t === 'mul') s += Math.abs(a.k); if (a.t === 'mod') s += a.m; walkA(a.a); walkA(a.b); };
+      const walkC = (c) => { if (!c) return; if (c.op === 'cmp') { walkA(c.l); walkA(c.r); } (c.args || []).forEach(walkC); walkC(c.arg); };
+      for (const b of ast.blocks) if (b.e.gen) walkA(b.e.t); else s += Math.abs(b.e.d || 0);
+      walkC(ast.cond);
+      Object.defineProperty(ast, '_slack', { value: s, enumerable: false });
+    }
+    return ast._slack;
+  }
 
   /** בלוקים: מנסים את כל הדרכים לחלק את המילה לבלוקים (ערכי המשתנים חסומים באורך המילה). */
   function blocksAccept(ast, w) {
@@ -54,6 +73,17 @@
       if (i === B.length) return pos === w.length && evalC(ast.cond, env, w);
       const b = B[i], e = b.e, len = b.word.length;
       const fits = (count) => { for (let k = 0; k < count; k++) if (!w.startsWith(b.word, pos + k * len)) return false; return true; };
+      const take = (count) => count >= 0 && pos + count * len <= w.length && fits(count) && go(i + 1, pos + count * len, env);
+      if (e.gen) {          // חזקה כללית: עוברים על כל הערכים של המשתנים שעוד לא נקבעו (עד |w| + קבועים)
+        const need = e.vars.filter((v) => env[v] == null), bound = w.length + slackOf(ast);
+        const rec = (j) => {
+          if (j === need.length) return take(countOf(e, env));
+          for (let x = 0; x <= bound; x++) { env[need[j]] = x; if (rec(j + 1)) return true; }
+          delete env[need[j]];
+          return false;
+        };
+        return rec(0);
+      }
       if (!e.v || env[e.v] != null) {
         const count = reps(e, env[e.v]);
         return count >= 0 && pos + count * len <= w.length && fits(count) && go(i + 1, pos + count * len, env);
@@ -76,6 +106,7 @@
     if (ast.kind === 'blocks') return blocksAccept(ast, word);
     if (ast.kind === 'regex') return L.reMatch(ast.re, word, ast.alphabet);
     if (ast.kind === 'pattern') return L.patternAccepts(ast, word);
+    if (ast.kind === 'union' || ast.kind === 'concat') return L.combinedAccepts(ast, word);
     const env = { '|w|': Array.from(word).length };
     for (const s of ast.alphabet) env['#' + s] = 0;
     for (const c of word) env['#' + c]++;
@@ -119,8 +150,22 @@
     if (!e.v) return String(e.d);
     return (e.c === 1 ? '' : e.c) + e.v + (e.d > 0 ? '+' + e.d : e.d < 0 ? String(e.d) : '');
   }
+  /** חזקה כללית בכתיב צפוף: n+m, 2n−m+1, n·m, n². ב-html הריבוע ב-<sup>. */
+  function showE(a, html, inner) {
+    switch (a.t) {
+      case 'num': return String(a.v);
+      case 'var': return a.n;
+      case 'add': case 'sub': { const s = showE(a.a, html, false) + (a.t === 'add' ? '+' : '−') + showE(a.b, html, true); return inner ? '(' + s + ')' : s; }
+      case 'mul': return a.k + (a.a.t === 'var' || a.a.t === 'pw' ? '' : '·') + showE(a.a, html, true);
+      case 'prod': return showE(a.a, html, true) + '·' + showE(a.b, html, true);
+      case 'pw': { const b = showE(a.a, html, true), k = String(a.k); return html ? b + '<sup>' + k + '</sup>' : b + (k === '2' ? '²' : k === '3' ? '³' : '^' + k); }
+    }
+    return '?';
+  }
   function showA(a, top) {
     switch (a.t) {
+      case 'prod': return showA(a.a) + '·' + showA(a.b);
+      case 'pw': return showA(a.a) + (a.k === 2 ? '²' : a.k === 3 ? '³' : '^' + a.k);
       case 'num': return String(a.v);
       case 'var': return a.n[0] === '#' ? '#' + a.n.slice(1) + '(w)' : a.n;
       case 'add': case 'sub': { const s = showA(a.a) + (a.t === 'add' ? ' + ' : ' − ') + showA(a.b); return top ? s : '(' + s + ')'; }
@@ -167,11 +212,13 @@
     const make = (html) => {
       if (ast.kind === 'regex') return 'L = ' + showRe(ast.re, 0);
       if (ast.kind === 'pattern') return L.patternPretty(ast, html);
+      if (ast.kind === 'union' || ast.kind === 'concat') return L.combinedPretty(ast, html);
       if (ast.kind === 'prop') { const c = showC(ast.cond, html, true); return 'L = { w ∈ {' + ast.alphabet.join(',') + '}*' + (c ? ' | ' + c : '') + ' }'; }
       const body = ast.blocks.map((b) => {
         const base = b.word.length > 1 ? '(' + b.word + ')' : b.word, e = b.e;
         if (!e.v && e.d === 1) return base;
         if (e.v && e.v[0] === '_') return base + (e.d ? (html ? '<sup>+</sup>' : '⁺') : '*');
+        if (e.gen) { const t = showE(e.t, html, false); if (html) return esc(base) + '<sup>' + t + '</sup>'; const u = sup(t.replace(/−/g, '-')); return base + (u.every(Boolean) ? u.join('') : '^(' + t + ')'); }
         if (e.pow) return html ? esc(base) + '<sup>' + e.pow + '<sup>' + e.v + '</sup></sup>' : base + '^(' + e.pow + (SUPS[e.v] || '^' + e.v) + ')';
         const t = expText(e);
         if (html) return esc(base) + '<sup>' + esc(t) + '</sup>';
@@ -184,5 +231,5 @@
     return { text: make(false), html: make(true) };
   }
 
-  Object.assign(L, { evalA, evalC, reps, accepts, words, lengthFor, sample, pretty, mod });
+  Object.assign(L, { evalA, evalC, reps, countOf, slackOf, accepts, words, lengthFor, sample, pretty, mod });
 });
