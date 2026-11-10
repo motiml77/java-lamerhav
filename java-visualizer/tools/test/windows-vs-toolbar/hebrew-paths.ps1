@@ -36,7 +36,11 @@ Copy-Item $Lib "$inst\dsviz.jar"
 Copy-Item $BankJar "$inst\lab\dsviz-bank-vs.jar"
 Copy-Item "$Runner\*" "$inst\cs\" -Recurse
 $mods = ((Get-Content (Join-Path $Root 'tools\build-jre.sh') -Raw) | Select-String -Pattern '--add-modules (\S+)').Matches[0].Groups[1].Value
-& "$jdk\bin\jlink.exe" --add-modules $mods --strip-debug --no-header-files --no-man-pages --output "$inst\jdk" 2>&1 | ForEach-Object { Log "jlink: $_" }
+# jlink עצמו מקבל את תיקיית הפלט בשורת הפקודה (קידוד ANSI) — בונים בתיקייה באנגלית ומעתיקים
+$rtTmp = Join-Path $env:RUNNER_TEMP 'jre-he'
+Remove-Item $rtTmp -Recurse -Force -ErrorAction SilentlyContinue
+& "$jdk\bin\jlink.exe" --add-modules $mods --strip-debug --no-header-files --no-man-pages --output $rtTmp 2>&1 | ForEach-Object { Log "jlink: $_" }
+Copy-Item $rtTmp "$inst\jdk" -Recurse
 $csRoot = "$base\Documents\מבני נתונים של משה's\DataStructures-CS"
 $proj = "$csRoot\התרגיל הראשון"
 New-Item -ItemType Directory -Force $proj | Out-Null
