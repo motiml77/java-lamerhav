@@ -722,6 +722,10 @@ function TutAdd([string]$name, [string]$kind, $rect) { $script:tut.Add([ordered]
 # חלון Copilot Chat ולשונית What's New (במחשב של תלמיד הם לא תמיד שם, ובסרטון הם מסתירים את הכפתור שמסבירים עליו)
 function TutClean() {
     $closed = @()
+    # חלון המסוף של מחשב הבדיקה (hosted-compute-agent) — לא חלק מ-Visual Studio, ובסרטון הוא מכסה את שולחן העבודה
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -match 'HostedComputeAgent|hosted-compute-agent' } | ForEach-Object {
+        [Screen2]::ShowWindow($_.MainWindowHandle, 6) | Out-Null; $closed += "מסוף: $($_.ProcessName)"
+    }
     try {
         $wins = [Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition)
         foreach ($w in $wins) {
@@ -777,16 +781,31 @@ $created = $false
 if ($startEl) {
     # 2. Create a new project — רשימת התבניות; לוחצים על תיבת החיפוש
     Info "לחיצה: $(ClickEl $startEl)"
-    $search = WaitEl $vsP.Id '^Search for templates' 'Edit' 60
+    $search = WaitEl $vsP.Id '^Search for templates' 'Edit|ComboBox|Custom|Text' 60
     Start-Sleep 4
+    if (-not $search) {
+        # בלי שם ב-UI Automation: Alt+S (הקיצור שכתוב בתיבת החיפוש) מעביר אליה את הפוקוס — וממנה המלבן לסרטון
+        [Windows.Forms.SendKeys]::SendWait('%s'); Start-Sleep 1
+        try { $f = [Windows.Automation.AutomationElement]::FocusedElement; if ($f -and $f.Current.ProcessId -eq $vsP.Id) { $search = $f; Info "תיבת החיפוש (Alt+S): $(ElType $f) '$(ElName $f)'" } } catch { }
+    }
     TutShot 'tut-02-templates' $search 'click'
     Info "בתבניות מופיעה גם 'תרגיל מבני נתונים (DSViz)': $(@(Elements $vsP.Id 'DSViz').Count -gt 0) (לא צריך אותה)"
     # 3. מקלידים Console App ובוחרים את התבנית של C#
-    if ($search) { try { $search.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('Console App') } catch { [void](ClickEl $search); [Windows.Forms.SendKeys]::SendWait('Console App') } }
+    # מקלידים בתיבת החיפוש: קודם ValuePattern; אם לא נכתב — Alt+S (הקיצור שכתוב בתיבה עצמה) והקלדה, ובודקים שהטקסט באמת שם
+    $typedOk = $false
+    if ($search) { try { $search.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('Console App'); $typedOk = ($search.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.Value -match 'Console App') } catch { } }
+    if (-not $typedOk) {
+        if ($search) { [void](ClickEl $search) } else { [Windows.Forms.SendKeys]::SendWait('%s'); Start-Sleep 1 }
+        [Windows.Forms.SendKeys]::SendWait('^a'); [Windows.Forms.SendKeys]::SendWait('Console App')
+        Start-Sleep 1
+        try { $f = [Windows.Automation.AutomationElement]::FocusedElement; if (-not $search) { $search = $f }; $typedOk = ($f.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.Value -match 'Console App') } catch { }
+    }
+    Info "חיפוש התבניות: $(if ($typedOk) { 'נכתב Console App' } else { 'לא הצלחנו לוודא שנכתב' })"
     Start-Sleep 5
     $item = @(Elements $vsP.Id '^Console App' 'ListItem' | Where-Object { (ElName $_) -match 'C#' -and (ElName $_) -notmatch 'Framework' })[0]
     if (-not $item) { $item = @(Elements $vsP.Id '^Console App' 'ListItem' | Where-Object { (ElName $_) -notmatch 'Framework' })[0] }
     Info "התבנית: $(ElName $item)"
+    Check 'tut-template' ($null -ne $item) "3. בחיפוש נמצאה התבנית Console App של C# (לא התבנית של DSViz)" "חיפוש: $typedOk"
     TutShot 'tut-03-console-app' $item 'click'
     if ($item) { try { $item.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select() } catch { [void](ClickEl $item) } }
     Start-Sleep 2
