@@ -74,20 +74,25 @@ namespace DsViz.VsExtension
         }
 
         /// <summary>
-        /// סרגל שנוסף אחרי שמשתמש כבר פתח את Visual Studio לא תמיד מוצג לבד (DefaultDocked חל על פרופיל חדש) —
-        /// בפעם הראשונה מדליקים אותו דרך DTE. אחר כך המשתמש שולט (View ← Toolbars ← DSViz) והבחירה נשמרת.
+        /// הסרגל של DSViz מוצג בכל פתיחה של Visual Studio. Visual Studio שומר את מצב הסרגלים רק כשהוא נסגר כרגיל —
+        /// אם הוא נסגר בכוח או קרס בפעם הראשונה, הסרגל שהדלקנו לא נשמר, ובלי הדלקה בכל פתיחה הוא היה נשאר מוסתר לתמיד.
+        /// המיקום (שורה משלו מתחת לסרגלים הרגילים) נקבע רק בפעם הראשונה — אחר כך המשתמש יכול להזיז אותו.
         /// </summary>
         void ShowToolbarOnce()
         {
             try
             {
-                string flag = Path.Combine(InstallDir, "vs-toolbar-shown");
-                if (File.Exists(flag)) return;
                 var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
                 if (dte == null) return;
                 dynamic bars = dte.CommandBars;
                 dynamic bar = bars["DSViz"];
-                bar.Visible = true;
+                if (!(bool)bar.Visible)
+                {
+                    bar.Visible = true;
+                    ActivityLog.LogInformation("DsViz", "toolbar shown");
+                }
+                string flag = Path.Combine(InstallDir, "vs-toolbar-shown");
+                if (File.Exists(flag)) return;
                 // שורה משלו מתחת לסרגלים הרגילים (בלי זה הוא נדחס לשורה הראשונה ורוב הכפתורים נעלמים לחץ "עוד")
                 try
                 {
@@ -103,7 +108,6 @@ namespace DsViz.VsExtension
                 }
                 Directory.CreateDirectory(InstallDir);
                 File.WriteAllText(flag, DateTime.Now.ToString("s"));
-                ActivityLog.LogInformation("DsViz", "toolbar shown");
             }
             catch (Exception ex)
             {
