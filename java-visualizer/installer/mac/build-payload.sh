@@ -39,7 +39,8 @@ check_signatures() {   # check_signatures <dir> <identifier לקבצים שצר�
 echo "== Java 21 (jlink, $JARCH) מ-$JAVA_HOME"
 "$JAVA_HOME/bin/java" -version 2>&1 | sed 's/^/  /'
 # אותם מודולים כמו ב-Windows (tools/build-jre.sh): java, javac, חלון, הרצה שורה-שורה (jdk.jdi + jdwp), קידודים
-MODULES=$(sed -n 's/.*--add-modules \([^ ]*\).*/\1/p' "$ROOT/tools/build-jre.sh" | head -1)
+# (בלי jdk.crypto.mscapi — מאגר התעודות של Windows; ב-Mac יש KeychainStore בתוך java.base)
+MODULES=$(sed -n 's/.*--add-modules \([^ ]*\).*/\1/p' "$ROOT/tools/build-jre.sh" | head -1 | sed 's/,jdk\.crypto\.mscapi//')
 [ -n "$MODULES" ] || { echo "לא נמצאה רשימת המודולים ב-tools/build-jre.sh"; exit 1; }
 # --strip-java-debug-attributes (ולא --strip-debug): לא נוגעים בקבצים המקוריים — החתימות נשארות
 "$JAVA_HOME/bin/jlink" --module-path "$JAVA_HOME/jmods" --add-modules "$MODULES" --include-locales=en,he \
