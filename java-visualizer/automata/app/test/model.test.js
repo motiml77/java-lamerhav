@@ -156,3 +156,12 @@ test('השלמה עם מצב מלכודת: אס"ד חלקי הופך למלא, �
   assert.deepEqual(['', 'a', 'ab', 'abb', 'b', 'aa', 'aba'].map((w) => S.run(m, w).result), before);
   assert.equal(M.completeWithTrap(m), null, 'כבר מלא');
 });
+
+test('השפה נשמרת בקובץ המכונה (כולל קובץ תרגיל נעול)', () => {
+  const m = M.createMachine('dfa');
+  m.language = { text: 'a^n b^m | n >= 2', allowBuild: false, locked: true };
+  const back = M.deserialize(M.serialize(m)).machine;
+  assert.deepEqual(back.language, m.language);
+  assert.equal(M.deserialize({ type: 'dfa', language: { text: 'a*' } }).machine.language.allowBuild, true);
+  assert.equal(M.deserialize({ type: 'dfa' }).machine.language, undefined);
+});
