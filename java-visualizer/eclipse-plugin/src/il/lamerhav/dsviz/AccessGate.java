@@ -56,9 +56,13 @@ public final class AccessGate {
 
     /** פותח את המאגר אם יש כניסה תקפה במחשב (או שהשרת לא דורש); אחרת — מסך הכניסה, ואחרי הכניסה פותח */
     public static void require(final Component parent, final Runnable open) {
-        if (disabled() || Account.current() != null) {
+        if (disabled()) {
             open.run();
-            refreshLater();
+            return;
+        }
+        final Account.Access saved = Account.current();
+        if (saved != null) {
+            checkThenOpen(parent, open, saved);
             return;
         }
         // אין כניסה במחשב: שואלים את השרת אם הכניסה בכלל פעילה (בלי אינטרנט — מסך הכניסה, עם הסבר).
@@ -99,6 +103,48 @@ public final class AccessGate {
 
     /** אחרי כמה זמן בלי תשובה מהשרת מראים את מסך הכניסה בכל זאת */
     static final int SHOW_AFTER_MS = 700;
+
+    /** כמה מחכים לבדיקה מול השרת לפני שפותחים את המאגר עם הכניסה השמורה (בלי אינטרנט — לא מחכים יותר מזה) */
+    static final int CHECK_WAIT_MS = 3500;
+
+    /**
+     * יש כניסה שמורה במחשב: כשיש אינטרנט — קודם בודקים מול השרת (עד CHECK_WAIT_MS). עמדה שההנהלה שחררה / גישה שבוטלה —
+     * הכניסה נמחקת (Account.refresh) ובמקום המאגר נפתח מסך הכניסה, עם הסבר. תקפה, או שאין תשובה (בלי אינטרנט / שרת איטי) —
+     * המאגר נפתח כרגיל, והבדיקה ממשיכה ברקע (אם בסוף התברר שבוטל — בפתיחה הבאה כבר מסך הכניסה).
+     */
+    static void checkThenOpen(final Component parent, final Runnable open, final Account.Access saved) {
+        final boolean[] done = { false };
+        final Runnable openBank = () -> {
+            if (done[0]) return;
+            done[0] = true;
+            open.run();
+        };
+        final Timer wait = new Timer(CHECK_WAIT_MS, e -> openBank.run());
+        wait.setRepeats(false);
+        SwingUtilities.invokeLater(wait::start);
+        // חוט רגיל (לא daemon): בכלי של Visual Studio עוד אין חלון פתוח, ו-Java לא תיסגר לפני התשובה
+        Thread t = new Thread(() -> {
+            Account.Result r;
+            try { r = Account.refresh(); } catch (Throwable e) { r = new Account.Result("error", "", null); }
+            final boolean gone = !"offline".equals(r.status) && !"error".equals(r.status) && Account.current() == null;
+            SwingUtilities.invokeLater(() -> {
+                wait.stop();
+                if (done[0]) return;          // כבר נפתח (התשובה איחרה) — הפעם הבאה תראה את מסך הכניסה
+                if (!gone) {
+                    openBank.run();
+                    return;
+                }
+                done[0] = true;
+                AccessGate.Dialog d = new AccessGate.Dialog(parent, open);
+                d.notice(saved.isStation()
+                        ? "המחשב הזה כבר לא מחובר כעמדת מחשב — ההנהלה שחררה אותו. כדי להמשיך מתחברים שוב."
+                        : "הכניסה שהייתה שמורה במחשב הזה כבר לא בתוקף. כדי להמשיך מתחברים שוב.");
+                showInFront(d);
+            });
+        }, "dsviz-access-check");
+        t.setDaemon(false);
+        t.start();
+    }
 
     /**
      * מסך הכניסה נפתח מקדימה — גם כשהוא נפתח מתוך Eclipse / IntelliJ / Visual Studio שהחלון שלהם בפוקוס. "תמיד מעל" רק לרגע
@@ -168,6 +214,8 @@ public final class AccessGate {
         private final JPanel body = new JPanel(cards);
         private final JTextField code = field(""), name = field(Account.machineName());
         private final JLabel stationError = text("", 13, false, new Color(0xB42318));
+        /** הסבר למה מסך הכניסה נפתח (עמדה ששוחררה / כניסה שבוטלה) — מעל שלוש האפשרויות; מוסתר כשאין */
+        private final JLabel notice = text("", 14, true, WARN);
         private final JPanel message = column();
         private Account.Cancel cancel;
         private Timer payPoll;
@@ -199,6 +247,14 @@ public final class AccessGate {
             });
         }
 
+        /** שורת הסבר בראש המסך (למשל: "ההנהלה שחררה את העמדה") */
+        void notice(String s) {
+            boolean was = notice.isVisible();
+            notice.setText(RLM + s);
+            notice.setVisible(s != null && !s.isEmpty());
+            if (notice.isVisible() && !was) setSize(getWidth(), getHeight() + 46);   // מקום לשורה — הכרטיסים לא נחתכים
+        }
+
         private JComponent header() {
             JPanel h = new JPanel(new BorderLayout());
             h.setBackground(CARD);
@@ -214,6 +270,12 @@ public final class AccessGate {
             JPanel p = column();
             p.setBorder(BorderFactory.createEmptyBorder(26, 30, 24, 30));
             p.add(text("כניסה למאגר התרגילים", 24, true, INK));
+            notice.setVisible(false);
+            notice.setOpaque(true);
+            notice.setBackground(WARN_SOFT);
+            notice.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            p.add(Box.createVerticalStrut(8));
+            p.add(notice);
             p.add(Box.createVerticalStrut(6));
             p.add(text("פעם אחת במחשב הזה — אחר כך המאגר נפתח לבד, גם בלי אינטרנט.", 15, false, MUTED));
             p.add(Box.createVerticalStrut(20));
