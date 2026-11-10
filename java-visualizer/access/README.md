@@ -54,3 +54,41 @@ cd worker && npm run test:access-java    # SignInEdge, OsTrustTest, AccountIt, G
 `/v1/auth/redeem` ו-`/v1/station/claim` מקבלים שדה לא חובה `app` (`dsviz` / `automata`; `Account.app`, ברירת מחדל `dsviz`,
 "מודלים חישוביים" — `automata`). הוא נרשם ביומן הפעילות (`app=automata`); ערך לא מוכר / לקוח ישן — בלי שינוי.
 באישור החתום יש `apps` (בינתיים תמיד `["dsviz","automata"]`); `Account.Access.apps` / `opens(app)` — אישור ישן בלי השדה פותח בשתיהן.
+
+## "מודלים חישוביים": התוכנה המקומית והממשק לדף
+
+`automata-launcher/` (`il.lamerhav.dsviz.AutomataLauncher`, `tools/build-automata.sh` → `build/automata/dsviz-automata.jar`
+עם dsviz-access בפנים, ו-`build/automata/app`). בהתקנה: `<התקנה>\automata\` ; הקיצור "מודלים חישוביים" מריץ
+`javaw -cp "automata\dsviz-automata.jar;dsviz.jar" il.lamerhav.dsviz.AutomataLauncher`.
+
+- שרת על `127.0.0.1` בלבד. הפורט נבחר באקראי בפעם הראשונה ונשמר (`%LOCALAPPDATA%\DSViz\automata\port`) — כדי שהשמירה
+  של הדף (localStorage: העבודה, ההעדפות, ההתקדמות במאגר) לא תאבד בכל הפעלה; תפוס — פורט אחר.
+- מפתח אקראי לכל הפעלה (`X-DSViz-Token`). הוא לא בשורת הפקודה: החלון נפתח עם קוד חד-פעמי (`/launch?c=…`, דקה אחת,
+  פעם אחת) שמחזיר 302 ל-`/#dsviz-token=<מפתח>`; `access-client.js` שומר אותו ב-sessionStorage ומוחק אותו מהכתובת.
+- Windows: Edge `--app=<כתובת>` עם פרופיל משלו (`%LOCALAPPDATA%\DSViz\automata\edge`); בלי Edge — הדפדפן הרגיל.
+  Mac: הדפדפן הרגיל (`open`). הפעלה שנייה (עוד לחיצה על הקיצור) — לא שרת שני: קוד פתיחה מהשרת שרץ ועוד חלון.
+- יציאה: כשאין דף פתוח — זרם האירועים נסגר ואין פנייה ‎30‎ שניות (בהתחלה — עד ‎2‎ דקות לחלון לעלות).
+- בדיקות אבטחה בכל בקשה: `Host` = ‏`127.0.0.1:<port>` / `localhost:<port>` (נגד DNS rebinding); `Origin` (אם נשלח) — רק
+  השרת עצמו; `Sec-Fetch-Site` (אם נשלח) — `same-origin` / `none`; `/api/*` — רק עם המפתח (השוואה בזמן קבוע), POST — רק
+  `application/json`. קבצים — רק מתוך תיקיית האפליקציה. אף תשובה לא כוללת כרטיס, אישור או סוד.
+
+| | בקשה | תשובה |
+|---|---|---|
+| מי מחובר | `GET /api/access` | `{state: "signed-out"/"teacher"/"student"/"station"/"pending"/"blocked", name, email, role, apps, offline, until, teacher, signing, canSignOut}` |
+| כניסה עם Google | `POST /api/signin {role: "teacher"/"student"}` | `{ok, status: "waiting"}` מיד; בסוף — אירוע `signin` `{ok, status, message}` |
+| ביטול כניסה | `POST /api/signin-cancel` | `{ok}` |
+| עמדת מחשב | `POST /api/station {code, name}` | `{ok, status: "ok"/"bad-code"/"full"/"blocked"/"offline"/…, message}` |
+| התנתקות | `POST /api/signout` | `{ok, status, message}`; עמדה — `{ok: false, status: "station"}` (רק המורה משחרר) |
+| עמדת הניהול | `POST /api/teacher-panel` | `{ok}` (פותח את החלון של DSViz) / `{ok: false, status: "not-teacher"}` |
+| אירועים | `GET /api/events` (SSE) | `event: access` (מיד, ובכל שינוי — גם מ-Eclipse / Visual Studio), `event: signin` |
+
+`pending` — כניסה שמחכה לדפדפן, או תלמיד שעוד לא שילם; `blocked` — הגישה הושבתה.
+
+בדף: `automata/app/js/access-client.js` (ES module) — `DSVizAccess.available()`, `get()`, `signIn(role)` (מחזיר את התוצאה
+בסוף הכניסה), `cancelSignIn()`, `claimStation(code, name)`, `signOut()`, `openTeacherPanel()`, `onChange(cb)` (מחזיר פונקציה
+להפסקה). התוכנה מוסיפה אותו לבד ל-index.html שהיא מגישה (הוא מחזיק את זרם האירועים — כך היא יודעת שהחלון פתוח); בלי
+התוכנה (קובץ / אתר) — `available()` הוא false ו-`get()` מחזיר `{state: "unavailable"}`. אם באפליקציה אין את הקובץ — מוגש העותק
+שבתוך ה-jar.
+
+בדיקות: `AutomataIt` ב-`npm run test:access-java` (אבטחה, הממשק, כניסה / התנתקות / עמדה משותפות, הפעלה שנייה, יציאה כשאין
+דף; `AUTOMATA_APP=<תיקייה>` — עם האפליקציה האמיתית).
