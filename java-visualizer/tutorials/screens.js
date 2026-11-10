@@ -19,6 +19,8 @@ const sh = (c, a, o) => { const r = cp.spawnSync(c, a, Object.assign({ stdio: 'i
 const script = require(path.join(T, 'scripts', sid + '.screens.js'));
 sh('python3', [path.join(T, 'screens_prep.py'), shots, path.join(W, 'prep.json')]);
 const prep = JSON.parse(fs.readFileSync(path.join(W, 'prep.json'), 'utf8'));
+// בדיקה בעיניים לפני הסרטון: כל מלבן מצויר על הצילום המקורי (work/.../check/_sheet.jpg) — שיושב בדיוק על הכפתור
+sh('python3', [path.join(T, 'screens_check.py'), shots, path.join(W, 'check')]);
 const info = JSON.parse(fs.readFileSync(path.join(shots, 'steps.json'), 'utf8').replace(/^﻿/, ''));
 const raw = Array.isArray(info) ? info : info.steps;
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
