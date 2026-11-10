@@ -247,26 +247,6 @@ namespace DsViz.VsExtension
             }
         }
 
-        /// <summary>תיקיית ה-Startup Project של הפתרון הפתוח (או null)</summary>
-        static string StartupProjectDir(EnvDTE.DTE dte)
-        {
-            try
-            {
-                if (dte == null || dte.Solution == null || string.IsNullOrEmpty(dte.Solution.FullName)) return null;
-                var sp = dte.Solution.SolutionBuild.StartupProjects as Array;
-                if (sp == null || sp.Length == 0) return null;
-                string rel = sp.GetValue(0) as string;
-                if (string.IsNullOrEmpty(rel)) return null;
-                string full = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(dte.Solution.FullName), rel));
-                string dir = Path.GetDirectoryName(full);
-                return dir != null && Directory.Exists(dir) ? dir : null;
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-        }
-
         /// <summary>הרצה ויזואלית של קובץ ה-C# הפתוח (ושאר קבצי הפרויקט שלו)</summary>
         void VisualRun()
         {
