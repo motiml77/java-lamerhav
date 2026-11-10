@@ -316,6 +316,23 @@ await test('תלמיד: נכנס → "צריך לשלם" (עם כרטיס); המ
   assert.equal((await call('POST', '/v1/access/check', { body: { token: student.token, machine: student.machine } })).body.status, 'pay');
 });
 
+await test('יומן פעולות: מהחדש לישן ומהישן לחדש, עם המשך עמוד בשני הכיוונים', async () => {
+  const sorted = (l, dir) => l.every((x, i) => i === 0 || (dir === 'asc' ? l[i - 1].at <= x.at : l[i - 1].at >= x.at));
+  const all = (await call('GET', '/v1/admin/log?limit=500', { token: admin })).body.log;
+  assert.ok(all.length >= 12, 'יש מספיק רשומות לבדיקה');
+  assert.ok(sorted(all, 'desc'), 'ברירת מחדל: מהחדש לישן');
+  const asc = (await call('GET', '/v1/admin/log?limit=500&order=asc', { token: admin })).body.log;
+  assert.ok(sorted(asc, 'asc'), 'order=asc: מהישן לחדש');
+  assert.equal(asc.length, all.length);
+  assert.equal(asc[0].at, all[all.length - 1].at);
+  const p1 = (await call('GET', '/v1/admin/log?limit=10&order=asc', { token: admin })).body.log;
+  const p2 = (await call('GET', '/v1/admin/log?limit=10&order=asc&after=' + encodeURIComponent(p1[p1.length - 1].at), { token: admin })).body.log;
+  assert.ok(p2.length > 0 && p2[0].at > p1[p1.length - 1].at, 'ההמשך מתחיל אחרי העמוד הראשון');
+  const d1 = (await call('GET', '/v1/admin/log?limit=10', { token: admin })).body.log;
+  const d2 = (await call('GET', '/v1/admin/log?limit=10&before=' + encodeURIComponent(d1[d1.length - 1].at), { token: admin })).body.log;
+  assert.ok(d2.length > 0 && d2[0].at < d1[d1.length - 1].at);
+});
+
 await test('הענקה ידנית מההנהלה (רשימה) → פתוח; ביטול → נסגר', async () => {
   const g = await call('POST', '/v1/admin/student', { token: admin, body: { email: 'pupil@test.dev, other@test.dev', until: '2027-08-31', note: 'הסכם' } });
   assert.equal(g.body.count, 2);
@@ -386,6 +403,36 @@ await test('מונה חודשי בהנהלה: מוצג לכל מורה, והמנ
   const one = (await call('GET', '/v1/admin/teacher?email=teacher1@test.dev', { token: admin })).body.teacher;
   assert.equal(one.sends.limit, after.limit);
   await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', seats: 2 } });
+});
+
+await test('מנת שליחות ידנית למורה: קובעים בהנהלה, נאכפת מיד (גם על העמדות שלו), וחוזרים לברירת המחדל', async () => {
+  const get = async () => (await call('GET', '/v1/admin/teachers', { token: admin })).body.teachers.find(t => t.email === 'teacher1@test.dev');
+  const before = await get();
+  assert.equal(before.monthlyLimit, null, 'ברירת מחדל');
+  const n = before.sends.n;
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: -1 } })).status, 400);
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: 'abc' } })).status, 400);
+  await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: true, monthlyPerSeat: 4 } });
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: n + 1 } })).status, 200);
+  const manual = await get();
+  assert.deepEqual([manual.monthlyLimit, manual.sends.limit], [n + 1, n + 1], 'מוצג בהנהלה');
+  let r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  assert.equal(r.status, 200, 'שליחה אחת נוספת מותרת: ' + await r.clone().text());
+  r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  assert.equal(r.status, 429);
+  assert.equal((await r.json()).code, 'monthly');
+  // העלאה ידנית — נפתח מיד
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: n + 5 } });
+  r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  assert.equal(r.status, 200);
+  // 0 = חסום לגמרי
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: 0 } });
+  assert.equal((await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 })).status, 429);
+  // חזרה לברירת המחדל (ריק): 4 × עמדות
+  assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: null } })).status, 200);
+  const back = await get();
+  assert.deepEqual([back.monthlyLimit, back.sends.limit], [null, 4 * Math.max(1, back.seats)]);
+  await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: false } });
 });
 
 await test('תלמיד מרשימת ההיתרים (הענקה ידנית) = כמו תלמיד ששילם: אותה מנה חודשית, והמונה מוצג בהנהלה ובחשבון שלו', async () => {

@@ -381,14 +381,14 @@ export async function geminiGate(request, env) {
   let limit = s.monthlyStudent;
   if (r.kind !== 'student') {
     const t = await store.get('teachers/' + owner);
-    limit = s.monthlyPerSeat * Math.max(1, t && t.seats || 0);
+    limit = teacherLimit(s, t);
   }
   const key = await usageKey(r.kind === 'student' ? 'student' : 'teacher', owner);
   const u = await store.get(key);
   if (s.requireLoginForGemini && u && u.n >= limit) {
     throw new Fail(429, 'monthly', r.kind === 'student'
       ? `ניצלתם את ${limit} השליחות של החודש. המנה מתחדשת בתחילת החודש הבא.`
-      : `המורה ניצל את ${limit} השליחות של החודש (${s.monthlyPerSeat} לכל עמדה). המנה מתחדשת בתחילת החודש הבא, או אפשר לקנות עוד עמדות.`);
+      : `המורה ניצל את ${limit} השליחות של החודש. המנה מתחדשת בתחילת החודש הבא, או אפשר לפנות להנהלה / לקנות עוד עמדות.`);
   }
   await store.merge(key, { owner, month: month(), kind: r.kind === 'student' ? 'student' : 'teacher', limit }, { n: 1 });
   const refund = () => store.merge(key, {}, { n: -1 }).catch(() => {});   // שליחה שנכשלה בגלל השרת — לא נספרת
@@ -570,6 +570,12 @@ export async function settlePayment(env, n) {
 
 // ------------------------------------------------------------------ מסוף ההנהלה
 
+/** מנת השליחות החודשית של מורה: מה שההנהלה קבעה לו ידנית (monthlyLimit), ואם לא — לפי מספר העמדות × המנה לעמדה */
+export function teacherLimit(s, t) {
+  if (t && Number.isInteger(t.monthlyLimit) && t.monthlyLimit >= 0) return t.monthlyLimit;
+  return s.monthlyPerSeat * Math.max(1, t && t.seats || 0);
+}
+
 /** מפתח המונה החודשי של מורה (כולל העמדות שלו) או של תלמיד */
 async function usageKey(kind, email) {
   return 'usage/' + month() + '_' + (await sha256Hex(kind + ':' + normEmail(email))).slice(0, 24);
@@ -577,7 +583,7 @@ async function usageKey(kind, email) {
 
 function teacherRow(t) {
   return {
-    email: t.email || t._id, name: t.name || '', school: t.school || '', code: showCode(t.code), seats: t.seats || 0, used: t.used || 0, phone: t.phone || '',
+    email: t.email || t._id, name: t.name || '', school: t.school || '', code: showCode(t.code), seats: t.seats || 0, used: t.used || 0, phone: t.phone || '', monthlyLimit: Number.isInteger(t.monthlyLimit) ? t.monthlyLimit : null,
     active: !!t.active, note: t.note || '', createdAt: t.createdAt || '', lastSignIn: t.lastSignIn || '',
   };
 }
@@ -622,7 +628,7 @@ async function monthlySends(env, rows) {
   const store = db(env), s = await settings(env);
   const keys = await Promise.all(rows.map(r => usageKey(r.kind || 'teacher', r.email || r._id)));
   const docs = keys.length ? await store.getMany(keys) : [];
-  return rows.map((r, i) => ({ n: docs[i] && docs[i].n || 0, limit: (r.kind || 'teacher') === 'student' ? s.monthlyStudent : s.monthlyPerSeat * Math.max(1, r.seats || 0) }));
+  return rows.map((r, i) => ({ n: docs[i] && docs[i].n || 0, limit: (r.kind || 'teacher') === 'student' ? s.monthlyStudent : teacherLimit(s, r), manual: (r.kind || 'teacher') !== 'student' && Number.isInteger(r.monthlyLimit) }));
 }
 
 async function adminTeachers(env) {
@@ -656,6 +662,11 @@ async function adminSaveTeacher(env, u, b) {
     b = Object.assign({}, b, { phone: phoneNorm(b.phone) });
     if (!b.phone) throw new Fail(400, 'phone', 'מספר טלפון לא תקין — נייד ישראלי של 10 ספרות (למשל 050-1234567).');
   } else if (b.phone !== undefined) b = Object.assign({}, b, { phone: '' });
+  if (b.monthlyLimit !== undefined) {   // מנת שליחות חודשית ידנית; ריק / null = חזרה לברירת המחדל (עמדות × מנה לעמדה)
+    if (b.monthlyLimit === null || String(b.monthlyLimit).trim() === '') b = Object.assign({}, b, { monthlyLimit: null });
+    else if (!intIn(b.monthlyLimit, 0, 100000)) throw new Fail(400, 'monthlyLimit', 'מנת השליחות החודשית: מספר שלם בין 0 ל-100000 (או ריק לברירת המחדל).');
+    else b = Object.assign({}, b, { monthlyLimit: +b.monthlyLimit });
+  }
   const at = nowIso();
   if (b.create) {
     const exists = await store.get('teachers/' + email);
@@ -677,6 +688,10 @@ async function adminSaveTeacher(env, u, b) {
     const upd = { updatedAt: at };
     changes.length = 0;
     if (b.seats !== undefined && +b.seats !== cur.seats) { upd.seats = +b.seats; changes.push(`מכסה ${cur.seats || 0} ← ${+b.seats}`); }
+    if (b.monthlyLimit !== undefined) {
+      const before = Number.isInteger(cur.monthlyLimit) ? cur.monthlyLimit : null;
+      if (b.monthlyLimit !== before) { upd.monthlyLimit = b.monthlyLimit; changes.push(`שליחות בחודש ${before === null ? 'ברירת מחדל' : before} ← ${b.monthlyLimit === null ? 'ברירת מחדל' : b.monthlyLimit}`); }
+    }
     if (b.active !== undefined && !!b.active !== !!cur.active) { upd.active = !!b.active; changes.push(b.active ? 'הופעל' : 'הושבת'); }
     for (const [k, n] of [['name', 80], ['school', 120], ['note', 300], ['phone', 20]]) {
       if (b[k] !== undefined && clip(b[k], n) !== (cur[k] || '')) { upd[k] = clip(b[k], n); changes.push(k); }
@@ -740,7 +755,7 @@ async function adminStudent(env, url) {
     student: st ? { name: st.name || '', until: st.accessUntil || '', source: st.source || '', note: st.note || '', phone: st.phone || '' } : null,
     sends: (await monthlySends(env, [{ email, kind: 'student' }]))[0],
     payments: payments.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ id: p._id, kind: p.kind || 'student', seats: p.seats || 0, amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '', createdAt: p.createdAt, paidAt: p.paidAt || '', payerName: p.payerName || '', payerPhone: p.payerPhone || '', payerEmail: p.payerEmail || '' })),
-    devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt })),
+    devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt, createdAt: x.createdAt || '' })),
   };
 }
 
@@ -815,10 +830,13 @@ async function adminDecide(env, u, b) {
 async function adminLog(env, url) {
   const store = db(env);
   const limit = Math.min(500, Math.max(10, +url.searchParams.get('limit') || 100));
-  const before = url.searchParams.get('before');
-  const list = before
-    ? await store.query('log', { where: [['at', '<', before]], orderBy: ['at', 'desc'], limit })
-    : await store.query('log', { orderBy: ['at', 'desc'], limit });
+  // order=asc: מהישן לחדש (ממשיכים עם after=); ברירת המחדל: מהחדש לישן (ממשיכים עם before=)
+  const asc = url.searchParams.get('order') === 'asc';
+  const cursor = url.searchParams.get(asc ? 'after' : 'before');
+  const list = await store.query('log', {
+    ...(cursor ? { where: [['at', asc ? '>' : '<', cursor]] } : {}),
+    orderBy: ['at', asc ? 'asc' : 'desc'], limit,
+  });
   return { ok: true, log: list.map(l => ({ at: l.at, actor: l.actor, action: l.action, target: l.target, detail: l.detail })) };
 }
 
