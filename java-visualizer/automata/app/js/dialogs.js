@@ -1,6 +1,6 @@
 /*
  * dialogs.js - חלון אישור (למחיקה) וחלון קיצורי המקלדת.
- * Dialogs.confirm({ title, html, ok, danger }) מחזיר Promise<boolean>. Enter = אישור, Esc = ביטול.
+ * Dialogs.confirm({ title, html, ok, cancel, danger, single }) מחזיר Promise<boolean> (single: בלי כפתור ביטול). Enter = אישור, Esc = ביטול.
  */
 (function (root) {
   'use strict';
@@ -19,7 +19,7 @@
         '<div class="dialog-icon' + (o.danger ? ' danger' : '') + '">' + I.get(o.danger ? 'trash' : 'info', 20) + '</div>' +
         '<div class="dialog-text"><h2 id="dlg-t">' + o.title + '</h2><div id="dlg-b">' + (o.html || '') + '</div></div>' +
         '<div class="dialog-foot"><button type="button" class="btn ' + (o.danger ? 'danger' : 'primary') + '" data-r="1">' + esc(o.ok || 'אישור') + '</button>' +
-        '<button type="button" class="btn secondary" data-r="0">' + esc(o.cancel || 'ביטול') + '</button></div></div>';
+        (o.single ? '' : '<button type="button" class="btn secondary" data-r="0">' + esc(o.cancel || 'ביטול') + '</button>') + '</div></div>';
       const prev = document.activeElement;
       const finish = (v) => {
         if (!current || current.back !== back) return;
