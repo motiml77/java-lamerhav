@@ -81,9 +81,11 @@ Pop-Location
 
 # 4. הרצה ויזואלית כמו מהסרגל: dsviz-cs.exe ← חלון ההרצה (javaw, דרך SafeJava)
 KillJava
-$p = Start-Process "$inst\cs\dsviz-cs.exe" -ArgumentList "`"$proj\Program.cs`"" -PassThru -WindowStyle Hidden
+$vErr = Join-Path $env:RUNNER_TEMP 'visual-err.txt'
+$p = Start-Process "$inst\cs\dsviz-cs.exe" -ArgumentList "`"$proj\Program.cs`"" -PassThru -WindowStyle Hidden -RedirectStandardError $vErr -RedirectStandardOutput (Join-Path $env:RUNNER_TEMP 'visual-out.txt')
 $t = WaitWindow '*' 120
 Start-Sleep 3; Shot 'he-1-visual-run'
+Log "dsviz-cs.exe (הרצה ויזואלית): $((Get-Content $vErr -Raw -ErrorAction SilentlyContinue) -replace "`r?`n", ' | ')"
 Check 'visual-run' ($t -ne '') "הרצה ויזואלית מפרויקט בתיקייה בעברית: נפתח החלון ('$t')" ((Get-Process javaw, java -ErrorAction SilentlyContinue | ForEach-Object { "$($_.ProcessName):$($_.MainWindowTitle)" }) -join ' ; ')
 KillJava
 
@@ -106,10 +108,13 @@ if ($pk -match 'PASSKEY (\S+)') { $env:DSVIZ_PASS_KEY = $Matches[1] }
 $s = & $java '-Dfile.encoding=UTF-8' -cp "$seed;$BankJar;$Lib" il.lamerhav.dsviz.SeedSession teacher teacher@test.dev $key 2>&1 | Out-String
 Log "כניסה מוכנה: $($s.Trim())"
 Check 'teacher-flag' (Test-Path -LiteralPath "$inst\teacher.flag") 'הסימון לסרגל (teacher.flag) נכתב בתיקיית ההתקנה בעברית' $s
-$o = & "$inst\cs\dsviz-cs.exe" --tool teacher 2>&1 | Out-String
-if ($o.Trim()) { Log "dsviz-cs.exe --tool teacher: $($o.Trim())" }
+# Start-Process (לא &): javaw יורש את הפלט של dsviz-cs.exe, ו-& היה מחכה עד שהחלון נסגר
+$tOut = Join-Path $env:RUNNER_TEMP 'teacher-out.txt'; $tErr = Join-Path $env:RUNNER_TEMP 'teacher-err.txt'
+Start-Process "$inst\cs\dsviz-cs.exe" -ArgumentList '--tool', 'teacher' -WindowStyle Hidden -RedirectStandardOutput $tOut -RedirectStandardError $tErr
 $t = WaitWindow '*עמדת ניהול*' 60
 Start-Sleep 3; Shot 'he-3-teacher-panel'
+$e = (Get-Content $tErr -Raw -ErrorAction SilentlyContinue) + (Get-Content $tOut -Raw -ErrorAction SilentlyContinue)
+if ($e) { Log "dsviz-cs.exe --tool teacher: $($e.Trim())" }
 Check 'teacher-panel' ($t -ne '') "עמדת הניהול מהתקנה בתיקייה בעברית: נפתח החלון ('$t')" ''
 KillJava
 
