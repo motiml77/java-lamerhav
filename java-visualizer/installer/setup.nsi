@@ -518,13 +518,19 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   FileClose $0
   ; החלונות "תרגיל חדש" ו"הוסף מבנה נתונים" ל-C# (אותם חלונות כמו ב-Eclipse וב-VS Code) — מקיצור, בשביל Visual Studio / Rider
   CreateDirectory "$SMPROGRAMS\מבני נתונים"
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool new "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  ; שם משתמש בעברית: java מפענחת את שורת הפקודה בקידוד של Windows — לכן ‎-cp‎ יחסי (תיקיית העבודה של הקיצור = $INSTDIR)
+  ; ובלי נתיב התרגילים בשורה (CsTool קורא אותו מ-project-cs-path.txt שנכתב למעלה)
+  Push $OUTDIR
+  SetOutPath "$INSTDIR"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool new' "$INSTDIR\icon.ico"
   Delete "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk"   ; השם מגרסה קודמת
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool help "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\הוסף מבנה נתונים ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool insert "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool help' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הוסף מבנה נתונים ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool insert' "$INSTDIR\icon.ico"
   ; "שליחת תרגיל" (דף התרגיל → פרויקט מוכן בפתרון) ו"הצעה לפתרון" (חלון שנשאר פתוח ליד Visual Studio) — כמו ב-Eclipse וב-VS Code
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\שליחת תרגיל ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool submit "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\הצעה לפתרון ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp "$INSTDIR\dsviz.jar" il.lamerhav.dsviz.cs.CsTool solution "${PROJECT_CS_DIR}"' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\שליחת תרגיל ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool submit' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הצעה לפתרון ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool solution' "$INSTDIR\icon.ico"
+  Pop $0
+  SetOutPath $0
 
   ; תבנית פרויקט חדש ב-Visual Studio: "תרגיל מבני נתונים (DSViz)"
   Delete "$INSTDIR\vs-templates.txt"

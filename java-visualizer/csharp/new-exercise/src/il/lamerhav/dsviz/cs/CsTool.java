@@ -59,7 +59,43 @@ import unit4.collectionsLib.Theme;
 public final class CsTool {
     private CsTool() {}
 
-    public static void main(String[] args) throws Exception {
+    /**
+     * ארגומנטים בלי תלות בקידוד של Windows: java מפענח את שורת הפקודה בקידוד של המערכת (ANSI), ונתיב עם שם משתמש בעברית (או תו
+     * אחר שלא בקידוד) הופך ל-"?". dsviz-cs.exe מעביר אז "--args-env" והארגומנטים במשתנה הסביבה DSVIZ_ARGS (שורה לכל ארגומנט) —
+     * Java קוראת את הסביבה ב-Unicode. אחרת — הארגומנטים כמו שהם.
+     */
+    static String[] envArgs(String[] a) {
+        if (a.length == 1 && "--args-env".equals(a[0])) {
+            String v = System.getenv("DSVIZ_ARGS");
+            if (v != null) return v.split("\n", -1);
+        }
+        return a;
+    }
+
+    /**
+     * תיקיית התרגילים של C# כשלא הועברה (קיצורי הדרך של ההתקנה לא מעבירים נתיב — הוא עלול להכיל עברית): מה שההתקנה כתבה
+     * ב-‎~/.dsviz/project-cs-path.txt‎ (UTF-16), ואחרת "מסמכים"\DataStructures-CS
+     */
+    static String defaultCsRoot() {
+        try {
+            java.io.File f = new java.io.File(System.getProperty("user.home"), ".dsviz/project-cs-path.txt");
+            if (f.isFile()) {
+                byte[] b = java.nio.file.Files.readAllBytes(f.toPath());
+                String s = b.length >= 2 && (b[0] & 0xff) == 0xFF && (b[1] & 0xff) == 0xFE ? new String(b, 2, b.length - 2, java.nio.charset.StandardCharsets.UTF_16LE)
+                        : new String(b, java.nio.charset.StandardCharsets.UTF_8);
+                s = s.replace("\uFEFF", "").trim();
+                if (!s.isEmpty()) return s;
+            }
+        } catch (Exception ignored) {
+            // ננסה את "מסמכים"
+        }
+        java.io.File docs = javax.swing.filechooser.FileSystemView.getFileSystemView().getDefaultDirectory();
+        return new java.io.File(docs, "DataStructures-CS").getPath();
+    }
+
+    public static void main(String[] argv) throws Exception {
+        String[] args = envArgs(argv);
+        if (args.length == 1) args = new String[] { args[0], defaultCsRoot() };   // קיצור דרך בלי נתיב (עברית בנתיב)
         if (args.length < 2) {
             System.err.println("שימוש: CsTool new|insert|submit|solution|help <תיקיית התרגילים> [--preset מבנה] [--shot קובץ.png] [--no-open]");
             System.exit(2);
