@@ -97,14 +97,17 @@ function VsByName([int]$vsPid, [string]$name) {
 }
 function ElName($el) { try { return $el.Current.Name } catch { return '' } }
 function ElType($el) { try { return $el.Current.ControlType.ProgrammaticName } catch { return '' } }
-function SkipFirstRun([int]$vsPid) {
+# KeepStart: בלי 'Continue without code' — כדי שמסך הפתיחה (Create a new project) יישאר לסרטון ההדרכה
+function SkipFirstRun([int]$vsPid, [switch]$KeepStart) {
     $els = VsElements $vsPid
     foreach ($el in $els) {
         if ((ElName $el) -match 'Are you sure you want to exit') {
             foreach ($b in $els) { if ((ElName $b) -eq 'No' -and (ElType $b) -match 'Button') { ClickEl $b | Out-Null; return $true } }
         }
     }
-    foreach ($pat in @('Skip and add accounts later', 'Not now, maybe later', 'Start Visual Studio', 'Continue without code')) {
+    $pats = @('Skip and add accounts later', 'Not now, maybe later', 'Start Visual Studio')
+    if (-not $KeepStart) { $pats += 'Continue without code' }
+    foreach ($pat in $pats) {
         foreach ($el in $els) {
             $n = ElName $el
             if ($n -and $n -match $pat -and (ElType $el) -match 'Button|Hyperlink|Text') { if (ClickEl $el) { Info "הפעלה ראשונה: '$n'"; return $true } }
@@ -763,7 +766,7 @@ $vsP = Start-Process $devenv -PassThru
 $startEl = $null
 for ($i = 0; $i -lt 120 -and -not $startEl; $i++) {
     Start-Sleep 3
-    SkipFirstRun $vsP.Id | Out-Null
+    SkipFirstRun $vsP.Id -KeepStart | Out-Null
     if ($i % 3 -eq 2) { TutClean }
     $startEl = @(Elements $vsP.Id '^Create a new project' 'Button|ListItem|Text|Hyperlink|Group|Custom')[0]
 }
