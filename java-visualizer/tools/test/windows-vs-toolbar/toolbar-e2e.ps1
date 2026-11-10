@@ -975,7 +975,7 @@ $st = RunStage 'bank' 'tut-10' @('waitwin כניסה למאגר', 'wait 2500', '
 $titles = (Windows) -join ' ; '
 Info "חלונות אחרי 'כניסה עם Google': $titles"
 Check 'tut-gate' ($st -eq 'done') "9. 'מאגר שאלות' -> מסך הכניסה, ולחיצה על 'כניסה עם Google' של מורה" "סטטוס $st"
-Check 'tut-browser' ($titles -match '(msedge|chrome|firefox)\[\d+\]: .*(Google|Sign in|כניסה|DSViz)') "10. הדפדפן נפתח בדף הכניסה (Google) — רואים בצילום tut-10-google-page.png" $titles
+Check 'tut-browser' ($titles -match '(msedge|chrome|firefox)\[\d+\]: .*(Google|Sign in|כניסה|DSViz|/signin\?role=teacher)') "10. הדפדפן נפתח בדף הכניסה (Google) — רואים בצילום tut-10-google-page.png" $titles
 KillJava
 Get-Process msedge, chrome -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 # 11. אחרי הכניסה (כאן בלי כניסה אמיתית: dsviz.access=off — אותו חלון שנפתח אחרי הכניסה): בוחרים שאלה -> צור תרגיל -> החלון 'השאלה' -> הכן סעיף ב'
