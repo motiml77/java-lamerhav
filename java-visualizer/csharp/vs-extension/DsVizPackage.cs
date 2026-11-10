@@ -249,6 +249,9 @@ namespace DsViz.VsExtension
             ThreadHelper.ThrowIfNotOnUIThread();
             if (!Installed()) return;
             var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+            // כמו הכפתור הירוק של Visual Studio: קודם שומרים את כל הקבצים — dsviz-cs קורא את הקוד מהדיסק, ובלי זה תלמיד שכתב
+            // קוד ולא שמר היה רואה את הגרסה הקודמת (למשל "Hello, World!" של התבנית)
+            try { if (dte != null) dte.Documents.SaveAll(); } catch (Exception) { }
             string file = null;
             try { file = dte != null && dte.ActiveDocument != null ? dte.ActiveDocument.FullName : null; } catch (Exception) { }
             if (file == null || !file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))

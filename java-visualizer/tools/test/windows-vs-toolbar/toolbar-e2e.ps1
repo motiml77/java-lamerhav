@@ -588,6 +588,58 @@ if ($new2.Count -ge 1) {
 Check 'single-vs2' (@(Get-Process devenv -ErrorAction SilentlyContinue).Count -eq 1) 'עדיין Visual Studio אחד' ''
 KillJava
 
+# ------------------------------------------------------------------ 7ב. פרויקט רגיל, בלי התבנית של DSViz
+Log "== 7ב. פרויקט Console App רגיל (כמו 'Create a new project' -> Console App): התלמיד כותב קוד עם תור, לא שומר, ולוחץ 'הרצה ויזואלית'"
+$plainDir = Join-Path $env:USERPROFILE 'source\repos\PlainQueue'
+Remove-Item -Recurse -Force $plainDir -ErrorAction SilentlyContinue
+& dotnet new console -n PlainQueue -o $plainDir --force | Out-Null          # אותה תבנית Console App ש-Visual Studio משתמש בה
+& dotnet new sln -n PlainQueue -o $plainDir --force | Out-Null
+& dotnet sln (Join-Path $plainDir 'PlainQueue.sln') add (Join-Path $plainDir 'PlainQueue.csproj') | Out-Null
+$plainSln = Join-Path $plainDir 'PlainQueue.sln'
+$plainProg = Join-Path $plainDir 'Program.cs'
+$studentCode = @'
+using Unit4.CollectionsLib;
+
+Queue<int> q = new Queue<int>();
+q.Insert(5);
+q.Insert(8);
+q.Insert(3);
+int sum = 0;
+while (!q.IsEmpty())
+{
+    sum += q.Remove();
+}
+Console.WriteLine("sum = " + sum);
+'@
+$d = GetDte
+$plainOpen = $false; $typed = $false
+try { $d.Solution.Close($false); Start-Sleep 3; $d.Solution.Open($plainSln); $plainOpen = $true } catch { Info "DTE (פתיחת הפתרון): $_" }
+Start-Sleep 15
+try { $null = $d.ItemOperations.OpenFile($plainProg) } catch { Info "DTE (פתיחת Program.cs): $_" }
+Start-Sleep 3
+# "כותבים" בעורך במקום ה-Hello, World של התבנית — בלי לשמור (כמו תלמיד שכתב ולחץ מיד על הכפתור)
+try {
+    $td = $d.ActiveDocument.Object('TextDocument')
+    $td.StartPoint.CreateEditPoint().ReplaceText($td.EndPoint, ($studentCode -replace "`r?`n", "`r`n"), 0)
+    $typed = -not $d.ActiveDocument.Saved
+} catch { Info "DTE (כתיבה בעורך): $_" }
+$sln2 = ''; try { $sln2 = $d.Solution.FullName } catch { }
+Info "פתרון פתוח: $sln2"
+$d = $null
+Check 'plain-open' ($plainOpen -and $typed -and $sln2 -like '*PlainQueue.sln') "פרויקט Console App רגיל נפתח ב-Visual Studio, והקוד עם התור נכתב בעורך (עדיין לא נשמר)" "פתרון: $sln2 · נכתב: $typed"
+Check 'plain-unsaved' (-not ((Get-Content $plainProg -Raw -Encoding utf8) -match 'Insert')) "לפני הלחיצה: בדיסק עדיין ה-Hello, World של התבנית" ''
+Shot '50-plain-typed'
+# ה-trace של ההרצה (%TEMP%\dsviz-*.trace) קיים כל עוד החלון של DSViz פתוח — ממנו רואים שהתור באמת נרשם
+Get-ChildItem $env:TEMP -Filter 'dsviz-*.trace' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+$t5 = ClickRun '51-plain-run'
+$trace = Get-ChildItem $env:TEMP -Filter 'dsviz-*.trace' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
+$tt = if ($trace) { Get-Content $trace.FullName -Raw -Encoding utf8 } else { '' }
+if ($trace) { Copy-Item $trace.FullName (Join-Path $Out 'plain-queue.trace') -ErrorAction SilentlyContinue }
+Check 'plain-viewer' ($t5.Count -gt 0) "פרויקט רגיל: 'הרצה ויזואלית' בסרגל פתחה את החלון של DSViz — $($t5 -join ' | ')" ((Windows) -join ' ; ')
+Check 'plain-saved' ((Get-Content $plainProg -Raw -Encoding utf8) -match 'q\.Insert\(8\)') "הכפתור שמר את הקוד לפני ההרצה (כמו הכפתור הירוק) — רץ מה שהתלמיד כתב, לא ה-Hello, World" ''
+Check 'plain-queue' (($tt -match 'נוצר תור') -and ($tt -match 'q\.Insert\(8\)') -and ($tt -match 'q\.Remove\(\)')) "ההרצה הוויזואלית רשמה את התור: 'נוצר תור ריק: q', q.Insert(8), q.Remove()" $(if ($tt) { $tt.Substring(0, [Math]::Min(300, $tt.Length)) } else { 'אין trace' })
+KillDsviz; Start-Sleep 2
+
 # ------------------------------------------------------------------ סיום
 Log "== 8. יומנים"
 Copy-Item (Join-Path $ctl 'agent.log') $Out -ErrorAction SilentlyContinue
