@@ -480,6 +480,7 @@ public final class AutomataLauncher {
             out.flush();
         }
         streams.add(out);
+        graceUntil = 0;   // החלון עלה ומחובר — מכאן יוצאים ‎30‎ שניות אחרי שהדף האחרון נסגר
     }
 
     void broadcast() {
