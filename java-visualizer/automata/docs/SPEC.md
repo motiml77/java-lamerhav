@@ -534,7 +534,7 @@ F ← [(start, 0, stackStart)];  seen ← {key(F₀)}
 | `even-a` | DFA | מספר זוגי של a | `abbab` | 6 |
 | `ends-ab` | NFA | מסתיים ב-ab | `abaab` | 6 |
 | `only-a-or-b` | NFA | רק a או רק b (עם ε) | `aaa` | 5 |
-| `anbn` | PDA | אותו מספר a ו-b (aⁿbⁿ) | `aabb` | 6 |
+| `anbn` | PDA | אותו מספר a ו-b (השפה aⁿbⁿ) | `aabb` | 6 |
 | `binary-inc` | TM | הוספת 1 למספר בינארי | `1011` | 3 |
 
 כל דוגמה היא קובץ מכונה רגיל, ועוד `id`, `description`, `sampleWord`. הבדיקה `runTests על כל הדוגמאות` מוודאת שכל הבדיקות שלהן עוברות ושאין בהן שגיאות.

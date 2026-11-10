@@ -74,7 +74,7 @@
     Object.assign({}, base, {
       id: 'anbn',
       type: 'pda',
-      name: 'אותו מספר a ו-b (aⁿbⁿ)',
+      name: 'אותו מספר a ו-b',
       description: 'אוטומט מחסנית שמקבל aⁿbⁿ (n ≥ 0): דוחף A על כל a, ושולף A על כל b.',
       alphabet: ['a', 'b'],
       stackAlphabet: ['Z', 'A'],
