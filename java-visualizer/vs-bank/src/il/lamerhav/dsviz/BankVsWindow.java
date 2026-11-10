@@ -528,6 +528,12 @@ final class BankVsWindow {
             if (!pool.isEmpty()) select(pool.get(new Random().nextInt(pool.size())).id);
         });
         buttons.add(random);
+        // IntelliJ (אותו חלון, --ij): אין שם כפתור בסרגל — עמדת הניהול מכאן. ב-Visual Studio היא בסרגל הכלים (כמו ב-Eclipse)
+        if (BankVs.ij && AccessGate.isTeacher()) {
+            JButton manage = RtlDialog.secondary("עמדת ניהול");
+            manage.addActionListener(e -> AccessGate.showTeacherPanel(frame));
+            buttons.add(manage);
+        }
         JButton close = RtlDialog.secondary("סגירה");
         close.addActionListener(e -> frame.dispose());
         buttons.add(close);
