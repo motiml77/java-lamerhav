@@ -16,7 +16,11 @@
     })();
   </script>
   <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/canvas.css">
+  <link rel="stylesheet" href="css/overlays.css">
+  <link rel="stylesheet" href="css/panels.css">
+  <link rel="stylesheet" href="css/run.css">
 </head>
 <body>
   <a class="skip" href="#word-input">דילוג לחלון ההרצה</a>
@@ -65,10 +69,10 @@
 
     <!-- סרגל כלים אנכי (בצד ימין, כי הממשק RTL) -->
     <aside class="rail" role="toolbar" aria-orientation="vertical" aria-label="כלים">
-      <button type="button" class="tool" data-tool="select" title="בחירה והזזה (V)" aria-label="בחירה"><i data-icon="select"></i></button>
-      <button type="button" class="tool" data-tool="state" title="מצב חדש: לחיצה על הקנבס (S)" aria-label="מצב חדש"><i data-icon="state"></i></button>
-      <button type="button" class="tool" data-tool="transition" title="מעבר: לחיצה על מצב המקור ואז על היעד (T)" aria-label="מעבר"><i data-icon="transition"></i></button>
+      <button type="button" class="tool" data-tool="select" title="בחירה ועריכה (V)" aria-label="בחירה ועריכה"><i data-icon="select"></i></button>
       <button type="button" class="tool" data-tool="hand" title="הזזת התצוגה (H, או רווח + גרירה)" aria-label="הזזת התצוגה"><i data-icon="hand"></i></button>
+      <span class="hsep"></span>
+      <button type="button" class="tool" data-cmd="add-state" title="מצב חדש (S, או לחיצה כפולה על הקנבס)" aria-label="מצב חדש"><i data-icon="state"></i></button>
       <span class="hsep"></span>
       <button type="button" class="tool" data-cmd="layout" title="סידור אוטומטי (L)" aria-label="סידור אוטומטי"><i data-icon="layout"></i></button>
       <button type="button" class="tool" data-cmd="fit" title="התאמה למסך (F)" aria-label="התאמה למסך"><i data-icon="fit"></i></button>
@@ -98,16 +102,11 @@
       <div class="inline-editor" hidden></div>
       <div class="hint" id="hint" role="status" aria-live="polite" hidden></div>
 
-      <div class="empty" id="empty">
-        <svg width="120" height="64" viewBox="0 0 120 64" aria-hidden="true" class="empty-art"><path d="M8 32h14" class="ea-line"/><path d="M18 28l4 4-4 4" class="ea-line"/><circle cx="40" cy="32" r="16" class="ea-st"/><path d="M57 27c8-7 18-7 26 0" class="ea-line dash"/><path d="M80 23l3 4-4.5 1.5" class="ea-line"/><circle cx="100" cy="32" r="16" class="ea-st dash"/><circle cx="100" cy="32" r="12" class="ea-st dash"/></svg>
-        <h2>מתחילים ממצב ראשון</h2>
-        <p>לחיצה כפולה על הקנבס מוסיפה מצב. גוררים מהשפה של מצב אל מצב אחר כדי ליצור מעבר.</p>
-        <div class="empty-actions">
-          <button type="button" class="btn primary" data-cmd="add-state"><i data-icon="state"></i><span>מצב חדש</span></button>
-          <button type="button" class="btn secondary" data-cmd="load-example"><i data-icon="book"></i><span>טעינת דוגמה</span></button>
-        </div>
-      </div>
+      <div class="popover" id="tpop" role="dialog" aria-label="אותיות המעבר" tabindex="-1" hidden></div>
+      <div class="result-banner" id="result-banner" role="status" aria-live="polite" hidden></div>
+      <div class="guide" id="guide" hidden></div>
 
+      <button type="button" class="guide-btn" id="guide-btn" title="איך בונים" aria-label="איך בונים" aria-controls="guide" aria-expanded="false">?</button>
       <div class="zoom" aria-label="זום">
         <button type="button" class="btn icon ghost sm" data-cmd="zoom-out" title="הקטנה (-)" aria-label="הקטנה"><i data-icon="zoomOut"></i></button>
         <button type="button" class="zoom-val" data-cmd="zoom-reset" title="100% (0)" id="zoom-val">100%</button>
@@ -185,10 +184,19 @@
   <script src="js/icons.js"></script>
   <script src="js/model.js"></script>
   <script src="js/sim.js"></script>
+  <script src="js/validate.js"></script>
   <script src="js/geometry.js"></script>
+  <script src="js/routing.js"></script>
   <script src="js/examples.js"></script>
+  <script src="js/dialogs.js"></script>
+  <script src="js/guide.js"></script>
   <script src="js/canvas.js"></script>
-  <script src="js/panels.js"></script>
+  <script src="js/canvas-input.js"></script>
+  <script src="js/popover.js"></script>
+  <script src="js/side-panel.js"></script>
+  <script src="js/run-panel.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/app-run.js"></script>
+  <script src="js/app-ui.js"></script>
 </body>
 </html>

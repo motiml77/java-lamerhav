@@ -6,7 +6,6 @@
   const M = root.AutomataModel, S = root.AutomataSim, I = root.Icons, EX = root.AutomataExamples;
   const STORE_KEY = 'dsviz.automata.v1';
   const THEME_KEY = 'dsviz.automata.theme';
-  const SPEEDS = [0, 1400, 900, 600, 340, 160];   // אלפיות שנייה בין צעדים, לפי המהירות 1..5
   const HISTORY_MAX = 100;
   const $ = (s, el) => (el || document).querySelector(s);
   const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
@@ -42,6 +41,8 @@
       this.canvas = new root.CanvasView(this, $('#stage'));
       this.side = new root.SidePanel(this, $('.side'));
       this.runPanel = new root.RunPanel(this, $('.runpanel'));
+      this.popover = new root.TransitionPopover(this, $('#tpop'));
+      root.Guide.init(this);
       this.bindTop();
       this.bindKeys();
       this.renderExamplesMenu();
@@ -131,10 +132,12 @@
     },
 
     /* ---------- בחירה ---------- */
-    select(states, trans, quiet) {
+    /** keepArm: לא לבטל מעבר שהתחיל (החץ המקווקו). */
+    select(states, trans, keepArm) {
+      const quiet = keepArm;
       this.sel.states = new Set(states || []);
       this.sel.trans = new Set(trans || []);
-      if (!quiet) this.canvas.pendingFrom = null;
+      if (!keepArm && this.canvas.source) { this.canvas.source = null; this.hint(null); }
       if (this.side.tab !== 'props' && (states.length || trans.length) && !quiet && this.side.tab !== 'issues') this.side.tab = 'props';
       this.canvas.render();
       this.side.render();
@@ -153,7 +156,7 @@
 
     /* ---------- פעולות עריכה ---------- */
     addStateAt(p, opts) {
-      const spot = opts && opts.exact ? p : this.canvas.freeSpot({ x: Math.round(p.x / 10) * 10, y: Math.round(p.y / 10) * 10 });
+      const spot = opts && opts.exact ? p : this.canvas.freeSpot(p);
       let s;
       this.change('הוספת מצב', () => { s = M.addState(this.machine, spot); });
       this.select([s.id], []);
@@ -163,39 +166,67 @@
     },
     addStateCenter() { return this.addStateAt(this.canvas.centerWorld()); },
 
-    connect(from, to) {
-      if (this.tool !== 'transition') this.hint(null);
-      const snap = this.snapshot();
-      const existing = M.findTransition(this.machine, from, to);
-      let t;
-      if (existing) t = existing;
-      else { t = M.addTransition(this.machine, from, to, []); }
-      this.stopRun(true);
-      this.sel.states = new Set(); this.sel.trans = new Set([t.id]);
-      this.refresh();
-      this.canvas.openLabelEditor(t.id, { snapshot: snap, isNew: !existing });
+    /** מעבר מ-from אל to: אם כבר יש קשת כזו עורכים אותה, אחרת חלון צף למעבר חדש (נוצר רק באישור). */
+    openTransition(from, to) {
+      if (this.isRunning()) return;
+      const t = M.findTransition(this.machine, from, to);
+      this.canvas.closeEditor(true);
+      this.popover.open(t ? { tid: t.id } : { from, to });
     },
+    openTransitionEdge(tid) { if (!this.isRunning() && M.getTransition(this.machine, tid)) this.popover.open({ tid }); },
 
     stateAction(act, id) {
       const m = this.machine;
       if (!id || !M.getState(m, id)) return;
       if (act === 'start') this.change('מצב התחלתי', () => M.setStart(m, id));
       else if (act === 'accept') this.change('מצב מקבל', () => M.setAccepting(m, id));
-      else if (act === 'loop') this.connect(id, id);
-      else if (act === 'connect') { this.canvas.pendingFrom = id; this.hint('לחצו על מצב היעד (או על אותו מצב, ללולאה). Esc לביטול.'); this.canvas.render(); }
+      else if (act === 'loop') { this.canvas.source = null; this.hint(null); this.openTransition(id, id); }
+      else if (act === 'connect') { this.select([id], [], true); this.canvas.arm(id); }
       else if (act === 'rename') this.canvas.openRenameEditor(id);
-      else if (act === 'delete') { this.select([id], []); this.deleteSelection(); }
+      else if (act === 'delete') this.confirmDelete([id], []);
     },
 
     deleteSelection() {
       const { states, trans } = this.sel;
       if (!states.size && !trans.size) { this.toast('לא נבחר כלום למחיקה'); return; }
-      const n = states.size + trans.size;
-      this.change(n > 1 ? 'מחיקה (' + n + ')' : states.size ? 'מחיקת מצב' : 'מחיקת מעבר', () => {
-        M.removeTransitions(this.machine, Array.from(trans));
-        M.removeStates(this.machine, Array.from(states));
-      });
+      this.confirmDelete(Array.from(states), Array.from(trans));
+    },
+
+    /** שואל (חלון אישור) ומוחק. אחרי המחיקה אפשר לבטל עם Ctrl+Z. */
+    async confirmDelete(states, trans) {
+      const m = this.machine;
+      const bdi = (x) => '<bdi class="sym" dir="ltr">' + esc(x) + '</bdi>';
+      const edgeName = (t) => bdi(M.stateName(m, t.from) + ' → ' + M.stateName(m, t.to)) + ' ' + bdi('(' + M.formatLabels(m.type, t.labels).split('\n').join(' | ') + ')');
+      const touching = m.transitions.filter((t) => states.includes(t.from) || states.includes(t.to));
+      const extraTrans = trans.filter((id) => !touching.some((t) => t.id === id));
+      let title, label;
+      if (states.length === 1 && !extraTrans.length) {
+        const n = touching.length;
+        title = 'למחוק את המצב ' + bdi(M.stateName(m, states[0])) + (n === 0 ? '?' : n === 1 ? ' ואת המעבר שלו?' : ' ואת ' + n + ' המעברים שלו?');
+        label = 'מחיקת מצב';
+      } else if (!states.length && trans.length === 1) {
+        const t = M.getTransition(m, trans[0]);
+        if (!t) return;
+        title = 'למחוק את המעבר ' + edgeName(t) + '?';
+        label = 'מחיקת מעבר';
+      } else {
+        title = 'למחוק ' + (states.length ? states.length + ' מצבים' : '') + (states.length && trans.length ? ' ו-' : '') + (trans.length ? trans.length + ' מעברים' : '') + '?';
+        label = 'מחיקה (' + (states.length + trans.length) + ')';
+      }
+      this.canvas.setHover(null);
+      this.canvas.arm(null);
+      const ok = await root.Dialogs.confirm({ title, html: 'אפשר לבטל אחר כך עם ' + root.Dialogs.kbd('Ctrl+Z') + '.', ok: 'מחיקה', danger: true });
+      if (!ok) return;
+      this.change(label, () => { M.removeTransitions(m, trans); M.removeStates(m, states); });
       this.select([], []);
+      this.toast(label + '. Ctrl+Z מחזיר.');
+    },
+
+    completeTrap() {
+      let trap = null;
+      this.change('מצב מלכודת', () => { trap = M.completeWithTrap(this.machine); });
+      if (trap) { this.select([trap.id], []); this.canvas.fit(); this.toast('נוסף מצב מלכודת, והאס"ד מלא עכשיו', 'ok'); }
+      else this.toast('אין מעברים חסרים');
     },
 
     autoLayout() {
@@ -208,12 +239,10 @@
 
     setTool(t) {
       this.tool = t;
-      this.canvas.pendingFrom = null;
+      this.canvas.source = null;
       $$('.rail [data-tool]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === t)));
       this.canvas.host.dataset.tool = t;
-      if (t === 'transition') this.hint('לחצו על מצב המקור, ואז על מצב היעד');
-      else if (t === 'state') this.hint('לחיצה על הקנבס מוסיפה מצב');
-      else this.hint(null);
+      this.hint(null);
     },
 
     /* ---------- סוג מכונה ---------- */
@@ -222,11 +251,14 @@
       this.active = type;
       this.word = this.words[type] || '';
       this.sel = { states: new Set(), trans: new Set() };
-      this.canvas.pendingFrom = null;
+      this.canvas.source = null;
+      this.hint(null);
+      this.popover.close();
       this.canvas.closeEditor();
       $('#app').dataset.type = type;
       $$('#type-tabs [data-type]').forEach((b) => { const on = b.dataset.type === type; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
       this.runPanel.testResults = null;
+      $('.tests-table-wrap').scrollTop = 0;
       this.refresh();
       if (!initial) { if (!this.machine.view.placed) { this.canvas.fit(); this.machine.view.placed = true; } this.autosave(); }
     },
@@ -244,6 +276,7 @@
       this.stopRun(true);
       this.sel = { states: new Set(), trans: new Set() };
       this.runPanel.testResults = null;
+      $('.tests-table-wrap').scrollTop = 0;
       this.refresh();
       this.canvas.fit();
       this.autosave();
@@ -256,6 +289,8 @@
       this.loadMachine(m, 'טעינת דוגמה', ex.sampleWord || '');
       this.toast('נטענה הדוגמה "' + ex.name + '"');
     },
+
+    loadFirstExample() { const ex = EX.EXAMPLES.find((e) => e.type === this.active); if (ex) this.loadExample(ex.id); },
 
     newMachine() {
       const type = this.active;
@@ -271,6 +306,7 @@
       this.side.render();
       this.runPanel.render();
       this.renderTop();
+      root.Guide.update();
     },
 
     renderTop() {
@@ -304,136 +340,6 @@
     },
     onViewChange() { const z = $('#zoom-val'); if (z && this.machine) z.textContent = Math.round(this.machine.view.zoom * 100) + '%'; },
 
-    /* ---------- הרצה ---------- */
-    isRunning() { return !!(this.run && this.run.trace); },
-
-    startRun() {
-      const m = this.machine;
-      const errs = this.issues.filter((i) => i.level === 'error');
-      if (errs.length) {
-        this.run = { trace: null, index: 0, error: { title: 'יש לתקן את המכונה', text: errs[0].text + (errs.length > 1 ? ' (ועוד ' + (errs.length - 1) + ')' : '') } };
-        this.side.show('issues');
-        this.select(errs[0].states, errs[0].transitions, true);
-        this.runPanel.render();
-        return false;
-      }
-      const bad = M.checkWord(m, this.word);
-      if (bad) {
-        this.run = { trace: null, index: 0, error: { title: 'אות לא באלפבית', text: bad.text, index: bad.index } };
-        this.runPanel.render();
-        return false;
-      }
-      const trace = S.run(m, this.word);
-      this.run = { trace, index: 0, playing: false };
-      this.sel = { states: new Set(), trans: new Set() };
-      this.canvas.closeEditor();
-      return true;
-    },
-
-    stopRun(silent) {
-      if (this.run && this.run.timer) clearTimeout(this.run.timer);
-      const had = !!this.run;
-      this.run = null;
-      this.runView = null;
-      if (had && !silent) this.refresh();
-    },
-
-    goto(i) {
-      const r = this.run;
-      if (!r || !r.trace) return;
-      const last = r.trace.steps.length - 1;
-      const ni = Math.max(0, Math.min(last, i));
-      const forward = ni === r.index + 1;
-      r.index = ni;
-      this.updateRunView(forward);
-      this.canvas.render();
-      this.runPanel.render();
-      this.canvas.positionToolbar();
-    },
-
-    updateRunView(animate) {
-      const r = this.run;
-      if (!r || !r.trace) { this.runView = null; return; }
-      const tr = r.trace, st = tr.steps[r.index];
-      const last = r.index === tr.steps.length - 1;
-      const interval = SPEEDS[this.speed] || 600;
-      this.runView = {
-        active: st ? st.active : [],
-        edges: st && r.index > 0 ? st.edges : (st ? st.edges : []),
-        accepted: last && tr.result === 'accept' ? tr.acceptedStates : [],
-        rejected: last && tr.result !== 'accept' ? (st ? st.active : []) : [],
-        animate: !!animate,
-        travelMs: Math.min(420, Math.round(interval * 0.7)),
-      };
-    },
-
-    runCmd(cmd) {
-      const r = this.run;
-      if (cmd === 'play-restart') { this.stopRun(true); if (this.startRun()) { this.goto(0); this.play(); } return; }
-      if (cmd === 'play') {
-        if (r && r.playing) { this.pause(); return; }
-        if (!r || !r.trace) { if (!this.startRun()) return; this.goto(0); }
-        else if (r.index >= r.trace.steps.length - 1) this.goto(0);
-        this.play();
-        return;
-      }
-      if (cmd === 'next') { if (!r || !r.trace) { if (this.startRun()) this.goto(0); return; } this.pause(); this.goto(r.index + 1); return; }
-      if (cmd === 'end') { if (!r || !r.trace) { if (!this.startRun()) return; } this.pause(); this.goto(this.run.trace.steps.length - 1); return; }
-      if (!r || !r.trace) return;
-      if (cmd === 'prev') { this.pause(); this.goto(r.index - 1); }
-      else if (cmd === 'rewind') { this.pause(); this.goto(0); }
-    },
-
-    play() {
-      const r = this.run;
-      if (!r || !r.trace) return;
-      r.playing = true;
-      this.runPanel.render();
-      const tick = () => {
-        if (!this.run || !this.run.playing) return;
-        if (this.run.index >= this.run.trace.steps.length - 1) { this.run.playing = false; this.runPanel.render(); return; }
-        this.goto(this.run.index + 1);
-        this.run.timer = setTimeout(tick, SPEEDS[this.speed] || 600);
-      };
-      r.timer = setTimeout(tick, Math.min(500, SPEEDS[this.speed] || 600));
-    },
-    pause() { const r = this.run; if (r && r.playing) { r.playing = false; clearTimeout(r.timer); this.runPanel.render(); } },
-
-    /* ---------- קבצים ---------- */
-    saveFile() {
-      const m = this.machine;
-      const blob = new Blob([M.serialize(m)], { type: 'application/json' });
-      const name = (m.name || 'מכונה').replace(/[\\/:*?"<>|]+/g, '_') + '.automaton.json';
-      this.download(blob, name);
-      this.toast('נשמר: ' + name, 'ok');
-    },
-    exportSVG() {
-      const svg = this.canvas.exportSVG();
-      if (!svg) { this.toast('אין מה לייצא: הקנבס ריק'); return; }
-      const name = (this.machine.name || 'מכונה').replace(/[\\/:*?"<>|]+/g, '_') + '.svg';
-      this.download(new Blob([svg], { type: 'image/svg+xml' }), name);
-      this.toast('יוצא: ' + name, 'ok');
-    },
-    download(blob, name) {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    },
-    openFile(file) {
-      const fr = new FileReader();
-      fr.onload = () => {
-        const { machine, errors } = M.deserialize(String(fr.result));
-        if (!machine) { this.toast('לא ניתן לפתוח: ' + errors[0], 'err'); return; }
-        this.loadMachine(machine, 'פתיחת קובץ');
-        this.toast(errors.length ? 'נפתח, עם ' + errors.length + ' פריטים שדולגו' : 'נפתח: ' + machine.name, errors.length ? 'err' : 'ok');
-      };
-      fr.onerror = () => this.toast('לא ניתן לקרוא את הקובץ', 'err');
-      fr.readAsText(file);
-    },
-
     /* ---------- הודעות ---------- */
     toast(text, kind) {
       const box = $('#toasts');
@@ -451,175 +357,7 @@
       h.textContent = text;
     },
 
-    /* ---------- סרגל עליון ותפריטים ---------- */
-    renderExamplesMenu() {
-      const menu = $('#examples-menu');
-      menu.innerHTML = M.TYPES.map((type) => {
-        const list = EX.EXAMPLES.filter((e) => e.type === type);
-        if (!list.length) return '';
-        return '<div class="menu-group"><div class="menu-title">' + esc(M.TYPE_INFO[type].short) + '</div>' + list.map((e) =>
-          '<button type="button" role="menuitem" data-example="' + e.id + '"><span class="type-tag ' + type + '">' + M.TYPE_INFO[type].en + '</span><span class="mi-text"><b>' + esc(e.name) + '</b><small>' + esc(e.description) + '</small></span></button>').join('') + '</div>';
-      }).join('');
-    },
-
-    toggleMenu(id, btn, force) {
-      const menu = $('#' + id);
-      const open = force != null ? force : menu.hidden;
-      $$('.menu').forEach((x) => { x.hidden = true; });
-      $$('[aria-haspopup]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
-      menu.hidden = !open;
-      if (btn) btn.setAttribute('aria-expanded', String(open));
-      if (open) { const first = menu.querySelector('[role=menuitem]'); if (first) first.focus(); }
-    },
-
-    showModal(title, html) {
-      $('#modal-title').textContent = title;
-      $('#modal-body').innerHTML = html;
-      $('#modal').hidden = false;
-      $('#modal [data-cmd=close-modal]').focus();
-    },
-    closeModal() { $('#modal').hidden = true; },
-
-    helpHTML() {
-      const rows = [
-        ['עריכה', [['לחיצה כפולה על הקנבס', 'מצב חדש'], ['גרירה מהשפה של מצב אל מצב', 'מעבר (שחרור על אותו מצב: לולאה)'], ['לחיצה כפולה על מצב / על תווית', 'שינוי שם / עריכת סמלים'], ['A', 'מצב מקבל (הפעלה/כיבוי)'], ['I', 'מצב התחלתי'], ['F2 או Enter', 'שינוי שם / עריכת המעבר הנבחר'], ['Delete', 'מחיקת הבחירה'], ['Ctrl+Z / Ctrl+Shift+Z', 'ביטול / חזרה'], ['Ctrl+A', 'בחירת כל המצבים'], ['חצים', 'הזזת המצבים הנבחרים (Shift: צעד גדול)']]],
-        ['כלים ותצוגה', [['V / S / T / H', 'בחירה / מצב / מעבר / הזזת תצוגה'], ['Shift + גרירה', 'בחירה במלבן'], ['גרירה של רקע, רווח + גרירה', 'הזזת התצוגה'], ['גלגלת, + / −, 0', 'זום, 100%'], ['F', 'התאמה למסך'], ['L', 'סידור אוטומטי'], ['Alt+1 … Alt+4', 'מעבר בין סוגי המכונות']]],
-        ['הרצה', [['Enter (בשדה המילה)', 'הרצה מההתחלה'], ['P', 'הרצה / עצירה'], ['→ / ←', 'צעד קדימה / אחורה (בזמן הרצה)'], ['Home / End', 'להתחלה / לסוף'], ['Esc', 'עצירת ההרצה, ביטול בחירה']]],
-        ['קבצים', [['Ctrl+S', 'שמירה לקובץ JSON'], ['Ctrl+O', 'פתיחת קובץ']]],
-      ];
-      return '<div class="help-grid">' + rows.map(([t, list]) => '<section><h3>' + t + '</h3><dl>' + list.map(([k, v]) => '<div><dt>' + k.split(' / ').map((x) => /^[A-Za-z0-9+←→\-−… ]+$/.test(x) ? '<kbd dir="ltr">' + esc(x) + '</kbd>' : esc(x)).join(' / ') + '</dt><dd>' + esc(v) + '</dd></div>').join('') + '</dl></section>').join('') + '</div>' +
-        '<p class="muted small">הכול נשמר אוטומטית בדפדפן הזה. כדי להעביר למחשב אחר: שמירה לקובץ.</p>';
-    },
-
-    bindTop() {
-      const cmd = (name, el) => {
-        switch (name) {
-          case 'undo': this.undo(); break;
-          case 'redo': this.redo(); break;
-          case 'examples': this.toggleMenu('examples-menu', el); break;
-          case 'save-menu': this.toggleMenu('save-menu', el); break;
-          case 'save': this.toggleMenu('save-menu', null, false); this.saveFile(); break;
-          case 'export-svg': this.toggleMenu('save-menu', null, false); this.exportSVG(); break;
-          case 'open': $('#file-input').click(); break;
-          case 'new': this.newMachine(); break;
-          case 'theme': this.setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); break;
-          case 'help': this.showModal('קיצורי מקלדת', this.helpHTML()); break;
-          case 'close-modal': this.closeModal(); break;
-          case 'layout': this.autoLayout(); break;
-          case 'fit': this.canvas.fit(); this.autosave(); break;
-          case 'delete': this.deleteSelection(); break;
-          case 'zoom-in': this.canvas.zoomBy(1.2); break;
-          case 'zoom-out': this.canvas.zoomBy(1 / 1.2); break;
-          case 'zoom-reset': this.canvas.zoomBy(1 / this.machine.view.zoom); break;
-          case 'add-state': this.addStateCenter(); break;
-          case 'load-example': { const ex = EX.EXAMPLES.find((e) => e.type === this.active); if (ex) this.loadExample(ex.id); break; }
-          case 'run-tests': this.runPanel.runTests(); break;
-        }
-      };
-      document.addEventListener('click', (e) => {
-        const ex = e.target.closest('[data-example]');
-        if (ex) { this.toggleMenu('examples-menu', null, false); this.loadExample(ex.dataset.example); return; }
-        const b = e.target.closest('[data-cmd]');
-        if (b && !b.disabled) { cmd(b.dataset.cmd, b); return; }
-        const tool = e.target.closest('[data-tool]');
-        if (tool) { this.setTool(tool.dataset.tool); return; }
-        const tab = e.target.closest('#type-tabs [data-type]');
-        if (tab) { this.switchType(tab.dataset.type); return; }
-        if (!e.target.closest('.menu-wrap')) { $$('.menu').forEach((x) => { x.hidden = true; }); $$('[aria-haspopup]').forEach((x) => x.setAttribute('aria-expanded', 'false')); }
-        if (e.target.id === 'modal') this.closeModal();
-      });
-      $('#canvas-status').addEventListener('click', () => this.side.show('issues'));
-      $('#canvas-status').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.side.show('issues'); } });
-      $('#file-input').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) this.openFile(f); e.target.value = ''; });
-      const name = $('#machine-name');
-      name.addEventListener('change', () => { const v = name.value.trim() || 'מכונה ללא שם'; this.change('שם המכונה', () => { this.machine.name = v; }, null, true); });
-      name.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') name.blur(); });
-      // מקשי חצים בין הלשוניות (role=tablist). ב-RTL: שמאלה = הבא.
-      $('#type-tabs').addEventListener('keydown', (e) => {
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        e.preventDefault(); e.stopPropagation();
-        const i = M.TYPES.indexOf(this.active);
-        const ni = (i + (e.key === 'ArrowLeft' ? 1 : -1) + M.TYPES.length) % M.TYPES.length;
-        this.switchType(M.TYPES[ni]);
-        $('#type-tabs [data-type=' + M.TYPES[ni] + ']').focus();
-      });
-      // גרירת קובץ JSON אל החלון
-      document.addEventListener('dragover', (e) => { if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) e.preventDefault(); });
-      document.addEventListener('drop', (e) => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) { e.preventDefault(); this.openFile(f); } });
-    },
-
-    setTheme(t) {
-      document.documentElement.dataset.theme = t;
-      store.set(THEME_KEY, t);
-      this.renderTop();
-      this.canvas.render();
-    },
-
-    bindKeys() {
-      document.addEventListener('keydown', (e) => {
-        if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
-        if (!$('#modal').hidden) { if (e.key === 'Escape') this.closeModal(); return; }
-        const mod = e.ctrlKey || e.metaKey;
-        const code = e.code;
-        const running = this.isRunning();
-        if (mod && code === 'KeyZ') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
-        if (mod && code === 'KeyY') { e.preventDefault(); this.redo(); return; }
-        if (mod && code === 'KeyS') { e.preventDefault(); this.saveFile(); return; }
-        if (mod && code === 'KeyO') { e.preventDefault(); $('#file-input').click(); return; }
-        if (mod && code === 'KeyA') { e.preventDefault(); this.select(this.machine.states.map((s) => s.id), []); return; }
-        if (e.altKey && /^Digit[1-4]$/.test(code)) { e.preventDefault(); this.switchType(M.TYPES[+code.slice(5) - 1]); return; }
-        if (mod || e.altKey) return;
-        if (code === 'Space') { if (!this.canvas.spaceDown) { this.canvas.spaceDown = true; this.canvas.host.classList.add('space'); } e.preventDefault(); return; }
-        if (e.key === 'Escape') {
-          if ($$('.menu').some((x) => !x.hidden)) { $$('.menu').forEach((x) => { x.hidden = true; }); return; }
-          if (running || (this.run && this.run.error)) { this.stopRun(); return; }
-          if (this.canvas.pendingFrom) { this.canvas.pendingFrom = null; this.hint(null); this.canvas.render(); return; }
-          if (this.tool !== 'select') { this.setTool('select'); return; }
-          this.select([], []);
-          return;
-        }
-        if (running) {
-          if (e.key === 'ArrowRight') { e.preventDefault(); this.runCmd('next'); return; }
-          if (e.key === 'ArrowLeft') { e.preventDefault(); this.runCmd('prev'); return; }
-          if (e.key === 'Home') { e.preventDefault(); this.runCmd('rewind'); return; }
-          if (e.key === 'End') { e.preventDefault(); this.runCmd('end'); return; }
-        }
-        if (code === 'KeyP') { e.preventDefault(); this.runCmd('play'); return; }
-        if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); this.deleteSelection(); return; }
-        const one = this.sel.states.size === 1 ? Array.from(this.sel.states)[0] : null;
-        if (code === 'KeyA' && this.sel.states.size) { this.change('מצב מקבל', () => { const all = Array.from(this.sel.states).every((id) => M.getState(this.machine, id).accepting); this.sel.states.forEach((id) => M.setAccepting(this.machine, id, !all)); }); return; }
-        if (code === 'KeyI' && one) { this.stateAction('start', one); return; }
-        if ((e.key === 'F2' || e.key === 'Enter') && one) { e.preventDefault(); this.canvas.openRenameEditor(one); return; }
-        if ((e.key === 'F2' || e.key === 'Enter') && this.sel.trans.size === 1) { e.preventDefault(); this.canvas.openLabelEditor(Array.from(this.sel.trans)[0]); return; }
-        if (code === 'KeyV') return this.setTool('select');
-        if (code === 'KeyS') return this.setTool('state');
-        if (code === 'KeyT') { if (one) { this.stateAction('connect', one); return; } return this.setTool('transition'); }
-        if (code === 'KeyH') return this.setTool('hand');
-        if (code === 'KeyL') return this.autoLayout();
-        if (code === 'KeyF') { this.canvas.fit(); this.autosave(); return; }
-        if (e.key === '+' || e.key === '=') return this.canvas.zoomBy(1.2);
-        if (e.key === '-' || e.key === '_') return this.canvas.zoomBy(1 / 1.2);
-        if (e.key === '0') return this.canvas.zoomBy(1 / this.machine.view.zoom);
-        if (e.key === '?') return this.showModal('קיצורי מקלדת', this.helpHTML());
-        if (e.key.startsWith('Arrow') && this.sel.states.size && !running) {
-          e.preventDefault();
-          const d = e.shiftKey ? 20 : 5;
-          const dx = e.key === 'ArrowLeft' ? -d : e.key === 'ArrowRight' ? d : 0;
-          const dy = e.key === 'ArrowUp' ? -d : e.key === 'ArrowDown' ? d : 0;
-          const snap = this.nudgeSnap || this.snapshot();
-          this.sel.states.forEach((id) => { const s = M.getState(this.machine, id); M.moveState(this.machine, id, s.x + dx, s.y + dy); });
-          this.canvas.render();
-          this.nudgeSnap = snap;
-          clearTimeout(this.nudgeT);
-          this.nudgeT = setTimeout(() => { this.change('הזזה', null, this.nudgeSnap); this.nudgeSnap = null; }, 400);
-        }
-      });
-      document.addEventListener('keyup', (e) => { if (e.code === 'Space') { this.canvas.spaceDown = false; this.canvas.host.classList.remove('space'); } });
-      window.addEventListener('blur', () => { this.canvas.spaceDown = false; this.canvas.host.classList.remove('space'); });
-    },
   };
 
   root.App = app;
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => app.init());
-  else app.init();
 })(typeof globalThis !== 'undefined' ? globalThis : this);

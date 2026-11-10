@@ -140,3 +140,19 @@ test('סידור אוטומטי: שכבות BFS משמאל לימין', () => {
   assert.notEqual(b.y, c.y);
   assert.ok(d.x > b.x, 'מצב לא ישיג בשכבה האחרונה');
 });
+
+test('השלמה עם מצב מלכודת: אס"ד חלקי הופך למלא, והשפה לא משתנה', () => {
+  const S = require('../js/sim.js');
+  const m = M.createMachine('dfa', { alphabet: ['a', 'b'] });
+  const q0 = M.addState(m), q1 = M.addState(m, { accepting: true });
+  M.addTransition(m, q0.id, q1.id, [{ read: 'a' }]);
+  M.addTransition(m, q1.id, q1.id, [{ read: 'b' }]);
+  const before = ['', 'a', 'ab', 'abb', 'b', 'aa', 'aba'].map((w) => S.run(m, w).result);
+  const trap = M.completeWithTrap(m);
+  assert.ok(trap);
+  assert.equal(trap.name, 'מלכודת');
+  assert.equal(trap.accepting, false);
+  assert.ok(!M.validate(m).some((i) => i.code === 'MISSING_TRANSITIONS'));
+  assert.deepEqual(['', 'a', 'ab', 'abb', 'b', 'aa', 'aba'].map((w) => S.run(m, w).result), before);
+  assert.equal(M.completeWithTrap(m), null, 'כבר מלא');
+});

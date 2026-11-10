@@ -72,6 +72,24 @@
       sampleWord: 'aaa',
     }),
     Object.assign({}, base, {
+      id: 'jumps',
+      type: 'nfa',
+      name: 'קפיצות מעל מצבים',
+      description: 'דוגמה צפופה: חמישה מצבים בשורה ומעברים שמדלגים מעל האמצעיים. הקשתות מתעקלות כדי לא לעבור דרך מצבים.',
+      alphabet: ['a', 'b'],
+      states: [st('q0', -320, 0, false), st('q1', -160, 0, false), st('q2', 0, 0, false), st('q3', 160, 0, false), st('q4', 320, 0, true)],
+      start: 'q0',
+      transitions: [
+        ['q0', 'q1', 'a'], ['q1', 'q2', 'b'], ['q2', 'q3', 'a'], ['q3', 'q4', 'b'], ['q0', 'q2', 'b'],
+        ['q1', 'q3', 'a'], ['q2', 'q4', 'b'], ['q4', 'q0', 'a'], ['q3', 'q1', 'b'], ['q4', 'q2', 'a'],
+      ].map(([from, to, l], i) => ({ id: 't' + (i + 1), from, to, labels: fa(l) })),
+      tests: [
+        { word: 'bb', expect: true }, { word: 'aab', expect: true }, { word: 'abab', expect: true },
+        { word: '', expect: false }, { word: 'ab', expect: false }, { word: 'abba', expect: false },
+      ],
+      sampleWord: 'aabab',
+    }),
+    Object.assign({}, base, {
       id: 'anbn',
       type: 'pda',
       name: 'אותו מספר a ו-b',

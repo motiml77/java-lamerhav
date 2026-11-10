@@ -5,7 +5,7 @@
  */
 (function (root, factory) {
   const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (typeof module === 'object' && module.exports) { module.exports = api; require('./validate.js'); }
   else root.AutomataModel = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
@@ -260,102 +260,6 @@
     return usedInputSymbols(m);
   }
 
-  /* ---------- בדיקות תקינות ---------- */
-
-  /**
-   * מחזיר רשימת בעיות: { level: 'error'|'warning', code, text, states: [ids], transitions: [ids] }.
-   * שגיאה חוסמת הרצה; אזהרה לא.
-   */
-  function validate(m) {
-    const issues = [];
-    const add = (level, code, text, states, transitions) => issues.push({ level, code, text, states: states || [], transitions: transitions || [] });
-    if (!m.states.length) { add('error', 'NO_STATES', 'אין עדיין מצבים. לחיצה כפולה על הקנבס מוסיפה מצב.'); return issues; }
-    if (!m.start || !getState(m, m.start)) add('error', 'NO_START', 'אין מצב התחלתי. בחרו מצב וסמנו אותו כהתחלתי.');
-
-    const sigma = new Set(m.alphabet || []);
-    const declared = sigma.size > 0;
-    const name = (id) => stateName(m, id);
-
-    // סמלים מחוץ לאלפבית
-    if (declared) {
-      for (const t of m.transitions) for (const l of t.labels) {
-        if (l.read !== EPS && !sigma.has(l.read) && !(m.type === 'tm' && ((m.tapeAlphabet || []).includes(l.read) || l.read === m.blank))) {
-          add('error', 'SYMBOL_NOT_IN_ALPHABET', 'הסמל ' + l.read + ' במעבר ' + name(t.from) + ' → ' + name(t.to) + ' אינו באלפבית Σ', [], [t.id]);
-        }
-      }
-    }
-    if (m.type === 'pda' && m.stackAlphabet && m.stackAlphabet.length) {
-      const gamma = new Set(m.stackAlphabet);
-      for (const t of m.transitions) for (const l of t.labels) {
-        const bad = [l.pop].concat(symbols(l.push)).filter((c) => c !== EPS && !gamma.has(c));
-        for (const c of new Set(bad)) add('error', 'STACK_SYMBOL_NOT_IN_GAMMA', 'הסמל ' + c + ' במעבר ' + name(t.from) + ' → ' + name(t.to) + ' אינו באלפבית המחסנית Γ', [], [t.id]);
-      }
-    }
-
-    if (m.type === 'dfa') {
-      const alpha = inputAlphabet(m);
-      for (const s of m.states) {
-        const out = m.transitions.filter((t) => t.from === s.id);
-        const bySym = new Map();
-        for (const t of out) for (const l of t.labels) {
-          if (l.read === EPS) { add('error', 'EPSILON_IN_DFA', 'באס"ד אין מעברי ε (במצב ' + s.name + ')', [s.id], [t.id]); continue; }
-          if (!bySym.has(l.read)) bySym.set(l.read, []);
-          bySym.get(l.read).push(t.id);
-        }
-        for (const [sym, ts] of bySym) if (ts.length > 1) {
-          add('error', 'NONDETERMINISTIC', 'מהמצב ' + s.name + ' יש ' + ts.length + ' מעברים עם ' + sym + '. באס"ד מותר מעבר אחד לכל אות.', [s.id], ts);
-        }
-        const missing = alpha.filter((a) => !bySym.has(a));
-        if (missing.length && alpha.length) {
-          add('warning', 'MISSING_TRANSITIONS', 'למצב ' + s.name + ' חסר מעבר עבור ' + missing.join(', ') + '. מילה שתגיע לכאן עם האות הזו תידחה (כאילו יש מצב בור).', [s.id]);
-        }
-      }
-    }
-
-    if (m.type === 'tm') {
-      for (const s of m.states) {
-        const bySym = new Map();
-        for (const t of m.transitions.filter((x) => x.from === s.id)) for (const l of t.labels) {
-          if (!MOVES.includes(l.move)) add('error', 'BAD_MOVE', 'כיוון תזוזה לא חוקי "' + l.move + '" (מותר L, R או S)', [], [t.id]);
-          if (!bySym.has(l.read)) bySym.set(l.read, []);
-          bySym.get(l.read).push(t.id);
-        }
-        for (const [sym, ts] of bySym) if (ts.length > 1) add('error', 'TM_NONDETERMINISTIC', 'מהמצב ' + s.name + ' יש ' + ts.length + ' כללים שקוראים ' + sym + '. במכונת טיורינג מותר כלל אחד.', [s.id], ts);
-      }
-    }
-
-    for (const t of m.transitions) if (!t.labels.length) add('error', 'EMPTY_LABEL', 'למעבר ' + name(t.from) + ' → ' + name(t.to) + ' אין סמלים', [], [t.id]);
-
-    if (!m.states.some((s) => s.accepting) && !(m.type === 'pda' && m.acceptBy === 'empty')) {
-      add('warning', 'NO_ACCEPTING', 'אין מצב מקבל, ולכן אף מילה לא תתקבל.');
-    }
-
-    // מצבים שאי אפשר להגיע אליהם
-    if (m.start && getState(m, m.start)) {
-      const seen = new Set([m.start]);
-      const stack = [m.start];
-      while (stack.length) {
-        const cur = stack.pop();
-        for (const t of m.transitions) if (t.from === cur && !seen.has(t.to)) { seen.add(t.to); stack.push(t.to); }
-      }
-      const unreachable = m.states.filter((s) => !seen.has(s.id));
-      if (unreachable.length) add('warning', 'UNREACHABLE', 'אי אפשר להגיע מהמצב ההתחלתי אל: ' + unreachable.map((s) => s.name).join(', '), unreachable.map((s) => s.id));
-    }
-    return issues;
-  }
-
-  /** בדיקת מילה לפני הרצה. מחזיר null או הודעה. */
-  function checkWord(m, word) {
-    const sigma = inputAlphabet(m);
-    if (!sigma.length) return null;
-    const set = new Set(sigma);
-    const syms = symbols(word);
-    for (let i = 0; i < syms.length; i++) {
-      if (!set.has(syms[i])) return { index: i, symbol: syms[i], text: 'האות ' + syms[i] + ' (במקום ' + (i + 1) + ') אינה באלפבית Σ = {' + sigma.join(', ') + '}' };
-    }
-    return null;
-  }
-
   /* ---------- שמירה וטעינה ---------- */
 
   function serialize(m) { return JSON.stringify(m, null, 2); }
@@ -434,7 +338,6 @@
     getTransition, findTransition, addTransition, setTransitionLabels, removeTransitions,
     formatLabel, formatLabels, parseLabels,
     usedInputSymbols, usedStackSymbols, inputAlphabet,
-    validate, checkWord,
     serialize, deserialize,
     autoLayout,
   };
