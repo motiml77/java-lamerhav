@@ -62,19 +62,57 @@ public final class AccessGate {
             return;
         }
         // אין כניסה במחשב: שואלים את השרת אם הכניסה בכלל פעילה (בלי אינטרנט — מסך הכניסה, עם הסבר).
+        // לא מחכים לתשובה כדי להראות את המסך: אם היא לא הגיעה תוך רגע — המסך נפתח מיד (מקדימה), ואם בסוף מתברר שהשרת
+        // לא דורש כניסה — הוא נסגר והמאגר נפתח.
         // חוט רגיל (לא SwingWorker, שהחוטים שלו "daemon"): בכלי של Visual Studio עוד אין שום חלון פתוח,
         // ובלי חוט כזה Java נסגרת לפני שהתשובה מגיעה — ומסך הכניסה לא נפתח
+        final AccessGate.Dialog[] shown = { null };
+        final boolean[] decided = { false };
+        final Timer early = new Timer(SHOW_AFTER_MS, e -> {
+            if (decided[0] || shown[0] != null) return;
+            shown[0] = new AccessGate.Dialog(parent, open);
+            showInFront(shown[0]);
+        });
+        early.setRepeats(false);
+        SwingUtilities.invokeLater(early::start);
         Thread t = new Thread(() -> {
             boolean need;
             try { need = serverRequiresLogin(); } catch (Throwable e) { need = true; }
             final boolean show = need;
             SwingUtilities.invokeLater(() -> {
-                if (!show) open.run();
-                else new AccessGate.Dialog(parent, open).setVisible(true);
+                decided[0] = true;
+                early.stop();
+                if (show) {
+                    if (shown[0] == null) {
+                        shown[0] = new AccessGate.Dialog(parent, open);
+                        showInFront(shown[0]);
+                    }
+                } else {
+                    if (shown[0] != null) shown[0].dispose();
+                    open.run();
+                }
             });
         }, "dsviz-access");
         t.setDaemon(false);
         t.start();
+    }
+
+    /** אחרי כמה זמן בלי תשובה מהשרת מראים את מסך הכניסה בכל זאת */
+    static final int SHOW_AFTER_MS = 700;
+
+    /**
+     * מסך הכניסה נפתח מקדימה — גם כשהוא נפתח מתוך Eclipse / IntelliJ / Visual Studio שהחלון שלהם בפוקוס. "תמיד מעל" רק לרגע
+     * (front), ושוב כשהחלון באמת מוצג על המסך; אחר כך זה חלון רגיל — אפשר לעבור לחלון אחר והוא יורד אחורה.
+     */
+    static void showInFront(final java.awt.Window w) {
+        w.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e) {
+                front(w);
+            }
+        });
+        w.setVisible(true);
+        front(w);
     }
 
     /** הכניסה פעילה בשרת? (בלי אינטרנט — true: אי אפשר לדעת, והמסך מסביר) */
@@ -425,7 +463,7 @@ public final class AccessGate {
             w.setAlwaysOnTop(true);
             w.toFront();
             w.requestFocus();
-            javax.swing.Timer t = new javax.swing.Timer(400, e -> {
+            javax.swing.Timer t = new javax.swing.Timer(1200, e -> {
                 if (w.isDisplayable()) w.setAlwaysOnTop(false);
             });
             t.setRepeats(false);

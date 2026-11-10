@@ -159,12 +159,13 @@ if (Test-Path -LiteralPath $bankLnk) {
     $seen = $false
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep 1
-        if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים' }).Count -gt 0) { $seen = $true; break }
+        # בלי כניסה במחשב (מורה / עמדה / תלמיד) — נפתח קודם מסך הכניסה "כניסה למאגר התרגילים", וזה נכון
+        if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים|כניסה למאגר התרגילים' }).Count -gt 0) { $seen = $true; break }
     }
     Start-Sleep 4
     Shot '00-shortcut-bank-window'
-    Check 'shortcut-open' $seen "לחיצה כפולה על הקיצור 'מאגר תרגילים C#' פותחת את חלון המאגר" ((Windows) -join ' ; ')
-    Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים' } | Stop-Process -Force
+    Check 'shortcut-open' $seen "לחיצה כפולה על הקיצור 'מאגר תרגילים C#' פותחת את חלון המאגר (או את מסך הכניסה, כשעוד אין כניסה במחשב)" ((Windows) -join ' ; ')
+    Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים|כניסה למאגר התרגילים' } | Stop-Process -Force
 }
 $jar = Join-Path $dsviz 'lab\dsviz-bank-vs.jar'
 Check 'lab-jar' (Test-Path $jar) "התוספת הועתקה: $jar"
@@ -255,6 +256,13 @@ if ($ready -and $dir) {
 # ------------------------------------------------------------------ 5. התלמיד פותר: בנייה, פלט, הרצה ויזואלית
 Log "== 5. כותבים את הפתרון, בונים ב-MSBuild של Visual Studio, ומריצים"
 if ($dir) {
+    # לפני שכותבים את הפתרון לקבצים: שומרים ב-Visual Studio את כל המסמכים (אחרת מסמך עם שינויים שלא נשמרו + שינוי מבחוץ = חלון שאלה)
+    try {
+        $d = $null
+        foreach ($p in 'VisualStudio.DTE.18.0', 'VisualStudio.DTE.17.0', 'VisualStudio.DTE') { try { $d = [Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }
+        if ($d) { $d.Documents.SaveAll(); Info "DTE: כל המסמכים נשמרו" }
+        $d = $null
+    } catch { Info "DTE SaveAll: $_" }
     $sol = (Get-Content (Join-Path $env:USERPROFILE '.dsviz\solutions.json') -Raw -Encoding utf8 | ConvertFrom-Json).solutions
     $applied = 0
     foreach ($f in Get-ChildItem $dir -Filter '*.cs') {
@@ -279,6 +287,8 @@ if ($dir) {
         [IO.File]::WriteAllText($f.FullName, $text, (New-Object Text.UTF8Encoding($true)))
     }
     Check 'solve' ($applied -eq 2) "הפתרון נכתב בשני הסעיפים ($applied)"
+    # הקובץ פתוח ב-Visual Studio ושונה מבחוץ: אם הוא שואל אם לטעון מחדש — מאשרים (זה לא חלק ממה שנבדק כאן)
+    $null = ClickReload $vsP.Id 8
     $proj = Join-Path $dir "$name.csproj"
     $b = & $msbuild $proj /restore /nologo /v:m /p:Configuration=Debug 2>&1
     $b | Set-Content (Join-Path $Out 'build-exercise.txt') -Encoding utf8

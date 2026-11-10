@@ -1,5 +1,6 @@
 ﻿# גרסת הבדיקה על Windows אמיתי: DSViz-Lab-Setup.exe ו-DSViz-Admin-Setup.exe בשקט, ואז:
-# הקבצים במקום, הקיצורים, מסך הכניסה שנפתח לפני המאגר (צילום), ועמדת מחשב אמיתית מול השרת עם קוד המורה.
+# הקבצים במקום, הקיצורים, מסך הכניסה שנפתח לפני המאגר (צילום), ועמדת מחשב אמיתית מול השרת עם קוד המורה —
+# שנשארת מחוברת אחרי הפעלה מחדש, ב-Java אחר, אחרי עדכון ובלי אינטרנט (Persist.java).
 param([string]$Dir, [string]$Out, [string]$Code, [string]$Src)
 $ErrorActionPreference = 'Continue'
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -53,16 +54,40 @@ Write-Host "     חלונות: $($script:titles -join ' | ')"
 Shot '1-bank-gate'
 Check 'בלי כניסה — נפתח "כניסה למאגר התרגילים"' $okGate
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-# עמדת מחשב אמיתית: הקוד של המורה מול השרת, ואחר כך בלי אינטרנט
+# עמדת מחשב אמיתית מול השרת, במקומות הנסתרים של Windows (בלי תיקיות של בדיקה) — כמו אצל המורה:
+# נשארת מחוברת בתהליך חדש (כיבוי והדלקה), ב-Java אחר (Eclipse / IntelliJ מול Visual Studio), אחרי עדכון (התקנה מחדש), ובלי אינטרנט
 if ($Code) {
     $cls = Join-Path $env:RUNNER_TEMP 'cls'
     New-Item -ItemType Directory -Force $cls | Out-Null
-    javac -encoding UTF-8 -nowarn -cp "$d\dsviz.jar" -d $cls $Src
-    $w = Join-Path $env:RUNNER_TEMP 'live'
-    & "$d\jdk\bin\java.exe" '-Dfile.encoding=UTF-8' -cp "$cls;$d\dsviz.jar" il.lamerhav.dsviz.LiveClaim $w $Code "בדיקת התקנה (GitHub) - למחוק"
-    Check 'עמדה: הקוד התקבל בשרת, והמחשב מזוהה גם בלי אינטרנט' ($LASTEXITCODE -eq 0)
-    # עכשיו המאגר נפתח מיד (בלי מסך כניסה)
-    $p = Start-Process "$d\jdk\bin\javaw.exe" -ArgumentList "-Ddsviz.machineDir=`"$w\machine`" -Ddsviz.home=`"$w\user`" -cp `"$d\lab\dsviz-bank-vs.jar;$d\dsviz.jar`" il.lamerhav.dsviz.BankVs bank `"$csDir`"" -PassThru
+    javac -encoding UTF-8 -nowarn -cp "$d\dsviz.jar" -d $cls $Src (Join-Path (Split-Path $Src) 'SignInFlow.java')
+    $vsJava = "$d\jdk\bin\java.exe"
+    $sysJava = (Get-Command java).Source
+    function Persist([string]$java, [string[]]$a) {
+        & $java '-Dfile.encoding=UTF-8' -cp "$cls;$d\dsviz.jar" il.lamerhav.dsviz.Persist @a | ForEach-Object { Write-Host "     $_" }
+        return $LASTEXITCODE
+    }
+    # כניסת מורה עם Google ב-Java של Visual Studio (שם היא נכשלה מיד): דף הכניסה של השרת, הדפדפן האמיתי נפתח, החזרה ל-127.0.0.1
+    # והמימוש מול השרת — הכול חוץ מהמסך של Google עצמו
+    $browsersBefore = @(Get-Process msedge, chrome, firefox -ErrorAction SilentlyContinue).Count
+    $sf = & $vsJava '-Dfile.encoding=UTF-8' -cp "$cls;$d\dsviz.jar" il.lamerhav.dsviz.SignInFlow real 2>&1
+    $sf | ForEach-Object { Write-Host "     $_" }
+    Check 'כניסת מורה עם Google (Java של Visual Studio): דף הכניסה נטען, החזרה ל-127.0.0.1 התקבלה, והשרת ענה' (($sf -join "`n") -match 'SIGNIN-FLOW-OK')
+    Start-Sleep 5
+    $browsersAfter = @(Get-Process msedge, chrome, firefox -ErrorAction SilentlyContinue).Count
+    Write-Host "     דפדפנים: לפני $browsersBefore, אחרי $browsersAfter"
+    Shot '3-signin-browser'
+    Check 'הדפדפן של המחשב נפתח לכניסה (כמו אצל המורה)' ($browsersAfter -gt $browsersBefore)
+    Get-Process msedge, chrome, firefox -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Check 'עמדה: הקוד של המורה התקבל בשרת (נשמר במקומות הנסתרים של Windows)' ((Persist $vsJava @('claim', $Code, 'בדיקת התקנה (GitHub) - למחוק')) -eq 0)
+    Check 'תהליך חדש (כמו כיבוי והדלקה) — המחשב עדיין מחובר' ((Persist $vsJava @('check')) -eq 0)
+    Check 'Java אחר (כמו Eclipse / IntelliJ) — אותו מחשב, מחובר' ((Persist $sysJava @('check')) -eq 0)
+    # עדכון: התקנה מחדש (כמו העדכון האוטומטי, שמתקין בשקט את הגרסה החדשה) — הכניסה לא נמחקת
+    $t2 = Measure-Command { Start-Process (Join-Path $Dir 'DSViz-Lab-Setup.exe') -ArgumentList '/S' -Wait }
+    Write-Host "     התקנה מחדש: $([int]$t2.TotalSeconds) שניות"
+    Check 'אחרי עדכון (התקנה מחדש) — המחשב עדיין מחובר' ((Persist $vsJava @('check')) -eq 0)
+    Check 'בלי אינטרנט — עדיין מחובר, והבדיקה מול השרת לא מוחקת את הכניסה' ((Persist $vsJava @('offline')) -eq 0)
+    # עכשיו המאגר נפתח מיד (בלי מסך כניסה) — בלי תיקיות של בדיקה
+    $p = Start-Process "$d\jdk\bin\javaw.exe" -ArgumentList "-cp `"$d\lab\dsviz-bank-vs.jar;$d\dsviz.jar`" il.lamerhav.dsviz.BankVs bank `"$csDir`"" -PassThru
     $okOpen = WaitTitle { ($script:titles | Where-Object { $_ -like '*מאגר*' -and $_ -ne 'כניסה למאגר התרגילים' }) } 90
     Write-Host "     חלונות: $($script:titles -join ' | ')"
     Shot '2-bank-open'

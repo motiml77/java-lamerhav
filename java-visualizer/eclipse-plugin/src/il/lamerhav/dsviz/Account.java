@@ -927,4 +927,9 @@ public final class Account {
     static String lastError() {
         return lastError;
     }
+
+    /** לבדיקות: איפה נשמרת העמדה ואיפה המשתמש (המקומות הנסתרים, או אלה של dsviz.home / dsviz.machineDir) */
+    static String stationFileForTest() {
+        return stationFile() + " | " + userFile();
+    }
 }

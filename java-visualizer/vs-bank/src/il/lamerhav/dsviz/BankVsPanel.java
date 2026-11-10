@@ -62,12 +62,12 @@ final class BankVsPanel {
         JPanel row = new JPanel(new BorderLayout(8, 0));
         row.setOpaque(false);
         row.add(dot(level(q.level), 10), BorderLayout.LINE_START);
-        row.add(RtlDialog.label(q.title, Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 17f)), RtlDialog.INK), BorderLayout.CENTER);
+        row.add(RtlDialog.label(q.title, Theme.z(RtlDialog.bold().deriveFont(17f)), RtlDialog.INK), BorderLayout.CENTER);
         row.setAlignmentX(Component.RIGHT_ALIGNMENT);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
         col.add(row);
         col.add(RtlDialog.gap(2));
-        JLabel sub = RtlDialog.label(topicTitle + " · רמה: " + q.level.title, RtlDialog.small().deriveFont(Font.BOLD), level(q.level));
+        JLabel sub = RtlDialog.label(topicTitle + " · רמה: " + q.level.title, RtlDialog.bold().deriveFont(RtlDialog.small().getSize2D()), level(q.level));
         sub.setBorder(BorderFactory.createEmptyBorder(0, 18, 0, 0));
         col.add(sub);
         return col;
@@ -90,7 +90,7 @@ final class BankVsPanel {
             final int at = index++;
             JPanel c = column();
             String label = s.label.replaceAll("['׳]+$", "");
-            c.add(RtlDialog.label(label.isEmpty() ? "סעיף" : "סעיף " + label + "'", Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 14f)), RtlDialog.ACCENT_2));
+            c.add(RtlDialog.label(label.isEmpty() ? "סעיף" : "סעיף " + label + "'", Theme.z(RtlDialog.bold().deriveFont(14f)), RtlDialog.ACCENT_2));
             c.add(RtlDialog.gap(4));
             c.add(text(s.text, width - 32, RtlDialog.INK));
             figures(c, s.figures);

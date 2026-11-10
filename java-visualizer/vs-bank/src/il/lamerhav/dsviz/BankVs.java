@@ -112,6 +112,7 @@ public final class BankVs {
         cleanPending();
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
+            Theme.useRounded();   // Rubik בחלונות של Visual Studio (השאלה, הצעה לפתרון)
             compactFonts();
             BankZoom.init();   // הגודל שנבחר בפעם הקודמת (Ctrl + / Ctrl −)
             BankZoom.listen(BankVs::zoomChanged);
@@ -144,9 +145,9 @@ public final class BankVs {
     /** גופנים כמו בשאר החלונות של C# (CsTool) */
     static void compactFonts() {
         Theme.ui = Theme.ui.deriveFont(java.awt.Font.PLAIN, 13f);
-        Theme.uiBold = Theme.uiBold.deriveFont(java.awt.Font.BOLD, 13f);
+        Theme.uiBold = Theme.uiBold.deriveFont(Theme.boldStyle(), 13f);   // Rubik Medium — בלי הדגשה מלאכותית
         Theme.small = Theme.small.deriveFont(java.awt.Font.PLAIN, 11.5f);
-        Theme.big = Theme.big.deriveFont(java.awt.Font.BOLD, 17f);
+        Theme.big = Theme.big.deriveFont(Theme.boldStyle(), 17f);
         if (Theme.mono != null) Theme.mono = Theme.mono.deriveFont(java.awt.Font.PLAIN, 12.5f);
         javax.swing.plaf.FontUIResource ui = new javax.swing.plaf.FontUIResource(Theme.ui);
         UIManager.put("defaultFont", ui);

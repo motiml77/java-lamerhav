@@ -102,11 +102,22 @@ public final class BankVsAll {
         check("prepare-" + q.id, prepProblems.isEmpty() && BankVs.solutionsUnder(dir) == tasks,
                 q.id + ": \"הכן סעיף\" הוסיף את כל " + (tasks - 1) + " הסעיפים הנוספים (פעולה, בדיקות ב-main, הצעה לפתרון)", String.join(" | ", prepProblems));
         int applied = solve(dir);
+        long t0 = System.currentTimeMillis();
         String[] run = ExercisePipeline.exec(cmd(dir), dir, 120);
+        long ms = System.currentTimeMillis() - t0;
         String output = run == null ? "" : SolutionCheck.clean(stripHeader(run[0]));
         boolean same = run != null && "0".equals(run[2]) && SolutionCheck.same(SolutionCheck.clean(q.expectedOutput()), output);
+        String trace = "";
+        if (!same) {   // לאבחון: קוד היציאה, הזמן, ותחילת קובץ ההרצה (null = לא הסתיים בזמן)
+            File tf = new File(out, "trace-" + dir.getName() + ".txt");
+            if (tf.isFile()) {
+                String t = new String(Files.readAllBytes(tf.toPath()), StandardCharsets.UTF_8);
+                trace = " trace(" + t.length() + ")=" + t.substring(0, Math.min(400, t.length())).replace("\n", " | ");
+            }
+        }
         check("run-" + id, applied == tasks && same, id + ": הפתרון בכל " + applied + " הסעיפים, וההרצה הוויזואלית מדפיסה בדיוק את הפלט הרצוי",
-                "applied=" + applied + " out=" + output.replace("\n", " | ") + (run == null ? "" : " err=" + run[1].trim()));
+                "applied=" + applied + " code=" + (run == null ? "-" : run[2]) + " ms=" + ms + " out=" + output.replace("\n", " | ")
+                        + (run == null ? "" : " err=" + run[1].trim()) + trace);
         return dir;
     }
 

@@ -1,9 +1,11 @@
 ﻿# (נשמר ב-UTF-8 עם BOM — אחרת PowerShell של Windows קורא את העברית לא נכון)
 # חלון צף קטן בפינה של המסך בזמן עדכון אוטומטי של DSViz — מימין לשמאל, לא לוקח את הפוקוס מהעבודה:
+#   -State found     "נמצאה גרסה חדשה — מורידים ומתקינים ברקע" עם פס התקדמות נע — נעלם לבד אחרי -Seconds (ברירת מחדל 10)
+#   -State waiting   "הגרסה החדשה ירדה — תותקן כשסוגרים את Eclipse" — נעלם לבד אחרי -Seconds (ברירת מחדל 10)
 #   -State updating  "DSViz מתעדכן לגרסה חדשה…" עם פס התקדמות נע — נשאר עד שהתהליך שהפעיל אותו נגמר (או -Seconds)
 #   -State done      "✓ DSViz עודכן" — נעלם לבד אחרי -Seconds (ברירת מחדל 8), או בלחיצה
 # update.ps1 מפעיל אותו ברקע (לא מחכה לו); setup.nsi מפעיל את "done" בסוף עדכון (/UPDATE).
-param([ValidateSet('updating', 'done')][string]$State = 'updating', [int]$Seconds = 0, [int]$WatchPid = 0)
+param([ValidateSet('found', 'waiting', 'updating', 'done')][string]$State = 'updating', [int]$Seconds = 0, [int]$WatchPid = 0)
 $ErrorActionPreference = 'Stop'
 try {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -55,6 +57,16 @@ public class DsvizToast : Form {
     if ($State -eq 'done') {
         $title.Text = [string][char]0x2713 + ' DSViz עודכן לגרסה החדשה'
         $sub.Text = 'אפשר להמשיך לעבוד כרגיל.'
+    } elseif ($State -eq 'waiting') {
+        $title.Text = 'הגרסה החדשה של DSViz ירדה'
+        $sub.Text = 'היא תותקן לבד כשסוגרים את Eclipse.'
+    } elseif ($State -eq 'found') {
+        $title.Text = 'נמצאה גרסה חדשה של DSViz'
+        $sub.Text = 'מורידים ומתקינים אותה ברקע — אפשר להמשיך לעבוד.'
+        $pb = New-Object Windows.Forms.ProgressBar
+        $pb.Style = 'Marquee'; $pb.MarqueeAnimationSpeed = 30
+        $pb.Location = New-Object Drawing.Point(16, 70); $pb.Size = New-Object Drawing.Size(308, 6)
+        $f.Controls.Add($pb)
     } else {
         $title.Text = 'DSViz מתעדכן לגרסה חדשה…'
         $sub.Text = 'זה לוקח כדקה, ברקע. לא צריך לעשות כלום.'
@@ -68,9 +80,9 @@ public class DsvizToast : Form {
     $close.ForeColor = $muted; $close.Cursor = 'Hand'; $close.RightToLeft = 'No'
     $close.Add_Click({ $f.Close() })
     $f.Controls.AddRange(@($title, $sub, $close))
-    if ($State -eq 'done') { foreach ($c in @($f, $title, $sub)) { $c.Add_Click({ $f.Close() }) } }
+    if ($State -ne 'updating') { foreach ($c in @($f, $title, $sub)) { $c.Add_Click({ $f.Close() }) } }
 
-    $limit = if ($Seconds -gt 0) { $Seconds } elseif ($State -eq 'done') { 8 } else { 1800 }
+    $limit = if ($Seconds -gt 0) { $Seconds } elseif ($State -eq 'done') { 8 } elseif ($State -eq 'updating') { 1800 } else { 10 }
     $start = Get-Date
     $t = New-Object Windows.Forms.Timer
     $t.Interval = 500
