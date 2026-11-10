@@ -233,7 +233,9 @@ namespace DsViz.VsExtension
                 TeacherChanged(on);
             };
             mcs.AddCommand(cmd);
-            TeacherChanged(TeacherOn());
+            // כמו "מאגר שאלות": סנכרון ראשון כאן, בלי לזכור את המצב — הבדיקה הראשונה של הפקודה (BeforeQueryStatus, אחרי שהסרגל
+            // נבנה) מסנכרנת שוב. אם המצב נזכר כבר כאן, הכפתור נשאר אפור וגלוי (נמצא ב-vsix-test)
+            SyncControl("עמדת ניהול", "teacher", TeacherOn());
             // כניסה / התנתקות בחלון של Java: הכפתור מתעדכן מיד (לא רק כשחוזרים ל-Visual Studio)
             try
             {
