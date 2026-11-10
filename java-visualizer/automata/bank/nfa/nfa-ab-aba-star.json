@@ -1,0 +1,38 @@
+{
+  "id": "nfa-ab-aba-star",
+  "topic": "nfa",
+  "level": "medium",
+  "order": 5,
+  "title": "(ab ∪ aba)*",
+  "alphabet": ["a", "b"],
+  "question": {
+    "intro": "נתון הביטוי הרגולרי (ab ∪ aba)* מעל הא\"ב Σ = {a, b}.",
+    "sections": [
+      {
+        "label": "א",
+        "kind": "build",
+        "machine": "nfa",
+        "language": "(ab + aba)*",
+        "reference": {
+          "states": [
+            ["q0", -180, 0, "A"],
+            ["q1", 40, -100],
+            ["q2", 40, 100]
+          ],
+          "edges": [
+            ["q0", "q1", "a"],
+            ["q1", "q0", "b"],
+            ["q1", "q2", "b"],
+            ["q2", "q0", "a"]
+          ]
+        },
+        "text": "בנו אסל\"ד המקבל את השפה של הביטוי: שרשור של ab ושל aba, כמה פעמים שרוצים (גם אפס).",
+        "hint": "מצב התחלה מקבל. a ואז b חוזרים אליו, או a, b ו-a חוזרים אליו. אחרי ab אפשר לנחש אם המילה הנוכחית היא ab או aba.",
+        "examples": {
+          "in": ["", "ab", "aba", "abaab"],
+          "out": ["a", "ba", "abb", "abaa"]
+        }
+      }
+    ]
+  }
+}

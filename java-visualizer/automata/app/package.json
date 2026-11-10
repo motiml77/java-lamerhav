@@ -1,0 +1,9 @@
+{
+  "name": "dsviz-automata",
+  "private": true,
+  "description": "מודלים חישוביים: עורך וסימולטור אוטומטים (סטטי, בלי שלב בנייה)",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test"
+  }
+}
