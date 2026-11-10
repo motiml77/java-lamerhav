@@ -143,6 +143,18 @@ await test('קוד שגוי ביומן: הקוד מוסתר בחלקו, מספר
   assert.equal((await call('POST', '/v1/station/claim', { body: { code: 'שלום עולם', name: 'מעבדה 9 · עמדה 3', machine: m1 } })).body.status, 'bad-code');
   const log2 = (await call('GET', '/v1/admin/log?limit=50', { token: admin })).body.log.filter(l => l.action === 'station.bad-code');
   assert.ok(log2.some(l => /"שלו…" — לא בפורמט/.test(l.detail)), JSON.stringify(log2.map(l => l.detail)));
+  // טעות של תו אחד בקוד של המורה — ביומן: לאיזה מורה זה כנראה שייך
+  const ABC = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+  const typo = code1.slice(0, 3) + ABC[(ABC.indexOf(code1[3]) + 1) % ABC.length];
+  const swap = code1[1] + code1[0] + code1.slice(2);
+  assert.equal((await call('POST', '/v1/station/claim', { body: { code: typo, name: 'מעבדה 9 · עמדה 4', machine: m1 } })).body.status, 'bad-code');
+  if (swap !== code1) assert.equal((await call('POST', '/v1/station/claim', { body: { code: swap, name: 'מעבדה 9 · עמדה 5', machine: m1 } })).body.status, 'bad-code');
+  const log3 = (await call('GET', '/v1/admin/log?limit=50', { token: admin })).body.log.filter(l => l.action === 'station.bad-code');
+  const t1 = log3.find(l => l.actor === 'מחשב: מעבדה 9 · עמדה 4');
+  assert.equal(t1.target, 'teacher1@test.dev', JSON.stringify(t1));
+  assert.match(t1.detail, /טעות הקלדה/);
+  if (swap !== code1) assert.equal(log3.find(l => l.actor === 'מחשב: מעבדה 9 · עמדה 5').target, 'teacher1@test.dev');
+  assert.equal(log3.find(l => /ASD\?/.test(l.detail)).target || '', '', 'קוד רחוק — בלי מורה');
   // הקוד הנכון של המורה, מוקלד כשהמקלדת בעברית
   const heb = { Q: '/', W: "'", E: 'ק', R: 'ר', T: 'א', Y: 'ט', U: 'ו', I: 'ן', O: 'ם', P: 'פ', A: 'ש', S: 'ד', D: 'ג', F: 'כ', G: 'ע', H: 'י', J: 'ח', K: 'ל', L: 'ך', Z: 'ז', X: 'ס', C: 'ב', V: 'ה', B: 'נ', N: 'מ', M: 'צ' };
   const typed = Array.from(code1).map(ch => heb[ch] || ch).join('');

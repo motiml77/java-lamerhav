@@ -338,7 +338,10 @@ async function claim(request, env) {
   });
   if (res.status === 'bad-code') {
     const lim = await badCodeLimit(env, request, true);
-    await log(store, 'מחשב: ' + name, 'station.bad-code', '', badCodeDetail(b.code, code, lim));
+    // לאיזה מורה זה כנראה שייך: קוד של מורה ששונה בתו אחד (או שני תווים סמוכים שהתחלפו) — כמעט תמיד טעות הקלדה
+    const near = await nearTeacher(store, code);
+    await log(store, 'מחשב: ' + name, 'station.bad-code', near.join(', '),
+      badCodeDetail(b.code, code, lim) + (near.length ? ' · כנראה טעות הקלדה בקוד של ' + (near.length > 1 ? 'אחד המורים' : 'המורה') : ''));
     return { ok: true, status: 'bad-code' };
   }
   const tv = res.teacher ? { name: res.teacher.name || '', school: res.teacher.school || '', seats: res.teacher.seats || 0, used: (res.teacher.used || 0) + (res.status === 'ok' && !res.again ? 1 : 0) } : null;
@@ -363,6 +366,23 @@ async function badCodeLimit(env, request, failed) {
   if (n >= 30) throw new Fail(429, 'rate', 'יותר מדי ניסיונות עם קוד שגוי. נסו שוב בעוד שעה.');
   if (failed) await kv.put(key, String(n + 1), { expirationTtl: 7200 });
   return { count: failed ? n + 1 : n, src };
+}
+
+/** מורים שהקוד שלהם קרוב לקוד שהוקלד: תו אחד שונה, או שני תווים סמוכים שהתחלפו (עד 3 מיילים) */
+async function nearTeacher(store, code) {
+  if (!code) return [];
+  try {
+    const all = await store.query('teacherCodes', { limit: 5000 });
+    const close = c => {
+      if (!c || c.length !== code.length || c === code) return false;
+      const diff = [];
+      for (let i = 0; i < c.length; i++) if (c[i] !== code[i]) diff.push(i);
+      return diff.length === 1 || (diff.length === 2 && diff[1] === diff[0] + 1 && c[diff[0]] === code[diff[1]] && c[diff[1]] === code[diff[0]]);
+    };
+    return all.filter(d => close(d._id)).map(d => String(d.teacher || '')).filter(Boolean).slice(0, 3);
+  } catch (e) {
+    return [];
+  }
 }
 
 /** מה נרשם ביומן על ניסיון עם קוד שגוי: הקוד שהוקלד, מוסתר בחלקו (3 תווים ראשונים ו-?), כמה ניסיונות מאותו מקור בשעה הזו */

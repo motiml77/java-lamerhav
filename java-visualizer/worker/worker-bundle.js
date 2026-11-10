@@ -1432,7 +1432,14 @@ async function claim(request, env) {
   });
   if (res.status === "bad-code") {
     const lim = await badCodeLimit(env, request, true);
-    await log(store, "\u05DE\u05D7\u05E9\u05D1: " + name, "station.bad-code", "", badCodeDetail(b.code, code, lim));
+    const near = await nearTeacher(store, code);
+    await log(
+      store,
+      "\u05DE\u05D7\u05E9\u05D1: " + name,
+      "station.bad-code",
+      near.join(", "),
+      badCodeDetail(b.code, code, lim) + (near.length ? " \xB7 \u05DB\u05E0\u05E8\u05D0\u05D4 \u05D8\u05E2\u05D5\u05EA \u05D4\u05E7\u05DC\u05D3\u05D4 \u05D1\u05E7\u05D5\u05D3 \u05E9\u05DC " + (near.length > 1 ? "\u05D0\u05D7\u05D3 \u05D4\u05DE\u05D5\u05E8\u05D9\u05DD" : "\u05D4\u05DE\u05D5\u05E8\u05D4") : "")
+    );
     return { ok: true, status: "bad-code" };
   }
   const tv = res.teacher ? { name: res.teacher.name || "", school: res.teacher.school || "", seats: res.teacher.seats || 0, used: (res.teacher.used || 0) + (res.status === "ok" && !res.again ? 1 : 0) } : null;
@@ -1453,6 +1460,21 @@ async function badCodeLimit(env, request, failed) {
   if (n >= 30) throw new Fail(429, "rate", "\u05D9\u05D5\u05EA\u05E8 \u05DE\u05D3\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D5\u05EA \u05E2\u05DD \u05E7\u05D5\u05D3 \u05E9\u05D2\u05D5\u05D9. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D1\u05E2\u05D5\u05D3 \u05E9\u05E2\u05D4.");
   if (failed) await kv.put(key, String(n + 1), { expirationTtl: 7200 });
   return { count: failed ? n + 1 : n, src };
+}
+async function nearTeacher(store, code) {
+  if (!code) return [];
+  try {
+    const all = await store.query("teacherCodes", { limit: 5e3 });
+    const close = (c) => {
+      if (!c || c.length !== code.length || c === code) return false;
+      const diff = [];
+      for (let i = 0; i < c.length; i++) if (c[i] !== code[i]) diff.push(i);
+      return diff.length === 1 || diff.length === 2 && diff[1] === diff[0] + 1 && c[diff[0]] === code[diff[1]] && c[diff[1]] === code[diff[0]];
+    };
+    return all.filter((d) => close(d._id)).map((d) => String(d.teacher || "")).filter(Boolean).slice(0, 3);
+  } catch (e) {
+    return [];
+  }
 }
 function badCodeDetail(typed, code, lim) {
   const raw = String(typed || "").trim();
