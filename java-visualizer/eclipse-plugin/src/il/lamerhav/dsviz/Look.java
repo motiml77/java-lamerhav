@@ -325,6 +325,11 @@ final class Look {
 
     static final class Round extends Canvas {
         private final String text;
+        /**
+         * מה שמצויר: הקנבס משמאל לימין (‏SWT.LEFT_TO_RIGHT), ולכן עברית עטופה כפסקה מימין לשמאל (RtlText) — אחרת
+         * סימן בסוף ("הכן סעיף ב'") קופץ לצד השני של הכפתור
+         */
+        private final String drawn;
         private final boolean primary;
         private boolean hover, down;
         private int textWidth = -1;
@@ -344,6 +349,7 @@ final class Look {
             super(parent, SWT.NO_BACKGROUND | SWT.LEFT_TO_RIGHT | SWT.NO_FOCUS);
             addListener(SWT.Dispose, e -> { if (cache != null) cache.dispose(); });
             this.text = text;
+            this.drawn = text.matches("(?s).*[\\u0590-\\u05FF].*") ? RtlText.rtl(text) : text;
             this.primary = primary;
             setCursor(getDisplay().getSystemCursor(SWT.CURSOR_HAND));
             addListener(SWT.Paint, e -> paint(e.gc));
@@ -369,7 +375,7 @@ final class Look {
             if (textWidth < 0) {
                 GC gc = new GC(this);
                 gc.setFont(font(getDisplay(), 0, primary ? SWT.BOLD : SWT.NORMAL));
-                textWidth = gc.textExtent(text).x;
+                textWidth = gc.textExtent(drawn).x;
                 gc.dispose();
             }
             return new Point(Math.max(primary ? 130 : 80, textWidth + 36 + (icon != null ? iconW() + 6 : 0)), 32);
@@ -410,10 +416,10 @@ final class Look {
                 gc.drawRoundRectangle(0, 0, s.x - 1, s.y - 1, 16, 16);
             }
             gc.setFont(font(d, 0, primary ? SWT.BOLD : SWT.NORMAL));
-            Point e = gc.textExtent(text);
+            Point e = gc.textExtent(drawn);
             gc.setForeground(color(d, ink));
             int iw = iconW(), total = e.x + (iw > 0 ? iw + 6 : 0), x0 = (s.x - total) / 2;
-            gc.drawString(text, x0, (s.y - e.y) / 2, true);
+            gc.drawString(drawn, x0, (s.y - e.y) / 2, true);
             if (iw > 0) gc.drawImage(icon, x0 + e.x + 6, (s.y - icon.getBounds().height) / 2);
         }
     }

@@ -8,7 +8,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -36,8 +37,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-
-import com.sun.net.httpserver.HttpServer;
 
 /**
  * הכניסה למאגר התרגילים ולשליחת תרגיל — משותף ל-Eclipse, ל-IntelliJ ול-Visual Studio (Java 8, בלי ממשק).
@@ -681,40 +680,56 @@ public final class Account {
         final AtomicReference<Result> result = new AtomicReference<Result>();
         final CountDownLatch done = new CountDownLatch(1);
         if (cancel != null) cancel.latch = done;
-        HttpServer server;
+        // שרת זעיר על 127.0.0.1 שמחכה לחזרה מהדפדפן (/done). ServerSocket ולא ה-HttpServer של ה-JDK: ה-Java שמגיע עם ההתקנה
+        // (jlink — ממנו רצים הכלים של Visual Studio) לא כולל את jdk.httpserver, ושם הכניסה נכשלה מיד (NoClassDefFoundError)
+        final ServerSocket server;
         try {
-            server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+            server = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
         } catch (IOException e) {
             return new Result("error", "לא הצלחתי לפתוח את החיבור לדפדפן במחשב הזה.", null);
         }
-        server.createContext("/done", ex -> {
-            String location;
-            try {
-                Map<String, String> q = query(ex.getRequestURI().getRawQuery());
-                if (!state.equals(q.get("state")) || q.get("code") == null) {
-                    ex.sendResponseHeaders(400, -1);
-                    return;
+        final Object once = new Object();
+        final AtomicReference<String> back = new AtomicReference<String>();   // לאן הדפדפן חוזר אחרי הכניסה
+        final Done handler = target -> {
+            Map<String, String> q = query(target.indexOf('?') < 0 ? null : target.substring(target.indexOf('?') + 1));
+            if (!state.equals(q.get("state")) || q.get("code") == null) return null;
+            synchronized (once) {   // הדפדפן שולח שוב (רענון) — הקוד כבר מומש: חוזרים לאותו מקום
+                if (back.get() != null) return back.get();
+                String location;
+                try {
+                    Result r = post("/v1/auth/redeem", map("code", q.get("code"), "verifier", verifier, "machine", machine(),
+                            "machineName", machineName(), "client", WorkerClient.CLIENT));
+                    String token = Json.str(r.body.get("token"));
+                    if (!token.isEmpty()) store(userFile(), r, token);
+                    result.set(r);
+                    location = base + "/welcome?r=" + enc(r.status.matches("ok|pay|not-teacher|blocked|devices") ? r.status : "error")
+                            + "&role=" + enc(role) + (r.status.matches("ok|pay|not-teacher|blocked|devices") ? "" : "&m=" + enc(r.message));
+                } catch (RuntimeException e) {
+                    result.set(new Result("error", "הכניסה לא הצליחה.", null));
+                    location = base + "/welcome?r=error";
                 }
-                Result r = post("/v1/auth/redeem", map("code", q.get("code"), "verifier", verifier, "machine", machine(),
-                        "machineName", machineName(), "client", WorkerClient.CLIENT));
-                String token = Json.str(r.body.get("token"));
-                if (!token.isEmpty()) store(userFile(), r, token);
-                result.set(r);
-                location = base + "/welcome?r=" + enc(r.status.matches("ok|pay|not-teacher|blocked|devices") ? r.status : "error")
-                        + "&role=" + enc(role) + (r.status.matches("ok|pay|not-teacher|blocked|devices") ? "" : "&m=" + enc(r.message));
-            } catch (RuntimeException e) {
-                result.set(new Result("error", "הכניסה לא הצליחה.", null));
-                location = base + "/welcome?r=error";
+                back.set(location);
+                return location;
             }
-            ex.getResponseHeaders().add("Location", location);
-            ex.getResponseHeaders().add("Cache-Control", "no-store");
-            ex.sendResponseHeaders(302, -1);
-            ex.close();
-            done.countDown();
-        });
-        server.start();
+        };
+        Thread acceptor = new Thread(() -> {
+            while (!server.isClosed()) {
+                final Socket s;
+                try {
+                    s = server.accept();
+                } catch (IOException e) {
+                    return;   // נסגר בסוף הכניסה
+                }
+                // חיבור לכל בקשה — דפדפנים פותחים לפעמים חיבור מראש בלי לשלוח בו כלום, והוא לא יעכב את החזרה האמיתית
+                Thread t = new Thread(() -> serveLoopback(s, handler, done), "dsviz-signin-request");
+                t.setDaemon(true);
+                t.start();
+            }
+        }, "dsviz-signin");
+        acceptor.setDaemon(true);
+        acceptor.start();
         try {
-            String url = base + "/signin?role=" + enc(role) + "&port=" + server.getAddress().getPort() + "&state=" + enc(state) + "&challenge=" + enc(challenge);
+            String url = base + "/signin?role=" + enc(role) + "&port=" + server.getLocalPort() + "&state=" + enc(state) + "&challenge=" + enc(challenge);
             if (listener != null) listener.waiting(url);
             browser.accept(url);
             boolean got = done.await(timeoutMs, TimeUnit.MILLISECONDS);
@@ -725,8 +740,62 @@ public final class Account {
             Thread.currentThread().interrupt();
             return new Result("cancelled", "", null);
         } finally {
-            server.stop(1);
+            try { server.close(); } catch (IOException ignored) { }
         }
+    }
+
+    /** מה עושים עם החזרה מהדפדפן: target = הנתיב עם ה-query. מחזיר לאן להפנות את הדפדפן, או null — בקשה לא נכונה (400) */
+    interface Done {
+        String location(String target);
+    }
+
+    /**
+     * בקשת HTTP אחת על החיבור המקומי: GET /done?... — מממשים ומפנים את הדפדפן (302) לדף התוצאה, ואז משחררים את signIn.
+     * כל נתיב אחר (למשל ‎/favicon.ico‎) — 404.
+     */
+    static void serveLoopback(Socket s, Done handler, CountDownLatch done) {
+        boolean finished = false;
+        try (Socket sock = s) {
+            sock.setSoTimeout(15000);
+            InputStream in = sock.getInputStream();
+            String line = readLine(in);
+            if (line == null) return;
+            for (String h = readLine(in); h != null && !h.isEmpty(); h = readLine(in)) {
+                // הכותרות לא חשובות — רק קוראים אותן עד השורה הריקה
+            }
+            String[] parts = line.split(" ");
+            String target = parts.length >= 2 ? parts[1] : "";
+            String path = target.indexOf('?') < 0 ? target : target.substring(0, target.indexOf('?'));
+            String head;
+            if (!"GET".equals(parts[0]) || !"/done".equals(path)) head = "HTTP/1.1 404 Not Found\r\n";
+            else {
+                String location = handler.location(target);
+                if (location == null) head = "HTTP/1.1 400 Bad Request\r\n";
+                else {
+                    head = "HTTP/1.1 302 Found\r\nLocation: " + location + "\r\n";
+                    finished = true;
+                }
+            }
+            OutputStream out = sock.getOutputStream();
+            out.write((head + "Cache-Control: no-store\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+            out.flush();
+        } catch (IOException | RuntimeException ignored) {
+            // חיבור שנסגר באמצע — אם הקוד כבר מומש, signIn משתחרר בכל זאת
+        } finally {
+            if (finished) done.countDown();
+        }
+    }
+
+    /** שורה אחת (עד CRLF) מבקשת HTTP — ASCII, עד 8KB. null בסוף החיבור */
+    private static String readLine(InputStream in) throws IOException {
+        StringBuilder b = new StringBuilder();
+        for (int c = in.read(); ; c = in.read()) {
+            if (c < 0) return b.length() == 0 ? null : b.toString();
+            if (c == '\n') break;
+            if (c != '\r') b.append((char) c);
+            if (b.length() > 8192) throw new IOException("line too long");
+        }
+        return b.toString();
     }
 
     // ------------------------------------------------------------------ בדיקה כשיש אינטרנט, התנתקות
@@ -857,5 +926,10 @@ public final class Account {
 
     static String lastError() {
         return lastError;
+    }
+
+    /** לבדיקות: איפה נשמרת העמדה ואיפה המשתמש (המקומות הנסתרים, או אלה של dsviz.home / dsviz.machineDir) */
+    static String stationFileForTest() {
+        return stationFile() + " | " + userFile();
     }
 }

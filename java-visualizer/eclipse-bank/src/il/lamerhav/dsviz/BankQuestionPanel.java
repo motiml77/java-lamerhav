@@ -31,6 +31,14 @@ final class BankQuestionPanel {
         void jump(AiScaffold.Task task);
 
         void solution(AiScaffold.Task task);
+
+        /** כמה סעיפים כבר בקוד (התרגיל נבנה סעיף אחרי סעיף — BankSections). בלי תרגיל — כולם */
+        default int prepared() {
+            return Integer.MAX_VALUE;
+        }
+
+        /** "הכן סעיף ב": הפעולה של הסעיף והבדיקות שלו נכנסות לקוד */
+        default void prepare(AiScaffold.Task task) {}
     }
 
     /** בונה את הנוסח בתוך parent (GridLayout של עמודה אחת). shown — לבדיקות: מה הוצג (או null) */
@@ -41,7 +49,10 @@ final class BankQuestionPanel {
             if (!q.intro.isEmpty()) text(c, q.intro, 0, SWT.NORMAL, Look.TEXT, shown);
             figures(c, q.figures, shown);
         }
+        int ready = actions == null ? Integer.MAX_VALUE : actions.prepared();
+        int index = 0;
         for (BankStore.Section s : q.sections) {
+            final int at = index++;
             Composite c = Look.card(parent, wide());
             String label = s.label.replaceAll("['׳]+$", "");
             Label head = text(c, label.isEmpty() ? "סעיף" : "סעיף " + label + "'", 1, SWT.BOLD, Look.ACCENT_DARK, shown);
@@ -49,7 +60,23 @@ final class BankQuestionPanel {
             text(c, s.text, 0, SWT.NORMAL, Look.TEXT, shown);
             figures(c, s.figures, shown);
             final AiScaffold.Task task = taskOf(ex, s.label);
-            if (actions != null && task != null) {
+            if (actions != null && task != null && at >= ready) {
+                // הסעיף עוד לא בקוד: "הכן סעיף ב" (רק לסעיף הבא בתור) — הפעולה והבדיקות שלו נכנסות למקום הנכון בקוד
+                if (at == ready) {
+                    Composite links = new Composite(c, SWT.RIGHT_TO_LEFT);
+                    RowLayout ll = new RowLayout(SWT.HORIZONTAL);
+                    ll.marginLeft = ll.marginRight = 0;
+                    ll.marginTop = 6;
+                    ll.marginBottom = 2;
+                    links.setLayout(ll);
+                    links.setLayoutData(wide());
+                    Look.Round prep = new Look.Round(links, "הכן סעיף " + label + "'", true, () -> actions.prepare(task));
+                    prep.setToolTipText("מוסיף לקוד את הפעולה " + task.methodName + " ואת הבדיקות של הסעיף ב-main");
+                    prep.setData("dsviz.id", "prepare-" + label);
+                    text(c, "הפעולה של הסעיף והבדיקות שלו ב-main ייכנסו לקוד במקום המתאים — לא משנה איפה הסמן.", -1, SWT.NORMAL, Look.MUTED, shown);
+                    if (shown != null) shown.add("PREPARE-BUTTON " + label + " " + task.methodName);
+                } else text(c, "אחרי סעיף " + q.sections.get(at - 1).label.replaceAll("['׳]+$", "") + "'", -1, SWT.NORMAL, Look.MUTED, shown);
+            } else if (actions != null && task != null) {
                 Composite links = new Composite(c, SWT.RIGHT_TO_LEFT);
                 RowLayout ll = new RowLayout(SWT.HORIZONTAL);
                 ll.wrap = true;   // חלון צר — הכפתור השני יורד לשורה הבאה (ולא נחתך)
@@ -67,9 +94,11 @@ final class BankQuestionPanel {
             }
         }
         String expected = q.expectedOutput();
+        boolean partial = ready < q.sections.size();
+        if (partial) expected = BankSections.expectedUpTo(expected, BankSections.labels(q.exercise), ready);   // רק הסעיפים שכבר בקוד
         if (!expected.isEmpty()) {
             Composite c = Look.card(parent, wide());
-            text(c, "כשהכול פתור נכון, התוכנית מדפיסה:", 0, SWT.BOLD, Look.TEXT, shown);
+            text(c, partial ? "כשהסעיפים שכבר בקוד פתורים נכון, התוכנית מדפיסה:" : "כשהכול פתור נכון, התוכנית מדפיסה:", 0, SWT.BOLD, Look.TEXT, shown);
             Composite box = Look.panel(c, Look.SURFACE, Look.BORDER, 6, 10, 8);
             ((Composite) box.getParent()).setLayoutData(wide());
             // בדיוק כמו בקונסול של Eclipse (שם התלמיד יראה את הפלט): כל שורה משמאל לימין, בגופן רגיל — המספרים באותו סדר
@@ -88,7 +117,8 @@ final class BankQuestionPanel {
                 l.setLayoutData(fill());
             }
             if (shown != null) shown.add("EXPECTED " + expected.replace("\n", " | "));
-            text(c, "מריצים את התוכנית בכפתור \"הרצה ויזואלית\", ובודקים שזה מה שמודפס.", -1, SWT.NORMAL, Look.MUTED, shown);
+            text(c, partial ? "מריצים את התוכנית בכפתור \"הרצה ויזואלית\", ובודקים שזה מה שמודפס. כשמכינים את הסעיף הבא — מתווספות כאן גם השורות שלו."
+                    : "מריצים את התוכנית בכפתור \"הרצה ויזואלית\", ובודקים שזה מה שמודפס.", -1, SWT.NORMAL, Look.MUTED, shown);
         }
     }
 

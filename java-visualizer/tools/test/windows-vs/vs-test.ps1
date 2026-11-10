@@ -220,7 +220,20 @@ namespace ConsoleApp2
     }
 }
 '@
+# תלמיד שכותב בפרויקט רגיל בלי שום שורה בראש הקובץ: DSViz.targets מוסיף לבד global using Unit4.CollectionsLib
+$codeNoUsing = @'
+Queue<int> q = new Queue<int>();
+q.Insert(5);
+q.Insert(8);
+int sum = 0;
+while (!q.IsEmpty())
+    sum += q.Remove();
+Stack<int> s = new Stack<int>();
+s.Push(sum);
+Console.WriteLine("sum = " + s.Top());
+'@
 $cases = @(
+    @{ Id = 'new-nousing'; Dir = (Join-Path $repos 'ConsoleApp0\ConsoleApp0'); Name = 'ConsoleApp0'; Code = $codeNoUsing; Tfm = 'net8.0'; Extra = @() },
     @{ Id = 'new-toplevel'; Dir = (Join-Path $repos 'ConsoleApp1\ConsoleApp1'); Name = 'ConsoleApp1'; Code = $code; Tfm = 'net8.0'; Extra = @() },
     @{ Id = 'new-main'; Dir = (Join-Path $repos 'ConsoleApp2\ConsoleApp2'); Name = 'ConsoleApp2'; Code = $codeMain; Tfm = 'net8.0'; Extra = @('--use-program-main') },
     @{ Id = 'new-hebrew'; Dir = (Join-Path $repos 'מבני נתונים\תרגיל 1'); Name = 'Targil1'; Code = $code; Tfm = 'net8.0'; Extra = @() },

@@ -59,12 +59,22 @@ public class GateUi {
         check("המחשב זוכר: עמדה", Account.current() != null && Account.current().isStation());
         w.dispose();
 
-        // 2. אותו מחשב, תלמיד אחר, בלי אינטרנט — נפתח מיד
+        // 2. אותו מחשב, תלמיד אחר: עם אינטרנט — בדיקה קצרה מול השרת ונפתח; בלי אינטרנט — נפתח (בלי לחכות לשרת)
         AccountIt.use(work, "pc1", "student2");
+        opened.set(0);
+        long t0 = System.currentTimeMillis();
+        SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
+        waitUntil(() -> opened.get() > 0, 8000);
+        check("עמדה תקפה, עם אינטרנט — המאגר נפתח אחרי בדיקה קצרה (" + (System.currentTimeMillis() - t0) + "ms), בלי מסך הכניסה",
+                opened.get() == 1 && openDialogs() == 0);
         System.setProperty("dsviz.worker", "http://127.0.0.1:9");
         opened.set(0);
-        SwingUtilities.invokeAndWait(() -> AccessGate.require(null, opened::incrementAndGet));
-        check("משתמש אחר באותו מחשב, בלי אינטרנט — נפתח מיד", opened.get() == 1 && openDialogs() == 0);
+        t0 = System.currentTimeMillis();
+        SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
+        waitUntil(() -> opened.get() > 0, 8000);
+        long offMs = System.currentTimeMillis() - t0;
+        check("משתמש אחר באותו מחשב, בלי אינטרנט — נפתח (" + offMs + "ms), בלי מסך הכניסה", opened.get() == 1 && openDialogs() == 0 && offMs < 5000);
+        check("בלי אינטרנט — הכניסה של העמדה נשארת", Account.current() != null && Account.current().isStation());
         System.setProperty("dsviz.worker", a[0]);
 
         // 3. מחשב נוסף — אין עוד היתרים (המורה קנה 1)
@@ -102,6 +112,34 @@ public class GateUi {
         Thread.sleep(2500);
         shot(waitWindowNow(), "6-not-teacher");
         check("לא מורה — לא נפתח", opened.get() == 0);
+        for (Window x : Window.getWindows()) x.dispose();
+
+        // 6. ההנהלה משחררת את העמדה (pc1) במסוף הניהול: כשיש אינטרנט — המאגר לא נפתח, אלא מסך הכניסה עם הסבר,
+        //    והכניסה של העמדה נמחקת מהמחשב
+        AccountIt.use(work, "pc1", "student1");
+        check("לפני השחרור: המחשב מחובר כעמדה", Account.current() != null && Account.current().isStation());
+        java.util.Map<String, Object> tj = Json.obj(Json.parse(AccountIt.api("GET", "/v1/admin/teacher?email=" + teacher, admin, null)));
+        java.util.List<?> sts = (java.util.List<?>) tj.get("stations");
+        check("במסוף הניהול: העמדה ברשימה של המורה", sts != null && sts.size() == 1);
+        String sid = Json.str(Json.obj(sts.get(0)).get("id"));
+        AccountIt.api("POST", "/v1/admin/station/release", admin, "{\"id\":\"" + sid + "\",\"reason\":\"בדיקה\"}");
+        opened.set(0);
+        SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
+        w = waitWindow();
+        check("אחרי 'שחרר' — נפתח מסך הכניסה, לא המאגר", w != null && opened.get() == 0);
+        check("במסך: הסבר שההנהלה שחררה את העמדה", w != null && waitText(w, "שחררה"));
+        check("הכניסה של העמדה נמחקה מהמחשב", Account.current() == null);
+        shot(w, "7-released");
+        Thread.sleep(1500);
+        check("והמאגר לא נפתח גם אחר כך", opened.get() == 0);
+        if (w != null) w.dispose();
+        // ושוב — בלי אינטרנט: אין כניסה שמורה, אז מסך הכניסה (לא המאגר)
+        System.setProperty("dsviz.worker", "http://127.0.0.1:9");
+        SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
+        w = waitWindow();
+        check("אחרי השחרור, גם בלי אינטרנט — מסך הכניסה (לא המאגר)", w != null && opened.get() == 0);
+        if (w != null) w.dispose();
+        System.setProperty("dsviz.worker", a[0]);
         System.out.println("\n" + pass + " עברו, " + fail + " נכשלו");
         System.exit(fail == 0 ? 0 : 1);
     }

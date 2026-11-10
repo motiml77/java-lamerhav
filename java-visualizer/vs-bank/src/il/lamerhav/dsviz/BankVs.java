@@ -112,6 +112,9 @@ public final class BankVs {
         cleanPending();
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
+            // Rubik בחלונות של Visual Studio (השאלה, הצעה לפתרון). התוספת יכולה לרוץ גם עם dsviz.jar ישן יותר של ההתקנה
+            // (למשל אחרי עדכון של הגרסה הציבורית) — אז בלי Rubik, ולא נופלים
+            try { Theme.useRounded(); } catch (LinkageError oldLibrary) { /* הגופן הקודם */ }
             compactFonts();
             BankZoom.init();   // הגודל שנבחר בפעם הקודמת (Ctrl + / Ctrl −)
             BankZoom.listen(BankVs::zoomChanged);
@@ -142,11 +145,17 @@ public final class BankVs {
     }
 
     /** גופנים כמו בשאר החלונות של C# (CsTool) */
+    /** הסגנון של הגופן המודגש (Rubik Medium בלי הדגשה מלאכותית); עם dsviz.jar ישן — BOLD */
+    private static int boldStyle() {
+        try { return Theme.boldStyle(); } catch (LinkageError oldLibrary) { return java.awt.Font.BOLD; }
+    }
+
     static void compactFonts() {
         Theme.ui = Theme.ui.deriveFont(java.awt.Font.PLAIN, 13f);
-        Theme.uiBold = Theme.uiBold.deriveFont(java.awt.Font.BOLD, 13f);
+        int strong = boldStyle();
+        Theme.uiBold = Theme.uiBold.deriveFont(strong, 13f);   // Rubik Medium — בלי הדגשה מלאכותית
         Theme.small = Theme.small.deriveFont(java.awt.Font.PLAIN, 11.5f);
-        Theme.big = Theme.big.deriveFont(java.awt.Font.BOLD, 17f);
+        Theme.big = Theme.big.deriveFont(strong, 17f);
         if (Theme.mono != null) Theme.mono = Theme.mono.deriveFont(java.awt.Font.PLAIN, 12.5f);
         javax.swing.plaf.FontUIResource ui = new javax.swing.plaf.FontUIResource(Theme.ui);
         UIManager.put("defaultFont", ui);
@@ -165,7 +174,10 @@ public final class BankVs {
 
     /** יוצר את הפרויקט מהשאלה (בלי Gemini), שומר את ההצעות לפתרון בצד, ורושם אותו כשייך לשאלה */
     static ExercisePipeline.Result create(BankStore.Question q, ExercisePipeline.Progress p) throws Exception {
-        Map<String, Object> raw = Json.obj(Json.parse(Json.write(q.exercise)));   // עותק: המנוע משנה את המפה
+        // רק סעיף א נכנס לקוד (והבדיקות שלו ב-main); כל סעיף נוסף — "הכן סעיף ב" בחלון "השאלה" (BankSections). עותק: המנוע משנה את המפה
+        Map<String, Object> raw = BankSections.firstSections(q.exercise, 1);
+        boolean several = Json.arr(q.exercise.get("tasks")).size() > 1;
+        AiScaffold.Task firstTask = several ? AiScaffold.read(Json.obj(Json.parse(Json.write(raw)))).tasks.get(0) : null;
         ExercisePipeline.Result r;
         if (ij) {
             // IntelliJ: חבילה ex01_... בתיקיית הקוד, קומפילציה ובדיקת ההצעות מול dsviz.jar (בלי Gemini)
@@ -177,7 +189,10 @@ public final class BankVs {
             r = VsSubmit.build(null, raw, new ArrayList<String>(), root, VsSubmit.dsvizCs(), p, VsSubmit.takenNames(root));
         }
         if (r.files.isEmpty()) throw new IOException(r.writeError != null ? r.writeError : "הקבצים לא נכתבו");
-        for (File f : r.files) stripMarks(f);
+        for (File f : r.files) {
+            if (firstTask != null) rewrite(f, BankSections::markSections, firstTask);   // "כאן עונים סעיף א'" — יש עוד סעיפים
+            stripMarks(f);
+        }
         for (SolutionStore.Entry e : r.entries) e.code = e.code.replaceAll("[\\u202A-\\u202E\\u2066-\\u2069]", "");
         if (!r.entries.isEmpty()) new SolutionStore(storeFile()).add(r.entries);
         BankProgress.Created c = new BankProgress.Created();
@@ -187,6 +202,170 @@ public final class BankVs {
         for (File f : r.files) c.files.add(slash(f.getPath()));
         BankProgress.get().created(q.id, c);
         return r;
+    }
+
+    interface Rewrite {
+        String apply(String text, AiScaffold.Task first, boolean cs);
+    }
+
+    static void rewrite(File f, Rewrite how, AiScaffold.Task first) {
+        try {
+            String t = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+            String c = how.apply(t, first, !ij);
+            if (!c.equals(t)) Files.write(f.toPath(), c.getBytes(StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+            // נשאר כמו שהוא
+        }
+    }
+
+    // ------------------------------------------------------------------ "הכן סעיף ב"
+
+    /** הקבצים של התרגיל האחרון מהשאלה: שם מחלקה → קובץ (רק מה שקיים) */
+    static Map<String, File> classFiles(BankStore.Question q) {
+        Map<String, File> out = new java.util.LinkedHashMap<String, File>();
+        List<File> projects = projects(q);
+        if (projects.isEmpty()) return out;
+        File dir = projects.get(projects.size() - 1);
+        AiScaffold.Exercise ex = AiScaffold.read(Json.obj(Json.parse(Json.write(q.exercise))));
+        java.util.Set<String> names = new java.util.LinkedHashSet<String>();
+        names.add(ex.mainClass);
+        names.addAll(ex.classes.keySet());
+        for (AiScaffold.Task t : ex.tasks) names.add(t.className);
+        for (String n : names) {
+            File f = new File(dir, n + ext());
+            if (f.isFile()) out.put(n, f);
+        }
+        return out;
+    }
+
+    /** כמה סעיפים כבר בקוד של התרגיל האחרון (בלי תרגיל — כולם: אין מה להכין) */
+    static int prepared(BankStore.Question q) {
+        Map<String, File> files = classFiles(q);
+        AiScaffold.Exercise ex = AiScaffold.read(Json.obj(Json.parse(Json.write(q.exercise))));
+        if (files.isEmpty()) return ex.tasks.size();
+        Map<String, String> texts = new java.util.LinkedHashMap<String, String>();
+        for (Map.Entry<String, File> f : files.entrySet()) texts.put(f.getKey(), read(f.getValue()));
+        return BankSections.prepared(ex, texts);
+    }
+
+    /**
+     * תוכן הקובץ, או "" אם אי אפשר לקרוא אותו. ב-Windows קובץ "תפוס" לרגע כש-Visual Studio שומר אותו (או כשאנטי-וירוס בודק
+     * אותו) — מנסים שוב עד כ-3 שניות, ולא מחזירים "" על קובץ שקיים רק בגלל הרגע הזה.
+     */
+    static String read(File f) {
+        for (int i = 0; ; i++) {
+            try {
+                return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                if (i >= 15 || !f.isFile()) return "";
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException stop) {
+                    Thread.currentThread().interrupt();
+                    return "";
+                }
+            }
+        }
+    }
+
+    /**
+     * "הכן סעיף ב": מוסיף לקוד של התרגיל את הפעולה של הסעיף (אחרי הפעולה של הסעיף הקודם) ואת הבדיקות שלו בסוף main — לפי מבנה
+     * הקוד, לא לפי הסמן. ב-Visual Studio, קובץ פתוח נשמר קודם, והשינוי נעשה בתוך העורך עצמו (בלי "הקובץ השתנה מבחוץ");
+     * ב-IntelliJ — בקובץ, ואז רענון. אחר כך הקובץ נפתח בשורה שמתחת ל"כאן עונים סעיף ב'". מחזיר הודעה למשתמש אם משהו לא הצליח, או null.
+     */
+    static String prepare(BankStore.Question q, AiScaffold.Task t) {
+        Map<String, File> files = classFiles(q);
+        if (files.isEmpty()) return "עוד אין תרגיל מהשאלה — יוצרים אותו בחלון \"מאגר תרגילים\" (\"צור תרגיל\").";
+        AiScaffold.Exercise full = AiScaffold.read(Json.obj(Json.parse(Json.write(q.exercise))));
+        AiScaffold.Task task = null;
+        for (AiScaffold.Task x : full.tasks) if (BankSections.norm(x.label).equals(BankSections.norm(t.label))) task = x;
+        if (task == null) return "הסעיף לא נמצא בשאלה.";
+        boolean vs = !ij && windows() && !Boolean.getBoolean("dsviz.noOpen") && vsRunning();
+        List<String> problems = new ArrayList<String>();
+        File focus = null;
+        int line = -1;
+        for (Map.Entry<String, File> fe : files.entrySet()) {
+            File f = fe.getValue();
+            if (vs) vsDocument("save", f, null);   // שינויים שלא נשמרו בעורך — קודם נשמרים, כדי שההוספה תהיה על הקוד העדכני
+            String text = read(f);
+            if (text.isEmpty() && f.length() > 0) {   // \u05E2\u05D3\u05D9\u05D9\u05DF \u05EA\u05E4\u05D5\u05E1 (Visual Studio / \u05D0\u05E0\u05D8\u05D9-\u05D5\u05D9\u05E8\u05D5\u05E1) \u2014 \u05DC\u05D0 "\u05DE\u05D5\u05E1\u05D9\u05E4\u05D9\u05DD" \u05DC\u05E7\u05D5\u05D1\u05E5 \u05E8\u05D9\u05E7
+                problems.add("\u05D4\u05E7\u05D5\u05D1\u05E5 " + f.getName() + " \u05EA\u05E4\u05D5\u05E1 \u05DB\u05E8\u05D2\u05E2 \u2014 \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D1\u05E2\u05D5\u05D3 \u05E8\u05D2\u05E2.");
+                continue;
+            }
+            boolean bom = text.startsWith("\uFEFF");
+            if (bom) text = text.substring(1);
+            BankSections.Edit e = BankSections.add(text, full, task, fe.getKey(), false);
+            if (e.problem != null && !e.problem.startsWith("המחלקה")) problems.add(e.problem);
+            if (!e.changed()) continue;
+            boolean done = vs && vsDocument("insert", f, inserts(text, e)) == 0;
+            if (!done) {
+                try {
+                    Files.write(f.toPath(), ((bom ? "\uFEFF" : "") + e.text).getBytes(StandardCharsets.UTF_8));
+                } catch (IOException ex) {
+                    problems.add("לא הצלחתי לכתוב את " + f.getName() + ": " + ex.getMessage());
+                    continue;
+                }
+            }
+            opened.add("PREPARE " + task.label + " " + f.getName() + " method=" + e.method + " main=" + e.main + (done ? " vs" : " file"));
+            if (e.method) {
+                focus = f;
+                line = e.cursorLine;
+            }
+        }
+        // ההצעה לפתרון של הסעיף — כמו לסעיפים שנוצרו עם התרגיל (המנורה בעורך)
+        File own = files.get(task.className);
+        if (own != null && !task.solution.isEmpty()) {
+            SolutionStore.Entry se = new SolutionStore.Entry();
+            se.path = own.getAbsolutePath().replace('\\', '/');
+            se.cls = task.className;
+            se.method = task.methodName;
+            for (String[] prm : task.params) se.params.add(prm[0]);
+            se.label = task.label;
+            se.code = task.solution.replaceAll("[\\u202A-\\u202E\\u2066-\\u2069]", "");
+            se.status = "ok";
+            new SolutionStore(storeFile()).add(java.util.Collections.singletonList(se));
+        }
+        if (ij) bridge("REFRESH", root.toString());
+        if (focus != null) openFile(focus, line);
+        return problems.isEmpty() ? null : String.join("\n", problems);
+    }
+
+    /** ההוספות כשורה:עמודה:טקסט (base64) — מהסוף להתחלה, כמו שהעורך של Visual Studio מקבל אותן (EditPoint) */
+    static String inserts(String text, BankSections.Edit e) {
+        List<BankSections.Insert> order = new ArrayList<BankSections.Insert>(e.inserts);
+        order.sort((x, y) -> Integer.compare(y.offset, x.offset));
+        StringBuilder b = new StringBuilder();
+        for (BankSections.Insert in : order) {
+            int line = 1, col = 1;
+            for (int i = 0; i < in.offset; i++) {
+                if (text.charAt(i) == '\n') { line++; col = 1; }
+                else col++;
+            }
+            b.append(line).append(':').append(col).append(':')
+                    .append(java.util.Base64.getEncoder().encodeToString(in.text.getBytes(StandardCharsets.UTF_8))).append('\n');
+        }
+        return b.toString();
+    }
+
+    /**
+     * הקובץ פתוח ב-Visual Studio? "save" — שומר אותו (אם יש בו שינויים); "insert" — מוסיף את הטקסטים בתוך העורך ושומר.
+     * 0 — נעשה; 2 — הקובץ לא פתוח ב-Visual Studio; אחר — לא הצליח (ואז כותבים את הקובץ עצמו).
+     */
+    static int vsDocument(String action, File f, String edits) {
+        String ps = "$ErrorActionPreference='Stop'; $d=$null; "
+                + "foreach($p in 'VisualStudio.DTE.18.0','VisualStudio.DTE.17.0','VisualStudio.DTE'){ try { $d=[Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }; "
+                + "if(-not $d){ exit 3 }; $want=[IO.Path]::GetFullPath($env:DSVIZ_FILE); $doc=$null; "
+                + "for($i=0; $i -lt 10 -and -not $doc; $i++){ try { foreach($x in $d.Documents){ if([IO.Path]::GetFullPath($x.FullName) -ieq $want){ $doc=$x } }; break } catch { Start-Sleep -Milliseconds 1000 } }; "
+                + "if(-not $doc){ exit 2 }; "
+                + "if($env:DSVIZ_ACTION -eq 'save'){ if(-not $doc.Saved){ $doc.Save() }; exit 0 }; "
+                + "$td=$doc.Object('TextDocument'); "
+                + "foreach($l in ($env:DSVIZ_EDITS -split \"`n\")){ if(-not $l){ continue }; $p=$l.Split(':'); "
+                + "$t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($p[2])); "
+                + "$ep=$td.StartPoint.CreateEditPoint(); $ep.MoveToLineAndOffset([int]$p[0], [int]$p[1]); $ep.Insert($t) }; "
+                + "$doc.Save(); Write-Output 'INSERTED'; exit 0";
+        int code = powershell(ps, 60, "DSVIZ_ACTION", action, "DSVIZ_FILE", f.getAbsolutePath(), "DSVIZ_EDITS", edits == null ? "" : edits);
+        opened.add("VS-DOC " + action + " " + f.getName() + " " + code);
+        return code;
     }
 
     /**
@@ -318,7 +497,7 @@ public final class BankVs {
             else what.append("קבצי התרגיל שיימחקו: ").append(String.join(", ", n)).append("\nהתרגיל ").append(r.dir.getName())
                     .append(" נשאר ב-Visual Studio — יש בו עוד קבצים שלך: ").append(String.join(", ", r.others));
         }
-        return "השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו — כדי שלא יצטברו תרגילים ישנים.\n\n"
+        return "קבצי התרגיל יימחקו — כדי שלא יצטברו תרגילים ישנים.\n\n"
                 + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
                 + what + "\nרק מה שנוצר מהתרגיל נמחק — קבצים אחרים לא נמחקים.";
     }
@@ -329,8 +508,17 @@ public final class BankVs {
      * והשיוך לשאלה נמחקים. ask — שואלים קודם (בחלון בעברית, עם הרשימה). מחזיר false אם התלמיד ביטל.
      */
     static boolean complete(Component parent, BankStore.Question q, boolean ask) {
-        String text = ask ? doneText(q) : null;
-        if (text != null && RtlDialog.ask(parent, "סיימתי את התרגיל", RtlDialog.Kind.OK, "סיימתי את התרגיל", text, "סיום ומחיקה", "ביטול") != 0) return false;
+        return complete(parent, q, ask, false);
+    }
+
+    /** keep — התלמיד בחר לשמור את הקבצים: רק הסימון הירוק; הפרויקט, הקבצים והשיוך לשאלה ("פתח את התרגיל") נשארים */
+    static boolean complete(Component parent, BankStore.Question q, boolean ask, boolean keep) {
+        String text = ask && !keep ? doneText(q) : null;
+        if (text != null && RtlDialog.ask(parent, "סיימתי את התרגיל", RtlDialog.Kind.OK, "סיימתי את התרגיל", "השאלה תסומן בסימן ירוק. " + text, "סיום ומחיקה", "ביטול") != 0) return false;
+        if (keep) {
+            BankProgress.get().setDone(q.id, true);
+            return true;
+        }
         List<Removal> plans = plans(q);
         BankProgress.get().setDone(q.id, true);
         List<String> left = new ArrayList<String>();

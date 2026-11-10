@@ -90,6 +90,7 @@ public final class CsTool {
         SwingUtilities.invokeAndWait(new Runnable() {
             public void run() {
                 Theme.install();
+                Theme.useRounded();   // Rubik בחלונות של Visual Studio (תרגיל חדש, שליחה, הצעה לפתרון)
                 compactFonts();
                 if (mode.equals("help")) help(fShot);
                 else if (mode.equals("submit")) il.lamerhav.dsviz.VsSubmit.submit(root);       // שליחת תרגיל ב-C#
@@ -113,9 +114,9 @@ public final class CsTool {
     /** גופנים קטנים יותר לחלונות האלה (החלון הראשי של ההרצה משתמש באותו Theme, בגודל המקורי) */
     private static void compactFonts() {
         Theme.ui = Theme.ui.deriveFont(java.awt.Font.PLAIN, 13f);
-        Theme.uiBold = Theme.uiBold.deriveFont(java.awt.Font.BOLD, 13f);
+        Theme.uiBold = Theme.uiBold.deriveFont(Theme.boldStyle(), 13f);   // Rubik Medium — בלי הדגשה מלאכותית
         Theme.small = Theme.small.deriveFont(java.awt.Font.PLAIN, 11.5f);
-        Theme.big = Theme.big.deriveFont(java.awt.Font.BOLD, 17f);
+        Theme.big = Theme.big.deriveFont(Theme.boldStyle(), 17f);
         if (Theme.mono != null) Theme.mono = Theme.mono.deriveFont(java.awt.Font.PLAIN, 12.5f);
         javax.swing.plaf.FontUIResource ui = new javax.swing.plaf.FontUIResource(Theme.ui);
         UIManager.put("defaultFont", ui);

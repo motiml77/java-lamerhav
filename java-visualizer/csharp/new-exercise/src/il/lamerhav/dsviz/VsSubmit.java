@@ -717,11 +717,11 @@ public final class VsSubmit {
             JPanel head = new JPanel(new BorderLayout(8, 0));
             head.setOpaque(false);
             JLabel mark = new JLabel(errs ? "●" : "✓");
-            mark.setFont(RtlDialog.bold().deriveFont(Font.BOLD, 18f));
+            mark.setFont(RtlDialog.bold().deriveFont(18f));
             mark.setForeground(errs ? RtlDialog.AMBER : RtlDialog.GREEN);
             head.add(mark, BorderLayout.LINE_START);
             head.add(RtlDialog.label(errs ? "התרגיל נוצר · " + (r.errors.size() == 1 ? "יש שגיאת קומפילציה אחת" : "יש " + r.errors.size() + " שגיאות קומפילציה")
-                    : "התרגיל נוצר", RtlDialog.bold().deriveFont(Font.BOLD, 18f), RtlDialog.INK), BorderLayout.CENTER);
+                    : "התרגיל נוצר", RtlDialog.bold().deriveFont(18f), RtlDialog.INK), BorderLayout.CENTER);
             head.setAlignmentX(Component.RIGHT_ALIGNMENT);
             in.add(head);
             String tasks = r.tasks == 0 ? "אין בו סעיפים בקוד" : r.tasks == 1 ? "סעיף אחד" : r.tasks + " סעיפים";
@@ -1049,7 +1049,7 @@ public final class VsSubmit {
         JPanel h = new JPanel();
         h.setLayout(new BoxLayout(h, BoxLayout.Y_AXIS));
         h.setOpaque(false);
-        h.add(RtlDialog.label(title, RtlDialog.bold().deriveFont(Font.BOLD, 18f), RtlDialog.INK));
+        h.add(RtlDialog.label(title, RtlDialog.bold().deriveFont(18f), RtlDialog.INK));
         h.add(RtlDialog.gap(2));
         h.add(RtlDialog.label(sub, RtlDialog.ui(), RtlDialog.MUTED));
         h.setAlignmentX(Component.RIGHT_ALIGNMENT);

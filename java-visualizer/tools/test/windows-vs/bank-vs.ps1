@@ -6,7 +6,7 @@
 #   5. התלמיד כותב את הפתרון (ההצעות השמורות), MSBuild של Visual Studio בונה, והתוכנית מדפיסה בדיוק את הפלט הרצוי; "הרצה ויזואלית" נפתחת
 #   6. "סיימתי את התרגיל" → הפרויקט נמחק מהדיסק ומהפתרון, והפתרון עדיין נבנה
 param([Parameter(Mandatory = $true)][string]$Setup, [Parameter(Mandatory = $true)][string]$Lab, [Parameter(Mandatory = $true)][string]$Out,
-    [Parameter(Mandatory = $true)][string]$Bank, [Parameter(Mandatory = $true)][string]$TestCp)
+    [Parameter(Mandatory = $true)][string]$Bank, [Parameter(Mandatory = $true)][string]$TestCp, [string]$FreshCs = '')
 $ErrorActionPreference = 'Continue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $OutputEncoding = [Text.Encoding]::UTF8
@@ -133,6 +133,19 @@ Info "Visual Studio: $vsName — $vs · מסך: $([Windows.Forms.SystemInformati
 Log "== 1. ההתקנה: DSViz-Setup.exe (חבילת C#) והתוספת 'מאגר תרגילים'"
 $p = Start-Process $Setup -ArgumentList '/S', '/LANG=cs' -PassThru -Wait
 Check 'install' ($p.ExitCode -eq 0 -and (Test-Path $sln) -and (Test-Path $runner)) "DSViz הותקן: הפתרון DataStructures-CS ו-dsviz-cs" "קוד $($p.ExitCode)"
+if ($FreshCs -and (Test-Path (Join-Path $FreshCs 'dsviz-cs.exe'))) {
+    # DSViz-Setup.exe שבענף נבנה מזמן (הספרייה שבו עוד בלי התיקון של ToString של התלמיד) — ההרצה הוויזואלית והספרייה של C#
+    # מהקוד העדכני, כמו שייכנסו להתקנה הבאה: בודקים את המאגר מול מה שהתלמידים יקבלו, לא מול בנייה ישנה
+    Copy-Item (Join-Path $FreshCs '*') (Join-Path $dsviz 'cs') -Recurse -Force
+    Copy-Item (Join-Path $FreshCs 'Unit4.CollectionsLib.dll') (Join-Path $csDir 'lib') -Force
+    Info "dsviz-cs והספרייה של C# הוחלפו בבנייה מהקוד העדכני ($FreshCs)"
+}
+# סרגל הכלים של DSViz ב-Visual Studio: ההתקנה הישנה שבענף עוד בלי ההרחבה — מתקינים את זו שבנויה מהקוד (prebuilt), כמו ההתקנה החדשה
+$vsixFile = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\csharp\vs-extension\prebuilt\DsViz.VsExtension.vsix'))
+if (Test-Path $vsixFile) {
+    $vo = & powershell -NoProfile -ExecutionPolicy Bypass -File ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\installer\install-vsix.ps1'))) $vsixFile 2>&1
+    Info "סרגל הכלים (install-vsix.ps1): $($vo -join ' ')"
+}
 $o = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Lab 'install-bank-vs.ps1') 2>&1
 Info "install-bank-vs.ps1: $($o -join ' ')"
 $ws = New-Object -ComObject WScript.Shell
@@ -159,12 +172,13 @@ if (Test-Path -LiteralPath $bankLnk) {
     $seen = $false
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep 1
-        if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים' }).Count -gt 0) { $seen = $true; break }
+        # בלי כניסה במחשב (מורה / עמדה / תלמיד) — נפתח קודם מסך הכניסה "כניסה למאגר התרגילים", וזה נכון
+        if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים|כניסה למאגר התרגילים' }).Count -gt 0) { $seen = $true; break }
     }
     Start-Sleep 4
     Shot '00-shortcut-bank-window'
-    Check 'shortcut-open' $seen "לחיצה כפולה על הקיצור 'מאגר תרגילים C#' פותחת את חלון המאגר" ((Windows) -join ' ; ')
-    Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים' } | Stop-Process -Force
+    Check 'shortcut-open' $seen "לחיצה כפולה על הקיצור 'מאגר תרגילים C#' פותחת את חלון המאגר (או את מסך הכניסה, כשעוד אין כניסה במחשב)" ((Windows) -join ' ; ')
+    Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'מאגר תרגילים|כניסה למאגר התרגילים' } | Stop-Process -Force
 }
 $jar = Join-Path $dsviz 'lab\dsviz-bank-vs.jar'
 Check 'lab-jar' (Test-Path $jar) "התוספת הועתקה: $jar"
@@ -189,6 +203,13 @@ if ($ready) {
     Start-Sleep 40
     SkipFirstRun $vsP.Id | Out-Null
     Shot '01-vs-open'
+    # סרגל הכלים של DSViz מופיע (ההרחבה נטענת אחרי שהחלון עולה — עד דקה וחצי)
+    $tb = @()
+    for ($i = 0; $i -lt 30 -and @($tb | Select-Object -Unique).Count -lt 4; $i++) {
+        $tb = @(VsElements $vsP.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -match 'תרגיל חדש|מאגר שאלות|הוספת מבנה נתונים|שליחת תרגיל|הדרכה' })
+        if (@($tb | Select-Object -Unique).Count -lt 4) { Start-Sleep 3 }
+    }
+    Check 'vs-toolbar' (@($tb | Select-Object -Unique).Count -ge 4) "סרגל הכלים של DSViz מופיע ב-Visual Studio עם הכפתורים" ((($tb | Select-Object -Unique)) -join ' ; ')
 }
 
 # ------------------------------------------------------------------ 3. המאגר: בחירה ויצירה (BankVsIt — כמו תלמיד)
@@ -234,6 +255,21 @@ Start-Sleep 8
 Shot '06-jump-file-in-vs'
 # כותבים קוד ב-Visual Studio (מקלדת אמיתית) בזמן שהחלון הצף פתוח — הוא נשאר מקדימה
 if ($ready) {
+    # מה שיש עכשיו בעורך (דרך Visual Studio עצמו) — אחרי ההקלדה מחזירים בדיוק את זה. לא Ctrl+Z: ב-Visual Studio כל הוספה של
+    # "הכן סעיף ב'" היא צעד ביטול משלו, ו-Ctrl+Z "ליתר ביטחון" מבטל גם אותה (ואז Main קורא לפעולה שכבר לא קיימת)
+    $tDoc = $null; $tOrig = $null; $tFile = $null
+    if ($dir) {
+        $tFile = [IO.Path]::GetFullPath((Get-ChildItem $dir -Filter '*.cs' | Select-Object -First 1).FullName)
+        for ($r = 0; $r -lt 5 -and $null -eq $tOrig; $r++) {
+            try {
+                $tDte = $null
+                foreach ($p in 'VisualStudio.DTE.18.0', 'VisualStudio.DTE.17.0', 'VisualStudio.DTE') { try { $tDte = [Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }
+                foreach ($x in $tDte.Documents) { if ([IO.Path]::GetFullPath($x.FullName) -ieq $tFile) { $tDoc = $x } }
+                if (-not $tDoc) { break }
+                $td = $tDoc.Object('TextDocument'); $tOrig = $td.StartPoint.CreateEditPoint().GetText($td.EndPoint)
+            } catch { Start-Sleep 1 }
+        }
+    }
     $wsh = New-Object -ComObject WScript.Shell
     [void]$wsh.AppActivate($vsP.Id); Start-Sleep 2
     $wsh.SendKeys('{END}{ENTER}'); Start-Sleep 1
@@ -241,8 +277,18 @@ if ($ready) {
     Shot '06b-typing-in-vs-float-in-front'
     $fg = (Get-Process -Id $vsP.Id).MainWindowTitle
     Check 'vs-typing' ($fg -like '*Microsoft Visual Studio*') "כותבים קוד ב-Visual Studio בזמן שהחלון הצף פתוח (רואים בצילום שהחלון נשאר מקדימה)" $fg
-    for ($u = 0; $u -lt 4; $u++) { $wsh.SendKeys('^z'); Start-Sleep -Milliseconds 300 }   # מבטלים את ההקלדה
-    $wsh.SendKeys('^s'); Start-Sleep 1
+    if ($null -ne $tOrig) {
+        $restored = $false
+        for ($r = 0; $r -lt 5 -and -not $restored; $r++) {
+            try { $td = $tDoc.Object('TextDocument'); $td.StartPoint.CreateEditPoint().ReplaceText($td.EndPoint, $tOrig, 0); $tDoc.Save(); $restored = $true } catch { Start-Sleep 1 }
+        }
+        $now = Get-Content $tFile -Raw -Encoding utf8
+        Check 'vs-typing-undone' ($restored -and ($now -replace '\s', '') -eq ($tOrig -replace '\s', '')) "ההקלדה נמחקה — הקובץ חזר להיות כמו לפני (ומה ש'הכן סעיף ב'' הוסיף נשאר)"
+    } else {
+        # בלי גישה ל-Visual Studio (DTE): מוחקים רק את השורה שהוקלדה (Edit.LineDelete)
+        $wsh.SendKeys('{ESC}'); Start-Sleep -Milliseconds 300; $wsh.SendKeys('^+l'); Start-Sleep -Milliseconds 500
+        $wsh.SendKeys('^s'); Start-Sleep 1
+    }
 }
 if ($ready -and $dir) {
     $cs = Get-ChildItem $dir -Filter '*.cs' | Select-Object -First 1
@@ -255,6 +301,13 @@ if ($ready -and $dir) {
 # ------------------------------------------------------------------ 5. התלמיד פותר: בנייה, פלט, הרצה ויזואלית
 Log "== 5. כותבים את הפתרון, בונים ב-MSBuild של Visual Studio, ומריצים"
 if ($dir) {
+    # לפני שכותבים את הפתרון לקבצים: שומרים ב-Visual Studio את כל המסמכים (אחרת מסמך עם שינויים שלא נשמרו + שינוי מבחוץ = חלון שאלה)
+    try {
+        $d = $null
+        foreach ($p in 'VisualStudio.DTE.18.0', 'VisualStudio.DTE.17.0', 'VisualStudio.DTE') { try { $d = [Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }
+        if ($d) { $d.Documents.SaveAll(); Info "DTE: כל המסמכים נשמרו" }
+        $d = $null
+    } catch { Info "DTE SaveAll: $_" }
     $sol = (Get-Content (Join-Path $env:USERPROFILE '.dsviz\solutions.json') -Raw -Encoding utf8 | ConvertFrom-Json).solutions
     $applied = 0
     foreach ($f in Get-ChildItem $dir -Filter '*.cs') {
@@ -279,6 +332,8 @@ if ($dir) {
         [IO.File]::WriteAllText($f.FullName, $text, (New-Object Text.UTF8Encoding($true)))
     }
     Check 'solve' ($applied -eq 2) "הפתרון נכתב בשני הסעיפים ($applied)"
+    # הקובץ פתוח ב-Visual Studio ושונה מבחוץ: אם הוא שואל אם לטעון מחדש — מאשרים (זה לא חלק ממה שנבדק כאן)
+    $null = ClickReload $vsP.Id 8
     $proj = Join-Path $dir "$name.csproj"
     $b = & $msbuild $proj /restore /nologo /v:m /p:Configuration=Debug 2>&1
     $b | Set-Content (Join-Path $Out 'build-exercise.txt') -Encoding utf8
@@ -397,6 +452,12 @@ if ($pdir) {
     $cr = Join-Path $Out 'clean\clean-result.txt'
     Check 'pending-clean' ((Test-Path $cr) -and ((Get-Content $cr -Raw -Encoding utf8) -match 'ok   pending-clean')) "אחרי ש-Visual Studio נסגר, בפתיחה הבאה של הכלי: מה שנשאר מהתרגיל (obj) נמחק" $(if (Test-Path $cr) { Get-Content $cr -Raw -Encoding utf8 } else { 'אין תוצאה' })
     Check 'pending-gone' (-not (Test-Path $pdir)) "התיקייה $(Split-Path $pdir -Leaf) כבר לא קיימת"
+} elseif ($dir -and (Test-Path $dir) -and -not $keep -and -not ($itP.HasExited -and $itP.ExitCode -eq 0)) {
+    # BankVsIt נעצר באמצע (הכשל כבר נרשם למעלה): התרגיל שלו עדיין בפתרון — מוציאים ומוחקים אותו, כדי שהבדיקה הרחבה תתחיל
+    # מפתרון נקי ולא תיכשל בגללו פעם נוספת (מספור, בנייה של כל הפתרון, "הפתרון חזר להיות כמו בהתחלה")
+    Info "BankVsIt לא הגיע ל'סיימתי' — מוציאים את $name מהפתרון ומוחקים אותו לפני הבדיקה הרחבה"
+    & dotnet sln $sln remove (Join-Path $dir "$name.csproj") 2>&1 | Out-Null
+    Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
 } else { Info "התיקייה של התרגיל נמחקה כבר ב'סיימתי' (שום דבר לא נשאר)" }
 # ------------------------------------------------------------------ 7. בדיקה רחבה: כל השאלות ומקרי קצה (BankVsAll)
 Log "== 7. כל השאלות: יצירה, פתרון, MSBuild של Visual Studio, הרצה; ואז 'סיימתי' על כולן ומקרי קצה"

@@ -105,6 +105,25 @@ public final class Theme {
         try (java.io.OutputStream out = new java.io.FileOutputStream(f)) { p.store(out, "DSViz zoom"); } catch (Exception ignored) { /* לא חשוב */ }
     }
 
+    /** יחס שנשמר (למשל המקום של קו גרירה בחלון ההרצה, 0..1) — או def */
+    public static double savedRatio(String key, double def) {
+        java.util.Properties p = new java.util.Properties();
+        try (java.io.InputStream in = new java.io.FileInputStream(zoomFile())) { p.load(in); } catch (Exception e) { return def; }
+        try {
+            double v = Double.parseDouble(p.getProperty(key, String.valueOf(def)));
+            return v >= 0.05 && v <= 0.95 ? v : def;
+        } catch (NumberFormatException e) { return def; }
+    }
+
+    public static void saveRatio(String key, double v) {
+        java.util.Properties p = new java.util.Properties();
+        java.io.File f = zoomFile();
+        try (java.io.InputStream in = new java.io.FileInputStream(f)) { p.load(in); } catch (Exception ignored) { /* חדש */ }
+        p.setProperty(key, String.valueOf(Math.round(v * 1000) / 1000.0));
+        f.getParentFile().mkdirs();
+        try (java.io.OutputStream out = new java.io.FileOutputStream(f)) { p.store(out, "DSViz zoom"); } catch (Exception ignored) { /* לא חשוב */ }
+    }
+
     private static java.io.File zoomFile() {
         return new java.io.File(new java.io.File(System.getProperty("user.home"), ".dsviz"), "zoom.properties");
     }
@@ -174,6 +193,45 @@ public final class Theme {
                 "TableHeader.font", "List.font", "TextArea.font" })
             UIManager.put(k, new FontUIResource(ui));
     }
+
+    private static boolean rounded;
+
+    /**
+     * הגופן Rubik (עגול יותר, מסודר) לחלונות של Visual Studio — המאגר, השאלה, שליחת תרגיל, הצעה לפתרון, תרגיל חדש.
+     * רק בתהליך של הכלים האלה (BankVs / CsTool): ‎UIManager‎ משותף לכל התהליך, ובתוך IntelliJ (שמשתמש ב-RtlDialog
+     * בתוך התהליך שלו) לא נוגעים בגופן של IntelliJ עצמו. חלון ההרצה הוויזואלית נשאר עם Alef.
+     * הגופן נארז מוקטן (עברית, לטינית, סימני פיסוק — tools/build-lib.sh) ודרך StyleContext: תו שחסר בו (← ✓ מקף לא-שובר)
+     * נלקח מגופן אחר. אם הגופן לא נטען — נשארים עם Alef.
+     */
+    public static void useRounded() {
+        install();
+        if (rounded) return;
+        rounded = true;
+        String regular = register("Rubik-Regular.ttf"), medium = register("Rubik-Medium.ttf");
+        if (regular == null) return;
+        String strong = medium != null ? medium : regular;
+        int strongStyle = medium != null ? Font.PLAIN : Font.BOLD;
+        ui = font(regular, Font.PLAIN, 15);
+        uiBold = font(strong, strongStyle, 15);
+        small = font(regular, Font.PLAIN, 13);
+        smallBold = font(strong, strongStyle, 13);
+        title = font(strong, strongStyle, 15);
+        big = font(strong, strongStyle, 19);
+        family = regular;
+        boldFamily = strong;
+        boldStyle = strongStyle;
+        UIManager.put("defaultFont", new FontUIResource(ui));
+        for (String k : new String[] { "Label.font", "Button.font", "ToggleButton.font", "CheckBox.font", "Table.font",
+                "TableHeader.font", "List.font", "TextArea.font", "ToolTip.font" })
+            UIManager.put(k, new FontUIResource(k.equals("ToolTip.font") ? small : ui));
+    }
+
+    /** הגופן של הטקסט הרגיל / המודגש (Alef, או Rubik אחרי useRounded) — למשל למסמך מעוצב (JTextPane) */
+    public static String family() { return family; }
+
+    public static String boldFamily() { return boldFamily; }
+
+    public static int boldStyle() { return boldStyle; }
 
     /** גופן עם "נפילה חזרה": תו שחסר בגופן (למשל ← או אות עברית בגופן קוד) נלקח מגופן אחר */
     static Font font(String family, int style, int size) {

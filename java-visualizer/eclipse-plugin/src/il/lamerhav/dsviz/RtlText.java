@@ -79,7 +79,13 @@ public final class RtlText {
      */
     static List<String[]> segments(String line) {
         List<String[]> out = new ArrayList<String[]>();
-        String[] parts = strip(line).split("`", -1);
+        String clean = strip(line);
+        if (!clean.trim().isEmpty() && clean.indexOf('`') < 0 && !HEBREW.matcher(clean).find()) {
+            // שורה בלי עברית (‎"{9, 4, 7, 1}"‎, ‎"a = {1, 3}"‎, נוסחה) — כולה יחידה אחת משמאל לימין
+            out.add(new String[] { clean.trim(), null });
+            return out;
+        }
+        String[] parts = clean.split("`", -1);
         for (int i = 0; i < parts.length; i++) {
             if (parts[i].isEmpty()) continue;
             if (i % 2 == 1) {
@@ -92,18 +98,54 @@ public final class RtlText {
                 out.add(j % 2 == 1 ? new String[] { inner[j], null } : new String[] { null, inner[j] });
             }
         }
+        // "ל-other", "ו-x = 3": המקף אחרי אות עברית לפני קטע קוד — מקף שלא נשבר (U+2011), כדי שהאות לא תישאר לבד בסוף שורה
+        for (int k = 0; k + 1 < out.size(); k++) {
+            String[] s = out.get(k), next = out.get(k + 1);
+            if (s[1] != null && next[0] != null && s[1].matches("(?s).*[\\u05D0-\\u05EA]-")) s[1] = s[1].substring(0, s[1].length() - 1) + "\u2011";
+        }
         return out;
     }
 
     private static final Pattern CODE_RUN = Pattern.compile(
-            "(?<![\\u0590-\\u05FF\\w])[\\w.\\[\\]<>(){};=!&|+*/%\"'@#?\\\\-]+(?:[ ][\\w.\\[\\]<>(){};=!&|+*/%\"'@#?\\\\-]+)*");
+            "(?<![\\u0590-\\u05FF\\w])[\\w.\\[\\]<>(){};=!&|+*/%\"'@#?\\\\≤≥≠·×-]+(?:[ ][\\w.\\[\\]<>(){};=!&|+*/%\"'@#?\\\\≤≥≠·×-]+)*");
 
     /**
      * מסמן ב-`...` קטעי קוד ומילים באנגלית שלא סומנו (למשל length(), import unit4.collectionsLib.*;, {0}({1}), Ctrl+1, 127) —
      * כדי שיוצגו משמאל לימין בתוך העברית. סוגריים שסוגרים טקסט עברי (בלי זוג בתוך הקטע) וסימני פיסוק של המשפט בקצוות
      * נשארים מחוץ לסימון, כדי שיתהפכו כרגיל בעברית. (גם לתרגום של הודעות הקומפיילר — HebrewErrors.markCode.)
      */
+    private static final String NUM = "(?:(?<![\\u0590-\\u05FF\\w])-)?\\d+(?:\\.\\d+)?";   // מינוס — לא אחרי "ו-" / "מ-"
+    private static final String TUPLE = "\\(\\s*" + NUM + "\\s*,\\s*" + NUM + "\\s*\\)";
+    private static final String EXPR = NUM + "(?:[-+·×*/]" + NUM + ")*";
+    private static final String ITEM = "(?:" + TUPLE + "|" + EXPR + ")";
+    private static final Pattern HEBREW = Pattern.compile("[\\u0590-\\u05FF]");
+    /**
+     * ערכים שמוצגים תמיד כיחידה אחת משמאל לימין, בלי לשבור שורה באמצע (כמו RtlDialog.VALUES בחלונות של Visual Studio):
+     * רשימה ‎"9, 4, 6, 3"‎ / ‎"{1, 2, 3}"‎, זוג ‎"(1, 2)"‎, חשבון ‎"1 + 2 = 3"‎, מחרוזת או תו בגרשיים (בלי עברית בפנים).
+     * כך סדר המספרים זהה לציור (הראש משמאל), ופסיקים לא הופכים את הרשימה.
+     */
+    static final Pattern VALUES = Pattern.compile(
+            "(?:[A-Za-z_]\\w*\\s*=\\s*)?[\\[{]\\s*" + ITEM + "(?:\\s*,\\s*" + ITEM + ")*\\s*[\\]}]"
+            + "|" + ITEM + "(?:\\s*,\\s*" + ITEM + ")+"
+            + "|" + TUPLE
+            + "|" + NUM + "(?:\\s*[-+·×*/=]\\s*" + NUM + ")+"
+            + "|\"[^\"\\u0590-\\u05FF\\n]*\"|'[^'\\u0590-\\u05FF\\n]{1,2}'");
+
     static String markCode(String t) {
+        // קודם הערכים — יחידה אחת עם רווח שלא נשבר; ושאר הטקסט כמו קודם
+        Matcher v = VALUES.matcher(t);
+        StringBuilder vb = null;
+        int vl = 0;
+        while (v.find()) {
+            if (vb == null) vb = new StringBuilder();
+            vb.append(markRuns(t.substring(vl, v.start()))).append('`').append(v.group().replace(' ', '\u00A0')).append('`');
+            vl = v.end();
+        }
+        if (vb == null) return markRuns(t);
+        return vb.append(markRuns(t.substring(vl))).toString();
+    }
+
+    private static String markRuns(String t) {
         Matcher m = CODE_RUN.matcher(t);
         StringBuilder b = new StringBuilder();
         int last = 0;
@@ -128,6 +170,13 @@ public final class RtlText {
                 }
             }
             if (e <= s) continue;
+            // סוגר פותח בלי זוג בתוך הקטע ("b (" לפני "כולל)", "9 (19" לפני "צעדים)") — שייך לעברית שאחריו: הקטע נגמר לפניו
+            int open = unbalancedOpen(t, s, e);
+            if (open > s) {
+                e = open;
+                while (e > s && t.charAt(e - 1) == ' ') e--;
+            }
+            if (e <= s) continue;
             run = t.substring(s, e);
             boolean code = run.matches(".*[A-Za-z0-9].*") || run.matches(".*(==|!=|<=|>=|&&|\\|\\||\\+\\+|--|[;{}\\[\\]<>=!%*/+]).*");
             if (!code || run.isEmpty()) continue;
@@ -135,6 +184,19 @@ public final class RtlText {
             last = e;
         }
         return b.append(t.substring(last)).toString();
+    }
+
+    /** המקום של "(" או "[" הראשון בין s ל-e שאין לו סוגר בתוך הקטע, או -1 */
+    private static int unbalancedOpen(String t, int s, int e) {
+        java.util.ArrayDeque<Integer> st = new java.util.ArrayDeque<Integer>();
+        for (int i = s; i < e; i++) {
+            char c = t.charAt(i);
+            if (c == '(' || c == '[') st.push(i);
+            else if ((c == ')' || c == ']') && !st.isEmpty()) st.pop();
+        }
+        int first = -1;
+        for (Integer i : st) first = i;
+        return first;
     }
 
     private static int count(String t, int s, int e, char c) {

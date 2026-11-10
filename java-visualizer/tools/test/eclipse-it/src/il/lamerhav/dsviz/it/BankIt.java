@@ -158,6 +158,13 @@ public class BankIt implements IApplication {
         sleep(800);
         out.println("PREVIEW-QUEUE " + ui(() -> preview(dlg)));
         shot(dlg, "bank-dialog-queue.png");
+        // נוסח עם ערבוב מספרים ועברית (מימין לשמאל): התור הבינוני, והנוסחה של הנקודות
+        ui(() -> { select(dlg, "queue", "queue-last-min"); return null; });
+        sleep(800);
+        shot(dlg, "bank-dialog-queue-medium.png");
+        ui(() -> { select(dlg, "classes", "classes-points"); return null; });
+        sleep(800);
+        shot(dlg, "bank-dialog-points.png");
         ui(() -> { select(dlg, "list", "list-length-sum"); return null; });
         sleep(800);
         out.println("PREVIEW-LIST " + ui(() -> preview(dlg)));
@@ -195,6 +202,40 @@ public class BankIt implements IApplication {
         for (Object s : (List<?>) handler.getMethod("floatShownForTest").invoke(null)) out.println("FLOAT-SHOWN " + s);
         shot(fl, "bank-float.png");
         shotWindow("bank-float-workbench.png");
+        // 5א. "הכן סעיף ב": הפעולה והבדיקות שלו נכנסות לקוד (גם כשהקובץ פתוח בעורך, והסמן במקום אחר), וההצעה לפתרון נשמרת
+        ui(() -> {
+            org.eclipse.ui.IEditorPart ed = page().getActiveEditor();
+            if (ed instanceof org.eclipse.ui.texteditor.ITextEditor) ((org.eclipse.ui.texteditor.ITextEditor) ed).selectAndReveal(0, 0);   // הסמן בתחילת הקובץ
+            return null;
+        });
+        out.println("PREPARED-BEFORE " + handler.getMethod("preparedForTest", String.class).invoke(null, STACK));
+        out.println("PREPARE " + ui(() -> handler.getMethod("prepareForTest", IWorkbenchPage.class, String.class, String.class).invoke(null, page(), STACK, "ב")));
+        sleep(800);
+        out.println("PREPARED-AFTER " + handler.getMethod("preparedForTest", String.class).invoke(null, STACK));
+        for (String f : files) {
+            if (f.startsWith("ERROR")) continue;
+            String text = read(f);
+            int mainAt = text.indexOf("static void main");
+            out.println("FILE2 " + f + " answer-marks=" + count(text, "כאן עונים סעיף") + " second-method=" + text.contains("sizeOf(Stack")
+                    + " method-before-main=" + (text.indexOf("sizeOf(Stack") >= 0 && text.indexOf("sizeOf(Stack") < mainAt)
+                    + " main-has-b=" + (mainAt >= 0 && text.indexOf("סעיף ב", mainAt) > 0) + " expected-b=" + text.contains("סעיף ב: 4"));
+            out.println("SOLUTIONS2 " + f + " " + handler.getMethod("solutionsForTest", String.class).invoke(null, f));
+        }
+        out.println("ACTIVE-LINE " + ui(() -> {
+            org.eclipse.ui.IEditorPart ed = page().getActiveEditor();
+            if (!(ed instanceof org.eclipse.ui.texteditor.ITextEditor)) return "none";
+            org.eclipse.ui.texteditor.ITextEditor te = (org.eclipse.ui.texteditor.ITextEditor) ed;
+            org.eclipse.jface.text.IDocument doc = te.getDocumentProvider().getDocument(te.getEditorInput());
+            int line = doc.getLineOfOffset(((org.eclipse.jface.text.ITextSelection) te.getSelectionProvider().getSelection()).getOffset());
+            return "dirty=" + te.isDirty() + " prev=" + doc.get(doc.getLineOffset(line - 1), doc.getLineLength(line - 1)).trim();
+        }));
+        ui(() -> { BankIt.this.build(); return null; });
+        out.println("PROBLEMS2 " + ui(() -> problems(files)));
+        ui(() -> { handler.getMethod("openExistingForTest", IWorkbenchPage.class, String.class).invoke(null, page(), STACK); return null; });
+        sleep(800);
+        for (Object s : (List<?>) handler.getMethod("floatShownForTest").invoke(null)) out.println("FLOAT2-SHOWN " + s);
+        shot(ui(() -> (Shell) handler.getMethod("floatShellForTest").invoke(null)), "bank-float-after-prepare.png");
+        shotWindow("bank-after-prepare-workbench.png");
         // 5ב. כותבים קוד בעורך (הקלדה אמיתית) בזמן שהחלון הצף פתוח: הוא נשאר מקדימה ולא לוקח את המיקוד
         ui(() -> {
             org.eclipse.ui.IEditorPart ed = page().getActiveEditor();
@@ -353,6 +394,21 @@ public class BankIt implements IApplication {
         Method m = d.getClass().getDeclaredMethod("select", String.class, String.class);
         m.setAccessible(true);
         m.invoke(d, topic, q);
+    }
+
+    /** שגיאות הקומפילציה בקבצים (בלי "missing return" — הפעולות הריקות): "0" או רשימה */
+    private String problems(List<String> files) throws Exception {
+        List<String> out = new java.util.ArrayList<String>();
+        for (String f : files) {
+            if (f.startsWith("ERROR")) continue;
+            org.eclipse.core.resources.IFile file = ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(f));
+            for (org.eclipse.core.resources.IMarker m : file.findMarkers(org.eclipse.core.resources.IMarker.PROBLEM, true, 0)) {
+                if (m.getAttribute(org.eclipse.core.resources.IMarker.SEVERITY, 0) != org.eclipse.core.resources.IMarker.SEVERITY_ERROR) continue;
+                String msg = m.getAttribute(org.eclipse.core.resources.IMarker.MESSAGE, "");
+                if (!msg.contains("return") && !msg.contains("החזרה") && !msg.contains("return")) out.add(msg);
+            }
+        }
+        return out.isEmpty() ? "0" : out.toString();
     }
 
     /** מה נשאר מהתרגיל: קבצים, תיקיית החבילה, תיקייה ב-bin, לשוניות פתוחות, הצעות לפתרון שמורות, ורישום "נוצר" */

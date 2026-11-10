@@ -107,7 +107,7 @@ async function googlePopup(page, clickSel, email, name) {
 
 // הלקוח האמיתי של DSViz (Account.java, אותו קוד של Eclipse / IntelliJ) — במקום fakeApp המדומה
 function realApp(role, dir) {
-  const proc = spawn('java', ['-Dstdout.encoding=UTF-8', '-cp', process.env.ACC_CLASSES || '/tmp/acc-cls', 'il.lamerhav.dsviz.TeacherSignIn', BASE, dir, role], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const proc = spawn(process.env.ACC_JAVA || 'java', ['-Dstdout.encoding=UTF-8', '-cp', process.env.ACC_CLASSES || '/tmp/acc-cls', 'il.lamerhav.dsviz.TeacherSignIn', BASE, dir, role], { stdio: ['ignore', 'pipe', 'inherit'] });
   let buf = '';
   const waiters = [];
   proc.stdout.on('data', d => { buf += d; waiters.splice(0).forEach(w => w()); });
@@ -214,6 +214,52 @@ await step('הגדרות: המתג של Gemini נשמר; יומן הפעולות
   await page.waitForSelector('.feed li');
   assert.match(await page.textContent('#content'), /מכסה 30 ← 40/);
   await shot(page, '09-admin-log');
+});
+
+await step('סדר לפי זמן: יומן, פעילות אחרונה, המחשבים של מורה, כניסה אחרונה — ונזכר', async () => {
+  const sorted = (t, dir) => t.length > 2 && t.every((x, i) => i === 0 || (dir === 'asc' ? t[i - 1] <= x : t[i - 1] >= x));
+  const attr = (sel, a) => page.$$eval(sel, (els, a) => els.map(e => e.getAttribute(a)), a);
+  // יומן הפעולות (פתוח מהשלב הקודם): ברירת מחדל — החדש קודם
+  assert.ok(sorted(await attr('.feed time', 'datetime'), 'desc'), 'יומן: החדש קודם');
+  await page.click('.titlebar .order button:has-text("הישן קודם")');
+  await page.waitForFunction(() => { const t = [...document.querySelectorAll('.feed time')].map(e => e.getAttribute('datetime')); return t.length > 2 && t[0] < t[t.length - 1]; });
+  assert.ok(sorted(await attr('.feed time', 'datetime'), 'asc'), 'יומן: הישן קודם');
+  await shot(page, '10-admin-log-oldest');
+  await page.click('.nav a[href="#overview"]');
+  await page.waitForSelector('.kpis');
+  await page.click('.nav a[href="#log"]');
+  await page.waitForSelector('.titlebar .order button[aria-pressed="true"]:has-text("הישן קודם")');
+  assert.ok(sorted(await attr('.feed time', 'datetime'), 'asc'), 'הבחירה נזכרת');
+  await page.click('.titlebar .order button:has-text("החדש קודם")');
+  await page.waitForFunction(() => { const t = [...document.querySelectorAll('.feed time')].map(e => e.getAttribute('datetime')); return t.length > 2 && t[0] > t[t.length - 1]; });
+  // פעילות אחרונה בסקירה
+  await page.click('.nav a[href="#overview"]');
+  await page.waitForSelector('.card .order');
+  assert.ok(sorted(await attr('.feed time', 'datetime'), 'desc'));
+  await page.click('.card .order button:has-text("הישן קודם")');
+  assert.ok(sorted(await attr('.feed time', 'datetime'), 'asc'), 'סקירה: הישן קודם');
+  await shot(page, '11-admin-overview-oldest');
+  // המחשבים של מורה: לפי פעילות אחרונה / מועד החיבור, בשני הכיוונים
+  await page.click('.nav a[href="#teachers"]');
+  await page.click('text=רונית אברהם');
+  await page.waitForSelector('.drawer .order');
+  assert.ok(sorted(await attr('.drawer .item[data-seen]', 'data-seen'), 'desc'), 'מחשבים: פעילים לאחרונה קודם');
+  await page.click('.drawer .order button:has-text("הישן קודם")');
+  assert.ok(sorted(await attr('.drawer .item[data-seen]', 'data-seen'), 'asc'));
+  await page.selectOption('.drawer select', 'claimedAt');
+  assert.ok(sorted(await attr('.drawer .item[data-claimed]', 'data-claimed'), 'asc'), 'מחשבים: לפי מועד החיבור');
+  await page.click('.drawer .order button:has-text("החדש קודם")');
+  assert.ok(sorted(await attr('.drawer .item[data-claimed]', 'data-claimed'), 'desc'));
+  await shot(page, '12-admin-stations-sorted');
+  // טבלת המורים: כותרת "כניסה אחרונה" ממיינת
+  await page.click('th button.thsort:has-text("כניסה אחרונה")');
+  await page.waitForSelector('th[aria-sort="descending"]');
+  await page.click('th button.thsort:has-text("כניסה אחרונה")');
+  await page.waitForSelector('th[aria-sort="ascending"]');
+  await page.click('th button.thsort:has-text("כניסה אחרונה")');
+  await page.waitForSelector('th[aria-sort="none"]');
+  await page.click('.nav a[href="#overview"]');
+  await page.waitForSelector('.card .order');
 });
 
 await step('חיפוש: קוד מורה / שם מחשב / תלמיד', async () => {

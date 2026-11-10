@@ -56,25 +56,109 @@ public final class AccessGate {
 
     /** פותח את המאגר אם יש כניסה תקפה במחשב (או שהשרת לא דורש); אחרת — מסך הכניסה, ואחרי הכניסה פותח */
     public static void require(final Component parent, final Runnable open) {
-        if (disabled() || Account.current() != null) {
+        if (disabled()) {
             open.run();
-            refreshLater();
+            return;
+        }
+        final Account.Access saved = Account.current();
+        if (saved != null) {
+            checkThenOpen(parent, open, saved);
             return;
         }
         // אין כניסה במחשב: שואלים את השרת אם הכניסה בכלל פעילה (בלי אינטרנט — מסך הכניסה, עם הסבר).
+        // לא מחכים לתשובה כדי להראות את המסך: אם היא לא הגיעה תוך רגע — המסך נפתח מיד (מקדימה), ואם בסוף מתברר שהשרת
+        // לא דורש כניסה — הוא נסגר והמאגר נפתח.
         // חוט רגיל (לא SwingWorker, שהחוטים שלו "daemon"): בכלי של Visual Studio עוד אין שום חלון פתוח,
         // ובלי חוט כזה Java נסגרת לפני שהתשובה מגיעה — ומסך הכניסה לא נפתח
+        final AccessGate.Dialog[] shown = { null };
+        final boolean[] decided = { false };
+        final Timer early = new Timer(SHOW_AFTER_MS, e -> {
+            if (decided[0] || shown[0] != null) return;
+            shown[0] = new AccessGate.Dialog(parent, open);
+            showInFront(shown[0]);
+        });
+        early.setRepeats(false);
+        SwingUtilities.invokeLater(early::start);
         Thread t = new Thread(() -> {
             boolean need;
             try { need = serverRequiresLogin(); } catch (Throwable e) { need = true; }
             final boolean show = need;
             SwingUtilities.invokeLater(() -> {
-                if (!show) open.run();
-                else new AccessGate.Dialog(parent, open).setVisible(true);
+                decided[0] = true;
+                early.stop();
+                if (show) {
+                    if (shown[0] == null) {
+                        shown[0] = new AccessGate.Dialog(parent, open);
+                        showInFront(shown[0]);
+                    }
+                } else {
+                    if (shown[0] != null) shown[0].dispose();
+                    open.run();
+                }
             });
         }, "dsviz-access");
         t.setDaemon(false);
         t.start();
+    }
+
+    /** אחרי כמה זמן בלי תשובה מהשרת מראים את מסך הכניסה בכל זאת */
+    static final int SHOW_AFTER_MS = 700;
+
+    /** כמה מחכים לבדיקה מול השרת לפני שפותחים את המאגר עם הכניסה השמורה (בלי אינטרנט — לא מחכים יותר מזה) */
+    static final int CHECK_WAIT_MS = 3500;
+
+    /**
+     * יש כניסה שמורה במחשב: כשיש אינטרנט — קודם בודקים מול השרת (עד CHECK_WAIT_MS). עמדה שההנהלה שחררה / גישה שבוטלה —
+     * הכניסה נמחקת (Account.refresh) ובמקום המאגר נפתח מסך הכניסה, עם הסבר. תקפה, או שאין תשובה (בלי אינטרנט / שרת איטי) —
+     * המאגר נפתח כרגיל, והבדיקה ממשיכה ברקע (אם בסוף התברר שבוטל — בפתיחה הבאה כבר מסך הכניסה).
+     */
+    static void checkThenOpen(final Component parent, final Runnable open, final Account.Access saved) {
+        final boolean[] done = { false };
+        final Runnable openBank = () -> {
+            if (done[0]) return;
+            done[0] = true;
+            open.run();
+        };
+        final Timer wait = new Timer(CHECK_WAIT_MS, e -> openBank.run());
+        wait.setRepeats(false);
+        SwingUtilities.invokeLater(wait::start);
+        // חוט רגיל (לא daemon): בכלי של Visual Studio עוד אין חלון פתוח, ו-Java לא תיסגר לפני התשובה
+        Thread t = new Thread(() -> {
+            Account.Result r;
+            try { r = Account.refresh(); } catch (Throwable e) { r = new Account.Result("error", "", null); }
+            final boolean gone = !"offline".equals(r.status) && !"error".equals(r.status) && Account.current() == null;
+            SwingUtilities.invokeLater(() -> {
+                wait.stop();
+                if (done[0]) return;          // כבר נפתח (התשובה איחרה) — הפעם הבאה תראה את מסך הכניסה
+                if (!gone) {
+                    openBank.run();
+                    return;
+                }
+                done[0] = true;
+                AccessGate.Dialog d = new AccessGate.Dialog(parent, open);
+                d.notice(saved.isStation()
+                        ? "המחשב הזה כבר לא מחובר כעמדת מחשב — ההנהלה שחררה אותו. כדי להמשיך מתחברים שוב."
+                        : "הכניסה שהייתה שמורה במחשב הזה כבר לא בתוקף. כדי להמשיך מתחברים שוב.");
+                showInFront(d);
+            });
+        }, "dsviz-access-check");
+        t.setDaemon(false);
+        t.start();
+    }
+
+    /**
+     * מסך הכניסה נפתח מקדימה — גם כשהוא נפתח מתוך Eclipse / IntelliJ / Visual Studio שהחלון שלהם בפוקוס. "תמיד מעל" רק לרגע
+     * (front), ושוב כשהחלון באמת מוצג על המסך; אחר כך זה חלון רגיל — אפשר לעבור לחלון אחר והוא יורד אחורה.
+     */
+    static void showInFront(final java.awt.Window w) {
+        w.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e) {
+                front(w);
+            }
+        });
+        w.setVisible(true);
+        front(w);
     }
 
     /** הכניסה פעילה בשרת? (בלי אינטרנט — true: אי אפשר לדעת, והמסך מסביר) */
@@ -130,6 +214,8 @@ public final class AccessGate {
         private final JPanel body = new JPanel(cards);
         private final JTextField code = field(""), name = field(Account.machineName());
         private final JLabel stationError = text("", 13, false, new Color(0xB42318));
+        /** הסבר למה מסך הכניסה נפתח (עמדה ששוחררה / כניסה שבוטלה) — מעל שלוש האפשרויות; מוסתר כשאין */
+        private final JLabel notice = text("", 14, true, WARN);
         private final JPanel message = column();
         private Account.Cancel cancel;
         private Timer payPoll;
@@ -161,6 +247,14 @@ public final class AccessGate {
             });
         }
 
+        /** שורת הסבר בראש המסך (למשל: "ההנהלה שחררה את העמדה") */
+        void notice(String s) {
+            boolean was = notice.isVisible();
+            notice.setText(RLM + s);
+            notice.setVisible(s != null && !s.isEmpty());
+            if (notice.isVisible() && !was) setSize(getWidth(), getHeight() + 46);   // מקום לשורה — הכרטיסים לא נחתכים
+        }
+
         private JComponent header() {
             JPanel h = new JPanel(new BorderLayout());
             h.setBackground(CARD);
@@ -176,6 +270,12 @@ public final class AccessGate {
             JPanel p = column();
             p.setBorder(BorderFactory.createEmptyBorder(26, 30, 24, 30));
             p.add(text("כניסה למאגר התרגילים", 24, true, INK));
+            notice.setVisible(false);
+            notice.setOpaque(true);
+            notice.setBackground(WARN_SOFT);
+            notice.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            p.add(Box.createVerticalStrut(8));
+            p.add(notice);
             p.add(Box.createVerticalStrut(6));
             p.add(text("פעם אחת במחשב הזה — אחר כך המאגר נפתח לבד, גם בלי אינטרנט.", 15, false, MUTED));
             p.add(Box.createVerticalStrut(20));
@@ -418,6 +518,10 @@ public final class AccessGate {
      * מביא את החלון לקדמת המסך (גם כשהחלון הראשי של Eclipse / IntelliJ הוא זה שבפוקוס): "תמיד מעל" לרגע קצר מכריח את מערכת
      * ההפעלה להציג אותו מלפנים, ואז הוא חלון רגיל — לא מסתיר דברים אחרים אחרי שעוברים הלאה.
      */
+    /** כמה זמן לכל היותר חלון שנפתח נשאר "מעל הכול" אם המשתמש לא נגע בו */
+    static final int FRONT_MS = 20000;
+    private static final java.util.Map<java.awt.Window, Boolean> FRONT = new java.util.WeakHashMap<java.awt.Window, Boolean>();
+
     static void front(final java.awt.Window w) {
         try {
             if ((w instanceof java.awt.Frame) && (((java.awt.Frame) w).getExtendedState() & java.awt.Frame.ICONIFIED) != 0)
@@ -425,10 +529,36 @@ public final class AccessGate {
             w.setAlwaysOnTop(true);
             w.toFront();
             w.requestFocus();
-            javax.swing.Timer t = new javax.swing.Timer(400, e -> {
+            if (FRONT.containsKey(w)) return;   // כבר מוחזק מקדימה (נקרא שוב מ-windowOpened)
+            FRONT.put(w, Boolean.TRUE);
+            // נשאר מעל הכול עד שהמשתמש נוגע בחלון (לחיצה / מקש בתוכו), או FRONT_MS לכל היותר; ואז חלון רגיל (אפשר להוריד אחורה).
+            // לא רק לרגע: Eclipse / Visual Studio מפעילים את החלון שלהם שוב אחרי הלחיצה על הכפתור (וב-Visual Studio הכלי הוא תהליך
+            // נפרד, ש-Windows לא נותן לו לקחת את הפוקוס) — "תמיד מעל" לרגע ואז רגיל = המסך נבלע מאחור
+            final long until = System.currentTimeMillis() + FRONT_MS;
+            final java.awt.event.AWTEventListener[] touch = { null };
+            final javax.swing.Timer t = new javax.swing.Timer(500, null);
+            final Runnable release = () -> {
+                t.stop();
+                if (touch[0] != null) java.awt.Toolkit.getDefaultToolkit().removeAWTEventListener(touch[0]);
+                FRONT.remove(w);
                 if (w.isDisplayable()) w.setAlwaysOnTop(false);
+            };
+            touch[0] = ev -> {
+                if (ev.getID() != java.awt.event.MouseEvent.MOUSE_PRESSED && ev.getID() != java.awt.event.KeyEvent.KEY_PRESSED) return;
+                Object src = ev.getSource();
+                if (src instanceof Component && SwingUtilities.getWindowAncestor((Component) src) == w || src == w)
+                    SwingUtilities.invokeLater(release);
+            };
+            java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(touch[0],
+                    java.awt.AWTEvent.MOUSE_EVENT_MASK | java.awt.AWTEvent.KEY_EVENT_MASK);
+            final int[] ticks = { 0 };
+            t.addActionListener(e -> {
+                if (!w.isDisplayable() || System.currentTimeMillis() > until) {
+                    release.run();
+                    return;
+                }
+                if (++ticks[0] <= 6) w.toFront();   // בשלוש השניות הראשונות: שוב קדימה, אם סביבת העבודה הפעילה את עצמה
             });
-            t.setRepeats(false);
             t.start();
         } catch (RuntimeException ignored) {
             // לא מצליחים להקדים — החלון עדיין פתוח

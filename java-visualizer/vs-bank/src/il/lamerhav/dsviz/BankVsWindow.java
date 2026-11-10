@@ -115,7 +115,7 @@ final class BankVsWindow {
         JPanel titleRow = new JPanel(new BorderLayout());
         titleRow.setOpaque(false);
         titleRow.setAlignmentX(Component.RIGHT_ALIGNMENT);
-        titleRow.add(RtlDialog.label("מאגר תרגילים", Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 18f)), RtlDialog.INK), BorderLayout.LINE_START);
+        titleRow.add(RtlDialog.label("מאגר תרגילים", Theme.z(RtlDialog.bold().deriveFont(18f)), RtlDialog.INK), BorderLayout.LINE_START);
         titleRow.add(BankZoom.controls(), BorderLayout.LINE_END);
         sideTop.add(titleRow);
         sideTop.add(RtlDialog.gap(2));
@@ -347,7 +347,7 @@ final class BankVsWindow {
             Image im = icon(t.id);
             if (im != null) g.drawImage(im, x - 26, cy - 13, 26, 26, null);
             x -= 34;
-            g.setFont(Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 14f)));
+            g.setFont(Theme.z(RtlDialog.bold().deriveFont(14f)));
             g.setColor(RtlDialog.INK);
             FontMetrics fm = g.getFontMetrics();
             g.drawString(t.title, x - fm.stringWidth(t.title), cy + fm.getAscent() / 2 - 2);
@@ -412,7 +412,7 @@ final class BankVsWindow {
             g.setColor(BankVsPanel.level(q.level));
             g.fillOval(x - 8, cy - 4, 8, 8);
             x -= 16;
-            g.setFont(Theme.z(sel ? RtlDialog.bold().deriveFont(Font.BOLD, 12.5f) : RtlDialog.ui().deriveFont(12.5f)));
+            g.setFont(Theme.z(sel ? RtlDialog.bold().deriveFont(12.5f) : RtlDialog.ui().deriveFont(12.5f)));
             g.setColor(RtlDialog.INK);
             FontMetrics fm = g.getFontMetrics();
             String t = q.title;
@@ -534,7 +534,7 @@ final class BankVsWindow {
         body.setBorder(BorderFactory.createEmptyBorder(18, 22, 18, 22));
         body.setBackground(RtlDialog.PANEL);
         body.setOpaque(true);
-        body.add(RtlDialog.label("יוצר את התרגיל…", Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 15f)), RtlDialog.INK));
+        body.add(RtlDialog.label("יוצר את התרגיל…", Theme.z(RtlDialog.bold().deriveFont(15f)), RtlDialog.INK));
         body.add(RtlDialog.gap(6));
         final JLabel stage = RtlDialog.label("מכין את הקבצים", RtlDialog.ui(), RtlDialog.INK_2);
         body.add(stage);

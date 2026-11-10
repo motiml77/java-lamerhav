@@ -8,7 +8,7 @@
     "sections": [
       {
         "label": "א",
-        "text": "כתוב פעולה ששמה lastValue, המקבלת הפניה first ומחזירה את הערך שבחוליה האחרונה בשרשרת.\nלדוגמה: עבור השרשרת העליונה שבציור הפעולה תחזיר 9.",
+        "text": "כתוב פעולה ששמה lastValue, המקבלת הפניה first ומחזירה את הערך שבחוליה האחרונה בשרשרת.\nלדוגמה: עבור השרשרת העליונה שבציור הפעולה תחזיר 9",
         "figures": [
           {
             "type": "list",
@@ -58,7 +58,7 @@
             "name": "first"
           }
         ],
-        "instructions": "כתוב פעולה ששמה lastValue, המקבלת הפניה first ומחזירה את הערך שבחוליה האחרונה בשרשרת.\nלדוגמה: עבור השרשרת העליונה שבציור הפעולה תחזיר 9.",
+        "instructions": "כתוב פעולה ששמה lastValue, המקבלת הפניה first ומחזירה את הערך שבחוליה האחרונה בשרשרת.\nלדוגמה: עבור השרשרת העליונה שבציור הפעולה תחזיר 9",
         "solution": "public static int lastValue(Node<Integer> first) {\n    Node<Integer> p = first;\n    while (p.getNext() != null) {\n        p = p.getNext();\n    }\n    return p.getValue();\n}"
       },
       {
@@ -89,7 +89,7 @@
       "sections": [
         {
           "label": "א",
-          "text": "כתוב פעולה ששמה LastValue, המקבלת הפניה first ומחזירה את הערך שבחוליה האחרונה בשרשרת.\nלדוגמה: עבור השרשרת העליונה שבציור הפעולה תחזיר 9.",
+          "text": "כתוב פעולה ששמה LastValue, המקבלת הפניה first ומחזירה את הערך שבחוליה האחרונה בשרשרת.\nלדוגמה: עבור השרשרת העליונה שבציור הפעולה תחזיר 9",
           "figures": [
             {
               "type": "list",
@@ -139,7 +139,7 @@
               "name": "first"
             }
           ],
-          "instructions": "כתוב פעולה ששמה LastValue, המקבלת הפניה first ומחזירה את הערך שבחוליה האחרונה בשרשרת.\nלדוגמה: עבור השרשרת העליונה שבציור הפעולה תחזיר 9.",
+          "instructions": "כתוב פעולה ששמה LastValue, המקבלת הפניה first ומחזירה את הערך שבחוליה האחרונה בשרשרת.\nלדוגמה: עבור השרשרת העליונה שבציור הפעולה תחזיר 9",
           "solution": "public static int LastValue(Node<int> first)\n{\n    Node<int> p = first;\n    while (p.GetNext() != null)\n    {\n        p = p.GetNext();\n    }\n    return p.GetValue();\n}"
         },
         {
