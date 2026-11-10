@@ -511,6 +511,45 @@ Info ("תוכן מסך הכניסה: " + ((JsonTexts $gate) -join ' | '))
 KillJava
 Start-Sleep 3
 
+# ------------------------------------------------------------------ 6ב. מסך הכניסה מקדימה — גם כש-Visual Studio מפעיל את עצמו שוב
+Log "== 6ב. כפתור המאגר בסרגל -> מסך הכניסה, ו-Visual Studio מפעיל את עצמו שוב: מסך הכניסה עדיין מעליו (צילום מסך מלא)"
+Add-Type -Namespace Win -Name Z -MemberDefinition @'
+[DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(System.Drawing.Point p);
+[DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+[DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+public struct RECT { public int Left, Top, Right, Bottom; }
+'@ -ReferencedAssemblies System.Drawing
+KillJava; Start-Sleep 2
+[Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null
+[Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
+Start-Sleep 2
+Info "לחיצה על כפתור המאגר: $(ClickBank)"
+$gw = $null
+for ($i = 0; $i -lt 90 -and -not $gw; $i++) {
+    Start-Sleep 1
+    $gw = Get-Process javaw, java -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like '*כניסה למאגר*' } | Select-Object -First 1
+}
+Check 'gate-front-open' ($null -ne $gw) "מסך הכניסה נפתח אחרי הלחיצה על כפתור המאגר" ((Windows) -join ' ; ')
+if ($gw) {
+    # Visual Studio מפעיל את עצמו שוב (כמו שקורה באמת אחרי הלחיצה) — ומסך הכניסה צריך להישאר מעליו
+    Start-Sleep 1
+    [Win.Z]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
+    Start-Sleep 3
+    $r = New-Object Win.Z+RECT
+    [void][Win.Z]::GetWindowRect($gw.MainWindowHandle, [ref]$r)
+    $pt = New-Object Drawing.Point ([int](($r.Left + $r.Right) / 2)), ([int](($r.Top + $r.Bottom) / 2))
+    $top = [Win.Z]::GetAncestor([Win.Z]::WindowFromPoint($pt), 2)
+    [uint32]$topPid = 0; [void][Win.Z]::GetWindowThreadProcessId($top, [ref]$topPid)
+    $who = (Get-Process -Id $topPid -ErrorAction SilentlyContinue).ProcessName
+    Info "באמצע מסך הכניסה ($($pt.X),$($pt.Y)) רואים את החלון של: $who (pid $topPid; מסך הכניסה: $($gw.Id), Visual Studio: $($vsP.Id))"
+    Shot '19-gate-in-front-of-vs'
+    Check 'gate-front-of-vs' ($topPid -eq $gw.Id) "מסך הכניסה מעל Visual Studio — גם אחרי ש-Visual Studio הפעיל את עצמו שוב (רואים בצילום 19-gate-in-front-of-vs.png)" "באמצע המסך: $who"
+}
+KillJava
+Start-Sleep 3
+
 # ------------------------------------------------------------------ 7. 'מאגר תרגילים' (off) -> שאלה -> צור תרגיל -> 'השאלה'
 Log "== 7. כפתור המאגר בסרגל (dsviz.access=off) -> בחירת שאלה -> 'צור תרגיל' -> החלון הצף 'השאלה'"
 $before2 = @(Get-ChildItem $exDir -Directory -ErrorAction SilentlyContinue | ForEach-Object Name)
