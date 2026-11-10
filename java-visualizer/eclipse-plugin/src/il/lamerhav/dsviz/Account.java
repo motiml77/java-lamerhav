@@ -455,14 +455,17 @@ public final class Account {
             f.getParentFile().mkdirs();
             File tmp = new File(f.getParentFile(), f.getName() + ".tmp");
             Files.write(tmp.toPath(), Json.write(outer).getBytes(StandardCharsets.UTF_8));
+            boolean shared = isStationFile(f);
+            if (!shared) ownerOnly(tmp);   // הכרטיס של המורה / התלמיד — רק המשתמש עצמו קורא (Mac / Linux: בלי זה הקובץ ‎0644‎)
             Files.move(tmp.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            f.setReadable(true, false);   // עמדה: כל המשתמשים של המחשב קוראים
+            if (shared) f.setReadable(true, false);   // עמדה: כל המשתמשים של המחשב קוראים
             hide(f);
             File b = backupOf(f);
             if (b != null) {
                 try {
                     b.getParentFile().mkdirs();
                     Files.copy(f.toPath(), b.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    if (!shared) ownerOnly(b);
                     hide(b);
                 } catch (IOException ignored) {
                     // בלי גיבוי — הקובץ הראשי נשמר
@@ -472,6 +475,20 @@ public final class Account {
         } catch (Exception e) {
             lastError = String.valueOf(e);
             return false;
+        }
+    }
+
+    private static boolean isStationFile(File f) {
+        return STATION_FILE.equals(f.getName()) || STATION_DAT.equals(f.getName());
+    }
+
+    /** Mac / Linux: הרשאות ‎0600‎ (רק הבעלים). ב-Windows התיקייה ‎%LOCALAPPDATA%‎ כבר של המשתמש בלבד */
+    static void ownerOnly(File f) {
+        try {
+            if (Files.getFileStore(f.toPath()).supportsFileAttributeView(java.nio.file.attribute.PosixFileAttributeView.class))
+                Files.setPosixFilePermissions(f.toPath(), java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+        } catch (Exception ignored) {
+            // מערכת קבצים בלי הרשאות POSIX
         }
     }
 
@@ -570,6 +587,9 @@ public final class Account {
                 String msg = Json.str(j.get("error"));
                 return new Result(Json.str(j.get("code")).isEmpty() ? "error" : Json.str(j.get("code")), msg.isEmpty() ? "השרת לא ענה כמו שצריך (" + code + ")." : msg, j);
             }
+            // כל תשובה של השרת שלנו היא JSON עם ok:true. תשובה ריקה / בלי ok (סינון אינטרנט בבית הספר, פורטל של רשת אורחים,
+            // proxy) — לא תשובה של השרת: אסור להתייחס אליה כ"מאושר" (ככה נמחק האישור השמור והמשתמש ננעל בחוץ)
+            if (!Boolean.TRUE.equals(j.get("ok"))) return new Result("error", "תשובה לא תקינה מהשרת.", null);
             return new Result(Json.str(j.get("status")).isEmpty() ? "ok" : Json.str(j.get("status")), "", j);
         } catch (IOException e) {
             return new Result("offline", "אין חיבור לשרת. בודקים את האינטרנט ומנסים שוב.", null);
@@ -612,14 +632,15 @@ public final class Account {
             d.put("teacherCode", Json.str(t.get("code")));
             d.put("teacherSeats", t.get("seats"));
             d.put("teacherUsed", t.get("used"));
+            d.put("teacherName", Json.str(t.get("name")));   // השם שההנהלה הגדירה (בחשבון Google לפעמים אין שם)
         }
         save(f, d);
     }
 
     /** הקוד של המורה המחובר (כמו שנשמר בכניסה / בבדיקה האחרונה מול השרת), או "" */
     public static String teacherCode() {
-        Map<String, Object> u = userState();
-        return u == null ? "" : Json.str(u.get("teacherCode"));
+        Map<String, Object> t = teacherInfo();
+        return t == null ? "" : Json.str(t.get("code"));
     }
 
     /** כתובת עמדת הניהול של המורה (קוד, עמדות, תשלום) — בדפדפן */
@@ -634,6 +655,17 @@ public final class Account {
         if (!u.isEmpty()) browser.accept(u);
     }
 
+    /** אחרי כניסה מוצלחת: מה שנשמר באמת נפתח במחשב הזה? אחרת — "נכנסת" היה מופיע, והמאגר שוב היה מבקש כניסה בכל פתיחה */
+    private static Result checkSaved(Result r, File f) {
+        if (!r.ok()) return r;
+        Map<String, Object> d = load(f);
+        if (d == null) return new Result("storage", "הכניסה הצליחה, אבל לא הצלחתי לשמור אותה במחשב הזה (אין הרשאה לכתוב בתיקיית המשתמש"
+                + (lastError.isEmpty() ? "" : ": " + lastError) + "). פונים לרכז המחשבים.", r.body);
+        if (verifyPass(Json.str(d.get("pass"))) == null) return new Result("pass", "הכניסה הצליחה, אבל המחשב לא הצליח לאמת את האישור מהשרת."
+                + " בודקים שהתאריך והשעה במחשב נכונים, ושגרסת DSViz מעודכנת — ומנסים שוב.", r.body);
+        return r;
+    }
+
     // ------------------------------------------------------------------ עמדת מחשב
 
     /** חיבור עמדה עם קוד המורה. ok — נשמר לכל המחשב; full / bad-code / blocked / offline — הודעה */
@@ -644,11 +676,15 @@ public final class Account {
             File f = new File(machineDir(), STATION_FILE);
             store(f, r, token);
             if (!f.isFile()) store(stationFallback(), r, token);   // אין הרשאה לתיקייה של המחשב
+            r = checkSaved(r, stationFile());
         }
         return r;
     }
 
     // ------------------------------------------------------------------ מורה / תלמיד: כניסה עם Google בדפדפן
+
+    /** אין חזרה מהדפדפן בזמן (הדפדפן נסגר / לא סיימו את הכניסה) */
+    static final String TIMEOUT_MESSAGE = "לא התקבלה כניסה מהדפדפן (אולי הדפדפן נסגר לפני שהכניסה הסתיימה). לוחצים \"חזרה\" ושוב \"כניסה עם Google\".";
 
     /** מה רואים בזמן ההמתנה לדפדפן */
     public interface Listener {
@@ -684,23 +720,28 @@ public final class Account {
         // (jlink — ממנו רצים הכלים של Visual Studio) לא כולל את jdk.httpserver, ושם הכניסה נכשלה מיד (NoClassDefFoundError)
         final ServerSocket server;
         try {
-            server = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+            // דווקא 127.0.0.1 (הדפדפן חוזר לכתובת הזו): getLoopbackAddress מחזיר ‎::1‎ כש-Java מעדיפה IPv6
+            // (‎-Djava.net.preferIPv6Addresses=true‎ ב-eclipse.ini / ב-IDE) — ואז הדפדפן לא מגיע לתוכנה והכניסה לא מסתיימת
+            server = new ServerSocket(0, 50, LOOPBACK);
         } catch (IOException e) {
             return new Result("error", "לא הצלחתי לפתוח את החיבור לדפדפן במחשב הזה.", null);
         }
         final Object once = new Object();
+        final java.util.concurrent.atomic.AtomicBoolean over = new java.util.concurrent.atomic.AtomicBoolean();
         final AtomicReference<String> back = new AtomicReference<String>();   // לאן הדפדפן חוזר אחרי הכניסה
         final Done handler = target -> {
             Map<String, String> q = query(target.indexOf('?') < 0 ? null : target.substring(target.indexOf('?') + 1));
             if (!state.equals(q.get("state")) || q.get("code") == null) return null;
             synchronized (once) {   // הדפדפן שולח שוב (רענון) — הקוד כבר מומש: חוזרים לאותו מקום
                 if (back.get() != null) return back.get();
+                if (over.get() || cancel != null && cancel.cancelled) return null;   // בוטל / נגמר הזמן — לא מממשים (אחרת נכנסים "בשקט" אחרי ביטול)
                 String location;
                 try {
                     Result r = post("/v1/auth/redeem", map("code", q.get("code"), "verifier", verifier, "machine", machine(),
                             "machineName", machineName(), "client", WorkerClient.CLIENT));
                     String token = Json.str(r.body.get("token"));
                     if (!token.isEmpty()) store(userFile(), r, token);
+                    r = checkSaved(r, userFile());
                     result.set(r);
                     location = base + "/welcome?r=" + enc(r.status.matches("ok|pay|not-teacher|blocked|devices") ? r.status : "error")
                             + "&role=" + enc(role) + (r.status.matches("ok|pay|not-teacher|blocked|devices") ? "" : "&m=" + enc(r.message));
@@ -731,17 +772,31 @@ public final class Account {
         try {
             String url = base + "/signin?role=" + enc(role) + "&port=" + server.getLocalPort() + "&state=" + enc(state) + "&challenge=" + enc(challenge);
             if (listener != null) listener.waiting(url);
-            browser.accept(url);
+            try {
+                browser.accept(url);
+            } catch (RuntimeException e) {
+                // הדפדפן לא נפתח — ממשיכים לחכות: בחלון יש קישור להעתקה
+            }
             boolean got = done.await(timeoutMs, TimeUnit.MILLISECONDS);
-            if (cancel != null && cancel.cancelled && result.get() == null) return new Result("cancelled", "", null);
-            if (!got || result.get() == null) return new Result("cancelled", "לא התקבלה כניסה מהדפדפן. לוחצים שוב על \"התחברות\".", null);
+            synchronized (once) {   // מימוש שכבר התחיל — מחכים שיסתיים (לא מחזירים "בוטל" כשבעצם נכנסנו); אחרי זה לא מתחיל אחר
+                over.set(true);
+                if (result.get() == null) return new Result("cancelled", got ? "" : TIMEOUT_MESSAGE, null);   // got בלי תוצאה = ביטול
+            }
             return result.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return new Result("cancelled", "", null);
         } finally {
+            over.set(true);
             try { server.close(); } catch (IOException ignored) { }
         }
+    }
+
+    static final InetAddress LOOPBACK;
+    static {
+        InetAddress a;
+        try { a = InetAddress.getByAddress("127.0.0.1", new byte[] { 127, 0, 0, 1 }); } catch (IOException e) { a = InetAddress.getLoopbackAddress(); }
+        LOOPBACK = a;
     }
 
     /** מה עושים עם החזרה מהדפדפן: target = הנתיב עם ה-query. מחזיר לאן להפנות את הדפדפן, או null — בקשה לא נכונה (400) */
@@ -800,46 +855,103 @@ public final class Account {
 
     // ------------------------------------------------------------------ בדיקה כשיש אינטרנט, התנתקות
 
+    /** המצבים שהשרת מחזיר על כרטיס תקף (/v1/access/check) — רק אז מעדכנים את מה ששמור (עם אישור חדש, או בלי — לא שילם / הושבת) */
+    private static final String ACCESS_STATES = "ok|pay|blocked";
+
     /**
      * בודק מול השרת את הכרטיסים ששמורים (משתמש + עמדה) ומעדכן: אישור חדש, או מחיקה אם בוטל.
      * בלי אינטרנט — לא משנה כלום (המאגר ממשיך להיפתח עם האישור השמור). מחזיר את המצב של המשתמש (או של העמדה).
      */
     public static Result refresh() {
+        flushPendingLogouts();
         Result last = null;
         File uf = userFile();
         Map<String, Object> u = load(uf);
         if (u != null && !Json.str(u.get("token")).isEmpty()) {
             Result r = post("/v1/access/check", map("token", Json.str(u.get("token")), "machine", machine()));
-            if (!"offline".equals(r.status) && !"error".equals(r.status)) {
-                if (r.status.matches("revoked|invalid|not-teacher")) forget(uf);
-                else store(uf, r, Json.str(u.get("token")));
-            }
+            if (r.status.matches("revoked|invalid|not-teacher")) forget(uf);
+            else if (r.status.matches(ACCESS_STATES)) store(uf, r, Json.str(u.get("token")));
+            // כל דבר אחר (בלי אינטרנט, 429 / 500 / 404, תשובה לא תקינה) — תקלה רגעית: האישור השמור נשאר כמו שהוא
             last = r;
         }
         File sf = stationFile();
         Map<String, Object> s = load(sf);
         if (s != null && !Json.str(s.get("token")).isEmpty()) {
             Result r = post("/v1/access/check", map("token", Json.str(s.get("token")), "machine", machine()));
-            if (!"offline".equals(r.status) && !"error".equals(r.status)) {
-                if (r.status.matches("revoked|invalid")) forget(sf);
-                else store(sf, r, Json.str(s.get("token")));
-            }
+            if (r.status.matches("revoked|invalid")) forget(sf);
+            else if (r.status.matches(ACCESS_STATES)) store(sf, r, Json.str(s.get("token")));
             if (last == null || !last.ok()) last = r;
         }
         return last == null ? new Result("none", "", null) : last;
     }
 
-    /** התנתקות של המשתמש (מורה / תלמיד). עמדה לא מתנתקת מכאן — רק ההנהלה משחררת */
-    public static void signOut() {
+    /**
+     * התנתקות של המשתמש (מורה / תלמיד) — חוסם (קוראים מ-thread ברקע). הכניסה נמחקת מהמחשב מיד; הכרטיס מבוטל בשרת.
+     * בלי אינטרנט (או שהשרת לא ענה) — ok=false, status "offline": נמחק מהמחשב, והביטול בשרת נשלח בפעם הבאה שיש אינטרנט
+     * (flushPendingLogouts). עמדת מחשב לא מתנתקת מכאן — רק המורה / ההנהלה משחררים אותה.
+     */
+    public static Result signOut() {
         File uf = userFile();
         Map<String, Object> u = load(uf);
-        if (u != null) {
-            final String tok = Json.str(u.get("token"));
-            Thread t = new Thread(() -> post("/v1/access/logout", map("token", tok)), "dsviz-logout");
-            t.setDaemon(true);
-            t.start();
-        }
         forget(uf);
+        String tok = u == null ? "" : Json.str(u.get("token"));
+        if (tok.isEmpty()) return new Result("ok", "", null);
+        Result r = post("/v1/access/logout", map("token", tok));
+        if (r.ok()) return r;
+        pendingLogout(tok, true);
+        return new Result("offline", "התנתקת במחשב הזה. אין כרגע חיבור לשרת — החשבון ינותק גם בשרת בפעם הבאה שיש אינטרנט.", null);
+    }
+
+    private static final String LOGOUT_FILE = "logout.json", LOGOUT_DAT = "o.dat";
+
+    private static File logoutFile() {
+        return plainDirs() ? new File(userDir(), LOGOUT_FILE) : new File(secureUserDir(), LOGOUT_DAT);
+    }
+
+    /** הכרטיסים שעוד צריך לבטל בשרת (התנתקות בלי אינטרנט) */
+    static List<String> pendingLogouts() {
+        List<String> out = new ArrayList<String>();
+        Map<String, Object> d = load(logoutFile());
+        if (d != null) for (Object o : Json.arr(d.get("tokens"))) if (!Json.str(o).isEmpty()) out.add(Json.str(o));
+        return out;
+    }
+
+    private static synchronized void pendingLogout(String tok, boolean add) {
+        List<String> all = pendingLogouts();
+        all.remove(tok);
+        if (add) all.add(tok);
+        while (all.size() > 20) all.remove(0);
+        File f = logoutFile();
+        if (all.isEmpty()) { forget(f); return; }
+        Map<String, Object> d = new LinkedHashMap<String, Object>();
+        d.put("tokens", new ArrayList<Object>(all));
+        save(f, d);
+    }
+
+    /** שולח לשרת התנתקויות שנעשו בלי אינטרנט (נקרא בבדיקה מול השרת ובפתיחת מסך הכניסה) */
+    public static void flushPendingLogouts() {
+        for (String tok : pendingLogouts()) {
+            Result r = post("/v1/access/logout", map("token", tok));
+            if (r.ok()) pendingLogout(tok, false);
+            else if ("offline".equals(r.status)) return;   // עדיין בלי אינטרנט — בפעם הבאה
+        }
+    }
+
+    // ------------------------------------------------------------------ המורה המחובר (לעמדת הניהול)
+
+    /** הפרטים של המורה המחובר, כמו שנשמרו בבדיקה האחרונה מול השרת: name, email, code, seats, used. null — לא מורה מחובר */
+    public static Map<String, Object> teacherInfo() {
+        Access a = current();
+        if (a == null || !a.isTeacher()) return null;
+        Map<String, Object> u = userState();
+        Map<String, Object> t = new LinkedHashMap<String, Object>();
+        String tn = u == null ? "" : Json.str(u.get("teacherName"));
+        t.put("name", tn.isEmpty() ? a.name : tn);
+        t.put("email", a.email);
+        t.put("code", u == null ? "" : Json.str(u.get("teacherCode")));
+        t.put("seats", u != null && u.get("teacherSeats") instanceof Number ? ((Number) u.get("teacherSeats")).intValue() : -1);
+        t.put("used", u != null && u.get("teacherUsed") instanceof Number ? ((Number) u.get("teacherUsed")).intValue() : -1);
+        return t;
     }
 
     // ------------------------------------------------------------------ עזרים

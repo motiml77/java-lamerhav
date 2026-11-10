@@ -82,6 +82,7 @@ public final class AccessGate {
         Thread t = new Thread(() -> {
             boolean need;
             try { need = serverRequiresLogin(); } catch (Throwable e) { need = true; }
+            try { Account.flushPendingLogouts(); } catch (Throwable ignored) { /* בפעם הבאה */ }
             final boolean show = need;
             SwingUtilities.invokeLater(() -> {
                 decided[0] = true;
@@ -411,9 +412,11 @@ public final class AccessGate {
 
                 @Override
                 protected void done() {
-                    if (mine.cancelled || !isDisplayable()) return;
+                    if (cancel != mine || !isDisplayable()) return;   // החלון נסגר / התחילה כניסה אחרת
                     Account.Result r;
                     try { r = get(); } catch (Exception e) { r = new Account.Result("error", "הכניסה לא הצליחה.", null); }
+                    // ביטול כשהכניסה כבר הסתיימה בדפדפן (הקוד מומש) — נכנסנו: מראים את התוצאה ולא "בוטל"
+                    if (mine.cancelled && !r.ok() && !"pay".equals(r.status)) return;
                     afterSignIn(role, r);
                 }
             }.execute();
@@ -422,6 +425,7 @@ public final class AccessGate {
         private void afterSignIn(String role, Account.Result r) {
             switch (r.status) {
                 case "ok":
+                    changed();
                     success("נכנסת בהצלחה", "teacher".equals(role) ? "המאגר פתוח. את קוד המורה ואת העמדות רואים בדף \"החשבון שלי\" בדפדפן." : "המאגר פתוח — גם בפעם הבאה, גם בלי אינטרנט.");
                     break;
                 case "pay":
@@ -500,6 +504,135 @@ public final class AccessGate {
         }
     }
 
+    // ------------------------------------------------------------------ כניסה / התנתקות: מי שצריך לדעת (הכפתור "עמדת ניהול" ב-Eclipse)
+
+    private static final List<Runnable> CHANGED = new java.util.concurrent.CopyOnWriteArrayList<Runnable>();
+
+    /** נקרא אחרי כניסה / התנתקות (בחוט של Swing) — למשל הכפתור "עמדת ניהול" בסרגל של Eclipse מתעדכן מיד */
+    public static void onChange(Runnable r) {
+        CHANGED.add(r);
+    }
+
+    static void changed() {
+        for (Runnable r : CHANGED) {
+            try { r.run(); } catch (RuntimeException ignored) { /* מאזין שנכשל לא עוצר את האחרים */ }
+        }
+    }
+
+    /**
+     * יש כאן משתמש שאפשר לנתק: מורה או תלמיד שנכנסו עם Google. עמדת מחשב — לא: את העמדה משחררים המורה / ההנהלה
+     * (תלמיד בכיתה לא יכול "לנתק" מחשב של בית הספר ולתפוס היתר מחדש)
+     */
+    public static boolean canSignOut() {
+        if (disabled()) return false;
+        Map<String, Object> u = Account.userState();
+        return u != null && !Json.str(u.get("token")).isEmpty();
+    }
+
+    /** לבדיקות: התשובה לשאלה "להתנתק?" בלי חלון (null — שואלים בחלון) */
+    static volatile Boolean confirmForTest;
+
+    /**
+     * "התנתקות": שואלים (בעברית), מבטלים את הכרטיס בשרת ומוחקים את הכניסה מהמחשב (בלי אינטרנט — רק מהמחשב, והשרת מעודכן
+     * בפעם הבאה), סוגרים את עמדת הניהול, ומודיעים (onChange). after — אחרי התנתקות (למשל: סוגרים את המאגר). עמדת מחשב לא מושפעת.
+     */
+    public static void signOut(final Component parent, final Runnable after) {
+        SwingUtilities.invokeLater(() -> {
+            if (!canSignOut()) return;
+            Map<String, Object> u = Account.userState();
+            String who = u == null ? "" : Json.str(u.get("email"));
+            boolean teacher = u != null && "teacher".equals(Json.str(u.get("role")));
+            String q = "להתנתק" + (who.isEmpty() ? "" : " מהחשבון " + who) + " במחשב הזה?\n"
+                    + (teacher ? "עמדת הניהול והמאגר ייסגרו. עמדות המחשב שחיברת בכיתה ממשיכות לעבוד כרגיל." : "המאגר ייסגר.")
+                    + "\nבפעם הבאה ייפתח מסך הכניסה.";
+            Boolean yes = confirmForTest;
+            if (yes == null) yes = ask(parent, "התנתקות", q, "התנתקות", "ביטול");
+            if (!yes) return;
+            new SwingWorker<Account.Result, Void>() {
+                @Override
+                protected Account.Result doInBackground() { return Account.signOut(); }
+
+                @Override
+                protected void done() {
+                    Account.Result r;
+                    try { r = get(); } catch (Exception e) { r = new Account.Result("offline", "התנתקת במחשב הזה.", null); }
+                    lastSignOut = r;
+                    if (teacherPanel != null) teacherPanel.dispose();
+                    changed();
+                    String msg = r.ok() ? "התנתקת. בפעם הבאה שפותחים את המאגר מופיע מסך הכניסה." : r.message;
+                    Component owner = parent != null && parent.isDisplayable() ? parent : null;
+                    if (confirmForTest == null) tell(owner, "התנתקות", msg);
+                    if (after != null) after.run();
+                }
+            }.execute();
+        });
+    }
+
+    /** לבדיקות: התוצאה של ההתנתקות האחרונה */
+    static volatile Account.Result lastSignOut;
+
+    /** חלון שאלה קטן מימין לשמאל, מקדימה. true — הכפתור הראשון */
+    static boolean ask(Component parent, String title, String text, String yes, String no) {
+        final boolean[] answer = { false };
+        final JDialog d = small(parent, title, text);
+        JPanel row = (JPanel) d.getRootPane().getClientProperty("dsviz.buttons");
+        JButton y = primary(yes), n = secondary(no);
+        y.addActionListener(e -> { answer[0] = true; d.dispose(); });
+        n.addActionListener(e -> d.dispose());
+        row.add(y);
+        row.add(n);
+        d.getRootPane().setDefaultButton(n);   // Enter לא מנתק בטעות
+        d.pack();
+        d.setLocationRelativeTo(parent);
+        d.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e) { front(d); }
+        });
+        d.setVisible(true);   // מודאלי — חוזר כשנסגר
+        return answer[0];
+    }
+
+    /** הודעה קצרה עם "סגירה" */
+    static void tell(Component parent, String title, String text) {
+        final JDialog d = small(parent, title, text);
+        JPanel row = (JPanel) d.getRootPane().getClientProperty("dsviz.buttons");
+        JButton ok = primary("סגירה");
+        ok.addActionListener(e -> d.dispose());
+        row.add(ok);
+        d.getRootPane().setDefaultButton(ok);
+        d.pack();
+        d.setLocationRelativeTo(parent);
+        d.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e) { front(d); }
+        });
+        d.setVisible(true);
+    }
+
+    private static JDialog small(Component parent, String title, String text) {
+        Window owner = parent == null ? null : parent instanceof Window ? (Window) parent : SwingUtilities.getWindowAncestor(parent);
+        final JDialog d = new JDialog(owner, title, java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        d.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        JPanel col = column();
+        col.setBorder(BorderFactory.createEmptyBorder(20, 24, 18, 24));
+        for (String line : text.split("\n")) {
+            col.add(wrap(line, 15, INK, 380));
+            col.add(Box.createVerticalStrut(6));
+        }
+        col.add(Box.createVerticalStrut(10));
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEADING, 10, 0));
+        row.setOpaque(false);
+        row.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        col.add(row);
+        JPanel root = new JPanel(new BorderLayout());
+        root.setBackground(PAGE);
+        root.add(col, BorderLayout.CENTER);
+        root.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+        d.setContentPane(root);
+        d.getRootPane().putClientProperty("dsviz.buttons", row);
+        return d;
+    }
+
     // ------------------------------------------------------------------ עמדת ניהול של המורה
 
     /** האם המחשב מחובר כמורה (אז מציגים את הכפתור "עמדת ניהול") */
@@ -569,8 +702,9 @@ public final class AccessGate {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                if (teacherPanel != null && teacherPanel.isDisplayable()) {   // כבר פתוח — רק מביאים לקדמה
+                if (teacherPanel != null && teacherPanel.isDisplayable()) {   // כבר פתוח — מביאים לקדמה ומעדכנים מהשרת
                     front(teacherPanel);
+                    teacherPanel.reload();
                     return;
                 }
                 final TeacherPanel p = new TeacherPanel(parent);
@@ -589,59 +723,133 @@ public final class AccessGate {
 
     static final class TeacherPanel extends JDialog {
         private static final long serialVersionUID = 1L;
+        private final JLabel name = text("", 16, true, INK), email = text("", 13, false, MUTED);
+        private final JLabel notice = text("", 14, true, WARN);
+        private final JLabel big = new JLabel("—", SwingConstants.CENTER);
+        private final JLabel note = wrap("", 13, MUTED, 400);
+        private final JLabel seats = text("", 14, false, INK);
+        private final JButton copy = secondary("העתק קוד");
+        private String codeText = "";
+        /** לבדיקות: כמה פעמים הנתונים נטענו מחדש מהשרת */
+        volatile int reloads;
 
         TeacherPanel(Component parent) {
             super(parent == null ? null : SwingUtilities.getWindowAncestor(parent) != null ? SwingUtilities.getWindowAncestor(parent)
                     : parent instanceof Window ? (Window) parent : null, "עמדת ניהול", ModalityType.MODELESS);
             setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-            Account.Access a = Account.current();
-            final String codeText = Account.teacherCode();
             JPanel root = new JPanel(new BorderLayout());
             root.setBackground(PAGE);
             JPanel col = column();
             col.setBorder(BorderFactory.createEmptyBorder(22, 28, 22, 28));
             col.add(text("עמדת ניהול של המורה", 22, true, INK));
-            col.add(Box.createVerticalStrut(4));
-            col.add(text(a == null ? "" : a.label(), 14, false, MUTED));
-            col.add(Box.createVerticalStrut(16));
+            col.add(Box.createVerticalStrut(8));
+            col.add(name);
+            col.add(Box.createVerticalStrut(2));
+            col.add(email);
+            notice.setOpaque(true);
+            notice.setBackground(WARN_SOFT);
+            notice.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            notice.setVisible(false);
+            col.add(Box.createVerticalStrut(8));
+            col.add(notice);
+            col.add(Box.createVerticalStrut(10));
             col.add(text("הקוד שלך לחיבור עמדות מחשב", 14, true, INK));
             col.add(Box.createVerticalStrut(6));
-            JLabel big = new JLabel(codeText.isEmpty() ? "—" : codeText, SwingConstants.CENTER);
             big.setFont(new Font(Font.MONOSPACED, Font.BOLD, 40));
             big.setForeground(BLUE);
             big.setOpaque(true);
             big.setBackground(BLUE_SOFT);
             big.setBorder(BorderFactory.createEmptyBorder(10, 24, 10, 24));
             big.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            big.putClientProperty("dsviz.id", "code");
             col.add(big);
             col.add(Box.createVerticalStrut(6));
-            col.add(wrap(codeText.isEmpty() ? "הקוד עוד לא נטען. נכנסים לעמדת הניהול בדפדפן (הכפתור למטה) — שם הוא מוצג תמיד."
-                    : "מקלידים אותו בכל מחשב במעבדה, במסך \"עמדת מחשב\". הקוד נשמר כאן — אפשר לחזור לכאן בכל פעם.", 13, MUTED, 400));
+            col.add(note);
+            col.add(Box.createVerticalStrut(12));
+            seats.putClientProperty("dsviz.id", "seats");
+            col.add(seats);
+            col.add(Box.createVerticalStrut(2));
+            col.add(text("רשימת המחשבים, שחרור מחשב וקניית עמדות — בעמדת הניהול בדפדפן.", 13, false, MUTED));
             col.add(Box.createVerticalStrut(16));
             JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
             row.setOpaque(false);
             row.setAlignmentX(Component.RIGHT_ALIGNMENT);
             JButton open = primary("פתח עמדת ניהול בדפדפן");
             open.addActionListener(e -> Account.openManagement());
-            JButton copy = secondary("העתק קוד");
-            copy.setEnabled(!codeText.isEmpty());
             copy.addActionListener(e -> {
+                if (codeText.isEmpty()) return;
                 java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(codeText), null);
                 copy.setText(RLM + "הועתק");
             });
+            JButton out = secondary("התנתקות");
+            out.addActionListener(e -> signOut(this, null));
             JButton close = secondary("סגירה");
             close.addActionListener(e -> dispose());
             row.add(open);
             row.add(copy);
+            row.add(out);
             row.add(close);
             col.add(row);
             root.add(col, BorderLayout.CENTER);
             root.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
             setContentPane(root);
+            fill(Account.teacherInfo());
             pack();
-            setMinimumSize(new Dimension(480, 0));
+            setMinimumSize(new Dimension(560, 0));
             setLocationRelativeTo(parent);
+            reload();
         }
+
+        /** מציג את מה ששמור במחשב (מהבדיקה האחרונה מול השרת). null — כבר לא מורה מחובר */
+        void fill(Map<String, Object> t) {
+            if (t == null) {
+                codeText = "";
+                name.setText(RLM + "החשבון כבר לא מחובר כמורה במחשב הזה");
+                email.setText(" ");
+                big.setText("—");
+                seats.setText(" ");
+                note.setText(" ");
+                notice.setText(RLM + "הגישה כמורה לא פעילה (ההנהלה השביתה את החשבון, או שהכניסה בוטלה). מתחברים שוב מהמאגר.");
+                notice.setVisible(true);
+                copy.setEnabled(false);
+            } else {
+                codeText = Json.str(t.get("code"));
+                String n = Json.str(t.get("name")), m = Json.str(t.get("email"));
+                name.setText(RLM + (n.isEmpty() ? m : n));
+                email.setText(RLM + (n.isEmpty() ? " " : m));
+                big.setText(codeText.isEmpty() ? "—" : codeText);
+                int s = ((Number) t.get("seats")).intValue(), u = ((Number) t.get("used")).intValue();
+                seats.setText(RLM + (s < 0 ? "עמדות מחשב: מתעדכן…" : "עמדות מחשב בשימוש: " + Math.max(0, u) + " מתוך " + s));
+                note.setText(wrapHtml(codeText.isEmpty() ? "הקוד עוד לא נטען. נכנסים לעמדת הניהול בדפדפן (הכפתור למטה) — שם הוא מוצג תמיד."
+                        : "מקלידים אותו בכל מחשב במעבדה, במסך \"עמדת מחשב\". הקוד קבוע — אפשר לחזור לכאן בכל פעם.", 400));
+                notice.setVisible(false);
+                copy.setEnabled(!codeText.isEmpty());
+            }
+            if (isDisplayable()) pack();
+        }
+
+        /** בדיקה מול השרת ברקע: המקומות / הקוד העדכניים; מורה שהושבת — ההודעה, והכפתור בסרגל נכבה */
+        void reload() {
+            Thread t = new Thread(() -> {
+                Account.Result r;
+                try { r = Account.refresh(); } catch (Throwable e) { r = null; }
+                final boolean online = r != null && !"offline".equals(r.status) && !"error".equals(r.status);
+                SwingUtilities.invokeLater(() -> {
+                    if (!isDisplayable()) return;
+                    Map<String, Object> info = Account.teacherInfo();
+                    if (online || info == null) fill(info);
+                    reloads++;
+                    if (info == null) changed();
+                });
+            }, "dsviz-teacher-panel");
+            t.setDaemon(true);
+            t.start();
+        }
+    }
+
+    static String wrapHtml(String s, int width) {
+        String esc = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        return "<html><div dir='rtl' style='width:" + width + "px'>" + esc + "</div></html>";
     }
 
     // ------------------------------------------------------------------ רכיבים קטנים
