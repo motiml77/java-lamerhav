@@ -316,6 +316,23 @@ await test('תלמיד: נכנס → "צריך לשלם" (עם כרטיס); המ
   assert.equal((await call('POST', '/v1/access/check', { body: { token: student.token, machine: student.machine } })).body.status, 'pay');
 });
 
+await test('יומן פעולות: מהחדש לישן ומהישן לחדש, עם המשך עמוד בשני הכיוונים', async () => {
+  const sorted = (l, dir) => l.every((x, i) => i === 0 || (dir === 'asc' ? l[i - 1].at <= x.at : l[i - 1].at >= x.at));
+  const all = (await call('GET', '/v1/admin/log?limit=500', { token: admin })).body.log;
+  assert.ok(all.length >= 12, 'יש מספיק רשומות לבדיקה');
+  assert.ok(sorted(all, 'desc'), 'ברירת מחדל: מהחדש לישן');
+  const asc = (await call('GET', '/v1/admin/log?limit=500&order=asc', { token: admin })).body.log;
+  assert.ok(sorted(asc, 'asc'), 'order=asc: מהישן לחדש');
+  assert.equal(asc.length, all.length);
+  assert.equal(asc[0].at, all[all.length - 1].at);
+  const p1 = (await call('GET', '/v1/admin/log?limit=10&order=asc', { token: admin })).body.log;
+  const p2 = (await call('GET', '/v1/admin/log?limit=10&order=asc&after=' + encodeURIComponent(p1[p1.length - 1].at), { token: admin })).body.log;
+  assert.ok(p2.length > 0 && p2[0].at > p1[p1.length - 1].at, 'ההמשך מתחיל אחרי העמוד הראשון');
+  const d1 = (await call('GET', '/v1/admin/log?limit=10', { token: admin })).body.log;
+  const d2 = (await call('GET', '/v1/admin/log?limit=10&before=' + encodeURIComponent(d1[d1.length - 1].at), { token: admin })).body.log;
+  assert.ok(d2.length > 0 && d2[0].at < d1[d1.length - 1].at);
+});
+
 await test('הענקה ידנית מההנהלה (רשימה) → פתוח; ביטול → נסגר', async () => {
   const g = await call('POST', '/v1/admin/student', { token: admin, body: { email: 'pupil@test.dev, other@test.dev', until: '2027-08-31', note: 'הסכם' } });
   assert.equal(g.body.count, 2);

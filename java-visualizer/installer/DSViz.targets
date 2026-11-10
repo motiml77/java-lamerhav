@@ -102,24 +102,41 @@
   </Target>
 
   <!--
-    3. Stack / Queue כפולים. בפרויקט קונסול חדש של Visual Studio (‎.NET 6+) ‎ImplicitUsings‎ פעיל, כלומר
-    ‎using System.Collections.Generic;‎ "מוסתר" בכל קובץ — ואז ‎Stack<int>‎ ו-‎Queue<int>‎ מהספרייה (using Unit4.CollectionsLib;)
-    נתקלים ב-‎CS0104‎ (הפניה דו-משמעית) — שגיאה באנגלית שתלמיד לא יכול לתקן, כי אין שורה למחוק. כשהקוד של הפרויקט
-    משתמש בספרייה — מוציאים את System.Collections.Generic מהרשימה המוסתרת (כמו שהיה בתבנית הישנה אחרי שמוחקים את
-    השורה). מי שצריך List — כותב בראש הקובץ ‎using System.Collections.Generic;‎ (ואז יקרא ל-Stack בשם המלא).
-    רץ לפני יצירת קובץ ה-global usings (גם בבנייה של עיצוב-זמן, כדי ש-IntelliSense לא יסמן אדום).
+    3. Stack / Queue כפולים, ו-using Unit4.CollectionsLib; לבד. בפרויקט קונסול חדש של Visual Studio (‎.NET 6+) ‎ImplicitUsings‎ פעיל,
+    כלומר ‎using System.Collections.Generic;‎ "מוסתר" בכל קובץ — ואז ‎Stack<int>‎ ו-‎Queue<int>‎ מהספרייה נתקלים ב-‎CS0104‎
+    (הפניה דו-משמעית) — שגיאה באנגלית שתלמיד לא יכול לתקן, כי אין שורה למחוק.
+      א. הקוד כבר כותב using Unit4.CollectionsLib; — מוציאים את System.Collections.Generic מהרשימה המוסתרת.
+      ב. הקוד לא נוגע באוספים של ‎.NET (List, Dictionary, HashSet..., Enqueue / Dequeue / Peek, או using System.Collections.Generic
+         בעצמו) — מוסיפים לכל הפרויקט ‎global using Unit4.CollectionsLib;‎ (ומוציאים את System.Collections.Generic): בפרויקט רגיל
+         כותבים Queue<int> / Stack<int> / Node<int> / BinNode<int> בלי שום שורה בראש הקובץ — בדיוק כמו בתבנית של DSViz.
+      ג. הקוד משתמש באוספים של ‎.NET — לא נוגעים (מי שצריך גם את הספרייה כותב using Unit4.CollectionsLib; ואז ‎א‎).
+    ב — רק כשההפניה לספרייה באמת קיימת (שלב 1), ורק בפרויקט SDK של ‎.NET 6+ (global using). אותו כלל בדיוק ב-dsviz-cs (ההרצה
+    הוויזואלית). רץ לפני יצירת קובץ ה-global usings (גם בבנייה של עיצוב-זמן, כדי ש-IntelliSense יכיר את Queue ולא יסמן אדום).
   -->
-  <Target Name="DSVizResolveImplicitUsings" BeforeTargets="GenerateGlobalUsings"
-          Condition="'$(_DSVizExe)' == 'true' and ('$(ImplicitUsings)' == 'enable' or '$(ImplicitUsings)' == 'true')">
+  <Target Name="DSVizResolveImplicitUsings" BeforeTargets="GenerateGlobalUsings" Condition="'$(_DSVizExe)' == 'true'">
     <ItemGroup>
       <_DSVizCsFile Include="@(Compile)" Condition="'%(Extension)' == '.cs' and Exists('%(FullPath)')" />
     </ItemGroup>
     <ItemGroup>
       <_DSVizLibSource Include="@(_DSVizCsFile)" Condition="$([System.IO.File]::ReadAllText('%(FullPath)').Contains('Unit4.CollectionsLib'))" />
+      <_DSVizBclSource Include="@(_DSVizCsFile)"
+          Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('%(FullPath)')), '$(_DSVizBclPattern)'))" />
     </ItemGroup>
-    <ItemGroup Condition="'@(_DSVizLibSource)' != ''">
-      <Using Remove="System.Collections.Generic" />
+    <PropertyGroup>
+      <_DSVizAutoUsing Condition="'@(_DSVizLibSource)' == '' and '@(_DSVizBclSource)' == '' and '$(_DSVizProfileOk)' == 'true'
+          and '$(_DSVizLibOk)' == 'true' and Exists('$(DSVizLibPath)')">true</_DSVizAutoUsing>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(ImplicitUsings)' == 'enable' or '$(ImplicitUsings)' == 'true'">
+      <Using Remove="System.Collections.Generic" Condition="'@(_DSVizLibSource)' != '' or '$(_DSVizAutoUsing)' == 'true'" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(_DSVizAutoUsing)' == 'true'">
+      <Using Include="Unit4.CollectionsLib" />
     </ItemGroup>
   </Target>
+
+  <PropertyGroup>
+    <!-- קוד שמשתמש באוספים של ‎.NET (ואז לא מוסיפים את הספרייה לבד) — אותו ביטוי כמו ב-dsviz-cs (Program.cs: BclCollections) -->
+    <_DSVizBclPattern>\b(List|Dictionary|HashSet|SortedSet|SortedDictionary|SortedList|LinkedList|KeyValuePair|IEnumerable|ICollection|IList|IDictionary|IReadOnlyList|IReadOnlyCollection|IReadOnlyDictionary|Comparer|EqualityComparer)\s*&lt;|\.(Enqueue|Dequeue|Peek|TryPeek|TryPop|TryDequeue|EnsureCapacity)\s*\(|System\.Collections\.Generic</_DSVizBclPattern>
+  </PropertyGroup>
 
 </Project>

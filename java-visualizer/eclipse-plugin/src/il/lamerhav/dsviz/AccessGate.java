@@ -518,6 +518,10 @@ public final class AccessGate {
      * מביא את החלון לקדמת המסך (גם כשהחלון הראשי של Eclipse / IntelliJ הוא זה שבפוקוס): "תמיד מעל" לרגע קצר מכריח את מערכת
      * ההפעלה להציג אותו מלפנים, ואז הוא חלון רגיל — לא מסתיר דברים אחרים אחרי שעוברים הלאה.
      */
+    /** כמה זמן לכל היותר חלון שנפתח נשאר "מעל הכול" אם המשתמש לא נגע בו */
+    static final int FRONT_MS = 20000;
+    private static final java.util.Map<java.awt.Window, Boolean> FRONT = new java.util.WeakHashMap<java.awt.Window, Boolean>();
+
     static void front(final java.awt.Window w) {
         try {
             if ((w instanceof java.awt.Frame) && (((java.awt.Frame) w).getExtendedState() & java.awt.Frame.ICONIFIED) != 0)
@@ -525,10 +529,36 @@ public final class AccessGate {
             w.setAlwaysOnTop(true);
             w.toFront();
             w.requestFocus();
-            javax.swing.Timer t = new javax.swing.Timer(1200, e -> {
+            if (FRONT.containsKey(w)) return;   // כבר מוחזק מקדימה (נקרא שוב מ-windowOpened)
+            FRONT.put(w, Boolean.TRUE);
+            // נשאר מעל הכול עד שהמשתמש נוגע בחלון (לחיצה / מקש בתוכו), או FRONT_MS לכל היותר; ואז חלון רגיל (אפשר להוריד אחורה).
+            // לא רק לרגע: Eclipse / Visual Studio מפעילים את החלון שלהם שוב אחרי הלחיצה על הכפתור (וב-Visual Studio הכלי הוא תהליך
+            // נפרד, ש-Windows לא נותן לו לקחת את הפוקוס) — "תמיד מעל" לרגע ואז רגיל = המסך נבלע מאחור
+            final long until = System.currentTimeMillis() + FRONT_MS;
+            final java.awt.event.AWTEventListener[] touch = { null };
+            final javax.swing.Timer t = new javax.swing.Timer(500, null);
+            final Runnable release = () -> {
+                t.stop();
+                if (touch[0] != null) java.awt.Toolkit.getDefaultToolkit().removeAWTEventListener(touch[0]);
+                FRONT.remove(w);
                 if (w.isDisplayable()) w.setAlwaysOnTop(false);
+            };
+            touch[0] = ev -> {
+                if (ev.getID() != java.awt.event.MouseEvent.MOUSE_PRESSED && ev.getID() != java.awt.event.KeyEvent.KEY_PRESSED) return;
+                Object src = ev.getSource();
+                if (src instanceof Component && SwingUtilities.getWindowAncestor((Component) src) == w || src == w)
+                    SwingUtilities.invokeLater(release);
+            };
+            java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(touch[0],
+                    java.awt.AWTEvent.MOUSE_EVENT_MASK | java.awt.AWTEvent.KEY_EVENT_MASK);
+            final int[] ticks = { 0 };
+            t.addActionListener(e -> {
+                if (!w.isDisplayable() || System.currentTimeMillis() > until) {
+                    release.run();
+                    return;
+                }
+                if (++ticks[0] <= 6) w.toFront();   // בשלוש השניות הראשונות: שוב קדימה, אם סביבת העבודה הפעילה את עצמה
             });
-            t.setRepeats(false);
             t.start();
         } catch (RuntimeException ignored) {
             // לא מצליחים להקדים — החלון עדיין פתוח

@@ -14,7 +14,8 @@ $versionUrl = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/j
 function Log([string]$m) { try { Add-Content -LiteralPath $log -Value ("{0:yyyy-MM-dd HH:mm}  {1}" -f (Get-Date), $m) -Encoding UTF8 } catch { } }
 # Eclipse (קובצי התוסף נעולים), או הרצה ויזואלית של C# (dsviz-cs.exe והקבצים שלו נעולים בזמן ריצה, וההתקנה מוחקת ומחליפה את התיקייה cs —
 # עלולים להישאר בה קבצים ישנים, בזמן ש-build.txt כבר אומר שהגרסה החדשה מותקנת, כך שהעדכון לא היה מנסה שוב)
-function EclipseRunning { return [bool](Get-Process -Name eclipse, dsviz-cs -ErrorAction SilentlyContinue) }
+# Eclipse / Visual Studio / הרצה ויזואלית של C# פתוחים? (Visual Studio — כי את סרגל הכלים שלו אי אפשר להתקין כשהוא פתוח)
+function EclipseRunning { return [bool](Get-Process -Name eclipse, devenv, dsviz-cs -ErrorAction SilentlyContinue) }
 
 # הודעה קטנה בפינה (notify.ps1), ברקע — לא מחכים לה ולא לוקחת פוקוס: found / waiting / updating
 function Toast([string]$state, [int]$watch = 0) {
@@ -94,11 +95,11 @@ try {
     $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLower()
     if ($hash -ne ([string]$v.sha256).ToLower()) { Log "הקובץ שהורד לא תקין (SHA-256) — מדלגים"; Remove-Item -LiteralPath $exe -Force; exit 0 }
 
-    # מחכים ש-Eclipse (והרצה ויזואלית של C#) ייסגרו (עד 12 שעות), כדי לא להפריע לעבודה
+    # מחכים ש-Eclipse / Visual Studio (והרצה ויזואלית של C#) ייסגרו (עד 12 שעות), כדי לא להפריע לעבודה — והעדכון נכנס לתוקף בפתיחה הבאה
     $waited = 0
     if (EclipseRunning) { Toast 'waiting' }
     while ((EclipseRunning) -and $waited -lt 720) { Start-Sleep -Seconds 60; $waited++ }
-    if (EclipseRunning) { Log "Eclipse / הרצה ויזואלית עדיין פתוחים — ננסה בפעם הבאה"; exit 0 }
+    if (EclipseRunning) { Log "Eclipse / Visual Studio / הרצה ויזואלית עדיין פתוחים — ננסה בפעם הבאה"; exit 0 }
 
     Log "מתקין את הגרסה החדשה..."
     $p = Start-Process -FilePath $exe -ArgumentList '/S', '/UPDATE' -PassThru -WindowStyle Hidden

@@ -108,6 +108,7 @@ export const ICONS = {
   lock: ['r:5,11,14,10,2', 'M8 11V8a4 4 0 0 1 8 0v3'],
   info: ['c:12,12,9', 'M12 8h.01', 'M11 12h1v5h1'],
   monitor: ['r:3,4,18,12,2', 'M8 20h8', 'M12 16v4'],
+  clock: ['c:12,12,9', 'M12 7v5l3.5 2'],
 };
 
 export function googleLogo() {

@@ -37,7 +37,7 @@ VSTEMPLATE = '''<?xml version="1.0" encoding="utf-8"?>
     <Name>תרגיל מבני נתונים (DSViz)</Name>
     <Description>פרויקט קונסול עם הספרייה Unit4.CollectionsLib (Stack, Queue, Node, BinNode, Student, Car) ותרגיל מחסנית מוכן. ליד כפתור ההפעלה הירוק בוחרים "הרצה ויזואלית".</Description>
     <ProjectType>CSharp</ProjectType>
-    <SortOrder>1000</SortOrder>
+    <SortOrder>10</SortOrder>
     <CreateNewFolder>true</CreateNewFolder>
     <DefaultName>Targil</DefaultName>
     <ProvideDefaultName>true</ProvideDefaultName>

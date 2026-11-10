@@ -14,7 +14,9 @@ import javax.swing.SwingUtilities;
  *   -javaagent:agent.jar=<תיקיית בקרה>
  * בתיקיית הבקרה: <מצב>.script.txt (מצב = submit / bank). השורה הראשונה אפשרית "#access=off" (כמו -Ddsviz.access=off — בלי מסך הכניסה).
  * פקודות נוספות: mark <שם> (כותב mark-<שם>.txt וממתין ל-ack-<שם>.txt — הסקריפט מצלם את המסך האמיתי) · bankselect <מזהה שאלה>
- * · has <טקסט> / hasnot <טקסט> (בודקים שיש / אין רכיב עם הטקסט בחלון; התוצאה ב-results.txt).
+ * · has <טקסט> / hasnot <טקסט> (בודקים שיש / אין רכיב עם הטקסט בחלון; התוצאה ב-results.txt)
+ * · target <טקסט> (המיקום על המסך של הכפתור / הרכיב עם הטקסט — target.txt: x y w h; לסרטון ההדרכה: לאן העכבר הולך).
+ * מצב viewer: חלון ההרצה הוויזואלית (TraceViewer שמפעיל dsviz-cs).
  * סיום: <מצב>.done.txt, או <מצב>.error.txt עם החריגה.
  */
 public class ToolbarAgent {
@@ -31,7 +33,7 @@ public class ToolbarAgent {
         try {
             ctl = new File(args);
             String cmd = System.getProperty("sun.java.command", "");
-            String mode = cmd.contains("CsTool submit") ? "submit" : cmd.contains("BankVs bank") ? "bank" : null;
+            String mode = cmd.contains("CsTool submit") ? "submit" : cmd.contains("BankVs bank") ? "bank" : cmd.contains("TraceViewer") ? "viewer" : null;
             log("jvm: " + cmd + " -> " + mode);
             if (mode == null) return;
             final File script = new File(ctl, mode + ".script.txt");
@@ -69,6 +71,9 @@ public class ToolbarAgent {
                     case "has":
                     case "hasnot":
                         delay = has(cmd, arg);
+                        break;
+                    case "target":
+                        delay = target(arg);
                         break;
                     default:
                         delay = SwingScript.run(cmd, arg, shots);
@@ -108,6 +113,28 @@ public class ToolbarAgent {
         });
         if (err[0] != null) throw err[0];
         return 900;
+    }
+
+    /** target <טקסט>: המיקום על המסך של הרכיב — קודם כפתור שהטקסט שלו בדיוק זה (אותו כפתור ש-click לוחץ עליו), אחרת רכיב שמכיל אותו */
+    static long target(String text) throws Exception {
+        final java.awt.Rectangle[] r = { null };
+        SwingUtilities.invokeAndWait(() -> {
+            java.awt.Container root = ((javax.swing.RootPaneContainer) SwingScript.win).getRootPane();
+            java.util.List<java.awt.Component> all = SwingScript.all(root, new java.util.ArrayList<java.awt.Component>());
+            for (java.awt.Component k : all)
+                if (r[0] == null && k.isShowing() && k instanceof javax.swing.AbstractButton && !(k instanceof javax.swing.JCheckBox)
+                        && text.equals(((javax.swing.AbstractButton) k).getText()))
+                    r[0] = new java.awt.Rectangle(k.getLocationOnScreen(), k.getSize());
+            for (java.awt.Component k : all) {
+                if (r[0] != null) break;
+                String t = k.isShowing() ? SwingScript.text(k) : null;
+                if (t != null && t.contains(text)) r[0] = new java.awt.Rectangle(k.getLocationOnScreen(), k.getSize());
+            }
+        });
+        String line = r[0] == null ? "" : r[0].x + " " + r[0].y + " " + r[0].width + " " + r[0].height;
+        Files.write(new File(ctl, "target.txt").toPath(), line.getBytes(StandardCharsets.UTF_8));
+        log("target " + text + " -> " + line);
+        return 50;
     }
 
     /** has <טקסט>: האם בחלון הנוכחי יש רכיב (כפתור / תווית) עם הטקסט — נרשם ב-results.txt */

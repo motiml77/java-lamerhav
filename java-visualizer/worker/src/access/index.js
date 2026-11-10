@@ -755,7 +755,7 @@ async function adminStudent(env, url) {
     student: st ? { name: st.name || '', until: st.accessUntil || '', source: st.source || '', note: st.note || '', phone: st.phone || '' } : null,
     sends: (await monthlySends(env, [{ email, kind: 'student' }]))[0],
     payments: payments.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ id: p._id, kind: p.kind || 'student', seats: p.seats || 0, amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '', createdAt: p.createdAt, paidAt: p.paidAt || '', payerName: p.payerName || '', payerPhone: p.payerPhone || '', payerEmail: p.payerEmail || '' })),
-    devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt })),
+    devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt, createdAt: x.createdAt || '' })),
   };
 }
 
@@ -830,10 +830,13 @@ async function adminDecide(env, u, b) {
 async function adminLog(env, url) {
   const store = db(env);
   const limit = Math.min(500, Math.max(10, +url.searchParams.get('limit') || 100));
-  const before = url.searchParams.get('before');
-  const list = before
-    ? await store.query('log', { where: [['at', '<', before]], orderBy: ['at', 'desc'], limit })
-    : await store.query('log', { orderBy: ['at', 'desc'], limit });
+  // order=asc: מהישן לחדש (ממשיכים עם after=); ברירת המחדל: מהחדש לישן (ממשיכים עם before=)
+  const asc = url.searchParams.get('order') === 'asc';
+  const cursor = url.searchParams.get(asc ? 'after' : 'before');
+  const list = await store.query('log', {
+    ...(cursor ? { where: [['at', asc ? '>' : '<', cursor]] } : {}),
+    orderBy: ['at', asc ? 'asc' : 'desc'], limit,
+  });
   return { ok: true, log: list.map(l => ({ at: l.at, actor: l.actor, action: l.action, target: l.target, detail: l.detail })) };
 }
 
