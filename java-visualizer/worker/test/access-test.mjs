@@ -223,6 +223,11 @@ await test('קוד כניסה: verifier שגוי / שימוש חוזר → נד�
   assert.equal(bad.status, 400);
   const reuse = await call('POST', '/v1/auth/redeem', { body: { code: ex.body.code, verifier: p.verifier, machine: machine() } });
   assert.equal(reuse.status, 400, 'הקוד נמחק אחרי הניסיון הראשון');
+  // ההודעות מפנות לכפתורים שקיימים בחלון של DSViz ("חזרה", "כניסה עם Google") — לא ל"התחברות" שאין
+  for (const m of [bad.body.error, reuse.body.error]) {
+    assert.match(m, /כניסה עם Google/, m);
+    assert.doesNotMatch(m, /"התחברות"/, m);
+  }
   assert.equal((await call('POST', '/v1/auth/exchange', { body: { idToken: 'x.y.z', role: 'teacher', challenge: p.challenge } })).status, 401);
 });
 
