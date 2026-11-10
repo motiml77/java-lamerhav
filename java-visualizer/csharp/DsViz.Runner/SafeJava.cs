@@ -30,19 +30,12 @@ namespace DsViz
 
         /// <summary>
         /// java.exe עצמו לא עולה מתיקייה עם עברית ב-Windows שהקידוד שלו לא עברי ("could not find java.dll": המשגר מוצא את
-        /// התיקייה שלו בקידוד ANSI). לכן — נתיב ASCII לאותו קובץ: השם הקצר (8.3), ואם אין — צומת (junction) ב-ProgramData
-        /// שמצביע על תיקיית ה-Java של ההתקנה (בלי הרשאות מנהל). אחרת — הנתיב כמו שהוא.
+        /// התיקייה שלו בקידוד ANSI). לכן — נתיב ASCII לאותו קובץ: צומת (junction) ב-ProgramData שמצביע על תיקיית ה-Java של
+        /// ההתקנה (בלי הרשאות מנהל), ואם אי אפשר — השם הקצר (8.3). אחרת — הנתיב כמו שהוא.
         /// </summary>
         public static string Exe(string java)
         {
             if (!OperatingSystem.IsWindows() || Ascii(java) || !File.Exists(java)) return java;
-            try
-            {
-                var sb = new StringBuilder(1024);
-                uint n = GetShortPathName(java, sb, (uint)sb.Capacity);
-                if (n > 0 && n < sb.Capacity && Ascii(sb.ToString())) return sb.ToString();
-            }
-            catch (Exception) { }
             try
             {
                 string home = Path.GetDirectoryName(Path.GetDirectoryName(java));   // ...\jdk
@@ -62,6 +55,13 @@ namespace DsViz
                     using (Process p = Process.Start(mk)) p.WaitForExit(10000);
                 }
                 if (File.Exists(exe)) return exe;
+            }
+            catch (Exception) { }
+            try
+            {
+                var sb = new StringBuilder(1024);
+                uint n = GetShortPathName(java, sb, (uint)sb.Capacity);
+                if (n > 0 && n < sb.Capacity && Ascii(sb.ToString())) return sb.ToString();
             }
             catch (Exception) { }
             return java;
