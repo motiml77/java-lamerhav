@@ -76,7 +76,7 @@ namespace DsViz.VsExtension
         /// <summary>
         /// הסרגל של DSViz מוצג בכל פתיחה של Visual Studio. Visual Studio שומר את מצב הסרגלים רק כשהוא נסגר כרגיל —
         /// אם הוא נסגר בכוח או קרס בפעם הראשונה, הסרגל שהדלקנו לא נשמר, ובלי הדלקה בכל פתיחה הוא היה נשאר מוסתר לתמיד.
-        /// המיקום (שורה משלו מתחת לסרגלים הרגילים) נקבע רק בפעם הראשונה — אחר כך המשתמש יכול להזיז אותו.
+        /// המיקום (שורה משלו מתחת לסרגלים הרגילים) נקבע בפעם הראשונה ובכל פעם שהסרגל היה מוסתר — אחרת המשתמש יכול להזיז אותו.
         /// </summary>
         void ShowToolbarOnce()
         {
@@ -86,13 +86,25 @@ namespace DsViz.VsExtension
                 if (dte == null) return;
                 dynamic bars = dte.CommandBars;
                 dynamic bar = bars["DSViz"];
-                if (!(bool)bar.Visible)
+                bool wasHidden = !(bool)bar.Visible;
+                if (wasHidden)
                 {
                     bar.Visible = true;
                     ActivityLog.LogInformation("DsViz", "toolbar shown");
                 }
                 string flag = Path.Combine(InstallDir, "vs-toolbar-shown");
-                if (File.Exists(flag)) return;
+                // מיקום בשורה משלו: בפעם הראשונה, וגם בכל פעם שהסרגל היה מוסתר — אז Visual Studio החזיר את ברירת המחדל
+                // (למשל אחרי סגירה בכוח), והסרגל נדחס לסוף השורה הראשונה ורוב הכפתורים נעלמים מאחורי החץ
+                // וגם כשהוא באותה שורה של הסרגל הרגיל (Standard) — שם אין לו מקום והכפתורים נחתכים
+                bool crowded = false;
+                try
+                {
+                    dynamic std = bars["Standard"];
+                    crowded = (bool)std.Visible && (int)std.RowIndex == (int)bar.RowIndex && Convert.ToInt32(std.Position) == Convert.ToInt32(bar.Position);
+                }
+                catch (Exception) { }
+                if (File.Exists(flag) && !wasHidden && !crowded) return;
+                SolutionHints.Log("toolbar row: " + (wasHidden ? "was hidden" : crowded ? "shared the Standard row" : "first time"));
                 // שורה משלו מתחת לסרגלים הרגילים (בלי זה הוא נדחס לשורה הראשונה ורוב הכפתורים נעלמים לחץ "עוד")
                 try
                 {
