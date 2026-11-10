@@ -706,20 +706,17 @@ if (-not $teacherSeed) {
     $st = WaitTeacherBtn $true 40
     Check 'teacher-btn-teacher' (TeacherBtnShown $st) "מורה מחובר — 'עמדת ניהול' מופיעה בסרגל (בלי לחזור ל-Visual Studio)" $st
     Shot '36-toolbar-teacher'
-    $e = ToolbarButton $vsP.Id @('עמדת ניהול')
-    if ($e) { Info "לחיצה על 'עמדת ניהול': $(ClickEl $e)" }
-    $panel = $null
-    for ($i = 0; $i -lt 30 -and -not $panel; $i++) {
-        Start-Sleep 2
-        $panel = Get-Process javaw, java -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like '*עמדת ניהול*' } | Select-Object -First 1
-        if (-not $panel -and @(AnyByName 'עמדת ניהול של המורה').Count -gt 0) { $panel = 'uia' }
-    }
-    Start-Sleep 2
-    Shot '37-teacher-panel'
-    Check 'teacher-panel-opens' ($null -ne $panel) "הלחיצה על 'עמדת ניהול' פתחה את חלון המורה" ((Windows) -join ' ; ')
-    $codeShown = @(AnyByName 'K7QM').Count -gt 0
-    Check 'teacher-panel-code' $codeShown "בחלון המורה מוצג הקוד של המורה (K7QM)" ''
-    Check 'teacher-panel-signout' (@(AnyByName ([string][char]0x200F + 'התנתקות')).Count -gt 0 -or @(AnyByName 'התנתקות').Count -gt 0) "בחלון המורה יש 'התנתקות'" ''
+    # הלחיצה מריצה את BankVs teacher — ה-agent (מצב teacher) בודק את החלון מבפנים: רכיבי Swing לא נראים ל-UI Automation
+    function ClickTeacher() { $e = ToolbarButton $vsP.Id @('עמדת ניהול'); if ($e) { return ClickEl $e } else { return 'הכפתור לא נמצא' } }
+    $st = RunStage 'teacher' '37-teacher' @(
+        'waitwin עמדת ניהול', 'wait 2500', 'shot panel', 'has K7QM', 'has התנתקות', 'has פתח עמדת ניהול בדפדפן', 'has teacher@test.dev', 'mark panel'
+    ) { ClickTeacher } 150
+    $res = if (Test-Path (Join-Path $ctl 'results.txt')) { Get-Content (Join-Path $ctl 'results.txt') -Encoding utf8 -Raw } else { '' }
+    Info "חלון המורה: $($res.Trim() -replace "`r?`n", ' ; ')"
+    Check 'teacher-panel-opens' (($st -eq 'done') -and (Test-Path (Join-Path $ctl 'shots-teacher\panel.json'))) "הלחיצה על 'עמדת ניהול' פתחה את חלון המורה" "סטטוס $st ; $((Windows) -join ' ; ')"
+    Check 'teacher-panel-code' ($res -match 'has K7QM = True') "בחלון המורה: הקוד של המורה (K7QM)" $res
+    Check 'teacher-panel-buttons' (($res -match 'has התנתקות = True') -and ($res -match 'has פתח עמדת ניהול בדפדפן = True')) "בחלון המורה: 'פתח עמדת ניהול בדפדפן' ו'התנתקות'" $res
+    Check 'teacher-panel-email' ($res -match 'has teacher@test.dev = True') "בחלון המורה: המייל של המורה" $res
     KillJava
     Info "התנתקות: $(Seed 'none' '-')"
     $st = WaitTeacherBtn $false 40
@@ -1091,7 +1088,7 @@ KillJava
 # ------------------------------------------------------------------ סיום
 Log "== 8. יומנים"
 Copy-Item (Join-Path $ctl 'agent.log') $Out -ErrorAction SilentlyContinue
-foreach ($m in 'submit', 'bank') { if (Test-Path (Join-Path $ctl "shots-$m")) { Copy-Item (Join-Path $ctl "shots-$m") (Join-Path $Out "swing-shots-$m") -Recurse -Force } }
+foreach ($m in 'submit', 'bank', 'teacher') { if (Test-Path (Join-Path $ctl "shots-$m")) { Copy-Item (Join-Path $ctl "shots-$m") (Join-Path $Out "swing-shots-$m") -Recurse -Force } }
 Get-ChildItem "$env:APPDATA\Microsoft\VisualStudio" -Recurse -Filter ActivityLog.xml -ErrorAction SilentlyContinue | ForEach-Object {
     Copy-Item $_.FullName (Join-Path $Out ('ActivityLog-' + $_.Directory.Name + '.xml')) -ErrorAction SilentlyContinue
 }
