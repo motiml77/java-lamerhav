@@ -512,6 +512,30 @@ await test('סקירה, יומן והגדרות בהנהלה', async () => {
   assert.equal(key, publicKey.export({ type: 'spki', format: 'der' }).toString('base64'));
 });
 
+await test('התוכנה ששלחה (app: dsviz / automata): נרשמת ביומן; באישור — apps (ברירת מחדל: שתי התוכנות); לקוח ישן / ערך לא מוכר — כמו קודם', async () => {
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { create: true, email: 'apps@test.dev', name: 'מורה אוטומטים', seats: 2 } });
+  const code = (await call('GET', '/v1/admin/teacher?email=apps@test.dev', { token: admin })).body.teacher.code;
+  // מורה מ"מודלים חישוביים"
+  const p = pkce();
+  const ex = await call('POST', '/v1/auth/exchange', { body: { idToken: await idToken('apps@test.dev', 'מורה אוטומטים'), role: 'teacher', challenge: p.challenge } });
+  const r = await call('POST', '/v1/auth/redeem', { body: { code: ex.body.code, verifier: p.verifier, machine: machine(), machineName: 'מחשב אוטומטים', client: 'dsviz-automata/1.0', app: 'automata' } });
+  assert.equal(r.body.status, 'ok', JSON.stringify(r.body));
+  assert.deepEqual(readPass(r.body.pass).apps, ['dsviz', 'automata']);
+  // עמדה מ-Eclipse (app=dsviz), ועמדה מלקוח ישן (בלי app) / עם ערך לא מוכר
+  const s1 = await call('POST', '/v1/station/claim', { body: { code, name: 'עמדת אוטומטים 1', machine: machine(), client: 'test', app: 'dsviz' } });
+  assert.equal(s1.body.status, 'ok');
+  assert.deepEqual(readPass(s1.body.pass).apps, ['dsviz', 'automata']);
+  const s2 = await call('POST', '/v1/station/claim', { body: { code, name: 'עמדת אוטומטים 2', machine: machine(), client: 'test', app: '<script>' } });
+  assert.equal(s2.body.status, 'ok');
+  const log = (await call('GET', '/v1/admin/log?limit=50', { token: admin })).body.log;
+  const signin = log.find(l => l.action === 'signin.teacher' && l.actor === 'apps@test.dev');
+  assert.equal(signin && signin.detail, 'app=automata');
+  assert.equal(log.find(l => l.action === 'station.claim' && l.actor === 'מחשב: עמדת אוטומטים 1').detail, 'app=dsviz · 1/2');
+  assert.equal(log.find(l => l.action === 'station.claim' && l.actor === 'מחשב: עמדת אוטומטים 2').detail, '2/2');
+  // בלי app (כמו כל הבדיקות האחרות): היומן כמו קודם
+  assert.ok(log.filter(l => l.action === 'signin.teacher' && l.actor !== 'apps@test.dev').every(l => !/app=/.test(l.detail)));
+});
+
 await test('הדפים בדפדפן נטענים (signin / admin) עם כותרות אבטחה', async () => {
   const r = await call('GET', '/signin');
   assert.equal(r.status, 200);

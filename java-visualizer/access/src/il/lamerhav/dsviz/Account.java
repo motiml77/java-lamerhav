@@ -61,10 +61,19 @@ public final class Account {
     /** מי מחובר במחשב הזה (מתוך אישור חתום ותקף) */
     public static final class Access {
         public final String kind, name, email, until, teacher;
+        /** באילו תוכנות האישור פותח (apps באישור החתום; אישור ישן בלי השדה — בשתיהן) */
+        public final List<String> apps;
 
         Access(String kind, String name, String email, String until, String teacher) {
-            this.kind = kind; this.name = name; this.email = email; this.until = until; this.teacher = teacher;
+            this(kind, name, email, until, teacher, null);
         }
+
+        Access(String kind, String name, String email, String until, String teacher, List<String> apps) {
+            this.kind = kind; this.name = name; this.email = email; this.until = until; this.teacher = teacher;
+            this.apps = java.util.Collections.unmodifiableList(apps == null || apps.isEmpty() ? java.util.Arrays.asList("dsviz", "automata") : apps);
+        }
+
+        public boolean opens(String app) { return apps.contains(app); }
 
         public boolean isTeacher() { return "teacher".equals(kind); }
         public boolean isStation() { return "station".equals(kind); }
@@ -102,6 +111,9 @@ public final class Account {
 
     /** שם הלקוח לשרת (User-Agent, "client"). WorkerClient מחליף אותו לערך של WorkerClient.CLIENT (dsviz-vs / dsviz-vscode) */
     public static volatile java.util.function.Supplier<String> client = () -> "dsviz-eclipse/1.0.1";
+
+    /** התוכנה, לשרת (ביומן הפעילות): dsviz — Eclipse / IntelliJ / Visual Studio / VS Code; automata — "מודלים חישוביים" */
+    public static volatile String app = "dsviz";
 
     /** המפתח הציבורי של השרת (החתימה על האישור). ציבורי — לא סוד; המפתח הפרטי נמצא רק בשרת (PASS_KEY) */
     static final String PASS_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzcPy66SILXotJ2VPxjt93e7dGBR1chdnNh6Ptgr6KYXn5DGhSYEbkT3dsFKWO96QQCw/wG/bsQmqtLDxLHgjzOxjmYMGxyLmBkhHfywmYBl8JvRRPkWUn5AqZI5VgQ7cqeF4vbjMIOeb3jR3GB4QhfaI04v+4mAna6KQEC0drXfhT5oMuOhbfxH2t77tCC1iUkAnnfA/VprWcvPyieyzdTxZ4/r4e9VS5hTGceRsKpsdC7/Euy31vqrJxeVLV7Mwc1PkAMk0ghEJtSRBbvZdRUv5X5K8DLAjVpEVRHlq2XwobMI2c8oSU8qGESGsUk/R1lGUWIqGOXE+UdW6ODPVjQIDAQAB";
@@ -633,7 +645,9 @@ public final class Account {
     }
 
     private static Access accessOf(Map<String, Object> p) {
-        return new Access(Json.str(p.get("kind")), Json.str(p.get("name")), Json.str(p.get("email")), Json.str(p.get("until")), Json.str(p.get("teacher")));
+        List<String> apps = new ArrayList<String>();
+        for (Object o : Json.arr(p.get("apps"))) if (!Json.str(o).isEmpty()) apps.add(Json.str(o));
+        return new Access(Json.str(p.get("kind")), Json.str(p.get("name")), Json.str(p.get("email")), Json.str(p.get("until")), Json.str(p.get("teacher")), apps);
     }
 
     /** מי מחובר עכשיו במחשב הזה — בלי אינטרנט. מורה / תלמיד (של המשתמש הזה) קודם, ואחר כך עמדה (של המחשב) */
@@ -809,7 +823,7 @@ public final class Account {
 
     /** חיבור עמדה עם קוד המורה. ok — נשמר לכל המחשב; full / bad-code / blocked / offline — הודעה */
     public static Result claimStation(String code, String name) {
-        Result r = post("/v1/station/claim", map("code", code, "name", name, "machine", machine(), "client", client.get()));
+        Result r = post("/v1/station/claim", map("code", code, "name", name, "machine", machine(), "client", client.get(), "app", app));
         if (r.ok()) {
             String token = Json.str(r.body.get("token"));
             File f = new File(machineDir(), STATION_FILE);
@@ -877,7 +891,7 @@ public final class Account {
                 String location;
                 try {
                     Result r = post("/v1/auth/redeem", map("code", q.get("code"), "verifier", verifier, "machine", machine(),
-                            "machineName", machineName(), "client", client.get()));
+                            "machineName", machineName(), "client", client.get(), "app", app));
                     String token = Json.str(r.body.get("token"));
                     if (!token.isEmpty()) store(userFile(), r, token);
                     r = checkSaved(r, userFile());
