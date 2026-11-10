@@ -13,6 +13,10 @@ on:
       - 'java-visualizer/vs-bank/**'
       - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/Account.java'
       - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/AccessGate.java'
+      - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/OsTrust.java'
+      - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/WorkerClient.java'
+      - 'java-visualizer/src/unit4/collectionsLib/TraceViewer.java'
+      - 'java-visualizer/tools/build-jre.sh'
   workflow_dispatch:
 concurrency:
   group: dsviz-vs-toolbar-e2e-${{ github.ref }}
@@ -38,6 +42,60 @@ jobs:
           name: bank-vs-jar
           path: java-visualizer/build/lab-vs/dsviz-bank-vs.jar
           retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsviz-lib
+          path: java-visualizer/release/dsviz.jar
+          retention-days: 7
+  # סינון אינטרנט שבודק תעבורה מוצפנת: תעודת שורש במאגר של Windows, שרת HTTPS מקומי, ה-Java של ההתקנה (jlink) עם / בלי OsTrust
+  os-trust:
+    needs: bank-jar
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/download-artifact@v4
+        with: { name: dsviz-lib, path: dsviz-lib }
+      - name: תעודת "סינון" במאגר של Windows ← החיבור של DSViz
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\os-trust.ps1" -Root "$env:GITHUB_WORKSPACE\java-visualizer" -Lib "$env:GITHUB_WORKSPACE\dsviz-lib\dsviz.jar" -Out "$env:GITHUB_WORKSPACE\os-trust"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: os-trust, path: os-trust, retention-days: 14 }
+  # שם משתמש / פרויקט בעברית (Windows באנגלית): הרצה ויזואלית, מאגר השאלות ועמדת הניהול מתיקיות בעברית — dsviz-cs.exe מהמקור
+  hebrew-paths:
+    needs: bank-jar
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - uses: actions/download-artifact@v4
+        with: { name: dsviz-lib, path: dsviz-lib }
+      - uses: actions/download-artifact@v4
+        with: { name: bank-vs-jar, path: bank-vs-jar }
+      - name: dsviz-cs.exe מהמקור
+        shell: powershell
+        run: |
+          dotnet publish "$env:GITHUB_WORKSPACE\java-visualizer\csharp\DsViz.Runner\DsViz.Runner.csproj" -c Release -o "$env:RUNNER_TEMP\runner"
+          exit $LASTEXITCODE
+      - name: נתיבים בעברית
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\hebrew-paths.ps1" -Root "$env:GITHUB_WORKSPACE\java-visualizer" -Lib "$env:GITHUB_WORKSPACE\dsviz-lib\dsviz.jar" -BankJar "$env:GITHUB_WORKSPACE\bank-vs-jar\dsviz-bank-vs.jar" -Runner "$env:RUNNER_TEMP\runner" -Out "$env:GITHUB_WORKSPACE\hebrew-paths"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: hebrew-paths, path: hebrew-paths, retention-days: 14 }
   toolbar:
     needs: bank-jar
     name: ${{ matrix.os }}
