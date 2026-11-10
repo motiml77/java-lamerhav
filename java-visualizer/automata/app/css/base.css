@@ -2,6 +2,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
+html { zoom: var(--ui-zoom); }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -30,7 +31,7 @@ code { font-family: var(--mono); font-size: 0.95em; background: var(--sunk); pad
 /* ================= פריסה ================= */
 .app {
   display: grid;
-  height: 100vh;
+  height: calc(100vh / var(--ui-zoom));      /* 100vh בתוך zoom הוא 90% מהחלון: מתקנים כדי למלא את כל הגובה */
   grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--side-w);
   grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--run-h);
   grid-template-areas: "top top top" "rail stage side" "rail run side";

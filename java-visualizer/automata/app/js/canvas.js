@@ -41,12 +41,16 @@
     static get SNAP() { return SNAP; }
 
     /* ---------- המרות קואורדינטות ---------- */
+    /** היחס בין פיקסלים על המסך לפיקסלים של CSS בתוך הממשק (zoom של 90% על html נותן 0.9). */
+    uiScale() { const w = this.host.offsetWidth; return w ? this.host.getBoundingClientRect().width / w : 1; }
+    /** מיקום העכבר (clientX/Y, פיקסלים של המסך) בתוך ה-SVG, בפיקסלים של CSS. */
+    local(e) { const r = this.svg.getBoundingClientRect(), z = this.uiScale(); return { x: (e.clientX - r.left) / z, y: (e.clientY - r.top) / z }; }
     toWorld(e) {
-      const r = this.svg.getBoundingClientRect();
-      return { x: (e.clientX - r.left - this.view.x) / this.view.zoom, y: (e.clientY - r.top - this.view.y) / this.view.zoom };
+      const p = this.local(e);
+      return { x: (p.x - this.view.x) / this.view.zoom, y: (p.y - this.view.y) / this.view.zoom };
     }
     toScreen(p) { return { x: p.x * this.view.zoom + this.view.x, y: p.y * this.view.zoom + this.view.y }; }
-    size() { const r = this.svg.getBoundingClientRect(); return { w: r.width, h: r.height }; }
+    size() { const r = this.svg.getBoundingClientRect(), z = this.uiScale(); return { w: r.width / z, h: r.height / z }; }
 
     /* ---------- תצוגה ---------- */
     applyView() {

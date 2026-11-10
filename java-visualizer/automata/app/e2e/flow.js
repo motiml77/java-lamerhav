@@ -20,7 +20,7 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
   let n = 0;
   const step = async (name, fn) => { await fn(); console.log('✓ ' + (++n) + '. ' + name); };
   const machine = () => p.evaluate(() => { const m = App.machine; return { states: m.states.map((s) => s.name), trans: m.transitions.map((t) => AutomataModel.stateName(m, t.from) + '>' + AutomataModel.stateName(m, t.to) + ':' + AutomataModel.formatLabels(m.type, t.labels)) }; });
-  const at = (name) => p.evaluate((nm) => { const s = App.machine.states.find((q) => q.name === nm); const r = document.querySelector('.stage').getBoundingClientRect(); const q = App.canvas.toScreen(s); return { x: r.x + q.x, y: r.y + q.y }; }, name);
+  const at = (name) => p.evaluate((nm) => { const s = App.machine.states.find((q) => q.name === nm); const r = document.querySelector('.stage').getBoundingClientRect(); const q = App.canvas.toScreen(s), z = App.canvas.uiScale(); return { x: r.x + q.x * z, y: r.y + q.y * z }; }, name);
   const labelAt = (from, to) => p.evaluate(([f, t]) => { const m = App.machine; const tr = m.transitions.find((x) => AutomataModel.stateName(m, x.from) === f && AutomataModel.stateName(m, x.to) === t); const b = document.querySelector('.lb[data-edge="' + tr.id + '"] .lb-bg').getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2, id: tr.id }; }, [from, to]);
   const click = async (pt) => { await p.mouse.move(pt.x, pt.y, { steps: 3 }); await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(120); };
   const visible = (sel) => p.evaluate((s) => { const e = document.querySelector(s); return !!e && !e.hidden && getComputedStyle(e).display !== 'none'; }, sel);
@@ -44,6 +44,10 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
   await step('לחיצה כפולה מוסיפה 3 מצבים, וההדרכה נעלמת', async () => {
     for (const dx of [-240, 0, 240]) { await p.mouse.dblclick(st.x + dx, st.y + (dx ? 0 : 110)); await p.waitForTimeout(150); }
     assert.deepEqual((await machine()).states, ['q0', 'q1', 'q2']);
+    // הממשק ב-90% (zoom על html): המצב נוצר בדיוק מתחת לסמן (עד ההצמדה לרשת של 20, כלומר עד 9px על המסך)
+    const centers = await p.$$eval('.st .st-body', (els) => els.map((e) => { const b = e.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2, d: b.width }; }));
+    [[-240, 0], [0, 110], [240, 0]].forEach(([dx, dy], i) => assert.ok(Math.abs(centers[i].x - (st.x + dx)) <= 9 && Math.abs(centers[i].y - (st.y + dy)) <= 9, 'מצב ' + i + ' ליד הסמן: ' + JSON.stringify(centers[i])));
+    assert.ok(Math.abs(centers[0].d - 52 * 0.9) < 1.5, 'קוטר מצב על המסך: ' + centers[0].d);
     assert.equal(await visible('#guide'), false);
     assert.match(await p.textContent('#hint'), /עכשיו מעבר/, 'רמז: מה עושים עכשיו');
   });
@@ -177,6 +181,25 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
     await p.click('[data-run=end]');
     await p.waitForSelector('#result-banner.err:not([hidden])');
     assert.match(await p.textContent('#run-status'), /נדחית/);
+  });
+
+  await step('גרירה של מצב והזזת הקנבס: הכול זז בדיוק עם הסמן (גם כשהממשק ב-90%)', async () => {
+    await p.keyboard.press('Escape');
+    const body = (nm) => p.evaluate((n) => { const s = App.machine.states.find((q) => q.name === n); const b = document.querySelector('.st[data-state="' + s.id + '"] .st-body').getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }, nm);
+    const a = await body('q1');
+    await p.mouse.move(a.x, a.y, { steps: 2 }); await p.mouse.down();
+    await p.mouse.move(a.x + 100, a.y + 60, { steps: 8 }); await p.mouse.up();
+    await p.waitForTimeout(150);
+    const b = await body('q1');
+    assert.ok(Math.abs(b.x - a.x - 100) <= 10 && Math.abs(b.y - a.y - 60) <= 10, 'המצב זז עם הסמן: ' + JSON.stringify([a, b]));
+    // הזזת הקנבס עם כלי היד: מצב אחר זז באותו מרחק בדיוק
+    const c = await body('q0');
+    await p.click('.rail [data-tool=hand]');
+    await p.mouse.move(c.x + 40, c.y - 120); await p.mouse.down();
+    await p.mouse.move(c.x - 10, c.y - 90, { steps: 6 }); await p.mouse.up();
+    const d = await body('q0');
+    assert.ok(Math.abs(d.x - c.x + 50) <= 1 && Math.abs(d.y - c.y - 30) <= 1, 'הקנבס זז עם הסמן: ' + JSON.stringify([c, d]));
+    await p.click('.rail [data-tool=select]');
   });
 
   await browser.close();

@@ -25,7 +25,7 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
     return p;
   }
   const shot = async (p, name) => { await p.waitForTimeout(350); await p.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove())); await p.screenshot({ path: path.join(OUT, name + '.png') }); console.log('✓', name); };
-  const at = (p, name) => p.evaluate((nm) => { const s = App.machine.states.find((q) => q.name === nm); const r = document.querySelector('.stage').getBoundingClientRect(); const q = App.canvas.toScreen(s); return { x: r.x + q.x, y: r.y + q.y }; }, name);
+  const at = (p, name) => p.evaluate((nm) => { const s = App.machine.states.find((q) => q.name === nm); const r = document.querySelector('.stage').getBoundingClientRect(); const q = App.canvas.toScreen(s), z = App.canvas.uiScale(); return { x: r.x + q.x * z, y: r.y + q.y * z }; }, name);
   const click = async (p, pt) => { await p.mouse.move(pt.x, pt.y, { steps: 3 }); await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(150); };
   const steps = async (p, n) => { for (let i = 0; i < n; i++) { await p.click('[data-run=next]'); await p.waitForTimeout(120); } await p.waitForTimeout(500); };
   const example = async (p, id) => { await p.evaluate((x) => App.loadExample(x), id); await p.waitForTimeout(300); };

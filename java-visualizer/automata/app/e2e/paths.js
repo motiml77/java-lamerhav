@@ -51,6 +51,9 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     const r = await rows();
     assert.deepEqual(r, ['דרך 2 q4 bbaa ראשAAZ פעילה', 'דרך 1 q5 εbbaa ראשZ נתקעה באות b', 'דרך 3 q4 bbaa ראשAZ נתקעה באות b', 'דרך 4 q6 εbbaa ראשZ נתקעה באות b']);
     assert.match(await text('#machine-view .mv-paths .mv-label'), /דרכים 4/);
+    // יש מקום לחמש שורות שלמות לפחות (מכונה עם יותר דרכים: גוללים)
+    const fit = await p.$eval('#machine-view .paths', (el) => { const row = el.querySelector('.p-row').getBoundingClientRect().height; return el.getBoundingClientRect().height / (row + 2 * 0.9); });
+    assert.ok(fit >= 5, 'שורות שנכנסות: ' + fit.toFixed(2));
     await shot('r5-mid');
   });
 

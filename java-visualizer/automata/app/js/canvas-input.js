@@ -27,8 +27,8 @@
       svg.addEventListener('pointerleave', () => { if (!this.drag) { this.setHover(null); this.pointer = null; this.renderOverlay(); } });
       svg.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const r = svg.getBoundingClientRect();
-        this.zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+        const p = this.local(e);
+        this.zoomAt(p.x, p.y, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
         clearTimeout(this.wheelT);
         this.wheelT = setTimeout(() => this.app.autosave(), 300);
       }, { passive: false });
@@ -99,7 +99,7 @@
       }
       if (h.kind === 'edge' && !pan) { this.drag = { kind: 'press-edge', id: h.id }; return; }
       if (e.button === 0 && e.shiftKey && !pan) { this.drag = { kind: 'marquee', a: p, b: p, base: new Set(app.sel.states) }; return; }
-      this.drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: this.view.x, vy: this.view.y, moved: false };
+      this.drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: this.view.x, vy: this.view.y, moved: false, z: this.uiScale() };
       this.host.classList.add('panning');
     },
 
@@ -129,8 +129,8 @@
         this.toolbar.hidden = true;
         if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = null; this.render(); });
       } else if (d.kind === 'pan') {
-        this.view.x = d.vx + (e.clientX - d.sx);
-        this.view.y = d.vy + (e.clientY - d.sy);
+        this.view.x = d.vx + (e.clientX - d.sx) / d.z;
+        this.view.y = d.vy + (e.clientY - d.sy) / d.z;
         d.moved = d.moved || far;
         this.applyView();
       } else if (d.kind === 'marquee') {
