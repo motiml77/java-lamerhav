@@ -77,9 +77,9 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
   await p.click('[data-cmd=run-tests]');
   await shot(p, 'ours-tests');
 
-  // אסל"ד: מעבר חדש q2 → q0 (קשת מקווקוות עד האישור), ואמצע הרצה
-  await example(p, 'ends-ab');
-  await click(p, await at(p, 'q2'));
+  // אסל"ד: מעבר חדש q3 → q0 (קשת מקווקוות עד האישור), ואמצע הרצה
+  await example(p, 'third-last-a');
+  await click(p, await at(p, 'q3'));
   await click(p, await at(p, 'q0'));
   await p.keyboard.press('a');
   await shot(p, 'ours-popover');

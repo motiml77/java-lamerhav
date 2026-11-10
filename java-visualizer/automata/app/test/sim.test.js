@@ -36,15 +36,15 @@ test('בלי מצב התחלתי', () => {
   assert.equal(S.run(m, 'a').reason.code, 'NO_START');
 });
 
-test('אסל"ד: מסתיים ב-ab, כל הענפים הפעילים', () => {
-  const m = load('ends-ab');
-  for (const w of ['ab', 'aab', 'babab']) assert.equal(S.run(m, w).result, 'accept', w);
-  for (const w of ['', 'ba', 'abb', 'aba']) assert.equal(S.run(m, w).result, 'reject', w);
+test('אסל"ד: השלישית מהסוף היא a, כל הענפים הפעילים', () => {
+  const m = load('third-last-a');
+  for (const w of ['aaa', 'abb', 'babb']) assert.equal(S.run(m, w).result, 'accept', w);
+  for (const w of ['', 'ab', 'bbb', 'abbb']) assert.equal(S.run(m, w).result, 'reject', w);
   const tr = S.run(m, 'aab');
   const names = (st) => st.active.map((id) => M.stateName(m, id)).sort();
   assert.deepEqual(names(tr.steps[1]), ['q0', 'q1']);
-  assert.deepEqual(names(tr.steps[3]), ['q0', 'q2']);
-  assert.deepEqual(tr.acceptedStates.map((id) => M.stateName(m, id)), ['q2']);
+  assert.deepEqual(names(tr.steps[3]), ['q0', 'q2', 'q3']);
+  assert.deepEqual(tr.acceptedStates.map((id) => M.stateName(m, id)), ['q3']);
 });
 
 test('אסל"ד: סגור ε', () => {

@@ -47,13 +47,19 @@
     },
 
     /* ---------- סרגל עליון ותפריטים ---------- */
+    /** תפריט הדוגמאות: עמודה לכל סוג מכונה, חמש דוגמאות בכל אחת, ולכל דוגמה השפה שלה בכתיבה יפה. */
     renderExamplesMenu() {
-      const menu = $('#examples-menu');
-      menu.innerHTML = M.TYPES.map((type) => {
+      const LG = root.AutomataLang;
+      const item = (e) => {
+        let f = '';
+        if (e.language) { try { f = LG.pretty(LG.parse(e.language.text, { alphabet: e.alphabet })).html.replace(/^L = /, ''); } catch (err) { f = ''; } }
+        return '<button type="button" role="menuitem" data-example="' + e.id + '" title="' + esc(e.description) + '"><span class="mi-text"><b>' + esc(e.name) + '</b>' +
+          (f ? '<small class="mi-f" dir="ltr">' + f + '</small>' : '<small>' + esc(e.demo ? 'הדגמה של ניתוב קשתות' : e.description) + '</small>') + '</span></button>';
+      };
+      $('#examples-menu').innerHTML = M.TYPES.map((type) => {
         const list = EX.EXAMPLES.filter((e) => e.type === type);
-        if (!list.length) return '';
-        return '<div class="menu-group"><div class="menu-title">' + esc(M.TYPE_INFO[type].short) + '</div>' + list.map((e) =>
-          '<button type="button" role="menuitem" data-example="' + e.id + '"><span class="type-tag ' + type + '">' + M.TYPE_INFO[type].en + '</span><span class="mi-text"><b>' + esc(e.name) + '</b><small>' + esc(e.description) + '</small></span></button>').join('') + '</div>';
+        return '<div class="menu-col" data-col="' + type + '"><div class="menu-title"><span class="type-tag ' + type + '">' + M.TYPE_INFO[type].en + '</span>' + esc(M.TYPE_INFO[type].short) + '</div>' +
+          list.filter((e) => !e.demo).map(item).join('') + (list.some((e) => e.demo) ? '<div class="menu-sep"></div>' + list.filter((e) => e.demo).map(item).join('') : '') + '</div>';
       }).join('');
     },
 
@@ -63,8 +69,9 @@
       $$('.menu').forEach((x) => { x.hidden = true; });
       $$('[aria-haspopup]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
       menu.hidden = !open;
+      menu.querySelectorAll('.menu-col').forEach((c) => c.classList.toggle('current', c.dataset.col === this.active));
       if (btn) btn.setAttribute('aria-expanded', String(open));
-      if (open) { const first = menu.querySelector('[role=menuitem]'); if (first) first.focus(); }
+      if (open) { const first = menu.querySelector('.menu-col.current [role=menuitem]') || menu.querySelector('[role=menuitem]'); if (first) first.focus(); }
     },
 
     showModal(title, html) {
@@ -115,7 +122,6 @@
         if (e.target.id === 'modal') this.closeModal();
       });
       $('#canvas-status').addEventListener('click', () => this.side.show('issues'));
-      $('#lang-pill').addEventListener('click', () => this.side.show('lang'));
       $('#canvas-status').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.side.show('issues'); } });
       $('#file-input').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) this.openFile(f); e.target.value = ''; });
       const name = $('#machine-name');

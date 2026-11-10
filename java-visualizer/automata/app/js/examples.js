@@ -1,142 +1,44 @@
 /*
- * examples.js - מכונות לדוגמה. כל דוגמה היא קובץ מכונה רגיל (אותו מבנה כמו שמירה ל-JSON).
+ * examples.js - המכונות לדוגמה: חמש לכל סוג מכונה, ועוד הדגמת ניתוב אחת.
+ * המפרט הקצר נמצא ב-examples-fa.js וב-examples-pt.js. כאן הוא הופך לקובץ מכונה רגיל (אותו מבנה כמו שמירה ל-JSON):
+ *   - לכל דוגמה יש שפה (machine.language: הנוסחה ותיאור במילים), והיא מוצגת בפס שמעל הקנבס
+ *   - התוצאה הצפויה של כל מילה בטבלת הבדיקות מחושבת מהנוסחה (AutomataLang.accepts), לא נכתבת ביד
+ * הבדיקה test/examples.test.js מוודאת שכל מכונה מקבלת בדיוק את השפה של הנוסחה שלה, על כל המילים עד אורך 10.
  */
 (function (root, factory) {
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
+  const node = typeof module === 'object' && module.exports;
+  const specs = node ? require('./examples-fa.js').concat(require('./examples-pt.js')) : root.AutomataExampleSpecs;
+  const api = factory(specs, root.AutomataModel || (node ? require('./model.js') : null), root.AutomataLang || (node ? require('./lang/index.js') : null));
+  if (node) module.exports = api;
   else root.AutomataExamples = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (SPECS, M, L) {
   'use strict';
-  const base = { format: 'dsviz-automaton', version: 1, view: { x: 0, y: 0, zoom: 1 } };
-  const st = (id, x, y, accepting, extra) => Object.assign({ id, name: id, x, y, accepting: !!accepting }, extra || {});
-  const fa = (read) => read.split(',').map((r) => ({ read: r === 'ε' ? '' : r }));
+  const uniq = (list) => Array.from(new Set(list));
 
-  const EXAMPLES = [
-    Object.assign({}, base, {
-      id: 'even-a',
-      type: 'dfa',
-      name: 'מספר זוגי של a',
-      description: 'מקבל מילים מעל {a, b} שיש בהן מספר זוגי של a (גם 0).',
-      alphabet: ['a', 'b'],
-      states: [st('q0', -110, 0, true), st('q1', 110, 0, false)],
-      start: 'q0',
-      transitions: [
-        { id: 't1', from: 'q0', to: 'q1', labels: fa('a') },
-        { id: 't2', from: 'q1', to: 'q0', labels: fa('a') },
-        { id: 't3', from: 'q0', to: 'q0', labels: fa('b') },
-        { id: 't4', from: 'q1', to: 'q1', labels: fa('b') },
-      ],
-      tests: [
-        { word: '', expect: true }, { word: 'aa', expect: true }, { word: 'abba', expect: true },
-        { word: 'bab', expect: false }, { word: 'aaab', expect: false }, { word: 'baaba', expect: false },
-      ],
-      sampleWord: 'abbab',
-    }),
-    Object.assign({}, base, {
-      id: 'ends-ab',
-      type: 'nfa',
-      name: 'מסתיים ב-ab',
-      description: 'אסל"ד שמנחש מתי מתחיל ה-ab האחרון. מקבל מילים מעל {a, b} שמסתיימות ב-ab.',
-      alphabet: ['a', 'b'],
-      states: [st('q0', -200, 0, false, { loopAngle: -90 }), st('q1', 0, 0, false), st('q2', 200, 0, true)],
-      start: 'q0',
-      transitions: [
-        { id: 't1', from: 'q0', to: 'q0', labels: fa('a,b') },
-        { id: 't2', from: 'q0', to: 'q1', labels: fa('a') },
-        { id: 't3', from: 'q1', to: 'q2', labels: fa('b') },
-      ],
-      tests: [
-        { word: 'ab', expect: true }, { word: 'aab', expect: true }, { word: 'babab', expect: true },
-        { word: '', expect: false }, { word: 'ba', expect: false }, { word: 'abb', expect: false },
-      ],
-      sampleWord: 'abaab',
-    }),
-    Object.assign({}, base, {
-      id: 'only-a-or-b',
-      type: 'nfa',
-      name: 'רק a או רק b (עם ε)',
-      description: 'אסל"ד עם מעברי ε: מקבל מילים שכולן a או כולן b. מראה סגור ε.',
-      alphabet: ['a', 'b'],
-      states: [st('q0', -150, 0, false), st('q1', 60, -90, true, { loopAngle: 0 }), st('q2', 60, 90, true, { loopAngle: 0 })],
-      start: 'q0',
-      transitions: [
-        { id: 't1', from: 'q0', to: 'q1', labels: fa('ε') },
-        { id: 't2', from: 'q0', to: 'q2', labels: fa('ε') },
-        { id: 't3', from: 'q1', to: 'q1', labels: fa('a') },
-        { id: 't4', from: 'q2', to: 'q2', labels: fa('b') },
-      ],
-      tests: [
-        { word: '', expect: true }, { word: 'aaa', expect: true }, { word: 'bb', expect: true },
-        { word: 'ab', expect: false }, { word: 'aab', expect: false },
-      ],
-      sampleWord: 'aaa',
-    }),
-    Object.assign({}, base, {
-      id: 'jumps',
-      type: 'nfa',
-      name: 'קפיצות מעל מצבים',
-      description: 'דוגמה צפופה: חמישה מצבים בשורה ומעברים שמדלגים מעל האמצעיים. הקשתות מתעקלות כדי לא לעבור דרך מצבים.',
-      alphabet: ['a', 'b'],
-      states: [st('q0', -320, 0, false), st('q1', -160, 0, false), st('q2', 0, 0, false), st('q3', 160, 0, false), st('q4', 320, 0, true)],
-      start: 'q0',
-      transitions: [
-        ['q0', 'q1', 'a'], ['q1', 'q2', 'b'], ['q2', 'q3', 'a'], ['q3', 'q4', 'b'], ['q0', 'q2', 'b'],
-        ['q1', 'q3', 'a'], ['q2', 'q4', 'b'], ['q4', 'q0', 'a'], ['q3', 'q1', 'b'], ['q4', 'q2', 'a'],
-      ].map(([from, to, l], i) => ({ id: 't' + (i + 1), from, to, labels: fa(l) })),
-      tests: [
-        { word: 'bb', expect: true }, { word: 'aab', expect: true }, { word: 'abab', expect: true },
-        { word: '', expect: false }, { word: 'ab', expect: false }, { word: 'abba', expect: false },
-      ],
-      sampleWord: 'aabab',
-    }),
-    Object.assign({}, base, {
-      id: 'anbn',
-      type: 'pda',
-      name: 'אותו מספר a ו-b',
-      description: 'אוטומט מחסנית שמקבל aⁿbⁿ (n ≥ 0): דוחף A על כל a, ושולף A על כל b.',
-      alphabet: ['a', 'b'],
-      stackAlphabet: ['Z', 'A'],
-      stackStart: 'Z',
-      acceptBy: 'final',
-      states: [st('q0', -150, -40, false, { loopAngle: -90 }), st('q1', 150, -40, false, { loopAngle: -90 }), st('q2', 0, 130, true)],
-      start: 'q0',
-      transitions: [
-        { id: 't1', from: 'q0', to: 'q0', labels: [{ read: 'a', pop: 'Z', push: 'AZ' }, { read: 'a', pop: 'A', push: 'AA' }] },
-        { id: 't2', from: 'q0', to: 'q1', labels: [{ read: 'b', pop: 'A', push: '' }] },
-        { id: 't3', from: 'q1', to: 'q1', labels: [{ read: 'b', pop: 'A', push: '' }] },
-        { id: 't4', from: 'q1', to: 'q2', labels: [{ read: '', pop: 'Z', push: 'Z' }] },
-        { id: 't5', from: 'q0', to: 'q2', labels: [{ read: '', pop: 'Z', push: 'Z' }] },
-      ],
-      tests: [
-        { word: '', expect: true }, { word: 'ab', expect: true }, { word: 'aaabbb', expect: true },
-        { word: 'aab', expect: false }, { word: 'abb', expect: false }, { word: 'ba', expect: false },
-      ],
-      sampleWord: 'aabb',
-    }),
-    Object.assign({}, base, {
-      id: 'binary-inc',
-      type: 'tm',
-      name: 'הוספת 1 למספר בינארי',
-      description: 'מכונת טיורינג שמוסיפה 1: רצה לסוף המספר, הופכת 1 ל-0 עד שמוצאת 0 (או ריק), כותבת 1 וחוזרת להתחלה.',
-      alphabet: ['0', '1'],
-      tapeAlphabet: ['0', '1', '_'],
-      blank: '_',
-      states: [st('q0', -220, 0, false, { loopAngle: -90 }), st('q1', 0, 0, false, { loopAngle: -90 }), st('q2', 220, 0, false, { loopAngle: -90 }), st('qf', 220, 170, true)],
-      start: 'q0',
-      transitions: [
-        { id: 't1', from: 'q0', to: 'q0', labels: [{ read: '0', write: '0', move: 'R' }, { read: '1', write: '1', move: 'R' }] },
-        { id: 't2', from: 'q0', to: 'q1', labels: [{ read: '_', write: '_', move: 'L' }] },
-        { id: 't3', from: 'q1', to: 'q1', labels: [{ read: '1', write: '0', move: 'L' }] },
-        { id: 't4', from: 'q1', to: 'q2', labels: [{ read: '0', write: '1', move: 'L' }, { read: '_', write: '1', move: 'L' }] },
-        { id: 't5', from: 'q2', to: 'q2', labels: [{ read: '0', write: '0', move: 'L' }, { read: '1', write: '1', move: 'L' }] },
-        { id: 't6', from: 'q2', to: 'qf', labels: [{ read: '_', write: '_', move: 'R' }] },
-      ],
-      tests: [
-        { word: '1011', expect: true }, { word: '111', expect: true }, { word: '0', expect: true },
-      ],
-      sampleWord: '1011',
-    }),
-  ];
+  function make(s) {
+    const alphabet = Array.from(s.alphabet);
+    const m = {
+      format: 'dsviz-automaton', version: 1, id: s.id, type: s.type, name: s.name, description: s.desc, alphabet,
+      states: s.states.map(([id, x, y, flags, loop]) => Object.assign({ id, name: id, x, y, accepting: /A/.test(flags || '') }, loop != null ? { loopAngle: loop } : {})),
+      start: s.states[0][0],
+      transitions: s.edges.map(([from, to, text], i) => {
+        const r = M.parseLabels(s.type, text);
+        if (r.errors.length) throw new Error('דוגמה ' + s.id + ': ' + r.errors[0]);
+        return { id: 't' + (i + 1), from, to, labels: r.labels };
+      }),
+      view: { x: 0, y: 0, zoom: 1 }, sampleWord: s.sample || '', demo: !!s.demo,
+    };
+    const labels = m.transitions.flatMap((t) => t.labels);
+    if (s.type === 'pda') Object.assign(m, { stackAlphabet: uniq(['Z'].concat(labels.flatMap((l) => Array.from(l.pop + l.push)))), stackStart: 'Z', acceptBy: 'final' });
+    if (s.type === 'tm') Object.assign(m, { blank: '_', tapeAlphabet: uniq(alphabet.concat(labels.flatMap((l) => [l.read, l.write]), ['_'])) });
+    if (s.lang) {
+      const ast = L.parse(s.lang, { alphabet });
+      m.language = { text: s.lang, desc: s.desc };
+      m.tests = s.words.map((w) => ({ word: w, expect: L.accepts(ast, w) }));
+    } else m.tests = (s.tests || []).map(([word, expect]) => ({ word, expect }));
+    return m;
+  }
 
+  const EXAMPLES = SPECS.map(make);
   return { EXAMPLES, get: (id) => EXAMPLES.find((e) => e.id === id) || null };
 });

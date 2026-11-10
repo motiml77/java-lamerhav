@@ -39,6 +39,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   let p = await open('light');
 
   await step('מקלידים ב-ASCII ורואים מיד כתיבה יפה, סיווג ומילים לדוגמה', async () => {
+    await write(p, '');           // הדוגמה שנטענת בהתחלה כבר באה עם שפה משלה
     await p.click('#lang-input');
     await p.keyboard.type('a^n b^m | n >= 2', { delay: 5 });
     await p.waitForTimeout(300);
@@ -47,7 +48,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     assert.equal(await text(p, '#lang-class'), 'רגולרית');
     assert.deepEqual((await words(p, '#lang-live .ll-row:nth-child(1)')).slice(0, 3), ['aa', 'aaa', 'aab']);
     assert.equal((await words(p, '#lang-live .ll-row:nth-child(2)'))[0], 'ε');
-    assert.match(await text(p, '#lang-pill'), /n ≥ 2/);
+    assert.match(await text(p, '#lang-strip'), /n ≥ 2/);
     await shot(p, 'lang-panel');
   });
 
@@ -167,7 +168,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     assert.ok(await p.$eval('#lang-input', (e) => e.readOnly));
     assert.equal(await p.$('[data-l=build]'), null);
     assert.equal((await machine(p)).states, 0);
-    assert.match(await text(p, '#lang-pill'), /תרגיל/);
+    assert.match(await text(p, '#lang-strip'), /תרגיל/);
     await shot(p, 'lang-exercise');
   });
   await p.context().close();

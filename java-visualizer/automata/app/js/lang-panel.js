@@ -1,7 +1,7 @@
 /*
  * lang-panel.js - לשונית "שפה" בפאנל הצד: כותבים שפה בצורה פורמלית, רואים מיד מה היא אומרת (כתיבה יפה, סיווג,
  * המילים הקצרות שבשפה ושמחוצה לה), בונים ממנה אוטומט, ובודקים מולה את האוטומט שעל הקנבס.
- * המנוע: js/lang/ (AutomataLang). השפה נשמרת ב-machine.language = { text, allowBuild, locked }.
+ * המנוע: js/lang/ (AutomataLang). השפה נשמרת ב-machine.language = { text, desc, allowBuild, locked }, ומוצגת גם בפס שמעל הקנבס (lang-strip.js).
  */
 (function (root) {
   'use strict';
@@ -19,8 +19,8 @@
   ];
   const KEYS_MORE = [
     [['w ∈ Σ*', 'w ∈ {$S}* | ', 'מילה כלשהי מעל האלפבית'], ['|w|', '|w|', 'אורך המילה'], ['#a(w)', '#$a(w)', 'כמה פעמים האות מופיעה במילה']],
-    [['מתחילה ב-', 'מתחילה ב-'], ['מסתיימת ב-', 'מסתיימת ב-'], ['מכילה', 'מכילה ']],
-    [['ε', 'ε', 'המילה הריקה'], ['∪', ' ∪ ', 'איחוד, בביטוי רגולרי (אפשר גם | או +)']],
+    [['מתחילה ב-', 'מתחילה ב-'], ['מסתיימת ב-', 'מסתיימת ב-'], ['מכילה', 'מכילה '], ['פלינדרום', 'פלינדרום'], ['מאוזנת', 'מאוזנת', 'סוגריים מאוזנים: w ∈ {(,)}* | מאוזנת']],
+    [['ε', 'ε', 'המילה הריקה'], ['∪', ' ∪ ', 'איחוד, בביטוי רגולרי (אפשר גם | או +)'], ['wᴿ', 'wᴿ', 'המילה w בסדר הפוך. למשל w wᴿ'], ['2ⁿ', '^(2^n)', 'חזקה של 2 בתוך חזקה: a^(2^n)']],
   ];
   const SUPL = { 'ⁿ': '<i>x</i><sup>n</sup>', 'ᵐ': '<i>x</i><sup>m</sup>', 'ᵏ': '<i>x</i><sup>k</sup>', '²ⁿ': '<i>x</i><sup>2n</sup>', '⁺': '<i>x</i><sup>+</sup>', '*': '<i>x</i>*' };
   const keyRows = (rows) => rows.map((list) => '<span class="lk-group">' + list.map(([show, ins, tip]) =>
@@ -42,6 +42,7 @@
         (locked ? '' : '<div class="lang-kb" dir="ltr" role="group" aria-label="מקלדת סימנים"><span class="lk-group" id="lang-letters"></span>' + keyRows(KEYS_MAIN) +
           '<details class="lang-more"' + (this.keysOpen ? ' open' : '') + '><summary><bdi>עוד סימנים: תכונות של מילה, ביטוי רגולרי</bdi></summary><div class="lk-more">' + keyRows(KEYS_MORE) + '</div></details></div>') +
         '<div class="lang-pretty" id="lang-pretty" aria-live="polite"></div>' +
+        (locked ? '' : '<input type="text" id="lang-desc" class="lang-desc" value="' + esc(lang.desc || '') + '" placeholder="תיאור במילים, לפס שמעל הקנבס (לא חובה)" aria-label="תיאור השפה במילים" autocomplete="off">') +
         '<div class="lang-live" id="lang-live"></div>' +
         '<div class="lang-actions">' + (locked && !lang.allowBuild ? '' : '<button type="button" class="btn secondary sm" data-l="build">' + I.get('transition', 16) + '<span>בנה אוטומט</span></button>') +
         '<button type="button" class="btn primary sm" data-l="check">' + I.get('check', 16) + '<span>בדיקה מול השפה</span></button></div>' +
@@ -58,6 +59,8 @@
       this.input = body.querySelector('#lang-input');
       if (!this.bound) {
         this.bound = true;
+        body.addEventListener('input', (e) => { if (e.target.id === 'lang-desc') { this.setLang({ desc: e.target.value }); this.app.strip.render(); } });
+        body.addEventListener('keydown', (e) => { if (e.target.id === 'lang-desc') e.stopPropagation(); });
         body.addEventListener('input', (e) => { if (e.target.id === 'lang-input') { this.setLang({ text: e.target.value }); clearTimeout(this.t); this.t = setTimeout(() => this.live(), 120); } });
         body.addEventListener('keydown', (e) => { if (e.target.id === 'lang-input') { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); clearTimeout(this.t); this.live(); } } });
         body.addEventListener('mousedown', (e) => { if (e.target.closest('.lk, .ll')) e.preventDefault(); });      // לא לאבד את הפוקוס בשדה
@@ -99,7 +102,7 @@
       }
       const letters = q('lang-letters');
       if (letters) letters.innerHTML = this.sigma().concat(['c', '0', '1'].filter((c) => !this.sigma().includes(c)).slice(0, 2)).map((c) => '<button type="button" class="lk ll" data-ins="' + esc(c) + '" tabindex="-1">' + esc(c) + '</button>').join('');
-      this.app.renderLangPill();
+      this.app.strip.render();
       this.renderResult();
     }
 
@@ -119,7 +122,7 @@
       const key = e.target.closest('[data-ins]');
       if (key) { this.insert(key.dataset.ins); return; }
       const w = e.target.closest('[data-word]');
-      if (w) { app.word = w.dataset.word; app.stopRun(true); app.runPanel.render(); app.runCmd('play-restart'); return; }
+      if (w) { app.runWord(w.dataset.word); return; }
       const tpl = e.target.closest('[data-tpl]');
       if (tpl) { this.result = null; this.setLang({ text: L.TEMPLATES[+tpl.dataset.tpl].text }); this.input.value = this.lang.text; this.live(); this.input.focus(); return; }
       const b = e.target.closest('[data-l]');
@@ -213,6 +216,7 @@
       const app = this.app, name = L.pretty(this.ast).text;
       const ex = M.createMachine(app.active, { name: 'תרגיל', alphabet: this.ast.alphabet });
       ex.language = { text: this.lang.text, allowBuild: !!this.lang.allowBuild, locked: true };
+      if (this.lang.desc) ex.language.desc = this.lang.desc;
       app.download(new Blob([M.serialize(ex)], { type: 'application/json' }), 'תרגיל - ' + name.replace(/[\\/:*?"<>|]+/g, '_') + '.automaton.json');
       app.toast('נשמר קובץ תרגיל', 'ok');
     }

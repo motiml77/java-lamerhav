@@ -37,7 +37,8 @@ code { font-family: var(--mono); font-size: 0.95em; background: var(--sunk); pad
 }
 .topbar { grid-area: top; }
 .rail { grid-area: rail; }
-.stage { grid-area: stage; }
+.stage-col { grid-area: stage; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.stage-col .stage { flex: 1 1 auto; min-height: 0; }
 .side { grid-area: side; }
 .runpanel { grid-area: run; }
 
@@ -129,6 +130,19 @@ code { font-family: var(--mono); font-size: 0.95em; background: var(--sunk); pad
 .mi-text small { font-size: var(--fs-12); color: var(--muted); line-height: 1.4; }
 .menu-group + .menu-group { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
 .menu-title { font-size: var(--fs-11); font-weight: 600; color: var(--faint); padding: 6px 10px 2px; }
+/* תפריט הדוגמאות: עמודה לכל סוג מכונה */
+#examples-menu:not([hidden]) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: min(920px, calc(100vw - 32px)); padding: 8px; }
+.menu-col { min-width: 0; padding: 2px; border-radius: var(--r-md); }
+.menu-col.current { background: var(--sunk); }
+.menu-col .menu-title { display: flex; align-items: center; gap: 8px; font-size: var(--fs-12); color: var(--ink-2); padding: 6px 10px 6px; }
+.menu-col [role=menuitem] { padding: 6px 10px; }
+.menu-col.current [role=menuitem]:hover, .menu-col.current [role=menuitem]:focus-visible { background: var(--panel); }
+.menu-col .mi-text { min-width: 0; width: 100%; }
+.mi-f { font-family: var(--mono); font-size: var(--fs-12); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.mi-f sup { font-size: 0.75em; line-height: 0; }
+.mi-f .he { font-family: var(--sans); }
+.menu-sep { height: 1px; background: var(--line); margin: 4px 10px; }
+@media (max-width: 1100px) { #examples-menu:not([hidden]) { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(520px, calc(100vw - 32px)); } }
 .type-tag { flex: none; font: 600 10px/18px var(--mono); padding: 0 6px; border-radius: var(--r-xs); margin-top: 1px; letter-spacing: 0.03em; }
 .type-tag.dfa { background: #EAF1FE; color: #1D4FB8; }
 .type-tag.nfa { background: #EFEAFD; color: #5332B8; }

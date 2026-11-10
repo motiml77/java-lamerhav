@@ -102,7 +102,7 @@ test('מכונת טיורינג ל-aⁿbⁿcⁿ, ומה שלא נתמך נאמר
     assert.ok(r.ok && r.machine.type === 'tm', f + ': ' + r.reason);
     sameAsOracle(r.machine, P(f), 1500, f);
   }
-  for (const f of ['a^n b^m c^n d^m', 'a^n b^n c^n | n mod 2 = 0', 'w ∈ {a,b}* | פלינדרום', 'a^n b^m | n = m או n != m']) {
+  for (const f of ['a^n b^m c^n d^m', 'a^n b^n c^n | n mod 2 = 0', 'w ∈ {a,b}* | #a(w) = #b(w)', 'a^n b^m | n = m או n != m', 'ww', 'w#w', 'a^(2^n)']) {
     const r = L.build(P(f));
     assert.equal(r.ok, false, f);
     assert.match(r.reason, /עוד לא נתמכת/);

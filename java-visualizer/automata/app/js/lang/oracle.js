@@ -39,9 +39,13 @@
       case 'ends': return word.endsWith(c.word);
       case 'has': return word.includes(c.word);
       case 'pal': return word === Array.from(word).reverse().join('');
+      case 'bal': { let d = 0; for (const ch of word) { if (ch === c.open) d++; else if (ch === c.close && --d < 0) return false; } return d === 0; }
     }
     throw new Error('cond ' + c.op);
   }
+
+  /** מספר החזרות של בלוק כשהמשתנה שלו שווה v. */
+  const reps = (e, v) => (!e.v ? e.d : e.pow ? Math.pow(e.pow, v) : e.c * v + e.d);
 
   /** בלוקים: מנסים את כל הדרכים לחלק את המילה לבלוקים (ערכי המשתנים חסומים באורך המילה). */
   function blocksAccept(ast, w) {
@@ -51,11 +55,11 @@
       const b = B[i], e = b.e, len = b.word.length;
       const fits = (count) => { for (let k = 0; k < count; k++) if (!w.startsWith(b.word, pos + k * len)) return false; return true; };
       if (!e.v || env[e.v] != null) {
-        const count = e.v ? e.c * env[e.v] + e.d : e.d;
+        const count = reps(e, env[e.v]);
         return count >= 0 && pos + count * len <= w.length && fits(count) && go(i + 1, pos + count * len, env);
       }
       for (let v = 0; ; v++) {
-        const count = e.c * v + e.d;
+        const count = reps(e, v);
         if (count < 0) continue;
         if (pos + count * len > w.length || !fits(count)) return false;
         env[e.v] = v;
@@ -71,6 +75,7 @@
     for (const c of word) if (!ast.alphabet.includes(c)) return false;
     if (ast.kind === 'blocks') return blocksAccept(ast, word);
     if (ast.kind === 'regex') return L.reMatch(ast.re, word, ast.alphabet);
+    if (ast.kind === 'pattern') return L.patternAccepts(ast, word);
     const env = { '|w|': Array.from(word).length };
     for (const s of ast.alphabet) env['#' + s] = 0;
     for (const c of word) env['#' + c]++;
@@ -126,10 +131,10 @@
   }
   const RELS = { '=': '=', '!=': '≠', '<': '<', '>': '>', '<=': '≤', '>=': '≥' };
   const he = (s, html) => (html ? '<bdi class="he">' + s + '</bdi>' : s);
-  const PRED = { starts: 'מתחילה ב-', ends: 'מסתיימת ב-', has: 'מכילה ', pal: 'פלינדרום' };
+  const PRED = { starts: 'מתחילה ב-', ends: 'מסתיימת ב-', has: 'מכילה ', pal: 'פלינדרום', bal: 'מאוזנת' };
   /** תכונת מחרוזת בעברית. ב-html זו יחידה אחת מימין לשמאל, והמילה עצמה בתוכה משמאל לימין: "מסתיימת ב-ab". */
   function pred(c, html, neg) {
-    const w = c.op === 'pal' ? '' : (c.word || 'ε');
+    const w = c.op === 'pal' || c.op === 'bal' ? '' : (c.word || 'ε');
     const text = (neg ? 'לא ' : '') + PRED[c.op];
     return html ? '<bdi class="he" dir="rtl">' + text + (w ? '<bdi dir="ltr">' + esc(w) + '</bdi>' : '') + '</bdi>' : text + w;
   }
@@ -161,11 +166,13 @@
   function pretty(ast) {
     const make = (html) => {
       if (ast.kind === 'regex') return 'L = ' + showRe(ast.re, 0);
+      if (ast.kind === 'pattern') return L.patternPretty(ast, html);
       if (ast.kind === 'prop') { const c = showC(ast.cond, html, true); return 'L = { w ∈ {' + ast.alphabet.join(',') + '}*' + (c ? ' | ' + c : '') + ' }'; }
       const body = ast.blocks.map((b) => {
         const base = b.word.length > 1 ? '(' + b.word + ')' : b.word, e = b.e;
         if (!e.v && e.d === 1) return base;
         if (e.v && e.v[0] === '_') return base + (e.d ? (html ? '<sup>+</sup>' : '⁺') : '*');
+        if (e.pow) return html ? esc(base) + '<sup>' + e.pow + '<sup>' + e.v + '</sup></sup>' : base + '^(' + e.pow + (SUPS[e.v] || '^' + e.v) + ')';
         const t = expText(e);
         if (html) return esc(base) + '<sup>' + esc(t) + '</sup>';
         const u = sup(t);
@@ -177,5 +184,5 @@
     return { text: make(false), html: make(true) };
   }
 
-  Object.assign(L, { evalA, evalC, accepts, words, lengthFor, sample, pretty, mod });
+  Object.assign(L, { evalA, evalC, reps, accepts, words, lengthFor, sample, pretty, mod });
 });

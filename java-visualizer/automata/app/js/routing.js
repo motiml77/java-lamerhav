@@ -1,23 +1,28 @@
 /*
  * routing.js - ניתוב קשתות ומיקום תוויות. טהור (בלי DOM), נבדק ב-test/routing.test.js.
  *
- * כל קשת היא בזייה מעוקבת: נקודות הבקרה על שליש ושני שליש מהקו, מוזזות הצידה ב-h1 / h2.
- * קשת ישרה = h1 = h2 = 0. מחפשים את העיקול הזול ביותר שעובר במרחק של לפחות R + MARGIN מכל מצב
- * שאינו קצה של הקשת. קשתות הפוכות (a→b וגם b→a) מתעקלות כל אחת לשמאל כיוון הנסיעה, אז הן נפרדות.
- * אחר כך לולאות (בכיוון הכי פנוי), ובסוף תוויות: באמצע הקשת, ואם הן נוגעות במצב או בתווית אחרת, זזות.
+ * כל קשת היא בזייה מעוקבת: נקודות הבקרה על שליש ושני שליש מהקו, מוזזות הצידה ב-h1 / h2 (קשת ישרה: h1 = h2 = 0).
+ * לכל קשת בוחרים את העיקול הזול ביותר מתוך רשימת מועמדים. המחיר מורכב מ:
+ *   1. גודל העיקול. קשת חייבת לעבור במרחק של לפחות R + MARGIN מכל מצב שאינו קצה שלה.
+ *   2. "מסדרון משותף": כל קטע שבו הקשת רצה קרוב (פחות מ-SEP) לקשת אחרת עולה ביוקר. לכן קשתות שמתכנסות לאותו
+ *      מצב או רצות יחד מקבלות עיקולים שונים בבירור, והארוכה מתעקלת יותר (הקצרות מנותבות ראשונות).
+ * קשתות הפוכות (a→b וגם b→a) מתעקלות כל אחת לשמאל כיוון הנסיעה. אחרי הסבב הראשון יש עוד שני סבבי שיפור,
+ * שבהם כל קשת מנותבת מחדש מול כל האחרות. אחר כך לולאות, ובסוף תוויות (ב-routing-labels.js).
  */
 (function (root, factory) {
-  const api = factory(root.AutomataGeometry || (typeof require === 'function' ? require('./geometry.js') : null));
-  if (typeof module === 'object' && module.exports) module.exports = api;
+  const node = typeof module === 'object' && module.exports;
+  const api = factory(root.AutomataGeometry || (node ? require('./geometry.js') : null), root.AutomataRoutingLabels || (node ? require('./routing-labels.js') : null));
+  if (node) module.exports = api;
   else root.AutomataRouting = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (G) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (G, LB) {
   'use strict';
 
   const R = G.R;
   const MARGIN = 8;          // המרחק המובטח (מעבר לרדיוס) בין קשת למצב שאינו קצה שלה
   const SAFE = MARGIN + 4;   // הנתב שומר על מרווח קצת יותר גדול, כדי שדגימה צפופה יותר עדיין תעבור
   const PAIR_H = 37;         // עיקול בסיסי לזוג קשתות הפוכות (שיא של כ-28px)
-  const LABEL_PAD = 3;
+  const SEP = LB.SEP;        // קשתות שקרובות מזה זו לזו "חולקות מסדרון" (בערך גובה של תווית)
+  const SEP_W = 4;           // המחיר של פיקסל אחד במסדרון משותף (משוקלל לפי הקרבה)
 
   const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
   const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y });
@@ -26,29 +31,24 @@
   const norm = (a) => { const l = len(a) || 1; return { x: a.x / l, y: a.y / l }; };
   const r1 = (n) => Math.round(n * 10) / 10;
   const pt = (p) => r1(p.x) + ' ' + r1(p.y);
+  const { cubicAt, sample } = LB;
 
-  function cubicAt(p, t) {
-    const u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
-    return { x: a * p.p0.x + b * p.c1.x + c * p.c2.x + d * p.p3.x, y: a * p.p0.y + b * p.c1.y + c * p.c2.y + d * p.p3.y };
-  }
-  function sample(p, n) {
-    const out = [];
-    for (let i = 0; i <= n; i++) out.push(cubicAt(p, i / n));
-    return out;
-  }
-
-  /* מועמדים לעיקול: [h1, h2] (חיובי = שמאלה לכיוון הנסיעה), ממוינים לפי "מחיר" */
+  /* מועמדים לעיקול: [h1, h2] (חיובי = שמאלה לכיוון הנסיעה), ממוינים לפי "מחיר". שתי נקודות הבקרה ברמות סמוכות, כדי שהקשת תהיה חלקה. */
   const LEVELS = [0, 30, 37, 50, 75, 100, 130, 170, 220, 280, 350];
   const CANDIDATES = (() => {
     const out = [];
-    for (const s1 of [1, -1]) for (const s2 of [1, -1]) for (const a of LEVELS) for (const b of LEVELS) {
-      if ((a === 0 && s1 < 0) || (b === 0 && s2 < 0)) continue;
-      const h1 = s1 * a, h2 = s2 * b;
-      const sCurve = h1 * h2 < 0;
-      out.push({ h1, h2, cost: Math.max(a, b) + 0.4 * Math.abs(a - b) + (sCurve ? 80 : 0) });
-    }
+    for (const s1 of [1, -1]) for (const s2 of [1, -1]) LEVELS.forEach((a, i) => LEVELS.forEach((b, j) => {
+      if ((a === 0 && s1 < 0) || (b === 0 && s2 < 0)) return;
+      const sCurve = s1 * a * s2 * b < 0;
+      if (Math.abs(i - j) > (sCurve ? 1 : 2)) return;
+      out.push({ h1: s1 * a, h2: s2 * b, cost: Math.max(a, b) + 0.4 * Math.abs(a - b) + (sCurve ? 80 : 0) });
+    }));
     return out.sort((x, y) => x.cost - y.cost);
   })();
+  const LONG = 320;          // מעל האורך הזה מחיר העיקול יורד (לפי שורש היחס)
+  const ROUNDS = 3;          // כמה סבבי תיקון לכל היותר, כשיש תווית בלי מקום ברור
+  const KEEP_WIDE = 60;       // ובסבבי התיקון, לקשת שאין עליה מקום לתווית
+  const KEEP = 22;           // כמה עיקולים אפשריים שוקלים לכל קשת
 
   /** הגאומטריה של קשת a→b עם עיקול [h1, h2]. */
   function shapeEdge(a, b, h1, h2) {
@@ -87,21 +87,23 @@
     return min;
   }
 
-  function samplesFor(shape) {
-    const p = shape.pts;
-    const approx = len(sub(p.c1, p.p0)) + len(sub(p.c2, p.c1)) + len(sub(p.p3, p.c2));
-    return sample(p, Math.max(24, Math.ceil(approx / 10)));
+  const approxLen = (p) => len(sub(p.c1, p.p0)) + len(sub(p.c2, p.c1)) + len(sub(p.p3, p.c2));
+  const samplesFor = (shape, step) => sample(shape.pts, Math.max(20, Math.ceil(approxLen(shape.pts) / (step || 11))));
+
+  /** האורך (בפיקסלים, משוקלל לפי הקרבה) של החלקים בקשת שקרובים לקשת אחרת: המסדרון המשותף. */
+  function shared(smp, grid, self, limit) {
+    const pt = { x: 0, y: 0 };
+    let s = 0;
+    for (let i = 1; i < smp.length; i++) {
+      pt.x = smp[i].x; pt.y = smp[i].y;
+      const d = grid.rectNear(pt, self, SEP);
+      if (d < SEP) { const k = 1 - d / SEP, q = smp[i - 1]; s += k * k * Math.hypot(pt.x - q.x, pt.y - q.y); if (s > limit) return s; }
+    }
+    return s;
   }
 
-  /** כמה דגימות קרובות (פחות מ-10px) לקשתות שכבר נותבו. */
-  function crowding(samples, routed) {
-    let n = 0;
-    for (const p of samples) for (const q of routed) if (Math.abs(p.x - q.x) < 10 && Math.abs(p.y - q.y) < 10) { n++; break; }
-    return n;
-  }
-
-  function routeEdge(a, b, obstacles, paired, routedSamples) {
-    // מכשולים רלוונטיים: רק מה שקרוב מספיק לאזור של הקשת
+  /** העיקולים האפשריים של קשת a→b (עוברים רחוק מספיק מכל מצב), מהזול ליקר: [{ shape, smp, base }]. */
+  function options(a, b, obstacles, paired, keep) {
     const L = len(sub(b, a));
     const mid = mul(add(a, b), 0.5);
     const near = obstacles.filter((o) => len(sub(o, mid)) < L / 2 + 400);
@@ -112,35 +114,41 @@
       const w = sub(o, a), along = w.x * u.x + w.y * u.y, side = w.x * left.x + w.y * left.y;
       if (along > -R && along < L + R && Math.abs(side) < R + SAFE + 60) { if (side > 0) leftCount++; else rightCount++; }
     }
-    let best = null, found = 0;
-    for (const c of CANDIDATES) {
-      if (paired && (c.h1 < PAIR_H || c.h2 < PAIR_H)) continue;
-      if (best && c.cost > best.total) break;
-      const side = (c.h1 + c.h2) >= 0 ? leftCount : rightCount;
-      const shape = shapeEdge(a, b, c.h1, c.h2);
-      const smp = samplesFor(shape);
-      if (near.length && clearance(smp, near) < SAFE) continue;
-      const total = c.cost + side * 20 + crowding(smp, routedSamples) * 3;
-      if (!best || total < best.total) best = { shape, smp, total };
-      if (++found >= 6) break;
-    }
-    if (best) return best;
-    // אין עיקול שעובר נקי: לוקחים את זה עם המרווח הכי גדול
+    const scale = Math.sqrt(LONG / Math.max(L, LONG));      // לקשת ארוכה עיקול גדול זול יותר: היא זו שמתרחקת, והקצרות נשארות צמודות
+    const out = [];
     let fallback = null;
     for (const c of CANDIDATES) {
       if (paired && (c.h1 < PAIR_H || c.h2 < PAIR_H)) continue;
       const shape = shapeEdge(a, b, c.h1, c.h2);
+      if (near.length && clearance([cubicAt(shape.pts, 0.5), cubicAt(shape.pts, 0.25), cubicAt(shape.pts, 0.75)], near) < SAFE && fallback) continue;
       const smp = samplesFor(shape);
-      const cl = clearance(smp, near);
-      if (!fallback || cl > fallback.cl) fallback = { shape, smp, cl };
+      const cl = near.length ? clearance(smp, near) : Infinity;
+      if (cl < SAFE) { if (!fallback || cl > fallback.cl) fallback = { shape, smp, base: 0, cl }; continue; }
+      out.push({ shape, smp, base: c.cost * scale + ((c.h1 + c.h2) >= 0 ? leftCount : rightCount) * 20 });
+      if (out.length >= keep) break;
     }
-    return fallback;
+    // אין עיקול שעובר נקי: לוקחים את זה עם המרווח הכי גדול
+    return out.length ? out.sort((x, y) => x.base - y.base) : [fallback];
+  }
+
+  /** בוחר מתוך האפשרויות את הזולה ביותר, כולל המחיר של מסדרון משותף עם הקשתות שכבר ברשת. */
+  function pick(opts, grid, self) {
+    let best = null;
+    for (const o of opts) {
+      if (best && o.base >= best.total) break;
+      const total = o.base + SEP_W * shared(o.smp, grid, self, best ? (best.total - o.base) / SEP_W : Infinity);
+      if (!best || total < best.total) best = { shape: o.shape, total };
+    }
+    return best.shape;
   }
 
   function angleDist(x, y) { let d = Math.abs(x - y) % (2 * Math.PI); return d > Math.PI ? 2 * Math.PI - d : d; }
 
-  function routeLoop(s, obstacles, incident, fixed) {
-    if (fixed != null) { const sh = shapeLoop(s, fixed); return { shape: sh, smp: samplesFor(sh) }; }
+  /** לולאה: בכיוון הכי פנוי (רחוק ממצבים, מקשתות אחרות, ועם מקום לתווית). מחזיר { shape, spot: המלבן של התווית }. */
+  function routeLoop(s, states, incident, fixed, grid, self, box) {
+    const obstacles = states.filter((q) => q !== s);
+    const spot = (sh) => LB.loopSpot({ pts: sh.pts, loop: true, angle: sh.angle }, box, self, states, grid);
+    if (fixed != null) { const sh = shapeLoop(s, fixed); return { shape: sh, spot: spot(sh).r }; }
     let best = null;
     for (let k = 0; k < 16; k++) {
       const ang = -Math.PI / 2 + (k * Math.PI) / 8;
@@ -148,99 +156,134 @@
       const smp = samplesFor(sh);
       const cl = obstacles.length ? clearance(smp, obstacles) : Infinity;
       const spread = incident.length ? Math.min(...incident.map((d) => angleDist(d, ang))) : Math.PI;
-      const score = (cl < SAFE ? -1000 + cl : 0) + spread * 40 - (k === 0 ? 0 : 3) - Math.min(k, 16 - k) * 0.5;
-      if (!best || score > best.score) best = { shape: sh, smp, score };
+      const sp = spot(sh);
+      const score = (cl < SAFE ? -1000 + cl : 0) + spread * 40 - (k === 0 ? 0 : 3) - Math.min(k, 16 - k) * 0.5 - shared(smp, grid, self, Infinity) + 0.5 * sp.score;
+      if (!best || score > best.score) best = { shape: sh, score, spot: sp.r };
     }
     return best;
   }
 
-  /* ---------- תוויות ---------- */
-  function rectHitsCircle(r, c, rad) {
-    const x = Math.max(r.x, Math.min(c.x, r.x + r.w)), y = Math.max(r.y, Math.min(c.y, r.y + r.h));
-    return Math.hypot(c.x - x, c.y - y) < rad;
+  /** נקודות על המסגרת של מלבן (כדי שקשתות אחרות יתרחקו מהמקום של תווית של לולאה). */
+  function outline(r) {
+    const out = [];
+    for (let x = r.x; x <= r.x + r.w; x += 6) out.push({ x, y: r.y }, { x, y: r.y + r.h });
+    for (let y = r.y; y <= r.y + r.h; y += 6) out.push({ x: r.x, y }, { x: r.x + r.w, y });
+    return out;
   }
-  function rectsOverlap(a, b, pad) {
-    return a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
-  }
-  function overlapScore(r, states, placed) {
-    let s = 0;
-    for (const c of states) if (rectHitsCircle(r, c, R + 2)) s += 2;
-    for (const q of placed) if (rectsOverlap(r, q, LABEL_PAD)) s += 1;
-    return s;
-  }
-  const boxAt = (c, box) => ({ x: c.x - box.w / 2, y: c.y - box.h / 2, w: box.w, h: box.h, cx: c.x, cy: c.y });
 
-  function placeLabel(route, box, states, placed) {
-    const p = route.shape.pts;
-    const cands = [];
-    if (route.loop) {
-      const n = { x: Math.cos(route.shape.angle), y: Math.sin(route.shape.angle) };
-      const apex = cubicAt(p, 0.5);
-      const base = add(apex, { x: n.x * (box.w / 2 + 4), y: n.y * (box.h / 2 + 4) });
-      for (const k of [0, 8, 16, 26, 38]) cands.push(add(base, mul(n, k)));
-    } else {
-      const tan = norm(sub(cubicAt(p, 0.52), cubicAt(p, 0.48)));
-      const nrm = { x: -tan.y, y: tan.x };
-      const off = Math.abs(nrm.x) * (box.w / 2) + Math.abs(nrm.y) * (box.h / 2) + 5;
-      for (const t of [0.5, 0.42, 0.58, 0.34, 0.66, 0.27, 0.73, 0.2, 0.8]) {
-        const c = cubicAt(p, t);
-        cands.push(c, add(c, mul(nrm, off)), sub(c, mul(nrm, off)));
-      }
-    }
-    let best = null;
-    for (const c of cands) {
-      const r = boxAt(c, box);
-      const s = overlapScore(r, states, placed);
-      if (s === 0) return r;
-      if (!best || s < best.s) best = { r, s };
-    }
-    return best.r;
-  }
+  let memo = null;   // התוצאה האחרונה: ציור מחדש בלי שינוי בגאומטריה (ריחוף, הרצה) לא מנתב שוב
 
   /**
    * מנתב את כל הקשתות.
    * states: [{id, x, y, loopAngle?}] · edges: [{id, from, to, lines: [מחרוזות התווית]}] · opts.startId
+   * opts.fast: בלי סבבי התיקון של התוויות (בזמן גרירה של מצב, כדי שהציור יישאר חלק גם במכונה צפופה)
    * מחזיר Map: id -> { d, arrow, loop, pts: {p0,c1,c2,p3}, label: {x,y,w,h,cx,cy}, angle? }
    */
   function route(states, edges, opts) {
     opts = opts || {};
+    const key = JSON.stringify([states.map((s) => [s.id, s.x, s.y, s.loopAngle]), edges.map((e) => [e.id, e.from, e.to, e.lines]), opts.startId, !!opts.fast]);
+    if (memo && memo.key === key) return memo.out;
     const byId = new Map(states.map((s) => [s.id, s]));
     const pairs = new Set(edges.map((e) => e.from + '>' + e.to));
-    const out = new Map();
-    const routedSamples = [];
-    const incident = new Map(states.map((s) => [s.id, []]));
+    const index = new Map(edges.map((e, i) => [e.id, i]));
+    const boxOf = (e) => G.labelBox(e.lines && e.lines.length ? e.lines : ['?']);
+    const grid = new LB.Grid(states);
+    const shapes = new Map();
+    const put = (e, shape) => { shapes.set(e.id, shape); grid.put(index.get(e.id), samplesFor(shape, 6)); };
     const start = byId.get(opts.startId);
-    if (start) incident.get(start.id).push(Math.PI);     // חץ הכניסה בא משמאל
+    if (start) grid.put(edges.length, sample({ p0: { x: start.x - R - 34, y: start.y }, c1: { x: start.x - R - 22, y: start.y }, c2: { x: start.x - R - 11, y: start.y }, p3: { x: start.x - R, y: start.y } }, 8));
+
+    // קשתות בין מצבים שונים: מהקצרה לארוכה, ואז שני סבבי שיפור מול כל האחרות
     const straight = edges.filter((e) => e.from !== e.to && byId.has(e.from) && byId.has(e.to));
     straight.sort((x, y) => len(sub(byId.get(x.from), byId.get(x.to))) - len(sub(byId.get(y.from), byId.get(y.to))));
-    for (const e of straight) {
+    const optionsOf = (e, keep) => {
       const a = byId.get(e.from), b = byId.get(e.to);
-      const obstacles = states.filter((s) => s !== a && s !== b);
-      const r = routeEdge(a, b, obstacles, pairs.has(e.to + '>' + e.from), routedSamples);
-      for (const p of r.smp) routedSamples.push(p);
-      incident.get(a.id).push(Math.atan2(r.shape.pts.p0.y - a.y, r.shape.pts.p0.x - a.x));
-      incident.get(b.id).push(Math.atan2(r.shape.pts.p3.y - b.y, r.shape.pts.p3.x - b.x));
-      out.set(e.id, { d: r.shape.d, arrow: r.shape.arrow, pts: r.shape.pts, loop: false, shape: r.shape });
+      return options(a, b, states.filter((s) => s !== a && s !== b), pairs.has(e.to + '>' + e.from), keep);
+    };
+    const choices = new Map(straight.map((e) => [e.id, optionsOf(e, KEEP)]));
+    const wide = new Map();      // לתיקון: רשימה רחבה יותר של עיקולים, רק לקשתות שצריכות אותה
+    const one = (e) => pick(choices.get(e.id), grid, index.get(e.id));
+    for (const e of straight) put(e, one(e));
+    // לולאות: בכיוון הכי פנוי. הן נכנסות לרשת לפני סבבי השיפור, כדי שהקשתות יתרחקו מהן ומהתוויות שלהן
+    const loops = edges.filter((e) => e.from === e.to && byId.has(e.from));
+    const routeLoops = () => {
+      const incident = new Map(states.map((s) => [s.id, []]));
+      if (start) incident.get(start.id).push(Math.PI);     // חץ הכניסה בא משמאל
+      for (const e of straight) {
+        const a = byId.get(e.from), b = byId.get(e.to), p = shapes.get(e.id).pts;
+        incident.get(a.id).push(Math.atan2(p.p0.y - a.y, p.p0.x - a.x));
+        incident.get(b.id).push(Math.atan2(p.p3.y - b.y, p.p3.x - b.x));
+      }
+      for (const e of loops) {
+        const s = byId.get(e.from);
+        const r = routeLoop(s, states, incident.get(s.id), s.loopAngle != null ? (s.loopAngle * Math.PI) / 180 : null, grid, index.get(e.id), boxOf(e));
+        shapes.set(e.id, r.shape);
+        grid.put(index.get(e.id), samplesFor(r.shape, 6).concat(outline(r.spot)));
+      }
+    };
+    routeLoops();
+
+    let stamp = 0;                                   // עולה בכל שינוי; קשת שלא השתנה דבר מאז שנבחרה לא נבדקת שוב
+    const seen = new Map(straight.map((e, i) => [e.id, i === straight.length - 1 && !loops.length ? 0 : -1]));
+    for (let sweep = 0; sweep < 2; sweep++) {
+      const before = stamp;
+      for (const e of straight) {
+        if (seen.get(e.id) === stamp) continue;
+        const old = shapes.get(e.id), sh = one(e);
+        if (sh.h1 !== old.h1 || sh.h2 !== old.h2) { put(e, sh); stamp++; }
+        seen.set(e.id, stamp);
+      }
+      if (stamp === before) break;
     }
-    for (const e of edges) {
-      if (e.from !== e.to || !byId.has(e.from)) continue;
-      const s = byId.get(e.from);
-      const r = routeLoop(s, states.filter((q) => q !== s), incident.get(s.id), s.loopAngle != null ? (s.loopAngle * Math.PI) / 180 : null);
-      out.set(e.id, { d: r.shape.d, arrow: r.shape.arrow, pts: r.shape.pts, loop: true, angle: r.shape.angle, shape: r.shape });
+    if (stamp && loops.length) routeLoops();           // הקשתות זזו: בוחרים שוב את כיווני הלולאות
+
+    const out = new Map();
+    const labels = () => {
+      const list = edges.filter((e) => shapes.has(e.id)).map((e) => {
+        const sh = shapes.get(e.id), loop = e.from === e.to;
+        const r = { d: sh.d, arrow: sh.arrow, pts: sh.pts, loop };
+        if (loop) r.angle = sh.angle;
+        out.set(e.id, r);
+        return { edge: e, route: r, self: index.get(e.id), box: boxOf(e), length: approxLen(sh.pts) };
+      });
+      LB.placeAll(list, states, grid);
+      return list;
+    };
+    let list = labels();
+
+    // תיקון: קשת שאין עליה אף מקום ברור לתווית (קשת אחרת צמודה אליה לכל האורך) מקבלת את העיקול שנותן לתווית הכי הרבה מרווח.
+    // אחרי כל סבב בוחרים שוב את כיווני הלולאות, וממקמים את כל התוויות מחדש. בסוף נשארים עם הסבב הטוב ביותר.
+    let kept = null;
+    for (let round = 0; !opts.fast; round++) {
+      const margins = list.map((it) => LB.margin(it, grid)), worst = Math.min(Infinity, ...margins);
+      if (worst >= LB.OWN + 3 && !kept) break;                       // המקרה הרגיל: אין מה לתקן
+      if (!kept || worst > kept.worst) kept = { worst, out: new Map(Array.from(out, ([id, r]) => [id, Object.assign({}, r)])) };
+      if (worst >= LB.OWN + 3 || round === ROUNDS) break;
+      list.forEach((it, i) => {
+        if (margins[i] >= LB.OWN + 3) return;
+        let spot = it.route.label;
+        if (!it.route.loop) {
+          if (!wide.has(it.edge.id)) wide.set(it.edge.id, optionsOf(it.edge, KEEP_WIDE));
+          let best = null;
+          for (const o of wide.get(it.edge.id)) {
+            const rm = LB.room(o.shape.pts, it.self, grid);
+            const val = Math.min(rm.d, 30) - 0.05 * o.base - 0.15 * shared(o.smp, grid, it.self, Infinity);
+            if (!best || val > best.val) best = { o, val, c: rm.c };
+          }
+          // המקום שנבחר לתווית נכנס לרשת יחד עם הקשת, כדי שהקשתות האחרות יתרחקו ממנו
+          spot = { x: best.c.x - it.box.w / 2, y: best.c.y - it.box.h / 2, w: it.box.w, h: it.box.h };
+          shapes.set(it.edge.id, best.o.shape);
+          grid.put(it.self, samplesFor(best.o.shape, 6).concat(outline(spot)));
+        }
+        // הקשתות שעוברות דרך המקום של התווית מנותבות מחדש
+        for (const e of straight) if (e !== it.edge && sample(shapes.get(e.id).pts, 40).some((q) => LB.rectPointDist(spot, q) < LB.OWN + 8)) put(e, one(e));
+      });
+      if (loops.length) routeLoops();
+      list = labels();
     }
-    // תוויות: קודם לולאות (יש להן פחות מקום לזוז), אחר כך לפי הסדר
-    const placed = [];
-    const order = edges.filter((e) => out.has(e.id)).sort((x, y) => (out.get(y.id).loop ? 1 : 0) - (out.get(x.id).loop ? 1 : 0));
-    for (const e of order) {
-      const r = out.get(e.id);
-      const box = G.labelBox(e.lines && e.lines.length ? e.lines : ['?']);
-      const lab = placeLabel(r, box, states, placed);
-      placed.push(lab);
-      r.label = lab;
-      delete r.shape;
-    }
-    return out;
+    memo = { key, out: kept ? kept.out : out };
+    return memo.out;
   }
 
-  return { MARGIN, route, cubicAt, sample, shapeEdge, shapeLoop, rectsOverlap, rectHitsCircle };
+  return { MARGIN, SEP, route, cubicAt, sample, shapeEdge, shapeLoop, rectsOverlap: LB.rectsOverlap, rectHitsCircle: LB.rectHitsCircle, rectPointDist: LB.rectPointDist };
 });

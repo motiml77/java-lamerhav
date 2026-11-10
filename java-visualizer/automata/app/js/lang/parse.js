@@ -3,10 +3,11 @@
  *   1. בלוקים:   a^n b^m | n >= 2, m = 2n        (גם (ab)^n, a^3, a*, a+, a^(2n+1))
  *   2. תכונה:    w ∈ {a,b}* | #a(w) mod 2 = 0 וגם מסתיימת ב-ab
  *   3. ביטוי רגולרי: (a|b)*abb                   (ב-regex.js)
+ *   4. תבנית של מילה: w w^R, w#w                 (ב-extra.js)
  * AST:
- *   { kind:'blocks', blocks:[{ word, e:{ c, v, d } }], cond, vars, alphabet }     מספר החזרות = c·v + d
+ *   { kind:'blocks', blocks:[{ word, e:{ c, v, d, pow? } }], cond, vars, alphabet }     מספר החזרות = c·v + d (או pow בחזקת v)
  *   { kind:'prop', alphabet, cond }      { kind:'regex', re, alphabet }
- *   תנאי: {op:'and'|'or',args} {op:'not',arg} {op:'cmp',rel,l,r} {op:'starts'|'ends'|'has',word} {op:'pal'} {op:'true'}
+ *   תנאי: {op:'and'|'or',args} {op:'not',arg} {op:'cmp',rel,l,r} {op:'starts'|'ends'|'has',word} {op:'pal'} {op:'bal',open,close} {op:'true'}
  *   חשבון: {t:'num',v} {t:'var',n} {t:'add'|'sub',a,b} {t:'mul',k,a} {t:'mod',a,m}     (ב-prop המשתנים הם '|w|' ו-'#a')
  */
 (function (root, f) {
@@ -21,8 +22,8 @@
   const RELS = new Set(['=', '!=', '<', '>', '<=', '>=']);
   const HE = {
     and: ['וגם', 'ו'], or: ['או'], not: ['לא'], even: ['זוגי', 'זוגית'], odd: ['אי-זוגי', 'אי-זוגית', 'איזוגי'], div: ['מתחלק', 'מתחלקת'],
-    starts: ['מתחילה', 'מתחיל', 'מתחילות'], ends: ['מסתיימת', 'מסתיים', 'נגמרת', 'נגמר'], has: ['מכילה', 'מכיל', 'כוללת'], pal: ['פלינדרום'],
-    filler: ['ב', 'את', 'עם', 'היא', 'הוא', 'המילה'], sep: ['כאשר', 'כך', 'ש', 'שבהן', 'שבה'],
+    starts: ['מתחילה', 'מתחיל', 'מתחילות'], ends: ['מסתיימת', 'מסתיים', 'נגמרת', 'נגמר'], has: ['מכילה', 'מכיל', 'כוללת'], pal: ['פלינדרום'], bal: ['מאוזנת', 'מאוזן', 'מאוזנים'],
+    filler: ['ב', 'את', 'עם', 'היא', 'הוא', 'המילה', 'סוגריים'], sep: ['כאשר', 'כך', 'ש', 'שבהן', 'שבה'],
   };
 
   class P {
@@ -91,6 +92,7 @@
       while (p.he('filler') && p.peek(1).t === 'he') p.next();
       for (const op of ['starts', 'ends', 'has']) if (p.he(op)) { p.next(); const word = literal(p); for (const c of word) ctx.symbols.add(c); return { op, word }; }
       if (p.he('pal')) { p.next(); return { op: 'pal' }; }
+      if (p.he('bal')) { p.next(); ctx.bal = ctx.bal || []; ctx.bal.push({ op: 'bal' }); return ctx.bal[ctx.bal.length - 1]; }
     }
     const l = arith(p, ctx);
     if (p.word('even', '', 'even')) { p.next(); return { op: 'cmp', rel: '=', l: { t: 'mod', a: l, m: 2 }, r: { t: 'num', v: 0 } }; }
@@ -172,8 +174,17 @@
         else { const sub = new P(L.lex(y.v), y.v.length); e = exponent(arith(sub, anyVar), p, y); if (!sub.is('eof')) p.fail('לא הצלחתי להבין את החזקה', '', y); }
       } else if (y.t === '^') {
         p.next();
-        const z = p.peek();
-        if (z.t === '(') { p.next(); e = exponent(arith(p, anyVar), p, z); p.expect(')', 'חסר סוגר סוגר ) בחזקה', ''); }
+        const z = p.peek(), par = z.t === '(' ? 1 : 0;
+        const two = p.peek(par + 1), three = p.peek(par + 2);
+        const pw = p.peek(par).t !== 'num' ? 0 : two.t === 'sup' && VARS.has(two.v) ? 1 : two.t === '^' && three.t === 'ch' && VARS.has(three.v) ? 2 : 0;
+        if (pw) {            // a^(2^n): חזקה בתוך חזקה
+          if (par) p.next();
+          const b = +p.next().v;
+          if (pw === 2) p.next();
+          e = { c: 1, v: p.next().v, d: 0, pow: b };
+          if (b < 2) p.fail('הבסיס של החזקה הפנימית צריך להיות 2 לפחות', 'למשל a^(2^n)', z);
+          if (par) p.expect(')', 'חסר סוגר סוגר ) בחזקה', '');
+        } else if (z.t === '(') { p.next(); e = exponent(arith(p, anyVar), p, z); p.expect(')', 'חסר סוגר סוגר ) בחזקה', ''); }
         else if (z.t === '+') { p.next(); e = fresh(1); } else if (z.t === '*') { p.next(); e = fresh(0); } else {
           let c = null, v = null;
           if (z.t === 'num') c = +p.next().v;
@@ -207,7 +218,7 @@
       if (p.is('sigma')) { p.next(); alphabet = null; } else {
         p.expect('{', 'אחרי ∈ צריך לבוא האלפבית בסוגריים מסולסלים', 'למשל w ∈ {a,b}*');
         alphabet = [];
-        while (p.is('ch') || p.is('num')) { for (const c of p.next().v) if (!alphabet.includes(c)) alphabet.push(c); if (p.is(',')) p.next(); }
+        while (p.is('ch') || p.is('num') || p.is('(') || p.is(')')) { for (const c of p.next().v) if (!alphabet.includes(c)) alphabet.push(c); if (p.is(',')) p.next(); }
         p.expect('}', 'חסר } שסוגר את האלפבית', 'למשל {a,b}*');
         if (!alphabet.length) p.fail('האלפבית ריק', 'למשל {a,b}*');
       }
@@ -215,16 +226,23 @@
       while (p.is('|') || p.is(':') || p.is(',') || p.he('sep') || p.is('-')) p.next();
     }
     const c = p.is('eof') ? { op: 'true' } : cond(p, ctx);
+    if (!alphabet && ctx.bal) alphabet = Array.from(new Set(['(', ')', ...ctx.symbols]));
     if (!alphabet) {
       alphabet = Array.from(new Set([...ctx.symbols, ...((opts && opts.alphabet) || [])]));
       if (alphabet.length < 2) for (const d of ['a', 'b']) if (alphabet.length < 2 && !alphabet.includes(d)) alphabet.push(d);
       alphabet.sort();
     } else for (const s of ctx.symbols) if (!alphabet.includes(s)) throw new E('האות ' + s + ' מופיעה בתנאי אבל לא באלפבית {' + alphabet.join(',') + '}', 0, 1, 'הוסיפו אותה לאלפבית, או תקנו את התנאי');
+    if (ctx.bal) {          // "מאוזנת": הסוגריים הם ( ו-), ואם הם לא באלפבית, שתי האותיות הראשונות שלו
+      const br = alphabet.includes('(') && alphabet.includes(')');
+      if (alphabet.length < 2) throw new E('"מאוזנת" צריכה אלפבית עם שני סימנים: פותח וסוגר', 0, 1, 'למשל w ∈ {(,)}* | מאוזנת');
+      for (const b of ctx.bal) { b.open = br ? '(' : alphabet[0]; b.close = br ? ')' : alphabet[1]; }
+    }
     return { kind: 'prop', alphabet, cond: c };
   }
 
   function style(toks) {
-    const PRED = [...HE.starts, ...HE.ends, ...HE.has, ...HE.pal];
+    const PRED = [...HE.starts, ...HE.ends, ...HE.has, ...HE.pal, ...HE.bal];
+    if (L.isPattern(toks)) return 'pattern';
     if (toks.some((t, i) => t.t === 'len' || t.t === 'cnt' || (t.t === 'he' && PRED.includes(t.v)) || (t.t === 'ch' && t.v === 'w' && (toks[i + 1] || {}).t === 'in'))) return 'prop';
     if (toks.some((t) => t.t === '^' || (t.t === 'sup' && t.v !== '+'))) return 'blocks';
     if (toks.some((t) => RELS.has(t.t))) return 'blocks';
@@ -239,7 +257,7 @@
       const toks = L.lex(u.text);
       const p = new P(toks, u.text.length);
       const kind = style(toks);
-      const ast = kind === 'prop' ? parseProp(p, opts) : kind === 'blocks' ? parseBlocks(p) : L.parseRegex(p, opts);
+      const ast = kind === 'pattern' ? L.parsePattern(p, opts) : kind === 'prop' ? parseProp(p, opts) : kind === 'blocks' ? parseBlocks(p) : L.parseRegex(p, opts);
       if (!p.is('eof')) p.fail('לא הצלחתי להבין את ההמשך מכאן', kind === 'blocks' ? 'תנאים מפרידים בפסיק או ב"וגם"' : '');
       ast.text = String(text);
       return ast;

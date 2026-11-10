@@ -77,9 +77,19 @@
       inset = inset && s.w - inset > 420 ? inset : 0;
       s.w -= inset;
       if (!st.length) { this.view.x = s.w / 2; this.view.y = s.h / 2; this.view.zoom = 1; this.applyView(); return; }
-      const xs = st.map((q) => q.x), ys = st.map((q) => q.y);
-      const pad = 100;
-      const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - pad - 40, maxY = Math.max(...ys) + pad;
+      // התיבה שמכילה את כל השרטוט: המצבים, חץ הכניסה, הקשתות (גם לולאות) והתוויות שלהן
+      const xs = [], ys = [];
+      for (const q of st) { xs.push(q.x - R - 6, q.x + R + 6); ys.push(q.y - R - 6, q.y + R + 6); }
+      const start = M.getState(this.m, this.m.start);
+      if (start) xs.push(start.x - R - 40);
+      for (const t of this.m.transitions) {
+        const r = this.routes.get(t.id);
+        if (!r || !r.label) continue;
+        xs.push(r.label.x, r.label.x + r.label.w); ys.push(r.label.y, r.label.y + r.label.h);
+        for (const p of RT.sample(r.pts, 8)) { xs.push(p.x); ys.push(p.y); }
+      }
+      const pad = 56;
+      const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
       const z = Math.min(1.4, Math.max(0.4, Math.min(s.w / (maxX - minX), s.h / (maxY - minY))));
       this.view.zoom = Math.round(z * 1000) / 1000;
       this.view.x = inset + s.w / 2 - ((minX + maxX) / 2) * z;
@@ -125,7 +135,7 @@
       const list = m.transitions.filter((t) => states.has(t.from) && states.has(t.to)).map((t) => ({ id: t.id, from: t.from, to: t.to, lines: this.labelLines(t) }));
       const pv = this.preview && !M.findTransition(m, this.preview.from, this.preview.to) ? this.preview : null;
       if (pv) list.push({ id: '__preview', from: pv.from, to: pv.to, lines: ['?'] });
-      this.routes = RT.route(m.states, list, { startId: m.start });
+      this.routes = RT.route(m.states, list, { startId: m.start, fast: !!(this.drag && this.drag.kind === 'move') });
 
       let edges = '', labels = '', travel = '';
       const start = states.get(m.start);
@@ -185,6 +195,7 @@
       if (rv.animate) rv.animate = false;
       this.renderOverlay();
       this.applyView();
+      this.vp.classList.toggle('hover-edge', !!this.hover && this.hover.kind === 'edge' && m.transitions.some((t) => t.id === this.hover.id));
       this.host.classList.toggle('is-empty', !m.states.length);
       this.host.classList.toggle('arming', !!this.source);
       this.host.classList.toggle('running', app.isRunning());
@@ -218,6 +229,7 @@
       if (same(h, this.hover)) return;
       this.vp.querySelectorAll('.hover').forEach((el) => el.classList.remove('hover'));
       this.hover = h;
+      this.vp.classList.toggle('hover-edge', !!h && h.kind === 'edge');
       if (h) this.vp.querySelectorAll(h.kind === 'state' ? '[data-state="' + h.id + '"]' : '[data-edge="' + h.id + '"]').forEach((el) => el.classList.add('hover'));
     }
 

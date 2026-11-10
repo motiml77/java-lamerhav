@@ -14,8 +14,11 @@
 .ed-line { fill: none; stroke: var(--edge); stroke-width: 1.6; stroke-linecap: round; transition: stroke var(--t-fast); }
 .ed-arrow { fill: var(--edge); transition: fill var(--t-fast); }
 .ed-hit { fill: none; stroke: transparent; stroke-width: 16; cursor: pointer; }
-.ed.hover .ed-line { stroke: var(--edge-hover); stroke-width: 2; }
-.ed.hover .ed-arrow { fill: var(--edge-hover); }
+/* ריחוף על קשת או על התווית שלה: כל הקשת (הקו וראש החץ) מודגשת והאחרות מתעמעמות, כדי שיהיה ברור לאיזו קשת התווית שייכת */
+.ed, .lb { transition: opacity var(--t-fast); }
+.ed.hover .ed-line { stroke: var(--accent); stroke-width: 2.4; }
+.ed.hover .ed-arrow { fill: var(--accent); }
+.viewport.hover-edge .ed:not(.hover):not(.start-arrow):not(.taken), .viewport.hover-edge .lb:not(.hover):not(.taken) { opacity: 0.32; }
 .ed.selected .ed-line { stroke: var(--accent); stroke-width: 2.2; }
 .ed.selected .ed-arrow { fill: var(--accent); }
 .ed.issue .ed-line { stroke: var(--err); stroke-dasharray: 5 4; }
@@ -31,7 +34,8 @@
 .lb-bg { fill: var(--label-bg); stroke: var(--label-line); stroke-width: 1; transition: fill var(--t-fast), stroke var(--t-fast); }
 .lb-text { font: 500 12.5px var(--mono); fill: var(--label-text); text-anchor: middle; pointer-events: none; }
 .lb-text.placeholder { fill: var(--faint); }
-.lb.hover .lb-bg { stroke: var(--edge-hover); }
+.lb.hover .lb-bg { stroke: var(--accent); stroke-width: 1.6; }
+.lb.hover .lb-text:not(.hot) { fill: var(--accent-ink); }
 .lb.selected .lb-bg { stroke: var(--accent); fill: var(--accent-fill); }
 .lb.issue .lb-bg { stroke: var(--err); }
 .lb.taken .lb-bg { stroke: var(--now-strong); }

@@ -136,7 +136,7 @@
     let m = null;
     try {
       if (an.cls === 'regular') m = L.dfaToMachine(toDFA(ast));
-      else if (an.cls === 'cf') m = L.buildPDA(ast, an);
+      else if (an.cls === 'cf') m = L.buildPDA(ast, an) || L.buildExtraPDA(ast);
       else if (an.cls === 'noncf') m = L.buildTM(ast, an);
     } catch (e) { return { ok: false, reason: e.message || UNSUPPORTED }; }
     if (!m) return { ok: false, reason: UNSUPPORTED };

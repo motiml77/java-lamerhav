@@ -121,6 +121,7 @@
   }
 
   function analyzeBlocks(ast) {
+    if (ast.blocks.some((b) => b.e.pow)) return ast.blocks.length === 1 && !ast.cond ? R('noncf', L.EXTRA_WHY.pow) : R('unknown', WHY.unk);
     const cond = nnf(ast.cond || { op: 'true' });
     const occ = {};
     ast.blocks.forEach((b, i) => { if (b.e.v) (occ[b.e.v] = occ[b.e.v] || []).push(i); });
@@ -195,10 +196,13 @@
   /* ---------- צורה 2: תכונה של מילה ---------- */
   function analyzeProp(ast) {
     const cond = expandLen(nnf(ast.cond), ast.alphabet);
-    const isPal = (a) => a.op === 'pal' || (a.op === 'not' && a.arg.op === 'pal');
+    const hard = (a) => a.op === 'pal' || a.op === 'bal';
+    const isPal = (a) => hard(a) || (a.op === 'not' && hard(a.arg));
     const bad = leaves(cond).filter((a) => (a.op === 'cmp' && info(a).cat !== 'safe') || isPal(a));
     if (!bad.length) return R('regular', WHY.reg, { cond });
     if (cond === bad[0]) {
+      if (cond.op === 'bal') return R('cf', L.EXTRA_WHY.bal);
+      if (cond.op === 'not' && cond.arg.op === 'bal') return R('unknown', WHY.unk);
       if (isPal(cond)) return ast.alphabet.length >= 2 ? R('cf', 'צריך לזכור את כל החצי הראשון של המילה כדי להשוות אותו לחצי השני, וזה בדיוק מה שמחסנית עושה') : R('unknown', WHY.unk);
       const inf = info(cond);
       if (inf.cat !== 'link') return R('unknown', WHY.unk);
@@ -223,7 +227,8 @@
   /** מחזיר { cls, label, why, ... }. נשמר על ה-AST. */
   function analyze(ast) {
     if (!ast._an) {
-      const r = ast.kind === 'regex' ? R('regular', WHY.regex) : ast.kind === 'prop' ? analyzeProp(ast) : analyzeBlocks(ast);
+      const ex = ast.kind === 'pattern' ? L.analyzePattern(ast) || R('unknown', WHY.unk) : null;
+      const r = ex ? R(ex.cls, ex.why) : ast.kind === 'regex' ? R('regular', WHY.regex) : ast.kind === 'prop' ? analyzeProp(ast) : analyzeBlocks(ast);
       r.label = LABEL[r.cls];
       Object.defineProperty(ast, '_an', { value: r, enumerable: false });
     }

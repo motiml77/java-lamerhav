@@ -40,6 +40,7 @@
       this.load();
       this.canvas = new root.CanvasView(this, $('#stage'));
       this.langPanel = new root.LangPanel(this);
+      this.strip = new root.LangStrip(this, $('#lang-strip'));
       this.side = new root.SidePanel(this, $('.side'));
       this.runPanel = new root.RunPanel(this, $('.runpanel'));
       this.popover = new root.TransitionPopover(this, $('#tpop'));
@@ -312,18 +313,12 @@
       this.runPanel.render();
       this.renderTop();
       root.Guide.update();
-      this.renderLangPill();
+      this.strip.render();
       this.coach();
     },
 
-    /** תגית קטנה על הקנבס עם השפה של המכונה (אם נכתבה). לחיצה פותחת את לשונית "שפה". */
-    renderLangPill() {
-      const el = $('#lang-pill'), lang = this.machine.language;
-      let html = '';
-      if (lang && lang.text.trim()) { try { html = root.AutomataLang.pretty(root.AutomataLang.parse(lang.text, { alphabet: M.inputAlphabet(this.machine) })).html; } catch (e) { html = ''; } }
-      el.hidden = !html;
-      el.innerHTML = html ? '<span class="lp-tag">' + (lang.locked ? 'תרגיל' : 'השפה') + '</span><span class="lp-f" dir="ltr">' + html + '</span>' : '';
-    },
+    /** מריץ מילה מההתחלה (לחיצה על מילה בפס השפה, בלשונית "שפה" או בתוצאת הבדיקה). */
+    runWord(word) { this.word = word; this.stopRun(true); this.runPanel.render(); this.runCmd('play-restart'); },
 
     /** רמז קצר למעלה, לפי מה שחסר עכשיו (למי שבונה מכונה בפעם הראשונה). */
     coach() {

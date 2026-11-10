@@ -22,7 +22,11 @@
     { name: 'aⁿbᵐ עם n < m', text: 'a^n b^m | n < m', cls: 'cf', builds: 'pda' },
     { name: 'aⁿbᵐ עם n ≠ m', text: 'a^n b^m | n != m', cls: 'cf', builds: 'pda' },
     { name: 'aⁿbᵐcᵐdⁿ (מקונן)', text: 'a^n b^m c^m d^n', cls: 'cf', builds: 'pda' },
+    { name: 'פלינדרום זוגי wwᴿ', text: 'w w^R', cls: 'cf', builds: 'pda' },
+    { name: 'סוגריים מאוזנים', text: 'w ∈ {(,)}* | מאוזנת', cls: 'cf', builds: 'pda' },
     { name: 'אותו מספר a ו-b', text: 'w ∈ {a,b}* | #a(w) = #b(w)', cls: 'cf', builds: null },
     { name: 'aⁿbⁿcⁿ', text: 'a^n b^n c^n', cls: 'noncf', builds: 'tm' },
+    { name: 'אותה מילה פעמיים: w#w', text: 'w#w', cls: 'noncf', builds: null },
+    { name: 'aⁿ כש-n חזקה של 2', text: 'a^(2^n)', cls: 'noncf', builds: null },
   ];
 });
