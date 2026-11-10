@@ -362,8 +362,12 @@ function teacherCode() {
   const r = crypto.getRandomValues(new Uint8Array(4));
   return Array.from(r, (b) => CODE_ABC[b % CODE_ABC.length]).join("");
 }
+var HEB_KEYS = { "/": "Q", "'": "W", "\u05E7": "E", "\u05E8": "R", "\u05D0": "T", "\u05D8": "Y", "\u05D5": "U", "\u05DF": "I", "\u05DD": "O", "\u05E4": "P", "\u05E9": "A", "\u05D3": "S", "\u05D2": "D", "\u05DB": "F", "\u05E2": "G", "\u05D9": "H", "\u05D7": "J", "\u05DC": "K", "\u05DA": "L", "\u05D6": "Z", "\u05E1": "X", "\u05D1": "C", "\u05D4": "V", "\u05E0": "B", "\u05DE": "N", "\u05E6": "M" };
+function fromHebrewKeys(s) {
+  return String(s || "").replace(/[\/'\u05d0-\u05ea]/g, (ch) => HEB_KEYS[ch] || ch);
+}
 function normalizeCode(s) {
-  const c = String(s || "").toUpperCase().replace(/[\s\-_]/g, "");
+  const c = fromHebrewKeys(s).toUpperCase().replace(/[\s\-_]/g, "");
   return /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{4}$/.test(c) ? c : "";
 }
 var showCode = (c) => c || "";
@@ -1391,7 +1395,11 @@ async function claim(request, env) {
   const name = clip(b.name, 60);
   if (!machineOk(b.machine)) throw new Fail(400, "format", "\u05D7\u05E1\u05E8 \u05DE\u05D6\u05D4\u05D4 \u05DE\u05D7\u05E9\u05D1");
   if (!name) throw new Fail(400, "name", '\u05DB\u05EA\u05D1\u05D5 \u05E9\u05DD \u05DC\u05DE\u05D7\u05E9\u05D1 \u2014 \u05DC\u05DE\u05E9\u05DC "\u05DE\u05E2\u05D1\u05D3\u05D4 2 \xB7 \u05E2\u05DE\u05D3\u05D4 14".');
-  if (!code) return { ok: true, status: "bad-code" };
+  if (!code) {
+    const lim = await badCodeLimit(env, request, true);
+    await log(store, "\u05DE\u05D7\u05E9\u05D1: " + name, "station.bad-code", "", badCodeDetail(b.code, "", lim));
+    return { ok: true, status: "bad-code" };
+  }
   await badCodeLimit(env, request, false);
   const secret = randomToken(32);
   const hash = await sha256Hex(secret);
@@ -1423,8 +1431,8 @@ async function claim(request, env) {
     return { status: "ok", stationId, teacher };
   });
   if (res.status === "bad-code") {
-    await badCodeLimit(env, request, true);
-    await log(store, "\u05DE\u05D7\u05E9\u05D1: " + name, "station.bad-code", "", "");
+    const lim = await badCodeLimit(env, request, true);
+    await log(store, "\u05DE\u05D7\u05E9\u05D1: " + name, "station.bad-code", "", badCodeDetail(b.code, code, lim));
     return { ok: true, status: "bad-code" };
   }
   const tv = res.teacher ? { name: res.teacher.name || "", school: res.teacher.school || "", seats: res.teacher.seats || 0, used: (res.teacher.used || 0) + (res.status === "ok" && !res.again ? 1 : 0) } : null;
@@ -1435,13 +1443,24 @@ async function claim(request, env) {
   return accessReply(env, r, { token, teacher: tv });
 }
 async function badCodeLimit(env, request, failed) {
-  const kv = env.USAGE && typeof env.USAGE.get === "function" ? env.USAGE : env.STATS && typeof env.STATS.get === "function" ? env.STATS : null;
-  if (!kv) return;
   const ip = request.headers.get("cf-connecting-ip") || "local";
-  const key = "badcode:" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 13) + ":" + ip;
+  const hour = (/* @__PURE__ */ new Date()).toISOString().slice(0, 13);
+  const src = (await sha256Hex("badcode-src|" + hour.slice(0, 10) + "|" + ip)).slice(0, 4);
+  const kv = env.USAGE && typeof env.USAGE.get === "function" ? env.USAGE : env.STATS && typeof env.STATS.get === "function" ? env.STATS : null;
+  if (!kv) return { count: 0, src };
+  const key = "badcode:" + hour + ":" + ip;
   const n = +await kv.get(key) || 0;
   if (n >= 30) throw new Fail(429, "rate", "\u05D9\u05D5\u05EA\u05E8 \u05DE\u05D3\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D5\u05EA \u05E2\u05DD \u05E7\u05D5\u05D3 \u05E9\u05D2\u05D5\u05D9. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D1\u05E2\u05D5\u05D3 \u05E9\u05E2\u05D4.");
   if (failed) await kv.put(key, String(n + 1), { expirationTtl: 7200 });
+  return { count: failed ? n + 1 : n, src };
+}
+function badCodeDetail(typed, code, lim) {
+  const raw = String(typed || "").trim();
+  const shown = code ? code.slice(0, 3) + "?" : raw ? '"' + Array.from(raw).slice(0, 3).join("") + (Array.from(raw).length > 3 ? "\u2026" : "") + '" \u2014 \u05DC\u05D0 \u05D1\u05E4\u05D5\u05E8\u05DE\u05D8 \u05E9\u05DC \u05E7\u05D5\u05D3 \u05DE\u05D5\u05E8\u05D4' : "\u05E8\u05D9\u05E7";
+  const parts = ["\u05E7\u05D5\u05D3: " + shown];
+  if (lim && lim.count) parts.push(`\u05E0\u05D9\u05E1\u05D9\u05D5\u05DF ${lim.count} \u05D1\u05E9\u05E2\u05D4 \u05D4\u05D6\u05D5 \u05DE\u05D0\u05D5\u05EA\u05D5 \u05DE\u05E7\u05D5\u05E8`);
+  if (lim && lim.src) parts.push("\u05DE\u05E7\u05D5\u05E8 #" + lim.src);
+  return parts.join(" \xB7 ");
 }
 async function geminiGate(request, env) {
   if (!accessEnabled(env)) return null;

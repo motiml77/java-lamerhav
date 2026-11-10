@@ -128,6 +128,28 @@ await test('עמדת מחשב: קוד שגוי / בלי שם → הודעה; ק�
   st1 = r.body.token;
 });
 
+await test('קוד שגוי ביומן: הקוד מוסתר בחלקו, מספר הניסיונות ומקור; קוד שהוקלד במקלדת עברית — מתקבל', async () => {
+  assert.equal((await call('POST', '/v1/station/claim', { body: { code: 'ZZZZ', name: 'מעבדה 9 · עמדה 3', machine: m1 } })).body.status, 'bad-code');
+  assert.equal((await call('POST', '/v1/station/claim', { body: { code: 'שדגכ', name: 'מעבדה 9 · עמדה 3', machine: m1 } })).body.status, 'bad-code');
+  const log = (await call('GET', '/v1/admin/log?limit=50', { token: admin })).body.log.filter(l => l.action === 'station.bad-code');
+  const zz = log.find(l => /ZZZ\?/.test(l.detail));
+  assert.ok(zz, 'הקוד מוסתר בחלקו: ' + JSON.stringify(log.map(l => l.detail)));
+  assert.ok(!/ZZZZ/.test(zz.detail), 'הקוד המלא לא נשמר');
+  assert.match(zz.detail, /מקור #[0-9a-f]{4}/);
+  assert.equal(zz.actor, 'מחשב: מעבדה 9 · עמדה 3');
+  // "שדגכ" במקלדת עברית = ASDF — 4 אותיות חוקיות אבל לא קוד של מורה
+  assert.ok(log.some(l => /ASD\?/.test(l.detail)), 'מקלדת עברית מתורגמת לפני הבדיקה');
+  // משהו שלא נראה כמו קוד בכלל — נרשם כמו שהוקלד (3 תווים ראשונים)
+  assert.equal((await call('POST', '/v1/station/claim', { body: { code: 'שלום עולם', name: 'מעבדה 9 · עמדה 3', machine: m1 } })).body.status, 'bad-code');
+  const log2 = (await call('GET', '/v1/admin/log?limit=50', { token: admin })).body.log.filter(l => l.action === 'station.bad-code');
+  assert.ok(log2.some(l => /"שלו…" — לא בפורמט/.test(l.detail)), JSON.stringify(log2.map(l => l.detail)));
+  // הקוד הנכון של המורה, מוקלד כשהמקלדת בעברית
+  const heb = { Q: '/', W: "'", E: 'ק', R: 'ר', T: 'א', Y: 'ט', U: 'ו', I: 'ן', O: 'ם', P: 'פ', A: 'ש', S: 'ד', D: 'ג', F: 'כ', G: 'ע', H: 'י', J: 'ח', K: 'ל', L: 'ך', Z: 'ז', X: 'ס', C: 'ב', V: 'ה', B: 'נ', N: 'מ', M: 'צ' };
+  const typed = Array.from(code1).map(ch => heb[ch] || ch).join('');
+  const r = await call('POST', '/v1/station/claim', { body: { code: typed, name: 'מעבדה 2 · עמדה 1', machine: m1, client: 'test' } });
+  assert.equal(r.body.status, 'ok', typed + ' → ' + JSON.stringify(r.body));
+});
+
 await test('עמדות: השנייה נכנסת (2/2), השלישית — "אין עוד היתרים"; אותו מחשב שמתחבר שוב — בלי היתר נוסף', async () => {
   assert.equal((await call('POST', '/v1/station/claim', { body: { code: code1, name: 'עמדה 2', machine: m2 } })).body.status, 'ok');
   const full = await call('POST', '/v1/station/claim', { body: { code: code1, name: 'עמדה 3', machine: m3 } });
