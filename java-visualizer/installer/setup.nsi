@@ -9,6 +9,7 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+!include "TextFunc.nsh"
 !include "Sections.nsh"
 !insertmacro GetParameters
 !insertmacro GetOptions
@@ -484,11 +485,18 @@ Section "-automata"
   SetOutPath "$INSTDIR"
   Delete "$DESKTOP\מודלים חישוביים.lnk"
   ${If} ${FileExists} "$INSTDIR\automata\app\index.html"
-    ; ‏javaw.exe מנתיב בעברית לא עולה — השם הקצר (8.3), כמו בקיצורי C#; ‎-cp‎ יחסי (תיקיית העבודה של הקיצור = $INSTDIR)
+    ; ‏javaw.exe מתיקייה עם עברית (שם משתמש) לא עולה ב-Windows שהקידוד שלו לא עברי — גם לא מהשם הקצר (8.3): ה-JVM טוען את
+    ; net.dll מהנתיב הארוך. לכן צומת באנגלית ב-ProgramData (automata.ps1 -JavaPath, כמו SafeJava). ‎-cp‎ יחסי (תיקיית העבודה = $INSTDIR)
     Push $1
-    GetFullPathName /SHORT $1 "$INSTDIR\jdk\bin\javaw.exe"
-    StrCmp $1 "" 0 +2
+    nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\automata.ps1" -JavaPath "$INSTDIR\jdk"'
+    Pop $0
+    Pop $1
+    ${TrimNewLines} "$1" $1
+    ${If} $0 != "0"
+    ${OrIf} $1 == "-"
+    ${OrIf} $1 == ""
       StrCpy $1 "$INSTDIR\jdk\bin\javaw.exe"
+    ${EndIf}
     CreateShortcut "$DESKTOP\מודלים חישוביים.lnk" "$1" '-cp "automata\dsviz-automata.jar;dsviz.jar" il.lamerhav.dsviz.AutomataLauncher' "$INSTDIR\automata\automata.ico"
     CreateDirectory "$SMPROGRAMS\מבני נתונים"
     CreateShortcut "$SMPROGRAMS\מבני נתונים\מודלים חישוביים.lnk" "$1" '-cp "automata\dsviz-automata.jar;dsviz.jar" il.lamerhav.dsviz.AutomataLauncher' "$INSTDIR\automata\automata.ico"

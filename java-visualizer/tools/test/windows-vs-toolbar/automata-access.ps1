@@ -46,14 +46,14 @@ $env:LOCALAPPDATA = "$base\AppData\Local"; $env:APPDATA = "$base\AppData\Roaming
 $java = "$jdk\bin\java.exe"
 $idDir = "$env:LOCALAPPDATA\Lamerhav\.cache"
 $flag = "$idDir\teacher.flag"
-# javaw.exe מתיקייה בעברית לא עולה ב-Windows באנגלית — כמו הקיצור (השם הקצר), ואם אין 8.3 — צומת באנגלית
-$javaw = (cmd /c "for %I in (`"$inst\jdk\bin\javaw.exe`") do @echo %~sI" 2>&1 | Out-String).Trim()
-if ($javaw -match '[^\x00-\x7F]' -or -not (Test-Path $javaw)) {
-    $j = Join-Path $env:ProgramData 'DSViz-jdk-automata-test'
-    cmd /c rmdir "$j" 2>&1 | Out-Null
-    cmd /c mklink /J "$j" "$inst\jdk" 2>&1 | Out-Null
-    $javaw = "$j\bin\javaw.exe"
-}
+# javaw.exe כמו הקיצור שההתקנה יוצרת: installer\automata.ps1 -JavaPath (צומת באנגלית ב-ProgramData; השם הקצר 8.3 לא מספיק —
+# ה-JVM טוען את net.dll מהנתיב הארוך). מראים גם שהשם הקצר נכשל כאן
+$short = (cmd /c "for %I in (`"$inst\jdk\bin\java.exe`") do @echo %~sI" 2>&1 | Out-String).Trim()
+$o = & $short -cp "$inst\dsviz.jar" unit4.collectionsLib.TraceViewer --check x 2>&1 | Out-String
+Log "java מהשם הקצר ($short): $(($o -split "`n" | Select-Object -First 2) -join ' | ')"
+$javaw = (& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'installer\automata.ps1') -JavaPath "$inst\jdk" | Out-String).Trim()
+Check 'java-junction' ($javaw -ne '-' -and $javaw -notmatch '[^\x00-\x7F]' -and (Test-Path $javaw)) "הקיצור: javaw דרך צומת באנגלית ($javaw)" $javaw
+if ($javaw -eq '-' -or -not (Test-Path $javaw)) { $javaw = "$inst\jdk\bin\javaw.exe" }
 Log "ההתקנה: $inst · javaw: $javaw · ANSI: $([Text.Encoding]::Default.CodePage)"
 
 # ---- כניסת מורה מוכנה (כמו אחרי כניסה ב-Eclipse), עם מפתח בדיקה (DSVIZ_PASS_KEY — גם למשגר)
