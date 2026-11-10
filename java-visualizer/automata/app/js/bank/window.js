@@ -57,7 +57,7 @@
     /** השאלה האחרונה שעבדו עליה נבחרת בפעם הבאה שהחלון נפתח (כמו במאגר של Java) */
     remember(id) { const q = B.question(id); if (q) { this.selected = id; this.open.add(q.topic); } }
     show(id) {
-      if (!B.access('open')) { this.app.toast('אין גישה למאגר השאלות', 'err'); return; }
+      if (!B.access('open')) { if (!B.denied('open', null, () => this.show(id))) this.app.toast('אין גישה למאגר השאלות', 'err'); return; }
       if (id) this.remember(id);
       if (!this.el) {
         this.el = document.createElement('div');
@@ -148,7 +148,7 @@
         const pick = pool[Math.floor(Math.random() * pool.length)];
         if (pick) { this.selected = pick.id; this.open.add(pick.topic); this.render(); }
       } else if ((act === 'create' || act === 'fresh') && sel) {
-        if (!B.access('create', sel)) { this.app.toast('אין גישה ליצירת תרגיל', 'err'); return; }
+        if (!B.access('create', sel)) { this.close(); if (!B.denied('create', sel, () => this.show(sel.id))) this.app.toast('אין גישה ליצירת תרגיל', 'err'); return; }
         if (act === 'fresh') this.progress.clearWork(sel.id);
         this.close();
         this.app.bankFloat.start(sel.id);

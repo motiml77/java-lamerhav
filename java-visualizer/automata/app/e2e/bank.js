@@ -1,17 +1,19 @@
 /*
  * e2e/bank.js - "מאגר שאלות" (Playwright): פתיחת המאגר, בחירת שאלה, "צור תרגיל", בנייה של אס"ד נכון בעכבר, "בדיקה" בחלון "השאלה",
  * סעיף ב' (שלוש מילים בשפה ושלוש מחוצה לה), "סיימתי את התרגיל" עם כרטיס האישור, וה-V במאגר. ואז מכונת טיורינג שגויה לשאלה מחשבת:
- * הבדיקה מראה את הקלטים שנכשלו. גם: ההתקדמות נשמרת אחרי טעינה מחדש. צילומים: docs/shots/r9-*.png. הרצה: node e2e/bank.js
+ * הבדיקה מראה את הקלטים שנכשלו. גם: ההתקדמות נשמרת אחרי טעינה מחדש. הדף מוגש משרת מדומה של התוכנה (e2e/mock-launcher.js), עם מורה מחובר. צילומים: docs/shots/r9-*.png. הרצה: node e2e/bank.js
  */
 'use strict';
 const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
 
-const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
+const mock = require('./mock-launcher.js');
 const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
 
 (async () => {
+  // המאגר פתוח רק בתוכנה המקומית ולמי שמחובר: שרת מדומה של התוכנה, עם מורה מחובר
+  const launcher = await mock.start({ access: { state: 'teacher', name: 'רונית כהן', email: 'ronit@example.org', role: 'teacher', apps: ['dsviz', 'automata'], canSignOut: true } });
   const browser = await chromium.launch();
   const errors = [];
   let n = 0;
@@ -19,7 +21,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   const p = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   p.on('pageerror', (e) => errors.push(e.message));
-  await p.goto(URL);
+  await p.goto(launcher.url);
   await p.waitForSelector('.st');
   await p.evaluate(() => document.fonts.ready);
   await p.click('#guide [data-g=close]');
@@ -209,4 +211,5 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   assert.deepEqual(errors, [], 'אין שגיאות בקונסול');
   console.log('\nכל ' + n + ' הבדיקות עברו');
   await browser.close();
+  await launcher.close();
 })().catch((e) => { console.error(e); process.exit(1); });

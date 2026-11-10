@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="css/run.css">
   <link rel="stylesheet" href="css/lang.css">
   <link rel="stylesheet" href="css/bank.css">
+  <link rel="stylesheet" href="css/access.css">
 </head>
 <body>
   <a class="skip" href="#word-input">דילוג לחלון ההרצה</a>
@@ -67,6 +68,11 @@
         <span class="vsep"></span>
         <button type="button" class="btn icon ghost" data-cmd="theme" title="מצב כהה / בהיר" aria-label="מצב כהה או בהיר"></button>
         <button type="button" class="btn icon ghost" data-cmd="help" title="קיצורי מקלדת (?)" aria-label="עזרה וקיצורי מקלדת"></button>
+        <div class="menu-wrap acct" id="acct" hidden>
+          <span class="vsep"></span>
+          <button type="button" class="btn ghost acct-chip" aria-haspopup="menu" aria-expanded="false"></button>
+          <div class="menu acct-menu" id="acct-menu" role="menu" hidden></div>
+        </div>
       </div>
     </header>
 
@@ -189,6 +195,13 @@
   </div>
   <input type="file" id="file-input" accept=".json,application/json" hidden>
 
+  <script>
+    /* הכניסה המשותפת של DSViz: js/access-client.js (ES module, DSVizAccess) נטען רק כשהדף מוגש מהתוכנה המקומית (http).
+       מקובץ (file://) Chrome חוסם מודולים, ואז אין כניסה והמאגר מסביר שהוא בתוכנה המותקנת. התוכנה לא מוסיפה עותק שני (הכתובת כבר כאן). */
+    window.DSVizAccessReady = /^https?:$/.test(location.protocol)
+      ? import('./js/access-client.js').then(function (m) { return m.DSVizAccess; }, function () { return null; })
+      : Promise.resolve(null);
+  </script>
   <script src="js/icons.js"></script>
   <script src="js/model.js"></script>
   <script src="js/sim.js"></script>
@@ -229,6 +242,8 @@
   <script src="js/bank/core.js"></script>
   <script src="js/bank/window.js"></script>
   <script src="js/bank/float.js"></script>
+  <script src="js/access.js"></script>
+  <script src="js/access-ui.js"></script>
   <script src="js/app.js"></script>
   <script src="js/app-run.js"></script>
   <script src="js/app-ui.js"></script>

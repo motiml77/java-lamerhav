@@ -154,7 +154,7 @@
       document.addEventListener('keydown', (e) => {
         if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
         if (!$('#modal').hidden) { if (e.key === 'Escape') this.closeModal(); return; }
-        if (D.isOpen() || this.popover.isOpen()) return;
+        if (D.isOpen() || this.popover.isOpen() || (root.AccessUI && root.AccessUI.isOpen())) return;
         const mod = e.ctrlKey || e.metaKey;
         const code = e.code;
         const running = this.isRunning();

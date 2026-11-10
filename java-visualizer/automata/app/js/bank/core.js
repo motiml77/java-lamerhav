@@ -27,9 +27,12 @@
    * שער הגישה: המקום היחיד שמחליט אם מותר לפתוח את המאגר / ליצור תרגיל. היום תמיד כן.
    * כשתהיה כניסה (מורה / תלמיד / עמדה, כמו במאגר של Java), מחליפים רק את הפעולה הזו (AutomataBank.setAccess).
    */
-  let gate = () => true;
+  let gate = () => true, onDeny = null;
   const access = (action, q) => gate(action, q);
-  const setAccess = (fn) => { gate = fn || (() => true); };
+  /** deny(action, q, retry): מה עושים כשאין גישה (מסך הכניסה); retry נקרא אחרי כניסה מוצלחת */
+  const setAccess = (fn, deny) => { gate = fn || (() => true); onDeny = fn ? deny || null : null; };
+  /** הגישה נדחתה: מעבירים למי שהגדיר את השער. false: אין מי שיטפל */
+  const denied = (action, q, retry) => { if (!onDeny) return false; onDeny(action, q, retry); return true; };
 
   const question = (id) => byId.get(id) || null;
   const section = (q, label) => q.question.sections.find((s) => s.label === label) || null;
@@ -178,5 +181,5 @@
   }
 
   return { LEVELS, levelTitle, topics, questions, question, section, ofTopic, machineSections, machineType, matches,
-    machineFromSpec, referenceMachine, emptyMachine, checkBuild, checkWords, RULES, outputCases, checkTmOutput, Progress, KEY, access, setAccess };
+    machineFromSpec, referenceMachine, emptyMachine, checkBuild, checkWords, RULES, outputCases, checkTmOutput, Progress, KEY, access, setAccess, denied };
 });
