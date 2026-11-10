@@ -20,7 +20,7 @@ function Shot([string]$n) {
 function KillJava() { Get-Process javaw, java, dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 1 }
 function WaitWindow([string]$like, [int]$sec) {
     for ($i = 0; $i -lt $sec; $i++) {
-        $p = Get-Process javaw, java -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -and $_.MainWindowTitle -like $like } | Select-Object -First 1
+        $p = Get-Process javaw, java -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -and $_.MainWindowTitle -like $like -and $_.MainWindowTitle -notlike '*Virtual Machine Launcher*' }   # חלון השגיאה של המשגר — לא נחשב | Select-Object -First 1
         if ($p) { return $p.MainWindowTitle }
         Start-Sleep 1
     }
@@ -48,7 +48,12 @@ Set-Content "$csRoot\DataStructures-CS.sln" '' -Encoding ascii
 [IO.File]::WriteAllText("$proj\Program.cs", "using System;`r`nclass Program {`r`n    static void Main() {`r`n        int[] a = { 3, 1, 2 };`r`n        int s = 0;`r`n        foreach (int x in a) s += x;`r`n        Console.WriteLine(s);`r`n    }`r`n}`r`n", (New-Object Text.UTF8Encoding($false)))
 $env:LOCALAPPDATA = "$base\AppData\Local"; $env:TEMP = "$base\Temp"; $env:TMP = "$base\Temp"; $env:USERPROFILE = $base
 Log "קידוד ANSI של המערכת: $([Text.Encoding]::Default.CodePage) ($([Text.Encoding]::Default.EncodingName)) · ההתקנה: $inst · הפרויקט: $proj"
-$java = "$inst\jdk\bin\java.exe"
+$java = "$jdk\bin\java.exe"   # Java בנתיב באנגלית — לבדיקות של הארגומנטים עצמם
+Log "8.3: $((fsutil 8dot3name query C: 2>&1) -join ' ')"
+
+# 0. java.exe מתיקיית ההתקנה בעברית (כמו שהיה): המשגר לא מוצא את java.dll
+$o = & "$inst\jdk\bin\java.exe" -version 2>&1 | Out-String
+Check 'old-java-path-fails' ($o -match 'java\.dll|Error') 'הדרך הקודמת: java.exe מתיקייה בעברית לא עולה כאן' ($o.Trim())
 
 # 1. הדרך הקודמת: classpath מלא בשורת הפקודה — java לא מוצאת את המחלקה (הנתיב הופך ל-"?")
 $o = & $java -cp "$inst\dsviz.jar" unit4.collectionsLib.TraceViewer --check x 2>&1 | Out-String
@@ -96,12 +101,13 @@ if ($pk -match 'PASSKEY (\S+)') { $env:DSVIZ_PASS_KEY = $Matches[1] }
 $s = & $java '-Dfile.encoding=UTF-8' -cp "$seed;$BankJar;$Lib" il.lamerhav.dsviz.SeedSession teacher teacher@test.dev $key 2>&1 | Out-String
 Log "כניסה מוכנה: $($s.Trim())"
 Check 'teacher-flag' (Test-Path -LiteralPath "$inst\teacher.flag") 'הסימון לסרגל (teacher.flag) נכתב בתיקיית ההתקנה בעברית' $s
-Start-Process "$inst\jdk\bin\javaw.exe" -WorkingDirectory $inst -ArgumentList '-cp "lab\dsviz-bank-vs.jar;dsviz.jar" il.lamerhav.dsviz.BankVs teacher'
+Start-Process "$inst\cs\dsviz-cs.exe" -ArgumentList '--tool', 'teacher' -WindowStyle Hidden
 $t = WaitWindow '*עמדת ניהול*' 60
 Start-Sleep 3; Shot 'he-3-teacher-panel'
 Check 'teacher-panel' ($t -ne '') "עמדת הניהול מהתקנה בתיקייה בעברית: נפתח החלון ('$t')" ''
 KillJava
 
+Log "צמתים ל-Java (ProgramData): $((Get-ChildItem $env:ProgramData -Filter 'DSViz-jdk-*' -ErrorAction SilentlyContinue | ForEach-Object Name) -join ', ')"
 Log "SUMMARY $(@($script:lines | Where-Object { $_ -match '^  ok ' }).Count) ok / $script:fails FAIL"
 [IO.File]::WriteAllLines((Join-Path $Out 'hebrew-paths-summary.txt'), [string[]]$script:lines, (New-Object Text.UTF8Encoding($false)))
 exit ([int]($script:fails -gt 0))

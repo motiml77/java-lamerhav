@@ -370,7 +370,7 @@ namespace DsViz
                 var psi = new ProcessStartInfo(java) { UseShellExecute = false, CreateNoWindow = true };
                 var cp = new List<string>();
                 string main;
-                if (mode == "bank" || mode == "question")
+                if (mode == "bank" || mode == "question" || mode == "teacher")
                 {
                     // מאגר שאלות (גרסת המעבדה): dsviz-bank-vs.jar שליד ההתקנה, לפני dsviz.jar (יש בו חלקים עדכניים יותר)
                     string bank = Path.Combine(install, "lab", "dsviz-bank-vs.jar");
@@ -384,7 +384,7 @@ namespace DsViz
                     cp.Add(jar);
                     main = "il.lamerhav.dsviz.cs.CsTool";
                 }
-                var toolArgs = new List<string> { mode, root };
+                var toolArgs = mode == "teacher" ? new List<string> { mode } : new List<string> { mode, root };   // עמדת הניהול — בלי תיקייה
                 // "הצעה לפתרון" מהמנורה שליד הפעולה בעורך: --file קובץ --method פעולה --params מספר-פרמטרים (החלון נפתח ממוקד בה)
                 if (mode == "solution") toolArgs.AddRange(extra);
                 // שם משתמש / פרויקט בעברית: classpath יחסי והנתיבים בסביבה — לא בשורת הפקודה של java (SafeJava)

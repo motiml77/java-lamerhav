@@ -522,13 +522,19 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   ; ובלי נתיב התרגילים בשורה (CsTool קורא אותו מ-project-cs-path.txt שנכתב למעלה)
   Push $OUTDIR
   SetOutPath "$INSTDIR"
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool new' "$INSTDIR\icon.ico"
+  ; ‏javaw.exe עצמו לא עולה מנתיב שלא בקידוד של Windows ("could not find java.dll") — השם הקצר (8.3) של הנתיב, אם יש
+  Push $1
+  GetFullPathName /SHORT $1 "$INSTDIR\jdk\bin\javaw.exe"
+  StrCmp $1 "" 0 +2
+    StrCpy $1 "$INSTDIR\jdk\bin\javaw.exe"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool new' "$INSTDIR\icon.ico"
   Delete "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk"   ; השם מגרסה קודמת
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool help' "$INSTDIR\icon.ico"
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\הוסף מבנה נתונים ל-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool insert' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool help' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הוסף מבנה נתונים ל-C#.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool insert' "$INSTDIR\icon.ico"
   ; "שליחת תרגיל" (דף התרגיל → פרויקט מוכן בפתרון) ו"הצעה לפתרון" (חלון שנשאר פתוח ליד Visual Studio) — כמו ב-Eclipse וב-VS Code
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\שליחת תרגיל ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool submit' "$INSTDIR\icon.ico"
-  CreateShortcut "$SMPROGRAMS\מבני נתונים\הצעה לפתרון ב-C#.lnk" "$INSTDIR\jdk\bin\javaw.exe" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool solution' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\שליחת תרגיל ב-C#.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool submit' "$INSTDIR\icon.ico"
+  CreateShortcut "$SMPROGRAMS\מבני נתונים\הצעה לפתרון ב-C#.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool solution' "$INSTDIR\icon.ico"
+  Pop $1
   Pop $0
   SetOutPath $0
 

@@ -303,6 +303,7 @@ namespace DsViz.VsExtension
             if (!File.Exists(BankJar)) { Say("DSViz: מאגר השאלות לא מותקן."); return; }
             string java = Path.Combine(InstallDir, "jdk", "bin", "javaw.exe");
             if (!File.Exists(java)) java = "javaw";
+            else java = DsVizTool.AsciiJava(java);   // שם משתמש בעברית: java.exe לא עולה מנתיב שלא בקידוד של Windows
             // נתיבים יחסיים מתוך תיקיית ההתקנה: שם משתמש בעברית (או בשפה אחרת) ב-%LOCALAPPDATA% לא עובר בשורת הפקודה של java
             // (הארגומנטים מפוענחים בקידוד של המערכת), אבל התיקייה הנוכחית כן
             var psi = new ProcessStartInfo(java) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = InstallDir };
