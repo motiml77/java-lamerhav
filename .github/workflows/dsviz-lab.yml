@@ -89,6 +89,15 @@ jobs:
         with: { name: dsviz-exercise-bank-vs, path: lab-vs }
       - uses: actions/download-artifact@v4
         with: { name: bank-vs-test-classes, path: bank-vs-test }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      # ה-DSViz-Setup.exe שבענף נבנה מזמן — dsviz-cs והספרייה של C# מהמקור (כמו ב-tools/build-all.sh), והבדיקה מתקינה אותם מעליו
+      - name: dsviz-cs מהמקור
+        shell: powershell
+        run: |
+          $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'; $env:DOTNET_NOLOGO = '1'
+          dotnet publish java-visualizer/csharp/DsViz.Runner/DsViz.Runner.csproj -c Release -r win-x64 --self-contained -p:DebugType=none -o "$env:GITHUB_WORKSPACE\cs-fresh" -v q --nologo
+          exit $LASTEXITCODE
       - name: מאגר תרגילים ב-Visual Studio אמיתי
         shell: powershell
         run: |
@@ -97,7 +106,8 @@ jobs:
             -Lab "$env:GITHUB_WORKSPACE\lab-vs" `
             -Out "$env:GITHUB_WORKSPACE\vs-bank-test" `
             -Bank "$env:GITHUB_WORKSPACE\java-visualizer\bank" `
-            -TestCp "$env:GITHUB_WORKSPACE\bank-vs-test"
+            -TestCp "$env:GITHUB_WORKSPACE\bank-vs-test" `
+            -FreshCs "$env:GITHUB_WORKSPACE\cs-fresh"
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()
