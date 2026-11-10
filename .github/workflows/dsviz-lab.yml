@@ -36,7 +36,16 @@ jobs:
         with: { distribution: temurin, java-version: '21' }
       - name: בדיקת השאלות ובניית ההרחבה
         working-directory: java-visualizer
-        run: sh tools/build-bank.sh
+        # הספרייה והתוסף הראשי נבנים כאן מהמקור — ה-jar-ים שב-release/ של הענף עלולים להיות ישנים מהקוד (כך נכשלה הבנייה: AccessGate חסר)
+        run: |
+          sh tools/build-lib.sh
+          DEPS=build/eclipse-deps
+          python3 tools/eclipse-deps.py "$DEPS"
+          P=build/ci-host && mkdir -p "$P/resources"
+          javac --release 8 -encoding UTF-8 -nowarn -cp "$(ls $DEPS/*.jar | tr '\n' ':')" -d "$P" $(find eclipse-plugin/src -name '*.java')
+          cp eclipse-plugin/plugin.xml "$P/" && cp release/dsviz.jar eclipse-plugin/ai.properties "$P/resources/"
+          jar --create --file build/ci-host.jar --manifest eclipse-plugin/META-INF/MANIFEST.MF -C "$P" .
+          HOST_JAR=build/ci-host.jar sh tools/build-bank.sh
       - uses: actions/upload-artifact@v4
         with:
           name: dsviz-exercise-bank-eclipse
@@ -55,6 +64,7 @@ jobs:
       - name: בדיקת השאלות (גם C#) ובניית התוספת ל-Visual Studio
         working-directory: java-visualizer
         run: |
+          sh tools/build-lib.sh   # הספרייה מהמקור (לא ה-jar הישן שב-release/ של הענף)
           sh tools/build-bank-vs.sh
           mkdir -p build/bank-vs-test
           javac -encoding UTF-8 -nowarn -cp release/dsviz.jar:build/lab-vs/dsviz-bank-vs.jar -d build/bank-vs-test tools/test/windows-vs/BankVsIt.java tools/test/windows-vs/BankVsAll.java
@@ -107,7 +117,9 @@ jobs:
         with: { gradle-version: '8.14.3' }
       - name: מאגר תרגילים ל-IntelliJ — בדיקות ובנייה
         working-directory: java-visualizer
-        run: sh tools/build-bank-ij.sh
+        run: |
+          sh tools/build-lib.sh   # הספרייה מהמקור (לא ה-jar הישן שב-release/ של הענף)
+          sh tools/build-bank-ij.sh
       - uses: actions/upload-artifact@v4
         with:
           name: dsviz-exercise-bank-intellij
