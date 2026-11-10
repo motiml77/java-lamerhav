@@ -51,6 +51,7 @@
       const last = r.trace.steps.length - 1;
       const ni = Math.max(0, Math.min(last, i));
       const forward = ni === r.index + 1;
+      if (ni !== r.index) r.focus = null;
       r.index = ni;
       this.updateRunView(forward);
       this.canvas.render();
@@ -64,6 +65,12 @@
       const tr = r.trace, st = tr.steps[r.index];
       const last = r.index === tr.steps.length - 1;
       const interval = SPEEDS[this.speed] || 600;
+      const p = r.focus != null ? root.AutomataPaths.paths(tr, r.index, this.machine).find((x) => x.id === r.focus) : null;
+      if (r.focus != null && !p) r.focus = null;
+      if (p) {           // דרך אחת מודגשת: רק המצב שלה והמעברים שהיא עברה
+        this.runView = { active: [p.state], edges: p.edges, accepted: p.status === 'accepted' ? [p.state] : [], rejected: p.status === 'stuck' || p.status === 'end' ? [p.state] : [], animate: false, focus: true };
+        return;
+      }
       this.runView = {
         active: st ? st.active : [],
         edges: st && r.index > 0 ? st.edges : (st ? st.edges : []),
@@ -72,6 +79,15 @@
         animate: !!animate,
         travelMs: Math.min(420, Math.round(interval * 0.7)),
       };
+    },
+
+    focusPath(id) {
+      const r = this.run;
+      if (!r || !r.trace) return;
+      r.focus = r.focus === id ? null : id;
+      this.updateRunView(false);
+      this.canvas.render();
+      this.runPanel.render();
     },
 
     runCmd(cmd) {

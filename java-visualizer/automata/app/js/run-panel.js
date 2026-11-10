@@ -3,7 +3,13 @@
  */
 (function (root) {
   'use strict';
-  const M = root.AutomataModel, I = root.Icons;
+  const M = root.AutomataModel, I = root.Icons, PT = root.AutomataPaths;
+  const MAX_ROWS = 8;
+  const HINT = {
+    nfa: 'לאוטומט יש כמה דרכים אפשריות. בודקים את כולן במקביל, וכל דרך היא ריצה נפרדת. המילה מתקבלת אם לפחות דרך אחת מגיעה למצב מקבל.',
+    pda: 'לאוטומט יש כמה דרכים אפשריות. בודקים את כולן במקביל, וכל דרך היא ריצה נפרדת עם המחסנית שלה. המילה מתקבלת אם לפחות דרך אחת מגיעה למצב מקבל.',
+  };
+  const STATUS = { active: 'פעילה', accepted: 'הגיעה למצב מקבל', end: 'המילה נגמרה, המצב לא מקבל', stuck: 'נתקעה' };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const sym = (s) => '<bdi class="sym">' + esc(s === '' ? 'ε' : s) + '</bdi>';
   class RunPanel {
@@ -42,6 +48,8 @@
       });
       this.addWord.addEventListener('keydown', (e) => e.stopPropagation());
       this.tbody.addEventListener('click', (e) => this.onTableClick(e));
+      // לחיצה על דרך: מדגישים על הקנבס את המצב שלה ואת המעברים שעברה (לחיצה נוספת מבטלת)
+      this.view.addEventListener('click', (e) => { const row = e.target.closest('[data-path]'); if (row) app.focusPath(+row.dataset.path); });
     }
 
     setExp(yes) {
@@ -86,8 +94,8 @@
       else if (tr) {
         const st = tr.steps[i] || {};
         note = esc(st.note || '');
-        if (atEnd) note = '<span class="n-' + (tr.result === 'accept' ? 'ok' : tr.result === 'reject' ? 'err' : 'warn') + '">' + esc(tr.reason.text) + '</span>' + (tr.output != null && m.type === 'tm' ? ' <span class="n-out">פלט על הסרט: <bdi class="sym">' + esc(tr.output || 'ε') + '</bdi></span>' : '');
-      } else note = '<span class="muted">' + ({ dfa: 'מקלידים מילה ולוחצים Enter, או צועדים אות אחרי אות.', nfa: 'בכל צעד יודגשו כל המצבים שבהם האוטומט יכול להיות.', pda: 'כל ענף פתוח מקבל מחסנית משלו.', tm: 'הראש מתחיל על התו הראשון של המילה.' })[m.type] + '</span>';
+        if (atEnd) note = '<span class="n-' + (tr.result === 'accept' ? 'ok' : tr.result === 'reject' ? 'err' : 'warn') + '">' + esc(this.pathSummary(tr) || tr.reason.text) + '</span>' + (tr.output != null && m.type === 'tm' ? ' <span class="n-out">פלט על הסרט: <bdi class="sym">' + esc(tr.output || 'ε') + '</bdi></span>' : '');
+      } else note = '<span class="muted">' + ({ dfa: 'מקלידים מילה ולוחצים Enter, או צועדים אות אחרי אות.', nfa: HINT.nfa, pda: HINT.pda, tm: 'הראש מתחיל על התו הראשון של המילה.' })[m.type] + '</span>';
       this.note.innerHTML = note;
       this.view.innerHTML = this.machineViewHTML();
       this.renderTests();
@@ -107,8 +115,38 @@
       if (m.type === 'tm') title = kind === 'ok' ? 'המכונה קיבלה את ' + w : kind === 'err' ? 'המכונה דחתה את ' + w : 'לא הוכרע: המכונה לא עצרה';
       else title = kind === 'ok' ? 'המילה ' + w + ' מתקבלת' : kind === 'err' ? 'המילה ' + w + ' נדחית' : 'לא הוכרע';
       el.className = 'result-banner ' + kind;
-      el.innerHTML = '<span class="rb-ic">' + I.get(kind === 'ok' ? 'check' : kind === 'err' ? 'x' : 'warn', 20) + '</span><span class="rb-text"><b>' + title + '</b><span>' + esc(tr.reason.text) + (m.type === 'tm' && tr.output != null && kind === 'ok' ? '. פלט: ' + esc(tr.output || 'ε') : '') + '</span></span>';
+      el.innerHTML = '<span class="rb-ic">' + I.get(kind === 'ok' ? 'check' : kind === 'err' ? 'x' : 'warn', 20) + '</span><span class="rb-text"><b>' + title + '</b><span>' + esc(this.pathSummary(tr) || tr.reason.text) + (m.type === 'tm' && tr.output != null && kind === 'ok' ? '. פלט: ' + esc(tr.output || 'ε') : '') + '</span></span>';
       el.hidden = false;
+    }
+
+    /** בסוף ריצה עם כמה דרכים: איזו דרך קיבלה, או שכולן נכשלו. null אם הייתה רק דרך אחת. */
+    pathSummary(tr) {
+      const m = this.app.machine;
+      if ((m.type !== 'pda' && m.type !== 'nfa') || !tr || tr.result === 'limit') return null;
+      const ps = PT.paths(tr, tr.steps.length - 1, m);
+      if (ps.length < 2) return null;
+      const win = ps.find((p) => p.status === 'accepted');
+      return win ? 'המילה מתקבלת: דרך ' + win.n + ' הגיעה ל-' + M.stateName(m, win.state) : 'המילה נדחית: כל הדרכים נתקעו או הסתיימו במצב לא מקבל';
+    }
+
+    /** רשימת הדרכים: שורה לכל דרך, עם המצב, כמה מהמילה נקרא, המחסנית (באוטומט מחסנית) והמצב שלה. */
+    pathsHTML(ps, withStack) {
+      const app = this.app, m = app.machine, word = app.run.trace.word, focus = app.run.focus;
+      const row = (p) => {
+        const read = word.slice(0, p.pos).join(''), rest = word.slice(p.pos).join('');
+        let stack = '';
+        if (withStack) {
+          const syms = Array.from(p.stack || ''), vis = syms.slice(0, 7);
+          stack = '<span class="p-stack">' + (vis.length ? '<span class="p-top">ראש</span>' + vis.map((s, k) => '<span class="scell sm' + (k === 0 ? ' top' : '') + '">' + esc(s) + '</span>').join('') + (syms.length > vis.length ? '<span class="p-more">+' + (syms.length - vis.length) + '</span>' : '') : '<span class="scell sm empty">ריקה</span>') + '</span>';
+        }
+        const st = STATUS[p.status] + (p.status === 'stuck' && p.letter != null ? ' באות ' + p.letter : '');
+        return '<button type="button" class="p-row ' + p.status + (focus === p.id ? ' focus' : '') + '" data-path="' + p.id + '" title="לחיצה מדגישה את הדרך על הקנבס">' +
+          '<span class="p-n">דרך ' + p.n + '</span><span class="p-state">' + esc(M.stateName(m, p.state)) + '</span>' +
+          '<span class="p-read"><b>' + (esc(read) || 'ε') + '</b>' + esc(rest) + '</span>' + stack + '<span class="p-st">' + esc(st) + '</span></button>';
+      };
+      const shown = ps.slice(0, MAX_ROWS);
+      return '<div class="mv-block mv-paths"><div class="mv-label">דרכים <span class="cnt">' + ps.length + '</span></div><div class="paths" dir="rtl">' +
+        shown.map(row).join('') + (ps.length > MAX_ROWS ? '<div class="p-rest">ועוד ' + (ps.length - MAX_ROWS) + ' דרכים</div>' : '') + '</div></div>';
     }
 
     /* ---------- סרט הקלט / מחסנית / סרט טיורינג ---------- */
@@ -133,6 +171,8 @@
       const endCls = st && pos >= word.length ? ' now' + fin : '';
       cells += '<span class="cell end' + endCls + '" title="סוף המילה">⊣</span>';
       let h = '<div class="mv-block mv-input"><div class="mv-label">קלט</div><div class="tape">' + cells + '</div></div>';
+      const ps = st && (m.type === 'pda' || m.type === 'nfa') ? PT.paths(tr, run.index, m) : [];
+      if (ps.length > 1) return h + this.pathsHTML(ps, m.type === 'pda');
       if (m.type === 'nfa' || m.type === 'dfa') {
         const act = st ? st.active : [];
         const label = m.type === 'nfa' ? 'מצבים פעילים' : 'מצב נוכחי';
@@ -156,7 +196,7 @@
           (vis.length ? vis.map((s, k) => '<span class="scell' + (k === 0 ? ' top' : '') + '">' + esc(s) + '</span>').join('') : '<span class="scell empty">ריקה</span>') +
           '</div><div class="stack-state">' + esc(c.state ? M.stateName(m, c.state) : '') + '</div></div>';
       }).join('');
-      return '<div class="mv-block mv-stacks"><div class="mv-label">מחסנית' + (configs.length > 1 ? ' <span class="cnt">' + configs.length + ' ענפים</span>' : '') + '</div><div class="stacks">' + cols + (configs.length > 6 ? '<span class="stack-more">+' + (configs.length - 6) + '</span>' : '') + '</div></div>';
+      return '<div class="mv-block mv-stacks"><div class="mv-label">מחסנית</div><div class="stacks">' + cols + (configs.length > 6 ? '<span class="stack-more">+' + (configs.length - 6) + '</span>' : '') + '</div></div>';
     }
 
     tmHTML(word, st, tr) {

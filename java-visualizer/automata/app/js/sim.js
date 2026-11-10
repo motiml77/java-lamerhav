@@ -99,13 +99,37 @@
     word = Model.symbols(word);
     if (!m.start) return noStart(m, word);
     const out = outgoing(m);
+    // דרכים: לכל מצב פעיל "קונפיגורציה" עם הורה והמעבר שהביא אליה (מצב שכבר הושג בדרך אחרת לא נכנס שוב)
+    let nextId = 0;
+    const closeCfg = (seeds, pos) => {
+      const list = seeds.slice(), has = new Set(list.map((c) => c.state));
+      for (let k = 0; k < list.length; k++) for (const t of out.get(list[k].state) || []) t.labels.forEach((l, li) => {
+        if (l.read !== EPS || has.has(t.to)) return;
+        has.add(t.to);
+        list.push({ id: nextId++, parent: list[k].id, state: t.to, pos, via: { t: t.id, l: li } });
+      });
+      return list;
+    };
+    let cfgs = closeCfg([{ id: nextId++, parent: -1, state: m.start, pos: 0, via: null }], 0);
     const c0 = epsilonClosure(m, [m.start], out);
     let active = c0.states;
-    const steps = [{ pos: 0, active, edges: c0.edges, read: null, note: c0.states.length > 1 ? 'מתחילים ב-' + nameOf(m, m.start) + ', ועם ε גם ב-' + listNames(m, c0.states.slice(1)) : 'מתחילים במצב ' + nameOf(m, m.start) }];
+    const steps = [{ pos: 0, active, edges: c0.edges, read: null, configs: cfgs, note: c0.states.length > 1 ? 'מתחילים ב-' + nameOf(m, m.start) + ', ועם ε גם ב-' + listNames(m, c0.states.slice(1)) : 'מתחילים במצב ' + nameOf(m, m.start) }];
     for (let i = 0; i < word.length; i++) {
       const a = word[i];
       const next = [];
       const edges = [];
+      const seeds = [], got = new Set();
+      for (const c of cfgs) {
+        c.stuck = true;
+        for (const t of out.get(c.state) || []) t.labels.forEach((l, li) => {
+          if (l.read !== a) return;
+          c.stuck = false;
+          if (got.has(t.to)) return;
+          got.add(t.to);
+          seeds.push({ id: nextId++, parent: c.id, state: t.to, pos: i + 1, via: { t: t.id, l: li } });
+        });
+      }
+      cfgs = closeCfg(seeds, i + 1);
       for (const s of active) for (const t of out.get(s) || []) {
         t.labels.forEach((l, li) => {
           if (l.read !== a) return;
@@ -115,11 +139,11 @@
       }
       const cl = epsilonClosure(m, next, out);
       active = cl.states;
-      steps.push({ pos: i + 1, active, edges: edges.concat(cl.edges), read: a, note: active.length ? 'קראנו ' + a + ': המצבים הפעילים {' + listNames(m, active) + '}' : 'קראנו ' + a + ': אין לאן להמשיך' });
+      steps.push({ pos: i + 1, active, edges: edges.concat(cl.edges), read: a, configs: cfgs, note: active.length ? 'קראנו ' + a + ': המצבים הפעילים {' + listNames(m, active) + '}' : 'קראנו ' + a + ': אין לאן להמשיך' });
       if (!active.length) {
         return {
           type: 'nfa', word, steps, result: 'reject', acceptedStates: [],
-          reason: { code: 'ALL_BRANCHES_DEAD', pos: i, symbol: a, text: 'כל הענפים נתקעו באות ' + a + ' (מקום ' + (i + 1) + '), ולכן המילה נדחית' },
+          reason: { code: 'ALL_BRANCHES_DEAD', pos: i, symbol: a, text: 'כל הדרכים נתקעו באות ' + a + ' (מקום ' + (i + 1) + '), ולכן המילה נדחית' },
         };
       }
     }
@@ -127,7 +151,7 @@
     return {
       type: 'nfa', word, steps, result: acc.length ? 'accept' : 'reject', acceptedStates: acc,
       reason: acc.length
-        ? { code: 'ACCEPT_STATE', text: 'לפחות ענף אחד הסתיים במצב מקבל (' + listNames(m, acc) + ')' }
+        ? { code: 'ACCEPT_STATE', text: 'לפחות דרך אחת הסתיימה במצב מקבל (' + listNames(m, acc) + ')' }
         : { code: 'NOT_ACCEPTING', text: 'המילה נגמרה במצבים {' + listNames(m, active) + '}, ואף אחד מהם אינו מקבל' },
     };
   }
@@ -155,7 +179,7 @@
       pos: Math.max(...configs.map((c) => c.pos), 0),
       active: Array.from(new Set(configs.map((c) => c.state))),
       edges, read: null, note,
-      configs: configs.map((c) => ({ id: c.id, parent: c.parent, state: c.state, pos: c.pos, stack: c.stack })),
+      configs: configs.map((c) => ({ id: c.id, parent: c.parent, state: c.state, pos: c.pos, stack: c.stack, via: c.via || null })),
     });
     const steps = [mkStep(frontier, [], 'מתחילים במצב ' + nameOf(m, m.start) + ' עם ' + (m.stackStart || 'מחסנית ריקה') + ' במחסנית')];
     const done = (result, reason, acc) => ({ type: 'pda', word, steps, result, reason, acceptedStates: acc || [] });
@@ -163,21 +187,24 @@
     for (let step = 0; ; step++) {
       const winners = frontier.filter(accepts);
       if (winners.length) {
-        return done('accept', { code: byEmpty ? 'ACCEPT_EMPTY' : 'ACCEPT_STATE', text: byEmpty ? 'המילה נקראה כולה והמחסנית ריקה' : 'המילה נקראה כולה ויש ענף במצב מקבל (' + listNames(m, Array.from(new Set(winners.map((c) => c.state)))) + ')' }, Array.from(new Set(winners.map((c) => c.state))));
+        return done('accept', { code: byEmpty ? 'ACCEPT_EMPTY' : 'ACCEPT_STATE', text: byEmpty ? 'המילה נקראה כולה והמחסנית ריקה' : 'המילה נקראה כולה ויש דרך במצב מקבל (' + listNames(m, Array.from(new Set(winners.map((c) => c.state)))) + ')' }, Array.from(new Set(winners.map((c) => c.state))));
       }
       if (step >= opts.maxSteps) return done('limit', { code: 'STEP_LIMIT', text: 'הגענו למגבלה של ' + opts.maxSteps + ' צעדים בלי הכרעה. ייתכן שיש לולאת ε.' });
       const next = [];
       const edges = [];
-      for (const c of frontier) {
+      const snap = steps[steps.length - 1].configs;
+      for (const [ci, c] of frontier.entries()) {
         const top = c.stack.length ? Array.from(c.stack)[0] : null;
+        let moved = false;
         for (const t of out.get(c.state) || []) {
           t.labels.forEach((l, li) => {
             if (l.read !== EPS && (c.pos >= word.length || word[c.pos] !== l.read)) return;
             if (l.pop !== EPS && l.pop !== top) return;
             const rest = l.pop === EPS ? c.stack : c.stack.slice(top.length);
             const stack = l.push + rest;
+            moved = true;
             if (Array.from(stack).length > opts.maxStack) { truncated = true; return; }
-            const nc = { state: t.to, pos: c.pos + (l.read === EPS ? 0 : 1), stack, id: nextId++, parent: c.id };
+            const nc = { state: t.to, pos: c.pos + (l.read === EPS ? 0 : 1), stack, id: nextId++, parent: c.id, via: { t: t.id, l: li } };
             const k = key(nc);
             if (seen.has(k)) return;
             seen.add(k);
@@ -185,18 +212,19 @@
             edges.push({ t: t.id, l: li });
           });
         }
+        if (snap[ci]) snap[ci].stuck = !moved;     // לא היה אף מעבר מתאים: הדרך הזו נתקעה כאן
       }
       if (!next.length) {
         if (truncated) return done('limit', { code: 'STACK_LIMIT', text: 'המחסנית עברה ' + opts.maxStack + ' סמלים בלי הכרעה' });
         const maxPos = Math.max(...frontier.map((c) => c.pos));
         return done('reject', maxPos < word.length
           ? { code: 'ALL_BRANCHES_DEAD', pos: maxPos, text: 'אין מעבר שמתאים לאות ' + word[maxPos] + ' ולראש המחסנית, ולכן המילה נדחית' }
-          : { code: byEmpty ? 'STACK_NOT_EMPTY' : 'NOT_ACCEPTING', text: byEmpty ? 'המילה נקראה כולה, אבל המחסנית לא התרוקנה' : 'המילה נקראה כולה, אבל אף ענף לא הגיע למצב מקבל' });
+          : { code: byEmpty ? 'STACK_NOT_EMPTY' : 'NOT_ACCEPTING', text: byEmpty ? 'המילה נקראה כולה, אבל המחסנית לא התרוקנה' : 'המילה נקראה כולה, אבל אף דרך לא הגיעה למצב מקבל' });
       }
-      if (next.length > opts.maxConfigs) return done('limit', { code: 'CONFIG_LIMIT', text: 'יותר מ-' + opts.maxConfigs + ' ענפים פתוחים בבת אחת. עצרנו.' });
+      if (next.length > opts.maxConfigs) return done('limit', { code: 'CONFIG_LIMIT', text: 'יותר מ-' + opts.maxConfigs + ' דרכים פתוחות בבת אחת. עצרנו.' });
       frontier = next;
       const read = Array.from(new Set(next.filter((c) => c.pos > 0).map((c) => word[c.pos - 1])));
-      steps.push(mkStep(next, edges, next.length === 1 ? 'מצב ' + nameOf(m, next[0].state) + ', מחסנית ' + (next[0].stack || 'ריקה') : next.length + ' ענפים פתוחים'));
+      steps.push(mkStep(next, edges, next.length === 1 ? 'מצב ' + nameOf(m, next[0].state) + ', מחסנית ' + (next[0].stack || 'ריקה') : next.length + ' דרכים פתוחות'));
       steps[steps.length - 1].read = read.length === 1 ? read[0] : null;
     }
   }
