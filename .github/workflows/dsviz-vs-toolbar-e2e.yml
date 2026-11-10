@@ -12,9 +12,6 @@ on:
       - 'java-visualizer/csharp/**'
       - 'java-visualizer/vs-bank/**'
       - 'java-visualizer/access/**'
-      - 'java-visualizer/automata-launcher/**'
-      - 'java-visualizer/automata/app/js/access-client.js'
-      - 'java-visualizer/tools/build-automata.sh'
       - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/WorkerClient.java'
       - 'java-visualizer/src/unit4/collectionsLib/TraceViewer.java'
       - 'java-visualizer/tools/build-jre.sh'
@@ -38,12 +35,6 @@ jobs:
         run: |
           sh tools/build-lib.sh   # הספרייה מהמקור (ה-jar שב-release/ של הענף ישן)
           SKIP_BANK_CHECK=1 sh tools/build-bank-vs.sh
-          sh tools/build-automata.sh   # "מודלים חישוביים": המשגר (והאפליקציה, אם היא בענף)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: automata
-          path: java-visualizer/build/automata
-          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: bank-vs-jar
@@ -74,28 +65,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: os-trust, path: os-trust, retention-days: 14 }
-  # "מודלים חישוביים" כתוכנה מקומית: כניסה משותפת עם Eclipse (מורה / התנתקות / עמדה), חלון Edge, הפעלה אחת, יציאה — בשם משתמש בעברית
-  automata-access:
-    needs: bank-jar
-    runs-on: windows-2022
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-        with: { lfs: false }
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '21' }
-      - uses: actions/download-artifact@v4
-        with: { name: dsviz-lib, path: dsviz-lib }
-      - uses: actions/download-artifact@v4
-        with: { name: automata, path: automata }
-      - name: מודלים חישוביים ← הכניסה המשותפת
-        shell: powershell
-        run: |
-          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\automata-access.ps1" -Root "$env:GITHUB_WORKSPACE\java-visualizer" -Lib "$env:GITHUB_WORKSPACE\dsviz-lib\dsviz.jar" -Automata "$env:GITHUB_WORKSPACE\automata" -Out "$env:GITHUB_WORKSPACE\automata-access"
-          exit $LASTEXITCODE
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with: { name: automata-access, path: automata-access, retention-days: 14 }
   # שם משתמש / פרויקט בעברית (Windows באנגלית): הרצה ויזואלית, מאגר השאלות ועמדת הניהול מתיקיות בעברית — dsviz-cs.exe מהמקור
   hebrew-paths:
     needs: bank-jar
