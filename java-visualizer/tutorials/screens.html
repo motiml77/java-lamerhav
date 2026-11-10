@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>DSViz — סרטון מצילומים אמיתיים</title>
+<style>
+  @font-face { font-family: Heebo; font-weight: 400; src: url(fonts/node_modules/@expo-google-fonts/heebo/400Regular/Heebo_400Regular.ttf); }
+  @font-face { font-family: Heebo; font-weight: 500; src: url(fonts/node_modules/@expo-google-fonts/heebo/500Medium/Heebo_500Medium.ttf); }
+  @font-face { font-family: Heebo; font-weight: 700; src: url(fonts/node_modules/@expo-google-fonts/heebo/700Bold/Heebo_700Bold.ttf); }
+  @font-face { font-family: Heebo; font-weight: 800; src: url(fonts/node_modules/@expo-google-fonts/heebo/800ExtraBold/Heebo_800ExtraBold.ttf); }
+  html, body { margin: 0; background: #0B1222; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #0B1222; font-family: Heebo, sans-serif; }
+  #cam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  #cam img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; opacity: 0; }
+  #shade { position: absolute; inset: 0; pointer-events: none; }
+  #ring { position: absolute; border: 5px solid #FFB020; border-radius: 12px; box-shadow: 0 0 0 4px rgba(255, 176, 32, .28), 0 0 34px rgba(255, 176, 32, .55); opacity: 0; }
+  #ripple { position: absolute; border-radius: 50%; border: 5px solid #FFB020; opacity: 0; }
+  #cursor { position: absolute; width: 46px; height: 46px; left: 0; top: 0; opacity: 0; filter: drop-shadow(0 3px 5px rgba(0,0,0,.45)); }
+  #cap { position: absolute; left: 50%; transform: translateX(-50%); width: 1560px; box-sizing: border-box; padding: 26px 40px 28px; border-radius: 26px;
+         background: rgba(11, 18, 34, .9); color: #fff; display: flex; align-items: center; gap: 30px; box-shadow: 0 18px 50px rgba(0,0,0,.4); opacity: 0; }
+  #cap .num { flex: none; min-width: 112px; height: 112px; border-radius: 56px; background: #2F6FED; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+  #cap .num small { font-size: 24px; font-weight: 500; opacity: .85; }
+  #cap .num b { font-size: 50px; font-weight: 800; margin-top: 2px; }
+  #cap .txt { font-size: 44px; line-height: 1.38; font-weight: 500; }
+  #cap .txt b { color: #FFC24D; font-weight: 700; }
+  #cap .txt .ltr { direction: ltr; unicode-bidi: isolate; white-space: nowrap; }
+  #cap .kbd { flex: none; font-size: 30px; font-weight: 700; color: #0B1222; background: #FFC24D; border-radius: 14px; padding: 8px 16px; }
+  #bar { position: absolute; left: 0; bottom: 0; height: 8px; background: #2F6FED; }
+  #card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #fff;
+          background: radial-gradient(1200px 700px at 50% 40%, #1D3A7A 0%, #0B1222 70%); opacity: 0; }
+  #card h1 { font-size: 104px; font-weight: 800; margin: 0 0 22px; letter-spacing: -1px; }
+  #card p { font-size: 46px; font-weight: 400; margin: 0; max-width: 1500px; line-height: 1.45; color: #D7E2FF; }
+  #card .chip { margin-top: 46px; font-size: 32px; font-weight: 700; color: #0B1222; background: #FFC24D; border-radius: 999px; padding: 12px 34px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="cam"></div>
+  <div id="ring"></div>
+  <div id="ripple"></div>
+  <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2l15.5 11.2-6.9 1.1 4.1 7.3-2.9 1.6-4.1-7.4L4.6 20.4z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>
+  <div id="cap"><div class="num"><small>שלב</small><b>1</b></div><div class="txt"></div><div class="kbd" hidden>⌨ מקלידים</div></div>
+  <div id="bar"></div>
+  <div id="card"><h1></h1><p></p><div class="chip" hidden></div></div>
+</div>
+<script>
+// מנוע: ציר זמן אחד, render(t). כל צעד — צילום מסך אמיתי; העכבר נע למלבן האמיתי של הכפתור (מ-steps.json), לחיצה, הדגשה, והמצלמה מתקרבת.
+const W = 1920, H = 1080;
+const D = window.DATA;
+const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const $ = id => document.getElementById(id);
+
+// ------------------------------------------------------------------ ציר הזמן
+const INTRO = D.intro ? 5.5 : 0, OUTRO = D.outro ? 6 : 0;
+const steps = D.steps;
+const imgs = {};
+for (const s of steps) if (!imgs[s.src]) { const im = new Image(); im.src = s.src; $('cam').append(im); imgs[s.src] = im; }
+const union = rs => {
+  rs = rs.filter(Boolean);
+  if (!rs.length) return null;
+  const x1 = Math.min(...rs.map(r => r.x)), y1 = Math.min(...rs.map(r => r.y)), x2 = Math.max(...rs.map(r => r.x + r.w)), y2 = Math.max(...rs.map(r => r.y + r.h));
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+};
+// קבוצות: צעדים רצופים עם אותו כיתוב (הקלדת שורות / "הבא" בחלון ההרצה) — כיתוב אחד, מצלמה אחת
+let g = -1, major = 0;
+steps.forEach((s, i) => {
+  if (i === 0 || s.text !== steps[i - 1].text) { g++; s.first = true; if (!s.noNumber) major++; } else s.first = false;
+  s.group = g; s.major = major;
+});
+for (let k = 0; k <= g; k++) {
+  const members = steps.filter(s => s.group === k);
+  // מה המצלמה מראה: הכפתור (click), או מה שהשתנה (הקלדה), או הכול
+  const focus = union(members.map(s => s.focusRect || (s.kind === 'type' || s.useChange ? s.change : null) || (s.kind !== 'type' ? s.target : null)));
+  for (const s of members) s.focus = s.noZoom ? null : focus;
+}
+let t0 = INTRO;
+for (const s of steps) {
+  const words = s.text.split(/\s+/).length;
+  const read = Math.max(3.2, 1.5 + words * 0.34);   // לאט — ההדרכה למי שמתקשה
+  s.dur = s.groupDur ? (s.first ? Math.max(s.groupDur * 1.6, 1.8) : s.groupDur) : read + (s.kind === 'click' && s.target ? 1.0 : 0);
+  s.start = t0; t0 += s.dur;
+  const f = s.focus;
+  let z = 1, cx = W / 2, cy = H / 2;
+  if (f) {
+    z = clamp(Math.min(W * 0.46 / Math.max(f.w, 40), H * 0.46 / Math.max(f.h, 30)), 1, s.maxZoom || 1.85);
+    cx = f.x + f.w / 2; cy = f.y + f.h / 2;
+  }
+  const tx = clamp(W / 2 - cx * z, W - W * z, 0), ty = clamp(H * 0.46 - cy * z, H - H * z, 0);
+  s.cam = { z, tx, ty };
+}
+const DURATION = t0 + OUTRO;
+const CLICK_TIMES = steps.filter(s => s.kind === 'click' && s.target).map(s => s.start + 1.5);
+const CUT_TIMES = steps.filter((s, i) => i > 0 && s.first && s.src !== steps[i - 1].src).map(s => s.start);
+const META = { poster: (steps.find(s => /08-v0[2-4]/.test(s.src)) || steps[Math.min(5, steps.length - 1)]).start + 1.8 };
+
+// ------------------------------------------------------------------ ציור
+function camAt(i, u) {
+  const s = steps[i], p = i > 0 ? steps[i - 1].cam : { z: 1, tx: 0, ty: 0 };
+  const k = ease(u / 1.0);
+  return { z: lerp(p.z, s.cam.z, k), tx: lerp(p.tx, s.cam.tx, k), ty: lerp(p.ty, s.cam.ty, k) };
+}
+const toStage = (c, x, y) => ({ x: c.tx + x * c.z, y: c.ty + y * c.z });
+function cursorAt(i, u) {   // בקואורדינטות של המסך המצולם
+  const at = j => { const s = steps[j]; return s.target ? { x: s.target.x + s.target.w / 2, y: s.target.y + s.target.h * 0.55 } : null; };
+  let prev = null;
+  for (let j = i - 1; j >= 0 && !prev; j--) prev = at(j);
+  prev = prev || { x: W * 0.55, y: H * 0.6 };
+  const cur = at(i);
+  if (!cur) return prev;
+  const k = ease((u - 0.35) / 0.9);
+  return { x: lerp(prev.x, cur.x, k), y: lerp(prev.y, cur.y, k) };
+}
+function renderCaption(s, alpha, c) {
+  const cap = $('cap');
+  if (cap.dataset.step !== String(s.group)) {
+    cap.dataset.step = String(s.group);
+    cap.querySelector('.txt').innerHTML = s.html;
+    cap.querySelector('.num b').textContent = String(s.major);
+    cap.querySelector('.num').style.visibility = s.noNumber ? 'hidden' : 'visible';
+    cap.querySelector('.kbd').hidden = s.kind !== 'type';
+  }
+  // הכיתוב למטה — אלא אם מה שמראים נמצא שם; אז למעלה
+  let top = false;
+  if (s.focus) { const p = toStage(s.cam, s.focus.x + s.focus.w / 2, s.focus.y + s.focus.h); top = p.y > H * 0.66; }
+  if (s.capTop !== undefined) top = s.capTop;
+  cap.style.top = top ? '34px' : '';
+  cap.style.bottom = top ? '' : '40px';
+  cap.style.opacity = alpha;
+}
+function render(t) {
+  const card = $('card');
+  $('bar').style.width = (100 * t / DURATION) + '%';
+  // פתיחה וסיום: כרטיס מלא (אטום) מעל הכול
+  const inIntro = t < INTRO, inOutro = t >= DURATION - OUTRO;
+  if (inIntro || inOutro) {
+    const c = inIntro ? D.intro : D.outro;
+    card.querySelector('h1').textContent = c.title;
+    card.querySelector('p').textContent = c.sub || '';
+    const chip = card.querySelector('.chip'); chip.hidden = !c.chip; chip.textContent = c.chip || '';
+    card.style.opacity = inIntro ? clamp((INTRO - t) / 0.6, 0, 1) : clamp((t - (DURATION - OUTRO)) / 0.6, 0, 1);
+    if ((inIntro && t < INTRO - 0.6) || (inOutro && t >= DURATION - OUTRO + 0.6)) return;
+  } else card.style.opacity = 0;
+  const tt = clamp(t, INTRO, DURATION - OUTRO - 0.001);
+  let i = steps.findIndex(s => tt >= s.start && tt < s.start + s.dur);
+  if (i < 0) i = tt < INTRO + 0.001 ? 0 : steps.length - 1;
+  const s = steps[i], u = tt - s.start;
+  const c = camAt(i, u);
+  $('cam').style.transform = `translate(${c.tx}px, ${c.ty}px) scale(${c.z})`;
+  // מעבר רך בין צילומים
+  const prevSrc = i > 0 ? steps[i - 1].src : null;
+  const fade = prevSrc && prevSrc !== s.src ? clamp(u / (s.first ? 0.45 : 0.18), 0, 1) : 1;
+  for (const [src, im] of Object.entries(imgs)) im.style.opacity = src === s.src ? 1 : (src === prevSrc && fade < 1 ? 1 : 0);
+  imgs[s.src].style.zIndex = 2; if (prevSrc && imgs[prevSrc] !== imgs[s.src]) imgs[prevSrc].style.zIndex = 1;
+  imgs[s.src].style.opacity = fade;
+  // העכבר
+  const cur = $('cursor');
+  const cp = toStage(c, ...Object.values(cursorAt(i, u)));
+  const press = s.kind === 'click' && s.target && u > 1.38 && u < 1.62 ? 0.86 : 1;
+  cur.style.opacity = s.kind === 'type' && !s.target ? 0.0 : 1;
+  cur.style.transform = `translate(${cp.x - 8}px, ${cp.y - 4}px) scale(${press})`;
+  // הדגשה סביב הכפתור, ולחיצה
+  const ring = $('ring'), rip = $('ripple');
+  if (s.target && s.kind !== 'type' || (s.kind === 'type' && s.target)) {
+    const a = toStage(c, s.target.x - 7, s.target.y - 7), b = toStage(c, s.target.x + s.target.w + 7, s.target.y + s.target.h + 7);
+    const k = clamp((u - 0.9) / 0.35, 0, 1), pulse = 1 + 0.035 * Math.sin((u - 0.9) * 6);
+    ring.style.left = a.x + 'px'; ring.style.top = a.y + 'px'; ring.style.width = (b.x - a.x) + 'px'; ring.style.height = (b.y - a.y) + 'px';
+    ring.style.opacity = k; ring.style.transform = `scale(${k > 0 ? pulse : 1})`;
+  } else ring.style.opacity = 0;
+  if (s.kind === 'click' && s.target && u > 1.45 && u < 2.1) {
+    const k = (u - 1.45) / 0.65, r = 18 + 70 * ease(k);
+    rip.style.left = (cp.x - r) + 'px'; rip.style.top = (cp.y - r) + 'px'; rip.style.width = rip.style.height = 2 * r + 'px'; rip.style.opacity = 1 - k;
+  } else rip.style.opacity = 0;
+  // הכיתוב
+  const g0 = steps.find(x => x.group === s.group), ug = tt - g0.start;
+  const last = steps.filter(x => x.group === s.group).pop(), end = last.start + last.dur;
+  renderCaption(s, Math.min(clamp(ug / 0.4, 0, 1), clamp((end - tt) / 0.25, 0, 1)), c);
+}
+window.render = render;
+Promise.all([document.fonts.ready, ...Object.values(imgs).map(im => im.decode().catch(() => {}))]).then(() => { render(0); window.READY = true; });
+</script>
+</body>
+</html>
