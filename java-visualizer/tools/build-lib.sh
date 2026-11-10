@@ -34,6 +34,8 @@ cp third-party/fonts/OFL-Rubik.txt "$OUT/META-INF/LICENSE-Rubik-OFL.txt"
 mkdir -p "$OUT/unit4/collectionsLib/images" && cp third-party/images/donate-*.png "$OUT/unit4/collectionsLib/images/"
 cp third-party/LICENSE-flatlaf.txt "$OUT/META-INF/LICENSE-flatlaf.txt"
 (cd "$OUT" && unzip -qo ../../third-party/flatlaf-3.5.4.jar -x 'META-INF/MANIFEST.MF' 'META-INF/LICENSE' 'module-info.class')
+# כל מה שבספרייה רץ גם ב-Java של ההתקנה (jlink) — אף מחלקה לא צריכה מודול שלא נכנס אליה (jdeps, לא רק grep)
+sh tools/check-jre-modules.sh "$OUT"
 printf 'Premain-Class: unit4.collectionsLib.LineAgent\nMulti-Release: true\nImplementation-Title: DSViz - Data Structures Visualizer\nImplementation-Vendor: Moti Levi (motiml77@gmail.com)\nCopyright: (c) 2026 Moti Levi, motiml77@gmail.com\n' > build/lib-manifest.txt
 jar --create --file release/dsviz.jar --manifest build/lib-manifest.txt -C "$OUT" .
 echo "release/dsviz.jar"
