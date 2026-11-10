@@ -43,7 +43,12 @@
       $('#guide-btn').addEventListener('click', () => { this.pinned = !this.pinned || this.el.hidden; this.update(); });
     },
 
-    hide() { this.pinned = false; store.set('seen'); this.update(); },
+    hide() {
+      this.pinned = false;
+      store.set('seen');
+      this.update();
+      if (this.shifted) { this.shifted = false; this.app.canvas.fit(); this.app.autosave(); }   // מחזירים את המכונה למרכז
+    },
 
     update() {
       const empty = !this.app.machine.states.length;
@@ -56,7 +61,7 @@
       if (this.el.dataset.mode === mode) return;
       this.el.dataset.mode = mode;
       // הכרטיס הצף יושב בצד שמאל: מזיזים את המכונה כדי שלא תוסתר
-      if (mode === 'float') requestAnimationFrame(() => this.app.canvas.fit(this.el.offsetWidth + 24));
+      if (mode === 'float') requestAnimationFrame(() => { this.shifted = true; this.app.canvas.fit(this.el.offsetWidth + 24); });
       this.el.innerHTML =
         '<div class="guide-head"><h2>' + (empty ? 'בונים מכונה בשלושה צעדים' : 'איך בונים') + '</h2>' +
         (empty ? '' : '<button type="button" class="pop-x" data-g="close" aria-label="סגירת ההדרכה">' + I.get('x', 16) + '</button>') + '</div>' +
