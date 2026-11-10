@@ -39,6 +39,7 @@
       $('[data-cmd=help]').innerHTML = I.get('help');
       this.load();
       this.canvas = new root.CanvasView(this, $('#stage'));
+      this.langPanel = new root.LangPanel(this);
       this.side = new root.SidePanel(this, $('.side'));
       this.runPanel = new root.RunPanel(this, $('.runpanel'));
       this.popover = new root.TransitionPopover(this, $('#tpop'));
@@ -258,6 +259,8 @@
       $('#app').dataset.type = type;
       $$('#type-tabs [data-type]').forEach((b) => { const on = b.dataset.type === type; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
       this.runPanel.testResults = null;
+      this.langPanel.result = null;
+      this.langPanel.busy = null;
       $('.tests-table-wrap').scrollTop = 0;
       this.refresh();
       if (!initial) { if (!this.machine.view.placed) { this.canvas.fit(); this.machine.view.placed = true; } this.autosave(); }
@@ -276,6 +279,8 @@
       this.stopRun(true);
       this.sel = { states: new Set(), trans: new Set() };
       this.runPanel.testResults = null;
+      this.langPanel.result = null;
+      if (m.language && m.language.locked) this.side.tab = 'lang';      // קובץ תרגיל: מציגים את השפה
       $('.tests-table-wrap').scrollTop = 0;
       this.refresh();
       this.canvas.fit();
@@ -307,7 +312,17 @@
       this.runPanel.render();
       this.renderTop();
       root.Guide.update();
+      this.renderLangPill();
       this.coach();
+    },
+
+    /** תגית קטנה על הקנבס עם השפה של המכונה (אם נכתבה). לחיצה פותחת את לשונית "שפה". */
+    renderLangPill() {
+      const el = $('#lang-pill'), lang = this.machine.language;
+      let html = '';
+      if (lang && lang.text.trim()) { try { html = root.AutomataLang.pretty(root.AutomataLang.parse(lang.text, { alphabet: M.inputAlphabet(this.machine) })).html; } catch (e) { html = ''; } }
+      el.hidden = !html;
+      el.innerHTML = html ? '<span class="lp-tag">' + (lang.locked ? 'תרגיל' : 'השפה') + '</span><span class="lp-f" dir="ltr">' + html + '</span>' : '';
     },
 
     /** רמז קצר למעלה, לפי מה שחסר עכשיו (למי שבונה מכונה בפעם הראשונה). */

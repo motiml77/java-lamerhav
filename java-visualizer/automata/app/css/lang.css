@@ -1,0 +1,102 @@
+/* lang.css - לשונית "שפה": שדה הנוסחה, הכתיבה היפה, מקלדת הסימנים, המילים לדוגמה, תוצאת הבדיקה, והתגית על הקנבס. */
+
+.lang-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.lang-head h4 { margin: 0; }
+.lang-class { font-size: var(--fs-11); font-weight: 600; line-height: 20px; padding: 0 8px; border-radius: var(--r-full); white-space: nowrap; cursor: help; }
+.lang-class:empty { display: none; }
+.lang-class.ok { background: var(--ok-soft); color: var(--ok); }
+.lang-class.cf { background: var(--accent-soft); color: var(--accent-ink); }
+.lang-class.noncf { background: var(--warn-soft); color: var(--warn); }
+.lang-class.unk { background: var(--sunk); color: var(--muted); }
+.lang .muted.small { margin: 0 0 10px; }
+
+.lang-input {
+  display: block; width: 100%; min-height: 58px; padding: 9px 10px; resize: vertical;
+  font: 500 15px/1.55 var(--mono); color: var(--ink); letter-spacing: 0.02em;
+  background: var(--panel); border: 1.5px solid var(--line-strong); border-radius: var(--r-md);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.lang-input::placeholder { color: var(--faint); }
+.lang-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+.lang-input.bad { border-color: var(--err); }
+.lang-input[readonly] { background: var(--sunk); }
+
+/* הכתיבה היפה, או השגיאה */
+.lang-pretty { margin-top: 8px; padding: 10px 12px; border-radius: var(--r-md); background: var(--sunk); min-height: 42px; }
+.lp-math { font: 500 16px/1.5 var(--mono); color: var(--ink); overflow-wrap: anywhere; text-align: left; }
+.lp-math sup, .lp-f sup { font-size: 0.72em; line-height: 0; }
+.lp-math .he, .lp-f .he { font-family: var(--sans); font-size: 0.82em; color: var(--ink-2); }
+.lang-pretty.empty { font-size: var(--fs-12); color: var(--muted); line-height: 1.6; }
+.lang-pretty.err { background: var(--err-soft); color: var(--err); display: grid; gap: 4px; }
+.lang-pretty.err b { font-size: var(--fs-13); font-weight: 600; }
+.lang-pretty.err span { font-size: var(--fs-12); color: var(--ink-2); line-height: 1.5; }
+.le-src { font: 500 14px/1.6 var(--mono); color: var(--ink-2); text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
+.le-src mark { background: none; color: var(--err); border-bottom: 2px solid var(--err); padding: 0 1px; min-width: 8px; display: inline-block; }
+
+/* מקלדת הסימנים: שורות קומפקטיות מתחת לשדה */
+.lang-kb { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-top: 8px; }
+.lk-group { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.lk {
+  min-width: 28px; height: 28px; padding: 0 7px; border-radius: var(--r-sm);
+  font: 500 13px var(--mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong);
+  transition: background-color var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
+}
+.lk bdi { font-family: inherit; }
+.lk:hover { border-color: var(--accent); background: var(--accent-soft); }
+.lk:active { transform: scale(0.95); }
+.lk.ll { font-size: 15px; color: var(--accent-ink); }
+.lk i { font-style: normal; color: var(--faint); }
+.lk sup { font-size: 0.8em; line-height: 0; color: var(--ink); }
+.lang-more { flex-basis: 100%; }
+.lang-more summary { direction: rtl; font-size: var(--fs-12); font-weight: 500; color: var(--muted); cursor: pointer; padding: 2px 0 4px; user-select: none; }
+.lk-more { display: flex; flex-wrap: wrap; gap: 5px 8px; }
+
+/* המילים הקצרות: בשפה / לא בשפה */
+.lang-live { margin-top: 12px; display: grid; gap: 6px; }
+.lang-live:empty { display: none; }
+.ll-row { display: grid; grid-template-columns: 62px 1fr; gap: 8px; align-items: start; }
+.ll-title { font-size: var(--fs-12); font-weight: 600; line-height: 26px; }
+.ll-title.in, .lr-title.in { color: var(--ok); }
+.ll-title.out, .lr-title.out { color: var(--err); }
+.ll-words { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.w-chip { height: 26px; padding: 0 8px; border-radius: var(--r-sm); font: 500 13px var(--mono); border: 1px solid transparent; transition: border-color var(--t-fast); }
+.w-chip.in { background: var(--ok-soft); color: var(--ok); }
+.w-chip.out { background: var(--err-soft); color: var(--err); }
+.w-chip:hover { border-color: currentColor; }
+.lang-why { margin: 2px 0 0; font-size: var(--fs-12); line-height: 1.5; color: var(--muted); }
+
+.lang-actions { display: flex; gap: 8px; margin-top: 14px; }
+.lang-actions .btn { flex: 1; }
+
+/* תוצאה */
+.lang-result { margin-top: 12px; display: grid; gap: 10px; }
+.lang-result:empty { display: none; }
+.lr-box { display: flex; gap: 8px; align-items: flex-start; padding: 9px 11px; border-radius: var(--r-md); font-size: var(--fs-13); line-height: 1.5; background: var(--sunk); color: var(--ink-2); }
+.lr-box .icon { flex: none; margin-top: 2px; }
+.lr-box.ok { background: var(--ok-soft); color: var(--ok); }
+.lr-box.err { background: var(--err-soft); color: var(--err); }
+.lr-box.busy { color: var(--muted); }
+.lr-box.big b { display: block; font-size: var(--fs-14); font-weight: 600; }
+.lr-box small { display: block; font-size: var(--fs-12); color: var(--ink-2); margin-top: 2px; }
+.lr-list { display: grid; gap: 4px; }
+.lr-title { font-size: var(--fs-12); font-weight: 600; }
+.lang-result .muted.small { margin: 0; line-height: 1.5; }
+
+/* תבניות, ומורים */
+.lang-templates { display: flex; flex-wrap: wrap; gap: 6px; }
+.lt { height: 28px; padding: 0 10px; border-radius: var(--r-full); font-size: var(--fs-12); font-weight: 500; color: var(--ink-2); background: var(--panel); border: 1px solid var(--line-strong); transition: background-color var(--t-fast), border-color var(--t-fast); }
+.lt:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.check { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: var(--fs-13); cursor: pointer; }
+.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* התגית על הקנבס */
+.lang-pill {
+  position: absolute; top: 12px; inset-inline-end: 52px; z-index: 6; max-width: min(420px, 45%);
+  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px 0 6px; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-full); box-shadow: var(--shadow-1); color: var(--ink);
+}
+.lang-pill:hover { border-color: var(--accent); }
+.lp-tag { flex: none; font-size: var(--fs-11); font-weight: 600; line-height: 20px; padding: 0 8px; border-radius: var(--r-full); background: var(--accent-soft); color: var(--accent-ink); }
+.lp-f { font: 500 13px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage.is-empty .lang-pill { top: 12px; }
+.stage:has(.lang-pill:not([hidden])) .hint, .stage:has(.lang-pill:not([hidden])) .result-banner { top: 54px; }

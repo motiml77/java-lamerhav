@@ -115,6 +115,7 @@
         if (e.target.id === 'modal') this.closeModal();
       });
       $('#canvas-status').addEventListener('click', () => this.side.show('issues'));
+      $('#lang-pill').addEventListener('click', () => this.side.show('lang'));
       $('#canvas-status').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.side.show('issues'); } });
       $('#file-input').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) this.openFile(f); e.target.value = ''; });
       const name = $('#machine-name');

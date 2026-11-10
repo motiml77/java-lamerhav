@@ -50,6 +50,7 @@
           if (x.done || x.value.length > stopLen) { res.done = true; if (!x.done) res.maxLen = stopLen; break; }
           const w = x.value;
           res.count++;
+          res.len = w.length;
           const got = S.run(machine, w, { record: false }).result;
           if (got === 'limit') res.undecided++;
           const want = L.accepts(ast, w);

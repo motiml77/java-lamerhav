@@ -27,11 +27,12 @@
       this.el.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === this.tab)));
       const errs = app.issues.filter((i) => i.level === 'error').length, warns = app.issues.length - errs;
       const badge = this.el.querySelector('#issues-badge');
-      badge.hidden = !app.issues.length;
+      badge.hidden = !app.issues.length || (app.issues.length === 1 && app.issues[0].code === 'NO_STATES');   // קנבס ריק אינו "בעיה"
       badge.textContent = app.issues.length;
       badge.className = 'badge' + (errs ? ' err' : warns ? ' warn' : '');
       // לא מציירים מחדש בזמן שהמשתמש מקליד בשדה של הפאנל
       if (this.body.contains(document.activeElement) && document.activeElement.matches('input[type=text],textarea')) return;
+      if (this.tab === 'lang') { this.body.innerHTML = app.langPanel.html(); app.langPanel.mount(this.body); return; }
       this.body.innerHTML = this.tab === 'alpha' ? this.alphaHTML() : this.tab === 'issues' ? this.issuesHTML() : this.propsHTML();
     }
 

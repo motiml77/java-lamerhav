@@ -126,20 +126,23 @@
   }
   const RELS = { '=': '=', '!=': '≠', '<': '<', '>': '>', '<=': '≤', '>=': '≥' };
   const he = (s, html) => (html ? '<bdi class="he">' + s + '</bdi>' : s);
+  const PRED = { starts: 'מתחילה ב-', ends: 'מסתיימת ב-', has: 'מכילה ', pal: 'פלינדרום' };
+  /** תכונת מחרוזת בעברית. ב-html זו יחידה אחת מימין לשמאל, והמילה עצמה בתוכה משמאל לימין: "מסתיימת ב-ab". */
+  function pred(c, html, neg) {
+    const w = c.op === 'pal' ? '' : (c.word || 'ε');
+    const text = (neg ? 'לא ' : '') + PRED[c.op];
+    return html ? '<bdi class="he" dir="rtl">' + text + (w ? '<bdi dir="ltr">' + esc(w) + '</bdi>' : '') + '</bdi>' : text + w;
+  }
   function showC(c, html, top) {
     switch (c.op) {
       case 'true': return '';
       case 'false': return '∅';
       case 'and': return top ? c.args.map((x) => showC(x, html)).join(', ') : '(' + c.args.map((x) => showC(x, html)).join(' ' + he('וגם', html) + ' ') + ')';
       case 'or': { const s = c.args.map((x) => showC(x, html)).join(' ' + he('או', html) + ' '); return top ? s : '(' + s + ')'; }
-      case 'not': return he('לא', html) + ' ' + showC(c.arg, html);
-      case 'cmp': return showA(c.l, true) + ' ' + RELS[c.rel] + ' ' + showA(c.r, true);
-      case 'starts': return he('מתחילה ב-', html) + (c.word || 'ε');
-      case 'ends': return he('מסתיימת ב-', html) + (c.word || 'ε');
-      case 'has': return he('מכילה', html) + ' ' + (c.word || 'ε');
-      case 'pal': return he('פלינדרום', html);
+      case 'not': return PRED[c.arg.op] ? pred(c.arg, html, true) : he('לא', html) + ' ' + (c.arg.op === 'cmp' ? '(' + showC(c.arg, html) + ')' : showC(c.arg, html));
+      case 'cmp': { const t = showA(c.l, true) + ' ' + RELS[c.rel] + ' ' + showA(c.r, true); return html ? esc(t) : t; }
+      default: return pred(c, html, false);
     }
-    return '?';
   }
   function showRe(n, prec) {
     switch (n.t) {
