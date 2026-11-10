@@ -28,7 +28,7 @@ mkdir -p "$C/linux" "$C/windows"
 tar -xzf "$C/linux.tar.gz" -C "$C/linux"
 (cd "$C/windows" && unzip -q ../windows.zip)
 "$C"/linux/jdk*/bin/jlink --module-path "$(ls -d "$C"/windows/jdk*)/jmods" \
-    --add-modules java.se,jdk.compiler,jdk.jdi,jdk.jdwp.agent,jdk.attach,jdk.zipfs,jdk.charsets,jdk.localedata,jdk.unsupported,jdk.crypto.ec \
+    --add-modules java.se,jdk.compiler,jdk.jdi,jdk.jdwp.agent,jdk.attach,jdk.zipfs,jdk.charsets,jdk.localedata,jdk.unsupported,jdk.crypto.ec,jdk.crypto.mscapi \
     --include-locales=en,he --strip-debug --no-header-files --no-man-pages --compress=zip-6 --output "$OUT"
 cp "$(ls -d "$C"/windows/jdk*)/NOTICE" "$OUT/" 2>/dev/null || true
 rm -rf "$C/linux" "$C/windows"

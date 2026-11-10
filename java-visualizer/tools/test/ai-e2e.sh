@@ -44,7 +44,7 @@ kill $MOCK; sleep 1
 LOG=$W/gemini.log PORT=8798 MOCK_FILE=$T/ai/repair/fixed.json node "$W/mock.mjs" & MOCK=$!
 sleep 1
 mkdir -p "$W/rp/cls"
-javac -encoding UTF-8 -d "$W/rp/cls" $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Json.java $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java \
-    $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/WorkerClient.java $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Account.java $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/ExerciseFiles.java AiRepairTest.java
+javac -encoding UTF-8 -sourcepath $ROOT/eclipse-plugin/src -d "$W/rp/cls" $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Json.java $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java \
+    $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/WorkerClient.java $ROOT/eclipse-plugin/src/il/lamerhav/dsviz/ExerciseFiles.java AiRepairTest.java
 java -Dstdout.encoding=UTF-8 -cp "$W/rp/cls" il.lamerhav.dsviz.AiRepairTest ai/repair/broken.json http://127.0.0.1:8797 "$W/rp" "$ROOT/release/dsviz.jar"
 echo "e2e: עבר"

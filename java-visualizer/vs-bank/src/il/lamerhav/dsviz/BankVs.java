@@ -70,17 +70,74 @@ public final class BankVs {
     /** בדיקות: מה היה נפתח ב-Visual Studio (עם -Ddsviz.noOpen=true לא נפתח כלום) */
     static final List<String> opened = java.util.Collections.synchronizedList(new ArrayList<String>());
 
-    public static void main(final String[] a) throws Exception {
+    public static void main(String[] args) throws Exception {
+        String[] a = envArgs(args);
+        if (a.length == 1 && !a[0].equals("teacher")) a = new String[] { a[0], defaultCsRoot() };   // קיצור דרך בלי נתיב
+        // "עמדת ניהול" מסרגל הכלים של Visual Studio: רק חלון המורה (בלי המאגר)
+        if (a.length >= 1 && a[0].equals("teacher")) {
+            teacher();
+            return;
+        }
         if (a.length < 2) {
             System.err.println("שימוש: BankVs bank|question <תיקיית DataStructures-CS>");
             System.exit(2);
         }
         configure(a);
+        final String[] fa = a;
         SwingUtilities.invokeAndWait(() -> {
             // הכניסה (מורה / עמדת מחשב / תלמיד) — אחרי כניסה אחת במחשב נפתח מיד, גם בלי אינטרנט
-            if (a[0].equals("question")) AccessGate.require(null, () -> BankVsFloat.showLast(null));
+            if (fa[0].equals("question")) AccessGate.require(null, () -> BankVsFloat.showLast(null));
             else AccessGate.require(null, () -> BankVsWindow.open(null, null));
         });
+    }
+
+    /**
+     * עמדת הניהול של המורה (הקוד, העמדות, הדף בדפדפן, התנתקות) — אותו חלון כמו ב-Eclipse. לא מורה מחובר (הסימון בסרגל ישן) —
+     * הסבר, והסימון מתעדכן כך שהכפתור נעלם מהסרגל.
+     */
+    static void teacher() throws Exception {
+        Account.syncTeacherFlag();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            try { Theme.useRounded(); } catch (LinkageError oldLibrary) { /* הגופן הקודם */ }
+            if (AccessGate.isTeacher()) AccessGate.showTeacherPanel(null);
+            else AccessGate.tell(null, "עמדת ניהול", "עמדת הניהול פתוחה רק למורה שמחובר במחשב הזה.\nנכנסים דרך \"מאגר שאלות\" ← \"מורה\" ← \"כניסה עם Google\".");
+        });
+    }
+
+
+    /**
+     * ארגומנטים בלי תלות בקידוד של Windows: java מפענח את שורת הפקודה בקידוד של המערכת (ANSI), ונתיב עם שם משתמש בעברית (או תו
+     * אחר שלא בקידוד) הופך ל-"?". dsviz-cs.exe מעביר אז "--args-env" והארגומנטים במשתנה הסביבה DSVIZ_ARGS (שורה לכל ארגומנט) —
+     * Java קוראת את הסביבה ב-Unicode. אחרת — הארגומנטים כמו שהם.
+     */
+    static String[] envArgs(String[] a) {
+        if (a.length == 1 && "--args-env".equals(a[0])) {
+            String v = System.getenv("DSVIZ_ARGS");
+            if (v != null) return v.split("\n", -1);
+        }
+        return a;
+    }
+
+    /**
+     * תיקיית התרגילים של C# כשלא הועברה (קיצורי הדרך של ההתקנה לא מעבירים נתיב — הוא עלול להכיל עברית): מה שההתקנה כתבה
+     * ב-‎~/.dsviz/project-cs-path.txt‎ (UTF-16), ואחרת "מסמכים"\DataStructures-CS
+     */
+    static String defaultCsRoot() {
+        try {
+            java.io.File f = new java.io.File(System.getProperty("user.home"), ".dsviz/project-cs-path.txt");
+            if (f.isFile()) {
+                byte[] b = java.nio.file.Files.readAllBytes(f.toPath());
+                String s = b.length >= 2 && (b[0] & 0xff) == 0xFF && (b[1] & 0xff) == 0xFE ? new String(b, 2, b.length - 2, java.nio.charset.StandardCharsets.UTF_16LE)
+                        : new String(b, java.nio.charset.StandardCharsets.UTF_8);
+                s = s.replace("\uFEFF", "").trim();
+                if (!s.isEmpty()) return s;
+            }
+        } catch (Exception ignored) {
+            // ננסה את "מסמכים"
+        }
+        java.io.File docs = javax.swing.filechooser.FileSystemView.getFileSystemView().getDefaultDirectory();
+        return new java.io.File(docs, "DataStructures-CS").getPath();
     }
 
     /** הארגומנטים (גם לתסריטי הבדיקה): <מצב> <תיקייה> [--ij --lib --java --store --port --token --project --out], ואז init */

@@ -31,7 +31,7 @@ sourceSets {
             srcDir(viz.dir("eclipse-plugin/src"))
             include("il/lamerhav/dsviz/intellij/**", "il/lamerhav/dsviz/IjShared.java",
                     "il/lamerhav/dsviz/Scaffold.java", "il/lamerhav/dsviz/NameCheck.java", "il/lamerhav/dsviz/ClassInfo.java",
-                    "il/lamerhav/dsviz/Json.java", "il/lamerhav/dsviz/Account.java", "il/lamerhav/dsviz/WorkerClient.java", "il/lamerhav/dsviz/ExerciseFiles.java", "il/lamerhav/dsviz/SolutionStore.java")
+                    "il/lamerhav/dsviz/Json.java", "il/lamerhav/dsviz/Account.java", "il/lamerhav/dsviz/OsTrust.java", "il/lamerhav/dsviz/WorkerClient.java", "il/lamerhav/dsviz/ExerciseFiles.java", "il/lamerhav/dsviz/SolutionStore.java")
         }
     }
 }

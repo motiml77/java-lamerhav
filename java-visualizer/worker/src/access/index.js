@@ -255,9 +255,9 @@ async function redeem(request, env) {
     if (d) t.remove('authCodes/' + code);   // פעם אחת בלבד
     return d;
   });
-  if (!doc || doc.exp < Date.now()) throw new Fail(400, 'expired', 'הכניסה פגה. לוחצים שוב על "התחברות".');
+  if (!doc || doc.exp < Date.now()) throw new Fail(400, 'expired', 'הכניסה פגה. בחלון של DSViz לוחצים "חזרה" ושוב "כניסה עם Google".');
   const want = b64url(await sha256(String(b.verifier || '')));
-  if (!sameText(want, doc.challenge)) throw new Fail(400, 'expired', 'הכניסה לא תואמת לחלון הזה. לוחצים שוב על "התחברות".');
+  if (!sameText(want, doc.challenge)) throw new Fail(400, 'expired', 'הכניסה לא תואמת לחלון הזה. בחלון של DSViz לוחצים "חזרה" ושוב "כניסה עם Google".');
   const s = await settings(env);
   const who = { email: doc.email, uid: doc.uid, name: doc.name };
   const profile = { role: doc.role, email: doc.email, name: doc.name || '', picture: doc.picture || '' };
@@ -307,7 +307,12 @@ async function claim(request, env) {
   const name = clip(b.name, 60);
   if (!machineOk(b.machine)) throw new Fail(400, 'format', 'חסר מזהה מחשב');
   if (!name) throw new Fail(400, 'name', 'כתבו שם למחשב — למשל "מעבדה 2 · עמדה 14".');
-  if (!code) return { ok: true, status: 'bad-code' };
+  if (!code) {
+    // קוד שלא בפורמט (לא 4 אותיות/ספרות מהקוד של המורה) — נרשם ונספר כמו קוד שגוי
+    const lim = await badCodeLimit(env, request, true);
+    await log(store, 'מחשב: ' + name, 'station.bad-code', '', badCodeDetail(b.code, '', lim));
+    return { ok: true, status: 'bad-code' };
+  }
   await badCodeLimit(env, request, false);
   const secret = randomToken(32);
   const hash = await sha256Hex(secret);
@@ -332,8 +337,11 @@ async function claim(request, env) {
     return { status: 'ok', stationId, teacher };
   });
   if (res.status === 'bad-code') {
-    await badCodeLimit(env, request, true);
-    await log(store, 'מחשב: ' + name, 'station.bad-code', '', '');
+    const lim = await badCodeLimit(env, request, true);
+    // לאיזה מורה זה כנראה שייך: קוד של מורה ששונה בתו אחד (או שני תווים סמוכים שהתחלפו) — כמעט תמיד טעות הקלדה
+    const near = await nearTeacher(store, code);
+    await log(store, 'מחשב: ' + name, 'station.bad-code', near.join(', '),
+      badCodeDetail(b.code, code, lim) + (near.length ? ' · כנראה טעות הקלדה בקוד של ' + (near.length > 1 ? 'אחד המורים' : 'המורה') : ''));
     return { ok: true, status: 'bad-code' };
   }
   const tv = res.teacher ? { name: res.teacher.name || '', school: res.teacher.school || '', seats: res.teacher.seats || 0, used: (res.teacher.used || 0) + (res.status === 'ok' && !res.again ? 1 : 0) } : null;
@@ -345,14 +353,47 @@ async function claim(request, env) {
 }
 
 /** קוד שגוי שוב ושוב מאותה כתובת: עד 30 בשעה (KV בשם USAGE, ואם אין — STATS) */
+/** מגבלת ניסיונות עם קוד שגוי (30 בשעה מאותה כתובת). מחזיר {count, src}: כמה ניסיונות שגויים מהכתובת הזו בשעה הזו,
+ *  ו"מקור" — 4 תווים מטביעה של הכתובת (בלי לשמור את הכתובת עצמה), כדי לראות ביומן אם הניסיונות באים מאותו מקום */
 async function badCodeLimit(env, request, failed) {
-  const kv = env.USAGE && typeof env.USAGE.get === 'function' ? env.USAGE : env.STATS && typeof env.STATS.get === 'function' ? env.STATS : null;
-  if (!kv) return;
   const ip = request.headers.get('cf-connecting-ip') || 'local';
-  const key = 'badcode:' + new Date().toISOString().slice(0, 13) + ':' + ip;
+  const hour = new Date().toISOString().slice(0, 13);
+  const src = (await sha256Hex('badcode-src|' + hour.slice(0, 10) + '|' + ip)).slice(0, 4);
+  const kv = env.USAGE && typeof env.USAGE.get === 'function' ? env.USAGE : env.STATS && typeof env.STATS.get === 'function' ? env.STATS : null;
+  if (!kv) return { count: 0, src };
+  const key = 'badcode:' + hour + ':' + ip;
   const n = +(await kv.get(key)) || 0;
   if (n >= 30) throw new Fail(429, 'rate', 'יותר מדי ניסיונות עם קוד שגוי. נסו שוב בעוד שעה.');
   if (failed) await kv.put(key, String(n + 1), { expirationTtl: 7200 });
+  return { count: failed ? n + 1 : n, src };
+}
+
+/** מורים שהקוד שלהם קרוב לקוד שהוקלד: תו אחד שונה, או שני תווים סמוכים שהתחלפו (עד 3 מיילים) */
+async function nearTeacher(store, code) {
+  if (!code) return [];
+  try {
+    const all = await store.query('teacherCodes', { limit: 5000 });
+    const close = c => {
+      if (!c || c.length !== code.length || c === code) return false;
+      const diff = [];
+      for (let i = 0; i < c.length; i++) if (c[i] !== code[i]) diff.push(i);
+      return diff.length === 1 || (diff.length === 2 && diff[1] === diff[0] + 1 && c[diff[0]] === code[diff[1]] && c[diff[1]] === code[diff[0]]);
+    };
+    return all.filter(d => close(d._id)).map(d => String(d.teacher || '')).filter(Boolean).slice(0, 3);
+  } catch (e) {
+    return [];
+  }
+}
+
+/** מה נרשם ביומן על ניסיון עם קוד שגוי: הקוד שהוקלד, מוסתר בחלקו (3 תווים ראשונים ו-?), כמה ניסיונות מאותו מקור בשעה הזו */
+function badCodeDetail(typed, code, lim) {
+  const raw = String(typed || '').trim();
+  const shown = code ? code.slice(0, 3) + '?'
+    : raw ? '"' + Array.from(raw).slice(0, 3).join('') + (Array.from(raw).length > 3 ? '…' : '') + '" — לא בפורמט של קוד מורה' : 'ריק';
+  const parts = ['קוד: ' + shown];
+  if (lim && lim.count) parts.push(`ניסיון ${lim.count} בשעה הזו מאותו מקור`);
+  if (lim && lim.src) parts.push('מקור #' + lim.src);
+  return parts.join(' · ');
 }
 
 // ------------------------------------------------------------------ שליחת תרגיל ל-Gemini: רק למחוברים (אם המתג דולק)
@@ -366,7 +407,7 @@ export async function geminiGate(request, env) {
   const s = await settings(env);
   const token = request.headers.get('x-dsviz-access') || '';
   if (!s.requireLoginForGemini && !token) return null;
-  if (!token) throw new Fail(401, 'login', 'שליחת תרגיל פתוחה למורים, לעמדות מחשב בכיתה ולתלמידים רשומים — צריך להתחבר (פעם אחת במחשב). אם אין כפתור התחברות — עדכנו את DSViz.');
+  if (!token) throw new Fail(401, 'login', 'שליחת תרגיל פתוחה למורים, לעמדות מחשב בכיתה ולתלמידים רשומים — צריך להתחבר פעם אחת במחשב: בסרגל של DSViz לוחצים על מאגר התרגילים ("מאגר תרגילים" / "מאגר שאלות") ונכנסים. אם אין כפתור כזה — מעדכנים את DSViz.');
   const r = await resolveToken(env, token, request.headers.get('x-dsviz-machine') || '');
   if (r.status !== 'ok') {
     if (!s.requireLoginForGemini) return null;   // מתג כבוי: כרטיס שפג לא חוסם (רק לא נספר לפי משתמש)

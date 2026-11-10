@@ -33,7 +33,7 @@ public class ToolbarAgent {
         try {
             ctl = new File(args);
             String cmd = System.getProperty("sun.java.command", "");
-            String mode = cmd.contains("CsTool submit") ? "submit" : cmd.contains("BankVs bank") ? "bank" : cmd.contains("TraceViewer") ? "viewer" : null;
+            String mode = cmd.contains("CsTool submit") ? "submit" : cmd.contains("BankVs bank") ? "bank" : cmd.contains("BankVs teacher") ? "teacher" : cmd.contains("TraceViewer") ? "viewer" : null;
             log("jvm: " + cmd + " -> " + mode);
             if (mode == null) return;
             final File script = new File(ctl, mode + ".script.txt");
@@ -74,6 +74,9 @@ public class ToolbarAgent {
                         break;
                     case "target":
                         delay = target(arg);
+                        break;
+                    case "clicktarget":
+                        delay = clickTarget(arg);
                         break;
                     default:
                         delay = SwingScript.run(cmd, arg, shots);
@@ -135,6 +138,43 @@ public class ToolbarAgent {
         Files.write(new File(ctl, "target.txt").toPath(), line.getBytes(StandardCharsets.UTF_8));
         log("target " + text + " -> " + line);
         return 50;
+    }
+
+    /** clicktarget <טקסט>: לוחצים על אותו רכיב ש-target מוצא (גם כפתור מצויר שאין לו getText שווה בדיוק): כפתור — doClick;
+     *  אחרת לחיצת עכבר אמיתית (Robot) באמצע הרכיב — כמו שתלמיד לוחץ */
+    static long clickTarget(String text) throws Exception {
+        final java.awt.Component[] hit = { null };
+        final java.awt.Rectangle[] r = { null };
+        SwingUtilities.invokeAndWait(() -> {
+            java.awt.Container root = ((javax.swing.RootPaneContainer) SwingScript.win).getRootPane();
+            java.util.List<java.awt.Component> all = SwingScript.all(root, new java.util.ArrayList<java.awt.Component>());
+            for (java.awt.Component k : all)
+                if (hit[0] == null && k.isShowing() && k instanceof javax.swing.AbstractButton && !(k instanceof javax.swing.JCheckBox)
+                        && text.equals(((javax.swing.AbstractButton) k).getText())) hit[0] = k;
+            for (java.awt.Component k : all) {
+                if (hit[0] != null) break;
+                String t = k.isShowing() ? SwingScript.text(k) : null;
+                if (t != null && t.contains(text)) hit[0] = k;
+            }
+            if (hit[0] != null) r[0] = new java.awt.Rectangle(hit[0].getLocationOnScreen(), hit[0].getSize());
+        });
+        if (hit[0] == null) throw new IllegalStateException("clicktarget: not found: " + text);
+        java.awt.Component b = hit[0];
+        while (b != null && !(b instanceof javax.swing.AbstractButton)) b = b.getParent();
+        if (b != null) {
+            final javax.swing.AbstractButton btn = (javax.swing.AbstractButton) b;
+            SwingUtilities.invokeLater(btn::doClick);
+            log("clicktarget " + text + " -> doClick " + btn.getClass().getSimpleName());
+        } else {
+            java.awt.Robot robot = new java.awt.Robot();
+            robot.mouseMove(r[0].x + r[0].width / 2, r[0].y + r[0].height / 2);
+            robot.delay(150);
+            robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+            robot.delay(60);
+            robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+            log("clicktarget " + text + " -> mouse at " + r[0]);
+        }
+        return 300;
     }
 
     /** has <טקסט>: האם בחלון הנוכחי יש רכיב (כפתור / תווית) עם הטקסט — נרשם ב-results.txt */

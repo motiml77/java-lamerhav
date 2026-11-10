@@ -48,6 +48,7 @@ namespace DsViz.VsExtension
             Add(mcs, 0x0104, () => Tool("submit"));
             Add(mcs, 0x0106, VisualRun);
             Add(mcs, 0x0107, () => Tool("help"));
+            AddTeacher(mcs);
             ShowToolbarOnce();
             FollowActiveDocument();
         }
@@ -161,26 +162,153 @@ namespace DsViz.VsExtension
         /// </summary>
         void SyncBankControl(bool on)
         {
+            SyncControl("מאגר שאלות", "bank", on);
+        }
+
+        /// <returns>true — הכפתור נמצא בסרגל ועודכן (בטעינה הסרגל עוד לא תמיד קיים)</returns>
+
+        /// <summary>מציג / מסתיר את הכפתור שהכיתוב שלו מכיל caption גם דרך DTE (CommandBars) — ראו SyncBankControl</summary>
+        bool SyncControl(string caption, string tag, bool on)
+        {
+            bool found = false;
             try
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
                 var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
-                if (dte == null) return;
+                if (dte == null) return false;
                 dynamic bar = ((dynamic)dte.CommandBars)["DSViz"];
                 foreach (dynamic ctl in bar.Controls)
                 {
                     string cap = ctl.Caption;
-                    if (cap != null && cap.Contains("מאגר שאלות"))
+                    if (cap != null && cap.Contains(caption))
                     {
                         if (ctl.Visible != on) ctl.Visible = on;
-                        SolutionHints.Log("bank control visible=" + on);
+                        found = true;
+                        SolutionHints.Log(tag + " control visible=" + on);
                     }
                 }
             }
             catch (Exception ex)
             {
-                SolutionHints.Log("bank control sync failed: " + ex.Message, true);
+                SolutionHints.Log(tag + " control sync failed: " + ex.Message, true);
             }
+            return found;
+        }
+
+        // ------------------------------------------------------------------ "עמדת ניהול" — רק למורה מחובר
+
+        /// <summary>
+        /// הסימון שהכלי של Java כותב כשהמשתמש מחובר כמורה (Account.syncTeacherFlag): מייל ושם בלבד, בלי הכרטיס. הכניסה עצמה מוצפנת
+        /// ונבדקת רק ב-Java — הסימון הוא רמז לסרגל, וחלון המורה בודק שוב (מורה שהושבת: הסבר, והסימון נמחק)
+        /// </summary>
+        static string TeacherFlag
+        {
+            get { return Path.Combine(InstallDir, "teacher.flag"); }
+        }
+
+        static bool TeacherOn()
+        {
+            try { return File.Exists(BankJar) && File.Exists(TeacherFlag); }
+            catch (Exception) { return false; }
+        }
+
+        bool? _teacherOn;
+        bool _teacherSynced, _teacherSyncing;
+        FileSystemWatcher _teacherWatch;
+
+        /// <summary>"עמדת ניהול": כמו ב-Eclipse — בסרגל, נראה רק כשהמשתמש מחובר כמורה; פותח את חלון המורה (הקוד, העמדות, התנתקות)</summary>
+        void AddTeacher(OleMenuCommandService mcs)
+        {
+            var cmd = new OleMenuCommand((s, e) =>
+            {
+                try { Teacher(); }
+                catch (Exception ex) { Say("DSViz: " + ex.Message); }
+            }, new CommandID(CmdSet, 0x0108));
+            cmd.BeforeQueryStatus += (s, e) =>
+            {
+                bool on = TeacherOn();
+                var c = (OleMenuCommand)s;
+                c.Visible = on;
+                c.Enabled = on;
+                TeacherChanged(on);
+            };
+            mcs.AddCommand(cmd);
+            // כמו "מאגר שאלות": סנכרון ראשון כאן, בלי לזכור את המצב — הבדיקה הראשונה של הפקודה (BeforeQueryStatus, אחרי שהסרגל
+            // נבנה) מסנכרנת שוב. אם המצב נזכר כבר כאן, הכפתור נשאר אפור וגלוי (נמצא ב-vsix-test)
+            _teacherSyncing = true;
+            try { SyncControl("עמדת ניהול", "teacher", TeacherOn()); }
+            finally { _teacherSyncing = false; }
+            // כניסה / התנתקות בחלון של Java: הכפתור מתעדכן מיד (לא רק כשחוזרים ל-Visual Studio)
+            try
+            {
+                if (Directory.Exists(InstallDir))
+                {
+                    _teacherWatch = new FileSystemWatcher(InstallDir, "teacher.flag") { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite };
+                    _teacherWatch.Created += (s, e) => TeacherFlagChanged();
+                    _teacherWatch.Deleted += (s, e) => TeacherFlagChanged();
+                    _teacherWatch.Changed += (s, e) => TeacherFlagChanged();
+                    _teacherWatch.Renamed += (s, e) => TeacherFlagChanged();
+                    _teacherWatch.EnableRaisingEvents = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                SolutionHints.Log("teacher flag watch failed: " + ex.Message, true);
+            }
+        }
+
+        /// <summary>
+        /// מעדכן גם דרך CommandBars. בטעינה הכפתור עוד לא תמיד בסרגל — אז מנסים שוב בכל בדיקת פקודות עד שהוא נמצא (אחרת הוא
+        /// נשאר אפור ונראה גם למי שלא מחובר כמורה — כך נמצא בבדיקה ב-Visual Studio האמיתי)
+        /// </summary>
+        void TeacherChanged(bool on)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            // הגישה ל-CommandBars (גם קריאה של Visible) מפעילה שוב את BeforeQueryStatus — בלי השמירה הזו: רקורסיה עד
+            // stack overflow של Visual Studio (נמצא ב-CI: devenv נסגר בקוד 0xC00000FD)
+            if (_teacherSyncing || (on == _teacherOn && _teacherSynced)) return;
+            if (on != _teacherOn) SolutionHints.Log("teacher button: " + (on ? "shown" : "hidden"));
+            _teacherOn = on;
+            _teacherSyncing = true;
+            try { _teacherSynced = SyncControl("עמדת ניהול", "teacher", on); }
+            finally { _teacherSyncing = false; }
+        }
+
+        void TeacherFlagChanged()
+        {
+            _ = JoinableTaskFactory.RunAsync(async delegate
+            {
+                await JoinableTaskFactory.SwitchToMainThreadAsync();
+                try
+                {
+                    TeacherChanged(TeacherOn());
+                    var shell = await GetServiceAsync(typeof(SVsUIShell)) as IVsUIShell;
+                    if (shell != null) shell.UpdateCommandUI(0);
+                }
+                catch (Exception ex)
+                {
+                    SolutionHints.Log("teacher refresh failed: " + ex.Message, true);
+                }
+            });
+        }
+
+        /// <summary>
+        /// חלון המורה: ה-Java של ההתקנה מריץ את BankVs במצב teacher ישירות (לא דרך dsviz-cs.exe — כך זה עובד גם עם כלי ישן יותר
+        /// בהתקנה). הכלי בודק בעצמו שהמשתמש מורה מחובר.
+        /// </summary>
+        void Teacher()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!Installed()) return;
+            if (!File.Exists(BankJar)) { Say("DSViz: מאגר השאלות לא מותקן."); return; }
+            string java = Path.Combine(InstallDir, "jdk", "bin", "javaw.exe");
+            if (!File.Exists(java)) java = "javaw";
+            else java = DsVizTool.AsciiJava(java);   // שם משתמש בעברית: java.exe לא עולה מנתיב שלא בקידוד של Windows
+            // נתיבים יחסיים מתוך תיקיית ההתקנה: שם משתמש בעברית (או בשפה אחרת) ב-%LOCALAPPDATA% לא עובר בשורת הפקודה של java
+            // (הארגומנטים מפוענחים בקידוד של המערכת), אבל התיקייה הנוכחית כן
+            var psi = new ProcessStartInfo(java) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = InstallDir };
+            psi.Arguments = "-cp \"lab\\dsviz-bank-vs.jar;dsviz.jar\" il.lamerhav.dsviz.BankVs teacher";
+            Process.Start(psi);
         }
 
         void Add(OleMenuCommandService mcs, int id, Action action)

@@ -11,7 +11,7 @@
 # -Setup: DSViz-Setup.exe (הציבורית) או DSViz-Lab-Setup.exe. -Mock/-Exercise: שרת 'שליחת תרגיל' מדומה (בלי Gemini) — תרגיל קבוע, שאפשר לפתור ולהריץ.
 param([Parameter(Mandatory = $true)][string]$Lab, [Parameter(Mandatory = $true)][string]$Out, [Parameter(Mandatory = $true)][string]$Here,
     [Parameter(Mandatory = $true)][string]$Harness, [Parameter(Mandatory = $true)][string]$Page,
-    [string]$Mock = '', [string]$Exercise = '')
+    [string]$Mock = '', [string]$Exercise = '', [string]$BankJar = '', [string]$Vsix = '')
 $ErrorActionPreference = 'Continue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $OutputEncoding = [Text.Encoding]::UTF8
@@ -302,6 +302,38 @@ if ($Mock -and $Exercise) {
     $env:DSVIZ_WORKER_URL = 'http://127.0.0.1:8796'
     Info 'שרת מדומה לשליחת תרגיל על 127.0.0.1:8796 (DSVIZ_WORKER_URL)'
 }
+# ------------------------------------------------------------------ 2ב. מהמקור: המאגר וסרגל הכלים (DSViz-Lab-Setup.exe לא נבנה מחדש ב-CI)
+# -BankJar: dsviz-bank-vs.jar שנבנה מהמקור (tools/build-bank-vs.sh) במקום זה שבהתקנה; -Vsix: ההרחבה שנבנתה מהמקור (prebuilt/ — dsviz-vsix.yml)
+$teacherSeed = $false
+if ($BankJar -and (Test-Path $BankJar)) {
+    Copy-Item $BankJar (Join-Path $dsviz 'lab\dsviz-bank-vs.jar') -Force
+    Info ("dsviz-bank-vs.jar מהמקור: {0:N0} בייטים" -f (Get-Item $BankJar).Length)
+    # "כניסה" מוכנה בלי Google (מפתח בדיקה): המפתח הציבורי ב-DSVIZ_PASS_KEY לפני ש-Visual Studio עולה (עובר ל-javaw שהסרגל מפעיל)
+    $seedCls = Join-Path $ctl 'seed'
+    New-Item -ItemType Directory -Force $seedCls | Out-Null
+    $seedCp = "$(Join-Path $dsviz 'lab\dsviz-bank-vs.jar');$(Join-Path $dsviz 'dsviz.jar')"
+    $o = & javac --release 11 -encoding UTF-8 -nowarn -cp $seedCp -d $seedCls (Join-Path $Here 'SeedSession.java') 2>&1
+    Info "javac SeedSession: $($o -join ' ')"
+    $script:seedKey = Join-Path $ctl 'seed-key.txt'
+    function Seed([string]$role, [string]$email) {
+        $r = & (Join-Path $dsviz 'jdk\bin\java.exe') '-Dfile.encoding=UTF-8' -cp "$seedCls;$seedCp" il.lamerhav.dsviz.SeedSession $role $email $script:seedKey 2>&1 |
+            Where-Object { $_ -notmatch 'JAVA_TOOL_OPTIONS' }
+        return ($r -join ' ')
+    }
+    $pk = Seed 'key' '-'
+    if ($pk -match 'PASSKEY (\S+)') {
+        $env:DSVIZ_PASS_KEY = $Matches[1]
+        $teacherSeed = $true
+        Info "מפתח בדיקה לכניסה מוכנה: DSVIZ_PASS_KEY ($($Matches[1].Length) תווים)"
+        Info "בלי כניסה: $(Seed 'none' '-')"
+    } else { Info "SeedSession לא עבד: $pk" }
+}
+if ($Vsix -and (Test-Path $Vsix)) {
+    $iv = Join-Path $Here '..\..\..\installer\install-vsix.ps1'
+    Info "VSIX מהמקור: $Vsix ($((Get-Item $Vsix).Length) בייטים) — $iv"
+    & $iv -Vsix (Resolve-Path $Vsix).Path 2>&1 | ForEach-Object { Info "install-vsix: $_" }
+}
+
 # ------------------------------------------------------------------ 3. Visual Studio עם הפתרון
 Log "== 3. Visual Studio נפתח עם הפתרון DataStructures-CS"
 Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hidden
@@ -578,7 +610,7 @@ Info ("חלון המאגר: " + ((@(JsonTexts $bw) | Select-Object -First 30) -j
 Check 'bank-topics' (($bw -match 'מחסנית') -or ($bw -match 'רשימה')) 'בחלון המאגר מופיע עץ הנושאים'
 $res = if (Test-Path (Join-Path $ctl 'results.txt')) { Get-Content (Join-Path $ctl 'results.txt') -Encoding utf8 -Raw } else { '' }
 Info "כפתור 'עמדת ניהול' בחלון המאגר (בלי כניסת מורה): $($res.Trim())"
-Check 'bank-manage-hidden' ($res -match 'עמדת ניהול = False') "'עמדת ניהול' לא מוצג לתלמיד (מוצג רק למורה מחובר — BankVsWindow: AccessGate.isTeacher())" $res
+Check 'bank-manage-hidden' ($res -match 'עמדת ניהול = False') "'עמדת ניהול' לא בחלון המאגר (הכפתור בסרגל הכלים של Visual Studio, כמו ב-Eclipse)" $res
 Check 'bank-float' (($st -eq 'done') -and (Test-Path (Join-Path $ctl 'shots-bank\float.json'))) "'צור תרגיל' -> נפתח החלון הצף 'השאלה'" "סטטוס $st"
 Info ("החלון הצף: " + ((@(JsonTexts (ShotJson 'bank' 'float')) | Select-Object -First 20) -join ' | '))
 Start-Sleep 8
@@ -641,6 +673,57 @@ Check 'single-vs2' (@(Get-Process devenv -ErrorAction SilentlyContinue).Count -e
 KillJava
 
 # ------------------------------------------------------------------ 7ב. פרויקט רגיל, בלי התבנית של DSViz
+# ------------------------------------------------------------------ 7ג. "עמדת ניהול" בסרגל: רק למורה מחובר, ופותחת את חלון המורה
+Log "== 7ג. 'עמדת ניהול' בסרגל: לא מחובר / תלמיד -> אין; מורה -> יש, והלחיצה פותחת את עמדת הניהול; התנתקות -> נעלם"
+function TeacherBtnState() {
+    $els = @(VsByName $vsP.Id 'עמדת ניהול')
+    if ($els.Count -eq 0) { return 'absent' }
+    $c = $els[0].Current
+    return ("present enabled={0} offscreen={1} rect={2}" -f $c.IsEnabled, $c.IsOffscreen, $c.BoundingRectangle)
+}
+function TeacherBtnShown([string]$st) { return ($st -match 'enabled=True offscreen=False') }
+function WaitTeacherBtn([bool]$want, [int]$sec = 30) {
+    $t0 = Get-Date; $st = ''
+    while (((Get-Date) - $t0).TotalSeconds -lt $sec) {
+        $st = TeacherBtnState
+        if ((TeacherBtnShown $st) -eq $want) { break }
+        Start-Sleep 2
+    }
+    return $st
+}
+if (-not $teacherSeed) {
+    Info "דילוג: בלי -BankJar מהמקור (ה-dsviz-bank-vs.jar שבהתקנה ישן — בלי הסימון למורה ובלי מצב teacher)"
+} else {
+    KillJava
+    Info "לא מחובר: $(Seed 'none' '-')"
+    $st = WaitTeacherBtn $false 20
+    Check 'teacher-btn-signedout' (-not (TeacherBtnShown $st)) "לא מחובר — אין 'עמדת ניהול' בסרגל" $st
+    Info "תלמיד: $(Seed 'student' 'pupil@test.dev')"
+    $st = WaitTeacherBtn $false 20
+    Check 'teacher-btn-student' (-not (TeacherBtnShown $st)) "תלמיד מחובר — אין 'עמדת ניהול' בסרגל" $st
+    Shot '35-toolbar-student'
+    Info "מורה: $(Seed 'teacher' 'teacher@test.dev')"
+    $st = WaitTeacherBtn $true 40
+    Check 'teacher-btn-teacher' (TeacherBtnShown $st) "מורה מחובר — 'עמדת ניהול' מופיעה בסרגל (בלי לחזור ל-Visual Studio)" $st
+    Shot '36-toolbar-teacher'
+    # הלחיצה מריצה את BankVs teacher — ה-agent (מצב teacher) בודק את החלון מבפנים: רכיבי Swing לא נראים ל-UI Automation
+    function ClickTeacher() { $e = ToolbarButton $vsP.Id @('עמדת ניהול'); if ($e) { return ClickEl $e } else { return 'הכפתור לא נמצא' } }
+    $st = RunStage 'teacher' '37-teacher' @(
+        'waitwin עמדת ניהול', 'wait 2500', 'shot panel', 'has K7QM', 'has התנתקות', 'has פתח עמדת ניהול בדפדפן', 'has teacher@test.dev', 'mark panel'
+    ) { ClickTeacher } 150
+    $res = if (Test-Path (Join-Path $ctl 'results.txt')) { Get-Content (Join-Path $ctl 'results.txt') -Encoding utf8 -Raw } else { '' }
+    Info "חלון המורה: $($res.Trim() -replace "`r?`n", ' ; ')"
+    Check 'teacher-panel-opens' (($st -eq 'done') -and (Test-Path (Join-Path $ctl 'shots-teacher\panel.json'))) "הלחיצה על 'עמדת ניהול' פתחה את חלון המורה" "סטטוס $st ; $((Windows) -join ' ; ')"
+    Check 'teacher-panel-code' ($res -match 'has K7QM = True') "בחלון המורה: הקוד של המורה (K7QM)" $res
+    Check 'teacher-panel-buttons' (($res -match 'has התנתקות = True') -and ($res -match 'has פתח עמדת ניהול בדפדפן = True')) "בחלון המורה: 'פתח עמדת ניהול בדפדפן' ו'התנתקות'" $res
+    Check 'teacher-panel-email' ($res -match 'has teacher@test.dev = True') "בחלון המורה: המייל של המורה" $res
+    KillJava
+    Info "התנתקות: $(Seed 'none' '-')"
+    $st = WaitTeacherBtn $false 40
+    Check 'teacher-btn-after-signout' (-not (TeacherBtnShown $st)) "אחרי התנתקות — 'עמדת ניהול' נעלמת מהסרגל" $st
+    Shot '38-toolbar-after-signout'
+}
+
 Log "== 7ב. פרויקט Console App רגיל (כמו 'Create a new project' -> Console App): התלמיד כותב קוד עם תור, לא שומר, ולוחץ 'הרצה ויזואלית'"
 $plainDir = Join-Path $env:USERPROFILE 'source\repos\PlainQueue'
 Remove-Item -Recurse -Force $plainDir -ErrorAction SilentlyContinue
@@ -691,6 +774,73 @@ Check 'plain-viewer' ($t5.Count -gt 0) "פרויקט רגיל: 'הרצה ויז�
 Check 'plain-saved' ((Get-Content $plainProg -Raw -Encoding utf8) -match 'q\.Insert\(8\)') "הכפתור שמר את הקוד לפני ההרצה (כמו הכפתור הירוק) — רץ מה שהתלמיד כתב, לא ה-Hello, World" ''
 Check 'plain-queue' (($tt -match 'נוצר תור') -and ($tt -match 'q\.Insert\(8\)') -and ($tt -match 'q\.Remove\(\)')) "ההרצה הוויזואלית רשמה את התור: 'נוצר תור ריק: q', q.Insert(8), q.Remove()" $(if ($tt) { $tt.Substring(0, [Math]::Min(300, $tt.Length)) } else { 'אין trace' })
 KillDsviz; Start-Sleep 2
+
+# ------------------------------------------------------------------ 7ג. שני פרויקטים באותו פתרון: 'הרצה ויזואלית' מריצה את הפרויקט של הקובץ הפעיל
+# A (מחסנית, שני קבצים: Program.cs משתמש ב-Helper.cs) ו-B (תור). בכל פעם כותבים בלי לשמור, עוברים קובץ, לוחצים — ובודקים ב-trace מה באמת רץ
+Log "== 7ג. שני פרויקטים: 'הרצה ויזואלית' מריצה את הפרויקט שהתלמיד כותב בו עכשיו (גם כשעוברים בין פרויקטים, וגם מקובץ עזר)"
+$twoDir = Join-Path $env:USERPROFILE 'source\repos\TwoProjects'
+Remove-Item -Recurse -Force $twoDir -ErrorAction SilentlyContinue
+$dirA = Join-Path $twoDir 'StackA'; $dirB = Join-Path $twoDir 'QueueB'
+& dotnet new console -n StackA -o $dirA --force | Out-Null
+& dotnet new console -n QueueB -o $dirB --force | Out-Null
+& dotnet new sln -n TwoProjects -o $twoDir --force | Out-Null
+& dotnet sln (Join-Path $twoDir 'TwoProjects.sln') add (Join-Path $dirA 'StackA.csproj') (Join-Path $dirB 'QueueB.csproj') | Out-Null
+$helperA = Join-Path $dirA 'Helper.cs'
+[IO.File]::WriteAllText($helperA, "static class Helper`r`n{`r`n    public static int Twice(int x) { return x * 2; }`r`n}`r`n", (New-Object Text.UTF8Encoding($true)))
+$progA = Join-Path $dirA 'Program.cs'; $progB = Join-Path $dirB 'Program.cs'
+$codeA1 = "using Unit4.CollectionsLib;`r`n`r`nStack<int> s = new Stack<int>();`r`ns.Push(7);`r`ns.Push(Helper.Twice(4));`r`nConsole.WriteLine(s.Pop());`r`n"
+$codeB1 = "using Unit4.CollectionsLib;`r`n`r`nQueue<int> q = new Queue<int>();`r`nq.Insert(42);`r`nConsole.WriteLine(q.Remove());`r`n"
+$codeA2 = "using Unit4.CollectionsLib;`r`n`r`nStack<int> s = new Stack<int>();`r`ns.Push(99);`r`ns.Push(Helper.Twice(5));`r`nConsole.WriteLine(s.Top());`r`n"
+function EditDoc([string]$path, [string]$code) {
+    $dd = GetDte
+    try {
+        $null = $dd.ItemOperations.OpenFile($path); Start-Sleep 2
+        $td = $dd.ActiveDocument.Object('TextDocument')
+        $td.StartPoint.CreateEditPoint().ReplaceText($td.EndPoint, $code, 0)
+        return (-not $dd.ActiveDocument.Saved)
+    } catch { Info "DTE (עריכה של $path): $_"; return $false } finally { $dd = $null }
+}
+function ActivateDoc([string]$path) {
+    $dd = GetDte
+    try { $null = $dd.ItemOperations.OpenFile($path); Start-Sleep 2; return $dd.ActiveDocument.FullName } catch { Info "DTE (פתיחה של $path): $_"; return '' } finally { $dd = $null }
+}
+function RunAndTrace([string]$shot) {
+    Get-ChildItem $env:TEMP -Filter 'dsviz-*.trace' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    $tw = ClickRun $shot
+    Start-Sleep 2
+    $tr = Get-ChildItem $env:TEMP -Filter 'dsviz-*.trace' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
+    $txt = if ($tr) { Get-Content $tr.FullName -Raw -Encoding utf8 } else { '' }
+    if ($tr) { Copy-Item $tr.FullName (Join-Path $Out "$shot.trace") -ErrorAction SilentlyContinue }
+    KillDsviz; Start-Sleep 2
+    return @{ win = ($tw.Count -gt 0); text = $txt }
+}
+function Snip([string]$t) { if ($t) { $t.Substring(0, [Math]::Min(240, $t.Length)) -replace "`r?`n", ' ' } else { 'אין trace' } }
+$d = GetDte
+try { $d.Solution.Close($false); Start-Sleep 3; $d.Solution.Open((Join-Path $twoDir 'TwoProjects.sln')) } catch { Info "DTE (פתיחת TwoProjects): $_" }
+$d = $null
+Start-Sleep 20
+$eA = EditDoc $progA $codeA1
+$eB = EditDoc $progB $codeB1
+Info "נכתב בלי לשמור: A=$eA B=$eB"
+# 1. הקובץ הפעיל: Program.cs של A
+$act = ActivateDoc $progA; Info "פעיל: $act"
+$r1 = RunAndTrace '52-two-A'
+Check 'two-run-A' ($r1.win -and $r1.text -match 's\.Push\(7\)' -and $r1.text -notmatch 'q\.Insert\(42\)') "שני פרויקטים: הקובץ הפעיל ב-StackA — רץ StackA (s.Push(7)), לא QueueB" (Snip $r1.text)
+Check 'two-saved-A' ((Get-Content $progA -Raw -Encoding utf8) -match 's\.Push\(7\)') "הקוד של StackA נשמר לפני ההרצה" ''
+# 2. עוברים ל-Program.cs של B
+$act = ActivateDoc $progB; Info "פעיל: $act"
+$r2 = RunAndTrace '53-two-B'
+Check 'two-run-B' ($r2.win -and $r2.text -match 'q\.Insert\(42\)' -and $r2.text -notmatch 's\.Push') "מעבר ל-QueueB — רץ QueueB (q.Insert(42)), לא StackA" (Snip $r2.text)
+Check 'two-saved-B' ((Get-Content $progB -Raw -Encoding utf8) -match 'q\.Insert\(42\)') "הקוד של QueueB נשמר לפני ההרצה" ''
+# 3. משנים שוב את A (בלי לשמור) ועוברים לקובץ העזר של A (בלי Main) — רץ A עם הקוד החדש
+$eA2 = EditDoc $progA $codeA2
+$act = ActivateDoc $helperA; Info "פעיל: $act (A2 נכתב: $eA2)"
+$r3 = RunAndTrace '54-two-A-helper'
+Check 'two-run-helper' ($r3.win -and $r3.text -match 's\.Push\(99\)' -and $r3.text -notmatch 's\.Push\(7\)' -and $r3.text -notmatch 'q\.Insert') "מקובץ העזר Helper.cs של StackA — רץ StackA עם הקוד העדכני (s.Push(99)), גם בלי לשמור לפני" (Snip $r3.text)
+# 4. וחזרה ל-B — שוב B
+$act = ActivateDoc $progB; Info "פעיל: $act"
+$r4 = RunAndTrace '55-two-B-again'
+Check 'two-run-B-again' ($r4.win -and $r4.text -match 'q\.Insert\(42\)' -and $r4.text -notmatch 's\.Push') "חזרה ל-QueueB — רץ QueueB" (Snip $r4.text)
 
 # ------------------------------------------------------------------ 9. צילומים לסרטון הדרכה: מהפתיחה של Visual Studio עד כניסת מורה עם Google
 # כל צעד — צילום מסך מלא (tut-NN-...png, וגם בתיקייה tutorial). פרויקט Console App רגיל (בלי התבנית של DSViz), קוד בלי שורת using.
@@ -904,11 +1054,11 @@ Start-Sleep 2
 $bankBtn = ToolbarButton $vsP.Id $bankNames
 TutShot 'tut-09-bank-button' $bankBtn 'click'
 TutClean
-$st = RunStage 'bank' 'tut-10' @('waitwin כניסה למאגר', 'wait 2500', 'target כניסה עם Google', 'mark login-screen', 'click כניסה עם Google', 'wait 4000', 'mark teacher-waiting', 'wait 12000', 'mark google-page') { ClickBank } 240
+$st = RunStage 'bank' 'tut-10' @('waitwin כניסה למאגר', 'wait 2500', 'target כניסה עם Google', 'mark login-screen', 'clicktarget כניסה עם Google', 'wait 4000', 'mark teacher-waiting', 'wait 12000', 'mark google-page') { ClickBank } 240
 $titles = (Windows) -join ' ; '
 Info "חלונות אחרי 'כניסה עם Google': $titles"
 Check 'tut-gate' ($st -eq 'done') "9. 'מאגר שאלות' -> מסך הכניסה, ולחיצה על 'כניסה עם Google' של מורה" "סטטוס $st"
-Check 'tut-browser' ($titles -match '(msedge|chrome|firefox)\[\d+\]: .*(Google|Sign in|כניסה|DSViz)') "10. הדפדפן נפתח בדף הכניסה (Google) — רואים בצילום tut-10-google-page.png" $titles
+Check 'tut-browser' ($titles -match '(msedge|chrome|firefox)\[\d+\]: .*(Google|Sign in|כניסה|DSViz|/signin\?role=teacher)') "10. הדפדפן נפתח בדף הכניסה (Google) — רואים בצילום tut-10-google-page.png" $titles
 KillJava
 Get-Process msedge, chrome -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 # 11. אחרי הכניסה (כאן בלי כניסה אמיתית: dsviz.access=off — אותו חלון שנפתח אחרי הכניסה): בוחרים שאלה -> צור תרגיל -> החלון 'השאלה' -> הכן סעיף ב'
@@ -917,9 +1067,9 @@ Start-Sleep 2
 TutClean
 $st = RunStage 'bank' 'tut-11' @(
     '#access=off', 'waitwin מאגר', 'wait 3000', 'mark bank-window',
-    'bankselect stack-sum-size', 'wait 1500', 'target צור תרגיל', 'mark selected',
-    'click צור תרגיל', 'waitwin השאלה', 'wait 6000', "target הכן סעיף ב'", 'mark float',
-    "click הכן סעיף ב'", 'wait 9000', 'mark prepared'
+    'bankselect stack-max-contains', 'wait 1500', 'target צור תרגיל', 'mark selected',
+    'clicktarget צור תרגיל', 'waitwin השאלה', 'wait 6000', "target הכן סעיף ב'", 'mark float',
+    "clicktarget הכן סעיף ב'", 'wait 9000', 'mark prepared'
 ) { ClickBank } 420
 Check 'tut-bank' ($st -eq 'done') "11. אחרי הכניסה: חלון המאגר -> בחירת שאלה -> 'צור תרגיל' -> 'השאלה' -> 'הכן סעיף ב''" "סטטוס $st"
 Start-Sleep 4
@@ -938,7 +1088,7 @@ KillJava
 # ------------------------------------------------------------------ סיום
 Log "== 8. יומנים"
 Copy-Item (Join-Path $ctl 'agent.log') $Out -ErrorAction SilentlyContinue
-foreach ($m in 'submit', 'bank') { if (Test-Path (Join-Path $ctl "shots-$m")) { Copy-Item (Join-Path $ctl "shots-$m") (Join-Path $Out "swing-shots-$m") -Recurse -Force } }
+foreach ($m in 'submit', 'bank', 'teacher') { if (Test-Path (Join-Path $ctl "shots-$m")) { Copy-Item (Join-Path $ctl "shots-$m") (Join-Path $Out "swing-shots-$m") -Recurse -Force } }
 Get-ChildItem "$env:APPDATA\Microsoft\VisualStudio" -Recurse -Filter ActivityLog.xml -ErrorAction SilentlyContinue | ForEach-Object {
     Copy-Item $_.FullName (Join-Path $Out ('ActivityLog-' + $_.Directory.Name + '.xml')) -ErrorAction SilentlyContinue
 }
