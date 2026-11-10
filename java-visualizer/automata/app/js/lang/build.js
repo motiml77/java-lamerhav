@@ -93,7 +93,7 @@
     const an = L.analyze(ast);
     if (an.cls !== 'regular') throw new Error('השפה לא סווגה כרגולרית');
     if (!ast._dfa) {
-      const d = an.engine === 'vec' ? L.vecDFA(ast, an) : L.isCombined(ast) ? L.combinedDFA(ast, an) : ast.kind === 'prop' ? propToDFA(ast, an) : L.determinize(L.nfaFromRegex(ast.kind === 'regex' ? ast.re : blocksToRegex(ast, an)), ast.alphabet);
+      const d = an.viaUnion ? L.combinedDFA(an.viaUnion) : an.engine === 'vec' ? L.vecDFA(ast, an) : L.isCombined(ast) ? L.combinedDFA(ast, an) : ast.kind === 'prop' ? propToDFA(ast, an) : L.determinize(L.nfaFromRegex(ast.kind === 'regex' ? ast.re : blocksToRegex(ast, an)), ast.alphabet);
       Object.defineProperty(ast, '_dfa', { value: L.minimize(d), enumerable: false });
     }
     return ast._dfa;
@@ -136,6 +136,7 @@
     const an = L.analyze(ast);
     if (an.cls === 'regular') return L.dfaToMachine(toDFA(ast));
     if (an.cls === 'cf' || an.cls === 'cfany') {
+      if (an.viaUnion) return L.combinedPDA(an.viaUnion, an);
       if (an.engine === 'vec') return L.vecPDA(ast, an);
       if (L.isCombined(ast)) return L.combinedPDA(ast, an);
       let m = ast.kind === 'blocks' && an.links ? L.buildPDA(ast, an) : null;

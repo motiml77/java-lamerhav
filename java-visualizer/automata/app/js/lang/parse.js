@@ -100,7 +100,41 @@
     if (!w) p.fail('כאן צריכה לבוא מילה (רצף אותיות)', 'למשל: מסתיימת ב-ab');
     return w;
   }
+  /** הצהרה על משתנים: n,m ≥ 1 · n ∈ ℕ · n,m ∈ N · n ∈ ℕ⁺. מחזיר את התנאי (עם טקסט להצגה), או null אם זו לא הצהרה. */
+  function declaration(p, ctx) {
+    if (ctx.mode !== 'blocks') return null;
+    const vars = [];
+    let k = 0;
+    for (;;) {
+      const t = p.peek(k);
+      if (t.t !== 'ch' || !(VARS.has(t.v) || ctx.isVar(t.v))) return null;
+      vars.push(t);
+      k++;
+      if (p.peek(k).t === ',' && p.peek(k + 1).t === 'ch') { k++; continue; }
+      break;
+    }
+    const nx = p.peek(k);
+    if (!(nx.t === 'in' || (vars.length >= 2 && RELS.has(nx.t)))) return null;
+    for (const v of vars) if (!ctx.isVar(v.v)) p.fail('המשתנה ' + v.v + ' לא מופיע באף חזקה', 'תנאי יכול לדבר רק על משתנים שמופיעים בחזקות, כמו n ב-a^n', v);
+    for (let i = 0; i < k; i++) p.next();
+    const names = vars.map((v) => v.v).join(', ');
+    if (p.is('in')) {
+      p.next();
+      const s = p.peek();
+      if (!(s.t === 'nat' || (s.t === 'ch' && s.v === 'N'))) p.fail('אחרי ∈ בתנאי צריך לבוא ℕ (או N)', 'למשל n ∈ ℕ, כלומר n ≥ 0. אפשר גם n ≥ 1', s);
+      p.next();
+      let min = 0;
+      if (p.is('sup') && p.peek().v === '+' || (p.is('+') && !p.peek().sp)) { p.next(); min = 1; } else if (p.is('num') && !p.peek().sp && p.peek().v === '0') p.next();
+      const args = vars.map((v) => ({ op: 'cmp', rel: '>=', l: { t: 'var', n: v.v }, r: { t: 'num', v: min } }));
+      return { op: 'and', args, decl: names + ' ∈ ℕ' + (min ? '⁺' : '') };
+    }
+    const rel = p.next().t, r = arith(p, ctx);
+    const args = vars.map((v) => ({ op: 'cmp', rel, l: { t: 'var', n: v.v }, r }));
+    return { op: 'and', args, decl: { names, rel, r } };
+  }
   function atom(p, ctx) {
+    const d = declaration(p, ctx);
+    if (d) return d;
     if (ctx.mode === 'prop') {
       if (p.is('ch', 'w') && p.peek(1).t === 'he') p.next();
       while (p.he('filler') && p.peek(1).t === 'he') p.next();
@@ -130,7 +164,7 @@
     const parts = [];
     let left = l;
     while (RELS.has(p.peek().t)) { const rel = p.next().t; const r = arith(p, ctx); parts.push({ op: 'cmp', rel, l: left, r }); left = r; }
-    return parts.length === 1 ? parts[0] : { op: 'and', args: parts };
+    return parts.length === 1 ? parts[0] : { op: 'and', args: parts, chain: true };
   }
   function notExpr(p, ctx) {
     if (p.word('not', 'not', 'not')) { p.next(); return { op: 'not', arg: notExpr(p, ctx) }; }
@@ -188,7 +222,7 @@
   function parseBlocks(p) {
     const blocks = [], vars = [], anyVar = { mode: 'blocks', isVar: () => true }, supVar = { mode: 'blocks', isVar: () => true, sup: true };
     let hidden = 0;
-    const isSep = () => p.is('|') || p.is(':') || p.is(',') || p.he('sep') || p.is('eof');
+    const isSep = () => p.is('|') || p.is(':') || p.is('slash') || p.is(',') || p.he('sep') || p.is('eof');
     while (!isSep()) {
       const x = p.peek();
       let word = '';
@@ -241,7 +275,7 @@
     for (const v of vars) if (letters.has(v)) throw new E('האות ' + v + ' משמשת גם כאות באלפבית וגם כמשתנה', 0, 1, 'בחרו למשתנה שם אחר, למשל n, m או k');
     let c = null;
     if (!p.is('eof')) {
-      while (p.is('|') || p.is(':') || p.is(',') || p.he('sep') || p.is('-')) p.next();
+      while (p.is('|') || p.is(':') || p.is('slash') || p.is(',') || p.he('sep') || p.is('-')) p.next();
       if (!p.is('eof')) c = cond(p, { mode: 'blocks', isVar: (n) => vars.includes(n) });
     }
     // כל משתנה צריך להופיע לפחות פעם אחת עם פלוס (אחרת המילה לא קובעת אותו)
@@ -265,7 +299,7 @@
         if (!alphabet.length) p.fail('האלפבית ריק', 'למשל {a,b}*');
       }
       if (p.is('*')) p.next();
-      while (p.is('|') || p.is(':') || p.is(',') || p.he('sep') || p.is('-')) p.next();
+      while (p.is('|') || p.is(':') || p.is('slash') || p.is(',') || p.he('sep') || p.is('-')) p.next();
     }
     const c = p.is('eof') ? { op: 'true' } : cond(p, ctx);
     if (!alphabet && ctx.bal) alphabet = Array.from(new Set(['(', ')', ...ctx.symbols]));

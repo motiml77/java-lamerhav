@@ -189,7 +189,7 @@
   }
   function combinedPDA(ast) {
     if (ast.flat) return L.machineFor(ast.flat);
-    const ms = ast.parts.map((p) => L.machineFor(p));
+    const ms = ast.machines || ast.parts.map((p) => L.machineFor(p));
     if (ms.some((m) => !m)) return null;
     const parts = ms.map(rulesOf);
     const B = { n: 0, rules: [], acc: new Set() };

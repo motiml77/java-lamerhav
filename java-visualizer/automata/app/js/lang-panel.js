@@ -16,7 +16,7 @@
     [['ⁿ', 'ⁿ', 'בחזקת n'], ['ᵐ', 'ᵐ', 'בחזקת m'], ['ᵏ', 'ᵏ', 'בחזקת k'], ['²ⁿ', '²ⁿ', 'בחזקת 2n'], ['ⁿ⁺ᵐ', 'ⁿ⁺ᵐ', 'בחזקת n+m'], ['*', '*', 'אפס פעמים או יותר'], ['⁺', '⁺', 'פעם אחת או יותר']],
     [['^(', '^(', 'חזקה מורכבת, למשל a^(2n+m)'], ['+', '+', 'פלוס, בחזקה או בתנאי'], ['−', '-', 'מינוס, למשל b^(n-m)'], ['·', '·', 'כפל, למשל a^(n·m)'], ['²', '^2', 'בריבוע, למשל a^(n^2)']],
     [['|', ' | ', 'כך ש: אחריו באים התנאים'], ['≥', ' ≥ '], ['≤', ' ≤ '], ['≠', ' ≠ '], ['=', ' = '], ['<', ' < '], ['>', ' > '], ['%', ' % ', 'שארית חלוקה: n % 3 = 0'], ['mod', ' mod ', 'שארית חלוקה: n mod 3 = 1']],
-    [['וגם', ' וגם '], ['או', ' או '], ['לא', 'לא '], ['זוגי', ' זוגי'], ['אי-זוגי', ' אי-זוגי'], ['(', '('], [')', ')']],
+    [[',', ', ', 'עוד תנאי (כמו "וגם"): n ≥ 1, m ≥ 1'], ['∈ ℕ', ' ∈ ℕ', 'מספר טבעי: n ∈ ℕ (כלומר n ≥ 0)'], ['וגם', ' וגם '], ['או', ' או '], ['לא', 'לא '], ['זוגי', ' זוגי'], ['אי-זוגי', ' אי-זוגי'], ['(', '('], [')', ')']],
   ];
   const KEYS_MORE = [
     [['w ∈ Σ*', 'w ∈ {$S}* | ', 'מילה כלשהי מעל האלפבית'], ['|w|', '|w|', 'אורך המילה'], ['#a(w)', '#$a(w)', 'כמה פעמים האות מופיעה במילה']],
@@ -100,7 +100,7 @@
       } else {
         const an = L.analyze(this.ast), s = L.sample(this.ast);
         pretty.className = 'lang-pretty';
-        pretty.innerHTML = '<div class="lp-math" dir="ltr">' + L.pretty(this.ast).html + '</div>';
+        pretty.innerHTML = '<div class="lp-math" dir="ltr">' + L.pretty(this.ast).html + '</div>' + this.defaults();
         cls.className = 'lang-class ' + CLS[an.cls];
         cls.textContent = an.label;
         cls.title = an.why;
@@ -113,6 +113,13 @@
       if (letters) letters.innerHTML = this.sigma().concat(['c', '0', '1'].filter((c) => !this.sigma().includes(c)).slice(0, 2)).map((c) => '<button type="button" class="lk ll" data-ins="' + esc(c) + '" tabindex="-1">' + esc(c) + '</button>').join('');
       this.app.strip.render();
       this.renderResult();
+    }
+
+    /** בלוקים בלי תנאי: מזכירים שכל משתנה הוא מספר טבעי (n, m ≥ 0). */
+    defaults() {
+      const a = this.ast;
+      if (!a || a.kind !== 'blocks' || a.cond || !a.vars.length) return '';
+      return '<div class="lp-note">כל משתנה הוא מספר שלם אי-שלילי: <bdi dir="ltr" class="sym">' + esc(a.vars.join(', ')) + ' ≥ 0</bdi></div>';
     }
 
     insert(raw) {

@@ -264,6 +264,74 @@
     return R.every((r) => r[1] >= 0);
   }
 
+  /**
+   * חזקה עם קבוע שלילי (b^(2n+s−1)): מפצלים למקרים בלי קבועים שליליים, כדי שאפשר יהיה לבנות אוטומט מחסנית.
+   * למשתנה v עם מקדם c בבלוק: או v ≥ t (מציבים v = v' + t), או v = 0, 1, ..., t−1. מחזיר רשימת צורות נורמליות, או null.
+   */
+  const subNF = (cur, y, e) => {
+      const cond = simplify(substC(cur.cond, y, treeOf(e)));
+      const blocks = cur.blocks.map((b) => ({ word: b.word, f: substF(b.f, y, e) }));
+      const vars = new Set();
+      for (const b of blocks) for (const v in b.f.co) vars.add(v);
+      for (const a of L.leaves(cond)) if (a.op === 'cmp') for (const v of L.info(a).vAll) vars.add(v);
+      return { blocks, cond, vars: Array.from(vars) };
+  };
+  let freshN = 0;
+  function splitNegative(nf) {
+    const out = [], work = [nf];
+    while (work.length) {
+      if (out.length + work.length > 12) return null;
+      const cur = work.pop();
+      if (cur.cond.op === 'false') continue;
+      const b = cur.blocks.find((x) => x.f.k < 0);
+      if (!b) { out.push(cur); continue; }
+      const v = Object.keys(b.f.co)[0];
+      if (!v) continue;                                   // תמיד שלילי: אין מילים במקרה הזה
+      const c = b.f.co[v], t = Math.ceil(-b.f.k / c), v2 = v + '′' + (++freshN);
+      work.push(subNF(cur, v, form(t, { [v2]: 1 })));
+      for (let x = 0; x < t; x++) work.push(subNF(cur, v, form(x)));
+    }
+    return out;
+  }
+
+  /**
+   * תנאי על סכום של כמה משתנים (n + m ≥ 4, 2n + s ≤ 5): מפצלים לפי משתנה אחד, עד שכל התנאים על משתנה אחד בכל פעם.
+   * Σ ≥ K: או v ≥ ⌈K/c⌉ (ואז התנאי תמיד נכון), או v = 0, ..., ⌈K/c⌉−1.  Σ ≤ K או Σ = K: v = 0, ..., ⌊K/c⌋.
+   */
+  function splitSums(nf) {
+    const out = [], work = [nf];
+    while (work.length) {
+      if (out.length + work.length > 24) return null;
+      const cur = work.pop();
+      if (cur.cond.op === 'false') continue;
+      const atom = L.conjuncts(cur.cond).find((a) => { if (a.op !== 'cmp') return false; const inf = L.info(a); return inf.lin && Object.keys(inf.lin.co).length >= 2 && a.rel !== '!=' && inf.cat === 'safe'; });
+      if (!atom) { out.push(cur); continue; }
+      const lin = L.info(atom).lin, vs = Object.keys(lin.co), sg = Math.sign(lin.co[vs[0]]);
+      // Σ (sg·co)·v  REL'  −sg·k, עם מקדמים חיוביים
+      const rel = sg > 0 ? atom.rel : { '<': '>', '>': '<', '<=': '>=', '>=': '<=', '=': '=' }[atom.rel];
+      let K = -sg * lin.k;
+      const v = vs[0], c = Math.abs(lin.co[v]);
+      if (rel === '>' || rel === '>=') {
+        if (rel === '>') K++;
+        const t = Math.max(0, Math.ceil(K / c));
+        work.push(subNF(cur, v, form(t, { [v + '′' + (++freshN)]: 1 })));
+        for (let x = 0; x < t; x++) work.push(subNF(cur, v, form(x)));
+      } else {
+        if (rel === '<') K--;
+        for (let x = 0; x <= Math.floor(K / c); x++) work.push(subNF(cur, v, form(x)));
+      }
+    }
+    return out;
+  }
+  /** המקרים לבנייה של אוטומט מחסנית: בלי קבועים שליליים, ובלי תנאים על סכומים. מחזיר רשימה, או null. */
+  function splitCases(nf) {
+    const neg = splitNegative(nf);
+    if (!neg) return null;
+    const out = [];
+    for (const x of neg) { const s = splitSums(x); if (!s) return null; out.push(...s); if (out.length > 24) return null; }
+    return out;
+  }
+
   /** ניתוח של שפת בלוקים עם חזקות ליניאריות (כולל כמה משתנים). מחזיר null אם אין טענה מוכחת. */
   function analyzeVec(ast) {
     try {
@@ -308,5 +376,5 @@
     return null;
   }
 
-  Object.assign(L, { inCone, normalize, analyzeVec, analyzeNonlinear, separable, VEC_WHY: WHY, linForm: { form, addF, substF, treeOf } });
+  Object.assign(L, { inCone, splitNegative, splitCases, analyzeNF, normalize, analyzeVec, analyzeNonlinear, separable, VEC_WHY: WHY, linForm: { form, addF, substF, treeOf } });
 });

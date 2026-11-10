@@ -11,6 +11,8 @@
   'use strict';
   L.TEMPLATES = [
     { name: 'aⁿbⁿ', text: 'a^n b^n', cls: 'cf', builds: 'pda' },
+    { name: 'aⁿbⁿ עם n ≥ 1', text: 'a^n b^n | n ≥ 1', cls: 'cf', builds: 'pda' },
+    { name: 'aⁿbⁿ עם n ≤ 3', text: 'a^n b^n | n ≤ 3', cls: 'regular', builds: 'dfa' },
     { name: 'aⁿbᵐ עם n ≥ 2', text: 'a^n b^m | n >= 2', cls: 'regular', builds: 'dfa' },
     { name: 'מספר זוגי של a', text: 'w ∈ {a,b}* | #a(w) זוגי', cls: 'regular', builds: 'dfa' },
     { name: 'aⁿ עם n%3=0', text: 'a^n | n%3=0', cls: 'regular', builds: 'dfa' },

@@ -27,6 +27,7 @@
 .lp-math sup { font-size: 0.72em; line-height: 0; }
 .lp-math sup sup { font-size: 0.85em; }
 .lp-math .he { font-family: var(--sans); font-size: 0.82em; color: var(--ink-2); }
+.lp-note { margin-top: 4px; font-size: var(--fs-11); color: var(--muted); text-align: right; }
 .lang-pretty.empty { font-size: var(--fs-12); color: var(--muted); line-height: 1.6; }
 .lang-pretty.err { background: var(--err-soft); color: var(--err); display: grid; gap: 4px; }
 .lang-pretty.err b { font-size: var(--fs-13); font-weight: 600; }
@@ -35,22 +36,24 @@
 .le-src mark { background: none; color: var(--err); border-bottom: 2px solid var(--err); padding: 0 1px; min-width: 8px; display: inline-block; }
 
 /* מקלדת הסימנים: שורות קומפקטיות מתחת לשדה */
-.lang-kb { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-top: 8px; }
+.lang-kb { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 8px; }
 .lk-group { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+/* מקלדת קטנה ב-20% (סבב 7). אזור הלחיצה גדל ב-2px לכל צד (::after), כך שהוא לפחות 24px על המסך */
 .lk {
-  min-width: 28px; height: 28px; padding: 0 7px; border-radius: var(--r-sm);
-  font: 500 13px var(--mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong);
+  position: relative; min-width: 23px; height: 23px; padding: 0 5.5px; border-radius: var(--r-sm);
+  font: 500 11px var(--mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong);
   transition: background-color var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
 }
+.lk::after { content: ""; position: absolute; inset: -2px; }
 .lk bdi { font-family: inherit; }
 .lk:hover { border-color: var(--accent); background: var(--accent-soft); }
 .lk:active { transform: scale(0.95); }
-.lk.ll { font-size: 15px; color: var(--accent-ink); }
+.lk.ll { font-size: 12.5px; color: var(--accent-ink); }
 .lk i { font-style: normal; color: var(--faint); }
 .lk sup { font-size: 0.8em; line-height: 0; color: var(--ink); }
 .lang-more { flex-basis: 100%; }
-.lang-more summary { direction: rtl; font-size: var(--fs-12); font-weight: 500; color: var(--muted); cursor: pointer; padding: 2px 0 4px; user-select: none; }
-.lk-more { display: flex; flex-wrap: wrap; gap: 5px 8px; }
+.lang-more summary { direction: rtl; font-size: var(--fs-11); font-weight: 500; color: var(--muted); cursor: pointer; padding: 2px 0 4px; user-select: none; }
+.lk-more { display: flex; flex-wrap: wrap; gap: 4px 6px; }
 
 /* המילים הקצרות: בשפה / לא בשפה */
 .lang-live { margin-top: 12px; display: grid; gap: 6px; }

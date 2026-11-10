@@ -35,9 +35,10 @@ test('סיווג: טבלה של מקרים ידועים', () => {
     cf: ['a^n b^n', 'a^n b^2n', 'a^n b^m | n = m', 'a^n b^m | n < m', 'a^n b^m | n != m', 'a^n b^m | m = n + 2', 'a^n b^m | 2n = 3m', 'a^n b^m | n >= m, n mod 2 = 0',
       'a^n b^m c^m d^n', 'a^n b^n c^m d^m', 'a^n b^m c^k | n = k', '(ab)^n c^n', 'w ∈ {a,b}* | #a(w) = #b(w)', 'w ∈ {a,b}* | #a(w) > #b(w)', 'w ∈ {a,b,c}* | #a(w) + #c(w) = #b(w)', 'w ∈ {a,b}* | פלינדרום',
       'a^n b^m c^k | n + m = k', 'a^n b^m | n = m, 2n = 2m'],
+    cfany: ['a^n b^m | n = m או n != m'],
     noncf: ['a^n b^n c^n', 'a^n b^n c^n d^n', 'a^n b^m c^k | n = m, m = k', 'a^n b^m c^k | n < m, m < k', 'a^n b^m c^n d^m', 'a^n b^m c^k d^l | n = k, m = l',
       'w ∈ {a,b,c}* | #a(w) = #b(w) וגם #b(w) = #c(w)'],
-    unknown: ['a^n b^m | n = m או n != m', 'a^n b^m | 2n = 2m + 1', 'a^n b^m c^k | n != m, m != k', 'a^n b^m c^k | n != m + k', 'a^(n*m)', 'a^n b^m | n*m = 6',
+    unknown: ['a^n b^m | 2n = 2m + 1', 'a^n b^m c^k | n != m, m != k', 'a^n b^m c^k | n != m + k', 'a^(n*m)', 'a^n b^m | n*m = 6',
       'w ∈ {a,b}* | #a(w) = #b(w) וגם |w| < 5', 'w ∈ {a,b}* | 2#a(w) = 2#b(w) + 1'],
   };
   for (const [want, list] of Object.entries(table)) for (const f of list) assert.equal(cls(f), want, f);
@@ -104,7 +105,7 @@ test('מכונת טיורינג ל-aⁿbⁿcⁿ, ומה שלא נתמך נאמר
     assert.ok(r.ok && r.machine.type === 'tm', f + ': ' + r.reason);
     sameAsOracle(r.machine, P(f), 1500, f);
   }
-  for (const f of ['a^n b^m c^n d^m', 'a^n b^n c^n | n mod 2 = 0', 'w ∈ {a,b}* | #a(w) = #b(w)', 'a^n b^m | n = m או n != m', 'ww', 'w#w', 'a^(2^n)']) {
+  for (const f of ['a^n b^m c^n d^m', 'a^n b^n c^n | n mod 2 = 0', 'w ∈ {a,b}* | #a(w) = #b(w)', 'a^n b^m | n*m = 6', 'ww', 'w#w', 'a^(2^n)']) {
     const r = L.build(P(f));
     assert.equal(r.ok, false, f);
     assert.match(r.reason, /עוד לא נתמכת/);

@@ -51,7 +51,7 @@
     else if (a.t === 'var') { acc.vAll.add(a.n); if (!inMod) acc.vOut.add(a.n); }
     else if (a.t === 'mul') { acc.consts += Math.abs(a.k); walk(a.a, inMod, acc); }
     else if (a.t === 'mod') { acc.consts += a.m; acc.mods.push(a.m); walk(a.a, true, acc); }
-    else { walk(a.a, inMod, acc); walk(a.b, inMod, acc); }
+    else { walk(a.a, inMod, acc); if (a.b) walk(a.b, inMod, acc); }
   }
   /**
    * ניתוח של השוואה אחת: אילו משתנים יש בה, ואיזה סוג היא:
@@ -96,6 +96,7 @@
     three: 'שלוש ספירות (או יותר) תלויות זו בזו. מחסנית אחת יכולה להשוות רק שתיים',
     cross: 'הקשרים בין הספירות מצטלבים, ומחסנית עובדת רק על קשרים מקוננים או עוקבים',
     unk: 'הנוסחה חוקית ואפשר לבדוק מולה, אבל אין לי הוכחה לאיזו משפחה היא שייכת',
+    nonlin: 'תנאי לא ליניארי (כמו n·m < 5) אפשר לבדוק מולו, אבל לא לסווג או לבנות. נתמכים: השוואות של צירופים ליניאריים (n < m, 2n ≤ m + 1), שארית (n mod 3 = 0), והצירופים שלהם',
   };
 
   /* ---------- צורה 1: בלוקים ---------- */
@@ -229,8 +230,23 @@
       if (ast.blocks.some((b) => b.e.pow || (b.e.gen && !b.e.lin))) return L.analyzeNonlinear(ast) || R('unknown', WHY.unk);
       return L.analyzeVec(ast) || R('unknown', WHY.unk);
     }
-    const r = analyzeBlocks(ast);
-    return r.cls === 'unknown' ? L.analyzeVec(ast) || r : r;
+    let r = analyzeBlocks(ast);
+    if (r.cls === 'unknown') r = L.analyzeVec(ast) || viaUnion(ast) || r;
+    if (r.cls === 'unknown' && hasNonlinear(ast.cond)) r = R('unknown', WHY.nonlin);
+    return r;
+  }
+  const hasNonlinearA = (a) => !!a && (a.t === 'prod' || a.t === 'pw' || hasNonlinearA(a.a) || hasNonlinearA(a.b));
+  const hasNonlinear = (c) => !!c && (c.op === 'cmp' ? hasNonlinearA(c.l) || hasNonlinearA(c.r) : (c.args || []).some(hasNonlinear) || hasNonlinear(c.arg));
+  /** "או" ברמה העליונה של התנאי: השפה היא איחוד של שפות עם אותם בלוקים, ואותו מסווגים (combine.js). */
+  function viaUnion(ast) {
+    const top = conjuncts(nnf(ast.cond || { op: 'true' }));
+    const ors = top.filter((a) => a.op === 'or'), rest = top.filter((a) => a.op !== 'or');
+    if (ors.length !== 1 || ors[0].args.length > 4) return null;
+    const parts = ors[0].args.map((b) => Object.assign({}, ast, { cond: { op: 'and', args: rest.concat([b]) }, text: undefined }));
+    const u = { kind: 'union', parts, alphabet: ast.alphabet };
+    const r = L.combinedAnalyze(u);
+    if (r.cls === 'unknown') return null;
+    return Object.assign(r, { viaUnion: u, why: r.why + '. התנאי עם "או" הופך את השפה לאיחוד של שתי שפות' });
   }
 
   const LABEL = { regular: 'רגולרית', cf: 'חסרת הקשר, לא רגולרית', cfany: 'חסרת הקשר', noncf: 'לא חסרת הקשר', unknown: 'לא הצלחתי לסווג' };
@@ -241,8 +257,30 @@
       const r = ex ? R(ex.cls, ex.why) : L.isCombined(ast) ? L.combinedAnalyze(ast) : ast.kind === 'regex' ? R('regular', WHY.regex) : ast.kind === 'prop' ? analyzeProp(ast) : analyzeAllBlocks(ast);
       r.label = LABEL[r.cls];
       Object.defineProperty(ast, '_an', { value: r, enumerable: false });
+      if (r.cls === 'regular') finiteness(ast, r);
     }
     return ast._an;
+  }
+
+  /** לשפה רגולרית: האם היא ריקה או סופית (לפי האס"ד המינימלי). נכתב בהסבר. */
+  function finiteness(ast, r) {
+    let d;
+    try { d = L.toDFA(ast); } catch (e) { return; }
+    const live = d.acc.map(Boolean);
+    for (let ch = true; ch;) { ch = false; d.tr.forEach((row, s) => { if (!live[s] && row.some((t) => live[t])) { live[s] = true; ch = true; } }); }
+    if (!live[d.start]) { r.empty = true; r.why = 'השפה ריקה (∅): אף מילה לא מקיימת את התנאים'; return; }
+    const memo = new Map(), color = new Map();
+    const count = (s) => {            // מספר המילים מ-s, או Infinity אם יש מעגל
+      if (memo.has(s)) return memo.get(s);
+      if (color.get(s) === 1) return Infinity;
+      color.set(s, 1);
+      let n = d.acc[s] ? 1 : 0;
+      for (const t of d.tr[s]) if (live[t]) n += count(t);
+      color.set(s, 2); memo.set(s, n);
+      return n;
+    };
+    const n = count(d.start);
+    if (n !== Infinity) { r.finite = n; r.why = 'השפה סופית: ' + (n === 1 ? 'מילה אחת' : n + ' מילים') + ', ולכן רגולרית'; }
   }
 
   Object.assign(L, { nnf, leaves, conjuncts, subst, expandLen, info, classParams, analyze, classify: analyze, gcd, lcm });

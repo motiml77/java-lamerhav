@@ -187,7 +187,10 @@
     switch (c.op) {
       case 'true': return '';
       case 'false': return '∅';
-      case 'and': return top ? c.args.map((x) => showC(x, html)).join(', ') : '(' + c.args.map((x) => showC(x, html)).join(' ' + he('וגם', html) + ' ') + ')';
+      case 'and':
+        if (c.decl) { const t = typeof c.decl === 'string' ? c.decl : c.decl.names + ' ' + RELS[c.decl.rel] + ' ' + showA(c.decl.r, true); return html ? esc(t) : t; }
+        if (c.chain) { const t = showA(c.args[0].l, true) + c.args.map((x) => ' ' + RELS[x.rel] + ' ' + showA(x.r, true)).join(''); return html ? esc(t) : t; }
+        return top ? c.args.map((x) => showC(x, html)).join(', ') : '(' + c.args.map((x) => showC(x, html)).join(' ' + he('וגם', html) + ' ') + ')';
       case 'or': { const s = c.args.map((x) => showC(x, html)).join(' ' + he('או', html) + ' '); return top ? s : '(' + s + ')'; }
       case 'not': return PRED[c.arg.op] ? pred(c.arg, html, true) : he('לא', html) + ' ' + (c.arg.op === 'cmp' ? '(' + showC(c.arg, html) + ')' : showC(c.arg, html));
       case 'cmp': { const t = showA(c.l, true) + ' ' + RELS[c.rel] + ' ' + showA(c.r, true); return html ? esc(t) : t; }

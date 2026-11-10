@@ -135,8 +135,28 @@
 
   /** אוטומט מחסנית לשפה שסווגה C1. */
   function vecPDA(ast, an) {
+    if (an.mode !== 'C1' && an.mode !== 'R1') return null;
+    const cases = L.splitCases(an.nf);
+    if (!cases) return pdaOne(ast, an);
+    if (cases.length === 1 && cases[0] === an.nf) return pdaOne(ast, an);
+    // כמה מקרים (קבוע שלילי, תנאי על סכום): אוטומט לכל מקרה, ואיחוד שלהם
+    const parts = [];
+    for (const nf of cases) {
+      const a2 = L.analyzeNF(nf);
+      if (!a2 || !a2.combos.length) continue;
+      if (a2.mode !== 'C1' && a2.mode !== 'R1') return null;
+      const m = pdaOne(ast, a2);
+      if (!m) return null;
+      parts.push(m);
+    }
+    if (!parts.length) return pdaOne(ast, an);
+    return parts.length === 1 ? parts[0] : L.combinedPDA({ kind: 'union', parts: parts.map(() => null), alphabet: ast.alphabet, machines: parts });
+  }
+
+  /** אוטומט מחסנית אחד לצורה נורמלית בלי קבועים שליליים. */
+  function pdaOne(ast, an) {
+    if (an.nf.blocks.some((b) => b.f.k < 0)) return null;
     const { nf, T, P, combos, supp, U } = an;
-    if (an.mode !== 'C1' || nf.blocks.some((b) => b.f.k < 0)) return null;
     const vars = Object.keys(T);
     // סמל מחסנית לכל משתנה שקושר שני בלוקים: האות הגדולה של שמו, אם היא פנויה
     const used = new Set(['Z'].concat(ast.alphabet)), syms = {};

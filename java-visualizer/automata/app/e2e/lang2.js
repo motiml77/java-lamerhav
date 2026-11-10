@@ -42,8 +42,9 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await p.keyboard.type('m)');
     await p.waitForTimeout(300);
     assert.equal(await p.inputValue('#lang-input'), 'a^n b^m c^(n+m)');
-    assert.equal(await text('#lang-pretty'), 'L = { anbmcn+m }');
+    assert.equal(await text('#lang-pretty .lp-math'), 'L = { anbmcn+m }');
     assert.equal(await p.$$eval('#lang-pretty sup', (e) => e.map((x) => x.textContent).join(',')), 'n,m,n+m');
+    assert.equal(await text('#lang-pretty .lp-note'), 'כל משתנה הוא מספר שלם אי-שלילי: n, m ≥ 0');
     assert.equal(await text('#lang-class'), 'חסרת הקשר, לא רגולרית');
     assert.deepEqual((await words('#lang-live .ll-row:nth-child(1)')).slice(0, 3), ['ε', 'ac', 'bc']);
     assert.match(await text('#ls-formula'), /L = \{ anbmcn\+m \}/);
@@ -99,7 +100,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
 
   await step('איחוד של שפות: { aⁿbⁿ } ∪ { bⁿaⁿ }, חסרת הקשר, ונבנה אוטומט מחסנית', async () => {
     await write('a^n b^n ∪ b^n a^n');
-    assert.equal(await text('#lang-pretty'), 'L = { anbn } ∪ { bnan }');
+    assert.equal(await text('#lang-pretty .lp-math'), 'L = { anbn } ∪ { bnan }');
     assert.equal(await text('#lang-class'), 'חסרת הקשר, לא רגולרית');
     assert.deepEqual((await words('#lang-live .ll-row:nth-child(1)')).slice(0, 3), ['ε', 'ab', 'ba']);
     await build();
@@ -115,7 +116,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
 
   await step('ריבוע: aⁿb^(n²) מסווגת "לא חסרת הקשר" עם הסבר, אין בנייה, והבדיקה מול השפה חסומה', async () => {
     await write('a^n b^(n^2)');
-    assert.equal(await text('#lang-pretty'), 'L = { anbn2 }');
+    assert.equal(await text('#lang-pretty .lp-math'), 'L = { anbn2 }');
     assert.equal(await text('#lang-class'), 'לא חסרת הקשר');
     assert.match(await p.getAttribute('#lang-class', 'title'), /המרווחים בין האורכים האפשריים גדלים/);
     assert.deepEqual((await words('#lang-live .ll-row:nth-child(1)')).slice(0, 3), ['ε', 'ab', 'aabbbb']);
