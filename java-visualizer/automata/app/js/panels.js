@@ -440,6 +440,8 @@
       const rows = root.AutomataSim.runTests(m, m.tests);
       this.testResults = { sig: app.machineSig(), byWord: new Map(rows.map((r) => [r.word, r])) };
       this.renderTests();
+      const firstFail = this.tbody.querySelector('tr.fail');
+      if (firstFail) firstFail.scrollIntoView({ block: 'nearest' });
       const pass = rows.filter((r) => r.pass).length;
       app.toast(pass === rows.length ? 'כל ' + rows.length + ' הבדיקות עברו' : pass + ' מתוך ' + rows.length + ' בדיקות עברו', pass === rows.length ? 'ok' : 'err');
     }

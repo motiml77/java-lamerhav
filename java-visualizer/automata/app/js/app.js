@@ -164,6 +164,7 @@
     addStateCenter() { return this.addStateAt(this.canvas.centerWorld()); },
 
     connect(from, to) {
+      if (this.tool !== 'transition') this.hint(null);
       const snap = this.snapshot();
       const existing = M.findTransition(this.machine, from, to);
       let t;
