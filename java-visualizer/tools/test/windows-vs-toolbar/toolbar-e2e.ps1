@@ -704,7 +704,7 @@ function WaitEl([int]$vsPid, [string]$pattern, [string]$typePattern = '', [int]$
 $script:tut = New-Object System.Collections.Generic.List[object]
 $script:tutOn = $true
 function RectOf($el) {
-    try { $r = $el.Current.BoundingRectangle; if ($r.Width -gt 0 -and $r.Height -gt 0) { return [ordered]@{ x = [int]$r.X; y = [int]$r.Y; w = [int]$r.Width; h = [int]$r.Height } } } catch { }
+    try { $r = $el.Current.BoundingRectangle; if ($r.Width -gt 0 -and $r.Height -gt 0 -and -not $el.Current.IsOffscreen) { return [ordered]@{ x = [int]$r.X; y = [int]$r.Y; w = [int]$r.Width; h = [int]$r.Height } } } catch { }
     return $null
 }
 function UnionRect($els) {
@@ -715,8 +715,38 @@ function UnionRect($els) {
     return [ordered]@{ x = [int]$x1; y = [int]$y1; w = [int]($x2 - $x1); h = [int]($y2 - $y1) }
 }
 function TutAdd([string]$name, [string]$kind, $rect) { $script:tut.Add([ordered]@{ shot = "$name.png"; kind = $kind; target = $rect }) }
+# לפני כל צילום של ההדרכה: בלי חלונות שמכסים את Visual Studio — חלון "Sign in" של Microsoft / Azure / GitHub,
+# חלון Copilot Chat ולשונית What's New (במחשב של תלמיד הם לא תמיד שם, ובסרטון הם מסתירים את הכפתור שמסבירים עליו)
+function TutClean() {
+    $closed = @()
+    try {
+        $wins = [Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition)
+        foreach ($w in $wins) {
+            $n = ElName $w
+            if ($n -match '^(Sign in|Sign in to your account|Pick an account|Microsoft account|Visual Studio account|Microsoft Azure|Add an account|GitHub Copilot)' -or $n -match 'Sign in to (Visual Studio|your account)') {
+                try { $w.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Close(); $closed += $n } catch { }
+            }
+        }
+    } catch { }
+    if ($vsP) {
+        # חלונות מתוך Visual Studio (WebView של הכניסה): כפתור Close / Cancel בתוך חלון שהשם שלו כניסה
+        foreach ($w in @(VsElements $vsP.Id | Where-Object { (ElType $_) -match 'Window' -and (ElName $_) -match '^(Sign in|Microsoft account|Visual Studio account|Pick an account)|Sign in to' })) {
+            try { $w.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Close(); $closed += (ElName $w) } catch { }
+        }
+    }
+    try {
+        $d = GetDte
+        if ($d) {
+            foreach ($tw in @($d.Windows)) { try { if ($tw.Caption -match 'Copilot|What.s New|GitHub Copilot') { $c = $tw.Caption; $tw.Close(); $closed += $c } } catch { } }
+        }
+        $d = $null
+    } catch { }
+    if ($closed.Count) { Info "לפני צילום ההדרכה נסגרו: $($closed -join ' ; ')"; Start-Sleep 2 }
+}
 function TutShot([string]$name, $el = $null, [string]$kind = 'look', $rect = $null) {
-    if (-not $rect -and $el) { $rect = RectOf $el }
+    TutClean
+    # המלבן נלקח אחרי הסגירה (חלון שנסגר יכול להזיז את הכפתור), ורק אם הכפתור באמת על המסך
+    if ($el) { $r2 = RectOf $el; if ($r2) { $rect = $r2 } }
     Shot $name
     TutAdd $name $kind $rect
 }
@@ -734,6 +764,7 @@ $startEl = $null
 for ($i = 0; $i -lt 120 -and -not $startEl; $i++) {
     Start-Sleep 3
     SkipFirstRun $vsP.Id | Out-Null
+    if ($i % 3 -eq 2) { TutClean }
     $startEl = @(Elements $vsP.Id '^Create a new project' 'Button|ListItem|Text|Hyperlink|Group|Custom')[0]
 }
 Start-Sleep 2
@@ -840,6 +871,7 @@ TutShot 'tut-08-run-button' $runBtn 'click'
 $viewerLines = @('waitwin הרצה ויזואלית', 'wait 3500', 'target הבא', 'mark v00')
 for ($k = 1; $k -le 7; $k++) { $viewerLines += @('click הבא', 'wait 1600', 'target הבא', ('mark v{0:D2}' -f $k)) }
 $viewerLines += @('wait 500', 'mark v-end')
+TutClean
 $st = RunStage 'viewer' 'tut-08' $viewerLines { if ($runBtn) { ClickEl $runBtn } else { 'הכפתור לא נמצא' } } 240
 Check 'tut-run' ($st -eq 'done') "8. 'הרצה ויזואלית' בסרגל — נפתח החלון של DSViz, ו'הבא' מתקדם צעד אחרי צעד (בלי שורת using ובלי תבנית DSViz)" "סטטוס $st · $((Windows) -join ' ; ')"
 KillDsviz; Start-Sleep 3
@@ -849,6 +881,7 @@ Get-Process msedge, chrome -ErrorAction SilentlyContinue | Stop-Process -Force -
 Start-Sleep 2
 $bankBtn = ToolbarButton $vsP.Id $bankNames
 TutShot 'tut-09-bank-button' $bankBtn 'click'
+TutClean
 $st = RunStage 'bank' 'tut-10' @('waitwin כניסה למאגר', 'wait 2500', 'target כניסה עם Google', 'mark login-screen', 'click כניסה עם Google', 'wait 4000', 'mark teacher-waiting', 'wait 12000', 'mark google-page') { ClickBank } 240
 $titles = (Windows) -join ' ; '
 Info "חלונות אחרי 'כניסה עם Google': $titles"
@@ -859,6 +892,7 @@ Get-Process msedge, chrome -ErrorAction SilentlyContinue | Stop-Process -Force -
 # 11. אחרי הכניסה (כאן בלי כניסה אמיתית: dsviz.access=off — אותו חלון שנפתח אחרי הכניסה): בוחרים שאלה -> צור תרגיל -> החלון 'השאלה' -> הכן סעיף ב'
 [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
 Start-Sleep 2
+TutClean
 $st = RunStage 'bank' 'tut-11' @(
     '#access=off', 'waitwin מאגר', 'wait 3000', 'mark bank-window',
     'bankselect stack-sum-size', 'wait 1500', 'target צור תרגיל', 'mark selected',
