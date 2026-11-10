@@ -19,7 +19,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # המאגר מהמקור (dsviz-bank-vs.jar — הכניסה, עמדת הניהול): ההתקנה של המעבדה (lab-release/) לא נבנית מחדש כאן
+  bank-jar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - name: dsviz.jar ו-dsviz-bank-vs.jar מהמקור
+        working-directory: java-visualizer
+        run: |
+          sh tools/build-lib.sh   # הספרייה מהמקור (ה-jar שב-release/ של הענף ישן)
+          SKIP_BANK_CHECK=1 sh tools/build-bank-vs.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bank-vs-jar
+          path: java-visualizer/build/lab-vs/dsviz-bank-vs.jar
+          retention-days: 7
   toolbar:
+    needs: bank-jar
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 100
@@ -39,11 +59,10 @@ jobs:
         run: |
           $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
           & $vw -all -prerelease -products * -format text -property displayName,catalog_productDisplayVersion,installationPath
-      - name: המאגר מהמקור (dsviz-bank-vs.jar — הכניסה, עמדת הניהול; ההתקנה של המעבדה לא נבנית מחדש כאן)
-        shell: bash
-        run: |
-          cd java-visualizer
-          SKIP_BANK_CHECK=1 sh tools/build-bank-vs.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: bank-vs-jar
+          path: bank-vs-jar
       - name: סרגל הכלים (התקנה, Visual Studio, לחיצות)
         timeout-minutes: 90
         shell: powershell
@@ -56,7 +75,7 @@ jobs:
             -Page "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\ai\files\exam-page-1.png" `
             -Mock "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\submit\mock-worker.js" `
             -Exercise "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\submit\cs-stack.json" `
-            -BankJar "$env:GITHUB_WORKSPACE\java-visualizer\build\lab-vs\dsviz-bank-vs.jar" `
+            -BankJar "$env:GITHUB_WORKSPACE\bank-vs-jar\dsviz-bank-vs.jar" `
             -Vsix "$env:GITHUB_WORKSPACE\java-visualizer\csharp\vs-extension\prebuilt\DsViz.VsExtension.vsix"
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
