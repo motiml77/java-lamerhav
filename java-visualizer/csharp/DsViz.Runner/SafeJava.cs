@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace DsViz
 {
@@ -23,10 +25,53 @@ namespace DsViz
             return true;
         }
 
-        /// <summary>ממלא את psi: אפשרויות ה-JVM, ‎-cp‎, המחלקה והארגומנטים</summary>
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        static extern uint GetShortPathName(string longPath, StringBuilder shortPath, uint size);
+
+        /// <summary>
+        /// java.exe עצמו לא עולה מתיקייה עם עברית ב-Windows שהקידוד שלו לא עברי ("could not find java.dll": המשגר מוצא את
+        /// התיקייה שלו בקידוד ANSI). לכן — נתיב ASCII לאותו קובץ: השם הקצר (8.3), ואם אין — צומת (junction) ב-ProgramData
+        /// שמצביע על תיקיית ה-Java של ההתקנה (בלי הרשאות מנהל). אחרת — הנתיב כמו שהוא.
+        /// </summary>
+        public static string Exe(string java)
+        {
+            if (!OperatingSystem.IsWindows() || Ascii(java) || !File.Exists(java)) return java;
+            try
+            {
+                var sb = new StringBuilder(1024);
+                uint n = GetShortPathName(java, sb, (uint)sb.Capacity);
+                if (n > 0 && n < sb.Capacity && Ascii(sb.ToString())) return sb.ToString();
+            }
+            catch (Exception) { }
+            try
+            {
+                string home = Path.GetDirectoryName(Path.GetDirectoryName(java));   // ...\jdk
+                string hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(home.ToLowerInvariant()))).Substring(0, 10);
+                string link = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "DSViz-jdk-" + hash);
+                string exe = Path.Combine(link, "bin", Path.GetFileName(java));
+                if (!Ascii(exe)) return java;
+                if (!File.Exists(exe))
+                {
+                    if (Directory.Exists(link)) Directory.Delete(link);   // צומת ישן ששבור
+                    var mk = new ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true };
+                    mk.ArgumentList.Add("/c");
+                    mk.ArgumentList.Add("mklink");
+                    mk.ArgumentList.Add("/J");
+                    mk.ArgumentList.Add(link);
+                    mk.ArgumentList.Add(home);
+                    using (Process p = Process.Start(mk)) p.WaitForExit(10000);
+                }
+                if (File.Exists(exe)) return exe;
+            }
+            catch (Exception) { }
+            return java;
+        }
+
+        /// <summary>ממלא את psi: אפשרויות ה-JVM, ‎-cp‎, המחלקה והארגומנטים (וגם java.exe בנתיב ASCII — Exe)</summary>
         public static void Fill(ProcessStartInfo psi, IEnumerable<string> jvm, IList<string> classpath, string main, IList<string> args)
         {
             bool win = OperatingSystem.IsWindows();
+            psi.FileName = Exe(psi.FileName);
             foreach (string o in jvm) psi.ArgumentList.Add(o);
             var cp = classpath.Select(Path.GetFullPath).ToList();
             if (win && !cp.All(Ascii))
