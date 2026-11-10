@@ -48,7 +48,15 @@
       el.classList.toggle('collapsed', this.collapsed);
       if (ast) {
         const p = L.pretty(ast);
-        const chips = words.map((w) => '<button type="button" class="w-chip ' + (w.inLang ? 'in' : 'out') + '" data-word="' + esc(w.word) + '" title="' + (w.inLang ? 'בשפה' : 'לא בשפה') + '. לחיצה מריצה את המילה">' + (w.word === '' ? 'ε' : esc(w.word)) + '</button>').join('');
+        // שתי קבוצות, כל אחת עם אייקון (✓ בשפה, ✗ לא בשפה), כדי שהצבע לא יהיה הסימן היחיד
+        const group = (inLang) => {
+          const list = words.filter((w) => w.inLang === inLang);
+          if (!list.length) return '';
+          const what = inLang ? 'בשפה' : 'לא בשפה';
+          return '<span class="ls-group ' + (inLang ? 'in' : 'out') + '" role="group" aria-label="מילים ש' + (inLang ? '' : 'אינן ') + 'בשפה" title="' + what + '">' + I.get(inLang ? 'check' : 'x', 14) +
+            list.map((w) => '<button type="button" class="w-chip ' + (inLang ? 'in' : 'out') + '" data-word="' + esc(w.word) + '" title="' + what + '. לחיצה מריצה את המילה">' + (w.word === '' ? 'ε' : esc(w.word)) + '</button>').join('') + '</span>';
+        };
+        const chips = group(true) + group(false);
         el.innerHTML = '<div class="ls-main"><button type="button" class="ls-formula" data-s="open" title="לחיצה פותחת את לשונית השפה">' +
           '<span class="ls-tag">' + (lang.locked ? 'תרגיל' : 'השפה') + '</span><bdi class="ls-f" dir="ltr" id="ls-formula">' + p.html + '</bdi></button>' +
           '<button type="button" class="btn icon ghost sm ls-toggle" data-s="toggle" aria-expanded="' + !this.collapsed + '" aria-controls="ls-sub" title="' + (this.collapsed ? 'הצגת התיאור והמילים' : 'קיפול הפס') + '" aria-label="' + (this.collapsed ? 'הצגת התיאור והמילים' : 'קיפול הפס') + '">' + I.get('chevronDown', 16) + '</button></div>' +

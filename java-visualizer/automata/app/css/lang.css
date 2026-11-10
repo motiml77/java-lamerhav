@@ -111,7 +111,11 @@
 .ls-desc { flex: 1 1 260px; margin: 0; font-size: var(--fs-13); line-height: 1.5; color: var(--ink-2); }
 .ls-words { display: flex; align-items: center; gap: 8px; margin-inline-start: auto; }
 .ls-wlabel { flex: none; font-size: var(--fs-12); font-weight: 500; color: var(--muted); }
-.ls-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ls-chips { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.ls-group { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.ls-group .icon { flex: none; }
+.ls-group.in .icon { color: var(--ok); }
+.ls-group.out .icon { color: var(--err); }
 .lang-strip.collapsed { padding-block: 4px; }
 .lang-strip.collapsed .ls-sub { display: none; }
 .lang-strip.collapsed .ls-f { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -88,8 +88,8 @@
         xs.push(r.label.x, r.label.x + r.label.w); ys.push(r.label.y, r.label.y + r.label.h);
         for (const p of RT.sample(r.pts, 8)) { xs.push(p.x); ys.push(p.y); }
       }
-      const pad = 56;
-      const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
+      const pad = 56, top = 84;       // למעלה יותר מקום: שם מופיעים הרמזים ותוצאת ההרצה
+      const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - top, maxY = Math.max(...ys) + pad;
       const z = Math.min(1.4, Math.max(0.4, Math.min(s.w / (maxX - minX), s.h / (maxY - minY))));
       this.view.zoom = Math.round(z * 1000) / 1000;
       this.view.x = inset + s.w / 2 - ((minX + maxX) / 2) * z;

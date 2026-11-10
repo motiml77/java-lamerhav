@@ -29,7 +29,14 @@
   const mixed = (t) => String(t).split(/([A-Za-z0-9^#|(){}∈*+<>=≥≤≠_][A-Za-z0-9^#|(){}∈*+<>=≥≤≠_, ]*[A-Za-z0-9^#|(){}∈*+<>=≥≤≠_)]|[A-Za-z0-9])/).map((x, i) => (i % 2 ? '<bdi dir="ltr" class="sym">' + esc(x) + '</bdi>' : esc(x))).join('');
 
   class LangPanel {
-    constructor(app) { this.app = app; this.result = null; this.info = null; this.busy = null; }
+    constructor(app) { this.app = app; this.result = null; this.info = null; this.busy = null; this.ownDesc = new WeakSet(); }
+    /** הנוסחה השתנתה: תיאור שבא עם דוגמה או עם קובץ כבר לא מתאר אותה, ולכן נמחק. תיאור שהמשתמש כתב כאן נשאר. */
+    setText(text) {
+      const stale = this.lang.desc && !this.ownDesc.has(this.app.machine);
+      this.setLang(stale ? { text, desc: '' } : { text });
+      const d = this.body && this.body.querySelector('#lang-desc');
+      if (stale && d) d.value = '';
+    }
     get lang() { const m = this.app.machine; return m.language || { text: '', allowBuild: true, locked: false }; }
     setLang(patch) { const m = this.app.machine; m.language = Object.assign({ text: '', allowBuild: true, locked: false }, m.language, patch); this.app.autosave(); }
     sigma() { const a = this.ast ? this.ast.alphabet : M.inputAlphabet(this.app.machine); return a.length ? a : ['a', 'b']; }
@@ -59,9 +66,9 @@
       this.input = body.querySelector('#lang-input');
       if (!this.bound) {
         this.bound = true;
-        body.addEventListener('input', (e) => { if (e.target.id === 'lang-desc') { this.setLang({ desc: e.target.value }); this.app.strip.render(); } });
+        body.addEventListener('input', (e) => { if (e.target.id === 'lang-desc') { this.ownDesc.add(this.app.machine); this.setLang({ desc: e.target.value }); this.app.strip.render(); } });
         body.addEventListener('keydown', (e) => { if (e.target.id === 'lang-desc') e.stopPropagation(); });
-        body.addEventListener('input', (e) => { if (e.target.id === 'lang-input') { this.setLang({ text: e.target.value }); clearTimeout(this.t); this.t = setTimeout(() => this.live(), 120); } });
+        body.addEventListener('input', (e) => { if (e.target.id === 'lang-input') { this.setText(e.target.value); clearTimeout(this.t); this.t = setTimeout(() => this.live(), 120); } });
         body.addEventListener('keydown', (e) => { if (e.target.id === 'lang-input') { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); clearTimeout(this.t); this.live(); } } });
         body.addEventListener('mousedown', (e) => { if (e.target.closest('.lk, .ll')) e.preventDefault(); });      // לא לאבד את הפוקוס בשדה
         body.addEventListener('click', (e) => this.onClick(e));
@@ -124,7 +131,7 @@
       const w = e.target.closest('[data-word]');
       if (w) { app.runWord(w.dataset.word); return; }
       const tpl = e.target.closest('[data-tpl]');
-      if (tpl) { this.result = null; this.setLang({ text: L.TEMPLATES[+tpl.dataset.tpl].text }); this.input.value = this.lang.text; this.live(); this.input.focus(); return; }
+      if (tpl) { this.result = null; this.setText(L.TEMPLATES[+tpl.dataset.tpl].text); this.input.value = this.lang.text; this.live(); this.input.focus(); return; }
       const b = e.target.closest('[data-l]');
       if (!b) return;
       const act = b.dataset.l;
@@ -153,6 +160,7 @@
         if (!ok) return;
       }
       r.machine.language = Object.assign({}, this.lang, { text: this.lang.text });
+      if (this.ownDesc.has(app.machine)) this.ownDesc.add(r.machine);
       app.loadMachine(r.machine, 'בניית אוטומט מהשפה', (r.machine.tests[0] || { word: '' }).word);
       app.side.show('lang');
       this.note('נבנה ' + TYPE[r.kind] + ' עם ' + r.machine.states.length + ' מצבים' + (r.kind === 'dfa' ? ' (המינימלי)' : '') + '. הוא נבדק מול הנוסחה על ' + r.checked.count.toLocaleString('he') + ' מילים.', 'ok');

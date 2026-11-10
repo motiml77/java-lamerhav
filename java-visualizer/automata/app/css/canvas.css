@@ -18,7 +18,8 @@
 .ed, .lb { transition: opacity var(--t-fast); }
 .ed.hover .ed-line { stroke: var(--accent); stroke-width: 2.4; }
 .ed.hover .ed-arrow { fill: var(--accent); }
-.viewport.hover-edge .ed:not(.hover):not(.start-arrow):not(.taken), .viewport.hover-edge .lb:not(.hover):not(.taken) { opacity: 0.32; }
+.viewport.hover-edge .ed:not(.hover):not(.start-arrow):not(.taken) { opacity: 0.32; }
+.viewport.hover-edge .lb:not(.hover):not(.taken) { opacity: 0.5; }
 .ed.selected .ed-line { stroke: var(--accent); stroke-width: 2.2; }
 .ed.selected .ed-arrow { fill: var(--accent); }
 .ed.issue .ed-line { stroke: var(--err); stroke-dasharray: 5 4; }
