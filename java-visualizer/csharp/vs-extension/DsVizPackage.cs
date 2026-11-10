@@ -213,7 +213,7 @@ namespace DsViz.VsExtension
         }
 
         bool? _teacherOn;
-        bool _teacherSynced;
+        bool _teacherSynced, _teacherSyncing;
         FileSystemWatcher _teacherWatch;
 
         /// <summary>"עמדת ניהול": כמו ב-Eclipse — בסרגל, נראה רק כשהמשתמש מחובר כמורה; פותח את חלון המורה (הקוד, העמדות, התנתקות)</summary>
@@ -235,7 +235,9 @@ namespace DsViz.VsExtension
             mcs.AddCommand(cmd);
             // כמו "מאגר שאלות": סנכרון ראשון כאן, בלי לזכור את המצב — הבדיקה הראשונה של הפקודה (BeforeQueryStatus, אחרי שהסרגל
             // נבנה) מסנכרנת שוב. אם המצב נזכר כבר כאן, הכפתור נשאר אפור וגלוי (נמצא ב-vsix-test)
-            SyncControl("עמדת ניהול", "teacher", TeacherOn());
+            _teacherSyncing = true;
+            try { SyncControl("עמדת ניהול", "teacher", TeacherOn()); }
+            finally { _teacherSyncing = false; }
             // כניסה / התנתקות בחלון של Java: הכפתור מתעדכן מיד (לא רק כשחוזרים ל-Visual Studio)
             try
             {
@@ -262,10 +264,14 @@ namespace DsViz.VsExtension
         void TeacherChanged(bool on)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (on == _teacherOn && _teacherSynced) return;
+            // הגישה ל-CommandBars (גם קריאה של Visible) מפעילה שוב את BeforeQueryStatus — בלי השמירה הזו: רקורסיה עד
+            // stack overflow של Visual Studio (נמצא ב-CI: devenv נסגר בקוד 0xC00000FD)
+            if (_teacherSyncing || (on == _teacherOn && _teacherSynced)) return;
             if (on != _teacherOn) SolutionHints.Log("teacher button: " + (on ? "shown" : "hidden"));
             _teacherOn = on;
-            _teacherSynced = SyncControl("עמדת ניהול", "teacher", on);
+            _teacherSyncing = true;
+            try { _teacherSynced = SyncControl("עמדת ניהול", "teacher", on); }
+            finally { _teacherSyncing = false; }
         }
 
         void TeacherFlagChanged()
