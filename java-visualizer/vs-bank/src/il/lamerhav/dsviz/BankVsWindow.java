@@ -73,6 +73,32 @@ final class BankVsWindow {
     private final Runnable onChange;
     private final Map<String, Image> icons = new HashMap<String, Image>();
 
+    /**
+     * מי מחובר + "התנתקות" — למורה ולתלמיד שנכנסו עם Google. בעמדת מחשב בכיתה אין התנתקות (את העמדה משחררים המורה / ההנהלה).
+     * אחרי ההתנתקות המאגר נסגר, ובפתיחה הבאה מופיע מסך הכניסה. null — אין מה להציג
+     */
+    JComponent accountRow() {
+        String who = AccessGate.who();
+        if (who.isEmpty()) return null;
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setOpaque(false);
+        row.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        JLabel l = RtlDialog.label(who, RtlDialog.small(), RtlDialog.MUTED);
+        row.add(l, BorderLayout.CENTER);
+        if (AccessGate.canSignOut()) {
+            JButton out = RtlDialog.link("התנתקות");
+            out.putClientProperty("dsviz.id", "signout");
+            // אחרי ההתנתקות: כל החלונות של המאגר נסגרים (גם החלון הצף של השאלה) — והכלי מסתיים
+            out.addActionListener(e -> AccessGate.signOut(frame, () -> {
+                for (java.awt.Window w : java.awt.Window.getWindows()) if (w.isDisplayable()) w.dispose();
+            }));
+            row.add(out, BorderLayout.LINE_END);
+        }
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+        RtlDialog.rtl(row);
+        return row;
+    }
+
     static void open(String topic, String id) {
         if (current != null && current.frame.isDisplayable()) {
             current.frame.toFront();
@@ -120,6 +146,11 @@ final class BankVsWindow {
         sideTop.add(titleRow);
         sideTop.add(RtlDialog.gap(2));
         sideTop.add(RtlDialog.label("ל-" + BankVs.ide(), RtlDialog.small(), RtlDialog.MUTED));
+        JComponent account = accountRow();
+        if (account != null) {
+            sideTop.add(RtlDialog.gap(6));
+            sideTop.add(account);
+        }
         sideTop.add(RtlDialog.gap(10));
         stats = new Stats();
         stats.setAlignmentX(Component.RIGHT_ALIGNMENT);
@@ -497,7 +528,8 @@ final class BankVsWindow {
             if (!pool.isEmpty()) select(pool.get(new Random().nextInt(pool.size())).id);
         });
         buttons.add(random);
-        if (AccessGate.isTeacher()) {   // מורה: חוזר לעמדת הניהול והקוד בכל פעם
+        // IntelliJ (אותו חלון, --ij): אין שם כפתור בסרגל — עמדת הניהול מכאן. ב-Visual Studio היא בסרגל הכלים (כמו ב-Eclipse)
+        if (BankVs.ij && AccessGate.isTeacher()) {
             JButton manage = RtlDialog.secondary("עמדת ניהול");
             manage.addActionListener(e -> AccessGate.showTeacherPanel(frame));
             buttons.add(manage);

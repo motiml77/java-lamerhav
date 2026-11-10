@@ -24,10 +24,23 @@ public final class TeacherSource extends AbstractSourceProvider {
         instance = this;
     }
 
+    private static boolean listening;
+
     @Override
     public void initialize(IServiceLocator locator) {
+        if (!listening) {   // כניסה / התנתקות בחלונות של הכניסה — הכפתור מתעדכן מיד (לא מחכים לבדיקה הבאה)
+            listening = true;
+            AccessGate.onChange(TeacherSource::refresh);
+        }
         refresh();
         poll();
+        // בדיקה אחת מול השרת ברקע בהפעלת Eclipse: מורה שהושבת / כניסה שבוטלה — הכפתור נכבה (בלי אינטרנט לא משתנה כלום)
+        Thread t = new Thread(() -> {
+            try { if (!AccessGate.disabled()) Account.refresh(); } catch (Throwable ignored) { /* בפעם הבאה */ }
+            refresh();
+        }, "dsviz-teacher-check");
+        t.setDaemon(true);
+        t.start();
     }
 
     private static void poll() {

@@ -44,7 +44,9 @@ import unit4.collectionsLib.Model.View;
 public final class TraceViewer {
     private TraceViewer() {}
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] argv) throws IOException {
+        // dsviz-cs.exe: נתיב עם תווים שלא בקידוד של Windows (שם משתמש בעברית) עובר במשתנה הסביבה DSVIZ_ARGS, לא בשורת הפקודה
+        String[] args = argv.length == 1 && "--args-env".equals(argv[0]) && System.getenv("DSVIZ_ARGS") != null ? System.getenv("DSVIZ_ARGS").split("\n", -1) : argv;
         if (args.length == 0) {
             System.err.println("שימוש: TraceViewer <קובץ צעדים>");
             System.exit(2);

@@ -69,6 +69,16 @@
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>הדרכה</ButtonText></Strings>
       </Button>
+      <Button guid="guidDsVizCmdSet" id="CmdTeacher" priority="0x0800" type="Button">
+        <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
+        <Icon guid="ImageCatalogGuid" id="User" />
+        <!-- עמדת הניהול של המורה (כמו בסרגל של Eclipse): מוצגת רק כשהמשתמש מחובר כמורה — הסימון teacher.flag (BeforeQueryStatus ב-DsVizPackage) -->
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
+        <Strings><ButtonText>עמדת ניהול</ButtonText></Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -83,6 +93,7 @@
       <IDSymbol name="CmdSubmit" value="0x0104" />
       <IDSymbol name="CmdRun" value="0x0106" />
       <IDSymbol name="CmdHelp" value="0x0107" />
+      <IDSymbol name="CmdTeacher" value="0x0108" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

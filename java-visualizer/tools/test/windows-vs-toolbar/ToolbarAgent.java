@@ -33,7 +33,7 @@ public class ToolbarAgent {
         try {
             ctl = new File(args);
             String cmd = System.getProperty("sun.java.command", "");
-            String mode = cmd.contains("CsTool submit") ? "submit" : cmd.contains("BankVs bank") ? "bank" : cmd.contains("TraceViewer") ? "viewer" : null;
+            String mode = cmd.contains("CsTool submit") ? "submit" : cmd.contains("BankVs bank") ? "bank" : cmd.contains("BankVs teacher") ? "teacher" : cmd.contains("TraceViewer") ? "viewer" : null;
             log("jvm: " + cmd + " -> " + mode);
             if (mode == null) return;
             final File script = new File(ctl, mode + ".script.txt");

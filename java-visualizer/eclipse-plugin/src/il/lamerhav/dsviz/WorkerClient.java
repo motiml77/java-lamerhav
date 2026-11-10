@@ -77,6 +77,7 @@ final class WorkerClient {
             Thread t = new Thread(() -> {
                 try {
                     HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+                    OsTrust.apply(c);
                     c.setConnectTimeout((int) waitMs);
                     c.setReadTimeout((int) waitMs);
                     c.setRequestMethod("GET");
@@ -169,6 +170,7 @@ final class WorkerClient {
         HttpURLConnection c;
         try {
             c = (HttpURLConnection) new URL(url + path).openConnection();
+            OsTrust.apply(c);   // סינון אינטרנט שבודק תעבורה מוצפנת (התעודה שלו במאגר של Windows)
         } catch (IOException | RuntimeException e) {
             throw new AiError("config", "כתובת השרת לא תקינה: " + url);
         }
@@ -217,6 +219,7 @@ final class WorkerClient {
             throw new AiError("offline", "אין חיבור לשרת. בדקו שיש חיבור לאינטרנט ונסו שוב.");
         } catch (IOException e) {
             if (cancelled) throw new AiError("cancel", "השליחה בוטלה.");
+            if (OsTrust.isTlsProblem(e)) throw new AiError("offline", OsTrust.TLS_MESSAGE);
             throw new AiError("network", "החיבור לשרת נקטע באמצע. בדקו שיש חיבור לאינטרנט ונסו שוב.");
         } finally {
             pending = null;

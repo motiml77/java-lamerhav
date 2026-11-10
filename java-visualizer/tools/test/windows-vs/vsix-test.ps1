@@ -112,6 +112,7 @@ Info "חנות ההצעות: $storeDir\solutions.json ; קובץ עם הצעות
 $env:DSVIZ_VS_TRACE = '1'   # עקבות של הרכיב (MEF) גם ל-%LOCALAPPDATA%\DSViz\vs-trace.log
 Remove-Item "$env:LOCALAPPDATA\DSViz\vs-trace.log" -Force -ErrorAction SilentlyContinue
 Remove-Item "$env:LOCALAPPDATA\DSViz\lab" -Recurse -Force -ErrorAction SilentlyContinue   # בלי מאגר שאלות מותקן: הכפתור "מאגר שאלות" מוסתר
+Remove-Item "$env:LOCALAPPDATA\DSViz\teacher.flag" -Force -ErrorAction SilentlyContinue   # לא מחובר כמורה: אין "עמדת ניהול"
 
 $proj = Join-Path $env:RUNNER_TEMP 'Targil1'
 dotnet new console -n Targil1 -o $proj --force | Out-Null
@@ -184,6 +185,39 @@ if ($ready) {
     Info "מאגר שאלות (עם jar): $bankAfter"
     Check 'bank-visible' $bankShown 'אחרי התקנת dsviz-bank-vs.jar — הכפתור "מאגר שאלות" מופיע בסרגל (מופעל)' $bankAfter
     Shot 'vs-toolbar-bank'
+
+    # ---- "עמדת ניהול": רק כשהמשתמש מחובר כמורה (הסימון teacher.flag שהכלי של Java כותב — מייל ושם, בלי הכרטיס)
+    function TeacherState() {
+        $els = @(VsElements $p.Id | Where-Object { (ElName $_) -eq 'עמדת ניהול' })
+        if ($els.Count -eq 0) { return 'absent' }
+        $c = $els[0].Current
+        return ("present enabled={0} offscreen={1} rect={2}" -f $c.IsEnabled, $c.IsOffscreen, $c.BoundingRectangle)
+    }
+    function TeacherHidden([string]$st) { return ($st -eq 'absent' -or $st -match 'offscreen=True' -or $st -match 'rect=Empty') }
+    $tNone = TeacherState
+    Info "עמדת ניהול (לא מורה): $tNone"
+    Check 'teacher-hidden' (TeacherHidden $tNone) 'לא מחובר כמורה — אין "עמדת ניהול" בסרגל' $tNone
+    $flagFile = "$env:LOCALAPPDATA\DSViz\teacher.flag"
+    [IO.File]::WriteAllText($flagFile, '{"email":"teacher@test.dev","name":"מורה בדיקה"}', (New-Object Text.UTF8Encoding($false)))
+    $tOn = ''; $shown = $false
+    for ($i = 0; $i -lt 15 -and -not $shown; $i++) {   # הסרגל עוקב אחרי הקובץ (FileSystemWatcher) — בלי לחזור ל-Visual Studio
+        Start-Sleep 2
+        $tOn = TeacherState
+        $shown = $tOn -match 'enabled=True offscreen=False'
+    }
+    Info "עמדת ניהול (מורה): $tOn"
+    Check 'teacher-visible' $shown 'מחובר כמורה (teacher.flag) — "עמדת ניהול" מופיעה בסרגל, מופעלת' $tOn
+    Shot 'vs-toolbar-teacher'
+    Remove-Item $flagFile -Force -ErrorAction SilentlyContinue
+    $tOff = ''; $gone = $false
+    for ($i = 0; $i -lt 15 -and -not $gone; $i++) {
+        Start-Sleep 2
+        $tOff = TeacherState
+        $gone = TeacherHidden $tOff
+    }
+    Info "עמדת ניהול (אחרי התנתקות): $tOff"
+    Check 'teacher-hidden-again' $gone 'אחרי התנתקות (הסימון נמחק) — "עמדת ניהול" נעלמת מהסרגל' $tOff
+    Shot 'vs-toolbar-teacher-gone'
     if ($lamps.Count -gt 0) {
         $how = ClickEl $lamps[0]
         Info "לחיצה על המנורה: $how"

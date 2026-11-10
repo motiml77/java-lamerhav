@@ -26,18 +26,25 @@ namespace DsViz
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            foreach (string a in JvmArgs(jar)) psi.ArgumentList.Add(a);
-            psi.ArgumentList.Add(trace);
+            // קובץ ההרצה ב-%TEMP% / בתיקיית הפרויקט — עם שם משתמש בעברית: דרך הסביבה, לא בשורת הפקודה (SafeJava)
+            SafeJava.Fill(psi, JvmOptions(), new[] { jar }, "unit4.collectionsLib.TraceViewer", new[] { trace });
             Console.WriteLine("נפתח חלון ההרצה הוויזואלית. סוגרים אותו כדי לסיים.");
             using (Process p = Process.Start(psi)) p.WaitForExit();
+        }
+
+        /// <summary>אפשרויות ה-JVM של חלון ההרצה (בלי ‎-cp‎)</summary>
+        internal static string[] JvmOptions()
+        {
+            var a = new System.Collections.Generic.List<string> { "-Dfile.encoding=UTF-8", "-Xshare:auto", "-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC" };
+            // Mac: השם ב-Dock ובתפריט העליון "DSViz" (ולא "java"). האפשרות ‎-Xdock קיימת רק ב-Java של Mac
+            if (OperatingSystem.IsMacOS()) { a.Add("-Xdock:name=DSViz"); a.Add("-Dapple.awt.application.name=DSViz"); }
+            return a.ToArray();
         }
 
         /// <summary>הפקודה עד שם המחלקה (בלי הקובץ / --live)</summary>
         internal static string[] JvmArgs(string jar)
         {
-            var a = new System.Collections.Generic.List<string> { "-Dfile.encoding=UTF-8", "-Xshare:auto", "-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC" };
-            // Mac: השם ב-Dock ובתפריט העליון "DSViz" (ולא "java"). האפשרות ‎-Xdock קיימת רק ב-Java של Mac
-            if (OperatingSystem.IsMacOS()) { a.Add("-Xdock:name=DSViz"); a.Add("-Dapple.awt.application.name=DSViz"); }
+            var a = new System.Collections.Generic.List<string>(JvmOptions());
             a.AddRange(new[] { "-cp", jar, "unit4.collectionsLib.TraceViewer" });
             return a.ToArray();
         }
@@ -138,8 +145,7 @@ namespace DsViz
                 StandardInputEncoding = new UTF8Encoding(false),
                 StandardOutputEncoding = new UTF8Encoding(false)
             };
-            foreach (string a in ViewerLauncher.JvmArgs(jar)) psi.ArgumentList.Add(a);
-            psi.ArgumentList.Add("--live");
+            SafeJava.Fill(psi, ViewerLauncher.JvmOptions(), new[] { jar }, "unit4.collectionsLib.TraceViewer", new[] { "--live" });
             Process p = Process.Start(psi);
             if (p == null) return null;
             var v = new LiveViewer(p, console);

@@ -40,8 +40,13 @@ export function teacherCode() {
   const r = crypto.getRandomValues(new Uint8Array(4));
   return Array.from(r, b => CODE_ABC[b % CODE_ABC.length]).join('');
 }
+// מקלדת בעברית: אותו מקש — האות האנגלית (קוד המורה הוא אותיות לטיניות וספרות; תלמיד ששכח להחליף שפה מקליד "'8ד2" במקום W8S2)
+const HEB_KEYS = { '/': 'Q', "'": 'W', 'ק': 'E', 'ר': 'R', 'א': 'T', 'ט': 'Y', 'ו': 'U', 'ן': 'I', 'ם': 'O', 'פ': 'P', 'ש': 'A', 'ד': 'S', 'ג': 'D', 'כ': 'F', 'ע': 'G', 'י': 'H', 'ח': 'J', 'ל': 'K', 'ך': 'L', 'ז': 'Z', 'ס': 'X', 'ב': 'C', 'ה': 'V', 'נ': 'B', 'מ': 'N', 'צ': 'M' };
+export function fromHebrewKeys(s) {
+  return String(s || '').replace(/[\/'\u05d0-\u05ea]/g, ch => HEB_KEYS[ch] || ch);
+}
 export function normalizeCode(s) {
-  const c = String(s || '').toUpperCase().replace(/[\s\-_]/g, '');
+  const c = fromHebrewKeys(s).toUpperCase().replace(/[\s\-_]/g, '');
   return /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{4}$/.test(c) ? c : '';
 }
 export const showCode = c => c || '';
