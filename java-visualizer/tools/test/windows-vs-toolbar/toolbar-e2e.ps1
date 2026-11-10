@@ -679,6 +679,129 @@ Check 'plain-saved' ((Get-Content $plainProg -Raw -Encoding utf8) -match 'q\.Ins
 Check 'plain-queue' (($tt -match 'נוצר תור') -and ($tt -match 'q\.Insert\(8\)') -and ($tt -match 'q\.Remove\(\)')) "ההרצה הוויזואלית רשמה את התור: 'נוצר תור ריק: q', q.Insert(8), q.Remove()" $(if ($tt) { $tt.Substring(0, [Math]::Min(300, $tt.Length)) } else { 'אין trace' })
 KillDsviz; Start-Sleep 2
 
+# ------------------------------------------------------------------ 9. צילומים לסרטון הדרכה: מהפתיחה של Visual Studio עד כניסת מורה עם Google
+# כל צעד — צילום מסך מלא (tut-NN-...png, וגם בתיקייה tutorial). פרויקט Console App רגיל (בלי התבנית של DSViz), קוד בלי שורת using.
+Log "== 9. סרטון הדרכה: Visual Studio מההתחלה -> פרויקט חדש רגיל -> קוד עם תור -> הרצה ויזואלית -> מאגר שאלות -> כניסת מורה עם Google"
+function Elements([int]$vsPid, [string]$pattern, [string]$typePattern = '') {
+    @(VsElements $vsPid | Where-Object { (ElName $_) -match $pattern -and (-not $typePattern -or (ElType $_) -match $typePattern) })
+}
+function WaitEl([int]$vsPid, [string]$pattern, [string]$typePattern = '', [int]$sec = 60) {
+    for ($i = 0; $i -lt $sec; $i++) { $e = @(Elements $vsPid $pattern $typePattern); if ($e.Count -gt 0) { return $e[0] }; Start-Sleep 1 }
+    return $null
+}
+# Edge בלי מסך "ברוכים הבאים" (כדי שבצילום יראו את דף הכניסה)
+New-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Force -ErrorAction SilentlyContinue | Out-Null
+Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'HideFirstRunExperience' -Value 1 -Type DWord -ErrorAction SilentlyContinue
+KillJava; KillDsviz
+Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep 5
+$tutRepo = Join-Path $env:USERPROFILE 'source\repos'
+Remove-Item -Recurse -Force (Join-Path $tutRepo 'Targil1') -ErrorAction SilentlyContinue
+# 1. פותחים את Visual Studio (בלי פרויקט) — מסך הפתיחה
+$vsP = Start-Process $devenv -PassThru
+$startEl = $null
+for ($i = 0; $i -lt 120 -and -not $startEl; $i++) {
+    Start-Sleep 3
+    SkipFirstRun $vsP.Id | Out-Null
+    $startEl = @(Elements $vsP.Id '^Create a new project' 'Button|ListItem|Text|Hyperlink|Group|Custom')[0]
+}
+Shot 'tut-01-vs-start'
+Check 'tut-start' ($null -ne $startEl) "1. Visual Studio נפתח — מסך הפתיחה עם 'Create a new project'" ((Windows) -join ' ; ')
+$created = $false
+if ($startEl) {
+    # 2. Create a new project — רשימת התבניות
+    Info "לחיצה: $(ClickEl $startEl)"
+    $search = WaitEl $vsP.Id '^Search for templates' 'Edit' 60
+    Start-Sleep 4
+    Shot 'tut-02-templates'
+    Info "בתבניות מופיעה גם 'תרגיל מבני נתונים (DSViz)': $(@(Elements $vsP.Id 'DSViz').Count -gt 0) (לא צריך אותה)"
+    # 3. מחפשים Console App
+    if ($search) { try { $search.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('Console App') } catch { [void](ClickEl $search); [Windows.Forms.SendKeys]::SendWait('Console App') } }
+    Start-Sleep 5
+    $item = @(Elements $vsP.Id '^Console App' 'ListItem' | Where-Object { (ElName $_) -match 'C#' -and (ElName $_) -notmatch 'Framework' })[0]
+    if (-not $item) { $item = @(Elements $vsP.Id '^Console App' 'ListItem' | Where-Object { (ElName $_) -notmatch 'Framework' })[0] }
+    Info "התבנית: $(ElName $item)"
+    if ($item) { try { $item.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select() } catch { [void](ClickEl $item) } }
+    Start-Sleep 2
+    Shot 'tut-03-console-app'
+    $next = WaitEl $vsP.Id '^Next$' 'Button' 10
+    if ($next) { Info "Next: $(ClickEl $next)" }
+    # 4. שם הפרויקט
+    $nameBox = WaitEl $vsP.Id '^Project name' 'Edit' 30
+    if ($nameBox) { try { $nameBox.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('Targil1') } catch { } }
+    Start-Sleep 2
+    Shot 'tut-04-project-name'
+    $next = WaitEl $vsP.Id '^Next$' 'Button' 10
+    if ($next) { Info "Next: $(ClickEl $next)" }
+    # 5. הגרסה של ‎.NET -> Create
+    Start-Sleep 4
+    Shot 'tut-05-framework'
+    $create = WaitEl $vsP.Id '^Create$' 'Button' 20
+    if ($create) { Info "Create: $(ClickEl $create)" }
+    for ($i = 0; $i -lt 90 -and -not $created; $i++) { Start-Sleep 2; $vsP.Refresh(); $created = $vsP.MainWindowTitle -like '*Targil1*' }
+}
+if (-not $created) {
+    # לא הצלחנו ללחוץ דרך מסך התבניות (גרסה אחרת של Visual Studio) — אותה תבנית Console App, ופותחים אותה
+    Info "יצירה דרך המסך לא הסתיימה — dotnet new console (אותה תבנית) ופתיחה ב-Visual Studio"
+    $tp = Join-Path $tutRepo 'Targil1\Targil1'
+    & dotnet new console -n Targil1 -o $tp --force | Out-Null
+    & dotnet new sln -n Targil1 -o (Split-Path $tp) --force | Out-Null
+    & dotnet sln (Join-Path (Split-Path $tp) 'Targil1.sln') add (Join-Path $tp 'Targil1.csproj') | Out-Null
+    $d = GetDte; try { $d.Solution.Open((Join-Path (Split-Path $tp) 'Targil1.sln')) } catch { Info "DTE: $_" }; $d = $null
+    for ($i = 0; $i -lt 60 -and -not $created; $i++) { Start-Sleep 2; $vsP.Refresh(); $created = $vsP.MainWindowTitle -like '*Targil1*' }
+}
+Check 'tut-created' $created "2-5. נוצר פרויקט Console App רגיל (Targil1) ונפתח ב-Visual Studio" $vsP.MainWindowTitle
+[Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null
+[Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
+$tb = @()
+for ($i = 0; $i -lt 30 -and @($tb | Select-Object -Unique).Count -lt 4; $i++) {
+    Start-Sleep 3
+    $tb = @(VsElements $vsP.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -match '^(תרגיל חדש|מאגר שאלות|הוספת מבנה נתונים|שליחת תרגיל|הדרכה)$' })
+}
+Start-Sleep 5
+Shot 'tut-06-project-and-toolbar'
+Check 'tut-toolbar' (@($tb | Select-Object -Unique).Count -ge 4) "6. בפרויקט הרגיל — סרגל הכלים של DSViz מופיע" ((($tb | Select-Object -Unique)) -join ' ; ')
+# 7. קוד עם תור — בלי שום שורה בראש הקובץ
+$prog = @(Get-ChildItem $tutRepo -Recurse -Filter Program.cs -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like '*Targil1*' })[0]
+$tutCode = @'
+Queue<int> q = new Queue<int>();
+q.Insert(5);
+q.Insert(8);
+q.Insert(3);
+int sum = 0;
+while (!q.IsEmpty())
+{
+    sum += q.Remove();
+}
+Console.WriteLine("sum = " + sum);
+'@
+$d = GetDte
+try {
+    if ($prog) { $null = $d.ItemOperations.OpenFile($prog.FullName) }
+    Start-Sleep 3
+    $td = $d.ActiveDocument.Object('TextDocument')
+    $td.StartPoint.CreateEditPoint().ReplaceText($td.EndPoint, ($tutCode -replace "`r?`n", "`r`n"), 0)
+} catch { Info "DTE (כתיבת הקוד): $_" }
+$d = $null
+Start-Sleep 8   # IntelliSense מסיים לבדוק — רואים שאין קו אדום מתחת ל-Queue
+Shot 'tut-07-code-no-using'
+# 8. הרצה ויזואלית
+$tr = ClickRun 'tut-08-visual-run'
+Check 'tut-run' ($tr.Count -gt 0) "8. 'הרצה ויזואלית' בסרגל — נפתח החלון של DSViz, בלי שורת using ובלי תבנית DSViz" ($tr -join ' | ')
+KillDsviz; Start-Sleep 3
+# 9-10. מאגר שאלות -> מסך הכניסה -> מורה: כניסה עם Google -> הדפדפן נפתח בדף הכניסה של Google
+Get-Process msedge, chrome -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+$st = RunStage 'bank' 'tut-09' @('waitwin כניסה למאגר', 'wait 2500', 'mark login-screen', 'click כניסה עם Google', 'wait 4000', 'mark teacher-waiting', 'wait 12000', 'mark google-page') { ClickBank } 240
+$titles = (Windows) -join ' ; '
+Info "חלונות אחרי 'כניסה עם Google': $titles"
+Check 'tut-gate' ($st -eq 'done') "9. 'מאגר שאלות' -> מסך הכניסה, ולחיצה על 'כניסה עם Google' של מורה" "סטטוס $st"
+Check 'tut-browser' ($titles -match '(msedge|chrome|firefox)\[\d+\]: .*(Google|Sign in|כניסה|DSViz)') "10. הדפדפן נפתח בדף הכניסה (Google) — רואים בצילום tut-09-google-page.png" $titles
+New-Item -ItemType Directory -Force (Join-Path $Out 'tutorial') | Out-Null
+Get-ChildItem $Out -Filter 'tut-*.png' | ForEach-Object { Copy-Item $_.FullName (Join-Path $Out 'tutorial') -Force }
+Info "צילומי ההדרכה: $((Get-ChildItem (Join-Path $Out 'tutorial') -Filter '*.png' | ForEach-Object Name) -join ', ')"
+KillJava
+Get-Process msedge, chrome -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
 # ------------------------------------------------------------------ סיום
 Log "== 8. יומנים"
 Copy-Item (Join-Path $ctl 'agent.log') $Out -ErrorAction SilentlyContinue
