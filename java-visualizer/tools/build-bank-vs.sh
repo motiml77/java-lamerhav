@@ -10,9 +10,12 @@ cd "$(dirname "$0")/.."
 OUT=build/bank-vs
 rm -rf "$OUT" && mkdir -p "$OUT/bank" "$OUT/icons/topics"
 # נגד dsviz.jar של ההתקנה (VsSubmit, ExercisePipeline, RtlDialog, NestedDiagram...); BankStore ו-BankProgress — מ-eclipse-bank (בלי Eclipse)
-javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp release/dsviz.jar -d "$OUT" \
+# הכניסה (dsviz-access.jar) בתוך התוספת, כמו CsSolution: גם כשה-dsviz.jar של ההתקנה ישן
+sh tools/build-access.sh > /dev/null
+(cd "$OUT" && unzip -qo ../access/dsviz-access.jar -x 'META-INF/*')
+javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp "$OUT:release/dsviz.jar" -d "$OUT" \
     $(find vs-bank/src -name '*.java') eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
-    eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java eclipse-plugin/src/il/lamerhav/dsviz/Account.java eclipse-plugin/src/il/lamerhav/dsviz/AccessGate.java eclipse-plugin/src/il/lamerhav/dsviz/OsTrust.java
+    eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java
 # המאגר של Visual Studio רץ ב-Java של ההתקנה (jlink) — כולל הכניסה (Account / AccessGate): בלי מודול שלא נכנס אליה
 sh tools/check-jre-modules.sh "$OUT" release/dsviz.jar
 # CsSolution בתוך התוספת (והיא קודם ב-classpath): Visual Studio פתוח מוסיף / מוציא את הפרויקט בעצמו — גם כשה-dsviz.jar של ההתקנה ישן

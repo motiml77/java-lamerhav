@@ -9,8 +9,8 @@ BANK=${1:-$ROOT/bank}
 W=$ROOT/build/bank-check
 [ -f release/dsviz.jar ] || sh tools/build-lib.sh
 rm -rf "$W" && mkdir -p "$W/cls"
-javac -encoding UTF-8 -nowarn -d "$W/cls" eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java eclipse-plugin/src/il/lamerhav/dsviz/Json.java \
-    eclipse-plugin/src/il/lamerhav/dsviz/SolutionCheck.java eclipse-plugin/src/il/lamerhav/dsviz/ExercisePipeline.java -sourcepath eclipse-plugin/src -cp release/dsviz.jar \
+javac -encoding UTF-8 -nowarn -d "$W/cls" eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java access/src/il/lamerhav/dsviz/Json.java \
+    eclipse-plugin/src/il/lamerhav/dsviz/SolutionCheck.java eclipse-plugin/src/il/lamerhav/dsviz/ExercisePipeline.java -sourcepath eclipse-plugin/src:access/src -cp release/dsviz.jar \
     eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
     tools/test/bank/BankCheck.java tools/test/bank/BankCheckCs.java tools/test/bank/BankProgressTest.java tools/test/bank/BankSectionsCheck.java 2>&1 | grep -v "Picked up" || true
 # פלט בלי "Picked up", וקוד היציאה של הבדיקה עצמה (לא של grep) — כשל עוצר את הסקריפט

@@ -14,9 +14,13 @@ import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.PublicKey;
@@ -30,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -94,6 +99,9 @@ public final class Account {
 
     /** איך פותחים את הדפדפן (בבדיקות — מוחלף) */
     public static volatile java.util.function.Consumer<String> browser = Account::openBrowser;
+
+    /** שם הלקוח לשרת (User-Agent, "client"). WorkerClient מחליף אותו לערך של WorkerClient.CLIENT (dsviz-vs / dsviz-vscode) */
+    public static volatile java.util.function.Supplier<String> client = () -> "dsviz-eclipse/1.0.1";
 
     /** המפתח הציבורי של השרת (החתימה על האישור). ציבורי — לא סוד; המפתח הפרטי נמצא רק בשרת (PASS_KEY) */
     static final String PASS_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzcPy66SILXotJ2VPxjt93e7dGBR1chdnNh6Ptgr6KYXn5DGhSYEbkT3dsFKWO96QQCw/wG/bsQmqtLDxLHgjzOxjmYMGxyLmBkhHfywmYBl8JvRRPkWUn5AqZI5VgQ7cqeF4vbjMIOeb3jR3GB4QhfaI04v+4mAna6KQEC0drXfhT5oMuOhbfxH2t77tCC1iUkAnnfA/VprWcvPyieyzdTxZ4/r4e9VS5hTGceRsKpsdC7/Euy31vqrJxeVLV7Mwc1PkAMk0ghEJtSRBbvZdRUv5X5K8DLAjVpEVRHlq2XwobMI2c8oSU8qGESGsUk/R1lGUWIqGOXE+UdW6ODPVjQIDAQAB";
@@ -220,7 +228,17 @@ public final class Account {
     }
 
     /** כותב קובץ קטן (לא מוצפן — למזהה) במקום הראשי ובגיבוי, ומסמן כנסתר */
-    private static boolean writeBoth(File f, byte[] data) {
+    private static boolean writeBoth(final File f, final byte[] data) {
+        try {
+            return locked(new Callable<Boolean>() {
+                @Override public Boolean call() { return writeBothLocked(f, data); }
+            });
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean writeBothLocked(File f, byte[] data) {
         boolean ok = false;
         for (File x : new File[] { f, backupOf(f) }) {
             if (x == null) continue;
@@ -237,12 +255,16 @@ public final class Account {
     }
 
     /** מוחק קובץ זיהוי (ההנהלה ביטלה / התנתקות) — גם את הגיבוי */
-    private static void forget(File f) {
+    private static void forget(final File f) {
         if (f == null) return;
-        f.delete();
-        File b = backupOf(f);
-        if (b != null) b.delete();
-        syncTeacherFlag();
+        lockedRun(new Runnable() {
+            @Override public void run() {
+                f.delete();
+                File b = backupOf(f);
+                if (b != null) b.delete();
+                syncTeacherFlag();
+            }
+        });
     }
 
     /** מעביר קובץ מהמקום הישן לחדש (אם בחדש אין) ומוחק את הישן */
@@ -256,6 +278,65 @@ public final class Account {
             legacy.delete();
         } catch (Exception ignored) {
             // נשאר במקום הישן — עדיין נקרא משם
+        }
+    }
+
+    // ------------------------------------------------------------------ נעילה: כמה תוכנות כותבות לאותם קבצים
+
+    private static final Object WRITE_LOCK = new Object();
+    private static final ThreadLocal<int[]> LOCK_DEPTH = new ThreadLocal<int[]>() {
+        @Override protected int[] initialValue() { return new int[1]; }
+    };
+    static final long LOCK_WAIT_MS = 5000;
+
+    /**
+     * כל כתיבה / מחיקה של קובצי הזיהוי עוברת כאן: נעילה בתוך התוכנה (חוטים) וגם בין התוכנות של אותו משתמש — Eclipse,
+     * IntelliJ, Visual Studio ו"מודלים חישוביים" יכולים לכתוב באותו רגע (‎.lock‎ בתיקייה הנסתרת של המשתמש). בלי הרשאה לקובץ
+     * הנעילה / תוכנה תקועה שמחזיקה אותו יותר מ-5 שניות — כותבים בלי נעילה (כמו קודם), לא נתקעים.
+     */
+    static <T> T locked(Callable<T> work) throws Exception {
+        synchronized (WRITE_LOCK) {
+            int[] depth = LOCK_DEPTH.get();
+            if (depth[0] > 0) {   // כבר נעול בחוט הזה (קריאה מקוננת)
+                depth[0]++;
+                try { return work.call(); } finally { depth[0]--; }
+            }
+            FileChannel ch = null;
+            FileLock lock = null;
+            try {
+                File dir = secureUserDir();
+                dir.mkdirs();
+                File lf = new File(dir, ".lock");
+                ch = FileChannel.open(lf.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                hide(lf);
+                long until = System.currentTimeMillis() + LOCK_WAIT_MS;
+                while ((lock = ch.tryLock()) == null && System.currentTimeMillis() < until) Thread.sleep(20);
+            } catch (IOException | OverlappingFileLockException e) {
+                lock = null;   // בלי נעילה בין תוכנות
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            depth[0]++;
+            try {
+                return work.call();
+            } finally {
+                depth[0]--;
+                try { if (lock != null) lock.release(); } catch (IOException ignored) { /* נסגר עם הערוץ */ }
+                try { if (ch != null) ch.close(); } catch (IOException ignored) { /* לא חשוב */ }
+            }
+        }
+    }
+
+    /** locked בלי ערך חוזר ובלי חריגות (מה שבפנים כבר מטפל בשגיאות שלו) */
+    private static void lockedRun(final Runnable work) {
+        try {
+            locked(new Callable<Object>() {
+                @Override public Object call() { work.run(); return null; }
+            });
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -280,6 +361,17 @@ public final class Account {
      * יוצרים מזהה חדש. אי אפשר לכתוב קובץ בשום מקום — משתמשים בשם המחשב (עדיין שונה בין מחשבים).
      */
     static String installId() {
+        // שתי תוכנות שעולות יחד בפעם הראשונה לא יוצרות שני מזהים שונים (אחרת כל אחת לא הייתה פותחת את הקבצים של השנייה)
+        try {
+            return locked(new Callable<String>() {
+                @Override public String call() { return installIdLocked(); }
+            });
+        } catch (Exception e) {
+            return installIdLocked();
+        }
+    }
+
+    private static String installIdLocked() {
         String host = machineName();
         // המקומות החדשים (נסתרים, עם גיבוי) קודם, ואחריהם המקום הישן — ממנו המזהה עובר לחדש (אותו מזהה: אחרת היו
         // אובדים העמדה והקבצים המוצפנים)
@@ -440,7 +532,19 @@ public final class Account {
         }
     }
 
-    static boolean save(File f, Map<String, Object> data) {
+    static boolean save(final File f, final Map<String, Object> data) {
+        try {
+            return locked(new Callable<Boolean>() {
+                @Override public Boolean call() { return saveLocked(f, data); }
+            });
+        } catch (Exception e) {
+            lastError = String.valueOf(e);
+            return false;
+        }
+    }
+
+    private static boolean saveLocked(File f, Map<String, Object> data) {
+        File tmp = null;
         try {
             byte[] iv = new byte[12];
             RANDOM.nextBytes(iv);
@@ -454,7 +558,7 @@ public final class Account {
             outer.put("v", 1.0);
             outer.put("data", Base64.getEncoder().encodeToString(all));
             f.getParentFile().mkdirs();
-            File tmp = new File(f.getParentFile(), f.getName() + ".tmp");
+            tmp = new File(f.getParentFile(), f.getName() + "." + Long.toHexString(RANDOM.nextLong() & Long.MAX_VALUE) + ".tmp");
             Files.write(tmp.toPath(), Json.write(outer).getBytes(StandardCharsets.UTF_8));
             boolean shared = isStationFile(f);
             if (!shared) ownerOnly(tmp);   // הכרטיס של המורה / התלמיד — רק המשתמש עצמו קורא (Mac / Linux: בלי זה הקובץ ‎0644‎)
@@ -476,6 +580,8 @@ public final class Account {
         } catch (Exception e) {
             lastError = String.valueOf(e);
             return false;
+        } finally {
+            if (tmp != null && tmp.exists()) tmp.delete();
         }
     }
 
@@ -578,7 +684,7 @@ public final class Account {
             c.setDoOutput(true);
             c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             c.setRequestProperty("Accept", "application/json");
-            c.setRequestProperty("User-Agent", WorkerClient.CLIENT);
+            c.setRequestProperty("User-Agent", client.get());
             byte[] out = Json.write(body).getBytes(StandardCharsets.UTF_8);
             try (OutputStream o = c.getOutputStream()) { o.write(out); }
             int code = c.getResponseCode();
@@ -619,7 +725,36 @@ public final class Account {
     }
 
     /** שומר את מה שהשרת החזיר (כרטיס + אישור) — אצל המשתמש או לכל המחשב */
-    private static void store(File f, Result r, String token) {
+    private static void store(final File f, final Result r, final String token) {
+        lockedRun(new Runnable() {
+            @Override public void run() { storeLocked(f, r, token); }
+        });
+    }
+
+    /**
+     * כמו store, אבל רק אם בקובץ עדיין אותו כרטיס: בדיקה ארוכה מול השרת בתוכנה אחת לא מחזירה כניסה שתוכנה אחרת ניתקה
+     * בינתיים (או מחליפה כניסה חדשה של משתמש אחר)
+     */
+    private static void storeIfSame(final File f, final Result r, final String token) {
+        lockedRun(new Runnable() {
+            @Override public void run() {
+                Map<String, Object> now = load(f);
+                if (now != null && token.equals(Json.str(now.get("token")))) storeLocked(f, r, token);
+            }
+        });
+    }
+
+    /** כמו forget, אבל רק אם בקובץ עדיין אותו כרטיס */
+    private static void forgetIfSame(final File f, final String token) {
+        lockedRun(new Runnable() {
+            @Override public void run() {
+                Map<String, Object> now = load(f);
+                if (now == null || token.equals(Json.str(now.get("token")))) forget(f);
+            }
+        });
+    }
+
+    private static void storeLocked(File f, Result r, String token) {
         Map<String, Object> d = new LinkedHashMap<String, Object>();
         d.put("token", token);
         d.put("pass", Json.str(r.body.get("pass")));
@@ -674,7 +809,7 @@ public final class Account {
 
     /** חיבור עמדה עם קוד המורה. ok — נשמר לכל המחשב; full / bad-code / blocked / offline — הודעה */
     public static Result claimStation(String code, String name) {
-        Result r = post("/v1/station/claim", map("code", code, "name", name, "machine", machine(), "client", WorkerClient.CLIENT));
+        Result r = post("/v1/station/claim", map("code", code, "name", name, "machine", machine(), "client", client.get()));
         if (r.ok()) {
             String token = Json.str(r.body.get("token"));
             File f = new File(machineDir(), STATION_FILE);
@@ -742,7 +877,7 @@ public final class Account {
                 String location;
                 try {
                     Result r = post("/v1/auth/redeem", map("code", q.get("code"), "verifier", verifier, "machine", machine(),
-                            "machineName", machineName(), "client", WorkerClient.CLIENT));
+                            "machineName", machineName(), "client", client.get()));
                     String token = Json.str(r.body.get("token"));
                     if (!token.isEmpty()) store(userFile(), r, token);
                     r = checkSaved(r, userFile());
@@ -878,8 +1013,7 @@ public final class Account {
         Map<String, Object> u = load(uf);
         if (u != null && !Json.str(u.get("token")).isEmpty()) {
             Result r = post("/v1/access/check", map("token", Json.str(u.get("token")), "machine", machine()));
-            if (r.status.matches("revoked|invalid|not-teacher")) forget(uf);
-            else if (validState(r)) store(uf, r, Json.str(u.get("token")));
+            refreshWith(uf, Json.str(u.get("token")), r);
             // כל דבר אחר (בלי אינטרנט, 429 / 500 / 404, תשובה לא תקינה) — תקלה רגעית: האישור השמור נשאר כמו שהוא
             last = r;
         }
@@ -887,11 +1021,18 @@ public final class Account {
         Map<String, Object> s = load(sf);
         if (s != null && !Json.str(s.get("token")).isEmpty()) {
             Result r = post("/v1/access/check", map("token", Json.str(s.get("token")), "machine", machine()));
-            if (r.status.matches("revoked|invalid")) forget(sf);
-            else if (validState(r)) store(sf, r, Json.str(s.get("token")));
+            if (r.status.matches("revoked|invalid")) forgetIfSame(sf, Json.str(s.get("token")));
+            else if (validState(r)) storeIfSame(sf, r, Json.str(s.get("token")));
             if (last == null || !last.ok()) last = r;
         }
         return last == null ? new Result("none", "", null) : last;
+    }
+
+    /** מעדכן את הכרטיס של המשתמש לפי תשובת השרת — רק אם הוא עדיין אותו כרטיס (storeIfSame / forgetIfSame) */
+    static void refreshWith(File uf, String token, Result r) {
+        if (r.status.matches("revoked|invalid|not-teacher")) forgetIfSame(uf, token);
+        else if (validState(r)) storeIfSame(uf, r, token);
+        // כל דבר אחר (בלי אינטרנט, 429 / 500 / 404, תשובה לא תקינה) — תקלה רגעית: האישור השמור נשאר כמו שהוא
     }
 
     /**
@@ -913,6 +1054,49 @@ public final class Account {
 
     private static final String LOGOUT_FILE = "logout.json", LOGOUT_DAT = "o.dat";
 
+    // ------------------------------------------------------------------ שינויים מתוכנה אחרת (AccessWatch)
+
+    /** התיקיות שבהן נשמרת הכניסה (למעקב אחרי שינויים של תוכנה אחרת) */
+    static List<File> watchedDirs() {
+        List<File> out = new ArrayList<File>();
+        for (File f : watchedFiles()) {
+            File d = f.getParentFile();
+            if (d != null && !out.contains(d)) out.add(d);
+        }
+        return out;
+    }
+
+    /** הקבצים שקובעים מי מחובר: המשתמש (מורה / תלמיד) והעמדה — בלי לגעת בהם (בלי העברה מהמקום הישן) */
+    static List<File> watchedFiles() {
+        List<File> out = new ArrayList<File>();
+        if (plainDirs()) {
+            out.add(new File(userDir(), USER_FILE));
+            out.add(new File(machineDir(), STATION_FILE));
+            out.add(new File(userDir(), STATION_FILE));
+        } else {
+            out.add(new File(secureUserDir(), USER_DAT));
+            out.add(new File(secureMachineDir(), STATION_DAT));
+            out.add(new File(secureUserDir(), STATION_DAT));
+        }
+        return out;
+    }
+
+    /**
+     * "מי מחובר" בשורה אחת (בלי הכרטיס): משתנה רק כשהכניסה באמת משתנה — לא בכל בדיקה מול השרת (שמצפינה מחדש את אותו קובץ)
+     */
+    static String fingerprint() {
+        Access a = current();
+        Map<String, Object> u = userState();
+        StringBuilder b = new StringBuilder();
+        if (a != null) b.append(a.kind).append('|').append(a.email).append('|').append(a.name).append('|').append(a.until).append('|').append(a.teacher);
+        b.append("||");
+        if (u != null) {
+            b.append(Json.str(u.get("status"))).append('|').append(Json.str(u.get("role"))).append('|').append(Json.str(u.get("email")))
+                    .append('|').append(Json.str(u.get("token")).isEmpty() ? "" : hex(sha256(Json.str(u.get("token")))).substring(0, 12));
+        }
+        return b.toString();
+    }
+
     private static File logoutFile() {
         return plainDirs() ? new File(userDir(), LOGOUT_FILE) : new File(secureUserDir(), LOGOUT_DAT);
     }
@@ -925,7 +1109,13 @@ public final class Account {
         return out;
     }
 
-    private static synchronized void pendingLogout(String tok, boolean add) {
+    private static void pendingLogout(final String tok, final boolean add) {
+        lockedRun(new Runnable() {
+            @Override public void run() { pendingLogoutLocked(tok, add); }
+        });
+    }
+
+    private static void pendingLogoutLocked(String tok, boolean add) {
         List<String> all = pendingLogouts();
         all.remove(tok);
         if (add) all.add(tok);
@@ -949,7 +1139,8 @@ public final class Account {
     // ------------------------------------------------------------------ המורה המחובר (לעמדת הניהול)
 
     /**
-     * סימון (לא סוד — רק מייל ושם, אף פעם לא הכרטיס) שהמשתמש של Windows מחובר כמורה: ‎%LOCALAPPDATA%\DSViz\teacher.flag‎.
+     * סימון (לא סוד — רק מייל ושם, אף פעם לא הכרטיס) שהמשתמש של Windows מחובר כמורה: ‎%LOCALAPPDATA%\Lamerhav\.cache\teacher.flag‎ —
+     * באותה תיקייה נסתרת של כל קובצי הזיהוי (עד גרסה 1.0.1: ‎%LOCALAPPDATA%\DSViz\teacher.flag‎ — נמחק כאן; הסרגל קורא גם משם, לגרסה אחת).
      * סרגל הכלים של Visual Studio (C#, לא יכול לפתוח את הקבצים המוצפנים) מציג את "עמדת ניהול" רק כשהוא קיים. הסימון הוא רק
      * רמז לממשק — עמדת הניהול עצמה בודקת שוב את האישור החתום ואת השרת. null — אין סרגל של Visual Studio (Mac / Linux)
      */
@@ -958,6 +1149,12 @@ public final class Account {
         if (d != null && !d.isEmpty()) return new File(d, "teacher.flag");
         if (plainDirs()) return new File(userDir(), "teacher.flag");
         if (!windows()) return null;
+        return new File(secureUserDir(), "teacher.flag");
+    }
+
+    /** המקום הישן של הסימון (עד גרסה 1.0.1), או null */
+    static File legacyTeacherFlagFile() {
+        if (System.getProperty("dsviz.statusDir") != null || plainDirs() || !windows()) return null;
         String la = System.getenv("LOCALAPPDATA");
         return la == null || la.isEmpty() ? null : new File(new File(la, "DSViz"), "teacher.flag");
     }
@@ -965,6 +1162,8 @@ public final class Account {
     /** מעדכן את הסימון לפי מי שמחובר עכשיו (נקרא אחרי כל שמירה / מחיקה של כניסה, ובפתיחת הכלים) */
     public static void syncTeacherFlag() {
         try {
+            File old = legacyTeacherFlagFile();
+            if (old != null && old.exists()) old.delete();   // עבר לתיקייה הנסתרת
             File f = teacherFlagFile();
             if (f == null) return;
             Map<String, Object> t = teacherInfo();
@@ -972,10 +1171,12 @@ public final class Account {
                 if (f.exists()) f.delete();
                 return;
             }
-            if (!f.getParentFile().isDirectory()) return;   // DSViz ל-Visual Studio לא מותקן — לא יוצרים תיקייה
+            if (System.getProperty("dsviz.statusDir") != null && !f.getParentFile().isDirectory()) return;   // בדיקות: בלי תיקייה — בלי סימון
+            f.getParentFile().mkdirs();
             byte[] text = Json.write(map("email", t.get("email"), "name", t.get("name"))).getBytes(StandardCharsets.UTF_8);
             if (f.isFile() && java.util.Arrays.equals(Files.readAllBytes(f.toPath()), text)) return;   // בלי שינוי — הסרגל לא מתעדכן סתם
             Files.write(f.toPath(), text);
+            hide(f);
         } catch (Exception ignored) {
             // רק רמז לממשק
         }
