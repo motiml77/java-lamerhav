@@ -165,14 +165,17 @@ namespace DsViz.VsExtension
             SyncControl("מאגר שאלות", "bank", on);
         }
 
+        /// <returns>true — הכפתור נמצא בסרגל ועודכן (בטעינה הסרגל עוד לא תמיד קיים)</returns>
+
         /// <summary>מציג / מסתיר את הכפתור שהכיתוב שלו מכיל caption גם דרך DTE (CommandBars) — ראו SyncBankControl</summary>
-        void SyncControl(string caption, string tag, bool on)
+        bool SyncControl(string caption, string tag, bool on)
         {
+            bool found = false;
             try
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
                 var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
-                if (dte == null) return;
+                if (dte == null) return false;
                 dynamic bar = ((dynamic)dte.CommandBars)["DSViz"];
                 foreach (dynamic ctl in bar.Controls)
                 {
@@ -180,6 +183,7 @@ namespace DsViz.VsExtension
                     if (cap != null && cap.Contains(caption))
                     {
                         if (ctl.Visible != on) ctl.Visible = on;
+                        found = true;
                         SolutionHints.Log(tag + " control visible=" + on);
                     }
                 }
@@ -188,6 +192,7 @@ namespace DsViz.VsExtension
             {
                 SolutionHints.Log(tag + " control sync failed: " + ex.Message, true);
             }
+            return found;
         }
 
         // ------------------------------------------------------------------ "עמדת ניהול" — רק למורה מחובר
@@ -208,6 +213,7 @@ namespace DsViz.VsExtension
         }
 
         bool? _teacherOn;
+        bool _teacherSynced;
         FileSystemWatcher _teacherWatch;
 
         /// <summary>"עמדת ניהול": כמו ב-Eclipse — בסרגל, נראה רק כשהמשתמש מחובר כמורה; פותח את חלון המורה (הקוד, העמדות, התנתקות)</summary>
@@ -247,13 +253,17 @@ namespace DsViz.VsExtension
             }
         }
 
+        /// <summary>
+        /// מעדכן גם דרך CommandBars. בטעינה הכפתור עוד לא תמיד בסרגל — אז מנסים שוב בכל בדיקת פקודות עד שהוא נמצא (אחרת הוא
+        /// נשאר אפור ונראה גם למי שלא מחובר כמורה — כך נמצא בבדיקה ב-Visual Studio האמיתי)
+        /// </summary>
         void TeacherChanged(bool on)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (on == _teacherOn) return;
+            if (on == _teacherOn && _teacherSynced) return;
+            if (on != _teacherOn) SolutionHints.Log("teacher button: " + (on ? "shown" : "hidden"));
             _teacherOn = on;
-            SolutionHints.Log("teacher button: " + (on ? "shown" : "hidden"));
-            SyncControl("עמדת ניהול", "teacher", on);
+            _teacherSynced = SyncControl("עמדת ניהול", "teacher", on);
         }
 
         void TeacherFlagChanged()
