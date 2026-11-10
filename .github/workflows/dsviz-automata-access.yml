@@ -14,6 +14,7 @@ on:
       - 'java-visualizer/tools/build-automata.sh'
       - 'java-visualizer/tools/test/windows-vs-toolbar/automata-access.ps1'
       - 'java-visualizer/tools/test/windows-vs-toolbar/SeedSession.java'
+      - 'java-visualizer/installer/automata.ps1'
   workflow_dispatch:
 concurrency:
   group: dsviz-automata-access-${{ github.ref }}
