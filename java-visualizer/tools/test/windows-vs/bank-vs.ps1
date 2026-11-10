@@ -6,7 +6,7 @@
 #   5. התלמיד כותב את הפתרון (ההצעות השמורות), MSBuild של Visual Studio בונה, והתוכנית מדפיסה בדיוק את הפלט הרצוי; "הרצה ויזואלית" נפתחת
 #   6. "סיימתי את התרגיל" → הפרויקט נמחק מהדיסק ומהפתרון, והפתרון עדיין נבנה
 param([Parameter(Mandatory = $true)][string]$Setup, [Parameter(Mandatory = $true)][string]$Lab, [Parameter(Mandatory = $true)][string]$Out,
-    [Parameter(Mandatory = $true)][string]$Bank, [Parameter(Mandatory = $true)][string]$TestCp)
+    [Parameter(Mandatory = $true)][string]$Bank, [Parameter(Mandatory = $true)][string]$TestCp, [string]$FreshCs = '')
 $ErrorActionPreference = 'Continue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $OutputEncoding = [Text.Encoding]::UTF8
@@ -133,6 +133,13 @@ Info "Visual Studio: $vsName — $vs · מסך: $([Windows.Forms.SystemInformati
 Log "== 1. ההתקנה: DSViz-Setup.exe (חבילת C#) והתוספת 'מאגר תרגילים'"
 $p = Start-Process $Setup -ArgumentList '/S', '/LANG=cs' -PassThru -Wait
 Check 'install' ($p.ExitCode -eq 0 -and (Test-Path $sln) -and (Test-Path $runner)) "DSViz הותקן: הפתרון DataStructures-CS ו-dsviz-cs" "קוד $($p.ExitCode)"
+if ($FreshCs -and (Test-Path (Join-Path $FreshCs 'dsviz-cs.exe'))) {
+    # DSViz-Setup.exe שבענף נבנה מזמן (הספרייה שבו עוד בלי התיקון של ToString של התלמיד) — ההרצה הוויזואלית והספרייה של C#
+    # מהקוד העדכני, כמו שייכנסו להתקנה הבאה: בודקים את המאגר מול מה שהתלמידים יקבלו, לא מול בנייה ישנה
+    Copy-Item (Join-Path $FreshCs '*') (Join-Path $dsviz 'cs') -Recurse -Force
+    Copy-Item (Join-Path $FreshCs 'Unit4.CollectionsLib.dll') (Join-Path $csDir 'lib') -Force
+    Info "dsviz-cs והספרייה של C# הוחלפו בבנייה מהקוד העדכני ($FreshCs)"
+}
 $o = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Lab 'install-bank-vs.ps1') 2>&1
 Info "install-bank-vs.ps1: $($o -join ' ')"
 $ws = New-Object -ComObject WScript.Shell
@@ -235,6 +242,21 @@ Start-Sleep 8
 Shot '06-jump-file-in-vs'
 # כותבים קוד ב-Visual Studio (מקלדת אמיתית) בזמן שהחלון הצף פתוח — הוא נשאר מקדימה
 if ($ready) {
+    # מה שיש עכשיו בעורך (דרך Visual Studio עצמו) — אחרי ההקלדה מחזירים בדיוק את זה. לא Ctrl+Z: ב-Visual Studio כל הוספה של
+    # "הכן סעיף ב'" היא צעד ביטול משלו, ו-Ctrl+Z "ליתר ביטחון" מבטל גם אותה (ואז Main קורא לפעולה שכבר לא קיימת)
+    $tDoc = $null; $tOrig = $null; $tFile = $null
+    if ($dir) {
+        $tFile = [IO.Path]::GetFullPath((Get-ChildItem $dir -Filter '*.cs' | Select-Object -First 1).FullName)
+        for ($r = 0; $r -lt 5 -and $null -eq $tOrig; $r++) {
+            try {
+                $tDte = $null
+                foreach ($p in 'VisualStudio.DTE.18.0', 'VisualStudio.DTE.17.0', 'VisualStudio.DTE') { try { $tDte = [Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }
+                foreach ($x in $tDte.Documents) { if ([IO.Path]::GetFullPath($x.FullName) -ieq $tFile) { $tDoc = $x } }
+                if (-not $tDoc) { break }
+                $td = $tDoc.Object('TextDocument'); $tOrig = $td.StartPoint.CreateEditPoint().GetText($td.EndPoint)
+            } catch { Start-Sleep 1 }
+        }
+    }
     $wsh = New-Object -ComObject WScript.Shell
     [void]$wsh.AppActivate($vsP.Id); Start-Sleep 2
     $wsh.SendKeys('{END}{ENTER}'); Start-Sleep 1
@@ -242,8 +264,18 @@ if ($ready) {
     Shot '06b-typing-in-vs-float-in-front'
     $fg = (Get-Process -Id $vsP.Id).MainWindowTitle
     Check 'vs-typing' ($fg -like '*Microsoft Visual Studio*') "כותבים קוד ב-Visual Studio בזמן שהחלון הצף פתוח (רואים בצילום שהחלון נשאר מקדימה)" $fg
-    for ($u = 0; $u -lt 4; $u++) { $wsh.SendKeys('^z'); Start-Sleep -Milliseconds 300 }   # מבטלים את ההקלדה
-    $wsh.SendKeys('^s'); Start-Sleep 1
+    if ($null -ne $tOrig) {
+        $restored = $false
+        for ($r = 0; $r -lt 5 -and -not $restored; $r++) {
+            try { $td = $tDoc.Object('TextDocument'); $td.StartPoint.CreateEditPoint().ReplaceText($td.EndPoint, $tOrig, 0); $tDoc.Save(); $restored = $true } catch { Start-Sleep 1 }
+        }
+        $now = Get-Content $tFile -Raw -Encoding utf8
+        Check 'vs-typing-undone' ($restored -and ($now -replace '\s', '') -eq ($tOrig -replace '\s', '')) "ההקלדה נמחקה — הקובץ חזר להיות כמו לפני (ומה ש'הכן סעיף ב'' הוסיף נשאר)"
+    } else {
+        # בלי גישה ל-Visual Studio (DTE): מוחקים רק את השורה שהוקלדה (Edit.LineDelete)
+        $wsh.SendKeys('{ESC}'); Start-Sleep -Milliseconds 300; $wsh.SendKeys('^+l'); Start-Sleep -Milliseconds 500
+        $wsh.SendKeys('^s'); Start-Sleep 1
+    }
 }
 if ($ready -and $dir) {
     $cs = Get-ChildItem $dir -Filter '*.cs' | Select-Object -First 1
@@ -407,6 +439,12 @@ if ($pdir) {
     $cr = Join-Path $Out 'clean\clean-result.txt'
     Check 'pending-clean' ((Test-Path $cr) -and ((Get-Content $cr -Raw -Encoding utf8) -match 'ok   pending-clean')) "אחרי ש-Visual Studio נסגר, בפתיחה הבאה של הכלי: מה שנשאר מהתרגיל (obj) נמחק" $(if (Test-Path $cr) { Get-Content $cr -Raw -Encoding utf8 } else { 'אין תוצאה' })
     Check 'pending-gone' (-not (Test-Path $pdir)) "התיקייה $(Split-Path $pdir -Leaf) כבר לא קיימת"
+} elseif ($dir -and (Test-Path $dir) -and -not $keep -and -not ($itP.HasExited -and $itP.ExitCode -eq 0)) {
+    # BankVsIt נעצר באמצע (הכשל כבר נרשם למעלה): התרגיל שלו עדיין בפתרון — מוציאים ומוחקים אותו, כדי שהבדיקה הרחבה תתחיל
+    # מפתרון נקי ולא תיכשל בגללו פעם נוספת (מספור, בנייה של כל הפתרון, "הפתרון חזר להיות כמו בהתחלה")
+    Info "BankVsIt לא הגיע ל'סיימתי' — מוציאים את $name מהפתרון ומוחקים אותו לפני הבדיקה הרחבה"
+    & dotnet sln $sln remove (Join-Path $dir "$name.csproj") 2>&1 | Out-Null
+    Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
 } else { Info "התיקייה של התרגיל נמחקה כבר ב'סיימתי' (שום דבר לא נשאר)" }
 # ------------------------------------------------------------------ 7. בדיקה רחבה: כל השאלות ומקרי קצה (BankVsAll)
 Log "== 7. כל השאלות: יצירה, פתרון, MSBuild של Visual Studio, הרצה; ואז 'סיימתי' על כולן ומקרי קצה"

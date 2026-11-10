@@ -248,11 +248,23 @@ public final class BankVs {
         return BankSections.prepared(ex, texts);
     }
 
+    /**
+     * תוכן הקובץ, או "" אם אי אפשר לקרוא אותו. ב-Windows קובץ "תפוס" לרגע כש-Visual Studio שומר אותו (או כשאנטי-וירוס בודק
+     * אותו) — מנסים שוב עד כ-3 שניות, ולא מחזירים "" על קובץ שקיים רק בגלל הרגע הזה.
+     */
     static String read(File f) {
-        try {
-            return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            return "";
+        for (int i = 0; ; i++) {
+            try {
+                return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                if (i >= 15 || !f.isFile()) return "";
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException stop) {
+                    Thread.currentThread().interrupt();
+                    return "";
+                }
+            }
         }
     }
 
@@ -276,6 +288,10 @@ public final class BankVs {
             File f = fe.getValue();
             if (vs) vsDocument("save", f, null);   // שינויים שלא נשמרו בעורך — קודם נשמרים, כדי שההוספה תהיה על הקוד העדכני
             String text = read(f);
+            if (text.isEmpty() && f.length() > 0) {   // \u05E2\u05D3\u05D9\u05D9\u05DF \u05EA\u05E4\u05D5\u05E1 (Visual Studio / \u05D0\u05E0\u05D8\u05D9-\u05D5\u05D9\u05E8\u05D5\u05E1) \u2014 \u05DC\u05D0 "\u05DE\u05D5\u05E1\u05D9\u05E4\u05D9\u05DD" \u05DC\u05E7\u05D5\u05D1\u05E5 \u05E8\u05D9\u05E7
+                problems.add("\u05D4\u05E7\u05D5\u05D1\u05E5 " + f.getName() + " \u05EA\u05E4\u05D5\u05E1 \u05DB\u05E8\u05D2\u05E2 \u2014 \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D1\u05E2\u05D5\u05D3 \u05E8\u05D2\u05E2.");
+                continue;
+            }
             boolean bom = text.startsWith("\uFEFF");
             if (bom) text = text.substring(1);
             BankSections.Edit e = BankSections.add(text, full, task, fe.getKey(), false);
