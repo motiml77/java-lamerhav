@@ -6,6 +6,7 @@
 #   GateUi         — מסך הכניסה (Swing, ב-xvfb)
 #   TeacherPanelIt — עמדת הניהול של המורה והתנתקות (Swing, ב-xvfb)
 #   ShareIt        — כניסה משותפת בין שני תהליכים (Eclipse ↔ Visual Studio / "מודלים חישוביים"): שינוי מיידי, נעילה
+#   AutomataIt     — "מודלים חישוביים" (AutomataLauncher, תהליך נפרד): אבטחת השרת המקומי, הממשק לדף, כניסה / התנתקות משותפות
 # מריצים מתוך worker:  npm run test:access-java   (מפעיל את האמולטור ואת השרת המקומי)
 # צילומי מסך: $ACC_SHOTS (ברירת מחדל: תיקייה זמנית)
 set -e
@@ -35,6 +36,16 @@ javac --release 8 -Xlint:-options -encoding UTF-8 -nowarn -cp "$LIB" -d "$VSB" $
     $E/CsSolution.java
 (cd "$VSB" && unzip -qo "$ACC" -x 'META-INF/*')
 sh tools/check-jre-modules.sh "$VSB" "$LIB"
+# "מודלים חישוביים": המשגר (כמו tools/build-automata.sh), והאפליקציה — מהענף אם יש (automata/app), אחרת דף קטן עם access-client.js
+AUT="$W/automata"
+mkdir -p "$AUT/cls"
+javac --release 11 -encoding UTF-8 -nowarn -cp "$LIB" -d "$AUT/cls" $(find automata-launcher/src -name '*.java')
+cp automata/app/js/access-client.js "$AUT/cls/il/lamerhav/dsviz/"
+APP="${AUTOMATA_APP:-automata/app}"
+if [ ! -f "$APP/index.html" ]; then
+    APP="$AUT/app" && mkdir -p "$APP/js" && cp automata/app/js/access-client.js "$APP/js/"
+    printf '<!doctype html><html lang="he" dir="rtl"><meta charset="utf-8"><title>מודלים חישוביים</title><body><h1>מודלים חישוביים</h1></body></html>\n' > "$APP/index.html"
+fi
 CP="$CLS:$VSB:$LIB"
 J="java -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 -cp $CP"
 rc=0
@@ -48,13 +59,15 @@ PORT=8787 ADMIN_EMAILS=motiml77@gmail.com node "$R/worker/tools/dev-server.mjs" 
 DEV=$!
 trap 'kill $DEV 2>/dev/null' EXIT
 for i in $(seq 100); do curl -s "$SERVER/v1/access/config" > /dev/null && break; sleep 0.2; done
-for t in AccountIt GateUi TeacherPanelIt ShareIt; do
+for t in AccountIt GateUi TeacherPanelIt ShareIt AutomataIt; do
+    case " ${ACC_ONLY:-$t} " in *" $t "*) ;; *) continue ;; esac   # ACC_ONLY="ShareIt AutomataIt" — רק אלה
     echo "=== $t"
     case $t in
+        AutomataIt) $J -Djava.awt.headless=true -Dautomata.cp="$AUT/cls:$CP" il.lamerhav.dsviz.$t $SERVER 127.0.0.1:9099 "$W/$t" "$APP" || rc=1 ;;
         AccountIt|ShareIt) $J -Djava.awt.headless=true il.lamerhav.dsviz.$t $SERVER 127.0.0.1:9099 "$W/$t" || rc=1 ;;
         *) xrun $J il.lamerhav.dsviz.$t $SERVER 127.0.0.1:9099 "$W/$t" "$SHOTS/$t" || rc=1 ;;
     esac
 done
 echo "צילומים: $SHOTS"
-[ -n "$ACC_WORK" ] || rm -rf "$LIB" "$CLS" "$VSB"
+[ -n "$ACC_WORK" ] || rm -rf "$LIB" "$CLS" "$VSB" "$AUT"
 exit $rc

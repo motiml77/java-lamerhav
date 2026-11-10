@@ -33,7 +33,7 @@ $z = [IO.Compression.ZipFile]::OpenRead("$d\dsviz.jar")
 Check 'dsviz.jar כולל את מסך הכניסה (AccessGate, Account)' (($z.Entries | Where-Object { $_.FullName -eq 'il/lamerhav/dsviz/AccessGate.class' }) -and ($z.Entries | Where-Object { $_.FullName -eq 'il/lamerhav/dsviz/Account.class' }))
 $z.Dispose()
 Check 'מאגר ל-Visual Studio (lab\dsviz-bank-vs.jar)' (Test-Path "$d\lab\dsviz-bank-vs.jar")
-Check 'קיצור "מאגר תרגילים C#" בשולחן העבודה' (Test-Path (Join-Path $desk 'מאגר תרגילים C#.lnk'))
+Check 'בלי קיצורי המאגר בשולחן העבודה (במקומם הכפתורים בסרגל של Visual Studio)' (-not (Test-Path -LiteralPath (Join-Path $desk 'מאגר תרגילים C#.lnk')) -and -not (Test-Path -LiteralPath (Join-Path $desk 'השאלה — מאגר תרגילים C#.lnk')))
 Check 'רשום בהסרת תוכניות (DSViz-Lab)' (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz-Lab')
 Start-Process (Join-Path $Dir 'DSViz-Admin-Setup.exe') -ArgumentList '/S' -Wait
 $adm = Join-Path $desk 'ניהול DSViz.lnk'

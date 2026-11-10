@@ -134,6 +134,9 @@ cp src/Main.java "$P/src/"
 cp src/examples/*.java "$P/src/examples/"
 cp release/dsviz.jar "$P/lib/"
 
+echo "== מודלים חישוביים (build/automata — המשגר והאפליקציה, להתקנה)"
+sh tools/build-automata.sh
+
 echo "== Windows installer (DSViz-Setup.exe)"
 if command -v makensis >/dev/null 2>&1; then
     tools/build-jre.sh   # Java 21 מקוצרת ל-Windows שנכנסת לתוך ההתקנה
