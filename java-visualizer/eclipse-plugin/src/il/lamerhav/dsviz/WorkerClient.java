@@ -21,6 +21,7 @@ import java.util.UUID;
  */
 final class WorkerClient {
     static String CLIENT = "dsviz-eclipse/1.0.1";   // ב-VS Code / Visual Studio: dsviz-vscode / dsviz-vs
+    static { Account.client = () -> CLIENT; }   // הכניסה (dsviz-access.jar) שולחת את אותו שם לקוח
 
     /** שגיאה שמוצגת לתלמיד כמו שהיא */
     static final class AiError extends Exception {

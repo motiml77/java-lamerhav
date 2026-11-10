@@ -57,7 +57,10 @@ DEPS=build/eclipse-deps
 OUT=build/eclipse
 rm -rf "$OUT" && mkdir -p "$OUT/resources/examples"
 CP=$(ls $DEPS/*.jar | tr '\n' ':')
-javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp "$CP" -d "$OUT" $(find eclipse-plugin/src -name '*.java')
+# הכניסה המשותפת (access/ — dsviz-access.jar): המחלקות שלה בתוך התוסף, באותה חבילה (כמו שהיו)
+sh tools/build-access.sh > /dev/null
+javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp "$CP:build/access/dsviz-access.jar" -d "$OUT" $(find eclipse-plugin/src -name '*.java')
+(cd "$OUT" && unzip -qo ../access/dsviz-access.jar -x 'META-INF/*')
 cp eclipse-plugin/src/il/lamerhav/dsviz/problems_he.properties "$OUT/il/lamerhav/dsviz/"   # המורה בעברית: תרגום כל הודעות הקומפיילר
 cp eclipse-plugin/plugin.xml "$OUT/"
 # "שליחת תרגיל" מופיעה בתפריטים ובסרגל הכלים רק כשיש כתובת שרת (eclipse-plugin/ai.properties, worker/README.md)

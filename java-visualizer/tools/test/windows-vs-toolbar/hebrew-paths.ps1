@@ -107,7 +107,8 @@ $pk = & $java -cp "$seed;$BankJar;$Lib" il.lamerhav.dsviz.SeedSession key - $key
 if ($pk -match 'PASSKEY (\S+)') { $env:DSVIZ_PASS_KEY = $Matches[1] }
 $s = & $java '-Dfile.encoding=UTF-8' -cp "$seed;$BankJar;$Lib" il.lamerhav.dsviz.SeedSession teacher teacher@test.dev $key 2>&1 | Out-String
 Log "כניסה מוכנה: $($s.Trim())"
-Check 'teacher-flag' (Test-Path -LiteralPath "$inst\teacher.flag") 'הסימון לסרגל (teacher.flag) נכתב בתיקיית ההתקנה בעברית' $s
+$flag = "$env:LOCALAPPDATA\Lamerhav\.cache\teacher.flag"
+Check 'teacher-flag' ((Test-Path -LiteralPath $flag) -and -not (Test-Path -LiteralPath "$inst\teacher.flag")) 'הסימון לסרגל (teacher.flag) נכתב בתיקייה הנסתרת של הזיהוי (LOCALAPPDATA בעברית), לא בתיקיית ההתקנה' $s
 # Start-Process (לא &): javaw יורש את הפלט של dsviz-cs.exe, ו-& היה מחכה עד שהחלון נסגר
 $tOut = Join-Path $env:RUNNER_TEMP 'teacher-out.txt'; $tErr = Join-Path $env:RUNNER_TEMP 'teacher-err.txt'
 Start-Process "$inst\cs\dsviz-cs.exe" -ArgumentList '--tool', 'teacher' -WindowStyle Hidden -RedirectStandardOutput $tOut -RedirectStandardError $tErr

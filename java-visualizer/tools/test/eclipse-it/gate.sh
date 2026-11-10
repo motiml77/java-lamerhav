@@ -17,7 +17,9 @@ DEPS="$ROOT/build/eclipse-deps"
 [ -f "$DEPS/org.eclipse.jdt.core.jar" ] && [ -f "$DEPS/org.eclipse.ui.workbench.jar" ] || python3 "$ROOT/tools/eclipse-deps.py" "$DEPS"
 P="$G/plugin"
 mkdir -p "$P/resources/examples"
-javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp "$(ls "$DEPS"/*.jar | tr '\n' ':')" -d "$P" $(find "$ROOT/eclipse-plugin/src" -name '*.java')
+sh "$ROOT/tools/build-access.sh" > /dev/null
+javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp "$(ls "$DEPS"/*.jar | tr '\n' ':')$ROOT/build/access/dsviz-access.jar" -d "$P" $(find "$ROOT/eclipse-plugin/src" -name '*.java')
+(cd "$P" && unzip -qo "$ROOT/build/access/dsviz-access.jar" -x 'META-INF/*')
 cp "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/problems_he.properties" "$P/il/lamerhav/dsviz/"
 cp "$ROOT/eclipse-plugin/plugin.xml" "$P/"
 cp -r "$ROOT/eclipse-plugin/icons" "$P/"
