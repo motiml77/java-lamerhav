@@ -55,6 +55,11 @@ Log "8.3: $((fsutil 8dot3name query C: 2>&1) -join ' ')"
 $o = & "$inst\jdk\bin\java.exe" -version 2>&1 | Out-String
 Check 'old-java-path-fails' ($o -match 'java\.dll|Error') 'הדרך הקודמת: java.exe מתיקייה בעברית לא עולה כאן' ($o.Trim())
 
+# אבחון: השם הקצר של java.exe — האם המשגר עולה ממנו (אם לא, צריך את הצומת)
+$short = (cmd /c "for %I in (`"$inst\jdk\bin\java.exe`") do @echo %~sI" 2>&1 | Out-String).Trim()
+$o = & $short -version 2>&1 | Out-String
+Log "שם קצר: $short → $(($o -split "`n")[0].Trim())"
+
 # 1. הדרך הקודמת: classpath מלא בשורת הפקודה — java לא מוצאת את המחלקה (הנתיב הופך ל-"?")
 $o = & $java -cp "$inst\dsviz.jar" unit4.collectionsLib.TraceViewer --check x 2>&1 | Out-String
 Check 'old-classpath-fails' ($LASTEXITCODE -ne 0 -and $o -match 'ClassNotFound|Could not find|find or load') 'הדרך הקודמת: classpath עם עברית בשורת הפקודה של java — נכשל כאן' ($o.Trim())
@@ -101,7 +106,8 @@ if ($pk -match 'PASSKEY (\S+)') { $env:DSVIZ_PASS_KEY = $Matches[1] }
 $s = & $java '-Dfile.encoding=UTF-8' -cp "$seed;$BankJar;$Lib" il.lamerhav.dsviz.SeedSession teacher teacher@test.dev $key 2>&1 | Out-String
 Log "כניסה מוכנה: $($s.Trim())"
 Check 'teacher-flag' (Test-Path -LiteralPath "$inst\teacher.flag") 'הסימון לסרגל (teacher.flag) נכתב בתיקיית ההתקנה בעברית' $s
-Start-Process "$inst\cs\dsviz-cs.exe" -ArgumentList '--tool', 'teacher' -WindowStyle Hidden
+$o = & "$inst\cs\dsviz-cs.exe" --tool teacher 2>&1 | Out-String
+if ($o.Trim()) { Log "dsviz-cs.exe --tool teacher: $($o.Trim())" }
 $t = WaitWindow '*עמדת ניהול*' 60
 Start-Sleep 3; Shot 'he-3-teacher-panel'
 Check 'teacher-panel' ($t -ne '') "עמדת הניהול מהתקנה בתיקייה בעברית: נפתח החלון ('$t')" ''

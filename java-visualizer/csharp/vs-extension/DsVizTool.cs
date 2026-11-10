@@ -29,18 +29,11 @@ namespace DsViz.VsExtension
 
         /// <summary>
         /// java.exe לא עולה מתיקייה עם עברית ב-Windows שהקידוד שלו לא עברי ("could not find java.dll") — נתיב ASCII לאותו קובץ:
-        /// השם הקצר (8.3), ואם אין — צומת ב-ProgramData לתיקיית ה-Java (כמו SafeJava.Exe ב-dsviz-cs.exe)
+        /// צומת (junction) ב-ProgramData לתיקיית ה-Java, ואם אי אפשר — השם הקצר (8.3) (כמו SafeJava.Exe ב-dsviz-cs.exe)
         /// </summary>
         public static string AsciiJava(string java)
         {
             if (Ascii(java) || !File.Exists(java)) return java;
-            try
-            {
-                var sb = new System.Text.StringBuilder(1024);
-                uint n = GetShortPathName(java, sb, (uint)sb.Capacity);
-                if (n > 0 && n < sb.Capacity && Ascii(sb.ToString())) return sb.ToString();
-            }
-            catch (Exception) { }
             try
             {
                 string home = Path.GetDirectoryName(Path.GetDirectoryName(java));
@@ -57,6 +50,13 @@ namespace DsViz.VsExtension
                     using (Process p = Process.Start(mk)) p.WaitForExit(10000);
                 }
                 if (File.Exists(exe)) return exe;
+            }
+            catch (Exception) { }
+            try
+            {
+                var sb = new System.Text.StringBuilder(1024);
+                uint n = GetShortPathName(java, sb, (uint)sb.Capacity);
+                if (n > 0 && n < sb.Capacity && Ascii(sb.ToString())) return sb.ToString();
             }
             catch (Exception) { }
             return java;
