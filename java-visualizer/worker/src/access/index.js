@@ -87,6 +87,17 @@ async function passKey(env) {
   return keyCache.key;
 }
 
+/** התוכנה ששלחה (לא חובה; לקוחות ישנים לא שולחים): dsviz — Eclipse / IntelliJ / Visual Studio / VS Code, automata — "מודלים חישוביים" */
+const APPS = ['dsviz', 'automata'];
+function appOf(v) {
+  const a = String(v || '').trim().toLowerCase();
+  return APPS.includes(a) ? a : '';
+}
+/** ביומן הפעילות: "app=automata" (ריק כשהלקוח לא שלח) */
+function appDetail(app, more) {
+  return [app ? 'app=' + app : '', more || ''].filter(Boolean).join(' · ');
+}
+
 async function log(store, actor, action, target, detail) {
   try {
     await store.set('log/' + timeId(), { at: nowIso(), actor: clip(actor, 120), action, target: clip(target, 200), detail: clip(detail, 400) });
@@ -124,7 +135,9 @@ async function makePass(env, s, p) {
   const now = Math.floor(Date.now() / 1000);
   let exp = now + (s.offlineDays > 0 ? s.offlineDays : 3650) * 86400;   // 0 = בלי הגבלה (10 שנים); הנעילה מגיעה בבדיקה הבאה עם אינטרנט
   if (p.until) exp = Math.min(exp, Math.floor(Date.parse(p.until + 'T23:59:59Z') / 1000));
-  const payload = { v: 1, kind: p.kind, sub: p.sub, name: p.name || '', email: p.email || '', until: p.until || '', mid: p.machine || '', iat: now, exp };
+  // apps: באילו תוכנות האישור פותח (בינתיים תמיד שתיהן). לקוחות ישנים מתעלמים מהשדה
+  const apps = Array.isArray(p.apps) && p.apps.length ? p.apps.filter(a => APPS.includes(a)) : APPS.slice();
+  const payload = { v: 1, kind: p.kind, sub: p.sub, name: p.name || '', email: p.email || '', until: p.until || '', mid: p.machine || '', apps, iat: now, exp };
   if (p.teacher) payload.teacher = p.teacher;
   const text = b64urlJson(payload);
   return text + '.' + b64url(await signRs256(key, text));
@@ -274,7 +287,7 @@ async function redeem(request, env) {
   } else {
     await store.merge('teachers/' + doc.email, { lastSignIn: nowIso(), uid: doc.uid });
   }
-  await log(store, doc.email, doc.role === 'teacher' ? 'signin.teacher' : 'signin.student', clip(b.machineName, 60), '');
+  await log(store, doc.email, doc.role === 'teacher' ? 'signin.teacher' : 'signin.student', clip(b.machineName, 60), appDetail(appOf(b.app)));
   const r = await resolveToken(env, ses.token, b.machine);
   return accessReply(env, r, { token: ses.token });
 }
@@ -346,7 +359,7 @@ async function claim(request, env) {
   }
   const tv = res.teacher ? { name: res.teacher.name || '', school: res.teacher.school || '', seats: res.teacher.seats || 0, used: (res.teacher.used || 0) + (res.status === 'ok' && !res.again ? 1 : 0) } : null;
   if (res.status !== 'ok') return { ok: true, status: res.status, teacher: tv };
-  await log(store, 'מחשב: ' + name, res.again ? 'station.again' : 'station.claim', res.teacher.email, `${tv.used}/${tv.seats}`);
+  await log(store, 'מחשב: ' + name, res.again ? 'station.again' : 'station.claim', res.teacher.email, appDetail(appOf(b.app), `${tv.used}/${tv.seats}`));
   const token = 's.' + res.stationId + '.' + secret;
   const r = await resolveToken(env, token, b.machine);
   return accessReply(env, r, { token, teacher: tv });

@@ -17,6 +17,7 @@ on:
       - 'java-visualizer/src/**'
       - 'java-visualizer/vscode-extension/**'
       - 'java-visualizer/eclipse-plugin/**'
+      - 'java-visualizer/access/**'
       - 'java-visualizer/intellij-plugin/**'
       - 'java-visualizer/csharp/**'
       - 'java-visualizer/help/**'

@@ -48,6 +48,16 @@
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>מאגר שאלות</ButtonText></Strings>
       </Button>
+      <Button guid="guidDsVizCmdSet" id="CmdQuestion" priority="0x0350" type="Button">
+        <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
+        <Icon guid="ImageCatalogGuid" id="Document" />
+        <!-- "השאלה" (כמו בסרגל של Eclipse): פותח שוב את החלון הצף של השאלה האחרונה מהמאגר (BankVs question). מוצג רק כשהמאגר מותקן -->
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
+        <Strings><ButtonText>השאלה</ButtonText></Strings>
+      </Button>
       <Button guid="guidDsVizCmdSet" id="CmdSubmit" priority="0x0400" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="Send" />
@@ -94,6 +104,7 @@
       <IDSymbol name="CmdRun" value="0x0106" />
       <IDSymbol name="CmdHelp" value="0x0107" />
       <IDSymbol name="CmdTeacher" value="0x0108" />
+      <IDSymbol name="CmdQuestion" value="0x0109" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

@@ -112,7 +112,7 @@ Info "חנות ההצעות: $storeDir\solutions.json ; קובץ עם הצעות
 $env:DSVIZ_VS_TRACE = '1'   # עקבות של הרכיב (MEF) גם ל-%LOCALAPPDATA%\DSViz\vs-trace.log
 Remove-Item "$env:LOCALAPPDATA\DSViz\vs-trace.log" -Force -ErrorAction SilentlyContinue
 Remove-Item "$env:LOCALAPPDATA\DSViz\lab" -Recurse -Force -ErrorAction SilentlyContinue   # בלי מאגר שאלות מותקן: הכפתור "מאגר שאלות" מוסתר
-Remove-Item "$env:LOCALAPPDATA\DSViz\teacher.flag" -Force -ErrorAction SilentlyContinue   # לא מחובר כמורה: אין "עמדת ניהול"
+Remove-Item "$env:LOCALAPPDATA\DSViz\teacher.flag", "$env:LOCALAPPDATA\Lamerhav\.cache\teacher.flag" -Force -ErrorAction SilentlyContinue   # לא מחובר כמורה: אין "עמדת ניהול"
 
 $proj = Join-Path $env:RUNNER_TEMP 'Targil1'
 dotnet new console -n Targil1 -o $proj --force | Out-Null
@@ -144,8 +144,8 @@ if ($ready) {
     Info "רכיבים של DSViz ב-Visual Studio: $((($names | Select-Object -Unique)) -join ' ; ')"
     Check 'toolbar-buttons' (@($names | Select-Object -Unique).Count -ge 3) 'בסרגל הכלים של DSViz נמצאו הכפתורים (תרגיל חדש / הוספת מבנה נתונים ...)' (($names | Select-Object -Unique) -join ' ; ')
     # הכפתור "מאגר שאלות": האם הוא באמת נראה (קיים, מופעל ולא מחוץ למסך) — לא רק שהשם קיים בעץ
-    function BankState() {
-        $els = @(VsElements $p.Id | Where-Object { (ElName $_) -eq 'מאגר שאלות' })
+    function BankState([string]$name = 'מאגר שאלות') {
+        $els = @(VsElements $p.Id | Where-Object { (ElName $_) -eq $name })
         if ($els.Count -eq 0) { return 'absent' }
         $c = $els[0].Current
         return ("present enabled={0} offscreen={1} rect={2}" -f $c.IsEnabled, $c.IsOffscreen, $c.BoundingRectangle)
@@ -153,6 +153,8 @@ if ($ready) {
     $bankBefore = BankState
     Info "מאגר שאלות (בלי jar): $bankBefore"
     Check 'bank-hidden' ($bankBefore -eq 'absent' -or $bankBefore -match 'offscreen=True' -or $bankBefore -match 'rect=Empty') 'בלי מאגר שאלות מותקן — הכפתור "מאגר שאלות" מוסתר' $bankBefore
+    $qBefore = BankState 'השאלה'
+    Check 'question-hidden' ($qBefore -eq 'absent' -or $qBefore -match 'offscreen=True' -or $qBefore -match 'rect=Empty') 'בלי מאגר שאלות מותקן — הכפתור "השאלה" מוסתר' $qBefore
     Shot 'vs-toolbar-nobank'
     # מאגר השאלות מותקן (קובץ ה-jar של המעבדה) אחרי ש-Visual Studio כבר פתוח: הכפתור מופיע בפעם הבאה ש-VS בודק את הפקודות
     # (למשל כשעוברים לקובץ אחר — בהמשך הבדיקה); אצל תלמיד ההתקנה קודמת להפעלה, והכפתור מוצג כבר בטעינה.
@@ -184,6 +186,9 @@ if ($ready) {
     }
     Info "מאגר שאלות (עם jar): $bankAfter"
     Check 'bank-visible' $bankShown 'אחרי התקנת dsviz-bank-vs.jar — הכפתור "מאגר שאלות" מופיע בסרגל (מופעל)' $bankAfter
+    $qAfter = BankState 'השאלה'
+    Info "השאלה (עם jar): $qAfter"
+    Check 'question-visible' ($qAfter -match 'enabled=True offscreen=False') 'אחרי התקנת dsviz-bank-vs.jar — הכפתור "השאלה" (החלון הצף של השאלה מהמאגר) מופיע בסרגל' $qAfter
     Shot 'vs-toolbar-bank'
 
     # ---- "עמדת ניהול": רק כשהמשתמש מחובר כמורה (הסימון teacher.flag שהכלי של Java כותב — מייל ושם, בלי הכרטיס)
@@ -197,7 +202,9 @@ if ($ready) {
     $tNone = TeacherState
     Info "עמדת ניהול (לא מורה): $tNone"
     Check 'teacher-hidden' (TeacherHidden $tNone) 'לא מחובר כמורה — אין "עמדת ניהול" בסרגל' $tNone
-    $flagFile = "$env:LOCALAPPDATA\DSViz\teacher.flag"
+    # המקום של הסימון: התיקייה הנסתרת של הזיהוי (Account.teacherFlagFile; עד 1.0.1 — ‎%LOCALAPPDATA%\DSViz‎, הסרגל קורא גם משם)
+    $flagFile = "$env:LOCALAPPDATA\Lamerhav\.cache\teacher.flag"
+    New-Item -ItemType Directory -Force (Split-Path $flagFile) | Out-Null
     [IO.File]::WriteAllText($flagFile, '{"email":"teacher@test.dev","name":"מורה בדיקה"}', (New-Object Text.UTF8Encoding($false)))
     $tOn = ''; $shown = $false
     for ($i = 0; $i -lt 15 -and -not $shown; $i++) {   # הסרגל עוקב אחרי הקובץ (FileSystemWatcher) — בלי לחזור ל-Visual Studio

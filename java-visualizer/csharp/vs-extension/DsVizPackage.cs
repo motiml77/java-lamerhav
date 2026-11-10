@@ -151,6 +151,21 @@ namespace DsViz.VsExtension
                 }
             };
             mcs.AddCommand(cmd);
+            // "השאלה": החלון הצף של השאלה האחרונה מהמאגר (כמו הכפתור "השאלה" ב-Eclipse) — עד עכשיו רק מקיצור בשולחן העבודה
+            var q = new OleMenuCommand((s, e) =>
+            {
+                try { Tool("question"); }
+                catch (Exception ex) { Say("DSViz: " + ex.Message); }
+            }, new CommandID(CmdSet, 0x0109));
+            q.BeforeQueryStatus += (s, e) =>
+            {
+                bool on = false;
+                try { on = File.Exists(BankJar); } catch (Exception) { }
+                var c = (OleMenuCommand)s;
+                c.Visible = on;
+                c.Enabled = on;
+            };
+            mcs.AddCommand(q);
             SyncBankControl(File.Exists(BankJar));
         }
 
@@ -163,6 +178,7 @@ namespace DsViz.VsExtension
         void SyncBankControl(bool on)
         {
             SyncControl("מאגר שאלות", "bank", on);
+            SyncControl("השאלה", "question", on);
         }
 
         /// <returns>true — הכפתור נמצא בסרגל ועודכן (בטעינה הסרגל עוד לא תמיד קיים)</returns>
@@ -199,22 +215,34 @@ namespace DsViz.VsExtension
 
         /// <summary>
         /// הסימון שהכלי של Java כותב כשהמשתמש מחובר כמורה (Account.syncTeacherFlag): מייל ושם בלבד, בלי הכרטיס. הכניסה עצמה מוצפנת
-        /// ונבדקת רק ב-Java — הסימון הוא רמז לסרגל, וחלון המורה בודק שוב (מורה שהושבת: הסבר, והסימון נמחק)
+        /// ונבדקת רק ב-Java — הסימון הוא רמז לסרגל, וחלון המורה בודק שוב (מורה שהושבת: הסבר, והסימון נמחק).
+        /// המקום: התיקייה הנסתרת של כל קובצי הזיהוי, המשותפת לכל התוכנות (‎%LOCALAPPDATA%\Lamerhav\.cache‎). עד גרסה 1.0.1 הסימון
+        /// היה בתיקיית ההתקנה — נקרא גם משם, לגרסה אחת (כלי Java ישן שעוד לא עודכן)
         /// </summary>
+        static string IdentityDir
+        {
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Lamerhav", ".cache"); }
+        }
+
         static string TeacherFlag
+        {
+            get { return Path.Combine(IdentityDir, "teacher.flag"); }
+        }
+
+        static string LegacyTeacherFlag
         {
             get { return Path.Combine(InstallDir, "teacher.flag"); }
         }
 
         static bool TeacherOn()
         {
-            try { return File.Exists(BankJar) && File.Exists(TeacherFlag); }
+            try { return File.Exists(BankJar) && (File.Exists(TeacherFlag) || File.Exists(LegacyTeacherFlag)); }
             catch (Exception) { return false; }
         }
 
         bool? _teacherOn;
         bool _teacherSynced, _teacherSyncing;
-        FileSystemWatcher _teacherWatch;
+        FileSystemWatcher _teacherWatch, _legacyTeacherWatch;
 
         /// <summary>"עמדת ניהול": כמו ב-Eclipse — בסרגל, נראה רק כשהמשתמש מחובר כמורה; פותח את חלון המורה (הקוד, העמדות, התנתקות)</summary>
         void AddTeacher(OleMenuCommandService mcs)
@@ -239,22 +267,39 @@ namespace DsViz.VsExtension
             try { SyncControl("עמדת ניהול", "teacher", TeacherOn()); }
             finally { _teacherSyncing = false; }
             // כניסה / התנתקות בחלון של Java: הכפתור מתעדכן מיד (לא רק כשחוזרים ל-Visual Studio)
+            // התיקייה הנסתרת עוד לא קיימת (אף תוכנה לא נכנסה במחשב) — יוצרים אותה (נסתרת, כמו ב-Java), כדי שיהיה אחרי מה לעקוב
             try
             {
-                if (Directory.Exists(InstallDir))
+                if (!Directory.Exists(IdentityDir))
                 {
-                    _teacherWatch = new FileSystemWatcher(InstallDir, "teacher.flag") { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite };
-                    _teacherWatch.Created += (s, e) => TeacherFlagChanged();
-                    _teacherWatch.Deleted += (s, e) => TeacherFlagChanged();
-                    _teacherWatch.Changed += (s, e) => TeacherFlagChanged();
-                    _teacherWatch.Renamed += (s, e) => TeacherFlagChanged();
-                    _teacherWatch.EnableRaisingEvents = true;
+                    var d = Directory.CreateDirectory(IdentityDir);
+                    d.Attributes |= FileAttributes.Hidden;
                 }
+                _teacherWatch = WatchFlag(IdentityDir);
             }
             catch (Exception ex)
             {
                 SolutionHints.Log("teacher flag watch failed: " + ex.Message, true);
             }
+            try
+            {
+                if (Directory.Exists(InstallDir)) _legacyTeacherWatch = WatchFlag(InstallDir);
+            }
+            catch (Exception ex)
+            {
+                SolutionHints.Log("legacy teacher flag watch failed: " + ex.Message, true);
+            }
+        }
+
+        FileSystemWatcher WatchFlag(string dir)
+        {
+            var w = new FileSystemWatcher(dir, "teacher.flag") { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite };
+            w.Created += (s, e) => TeacherFlagChanged();
+            w.Deleted += (s, e) => TeacherFlagChanged();
+            w.Changed += (s, e) => TeacherFlagChanged();
+            w.Renamed += (s, e) => TeacherFlagChanged();
+            w.EnableRaisingEvents = true;
+            return w;
         }
 
         /// <summary>

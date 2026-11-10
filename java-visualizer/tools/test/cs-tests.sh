@@ -390,7 +390,7 @@ viz "$W/csroot/Exercises/Targil2" --trace "$W/t2.trace" > /dev/null 2>&1; grep -
 
 echo "== 9. שליחת תרגיל — המחולל יודע לבנות גם C# (לכלי של Visual Studio, בהמשך): המעטפות מתקמפלות יחד עם הספרייה"
 mkdir -p "$W/ai/cls"
-javac -nowarn -encoding UTF-8 -d "$W/ai/cls" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Json.java" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java" AiScaffoldTest.java
+javac -nowarn -encoding UTF-8 -d "$W/ai/cls" "$ROOT/access/src/il/lamerhav/dsviz/Json.java" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java" AiScaffoldTest.java
 java -Dstdout.encoding=UTF-8 -cp "$W/ai/cls" il.lamerhav.dsviz.AiScaffoldTest ai "$W/ai/src" > /dev/null
 for d in $(cat "$W/ai/src/cs-dirs.txt"); do
     viz --check-project "$d" | tail -1 | grep -q '^errors: 0' || { viz --check-project "$d"; exit 1; }
