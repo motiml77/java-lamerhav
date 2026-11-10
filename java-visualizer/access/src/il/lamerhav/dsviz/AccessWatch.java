@@ -30,6 +30,8 @@ public final class AccessWatch {
 
     private static final List<Runnable> LISTENERS = new CopyOnWriteArrayList<Runnable>();
     private static volatile String last;
+    /** הקבצים (statPrint) כשחושב last — שינוי בהם מאז, מכל תוכנה, נבדק (גם אם חזרו למצב שהיה בבדיקה הקודמת של המעקב) */
+    private static volatile String lastStat = "";
     private static final Object CHECK = new Object();
     private static Thread thread;
 
@@ -37,6 +39,7 @@ public final class AccessWatch {
     public static synchronized void listen(Runnable r) {
         LISTENERS.add(r);
         if (thread == null) {
+            lastStat = statPrint();
             last = safeFingerprint();
             thread = new Thread(AccessWatch::loop, "dsviz-access-watch");
             thread.setDaemon(true);
@@ -50,12 +53,16 @@ public final class AccessWatch {
 
     /** אחרי שינוי שהתוכנה עצמה כבר הודיעה עליו (AccessGate.changed) — כדי שלא יודיעו עליו שוב */
     static void baseline() {
-        last = safeFingerprint();
+        synchronized (CHECK) {
+            lastStat = statPrint();
+            last = safeFingerprint();
+        }
     }
 
     /** בודק עכשיו (בלי לחכות למעקב) ומודיע אם השתנה */
     public static void checkNow() {
         synchronized (CHECK) {
+            lastStat = statPrint();
             String f = safeFingerprint();
             if (f.equals(last)) return;
             last = f;
@@ -88,7 +95,6 @@ public final class AccessWatch {
             ws = null;   // רק הבדיקה הקבועה
         }
         Map<Path, WatchKey> keys = new HashMap<Path, WatchKey>();
-        String stat = statPrint();
         long lastFull = System.currentTimeMillis();
         while (true) {
             try {
@@ -106,10 +112,8 @@ public final class AccessWatch {
                         k = ws.poll();
                     }
                 }
-                String s = statPrint();
                 long now = System.currentTimeMillis();
-                if (event || !s.equals(stat) || now - lastFull > RECHECK_MS) {
-                    stat = s;
+                if (event || !statPrint().equals(lastStat) || now - lastFull > RECHECK_MS) {
                     lastFull = now;
                     checkNow();
                 }

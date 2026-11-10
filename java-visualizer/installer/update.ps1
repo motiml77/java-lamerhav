@@ -15,7 +15,11 @@ function Log([string]$m) { try { Add-Content -LiteralPath $log -Value ("{0:yyyy-
 # Eclipse (קובצי התוסף נעולים), או הרצה ויזואלית של C# (dsviz-cs.exe והקבצים שלו נעולים בזמן ריצה, וההתקנה מוחקת ומחליפה את התיקייה cs —
 # עלולים להישאר בה קבצים ישנים, בזמן ש-build.txt כבר אומר שהגרסה החדשה מותקנת, כך שהעדכון לא היה מנסה שוב)
 # Eclipse / Visual Studio / הרצה ויזואלית של C# פתוחים? (Visual Studio — כי את סרגל הכלים שלו אי אפשר להתקין כשהוא פתוח)
-function EclipseRunning { return [bool](Get-Process -Name eclipse, devenv, dsviz-cs -ErrorAction SilentlyContinue) }
+# וגם "מודלים חישוביים" (javaw עם AutomataLauncher — הקבצים שלו בתיקייה automata נעולים בזמן שהוא פתוח)
+function AutomataRunning {
+    try { return [bool](@(Get-CimInstance Win32_Process -Filter "Name='javaw.exe' OR Name='java.exe'" | Where-Object { $_.CommandLine -like '*il.lamerhav.dsviz.AutomataLauncher*' }).Count) } catch { return $false }
+}
+function EclipseRunning { return [bool](Get-Process -Name eclipse, devenv, dsviz-cs -ErrorAction SilentlyContinue) -or (AutomataRunning) }
 
 # הודעה קטנה בפינה (notify.ps1), ברקע — לא מחכים לה ולא לוקחת פוקוס: found / waiting / updating
 function Toast([string]$state, [int]$watch = 0) {
@@ -99,7 +103,7 @@ try {
     $waited = 0
     if (EclipseRunning) { Toast 'waiting' }
     while ((EclipseRunning) -and $waited -lt 720) { Start-Sleep -Seconds 60; $waited++ }
-    if (EclipseRunning) { Log "Eclipse / Visual Studio / הרצה ויזואלית עדיין פתוחים — ננסה בפעם הבאה"; exit 0 }
+    if (EclipseRunning) { Log "Eclipse / Visual Studio / הרצה ויזואלית / מודלים חישוביים עדיין פתוחים — ננסה בפעם הבאה"; exit 0 }
 
     Log "מתקין את הגרסה החדשה..."
     $p = Start-Process -FilePath $exe -ArgumentList '/S', '/UPDATE' -PassThru -WindowStyle Hidden
