@@ -75,6 +75,9 @@ public final class ShareIt {
         long t0 = System.currentTimeMillis();
         Account.Result r = Account.signIn("teacher", null, null, 30000);
         check("מורה נכנסה ב'Eclipse' (" + r.status + ")", r.ok() && Account.current() != null && Account.current().isTeacher());
+        check("באישור: apps — שתי התוכנות (" + Account.current().apps + ")", Account.current().opens("dsviz") && Account.current().opens("automata"));
+        String log = AccountIt.api("GET", "/v1/admin/log?limit=20", admin, null);
+        check("ביומן הפעילות: הכניסה מ-Eclipse עם app=dsviz", log.contains("app=dsviz"));
         String st = next(lines, "STATE", 8000);
         check("התוכנה האחרת רואה מורה תוך רגע (" + st + ", " + (System.currentTimeMillis() - t0) + "ms)", ("STATE teacher " + email).equals(st));
 

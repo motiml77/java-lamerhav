@@ -48,3 +48,9 @@ sh tools/build-access.sh        → build/access/dsviz-access.jar   (Java 8, ר�
 ```
 cd worker && npm run test:access-java    # SignInEdge, OsTrustTest, AccountIt, GateUi, TeacherPanelIt, ShareIt (שני תהליכים)
 ```
+
+## מול השרת: איזו תוכנה
+
+`/v1/auth/redeem` ו-`/v1/station/claim` מקבלים שדה לא חובה `app` (`dsviz` / `automata`; `Account.app`, ברירת מחדל `dsviz`,
+"מודלים חישוביים" — `automata`). הוא נרשם ביומן הפעילות (`app=automata`); ערך לא מוכר / לקוח ישן — בלי שינוי.
+באישור החתום יש `apps` (בינתיים תמיד `["dsviz","automata"]`); `Account.Access.apps` / `opens(app)` — אישור ישן בלי השדה פותח בשתיהן.
