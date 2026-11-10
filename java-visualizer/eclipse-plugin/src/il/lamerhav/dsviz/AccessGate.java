@@ -175,6 +175,7 @@ public final class AccessGate {
         java.net.HttpURLConnection c = null;
         try {
             c = (java.net.HttpURLConnection) new java.net.URL(base + "/v1/access/config").openConnection();
+            OsTrust.apply(c);
             c.setConnectTimeout(6000);
             c.setReadTimeout(8000);
             int code = c.getResponseCode();
@@ -364,10 +365,22 @@ public final class AccessGate {
                     } else if ("blocked".equals(r.status)) {
                         show("הגישה של המורה הושבתה", "פונים למורה או להנהלה.", WARN, WARN_SOFT, true);
                     } else {
-                        stationError.setText(RLM + (r.message.isEmpty() ? "החיבור לא הצליח. נסו שוב." : r.message));
+                        longError(r.message.isEmpty() ? "החיבור לא הצליח. נסו שוב." : r.message);
                     }
                 }
             }.execute();
+        }
+
+        /** הודעה ארוכה (למשל: סינון אינטרנט שחוסם את החיבור המאובטח) — יורדת שורה, והחלון גדל כדי שלא תיחתך */
+        private boolean grown;
+
+        private void longError(String msg) {
+            stationError.setText(wrapHtml(msg, 450));
+            if (msg.length() > 70 && !grown) {
+                grown = true;
+                setSize(getWidth(), getHeight() + 50);
+            }
+            stationError.revalidate();
         }
 
         private static String teacherName(Account.Result r) {

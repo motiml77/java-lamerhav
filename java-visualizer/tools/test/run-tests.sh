@@ -386,7 +386,7 @@ grep -q 'סכום: 25' "$W/ne/out.txt" && grep -q 'כמה מספרים בתור�
 echo "== 9. שליחת תרגיל: השרת (Worker), הכנת הקבצים, ובניית המעטפת מהתשובה — מתקמפלת ורצה"
 (cd ../../worker && last 1 node test/worker-test.mjs)
 mkdir -p "$W/ai/cls" "$W/ai/src" "$W/ai/bin"
-javac -encoding UTF-8 -d "$W/ai/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Json.java ../../eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java \
+javac -encoding UTF-8 -sourcepath ../../eclipse-plugin/src -d "$W/ai/cls" ../../eclipse-plugin/src/il/lamerhav/dsviz/Json.java ../../eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java \
     ../../eclipse-plugin/src/il/lamerhav/dsviz/ExerciseFiles.java ../../eclipse-plugin/src/il/lamerhav/dsviz/WorkerClient.java AiScaffoldTest.java ExerciseFilesTest.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/ai/cls" il.lamerhav.dsviz.ExerciseFilesTest ai/files
 java -Dstdout.encoding=UTF-8 -cp "$W/ai/cls" il.lamerhav.dsviz.AiScaffoldTest ai "$W/ai/src"
