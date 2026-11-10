@@ -368,24 +368,27 @@ namespace DsViz
                     if (File.Exists(Path.Combine(d, "DataStructures-CS.sln"))) { root = d; break; }
                 if (root == null) root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "DataStructures-CS");
                 var psi = new ProcessStartInfo(java) { UseShellExecute = false, CreateNoWindow = true };
-                psi.ArgumentList.Add("-cp");
+                var cp = new List<string>();
+                string main;
                 if (mode == "bank" || mode == "question")
                 {
                     // מאגר שאלות (גרסת המעבדה): dsviz-bank-vs.jar שליד ההתקנה, לפני dsviz.jar (יש בו חלקים עדכניים יותר)
                     string bank = Path.Combine(install, "lab", "dsviz-bank-vs.jar");
                     if (!File.Exists(bank)) { Console.Error.WriteLine("DSViz: מאגר השאלות לא מותקן"); return 0; }
-                    psi.ArgumentList.Add(bank + Path.PathSeparator + jar);
-                    psi.ArgumentList.Add("il.lamerhav.dsviz.BankVs");
+                    cp.Add(bank);
+                    cp.Add(jar);
+                    main = "il.lamerhav.dsviz.BankVs";
                 }
                 else
                 {
-                    psi.ArgumentList.Add(jar);
-                    psi.ArgumentList.Add("il.lamerhav.dsviz.cs.CsTool");
+                    cp.Add(jar);
+                    main = "il.lamerhav.dsviz.cs.CsTool";
                 }
-                psi.ArgumentList.Add(mode);
-                psi.ArgumentList.Add(root);
+                var toolArgs = new List<string> { mode, root };
                 // "הצעה לפתרון" מהמנורה שליד הפעולה בעורך: --file קובץ --method פעולה --params מספר-פרמטרים (החלון נפתח ממוקד בה)
-                if (mode == "solution") foreach (string x in extra) psi.ArgumentList.Add(x);
+                if (mode == "solution") toolArgs.AddRange(extra);
+                // שם משתמש / פרויקט בעברית: classpath יחסי והנתיבים בסביבה — לא בשורת הפקודה של java (SafeJava)
+                SafeJava.Fill(psi, new string[0], cp, main, toolArgs);
                 Process.Start(psi);
             }
             catch (Exception e)

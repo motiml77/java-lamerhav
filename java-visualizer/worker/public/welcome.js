@@ -100,11 +100,11 @@ async function devices() {
   const list = h('div', { class: 'list', style: { width: '100%' } });
   const fill = items => list.replaceChildren(...(items.length ? items.map(d => h('div', { class: 'item' },
     h('div', { class: 'grow', style: { textAlign: 'right' } }, h('div', { style: { fontWeight: 600 } }, d.name || 'מחשב'), h('div', { class: 'small muted' }, 'פעיל ' + ago(d.lastSeen))),
-    (() => { const b = h('button', { type: 'button', class: 'btn sm' }, 'ניתוק'); b.onclick = () => busy(b, async () => { await api('POST', '/v1/me/devices/revoke', { id: d.id }); fill(items.filter(x => x !== d)); toast('המחשב נותק. עכשיו חוזרים לתוכנה ולוחצים שוב "התחברות".'); }); return b; })()))
-    : [h('div', { class: 'empty' }, 'אין מחשבים מחוברים — חוזרים לתוכנה ולוחצים "התחברות".')]));
+    (() => { const b = h('button', { type: 'button', class: 'btn sm' }, 'ניתוק'); b.onclick = () => busy(b, async () => { await api('POST', '/v1/me/devices/revoke', { id: d.id }); fill(items.filter(x => x !== d)); toast('המחשב נותק. עכשיו חוזרים לתוכנה ולוחצים שוב "כניסה עם Google".'); }); return b; })()))
+    : [h('div', { class: 'empty' }, 'אין מחשבים מחוברים — חוזרים לתוכנה ולוחצים "כניסה עם Google".')]));
   fill(me.devices);
   show(h('h1', null, 'החשבון כבר מחובר בכל המחשבים המותרים'),
-    h('p', { class: 'muted', style: { lineHeight: '1.6' } }, 'מנתקים מחשב שכבר לא בשימוש, וחוזרים לתוכנה ללחוץ שוב "התחברות".'), list);
+    h('p', { class: 'muted', style: { lineHeight: '1.6' } }, 'מנתקים מחשב שכבר לא בשימוש, וחוזרים לתוכנה ללחוץ שוב "כניסה עם Google".'), list);
 }
 
 async function main() {
@@ -120,7 +120,7 @@ async function main() {
         h('p', { class: 'muted' }, 'פונים להנהלה כדי לברר.'));
     }
     if (r === 'error') {
-      return show(h('h1', null, 'הכניסה לא הצליחה'), h('p', { class: 'muted' }, q.get('m') || 'חוזרים לתוכנה ולוחצים שוב "התחברות".'));
+      return show(h('h1', null, 'הכניסה לא הצליחה'), h('p', { class: 'muted' }, q.get('m') || 'חוזרים לתוכנה, לוחצים "חזרה" ושוב "כניסה עם Google".'));
     }
     if (role === 'teacher') {
       return done('נכנסת בהצלחה', 'אפשר לחזור ל-DSViz — מאגר התרגילים פתוח, ושליחת תרגיל זמינה.',

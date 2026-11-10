@@ -571,6 +571,7 @@ public final class Account {
         HttpURLConnection c = null;
         try {
             c = (HttpURLConnection) new URL(base + path).openConnection();
+            OsTrust.apply(c);   // סינון אינטרנט שבודק תעבורה מוצפנת (התעודה שלו במאגר של Windows)
             c.setConnectTimeout(10000);
             c.setReadTimeout(30000);
             c.setRequestMethod("POST");
@@ -593,6 +594,7 @@ public final class Account {
             if (!Boolean.TRUE.equals(j.get("ok"))) return new Result("error", "תשובה לא תקינה מהשרת.", null);
             return new Result(Json.str(j.get("status")).isEmpty() ? "ok" : Json.str(j.get("status")), "", j);
         } catch (IOException e) {
+            if (OsTrust.isTlsProblem(e)) return new Result("offline", OsTrust.TLS_MESSAGE, null);
             return new Result("offline", "אין חיבור לשרת. בודקים את האינטרנט ומנסים שוב.", null);
         } catch (RuntimeException e) {
             return new Result("error", "תשובה לא תקינה מהשרת.", null);

@@ -119,6 +119,11 @@ final class License {
     private static Status ask() {
         try {
             HttpURLConnection c = (HttpURLConnection) new URL(url()).openConnection();
+            try {   // סינון אינטרנט שבודק תעבורה מוצפנת — גם התעודות של מערכת ההפעלה (il.lamerhav.dsviz.OsTrust, באותו jar)
+                Class.forName("il.lamerhav.dsviz.OsTrust").getMethod("apply", java.net.URLConnection.class).invoke(null, c);
+            } catch (Throwable ignored) {
+                // בלי — האמון הרגיל של Java
+            }
             c.setConnectTimeout(4000);
             c.setReadTimeout(4000);
             c.setRequestMethod("POST");

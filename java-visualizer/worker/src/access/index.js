@@ -255,9 +255,9 @@ async function redeem(request, env) {
     if (d) t.remove('authCodes/' + code);   // פעם אחת בלבד
     return d;
   });
-  if (!doc || doc.exp < Date.now()) throw new Fail(400, 'expired', 'הכניסה פגה. לוחצים שוב על "התחברות".');
+  if (!doc || doc.exp < Date.now()) throw new Fail(400, 'expired', 'הכניסה פגה. בחלון של DSViz לוחצים "חזרה" ושוב "כניסה עם Google".');
   const want = b64url(await sha256(String(b.verifier || '')));
-  if (!sameText(want, doc.challenge)) throw new Fail(400, 'expired', 'הכניסה לא תואמת לחלון הזה. לוחצים שוב על "התחברות".');
+  if (!sameText(want, doc.challenge)) throw new Fail(400, 'expired', 'הכניסה לא תואמת לחלון הזה. בחלון של DSViz לוחצים "חזרה" ושוב "כניסה עם Google".');
   const s = await settings(env);
   const who = { email: doc.email, uid: doc.uid, name: doc.name };
   const profile = { role: doc.role, email: doc.email, name: doc.name || '', picture: doc.picture || '' };
@@ -407,7 +407,7 @@ export async function geminiGate(request, env) {
   const s = await settings(env);
   const token = request.headers.get('x-dsviz-access') || '';
   if (!s.requireLoginForGemini && !token) return null;
-  if (!token) throw new Fail(401, 'login', 'שליחת תרגיל פתוחה למורים, לעמדות מחשב בכיתה ולתלמידים רשומים — צריך להתחבר (פעם אחת במחשב). אם אין כפתור התחברות — עדכנו את DSViz.');
+  if (!token) throw new Fail(401, 'login', 'שליחת תרגיל פתוחה למורים, לעמדות מחשב בכיתה ולתלמידים רשומים — צריך להתחבר פעם אחת במחשב: בסרגל של DSViz לוחצים על מאגר התרגילים ("מאגר תרגילים" / "מאגר שאלות") ונכנסים. אם אין כפתור כזה — מעדכנים את DSViz.');
   const r = await resolveToken(env, token, request.headers.get('x-dsviz-machine') || '');
   if (r.status !== 'ok') {
     if (!s.requireLoginForGemini) return null;   // מתג כבוי: כרטיס שפג לא חוסם (רק לא נספר לפי משתמש)

@@ -29,7 +29,8 @@ foreach ($n in $links.Keys) {
     $s = $ws.CreateShortcut($tmp)
     $s.TargetPath = $javaw
     # התוספת קודם: יש בה גרסה חדשה של חלקים משותפים (CsSolution — Visual Studio פתוח מוסיף את הפרויקט בעצמו), גם על התקנה ישנה
-    $s.Arguments = "-cp `"$jar;$(Join-Path $dsviz 'dsviz.jar')`" il.lamerhav.dsviz.BankVs $($links[$n]) `"$csDir`""
+    # יחסי לתיקיית העבודה ובלי נתיב התרגילים: שם משתמש בעברית לא עובר בשורת הפקודה של java (BankVs קורא את project-cs-path.txt)
+    $s.Arguments = "-cp `"lab\dsviz-bank-vs.jar;dsviz.jar`" il.lamerhav.dsviz.BankVs $($links[$n])"
     $s.WorkingDirectory = $dsviz
     $ico = Join-Path $dsviz 'icon.ico'
     if (Test-Path $ico) { $s.IconLocation = $ico }
