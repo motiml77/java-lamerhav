@@ -125,7 +125,8 @@ switch ($Scenario) {
         $c = Run $tmpOld '/S /LANG=both'
         Check 'ההתקנה הציבורית הנוכחית (master) הותקנה' ($c -eq 0 -and (Test-Path "$d\dsviz.jar"))
         $before = BankState
-        Check 'לפני: אין מאגר (התקנה ישנה)' ($before.EclBank -eq 0 -and $before.IjBank -eq '' -and $before.VsJar -eq '')
+        # ההתקנה שב-master כבר כוללת את המאגר (מאז build 202611080427) — רק רושמים מה היה; הבדיקות שאחרי העדכון הן העיקר (מאגר אחד, בלי כפילות)
+        Write-Host "     לפני: מאגר ב-Eclipse=$($before.EclBank), IntelliJ='$($before.IjBank)', Visual Studio='$($before.VsJar)'"
         Check 'לפני: התוסף הראשי ב-Eclipse וב-IntelliJ' ($before.EclMain -eq 1 -and $before.IjMain)
         $oldBuild = (Get-Content "$d\build.txt" -Raw).Trim(); Write-Host "     build לפני: $oldBuild"
         $c = Run $Setup '/S /UPDATE'

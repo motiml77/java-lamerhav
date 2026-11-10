@@ -18,6 +18,7 @@ import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Canvas;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -46,6 +47,8 @@ final class BankFloat {
     private String questionId;
     /** "סיימתי את התרגיל" נלחץ: הנוסח של האישור (מוצג בחלון במקום השאלה), או null */
     private String confirm;
+    /** בדף האישור: התלמיד בחר לשמור את קבצי התרגיל (ברירת המחדל — מחיקה) */
+    private boolean keepFiles;
     final List<String> shown = new ArrayList<String>();
     private final Runnable onProgress;
     private final IPartListener2 parts = new IPartListener2() {
@@ -194,6 +197,8 @@ final class BankFloat {
                 BankQuestionPanel.titleRow(body, q, t == null ? null : t.title, shown);
                 if (confirm != null) confirmCard(q);
                 else {
+                final int ready = BankHandler.prepared(q);   // כמה סעיפים כבר בקוד
+                shown.add("PREPARED " + ready);
                 BankQuestionPanel.build(body, q, new BankQuestionPanel.Actions() {
                     @Override
                     public void jump(AiScaffold.Task task) {
@@ -203,6 +208,16 @@ final class BankFloat {
                     @Override
                     public void solution(AiScaffold.Task task) {
                         BankFloat.this.solution(task);
+                    }
+
+                    @Override
+                    public int prepared() {
+                        return ready;
+                    }
+
+                    @Override
+                    public void prepare(AiScaffold.Task task) {
+                        BankFloat.this.prepare(q, task);
                     }
                 }, shown);
                 final boolean done = BankProgress.get().done(q.id);
@@ -215,6 +230,7 @@ final class BankFloat {
                             if (BankHandler.complete(shell, q, false)) shell.dispose();
                         } else {
                             confirm = text;
+                            keepFiles = false;
                             render();
                         }
                     }
@@ -236,11 +252,43 @@ final class BankFloat {
         d.timerExec(400, () -> BankQuestionPanel.restoreColors(body, Look.BG));
     }
 
-    /** "סיימתי את התרגיל": האישור בכרטיס בתוך החלון — מה יקרה ומה יימחק, "סיום ומחיקה" / "ביטול" */
+    /**
+     * "סיימתי את התרגיל": האישור בכרטיס בתוך החלון — מה לעשות עם קבצי התרגיל: למחוק (ברירת המחדל — כדי שלא יצטברו תרגילים ישנים)
+     * או לשמור; מה יימחק; "סיום ומחיקה" / "סיום ושמירת הקבצים" / "ביטול"
+     */
     private void confirmCard(final BankStore.Question q) {
         Composite card = Look.card(body, BankQuestionPanel.wide());
         BankQuestionPanel.text(card, "סיימתי את התרגיל", 1, SWT.BOLD, Look.TEXT, shown);
-        BankQuestionPanel.text(card, confirm, 0, SWT.NORMAL, Look.INK2, shown);
+        BankQuestionPanel.text(card, "השאלה תסומן בסימן ירוק. מה לעשות עם קבצי התרגיל?", 0, SWT.NORMAL, Look.TEXT, shown);
+        Composite choice = new Composite(card, SWT.RIGHT_TO_LEFT);
+        GridLayout cl = new GridLayout(1, false);
+        cl.marginWidth = 0;
+        cl.marginHeight = 4;
+        cl.verticalSpacing = 4;
+        choice.setLayout(cl);
+        choice.setLayoutData(BankQuestionPanel.wide());
+        final Button delete = new Button(choice, SWT.RADIO | SWT.RIGHT_TO_LEFT);
+        delete.setText(RtlText.rtl("למחוק את קבצי התרגיל (מומלץ)"));
+        delete.setFont(Look.font(body.getDisplay(), 0, SWT.BOLD));
+        delete.setSelection(!keepFiles);
+        delete.setData("dsviz.id", "done-delete");
+        final Button keep = new Button(choice, SWT.RADIO | SWT.RIGHT_TO_LEFT);
+        keep.setText(RtlText.rtl("לשמור את הקבצים"));
+        keep.setFont(Look.font(body.getDisplay(), 0, SWT.BOLD));
+        keep.setSelection(keepFiles);
+        keep.setData("dsviz.id", "done-keep");
+        org.eclipse.swt.widgets.Listener pick = e -> {
+            boolean k = keep.getSelection();
+            if (k == keepFiles) return;
+            keepFiles = k;
+            render();
+        };
+        delete.addListener(SWT.Selection, pick);
+        keep.addListener(SWT.Selection, pick);
+        BankQuestionPanel.text(card, keepFiles
+                ? "הקבצים נשארים בפרויקט כמו שהם, ואפשר להמשיך לעבוד עליהם. מ\"מאגר תרגילים\" אפשר לפתוח אותם שוב (\"פתח את התרגיל\")."
+                : confirm, 0, SWT.NORMAL, Look.INK2, shown);
+        shown.add("DONE-CHOICE " + (keepFiles ? "keep" : "delete"));
         Composite bar = new Composite(card, SWT.NONE);
         GridLayout l = new GridLayout(2, false);
         l.marginWidth = 0;
@@ -248,14 +296,17 @@ final class BankFloat {
         l.horizontalSpacing = 10;
         bar.setLayout(l);
         bar.setLayoutData(new GridData(SWT.BEGINNING, SWT.TOP, false, false));
-        Look.Round yes = new Look.Round(bar, "סיום ומחיקה", true, () -> {
+        Look.Round yes = new Look.Round(bar, keepFiles ? "סיום ושמירת הקבצים" : "סיום ומחיקה", true, () -> {
+            boolean k = keepFiles;
             confirm = null;
-            if (BankHandler.complete(shell, q, false)) shell.dispose();
+            keepFiles = false;
+            if (BankHandler.complete(shell, q, false, k)) shell.dispose();
             else render();
         });
         yes.setData("dsviz.say", "primary");
         Look.Round no = new Look.Round(bar, "ביטול", false, () -> {
             confirm = null;
+            keepFiles = false;
             render();
         });
         no.setData("dsviz.say", "cancel");
@@ -263,6 +314,15 @@ final class BankFloat {
     }
 
     // ------------------------------------------------------------------ פעולות
+
+    /** "הכן סעיף ב": הפעולה של הסעיף והבדיקות שלו נכנסות לקוד, החלון מתעדכן, והסמן עובר לפעולה החדשה */
+    void prepare(BankStore.Question q, AiScaffold.Task task) {
+        String label = task.label.replaceAll("['׳]+$", "");
+        String problem = BankHandler.prepare(page, q, task);
+        shown.add("PREPARED-SECTION " + label + (problem == null ? " ok" : " " + problem));
+        if (!shell.isDisposed()) render();
+        if (problem != null) Say.warn(shell, "השאלה", "סעיף " + label + "' לא נוסף עד הסוף:\n" + problem);
+    }
 
     /** הקובץ (מהתרגיל האחרון שנוצר מהשאלה) שבו המחלקה של הסעיף */
     private IFile fileOf(AiScaffold.Task task) {

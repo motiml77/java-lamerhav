@@ -2,6 +2,8 @@
 <CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <Extern href="stdidcmd.h" />
   <Extern href="vsshlids.h" />
+  <!-- הסמלים המובנים של Visual Studio (Image Catalog) — מתאימים לבד לערכה בהירה / כהה ולגודל המסך -->
+  <Include href="KnownImageIds.vsct" />
 
   <Commands package="guidDsVizPackage">
     <Menus>
@@ -24,35 +26,47 @@
     <Buttons>
       <Button guid="guidDsVizCmdSet" id="CmdNew" priority="0x0100" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
-        <CommandFlag>TextOnly</CommandFlag>
+        <Icon guid="ImageCatalogGuid" id="NewDocument" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>תרגיל חדש</ButtonText></Strings>
       </Button>
       <Button guid="guidDsVizCmdSet" id="CmdInsert" priority="0x0200" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
-        <CommandFlag>TextOnly</CommandFlag>
+        <Icon guid="ImageCatalogGuid" id="Hierarchy" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>הוספת מבנה נתונים</ButtonText></Strings>
       </Button>
       <Button guid="guidDsVizCmdSet" id="CmdBank" priority="0x0300" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
+        <Icon guid="ImageCatalogGuid" id="Library" />
         <!-- מאגר השאלות הוא של המעבדה בלבד: מוצג רק כשהוא מותקן (BeforeQueryStatus ב-DsVizPackage) -->
         <CommandFlag>DefaultInvisible</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
-        <CommandFlag>TextOnly</CommandFlag>
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>מאגר שאלות</ButtonText></Strings>
       </Button>
       <Button guid="guidDsVizCmdSet" id="CmdSubmit" priority="0x0400" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
-        <CommandFlag>TextOnly</CommandFlag>
+        <Icon guid="ImageCatalogGuid" id="Send" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>שליחת תרגיל</ButtonText></Strings>
       </Button>
       <Button guid="guidDsVizCmdSet" id="CmdRun" priority="0x0600" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
-        <CommandFlag>TextOnly</CommandFlag>
+        <Icon guid="ImageCatalogGuid" id="Run" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>הרצה ויזואלית</ButtonText></Strings>
       </Button>
       <Button guid="guidDsVizCmdSet" id="CmdHelp" priority="0x0700" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
-        <CommandFlag>TextOnly</CommandFlag>
+        <Icon guid="ImageCatalogGuid" id="StatusHelp" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>הדרכה</ButtonText></Strings>
       </Button>
     </Buttons>

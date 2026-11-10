@@ -265,8 +265,18 @@ public final class BankIjAll {
         int tasks = AiScaffold.read(q.exercise).tasks.size();
         boolean marks = false;
         for (File f : r.files) marks |= new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).matches("(?s).*[‪-‮].*");
-        boolean ok = dir.isDirectory() && r.errors.isEmpty() && !marks && r.files.size() >= 1 && BankVs.solutionsUnder(dir) == tasks;
+        boolean ok = dir.isDirectory() && r.errors.isEmpty() && !marks && r.files.size() >= 1 && BankVs.solutionsUnder(dir) == 1 && BankVs.prepared(q) == 1;
         check("create-" + q.id, ok, q.id + " → " + r.folderName + " (" + r.files.size() + " קבצים, " + tasks + " סעיפים)", "errors=" + r.errors + " marks=" + marks);
+        // התרגיל נוצר עם סעיף א בלבד; "הכן סעיף ב" (וכו') מוסיף כל סעיף — הפעולה, הבדיקות ב-main וההצעה לפתרון
+        List<String> prepProblems = new ArrayList<String>();
+        AiScaffold.Exercise allTasks = AiScaffold.read(q.exercise);
+        for (int k = 1; k < allTasks.tasks.size(); k++) {
+            String p = BankVs.prepare(q, allTasks.tasks.get(k));
+            if (p != null) prepProblems.add(p);
+            if (BankVs.prepared(q) != k + 1) prepProblems.add("prepared=" + BankVs.prepared(q) + " אחרי סעיף " + allTasks.tasks.get(k).label);
+        }
+        check("prepare-" + q.id, prepProblems.isEmpty() && BankVs.solutionsUnder(dir) == tasks,
+                q.id + ": \"הכן סעיף\" הוסיף את כל " + (tasks - 1) + " הסעיפים הנוספים (פעולה, בדיקות ב-main, הצעה לפתרון)", String.join(" | ", prepProblems));
         int applied = solve(dir);
         // javac לתיקיית הפלט (כמו IntelliJ), והרצה רגילה
         List<String> cmd = new ArrayList<String>(java.util.Arrays.asList(new File(System.getProperty("java.home"), "bin/javac").getPath(), "-encoding", "UTF-8",

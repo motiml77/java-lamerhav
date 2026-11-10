@@ -23,7 +23,7 @@ jobs:
         with: { distribution: temurin, java-version: '21' }
       - name: התקנה ובדיקה
         shell: pwsh
-        run: java-visualizer/tools/test/windows-lab/lab-test.ps1 -Dir java-visualizer/lab-release -Out "$env:RUNNER_TEMP\shots" -Code W8S2 -Src java-visualizer/tools/test/access/LiveClaim.java
+        run: java-visualizer/tools/test/windows-lab/lab-test.ps1 -Dir java-visualizer/lab-release -Out "$env:RUNNER_TEMP\shots" -Code W8S2 -Src java-visualizer/tools/test/access/Persist.java
       - uses: actions/upload-artifact@v4
         if: always()
         with:

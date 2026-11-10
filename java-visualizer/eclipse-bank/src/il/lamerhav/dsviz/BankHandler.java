@@ -1,6 +1,8 @@
 package il.lamerhav.dsviz;
 
+import java.io.ByteArrayInputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -73,7 +75,9 @@ public class BankHandler extends AbstractHandler {
      * מחזיר את הבנייה (הקבצים, השגיאות), או null אם נכשלה.
      */
     static SubmitHandler.Build create(IRunnableContext ctx, BankStore.Question q, IJavaProject jp, IContainer src) {
-        Map<String, Object> raw = Json.obj(Json.parse(Json.write(q.exercise)));   // עותק — הבנייה לא משנה את המאגר
+        // רק סעיף א נכנס לקוד (והבדיקות שלו ב-main); כל סעיף נוסף — "הכן סעיף ב" בחלון "השאלה" (BankSections). עותק — הבנייה לא משנה את המאגר
+        Map<String, Object> raw = BankSections.firstSections(q.exercise, 1);
+        boolean several = Json.arr(q.exercise.get("tasks")).size() > 1;
         final SubmitHandler.Build b = new SubmitHandler.Build(null, raw, Collections.<String>emptyList(), jp, src);
         try {
             ctx.run(true, false, m -> b.run(m));
@@ -81,6 +85,19 @@ public class BankHandler extends AbstractHandler {
             return null;
         }
         if (b.files.isEmpty()) return null;
+        if (several) {
+            // "כאן עונים סעיף א'" (ולא "כאן כותבים את התשובה") — יש עוד סעיפים שיתווספו
+            AiScaffold.Task first = AiScaffold.read(Json.obj(Json.parse(Json.write(raw)))).tasks.get(0);
+            for (IFile f : b.files) {
+                try {
+                    String t = new String(ProjectSetup.readAll(f.getContents()), StandardCharsets.UTF_8);
+                    String c = BankSections.markSections(t, first, false);
+                    if (!c.equals(t)) f.setContents(new ByteArrayInputStream(c.getBytes(StandardCharsets.UTF_8)), IResource.KEEP_HISTORY, null);
+                } catch (Exception ignored) {
+                    // נשאר "כאן כותבים את התשובה"
+                }
+            }
+        }
         BankProgress.Created c = new BankProgress.Created();
         c.project = jp.getProject().getName();
         c.folder = b.files.get(0).getParent().getFullPath().toString();
@@ -91,6 +108,102 @@ public class BankHandler extends AbstractHandler {
         }
         BankProgress.get().created(q.id, c);
         return b;
+    }
+
+    // ------------------------------------------------------------------ "הכן סעיף ב"
+
+    /** הקבצים של התרגיל האחרון מהשאלה: שם מחלקה → קובץ */
+    static Map<String, IFile> classFiles(BankStore.Question q) {
+        Map<String, IFile> out = new java.util.LinkedHashMap<String, IFile>();
+        List<BankProgress.Created> all = BankProgress.get().createdOf(q.id);
+        if (all.isEmpty()) return out;
+        for (IFile f : createdFiles(all.get(all.size() - 1))) out.put(f.getName().replaceFirst("\\.java$", ""), f);
+        return out;
+    }
+
+    /** כמה סעיפים כבר בקוד של התרגיל האחרון (בלי תרגיל — כולם) */
+    static int prepared(BankStore.Question q) {
+        Map<String, IFile> files = classFiles(q);
+        AiScaffold.Exercise ex = AiScaffold.read(Json.obj(Json.parse(Json.write(q.exercise))));
+        if (files.isEmpty()) return ex.tasks.size();
+        Map<String, String> texts = new java.util.LinkedHashMap<String, String>();
+        for (Map.Entry<String, IFile> f : files.entrySet()) {
+            try (java.io.InputStream in = f.getValue().getContents()) {
+                texts.put(f.getKey(), new String(ProjectSetup.readAll(in), StandardCharsets.UTF_8));
+            } catch (Exception e) {
+                // לא נקרא — כאילו אין
+            }
+        }
+        return BankSections.prepared(ex, texts);
+    }
+
+    /**
+     * "הכן סעיף ב": מוסיף לקוד את הפעולה של הסעיף (אחרי הפעולה של הסעיף הקודם) ואת הבדיקות שלו בסוף main — לפי מבנה הקוד, לא לפי
+     * הסמן. קובץ שפתוח בעורך — השינוי נעשה בתוך העורך (שום דבר שהתלמיד כתב לא הולך לאיבוד) ונשמר; קובץ שלא פתוח — ישירות בקובץ.
+     * אחר כך נפתחת הפעולה החדשה, והסמן בשורה שמתחת ל"כאן עונים סעיף ב'". מחזיר הודעה אם משהו לא הצליח, או null.
+     */
+    static String prepare(IWorkbenchPage page, BankStore.Question q, AiScaffold.Task t) {
+        Map<String, IFile> files = classFiles(q);
+        if (files.isEmpty()) return "עוד אין תרגיל מהשאלה — יוצרים אותו בחלון \"מאגר תרגילים\" (\"צור תרגיל\").";
+        AiScaffold.Exercise full = AiScaffold.read(Json.obj(Json.parse(Json.write(q.exercise))));
+        AiScaffold.Task task = null;
+        for (AiScaffold.Task x : full.tasks) if (BankSections.norm(x.label).equals(BankSections.norm(t.label))) task = x;
+        if (task == null) return "הסעיף לא נמצא בשאלה.";
+        List<String> problems = new ArrayList<String>();
+        IFile focus = null;
+        int line = -1;
+        for (Map.Entry<String, IFile> fe : files.entrySet()) {
+            IFile f = fe.getValue();
+            try {
+                IEditorPart open = page == null ? null : page.findEditor(new org.eclipse.ui.part.FileEditorInput(f));
+                if (open instanceof org.eclipse.ui.texteditor.ITextEditor) {
+                    org.eclipse.ui.texteditor.ITextEditor te = (org.eclipse.ui.texteditor.ITextEditor) open;
+                    org.eclipse.jface.text.IDocument doc = te.getDocumentProvider().getDocument(te.getEditorInput());
+                    BankSections.Edit e = BankSections.add(doc.get(), full, task, fe.getKey(), false);
+                    if (e.problem != null && !e.problem.startsWith("המחלקה")) problems.add(e.problem);
+                    if (!e.changed()) continue;
+                    List<BankSections.Insert> order = new ArrayList<BankSections.Insert>(e.inserts);
+                    order.sort((x, y) -> Integer.compare(y.offset, x.offset));
+                    for (BankSections.Insert in : order) doc.replace(in.offset, 0, in.text);
+                    te.doSave(null);
+                    if (e.method) { focus = f; line = e.cursorLine; }
+                } else {
+                    String text;
+                    try (java.io.InputStream in = f.getContents()) {
+                        text = new String(ProjectSetup.readAll(in), StandardCharsets.UTF_8);
+                    }
+                    BankSections.Edit e = BankSections.add(text, full, task, fe.getKey(), false);
+                    if (e.problem != null && !e.problem.startsWith("המחלקה")) problems.add(e.problem);
+                    if (!e.changed()) continue;
+                    f.setContents(new ByteArrayInputStream(e.text.getBytes(StandardCharsets.UTF_8)), IResource.KEEP_HISTORY, null);
+                    if (e.method) { focus = f; line = e.cursorLine; }
+                }
+            } catch (Exception ex) {
+                problems.add("לא הצלחתי להוסיף ל-" + f.getName() + ": " + ex.getMessage());
+            }
+        }
+        // ההצעה לפתרון של הסעיף (💡 מעל הפעולה, ו"הצעה לפתרון") — כמו לסעיף שנוצר עם התרגיל
+        IFile own = files.get(task.className);
+        if (own != null && !task.solution.isEmpty()) {
+            SolutionStore.Entry se = new SolutionStore.Entry();
+            se.path = own.getFullPath().toString();
+            se.cls = task.className;
+            se.method = task.methodName;
+            for (String[] prm : task.params) se.params.add(prm[0]);
+            se.label = task.label;
+            se.code = task.solution;
+            se.status = "ok";
+            SolutionMinings.store().add(Collections.singletonList(se));
+        }
+        if (focus != null && page != null) {
+            try {
+                IEditorPart ed = Ui.openAt(page, focus, Math.max(0, line - 1));
+                AnswerHighlight.attach(ed);
+            } catch (PartInitException ignored) {
+                // לא נפתח — הקוד בכל זאת נוסף
+            }
+        }
+        return problems.isEmpty() ? null : String.join("\n", problems);
     }
 
     /** "פתח את התרגיל": הקבצים שכבר נוצרו מהשאלה (מה שהתלמיד כתב נשאר) — main ליד הקובץ של הסעיפים, והסמן ב"כאן עונים" הראשון */
@@ -125,7 +238,7 @@ public class BankHandler extends AbstractHandler {
         List<String> names = new ArrayList<String>();
         for (BankProgress.Created c : BankProgress.get().createdOf(q.id)) for (IFile f : createdFiles(c)) names.add(f.getName());
         if (names.isEmpty()) return null;
-        return "השאלה תסומן בסימן ירוק, וקבצי התרגיל יימחקו מהפרויקט — כדי שלא יצטברו תרגילים ישנים.\n\n"
+        return "קבצי התרגיל יימחקו מהפרויקט — כדי שלא יצטברו תרגילים ישנים.\n\n"
                 + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
                 + (names.size() == 1 ? "הקובץ שיימחק: " : "הקבצים שיימחקו: ") + String.join(", ", names)
                 + "\nרק הקבצים שנוצרו מהתרגיל — קבצים אחרים לא נמחקים.";
@@ -136,10 +249,16 @@ public class BankHandler extends AbstractHandler {
      * בתרגילים ישנים. ask — שואלים קודם (מחיקה). מחזיר true אם סומן.
      */
     static boolean complete(Shell shell, BankStore.Question q, boolean ask) {
+        return complete(shell, q, ask, false);
+    }
+
+    /** keep — התלמיד בחר לשמור את הקבצים: רק הסימון הירוק, והקבצים (והשיוך לשאלה — "פתח את התרגיל") נשארים */
+    static boolean complete(Shell shell, BankStore.Question q, boolean ask, boolean keep) {
         List<BankProgress.Created> made = BankProgress.get().createdOf(q.id);
-        String text = ask ? doneText(q) : null;
-        if (text != null && !Say.ask(shell, "סיימתי את התרגיל", text, "סיום ומחיקה", "ביטול")) return false;
+        String text = ask && !keep ? doneText(q) : null;
+        if (text != null && !Say.ask(shell, "סיימתי את התרגיל", "השאלה תסומן בסימן ירוק. " + text, "סיום ומחיקה", "ביטול")) return false;
         BankProgress.get().setDone(q.id, true);
+        if (keep) return true;
         List<String> kept = new ArrayList<String>();
         for (BankProgress.Created c : made) kept.addAll(cleanUp(c));
         BankProgress.get().forgetCreated(q.id);
@@ -285,6 +404,24 @@ public class BankHandler extends AbstractHandler {
         if (b != null) for (IFile f : b.files) out.add(f.getFullPath().toString());
         if (b != null) for (String e : b.errors) out.add("ERROR " + e);
         return out;
+    }
+
+    /** "הכן סעיף" (כמו הכפתור בחלון "השאלה") — מחזיר הודעה אם משהו לא הצליח, או "ok" */
+    public static String prepareForTest(IWorkbenchPage page, String questionId, String label) {
+        BankStore.Question q = BankStore.load().find(questionId);
+        if (q == null) return "no question";
+        for (AiScaffold.Task t : AiScaffold.read(Json.obj(Json.parse(Json.write(q.exercise)))).tasks)
+            if (BankSections.norm(t.label).equals(BankSections.norm(label))) {
+                String p = prepare(page, q, t);
+                return p == null ? "ok" : p;
+            }
+        return "no section";
+    }
+
+    /** כמה סעיפים כבר בקוד */
+    public static int preparedForTest(String questionId) {
+        BankStore.Question q = BankStore.load().find(questionId);
+        return q == null ? -1 : prepared(q);
     }
 
     /** כל השאלות: "id|topic|level|title" */

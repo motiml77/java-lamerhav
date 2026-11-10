@@ -180,8 +180,11 @@ namespace DsViz
             // כמו Directory.Build.props של תיקיית התרגילים: פעולות העזר מהספרייה (Size / Duplicate) בלי Helpers. — תמיד
             // כמו DSViz.targets: כשהקוד משתמש בספרייה — System.Collections.Generic לא ברשימה המוסתרת (אחרת Stack / Queue דו-משמעיים, CS0104)
             bool usesLib = trees.Any(t => t.GetText().ToString().Contains("Unit4.CollectionsLib"));
-            trees.Add(CSharpSyntaxTree.ParseText("global using static global::Unit4.CollectionsLib.Helpers; " + (project.ImplicitUsings ?
-                    "global using global::System; " + (usesLib ? "" : "global using global::System.Collections.Generic; ") + "global using global::System.IO; " +
+            // וכמו DSViz.targets: קוד שלא נוגע באוספים של ‎.NET — הספרייה לבד (Queue / Stack / Node בלי using בראש הקובץ)
+            bool autoLib = !usesLib && !trees.Any(t => BclCollections.IsMatch(t.GetText().ToString()));
+            bool noGeneric = usesLib || autoLib;
+            trees.Add(CSharpSyntaxTree.ParseText("global using static global::Unit4.CollectionsLib.Helpers; " + (autoLib ? "global using global::Unit4.CollectionsLib; " : "") + (project.ImplicitUsings ?
+                    "global using global::System; " + (noGeneric ? "" : "global using global::System.Collections.Generic; ") + "global using global::System.IO; " +
                     "global using global::System.Linq; global using global::System.Net.Http; global using global::System.Threading; " +
                     "global using global::System.Threading.Tasks;" : ""), parse, "GlobalUsings.g.cs"));
 
@@ -288,6 +291,10 @@ namespace DsViz
             finally { try { File.Delete(trace); } catch (Exception) { } }
             return exit;
         }
+
+        /// <summary>קוד שמשתמש באוספים של ‎.NET (ואז לא מוסיפים את הספרייה לבד) — אותו ביטוי כמו _DSVizBclPattern ב-DSViz.targets</summary>
+        internal static readonly System.Text.RegularExpressions.Regex BclCollections = new System.Text.RegularExpressions.Regex(
+            @"\b(List|Dictionary|HashSet|SortedSet|SortedDictionary|SortedList|LinkedList|KeyValuePair|IEnumerable|ICollection|IList|IDictionary|IReadOnlyList|IReadOnlyCollection|IReadOnlyDictionary|Comparer|EqualityComparer)\s*<|\.(Enqueue|Dequeue|Peek|TryPeek|TryPop|TryDequeue|EnsureCapacity)\s*\(|System\.Collections\.Generic");
 
         /// <summary>כמו ב-Directory.Build.props: Size(x) / Duplicate(x) מהספרייה בלי Helpers.</summary>
         static SyntaxTree HelpersUsing(CSharpParseOptions parse)

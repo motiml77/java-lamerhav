@@ -77,7 +77,7 @@
       <_VsctOut>$(_VsctWork)DsVizPackage.cto</_VsctOut>
     </PropertyGroup>
     <MakeDir Directories="$(_VsctWork)" />
-    <Copy SourceFiles="$(MSBuildProjectDirectory)\DsVizPackage.vsct;$(_VsctInc)\stdidcmd.h;$(_VsctInc)\vsshlids.h;$(_VsctInc)\sharedids.h;$(_VsctInc)\virtkeys.h;$(_VsctInc)\MnuHelpIds.h;$(_VsctInc)\sccmnid.h;$(_VsctInc)\wbids.h;$(_VsctInc)\editids.h;$(_VsctInc)\venusids.h" DestinationFolder="$(_VsctWork)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\DsVizPackage.vsct;$(_VsctInc)\stdidcmd.h;$(_VsctInc)\vsshlids.h;$(_VsctInc)\sharedids.h;$(_VsctInc)\virtkeys.h;$(_VsctInc)\MnuHelpIds.h;$(_VsctInc)\sccmnid.h;$(_VsctInc)\wbids.h;$(_VsctInc)\editids.h;$(_VsctInc)\venusids.h;$(_VsctInc)\KnownImageIds.vsct" DestinationFolder="$(_VsctWork)" />
     <Exec WorkingDirectory="$(_VsctWork)" Command="&quot;$(_VsctExe)&quot; DsVizPackage.vsct DsVizPackage.cto" />
     <!-- VS מחפש את Menus.ctmenu בתוך משאב מנוהל בשם VSPackage.resources (כך VSSDK ממזג את ה-cto), לא כמשאב עצמאי -->
     <DsVizWriteResources Cto="$(_VsctOut)" Out="$(_VsctWork)VSPackage.resources" />

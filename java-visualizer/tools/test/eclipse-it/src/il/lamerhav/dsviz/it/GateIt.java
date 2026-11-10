@@ -282,6 +282,10 @@ public class GateIt implements IApplication {
             }
         }
         out.println("GATE-CLOSED " + (waitGate(1500) == null));
+        // הסרגל אחרי כניסה כמורה (בלי חלונות פתוחים): "עמדת ניהול" פעיל — לצילום המדריך
+        sleep(1500);
+        out.println("TEACHER-BTN-FINAL " + teacherBtn());
+        screen("9-toolbar-teacher-enabled");
     }
 
     // ------------------------------------------------------------------ Swing

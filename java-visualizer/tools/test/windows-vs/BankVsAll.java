@@ -88,15 +88,36 @@ public final class BankVsAll {
         boolean marks = false;
         for (File f : r.files) marks |= new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).matches("(?s).*[\u202A-\u202E].*");
         boolean ok = dir.isDirectory() && new File(dir, r.folderName + ".csproj").isFile() && sln().contains("\"" + r.folderName + "\"")
-                && r.errors.isEmpty() && !marks && BankVs.solutionsUnder(dir) == tasks && BankVs.projects(q).contains(dir);
+                && r.errors.isEmpty() && !marks && BankVs.solutionsUnder(dir) == 1 && BankVs.prepared(q) == 1 && BankVs.projects(q).contains(dir);
         check("create-" + id, ok, id + " → " + r.folderName + " (" + r.files.size() + " קבצים, " + tasks + " סעיפים, בפתרון, בלי סימוני כיוון)",
                 "errors=" + r.errors + " marks=" + marks + " solutions=" + BankVs.solutionsUnder(dir));
+        // התרגיל נוצר עם סעיף א בלבד; "הכן סעיף ב" (וכו') מוסיף כל סעיף — הפעולה, הבדיקות ב-main וההצעה לפתרון
+        List<String> prepProblems = new ArrayList<String>();
+        AiScaffold.Exercise allTasks = AiScaffold.read(q.exercise);
+        for (int k = 1; k < allTasks.tasks.size(); k++) {
+            String p = BankVs.prepare(q, allTasks.tasks.get(k));
+            if (p != null) prepProblems.add(p);
+            if (BankVs.prepared(q) != k + 1) prepProblems.add("prepared=" + BankVs.prepared(q) + " אחרי סעיף " + allTasks.tasks.get(k).label);
+        }
+        check("prepare-" + q.id, prepProblems.isEmpty() && BankVs.solutionsUnder(dir) == tasks,
+                q.id + ": \"הכן סעיף\" הוסיף את כל " + (tasks - 1) + " הסעיפים הנוספים (פעולה, בדיקות ב-main, הצעה לפתרון)", String.join(" | ", prepProblems));
         int applied = solve(dir);
+        long t0 = System.currentTimeMillis();
         String[] run = ExercisePipeline.exec(cmd(dir), dir, 120);
+        long ms = System.currentTimeMillis() - t0;
         String output = run == null ? "" : SolutionCheck.clean(stripHeader(run[0]));
         boolean same = run != null && "0".equals(run[2]) && SolutionCheck.same(SolutionCheck.clean(q.expectedOutput()), output);
+        String trace = "";
+        if (!same) {   // לאבחון: קוד היציאה, הזמן, ותחילת קובץ ההרצה (null = לא הסתיים בזמן)
+            File tf = new File(out, "trace-" + dir.getName() + ".txt");
+            if (tf.isFile()) {
+                String t = new String(Files.readAllBytes(tf.toPath()), StandardCharsets.UTF_8);
+                trace = " trace(" + t.length() + ")=" + t.substring(0, Math.min(400, t.length())).replace("\n", " | ");
+            }
+        }
         check("run-" + id, applied == tasks && same, id + ": הפתרון בכל " + applied + " הסעיפים, וההרצה הוויזואלית מדפיסה בדיוק את הפלט הרצוי",
-                "applied=" + applied + " out=" + output.replace("\n", " | ") + (run == null ? "" : " err=" + run[1].trim()));
+                "applied=" + applied + " code=" + (run == null ? "-" : run[2]) + " ms=" + ms + " out=" + output.replace("\n", " | ")
+                        + (run == null ? "" : " err=" + run[1].trim()) + trace);
         return dir;
     }
 

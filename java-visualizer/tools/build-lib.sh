@@ -3,6 +3,12 @@
 # הכול תואם Java 8, חוץ מ-JdiTracer (הרצה שורה-שורה) שדורש Java 11 ונטען רק כשמבקשים אותו.
 set -e
 cd "$(dirname "$0")/.."
+# ה-Java שבהתקנה (tools/build-jre.sh — jlink) בלי jdk.httpserver, והכלים של Visual Studio / Rider רצים בו:
+# קוד שמשתמש ב-com.sun.net.httpserver נכשל שם (כך נכשלה הכניסה עם Google ב-Visual Studio) — עוצרים כבר בבנייה
+if grep -l 'com\.sun\.net\.httpserver' $(find src/unit4 csharp/new-exercise/src vs-bank/src eclipse-plugin/src -name '*.java'); then
+    echo "שגיאה: הקבצים למעלה משתמשים ב-com.sun.net.httpserver — הוא לא קיים ב-Java של ההתקנה (משתמשים ב-ServerSocket)" >&2
+    exit 1
+fi
 OUT=build/lib
 rm -rf "$OUT" && mkdir -p "$OUT" release
 javac --release 8 -Xlint:-options -encoding UTF-8 -d "$OUT" $(find src/unit4 -name '*.java' ! -name JdiTracer.java)
@@ -22,6 +28,8 @@ cp src/unit4/collectionsLib/*.java "$OUT/src/unit4/collectionsLib/"
 mkdir -p "$OUT/unit4/collectionsLib/fonts" "$OUT/META-INF"
 cp third-party/fonts/*.ttf "$OUT/unit4/collectionsLib/fonts/"
 cp third-party/fonts/OFL-Alef.txt "$OUT/META-INF/LICENSE-Alef-OFL.txt"
+# Rubik (OFL) — לחלונות של Visual Studio (Theme.useRounded). מוקטן לעברית, לטינית וסימני פיסוק (fontTools subset), ‎~64KB‎ לכל משקל
+cp third-party/fonts/OFL-Rubik.txt "$OUT/META-INF/LICENSE-Rubik-OFL.txt"
 # התגים "תמכו בפרויקט" (Java / C#) בסרגל של חלון ההרצה — Donate.java
 mkdir -p "$OUT/unit4/collectionsLib/images" && cp third-party/images/donate-*.png "$OUT/unit4/collectionsLib/images/"
 cp third-party/LICENSE-flatlaf.txt "$OUT/META-INF/LICENSE-flatlaf.txt"

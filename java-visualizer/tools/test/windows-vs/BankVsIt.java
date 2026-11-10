@@ -141,15 +141,31 @@ public final class BankVsIt {
         if (projects.isEmpty()) return;
         File dir = projects.get(0);
         File[] cs = dir.listFiles((d, n) -> n.endsWith(".cs"));
-        String sln = new String(Files.readAllBytes(CsSolution.solution(BankVs.root)), StandardCharsets.UTF_8);
+        String sln = text(CsSolution.solution(BankVs.root));
         check("files", cs != null && cs.length >= 1 && new File(dir, dir.getName() + ".csproj").isFile(), "בפרויקט: .csproj וקבצי .cs (" + (cs == null ? 0 : cs.length) + ")", "");
         check("sln", sln.contains("\"" + dir.getName() + "\""), "הפרויקט רשום בפתרון DataStructures-CS.sln", "");
         // Visual Studio פתוח עם הפתרון: הוא עצמו מוסיף את הפרויקט (DTE) — בלי שינוי של ה-.sln מבחוץ, ולכן בלי "File Modification Detected"
         if (vsOpen) check("vs-add", BankVs.opened.toString().contains("VS-ADD 0"),
                 "Visual Studio פתוח: הפרויקט נוסף דרך Visual Studio עצמו ונשמר — בלי החלון 'File Modification Detected'", BankVs.opened.toString());
-        String code = cs == null || cs.length == 0 ? "" : new String(Files.readAllBytes(cs[0].toPath()), StandardCharsets.UTF_8);
-        check("code", code.contains("SumStack(Stack<int> s)") && code.contains("SizeOf(Stack<int> s)") && code.contains("Console.WriteLine"),
-                "הקוד: SumStack ו-SizeOf (Stack<int>), ו-Main שמדפיס", code.length() > 600 ? code.substring(0, 600) : code);
+        String code = cs == null || cs.length == 0 ? "" : text(cs[0].toPath());
+        // סעיף אחרי סעיף: בהתחלה רק סעיף א (הפעולה והבדיקה שלו ב-Main)
+        check("code-first", code.contains("SumStack(Stack<int> s)") && !code.contains("SizeOf(") && code.contains("Console.WriteLine"),
+                "בהתחלה: רק SumStack (סעיף א) ו-Main שמדפיס את סעיף א", code.length() > 600 ? code.substring(0, 600) : code);
+        check("solutions-first", BankVs.solutionsUnder(dir) == 1, "הצעה לפתרון אחת (סעיף א) נשמרה בצד", String.valueOf(BankVs.solutionsUnder(dir)));
+        // "הכן סעיף ב'" בחלון הצף — כמו התלמיד: הפעולה SizeOf והבדיקות שלה נכנסים לקוד (Visual Studio פתוח — דרך העורך שלו)
+        final JFrame flp = ui(() -> BankVsFloat.current);
+        click(flp, "הכן סעיף ב'");
+        long until = System.currentTimeMillis() + 60000;
+        while (System.currentTimeMillis() < until) {
+            code = text(cs[0].toPath());
+            if (code.contains("SizeOf(")) break;
+            pause(500);
+        }
+        pause(1500);
+        code = text(cs[0].toPath());
+        check("code", code.contains("SumStack(Stack<int> s)") && code.contains("SizeOf(Stack<int> s)") && code.indexOf("SizeOf(Stack<int> s)") < code.indexOf("static void Main")
+                && code.indexOf("סעיף ב", code.indexOf("static void Main")) > 0,
+                "אחרי 'הכן סעיף ב'': SumStack ו-SizeOf (Stack<int>) לפני Main, והבדיקות של סעיף ב ב-Main", code.length() > 900 ? code.substring(0, 900) : code);
         check("solutions", BankVs.solutionsUnder(dir) == 2, "2 הצעות לפתרון נשמרו בצד (solutions.json)", String.valueOf(BankVs.solutionsUnder(dir)));
         Files.write(new File(out, "created-code.txt").toPath(), code.getBytes(StandardCharsets.UTF_8));
         final JFrame fl = ui(() -> BankVsFloat.current);
@@ -252,13 +268,13 @@ public final class BankVsIt {
             waitFile(go + ".4");
         }
         BankVs.cleanPending();
-        String sln2 = new String(Files.readAllBytes(CsSolution.solution(BankVs.root)), StandardCharsets.UTF_8);
+        String sln2 = text(CsSolution.solution(BankVs.root));
         log("  ..   AFTER-DONE dir=" + dir.exists() + " sln=" + sln2.contains("\"" + dir.getName() + "\"") + " solutions=" + BankVs.solutionsUnder(dir)
                 + " created=" + BankProgress.get().createdOf(sq.id).size() + " done=" + BankProgress.get().done(sq.id));
         check("done-float", ui(() -> BankVsFloat.current == null), "אחרי האישור: החלון הצף נסגר", "");
         check("done-mark", BankProgress.get().done(sq.id), "השאלה סומנה בסימן ירוק", "");
         boolean pending = dir.exists() && BankVs.pendingFile().isFile()
-                && new String(Files.readAllBytes(BankVs.pendingFile().toPath()), StandardCharsets.UTF_8).contains(dir.getAbsolutePath() + "|");
+                && text(BankVs.pendingFile().toPath()).contains(dir.getAbsolutePath() + "|");
         boolean onlyBuild = true;
         if (dir.exists()) for (String p : BankVs.list(dir)) onlyBuild &= p.equals("obj") || p.equals("bin") || p.startsWith("obj" + File.separator) || p.startsWith("bin" + File.separator);
         check("done-dir", !dir.exists() || pending && onlyBuild, !dir.exists() ? "תיקיית הפרויקט נמחקה (כולל bin / obj)"
@@ -291,7 +307,7 @@ public final class BankVsIt {
         BankVs.complete(null, kq, false);
         int left2 = 0;
         for (File f : made2) if (f.exists()) left2++;
-        String sln3 = new String(Files.readAllBytes(CsSolution.solution(BankVs.root)), StandardCharsets.UTF_8);
+        String sln3 = text(CsSolution.solution(BankVs.root));
         check("keep-files", left2 == 0, "קבצי התרגיל נמחקו (" + made2.size() + ")", String.valueOf(left2));
         check("keep-mine", mine.isFile() && notes.isFile(), "הקובץ של התלמיד בפרויקט (MyHelper.cs) והקובץ שלו בתיקיית התרגילים — נשארו", "");
         check("keep-project", dir2.isDirectory() && new File(dir2, dir2.getName() + ".csproj").isFile() && sln3.contains("\"" + dir2.getName() + "\""),
@@ -346,6 +362,23 @@ public final class BankVsIt {
 
     static void pause(long ms) {
         try { Thread.sleep(ms); } catch (InterruptedException ignored) { }
+    }
+
+    /**
+     * תוכן קובץ. Visual Studio שומר קבצים (ואת ה-.sln) דרך קובץ זמני והחלפה — באותו רגע הקובץ "תפוס" (The process cannot access
+     * the file...). מנסים שוב עד 10 שניות; רק אם עדיין תפוס — החריגה עולה.
+     */
+    static String text(Path p) throws java.io.IOException {
+        for (int i = 0; ; i++) {
+            try {
+                return new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
+            } catch (java.nio.file.NoSuchFileException gone) {
+                throw gone;
+            } catch (java.io.IOException busy) {
+                if (i >= 50) throw busy;
+                pause(200);
+            }
+        }
     }
 
     static void click(Container c, String text) throws Exception {

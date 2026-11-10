@@ -41,3 +41,20 @@ node ../tools/build-help.js     # דף הבחירה help/index.html + המשכי
 * `scripts/<id>.js` — התסריט של הסרטון: מתי העכבר זז ולוחץ, איזה חלון נפתח, מה נכנס לקוד, איזה צעד בהרצה.
 * `engine.html` + `engine.js` — המנוע (ציר זמן אחד, `render(t)`); `audio.py` — פסקול סינתטי + קליקים; `make.js` — הרינדור והקידוד.
 * `--prep-only` / `--render-only` — רק חלק מהשלבים; `--times 12,30` — צילומי פריים בודדים לבדיקה.
+
+## סרטון מצילומי מסך אמיתיים (Visual Studio מההתחלה — help/vs/f.mp4)
+
+בלי מסגרת מצוירת: כל פריים הוא צילום מסך מלא של Visual Studio האמיתי, מהבדיקה על Windows (`tools/test/windows-vs-toolbar/toolbar-e2e.ps1`, סעיף 9).
+הבדיקה שומרת בתיקייה `tutorial/` את הצילומים ואת `steps.json` — לכל צילום: סוג הצעד (click / type / look) והמלבן על המסך של הכפתור שלוחצים עליו
+(מ-UI Automation של Visual Studio, ובחלונות של DSViz — מה-agent: `target <טקסט>`).
+
+```sh
+# מורידים את ה-artifact של toolbar-windows-2022 מ-GitHub Actions, ואז:
+node screens.js <artifact>/tutorial vs/f      # → ../help/vs/f.mp4 + f.jpg
+node screens.js <artifact>/tutorial vs/f --times 10,40   # פריימים בודדים לבדיקה
+```
+
+* לפני הסרטון `screens_check.py` מצייר כל מלבן על הצילום המקורי (`work/screens-vs-f/check/_sheet.jpg`) — לבדוק בעיניים שהוא יושב בדיוק על הכפתור. בצילום שמכסה אותו חלון (Sign in, Copilot) — לא מפרסמים; `TutClean` בבדיקה סוגר אותם לפני כל צילום.
+* `scripts/vs/f.screens.js` — הכיתוב לכל צילום (לפי תחילת השם), מה מודגש, וכמה זמן.
+* `screens_prep.py` — איפה השתנה המסך בין צילומים (לאן המצלמה מתקרבת כשמקלידים קוד).
+* `screens.html` — המנוע: העכבר נע לכפתור האמיתי, לחיצה, הדגשה, מצלמה וכיתוב גדול בעברית.

@@ -46,6 +46,8 @@ final class BankVsFloat {
     static BankStore.Question question;
     /** "סיימתי את התרגיל" נלחץ: הנוסח של האישור (מוצג בחלון במקום השאלה), או null */
     static String confirm;
+    /** בדף האישור: התלמיד בחר לשמור את קבצי התרגיל (ברירת המחדל — מחיקה) */
+    static boolean keepFiles;
     private static Rectangle lastBounds;
     /** לבדיקות: מה מוצג */
     static final List<String> shown = new ArrayList<String>();
@@ -239,14 +241,18 @@ final class BankVsFloat {
             // "סיימתי את התרגיל": האישור בתוך החלון עצמו (במקום השאלה) — בלי חלון נוסף שמכסה אותו
             page.add(confirmPage(f, q, confirm), BorderLayout.CENTER);
             JPanel foot = RtlDialog.footer();
-            javax.swing.JButton yes = RtlDialog.primary("סיום ומחיקה"), no = RtlDialog.secondary("ביטול");
+            javax.swing.JButton yes = RtlDialog.primary(keepFiles ? "סיום ושמירת הקבצים" : "סיום ומחיקה"), no = RtlDialog.secondary("ביטול");
+            yes.putClientProperty("dsviz.id", "done-yes");
             yes.addActionListener(e -> {
+                boolean k = keepFiles;
                 confirm = null;
-                if (BankVs.complete(f, q, false)) f.dispose();
+                keepFiles = false;
+                if (BankVs.complete(f, q, false, k)) f.dispose();
                 else render();
             });
             no.addActionListener(e -> {
                 confirm = null;
+                keepFiles = false;
                 render();
             });
             foot.add(yes);
@@ -256,6 +262,8 @@ final class BankVsFloat {
         } else {
             JPanel body = BankVsPanel.column();
             body.setBorder(BorderFactory.createEmptyBorder(4, 14, 14, 14));
+            final int ready = BankVs.prepared(q);   // כמה סעיפים כבר בקוד
+            shown.add("PREPARED " + ready);
             body.add(BankVsPanel.build(q, WIDTH - 60, new BankVsPanel.Actions() {
                 public void jump(AiScaffold.Task t) {
                     BankVsFloat.jump(f, q, t);
@@ -263,6 +271,14 @@ final class BankVsFloat {
 
                 public void solution(AiScaffold.Task t) {
                     BankVsFloat.solution(f, t);
+                }
+
+                public int prepared() {
+                    return ready;
+                }
+
+                public void prepare(AiScaffold.Task t) {
+                    BankVsFloat.prepare(f, q, t);
                 }
             }));
             JPanel holder = new JPanel(new BorderLayout());
@@ -286,6 +302,7 @@ final class BankVsFloat {
                         if (BankVs.complete(f, q, false)) f.dispose();
                     } else {
                         confirm = text;
+                        keepFiles = false;
                         render();
                     }
                 }
@@ -309,7 +326,23 @@ final class BankVsFloat {
         JPanel card = BankVsPanel.column();
         card.add(RtlDialog.heading(RtlDialog.Kind.OK, "סיימתי את התרגיל"));
         card.add(RtlDialog.gap(10));
-        card.add(RtlDialog.rich(text, WIDTH - 90, RtlDialog.INK_2, true));
+        card.add(RtlDialog.rich("השאלה תסומן בסימן ירוק. מה לעשות עם קבצי התרגיל?", WIDTH - 90, RtlDialog.INK, true));
+        card.add(RtlDialog.gap(6));
+        // למחוק (ברירת המחדל — כדי שלא יצטברו תרגילים ישנים) או לשמור ולהמשיך לעבוד עליהם
+        javax.swing.ButtonGroup group = new javax.swing.ButtonGroup();
+        javax.swing.JRadioButton delete = choice("למחוק את קבצי התרגיל (מומלץ)", !keepFiles, "done-delete"),
+                keep = choice("לשמור את הקבצים", keepFiles, "done-keep");
+        group.add(delete);
+        group.add(keep);
+        delete.addActionListener(e -> { if (keepFiles) { keepFiles = false; render(); } });
+        keep.addActionListener(e -> { if (!keepFiles) { keepFiles = true; render(); } });
+        card.add(delete);
+        card.add(keep);
+        card.add(RtlDialog.gap(8));
+        card.add(RtlDialog.rich(keepFiles
+                ? "הקבצים נשארים כמו שהם, ואפשר להמשיך לעבוד עליהם. מ\"מאגר תרגילים\" אפשר לפתוח אותם שוב (\"פתח את התרגיל\")."
+                : text, WIDTH - 90, RtlDialog.INK_2, true));
+        shown.add("DONE-CHOICE " + (keepFiles ? "keep" : "delete"));
         RtlDialog.Panel box = new RtlDialog.Panel(new BorderLayout(), Color.WHITE, RtlDialog.LINE);
         box.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
         box.add(card, BorderLayout.CENTER);
@@ -321,6 +354,46 @@ final class BankVsFloat {
         sp.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, RtlDialog.LINE));
         sp.getViewport().setBackground(RtlDialog.PAGE);
         return sp;
+    }
+
+    /** בחירה בדף האישור של "סיימתי": מימין לשמאל, בגופן של החלון */
+    static javax.swing.JRadioButton choice(String text, boolean selected, String id) {
+        javax.swing.JRadioButton b = new javax.swing.JRadioButton(RtlDialog.rtl(text), selected);
+        b.setFont(RtlDialog.bold().deriveFont(RtlDialog.ui().getSize2D()));
+        b.setForeground(RtlDialog.INK);
+        b.setOpaque(false);
+        b.setFocusPainted(false);
+        b.setComponentOrientation(java.awt.ComponentOrientation.RIGHT_TO_LEFT);
+        b.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        b.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        b.putClientProperty("dsviz.id", id);
+        return b;
+    }
+
+    /** "הכן סעיף ב": הפעולה של הסעיף והבדיקות שלו נכנסות לקוד (ברקע — כדי שהחלון לא ייתקע), ואז החלון מתעדכן */
+    static void prepare(JFrame f, BankStore.Question q, AiScaffold.Task t) {
+        String label = t.label.replaceAll("['׳]+$", "");
+        shown.add("PREPARE-CLICK " + label);
+        new javax.swing.SwingWorker<String, Void>() {
+            @Override
+            protected String doInBackground() {
+                return BankVs.prepare(q, t);
+            }
+
+            @Override
+            protected void done() {
+                String problem;
+                try {
+                    problem = get();
+                } catch (Exception e) {
+                    problem = String.valueOf(e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+                }
+                shown.add("PREPARED-SECTION " + label + (problem == null ? " ok" : " " + problem));
+                if (f.isDisplayable()) render();
+                if (problem != null)
+                    RtlDialog.show(f, "השאלה", RtlDialog.Kind.WARN, "סעיף " + label + "' לא נוסף עד הסוף", problem);
+            }
+        }.execute();
     }
 
     /** "לפעולה של סעיף א": פותח ב-Visual Studio את הקובץ של הפעולה, בשורה שלה */
@@ -404,7 +477,7 @@ final class BankVsFloat {
             g.setColor(green);
             g.setStroke(new BasicStroke(done ? 1f : 2f));
             g.drawRoundRect(1, 1, w - 3, h - 3, 14, 14);
-            Font font = Theme.z(RtlDialog.bold().deriveFont(Font.BOLD, 14f));
+            Font font = Theme.z(RtlDialog.bold().deriveFont(14f));
             g.setFont(font);
             String t = text();
             int tw = g.getFontMetrics().stringWidth(t), iw = 18, total = tw + iw + 8, x = (w - total) / 2;

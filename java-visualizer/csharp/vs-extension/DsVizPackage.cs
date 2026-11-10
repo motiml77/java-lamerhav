@@ -49,23 +49,50 @@ namespace DsViz.VsExtension
             Add(mcs, 0x0106, VisualRun);
             Add(mcs, 0x0107, () => Tool("help"));
             ShowToolbarOnce();
+            FollowActiveDocument();
+        }
+
+        StartupFollower _follower;
+
+        /// <summary>הכפתור הירוק ("הרצה ויזואלית") מריץ את התרגיל שפתוח: הפרויקט של הקובץ הפעיל נהיה ה-Startup Project (StartupFollower)</summary>
+        void FollowActiveDocument()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                if (dte == null) return;
+                _follower = new StartupFollower(dte);
+                EnvDTE.Document active = null;
+                try { active = dte.ActiveDocument; } catch (Exception) { }
+                if (active != null) _follower.Follow(active);
+            }
+            catch (Exception ex)
+            {
+                SolutionHints.Log("startup follower failed: " + ex.Message, true);
+            }
         }
 
         /// <summary>
-        /// סרגל שנוסף אחרי שמשתמש כבר פתח את Visual Studio לא תמיד מוצג לבד (DefaultDocked חל על פרופיל חדש) —
-        /// בפעם הראשונה מדליקים אותו דרך DTE. אחר כך המשתמש שולט (View ← Toolbars ← DSViz) והבחירה נשמרת.
+        /// הסרגל של DSViz מוצג בכל פתיחה של Visual Studio. Visual Studio שומר את מצב הסרגלים רק כשהוא נסגר כרגיל —
+        /// אם הוא נסגר בכוח או קרס בפעם הראשונה, הסרגל שהדלקנו לא נשמר, ובלי הדלקה בכל פתיחה הוא היה נשאר מוסתר לתמיד.
+        /// המיקום (שורה משלו מתחת לסרגלים הרגילים) נקבע רק בפעם הראשונה — אחר כך המשתמש יכול להזיז אותו.
         /// </summary>
         void ShowToolbarOnce()
         {
             try
             {
-                string flag = Path.Combine(InstallDir, "vs-toolbar-shown");
-                if (File.Exists(flag)) return;
                 var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
                 if (dte == null) return;
                 dynamic bars = dte.CommandBars;
                 dynamic bar = bars["DSViz"];
-                bar.Visible = true;
+                if (!(bool)bar.Visible)
+                {
+                    bar.Visible = true;
+                    ActivityLog.LogInformation("DsViz", "toolbar shown");
+                }
+                string flag = Path.Combine(InstallDir, "vs-toolbar-shown");
+                if (File.Exists(flag)) return;
                 // שורה משלו מתחת לסרגלים הרגילים (בלי זה הוא נדחס לשורה הראשונה ורוב הכפתורים נעלמים לחץ "עוד")
                 try
                 {
@@ -81,7 +108,6 @@ namespace DsViz.VsExtension
                 }
                 Directory.CreateDirectory(InstallDir);
                 File.WriteAllText(flag, DateTime.Now.ToString("s"));
-                ActivityLog.LogInformation("DsViz", "toolbar shown");
             }
             catch (Exception ex)
             {
@@ -174,7 +200,31 @@ namespace DsViz.VsExtension
 
         void Tool(string mode)
         {
-            if (Installed()) Start("--tool", mode, "");
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (Installed()) Start("--tool", mode, ExercisesRoot());
+        }
+
+        /// <summary>
+        /// התיקייה של הפתרון הפתוח — אם הוא פתרון התרגילים של DSViz (DataStructures-CS.sln, עם הספרייה ו-Directory.Build.props): התרגיל
+        /// (ממאגר השאלות / שליחת תרגיל / תרגיל חדש) נוצר בפתרון שפתוח ב-Visual Studio. אחרת "" — DataStructures-CS שבמסמכים, כמו קודם.
+        /// </summary>
+        string ExercisesRoot()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                string sln = dte == null || dte.Solution == null ? null : dte.Solution.FullName;
+                if (string.IsNullOrEmpty(sln)) return "";
+                string dir = Path.GetDirectoryName(sln);
+                bool ok = File.Exists(Path.Combine(dir, "DataStructures-CS.sln")) && File.Exists(Path.Combine(dir, "lib", "Unit4.CollectionsLib.dll"))
+                    && File.Exists(Path.Combine(dir, "Directory.Build.props"));
+                return ok ? dir : "";
+            }
+            catch (Exception)
+            {
+                return "";
+            }
         }
 
         /// <summary>תיקיית ה-Startup Project של הפתרון הפתוח (או null)</summary>
@@ -203,6 +253,9 @@ namespace DsViz.VsExtension
             ThreadHelper.ThrowIfNotOnUIThread();
             if (!Installed()) return;
             var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+            // כמו הכפתור הירוק של Visual Studio: קודם שומרים את כל הקבצים — dsviz-cs קורא את הקוד מהדיסק, ובלי זה תלמיד שכתב
+            // קוד ולא שמר היה רואה את הגרסה הקודמת (למשל "Hello, World!" של התבנית)
+            try { if (dte != null) dte.Documents.SaveAll(); } catch (Exception) { }
             string file = null;
             try { file = dte != null && dte.ActiveDocument != null ? dte.ActiveDocument.FullName : null; } catch (Exception) { }
             if (file == null || !file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
