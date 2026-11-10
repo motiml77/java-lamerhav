@@ -129,7 +129,7 @@ Remove-Item -LiteralPath "$env:ProgramData\Lamerhav\.cache\s.dat" -Force -ErrorA
 # ---- הפעלה שנייה → אותו שרת, עוד חלון
 Start-Process -FilePath $javaw -ArgumentList '-cp', '"automata\dsviz-automata.jar;dsviz.jar"', 'il.lamerhav.dsviz.AutomataLauncher' -WorkingDirectory $inst
 Start-Sleep 8
-Check 'single-instance' ((Launchers).Count -eq 1) "הפעלה שנייה — לא שרת שני ($((Launchers).Count) משגרים)"
+Check 'single-instance' (@(Launchers).Count -eq 1) "הפעלה שנייה — לא שרת שני ($(@(Launchers).Count) משגרים)"
 Shot 'automata-3-second-launch'
 
 # ---- סוגרים את החלונות → המשגר יוצא
@@ -137,7 +137,7 @@ Get-Process msedge -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowT
 Start-Sleep 3
 @(Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" | Where-Object { $_.CommandLine -like '*automata-data\edge*' }) | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 $gone = $false
-for ($i = 0; $i -lt 120 -and -not $gone; $i++) { Start-Sleep 1; $gone = (Launchers).Count -eq 0 }
+for ($i = 0; $i -lt 120 -and -not $gone; $i++) { Start-Sleep 1; $gone = @(Launchers).Count -eq 0 }
 Check 'exit-after-window' $gone "החלון נסגר — המשגר יצא ($i שניות)"
 Check 'instance-cleaned' (-not (Test-Path -LiteralPath "$data\instance.json")) 'instance.json נמחק ביציאה'
 foreach ($p in Launchers) { Stop-Process -Id $p.ProcessId -Force }
