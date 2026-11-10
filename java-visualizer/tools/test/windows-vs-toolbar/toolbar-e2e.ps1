@@ -904,7 +904,7 @@ Start-Sleep 2
 $bankBtn = ToolbarButton $vsP.Id $bankNames
 TutShot 'tut-09-bank-button' $bankBtn 'click'
 TutClean
-$st = RunStage 'bank' 'tut-10' @('waitwin כניסה למאגר', 'wait 2500', 'target כניסה עם Google', 'mark login-screen', 'click כניסה עם Google', 'wait 4000', 'mark teacher-waiting', 'wait 12000', 'mark google-page') { ClickBank } 240
+$st = RunStage 'bank' 'tut-10' @('waitwin כניסה למאגר', 'wait 2500', 'target כניסה עם Google', 'mark login-screen', 'clicktarget כניסה עם Google', 'wait 4000', 'mark teacher-waiting', 'wait 12000', 'mark google-page') { ClickBank } 240
 $titles = (Windows) -join ' ; '
 Info "חלונות אחרי 'כניסה עם Google': $titles"
 Check 'tut-gate' ($st -eq 'done') "9. 'מאגר שאלות' -> מסך הכניסה, ולחיצה על 'כניסה עם Google' של מורה" "סטטוס $st"
@@ -917,9 +917,9 @@ Start-Sleep 2
 TutClean
 $st = RunStage 'bank' 'tut-11' @(
     '#access=off', 'waitwin מאגר', 'wait 3000', 'mark bank-window',
-    'bankselect stack-sum-size', 'wait 1500', 'target צור תרגיל', 'mark selected',
-    'click צור תרגיל', 'waitwin השאלה', 'wait 6000', "target הכן סעיף ב'", 'mark float',
-    "click הכן סעיף ב'", 'wait 9000', 'mark prepared'
+    'bankselect stack-max-contains', 'wait 1500', 'target צור תרגיל', 'mark selected',
+    'clicktarget צור תרגיל', 'waitwin השאלה', 'wait 6000', "target הכן סעיף ב'", 'mark float',
+    "clicktarget הכן סעיף ב'", 'wait 9000', 'mark prepared'
 ) { ClickBank } 420
 Check 'tut-bank' ($st -eq 'done') "11. אחרי הכניסה: חלון המאגר -> בחירת שאלה -> 'צור תרגיל' -> 'השאלה' -> 'הכן סעיף ב''" "סטטוס $st"
 Start-Sleep 4
