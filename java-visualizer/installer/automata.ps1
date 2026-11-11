@@ -5,14 +5,17 @@
 #   -JavaPath <תיקיית jdk>  מדפיס את javaw.exe שהקיצור צריך: בתיקייה עם עברית (שם משתמש) — דרך צומת (junction) באנגלית
 #             ב-%ProgramData%\DSViz-jdk-<hash> (אותו שם כמו SafeJava ב-dsviz-cs.exe), כי javaw לא עולה מנתיב שלא בקידוד של
 #             Windows — גם לא מהשם הקצר (8.3: ה-JVM טוען את net.dll מהנתיב הארוך). בתיקייה באנגלית / אם אי אפשר — "-".
-param([switch]$Running, [switch]$Stop, [string]$JavaPath)
+param([switch]$Running, [switch]$Stop, [string]$JavaPath, [string]$Out)
+# -Out <קובץ>: התוצאה של -JavaPath נכתבת לקובץ ב-UTF-16 (ההתקנה, NSIS Unicode, קוראת אותו ב-FileReadUTF16LE) — הפלט של
+#   PowerShell ל-nsExec מגיע בקידוד אחר, ו-"-" נקרא שם כתו זבל (קיצור שבור)
+function Result([string]$v) { if ($Out) { [IO.File]::WriteAllText($Out, $v, (New-Object Text.UnicodeEncoding($false, $false))) } else { Write-Output $v } }
 $ErrorActionPreference = 'SilentlyContinue'
 function Launchers {
     @(Get-CimInstance Win32_Process -Filter "Name='javaw.exe' OR Name='java.exe'" | Where-Object { $_.CommandLine -like '*il.lamerhav.dsviz.AutomataLauncher*' })
 }
 if ($JavaPath) {
     $jdk = $JavaPath.TrimEnd('\')
-    if ($jdk -notmatch '[^\x00-\x7F]') { Write-Output '-'; exit 0 }
+    if ($jdk -notmatch '[^\x00-\x7F]') { Result '-'; exit 0 }
     $sha = [Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($jdk.ToLowerInvariant()))
     $hash = (($sha | ForEach-Object { $_.ToString('X2') }) -join '').Substring(0, 10)
     $link = Join-Path $env:ProgramData "DSViz-jdk-$hash"
@@ -21,7 +24,7 @@ if ($JavaPath) {
         if (Test-Path -LiteralPath $link) { cmd /c rmdir "$link" 2>&1 | Out-Null }   # צומת ישן ששבור (rmdir — בלי למחוק את מה שבפנים)
         cmd /c mklink /J "$link" "$jdk" 2>&1 | Out-Null
     }
-    if ((Test-Path -LiteralPath $exe) -and $exe -notmatch '[^\x00-\x7F]') { Write-Output $exe } else { Write-Output '-' }
+    if ((Test-Path -LiteralPath $exe) -and $exe -notmatch '[^\x00-\x7F]') { Result $exe } else { Result '-' }
     exit 0
 }
 if ($Running) { if ((Launchers).Count -gt 0) { exit 0 } else { exit 1 } }

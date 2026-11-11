@@ -79,6 +79,7 @@ function CheckAutomata([string]$shot) {
         $fi = (New-Object -ComObject Shell.Application).NameSpace($desk).ParseName('מודלים חישוביים.lnk')
         $gl = $fi.GetLink
         Write-Host "  קיצור (Shell): '$($gl.Path)' '$($gl.Arguments)' (תיקייה: '$($gl.WorkingDirectory)')"
+        Check "יעד הקיצור הוא javaw.exe קיים ($($gl.Path))" (($gl.Path -match 'javaw\.exe$') -and (Test-Path -LiteralPath $gl.Path))
     } catch { Write-Host "  קיצור (Shell): $($_.Exception.Message)" }
     # אבחון: אותה פקודה כמו בקיצור, עם java.exe ופלט לקובץ (20 שניות), ואז סוגרים
     $dbgOut = Join-Path $Out 'automata-direct.txt'
