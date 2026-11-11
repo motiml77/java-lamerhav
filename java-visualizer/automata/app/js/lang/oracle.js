@@ -210,21 +210,24 @@
     }
     return '?';
   }
-  /** מחזיר { text, html }: L = { aⁿbᵐ | n ≥ 2 }. ב-html החזקות ב-<sup>. */
-  function pretty(ast) {
+  /** מחזיר { text, html }: L = { aⁿbᵐ | n ≥ 2 }. ב-html החזקות ב-<sup>. opts.edit: החזקות מסומנות לעריכה בלחיצה (class="ex", data-ex) */
+  function pretty(ast, opts) {
+    const edit = !!(opts && opts.edit);
     const make = (html) => {
       if (ast.kind === 'regex') return 'L = ' + showRe(ast.re, 0);
       if (ast.kind === 'pattern') return L.patternPretty(ast, html);
-      if (ast.kind === 'union' || ast.kind === 'concat') return L.combinedPretty(ast, html);
+      if (ast.kind === 'union' || ast.kind === 'concat') return L.combinedPretty(ast, html, opts);
       if (ast.kind === 'prop') { const c = showC(ast.cond, html, true); return 'L = { w ∈ {' + ast.alphabet.join(',') + '}*' + (c ? ' | ' + c : '') + ' }'; }
       const body = ast.blocks.map((b) => {
         const base = b.word.length > 1 ? '(' + b.word + ')' : b.word, e = b.e;
+        // כל חזקה שבאה מהטקסט: <sup class="ex" data-ex="מיקום">, ולחיצה עליה בלשונית "שפה" פותחת עריכה (exp-edit.js)
+        const SUP = edit && b.src ? '<sup class="ex" data-ex="' + b.src.at[0] + '">' : '<sup>';
         if (!e.v && e.d === 1) return base;
         if (e.v && e.v[0] === '_') return base + (e.d ? (html ? '<sup>+</sup>' : '⁺') : '*');
-        if (e.gen) { const t = showE(e.t, html, false); if (html) return esc(base) + '<sup>' + t + '</sup>'; const u = sup(t.replace(/−/g, '-')); return base + (u.every(Boolean) ? u.join('') : '^(' + t + ')'); }
-        if (e.pow) return html ? esc(base) + '<sup>' + e.pow + '<sup>' + e.v + '</sup></sup>' : base + '^(' + e.pow + (SUPS[e.v] || '^' + e.v) + ')';
+        if (e.gen) { const t = showE(e.t, html, false); if (html) return esc(base) + SUP + t + '</sup>'; const u = sup(t.replace(/−/g, '-')); return base + (u.every(Boolean) ? u.join('') : '^(' + t + ')'); }
+        if (e.pow) return html ? esc(base) + SUP + e.pow + '<sup>' + e.v + '</sup></sup>' : base + '^(' + e.pow + (SUPS[e.v] || '^' + e.v) + ')';
         const t = expText(e);
-        if (html) return esc(base) + '<sup>' + esc(t) + '</sup>';
+        if (html) return esc(base) + SUP + esc(t) + '</sup>';
         const u = sup(t);
         return base + (u.every(Boolean) ? u.join('') : '^(' + t + ')');
       }).join('');

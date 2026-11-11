@@ -55,9 +55,9 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
 
   await step('מקלדת הסימנים מכניסה למקום הסמן, בלי לעבור לאנגלית', async () => {
     await write(p, '');
-    for (const ins of ['a', 'ⁿ', 'b', 'ⁿ']) await p.click('.lang-kb .lk[data-ins="' + ins + '"]');
+    for (const ins of ['a', '^(⟦n⟧)', 'b', '^(⟦n⟧)']) await p.click('.lang-kb .lk[data-ins="' + ins + '"]');
     await p.waitForTimeout(250);
-    assert.equal(await p.inputValue('#lang-input'), 'aⁿbⁿ');
+    assert.equal(await p.inputValue('#lang-input'), 'a^(n)b^(n)', 'מקש של אות אחרי חזקה שנבחרה: ממשיך אחריה (סבב 13)');
     assert.equal(await text(p, '#lang-class'), 'חסרת הקשר, לא רגולרית');
     assert.ok(await p.evaluate(() => document.activeElement.id === 'lang-input'), 'הפוקוס נשאר בשדה');
     await p.click('.lang-kb .lk[data-ins=" | "]');
@@ -65,7 +65,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await p.click('.lang-kb .lk[data-ins=" ≥ "]');
     await p.keyboard.type('1');
     await p.waitForTimeout(250);
-    assert.equal(await p.inputValue('#lang-input'), 'aⁿbⁿ | n ≥ 1');
+    assert.equal(await p.inputValue('#lang-input'), 'a^(n)b^(n) | n ≥ 1');
     assert.deepEqual((await words(p, '#lang-live .ll-row:nth-child(1)')).slice(0, 2), ['ab', 'aabb']);
   });
 

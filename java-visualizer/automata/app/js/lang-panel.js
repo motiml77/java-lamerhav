@@ -12,9 +12,10 @@
   const TYPE = { dfa: 'אס"ד', pda: 'אוטומט מחסנית', tm: 'מכונת טיורינג' };
 
   // המקלדת: [מה שמוצג, מה שנכנס לשדה, הסבר]. השורה הראשונה תמיד גלויה, השאר ב"עוד סימנים".
+  // ⟦…⟧: החלק שנבחר אחרי ההכנסה (מקלידים ומחליפים מיד), ‸: הסמן. סבב 13: כל חזקה נכנסת כ-^( ) כדי שאפשר לשנות אותה לכל ביטוי.
   const KEYS_MAIN = [
-    [['ⁿ', 'ⁿ', 'בחזקת n'], ['ᵐ', 'ᵐ', 'בחזקת m'], ['ᵏ', 'ᵏ', 'בחזקת k'], ['²ⁿ', '²ⁿ', 'בחזקת 2n'], ['ⁿ⁺ᵐ', 'ⁿ⁺ᵐ', 'בחזקת n+m'], ['*', '*', 'אפס פעמים או יותר'], ['⁺', '⁺', 'פעם אחת או יותר']],
-    [['^(', '^(', 'חזקה מורכבת, למשל a^(2n+m)'], ['+', '+', 'פלוס, בחזקה או בתנאי'], ['−', '-', 'מינוס, למשל b^(n-m)'], ['·', '·', 'כפל, למשל a^(n·m)'], ['²', '^2', 'בריבוע, למשל a^(n^2)']],
+    [['^( )', '^(‸)', 'חזקה: כותבים בתוך הסוגריים כל ביטוי, למשל a^(m+k+2)'], ['ⁿ', '^(⟦n⟧)', 'בחזקת n (נבחר: מקלידים ומחליפים)'], ['ᵐ', '^(⟦m⟧)', 'בחזקת m (נבחר: מקלידים ומחליפים)'], ['ᵏ', '^(⟦k⟧)', 'בחזקת k (נבחר: מקלידים ומחליפים)'], ['²ⁿ', '^(⟦2n⟧)', 'בחזקת 2n (נבחר: מקלידים ומחליפים)'], ['*', '*', 'אפס פעמים או יותר'], ['⁺', '⁺', 'פעם אחת או יותר']],
+    [['+', '+', 'פלוס, בחזקה או בתנאי'], ['−', '-', 'מינוס, למשל b^(n-m)'], ['·', '·', 'כפל, למשל a^(n·m)'], ['²', '^⟦2⟧', 'בריבוע, למשל a^(n^2)']],
     [['|', ' | ', 'כך ש: אחריו באים התנאים'], ['≥', ' ≥ '], ['≤', ' ≤ '], ['≠', ' ≠ '], ['=', ' = '], ['<', ' < '], ['>', ' > '], ['%', ' % ', 'שארית חלוקה: n % 3 = 0'], ['mod', ' mod ', 'שארית חלוקה: n mod 3 = 1']],
     [[',', ', ', 'עוד תנאי (כמו "וגם"): n ≥ 1, m ≥ 1'], ['∈ ℕ', ' ∈ ℕ', 'מספר טבעי: n ∈ ℕ (כלומר n ≥ 0)'], ['וגם', ' וגם '], ['או', ' או '], ['לא', 'לא '], ['זוגי', ' זוגי'], ['אי-זוגי', ' אי-זוגי'], ['(', '('], [')', ')']],
   ];
@@ -22,9 +23,11 @@
     [['w ∈ Σ*', 'w ∈ {$S}* | ', 'מילה כלשהי מעל האלפבית'], ['|w|', '|w|', 'אורך המילה'], ['#a(w)', '#$a(w)', 'כמה פעמים האות מופיעה במילה']],
     [['מתחילה ב-', 'מתחילה ב-'], ['מסתיימת ב-', 'מסתיימת ב-'], ['מכילה', 'מכילה '], ['פלינדרום', 'פלינדרום'], ['מאוזנת', 'מאוזנת', 'סוגריים מאוזנים: w ∈ {(,)}* | מאוזנת']],
     [['≡', ' ≡ ', 'שקילות: n ≡ 1 (mod 3)'], ['(mod 3)', ' (mod 3)', 'למשל n ≡ 1 (mod 3)']],
-    [['ε', 'ε', 'המילה הריקה'], ['∪', ' ∪ ', 'איחוד: של ביטויים רגולריים, או של שפות { aⁿbⁿ } ∪ { bⁿaⁿ }'], ['{ }·{ }', ' · ', 'שרשור של שפות: { aⁿbⁿ } · { cᵏ }'], ['wᴿ', 'wᴿ', 'המילה w בסדר הפוך. למשל w wᴿ'], ['2ⁿ', '^(2^n)', 'חזקה של 2 בתוך חזקה: a^(2^n)']],
+    [['ε', 'ε', 'המילה הריקה'], ['∪', ' ∪ ', 'איחוד: של ביטויים רגולריים, או של שפות { aⁿbⁿ } ∪ { bⁿaⁿ }'], ['{ }·{ }', ' · ', 'שרשור של שפות: { aⁿbⁿ } · { cᵏ }'], ['wᴿ', 'wᴿ', 'המילה w בסדר הפוך. למשל w wᴿ'], ['2ⁿ', '^(⟦2^n⟧)', 'חזקה של 2 בתוך חזקה: a^(2^n)']],
   ];
-  const SUPL = { 'ⁿ': '<i>x</i><sup>n</sup>', 'ᵐ': '<i>x</i><sup>m</sup>', 'ᵏ': '<i>x</i><sup>k</sup>', '²ⁿ': '<i>x</i><sup>2n</sup>', 'ⁿ⁺ᵐ': '<i>x</i><sup>n+m</sup>', '⁺': '<i>x</i><sup>+</sup>', '*': '<i>x</i>*', '^(': '<i>x</i>^(', '²': '<i>n</i><sup>2</sup>', '{ }·{ }': '{}·{}' };
+  const SUPL = { '^( )': '<i>x</i><sup class="lk-box">( )</sup>', 'ⁿ': '<i>x</i><sup>n</sup>', 'ᵐ': '<i>x</i><sup>m</sup>', 'ᵏ': '<i>x</i><sup>k</sup>', '²ⁿ': '<i>x</i><sup>2n</sup>', '⁺': '<i>x</i><sup>+</sup>', '*': '<i>x</i>*', '²': '<i>n</i><sup>2</sup>', '{ }·{ }': '{}·{}' };
+  /** מקשים שממשיכים את החזקה שנבחרה (הסמן בסוף הבחירה, בתוך הסוגריים). כל מקש אחר ממשיך אחרי החזקה */
+  const ARITH = new Set(['+', '-', '·', '^⟦2⟧']);
   const keyRows = (rows) => rows.map((list) => '<span class="lk-group">' + list.map(([show, ins, tip]) =>
     '<button type="button" class="lk" data-ins="' + esc(ins) + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + ' aria-label="' + esc(tip || show) + '" tabindex="-1"><bdi>' + (SUPL[show] || esc(show)) + '</bdi></button>').join('') + '</span>').join('');
   /** טקסט עברי עם קטעי נוסחה: הקטעים הלטיניים נעטפים ב-bdi כדי שלא יתהפכו. */
@@ -70,6 +73,7 @@
         this.bound = true;
         body.addEventListener('input', (e) => { if (e.target.id === 'lang-desc') { this.ownDesc.add(this.app.machine); this.setLang({ desc: e.target.value }); this.app.strip.render(); } });
         body.addEventListener('keydown', (e) => { if (e.target.id === 'lang-desc') e.stopPropagation(); });
+        body.addEventListener('keydown', (e) => { if (e.target.matches && e.target.matches('sup.ex') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); this.openExp(e.target); } });
         body.addEventListener('input', (e) => { if (e.target.id === 'lang-input') { this.setText(e.target.value); clearTimeout(this.t); this.t = setTimeout(() => this.live(), 120); } });
         body.addEventListener('keydown', (e) => { if (e.target.id === 'lang-input') { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); clearTimeout(this.t); this.live(); } } });
         body.addEventListener('mousedown', (e) => { if (e.target.closest('.lk, .ll')) e.preventDefault(); });      // לא לאבד את הפוקוס בשדה
@@ -84,6 +88,7 @@
     live() {
       const q = (id) => this.body.querySelector('#' + id);
       if (!q('lang-pretty')) return;
+      this.closeExp();
       const text = this.lang.text, pretty = q('lang-pretty'), live = q('lang-live'), cls = q('lang-class');
       this.ast = null; this.error = null;
       if (text.trim()) { try { this.ast = L.parse(text, { alphabet: M.inputAlphabet(this.app.machine) }); } catch (e) { if (!(e instanceof L.LangError)) throw e; this.error = e; } }
@@ -100,7 +105,8 @@
       } else {
         const an = L.analyze(this.ast), s = L.sample(this.ast);
         pretty.className = 'lang-pretty';
-        pretty.innerHTML = '<div class="lp-math" dir="ltr">' + L.pretty(this.ast).html + '</div>' + this.defaults();
+        pretty.innerHTML = '<div class="lp-math" dir="ltr">' + L.pretty(this.ast, { edit: !this.lang.locked }).html + '</div>' + this.defaults();
+        pretty.querySelectorAll('sup.ex').forEach((x) => { x.title = 'לחיצה לעריכת החזקה'; x.setAttribute('role', 'button'); x.tabIndex = 0; });
         cls.className = 'lang-class ' + CLS[an.cls];
         cls.textContent = an.label;
         cls.title = an.why;
@@ -124,19 +130,84 @@
 
     insert(raw) {
       const el = this.input, S = this.sigma();
-      const ins = raw.replace('$S', S.join(',')).replace('$a', S[0]);
-      const a = el.selectionStart, b = el.selectionEnd;
-      const lead = ins[0] === ' ' && (a === 0 || el.value[a - 1] === ' ') ? ins.slice(1) : ins;
+      let ins = raw.replace('$S', S.join(',')).replace('$a', S[0]);
+      let a = el.selectionStart, b = el.selectionEnd;
+      // חזקה שמקש הכניס עדיין נבחרת: מקלדת אמיתית מחליפה אותה; מקש חשבון ממשיך אותה, וכל מקש אחר בא אחריה
+      const ex = this.expSel;
+      if (ex && a === ex.s && b === ex.e && el.value === ex.v) a = b = ARITH.has(raw) ? ex.e : ex.after;
+      this.expSel = null;
+      let selS = null, selE = null;
+      const o = ins.indexOf('⟦');
+      if (o >= 0) { selS = o; selE = ins.indexOf('⟧') - 1; ins = ins.replace('⟦', '').replace('⟧', ''); }
+      const c = ins.indexOf('‸');
+      if (c >= 0) { selS = selE = c; ins = ins.replace('‸', ''); }
+      const lead = ins[0] === ' ' && (a === 0 || el.value[a - 1] === ' ') ? ins.slice(1) : ins, cut = ins.length - lead.length;
       el.value = el.value.slice(0, a) + lead + el.value.slice(b);
-      el.selectionStart = el.selectionEnd = a + lead.length;
+      if (selS != null) {
+        el.selectionStart = a + selS - cut; el.selectionEnd = a + selE - cut;
+        if (selE > selS) this.expSel = { s: el.selectionStart, e: el.selectionEnd, after: a + lead.length, v: el.value };
+      } else el.selectionStart = el.selectionEnd = a + lead.length;
       el.focus();
       el.dispatchEvent(new Event('input', { bubbles: true }));
+      if (this.expSel) this.expSel.v = el.value;
+    }
+
+    /* ---------- עריכה של חזקה בלחיצה על התצוגה היפה (סבב 13, lang/exp-edit.js) ---------- */
+    openExp(sup) {
+      this.closeExp();
+      const at = +sup.dataset.ex, src = this.ast && L.exponentAt(this.ast, at);
+      if (!src) return;
+      const box = this.body.querySelector('#lang-pretty'), r = sup.getBoundingClientRect(), b = box.getBoundingClientRect(), z = this.app.canvas.uiScale();
+      const pop = document.createElement('div');
+      pop.className = 'exp-pop';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-label', 'עריכת החזקה');
+      pop.innerHTML = '<label><span>החזקה</span><input type="text" dir="ltr" class="exp-input" spellcheck="false" autocomplete="off" aria-label="החזקה"></label><div class="exp-err" role="alert"></div>';
+      box.appendChild(pop);
+      const left = Math.max(0, Math.min(box.clientWidth - pop.offsetWidth, (r.left - b.left) / z + (r.width / z) / 2 - pop.offsetWidth / 2));
+      Object.assign(pop.style, { left: left + 'px', top: ((r.bottom - b.top) / z + 6) + 'px' });
+      sup.classList.add('editing');
+      const input = pop.querySelector('input');
+      input.value = L.exponentText(this.lang.text, src);
+      this.exp = { pop, at, sup, input };
+      input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); this.applyExp(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); this.closeExp(); this.input.focus(); }
+      });
+      input.addEventListener('input', () => { pop.querySelector('.exp-err').textContent = ''; });
+      input.addEventListener('blur', () => setTimeout(() => { if (this.exp && this.exp.input === input) this.applyExp(false); }, 0));
+      input.focus();
+      input.select();
+    }
+    /** strict: Enter (שגיאה נשארת על המסך). בלי strict (יציאה מהשדה): נוסחה לא תקינה פשוט לא נשמרת */
+    applyExp(strict) {
+      const x = this.exp;
+      if (!x) return;
+      const r = L.editExponent(this.lang.text, this.ast, x.at, x.input.value, { alphabet: M.inputAlphabet(this.app.machine) });
+      if (!r.ok) { if (strict) { x.pop.querySelector('.exp-err').textContent = r.error; x.input.focus(); } else this.closeExp(); return; }
+      this.closeExp();
+      this.result = null;
+      this.setText(r.text);
+      this.input.value = r.text;
+      this.live();
+      this.input.focus();
+      this.input.setSelectionRange(r.start, r.end);
+    }
+    closeExp() {
+      const x = this.exp;
+      if (!x) return;
+      this.exp = null;
+      x.pop.remove();
+      if (x.sup) x.sup.classList.remove('editing');
     }
 
     onClick(e) {
       const app = this.app;
       const key = e.target.closest('[data-ins]');
       if (key) { this.insert(key.dataset.ins); return; }
+      const sup = e.target.closest('#lang-pretty sup.ex');
+      if (sup) { this.openExp(sup); return; }
       const w = e.target.closest('[data-word]');
       if (w) { app.runWord(w.dataset.word); return; }
       const tpl = e.target.closest('[data-tpl]');

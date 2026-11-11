@@ -37,10 +37,10 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await write('');
     await p.click('#lang-input');
     await p.keyboard.type('a^n b^m c', { delay: 5 });
-    await p.click('.lang-kb .lk[data-ins="^("]');
+    await p.click('.lang-kb .lk[data-ins="^(‸)"]');
     await p.keyboard.type('n');
     await p.click('.lang-kb .lk[data-ins="+"]');
-    await p.keyboard.type('m)');
+    await p.keyboard.type('m');
     await p.waitForTimeout(300);
     assert.equal(await p.inputValue('#lang-input'), 'a^n b^m c^(n+m)');
     assert.equal(await text('#lang-pretty .lp-math'), 'L = { anbmcn+m }');
@@ -84,14 +84,16 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await shot('r4-mod');
   });
 
-  await step('מקלדת הסימנים: ^( + − · % ≡ נכנסים למקום הסמן', async () => {
+  await step('מקלדת הסימנים: ^( ) + − · % ≡ נכנסים למקום הסמן', async () => {
     await write('');
     await p.click('#lang-input');
     await p.keyboard.type('a');
-    await p.click('.lang-kb .lk[data-ins="^("]');
+    await p.click('.lang-kb .lk[data-ins="^(‸)"]');
     await p.keyboard.type('n');
     await p.click('.lang-kb .lk[data-ins="·"]');
-    await p.keyboard.type('m) | n');
+    await p.keyboard.type('m');
+    await p.keyboard.press('End');
+    await p.keyboard.type(' | n');
     await p.click('.lang-kb .lk[data-ins=" % "]');
     await p.keyboard.type('2 = 0');
     await p.waitForTimeout(300);
