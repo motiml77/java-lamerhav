@@ -1,0 +1,48 @@
+/* layout.css - גדלים שהמשתמש קובע (סבב 12): קווי הפרדה נגררים, וכפתור הקיפול של פאנל הצד. הלוגיקה ב-js/layout.js */
+
+/* פאנל הצד מתקפל בתנועה (הקנבס מתרחב תוך כדי, ו-layout.js שומר את השרטוט במקום) */
+.app { transition: grid-template-columns 180ms var(--ease); }
+.app.no-anim, body.resizing-col .app, body.resizing-row .app { transition: none; }
+@media (prefers-reduced-motion: reduce) { .app { transition: none; } }
+.side { min-width: 0; overflow: hidden; }
+.app.side-collapsed .side { border-inline-start-width: 0; }
+body.resizing-col, body.resizing-col * { cursor: col-resize !important; user-select: none; }
+body.resizing-row, body.resizing-row * { cursor: row-resize !important; user-select: none; }
+
+/* ================= קו הפרדה: קו דק, אזור לחיצה רחב, נקודות אחיזה בריחוף ================= */
+.splitter { position: relative; z-index: 12; touch-action: none; outline: none; }
+.splitter.row { grid-area: run; align-self: start; height: 10px; margin-top: -5px; cursor: row-resize; }
+.splitter.col { grid-area: side; justify-self: start; width: 10px; margin-inline-start: -5px; cursor: col-resize; }
+.splitter::before { content: ""; position: absolute; background: transparent; transition: background-color 120ms var(--ease); }
+.splitter.row::before { left: 0; right: 0; top: 4px; height: 2px; }
+.splitter.col::before { top: 0; bottom: 0; left: 4px; width: 2px; }
+.splitter:hover::before, .splitter:focus-visible::before, .splitter.dragging::before { background: var(--accent); }
+.splitter::after {
+  content: ""; position: absolute; opacity: 0; transition: opacity 120ms var(--ease);
+  border-radius: var(--r-full); background-color: var(--raised); border: 1px solid var(--line-strong); box-shadow: var(--shadow-1);
+  background-image: radial-gradient(circle, var(--muted) 1.1px, transparent 1.5px);
+}
+.splitter.row::after { left: 50%; top: 0; width: 34px; height: 10px; transform: translateX(-50%); background-size: 6px 8px; background-position: center; }
+.splitter.col::after { top: 50%; left: 0; width: 10px; height: 34px; transform: translateY(-50%); background-size: 8px 6px; background-position: center; }
+.splitter:hover::after, .splitter:focus-visible::after, .splitter.dragging::after { opacity: 1; }
+.splitter:focus-visible::after { border-color: var(--accent); }
+
+/* ================= כפתור הקיפול: לשונית עגולה על הקצה של הלוח ================= */
+.stage-col { position: relative; }
+.side-toggle {
+  position: absolute; z-index: 13; top: 50%; left: 0; width: 20px; height: 48px; transform: translate(-50%, -50%);
+  display: grid; place-items: center; padding: 0; border-radius: var(--r-full);
+  background: var(--raised); border: 1px solid var(--line-strong); box-shadow: var(--shadow-1); color: var(--muted);
+  transition: color 120ms var(--ease), border-color 120ms var(--ease), box-shadow 120ms var(--ease), transform 180ms var(--ease), border-radius 180ms var(--ease);
+}
+.side-toggle:hover { color: var(--accent); border-color: var(--accent); box-shadow: var(--shadow-float); }
+.side-toggle:focus-visible { box-shadow: var(--focus); color: var(--accent); }
+.side-toggle .icon { stroke-width: 2.2; }
+/* מקופל: לשונית צרה בתוך הקנבס, צמודה לקצה, כדי שיהיה ברור איך פותחים */
+.app.side-collapsed .side-toggle { transform: translate(0, -50%); width: 18px; border-radius: 0 var(--r-full) var(--r-full) 0; border-left-width: 0; background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent-soft-2); }
+@media (prefers-reduced-motion: reduce) { .side-toggle { transition: none; } }
+
+/* מקופל: הלשונית בתוך הקנבס, אז מה שיושב בקצה השמאלי שלו זז קצת פנימה */
+.app.side-collapsed .bf { inset-inline-end: 28px; }
+.app.side-collapsed .zoom, .app.side-collapsed .guide-btn { inset-inline-end: 26px; }
+.app.side-collapsed .stage.bf-open .zoom, .app.side-collapsed .stage.bf-open .guide-btn { inset-inline-end: calc(var(--bf-w) + 40px); }

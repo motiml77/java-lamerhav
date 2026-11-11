@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="css/lang.css">
   <link rel="stylesheet" href="css/bank.css">
   <link rel="stylesheet" href="css/access.css">
+  <link rel="stylesheet" href="css/layout.css">
 </head>
 <body>
   <a class="skip" href="#word-input">דילוג לחלון ההרצה</a>
@@ -91,6 +92,7 @@
 
     <!-- הקנבס, ומעליו פס השפה -->
     <div class="stage-col">
+    <button type="button" class="side-toggle" id="side-toggle" aria-controls="side-panel"></button>
     <header class="lang-strip" id="lang-strip" aria-label="השפה שהמכונה אמורה לקבל" hidden></header>
     <main class="stage" id="stage">
       <svg class="canvas" role="application" aria-label="הדיאגרמה של המכונה" aria-roledescription="קנבס">
@@ -129,7 +131,7 @@
     </div>
 
     <!-- פאנל צד: מאפיינים / אלפבית / בעיות -->
-    <aside class="side" aria-label="מאפיינים">
+    <aside class="side" id="side-panel" aria-label="מאפיינים">
       <div class="side-tabs" role="tablist">
         <button role="tab" type="button" data-tab="props" aria-selected="true">מאפיינים</button>
         <button role="tab" type="button" data-tab="lang" aria-selected="false">שפה</button>
@@ -140,7 +142,7 @@
     </aside>
 
     <!-- חלון ההרצה -->
-    <section class="runpanel" aria-label="הרצה">
+    <section class="runpanel" id="run-area" aria-label="הרצה">
       <div class="run-main">
         <div class="run-bar">
           <label class="word">
@@ -180,6 +182,10 @@
         </form>
       </div>
     </section>
+
+    <!-- קווי הפרדה נגררים (סבב 12, js/layout.js) -->
+    <div class="splitter row" id="split-run" role="separator" aria-orientation="horizontal" aria-label="גובה אזור ההרצה" aria-controls="run-area" tabindex="0" title="גרירה משנה את הגובה. לחיצה כפולה: הגובה הרגיל"></div>
+    <div class="splitter col" id="split-side" role="separator" aria-orientation="vertical" aria-label="רוחב הלוח" aria-controls="side-panel" tabindex="0" title="גרירה משנה את הרוחב. לחיצה כפולה: הרוחב הרגיל"></div>
   </div>
 
   <div class="modal-backdrop" id="modal" hidden>
@@ -239,6 +245,7 @@
   <script src="js/bank/float.js"></script>
   <script src="js/access.js"></script>
   <script src="js/access-ui.js"></script>
+  <script src="js/layout.js"></script>
   <script src="js/app.js"></script>
   <script src="js/app-run.js"></script>
   <script src="js/app-ui.js"></script>
