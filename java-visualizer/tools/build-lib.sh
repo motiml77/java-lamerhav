@@ -5,7 +5,7 @@ set -e
 cd "$(dirname "$0")/.."
 # ה-Java שבהתקנה (tools/build-jre.sh — jlink) בלי jdk.httpserver, והכלים של Visual Studio / Rider רצים בו:
 # קוד שמשתמש ב-com.sun.net.httpserver נכשל שם (כך נכשלה הכניסה עם Google ב-Visual Studio) — עוצרים כבר בבנייה
-if grep -l 'com\.sun\.net\.httpserver' $(find src/unit4 csharp/new-exercise/src vs-bank/src eclipse-plugin/src -name '*.java'); then
+if grep -l 'com\.sun\.net\.httpserver' $(find src/unit4 csharp/new-exercise/src vs-bank/src eclipse-plugin/src access/src -name '*.java'); then
     echo "שגיאה: הקבצים למעלה משתמשים ב-com.sun.net.httpserver — הוא לא קיים ב-Java של ההתקנה (משתמשים ב-ServerSocket)" >&2
     exit 1
 fi
@@ -15,9 +15,12 @@ javac --release 8 -Xlint:-options -encoding UTF-8 -d "$OUT" $(find src/unit4 -na
 javac --release 11 -encoding UTF-8 -cp "$OUT" -d "$OUT" src/unit4/collectionsLib/JdiTracer.java
 # החלונות של C# ל-Visual Studio / Rider ("תרגיל חדש", "הוסף מבנה נתונים") — אותו מחולל כמו ב-Eclipse (Scaffold) + המרה ל-C#
 # וגם "שליחת תרגיל" + "הצעה לפתרון" — אותו מנוע כמו ב-Eclipse (ExercisePipeline): לכלי של Visual Studio ול-VS Code (SubmitCli)
+# הכניסה המשותפת (access/ — build/access/dsviz-access.jar) נכנסת לספרייה כמו שהיא
+sh tools/build-access.sh > /dev/null
+(cd "$OUT" && unzip -qo ../access/dsviz-access.jar -x 'META-INF/*')
 E=eclipse-plugin/src/il/lamerhav/dsviz
 javac --release 8 -Xlint:-options -encoding UTF-8 -cp "$OUT" -d "$OUT" $E/Scaffold.java $E/NameCheck.java $E/CsSolution.java \
-    $E/Json.java $E/OsTrust.java $E/Account.java $E/AccessGate.java $E/WorkerClient.java $E/ExerciseFiles.java $E/AiScaffold.java $E/SolutionCheck.java $E/SolutionStore.java $E/ExercisePipeline.java $E/SubmitCli.java \
+    $E/WorkerClient.java $E/ExerciseFiles.java $E/AiScaffold.java $E/SolutionCheck.java $E/SolutionStore.java $E/ExercisePipeline.java $E/SubmitCli.java \
     $(find csharp/new-exercise/src -name '*.java')
 mkdir -p "$OUT/resources" && cp eclipse-plugin/ai.properties "$OUT/resources/"   # כתובת השרת של "שליחת תרגיל" (worker/README.md)
 # קוד המקור בתוך ה-jar תחת src/ (ולא ליד המחלקות) — כדי ש-javac לא יקמפל אותו מחדש בטעות.

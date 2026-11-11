@@ -521,12 +521,27 @@ public final class AccessGate {
 
     private static final List<Runnable> CHANGED = new java.util.concurrent.CopyOnWriteArrayList<Runnable>();
 
-    /** נקרא אחרי כניסה / התנתקות (בחוט של Swing) — למשל הכפתור "עמדת ניהול" בסרגל של Eclipse מתעדכן מיד */
+    private static boolean watching;
+
+    /**
+     * נקרא אחרי כניסה / התנתקות (בחוט של Swing) — למשל הכפתור "עמדת ניהול" בסרגל של Eclipse מתעדכן מיד. גם כשהכניסה השתנתה
+     * בתוכנה אחרת במחשב (Eclipse / Visual Studio / IntelliJ / "מודלים חישוביים" — AccessWatch)
+     */
     public static void onChange(Runnable r) {
         CHANGED.add(r);
+        synchronized (CHANGED) {
+            if (watching) return;
+            watching = true;
+        }
+        AccessWatch.listen(() -> SwingUtilities.invokeLater(AccessGate::notifyListeners));
     }
 
     static void changed() {
+        AccessWatch.baseline();   // כבר מודיעים כאן — המעקב לא יודיע שוב על אותו שינוי
+        notifyListeners();
+    }
+
+    private static void notifyListeners() {
         for (Runnable r : CHANGED) {
             try { r.run(); } catch (RuntimeException ignored) { /* מאזין שנכשל לא עוצר את האחרים */ }
         }

@@ -15,7 +15,7 @@ const src = path.join(repo, 'eclipse-plugin', 'src', 'il', 'lamerhav', 'dsviz');
 const ai = path.join(here, 'ai');
 const dirs = [ai, path.join(ai, 'cs'), path.join(ai, 'parity')];
 const folderCases = path.join(ai, 'parity', 'folder-names.cases');   // JSON: [[topic, [תפוסים], cs], ...]
-execFileSync('javac', ['-encoding', 'UTF-8', '-d', cls, path.join(src, 'Json.java'), path.join(src, 'AiScaffold.java'), path.join(here, 'ScaffoldDump.java')], { stdio: 'inherit' });
+execFileSync('javac', ['-encoding', 'UTF-8', '-d', cls, path.join(repo, 'access', 'src', 'il', 'lamerhav', 'dsviz', 'Json.java'), path.join(src, 'AiScaffold.java'), path.join(here, 'ScaffoldDump.java')], { stdio: 'inherit' });
 execFileSync('java', ['-cp', cls, 'il.lamerhav.dsviz.ScaffoldDump', out, folderCases, ...dirs], { stdio: 'inherit' });
 
 const field = (name, value) => {

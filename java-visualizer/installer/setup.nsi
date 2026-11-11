@@ -9,6 +9,7 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+!include "TextFunc.nsh"
 !include "Sections.nsh"
 !insertmacro GetParameters
 !insertmacro GetOptions
@@ -62,7 +63,7 @@ ShowUninstDetails show
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
 !define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse, ל-IntelliJ IDEA ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n• מאגר התרגילים (עם כניסה): תרגילים מוכנים לפי נושא וקושי, ב-Eclipse, ב-IntelliJ וב-Visual Studio.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse, Visual Studio או IntelliJ פתוחים — ההתקנה תבקש לסגור אותם.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
-!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nIntelliJ IDEA: התפריט 'מבני נתונים', החלון DSViz בצד ימין, ו'הרצה ויזואלית' ליד main.$\r$\nמאגר תרגילים: כפתור 'מאגר תרגילים' בסרגל הכלים של Eclipse ושל IntelliJ; ב-Visual Studio — הקיצור 'מאגר תרגילים C#' בשולחן העבודה.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה."
+!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nIntelliJ IDEA: התפריט 'מבני נתונים', החלון DSViz בצד ימין, ו'הרצה ויזואלית' ליד main.$\r$\nמאגר תרגילים: כפתור בסרגל הכלים של Eclipse, של IntelliJ ושל Visual Studio.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה.$\r$\n$\r$\nמודלים חישוביים (סימולטור אוטומטים): הקיצור בשולחן העבודה. הכניסה (מורה / תלמיד / עמדת מחשב) משותפת לכל התוכנות."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "פתיחת המדריך"
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
@@ -241,6 +242,33 @@ FunctionEnd
 ; ------------------------------------------------------------ Visual Studio חייב להיות סגור בזמן ההתקנה של חבילת C#
 ; (את סרגל הכלים של DSViz — ההרחבה — VSIXInstaller לא מתקין כש-Visual Studio פתוח; וגם dsviz-cs / הספרייה נעולים בזמן הרצה)
 ; $0 = 0 אם Visual Studio רץ
+; javaw.exe לקיצורים: בתיקייה עם עברית (שם משתמש) — דרך צומת באנגלית ב-ProgramData (automata.ps1 -JavaPath). התוצאה נקראת מקובץ
+; UTF-16 (‏-Out) ולא מהפלט של nsExec — שם הקידוד שונה, ו-"-" הגיע כתו זבל והקיצור נשבר. כל מה שאינו קובץ קיים → javaw הרגיל
+Function DSVizJavaw
+  Push $0
+  StrCpy $R9 ""
+  ${If} ${FileExists} "$INSTDIR\automata.ps1"
+    Delete "$PLUGINSDIR\javaw-path.txt"
+    InitPluginsDir
+    nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\automata.ps1" -JavaPath "$INSTDIR\jdk" -Out "$PLUGINSDIR\javaw-path.txt"'
+    Pop $0
+    ClearErrors
+    FileOpen $0 "$PLUGINSDIR\javaw-path.txt" r
+    ${IfNot} ${Errors}
+      FileReadUTF16LE $0 $R9
+      FileClose $0
+      ${TrimNewLines} "$R9" $R9
+    ${EndIf}
+  ${EndIf}
+  ${If} $R9 == ""
+  ${OrIf} $R9 == "-"
+    StrCpy $R9 "$INSTDIR\jdk\bin\javaw.exe"
+  ${ElseIfNot} ${FileExists} "$R9"
+    StrCpy $R9 "$INSTDIR\jdk\bin\javaw.exe"
+  ${EndIf}
+  Pop $0
+FunctionEnd
+
 Function IsVisualStudioRunning
   nsExec::Exec '"$SYSDIR\cmd.exe" /c ""$SYSDIR\tasklist.exe" /NH /FI "IMAGENAME eq devenv.exe" | "$SYSDIR\find.exe" /I "devenv.exe""'
 FunctionEnd
@@ -335,7 +363,7 @@ FunctionEnd
 
 ; ------------------------------------------------------------ רכיבים
 Section "-core"
-  ; ניקוי ההתקנה הקודמת (כשמתקינים על קיימת): קיצורים בשולחן העבודה (כבר לא נוצרים), קיצורי תפריט התחלה, קבצים ותיקיות מגרסה קודמת —
+  ; ניקוי ההתקנה הקודמת (כשמתקינים על קיימת): קיצורים בשולחן העבודה (נוצר רק "מודלים חישוביים" — בסעיף -automata), קיצורי תפריט התחלה, קבצים ותיקיות מגרסה קודמת —
   ; כך כל התיקונים נכנסים, בלי שיישאר משהו ישן. לא נוגעים בעבודה של התלמיד (תיקיות התרגילים במסמכים), ב-JDK ובסרטונים שכבר ירדו.
   Delete "$DESKTOP\תרגילי C# (מבני נתונים).lnk"
   Delete "$DESKTOP\תרגיל חדש ב-C#.lnk"
@@ -343,6 +371,9 @@ Section "-core"
   Delete "$DESKTOP\שליחת תרגיל ב-C#.lnk"
   Delete "$DESKTOP\הצעה לפתרון ב-C#.lnk"
   Delete "$DESKTOP\תרגילי מבני נתונים (VS Code).lnk"
+  ; הקיצורים של מאגר התרגילים ל-C# (גרסת המעבדה, install-bank-vs.ps1) — במקומם הכפתורים "מאגר שאלות" ו"השאלה" בסרגל של Visual Studio
+  Delete "$DESKTOP\מאגר תרגילים C#.lnk"
+  Delete "$DESKTOP\השאלה — מאגר תרגילים C#.lnk"
   RMDir /r "$SMPROGRAMS\מבני נתונים"
   Delete "$INSTDIR\*.vsix"
   Delete "$INSTDIR\il.lamerhav.dsviz_*.jar"
@@ -363,6 +394,7 @@ Section "-core"
   File "intellij.ps1"
   File "notify.ps1"
   File "clean-eclipse.ps1"
+  File "automata.ps1"
   ; התוסף ל-IntelliJ IDEA (התיקייה dsviz-intellij כמו שהיא בתוך plugins). הספרייה (runtime\dsviz.jar) — אותו קובץ כמו $INSTDIR\dsviz.jar,
   ; מועתק במחשב ולא נכלל פעמיים בהתקנה
   RMDir /r "$INSTDIR\intellij"   ; בלי jar-ים מבנייה קודמת (intellij.ps1 מעתיק את כל התיקייה כמו שהיא)
@@ -466,6 +498,38 @@ Section "-vscode-forks"
   !insertmacro VSIX_FORK "$LOCALAPPDATA\Programs\cursor\resources\app\bin\cursor.cmd" "Cursor"
 SectionEnd
 
+; "מודלים חישוביים" (סימולטור אוטומטים) — תוכנה מקומית, לכל מי שמתקין (בלי תלות בחבילה): AutomataLauncher מגיש את
+; automata\app על 127.0.0.1 ופותח חלון (Edge ‎--app‎). הכניסה משותפת עם Eclipse / Visual Studio / IntelliJ (access/README.md).
+; הקיצור היחיד בשולחן העבודה. השמירה של הדף — ב-‎%LOCALAPPDATA%\DSViz\automata-data‎ (לא נמחקת בעדכון)
+Section "-automata"
+  ${If} ${FileExists} "$INSTDIR\automata.ps1"
+    nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\automata.ps1" -Stop'   ; הקבצים נעולים כשהיא פתוחה
+    Pop $0
+  ${EndIf}
+  RMDir /r "$INSTDIR\automata"
+  SetOutPath "$INSTDIR\automata"
+  File "${BUILD}\automata\dsviz-automata.jar"
+  File "automata.ico"
+  SetOutPath "$INSTDIR\automata\app"
+  File /nonfatal /r "${BUILD}\automata\app\*.*"   ; בלי האפליקציה בבנייה — בלי קיצור (למטה)
+  SetOutPath "$INSTDIR"
+  Delete "$DESKTOP\מודלים חישוביים.lnk"
+  ${If} ${FileExists} "$INSTDIR\automata\app\index.html"
+    ; ‏javaw.exe מתיקייה עם עברית (שם משתמש) לא עולה ב-Windows שהקידוד שלו לא עברי — גם לא מהשם הקצר (8.3): ה-JVM טוען את
+    ; net.dll מהנתיב הארוך. לכן צומת באנגלית ב-ProgramData (automata.ps1 -JavaPath, כמו SafeJava). ‎-cp‎ יחסי (תיקיית העבודה = $INSTDIR)
+    Push $1
+    Push $R9
+    Call DSVizJavaw
+    StrCpy $1 $R9
+    Pop $R9
+    CreateShortcut "$DESKTOP\מודלים חישוביים.lnk" "$1" '-cp "automata\dsviz-automata.jar;dsviz.jar" il.lamerhav.dsviz.AutomataLauncher' "$INSTDIR\automata\automata.ico"
+    CreateDirectory "$SMPROGRAMS\מבני נתונים"
+    CreateShortcut "$SMPROGRAMS\מבני נתונים\מודלים חישוביים.lnk" "$1" '-cp "automata\dsviz-automata.jar;dsviz.jar" il.lamerhav.dsviz.AutomataLauncher' "$INSTDIR\automata\automata.ico"
+    Pop $1
+    DetailPrint "מודלים חישוביים: קיצור בשולחן העבודה"
+  ${EndIf}
+SectionEnd
+
 Section "Java — Eclipse ו-VS Code (תרגילים ב-Java)" SEC_JAVA
   Call EnsureEclipseClosed   ; לפני שמתקינים משהו של Java
   DetailPrint "חבילת Java"
@@ -527,9 +591,11 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   SetOutPath "$INSTDIR"
   ; ‏javaw.exe עצמו לא עולה מנתיב שלא בקידוד של Windows ("could not find java.dll") — השם הקצר (8.3) של הנתיב, אם יש
   Push $1
-  GetFullPathName /SHORT $1 "$INSTDIR\jdk\bin\javaw.exe"
-  StrCmp $1 "" 0 +2
-    StrCpy $1 "$INSTDIR\jdk\bin\javaw.exe"
+  ; (השם הקצר 8.3 לא מספיק: ה-JVM טוען את net.dll מהנתיב הארוך — לכן אותו צומת באנגלית כמו של "מודלים חישוביים")
+  Push $R9
+  Call DSVizJavaw
+  StrCpy $1 $R9
+  Pop $R9
   CreateShortcut "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool new' "$INSTDIR\icon.ico"
   Delete "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk"   ; השם מגרסה קודמת
   CreateShortcut "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool help' "$INSTDIR\icon.ico"
@@ -537,6 +603,12 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   ; "שליחת תרגיל" (דף התרגיל → פרויקט מוכן בפתרון) ו"הצעה לפתרון" (חלון שנשאר פתוח ליד Visual Studio) — כמו ב-Eclipse וב-VS Code
   CreateShortcut "$SMPROGRAMS\מבני נתונים\שליחת תרגיל ב-C#.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool submit' "$INSTDIR\icon.ico"
   CreateShortcut "$SMPROGRAMS\מבני נתונים\הצעה לפתרון ב-C#.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool solution' "$INSTDIR\icon.ico"
+  ; מאגר התרגילים ל-C# (גרסת המעבדה, lab\dsviz-bank-vs.jar): בלי קיצורים בשולחן העבודה — ב-Visual Studio הכפתורים בסרגל,
+  ; ול-Rider מתפריט התחלה (התיקייה הזו נבנית מחדש בכל עדכון)
+  ${If} ${FileExists} "$INSTDIR\lab\dsviz-bank-vs.jar"
+    CreateShortcut "$SMPROGRAMS\מבני נתונים\מאגר תרגילים C#.lnk" "$1" '-cp "lab\dsviz-bank-vs.jar;dsviz.jar" il.lamerhav.dsviz.BankVs bank' "$INSTDIR\icon.ico"
+    CreateShortcut "$SMPROGRAMS\מבני נתונים\השאלה — מאגר תרגילים C#.lnk" "$1" '-cp "lab\dsviz-bank-vs.jar;dsviz.jar" il.lamerhav.dsviz.BankVs question' "$INSTDIR\icon.ico"
+  ${EndIf}
   Pop $1
   Pop $0
   SetOutPath $0
@@ -798,6 +870,21 @@ Section "-bank"
   ${If} ${SectionIsSelected} ${SEC_CS}
     DetailPrint "מאגר התרגילים: Eclipse, IntelliJ IDEA ו-Visual Studio..."
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1"'
+    Pop $0
+    ; קיצורי המאגר בתפריט התחלה (בשביל Rider; ב-Visual Studio — הכפתורים בסרגל). בהתקנה חדשה ה-jar מגיע רק כאן (אחרי חלק ה-C#),
+    ; לכן יוצרים אותם גם כאן. javaw דרך הצומת באנגלית (automata.ps1 -JavaPath) — שם משתמש בעברית
+    ${If} ${FileExists} "$INSTDIR\lab\dsviz-bank-vs.jar"
+      Push $1
+      Push $R9
+      Call DSVizJavaw
+      StrCpy $1 $R9
+      Pop $R9
+      CreateDirectory "$SMPROGRAMS\מבני נתונים"
+      CreateShortcut "$SMPROGRAMS\מבני נתונים\מאגר תרגילים C#.lnk" "$1" '-cp "lab\dsviz-bank-vs.jar;dsviz.jar" il.lamerhav.dsviz.BankVs bank' "$INSTDIR\icon.ico"
+      CreateShortcut "$SMPROGRAMS\מבני נתונים\השאלה — מאגר תרגילים C#.lnk" "$1" '-cp "lab\dsviz-bank-vs.jar;dsviz.jar" il.lamerhav.dsviz.BankVs question' "$INSTDIR\icon.ico"
+      Pop $1
+    ${EndIf}
+    Push $0
   ${Else}
     DetailPrint "מאגר התרגילים: Eclipse ו-IntelliJ IDEA..."
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoVs'
@@ -839,6 +926,17 @@ SectionEnd
 ; ------------------------------------------------------------ הסרה
 Section "Uninstall"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "DSVizUpdate"
+  ; "מודלים חישוביים": סוגרים, מוחקים את הקבצים ואת הקיצורים. ‎automata-data‎ (העבודה שנשמרה בדף) נשאר — כמו תיקיות התרגילים
+  ${If} ${FileExists} "$INSTDIR\automata.ps1"
+    nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\automata.ps1" -Stop'
+    Pop $0
+  ${EndIf}
+  RMDir /r "$INSTDIR\automata"
+  Delete "$INSTDIR\automata.ps1"
+  Delete "$DESKTOP\מודלים חישוביים.lnk"
+  Delete "$SMPROGRAMS\מבני נתונים\מודלים חישוביים.lnk"
+  Delete "$SMPROGRAMS\מבני נתונים\מאגר תרגילים C#.lnk"
+  Delete "$SMPROGRAMS\מבני נתונים\השאלה — מאגר תרגילים C#.lnk"
   Delete "$PROFILE\.dsviz\install-dir.txt"
   Call un.FindCode
   ${If} $CODE != ""

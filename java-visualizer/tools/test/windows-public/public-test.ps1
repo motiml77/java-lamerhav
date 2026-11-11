@@ -56,7 +56,65 @@ $ecl = Join-Path $env:USERPROFILE 'eclipse-sim'
 $ijCfg = Join-Path $env:APPDATA 'JetBrains\IdeaIC2024.2'
 $lnk1 = Join-Path $desk 'מאגר תרגילים C#.lnk'
 $lnk2 = Join-Path $desk 'השאלה — מאגר תרגילים C#.lnk'
+# מהגרסה עם "מודלים חישוביים": המאגר ל-Visual Studio נפתח מהסרגל של DSViz, והקיצורים עברו לתפריט התחלה (בשביל Rider)
+$menuDir = Join-Path ([Environment]::GetFolderPath('Programs')) 'מבני נתונים'
+$mnu1 = Join-Path $menuDir 'מאגר תרגילים C#.lnk'
+$mnu2 = Join-Path $menuDir 'השאלה — מאגר תרגילים C#.lnk'
 $labKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz-Lab'
+$lnkAut = Join-Path $desk 'מודלים חישוביים.lnk'
+$script:autData = $false
+
+# "מודלים חישוביים": הקיצור היחיד של DSViz בשולחן העבודה, והוא מפעיל את המשגר המקומי (שרת על 127.0.0.1 + חלון)
+function CheckAutomata([string]$shot) {
+    Check 'הקיצור "מודלים חישוביים" נוצר בשולחן העבודה' (Test-Path $lnkAut)
+    $known = @('מודלים חישוביים.lnk')
+    $others = @(Get-ChildItem $desk -Filter '*.lnk' -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -notin $known -and ((New-Object -ComObject WScript.Shell).CreateShortcut($_.FullName).TargetPath + ' ' +
+            (New-Object -ComObject WScript.Shell).CreateShortcut($_.FullName).Arguments) -match 'DSViz|dsviz' })
+    Check "אין קיצורים אחרים של DSViz בשולחן העבודה ($(($others | ForEach-Object Name) -join ', '))" ($others.Count -eq 0)
+    if (-not (Test-Path $lnkAut)) { return }
+    $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnkAut)
+    Write-Host "  קיצור (WScript): '$($sc.TargetPath)' '$($sc.Arguments)' (תיקייה: '$($sc.WorkingDirectory)')"
+    try {
+        $fi = (New-Object -ComObject Shell.Application).NameSpace($desk).ParseName('מודלים חישוביים.lnk')
+        $gl = $fi.GetLink
+        Write-Host "  קיצור (Shell): '$($gl.Path)' '$($gl.Arguments)' (תיקייה: '$($gl.WorkingDirectory)')"
+        Check "יעד הקיצור הוא javaw.exe קיים ($($gl.Path))" (($gl.Path -match 'javaw\.exe$') -and (Test-Path -LiteralPath $gl.Path))
+    } catch { Write-Host "  קיצור (Shell): $($_.Exception.Message)" }
+    # אבחון: אותה פקודה כמו בקיצור, עם java.exe ופלט לקובץ (20 שניות), ואז סוגרים
+    $dbgOut = Join-Path $Out 'automata-direct.txt'
+    $pj = Start-Process (Join-Path $d 'jdk\bin\java.exe') -ArgumentList '-cp', '"automata\dsviz-automata.jar;dsviz.jar"', 'il.lamerhav.dsviz.AutomataLauncher' `
+        -WorkingDirectory $d -RedirectStandardOutput $dbgOut -RedirectStandardError "$dbgOut.err" -PassThru
+    Start-Sleep 20
+    Write-Host "  הפעלה ישירה (java.exe): יצא=$($pj.HasExited) קוד=$(if ($pj.HasExited) { $pj.ExitCode })"
+    Get-Content $dbgOut, "$dbgOut.err" -ErrorAction SilentlyContinue | Select-Object -First 30 | ForEach-Object { Write-Host "    | $_" }
+    Write-Host "  automata-data: $((Get-ChildItem (Join-Path $d 'automata-data') -ErrorAction SilentlyContinue | ForEach-Object Name) -join ', ')"
+    Get-CimInstance Win32_Process -Filter "Name='javaw.exe' OR Name='java.exe'" | Where-Object { $_.CommandLine -match 'AutomataLauncher' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep 3
+    Start-Process $lnkAut
+    $portFile = Join-Path $d 'automata-data\port'
+    $end = (Get-Date).AddSeconds(60); $code = 0; $port = ''
+    do {
+        Start-Sleep 2
+        if (Test-Path $portFile) {
+            $port = (Get-Content $portFile -Raw).Trim()
+            try { $code = (Invoke-WebRequest "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5).StatusCode } catch { $code = 0 }
+        }
+    } while ($code -ne 200 -and (Get-Date) -lt $end)
+    Check "הקיצור הפעיל את המשגר: http://127.0.0.1:$port/ עונה (קוד $code)" ($code -eq 200)
+    try { $api = Invoke-WebRequest "http://127.0.0.1:$port/api/access" -UseBasicParsing -TimeoutSec 5; $apiCode = $api.StatusCode } catch { $apiCode = [int]$_.Exception.Response.StatusCode }
+    Check "ה-API המקומי דורש מפתח (בלי X-DSViz-Token: קוד $apiCode)" ($apiCode -ge 400 -and $apiCode -lt 500)
+    $win = WaitTitle { $script:titles -match 'מודלים חישוביים' } 40
+    Write-Host "  חלונות: $($script:titles -join ' ; ')"
+    Check 'נפתח חלון "מודלים חישוביים"' $win
+    Shot $shot
+    $script:autData = Test-Path (Join-Path $d 'automata-data')
+    Get-CimInstance Win32_Process -Filter "Name='javaw.exe' OR Name='java.exe'" | Where-Object { $_.CommandLine -match 'AutomataLauncher' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+}
 
 # --- מדמים Eclipse (ל-Java, עם JDT) ו-IntelliJ IDEA 2024.2
 New-Item -ItemType Directory -Force "$ecl\plugins", "$ecl\dropins", "$ecl\configuration" | Out-Null
@@ -82,7 +140,8 @@ function CheckBank([string]$when, $st) {
     Check "$when — Eclipse: גם התוסף הראשי (אחד)" ($st.EclMain -eq 1)
     Check "$when — IntelliJ: התוסף הראשי והמאגר (dsviz-bank-intellij\lib\*.jar)" ($st.IjMain -and ((Get-ChildItem "$ijCfg\plugins\dsviz-bank-intellij\lib" -Filter *.jar -ErrorAction SilentlyContinue).Count -ge 1))
     Check "$when — Visual Studio: lab\dsviz-bank-vs.jar" ($st.VsJar -ne '')
-    Check "$when — Visual Studio: שני הקיצורים בשולחן העבודה" ((Test-Path $lnk1) -and (Test-Path $lnk2))
+    Check "$when — Visual Studio: אין קיצורי מאגר בשולחן העבודה" (-not (Test-Path $lnk1) -and -not (Test-Path $lnk2))
+    Check "$when — קיצורי המאגר בתפריט התחלה (מבני נתונים)" ((Test-Path $mnu1) -and (Test-Path $mnu2))
     $pj = Get-ChildItem "$d\bank" -Filter 'il.lamerhav.dsviz.bank_*.jar' -ErrorAction SilentlyContinue | Select-Object -First 1
     Check "$when — מה שב-dropins הוא המאגר של ההתקנה הנוכחית" ($pj -and $st.EclBankHash -eq (Get-FileHash $pj.FullName).Hash)
 }
@@ -110,15 +169,19 @@ switch ($Scenario) {
         CheckBuild 'חדשה'
         $s1 = BankState; CheckBank 'חדשה' $s1
         OpenBankGate 'fresh-bank-gate'
+        CheckAutomata 'fresh-automata'
         $c = Run $Setup '/S /UPDATE'
         Check 'עדכון שני (/S /UPDATE) הסתיים (קוד 0)' ($c -eq 0)
+        Check 'אחרי עדכון: הקיצור "מודלים חישוביים" עדיין בשולחן העבודה' (Test-Path $lnkAut)
         $s2 = BankState; CheckBank 'עדכון חוזר' $s2
         Check 'אידמפוטנטי: אותם קבצים אחרי עדכון חוזר' (($s1.EclBankHash -eq $s2.EclBankHash) -and ($s1.IjBank -eq $s2.IjBank) -and ($s1.VsJar -eq $s2.VsJar))
         $c = Run "$d\uninstall.exe" "/S _?=$d"
         $s3 = BankState
         Check 'הסרה: המאגר הוסר מ-Eclipse' ($s3.EclBank -eq 0 -and $s3.EclMain -eq 0)
         Check 'הסרה: המאגר הוסר מ-IntelliJ' ($s3.IjBank -eq '' -and -not $s3.IjMain)
-        Check 'הסרה: הקיצורים וה-jar של Visual Studio הוסרו' (-not (Test-Path $lnk1) -and -not (Test-Path $lnk2) -and -not (Test-Path "$d\lab"))
+        Check 'הסרה: הקיצורים וה-jar של Visual Studio הוסרו' (-not (Test-Path $lnk1) -and -not (Test-Path $lnk2) -and -not (Test-Path $mnu1) -and -not (Test-Path $mnu2) -and -not (Test-Path "$d\lab"))
+        Check 'הסרה: הקיצור "מודלים חישוביים" הוסר' (-not (Test-Path $lnkAut))
+        Check 'הסרה: עבודות התלמידים באוטומטים נשמרו (automata-data)' (-not $script:autData -or (Test-Path (Join-Path $d 'automata-data')))
     }
     'upgrade' {
         Download $OldUrl $tmpOld

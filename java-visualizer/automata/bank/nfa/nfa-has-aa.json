@@ -1,0 +1,38 @@
+{
+  "id": "nfa-has-aa",
+  "topic": "nfa",
+  "level": "easy",
+  "order": 2,
+  "title": "מכילה aa",
+  "alphabet": ["a", "b"],
+  "question": {
+    "intro": "נתון הא\"ב Σ = {a, b}.",
+    "sections": [
+      {
+        "label": "א",
+        "kind": "build",
+        "machine": "nfa",
+        "language": "w ∈ {a,b}* | מכילה aa",
+        "reference": {
+          "states": [
+            ["q0", -180, 0],
+            ["q1", 0, 0],
+            ["q2", 180, 0, "A"]
+          ],
+          "edges": [
+            ["q0", "q0", "a,b"],
+            ["q0", "q1", "a"],
+            ["q1", "q2", "a"],
+            ["q2", "q2", "a,b"]
+          ]
+        },
+        "text": "בנו אסל\"ד המקבל את כל המילים מעל Σ שמופיעים בהן שני a ברצף.",
+        "hint": "מנחשים מתי מתחיל ה-aa: לולאה על a ו-b בהתחלה, שני מעברים של a, ולולאה על a ו-b במצב המקבל.",
+        "examples": {
+          "in": ["aa", "baab", "abaa"],
+          "out": ["", "a", "abab"]
+        }
+      }
+    ]
+  }
+}
