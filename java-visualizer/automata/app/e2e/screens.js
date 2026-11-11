@@ -19,21 +19,24 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
     p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     p.on('pageerror', (e) => errors.push(e.message));
     await p.goto(URL);
-    await p.waitForSelector('.st');
+    await p.waitForSelector('#guide:not([hidden])');
     await p.evaluate(() => document.fonts.ready);
-    if (!keepGuide) await p.click('#guide [data-g=close]');
+    if (!keepGuide) { await p.click('#guide [data-g=close]'); await first(p); }
     return p;
   }
   const shot = async (p, name) => { await p.waitForTimeout(350); await p.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove())); await p.screenshot({ path: path.join(OUT, name + '.png') }); console.log('✓', name); };
   const at = (p, name) => p.evaluate((nm) => { const s = App.machine.states.find((q) => q.name === nm); const r = document.querySelector('.stage').getBoundingClientRect(); const q = App.canvas.toScreen(s), z = App.canvas.uiScale(); return { x: r.x + q.x * z, y: r.y + q.y * z }; }, name);
   const click = async (p, pt) => { await p.mouse.move(pt.x, pt.y, { steps: 3 }); await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(150); };
   const steps = async (p, n) => { for (let i = 0; i < n; i++) { await p.click('[data-run=next]'); await p.waitForTimeout(120); } await p.waitForTimeout(500); };
+  /** פתיחה ראשונה ריקה (סבב 11): הדוגמה הראשונה כמו פעם */
+  async function first(p) { await p.evaluate(() => { App.loadFirstExample(); App.history[App.active] = { past: [], future: [] }; document.querySelectorAll('.toast').forEach((t) => t.remove()); }); }
   const example = async (p, id) => { await p.evaluate((x) => App.loadExample(x), id); await p.waitForTimeout(300); };
 
   // כניסה ראשונה: ההדרכה פתוחה
   let p = await page('light', true);
   await shot(p, 'ours-guide');
   await p.click('#guide [data-g=close]');
+  await first(p);
 
   // אס"ד, מצב נבחר: הסרגל השחור והחץ המקווקו
   const q0 = await at(p, 'q0'), q1 = await at(p, 'q1');
@@ -121,6 +124,7 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
   // כהה: חלון צף באסל"ד
   p = await page('dark');
   await p.click('#type-tabs [data-type=nfa]');
+  await first(p);
   await click(p, await at(p, 'q2'));
   await click(p, await at(p, 'q1'));
   await shot(p, 'ours-dark');

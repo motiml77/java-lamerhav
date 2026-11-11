@@ -31,7 +31,7 @@ const TLS = 'החיבור המאובטח לשרת של DSViz נחסם במחשב
   const called = (route) => m.calls.some((c) => c.route === route);
 
   await p.goto(m.url);
-  await p.waitForSelector('.st');
+  await p.waitForSelector('#guide:not([hidden])');
   await p.click('#guide [data-g=close]');
 
   await step('לא מחובר: הכפתור בסרגל אומר "לא מחובר", והמפתח נמחק מהכתובת', async () => {
@@ -153,7 +153,8 @@ const TLS = 'החיבור המאובטח לשרת של DSViz נחסם במחשב
 
   await step('בלי התוכנה (file://): אין כפתור חשבון, והמאגר מסביר שהוא בתוכנה המותקנת; העורך עובד', async () => {
     await p.goto(FILE);
-    await p.waitForSelector('.st');
+    await p.waitForSelector('#guide:not([hidden])');
+    await p.click('#guide [data-g=close]');
     await p.waitForTimeout(300);
     assert.equal(await p.isVisible('#acct'), false);
     await p.click('[data-cmd=bank]');
@@ -162,7 +163,8 @@ const TLS = 'החיבור המאובטח לשרת של DSViz נחסם במחשב
     assert.equal(await p.$$eval('.dialog .btn', (b) => b.length), 1);
     assert.equal(await p.$('.ac-window'), null);
     await p.click('.dialog [data-r="1"]');
-    assert.ok((await p.evaluate(() => App.machine.states.length)) > 0);
+    await p.click('[data-cmd=add-state]');
+    assert.equal(await p.evaluate(() => App.machine.states.length), 1, 'העורך עובד');
   });
 
   assert.deepEqual(errors, [], 'אין שגיאות בקונסול');

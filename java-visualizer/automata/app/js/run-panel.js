@@ -17,10 +17,7 @@
       this.app = app;
       this.el = el;
       this.word = el.querySelector('#word-input');
-      this.status = el.querySelector('#run-status');
-      this.note = el.querySelector('#run-note');
       this.view = el.querySelector('#machine-view');
-      this.count = el.querySelector('#step-count');
       this.speed = el.querySelector('#speed');
       this.tbody = el.querySelector('#tests-table tbody');
       this.summary = el.querySelector('#tests-summary');
@@ -76,29 +73,26 @@
       play.innerHTML = I.get(run && run.playing ? 'pause' : 'play');
       play.setAttribute('aria-label', run && run.playing ? 'עצירה' : 'הרצה');
       play.title = run && run.playing ? 'עצירה (P)' : 'הרצה (Enter במילה, P)';
-      // מצב
-      let cls = 'idle', text = 'מוכן', icon = 'info';
-      if (run && run.error) { cls = 'err'; text = run.error.title; icon = 'x'; }
-      else if (tr && atEnd) {
-        if (tr.result === 'accept') { cls = 'ok'; text = m.type === 'tm' ? 'המכונה קיבלה' : 'המילה מתקבלת'; icon = 'check'; }
-        else if (tr.result === 'reject') { cls = 'err'; text = m.type === 'tm' ? 'המכונה דחתה' : 'המילה נדחית'; icon = 'x'; }
-        else { cls = 'warn'; text = 'לא הוכרע'; icon = 'warn'; }
-      } else if (tr) { cls = 'run'; text = run.playing ? 'רץ' : 'בהרצה'; icon = 'play'; }
-      this.status.className = 'status ' + cls + (tr && atEnd ? ' pop' : '');
-      this.status.innerHTML = I.get(icon, 16) + '<span>' + esc(text) + '</span>';
-      this.count.textContent = tr ? 'צעד ' + i + ' מתוך ' + last : '';
       this.renderBanner(tr, atEnd);
-      // הערה
-      let note = '';
-      if (run && run.error) note = '<span class="n-err">' + esc(run.error.text) + '</span>';
-      else if (tr) {
-        const st = tr.steps[i] || {};
-        note = esc(st.note || '');
-        if (atEnd) note = '<span class="n-' + (tr.result === 'accept' ? 'ok' : tr.result === 'reject' ? 'err' : 'warn') + '">' + esc(this.pathSummary(tr) || tr.reason.text) + '</span>' + (tr.output != null && m.type === 'tm' ? ' <span class="n-out">פלט על הסרט: <bdi class="sym">' + esc(tr.output || 'ε') + '</bdi></span>' : '');
-      } else note = '<span class="muted">' + ({ dfa: 'מקלידים מילה ולוחצים Enter, או צועדים אות אחרי אות.', nfa: HINT.nfa, pda: HINT.pda, tm: 'הראש מתחיל על התו הראשון של המילה.' })[m.type] + '</span>';
-      this.note.innerHTML = note;
-      this.view.innerHTML = this.machineViewHTML();
+      this.view.innerHTML = this.machineViewHTML() + this.stepHTML(tr, i, last, atEnd);
       this.renderTests();
+    }
+
+    /**
+     * בקצה של האזור הכהה: "צעד i מתוך n" וההסבר של הצעד; בסוף התוצאה (איזו דרך קיבלה, הסיבה, פלט של טיורינג); או שגיאה
+     * (למשל אות שלא ב-Σ). לפני הרצה אין כלום (שורת "מוכן" נמחקה בסבב 11).
+     */
+    stepHTML(tr, i, last, atEnd) {
+      const run = this.app.run, m = this.app.machine;
+      if (run && run.error) return '<div class="mv-block mv-step err"><div class="mv-label">' + esc(run.error.title) + '</div><div class="mv-step-text">' + esc(run.error.text) + '</div></div>';
+      if (!tr) return '';
+      let text = esc((tr.steps[i] || {}).note || '');
+      if (atEnd) {
+        const k = tr.result === 'accept' ? 'ok' : tr.result === 'reject' ? 'err' : 'warn';
+        text = '<span class="n-' + k + '">' + esc(this.pathSummary(tr) || tr.reason.text) + '</span>' +
+          (tr.output != null && m.type === 'tm' ? '<span class="n-out">פלט על הסרט: <bdi class="sym">' + esc(tr.output || 'ε') + '</bdi></span>' : '');
+      }
+      return '<div class="mv-block mv-step"><div class="mv-label">צעד ' + i + ' מתוך ' + last + '</div><div class="mv-step-text">' + text + '</div></div>';
     }
 
     /** באנר גדול על הקנבס בסוף ההרצה: מתקבלת / נדחית / לא הוכרע, עם הסיבה. */
@@ -145,7 +139,7 @@
           '<span class="p-read"><b>' + (esc(read) || 'ε') + '</b>' + esc(rest) + '</span>' + stack + '<span class="p-st">' + esc(st) + '</span></button>';
       };
       const shown = ps.slice(0, MAX_ROWS);
-      return '<div class="mv-block mv-paths"><div class="mv-label">דרכים <span class="cnt">' + ps.length + '</span></div><div class="paths" dir="rtl">' +
+      return '<div class="mv-block mv-paths"><div class="mv-label" title="' + esc(HINT[m.type] || '') + '">דרכים <span class="cnt">' + ps.length + '</span></div><div class="paths" dir="rtl">' +
         shown.map(row).join('') + (ps.length > MAX_ROWS ? '<div class="p-rest">ועוד ' + (ps.length - MAX_ROWS) + ' דרכים</div>' : '') + '</div></div>';
     }
 

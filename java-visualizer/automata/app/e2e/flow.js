@@ -26,18 +26,22 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
   const visible = (sel) => p.evaluate((s) => { const e = document.querySelector(s); return !!e && !e.hidden && getComputedStyle(e).display !== 'none'; }, sel);
 
   await p.goto(URL);
-  await p.waitForSelector('.st');
+  await p.waitForSelector('#guide:not([hidden])');
 
-  await step('בכניסה הראשונה מופיעה ההדרכה, ו"הבנתי" סוגר אותה', async () => {
-    assert.ok(await visible('#guide'));
+  await step('פתיחה ראשונה: קנבס ריק (בלי דוגמה, בלי שפה, בלי מילים), וכרטיס שלושת הצעדים במרכז; X סוגר אותו', async () => {
+    assert.deepEqual(await p.evaluate(() => ({ type: App.active, states: App.machine.states.length, sigma: App.machine.alphabet, lang: !!App.machine.language, tests: App.machine.tests.length, word: App.word })),
+      { type: 'dfa', states: 0, sigma: [], lang: false, tests: 0, word: '' });
+    assert.equal(await p.inputValue('#word-input'), '');
+    assert.equal(await visible('#lang-strip'), false);
+    assert.equal(await p.getAttribute('#guide', 'data-mode'), 'empty');
     await p.click('#guide [data-g=close]');
     assert.equal(await visible('#guide'), false);
   });
 
-  await step('מכונה חדשה: הקנבס ריק וכרטיס שלושת הצעדים במרכז', async () => {
+  await step('"חדש": אותו מצב נקי, וההדרכה לא חוזרת לבד (רק מה-?)', async () => {
     await p.click('[data-cmd=new]');
-    assert.equal(await p.getAttribute('#guide', 'data-mode'), 'empty');
-    assert.ok(await visible('#guide'));
+    assert.equal(await p.evaluate(() => App.machine.states.length), 0);
+    assert.equal(await visible('#guide'), false);
   });
 
   const st = await p.evaluate(() => { const r = document.querySelector('.stage').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 - 60 }; });
@@ -180,7 +184,7 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
     await p.press('#word-input', 'Enter');
     await p.click('[data-run=end]');
     await p.waitForSelector('#result-banner.err:not([hidden])');
-    assert.match(await p.textContent('#run-status'), /נדחית/);
+    assert.match(await p.textContent('#result-banner'), /נדחית/);
   });
 
   await step('גרירה של מצב והזזת הקנבס: הכול זז בדיוק עם הסמן (גם כשהממשק ב-90%)', async () => {
