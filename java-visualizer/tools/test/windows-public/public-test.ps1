@@ -74,7 +74,24 @@ function CheckAutomata([string]$shot) {
     Check "אין קיצורים אחרים של DSViz בשולחן העבודה ($(($others | ForEach-Object Name) -join ', '))" ($others.Count -eq 0)
     if (-not (Test-Path $lnkAut)) { return }
     $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnkAut)
-    Write-Host "  קיצור: $($sc.TargetPath) $($sc.Arguments) (תיקייה: $($sc.WorkingDirectory))"
+    Write-Host "  קיצור (WScript): '$($sc.TargetPath)' '$($sc.Arguments)' (תיקייה: '$($sc.WorkingDirectory)')"
+    try {
+        $fi = (New-Object -ComObject Shell.Application).NameSpace($desk).ParseName('מודלים חישוביים.lnk')
+        $gl = $fi.GetLink
+        Write-Host "  קיצור (Shell): '$($gl.Path)' '$($gl.Arguments)' (תיקייה: '$($gl.WorkingDirectory)')"
+    } catch { Write-Host "  קיצור (Shell): $($_.Exception.Message)" }
+    # אבחון: אותה פקודה כמו בקיצור, עם java.exe ופלט לקובץ (20 שניות), ואז סוגרים
+    $dbgOut = Join-Path $Out 'automata-direct.txt'
+    $pj = Start-Process (Join-Path $d 'jdk\bin\java.exe') -ArgumentList '-cp', '"automata\dsviz-automata.jar;dsviz.jar"', 'il.lamerhav.dsviz.AutomataLauncher' `
+        -WorkingDirectory $d -RedirectStandardOutput $dbgOut -RedirectStandardError "$dbgOut.err" -PassThru
+    Start-Sleep 20
+    Write-Host "  הפעלה ישירה (java.exe): יצא=$($pj.HasExited) קוד=$(if ($pj.HasExited) { $pj.ExitCode })"
+    Get-Content $dbgOut, "$dbgOut.err" -ErrorAction SilentlyContinue | Select-Object -First 30 | ForEach-Object { Write-Host "    | $_" }
+    Write-Host "  automata-data: $((Get-ChildItem (Join-Path $d 'automata-data') -ErrorAction SilentlyContinue | ForEach-Object Name) -join ', ')"
+    Get-CimInstance Win32_Process -Filter "Name='javaw.exe' OR Name='java.exe'" | Where-Object { $_.CommandLine -match 'AutomataLauncher' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep 3
     Start-Process $lnkAut
     $portFile = Join-Path $d 'automata-data\port'
     $end = (Get-Date).AddSeconds(60); $code = 0; $port = ''
