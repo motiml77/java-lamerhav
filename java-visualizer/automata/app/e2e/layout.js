@@ -7,6 +7,7 @@
 const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const H = require('./helpers.js');
 
 const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
@@ -90,7 +91,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   });
 
   await step('חלון המעבר באוטומט מחסנית: אותו גודל קומפקטי, Esc מבטל', async () => {
-    await p.click('#type-tabs [data-type=pda]');
+    await H.closeEditor(p); await p.click('#type-tabs [data-type=pda]');
     const c = await p.evaluate(() => { const r = document.querySelector('.stage').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
     await p.mouse.dblclick(c.x - 120, c.y); await p.waitForTimeout(150);
     await p.mouse.dblclick(c.x + 120, c.y); await p.waitForTimeout(150);
@@ -112,8 +113,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   });
 
   await step('הרצה עם דרכים (bbaa): הצעד וההסבר בחלק הכהה, ולפחות 5 שורות של דרכים', async () => {
-    await p.click('[data-tab=lang]');
-    await p.fill('#lang-input', 'a^n b^n ∪ b^n a^n');
+    await H.write(p, 'a^n b^n ∪ b^n a^n');
     await p.waitForTimeout(300);
     await p.click('[data-l=build]');
     if (await p.waitForSelector('.dialog', { timeout: 1500 }).catch(() => null)) await p.click('.dialog [data-r="1"]');
@@ -172,7 +172,9 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     assert.ok(await onTop(q, '#guide'));
     await shot(q, 'r11-guide-1024');
     // גם הכרטיס הצד (אחרי שיש מצב) לא נחתך בתחתית
-    await q.click('#guide [data-g=add]');
+    await q.click('#guide [data-g=free]');              // כרטיס הפתיחה (סבב 14): ציור חופשי
+    await q.click('[data-cmd=add-state]');
+    await q.click('#guide-btn');
     await q.waitForTimeout(300);
     const f = await box(q, '#guide');
     assert.equal(await q.getAttribute('#guide', 'data-mode'), 'float');

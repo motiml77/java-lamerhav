@@ -98,9 +98,13 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     assert.equal(await p.$(sec('א') + ' .bf-hint'), null);
   });
 
-  await step('בדיקה על קנבס ריק: הסבר במקום תוצאה', async () => {
+  await step('המשימה של הסעיף בפס שמעל הקנבס (סבב 14): "משימה", נעולה; בדיקה על קנבס ריק מסבירה בכרטיס', async () => {
+    assert.equal(await p.textContent('#lang-strip .ts-chip'), 'משימה');
+    assert.match(await p.textContent('#lang-strip .ts-lead'), /בנו אס"ד לשפה/);
+    assert.equal(await p.textContent('#ts-pill'), 'עוד לא נבדק');
     await p.click(sec('א') + ' [data-bf-check]');
-    assert.match(await p.textContent(sec('א') + ' .bf-result'), /אין עדיין מכונה/);
+    assert.match(await p.textContent('#task-card'), /אין עדיין מכונה/);
+    assert.equal(await p.$(sec('א') + ' .bf-result'), null, 'אין בחלון תוצאה שנייה');
   });
 
   await step('בונים בעכבר אס"ד שגוי (אחרי a תמיד דוחה): הבדיקה מראה את המילים הקצרות שנכשלו', async () => {
@@ -112,10 +116,11 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await edge('q1', 'q1', 'ab');
     await accept('q0');
     await p.click(sec('א') + ' [data-bf-check]');
-    await p.waitForSelector(sec('א') + ' .lr-box.err');
-    const missing = await p.$$eval(sec('א') + ' .bf-result .w-chip.in', (els) => els.map((e) => e.textContent));
+    await p.waitForSelector('#task-card.fail');
+    const missing = await p.$$eval('#task-card .w-chip.in', (els) => els.map((e) => e.textContent));
     assert.ok(missing.includes('aa'), 'aa צריכה להתקבל: ' + missing);
-    await p.click(sec('א') + ' .bf-result .w-chip.in');
+    assert.match(await p.textContent('#ts-pill'), /^לא נכון/);
+    await p.click('#task-card .w-chip.in');
     await p.waitForSelector('#result-banner.err:not([hidden])');
     await p.keyboard.press('Escape');
   });
@@ -123,10 +128,12 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   await step('מתקנים (q1 חוזר ל-q0 עם a): "בדיקה" עוברת, עם הוכחה, וסעיף א\' מסומן', async () => {
     await p.evaluate(() => { const m = App.machine; const t = m.transitions.find((x) => x.from === x.to && x.from === m.states[1].id); App.change('תיקון', () => { t.labels = t.labels.filter((l) => l.read !== 'a'); }); });
     await edge('q1', 'q0', 'a');
+    assert.equal(await p.textContent('#ts-pill'), 'השתנה מאז הבדיקה', 'המכונה השתנתה: הסטטוס לא נשאר "לא נכון"');
     await p.click(sec('א') + ' [data-bf-check]');
-    await p.waitForSelector(sec('א') + ' .lr-box.ok');
-    assert.match(await p.textContent(sec('א') + ' .lr-box.ok'), /בדיוק את השפה/);
-    assert.ok(await p.$(sec('א') + ' h3 .bk-v'));
+    await p.waitForSelector('#task-card.ok');
+    assert.match(await p.textContent('#task-card'), /בדיוק את השפה/);
+    assert.equal(await p.textContent('#ts-pill'), 'נכון ✓ הוכחה');
+    await p.waitForSelector(sec('א') + ' h3 .bk-v');
     assert.ok(await p.$('.bf-jump.on .bk-v'));
     await shot('r9-float');
   });

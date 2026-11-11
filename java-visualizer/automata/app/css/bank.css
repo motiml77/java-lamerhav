@@ -89,13 +89,19 @@
 .bk-foot .btn.primary { min-width: 120px; }
 
 /* ================= החלון הצף "השאלה" ================= */
+/* חלון אמיתי מעל כל האפליקציה (סבב 14): ב-body, נגרר בכותרת, גודל מהפינה, מזעור לגלולה. המקום והגודל ב-float-win.js */
 .bf {
-  position: absolute; z-index: 10; top: 12px; bottom: 12px; inset-inline-end: 12px; width: var(--bf-w); max-width: calc(100% - 24px);
-  display: flex; flex-direction: column; background: var(--raised); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-pop);
-  animation: rise var(--t-slow) var(--ease);
+  position: fixed; z-index: 86; left: 12px; top: 62px; width: var(--bf-w); height: 600px; min-width: 300px; min-height: 220px;
+  max-width: calc(100vw / var(--ui-zoom) - 8px); max-height: calc(100vh / var(--ui-zoom) - 8px);
+  display: flex; flex-direction: column; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 16px 40px rgba(16, 24, 40, 0.22), 0 2px 8px rgba(16, 24, 40, 0.08);
+  resize: both; overflow: hidden; animation: rise var(--t-slow) var(--ease);
 }
-.bf.min { bottom: auto; }
+[data-theme=dark] .bf { box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35); }
+.bf.dragging { opacity: 0.94; cursor: grabbing; user-select: none; }
+.bf.dragging .bf-head { cursor: grabbing; }
+.bf.min { resize: none; height: auto !important; width: 280px !important; min-height: 0; border-radius: var(--r-full); }
 .bf.min .bf-body, .bf.min .bf-foot { display: none; }
+.bf.min .bf-head { border-bottom: 0; }
 .bf-head { flex: none; display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px 0 4px; border-bottom: 1px solid var(--line); cursor: grab; user-select: none; font-size: var(--fs-13); }
 .bf-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; margin-inline-start: 4px; }
 .bf-body { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; display: grid; align-content: start; gap: 10px; }
@@ -143,5 +149,3 @@
 .bf-radio input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
 .muted { color: var(--muted); } .small { font-size: var(--fs-12); }
 
-/* כשהחלון פתוח: הזום וכפתור ה-? עוברים לצד החלון (כרטיס ההדרכה לא מוצג אז) */
-.stage.bf-open .zoom, .stage.bf-open .guide-btn { inset-inline-end: calc(var(--bf-w) + 24px); }

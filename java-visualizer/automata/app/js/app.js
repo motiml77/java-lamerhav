@@ -40,6 +40,7 @@
       this.load();
       this.canvas = new root.CanvasView(this, $('#stage'));
       this.langPanel = new root.LangPanel(this);
+      this.taskUI = new root.TaskUI(this);
       this.strip = new root.LangStrip(this, $('#lang-strip'));
       this.showTrap = store.get('dsviz.automata.trap') !== '0';
       $('#trap-toggle input').addEventListener('change', (e) => this.setShowTrap(e.target.checked));
@@ -56,12 +57,16 @@
       this.switchType(this.active, true);
       root.Layout.init(this);                            // גדלים שהמשתמש קבע, וקיפול פאנל הצד
       root.AccessUI.init(this, root.DSVizAccessReady);   // הכניסה; תרגיל מהמאגר שהיה פתוח חוזר אחרי שהכניסה ידועה
+      if (this.viewOnly) this.taskUI.showViewBanner();
       requestAnimationFrame(() => { if (!this.machine.view.placed) { const g = root.Guide.el; this.canvas.fit(g.hidden || g.dataset.mode !== 'float' ? 0 : g.offsetWidth + 24); this.machine.view.placed = true; } });
     },
 
     load() {
       let data = null;
       try { data = JSON.parse(store.get(STORE_KEY) || 'null'); } catch (e) { data = null; }
+      // חלון "פתרון לדוגמה" (task-ui.js): רק המכונה של הפתרון, ושום דבר לא נשמר בדפדפן
+      const sol = root.TaskUI && root.TaskUI.fromHash();
+      if (sol) { this.viewOnly = true; data = { v: 1, active: sol.type, machines: { [sol.type]: JSON.parse(M.serialize(sol)) }, words: {} }; }
       for (const type of M.TYPES) {
         let m = null;
         if (data && data.machines && data.machines[type]) m = M.deserialize(data.machines[type]).machine;
@@ -81,6 +86,7 @@
     },
 
     autosave() {
+      if (this.viewOnly) return;          // חלון פתרון לדוגמה: לא דורסים את העבודה ששמורה בדפדפן
       clearTimeout(this.saveT);
       this.saveT = setTimeout(() => {
         this.words[this.active] = this.word;
@@ -92,7 +98,7 @@
 
     /* ---------- היסטוריה ---------- */
     snapshot() { const m = this.machine; const v = m.view; m.view = undefined; const s = JSON.stringify(m); m.view = v; return s; },
-    machineSig() { const m = this.machine; return JSON.stringify([m.type, m.states.map((s) => [s.id, s.accepting]), m.start, m.transitions, m.alphabet, m.acceptBy, m.stackStart, m.blank]); },
+    machineSig() { return root.AutomataTask.sig(this.machine); },
 
     /**
      * שינוי במכונה: snapshot לפני, fn משנה, ואם משהו השתנה נכנס להיסטוריה.
@@ -256,7 +262,7 @@
 
     /* ---------- סוג מכונה ---------- */
     switchType(type, initial) {
-      if (!initial) { this.words[this.active] = this.word; this.stopRun(true); }
+      if (!initial) { this.words[this.active] = this.word; this.stopRun(true); if (root.Guide.app) root.Guide.unpin(); }
       this.active = type;
       this.word = this.words[type] || '';
       this.sel = { states: new Set(), trans: new Set() };
@@ -267,14 +273,13 @@
       $('#app').dataset.type = type;
       $$('#type-tabs [data-type]').forEach((b) => { const on = b.dataset.type === type; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
       this.runPanel.testResults = null;
-      this.langPanel.result = null;
-      this.langPanel.busy = null;
       $('.tests-table-wrap').scrollTop = 0;
       this.refresh();
       if (!initial) { if (!this.machine.view.placed) { this.canvas.fit(); this.machine.view.placed = true; } this.autosave(); }
     },
 
     loadMachine(m, label, word) {
+      if (root.Guide.app) root.Guide.unpin();
       if (this.bankFloat && !this.bankFloat.loading) this.bankFloat.detach();   // דוגמה / קובץ / "חדש": התרגיל מהמאגר נסגר (העבודה נשמרת)
       const type = m.type;
       if (type !== this.active) this.switchType(type);
@@ -288,7 +293,6 @@
       this.stopRun(true);
       this.sel = { states: new Set(), trans: new Set() };
       this.runPanel.testResults = null;
-      this.langPanel.result = null;
       if (m.language && m.language.locked) this.side.tab = 'lang';      // קובץ תרגיל: מציגים את השפה
       $('.tests-table-wrap').scrollTop = 0;
       this.refresh();

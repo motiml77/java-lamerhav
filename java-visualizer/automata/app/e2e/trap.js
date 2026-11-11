@@ -6,6 +6,7 @@
 const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const H = require('./helpers.js');
 
 const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
@@ -39,8 +40,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   });
 
   await step('aⁿbⁿ | 1≤n≤3: התיבה מסומנת כברירת מחדל, ולא נוגעת בתג התקינות או ב-?', async () => {
-    await p.click('[data-tab=lang]');
-    await p.fill('#lang-input', 'a^n b^n | 1≤n≤3');
+    await H.write(p, 'a^n b^n | 1≤n≤3');
     await p.waitForTimeout(300);
     await p.click('[data-l=build]');
     await p.waitForSelector('.dialog');
@@ -73,9 +73,9 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     assert.deepEqual(await p.evaluate(() => App.machine.states.map((s) => [s.x, s.y])), pos, 'המצבים לא זזו');
     await run('ab', true);
     await run('ba', false, async () => assert.match(await p.textContent('#machine-view'), /מלכודת \(מוסתר\)/));
-    await p.click('[data-l=check]');
-    await p.waitForSelector('#lang-result .lr-box.ok');
-    assert.match(await p.textContent('#lang-result'), /זו הוכחה/);
+    await p.click('#ts-pill');
+    await p.waitForSelector('#task-card.ok');
+    assert.match(await p.textContent('#task-card'), /זו הוכחה/);
     const saved = await p.evaluate(() => JSON.parse(AutomataModel.serialize(App.machine)).states.length);
     assert.equal(saved, before.model, 'השמירה כוללת את המלכודת');
     await shot('r8-unchecked');

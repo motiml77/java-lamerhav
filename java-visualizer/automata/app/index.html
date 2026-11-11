@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="css/bank.css">
   <link rel="stylesheet" href="css/access.css">
   <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/task.css">
 </head>
 <body>
   <a class="skip" href="#word-input">דילוג לחלון ההרצה</a>
@@ -54,15 +55,23 @@
         <span class="vsep"></span>
         <button type="button" class="btn ghost" data-cmd="bank" title="מאגר שאלות: תרגילים מוכנים עם בדיקה"><i data-icon="bank"></i><span>מאגר שאלות</span></button>
         <div class="menu-wrap">
+          <button type="button" class="btn ghost" data-cmd="lang-menu" aria-haspopup="menu" aria-expanded="false" title="נוסחה של שפה: התוכנה בונה, או אתם בונים והתוכנה בודקת"><i data-icon="sigma"></i><span>שפה פורמלית</span><i data-icon="chevronDown" class="chev"></i></button>
+          <div class="menu" id="lang-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-cmd="lang-auto"><i data-icon="transition"></i><span class="mi-text"><b>התוכנה בונה</b><small>כותבים נוסחה של שפה, ומקבלים אוטומט מוכן</small></span></button>
+            <button type="button" role="menuitem" data-cmd="lang-practice"><i data-icon="check"></i><span class="mi-text"><b>אני בונה, התוכנה בודקת</b><small>כותבים נוסחה, בונים לבד, ובודקים אם זה נכון</small></span></button>
+          </div>
+        </div>
+        <div class="menu-wrap">
           <button type="button" class="btn ghost" data-cmd="examples" aria-haspopup="menu" aria-expanded="false"><i data-icon="book"></i><span>דוגמאות</span><i data-icon="chevronDown" class="chev"></i></button>
           <div class="menu" id="examples-menu" role="menu" hidden></div>
         </div>
-        <button type="button" class="btn ghost" data-cmd="new" title="מכונה חדשה וריקה בלשונית הזו"><i data-icon="plus"></i><span>חדש</span></button>
-        <button type="button" class="btn ghost" data-cmd="open" title="פתיחת קובץ JSON (Ctrl+O)"><i data-icon="open"></i><span>פתיחה</span></button>
+        <button type="button" class="btn ghost" data-cmd="new" title="מכונה חדשה וריקה בלשונית הזו" aria-label="חדש"><i data-icon="plus"></i><span>חדש</span></button>
+        <button type="button" class="btn ghost" data-cmd="open" title="פתיחת קובץ JSON (Ctrl+O)" aria-label="פתיחה"><i data-icon="open"></i><span>פתיחה</span></button>
         <div class="menu-wrap">
-          <button type="button" class="btn ghost" data-cmd="save-menu" aria-haspopup="menu" aria-expanded="false" title="שמירה (Ctrl+S)"><i data-icon="save"></i><span>שמירה</span><i data-icon="chevronDown" class="chev"></i></button>
+          <button type="button" class="btn ghost" data-cmd="save-menu" aria-haspopup="menu" aria-expanded="false" title="שמירה (Ctrl+S)" aria-label="שמירה"><i data-icon="save"></i><span>שמירה</span><i data-icon="chevronDown" class="chev"></i></button>
           <div class="menu" id="save-menu" role="menu" hidden>
             <button type="button" role="menuitem" data-cmd="save"><i data-icon="save"></i><span class="mi-text"><b>שמירה כקובץ</b><small>JSON, אפשר לפתוח שוב בכל מחשב</small></span><kbd>Ctrl+S</kbd></button>
+            <button type="button" role="menuitem" data-cmd="save-task"><i data-icon="book"></i><span class="mi-text"><b>שמירת משימה לתלמידים</b><small>הנוסחה, הסוג והאלפבית, בלי המכונה</small></span></button>
             <button type="button" role="menuitem" data-cmd="export-svg"><i data-icon="layout"></i><span class="mi-text"><b>ייצוא תמונה</b><small>SVG של הדיאגרמה, לדף עבודה או למצגת</small></span></button>
           </div>
         </div>
@@ -236,13 +245,18 @@
   <script src="js/canvas.js"></script>
   <script src="js/canvas-input.js"></script>
   <script src="js/popover.js"></script>
+  <script src="js/task.js"></script>
+  <script src="js/tpl-picker.js"></script>
   <script src="js/lang-panel.js"></script>
+  <script src="js/lang-summary.js"></script>
   <script src="js/lang-strip.js"></script>
   <script src="js/side-panel.js"></script>
   <script src="js/run-panel.js"></script>
+  <script src="js/task-ui.js"></script>
   <script src="js/bank/data.js"></script>
   <script src="js/bank/core.js"></script>
   <script src="js/bank/window.js"></script>
+  <script src="js/bank/float-win.js"></script>
   <script src="js/bank/float.js"></script>
   <script src="js/access.js"></script>
   <script src="js/access-ui.js"></script>

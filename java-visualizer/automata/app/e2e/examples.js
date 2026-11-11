@@ -7,6 +7,7 @@
 const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const H = require('./helpers.js');
 
 const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
@@ -109,29 +110,32 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
 
   await step('אותו פס לשפה שהמשתמש כותב בעצמו (עם תיאור משלו), ונעלם כשאין שפה', async () => {
     await pick(p, 'even-a');
-    await p.click('[data-tab=lang]');
     assert.match(await text(p, '#lang-strip .ls-desc'), /זוגי/);
+    await p.click('#lang-strip [data-t=edit]');
+    await p.waitForSelector('.lang-dialog');
+    assert.match(await p.inputValue('#lang-desc'), /זוגי/, 'העורך נפתח עם הנוסחה והתיאור של הדוגמה');
     await p.fill('#lang-input', 'w ∈ {a,b}* | #a(w) אי-זוגי');
     await p.waitForTimeout(300);
-    assert.equal(await p.$('#lang-strip .ls-desc'), null, 'הנוסחה השתנתה: התיאור של הדוגמה כבר לא מתאים, ונעלם');
-    assert.equal(await p.inputValue('#lang-desc'), '');
+    assert.equal(await p.inputValue('#lang-desc'), '', 'הנוסחה השתנתה: התיאור של הדוגמה כבר לא מתאים, ונמחק');
+    await H.build(p);
+    assert.equal(await p.$('#lang-strip .ls-desc'), null);
     await p.click('[data-cmd=new]');
     await p.waitForTimeout(200);
-    assert.equal(await p.isVisible('#lang-strip'), false);
-    await p.click('[data-tab=lang]');
-    await p.fill('#lang-input', 'a^n b^m | n >= 2');
-    await p.waitForTimeout(300);
-    assert.equal(await text(p, '#ls-formula'), 'L = { anbm | n ≥ 2 }');
-    assert.deepEqual((await chips(p)).slice(0, 2), [['aa', true], ['aaa', true]]);
-    assert.equal(await p.$('#lang-strip .ls-desc'), null);
+    assert.equal(await p.isVisible('#lang-strip'), false, 'ציור חופשי: אין פס');
+    await H.write(p, 'a^n b^m | n >= 2');
     await p.fill('#lang-desc', 'לפחות שני a, ואחריהם b כמה שרוצים');
-    assert.equal(await text(p, '#lang-strip .ls-desc'), 'לפחות שני a, ואחריהם b כמה שרוצים');
     await p.fill('#lang-input', 'a^n b^m | n >= 3');
     await p.waitForTimeout(300);
-    assert.equal(await text(p, '#lang-strip .ls-desc'), 'לפחות שני a, ואחריהם b כמה שרוצים', 'תיאור שהמשתמש כתב נשאר גם כשהנוסחה משתנה');
-    await p.fill('#lang-input', 'a^n b^m | n >');
+    assert.equal(await p.inputValue('#lang-desc'), 'לפחות שני a, ואחריהם b כמה שרוצים', 'תיאור שהמשתמש כתב נשאר גם כשהנוסחה משתנה');
+    await p.fill('#lang-input', 'a^n b^m | n >= 2');
     await p.waitForTimeout(300);
-    assert.equal(await p.isVisible('#lang-strip'), false, 'נוסחה שבורה: אין פס');
+    await H.build(p);
+    assert.equal(await text(p, '#ls-formula'), 'L = { anbm | n ≥ 2 }');
+    assert.deepEqual((await chips(p)).slice(0, 2), [['aa', true], ['aaa', true]]);
+    assert.equal(await text(p, '#lang-strip .ls-desc'), 'לפחות שני a, ואחריהם b כמה שרוצים');
+    await H.write(p, 'a^n b^m | n >');
+    assert.ok(await p.$eval('#ld-foot .btn.primary', (e) => e.disabled), 'נוסחה שבורה: אי אפשר לבנות');
+    await H.closeEditor(p);
   });
 
   await step('הדגמת הניתוב: ריחוף על תווית מדגיש את כל הקשת שלה ומעמעם את האחרות', async () => {

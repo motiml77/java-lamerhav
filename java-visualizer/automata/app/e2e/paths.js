@@ -6,6 +6,7 @@
 const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const H = require('./helpers.js');
 
 const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
@@ -34,9 +35,8 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   };
 
   await step('אוטומט מחסנית: ההסבר מדבר על דרכים, לא על "ענפים"', async () => {
-    await p.click('#type-tabs [data-type=pda]');
-    await p.click('[data-tab=lang]');
-    await p.fill('#lang-input', 'a^n b^n ∪ b^n a^n');
+    await H.closeEditor(p); await p.click('#type-tabs [data-type=pda]');
+    await H.write(p, 'a^n b^n ∪ b^n a^n');
     await p.waitForTimeout(300);
     await p.click('[data-l=build]');
     if (await p.waitForSelector('.dialog', { timeout: 1500 }).catch(() => null)) await p.click('.dialog [data-r="1"]');   // הלשונית ריקה: אין מה להחליף

@@ -57,6 +57,7 @@
     /** השאלה האחרונה שעבדו עליה נבחרת בפעם הבאה שהחלון נפתח (כמו במאגר של Java) */
     remember(id) { const q = B.question(id); if (q) { this.selected = id; this.open.add(q.topic); } }
     show(id) {
+      root.Guide.unpin();
       if (!B.access('open')) { if (!B.denied('open', null, () => this.show(id))) this.app.toast('אין גישה למאגר השאלות', 'err'); return; }
       if (id) this.remember(id);
       if (!this.el) {

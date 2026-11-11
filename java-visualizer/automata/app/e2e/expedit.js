@@ -7,6 +7,7 @@
 const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const H = require('./helpers.js');
 
 const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
@@ -35,7 +36,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   };
 
   await step('המקש "חזקה" מכניס ^( ) עם הסמן בפנים; מקלידים m+k+2, והנוסחה נקראת ומסווגת', async () => {
-    await p.click('[data-tab=lang]');
+    await H.openEditor(p);
     await p.click('#lang-input');
     await p.keyboard.type('a');
     assert.equal(await p.getAttribute('.lang-kb .lk[data-ins="^(‸)"]', 'aria-label'), 'חזקה: כותבים בתוך הסוגריים כל ביטוי, למשל a^(m+k+2)');
@@ -96,13 +97,15 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     if (await p.waitForSelector('.dialog', { timeout: 1200 }).catch(() => null)) await p.click('.dialog [data-r="1"]');
     await p.waitForTimeout(400);
     assert.equal(await p.evaluate(() => App.machine.type), 'dfa');
-    await p.click('[data-l=check]');
-    await p.waitForSelector('#lang-result .lr-box.ok', { timeout: 20000 });
-    assert.match(await text('#lang-result'), /זו הוכחה/);
+    await p.click('#ts-pill');
+    await p.waitForSelector('#task-card.ok', { timeout: 20000 });
+    assert.match(await text('#task-card'), /זו הוכחה/);
     await shot('r13-result');
   });
 
   await step('ביטוי שהמנוע לא מקבל: הודעה בעברית בעורך, והנוסחה לא משתנה; Esc מבטל', async () => {
+    await p.click('#lang-strip [data-t=edit]');          // "עריכת הנוסחה" בפס המשימה פותח את העורך עם הנוסחה
+    await p.waitForSelector('.lang-dialog');
     await editSup(1, 'n-m');
     assert.match(await text('.exp-err'), /מופיע רק עם מינוס/);
     assert.ok(await p.$('.exp-pop'));
