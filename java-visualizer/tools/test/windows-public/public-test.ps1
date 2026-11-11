@@ -56,6 +56,10 @@ $ecl = Join-Path $env:USERPROFILE 'eclipse-sim'
 $ijCfg = Join-Path $env:APPDATA 'JetBrains\IdeaIC2024.2'
 $lnk1 = Join-Path $desk 'מאגר תרגילים C#.lnk'
 $lnk2 = Join-Path $desk 'השאלה — מאגר תרגילים C#.lnk'
+# מהגרסה עם "מודלים חישוביים": המאגר ל-Visual Studio נפתח מהסרגל של DSViz, והקיצורים עברו לתפריט התחלה (בשביל Rider)
+$menuDir = Join-Path ([Environment]::GetFolderPath('Programs')) 'מבני נתונים'
+$mnu1 = Join-Path $menuDir 'מאגר תרגילים C#.lnk'
+$mnu2 = Join-Path $menuDir 'השאלה — מאגר תרגילים C#.lnk'
 $labKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz-Lab'
 $lnkAut = Join-Path $desk 'מודלים חישוביים.lnk'
 $script:autData = $false
@@ -118,7 +122,8 @@ function CheckBank([string]$when, $st) {
     Check "$when — Eclipse: גם התוסף הראשי (אחד)" ($st.EclMain -eq 1)
     Check "$when — IntelliJ: התוסף הראשי והמאגר (dsviz-bank-intellij\lib\*.jar)" ($st.IjMain -and ((Get-ChildItem "$ijCfg\plugins\dsviz-bank-intellij\lib" -Filter *.jar -ErrorAction SilentlyContinue).Count -ge 1))
     Check "$when — Visual Studio: lab\dsviz-bank-vs.jar" ($st.VsJar -ne '')
-    Check "$when — Visual Studio: שני הקיצורים בשולחן העבודה" ((Test-Path $lnk1) -and (Test-Path $lnk2))
+    Check "$when — Visual Studio: אין קיצורי מאגר בשולחן העבודה" (-not (Test-Path $lnk1) -and -not (Test-Path $lnk2))
+    Check "$when — קיצורי המאגר בתפריט התחלה (מבני נתונים)" ((Test-Path $mnu1) -and (Test-Path $mnu2))
     $pj = Get-ChildItem "$d\bank" -Filter 'il.lamerhav.dsviz.bank_*.jar' -ErrorAction SilentlyContinue | Select-Object -First 1
     Check "$when — מה שב-dropins הוא המאגר של ההתקנה הנוכחית" ($pj -and $st.EclBankHash -eq (Get-FileHash $pj.FullName).Hash)
 }
@@ -156,7 +161,7 @@ switch ($Scenario) {
         $s3 = BankState
         Check 'הסרה: המאגר הוסר מ-Eclipse' ($s3.EclBank -eq 0 -and $s3.EclMain -eq 0)
         Check 'הסרה: המאגר הוסר מ-IntelliJ' ($s3.IjBank -eq '' -and -not $s3.IjMain)
-        Check 'הסרה: הקיצורים וה-jar של Visual Studio הוסרו' (-not (Test-Path $lnk1) -and -not (Test-Path $lnk2) -and -not (Test-Path "$d\lab"))
+        Check 'הסרה: הקיצורים וה-jar של Visual Studio הוסרו' (-not (Test-Path $lnk1) -and -not (Test-Path $lnk2) -and -not (Test-Path $mnu1) -and -not (Test-Path $mnu2) -and -not (Test-Path "$d\lab"))
         Check 'הסרה: הקיצור "מודלים חישוביים" הוסר' (-not (Test-Path $lnkAut))
         Check 'הסרה: עבודות התלמידים באוטומטים נשמרו (automata-data)' (-not $script:autData -or (Test-Path (Join-Path $d 'automata-data')))
     }
