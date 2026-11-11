@@ -1,6 +1,7 @@
 /*
  * guide.js - ההדרכה: כרטיס "שלושה צעדים" על הקנבס, ורשימת "איך בונים" בפאנל הצד.
- * הכרטיס מופיע כשאין מצבים, ובפעם הראשונה שנכנסים לכלי. כפתור "?" על הקנבס מחזיר אותו.
+ * הכרטיס מופיע רק בפעם הראשונה שנכנסים לכלי (ומיד נרשם שראו אותו), ומכפתור "?" על הקנבס. כשהקנבס ריק הוא במרכז, אחרת בצד.
+ * הוא יושב ב-body (position: fixed) מעל כל הפאנלים, ונגלל בתוכו אם החלון נמוך (סבב 11).
  */
 (function (root) {
   'use strict';
@@ -29,7 +30,9 @@
     init(app) {
       this.app = app;
       this.el = $('#guide');
+      document.body.appendChild(this.el);         // מעל חלון ההרצה ופאנל הצד, לא בתוך הקנבס
       this.pinned = store.get() !== 'seen';
+      if (this.pinned) store.set('seen');         // רק בפעם הראשונה; אחר כך רק מה-?
       this.el.addEventListener('click', (e) => {
         const b = e.target.closest('[data-g]');
         if (!b) return;
@@ -53,7 +56,7 @@
     update() {
       const empty = !this.app.machine.states.length;
       const bank = this.app.bankFloat && this.app.bankFloat.isOpen();   // החלון "השאלה" יושב באותו מקום כמו הכרטיס הצף
-      const show = empty || (this.pinned && !bank);
+      const show = this.pinned && !bank;
       this.el.hidden = !show;
       if (!show) this.el.dataset.mode = '';
       $('#guide-btn').setAttribute('aria-expanded', String(show));
@@ -65,7 +68,7 @@
       if (mode === 'float') requestAnimationFrame(() => { this.shifted = true; this.app.canvas.fit(this.el.offsetWidth + 24); });
       this.el.innerHTML =
         '<div class="guide-head"><h2>' + (empty ? 'בונים מכונה בשלושה צעדים' : 'איך בונים') + '</h2>' +
-        (empty ? '' : '<button type="button" class="pop-x" data-g="close" aria-label="סגירת ההדרכה">' + I.get('x', 16) + '</button>') + '</div>' +
+        '<button type="button" class="pop-x" data-g="close" aria-label="סגירת ההדרכה">' + I.get('x', 16) + '</button></div>' +
         '<ol class="guide-steps">' + STEPS.map(([art, t, s], i) => '<li><span class="gs-num">' + (i + 1) + '</span><span class="gs-art">' + ART[art] + '</span><span class="gs-text"><b>' + t + '</b><span>' + s + '</span></span></li>').join('') + '</ol>' +
         '<div class="guide-foot">' + (empty
           ? '<button type="button" class="btn primary" data-g="add">' + I.get('state', 18) + '<span>מצב חדש</span></button><button type="button" class="btn secondary" data-g="example">' + I.get('book', 18) + '<span>טעינת דוגמה</span></button>'

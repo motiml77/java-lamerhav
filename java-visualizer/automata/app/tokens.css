@@ -126,7 +126,7 @@
   --topbar-h: 52px;
   --rail-w: 52px;
   --side-w: 328px;
-  --run-h: 292px;
+  --run-h: 248px;          /* סבב 11: 15% פחות מ-292, והאזור עצמו ב-90% (zoom ב-run.css) */
   --ui-zoom: 0.9;           /* כל הממשק ב-90%: html { zoom }. קואורדינטות של העכבר מומרות ב-CanvasView.uiScale() */
   --state-r: 26;     /* רדיוס מצב ב-SVG (יחידות עולם) */
 }

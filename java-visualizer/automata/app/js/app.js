@@ -64,10 +64,9 @@
       for (const type of M.TYPES) {
         let m = null;
         if (data && data.machines && data.machines[type]) m = M.deserialize(data.machines[type]).machine;
-        if (!m) {
-          const ex = EX.EXAMPLES.find((e) => e.type === type);
-          m = M.deserialize(ex).machine;
-          this.words[type] = ex.sampleWord || '';
+        if (!m) {          // פתיחה ראשונה (סבב 11): קנבס ריק, בלי שפה, בלי מילים, Σ ריק. הדוגמאות בתפריט "דוגמאות"
+          m = M.createMachine(type, { name: 'מכונה חדשה' });
+          this.words[type] = '';
         }
         this.machines[type] = m;
         this.history[type] = { past: [], future: [] };

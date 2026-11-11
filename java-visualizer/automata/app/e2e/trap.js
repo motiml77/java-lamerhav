@@ -19,9 +19,10 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  await p.waitForSelector('.st');
+  await p.waitForSelector('#guide:not([hidden])');
   await p.evaluate(() => document.fonts.ready);
   await p.click('#guide [data-g=close]');
+  await p.evaluate(() => { App.loadFirstExample(); App.history[App.active] = { past: [], future: [] }; document.querySelectorAll('.toast').forEach((t) => t.remove()); });   // פתיחה ראשונה ריקה (סבב 11): הדוגמה הראשונה כמו פעם
   const shot = async (name) => { await p.waitForTimeout(300); await p.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove())); await p.screenshot({ path: path.join(OUT, name + '.png') }); };
   const canvas = () => p.evaluate(() => ({ states: Array.from(document.querySelectorAll('.st .st-name')).map((e) => e.textContent), edges: document.querySelectorAll('.ed[data-edge]').length, labels: document.querySelectorAll('.lb[data-edge]').length, model: App.machine.states.length, trans: App.machine.transitions.length }));
   const run = async (w, ok, then) => {

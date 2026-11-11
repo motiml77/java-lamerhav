@@ -3,7 +3,7 @@
  * נפתח אחרי "לוחצים על מצב ואז על מצב אחר", ובלחיצה על קשת קיימת.
  *   אס"ד / אסל"ד: צ'יפים של Σ (בחירה מרובה), ε באסל"ד, ושדה "אות חדשה".
  *   אוטומט מחסנית: שורה לכל כלל (קוראים, שולפים, דוחפים). מכונת טיורינג: קוראים, כותבים, כיוון.
- * Enter = אישור, Esc = ביטול. מעבר חדש לא נוצר עד האישור.
+ * Enter = אישור, Esc = ביטול (בלי שורת הסבר בחלון, סבב 11). מעבר חדש לא נוצר עד האישור. החלון קומפקטי: כותרת "q0 → q1", שורה אחת של הסבר.
  */
 (function (root) {
   'use strict';
@@ -59,28 +59,26 @@
       const m = this.m, type = m.type;
       const name = (id) => esc(M.stateName(m, id));
       const loop = this.from === this.to;
-      let h = '<div class="pop-head"><div><div class="pop-kicker">' + (this.tid ? 'עריכת מעבר' : 'מעבר חדש') + '</div>' +
-        '<div class="pop-title" dir="ltr">' + name(this.from) + ' <span>' + (loop ? '↻' : '→') + '</span> ' + (loop ? '' : name(this.to)) + '</div></div>' +
-        '<button type="button" class="pop-x" data-act="cancel" aria-label="ביטול">' + I.get('x', 16) + '</button></div>';
+      let h = '<div class="pop-head"><div class="pop-title" dir="ltr">' + name(this.from) + ' <span>' + (loop ? '↻' : '→') + '</span> ' + (loop ? '' : name(this.to)) + '</div>' +
+        '<span class="pop-kicker">' + (this.tid ? 'עריכת מעבר' : 'מעבר חדש') + '</span>' +
+        '<button type="button" class="pop-x" data-act="cancel" aria-label="ביטול">' + I.get('x', 14) + '</button></div>';
       if (type === 'dfa' || type === 'nfa') h += this.faHTML();
       else h += this.rulesHTML();
       h += '<div class="pop-err" role="alert"></div>' +
-        '<div class="pop-foot"><button type="button" class="btn primary sm" data-act="ok">אישור</button><button type="button" class="btn secondary sm" data-act="cancel">ביטול</button>' +
-        '<span class="pop-keys"><bdi><kbd>Enter</kbd></bdi> אישור · <bdi><kbd>Esc</kbd></bdi> ביטול</span></div>';
+        '<div class="pop-foot"><button type="button" class="btn primary sm" data-act="ok">אישור</button><button type="button" class="btn secondary sm" data-act="cancel">ביטול</button></div>';
       this.el.innerHTML = h;
       this.updateWarn();
     }
 
     faHTML() {
       const sig = this.sigma();
-      let h = '<p class="pop-q">אילו אותיות קוראים במעבר הזה?</p>';
+      let h = '<p class="pop-q">' + (sig.length ? 'בוחרים אותיות למעבר' : 'אין אותיות ב-Σ: בוחרים הצעה או מקלידים אות') + '</p>';
       const eps = this.m.type === 'nfa' ? '<button type="button" class="sym-chip eps" data-sym="" aria-pressed="' + this.picked.has('') + '" title="מעבר בלי לקרוא אות">ε</button>' : '';
       // כשהאלפבית היה ריק בפתיחה: הצעות מוכנות (a, b, 0, 1) עד שבוחרים
       const sugg = this.suggest ? ['a', 'b', '0', '1'].filter((x) => !sig.includes(x)).map((x) => '<button type="button" class="sym-chip ghost" data-add="' + x + '" title="הוספה לאלפבית">+ ' + x + '</button>').join('') : '';
-      if (!sig.length) h += '<p class="pop-empty">עוד אין אותיות באלפבית. לוחצים על הצעה, או מקלידים אות חדשה:</p>';
       h += '<div class="chips-pick" dir="ltr">' + sig.map((x) => '<button type="button" class="sym-chip" data-sym="' + esc(x) + '" aria-pressed="' + this.picked.has(x) + '">' + esc(x) + '</button>').join('') + eps + sugg + '</div>';
       h += '<div class="new-row"><input class="new-sym" type="text" maxlength="1" dir="ltr" placeholder="אות חדשה" aria-label="אות חדשה לאלפבית" spellcheck="false" autocomplete="off">' +
-        '<button type="button" class="btn ghost sm" data-act="add">' + I.get('plus', 16) + '<span>הוספה ל-Σ</span></button></div>' +
+        '<button type="button" class="btn ghost sm" data-act="add">' + I.get('plus', 14) + '<span>הוספה ל-Σ</span></button></div>' +
         '<div class="pop-warn" role="status"></div>';
       return h;
     }
@@ -95,10 +93,9 @@
           : f('read', blank, 1) + f('write', blank, 1) + '<span class="moves">' + [['L', '←'], ['S', '•'], ['R', '→']].map(([mv, ar]) => '<button type="button" data-move="' + mv + '" aria-pressed="' + (r.move === mv) + '" title="' + ({ L: 'שמאלה', S: 'נשאר', R: 'ימינה' })[mv] + '">' + ar + ' ' + mv + '</button>').join('') + '</span>';
         return '<div class="rule" data-i="' + i + '" dir="ltr">' + cells + '<button type="button" class="rule-del" data-act="del-row" aria-label="מחיקת הכלל"' + (this.rows.length < 2 ? ' disabled' : '') + '>' + I.get('x', 14) + '</button></div>';
       }).join('');
-      return '<p class="pop-q">' + (pda ? 'כללים: קוראים אות, שולפים מהמחסנית, דוחפים' : 'כללים: קוראים, כותבים, ואז הראש זז') + '</p>' +
-        '<div class="rules ' + (pda ? 'pda' : 'tm') + '"><div class="rule-head" dir="ltr">' + head + '</div>' + rows + '</div>' +
-        '<button type="button" class="btn ghost sm add-rule" data-act="add-row">' + I.get('plus', 16) + '<span>כלל נוסף</span></button>' +
-        '<p class="pop-hint">' + (pda ? 'שדה ריק = ε. בדחיפה, התו השמאלי יהיה בראש המחסנית.' : 'שדה ריק = הסמל הריק <bdi class="sym">' + esc(blank) + '</bdi>.') + '</p>';
+      return '<div class="rules ' + (pda ? 'pda' : 'tm') + '"><div class="rule-head" dir="ltr">' + head + '</div>' + rows + '</div>' +
+        '<div class="pop-more"><button type="button" class="btn ghost sm add-rule" data-act="add-row">' + I.get('plus', 14) + '<span>כלל נוסף</span></button>' +
+        '<span class="pop-hint">' + (pda ? 'ריק = ε. בדחיפה, השמאלי בראש.' : 'ריק = <bdi class="sym">' + esc(blank) + '</bdi>') + '</span></div>';
     }
 
     /** מעדכן את rows מהשדות (בלי לצייר מחדש, כדי לא לאבד פוקוס). */

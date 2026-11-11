@@ -19,9 +19,10 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  await p.waitForSelector('.st');
+  await p.waitForSelector('#guide:not([hidden])');
   await p.evaluate(() => document.fonts.ready);
   await p.click('#guide [data-g=close]');
+  await p.evaluate(() => { App.loadFirstExample(); App.history[App.active] = { past: [], future: [] }; document.querySelectorAll('.toast').forEach((t) => t.remove()); });   // פתיחה ראשונה ריקה (סבב 11): הדוגמה הראשונה כמו פעם
   const text = async (sel) => (await p.textContent(sel)).replace(/\s+/g, ' ').trim();
   const rows = () => p.$$eval('#machine-view .p-row', (els) => els.map((e) => Array.from(e.children).map((c) => c.textContent).join(' ')));
   const shot = async (name) => { await p.waitForTimeout(300); await p.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove())); await p.screenshot({ path: path.join(OUT, name + '.png') }); };
@@ -38,11 +39,11 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await p.fill('#lang-input', 'a^n b^n ∪ b^n a^n');
     await p.waitForTimeout(300);
     await p.click('[data-l=build]');
-    await p.waitForSelector('.dialog');
-    await p.click('.dialog [data-r="1"]');
+    if (await p.waitForSelector('.dialog', { timeout: 1500 }).catch(() => null)) await p.click('.dialog [data-r="1"]');   // הלשונית ריקה: אין מה להחליף
     await p.waitForTimeout(400);
     await p.fill('#word-input', 'bbaa');
-    assert.equal(await text('#run-note'), 'לאוטומט יש כמה דרכים אפשריות. בודקים את כולן במקביל, וכל דרך היא ריצה נפרדת עם המחסנית שלה. המילה מתקבלת אם לפחות דרך אחת מגיעה למצב מקבל.');
+    assert.equal(await p.$('#run-note, #run-status, #step-count'), null, 'שורת "מוכן" נמחקה (סבב 11)');
+    assert.equal(await text('#machine-view'), 'קלטbbaa⊣מחסניתZq0', 'לפני הרצה: בלי צעד ובלי הסבר');
     assert.equal(await p.evaluate(() => document.body.textContent.includes('ענף')), false);
   });
 
@@ -51,6 +52,8 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     const r = await rows();
     assert.deepEqual(r, ['דרך 2 q4 bbaa ראשAAZ פעילה', 'דרך 1 q5 εbbaa ראשZ נתקעה באות b', 'דרך 3 q4 bbaa ראשAZ נתקעה באות b', 'דרך 4 q6 εbbaa ראשZ נתקעה באות b']);
     assert.match(await text('#machine-view .mv-paths .mv-label'), /דרכים 4/);
+    assert.match(await p.getAttribute('#machine-view .mv-paths .mv-label', 'title'), /^לאוטומט יש כמה דרכים אפשריות\. .* עם המחסנית שלה\./);
+    assert.equal(await text('#machine-view .mv-step .mv-label'), 'צעד 4 מתוך 7');
     // יש מקום לחמש שורות שלמות לפחות (מכונה עם יותר דרכים: גוללים)
     const fit = await p.$eval('#machine-view .paths', (el) => { const row = el.querySelector('.p-row').getBoundingClientRect().height; return el.getBoundingClientRect().height / (row + 2 * 0.9); });
     assert.ok(fit >= 5, 'שורות שנכנסות: ' + fit.toFixed(2));
@@ -73,7 +76,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   await step('בסוף: הסיכום אומר איזו דרך קיבלה, והבאנר גם', async () => {
     await p.click('[data-run=end]');
     await p.waitForSelector('#result-banner.ok:not([hidden])');
-    assert.equal(await text('#run-note'), 'המילה מתקבלת: דרך 2 הגיעה ל-q6');
+    assert.equal(await text('#machine-view .mv-step-text'), 'המילה מתקבלת: דרך 2 הגיעה ל-q6');
     assert.match(await text('#result-banner'), /דרך 2 הגיעה ל-q6/);
     assert.equal((await rows())[0], 'דרך 2 q6 bbaa ראשZ הגיעה למצב מקבל');
     await p.click('#machine-view .p-row:nth-child(1)');
@@ -88,7 +91,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await p.press('#word-input', 'Enter');
     await p.click('[data-run=end]');
     await p.waitForSelector('#result-banner.err:not([hidden])');
-    assert.equal(await text('#run-note'), 'המילה נדחית: כל הדרכים נתקעו או הסתיימו במצב לא מקבל');
+    assert.equal(await text('#machine-view .mv-step-text'), 'המילה נדחית: כל הדרכים נתקעו או הסתיימו במצב לא מקבל');
     assert.ok((await rows()).every((r) => /נתקעה/.test(r)));
   });
 
@@ -97,12 +100,11 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await p.click('[data-cmd=examples]');
     await p.click('#examples-menu [data-example=third-last-a]');
     await p.waitForTimeout(300);
-    await p.fill('#word-input', 'abab');
-    assert.equal(await text('#run-note'), 'לאוטומט יש כמה דרכים אפשריות. בודקים את כולן במקביל, וכל דרך היא ריצה נפרדת. המילה מתקבלת אם לפחות דרך אחת מגיעה למצב מקבל.');
     await runTo('abab', 3);
+    assert.equal(await p.getAttribute('#machine-view .mv-paths .mv-label', 'title'), 'לאוטומט יש כמה דרכים אפשריות. בודקים את כולן במקביל, וכל דרך היא ריצה נפרדת. המילה מתקבלת אם לפחות דרך אחת מגיעה למצב מקבל.');
     assert.deepEqual(await rows(), ['דרך 1 q0 abab פעילה', 'דרך 2 q1 abab פעילה', 'דרך 3 q3 abab פעילה']);
     await p.click('[data-run=end]');
-    assert.equal(await text('#run-note'), 'המילה נדחית: כל הדרכים נתקעו או הסתיימו במצב לא מקבל');
+    assert.equal(await text('#machine-view .mv-step-text'), 'המילה נדחית: כל הדרכים נתקעו או הסתיימו במצב לא מקבל');
     await shot('r5-nfa');
   });
 
