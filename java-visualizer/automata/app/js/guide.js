@@ -2,6 +2,8 @@
  * guide.js - ההדרכה: כרטיס "שלושה צעדים" על הקנבס, ורשימת "איך בונים" בפאנל הצד.
  * הכרטיס מופיע רק בפעם הראשונה שנכנסים לכלי (ומיד נרשם שראו אותו), ומכפתור "?" על הקנבס. כשהקנבס ריק הוא במרכז, אחרת בצד.
  * הוא יושב ב-body (position: fixed) מעל כל הפאנלים, ונגלל בתוכו אם החלון נמוך (סבב 11).
+ * "איך מתחילים?" (סבב 15): חלון עצמאי במרכז האפליקציה (לא בתוך הקנבס), עם שורת כותרת שאפשר לגרור,
+ * ורק בפתיחה הראשונה של התוכנה. אחר כך לא חוזר לבד (גם לא ב"חדש" או בלשונית ריקה).
  */
 (function (root) {
   'use strict';
@@ -31,26 +33,30 @@
       this.app = app;
       this.el = $('#guide');
       document.body.appendChild(this.el);         // מעל חלון ההרצה ופאנל הצד, לא בתוך הקנבס
-      this.dismissed = new WeakSet();             // מכונות שבהן כבר סגרו את כרטיס הפתיחה
-      this.pinned = store.get() !== 'seen';
-      if (this.pinned) store.set('seen');         // רק בפעם הראשונה; אחר כך רק מה-?
+      this.first = store.get() !== 'seen';        // "איך מתחילים?" רק בפתיחה הראשונה של התוכנה
+      this.pinned = false;                        // "איך בונים" נפתח רק מה-?
+      if (this.first) store.set('seen');
       this.el.addEventListener('click', (e) => {
         const b = e.target.closest('[data-g]');
         if (!b) return;
         const a = b.dataset.g;
-        if (a === 'close' || a === 'free') { if (this.el.dataset.mode === 'start') this.dismissed.add(app.machine); this.hide(); }
-        else if (a === 'auto' || a === 'practice') { this.dismissed.add(app.machine); this.pinned = false; this.update(); app.langPanel.open(a, { fresh: true }); }
-        else if (a === 'bank') { this.dismissed.add(app.machine); this.pinned = false; this.update(); app.bank.show(); }
+        if (a === 'close' || a === 'free') { this.first = false; this.hide(); }
+        else if (a === 'auto' || a === 'practice') { this.first = false; this.pinned = false; this.update(); app.langPanel.open(a, { fresh: true }); }
+        else if (a === 'bank') { this.first = false; this.pinned = false; this.update(); app.bank.show(); }
         else if (a === 'add') app.addStateCenter();
         else if (a === 'example') app.loadFirstExample();
         else if (a === 'keys') app.showHelp();
       });
       this.el.addEventListener('pointerdown', (e) => e.stopPropagation());
+      this.bindDrag();
+      document.addEventListener('keydown', (e) => {   // Esc סוגר את חלון הפתיחה
+        if (e.key === 'Escape' && !this.el.hidden && this.el.dataset.mode === 'start') { e.stopImmediatePropagation(); this.first = false; this.hide(); }
+      }, true);
       $('#guide-btn').addEventListener('click', () => { this.pinned = !this.pinned || this.el.hidden; this.update(); });
     },
 
     /** כרטיס "איך בונים" נפתח לבד רק בכניסה הראשונה לכלי. כל פעולה שמחליפה מכונה (שאלה מהמאגר, משימה, דוגמה, קובץ, "חדש", לשונית אחרת) מבטלת את זה */
-    unpin() { if (!this.pinned) return; this.pinned = false; store.set('seen'); if (this.el && this.el.dataset.mode !== 'start') this.update(); },
+    unpin() { if (this.first) { this.first = false; this.update(); } if (!this.pinned) return; this.pinned = false; store.set('seen'); if (this.el && this.el.dataset.mode !== 'start') this.update(); },
 
     hide() {
       this.pinned = false;
@@ -62,15 +68,16 @@
     update() {
       const app = this.app, m = app.machine, empty = !m.states.length;
       const bank = app.bankFloat && app.bankFloat.isOpen();   // החלון "השאלה" יושב באותו מקום כמו הכרטיס הצף
-      // כרטיס הפתיחה (סבב 14): קנבס ריק ובלי משימה: ציור חופשי / התוכנה בונה / אני בונה
-      const start = empty && !bank && !app.viewOnly && !root.AutomataTask.of(m) && !this.dismissed.has(m) && !(app.langPanel && app.langPanel.isOpen());
+      // חלון הפתיחה (סבב 14, 15): רק בפתיחה הראשונה, קנבס ריק ובלי משימה: ציור חופשי / התוכנה בונה / אני בונה
+      const start = this.first && empty && !bank && !app.viewOnly && !root.AutomataTask.of(m) && !(app.langPanel && app.langPanel.isOpen());
       const show = start || (this.pinned && !bank && !app.viewOnly);
       this.el.hidden = !show;
-      if (!show) this.el.dataset.mode = '';
+      if (!show) { this.el.dataset.mode = ''; this.el.style.left = this.el.style.top = this.el.style.transform = ''; }
       $('#guide-btn').setAttribute('aria-expanded', String(show && !start));
       if (!show) return;
       const mode = start ? 'start' : empty ? 'empty' : 'float';
       if (this.el.dataset.mode === mode) return;
+      if (this.el.dataset.mode === 'start') this.el.style.left = this.el.style.top = this.el.style.transform = '';
       this.el.dataset.mode = mode;
       if (start) { this.el.innerHTML = this.startHTML(); return; }
       // הכרטיס הצף יושב בצד שמאל: מזיזים את המכונה כדי שלא תוסתר
@@ -84,14 +91,39 @@
           : '<button type="button" class="btn primary sm" data-g="close">הבנתי</button><button type="button" class="link" data-g="keys">כל קיצורי המקלדת</button>') + '</div>';
     },
 
-    /** כרטיס הפתיחה: שלוש דרכים להתחיל, וקישור למאגר */
+    /** גרירת חלון הפתיחה בשורת הכותרת (תמיד כולו בתוך חלון הדפדפן) */
+    bindDrag() {
+      const el = this.el;
+      let d = null;
+      const zoom = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1;
+      el.addEventListener('pointerdown', (e) => {
+        if (el.dataset.mode !== 'start' || !e.target.closest('.gw-head') || e.target.closest('button')) return;
+        const z = zoom(), r = el.getBoundingClientRect();
+        d = { x: e.clientX, y: e.clientY, l: r.left / z, t: r.top / z, w: r.width / z, h: r.height / z, z };
+        el.style.left = d.l + 'px'; el.style.top = d.t + 'px'; el.style.transform = 'none';
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('dragging');
+        e.preventDefault();
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!d) return;
+        const vw = innerWidth / d.z, vh = innerHeight / d.z;
+        el.style.left = Math.max(0, Math.min(vw - d.w, d.l + (e.clientX - d.x) / d.z)) + 'px';
+        el.style.top = Math.max(0, Math.min(vh - Math.min(d.h, 44), d.t + (e.clientY - d.y) / d.z)) + 'px';
+      });
+      const end = () => { if (!d) return; d = null; el.classList.remove('dragging'); };
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointercancel', end);
+    },
+
+    /** חלון הפתיחה: שלוש דרכים להתחיל, וקישור למאגר */
     startHTML() {
       const card = (k, icon, t, s) => '<button type="button" class="gs-card" data-g="' + k + '"><span class="gs-ic">' + I.get(icon, 22) + '</span><b>' + t + '</b><span>' + s + '</span></button>';
-      return '<div class="guide-head"><h2>איך מתחילים?</h2><button type="button" class="pop-x" data-g="close" aria-label="סגירה">' + I.get('x', 16) + '</button></div>' +
-        '<div class="gs-cards">' + card('free', 'state', 'ציור חופשי', 'לחיצה כפולה על המשבצות מוסיפה מצב') +
+      return '<div class="gw-head"><span class="gw-ic">' + I.get('state', 16) + '</span><b>איך מתחילים?</b><button type="button" class="pop-x" data-g="close" aria-label="סגירה">' + I.get('x', 16) + '</button></div>' +
+        '<div class="gw-body"><div class="gs-cards">' + card('free', 'state', 'ציור חופשי', 'לחיצה כפולה על המשבצות מוסיפה מצב') +
         card('auto', 'transition', 'התוכנה בונה', 'כותבים נוסחה של שפה, ומקבלים אוטומט מוכן') +
         card('practice', 'check', 'אני בונה, התוכנה בודקת', 'כותבים נוסחה, בונים לבד, ובודקים אם זה נכון') + '</div>' +
-        '<div class="guide-foot"><button type="button" class="link" data-g="bank">' + I.get('bank', 15) + '<span>מאגר שאלות</span></button></div>';
+        '<div class="guide-foot"><button type="button" class="link" data-g="bank">' + I.get('bank', 15) + '<span>מאגר שאלות</span></button></div></div>';
     },
 
     /** רשימת "איך בונים" בפאנל הצד: פעולה אחת בכל שורה. */
