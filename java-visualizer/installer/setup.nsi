@@ -846,6 +846,28 @@ Section "-bank"
   ${If} ${SectionIsSelected} ${SEC_CS}
     DetailPrint "מאגר התרגילים: Eclipse, IntelliJ IDEA ו-Visual Studio..."
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1"'
+    Pop $0
+    ; קיצורי המאגר בתפריט התחלה (בשביל Rider; ב-Visual Studio — הכפתורים בסרגל). בהתקנה חדשה ה-jar מגיע רק כאן (אחרי חלק ה-C#),
+    ; לכן יוצרים אותם גם כאן. javaw דרך הצומת באנגלית (automata.ps1 -JavaPath) — שם משתמש בעברית
+    ${If} ${FileExists} "$INSTDIR\lab\dsviz-bank-vs.jar"
+      Push $1
+      StrCpy $1 ""
+      ${If} ${FileExists} "$INSTDIR\automata.ps1"
+        nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\automata.ps1" -JavaPath "$INSTDIR\jdk"'
+        Pop $0
+        Pop $1
+        ${TrimNewLines} "$1" $1
+      ${EndIf}
+      ${If} $1 == "-"
+      ${OrIf} $1 == ""
+        StrCpy $1 "$INSTDIR\jdk\bin\javaw.exe"
+      ${EndIf}
+      CreateDirectory "$SMPROGRAMS\מבני נתונים"
+      CreateShortcut "$SMPROGRAMS\מבני נתונים\מאגר תרגילים C#.lnk" "$1" '-cp "lab\dsviz-bank-vs.jar;dsviz.jar" il.lamerhav.dsviz.BankVs bank' "$INSTDIR\icon.ico"
+      CreateShortcut "$SMPROGRAMS\מבני נתונים\השאלה — מאגר תרגילים C#.lnk" "$1" '-cp "lab\dsviz-bank-vs.jar;dsviz.jar" il.lamerhav.dsviz.BankVs question' "$INSTDIR\icon.ico"
+      Pop $1
+    ${EndIf}
+    Push $0
   ${Else}
     DetailPrint "מאגר התרגילים: Eclipse ו-IntelliJ IDEA..."
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoVs'
