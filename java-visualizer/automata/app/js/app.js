@@ -54,6 +54,7 @@
       this.bindKeys();
       this.renderExamplesMenu();
       this.switchType(this.active, true);
+      root.Layout.init(this);                            // גדלים שהמשתמש קבע, וקיפול פאנל הצד
       root.AccessUI.init(this, root.DSVizAccessReady);   // הכניסה; תרגיל מהמאגר שהיה פתוח חוזר אחרי שהכניסה ידועה
       requestAnimationFrame(() => { if (!this.machine.view.placed) { const g = root.Guide.el; this.canvas.fit(g.hidden || g.dataset.mode !== 'float' ? 0 : g.offsetWidth + 24); this.machine.view.placed = true; } });
     },
