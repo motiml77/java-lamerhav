@@ -161,6 +161,7 @@
         if (mod && code === 'KeyZ') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
         if (mod && code === 'KeyY') { e.preventDefault(); this.redo(); return; }
         if (mod && code === 'KeyS') { e.preventDefault(); this.saveFile(); return; }
+        if (mod && code === 'KeyB') { e.preventDefault(); root.Layout.setCollapsed(!root.Layout.state.collapsed); return; }
         if (mod && code === 'KeyO') { e.preventDefault(); $('#file-input').click(); return; }
         if (mod && code === 'KeyA') { e.preventDefault(); this.select(this.machine.states.map((s) => s.id), []); return; }
         if (e.altKey && /^Digit[1-4]$/.test(code)) { e.preventDefault(); this.switchType(M.TYPES[+code.slice(5) - 1]); return; }

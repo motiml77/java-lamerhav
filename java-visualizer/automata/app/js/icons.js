@@ -39,6 +39,8 @@
     edit: '<path d="M4 16l.8-3.4 8.4-8.4a1.6 1.6 0 012.3 2.3l-8.4 8.4z"/><path d="M11.8 5.6l2.6 2.6"/>',
     plus: '<path d="M10 4.5v11M4.5 10h11"/>',
     chevronDown: '<path d="M6 8l4 4 4-4"/>',
+    chevronLeft: '<path d="M12 5.5L7.5 10l4.5 4.5"/>',
+    chevronRight: '<path d="M8 5.5l4.5 4.5L8 14.5"/>',
     sigma: '<path d="M14.5 4.5h-9l5 5.5-5 5.5h9"/>',
     list: '<path d="M7.5 6h9M7.5 10h9M7.5 14h9"/><circle cx="4" cy="6" r=".6" fill="currentColor"/><circle cx="4" cy="10" r=".6" fill="currentColor"/><circle cx="4" cy="14" r=".6" fill="currentColor"/>',
     sliders: '<path d="M4 6h7M15 6h1M4 14h1M9 14h7"/><circle cx="13" cy="6" r="2"/><circle cx="7" cy="14" r="2"/>',
