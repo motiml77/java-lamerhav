@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>מודלים חישוביים · DSViz</title>
+  <meta name="description" content="עורך וסימולטור אוטומטים בעברית: אס&quot;ד, אסל&quot;ד, אוטומט מחסנית ומכונת טיורינג. בונים מצבים ומעברים ומריצים מילה צעד אחרי צעד.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F6FED'/%3E%3Ccircle cx='11' cy='16' r='5' fill='none' stroke='white' stroke-width='2.2'/%3E%3Ccircle cx='23' cy='16' r='3.4' fill='none' stroke='white' stroke-width='2'/%3E%3Ccircle cx='23' cy='16' r='5.6' fill='none' stroke='white' stroke-width='1.6'/%3E%3C/svg%3E">
+  <script>
+    /* ערכת נושא לפני הציור הראשון, כדי שלא יהבהב לבן במצב כהה */
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('dsviz.automata.theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/canvas.css">
+  <link rel="stylesheet" href="css/overlays.css">
+  <link rel="stylesheet" href="css/panels.css">
+  <link rel="stylesheet" href="css/run.css">
+  <link rel="stylesheet" href="css/lang.css">
+  <link rel="stylesheet" href="css/bank.css">
+  <link rel="stylesheet" href="css/access.css">
+</head>
+<body>
+  <a class="skip" href="#word-input">דילוג לחלון ההרצה</a>
+  <div class="app" id="app" data-type="dfa">
+
+    <!-- סרגל עליון: מותג, שם המכונה, סוג המכונה, פעולות -->
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-mark" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><circle cx="11" cy="16" r="5" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="23" cy="16" r="3.4" fill="none" stroke="#fff" stroke-width="2"/><circle cx="23" cy="16" r="5.6" fill="none" stroke="#fff" stroke-width="1.6"/></svg>
+        <div class="brand-text"><b>מודלים חישוביים</b><span>DSViz</span></div>
+      </div>
+      <label class="machine-name" title="שם המכונה">
+        <span class="sr">שם המכונה</span>
+        <input id="machine-name" type="text" dir="auto" maxlength="60" spellcheck="false" autocomplete="off">
+      </label>
+
+      <nav class="type-tabs" role="tablist" aria-label="סוג המכונה" id="type-tabs">
+        <button role="tab" type="button" data-type="dfa" title="אוטומט סופי דטרמיניסטי (Alt+1)"><span class="tt-he">אס"ד</span><span class="tt-en">DFA</span></button>
+        <button role="tab" type="button" data-type="nfa" title="אוטומט סופי לא דטרמיניסטי, כולל מעברי ε (Alt+2)"><span class="tt-he">אסל"ד</span><span class="tt-en">NFA</span></button>
+        <button role="tab" type="button" data-type="pda" title="אוטומט מחסנית (Alt+3)"><span class="tt-he">אוטומט מחסנית</span><span class="tt-en">PDA</span></button>
+        <button role="tab" type="button" data-type="tm" title="מכונת טיורינג (Alt+4)"><span class="tt-he">מכונת טיורינג</span><span class="tt-en">TM</span></button>
+      </nav>
+
+      <div class="top-actions">
+        <button type="button" class="btn icon ghost" data-cmd="undo" title="ביטול (Ctrl+Z)" aria-label="ביטול"></button>
+        <button type="button" class="btn icon ghost" data-cmd="redo" title="חזרה (Ctrl+Shift+Z)" aria-label="חזרה"></button>
+        <span class="vsep"></span>
+        <button type="button" class="btn ghost" data-cmd="bank" title="מאגר שאלות: תרגילים מוכנים עם בדיקה"><i data-icon="bank"></i><span>מאגר שאלות</span></button>
+        <div class="menu-wrap">
+          <button type="button" class="btn ghost" data-cmd="examples" aria-haspopup="menu" aria-expanded="false"><i data-icon="book"></i><span>דוגמאות</span><i data-icon="chevronDown" class="chev"></i></button>
+          <div class="menu" id="examples-menu" role="menu" hidden></div>
+        </div>
+        <button type="button" class="btn ghost" data-cmd="new" title="מכונה חדשה וריקה בלשונית הזו"><i data-icon="plus"></i><span>חדש</span></button>
+        <button type="button" class="btn ghost" data-cmd="open" title="פתיחת קובץ JSON (Ctrl+O)"><i data-icon="open"></i><span>פתיחה</span></button>
+        <div class="menu-wrap">
+          <button type="button" class="btn ghost" data-cmd="save-menu" aria-haspopup="menu" aria-expanded="false" title="שמירה (Ctrl+S)"><i data-icon="save"></i><span>שמירה</span><i data-icon="chevronDown" class="chev"></i></button>
+          <div class="menu" id="save-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-cmd="save"><i data-icon="save"></i><span class="mi-text"><b>שמירה כקובץ</b><small>JSON, אפשר לפתוח שוב בכל מחשב</small></span><kbd>Ctrl+S</kbd></button>
+            <button type="button" role="menuitem" data-cmd="export-svg"><i data-icon="layout"></i><span class="mi-text"><b>ייצוא תמונה</b><small>SVG של הדיאגרמה, לדף עבודה או למצגת</small></span></button>
+          </div>
+        </div>
+        <span class="vsep"></span>
+        <button type="button" class="btn icon ghost" data-cmd="theme" title="מצב כהה / בהיר" aria-label="מצב כהה או בהיר"></button>
+        <button type="button" class="btn icon ghost" data-cmd="help" title="קיצורי מקלדת (?)" aria-label="עזרה וקיצורי מקלדת"></button>
+        <div class="menu-wrap acct" id="acct" hidden>
+          <span class="vsep"></span>
+          <button type="button" class="btn ghost acct-chip" aria-haspopup="menu" aria-expanded="false"></button>
+          <div class="menu acct-menu" id="acct-menu" role="menu" hidden></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- סרגל כלים אנכי (בצד ימין, כי הממשק RTL) -->
+    <aside class="rail" role="toolbar" aria-orientation="vertical" aria-label="כלים">
+      <button type="button" class="tool" data-tool="select" title="בחירה ועריכה (V)" aria-label="בחירה ועריכה"><i data-icon="select"></i></button>
+      <button type="button" class="tool" data-tool="hand" title="הזזת התצוגה (H, או רווח + גרירה)" aria-label="הזזת התצוגה"><i data-icon="hand"></i></button>
+      <span class="hsep"></span>
+      <button type="button" class="tool" data-cmd="add-state" title="מצב חדש (S, או לחיצה כפולה על הקנבס)" aria-label="מצב חדש"><i data-icon="state"></i></button>
+      <span class="hsep"></span>
+      <button type="button" class="tool" data-cmd="layout" title="סידור אוטומטי (L)" aria-label="סידור אוטומטי"><i data-icon="layout"></i></button>
+      <button type="button" class="tool" data-cmd="fit" title="התאמה למסך (F)" aria-label="התאמה למסך"><i data-icon="fit"></i></button>
+      <span class="rail-spacer"></span>
+      <button type="button" class="tool danger" data-cmd="delete" title="מחיקת הבחירה (Delete)" aria-label="מחיקה"><i data-icon="trash"></i></button>
+    </aside>
+
+    <!-- הקנבס, ומעליו פס השפה -->
+    <div class="stage-col">
+    <header class="lang-strip" id="lang-strip" aria-label="השפה שהמכונה אמורה לקבל" hidden></header>
+    <main class="stage" id="stage">
+      <svg class="canvas" role="application" aria-label="הדיאגרמה של המכונה" aria-roledescription="קנבס">
+        <defs>
+          <pattern id="grid-minor" width="20" height="20" patternUnits="userSpaceOnUse"><path class="grid-line" d="M20 0H0V20"/></pattern>
+          <pattern id="grid-major" width="100" height="100" patternUnits="userSpaceOnUse"><path class="grid-line-major" d="M100 0H0V100"/></pattern>
+        </defs>
+        <rect class="grid-bg" width="100%" height="100%" fill="url(#grid-minor)"/>
+        <rect class="grid-bg" width="100%" height="100%" fill="url(#grid-major)"/>
+        <g class="viewport" dir="ltr">
+          <g class="edges"></g>
+          <g class="states"></g>
+          <g class="labels"></g>
+          <g class="overlay"></g>
+        </g>
+      </svg>
+
+      <div class="canvas-status" id="canvas-status" role="button" tabindex="0"></div>
+      <label class="trap-toggle" id="trap-toggle" hidden><input type="checkbox" checked><span>הצג מצב מלכודת</span></label>
+      <div class="state-toolbar" role="toolbar" aria-label="פעולות על המצב" hidden></div>
+      <div class="inline-editor" hidden></div>
+      <div class="hint" id="hint" role="status" aria-live="polite" hidden></div>
+
+      <div class="popover" id="tpop" role="dialog" aria-label="אותיות המעבר" tabindex="-1" hidden></div>
+      <div class="result-banner" id="result-banner" role="status" aria-live="polite" hidden></div>
+      <div class="guide" id="guide" hidden></div>
+
+      <button type="button" class="guide-btn" id="guide-btn" title="איך בונים" aria-label="איך בונים" aria-controls="guide" aria-expanded="false">?</button>
+      <div class="zoom" aria-label="זום">
+        <button type="button" class="btn icon ghost sm" data-cmd="zoom-out" title="הקטנה (-)" aria-label="הקטנה"><i data-icon="zoomOut"></i></button>
+        <button type="button" class="zoom-val" data-cmd="zoom-reset" title="100% (0)" id="zoom-val">100%</button>
+        <button type="button" class="btn icon ghost sm" data-cmd="zoom-in" title="הגדלה (+)" aria-label="הגדלה"><i data-icon="zoomIn"></i></button>
+      </div>
+      <div class="toasts" id="toasts" aria-live="polite"></div>
+    </main>
+    </div>
+
+    <!-- פאנל צד: מאפיינים / אלפבית / בעיות -->
+    <aside class="side" aria-label="מאפיינים">
+      <div class="side-tabs" role="tablist">
+        <button role="tab" type="button" data-tab="props" aria-selected="true">מאפיינים</button>
+        <button role="tab" type="button" data-tab="lang" aria-selected="false">שפה</button>
+        <button role="tab" type="button" data-tab="alpha" aria-selected="false">אלפבית</button>
+        <button role="tab" type="button" data-tab="issues" aria-selected="false">בעיות<span class="badge" id="issues-badge" hidden></span></button>
+      </div>
+      <div class="side-body" id="side-body"></div>
+    </aside>
+
+    <!-- חלון ההרצה -->
+    <section class="runpanel" aria-label="הרצה">
+      <div class="run-main">
+        <div class="run-bar">
+          <label class="word">
+            <span class="word-label">מילה</span>
+            <input id="word-input" type="text" dir="ltr" spellcheck="false" autocomplete="off" placeholder="ε  (מילה ריקה)" aria-describedby="run-note">
+          </label>
+          <div class="controls" dir="ltr" role="group" aria-label="בקרת הרצה">
+            <button type="button" class="btn icon ghost" data-run="rewind" title="להתחלה (Home)" aria-label="להתחלה"><i data-icon="rewind"></i></button>
+            <button type="button" class="btn icon ghost" data-run="prev" title="צעד אחורה (←)" aria-label="צעד אחורה"><i data-icon="prev"></i></button>
+            <button type="button" class="btn icon primary play" data-run="play" title="הרצה (Enter במילה, P)" aria-label="הרצה"><i data-icon="play"></i></button>
+            <button type="button" class="btn icon ghost" data-run="next" title="צעד קדימה (→)" aria-label="צעד קדימה"><i data-icon="next"></i></button>
+            <button type="button" class="btn icon ghost" data-run="end" title="לסוף (End)" aria-label="לסוף"><i data-icon="end"></i></button>
+          </div>
+          <label class="speed" title="מהירות ההרצה">
+            <span>מהירות</span>
+            <input type="range" id="speed" min="1" max="5" step="1" value="3" aria-label="מהירות">
+          </label>
+        </div>
+        <div class="run-info">
+          <div class="status" id="run-status" role="status" aria-live="polite"></div>
+          <div class="run-note" id="run-note"></div>
+          <span class="step-count" id="step-count"></span>
+        </div>
+        <div class="machine-view" id="machine-view" dir="ltr"></div>
+      </div>
+      <div class="tests" aria-label="בדיקת מילים">
+        <div class="tests-head">
+          <h3>בדיקת מילים</h3>
+          <span class="tests-summary" id="tests-summary"></span>
+          <button type="button" class="btn secondary sm" data-cmd="run-tests"><i data-icon="beaker"></i><span>הרצת הכול</span></button>
+        </div>
+        <div class="tests-table-wrap">
+          <table class="tests-table" id="tests-table">
+            <thead><tr><th class="c-word">מילה</th><th class="c-exp">צפוי</th><th class="c-got">תוצאה</th><th class="c-act"><span class="sr">פעולות</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <form class="tests-add" id="tests-add" autocomplete="off">
+          <input type="text" dir="ltr" id="test-word" placeholder="מילה חדשה (ריק = ε)" spellcheck="false" aria-label="מילה חדשה לבדיקה">
+          <button type="button" class="exp-toggle yes" id="test-exp" aria-pressed="true" title="מה המילה אמורה לעשות">מתקבלת</button>
+          <button type="submit" class="btn icon secondary sm" aria-label="הוספה" title="הוספה (Enter)"><i data-icon="plus"></i></button>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head"><h2 id="modal-title"></h2><button type="button" class="btn icon ghost" data-cmd="close-modal" aria-label="סגירה"><i data-icon="x"></i></button></div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+  <input type="file" id="file-input" accept=".json,application/json" hidden>
+
+  <script>
+    /* הכניסה המשותפת של DSViz: js/access-client.js (ES module, DSVizAccess) נטען רק כשהדף מוגש מהתוכנה המקומית (http).
+       מקובץ (file://) Chrome חוסם מודולים, ואז אין כניסה והמאגר מסביר שהוא בתוכנה המותקנת. התוכנה לא מוסיפה עותק שני (הכתובת כבר כאן). */
+    window.DSVizAccessReady = /^https?:$/.test(location.protocol)
+      ? import('./js/access-client.js').then(function (m) { return m.DSVizAccess; }, function () { return null; })
+      : Promise.resolve(null);
+  </script>
+  <script src="js/icons.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/sim.js"></script>
+  <script src="js/paths.js"></script>
+  <script src="js/validate.js"></script>
+  <script src="js/lang/ns.js"></script>
+  <script src="js/lang/lex.js"></script>
+  <script src="js/lang/parse.js"></script>
+  <script src="js/lang/regex.js"></script>
+  <script src="js/lang/oracle.js"></script>
+  <script src="js/lang/fa.js"></script>
+  <script src="js/lang/classify.js"></script>
+  <script src="js/lang/build.js"></script>
+  <script src="js/lang/pda.js"></script>
+  <script src="js/lang/tm.js"></script>
+  <script src="js/lang/extra.js"></script>
+  <script src="js/lang/vec.js"></script>
+  <script src="js/lang/vec-build.js"></script>
+  <script src="js/lang/combine.js"></script>
+  <script src="js/lang/check.js"></script>
+  <script src="js/lang/templates.js"></script>
+  <script src="js/geometry.js"></script>
+  <script src="js/routing-labels.js"></script>
+  <script src="js/routing.js"></script>
+  <script src="js/examples-fa.js"></script>
+  <script src="js/examples-pt.js"></script>
+  <script src="js/examples.js"></script>
+  <script src="js/dialogs.js"></script>
+  <script src="js/guide.js"></script>
+  <script src="js/canvas.js"></script>
+  <script src="js/canvas-input.js"></script>
+  <script src="js/popover.js"></script>
+  <script src="js/lang-panel.js"></script>
+  <script src="js/lang-strip.js"></script>
+  <script src="js/side-panel.js"></script>
+  <script src="js/run-panel.js"></script>
+  <script src="js/bank/data.js"></script>
+  <script src="js/bank/core.js"></script>
+  <script src="js/bank/window.js"></script>
+  <script src="js/bank/float.js"></script>
+  <script src="js/access.js"></script>
+  <script src="js/access-ui.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/app-run.js"></script>
+  <script src="js/app-ui.js"></script>
+</body>
+</html>

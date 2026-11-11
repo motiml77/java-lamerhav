@@ -1,0 +1,39 @@
+{
+  "id": "pda-n-le-m",
+  "topic": "pda",
+  "level": "medium",
+  "order": 4,
+  "title": "aⁿbᵐ עם n ≤ m",
+  "alphabet": ["a", "b"],
+  "question": {
+    "intro": "נתונה השפה L מעל הא\"ב Σ = {a, b}:",
+    "sections": [
+      {
+        "label": "א",
+        "kind": "build",
+        "machine": "pda",
+        "language": "a^n b^m | n <= m",
+        "reference": {
+          "states": [
+            ["q0", -150, -40, "", -90],
+            ["q1", 150, -40, "", -90],
+            ["q2", 0, 130, "A"]
+          ],
+          "edges": [
+            ["q0", "q0", "a,Z/AZ | a,A/AA"],
+            ["q0", "q1", "b,A/ε | b,Z/Z"],
+            ["q1", "q1", "b,A/ε | b,Z/Z"],
+            ["q1", "q2", "ε,Z/Z"],
+            ["q0", "q2", "ε,Z/Z"]
+          ]
+        },
+        "text": "בנו אוטומט מחסנית המקבל את L: כל ה-a לפני ה-b, ומספר ה-b לפחות כמספר ה-a.",
+        "hint": "דוחפים על כל a ושולפים על כל b. כשהמחסנית חוזרת ל-Z, מותר להמשיך לקרוא b בלי לשלוף.",
+        "examples": {
+          "in": ["", "b", "abb", "aabb"],
+          "out": ["a", "aab", "ba"]
+        }
+      }
+    ]
+  }
+}

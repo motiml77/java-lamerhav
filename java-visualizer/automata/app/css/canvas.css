@@ -1,0 +1,132 @@
+/* canvas.css - הקנבס: רשת, קשתות, תוויות, מצבים, פחים, גומי, תג תקינות, זום. */
+
+/* ================= קנבס ================= */
+.stage { position: relative; overflow: hidden; background: var(--canvas); min-width: 0; }
+.viewport, .viewport text { direction: ltr; unicode-bidi: isolate; }
+.canvas { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
+.grid-line { fill: none; stroke: var(--grid); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.grid-line-major { fill: none; stroke: var(--grid-major); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.stage[data-active-tool=hand] .canvas, .stage.space .canvas { cursor: grab; }
+.stage.panning .canvas { cursor: grabbing !important; }
+.stage.arming .canvas, .stage.arming .st { cursor: crosshair; }
+
+/* קשתות */
+.ed-line { fill: none; stroke: var(--edge); stroke-width: 1.6; stroke-linecap: round; transition: stroke var(--t-fast); }
+.ed-arrow { fill: var(--edge); transition: fill var(--t-fast); }
+.ed-hit { fill: none; stroke: transparent; stroke-width: 16; cursor: pointer; }
+/* ריחוף על קשת או על התווית שלה: כל הקשת (הקו וראש החץ) מודגשת והאחרות מתעמעמות, כדי שיהיה ברור לאיזו קשת התווית שייכת */
+.ed, .lb { transition: opacity var(--t-fast); }
+.ed.hover .ed-line { stroke: var(--accent); stroke-width: 2.4; }
+.ed.hover .ed-arrow { fill: var(--accent); }
+.viewport.hover-edge .ed:not(.hover):not(.start-arrow):not(.taken) { opacity: 0.32; }
+.viewport.hover-edge .lb:not(.hover):not(.taken) { opacity: 0.5; }
+.ed.selected .ed-line { stroke: var(--accent); stroke-width: 2.2; }
+.ed.selected .ed-arrow { fill: var(--accent); }
+.ed.issue .ed-line { stroke: var(--err); stroke-dasharray: 5 4; }
+.ed.issue .ed-arrow { fill: var(--err); }
+.ed.taken .ed-line { stroke: var(--now-strong); stroke-width: 2.6; stroke-dasharray: none; }
+.ed.taken .ed-arrow { fill: var(--now-strong); }
+.start-arrow { pointer-events: none; }
+.start-arrow .ed-line { stroke: var(--ink-2); stroke-width: 1.8; }
+.start-arrow .ed-arrow { fill: var(--ink-2); }
+
+/* תוויות */
+.lb { cursor: pointer; }
+.lb-bg { fill: var(--label-bg); stroke: var(--label-line); stroke-width: 1; transition: fill var(--t-fast), stroke var(--t-fast); }
+.lb-text { font: 500 12.5px var(--mono); fill: var(--label-text); text-anchor: middle; pointer-events: none; }
+.lb-text.placeholder { fill: var(--faint); }
+.lb.hover .lb-bg { stroke: var(--accent); stroke-width: 1.6; }
+.lb.hover .lb-text:not(.hot) { fill: var(--accent-ink); }
+.lb.selected .lb-bg { stroke: var(--accent); fill: var(--accent-fill); }
+.lb.issue .lb-bg { stroke: var(--err); }
+.lb.taken .lb-bg { stroke: var(--now-strong); }
+.lb.taken:not(:has(.lb-hot)) .lb-bg { fill: var(--now-fill); }
+.lb-hot { fill: var(--now-fill); }
+.lb-text.hot { fill: var(--now-ink); font-weight: 600; }
+
+/* מצבים */
+.st { cursor: pointer; }
+.st-hit { fill: transparent; }
+.st-body { fill: var(--state-fill); stroke: var(--state-stroke); stroke-width: 1.6; transition: fill var(--t) var(--ease), stroke var(--t) var(--ease), stroke-width var(--t) var(--ease); }
+.st-inner { fill: none; stroke: var(--state-stroke); stroke-width: 1.4; pointer-events: none; transition: stroke var(--t); }
+.st-name { font: 500 14px var(--mono); fill: var(--state-text); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.st-name.mid { font-size: 12px; }
+.st-name.small { font-size: 10.5px; }
+.st-halo { fill: none; stroke: transparent; stroke-width: 4; pointer-events: none; transform-box: fill-box; transform-origin: center; }
+.st.hover .st-body { stroke: var(--ink); }
+.st.selected .st-body { stroke: var(--accent); stroke-width: 2.2; fill: var(--accent-fill); }
+.st.selected .st-inner { stroke: var(--accent); }
+.st.selected .st-halo { stroke: var(--accent); opacity: 0.22; }
+.st.source .st-body { stroke: var(--accent); stroke-width: 2.4; fill: var(--accent-fill); }
+.st.source .st-halo { stroke: var(--accent); opacity: 0.55; stroke-width: 1.6; stroke-dasharray: 3 4; animation: halo 1.6s ease-in-out infinite; }
+.arming .st.hover:not(.source) .st-body { stroke: var(--accent); stroke-width: 2.6; fill: var(--accent-fill); }
+.arming .st.hover:not(.source) .st-halo { stroke: var(--accent); opacity: 0.3; stroke-width: 5; }
+.st.issue .st-body { stroke: var(--err); stroke-dasharray: 4 3; }
+.st.active .st-body { fill: var(--now-fill); stroke: var(--now-strong); stroke-width: 2.6; stroke-dasharray: none; }
+.st.active .st-inner { stroke: var(--now-strong); }
+.st.active .st-halo { stroke: var(--now); stroke-width: 2; stroke-dasharray: 3 4; opacity: 0.9; animation: halo 1.6s ease-in-out infinite; }
+.st.accepted .st-body { fill: var(--ok-fill); stroke: var(--ok); }
+.st.accepted .st-inner { stroke: var(--ok); }
+.st.accepted .st-halo { stroke: var(--ok); stroke-dasharray: none; opacity: 0.35; stroke-width: 4; animation: none; }
+.st.rejected .st-body { fill: var(--err-fill); stroke: var(--err); }
+.st.rejected .st-inner { stroke: var(--err); }
+.st.rejected .st-halo { stroke: var(--err); stroke-dasharray: none; opacity: 0.3; stroke-width: 4; animation: none; }
+.st.pop .st-body, .st.pop .st-inner, .st.pop .st-name { transform-box: fill-box; transform-origin: center; animation: pop 0.36s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.st.pop .st-name { transform-box: view-box; transform-origin: 0 0; animation: fade 0.3s ease-out; }
+.travel { fill: var(--now-strong); stroke: var(--canvas); stroke-width: 1.5; pointer-events: none; }
+
+/* שכבת עזר: גומי, מלבן בחירה, ידית חיבור */
+.rubber path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
+.rubber polygon { fill: var(--accent); }
+.marquee { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+
+/* תג תקינות */
+.canvas-status {
+  position: absolute; top: 12px; inset-inline-start: 12px; z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
+  font-size: var(--fs-12); font-weight: 500; border-radius: var(--r-full);
+  background: var(--panel); border: 1px solid var(--line); color: var(--muted); box-shadow: var(--shadow-1);
+  cursor: pointer; user-select: none;
+}
+.canvas-status.ok { color: var(--ok); cursor: default; }
+.canvas-status.warn { color: var(--warn); }
+/* "הצג מצב מלכודת": מתחת לתג התקינות, בפינה הימנית העליונה */
+.trap-toggle { position: absolute; top: 46px; inset-inline-start: 14px; z-index: 5; display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 6px; font-size: 11px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); cursor: pointer; user-select: none; }
+.trap-toggle:hover { color: var(--ink-2); border-color: var(--line-strong); }
+.trap-toggle input { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.canvas-status.err { color: var(--err); background: var(--err-soft); border-color: transparent; }
+
+/* זום */
+.zoom {
+  position: absolute; bottom: 12px; inset-inline-end: 12px; z-index: 5;
+  display: flex; align-items: center; gap: 2px; padding: 2px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-1);
+}
+.zoom-val { width: 48px; height: 28px; font: 500 12px var(--mono); color: var(--ink-2); border-radius: var(--r-sm); direction: ltr; }
+.zoom-val:hover { background: var(--sunk); }
+
+/* קשת חדשה שעוד לא אושרה, וקשת שהחלון הצף שלה פתוח */
+.ed.preview .ed-line, .ed.editing .ed-line { stroke: var(--accent); stroke-width: 2.2; }
+.ed.preview .ed-line { stroke-dasharray: 6 4; }
+.ed.preview .ed-arrow, .ed.editing .ed-arrow { fill: var(--accent); }
+.lb.preview .lb-bg, .lb.editing .lb-bg { stroke: var(--accent); fill: var(--accent-fill); }
+.lb.preview .lb-text { fill: var(--accent-ink); }
+
+/* פח בריחוף: בפינה העליונה של מצב, ובקצה של תווית */
+.trash { opacity: 0; pointer-events: none; cursor: pointer; transition: opacity var(--t-fast) var(--ease); }
+.st.hover .trash, .lb.hover .trash { opacity: 1; pointer-events: all; }
+.arming .trash, .running .trash, .popping .trash { display: none; }
+.trash-bg { fill: var(--err); stroke: var(--canvas); stroke-width: 2; transition: fill var(--t-fast); }
+.trash:hover .trash-bg { fill: #A3221D; }
+.trash-ic { fill: none; stroke: #fff; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+
+/* כפתור "?" שמחזיר את ההדרכה */
+.guide-btn {
+  position: absolute; top: 12px; inset-inline-end: 12px; z-index: 9;
+  width: 32px; height: 32px; border-radius: var(--r-full);
+  font: 600 15px var(--sans); color: var(--ink-2);
+  background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+}
+.guide-btn:hover { color: var(--accent-ink); border-color: var(--accent); }
+.guide-btn[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+.stage.is-empty .guide-btn { display: none; }

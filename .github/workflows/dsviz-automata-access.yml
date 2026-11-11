@@ -1,0 +1,61 @@
+# "מודלים חישוביים" כתוכנה מקומית (AutomataLauncher) עם הכניסה המשותפת של DSViz, על Windows אמיתי ובשם משתמש בעברית:
+# כניסת מורה (כמו מ-Eclipse) ← המשגר רואה אותה; התנתקות דרך המשגר ← teacher.flag נמחק ו-AccessGate רואה "לא מחובר";
+# עמדת מחשב משותפת; חלון Edge (--app); הפעלה אחת; יציאה כשהחלון נסגר. הצילומים והסיכום — ב-Artifacts.
+# הרצה: דחיפה (push) לענף ccr-66784144-dygsmb עם שינוי באחד הקבצים שלמטה.
+name: DSViz automata access
+on:
+  push:
+    branches: [ccr-66784144-dygsmb]
+    paths:
+      - '.github/workflows/dsviz-automata-access.yml'
+      - 'java-visualizer/access/**'
+      - 'java-visualizer/automata-launcher/**'
+      - 'java-visualizer/automata/app/**'
+      - 'java-visualizer/tools/build-automata.sh'
+      - 'java-visualizer/tools/test/windows-vs-toolbar/automata-access.ps1'
+      - 'java-visualizer/tools/test/windows-vs-toolbar/SeedSession.java'
+      - 'java-visualizer/installer/automata.ps1'
+  workflow_dispatch:
+concurrency:
+  group: dsviz-automata-access-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jars:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - name: dsviz.jar ו-dsviz-automata.jar מהמקור
+        working-directory: java-visualizer
+        run: |
+          sh tools/build-lib.sh
+          sh tools/build-automata.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: dsviz-lib, path: java-visualizer/release/dsviz.jar, retention-days: 7 }
+      - uses: actions/upload-artifact@v4
+        with: { name: automata, path: java-visualizer/build/automata, retention-days: 7 }
+  windows:
+    needs: jars
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/download-artifact@v4
+        with: { name: dsviz-lib, path: dsviz-lib }
+      - uses: actions/download-artifact@v4
+        with: { name: automata, path: automata }
+      - name: מודלים חישוביים ← הכניסה המשותפת
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\automata-access.ps1" -Root "$env:GITHUB_WORKSPACE\java-visualizer" -Lib "$env:GITHUB_WORKSPACE\dsviz-lib\dsviz.jar" -Automata "$env:GITHUB_WORKSPACE\automata" -Out "$env:GITHUB_WORKSPACE\automata-access"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: automata-access, path: automata-access, retention-days: 14 }

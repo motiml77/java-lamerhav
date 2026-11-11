@@ -1,0 +1,68 @@
+/* access.css - הכניסה: הכפתור של החשבון בסרגל העליון, ומסך הכניסה של המאגר (כמו AccessGate של Java) */
+
+/* ================= הכפתור והתפריט ================= */
+.acct { display: flex; align-items: center; gap: 2px; }
+.acct[hidden] { display: none; }
+.acct-chip { gap: 6px; max-width: 240px; }
+.acct-chip .acct-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.acct-chip.teacher .icon:first-child { color: var(--accent); }
+.acct-chip.student .icon:first-child, .acct-chip.station .icon:first-child { color: var(--ok); }
+.acct-chip.signed-out, .acct-chip.pending, .acct-chip.blocked { color: var(--muted); }
+.acct-chip.signed-out .acct-label, .acct-chip.pending .acct-label { font-weight: 500; }
+.acct-chip.blocked .acct-label { color: var(--warn); }
+.acct-menu { min-width: 280px; }
+.acct-head { display: grid; gap: 1px; padding: 8px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.acct-head b { font-size: var(--fs-12); color: var(--muted); font-weight: 600; }
+.acct-head span { font-size: var(--fs-14); font-weight: 600; }
+.acct-head small { font-size: var(--fs-12); color: var(--muted); text-align: right; }
+.acct-note { margin: 4px 10px 8px; font-size: var(--fs-12); color: var(--muted); line-height: 1.45; }
+.ac-q { margin: 0 0 4px; }
+
+/* ================= מסך הכניסה ================= */
+.ac-backdrop { z-index: 95; }
+.ac-window {
+  width: min(760px, 94vw); background: var(--sunk); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-pop); overflow: hidden;
+}
+.ac-backdrop.fresh .ac-window { animation: rise var(--t) var(--ease); }   /* רק בפתיחה, לא בכל מעבר בין המסכים */
+.ac-head { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 22px 0 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.ac-head b { flex: 1; font-size: 17px; font-weight: 700; }
+.ac-logo { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff; }
+.ac-body { padding: 26px 30px 26px; min-height: 340px; display: flex; flex-direction: column; align-items: stretch; }
+.ac-body h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+.ac-sub { margin: 8px 0 0; font-size: 15px; color: var(--muted); line-height: 1.5; }
+.ac-sub.big { font-size: 16px; }
+.ac-notice { margin: 10px 0 0; padding: 8px 12px; border-radius: var(--r-md); background: #FFF3DC; color: #6B4500; font-size: var(--fs-14); line-height: 1.5; }
+[data-theme=dark] .ac-notice { background: rgba(230, 170, 60, .16); color: #F0D49A; }
+.ac-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 20px; }
+.ac-card { display: flex; flex-direction: column; gap: 8px; padding: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; min-height: 230px; }
+.ac-card h3 { margin: 0; font-size: 18px; font-weight: 700; }
+.ac-card p { flex: 1; margin: 0; font-size: var(--fs-14); color: var(--muted); line-height: 1.5; }
+.ac-card .btn { height: 40px; justify-content: center; font-size: var(--fs-14); font-weight: 600; }
+.ac-label { margin-top: 16px; font-size: var(--fs-14); font-weight: 600; color: var(--ink); }
+.ac-field { height: 40px; margin-top: 6px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--panel); color: var(--ink); font: inherit; font-size: 15px; }
+.ac-field:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.ac-code { height: 48px; font: 700 22px var(--mono); text-align: center; letter-spacing: 0.12em; text-transform: uppercase; }
+.ac-code::placeholder { color: var(--faint); font-weight: 500; }
+.ac-error { min-height: 20px; margin: 8px 0 0; font-size: var(--fs-13); color: var(--err); line-height: 1.5; }
+.ac-row { display: flex; gap: 10px; margin-top: 18px; }
+.ac-row .btn { height: 38px; min-width: 96px; justify-content: center; }
+.ac-body.wait, .ac-body.message, .ac-body.pay, .ac-body.success { padding: 40px 40px 30px; }
+.ac-spin { width: 26px; height: 26px; margin-top: 22px; border-radius: 50%; border: 3px solid var(--accent-soft-2); border-top-color: var(--accent); animation: ac-spin 0.9s linear infinite; }
+@keyframes ac-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ac-spin { animation: none; } }
+.ac-box { padding: 18px 20px; border-radius: 14px; }
+.ac-box h2 { font-size: 21px; }
+.ac-box p { margin: 8px 0 0; font-size: 15px; color: var(--ink); line-height: 1.55; }
+.ac-box.ok { background: var(--ok-soft); } .ac-box.ok h2 { color: var(--ok); }
+.ac-box.warn { background: #FFF3DC; } .ac-box.warn h2 { color: #935800; }
+.ac-box.info { background: var(--accent-soft); } .ac-box.info h2 { color: var(--accent-ink); }
+[data-theme=dark] .ac-box.warn { background: rgba(230, 170, 60, .14); } [data-theme=dark] .ac-box.warn h2 { color: var(--warn); }
+@media (max-width: 700px) { .ac-cards { grid-template-columns: 1fr; } .ac-card { min-height: 0; } }
+
+/* הכפתור של החשבון לוקח מקום בסרגל העליון: הלשוניות לא נשברות לשתי שורות, ושם המכונה מתכווץ קודם */
+.type-tabs { flex: none; }
+.type-tabs [role=tab] { white-space: nowrap; }
+.machine-name { flex: 0 1 200px; min-width: 96px; }
+.machine-name input { width: 100%; }
+/* בתוך מסך הכניסה והתפריט מילים לועזיות (Google, DSViz) בגופן הרגיל */
+.ac-window .bk-sym, .acct .bk-sym { font-family: inherit; font-size: inherit; }

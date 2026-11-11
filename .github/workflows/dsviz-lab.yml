@@ -24,6 +24,7 @@ on:
       - 'java-visualizer/intellij-bank/**'
       - 'java-visualizer/tools/test/intellij-bank/**'
       - 'java-visualizer/tools/build-bank-ij.sh'
+      - 'java-visualizer/access/**'
   workflow_dispatch:
 
 jobs:
@@ -42,7 +43,8 @@ jobs:
           DEPS=build/eclipse-deps
           python3 tools/eclipse-deps.py "$DEPS"
           P=build/ci-host && mkdir -p "$P/resources"
-          javac --release 8 -encoding UTF-8 -nowarn -cp "$(ls $DEPS/*.jar | tr '\n' ':')" -d "$P" $(find eclipse-plugin/src -name '*.java')
+          javac --release 8 -encoding UTF-8 -nowarn -cp "$(ls $DEPS/*.jar | tr '\n' ':')build/access/dsviz-access.jar" -d "$P" $(find eclipse-plugin/src -name '*.java')
+          (cd "$P" && unzip -qo "$GITHUB_WORKSPACE/java-visualizer/build/access/dsviz-access.jar" -x 'META-INF/*')
           cp eclipse-plugin/plugin.xml "$P/" && cp release/dsviz.jar eclipse-plugin/ai.properties "$P/resources/"
           jar --create --file build/ci-host.jar --manifest eclipse-plugin/META-INF/MANIFEST.MF -C "$P" .
           HOST_JAR=build/ci-host.jar sh tools/build-bank.sh

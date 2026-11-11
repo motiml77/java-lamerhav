@@ -1,5 +1,6 @@
 // DSViz ל-IntelliJ IDEA (Community ו-Ultimate, 2024.2 ומעלה):  gradle buildPlugin → build/distributions/dsviz-intellij-<גרסה>.zip
-// הקוד המשותף (Scaffold, NameCheck, Json, WorkerClient, SolutionStore, ClassInfo) נלקח כמו שהוא מהתוסף של Eclipse,
+// הקוד המשותף (Scaffold, NameCheck, WorkerClient, SolutionStore, ClassInfo) נלקח כמו שהוא מהתוסף של Eclipse, והכניסה
+// המשותפת (Account, Json, OsTrust... — build/access/dsviz-access.jar, tools/build-access.sh) נכנסת לתוסף כמו שהיא (lib/),
 // והספרייה (release/dsviz.jar — tools/build-lib.sh) נכנסת לתוסף בתיקייה runtime/ (לא ב-classpath של IntelliJ עצמו).
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
@@ -14,6 +15,7 @@ version = providers.gradleProperty("pluginVersion").get()
 
 val viz = layout.projectDirectory.dir("..")
 val libJar = viz.file("release/dsviz.jar")
+val accessJar = viz.file("build/access/dsviz-access.jar")
 val ideDir: String? = providers.gradleProperty("ideDir").orNull
 
 repositories {
@@ -31,7 +33,7 @@ sourceSets {
             srcDir(viz.dir("eclipse-plugin/src"))
             include("il/lamerhav/dsviz/intellij/**", "il/lamerhav/dsviz/IjShared.java",
                     "il/lamerhav/dsviz/Scaffold.java", "il/lamerhav/dsviz/NameCheck.java", "il/lamerhav/dsviz/ClassInfo.java",
-                    "il/lamerhav/dsviz/Json.java", "il/lamerhav/dsviz/Account.java", "il/lamerhav/dsviz/OsTrust.java", "il/lamerhav/dsviz/WorkerClient.java", "il/lamerhav/dsviz/ExerciseFiles.java", "il/lamerhav/dsviz/SolutionStore.java")
+                    "il/lamerhav/dsviz/WorkerClient.java", "il/lamerhav/dsviz/ExerciseFiles.java", "il/lamerhav/dsviz/SolutionStore.java")
         }
     }
 }
@@ -45,6 +47,7 @@ dependencies {
         pluginVerifier()
         zipSigner()
     }
+    implementation(files(accessJar))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
 }
@@ -69,7 +72,10 @@ intellijPlatform {
 }
 
 tasks {
-    withType<JavaCompile> { options.encoding = "UTF-8" }
+    withType<JavaCompile> {
+        options.encoding = "UTF-8"
+        doFirst { if (!accessJar.asFile.isFile) throw GradleException("חסר build/access/dsviz-access.jar — הריצו קודם tools/build-lib.sh (או tools/build-access.sh)") }
+    }
     processResources {
         // האייקונים של Eclipse (16px + @2x), הדוגמאות הפתורות, Main.java, כתובת השרת ודף נגן ההדרכה
         from(viz.dir("eclipse-plugin/icons")) { into("icons") }
