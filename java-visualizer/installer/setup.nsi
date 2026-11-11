@@ -63,15 +63,7 @@ ShowUninstDetails show
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
 !define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse, ל-IntelliJ IDEA ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n• מאגר התרגילים (עם כניסה): תרגילים מוכנים לפי נושא וקושי, ב-Eclipse, ב-IntelliJ וב-Visual Studio.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse, Visual Studio או IntelliJ פתוחים — ההתקנה תבקש לסגור אותם.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
-!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / IntelliJ / Visual Studio.$$
-$$
-VS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$$
-Eclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$$
-IntelliJ IDEA: התפריט 'מבני נתונים', החלון DSViz בצד ימין, ו'הרצה ויזואלית' ליד main.$$
-מאגר תרגילים: כפתור בסרגל הכלים של Eclipse, של IntelliJ ושל Visual Studio.$$
-Visual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה.$$
-$$
-מודלים חישוביים (סימולטור אוטומטים): הקיצור בשולחן העבודה. הכניסה (מורה / תלמיד / עמדת מחשב) משותפת לכל התוכנות."
+!define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nIntelliJ IDEA: התפריט 'מבני נתונים', החלון DSViz בצד ימין, ו'הרצה ויזואלית' ליד main.$\r$\nמאגר תרגילים: כפתור בסרגל הכלים של Eclipse, של IntelliJ ושל Visual Studio.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה.$\r$\n$\r$\nמודלים חישוביים (סימולטור אוטומטים): הקיצור בשולחן העבודה. הכניסה (מורה / תלמיד / עמדת מחשב) משותפת לכל התוכנות."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "פתיחת המדריך"
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
