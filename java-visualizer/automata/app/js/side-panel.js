@@ -32,7 +32,7 @@
       badge.className = 'badge' + (errs ? ' err' : warns ? ' warn' : '');
       // לא מציירים מחדש בזמן שהמשתמש מקליד בשדה של הפאנל
       if (this.body.contains(document.activeElement) && document.activeElement.matches('input[type=text],textarea')) return;
-      if (this.tab === 'lang') { this.body.innerHTML = app.langPanel.html(); app.langPanel.mount(this.body); return; }
+      if (this.tab === 'lang') { this.body.innerHTML = app.langPanel.summaryHTML(); app.langPanel.mountSummary(this.body); return; }
       this.body.innerHTML = this.tab === 'alpha' ? this.alphaHTML() : this.tab === 'issues' ? this.issuesHTML() : this.propsHTML();
     }
 

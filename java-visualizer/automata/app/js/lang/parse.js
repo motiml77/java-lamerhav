@@ -237,13 +237,13 @@
         for (const c of x.v.slice(0, -1)) blocks.push({ word: c, e: { c: 0, v: null, d: 1 } });
         word = x.v.slice(-1);
       } else if (x.t === 'eps') { p.next(); continue; } else p.fail('כאן צריכה לבוא אות של האלפבית', 'למשל a^n b^m');
-      let e = { c: 0, v: null, d: 1 };
+      let e = { c: 0, v: null, d: 1 }, src = null;
       const y = p.peek();
       const fresh = (d) => ({ c: 1, v: '_' + (++hidden), d });
       if (y.t === '*') { p.next(); e = fresh(0); } else if (y.t === '+') { p.next(); e = fresh(1); } else if (y.t === 'sup') {
         p.next();
         if (y.v === '+') e = fresh(1);
-        else { const sub = new P(L.lex(y.v), y.v.length); e = exponent(arith(sub, supVar), p, y); if (!sub.is('eof')) p.fail('לא הצלחתי להבין את החזקה', '', y); }
+        else { const sub = new P(L.lex(y.v), y.v.length); e = exponent(arith(sub, supVar), p, y); if (!sub.is('eof')) p.fail('לא הצלחתי להבין את החזקה', '', y); src = { at: [y.pos, y.end], inner: [y.pos, y.end], form: 'sup' }; }
       } else if (y.t === '^') {
         p.next();
         const z = p.peek(), par = z.t === '(' ? 1 : 0;
@@ -255,8 +255,9 @@
           if (pw === 2) p.next();
           e = { c: 1, v: p.next().v, d: 0, pow: b };
           if (b < 2) p.fail('הבסיס של החזקה הפנימית צריך להיות 2 לפחות', 'למשל a^(2^n)', z);
-          if (par) p.expect(')', 'חסר סוגר סוגר ) בחזקה', '');
-        } else if (z.t === '(') { p.next(); e = exponent(arith(p, anyVar), p, z); p.expect(')', 'חסר סוגר סוגר ) בחזקה', ''); }
+          const close = par ? p.expect(')', 'חסר סוגר סוגר ) בחזקה', '') : null;
+          src = close ? { at: [y.pos, close.end], inner: [z.end, close.pos], form: 'paren' } : { at: [y.pos, p.toks[p.i - 1].end], inner: [y.end, p.toks[p.i - 1].end], form: 'caret' };
+        } else if (z.t === '(') { p.next(); e = exponent(arith(p, anyVar), p, z); const close = p.expect(')', 'חסר סוגר סוגר ) בחזקה', ''); src = { at: [y.pos, close.end], inner: [z.end, close.pos], form: 'paren' }; }
         else if (z.t === '+') { p.next(); e = fresh(1); } else if (z.t === '*') { p.next(); e = fresh(0); } else {
           let c = null, v = null;
           if (z.t === 'num') c = +p.next().v;
@@ -265,10 +266,11 @@
           if (c === null && v === null) p.fail('אחרי ^ צריך לבוא מספר או משתנה', 'למשל a^n או a^3. חזקה מורכבת בסוגריים: a^(2n+1)');
           if (v && c === 0) p.fail('המקדם בחזקה חייב להיות חיובי', '', z);
           e = moreTerms(v ? { c: c === null ? 1 : c, v, d: 0 } : { c: 0, v: null, d: c }, p);
+          src = { at: [y.pos, p.toks[p.i - 1].end], inner: [y.end, p.toks[p.i - 1].end], form: 'caret' };
         }
       }
       for (const v of e.gen ? e.vars : e.v ? [e.v] : []) if (v[0] !== '_' && !vars.includes(v)) vars.push(v);
-      blocks.push({ word, e });
+      blocks.push(src ? { word, e, src } : { word, e });   // src: איפה החזקה בטקסט (לעריכה בלחיצה בתצוגה, exp-edit.js)
     }
     if (!blocks.length) p.fail('חסר תיאור של המילים', 'למשל a^n b^m');
     const letters = new Set(blocks.map((b) => b.word).join(''));
@@ -332,12 +334,13 @@
       if (!u.text.trim()) throw new E('עוד לא נכתבה שפה', 0, 0, 'למשל a^n b^n, או בחרו תבנית');
       const toks = L.lex(u.text);
       const both = L.parseCombined && L.parseCombined(u.text, toks, opts);
-      if (both) { both.text = String(text); return both; }
+      if (both) { both.text = String(text); shiftSrc(both, u.offset); return both; }
       const p = new P(toks, u.text.length);
       const kind = style(toks);
       const ast = kind === 'pattern' ? L.parsePattern(p, opts) : kind === 'prop' ? parseProp(p, opts) : kind === 'blocks' ? parseBlocks(p) : L.parseRegex(p, opts);
       if (!p.is('eof')) p.fail('לא הצלחתי להבין את ההמשך מכאן', kind === 'blocks' ? 'תנאים מפרידים בפסיק או ב"וגם"' : '');
       ast.text = String(text);
+      shiftSrc(ast, u.offset);
       return ast;
     } catch (e) {
       if (e instanceof E) { e.pos += u.offset; e.end += u.offset; }
@@ -345,6 +348,14 @@
     }
   }
 
+  /** המיקומים של החזקות (blocks[].src) יחסית לטקסט המקורי: מוסיפים את מה שהוסר בהתחלה ("L = {", או החלק הקודם באיחוד) */
+  function shiftSrc(ast, off) {
+    if (!off || !ast) return;
+    if (ast.parts) for (const x of ast.parts) shiftSrc(x, off);
+    if (ast.blocks) for (const b of ast.blocks) if (b.src) for (const k of ['at', 'inner']) b.src[k] = [b.src[k][0] + off, b.src[k][1] + off];
+  }
+
+  L.shiftSrc = shiftSrc;
   L.P = P;
   L.styleOf = style;
   L.parse = parse;

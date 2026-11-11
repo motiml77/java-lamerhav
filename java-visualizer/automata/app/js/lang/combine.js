@@ -45,7 +45,7 @@
     for (const p of parts) if (!p.text.trim()) throw new L.LangError('חסרה שפה ' + (p.offset === 0 ? 'לפני' : 'אחרי') + ' ה' + (op === 'union' ? '∪' : 'שרשור'), p.at, p.at + 1, 'למשל { aⁿbⁿ } ∪ { bⁿaⁿ }');
     if (op === 'union' && parts.every((p) => { const u = L.unwrap(p.text); try { return L.styleOf(L.lex(u.text)) === 'regex'; } catch (e) { return false; } })) return null;
     const asts = parts.map((p) => {
-      try { return L.parse(p.text, opts); } catch (e) { if (e instanceof L.LangError) { e.pos += p.offset; e.end += p.offset; } throw e; }
+      try { const a = L.parse(p.text, opts); L.shiftSrc(a, p.offset); return a; } catch (e) { if (e instanceof L.LangError) { e.pos += p.offset; e.end += p.offset; } throw e; }
     });
     const alphabet = Array.from(new Set(asts.flatMap((a) => a.alphabet)));
     const ast = { kind: op, parts: asts, alphabet };
@@ -89,8 +89,8 @@
     const go = (i, pos) => (i === ast.parts.length ? pos === w.length : Array.from({ length: w.length - pos + 1 }, (_, k) => pos + k).some((e) => L.accepts(ast.parts[i], w.slice(pos, e)) && go(i + 1, e)));
     return go(0, 0);
   }
-  function combinedPretty(ast, html) {
-    const one = (p) => { const t = L.pretty(p)[html ? 'html' : 'text'].replace(/^L = /, ''); return t[0] === '{' ? t : '{ ' + t + ' }'; };
+  function combinedPretty(ast, html, opts) {
+    const one = (p) => { const t = L.pretty(p, opts)[html ? 'html' : 'text'].replace(/^L = /, ''); return t[0] === '{' ? t : '{ ' + t + ' }'; };
     return 'L = ' + ast.parts.map(one).join(ast.kind === 'union' ? ' ∪ ' : ' · ');
   }
 
