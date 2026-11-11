@@ -38,6 +38,9 @@
     openFile(file) {
       const fr = new FileReader();
       fr.onload = () => {
+        let obj = null;
+        try { obj = JSON.parse(String(fr.result)); } catch (e) { obj = null; }
+        if (root.AutomataTask.isFile(obj)) { try { this.taskUI.openTaskFile(obj); } catch (e) { this.toast('לא ניתן לפתוח: ' + e.message, 'err'); } return; }   // קובץ משימה לתלמידים
         const { machine, errors } = M.deserialize(String(fr.result));
         if (!machine) { this.toast('לא ניתן לפתוח: ' + errors[0], 'err'); return; }
         this.loadMachine(machine, 'פתיחת קובץ');
@@ -94,6 +97,10 @@
           case 'save-menu': this.toggleMenu('save-menu', el); break;
           case 'save': this.toggleMenu('save-menu', null, false); this.saveFile(); break;
           case 'export-svg': this.toggleMenu('save-menu', null, false); this.exportSVG(); break;
+          case 'save-task': this.toggleMenu('save-menu', null, false); this.taskUI.saveTaskFile(); break;
+          case 'lang-menu': this.toggleMenu('lang-menu', el); break;
+          case 'lang-auto': this.toggleMenu('lang-menu', null, false); this.langPanel.open('auto', { fresh: true }); break;
+          case 'lang-practice': this.toggleMenu('lang-menu', null, false); this.langPanel.open('practice', { fresh: true }); break;
           case 'open': $('#file-input').click(); break;
           case 'new': this.newMachine(); break;
           case 'bank': this.bank.show(this.bankFloat.q && this.bankFloat.q.id); break;
@@ -161,6 +168,7 @@
         if (mod && code === 'KeyZ') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
         if (mod && code === 'KeyY') { e.preventDefault(); this.redo(); return; }
         if (mod && code === 'KeyS') { e.preventDefault(); this.saveFile(); return; }
+        if (mod && e.key === 'Enter') { e.preventDefault(); if (root.AutomataTask.of(this.machine)) this.taskUI.check(); return; }   // בדיקה מול הנוסחה
         if (mod && code === 'KeyB') { e.preventDefault(); root.Layout.setCollapsed(!root.Layout.state.collapsed); return; }
         if (mod && code === 'KeyO') { e.preventDefault(); $('#file-input').click(); return; }
         if (mod && code === 'KeyA') { e.preventDefault(); this.select(this.machine.states.map((s) => s.id), []); return; }

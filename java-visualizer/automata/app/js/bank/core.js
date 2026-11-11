@@ -71,7 +71,7 @@
   /** מכונה ריקה לסעיף: הסוג והא"ב הנכונים, והשפה של הסעיף נעולה (מוצגת בפס שמעל הקנבס, כמו בקובץ תרגיל) */
   function emptyMachine(q, s) {
     const m = M.createMachine(machineType(s), { name: q.title + (machineSections(q).length > 1 ? ', סעיף ' + s.label : ''), alphabet: q.alphabet.slice() });
-    if (s.language) m.language = { text: s.language, desc: q.title, allowBuild: false, locked: true };
+    if (s.language) m.language = { text: s.language, desc: q.title, allowBuild: false, locked: true, mode: 'practice' };   // משימה נעולה: אותו פס ובדיקה כמו כל משימה
     return m;
   }
 

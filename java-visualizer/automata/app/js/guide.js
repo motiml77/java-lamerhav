@@ -31,13 +31,16 @@
       this.app = app;
       this.el = $('#guide');
       document.body.appendChild(this.el);         // מעל חלון ההרצה ופאנל הצד, לא בתוך הקנבס
+      this.dismissed = new WeakSet();             // מכונות שבהן כבר סגרו את כרטיס הפתיחה
       this.pinned = store.get() !== 'seen';
       if (this.pinned) store.set('seen');         // רק בפעם הראשונה; אחר כך רק מה-?
       this.el.addEventListener('click', (e) => {
         const b = e.target.closest('[data-g]');
         if (!b) return;
         const a = b.dataset.g;
-        if (a === 'close') this.hide();
+        if (a === 'close' || a === 'free') { if (this.el.dataset.mode === 'start') this.dismissed.add(app.machine); this.hide(); }
+        else if (a === 'auto' || a === 'practice') { this.dismissed.add(app.machine); this.pinned = false; this.update(); app.langPanel.open(a, { fresh: true }); }
+        else if (a === 'bank') { this.dismissed.add(app.machine); this.pinned = false; this.update(); app.bank.show(); }
         else if (a === 'add') app.addStateCenter();
         else if (a === 'example') app.loadFirstExample();
         else if (a === 'keys') app.showHelp();
@@ -45,6 +48,9 @@
       this.el.addEventListener('pointerdown', (e) => e.stopPropagation());
       $('#guide-btn').addEventListener('click', () => { this.pinned = !this.pinned || this.el.hidden; this.update(); });
     },
+
+    /** כרטיס "איך בונים" נפתח לבד רק בכניסה הראשונה לכלי. כל פעולה שמחליפה מכונה (שאלה מהמאגר, משימה, דוגמה, קובץ, "חדש", לשונית אחרת) מבטלת את זה */
+    unpin() { if (!this.pinned) return; this.pinned = false; store.set('seen'); if (this.el && this.el.dataset.mode !== 'start') this.update(); },
 
     hide() {
       this.pinned = false;
@@ -54,16 +60,19 @@
     },
 
     update() {
-      const empty = !this.app.machine.states.length;
-      const bank = this.app.bankFloat && this.app.bankFloat.isOpen();   // החלון "השאלה" יושב באותו מקום כמו הכרטיס הצף
-      const show = this.pinned && !bank;
+      const app = this.app, m = app.machine, empty = !m.states.length;
+      const bank = app.bankFloat && app.bankFloat.isOpen();   // החלון "השאלה" יושב באותו מקום כמו הכרטיס הצף
+      // כרטיס הפתיחה (סבב 14): קנבס ריק ובלי משימה: ציור חופשי / התוכנה בונה / אני בונה
+      const start = empty && !bank && !app.viewOnly && !root.AutomataTask.of(m) && !this.dismissed.has(m) && !(app.langPanel && app.langPanel.isOpen());
+      const show = start || (this.pinned && !bank && !app.viewOnly);
       this.el.hidden = !show;
       if (!show) this.el.dataset.mode = '';
-      $('#guide-btn').setAttribute('aria-expanded', String(show));
+      $('#guide-btn').setAttribute('aria-expanded', String(show && !start));
       if (!show) return;
-      const mode = empty ? 'empty' : 'float';
+      const mode = start ? 'start' : empty ? 'empty' : 'float';
       if (this.el.dataset.mode === mode) return;
       this.el.dataset.mode = mode;
+      if (start) { this.el.innerHTML = this.startHTML(); return; }
       // הכרטיס הצף יושב בצד שמאל: מזיזים את המכונה כדי שלא תוסתר
       if (mode === 'float') requestAnimationFrame(() => { this.shifted = true; this.app.canvas.fit(this.el.offsetWidth + 24); });
       this.el.innerHTML =
@@ -73,6 +82,16 @@
         '<div class="guide-foot">' + (empty
           ? '<button type="button" class="btn primary" data-g="add">' + I.get('state', 18) + '<span>מצב חדש</span></button><button type="button" class="btn secondary" data-g="example">' + I.get('book', 18) + '<span>טעינת דוגמה</span></button>'
           : '<button type="button" class="btn primary sm" data-g="close">הבנתי</button><button type="button" class="link" data-g="keys">כל קיצורי המקלדת</button>') + '</div>';
+    },
+
+    /** כרטיס הפתיחה: שלוש דרכים להתחיל, וקישור למאגר */
+    startHTML() {
+      const card = (k, icon, t, s) => '<button type="button" class="gs-card" data-g="' + k + '"><span class="gs-ic">' + I.get(icon, 22) + '</span><b>' + t + '</b><span>' + s + '</span></button>';
+      return '<div class="guide-head"><h2>איך מתחילים?</h2><button type="button" class="pop-x" data-g="close" aria-label="סגירה">' + I.get('x', 16) + '</button></div>' +
+        '<div class="gs-cards">' + card('free', 'state', 'ציור חופשי', 'לחיצה כפולה על המשבצות מוסיפה מצב') +
+        card('auto', 'transition', 'התוכנה בונה', 'כותבים נוסחה של שפה, ומקבלים אוטומט מוכן') +
+        card('practice', 'check', 'אני בונה, התוכנה בודקת', 'כותבים נוסחה, בונים לבד, ובודקים אם זה נכון') + '</div>' +
+        '<div class="guide-foot"><button type="button" class="link" data-g="bank">' + I.get('bank', 15) + '<span>מאגר שאלות</span></button></div>';
     },
 
     /** רשימת "איך בונים" בפאנל הצד: פעולה אחת בכל שורה. */

@@ -43,6 +43,4 @@ body.resizing-row, body.resizing-row * { cursor: row-resize !important; user-sel
 @media (prefers-reduced-motion: reduce) { .side-toggle { transition: none; } }
 
 /* מקופל: הלשונית בתוך הקנבס, אז מה שיושב בקצה השמאלי שלו זז קצת פנימה */
-.app.side-collapsed .bf { inset-inline-end: 28px; }
 .app.side-collapsed .zoom, .app.side-collapsed .guide-btn { inset-inline-end: 26px; }
-.app.side-collapsed .stage.bf-open .zoom, .app.side-collapsed .stage.bf-open .guide-btn { inset-inline-end: calc(var(--bf-w) + 40px); }

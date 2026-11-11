@@ -1,6 +1,6 @@
 /*
  * dialogs.js - חלון אישור (למחיקה) וחלון קיצורי המקלדת.
- * Dialogs.confirm({ title, html, ok, cancel, danger, single }) מחזיר Promise<boolean> (single: בלי כפתור ביטול). Enter = אישור, Esc = ביטול.
+ * Dialogs.confirm({ title, html, ok, cancel, alt, danger, single }) מחזיר Promise<boolean> (single: בלי כפתור ביטול; alt: כפתור שלישי, ואז 'alt'). Enter = אישור, Esc = ביטול.
  */
 (function (root) {
   'use strict';
@@ -19,6 +19,7 @@
         '<div class="dialog-icon' + (o.danger ? ' danger' : '') + '">' + I.get(o.danger ? 'trash' : 'info', 20) + '</div>' +
         '<div class="dialog-text"><h2 id="dlg-t">' + o.title + '</h2><div id="dlg-b">' + (o.html || '') + '</div></div>' +
         '<div class="dialog-foot"><button type="button" class="btn ' + (o.danger ? 'danger' : 'primary') + '" data-r="1">' + esc(o.ok || 'אישור') + '</button>' +
+        (o.alt ? '<button type="button" class="btn secondary" data-r="alt">' + esc(o.alt) + '</button>' : '') +
         (o.single ? '' : '<button type="button" class="btn secondary" data-r="0">' + esc(o.cancel || 'ביטול') + '</button>') + '</div></div>';
       const prev = document.activeElement;
       const finish = (v) => {
@@ -32,7 +33,7 @@
       };
       const onKey = (e) => {
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
-        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); finish(document.activeElement && document.activeElement.dataset.r === '0' ? false : true); }
+        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const r = document.activeElement && document.activeElement.dataset.r; finish(r === '0' ? false : r === 'alt' ? 'alt' : true); }
         else if (e.key === 'Tab') {
           const bs = back.querySelectorAll('button');
           const i = Array.prototype.indexOf.call(bs, document.activeElement);
@@ -42,7 +43,7 @@
       };
       back.addEventListener('click', (e) => {
         const b = e.target.closest('[data-r]');
-        if (b) finish(b.dataset.r === '1');
+        if (b) finish(b.dataset.r === 'alt' ? 'alt' : b.dataset.r === '1');
         else if (e.target === back) finish(false);
       });
       document.addEventListener('keydown', onKey, true);

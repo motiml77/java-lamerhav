@@ -75,7 +75,7 @@
     /* ---------- שינויים חיים ---------- */
     gained() {
       const app = this.app;
-      if (!this.restored) { this.restored = true; app.bankFloat.restore(); }     // תרגיל שהיה פתוח לפני טעינה מחדש
+      if (!this.restored) { this.restored = true; if (!app.viewOnly) app.bankFloat.restore(); }     // תרגיל שהיה פתוח לפני טעינה מחדש
       const g = this.gate;
       if (g && !g.busy && g.view !== 'success') this.show(g.view === 'pay' ? A.paid() : { view: 'success', title: 'נכנסת בהצלחה', text: 'המאגר פתוח.', tone: 'ok' });
     },

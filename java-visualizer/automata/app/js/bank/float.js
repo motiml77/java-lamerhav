@@ -20,14 +20,19 @@
       this.el.hidden = true;
       this.el.setAttribute('role', 'complementary');
       this.el.setAttribute('aria-label', 'השאלה');
-      host.appendChild(this.el);
+      document.body.appendChild(this.el);          // סבב 14: חלון מעל כל האפליקציה, לא בתוך הקנבס (host לא בשימוש)
       this.q = null; this.label = null; this.results = {}; this.hints = new Set(); this.confirm = null; this.loading = false; this.busy = null;
       this.el.addEventListener('click', (e) => this.onClick(e));
       this.el.addEventListener('input', (e) => this.onInput(e));
       this.el.addEventListener('change', (e) => { if (e.target.dataset.bfDone) { this.progress.setSectionDone(this.q.id, e.target.dataset.bfDone, e.target.checked); this.render(); } if (e.target.name === 'bf-keep') { this.confirm.keep = e.target.value === 'keep'; this.render(); } });
       this.el.addEventListener('keydown', (e) => { if (e.target.closest('input, textarea')) e.stopPropagation(); });
-      this.bindDrag();
+      this.win = new root.FloatWin(this.el, '.bf-head');   // גרירה, גודל, מזעור, ושמירה של המקום (float-win.js)
       this.progress.listen(() => { if (this.q && !this.el.hidden && !this.rendering) this.renderSoon(); });
+      // בדיקה שהסתיימה בפס המשימה (מהכפתור כאן, מהפס או מ-Ctrl+Enter): סעיף "בונים" שעבר מקבל V
+      app.taskUI.onResult((res, m) => {
+        const s = this.section;
+        if (this.q && this.isOpen() && s && s.kind === 'build' && m === this.app.machine && res.ok && !this.progress.sectionDone(this.q.id, this.label)) { this.passed(this.label); this.render(); }
+      });
     }
 
     get section() { return this.q && B.section(this.q, this.label); }
@@ -43,7 +48,6 @@
       this.app.bank.remember(id);
       this.openSection(pick);
       this.show();
-      requestAnimationFrame(() => this.app.canvas.fit(this.el.offsetWidth + 24));
     }
     /** אחרי טעינה של הדף: אם היה תרגיל פתוח, החלון חוזר (המכונה עצמה כבר נשמרה עם שאר הלשוניות) */
     restore() {
@@ -55,9 +59,9 @@
       if (this.app.active !== t) this.app.switchType(t);
       this.show();
     }
-    show() { this.setOpen(true); this.render(); }
-    hide() { this.setOpen(false); this.app.canvas.fit(); }
-    setOpen(on) { this.el.hidden = !on; this.el.parentElement.classList.toggle('bf-open', on); root.Guide.update(); }
+    show() { this.setOpen(true); this.render(); this.win.apply(); }
+    hide() { this.setOpen(false); }
+    setOpen(on) { this.el.hidden = !on; root.Guide.update(); if (this.app.strip) this.app.strip.render(); }
 
     /** המכונה של הסעיף על הקנבס: מה שנשמר, או מכונה ריקה מהסוג הנכון */
     openSection(label) {
@@ -73,7 +77,7 @@
     }
     /** נקרא מ-app.autosave: שומר את המכונה שעל הקנבס כמכונה של הסעיף הפעיל */
     persist() {
-      if (!this.q || !this.label || this.el.hidden && !this.loading) return;
+      if (!this.q || !this.label) return;      // גם כשהחלון סגור: התרגיל עדיין פתוח (נפתח שוב מהפס)
       const s = this.section;
       if (!s || this.app.machine.type !== B.machineType(s)) return;
       const json = M.serialize(this.app.machine);
@@ -83,7 +87,7 @@
     }
     /** קוד אחר טוען מכונה (דוגמה, קובץ, "חדש"): התרגיל נסגר, והעבודה שלו נשמרת */
     detach() {
-      if (!this.q || this.el.hidden) return;
+      if (!this.q) return;
       this.persist();
       this.progress.setActive(null);
       this.q = null; this.label = null;
@@ -137,7 +141,7 @@
         extra = '<textarea class="bf-text" data-bf-text="' + L0 + '" rows="3" placeholder="כותבים כאן את ההסבר">' + esc(p.text(q.id, L0)) + '</textarea>' +
           '<label class="check"><input type="checkbox" data-bf-done="' + L0 + '"' + (p.sectionDone(q.id, L0) ? ' checked' : '') + '><span>סיימתי את הסעיף</span></label>';
       }
-      const hint = this.hints.has(L0) ? '<div class="bf-hint"><div>' + rtl(s.kind === 'explain' ? s.answer : s.hint) + '</div>' + (isM ? '<button type="button" class="link" data-bf-solution="' + L0 + '">הצגת פתרון לדוגמה על הקנבס</button>' : '') + '</div>' : '';
+      const hint = this.hints.has(L0) ? '<div class="bf-hint"><div>' + rtl(s.kind === 'explain' ? s.answer : s.hint) + '</div>' + (isM ? '<button type="button" class="link" data-bf-solution="' + L0 + '">הצגת פתרון לדוגמה (בחלון נפרד)</button>' : '') + '</div>' : '';
       return '<section class="bk-card bf-sec' + (active ? ' active' : '') + '" id="bf-sec-' + L0 + '"><h3>סעיף ' + L0 + '\'' + V.vMark(p.sectionDone(q.id, L0), 'הסעיף נפתר') + (active && isM ? '<span class="bf-oncanvas">על הקנבס</span>' : '') + '</h3>' +
         V.sectionBody(q, s) + extra + '<div class="bf-acts">' + act + '</div>' + hint + this.resultHTML(s) + '</section>';
     }
@@ -155,6 +159,8 @@
       }
       const t = B.machineType(s);
       if (app.active !== t) { this.results[label] = { note: 'הבדיקה היא של ' + TYPE(t).long + ', ועכשיו פתוחה לשונית אחרת.', go: t }; this.render(); return; }
+      // סעיף "בונים": אותה בדיקה ואותו כרטיס תוצאה כמו בפס המשימה שמעל הקנבס (סבב 14). כאן רק מסמנים V כשהיא עוברת
+      if (s.kind === 'build') { delete this.results[label]; this.render(); app.taskUI.check(); return; }
       const m = app.machine;
       if (!m.states.length) { this.results[label] = { note: 'אין עדיין מכונה על הקנבס. לחיצה כפולה מוסיפה מצב.' }; this.render(); return; }
       const errs = app.issues.filter((i) => i.level === 'error');
@@ -166,19 +172,6 @@
         setTimeout(() => { const r = B.checkTmOutput(m, this.q, s); this.results[label] = { kind: 'tm-output', r, sig }; this.scrollTo = label; if (r.ok) this.passed(label); this.render(); }, 20);
         return;
       }
-      const ast = L.parse(s.language);
-      const finish = (res) => { this.busy = null; this.results[label] = { kind: 'build', res, sig, hint: L.hint(res, m) }; this.scrollTo = label; if (res.ok) this.passed(label); this.render(); };
-      if (L.canExact(m, ast)) { try { finish(L.checkExact(m, ast)); return; } catch (e) { /* גדול מדי: בדיקה חסומה */ } }
-      const c = L.checker(m, ast), t0 = performance.now();
-      this.busy = c;
-      const tick = () => {
-        if (this.busy !== c) return;
-        const t1 = performance.now();
-        while (performance.now() - t1 < 30 && !c.step(10)) { /* עוד */ }
-        if (!c.result.done && performance.now() - t0 > 6000) { c.result.done = true; c.result.maxLen = Math.max(0, c.result.len - 1); }
-        if (c.result.done) finish(c.result); else { this.results[label] = { note: 'בודק... ' + c.result.count.toLocaleString('he') + ' מילים', busy: true }; this.render(); setTimeout(tick, 0); }
-      };
-      tick();
     }
     passed(label) { this.progress.setSectionDone(this.q.id, label, true); this.app.toast('סעיף ' + label + '\' נפתר', 'ok'); }
 
@@ -199,12 +192,7 @@
           '<table class="bk-cases bf-fail"><thead><tr><th>קלט</th><th>צריך</th><th>התקבל</th></tr></thead><tbody>' + res.failing.slice(0, 6).map((f) =>
             '<tr><td dir="ltr"><button type="button" class="w-chip out" data-bf-run="' + esc(f.input) + '">' + word(f.input) + '</button></td><td dir="ltr">' + word(f.expected) + '</td><td>' + (f.got == null ? esc(f.why) : '<bdi dir="ltr">' + word(f.got) + '</bdi>') + '</td></tr>').join('') + '</tbody></table></div>';
       }
-      const res = r.res, n = (x) => x.toLocaleString('he');
-      const scope = res.exact ? '' : 'נבדקו ' + (res.maxLen > 0 ? 'כל ' : '') + n(res.count) + ' המילים עד אורך ' + res.maxLen + '.';
-      if (res.ok) return '<div class="bf-result">' + box('ok', 'check', res.exact ? 'המכונה מקבלת בדיוק את השפה' : scope + ' לא נמצאה טעות', res.exact ? 'זו הוכחה: המכונה הושוותה במלואה לאס"ד המינימלי של השפה.' : 'זו בדיקה, לא הוכחה: ייתכן שיש טעות במילה ארוכה יותר.') + '</div>';
-      const list = (title, ws, cls) => (ws.length ? '<div class="lr-list"><div class="lr-title ' + cls + '">' + title + '</div><div class="ll-words" dir="ltr">' + ws.map((w) => '<button type="button" class="w-chip ' + cls + '" data-bf-run="' + esc(w) + '">' + word(w) + '</button>').join('') + '</div></div>' : '');
-      return '<div class="bf-result">' + box('err', 'x', 'המכונה עוד לא מקבלת את השפה', esc(r.hint)) + list('צריכות להתקבל, ונדחו', res.missing, 'in') + list('צריכות להידחות, והתקבלו', res.extra, 'out') +
-        '<p class="muted small">לחיצה על מילה מריצה אותה על הקנבס. ' + (res.exact ? 'אלה המילים הקצרות ביותר.' : scope) + '</p></div>';
+      return '';
     }
 
     /* ---------- "סיימתי" ---------- */
@@ -248,46 +236,18 @@
       if ((v = d('bf-jump'))) { const sec = this.el.querySelector('#bf-sec-' + v); if (sec) sec.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
       if ((v = d('bf-run')) != null) { app.runWord(v); return; }
       if ((v = d('bf-go'))) { app.switchType(v); delete this.results[this.label]; this.render(); return; }
-      if ((v = d('bf-solution'))) {
-        const ok = await D.confirm({ title: 'להציג פתרון לדוגמה?', html: 'המכונה שעל הקנבס תוחלף בפתרון לדוגמה של סעיף ' + v + '\'. אפשר לחזור למכונה שלכם עם ' + D.kbd('Ctrl+Z') + '.', ok: 'הצגת הפתרון' });
-        if (!ok) return;
+      if ((v = d('bf-solution'))) {          // הפתרון נפתח בחלון נפרד, והמכונה של התלמיד נשארת (כמו "הצגת פתרון" בפס המשימה)
         if (v !== this.label) this.openSection(v);
-        const s = B.section(this.q, v), m = B.referenceMachine(this.q, s);
-        m.language = (B.emptyMachine(this.q, s).language) || undefined;
-        this.loading = true;
-        try { app.loadMachine(m, 'פתרון לדוגמה', ''); } finally { this.loading = false; }
-        this.render();
+        app.taskUI.solution();
         return;
       }
       const b = d('bf');
-      if (b === 'close') { this.persist(); this.progress.setActive(null); this.q = null; this.hide(); }
-      else if (b === 'min') this.el.classList.toggle('min');
+      if (b === 'close') { this.persist(); this.hide(); }           // התרגיל נשאר: "השאלה" בפס המשימה פותח שוב
+      else if (b === 'min') this.win.setMin(!this.el.classList.contains('min'));
       else if (b === 'bank') app.bank.show(this.q.id);
       else if (b === 'finish') { if (this.progress.done(this.q.id)) { this.progress.setDone(this.q.id, false); this.render(); } else { this.confirm = { keep: false }; this.render(); } }
       else if (b === 'finish-no') { this.confirm = null; this.render(); }
       else if (b === 'finish-yes') this.finish();
-    }
-
-    /** גרירה בכותרת. ההזזה בפיקסלים של CSS (הממשק מוקטן ל-90%, אז מחלקים ב-uiScale) */
-    bindDrag() {
-      let d = null;
-      this.el.addEventListener('pointerdown', (e) => {
-        if (!e.target.closest('.bf-head') || e.target.closest('button')) return;
-        const z = this.app.canvas.uiScale(), r = this.el.getBoundingClientRect(), host = this.el.parentElement.getBoundingClientRect();
-        d = { x: e.clientX, y: e.clientY, left: (r.left - host.left) / z, top: (r.top - host.top) / z, z };
-        Object.assign(this.el.style, { height: r.height / z + 'px', bottom: 'auto' });
-        this.el.setPointerCapture(e.pointerId);
-      });
-      this.el.addEventListener('pointermove', (e) => {
-        if (!d) return;
-        const host = this.el.parentElement;
-        const left = Math.max(0, Math.min(host.offsetWidth - this.el.offsetWidth, d.left + (e.clientX - d.x) / d.z));
-        const top = Math.max(0, Math.min(host.offsetHeight - 40, d.top + (e.clientY - d.y) / d.z));
-        Object.assign(this.el.style, { left: left + 'px', top: top + 'px', right: 'auto' });
-      });
-      const end = () => { d = null; };
-      this.el.addEventListener('pointerup', end);
-      this.el.addEventListener('pointercancel', end);
     }
   }
 

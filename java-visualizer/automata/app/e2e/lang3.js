@@ -6,6 +6,7 @@
 const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const H = require('./helpers.js');
 
 const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
@@ -23,9 +24,9 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   await p.evaluate(() => document.fonts.ready);
   await p.click('#guide [data-g=close]');
   await p.evaluate(() => { App.loadFirstExample(); App.history[App.active] = { past: [], future: [] }; document.querySelectorAll('.toast').forEach((t) => t.remove()); });   // פתיחה ראשונה ריקה (סבב 11): הדוגמה הראשונה כמו פעם
-  await p.click('[data-tab=lang]');
+  await H.openEditor(p);
   const text = async (sel) => (await p.textContent(sel)).replace(/\s+/g, ' ').trim();
-  const write = async (t) => { await p.fill('#lang-input', t); await p.waitForTimeout(300); };
+  const write = async (t) => { await H.write(p, t); await p.waitForTimeout(50); };
   const words = (sel) => p.$$eval(sel + ' .w-chip', (els) => els.map((e) => e.textContent));
   const shot = async (name) => { await p.waitForTimeout(300); await p.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove())); await p.screenshot({ path: path.join(OUT, name + '.png') }); };
   const build = async () => { await p.click('[data-l=build]'); const d = await p.waitForSelector('.dialog', { timeout: 1500 }).catch(() => null); if (d) await p.click('.dialog [data-r="1"]'); await p.waitForTimeout(400); };
@@ -64,8 +65,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   });
 
   await step('aⁿbᵐ | n<m: אוטומט מחסנית, ו-abb מתקבלת', async () => {
-    await p.click('#type-tabs [data-type=pda]');
-    await p.click('[data-tab=lang]');
+    await H.closeEditor(p); await p.click('#type-tabs [data-type=pda]');
     await write('a^n b^m | n<m');
     assert.equal(await text('#lang-class'), 'חסרת הקשר, לא רגולרית');
     await build();
@@ -75,21 +75,19 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await p.click('[data-run=end]');
     await p.waitForSelector('#result-banner.ok:not([hidden])');
     await p.keyboard.press('Escape');
-    await p.click('[data-tab=lang]');
     await shot('r7-n-lt-m');
   });
 
   await step('aⁿbⁿ | 1≤n≤3: שפה סופית, נבנה אס"ד, והבדיקה מולה היא הוכחה', async () => {
-    await p.click('#type-tabs [data-type=dfa]');
-    await p.click('[data-tab=lang]');
+    await H.closeEditor(p); await p.click('#type-tabs [data-type=dfa]');
     await write('a^n b^n | 1≤n≤3');
     assert.equal(await text('#lang-pretty .lp-math'), 'L = { anbn | 1 ≤ n ≤ 3 }');
     assert.match(await text('#lang-live .lang-why'), /השפה סופית: 3 מילים/);
     await build();
     assert.equal((await machine()).type, 'dfa');
-    await p.click('[data-l=check]');
-    await p.waitForSelector('#lang-result .lr-box.ok');
-    assert.match(await text('#lang-result'), /זו הוכחה/);
+    await p.click('#ts-pill');
+    await p.waitForSelector('#task-card.ok');
+    assert.match(await text('#task-card'), /זו הוכחה/);
     await shot('r7-finite');
   });
 

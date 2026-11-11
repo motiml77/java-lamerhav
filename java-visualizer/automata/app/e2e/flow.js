@@ -33,14 +33,16 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
       { type: 'dfa', states: 0, sigma: [], lang: false, tests: 0, word: '' });
     assert.equal(await p.inputValue('#word-input'), '');
     assert.equal(await visible('#lang-strip'), false);
-    assert.equal(await p.getAttribute('#guide', 'data-mode'), 'empty');
+    assert.equal(await p.getAttribute('#guide', 'data-mode'), 'start', 'כרטיס הפתיחה (סבב 14)');
     await p.click('#guide [data-g=close]');
     assert.equal(await visible('#guide'), false);
   });
 
-  await step('"חדש": אותו מצב נקי, וההדרכה לא חוזרת לבד (רק מה-?)', async () => {
+  await step('"חדש": אותו מצב נקי, וכרטיס "איך בונים" לא חוזר לבד (רק כרטיס הפתיחה של קנבס ריק)', async () => {
     await p.click('[data-cmd=new]');
     assert.equal(await p.evaluate(() => App.machine.states.length), 0);
+    assert.equal(await p.getAttribute('#guide', 'data-mode'), 'start');
+    await p.click('#guide [data-g=free]');
     assert.equal(await visible('#guide'), false);
   });
 

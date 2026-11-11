@@ -295,7 +295,12 @@
     m.tests = Array.isArray(o.tests) ? o.tests.filter((x) => x && typeof x.word === 'string').map((x) => ({ word: x.word, expect: !!x.expect })) : [];
     if (o.view) m.view = { x: +o.view.x || 0, y: +o.view.y || 0, zoom: +o.view.zoom || 1 };
     // השפה שהמכונה אמורה לקבל (לשונית "שפה"): הנוסחה כטקסט, והאם זה קובץ תרגיל של מורה
-    if (o.language && typeof o.language.text === 'string') m.language = { text: o.language.text, allowBuild: o.language.allowBuild !== false, locked: !!o.language.locked, ...(o.language.desc ? { desc: String(o.language.desc) } : {}) };
+    if (o.language && typeof o.language.text === 'string') {
+      m.language = { text: o.language.text, allowBuild: o.language.allowBuild !== false, locked: !!o.language.locked, ...(o.language.desc ? { desc: String(o.language.desc) } : {}) };
+      // המשימה (סבב 14, js/task.js): מי בונה, והבדיקה האחרונה
+      if (['auto', 'practice', 'solution'].includes(o.language.mode)) m.language.mode = o.language.mode;
+      if (o.language.check && typeof o.language.check === 'object' && typeof o.language.check.status === 'string') m.language.check = JSON.parse(JSON.stringify(o.language.check));
+    }
     return { machine: m, errors };
   }
 
