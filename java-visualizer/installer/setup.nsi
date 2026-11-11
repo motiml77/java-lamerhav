@@ -239,6 +239,33 @@ FunctionEnd
 ; ------------------------------------------------------------ Visual Studio חייב להיות סגור בזמן ההתקנה של חבילת C#
 ; (את סרגל הכלים של DSViz — ההרחבה — VSIXInstaller לא מתקין כש-Visual Studio פתוח; וגם dsviz-cs / הספרייה נעולים בזמן הרצה)
 ; $0 = 0 אם Visual Studio רץ
+; javaw.exe לקיצורים: בתיקייה עם עברית (שם משתמש) — דרך צומת באנגלית ב-ProgramData (automata.ps1 -JavaPath). התוצאה נקראת מקובץ
+; UTF-16 (‏-Out) ולא מהפלט של nsExec — שם הקידוד שונה, ו-"-" הגיע כתו זבל והקיצור נשבר. כל מה שאינו קובץ קיים → javaw הרגיל
+Function DSVizJavaw
+  Push $0
+  StrCpy $R9 ""
+  ${If} ${FileExists} "$INSTDIR\automata.ps1"
+    Delete "$PLUGINSDIR\javaw-path.txt"
+    InitPluginsDir
+    nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\automata.ps1" -JavaPath "$INSTDIR\jdk" -Out "$PLUGINSDIR\javaw-path.txt"'
+    Pop $0
+    ClearErrors
+    FileOpen $0 "$PLUGINSDIR\javaw-path.txt" r
+    ${IfNot} ${Errors}
+      FileReadUTF16LE $0 $R9
+      FileClose $0
+      ${TrimNewLines} "$R9" $R9
+    ${EndIf}
+  ${EndIf}
+  ${If} $R9 == ""
+  ${OrIf} $R9 == "-"
+    StrCpy $R9 "$INSTDIR\jdk\bin\javaw.exe"
+  ${ElseIfNot} ${FileExists} "$R9"
+    StrCpy $R9 "$INSTDIR\jdk\bin\javaw.exe"
+  ${EndIf}
+  Pop $0
+FunctionEnd
+
 Function IsVisualStudioRunning
   nsExec::Exec '"$SYSDIR\cmd.exe" /c ""$SYSDIR\tasklist.exe" /NH /FI "IMAGENAME eq devenv.exe" | "$SYSDIR\find.exe" /I "devenv.exe""'
 FunctionEnd
@@ -488,15 +515,10 @@ Section "-automata"
     ; ‏javaw.exe מתיקייה עם עברית (שם משתמש) לא עולה ב-Windows שהקידוד שלו לא עברי — גם לא מהשם הקצר (8.3): ה-JVM טוען את
     ; net.dll מהנתיב הארוך. לכן צומת באנגלית ב-ProgramData (automata.ps1 -JavaPath, כמו SafeJava). ‎-cp‎ יחסי (תיקיית העבודה = $INSTDIR)
     Push $1
-    nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\automata.ps1" -JavaPath "$INSTDIR\jdk"'
-    Pop $0
-    Pop $1
-    ${TrimNewLines} "$1" $1
-    ${If} $0 != "0"
-    ${OrIf} $1 == "-"
-    ${OrIf} $1 == ""
-      StrCpy $1 "$INSTDIR\jdk\bin\javaw.exe"
-    ${EndIf}
+    Push $R9
+    Call DSVizJavaw
+    StrCpy $1 $R9
+    Pop $R9
     CreateShortcut "$DESKTOP\מודלים חישוביים.lnk" "$1" '-cp "automata\dsviz-automata.jar;dsviz.jar" il.lamerhav.dsviz.AutomataLauncher' "$INSTDIR\automata\automata.ico"
     CreateDirectory "$SMPROGRAMS\מבני נתונים"
     CreateShortcut "$SMPROGRAMS\מבני נתונים\מודלים חישוביים.lnk" "$1" '-cp "automata\dsviz-automata.jar;dsviz.jar" il.lamerhav.dsviz.AutomataLauncher' "$INSTDIR\automata\automata.ico"
@@ -566,9 +588,11 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   SetOutPath "$INSTDIR"
   ; ‏javaw.exe עצמו לא עולה מנתיב שלא בקידוד של Windows ("could not find java.dll") — השם הקצר (8.3) של הנתיב, אם יש
   Push $1
-  GetFullPathName /SHORT $1 "$INSTDIR\jdk\bin\javaw.exe"
-  StrCmp $1 "" 0 +2
-    StrCpy $1 "$INSTDIR\jdk\bin\javaw.exe"
+  ; (השם הקצר 8.3 לא מספיק: ה-JVM טוען את net.dll מהנתיב הארוך — לכן אותו צומת באנגלית כמו של "מודלים חישוביים")
+  Push $R9
+  Call DSVizJavaw
+  StrCpy $1 $R9
+  Pop $R9
   CreateShortcut "$SMPROGRAMS\מבני נתונים\תרגיל חדש ב-C#.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool new' "$INSTDIR\icon.ico"
   Delete "$SMPROGRAMS\מבני נתונים\הוספת משתנה ל-C#.lnk"   ; השם מגרסה קודמת
   CreateShortcut "$SMPROGRAMS\מבני נתונים\הדרכה לשימוש.lnk" "$1" '-cp dsviz.jar il.lamerhav.dsviz.cs.CsTool help' "$INSTDIR\icon.ico"
