@@ -53,6 +53,33 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     await shot('r14-start');
   });
 
+  await step('"איך מתחילים?" הוא חלון עצמאי מעל התוכנה: במרכז החלון (לא של הקנבס), עם כותרת נגררת', async () => {
+    assert.equal(await p.evaluate(() => document.getElementById('guide').parentElement === document.body), true);
+    assert.equal(await text('#guide .gw-head b'), 'איך מתחילים?');
+    const g = await box('#guide'), stage = await box('.stage');
+    assert.ok(Math.abs(g.x + g.w / 2 - 720) <= 2 && Math.abs(g.y + g.h / 2 - 450) <= 2, 'במרכז חלון התוכנה: ' + JSON.stringify(g));
+    assert.ok(Math.abs(stage.x + stage.w / 2 - 720) > 40, 'מרכז הקנבס שונה ממרכז החלון, כלומר החלון לא ממורכז על הקנבס');
+    const h = await box('#guide .gw-head');
+    await p.mouse.move(h.x + 60, h.y + h.h / 2);
+    await p.mouse.down();
+    await p.mouse.move(h.x - 140, h.y + h.h / 2 + 80, { steps: 5 });
+    await p.mouse.up();
+    const g2 = await box('#guide');
+    assert.ok(Math.abs(g2.x - (g.x - 200)) <= 3 && Math.abs(g2.y - (g.y + 80)) <= 3, 'נגרר: ' + JSON.stringify(g2));
+    assert.equal(await mode(), 'start');
+    await shot('r15-start-window');
+  });
+
+  await step('"איך מתחילים?" רק בפתיחה הראשונה: אחרי פתיחה מחדש של התוכנה הוא לא מופיע', async () => {
+    const q = await p.context().newPage();
+    await q.goto(launcher.url);
+    await q.waitForSelector('.stage');
+    await q.waitForTimeout(500);
+    assert.equal(await q.evaluate(() => App.machine.states.length), 0, 'קנבס ריק');
+    assert.equal(await q.evaluate(() => document.getElementById('guide').hidden), true);
+    await q.close();
+  });
+
   await step('"התוכנה בונה": עורך במצב הזה; "תבנית…" היא רשימה בקבוצות עם סינון ומקלדת', async () => {
     await p.click('#guide [data-g=auto]');
     await p.waitForSelector('.lang-dialog');
@@ -243,12 +270,12 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     assert.ok(await p.isVisible('#bank-float'));
   });
 
-  await step('"איך בונים" לא נפתח לבד: לא בלשונית חדשה, לא ב"חדש"; רק "?" פותח', async () => {
+  await step('שום הדרכה לא נפתחת לבד: לא בלשונית חדשה, לא ב"חדש"; רק "?" פותח', async () => {
     await p.click('#bank-float [data-bf=close]');
     await p.click('#type-tabs [data-type=nfa]');
-    assert.ok(!(await guideShown()) || (await mode()) === 'start', 'רק כרטיס הפתיחה של קנבס ריק');
+    assert.equal(await guideShown(), false, 'לשונית ריקה: בלי חלון פתיחה');
     await p.click('[data-cmd=new]');
-    assert.ok(!(await guideShown()) || (await mode()) === 'start');
+    assert.equal(await guideShown(), false, '"חדש": בלי חלון פתיחה');
     await p.click('#type-tabs [data-type=dfa]');
     assert.equal(await guideShown(), false);
     await p.click('#guide-btn');
