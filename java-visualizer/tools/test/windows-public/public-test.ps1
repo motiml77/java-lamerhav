@@ -57,6 +57,42 @@ $ijCfg = Join-Path $env:APPDATA 'JetBrains\IdeaIC2024.2'
 $lnk1 = Join-Path $desk 'מאגר תרגילים C#.lnk'
 $lnk2 = Join-Path $desk 'השאלה — מאגר תרגילים C#.lnk'
 $labKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz-Lab'
+$lnkAut = Join-Path $desk 'מודלים חישוביים.lnk'
+$script:autData = $false
+
+# "מודלים חישוביים": הקיצור היחיד של DSViz בשולחן העבודה, והוא מפעיל את המשגר המקומי (שרת על 127.0.0.1 + חלון)
+function CheckAutomata([string]$shot) {
+    Check 'הקיצור "מודלים חישוביים" נוצר בשולחן העבודה' (Test-Path $lnkAut)
+    $known = @('מודלים חישוביים.lnk')
+    $others = @(Get-ChildItem $desk -Filter '*.lnk' -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -notin $known -and ((New-Object -ComObject WScript.Shell).CreateShortcut($_.FullName).TargetPath + ' ' +
+            (New-Object -ComObject WScript.Shell).CreateShortcut($_.FullName).Arguments) -match 'DSViz|dsviz' })
+    Check "אין קיצורים אחרים של DSViz בשולחן העבודה ($(($others | ForEach-Object Name) -join ', '))" ($others.Count -eq 0)
+    if (-not (Test-Path $lnkAut)) { return }
+    $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnkAut)
+    Write-Host "  קיצור: $($sc.TargetPath) $($sc.Arguments) (תיקייה: $($sc.WorkingDirectory))"
+    Start-Process $lnkAut
+    $portFile = Join-Path $d 'automata-data\port'
+    $end = (Get-Date).AddSeconds(60); $code = 0; $port = ''
+    do {
+        Start-Sleep 2
+        if (Test-Path $portFile) {
+            $port = (Get-Content $portFile -Raw).Trim()
+            try { $code = (Invoke-WebRequest "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5).StatusCode } catch { $code = 0 }
+        }
+    } while ($code -ne 200 -and (Get-Date) -lt $end)
+    Check "הקיצור הפעיל את המשגר: http://127.0.0.1:$port/ עונה (קוד $code)" ($code -eq 200)
+    try { $api = Invoke-WebRequest "http://127.0.0.1:$port/api/access" -UseBasicParsing -TimeoutSec 5; $apiCode = $api.StatusCode } catch { $apiCode = [int]$_.Exception.Response.StatusCode }
+    Check "ה-API המקומי דורש מפתח (בלי X-DSViz-Token: קוד $apiCode)" ($apiCode -ge 400 -and $apiCode -lt 500)
+    $win = WaitTitle { $script:titles -match 'מודלים חישוביים' } 40
+    Write-Host "  חלונות: $($script:titles -join ' ; ')"
+    Check 'נפתח חלון "מודלים חישוביים"' $win
+    Shot $shot
+    $script:autData = Test-Path (Join-Path $d 'automata-data')
+    Get-CimInstance Win32_Process -Filter "Name='javaw.exe' OR Name='java.exe'" | Where-Object { $_.CommandLine -match 'AutomataLauncher' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+}
 
 # --- מדמים Eclipse (ל-Java, עם JDT) ו-IntelliJ IDEA 2024.2
 New-Item -ItemType Directory -Force "$ecl\plugins", "$ecl\dropins", "$ecl\configuration" | Out-Null
@@ -110,8 +146,10 @@ switch ($Scenario) {
         CheckBuild 'חדשה'
         $s1 = BankState; CheckBank 'חדשה' $s1
         OpenBankGate 'fresh-bank-gate'
+        CheckAutomata 'fresh-automata'
         $c = Run $Setup '/S /UPDATE'
         Check 'עדכון שני (/S /UPDATE) הסתיים (קוד 0)' ($c -eq 0)
+        Check 'אחרי עדכון: הקיצור "מודלים חישוביים" עדיין בשולחן העבודה' (Test-Path $lnkAut)
         $s2 = BankState; CheckBank 'עדכון חוזר' $s2
         Check 'אידמפוטנטי: אותם קבצים אחרי עדכון חוזר' (($s1.EclBankHash -eq $s2.EclBankHash) -and ($s1.IjBank -eq $s2.IjBank) -and ($s1.VsJar -eq $s2.VsJar))
         $c = Run "$d\uninstall.exe" "/S _?=$d"
@@ -119,6 +157,8 @@ switch ($Scenario) {
         Check 'הסרה: המאגר הוסר מ-Eclipse' ($s3.EclBank -eq 0 -and $s3.EclMain -eq 0)
         Check 'הסרה: המאגר הוסר מ-IntelliJ' ($s3.IjBank -eq '' -and -not $s3.IjMain)
         Check 'הסרה: הקיצורים וה-jar של Visual Studio הוסרו' (-not (Test-Path $lnk1) -and -not (Test-Path $lnk2) -and -not (Test-Path "$d\lab"))
+        Check 'הסרה: הקיצור "מודלים חישוביים" הוסר' (-not (Test-Path $lnkAut))
+        Check 'הסרה: עבודות התלמידים באוטומטים נשמרו (automata-data)' (-not $script:autData -or (Test-Path (Join-Path $d 'automata-data')))
     }
     'upgrade' {
         Download $OldUrl $tmpOld
