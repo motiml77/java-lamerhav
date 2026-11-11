@@ -19,9 +19,10 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  await p.waitForSelector('.st');
+  await p.waitForSelector('#guide:not([hidden])');
   await p.evaluate(() => document.fonts.ready);
   await p.click('#guide [data-g=close]');
+  await p.evaluate(() => { App.loadFirstExample(); App.history[App.active] = { past: [], future: [] }; document.querySelectorAll('.toast').forEach((t) => t.remove()); });   // פתיחה ראשונה ריקה (סבב 11): הדוגמה הראשונה כמו פעם
   await p.click('[data-tab=lang]');
   const text = async (sel) => (await p.textContent(sel)).replace(/\s+/g, ' ').trim();
   const write = async (t) => { await p.fill('#lang-input', t); await p.waitForTimeout(300); };

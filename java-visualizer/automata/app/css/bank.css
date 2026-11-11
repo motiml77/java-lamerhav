@@ -143,6 +143,5 @@
 .bf-radio input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
 .muted { color: var(--muted); } .small { font-size: var(--fs-12); }
 
-/* כשהחלון פתוח: כרטיס "שלושה צעדים" זז לחצי השני של הקנבס, והזום וכפתור ה-? עוברים לצד החלון */
-.stage.bf-open .guide[data-mode="empty"] { left: calc(50% + var(--bf-w) / 2 + 6px); }
+/* כשהחלון פתוח: הזום וכפתור ה-? עוברים לצד החלון (כרטיס ההדרכה לא מוצג אז) */
 .stage.bf-open .zoom, .stage.bf-open .guide-btn { inset-inline-end: calc(var(--bf-w) + 24px); }

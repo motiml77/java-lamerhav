@@ -24,9 +24,10 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
     p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     p.on('pageerror', (e) => errors.push(e.message));
     await p.goto(URL);
-    await p.waitForSelector('.st');
+    await p.waitForSelector('#guide:not([hidden])');
     await p.evaluate(() => document.fonts.ready);
     await p.click('#guide [data-g=close]');
+    await p.evaluate(() => { App.loadFirstExample(); App.history[App.active] = { past: [], future: [] }; document.querySelectorAll('.toast').forEach((t) => t.remove()); });   // פתיחה ראשונה ריקה (סבב 11): הדוגמה הראשונה כמו פעם
     await p.click('[data-tab=lang]');
     return p;
   }
@@ -129,8 +130,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   await step('שפה חסרת הקשר: נבנה אוטומט מחסנית, והבדיקה חסומה (ומנוסחת כך)', async () => {
     await write(p, 'a^n b^n');
     await p.click('[data-l=build]');
-    await p.waitForSelector('.dialog');
-    await p.click('.dialog [data-r="1"]');
+    if (await p.waitForSelector('.dialog', { timeout: 1500 }).catch(() => null)) await p.click('.dialog [data-r="1"]');   // לשונית ריקה (פתיחה ראשונה ריקה): אין מה להחליף
     await p.waitForTimeout(400);
     const m = await machine(p);
     assert.deepEqual([m.type, m.states], ['pda', 3]);

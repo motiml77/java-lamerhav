@@ -22,7 +22,7 @@ const OUT = path.resolve(__dirname, '..', '..', 'docs', 'shots');
   p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(launcher.url);
-  await p.waitForSelector('.st');
+  await p.waitForSelector('#guide:not([hidden])');
   await p.evaluate(() => document.fonts.ready);
   await p.click('#guide [data-g=close]');
   const shot = async (name) => { await p.waitForTimeout(350); await p.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove())); await p.screenshot({ path: path.join(OUT, name + '.png') }); };
