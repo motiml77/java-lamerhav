@@ -119,7 +119,7 @@ final class BankSections {
         int n = 0;
         for (AiScaffold.Task t : ex.tasks) {
             String text = texts.get(t.className);
-            if (text == null || methodAt(text, t.className, t.methodName) == null) break;
+            if (text == null || methodAt(text, ex, t) == null) break;
             n++;
         }
         return n;
@@ -166,7 +166,7 @@ final class BankSections {
             return e;
         }
         // 1. הפעולה — במחלקה שלה, אחרי הפעולה של הסעיף הקודם באותה מחלקה
-        if (t.className.equals(className) && methodAt(text, className, t.methodName) == null) {
+        if (t.className.equals(className) && methodAt(text, full, t) == null) {
             List<String> stub = stub(t, withSolution, cs);
             String member = memberIndent(text, body);
             int at = -1;
@@ -174,7 +174,7 @@ final class BankSections {
             for (int i = full.tasks.indexOf(t) - 1; i >= 0 && at < 0; i--) {
                 AiScaffold.Task p = full.tasks.get(i);
                 if (!p.className.equals(className)) continue;
-                int[] m = methodAt(text, className, p.methodName);
+                int[] m = methodAt(text, full, p);
                 if (m != null) {
                     at = lineEnd(text, m[2]);
                     after = true;
@@ -244,7 +244,7 @@ final class BankSections {
         if (e.method) {
             String mark = "// " + (cs ? noMarks(AiScaffold.markFor(t, true)) : AiScaffold.markFor(t, true));
             String[] ls = e.text.split("\n", -1);
-            int[] m = methodAt(e.text, className, t.methodName);
+            int[] m = methodAt(e.text, full, t);
             int from = m == null ? 0 : lineOf(e.text, m[0]);
             for (int i = from; i < ls.length; i++) if (ls[i].trim().equals(mark)) { e.cursorLine = i + 2; break; }
             if (e.cursorLine < 0 && m != null) e.cursorLine = lineOf(e.text, m[0]) + 1;
@@ -316,7 +316,46 @@ final class BankSections {
     }
 
     /** {תחילת הכותרת, "{" של הגוף, "}" שסוגר אותו} של הפעולה name ישירות במחלקה — או null */
+    /**
+     * הפעולה של סעיף t בקוד. כשבאותה מחלקה יש כמה סעיפים עם אותו שם (פעולות בונות, כמו Weight(int kilo, int gram) ו-Weight(int totalGram))
+     * — מזהים לפי טיפוסי הפרמטרים; אחרת לפי השם בלבד (כך שינוי בשמות / בטיפוסים של התלמיד לא גורם להוספה כפולה).
+     */
+    static int[] methodAt(String text, AiScaffold.Exercise ex, AiScaffold.Task t) {
+        int same = 0;
+        for (AiScaffold.Task o : ex.tasks) if (o.className.equals(t.className) && o.methodName.equals(t.methodName)) same++;
+        return same > 1 ? methodAt(text, t.className, t.methodName, paramTypes(t)) : methodAt(text, t.className, t.methodName);
+    }
+
+    private static String paramTypes(AiScaffold.Task t) {
+        StringBuilder b = new StringBuilder();
+        for (String[] p : t.params) b.append(b.length() == 0 ? "" : ",").append(p[0].replaceAll("\\s+", ""));
+        return b.toString();
+    }
+
+    /** הטיפוסים בכותרת (בלי שמות ורווחים, מופרדים בפסיק): "int,String" */
+    private static String headerTypes(String params) {
+        List<String> parts = new ArrayList<String>();
+        int angle = 0, from = 0;
+        for (int i = 0; i <= params.length(); i++) {
+            char c = i < params.length() ? params.charAt(i) : ',';
+            if (c == '<') angle++;
+            else if (c == '>') angle--;
+            else if (c == ',' && angle == 0) { parts.add(params.substring(from, i).trim()); from = i + 1; }
+        }
+        StringBuilder b = new StringBuilder();
+        for (String p : parts) {
+            if (p.isEmpty()) continue;
+            String type = p.replaceAll("\\s+[\\p{L}_$][\\p{L}\\p{N}_$]*\\s*$", "");   // בלי שם הפרמטר
+            b.append(b.length() == 0 ? "" : ",").append(type.replaceAll("\\s+", "").replaceFirst("^final", ""));
+        }
+        return b.toString();
+    }
+
     static int[] methodAt(String text, String className, String name) {
+        return methodAt(text, className, name, null);
+    }
+
+    static int[] methodAt(String text, String className, String name, String types) {
         int[] body = classBody(text, className);
         if (body == null) return null;
         int[] depth = new int[text.length() + 1];
@@ -334,6 +373,10 @@ final class BankSections {
             int semi = text.indexOf(';', m.end());
             while (open >= 0 && !code[open]) open = text.indexOf('{', open + 1);
             if (open < 0 || (semi >= 0 && semi < open && code[semi])) continue;
+            if (types != null) {
+                int pOpen = m.end() - 1, pClose = text.indexOf(')', pOpen);
+                if (pClose < 0 || pClose > open || !headerTypes(text.substring(pOpen + 1, pClose)).equals(types)) continue;
+            }
             int close = matching(text, code, depth, open);
             if (close > 0 && close <= body[1]) return new int[] { s, open, close };
         }
