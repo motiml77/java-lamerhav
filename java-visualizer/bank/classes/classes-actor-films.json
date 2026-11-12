@@ -1,0 +1,208 @@
+{
+  "id": "classes-actor-films",
+  "topic": "classes",
+  "level": "hard",
+  "title": "שחקנים וסרטים",
+  "question": {
+    "intro": "נתונה מחלקה שחקן, Actor, שיש לה שלוש תכונות: מספר תעודת זהות id מטיפוס מחרוזת, מין השחקן gender מטיפוס מחרוזת (\"F\" מייצג נקבה, \"M\" מייצג זכר), ומספר הסרטים שהשחקן השתתף בהם numFilms מטיפוס שלם.\nלפניך ממשק המחלקה Actor:\nפעולה בונה, שבונה שחקן שמספר תעודת הזהות שלו id, מינו gender, ומספר הסרטים שהשתתף בהם numFilms:\npublic Actor(String id, String gender, int numFilms)\nפעולה שמוסיפה 1 למספר הסרטים שהשחקן השתתף בהם:\npublic void addFilm()\nפעולה שמחזירה 1 אם מספר הסרטים שהשחקן הנוכחי השתתף בהם גדול ממספר הסרטים שהשחקן other השתתף בהם, 2 אם הוא קטן ממנו, ו-3 אם הם שווים:\npublic int compare(Actor other)\nהנח שלכל תכונה הוגדרו פעולות get ו-set.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "ממש את הפעולה הבונה של המחלקה Actor:\npublic Actor(String id, String gender, int numFilms)"
+      },
+      {
+        "label": "ב",
+        "text": "ממש את הפעולה compare."
+      },
+      {
+        "label": "ג",
+        "text": "בפעולה הראשית במחלקה Program הוגדר מערך חד־ממדי actArr בגודל 37 מטיפוס Actor.\nכתוב פעולה במחלקה Program ששמה printMoreFilms, שמקבלת מערך חד־ממדי מטיפוס Actor ומספר num שלם וגדול מ-0. הפעולה תדפיס את מספר השחקנים במערך שהשתתפו ביותר מ-num סרטים (רק את המספר)."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "שחקנים וסרטים",
+    "topic": "classes",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Actor",
+        "code": "public class Actor {\n    private String id;\n    private String gender;\n    private int numFilms;\n\n    public void addFilm() {\n        numFilms++;\n    }\n\n    public String getId() { return id; }\n    public void setId(String id) { this.id = id; }\n    public String getGender() { return gender; }\n    public void setGender(String gender) { this.gender = gender; }\n    public int getNumFilms() { return numFilms; }\n    public void setNumFilms(int numFilms) { this.numFilms = numFilms; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "constructor",
+        "className": "Actor",
+        "isStatic": false,
+        "methodName": "Actor",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "id"
+          },
+          {
+            "type": "String",
+            "name": "gender"
+          },
+          {
+            "type": "int",
+            "name": "numFilms"
+          }
+        ],
+        "instructions": "ממש את הפעולה הבונה של המחלקה Actor:\npublic Actor(String id, String gender, int numFilms)",
+        "solution": "public Actor(String id, String gender, int numFilms) {\n    this.id = id;\n    this.gender = gender;\n    this.numFilms = numFilms;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Actor",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "compare",
+        "parameters": [
+          {
+            "type": "Actor",
+            "name": "other"
+          }
+        ],
+        "instructions": "ממש את הפעולה compare.",
+        "solution": "public int compare(Actor other) {\n    if (numFilms > other.getNumFilms()) {\n        return 1;\n    }\n    if (numFilms < other.getNumFilms()) {\n        return 2;\n    }\n    return 3;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "printMoreFilms",
+        "parameters": [
+          {
+            "type": "Actor[]",
+            "name": "actArr"
+          },
+          {
+            "type": "int",
+            "name": "num"
+          }
+        ],
+        "instructions": "בפעולה הראשית במחלקה Program הוגדר מערך חד־ממדי actArr בגודל 37 מטיפוס Actor.\nכתוב פעולה במחלקה Program ששמה printMoreFilms, שמקבלת מערך חד־ממדי מטיפוס Actor ומספר num שלם וגדול מ-0. הפעולה תדפיס את מספר השחקנים במערך שהשתתפו ביותר מ-num סרטים (רק את המספר).",
+        "solution": "public static void printMoreFilms(Actor[] actArr, int num) {\n    int count = 0;\n    for (int i = 0; i < actArr.length; i++) {\n        if (actArr[i].getNumFilms() > num) {\n            count++;\n        }\n    }\n    System.out.println(count);\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Actor a = new Actor(\"123456789\", \"F\", 5);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(a.getId() + \" \" + a.getGender() + \" \" + a.getNumFilms(), \"123456789 F 5\"));\nActor b = new Actor(\"987654321\", \"M\", 3);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(b.getId() + \" \" + b.getGender() + \" \" + b.getNumFilms(), \"987654321 M 3\"));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(a.compare(b), 1));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(b.compare(a), 2));\nb.addFilm();\nb.addFilm();\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(a.compare(b), 3));\nActor[] actArr = new Actor[37];\nfor (int i = 0; i < actArr.length; i++) {\n    actArr[i] = new Actor(\"\" + (100 + i), i % 2 == 0 ? \"F\" : \"M\", i % 10);\n}\nSystem.out.print(\"סעיף ג, בדיקה 1 (צריך להדפיס 13): \");\nprintMoreFilms(actArr, 5);\nSystem.out.print(\"סעיף ג, בדיקה 2 (צריך להדפיס 3): \");\nprintMoreFilms(actArr, 8);\nSystem.out.print(\"סעיף ג, בדיקה 3 (צריך להדפיס 0): \");\nprintMoreFilms(actArr, 9);",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ג, בדיקה 1 (צריך להדפיס 13): 13\nסעיף ג, בדיקה 2 (צריך להדפיס 3): 3\nסעיף ג, בדיקה 3 (צריך להדפיס 0): 0"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה מחלקה שחקן, Actor, שיש לה שלוש תכונות: מספר תעודת זהות id מטיפוס מחרוזת, מין השחקן gender מטיפוס מחרוזת (\"F\" מייצג נקבה, \"M\" מייצג זכר), ומספר הסרטים שהשחקן השתתף בהם numFilms מטיפוס שלם.\nלפניך ממשק המחלקה Actor:\nפעולה בונה, שבונה שחקן שמספר תעודת הזהות שלו id, מינו gender, ומספר הסרטים שהשתתף בהם numFilms:\npublic Actor(string id, string gender, int numFilms)\nפעולה שמוסיפה 1 למספר הסרטים שהשחקן השתתף בהם:\npublic void AddFilm()\nפעולה שמחזירה 1 אם מספר הסרטים שהשחקן הנוכחי השתתף בהם גדול ממספר הסרטים שהשחקן other השתתף בהם, 2 אם הוא קטן ממנו, ו-3 אם הם שווים:\npublic int Compare(Actor other)\nהנח שלכל תכונה הוגדרו פעולות get ו-set.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "ממש את הפעולה הבונה של המחלקה Actor:\npublic Actor(string id, string gender, int numFilms)"
+        },
+        {
+          "label": "ב",
+          "text": "ממש את הפעולה Compare."
+        },
+        {
+          "label": "ג",
+          "text": "בפעולה הראשית במחלקה Program הוגדר מערך חד־ממדי actArr בגודל 37 מטיפוס Actor.\nכתוב פעולה במחלקה Program ששמה PrintMoreFilms, שמקבלת מערך חד־ממדי מטיפוס Actor ומספר num שלם וגדול מ-0. הפעולה תדפיס את מספר השחקנים במערך שהשתתפו ביותר מ-num סרטים (רק את המספר)."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "שחקנים וסרטים",
+      "topic": "classes",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Actor",
+          "code": "public class Actor\n{\n    private string id;\n    private string gender;\n    private int numFilms;\n\n    public void AddFilm()\n    {\n        numFilms++;\n    }\n\n    public string GetId() { return id; }\n    public void SetId(string id) { this.id = id; }\n    public string GetGender() { return gender; }\n    public void SetGender(string gender) { this.gender = gender; }\n    public int GetNumFilms() { return numFilms; }\n    public void SetNumFilms(int numFilms) { this.numFilms = numFilms; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "constructor",
+          "className": "Actor",
+          "isStatic": false,
+          "methodName": "Actor",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "id"
+            },
+            {
+              "type": "string",
+              "name": "gender"
+            },
+            {
+              "type": "int",
+              "name": "numFilms"
+            }
+          ],
+          "instructions": "ממש את הפעולה הבונה של המחלקה Actor:\npublic Actor(string id, string gender, int numFilms)",
+          "solution": "public Actor(string id, string gender, int numFilms)\n{\n    this.id = id;\n    this.gender = gender;\n    this.numFilms = numFilms;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Actor",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "Compare",
+          "parameters": [
+            {
+              "type": "Actor",
+              "name": "other"
+            }
+          ],
+          "instructions": "ממש את הפעולה Compare.",
+          "solution": "public int Compare(Actor other)\n{\n    if (numFilms > other.GetNumFilms())\n    {\n        return 1;\n    }\n    if (numFilms < other.GetNumFilms())\n    {\n        return 2;\n    }\n    return 3;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "void",
+          "methodName": "PrintMoreFilms",
+          "parameters": [
+            {
+              "type": "Actor[]",
+              "name": "actArr"
+            },
+            {
+              "type": "int",
+              "name": "num"
+            }
+          ],
+          "instructions": "בפעולה הראשית במחלקה Program הוגדר מערך חד־ממדי actArr בגודל 37 מטיפוס Actor.\nכתוב פעולה במחלקה Program ששמה PrintMoreFilms, שמקבלת מערך חד־ממדי מטיפוס Actor ומספר num שלם וגדול מ-0. הפעולה תדפיס את מספר השחקנים במערך שהשתתפו ביותר מ-num סרטים (רק את המספר).",
+          "solution": "public static void PrintMoreFilms(Actor[] actArr, int num)\n{\n    int count = 0;\n    for (int i = 0; i < actArr.Length; i++)\n    {\n        if (actArr[i].GetNumFilms() > num)\n        {\n            count++;\n        }\n    }\n    Console.WriteLine(count);\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Actor a = new Actor(\"123456789\", \"F\", 5);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(a.GetId() + \" \" + a.GetGender() + \" \" + a.GetNumFilms(), \"123456789 F 5\"));\nActor b = new Actor(\"987654321\", \"M\", 3);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(b.GetId() + \" \" + b.GetGender() + \" \" + b.GetNumFilms(), \"987654321 M 3\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(a.Compare(b), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(b.Compare(a), 2));\nb.AddFilm();\nb.AddFilm();\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(a.Compare(b), 3));\nActor[] actArr = new Actor[37];\nfor (int i = 0; i < actArr.Length; i++) {\n    actArr[i] = new Actor(\"\" + (100 + i), i % 2 == 0 ? \"F\" : \"M\", i % 10);\n}\nConsole.Write(\"סעיף ג, בדיקה 1 (צריך להדפיס 13): \");\nPrintMoreFilms(actArr, 5);\nConsole.Write(\"סעיף ג, בדיקה 2 (צריך להדפיס 3): \");\nPrintMoreFilms(actArr, 8);\nConsole.Write(\"סעיף ג, בדיקה 3 (צריך להדפיס 0): \");\nPrintMoreFilms(actArr, 9);",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ג, בדיקה 1 (צריך להדפיס 13): 13\nסעיף ג, בדיקה 2 (צריך להדפיס 3): 3\nסעיף ג, בדיקה 3 (צריך להדפיס 0): 0"
+    }
+  }
+}

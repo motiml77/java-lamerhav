@@ -38,11 +38,9 @@ const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
     assert.equal(await visible('#guide'), false);
   });
 
-  await step('"חדש": אותו מצב נקי, וכרטיס "איך בונים" לא חוזר לבד (רק כרטיס הפתיחה של קנבס ריק)', async () => {
+  await step('"חדש": אותו מצב נקי, ושום הדרכה לא חוזרת לבד ("איך מתחילים?" רק בפתיחה הראשונה)', async () => {
     await p.click('[data-cmd=new]');
     assert.equal(await p.evaluate(() => App.machine.states.length), 0);
-    assert.equal(await p.getAttribute('#guide', 'data-mode'), 'start');
-    await p.click('#guide [data-g=free]');
     assert.equal(await visible('#guide'), false);
   });
 

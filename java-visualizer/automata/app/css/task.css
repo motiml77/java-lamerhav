@@ -75,8 +75,18 @@
 .ls-sum-desc { margin: 4px 0 0; font-size: var(--fs-13); color: var(--ink-2); }
 
 /* ================= כרטיס הפתיחה (קנבס ריק, בלי משימה) ================= */
-.guide[data-mode="start"] { top: 50%; left: calc((100vw / var(--ui-zoom) - var(--side-w) - var(--rail-w)) / 2 + var(--side-w)); transform: translate(-50%, -50%); width: 560px; animation-name: fade; pointer-events: none; }
-.guide[data-mode="start"] button { pointer-events: auto; }
+/* חלון עצמאי מעל כל האפליקציה (סבב 15): במרכז חלון התוכנה, לא בתוך הקנבס; שורת כותרת נגררת כמו בחלון "השאלה" */
+.guide[data-mode="start"] {
+  z-index: 88; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 600px; padding: 0; overflow: hidden auto; animation-name: fade;
+  border: 1px solid var(--line-strong); box-shadow: 0 16px 40px rgba(16, 24, 40, 0.22), 0 2px 8px rgba(16, 24, 40, 0.08);
+}
+[data-theme=dark] .guide[data-mode="start"] { box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35); }
+.guide.dragging { opacity: 0.94; user-select: none; }
+.gw-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px 0 6px; background: var(--raised); border-bottom: 1px solid var(--line); cursor: grab; user-select: none; }
+.guide.dragging .gw-head { cursor: grabbing; }
+.gw-head b { flex: 1; font-size: var(--fs-14); font-weight: 600; }
+.gw-ic { display: inline-flex; color: var(--accent); }
+.gw-body { padding: 16px 18px 14px; }
 .gs-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .gs-card { display: grid; justify-items: start; align-content: start; gap: 6px; padding: 14px 12px; min-height: 132px; text-align: start; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--panel); transition: border-color var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast); }
 .gs-card:hover { border-color: var(--accent); box-shadow: var(--shadow-float); }
@@ -84,8 +94,9 @@
 .gs-card b { font-size: var(--fs-14); font-weight: 700; color: var(--ink); }
 .gs-card span:not(.gs-ic) { font-size: var(--fs-12); color: var(--muted); line-height: 1.45; }
 .gs-ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
+.guide[data-mode="start"] .guide-foot { margin-top: 14px; }
 .guide[data-mode="start"] .guide-foot .link { display: inline-flex; align-items: center; gap: 6px; }
-@media (max-width: 1100px) { .guide[data-mode="start"] { width: 440px; } .gs-cards { grid-template-columns: 1fr; } .gs-card { min-height: 0; } }
+@media (max-width: 1100px) { .guide[data-mode="start"] { width: 460px; } .gs-cards { grid-template-columns: 1fr; } .gs-card { min-height: 0; } }
 
 /* ================= חלון "פתרון לדוגמה" ================= */
 .view-banner { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--ok-soft); color: var(--ok); border-bottom: 1px solid var(--line); font-size: var(--fs-13); }

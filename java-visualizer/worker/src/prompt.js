@@ -134,7 +134,10 @@ tasks[].solution — the COMPLETE ${L.name} code of that method (or constructor)
   • only basic tools: if / else, while and for loops, local variables, the library operations listed below, and helper structures of the same kind
     (for example a temporary Stack or Queue, also to restore the original after going over it). Recursion only when the sub-question asks for it,
     or when it is the natural way (binary trees). ${L.noAdvanced}
-  • CORRECT for every input — also an empty structure, a single element, duplicates, negative numbers; never crashes on valid input.
+  • CORRECT for every VALID input — every input that fits what the exercise states (e.g. "a non-empty stack", "values between 1 and 7",
+    "assume there is room", "no need to check the data"); never crashes on such input. You MAY ASSUME THE INPUT IS VALID: do not add
+    checks for invalid input, and do not handle far-fetched edge cases that the exercise does not ask about — keep the solution simple, like
+    a matriculation (בגרות) answer. Ordinary cases that the exercise allows (one element, duplicates, no match, etc.) must still work.
   • when the method goes over a Stack or Queue it received, the structure must be exactly as it was at the end (same values, same order),
     unless the sub-question asks to change it (remove / insert / sort ...).
   • it may call the givenCode helpers and the methods of other tasks, as the exercise allows.
@@ -179,6 +182,9 @@ mainCode — ONLY the statements of the body of "${L.mainHeader}" (no header, no
 running it must show whether each method the student writes works correctly. It must:
   • build example data that fits the exercise — use the example values from the exercise when given, otherwise 5–8 sensible values
     chosen so that a wrong solution gives a different result (not all zeros, not trivial, include the interesting cases of the question);
+  • start with this Hebrew comment line (exactly): // אפשר להניח שהקלט תקין: הבדיקות כאן רק על קלט תקין, בלי מקרי קצה רחוקים
+  • test ONLY valid input, as the exercise defines it (you may assume the input is valid): no invalid data, no data that the exercise rules out
+    (an empty structure when it says non-empty, a value out of the stated range...), and no far-fetched edge cases — 2–4 meaningful checks per task;
   • print the data before the calls;
   • call EVERY task with this data (for instance methods create the objects first; for a constructor task create an object with it) and print each result
     with a Hebrew label, e.g. ${L.print} — for void methods print the structure after the call;
@@ -239,7 +245,10 @@ instead of the empty bodies, and the result was NOT what expectedOutput says (or
 Below: your previous JSON, the ${L.name} file(s) WITH your solutions, and what happened (compiler errors, or the actual output next to expectedOutput).
 Find what is wrong — a mistake in a solution, or a mistake in expectedOutput. The instructions of each task decide what is correct.
 Return the corrected JSON (same schema):
-  • fix every wrong solution so it is correct for every input — still simple, intuitive and at high-school level, as described before;
+  • fix every wrong solution so it is correct for every VALID input (the input may be assumed valid, as the exercise states — no checks for invalid
+    input or far-fetched edge cases) — still simple, intuitive and at high-school level, as described before;
+  • if mainCode tests input that the exercise rules out (invalid data, an edge case the exercise does not ask about), change that test to valid
+    input and update expectedOutput, instead of complicating the solution;
   • fix expectedOutput if it is the wrong one, so it is exactly what mainCode prints with CORRECT solutions;
   • keep tasks (names, headers), classes, givenCode and mainCode exactly as they are, unless one of them is clearly wrong
     (never delete a task, or a class that the exercise describes or that a task belongs to; a solution may use only the fields and methods

@@ -1,0 +1,226 @@
+{
+  "id": "classes-tv-week",
+  "topic": "classes",
+  "level": "hard",
+  "title": "תכניות טלוויזיה בשבוע",
+  "question": {
+    "intro": "נתונה מחלקה תכנית טלוויזיה, TvProgram, שיש לה שלוש תכונות:\nקוד התכנית code, מטיפוס שלם\nהיום בשבוע שבו משודרת התכנית day, מטיפוס שלם, המקבל ערכים מ-1 עד 7 (כולל)\nהאם זו תכנית ספורט isSport, מטיפוס בוליאני, שערכו true אם זו תכנית ספורט, אחרת false\nהנח שלכל תכונה הוגדרו פעולות get ו-set.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה בונה במחלקה TvProgram שתקבל ערכים לכל תכונה."
+      },
+      {
+        "label": "ב",
+        "text": "נתונה מחלקה תכניות השבוע, TvWeek, שיש לה שתי תכונות:\nמערך חד־ממדי arrProg בגודל 100 מטיפוס TvProgram\nמספר התכניות הנוכחי בשבוע current, מטיפוס שלם, שערכו קטן מגודל המערך\nהנח שלכל תכונה הוגדרו פעולות get ו-set.\nכתוב את כותרת המחלקה TvWeek ואת התכונות שלה. בקובץ TvWeek הן כבר כתובות כדי שהקוד יתקמפל: השווה אותן לתשובה שלך.\nכתוב גם פעולה בונה במחלקה TvWeek שיוצרת שבוע בלי תכניות: מערך חדש בגודל 100, ו-current שערכו 0"
+      },
+      {
+        "label": "ג",
+        "text": "כתוב במחלקה TvWeek פעולה ששמה addProgram, שתקבל תכנית TvProgram, תוסיף אותה לתכניות השבוע ותעדכן את מספר התכניות הנוכחי בשבוע.\nהנח שיש מקום להוסיף את התכנית."
+      },
+      {
+        "label": "ד",
+        "text": "כתוב במחלקה TvWeek פעולה ששמה countSport, שתחזיר את מספר תכניות הספורט שיש בשבוע בטלוויזיה."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "תכניות טלוויזיה בשבוע",
+    "topic": "classes",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "TvProgram",
+        "code": "public class TvProgram {\n    private int code;\n    private int day;\n    private boolean isSport;\n\n    public int getCode() { return code; }\n    public void setCode(int code) { this.code = code; }\n    public int getDay() { return day; }\n    public void setDay(int day) { this.day = day; }\n    public boolean getIsSport() { return isSport; }\n    public void setIsSport(boolean isSport) { this.isSport = isSport; }\n}"
+      },
+      {
+        "name": "TvWeek",
+        "code": "public class TvWeek {\n    private TvProgram[] arrProg;\n    private int current;\n\n    public TvProgram[] getArrProg() { return arrProg; }\n    public void setArrProg(TvProgram[] arrProg) { this.arrProg = arrProg; }\n    public int getCurrent() { return current; }\n    public void setCurrent(int current) { this.current = current; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "constructor",
+        "className": "TvProgram",
+        "isStatic": false,
+        "methodName": "TvProgram",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "code"
+          },
+          {
+            "type": "int",
+            "name": "day"
+          },
+          {
+            "type": "boolean",
+            "name": "isSport"
+          }
+        ],
+        "instructions": "כתוב פעולה בונה במחלקה TvProgram שתקבל ערכים לכל תכונה.",
+        "solution": "public TvProgram(int code, int day, boolean isSport) {\n    this.code = code;\n    this.day = day;\n    this.isSport = isSport;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "constructor",
+        "className": "TvWeek",
+        "isStatic": false,
+        "methodName": "TvWeek",
+        "parameters": [],
+        "instructions": "נתונה מחלקה תכניות השבוע, TvWeek, שיש לה שתי תכונות:\nמערך חד־ממדי arrProg בגודל 100 מטיפוס TvProgram\nמספר התכניות הנוכחי בשבוע current, מטיפוס שלם, שערכו קטן מגודל המערך\nהנח שלכל תכונה הוגדרו פעולות get ו-set.\nכתוב את כותרת המחלקה TvWeek ואת התכונות שלה. בקובץ TvWeek הן כבר כתובות כדי שהקוד יתקמפל: השווה אותן לתשובה שלך.\nכתוב גם פעולה בונה במחלקה TvWeek שיוצרת שבוע בלי תכניות: מערך חדש בגודל 100, ו-current שערכו 0",
+        "solution": "public TvWeek() {\n    arrProg = new TvProgram[100];\n    current = 0;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "TvWeek",
+        "isStatic": false,
+        "returnType": "void",
+        "methodName": "addProgram",
+        "parameters": [
+          {
+            "type": "TvProgram",
+            "name": "p"
+          }
+        ],
+        "instructions": "כתוב במחלקה TvWeek פעולה ששמה addProgram, שתקבל תכנית TvProgram, תוסיף אותה לתכניות השבוע ותעדכן את מספר התכניות הנוכחי בשבוע.\nהנח שיש מקום להוסיף את התכנית.",
+        "solution": "public void addProgram(TvProgram p) {\n    arrProg[current] = p;\n    current++;\n}"
+      },
+      {
+        "label": "ד",
+        "kind": "method",
+        "className": "TvWeek",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "countSport",
+        "parameters": [],
+        "instructions": "כתוב במחלקה TvWeek פעולה ששמה countSport, שתחזיר את מספר תכניות הספורט שיש בשבוע בטלוויזיה.",
+        "solution": "public int countSport() {\n    int count = 0;\n    for (int i = 0; i < current; i++) {\n        if (arrProg[i].getIsSport()) {\n            count++;\n        }\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "TvProgram p1 = new TvProgram(101, 1, true);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(p1.getCode() + \" \" + p1.getDay() + \" \" + p1.getIsSport(), \"101 1 true\"));\nTvProgram p2 = new TvProgram(102, 7, false);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(p2.getCode() + \" \" + p2.getDay() + \" \" + p2.getIsSport(), \"102 7 false\"));\nTvWeek w = new TvWeek();\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(w.getCurrent(), 0));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(w.getArrProg() == null ? \"null\" : \"\" + w.getArrProg().length, 100));\nw.addProgram(p1);\nw.addProgram(p2);\nw.addProgram(new TvProgram(103, 5, true));\nSystem.out.println(\"סעיף ג, בדיקה 1: \" + check(w.getCurrent(), 3));\nSystem.out.println(\"סעיף ג, בדיקה 2: \" + check(w.getArrProg()[1] == null ? \"null\" : \"\" + w.getArrProg()[1].getCode(), 102));\nSystem.out.println(\"סעיף ד, בדיקה 1: \" + check(w.countSport(), 2));\nSystem.out.println(\"סעיף ד, בדיקה 2: \" + check(new TvWeek().countSport(), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ד, בדיקה 1: נכון\nסעיף ד, בדיקה 2: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה מחלקה תכנית טלוויזיה, TvProgram, שיש לה שלוש תכונות:\nקוד התכנית code, מטיפוס שלם\nהיום בשבוע שבו משודרת התכנית day, מטיפוס שלם, המקבל ערכים מ-1 עד 7 (כולל)\nהאם זו תכנית ספורט isSport, מטיפוס בוליאני, שערכו true אם זו תכנית ספורט, אחרת false\nהנח שלכל תכונה הוגדרו פעולות get ו-set.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה בונה במחלקה TvProgram שתקבל ערכים לכל תכונה."
+        },
+        {
+          "label": "ב",
+          "text": "נתונה מחלקה תכניות השבוע, TvWeek, שיש לה שתי תכונות:\nמערך חד־ממדי arrProg בגודל 100 מטיפוס TvProgram\nמספר התכניות הנוכחי בשבוע current, מטיפוס שלם, שערכו קטן מגודל המערך\nהנח שלכל תכונה הוגדרו פעולות get ו-set.\nכתוב את כותרת המחלקה TvWeek ואת התכונות שלה. בקובץ TvWeek הן כבר כתובות כדי שהקוד יתקמפל: השווה אותן לתשובה שלך.\nכתוב גם פעולה בונה במחלקה TvWeek שיוצרת שבוע בלי תכניות: מערך חדש בגודל 100, ו-current שערכו 0"
+        },
+        {
+          "label": "ג",
+          "text": "כתוב במחלקה TvWeek פעולה ששמה AddProgram, שתקבל תכנית TvProgram, תוסיף אותה לתכניות השבוע ותעדכן את מספר התכניות הנוכחי בשבוע.\nהנח שיש מקום להוסיף את התכנית."
+        },
+        {
+          "label": "ד",
+          "text": "כתוב במחלקה TvWeek פעולה ששמה CountSport, שתחזיר את מספר תכניות הספורט שיש בשבוע בטלוויזיה."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "תכניות טלוויזיה בשבוע",
+      "topic": "classes",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "TvProgram",
+          "code": "public class TvProgram\n{\n    private int code;\n    private int day;\n    private bool isSport;\n\n    public int GetCode() { return code; }\n    public void SetCode(int code) { this.code = code; }\n    public int GetDay() { return day; }\n    public void SetDay(int day) { this.day = day; }\n    public bool GetIsSport() { return isSport; }\n    public void SetIsSport(bool isSport) { this.isSport = isSport; }\n}"
+        },
+        {
+          "name": "TvWeek",
+          "code": "public class TvWeek\n{\n    private TvProgram[] arrProg;\n    private int current;\n\n    public TvProgram[] GetArrProg() { return arrProg; }\n    public void SetArrProg(TvProgram[] arrProg) { this.arrProg = arrProg; }\n    public int GetCurrent() { return current; }\n    public void SetCurrent(int current) { this.current = current; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "constructor",
+          "className": "TvProgram",
+          "isStatic": false,
+          "methodName": "TvProgram",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "code"
+            },
+            {
+              "type": "int",
+              "name": "day"
+            },
+            {
+              "type": "bool",
+              "name": "isSport"
+            }
+          ],
+          "instructions": "כתוב פעולה בונה במחלקה TvProgram שתקבל ערכים לכל תכונה.",
+          "solution": "public TvProgram(int code, int day, bool isSport)\n{\n    this.code = code;\n    this.day = day;\n    this.isSport = isSport;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "constructor",
+          "className": "TvWeek",
+          "isStatic": false,
+          "methodName": "TvWeek",
+          "parameters": [],
+          "instructions": "נתונה מחלקה תכניות השבוע, TvWeek, שיש לה שתי תכונות:\nמערך חד־ממדי arrProg בגודל 100 מטיפוס TvProgram\nמספר התכניות הנוכחי בשבוע current, מטיפוס שלם, שערכו קטן מגודל המערך\nהנח שלכל תכונה הוגדרו פעולות get ו-set.\nכתוב את כותרת המחלקה TvWeek ואת התכונות שלה. בקובץ TvWeek הן כבר כתובות כדי שהקוד יתקמפל: השווה אותן לתשובה שלך.\nכתוב גם פעולה בונה במחלקה TvWeek שיוצרת שבוע בלי תכניות: מערך חדש בגודל 100, ו-current שערכו 0",
+          "solution": "public TvWeek()\n{\n    arrProg = new TvProgram[100];\n    current = 0;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "TvWeek",
+          "isStatic": false,
+          "returnType": "void",
+          "methodName": "AddProgram",
+          "parameters": [
+            {
+              "type": "TvProgram",
+              "name": "p"
+            }
+          ],
+          "instructions": "כתוב במחלקה TvWeek פעולה ששמה AddProgram, שתקבל תכנית TvProgram, תוסיף אותה לתכניות השבוע ותעדכן את מספר התכניות הנוכחי בשבוע.\nהנח שיש מקום להוסיף את התכנית.",
+          "solution": "public void AddProgram(TvProgram p)\n{\n    arrProg[current] = p;\n    current++;\n}"
+        },
+        {
+          "label": "ד",
+          "kind": "method",
+          "className": "TvWeek",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "CountSport",
+          "parameters": [],
+          "instructions": "כתוב במחלקה TvWeek פעולה ששמה CountSport, שתחזיר את מספר תכניות הספורט שיש בשבוע בטלוויזיה.",
+          "solution": "public int CountSport()\n{\n    int count = 0;\n    for (int i = 0; i < current; i++)\n    {\n        if (arrProg[i].GetIsSport())\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "TvProgram p1 = new TvProgram(101, 1, true);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(p1.GetCode() + \" \" + p1.GetDay() + \" \" + p1.GetIsSport(), \"101 1 True\"));\nTvProgram p2 = new TvProgram(102, 7, false);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(p2.GetCode() + \" \" + p2.GetDay() + \" \" + p2.GetIsSport(), \"102 7 False\"));\nTvWeek w = new TvWeek();\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(w.GetCurrent(), 0));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(w.GetArrProg() == null ? \"null\" : \"\" + w.GetArrProg().Length, 100));\nw.AddProgram(p1);\nw.AddProgram(p2);\nw.AddProgram(new TvProgram(103, 5, true));\nConsole.WriteLine(\"סעיף ג, בדיקה 1: \" + Check(w.GetCurrent(), 3));\nConsole.WriteLine(\"סעיף ג, בדיקה 2: \" + Check(w.GetArrProg()[1] == null ? \"null\" : \"\" + w.GetArrProg()[1].GetCode(), 102));\nConsole.WriteLine(\"סעיף ד, בדיקה 1: \" + Check(w.CountSport(), 2));\nConsole.WriteLine(\"סעיף ד, בדיקה 2: \" + Check(new TvWeek().CountSport(), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ד, בדיקה 1: נכון\nסעיף ד, בדיקה 2: נכון"
+    }
+  }
+}
