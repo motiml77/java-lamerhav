@@ -358,11 +358,11 @@ final class Viewer extends JFrame {
         JScrollPane consoleScroll = scroll(console);
         Card outCard = new Card("פלט", label("\u200ESystem.out\u200E עד הצעד הזה", Theme.small, Theme.MUTED), null, consoleScroll);
 
-        // --- סידור (על המסך): משמאל — הקוד, מימין — התצוגה הוויזואלית; למטה — מעקב משתנים ופלט. כל הקווים ניתנים לגרירה.
-        JComponent under = Recorder.lineMode ? split(JSplitPane.HORIZONTAL_SPLIT, outCard, varsCard, 0.5, "viewer.split.bottom") : outCard;
-        // הקוד לכל הגובה (שמאל); מימין — התצוגה הוויזואלית, ומתחתיה הפלט ומעקב המשתנים
-        JSplitPane right = split(JSplitPane.VERTICAL_SPLIT, structCard, under, 0.7, "viewer.split.right");
-        JSplitPane top = split(JSplitPane.HORIZONTAL_SPLIT, codeCard, right, 0.4, "viewer.split.main");
+        // --- סידור (על המסך): מימין — התצוגה הוויזואלית, הכי גדולה ולכל הגובה; משמאל למעלה — הקוד, ומתחתיו מעקב המשתנים והפלט.
+        // כל הקווים ניתנים לגרירה. הקווים עצמם תמיד משמאל לימין (ראו למטה) — כך שהסדר כאן הוא הסדר על המסך.
+        JComponent under = Recorder.lineMode ? split(JSplitPane.HORIZONTAL_SPLIT, varsCard, outCard, 0.5, "viewer.pane.bottom") : outCard;
+        JSplitPane left = split(JSplitPane.VERTICAL_SPLIT, codeCard, under, 0.64, "viewer.pane.left");
+        JSplitPane top = split(JSplitPane.HORIZONTAL_SPLIT, left, structCard, 0.42, "viewer.pane.main");
         // הסידור הרגיל, או חלק אחד מוגדל לכל החלון (הכפתור בכותרת שלו / לחיצה כפולה על הכותרת; Esc חוזר)
         stage.setOpaque(false);
         maxHolder.setOpaque(false);
@@ -386,6 +386,8 @@ final class Viewer extends JFrame {
         // הקוד, הפלט והמבנים — משמאל לימין (מספרי השורות משמאל לקוד)
         for (JComponent c : new JComponent[] { codeScroll, consoleScroll, structScroll, inputBar.field })
             c.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+        // קווי הגרירה עצמם — משמאל לימין (רק הם, לא התוכן): מימין לשמאל Swing הופך את הצדדים, והגרירה לא עובדת כמו שצריך
+        for (JSplitPane sp : splits) sp.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
         keys();
         player = new Timer(600, new ActionListener() {
