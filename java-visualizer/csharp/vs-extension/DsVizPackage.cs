@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.IO;
@@ -42,15 +42,23 @@ namespace DsViz.VsExtension
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             var mcs = await GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
             if (mcs == null) return;
-            Add(mcs, 0x0101, () => Tool("new"));
-            Add(mcs, 0x0102, () => Tool("insert"));
-            AddBank(mcs);
-            Add(mcs, 0x0104, () => Tool("submit"));
-            Add(mcs, 0x0106, VisualRun);
-            Add(mcs, 0x0107, () => Tool("help"));
-            AddTeacher(mcs);
-            ShowToolbarOnce();
-            FollowActiveDocument();
+            // כל שלב בנפרד: חריגה באחד מהם (גרסת Visual Studio ישנה, CommandBars חסר, תוסף אחר...) לא מפילה את כל החבילה —
+            // אחרת Visual Studio מראה "The 'DsVizPackage' package did not load correctly" ואף כפתור לא עובד
+            Safe("new", () => Add(mcs, 0x0101, () => Tool("new")));
+            Safe("insert", () => Add(mcs, 0x0102, () => Tool("insert")));
+            Safe("bank", () => AddBank(mcs));
+            Safe("submit", () => Add(mcs, 0x0104, () => Tool("submit")));
+            Safe("visual run", () => Add(mcs, 0x0106, VisualRun));
+            Safe("help", () => Add(mcs, 0x0107, () => Tool("help")));
+            Safe("teacher", () => AddTeacher(mcs));
+            Safe("toolbar", ShowToolbarOnce);
+            Safe("follower", FollowActiveDocument);
+        }
+
+        static void Safe(string what, Action step)
+        {
+            try { step(); }
+            catch (Exception ex) { SolutionHints.Log("init " + what + " failed: " + ex, true); }
         }
 
         StartupFollower _follower;
