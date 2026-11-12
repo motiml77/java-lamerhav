@@ -144,23 +144,27 @@ final class BankZoom {
         return b;
     }
 
-    /** ציור (מחסנית, עץ, מערך...) בגודל הנוכחי — כיחידה אחת, בלי לשנות את הציור עצמו */
-    static JComponent scaled(final JComponent d) {
-        if (Math.abs(Theme.zoom - 1) < 1e-6) return d;
+    /**
+     * ציור (מחסנית, עץ, מערך...) בגודל הנוכחי — כיחידה אחת, בלי לשנות את הציור עצמו. ציור שרחב מ-maxWidth (עץ גדול, שרשרת ארוכה,
+     * חלון צר) — קטן עוד, באותו יחס, עד שהוא נכנס: רואים את כולו, בלי גלילה הצידה. ציור שנכנס — בדיוק כמו קודם
+     */
+    static JComponent scaled(final JComponent d, int maxWidth) {
         final Dimension p = d.getPreferredSize();
+        final double z = p.width * Theme.zoom > maxWidth ? maxWidth / (double) Math.max(1, p.width) : Theme.zoom;
+        if (Math.abs(z - 1) < 1e-6) return d;
         JComponent w = new JComponent() {
             @Override
             protected void paintComponent(Graphics g0) {
                 Graphics2D g = (Graphics2D) g0.create();
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                g.scale(Theme.zoom, Theme.zoom);
+                g.scale(z, z);
                 d.setSize(p);
                 d.paint(g);
                 g.dispose();
             }
         };
-        Dimension s = new Dimension((int) Math.ceil(p.width * Theme.zoom), (int) Math.ceil(p.height * Theme.zoom));
+        Dimension s = new Dimension(Math.min(maxWidth, (int) Math.ceil(p.width * z)), (int) Math.ceil(p.height * z));
         w.setPreferredSize(s);
         w.setMinimumSize(s);
         w.setMaximumSize(s);

@@ -6,12 +6,12 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.layout.RowData;
 import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Layout;
 
 /**
  * נוסח של שאלה מהמאגר — אותה תצוגה בחלון "מאגר תרגילים" ובחלון הצד "השאלה":
@@ -23,7 +23,7 @@ import org.eclipse.swt.widgets.Label;
 final class BankQuestionPanel {
     private BankQuestionPanel() {}
 
-    /** ציור רחב מזה — מוצג בגודל קריא עם גלילה הצידה (ולא מוקטן עד שאי אפשר לקרוא) */
+    /** ציור רחב מזה (עץ גדול, שרשרת ארוכה) — לבדיקות: "FIGURE-FIT" (מוצג כולו, ומוקטן לרוחב השורה רק אם היא צרה ממנו) */
     static final int WIDE_FIGURE = 380;
 
     /** מה אפשר לעשות מכל סעיף (רק בחלון הצד; בחלון המאגר — null) */
@@ -149,17 +149,15 @@ final class BankQuestionPanel {
                 done ? Look.OK : q.level.color, shown);
     }
 
-    /** שורה של ציורים קטנים (יורדת שורה כשאין מקום), ומתחת לכל ציור — הכיתוב שלו */
+    /**
+     * שורה של ציורים קטנים (יורדת שורה כשאין מקום), ומתחת לכל ציור — הכיתוב שלו. ציור שרחב מהשורה (עץ גדול, שרשרת ארוכה, חלון צר) —
+     * מוקטן לרוחב שלה (FigureRow), כך שרואים תמיד את כולו, בלי גלילה הצידה
+     */
     private static void figures(Composite parent, List<BankStore.Figure> figs, List<String> shown) {
         if (figs.isEmpty()) return;
         Display d = parent.getDisplay();
         Composite row = new Composite(parent, SWT.RIGHT_TO_LEFT);
-        RowLayout rl = new RowLayout(SWT.HORIZONTAL);
-        rl.wrap = true;
-        rl.marginLeft = rl.marginRight = 0;
-        rl.marginTop = 6;
-        rl.spacing = 18;
-        row.setLayout(rl);
+        row.setLayout(new FigureRow());
         GridData rg = wide();
         rg.widthHint = 120;
         row.setLayoutData(rg);
@@ -177,30 +175,16 @@ final class BankQuestionPanel {
             int fullH = probe.computeSize(20000, SWT.DEFAULT).y, smallH = Math.max(1, small.y);
             int naturalW = fullH > smallH + 1 ? (int) Math.ceil(small.x * (double) fullH / smallH) : small.x;
             probe.dispose();
-            NestedPreview p;
-            if (naturalW <= WIDE_FIGURE) {   // נכנס — בגודל המלא שלו
-                p = new NestedPreview(one);
-                p.setBackground(Look.color(d, Look.CARD));
-                p.set(f.type, f.inner, f.groups);
-                GridData pg = new GridData(SWT.CENTER, SWT.TOP, false, false);
-                pg.widthHint = naturalW;
-                pg.heightHint = p.computeSize(naturalW, SWT.DEFAULT).y;
-                p.setLayoutData(pg);
-            } else {   // ארוך (מערך / שרשרת / עץ גדולים) — בגודל קריא, עם גלילה הצידה
-                org.eclipse.swt.custom.ScrolledComposite sc = new org.eclipse.swt.custom.ScrolledComposite(one, SWT.H_SCROLL | SWT.LEFT_TO_RIGHT);
-                sc.setBackground(Look.color(d, Look.CARD));
-                p = new NestedPreview(sc);
-                p.setBackground(Look.color(d, Look.CARD));
-                p.set(f.type, f.inner, f.groups);
-                int h = p.computeSize(naturalW, SWT.DEFAULT).y;
-                p.setSize(naturalW, h);
-                sc.setContent(p);
-                GridData sg = new GridData(SWT.CENTER, SWT.TOP, false, false);
-                sg.widthHint = WIDE_FIGURE;
-                sg.heightHint = h + sc.getHorizontalBar().getSize().y + 4;
-                sc.setLayoutData(sg);
-                if (shown != null) shown.add("FIGURE-SCROLL " + naturalW);
-            }
+            // בגודל המלא שלו; אם השורה צרה ממנו — FigureRow מקטין אותו לרוחב השורה (NestedPreview מקטין את הציור לרוחב שניתן לו)
+            NestedPreview p = new NestedPreview(one);
+            p.setBackground(Look.color(d, Look.CARD));
+            p.set(f.type, f.inner, f.groups);
+            p.setData(FigureRow.NATURAL, naturalW);
+            GridData pg = new GridData(SWT.CENTER, SWT.TOP, false, false);
+            pg.widthHint = naturalW;
+            pg.heightHint = p.computeSize(naturalW, SWT.DEFAULT).y;
+            p.setLayoutData(pg);
+            if (shown != null && naturalW > WIDE_FIGURE) shown.add("FIGURE-FIT " + naturalW);
             if (!f.caption.isEmpty()) {
                 Label cap = new Label(one, SWT.CENTER | SWT.RIGHT_TO_LEFT);
                 cap.setText(caption(f.caption));
@@ -208,8 +192,70 @@ final class BankQuestionPanel {
                 cap.setForeground(Look.color(d, Look.MUTED));
                 cap.setLayoutData(new GridData(SWT.CENTER, SWT.TOP, true, false));
             }
-            one.setLayoutData(new RowData());
             if (shown != null) shown.add("FIGURE " + f.type + (f.inner.equals("cell") ? "" : "/" + f.inner) + " " + f.groups + (f.caption.isEmpty() ? "" : " \"" + f.caption + "\""));
+        }
+    }
+
+    /**
+     * הפריסה של שורת הציורים: כמו RowLayout שהייתה כאן (מימין לשמאל, רווח 18, יורדת שורה כשאין מקום — אותם מקומות בדיוק), ועוד דבר אחד:
+     * ציור שלבדו רחב מהשורה מוקטן לרוחב שלה, באותו יחס. GridLayout של הכרטיס שואל את הגובה לפי הרוחב האמיתי (כמו בטקסט שיורד שורה),
+     * אז כשהחלון משנה רוחב — הציורים יורדים שורה / חוזרים, ומוקטנים / חוזרים לגודל המלא.
+     */
+    static final class FigureRow extends Layout {
+        /** הרוחב הטבעי של הציור (על ה-NestedPreview) */
+        static final String NATURAL = "dsviz.naturalWidth";
+        static final int SPACING = 18, TOP = 6, BOTTOM = 3;
+
+        @Override
+        protected Point computeSize(Composite c, int wHint, int hHint, boolean flush) {
+            Point p = place(c, wHint == SWT.DEFAULT ? Integer.MAX_VALUE : wHint, false);
+            if (wHint != SWT.DEFAULT) p.x = wHint;
+            if (hHint != SWT.DEFAULT) p.y = hHint;
+            return p;
+        }
+
+        @Override
+        protected void layout(Composite c, boolean flush) {
+            place(c, c.getClientArea().width, true);
+        }
+
+        private static Point place(Composite c, int width, boolean move) {
+            int x = 0, y = TOP, rowH = 0, maxX = 0;
+            Control[] kids = c.getChildren();
+            for (int i = 0; i < kids.length; i++) {
+                Point s = fit(kids[i], width);
+                if (i > 0 && x + s.x > width) {   // לא נכנס — לשורה הבאה
+                    x = 0;
+                    y += rowH + SPACING;
+                    rowH = 0;
+                }
+                if (move) {
+                    kids[i].setBounds(x, y, s.x, s.y);
+                    if (kids[i] instanceof Composite) ((Composite) kids[i]).layout(true);
+                }
+                x += s.x + SPACING;
+                maxX = Math.max(maxX, x);
+                rowH = Math.max(rowH, s.y);
+            }
+            return new Point(Math.max(0, maxX - SPACING), y + rowH + BOTTOM);
+        }
+
+        /** הגודל של ציור אחד עם הכיתוב שלו, כשיש width: בגודל הטבעי, או מוקטן לרוחב הזה */
+        private static Point fit(Control one, int width) {
+            if (one instanceof Composite) {
+                for (Control k : ((Composite) one).getChildren()) {
+                    Object natural = k.getData(NATURAL);
+                    if (!(natural instanceof Integer) || !(k.getLayoutData() instanceof GridData)) continue;
+                    int w = Math.max(1, Math.min((Integer) natural, width));
+                    GridData g = (GridData) k.getLayoutData();
+                    if (g.widthHint != w) {
+                        g.widthHint = w;
+                        g.heightHint = k.computeSize(w, SWT.DEFAULT).y;
+                    }
+                }
+            }
+            Point s = one.computeSize(SWT.DEFAULT, SWT.DEFAULT, true);
+            return new Point(Math.min(s.x, Math.max(1, width)), s.y);   // כיתוב ארוך מהשורה — לא מרחיב אותה
         }
     }
 

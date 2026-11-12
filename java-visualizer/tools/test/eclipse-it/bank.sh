@@ -38,7 +38,7 @@ cp "$ROOT"/release/il.lamerhav.dsviz_*.jar "$FRAG" "$ECL/dropins/"
 "$JAVA" -jar "$LAUNCH" -nosplash -consoleLog -application org.eclipse.equinox.p2.director -repository "file:$REPO" -installIU il.lamerhav.dsviz.it >> "$B/bank-p2.log" 2>&1 \
     || { echo "  FAIL התקנת תוסף הבדיקה"; tail -20 "$B/bank-p2.log"; exit 1; }
 xrun() { if [ -n "$XD" ]; then DISPLAY="$XD" "$@"; else xvfb-run -a -s "-screen 0 ${XSCREEN:-1600x1000x24}" "$@"; fi; }
-# שאלה בתיקייה המקומית (כמו ~/.dsviz/bank) — נוספת למאגר בלי בנייה; עם ציור ארוך (לבדיקת הגלילה)
+# שאלה בתיקייה המקומית (כמו ~/.dsviz/bank) — נוספת למאגר בלי בנייה; עם ציור ארוך (רואים את כולו, בלי גלילה הצידה)
 mkdir -p "$B/bank-local/list"
 python3 - "$ROOT/bank/list/list-length-sum.json" "$B/bank-local/list/test-long-list.json" <<'PY'
 import json, sys
@@ -113,7 +113,7 @@ check "^KEEP-DONE true" "תרגיל נוסף, והתלמיד הוסיף קובץ
 check "^KEEP created-left=0 helper=true folder=true mine=true" "רק קבצי התרגיל נמחקו — הקובץ של התלמיד בחבילה, החבילה, וקובץ אחר בפרויקט נשארו"
 check "^DIALOG2-BUTTONS צור תרגיל | שאלה אקראית | סגירה" "אחרי המחיקה: בחלון המאגר שוב \"צור תרגיל\""
 check "^DIALOG2-TREE .*Q stack-sum-size easy done" "אחרי המחיקה: ה-V נשאר בעץ"
-check "^PREVIEW-LONG .*FIGURE-SCROLL [4-9][0-9][0-9]" "ציור ארוך (שרשרת של 12 חוליות, משאלה בתיקייה המקומית) — בגודל קריא עם גלילה הצידה"
+check "^PREVIEW-LONG .*FIGURE-FIT [4-9][0-9][0-9]" "ציור ארוך (שרשרת של 12 חוליות, משאלה בתיקייה המקומית) — כולו, בלי גלילה הצידה (מוקטן לרוחב השורה רק כשהיא צרה ממנו)"
 # חריגות ביומן שיש בהן קוד של המאגר — חוץ מאחת ידועה של Eclipse עצמו (סגירת עורך שיש לו היסטוריית undo: AbstractOperation.hasContext)
 awk 'BEGIN{RS="!ENTRY"} /Exception/ && /il\.lamerhav\.dsviz\.Bank/ && !/AbstractOperation\.hasContext/ {print "!ENTRY" $0}' "$B/bank/eclipse.log" > "$B/bank/bank-errors.log"
 [ -s "$B/bank/bank-errors.log" ] && { echo "  FAIL חריגה בקוד של המאגר:"; head -30 "$B/bank/bank-errors.log"; FAILED=1; } || echo "  ok  בלי חריגות של המאגר ביומן"

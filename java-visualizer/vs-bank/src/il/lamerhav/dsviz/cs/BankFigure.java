@@ -7,7 +7,7 @@ import javax.swing.JComponent;
 
 /**
  * "מאגר תרגילים" ל-Visual Studio: ציור קטן של מבנה בנוסח השאלה — אותו ציור כמו בחלונות של C# (NestedDiagram), בגודל הטבעי שלו
- * (בלי הקטנה: מספרים קריאים; ציור ארוך — עם גלילה הצידה, ב-BankVsPanel).
+ * (בלי הקטנה: מספרים קריאים; ציור שרחב מהמקום שיש בחלון — מוקטן רק כמה שצריך כדי שייכנס, ב-BankVsPanel / BankZoom.scaled).
  */
 public final class BankFigure {
     private BankFigure() {}

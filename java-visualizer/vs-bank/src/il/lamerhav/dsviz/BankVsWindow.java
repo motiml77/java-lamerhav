@@ -541,14 +541,10 @@ final class BankVsWindow {
         RtlDialog.rtl(buttons);
         preview.revalidate();
         preview.repaint();
-        // אם בכל זאת רחב מהחלון (קוד ארוך בהגדלה גדולה) — מתחילים מימין, כמו שקוראים
-        SwingUtilities.invokeLater(() -> {
-            javax.swing.JScrollBar h = previewScroll.getHorizontalScrollBar();
-            h.setValue(h.getMaximum());
-        });
         buttons.revalidate();
         buttons.repaint();
-        SwingUtilities.invokeLater(() -> previewScroll.getVerticalScrollBar().setValue(0));
+        // מלמעלה, ומימין (תחילת השורות) — גם אם בכל זאת רחב מהחלון (חלון צר מאוד, הגדלה גדולה)
+        SwingUtilities.invokeLater(() -> BankVsPanel.scrollToStart(previewScroll));
     }
 
     // ------------------------------------------------------------------ יצירה
