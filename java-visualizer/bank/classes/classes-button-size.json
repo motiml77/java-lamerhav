@@ -1,0 +1,192 @@
+{
+  "id": "classes-button-size",
+  "topic": "classes",
+  "level": "hard",
+  "title": "המחלקה Button: כפתורים",
+  "question": {
+    "intro": "לפניך ממשק המחלקה Button המייצגת כפתור. לכפתור שלוש תכונות: המספר הרשום עליו num, גודל הכפתור size וצבע הכפתור color.\nפעולה בונה שבונה כפתור שרשום עליו המספר num, בגודל 5 ובצבע \"black\":\npublic Button(int num)\nפעולה בונה שבונה כפתור שרשום עליו המספר num, בגודל size ובצבע color:\npublic Button(int num, int size, String color)\nפעולה שמחזירה את גודל הכפתור:\npublic int getSize()\nפעולה שמגדילה את גודל הכפתור ב-x:\npublic void addToSize(int x)\nפעולה שמחזירה true אם הכפתור other זהה בגודלו לכפתור הנוכחי, אחרת false:\npublic boolean isSameSize(Button other)",
+    "sections": [
+      {
+        "label": "א",
+        "text": "ממש במחלקה Button את הפעולה הבונה Button(int num)."
+      },
+      {
+        "label": "ב",
+        "text": "ממש במחלקה Button את הפעולה שמגדילה את גודל הכפתור ב-x."
+      },
+      {
+        "label": "ג",
+        "text": "ממש במחלקה Button את הפעולה הבודקת אם גודל הכפתור other זהה לגודל הכפתור הנוכחי."
+      },
+      {
+        "label": "ד",
+        "text": "לפניך קטע מפעולה ראשית במחלקה Program, הכתוב ב-Java. עקוב אחר ביצוע קטע הפעולה, ורשום את הפלט שיתקבל. לכל עצם רשום את השמות של כל התכונות שלו, את הערכים שלהן ואת השינויים שהיו בהם.\nבמעטפת קטע הפעולה נמצא בסוף main, אחרי הבדיקות של הסעיפים א, ב ו-ג. כתוב קודם את המעקב, ואחר כך הרץ את התכנית (בהרצה הוויזואלית רואים את התכונות של כל עצם משתנות) והשווה."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "המחלקה Button: כפתורים",
+    "topic": "classes",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Button",
+        "code": "public class Button {\n    private int num;\n    private int size;\n    private String color;\n\n    public Button(int num, int size, String color) {\n        this.num = num;\n        this.size = size;\n        this.color = color;\n    }\n\n    public int getSize() {\n        return size;\n    }\n\n    public String toString() {\n        return num + \", \" + size + \", \" + color;\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "constructor",
+        "className": "Button",
+        "isStatic": false,
+        "methodName": "Button",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "num"
+          }
+        ],
+        "instructions": "ממש במחלקה Button את הפעולה הבונה Button(int num).",
+        "solution": "public Button(int num) {\n    this.num = num;\n    this.size = 5;\n    this.color = \"black\";\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Button",
+        "isStatic": false,
+        "returnType": "void",
+        "methodName": "addToSize",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "ממש במחלקה Button את הפעולה שמגדילה את גודל הכפתור ב-x.",
+        "solution": "public void addToSize(int x) {\n    size = size + x;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Button",
+        "isStatic": false,
+        "returnType": "boolean",
+        "methodName": "isSameSize",
+        "parameters": [
+          {
+            "type": "Button",
+            "name": "other"
+          }
+        ],
+        "instructions": "ממש במחלקה Button את הפעולה הבודקת אם גודל הכפתור other זהה לגודל הכפתור הנוכחי.",
+        "solution": "public boolean isSameSize(Button other) {\n    return size == other.getSize();\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Button b1 = new Button(7);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(b1, \"7, 5, black\"));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(b1.getSize(), 5));\nButton b2 = new Button(3, 12, \"red\");\nb2.addToSize(2);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(b2.getSize(), 14));\nb1.addToSize(9);\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(b1.getSize(), 14));\nSystem.out.println(\"סעיף ג, בדיקה 1: \" + check(b1.isSameSize(b2), true));\nButton b3 = new Button(4, 12, \"blue\");\nSystem.out.println(\"סעיף ג, בדיקה 2: \" + check(b3.isSameSize(b2), false));\nSystem.out.println(\"סעיף ג, בדיקה 3: \" + check(new Button(5).isSameSize(new Button(6)), true));\nSystem.out.println(\"סעיף ד: הפלט של קטע הפעולה מתחיל כאן\");\n// סעיף ד: קטע הפעולה מהשאלה — עקבו אחריו לפני ההרצה\nButton a1 = new Button(1, 12, \"red\");\nButton a2 = new Button(2, 12, \"green\");\nButton a3 = new Button(3, 12, \"blue\");\nButton a4 = new Button(4);\na1.addToSize(2);\na4.addToSize(9);\nif (a1.isSameSize(a3))\n    System.out.println(\"****\");\nif (a4.isSameSize(a1))\n    System.out.println(\"$$$\");\nif (a2.isSameSize(a3))\n    System.out.println(\"###\");",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ג, בדיקה 3: נכון\nסעיף ד: הפלט של קטע הפעולה מתחיל כאן\n$$$\n###"
+  },
+  "csharp": {
+    "question": {
+      "intro": "לפניך ממשק המחלקה Button המייצגת כפתור. לכפתור שלוש תכונות: המספר הרשום עליו num, גודל הכפתור size וצבע הכפתור color.\nפעולה בונה שבונה כפתור שרשום עליו המספר num, בגודל 5 ובצבע \"black\":\npublic Button(int num)\nפעולה בונה שבונה כפתור שרשום עליו המספר num, בגודל size ובצבע color:\npublic Button(int num, int size, string color)\nפעולה שמחזירה את גודל הכפתור:\npublic int GetSize()\nפעולה שמגדילה את גודל הכפתור ב-x:\npublic void AddToSize(int x)\nפעולה שמחזירה true אם הכפתור other זהה בגודלו לכפתור הנוכחי, אחרת false:\npublic bool IsSameSize(Button other)",
+      "sections": [
+        {
+          "label": "א",
+          "text": "ממש במחלקה Button את הפעולה הבונה Button(int num)."
+        },
+        {
+          "label": "ב",
+          "text": "ממש במחלקה Button את הפעולה שמגדילה את גודל הכפתור ב-x."
+        },
+        {
+          "label": "ג",
+          "text": "ממש במחלקה Button את הפעולה הבודקת אם גודל הכפתור other זהה לגודל הכפתור הנוכחי."
+        },
+        {
+          "label": "ד",
+          "text": "לפניך קטע מפעולה ראשית במחלקה Program, הכתוב ב-C#. עקוב אחר ביצוע קטע הפעולה, ורשום את הפלט שיתקבל. לכל עצם רשום את השמות של כל התכונות שלו, את הערכים שלהן ואת השינויים שהיו בהם.\nבמעטפת קטע הפעולה נמצא בסוף main, אחרי הבדיקות של הסעיפים א, ב ו-ג. כתוב קודם את המעקב, ואחר כך הרץ את התכנית (בהרצה הוויזואלית רואים את התכונות של כל עצם משתנות) והשווה."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "המחלקה Button: כפתורים",
+      "topic": "classes",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Button",
+          "code": "public class Button\n{\n    private int num;\n    private int size;\n    private string color;\n\n    public Button(int num, int size, string color)\n    {\n        this.num = num;\n        this.size = size;\n        this.color = color;\n    }\n\n    public int GetSize()\n    {\n        return size;\n    }\n\n    public override string ToString()\n    {\n        return num + \", \" + size + \", \" + color;\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "constructor",
+          "className": "Button",
+          "isStatic": false,
+          "methodName": "Button",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "num"
+            }
+          ],
+          "instructions": "ממש במחלקה Button את הפעולה הבונה Button(int num).",
+          "solution": "public Button(int num)\n{\n    this.num = num;\n    this.size = 5;\n    this.color = \"black\";\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Button",
+          "isStatic": false,
+          "returnType": "void",
+          "methodName": "AddToSize",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "x"
+            }
+          ],
+          "instructions": "ממש במחלקה Button את הפעולה שמגדילה את גודל הכפתור ב-x.",
+          "solution": "public void AddToSize(int x)\n{\n    size = size + x;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Button",
+          "isStatic": false,
+          "returnType": "bool",
+          "methodName": "IsSameSize",
+          "parameters": [
+            {
+              "type": "Button",
+              "name": "other"
+            }
+          ],
+          "instructions": "ממש במחלקה Button את הפעולה הבודקת אם גודל הכפתור other זהה לגודל הכפתור הנוכחי.",
+          "solution": "public bool IsSameSize(Button other)\n{\n    return size == other.GetSize();\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Button b1 = new Button(7);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(b1, \"7, 5, black\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(b1.GetSize(), 5));\nButton b2 = new Button(3, 12, \"red\");\nb2.AddToSize(2);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(b2.GetSize(), 14));\nb1.AddToSize(9);\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(b1.GetSize(), 14));\nConsole.WriteLine(\"סעיף ג, בדיקה 1: \" + Check(b1.IsSameSize(b2), true));\nButton b3 = new Button(4, 12, \"blue\");\nConsole.WriteLine(\"סעיף ג, בדיקה 2: \" + Check(b3.IsSameSize(b2), false));\nConsole.WriteLine(\"סעיף ג, בדיקה 3: \" + Check(new Button(5).IsSameSize(new Button(6)), true));\nConsole.WriteLine(\"סעיף ד: הפלט של קטע הפעולה מתחיל כאן\");\n// סעיף ד: קטע הפעולה מהשאלה — עקבו אחריו לפני ההרצה\nButton a1 = new Button(1, 12, \"red\");\nButton a2 = new Button(2, 12, \"green\");\nButton a3 = new Button(3, 12, \"blue\");\nButton a4 = new Button(4);\na1.AddToSize(2);\na4.AddToSize(9);\nif (a1.IsSameSize(a3))\n    Console.WriteLine(\"****\");\nif (a4.IsSameSize(a1))\n    Console.WriteLine(\"$$$\");\nif (a2.IsSameSize(a3))\n    Console.WriteLine(\"###\");",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ג, בדיקה 3: נכון\nסעיף ד: הפלט של קטע הפעולה מתחיל כאן\n$$$\n###"
+    }
+  }
+}

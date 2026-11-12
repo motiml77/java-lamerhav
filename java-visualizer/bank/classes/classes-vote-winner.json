@@ -1,0 +1,106 @@
+{
+  "id": "classes-vote-winner",
+  "topic": "classes",
+  "level": "medium",
+  "title": "מצעד הפזמונים: השיר הזוכה",
+  "question": {
+    "intro": "במצעד הפזמונים מתחרים 40 שירים שמספרם מ-1 ועד 40. 25 שופטים מדרגים את השירים.\nכל שופט בוחר את שלושת השירים הטובים ביותר לדעתו. לשיר במקום הראשון (הטוב ביותר) הוא מעניק 7 נקודות, לשיר במקום השני הוא מעניק 5 נקודות, ולשיר שבמקום השלישי הוא מעניק נקודה אחת.\nהשיר שיצבור את מספר הנקודות הגבוה ביותר מכל השופטים יזכה במקום הראשון.\nלקראת מצעד הפזמונים הוגדרה מחלקה Vote. למחלקה שלוש תכונות:\nfirst: מספר השיר שהשופט דירג במקום הראשון, מטיפוס שלם\nsecond: מספר השיר שהשופט דירג במקום השני, מטיפוס שלם\nthird: מספר השיר שהשופט דירג במקום השלישי, מטיפוס שלם\nהנח שלכל תכונה הוגדרו פעולות get ו-set.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית theWinner, המקבלת מערך מטיפוס Vote של דירוגי השופטים, ומדפיסה את מספרו של השיר הזוכה במקום הראשון.\nהנח שקיים שיר זוכה אחד.\nהנח שערכי המערך תקינים.\nהדפס רק את מספר השיר."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מצעד הפזמונים: השיר הזוכה",
+    "topic": "classes",
+    "mainClass": "Main",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Vote",
+        "code": "public class Vote {\n    private int first;\n    private int second;\n    private int third;\n\n    public Vote(int first, int second, int third) {\n        this.first = first;\n        this.second = second;\n        this.third = third;\n    }\n\n    public int getFirst() { return first; }\n    public void setFirst(int first) { this.first = first; }\n    public int getSecond() { return second; }\n    public void setSecond(int second) { this.second = second; }\n    public int getThird() { return third; }\n    public void setThird(int third) { this.third = third; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Main",
+        "isStatic": true,
+        "returnType": "void",
+        "methodName": "theWinner",
+        "parameters": [
+          {
+            "type": "Vote[]",
+            "name": "votes"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית theWinner, המקבלת מערך מטיפוס Vote של דירוגי השופטים, ומדפיסה את מספרו של השיר הזוכה במקום הראשון.\nהנח שקיים שיר זוכה אחד.\nהנח שערכי המערך תקינים.\nהדפס רק את מספר השיר.",
+        "solution": "public static void theWinner(Vote[] votes) {\n    int[] points = new int[41];   // points[k] = הנקודות של שיר מספר k\n    for (int i = 0; i < votes.length; i++) {\n        points[votes[i].getFirst()] += 7;\n        points[votes[i].getSecond()] += 5;\n        points[votes[i].getThird()] += 1;\n    }\n    int winner = 1;\n    for (int k = 2; k <= 40; k++) {\n        if (points[k] > points[winner]) {\n            winner = k;\n        }\n    }\n    System.out.println(winner);\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Main",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "// כל מערך כאן הוא 25 דירוגים של שופטים\nVote[] v1 = new Vote[25];\nfor (int i = 0; i < v1.length; i++) {\n    v1[i] = new Vote(12, 3, 40);\n}\nSystem.out.print(\"סעיף א, בדיקה 1 (כולם בחרו בשיר 12, צריך להדפיס 12): \");\ntheWinner(v1);\nVote[] v2 = new Vote[25];\nfor (int i = 0; i < v2.length; i++) {\n    if (i < 10) {\n        v2[i] = new Vote(5, 8, 1);\n    } else if (i < 19) {\n        v2[i] = new Vote(8, 1, 5);\n    } else {\n        v2[i] = new Vote(1, 5, 8);\n    }\n}\nSystem.out.print(\"סעיף א, בדיקה 2 (שיר 5 הכי הרבה פעמים ראשון, אבל לשיר 8 יותר נקודות, צריך להדפיס 8): \");\ntheWinner(v2);\nVote[] v3 = new Vote[25];\nfor (int i = 0; i < v3.length; i++) {\n    if (i < 13) {\n        v3[i] = new Vote(40, 2, 3);\n    } else {\n        v3[i] = new Vote(2, 40, 3);\n    }\n}\nSystem.out.print(\"סעיף א, בדיקה 3 (צריך להדפיס 40): \");\ntheWinner(v3);",
+    "expectedOutput": "סעיף א, בדיקה 1 (כולם בחרו בשיר 12, צריך להדפיס 12): 12\nסעיף א, בדיקה 2 (שיר 5 הכי הרבה פעמים ראשון, אבל לשיר 8 יותר נקודות, צריך להדפיס 8): 8\nסעיף א, בדיקה 3 (צריך להדפיס 40): 40"
+  },
+  "csharp": {
+    "question": {
+      "intro": "במצעד הפזמונים מתחרים 40 שירים שמספרם מ-1 ועד 40. 25 שופטים מדרגים את השירים.\nכל שופט בוחר את שלושת השירים הטובים ביותר לדעתו. לשיר במקום הראשון (הטוב ביותר) הוא מעניק 7 נקודות, לשיר במקום השני הוא מעניק 5 נקודות, ולשיר שבמקום השלישי הוא מעניק נקודה אחת.\nהשיר שיצבור את מספר הנקודות הגבוה ביותר מכל השופטים יזכה במקום הראשון.\nלקראת מצעד הפזמונים הוגדרה מחלקה Vote. למחלקה שלוש תכונות:\nfirst: מספר השיר שהשופט דירג במקום הראשון, מטיפוס שלם\nsecond: מספר השיר שהשופט דירג במקום השני, מטיפוס שלם\nthird: מספר השיר שהשופט דירג במקום השלישי, מטיפוס שלם\nהנח שלכל תכונה הוגדרו פעולות get ו-set.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית TheWinner, המקבלת מערך מטיפוס Vote של דירוגי השופטים, ומדפיסה את מספרו של השיר הזוכה במקום הראשון.\nהנח שקיים שיר זוכה אחד.\nהנח שערכי המערך תקינים.\nהדפס רק את מספר השיר."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מצעד הפזמונים: השיר הזוכה",
+      "topic": "classes",
+      "mainClass": "Main",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Vote",
+          "code": "public class Vote\n{\n    private int first;\n    private int second;\n    private int third;\n\n    public Vote(int first, int second, int third)\n    {\n        this.first = first;\n        this.second = second;\n        this.third = third;\n    }\n\n    public int GetFirst() { return first; }\n    public void SetFirst(int first) { this.first = first; }\n    public int GetSecond() { return second; }\n    public void SetSecond(int second) { this.second = second; }\n    public int GetThird() { return third; }\n    public void SetThird(int third) { this.third = third; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Main",
+          "isStatic": true,
+          "returnType": "void",
+          "methodName": "TheWinner",
+          "parameters": [
+            {
+              "type": "Vote[]",
+              "name": "votes"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית TheWinner, המקבלת מערך מטיפוס Vote של דירוגי השופטים, ומדפיסה את מספרו של השיר הזוכה במקום הראשון.\nהנח שקיים שיר זוכה אחד.\nהנח שערכי המערך תקינים.\nהדפס רק את מספר השיר.",
+          "solution": "public static void TheWinner(Vote[] votes)\n{\n    int[] points = new int[41];   // points[k] = הנקודות של שיר מספר k\n    for (int i = 0; i < votes.Length; i++)\n    {\n        points[votes[i].GetFirst()] += 7;\n        points[votes[i].GetSecond()] += 5;\n        points[votes[i].GetThird()] += 1;\n    }\n    int winner = 1;\n    for (int k = 2; k <= 40; k++)\n    {\n        if (points[k] > points[winner])\n        {\n            winner = k;\n        }\n    }\n    Console.WriteLine(winner);\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Main",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "// כל מערך כאן הוא 25 דירוגים של שופטים\nVote[] v1 = new Vote[25];\nfor (int i = 0; i < v1.Length; i++) {\n    v1[i] = new Vote(12, 3, 40);\n}\nConsole.Write(\"סעיף א, בדיקה 1 (כולם בחרו בשיר 12, צריך להדפיס 12): \");\nTheWinner(v1);\nVote[] v2 = new Vote[25];\nfor (int i = 0; i < v2.Length; i++) {\n    if (i < 10) {\n        v2[i] = new Vote(5, 8, 1);\n    }\n    else if (i < 19)\n    {\n        v2[i] = new Vote(8, 1, 5);\n    }\n    else\n    {\n        v2[i] = new Vote(1, 5, 8);\n    }\n}\nConsole.Write(\"סעיף א, בדיקה 2 (שיר 5 הכי הרבה פעמים ראשון, אבל לשיר 8 יותר נקודות, צריך להדפיס 8): \");\nTheWinner(v2);\nVote[] v3 = new Vote[25];\nfor (int i = 0; i < v3.Length; i++) {\n    if (i < 13) {\n        v3[i] = new Vote(40, 2, 3);\n    }\n    else\n    {\n        v3[i] = new Vote(2, 40, 3);\n    }\n}\nConsole.Write(\"סעיף א, בדיקה 3 (צריך להדפיס 40): \");\nTheWinner(v3);",
+      "expectedOutput": "סעיף א, בדיקה 1 (כולם בחרו בשיר 12, צריך להדפיס 12): 12\nסעיף א, בדיקה 2 (שיר 5 הכי הרבה פעמים ראשון, אבל לשיר 8 יותר נקודות, צריך להדפיס 8): 8\nסעיף א, בדיקה 3 (צריך להדפיס 40): 40"
+    }
+  }
+}

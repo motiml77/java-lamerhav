@@ -1,0 +1,136 @@
+{
+  "id": "list-triple",
+  "topic": "list",
+  "level": "hard",
+  "title": "רשימה משולשת",
+  "question": {
+    "intro": "רשימה L תיקרא משולשת אם היא מקיימת את התנאים האלה:\n• הרשימה אינה ריקה.\n• מספר האיברים בה מתחלק ב-3 בלי שארית.\n• האיברים בשליש הראשון של הרשימה מכילים את אותם ערכים שמכילים האיברים בשליש השני של הרשימה, ואותם ערכים שמכילים האיברים בשליש השלישי של הרשימה. הערכים מסודרים באותו סדר בכל אחד מהשלישים.\nלדוגמה: הרשימה L1 שבציור היא רשימה משולשת באורך 12",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית ששמה isTriple, שתקבל רשימה L שהאיברים שלה הם מטיפוס שלם (החוליה הראשונה, Node<Integer>).\nאם L היא רשימה משולשת, הפעולה תחזיר true. אחרת, הפעולה תחזיר false.",
+        "figures": [
+          {
+            "type": "list",
+            "values": [
+              2,
+              5,
+              3,
+              7,
+              2,
+              5,
+              3,
+              7,
+              2,
+              5,
+              3,
+              7
+            ],
+            "caption": "L1"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "רשימה משולשת",
+    "topic": "list",
+    "mainClass": "ListTargil7",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "ListTargil7",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isTriple",
+        "parameters": [
+          {
+            "type": "Node<Integer>",
+            "name": "L"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית ששמה isTriple, שתקבל רשימה L שהאיברים שלה הם מטיפוס שלם (החוליה הראשונה, Node<Integer>).\nאם L היא רשימה משולשת, הפעולה תחזיר true. אחרת, הפעולה תחזיר false.",
+        "solution": "public static boolean isTriple(Node<Integer> L) {\n    int len = 0;\n    Node<Integer> p = L;\n    while (p != null) {\n        len++;\n        p = p.getNext();\n    }\n    if (len == 0 || len % 3 != 0) {\n        return false;\n    }\n    int third = len / 3;\n    Node<Integer> second = L;\n    for (int i = 0; i < third; i++) {\n        second = second.getNext();\n    }\n    Node<Integer> last = second;\n    for (int i = 0; i < third; i++) {\n        last = last.getNext();\n    }\n    Node<Integer> first = L;\n    for (int i = 0; i < third; i++) {\n        int a = first.getValue();\n        int b = second.getValue();\n        int c = last.getValue();\n        if (a != b || a != c) {\n            return false;\n        }\n        first = first.getNext();\n        second = second.getNext();\n        last = last.getNext();\n    }\n    return true;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "ListTargil7",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\npublic static Node<Integer> build(int[] values) {\n    Node<Integer> first = null;\n    for (int i = values.length - 1; i >= 0; i--) {\n        first = new Node<Integer>(values[i], first);\n    }\n    return first;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (L1 מהציור): \" + check(isTriple(build(new int[] { 2, 5, 3, 7, 2, 5, 3, 7, 2, 5, 3, 7 })), true));\nSystem.out.println(\"סעיף א, בדיקה 2 (אורך 3): \" + check(isTriple(build(new int[] { 4, 4, 4 })), true));\nSystem.out.println(\"סעיף א, בדיקה 3 (אורך 11): \" + check(isTriple(build(new int[] { 2, 5, 3, 7, 2, 5, 3, 7, 2, 5, 3 })), false));\nSystem.out.println(\"סעיף א, בדיקה 4 (השליש השלישי שונה): \" + check(isTriple(build(new int[] { 2, 5, 3, 7, 2, 5, 3, 7, 2, 5, 3, 8 })), false));\nSystem.out.println(\"סעיף א, בדיקה 5 (אותם ערכים בסדר אחר): \" + check(isTriple(build(new int[] { 1, 2, 1, 2, 2, 1 })), false));\nSystem.out.println(\"סעיף א, בדיקה 6 (רשימה ריקה): \" + check(isTriple(build(new int[0])), false));",
+    "expectedOutput": "סעיף א, בדיקה 1 (L1 מהציור): נכון\nסעיף א, בדיקה 2 (אורך 3): נכון\nסעיף א, בדיקה 3 (אורך 11): נכון\nסעיף א, בדיקה 4 (השליש השלישי שונה): נכון\nסעיף א, בדיקה 5 (אותם ערכים בסדר אחר): נכון\nסעיף א, בדיקה 6 (רשימה ריקה): נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "רשימה L תיקרא משולשת אם היא מקיימת את התנאים האלה:\n• הרשימה אינה ריקה.\n• מספר האיברים בה מתחלק ב-3 בלי שארית.\n• האיברים בשליש הראשון של הרשימה מכילים את אותם ערכים שמכילים האיברים בשליש השני של הרשימה, ואותם ערכים שמכילים האיברים בשליש השלישי של הרשימה. הערכים מסודרים באותו סדר בכל אחד מהשלישים.\nלדוגמה: הרשימה L1 שבציור היא רשימה משולשת באורך 12",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית ששמה IsTriple, שתקבל רשימה L שהאיברים שלה הם מטיפוס שלם (החוליה הראשונה, Node<int>).\nאם L היא רשימה משולשת, הפעולה תחזיר true. אחרת, הפעולה תחזיר false.",
+          "figures": [
+            {
+              "type": "list",
+              "values": [
+                2,
+                5,
+                3,
+                7,
+                2,
+                5,
+                3,
+                7,
+                2,
+                5,
+                3,
+                7
+              ],
+              "caption": "L1"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "רשימה משולשת",
+      "topic": "list",
+      "mainClass": "ListTargil7",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "ListTargil7",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsTriple",
+          "parameters": [
+            {
+              "type": "Node<int>",
+              "name": "L"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית ששמה IsTriple, שתקבל רשימה L שהאיברים שלה הם מטיפוס שלם (החוליה הראשונה, Node<int>).\nאם L היא רשימה משולשת, הפעולה תחזיר true. אחרת, הפעולה תחזיר false.",
+          "solution": "public static bool IsTriple(Node<int> L)\n{\n    int len = 0;\n    Node<int> p = L;\n    while (p != null)\n    {\n        len++;\n        p = p.GetNext();\n    }\n    if (len == 0 || len % 3 != 0)\n    {\n        return false;\n    }\n    int third = len / 3;\n    Node<int> second = L;\n    for (int i = 0; i < third; i++)\n    {\n        second = second.GetNext();\n    }\n    Node<int> last = second;\n    for (int i = 0; i < third; i++)\n    {\n        last = last.GetNext();\n    }\n    Node<int> first = L;\n    for (int i = 0; i < third; i++)\n    {\n        int a = first.GetValue();\n        int b = second.GetValue();\n        int c = last.GetValue();\n        if (a != b || a != c)\n        {\n            return false;\n        }\n        first = first.GetNext();\n        second = second.GetNext();\n        last = last.GetNext();\n    }\n    return true;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "ListTargil7",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\npublic static Node<int> Build(int[] values)\n{\n    Node<int> first = null;\n    for (int i = values.Length - 1; i >= 0; i--)\n    {\n        first = new Node<int>(values[i], first);\n    }\n    return first;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (L1 מהציור): \" + Check(IsTriple(Build(new int[] { 2, 5, 3, 7, 2, 5, 3, 7, 2, 5, 3, 7 })), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (אורך 3): \" + Check(IsTriple(Build(new int[] { 4, 4, 4 })), true));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (אורך 11): \" + Check(IsTriple(Build(new int[] { 2, 5, 3, 7, 2, 5, 3, 7, 2, 5, 3 })), false));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (השליש השלישי שונה): \" + Check(IsTriple(Build(new int[] { 2, 5, 3, 7, 2, 5, 3, 7, 2, 5, 3, 8 })), false));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (אותם ערכים בסדר אחר): \" + Check(IsTriple(Build(new int[] { 1, 2, 1, 2, 2, 1 })), false));\nConsole.WriteLine(\"סעיף א, בדיקה 6 (רשימה ריקה): \" + Check(IsTriple(Build(new int[0])), false));",
+      "expectedOutput": "סעיף א, בדיקה 1 (L1 מהציור): נכון\nסעיף א, בדיקה 2 (אורך 3): נכון\nסעיף א, בדיקה 3 (אורך 11): נכון\nסעיף א, בדיקה 4 (השליש השלישי שונה): נכון\nסעיף א, בדיקה 5 (אותם ערכים בסדר אחר): נכון\nסעיף א, בדיקה 6 (רשימה ריקה): נכון"
+    }
+  }
+}

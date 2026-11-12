@@ -1,0 +1,124 @@
+{
+  "id": "arrays-last-odd",
+  "topic": "arrays",
+  "level": "hard",
+  "title": "המספר האי־זוגי האחרון",
+  "question": {
+    "intro": "נתונה המחלקה AllNumbers שיש לה תכונה אחת: מערך חד־ממדי arrayNum מטיפוס שלם.\nבמערך יש מספרים חיוביים הגדולים מאפס, שחלקם מספרים זוגיים וחלקם מספרים אי־זוגיים.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה פנימית lastOddValue שתחזיר את הערך של המספר האי־זוגי האחרון במערך.\nהנח שבמערך יש לפחות מספר אי־זוגי אחד.\nלדוגמה: עבור המערך arrayNum שבציור, בגודל 6, הפעולה תחזיר את המספר 3, שהוא הערך של המספר האי־זוגי האחרון במערך.",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              7,
+              5,
+              8,
+              9,
+              3,
+              4
+            ],
+            "caption": "arrayNum"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "המספר האי־זוגי האחרון",
+    "topic": "arrays",
+    "mainClass": "Main",
+    "imports": [],
+    "classes": [
+      {
+        "name": "AllNumbers",
+        "code": "public class AllNumbers {\n    private int[] arrayNum;\n\n    public AllNumbers(int[] arrayNum) {\n        this.arrayNum = arrayNum;\n    }\n\n    public int[] getArrayNum() { return arrayNum; }\n    public void setArrayNum(int[] arrayNum) { this.arrayNum = arrayNum; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "AllNumbers",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "lastOddValue",
+        "parameters": [],
+        "instructions": "כתוב פעולה פנימית lastOddValue שתחזיר את הערך של המספר האי־זוגי האחרון במערך.\nהנח שבמערך יש לפחות מספר אי־זוגי אחד.",
+        "solution": "public int lastOddValue() {\n    for (int i = arrayNum.length - 1; i >= 0; i--) {\n        if (arrayNum[i] % 2 != 0) {\n            return arrayNum[i];\n        }\n    }\n    return -1;   // לא יקרה: הנחנו שיש במערך מספר אי-זוגי\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Main",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "AllNumbers a = new AllNumbers(new int[] { 7, 5, 8, 9, 3, 4 });\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(a.lastOddValue(), 3));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(new AllNumbers(new int[] { 1, 2, 4 }).lastOddValue(), 1));\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(new AllNumbers(new int[] { 2, 4, 6, 11 }).lastOddValue(), 11));\nSystem.out.println(\"סעיף א, בדיקה 4: \" + check(new AllNumbers(new int[] { 9 }).lastOddValue(), 9));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה המחלקה AllNumbers שיש לה תכונה אחת: מערך חד־ממדי arrayNum מטיפוס שלם.\nבמערך יש מספרים חיוביים הגדולים מאפס, שחלקם מספרים זוגיים וחלקם מספרים אי־זוגיים.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה פנימית LastOddValue שתחזיר את הערך של המספר האי־זוגי האחרון במערך.\nהנח שבמערך יש לפחות מספר אי־זוגי אחד.\nלדוגמה: עבור המערך arrayNum שבציור, בגודל 6, הפעולה תחזיר את המספר 3, שהוא הערך של המספר האי־זוגי האחרון במערך.",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                7,
+                5,
+                8,
+                9,
+                3,
+                4
+              ],
+              "caption": "arrayNum"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "המספר האי־זוגי האחרון",
+      "topic": "arrays",
+      "mainClass": "Main",
+      "imports": [],
+      "classes": [
+        {
+          "name": "AllNumbers",
+          "code": "public class AllNumbers\n{\n    private int[] arrayNum;\n\n    public AllNumbers(int[] arrayNum)\n    {\n        this.arrayNum = arrayNum;\n    }\n\n    public int[] GetArrayNum() { return arrayNum; }\n    public void SetArrayNum(int[] arrayNum) { this.arrayNum = arrayNum; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "AllNumbers",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "LastOddValue",
+          "parameters": [],
+          "instructions": "כתוב פעולה פנימית LastOddValue שתחזיר את הערך של המספר האי־זוגי האחרון במערך.\nהנח שבמערך יש לפחות מספר אי־זוגי אחד.",
+          "solution": "public int LastOddValue()\n{\n    for (int i = arrayNum.Length - 1; i >= 0; i--)\n    {\n        if (arrayNum[i] % 2 != 0)\n        {\n            return arrayNum[i];\n        }\n    }\n    return -1;   // לא יקרה: הנחנו שיש במערך מספר אי-זוגי\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Main",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "AllNumbers a = new AllNumbers(new int[] { 7, 5, 8, 9, 3, 4 });\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(a.LastOddValue(), 3));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(new AllNumbers(new int[] { 1, 2, 4 }).LastOddValue(), 1));\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(new AllNumbers(new int[] { 2, 4, 6, 11 }).LastOddValue(), 11));\nConsole.WriteLine(\"סעיף א, בדיקה 4: \" + Check(new AllNumbers(new int[] { 9 }).LastOddValue(), 9));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון"
+    }
+  }
+}

@@ -1,0 +1,220 @@
+{
+  "id": "classes-time-flight",
+  "topic": "classes",
+  "level": "hard",
+  "title": "זמן, טיסה ושדה תעופה",
+  "question": {
+    "intro": "נתונה המחלקה Time שיש לה שתי תכונות:\nhour: מייצגת שעה בין 0 ל-23 כולל, מטיפוס שלם\nminute: מייצגת דקה בין 0 ל-59 כולל, מטיפוס שלם\nהנח שלכל תכונה הוגדרו פעולות get ו-set.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב במחלקה Time פעולה בונה שתקבל ערכים בעבור כל תכונה.\nעבור כל תכונה: אם הערך המתקבל אינו אפשרי לפי הגדרות התכונה, הוא יוחלף ב-0"
+      },
+      {
+        "label": "ב",
+        "text": "נתונה המחלקה Flight שיש לה ארבע תכונות: שם של חברת תעופה name מטיפוס מחרוזת, שם של ארץ יעד destination מטיפוס מחרוזת, קוד טיסה flightCode מטיפוס מחרוזת, וזמן טיסה flightTime מטיפוס Time.\nכתוב את כותרת המחלקה ואת תכונות המחלקה. בקובץ Flight הן כבר כתובות כדי שהקוד יתקמפל: השווה אותן לתשובה שלך.\nכתוב גם פעולה בונה במחלקה Flight שתקבל ערכים בעבור כל התכונות."
+      },
+      {
+        "label": "ג",
+        "text": "נתונה המחלקה Airport שיש לה תכונה אחת: מערך חד־ממדי flights מטיפוס Flight.\nהנח שלכל תכונה במחלקה Flight הוגדרו פעולות get ו-set.\nבמחלקה Airport נתונה פעולה פנימית בוליאנית isFly, שמטרתה לבדוק אם במערך הטיסות flights יש טיסה של חברת התעופה \"Sky\". הפעולה מחזירה true אם במערך flights יש טיסה של חברת התעופה \"Sky\", אחרת הפעולה מחזירה false.\nהנח שכל התאים במערך שונים מ-null.\nהפעולה הנתונה שלפניך שגויה:\npublic boolean isFly()\n{\n    for (int i = 0; i < this.flights.length; i++)\n    {\n        if (this.flights[i].getName().equals(\"Sky\"))\n            return true;\n        return false;\n    }\n}\n(1) כתוב מה תחזיר הפעולה השגויה עבור מערך flights בגודל 4, שערכי תכונת name של העצמים במערך הם:\nבמקום הראשון: \"Cloud\"\nבמקום השני: \"Air\"\nבמקום השלישי: \"Sky\"\nבמקום הרביעי: \"Travel\"\n(2) הסבר מהי השגיאה בפעולה.\n(3) תקן את הפעולה כדי שהיא תבצע את הנדרש.\nבמעטפת הפעולה השגויה נמצאת במחלקה Airport בשם isFlyWrong (אפשר להריץ אותה ולבדוק את התשובה ל-(1)), ואת הפעולה המתוקנת כותבים בשם isFly."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "זמן, טיסה ושדה תעופה",
+    "topic": "classes",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Time",
+        "code": "public class Time {\n    private int hour;\n    private int minute;\n\n    public int getHour() { return hour; }\n    public void setHour(int hour) { this.hour = hour; }\n    public int getMinute() { return minute; }\n    public void setMinute(int minute) { this.minute = minute; }\n}"
+      },
+      {
+        "name": "Flight",
+        "code": "public class Flight {\n    private String name;\n    private String destination;\n    private String flightCode;\n    private Time flightTime;\n\n    public String getName() { return name; }\n    public void setName(String name) { this.name = name; }\n    public String getDestination() { return destination; }\n    public void setDestination(String destination) { this.destination = destination; }\n    public String getFlightCode() { return flightCode; }\n    public void setFlightCode(String flightCode) { this.flightCode = flightCode; }\n    public Time getFlightTime() { return flightTime; }\n    public void setFlightTime(Time flightTime) { this.flightTime = flightTime; }\n}"
+      },
+      {
+        "name": "Airport",
+        "code": "public class Airport {\n    private Flight[] flights;\n\n    public Airport(Flight[] flights) {\n        this.flights = flights;\n    }\n\n    public Flight[] getFlights() { return flights; }\n    public void setFlights(Flight[] flights) { this.flights = flights; }\n\n    // הפעולה השגויה מהשאלה (סעיף ג)\n    public boolean isFlyWrong() {\n        for (int i = 0; i < this.flights.length; i++) {\n            if (this.flights[i].getName().equals(\"Sky\"))\n                return true;\n            return false;\n        }\n        return false;\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "constructor",
+        "className": "Time",
+        "isStatic": false,
+        "methodName": "Time",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "hour"
+          },
+          {
+            "type": "int",
+            "name": "minute"
+          }
+        ],
+        "instructions": "כתוב במחלקה Time פעולה בונה שתקבל ערכים בעבור כל תכונה.\nעבור כל תכונה: אם הערך המתקבל אינו אפשרי לפי הגדרות התכונה, הוא יוחלף ב-0",
+        "solution": "public Time(int hour, int minute) {\n    if (hour >= 0 && hour <= 23) {\n        this.hour = hour;\n    } else {\n        this.hour = 0;\n    }\n    if (minute >= 0 && minute <= 59) {\n        this.minute = minute;\n    } else {\n        this.minute = 0;\n    }\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "constructor",
+        "className": "Flight",
+        "isStatic": false,
+        "methodName": "Flight",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "name"
+          },
+          {
+            "type": "String",
+            "name": "destination"
+          },
+          {
+            "type": "String",
+            "name": "flightCode"
+          },
+          {
+            "type": "Time",
+            "name": "flightTime"
+          }
+        ],
+        "instructions": "נתונה המחלקה Flight שיש לה ארבע תכונות: שם של חברת תעופה name מטיפוס מחרוזת, שם של ארץ יעד destination מטיפוס מחרוזת, קוד טיסה flightCode מטיפוס מחרוזת, וזמן טיסה flightTime מטיפוס Time.\nכתוב את כותרת המחלקה ואת תכונות המחלקה. בקובץ Flight הן כבר כתובות כדי שהקוד יתקמפל: השווה אותן לתשובה שלך.\nכתוב גם פעולה בונה במחלקה Flight שתקבל ערכים בעבור כל התכונות.",
+        "solution": "public Flight(String name, String destination, String flightCode, Time flightTime) {\n    this.name = name;\n    this.destination = destination;\n    this.flightCode = flightCode;\n    this.flightTime = flightTime;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Airport",
+        "isStatic": false,
+        "returnType": "boolean",
+        "methodName": "isFly",
+        "parameters": [],
+        "instructions": "נתונה המחלקה Airport שיש לה תכונה אחת: מערך חד־ממדי flights מטיפוס Flight.\nהנח שלכל תכונה במחלקה Flight הוגדרו פעולות get ו-set.\nבמחלקה Airport נתונה פעולה פנימית בוליאנית isFly, שמטרתה לבדוק אם במערך הטיסות flights יש טיסה של חברת התעופה \"Sky\". הפעולה מחזירה true אם במערך flights יש טיסה של חברת התעופה \"Sky\", אחרת הפעולה מחזירה false.\nהנח שכל התאים במערך שונים מ-null.",
+        "solution": "public boolean isFly() {\n    for (int i = 0; i < this.flights.length; i++) {\n        if (this.flights[i].getName().equals(\"Sky\")) {\n            return true;\n        }\n    }\n    return false;   // רק אחרי שעברנו על כל המערך\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Time t1 = new Time(14, 30);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(t1.getHour() + \" \" + t1.getMinute(), \"14 30\"));\nTime t2 = new Time(25, 10);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(t2.getHour() + \" \" + t2.getMinute(), \"0 10\"));\nTime t3 = new Time(8, 60);\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(t3.getHour() + \" \" + t3.getMinute(), \"8 0\"));\nTime t4 = new Time(-1, -5);\nSystem.out.println(\"סעיף א, בדיקה 4: \" + check(t4.getHour() + \" \" + t4.getMinute(), \"0 0\"));\nFlight f1 = new Flight(\"Sky\", \"Rome\", \"SK100\", new Time(10, 15));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(f1.getName() + \" \" + f1.getDestination() + \" \" + f1.getFlightCode(), \"Sky Rome SK100\"));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(f1.getFlightTime() == null ? \"null\" : f1.getFlightTime().getHour() + \":\" + f1.getFlightTime().getMinute(), \"10:15\"));\nFlight[] four = { new Flight(\"Cloud\", \"Paris\", \"CL1\", new Time(6, 0)), new Flight(\"Air\", \"London\", \"AI2\", new Time(9, 30)),\n        new Flight(\"Sky\", \"Rome\", \"SK3\", new Time(12, 45)), new Flight(\"Travel\", \"Athens\", \"TR4\", new Time(18, 5)) };\nAirport a1 = new Airport(four);\nAirport a2 = new Airport(new Flight[] { new Flight(\"Cloud\", \"Paris\", \"CL1\", new Time(6, 0)), new Flight(\"Air\", \"London\", \"AI2\", new Time(9, 30)) });\nAirport a3 = new Airport(new Flight[] { new Flight(\"Air\", \"London\", \"AI2\", new Time(9, 30)), new Flight(\"Travel\", \"Athens\", \"TR4\", new Time(18, 5)),\n        new Flight(\"Sky\", \"Rome\", \"SK3\", new Time(12, 45)) });\nSystem.out.println(\"סעיף ג (1): הפעולה השגויה מחזירה עבור המערך מהשאלה: \" + a1.isFlyWrong());\nSystem.out.println(\"סעיף ג, בדיקה 1: \" + check(a1.isFly(), true));\nSystem.out.println(\"סעיף ג, בדיקה 2: \" + check(a2.isFly(), false));\nSystem.out.println(\"סעיף ג, בדיקה 3: \" + check(a3.isFly(), true));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ג (1): הפעולה השגויה מחזירה עבור המערך מהשאלה: false\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ג, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה המחלקה Time שיש לה שתי תכונות:\nhour: מייצגת שעה בין 0 ל-23 כולל, מטיפוס שלם\nminute: מייצגת דקה בין 0 ל-59 כולל, מטיפוס שלם\nהנח שלכל תכונה הוגדרו פעולות get ו-set.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב במחלקה Time פעולה בונה שתקבל ערכים בעבור כל תכונה.\nעבור כל תכונה: אם הערך המתקבל אינו אפשרי לפי הגדרות התכונה, הוא יוחלף ב-0"
+        },
+        {
+          "label": "ב",
+          "text": "נתונה המחלקה Flight שיש לה ארבע תכונות: שם של חברת תעופה name מטיפוס מחרוזת, שם של ארץ יעד destination מטיפוס מחרוזת, קוד טיסה flightCode מטיפוס מחרוזת, וזמן טיסה flightTime מטיפוס Time.\nכתוב את כותרת המחלקה ואת תכונות המחלקה. בקובץ Flight הן כבר כתובות כדי שהקוד יתקמפל: השווה אותן לתשובה שלך.\nכתוב גם פעולה בונה במחלקה Flight שתקבל ערכים בעבור כל התכונות."
+        },
+        {
+          "label": "ג",
+          "text": "נתונה המחלקה Airport שיש לה תכונה אחת: מערך חד־ממדי flights מטיפוס Flight.\nהנח שלכל תכונה במחלקה Flight הוגדרו פעולות get ו-set.\nבמחלקה Airport נתונה פעולה פנימית בוליאנית IsFly, שמטרתה לבדוק אם במערך הטיסות flights יש טיסה של חברת התעופה \"Sky\". הפעולה מחזירה true אם במערך flights יש טיסה של חברת התעופה \"Sky\", אחרת הפעולה מחזירה false.\nהנח שכל התאים במערך שונים מ-null.\nהפעולה הנתונה שלפניך שגויה:\npublic bool IsFly()\n{\n    for (int i = 0; i < this.flights.Length; i++)\n    {\n        if (this.flights[i].GetName() == \"Sky\")\n            return true;\n        return false;\n    }\n}\n(1) כתוב מה תחזיר הפעולה השגויה עבור מערך flights בגודל 4, שערכי תכונת name של העצמים במערך הם:\nבמקום הראשון: \"Cloud\"\nבמקום השני: \"Air\"\nבמקום השלישי: \"Sky\"\nבמקום הרביעי: \"Travel\"\n(2) הסבר מהי השגיאה בפעולה.\n(3) תקן את הפעולה כדי שהיא תבצע את הנדרש.\nבמעטפת הפעולה השגויה נמצאת במחלקה Airport בשם IsFlyWrong (אפשר להריץ אותה ולבדוק את התשובה ל-(1)), ואת הפעולה המתוקנת כותבים בשם IsFly."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "זמן, טיסה ושדה תעופה",
+      "topic": "classes",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Time",
+          "code": "public class Time\n{\n    private int hour;\n    private int minute;\n\n    public int GetHour() { return hour; }\n    public void SetHour(int hour) { this.hour = hour; }\n    public int GetMinute() { return minute; }\n    public void SetMinute(int minute) { this.minute = minute; }\n}"
+        },
+        {
+          "name": "Flight",
+          "code": "public class Flight\n{\n    private string name;\n    private string destination;\n    private string flightCode;\n    private Time flightTime;\n\n    public string GetName() { return name; }\n    public void SetName(string name) { this.name = name; }\n    public string GetDestination() { return destination; }\n    public void SetDestination(string destination) { this.destination = destination; }\n    public string GetFlightCode() { return flightCode; }\n    public void SetFlightCode(string flightCode) { this.flightCode = flightCode; }\n    public Time GetFlightTime() { return flightTime; }\n    public void SetFlightTime(Time flightTime) { this.flightTime = flightTime; }\n}"
+        },
+        {
+          "name": "Airport",
+          "code": "public class Airport\n{\n    private Flight[] flights;\n\n    public Airport(Flight[] flights)\n    {\n        this.flights = flights;\n    }\n\n    public Flight[] GetFlights() { return flights; }\n    public void SetFlights(Flight[] flights) { this.flights = flights; }\n\n    // הפעולה השגויה מהשאלה (סעיף ג)\n    public bool IsFlyWrong()\n    {\n        for (int i = 0; i < this.flights.Length; i++)\n        {\n            if (this.flights[i].GetName() == \"Sky\")\n                return true;\n            return false;\n        }\n        return false;\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "constructor",
+          "className": "Time",
+          "isStatic": false,
+          "methodName": "Time",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "hour"
+            },
+            {
+              "type": "int",
+              "name": "minute"
+            }
+          ],
+          "instructions": "כתוב במחלקה Time פעולה בונה שתקבל ערכים בעבור כל תכונה.\nעבור כל תכונה: אם הערך המתקבל אינו אפשרי לפי הגדרות התכונה, הוא יוחלף ב-0",
+          "solution": "public Time(int hour, int minute)\n{\n    if (hour >= 0 && hour <= 23)\n    {\n        this.hour = hour;\n    }\n    else\n    {\n        this.hour = 0;\n    }\n    if (minute >= 0 && minute <= 59)\n    {\n        this.minute = minute;\n    }\n    else\n    {\n        this.minute = 0;\n    }\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "constructor",
+          "className": "Flight",
+          "isStatic": false,
+          "methodName": "Flight",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "name"
+            },
+            {
+              "type": "string",
+              "name": "destination"
+            },
+            {
+              "type": "string",
+              "name": "flightCode"
+            },
+            {
+              "type": "Time",
+              "name": "flightTime"
+            }
+          ],
+          "instructions": "נתונה המחלקה Flight שיש לה ארבע תכונות: שם של חברת תעופה name מטיפוס מחרוזת, שם של ארץ יעד destination מטיפוס מחרוזת, קוד טיסה flightCode מטיפוס מחרוזת, וזמן טיסה flightTime מטיפוס Time.\nכתוב את כותרת המחלקה ואת תכונות המחלקה. בקובץ Flight הן כבר כתובות כדי שהקוד יתקמפל: השווה אותן לתשובה שלך.\nכתוב גם פעולה בונה במחלקה Flight שתקבל ערכים בעבור כל התכונות.",
+          "solution": "public Flight(string name, string destination, string flightCode, Time flightTime)\n{\n    this.name = name;\n    this.destination = destination;\n    this.flightCode = flightCode;\n    this.flightTime = flightTime;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Airport",
+          "isStatic": false,
+          "returnType": "bool",
+          "methodName": "IsFly",
+          "parameters": [],
+          "instructions": "נתונה המחלקה Airport שיש לה תכונה אחת: מערך חד־ממדי flights מטיפוס Flight.\nהנח שלכל תכונה במחלקה Flight הוגדרו פעולות get ו-set.\nבמחלקה Airport נתונה פעולה פנימית בוליאנית IsFly, שמטרתה לבדוק אם במערך הטיסות flights יש טיסה של חברת התעופה \"Sky\". הפעולה מחזירה true אם במערך flights יש טיסה של חברת התעופה \"Sky\", אחרת הפעולה מחזירה false.\nהנח שכל התאים במערך שונים מ-null.",
+          "solution": "public bool IsFly()\n{\n    for (int i = 0; i < this.flights.Length; i++)\n    {\n        if (this.flights[i].GetName() == \"Sky\")\n        {\n            return true;\n        }\n    }\n    return false;   // רק אחרי שעברנו על כל המערך\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Time t1 = new Time(14, 30);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(t1.GetHour() + \" \" + t1.GetMinute(), \"14 30\"));\nTime t2 = new Time(25, 10);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(t2.GetHour() + \" \" + t2.GetMinute(), \"0 10\"));\nTime t3 = new Time(8, 60);\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(t3.GetHour() + \" \" + t3.GetMinute(), \"8 0\"));\nTime t4 = new Time(-1, -5);\nConsole.WriteLine(\"סעיף א, בדיקה 4: \" + Check(t4.GetHour() + \" \" + t4.GetMinute(), \"0 0\"));\nFlight f1 = new Flight(\"Sky\", \"Rome\", \"SK100\", new Time(10, 15));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(f1.GetName() + \" \" + f1.GetDestination() + \" \" + f1.GetFlightCode(), \"Sky Rome SK100\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(f1.GetFlightTime() == null ? \"null\" : f1.GetFlightTime().GetHour() + \":\" + f1.GetFlightTime().GetMinute(), \"10:15\"));\nFlight[] four = { new Flight(\"Cloud\", \"Paris\", \"CL1\", new Time(6, 0)), new Flight(\"Air\", \"London\", \"AI2\", new Time(9, 30)),\n        new Flight(\"Sky\", \"Rome\", \"SK3\", new Time(12, 45)), new Flight(\"Travel\", \"Athens\", \"TR4\", new Time(18, 5)) };\nAirport a1 = new Airport(four);\nAirport a2 = new Airport(new Flight[] { new Flight(\"Cloud\", \"Paris\", \"CL1\", new Time(6, 0)), new Flight(\"Air\", \"London\", \"AI2\", new Time(9, 30)) });\nAirport a3 = new Airport(new Flight[] { new Flight(\"Air\", \"London\", \"AI2\", new Time(9, 30)), new Flight(\"Travel\", \"Athens\", \"TR4\", new Time(18, 5)),\n        new Flight(\"Sky\", \"Rome\", \"SK3\", new Time(12, 45)) });\nConsole.WriteLine(\"סעיף ג (1): הפעולה השגויה מחזירה עבור המערך מהשאלה: \" + a1.IsFlyWrong());\nConsole.WriteLine(\"סעיף ג, בדיקה 1: \" + Check(a1.IsFly(), true));\nConsole.WriteLine(\"סעיף ג, בדיקה 2: \" + Check(a2.IsFly(), false));\nConsole.WriteLine(\"סעיף ג, בדיקה 3: \" + Check(a3.IsFly(), true));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ג (1): הפעולה השגויה מחזירה עבור המערך מהשאלה: False\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ג, בדיקה 3: נכון"
+    }
+  }
+}
