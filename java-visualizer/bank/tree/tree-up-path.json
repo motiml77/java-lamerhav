@@ -1,0 +1,196 @@
+{
+  "id": "tree-up-path",
+  "topic": "tree",
+  "level": "hard",
+  "title": "עץ מספרים: מסלול עולה",
+  "question": {
+    "intro": "עץ מספרים הוא עץ בינארי לא ריק מטיפוס שלם, שהערכים בצמתים שלו הם מספרים שלמים, גדולים מ-0 ושונים זה מזה.\nעל עץ מספרים מוגדרת פעולה \"מסלול-עולה\", המחזירה true אם יש בעץ מסלול המתחיל בשורש העץ ומסתיים באחד העלים שלו, וערכי הצמתים במסלול ממוינים בסדר עולה מהשורש לעלה. אם אין מסלול כזה, הפעולה מחזירה false.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "ממש את הפעולה \"מסלול-עולה\" בעבור עץ מספרים tr.\nכותרת הפעולה:\npublic static boolean upPath(BinNode<Integer> tr)\nלדוגמה:\nעבור עץ המספרים tr1 שבציור הראשון הפעולה מחזירה true. המסלול העולה:\n1, 2, 17, 19\nעבור עץ המספרים tr2 שבציור השני הפעולה מחזירה false",
+        "figures": [
+          {
+            "type": "tree",
+            "values": [
+              1,
+              6,
+              2,
+              3,
+              4,
+              17,
+              11,
+              null,
+              8,
+              null,
+              null,
+              19,
+              12,
+              null,
+              10,
+              null,
+              null,
+              5
+            ],
+            "caption": "עץ המספרים tr1"
+          },
+          {
+            "type": "tree",
+            "values": [
+              1,
+              6,
+              7,
+              3,
+              4,
+              14,
+              2,
+              null,
+              8,
+              null,
+              null,
+              9,
+              11,
+              null,
+              10,
+              null,
+              null,
+              5
+            ],
+            "caption": "עץ המספרים tr2"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "עץ מספרים: מסלול עולה",
+    "topic": "tree",
+    "mainClass": "TreeTargil7",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "TreeTargil7",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "upPath",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "tr"
+          }
+        ],
+        "instructions": "ממש את הפעולה \"מסלול-עולה\" בעבור עץ מספרים tr.\nכותרת הפעולה:\npublic static boolean upPath(BinNode<Integer> tr)",
+        "solution": "public static boolean upPath(BinNode<Integer> tr) {\n    if (!tr.hasLeft() && !tr.hasRight()) {\n        return true;\n    }\n    if (tr.hasLeft() && tr.getLeft().getValue() > tr.getValue() && upPath(tr.getLeft())) {\n        return true;\n    }\n    return tr.hasRight() && tr.getRight().getValue() > tr.getValue() && upPath(tr.getRight());\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "TreeTargil7",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "BinNode<Integer> tr1 = new BinNode<Integer>(\n    new BinNode<Integer>(new BinNode<Integer>(null, 3, new BinNode<Integer>(new BinNode<Integer>(5), 8, null)), 6, new BinNode<Integer>(4)),\n    1,\n    new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(19), 17, new BinNode<Integer>(12)), 2, new BinNode<Integer>(null, 11, new BinNode<Integer>(10))));\nBinNode<Integer> tr2 = new BinNode<Integer>(\n    new BinNode<Integer>(new BinNode<Integer>(null, 3, new BinNode<Integer>(new BinNode<Integer>(5), 8, null)), 6, new BinNode<Integer>(4)),\n    1,\n    new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(9), 14, new BinNode<Integer>(11)), 7, new BinNode<Integer>(null, 2, new BinNode<Integer>(10))));\nSystem.out.println(\"סעיף א, בדיקה 1 (tr1): \" + check(upPath(tr1), true));\nSystem.out.println(\"סעיף א, בדיקה 2 (tr2): \" + check(upPath(tr2), false));\nSystem.out.println(\"סעיף א, בדיקה 3 (צומת אחד): \" + check(upPath(new BinNode<Integer>(7)), true));\nBinNode<Integer> t4 = new BinNode<Integer>(new BinNode<Integer>(9), 5, new BinNode<Integer>(2));\nSystem.out.println(\"סעיף א, בדיקה 4 (עולה רק שמאלה): \" + check(upPath(t4), true));\nBinNode<Integer> t5 = new BinNode<Integer>(null, 1, new BinNode<Integer>(new BinNode<Integer>(2), 3, null));\nSystem.out.println(\"סעיף א, בדיקה 5 (עולה, אבל לא עד עלה): \" + check(upPath(t5), false));",
+    "expectedOutput": "סעיף א, בדיקה 1 (tr1): נכון\nסעיף א, בדיקה 2 (tr2): נכון\nסעיף א, בדיקה 3 (צומת אחד): נכון\nסעיף א, בדיקה 4 (עולה רק שמאלה): נכון\nסעיף א, בדיקה 5 (עולה, אבל לא עד עלה): נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "עץ מספרים הוא עץ בינארי לא ריק מטיפוס שלם, שהערכים בצמתים שלו הם מספרים שלמים, גדולים מ-0 ושונים זה מזה.\nעל עץ מספרים מוגדרת פעולה \"מסלול-עולה\", המחזירה true אם יש בעץ מסלול המתחיל בשורש העץ ומסתיים באחד העלים שלו, וערכי הצמתים במסלול ממוינים בסדר עולה מהשורש לעלה. אם אין מסלול כזה, הפעולה מחזירה false.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "ממש את הפעולה \"מסלול-עולה\" בעבור עץ מספרים tr.\nכותרת הפעולה:\npublic static bool UpPath(BinNode<int> tr)\nלדוגמה:\nעבור עץ המספרים tr1 שבציור הראשון הפעולה מחזירה true. המסלול העולה:\n1, 2, 17, 19\nעבור עץ המספרים tr2 שבציור השני הפעולה מחזירה false",
+          "figures": [
+            {
+              "type": "tree",
+              "values": [
+                1,
+                6,
+                2,
+                3,
+                4,
+                17,
+                11,
+                null,
+                8,
+                null,
+                null,
+                19,
+                12,
+                null,
+                10,
+                null,
+                null,
+                5
+              ],
+              "caption": "עץ המספרים tr1"
+            },
+            {
+              "type": "tree",
+              "values": [
+                1,
+                6,
+                7,
+                3,
+                4,
+                14,
+                2,
+                null,
+                8,
+                null,
+                null,
+                9,
+                11,
+                null,
+                10,
+                null,
+                null,
+                5
+              ],
+              "caption": "עץ המספרים tr2"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "עץ מספרים: מסלול עולה",
+      "topic": "tree",
+      "mainClass": "TreeTargil7",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "TreeTargil7",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "UpPath",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "tr"
+            }
+          ],
+          "instructions": "ממש את הפעולה \"מסלול-עולה\" בעבור עץ מספרים tr.\nכותרת הפעולה:\npublic static bool UpPath(BinNode<int> tr)",
+          "solution": "public static bool UpPath(BinNode<int> tr)\n{\n    if (!tr.HasLeft() && !tr.HasRight())\n    {\n        return true;\n    }\n    if (tr.HasLeft() && tr.GetLeft().GetValue() > tr.GetValue() && UpPath(tr.GetLeft()))\n    {\n        return true;\n    }\n    return tr.HasRight() && tr.GetRight().GetValue() > tr.GetValue() && UpPath(tr.GetRight());\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "TreeTargil7",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "BinNode<int> tr1 = new BinNode<int>(\n    new BinNode<int>(new BinNode<int>(null, 3, new BinNode<int>(new BinNode<int>(5), 8, null)), 6, new BinNode<int>(4)),\n    1,\n    new BinNode<int>(new BinNode<int>(new BinNode<int>(19), 17, new BinNode<int>(12)), 2, new BinNode<int>(null, 11, new BinNode<int>(10))));\nBinNode<int> tr2 = new BinNode<int>(\n    new BinNode<int>(new BinNode<int>(null, 3, new BinNode<int>(new BinNode<int>(5), 8, null)), 6, new BinNode<int>(4)),\n    1,\n    new BinNode<int>(new BinNode<int>(new BinNode<int>(9), 14, new BinNode<int>(11)), 7, new BinNode<int>(null, 2, new BinNode<int>(10))));\nConsole.WriteLine(\"סעיף א, בדיקה 1 (tr1): \" + Check(UpPath(tr1), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (tr2): \" + Check(UpPath(tr2), false));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (צומת אחד): \" + Check(UpPath(new BinNode<int>(7)), true));\nBinNode<int> t4 = new BinNode<int>(new BinNode<int>(9), 5, new BinNode<int>(2));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (עולה רק שמאלה): \" + Check(UpPath(t4), true));\nBinNode<int> t5 = new BinNode<int>(null, 1, new BinNode<int>(new BinNode<int>(2), 3, null));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (עולה, אבל לא עד עלה): \" + Check(UpPath(t5), false));",
+      "expectedOutput": "סעיף א, בדיקה 1 (tr1): נכון\nסעיף א, בדיקה 2 (tr2): נכון\nסעיף א, בדיקה 3 (צומת אחד): נכון\nסעיף א, בדיקה 4 (עולה רק שמאלה): נכון\nסעיף א, בדיקה 5 (עולה, אבל לא עד עלה): נכון"
+    }
+  }
+}

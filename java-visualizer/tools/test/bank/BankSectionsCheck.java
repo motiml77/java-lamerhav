@@ -17,6 +17,8 @@ import java.util.Map;
  *   3. מוסיפים את סעיף ב למעטפת (פעולה ריקה): מתקמפל — רק "חסר return" בפעולה הריקה; הסמן בשורה שמתחת ל"כאן עונים סעיף ב'";
  *   4. אותו דבר כשהתלמיד כבר כתב את סעיף א, כשהקובץ עם CRLF ועם טאבים (כמו אחרי Ctrl+Shift+F ב-Eclipse), וכשיש שורות ריקות נוספות;
  *   5. לחיצה שנייה לא מוסיפה שוב; prepared סופר נכון (1 → 2).
+ *   6. בשאלה עם יותר משני סעיפים (כמו בבגרות): "הכן סעיף ג", "הכן סעיף ד"... — אחרי כל סעיף הפלט הוא בדיוק הפלט הרצוי עד אותו סעיף,
+ *      ובמעטפת prepared סופר נכון והקוד מתקמפל (רק "חסר return").
  *   java -cp ... il.lamerhav.dsviz.BankSectionsCheck <bank> <dsviz.jar> [dotnet dsviz-cs.dll]
  */
 public final class BankSectionsCheck {
@@ -59,9 +61,20 @@ public final class BankSectionsCheck {
             String want1 = BankSections.expectedUpTo(full.expectedOutput, labels, 1);
             if (!same(out1, want1)) { bad(where, "סעיף א בלבד: הפלט\n" + out1 + "\nבמקום\n" + want1); return; }
             // 2. מוסיפים את סעיף ב עם ההצעה לפתרון
-            String out2 = run(addAll(solved, full, t2, true, where), new File(work, "b"), pkg, first.mainClass, csharp);
+            Map<String, String> cur = addAll(solved, full, t2, true, where);
+            String out2 = run(cur, new File(work, "b"), pkg, first.mainClass, csharp);
             if (out2 == null) return;
-            if (!same(out2, full.expectedOutput)) { bad(where, "אחרי סעיף ב: הפלט\n" + out2 + "\nבמקום\n" + full.expectedOutput); return; }
+            String want2 = BankSections.expectedUpTo(full.expectedOutput, labels, 2);
+            if (!same(out2, want2)) { bad(where, "אחרי סעיף ב: הפלט\n" + out2 + "\nבמקום\n" + want2); return; }
+            // 6. שאר הסעיפים, אחד אחרי השני
+            for (int k = 2; k < full.tasks.size(); k++) {
+                AiScaffold.Task tk = full.tasks.get(k);
+                cur = addAll(cur, full, tk, true, where);
+                String outk = run(cur, new File(work, "b" + k), pkg, first.mainClass, csharp);
+                if (outk == null) return;
+                String wantk = BankSections.expectedUpTo(full.expectedOutput, labels, k + 1);
+                if (!same(outk, wantk)) { bad(where, "אחרי סעיף " + tk.label + ": הפלט\n" + outk + "\nבמקום\n" + wantk); return; }
+            }
             // 3. המעטפת (פעולות ריקות): סעיף א, ואז סעיף ב — רק "חסר return"
             Map<String, String> stub = new LinkedHashMap<String, String>();
             for (Map.Entry<String, String> f : texts(AiScaffold.build(first, pkg, Collections.<String>emptyList(), false)).entrySet())
@@ -76,6 +89,16 @@ public final class BankSectionsCheck {
             if (BankSections.prepared(full, stub2) != 2) { bad(where, "prepared אחרי ההוספה: " + BankSections.prepared(full, stub2)); return; }
             String err = compileOnlyMissingReturn(stub2, new File(work, "c"), pkg, csharp);
             if (err != null) { bad(where, "המעטפת אחרי סעיף ב: " + err); return; }
+            Map<String, String> stubAll = stub2;
+            for (int k = 2; k < full.tasks.size(); k++) {
+                stubAll = addAll(stubAll, full, full.tasks.get(k), false, where);
+                if (stubAll == null) return;
+                if (BankSections.prepared(full, stubAll) != k + 1) { bad(where, "prepared אחרי סעיף " + full.tasks.get(k).label + ": " + BankSections.prepared(full, stubAll)); return; }
+            }
+            if (stubAll != stub2) {
+                err = compileOnlyMissingReturn(stubAll, new File(work, "c2"), pkg, csharp);
+                if (err != null) { bad(where, "המעטפת עם כל הסעיפים: " + err); return; }
+            }
             // הסמן: מתחת לשורת "כאן עונים סעיף ב'"
             BankSections.Edit ed = BankSections.add(stub.get(t2.className), full, t2, t2.className, false);
             String[] ls = ed.text.split("\n", -1);
@@ -92,7 +115,7 @@ public final class BankSectionsCheck {
                 messy.put(f.getKey(), f.getValue().replace("    ", "\t").replace("\n\t}", "\n\n\n\t}").replace("\n", "\r\n"));
             String out4 = run(addAll(messy, full, t2, true, where), new File(work, "d"), pkg, first.mainClass, csharp);
             if (out4 == null) return;
-            if (!same(out4, full.expectedOutput)) { bad(where, "CRLF + טאבים: הפלט\n" + out4); return; }
+            if (!same(out4, want2)) { bad(where, "CRLF + טאבים: הפלט\n" + out4); return; }
             ok(where);
         } finally {
             delete(work);
