@@ -1,0 +1,222 @@
+{
+  "id": "arrays-balanced-element",
+  "topic": "arrays",
+  "level": "hard",
+  "title": "איבר שוויון",
+  "question": {
+    "intro": "איבר במערך חד־ממדי ייקרא \"איבר שוויון\" אם סכום האיברים שמימינו שווה לסכום האיברים שמשמאלו.\nלאיבר שנמצא בקצה המערך (אין איברים באחד הצדדים שלו), הסכום בצד הזה הוא 0\nלדוגמה:\nבמערך שבציור הראשון, בגודל 6, האיבר 4 (במקום 2) הוא איבר שוויון, כי הסכום בכל אחד מהצדדים שלו הוא 6\nבמערך שבציור השני, בגודל 7, האיבר 6 (במקום 0) הוא איבר שוויון, כי הסכום בכל אחד מהצדדים שלו הוא 0",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית isBalanced, המקבלת מערך arr של מספרים שלמים ומספר שלם index המייצג מקום במערך (הנח שהמקום תקין).\nהפעולה תחזיר true אם האיבר שבמקום index הוא איבר שוויון, אחרת הפעולה תחזיר false.\nלדוגמה:\nעבור המערך שבציור הראשון ו-index = 2 הפעולה תחזיר true\nעבור המערך שבציור הראשון ו-index = 1 הפעולה תחזיר false",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              -1,
+              7,
+              4,
+              2,
+              3,
+              1
+            ],
+            "caption": "מערך בגודל 6: האיבר 4 (במקום 2) הוא איבר שוויון"
+          },
+          {
+            "type": "array",
+            "values": [
+              6,
+              -3,
+              4,
+              2,
+              0,
+              -6,
+              3
+            ],
+            "caption": "מערך בגודל 7: האיבר 6 (במקום 0) הוא איבר שוויון"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "מערך ייקרא \"מערך שוויון\" אם יש בו לפחות איבר שוויון אחד.\nכתוב פעולה חיצונית isBalancedArray, המקבלת מערך arr של מספרים שלמים, ומחזירה true אם הוא מערך שוויון, אחרת הפעולה מחזירה false.\nהערה: אפשר להשתמש בפעולה שכתבת בסעיף א.\nלדוגמה:\nעבור כל אחד משני המערכים שבציורים של סעיף א הפעולה תחזיר true\nעבור המערך שבציור של סעיף זה הפעולה תחזיר false",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "caption": "מערך שאין בו איבר שוויון"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "איבר שוויון",
+    "topic": "arrays",
+    "mainClass": "ArraysTargil10",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "ArraysTargil10",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isBalanced",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          },
+          {
+            "type": "int",
+            "name": "index"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית isBalanced, המקבלת מערך arr של מספרים שלמים ומספר שלם index המייצג מקום במערך (הנח שהמקום תקין).\nהפעולה תחזיר true אם האיבר שבמקום index הוא איבר שוויון, אחרת הפעולה תחזיר false.",
+        "solution": "public static boolean isBalanced(int[] arr, int index) {\n    int left = 0;\n    int right = 0;\n    for (int i = 0; i < index; i++) {\n        left = left + arr[i];\n    }\n    for (int i = index + 1; i < arr.length; i++) {\n        right = right + arr[i];\n    }\n    return left == right;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "ArraysTargil10",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isBalancedArray",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "מערך ייקרא \"מערך שוויון\" אם יש בו לפחות איבר שוויון אחד.\nכתוב פעולה חיצונית isBalancedArray, המקבלת מערך arr של מספרים שלמים, ומחזירה true אם הוא מערך שוויון, אחרת הפעולה מחזירה false.\nהערה: אפשר להשתמש בפעולה שכתבת בסעיף א.",
+        "solution": "public static boolean isBalancedArray(int[] arr) {\n    for (int i = 0; i < arr.length; i++) {\n        if (isBalanced(arr, i)) {\n            return true;\n        }\n    }\n    return false;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "ArraysTargil10",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "int[] a1 = { -1, 7, 4, 2, 3, 1 };\nint[] a2 = { 6, -3, 4, 2, 0, -6, 3 };\nSystem.out.println(\"סעיף א, בדיקה 1 (הציור הראשון, האיבר 4 במקום 2): \" + check(isBalanced(a1, 2), true));\nSystem.out.println(\"סעיף א, בדיקה 2 (הציור השני, האיבר 6 במקום 0): \" + check(isBalanced(a2, 0), true));\nSystem.out.println(\"סעיף א, בדיקה 3 (הציור הראשון, במקום 1): \" + check(isBalanced(a1, 1), false));\nSystem.out.println(\"סעיף א, בדיקה 4 (הציור השני, האיבר האחרון): \" + check(isBalanced(a2, 6), false));\nSystem.out.println(\"סעיף א, בדיקה 5 (האיבר האחרון הוא איבר שוויון): \" + check(isBalanced(new int[] { 2, -2, 5 }, 2), true));\nSystem.out.println(\"סעיף א, בדיקה 6 (מערך בגודל 1): \" + check(isBalanced(new int[] { 7 }, 0), true));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הציור הראשון): \" + check(isBalancedArray(a1), true));\nSystem.out.println(\"סעיף ב, בדיקה 2 (הציור השני): \" + check(isBalancedArray(a2), true));\nSystem.out.println(\"סעיף ב, בדיקה 3 (הציור של סעיף ב): \" + check(isBalancedArray(new int[] { 1, 2, 3, 4 }), false));\nSystem.out.println(\"סעיף ב, בדיקה 4 (רק האיבר האחרון הוא איבר שוויון): \" + check(isBalancedArray(new int[] { 3, -3, 8 }), true));\nSystem.out.println(\"סעיף ב, בדיקה 5 (מערך בגודל 2): \" + check(isBalancedArray(new int[] { 5, 4 }), false));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הציור הראשון, האיבר 4 במקום 2): נכון\nסעיף א, בדיקה 2 (הציור השני, האיבר 6 במקום 0): נכון\nסעיף א, בדיקה 3 (הציור הראשון, במקום 1): נכון\nסעיף א, בדיקה 4 (הציור השני, האיבר האחרון): נכון\nסעיף א, בדיקה 5 (האיבר האחרון הוא איבר שוויון): נכון\nסעיף א, בדיקה 6 (מערך בגודל 1): נכון\nסעיף ב, בדיקה 1 (הציור הראשון): נכון\nסעיף ב, בדיקה 2 (הציור השני): נכון\nסעיף ב, בדיקה 3 (הציור של סעיף ב): נכון\nסעיף ב, בדיקה 4 (רק האיבר האחרון הוא איבר שוויון): נכון\nסעיף ב, בדיקה 5 (מערך בגודל 2): נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "איבר במערך חד־ממדי ייקרא \"איבר שוויון\" אם סכום האיברים שמימינו שווה לסכום האיברים שמשמאלו.\nלאיבר שנמצא בקצה המערך (אין איברים באחד הצדדים שלו), הסכום בצד הזה הוא 0\nלדוגמה:\nבמערך שבציור הראשון, בגודל 6, האיבר 4 (במקום 2) הוא איבר שוויון, כי הסכום בכל אחד מהצדדים שלו הוא 6\nבמערך שבציור השני, בגודל 7, האיבר 6 (במקום 0) הוא איבר שוויון, כי הסכום בכל אחד מהצדדים שלו הוא 0",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית IsBalanced, המקבלת מערך arr של מספרים שלמים ומספר שלם index המייצג מקום במערך (הנח שהמקום תקין).\nהפעולה תחזיר true אם האיבר שבמקום index הוא איבר שוויון, אחרת הפעולה תחזיר false.\nלדוגמה:\nעבור המערך שבציור הראשון ו-index = 2 הפעולה תחזיר true\nעבור המערך שבציור הראשון ו-index = 1 הפעולה תחזיר false",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                -1,
+                7,
+                4,
+                2,
+                3,
+                1
+              ],
+              "caption": "מערך בגודל 6: האיבר 4 (במקום 2) הוא איבר שוויון"
+            },
+            {
+              "type": "array",
+              "values": [
+                6,
+                -3,
+                4,
+                2,
+                0,
+                -6,
+                3
+              ],
+              "caption": "מערך בגודל 7: האיבר 6 (במקום 0) הוא איבר שוויון"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "מערך ייקרא \"מערך שוויון\" אם יש בו לפחות איבר שוויון אחד.\nכתוב פעולה חיצונית IsBalancedArray, המקבלת מערך arr של מספרים שלמים, ומחזירה true אם הוא מערך שוויון, אחרת הפעולה מחזירה false.\nהערה: אפשר להשתמש בפעולה שכתבת בסעיף א.\nלדוגמה:\nעבור כל אחד משני המערכים שבציורים של סעיף א הפעולה תחזיר true\nעבור המערך שבציור של סעיף זה הפעולה תחזיר false",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                1,
+                2,
+                3,
+                4
+              ],
+              "caption": "מערך שאין בו איבר שוויון"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "איבר שוויון",
+      "topic": "arrays",
+      "mainClass": "ArraysTargil10",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "ArraysTargil10",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsBalanced",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "arr"
+            },
+            {
+              "type": "int",
+              "name": "index"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית IsBalanced, המקבלת מערך arr של מספרים שלמים ומספר שלם index המייצג מקום במערך (הנח שהמקום תקין).\nהפעולה תחזיר true אם האיבר שבמקום index הוא איבר שוויון, אחרת הפעולה תחזיר false.",
+          "solution": "public static bool IsBalanced(int[] arr, int index)\n{\n    int left = 0;\n    int right = 0;\n    for (int i = 0; i < index; i++)\n    {\n        left = left + arr[i];\n    }\n    for (int i = index + 1; i < arr.Length; i++)\n    {\n        right = right + arr[i];\n    }\n    return left == right;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "ArraysTargil10",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsBalancedArray",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "arr"
+            }
+          ],
+          "instructions": "מערך ייקרא \"מערך שוויון\" אם יש בו לפחות איבר שוויון אחד.\nכתוב פעולה חיצונית IsBalancedArray, המקבלת מערך arr של מספרים שלמים, ומחזירה true אם הוא מערך שוויון, אחרת הפעולה מחזירה false.\nהערה: אפשר להשתמש בפעולה שכתבת בסעיף א.",
+          "solution": "public static bool IsBalancedArray(int[] arr)\n{\n    for (int i = 0; i < arr.Length; i++)\n    {\n        if (IsBalanced(arr, i))\n        {\n            return true;\n        }\n    }\n    return false;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "ArraysTargil10",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "int[] a1 = { -1, 7, 4, 2, 3, 1 };\nint[] a2 = { 6, -3, 4, 2, 0, -6, 3 };\nConsole.WriteLine(\"סעיף א, בדיקה 1 (הציור הראשון, האיבר 4 במקום 2): \" + Check(IsBalanced(a1, 2), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (הציור השני, האיבר 6 במקום 0): \" + Check(IsBalanced(a2, 0), true));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (הציור הראשון, במקום 1): \" + Check(IsBalanced(a1, 1), false));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (הציור השני, האיבר האחרון): \" + Check(IsBalanced(a2, 6), false));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (האיבר האחרון הוא איבר שוויון): \" + Check(IsBalanced(new int[] { 2, -2, 5 }, 2), true));\nConsole.WriteLine(\"סעיף א, בדיקה 6 (מערך בגודל 1): \" + Check(IsBalanced(new int[] { 7 }, 0), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הציור הראשון): \" + Check(IsBalancedArray(a1), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (הציור השני): \" + Check(IsBalancedArray(a2), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (הציור של סעיף ב): \" + Check(IsBalancedArray(new int[] { 1, 2, 3, 4 }), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 4 (רק האיבר האחרון הוא איבר שוויון): \" + Check(IsBalancedArray(new int[] { 3, -3, 8 }), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 5 (מערך בגודל 2): \" + Check(IsBalancedArray(new int[] { 5, 4 }), false));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הציור הראשון, האיבר 4 במקום 2): נכון\nסעיף א, בדיקה 2 (הציור השני, האיבר 6 במקום 0): נכון\nסעיף א, בדיקה 3 (הציור הראשון, במקום 1): נכון\nסעיף א, בדיקה 4 (הציור השני, האיבר האחרון): נכון\nסעיף א, בדיקה 5 (האיבר האחרון הוא איבר שוויון): נכון\nסעיף א, בדיקה 6 (מערך בגודל 1): נכון\nסעיף ב, בדיקה 1 (הציור הראשון): נכון\nסעיף ב, בדיקה 2 (הציור השני): נכון\nסעיף ב, בדיקה 3 (הציור של סעיף ב): נכון\nסעיף ב, בדיקה 4 (רק האיבר האחרון הוא איבר שוויון): נכון\nסעיף ב, בדיקה 5 (מערך בגודל 2): נכון"
+    }
+  }
+}

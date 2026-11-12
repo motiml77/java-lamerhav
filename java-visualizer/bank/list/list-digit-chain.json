@@ -1,0 +1,148 @@
+{
+  "id": "list-digit-chain",
+  "topic": "list",
+  "level": "hard",
+  "title": "שרשרת ספרות",
+  "question": {
+    "intro": "\"שרשרת מספרים שלמים חיוביים\" היא שרשרת חוליות שבכל חוליה בה יש מספר שלם הגדול מ-0\n\"שרשרת ספרות\" היא שרשרת חוליות שבכל חוליה בה יש ספרה בין 0 ל-9 (כולל) או המספר -9\nכל רצף של ספרות בשרשרת ספרות מייצג מספר: הספרה הראשונה מייצגת את האחדות, הספרה השנייה מייצגת את העשרות, וכן הלאה.\nאחרי כל רצף של ספרות מופיע המספר -9, המסמן את סוף המספר בשרשרת.\nלדוגמה:\nשרשרת הספרות שבציור הראשון מייצגת, לפי הסדר, את המספרים: 92, 4, 543",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית buildDigit, המקבלת הפניה lst (שאינה null) לשרשרת מספרים שלמים חיוביים, ומחזירה שרשרת ספרות המייצגת את המספרים שבשרשרת lst, לפי הסדר.\nלדוגמה:\nעבור שרשרת המספרים lst שבציור השני הפעולה תחזיר את שרשרת הספרות שבציור הראשון",
+        "figures": [
+          {
+            "type": "list",
+            "values": [
+              2,
+              9,
+              -9,
+              4,
+              -9,
+              3,
+              4,
+              5,
+              -9
+            ],
+            "caption": "שרשרת ספרות (המספרים 92, 4, 543)"
+          },
+          {
+            "type": "list",
+            "values": [
+              92,
+              4,
+              543
+            ],
+            "caption": "שרשרת המספרים lst"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "שרשרת ספרות",
+    "topic": "list",
+    "mainClass": "ListTargil9",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "ListTargil9",
+        "isStatic": true,
+        "returnType": "Node<Integer>",
+        "methodName": "buildDigit",
+        "parameters": [
+          {
+            "type": "Node<Integer>",
+            "name": "lst"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית buildDigit, המקבלת הפניה lst (שאינה null) לשרשרת מספרים שלמים חיוביים, ומחזירה שרשרת ספרות המייצגת את המספרים שבשרשרת lst, לפי הסדר.",
+        "solution": "public static Node<Integer> buildDigit(Node<Integer> lst) {\n    Node<Integer> dummy = new Node<Integer>(0);   // חוליה זמנית בתחילת השרשרת החדשה\n    Node<Integer> last = dummy;\n    Node<Integer> p = lst;\n    while (p != null) {\n        int num = p.getValue();\n        while (num > 0) {\n            last.setNext(new Node<Integer>(num % 10));   // ספרת האחדות של num\n            last = last.getNext();\n            num = num / 10;\n        }\n        last.setNext(new Node<Integer>(-9));   // סוף המספר\n        last = last.getNext();\n        p = p.getNext();\n    }\n    return dummy.getNext();\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "ListTargil9",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\npublic static Node<Integer> build(int[] values) {\n    Node<Integer> first = null;\n    for (int i = values.length - 1; i >= 0; i--) {\n        first = new Node<Integer>(values[i], first);\n    }\n    return first;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Node<Integer> lst = build(new int[] { 92, 4, 543 });\nSystem.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(buildDigit(lst), \"2 -> 9 -> -9 -> 4 -> -9 -> 3 -> 4 -> 5 -> -9 -> null\"));\nSystem.out.println(\"סעיף א, בדיקה 2 (0 בסוף המספר ובאמצע המספר): \" + check(buildDigit(build(new int[] { 10, 305 })), \"0 -> 1 -> -9 -> 5 -> 0 -> 3 -> -9 -> null\"));\nSystem.out.println(\"סעיף א, בדיקה 3 (חוליה אחת עם ספרה אחת): \" + check(buildDigit(new Node<Integer>(7)), \"7 -> -9 -> null\"));\nSystem.out.println(\"סעיף א, בדיקה 4: \" + check(buildDigit(build(new int[] { 1, 1000, 9 })), \"1 -> -9 -> 0 -> 0 -> 0 -> 1 -> -9 -> 9 -> -9 -> null\"));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (0 בסוף המספר ובאמצע המספר): נכון\nסעיף א, בדיקה 3 (חוליה אחת עם ספרה אחת): נכון\nסעיף א, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "\"שרשרת מספרים שלמים חיוביים\" היא שרשרת חוליות שבכל חוליה בה יש מספר שלם הגדול מ-0\n\"שרשרת ספרות\" היא שרשרת חוליות שבכל חוליה בה יש ספרה בין 0 ל-9 (כולל) או המספר -9\nכל רצף של ספרות בשרשרת ספרות מייצג מספר: הספרה הראשונה מייצגת את האחדות, הספרה השנייה מייצגת את העשרות, וכן הלאה.\nאחרי כל רצף של ספרות מופיע המספר -9, המסמן את סוף המספר בשרשרת.\nלדוגמה:\nשרשרת הספרות שבציור הראשון מייצגת, לפי הסדר, את המספרים: 92, 4, 543",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית BuildDigit, המקבלת הפניה lst (שאינה null) לשרשרת מספרים שלמים חיוביים, ומחזירה שרשרת ספרות המייצגת את המספרים שבשרשרת lst, לפי הסדר.\nלדוגמה:\nעבור שרשרת המספרים lst שבציור השני הפעולה תחזיר את שרשרת הספרות שבציור הראשון",
+          "figures": [
+            {
+              "type": "list",
+              "values": [
+                2,
+                9,
+                -9,
+                4,
+                -9,
+                3,
+                4,
+                5,
+                -9
+              ],
+              "caption": "שרשרת ספרות (המספרים 92, 4, 543)"
+            },
+            {
+              "type": "list",
+              "values": [
+                92,
+                4,
+                543
+              ],
+              "caption": "שרשרת המספרים lst"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "שרשרת ספרות",
+      "topic": "list",
+      "mainClass": "ListTargil9",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "ListTargil9",
+          "isStatic": true,
+          "returnType": "Node<int>",
+          "methodName": "BuildDigit",
+          "parameters": [
+            {
+              "type": "Node<int>",
+              "name": "lst"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית BuildDigit, המקבלת הפניה lst (שאינה null) לשרשרת מספרים שלמים חיוביים, ומחזירה שרשרת ספרות המייצגת את המספרים שבשרשרת lst, לפי הסדר.",
+          "solution": "public static Node<int> BuildDigit(Node<int> lst)\n{\n    Node<int> dummy = new Node<int>(0);   // חוליה זמנית בתחילת השרשרת החדשה\n    Node<int> last = dummy;\n    Node<int> p = lst;\n    while (p != null)\n    {\n        int num = p.GetValue();\n        while (num > 0)\n        {\n            last.SetNext(new Node<int>(num % 10));   // ספרת האחדות של num\n            last = last.GetNext();\n            num = num / 10;\n        }\n        last.SetNext(new Node<int>(-9));   // סוף המספר\n        last = last.GetNext();\n        p = p.GetNext();\n    }\n    return dummy.GetNext();\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "ListTargil9",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\npublic static Node<int> Build(int[] values)\n{\n    Node<int> first = null;\n    for (int i = values.Length - 1; i >= 0; i--)\n    {\n        first = new Node<int>(values[i], first);\n    }\n    return first;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Node<int> lst = Build(new int[] { 92, 4, 543 });\nConsole.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(BuildDigit(lst), \"2 -> 9 -> -9 -> 4 -> -9 -> 3 -> 4 -> 5 -> -9 -> null\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (0 בסוף המספר ובאמצע המספר): \" + Check(BuildDigit(Build(new int[] { 10, 305 })), \"0 -> 1 -> -9 -> 5 -> 0 -> 3 -> -9 -> null\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (חוליה אחת עם ספרה אחת): \" + Check(BuildDigit(new Node<int>(7)), \"7 -> -9 -> null\"));\nConsole.WriteLine(\"סעיף א, בדיקה 4: \" + Check(BuildDigit(Build(new int[] { 1, 1000, 9 })), \"1 -> -9 -> 0 -> 0 -> 0 -> 1 -> -9 -> 9 -> -9 -> null\"));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (0 בסוף המספר ובאמצע המספר): נכון\nסעיף א, בדיקה 3 (חוליה אחת עם ספרה אחת): נכון\nסעיף א, בדיקה 4: נכון"
+    }
+  }
+}

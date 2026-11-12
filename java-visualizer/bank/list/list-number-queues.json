@@ -1,0 +1,212 @@
+{
+  "id": "list-number-queues",
+  "topic": "list",
+  "level": "hard",
+  "title": "תור מספר והמספר הגדול בשרשרת",
+  "question": {
+    "intro": "\"תור מספר\" הוא תור של ספרות בין 1 ל-9 (כולל), המייצג מספר שלם: האיבר הראשון (ראש התור) הוא ספרת האחדות, האיבר השני הוא ספרת העשרות וכן הלאה.\nהנח שמספר הספרות האפשרי בתור לא גדול ממספר הספרות שיכול להכיל משתנה מטיפוס int.\nלדוגמה: התור q שבציור מייצג את המספר 196",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה בשם toNumber, המקבלת \"תור מספר\" q, ומחזירה את המספר המיוצג בתור.\nהערה: אין חובה לשמור על מבנה התור.",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              6,
+              9,
+              1
+            ],
+            "caption": "q (6 בראש התור)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "נתונה שרשרת חוליות ובה כל חוליה מכילה \"תור מספר\".\nלדוגמה: שרשרת החוליות lst שבציור מייצגת את המספרים:\n62, 427, 82, 691\nכתוב פעולה בשם bigNumber, המקבלת הפניה lst לשרשרת החוליות, ומחזירה את המספר הגדול ביותר המיוצג בשרשרת החוליות.\nעבור שרשרת החוליות שבדוגמה הפעולה מחזירה את המספר 691\nחובה להשתמש בפעולה שהוגדרה בסעיף א.",
+        "figures": [
+          {
+            "type": "list",
+            "inner": "queue",
+            "values": [
+              [
+                2,
+                6
+              ],
+              [
+                7,
+                2,
+                4
+              ],
+              [
+                2,
+                8
+              ],
+              [
+                1,
+                9,
+                6
+              ]
+            ],
+            "caption": "lst (בכל תור — הראש משמאל)"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "תור מספר והמספר הגדול בשרשרת",
+    "topic": "list",
+    "mainClass": "ListTargil8",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "ListTargil8",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "toNumber",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          }
+        ],
+        "instructions": "כתוב פעולה בשם toNumber, המקבלת \"תור מספר\" q, ומחזירה את המספר המיוצג בתור.\nהערה: אין חובה לשמור על מבנה התור.",
+        "solution": "public static int toNumber(Queue<Integer> q) {\n    int num = 0;\n    int place = 1;   // 1, 10, 100...\n    while (!q.isEmpty()) {\n        num = num + q.remove() * place;\n        place = place * 10;\n    }\n    return num;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "ListTargil8",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "bigNumber",
+        "parameters": [
+          {
+            "type": "Node<Queue<Integer>>",
+            "name": "lst"
+          }
+        ],
+        "instructions": "נתונה שרשרת חוליות ובה כל חוליה מכילה \"תור מספר\".\nלדוגמה: שרשרת החוליות lst שבציור מייצגת את המספרים:\n62, 427, 82, 691\nכתוב פעולה בשם bigNumber, המקבלת הפניה lst לשרשרת החוליות, ומחזירה את המספר הגדול ביותר המיוצג בשרשרת החוליות.",
+        "solution": "public static int bigNumber(Node<Queue<Integer>> lst) {\n    int max = toNumber(lst.getValue());\n    Node<Queue<Integer>> p = lst.getNext();\n    while (p != null) {\n        int n = toNumber(p.getValue());\n        if (n > max) {\n            max = n;\n        }\n        p = p.getNext();\n    }\n    return max;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "ListTargil8",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "// בונים \"תור מספר\" מספרות: הראשונה שנכנסת היא ספרת האחדות\nQueue<Integer> q = new Queue<Integer>();\nq.insert(6);\nq.insert(9);\nq.insert(1);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(toNumber(q), 196));\nQueue<Integer> q2 = new Queue<Integer>();\nq2.insert(7);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(toNumber(q2), 7));\nQueue<Integer> q3 = new Queue<Integer>();\nq3.insert(1);\nq3.insert(2);\nq3.insert(3);\nq3.insert(4);\nq3.insert(5);\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(toNumber(q3), 54321));\n// השרשרת מהציור: 62, 427, 82, 691\nQueue<Integer> a = new Queue<Integer>();\na.insert(2);\na.insert(6);\nQueue<Integer> b = new Queue<Integer>();\nb.insert(7);\nb.insert(2);\nb.insert(4);\nQueue<Integer> c = new Queue<Integer>();\nc.insert(2);\nc.insert(8);\nQueue<Integer> d = new Queue<Integer>();\nd.insert(1);\nd.insert(9);\nd.insert(6);\nNode<Queue<Integer>> lst = new Node<Queue<Integer>>(a, new Node<Queue<Integer>>(b, new Node<Queue<Integer>>(c, new Node<Queue<Integer>>(d))));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(bigNumber(lst), 691));\nQueue<Integer> e = new Queue<Integer>();\ne.insert(9);\ne.insert(9);\ne.insert(9);\nQueue<Integer> f = new Queue<Integer>();\nf.insert(5);\nNode<Queue<Integer>> lst2 = new Node<Queue<Integer>>(e, new Node<Queue<Integer>>(f));\nSystem.out.println(\"סעיף ב, בדיקה 2 (הגדול ראשון): \" + check(bigNumber(lst2), 999));\nQueue<Integer> g = new Queue<Integer>();\ng.insert(3);\nSystem.out.println(\"סעיף ב, בדיקה 3 (חוליה אחת): \" + check(bigNumber(new Node<Queue<Integer>>(g)), 3));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (הגדול ראשון): נכון\nסעיף ב, בדיקה 3 (חוליה אחת): נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "\"תור מספר\" הוא תור של ספרות בין 1 ל-9 (כולל), המייצג מספר שלם: האיבר הראשון (ראש התור) הוא ספרת האחדות, האיבר השני הוא ספרת העשרות וכן הלאה.\nהנח שמספר הספרות האפשרי בתור לא גדול ממספר הספרות שיכול להכיל משתנה מטיפוס int.\nלדוגמה: התור q שבציור מייצג את המספר 196",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה בשם ToNumber, המקבלת \"תור מספר\" q, ומחזירה את המספר המיוצג בתור.\nהערה: אין חובה לשמור על מבנה התור.",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                6,
+                9,
+                1
+              ],
+              "caption": "q (6 בראש התור)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "נתונה שרשרת חוליות ובה כל חוליה מכילה \"תור מספר\".\nלדוגמה: שרשרת החוליות lst שבציור מייצגת את המספרים:\n62, 427, 82, 691\nכתוב פעולה בשם BigNumber, המקבלת הפניה lst לשרשרת החוליות, ומחזירה את המספר הגדול ביותר המיוצג בשרשרת החוליות.\nעבור שרשרת החוליות שבדוגמה הפעולה מחזירה את המספר 691\nחובה להשתמש בפעולה שהוגדרה בסעיף א.",
+          "figures": [
+            {
+              "type": "list",
+              "inner": "queue",
+              "values": [
+                [
+                  2,
+                  6
+                ],
+                [
+                  7,
+                  2,
+                  4
+                ],
+                [
+                  2,
+                  8
+                ],
+                [
+                  1,
+                  9,
+                  6
+                ]
+              ],
+              "caption": "lst (בכל תור — הראש משמאל)"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "תור מספר והמספר הגדול בשרשרת",
+      "topic": "list",
+      "mainClass": "ListTargil8",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "ListTargil8",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "ToNumber",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q"
+            }
+          ],
+          "instructions": "כתוב פעולה בשם ToNumber, המקבלת \"תור מספר\" q, ומחזירה את המספר המיוצג בתור.\nהערה: אין חובה לשמור על מבנה התור.",
+          "solution": "public static int ToNumber(Queue<int> q)\n{\n    int num = 0;\n    int place = 1;   // 1, 10, 100...\n    while (!q.IsEmpty())\n    {\n        num = num + q.Remove() * place;\n        place = place * 10;\n    }\n    return num;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "ListTargil8",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "BigNumber",
+          "parameters": [
+            {
+              "type": "Node<Queue<int>>",
+              "name": "lst"
+            }
+          ],
+          "instructions": "נתונה שרשרת חוליות ובה כל חוליה מכילה \"תור מספר\".\nלדוגמה: שרשרת החוליות lst שבציור מייצגת את המספרים:\n62, 427, 82, 691\nכתוב פעולה בשם BigNumber, המקבלת הפניה lst לשרשרת החוליות, ומחזירה את המספר הגדול ביותר המיוצג בשרשרת החוליות.",
+          "solution": "public static int BigNumber(Node<Queue<int>> lst)\n{\n    int max = ToNumber(lst.GetValue());\n    Node<Queue<int>> p = lst.GetNext();\n    while (p != null)\n    {\n        int n = ToNumber(p.GetValue());\n        if (n > max)\n        {\n            max = n;\n        }\n        p = p.GetNext();\n    }\n    return max;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "ListTargil8",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "// בונים \"תור מספר\" מספרות: הראשונה שנכנסת היא ספרת האחדות\nQueue<int> q = new Queue<int>();\nq.Insert(6);\nq.Insert(9);\nq.Insert(1);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(ToNumber(q), 196));\nQueue<int> q2 = new Queue<int>();\nq2.Insert(7);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(ToNumber(q2), 7));\nQueue<int> q3 = new Queue<int>();\nq3.Insert(1);\nq3.Insert(2);\nq3.Insert(3);\nq3.Insert(4);\nq3.Insert(5);\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(ToNumber(q3), 54321));\n// השרשרת מהציור: 62, 427, 82, 691\nQueue<int> a = new Queue<int>();\na.Insert(2);\na.Insert(6);\nQueue<int> b = new Queue<int>();\nb.Insert(7);\nb.Insert(2);\nb.Insert(4);\nQueue<int> c = new Queue<int>();\nc.Insert(2);\nc.Insert(8);\nQueue<int> d = new Queue<int>();\nd.Insert(1);\nd.Insert(9);\nd.Insert(6);\nNode<Queue<int>> lst = new Node<Queue<int>>(a, new Node<Queue<int>>(b, new Node<Queue<int>>(c, new Node<Queue<int>>(d))));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(BigNumber(lst), 691));\nQueue<int> e = new Queue<int>();\ne.Insert(9);\ne.Insert(9);\ne.Insert(9);\nQueue<int> f = new Queue<int>();\nf.Insert(5);\nNode<Queue<int>> lst2 = new Node<Queue<int>>(e, new Node<Queue<int>>(f));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (הגדול ראשון): \" + Check(BigNumber(lst2), 999));\nQueue<int> g = new Queue<int>();\ng.Insert(3);\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (חוליה אחת): \" + Check(BigNumber(new Node<Queue<int>>(g)), 3));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (הגדול ראשון): נכון\nסעיף ב, בדיקה 3 (חוליה אחת): נכון"
+    }
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "id": "tree-remainders-equal",
+  "topic": "tree",
+  "level": "hard",
+  "title": "עץ שאריות שוויוני",
+  "question": {
+    "intro": "עץ בינארי של מספרים שלמים שאינם שליליים ייקרא \"עץ שאריות שוויוני\" אם מספר האיברים שערכם מתחלק ב-3 עם שארית 1 שווה למספר האיברים שערכם מתחלק ב-3 עם שארית 2, ושווה למספר האיברים שערכם מתחלק ב-3 ללא שארית.\nלדוגמה: העץ שבציור הוא עץ שאריות שוויוני, כי:\nשני מספרים מתחלקים ב-3 ללא שארית: 9, 9\nשני מספרים מתחלקים ב-3 עם שארית 1: 7, 10\nשני מספרים מתחלקים ב-3 עם שארית 2: 11, 5",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית בוליאנית treeEqual, המקבלת עץ בינארי לא ריק של מספרים שלמים שאינם שליליים.\nהפעולה תחזיר true אם העץ הוא עץ שאריות שוויוני, אחרת הפעולה תחזיר false.\nאם אתה משתמש בפעולות עזר, עליך לממש אותן.\nלדוגמה:\nעבור העץ שבציור הפעולה תחזיר true",
+        "figures": [
+          {
+            "type": "tree",
+            "values": [
+              9,
+              7,
+              10,
+              9,
+              5,
+              null,
+              11
+            ],
+            "caption": "עץ שאריות שוויוני"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "עץ שאריות שוויוני",
+    "topic": "tree",
+    "mainClass": "TreeTargil10",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "TreeTargil10",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "treeEqual",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית בוליאנית treeEqual, המקבלת עץ בינארי לא ריק של מספרים שלמים שאינם שליליים.\nהפעולה תחזיר true אם העץ הוא עץ שאריות שוויוני, אחרת הפעולה תחזיר false.\nאם אתה משתמש בפעולות עזר, עליך לממש אותן.",
+        "solution": "public static boolean treeEqual(BinNode<Integer> t) {\n    int r0 = countRemainder(t, 0);\n    int r1 = countRemainder(t, 1);\n    int r2 = countRemainder(t, 2);\n    return r0 == r1 && r1 == r2;\n}\n\n// פעולת עזר: כמה ערכים בעץ t מתחלקים ב-3 עם שארית r\npublic static int countRemainder(BinNode<Integer> t, int r) {\n    if (t == null) {\n        return 0;\n    }\n    int count = countRemainder(t.getLeft(), r) + countRemainder(t.getRight(), r);\n    if (t.getValue() % 3 == r) {\n        count++;\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "TreeTargil10",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "BinNode<Integer> tr = new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(9), 7, new BinNode<Integer>(5)), 9, new BinNode<Integer>(null, 10, new BinNode<Integer>(11)));\nSystem.out.println(\"סעיף א, בדיקה 1 (העץ מהציור): \" + check(treeEqual(tr), true));\nSystem.out.println(\"סעיף א, בדיקה 2 (צומת אחד): \" + check(treeEqual(new BinNode<Integer>(6)), false));\nBinNode<Integer> t3 = new BinNode<Integer>(new BinNode<Integer>(1), 0, new BinNode<Integer>(2));\nSystem.out.println(\"סעיף א, בדיקה 3 (שלושה צמתים, 0 מתחלק ב-3 ללא שארית): \" + check(treeEqual(t3), true));\nBinNode<Integer> t4 = new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(3), 1, null), 4, new BinNode<Integer>(new BinNode<Integer>(2), 5, null));\nSystem.out.println(\"סעיף א, בדיקה 4 (שארית 1 ושארית 2 שוות, ללא שארית פחות): \" + check(treeEqual(t4), false));\nBinNode<Integer> t5 = new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(new BinNode<Integer>(17), 16, null), 15, null), 14, null), 13, null), 12, null);\nSystem.out.println(\"סעיף א, בדיקה 5 (שרשרת של שישה צמתים): \" + check(treeEqual(t5), true));\nBinNode<Integer> t6 = new BinNode<Integer>(new BinNode<Integer>(1), 3, new BinNode<Integer>(new BinNode<Integer>(4), 6, null));\nSystem.out.println(\"סעיף א, בדיקה 6 (אין ערך עם שארית 2): \" + check(treeEqual(t6), false));",
+    "expectedOutput": "סעיף א, בדיקה 1 (העץ מהציור): נכון\nסעיף א, בדיקה 2 (צומת אחד): נכון\nסעיף א, בדיקה 3 (שלושה צמתים, 0 מתחלק ב-3 ללא שארית): נכון\nסעיף א, בדיקה 4 (שארית 1 ושארית 2 שוות, ללא שארית פחות): נכון\nסעיף א, בדיקה 5 (שרשרת של שישה צמתים): נכון\nסעיף א, בדיקה 6 (אין ערך עם שארית 2): נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "עץ בינארי של מספרים שלמים שאינם שליליים ייקרא \"עץ שאריות שוויוני\" אם מספר האיברים שערכם מתחלק ב-3 עם שארית 1 שווה למספר האיברים שערכם מתחלק ב-3 עם שארית 2, ושווה למספר האיברים שערכם מתחלק ב-3 ללא שארית.\nלדוגמה: העץ שבציור הוא עץ שאריות שוויוני, כי:\nשני מספרים מתחלקים ב-3 ללא שארית: 9, 9\nשני מספרים מתחלקים ב-3 עם שארית 1: 7, 10\nשני מספרים מתחלקים ב-3 עם שארית 2: 11, 5",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית בוליאנית TreeEqual, המקבלת עץ בינארי לא ריק של מספרים שלמים שאינם שליליים.\nהפעולה תחזיר true אם העץ הוא עץ שאריות שוויוני, אחרת הפעולה תחזיר false.\nאם אתה משתמש בפעולות עזר, עליך לממש אותן.\nלדוגמה:\nעבור העץ שבציור הפעולה תחזיר true",
+          "figures": [
+            {
+              "type": "tree",
+              "values": [
+                9,
+                7,
+                10,
+                9,
+                5,
+                null,
+                11
+              ],
+              "caption": "עץ שאריות שוויוני"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "עץ שאריות שוויוני",
+      "topic": "tree",
+      "mainClass": "TreeTargil10",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "TreeTargil10",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "TreeEqual",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית בוליאנית TreeEqual, המקבלת עץ בינארי לא ריק של מספרים שלמים שאינם שליליים.\nהפעולה תחזיר true אם העץ הוא עץ שאריות שוויוני, אחרת הפעולה תחזיר false.\nאם אתה משתמש בפעולות עזר, עליך לממש אותן.",
+          "solution": "public static bool TreeEqual(BinNode<int> t)\n{\n    int r0 = CountRemainder(t, 0);\n    int r1 = CountRemainder(t, 1);\n    int r2 = CountRemainder(t, 2);\n    return r0 == r1 && r1 == r2;\n}\n\n// פעולת עזר: כמה ערכים בעץ t מתחלקים ב-3 עם שארית r\npublic static int CountRemainder(BinNode<int> t, int r)\n{\n    if (t == null)\n    {\n        return 0;\n    }\n    int count = CountRemainder(t.GetLeft(), r) + CountRemainder(t.GetRight(), r);\n    if (t.GetValue() % 3 == r)\n    {\n        count++;\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "TreeTargil10",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "BinNode<int> tr = new BinNode<int>(new BinNode<int>(new BinNode<int>(9), 7, new BinNode<int>(5)), 9, new BinNode<int>(null, 10, new BinNode<int>(11)));\nConsole.WriteLine(\"סעיף א, בדיקה 1 (העץ מהציור): \" + Check(TreeEqual(tr), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (צומת אחד): \" + Check(TreeEqual(new BinNode<int>(6)), false));\nBinNode<int> t3 = new BinNode<int>(new BinNode<int>(1), 0, new BinNode<int>(2));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (שלושה צמתים, 0 מתחלק ב-3 ללא שארית): \" + Check(TreeEqual(t3), true));\nBinNode<int> t4 = new BinNode<int>(new BinNode<int>(new BinNode<int>(3), 1, null), 4, new BinNode<int>(new BinNode<int>(2), 5, null));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (שארית 1 ושארית 2 שוות, ללא שארית פחות): \" + Check(TreeEqual(t4), false));\nBinNode<int> t5 = new BinNode<int>(new BinNode<int>(new BinNode<int>(new BinNode<int>(new BinNode<int>(new BinNode<int>(17), 16, null), 15, null), 14, null), 13, null), 12, null);\nConsole.WriteLine(\"סעיף א, בדיקה 5 (שרשרת של שישה צמתים): \" + Check(TreeEqual(t5), true));\nBinNode<int> t6 = new BinNode<int>(new BinNode<int>(1), 3, new BinNode<int>(new BinNode<int>(4), 6, null));\nConsole.WriteLine(\"סעיף א, בדיקה 6 (אין ערך עם שארית 2): \" + Check(TreeEqual(t6), false));",
+      "expectedOutput": "סעיף א, בדיקה 1 (העץ מהציור): נכון\nסעיף א, בדיקה 2 (צומת אחד): נכון\nסעיף א, בדיקה 3 (שלושה צמתים, 0 מתחלק ב-3 ללא שארית): נכון\nסעיף א, בדיקה 4 (שארית 1 ושארית 2 שוות, ללא שארית פחות): נכון\nסעיף א, בדיקה 5 (שרשרת של שישה צמתים): נכון\nסעיף א, בדיקה 6 (אין ערך עם שארית 2): נכון"
+    }
+  }
+}
