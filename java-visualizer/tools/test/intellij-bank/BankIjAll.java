@@ -307,7 +307,12 @@ public final class BankIjAll {
             if (!BankVs.slash(e.path).startsWith(prefix)) continue;
             File f = new File(e.path);
             String text = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
-            int k = text.indexOf(" " + e.method + "(");
+            // לפי הכותרת המלאה של הפתרון (כמה פעולות באותו שם — פעולות בונות), ואם לא נמצאה — לפי השם
+            int close = e.code.indexOf(')');
+            String header = close > 0 ? e.code.substring(0, close + 1).trim() : null;
+            int k = header == null ? -1 : text.indexOf(header);
+            if (k >= 0) k = text.indexOf(e.method + "(", k) - 1;   // הרווח שלפני השם, כמו בחיפוש לפי השם
+            if (k < 0) k = text.indexOf(" " + e.method + "(");
             if (k < 0) continue;
             int start = text.lastIndexOf('\n', k) + 1, open = text.indexOf('{', k), depth = 0, endI = -1;
             for (int i = open; i < text.length(); i++) {
