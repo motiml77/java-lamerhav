@@ -5,7 +5,7 @@
 #   -State updating  "DSViz מתעדכן לגרסה חדשה…" עם פס התקדמות נע — נשאר עד שהתהליך שהפעיל אותו נגמר (או -Seconds)
 #   -State done      "✓ DSViz עודכן" — נעלם לבד אחרי -Seconds (ברירת מחדל 8), או בלחיצה
 # update.ps1 מפעיל אותו ברקע (לא מחכה לו); setup.nsi מפעיל את "done" בסוף עדכון (/UPDATE).
-param([ValidateSet('found', 'waiting', 'updating', 'done')][string]$State = 'updating', [int]$Seconds = 0, [int]$WatchPid = 0)
+param([ValidateSet('found', 'waiting', 'updating', 'done')][string]$State = 'updating', [int]$Seconds = 0, [int]$WatchPid = 0, [string]$Apps = '')
 $ErrorActionPreference = 'Stop'
 try {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -64,10 +64,10 @@ public class DsvizToast : Form {
         $sub.Text = 'נכנס לתוקף בפתיחה הבאה של Eclipse / Visual Studio / IntelliJ.'
     } elseif ($State -eq 'waiting') {
         $title.Text = 'הגרסה החדשה של DSViz ירדה'
-        $sub.Text = 'כדי שתיכנס לתוקף סוגרים את Eclipse / Visual Studio — היא תותקן לבד.'
+        $sub.Text = if ($Apps) { "היא תותקן לבד ברגע שייסגרו: $Apps" } else { 'היא תותקן לבד ברגע שסוגרים את Eclipse / Visual Studio.' }
     } elseif ($State -eq 'found') {
         $title.Text = 'נמצאה גרסה חדשה של DSViz'
-        $sub.Text = 'מורידים ומתקינים אותה ברקע — אפשר להמשיך לעבוד.'
+        $sub.Text = 'מורידים אותה ברקע. היא תותקן לבד כשסוגרים את Eclipse / Visual Studio.'
         $pb = New-Object Windows.Forms.ProgressBar
         $pb.Style = 'Marquee'; $pb.MarqueeAnimationSpeed = 30
         $pb.Location = New-Object Drawing.Point(16, 70); $pb.Size = New-Object Drawing.Size(308, 6)

@@ -69,6 +69,8 @@ public class AutoSetup implements IStartup {
         };
         job.setSystem(false);
         job.schedule(1500);
+        // עדכון אוטומטי גם בפתיחת Eclipse: מחשב נייד שנכנס לשינה לא "נכנס ל-Windows" שוב, והבדיקה בכניסה לא רצה ימים
+        if (Power.on()) startUpdater("-FromEclipse");
         // עדכון אוטומטי: כש-Eclipse נסגר — בודקים ברקע אם יש גרסה חדשה (ההתקנה עצמה מחכה ש-Eclipse ייסגר לגמרי)
         try {
             PlatformUI.getWorkbench().addWorkbenchListener(new org.eclipse.ui.IWorkbenchListener() {
@@ -106,9 +108,18 @@ public class AutoSetup implements IStartup {
      * (installer/mac/update.sh — בודק פעם ביום אם יש בנייה חדשה, ומחכה ש-Eclipse ייסגר לפני שמעדכן את התוסף)
      */
     static void startUpdater() {
+        startUpdater("-AfterEclipse");
+    }
+
+    /**
+     * מפעיל את update.ps1 (ב-Mac: update.sh) ברקע. ב-Windows — בלי stdin/stdout/stderr שמחוברים ל-Eclipse (NUL): אחרת, כשהוא מופעל בסגירת Eclipse, התהליך של העדכון יכול למות יחד עם Eclipse (הצינורות לפלט נסגרים), והעדכון לא מותקן.
+     * flag: ‎-AfterEclipse‎ (בסגירה) או ‎-FromEclipse‎ (בפתיחה — בדיקה, הורדה, והתקנה כשסוגרים)
+     */
+    static void startUpdater(String flag) {
         try {
             String os = System.getProperty("os.name", "").toLowerCase();
             if (os.contains("mac")) {
+                if (!"-AfterEclipse".equals(flag)) return;   // ב-Mac: בדיקה בסגירה בלבד (כמו קודם), וגם כש-VS Code נפתח
                 String dir = dsvizFile("install-dir.txt");
                 File script = new File(dir != null ? dir : System.getProperty("user.home") + "/Library/Application Support/DSViz", "update.sh");
                 if (!script.isFile()) return;
@@ -122,8 +133,10 @@ public class AutoSetup implements IStartup {
             if (dir == null) return;
             File script = new File(dir, "update.ps1");
             if (!script.isFile()) return;
+            File nul = new File("NUL");
             new ProcessBuilder("powershell.exe", "-NoProfile", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass",
-                    "-File", script.getAbsolutePath(), "-AfterEclipse").start();
+                    "-File", script.getAbsolutePath(), flag)
+                    .redirectInput(nul).redirectOutput(ProcessBuilder.Redirect.appendTo(nul)).redirectErrorStream(true).start();
         } catch (Throwable e) {
             // לא נורא — ננסה בפעם הבאה
         }

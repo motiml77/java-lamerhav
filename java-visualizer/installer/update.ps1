@@ -6,7 +6,7 @@
 #   - בלי אינטרנט / שגיאה — לא עושים כלום (ננסה בפעם הבאה). יומן: update.log ליד הקובץ הזה.
 #   - IntelliJ IDEA: בכל בדיקה — התוסף נכנס לכל IntelliJ שעוד אין בו (intellij.ps1), גם IntelliJ שהותקן אחרי DSViz
 #   - -Videos: רק מוריד את סרטוני ההדרכה שחסרים (ההתקנה לא כוללת אותם — מגבלת הגודל של GitHub). רץ מיד אחרי ההתקנה, וגם בכל בדיקה.
-param([switch]$AfterEclipse, [switch]$Videos)
+param([switch]$AfterEclipse, [switch]$FromEclipse, [switch]$Videos)
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 $log = Join-Path $dir 'update.log'
@@ -20,14 +20,24 @@ function AutomataRunning {
     try { return [bool](@(Get-CimInstance Win32_Process -Filter "Name='javaw.exe' OR Name='java.exe'" | Where-Object { $_.CommandLine -like '*il.lamerhav.dsviz.AutomataLauncher*' }).Count) } catch { return $false }
 }
 function EclipseRunning { return [bool](Get-Process -Name eclipse, devenv, dsviz-cs -ErrorAction SilentlyContinue) -or (AutomataRunning) }
+# מה בדיוק פתוח ומעכב את העדכון — לשמות בהודעה ("Eclipse, Visual Studio")
+function OpenApps {
+    $names = @()
+    if (Get-Process -Name eclipse -ErrorAction SilentlyContinue) { $names += 'Eclipse' }
+    if (Get-Process -Name devenv -ErrorAction SilentlyContinue) { $names += 'Visual Studio' }
+    if (Get-Process -Name dsviz-cs -ErrorAction SilentlyContinue) { $names += 'הרצה ויזואלית של C#' }
+    if (AutomataRunning) { $names += 'מודלים חישוביים' }
+    return ($names -join ', ')
+}
 
 # הודעה קטנה בפינה (notify.ps1), ברקע — לא מחכים לה ולא לוקחת פוקוס: found / waiting / updating
-function Toast([string]$state, [int]$watch = 0) {
+function Toast([string]$state, [int]$watch = 0, [string]$apps = '') {
     try {
         $notify = Join-Path $dir 'notify.ps1'
         if (-not (Test-Path -LiteralPath $notify)) { return }
         $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$notify`"", '-State', $state)
         if ($watch -gt 0) { $a += @('-WatchPid', $watch) }
+        if ($apps) { $a += @('-Apps', "`"$apps`"") }
         Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList $a
     } catch { }
 }
@@ -66,7 +76,7 @@ if ($Videos) {
 $lock = Join-Path $env:TEMP 'dsviz-update.lock'
 try { $fs = [IO.File]::Open($lock, 'OpenOrCreate', 'ReadWrite', 'None') } catch { exit 0 }
 try {
-    if ($AfterEclipse) { Start-Sleep -Seconds 5 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows
+    if ($AfterEclipse) { Start-Sleep -Seconds 5 } elseif ($FromEclipse) { Start-Sleep -Seconds 60 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows / את פתיחת Eclipse
     # IntelliJ IDEA: גם IntelliJ שהותקן אחרי DSViz (או שהיה פתוח בזמן ההתקנה) מקבל את התוסף — בכל בדיקה, גם בלי אינטרנט
     try {
         $langFile = Join-Path $dir 'lang.txt'
@@ -80,9 +90,11 @@ try {
         $bank = Join-Path $dir 'bank\bank-install.ps1'
         if ($lang -ne 'cs' -and (Test-Path -LiteralPath $bank)) { & $bank -Only intellij -Quiet | Out-Null }
     } catch { Log "IntelliJ: $($_.Exception.Message)" }
-    # לא יותר מבדיקה אחת בשעה
+    # לא יותר מבדיקה אחת בשעה בכניסה ל-Windows; מ-Eclipse (בפתיחה ובסגירה) — עד פעם ב-5 דקות: אלה הרגעים שבהם התלמיד עובד,
+    # וקודם בדיקה בכניסה ל-Windows חסמה לשעה את הבדיקה בסגירת Eclipse
     $stamp = Join-Path $dir 'update-check.txt'
-    if ((Test-Path -LiteralPath $stamp) -and ((Get-Date) - (Get-Item -LiteralPath $stamp).LastWriteTime).TotalMinutes -lt 60) { exit 0 }
+    $every = if ($AfterEclipse -or $FromEclipse) { 5 } else { 60 }
+    if ((Test-Path -LiteralPath $stamp) -and ((Get-Date) - (Get-Item -LiteralPath $stamp).LastWriteTime).TotalMinutes -lt $every) { exit 0 }
     Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('s')
 
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -103,9 +115,15 @@ try {
     if ($hash -ne ([string]$v.sha256).ToLower()) { Log "הקובץ שהורד לא תקין (SHA-256) — מדלגים"; Remove-Item -LiteralPath $exe -Force; exit 0 }
 
     # מחכים ש-Eclipse / Visual Studio (והרצה ויזואלית של C#) ייסגרו (עד 12 שעות), כדי לא להפריע לעבודה — והעדכון נכנס לתוקף בפתיחה הבאה
+    # בודקים כל 5 שניות (קודם: פעם בדקה — מי שסגר את Eclipse ופתח אותו שוב תוך דקה "פספס" את העדכון), ומודיעים מה עוד פתוח
+    # בכל פעם שזה משתנה (סגרו את Eclipse אבל Visual Studio עוד פתוח — רואים את זה, ולא חושבים שהעדכון נתקע)
     $waited = 0
-    if (EclipseRunning) { Toast 'waiting' }
-    while ((EclipseRunning) -and $waited -lt 720) { Start-Sleep -Seconds 60; $waited++ }
+    $shown = ''
+    while ((EclipseRunning) -and $waited -lt 8640) {
+        $open = OpenApps
+        if ($open -and $open -ne $shown) { Toast 'waiting' 0 $open; Log "מחכים שייסגרו: $open"; $shown = $open }
+        Start-Sleep -Seconds 5; $waited++
+    }
     if (EclipseRunning) { Log "Eclipse / Visual Studio / הרצה ויזואלית / מודלים חישוביים עדיין פתוחים — ננסה בפעם הבאה"; exit 0 }
 
     Log "מתקין את הגרסה החדשה..."
