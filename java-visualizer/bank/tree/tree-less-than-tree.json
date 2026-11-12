@@ -1,0 +1,166 @@
+{
+  "id": "tree-less-than-tree",
+  "topic": "tree",
+  "level": "hard",
+  "title": "עץ קטן מעץ",
+  "question": {
+    "intro": "נתונה הפעולה:\npublic static boolean lessThanTree(BinNode<Integer> t, int x)\nהפעולה מחזירה true אם x קטן מכל הערכים בעץ t, אחרת הפעולה מחזירה false.\nסיבוכיות זמן הריצה של הפעולה היא O(n). n מייצג את מספר הצמתים בעץ t.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית treeLessThanTree, המקבלת שני עצים בינאריים t1 ו-t2 של ערכים שלמים. נתון שב-t2 קיים לפחות צומת אחד.\nהפעולה מחזירה true אם כל ערך בעץ t1 קטן מכל אחד מהערכים בעץ t2, אחרת הפעולה מחזירה false.\nאם t1 הוא null, הפעולה תחזיר true.\nאפשר להשתמש בפעולה lessThanTree בלי לממש אותה (במעטפת היא כבר כתובה). אם אתה משתמש בפעולות אחרות, עליך לממש אותן.\nלדוגמה: עבור העצים t1 ו-t2 שבציורים הפעולה תחזיר true",
+        "figures": [
+          {
+            "type": "tree",
+            "values": [
+              3,
+              1,
+              5,
+              null,
+              null,
+              4
+            ],
+            "caption": "t1"
+          },
+          {
+            "type": "tree",
+            "values": [
+              10,
+              7,
+              12,
+              null,
+              null,
+              11,
+              15
+            ],
+            "caption": "t2"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "מהי סיבוכיות זמן הריצה של הפעולה שכתבת בסעיף א? נמק.\n(סעיף זה עונים בכתב, בלי קוד.)"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "עץ קטן מעץ",
+    "topic": "tree",
+    "mainClass": "TreeTargil8",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "TreeTargil8",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "treeLessThanTree",
+        "parameters": [
+          {
+            "type": "BinNode<Integer>",
+            "name": "t1"
+          },
+          {
+            "type": "BinNode<Integer>",
+            "name": "t2"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית treeLessThanTree, המקבלת שני עצים בינאריים t1 ו-t2 של ערכים שלמים. נתון שב-t2 קיים לפחות צומת אחד.\nהפעולה מחזירה true אם כל ערך בעץ t1 קטן מכל אחד מהערכים בעץ t2, אחרת הפעולה מחזירה false.\nאם t1 הוא null, הפעולה תחזיר true.\nאפשר להשתמש בפעולה lessThanTree בלי לממש אותה (במעטפת היא כבר כתובה). אם אתה משתמש בפעולות אחרות, עליך לממש אותן.",
+        "solution": "public static boolean treeLessThanTree(BinNode<Integer> t1, BinNode<Integer> t2) {\n    if (t1 == null) {\n        return true;\n    }\n    return lessThanTree(t2, t1.getValue()) && treeLessThanTree(t1.getLeft(), t2) && treeLessThanTree(t1.getRight(), t2);\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "TreeTargil8",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\npublic static boolean lessThanTree(BinNode<Integer> t, int x) {\n    if (t == null) {\n        return true;\n    }\n    return x < t.getValue() && lessThanTree(t.getLeft(), x) && lessThanTree(t.getRight(), x);\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "BinNode<Integer> t1 = new BinNode<Integer>(new BinNode<Integer>(1), 3, new BinNode<Integer>(new BinNode<Integer>(4), 5, null));\nBinNode<Integer> t2 = new BinNode<Integer>(new BinNode<Integer>(7), 10, new BinNode<Integer>(new BinNode<Integer>(11), 12, new BinNode<Integer>(15)));\nSystem.out.println(\"סעיף א, בדיקה 1 (העצים מהציורים): \" + check(treeLessThanTree(t1, t2), true));\nBinNode<Integer> t3 = new BinNode<Integer>(new BinNode<Integer>(1), 3, new BinNode<Integer>(8));\nSystem.out.println(\"סעיף א, בדיקה 2 (8 ב-t1 לא קטן מ-7 שב-t2): \" + check(treeLessThanTree(t3, t2), false));\nBinNode<Integer> t4 = new BinNode<Integer>(null, 2, new BinNode<Integer>(7));\nSystem.out.println(\"סעיף א, בדיקה 3 (ערך שווה, 7 בשני העצים): \" + check(treeLessThanTree(t4, t2), false));\nSystem.out.println(\"סעיף א, בדיקה 4 (t1 הוא null): \" + check(treeLessThanTree(null, t2), true));\nSystem.out.println(\"סעיף א, בדיקה 5 (t2 בצומת אחד): \" + check(treeLessThanTree(t1, new BinNode<Integer>(6)), true));",
+    "expectedOutput": "סעיף א, בדיקה 1 (העצים מהציורים): נכון\nסעיף א, בדיקה 2 (8 ב-t1 לא קטן מ-7 שב-t2): נכון\nסעיף א, בדיקה 3 (ערך שווה, 7 בשני העצים): נכון\nסעיף א, בדיקה 4 (t1 הוא null): נכון\nסעיף א, בדיקה 5 (t2 בצומת אחד): נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה הפעולה:\npublic static bool LessThanTree(BinNode<int> t, int x)\nהפעולה מחזירה true אם x קטן מכל הערכים בעץ t, אחרת הפעולה מחזירה false.\nסיבוכיות זמן הריצה של הפעולה היא O(n). n מייצג את מספר הצמתים בעץ t.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית TreeLessThanTree, המקבלת שני עצים בינאריים t1 ו-t2 של ערכים שלמים. נתון שב-t2 קיים לפחות צומת אחד.\nהפעולה מחזירה true אם כל ערך בעץ t1 קטן מכל אחד מהערכים בעץ t2, אחרת הפעולה מחזירה false.\nאם t1 הוא null, הפעולה תחזיר true.\nאפשר להשתמש בפעולה LessThanTree בלי לממש אותה (במעטפת היא כבר כתובה). אם אתה משתמש בפעולות אחרות, עליך לממש אותן.\nלדוגמה: עבור העצים t1 ו-t2 שבציורים הפעולה תחזיר true",
+          "figures": [
+            {
+              "type": "tree",
+              "values": [
+                3,
+                1,
+                5,
+                null,
+                null,
+                4
+              ],
+              "caption": "t1"
+            },
+            {
+              "type": "tree",
+              "values": [
+                10,
+                7,
+                12,
+                null,
+                null,
+                11,
+                15
+              ],
+              "caption": "t2"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "מהי סיבוכיות זמן הריצה של הפעולה שכתבת בסעיף א? נמק.\n(סעיף זה עונים בכתב, בלי קוד.)"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "עץ קטן מעץ",
+      "topic": "tree",
+      "mainClass": "TreeTargil8",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "TreeTargil8",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "TreeLessThanTree",
+          "parameters": [
+            {
+              "type": "BinNode<int>",
+              "name": "t1"
+            },
+            {
+              "type": "BinNode<int>",
+              "name": "t2"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית TreeLessThanTree, המקבלת שני עצים בינאריים t1 ו-t2 של ערכים שלמים. נתון שב-t2 קיים לפחות צומת אחד.\nהפעולה מחזירה true אם כל ערך בעץ t1 קטן מכל אחד מהערכים בעץ t2, אחרת הפעולה מחזירה false.\nאם t1 הוא null, הפעולה תחזיר true.\nאפשר להשתמש בפעולה LessThanTree בלי לממש אותה (במעטפת היא כבר כתובה). אם אתה משתמש בפעולות אחרות, עליך לממש אותן.",
+          "solution": "public static bool TreeLessThanTree(BinNode<int> t1, BinNode<int> t2)\n{\n    if (t1 == null)\n    {\n        return true;\n    }\n    return LessThanTree(t2, t1.GetValue()) && TreeLessThanTree(t1.GetLeft(), t2) && TreeLessThanTree(t1.GetRight(), t2);\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "TreeTargil8",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\npublic static bool LessThanTree(BinNode<int> t, int x)\n{\n    if (t == null)\n    {\n        return true;\n    }\n    return x < t.GetValue() && LessThanTree(t.GetLeft(), x) && LessThanTree(t.GetRight(), x);\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "BinNode<int> t1 = new BinNode<int>(new BinNode<int>(1), 3, new BinNode<int>(new BinNode<int>(4), 5, null));\nBinNode<int> t2 = new BinNode<int>(new BinNode<int>(7), 10, new BinNode<int>(new BinNode<int>(11), 12, new BinNode<int>(15)));\nConsole.WriteLine(\"סעיף א, בדיקה 1 (העצים מהציורים): \" + Check(TreeLessThanTree(t1, t2), true));\nBinNode<int> t3 = new BinNode<int>(new BinNode<int>(1), 3, new BinNode<int>(8));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (8 ב-t1 לא קטן מ-7 שב-t2): \" + Check(TreeLessThanTree(t3, t2), false));\nBinNode<int> t4 = new BinNode<int>(null, 2, new BinNode<int>(7));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (ערך שווה, 7 בשני העצים): \" + Check(TreeLessThanTree(t4, t2), false));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (t1 הוא null): \" + Check(TreeLessThanTree(null, t2), true));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (t2 בצומת אחד): \" + Check(TreeLessThanTree(t1, new BinNode<int>(6)), true));",
+      "expectedOutput": "סעיף א, בדיקה 1 (העצים מהציורים): נכון\nסעיף א, בדיקה 2 (8 ב-t1 לא קטן מ-7 שב-t2): נכון\nסעיף א, בדיקה 3 (ערך שווה, 7 בשני העצים): נכון\nסעיף א, בדיקה 4 (t1 הוא null): נכון\nסעיף א, בדיקה 5 (t2 בצומת אחד): נכון"
+    }
+  }
+}

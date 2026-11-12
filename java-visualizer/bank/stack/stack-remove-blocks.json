@@ -1,0 +1,158 @@
+{
+  "id": "stack-remove-blocks",
+  "topic": "stack",
+  "level": "hard",
+  "title": "מחסנית בלי בלוקים",
+  "question": {
+    "intro": "",
+    "sections": [
+      {
+        "label": "א",
+        "text": "נגדיר \"בלוק\" במחסנית כרצף של לפחות שני איברים זהים.\nכתוב פעולה חיצונית removeBlocks, המקבלת מחסנית stk מטיפוס שלם, ומחזירה מחסנית חדשה.\nהמחסנית המוחזרת תכיל את כל האיברים מהמחסנית stk שאינם ב\"בלוק\".\nאין חשיבות לסדר האיברים במחסנית המוחזרת.\nהערות:\n• אם מספר מסוים מופיע לא ב\"בלוק\", הוא יהיה במחסנית המוחזרת גם אם נוסף על כך אותו המספר מופיע ב\"בלוק\".\n• אם מספר מסוים מופיע כמה פעמים, לא ב\"בלוק\", הוא יופיע אותה כמות פעמים במחסנית המוחזרת.\n• אם המחסנית stk ריקה, תוחזר מחסנית ריקה.\nלדוגמה: עבור המחסנית stk שבציור הראשון, הפעולה תחזיר מחסנית כמו בציור השני (בסדר כלשהו)",
+        "figures": [
+          {
+            "type": "stack",
+            "values": [
+              14,
+              15,
+              5,
+              5,
+              0,
+              0,
+              0,
+              5,
+              3,
+              -4,
+              -4,
+              15
+            ],
+            "caption": "stk (14 בראש)"
+          },
+          {
+            "type": "stack",
+            "values": [
+              15,
+              3,
+              5,
+              15,
+              14
+            ],
+            "caption": "המחסנית המוחזרת (סדר אחד אפשרי)"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מחסנית בלי בלוקים",
+    "topic": "stack",
+    "mainClass": "StackTargil8",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "StackTargil8",
+        "isStatic": true,
+        "returnType": "Stack<Integer>",
+        "methodName": "removeBlocks",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "stk"
+          }
+        ],
+        "instructions": "נגדיר \"בלוק\" במחסנית כרצף של לפחות שני איברים זהים.\nכתוב פעולה חיצונית removeBlocks, המקבלת מחסנית stk מטיפוס שלם, ומחזירה מחסנית חדשה.\nהמחסנית המוחזרת תכיל את כל האיברים מהמחסנית stk שאינם ב\"בלוק\".\nאין חשיבות לסדר האיברים במחסנית המוחזרת.\nהערות:\n• אם מספר מסוים מופיע לא ב\"בלוק\", הוא יהיה במחסנית המוחזרת גם אם נוסף על כך אותו המספר מופיע ב\"בלוק\".\n• אם מספר מסוים מופיע כמה פעמים, לא ב\"בלוק\", הוא יופיע אותה כמות פעמים במחסנית המוחזרת.\n• אם המחסנית stk ריקה, תוחזר מחסנית ריקה.",
+        "solution": "public static Stack<Integer> removeBlocks(Stack<Integer> stk) {\n    Stack<Integer> result = new Stack<Integer>();\n    while (!stk.isEmpty()) {\n        int x = stk.pop();\n        int count = 1;\n        while (!stk.isEmpty() && stk.top() == x) {   // כל הרצף של x\n            stk.pop();\n            count++;\n        }\n        if (count == 1) {\n            result.push(x);\n        }\n    }\n    return result;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "StackTargil8",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// הערכים שבמחסנית, ממוינים (כי אין חשיבות לסדר) — בלי לשנות אותה\npublic static String sorted(Stack<Integer> s) {\n    java.util.List<Integer> list = new java.util.ArrayList<Integer>();\n    Stack<Integer> temp = new Stack<Integer>();\n    while (s != null && !s.isEmpty()) {\n        list.add(s.top());\n        temp.push(s.pop());\n    }\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n    java.util.Collections.sort(list);\n    return list.toString();\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Stack<Integer> stk = new Stack<Integer>();\nint[] values = { 15, -4, -4, 3, 5, 0, 0, 0, 5, 5, 15, 14 };   // מהתחתית לראש: 14 בראש\nfor (int i = 0; i < values.length; i++) {\n    stk.push(values[i]);\n}\nSystem.out.println(\"סעיף א, בדיקה 1 (המחסנית מהציור): \" + check(sorted(removeBlocks(stk)), \"[3, 5, 14, 15, 15]\"));\nStack<Integer> s2 = new Stack<Integer>();\ns2.push(1);\ns2.push(1);\nSystem.out.println(\"סעיף א, בדיקה 2 (רק בלוק): \" + check(sorted(removeBlocks(s2)), \"[]\"));\nSystem.out.println(\"סעיף א, בדיקה 3 (מחסנית ריקה): \" + check(sorted(removeBlocks(new Stack<Integer>())), \"[]\"));\nStack<Integer> s4 = new Stack<Integer>();\ns4.push(2);\ns4.push(3);\ns4.push(2);\nSystem.out.println(\"סעיף א, בדיקה 4 (בלי בלוקים): \" + check(sorted(removeBlocks(s4)), \"[2, 2, 3]\"));\nStack<Integer> s5 = new Stack<Integer>();\ns5.push(7);\ns5.push(8);\ns5.push(7);\ns5.push(7);\nSystem.out.println(\"סעיף א, בדיקה 5: \" + check(sorted(removeBlocks(s5)), \"[7, 8]\"));",
+    "expectedOutput": "סעיף א, בדיקה 1 (המחסנית מהציור): נכון\nסעיף א, בדיקה 2 (רק בלוק): נכון\nסעיף א, בדיקה 3 (מחסנית ריקה): נכון\nסעיף א, בדיקה 4 (בלי בלוקים): נכון\nסעיף א, בדיקה 5: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "",
+      "sections": [
+        {
+          "label": "א",
+          "text": "נגדיר \"בלוק\" במחסנית כרצף של לפחות שני איברים זהים.\nכתוב פעולה חיצונית RemoveBlocks, המקבלת מחסנית stk מטיפוס שלם, ומחזירה מחסנית חדשה.\nהמחסנית המוחזרת תכיל את כל האיברים מהמחסנית stk שאינם ב\"בלוק\".\nאין חשיבות לסדר האיברים במחסנית המוחזרת.\nהערות:\n• אם מספר מסוים מופיע לא ב\"בלוק\", הוא יהיה במחסנית המוחזרת גם אם נוסף על כך אותו המספר מופיע ב\"בלוק\".\n• אם מספר מסוים מופיע כמה פעמים, לא ב\"בלוק\", הוא יופיע אותה כמות פעמים במחסנית המוחזרת.\n• אם המחסנית stk ריקה, תוחזר מחסנית ריקה.\nלדוגמה: עבור המחסנית stk שבציור הראשון, הפעולה תחזיר מחסנית כמו בציור השני (בסדר כלשהו)",
+          "figures": [
+            {
+              "type": "stack",
+              "values": [
+                14,
+                15,
+                5,
+                5,
+                0,
+                0,
+                0,
+                5,
+                3,
+                -4,
+                -4,
+                15
+              ],
+              "caption": "stk (14 בראש)"
+            },
+            {
+              "type": "stack",
+              "values": [
+                15,
+                3,
+                5,
+                15,
+                14
+              ],
+              "caption": "המחסנית המוחזרת (סדר אחד אפשרי)"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מחסנית בלי בלוקים",
+      "topic": "stack",
+      "mainClass": "StackTargil8",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "StackTargil8",
+          "isStatic": true,
+          "returnType": "Stack<int>",
+          "methodName": "RemoveBlocks",
+          "parameters": [
+            {
+              "type": "Stack<int>",
+              "name": "stk"
+            }
+          ],
+          "instructions": "נגדיר \"בלוק\" במחסנית כרצף של לפחות שני איברים זהים.\nכתוב פעולה חיצונית RemoveBlocks, המקבלת מחסנית stk מטיפוס שלם, ומחזירה מחסנית חדשה.\nהמחסנית המוחזרת תכיל את כל האיברים מהמחסנית stk שאינם ב\"בלוק\".\nאין חשיבות לסדר האיברים במחסנית המוחזרת.\nהערות:\n• אם מספר מסוים מופיע לא ב\"בלוק\", הוא יהיה במחסנית המוחזרת גם אם נוסף על כך אותו המספר מופיע ב\"בלוק\".\n• אם מספר מסוים מופיע כמה פעמים, לא ב\"בלוק\", הוא יופיע אותה כמות פעמים במחסנית המוחזרת.\n• אם המחסנית stk ריקה, תוחזר מחסנית ריקה.",
+          "solution": "public static Stack<int> RemoveBlocks(Stack<int> stk)\n{\n    Stack<int> result = new Stack<int>();\n    while (!stk.IsEmpty())\n    {\n        int x = stk.Pop();\n        int count = 1;\n        while (!stk.IsEmpty() && stk.Top() == x) {   // כל הרצף של x\n            stk.Pop();\n            count++;\n        }\n        if (count == 1)\n        {\n            result.Push(x);\n        }\n    }\n    return result;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "StackTargil8",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// הערכים שבמחסנית, ממוינים (כי אין חשיבות לסדר) — בלי לשנות אותה\npublic static string Sorted(Stack<int> s)\n{\n    System.Collections.Generic.List<int> list = new System.Collections.Generic.List<int>();\n    Stack<int> temp = new Stack<int>();\n    while (s != null && !s.IsEmpty())\n    {\n        list.Add(s.Top());\n        temp.Push(s.Pop());\n    }\n    while (!temp.IsEmpty())\n    {\n        s.Push(temp.Pop());\n    }\n    list.Sort();\n    return \"[\" + string.Join(\", \", list) + \"]\";\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Stack<int> stk = new Stack<int>();\nint[] values = { 15, -4, -4, 3, 5, 0, 0, 0, 5, 5, 15, 14 };   // מהתחתית לראש: 14 בראש\nfor (int i = 0; i < values.Length; i++) {\n    stk.Push(values[i]);\n}\nConsole.WriteLine(\"סעיף א, בדיקה 1 (המחסנית מהציור): \" + Check(Sorted(RemoveBlocks(stk)), \"[3, 5, 14, 15, 15]\"));\nStack<int> s2 = new Stack<int>();\ns2.Push(1);\ns2.Push(1);\nConsole.WriteLine(\"סעיף א, בדיקה 2 (רק בלוק): \" + Check(Sorted(RemoveBlocks(s2)), \"[]\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (מחסנית ריקה): \" + Check(Sorted(RemoveBlocks(new Stack<int>())), \"[]\"));\nStack<int> s4 = new Stack<int>();\ns4.Push(2);\ns4.Push(3);\ns4.Push(2);\nConsole.WriteLine(\"סעיף א, בדיקה 4 (בלי בלוקים): \" + Check(Sorted(RemoveBlocks(s4)), \"[2, 2, 3]\"));\nStack<int> s5 = new Stack<int>();\ns5.Push(7);\ns5.Push(8);\ns5.Push(7);\ns5.Push(7);\nConsole.WriteLine(\"סעיף א, בדיקה 5: \" + Check(Sorted(RemoveBlocks(s5)), \"[7, 8]\"));",
+      "expectedOutput": "סעיף א, בדיקה 1 (המחסנית מהציור): נכון\nסעיף א, בדיקה 2 (רק בלוק): נכון\nסעיף א, בדיקה 3 (מחסנית ריקה): נכון\nסעיף א, בדיקה 4 (בלי בלוקים): נכון\nסעיף א, בדיקה 5: נכון"
+    }
+  }
+}

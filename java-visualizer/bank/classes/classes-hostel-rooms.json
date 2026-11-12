@@ -1,0 +1,182 @@
+{
+  "id": "classes-hostel-rooms",
+  "topic": "classes",
+  "level": "hard",
+  "title": "אכסניית הנוער: חדרים והכנסות",
+  "question": {
+    "intro": "באכסניית הנוער \"חלומות טובים\" יש 3 קומות, 1-3. באכסניה 200 חדרים בסך הכול.\nבאכסניה שני סוגי חדרים: חדר זוגי וחדר יחיד. המחיר ללילה בחדר יחיד הוא 50 שקלים ובחדר זוגי 100 שקלים.\nבמערכת המחשוב של האכסניה מוגדרת המחלקה Room (חדר), שיש לה שלוש תכונות:\nroomNum: מספר חדר בן שלוש ספרות, מטיפוס שלם. הספרה הראשונה (משמאל) מייצגת את מספר הקומה שבה החדר נמצא.\nלדוגמה: חדר מספר 231 נמצא בקומה מספר 2, וחדר 145 נמצא בקומה מספר 1\nroomType: סוג חדר (1 הוא חדר יחיד, 2 הוא חדר זוגי), מטיפוס שלם\nnightsReserved: מספר הלילות שהחדר מוזמן מעכשיו, מטיפוס שלם. אם nightsReserved שווה ל-0 החדר פנוי, ואם הוא אינו 0 החדר תפוס.\nהנח שלכל תכונה במחלקה הוגדרו פעולות get ו-set.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה income במחלקה Room, המחזירה את ההכנסה המתקבלת מן החדר. חישוב ההכנסה הוא מספר הלילות המוזמנים כפול מחיר החדר."
+      },
+      {
+        "label": "ב",
+        "text": "במערכת המחשוב של האכסניה מוגדרת מחלקה נוספת, Hostel (אכסניה), שיש לה תכונה אחת: מערך allRooms בגודל 200 מטיפוס Room (החדרים במערך אינם ממוינים לפי סדר כלשהו). הנח שהתאים במערך אינם null.\n(1) ממש את הפעולה orderRoom במחלקה Hostel:\npublic int orderRoom(int type, int nights)\nהפעולה מוצאת את החדר הראשון במערך allRooms שעונה על התנאים האלה: פנוי, ומן הסוג type. הפעולה מעדכנת בחדר את מספר הלילות המבוקש שמופיע במשתנה nights, ומחזירה את מספר החדר. אם אין במערך חדר פנוי מן הסוג המבוקש, הפעולה מחזירה -1"
+      },
+      {
+        "label": "ג",
+        "text": "(2) ממש את הפעולה floorIncome במחלקה Hostel:\npublic int[] floorIncome()\nהפעולה מחזירה מערך בגודל 3, שבו מופיעים סכומי ההכנסה מכל החדרים בכל אחת מן הקומות באכסניה: באינדקס 0 סכום ההכנסה מקומה 1, באינדקס 1 מקומה 2, ובאינדקס 2 מקומה 3\nחובה להשתמש בפעולה שכתבת בסעיף א."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "אכסניית הנוער: חדרים והכנסות",
+    "topic": "classes",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Room",
+        "code": "public class Room {\n    private int roomNum;\n    private int roomType;\n    private int nightsReserved;\n\n    public Room(int roomNum, int roomType, int nightsReserved) {\n        this.roomNum = roomNum;\n        this.roomType = roomType;\n        this.nightsReserved = nightsReserved;\n    }\n\n    public int getRoomNum() { return roomNum; }\n    public void setRoomNum(int roomNum) { this.roomNum = roomNum; }\n    public int getRoomType() { return roomType; }\n    public void setRoomType(int roomType) { this.roomType = roomType; }\n    public int getNightsReserved() { return nightsReserved; }\n    public void setNightsReserved(int nightsReserved) { this.nightsReserved = nightsReserved; }\n}"
+      },
+      {
+        "name": "Hostel",
+        "code": "public class Hostel {\n    private Room[] allRooms;\n\n    public Hostel(Room[] allRooms) {\n        this.allRooms = allRooms;\n    }\n\n    public Room[] getAllRooms() { return allRooms; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Room",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "income",
+        "parameters": [],
+        "instructions": "כתוב פעולה income במחלקה Room, המחזירה את ההכנסה המתקבלת מן החדר. חישוב ההכנסה הוא מספר הלילות המוזמנים כפול מחיר החדר.",
+        "solution": "public int income() {\n    if (roomType == 1) {\n        return nightsReserved * 50;\n    }\n    return nightsReserved * 100;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Hostel",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "orderRoom",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "type"
+          },
+          {
+            "type": "int",
+            "name": "nights"
+          }
+        ],
+        "instructions": "ממש את הפעולה orderRoom במחלקה Hostel:\npublic int orderRoom(int type, int nights)\nהפעולה מוצאת את החדר הראשון במערך allRooms שעונה על התנאים האלה: פנוי, ומן הסוג type. הפעולה מעדכנת בחדר את מספר הלילות המבוקש שמופיע במשתנה nights, ומחזירה את מספר החדר. אם אין במערך חדר פנוי מן הסוג המבוקש, הפעולה מחזירה -1",
+        "solution": "public int orderRoom(int type, int nights) {\n    for (int i = 0; i < allRooms.length; i++) {\n        if (allRooms[i].getNightsReserved() == 0 && allRooms[i].getRoomType() == type) {\n            allRooms[i].setNightsReserved(nights);\n            return allRooms[i].getRoomNum();\n        }\n    }\n    return -1;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Hostel",
+        "isStatic": false,
+        "returnType": "int[]",
+        "methodName": "floorIncome",
+        "parameters": [],
+        "instructions": "(2) ממש את הפעולה floorIncome במחלקה Hostel:\npublic int[] floorIncome()\nהפעולה מחזירה מערך בגודל 3, שבו מופיעים סכומי ההכנסה מכל החדרים בכל אחת מן הקומות באכסניה: באינדקס 0 סכום ההכנסה מקומה 1, באינדקס 1 מקומה 2, ובאינדקס 2 מקומה 3\nחובה להשתמש בפעולה שכתבת בסעיף א.",
+        "solution": "public int[] floorIncome() {\n    int[] sums = new int[3];\n    for (int i = 0; i < allRooms.length; i++) {\n        int floor = allRooms[i].getRoomNum() / 100;   // הספרה הראשונה\n        sums[floor - 1] += allRooms[i].income();\n    }\n    return sums;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    if (got instanceof int[]) {\n        g = java.util.Arrays.toString((int[]) got);\n    }\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Room r1 = new Room(101, 1, 3);\nRoom r2 = new Room(245, 2, 2);\nRoom r3 = new Room(310, 2, 0);\nSystem.out.println(\"סעיף א, בדיקה 1 (יחיד, 3 לילות): \" + check(r1.income(), 150));\nSystem.out.println(\"סעיף א, בדיקה 2 (זוגי, 2 לילות): \" + check(r2.income(), 200));\nSystem.out.println(\"סעיף א, בדיקה 3 (חדר פנוי): \" + check(r3.income(), 0));\nRoom[] rooms = { new Room(101, 1, 0), new Room(102, 2, 2), new Room(205, 2, 0), new Room(231, 1, 3), new Room(305, 2, 0) };\nHostel h = new Hostel(rooms);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(h.orderRoom(2, 4), 205));\nSystem.out.println(\"סעיף ב, בדיקה 2 (מספר הלילות עודכן): \" + check(rooms[2].getNightsReserved(), 4));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(h.orderRoom(2, 1), 305));\nSystem.out.println(\"סעיף ב, בדיקה 4 (אין חדר זוגי פנוי): \" + check(h.orderRoom(2, 5), -1));\nSystem.out.println(\"סעיף ב, בדיקה 5: \" + check(h.orderRoom(1, 2), 101));\nRoom[] rooms2 = { new Room(101, 1, 2), new Room(145, 2, 1), new Room(231, 2, 3), new Room(205, 1, 0), new Room(310, 1, 4) };\nHostel h2 = new Hostel(rooms2);\nSystem.out.println(\"סעיף ג, בדיקה 1: \" + check(h2.floorIncome(), \"[200, 300, 200]\"));\nSystem.out.println(\"סעיף ג, בדיקה 2: \" + check(new Hostel(new Room[] { new Room(120, 2, 0) }).floorIncome(), \"[0, 0, 0]\"));",
+    "expectedOutput": "סעיף א, בדיקה 1 (יחיד, 3 לילות): נכון\nסעיף א, בדיקה 2 (זוגי, 2 לילות): נכון\nסעיף א, בדיקה 3 (חדר פנוי): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (מספר הלילות עודכן): נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4 (אין חדר זוגי פנוי): נכון\nסעיף ב, בדיקה 5: נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "באכסניית הנוער \"חלומות טובים\" יש 3 קומות, 1-3. באכסניה 200 חדרים בסך הכול.\nבאכסניה שני סוגי חדרים: חדר זוגי וחדר יחיד. המחיר ללילה בחדר יחיד הוא 50 שקלים ובחדר זוגי 100 שקלים.\nבמערכת המחשוב של האכסניה מוגדרת המחלקה Room (חדר), שיש לה שלוש תכונות:\nroomNum: מספר חדר בן שלוש ספרות, מטיפוס שלם. הספרה הראשונה (משמאל) מייצגת את מספר הקומה שבה החדר נמצא.\nלדוגמה: חדר מספר 231 נמצא בקומה מספר 2, וחדר 145 נמצא בקומה מספר 1\nroomType: סוג חדר (1 הוא חדר יחיד, 2 הוא חדר זוגי), מטיפוס שלם\nnightsReserved: מספר הלילות שהחדר מוזמן מעכשיו, מטיפוס שלם. אם nightsReserved שווה ל-0 החדר פנוי, ואם הוא אינו 0 החדר תפוס.\nהנח שלכל תכונה במחלקה הוגדרו פעולות get ו-set.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה Income במחלקה Room, המחזירה את ההכנסה המתקבלת מן החדר. חישוב ההכנסה הוא מספר הלילות המוזמנים כפול מחיר החדר."
+        },
+        {
+          "label": "ב",
+          "text": "במערכת המחשוב של האכסניה מוגדרת מחלקה נוספת, Hostel (אכסניה), שיש לה תכונה אחת: מערך allRooms בגודל 200 מטיפוס Room (החדרים במערך אינם ממוינים לפי סדר כלשהו). הנח שהתאים במערך אינם null.\n(1) ממש את הפעולה OrderRoom במחלקה Hostel:\npublic int OrderRoom(int type, int nights)\nהפעולה מוצאת את החדר הראשון במערך allRooms שעונה על התנאים האלה: פנוי, ומן הסוג type. הפעולה מעדכנת בחדר את מספר הלילות המבוקש שמופיע במשתנה nights, ומחזירה את מספר החדר. אם אין במערך חדר פנוי מן הסוג המבוקש, הפעולה מחזירה -1"
+        },
+        {
+          "label": "ג",
+          "text": "(2) ממש את הפעולה FloorIncome במחלקה Hostel:\npublic int[] FloorIncome()\nהפעולה מחזירה מערך בגודל 3, שבו מופיעים סכומי ההכנסה מכל החדרים בכל אחת מן הקומות באכסניה: באינדקס 0 סכום ההכנסה מקומה 1, באינדקס 1 מקומה 2, ובאינדקס 2 מקומה 3\nחובה להשתמש בפעולה שכתבת בסעיף א."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "אכסניית הנוער: חדרים והכנסות",
+      "topic": "classes",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Room",
+          "code": "public class Room\n{\n    private int roomNum;\n    private int roomType;\n    private int nightsReserved;\n\n    public Room(int roomNum, int roomType, int nightsReserved)\n    {\n        this.roomNum = roomNum;\n        this.roomType = roomType;\n        this.nightsReserved = nightsReserved;\n    }\n\n    public int GetRoomNum() { return roomNum; }\n    public void SetRoomNum(int roomNum) { this.roomNum = roomNum; }\n    public int GetRoomType() { return roomType; }\n    public void SetRoomType(int roomType) { this.roomType = roomType; }\n    public int GetNightsReserved() { return nightsReserved; }\n    public void SetNightsReserved(int nightsReserved) { this.nightsReserved = nightsReserved; }\n}"
+        },
+        {
+          "name": "Hostel",
+          "code": "public class Hostel\n{\n    private Room[] allRooms;\n\n    public Hostel(Room[] allRooms)\n    {\n        this.allRooms = allRooms;\n    }\n\n    public Room[] GetAllRooms() { return allRooms; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Room",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "Income",
+          "parameters": [],
+          "instructions": "כתוב פעולה Income במחלקה Room, המחזירה את ההכנסה המתקבלת מן החדר. חישוב ההכנסה הוא מספר הלילות המוזמנים כפול מחיר החדר.",
+          "solution": "public int Income()\n{\n    if (roomType == 1)\n    {\n        return nightsReserved * 50;\n    }\n    return nightsReserved * 100;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Hostel",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "OrderRoom",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "type"
+            },
+            {
+              "type": "int",
+              "name": "nights"
+            }
+          ],
+          "instructions": "ממש את הפעולה OrderRoom במחלקה Hostel:\npublic int OrderRoom(int type, int nights)\nהפעולה מוצאת את החדר הראשון במערך allRooms שעונה על התנאים האלה: פנוי, ומן הסוג type. הפעולה מעדכנת בחדר את מספר הלילות המבוקש שמופיע במשתנה nights, ומחזירה את מספר החדר. אם אין במערך חדר פנוי מן הסוג המבוקש, הפעולה מחזירה -1",
+          "solution": "public int OrderRoom(int type, int nights)\n{\n    for (int i = 0; i < allRooms.Length; i++)\n    {\n        if (allRooms[i].GetNightsReserved() == 0 && allRooms[i].GetRoomType() == type)\n        {\n            allRooms[i].SetNightsReserved(nights);\n            return allRooms[i].GetRoomNum();\n        }\n    }\n    return -1;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Hostel",
+          "isStatic": false,
+          "returnType": "int[]",
+          "methodName": "FloorIncome",
+          "parameters": [],
+          "instructions": "(2) ממש את הפעולה FloorIncome במחלקה Hostel:\npublic int[] FloorIncome()\nהפעולה מחזירה מערך בגודל 3, שבו מופיעים סכומי ההכנסה מכל החדרים בכל אחת מן הקומות באכסניה: באינדקס 0 סכום ההכנסה מקומה 1, באינדקס 1 מקומה 2, ובאינדקס 2 מקומה 3\nחובה להשתמש בפעולה שכתבת בסעיף א.",
+          "solution": "public int[] FloorIncome()\n{\n    int[] sums = new int[3];\n    for (int i = 0; i < allRooms.Length; i++)\n    {\n        int floor = allRooms[i].GetRoomNum() / 100;   // הספרה הראשונה\n        sums[floor - 1] += allRooms[i].Income();\n    }\n    return sums;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    if (got is int[])\n    {\n        g = \"[\" + string.Join(\", \", (int[])got) + \"]\";\n    }\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Room r1 = new Room(101, 1, 3);\nRoom r2 = new Room(245, 2, 2);\nRoom r3 = new Room(310, 2, 0);\nConsole.WriteLine(\"סעיף א, בדיקה 1 (יחיד, 3 לילות): \" + Check(r1.Income(), 150));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (זוגי, 2 לילות): \" + Check(r2.Income(), 200));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (חדר פנוי): \" + Check(r3.Income(), 0));\nRoom[] rooms = { new Room(101, 1, 0), new Room(102, 2, 2), new Room(205, 2, 0), new Room(231, 1, 3), new Room(305, 2, 0) };\nHostel h = new Hostel(rooms);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(h.OrderRoom(2, 4), 205));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (מספר הלילות עודכן): \" + Check(rooms[2].GetNightsReserved(), 4));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(h.OrderRoom(2, 1), 305));\nConsole.WriteLine(\"סעיף ב, בדיקה 4 (אין חדר זוגי פנוי): \" + Check(h.OrderRoom(2, 5), -1));\nConsole.WriteLine(\"סעיף ב, בדיקה 5: \" + Check(h.OrderRoom(1, 2), 101));\nRoom[] rooms2 = { new Room(101, 1, 2), new Room(145, 2, 1), new Room(231, 2, 3), new Room(205, 1, 0), new Room(310, 1, 4) };\nHostel h2 = new Hostel(rooms2);\nConsole.WriteLine(\"סעיף ג, בדיקה 1: \" + Check(h2.FloorIncome(), \"[200, 300, 200]\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 2: \" + Check(new Hostel(new Room[] { new Room(120, 2, 0) }).FloorIncome(), \"[0, 0, 0]\"));",
+      "expectedOutput": "סעיף א, בדיקה 1 (יחיד, 3 לילות): נכון\nסעיף א, בדיקה 2 (זוגי, 2 לילות): נכון\nסעיף א, בדיקה 3 (חדר פנוי): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (מספר הלילות עודכן): נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4 (אין חדר זוגי פנוי): נכון\nסעיף ב, בדיקה 5: נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון"
+    }
+  }
+}

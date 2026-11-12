@@ -336,6 +336,16 @@ final class VarsPanel extends JPanel {
         repaint();
     }
 
+    /**
+     * הטבלה משמאל לימין: שם המשתנה בצד שמאל והערך מימינו (שמות וערכים באנגלית). נקרא אחרי שהחלון קבע מימין לשמאל לכל הרכיבים.
+     */
+    void leftToRight() {
+        java.awt.Container c = table.getParent();
+        java.awt.Component scroll = c != null ? c.getParent() : null;
+        if (scroll instanceof JScrollPane) scroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+        else table.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+    }
+
     private static final class VarsTable extends JTable {
         String empty;
 
@@ -366,7 +376,7 @@ final class VarsPanel extends JPanel {
             setForeground(Theme.TEXT);
             setFont(col == 0 ? Theme.zv(Theme.mono.deriveFont(Font.BOLD)) : Theme.zv(Theme.mono));
             setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-            setHorizontalAlignment(col == 0 ? SwingConstants.RIGHT : SwingConstants.LEFT);
+            setHorizontalAlignment(SwingConstants.LEFT);   // שמות משתנים וערכים באנגלית — משמאל לימין
             setToolTipText(v == null ? null : String.valueOf(v));
             return this;
         }

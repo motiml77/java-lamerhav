@@ -237,6 +237,7 @@ final class BankVsFloat {
         }
         page.add(top, BorderLayout.NORTH);
 
+        JScrollPane question = null;
         if (confirm != null) {
             // "סיימתי את התרגיל": האישור בתוך החלון עצמו (במקום השאלה) — בלי חלון נוסף שמכסה אותו
             page.add(confirmPage(f, q, confirm), BorderLayout.CENTER);
@@ -289,6 +290,7 @@ final class BankVsFloat {
             sp.getVerticalScrollBar().setUnitIncrement(18);
             sp.getViewport().setBackground(RtlDialog.PAGE);
             page.add(sp, BorderLayout.CENTER);
+            question = sp;
 
             boolean done = BankProgress.get().done(q.id);
             JPanel foot = new JPanel(new BorderLayout());
@@ -319,6 +321,11 @@ final class BankVsFloat {
         f.getRootPane().revalidate();
         f.validate();
         f.repaint();
+        // הנוסח מתחיל מלמעלה ומימין (תחילת השורות בעברית) — גם אם החלון צר מהתוכן; אחרי שהחלון קיבל את הגודל שלו (show)
+        final JScrollPane sp = question;
+        if (sp != null) SwingUtilities.invokeLater(() -> {
+            if (current == f && f.isDisplayable()) BankVsPanel.scrollToStart(sp);
+        });
     }
 
     /** דף האישור של "סיימתי את התרגיל": כותרת, מה יקרה ומה יימחק */

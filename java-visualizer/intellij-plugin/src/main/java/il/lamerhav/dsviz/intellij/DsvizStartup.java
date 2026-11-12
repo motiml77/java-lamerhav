@@ -21,6 +21,7 @@ public final class DsvizStartup implements StartupActivity.DumbAware {
 
     @Override
     public void runActivity(Project project) {
+        il.lamerhav.dsviz.UpdateCheck.start("-FromIde");   // עדכון אוטומטי — כש-IntelliJ נפתח (פעם אחת)
         if (!Dsviz.on()) return;
         try {
             LibrarySetup.ensureSdk(project);

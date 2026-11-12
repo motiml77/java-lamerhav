@@ -1,0 +1,136 @@
+{
+  "id": "tree-range-order",
+  "topic": "tree",
+  "level": "hard",
+  "title": "עץ טווחים מסודר",
+  "question": {
+    "intro": "נתונה המחלקה Range (טווח) שיש לה שתי תכונות:\nlow: מטיפוס שלם\nhigh: מטיפוס שלם, גדול מ-low\nלכל תכונה הוגדרו פעולות get ו-set.\nבמעטפת יש למחלקה גם פעולה בונה Range(int low, int high), ופעולה toString שמחזירה את הטווח כמחרוזת בצורה: \"[1,10]\"\n\"עץ טווחים\" הוא עץ בינארי שהצמתים שלו הם מטיפוס Range.\n\"עץ טווחים מסודר\" הוא עץ ריק, או עץ טווחים שבו לכל צומת מתקיימים התנאים האלה:\n• אם יש לצומת בן שמאלי: ערך low של הצומת שווה לערך low של הבן השמאלי, וערך high של הצומת גדול או שווה לערך high של הבן השמאלי.\n• אם יש לצומת בן ימני: ערך high של הצומת שווה לערך high של הבן הימני, וערך low של הצומת קטן או שווה לערך low של הבן הימני.\n• אם יש לצומת שני בנים: ערך high של הבן השמאלי קטן מערך low של הבן הימני.\nלדוגמה: העץ tree שבציור הוא עץ טווחים מסודר",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית בוליאנית order, המקבלת עץ טווחים או עץ ריק (BinNode<Range>).\nהפעולה תחזיר true אם העץ הוא עץ טווחים מסודר, אחרת הפעולה תחזיר false.\nלדוגמה:\nעבור העץ tree שבציור הפעולה תחזיר true",
+        "figures": [
+          {
+            "type": "tree",
+            "values": [
+              "[1,10]",
+              "[1,4]",
+              "[5,10]",
+              "[1,3]",
+              null,
+              "[5,6]",
+              "[8,10]"
+            ],
+            "caption": "העץ tree (בכל צומת: [low,high])"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "עץ טווחים מסודר",
+    "topic": "tree",
+    "mainClass": "TreeTargil9",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Range",
+        "code": "public class Range {\n    private int low;\n    private int high;\n\n    public Range(int low, int high) {\n        this.low = low;\n        this.high = high;\n    }\n\n    public int getLow() { return low; }\n    public void setLow(int low) { this.low = low; }\n    public int getHigh() { return high; }\n    public void setHigh(int high) { this.high = high; }\n\n    public String toString() {\n        return \"[\" + low + \",\" + high + \"]\";\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "TreeTargil9",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "order",
+        "parameters": [
+          {
+            "type": "BinNode<Range>",
+            "name": "t"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית בוליאנית order, המקבלת עץ טווחים או עץ ריק (BinNode<Range>).\nהפעולה תחזיר true אם העץ הוא עץ טווחים מסודר, אחרת הפעולה תחזיר false.",
+        "solution": "public static boolean order(BinNode<Range> t) {\n    if (t == null) {\n        return true;\n    }\n    Range r = t.getValue();\n    if (t.hasLeft()) {\n        Range left = t.getLeft().getValue();\n        if (r.getLow() != left.getLow() || r.getHigh() < left.getHigh()) {\n            return false;\n        }\n    }\n    if (t.hasRight()) {\n        Range right = t.getRight().getValue();\n        if (r.getHigh() != right.getHigh() || r.getLow() > right.getLow()) {\n            return false;\n        }\n    }\n    if (t.hasLeft() && t.hasRight()) {\n        if (t.getLeft().getValue().getHigh() >= t.getRight().getValue().getLow()) {\n            return false;\n        }\n    }\n    return order(t.getLeft()) && order(t.getRight());\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "TreeTargil9",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "BinNode<Range> left = new BinNode<Range>(new BinNode<Range>(new Range(1, 3)), new Range(1, 4), null);\nBinNode<Range> right = new BinNode<Range>(new BinNode<Range>(new Range(5, 6)), new Range(5, 10), new BinNode<Range>(new Range(8, 10)));\nBinNode<Range> tree = new BinNode<Range>(left, new Range(1, 10), right);\nSystem.out.println(\"סעיף א, בדיקה 1 (העץ tree מהציור): \" + check(order(tree), true));\nSystem.out.println(\"סעיף א, בדיקה 2 (עץ ריק): \" + check(order(null), true));\nBinNode<Range> t3 = new BinNode<Range>(null, new Range(1, 10), new BinNode<Range>(new Range(3, 10)));\nSystem.out.println(\"סעיף א, בדיקה 3 (רק בן ימני): \" + check(order(t3), true));\nBinNode<Range> t4 = new BinNode<Range>(new BinNode<Range>(new Range(2, 4)), new Range(1, 10), null);\nSystem.out.println(\"סעיף א, בדיקה 4 (ערך low של הבן השמאלי שונה): \" + check(order(t4), false));\nBinNode<Range> t5 = new BinNode<Range>(new BinNode<Range>(new Range(1, 5)), new Range(1, 10), new BinNode<Range>(new Range(5, 10)));\nSystem.out.println(\"סעיף א, בדיקה 5 (high של הבן השמאלי לא קטן מ-low של הבן הימני): \" + check(order(t5), false));\nBinNode<Range> t6 = new BinNode<Range>(left, new Range(1, 10), new BinNode<Range>(new BinNode<Range>(new Range(5, 6)), new Range(5, 10), new BinNode<Range>(new Range(8, 9))));\nSystem.out.println(\"סעיף א, בדיקה 6 (צומת למטה בעץ לא מקיים את התנאים): \" + check(order(t6), false));",
+    "expectedOutput": "סעיף א, בדיקה 1 (העץ tree מהציור): נכון\nסעיף א, בדיקה 2 (עץ ריק): נכון\nסעיף א, בדיקה 3 (רק בן ימני): נכון\nסעיף א, בדיקה 4 (ערך low של הבן השמאלי שונה): נכון\nסעיף א, בדיקה 5 (high של הבן השמאלי לא קטן מ-low של הבן הימני): נכון\nסעיף א, בדיקה 6 (צומת למטה בעץ לא מקיים את התנאים): נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה המחלקה Range (טווח) שיש לה שתי תכונות:\nlow: מטיפוס שלם\nhigh: מטיפוס שלם, גדול מ-low\nלכל תכונה הוגדרו פעולות get ו-set.\nבמעטפת יש למחלקה גם פעולה בונה Range(int low, int high), ופעולה ToString שמחזירה את הטווח כמחרוזת בצורה: \"[1,10]\"\n\"עץ טווחים\" הוא עץ בינארי שהצמתים שלו הם מטיפוס Range.\n\"עץ טווחים מסודר\" הוא עץ ריק, או עץ טווחים שבו לכל צומת מתקיימים התנאים האלה:\n• אם יש לצומת בן שמאלי: ערך low של הצומת שווה לערך low של הבן השמאלי, וערך high של הצומת גדול או שווה לערך high של הבן השמאלי.\n• אם יש לצומת בן ימני: ערך high של הצומת שווה לערך high של הבן הימני, וערך low של הצומת קטן או שווה לערך low של הבן הימני.\n• אם יש לצומת שני בנים: ערך high של הבן השמאלי קטן מערך low של הבן הימני.\nלדוגמה: העץ tree שבציור הוא עץ טווחים מסודר",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית בוליאנית Order, המקבלת עץ טווחים או עץ ריק (BinNode<Range>).\nהפעולה תחזיר true אם העץ הוא עץ טווחים מסודר, אחרת הפעולה תחזיר false.\nלדוגמה:\nעבור העץ tree שבציור הפעולה תחזיר true",
+          "figures": [
+            {
+              "type": "tree",
+              "values": [
+                "[1,10]",
+                "[1,4]",
+                "[5,10]",
+                "[1,3]",
+                null,
+                "[5,6]",
+                "[8,10]"
+              ],
+              "caption": "העץ tree (בכל צומת: [low,high])"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "עץ טווחים מסודר",
+      "topic": "tree",
+      "mainClass": "TreeTargil9",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Range",
+          "code": "public class Range\n{\n    private int low;\n    private int high;\n\n    public Range(int low, int high)\n    {\n        this.low = low;\n        this.high = high;\n    }\n\n    public int GetLow() { return low; }\n    public void SetLow(int low) { this.low = low; }\n    public int GetHigh() { return high; }\n    public void SetHigh(int high) { this.high = high; }\n\n    public override string ToString()\n    {\n        return \"[\" + low + \",\" + high + \"]\";\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "TreeTargil9",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "Order",
+          "parameters": [
+            {
+              "type": "BinNode<Range>",
+              "name": "t"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית בוליאנית Order, המקבלת עץ טווחים או עץ ריק (BinNode<Range>).\nהפעולה תחזיר true אם העץ הוא עץ טווחים מסודר, אחרת הפעולה תחזיר false.",
+          "solution": "public static bool Order(BinNode<Range> t)\n{\n    if (t == null)\n    {\n        return true;\n    }\n    Range r = t.GetValue();\n    if (t.HasLeft())\n    {\n        Range left = t.GetLeft().GetValue();\n        if (r.GetLow() != left.GetLow() || r.GetHigh() < left.GetHigh())\n        {\n            return false;\n        }\n    }\n    if (t.HasRight())\n    {\n        Range right = t.GetRight().GetValue();\n        if (r.GetHigh() != right.GetHigh() || r.GetLow() > right.GetLow())\n        {\n            return false;\n        }\n    }\n    if (t.HasLeft() && t.HasRight())\n    {\n        if (t.GetLeft().GetValue().GetHigh() >= t.GetRight().GetValue().GetLow())\n        {\n            return false;\n        }\n    }\n    return Order(t.GetLeft()) && Order(t.GetRight());\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "TreeTargil9",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "BinNode<Range> left = new BinNode<Range>(new BinNode<Range>(new Range(1, 3)), new Range(1, 4), null);\nBinNode<Range> right = new BinNode<Range>(new BinNode<Range>(new Range(5, 6)), new Range(5, 10), new BinNode<Range>(new Range(8, 10)));\nBinNode<Range> tree = new BinNode<Range>(left, new Range(1, 10), right);\nConsole.WriteLine(\"סעיף א, בדיקה 1 (העץ tree מהציור): \" + Check(Order(tree), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (עץ ריק): \" + Check(Order(null), true));\nBinNode<Range> t3 = new BinNode<Range>(null, new Range(1, 10), new BinNode<Range>(new Range(3, 10)));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (רק בן ימני): \" + Check(Order(t3), true));\nBinNode<Range> t4 = new BinNode<Range>(new BinNode<Range>(new Range(2, 4)), new Range(1, 10), null);\nConsole.WriteLine(\"סעיף א, בדיקה 4 (ערך low של הבן השמאלי שונה): \" + Check(Order(t4), false));\nBinNode<Range> t5 = new BinNode<Range>(new BinNode<Range>(new Range(1, 5)), new Range(1, 10), new BinNode<Range>(new Range(5, 10)));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (high של הבן השמאלי לא קטן מ-low של הבן הימני): \" + Check(Order(t5), false));\nBinNode<Range> t6 = new BinNode<Range>(left, new Range(1, 10), new BinNode<Range>(new BinNode<Range>(new Range(5, 6)), new Range(5, 10), new BinNode<Range>(new Range(8, 9))));\nConsole.WriteLine(\"סעיף א, בדיקה 6 (צומת למטה בעץ לא מקיים את התנאים): \" + Check(Order(t6), false));",
+      "expectedOutput": "סעיף א, בדיקה 1 (העץ tree מהציור): נכון\nסעיף א, בדיקה 2 (עץ ריק): נכון\nסעיף א, בדיקה 3 (רק בן ימני): נכון\nסעיף א, בדיקה 4 (ערך low של הבן השמאלי שונה): נכון\nסעיף א, בדיקה 5 (high של הבן השמאלי לא קטן מ-low של הבן הימני): נכון\nסעיף א, בדיקה 6 (צומת למטה בעץ לא מקיים את התנאים): נכון"
+    }
+  }
+}

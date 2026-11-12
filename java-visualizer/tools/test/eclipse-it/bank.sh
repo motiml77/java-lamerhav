@@ -38,7 +38,7 @@ cp "$ROOT"/release/il.lamerhav.dsviz_*.jar "$FRAG" "$ECL/dropins/"
 "$JAVA" -jar "$LAUNCH" -nosplash -consoleLog -application org.eclipse.equinox.p2.director -repository "file:$REPO" -installIU il.lamerhav.dsviz.it >> "$B/bank-p2.log" 2>&1 \
     || { echo "  FAIL התקנת תוסף הבדיקה"; tail -20 "$B/bank-p2.log"; exit 1; }
 xrun() { if [ -n "$XD" ]; then DISPLAY="$XD" "$@"; else xvfb-run -a -s "-screen 0 ${XSCREEN:-1600x1000x24}" "$@"; fi; }
-# שאלה בתיקייה המקומית (כמו ~/.dsviz/bank) — נוספת למאגר בלי בנייה; עם ציור ארוך (לבדיקת הגלילה)
+# שאלה בתיקייה המקומית (כמו ~/.dsviz/bank) — נוספת למאגר בלי בנייה; עם ציור ארוך (רואים את כולו, בלי גלילה הצידה)
 mkdir -p "$B/bank-local/list"
 python3 - "$ROOT/bank/list/list-length-sum.json" "$B/bank-local/list/test-long-list.json" <<'PY'
 import json, sys
@@ -69,9 +69,10 @@ check "^MEDIUM tree-equal-mirror files=1 marks=1 checks=4 helper=true expected=t
 [ "$(grep -c '^QUESTION ' "$OUT")" = "$(( $(find "$ROOT/bank" -mindepth 2 -name '*.json' | wc -l) + 1 ))" ] && echo "  ok  כל השאלות במאגר נטענו ($(grep -c '^QUESTION ' "$OUT"))" || { echo "  FAIL לא כל השאלות נטענו"; FAILED=1; }
 check "^TOPICS לולאות | מערכים | מחרוזות | מחלקות | רקורסיה | מחסנית | תור | שרשרת חוליות | עץ בינארי | $" "הנושאים: לולאות, מערכים, מחרוזות, מחלקות, רקורסיה, מחסנית, תור, שרשרת חוליות, עץ בינארי"
 check "^DIALOG title=מאגר תרגילים rtl=true" "החלון: מימין לשמאל"
-check "^TREE TOPIC loops closed 0/6 | TOPIC arrays closed 0/6 | TOPIC strings closed 0/6 | TOPIC classes closed 0/6 | TOPIC recursion closed 0/6 | TOPIC stack open 0/6 | Q stack-copy-greater easy | Q stack-max-contains easy | Q stack-sum-size easy | Q stack-brackets medium | Q stack-remove-bottom medium | Q stack-split-sorted medium | TOPIC queue closed 0/6 | TOPIC list closed 0/7 | TOPIC tree closed 0/6" "סרגל הצד: עץ נושאים — הכול סגור חוץ מהנושא של השאלה (פתוח), עם כמה V מתוך כמה; בכל נושא מהקל לבינוני"
-check "^SEARCH-QUEUE TOPIC queue open 0/6 | Q queue-copy-contains easy | Q queue-min-last easy | Q queue-sum-even easy | Q queue-last-min medium | Q queue-merge-sorted medium | Q queue-remove-reverse medium$" "חיפוש: \"תור\" — רק הנושא והשאלות שמתאימים"
-check "^FILTER-HARD $" "סינון לפי קושי \"קשה\": עוד אין שאלות קשות — רשימה ריקה"
+check "^TREE TOPIC loops closed 0/[0-9][0-9]* | TOPIC arrays closed 0/[0-9][0-9]* | TOPIC strings closed 0/[0-9][0-9]* | TOPIC classes closed 0/[0-9][0-9]* | TOPIC recursion closed 0/[0-9][0-9]* | TOPIC stack open 0/[0-9][0-9]* | Q stack-copy-greater easy | Q stack-max-contains easy | Q stack-sum-size easy | Q stack-brackets medium | Q stack-remove-bottom medium | Q stack-split-sorted medium.* | TOPIC queue closed 0/[0-9][0-9]* | TOPIC list closed 0/[0-9][0-9]* | TOPIC tree closed 0/[0-9][0-9]*$" "סרגל הצד: עץ נושאים — הכול סגור חוץ מהנושא של השאלה (פתוח), עם כמה V מתוך כמה; בכל נושא מהקל לקשה"
+check "^SEARCH-QUEUE .*TOPIC queue open 0/[0-9][0-9]* | Q queue-copy-contains easy | Q queue-min-last easy | Q queue-sum-even easy | Q queue-last-min medium | Q queue-merge-sorted medium | Q queue-remove-reverse medium" "חיפוש: \"תור\" — הנושא תור פתוח עם השאלות שלו (ועוד נושאים שיש בהם \"תור\")"
+check "^FILTER-HARD TOPIC [a-z]* open 0/[0-9][0-9]* | Q [a-z0-9-]* hard" "סינון לפי קושי \"קשה\": יש שאלות קשות"
+if grep -a "^FILTER-HARD" "$OUT" | grep -qE " (easy|medium)( |$)"; then echo "  FAIL סינון לפי קושי \"קשה\": הופיעה שאלה קלה / בינונית"; FAILED=1; else echo "  ok  סינון לפי קושי \"קשה\": רק שאלות קשות"; fi
 check "^DIALOG-BUTTONS צור תרגיל | שאלה אקראית | סגירה" "החלון: צור תרגיל / שאלה אקראית / סגירה (בלי עותק — עוד לא נוצר)"
 check "^DIALOG-PREVIEW .*TEXT סעיף א'.*TEXT סעיף ב'.*TEXT כשהכול פתור נכון, התוכנית מדפיסה" "החלון: נוסח השאלה — כרטיס לכל סעיף, והפלט הרצוי"
 check "^DIALOG-PREVIEW .*FIGURE stack \[\[9\], \[2\], \[7\], \[4\]\] \"המחסנית s (4 בראש)" "ציור: מחסנית (4 בראש — נכנס אחרון)"
@@ -113,7 +114,7 @@ check "^KEEP-DONE true" "תרגיל נוסף, והתלמיד הוסיף קובץ
 check "^KEEP created-left=0 helper=true folder=true mine=true" "רק קבצי התרגיל נמחקו — הקובץ של התלמיד בחבילה, החבילה, וקובץ אחר בפרויקט נשארו"
 check "^DIALOG2-BUTTONS צור תרגיל | שאלה אקראית | סגירה" "אחרי המחיקה: בחלון המאגר שוב \"צור תרגיל\""
 check "^DIALOG2-TREE .*Q stack-sum-size easy done" "אחרי המחיקה: ה-V נשאר בעץ"
-check "^PREVIEW-LONG .*FIGURE-SCROLL [4-9][0-9][0-9]" "ציור ארוך (שרשרת של 12 חוליות, משאלה בתיקייה המקומית) — בגודל קריא עם גלילה הצידה"
+check "^PREVIEW-LONG .*FIGURE-FIT [4-9][0-9][0-9]" "ציור ארוך (שרשרת של 12 חוליות, משאלה בתיקייה המקומית) — כולו, בלי גלילה הצידה (מוקטן לרוחב השורה רק כשהיא צרה ממנו)"
 # חריגות ביומן שיש בהן קוד של המאגר — חוץ מאחת ידועה של Eclipse עצמו (סגירת עורך שיש לו היסטוריית undo: AbstractOperation.hasContext)
 awk 'BEGIN{RS="!ENTRY"} /Exception/ && /il\.lamerhav\.dsviz\.Bank/ && !/AbstractOperation\.hasContext/ {print "!ENTRY" $0}' "$B/bank/eclipse.log" > "$B/bank/bank-errors.log"
 [ -s "$B/bank/bank-errors.log" ] && { echo "  FAIL חריגה בקוד של המאגר:"; head -30 "$B/bank/bank-errors.log"; FAILED=1; } || echo "  ok  בלי חריגות של המאגר ביומן"

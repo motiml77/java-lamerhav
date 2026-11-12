@@ -1,0 +1,210 @@
+{
+  "id": "classes-car-allcars",
+  "topic": "classes",
+  "level": "hard",
+  "title": "מכוניות משומשות",
+  "question": {
+    "intro": "במערכת מחשוב של חברה למכירת מכוניות משומשות הוגדרה מחלקה בשם Car שיש לה שלוש תכונות:\nlicenseNum: מספר רישוי מטיפוס מחרוזת\nhadAccident: משתנה מטיפוס בוליאני המקבל true אם המכונית עברה תאונה, אחרת מקבל false\nprice: מחיר המכונית, מטיפוס שלם\nהנח שהוגדרה למחלקה פעולה בונה המקבלת ערכים עבור כל אחת מן התכונות של המחלקה, ולכל תכונה הוגדרו פעולות get ו-set.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב במחלקה Car פעולה פנימית בוליאנית בשם range, המקבלת שני מספרים מטיפוס שלם min ו-max. הפעולה תחזיר true אם מחיר המכונית הוא בין min ל-max (כולל), אחרת תחזיר הפעולה false.\nהנח ש-max גדול מ-min."
+      },
+      {
+        "label": "ב",
+        "text": "נתונה המחלקה AllCars שיש לה שתי תכונות:\ncars: מערך חד־ממדי מטיפוס Car\nnum: מספר המכוניות הנוכחי שיש בחברה, מטיפוס שלם\nלפניך הפעולה הבונה של המחלקה:\npublic AllCars(int max)\n{\n    this.cars = new Car[max];\n    this.num = 0;\n}\n(1) כתוב במחלקה AllCars פעולה פנימית בוליאנית בשם addCar, המקבלת עצם מטיפוס Car. הפעולה מוסיפה אותו למערך המכוניות במקום הראשון הפנוי ומחזירה true.\nאם המערך מלא, תחזיר הפעולה false.\nהנח שאין מקומות פנויים מהתחלת המערך ועד למספר num (לא כולל num)."
+      },
+      {
+        "label": "ג",
+        "text": "(2) כתוב במחלקה AllCars פעולה פנימית בשם print, המקבלת שני מספרים min ו-max מטיפוס שלם (max גדול מ-min).\nהפעולה תדפיס את מספר הרישוי של כל מכונית במערך cars שלא עברה תאונה ושמחירה נמצא בין שני המספרים min ו-max (כולל), כל מספר רישוי בשורה משלו.\nחובה להשתמש בפעולה שהוגדרה בסעיף א."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מכוניות משומשות",
+    "topic": "classes",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Car",
+        "code": "public class Car {\n    private String licenseNum;\n    private boolean hadAccident;\n    private int price;\n\n    public Car(String licenseNum, boolean hadAccident, int price) {\n        this.licenseNum = licenseNum;\n        this.hadAccident = hadAccident;\n        this.price = price;\n    }\n\n    public String getLicenseNum() { return licenseNum; }\n    public void setLicenseNum(String licenseNum) { this.licenseNum = licenseNum; }\n    public boolean getHadAccident() { return hadAccident; }\n    public void setHadAccident(boolean hadAccident) { this.hadAccident = hadAccident; }\n    public int getPrice() { return price; }\n    public void setPrice(int price) { this.price = price; }\n}"
+      },
+      {
+        "name": "AllCars",
+        "code": "public class AllCars {\n    private Car[] cars;\n    private int num;\n\n    public AllCars(int max) {\n        this.cars = new Car[max];\n        this.num = 0;\n    }\n\n    public Car[] getCars() { return cars; }\n    public int getNum() { return num; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Car",
+        "isStatic": false,
+        "returnType": "boolean",
+        "methodName": "range",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "min"
+          },
+          {
+            "type": "int",
+            "name": "max"
+          }
+        ],
+        "instructions": "כתוב במחלקה Car פעולה פנימית בוליאנית בשם range, המקבלת שני מספרים מטיפוס שלם min ו-max. הפעולה תחזיר true אם מחיר המכונית הוא בין min ל-max (כולל), אחרת תחזיר הפעולה false.\nהנח ש-max גדול מ-min.",
+        "solution": "public boolean range(int min, int max) {\n    return price >= min && price <= max;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "AllCars",
+        "isStatic": false,
+        "returnType": "boolean",
+        "methodName": "addCar",
+        "parameters": [
+          {
+            "type": "Car",
+            "name": "c"
+          }
+        ],
+        "instructions": "כתוב במחלקה AllCars פעולה פנימית בוליאנית בשם addCar, המקבלת עצם מטיפוס Car. הפעולה מוסיפה אותו למערך המכוניות במקום הראשון הפנוי ומחזירה true.\nאם המערך מלא, תחזיר הפעולה false.\nהנח שאין מקומות פנויים מהתחלת המערך ועד למספר num (לא כולל num).",
+        "solution": "public boolean addCar(Car c) {\n    if (num < cars.length) {\n        cars[num] = c;\n        num++;\n        return true;\n    }\n    return false;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "AllCars",
+        "isStatic": false,
+        "returnType": "void",
+        "methodName": "print",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "min"
+          },
+          {
+            "type": "int",
+            "name": "max"
+          }
+        ],
+        "instructions": "(2) כתוב במחלקה AllCars פעולה פנימית בשם print, המקבלת שני מספרים min ו-max מטיפוס שלם (max גדול מ-min).\nהפעולה תדפיס את מספר הרישוי של כל מכונית במערך cars שלא עברה תאונה ושמחירה נמצא בין שני המספרים min ו-max (כולל), כל מספר רישוי בשורה משלו.\nחובה להשתמש בפעולה שהוגדרה בסעיף א.",
+        "solution": "public void print(int min, int max) {\n    for (int i = 0; i < num; i++) {\n        if (!cars[i].getHadAccident() && cars[i].range(min, max)) {\n            System.out.println(cars[i].getLicenseNum());\n        }\n    }\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Car c1 = new Car(\"11-222-33\", false, 80000);\nCar c2 = new Car(\"44-555-66\", true, 90000);\nCar c3 = new Car(\"77-888-99\", false, 120000);\nCar c4 = new Car(\"12-345-67\", false, 95000);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(c1.range(70000, 100000), true));\nSystem.out.println(\"סעיף א, בדיקה 2 (שווה ל-min): \" + check(c1.range(80000, 100000), true));\nSystem.out.println(\"סעיף א, בדיקה 3 (שווה ל-max): \" + check(c1.range(50000, 80000), true));\nSystem.out.println(\"סעיף א, בדיקה 4: \" + check(c3.range(70000, 100000), false));\nAllCars small = new AllCars(3);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(small.addCar(c1), true));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(small.addCar(c2), true));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(small.addCar(c3), true));\nSystem.out.println(\"סעיף ב, בדיקה 4 (המערך מלא): \" + check(small.addCar(c4), false));\nSystem.out.println(\"סעיף ב, בדיקה 5: \" + check(small.getNum(), 3));\nAllCars all = new AllCars(10);\nall.addCar(c1);\nall.addCar(c2);\nall.addCar(c3);\nall.addCar(c4);\nSystem.out.println(\"סעיף ג, בדיקה 1: בין 80000 ל-100000 צריך להדפיס את 11-222-33 ואחריו את 12-345-67:\");\nall.print(80000, 100000);\nSystem.out.println(\"סעיף ג, בדיקה 2: בין 100000 ל-200000 צריך להדפיס את 77-888-99:\");\nall.print(100000, 200000);\nSystem.out.println(\"סעיף ג, בדיקה 3: בין 1 ל-1000 לא צריך להדפיס כלום:\");\nall.print(1, 1000);\nSystem.out.println(\"סעיף ג: סוף הבדיקות\");",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (שווה ל-min): נכון\nסעיף א, בדיקה 3 (שווה ל-max): נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4 (המערך מלא): נכון\nסעיף ב, בדיקה 5: נכון\nסעיף ג, בדיקה 1: בין 80000 ל-100000 צריך להדפיס את 11-222-33 ואחריו את 12-345-67:\n11-222-33\n12-345-67\nסעיף ג, בדיקה 2: בין 100000 ל-200000 צריך להדפיס את 77-888-99:\n77-888-99\nסעיף ג, בדיקה 3: בין 1 ל-1000 לא צריך להדפיס כלום:\nסעיף ג: סוף הבדיקות"
+  },
+  "csharp": {
+    "question": {
+      "intro": "במערכת מחשוב של חברה למכירת מכוניות משומשות הוגדרה מחלקה בשם Car שיש לה שלוש תכונות:\nlicenseNum: מספר רישוי מטיפוס מחרוזת\nhadAccident: משתנה מטיפוס בוליאני המקבל true אם המכונית עברה תאונה, אחרת מקבל false\nprice: מחיר המכונית, מטיפוס שלם\nהנח שהוגדרה למחלקה פעולה בונה המקבלת ערכים עבור כל אחת מן התכונות של המחלקה, ולכל תכונה הוגדרו פעולות get ו-set.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב במחלקה Car פעולה פנימית בוליאנית בשם Range, המקבלת שני מספרים מטיפוס שלם min ו-max. הפעולה תחזיר true אם מחיר המכונית הוא בין min ל-max (כולל), אחרת תחזיר הפעולה false.\nהנח ש-max גדול מ-min."
+        },
+        {
+          "label": "ב",
+          "text": "נתונה המחלקה AllCars שיש לה שתי תכונות:\ncars: מערך חד־ממדי מטיפוס Car\nnum: מספר המכוניות הנוכחי שיש בחברה, מטיפוס שלם\nלפניך הפעולה הבונה של המחלקה:\npublic AllCars(int max)\n{\n    this.cars = new Car[max];\n    this.num = 0;\n}\n(1) כתוב במחלקה AllCars פעולה פנימית בוליאנית בשם AddCar, המקבלת עצם מטיפוס Car. הפעולה מוסיפה אותו למערך המכוניות במקום הראשון הפנוי ומחזירה true.\nאם המערך מלא, תחזיר הפעולה false.\nהנח שאין מקומות פנויים מהתחלת המערך ועד למספר num (לא כולל num)."
+        },
+        {
+          "label": "ג",
+          "text": "(2) כתוב במחלקה AllCars פעולה פנימית בשם Print, המקבלת שני מספרים min ו-max מטיפוס שלם (max גדול מ-min).\nהפעולה תדפיס את מספר הרישוי של כל מכונית במערך cars שלא עברה תאונה ושמחירה נמצא בין שני המספרים min ו-max (כולל), כל מספר רישוי בשורה משלו.\nחובה להשתמש בפעולה שהוגדרה בסעיף א."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מכוניות משומשות",
+      "topic": "classes",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Car",
+          "code": "public class Car\n{\n    private string licenseNum;\n    private bool hadAccident;\n    private int price;\n\n    public Car(string licenseNum, bool hadAccident, int price)\n    {\n        this.licenseNum = licenseNum;\n        this.hadAccident = hadAccident;\n        this.price = price;\n    }\n\n    public string GetLicenseNum() { return licenseNum; }\n    public void SetLicenseNum(string licenseNum) { this.licenseNum = licenseNum; }\n    public bool GetHadAccident() { return hadAccident; }\n    public void SetHadAccident(bool hadAccident) { this.hadAccident = hadAccident; }\n    public int GetPrice() { return price; }\n    public void SetPrice(int price) { this.price = price; }\n}"
+        },
+        {
+          "name": "AllCars",
+          "code": "public class AllCars\n{\n    private Car[] cars;\n    private int num;\n\n    public AllCars(int max)\n    {\n        this.cars = new Car[max];\n        this.num = 0;\n    }\n\n    public Car[] GetCars() { return cars; }\n    public int GetNum() { return num; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Car",
+          "isStatic": false,
+          "returnType": "bool",
+          "methodName": "Range",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "min"
+            },
+            {
+              "type": "int",
+              "name": "max"
+            }
+          ],
+          "instructions": "כתוב במחלקה Car פעולה פנימית בוליאנית בשם Range, המקבלת שני מספרים מטיפוס שלם min ו-max. הפעולה תחזיר true אם מחיר המכונית הוא בין min ל-max (כולל), אחרת תחזיר הפעולה false.\nהנח ש-max גדול מ-min.",
+          "solution": "public bool range(int min, int max)\n{\n    return price >= min && price <= max;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "AllCars",
+          "isStatic": false,
+          "returnType": "bool",
+          "methodName": "AddCar",
+          "parameters": [
+            {
+              "type": "Car",
+              "name": "c"
+            }
+          ],
+          "instructions": "כתוב במחלקה AllCars פעולה פנימית בוליאנית בשם AddCar, המקבלת עצם מטיפוס Car. הפעולה מוסיפה אותו למערך המכוניות במקום הראשון הפנוי ומחזירה true.\nאם המערך מלא, תחזיר הפעולה false.\nהנח שאין מקומות פנויים מהתחלת המערך ועד למספר num (לא כולל num).",
+          "solution": "public bool addCar(Car c)\n{\n    if (num < cars.Length)\n    {\n        cars[num] = c;\n        num++;\n        return true;\n    }\n    return false;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "AllCars",
+          "isStatic": false,
+          "returnType": "void",
+          "methodName": "Print",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "min"
+            },
+            {
+              "type": "int",
+              "name": "max"
+            }
+          ],
+          "instructions": "(2) כתוב במחלקה AllCars פעולה פנימית בשם Print, המקבלת שני מספרים min ו-max מטיפוס שלם (max גדול מ-min).\nהפעולה תדפיס את מספר הרישוי של כל מכונית במערך cars שלא עברה תאונה ושמחירה נמצא בין שני המספרים min ו-max (כולל), כל מספר רישוי בשורה משלו.\nחובה להשתמש בפעולה שהוגדרה בסעיף א.",
+          "solution": "public void Print(int min, int max)\n{\n    for (int i = 0; i < num; i++)\n    {\n        if (!cars[i].GetHadAccident() && cars[i].Range(min, max))\n        {\n            Console.WriteLine(cars[i].GetLicenseNum());\n        }\n    }\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Car c1 = new Car(\"11-222-33\", false, 80000);\nCar c2 = new Car(\"44-555-66\", true, 90000);\nCar c3 = new Car(\"77-888-99\", false, 120000);\nCar c4 = new Car(\"12-345-67\", false, 95000);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(c1.Range(70000, 100000), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (שווה ל-min): \" + Check(c1.Range(80000, 100000), true));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (שווה ל-max): \" + Check(c1.Range(50000, 80000), true));\nConsole.WriteLine(\"סעיף א, בדיקה 4: \" + Check(c3.Range(70000, 100000), false));\nAllCars small = new AllCars(3);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(small.AddCar(c1), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(small.AddCar(c2), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(small.AddCar(c3), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 4 (המערך מלא): \" + Check(small.AddCar(c4), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 5: \" + Check(small.GetNum(), 3));\nAllCars all = new AllCars(10);\nall.AddCar(c1);\nall.AddCar(c2);\nall.AddCar(c3);\nall.AddCar(c4);\nConsole.WriteLine(\"סעיף ג, בדיקה 1: בין 80000 ל-100000 צריך להדפיס את 11-222-33 ואחריו את 12-345-67:\");\nall.Print(80000, 100000);\nConsole.WriteLine(\"סעיף ג, בדיקה 2: בין 100000 ל-200000 צריך להדפיס את 77-888-99:\");\nall.Print(100000, 200000);\nConsole.WriteLine(\"סעיף ג, בדיקה 3: בין 1 ל-1000 לא צריך להדפיס כלום:\");\nall.Print(1, 1000);\nConsole.WriteLine(\"סעיף ג: סוף הבדיקות\");",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (שווה ל-min): נכון\nסעיף א, בדיקה 3 (שווה ל-max): נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4 (המערך מלא): נכון\nסעיף ב, בדיקה 5: נכון\nסעיף ג, בדיקה 1: בין 80000 ל-100000 צריך להדפיס את 11-222-33 ואחריו את 12-345-67:\n11-222-33\n12-345-67\nסעיף ג, בדיקה 2: בין 100000 ל-200000 צריך להדפיס את 77-888-99:\n77-888-99\nסעיף ג, בדיקה 3: בין 1 ל-1000 לא צריך להדפיס כלום:\nסעיף ג: סוף הבדיקות"
+    }
+  }
+}

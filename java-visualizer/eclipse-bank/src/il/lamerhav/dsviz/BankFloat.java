@@ -60,9 +60,12 @@ final class BankFloat {
 
     /** פותח (או מביא לקדמה) את החלון עם השאלה */
     static BankFloat show(IWorkbenchPage page, String questionId) {
+        // הפוקוס נשאר איפה שהיה (העורך): החלון "השאלה" רק מוצג — כך ההקלדה לא עוברת אליו (ולא מתחלפת לעברית)
+        Control focus = page.getWorkbenchWindow().getShell().getDisplay().getFocusControl();
         if (current == null || current.shell.isDisposed()) current = new BankFloat(page);
         current.setQuestion(questionId);
         current.reveal();
+        if (focus != null && !focus.isDisposed() && focus.getShell() != current.shell) focus.setFocus();
         BankQuestionSource.refresh();
         return current;
     }
@@ -78,8 +81,7 @@ final class BankFloat {
             shell.setBounds(defaultBounds(shell.getParent().getBounds()));
         }
         shell.setVisible(true);
-        shell.setActive();
-        shell.forceActive();
+        shell.moveAbove(null);   // לקדמה, בלי לקחת את הפוקוס מהעורך
     }
 
     /** ברירת המחדל: בצד ימין של חלון Eclipse, בערך שליש מהרוחב */
@@ -148,7 +150,7 @@ final class BankFloat {
             if (current == BankFloat.this) current = null;
             BankQuestionSource.refresh();
         });
-        shell.open();
+        shell.setVisible(true);   // לא open(): open גם מפעיל את החלון ולוקח את הפוקוס מהעורך
     }
 
     /** זוכר את המקום האחרון — לא כשהחלון ממוזער (שם המערכת מדווחת על מקום שאינו אמיתי) */

@@ -132,13 +132,13 @@ public final class ProjectSetup {
         if (!hasJar) {
             entries.add(libraryEntry(jar, modular));
             changed = true;
-        } else if (modular) {
+        } else {
             for (int i = 0; i < entries.size(); i++) {
                 IClasspathEntry e = entries.get(i);
-                if (e.getEntryKind() == IClasspathEntry.CPE_LIBRARY && e.getPath().equals(jar.getFullPath()) && !isModulePath(e)) {
-                    entries.set(i, libraryEntry(jar, true));
-                    changed = true;
-                }
+                if (e.getEntryKind() != IClasspathEntry.CPE_LIBRARY || !e.getPath().equals(jar.getFullPath()) || isModulePath(e) == modular) continue;
+                // מודולרי: ל-module path. בלי module-info (נמחק — ModuleFix, או התלמיד מחק): חזרה ל-classpath הרגיל
+                entries.set(i, modular ? libraryEntry(jar, true) : withoutModule(e));
+                changed = true;
             }
         }
         if (src == null && needSource) {
@@ -166,6 +166,43 @@ public final class ProjectSetup {
     private static boolean isModulePath(IClasspathEntry e) {
         for (org.eclipse.jdt.core.IClasspathAttribute a : e.getExtraAttributes())
             if (MODULE_ATTR.equals(a.getName()) && "true".equals(a.getValue())) return true;
+        return false;
+    }
+
+    /** אותה ספרייה, ב-classpath הרגיל: בלי המאפיין module (שאר המאפיינים וחוקי הגישה נשארים) */
+    private static IClasspathEntry withoutModule(IClasspathEntry e) {
+        List<org.eclipse.jdt.core.IClasspathAttribute> keep = new ArrayList<org.eclipse.jdt.core.IClasspathAttribute>();
+        for (org.eclipse.jdt.core.IClasspathAttribute a : e.getExtraAttributes()) if (!MODULE_ATTR.equals(a.getName())) keep.add(a);
+        return JavaCore.newLibraryEntry(e.getPath(), e.getSourceAttachmentPath(), e.getSourceAttachmentRootPath(), e.getAccessRules(),
+                keep.toArray(new org.eclipse.jdt.core.IClasspathAttribute[0]), e.isExported());
+    }
+
+    /**
+     * lib/dsviz.jar חוזר מה-module path ל-classpath הרגיל — אחרי ש-module-info.java נמחק (ModuleFix). לא שואל את JDT אם הפרויקט מודולרי:
+     * באמצע אותה פעולה הוא עוד לא יודע שהקובץ נמחק. מחזיר true אם משהו השתנה
+     */
+    static boolean libraryOnClasspath(IJavaProject jp) throws CoreException {
+        IPath jar = jp.getProject().getFolder("lib").getFile(JAR_NAME).getFullPath();
+        IClasspathEntry[] raw = jp.getRawClasspath();
+        boolean changed = false;
+        for (int i = 0; i < raw.length; i++) {
+            if (raw[i].getEntryKind() == IClasspathEntry.CPE_LIBRARY && raw[i].getPath().equals(jar) && isModulePath(raw[i])) {
+                raw[i] = withoutModule(raw[i]);
+                changed = true;
+            }
+        }
+        if (changed) jp.setRawClasspath(raw, null);
+        return changed;
+    }
+
+    /** lib/dsviz.jar של התוסף ב-module path בפרויקט שאין בו (כבר) module-info.java — צריך להחזיר אותו ל-classpath (prepare) */
+    static boolean ourJarOnModulePathWithoutModule(IJavaProject jp) {
+        if (isModular(jp)) return false;
+        try {
+            IPath jar = jp.getProject().getFolder("lib").getFile(JAR_NAME).getFullPath();
+            for (IClasspathEntry e : jp.getRawClasspath())
+                if (e.getEntryKind() == IClasspathEntry.CPE_LIBRARY && e.getPath().equals(jar) && isModulePath(e)) return true;
+        } catch (CoreException ignored) {}
         return false;
     }
 

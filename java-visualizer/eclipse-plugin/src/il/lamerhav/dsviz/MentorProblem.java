@@ -19,7 +19,9 @@ final class MentorProblem extends CategorizedProblem {
         // העברית מוצגת מימין לשמאל גם בחלונות של Eclipse שהם משמאל לימין (Problems, ריחוף מעל השגיאה), וכל קטע קוד
         // (`...`, או אנגלית בלי סימון) משמאל לימין כיחידה אחת — בלי שהסוגריים יתהפכו ובלי שרשימה כמו insert, remove
         // תתהפך (RtlText — אותו טיפול כמו בחלון "הסברים בעברית"). מי שקורא את ההודעה כטקסט: RtlText.strip
-        this.message = RtlText.rtl(f.message);
+        // LRM בהתחלה: חלון הריחוף של Eclipse הוא StyledText, וב-Windows הוא מחליף את שפת ההקלדה לפי הכיוון של התו הראשון —
+        // בלי זה כל ריחוף מעל הסבר בעברית העביר את ההקלדה בעורך לעברית. ה-RLM / RLE שאחריו עדיין מציגים את העברית מימין לשמאל.
+        this.message = RtlText.LRM + RtlText.rtl(f.message);
         this.error = f.isError();
         this.file = file;
         this.start = f.start;

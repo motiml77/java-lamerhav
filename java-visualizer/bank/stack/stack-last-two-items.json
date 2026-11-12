@@ -1,0 +1,256 @@
+{
+  "id": "stack-last-two-items",
+  "topic": "stack",
+  "level": "hard",
+  "title": "מחסנית: האיבר התחתון וזוגות",
+  "question": {
+    "intro": "בשאלה זו שני סעיפים. בסעיף ב צריך להשתמש בפעולה שכתבת בסעיף א.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית lastAndRemove, המקבלת מחסנית מטיפוס שלם, מוחקת את האיבר התחתון במחסנית, ומחזירה את ערכו.\nבסיום הפעולה האיברים האחרים במחסנית נשארים ללא שינוי.\nהנח שהמחסנית אינה ריקה.\nלדוגמה: עבור המחסנית שבציור הראשון הפעולה תחזיר את הערך 9, והמחסנית תיראה כמו בציור השני",
+        "figures": [
+          {
+            "type": "stack",
+            "values": [
+              1,
+              6,
+              32,
+              5,
+              5,
+              7,
+              4,
+              9
+            ],
+            "caption": "המחסנית לפני הפעולה (1 בראש)"
+          },
+          {
+            "type": "stack",
+            "values": [
+              1,
+              6,
+              32,
+              5,
+              5,
+              7,
+              4
+            ],
+            "caption": "המחסנית אחרי הפעולה, שהחזירה 9 (1 בראש)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "נתונה המחלקה TwoItems ובה שתי תכונות: num1 ו-num2 מטיפוס שלם, ופעולה בונה TwoItems(int number1, int number2).\nהנח שלכל תכונה הוגדרו פעולות get ו-set.\nכתוב פעולה חיצונית stackTwoItems, המקבלת מחסנית stk1 שאינה ריקה, מטיפוס שלם ובגודל זוגי, ומחזירה מחסנית מטיפוס TwoItems.\nהאיבר התחתון במחסנית המוחזרת יכיל הפניה למופע של TwoItems שהתכונה num1 שלו היא האיבר שבראש המחסנית stk1, והתכונה num2 שלו היא האיבר התחתון במחסנית stk1\nהאיבר שמעליו יכיל הפניה למופע של TwoItems שהתכונה num1 שלו היא האיבר שמתחת לראש stk1, והתכונה num2 שלו היא האיבר שמעל האיבר התחתון ב-stk1, וכן הלאה, כך שהאיבר שבראש המחסנית המוחזרת יכיל הפניה למופע של TwoItems שהתכונות שלו num1 ו-num2 הם שני האיברים הסמוכים שבאמצע המחסנית stk1\nעליך להיעזר בפעולה שכתבת בסעיף א.\nהערה: אין צורך לשמור על התוכן המקורי של המחסנית stk1\nלדוגמה: עבור המחסנית stk1 שבציור הראשון, הפעולה תחזיר את המחסנית שבציור השני",
+        "figures": [
+          {
+            "type": "stack",
+            "values": [
+              1,
+              6,
+              32,
+              5,
+              5,
+              7,
+              4,
+              9
+            ],
+            "caption": "stk1 (1 בראש)"
+          },
+          {
+            "type": "stack",
+            "values": [
+              "(5,5)",
+              "(32,7)",
+              "(6,4)",
+              "(1,9)"
+            ],
+            "caption": "המחסנית המוחזרת: בכל תא (num1,num2) של TwoItems"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מחסנית: האיבר התחתון וזוגות",
+    "topic": "stack",
+    "mainClass": "StackTargil7",
+    "imports": [],
+    "classes": [
+      {
+        "name": "TwoItems",
+        "code": "public class TwoItems {\n    private int num1;\n    private int num2;\n\n    public TwoItems(int number1, int number2) {\n        num1 = number1;\n        num2 = number2;\n    }\n\n    public int getNum1() { return num1; }\n    public void setNum1(int num1) { this.num1 = num1; }\n    public int getNum2() { return num2; }\n    public void setNum2(int num2) { this.num2 = num2; }\n\n    public String toString() {\n        return \"(\" + num1 + \",\" + num2 + \")\";\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "StackTargil7",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "lastAndRemove",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "s"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית lastAndRemove, המקבלת מחסנית מטיפוס שלם, מוחקת את האיבר התחתון במחסנית, ומחזירה את ערכו.\nבסיום הפעולה האיברים האחרים במחסנית נשארים ללא שינוי.\nהנח שהמחסנית אינה ריקה.",
+        "solution": "public static int lastAndRemove(Stack<Integer> s) {\n    Stack<Integer> temp = new Stack<Integer>();\n    while (!s.isEmpty()) {\n        temp.push(s.pop());\n    }\n    int last = temp.pop();   // האיבר שהיה בתחתית\n    while (!temp.isEmpty()) {\n        s.push(temp.pop());\n    }\n    return last;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "StackTargil7",
+        "isStatic": true,
+        "returnType": "Stack<TwoItems>",
+        "methodName": "stackTwoItems",
+        "parameters": [
+          {
+            "type": "Stack<Integer>",
+            "name": "stk1"
+          }
+        ],
+        "instructions": "נתונה המחלקה TwoItems ובה שתי תכונות: num1 ו-num2 מטיפוס שלם, ופעולה בונה TwoItems(int number1, int number2).\nהנח שלכל תכונה הוגדרו פעולות get ו-set.\nכתוב פעולה חיצונית stackTwoItems, המקבלת מחסנית stk1 שאינה ריקה, מטיפוס שלם ובגודל זוגי, ומחזירה מחסנית מטיפוס TwoItems.\nהאיבר התחתון במחסנית המוחזרת יכיל הפניה למופע של TwoItems שהתכונה num1 שלו היא האיבר שבראש המחסנית stk1, והתכונה num2 שלו היא האיבר התחתון במחסנית stk1\nהאיבר שמעליו יכיל הפניה למופע של TwoItems שהתכונה num1 שלו היא האיבר שמתחת לראש stk1, והתכונה num2 שלו היא האיבר שמעל האיבר התחתון ב-stk1, וכן הלאה, כך שהאיבר שבראש המחסנית המוחזרת יכיל הפניה למופע של TwoItems שהתכונות שלו num1 ו-num2 הם שני האיברים הסמוכים שבאמצע המחסנית stk1\nעליך להיעזר בפעולה שכתבת בסעיף א.\nהערה: אין צורך לשמור על התוכן המקורי של המחסנית stk1",
+        "solution": "public static Stack<TwoItems> stackTwoItems(Stack<Integer> stk1) {\n    Stack<TwoItems> result = new Stack<TwoItems>();\n    while (!stk1.isEmpty()) {\n        int top = stk1.pop();\n        int bottom = lastAndRemove(stk1);\n        result.push(new TwoItems(top, bottom));\n    }\n    return result;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "StackTargil7",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Stack<Integer> s = new Stack<Integer>();\nint[] values = { 9, 4, 7, 5, 5, 32, 6, 1 };   // מהתחתית לראש: 1 בראש\nfor (int i = 0; i < values.length; i++) {\n    s.push(values[i]);\n}\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(lastAndRemove(s), 9));\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(s, \"[1,6,32,5,5,7,4]\"));\nStack<Integer> one = new Stack<Integer>();\none.push(8);\nSystem.out.println(\"סעיף א, בדיקה 3: \" + check(lastAndRemove(one), 8));\nSystem.out.println(\"סעיף א, בדיקה 4: \" + check(one, \"[]\"));\nStack<Integer> stk1 = new Stack<Integer>();\nfor (int i = 0; i < values.length; i++) {\n    stk1.push(values[i]);\n}\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(stackTwoItems(stk1), \"[(5,5),(32,7),(6,4),(1,9)]\"));\nStack<Integer> two = new Stack<Integer>();\ntwo.push(8);\ntwo.push(3);\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(stackTwoItems(two), \"[(3,8)]\"));\nStack<Integer> six = new Stack<Integer>();\nfor (int v = 12; v >= 2; v -= 2) {\n    six.push(v);\n}\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(stackTwoItems(six), \"[(6,8),(4,10),(2,12)]\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "בשאלה זו שני סעיפים. בסעיף ב צריך להשתמש בפעולה שכתבת בסעיף א.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית LastAndRemove, המקבלת מחסנית מטיפוס שלם, מוחקת את האיבר התחתון במחסנית, ומחזירה את ערכו.\nבסיום הפעולה האיברים האחרים במחסנית נשארים ללא שינוי.\nהנח שהמחסנית אינה ריקה.\nלדוגמה: עבור המחסנית שבציור הראשון הפעולה תחזיר את הערך 9, והמחסנית תיראה כמו בציור השני",
+          "figures": [
+            {
+              "type": "stack",
+              "values": [
+                1,
+                6,
+                32,
+                5,
+                5,
+                7,
+                4,
+                9
+              ],
+              "caption": "המחסנית לפני הפעולה (1 בראש)"
+            },
+            {
+              "type": "stack",
+              "values": [
+                1,
+                6,
+                32,
+                5,
+                5,
+                7,
+                4
+              ],
+              "caption": "המחסנית אחרי הפעולה, שהחזירה 9 (1 בראש)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "נתונה המחלקה TwoItems ובה שתי תכונות: num1 ו-num2 מטיפוס שלם, ופעולה בונה TwoItems(int number1, int number2).\nהנח שלכל תכונה הוגדרו פעולות get ו-set.\nכתוב פעולה חיצונית StackTwoItems, המקבלת מחסנית stk1 שאינה ריקה, מטיפוס שלם ובגודל זוגי, ומחזירה מחסנית מטיפוס TwoItems.\nהאיבר התחתון במחסנית המוחזרת יכיל הפניה למופע של TwoItems שהתכונה num1 שלו היא האיבר שבראש המחסנית stk1, והתכונה num2 שלו היא האיבר התחתון במחסנית stk1\nהאיבר שמעליו יכיל הפניה למופע של TwoItems שהתכונה num1 שלו היא האיבר שמתחת לראש stk1, והתכונה num2 שלו היא האיבר שמעל האיבר התחתון ב-stk1, וכן הלאה, כך שהאיבר שבראש המחסנית המוחזרת יכיל הפניה למופע של TwoItems שהתכונות שלו num1 ו-num2 הם שני האיברים הסמוכים שבאמצע המחסנית stk1\nעליך להיעזר בפעולה שכתבת בסעיף א.\nהערה: אין צורך לשמור על התוכן המקורי של המחסנית stk1\nלדוגמה: עבור המחסנית stk1 שבציור הראשון, הפעולה תחזיר את המחסנית שבציור השני",
+          "figures": [
+            {
+              "type": "stack",
+              "values": [
+                1,
+                6,
+                32,
+                5,
+                5,
+                7,
+                4,
+                9
+              ],
+              "caption": "stk1 (1 בראש)"
+            },
+            {
+              "type": "stack",
+              "values": [
+                "(5,5)",
+                "(32,7)",
+                "(6,4)",
+                "(1,9)"
+              ],
+              "caption": "המחסנית המוחזרת: בכל תא (num1,num2) של TwoItems"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מחסנית: האיבר התחתון וזוגות",
+      "topic": "stack",
+      "mainClass": "StackTargil7",
+      "imports": [],
+      "classes": [
+        {
+          "name": "TwoItems",
+          "code": "public class TwoItems\n{\n    private int num1;\n    private int num2;\n\n    public TwoItems(int number1, int number2)\n    {\n        num1 = number1;\n        num2 = number2;\n    }\n\n    public int GetNum1() { return num1; }\n    public void SetNum1(int num1) { this.num1 = num1; }\n    public int GetNum2() { return num2; }\n    public void SetNum2(int num2) { this.num2 = num2; }\n\n    public override string ToString()\n    {\n        return \"(\" + num1 + \",\" + num2 + \")\";\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "StackTargil7",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "LastAndRemove",
+          "parameters": [
+            {
+              "type": "Stack<int>",
+              "name": "s"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית LastAndRemove, המקבלת מחסנית מטיפוס שלם, מוחקת את האיבר התחתון במחסנית, ומחזירה את ערכו.\nבסיום הפעולה האיברים האחרים במחסנית נשארים ללא שינוי.\nהנח שהמחסנית אינה ריקה.",
+          "solution": "public static int LastAndRemove(Stack<int> s)\n{\n    Stack<int> temp = new Stack<int>();\n    while (!s.IsEmpty())\n    {\n        temp.Push(s.Pop());\n    }\n    int last = temp.Pop();   // האיבר שהיה בתחתית\n    while (!temp.IsEmpty())\n    {\n        s.Push(temp.Pop());\n    }\n    return last;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "StackTargil7",
+          "isStatic": true,
+          "returnType": "Stack<TwoItems>",
+          "methodName": "StackTwoItems",
+          "parameters": [
+            {
+              "type": "Stack<int>",
+              "name": "stk1"
+            }
+          ],
+          "instructions": "נתונה המחלקה TwoItems ובה שתי תכונות: num1 ו-num2 מטיפוס שלם, ופעולה בונה TwoItems(int number1, int number2).\nהנח שלכל תכונה הוגדרו פעולות get ו-set.\nכתוב פעולה חיצונית StackTwoItems, המקבלת מחסנית stk1 שאינה ריקה, מטיפוס שלם ובגודל זוגי, ומחזירה מחסנית מטיפוס TwoItems.\nהאיבר התחתון במחסנית המוחזרת יכיל הפניה למופע של TwoItems שהתכונה num1 שלו היא האיבר שבראש המחסנית stk1, והתכונה num2 שלו היא האיבר התחתון במחסנית stk1\nהאיבר שמעליו יכיל הפניה למופע של TwoItems שהתכונה num1 שלו היא האיבר שמתחת לראש stk1, והתכונה num2 שלו היא האיבר שמעל האיבר התחתון ב-stk1, וכן הלאה, כך שהאיבר שבראש המחסנית המוחזרת יכיל הפניה למופע של TwoItems שהתכונות שלו num1 ו-num2 הם שני האיברים הסמוכים שבאמצע המחסנית stk1\nעליך להיעזר בפעולה שכתבת בסעיף א.\nהערה: אין צורך לשמור על התוכן המקורי של המחסנית stk1",
+          "solution": "public static Stack<TwoItems> StackTwoItems(Stack<int> stk1)\n{\n    Stack<TwoItems> result = new Stack<TwoItems>();\n    while (!stk1.IsEmpty())\n    {\n        int top = stk1.Pop();\n        int bottom = LastAndRemove(stk1);\n        result.Push(new TwoItems(top, bottom));\n    }\n    return result;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "StackTargil7",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Stack<int> s = new Stack<int>();\nint[] values = { 9, 4, 7, 5, 5, 32, 6, 1 };   // מהתחתית לראש: 1 בראש\nfor (int i = 0; i < values.Length; i++) {\n    s.Push(values[i]);\n}\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(LastAndRemove(s), 9));\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(s, \"[1,6,32,5,5,7,4]\"));\nStack<int> one = new Stack<int>();\none.Push(8);\nConsole.WriteLine(\"סעיף א, בדיקה 3: \" + Check(LastAndRemove(one), 8));\nConsole.WriteLine(\"סעיף א, בדיקה 4: \" + Check(one, \"[]\"));\nStack<int> stk1 = new Stack<int>();\nfor (int i = 0; i < values.Length; i++) {\n    stk1.Push(values[i]);\n}\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(StackTwoItems(stk1), \"[(5,5),(32,7),(6,4),(1,9)]\"));\nStack<int> two = new Stack<int>();\ntwo.Push(8);\ntwo.Push(3);\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(StackTwoItems(two), \"[(3,8)]\"));\nStack<int> six = new Stack<int>();\nfor (int v = 12; v >= 2; v -= 2) {\n    six.Push(v);\n}\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(StackTwoItems(six), \"[(6,8),(4,10),(2,12)]\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

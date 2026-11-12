@@ -30,7 +30,7 @@ cat "$OUT"
 check() { grep -q -- "$1" "$OUT" && echo "  ok  $2" || { echo "  FAIL $2  ($1)"; FAILED=1; }; }
 FAILED=0
 xrun() { if [ -n "$XD" ]; then DISPLAY="$XD" "$@"; else xvfb-run -a -s "-screen 0 ${XSCREEN:-1700x1050x24}" "$@"; fi; }
-check "BUILD Mistakes.java:5 mentor error ל-Queue אין פעולה size \[לתור אין פעולה שסופרת" "בנייה: הסבר בעברית לשגיאה (size בתור)"
+check "BUILD Mistakes.java:5 mentor error ל[-‑]Queue אין פעולה size \[לתור אין פעולה שסופרת" "בנייה: הסבר בעברית לשגיאה (size בתור)"
 check "BUILD Mistakes.java:6 mentor error חסרה נקודה-פסיק בסוף שורה 6 \[כל פקודה" "בנייה: חסרה ; — בשורה הנכונה"
 check "BUILD Warnings.java:5 mentor warning שני הצדדים הם Integer" "בנייה: אזהרה על == בין Integer"
 check "BUILD Warnings.java:9 mentor warning p לא מתקדם" "בנייה: אזהרה על לולאה שלא מתקדמת"

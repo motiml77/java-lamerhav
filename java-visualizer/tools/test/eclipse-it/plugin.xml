@@ -36,4 +36,9 @@
          <run class="il.lamerhav.dsviz.it.Edge"/>
       </application>
    </extension>
+   <extension id="module" point="org.eclipse.core.runtime.applications">
+      <application visible="true">
+         <run class="il.lamerhav.dsviz.it.ModuleFix"/>
+      </application>
+   </extension>
 </plugin>

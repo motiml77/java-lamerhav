@@ -386,6 +386,7 @@ final class Viewer extends JFrame {
         // הקוד, הפלט והמבנים — משמאל לימין (מספרי השורות משמאל לקוד)
         for (JComponent c : new JComponent[] { codeScroll, consoleScroll, structScroll, inputBar.field })
             c.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+        varsPanel.leftToRight();   // מעקב המשתנים: שמות המשתנים בצד שמאל
         // קווי הגרירה עצמם — משמאל לימין (רק הם, לא התוכן): מימין לשמאל Swing הופך את הצדדים, והגרירה לא עובדת כמו שצריך
         for (JSplitPane sp : splits) sp.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 

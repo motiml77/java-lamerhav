@@ -63,6 +63,7 @@ public final class AutomataLauncher {
     }
 
     public static void main(String[] args) throws Exception {
+        UpdateCheck.start("-FromIde");   // עדכון אוטומטי — רק כשמשתמשים ב-DSViz
         args = envArgs(args);
         File app = null, dir = null;
         boolean serveOnly = false;

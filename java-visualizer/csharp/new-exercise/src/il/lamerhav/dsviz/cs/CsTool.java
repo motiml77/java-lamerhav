@@ -94,6 +94,7 @@ public final class CsTool {
     }
 
     public static void main(String[] argv) throws Exception {
+        il.lamerhav.dsviz.UpdateCheck.start("-FromIde");   // עדכון אוטומטי — רק כשמשתמשים ב-DSViz מ-Visual Studio
         String[] args = envArgs(argv);
         if (args.length == 1) args = new String[] { args[0], defaultCsRoot() };   // קיצור דרך בלי נתיב (עברית בנתיב)
         if (args.length < 2) {

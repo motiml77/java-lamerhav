@@ -50,8 +50,6 @@ final class BankVsPanel {
         default void prepare(AiScaffold.Task t) {}
     }
 
-    static final int WIDE_FIGURE = 380;
-
     static Color level(BankStore.Level l) {
         return new Color(l.color);
     }
@@ -80,7 +78,7 @@ final class BankVsPanel {
         if (!q.intro.isEmpty() || !q.figures.isEmpty()) {
             JPanel c = column();
             if (!q.intro.isEmpty()) c.add(text(q.intro, width - 32, RtlDialog.INK_2));
-            figures(c, q.figures);
+            figures(c, q.figures, width - 32);
             col.add(card(c));
             col.add(RtlDialog.gap(10));
         }
@@ -93,7 +91,7 @@ final class BankVsPanel {
             c.add(RtlDialog.label(label.isEmpty() ? "סעיף" : "סעיף " + label + "'", Theme.z(RtlDialog.bold().deriveFont(14f)), RtlDialog.ACCENT_2));
             c.add(RtlDialog.gap(4));
             c.add(text(s.text, width - 32, RtlDialog.INK));
-            figures(c, s.figures);
+            figures(c, s.figures, width - 32);
             final AiScaffold.Task task = taskOf(ex, s.label);
             if (actions != null && task != null && at >= ready) {
                 // הסעיף עוד לא בקוד: "הכן סעיף ב" (רק לסעיף הבא בתור); הפעולה והבדיקות שלו נכנסות למקום הנכון בקוד
@@ -151,6 +149,7 @@ final class BankVsPanel {
                 sp.setOpaque(false);
                 sp.getViewport().setOpaque(false);
                 sp.applyComponentOrientation(java.awt.ComponentOrientation.LEFT_TO_RIGHT);
+                sp.putClientProperty("ltr", Boolean.TRUE);   // גם אחרי RtlDialog.rtl של כל החלון: הגלילה מתחילה משמאל, מתחילת השורות
                 Dimension s = new Dimension(room, out.getPreferredSize().height + sp.getHorizontalScrollBar().getPreferredSize().height + 2);
                 sp.setPreferredSize(s);
                 sp.setMaximumSize(new Dimension(Integer.MAX_VALUE, s.height));
@@ -168,47 +167,95 @@ final class BankVsPanel {
         return col;
     }
 
-    /** ציורים: זה ליד זה, כל אחד בגודל הטבעי; ציור רחב — עם גלילה הצידה; מתחת לכל ציור — הכיתוב שלו */
-    static void figures(JPanel parent, List<BankStore.Figure> figs) {
+    /**
+     * ציורים: זה ליד זה, כל אחד בגודל הטבעי, ומתחת לכל ציור — הכיתוב שלו. room — הרוחב שיש (כמו לטקסט): מה שלא נכנס בשורה יורד
+     * לשורה הבאה, וציור שלבדו רחב מהשורה (עץ גדול, שרשרת ארוכה, החלון הצף הצר) — מוקטן עד שהוא נכנס. כך רואים תמיד את כל הציור,
+     * והשאלה לא נעשית רחבה מהחלון (בלי גלילה הצידה)
+     */
+    static void figures(JPanel parent, List<BankStore.Figure> figs, int room) {
         if (figs.isEmpty()) return;
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 18, 4));
-        row.setOpaque(false);
-        row.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+        parent.add(RtlDialog.gap(6));
+        JPanel row = null;
+        int used = 0;
         for (BankStore.Figure f : figs) {
-            JPanel one = new JPanel();
-            one.setLayout(new BoxLayout(one, BoxLayout.Y_AXIS));
-            one.setOpaque(false);
-            JComponent d = BankZoom.scaled(il.lamerhav.dsviz.cs.BankFigure.of(f.type, f.inner, f.groups));
-            Dimension p = d.getPreferredSize();
-            JComponent shown = d;
-            if (p.width > BankZoom.px(WIDE_FIGURE)) {
-                JScrollPane sp = new JScrollPane(d, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
-                sp.setBorder(BorderFactory.createEmptyBorder());
-                sp.setOpaque(false);
-                sp.getViewport().setOpaque(false);
-                sp.getHorizontalScrollBar().setUnitIncrement(16);
-                Dimension s = new Dimension(BankZoom.px(WIDE_FIGURE), p.height + sp.getHorizontalScrollBar().getPreferredSize().height + 4);
-                sp.setPreferredSize(s);
-                sp.setMaximumSize(s);
-                sp.putClientProperty("dsviz.id", "figure-scroll");
-                shown = sp;
+            JComponent one = figure(f, room);
+            int w = one.getPreferredSize().width;
+            if (row != null && used + FIGURE_GAP + w > room) {
+                parent.add(done(row));
+                row = null;
             }
-            shown.setAlignmentX(Component.CENTER_ALIGNMENT);
-            one.add(shown);
-            if (!f.caption.isEmpty()) {
-                JLabel cap = new JLabel(caption(f.caption), SwingConstants.CENTER);
-                cap.setFont(RtlDialog.small());
-                cap.setForeground(RtlDialog.MUTED);
-                cap.setAlignmentX(Component.CENTER_ALIGNMENT);
-                one.add(RtlDialog.gap(3));
-                one.add(cap);
+            if (row == null) {
+                row = figureRow(room);
+                used = 0;
+            } else {
+                row.add(javax.swing.Box.createRigidArea(new Dimension(FIGURE_GAP, 1)));   // רווח רק בין הציורים (לא בצדדים)
+                used += FIGURE_GAP;
             }
             row.add(one);
+            used += w;
         }
+        parent.add(done(row));
+    }
+
+    /** רווח בין ציורים באותה שורה */
+    static final int FIGURE_GAP = 18;
+
+    /** ציור אחד והכיתוב שלו; לא רחב מ-room */
+    static JComponent figure(BankStore.Figure f, int room) {
+        JPanel one = new JPanel();
+        one.setLayout(new BoxLayout(one, BoxLayout.Y_AXIS));
+        one.setOpaque(false);
+        JComponent d = BankZoom.scaled(il.lamerhav.dsviz.cs.BankFigure.of(f.type, f.inner, f.groups), room);
+        d.setAlignmentX(Component.CENTER_ALIGNMENT);
+        one.add(d);
+        if (!f.caption.isEmpty()) {
+            JLabel cap = new JLabel(caption(f.caption), SwingConstants.CENTER);
+            cap.setFont(RtlDialog.small());
+            cap.setForeground(RtlDialog.MUTED);
+            cap.setAlignmentX(Component.CENTER_ALIGNMENT);
+            one.add(RtlDialog.gap(3));
+            one.add(cap);
+        }
+        return one;
+    }
+
+    /**
+     * שורה של ציורים, ממורכזת (אותו מקום כמו קודם, ב-FlowLayout עם רווח 18). לא רחבה מ-room — גם כשהכיתוב של ציור יחיד ארוך ממנה
+     * (אז הוא ממורכז ונחתך בשני הצדדים, והשאלה לא נעשית רחבה מהחלון)
+     */
+    private static JPanel figureRow(final int room) {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 4)) {
+            @Override
+            public Dimension getPreferredSize() {
+                Dimension d = super.getPreferredSize();
+                return new Dimension(Math.min(d.width, room), d.height);
+            }
+        };
+        row.setOpaque(false);
+        row.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
         row.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        return row;
+    }
+
+    private static JPanel done(JPanel row) {
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
-        parent.add(RtlDialog.gap(6));
-        parent.add(row);
+        return row;
+    }
+
+    /**
+     * גלילה לתחילת הנוסח: למעלה, ובצד ימין — שם מתחילות השורות בעברית — גם אם התוכן בכל זאת רחב מהחלון (חלון צר מאוד, הגדלה גדולה).
+     * לפי מקום התצוגה ולא לפי ערך הפס: בחלון מימין לשמאל הערך המקסימלי של הפס הוא דווקא הקצה השמאלי.
+     * (גם מבטל גלילה שהסמן של פסקה בנוסח — JTextPane — גרם לה אחרי שהטקסט נכנס)
+     */
+    static void scrollToStart(JScrollPane sp) {
+        java.awt.Window w = javax.swing.SwingUtilities.getWindowAncestor(sp);
+        if (w != null) w.validate();
+        else sp.validate();
+        javax.swing.JViewport vp = sp.getViewport();
+        Dimension view = vp.getViewSize(), extent = vp.getExtentSize();
+        // צר מהחלון — המקום שבו הגלילה שמה אותו (מימין לשמאל: צמוד לימין); רחב — הקצה הימני שלו
+        int x = view.width > extent.width ? view.width - extent.width : vp.getViewPosition().x;
+        vp.setViewPosition(new java.awt.Point(x, 0));
     }
 
     /**

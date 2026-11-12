@@ -1,0 +1,268 @@
+{
+  "id": "classes-weight",
+  "topic": "classes",
+  "level": "hard",
+  "title": "המחלקה Weight: משקלים",
+  "question": {
+    "intro": "נתונה המחלקה Weight (משקל), שיש לה שתי תכונות:\nkilo: מספר קילוגרמים, המקבלת ערכים מ-0 ומעלה, מטיפוס שלם\ngram: מספר גרמים, המקבלת ערכים מ-0 עד 999 (כולל), מטיפוס שלם\nהנח שלכל תכונה במחלקה הוגדרו פעולות get ו-set.\nלפניך ממשק המחלקה Weight:\nפעולה בונה המאתחלת את התכונות kilo ו-gram לאפס:\npublic Weight()\nפעולה בונה המקבלת ערכים בקילוגרמים וגרמים. הנח שמספר הקילוגרמים במשתנה kilo גדול או שווה ל-0, ומספר הגרמים במשתנה gram הוא בין 0 ל-999 (כולל):\npublic Weight(int kilo, int gram)\nפעולה בונה המקבלת ערך בגרמים. מספר הגרמים במשתנה totalGram יכול להיות מעל 999. הפעולה תחשב ותכניס את מספר הקילוגרמים ל-kilo ואת מספר הגרמים ל-gram. הנח שמספר הגרמים גדול או שווה ל-0:\npublic Weight(int totalGram)\nלדוגמה: אם מספר הגרמים במשתנה totalGram הוא 3215, התכונה kilo תקבל 3 והתכונה gram תקבל 215\nפעולה המקבלת עצם אחר מטיפוס Weight ומוסיפה את ערכיו למשקל של העצם הנוכחי (הנח ש-other אינו null):\npublic void add(Weight other)\nפעולה המקבלת עצם אחר מטיפוס Weight ומחזירה true אם משקל העצם הנוכחי קטן מן המשקל האחר (הנח ש-other אינו null):\npublic boolean less(Weight other)",
+    "sections": [
+      {
+        "label": "א",
+        "text": "ממש את הפעולה הבונה של המחלקה Weight:\npublic Weight(int kilo, int gram)\n(בשאלה המקורית סעיף א כולל את שתי הפעולות הבונות; כאן הוא מחולק לסעיפים א ו-ב. אין צורך לממש את הפעולה הבונה ללא פרמטרים.)"
+      },
+      {
+        "label": "ב",
+        "text": "ממש את הפעולה הבונה של המחלקה Weight:\npublic Weight(int totalGram)"
+      },
+      {
+        "label": "ג",
+        "text": "ממש את הפעולה add (בשאלה המקורית: סעיף ב)."
+      },
+      {
+        "label": "ד",
+        "text": "ממש את הפעולה less (בשאלה המקורית: סעיף ב)."
+      },
+      {
+        "label": "ה",
+        "text": "נתונה המחלקה AllWeights שיש לה תכונה אחת: מערך arr מטיפוס Weight.\nממש את הפעולה sum של המחלקה AllWeights, המחזירה עצם מטיפוס Weight השווה לסכום המשקלים של איברי המערך:\npublic Weight sum()\nהערה: אין לשנות את איברי המערך.\nהנח שהתאים במערך אינם null.\nהערה: תוכל להשתמש בכל אחת מן הפעולות של ממשק המחלקה Weight.\n(בשאלה המקורית: סעיף ג.)"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "המחלקה Weight: משקלים",
+    "topic": "classes",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Weight",
+        "code": "public class Weight {\n    private int kilo;\n    private int gram;\n\n    public Weight() {\n        kilo = 0;\n        gram = 0;\n    }\n\n    public int getKilo() { return kilo; }\n    public void setKilo(int kilo) { this.kilo = kilo; }\n    public int getGram() { return gram; }\n    public void setGram(int gram) { this.gram = gram; }\n\n    public String toString() {\n        return kilo + \" ק\\\"ג \" + gram + \" גרם\";\n    }\n}"
+      },
+      {
+        "name": "AllWeights",
+        "code": "public class AllWeights {\n    private Weight[] arr;\n\n    public AllWeights(Weight[] arr) {\n        this.arr = arr;\n    }\n\n    public Weight[] getArr() { return arr; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "constructor",
+        "className": "Weight",
+        "isStatic": false,
+        "methodName": "Weight",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "kilo"
+          },
+          {
+            "type": "int",
+            "name": "gram"
+          }
+        ],
+        "instructions": "ממש את הפעולה הבונה של המחלקה Weight:\npublic Weight(int kilo, int gram)",
+        "solution": "public Weight(int kilo, int gram) {\n    this.kilo = kilo;\n    this.gram = gram;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "constructor",
+        "className": "Weight",
+        "isStatic": false,
+        "methodName": "Weight",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "totalGram"
+          }
+        ],
+        "instructions": "ממש את הפעולה הבונה של המחלקה Weight:\npublic Weight(int totalGram)",
+        "solution": "public Weight(int totalGram) {\n    kilo = totalGram / 1000;\n    gram = totalGram % 1000;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Weight",
+        "isStatic": false,
+        "returnType": "void",
+        "methodName": "add",
+        "parameters": [
+          {
+            "type": "Weight",
+            "name": "other"
+          }
+        ],
+        "instructions": "ממש את הפעולה add (בשאלה המקורית: סעיף ב).",
+        "solution": "public void add(Weight other) {\n    gram = gram + other.getGram();\n    kilo = kilo + other.getKilo() + gram / 1000;   // מעבר של 1000 גרם לקילו\n    gram = gram % 1000;\n}"
+      },
+      {
+        "label": "ד",
+        "kind": "method",
+        "className": "Weight",
+        "isStatic": false,
+        "returnType": "boolean",
+        "methodName": "less",
+        "parameters": [
+          {
+            "type": "Weight",
+            "name": "other"
+          }
+        ],
+        "instructions": "ממש את הפעולה less (בשאלה המקורית: סעיף ב).",
+        "solution": "public boolean less(Weight other) {\n    if (kilo < other.getKilo()) {\n        return true;\n    }\n    return kilo == other.getKilo() && gram < other.getGram();\n}"
+      },
+      {
+        "label": "ה",
+        "kind": "method",
+        "className": "AllWeights",
+        "isStatic": false,
+        "returnType": "Weight",
+        "methodName": "sum",
+        "parameters": [],
+        "instructions": "נתונה המחלקה AllWeights שיש לה תכונה אחת: מערך arr מטיפוס Weight.\nממש את הפעולה sum של המחלקה AllWeights, המחזירה עצם מטיפוס Weight השווה לסכום המשקלים של איברי המערך:\npublic Weight sum()\nהערה: אין לשנות את איברי המערך.\nהנח שהתאים במערך אינם null.",
+        "solution": "public Weight sum() {\n    Weight total = new Weight();\n    for (int i = 0; i < arr.length; i++) {\n        total.add(arr[i]);   // total משתנה, איברי המערך לא\n    }\n    return total;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Weight w1 = new Weight(3, 215);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(w1.getKilo() + \" \" + w1.getGram(), \"3 215\"));\nWeight w0 = new Weight(0, 999);\nSystem.out.println(\"סעיף א, בדיקה 2: \" + check(w0.getKilo() + \" \" + w0.getGram(), \"0 999\"));\nWeight t1 = new Weight(3215);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(t1.getKilo() + \" \" + t1.getGram(), \"3 215\"));\nWeight t2 = new Weight(999);\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(t2.getKilo() + \" \" + t2.getGram(), \"0 999\"));\nWeight t3 = new Weight(1000);\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(t3.getKilo() + \" \" + t3.getGram(), \"1 0\"));\nWeight a = new Weight(2, 800);\na.add(new Weight(1, 300));\nSystem.out.println(\"סעיף ג, בדיקה 1 (מעבר גרמים לקילו): \" + check(a.getKilo() + \" \" + a.getGram(), \"4 100\"));\nWeight b = new Weight(5, 0);\nb.add(new Weight(0, 250));\nSystem.out.println(\"סעיף ג, בדיקה 2: \" + check(b.getKilo() + \" \" + b.getGram(), \"5 250\"));\nSystem.out.println(\"סעיף ד, בדיקה 1: \" + check(new Weight(2, 500).less(new Weight(2, 600)), true));\nSystem.out.println(\"סעיף ד, בדיקה 2: \" + check(new Weight(3, 0).less(new Weight(2, 999)), false));\nSystem.out.println(\"סעיף ד, בדיקה 3 (שווים): \" + check(new Weight(1, 1).less(new Weight(1, 1)), false));\nSystem.out.println(\"סעיף ד, בדיקה 4: \" + check(new Weight(1, 999).less(new Weight(2, 0)), true));\nWeight[] arr = { new Weight(1, 500), new Weight(2, 600), new Weight(0, 999) };\nAllWeights all = new AllWeights(arr);\nWeight s = all.sum();\nSystem.out.println(\"סעיף ה, בדיקה 1: \" + check(s == null ? \"null\" : s.getKilo() + \" \" + s.getGram(), \"5 99\"));\nSystem.out.println(\"סעיף ה, בדיקה 2 (המערך לא השתנה): \" + check(arr[0].getKilo() + \" \" + arr[0].getGram(), \"1 500\"));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ג, בדיקה 1 (מעבר גרמים לקילו): נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ד, בדיקה 1: נכון\nסעיף ד, בדיקה 2: נכון\nסעיף ד, בדיקה 3 (שווים): נכון\nסעיף ד, בדיקה 4: נכון\nסעיף ה, בדיקה 1: נכון\nסעיף ה, בדיקה 2 (המערך לא השתנה): נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה המחלקה Weight (משקל), שיש לה שתי תכונות:\nkilo: מספר קילוגרמים, המקבלת ערכים מ-0 ומעלה, מטיפוס שלם\ngram: מספר גרמים, המקבלת ערכים מ-0 עד 999 (כולל), מטיפוס שלם\nהנח שלכל תכונה במחלקה הוגדרו פעולות get ו-set.\nלפניך ממשק המחלקה Weight:\nפעולה בונה המאתחלת את התכונות kilo ו-gram לאפס:\npublic Weight()\nפעולה בונה המקבלת ערכים בקילוגרמים וגרמים. הנח שמספר הקילוגרמים במשתנה kilo גדול או שווה ל-0, ומספר הגרמים במשתנה gram הוא בין 0 ל-999 (כולל):\npublic Weight(int kilo, int gram)\nפעולה בונה המקבלת ערך בגרמים. מספר הגרמים במשתנה totalGram יכול להיות מעל 999. הפעולה תחשב ותכניס את מספר הקילוגרמים ל-kilo ואת מספר הגרמים ל-gram. הנח שמספר הגרמים גדול או שווה ל-0:\npublic Weight(int totalGram)\nלדוגמה: אם מספר הגרמים במשתנה totalGram הוא 3215, התכונה kilo תקבל 3 והתכונה gram תקבל 215\nפעולה המקבלת עצם אחר מטיפוס Weight ומוסיפה את ערכיו למשקל של העצם הנוכחי (הנח ש-other אינו null):\npublic void Add(Weight other)\nפעולה המקבלת עצם אחר מטיפוס Weight ומחזירה true אם משקל העצם הנוכחי קטן מן המשקל האחר (הנח ש-other אינו null):\npublic bool Less(Weight other)",
+      "sections": [
+        {
+          "label": "א",
+          "text": "ממש את הפעולה הבונה של המחלקה Weight:\npublic Weight(int kilo, int gram)\n(בשאלה המקורית סעיף א כולל את שתי הפעולות הבונות; כאן הוא מחולק לסעיפים א ו-ב. אין צורך לממש את הפעולה הבונה ללא פרמטרים.)"
+        },
+        {
+          "label": "ב",
+          "text": "ממש את הפעולה הבונה של המחלקה Weight:\npublic Weight(int totalGram)"
+        },
+        {
+          "label": "ג",
+          "text": "ממש את הפעולה Add (בשאלה המקורית: סעיף ב)."
+        },
+        {
+          "label": "ד",
+          "text": "ממש את הפעולה Less (בשאלה המקורית: סעיף ב)."
+        },
+        {
+          "label": "ה",
+          "text": "נתונה המחלקה AllWeights שיש לה תכונה אחת: מערך arr מטיפוס Weight.\nממש את הפעולה Sum של המחלקה AllWeights, המחזירה עצם מטיפוס Weight השווה לסכום המשקלים של איברי המערך:\npublic Weight Sum()\nהערה: אין לשנות את איברי המערך.\nהנח שהתאים במערך אינם null.\nהערה: תוכל להשתמש בכל אחת מן הפעולות של ממשק המחלקה Weight.\n(בשאלה המקורית: סעיף ג.)"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "המחלקה Weight: משקלים",
+      "topic": "classes",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Weight",
+          "code": "public class Weight\n{\n    private int kilo;\n    private int gram;\n\n    public Weight()\n    {\n        kilo = 0;\n        gram = 0;\n    }\n\n    public int GetKilo() { return kilo; }\n    public void SetKilo(int kilo) { this.kilo = kilo; }\n    public int GetGram() { return gram; }\n    public void SetGram(int gram) { this.gram = gram; }\n\n    public override string ToString()\n    {\n        return kilo + \" ק\\\"ג \" + gram + \" גרם\";\n    }\n}"
+        },
+        {
+          "name": "AllWeights",
+          "code": "public class AllWeights\n{\n    private Weight[] arr;\n\n    public AllWeights(Weight[] arr)\n    {\n        this.arr = arr;\n    }\n\n    public Weight[] GetArr() { return arr; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "constructor",
+          "className": "Weight",
+          "isStatic": false,
+          "methodName": "Weight",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "kilo"
+            },
+            {
+              "type": "int",
+              "name": "gram"
+            }
+          ],
+          "instructions": "ממש את הפעולה הבונה של המחלקה Weight:\npublic Weight(int kilo, int gram)",
+          "solution": "public Weight(int kilo, int gram)\n{\n    this.kilo = kilo;\n    this.gram = gram;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "constructor",
+          "className": "Weight",
+          "isStatic": false,
+          "methodName": "Weight",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "totalGram"
+            }
+          ],
+          "instructions": "ממש את הפעולה הבונה של המחלקה Weight:\npublic Weight(int totalGram)",
+          "solution": "public Weight(int totalGram)\n{\n    kilo = totalGram / 1000;\n    gram = totalGram % 1000;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Weight",
+          "isStatic": false,
+          "returnType": "void",
+          "methodName": "Add",
+          "parameters": [
+            {
+              "type": "Weight",
+              "name": "other"
+            }
+          ],
+          "instructions": "ממש את הפעולה Add (בשאלה המקורית: סעיף ב).",
+          "solution": "public void Add(Weight other)\n{\n    gram = gram + other.GetGram();\n    kilo = kilo + other.GetKilo() + gram / 1000;   // מעבר של 1000 גרם לקילו\n    gram = gram % 1000;\n}"
+        },
+        {
+          "label": "ד",
+          "kind": "method",
+          "className": "Weight",
+          "isStatic": false,
+          "returnType": "bool",
+          "methodName": "Less",
+          "parameters": [
+            {
+              "type": "Weight",
+              "name": "other"
+            }
+          ],
+          "instructions": "ממש את הפעולה Less (בשאלה המקורית: סעיף ב).",
+          "solution": "public bool less(Weight other)\n{\n    if (kilo < other.GetKilo())\n    {\n        return true;\n    }\n    return kilo == other.GetKilo() && gram < other.GetGram();\n}"
+        },
+        {
+          "label": "ה",
+          "kind": "method",
+          "className": "AllWeights",
+          "isStatic": false,
+          "returnType": "Weight",
+          "methodName": "Sum",
+          "parameters": [],
+          "instructions": "נתונה המחלקה AllWeights שיש לה תכונה אחת: מערך arr מטיפוס Weight.\nממש את הפעולה Sum של המחלקה AllWeights, המחזירה עצם מטיפוס Weight השווה לסכום המשקלים של איברי המערך:\npublic Weight Sum()\nהערה: אין לשנות את איברי המערך.\nהנח שהתאים במערך אינם null.",
+          "solution": "public Weight Sum()\n{\n    Weight total = new Weight();\n    for (int i = 0; i < arr.Length; i++)\n    {\n        total.Add(arr[i]);   // total משתנה, איברי המערך לא\n    }\n    return total;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Weight w1 = new Weight(3, 215);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(w1.GetKilo() + \" \" + w1.GetGram(), \"3 215\"));\nWeight w0 = new Weight(0, 999);\nConsole.WriteLine(\"סעיף א, בדיקה 2: \" + Check(w0.GetKilo() + \" \" + w0.GetGram(), \"0 999\"));\nWeight t1 = new Weight(3215);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(t1.GetKilo() + \" \" + t1.GetGram(), \"3 215\"));\nWeight t2 = new Weight(999);\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(t2.GetKilo() + \" \" + t2.GetGram(), \"0 999\"));\nWeight t3 = new Weight(1000);\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(t3.GetKilo() + \" \" + t3.GetGram(), \"1 0\"));\nWeight a = new Weight(2, 800);\na.Add(new Weight(1, 300));\nConsole.WriteLine(\"סעיף ג, בדיקה 1 (מעבר גרמים לקילו): \" + Check(a.GetKilo() + \" \" + a.GetGram(), \"4 100\"));\nWeight b = new Weight(5, 0);\nb.Add(new Weight(0, 250));\nConsole.WriteLine(\"סעיף ג, בדיקה 2: \" + Check(b.GetKilo() + \" \" + b.GetGram(), \"5 250\"));\nConsole.WriteLine(\"סעיף ד, בדיקה 1: \" + Check(new Weight(2, 500).Less(new Weight(2, 600)), true));\nConsole.WriteLine(\"סעיף ד, בדיקה 2: \" + Check(new Weight(3, 0).Less(new Weight(2, 999)), false));\nConsole.WriteLine(\"סעיף ד, בדיקה 3 (שווים): \" + Check(new Weight(1, 1).Less(new Weight(1, 1)), false));\nConsole.WriteLine(\"סעיף ד, בדיקה 4: \" + Check(new Weight(1, 999).Less(new Weight(2, 0)), true));\nWeight[] arr = { new Weight(1, 500), new Weight(2, 600), new Weight(0, 999) };\nAllWeights all = new AllWeights(arr);\nWeight s = all.Sum();\nConsole.WriteLine(\"סעיף ה, בדיקה 1: \" + Check(s == null ? \"null\" : s.GetKilo() + \" \" + s.GetGram(), \"5 99\"));\nConsole.WriteLine(\"סעיף ה, בדיקה 2 (המערך לא השתנה): \" + Check(arr[0].GetKilo() + \" \" + arr[0].GetGram(), \"1 500\"));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ג, בדיקה 1 (מעבר גרמים לקילו): נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ד, בדיקה 1: נכון\nסעיף ד, בדיקה 2: נכון\nסעיף ד, בדיקה 3 (שווים): נכון\nסעיף ד, בדיקה 4: נכון\nסעיף ה, בדיקה 1: נכון\nסעיף ה, בדיקה 2 (המערך לא השתנה): נכון"
+    }
+  }
+}
