@@ -28,6 +28,7 @@ let diagnostics, output, terminal;
 
 function activate(context) {
     ctx = context;
+    startUpdateCheck();   // עדכון אוטומטי — כש-VS Code נפתח (Windows; ב-Mac — update.sh, ראו installer/mac)
     diagnostics = vscode.languages.createDiagnosticCollection('dsviz');
     output = vscode.window.createOutputChannel('מבני נתונים');
     context.subscriptions.push(diagnostics, output);
@@ -161,6 +162,23 @@ async function firstRun() {
 }
 
 function deactivate() {}
+
+/** update.ps1 של ההתקנה ברקע, מנותק מ-VS Code (בודק גרסה, מוריד, ומתקין כשסוגרים את Eclipse / Visual Studio) */
+function startUpdateCheck() {
+    try {
+        if (process.platform !== 'win32') return;
+        const fs = require('fs'), path = require('path'), os = require('os');
+        const f = path.join(os.homedir(), '.dsviz', 'install-dir.txt');
+        if (!fs.existsSync(f)) return;
+        let b = fs.readFileSync(f);
+        let dir = (b.length >= 2 && b[0] === 0xFF && b[1] === 0xFE ? b.toString('utf16le') : b.toString('utf8')).replace(/^\uFEFF/, '').trim();
+        const script = path.join(dir, 'update.ps1');
+        if (!dir || !fs.existsSync(script)) return;
+        const child = require('child_process').spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', script, '-FromIde'],
+            { detached: true, stdio: 'ignore', windowsHide: true });
+        child.unref();
+    } catch (e) { /* לא נורא — ננסה בפתיחה הבאה */ }
+}
 
 // ------------------------------------------------------------ תרגיל חדש
 

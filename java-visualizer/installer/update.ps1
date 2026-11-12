@@ -1,12 +1,13 @@
 ﻿# (נשמר ב-UTF-8 עם BOM — אחרת PowerShell של Windows קורא את העברית לא נכון)
 # עדכון אוטומטי של "מבני נתונים — הרצה ויזואלית" (רץ ברקע, בחלון נסתר):
-#   - בכניסה ל-Windows (רשום ב-HKCU\...\Run), ופעם בסגירת Eclipse (התוסף מפעיל אותו עם -AfterEclipse)
+#   - רק כשמשתמשים ב-DSViz: כש-Eclipse נפתח ונסגר (-FromEclipse / -AfterEclipse), כש-IntelliJ / VS Code נפתחים וכשמפעילים כלי של DSViz
+#     מ-Visual Studio או את מודלים חישוביים (-FromIde). אין משימה נסתרת בכניסה ל-Windows
 #   - בודק אם יש גרסה חדשה (version.json באתר), מוריד את ההתקנה (הודעה קטנה בפינה: "נמצאה גרסה חדשה"), בודק שהקובץ שלם (SHA-256),
 #     מחכה ש-Eclipse ייסגר, ומתקין בשקט (/S /UPDATE) — עם אותן שפות שנבחרו בהתקנה. עבודה של התלמיד לא נוגעים בה.
 #   - בלי אינטרנט / שגיאה — לא עושים כלום (ננסה בפעם הבאה). יומן: update.log ליד הקובץ הזה.
 #   - IntelliJ IDEA: בכל בדיקה — התוסף נכנס לכל IntelliJ שעוד אין בו (intellij.ps1), גם IntelliJ שהותקן אחרי DSViz
 #   - -Videos: רק מוריד את סרטוני ההדרכה שחסרים (ההתקנה לא כוללת אותם — מגבלת הגודל של GitHub). רץ מיד אחרי ההתקנה, וגם בכל בדיקה.
-param([switch]$AfterEclipse, [switch]$FromEclipse, [switch]$Videos)
+param([switch]$AfterEclipse, [switch]$FromEclipse, [switch]$FromIde, [switch]$Videos)
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 $log = Join-Path $dir 'update.log'
@@ -76,7 +77,7 @@ if ($Videos) {
 $lock = Join-Path $env:TEMP 'dsviz-update.lock'
 try { $fs = [IO.File]::Open($lock, 'OpenOrCreate', 'ReadWrite', 'None') } catch { exit 0 }
 try {
-    if ($AfterEclipse) { Start-Sleep -Seconds 5 } elseif ($FromEclipse) { Start-Sleep -Seconds 60 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows / את פתיחת Eclipse
+    if ($AfterEclipse) { Start-Sleep -Seconds 5 } elseif ($FromEclipse -or $FromIde) { Start-Sleep -Seconds 60 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows / את פתיחת Eclipse
     # IntelliJ IDEA: גם IntelliJ שהותקן אחרי DSViz (או שהיה פתוח בזמן ההתקנה) מקבל את התוסף — בכל בדיקה, גם בלי אינטרנט
     try {
         $langFile = Join-Path $dir 'lang.txt'
@@ -93,7 +94,7 @@ try {
     # לא יותר מבדיקה אחת בשעה בכניסה ל-Windows; מ-Eclipse (בפתיחה ובסגירה) — עד פעם ב-5 דקות: אלה הרגעים שבהם התלמיד עובד,
     # וקודם בדיקה בכניסה ל-Windows חסמה לשעה את הבדיקה בסגירת Eclipse
     $stamp = Join-Path $dir 'update-check.txt'
-    $every = if ($AfterEclipse -or $FromEclipse) { 5 } else { 60 }
+    $every = if ($AfterEclipse -or $FromEclipse -or $FromIde) { 5 } else { 60 }
     if ((Test-Path -LiteralPath $stamp) -and ((Get-Date) - (Get-Item -LiteralPath $stamp).LastWriteTime).TotalMinutes -lt $every) { exit 0 }
     Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('s')
 

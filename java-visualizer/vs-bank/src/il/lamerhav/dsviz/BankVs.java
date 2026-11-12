@@ -71,6 +71,7 @@ public final class BankVs {
     static final List<String> opened = java.util.Collections.synchronizedList(new ArrayList<String>());
 
     public static void main(String[] args) throws Exception {
+        UpdateCheck.start("-FromIde");   // עדכון אוטומטי — רק כשמשתמשים ב-DSViz
         String[] a = envArgs(args);
         if (a.length == 1 && !a[0].equals("teacher")) a = new String[] { a[0], defaultCsRoot() };   // קיצור דרך בלי נתיב
         // "עמדת ניהול" מסרגל הכלים של Visual Studio: רק חלון המורה (בלי המאגר)

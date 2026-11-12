@@ -407,7 +407,9 @@ Section "-core"
   FileOpen $0 "$INSTDIR\build.txt" w
   FileWrite $0 "${BUILDNO}"
   FileClose $0
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "DSVizUpdate" 'powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\update.ps1"'
+  ; עדכון אוטומטי — רק כשמשתמשים ב-DSViz (Eclipse / IntelliJ / VS Code נפתחים, כלי מ-Visual Studio, מודלים חישוביים): בלי משימה
+  ; נסתרת בכניסה ל-Windows. מוחקים את זו שהתקנות קודמות רשמו
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "DSVizUpdate"
   CreateDirectory "$PROFILE\.dsviz"
   FileOpen $0 "$PROFILE\.dsviz\install-dir.txt" w
   FileWriteUTF16LE /BOM $0 "$INSTDIR"
