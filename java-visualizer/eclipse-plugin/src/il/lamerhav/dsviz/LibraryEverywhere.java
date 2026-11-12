@@ -1,5 +1,8 @@
 package il.lamerhav.dsviz;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.eclipse.core.resources.WorkspaceJob;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -15,6 +18,7 @@ import org.eclipse.jdt.core.JavaCore;
  * ספריית הקורס (unit4.collectionsLib — Stack, Queue, Node, BinNode...) בכל פרויקט Java: בהפעלה, ובכל פעם שנוצר או נפתח פרויקט —
  * אם הספרייה עוד לא ב-Build Path שלו (ולא קיימת אצלו ספרייה אחרת כזו), מעתיקים אליו את lib/dsviz.jar ומוסיפים אותו.
  * כך `Queue` מזוהה בכל פרויקט, גם אחד שהתלמיד יצר בעצמו (והספרייה נשארת בפרויקט — אפשר להעביר אותו למחשב אחר).
+ * באותו סבב: module-info.java "ריק" בפרויקט שיש בו מחלקה בלי package — נמחק, כדי שגם ההרצה הרגילה תעבוד (ModuleFix).
  */
 public final class LibraryEverywhere {
     private static final String PROBE = "unit4.collectionsLib.Queue";
@@ -29,7 +33,7 @@ public final class LibraryEverywhere {
         JavaCore.addElementChangedListener(new IElementChangedListener() {
             @Override
             public void elementChanged(ElementChangedEvent event) {
-                if (relevant(event.getDelta())) schedule(1500);
+                if (relevant(event.getDelta()) || moduleRelevant(event.getDelta())) schedule(1500);
             }
         }, ElementChangedEvent.POST_CHANGE);
         schedule(0);
@@ -54,11 +58,38 @@ public final class LibraryEverywhere {
         return false;
     }
 
+    /** נוסף קובץ Java בלי package (ישר בתיקיית הקוד), או ש-module-info.java נוסף / נמחק — בודקים שוב (ModuleFix) */
+    private static boolean moduleRelevant(IJavaElementDelta d) {
+        IJavaElement e = d.getElement();
+        int type = e.getElementType();
+        if (type == IJavaElement.COMPILATION_UNIT) {
+            if (d.getKind() == IJavaElementDelta.ADDED) return e.getParent().getElementName().isEmpty();   // גם module-info.java
+            return d.getKind() == IJavaElementDelta.REMOVED && ModuleFix.FILE.equals(e.getElementName());
+        }
+        // יורדים עד הקבצים — רק בחבילת ברירת המחדל
+        boolean down = type == IJavaElement.JAVA_MODEL || type == IJavaElement.JAVA_PROJECT || type == IJavaElement.PACKAGE_FRAGMENT_ROOT
+                || type == IJavaElement.PACKAGE_FRAGMENT && e.getElementName().isEmpty();
+        if (down) for (IJavaElementDelta c : d.getAffectedChildren()) if (moduleRelevant(c)) return true;
+        return false;
+    }
+
     private static final WorkspaceJob JOB = new WorkspaceJob("מבני נתונים — ספריית הקורס בפרויקטים") {
         @Override
         public IStatus runInWorkspace(IProgressMonitor monitor) {
             if (!Power.on()) return Status.OK_STATUS;   // DSViz כבוי — לא נוגעים בפרויקטים
-            for (IJavaProject jp : ProjectSetup.javaProjects()) ensure(jp);
+            List<String> removed = new ArrayList<String>(), blocked = new ArrayList<String>();
+            for (IJavaProject jp : ProjectSetup.javaProjects()) {
+                // module-info.java + מחלקה בלי package: ההרצה הרגילה נופלת (FindException) — ModuleFix
+                ModuleFix.Result r = ModuleFix.check(jp);
+                if (r == ModuleFix.Result.REMOVED) {
+                    removed.add(jp.getElementName());
+                    continue;   // הספרייה — בסבב הבא (למטה), כש-JDT כבר יודע שהקובץ נמחק (באמצע הפעולה הזו הוא עוד חושב שהפרויקט מודולרי)
+                }
+                if (r == ModuleFix.Result.BLOCKED) blocked.add(jp.getElementName());
+                ensure(jp);
+            }
+            if (!removed.isEmpty()) schedule(300);   // עבודה שרצה עכשיו — תרוץ שוב מיד כשתסתיים
+            ModuleFix.notify(removed, blocked);
             return Status.OK_STATUS;
         }
     };
@@ -80,7 +111,8 @@ public final class LibraryEverywhere {
                 ProjectSetup.prepare(jp, null, false);
                 return;
             }
-            if (jp.findType(PROBE) != null) return;   // כבר יש (הספרייה שלנו, ה-jar המקורי של הקורס, או קוד מקור)
+            // כבר יש (הספרייה שלנו, ה-jar המקורי של הקורס, או קוד מקור) — אלא אם הספרייה שלנו נשארה ב-module path אחרי ש-module-info נמחק
+            if (jp.findType(PROBE) != null && !ProjectSetup.ourJarOnModulePathWithoutModule(jp)) return;
             ProjectSetup.prepare(jp, null, false);
         } catch (Throwable e) {
             // פרויקט שלא מצליחים לעדכן (קריאה בלבד וכו') — נשאר כמו שהוא

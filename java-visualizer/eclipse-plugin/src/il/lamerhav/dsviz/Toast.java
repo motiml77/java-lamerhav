@@ -46,6 +46,9 @@ final class Toast {
     static final class Spec {
         boolean warn;
         String title = "", summary = "", folder = "", words = "", errorsLine = "";
+        /** פסקה (שוברת שורות) מתחת לכותרת — להודעות על תיקון אוטומטי (ModuleFix) */
+        String text = "";
+        int hideMs = HIDE_MS;
         boolean solutions;
         List<String[]> others = new ArrayList<String[]>();
         Runnable onErrors;
@@ -113,9 +116,19 @@ final class Toast {
         title.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
         closeButton(head, this::close);
 
+        // פסקה של הסבר (הודעה על תיקון אוטומטי) — שוברת שורות ברוחב ההודעה
+        if (!s.text.isEmpty()) {
+            Label t = new Label(body, SWT.WRAP);
+            t.setText(RtlText.rtl(s.text));
+            t.setFont(Look.font(d, -1, SWT.NORMAL));
+            t.setForeground(Look.color(d, Look.INK2));
+            GridData tg = new GridData(SWT.FILL, SWT.TOP, true, false);
+            tg.widthHint = WIDTH - 32;
+            t.setLayoutData(tg);
+        }
         // שורה 2: כמה סעיפים ואיפה הסמן · התיקייה (קטן, באפור)
-        Composite sum = row(body, 2);
-        label(sum, s.summary, SWT.NORMAL, -1, Look.INK2);
+        Composite sum = s.summary.isEmpty() && s.folder.isEmpty() ? null : row(body, 2);
+        if (sum != null) label(sum, s.summary, SWT.NORMAL, -1, Look.INK2);
         if (!s.folder.isEmpty()) {
             Label f = new Label(sum, SWT.LEFT_TO_RIGHT);
             f.setText(s.folder);
@@ -165,7 +178,7 @@ final class Toast {
         place();
         shell.setVisible(true);   // לא open(): בלי להפעיל את החלון ובלי לקחת את המיקוד מהעורך
         if (focus != null && !focus.isDisposed() && d.getFocusControl() != focus) focus.setFocus();
-        d.timerExec(HIDE_MS, this::autoHide);
+        d.timerExec(s.hideMs, this::autoHide);
     }
 
     /** בפינה התחתונה של חלון Eclipse — בצד שמאל (כמו "בפינה" בממשק מימין לשמאל), מעל שורת המצב */
