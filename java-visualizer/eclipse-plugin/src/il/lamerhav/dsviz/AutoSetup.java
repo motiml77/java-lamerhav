@@ -39,6 +39,8 @@ public class AutoSetup implements IStartup {
     @Override
     public void earlyStartup() {
         AnswerHighlight.start();   // "כאן עונים": הגוף של פעולה שעוד לא נכתבה בה תשובה — מסומן בצהוב בעורך
+        // Windows + מקלדת עברית: ההקלדה בעורך לא מתחלפת לעברית לבד (ריחוף מעל הסבר בעברית, סמן ליד הערה בעברית) — KeyboardGuard
+        Display.getDefault().asyncExec(() -> KeyboardGuard.install(Display.getDefault()));
         WorkspaceJob job = new WorkspaceJob("מבני נתונים — הכנת סביבת העבודה") {
             @Override
             public IStatus runInWorkspace(IProgressMonitor monitor) {

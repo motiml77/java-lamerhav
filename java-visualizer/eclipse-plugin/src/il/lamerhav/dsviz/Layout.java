@@ -105,7 +105,7 @@ public final class Layout {
         }
         el.setToBeRendered(true);
         el.setVisible(true);
-        ps.activate(part);
+        ps.bringToTop(part);   // נראה, בלי לקחת את הפוקוס מהעורך (אחרת ההקלדה עוברת לחלון ההסברים)
         return true;
     }
 
