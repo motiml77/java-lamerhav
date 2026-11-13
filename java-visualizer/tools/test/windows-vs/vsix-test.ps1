@@ -152,9 +152,10 @@ if ($ready) {
     }
     $bankBefore = BankState
     Info "מאגר שאלות (בלי jar): $bankBefore"
-    Check 'bank-hidden' ($bankBefore -eq 'absent' -or $bankBefore -match 'offscreen=True' -or $bankBefore -match 'rect=Empty') 'בלי מאגר שאלות מותקן — הכפתור "מאגר שאלות" מוסתר' $bankBefore
+    # "מאגר שאלות" ו"השאלה" תמיד גלויים ולחיצים — גם כשהמאגר עוד לא במקום (הלחיצה מתקנת מ-bank\ או מסבירה מה לעשות)
+    Check 'bank-always-clickable' ($bankBefore -match '^present enabled=True offscreen=False') 'גם בלי מאגר שאלות במקום — "מאגר שאלות" גלוי ולחיץ' $bankBefore
     $qBefore = BankState 'השאלה'
-    Check 'question-hidden' ($qBefore -eq 'absent' -or $qBefore -match 'offscreen=True' -or $qBefore -match 'rect=Empty') 'בלי מאגר שאלות מותקן — הכפתור "השאלה" מוסתר' $qBefore
+    Check 'question-always-clickable' ($qBefore -match '^present enabled=True offscreen=False') 'גם בלי מאגר שאלות במקום — "השאלה" גלוי ולחיץ' $qBefore
     Shot 'vs-toolbar-nobank'
     # מאגר השאלות מותקן (קובץ ה-jar של המעבדה) אחרי ש-Visual Studio כבר פתוח: הכפתור מופיע בפעם הבאה ש-VS בודק את הפקודות
     # (למשל כשעוברים לקובץ אחר — בהמשך הבדיקה); אצל תלמיד ההתקנה קודמת להפעלה, והכפתור מוצג כבר בטעינה.
