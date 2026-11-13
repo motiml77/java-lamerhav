@@ -5,7 +5,7 @@
   יומן, הגדרות, אישור חתום לעבודה בלי אינטרנט, ונעילת שליחה ל-Gemini (מתג בהנהלה). כבוי כל עוד ACCESS לא "on".
 - דפים (worker/public/ → src/access/assets.gen.js): /signin /welcome /account /admin.
 - בדיקות: test/worker-test.mjs (39), test/access-test.mjs (21, אמולטור), test/pages-e2e.mjs (11, דפדפן + אמולטור).
-- שירות תשלום: עוד לא נבחר — שכבה ב-src/access/pay.js (demo לבדיקות בלבד). המלצה: Grow, חלופה: Cardcom.
+- שירות תשלום: PayPal (src/access/pay.js; README, "תשלום ב-PayPal"). כבוי עד שמגדירים PAY_PROVIDER=paypal ואת המפתחות ב-Cloudflare. demo — לבדיקות בלבד.
 
 ## החלטות של המשתמש (5.11.2026)
 - קוד המורה קבוע — אין "קוד חדש" (לא למורה ולא בהנהלה).

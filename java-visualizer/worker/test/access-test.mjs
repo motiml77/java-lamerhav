@@ -26,8 +26,49 @@ globalThis.fetch = async (url, init) => {
       tasks: [{ label: 'א', kind: 'method', className: 'M', isStatic: true, returnType: 'int', methodName: 'f', parameters: [], instructions: 'x' }] };
     return new Response(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(ex) }] } }] }), { status: 200 });
   }
+  if (/paypal\.com/.test(String(url))) return fakePayPal(String(url), init || {});
   return realFetch(url, init);
 };
+
+// PayPal — מדומה: הזמנות, אישור של המשלם (approve), גבייה, שאילתות, ואימות חתימה של webhook (חתימה "good" בלבד)
+const PP = { orders: new Map(), captures: new Map(), seq: 0, calls: [], tamper: null };
+function fakePayPal(url, init) {
+  const u = new URL(url), path = u.pathname, method = (init.method || 'GET').toUpperCase();
+  const body = init.body ? (() => { try { return JSON.parse(init.body); } catch (e) { return null; } })() : null;
+  const json = (status, o) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
+  PP.calls.push(method + ' ' + path);
+  const auth = String((init.headers || {}).authorization || '');
+  if (path === '/v1/oauth2/token') return auth === 'Basic ' + btoa('cid:sec') ? json(200, { access_token: 'pp-token', expires_in: 3600 }) : json(401, {});
+  if (auth !== 'Bearer pp-token') return json(401, {});
+  if (method === 'POST' && path === '/v2/checkout/orders') {
+    const id = 'ORDER' + String(++PP.seq).padStart(6, '0') + 'XY', unit = body.purchase_units[0];
+    PP.orders.set(id, { id, unit, approved: false, captured: null, ctx: body.payment_source.paypal.experience_context });
+    return json(201, { id, status: 'PAYER_ACTION_REQUIRED', links: [{ rel: 'payer-action', href: (u.host.includes('sandbox') ? 'https://www.sandbox.paypal.com' : 'https://www.paypal.com') + '/checkoutnow?token=' + id }] });
+  }
+  const view = o => {
+    const cap = PP.captures.get(o.captured);
+    return { id: o.id, status: 'COMPLETED', payer: { name: { given_name: 'דנה', surname: 'לוי' }, email_address: 'dana@paypal.test', phone: { phone_number: { national_number: '0501234567' } } },
+      purchase_units: [{ reference_id: o.unit.reference_id, payments: { captures: [cap] } }] };
+  };
+  let m = /^\/v2\/checkout\/orders\/([A-Z0-9]+)\/capture$/.exec(path);
+  if (m && method === 'POST') {
+    const o = PP.orders.get(m[1]);
+    if (!o) return json(404, { name: 'RESOURCE_NOT_FOUND' });
+    if (o.captured) return json(422, { name: 'UNPROCESSABLE_ENTITY', details: [{ issue: 'ORDER_ALREADY_CAPTURED' }] });
+    if (!o.approved) return json(422, { name: 'UNPROCESSABLE_ENTITY', details: [{ issue: 'ORDER_NOT_APPROVED' }] });
+    const capId = 'CAP' + String(++PP.seq).padStart(8, '0') + 'Z';
+    const cap = Object.assign({ id: capId, status: 'COMPLETED', amount: Object.assign({}, o.unit.amount), custom_id: o.unit.custom_id, supplementary_data: { related_ids: { order_id: o.id } } }, PP.tamper || {});
+    PP.captures.set(capId, cap);
+    o.captured = capId;
+    return json(201, view(o));
+  }
+  m = /^\/v2\/checkout\/orders\/([A-Z0-9]+)$/.exec(path);
+  if (m && method === 'GET') { const o = PP.orders.get(m[1]); return o && o.captured ? json(200, view(o)) : json(404, {}); }
+  m = /^\/v2\/payments\/captures\/([A-Z0-9]+)$/.exec(path);
+  if (m && method === 'GET') { const c = PP.captures.get(m[1]); return c ? json(200, c) : json(404, {}); }
+  if (path === '/v1/notifications/verify-webhook-signature') return json(200, { verification_status: body && body.transmission_sig === 'good' && body.webhook_id === 'WH-1' ? 'SUCCESS' : 'FAILURE' });
+  return json(404, {});
+}
 
 const BASE = 'https://w.example';
 async function call(method, path, { body, token, headers = {}, env = ENV } = {}) {
@@ -170,7 +211,7 @@ await test('עמדות: השנייה נכנסת (2/2), השלישית — "אי�
   const again = await call('POST', '/v1/station/claim', { body: { code: code1, name: 'עמדה 1 (מחדש)', machine: m1 } });
   assert.equal(again.body.status, 'ok');
   assert.notEqual(again.body.token, st1);
-  assert.equal((await call('POST', '/v1/access/check', { body: { token: st1, machine: m1 } })).body.status, 'invalid', 'הכרטיס הישן הוחלף');
+  assert.equal((await call('POST', '/v1/access/check', { body: { token: st1, machine: m1 } })).body.status, 'ok', 'הכרטיס הקודם של אותה עמדה נשאר תקף (משתמש Windows אחר / תוכנה אחרת באותו מחשב)');
   st1 = again.body.token;
   const t = await call('GET', '/v1/admin/teacher?email=teacher1@test.dev', { token: admin });
   assert.equal(t.body.teacher.used, 2);
@@ -534,6 +575,215 @@ await test('התוכנה ששלחה (app: dsviz / automata): נרשמת ביומ
   assert.equal(log.find(l => l.action === 'station.claim' && l.actor === 'מחשב: עמדת אוטומטים 2').detail, '2/2');
   // בלי app (כמו כל הבדיקות האחרות): היומן כמו קודם
   assert.ok(log.filter(l => l.action === 'signin.teacher' && l.actor !== 'apps@test.dev').every(l => !/app=/.test(l.detail)));
+});
+
+await test('עמדה לא נפלטת: כמה התחברויות מאותו מחשב (משתמשים / תוכנות) — כל הכרטיסים תקפים עד שהמורה משחרר', async () => {
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { create: true, email: 'keep@test.dev', name: 'יציבות', seats: 2 } });
+  const code = (await call('GET', '/v1/admin/teacher?email=keep@test.dev', { token: admin })).body.teacher.code;
+  const m = machine();
+  const claim = (extra) => call('POST', '/v1/station/claim', { body: Object.assign({ code, name: 'מעבדה 1 · עמדה 7', machine: m, client: 'test' }, extra) });
+  const check = (token, mach) => call('POST', '/v1/access/check', { body: { token, machine: mach || m } });
+  const a = (await claim()).body, b = (await claim({ why: 'none' })).body, c = (await claim({ why: 'unreadable' })).body;
+  assert.deepEqual([a.status, b.status, c.status], ['ok', 'ok', 'ok']);
+  assert.equal(new Set([a.token, b.token, c.token]).size, 3);
+  for (const t of [a.token, b.token, c.token]) assert.equal((await check(t)).body.status, 'ok', 'כל שלושת הכרטיסים של אותה עמדה תקפים');
+  let t = (await call('GET', '/v1/admin/teacher?email=keep@test.dev', { token: admin })).body;
+  assert.deepEqual([t.teacher.used, t.stations.length], [1, 1], 'מקום אחד בלבד');
+  // ביומן: למה המחשב התחבר שוב
+  const log = (await call('GET', '/v1/admin/log?limit=80', { token: admin })).body.log.filter(l => l.target === 'keep@test.dev');
+  assert.equal(log.filter(l => l.action === 'station.claim').length, 1);
+  const again = log.filter(l => l.action === 'station.again').map(l => l.detail);
+  assert.equal(again.length, 2);
+  assert.ok(again.some(d => /אין במחשב כניסה שמורה/.test(d)) && again.some(d => /הכניסה השמורה לא נפתחה/.test(d)), again.join(' | '));
+  // שחרור מההנהלה: כל הכרטיסים ננעלים, עם why
+  await call('POST', '/v1/admin/station/release', { token: admin, body: { id: t.stations[0].id } });
+  for (const tok of [a.token, b.token, c.token]) {
+    const r = (await check(tok)).body;
+    assert.deepEqual([r.status, r.why], ['revoked', 'released']);
+  }
+  const rej = (await call('GET', '/v1/admin/log?limit=80', { token: admin })).body.log.filter(l => l.action === 'station.rejected' && l.target === 'keep@test.dev');
+  assert.equal(rej.length, 1, 'נרשם פעם אחת ביום לכל עמדה וסיבה');
+  assert.match(rej[0].detail, /העמדה שוחררה/);
+});
+
+await test('אותו מחשב עם מזהה חדש (שוחזר / קובץ שנמחק / משתמש אחר): לפי המזהה הקבוע — אותה עמדה, בלי מקום נוסף, ושני המזהים תקפים', async () => {
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { create: true, email: 'stable@test.dev', name: 'קבוע', seats: 2 } });
+  const code = (await call('GET', '/v1/admin/teacher?email=stable@test.dev', { token: admin })).body.teacher.code;
+  const stable = machine(), mA = machine(), mB = machine(), other = machine();
+  const claim = (m, st, name) => call('POST', '/v1/station/claim', { body: { code, name: name || 'עמדה 1', machine: m, stable: st, client: 'test' } });
+  const check = (token, m) => call('POST', '/v1/access/check', { body: { token, machine: m } });
+  const a = (await claim(mA, stable)).body;
+  const b = (await claim(mB, stable)).body;          // אותו מחשב (אותו stable), מזהה רגיל אחר
+  assert.deepEqual([a.status, b.status], ['ok', 'ok']);
+  let t = (await call('GET', '/v1/admin/teacher?email=stable@test.dev', { token: admin })).body;
+  assert.deepEqual([t.teacher.used, t.stations.length], [1, 1], 'אותה עמדה: לא נלקח מקום נוסף');
+  const ra = (await check(a.token, mA)).body, rb = (await check(b.token, mB)).body;
+  assert.deepEqual([ra.status, rb.status], ['ok', 'ok'], 'שני המזהים של אותו מחשב תקפים');
+  assert.deepEqual([readPass(ra.pass).mid, readPass(rb.pass).mid], [mA, mB], 'כל אישור חתום למזהה שהמחשב שלח');
+  // מחשב אחר (stable אחר): עמדה נפרדת; כרטיס שהועתק למחשב אחר נדחה
+  const c = (await claim(other, machine(), 'עמדה 2')).body;
+  assert.equal(c.status, 'ok');
+  t = (await call('GET', '/v1/admin/teacher?email=stable@test.dev', { token: admin })).body;
+  assert.deepEqual([t.teacher.used, t.stations.length], [2, 2]);
+  const copied = (await check(a.token, other)).body;
+  assert.deepEqual([copied.status, copied.why], ['invalid', 'machine']);
+  // מחשב שלישי בלי מקום: גם עם stable של מחשב אחר (לא מוכר) — full
+  assert.equal((await claim(machine(), machine(), 'עמדה 3')).body.status, 'full');
+  // העמדה שוחררה, והמחשב מתחבר שוב עם מזהה שלישי ואותו stable: עמדה חדשה (המקום חזר ונלקח), לא "אותה עמדה" שהמורה שחרר
+  const st1 = t.stations.find(s => s.name === 'עמדה 1');
+  await call('POST', '/v1/admin/station/release', { token: admin, body: { id: st1.id } });
+  assert.equal((await check(b.token, mB)).body.status, 'revoked');
+  const d = (await claim(machine(), stable)).body;
+  assert.equal(d.status, 'ok');
+  assert.equal((await check(b.token, mB)).body.status, 'revoked', 'כרטיס של עמדה ששוחררה לא חוזר לחיים');
+  t = (await call('GET', '/v1/admin/teacher?email=stable@test.dev', { token: admin })).body;
+  assert.deepEqual([t.teacher.used, t.stations.length], [2, 2]);
+});
+
+await test('עמדה: אחרי הרבה התחברויות נשמרים רק הכרטיסים האחרונים; כרטיס לא מוכר — invalid עם why', async () => {
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { create: true, email: 'many@test.dev', name: 'הרבה', seats: 1 } });
+  const code = (await call('GET', '/v1/admin/teacher?email=many@test.dev', { token: admin })).body.teacher.code;
+  const m = machine(), toks = [];
+  for (let i = 0; i < 10; i++) toks.push((await call('POST', '/v1/station/claim', { body: { code, name: 'עמדה', machine: m } })).body.token);
+  const st = async (t) => (await call('POST', '/v1/access/check', { body: { token: t, machine: m } })).body;
+  assert.equal((await st(toks[9])).status, 'ok');
+  assert.equal((await st(toks[2])).status, 'ok', 'שמונת האחרונים תקפים');
+  const old = await st(toks[0]);
+  assert.deepEqual([old.status, old.why], ['invalid', 'token']);
+  const gone = await st('s.' + 'a'.repeat(32) + '.' + 'b'.repeat(43));
+  assert.deepEqual([gone.status, gone.why], ['invalid', 'gone']);
+  assert.equal((await call('GET', '/v1/admin/teacher?email=many@test.dev', { token: admin })).body.teacher.used, 1);
+});
+
+// ------------------------------------------------------------------ תשלום ב-PayPal
+const ENV_PP = Object.assign({}, ENV, { PAY_PROVIDER: 'paypal', PAYPAL_CLIENT_ID: 'cid', PAYPAL_SECRET: 'sec', PAYPAL_WEBHOOK_ID: 'WH-1' });
+const ppHook = (event, sig = 'good') => call('POST', '/v1/pay/notify/paypal', { env: ENV_PP, body: event,
+  headers: { 'paypal-transmission-sig': sig, 'paypal-transmission-id': 't1', 'paypal-transmission-time': '2026-01-01T00:00:00Z', 'paypal-auth-algo': 'SHA256withRSA', 'paypal-cert-url': 'https://api.paypal.com/cert' } });
+const ppReturn = (pid, order) => call('GET', '/pay/paypal/return?p=' + pid + '&token=' + order + '&PayerID=P1', { env: ENV_PP });
+async function ppStudent(email) {
+  const tok = await idToken(email, 'תלמיד PayPal');
+  const m = machine(), k = pkce();
+  const ex = await call('POST', '/v1/auth/exchange', { body: { idToken: tok, role: 'student', challenge: k.challenge } });
+  const red = (await call('POST', '/v1/auth/redeem', { body: { code: ex.body.code, verifier: k.verifier, machine: m, machineName: 'PC' } })).body;
+  const status = async () => (await call('POST', '/v1/access/check', { body: { token: red.token, machine: m } })).body.status;
+  return { tok, status };
+}
+
+await test('PayPal: ההזמנה נוצרת בשרת עם הסכום מההגדרות; חזרה לפני אישור לא פותחת; אחרי אישור — נגבה ונפתח, פעם אחת', async () => {
+  const st = await ppStudent('pp1@test.dev');
+  assert.equal(await st.status(), 'pay');
+  assert.equal((await call('GET', '/v1/me', { token: st.tok, env: ENV_PP })).body.payBy, 'paypal');
+  // הדפדפן מנסה לקבוע סכום — השרת מתעלם
+  const start = await call('POST', '/v1/pay/start', { token: st.tok, env: ENV_PP, body: { amount: 1, price: 1, currency: 'USD' } });
+  assert.equal(start.status, 200, JSON.stringify(start.body));
+  assert.match(start.body.url, /^https:\/\/www\.sandbox\.paypal\.com\/checkoutnow\?token=ORDER\d+XY$/);
+  const orderId = start.body.url.split('token=')[1], o = PP.orders.get(orderId);
+  assert.deepEqual([o.unit.amount.value, o.unit.amount.currency_code, o.unit.custom_id], ['60.00', 'ILS', start.body.id]);
+  assert.match(o.ctx.return_url, /^https:\/\/w\.example\/pay\/paypal\/return\?p=/);
+  // חזרה בלי שהמשלם אישר: לא נגבה, לא נפתח
+  let r = await ppReturn(start.body.id, orderId);
+  assert.equal(r.status, 302);
+  assert.equal(await st.status(), 'pay');
+  // המשלם מאשר וחוזר
+  o.approved = true;
+  r = await ppReturn(start.body.id, orderId);
+  assert.deepEqual([r.status, r.headers.get('location')], [302, '/welcome?r=paid']);
+  assert.equal(await st.status(), 'ok');
+  // חזרה נוספת (רענון הדף) והודעה מ-PayPal על אותה גבייה: עדיין תשלום אחד
+  await ppReturn(start.body.id, orderId);
+  const hook = await ppHook({ event_type: 'PAYMENT.CAPTURE.COMPLETED', resource: { id: o.captured } });
+  assert.equal(hook.status, 200);
+  const pays = (await call('GET', '/v1/admin/payments', { token: admin })).body.payments.filter(p => p.email === 'pp1@test.dev');
+  assert.deepEqual(pays.map(p => p.status), ['paid']);
+  assert.deepEqual([pays[0].payerName, pays[0].payerEmail, pays[0].payerPhone, pays[0].amount], ['דנה לוי', 'dana@paypal.test', '0501234567', 60]);
+  const log = (await call('GET', '/v1/admin/log?limit=60', { token: admin })).body.log.filter(l => l.action === 'payment.paid' && l.target === 'pp1@test.dev');
+  assert.equal(log.length, 1);
+  assert.equal(PP.calls.filter(c => c === 'POST /v2/checkout/orders/' + orderId + '/capture').length >= 1, true);
+});
+
+await test('PayPal: אי אפשר לסגור תשלום עם הזמנה אחרת, עם סכום אחר או עם מטבע אחר', async () => {
+  const a = await ppStudent('pp2@test.dev'), b = await ppStudent('pp3@test.dev');
+  const sa = (await call('POST', '/v1/pay/start', { token: a.tok, env: ENV_PP, body: {} })).body;
+  const sb = (await call('POST', '/v1/pay/start', { token: b.tok, env: ENV_PP, body: {} })).body;
+  const oa = sa.url.split('token=')[1], ob = sb.url.split('token=')[1];
+  // ב' שילם; א' מנסה לסגור את התשלום שלו עם ההזמנה של ב'
+  PP.orders.get(ob).approved = true;
+  await ppReturn(sa.id, ob);
+  assert.equal(await a.status(), 'pay', 'הזמנה של תשלום אחר לא פותחת');
+  await ppReturn(sb.id, ob);
+  assert.equal(await b.status(), 'ok');
+  // מזהים לא תקינים / תשלום שלא קיים
+  assert.equal((await ppReturn('nope-nope-nope', oa)).headers.get('location'), '/welcome?r=error');
+  assert.equal((await ppReturn(sa.id, '../../v1/oauth2/token')).status, 302);
+  assert.equal(await a.status(), 'pay');
+  // PayPal מדווח סכום אחר / מטבע אחר ממה שנקבע: לא נפתח, והתשלום מסומן
+  PP.tamper = { amount: { currency_code: 'ILS', value: '1.00' } };
+  PP.orders.get(oa).approved = true;
+  await ppReturn(sa.id, oa);
+  PP.tamper = null;
+  assert.equal(await a.status(), 'pay', 'סכום אחר לא פותח');
+  const c = await ppStudent('pp4@test.dev');
+  const sc = (await call('POST', '/v1/pay/start', { token: c.tok, env: ENV_PP, body: {} })).body, oc = sc.url.split('token=')[1];
+  PP.tamper = { amount: { currency_code: 'USD', value: '60.00' } };
+  PP.orders.get(oc).approved = true;
+  await ppReturn(sc.id, oc);
+  PP.tamper = null;
+  assert.equal(await c.status(), 'pay', 'מטבע אחר לא פותח');
+  const pays = (await call('GET', '/v1/admin/payments', { token: admin })).body.payments;
+  assert.equal(pays.find(p => p.id === sa.id).status, 'mismatch');
+  assert.equal(pays.find(p => p.id === sc.id).status, 'mismatch');
+});
+
+await test('PayPal webhook: בלי חתימה תקפה נדחה; המשלם אישר ולא חזר — נגבה מההודעה; תוכן מזויף לא פותח; החזר כספי סוגר', async () => {
+  const st = await ppStudent('pp5@test.dev');
+  const s = (await call('POST', '/v1/pay/start', { token: st.tok, env: ENV_PP, body: {} })).body, orderId = s.url.split('token=')[1], o = PP.orders.get(orderId);
+  const approved = { event_type: 'CHECKOUT.ORDER.APPROVED', resource: { id: orderId, purchase_units: [{ custom_id: s.id }] } };
+  // הודעה מזויפת: בלי חתימה תקפה
+  assert.equal((await ppHook(approved, 'forged')).status, 400);
+  // חתימה תקפה, אבל המשלם לא באמת אישר (PayPal עצמו אומר שלא): לא נפתח
+  await ppHook(approved);
+  assert.equal(await st.status(), 'pay');
+  // הודעה "שולם" על גבייה שלא קיימת / על תשלום אחר: לא נפתח
+  await ppHook({ event_type: 'PAYMENT.CAPTURE.COMPLETED', resource: { id: 'CAP99999999Z', custom_id: s.id, status: 'COMPLETED', amount: { value: '60.00', currency_code: 'ILS' } } });
+  assert.equal(await st.status(), 'pay', 'סומכים על PayPal, לא על מה שכתוב בהודעה');
+  // המשלם אישר, וסגר את הדפדפן לפני החזרה לאתר
+  o.approved = true;
+  assert.equal((await ppHook(approved)).status, 200);
+  assert.equal(await st.status(), 'ok');
+  // בלי PAYPAL_WEBHOOK_ID: הודעות לא מתקבלות בכלל
+  assert.equal((await call('POST', '/v1/pay/notify/paypal', { env: Object.assign({}, ENV_PP, { PAYPAL_WEBHOOK_ID: '' }), body: approved, headers: { 'paypal-transmission-sig': 'good' } })).status, 400);
+  // החזר כספי מלא (ה-resource הוא ההחזר, והגבייה בקישור up)
+  PP.captures.get(o.captured).status = 'PARTIALLY_REFUNDED';
+  const refund = { event_type: 'PAYMENT.CAPTURE.REFUNDED', resource: { id: 'REF00000001A', links: [{ rel: 'up', href: 'https://api-m.sandbox.paypal.com/v2/payments/captures/' + o.captured }] } };
+  await ppHook(refund);
+  assert.equal(await st.status(), 'ok', 'החזר חלקי לא סוגר');
+  PP.captures.get(o.captured).status = 'REFUNDED';
+  await ppHook(refund);
+  assert.equal(await st.status(), 'pay', 'החזר מלא סוגר את המאגר');
+});
+
+await test('PayPal: חבילת עמדות למורה; ביטול בדף של PayPal; שירות תשלום שלא עונה; ומגבלת ניסיונות', async () => {
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { create: true, email: 'ppteacher@test.dev', name: 'מורה PayPal', seats: 1 } });
+  const tok = await idToken('ppteacher@test.dev');
+  const s = (await call('POST', '/v1/pay/start', { token: tok, env: ENV_PP, body: { kind: 'seats', package: 1 } })).body, orderId = s.url.split('token=')[1];
+  assert.deepEqual([PP.orders.get(orderId).unit.amount.value, PP.orders.get(orderId).unit.amount.currency_code], ['500.00', 'ILS']);
+  assert.equal((await call('GET', '/pay/paypal/cancel?p=' + s.id, { env: ENV_PP })).headers.get('location'), '/account');
+  assert.equal((await call('GET', '/v1/admin/teacher?email=ppteacher@test.dev', { token: admin })).body.teacher.seats, 1);
+  PP.orders.get(orderId).approved = true;
+  assert.equal((await ppReturn(s.id, orderId)).headers.get('location'), '/account?r=paid');
+  assert.equal((await call('GET', '/v1/admin/teacher?email=ppteacher@test.dev', { token: admin })).body.teacher.seats, 21);
+  await ppReturn(s.id, orderId);
+  assert.equal((await call('GET', '/v1/admin/teacher?email=ppteacher@test.dev', { token: admin })).body.teacher.seats, 21, 'חזרה כפולה — חבילה אחת');
+  // בלי מפתחות PayPal: התשלום סגור
+  assert.equal((await call('POST', '/v1/pay/start', { token: tok, env: Object.assign({}, ENV_PP, { PAYPAL_SECRET: '' }), body: { kind: 'seats', package: 1 } })).status, 503);
+  // PayPal לא עונה: הודעה ברורה, והתשלום מסומן "נכשל" (לא נשאר "ממתין")
+  const st = await ppStudent('pp6@test.dev');
+  const down = await call('POST', '/v1/pay/start', { token: st.tok, env: Object.assign({}, ENV_PP, { PAYPAL_CLIENT_ID: 'wrong' }), body: {} });
+  assert.deepEqual([down.status, down.body.code], [502, 'pay_down']);
+  // יותר מ-10 תשלומים פתוחים בשעה לחשבון
+  let last;
+  for (let i = 0; i < 11; i++) last = await call('POST', '/v1/pay/start', { token: st.tok, env: ENV_PP, body: {} });
+  assert.deepEqual([last.status, last.body.code], [429, 'rate']);
 });
 
 await test('הדפים בדפדפן נטענים (signin / admin) עם כותרות אבטחה', async () => {

@@ -6,10 +6,15 @@ import { ASSETS } from './assets.gen.js';
 const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', svg: 'image/svg+xml' };
 const PAGES = { '/signin': '/signin.html', '/welcome': '/welcome.html', '/account': '/account.html', '/admin': '/admin.html' };
 
+// כותרות האבטחה של הדפים. ה-CSP כאן מגביל רק מה שלא נוגע לכניסה עם Google (מסגור, <base>, תוספים): הגבלה של מקורות
+// הסקריפטים / החלונות הייתה עלולה לשבור את החלון של Google, שאת כל הכתובות שלו אי אפשר לבדוק מראש.
 const SECURITY = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'no-referrer',
   'x-frame-options': 'DENY',
+  'content-security-policy': "frame-ancestors 'none'; base-uri 'none'; object-src 'none'",
+  'strict-transport-security': 'max-age=31536000',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
 };
 
 export async function servePage(path, env, url) {

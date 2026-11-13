@@ -742,9 +742,142 @@ var DEMO = {
 <script>document.getElementById('pay').onclick=async()=>{await fetch('/v1/pay/notify/demo',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:${JSON.stringify(id)},status:'paid',amount:${+p.amount},payer:{name:document.getElementById('nm').value,phone:document.getElementById('ph').value,email:${JSON.stringify(p.email)}}})});location.href=${JSON.stringify(back)};};</script>`);
   }
 };
+var PP_ID = /^[A-Z0-9]{8,40}$/;
+var OUR_ID = /^[A-Za-z0-9_-]{8,64}$/;
+var ppToken = { key: "", token: "", until: 0 };
+var ppBase = (env) => String(env.PAYPAL_ENV || "").toLowerCase() === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+var money = (n) => (Math.round(+n * 100) / 100).toFixed(2);
+async function ppAccessToken(env) {
+  const key = ppBase(env) + "|" + env.PAYPAL_CLIENT_ID;
+  const now = Math.floor(Date.now() / 1e3);
+  if (ppToken.key === key && ppToken.until > now + 60) return ppToken.token;
+  const res = await fetch(ppBase(env) + "/v1/oauth2/token", {
+    method: "POST",
+    headers: { authorization: "Basic " + btoa(env.PAYPAL_CLIENT_ID + ":" + env.PAYPAL_SECRET), "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
+    body: "grant_type=client_credentials"
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || !j.access_token) throw new Error("paypal token: " + res.status);
+  ppToken = { key, token: j.access_token, until: now + (+j.expires_in || 300) };
+  return j.access_token;
+}
+async function pp(env, method, path, body, requestId) {
+  const headers = { authorization: "Bearer " + await ppAccessToken(env), accept: "application/json" };
+  if (body !== void 0) headers["content-type"] = "application/json";
+  if (requestId) headers["paypal-request-id"] = requestId;
+  const res = await fetch(ppBase(env) + path, { method, headers, body: body === void 0 ? void 0 : typeof body === "string" ? body : JSON.stringify(body) });
+  return { status: res.status, json: await res.json().catch(() => ({})) };
+}
+var ppIssue = (r, issue) => Array.isArray(r.json && r.json.details) && r.json.details.some((d) => d && d.issue === issue);
+function captureResult(pid, cap, order2) {
+  if (!cap || cap.custom_id !== pid || !cap.amount) return null;
+  const payer = order2 && order2.payer ? {
+    name: [order2.payer.name && order2.payer.name.given_name, order2.payer.name && order2.payer.name.surname].filter(Boolean).join(" "),
+    email: order2.payer.email_address || "",
+    phone: order2.payer.phone && order2.payer.phone.phone_number && order2.payer.phone.phone_number.national_number || ""
+  } : null;
+  const base = { id: pid, amount: +cap.amount.value, currency: cap.amount.currency_code, ref: String(cap.id || ""), payer };
+  if (cap.status === "COMPLETED") return Object.assign(base, { status: "paid" });
+  if (cap.status === "REFUNDED") return { id: pid, status: "refunded", ref: base.ref };
+  if (cap.status === "DECLINED" || cap.status === "FAILED") return { id: pid, status: "failed", ref: base.ref };
+  return null;
+}
+async function ppSettleOrder(env, store, pid, orderId) {
+  if (!OUR_ID.test(pid) || !PP_ID.test(orderId)) return null;
+  const p = await store.get("payments/" + pid);
+  if (!p || p.provider !== "paypal" || p.providerOrder !== orderId) return null;
+  let r = await pp(env, "POST", "/v2/checkout/orders/" + orderId + "/capture", {}, "capture-" + pid);
+  if (r.status === 422 && ppIssue(r, "ORDER_ALREADY_CAPTURED")) r = await pp(env, "GET", "/v2/checkout/orders/" + orderId);
+  if (r.status !== 200 && r.status !== 201) return null;
+  const order2 = r.json;
+  if (order2.id !== orderId) return null;
+  const unit = (order2.purchase_units || [])[0];
+  const cap = unit && unit.payments && (unit.payments.captures || [])[0];
+  return captureResult(pid, cap, order2);
+}
+var PAYPAL = {
+  id: "paypal",
+  async create(env, pay, origin) {
+    const r = await pp(env, "POST", "/v2/checkout/orders", {
+      intent: "CAPTURE",
+      purchase_units: [{
+        reference_id: pay.id,
+        custom_id: pay.id,
+        invoice_id: pay.id,
+        description: String(pay.title || "DSViz").slice(0, 120),
+        amount: { currency_code: pay.currency || "ILS", value: money(pay.amount) }
+      }],
+      payment_source: { paypal: { experience_context: {
+        brand_name: "DSViz",
+        locale: "he-IL",
+        shipping_preference: "NO_SHIPPING",
+        user_action: "PAY_NOW",
+        return_url: origin + "/pay/paypal/return?p=" + encodeURIComponent(pay.id),
+        cancel_url: origin + "/pay/paypal/cancel?p=" + encodeURIComponent(pay.id)
+      } } }
+    }, "create-" + pay.id);
+    const link = (r.json.links || []).find((l) => l.rel === "payer-action") || (r.json.links || []).find((l) => l.rel === "approve");
+    if (r.status !== 200 && r.status !== 201 || !PP_ID.test(String(r.json.id || "")) || !link || !/^https:\/\/www\.(sandbox\.)?paypal\.com\//.test(String(link.href))) {
+      throw new Error("paypal create: " + r.status + " " + (r.json.name || ""));
+    }
+    return { url: link.href, ref: r.json.id, order: r.json.id };
+  },
+  /** webhook: חתימה מול PayPal, ואז שאילתה חוזרת על ההזמנה / הגבייה. מה שכתוב בהודעה עצמה משמש רק כדי לדעת על מה לשאול */
+  async verify(env, request, store) {
+    const raw = await request.text();
+    if (!env.PAYPAL_WEBHOOK_ID || raw.length > 2e5) throw new Error("paypal webhook: not configured");
+    let ev;
+    try {
+      ev = JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+    const hd = (n) => String(request.headers.get(n) || "");
+    const v = await pp(
+      env,
+      "POST",
+      "/v1/notifications/verify-webhook-signature",
+      '{"auth_algo":' + JSON.stringify(hd("paypal-auth-algo")) + ',"cert_url":' + JSON.stringify(hd("paypal-cert-url")) + ',"transmission_id":' + JSON.stringify(hd("paypal-transmission-id")) + ',"transmission_sig":' + JSON.stringify(hd("paypal-transmission-sig")) + ',"transmission_time":' + JSON.stringify(hd("paypal-transmission-time")) + ',"webhook_id":' + JSON.stringify(String(env.PAYPAL_WEBHOOK_ID)) + ',"webhook_event":' + raw + "}"
+    );
+    if (v.status !== 200 || v.json.verification_status !== "SUCCESS") throw new Error("paypal webhook: bad signature");
+    const res = ev && ev.resource || {}, type = String(ev && ev.event_type || "");
+    if (type === "CHECKOUT.ORDER.APPROVED") {
+      const pid = String(((res.purchase_units || [])[0] || {}).custom_id || "");
+      return ppSettleOrder(env, store, pid, String(res.id || ""));
+    }
+    if (/^PAYMENT\.CAPTURE\./.test(type)) {
+      const up = (res.links || []).find((l) => l && l.rel === "up" && /\/v2\/payments\/captures\/[A-Z0-9]+$/.test(String(l.href)));
+      const capId = up ? String(up.href).split("/").pop() : String(res.id || "");
+      if (!PP_ID.test(capId)) return null;
+      const c = await pp(env, "GET", "/v2/payments/captures/" + capId);
+      if (c.status !== 200) return null;
+      const pid = String(c.json.custom_id || "");
+      if (!OUR_ID.test(pid)) return null;
+      const p = await store.get("payments/" + pid);
+      const orderId = c.json.supplementary_data && c.json.supplementary_data.related_ids && c.json.supplementary_data.related_ids.order_id;
+      if (!p || p.provider !== "paypal" || orderId && orderId !== p.providerOrder) return null;
+      return captureResult(pid, c.json, null);
+    }
+    return null;
+  },
+  async routes(request, env, url, h) {
+    if (request.method !== "GET" || url.pathname !== "/pay/paypal/return" && url.pathname !== "/pay/paypal/cancel") return null;
+    const pid = String(url.searchParams.get("p") || ""), store = h.db();
+    const p = OUR_ID.test(pid) ? await store.get("payments/" + pid) : null;
+    const home = p && p.kind === "seats" ? "/account" : "/welcome";
+    const go = (to) => new Response(null, { status: 302, headers: { location: to, "cache-control": "no-store", "referrer-policy": "no-referrer" } });
+    if (!p || p.provider !== "paypal") return go("/welcome?r=error");
+    if (url.pathname === "/pay/paypal/cancel") return go(home + (home === "/welcome" ? "?r=pay" : ""));
+    const n = await ppSettleOrder(env, store, pid, String(url.searchParams.get("token") || "")).catch(() => null);
+    if (n) await h.settlePayment(n);
+    return go(home + "?r=paid");
+  }
+};
+PAY_PROVIDERS.push("paypal");
 function payProvider(env) {
   const id = String(env.PAY_PROVIDER || "").toLowerCase().trim();
   if (id === "demo") return firestoreEmulator(env) ? DEMO : null;
+  if (id === "paypal") return env.PAYPAL_CLIENT_ID && env.PAYPAL_SECRET ? PAYPAL : null;
   return null;
 }
 
@@ -1046,7 +1179,8 @@ async function pay() {
     return show(h('div', { class: 'badge-icon orange' }, icon(ICONS.info, 30, '#9A3412')), h('h1', null, '\u05D4\u05EA\u05E9\u05DC\u05D5\u05DD \u05E2\u05D5\u05D3 \u05DC\u05D0 \u05E4\u05EA\u05D5\u05D7'),
       h('p', { class: 'muted' }, '\u05E2\u05D5\u05D3 \u05DE\u05E2\u05D8 \u05D0\u05E4\u05E9\u05E8 \u05D9\u05D4\u05D9\u05D4 \u05DC\u05E9\u05DC\u05DD \u05DB\u05D0\u05DF. \u05D1\u05D9\u05E0\u05EA\u05D9\u05D9\u05DD, \u05D0\u05DD \u05D4\u05DE\u05D5\u05E8\u05D4 \u05E4\u05EA\u05D7 \u05E2\u05DE\u05D3\u05D4 \u05D1\u05DB\u05D9\u05EA\u05D4 \u2014 \u05D4\u05DE\u05D0\u05D2\u05E8 \u05E4\u05EA\u05D5\u05D7 \u05E9\u05DD.'));
   }
-  const go = h('button', { type: 'button', class: 'btn primary lg wide' }, icon(ICONS.lock, 20, '#fff'), '\u05DE\u05E2\u05D1\u05E8 \u05DC\u05EA\u05E9\u05DC\u05D5\u05DD \u05DE\u05D0\u05D5\u05D1\u05D8\u05D7');
+  const paypal = me.payBy === 'paypal';
+  const go = h('button', { type: 'button', class: 'btn primary lg wide' }, icon(ICONS.lock, 20, '#fff'), paypal ? '\u05DE\u05E2\u05D1\u05E8 \u05DC\u05EA\u05E9\u05DC\u05D5\u05DD \u05DE\u05D0\u05D5\u05D1\u05D8\u05D7 \u05D1-PayPal' : '\u05DE\u05E2\u05D1\u05E8 \u05DC\u05EA\u05E9\u05DC\u05D5\u05DD \u05DE\u05D0\u05D5\u05D1\u05D8\u05D7');
   go.onclick = () => busy(go, async () => {
     const s = await api('POST', '/v1/pay/start', {});
     if (s.already) return openScreen(await api('GET', '/v1/me'));
@@ -1060,9 +1194,11 @@ async function pay() {
         h('span', { class: 'small muted' }, \`\u05E4\u05EA\u05D5\u05D7 \u05E2\u05D3 \${fmtDate(me.accessUntil)} \xB7 \u05D1\u05DB\u05DC \u05D4\u05DE\u05D7\u05E9\u05D1\u05D9\u05DD \u05E9\u05DC\u05DA\`)),
       h('div', { class: 'row', style: { gap: '4px', alignItems: 'baseline' } }, h('span', { class: 'display', style: { fontWeight: 700, fontSize: '32px' } }, String(me.price)), h('span', { style: { fontSize: '18px', fontWeight: 600 } }, '\u20AA'))),
     h('div', { class: 'stack', style: { gap: '8px', width: '100%', textAlign: 'right' } }, h('span', { class: 'small', style: { fontWeight: 700 } }, '\u05D0\u05E4\u05E9\u05E8 \u05DC\u05E9\u05DC\u05DD \u05D1:'),
-      h('div', { class: 'chips' }, ['\u05D1\u05D9\u05D8', '\u05DB\u05E8\u05D8\u05D9\u05E1 \u05D0\u05E9\u05E8\u05D0\u05D9', 'Apple Pay', 'Google Pay'].map(x => h('span', { class: 'chip' }, x)))),
+      h('div', { class: 'chips' }, (paypal ? ['PayPal', '\u05DB\u05E8\u05D8\u05D9\u05E1 \u05D0\u05E9\u05E8\u05D0\u05D9 (\u05D3\u05E8\u05DA PayPal)'] : ['\u05D1\u05D9\u05D8', '\u05DB\u05E8\u05D8\u05D9\u05E1 \u05D0\u05E9\u05E8\u05D0\u05D9', 'Apple Pay', 'Google Pay']).map(x => h('span', { class: 'chip' }, x)))),
     go,
-    h('p', { class: 'small muted', style: { textAlign: 'right' } }, '\u05D4\u05EA\u05E9\u05DC\u05D5\u05DD \u05E0\u05E2\u05E9\u05D4 \u05D1\u05D3\u05E3 \u05D4\u05DE\u05D0\u05D5\u05D1\u05D8\u05D7 \u05E9\u05DC \u05D7\u05D1\u05E8\u05EA \u05D4\u05E1\u05DC\u05D9\u05E7\u05D4 \u2014 \u05D0\u05E0\u05D7\u05E0\u05D5 \u05DC\u05D0 \u05E8\u05D5\u05D0\u05D9\u05DD \u05D0\u05EA \u05E4\u05E8\u05D8\u05D9 \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1. \u05E7\u05D1\u05DC\u05D4 \u05E0\u05E9\u05DC\u05D7\u05EA \u05D0\u05D5\u05D8\u05D5\u05DE\u05D8\u05D9\u05EA \u05DC\u05DE\u05D9\u05D9\u05DC.'));
+    h('p', { class: 'small muted', style: { textAlign: 'right' } }, paypal
+      ? '\u05D4\u05EA\u05E9\u05DC\u05D5\u05DD \u05E0\u05E2\u05E9\u05D4 \u05D1\u05D3\u05E3 \u05D4\u05DE\u05D0\u05D5\u05D1\u05D8\u05D7 \u05E9\u05DC PayPal \u2014 \u05D0\u05E0\u05D7\u05E0\u05D5 \u05DC\u05D0 \u05E8\u05D5\u05D0\u05D9\u05DD \u05D0\u05EA \u05E4\u05E8\u05D8\u05D9 \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1 \u05D0\u05D5 \u05D4\u05D7\u05E9\u05D1\u05D5\u05DF. \u05D0\u05D9\u05E9\u05D5\u05E8 \u05D4\u05EA\u05E9\u05DC\u05D5\u05DD \u05E0\u05E9\u05DC\u05D7 \u05DE-PayPal \u05DC\u05DE\u05D9\u05D9\u05DC.'
+      : '\u05D4\u05EA\u05E9\u05DC\u05D5\u05DD \u05E0\u05E2\u05E9\u05D4 \u05D1\u05D3\u05E3 \u05D4\u05DE\u05D0\u05D5\u05D1\u05D8\u05D7 \u05E9\u05DC \u05D7\u05D1\u05E8\u05EA \u05D4\u05E1\u05DC\u05D9\u05E7\u05D4 \u2014 \u05D0\u05E0\u05D7\u05E0\u05D5 \u05DC\u05D0 \u05E8\u05D5\u05D0\u05D9\u05DD \u05D0\u05EA \u05E4\u05E8\u05D8\u05D9 \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1. \u05E7\u05D1\u05DC\u05D4 \u05E0\u05E9\u05DC\u05D7\u05EA \u05D0\u05D5\u05D8\u05D5\u05DE\u05D8\u05D9\u05EA \u05DC\u05DE\u05D9\u05D9\u05DC.'));
 }
 
 async function waitPaid() {
@@ -1150,7 +1286,10 @@ var PAGES = { "/signin": "/signin.html", "/welcome": "/welcome.html", "/account"
 var SECURITY = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "no-referrer",
-  "x-frame-options": "DENY"
+  "x-frame-options": "DENY",
+  "content-security-policy": "frame-ancestors 'none'; base-uri 'none'; object-src 'none'",
+  "strict-transport-security": "max-age=31536000",
+  "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()"
 };
 async function servePage(path, env, url) {
   const file = PAGES[path] || (path.startsWith("/static/") ? path.slice(7) : "");
@@ -1295,6 +1434,19 @@ async function teacherView(t, stations) {
     stations: stations ? stations.map((x) => ({ id: x._id, name: x.name, claimedAt: x.claimedAt, lastSeen: x.lastSeen })) : void 0
   };
 }
+var STATION_TOKENS = 8;
+var STATION_MACHINES = 8;
+var stationTokens = (st) => [st.tokenHash].concat(Array.isArray(st.tokens) ? st.tokens : []).filter(Boolean);
+var stationMachines = (st) => [st.machine].concat(Array.isArray(st.machines) ? st.machines : []).filter(Boolean);
+var uniq = (a) => Array.from(new Set(a));
+var CLAIM_WHY = {
+  none: "\u05D0\u05D9\u05DF \u05D1\u05DE\u05D7\u05E9\u05D1 \u05DB\u05E0\u05D9\u05E1\u05D4 \u05E9\u05DE\u05D5\u05E8\u05D4 (\u05D4\u05EA\u05E7\u05E0\u05D4 \u05D7\u05D3\u05E9\u05D4, \u05DE\u05E9\u05EA\u05DE\u05E9 Windows \u05D0\u05D7\u05E8, \u05D0\u05D5 \u05DE\u05D7\u05E9\u05D1 \u05E9\u05E9\u05D5\u05D7\u05D6\u05E8)",
+  unreadable: "\u05D4\u05DB\u05E0\u05D9\u05E1\u05D4 \u05D4\u05E9\u05DE\u05D5\u05E8\u05D4 \u05DC\u05D0 \u05E0\u05E4\u05EA\u05D7\u05D4 (\u05DE\u05D6\u05D4\u05D4 \u05D4\u05DE\u05D7\u05E9\u05D1 \u05D4\u05E9\u05EA\u05E0\u05D4, \u05D0\u05D5 \u05E9\u05D4\u05E7\u05D5\u05D1\u05E5 \u05E4\u05D2\u05D5\u05DD)",
+  pass: "\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D4\u05E9\u05DE\u05D5\u05E8 \u05DC\u05D0 \u05D0\u05D5\u05DE\u05EA (\u05EA\u05D0\u05E8\u05D9\u05DA \u05D4\u05DE\u05D7\u05E9\u05D1, \u05D0\u05D5 \u05D2\u05E8\u05E1\u05D4 \u05D9\u05E9\u05E0\u05D4)",
+  "server-invalid": "\u05D4\u05E9\u05E8\u05EA \u05D3\u05D7\u05D4 \u05D0\u05EA \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1 \u05D4\u05E9\u05DE\u05D5\u05E8",
+  "server-revoked": "\u05D4\u05E2\u05DE\u05D3\u05D4 \u05E9\u05D5\u05D7\u05E8\u05E8\u05D4 (\u05DE\u05D4\u05DE\u05D5\u05E8\u05D4 \u05D0\u05D5 \u05DE\u05D4\u05D4\u05E0\u05D4\u05DC\u05D4)"
+};
+var REJECT_WHY = { gone: "\u05D0\u05D9\u05DF \u05E2\u05DE\u05D3\u05D4 \u05DB\u05D6\u05D5", released: "\u05D4\u05E2\u05DE\u05D3\u05D4 \u05E9\u05D5\u05D7\u05E8\u05E8\u05D4", token: "\u05D4\u05DB\u05E8\u05D8\u05D9\u05E1 \u05DC\u05D0 \u05E9\u05D9\u05D9\u05DA \u05DC\u05E2\u05DE\u05D3\u05D4 (\u05D4\u05EA\u05D7\u05D1\u05E8\u05D5\u05EA \u05D7\u05D3\u05E9\u05D4 \u05D4\u05D7\u05DC\u05D9\u05E4\u05D4 \u05D0\u05D5\u05EA\u05D5)", machine: "\u05DE\u05D6\u05D4\u05D4 \u05D4\u05DE\u05D7\u05E9\u05D1 \u05E9\u05D5\u05E0\u05D4 \u05DE\u05D6\u05D4 \u05E9\u05DC \u05D4\u05E2\u05DE\u05D3\u05D4" };
 async function resolveToken(env, token, machine) {
   const store = db(env);
   const p = parseToken(token);
@@ -1302,15 +1454,17 @@ async function resolveToken(env, token, machine) {
   const hash = await sha256Hex(p.secret);
   if (p.kind === "s") {
     const st2 = await store.get("stations/" + p.id);
-    if (!st2 || !sameText(st2.tokenHash, hash)) return { status: st2 && !st2.active ? "revoked" : "invalid" };
-    if (machine && st2.machine && st2.machine !== machine) return { status: "invalid" };
-    if (!st2.active) return { status: "revoked" };
+    if (!st2) return { status: "invalid", why: "gone", stationId: p.id };
+    if (!st2.active) return { status: "revoked", why: "released", stationId: p.id, stationDoc: st2 };
+    if (!stationTokens(st2).some((h) => sameText(h, hash))) return { status: "invalid", why: "token", stationId: p.id, stationDoc: st2 };
+    const machines = stationMachines(st2);
+    if (machine && machines.length && !machines.includes(machine)) return { status: "invalid", why: "machine", stationId: p.id, stationDoc: st2 };
     const t = await store.get("teachers/" + st2.teacher);
     const base = {
       kind: "station",
       subject: "station:" + p.id,
       station: { id: p.id, name: st2.name, teacher: st2.teacher },
-      machine: st2.machine,
+      machine: machine && machines.includes(machine) ? machine : st2.machine,
       profile: { role: "station", name: st2.name, email: "" },
       teacher: t ? { name: t.name || "", school: t.school || "" } : null
     };
@@ -1354,6 +1508,7 @@ async function accessReply(env, r, extra) {
   if (r.teacher) out.teacher = r.teacher;
   if (r.station) out.station = { id: r.station.id, name: r.station.name };
   if (r.until) out.until = r.until;
+  if (r.why) out.why = r.why;
   Object.assign(out, extra || {});
   if (r.status === "ok") {
     out.pass = await makePass(env, s, {
@@ -1454,7 +1609,16 @@ async function redeem(request, env) {
 async function check(request, env) {
   const b = await readJson(request);
   const r = await resolveToken(env, b.token, machineOk(b.machine) ? b.machine : "");
+  if (r.stationDoc && r.why) await logStationReject(env, r).catch(() => {
+  });
   return accessReply(env, r);
+}
+async function logStationReject(env, r) {
+  const st = r.stationDoc, mark = today() + ":" + r.why;
+  if (st.rejectLog === mark) return;
+  const store = db(env);
+  await store.merge("stations/" + r.stationId, { rejectLog: mark });
+  await log(store, "\u05DE\u05D7\u05E9\u05D1: " + (st.name || ""), "station.rejected", st.teacher || "", REJECT_WHY[r.why] || r.why);
 }
 async function logout(request, env) {
   const b = await readJson(request);
@@ -1484,16 +1648,38 @@ async function claim(request, env) {
   const secret = randomToken(32);
   const hash = await sha256Hex(secret);
   const at = nowIso();
+  const stable = machineOk(b.stable) && b.stable !== b.machine ? b.stable : "";
   const res = await store.tx(async (t) => {
     const c = await t.get("teacherCodes/" + code);
     if (!c) return { status: "bad-code" };
-    const stationId = (await sha256Hex(c.teacher + "|" + b.machine)).slice(0, 32);
-    const [teacher, st] = await t.getMany(["teachers/" + c.teacher, "stations/" + stationId]);
+    let stationId = (await sha256Hex(c.teacher + "|" + b.machine)).slice(0, 32);
+    const keyId = stable ? (await sha256Hex(c.teacher + "|stable|" + stable)).slice(0, 32) : "";
+    let [teacher, st, key] = await t.getMany(["teachers/" + c.teacher, "stations/" + stationId].concat(keyId ? ["stationKeys/" + keyId] : []));
     if (!teacher || teacher.code !== code) return { status: "bad-code" };
     if (!teacher.active) return { status: "blocked", teacher };
+    let same = "";
+    if (!(st && st.active) && key && key.station && key.station !== stationId) {
+      const other = await t.get("stations/" + key.station);
+      if (other && other.active && other.teacher === c.teacher) {
+        st = other;
+        stationId = key.station;
+        same = "stable";
+      }
+    }
+    if (keyId && !(key && key.station === stationId)) t.set("stationKeys/" + keyId, { station: stationId, teacher: c.teacher, at });
     if (st && st.active) {
-      t.update("stations/" + stationId, { tokenHash: hash, name, lastSeen: at, client: clip(b.client, 60) });
-      return { status: "ok", stationId, teacher, again: true };
+      t.update("stations/" + stationId, {
+        tokenHash: hash,
+        tokens: uniq(stationTokens(st)).slice(0, STATION_TOKENS - 1),
+        machine: b.machine,
+        machines: uniq([b.machine].concat(stationMachines(st))).slice(0, STATION_MACHINES),
+        name,
+        lastSeen: at,
+        client: clip(b.client, 60),
+        againAt: at,
+        againCount: (st.againCount || 0) + 1
+      });
+      return { status: "ok", stationId, teacher, again: true, same };
     }
     if ((teacher.used || 0) >= (teacher.seats || 0)) return { status: "full", teacher };
     t.set("stations/" + stationId, {
@@ -1501,7 +1687,9 @@ async function claim(request, env) {
       teacherName: teacher.name || "",
       name,
       machine: b.machine,
+      machines: [b.machine],
       tokenHash: hash,
+      tokens: [],
       active: true,
       claimedAt: at,
       lastSeen: at,
@@ -1524,7 +1712,14 @@ async function claim(request, env) {
   }
   const tv = res.teacher ? { name: res.teacher.name || "", school: res.teacher.school || "", seats: res.teacher.seats || 0, used: (res.teacher.used || 0) + (res.status === "ok" && !res.again ? 1 : 0) } : null;
   if (res.status !== "ok") return { ok: true, status: res.status, teacher: tv };
-  await log(store, "\u05DE\u05D7\u05E9\u05D1: " + name, res.again ? "station.again" : "station.claim", res.teacher.email, appDetail(appOf(b.app), `${tv.used}/${tv.seats}`));
+  const why = CLAIM_WHY[String(b.why || "")] || "";
+  await log(
+    store,
+    "\u05DE\u05D7\u05E9\u05D1: " + name,
+    res.again ? "station.again" : "station.claim",
+    res.teacher.email,
+    appDetail(appOf(b.app), `${tv.used}/${tv.seats}`) + (res.same === "stable" ? " \xB7 \u05D0\u05D5\u05EA\u05D5 \u05DE\u05D7\u05E9\u05D1 \u05E2\u05DD \u05DE\u05D6\u05D4\u05D4 \u05D7\u05D3\u05E9" : "") + (res.again && why ? " \xB7 " + why : "")
+  );
   const token = "s." + res.stationId + "." + secret;
   const r = await resolveToken(env, token, b.machine);
   return accessReply(env, r, { token, teacher: tv });
@@ -1629,6 +1824,7 @@ async function me(request, env) {
     price: s.price,
     accessUntil: s.accessUntil,
     canPay: s.price > 0 && !!payProvider(env),
+    payBy: payProvider(env) ? payProvider(env).id : "",
     offlineDays: s.offlineDays,
     packages: t && payProvider(env) ? (s.packages || []).map((p, i) => ({ index: i, seats: p.seats, price: p.price })).filter((p) => p.price > 0) : []
   };
@@ -1700,18 +1896,35 @@ async function payStart(request, env) {
     if (st && st.accessUntil && st.accessUntil >= s.accessUntil) return { ok: true, already: true };
     pay = { kind: "student", amount: s.price, accessUntil: s.accessUntil, title: "\u05DE\u05D0\u05D2\u05E8 \u05D4\u05EA\u05E8\u05D2\u05D9\u05DC\u05D9\u05DD \u05DC\u05E9\u05E0\u05EA \u05D4\u05DC\u05D9\u05DE\u05D5\u05D3\u05D9\u05DD" };
   }
+  const hourAgo = new Date(Date.now() - 3600 * 1e3).toISOString();
+  const open = (await store.query("payments", { where: [["email", "==", u.email]] })).filter((x) => x.status === "pending" && String(x.createdAt) > hourAgo);
+  if (open.length >= 10) throw new Fail(429, "rate", "\u05D9\u05D5\u05EA\u05E8 \u05DE\u05D3\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D5\u05EA \u05EA\u05E9\u05DC\u05D5\u05DD. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D1\u05E2\u05D5\u05D3 \u05E9\u05E2\u05D4.");
   Object.assign(pay, { email: u.email, uid: u.uid, name: u.name || "", currency: "ILS", provider: provider.id, status: "pending", createdAt: nowIso() });
   await store.set("payments/" + pid, pay);
   const origin = new URL(request.url).origin;
-  const made = await provider.create(env, Object.assign({ id: pid }, pay), origin);
-  await store.merge("payments/" + pid, { providerRef: clip(made.ref, 120) });
+  let made;
+  try {
+    made = await provider.create(env, Object.assign({ id: pid }, pay), origin);
+  } catch (e) {
+    console.error("pay create", e && e.message);
+    await store.merge("payments/" + pid, { status: "failed", note: "\u05E9\u05D9\u05E8\u05D5\u05EA \u05D4\u05EA\u05E9\u05DC\u05D5\u05DD \u05DC\u05D0 \u05E2\u05E0\u05D4", updatedAt: nowIso() }).catch(() => {
+    });
+    throw new Fail(502, "pay_down", "\u05E9\u05D9\u05E8\u05D5\u05EA \u05D4\u05EA\u05E9\u05DC\u05D5\u05DD \u05DC\u05D0 \u05D6\u05DE\u05D9\u05DF \u05DB\u05E8\u05D2\u05E2. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D1\u05E2\u05D5\u05D3 \u05DB\u05DE\u05D4 \u05D3\u05E7\u05D5\u05EA.");
+  }
+  await store.merge("payments/" + pid, { providerRef: clip(made.ref, 120), providerOrder: clip(made.order || made.ref, 120) });
   return { ok: true, url: made.url, id: pid };
 }
 async function payNotify(request, env, providerId) {
   const provider = payProvider(env);
   if (!provider || provider.id !== providerId) throw new Fail(404, "not_found", "\u05DB\u05EA\u05D5\u05D1\u05EA \u05DC\u05D0 \u05DE\u05D5\u05DB\u05E8\u05EA");
   const store = db(env);
-  const n = await provider.verify(env, request, store);
+  let n;
+  try {
+    n = await provider.verify(env, request, store);
+  } catch (e) {
+    console.error("pay notify", e && e.message);
+    throw new Fail(400, "notify", "\u05D4\u05D4\u05D5\u05D3\u05E2\u05D4 \u05DC\u05D0 \u05D0\u05D5\u05DE\u05EA\u05D4.");
+  }
   if (!n || !n.id) return { ok: true, ignored: true };
   await settlePayment(env, n);
   return provider.ack ? provider.ack() : { ok: true };
@@ -1721,9 +1934,14 @@ async function settlePayment(env, n) {
   const result = await store.tx(async (t) => {
     const p = await t.get("payments/" + n.id);
     if (!p) return { skip: "unknown" };
-    if (n.amount !== void 0 && +n.amount !== +p.amount && n.status === "paid") {
-      t.update("payments/" + n.id, { status: "mismatch", note: `\u05E1\u05DB\u05D5\u05DD ${n.amount} \u05D1\u05DE\u05E7\u05D5\u05DD ${p.amount}`, updatedAt: nowIso() });
-      return { skip: "mismatch", p };
+    if (n.status === "paid" && p.status !== "paid") {
+      const noAmount = n.amount === void 0 && p.provider !== "demo";
+      const wrongAmount = n.amount !== void 0 && Math.round(+n.amount * 100) !== Math.round(+p.amount * 100);
+      const wrongCurrency = !!n.currency && !!p.currency && String(n.currency).toUpperCase() !== String(p.currency).toUpperCase();
+      if (noAmount || wrongAmount || wrongCurrency) {
+        t.update("payments/" + n.id, { status: "mismatch", note: `\u05E9\u05D5\u05DC\u05DD ${n.amount === void 0 ? "?" : n.amount} ${n.currency || ""} \u05D1\u05DE\u05E7\u05D5\u05DD ${p.amount} ${p.currency || ""}`.replace(/\s+/g, " "), updatedAt: nowIso() });
+        return { skip: "mismatch", p };
+      }
     }
     if (p.status === n.status) return { skip: "same", p };
     const seats = p.kind === "seats";

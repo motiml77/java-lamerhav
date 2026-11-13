@@ -37,7 +37,8 @@ async function pay() {
     return show(h('div', { class: 'badge-icon orange' }, icon(ICONS.info, 30, '#9A3412')), h('h1', null, 'התשלום עוד לא פתוח'),
       h('p', { class: 'muted' }, 'עוד מעט אפשר יהיה לשלם כאן. בינתיים, אם המורה פתח עמדה בכיתה — המאגר פתוח שם.'));
   }
-  const go = h('button', { type: 'button', class: 'btn primary lg wide' }, icon(ICONS.lock, 20, '#fff'), 'מעבר לתשלום מאובטח');
+  const paypal = me.payBy === 'paypal';
+  const go = h('button', { type: 'button', class: 'btn primary lg wide' }, icon(ICONS.lock, 20, '#fff'), paypal ? 'מעבר לתשלום מאובטח ב-PayPal' : 'מעבר לתשלום מאובטח');
   go.onclick = () => busy(go, async () => {
     const s = await api('POST', '/v1/pay/start', {});
     if (s.already) return openScreen(await api('GET', '/v1/me'));
@@ -51,9 +52,11 @@ async function pay() {
         h('span', { class: 'small muted' }, `פתוח עד ${fmtDate(me.accessUntil)} · בכל המחשבים שלך`)),
       h('div', { class: 'row', style: { gap: '4px', alignItems: 'baseline' } }, h('span', { class: 'display', style: { fontWeight: 700, fontSize: '32px' } }, String(me.price)), h('span', { style: { fontSize: '18px', fontWeight: 600 } }, '₪'))),
     h('div', { class: 'stack', style: { gap: '8px', width: '100%', textAlign: 'right' } }, h('span', { class: 'small', style: { fontWeight: 700 } }, 'אפשר לשלם ב:'),
-      h('div', { class: 'chips' }, ['ביט', 'כרטיס אשראי', 'Apple Pay', 'Google Pay'].map(x => h('span', { class: 'chip' }, x)))),
+      h('div', { class: 'chips' }, (paypal ? ['PayPal', 'כרטיס אשראי (דרך PayPal)'] : ['ביט', 'כרטיס אשראי', 'Apple Pay', 'Google Pay']).map(x => h('span', { class: 'chip' }, x)))),
     go,
-    h('p', { class: 'small muted', style: { textAlign: 'right' } }, 'התשלום נעשה בדף המאובטח של חברת הסליקה — אנחנו לא רואים את פרטי הכרטיס. קבלה נשלחת אוטומטית למייל.'));
+    h('p', { class: 'small muted', style: { textAlign: 'right' } }, paypal
+      ? 'התשלום נעשה בדף המאובטח של PayPal — אנחנו לא רואים את פרטי הכרטיס או החשבון. אישור התשלום נשלח מ-PayPal למייל.'
+      : 'התשלום נעשה בדף המאובטח של חברת הסליקה — אנחנו לא רואים את פרטי הכרטיס. קבלה נשלחת אוטומטית למייל.'));
 }
 
 async function waitPaid() {

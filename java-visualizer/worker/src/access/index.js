@@ -158,6 +158,26 @@ async function teacherView(t, stations) {
   };
 }
 
+/*
+ * עמדה אחת = מחשב אחד, אבל במחשב אחד יש כמה חשבונות Windows וכמה תוכנות. כל אחד מהם יכול להתחבר שוב עם הקוד (למשל כשהקובץ
+ * השמור נמצא אצל משתמש אחר), ולפעמים עם מזהה מחשב אחר (המזהה האקראי נשמר אצל כל משתמש בנפרד כשאין הרשאה לתיקייה המשותפת).
+ * פעם כל התחברות כזו החליפה את הכרטיס של העמדה, והכרטיס של המשתמש הקודם נדחה ("העמדה השתחררה לבד"). עכשיו העמדה מחזיקה
+ * את הכרטיסים האחרונים (tokens) ואת המזהים האחרונים (machines), וכולם תקפים עד שהמורה או ההנהלה משחררים אותה.
+ */
+const STATION_TOKENS = 8, STATION_MACHINES = 8;
+const stationTokens = st => [st.tokenHash].concat(Array.isArray(st.tokens) ? st.tokens : []).filter(Boolean);
+const stationMachines = st => [st.machine].concat(Array.isArray(st.machines) ? st.machines : []).filter(Boolean);
+const uniq = a => Array.from(new Set(a));
+/** למה המחשב מתחבר שוב (התוכנה שולחת; נרשם ביומן, כדי שיהיה אפשר לראות למה עמדה ביקשה קוד מחדש) */
+const CLAIM_WHY = {
+  none: 'אין במחשב כניסה שמורה (התקנה חדשה, משתמש Windows אחר, או מחשב ששוחזר)',
+  unreadable: 'הכניסה השמורה לא נפתחה (מזהה המחשב השתנה, או שהקובץ פגום)',
+  pass: 'האישור השמור לא אומת (תאריך המחשב, או גרסה ישנה)',
+  'server-invalid': 'השרת דחה את הכרטיס השמור',
+  'server-revoked': 'העמדה שוחררה (מהמורה או מההנהלה)',
+};
+const REJECT_WHY = { gone: 'אין עמדה כזו', released: 'העמדה שוחררה', token: 'הכרטיס לא שייך לעמדה (התחברות חדשה החליפה אותו)', machine: 'מזהה המחשב שונה מזה של העמדה' };
+
 /** בודק כרטיס: מי זה, והאם מותר לו עכשיו. status: ok / pay / blocked / not-teacher / revoked / invalid */
 export async function resolveToken(env, token, machine) {
   const store = db(env);
@@ -166,11 +186,15 @@ export async function resolveToken(env, token, machine) {
   const hash = await sha256Hex(p.secret);
   if (p.kind === 's') {
     const st = await store.get('stations/' + p.id);
-    if (!st || !sameText(st.tokenHash, hash)) return { status: st && !st.active ? 'revoked' : 'invalid' };
-    if (machine && st.machine && st.machine !== machine) return { status: 'invalid' };
-    if (!st.active) return { status: 'revoked' };
+    // why (ליומן ולתוכנה): gone — אין עמדה כזו; released — שוחררה; token — הכרטיס לא של העמדה; machine — מחשב אחר
+    if (!st) return { status: 'invalid', why: 'gone', stationId: p.id };
+    if (!st.active) return { status: 'revoked', why: 'released', stationId: p.id, stationDoc: st };
+    if (!stationTokens(st).some(h => sameText(h, hash))) return { status: 'invalid', why: 'token', stationId: p.id, stationDoc: st };
+    const machines = stationMachines(st);
+    if (machine && machines.length && !machines.includes(machine)) return { status: 'invalid', why: 'machine', stationId: p.id, stationDoc: st };
     const t = await store.get('teachers/' + st.teacher);
-    const base = { kind: 'station', subject: 'station:' + p.id, station: { id: p.id, name: st.name, teacher: st.teacher }, machine: st.machine,
+    // האישור נחתם למזהה שהמחשב שלח (אחד מהמזהים של העמדה); לקוח שלא שלח — המזהה האחרון
+    const base = { kind: 'station', subject: 'station:' + p.id, station: { id: p.id, name: st.name, teacher: st.teacher }, machine: machine && machines.includes(machine) ? machine : st.machine,
       profile: { role: 'station', name: st.name, email: '' }, teacher: t ? { name: t.name || '', school: t.school || '' } : null };
     if (!t || !t.active) return Object.assign(base, { status: 'blocked' });
     if (!st.lastSeen || Date.now() - Date.parse(st.lastSeen) > SESSION_TOUCH_MS) {
@@ -205,6 +229,7 @@ async function accessReply(env, r, extra) {
   if (r.teacher) out.teacher = r.teacher;
   if (r.station) out.station = { id: r.station.id, name: r.station.name };
   if (r.until) out.until = r.until;
+  if (r.why) out.why = r.why;
   Object.assign(out, extra || {});
   if (r.status === 'ok') {
     out.pass = await makePass(env, s, {
@@ -295,7 +320,17 @@ async function redeem(request, env) {
 async function check(request, env) {
   const b = await readJson(request);
   const r = await resolveToken(env, b.token, machineOk(b.machine) ? b.machine : '');
+  if (r.stationDoc && r.why) await logStationReject(env, r).catch(() => {});
   return accessReply(env, r);
+}
+
+/** עמדה קיימת שהכרטיס שלה נדחה: נרשם ביומן (פעם ביום לכל עמדה וסיבה), כדי שיהיה אפשר לראות למה מחשב ביקש קוד מחדש */
+async function logStationReject(env, r) {
+  const st = r.stationDoc, mark = today() + ':' + r.why;
+  if (st.rejectLog === mark) return;
+  const store = db(env);
+  await store.merge('stations/' + r.stationId, { rejectLog: mark });
+  await log(store, 'מחשב: ' + (st.name || ''), 'station.rejected', st.teacher || '', REJECT_WHY[r.why] || r.why);
 }
 
 async function logout(request, env) {
@@ -330,20 +365,34 @@ async function claim(request, env) {
   const secret = randomToken(32);
   const hash = await sha256Hex(secret);
   const at = nowIso();
+  // stable: מזהה קבוע של המחשב עצמו (בלי החלק האקראי שנשמר בקובץ). לפיו מזהים שזה אותו מחשב גם כשהמזהה הרגיל התחלף
+  // (מחשב ששוחזר, קובץ שנמחק, משתמש Windows אחר) — ואז זו אותה עמדה, ולא נלקח עוד מקום מהמורה
+  const stable = machineOk(b.stable) && b.stable !== b.machine ? b.stable : '';
   const res = await store.tx(async t => {
     const c = await t.get('teacherCodes/' + code);
     if (!c) return { status: 'bad-code' };
-    const stationId = (await sha256Hex(c.teacher + '|' + b.machine)).slice(0, 32);
-    const [teacher, st] = await t.getMany(['teachers/' + c.teacher, 'stations/' + stationId]);
+    let stationId = (await sha256Hex(c.teacher + '|' + b.machine)).slice(0, 32);
+    const keyId = stable ? (await sha256Hex(c.teacher + '|stable|' + stable)).slice(0, 32) : '';
+    let [teacher, st, key] = await t.getMany(['teachers/' + c.teacher, 'stations/' + stationId].concat(keyId ? ['stationKeys/' + keyId] : []));
     if (!teacher || teacher.code !== code) return { status: 'bad-code' };
     if (!teacher.active) return { status: 'blocked', teacher };
-    if (st && st.active) {   // אותו מחשב מתחבר שוב (התקנה מחדש...) — אותו היתר, כרטיס חדש
-      t.update('stations/' + stationId, { tokenHash: hash, name, lastSeen: at, client: clip(b.client, 60) });
-      return { status: 'ok', stationId, teacher, again: true };
+    let same = '';
+    if (!(st && st.active) && key && key.station && key.station !== stationId) {
+      const other = await t.get('stations/' + key.station);
+      if (other && other.active && other.teacher === c.teacher) { st = other; stationId = key.station; same = 'stable'; }
+    }
+    if (keyId && !(key && key.station === stationId)) t.set('stationKeys/' + keyId, { station: stationId, teacher: c.teacher, at });
+    if (st && st.active) {   // אותו מחשב מתחבר שוב (התקנה מחדש, משתמש אחר, תוכנה אחרת) — אותו היתר; הכרטיסים הקודמים נשארים תקפים
+      t.update('stations/' + stationId, {
+        tokenHash: hash, tokens: uniq(stationTokens(st)).slice(0, STATION_TOKENS - 1),
+        machine: b.machine, machines: uniq([b.machine].concat(stationMachines(st))).slice(0, STATION_MACHINES),
+        name, lastSeen: at, client: clip(b.client, 60), againAt: at, againCount: (st.againCount || 0) + 1,
+      });
+      return { status: 'ok', stationId, teacher, again: true, same };
     }
     if ((teacher.used || 0) >= (teacher.seats || 0)) return { status: 'full', teacher };
     t.set('stations/' + stationId, {
-      teacher: c.teacher, teacherName: teacher.name || '', name, machine: b.machine, tokenHash: hash, active: true,
+      teacher: c.teacher, teacherName: teacher.name || '', name, machine: b.machine, machines: [b.machine], tokenHash: hash, tokens: [], active: true,
       claimedAt: at, lastSeen: at, client: clip(b.client, 60),
     });
     t.update('teachers/' + c.teacher, { updatedAt: at }, { used: 1 });
@@ -359,7 +408,9 @@ async function claim(request, env) {
   }
   const tv = res.teacher ? { name: res.teacher.name || '', school: res.teacher.school || '', seats: res.teacher.seats || 0, used: (res.teacher.used || 0) + (res.status === 'ok' && !res.again ? 1 : 0) } : null;
   if (res.status !== 'ok') return { ok: true, status: res.status, teacher: tv };
-  await log(store, 'מחשב: ' + name, res.again ? 'station.again' : 'station.claim', res.teacher.email, appDetail(appOf(b.app), `${tv.used}/${tv.seats}`));
+  const why = CLAIM_WHY[String(b.why || '')] || '';
+  await log(store, 'מחשב: ' + name, res.again ? 'station.again' : 'station.claim', res.teacher.email,
+    appDetail(appOf(b.app), `${tv.used}/${tv.seats}`) + (res.same === 'stable' ? ' · אותו מחשב עם מזהה חדש' : '') + (res.again && why ? ' · ' + why : ''));
   const token = 's.' + res.stationId + '.' + secret;
   const r = await resolveToken(env, token, b.machine);
   return accessReply(env, r, { token, teacher: tv });
@@ -472,7 +523,7 @@ async function me(request, env) {
     })),
     devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt })),
     payments: payments.filter(p => p.status !== 'pending').sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ kind: p.kind || 'student', seats: p.seats || 0, amount: p.amount, status: p.status, createdAt: p.createdAt, paidAt: p.paidAt || '' })),
-    price: s.price, accessUntil: s.accessUntil, canPay: s.price > 0 && !!payProvider(env), offlineDays: s.offlineDays,
+    price: s.price, accessUntil: s.accessUntil, canPay: s.price > 0 && !!payProvider(env), payBy: payProvider(env) ? payProvider(env).id : '', offlineDays: s.offlineDays,
     packages: t && payProvider(env) ? (s.packages || []).map((p, i) => ({ index: i, seats: p.seats, price: p.price })).filter(p => p.price > 0) : [],
   };
 }
@@ -550,11 +601,23 @@ async function payStart(request, env) {
     if (st && st.accessUntil && st.accessUntil >= s.accessUntil) return { ok: true, already: true };
     pay = { kind: 'student', amount: s.price, accessUntil: s.accessUntil, title: 'מאגר התרגילים לשנת הלימודים' };
   }
+  // לא יותר מ-10 תשלומים שהתחילו ולא הושלמו בשעה לכל חשבון (כל אחד פותח הזמנה אצל שירות התשלום)
+  const hourAgo = new Date(Date.now() - 3600 * 1000).toISOString();
+  const open = (await store.query('payments', { where: [['email', '==', u.email]] })).filter(x => x.status === 'pending' && String(x.createdAt) > hourAgo);
+  if (open.length >= 10) throw new Fail(429, 'rate', 'יותר מדי ניסיונות תשלום. נסו שוב בעוד שעה.');
   Object.assign(pay, { email: u.email, uid: u.uid, name: u.name || '', currency: 'ILS', provider: provider.id, status: 'pending', createdAt: nowIso() });
   await store.set('payments/' + pid, pay);
   const origin = new URL(request.url).origin;
-  const made = await provider.create(env, Object.assign({ id: pid }, pay), origin);
-  await store.merge('payments/' + pid, { providerRef: clip(made.ref, 120) });
+  let made;
+  try {
+    made = await provider.create(env, Object.assign({ id: pid }, pay), origin);
+  } catch (e) {
+    console.error('pay create', e && e.message);
+    await store.merge('payments/' + pid, { status: 'failed', note: 'שירות התשלום לא ענה', updatedAt: nowIso() }).catch(() => {});
+    throw new Fail(502, 'pay_down', 'שירות התשלום לא זמין כרגע. נסו שוב בעוד כמה דקות.');
+  }
+  // providerOrder: ההזמנה שהשרת יצר לתשלום הזה — רק אותה אפשר לגבות עבורו (providerRef מתחלף אחר כך באסמכתה של הגבייה)
+  await store.merge('payments/' + pid, { providerRef: clip(made.ref, 120), providerOrder: clip(made.order || made.ref, 120) });
   return { ok: true, url: made.url, id: pid };
 }
 
@@ -562,7 +625,14 @@ async function payNotify(request, env, providerId) {
   const provider = payProvider(env);
   if (!provider || provider.id !== providerId) throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
   const store = db(env);
-  const n = await provider.verify(env, request, store);   // {id, status: paid|refunded|failed, ref, amount}
+  let n;
+  try {
+    n = await provider.verify(env, request, store);   // {id, status: paid|refunded|failed, ref, amount, currency}
+  } catch (e) {
+    // הודעה שלא אומתה (חתימה שגויה / לא מוגדר): נדחית, ושירות התשלום ינסה שוב
+    console.error('pay notify', e && e.message);
+    throw new Fail(400, 'notify', 'ההודעה לא אומתה.');
+  }
   if (!n || !n.id) return { ok: true, ignored: true };
   await settlePayment(env, n);
   return provider.ack ? provider.ack() : { ok: true };
@@ -574,9 +644,15 @@ export async function settlePayment(env, n) {
   const result = await store.tx(async t => {
     const p = await t.get('payments/' + n.id);
     if (!p) return { skip: 'unknown' };
-    if (n.amount !== undefined && +n.amount !== +p.amount && n.status === 'paid') {
-      t.update('payments/' + n.id, { status: 'mismatch', note: `סכום ${n.amount} במקום ${p.amount}`, updatedAt: nowIso() });
-      return { skip: 'mismatch', p };
+    // תשלום נפתח רק אם שולם בדיוק הסכום שנקבע, באותו מטבע (ספק אמיתי חייב לדווח סכום; בלי סכום — רק ספק הבדיקות)
+    if (n.status === 'paid' && p.status !== 'paid') {
+      const noAmount = n.amount === undefined && p.provider !== 'demo';
+      const wrongAmount = n.amount !== undefined && Math.round(+n.amount * 100) !== Math.round(+p.amount * 100);
+      const wrongCurrency = !!n.currency && !!p.currency && String(n.currency).toUpperCase() !== String(p.currency).toUpperCase();
+      if (noAmount || wrongAmount || wrongCurrency) {
+        t.update('payments/' + n.id, { status: 'mismatch', note: `שולם ${n.amount === undefined ? '?' : n.amount} ${n.currency || ''} במקום ${p.amount} ${p.currency || ''}`.replace(/\s+/g, ' '), updatedAt: nowIso() });
+        return { skip: 'mismatch', p };
+      }
     }
     if (p.status === n.status) return { skip: 'same', p };
     const seats = p.kind === 'seats';
