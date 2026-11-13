@@ -9,6 +9,10 @@
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,)">
       <ProductArchitecture>amd64</ProductArchitecture>
     </InstallationTarget>
+    <!-- Visual Studio ל-ARM64 (מחשבים עם Snapdragon וכו', מ-17.4): ההרחבה היא קוד מנוהל (AnyCPU) ומתאימה גם לו -->
+    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.4,)">
+      <ProductArchitecture>arm64</ProductArchitecture>
+    </InstallationTarget>
   </Installation>
   <Dependencies>
     <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" d:Source="Manual" Version="[4.7.2,)" />

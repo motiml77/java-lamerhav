@@ -374,6 +374,7 @@ namespace DsViz
                 {
                     // מאגר שאלות (גרסת המעבדה): dsviz-bank-vs.jar שליד ההתקנה, לפני dsviz.jar (יש בו חלקים עדכניים יותר)
                     string bank = Path.Combine(install, "lab", "dsviz-bank-vs.jar");
+                    if (!File.Exists(bank)) bank = Path.Combine(install, "bank", "dsviz-bank-vs.jar");   // ההתקנה שמה אותו גם כאן
                     if (!File.Exists(bank)) { Console.Error.WriteLine("DSViz: מאגר השאלות לא מותקן"); return 0; }
                     cp.Add(bank);
                     cp.Add(jar);

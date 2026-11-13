@@ -48,6 +48,10 @@ public final class SubmitCli {
             out.println("{\"error\": \"unknown command\"}");
             System.exit(2);
         }
+        if (Account.stationOnly()) {   // עמדת מחשב: רק מאגר השאלות (השרת חוסם בכל מקרה)
+            emit("error", Account.STATION_AI_MESSAGE.replace("\n\n", " "));
+            System.exit(1);
+        }
         try {
             submit(m, wc);
         } catch (Throwable t) {

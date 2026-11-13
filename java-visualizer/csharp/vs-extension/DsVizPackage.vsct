@@ -41,9 +41,7 @@
       <Button guid="guidDsVizCmdSet" id="CmdBank" priority="0x0300" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="Library" />
-        <!-- מאגר השאלות הוא של המעבדה בלבד: מוצג רק כשהוא מותקן (BeforeQueryStatus ב-DsVizPackage) -->
-        <CommandFlag>DefaultInvisible</CommandFlag>
-        <CommandFlag>DynamicVisibility</CommandFlag>
+        <!-- תמיד גלוי ולחיץ; אם המאגר חסר, הלחיצה מתקנת או מסבירה (BankReady ב-DsVizPackage) -->
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>מאגר שאלות</ButtonText></Strings>
@@ -51,9 +49,7 @@
       <Button guid="guidDsVizCmdSet" id="CmdQuestion" priority="0x0350" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="Document" />
-        <!-- "השאלה" (כמו בסרגל של Eclipse): פותח שוב את החלון הצף של השאלה האחרונה מהמאגר (BankVs question). מוצג רק כשהמאגר מותקן -->
-        <CommandFlag>DefaultInvisible</CommandFlag>
-        <CommandFlag>DynamicVisibility</CommandFlag>
+        <!-- תמיד גלוי ולחיץ; אם המאגר חסר, הלחיצה מתקנת או מסבירה (BankReady ב-DsVizPackage) -->
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>השאלה</ButtonText></Strings>

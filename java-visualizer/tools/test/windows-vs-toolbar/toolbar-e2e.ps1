@@ -23,6 +23,13 @@ $script:lines = New-Object System.Collections.Generic.List[string]
 function Log([string]$s) { Write-Host $s; $script:lines.Add($s) }
 function Ok([string]$id, [string]$s) { Log "  ok   $id  $s" }
 function Fail([string]$id, [string]$s) { $script:fails++; Log "  FAIL $id  $s" }
+# dotnet new sln: ב-.NET 10 ואילך נוצר ‎.slnx‎ במקום ‎.sln‎ — מחזיר את הקובץ שנוצר בפועל
+function NewSln([string]$name, [string]$dir) {
+    & dotnet new sln -n $name -o $dir --force | Out-Null
+    $p = Join-Path $dir "$name.sln"
+    if (-not (Test-Path $p) -and (Test-Path "$p`x")) { $p = "$p`x" }
+    return $p
+}
 function Info([string]$s) { Log "  ..   $s" }
 function Check([string]$id, [bool]$cond, [string]$s, [string]$why = '') { if ($cond) { Ok $id $s } else { Fail $id ($s + $(if ($why) { " — $why" } else { '' })) } }
 function Save-Summary() {
@@ -334,6 +341,63 @@ if ($Vsix -and (Test-Path $Vsix)) {
     & $iv -Vsix (Resolve-Path $Vsix).Path 2>&1 | ForEach-Object { Info "install-vsix: $_" }
 }
 
+# ------------------------------------------------------------------ 2ב. שדרוג מגרסה בלי מאגר
+# כמו מי שהייתה אצלו הגרסה הציבורית הישנה (בלי מאגר השאלות): Visual Studio נפתח פעם אחת כשהמאגר לא מותקן — הכפתור "מאגר שאלות"
+# מוסתר, ו-Visual Studio זוכר את זה. אחר כך ההתקנה החדשה מוסיפה את המאגר — והכפתור חייב להופיע (בסעיף 4)
+Log "== 2ב. Visual Studio פעם ראשונה בלי המאגר (כמו הגרסה הציבורית הישנה), ואז המאגר מותקן"
+$labJar = Join-Path $dsviz 'lab\dsviz-bank-vs.jar'
+$bankCopy = Join-Path $dsviz 'bank\dsviz-bank-vs.jar'
+$aside = Join-Path $env:RUNNER_TEMP 'dsviz-bank-vs.jar.aside'
+$asideBank = Join-Path $env:RUNNER_TEMP 'dsviz-bank-vs.jar.bank-aside'
+if (Test-Path $labJar) { Move-Item $labJar $aside -Force }
+if (Test-Path $bankCopy) { Move-Item $bankCopy $asideBank -Force }
+Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hidden
+$t0 = Get-Date
+$p0 = Start-Process $devenv -ArgumentList "`"$sln`"" -PassThru
+$up = $false
+while (((Get-Date) - $t0).TotalMinutes -lt 12) {
+    Start-Sleep 5
+    $p0.Refresh()
+    if ($p0.HasExited) { break }
+    if (SkipFirstRun $p0.Id) { Start-Sleep 3 }
+    $p0.Refresh()
+    if ($p0.MainWindowTitle -like '*- Microsoft Visual Studio*') { $up = $true; break }
+}
+$seen = $null
+if ($up) {
+    for ($i = 0; $i -lt 40 -and -not $seen; $i++) { SkipFirstRun $p0.Id | Out-Null; $seen = ToolbarButton $p0.Id @('תרגיל חדש'); if (-not $seen) { Start-Sleep 4 } }
+    Start-Sleep 15   # ההרחבה מסנכרנת את הכפתורים — ו-Visual Studio שומר את הסרגל כשהוא נסגר
+    # סרגל "מקופל": DSViz באותה שורה עם סרגל אחר (כאן Build, לא Standard) — כך Visual Studio שומר אותו, והכפתורים נדחסים מאחורי החץ.
+    # אחרי הבדיקות החוזרות של ההרחבה בדקה הראשונה (עד ~105 שניות אחרי הטעינה), אחרת היא מחזירה אותו לשורה משלו כבר כאן
+    Start-Sleep 100
+    $script:crowded = ''
+    try {
+        $bars0 = (GetDte).CommandBars
+        $std0 = $bars0.Item('Standard'); $bld0 = $bars0.Item('Build'); $ds0 = $bars0.Item('DSViz')
+        $bld0.Visible = $true
+        $bld0.Position = $std0.Position
+        $bld0.RowIndex = $std0.RowIndex + 1
+        $ds0.Position = $std0.Position
+        $ds0.RowIndex = $bld0.RowIndex
+        $ds0.Left = $bld0.Left + $bld0.Width + 4
+        Start-Sleep 2
+        $script:crowded = "Standard row=$($std0.RowIndex) · Build row=$($bld0.RowIndex) · DSViz row=$($ds0.RowIndex)"
+    } catch { $script:crowded = "DTE: $_" }
+    Info "סרגל מקופל (DSViz באותה שורה עם Build): $script:crowded"
+}
+# "מאגר שאלות" תמיד גלוי ולחיץ — גם כשהמאגר לא במקום (הלחיצה מתקנת או מסבירה), לא כפתור אפור / מוסתר
+$bb = ToolbarButton $p0.Id @('מאגר שאלות')
+$noBank = ($null -ne $bb) -and $bb.Current.IsEnabled -and -not $bb.Current.IsOffscreen
+Info ("בלי המאגר: Visual Studio עלה={0}, הסרגל={1}, 'מאגר שאלות' גלוי ולחיץ={2} · {3}" -f $up, ($null -ne $seen), $noBank, (DescEl $bb))
+Shot '00-vs-without-bank'
+$p0.Refresh()
+if (-not $p0.HasExited) { $p0.CloseMainWindow() | Out-Null; if (-not $p0.WaitForExit(90000)) { Info 'Visual Studio לא נסגר — סוגרים בכוח'; Stop-Process -Id $p0.Id -Force -ErrorAction SilentlyContinue } }
+Start-Sleep 5
+Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+if (Test-Path $aside) { Move-Item $aside $labJar -Force }
+if (Test-Path $asideBank) { Move-Item $asideBank $bankCopy -Force }
+Check 'upgrade-prep' ($up -and $noBank) "Visual Studio בלי המאגר במקום: 'מאגר שאלות' בכל זאת גלוי ולחיץ (תמיד) — עכשיו המאגר מותקן" ''
+
 # ------------------------------------------------------------------ 3. Visual Studio עם הפתרון
 Log "== 3. Visual Studio נפתח עם הפתרון DataStructures-CS"
 Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hidden
@@ -368,10 +432,41 @@ for ($i = 0; $i -lt 40; $i++) {   # עד ~2.5 דקות: ההרחבה נטענת 
     SkipFirstRun $vsP.Id | Out-Null
     Start-Sleep 4
 }
+# הסרגל כולו גלוי: DSViz בשורה משלו (לא עם Build / Standard — שם הכפתורים נדחסים מאחורי החץ "עוד"), וכל כפתור גלוי ולחיץ
+function ToolbarRow() {
+    try {
+        $bars1 = (GetDte).CommandBars
+        $ds1 = $bars1.Item('DSViz')
+        $shared = @()
+        foreach ($nm in 'Standard', 'Build', 'Debug', 'Text Editor', 'Debug Location', 'Layout') {
+            try { $b1 = $bars1.Item($nm); if ($b1.Visible -and $b1.Position -eq $ds1.Position -and $b1.RowIndex -eq $ds1.RowIndex) { $shared += $nm } } catch { }
+        }
+        return "visible=$($ds1.Visible) row=$($ds1.RowIndex) shared=$($shared -join ',')"
+    } catch { return "DTE: $_" }
+}
+$row = ''
+for ($i = 0; $i -lt 30; $i++) { $row = ToolbarRow; if ($row -match '^visible=True row=\d+ shared=$') { break }; Start-Sleep 4 }
+Check 'toolbar-own-row' ($row -match '^visible=True row=\d+ shared=$') "הסרגל של DSViz גלוי ובשורה משלו — גם אחרי שנשמר באותה שורה עם Build (2ב), כך שאף כפתור לא מקופל מאחורי החץ" "$row · לפני: $script:crowded"
+Start-Sleep 3
+$btn = @{}
+foreach ($n in ($want + $bankNames)) { $e = ToolbarButton $vsP.Id @($n); if ($e) { $btn[$n] = $e } }
 Shot '02-vs-toolbar'
+$vsRect = $null; try { $vsP.Refresh(); $vsRect = [Windows.Automation.AutomationElement]::FromHandle($vsP.MainWindowHandle).Current.BoundingRectangle } catch { }
+function ShownAndEnabled($el) {
+    if (-not $el) { return $false }
+    try {
+        $c = $el.Current; $r = $c.BoundingRectangle
+        $inside = (-not $vsRect) -or ($r.Right -le $vsRect.Right + 2 -and $r.Left -ge $vsRect.Left - 2)
+        return ($c.IsEnabled -and -not $c.IsOffscreen -and $r.Width -gt 0 -and $r.Height -gt 0 -and $inside)
+    } catch { return $false }
+}
+foreach ($n in @('תרגיל חדש', 'הוספת מבנה נתונים', 'מאגר שאלות', 'השאלה', 'שליחת תרגיל', 'הרצה ויזואלית', 'הדרכה')) {
+    $e = ToolbarButton $vsP.Id @($n)
+    Check 'toolbar-shown-enabled' (ShownAndEnabled $e) "הכפתור '$n' גלוי בסרגל ולחיץ (לא אפור ולא מאחורי החץ 'עוד')" (DescEl $e)
+}
 foreach ($n in $want) { Check 'toolbar-button' ($null -ne $btn[$n]) "בסרגל יש כפתור '$n'" ''; if ($btn[$n]) { Info "   $(DescEl $btn[$n])" } }
 $bankName = $bankNames | Where-Object { $btn[$_] } | Select-Object -First 1
-Check 'toolbar-bank' ($null -ne $bankName) "בסרגל יש כפתור מאגר ('$bankName') — המאגר מותקן" ''
+Check 'toolbar-bank' ($null -ne $bankName) "בסרגל יש כפתור מאגר ('$bankName') — המאגר מותקן, גם אחרי ש-Visual Studio כבר נפתח פעם בלי המאגר (2ב)" ''
 if ($bankName) { Info "   $(DescEl $btn[$bankName])" }
 $all = @(VsElements $vsP.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -match 'DSViz|מאגר|שליחת|תרגיל|הרצה ויזואלית|הדרכה|מבנה נתונים' } | Select-Object -Unique)
 Info "כל הרכיבים הקשורים ל-DSViz ב-UIA: $($all -join ' ; ')"
@@ -728,9 +823,8 @@ Log "== 7ב. פרויקט Console App רגיל (כמו 'Create a new project' ->
 $plainDir = Join-Path $env:USERPROFILE 'source\repos\PlainQueue'
 Remove-Item -Recurse -Force $plainDir -ErrorAction SilentlyContinue
 & dotnet new console -n PlainQueue -o $plainDir --force | Out-Null          # אותה תבנית Console App ש-Visual Studio משתמש בה
-& dotnet new sln -n PlainQueue -o $plainDir --force | Out-Null
-& dotnet sln (Join-Path $plainDir 'PlainQueue.sln') add (Join-Path $plainDir 'PlainQueue.csproj') | Out-Null
-$plainSln = Join-Path $plainDir 'PlainQueue.sln'
+$plainSln = NewSln 'PlainQueue' $plainDir
+& dotnet sln $plainSln add (Join-Path $plainDir 'PlainQueue.csproj') | Out-Null
 $plainProg = Join-Path $plainDir 'Program.cs'
 $studentCode = @'
 using Unit4.CollectionsLib;
@@ -761,7 +855,7 @@ try {
 $sln2 = ''; try { $sln2 = $d.Solution.FullName } catch { }
 Info "פתרון פתוח: $sln2"
 $d = $null
-Check 'plain-open' ($plainOpen -and $typed -and $sln2 -like '*PlainQueue.sln') "פרויקט Console App רגיל נפתח ב-Visual Studio, והקוד עם התור נכתב בעורך (עדיין לא נשמר)" "פתרון: $sln2 · נכתב: $typed"
+Check 'plain-open' ($plainOpen -and $typed -and $sln2 -like '*PlainQueue.sln*') "פרויקט Console App רגיל נפתח ב-Visual Studio, והקוד עם התור נכתב בעורך (עדיין לא נשמר)" "פתרון: $sln2 · נכתב: $typed"
 Check 'plain-unsaved' (-not ((Get-Content $plainProg -Raw -Encoding utf8) -match 'Insert')) "לפני הלחיצה: בדיסק עדיין ה-Hello, World של התבנית" ''
 Shot '50-plain-typed'
 # ה-trace של ההרצה (%TEMP%\dsviz-*.trace) קיים כל עוד החלון של DSViz פתוח — ממנו רואים שהתור באמת נרשם
@@ -783,8 +877,8 @@ Remove-Item -Recurse -Force $twoDir -ErrorAction SilentlyContinue
 $dirA = Join-Path $twoDir 'StackA'; $dirB = Join-Path $twoDir 'QueueB'
 & dotnet new console -n StackA -o $dirA --force | Out-Null
 & dotnet new console -n QueueB -o $dirB --force | Out-Null
-& dotnet new sln -n TwoProjects -o $twoDir --force | Out-Null
-& dotnet sln (Join-Path $twoDir 'TwoProjects.sln') add (Join-Path $dirA 'StackA.csproj') (Join-Path $dirB 'QueueB.csproj') | Out-Null
+$twoSln = NewSln 'TwoProjects' $twoDir
+& dotnet sln $twoSln add (Join-Path $dirA 'StackA.csproj') (Join-Path $dirB 'QueueB.csproj') | Out-Null
 $helperA = Join-Path $dirA 'Helper.cs'
 [IO.File]::WriteAllText($helperA, "static class Helper`r`n{`r`n    public static int Twice(int x) { return x * 2; }`r`n}`r`n", (New-Object Text.UTF8Encoding($true)))
 $progA = Join-Path $dirA 'Program.cs'; $progB = Join-Path $dirB 'Program.cs'
@@ -816,7 +910,7 @@ function RunAndTrace([string]$shot) {
 }
 function Snip([string]$t) { if ($t) { $t.Substring(0, [Math]::Min(240, $t.Length)) -replace "`r?`n", ' ' } else { 'אין trace' } }
 $d = GetDte
-try { $d.Solution.Close($false); Start-Sleep 3; $d.Solution.Open((Join-Path $twoDir 'TwoProjects.sln')) } catch { Info "DTE (פתיחת TwoProjects): $_" }
+try { $d.Solution.Close($false); Start-Sleep 3; $d.Solution.Open($twoSln) } catch { Info "DTE (פתיחת TwoProjects): $_" }
 $d = $null
 Start-Sleep 20
 $eA = EditDoc $progA $codeA1
@@ -983,9 +1077,9 @@ if (-not $created) {
     Info "יצירה דרך המסך לא הסתיימה — dotnet new console (אותה תבנית) ופתיחה ב-Visual Studio"
     $tp = Join-Path $tutRepo 'Targil1\Targil1'
     & dotnet new console -n Targil1 -o $tp --force | Out-Null
-    & dotnet new sln -n Targil1 -o (Split-Path $tp) --force | Out-Null
-    & dotnet sln (Join-Path (Split-Path $tp) 'Targil1.sln') add (Join-Path $tp 'Targil1.csproj') | Out-Null
-    $d = GetDte; try { $d.Solution.Open((Join-Path (Split-Path $tp) 'Targil1.sln')) } catch { Info "DTE: $_" }; $d = $null
+    $tSln = NewSln 'Targil1' (Split-Path $tp)
+    & dotnet sln $tSln add (Join-Path $tp 'Targil1.csproj') | Out-Null
+    $d = GetDte; try { $d.Solution.Open($tSln) } catch { Info "DTE: $_" }; $d = $null
     for ($i = 0; $i -lt 60 -and -not $created; $i++) { Start-Sleep 2; $vsP.Refresh(); $created = $vsP.MainWindowTitle -like '*Targil1*' }
 }
 Check 'tut-created' $created "2-5. נוצר פרויקט Console App רגיל (Targil1) ונפתח ב-Visual Studio" $vsP.MainWindowTitle

@@ -63,6 +63,10 @@ public final class Submitter {
 
     /** הפעולה מהתפריט: בדיקת חיבור → החלון (בו גם הבנייה) → פתיחת הקבצים והודעה קצרה */
     public static void run(Project project) {
+        if (il.lamerhav.dsviz.Account.stationOnly()) {   // עמדת מחשב: רק מאגר השאלות (השרת חוסם בכל מקרה)
+            Say.info(project, il.lamerhav.dsviz.Account.STATION_AI_MESSAGE, TITLE);
+            return;
+        }
         if (!IjShared.workerConfigured()) {
             Say.error(project, "השרת של \"שליחת תרגיל\" לא מוגדר.", TITLE);
             return;

@@ -214,6 +214,10 @@ public final class VsSubmit {
             return;
         }
         WorkerClient.CLIENT = "dsviz-vs/1.0.1";
+        if (Account.stationOnly()) {   // עמדת מחשב: רק מאגר השאלות (השרת חוסם בכל מקרה)
+            RtlDialog.show(null, TITLE, RtlDialog.Kind.INFO, "בעמדת מחשב עובדים על תרגילים ממאגר השאלות", Account.STATION_AI_MESSAGE.replaceFirst("^[^\\n]*\\n\\n", ""));
+            return;
+        }
         WorkerClient client = WorkerClient.configured();
         if (client == null) {
             RtlDialog.show(null, TITLE, RtlDialog.Kind.ERROR, "השרת של שליחת תרגיל לא מוגדר", null);

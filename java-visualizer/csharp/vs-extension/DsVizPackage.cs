@@ -31,10 +31,31 @@ namespace DsViz.VsExtension
 
         static string Runner { get { return DsVizTool.Runner; } }
 
-        /// <summary>מאגר השאלות הוא של המעבדה בלבד — קיים רק כשהקובץ הזה מותקן</summary>
+        /// <summary>
+        /// מאגר השאלות: lab\dsviz-bank-vs.jar, ואם הוא חסר — העותק שההתקנה שמה ב-bank\ (בכל התקנה). כך הכפתור "מאגר שאלות" מופיע
+        /// גם כששלב ההעתקה ל-lab לא רץ (PowerShell חסום, תיקיית המסמכים חסומה). null — המאגר לא מותקן
+        /// </summary>
         static string BankJar
         {
-            get { return Path.Combine(InstallDir, "lab", "dsviz-bank-vs.jar"); }
+            get
+            {
+                foreach (string dir in new[] { "lab", "bank" })
+                {
+                    string p = Path.Combine(InstallDir, dir, "dsviz-bank-vs.jar");
+                    try { if (File.Exists(p)) return p; } catch (Exception) { }
+                }
+                return Path.Combine(InstallDir, "lab", "dsviz-bank-vs.jar");
+            }
+        }
+
+        /// <summary>הנתיב של המאגר יחסית לתיקיית ההתקנה (לשורת הפקודה של java — שם משתמש בעברית לא עובר בנתיב מלא)</summary>
+        static string BankJarRelative
+        {
+            get
+            {
+                string full = BankJar, root = InstallDir.TrimEnd('\\') + "\\";
+                return full.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? full.Substring(root.Length) : full;
+            }
         }
 
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
@@ -53,6 +74,36 @@ namespace DsViz.VsExtension
             Safe("teacher", () => AddTeacher(mcs));
             Safe("toolbar", ShowToolbarOnce);
             Safe("follower", FollowActiveDocument);
+            // "מאגר שאלות" / "השאלה" / "עמדת ניהול": בטעינה הסרגל עוד לא תמיד קיים, וכפתור שהוסתר פעם (גרסה בלי מאגר) נשאר מוסתר
+            // ב-Visual Studio — ואז Visual Studio גם לא שואל עליו שוב. לכן מסנכרנים שוב אחרי שהסרגל עלה, ועוד כמה פעמים בדקה הראשונה
+            Safe("bank sync", ResyncButtons);
+            _ = JoinableTaskFactory.RunAsync(async () =>
+            {
+                foreach (int ms in new[] { 3000, 10000, 30000, 60000 })
+                {
+                    await Task.Delay(ms);
+                    await JoinableTaskFactory.SwitchToMainThreadAsync();
+                    Safe("bank sync", ResyncButtons);
+                    Safe("toolbar", ShowToolbarOnce);   // Visual Studio משחזר את סידור הסרגלים השמור אחרי שההרחבה נטענה
+                }
+            });
+        }
+
+        void ResyncButtons()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _bankOn = true;   // לפני הגישה ל-CommandBars: היא מפעילה שוב את BeforeQueryStatus
+            SyncBankControl(true);   // "מאגר שאלות" ו"השאלה" — תמיד גלויים
+            bool teacher = TeacherOn();
+            _teacherSyncing = true;
+            try
+            {
+                if (SyncControl("עמדת ניהול", "teacher", teacher)) { _teacherOn = teacher; _teacherSynced = true; }
+            }
+            finally { _teacherSyncing = false; }
+            // ש-Visual Studio ישאל שוב על הפקודות (מאפשר את הכפתורים כשהמאגר הגיע אחרי הטעינה, למשל בעדכון ברקע)
+            var shell = GetService(typeof(SVsUIShell)) as IVsUIShell;
+            if (shell != null) shell.UpdateCommandUI(0);
         }
 
         static void Safe(string what, Action step)
@@ -104,24 +155,45 @@ namespace DsViz.VsExtension
                 string flag = Path.Combine(InstallDir, "vs-toolbar-shown");
                 // מיקום בשורה משלו: בפעם הראשונה, וגם בכל פעם שהסרגל היה מוסתר — אז Visual Studio החזיר את ברירת המחדל
                 // (למשל אחרי סגירה בכוח), והסרגל נדחס לסוף השורה הראשונה ורוב הכפתורים נעלמים מאחורי החץ
-                // וגם כשהוא באותה שורה של הסרגל הרגיל (Standard) — שם אין לו מקום והכפתורים נחתכים
-                bool crowded = false;
+                // וגם כשהוא באותה שורה של סרגל אחר (Standard, Build, סרגל של הרחבה אחרת): שם אין לו מקום, והכפתורים נדחסים
+                // מאחורי החץ "עוד" (הסרגל "מקופל"). בודקים בכל פתיחה — ומעבירים אותו לשורה משלו, אחרי כל הסרגלים העליונים
+                string crowdedBy = null;
+                int lastRow = 0;
                 try
                 {
-                    dynamic std = bars["Standard"];
-                    crowded = (bool)std.Visible && (int)std.RowIndex == (int)bar.RowIndex && Convert.ToInt32(std.Position) == Convert.ToInt32(bar.Position);
+                    object cur0 = bar.Position;
+                    int topPos = Convert.ToInt32(Enum.Parse(cur0.GetType(), "msoBarTop"));
+                    int myPos = Convert.ToInt32(cur0), myRow = (int)bar.RowIndex;
+                    foreach (dynamic other in bars)
+                    {
+                        try
+                        {
+                            if (Convert.ToInt32(other.Type) != 0) continue;   // msoBarTypeNormal: סרגל כלים, לא תפריט
+                            if (!(bool)other.Visible || Convert.ToInt32(other.Position) != topPos) continue;
+                            string name = other.Name;
+                            if (name == "DSViz") continue;
+                            int r = (int)other.RowIndex;
+                            if (r > lastRow) lastRow = r;
+                            if (crowdedBy == null && myPos == topPos && r == myRow) crowdedBy = name;
+                        }
+                        catch (Exception) { }
+                    }
                 }
-                catch (Exception) { }
-                if (File.Exists(flag) && !wasHidden && !crowded) return;
-                SolutionHints.Log("toolbar row: " + (wasHidden ? "was hidden" : crowded ? "shared the Standard row" : "first time"));
+                catch (Exception ex1)
+                {
+                    SolutionHints.Log("toolbar rows scan failed: " + ex1.Message, true);
+                }
+                if (File.Exists(flag) && !wasHidden && crowdedBy == null) return;
+                SolutionHints.Log("toolbar row: " + (wasHidden ? "was hidden" : crowdedBy != null ? "shared the row of " + crowdedBy : "first time"));
                 // שורה משלו מתחת לסרגלים הרגילים (בלי זה הוא נדחס לשורה הראשונה ורוב הכפתורים נעלמים לחץ "עוד")
                 try
                 {
                     object cur = bar.Position;
                     dynamic top = Enum.Parse(cur.GetType(), "msoBarTop");   // MsoBarPosition.msoBarTop (בלי הפניה לספרייה בזמן קומפילציה)
                     bar.Position = top;
-                    bar.RowIndex = 3;
+                    bar.RowIndex = Math.Max(lastRow + 1, 3);
                     bar.Left = 0;
+                    SolutionHints.Log("toolbar row: moved to row " + (int)bar.RowIndex);
                 }
                 catch (Exception ex2)
                 {
@@ -141,40 +213,36 @@ namespace DsViz.VsExtension
         {
             var cmd = new OleMenuCommand((s, e) =>
             {
-                try { Tool("bank"); }
+                try { if (BankReady()) Tool("bank"); }
                 catch (Exception ex) { Say("DSViz: " + ex.Message); }
             }, new CommandID(CmdSet, 0x0103));
+            // תמיד גלוי ולחיץ: אם המאגר לא במקום, הלחיצה מתקנת (BankReady) או מסבירה — לא כפתור אפור או מוסתר
             cmd.BeforeQueryStatus += (s, e) =>
             {
-                bool on = false;
-                try { on = File.Exists(BankJar); } catch (Exception) { }
                 var c = (OleMenuCommand)s;
-                c.Visible = on;
-                c.Enabled = on;
-                if (on != _bankOn)
+                c.Visible = true;
+                c.Enabled = true;
+                if (_bankOn != true)
                 {
-                    _bankOn = on;
-                    SolutionHints.Log("bank button: " + (on ? "shown" : "hidden"));
-                    SyncBankControl(on);
+                    _bankOn = true;
+                    SyncBankControl(true);
                 }
             };
             mcs.AddCommand(cmd);
             // "השאלה": החלון הצף של השאלה האחרונה מהמאגר (כמו הכפתור "השאלה" ב-Eclipse) — עד עכשיו רק מקיצור בשולחן העבודה
             var q = new OleMenuCommand((s, e) =>
             {
-                try { Tool("question"); }
+                try { if (BankReady()) Tool("question"); }
                 catch (Exception ex) { Say("DSViz: " + ex.Message); }
             }, new CommandID(CmdSet, 0x0109));
             q.BeforeQueryStatus += (s, e) =>
             {
-                bool on = false;
-                try { on = File.Exists(BankJar); } catch (Exception) { }
                 var c = (OleMenuCommand)s;
-                c.Visible = on;
-                c.Enabled = on;
+                c.Visible = true;
+                c.Enabled = true;
             };
             mcs.AddCommand(q);
-            SyncBankControl(File.Exists(BankJar));
+            SyncBankControl(true);
         }
 
         bool? _bankOn;
@@ -360,7 +428,7 @@ namespace DsViz.VsExtension
             // נתיבים יחסיים מתוך תיקיית ההתקנה: שם משתמש בעברית (או בשפה אחרת) ב-%LOCALAPPDATA% לא עובר בשורת הפקודה של java
             // (הארגומנטים מפוענחים בקידוד של המערכת), אבל התיקייה הנוכחית כן
             var psi = new ProcessStartInfo(java) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = InstallDir };
-            psi.Arguments = "-cp \"lab\\dsviz-bank-vs.jar;dsviz.jar\" il.lamerhav.dsviz.BankVs teacher";
+            psi.Arguments = "-cp \"" + BankJarRelative + ";dsviz.jar\" il.lamerhav.dsviz.BankVs teacher";
             Process.Start(psi);
         }
 
@@ -389,6 +457,38 @@ namespace DsViz.VsExtension
         static void Start(params string[] args)
         {
             DsVizTool.Start(args);
+        }
+
+        /// <summary>
+        /// לפני "מאגר שאלות" / "השאלה": המאגר במקום? אם הוא חסר ב-lab\ אבל יש עותק ב-bank\ (כך בכל התקנה) — מעתיקים ומשתמשים בו.
+        /// רק אם אין אותו בכלל — הודעה ברורה מה לעשות (במקום כפתור אפור)
+        /// </summary>
+        bool BankReady()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            string lab = Path.Combine(InstallDir, "lab", "dsviz-bank-vs.jar");
+            string bank = Path.Combine(InstallDir, "bank", "dsviz-bank-vs.jar");
+            try
+            {
+                if (File.Exists(lab)) return true;
+                if (File.Exists(bank))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(lab));
+                        File.Copy(bank, lab, true);
+                        SolutionHints.Log("bank: copied bank\\dsviz-bank-vs.jar to lab\\");
+                    }
+                    catch (Exception ex)
+                    {
+                        SolutionHints.Log("bank: copy to lab failed (using bank\\): " + ex.Message, true);
+                    }
+                    return true;   // BankJar מוצא את העותק ב-bank\ גם אם ההעתקה לא הצליחה
+                }
+            }
+            catch (Exception) { }
+            Say("DSViz: מאגר השאלות לא נמצא במחשב הזה.\n\nכדי לתקן: סוגרים את Visual Studio, מורידים את ההתקנה מ-https://is.gd/dsjava ומתקינים שוב.");
+            return false;
         }
 
         void Tool(string mode)

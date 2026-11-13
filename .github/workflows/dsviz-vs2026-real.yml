@@ -1,0 +1,164 @@
+name: DSViz VS 2026 Community (real user)
+# בדיקות כמו אצל משתמש אמיתי — בלי שלבי עזר של בדיקות (devenv /updateconfiguration, התקנה ידנית של ההרחבה):
+#   real (windows-2025 + Visual Studio 2026 Community בגרסה העדכנית, ליד ה-Enterprise שכבר במחשב — שני מופעים, כמו אצל רוב המורים):
+#     master — ההתקנה שבקישור הקבוע: האם הסרגל מופיע (vs-real-user.ps1), ואז עדכון לגרסה שבענף (vs-upgrade.ps1)
+#     branch — ההתקנה שבענף: הסרגל מופיע, ואז כל הזרימה (toolbar-e2e.ps1): מאגר שאלות, כניסה עם Google של מורה, עמדת ניהול
+#   upgrade (Visual Studio 2022 ו-2026): המקרה שהסרגל מופיע אבל "מאגר שאלות" לא לחיץ — לפני (master) ואחרי עדכון (branch)
+# שלבי ה-branch רצים רק כשההתקנה בענף שונה מזו שב-master.
+on:
+  push:
+    branches: [release/public-all]
+    paths:
+      - '.github/workflows/dsviz-vs2026-real.yml'
+      - 'java-visualizer/tools/test/windows-vs-toolbar/vs-real-user.ps1'
+      - 'java-visualizer/tools/test/windows-vs-toolbar/vs-upgrade.ps1'
+      - 'java-visualizer/tools/test/windows-vs-toolbar/vs-helpers.ps1'
+      - 'java-visualizer/release/DSViz-Setup.exe'
+  workflow_dispatch:
+concurrency:
+  group: dsviz-vs2026-real-${{ github.sha }}   # כל גרסה רצה בפני עצמה — ריצה ישנה לא מעכבת את הבדיקה של ההתקנה החדשה
+  cancel-in-progress: false
+jobs:
+  bank-jar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - name: dsviz-bank-vs.jar מהמקור (בשביל הכניסה המוכנה של מורה בבדיקה)
+        working-directory: java-visualizer
+        run: |
+          sh tools/build-lib.sh
+          SKIP_BANK_CHECK=1 sh tools/build-bank-vs.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bank-vs-jar-real
+          path: java-visualizer/build/lab-vs/dsviz-bank-vs.jar
+          retention-days: 7
+
+  real:
+    needs: bank-jar
+    name: vs2026-community-${{ matrix.setup }}
+    runs-on: windows-2025
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        setup: [master, branch]
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: DSViz-Setup.exe
+        id: setup
+        shell: powershell
+        run: |
+          $dst = Join-Path $env:RUNNER_TEMP 'DSViz-Setup.exe'
+          $pub = Join-Path $env:RUNNER_TEMP 'DSViz-Setup-master.exe'
+          $br = "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe"
+          Invoke-WebRequest 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe' -OutFile $pub -UseBasicParsing
+          if ('${{ matrix.setup }}' -eq 'master') { Copy-Item $pub $dst } else { Copy-Item $br $dst }
+          $differs = (Get-FileHash $br).Hash -ne (Get-FileHash $pub).Hash
+          $skip = ('${{ matrix.setup }}' -eq 'branch') -and -not $differs
+          Write-Host ("{0:N0} bytes · sha256 {1} · branch differs from master: {2}" -f (Get-Item $dst).Length, (Get-FileHash $dst).Hash, $differs)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "skip=$($skip.ToString().ToLower())`ndiffers=$($differs.ToString().ToLower())`n")   # בלי BOM
+      - name: Visual Studio 2026 Community (latest)
+        if: steps.setup.outputs.skip != 'true'
+        timeout-minutes: 100
+        shell: powershell
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $boot = Join-Path $env:RUNNER_TEMP 'vs_community.exe'
+          foreach ($u in 'https://aka.ms/vs/18/stable/vs_community.exe', 'https://aka.ms/vs/stable/vs_community.exe', 'https://aka.ms/vs/18/release/vs_community.exe') {
+            try { Invoke-WebRequest $u -OutFile $boot -UseBasicParsing; if ((Get-Item $boot).Length -gt 500000) { Write-Host "bootstrapper: $u"; break } } catch { Write-Host "$u : $($_.Exception.Message)" }
+          }
+          $p = Start-Process $boot -ArgumentList '--add', 'Microsoft.VisualStudio.Workload.ManagedDesktop', '--includeRecommended', '--quiet', '--wait', '--norestart', '--nocache' -PassThru -Wait
+          Write-Host "vs_community: exit $($p.ExitCode)"
+          $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          & $vw -all -prerelease -products * -format text -property displayName,catalog_productDisplayVersion,installationPath
+      # master: ההתקנה שבקישור הקבוע צפויה להיכשל כאן (שני מופעים של Visual Studio) — זה השחזור, לא עוצר את השלבים הבאים
+      - name: משתמש אמיתי — התקנה ופתיחת Visual Studio
+        if: steps.setup.outputs.skip != 'true'
+        continue-on-error: ${{ matrix.setup == 'master' }}
+        timeout-minutes: 75
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\vs-real-user.ps1" -Setup "$env:RUNNER_TEMP\DSViz-Setup.exe" -Out "$env:GITHUB_WORKSPACE\real\fresh"
+          exit $LASTEXITCODE
+      - name: master — עדכון לגרסה שבענף (כמו העדכון האוטומטי)
+        if: matrix.setup == 'master' && steps.setup.outputs.differs == 'true'
+        timeout-minutes: 60
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\vs-upgrade.ps1" -OldInstalled -New "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" -Out "$env:GITHUB_WORKSPACE\real\upgrade" -Product Microsoft.VisualStudio.Product.Community
+          exit $LASTEXITCODE
+      - uses: actions/download-artifact@v4
+        if: matrix.setup == 'branch' && steps.setup.outputs.skip != 'true'
+        with:
+          name: bank-vs-jar-real
+          path: bank-vs-jar
+      - name: branch — כל הזרימה ב-Visual Studio 2026 Community (מאגר שאלות, כניסה כמורה, עמדת ניהול)
+        if: matrix.setup == 'branch' && steps.setup.outputs.skip != 'true'
+        timeout-minutes: 100
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\toolbar-e2e.ps1" `
+            -Lab "$env:RUNNER_TEMP\DSViz-Setup.exe" `
+            -Out "$env:GITHUB_WORKSPACE\real\e2e" `
+            -Here "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar" `
+            -Harness "$env:GITHUB_WORKSPACE\java-visualizer\tutorials\harness" `
+            -Page "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\ai\files\exam-page-1.png" `
+            -Mock "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\submit\mock-worker.js" `
+            -Exercise "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\submit\cs-stack.json" `
+            -BankJar "$env:GITHUB_WORKSPACE\bank-vs-jar\dsviz-bank-vs.jar"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vs2026-real-${{ matrix.setup }}
+          path: real
+          retention-days: 14
+
+  upgrade:
+    name: upgrade-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - name: ההתקנה הקודמת (master) והחדשה (הענף)
+        id: setup
+        shell: powershell
+        run: |
+          $pub = Join-Path $env:RUNNER_TEMP 'DSViz-Setup-master.exe'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe' -OutFile $pub -UseBasicParsing
+          $differs = (Get-FileHash "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe").Hash -ne (Get-FileHash $pub).Hash
+          Write-Host "branch differs from master: $differs"
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "differs=$($differs.ToString().ToLower())`n")
+      - name: Visual Studio שיש במחשב
+        shell: powershell
+        run: |
+          $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          & $vw -all -prerelease -products * -format text -property displayName,catalog_productDisplayVersion,installationPath
+      - name: לפני (הסרגל בלי מאגר שאלות לחיץ) ואחרי עדכון
+        if: steps.setup.outputs.differs == 'true'
+        timeout-minutes: 75
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\vs-upgrade.ps1" -Old "$env:RUNNER_TEMP\DSViz-Setup-master.exe" -New "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" -Out "$env:GITHUB_WORKSPACE\upgrade"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: upgrade-${{ matrix.os }}
+          path: upgrade
+          retention-days: 14
