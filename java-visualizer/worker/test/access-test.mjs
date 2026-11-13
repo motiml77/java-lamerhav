@@ -449,18 +449,31 @@ function exercise(headers = {}) {
   return worker.fetch(new Request(BASE + '/v1/exercise', { method: 'POST', body: fd, headers }), ENV, {});
 }
 
+const TEACHER = () => ({ 'x-dsviz-access': teacherTok.token, 'x-dsviz-machine': teacherTok.machine });
+
 await test('שליחה ל-Gemini: מתג כבוי — פתוח לכולם; דולק — רק מחוברים, תלמיד שלא שילם נחסם, ומנה חודשית לפי מורה', async () => {
   let r = await exercise();
   assert.equal(r.status, 200, 'מתג כבוי');
+  // עמדת מחשב: אף פעם לא שולחת ל-AI — רק מאגר השאלות (גם כשהמתג כבוי), ולא נספרת במנה של המורה
+  r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  assert.equal(r.status, 403, 'עמדה, מתג כבוי');
+  let j = await r.json();
+  assert.equal(j.code, 'station');
+  assert.match(j.error, /עמדת מחשב.*מאגר השאלות.*מורים ולתלמידים שמחוברים עם Google/);
   await call('POST', '/v1/admin/settings', { token: admin, body: { requireLoginForGemini: true, monthlyPerSeat: 1 } });
   r = await exercise();
   assert.equal(r.status, 401);
   assert.equal((await r.json()).code, 'login');
   r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  assert.deepEqual([r.status, (await r.json()).code], [403, 'station'], 'עמדה, מתג דולק');
+  // גם בבקשת תיקון (הצעה לפתרון שלא עבדה)
+  r = await worker.fetch(new Request(BASE + '/v1/repair', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dsviz-access': st1, 'x-dsviz-machine': m1 }, body: '{}' }), ENV, {});
+  assert.deepEqual([r.status, (await r.json()).code], [403, 'station'], 'עמדה, תיקון');
+  r = await exercise(TEACHER());
   assert.equal(r.status, 200, await r.clone().text());
-  r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  r = await exercise(TEACHER());
   assert.equal(r.status, 200);
-  r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  r = await exercise(TEACHER());
   assert.equal(r.status, 429);
   assert.equal((await r.json()).code, 'monthly');
   const unpaid = await signIn('unpaid@test.dev', 'student');
@@ -498,18 +511,18 @@ await test('מנת שליחות ידנית למורה: קובעים בהנהלה
   assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: n + 1 } })).status, 200);
   const manual = await get();
   assert.deepEqual([manual.monthlyLimit, manual.sends.limit], [n + 1, n + 1], 'מוצג בהנהלה');
-  let r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  let r = await exercise(TEACHER());
   assert.equal(r.status, 200, 'שליחה אחת נוספת מותרת: ' + await r.clone().text());
-  r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  r = await exercise(TEACHER());
   assert.equal(r.status, 429);
   assert.equal((await r.json()).code, 'monthly');
   // העלאה ידנית — נפתח מיד
   await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: n + 5 } });
-  r = await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 });
+  r = await exercise(TEACHER());
   assert.equal(r.status, 200);
   // 0 = חסום לגמרי
   await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: 0 } });
-  assert.equal((await exercise({ 'x-dsviz-access': st1, 'x-dsviz-machine': m1 })).status, 429);
+  assert.equal((await exercise(TEACHER())).status, 429);
   // חזרה לברירת המחדל (ריק): 4 × עמדות
   assert.equal((await call('POST', '/v1/admin/teacher', { token: admin, body: { email: 'teacher1@test.dev', monthlyLimit: null } })).status, 200);
   const back = await get();

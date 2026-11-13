@@ -28,7 +28,7 @@ export const DEFAULTS = {
   defaultSeats: 0,              // מורה חדש מקבל — ואת השאר קונה בחבילות
   packages: [{ seats: 10, price: 0 }, { seats: 20, price: 0 }, { seats: 30, price: 0 }],   // חבילות עמדות למורים (מחיר 0 = לא נמכרת)
   requireLoginForGemini: false, // שליחת תרגיל ל-Gemini רק למחוברים
-  monthlyPerSeat: 4,            // שליחות בחודש לכל עמדה של המורה (מנה משותפת: המורה + כל העמדות שלו)
+  monthlyPerSeat: 4,            // שליחות בחודש למורה: לכל עמדה שלו × מספר העמדות (העמדות עצמן לא שולחות — רק מאגר השאלות)
   monthlyStudent: 30,           // שליחות בחודש לתלמיד רשום (מייל)
   alertEmail: true,             // התראה במייל למנהל כשמצטרף מורה / תלמיד (alerts.js); במסוף — תמיד
 };
@@ -474,22 +474,27 @@ function badCodeDetail(typed, code, lim) {
  * נקרא לפני כל שליחה ל-Gemini מהתוספים. מחזיר null (פתוח לכולם — כמו קודם) או {subject} — המפתח להגבלת הקצב,
  * כדי שכיתה שלמה מאחורי אותה כתובת IP לא תיחסם כמו "מחשב אחד".
  */
+const STATION_AI = 'המחשב הזה מחובר כעמדת מחשב של הכיתה, ובעמדה עובדים על תרגילים ממאגר השאלות. שליחת תרגיל חדש לבדיקה ב-AI פתוחה למורים ולתלמידים שמחוברים עם Google, במחשב שלהם.';
+
 export async function geminiGate(request, env) {
   if (!accessEnabled(env)) return null;
   const s = await settings(env);
   const token = request.headers.get('x-dsviz-access') || '';
   if (!s.requireLoginForGemini && !token) return null;
-  if (!token) throw new Fail(401, 'login', 'שליחת תרגיל פתוחה למורים, לעמדות מחשב בכיתה ולתלמידים רשומים — צריך להתחבר פעם אחת במחשב: בסרגל של DSViz לוחצים על מאגר התרגילים ("מאגר תרגילים" / "מאגר שאלות") ונכנסים. אם אין כפתור כזה — מעדכנים את DSViz.');
+  if (!token) throw new Fail(401, 'login', 'שליחת תרגיל פתוחה למורים ולתלמידים רשומים — צריך להתחבר פעם אחת במחשב: בסרגל של DSViz לוחצים על מאגר התרגילים ("מאגר תרגילים" / "מאגר שאלות") ונכנסים. אם אין כפתור כזה — מעדכנים את DSViz.');
   const r = await resolveToken(env, token, request.headers.get('x-dsviz-machine') || '');
+  // עמדת מחשב בכיתה: רק מאגר השאלות — שליחת תרגיל חדש ל-AI (וההצעה לפתרון) רק למורה / תלמיד שמחוברים עם Google.
+  // תמיד, גם כשהמתג "רק למחוברים" כבוי (בעמדה התוכנה שולחת את כרטיס העמדה בכל בקשה).
+  if (r.kind === 'station' && (r.status === 'ok' || r.status === 'blocked')) throw new Fail(403, 'station', STATION_AI);
   if (r.status !== 'ok') {
     if (!s.requireLoginForGemini) return null;   // מתג כבוי: כרטיס שפג לא חוסם (רק לא נספר לפי משתמש)
     if (r.status === 'pay') throw new Fail(403, 'pay', 'שליחת תרגיל פתוחה לתלמידים רשומים — צריך לפתוח את המאגר (תשלום).');
     if (r.status === 'blocked') throw new Fail(403, 'blocked', 'הגישה של המורה הזה הושבתה. פונים למורה או להנהלה.');
     throw new Fail(401, 'login', 'הכניסה במחשב הזה כבר לא בתוקף — מתחברים שוב.');
   }
-  // מונה חודשי (Firestore, מוסיפים באטומיות): מורה ועמדות שלו חולקים מנה אחת = שליחות-לעמדה × מספר העמדות (לפחות עמדה אחת, כדי שמורה בלי עמדות יוכל לנסות).
+  // מונה חודשי (Firestore, מוסיפים באטומיות): למורה מנה אחת = שליחות-לעמדה × מספר העמדות (לפחות עמדה אחת, כדי שמורה בלי עמדות יוכל לנסות).
   // תלמיד רשום — מנה אישית. עמדת מחשב נספרת על המורה שהפעיל אותה. המונה נספר תמיד (להנהלה), והחסימה — רק כשהמתג "רק למחוברים" דולק.
-  const owner = r.kind === 'station' ? r.station.teacher : r.kind === 'teacher' ? r.profile.email : r.profile.email;
+  const owner = r.profile.email;
   const store = db(env);
   let limit = s.monthlyStudent;
   if (r.kind !== 'student') {

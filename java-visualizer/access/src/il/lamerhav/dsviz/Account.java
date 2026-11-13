@@ -886,6 +886,25 @@ public final class Account {
         return p == null ? null : accessOf(p);
     }
 
+    /**
+     * עמדת מחשב בכיתה עובדת רק על תרגילים ממאגר השאלות: שליחת תרגיל חדש לבדיקה ב-AI (וההצעה לפתרון שלו) פתוחה רק למורים
+     * ולתלמידים שמחוברים עם Google. השרת אוכף את זה (geminiGate); כאן — כדי לומר את זה מיד, לפני שממלאים את החלון.
+     */
+    public static final String STATION_AI_MESSAGE = "המחשב הזה מחובר כעמדת מחשב של הכיתה, ובעמדה עובדים על תרגילים ממאגר השאלות.\n\n"
+            + "שליחת תרגיל חדש לבדיקה ב-AI (והצעה לפתרון) פתוחה למורים ולתלמידים שמחוברים עם Google, במחשב שלהם.";
+
+    /** המחשב מחובר כעמדת מחשב, ואין עליו משתמש מחובר עם Google (מורה / תלמיד עם אישור תקף) */
+    public static boolean stationOnly() {
+        try {
+            Map<String, Object> u = load(userFile());
+            if (u != null && verifyPass(Json.str(u.get("pass"))) != null) return false;
+            Access a = current();
+            return a != null && a.isStation();
+        } catch (Throwable e) {
+            return false;   // לא הצלחנו לבדוק — השרת יחליט
+        }
+    }
+
     /** יש כרטיס של משתמש (גם בלי אישור — למשל תלמיד שעוד לא שילם) */
     public static Map<String, Object> userState() {
         return load(userFile());

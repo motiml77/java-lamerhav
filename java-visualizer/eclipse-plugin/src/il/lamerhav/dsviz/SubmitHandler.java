@@ -39,6 +39,10 @@ public class SubmitHandler extends AbstractHandler {
     public Object execute(ExecutionEvent event) {
         if (!Power.on()) return null;   // DSViz כבוי: גם אם הגיעו לפקודה בלי הכפתור (Quick Access, Ctrl+3) — לא עושים כלום
         Shell shell = Ui.shell(event);
+        if (Account.stationOnly()) {   // עמדת מחשב: רק מאגר השאלות (השרת חוסם בכל מקרה)
+            Say.info(shell, "שליחת תרגיל", Account.STATION_AI_MESSAGE);
+            return null;
+        }
         IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
         WorkerClient client = WorkerClient.configured();
         if (client != null) {   // בלי אינטרנט אין טעם לפתוח את החלון — אומרים את זה מיד

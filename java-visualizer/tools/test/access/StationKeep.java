@@ -165,6 +165,17 @@ public class StationKeep {
         Account.refresh();
         check("שחרור משרת ישן (revoked בלי סיבה) — גם נמחקת", Account.current() == null);
 
+        // ================================================================ 4. עמדה = רק מאגר השאלות (בלי שליחת תרגיל ל-AI)
+        use(work, "ai1");
+        check("בלי כניסה בכלל — לא 'עמדה בלבד' (השרת מחליט לפי המתג)", !Account.stationOnly());
+        station(new File(System.getProperty("dsviz.machineDir"), "station.json"), "s.station1234.secretsecretsecretsecretAI", 100);
+        check("עמדת מחשב בלי משתמש — עמדה בלבד: שליחת תרגיל נחסמת מיד, עם הסבר", Account.stationOnly()
+                && Account.STATION_AI_MESSAGE.contains("מאגר השאלות") && Account.STATION_AI_MESSAGE.contains("Google"));
+        SignInEdge.signedIn("teacher", "t@x.org", "u.sid12.secretsecretsecretsecret12");
+        check("מורה מחובר עם Google באותו מחשב — לא עמדה בלבד (שולח לפי המנה שלו)", !Account.stationOnly());
+        SignInEdge.signedIn("student", "s@x.org", "u.sid13.secretsecretsecretsecret13");
+        check("תלמיד מחובר עם Google באותו מחשב — לא עמדה בלבד", !Account.stationOnly());
+
         mock.stop(0);
         System.out.println(SignInEdge.fail == 0 ? "StationKeep: כל " + SignInEdge.pass + " הבדיקות עברו" : "StationKeep: " + SignInEdge.fail + " נכשלו");
         System.exit(SignInEdge.fail == 0 ? 0 : 1);
