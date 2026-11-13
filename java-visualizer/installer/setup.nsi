@@ -863,6 +863,10 @@ Section "-bank"
   File "..\vs-bank\install\install-bank-vs.ps1"
   File "bank-install.ps1"
   SetOutPath "$INSTDIR"
+  ; המאגר של Visual Studio / Rider (lab\dsviz-bank-vs.jar) — תמיד, ישירות מההתקנה: לא תלוי ב-PowerShell, בתיקיית התרגילים
+  ; (Documents חסום בהגנת תיקיות של Windows / OneDrive) או בחבילה שסומנה. בלעדיו הכפתור "מאגר שאלות" לא מופיע בסרגל
+  CreateDirectory "$INSTDIR\lab"
+  CopyFiles /SILENT "$INSTDIR\bank\dsviz-bank-vs.jar" "$INSTDIR\lab"
   ; גרסת הבדיקה הישנה (DSViz-Lab) — ההתקנה הזאת מחליפה אותה: מסירים את הרישום והתיקייה שלה, כדי שההסרה שלה לא תמחק את המאגר
   ${If} ${FileExists} "$LOCALAPPDATA\DSViz-Lab\*.*"
     RMDir /r "$LOCALAPPDATA\DSViz-Lab"

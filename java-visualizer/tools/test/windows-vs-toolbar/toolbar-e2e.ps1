@@ -334,6 +334,44 @@ if ($Vsix -and (Test-Path $Vsix)) {
     & $iv -Vsix (Resolve-Path $Vsix).Path 2>&1 | ForEach-Object { Info "install-vsix: $_" }
 }
 
+# ------------------------------------------------------------------ 2ב. שדרוג מגרסה בלי מאגר
+# כמו מי שהייתה אצלו הגרסה הציבורית הישנה (בלי מאגר השאלות): Visual Studio נפתח פעם אחת כשהמאגר לא מותקן — הכפתור "מאגר שאלות"
+# מוסתר, ו-Visual Studio זוכר את זה. אחר כך ההתקנה החדשה מוסיפה את המאגר — והכפתור חייב להופיע (בסעיף 4)
+Log "== 2ב. Visual Studio פעם ראשונה בלי המאגר (כמו הגרסה הציבורית הישנה), ואז המאגר מותקן"
+$labJar = Join-Path $dsviz 'lab\dsviz-bank-vs.jar'
+$bankCopy = Join-Path $dsviz 'bank\dsviz-bank-vs.jar'
+$aside = Join-Path $env:RUNNER_TEMP 'dsviz-bank-vs.jar.aside'
+$asideBank = Join-Path $env:RUNNER_TEMP 'dsviz-bank-vs.jar.bank-aside'
+if (Test-Path $labJar) { Move-Item $labJar $aside -Force }
+if (Test-Path $bankCopy) { Move-Item $bankCopy $asideBank -Force }
+Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hidden
+$t0 = Get-Date
+$p0 = Start-Process $devenv -ArgumentList "`"$sln`"" -PassThru
+$up = $false
+while (((Get-Date) - $t0).TotalMinutes -lt 12) {
+    Start-Sleep 5
+    $p0.Refresh()
+    if ($p0.HasExited) { break }
+    if (SkipFirstRun $p0.Id) { Start-Sleep 3 }
+    $p0.Refresh()
+    if ($p0.MainWindowTitle -like '*- Microsoft Visual Studio*') { $up = $true; break }
+}
+$seen = $null
+if ($up) {
+    for ($i = 0; $i -lt 40 -and -not $seen; $i++) { SkipFirstRun $p0.Id | Out-Null; $seen = ToolbarButton $p0.Id @('תרגיל חדש'); if (-not $seen) { Start-Sleep 4 } }
+    Start-Sleep 15   # ההרחבה מסתירה את "מאגר שאלות" (המאגר לא מותקן) — ו-Visual Studio שומר את הסרגל כשהוא נסגר
+}
+$noBank = -not (ToolbarButton $p0.Id @('מאגר שאלות', 'מאגר תרגילים'))
+Info ("בלי המאגר: Visual Studio עלה={0}, הסרגל={1}, 'מאגר שאלות' מוסתר={2}" -f $up, ($null -ne $seen), $noBank)
+Shot '00-vs-without-bank'
+$p0.Refresh()
+if (-not $p0.HasExited) { $p0.CloseMainWindow() | Out-Null; if (-not $p0.WaitForExit(90000)) { Info 'Visual Studio לא נסגר — סוגרים בכוח'; Stop-Process -Id $p0.Id -Force -ErrorAction SilentlyContinue } }
+Start-Sleep 5
+Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+if (Test-Path $aside) { Move-Item $aside $labJar -Force }
+if (Test-Path $asideBank) { Move-Item $asideBank $bankCopy -Force }
+Check 'upgrade-prep' ($up -and $noBank) "הכנה: Visual Studio נפתח ונסגר כשהמאגר לא מותקן (הכפתור מוסתר) — עכשיו המאגר מותקן" ''
+
 # ------------------------------------------------------------------ 3. Visual Studio עם הפתרון
 Log "== 3. Visual Studio נפתח עם הפתרון DataStructures-CS"
 Start-Process $devenv -ArgumentList '/updateconfiguration' -Wait -WindowStyle Hidden
@@ -371,7 +409,7 @@ for ($i = 0; $i -lt 40; $i++) {   # עד ~2.5 דקות: ההרחבה נטענת 
 Shot '02-vs-toolbar'
 foreach ($n in $want) { Check 'toolbar-button' ($null -ne $btn[$n]) "בסרגל יש כפתור '$n'" ''; if ($btn[$n]) { Info "   $(DescEl $btn[$n])" } }
 $bankName = $bankNames | Where-Object { $btn[$_] } | Select-Object -First 1
-Check 'toolbar-bank' ($null -ne $bankName) "בסרגל יש כפתור מאגר ('$bankName') — המאגר מותקן" ''
+Check 'toolbar-bank' ($null -ne $bankName) "בסרגל יש כפתור מאגר ('$bankName') — המאגר מותקן, גם אחרי ש-Visual Studio כבר נפתח פעם בלי המאגר (2ב)" ''
 if ($bankName) { Info "   $(DescEl $btn[$bankName])" }
 $all = @(VsElements $vsP.Id | ForEach-Object { ElName $_ } | Where-Object { $_ -match 'DSViz|מאגר|שליחת|תרגיל|הרצה ויזואלית|הדרכה|מבנה נתונים' } | Select-Object -Unique)
 Info "כל הרכיבים הקשורים ל-DSViz ב-UIA: $($all -join ' ; ')"

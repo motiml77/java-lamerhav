@@ -175,6 +175,19 @@ switch ($Scenario) {
         Check 'אחרי עדכון: הקיצור "מודלים חישוביים" עדיין בשולחן העבודה' (Test-Path $lnkAut)
         $s2 = BankState; CheckBank 'עדכון חוזר' $s2
         Check 'אידמפוטנטי: אותם קבצים אחרי עדכון חוזר' (($s1.EclBankHash -eq $s2.EclBankHash) -and ($s1.IjBank -eq $s2.IjBank) -and ($s1.VsJar -eq $s2.VsJar))
+        # עדכון כשאי אפשר לגשת לתיקיית התרגילים (Documents חסום בהגנת תיקיות של Windows / OneDrive): המאגר של Visual Studio חייב להגיע בכל זאת —
+        # בלעדיו הכפתורים "מאגר שאלות" / "השאלה" בסרגל של Visual Studio אפורים
+        $csDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'DataStructures-CS'
+        $csAside = "$csDir-aside"
+        Remove-Item "$d\lab" -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path $csDir) { Move-Item $csDir $csAside -Force }
+        Set-Content $csDir 'blocked'   # קובץ במקום התיקייה: אי אפשר ליצור אותה
+        $c = Run $Setup '/S /UPDATE'
+        Check 'עדכון בלי תיקיית התרגילים הסתיים (קוד 0)' ($c -eq 0)
+        Check 'בלי תיקיית התרגילים: lab\dsviz-bank-vs.jar הותקן בכל זאת (הכפתור "מאגר שאלות" פעיל)' (Test-Path "$d\lab\dsviz-bank-vs.jar")
+        Check 'ויש עותק גם ב-bank\ (הסרגל מחפש גם שם)' (Test-Path "$d\bank\dsviz-bank-vs.jar")
+        Remove-Item $csDir -Force
+        if (Test-Path $csAside) { Move-Item $csAside $csDir -Force }
         $c = Run "$d\uninstall.exe" "/S _?=$d"
         $s3 = BankState
         Check 'הסרה: המאגר הוסר מ-Eclipse' ($s3.EclBank -eq 0 -and $s3.EclMain -eq 0)

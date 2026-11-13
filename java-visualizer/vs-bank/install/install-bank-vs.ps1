@@ -20,9 +20,11 @@ if ($Remove) {
 }
 $javaw = Join-Path $dsviz 'jdk\bin\javaw.exe'
 if (-not (Test-Path $javaw) -or -not (Test-Path (Join-Path $dsviz 'dsviz.jar'))) { Write-Host "DSViz לא מותקן ($dsviz) — מתקינים קודם את DSViz-Setup.exe עם חבילת C#."; exit 1 }
-if (-not (Test-Path $csDir)) { Write-Host "אין תיקיית תרגילים של C# ($csDir) — מתקינים את DSViz-Setup.exe עם חבילת C#."; exit 1 }
+# המאגר קודם, לפני כל בדיקה אחרת: בלעדיו הכפתור "מאגר שאלות" לא מופיע בסרגל של Visual Studio
 New-Item -ItemType Directory -Force $lab | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'dsviz-bank-vs.jar') $jar -Force
+# תיקיית התרגילים חסרה (Documents חסום / הועבר): המאגר מותקן בכל זאת, והוא יוצר את התיקייה כשפותחים תרגיל
+if (-not (Test-Path $csDir)) { Write-Host "הערה: אין עדיין תיקיית תרגילים של C# ($csDir)." }
 # Rider (בלי סרגל של DSViz): המאגר והשאלה מתפריט התחלה, בתיקייה "מבני נתונים" של ההתקנה (כמו "תרגיל חדש ב-C#")
 $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'מבני נתונים'
 if (Test-Path -LiteralPath $menu) {

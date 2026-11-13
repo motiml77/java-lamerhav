@@ -31,10 +31,31 @@ namespace DsViz.VsExtension
 
         static string Runner { get { return DsVizTool.Runner; } }
 
-        /// <summary>מאגר השאלות הוא של המעבדה בלבד — קיים רק כשהקובץ הזה מותקן</summary>
+        /// <summary>
+        /// מאגר השאלות: lab\dsviz-bank-vs.jar, ואם הוא חסר — העותק שההתקנה שמה ב-bank\ (בכל התקנה). כך הכפתור "מאגר שאלות" מופיע
+        /// גם כששלב ההעתקה ל-lab לא רץ (PowerShell חסום, תיקיית המסמכים חסומה). null — המאגר לא מותקן
+        /// </summary>
         static string BankJar
         {
-            get { return Path.Combine(InstallDir, "lab", "dsviz-bank-vs.jar"); }
+            get
+            {
+                foreach (string dir in new[] { "lab", "bank" })
+                {
+                    string p = Path.Combine(InstallDir, dir, "dsviz-bank-vs.jar");
+                    try { if (File.Exists(p)) return p; } catch (Exception) { }
+                }
+                return Path.Combine(InstallDir, "lab", "dsviz-bank-vs.jar");
+            }
+        }
+
+        /// <summary>הנתיב של המאגר יחסית לתיקיית ההתקנה (לשורת הפקודה של java — שם משתמש בעברית לא עובר בנתיב מלא)</summary>
+        static string BankJarRelative
+        {
+            get
+            {
+                string full = BankJar, root = InstallDir.TrimEnd('\\') + "\\";
+                return full.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? full.Substring(root.Length) : full;
+            }
         }
 
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
@@ -53,6 +74,37 @@ namespace DsViz.VsExtension
             Safe("teacher", () => AddTeacher(mcs));
             Safe("toolbar", ShowToolbarOnce);
             Safe("follower", FollowActiveDocument);
+            // "מאגר שאלות" / "השאלה" / "עמדת ניהול": בטעינה הסרגל עוד לא תמיד קיים, וכפתור שהוסתר פעם (גרסה בלי מאגר) נשאר מוסתר
+            // ב-Visual Studio — ואז Visual Studio גם לא שואל עליו שוב. לכן מסנכרנים שוב אחרי שהסרגל עלה, ועוד כמה פעמים בדקה הראשונה
+            Safe("bank sync", ResyncButtons);
+            _ = JoinableTaskFactory.RunAsync(async () =>
+            {
+                foreach (int ms in new[] { 3000, 10000, 30000, 60000 })
+                {
+                    await Task.Delay(ms);
+                    await JoinableTaskFactory.SwitchToMainThreadAsync();
+                    Safe("bank sync", ResyncButtons);
+                }
+            });
+        }
+
+        void ResyncButtons()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            bool bank = File.Exists(BankJar);
+            if (_bankOn != bank) SolutionHints.Log("bank button (resync): " + (bank ? "shown" : "hidden"));
+            _bankOn = bank;   // לפני הגישה ל-CommandBars: היא מפעילה שוב את BeforeQueryStatus
+            SyncBankControl(bank);
+            bool teacher = TeacherOn();
+            _teacherSyncing = true;
+            try
+            {
+                if (SyncControl("עמדת ניהול", "teacher", teacher)) { _teacherOn = teacher; _teacherSynced = true; }
+            }
+            finally { _teacherSyncing = false; }
+            // ש-Visual Studio ישאל שוב על הפקודות (מאפשר את הכפתורים כשהמאגר הגיע אחרי הטעינה, למשל בעדכון ברקע)
+            var shell = GetService(typeof(SVsUIShell)) as IVsUIShell;
+            if (shell != null) shell.UpdateCommandUI(0);
         }
 
         static void Safe(string what, Action step)
@@ -360,7 +412,7 @@ namespace DsViz.VsExtension
             // נתיבים יחסיים מתוך תיקיית ההתקנה: שם משתמש בעברית (או בשפה אחרת) ב-%LOCALAPPDATA% לא עובר בשורת הפקודה של java
             // (הארגומנטים מפוענחים בקידוד של המערכת), אבל התיקייה הנוכחית כן
             var psi = new ProcessStartInfo(java) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = InstallDir };
-            psi.Arguments = "-cp \"lab\\dsviz-bank-vs.jar;dsviz.jar\" il.lamerhav.dsviz.BankVs teacher";
+            psi.Arguments = "-cp \"" + BankJarRelative + ";dsviz.jar\" il.lamerhav.dsviz.BankVs teacher";
             Process.Start(psi);
         }
 
