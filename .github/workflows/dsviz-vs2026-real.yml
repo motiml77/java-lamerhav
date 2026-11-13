@@ -16,7 +16,7 @@ on:
       - 'java-visualizer/release/DSViz-Setup.exe'
   workflow_dispatch:
 concurrency:
-  group: dsviz-vs2026-real-${{ github.ref }}
+  group: dsviz-vs2026-real-${{ github.sha }}   # כל גרסה רצה בפני עצמה — ריצה ישנה לא מעכבת את הבדיקה של ההתקנה החדשה
   cancel-in-progress: false
 jobs:
   bank-jar:
