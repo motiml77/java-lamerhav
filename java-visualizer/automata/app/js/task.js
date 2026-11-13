@@ -6,7 +6,8 @@
  *     mode: 'auto' | 'practice' | 'solution',   התוכנה בונה / אני בונה והתוכנה בודקת / פתרון לדוגמה בחלון נפרד
  *     locked,                     הנוסחה נעולה (מאגר, קובץ משימה)
  *     desc,                       תיאור במילים (לא חובה)
- *     check: { status: 'none'|'ok'|'fail', kind: 'proof'|'bounded', words: { shouldAccept, shouldReject }, total, machineHash, checkedUpTo, count, hint } }
+ *     check: { status: 'none'|'ok'|'fail', kind: 'proof'|'bounded', words: { shouldAccept, shouldReject }, total, machineHash, checkedUpTo, count, hint,
+ *              long: { count, maxLen } המילים הארוכות שנבדקו, proven: 'noExtra'|'shape'|null מה שהוכח, impossible: אס"ד/אסל"ד מול שפה לא רגולרית } }
  * בלי language: ציור חופשי (אין פס משימה).
  * "השתנה מאז הבדיקה" לא נשמר: מחושב, כשה-hash של המכונה והנוסחה עכשיו שונה מזה שנבדק (status() מחזיר 'stale').
  */
@@ -42,7 +43,8 @@
   function record(m, res) {
     const words = { shouldAccept: (res.missing || []).slice(0, 5), shouldReject: (res.extra || []).slice(0, 5) };
     return { status: res.ok ? 'ok' : 'fail', kind: res.exact ? 'proof' : 'bounded', words, total: (res.missing || []).length + (res.extra || []).length,
-      machineHash: hash(m), checkedUpTo: res.exact ? null : res.maxLen, count: res.count == null ? null : res.count, undecided: res.undecided || 0 };
+      machineHash: hash(m), checkedUpTo: res.exact ? null : res.maxLen, count: res.count == null ? null : res.count, undecided: res.undecided || 0,
+      long: res.long && res.long.count ? { count: res.long.count, maxLen: res.long.maxLen } : null, proven: res.proven || null, impossible: !!res.impossible };
   }
   /** שומר תוצאה במכונה (בלי היסטוריה: זו לא עריכה) */
   function setCheck(m, res) { if (m.language) m.language.check = record(m, res); return m.language && m.language.check; }
@@ -65,7 +67,7 @@
     const c = t.check;
     if (st === 'stale') return { cls: 'stale', text: t.mode === 'auto' ? 'השתנה מאז הבנייה' : 'השתנה מאז הבדיקה' };
     if (st === 'none') return { cls: 'none', text: 'עוד לא נבדק' };
-    if (st === 'fail') return { cls: 'fail', text: 'לא נכון: ' + words(c.total) };
+    if (st === 'fail') return { cls: 'fail', text: c.impossible && !c.total ? 'לא נכון: השפה לא רגולרית' : 'לא נכון: ' + words(c.total) };
     if (t.mode === 'auto') return { cls: 'ok', text: 'נבדק מול הנוסחה ✓' };
     return { cls: 'ok', text: c.kind === 'proof' ? 'נכון ✓ הוכחה' : 'נכון ✓ נבדק עד אורך ' + c.checkedUpTo };
   }

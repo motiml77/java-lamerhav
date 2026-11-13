@@ -63,6 +63,12 @@ jobs:
         run: |
           & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\os-trust.ps1" -Root "$env:GITHUB_WORKSPACE\java-visualizer" -Lib "$env:GITHUB_WORKSPACE\dsviz-lib\dsviz.jar" -Out "$env:GITHUB_WORKSPACE\os-trust"
           exit $LASTEXITCODE
+      - name: מזהה המחשב ותיקיית העמדה (עמדה שלא "משתחררת לבד")
+        if: always()
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\station-id.ps1" -Root "$env:GITHUB_WORKSPACE\java-visualizer" -Lib "$env:GITHUB_WORKSPACE\dsviz-lib\dsviz.jar" -Out "$env:GITHUB_WORKSPACE\os-trust"
+          exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: os-trust, path: os-trust, retention-days: 14 }

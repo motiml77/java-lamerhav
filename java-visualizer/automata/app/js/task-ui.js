@@ -1,5 +1,5 @@
 /*
- * task-ui.js - הפעולות של המשימה (סבב 14): בדיקה מול הנוסחה (הוכחה לאס"ד / אסל"ד ושפה רגולרית, אחרת כל המילים הקצרות, בחלקים),
+ * task-ui.js - הפעולות של המשימה (סבב 14): בדיקה מול הנוסחה (הוכחה לאס"ד / אסל"ד ושפה רגולרית, אחרת בדיקה יסודית בחלקים: lang/check.js),
  * רמז, הצגת פתרון (בחלון נפרד, כך שהמכונה של התלמיד נשארת), בנייה מחדש, סיום המשימה, קובץ משימה לתלמידים,
  * וחלון "פתרון לדוגמה" (#solution=..., לצפייה בלבד: לא שומר כלום בדפדפן).
  * התוצאה נשמרת במכונה (AutomataTask.setCheck) ומוצגת רק בפס המשימה (lang-strip.js).
@@ -52,9 +52,11 @@
           if (this.run !== run || app.machine !== m) { resolve(null); return; }
           const t = performance.now();
           while (performance.now() - t < 30 && !c.step(10)) { /* עוד */ }
-          if (!c.result.done && performance.now() - t0 > 6000) { c.result.done = true; c.result.maxLen = Math.max(0, c.result.len - 1); }
+          // אחרי 5 שניות מסיימים את האורך הנוכחי ועוברים למילים הארוכות; אחרי 12 עוצרים עם מה שנבדק
+          if (!c.result.done && !run.hurried && performance.now() - t0 > 5000) { run.hurried = true; c.hurry(); }
+          if (!c.result.done && performance.now() - t0 > 12000) c.stop();
           if (c.result.done) finish(c.result);
-          else { this.strip.showCard({ text: 'בודק... ' + c.result.count.toLocaleString('he') + ' מילים', kind: 'busy', busy: true }); setTimeout(tick, 0); }
+          else { this.strip.showCard({ text: 'בודק... ' + (c.result.count + (c.result.long ? c.result.long.count : 0)).toLocaleString('he') + ' מילים', kind: 'busy', busy: true }); setTimeout(tick, 0); }
         };
         tick();
       });

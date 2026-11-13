@@ -73,7 +73,8 @@ public final class AutomataIt {
         check("../ לא יוצא מתיקיית האפליקציה", http("GET", "/../automata-state/instance.json", null, null, null).status == 404
                 && http("GET", "/%2e%2e/automata-state/instance.json", null, null, null).status == 404);
         Resp idx = http("GET", "/", null, null, null);
-        check("הדף נטען, עם js/access-client.js (המפתח, והחיבור שמחזיק את התוכנה)", idx.status == 200 && idx.body.contains("<script type=\"module\" src=\"js/access-client.js\"></script>"));
+        check("הדף נטען, עם js/access-client.js (המפתח, והחיבור שמחזיק את התוכנה)", idx.status == 200 && (idx.body.contains("<script type=\"module\" src=\"js/access-client.js\"></script>")
+                || idx.body.contains("import('./js/access-client.js')")));   // האפליקציה האמיתית טוענת אותו בעצמה (import דינמי); לדף אחר התוכנה מוסיפה את התג
         check("access-client.js מוגש כ-JavaScript", http("GET", "/js/access-client.js", null, null, null).header("content-type").startsWith("text/javascript"));
         Resp s0 = api("GET", "/api/access", null);
         check("לא מחובר: state=signed-out", "signed-out".equals(state(s0)));

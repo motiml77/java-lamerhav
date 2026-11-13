@@ -365,6 +365,31 @@ await step('חשבון שעוד לא מורה: כניסה → בקשת הרשא�
   appSrv.close();
 });
 
+await step('התראות במסוף: תלמיד חדש ובקשת הרשאה → עיגול אדום על הפעמון; פתיחה מציגה אותן ומנקה; לחיצה עוברת לעמוד', async () => {
+  // דפדפן נפרד, מחובר כמנהל (הדף page עבר בינתיים לחשבונות אחרים)
+  const page = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, locale: 'he-IL', ignoreHTTPSErrors: true }).then(c => c.newPage());
+  await page.goto(BASE + '/admin');
+  await googlePopup(page, '.gbtn', 'motiml77@gmail.com', 'Moti');
+  await page.waitForSelector('.kpis');
+  await page.waitForSelector('.bell-dot:not([hidden])');
+  const n = +(await page.textContent('.bell-dot'));
+  assert.ok(n >= 2, 'עיגול אדום עם ' + n);
+  assert.match(await page.title(), new RegExp('^\\(' + n + '\\) '));
+  await shot(page, '17-admin-bell');
+  await page.click('#bell');
+  await page.waitForSelector('.alert-item.new');
+  const t = await page.textContent('.alerts');
+  assert.match(t, /תלמיד חדש הצטרף/);
+  assert.match(t, /בקשה חדשה להרשאת מורה/);
+  assert.match(t, /someone\.new@gmail\.com/);
+  await shot(page, '18-admin-bell-open');
+  await page.waitForSelector('.bell-dot[hidden]', { state: 'attached' });
+  await page.click('.alert-item:has-text("בקשה חדשה להרשאת מורה")');
+  await page.waitForURL(/#requests$/);
+  assert.equal(await page.isVisible('.alerts'), false);
+  assert.equal((await api('GET', '/v1/admin/alerts', null, admin)).unseen, 0);
+});
+
 await step('הרשמת מורה דרך הלקוח האמיתי של DSViz: כניסה → בקשה עם טלפון → אישור → כניסה חוזרת', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'realapp-'));
   const p = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, locale: 'he-IL', ignoreHTTPSErrors: true }).then(c => c.newPage());

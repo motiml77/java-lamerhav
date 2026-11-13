@@ -119,7 +119,7 @@ public final class Account {
     static final String PASS_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzcPy66SILXotJ2VPxjt93e7dGBR1chdnNh6Ptgr6KYXn5DGhSYEbkT3dsFKWO96QQCw/wG/bsQmqtLDxLHgjzOxjmYMGxyLmBkhHfywmYBl8JvRRPkWUn5AqZI5VgQ7cqeF4vbjMIOeb3jR3GB4QhfaI04v+4mAna6KQEC0drXfhT5oMuOhbfxH2t77tCC1iUkAnnfA/VprWcvPyieyzdTxZ4/r4e9VS5hTGceRsKpsdC7/Euy31vqrJxeVLV7Mwc1PkAMk0ghEJtSRBbvZdRUv5X5K8DLAjVpEVRHlq2XwobMI2c8oSU8qGESGsUk/R1lGUWIqGOXE+UdW6ODPVjQIDAQAB";
 
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static volatile String machineRaw, machineHash;
+    private static volatile String machineRaw, machineHash, machineOsReal;
     private static volatile String lastError = "";
 
     // ------------------------------------------------------------------ הגדרות
@@ -239,6 +239,36 @@ public final class Account {
         }
     }
 
+    private static volatile boolean shareTried;
+
+    /**
+     * Windows: התיקייה המשותפת נוצרת עם הרשאות ברירת המחדל של ProgramData — משתמש אחר של המחשב יכול לקרוא את הקבצים, אבל לא
+     * להחליף אותם (ואז חיבור חדש שלו נשמר רק אצלו, ולכל משתמש קובץ אחר). מי שיצר את התיקייה הוא הבעלים שלה, ולכן הוא יכול
+     * לתת לקבוצה "משתמשים" (S-1-5-32-545, בלי תלות בשפה) הרשאת שינוי. פעם אחת; מי שאינו הבעלים — מנסה לכל היותר פעם בשבוע.
+     */
+    private static void shareMachineDir(File dir) {
+        if (shareTried || dir == null || !windows() || plainDirs()) return;
+        try {
+            if (!dir.getAbsoluteFile().equals(secureMachineDir().getAbsoluteFile())) return;
+            shareTried = true;
+            File mark = new File(dir, "p.dat"), tried = new File(secureUserDir(), "p.dat");
+            if (mark.isFile() || !dir.isDirectory()) return;
+            if (tried.isFile() && System.currentTimeMillis() - tried.lastModified() < 7L * 86400000L) return;
+            run("icacls", dir.getParentFile().getPath(), "/grant", "*S-1-5-32-545:(OI)(CI)M", "/T", "/C", "/Q");
+            String check = run("icacls", dir.getPath());
+            if (check.contains("S-1-5-32-545") || check.matches("(?s).*\\((OI|CI)\\)\\((OI|CI)\\)\\(M\\).*")) {
+                Files.write(mark.toPath(), new byte[0]);
+                hide(mark);
+            } else {
+                tried.getParentFile().mkdirs();
+                Files.write(tried.toPath(), new byte[0]);
+                hide(tried);
+            }
+        } catch (Exception ignored) {
+            // בלי שיתוף — הקובץ נשמר אצל המשתמש כשאי אפשר להחליף את המשותף
+        }
+    }
+
     /** כותב קובץ קטן (לא מוצפן — למזהה) במקום הראשי ובגיבוי, ומסמן כנסתר */
     private static boolean writeBoth(final File f, final byte[] data) {
         try {
@@ -258,6 +288,7 @@ public final class Account {
                 x.getParentFile().mkdirs();
                 Files.write(x.toPath(), data);
                 hide(x);
+                shareMachineDir(x.getParentFile());
                 ok = true;
             } catch (IOException ignored) {
                 // נסה את הבא
@@ -354,68 +385,197 @@ public final class Account {
 
     // ------------------------------------------------------------------ מזהה המחשב
 
+    /*
+     * מזהה המחשב = hash(מזהה מערכת ההפעלה | מזהה אקראי של ההתקנה). ממנו נגזרים גם המפתח של הקבצים השמורים וגם ה-mid שבאישור
+     * החתום — אם הוא משתנה, העמדה "נעלמת" (הקובץ לא נפתח) והמחשב מבקש שוב קוד. לכן הוא חייב להיות אותו דבר בכל תוכנה, אצל כל
+     * משתמש Windows ובכל הפעלה. מה שהיה שובר אותו:
+     *   • reg.exe חסום לתלמידים (מדיניות "מניעת גישה לכלי עריכת הרישום") או נכשל רגעית — ואז נלקח מזהה חלופי מקובץ, אחר לגמרי;
+     *   • Java של 32 ביט (Eclipse ישן) רואה רישום אחר מ-Java של 64 ביט — שתי תוכנות באותו מחשב עם שני מזהים;
+     *   • ב-Mac שם המחשב משתנה לפי הרשת, והמזהה האקראי נוצר מחדש.
+     * לכן: (1) מזהה מערכת ההפעלה נקרא בכמה דרכים (reg בתצוגת 64 ביט, reg רגיל, PowerShell); (2) מה שנבחר נשמר ב-i.dat (שורה 3),
+     * וכשאי אפשר לקרוא — משתמשים בשמור; (3) כשיש כבר קובץ שמור של עמדה / משתמש, בוחרים את המזהה שפותח אותו (כך עדכון גרסה
+     * אף פעם לא מנתק מחשב שכבר מחובר); (4) קובץ שהועתק ממחשב אחר עדיין נדחה: שם מחשב אחר, או מזהה Windows אחר מזה שנשמר.
+     */
+
     /** מזהה קבוע של המחשב (hash) — אותו מזהה לכל המשתמשים ולכל התוכנות (Eclipse / IntelliJ / Visual Studio) */
     public static String machine() {
-        if (machineHash == null) {
-            String raw = System.getProperty("dsviz.machine");
-            if (raw == null || raw.isEmpty()) raw = osMachineId();
-            // במעבדות מחשבים משוכפלים מתמונה אחת (אותו MachineGuid בכולם) — בלי תוספת, כל המחשבים נחשבו עמדה אחת ודרסו זה את זה.
-            // לכן מוסיפים מזהה אקראי שנוצר פעם אחת בכל מחשב (ונוצר מחדש אם שם המחשב שונה — העתק של תמונה עם המזהה)
-            raw = raw + "|" + installId();
-            machineRaw = raw;
-            machineHash = hex(sha256("dsviz|" + raw)).substring(0, 32);
-        }
+        if (machineHash == null) resolveIdentity();
         return machineHash;
     }
 
     /**
-     * מזהה אקראי של ההתקנה במחשב הזה, בקובץ install-id (שורה 1: המזהה, שורה 2: שם המחשב). אם הקובץ הועתק למחשב אחר (שם המחשב שונה) —
-     * יוצרים מזהה חדש. אי אפשר לכתוב קובץ בשום מקום — משתמשים בשם המחשב (עדיין שונה בין מחשבים).
+     * מזהה קבוע של המחשב עצמו, בלי החלק האקראי (מזהה מערכת ההפעלה + שם המחשב). נשלח לשרת בחיבור עמדה: לפיו השרת מזהה שזה
+     * אותו מחשב גם כשהמזהה הרגיל התחלף (מחשב ששוחזר, קובץ שנמחק), ולא לוקח עוד מקום מהמורה. "" כשאין מזהה אמיתי של המערכת.
      */
-    static String installId() {
-        // שתי תוכנות שעולות יחד בפעם הראשונה לא יוצרות שני מזהים שונים (אחרת כל אחת לא הייתה פותחת את הקבצים של השנייה)
+    public static String stableMachine() {
+        machine();
+        String os = machineOsReal;
+        if (os == null || os.isEmpty()) {
+            OsId live = liveOsId(true);
+            os = live.real ? live.value : "";
+            machineOsReal = os;
+        }
+        if (os.isEmpty()) return "";
+        return hex(sha256("dsviz-stable|" + os + "|" + (strictHost() ? machineName() : ""))).substring(0, 32);
+    }
+
+    private static final class OsId {
+        final String value;
+        final boolean real;   // אמיתי (מהמערכת), או חלופי (קובץ / שם המשתמש)
+        OsId(String value, boolean real) { this.value = value; this.real = real; }
+    }
+
+    private static synchronized void resolveIdentity() {
+        if (machineHash != null) return;
+        String[] id;
         try {
-            return locked(new Callable<String>() {
-                @Override public String call() { return installIdLocked(); }
+            id = locked(new Callable<String[]>() {
+                @Override public String[] call() { return identityLocked(); }
             });
         } catch (Exception e) {
-            return installIdLocked();
+            id = identityLocked();
+        }
+        machineRaw = id[1] + "|" + id[0];
+        machineOsReal = "1".equals(id[2]) ? id[1] : null;
+        // במעבדות מחשבים משוכפלים מתמונה אחת (אותו MachineGuid בכולם) — בלי המזהה האקראי, כל המחשבים נחשבו עמדה אחת ודרסו זה את זה
+        machineHash = hex(sha256("dsviz|" + machineRaw)).substring(0, 32);
+    }
+
+    /** שם המחשב נבדק מול הקובץ רק ב-Windows (COMPUTERNAME קבוע). ב-Mac / Linux השם משתנה לפי הרשת (בבדיקות: dsviz.hostname) */
+    private static boolean strictHost() {
+        String forced = System.getProperty("dsviz.hostname");
+        return windows() || forced != null && !forced.isEmpty();
+    }
+
+    /** קובץ מזהה תקין: [המזהה האקראי, מזהה המערכת השמור ("" אם אין), "1" אם השמור אמיתי], או null */
+    private static String[] readIdentityFile(File f, String host) {
+        try {
+            if (f == null || !f.isFile()) return null;
+            String[] lines = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).split("\\r?\\n");
+            if (lines.length < 2 || lines[0].trim().length() < 16) return null;
+            if (strictHost() && !lines[1].trim().equals(host)) return null;   // הקובץ הועתק ממחשב אחר
+            String os = lines.length >= 3 ? lines[2].trim() : "";
+            boolean real = os.startsWith("g:");
+            if (os.startsWith("g:") || os.startsWith("f:")) os = os.substring(2); else os = "";
+            return new String[] { lines[0].trim(), os, real ? "1" : "0" };
+        } catch (IOException e) {
+            return null;
         }
     }
 
-    private static String installIdLocked() {
+    /** מחזיר [המזהה האקראי של ההתקנה, מזהה המערכת שבשימוש, "1" אם הוא אמיתי] */
+    private static String[] identityLocked() {
         String host = machineName();
         // המקומות החדשים (נסתרים, עם גיבוי) קודם, ואחריהם המקום הישן — ממנו המזהה עובר לחדש (אותו מזהה: אחרת היו
         // אובדים העמדה והקבצים המוצפנים)
         File mPrimary = new File(secureMachineDir(), "i.dat"), uPrimary = new File(secureUserDir(), "i.dat");
         File[] reads = { mPrimary, uPrimary, backupOf(uPrimary), new File(machineDir(), "install-id"), new File(userDir(), "install-id") };
+        String forced = System.getProperty("dsviz.machine");
+        boolean isForced = forced != null && !forced.isEmpty();
+        OsId live = isForced ? new OsId(forced, true) : null, fast = null;
+
+        List<String[]> files = new ArrayList<String[]>();
         for (File f : reads) {
-            if (f == null) continue;
-            try {
-                if (!f.isFile()) continue;
-                String[] lines = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).split("\\r?\\n");
-                if (lines.length >= 2 && lines[0].trim().length() >= 16 && lines[1].trim().equals(host)) {
-                    String id = lines[0].trim();
-                    keepInstallId(id, host, mPrimary, uPrimary);
-                    return id;
-                }
-            } catch (IOException ignored) {
-                // נבדוק את הבא
+            String[] x = readIdentityFile(f, host);
+            if (x == null) continue;
+            // מזהה Windows אמיתי ששמור בקובץ ושונה מזה של המחשב הזה: הקובץ הועתק ממחשב אחר (גם אם שם המחשב זהה)
+            // (נבדק רק בקריאה המהירה, reg. כשהיא חסומה — סומכים על שם המחשב, ולא מפעילים PowerShell בכל הפעלה)
+            if ("1".equals(x[2]) && !isForced) {
+                if (fast == null) fast = liveOsId(false);
+                if (fast.real && !fast.value.equals(x[1])) continue;
+            }
+            files.add(x);
+        }
+        List<String> installs = new ArrayList<String>();
+        for (String[] x : files) if (!installs.contains(x[0])) installs.add(x[0]);
+
+        // המועמדים למזהה המערכת, לפי הסדר: מה ששמור, מה שנקרא עכשיו, והמזהים החלופיים של הגרסאות הקודמות
+        List<OsId> oss = new ArrayList<OsId>();
+        if (isForced) oss.add(live);
+        else {
+            for (String[] x : files) if (!x[1].isEmpty()) addOs(oss, new OsId(x[1], "1".equals(x[2])));
+        }
+        String install = null;
+        OsId os = null;
+        List<File> targets = identityTargets();
+        if (!installs.isEmpty() && !targets.isEmpty()) {
+            // יש כבר קובץ שמור (עמדה / משתמש): בוחרים את המזהה שפותח אותו
+            String[] hit = firstThatOpens(installs, oss, targets);
+            if (hit == null && !isForced) {
+                if (live == null) live = fast != null && fast.real ? fast : liveOsId(true);
+                List<OsId> more = new ArrayList<OsId>();
+                addOs(more, live);
+                for (OsId x : fallbackOsIds(false)) addOs(more, x);
+                more.removeAll(oss);
+                hit = firstThatOpens(installs, more, targets);
+                for (OsId x : more) addOs(oss, x);
+            }
+            if (hit != null) {
+                install = hit[0];
+                for (OsId x : oss) if (x.value.equals(hit[1])) os = x;
             }
         }
-        String id = UUID.randomUUID().toString().replace("-", "");
-        if (keepInstallId(id, host, mPrimary, uPrimary)) return id;
-        return "host-" + host;
+        if (os == null) {
+            if (!oss.isEmpty()) os = oss.get(0);   // מה ששמור (קובץ עם מזהה אמיתי אחר כבר נדחה למעלה)
+            else {
+                if (live == null) live = fast != null && fast.real ? fast : liveOsId(true);
+                os = live.real ? live : firstOr(fallbackOsIds(true), live);
+            }
+        }
+        boolean fresh = install == null && installs.isEmpty();
+        if (install == null) install = installs.isEmpty() ? UUID.randomUUID().toString().replace("-", "") : installs.get(0);
+        boolean kept = keepIdentity(install, host, isForced ? null : os, mPrimary, uPrimary);
+        if (fresh && !kept) install = "host-" + host;   // אי אפשר לכתוב קובץ בשום מקום — שם המחשב (עדיין שונה בין מחשבים)
+        return new String[] { install, os.value, os.real ? "1" : "0" };
     }
 
-    /** שומר את המזהה בכל המקומות החדשים (שחסר בהם) ומוחק את העותקים מהמקום הישן */
-    private static boolean keepInstallId(String id, String host, File mPrimary, File uPrimary) {
-        byte[] data = (id + "\n" + host + "\n").getBytes(StandardCharsets.UTF_8);
+    private static void addOs(List<OsId> list, OsId x) {
+        if (x == null || x.value == null || x.value.isEmpty()) return;
+        for (OsId y : list) if (y.value.equals(x.value)) return;
+        list.add(x);
+    }
+
+    private static OsId firstOr(List<OsId> list, OsId other) {
+        return list.isEmpty() ? other : list.get(0);
+    }
+
+    /** הקבצים המוצפנים שכבר שמורים במחשב (עמדה / משתמש, במקומות החדשים, בגיבוי ובמקומות הישנים) — בלי לגעת בהם */
+    private static List<File> identityTargets() {
+        List<File> out = new ArrayList<File>();
+        File[] all;
+        if (plainDirs()) all = new File[] { new File(machineDir(), STATION_FILE), new File(userDir(), STATION_FILE), new File(userDir(), USER_FILE) };
+        else {
+            File b = secureBackupDir();
+            all = new File[] { new File(secureMachineDir(), STATION_DAT), new File(secureUserDir(), STATION_DAT), b == null ? null : new File(b, STATION_DAT),
+                new File(secureUserDir(), USER_DAT), b == null ? null : new File(b, USER_DAT),
+                new File(machineDir(), STATION_FILE), new File(userDir(), STATION_FILE), new File(userDir(), USER_FILE) };
+        }
+        for (File f : all) if (f != null && f.isFile() && !out.contains(f)) out.add(f);
+        return out;
+    }
+
+    /** הצירוף הראשון (מזהה התקנה, מזהה מערכת) שפותח אחד מהקבצים השמורים: [install, os], או null */
+    private static String[] firstThatOpens(List<String> installs, List<OsId> oss, List<File> targets) {
+        for (String install : installs) for (OsId os : oss) {
+            SecretKeySpec key = keyOf(os.value + "|" + install);
+            for (File f : targets) if (open(f, key) != null) return new String[] { install, os.value };
+        }
+        return null;
+    }
+
+    /**
+     * שומר את המזהה (ואת מזהה המערכת שנבחר) בכל המקומות החדשים שחסר בהם או שהתוכן בהם שונה, ומוחק את העותקים מהמקום הישן.
+     * os == null (בדיקות עם dsviz.machine): בלי השורה השלישית.
+     */
+    private static boolean keepIdentity(String id, String host, OsId os, File mPrimary, File uPrimary) {
+        String text = id + "\n" + host + "\n" + (os == null ? "" : (os.real ? "g:" : "f:") + os.value + "\n");
+        byte[] data = text.getBytes(StandardCharsets.UTF_8);
         boolean ok = false;
         for (File f : new File[] { mPrimary, uPrimary }) {
             File b = backupOf(f);
-            if (f.isFile() && (b == null || b.isFile())) { ok = true; continue; }
+            if (sameContent(f, data) && (b == null || sameContent(b, data))) { ok = true; continue; }
             if (writeBoth(f, data)) ok = true;
+            else if (readIdentityFile(f, host) != null && id.equals(readIdentityFile(f, host)[0])) ok = true;   // קיים, של משתמש אחר: אין הרשאה לעדכן, והמזהה זהה
         }
         if (ok && !plainDirs()) {
             new File(machineDir(), "install-id").delete();
@@ -424,43 +584,87 @@ public final class Account {
         return ok;
     }
 
-    private static String osMachineId() {
+    private static boolean sameContent(File f, byte[] data) {
+        try {
+            return f.isFile() && java.util.Arrays.equals(Files.readAllBytes(f.toPath()), data);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static final java.util.regex.Pattern GUID = java.util.regex.Pattern.compile("[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}");
+
+    /** מזהה מערכת ההפעלה, כמו שהוא נקרא עכשיו. real = false: לא הצלחנו לקרוא (value הוא מזהה חלופי, כמו בגרסאות הקודמות) */
+    private static OsId liveOsId(boolean thorough) {
+        if ("1".equals(System.getProperty("dsviz.osid.off"))) return new OsId("", false);   // לבדיקות: כמו reg.exe חסום
         String os = System.getProperty("os.name", "").toLowerCase();
         try {
             if (os.contains("win")) {
-                String out = run("reg", "query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid");
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("MachineGuid\\s+REG_SZ\\s+(\\S+)").matcher(out);
-                if (m.find()) return m.group(1);
+                // (1) reg בתצוגת 64 ביט: גם Java של 32 ביט רואה את אותו MachineGuid; (2) reg רגיל; (3) PowerShell — כש-reg.exe חסום במדיניות
+                String[][] tries = {
+                    { "reg", "query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid", "/reg:64" },
+                    { "reg", "query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid" },
+                    { "powershell", "-NoProfile", "-NonInteractive", "-Command",
+                        "[Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine','Registry64').OpenSubKey('SOFTWARE\\Microsoft\\Cryptography').GetValue('MachineGuid')" },
+                };
+                for (String[] cmd : tries) {
+                    if (!thorough && "powershell".equals(cmd[0])) continue;   // איטי: רק כשמחפשים מזהה, לא בכל הפעלה
+                    if ("reg".equals(cmd[0]) && "1".equals(System.getProperty("dsviz.osid.noreg"))) continue;   // לבדיקות: כמו reg.exe חסום במדיניות
+                    try {
+                        String out = run(cmd);
+                        java.util.regex.Matcher m = java.util.regex.Pattern.compile("MachineGuid\\s+REG_SZ\\s+(\\S+)").matcher(out);
+                        if (m.find()) return new OsId(m.group(1), true);
+                        if ("powershell".equals(cmd[0])) {
+                            java.util.regex.Matcher g = GUID.matcher(out);
+                            if (g.find()) return new OsId(g.group(), true);
+                        }
+                    } catch (Exception ignored) {
+                        // הדרך הבאה
+                    }
+                }
             } else if (os.contains("mac")) {
                 String out = run("ioreg", "-rd1", "-c", "IOPlatformExpertDevice");
                 java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"IOPlatformUUID\"\\s*=\\s*\"([^\"]+)\"").matcher(out);
-                if (m.find()) return m.group(1);
+                if (m.find()) return new OsId(m.group(1), true);
             } else {
                 for (String p : new String[] { "/etc/machine-id", "/var/lib/dbus/machine-id" }) {
                     File f = new File(p);
                     if (f.isFile()) {
                         String s = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim();
-                        if (!s.isEmpty()) return s;
+                        if (!s.isEmpty()) return new OsId(s, true);
                     }
                 }
             }
         } catch (Exception ignored) {
-            // נופלים למזהה שנשמר בקובץ
+            // נופלים למזהה חלופי
         }
-        // אין מזהה של מערכת ההפעלה — מזהה אקראי שנשמר פעם אחת (לכל המחשב אם אפשר)
+        return new OsId("", false);
+    }
+
+    /**
+     * המזהים החלופיים (כשאין מזהה של מערכת ההפעלה): מזהה אקראי שנשמר פעם אחת בקובץ machine-id (לכל המחשב אם אפשר), ואם אי
+     * אפשר — שם המשתמש. create = false: רק מה שכבר קיים (למציאת המזהה שפותח קובץ שמור מגרסה קודמת).
+     */
+    private static List<OsId> fallbackOsIds(boolean create) {
+        List<OsId> out = new ArrayList<OsId>();
         for (File dir : new File[] { machineDir(), userDir() }) {
             File f = new File(dir, "machine-id");
             try {
-                if (f.isFile()) return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim();
+                if (f.isFile()) {
+                    addOs(out, new OsId(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim(), false));
+                    continue;
+                }
+                if (!create || !out.isEmpty()) continue;
                 dir.mkdirs();
                 String id = UUID.randomUUID().toString();
                 Files.write(f.toPath(), id.getBytes(StandardCharsets.UTF_8));
-                return id;
+                addOs(out, new OsId(id, false));
             } catch (IOException ignored) {
                 // נסה את התיקייה הבאה
             }
         }
-        return "unknown-" + System.getProperty("user.name", "");
+        addOs(out, new OsId("unknown-" + System.getProperty("user.name", ""), false));
+        return out;
     }
 
     private static String run(String... cmd) throws IOException, InterruptedException {
@@ -497,51 +701,73 @@ public final class Account {
         return f;
     }
 
-    /** הקובץ של עמדת המחשב — לכל המחשב (ואם אין הרשאה — אצל המשתמש) */
-    private static File stationFile() {
-        if (plainDirs()) {
-            File f = plainDirs() ? new File(machineDir(), STATION_FILE) : new File(secureMachineDir(), STATION_DAT);
-            if (f.isFile()) return f;
-            File u = new File(userDir(), STATION_FILE);
-            return u.isFile() ? u : f;
-        }
+    /**
+     * המקומות של קובץ העמדה, לפי הסדר: לכל המחשב, ואחריו אצל המשתמש (כשאין הרשאה לכתוב בתיקייה המשותפת, או כשהקובץ שם של
+     * משתמש אחר ואי אפשר להחליף אותו). קבצים מהמקום הישן עוברים לבד.
+     */
+    private static File[] stationFiles() {
+        if (plainDirs()) return new File[] { new File(machineDir(), STATION_FILE), new File(userDir(), STATION_FILE) };
         File m = new File(secureMachineDir(), STATION_DAT), u = new File(secureUserDir(), STATION_DAT);
         migrate(new File(machineDir(), STATION_FILE), m);
         migrate(new File(userDir(), STATION_FILE), m.isFile() ? u : m);
-        if (m.isFile()) return m;
-        File bm = backupOf(m);
-        if (u.isFile() || bm != null && bm.isFile()) return u.isFile() ? u : m;
-        return m;
+        return m.getAbsoluteFile().equals(u.getAbsoluteFile()) ? new File[] { m } : new File[] { m, u };
     }
 
-    /** מקום חלופי לעמדה כשאין הרשאה לכתוב לכל המחשב */
-    private static File stationFallback() {
-        return plainDirs() ? new File(userDir(), STATION_FILE) : new File(secureUserDir(), STATION_DAT);
+    /**
+     * הקובץ של עמדת המחשב: מבין המקומות — זה שנפתח ושהאישור בו תקף (ואם יש שניים, זה שנבדק אחרון מול השרת). פעם נלקח תמיד
+     * הקובץ המשותף אם הוא קיים — גם כשהוא לא נפתח או ישן, וכך חיבור חדש שנשמר אצל המשתמש "נעלם" והמחשב ביקש שוב קוד.
+     */
+    private static File stationFile() {
+        File[] fs = stationFiles();
+        File best = null, readable = null;
+        double bestAt = -1;
+        for (File f : fs) {
+            Map<String, Object> d = load(f);
+            if (d == null) continue;
+            if (readable == null) readable = f;
+            if (verifyPass(Json.str(d.get("pass"))) == null) continue;
+            double at = d.get("checkedAt") instanceof Number ? ((Number) d.get("checkedAt")).doubleValue() : 0;
+            if (best == null || at > bestAt) { best = f; bestAt = at; }
+        }
+        return best != null ? best : readable != null ? readable : fs[0];
     }
 
-    static Map<String, Object> load(File f) {
+    /** מפתח ההצפנה של הקבצים, לפי מזהה המחשב (לפני ה-hash) */
+    private static SecretKeySpec keyOf(String raw) {
+        return new SecretKeySpec(sha256("dsviz-store|" + raw), 0, 16, "AES");
+    }
+
+    /** פותח קובץ מוצפן עם המפתח. null — אין קובץ / לא נפתח (מחשב אחר, קובץ פגום) */
+    private static Map<String, Object> open(File f, SecretKeySpec key) {
         try {
-            if (!f.isFile()) {
-                // נמחק? משחזרים מהגיבוי
-                File b = backupOf(f);
-                if (b == null || !b.isFile()) return null;
-                try {
-                    f.getParentFile().mkdirs();
-                    Files.copy(b.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    hide(f);
-                } catch (IOException e) {
-                    f = b;   // אין הרשאה לשחזר — קוראים מהגיבוי
-                }
-            }
+            if (f == null || !f.isFile()) return null;
             Map<String, Object> outer = Json.obj(Json.parse(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)));
             byte[] all = Base64.getDecoder().decode(Json.str(outer.get("data")));
             Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
-            c.init(Cipher.DECRYPT_MODE, storeKey(), new GCMParameterSpec(128, all, 0, 12));
+            c.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, all, 0, 12));
             byte[] plain = c.doFinal(all, 12, all.length - 12);
             return Json.obj(Json.parse(new String(plain, StandardCharsets.UTF_8)));
         } catch (Exception e) {
-            return null;   // לא נפתח (מחשב אחר / קובץ פגום) — כאילו אין
+            return null;
         }
+    }
+
+    static Map<String, Object> load(File f) {
+        SecretKeySpec key = storeKey();
+        Map<String, Object> d = open(f, key);
+        if (d != null) return d;
+        // נמחק, או שלא נפתח (פגום / נכתב בחצי)? קוראים מהגיבוי, ומשחזרים ממנו את הקובץ הראשי אם אפשר
+        File b = backupOf(f);
+        d = b == null ? null : open(b, key);
+        if (d == null) return null;
+        try {
+            f.getParentFile().mkdirs();
+            Files.copy(b.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            hide(f);
+        } catch (IOException ignored) {
+            // אין הרשאה לשחזר — קוראים מהגיבוי
+        }
+        return d;
     }
 
     static boolean save(final File f, final Map<String, Object> data) {
@@ -577,6 +803,7 @@ public final class Account {
             Files.move(tmp.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
             if (shared) f.setReadable(true, false);   // עמדה: כל המשתמשים של המחשב קוראים
             hide(f);
+            shareMachineDir(f.getParentFile());
             File b = backupOf(f);
             if (b != null) {
                 try {
@@ -613,8 +840,7 @@ public final class Account {
 
     private static SecretKeySpec storeKey() {
         machine();
-        byte[] k = sha256("dsviz-store|" + machineRaw);
-        return new SecretKeySpec(k, 0, 16, "AES");
+        return keyOf(machineRaw);
     }
 
     // ------------------------------------------------------------------ האישור החתום
@@ -823,15 +1049,68 @@ public final class Account {
 
     /** חיבור עמדה עם קוד המורה. ok — נשמר לכל המחשב; full / bad-code / blocked / offline — הודעה */
     public static Result claimStation(String code, String name) {
-        Result r = post("/v1/station/claim", map("code", code, "name", name, "machine", machine(), "client", client.get(), "app", app));
+        Result r = post("/v1/station/claim", map("code", code, "name", name, "machine", machine(), "stable", stableMachine(),
+                "why", stationWhy(), "client", client.get(), "app", app));
         if (r.ok()) {
             String token = Json.str(r.body.get("token"));
-            File f = new File(machineDir(), STATION_FILE);
-            store(f, r, token);
-            if (!f.isFile()) store(stationFallback(), r, token);   // אין הרשאה לתיקייה של המחשב
-            r = checkSaved(r, stationFile());
+            // נשמר במקום הראשון שבאמת נכתב ונקרא בחזרה עם הכרטיס החדש: לכל המחשב, ואם אי אפשר (אין הרשאה, או קובץ ישן של
+            // משתמש אחר שאי אפשר להחליף) — אצל המשתמש
+            File saved = null;
+            for (File f : stationFiles()) {
+                store(f, r, token);
+                Map<String, Object> d = load(f);
+                if (d != null && token.equals(Json.str(d.get("token")))) { saved = f; break; }
+            }
+            r = checkSaved(r, saved != null ? saved : stationFiles()[0]);
+            if (r.ok()) noteDrop("");
         }
         return r;
+    }
+
+    // ------------------------------------------------------------------ למה המחשב מבקש שוב קוד (ליומן של ההנהלה)
+
+    /** הסיבה האחרונה שבגללה העמדה נמחקה מהמחשב (השרת דחה / שחרר), בקובץ קטן אצל המשתמש. ריק — מוחק */
+    private static File dropFile() {
+        return new File(secureUserDir(), plainDirs() ? "station-drop" : "d.dat");
+    }
+
+    private static void noteDrop(String why) {
+        try {
+            File f = dropFile();
+            if (why == null || why.isEmpty()) { f.delete(); return; }
+            f.getParentFile().mkdirs();
+            Files.write(f.toPath(), (why + "\n" + System.currentTimeMillis() + "\n").getBytes(StandardCharsets.UTF_8));
+            hide(f);
+        } catch (Exception ignored) {
+            // רק לאבחון
+        }
+    }
+
+    /**
+     * למה אין במחשב עמדה מחוברת (נשלח לשרת עם הקוד, ונרשם ביומן של ההנהלה): none — אין קובץ; unreadable — יש קובץ והוא לא
+     * נפתח; pass — האישור שבו לא אומת; server-revoked / server-invalid — השרת שחרר / דחה (בחודש האחרון). "" — העמדה תקינה.
+     */
+    static String stationWhy() {
+        try {
+            File f = dropFile();
+            if (f.isFile()) {
+                String[] lines = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).split("\\r?\\n");
+                if (lines.length >= 2 && System.currentTimeMillis() - Long.parseLong(lines[1].trim()) < 30L * 86400000L && lines[0].matches("server-[a-z]+")) return lines[0];
+            }
+        } catch (Exception ignored) {
+            // ממשיכים לבדיקת הקבצים
+        }
+        boolean any = false, opened = false;
+        for (File f : stationFiles()) {
+            File b = backupOf(f);
+            if (!f.isFile() && (b == null || !b.isFile())) continue;
+            any = true;
+            Map<String, Object> d = load(f);
+            if (d == null) continue;
+            opened = true;
+            if (verifyPass(Json.str(d.get("pass"))) != null) return "";
+        }
+        return opened ? "pass" : any ? "unreadable" : "none";
     }
 
     // ------------------------------------------------------------------ מורה / תלמיד: כניסה עם Google בדפדפן
@@ -1035,8 +1314,14 @@ public final class Account {
         Map<String, Object> s = load(sf);
         if (s != null && !Json.str(s.get("token")).isEmpty()) {
             Result r = post("/v1/access/check", map("token", Json.str(s.get("token")), "machine", machine()));
-            if (r.status.matches("revoked|invalid")) forgetIfSame(sf, Json.str(s.get("token")));
-            else if (validState(r)) storeIfSame(sf, r, Json.str(s.get("token")));
+            // revoked — המורה / ההנהלה שחררו את העמדה. invalid עם סיבה (שרת חדש) — הכרטיס באמת לא של עמדה פעילה.
+            // invalid בלי סיבה (שרת ישן): שם כל חיבור חוזר מאותו מחשב (משתמש Windows אחר, תוכנה אחרת) החליף את הכרטיס של
+            // העמדה — העמדה עצמה עדיין מחוברת, ולכן לא מוחקים (עמדה ששוחררה באמת מחזירה תמיד revoked)
+            String why = r.body == null ? "" : Json.str(r.body.get("why"));
+            if (r.status.equals("revoked") || r.status.equals("invalid") && !why.isEmpty()) {
+                forgetIfSame(sf, Json.str(s.get("token")));
+                noteDrop("server-" + r.status);
+            } else if (validState(r)) storeIfSame(sf, r, Json.str(s.get("token")));
             if (last == null || !last.ok()) last = r;
         }
         return last == null ? new Result("none", "", null) : last;
@@ -1291,6 +1576,7 @@ public final class Account {
     static void resetForTest() {
         machineRaw = null;
         machineHash = null;
+        machineOsReal = null;
     }
 
     static String lastError() {
