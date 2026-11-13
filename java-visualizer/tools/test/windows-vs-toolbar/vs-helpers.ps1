@@ -180,7 +180,7 @@ function WaitButtons($vsP, [string[]]$want, [int]$sec = 180) {
     $t0 = Get-Date; $state = $null
     while (((Get-Date) - $t0).TotalSeconds -lt $sec) {
         SkipFirstRun $vsP.Id | Out-Null
-        $state = ToolbarState $vsP.Id $script:dsvizNames
+        $state = ToolbarState $vsP.Id @(@($script:dsvizNames) + @($want) | Select-Object -Unique)   # גם כפתורים שאינם ב-dsvizNames (עמדת ניהול)
         if (@($want | Where-Object { Usable $state[$_] }).Count -eq $want.Count) { break }
         Start-Sleep 4
     }

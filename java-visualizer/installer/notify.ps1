@@ -4,8 +4,9 @@
 #   -State waiting   "הגרסה החדשה ירדה — תותקן כשסוגרים את Eclipse" — נעלם לבד אחרי -Seconds (ברירת מחדל 10)
 #   -State updating  "DSViz מתעדכן לגרסה חדשה…" עם פס התקדמות נע — נשאר עד שהתהליך שהפעיל אותו נגמר (או -Seconds)
 #   -State done      "✓ DSViz עודכן" — נעלם לבד אחרי -Seconds (ברירת מחדל 8), או בלחיצה
+#   -State vsready   "✓ סרגל הכלים של DSViz מוכן — יופיע כשפותחים את Visual Studio" (install-vsix.ps1 -WhenClosed, אחרי ש-Visual Studio נסגר)
 # update.ps1 מפעיל אותו ברקע (לא מחכה לו); setup.nsi מפעיל את "done" בסוף עדכון (/UPDATE).
-param([ValidateSet('found', 'waiting', 'updating', 'done')][string]$State = 'updating', [int]$Seconds = 0, [int]$WatchPid = 0, [string]$Apps = '')
+param([ValidateSet('found', 'waiting', 'updating', 'done', 'vsready')][string]$State = 'updating', [int]$Seconds = 0, [int]$WatchPid = 0, [string]$Apps = '')
 $ErrorActionPreference = 'Stop'
 try {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -43,7 +44,7 @@ public class DsvizToast : Form {
 
     # פס דק בצבע בראש החלון
     $bar = New-Object Windows.Forms.Panel
-    $bar.Dock = 'Top'; $bar.Height = 3; $bar.BackColor = $(if ($State -eq 'done') { $green } else { $blue })
+    $bar.Dock = 'Top'; $bar.Height = 3; $bar.BackColor = $(if ($State -eq 'done' -or $State -eq 'vsready') { $green } else { $blue })
     $f.Controls.Add($bar)
 
     $title = New-Object Windows.Forms.Label
@@ -54,7 +55,7 @@ public class DsvizToast : Form {
     $sub.AutoSize = $false; $sub.Location = New-Object Drawing.Point(16, 42); $sub.Size = New-Object Drawing.Size(290, 20)
     $sub.Font = New-Object Drawing.Font($font, 9); $sub.ForeColor = $muted
     $sub.RightToLeft = 'Yes'; $sub.TextAlign = 'MiddleRight'
-    if ($State -eq 'done' -or $State -eq 'waiting') {   # שתי שורות: מתי העדכון נכנס לתוקף
+    if ($State -eq 'done' -or $State -eq 'waiting' -or $State -eq 'vsready') {   # שתי שורות: מתי העדכון נכנס לתוקף
         $sub.Size = New-Object Drawing.Size(290, 36)
         $f.Height = 100
         $f.Location = New-Object Drawing.Point(($wa.Right - $f.Width - 16), ($wa.Bottom - $f.Height - 16))
@@ -62,6 +63,9 @@ public class DsvizToast : Form {
     if ($State -eq 'done') {
         $title.Text = [string][char]0x2713 + ' DSViz עודכן לגרסה החדשה'
         $sub.Text = 'נכנס לתוקף בפתיחה הבאה של Eclipse / Visual Studio / IntelliJ.'
+    } elseif ($State -eq 'vsready') {
+        $title.Text = [string][char]0x2713 + ' סרגל הכלים של DSViz מוכן'
+        $sub.Text = 'הוא יופיע כשפותחים את Visual Studio.'
     } elseif ($State -eq 'waiting') {
         $title.Text = 'הגרסה החדשה של DSViz ירדה'
         $sub.Text = if ($Apps) { "היא תותקן לבד ברגע שייסגרו: $Apps" } else { 'היא תותקן לבד ברגע שסוגרים את Eclipse / Visual Studio.' }
@@ -87,7 +91,7 @@ public class DsvizToast : Form {
     $f.Controls.AddRange(@($title, $sub, $close))
     if ($State -ne 'updating') { foreach ($c in @($f, $title, $sub)) { $c.Add_Click({ $f.Close() }) } }
 
-    $limit = if ($Seconds -gt 0) { $Seconds } elseif ($State -eq 'done') { 8 } elseif ($State -eq 'updating') { 1800 } else { 10 }
+    $limit = if ($Seconds -gt 0) { $Seconds } elseif ($State -eq 'done' -or $State -eq 'vsready') { 8 } elseif ($State -eq 'updating') { 1800 } else { 10 }
     $start = Get-Date
     $t = New-Object Windows.Forms.Timer
     $t.Interval = 500

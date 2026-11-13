@@ -568,6 +568,14 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
     DetailPrint "Visual Studio: מתקין את סרגל הכלים של DSViz..."
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\cs\install-vsix.ps1" "$INSTDIR\cs\DsViz.VsExtension.vsix"'
     Pop $0
+    ; Visual Studio עדיין פתוח (עדכון שקט שחיכה שעתיים, או "סגרתי בעצמי" בלי לסגור): VSIXInstaller לא התקין בו — תהליך קטן ברקע
+    ; מחכה שייסגר ומתקין (ומודיע "סרגל הכלים מוכן"); בפתיחה הבאה של Visual Studio הסרגל המעודכן שם
+    Call IsVisualStudioRunning
+    Pop $0
+    ${If} $0 == "0"
+      DetailPrint "Visual Studio פתוח — סרגל הכלים יותקן לבד כשייסגר"
+      Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\cs\install-vsix.ps1" "$INSTDIR\cs\DsViz.VsExtension.vsix" -Missing -WhenClosed'
+    ${EndIf}
   ${EndIf}
 
   ; תיקיית תרגילים מוכנה (Documents\DataStructures-CS): פתרון של Visual Studio עם תרגיל ודוגמאות
