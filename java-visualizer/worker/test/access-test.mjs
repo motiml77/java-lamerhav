@@ -27,10 +27,12 @@ globalThis.fetch = async (url, init) => {
     return new Response(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(ex) }] } }] }), { status: 200 });
   }
   if (/paypal\.com/.test(String(url))) return fakePayPal(String(url), init || {});
+  if (String(url) === 'https://api.resend.com/emails') { MAILS.push({ auth: (init.headers || {}).authorization, body: JSON.parse(init.body) }); return new Response('{"id":"m1"}', { status: 200 }); }
   return realFetch(url, init);
 };
 
 // PayPal — מדומה: הזמנות, אישור של המשלם (approve), גבייה, שאילתות, ואימות חתימה של webhook (חתימה "good" בלבד)
+const MAILS = [];
 const PP = { orders: new Map(), captures: new Map(), seq: 0, calls: [], tamper: null };
 function fakePayPal(url, init) {
   const u = new URL(url), path = u.pathname, method = (init.method || 'GET').toUpperCase();
@@ -784,6 +786,82 @@ await test('PayPal: חבילת עמדות למורה; ביטול בדף של Pay
   let last;
   for (let i = 0; i < 11; i++) last = await call('POST', '/v1/pay/start', { token: st.tok, env: ENV_PP, body: {} });
   assert.deepEqual([last.status, last.body.code], [429, 'rate']);
+});
+
+// ------------------------------------------------------------------ התראות למנהל
+await test('התראות: תלמיד חדש / מורה בפעם הראשונה / בקשת הרשאה / תשלום → עיגול אדום במסוף ומייל; כניסה חוזרת — בלי התראה; פתיחה מנקה', async () => {
+  const ENV_M = Object.assign({}, ENV, { RESEND_API_KEY: 're_test', ALERT_EMAIL: 'boss@test.dev' });
+  const adm = (method, path, body) => call(method, path, { token: admin, env: ENV_M, body });
+  await adm('POST', '/v1/admin/alerts/seen', { all: true });
+  const start = (await adm('GET', '/v1/admin/alerts?limit=50')).body;
+  assert.equal(start.unseen, 0, 'A1');
+  MAILS.length = 0;
+  const signIn = async (email, role, m) => {
+    const tok = await idToken(email, role === 'teacher' ? 'מורה חדשה' : 'תלמיד חדש');
+    const k = pkce();
+    const ex = await call('POST', '/v1/auth/exchange', { env: ENV_M, body: { idToken: tok, role, challenge: k.challenge } });
+    return (await call('POST', '/v1/auth/redeem', { env: ENV_M, body: { code: ex.body.code, verifier: k.verifier, machine: m || machine(), machineName: 'מחשב בבית' } })).body;
+  };
+  // תלמיד חדש
+  const st = await signIn('newkid@test.dev', 'student');
+  assert.equal(st.status, 'pay');
+  let a = (await adm('GET', '/v1/admin/alerts?limit=50')).body;
+  assert.equal(a.unseen, 1, JSON.stringify(a.alerts.filter(x => !x.seen)));
+  assert.deepEqual([a.alerts[0].kind, a.alerts[0].email, a.alerts[0].name, a.alerts[0].go], ['student.new', 'newkid@test.dev', 'תלמיד חדש', '#students=newkid%40test.dev']);
+  assert.match(a.alerts[0].detail, /מחשב בבית/);
+  assert.equal(MAILS.length, 1, 'A2');
+  assert.deepEqual([MAILS[0].auth, MAILS[0].body.to, MAILS[0].body.from], ['Bearer re_test', ['boss@test.dev'], 'DSViz <onboarding@resend.dev>']);
+  assert.match(MAILS[0].body.subject, /תלמיד חדש הצטרף — תלמיד חדש/);
+  assert.match(MAILS[0].body.html, /newkid@test\.dev/);
+  assert.match(MAILS[0].body.text, /\/admin#students=newkid%40test\.dev/);
+  // אותו תלמיד נכנס שוב (מחשב אחר) — לא "חדש"
+  await signIn('newkid@test.dev', 'student');
+  assert.equal((await adm('GET', '/v1/admin/alerts')).body.unseen, 1);
+  assert.equal(MAILS.length, 1, 'A3');
+  // מורה שההנהלה הוסיפה, נכנס בפעם הראשונה (ואחר כך שוב — בלי התראה)
+  await adm('POST', '/v1/admin/teacher', { create: true, email: 'fresh@test.dev', name: 'מורה חדשה', seats: 1 });
+  await signIn('fresh@test.dev', 'teacher');
+  await signIn('fresh@test.dev', 'teacher');
+  a = (await adm('GET', '/v1/admin/alerts')).body;
+  assert.equal(a.unseen, 2, 'A4');
+  assert.equal(a.alerts.filter(x => x.kind === 'teacher.first' && x.email === 'fresh@test.dev').length, 1, 'A5');
+  // בקשה להרשאת מורה (עם בית ספר וטלפון)
+  const tok = await idToken('wannabe@test.dev', 'רוצה ללמד');
+  await call('POST', '/v1/me/request', { env: ENV_M, token: tok, body: { kind: 'teacher', school: 'תיכון הבדיקה', phone: '050-7654321', computers: 25 } });
+  a = (await adm('GET', '/v1/admin/alerts')).body;
+  const req = a.alerts.find(x => x.kind === 'teacher.request');
+  assert.deepEqual([req.email, req.go], ['wannabe@test.dev', '#requests']);
+  assert.match(req.detail, /תיכון הבדיקה · 0507654321 · 25 מחשבים/);
+  // תשלום
+  const kidTok = await idToken('newkid@test.dev');
+  const pay = (await call('POST', '/v1/pay/start', { env: ENV_M, token: kidTok, body: {} })).body;
+  await call('POST', '/v1/pay/notify/demo', { env: ENV_M, body: { id: pay.id, status: 'paid', amount: 60 } });
+  a = (await adm('GET', '/v1/admin/alerts')).body;
+  assert.equal(a.unseen, 4, 'A6');
+  assert.match(a.alerts.find(x => x.kind === 'payment.paid').detail, /60 ₪/);
+  assert.equal(MAILS.length, 4, 'A7');
+  // בסקירה — אותו מספר
+  assert.equal((await adm('GET', '/v1/admin/overview')).body.counts.alertsUnseen, 4);
+  // פתיחת הפעמון מנקה
+  assert.equal((await adm('POST', '/v1/admin/alerts/seen', { all: true })).body.marked, 4);
+  assert.equal((await adm('GET', '/v1/admin/alerts')).body.unseen, 0);
+  // מייל כבוי בהגדרות: ההתראה במסוף נשארת, מייל — לא
+  await adm('POST', '/v1/admin/settings', { alertEmail: false });
+  assert.equal((await adm('GET', '/v1/admin/settings')).body.settings.alertEmail, false);
+  await signIn('quiet@test.dev', 'student');
+  assert.equal((await adm('GET', '/v1/admin/alerts')).body.unseen, 1);
+  assert.equal(MAILS.length, 4, 'A8');
+  await adm('POST', '/v1/admin/settings', { alertEmail: true });
+  // בלי RESEND_API_KEY: רק במסוף; ובהגדרות רואים שהמייל לא מוגדר
+  const ENV_N = Object.assign({}, ENV);
+  await call('POST', '/v1/auth/exchange', { env: ENV_N, body: {} }).catch(() => {});
+  const set = (await call('GET', '/v1/admin/settings', { token: admin, env: ENV_N })).body;
+  assert.deepEqual([set.alertMail.ready, set.alertMail.to], [false, 'admin@test.dev']);
+  assert.equal((await adm('GET', '/v1/admin/settings')).body.alertMail.ready, true);
+  // רק מנהל רואה ומנקה התראות
+  assert.equal((await call('GET', '/v1/admin/alerts', { token: tok, env: ENV_M })).status, 403, 'A9');
+  assert.equal((await call('POST', '/v1/admin/alerts/seen', { token: tok, env: ENV_M, body: { all: true } })).status, 403, 'A10');
+  await adm('POST', '/v1/admin/alerts/seen', { all: true });
 });
 
 await test('הדפים בדפדפן נטענים (signin / admin) עם כותרות אבטחה', async () => {

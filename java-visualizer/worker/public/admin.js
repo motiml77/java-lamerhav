@@ -6,6 +6,8 @@ const app = document.getElementById('app');
 let user = null;
 let settingsCache = null;
 let openCount = 0;
+let alertsUnseen = 0;
+let alertTimer = null;
 const cache = { teachers: null, students: null };
 
 const NAV = [
@@ -89,7 +91,7 @@ function shell(content) {
     h('div', { class: 'brand' }, h('div', { class: 'logo dark' }, icon(ICONS.shield, 19, '#fff')), h('div', null, 'מסוף ההנהלה', h('small', null, 'DSViz · מאגר תרגילים'))),
     h('div', { class: 'nav', style: { display: 'flex', flexDirection: 'column', gap: '4px' } }, NAV.map(([id, label, ic]) => h('a', { href: '#' + id, 'aria-current': r.page === id || (id === 'teachers' && r.page === 'teacher') ? 'page' : null },
       icon(ic, 18), h('span', null, label), id === 'requests' && openCount ? h('span', { class: 'count', 'aria-label': openCount + ' פתוחות' }, String(openCount)) : null))));
-  const header = h('header', null, searchBox(), h('div', { class: 'grow' }),
+  const header = h('header', null, searchBox(), h('div', { class: 'grow' }), bell(),
     h('div', { class: 'who' }, h('div', { class: 'meta' }, h('span', { class: 'ltr' }, user.email),
       h('a', { href: '#', onclick: async e => { e.preventDefault(); await logoutWeb(); location.reload(); } }, 'התנתקות')), avatar(user, true)));
   app.replaceChildren(h('div', { class: 'shell' }, nav, h('div', { class: 'main' }, header, h('main', { class: 'content', id: 'content' }, content))));
@@ -146,11 +148,73 @@ function refreshCount(n) {
   if (n) a.append(h('span', { class: 'count' }, String(n)));
 }
 
+// ------------------------------------------------------------------ התראות: מורה / תלמיד שהצטרפו, בקשת הרשאה, תשלום (עיגול אדום עד שפותחים)
+
+const ALERT_DOT = { 'student.new': 'blue', 'teacher.first': 'blue', 'teacher.request': 'warn', 'payment.paid': 'green', 'payment.seats': 'green' };
+
+function bell() {
+  const dot = h('span', { class: 'bell-dot', hidden: !alertsUnseen }, alertsUnseen > 99 ? '99+' : String(alertsUnseen || ''));
+  const btn = h('button', { type: 'button', class: 'bell', id: 'bell', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': alertsUnseen ? `התראות — ${alertsUnseen} חדשות` : 'התראות', title: 'התראות' },
+    icon(ICONS.bell, 21, '#17213A'), dot);
+  const panel = h('div', { class: 'alerts', hidden: true, role: 'dialog', 'aria-label': 'התראות' });
+  const wrap = h('div', { class: 'bell-wrap' }, btn, panel);
+  const close = () => { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.onclick = async () => {
+    if (!panel.hidden) return close();
+    panel.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    panel.replaceChildren(h('div', { class: 'empty' }, 'טוען…'));
+    try {
+      const r = await api('GET', '/v1/admin/alerts?limit=30');
+      const item = a => h('button', { type: 'button', class: 'alert-item' + (a.seen ? '' : ' new'), onclick: () => { close(); location.hash = a.go; } },
+        h('span', { class: 'dot ' + (ALERT_DOT[a.kind] || '') }),
+        h('span', { class: 'grow stack', style: { gap: '2px', textAlign: 'right' } },
+          h('b', null, a.title),
+          h('span', null, a.name || '', a.name ? ' · ' : '', h('span', { class: 'ltr muted' }, a.email)),
+          a.detail ? h('span', { class: 'small muted' }, a.detail) : null,
+          h('span', { class: 'small muted' }, h('time', { datetime: a.at, title: fmtWhen(a.at) }, ago(a.at)))));
+      panel.replaceChildren(
+        h('div', { class: 'alerts-head' }, h('b', null, 'התראות'), h('span', { class: 'small muted' }, r.unseen ? `${r.unseen} חדשות` : 'אין חדשות')),
+        r.alerts.length ? h('div', { class: 'alerts-list' }, r.alerts.map(item)) : h('div', { class: 'empty' }, 'עוד אין התראות. כשמורה או תלמיד מצטרפים — זה יופיע כאן.'));
+      // פתיחת הרשימה = נקראו (מה שהיה חדש נשאר מסומן ברשימה הפתוחה)
+      if (r.unseen) { await api('POST', '/v1/admin/alerts/seen', { all: true }); setAlerts(0); }
+    } catch (e) {
+      panel.replaceChildren(h('div', { class: 'warn-box' }, e.message || String(e)));
+    }
+  };
+  document.addEventListener('click', e => { if (!wrap.contains(e.target)) close(); });
+  wrap.addEventListener('keydown', e => { if (e.key === 'Escape') { close(); btn.focus(); } });
+  return wrap;
+}
+
+/** מעדכן את העיגול האדום ואת כותרת הלשונית */
+function setAlerts(n) {
+  alertsUnseen = n;
+  const btn = document.getElementById('bell');
+  if (btn) {
+    const dot = btn.querySelector('.bell-dot');
+    dot.hidden = !n;
+    dot.textContent = n > 99 ? '99+' : String(n || '');
+    btn.setAttribute('aria-label', n ? `התראות — ${n} חדשות` : 'התראות');
+  }
+  document.title = (n ? `(${n}) ` : '') + 'מסוף ההנהלה';
+}
+
+/** בודק התראות חדשות כל דקה, כל עוד המסוף פתוח */
+function watchAlerts() {
+  const tick = () => api('GET', '/v1/admin/alerts?limit=1').then(r => setAlerts(r.unseen)).catch(() => {});
+  tick();
+  clearInterval(alertTimer);
+  alertTimer = setInterval(() => { if (!document.hidden) tick(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+}
+
 // ------------------------------------------------------------------ סקירה
 
 async function overview() {
   const o = await api('GET', '/v1/admin/overview');
   refreshCount(o.counts.openRequests);
+  setAlerts(o.counts.alertsUnseen || 0);
   const c = o.counts;
   const s = settingsCache || (settingsCache = (await api('GET', '/v1/admin/settings')).settings);
   const pct = c.seats ? Math.round(100 * c.used / c.seats) : 0;
@@ -602,6 +666,10 @@ async function settingsView() {
   const gemLabel = h('span', null, s.requireLoginForGemini ? 'דולק' : 'כבוי');
   gem.addEventListener('change', () => { gemLabel.textContent = gem.checked ? 'דולק' : 'כבוי'; });
   const until = h('input', { class: 'field', type: 'date', id: 's-until', value: s.accessUntil });
+  const mailOn = h('input', { type: 'checkbox', role: 'switch', id: 's-mail', checked: s.alertEmail !== false });
+  const mailLabel = h('span', null, s.alertEmail !== false ? 'דולק' : 'כבוי');
+  mailOn.addEventListener('change', () => { mailLabel.textContent = mailOn.checked ? 'דולק' : 'כבוי'; });
+  const am = r.alertMail || {};
   const form = h('div', { class: 'stack', style: { gap: '18px', maxWidth: '900px' } },
     h('section', { class: 'card' },
       h('div', { class: 'row', style: { alignItems: 'flex-start', gap: '16px' } },
@@ -610,6 +678,13 @@ async function settingsView() {
         h('label', { class: 'switch', for: 's-gem' }, h('span', { class: 'sr' }, 'רק למחוברים'), gem, h('span', { class: 'track', 'aria-hidden': 'true' }, h('span', { class: 'knob' })), gemLabel)),
       h('div', { class: 'warn-box' }, 'מדליקים רק אחרי שכל המחשבים עודכנו לגרסה עם ההתחברות — מחשב עם גרסה ישנה יקבל ״צריך להתחבר / לעדכן את DSViz״.'),
       h('div', { class: 'form3' }, num('monthlyPerSeat', 'שליחות בחודש — לכל עמדה של מורה (מנה משותפת)', s.monthlyPerSeat, 0, 1000), num('monthlyStudent', 'שליחות בחודש — תלמיד רשום', s.monthlyStudent, 0, 5000))),
+    h('section', { class: 'card' },
+      h('div', { class: 'row', style: { alignItems: 'flex-start', gap: '16px' } },
+        h('div', { class: 'grow stack', style: { gap: '6px' } }, h('h2', null, 'התראות כשמצטרפים'),
+          h('p', { class: 'muted', style: { lineHeight: '1.55' } }, 'תלמיד חדש, מורה שנכנס בפעם הראשונה, בקשה להרשאת מורה ותשלום — מופיעים בפעמון למעלה עם עיגול אדום, ',
+            'ובמייל', am.to ? [' ל-', h('span', { class: 'ltr', style: { fontWeight: 600 } }, am.to)] : '', '.')),
+        h('label', { class: 'switch', for: 's-mail' }, h('span', { class: 'sr' }, 'התראות במייל'), mailOn, h('span', { class: 'track', 'aria-hidden': 'true' }, h('span', { class: 'knob' })), mailLabel)),
+      am.ready ? null : h('div', { class: 'warn-box' }, 'שליחת המייל עוד לא מוגדרת בשרת (RESEND_API_KEY). עד אז ההתראות מופיעות רק בפעמון.')),
     h('section', { class: 'card' }, h('h2', null, 'תשלום תלמידים'),
       h('div', { class: 'form3' }, num('price', 'מחיר (₪) — 0 = עוד לא פתוח', s.price, 0, 5000),
         h('label', { class: 'lbl', for: 's-until' }, 'תשלום פותח את המאגר עד', until),
@@ -628,7 +703,7 @@ async function settingsView() {
       r.passKey ? null : h('div', { class: 'warn-box' }, 'חסר מפתח החתימה (PASS_KEY) בשרת — בלי זה המאגר לא נפתח בלי אינטרנט.')));
   const save = h('button', { type: 'button', class: 'btn primary lg' }, 'שמירת השינויים');
   save.onclick = () => busy(save, async () => {
-    const body = { requireLoginForGemini: gem.checked, accessUntil: until.value };
+    const body = { requireLoginForGemini: gem.checked, accessUntil: until.value, alertEmail: mailOn.checked };
     for (const f of form.querySelectorAll('input[data-key]')) body[f.dataset.key] = +f.value;
     body.packages = (s.packages || []).map((p, i) => ({ seats: +form.querySelector(`[data-pk="${i}"][data-f="seats"]`).value, price: +form.querySelector(`[data-pk="${i}"][data-f="price"]`).value }));
     if (gem.checked && !s.requireLoginForGemini && !await ask({ title: 'להדליק "רק למחוברים"?', text: 'מעכשיו מי שלא מחובר (או שהגרסה אצלו ישנה) לא יוכל לשלוח תרגיל ל-Gemini.', ok: 'הדלקה' })) return;
@@ -660,6 +735,7 @@ async function main() {
     }
     window.addEventListener('hashchange', render);
     render();
+    watchAlerts();
   };
   if (!user) return signin();
   start();

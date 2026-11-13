@@ -17,6 +17,7 @@ import { verifyIdToken, AuthError, projectId, firestoreEmulator } from './google
 import { sha256, sha256Hex, randomToken, teacherCode, normalizeCode, showCode, sameText, b64url, b64urlJson, importRsaPrivate, signRs256, publicSpki } from './crypto.js';
 import { payProvider, PAY_PROVIDERS } from './pay.js';
 import { servePage } from './pages.js';
+import { alert, alertTo, mailReady, listAlerts, markSeen, WAIT } from './alerts.js';
 
 export const DEFAULTS = {
   price: 0,                     // ₪ — 0 = עוד לא נקבע (אי אפשר לשלם)
@@ -29,6 +30,7 @@ export const DEFAULTS = {
   requireLoginForGemini: false, // שליחת תרגיל ל-Gemini רק למחוברים
   monthlyPerSeat: 4,            // שליחות בחודש לכל עמדה של המורה (מנה משותפת: המורה + כל העמדות שלו)
   monthlyStudent: 30,           // שליחות בחודש לתלמיד רשום (מייל)
+  alertEmail: true,             // התראה במייל למנהל כשמצטרף מורה / תלמיד (alerts.js); במסוף — תמיד
 };
 const SETTING_LIMITS = {
   price: [0, 5000], offlineDays: [0, 365], studentDevices: [1, 20], teacherDevices: [1, 50], defaultSeats: [0, 2000],
@@ -307,11 +309,17 @@ async function redeem(request, env) {
   }
   const ses = await newSession(env, s, who, doc.role, b.machine, b.machineName, b.client);
   if (ses.status === 'devices') return { ok: true, status: 'devices', profile, limit: ses.limit, devices: ses.devices };
+  let joined = '';
   if (doc.role === 'student') {
+    const prev = await store.get('students/' + doc.email);
     await store.merge('students/' + doc.email, { email: doc.email, uid: doc.uid, name: doc.name || '', lastSignIn: nowIso() });
+    if (!prev || !prev.lastSignIn) joined = 'student.new';
   } else {
+    const prev = await store.get('teachers/' + doc.email);
     await store.merge('teachers/' + doc.email, { lastSignIn: nowIso(), uid: doc.uid });
+    if (prev && !prev.lastSignIn) joined = 'teacher.first';
   }
+  if (joined) await alert(env, store, { kind: joined, email: doc.email, name: doc.name, detail: clip(b.machineName, 60) ? 'מחשב: ' + clip(b.machineName, 60) : '' }, { email: s.alertEmail !== false });
   await log(store, doc.email, doc.role === 'teacher' ? 'signin.teacher' : 'signin.student', clip(b.machineName, 60), appDetail(appOf(b.app)));
   const r = await resolveToken(env, ses.token, b.machine);
   return accessReply(env, r, { token: ses.token });
@@ -556,6 +564,10 @@ async function myRequest(request, env) {
   const id = timeId();
   await store.set('requests/' + id, doc);
   await log(store, u.email, 'request.' + kind, doc.stationName || '', doc.amount ? String(doc.amount) : doc.school || '');
+  if (kind === 'teacher') {
+    const s = await settings(env);
+    await alert(env, store, { kind: 'teacher.request', email: u.email, name: u.name, detail: [doc.school, doc.phone, doc.computers ? doc.computers + ' מחשבים' : ''].filter(Boolean).join(' · ') }, { email: s.alertEmail !== false });
+  }
   return { ok: true, id };
 }
 
@@ -694,6 +706,11 @@ export async function settlePayment(env, n) {
   if (result.done) {
     const what = result.done === 'seats' ? `חבילת ${result.p.seats} עמדות · ${result.before} ← ${result.before + result.p.seats}` : '';
     await log(store, 'תשלום', 'payment.' + result.done, result.p.email, [`${result.p.amount} ₪`, what].filter(Boolean).join(' · '));
+    if (result.done === 'paid' || result.done === 'seats') {
+      const s = await settings(env);
+      await alert(env, store, { kind: result.done === 'seats' ? 'payment.seats' : 'payment.paid', email: result.p.email, name: result.p.name,
+        detail: [`${result.p.amount} ₪`, what].filter(Boolean).join(' · ') }, { email: s.alertEmail !== false });
+    }
   }
   return result;
 }
@@ -721,12 +738,13 @@ function teacherRow(t) {
 async function adminOverview(env) {
   const store = db(env);
   const monthStart = today().slice(0, 8) + '01';
-  const [teachers, requests, students, payments, recent] = await Promise.all([
+  const [teachers, requests, students, payments, recent, unseen] = await Promise.all([
     store.query('teachers'),
     store.query('requests', { where: [['status', '==', 'open']] }),
     store.query('students', { where: [['accessUntil', '>=', today()]] }),
     store.query('payments', { where: [['createdAt', '>=', monthStart]] }),
     store.query('log', { orderBy: ['at', 'desc'], limit: 15 }),
+    store.query('alerts', { where: [['seen', '==', false]], limit: 200 }),
   ]);
   const active = teachers.filter(t => t.active);
   const full = active.filter(t => (t.seats || 0) > 0 && (t.used || 0) >= (t.seats || 0));
@@ -737,7 +755,7 @@ async function adminOverview(env) {
       seats: active.reduce((n, t) => n + (t.seats || 0), 0), used: active.reduce((n, t) => n + (t.used || 0), 0),
       students: students.length, studentsPaid: students.filter(s => s.source === 'payment').length, studentsManual: students.filter(s => s.source === 'manual').length,
       paymentsMonth: payments.filter(p => p.status === 'paid' || p.status === 'refunded').length, refundsMonth: payments.filter(p => p.status === 'refunded').length,
-      openRequests: requests.length,
+      openRequests: requests.length, alertsUnseen: unseen.length,
     },
     requests: requests.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).map(requestRow),
     full: full.map(teacherRow),
@@ -1002,6 +1020,10 @@ async function adminSettings(env, u, b) {
       const pk = b.packages.map(p => ({ seats: +p.seats, price: +p.price }));
       if (JSON.stringify(pk) !== JSON.stringify(cur.packages)) { upd.packages = pk; changes.push('חבילות: ' + pk.map(p => `${p.seats}=${p.price}₪`).join(', ')); }
     }
+    if (b.alertEmail !== undefined && !!b.alertEmail !== (cur.alertEmail !== false)) {
+      upd.alertEmail = !!b.alertEmail;
+      changes.push(b.alertEmail ? 'התראות במייל: דולק' : 'התראות במייל: כבוי');
+    }
     if (b.requireLoginForGemini !== undefined && !!b.requireLoginForGemini !== !!cur.requireLoginForGemini) {
       upd.requireLoginForGemini = !!b.requireLoginForGemini;
       changes.push(b.requireLoginForGemini ? 'Gemini: רק למחוברים' : 'Gemini: פתוח לכולם');
@@ -1018,7 +1040,7 @@ async function adminSettings(env, u, b) {
   return {
     ok: true, settings: Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, s[k]])),
     admins: admins(env), provider: payProvider(env) ? payProvider(env).id : '', providers: PAY_PROVIDERS,
-    passKey: !!key, signedIn: u.email,
+    passKey: !!key, signedIn: u.email, alertMail: { ready: mailReady(env), to: alertTo(env) },
   };
 }
 
@@ -1074,6 +1096,8 @@ const ADMIN_ROUTES = {
   'POST /v1/admin/request': (env, u, url, b) => adminDecide(env, u, b),
   'GET /v1/admin/log': (env, u, url) => adminLog(env, url),
   'GET /v1/admin/settings': (env, u) => adminSettings(env, u, null),
+  'GET /v1/admin/alerts': (env, u, url) => listAlerts(db(env), url.searchParams.get('limit')),
+  'POST /v1/admin/alerts/seen': (env, u, url, b) => markSeen(db(env), b),
   'POST /v1/admin/settings': (env, u, url, b) => adminSettings(env, u, b),
 };
 
@@ -1084,6 +1108,8 @@ export async function handleAccess(request, env, ctx, url) {
     || path.startsWith('/v1/admin/') || path.startsWith('/v1/pay/') || path.startsWith('/pay/')
     || ['/signin', '/welcome', '/account', '/admin'].includes(path) || path.startsWith('/static/');
   if (!isOurs) return null;
+  // ההתראה במייל נשלחת ברקע: התשובה לא מחכה לה (alerts.js)
+  if (ctx && typeof ctx.waitUntil === 'function') env = Object.assign({}, env, { [WAIT]: p => ctx.waitUntil(p) });
   if (!accessEnabled(env)) {
     if (path === '/v1/access/config') return reply(200, { ok: true, enabled: false });
     throw new Fail(404, 'not_found', 'כתובת לא מוכרת');

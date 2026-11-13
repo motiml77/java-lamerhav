@@ -25,6 +25,9 @@ ADMIN_EMAILS = "motiml77@gmail.com"
 #   PAYPAL_ENV = "live"                                   (בלי השורה הזו: sandbox, לבדיקות)
 #   PAYPAL_WEBHOOK_ID = "<Webhook ID>"                     (לא סוד; ה-webhook: https://<הכתובת של השרת>/v1/pay/notify/paypal)
 # והסוד (לא כאן!): PAYPAL_SECRET — npx wrangler@4 secret put PAYPAL_SECRET
+#
+# התראות למנהל במייל (src/access/alerts.js, README — "התראות למנהל"): הסוד RESEND_API_KEY (npx wrangler@4 secret put RESEND_API_KEY).
+# לא חובה (בתוך [vars] למעלה): ALERT_EMAIL = "<לאן>" (ברירת מחדל: הראשון ב-ADMIN_EMAILS)
 
 # הגבלת קצב לפי כתובת IP: עד 6 שליחות בדקה מכל מחשב (מגן על המכסה של Gemini מפני הצפה)
 [[ratelimits]]
