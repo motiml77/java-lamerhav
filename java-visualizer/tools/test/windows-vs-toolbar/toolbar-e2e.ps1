@@ -23,6 +23,13 @@ $script:lines = New-Object System.Collections.Generic.List[string]
 function Log([string]$s) { Write-Host $s; $script:lines.Add($s) }
 function Ok([string]$id, [string]$s) { Log "  ok   $id  $s" }
 function Fail([string]$id, [string]$s) { $script:fails++; Log "  FAIL $id  $s" }
+# dotnet new sln: ב-.NET 10 ואילך נוצר ‎.slnx‎ במקום ‎.sln‎ — מחזיר את הקובץ שנוצר בפועל
+function NewSln([string]$name, [string]$dir) {
+    & dotnet new sln -n $name -o $dir --force | Out-Null
+    $p = Join-Path $dir "$name.sln"
+    if (-not (Test-Path $p) -and (Test-Path "$p`x")) { $p = "$p`x" }
+    return $p
+}
 function Info([string]$s) { Log "  ..   $s" }
 function Check([string]$id, [bool]$cond, [string]$s, [string]$why = '') { if ($cond) { Ok $id $s } else { Fail $id ($s + $(if ($why) { " — $why" } else { '' })) } }
 function Save-Summary() {
@@ -816,9 +823,8 @@ Log "== 7ב. פרויקט Console App רגיל (כמו 'Create a new project' ->
 $plainDir = Join-Path $env:USERPROFILE 'source\repos\PlainQueue'
 Remove-Item -Recurse -Force $plainDir -ErrorAction SilentlyContinue
 & dotnet new console -n PlainQueue -o $plainDir --force | Out-Null          # אותה תבנית Console App ש-Visual Studio משתמש בה
-& dotnet new sln -n PlainQueue -o $plainDir --force | Out-Null
-& dotnet sln (Join-Path $plainDir 'PlainQueue.sln') add (Join-Path $plainDir 'PlainQueue.csproj') | Out-Null
-$plainSln = Join-Path $plainDir 'PlainQueue.sln'
+$plainSln = NewSln 'PlainQueue' $plainDir
+& dotnet sln $plainSln add (Join-Path $plainDir 'PlainQueue.csproj') | Out-Null
 $plainProg = Join-Path $plainDir 'Program.cs'
 $studentCode = @'
 using Unit4.CollectionsLib;
@@ -849,7 +855,7 @@ try {
 $sln2 = ''; try { $sln2 = $d.Solution.FullName } catch { }
 Info "פתרון פתוח: $sln2"
 $d = $null
-Check 'plain-open' ($plainOpen -and $typed -and $sln2 -like '*PlainQueue.sln') "פרויקט Console App רגיל נפתח ב-Visual Studio, והקוד עם התור נכתב בעורך (עדיין לא נשמר)" "פתרון: $sln2 · נכתב: $typed"
+Check 'plain-open' ($plainOpen -and $typed -and $sln2 -like '*PlainQueue.sln*') "פרויקט Console App רגיל נפתח ב-Visual Studio, והקוד עם התור נכתב בעורך (עדיין לא נשמר)" "פתרון: $sln2 · נכתב: $typed"
 Check 'plain-unsaved' (-not ((Get-Content $plainProg -Raw -Encoding utf8) -match 'Insert')) "לפני הלחיצה: בדיסק עדיין ה-Hello, World של התבנית" ''
 Shot '50-plain-typed'
 # ה-trace של ההרצה (%TEMP%\dsviz-*.trace) קיים כל עוד החלון של DSViz פתוח — ממנו רואים שהתור באמת נרשם
@@ -871,8 +877,8 @@ Remove-Item -Recurse -Force $twoDir -ErrorAction SilentlyContinue
 $dirA = Join-Path $twoDir 'StackA'; $dirB = Join-Path $twoDir 'QueueB'
 & dotnet new console -n StackA -o $dirA --force | Out-Null
 & dotnet new console -n QueueB -o $dirB --force | Out-Null
-& dotnet new sln -n TwoProjects -o $twoDir --force | Out-Null
-& dotnet sln (Join-Path $twoDir 'TwoProjects.sln') add (Join-Path $dirA 'StackA.csproj') (Join-Path $dirB 'QueueB.csproj') | Out-Null
+$twoSln = NewSln 'TwoProjects' $twoDir
+& dotnet sln $twoSln add (Join-Path $dirA 'StackA.csproj') (Join-Path $dirB 'QueueB.csproj') | Out-Null
 $helperA = Join-Path $dirA 'Helper.cs'
 [IO.File]::WriteAllText($helperA, "static class Helper`r`n{`r`n    public static int Twice(int x) { return x * 2; }`r`n}`r`n", (New-Object Text.UTF8Encoding($true)))
 $progA = Join-Path $dirA 'Program.cs'; $progB = Join-Path $dirB 'Program.cs'
@@ -904,7 +910,7 @@ function RunAndTrace([string]$shot) {
 }
 function Snip([string]$t) { if ($t) { $t.Substring(0, [Math]::Min(240, $t.Length)) -replace "`r?`n", ' ' } else { 'אין trace' } }
 $d = GetDte
-try { $d.Solution.Close($false); Start-Sleep 3; $d.Solution.Open((Join-Path $twoDir 'TwoProjects.sln')) } catch { Info "DTE (פתיחת TwoProjects): $_" }
+try { $d.Solution.Close($false); Start-Sleep 3; $d.Solution.Open($twoSln) } catch { Info "DTE (פתיחת TwoProjects): $_" }
 $d = $null
 Start-Sleep 20
 $eA = EditDoc $progA $codeA1
@@ -1071,9 +1077,9 @@ if (-not $created) {
     Info "יצירה דרך המסך לא הסתיימה — dotnet new console (אותה תבנית) ופתיחה ב-Visual Studio"
     $tp = Join-Path $tutRepo 'Targil1\Targil1'
     & dotnet new console -n Targil1 -o $tp --force | Out-Null
-    & dotnet new sln -n Targil1 -o (Split-Path $tp) --force | Out-Null
-    & dotnet sln (Join-Path (Split-Path $tp) 'Targil1.sln') add (Join-Path $tp 'Targil1.csproj') | Out-Null
-    $d = GetDte; try { $d.Solution.Open((Join-Path (Split-Path $tp) 'Targil1.sln')) } catch { Info "DTE: $_" }; $d = $null
+    $tSln = NewSln 'Targil1' (Split-Path $tp)
+    & dotnet sln $tSln add (Join-Path $tp 'Targil1.csproj') | Out-Null
+    $d = GetDte; try { $d.Solution.Open($tSln) } catch { Info "DTE: $_" }; $d = $null
     for ($i = 0; $i -lt 60 -and -not $created; $i++) { Start-Sleep 2; $vsP.Refresh(); $created = $vsP.MainWindowTitle -like '*Targil1*' }
 }
 Check 'tut-created' $created "2-5. נוצר פרויקט Console App רגיל (Targil1) ונפתח ב-Visual Studio" $vsP.MainWindowTitle
