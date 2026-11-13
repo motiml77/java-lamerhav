@@ -73,6 +73,7 @@ ShowState $st
 foreach ($n in $bankBtns) { Check 'fallback-button' (Usable $st[$n]) "בלי lab\: '$n' גלוי ולחיץ (המאגר מ-bank\)" $st[$n] }
 $title = ClickBank $vsP '5-no-lab-bank-click'
 Check 'fallback-bank-opens' ($title -ne '') "בלי lab\: 'מאגר שאלות' פותח את המאגר — '$title'" ((Windows) -join ' ; ')
+Check 'fallback-repaired' (Test-Path $labJar) "הלחיצה תיקנה: lab\dsviz-bank-vs.jar הועתק מ-bank\"
 CloseVs $vsP
 
 Get-ChildItem "$env:APPDATA\Microsoft\VisualStudio" -Recurse -Filter ActivityLog.xml -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName (Join-Path $Out ('ActivityLog-' + $_.Directory.Name + '.xml')) -ErrorAction SilentlyContinue }

@@ -359,7 +359,7 @@ while (((Get-Date) - $t0).TotalMinutes -lt 12) {
 $seen = $null
 if ($up) {
     for ($i = 0; $i -lt 40 -and -not $seen; $i++) { SkipFirstRun $p0.Id | Out-Null; $seen = ToolbarButton $p0.Id @('תרגיל חדש'); if (-not $seen) { Start-Sleep 4 } }
-    Start-Sleep 15   # ההרחבה מסתירה את "מאגר שאלות" (המאגר לא מותקן) — ו-Visual Studio שומר את הסרגל כשהוא נסגר
+    Start-Sleep 15   # ההרחבה מסנכרנת את הכפתורים — ו-Visual Studio שומר את הסרגל כשהוא נסגר
     # סרגל "מקופל": DSViz באותה שורה עם סרגל אחר (כאן Build, לא Standard) — כך Visual Studio שומר אותו, והכפתורים נדחסים מאחורי החץ.
     # אחרי הבדיקות החוזרות של ההרחבה בדקה הראשונה (עד ~105 שניות אחרי הטעינה), אחרת היא מחזירה אותו לשורה משלו כבר כאן
     Start-Sleep 100
@@ -378,8 +378,10 @@ if ($up) {
     } catch { $script:crowded = "DTE: $_" }
     Info "סרגל מקופל (DSViz באותה שורה עם Build): $script:crowded"
 }
-$noBank = -not (ToolbarButton $p0.Id @('מאגר שאלות', 'מאגר תרגילים'))
-Info ("בלי המאגר: Visual Studio עלה={0}, הסרגל={1}, 'מאגר שאלות' מוסתר={2}" -f $up, ($null -ne $seen), $noBank)
+# "מאגר שאלות" תמיד גלוי ולחיץ — גם כשהמאגר לא במקום (הלחיצה מתקנת או מסבירה), לא כפתור אפור / מוסתר
+$bb = ToolbarButton $p0.Id @('מאגר שאלות')
+$noBank = ($null -ne $bb) -and $bb.Current.IsEnabled -and -not $bb.Current.IsOffscreen
+Info ("בלי המאגר: Visual Studio עלה={0}, הסרגל={1}, 'מאגר שאלות' גלוי ולחיץ={2} · {3}" -f $up, ($null -ne $seen), $noBank, (DescEl $bb))
 Shot '00-vs-without-bank'
 $p0.Refresh()
 if (-not $p0.HasExited) { $p0.CloseMainWindow() | Out-Null; if (-not $p0.WaitForExit(90000)) { Info 'Visual Studio לא נסגר — סוגרים בכוח'; Stop-Process -Id $p0.Id -Force -ErrorAction SilentlyContinue } }
@@ -387,7 +389,7 @@ Start-Sleep 5
 Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 if (Test-Path $aside) { Move-Item $aside $labJar -Force }
 if (Test-Path $asideBank) { Move-Item $asideBank $bankCopy -Force }
-Check 'upgrade-prep' ($up -and $noBank) "הכנה: Visual Studio נפתח ונסגר כשהמאגר לא מותקן (הכפתור מוסתר) — עכשיו המאגר מותקן" ''
+Check 'upgrade-prep' ($up -and $noBank) "Visual Studio בלי המאגר במקום: 'מאגר שאלות' בכל זאת גלוי ולחיץ (תמיד) — עכשיו המאגר מותקן" ''
 
 # ------------------------------------------------------------------ 3. Visual Studio עם הפתרון
 Log "== 3. Visual Studio נפתח עם הפתרון DataStructures-CS"

@@ -92,10 +92,8 @@ namespace DsViz.VsExtension
         void ResyncButtons()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            bool bank = File.Exists(BankJar);
-            if (_bankOn != bank) SolutionHints.Log("bank button (resync): " + (bank ? "shown" : "hidden"));
-            _bankOn = bank;   // לפני הגישה ל-CommandBars: היא מפעילה שוב את BeforeQueryStatus
-            SyncBankControl(bank);
+            _bankOn = true;   // לפני הגישה ל-CommandBars: היא מפעילה שוב את BeforeQueryStatus
+            SyncBankControl(true);   // "מאגר שאלות" ו"השאלה" — תמיד גלויים
             bool teacher = TeacherOn();
             _teacherSyncing = true;
             try
@@ -215,40 +213,36 @@ namespace DsViz.VsExtension
         {
             var cmd = new OleMenuCommand((s, e) =>
             {
-                try { Tool("bank"); }
+                try { if (BankReady()) Tool("bank"); }
                 catch (Exception ex) { Say("DSViz: " + ex.Message); }
             }, new CommandID(CmdSet, 0x0103));
+            // תמיד גלוי ולחיץ: אם המאגר לא במקום, הלחיצה מתקנת (BankReady) או מסבירה — לא כפתור אפור או מוסתר
             cmd.BeforeQueryStatus += (s, e) =>
             {
-                bool on = false;
-                try { on = File.Exists(BankJar); } catch (Exception) { }
                 var c = (OleMenuCommand)s;
-                c.Visible = on;
-                c.Enabled = on;
-                if (on != _bankOn)
+                c.Visible = true;
+                c.Enabled = true;
+                if (_bankOn != true)
                 {
-                    _bankOn = on;
-                    SolutionHints.Log("bank button: " + (on ? "shown" : "hidden"));
-                    SyncBankControl(on);
+                    _bankOn = true;
+                    SyncBankControl(true);
                 }
             };
             mcs.AddCommand(cmd);
             // "השאלה": החלון הצף של השאלה האחרונה מהמאגר (כמו הכפתור "השאלה" ב-Eclipse) — עד עכשיו רק מקיצור בשולחן העבודה
             var q = new OleMenuCommand((s, e) =>
             {
-                try { Tool("question"); }
+                try { if (BankReady()) Tool("question"); }
                 catch (Exception ex) { Say("DSViz: " + ex.Message); }
             }, new CommandID(CmdSet, 0x0109));
             q.BeforeQueryStatus += (s, e) =>
             {
-                bool on = false;
-                try { on = File.Exists(BankJar); } catch (Exception) { }
                 var c = (OleMenuCommand)s;
-                c.Visible = on;
-                c.Enabled = on;
+                c.Visible = true;
+                c.Enabled = true;
             };
             mcs.AddCommand(q);
-            SyncBankControl(File.Exists(BankJar));
+            SyncBankControl(true);
         }
 
         bool? _bankOn;
@@ -463,6 +457,38 @@ namespace DsViz.VsExtension
         static void Start(params string[] args)
         {
             DsVizTool.Start(args);
+        }
+
+        /// <summary>
+        /// לפני "מאגר שאלות" / "השאלה": המאגר במקום? אם הוא חסר ב-lab\ אבל יש עותק ב-bank\ (כך בכל התקנה) — מעתיקים ומשתמשים בו.
+        /// רק אם אין אותו בכלל — הודעה ברורה מה לעשות (במקום כפתור אפור)
+        /// </summary>
+        bool BankReady()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            string lab = Path.Combine(InstallDir, "lab", "dsviz-bank-vs.jar");
+            string bank = Path.Combine(InstallDir, "bank", "dsviz-bank-vs.jar");
+            try
+            {
+                if (File.Exists(lab)) return true;
+                if (File.Exists(bank))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(lab));
+                        File.Copy(bank, lab, true);
+                        SolutionHints.Log("bank: copied bank\\dsviz-bank-vs.jar to lab\\");
+                    }
+                    catch (Exception ex)
+                    {
+                        SolutionHints.Log("bank: copy to lab failed (using bank\\): " + ex.Message, true);
+                    }
+                    return true;   // BankJar מוצא את העותק ב-bank\ גם אם ההעתקה לא הצליחה
+                }
+            }
+            catch (Exception) { }
+            Say("DSViz: מאגר השאלות לא נמצא במחשב הזה.\n\nכדי לתקן: סוגרים את Visual Studio, מורידים את ההתקנה מ-https://is.gd/dsjava ומתקינים שוב.");
+            return false;
         }
 
         void Tool(string mode)
