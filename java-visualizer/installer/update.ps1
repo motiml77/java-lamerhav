@@ -6,6 +6,7 @@
 #     מחכה ש-Eclipse ייסגר, ומתקין בשקט (/S /UPDATE) — עם אותן שפות שנבחרו בהתקנה. עבודה של התלמיד לא נוגעים בה.
 #   - בלי אינטרנט / שגיאה — לא עושים כלום (ננסה בפעם הבאה). יומן: update.log ליד הקובץ הזה.
 #   - IntelliJ IDEA: בכל בדיקה — התוסף נכנס לכל IntelliJ שעוד אין בו (intellij.ps1), גם IntelliJ שהותקן אחרי DSViz
+#   - Visual Studio: בכל בדיקה — סרגל הכלים נכנס לכל Visual Studio שעוד אין בו (install-vsix.ps1 -Missing), גם Visual Studio שהותקן אחרי DSViz
 #   - -Videos: רק מוריד את סרטוני ההדרכה שחסרים (ההתקנה לא כוללת אותם — מגבלת הגודל של GitHub). רץ מיד אחרי ההתקנה, וגם בכל בדיקה.
 param([switch]$AfterEclipse, [switch]$FromEclipse, [switch]$FromIde, [switch]$Videos)
 $ErrorActionPreference = 'Stop'
@@ -91,6 +92,17 @@ try {
         $bank = Join-Path $dir 'bank\bank-install.ps1'
         if ($lang -ne 'cs' -and (Test-Path -LiteralPath $bank)) { & $bank -Only intellij -Quiet | Out-Null }
     } catch { Log "IntelliJ: $($_.Exception.Message)" }
+    # Visual Studio: גם Visual Studio שהותקן אחרי DSViz (למשל 2026 ליד 2022), או שההתקנה של סרגל הכלים לא הצליחה בו, מקבל את סרגל
+    # הכלים — בכל בדיקה, גם בלי אינטרנט. רק כש-Visual Studio סגור (VSIXInstaller לא מתקין כשהוא פתוח); Visual Studio שכבר יש בו — לא נוגעים
+    try {
+        $langFile = Join-Path $dir 'lang.txt'
+        $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
+        $vsixPs = Join-Path $dir 'cs\install-vsix.ps1'
+        $vsixFile = Join-Path $dir 'cs\DsViz.VsExtension.vsix'
+        if ($lang -ne 'java' -and (Test-Path -LiteralPath $vsixPs) -and (Test-Path -LiteralPath $vsixFile) -and -not (Get-Process -Name devenv -ErrorAction SilentlyContinue)) {
+            & $vsixPs -Vsix $vsixFile -Missing | Out-Null
+        }
+    } catch { Log "Visual Studio: $($_.Exception.Message)" }
     # לא יותר מבדיקה אחת בשעה בכניסה ל-Windows; מ-Eclipse (בפתיחה ובסגירה) — עד פעם ב-5 דקות: אלה הרגעים שבהם התלמיד עובד,
     # וקודם בדיקה בכניסה ל-Windows חסמה לשעה את הבדיקה בסגירת Eclipse
     $stamp = Join-Path $dir 'update-check.txt'
