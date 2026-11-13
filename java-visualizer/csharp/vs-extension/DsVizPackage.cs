@@ -84,6 +84,7 @@ namespace DsViz.VsExtension
                     await Task.Delay(ms);
                     await JoinableTaskFactory.SwitchToMainThreadAsync();
                     Safe("bank sync", ResyncButtons);
+                    Safe("toolbar", ShowToolbarOnce);   // Visual Studio משחזר את סידור הסרגלים השמור אחרי שההרחבה נטענה
                 }
             });
         }
@@ -156,24 +157,45 @@ namespace DsViz.VsExtension
                 string flag = Path.Combine(InstallDir, "vs-toolbar-shown");
                 // מיקום בשורה משלו: בפעם הראשונה, וגם בכל פעם שהסרגל היה מוסתר — אז Visual Studio החזיר את ברירת המחדל
                 // (למשל אחרי סגירה בכוח), והסרגל נדחס לסוף השורה הראשונה ורוב הכפתורים נעלמים מאחורי החץ
-                // וגם כשהוא באותה שורה של הסרגל הרגיל (Standard) — שם אין לו מקום והכפתורים נחתכים
-                bool crowded = false;
+                // וגם כשהוא באותה שורה של סרגל אחר (Standard, Build, סרגל של הרחבה אחרת): שם אין לו מקום, והכפתורים נדחסים
+                // מאחורי החץ "עוד" (הסרגל "מקופל"). בודקים בכל פתיחה — ומעבירים אותו לשורה משלו, אחרי כל הסרגלים העליונים
+                string crowdedBy = null;
+                int lastRow = 0;
                 try
                 {
-                    dynamic std = bars["Standard"];
-                    crowded = (bool)std.Visible && (int)std.RowIndex == (int)bar.RowIndex && Convert.ToInt32(std.Position) == Convert.ToInt32(bar.Position);
+                    object cur0 = bar.Position;
+                    int topPos = Convert.ToInt32(Enum.Parse(cur0.GetType(), "msoBarTop"));
+                    int myPos = Convert.ToInt32(cur0), myRow = (int)bar.RowIndex;
+                    foreach (dynamic other in bars)
+                    {
+                        try
+                        {
+                            if (Convert.ToInt32(other.Type) != 0) continue;   // msoBarTypeNormal: סרגל כלים, לא תפריט
+                            if (!(bool)other.Visible || Convert.ToInt32(other.Position) != topPos) continue;
+                            string name = other.Name;
+                            if (name == "DSViz") continue;
+                            int r = (int)other.RowIndex;
+                            if (r > lastRow) lastRow = r;
+                            if (crowdedBy == null && myPos == topPos && r == myRow) crowdedBy = name;
+                        }
+                        catch (Exception) { }
+                    }
                 }
-                catch (Exception) { }
-                if (File.Exists(flag) && !wasHidden && !crowded) return;
-                SolutionHints.Log("toolbar row: " + (wasHidden ? "was hidden" : crowded ? "shared the Standard row" : "first time"));
+                catch (Exception ex1)
+                {
+                    SolutionHints.Log("toolbar rows scan failed: " + ex1.Message, true);
+                }
+                if (File.Exists(flag) && !wasHidden && crowdedBy == null) return;
+                SolutionHints.Log("toolbar row: " + (wasHidden ? "was hidden" : crowdedBy != null ? "shared the row of " + crowdedBy : "first time"));
                 // שורה משלו מתחת לסרגלים הרגילים (בלי זה הוא נדחס לשורה הראשונה ורוב הכפתורים נעלמים לחץ "עוד")
                 try
                 {
                     object cur = bar.Position;
                     dynamic top = Enum.Parse(cur.GetType(), "msoBarTop");   // MsoBarPosition.msoBarTop (בלי הפניה לספרייה בזמן קומפילציה)
                     bar.Position = top;
-                    bar.RowIndex = 3;
+                    bar.RowIndex = Math.Max(lastRow + 1, 3);
                     bar.Left = 0;
+                    SolutionHints.Log("toolbar row: moved to row " + (int)bar.RowIndex);
                 }
                 catch (Exception ex2)
                 {

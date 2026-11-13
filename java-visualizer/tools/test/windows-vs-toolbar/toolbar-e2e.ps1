@@ -360,6 +360,23 @@ $seen = $null
 if ($up) {
     for ($i = 0; $i -lt 40 -and -not $seen; $i++) { SkipFirstRun $p0.Id | Out-Null; $seen = ToolbarButton $p0.Id @('תרגיל חדש'); if (-not $seen) { Start-Sleep 4 } }
     Start-Sleep 15   # ההרחבה מסתירה את "מאגר שאלות" (המאגר לא מותקן) — ו-Visual Studio שומר את הסרגל כשהוא נסגר
+    # סרגל "מקופל": DSViz באותה שורה עם סרגל אחר (כאן Build, לא Standard) — כך Visual Studio שומר אותו, והכפתורים נדחסים מאחורי החץ.
+    # אחרי הבדיקות החוזרות של ההרחבה בדקה הראשונה (עד ~105 שניות אחרי הטעינה), אחרת היא מחזירה אותו לשורה משלו כבר כאן
+    Start-Sleep 100
+    $script:crowded = ''
+    try {
+        $bars0 = (GetDte).CommandBars
+        $std0 = $bars0.Item('Standard'); $bld0 = $bars0.Item('Build'); $ds0 = $bars0.Item('DSViz')
+        $bld0.Visible = $true
+        $bld0.Position = $std0.Position
+        $bld0.RowIndex = $std0.RowIndex + 1
+        $ds0.Position = $std0.Position
+        $ds0.RowIndex = $bld0.RowIndex
+        $ds0.Left = $bld0.Left + $bld0.Width + 4
+        Start-Sleep 2
+        $script:crowded = "Standard row=$($std0.RowIndex) · Build row=$($bld0.RowIndex) · DSViz row=$($ds0.RowIndex)"
+    } catch { $script:crowded = "DTE: $_" }
+    Info "סרגל מקופל (DSViz באותה שורה עם Build): $script:crowded"
 }
 $noBank = -not (ToolbarButton $p0.Id @('מאגר שאלות', 'מאגר תרגילים'))
 Info ("בלי המאגר: Visual Studio עלה={0}, הסרגל={1}, 'מאגר שאלות' מוסתר={2}" -f $up, ($null -ne $seen), $noBank)
@@ -406,7 +423,38 @@ for ($i = 0; $i -lt 40; $i++) {   # עד ~2.5 דקות: ההרחבה נטענת 
     SkipFirstRun $vsP.Id | Out-Null
     Start-Sleep 4
 }
+# הסרגל כולו גלוי: DSViz בשורה משלו (לא עם Build / Standard — שם הכפתורים נדחסים מאחורי החץ "עוד"), וכל כפתור גלוי ולחיץ
+function ToolbarRow() {
+    try {
+        $bars1 = (GetDte).CommandBars
+        $ds1 = $bars1.Item('DSViz')
+        $shared = @()
+        foreach ($nm in 'Standard', 'Build', 'Debug', 'Text Editor', 'Debug Location', 'Layout') {
+            try { $b1 = $bars1.Item($nm); if ($b1.Visible -and $b1.Position -eq $ds1.Position -and $b1.RowIndex -eq $ds1.RowIndex) { $shared += $nm } } catch { }
+        }
+        return "visible=$($ds1.Visible) row=$($ds1.RowIndex) shared=$($shared -join ',')"
+    } catch { return "DTE: $_" }
+}
+$row = ''
+for ($i = 0; $i -lt 30; $i++) { $row = ToolbarRow; if ($row -match '^visible=True row=\d+ shared=$') { break }; Start-Sleep 4 }
+Check 'toolbar-own-row' ($row -match '^visible=True row=\d+ shared=$') "הסרגל של DSViz גלוי ובשורה משלו — גם אחרי שנשמר באותה שורה עם Build (2ב), כך שאף כפתור לא מקופל מאחורי החץ" "$row · לפני: $script:crowded"
+Start-Sleep 3
+$btn = @{}
+foreach ($n in ($want + $bankNames)) { $e = ToolbarButton $vsP.Id @($n); if ($e) { $btn[$n] = $e } }
 Shot '02-vs-toolbar'
+$vsRect = $null; try { $vsP.Refresh(); $vsRect = [Windows.Automation.AutomationElement]::FromHandle($vsP.MainWindowHandle).Current.BoundingRectangle } catch { }
+function ShownAndEnabled($el) {
+    if (-not $el) { return $false }
+    try {
+        $c = $el.Current; $r = $c.BoundingRectangle
+        $inside = (-not $vsRect) -or ($r.Right -le $vsRect.Right + 2 -and $r.Left -ge $vsRect.Left - 2)
+        return ($c.IsEnabled -and -not $c.IsOffscreen -and $r.Width -gt 0 -and $r.Height -gt 0 -and $inside)
+    } catch { return $false }
+}
+foreach ($n in @('תרגיל חדש', 'הוספת מבנה נתונים', 'מאגר שאלות', 'השאלה', 'שליחת תרגיל', 'הרצה ויזואלית', 'הדרכה')) {
+    $e = ToolbarButton $vsP.Id @($n)
+    Check 'toolbar-shown-enabled' (ShownAndEnabled $e) "הכפתור '$n' גלוי בסרגל ולחיץ (לא אפור ולא מאחורי החץ 'עוד')" (DescEl $e)
+}
 foreach ($n in $want) { Check 'toolbar-button' ($null -ne $btn[$n]) "בסרגל יש כפתור '$n'" ''; if ($btn[$n]) { Info "   $(DescEl $btn[$n])" } }
 $bankName = $bankNames | Where-Object { $btn[$_] } | Select-Object -First 1
 Check 'toolbar-bank' ($null -ne $bankName) "בסרגל יש כפתור מאגר ('$bankName') — המאגר מותקן, גם אחרי ש-Visual Studio כבר נפתח פעם בלי המאגר (2ב)" ''
