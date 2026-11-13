@@ -305,14 +305,15 @@
       if (!how) return;
       root.AutomataTask.attach(m, this.draft.text, 'auto', this.draft.desc ? { desc: this.draft.desc } : {});
       app.loadMachine(m, 'בניית אוטומט מהשפה', (m.tests[0] || { word: '' }).word);
-      // הבדיקה של הבנייה: הוכחה כשאפשר, אחרת הבדיקה העצמית שעל המילים הקצרות
-      let res = null;
+      // הבדיקה של הבנייה: הוכחה כשאפשר, אחרת הבדיקה היסודית (כמו למכונה של תלמיד, בתקציב קטן יותר כדי שהבנייה לא תתעכב)
+      let res = null, deep = null;
       if (L.canExact(m, ast)) { try { res = L.checkExact(m, ast); } catch (e) { res = null; } }
-      root.AutomataTask.setCheck(m, res || { ok: true, exact: false, missing: [], extra: [], maxLen: r.checked.maxLen, count: r.checked.count });
+      if (!res) { try { deep = L.check(m, ast, { budget: m.type === 'tm' ? undefined : 20000 }); } catch (e) { deep = null; } }
+      root.AutomataTask.setCheck(m, res || deep || { ok: true, exact: false, missing: [], extra: [], maxLen: r.checked.maxLen, count: r.checked.count });
       app.autosave();
       this.close();
       app.refresh();
-      app.toast('נבנה ' + TT(m.type) + ' עם ' + m.states.length + ' מצבים' + (m.type === 'dfa' ? ' (המינימלי)' : '') + (res ? '. הוכח שהוא מקבל בדיוק את השפה.' : '. הוא נבדק מול הנוסחה על ' + r.checked.count.toLocaleString('he') + ' מילים.'), 'ok');
+      app.toast('נבנה ' + TT(m.type) + ' עם ' + m.states.length + ' מצבים' + (m.type === 'dfa' ? ' (המינימלי)' : '') + (res ? '. הוכח שהוא מקבל בדיוק את השפה.' : '. הוא נבדק מול הנוסחה על ' + (deep ? deep.count + (deep.long ? deep.long.count : 0) : r.checked.count).toLocaleString('he') + ' מילים.'), 'ok');
     }
 
     /** "אני בונה": מכונה ריקה מהסוג שנבחר (או זו שכבר שם), המשימה, ומילים לדוגמה בטבלת הבדיקה */

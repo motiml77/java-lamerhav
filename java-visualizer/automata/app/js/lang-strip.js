@@ -103,14 +103,19 @@
       if (st === 'none') return wrap('info', '<div class="tc-head">' + I.get('info', 16) + '<b>עוד לא נבדק. "בדיקה" משווה את המכונה לנוסחה.</b></div>');
       if (st === 'stale') return wrap('stale', '<div class="tc-head">' + I.get('warn', 16) + '<b>המכונה השתנתה מאז הבדיקה. אפשר לבדוק שוב.</b></div>');
       if (st === 'ok') {
-        return wrap('ok', '<div class="tc-head">' + I.get('check', 16) + '<b>' + (c.kind === 'proof' ? 'המכונה מקבלת בדיוק את השפה' : 'נבדקו ' + (c.checkedUpTo > 0 ? 'כל ' : '') + n(c.count) + ' המילים עד אורך ' + c.checkedUpTo + '. לא נמצאה טעות') + '</b></div>' +
-          '<p class="tc-sub">' + (c.kind === 'proof' ? 'זו הוכחה: המכונה הושוותה במלואה לאס"ד המינימלי של השפה.' : 'זו בדיקה, לא הוכחה: ייתכן שיש טעות במילה ארוכה יותר.') + (c.undecided ? ' ב-' + n(c.undecided) + ' מילים ההרצה לא הוכרעה.' : '') + '</p>');
+        if (c.kind === 'proof') return wrap('ok', '<div class="tc-head">' + I.get('check', 16) + '<b>המכונה מקבלת בדיוק את השפה</b></div><p class="tc-sub">זו הוכחה: המכונה הושוותה במלואה לאס"ד המינימלי של השפה.</p>');
+        // בדיקה יסודית: מה נבדק, מה הוכח, ולמה זו לא הוכחה מלאה
+        const long = c.long ? ' ועוד ' + n(c.long.count) + ' מילים ארוכות (עד אורך ' + c.long.maxLen + ')' : '';
+        const proven = c.proven === 'noExtra' ? 'הוכח שהמכונה לא מקבלת אף מילה מחוץ לשפה. ' : c.proven === 'shape' ? 'הוכח שכל מילה שהמכונה מקבלת היא מהצורה שבנוסחה. ' : '';
+        const why = m.type === 'pda' ? 'זו בדיקה, לא הוכחה: אין אלגוריתם שמוכיח שאוטומט מחסנית מקבל בדיוק שפה נתונה, ולכן ייתכן שיש טעות במילה ארוכה יותר.' : 'זו בדיקה, לא הוכחה: ייתכן שיש טעות במילה ארוכה יותר.';
+        return wrap('ok', '<div class="tc-head">' + I.get('check', 16) + '<b>נבדקו ' + (c.checkedUpTo > 0 ? 'כל ' : '') + n(c.count) + ' המילים עד אורך ' + c.checkedUpTo + long + '. לא נמצאה טעות</b></div>' +
+          '<p class="tc-sub">' + proven + why + (c.undecided ? ' ב-' + n(c.undecided) + ' מילים ההרצה לא הוכרעה.' : '') + '</p>');
       }
       const w = c.words || { shouldAccept: [], shouldReject: [] };
       const list = (title, ws, cls) => (ws.length ? '<div class="tc-group"><div class="lr-title ' + cls + '">' + title + '</div><div class="ll-words" dir="ltr">' + ws.map((x) => chip(x, cls, 'לחיצה מריצה את המילה על הקנבס')).join('') + '</div></div>' : '');
-      return wrap('fail', '<div class="tc-head">' + I.get('x', 16) + '<b>לא נכון: ' + T.words(c.total) + '</b></div>' + (c.hint ? '<p class="tc-sub">' + esc(c.hint) + '</p>' : '') +
+      return wrap('fail', '<div class="tc-head">' + I.get('x', 16) + '<b>' + (c.impossible && !c.total ? 'לא נכון: השפה לא רגולרית' : 'לא נכון: ' + T.words(c.total)) + '</b></div>' + (c.hint ? '<p class="tc-sub">' + esc(c.hint) + '</p>' : '') +
         '<div class="tc-groups">' + list('אמורות להתקבל, ונדחו', w.shouldAccept, 'in') + list('אמורות להידחות, והתקבלו', w.shouldReject, 'out') + '</div>' +
-        '<div class="tc-foot"><span class="muted small">' + (c.kind === 'proof' ? 'אלה המילים הקצרות ביותר.' : 'נבדק עד אורך ' + c.checkedUpTo + '.') + ' לחיצה על מילה מריצה אותה.</span>' +
+        '<div class="tc-foot"><span class="muted small">' + (c.kind === 'proof' ? 'אלה המילים הקצרות ביותר.' : 'נבדק עד אורך ' + c.checkedUpTo + '.') + (c.total ? ' לחיצה על מילה מריצה אותה.' : '') + '</span>' +
         '<button type="button" class="btn secondary sm" data-t="add-tests">' + I.get('beaker', 15) + '<span>הוספה לטבלת הבדיקה</span></button></div>');
     }
 
