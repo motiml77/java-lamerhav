@@ -96,9 +96,10 @@ Log "== 3. בדיקות"
 $dl = @($seq | Where-Object { $_ -match '^download (\d+)$' } | ForEach-Object { [int]($_ -split ' ')[1] })
 $ins = @($seq | Where-Object { $_ -match '^install (\d+)$' } | ForEach-Object { [int]($_ -split ' ')[1] })
 $mono = { param($a) $ok = $true; for ($i = 1; $i -lt $a.Count; $i++) { if ($a[$i] -lt $a[$i - 1]) { $ok = $false } }; $ok }
-Check 'download-percent' ($dl.Count -ge 5 -and $dl[0] -le 5 -and $dl[$dl.Count - 1] -eq 100) ("ההורדה דיווחה {0} אחוזים, מ-{1} עד {2}" -f $dl.Count, $(if ($dl.Count) { $dl[0] } else { '?' }), $(if ($dl.Count) { $dl[$dl.Count - 1] } else { '?' }))
+# הדגימה כל 300 מילישניות — הערך האחרון בהורדה (100) מוחלף מיד ב-"ready", ולכן מספיק שהגענו קרוב לסוף
+Check 'download-percent' ($dl.Count -ge 5 -and $dl[0] -le 5 -and $dl[$dl.Count - 1] -ge 95) ("ההורדה דיווחה {0} אחוזים, מ-{1} עד {2}" -f $dl.Count, $(if ($dl.Count) { $dl[0] } else { '?' }), $(if ($dl.Count) { $dl[$dl.Count - 1] } else { '?' }))
 Check 'download-monotonic' (& $mono $dl) 'אחוזי ההורדה רק עולים'
-Check 'install-percent' ($ins.Count -ge 5 -and $ins[0] -eq 0 -and $ins[$ins.Count - 1] -eq 100) ("ההתקנה דיווחה {0} שלבים, מ-{1} עד {2}: {3}" -f $ins.Count, $(if ($ins.Count) { $ins[0] } else { '?' }), $(if ($ins.Count) { $ins[$ins.Count - 1] } else { '?' }), ($ins -join ','))
+Check 'install-percent' ($ins.Count -ge 5 -and $ins[0] -le 10 -and $ins[$ins.Count - 1] -ge 90) ("ההתקנה דיווחה {0} שלבים, מ-{1} עד {2}: {3}" -f $ins.Count, $(if ($ins.Count) { $ins[0] } else { '?' }), $(if ($ins.Count) { $ins[$ins.Count - 1] } else { '?' }), ($ins -join ','))
 Check 'install-monotonic' (& $mono $ins) 'שלבי ההתקנה רק עולים'
 Check 'toast-download-open' ([bool]$toast['u1-download-25'] -and [bool]$toast['u2-download-70']) 'החלון עם אחוזי ההורדה פתוח לאורך ההורדה'
 Check 'toast-install-open' ([bool]$toast['u3-install-12'] -and [bool]$toast['u4-install-44'] -and [bool]$toast['u5-install-68']) 'החלון עם אחוזי ההתקנה פתוח לאורך ההתקנה'

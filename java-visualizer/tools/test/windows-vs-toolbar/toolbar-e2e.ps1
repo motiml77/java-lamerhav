@@ -732,8 +732,13 @@ if ($new2.Count -ge 1) {
         Check 'bank-prepare-method' ($si -ge 0 -and $si -lt $mi) "אחרי 'הכן סעיף ב': הפעולה SizeOf נוספה לפני Main" "SizeOf@$si Main@$mi"
         Check 'bank-prepare-main' ($mi -ge 0 -and $t2.IndexOf('סעיף ב', $mi) -gt 0) "אחרי 'הכן סעיף ב': הבדיקות של סעיף ב נוספו בסוף Main" ''
         Check 'bank-prepare-eol' (-not ($t2 -match "[^`r]`n" -and $t2 -match "`r`n")) 'סוף שורה אחיד בקובץ (בלי Inconsistent Line Endings)' ''
-        $d = GetDte; $docText = ''
-        try { foreach ($x in $d.Documents) { if ($x.FullName -ieq $bankCs.FullName) { $td = $x.Object('TextDocument'); $docText = $td.StartPoint.CreateEditPoint().GetText($td.EndPoint) } } } catch { Info "DTE: $_" }
+        $docText = ''
+        # העורך של Visual Studio עוד יכול להיטען (Object('TextDocument') מחזיר null לרגע) — עד 6 ניסיונות, 3 שניות ביניהם
+        for ($try = 1; $try -le 6 -and -not $docText.Contains('SizeOf(Stack'); $try++) {
+            $d = GetDte
+            try { foreach ($x in $d.Documents) { if ($x.FullName -ieq $bankCs.FullName) { $td = $x.Object('TextDocument'); if ($td) { $docText = $td.StartPoint.CreateEditPoint().GetText($td.EndPoint) } } } } catch { Info "DTE: $_" }
+            if (-not $docText.Contains('SizeOf(Stack')) { Start-Sleep 3 }
+        }
         Info "   העורך: $($docText.Length) תווים · SizeOf בעורך: $($docText.Contains('SizeOf'))"
         Check 'bank-prepare-editor' ($docText.Contains('SizeOf(Stack')) 'בעורך של Visual Studio רואים את סעיף ב (ההוספה נעשתה בתוך העורך)' ''
         $d = $null
