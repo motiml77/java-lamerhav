@@ -1,0 +1,53 @@
+name: DSViz IntelliJ
+# התוסף ל-IntelliJ IDEA מול IntelliJ אמיתי (2024.2, בלי מסך): הכפתורים, הספרייה, הפעולות בתפריטים, הפקודה שמריצה את ההרצה הוויזואלית,
+# Plugin Verifier, ההתקנה האוטומטית — ואחר כך חלון ההרצה הוויזואלית (עם ה-dsviz.jar שבתוך התוסף) על מסך וירטואלי, עם צילומי מסך.
+on:
+  push:
+    branches: [release/public-all]
+    paths:
+      - '.github/workflows/dsviz-intellij.yml'
+      - 'java-visualizer/intellij-plugin/**'
+      - 'java-visualizer/src/**'
+      - 'java-visualizer/tools/test/intellij-it.sh'
+      - 'java-visualizer/tools/test/ij-view-shots.sh'
+      - 'java-visualizer/release/dsviz.jar'
+  workflow_dispatch:
+jobs:
+  intellij:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - name: הספרייה מהמקור (לא ה-jar שב-release/)
+        working-directory: java-visualizer
+        run: sh tools/build-lib.sh
+      - name: בדיקות התוסף בתוך IntelliJ אמיתי + Plugin Verifier + התקנה אוטומטית
+        working-directory: java-visualizer
+        run: sh tools/test/intellij-it.sh
+      - name: חלון ההרצה הוויזואלית כפי שהתוסף מפעיל אותו — צילומי מסך
+        working-directory: java-visualizer
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb xdotool imagemagick
+          mkdir -p work shots
+          rm -rf work/plugin && mkdir -p work/plugin
+          unzip -q intellij-plugin/build/distributions/dsviz-intellij-*.zip -d work/plugin
+          JAR="$PWD/work/plugin/dsviz-intellij/runtime/dsviz.jar"
+          unzip -l "$JAR" | grep -c 'unit4/collectionsLib/LineAfter' || { echo "ה-dsviz.jar שבתוך התוסף בלי LineAfter"; exit 1; }
+          cp tools/test/calls/Calls.java work/
+          (cd work && javac -g -encoding UTF-8 -cp "$JAR" -d . Calls.java)
+          xvfb-run -a -s "-screen 0 1700x1000x24" sh tools/test/ij-view-shots.sh "$PWD/work" "$JAR" "1 6 12 20 30" "$PWD/shots/ij-view"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: intellij-test
+          path: |
+            java-visualizer/shots/
+            java-visualizer/work/run.log
+            java-visualizer/intellij-plugin/build/reports/tests/
+            java-visualizer/intellij-plugin/build/distributions/
+          retention-days: 14

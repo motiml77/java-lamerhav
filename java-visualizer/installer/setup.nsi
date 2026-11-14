@@ -80,6 +80,19 @@ Var CODE          ; הנתיב ל-code.cmd של VS Code (ריק אם לא נמצ
 Var ECLIPSES      ; כמה התקנות Eclipse קיבלו את התוסף
 Var EXTS          ; תוספים של Microsoft ל-VS Code שמורידים ברקע (מופרדים ברווח)
 Var UPDATING      ; 1 — עדכון אוטומטי (/UPDATE): בסוף מופיע חלון קטן "DSViz עודכן"
+
+; אחוזי ההתקנה בעדכון אוטומטי (/UPDATE): שורה אחת "install 40" בקובץ ‎%TEMP%\dsviz-progress.txt‎ — החלון הקטן בפינה (notify.ps1)
+; קורא אותו ומראה אחוזים. ההתקנה השקטה לא מראה כלום בעצמה, ולכן כל שלב מדווח כשהוא מתחיל (האחוזים — לפי כמה זמן כל שלב לוקח).
+; רק ב-/UPDATE; בהתקנה רגילה (עם חלון) — לא כותבים כלום
+!macro PROG PCT
+  ${If} $UPDATING == "1"
+    Push $9
+    FileOpen $9 "$TEMP\dsviz-progress.txt" w
+    FileWrite $9 "install ${PCT}"
+    FileClose $9
+    Pop $9
+  ${EndIf}
+!macroend
 Var FORKS         ; VS Code Insiders / VSCodium / Cursor שקיבלו את התוסף (שמות, מופרדים ברווח; ריק אם אין)
 
 
@@ -363,6 +376,7 @@ FunctionEnd
 
 ; ------------------------------------------------------------ רכיבים
 Section "-core"
+  !insertmacro PROG 2
   ; ניקוי ההתקנה הקודמת (כשמתקינים על קיימת): קיצורים בשולחן העבודה (נוצר רק "מודלים חישוביים" — בסעיף -automata), קיצורי תפריט התחלה, קבצים ותיקיות מגרסה קודמת —
   ; כך כל התיקונים נכנסים, בלי שיישאר משהו ישן. לא נוגעים בעבודה של התלמיד (תיקיות התרגילים במסמכים), ב-JDK ובסרטונים שכבר ירדו.
   Delete "$DESKTOP\תרגילי C# (מבני נתונים).lnk"
@@ -443,6 +457,7 @@ Section "-core"
 SectionEnd
 
 Section "-jdk"
+  !insertmacro PROG 10
   ; Java מקוצרת (java, javac, חלון, הרצה שורה-שורה). נחוצה בכל חבילה: החלון הוויזואלי כתוב ב-Java,
   ; והתוסף של VS Code מריץ איתה את התוכניות. כלולה בהתקנה — בלי הורדה
   SetOutPath "$INSTDIR\jdk"
@@ -456,6 +471,7 @@ Section "-jdk"
 SectionEnd
 
 Section "-vscode"
+  !insertmacro PROG 32
   ; התוסף של VS Code עובד גם ב-Java וגם ב-C# — מותקן תמיד אם VS Code נמצא
   ${If} $CODE == ""
     DetailPrint "VS Code: לא נמצא — דילוג"
@@ -491,6 +507,7 @@ SectionEnd
 !macroend
 
 Section "-vscode-forks"
+  !insertmacro PROG 36
   StrCpy $FORKS ""
   Delete "$INSTDIR\vscode-forks.txt"
   !insertmacro VSIX_FORK "$LOCALAPPDATA\Programs\Microsoft VS Code Insiders\bin\code-insiders.cmd" "VS Code Insiders"
@@ -504,6 +521,7 @@ SectionEnd
 ; automata\app על 127.0.0.1 ופותח חלון (Edge ‎--app‎). הכניסה משותפת עם Eclipse / Visual Studio / IntelliJ (access/README.md).
 ; הקיצור היחיד בשולחן העבודה. השמירה של הדף — ב-‎%LOCALAPPDATA%\DSViz\automata-data‎ (לא נמחקת בעדכון)
 Section "-automata"
+  !insertmacro PROG 38
   ${If} ${FileExists} "$INSTDIR\automata.ps1"
     nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\automata.ps1" -Stop'   ; הקבצים נעולים כשהיא פתוחה
     Pop $0
@@ -533,11 +551,13 @@ Section "-automata"
 SectionEnd
 
 Section "Java — Eclipse ו-VS Code (תרגילים ב-Java)" SEC_JAVA
+  !insertmacro PROG 42
   Call EnsureEclipseClosed   ; לפני שמתקינים משהו של Java
   DetailPrint "חבילת Java"
 SectionEnd
 
 Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_CS
+  !insertmacro PROG 44
   DetailPrint "חבילת C#"
   Call EnsureVisualStudioClosed   ; לפני שמחליפים את dsviz-cs ומתקינים את סרגל הכלים
   ; ההרצה הוויזואלית (dsviz-cs.exe — כוללת את סביבת ההרצה של .NET, לא צריך להתקין כלום)
@@ -563,6 +583,7 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
   File "DSViz.targets"
   SetOutPath "$INSTDIR"
   DetailPrint "Visual Studio: בכל פרויקט C# מופיעה לבד 'הרצה ויזואלית' ליד כפתור ההפעלה (${MSBUILD_IMPORTAFTER})"
+  !insertmacro PROG 68   ; הקבצים של חבילת C# הועתקו — עכשיו ההרחבה ל-Visual Studio (כמה עשרות שניות לכל Visual Studio)
   ; סרגל הכלים של DSViz בראש Visual Studio (הרחבה): מותקן בכל Visual Studio שנמצא (installer/install-vsix.ps1). תקלה כאן לא עוצרת את ההתקנה
   ${If} ${FileExists} "$INSTDIR\cs\DsViz.VsExtension.vsix"
     DetailPrint "Visual Studio: מתקין את סרגל הכלים של DSViz..."
@@ -578,6 +599,7 @@ Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_C
     ${EndIf}
   ${EndIf}
 
+  !insertmacro PROG 82
   ; תיקיית תרגילים מוכנה (Documents\DataStructures-CS): פתרון של Visual Studio עם תרגיל ודוגמאות
   ${IfNot} ${FileExists} "${PROJECT_CS_DIR}\DataStructures-CS.sln"
     CreateDirectory "${PROJECT_CS_DIR}"
@@ -707,6 +729,7 @@ FunctionEnd
 
 ; עדכון אוטומטי שהסתיים: חלון קטן בפינה — "DSViz עודכן לגרסה החדשה" (נעלם לבד, לא לוקח פוקוס). לא מחכים לו
 Function .onInstSuccess
+  !insertmacro PROG 100
   ${If} $UPDATING == "1"
   ${AndIf} ${FileExists} "$INSTDIR\notify.ps1"
     Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\notify.ps1" -State done'
@@ -740,6 +763,7 @@ Function DetectCsTools
 FunctionEnd
 
 Section "-javaproject"
+  !insertmacro PROG 84
   ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
     Return
   ${EndIf}
@@ -777,6 +801,7 @@ Section "-javapack"
 SectionEnd
 
 Section "-eclipse"
+  !insertmacro PROG 86
   ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
     Return
   ${EndIf}
@@ -850,6 +875,7 @@ Section "-eclipse"
 SectionEnd
 
 Section "-intellij"
+  !insertmacro PROG 91
   ; כל IntelliJ IDEA במחשב (Community / Ultimate, התקנה רגילה ו-Toolbox, 2024.2 ומעלה) — בלי שאלות (intellij.ps1)
   ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
     Return
@@ -861,6 +887,7 @@ Section "-intellij"
 SectionEnd
 
 Section "-bank"
+  !insertmacro PROG 94
   ; "מאגר התרגילים" עם מסך הכניסה — לכל סביבה שקיבלה את DSViz: Eclipse (dropins), IntelliJ IDEA, Visual Studio (C#).
   ; רץ בכל התקנה ובכל עדכון אוטומטי (/UPDATE), בשקט וחוזר על עצמו בלי להכפיל (bank-install.ps1). בלי חלון (nsExec)
   RMDir /r "$INSTDIR\bank"
@@ -907,6 +934,7 @@ Section "-bank"
 SectionEnd
 
 Section "-extensions"
+  !insertmacro PROG 98
   ; התוספים של Microsoft ל-VS Code (השלמה אוטומטית ל-Java / C#): יורדים ומותקנים לבד ברקע, בחלון נסתר,
   ; בזה אחר זה (כדי ש-VS Code לא יקבל כמה התקנות במקביל). ההתקנה לא מחכה להם. בלי אינטרנט — מדלגים בשקט
   ${If} $CODE != ""

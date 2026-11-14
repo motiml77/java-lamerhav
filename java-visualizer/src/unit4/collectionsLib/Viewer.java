@@ -125,6 +125,10 @@ final class Viewer extends JFrame {
     private String codeKey;
     private Object codeHighlight;
     private int codeLine = -1;
+    /** "כל שורה": השורה שתרוץ בצעד הבא (חץ עדין ליד המספר), או -1 */
+    private int nextLine = -1;
+    /** מה שמצויר עכשיו (unitSig) — ציור מחדש כשמגיעה הפעולה של השורה / הצעד שאחריה */
+    private String shownSig = "";
 
     private final StructPanel structs = new StructPanel();
     private final ObjDock objDock = new ObjDock();
@@ -891,6 +895,12 @@ final class Viewer extends JFrame {
         }
         updateTimeline();
         if (pos < 0 && !vis.isEmpty()) showPos(0);
+        else if (pos >= 0 && pos < vis.size() && !unitSig(vis.get(pos)).equals(shownSig)) {
+            // הצעד שמוצג קיבל עכשיו את הפעולה של השורה / את המשתנים שאחריה (הם הגיעו אחריו) — מציירים אותו שוב, עם הנפשה
+            int p0 = pos;
+            pos = p0 - 1;
+            showPos(p0, true);
+        }
         if (!vis.isEmpty()) overlay.setVisible(false);
         if (followEnd && finished && !vis.isEmpty()) {   // אחרי "סיום הקלט": רואים איך התוכנית הסתיימה
             followEnd = false;
@@ -908,8 +918,42 @@ final class Viewer extends JFrame {
     private boolean visible(Step s) {
         if (s.kind == Kind.INPUT || waitPoints.contains(s.index)) return true;   // קלט מהמקלדת — תמיד (גם ב"רק פעולות" ובלי main)
         if (onlyOps && (s.kind == Kind.LINE || s.kind == Kind.CHECK)) return false;
+        if (lineAfter() && LineAfter.folded(s.index)) return false;   // הפעולה הראשונה של השורה — מוצגת בתוך צעד השורה (LineAfter)
         boolean always = s.kind == Kind.END || s.kind == Kind.ERROR;
         return always || showMain || mainOnly || s.calls.size() >= 2;
+    }
+
+    /** "כל שורה": השורה המסומנת מראה את מה שהיא כבר עשתה (LineAfter). ב"רק פעולות" — כמו קודם */
+    private boolean lineAfter() {
+        return LineAfter.ENABLED && Recorder.lineMode && !onlyOps;
+    }
+
+    /** מה שמצויר בצעד vis[p] — כדי לדעת אם צריך לצייר אותו מחדש כשמגיעים עוד צעדים (הפעולה של השורה, המשתנים שאחריה) */
+    private String unitSig(int idx) {
+        if (!lineAfter()) return "";
+        return LineAfter.data(idx, known) + ":" + LineAfter.after(idx, known);
+    }
+
+    /** המשתנים שהוצגו בצעד idx (לפעולה שרצה): אחרי השורה, אם ידוע — אחרת של הצעד עצמו */
+    private List<String[]> shownVars(int idx) {
+        int a = LineAfter.after(idx, known);
+        Step t = Recorder.step(a >= 0 ? a : idx);
+        return t == null ? null : t.vars;
+    }
+
+    /**
+     * למעקב המשתנים: המשתנים שהוצגו בפעם האחרונה לאותה הפעלה של הפעולה (הצעד המוצג הקודם שלה) — מולם מסמנים מה השתנה.
+     * הצעד הראשון של הקריאה — מול המשתנים שלפני השורה.
+     */
+    private List<String[]> baselineVars(int p, Step s) {
+        for (int q = p - 1, lim = 0; q >= 0 && lim < 5000; q--, lim++) {
+            Step t = Recorder.step(vis.get(q));
+            if (t == null) continue;
+            if (t.calls.size() > s.calls.size()) continue;   // בתוך פעולה שהיא קראה לה
+            if (t.calls.size() < s.calls.size() || !FrameViz.sameCall(s, 0, t, 0)) break;
+            return shownVars(vis.get(q));
+        }
+        return s.vars;
     }
 
     /** מעבר בין "כל שורה" ל"רק פעולות" — נשארים בערך באותו מקום בהרצה */
@@ -985,14 +1029,20 @@ final class Viewer extends JFrame {
         boolean animate = forward && p == pos + 1;
         int interval = player.isRunning() ? delay() : 0;
         pos = p;
-        Step s = Recorder.step(vis.get(p));
+        int idx = vis.get(p);
+        Step s = Recorder.step(idx);
+        // "כל שורה": המבנים, הפלט והמשתנים — אחרי שהשורה רצה (LineAfter); הצעד s נשאר הצעד המייצג (הסימונים בקוד)
+        boolean after = lineAfter() && (s.kind == Kind.LINE || LineAfter.op(s));
+        Step d = after ? Recorder.step(LineAfter.data(idx, known)) : s;
+        if (d == null) d = s;
+        shownSig = unitSig(idx);
         adjusting = true;
         timeline.setValue(p);
         adjusting = false;
         updateCounter();
 
-        structs.setStep(s, animate, interval);
-        objDock.setStep(s);
+        structs.setStep(d, animate, interval);
+        objDock.setStep(d);
         // רקורסיה: כל עוד הצעד בתוך הרקורסיה — מעקב הרקורסיה (כרטיס לכל קריאה, והמבנים בקטן מתחת); אחר כך — חזרה למבנים
         boolean rec;
         try {
@@ -1004,8 +1054,8 @@ final class Viewer extends JFrame {
         if (switched) showView(rec);
         if (recursionShown) {
             recursion.setStep(vis.get(p));
-            miniStructs.setStep(s, animate && !switched, interval);
-            boolean show = !s.views.isEmpty();
+            miniStructs.setStep(d, animate && !switched, interval);
+            boolean show = !d.views.isEmpty();
             if (miniBox.isVisible() != show) {
                 miniBox.setVisible(show);
                 miniBox.getParent().revalidate();
@@ -1059,8 +1109,22 @@ final class Viewer extends JFrame {
         code.inputLine = s.where == null ? -1 : s.where.line;
         code.loopLine = Recorder.lineMode ? LoopCard.tagLine(s) : -1;
         code.repaint();
-        if (Recorder.lineMode) varsPanel.set(s, codeKey, call);
-        showOutput(s);
+        nextLine = -1;
+        if (after && p + 1 < vis.size() && s.where != null) {   // השורה שתרוץ בצעד הבא — חץ קטן ועדין ליד מספר השורה
+            Step nx = Recorder.step(vis.get(p + 1));
+            if (nx != null && nx.where != null && sameFile(nx.where, s.where) && nx.where.line != s.where.line) nextLine = nx.where.line;
+        }
+        gutter.repaint();
+        if (Recorder.lineMode) {
+            VarsPanel.After va = null;
+            if (after) {
+                int a = LineAfter.after(idx, known);
+                Step as = a >= 0 ? Recorder.step(a) : null;
+                va = new VarsPanel.After(as != null ? as.vars : s.vars, baselineVars(p, s));
+            }
+            varsPanel.set(s, codeKey, call, va);
+        }
+        showOutput(d);
     }
 
     private static boolean sameFile(Frame a, Frame b) {
@@ -1395,6 +1459,17 @@ final class Viewer extends JFrame {
                     a.lineTo(4, cy + 5);
                     a.closePath();
                     g.fill(a);
+                }
+                if (!cur && i + 1 == nextLine) {   // השורה הבאה בתור — משולש חלול ועדין
+                    g.setColor(new Color(0x9AA4B2));
+                    g.setStroke(new BasicStroke(1.3f));
+                    Path2D.Double a = new Path2D.Double();
+                    int cy = r.y + r.height / 2;
+                    a.moveTo(4.5, cy - 4);
+                    a.lineTo(9.5, cy);
+                    a.lineTo(4.5, cy + 4);
+                    a.closePath();
+                    g.draw(a);
                 }
                 String s = String.valueOf(i + 1);
                 g.setFont(cur ? code.getFont().deriveFont(Font.BOLD) : code.getFont());
