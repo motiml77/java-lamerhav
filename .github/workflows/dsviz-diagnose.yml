@@ -33,11 +33,3 @@ jobs:
           }
           if ($t -match [regex]::Escape($env:USERNAME + '\')) { Write-Host 'note: username path present' }
           'REPORT OK'
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: diagnose-report
-          path: |
-            ~/Desktop/DSViz-diagnose.txt
-            ${{ runner.temp }}/DSViz-diagnose.txt
-          if-no-files-found: ignore
