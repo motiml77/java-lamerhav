@@ -15,6 +15,37 @@ $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 $log = Join-Path $dir 'update.log'
 $versionUrl = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/version.json'
+# רק לבדיקות (tools/test/windows-vs-toolbar/update-progress.ps1): שרת מקומי במקום GitHub, בלי ההמתנות והבדיקה "לא יותר מפעם ב-5 דקות".
+# משתמש רגיל לא מגדיר את המשתנה הזה
+$testUrl = $env:DSVIZ_VERSION_URL
+if ($testUrl) { $versionUrl = $testUrl }
+# קובץ ההתקדמות של החלון הקטן בפינה (notify.ps1): "download 37" בזמן ההורדה, "install 55" בהתקנה (setup.nsi מעדכן בכל שלב),
+# "ready" אחרי שההורדה נגמרה, "done" / "failed" בסוף. אותו קובץ ש-setup.nsi כותב אליו: ‎%TEMP%\dsviz-progress.txt
+$progressFile = Join-Path $env:TEMP 'dsviz-progress.txt'
+function Prog([string]$kind, [int]$pct) {
+    try { [IO.File]::WriteAllText($progressFile, "$kind $pct", [Text.Encoding]::ASCII) } catch { }
+}
+# הורדה עם אחוזים (במקום Invoke-WebRequest שלא מדווח): קוראים בחתיכות ומעדכנים את קובץ ההתקדמות בכל אחוז שמשתנה
+function DownloadWithProgress([string]$url, [string]$dest) {
+    $req = [Net.HttpWebRequest]::Create($url)
+    $req.UserAgent = 'DSViz-Update'; $req.Timeout = 60000; $req.ReadWriteTimeout = 60000
+    $resp = $req.GetResponse()
+    try {
+        $total = $resp.ContentLength   # -1 — השרת לא אמר כמה (הפס נע, בלי אחוזים)
+        $in = $resp.GetResponseStream()
+        $out = [IO.File]::Create($dest)
+        try {
+            $buf = New-Object byte[] 65536
+            $got = 0L; $last = -2
+            while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) {
+                $out.Write($buf, 0, $n)
+                $got += $n
+                $pct = if ($total -gt 0) { [int][Math]::Floor(100.0 * $got / $total) } else { -1 }
+                if ($pct -ne $last) { $last = $pct; Prog 'download' $pct }
+            }
+        } finally { $out.Close(); $in.Close() }
+    } finally { $resp.Close() }
+}
 function Log([string]$m) { try { Add-Content -LiteralPath $log -Value ("{0:yyyy-MM-dd HH:mm}  {1}" -f (Get-Date), $m) -Encoding UTF8 } catch { } }
 # Eclipse (קובצי התוסף נעולים), או הרצה ויזואלית של C# (dsviz-cs.exe והקבצים שלו נעולים בזמן ריצה, וההתקנה מוחקת ומחליפה את התיקייה cs —
 # עלולים להישאר בה קבצים ישנים, בזמן ש-build.txt כבר אומר שהגרסה החדשה מותקנת, כך שהעדכון לא היה מנסה שוב)
@@ -40,6 +71,7 @@ function Toast([string]$state, [int]$watch = 0, [string]$apps = '') {
         $notify = Join-Path $dir 'notify.ps1'
         if (-not (Test-Path -LiteralPath $notify)) { return }
         $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$notify`"", '-State', $state)
+        if ($state -eq 'download' -or $state -eq 'updating') { $a += @('-ProgressFile', "`"$progressFile`"") }
         if ($watch -gt 0) { $a += @('-WatchPid', $watch) }
         if ($apps) { $a += @('-Apps', "`"$apps`"") }
         Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList $a
@@ -80,7 +112,7 @@ if ($Videos) {
 $lock = Join-Path $env:TEMP 'dsviz-update.lock'
 try { $fs = [IO.File]::Open($lock, 'OpenOrCreate', 'ReadWrite', 'None') } catch { exit 0 }
 try {
-    if ($AfterEclipse) { Start-Sleep -Seconds 5 } elseif ($FromEclipse -or $FromIde) { Start-Sleep -Seconds 60 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows / את פתיחת Eclipse
+    if ($testUrl) { } elseif ($AfterEclipse) { Start-Sleep -Seconds 5 } elseif ($FromEclipse -or $FromIde) { Start-Sleep -Seconds 60 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows / את פתיחת Eclipse
     # IntelliJ IDEA: גם IntelliJ שהותקן אחרי DSViz (או שהיה פתוח בזמן ההתקנה) מקבל את התוסף — בכל בדיקה, גם בלי אינטרנט
     try {
         $langFile = Join-Path $dir 'lang.txt'
@@ -118,7 +150,7 @@ try {
     # וקודם בדיקה בכניסה ל-Windows חסמה לשעה את הבדיקה בסגירת Eclipse
     $stamp = Join-Path $dir 'update-check.txt'
     $every = if ($AfterEclipse -or $FromEclipse -or $FromIde) { 5 } else { 60 }
-    if ((Test-Path -LiteralPath $stamp) -and ((Get-Date) - (Get-Item -LiteralPath $stamp).LastWriteTime).TotalMinutes -lt $every) { exit 0 }
+    if (-not $testUrl -and (Test-Path -LiteralPath $stamp) -and ((Get-Date) - (Get-Item -LiteralPath $stamp).LastWriteTime).TotalMinutes -lt $every) { exit 0 }
     Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('s')
 
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -131,12 +163,15 @@ try {
     $remote = [int64]$v.build
     if ($remote -le $local) { exit 0 }
     Log "נמצאה גרסה חדשה: $($v.version) ($remote, מותקנת: $local)"
-    Toast 'found'
+    # חלון בפינה עם אחוזי הורדה — נשאר על המסך עד שההורדה נגמרת (בלי כפתור סגירה)
+    Prog 'download' 0
+    Toast 'download'
 
     $exe = Join-Path $env:TEMP 'DSViz-Update.exe'
-    Invoke-WebRequest -Uri $v.url -OutFile $exe -UseBasicParsing -TimeoutSec 900
+    DownloadWithProgress $v.url $exe
     $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLower()
-    if ($hash -ne ([string]$v.sha256).ToLower()) { Log "הקובץ שהורד לא תקין (SHA-256) — מדלגים"; Remove-Item -LiteralPath $exe -Force; exit 0 }
+    if ($hash -ne ([string]$v.sha256).ToLower()) { Log "הקובץ שהורד לא תקין (SHA-256) — מדלגים"; Remove-Item -LiteralPath $exe -Force; Prog 'failed' 0; exit 0 }
+    Prog 'ready' 100   # ההורדה הושלמה ונבדקה — חלון ההורדה נסגר
 
     # מחכים ש-Eclipse / Visual Studio (והרצה ויזואלית של C#) ייסגרו (עד 12 שעות), כדי לא להפריע לעבודה — והעדכון נכנס לתוקף בפתיחה הבאה
     # בודקים כל 5 שניות (קודם: פעם בדקה — מי שסגר את Eclipse ופתח אותו שוב תוך דקה "פספס" את העדכון), ומודיעים מה עוד פתוח
@@ -151,14 +186,17 @@ try {
     if (EclipseRunning) { Log "Eclipse / Visual Studio / הרצה ויזואלית / מודלים חישוביים עדיין פתוחים — ננסה בפעם הבאה"; exit 0 }
 
     Log "מתקין את הגרסה החדשה..."
+    Prog 'install' 0
     $p = Start-Process -FilePath $exe -ArgumentList '/S', '/UPDATE' -PassThru -WindowStyle Hidden
-    # חלון קטן בפינה: "DSViz מתעדכן לגרסה חדשה…" — נסגר לבד כשההתקנה נגמרת; בסופה ההתקנה מראה "DSViz עודכן"
+    # חלון קטן בפינה: "DSViz מתעדכן לגרסה חדשה" עם אחוזים (המתקין מדווח בכל שלב) — נסגר לבד כשההתקנה נגמרת; בסופה ההתקנה מראה "DSViz עודכן"
     Toast 'updating' $p.Id
     $p.WaitForExit()
     Log "ההתקנה הסתיימה (קוד $($p.ExitCode))"
+    Prog 'done' 100
     Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue
 } catch {
     Log "שגיאה: $($_.Exception.Message)"
+    Prog 'failed' 0   # חלון ההתקדמות (אם פתוח) נסגר — לא נשאר תקוע על המסך
 } finally {
     $fs.Close()
 }

@@ -10,7 +10,18 @@ TAG=jdk-21.0.5%2B11
 BASE="https://github.com/adoptium/temurin21-binaries/releases/download/$TAG"
 C=build/jdk-cache
 OUT=build/jre-windows
-[ -f "$OUT/bin/java.exe" ] && { echo "$OUT (קיים)"; exit 0; }
+# JRE שנשארה מבנייה קודמת — משתמשים בה רק אם יש בה את כל המודולים שברשימת jlink למטה. קודם נבדק רק שהקובץ קיים: JRE ישנה בלי
+# jdk.crypto.mscapi נכנסה להתקנה, והתיקון של "סינון אינטרנט" (Java סומכת על מאגר התעודות של Windows) לא עבד אצל המשתמשים
+# (אותו תחביר 'add''-modules' מפוצל בכוונה — כדי שהסקריפטים שקוראים את הרשימה מהשורה של jlink לא יתפסו את השורה הזו)
+if [ -f "$OUT/bin/java.exe" ]; then
+    want=$(sed -n 's/.*--add''-modules \([^ ]*\) .*/\1/p' "$0" | head -1 | tr ',' ' ')
+    have=$(sed -n 's/^MODULES="\(.*\)"$/\1/p' "$OUT/release" 2>/dev/null)
+    missing=""
+    for m in $want; do case " $have " in *" $m "*) ;; *) missing="$missing $m" ;; esac; done
+    if [ -z "$missing" ] && [ -n "$want" ]; then echo "$OUT (קיים, כל המודולים)"; exit 0; fi
+    echo "JRE ישנה — חסרים:${missing:- (לא נקראה הרשימה)} — בונים מחדש"
+    rm -rf "$OUT"
+fi
 mkdir -p "$C"
 fetch() {   # $1 = שם הקובץ ב-Adoptium, $2 = שם מקומי
     if [ ! -f "$C/$2" ]; then

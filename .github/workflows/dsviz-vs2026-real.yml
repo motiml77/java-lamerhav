@@ -13,6 +13,7 @@ on:
       - 'java-visualizer/tools/test/windows-vs-toolbar/vs-real-user.ps1'
       - 'java-visualizer/tools/test/windows-vs-toolbar/vs-upgrade.ps1'
       - 'java-visualizer/tools/test/windows-vs-toolbar/vs-helpers.ps1'
+      - 'java-visualizer/tools/test/windows-vs-toolbar/update-progress.ps1'
       - 'java-visualizer/release/DSViz-Setup.exe'
   workflow_dispatch:
 concurrency:
@@ -156,9 +157,19 @@ jobs:
         run: |
           & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\vs-upgrade.ps1" -Old "$env:RUNNER_TEMP\DSViz-Setup-master.exe" -New "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" -Out "$env:GITHUB_WORKSPACE\upgrade"
           exit $LASTEXITCODE
+      # אחוזי ההורדה וההתקנה בעדכון האוטומטי (החלון הקטן בפינה): update.ps1 האמיתי מול שרת מקומי איטי, עם צילומי מסך
+      - name: אחוזי ההורדה וההתקנה בעדכון האוטומטי
+        if: always() && steps.setup.outputs.differs == 'true'
+        timeout-minutes: 45
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-toolbar\update-progress.ps1" -Setup "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" -Out "$env:GITHUB_WORKSPACE\upgrade-progress"
+          exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: upgrade-${{ matrix.os }}
-          path: upgrade
+          path: |
+            upgrade
+            upgrade-progress
           retention-days: 14
