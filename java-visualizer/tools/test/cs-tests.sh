@@ -115,6 +115,11 @@ for t in calls fib; do
         && grep -q MARK-END "$W/vp-$t.txt" || { echo "מעקב המשתנים (VarsPanel) נכשל: $t"; cat "$W/vp-$t.txt"; exit 1; }
 done
 echo "מעקב משתנים ב-C#: המשתנים של כל פעולה פעילה, ובחלון — $(cat "$W"/vp-*.txt | grep -c '^  ok') בדיקות (כותרת, רשימה, בחירה, חזרה לפעולה שרצה)"
+# "כל שורה": השורה המסומנת מראה את מה שהיא כבר עשתה (הפעולה שלה והמשתנים שאחריה), והמרקר במעקב המשתנים (LineAfter)
+javac -encoding UTF-8 -cp "$JAR" -d "$W/vp" calls/LineAfterCheck.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/vp:$JAR" unit4.collectionsLib.LineAfterCheck "$W/calls.trace" > "$W/lineafter.txt" 2>&1 \
+    && grep -q MARK-END "$W/lineafter.txt" || { echo "כל שורה — מה שהשורה עשתה (LineAfter) נכשל"; cat "$W/lineafter.txt"; exit 1; }
+echo "כל שורה — השורה המסומנת מראה מה היא עשתה: $(grep -c '^  ok' "$W/lineafter.txt") בדיקות (קיפול הפעולה, המשתנים אחרי השורה, המרקר)"
 # פעולה שרצה בתוך אובייקט: this הוא d1, המאפיינים שהשורה קוראת / משנה (כמו ב-Java)
 viz objects/cs/Pets.cs --trace "$W/pets.trace" > "$W/pets.out" 2>&1 || { cat "$W/pets.out"; exit 1; }
 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/pets.trace" > "$W/pets.txt" 2>&1

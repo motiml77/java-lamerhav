@@ -67,6 +67,26 @@ final class VarsPanel extends JPanel {
     private final JLabel stripLabel = new JLabel();
     private final Note note = new Note();
     private final Set<Integer> changedRows = new HashSet<Integer>();
+    /** "כל שורה" (LineAfter): השורות שהשורה בקוד שינתה עכשיו — מרקר צהוב חזק; ולכל אחת מה היה קודם ("היה 5") או "חדש" */
+    private final Set<Integer> markedRows = new HashSet<Integer>();
+    private final java.util.Map<Integer, String> rowNote = new java.util.HashMap<Integer, String>();
+    private After after;
+
+    /**
+     * המשתנים של הפעולה שרצה אחרי שהשורה רצה (vars), ומה שהוצג לפני כן לאותה הפעלה של הפעולה (before) — מולו מסמנים
+     * מה השתנה. רק לפעולה שרצה (k = 0); פעולות שמחכות — כמו קודם
+     */
+    static final class After {
+        final List<String[]> vars, before;
+
+        After(List<String[]> vars, List<String[]> before) {
+            this.vars = vars;
+            this.before = before;
+        }
+    }
+
+    /** מרקר "השתנה עכשיו" — צהוב של מרקר הדגשה */
+    private static final Color MARK = new Color(0xFFE15A), MARK_NOTE = new Color(0x8A6D00);
 
     private Step step;
     private int shown;
@@ -147,7 +167,13 @@ final class VarsPanel extends JPanel {
 
     /** הצעד שמוצג (call = הקריאה לפעולת עזר שמסומנת בקוד, או null; fileKey = הקובץ שמוצג בקוד) */
     void set(Step s, String fileKey, CallViz.State call) {
+        set(s, fileKey, call, null);
+    }
+
+    /** after != null — "כל שורה": המשתנים אחרי השורה, ומה שהיא שינתה מסומן (LineAfter) */
+    void set(Step s, String fileKey, CallViz.State call, After after) {
         boolean same = s != null && s == step;
+        this.after = after;
         this.step = s;
         this.fileKey = fileKey;
         this.call = call;
@@ -231,12 +257,20 @@ final class VarsPanel extends JPanel {
     private void fillTable(Step s, int k) {
         model.setRowCount(0);
         changedRows.clear();
-        List<String[]> vs = s == null ? null : FrameViz.vars(s, k);
+        markedRows.clear();
+        rowNote.clear();
+        boolean useAfter = after != null && k == 0 && after.vars != null;
+        List<String[]> vs = s == null ? null : useAfter ? after.vars : FrameViz.vars(s, k);
         if (vs == null) {
             table.empty = s != null && k > 0 ? "המשתנים של הפעולה הזו לא נשמרו (היא עמוק מדי במחסנית)" : null;
             return;
         }
-        Set<String> changed = FrameViz.changed(s, k);
+        Set<String> changed = useAfter ? new HashSet<String>() : FrameViz.changed(s, k);
+        java.util.Map<String, String> old = null;
+        if (useAfter && after.before != null) {
+            old = new java.util.HashMap<String, String>();
+            for (String[] v : after.before) old.put(v[0], v[1]);
+        }
         SelfViz.Info self = FrameViz.selfOf(s, k);   // גם לפעולה שמחכה (לא רק הרצה) — "this (d1)" ולא סתם "this"
         for (int i = 0; i < vs.size(); i++) {
             String[] v = vs.get(i);
@@ -245,6 +279,18 @@ final class VarsPanel extends JPanel {
                 name = "this (" + self.self + ")";
             model.addRow(new Object[] { name, ltr(v[1]) });
             if (changed.contains(v[0])) changedRows.add(i);
+            if (old != null) {
+                String was = old.get(v[0]);
+                if (was == null) {
+                    markedRows.add(i);
+                    rowNote.put(i, "חדש");
+                } else if (!was.equals(v[1])) {
+                    markedRows.add(i);
+                    // "היה 5" — רק לערכים פשוטים (מספר, מחרוזת, תו, true/false); מבנה / אובייקט — הציור כבר מראה את השינוי
+                    boolean simple = was.indexOf('[') < 0 && was.indexOf('{') < 0 && was.indexOf('@') < 0 && !was.contains("->");
+                    if (simple && was.length() <= 14 && v[1].length() <= 24) rowNote.put(i, "היה \u202A" + was + "\u202C");
+                }
+            }
         }
         boolean willHave = vs.isEmpty() && FrameViz.willHaveVars(s, k);   // עוד לא רץ עד ההכרזה — ולא שאין בפעולה הזו משתנים בכלל
         table.empty = vs.isEmpty() ? (willHave ? "אין עדיין משתנים בפעולה הזו" : "אין משתנים בפעולה הזו") : null;
@@ -372,13 +418,37 @@ final class VarsPanel extends JPanel {
         @Override
         public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean focus, int row, int col) {
             super.getTableCellRendererComponent(t, v, false, false, row, col);
-            setBackground(changedRows.contains(row) ? Theme.CHANGED : Color.WHITE);
+            boolean mark = markedRows.contains(row);
+            note = mark && col == 1 ? rowNote.get(row) : null;
+            setBackground(mark ? MARK : changedRows.contains(row) ? Theme.CHANGED : Color.WHITE);
             setForeground(Theme.TEXT);
             setFont(col == 0 ? Theme.zv(Theme.mono.deriveFont(Font.BOLD)) : Theme.zv(Theme.mono));
             setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
             setHorizontalAlignment(SwingConstants.LEFT);   // שמות משתנים וערכים באנגלית — משמאל לימין
             setToolTipText(v == null ? null : String.valueOf(v));
             return this;
+        }
+
+        /** "היה 5" / "חדש" — בקטן ובאפור-זהוב, בצד הימני של תא הערך (הערך עצמו משמאל) */
+        private String note;
+
+        @Override
+        protected void paintComponent(Graphics g0) {
+            super.paintComponent(g0);
+            if (note == null) return;
+            Graphics2D g = (Graphics2D) g0.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                TextLayout tl = CondPaint.rtl(note, Theme.zv(Theme.small), g.getFontRenderContext());
+                java.awt.FontMetrics fm = getFontMetrics(getFont());
+                String text = getText() == null ? "" : getText();
+                float room = getWidth() - 10 - fm.stringWidth(text) - 10;
+                if (tl.getAdvance() + 8 > room) return;   // צר מדי — רק המרקר
+                g.setColor(MARK_NOTE);
+                tl.draw(g, getWidth() - 10 - tl.getAdvance(), (getHeight() + tl.getAscent() - tl.getDescent()) / 2f);
+            } finally {
+                g.dispose();
+            }
         }
     }
 
@@ -526,6 +596,17 @@ final class VarsPanel extends JPanel {
         for (int i = 0; i < model.getRowCount(); i++)
             res.add((model.getValueAt(i, 0) + "=" + model.getValueAt(i, 1)).replaceAll("[‎‏‪-‮]", ""));
         if (res.isEmpty() && table.empty != null) res.add("(" + table.empty + ")");
+        return res;
+    }
+
+    /** לבדיקות: השורות שמסומנות במרקר (LineAfter) — "שם" או "שם (היה 5)" / "שם (חדש)", בלי תווי הכיוון */
+    List<String> marked() {
+        List<String> res = new java.util.ArrayList<String>();
+        for (int i = 0; i < model.getRowCount(); i++) {
+            if (!markedRows.contains(i)) continue;
+            String n = rowNote.get(i);
+            res.add((String.valueOf(model.getValueAt(i, 0)) + (n == null ? "" : " (" + n + ")")).replaceAll("[\u200E\u200F\u202A-\u202E]", ""));
+        }
         return res;
     }
 
