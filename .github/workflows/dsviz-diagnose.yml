@@ -1,0 +1,43 @@
+name: DSViz Diagnose
+# קובץ האבחון DSViz-Diagnose.bat על Windows אמיתי: מריצים אותו כמו שמשתמש מריץ (cmd), במצב שקט, ובודקים שנוצר דוח מלא בעברית.
+on:
+  push:
+    branches: [release/public-all]
+    paths:
+      - '.github/workflows/dsviz-diagnose.yml'
+      - 'java-visualizer/installer/DSViz-Diagnose.bat'
+  workflow_dispatch:
+jobs:
+  diagnose:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - name: Run the .bat the way a user would (quiet mode)
+        shell: cmd
+        run: |
+          set DSVIZ_DIAG_QUIET=1
+          call java-visualizer\installer\DSViz-Diagnose.bat
+          if errorlevel 1 exit /b 1
+      - name: Check the report
+        shell: pwsh
+        run: |
+          $f = Join-Path ([Environment]::GetFolderPath('Desktop')) 'DSViz-diagnose.txt'
+          if (-not (Test-Path $f)) { $f = Join-Path $env:TEMP 'DSViz-diagnose.txt' }
+          if (-not (Test-Path $f)) { throw 'no report file' }
+          $t = Get-Content $f -Raw -Encoding UTF8
+          $t
+          foreach ($need in 'DSViz — דוח אבחון', '==== DSViz ====', '==== Visual Studio ====', 'vsix-install.log', 'Windows:') {
+            if ($t -notmatch [regex]::Escape($need)) { throw "missing in report: $need" }
+          }
+          if ($t -match [regex]::Escape($env:USERNAME + '\')) { Write-Host 'note: username path present' }
+          'REPORT OK'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnose-report
+          path: |
+            ~/Desktop/DSViz-diagnose.txt
+            ${{ runner.temp }}/DSViz-diagnose.txt
+          if-no-files-found: ignore
