@@ -893,6 +893,31 @@ if ($new2.Count -ge 1) {
     Check 'insert-below-caret-line' $insBelow 'המבנה נכנס מתחת לשורת הסמן, באותה הזחה, בלי הדבקה'
     Check 'insert-undo-single' $insUndo 'Ctrl+Z אחד מבטל את כל ההכנסה'
     Check 'insert-replaces-blank' $insBlank 'שורה ריקה: הקוד מחליף אותה (לא נוסף עוד שורה)'
+    # הספרייה של בית הספר ב-.NET Framework (פרויקט קלאסי, assembly בשם Unit4): הרצה רגילה (בנייה של Visual Studio) עם הספרייה שלהם — בלי CS0433 ובלי הספרייה של DSViz —
+    # והרצה ויזואלית (dsviz-cs) עם הספרייה של DSViz, אותו קוד
+    $schBuild = $false; $schRun = $false; $schNoDsviz = $false; $schVisual = $false; $schOut = ''
+    try {
+        $sch = Join-Path $env:TEMP 'dsviz-school-fw'
+        Remove-Item $sch -Recurse -Force -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force (Join-Path $sch 'lib'), (Join-Path $sch 'app') | Out-Null
+        $proj = { param($name, $type, $items) "<?xml version=`"1.0`" encoding=`"utf-8`"?>`r`n<Project ToolsVersion=`"15.0`" DefaultTargets=`"Build`" xmlns=`"http://schemas.microsoft.com/developer/msbuild/2003`">`r`n  <PropertyGroup><Configuration Condition=`"'`$(Configuration)' == ''`">Debug</Configuration><Platform Condition=`"'`$(Platform)' == ''`">AnyCPU</Platform><OutputType>$type</OutputType><AssemblyName>$name</AssemblyName><TargetFrameworkVersion>v4.8</TargetFrameworkVersion><OutputPath>bin\Debug\</OutputPath><FileAlignment>512</FileAlignment></PropertyGroup>`r`n  <ItemGroup><Reference Include=`"System`" /><Reference Include=`"System.Core`" />$items</ItemGroup>`r`n  <Import Project=`"`$(MSBuildToolsPath)\Microsoft.CSharp.targets`" />`r`n</Project>" }
+        [IO.File]::WriteAllText((Join-Path $sch 'lib\Unit4.csproj'), (& $proj 'Unit4' 'Library' '<Compile Include="Lib.cs" />'), (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText((Join-Path $sch 'lib\Lib.cs'), 'namespace Unit4.CollectionsLib { public class Node<T> { public T v; } public class Queue<T> { private System.Collections.Generic.List<T> l = new System.Collections.Generic.List<T>(); public void Insert(T x) { l.Add(x); } public T Remove() { T r = l[0]; l.RemoveAt(0); return r; } public bool IsEmpty() { return l.Count == 0; } } }', (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText((Join-Path $sch 'app\App.csproj'), (& $proj 'App' 'Exe' '<Reference Include="Unit4"><HintPath>..\lib\bin\Debug\Unit4.dll</HintPath></Reference><Compile Include="Program.cs" />'), (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText((Join-Path $sch 'app\Program.cs'), "using System;`r`nusing Unit4.CollectionsLib;`r`nclass Program { static void Main() { Queue<int> q = new Queue<int>(); Node<int> n = null; q.Insert(8); q.Insert(5); Console.WriteLine(`"SCHOOL-LIB `" + q.Remove()); } }", (New-Object Text.UTF8Encoding($false)))
+        $lb = (& $msbuild (Join-Path $sch 'lib\Unit4.csproj') /nologo /v:m 2>&1) -join "`n"
+        $ab = (& $msbuild (Join-Path $sch 'app\App.csproj') /nologo /v:m 2>&1) -join "`n"
+        $schBuild = (Test-Path (Join-Path $sch 'app\bin\Debug\App.exe')) -and ($ab -notmatch 'CS0433') -and ($ab -notmatch 'error ')
+        $schNoDsviz = -not (Test-Path (Join-Path $sch 'app\bin\Debug\Unit4.CollectionsLib.dll'))
+        if ($schBuild) { $schRun = ((& (Join-Path $sch 'app\bin\Debug\App.exe') 2>&1) -join ' ') -match 'SCHOOL-LIB 8' }
+        $tr = Join-Path $sch 'school.trace'
+        $schOut = (& (Join-Path $dsviz 'cs\dsviz-cs.exe') (Join-Path $sch 'app') --trace $tr 2>&1) -join ' | '
+        $schVisual = ($schOut -match 'SCHOOL-LIB 8') -and (Test-Path $tr)
+        Info "   ספריית בית הספר (.NET Framework): בנייה: $schBuild · בלי הספרייה של DSViz: $schNoDsviz · הרצה רגילה: $schRun · הרצה ויזואלית: $schVisual"
+        if (-not ($schBuild -and $schVisual)) { Info "   פלט הבנייה: $(($ab -split "`n" | Where-Object { $_ -match 'error|warn' } | Select-Object -First 4) -join ' | ')"; Info "   פלט dsviz-cs: $schOut" }
+    } catch { Info "ספריית בית הספר (.NET Framework): $_" }
+    Check 'school-lib-framework-build' ($schBuild -and $schNoDsviz) 'פרויקט .NET Framework קלאסי שמפנה ל-Unit4 של בית הספר: נבנה בלי CS0433, ובלי הספרייה של DSViz'
+    Check 'school-lib-framework-run' $schRun 'F5 רגיל: התוכנה רצה עם הספרייה של בית הספר'
+    Check 'school-lib-framework-visual' $schVisual 'הרצה ויזואלית (dsviz-cs) של אותו פרויקט: רצה עם הספרייה של DSViz — אותו קוד, אותה תוצאה'
     KillRun
     Get-CimInstance Win32_Process -Filter "Name='Exercise.exe'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     try { foreach ($x in @($d.Documents)) { if ($x.FullName -ieq $looseFile) { $x.Close(2) } } } catch { }
