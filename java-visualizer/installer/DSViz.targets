@@ -7,7 +7,7 @@
   את הפרויקט, בשביל ה-IntelliSense), וגם מ-dotnet build / dotnet msbuild. כך שבכל פרויקט קונסול ב-C#, חדש
   או קיים, בכל תיקייה, בלי שום פעולה של התלמיד:
     1. מתווספת הפניה לספרייה Unit4.CollectionsLib (אם קיימת בהתקנה, ואם הפרויקט לא כבר מפנה אליה —
-       ב-Reference או ב-ProjectReference) — כדי ש-using Unit4.CollectionsLib; יתקמפל גם בבנייה הרגילה
+       ב-Reference או ב-ProjectReference, או שהוא מפנה לספרייה של בית הספר "Unit4") — כדי ש-using Unit4.CollectionsLib; יתקמפל גם בבנייה הרגילה
        של Visual Studio (F5), ו-IntelliSense יכיר את Stack / Queue / Node / BinNode.
     2. מתווסף (פעם אחת) פרופיל ההרצה "הרצה ויזואלית" ל-Properties\launchSettings.json, בתפריט שליד כפתור
        ההפעלה הירוק — באמצעות dsviz-cs.exe ‎ensure-profile (קריאה קטנה: רק ה-csproj, בלי לסרוק את קבצי
@@ -60,11 +60,17 @@
     <ItemGroup>
       <!-- הפרויקט כבר מפנה לספרייה? (Reference בשם, גם בצורה המלאה "Unit4.CollectionsLib, Version=...",
            או לפי ה-HintPath; או ProjectReference לפרויקט של הספרייה) — אז לא מוסיפים עוד הפניה -->
+      <!-- וגם: הפרויקט כבר מפנה לספרייה של בית הספר — assembly בשם Unit4 (Reference Include="Unit4", או Unit4.dll ב-HintPath) עם אותו namespace
+           (Unit4.CollectionsLib) ואותם שמות (Stack / Queue / Node...). עוד הפניה לספרייה שלנו הייתה יוצרת CS0433 ("The type 'Node<T>' exists in
+           both 'Unit4.CollectionsLib' and 'Unit4'") — שגיאה שתלמיד לא יכול לתקן. בפרויקט כזה VS משתמש בספרייה שלהם, וההרצה הוויזואלית
+           (dsviz-cs, תהליך נפרד) בספרייה שלנו — אותו API. -->
       <_DSVizExistingRef Include="@(Reference)"
           Condition="'%(Reference.Identity)' == 'Unit4.CollectionsLib'
                   or $([System.String]::Copy('%(Reference.Identity)').StartsWith('Unit4.CollectionsLib,'))
-                  or $([System.String]::Copy('%(Reference.HintPath)').ToLowerInvariant().EndsWith('unit4.collectionslib.dll'))" />
-      <_DSVizExistingRef Include="@(ProjectReference)" Condition="'%(ProjectReference.Filename)' == 'Unit4.CollectionsLib'" />
+                  or $([System.String]::Copy('%(Reference.HintPath)').ToLowerInvariant().EndsWith('unit4.collectionslib.dll'))
+                  or $([System.String]::Copy('%(Reference.Identity)').ToLowerInvariant().StartsWith('unit4'))
+                  or $([System.String]::Copy('%(Reference.HintPath)').ToLowerInvariant().EndsWith('unit4.dll'))" />
+      <_DSVizExistingRef Include="@(ProjectReference)" Condition="'%(ProjectReference.Filename)' == 'Unit4.CollectionsLib' or '%(ProjectReference.Filename)' == 'Unit4'" />
     </ItemGroup>
     <ItemGroup Condition="'@(_DSVizExistingRef)' == ''">
       <Reference Include="Unit4.CollectionsLib">
