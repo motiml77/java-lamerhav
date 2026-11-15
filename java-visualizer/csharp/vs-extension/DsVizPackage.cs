@@ -122,7 +122,7 @@ namespace DsViz.VsExtension
             {
                 var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
                 if (dte == null) return;
-                _follower = new StartupFollower(dte);
+                _follower = new StartupFollower(dte, RunFile);
                 EnvDTE.Document active = null;
                 try { active = dte.ActiveDocument; } catch (Exception) { }
                 if (active != null) _follower.Follow(active);
@@ -538,6 +538,18 @@ namespace DsViz.VsExtension
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// הרצה ויזואלית של קובץ C# שלא שייך לאף פרויקט (Miscellaneous Files), כשלוחצים על הכפתור הירוק / F5 / Ctrl+F5 (StartupFollower):
+        /// בדיוק כמו "הרצה ויזואלית" בסרגל — קודם שומרים את כל הקבצים, ואז dsviz-cs על הקובץ
+        /// </summary>
+        void RunFile(string file)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+            try { if (dte != null) dte.Documents.SaveAll(); } catch (Exception) { }
+            Start(file);
         }
 
         /// <summary>הרצה ויזואלית של קובץ ה-C# הפתוח (ושאר קבצי הפרויקט שלו)</summary>

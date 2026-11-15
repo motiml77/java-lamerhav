@@ -19,6 +19,8 @@ New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path
 $Lab = (Resolve-Path $Lab).Path
 $script:fails = 0
+# יומן ההרחבה גם לקובץ (SolutionHints.Log -> %LOCALAPPDATA%\DSViz\vs-trace.log): רואים בבדיקה מה ההרחבה עשתה בלחיצה על הרצה. Visual Studio יורש את המשתנה
+$env:DSVIZ_VS_TRACE = '1'
 $script:lines = New-Object System.Collections.Generic.List[string]
 function Log([string]$s) { Write-Host $s; $script:lines.Add($s) }
 function Ok([string]$id, [string]$s) { Log "  ok   $id  $s" }
@@ -767,6 +769,96 @@ if ($new2.Count -ge 1) {
     $s3 = StartupAfterOpen $bankFile $name2
     Check 'follow-bank' ($s3 -like "*$name2*") "חזרה לקובץ התרגיל מהמאגר ($([IO.Path]::GetFileName($bankFile))) -> ה-Startup Project הוא התרגיל מהמאגר (ולא תרגיל המחסנית): $s3"
     Shot '36-bank-startup'
+    # גם בלי מעבר בין חלונות: ב-Startup Project נשאר Exercise (למשל נבחר ידנית, או הפתרון נפתח מחדש), והקובץ הפעיל הוא של תרגיל אחר.
+    # ברגע שלוחצים "הרצה" (Ctrl+F5 — אותה פקודה כמו הכפתור הירוק) ההרחבה מחליפה את ה-Startup Project לפרויקט של הקובץ הפעיל — לא רץ Exercise.
+    # התרגיל מהשליחה (שנפתר בשלב 5), ולא התרגיל מהמאגר: למאגר יש שלד בלי return (CS0161), ובנייה שנכשלת פותחת ב-Visual Studio את החלון
+    # 'There were build errors' שחוסם את האוטומציה. בודקים גם מה באמת הורץ: שורת הפקודה של dsviz-cs (או התוכנית עצמה) — התיקייה של התרגיל הפתוח
+    function KillRun() {
+        KillDsviz
+        $pn = if ($subName) { $subName } else { '-' }
+        Get-Process VsDebugConsole, $pn -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+    function Launched() {
+        @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -ieq 'dsviz-cs.exe' -or $_.Name -ieq "$subName.exe" } |
+            ForEach-Object { "$($_.Name): $($_.CommandLine)" })
+    }
+    function StartAndWatch($file, $want, $label) {
+        KillRun
+        try { $d.Solution.SolutionBuild.StartupProjects = 'Exercise\Exercise.csproj' } catch { Info "הגדרת Startup: $_" }
+        try { $null = $d.ItemOperations.OpenFile($file); $d.ActiveDocument.Activate() } catch { Info "DTE פתיחה: $_" }
+        Start-Sleep 2
+        try { $d.Solution.SolutionBuild.StartupProjects = 'Exercise\Exercise.csproj' } catch { }
+        $before = ''; try { $before = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }
+        try { $d.ExecuteCommand('Debug.StartWithoutDebugging') } catch { Info "הרצה: $_" }
+        $s = ''
+        for ($w = 0; $w -lt 15; $w++) { Start-Sleep 1; try { $s = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }; if ($s -like "*$want*") { break } }
+        $runs = @()
+        for ($w = 0; $w -lt 90 -and $runs.Count -eq 0; $w++) { Start-Sleep 1; $runs = Launched }
+        Info "   $label — לפני ההרצה: $before · אחרי הלחיצה על הרצה: $s · הורץ: $($runs -join ' | ')"
+        $script:runShot++; Shot "37-run-$($script:runShot)"
+        KillRun
+        # אם בכל זאת נפתח חלון של Visual Studio (שגיאות בנייה וכו') — Esc סוגר אותו ('No': לא מריצים), ולא חוסם את המשך הבדיקה
+        [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
+        Start-Sleep 1
+        try { [Windows.Forms.SendKeys]::SendWait('{ESC}') } catch { }
+        return @($before, $s, ($runs -join ' | '))
+    }
+    if ($subDir -and $subName) {
+        $subFile = @(Get-ChildItem $subDir -Filter '*.cs' | Where-Object { (Get-Content $_.FullName -Raw -Encoding utf8) -match 'static (void|int) Main' } | Select-Object -First 1)
+        if ($subFile.Count -eq 0) { $subFile = @(Get-ChildItem $subDir -Filter '*.cs' | Sort-Object Name | Select-Object -First 1) }
+        $runFile = $subFile[0].FullName
+        $r1 = StartAndWatch $runFile $subName 'לחיצה על הרצה'
+        Check 'run-follows-active-file' (($r1[0] -like '*Exercise\Exercise.csproj*') -and ($r1[1] -like "*$subName*")) "ה-Startup Project היה Exercise ובלחיצה על הרצה הפך לתרגיל הפתוח (ולא רץ תרגיל המחסנית): $($r1[0]) -> $($r1[1])"
+        Check 'run-launches-active-project' (($r1[2] -like "*$subName*") -and ($r1[2] -notlike '*\Exercise\.*')) "Ctrl+F5 הריץ את התרגיל הפתוח: $($r1[2])"
+        # פרויקט של DSViz (מפנה לספרייה) שעוד אין לו את הפרופיל "הרצה ויזואלית" (הועתק בלי Properties): גם הוא נהיה ה-Startup Project.
+        # ההרחבה לא כותבת את הפרופיל — את זה עושים DSViz.targets / dsviz-cs (רק נרשם כאן אם נוצר מחדש בבנייה)
+        $launchFile = Join-Path $subDir 'Properties\launchSettings.json'
+        $launchKeep = if (Test-Path $launchFile) { [IO.File]::ReadAllBytes($launchFile) } else { $null }
+        if (Test-Path $launchFile) { Remove-Item $launchFile -Force }
+        $r2 = StartAndWatch $runFile $subName 'בלי פרופיל'
+        Check 'run-follows-no-profile' (($r2[0] -like '*Exercise\Exercise.csproj*') -and ($r2[1] -like "*$subName*")) "פרויקט בלי הפרופיל: בלחיצה על הרצה ה-Startup Project הוא התרגיל הפתוח: $($r2[0]) -> $($r2[1])"
+        Check 'run-no-profile-not-exercise' ($r2[2] -notlike '*\Exercise\.*') "פרויקט בלי הפרופיל: לא הורץ תרגיל המחסנית: $($r2[2])"
+        Info "   launchSettings.json אחרי ההרצה: $(if (Test-Path $launchFile) { 'נוצר מחדש (DSViz.targets / dsviz-cs)' } else { 'לא קיים' })"
+        if ($launchKeep) { New-Item -ItemType Directory -Force (Split-Path $launchFile) | Out-Null; [IO.File]::WriteAllBytes($launchFile, $launchKeep) }
+    } else { Info 'אין תרגיל מהשליחה (שלב 5) — בדיקת "הרצה" (Ctrl+F5) דולגה' }
+    # קובץ C# שלא שייך לאף פרויקט (Miscellaneous Files — כמו Loops4.cs שתלמיד פתח מ-File > Open), וה-Startup Project הוא Exercise:
+    # Ctrl+F5 (אותה פקודה כמו הכפתור הירוק) מריץ ויזואלית את הקובץ הפתוח (dsviz-cs על הקובץ) — ולא את Exercise (תרגיל המחסנית).
+    # התיקייה מחוץ לתיקיית התרגילים ובלי .csproj מעליה (גם לא ב-%TEMP%: קבצים זמניים, כמו "[from metadata]", ההרחבה לא מריצה)
+    $looseDir = Join-Path $env:USERPROFILE 'DSViz-loose-test'
+    New-Item -ItemType Directory -Force $looseDir | Out-Null
+    $looseFile = Join-Path $looseDir 'Loops4.cs'
+    $looseCode = "using System;`r`n`r`nclass Loops4`r`n{`r`n    static void Main(string[] args)`r`n    {`r`n        int sum = 0;`r`n        for (int i = 1; i <= 3; i++)`r`n        {`r`n            sum += i;`r`n        }`r`n        Console.WriteLine(sum);`r`n    }`r`n}`r`n"
+    [IO.File]::WriteAllText($looseFile, $looseCode, (New-Object Text.UTF8Encoding($true)))
+    KillRun
+    try { $d.Solution.SolutionBuild.StartupProjects = 'Exercise\Exercise.csproj' } catch { Info "הגדרת Startup: $_" }
+    $looseProj = ''
+    try { $null = $d.ItemOperations.OpenFile($looseFile); $d.ActiveDocument.Activate() } catch { Info "DTE פתיחה: $_" }
+    Start-Sleep 2
+    try { $pi = $d.ActiveDocument.ProjectItem; $looseProj = if ($pi -and $pi.ContainingProject) { $pi.ContainingProject.Name } else { '(אין פרויקט)' } } catch { $looseProj = "? $_" }
+    $lBefore = ''; try { $lBefore = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }
+    try { $d.ExecuteCommand('Debug.StartWithoutDebugging') } catch { Info "הרצה: $_" }
+    $lRuns = @()
+    for ($w = 0; $w -lt 90 -and $lRuns.Count -eq 0; $w++) { Start-Sleep 1; $lRuns = Launched }
+    Start-Sleep 3
+    $lRuns = @(Launched) + @(Get-CimInstance Win32_Process -Filter "Name='Exercise.exe'" -ErrorAction SilentlyContinue | ForEach-Object { "Exercise.exe: $($_.CommandLine)" })
+    $lAfter = ''; try { $lAfter = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }
+    $lJoined = $lRuns -join ' | '
+    Info "   קובץ בלי פרויקט: $looseFile · פרויקט ב-Visual Studio: $looseProj · Startup: $lBefore -> $lAfter · הורץ: $lJoined"
+    $script:runShot++; Shot "37-run-$($script:runShot)-loose"
+    $vsTrace = Join-Path $env:LOCALAPPDATA 'DSViz\vs-trace.log'
+    if (Test-Path $vsTrace) {
+        Copy-Item $vsTrace (Join-Path $Out 'vs-trace.log') -Force -ErrorAction SilentlyContinue
+        @(Get-Content $vsTrace -Encoding utf8 | Where-Object { $_ -match 'startup|run' } | Select-Object -Last 8) | ForEach-Object { Info "   יומן ההרחבה: $_" }
+    } else { Info '   יומן ההרחבה (vs-trace.log) לא נמצא' }
+    Check 'run-loose-file' (($lJoined -like '*Loops4.cs*') -and ($lJoined -notlike '*\Exercise\.*') -and ($lJoined -notlike '*Exercise.exe*')) "קובץ C# מחוץ לפתרון (Miscellaneous Files) + Ctrl+F5: הורץ ויזואלית הקובץ הפתוח, ולא Exercise: $lJoined"
+    Check 'run-loose-keeps-startup' ($lAfter -like '*Exercise\Exercise.csproj*') "ה-Startup Project לא השתנה (הקובץ לא שייך לאף פרויקט): $lAfter"
+    KillRun
+    Get-CimInstance Win32_Process -Filter "Name='Exercise.exe'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    try { foreach ($x in @($d.Documents)) { if ($x.FullName -ieq $looseFile) { $x.Close(2) } } } catch { }
+    [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
+    Start-Sleep 1
+    try { [Windows.Forms.SendKeys]::SendWait('{ESC}') } catch { }
+    KillJava
     $d = $null
 }
 Check 'single-vs2' (@(Get-Process devenv -ErrorAction SilentlyContinue).Count -eq 1) 'עדיין Visual Studio אחד' ''
