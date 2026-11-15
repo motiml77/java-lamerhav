@@ -573,6 +573,7 @@ public final class BankVs {
     static boolean complete(Component parent, BankStore.Question q, boolean ask, boolean keep) {
         String text = ask && !keep ? doneText(q) : null;
         if (text != null && RtlDialog.ask(parent, "סיימתי את התרגיל", RtlDialog.Kind.OK, "סיימתי את התרגיל", "השאלה תסומן בסימן ירוק. " + text, "סיום ומחיקה", "ביטול") != 0) return false;
+        BankVsFloat.forgetLast(q.id);   // "השאלה" בסרגל לא פותח שוב שאלה שסיימו
         if (keep) {
             BankProgress.get().setDone(q.id, true);
             return true;

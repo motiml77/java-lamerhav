@@ -852,6 +852,47 @@ if ($new2.Count -ge 1) {
     } else { Info '   יומן ההרחבה (vs-trace.log) לא נמצא' }
     Check 'run-loose-file' (($lJoined -like '*Loops4.cs*') -and ($lJoined -notlike '*\Exercise\.*') -and ($lJoined -notlike '*Exercise.exe*')) "קובץ C# מחוץ לפתרון (Miscellaneous Files) + Ctrl+F5: הורץ ויזואלית הקובץ הפתוח, ולא Exercise: $lJoined"
     Check 'run-loose-keeps-startup' ($lAfter -like '*Exercise\Exercise.csproj*') "ה-Startup Project לא השתנה (הקובץ לא שייך לאף פרויקט): $lAfter"
+    # "הוספת מבנה נתונים": הכלי יודע מה הקובץ הפעיל ואיפה הסמן, והמבנה נכנס שם בדיוק — בלי הדבקה. אותן קריאות (VsDte.editor / VsDte.insert) מול ה-Visual Studio האמיתי
+    $insRead = $null; $insBelow = $false; $insBlank = $false; $insUndo = $false; $insOk = $false
+    try {
+        $chk = Join-Path $env:TEMP 'dsviz-vsdte-check'
+        Remove-Item $chk -Recurse -Force -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force $chk | Out-Null
+        $dsJar = Join-Path $dsviz 'dsviz.jar'; $jv = Join-Path $dsviz 'jdk\bin\java.exe'
+        & javac -nowarn -encoding UTF-8 -cp $dsJar -d $chk (Join-Path $PSScriptRoot 'VsDteCheck.java') 2>&1 | ForEach-Object { Info "   javac: $_" }
+        $null = $d.ItemOperations.OpenFile($looseFile); $d.ActiveDocument.Activate(); Start-Sleep 2
+        function EdText() { $t = $d.ActiveDocument.Object('TextDocument'); return $t.StartPoint.CreateEditPoint().GetText($t.EndPoint) }
+        $orig = EdText
+        $d.ActiveDocument.Selection.GotoLine(7, $false)   # "int sum = 0;"
+        $env:DSVIZ_VS_PID = [string]$vsP.Id
+        $insRead = (& $jv -cp "$chk;$dsJar" il.lamerhav.dsviz.VsDteCheck editor 2>&1) -join ' | '
+        Info "   VsDte.editor: $insRead"
+        $snip = Join-Path $chk 'snippet.txt'
+        [IO.File]::WriteAllText($snip, "`r`n        Queue<int> q1 = new Queue<int>();`r`n        q1.Insert(5);", (New-Object Text.UTF8Encoding($false)))
+        $r1 = (& $jv -cp "$chk;$dsJar" il.lamerhav.dsviz.VsDteCheck insert $looseFile 7 0 $snip 2>&1) -join ' | '
+        $after = (EdText) -split "`r?`n"
+        $k = [Array]::IndexOf($after, '        int sum = 0;')
+        $insBelow = ($r1 -match 'OK') -and $k -ge 0 -and $after[$k + 1] -eq '        Queue<int> q1 = new Queue<int>();' -and $after[$k + 2] -eq '        q1.Insert(5);' -and $after[$k + 3] -like '*for (int i*'
+        Info "   הכנסה מתחת לשורה 7: $r1 · השורות: $(($after[($k)..($k + 3)]) -join ' ⏎ ')"
+        # Undo אחד מחזיר את הקובץ כמו שהיה
+        try { $d.ExecuteCommand('Edit.Undo') } catch { Info "Undo: $_" }
+        Start-Sleep 1
+        $insUndo = ((EdText) -eq $orig)
+        # שורה ריקה (שורה 2, אחרי using System;): מוחלפת, לא נוספת מתחתיה
+        $d.ActiveDocument.Selection.GotoLine(2, $false)
+        $snip2 = Join-Path $chk 'snippet2.txt'
+        [IO.File]::WriteAllText($snip2, "        int[] z = new int[3];", (New-Object Text.UTF8Encoding($false)))
+        $r2 = (& $jv -cp "$chk;$dsJar" il.lamerhav.dsviz.VsDteCheck insert $looseFile 2 1 $snip2 2>&1) -join ' | '
+        $after2 = (EdText) -split "`r?`n"
+        $insBlank = ($r2 -match 'OK') -and $after2[1] -eq '        int[] z = new int[3];' -and $after2[2] -eq '' -and $after2.Count -eq (($orig -split "`r?`n").Count)
+        Info "   החלפת שורה ריקה (שורה 2): $r2 · שורה 2 עכשיו: '$($after2[1])' · מספר שורות: $($after2.Count) (היה $((($orig -split "`r?`n")).Count))"
+        try { $d.ExecuteCommand('Edit.Undo') } catch { }
+        $insOk = $true
+    } catch { Info "הכנסה לפי הסמן: $_" }
+    finally { Remove-Item Env:\DSVIZ_VS_PID -ErrorAction SilentlyContinue }
+    Check 'insert-editor-state' ($insRead -match 'FILE .*Loops4\.cs' -and $insRead -match 'LINE 7') "VsDte.editor מחזיר את הקובץ הפעיל ואת שורת הסמן (7): $insRead"
+    Check 'insert-below-caret-line' $insBelow 'המבנה נכנס מתחת לשורת הסמן, באותה הזחה, בלי הדבקה'
+    Check 'insert-undo-single' $insUndo 'Ctrl+Z אחד מבטל את כל ההכנסה'
+    Check 'insert-replaces-blank' $insBlank 'שורה ריקה: הקוד מחליף אותה (לא נוסף עוד שורה)'
     KillRun
     Get-CimInstance Win32_Process -Filter "Name='Exercise.exe'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     try { foreach ($x in @($d.Documents)) { if ($x.FullName -ieq $looseFile) { $x.Close(2) } } } catch { }

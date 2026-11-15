@@ -66,7 +66,10 @@ namespace DsViz.VsExtension
         {
             var parts = new List<string>();
             foreach (string a in args) parts.Add("\"" + a.Replace("\"", "\\\"") + "\"");
-            Process.Start(new ProcessStartInfo(Runner, string.Join(" ", parts)) { UseShellExecute = false, CreateNoWindow = true });
+            var psi = new ProcessStartInfo(Runner, string.Join(" ", parts)) { UseShellExecute = false, CreateNoWindow = true };
+            // איזה Visual Studio פתח את הכלי: "הוספת מבנה נתונים" מכניס את הקוד בקובץ הפתוח שלו, בשורת הסמן (בלי הדבקה), ו"תרגיל חדש" מוסיף אליו את הפרויקט
+            try { psi.EnvironmentVariables["DSVIZ_VS_PID"] = Process.GetCurrentProcess().Id.ToString(); } catch (Exception) { }
+            Process.Start(psi);
         }
     }
 }

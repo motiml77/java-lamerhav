@@ -174,14 +174,41 @@ public final class CsTool {
         ExerciseForm f = new ExerciseForm(root, preset);
         if (!f.show(shot)) return;
         try {
+            // Visual Studio פתוח עם הפתרון: הוא עצמו מוסיף את הפרויקט (DTE) ופותחים בו את הקובץ — בלי Reload, בלי Visual Studio שני,
+            // והפרויקט הופך לפרויקט ההרצה (כמו ב"שליחת תרגיל"). אחרת — רושמים בקובץ ה-.sln כרגיל, והוראות ידניות
+            final boolean[] added = { false };
+            if (il.lamerhav.dsviz.VsDte.enabled()) il.lamerhav.dsviz.CsSolution.openIde = new java.util.function.BiPredicate<Path, Path>() {
+                public boolean test(Path s, Path p) {
+                    boolean ok = il.lamerhav.dsviz.VsDte.add(s, p);
+                    if (ok) added[0] = true;
+                    return ok;
+                }
+            };
             Path file = CsProject.write(root, f.options.className, f.code);
             Path sln = CsProject.solution(root);
-            RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.OK, "התרגיל " + f.options.className + " נוצר",
-                    "ב-Solution Explorer: קליק ימני על " + f.options.className + " " + RtlDialog.ARROW + " Set as Startup Project.\n"
-                    + "מריצים: בתפריט שליד הכפתור הירוק בוחרים \"הרצה ויזואלית\".\n"
-                    + "אם Visual Studio כבר פתוח, מאשרים Reload.");
-            if (open && java.awt.Desktop.isDesktopSupported()) {
-                java.awt.Desktop.getDesktop().open((sln != null ? sln : file).toFile());
+            boolean opened = false;
+            if (added[0] && sln != null) {
+                Path csproj = CsProject.exercisesDir(root).resolve(f.options.className).resolve(f.options.className + ".csproj");
+                int line = 1, n = 0;
+                for (String l : java.nio.file.Files.readAllLines(file, java.nio.charset.StandardCharsets.UTF_8)) {   // הסמן במקום ש"כאן כותבים את הפתרון"
+                    n++;
+                    if (l.contains("TODO")) { line = n; break; }
+                }
+                opened = il.lamerhav.dsviz.VsDte.open(file.toFile(), line, sln, csproj);
+            }
+            if (added[0]) {
+                RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.OK, "התרגיל " + f.options.className + " נוצר",
+                        "הוא נוסף לפתרון שפתוח ב-Visual Studio, והוא פרויקט ההרצה.\n"
+                        + (opened ? "הקובץ כבר פתוח — כותבים במקום המסומן.\n" : "פותחים את Program.cs וכותבים במקום המסומן.\n")
+                        + "מריצים: הכפתור \"הרצה ויזואלית\" בסרגל של DSViz, או הכפתור הירוק.");
+            } else {
+                RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.OK, "התרגיל " + f.options.className + " נוצר",
+                        "ב-Solution Explorer: קליק ימני על " + f.options.className + " " + RtlDialog.ARROW + " Set as Startup Project.\n"
+                        + "מריצים: בתפריט שליד הכפתור הירוק בוחרים \"הרצה ויזואלית\".\n"
+                        + "אם Visual Studio כבר פתוח, מאשרים Reload.");
+                if (open && java.awt.Desktop.isDesktopSupported()) {
+                    java.awt.Desktop.getDesktop().open((sln != null ? sln : file).toFile());
+                }
             }
         } catch (Exception e) {
             RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.ERROR, "לא הצלחתי ליצור את התרגיל", e.getMessage());
@@ -496,11 +523,31 @@ public final class CsTool {
     // ------------------------------------------------------------------ הוסף מבנה נתונים
 
     private static void insert(Path root, String preset, String shot) {
-        Path source = latestSource(root);
-        String text = "";
-        try { if (source != null) text = new String(Files.readAllBytes(source), java.nio.charset.StandardCharsets.UTF_8); } catch (Exception ignored) {}
-        InsertForm f = new InsertForm(preset, text, source == null ? null : (root != null && source.startsWith(root) ? root.relativize(source).toString() : source.getFileName().toString()));
+        // נפתח מ-Visual Studio (הכפתור בסרגל): יודעים מה הקובץ הפעיל ואיפה הסמן — והמבנה נכנס שם בדיוק, בלי הדבקה (כמו ב-Eclipse וב-VS Code)
+        il.lamerhav.dsviz.VsDte.Editor ed = shot == null ? il.lamerhav.dsviz.VsDte.editor() : null;
+        if (ed != null && !ed.file.toLowerCase(java.util.Locale.ROOT).endsWith(".cs")) ed = null;
+        InsertPoint at = ed == null ? null : InsertPoint.of(ed.text, ed.line);
+        if (ed != null && !il.lamerhav.dsviz.NameCheck.insideFunction(ed.text, at.offset)) {
+            RtlDialog.show(null, "הוסף מבנה נתונים — C#", RtlDialog.Kind.WARN, "הסמן מחוץ לפעולה",
+                    "לוחצים בתוך Main (או בפעולה אחרת), בשורה של המבנה, ואז שוב \"הוספת מבנה נתונים\".");
+            return;
+        }
+        Path source = ed != null ? java.nio.file.Paths.get(ed.file) : latestSource(root);
+        String text = ed != null ? ed.text : "";
+        if (ed == null) try { if (source != null) text = new String(Files.readAllBytes(source), java.nio.charset.StandardCharsets.UTF_8); } catch (Exception ignored) {}
+        InsertForm f = new InsertForm(preset, text, source == null ? null : (root != null && source.startsWith(root) ? root.relativize(source).toString() : source.getFileName().toString()),
+                at == null ? -1 : at.offset, at == null ? "        " : at.indent);
         if (!f.show(shot)) return;
+        if (ed != null) {
+            // הקובץ יכול להשתנות כשהחלון פתוח: קוראים שוב את המצב, והקוד נכנס בשורה שבה היה הסמן (באותה הזחה)
+            il.lamerhav.dsviz.VsDte.Editor now = il.lamerhav.dsviz.VsDte.editor();
+            if (now != null && now.file.equals(ed.file)) {
+                InsertPoint p = InsertPoint.of(now.text, ed.line);
+                String nl = now.text.contains("\r\n") ? "\r\n" : "\n";
+                String code = f.code.replaceAll("\\s+$", "").replace("\r\n", "\n").replace("\n", nl);
+                if (il.lamerhav.dsviz.VsDte.insert(now.file, ed.line, p.blank, p.blank ? code : nl + code)) return;
+            }
+        }
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(f.code), null);
         RtlDialog.show(null, "הוסף מבנה נתונים — C#", RtlDialog.Kind.OK, "הקוד הועתק",
                 "עוברים ל-Visual Studio, לוחצים במקום של המבנה (בתוך Main או בתוך פעולה), ואז Ctrl+V.");
@@ -522,7 +569,8 @@ public final class CsTool {
      * ב-Visual Studio אי אפשר לדעת איפה הסמן, לכן השם נבדק מול הקובץ שנערך לאחרונה, וכשהוא כבר קיים שם — רק אזהרה.
      */
     private static final class InsertForm extends Base {
-        private final String preset, docText, docName;
+        private final String preset, docText, docName, indent;
+        private final int offset;   // מיקום הסמן בקובץ (או -1 — לא ידוע: הכלי נפתח מקיצור דרך)
         private final List<JToggleButton> structureButtons = new ArrayList<JToggleButton>();
         private final List<JToggleButton> insideButtons = new ArrayList<JToggleButton>();
         private final List<JToggleButton> typeButtons = new ArrayList<JToggleButton>();
@@ -539,10 +587,12 @@ public final class CsTool {
         private String lastType = "", lastStructure = "";
         String code;
 
-        InsertForm(String preset, String docText, String docName) {
+        InsertForm(String preset, String docText, String docName, int offset, String indent) {
             this.preset = preset == null ? "queue" : preset;
             this.docText = docText == null ? "" : docText;
             this.docName = docName;
+            this.offset = offset;
+            this.indent = indent == null || indent.isEmpty() ? "        " : indent;
         }
 
         boolean show(String shot) {
@@ -552,7 +602,7 @@ public final class CsTool {
             JPanel head = new JPanel(new GridLayout(0, 1));
             JLabel title = new JLabel("הוסף מבנה נתונים");
             title.setFont(Theme.big);
-            JLabel subtitle = new JLabel("בוחרים מבנה, ערכים ושם — רואים איך הוא ייראה, והקוד מועתק להדבקה ב-Visual Studio.");
+            JLabel subtitle = new JLabel(offset >= 0 ? "בוחרים מבנה, ערכים ושם — רואים איך הוא ייראה, והוא נכנס לקוד בשורה שבה הסמן." : "בוחרים מבנה, ערכים ושם — רואים איך הוא ייראה, והקוד מועתק להדבקה ב-Visual Studio.");
             subtitle.setForeground(Theme.MUTED);
             head.add(title);
             head.add(subtitle);
@@ -717,14 +767,14 @@ public final class CsTool {
             String vals = card ? null : values.getText();
             String error = null, warning = null;
             // שם: ההצעה באפור (לא תפוסה בקובץ שנערך לאחרונה); שם שהוקלד — חייב להיות חוקי, ואם הוא כבר בקובץ — אזהרה
-            String suggestion = ScaffoldCs.suggestName(st, docText, -1);
+            String suggestion = ScaffoldCs.suggestName(st, docText, offset);
             name.putClientProperty("JTextField.placeholderText", suggestion);
             name.repaint();
             String typed = name.getText().trim();
             if (!typed.isEmpty()) {
                 String err = ScaffoldCs.checkName(typed, "", -1);
                 if (err != null) error = err;
-                else if (ScaffoldCs.checkName(typed, docText, -1) != null && docName != null)
+                else if (ScaffoldCs.checkName(typed, docText, offset) != null && docName != null)
                     warning = "שימו לב: בקובץ " + docName + " כבר יש \"" + typed + "\" — אם מדביקים באותה פעולה תהיה שגיאה";
             }
             Scaffold.Preview pv = null;
@@ -744,7 +794,7 @@ public final class CsTool {
                 o.type = shownType;
                 o.name = typed.isEmpty() ? suggestion : typed;
                 o.values = vals;
-                o.indent = "        ";
+                o.indent = indent;
                 try {
                     code = ScaffoldCs.snippet(o);
                 } catch (IllegalArgumentException e) {
