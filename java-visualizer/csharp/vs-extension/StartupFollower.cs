@@ -52,7 +52,8 @@ namespace DsViz.VsExtension
         {
             try
             {
-                slot = ((Events)_dte.Events).get_CommandEvents(StdCommandSet, id);
+                ThreadHelper.ThrowIfNotOnUIThread();
+                slot = _dte.Events.get_CommandEvents(StdCommandSet, id);
                 slot.BeforeExecute += OnBeforeStart;
             }
             catch (Exception ex) { SolutionHints.Log("startup follower: command hook " + id + " failed: " + ex.Message, true); }
