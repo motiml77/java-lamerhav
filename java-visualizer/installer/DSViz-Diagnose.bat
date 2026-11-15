@@ -60,6 +60,22 @@ if (Test-Path $vswhere) {
     Put 'לא נמצא Visual Studio (אין vswhere.exe)'
 }
 
+# האם Visual Studio נפתח לפני שהתוסף הותקן? תוסף חדש נטען רק אחרי שסוגרים ופותחים מחדש — עד אז Visual Studio משתמש בגרסה הישנה שבזיכרון
+$vl = Join-Path $dsviz 'vsix-install.log'
+$lastInstall = $null
+if (Test-Path $vl) {
+    foreach ($line in (Get-Content $vl -Encoding UTF8)) {
+        if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+.*התקנה \(ניסיון \d+\): קוד 0') { $lastInstall = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null) }
+    }
+}
+foreach ($p in @(Get-Process devenv -ErrorAction SilentlyContinue)) {
+    $st = $null; try { $st = $p.StartTime } catch { }
+    if ($st) {
+        Put ('Visual Studio (תהליך ' + $p.Id + ') נפתח ב-' + $st.ToString('yyyy-MM-dd HH:mm:ss') + $(if ($lastInstall) { ' · התוסף הותקן לאחרונה ב-' + $lastInstall.ToString('yyyy-MM-dd HH:mm:ss') } else { '' }))
+        if ($lastInstall -and $st -lt $lastInstall) { Put '*** אזהרה: Visual Studio נפתח לפני שהתוסף הותקן — הוא עדיין משתמש בגרסה הישנה. צריך לסגור את Visual Studio לגמרי ולפתוח מחדש ***' }
+    }
+}
+
 Section 'vsix-install.log — 60 השורות האחרונות'
 $l = Join-Path $dsviz 'vsix-install.log'
 if (Test-Path $l) { Get-Content $l -Encoding UTF8 -Tail 60 | ForEach-Object { Put $_ } } else { Put '(אין קובץ — ההתקנה של הסרגל לא רצה במחשב הזה, או גרסה ישנה)' }
