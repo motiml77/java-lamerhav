@@ -767,6 +767,29 @@ if ($new2.Count -ge 1) {
     $s3 = StartupAfterOpen $bankFile $name2
     Check 'follow-bank' ($s3 -like "*$name2*") "חזרה לקובץ התרגיל מהמאגר ($([IO.Path]::GetFileName($bankFile))) -> ה-Startup Project הוא התרגיל מהמאגר (ולא תרגיל המחסנית): $s3"
     Shot '36-bank-startup'
+    # גם בלי מעבר בין חלונות: ב-Startup Project נשאר Exercise (למשל נבחר ידנית, או הפתרון נפתח מחדש), והקובץ הפעיל הוא של התרגיל מהמאגר.
+    # ברגע שלוחצים "הרצה" (Ctrl+F5 — אותה פקודה כמו הכפתור הירוק) ההרחבה מחליפה את ה-Startup Project לפרויקט של הקובץ הפעיל — לא רץ Exercise
+    function StartAndWatch($want, $label) {
+        try { $d.Solution.SolutionBuild.StartupProjects = 'Exercise\Exercise.csproj' } catch { Info "הגדרת Startup: $_" }
+        try { $null = $d.ItemOperations.OpenFile($bankFile); $d.ActiveDocument.Activate() } catch { Info "DTE פתיחה: $_" }
+        try { $d.Solution.SolutionBuild.StartupProjects = 'Exercise\Exercise.csproj' } catch { }
+        $before = ''; try { $before = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }
+        try { $d.ExecuteCommand('Debug.StartWithoutDebugging') } catch { Info "הרצה: $_" }
+        $s = ''
+        for ($w = 0; $w -lt 15; $w++) { Start-Sleep 1; try { $s = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }; if ($s -like "*$want*") { break } }
+        Info "   $label — לפני ההרצה: $before · אחרי הלחיצה על הרצה: $s"
+        return @($before, $s)
+    }
+    $r1 = StartAndWatch $name2 'לחיצה על הרצה'
+    Check 'run-follows-active-file' (($r1[0] -like '*Exercise\Exercise.csproj*') -and ($r1[1] -like "*$name2*")) "ה-Startup Project היה Exercise ובלחיצה על הרצה הפך לתרגיל הפתוח (ולא רץ תרגיל המחסנית): $($r1[0]) -> $($r1[1])"
+    KillJava
+    # פרויקט שנוצר בלי הפרופיל "הרצה ויזואלית" (פרויקט ידני / תרגיל ישן) שמשתמש בספרייה: ההרחבה מוסיפה לו את הפרופיל בעצמה
+    $launchFile = Join-Path $dir2 'Properties\launchSettings.json'
+    if (Test-Path $launchFile) { Remove-Item $launchFile -Force }
+    $r2 = StartAndWatch $name2 'בלי פרופיל'
+    $made = (Test-Path $launchFile) -and ((Get-Content $launchFile -Raw -Encoding UTF8) -match 'dsviz-cs\.exe')
+    Check 'run-adds-profile' (($r2[1] -like "*$name2*") -and $made) "פרויקט בלי הפרופיל: ההרחבה הוסיפה אותו וה-Startup Project הוא התרגיל הפתוח: $($r2[1]) · launchSettings נוצר: $made"
+    KillJava
     $d = $null
 }
 Check 'single-vs2' (@(Get-Process devenv -ErrorAction SilentlyContinue).Count -eq 1) 'עדיין Visual Studio אחד' ''
