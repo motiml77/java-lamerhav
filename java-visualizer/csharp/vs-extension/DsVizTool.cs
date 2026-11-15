@@ -71,5 +71,43 @@ namespace DsViz.VsExtension
             try { psi.EnvironmentVariables["DSVIZ_VS_PID"] = Process.GetCurrentProcess().Id.ToString(); } catch (Exception) { }
             Process.Start(psi);
         }
+
+        /// <summary>
+        /// הרצה ויזואלית: כמו Start, אבל אוספים את מה ש-dsviz-cs כותב. בלי חלון הוא כותב את ההסבר ל-stderr — ובלי זה כשההרצה נכשלת
+        /// (שגיאת קומפילציה, אין Main) הלחיצה על הכפתור "לא עושה כלום". אם התהליך נגמר בקוד שאינו 0 — onFail מקבל את ההסבר.
+        /// כשההרצה מצליחה התהליך ממשיך (החלון של התצוגה), ולא קורה כלום.
+        /// </summary>
+        public static void Run(Action<string> onFail, params string[] args)
+        {
+            var parts = new List<string>();
+            foreach (string a in args) parts.Add("\"" + a.Replace("\"", "\\\"") + "\"");
+            var psi = new ProcessStartInfo(Runner, string.Join(" ", parts)) { UseShellExecute = false, CreateNoWindow = true };
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError = true;
+            psi.StandardOutputEncoding = System.Text.Encoding.UTF8;
+            psi.StandardErrorEncoding = System.Text.Encoding.UTF8;
+            try { psi.EnvironmentVariables["DSVIZ_VS_PID"] = Process.GetCurrentProcess().Id.ToString(); } catch (Exception) { }
+            var err = new System.Text.StringBuilder();
+            var outp = new System.Text.StringBuilder();
+            Process p = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            // הקריאה האסינכרונית חובה: בלי לרוקן את הצינור התהליך נתקע כשהוא כותב הרבה
+            p.OutputDataReceived += (s, e) => { if (e.Data != null) lock (outp) { if (outp.Length < 6000) outp.AppendLine(e.Data); } };
+            p.ErrorDataReceived += (s, e) => { if (e.Data != null) lock (err) { if (err.Length < 6000) err.AppendLine(e.Data); } };
+            p.Exited += (s, e) =>
+            {
+                int code;
+                try { p.WaitForExit(); code = p.ExitCode; } catch (Exception) { return; }   // WaitForExit() בלי זמן: מחכה שגם הקריאה מהצינורות תיגמר
+                if (code == 0) return;
+                string text;
+                lock (err) text = err.ToString().Trim();
+                if (text.Length == 0) lock (outp) text = outp.ToString().Trim();
+                if (text.Length == 0) text = "ההרצה נעצרה (קוד " + code + ") בלי הסבר.";
+                if (text.Length > 1500) text = text.Substring(0, 1500) + "…";
+                try { onFail("ההרצה הוויזואלית לא התחילה:" + Environment.NewLine + Environment.NewLine + text); } catch (Exception) { }
+            };
+            p.Start();
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+        }
     }
 }

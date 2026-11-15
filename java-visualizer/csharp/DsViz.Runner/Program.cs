@@ -201,6 +201,18 @@ namespace DsViz
                     // קובץ אחר עם "top-level statements" (כמו Program.cs של תבנית חדשה: Console.WriteLine("Hello, World!");) היה דורס את ה-Main הזה
                     trees.RemoveAll(t => t != start && t.GetRoot() is CompilationUnitSyntax cu && cu.Members.OfType<GlobalStatementSyntax>().Any());
                 }
+                else if (start != null && !(start.GetRoot() is CompilationUnitSyntax scu && scu.Members.OfType<GlobalStatementSyntax>().Any()))
+                {
+                    // בקובץ שביקשו להריץ אין Main. לא מריצים בשקט Main של קובץ אחר בפרויקט (למשל המחסנית של התבנית) —
+                    // התלמיד היה רואה תוכנית שהוא לא כתב. מסבירים מה חסר.
+                    string nl = Environment.NewLine;
+                    string msg = "בקובץ " + Path.GetFileName(project.StartFile) + " אין פעולת Main, ולכן אין מה להריץ ויזואלית." + nl
+                        + "כותבים בו: static void Main(string[] args) — כמו בתבנית.";
+                    var others = trees.Where(t => t != start && t.FilePath != "GlobalUsings.g.cs" && MainTypeIn(t) != null).Select(t => Path.GetFileName(t.FilePath)).ToList();
+                    if (others.Count > 0)
+                        msg += nl + "(בפרויקט יש Main בקובץ " + string.Join(", ", others) + " — לא מריצים אותו בשקט, כדי שלא תראו תוכנית אחרת.)";
+                    throw new UserError(msg);
+                }
             }
 
             var refs = MetadataReferences();

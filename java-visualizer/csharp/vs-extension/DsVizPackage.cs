@@ -459,6 +459,23 @@ namespace DsViz.VsExtension
             DsVizTool.Start(args);
         }
 
+        /// <summary>הרצה ויזואלית של קובץ / פרויקט: אם היא נכשלת (שגיאת קומפילציה, אין Main) — הודעה בחלון, ולא "שום דבר לא קורה"</summary>
+        void RunVisual(string target)
+        {
+            DsVizTool.Run(msg =>
+            {
+                try
+                {
+                    ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+                    {
+                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                        Say(msg);
+                    });
+                }
+                catch (Exception) { }
+            }, target);
+        }
+
         /// <summary>
         /// לפני "מאגר שאלות" / "השאלה": המאגר במקום? אם הוא חסר ב-lab\ אבל יש עותק ב-bank\ (כך בכל התקנה) — מעתיקים ומשתמשים בו.
         /// רק אם אין אותו בכלל — הודעה ברורה מה לעשות (במקום כפתור אפור)
@@ -549,7 +566,7 @@ namespace DsViz.VsExtension
             ThreadHelper.ThrowIfNotOnUIThread();
             var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
             try { if (dte != null) dte.Documents.SaveAll(); } catch (Exception) { }
-            Start(file);
+            RunVisual(file);
         }
 
         /// <summary>הרצה ויזואלית של קובץ ה-C# הפתוח (ושאר קבצי הפרויקט שלו)</summary>
@@ -569,13 +586,13 @@ namespace DsViz.VsExtension
                 string dir = StartupProjectDir(dte);
                 if (dir != null)
                 {
-                    Start(dir);
+                    RunVisual(dir);
                     return;
                 }
                 Say("פותחים קובץ C# של התרגיל (עם Main), או בוחרים פרויקט להרצה (קליק ימני עליו ב-Solution Explorer " + "\u2190" + " Set as Startup Project), ולוחצים שוב.");
                 return;
             }
-            Start(file);
+            RunVisual(file);
         }
     }
 }

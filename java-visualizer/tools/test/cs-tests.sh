@@ -402,6 +402,19 @@ for d in $(cat "$W/ai/src/cs-dirs.txt"); do
 done
 echo "  ok  מעטפות C# מתקמפלות (dsviz-cs --check-project)"
 
+echo "== 9ב. הרצה ויזואלית של קובץ בלי Main בתוך פרויקט: הסבר ברור (קוד 2), ולא Main של קובץ אחר (המחסנית של התבנית)"
+NM="$W/nomain"; mkdir -p "$NM"
+cat > "$NM/NoMain.csproj" <<'XML'
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>
+XML
+printf 'using Unit4.CollectionsLib;\npublic class Program { public static void Main(string[] args){ Stack<int> s = new Stack<int>(); s.Push(1); Console.WriteLine("stack-sum"); } }\n' > "$NM/Program.cs"
+printf 'public class Loops { public static int Sum(int n){ int t=0; for(int i=1;i<=n;i++) t+=i; return t; } }\n' > "$NM/Loops.cs"
+set +e; viz "$NM/Loops.cs" --trace "$NM/l.trace" > "$NM/l.out" 2>&1; NMC=$?; set -e
+[ "$NMC" = 2 ] && grep -q 'אין פעולת Main' "$NM/l.out" && grep -q 'Program.cs' "$NM/l.out" && [ ! -s "$NM/l.trace" ] \
+    || { echo "נכשל: קובץ בלי Main (קוד $NMC)"; cat "$NM/l.out"; exit 1; }
+viz "$NM/Program.cs" --trace "$NM/p.trace" > "$NM/p.out" 2>&1 && grep -q 'stack-sum' "$NM/p.out" || { echo "נכשל: Program.cs עם Main"; cat "$NM/p.out"; exit 1; }
+echo "קובץ בלי Main: הודעה ברורה, בלי להריץ Main אחר · קובץ עם Main: רץ"
+
 echo "== 10. Visual Studio בלי שום פעולה: DSViz.targets (MSBuild ImportAfter) — הפניה לספרייה ופרופיל ההרצה אוטומטית בכל פרויקט"
 # מדמים את %LOCALAPPDATA% של Windows (MSBuildUserExtensionsPath נגזר מ-XDG_DATA_HOME גם ב-Linux) —
 # עם קובץ ה-targets שההתקנה כותבת, ואת תיקיית ההתקנה $(LOCALAPPDATA)\DSViz\cs (dsviz-cs.exe + הספרייה)
