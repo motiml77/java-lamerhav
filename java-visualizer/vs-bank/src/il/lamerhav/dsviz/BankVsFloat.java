@@ -56,6 +56,19 @@ final class BankVsFloat {
         return Paths.get(System.getProperty("user.home"), ".dsviz", BankVs.ij ? "bank-ij-last.txt" : "bank-cs-last.txt").toFile();
     }
 
+    /**
+     * "סיימתי": השאלה הזאת כבר לא "השאלה האחרונה" — אחרת הכפתור "השאלה" בסרגל ממשיך לפתוח אותה שוב ושוב.
+     * אחרי זה הכפתור אומר "עוד לא נבחרה שאלה" ופותח את המאגר. שאלה אחרת שנפתחה בינתיים לא נמחקת.
+     */
+    static void forgetLast(String id) {
+        try {
+            File f = lastFile();
+            if (f.isFile() && new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim().equals(id)) Files.delete(f.toPath());
+        } catch (Exception ignored) {
+            // לא נמחק — לא נורא
+        }
+    }
+
     /** השאלה האחרונה שנפתחה בחלון הצף (או שנוצר ממנה תרגיל) */
     static void showLast(Component parent) {
         String id = "";

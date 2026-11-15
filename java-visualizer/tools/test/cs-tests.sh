@@ -564,5 +564,17 @@ msb "$W/new13/מבני נתונים/תרגיל 1" | grep -q 'Build succeeded' \
 grep -q 'ProjectDir).\\\\' "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java" && grep -q "ProjectDir).\"'" "$ROOT/vscode-extension/cs.js" \
     && echo "פרופיל הרצה בפרויקטים שנוצרים משליחת תרגיל: עם נקודה בסוף הנתיב" || { echo "פרופיל ישן בקוד שיוצר פרויקטים"; exit 1; }
 
+# טו. הפרויקט כבר מפנה לספרייה של בית הספר (assembly בשם Unit4, אותו namespace Unit4.CollectionsLib): DSViz.targets לא מוסיף את הספרייה שלנו —
+#     אחרת CS0433 ("The type 'Node<T>' exists in both 'Unit4.CollectionsLib' and 'Unit4'") בכל שורה שמשתמשת ב-Node / Queue / Stack
+rm -rf "$W/school" && mkdir -p "$W/school/lib" "$W/school/app"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework><AssemblyName>Unit4</AssemblyName></PropertyGroup></Project>\n' > "$W/school/lib/Unit4.csproj"
+printf 'namespace Unit4.CollectionsLib { public class Node<T> { } public class Queue<T> { } }\n' > "$W/school/lib/Lib.cs"
+msb "$W/school/lib" | grep -q 'Build succeeded' || { echo "ספריית בית הספר המדומה לא נבנתה"; exit 1; }
+printf 'using System;\nusing Unit4.CollectionsLib;\nclass P { static void Main() { Node<int> n = new Node<int>(); Queue<int> q = new Queue<int>(); Console.WriteLine("ok"); } }\n' > "$W/school/app/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup><ItemGroup><Reference Include="Unit4"><HintPath>../lib/bin/Debug/net8.0/Unit4.dll</HintPath></Reference></ItemGroup></Project>\n' > "$W/school/app/List.csproj"
+msb "$W/school/app" > "$W/school.out" 2>&1
+grep -q 'Build succeeded' "$W/school.out" && ! grep -q CS0433 "$W/school.out" && [ ! -f "$W/school/app/bin/Debug/net8.0/Unit4.CollectionsLib.dll" ] && [ -f "$W/school/app/bin/Debug/net8.0/Unit4.dll" ] \
+    && echo "הפרויקט מפנה לספרייה של בית הספר (Unit4): בלי הפניה לספרייה של DSViz — בלי CS0433" || { echo "התנגשות עם Unit4 של בית הספר"; cat "$W/school.out" | head; exit 1; }
+
 unset XDG_DATA_HOME
-echo "DSViz.targets: 16 תרחישים נבדקו (ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"
+echo "DSViz.targets: 17 תרחישים נבדקו (ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"

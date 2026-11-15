@@ -174,14 +174,41 @@ public final class CsTool {
         ExerciseForm f = new ExerciseForm(root, preset);
         if (!f.show(shot)) return;
         try {
+            // Visual Studio פתוח עם הפתרון: הוא עצמו מוסיף את הפרויקט (DTE) ופותחים בו את הקובץ — בלי Reload, בלי Visual Studio שני,
+            // והפרויקט הופך לפרויקט ההרצה (כמו ב"שליחת תרגיל"). אחרת — רושמים בקובץ ה-.sln כרגיל, והוראות ידניות
+            final boolean[] added = { false };
+            if (il.lamerhav.dsviz.VsDte.enabled()) il.lamerhav.dsviz.CsSolution.openIde = new java.util.function.BiPredicate<Path, Path>() {
+                public boolean test(Path s, Path p) {
+                    boolean ok = il.lamerhav.dsviz.VsDte.add(s, p);
+                    if (ok) added[0] = true;
+                    return ok;
+                }
+            };
             Path file = CsProject.write(root, f.options.className, f.code);
             Path sln = CsProject.solution(root);
-            RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.OK, "התרגיל " + f.options.className + " נוצר",
-                    "ב-Solution Explorer: קליק ימני על " + f.options.className + " " + RtlDialog.ARROW + " Set as Startup Project.\n"
-                    + "מריצים: בתפריט שליד הכפתור הירוק בוחרים \"הרצה ויזואלית\".\n"
-                    + "אם Visual Studio כבר פתוח, מאשרים Reload.");
-            if (open && java.awt.Desktop.isDesktopSupported()) {
-                java.awt.Desktop.getDesktop().open((sln != null ? sln : file).toFile());
+            boolean opened = false;
+            if (added[0] && sln != null) {
+                Path csproj = CsProject.exercisesDir(root).resolve(f.options.className).resolve(f.options.className + ".csproj");
+                int line = 1, n = 0;
+                for (String l : java.nio.file.Files.readAllLines(file, java.nio.charset.StandardCharsets.UTF_8)) {   // הסמן במקום ש"כאן כותבים את הפתרון"
+                    n++;
+                    if (l.contains("TODO")) { line = n; break; }
+                }
+                opened = il.lamerhav.dsviz.VsDte.open(file.toFile(), line, sln, csproj);
+            }
+            if (added[0]) {
+                RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.OK, "התרגיל " + f.options.className + " נוצר",
+                        "הוא נוסף לפתרון שפתוח ב-Visual Studio, והוא פרויקט ההרצה.\n"
+                        + (opened ? "הקובץ כבר פתוח — כותבים במקום המסומן.\n" : "פותחים את Program.cs וכותבים במקום המסומן.\n")
+                        + "מריצים: הכפתור \"הרצה ויזואלית\" בסרגל של DSViz, או הכפתור הירוק.");
+            } else {
+                RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.OK, "התרגיל " + f.options.className + " נוצר",
+                        "ב-Solution Explorer: קליק ימני על " + f.options.className + " " + RtlDialog.ARROW + " Set as Startup Project.\n"
+                        + "מריצים: בתפריט שליד הכפתור הירוק בוחרים \"הרצה ויזואלית\".\n"
+                        + "אם Visual Studio כבר פתוח, מאשרים Reload.");
+                if (open && java.awt.Desktop.isDesktopSupported()) {
+                    java.awt.Desktop.getDesktop().open((sln != null ? sln : file).toFile());
+                }
             }
         } catch (Exception e) {
             RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.ERROR, "לא הצלחתי ליצור את התרגיל", e.getMessage());
