@@ -28,7 +28,7 @@ jobs:
           if (-not (Test-Path $f)) { throw 'no report file' }
           $t = Get-Content $f -Raw -Encoding UTF8
           $t
-          foreach ($need in 'DSViz — דוח אבחון', '==== DSViz ====', '==== Visual Studio ====', 'vsix-install.log', 'Windows:') {
+          foreach ($need in 'DSViz — דוח אבחון', '==== DSViz ====', '==== Visual Studio ====', 'vsix-install.log', 'Windows:', 'כניסת מורה / עמדה', 'שעון המחשב:') {
             if ($t -notmatch [regex]::Escape($need)) { throw "missing in report: $need" }
           }
           if ($t -match [regex]::Escape($env:USERNAME + '\')) { Write-Host 'note: username path present' }

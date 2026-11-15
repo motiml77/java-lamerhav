@@ -77,6 +77,34 @@ if ($v) {
     Put '(אין)'
 }
 
+Section 'כניסת מורה / עמדה — למה מתבקש קוד שוב'
+Put ('שם המחשב: ' + $env:COMPUTERNAME + ' · משתמש Windows: ' + $env:USERNAME)
+Put ('שעון המחשב: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' · אזור זמן: ' + (Get-TimeZone).Id + '   (שעון שגוי גורם ל"האישור השמור לא אומת")')
+$places = [ordered]@{
+    'משתמש (LOCALAPPDATA\Lamerhav\.cache)'  = (Join-Path $env:LOCALAPPDATA 'Lamerhav\.cache')
+    'גיבוי (APPDATA\Lamerhav\.cache)'         = (Join-Path $env:APPDATA 'Lamerhav\.cache')
+    'כל המחשב (ProgramData\Lamerhav\.cache)' = (Join-Path $env:ProgramData 'Lamerhav\.cache')
+    'ישן (.dsviz)'                              = (Join-Path $env:USERPROFILE '.dsviz')
+    'ישן (ProgramData\DSViz)'                  = (Join-Path $env:ProgramData 'DSViz')
+}
+foreach ($k in $places.Keys) {
+    $d = $places[$k]
+    if (-not (Test-Path $d)) { Put ('- ' + $k + ': אין תיקייה'); continue }
+    $files = @(Get-ChildItem $d -Force -File -ErrorAction SilentlyContinue)
+    Put ('- ' + $k + ': ' + $files.Count + ' קבצים')
+    foreach ($f in $files | Where-Object { $_.Name -match '^(i|s|a|d)\.dat$|^station|^account|^install-id|^machine-id' }) { Put ('    ' + $f.Name + ' · ' + $f.Length + ' בתים · ' + $f.LastWriteTime.ToString('yyyy-MM-dd HH:mm')) }
+}
+# ProgramData: האם המשתמש הנוכחי יכול לכתוב שם (אם לא — הכניסה נשמרת רק אצל המשתמש, ונעלמת עם פרופיל זמני)
+$pd = Join-Path $env:ProgramData 'Lamerhav\.cache'
+if (Test-Path $pd) {
+    try { $t = Join-Path $pd ('w' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.tmp'); [IO.File]::WriteAllText($t, 'x'); Remove-Item $t -Force; Put 'כתיבה ל-ProgramData: מותרת למשתמש הזה' }
+    catch { Put 'כתיבה ל-ProgramData: אסורה למשתמש הזה (הכניסה נשמרת רק בתיקיות של המשתמש)' }
+}
+# הסיבה האחרונה שהעמדה נמחקה (נכתבת רק כשהשרת שחרר / דחה)
+$dd = Join-Path $env:LOCALAPPDATA 'Lamerhav\.cache\d.dat'
+if (Test-Path $dd) { $l = @(Get-Content $dd -Encoding UTF8 -TotalCount 2); if ($l.Count -ge 2 -and $l[1] -match '^\d+$') { Put ('סיבת המחיקה האחרונה (מהשרת): ' + $l[0] + ' · ' + ([DateTimeOffset]::FromUnixTimeMilliseconds([long]$l[1]).LocalDateTime.ToString('yyyy-MM-dd HH:mm'))) } }
+Put ('פרופיל Windows זמני? ' + $(if ($env:USERPROFILE -match 'TEMP\.|\.bak$') { 'כן — נראה פרופיל זמני (הכניסה שנשמרה אצל המשתמש נעלמת בהתנתקות)' } else { 'לא נראה' }))
+
 # בלי שם המשתמש בנתיבים
 $text = $out -join "`r`n"
 if ($env:USERPROFILE) { $text = $text.Replace($env:USERPROFILE, '%USERPROFILE%') }
