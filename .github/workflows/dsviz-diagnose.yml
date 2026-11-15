@@ -14,6 +14,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { lfs: false }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - name: Build the runner and create a project whose open file has no Main (the stack-run case)
+        shell: pwsh
+        run: |
+          dotnet build java-visualizer/csharp/DsViz.Runner/DsViz.Runner.csproj -c Release -v q --nologo
+          $exe = Get-ChildItem java-visualizer/csharp/DsViz.Runner/bin/Release -Recurse -Filter 'dsviz-cs.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'no dsviz-cs.exe' }
+          "DSVIZ_CS_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $d = Join-Path $env:RUNNER_TEMP 'Targil1'
+          New-Item -ItemType Directory -Force $d | Out-Null
+          '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>' | Set-Content (Join-Path $d 'Targil1.csproj')
+          'using Unit4.CollectionsLib; public class Program { public static void Main(string[] args){ Stack<int> s = new Stack<int>(); s.Push(1); s.Push(2); Console.WriteLine("stack-sum " + (s.Pop()+s.Pop())); } }' | Set-Content (Join-Path $d 'Program.cs')
+          'public class Loops { public static int Sum(int n){ int t=0; for(int i=1;i<=n;i++) t+=i; return t; } }' | Set-Content (Join-Path $d 'Loops.cs')
+          "DSVIZ_DIAG_TARGET=$(Join-Path $d 'Loops.cs')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Run the .bat the way a user would (quiet mode)
         shell: cmd
         run: |
@@ -28,7 +43,7 @@ jobs:
           if (-not (Test-Path $f)) { throw 'no report file' }
           $t = Get-Content $f -Raw -Encoding UTF8
           $t
-          foreach ($need in 'DSViz — דוח אבחון', '==== DSViz ====', '==== Visual Studio ====', 'vsix-install.log', 'Windows:', 'כניסת מורה / עמדה', 'שעון המחשב:') {
+          foreach ($need in 'DSViz — דוח אבחון', '==== DSViz ====', '==== Visual Studio ====', 'vsix-install.log', 'Windows:', 'כניסת מורה / עמדה', 'שעון המחשב:', 'בדיקה עמוקה 1', 'בדיקה עמוקה 2', 'בדיקה עמוקה 3', 'בדיקה עמוקה 4', 'יש Main בקובץ הזה: לא', 'סיבה סבירה למחסנית', 'stack-sum 3', 'Program.cs') {
             if ($t -notmatch [regex]::Escape($need)) { throw "missing in report: $need" }
           }
           if ($t -match [regex]::Escape($env:USERNAME + '\')) { Write-Host 'note: username path present' }

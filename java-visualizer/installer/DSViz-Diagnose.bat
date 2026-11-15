@@ -121,6 +121,169 @@ $dd = Join-Path $env:LOCALAPPDATA 'Lamerhav\.cache\d.dat'
 if (Test-Path $dd) { $l = @(Get-Content $dd -Encoding UTF8 -TotalCount 2); if ($l.Count -ge 2 -and $l[1] -match '^\d+$') { Put ('סיבת המחיקה האחרונה (מהשרת): ' + $l[0] + ' · ' + ([DateTimeOffset]::FromUnixTimeMilliseconds([long]$l[1]).LocalDateTime.ToString('yyyy-MM-dd HH:mm'))) } }
 Put ('פרופיל Windows זמני? ' + $(if ($env:USERPROFILE -match 'TEMP\.|\.bak$') { 'כן — נראה פרופיל זמני (הכניסה שנשמרה אצל המשתמש נעלמת בהתנתקות)' } else { 'לא נראה' }))
 
+# ======================= בדיקה עמוקה: מה בדיוק ירוץ כשלוחצים "הרצה ויזואלית" =======================
+# 1) האם התוסף שמותקן ב-Visual Studio הוא בדיוק זה שבהתקנה (השוואת קובץ ה-DLL)
+Section 'בדיקה עמוקה 1 — התוסף המותקן מול התוסף שבהתקנה'
+$shippedVsix = Join-Path $dsviz 'cs\DsViz.VsExtension.vsix'
+$shippedHash = $null
+if (Test-Path $shippedVsix) {
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [IO.Compression.ZipFile]::OpenRead($shippedVsix)
+        $e = $zip.Entries | Where-Object { $_.Name -eq 'DsViz.VsExtension.dll' } | Select-Object -First 1
+        if ($e) { $st = $e.Open(); $sha = [Security.Cryptography.SHA256]::Create(); $shippedHash = ([BitConverter]::ToString($sha.ComputeHash($st))).Replace('-', ''); $st.Close() }
+        $zip.Dispose()
+    } catch { }
+    Put ('התוסף שבהתקנה (cs\DsViz.VsExtension.vsix): ' + (Get-Item $shippedVsix).Length + ' בתים · ' + (Get-Item $shippedVsix).LastWriteTime.ToString('yyyy-MM-dd HH:mm') + $(if ($shippedHash) { ' · DLL ' + $shippedHash.Substring(0, 12) } else { '' }))
+} else { Put 'אין cs\DsViz.VsExtension.vsix בתיקיית ההתקנה' }
+$instances = @()
+if ($list) { $instances = @($list) }
+$anyExt = $false
+foreach ($i in $instances) {
+    $major = 0; try { $major = ([version]$i.installationVersion).Major } catch { }
+    $d = Join-Path $env:LOCALAPPDATA ('Microsoft\VisualStudio\{0}.0_{1}\Extensions' -f $major, $i.instanceId)
+    if (-not (Test-Path $d)) { continue }
+    foreach ($m in @(Get-ChildItem $d -Recurse -Filter extension.vsixmanifest -ErrorAction SilentlyContinue | Where-Object { (Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue) -match 'DsViz\.VisualStudio\.Toolbar' })) {
+        $anyExt = $true
+        $dll = Join-Path $m.Directory.FullName 'DsViz.VsExtension.dll'
+        $h = $null; if (Test-Path $dll) { $h = (Get-FileHash $dll -Algorithm SHA256).Hash }
+        $same = if (-not $h) { 'אין DLL בתיקייה!' } elseif (-not $shippedHash) { 'לא ניתן להשוות' } elseif ($h -eq $shippedHash) { 'זהה לזה שבהתקנה ✓' } else { '*** שונה מזה שבהתקנה — Visual Studio מחזיק גרסה אחרת ***' }
+        Put ('- ' + $i.displayName + ' ' + $i.catalog.productDisplayVersion + ' · ' + $m.Directory.Name + ' · DLL ' + $(if ($h) { $h.Substring(0, 12) + ' · ' + (Get-Item $dll).LastWriteTime.ToString('yyyy-MM-dd HH:mm') } else { '-' }) + ' · ' + $same)
+    }
+}
+if (-not $anyExt) { Put 'לא נמצאה התקנה של התוסף בתיקיות המשתמש של Visual Studio' }
+
+# 2) כל Visual Studio שפתוח: איזה פתרון, איזה פרויקט הפעלה, איזה קובץ פעיל (דרך האוטומציה של Visual Studio)
+Section 'בדיקה עמוקה 2 — Visual Studio פתוח: פתרון, פרויקט הפעלה, הקובץ הפעיל'
+$activeFiles = New-Object System.Collections.Generic.List[string]
+if (-not (@(Get-Process devenv -ErrorAction SilentlyContinue).Count)) {
+    Put 'אין Visual Studio פתוח עכשיו. כדי שהבדיקה תראה את המצב האמיתי: פותחים Visual Studio, פותחים את הקובץ שמריצים (שיהיה הלשונית הפעילה), ומריצים את הקובץ הזה שוב.'
+} else {
+    try {
+        Add-Type -TypeDefinition 'using System; using System.Collections.Generic; using System.Runtime.InteropServices; using System.Runtime.InteropServices.ComTypes; public static class DsRotDiag { [DllImport("ole32.dll")] static extern int GetRunningObjectTable(int r, out IRunningObjectTable t); [DllImport("ole32.dll")] static extern int CreateBindCtx(int r, out IBindCtx c); public static List<object> Dtes(List<string> names) { List<object> res = new List<object>(); IRunningObjectTable rot; if (GetRunningObjectTable(0, out rot) != 0) return res; IEnumMoniker en; rot.EnumRunning(out en); en.Reset(); IMoniker[] m = new IMoniker[1]; while (en.Next(1, m, IntPtr.Zero) == 0) { IBindCtx c; CreateBindCtx(0, out c); string n; m[0].GetDisplayName(c, null, out n); if (n != null && n.StartsWith("!VisualStudio.DTE")) { object o; if (rot.GetObject(m[0], out o) == 0 && o != null) { res.Add(o); names.Add(n); } } } return res; } }'
+        $names = New-Object 'System.Collections.Generic.List[string]'
+        $dtes = $null
+        for ($try = 0; $try -lt 4; $try++) { $names.Clear(); $dtes = @([DsRotDiag]::Dtes($names)); if ($dtes.Count -gt 0) { break }; Start-Sleep -Milliseconds 1500 }
+        if ($dtes.Count -eq 0) { Put 'Visual Studio פתוח, אבל לא הצלחתי להתחבר אליו (אולי עסוק / רץ כמנהל — מריצים את הקובץ הזה באותה הרשאה כמו Visual Studio)' }
+        for ($k = 0; $k -lt $dtes.Count; $k++) {
+            $o = $dtes[$k]
+            Put ('Visual Studio ' + $names[$k])
+            try { Put ('  גרסה: ' + $o.Version + ' · חלון: ' + $o.MainWindow.Caption) } catch { Put '  (עסוק — אי אפשר לקרוא)' }
+            try { Put ('  פתרון: ' + $(if ($o.Solution.IsOpen) { $o.Solution.FullName } else { '(אין פתרון פתוח — קבצים בודדים)' })) } catch { }
+            try { $sp = $o.Solution.SolutionBuild.StartupProjects; Put ('  פרויקט הפעלה (Startup): ' + $(if ($sp) { ($sp -join ' | ') } else { '(אין)' })) } catch { }
+            try { foreach ($pr in $o.Solution.Projects) { Put ('  פרויקט בפתרון: ' + $pr.Name + ' · ' + $pr.FullName) } } catch { }
+            try {
+                $ad = $o.ActiveDocument
+                if ($ad) {
+                    $cp = $null; try { $cp = $ad.ProjectItem.ContainingProject.FullName } catch { }
+                    Put ('  הקובץ הפעיל: ' + $ad.FullName + ' · ' + $(if ($cp) { 'שייך לפרויקט ' + $cp } else { 'לא שייך לפרויקט פתוח (Miscellaneous Files)' }))
+                    if ($ad.FullName -match '\.cs$') { $activeFiles.Add($ad.FullName) }
+                } else { Put '  הקובץ הפעיל: (אין קובץ פתוח)' }
+            } catch { }
+            try {
+                $docs = @(); foreach ($dd in $o.Documents) { $docs += $dd.FullName }
+                Put ('  קבצים פתוחים (' + $docs.Count + '): ' + (($docs | Select-Object -First 15) -join ' | '))
+                foreach ($f in $docs) { if ($f -match '\.cs$' -and -not $activeFiles.Contains($f)) { $activeFiles.Add($f) } }
+            } catch { }
+        }
+    } catch { Put ('שגיאה בחיבור ל-Visual Studio: ' + $_.Exception.Message) }
+}
+
+# 3) מה ההרצה הוויזואלית תעשה בפועל עם הקובץ: אותה בחירת פרויקט כמו dsviz-cs, ואחר כך הרצה אמיתית (בלי חלון) ובדיקה איזה קוד רץ
+Section 'בדיקה עמוקה 3 — מה בדיוק ירוץ (הרצה אמיתית של הקובץ, בלי חלון)'
+$targets = New-Object System.Collections.Generic.List[string]
+if ($env:DSVIZ_DIAG_TARGET -and (Test-Path $env:DSVIZ_DIAG_TARGET)) { $targets.Add((Resolve-Path $env:DSVIZ_DIAG_TARGET).Path) }
+foreach ($f in $activeFiles) { if ($targets.Count -lt 3 -and -not $targets.Contains($f) -and (Test-Path $f)) { $targets.Add($f) } }
+if ($targets.Count -eq 0 -and -not $quiet) {
+    $ans = Read-Host 'לא נמצא קובץ פתוח ב-Visual Studio. גוררים לכאן את קובץ ה-.cs שמריצים (או מקלידים את הנתיב) ולוחצים Enter. בלי קובץ — Enter'
+    $ans = ([string]$ans).Trim().Trim('"')
+    if ($ans -and (Test-Path $ans) -and $ans -match '\.cs$') { $targets.Add((Resolve-Path $ans).Path) }
+}
+if ($targets.Count -eq 0) { Put 'לא נבדק קובץ (לא היה קובץ פעיל ב-Visual Studio ולא נבחר קובץ).' }
+$csExe = if ($env:DSVIZ_CS_EXE) { $env:DSVIZ_CS_EXE } else { Join-Path $dsviz 'cs\dsviz-cs.exe' }
+$mainRx = 'static\s+(async\s+)?(void|int|Task|Task<int>|System\.Threading\.Tasks\.Task)\s+Main\s*\('
+foreach ($file in $targets) {
+    Put ''
+    Put ('>>> קובץ: ' + $file)
+    # הפרויקט שההרצה תיקח: אותו חיפוש כמו dsviz-cs (התיקייה של הקובץ ועד 4 תיקיות למעלה; csproj יחיד)
+    $dir = Split-Path $file -Parent; $owner = $null; $lvl = 0
+    while ($dir -and $lvl -lt 5) {
+        $cp = @(Get-ChildItem -LiteralPath $dir -Filter '*.csproj' -File -ErrorAction SilentlyContinue)
+        Put ('    תיקייה ' + $lvl + ': ' + $dir + ' · csproj: ' + $(if ($cp.Count) { ($cp.Name -join ', ') } else { 'אין' }))
+        if ($cp.Count -eq 1) { $owner = $cp[0].FullName; break }
+        if ($cp.Count -gt 1) { break }
+        $dir = Split-Path $dir -Parent; $lvl++
+    }
+    $hasMain = $false
+    try { $hasMain = [bool](Select-String -LiteralPath $file -Pattern $mainRx -Quiet) } catch { }
+    $topLevel = $false
+    try { $first = (Get-Content -LiteralPath $file -Raw -Encoding UTF8); $topLevel = ($first -notmatch '\b(class|struct|namespace|interface|record)\s+\w+') -and ($first -match ';') } catch { }
+    Put ('    יש Main בקובץ הזה: ' + $(if ($hasMain) { 'כן' } elseif ($topLevel) { 'לא (נראה כקוד "ישיר" בלי class — top-level)' } else { 'לא' }))
+    if ($owner) {
+        $pdir = Split-Path $owner -Parent
+        Put ('    ההרצה תקמפל את כל הפרויקט: ' + $owner)
+        $csFiles = @(Get-ChildItem -LiteralPath $pdir -Filter '*.cs' -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' })
+        Put ('    קבצי .cs בפרויקט: ' + $csFiles.Count)
+        $mainFiles = @($csFiles | Where-Object { Select-String -LiteralPath $_.FullName -Pattern $mainRx -Quiet })
+        Put ('    קבצים עם Main בפרויקט: ' + $(if ($mainFiles.Count) { ($mainFiles.Name -join ', ') } else { 'אין' }))
+        $so = $null; try { $so = ([xml](Get-Content -LiteralPath $owner -Raw -Encoding UTF8)).Project.PropertyGroup.StartupObject | Where-Object { $_ } | Select-Object -First 1 } catch { }
+        if ($so) { Put ('    StartupObject בפרויקט: ' + $so) }
+        if (-not $hasMain -and -not $topLevel -and $mainFiles.Count -ge 1 -and -not ($mainFiles.FullName -contains $file)) {
+            Put ('    *** סיבה סבירה למחסנית: בקובץ שמריצים אין Main, ולכן ההרצה משתמשת ב-Main של קובץ אחר בפרויקט (' + $mainFiles[0].Name + ') ***')
+        }
+    } else {
+        Put '    הקובץ לא שייך לפרויקט (לא נמצא csproj יחיד) — ירוץ הקובץ לבד.'
+    }
+    if (-not (Test-Path $csExe)) { Put ('    אין dsviz-cs.exe (' + $csExe + ') — לא ניתן להריץ.'); continue }
+    $tr = Join-Path $env:TEMP ('dsviz-diag-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.trace')
+    try {
+        $psi = New-Object Diagnostics.ProcessStartInfo
+        $psi.FileName = $csExe
+        $psi.Arguments = '"' + $file + '" --trace "' + $tr + '"'
+        $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.RedirectStandardInput = $true
+        $psi.StandardOutputEncoding = [Text.Encoding]::UTF8; $psi.StandardErrorEncoding = [Text.Encoding]::UTF8
+        $p = [Diagnostics.Process]::Start($psi)
+        $p.StandardInput.Close()
+        $so2 = $p.StandardOutput.ReadToEndAsync(); $se2 = $p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit(90000)) { try { $p.Kill() } catch { }; Put '    ההרצה לא הסתיימה תוך 90 שניות — נעצרה' }
+        else {
+            Put ('    קוד יציאה של dsviz-cs: ' + $p.ExitCode)
+            foreach ($ln in @(($so2.Result + "`n" + $se2.Result) -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 12)) { Put ('    | ' + $ln) }
+        }
+    } catch { Put ('    שגיאה בהרצת dsviz-cs: ' + $_.Exception.Message) }
+    if (Test-Path $tr) {
+        $lines = @(Get-Content -LiteralPath $tr -Encoding UTF8)
+        $srcs = @($lines | Where-Object { $_ -like "SRC`t*" } | ForEach-Object { ($_ -split "`t")[1] })
+        Put ('    קבצי קוד שהמעקב כלל: ' + ($srcs -join ', '))
+        $leaf = Split-Path $file -Leaf
+        $outLine = $lines | Where-Object { $_ -like "OUT`t*" } | Select-Object -Last 1
+        if ($outLine) { $o3 = ($outLine -split "`t", 2)[1]; if ($o3.Length -gt 200) { $o3 = $o3.Substring(0, 200) + '…' }; Put ('    פלט התוכנית שרצה: ' + $o3) }
+        Put ('    תוצאה: ' + $(if ($srcs -contains $leaf) { 'הקובץ שנבחר נכלל בהרצה.' } else { '*** הקובץ שנבחר לא היה חלק מההרצה ***' }))
+        Remove-Item -LiteralPath $tr -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# 4) מעקב של התוסף עצמו (נכתב רק אם Visual Studio נפתח אחרי שהופעל המעקב) + הפעלת המעקב לפעם הבאה
+Section 'בדיקה עמוקה 4 — מעקב התוסף (vs-trace.log)'
+$vt = Join-Path $dsviz 'vs-trace.log'
+if (Test-Path $vt) {
+    Put ('vs-trace.log · ' + (Get-Item $vt).Length + ' בתים · עודכן ' + (Get-Item $vt).LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') + ' — 60 השורות האחרונות:')
+    Get-Content -LiteralPath $vt -Encoding UTF8 -Tail 60 | ForEach-Object { Put ('  ' + $_) }
+} else { Put '(אין עדיין מעקב)' }
+if (-not $quiet) {
+    $cur = [Environment]::GetEnvironmentVariable('DSVIZ_VS_TRACE', 'User')
+    if (-not $cur) {
+        try { [Environment]::SetEnvironmentVariable('DSVIZ_VS_TRACE', '1', 'User'); Put 'הופעל מעקב של התוסף (משתנה סביבה DSVIZ_VS_TRACE של המשתמש). כדי שיתחיל לתעד: סוגרים את Visual Studio לגמרי, פותחים, מריצים "הרצה ויזואלית" פעם אחת, ואז מריצים את הקובץ הזה שוב — הדוח יכלול את מה שהתוסף החליט.' } catch { }
+    } else { Put 'המעקב כבר מופעל (DSVIZ_VS_TRACE).' }
+}
+$al = @(Get-ChildItem (Join-Path $env:APPDATA 'Microsoft\VisualStudio') -Recurse -Filter ActivityLog.xml -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+foreach ($a in $al) {
+    $hits = @(Select-String -LiteralPath $a.FullName -Pattern 'DsViz' -ErrorAction SilentlyContinue | Select-Object -Last 15)
+    Put ('ActivityLog.xml (' + $a.LastWriteTime.ToString('yyyy-MM-dd HH:mm') + '): ' + $hits.Count + ' שורות DsViz')
+    foreach ($h in $hits) { $t = $h.Line.Trim(); if ($t.Length -gt 220) { $t = $t.Substring(0, 220) + '…' }; Put ('  ' + $t) }
+}
+
 # בלי שם המשתמש בנתיבים
 $text = $out -join "`r`n"
 if ($env:USERPROFILE) { $text = $text.Replace($env:USERPROFILE, '%USERPROFILE%') }
