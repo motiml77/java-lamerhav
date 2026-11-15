@@ -19,6 +19,8 @@ New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path
 $Lab = (Resolve-Path $Lab).Path
 $script:fails = 0
+# יומן ההרחבה גם לקובץ (SolutionHints.Log -> %LOCALAPPDATA%\DSViz\vs-trace.log): רואים בבדיקה מה ההרחבה עשתה בלחיצה על הרצה. Visual Studio יורש את המשתנה
+$env:DSVIZ_VS_TRACE = '1'
 $script:lines = New-Object System.Collections.Generic.List[string]
 function Log([string]$s) { Write-Host $s; $script:lines.Add($s) }
 function Ok([string]$id, [string]$s) { Log "  ok   $id  $s" }
@@ -843,6 +845,11 @@ if ($new2.Count -ge 1) {
     $lJoined = $lRuns -join ' | '
     Info "   קובץ בלי פרויקט: $looseFile · פרויקט ב-Visual Studio: $looseProj · Startup: $lBefore -> $lAfter · הורץ: $lJoined"
     $script:runShot++; Shot "37-run-$($script:runShot)-loose"
+    $vsTrace = Join-Path $env:LOCALAPPDATA 'DSViz\vs-trace.log'
+    if (Test-Path $vsTrace) {
+        Copy-Item $vsTrace (Join-Path $Out 'vs-trace.log') -Force -ErrorAction SilentlyContinue
+        @(Get-Content $vsTrace -Encoding utf8 | Where-Object { $_ -match 'startup|run' } | Select-Object -Last 8) | ForEach-Object { Info "   יומן ההרחבה: $_" }
+    } else { Info '   יומן ההרחבה (vs-trace.log) לא נמצא' }
     Check 'run-loose-file' (($lJoined -like '*Loops4.cs*') -and ($lJoined -notlike '*\Exercise\.*') -and ($lJoined -notlike '*Exercise.exe*')) "קובץ C# מחוץ לפתרון (Miscellaneous Files) + Ctrl+F5: הורץ ויזואלית הקובץ הפתוח, ולא Exercise: $lJoined"
     Check 'run-loose-keeps-startup' ($lAfter -like '*Exercise\Exercise.csproj*') "ה-Startup Project לא השתנה (הקובץ לא שייך לאף פרויקט): $lAfter"
     KillRun
