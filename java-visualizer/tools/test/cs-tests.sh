@@ -379,9 +379,6 @@ echo "== 8. Visual Studio: חלון \"תרגיל חדש ב-C#\" — אותו ק�
 mkdir -p "$W/cstool"
 javac --release 11 -nowarn -encoding UTF-8 -cp "$JAR" -d "$W/cstool" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/Scaffold.java" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/NameCheck.java" \
     "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java" $(find "$ROOT/csharp/new-exercise/src" cstool ScaffoldCsAll.java -name '*.java')
-# "הוספת מבנה נתונים" ב-Visual Studio: הכלי יודע איפה הסמן — איפה נכנס המבנה (שורה ריקה / מתחת לשורה, אותה הזחה)
-java -cp "$W/cstool:$JAR" il.lamerhav.dsviz.cs.InsertPointTest | tee "$W/insertpoint.out"
-grep -q INSERT-POINT-END "$W/insertpoint.out" || { echo "InsertPoint נכשל"; exit 1; }
 # א. המחולל של Visual Studio (Java) מפיק בדיוק אותם 3,426 קבצי C# כמו המחולל של VS Code (JS), בתים-בתים
 node combos.js "$W/jsx" > /dev/null
 java -cp "$W/cstool:$JAR" ScaffoldCsAll "$W/combos.txt" "$W/javacs"

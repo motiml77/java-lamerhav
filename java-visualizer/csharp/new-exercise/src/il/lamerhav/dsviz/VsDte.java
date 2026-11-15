@@ -23,7 +23,7 @@ public final class VsDte {
     }
 
     /** מחפש ב-Running Object Table את כל מופעי Visual Studio ($d = זה שהפתרון שלו הוא DSVIZ_SLN) */
-    private static final String FIND_BASE = "$ErrorActionPreference='Stop'; "
+    private static final String FIND = "$ErrorActionPreference='Stop'; "
             + "Add-Type -TypeDefinition 'using System; using System.Collections.Generic; using System.Runtime.InteropServices; using System.Runtime.InteropServices.ComTypes; "
             + "public static class DsRot { "
             + "[DllImport(\"ole32.dll\")] static extern int GetRunningObjectTable(int r, out IRunningObjectTable t); "
@@ -31,16 +31,7 @@ public final class VsDte {
             + "public static List<object> Dtes() { List<object> res = new List<object>(); IRunningObjectTable rot; "
             + "if (GetRunningObjectTable(0, out rot) != 0) return res; IEnumMoniker en; rot.EnumRunning(out en); en.Reset(); IMoniker[] m = new IMoniker[1]; "
             + "while (en.Next(1, m, IntPtr.Zero) == 0) { IBindCtx c; CreateBindCtx(0, out c); string n; m[0].GetDisplayName(c, null, out n); "
-            + "if (n != null && n.StartsWith(\"!VisualStudio.DTE\")) { object o; if (rot.GetObject(m[0], out o) == 0 && o != null) res.Add(o); } } return res; } "
-            // ה-DTE של תהליך מסוים: שם האובייקט בטבלה הוא !VisualStudio.DTE.17.0:<מזהה התהליך>
-            + "public static List<object> ByPid(string pid) { List<object> res = new List<object>(); IRunningObjectTable rot; "
-            + "if (GetRunningObjectTable(0, out rot) != 0) return res; IEnumMoniker en; rot.EnumRunning(out en); en.Reset(); IMoniker[] m = new IMoniker[1]; "
-            + "while (en.Next(1, m, IntPtr.Zero) == 0) { IBindCtx c; CreateBindCtx(0, out c); string n; m[0].GetDisplayName(c, null, out n); "
-            + "if (n != null && n.StartsWith(\"!VisualStudio.DTE\") && n.EndsWith(\":\" + pid)) { object o; if (rot.GetObject(m[0], out o) == 0 && o != null) res.Add(o); } } return res; } }'; "
-            ;
-
-    /** בוחר את ה-Visual Studio לפי הפתרון שפתוח בו (DSVIZ_SLN) */
-    private static final String FIND = FIND_BASE
+            + "if (n != null && n.StartsWith(\"!VisualStudio.DTE\")) { object o; if (rot.GetObject(m[0], out o) == 0 && o != null) res.Add(o); } } return res; } }'; "
             + "$sln=[IO.Path]::GetFullPath($env:DSVIZ_SLN); $d=$null; "
             // כש-Visual Studio עסוק ("Working on it") הוא דוחה את הקריאה — מנסים שוב; אין אף Visual Studio פתוח — מיד
             + "for($i=0; $i -lt 6 -and -not $d; $i++){ $all=@([DsRot]::Dtes()); if($all.Count -eq 0){ break }; "
@@ -95,87 +86,6 @@ public final class VsDte {
         int code = powershell(ps, 120, "DSVIZ_SLN", sln.toAbsolutePath().toString(), "DSVIZ_FILE", f.getAbsolutePath(),
                 "DSVIZ_LINE", String.valueOf(line), "DSVIZ_PROJECT", project, "DSVIZ_REL", rel);
         return code == 0;
-    }
-
-    /** בוחר את ה-Visual Studio שפתח את הכלי (תהליך DSVIZ_VS_PID — ההרחבה מעבירה אותו) — לפי החלון הראשי שלו */
-    private static final String FIND_PID = FIND_BASE
-            + "$d=$null; $want=[string]$env:DSVIZ_VS_PID; "
-            + "for($i=0; $i -lt 6 -and -not $d; $i++){ $mine=@([DsRot]::ByPid($want)); "
-            + "if($mine.Count -gt 0){ $d=$mine[0] } else { $any=@([DsRot]::Dtes()); if($any.Count -eq 0){ break }; if($any.Count -eq 1){ $d=$any[0] } }; "
-            + "if(-not $d){ Start-Sleep -Milliseconds 1000 } }; "
-            + "if(-not $d){ Write-Output 'NO-VS-WITH-PID'; exit 3 }; ";
-
-    /** מה שהעורך ב-Visual Studio מראה עכשיו: הקובץ הפעיל, שורת הסמן (מ-1) והטקסט המלא */
-    public static final class Editor {
-        public final String file, text;
-        public final int line;
-
-        Editor(String file, int line, String text) {
-            this.file = file;
-            this.line = line;
-            this.text = text;
-        }
-    }
-
-    /** מזהה ה-Visual Studio שפתח את הכלי (DSVIZ_VS_PID), או null — הכלי נפתח מקיצור דרך / לא מ-Visual Studio */
-    private static String vsPid() {
-        String p = System.getenv("DSVIZ_VS_PID");
-        return p != null && p.trim().matches("\\d{1,9}") ? p.trim() : null;
-    }
-
-    /**
-     * הקובץ הפעיל ב-Visual Studio שפתח את הכלי, שורת הסמן והטקסט (גם מה שעוד לא נשמר). null — לא Windows, לא נפתח מ-Visual Studio,
-     * אין קובץ פתוח, או שלא הצליח: אז הכלי חוזר להתנהגות הרגילה (הקוד מועתק להדבקה).
-     */
-    public static Editor editor() {
-        String pid = vsPid();
-        if (!enabled() || pid == null) return null;
-        File out = null;
-        try {
-            out = File.createTempFile("dsviz-editor", ".txt");
-            String ps = FIND_PID
-                    + "$doc=$d.ActiveDocument; if(-not $doc){ Write-Output 'NO-DOC'; exit 5 }; "
-                    + "$td=$doc.Object('TextDocument'); if(-not $td){ Write-Output 'NOT-TEXT'; exit 6 }; "
-                    + "$line=[int]$doc.Selection.ActivePoint.Line; $all=$td.StartPoint.CreateEditPoint().GetText($td.EndPoint); "
-                    + "[IO.File]::WriteAllText($env:DSVIZ_OUT, ($doc.FullName + \"`n\" + $line + \"`n\" + $all), (New-Object Text.UTF8Encoding($false))); exit 0";
-            if (powershell(ps, 60, "DSVIZ_VS_PID", pid, "DSVIZ_OUT", out.getAbsolutePath()) != 0) return null;
-            String s = new String(java.nio.file.Files.readAllBytes(out.toPath()), StandardCharsets.UTF_8);
-            int a = s.indexOf('\n'), b = a < 0 ? -1 : s.indexOf('\n', a + 1);
-            if (b < 0) return null;
-            return new Editor(s.substring(0, a), Integer.parseInt(s.substring(a + 1, b).trim()), s.substring(b + 1));
-        } catch (Exception e) {
-            return null;
-        } finally {
-            if (out != null) out.delete();
-        }
-    }
-
-    /**
-     * מכניס את text בקובץ file שפתוח ב-Visual Studio שפתח את הכלי: blank — במקום תוכן השורה line (שורה ריקה), אחרת בסופה של השורה line
-     * (text כבר מתחיל בירידת שורה). פעולה אחת ב-Undo, והסמן עובר אחרי מה שהוכנס. false — הקובץ הפעיל השתנה / לא הצליח (אז מעתיקים להדבקה).
-     */
-    public static boolean insert(String file, int line, boolean blank, String text) {
-        String pid = vsPid();
-        if (!enabled() || pid == null) return false;
-        File code = null;
-        try {
-            code = File.createTempFile("dsviz-insert", ".txt");
-            java.nio.file.Files.write(code.toPath(), text.getBytes(StandardCharsets.UTF_8));
-            String ps = FIND_PID
-                    + "$doc=$d.ActiveDocument; if(-not $doc -or $doc.FullName -ne $env:DSVIZ_FILE){ Write-Output 'DOC-CHANGED'; exit 7 }; "
-                    + "$td=$doc.Object('TextDocument'); $code=[IO.File]::ReadAllText($env:DSVIZ_CODE, [Text.Encoding]::UTF8); "
-                    + "$ln=[int]$env:DSVIZ_LINE; $undo=$false; try { $d.UndoContext.Open('DSViz'); $undo=$true } catch {}; "
-                    + "try { $ep=$td.StartPoint.CreateEditPoint(); $ep.MoveToLineAndOffset($ln,1); "
-                    + "if($env:DSVIZ_BLANK -eq '1'){ $e2=$ep.CreateEditPoint(); $e2.EndOfLine(); if($e2.AbsoluteCharOffset -gt $ep.AbsoluteCharOffset){ $ep.Delete($e2) } } else { $ep.EndOfLine() }; "
-                    + "$ep.Insert($code); $doc.Selection.MoveToAbsoluteOffset($ep.AbsoluteCharOffset, $false) } finally { if($undo){ $d.UndoContext.Close() } }; "
-                    + "try { $doc.Activate(); $d.MainWindow.Activate() } catch {}; Write-Output 'OK insert'; exit 0";
-            return powershell(ps, 90, "DSVIZ_VS_PID", pid, "DSVIZ_FILE", file, "DSVIZ_LINE", String.valueOf(line), "DSVIZ_BLANK", blank ? "1" : "0",
-                    "DSVIZ_CODE", code.getAbsolutePath()) == 0;
-        } catch (Exception e) {
-            return false;
-        } finally {
-            if (code != null) code.delete();
-        }
     }
 
     /** PowerShell עם התסריט מקודד (-EncodedCommand) ומשתני סביבה (שם, ערך, ...). הפלט — ביומן dsviz-vs-dte.txt בתיקייה הזמנית. קוד היציאה, או -1 */
