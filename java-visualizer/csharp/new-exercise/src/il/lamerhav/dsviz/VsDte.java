@@ -31,7 +31,12 @@ public final class VsDte {
             + "public static List<object> Dtes() { List<object> res = new List<object>(); IRunningObjectTable rot; "
             + "if (GetRunningObjectTable(0, out rot) != 0) return res; IEnumMoniker en; rot.EnumRunning(out en); en.Reset(); IMoniker[] m = new IMoniker[1]; "
             + "while (en.Next(1, m, IntPtr.Zero) == 0) { IBindCtx c; CreateBindCtx(0, out c); string n; m[0].GetDisplayName(c, null, out n); "
-            + "if (n != null && n.StartsWith(\"!VisualStudio.DTE\")) { object o; if (rot.GetObject(m[0], out o) == 0 && o != null) res.Add(o); } } return res; } }'; "
+            + "if (n != null && n.StartsWith(\"!VisualStudio.DTE\")) { object o; if (rot.GetObject(m[0], out o) == 0 && o != null) res.Add(o); } } return res; } "
+            // ה-DTE של תהליך מסוים: שם האובייקט בטבלה הוא !VisualStudio.DTE.17.0:<מזהה התהליך>
+            + "public static List<object> ByPid(string pid) { List<object> res = new List<object>(); IRunningObjectTable rot; "
+            + "if (GetRunningObjectTable(0, out rot) != 0) return res; IEnumMoniker en; rot.EnumRunning(out en); en.Reset(); IMoniker[] m = new IMoniker[1]; "
+            + "while (en.Next(1, m, IntPtr.Zero) == 0) { IBindCtx c; CreateBindCtx(0, out c); string n; m[0].GetDisplayName(c, null, out n); "
+            + "if (n != null && n.StartsWith(\"!VisualStudio.DTE\") && n.EndsWith(\":\" + pid)) { object o; if (rot.GetObject(m[0], out o) == 0 && o != null) res.Add(o); } } return res; } }'; "
             ;
 
     /** בוחר את ה-Visual Studio לפי הפתרון שפתוח בו (DSVIZ_SLN) */
@@ -94,10 +99,9 @@ public final class VsDte {
 
     /** בוחר את ה-Visual Studio שפתח את הכלי (תהליך DSVIZ_VS_PID — ההרחבה מעבירה אותו) — לפי החלון הראשי שלו */
     private static final String FIND_PID = FIND_BASE
-            + "$d=$null; $want=[int]$env:DSVIZ_VS_PID; "
-            + "for($i=0; $i -lt 6 -and -not $d; $i++){ $all=@([DsRot]::Dtes()); if($all.Count -eq 0){ break }; "
-            + "try { $h=[int64](Get-Process -Id $want -ErrorAction Stop).MainWindowHandle } catch { $h=0 }; "
-            + "foreach($o in $all){ try { if($h -ne 0 -and [int64]$o.MainWindow.HWnd -eq $h){ $d=$o; break } } catch {} }; "
+            + "$d=$null; $want=[string]$env:DSVIZ_VS_PID; "
+            + "for($i=0; $i -lt 6 -and -not $d; $i++){ $mine=@([DsRot]::ByPid($want)); "
+            + "if($mine.Count -gt 0){ $d=$mine[0] } else { $any=@([DsRot]::Dtes()); if($any.Count -eq 0){ break }; if($any.Count -eq 1){ $d=$any[0] } }; "
             + "if(-not $d){ Start-Sleep -Milliseconds 1000 } }; "
             + "if(-not $d){ Write-Output 'NO-VS-WITH-PID'; exit 3 }; ";
 
