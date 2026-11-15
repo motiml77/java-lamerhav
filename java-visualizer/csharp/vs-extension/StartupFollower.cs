@@ -14,6 +14,9 @@ namespace DsViz.VsExtension
     /// הוא נהיה ה-Startup Project. גם פרויקט הרצה שמפנה לספרייה של DSViz (Unit4.CollectionsLib) ועוד אין לו את הפרופיל (פרויקט שהועתק
     /// בלי Properties, פרויקט חדש לפני ש-DSViz.targets הוסיף את הפרופיל) — כדי שלא ירוץ במקומו פרויקט אחר. את הפרופיל עצמו מוסיפים
     /// DSViz.targets ו-dsviz-cs (LaunchProfile.Ensure) — לא כאן. פרויקט שאינו של DSViz, ופתרון עם כמה Startup Projects — לא נוגעים. כל כשל שקט.
+    /// קובץ C# שלא שייך לאף פרויקט בפתרון (Miscellaneous Files — למשל Loops4.cs שנפתח מ-File ← Open): אין Startup Project שמריץ אותו,
+    /// ולכן בלחיצה על "הרצה" (F5 / Ctrl+F5 / הכפתור הירוק) מבטלים את ההרצה של Visual Studio ומריצים ויזואלית את הקובץ עצמו — כמו הכפתור
+    /// "הרצה ויזואלית" בסרגל של DSViz (במקום תרגיל המחסנית של ה-Startup Project).
     /// </summary>
     internal sealed class StartupFollower
     {
@@ -28,11 +31,16 @@ namespace DsViz.VsExtension
         readonly WindowEvents _windows;   // שומרים הפניה — אחרת האירועים נאספים (GC) ומפסיקים להגיע
         CommandEvents _start, _startNoDebug;   // שומרים הפניה (ref) — אחרת האירועים נאספים
         readonly SolutionEvents _solution;
+        readonly Action<string> _runLooseFile;   // הרצה ויזואלית של קובץ (DsVizPackage — שמירת הכול ו-dsviz-cs על הקובץ)
 
-        public StartupFollower(DTE dte)
+        /// <summary>פרויקט "Miscellaneous Files" (vsProjectKindMisc) ותיקיית פתרון (Solution Items) — קבצים שאף פרויקט לא בונה</summary>
+        const string MiscProjectKind = "{66A2671D-8FB5-11D2-AA7E-00C04F688DDE}", SolutionItemsKind = "{66A26722-8FB5-11D2-AA7E-00C04F688DDE}";
+
+        public StartupFollower(DTE dte, Action<string> runLooseFile = null)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             _dte = dte;
+            _runLooseFile = runLooseFile;
             _windows = dte.Events.WindowEvents;
             _windows.WindowActivated += OnActivated;
             // ברגע שלוחצים "הרצה" (F5 / Ctrl+F5 / הכפתור הירוק) — לא רק כשעוברים בין חלונות: בודקים שוב מה הקובץ הפעיל ומחליפים את
@@ -65,6 +73,7 @@ namespace DsViz.VsExtension
             try
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
+                if (RunLooseFile()) { cancelDefault = true; return; }
                 FollowActive();
             }
             catch (Exception ex) { SolutionHints.Log("startup follower (run): " + ex.Message, true); }
@@ -78,6 +87,48 @@ namespace DsViz.VsExtension
                 FollowActive();
             }
             catch (Exception ex) { SolutionHints.Log("startup follower (solution opened): " + ex.Message, true); }
+        }
+
+        /// <summary>
+        /// הקובץ הפעיל הוא קובץ C# שלא שייך לאף פרויקט (Miscellaneous Files / Solution Items): מריצים אותו ויזואלית, כמו הכפתור בסרגל.
+        /// true — הורץ, ופקודת ההרצה של Visual Studio מתבטלת. בכל ספק (קובץ של פרויקט, בזמן דיבאג, קובץ זמני / לקריאה בלבד כמו
+        /// "[from metadata]" אחרי F12, DSViz לא מותקן, כשל) — false, ו-Visual Studio מריץ כרגיל
+        /// </summary>
+        bool RunLooseFile()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (_runLooseFile == null) return false;
+            try
+            {
+                Document doc = null;
+                try { doc = _dte.ActiveDocument; } catch (Exception) { }
+                if (doc == null) return false;
+                string file = doc.FullName;
+                if (string.IsNullOrEmpty(file) || !file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) || !File.Exists(file)) return false;
+                if (_dte.Debugger != null && _dte.Debugger.CurrentMode != dbgDebugMode.dbgDesignMode) return false;   // F5 בזמן דיבאג = Continue
+                bool readOnly = false;
+                try { readOnly = doc.ReadOnly; } catch (Exception) { }
+                string temp = Path.GetFullPath(Path.GetTempPath());
+                if (readOnly || Path.GetFullPath(file).StartsWith(temp, StringComparison.OrdinalIgnoreCase)) return false;
+                ProjectItem item = null;
+                try { item = doc.ProjectItem; } catch (Exception) { }
+                Project project = null;
+                try { project = item == null ? null : item.ContainingProject; } catch (Exception) { }
+                string kind = null;
+                try { kind = project == null ? null : project.Kind; } catch (Exception) { }
+                bool loose = project == null || string.Equals(kind, MiscProjectKind, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(kind, SolutionItemsKind, StringComparison.OrdinalIgnoreCase);
+                if (!loose) return false;
+                if (!File.Exists(DsVizTool.Runner)) return false;
+                _runLooseFile(file);
+                SolutionHints.Log("run: loose file " + Path.GetFileName(file) + " (not in a project) -> visual run of the file");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                SolutionHints.Log("run loose file failed: " + ex.Message, true);
+                return false;
+            }
         }
 
         /// <summary>הקובץ שפתוח עכשיו (אם יש) קובע את ה-Startup Project</summary>
