@@ -767,28 +767,58 @@ if ($new2.Count -ge 1) {
     $s3 = StartupAfterOpen $bankFile $name2
     Check 'follow-bank' ($s3 -like "*$name2*") "חזרה לקובץ התרגיל מהמאגר ($([IO.Path]::GetFileName($bankFile))) -> ה-Startup Project הוא התרגיל מהמאגר (ולא תרגיל המחסנית): $s3"
     Shot '36-bank-startup'
-    # גם בלי מעבר בין חלונות: ב-Startup Project נשאר Exercise (למשל נבחר ידנית, או הפתרון נפתח מחדש), והקובץ הפעיל הוא של התרגיל מהמאגר.
-    # ברגע שלוחצים "הרצה" (Ctrl+F5 — אותה פקודה כמו הכפתור הירוק) ההרחבה מחליפה את ה-Startup Project לפרויקט של הקובץ הפעיל — לא רץ Exercise
-    function StartAndWatch($want, $label) {
+    # גם בלי מעבר בין חלונות: ב-Startup Project נשאר Exercise (למשל נבחר ידנית, או הפתרון נפתח מחדש), והקובץ הפעיל הוא של תרגיל אחר.
+    # ברגע שלוחצים "הרצה" (Ctrl+F5 — אותה פקודה כמו הכפתור הירוק) ההרחבה מחליפה את ה-Startup Project לפרויקט של הקובץ הפעיל — לא רץ Exercise.
+    # התרגיל מהשליחה (שנפתר בשלב 5), ולא התרגיל מהמאגר: למאגר יש שלד בלי return (CS0161), ובנייה שנכשלת פותחת ב-Visual Studio את החלון
+    # 'There were build errors' שחוסם את האוטומציה. בודקים גם מה באמת הורץ: שורת הפקודה של dsviz-cs (או התוכנית עצמה) — התיקייה של התרגיל הפתוח
+    function KillRun() {
+        KillDsviz
+        $pn = if ($subName) { $subName } else { '-' }
+        Get-Process VsDebugConsole, $pn -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+    function Launched() {
+        @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -ieq 'dsviz-cs.exe' -or $_.Name -ieq "$subName.exe" } |
+            ForEach-Object { "$($_.Name): $($_.CommandLine)" })
+    }
+    function StartAndWatch($file, $want, $label) {
+        KillRun
         try { $d.Solution.SolutionBuild.StartupProjects = 'Exercise\Exercise.csproj' } catch { Info "הגדרת Startup: $_" }
-        try { $null = $d.ItemOperations.OpenFile($bankFile); $d.ActiveDocument.Activate() } catch { Info "DTE פתיחה: $_" }
+        try { $null = $d.ItemOperations.OpenFile($file); $d.ActiveDocument.Activate() } catch { Info "DTE פתיחה: $_" }
+        Start-Sleep 2
         try { $d.Solution.SolutionBuild.StartupProjects = 'Exercise\Exercise.csproj' } catch { }
         $before = ''; try { $before = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }
         try { $d.ExecuteCommand('Debug.StartWithoutDebugging') } catch { Info "הרצה: $_" }
         $s = ''
         for ($w = 0; $w -lt 15; $w++) { Start-Sleep 1; try { $s = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }; if ($s -like "*$want*") { break } }
-        Info "   $label — לפני ההרצה: $before · אחרי הלחיצה על הרצה: $s"
-        return @($before, $s)
+        $runs = @()
+        for ($w = 0; $w -lt 90 -and $runs.Count -eq 0; $w++) { Start-Sleep 1; $runs = Launched }
+        Info "   $label — לפני ההרצה: $before · אחרי הלחיצה על הרצה: $s · הורץ: $($runs -join ' | ')"
+        $script:runShot++; Shot "37-run-$($script:runShot)"
+        KillRun
+        # אם בכל זאת נפתח חלון של Visual Studio (שגיאות בנייה וכו') — Esc סוגר אותו ('No': לא מריצים), ולא חוסם את המשך הבדיקה
+        [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
+        Start-Sleep 1
+        try { [Windows.Forms.SendKeys]::SendWait('{ESC}') } catch { }
+        return @($before, $s, ($runs -join ' | '))
     }
-    $r1 = StartAndWatch $name2 'לחיצה על הרצה'
-    Check 'run-follows-active-file' (($r1[0] -like '*Exercise\Exercise.csproj*') -and ($r1[1] -like "*$name2*")) "ה-Startup Project היה Exercise ובלחיצה על הרצה הפך לתרגיל הפתוח (ולא רץ תרגיל המחסנית): $($r1[0]) -> $($r1[1])"
-    KillJava
-    # פרויקט שנוצר בלי הפרופיל "הרצה ויזואלית" (פרויקט ידני / תרגיל ישן) שמשתמש בספרייה: ההרחבה מוסיפה לו את הפרופיל בעצמה
-    $launchFile = Join-Path $dir2 'Properties\launchSettings.json'
-    if (Test-Path $launchFile) { Remove-Item $launchFile -Force }
-    $r2 = StartAndWatch $name2 'בלי פרופיל'
-    $made = (Test-Path $launchFile) -and ((Get-Content $launchFile -Raw -Encoding UTF8) -match 'dsviz-cs\.exe')
-    Check 'run-adds-profile' (($r2[1] -like "*$name2*") -and $made) "פרויקט בלי הפרופיל: ההרחבה הוסיפה אותו וה-Startup Project הוא התרגיל הפתוח: $($r2[1]) · launchSettings נוצר: $made"
+    if ($subDir -and $subName) {
+        $subFile = @(Get-ChildItem $subDir -Filter '*.cs' | Where-Object { (Get-Content $_.FullName -Raw -Encoding utf8) -match 'static (void|int) Main' } | Select-Object -First 1)
+        if ($subFile.Count -eq 0) { $subFile = @(Get-ChildItem $subDir -Filter '*.cs' | Sort-Object Name | Select-Object -First 1) }
+        $runFile = $subFile[0].FullName
+        $r1 = StartAndWatch $runFile $subName 'לחיצה על הרצה'
+        Check 'run-follows-active-file' (($r1[0] -like '*Exercise\Exercise.csproj*') -and ($r1[1] -like "*$subName*")) "ה-Startup Project היה Exercise ובלחיצה על הרצה הפך לתרגיל הפתוח (ולא רץ תרגיל המחסנית): $($r1[0]) -> $($r1[1])"
+        Check 'run-launches-active-project' (($r1[2] -like "*$subName*") -and ($r1[2] -notlike '*\Exercise\.*')) "Ctrl+F5 הריץ את התרגיל הפתוח: $($r1[2])"
+        # פרויקט של DSViz (מפנה לספרייה) שעוד אין לו את הפרופיל "הרצה ויזואלית" (הועתק בלי Properties): גם הוא נהיה ה-Startup Project.
+        # ההרחבה לא כותבת את הפרופיל — את זה עושים DSViz.targets / dsviz-cs (רק נרשם כאן אם נוצר מחדש בבנייה)
+        $launchFile = Join-Path $subDir 'Properties\launchSettings.json'
+        $launchKeep = if (Test-Path $launchFile) { [IO.File]::ReadAllBytes($launchFile) } else { $null }
+        if (Test-Path $launchFile) { Remove-Item $launchFile -Force }
+        $r2 = StartAndWatch $runFile $subName 'בלי פרופיל'
+        Check 'run-follows-no-profile' (($r2[0] -like '*Exercise\Exercise.csproj*') -and ($r2[1] -like "*$subName*")) "פרויקט בלי הפרופיל: בלחיצה על הרצה ה-Startup Project הוא התרגיל הפתוח: $($r2[0]) -> $($r2[1])"
+        Check 'run-no-profile-not-exercise' ($r2[2] -notlike '*\Exercise\.*') "פרויקט בלי הפרופיל: לא הורץ תרגיל המחסנית: $($r2[2])"
+        Info "   launchSettings.json אחרי ההרצה: $(if (Test-Path $launchFile) { 'נוצר מחדש (DSViz.targets / dsviz-cs)' } else { 'לא קיים' })"
+        if ($launchKeep) { New-Item -ItemType Directory -Force (Split-Path $launchFile) | Out-Null; [IO.File]::WriteAllBytes($launchFile, $launchKeep) }
+    } else { Info 'אין תרגיל מהשליחה (שלב 5) — בדיקת "הרצה" (Ctrl+F5) דולגה' }
     KillJava
     $d = $null
 }

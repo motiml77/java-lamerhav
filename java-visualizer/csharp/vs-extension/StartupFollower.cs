@@ -11,7 +11,9 @@ namespace DsViz.VsExtension
     /// הכפתור הירוק של Visual Studio ("הרצה ויזואלית") מריץ את ה-Startup Project — לא את הקובץ הפתוח. בפתרון התרגילים (DataStructures-CS)
     /// ה-Startup Project הוא Exercise (תרגיל סכום המחסנית), ולכן כשפתוח תרגיל אחר (למשל מהמאגר) רץ דווקא הקוד של המחסנית.
     /// כאן, כמו ב-Eclipse (מריצים את מה שפתוח): כשעוברים לקובץ C# של פרויקט DSViz אחר — פרויקט הרצה (Exe) שיש לו הפרופיל "הרצה ויזואלית" —
-    /// הוא נהיה ה-Startup Project. פרויקט שאינו של DSViz, ופתרון עם כמה Startup Projects — לא נוגעים. כל כשל שקט.
+    /// הוא נהיה ה-Startup Project. גם פרויקט הרצה שמפנה לספרייה של DSViz (Unit4.CollectionsLib) ועוד אין לו את הפרופיל (פרויקט שהועתק
+    /// בלי Properties, פרויקט חדש לפני ש-DSViz.targets הוסיף את הפרופיל) — כדי שלא ירוץ במקומו פרויקט אחר. את הפרופיל עצמו מוסיפים
+    /// DSViz.targets ו-dsviz-cs (LaunchProfile.Ensure) — לא כאן. פרויקט שאינו של DSViz, ופתרון עם כמה Startup Projects — לא נוגעים. כל כשל שקט.
     /// </summary>
     internal sealed class StartupFollower
     {
@@ -56,16 +58,25 @@ namespace DsViz.VsExtension
             catch (Exception ex) { SolutionHints.Log("startup follower: command hook " + id + " failed: " + ex.Message, true); }
         }
 
+        // חריגה שיוצאת מאירוע של DTE יכולה לעצור את פקודת ההרצה עצמה — לכן הכול בתוך try, והכשל רק נרשם ביומן
         void OnBeforeStart(string guid, int id, object customIn, object customOut, ref bool cancelDefault)
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            FollowActive();
+            try
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                FollowActive();
+            }
+            catch (Exception ex) { SolutionHints.Log("startup follower (run): " + ex.Message, true); }
         }
 
         void OnSolutionOpened()
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            FollowActive();
+            try
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                FollowActive();
+            }
+            catch (Exception ex) { SolutionHints.Log("startup follower (solution opened): " + ex.Message, true); }
         }
 
         /// <summary>הקובץ שפתוח עכשיו (אם יש) קובע את ה-Startup Project</summary>
@@ -79,10 +90,14 @@ namespace DsViz.VsExtension
 
         void OnActivated(Window gotFocus, Window lostFocus)
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            Document doc = null;
-            try { doc = gotFocus == null ? null : gotFocus.Document; } catch (Exception) { }   // חלון כלי (Solution Explorer וכו') — אין מסמך
-            if (doc != null) Follow(doc);
+            try
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                Document doc = null;
+                try { doc = gotFocus == null ? null : gotFocus.Document; } catch (Exception) { }   // חלון כלי (Solution Explorer וכו') — אין מסמך
+                if (doc != null) Follow(doc);
+            }
+            catch (Exception ex) { SolutionHints.Log("startup follower (window): " + ex.Message, true); }
         }
 
         /// <summary>הקובץ הזה פעיל עכשיו: הפרויקט שלו נהיה ה-Startup Project (אם הוא פרויקט DSViz שאפשר להריץ)</summary>
@@ -101,7 +116,7 @@ namespace DsViz.VsExtension
                 if (project == null) return;   // קובץ שלא בפתרון (Miscellaneous Files)
                 string csproj = project.FullName;
                 if (string.IsNullOrEmpty(csproj) || !csproj.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) || !File.Exists(csproj)) return;
-                if (!Runnable(csproj) && !EnsureProfile(csproj)) return;
+                if (!Runnable(csproj) && !UsesLibrary(csproj)) return;
                 string unique = project.UniqueName;
                 var current = sln.SolutionBuild.StartupProjects as Array;
                 if (current != null && current.Length > 1) return;   // המשתמש בחר כמה Startup Projects
@@ -116,50 +131,23 @@ namespace DsViz.VsExtension
         }
 
         /// <summary>
-        /// פרויקט הרצה (Exe) שמשתמש בספרייה של DSViz (Unit4.CollectionsLib) אבל אין לו את הפרופיל "הרצה ויזואלית" — למשל פרויקט שנוצר ידנית,
-        /// או תרגיל ישן: מוסיפים לו את הפרופיל (ראשון ברשימה, כדי שיהיה ברירת המחדל של הכפתור הירוק) ב-Properties\launchSettings.json,
-        /// ושאר הפרופילים נשארים כמו שהם. פרויקט שלא משתמש בספרייה — לא נוגעים בו. true — עכשיו הפרויקט ניתן להרצה ויזואלית
+        /// פרויקט הרצה (Exe) שמפנה בעצמו לספרייה של DSViz (Unit4.CollectionsLib, או $(DsVizLib) של תיקיית התרגילים) — פרויקט של DSViz
+        /// גם כשעוד אין לו את הפרופיל "הרצה ויזואלית" (למשל הועתק בלי Properties). לא כותבים כלום לפרויקט: רק קוראים
         /// </summary>
-        static bool EnsureProfile(string csproj)
+        static bool UsesLibrary(string csproj)
         {
             try
             {
                 string text = File.ReadAllText(csproj);
-                if (!Regex.IsMatch(text, @"<OutputType>\s*(Exe|WinExe)\s*</OutputType>", RegexOptions.IgnoreCase)) return false;
-                if (text.IndexOf("Unit4.CollectionsLib", StringComparison.OrdinalIgnoreCase) < 0 && text.IndexOf("DsVizLib", StringComparison.OrdinalIgnoreCase) < 0) return false;
-                string dir = Path.Combine(Path.GetDirectoryName(csproj), "Properties");
-                string launch = Path.Combine(dir, "launchSettings.json");
-                var json = new System.Web.Script.Serialization.JavaScriptSerializer();
-                var root = new System.Collections.Generic.Dictionary<string, object>();
-                var profiles = new System.Collections.Generic.Dictionary<string, object>();
-                var existing = new System.Collections.Generic.Dictionary<string, object>();
-                if (File.Exists(launch))
-                {
-                    var parsed = json.DeserializeObject(File.ReadAllText(launch)) as System.Collections.Generic.Dictionary<string, object>;
-                    if (parsed == null) return false;   // קובץ שלא הצלחנו לקרוא — לא דורסים אותו
-                    root = parsed;
-                    var old = root.ContainsKey("profiles") ? root["profiles"] as System.Collections.Generic.Dictionary<string, object> : null;
-                    if (old != null) existing = old;
-                }
-                profiles[Profile] = new System.Collections.Generic.Dictionary<string, object>
-                {
-                    { "commandName", "Executable" },
-                    { "executablePath", "%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe" },
-                    { "commandLineArgs", "\"$(ProjectDir).\"" },
-                    { "workingDirectory", "$(ProjectDir)" },
-                };
-                foreach (var kv in existing) if (kv.Key != Profile) profiles[kv.Key] = kv.Value;
-                root["profiles"] = profiles;
-                Directory.CreateDirectory(dir);
-                File.WriteAllText(launch, json.Serialize(root), new System.Text.UTF8Encoding(false));
-                SolutionHints.Log("added the visual-run profile to " + launch);
-                return true;
+                if (!IsExe(text)) return false;
+                return text.IndexOf("Unit4.CollectionsLib", StringComparison.OrdinalIgnoreCase) >= 0 || text.IndexOf("$(DsVizLib)", StringComparison.OrdinalIgnoreCase) >= 0;
             }
-            catch (Exception ex)
-            {
-                SolutionHints.Log("could not add the visual-run profile: " + ex.Message, true);
-                return false;
-            }
+            catch (Exception) { return false; }
+        }
+
+        static bool IsExe(string csprojText)
+        {
+            return Regex.IsMatch(csprojText, @"<OutputType>\s*(Exe|WinExe)\s*</OutputType>", RegexOptions.IgnoreCase);
         }
 
         /// <summary>פרויקט הרצה (Exe) עם הפרופיל "הרצה ויזואלית" ב-Properties\launchSettings.json — פרויקט של DSViz</summary>
@@ -169,7 +157,7 @@ namespace DsViz.VsExtension
             if (!File.Exists(launch)) return false;
             string json = File.ReadAllText(launch);
             if (json.IndexOf(Profile, StringComparison.Ordinal) < 0 && json.IndexOf(ProfileEscaped, StringComparison.OrdinalIgnoreCase) < 0) return false;
-            return Regex.IsMatch(File.ReadAllText(csproj), @"<OutputType>\s*(Exe|WinExe)\s*</OutputType>", RegexOptions.IgnoreCase);
+            return IsExe(File.ReadAllText(csproj));
         }
     }
 }
