@@ -65,7 +65,7 @@ $vl = Join-Path $dsviz 'vsix-install.log'
 $lastInstall = $null
 if (Test-Path $vl) {
     foreach ($line in (Get-Content $vl -Encoding UTF8)) {
-        if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+.*התקנה \(ניסיון \d+\): קוד 0') { $lastInstall = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null) }
+        if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+.*התקנה \(ניסיון \d+\): קוד (0|timeout)\b') { $lastInstall = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null) }
     }
 }
 foreach ($p in @(Get-Process devenv -ErrorAction SilentlyContinue)) {
