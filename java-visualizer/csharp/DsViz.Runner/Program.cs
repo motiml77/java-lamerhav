@@ -241,6 +241,18 @@ namespace DsViz
             if (traceOut == null && LaunchProfile.Ensure(project))
                 Console.WriteLine("נוסף לפרויקט \"הרצה ויזואלית\": מעכשיו אפשר להריץ ישר מ-Visual Studio — בחץ שליד כפתור ההפעלה הירוק בוחרים \"הרצה ויזואלית\".");
 
+            // Main ריקה (רק פעולות שלא נקראות משום מקום): ההרצה נגמרת מיד, והחלון היה מראה "התוכנית הסתיימה" ותו לא — מסבירים מה חסר
+            try
+            {
+                var entrySym = original.GetEntryPoint(System.Threading.CancellationToken.None);
+                var entrySyntax = entrySym?.DeclaringSyntaxReferences.Select(r => r.GetSyntax()).OfType<MethodDeclarationSyntax>().FirstOrDefault();
+                if (entrySyntax != null && entrySyntax.ExpressionBody == null && entrySyntax.Body != null && entrySyntax.Body.Statements.Count == 0)
+                    throw new UserError("הפעולה Main ריקה — אין בה שום קוד, ולכן אין מה להציג בהרצה ויזואלית." + Environment.NewLine
+                        + "כותבים בתוך Main את מה שרוצים לראות: יוצרים מבנה, וקוראים לפעולה שכתבתם (למשל: Console.WriteLine(findNum(tree, 5));).");
+            }
+            catch (UserError) { throw; }
+            catch (Exception) { }
+
             // --- 2. הכנסת ההוקים
             var instrumented = new List<SyntaxTree>();
             foreach (SyntaxTree t in trees)

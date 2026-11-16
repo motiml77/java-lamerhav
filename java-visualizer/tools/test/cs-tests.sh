@@ -413,7 +413,11 @@ set +e; viz "$NM/Loops.cs" --trace "$NM/l.trace" > "$NM/l.out" 2>&1; NMC=$?; set
 [ "$NMC" = 2 ] && grep -q 'אין פעולת Main' "$NM/l.out" && grep -q 'Program.cs' "$NM/l.out" && [ ! -s "$NM/l.trace" ] \
     || { echo "נכשל: קובץ בלי Main (קוד $NMC)"; cat "$NM/l.out"; exit 1; }
 viz "$NM/Program.cs" --trace "$NM/p.trace" > "$NM/p.out" 2>&1 && grep -q 'stack-sum' "$NM/p.out" || { echo "נכשל: Program.cs עם Main"; cat "$NM/p.out"; exit 1; }
-echo "קובץ בלי Main: הודעה ברורה, בלי להריץ Main אחר · קובץ עם Main: רץ"
+mkdir -p "$NM/empty"; cp "$NM/NoMain.csproj" "$NM/empty/Empty.csproj"
+printf 'using System;\nnamespace list { class Program {\n public static int Count(int n) { return n; }\n static void Main(string[] args)\n {\n }\n} }\n' > "$NM/empty/Program.cs"
+set +e; viz "$NM/empty/Program.cs" --trace "$NM/e.trace" > "$NM/e.out" 2>&1; EMC=$?; set -e
+[ "$EMC" = 2 ] && grep -q 'Main ריקה' "$NM/e.out" || { echo "נכשל: Main ריקה (קוד $EMC)"; cat "$NM/e.out"; exit 1; }
+echo "קובץ בלי Main: הודעה ברורה, בלי להריץ Main אחר · Main ריקה: הודעה · קובץ עם Main: רץ"
 
 echo "== 10. Visual Studio בלי שום פעולה: DSViz.targets (MSBuild ImportAfter) — הפניה לספרייה ופרופיל ההרצה אוטומטית בכל פרויקט"
 # מדמים את %LOCALAPPDATA% של Windows (MSBuildUserExtensionsPath נגזר מ-XDG_DATA_HOME גם ב-Linux) —
