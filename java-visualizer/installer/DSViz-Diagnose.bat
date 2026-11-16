@@ -76,6 +76,15 @@ foreach ($p in @(Get-Process devenv -ErrorAction SilentlyContinue)) {
     }
 }
 
+Section 'תיקיית התרגילים של C# (מאגר התרגילים / תרגיל חדש)'
+Put ('מסמכים (Documents): ' + [Environment]::GetFolderPath('MyDocuments'))
+$pcp = Join-Path $env:USERPROFILE '.dsviz\project-cs-path.txt'
+$csRoot = $null
+if (Test-Path $pcp) { $csRoot = ([IO.File]::ReadAllText($pcp)).Trim([char]0xFEFF, ' ', "`r", "`n"); Put ('project-cs-path.txt: ' + $csRoot) } else { Put 'project-cs-path.txt: אין (חבילת C# לא הותקנה במשתמש הזה)' }
+if (-not $csRoot) { $csRoot = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'DataStructures-CS' }
+foreach ($f in 'DataStructures-CS.sln', 'lib\Unit4.CollectionsLib.dll', 'Directory.Build.props') { Put ('  ' + $f + ': ' + $(if (Test-Path (Join-Path $csRoot $f)) { 'יש' } else { '*** אין ***' })) }
+Put ('התבנית בהתקנה (cs-project\lib): ' + $(if (Test-Path (Join-Path $dsviz 'cs-project\lib\Unit4.CollectionsLib.dll')) { 'יש — מאגר התרגילים משלים ממנה לבד את מה שחסר' } else { 'אין' }))
+
 Section 'vsix-install.log — 60 השורות האחרונות'
 $l = Join-Path $dsviz 'vsix-install.log'
 if (Test-Path $l) { Get-Content $l -Encoding UTF8 -Tail 60 | ForEach-Object { Put $_ } } else { Put '(אין קובץ — ההתקנה של הסרגל לא רצה במחשב הזה, או גרסה ישנה)' }

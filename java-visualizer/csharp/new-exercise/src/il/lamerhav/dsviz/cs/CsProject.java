@@ -18,6 +18,9 @@ final class CsProject {
 
     static String check(Path root) { return CsSolution.check(root); }
 
+    /** check, אחרי השלמה של מה שחסר מההתקנה (הספרייה, Directory.Build.props) */
+    static String ensure(Path root) { return CsSolution.ensure(root); }
+
     static Path exercisesDir(Path root) { return CsSolution.exercisesDir(root); }
 
     static Path solution(Path root) { return CsSolution.solution(root); }

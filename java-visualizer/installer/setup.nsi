@@ -56,12 +56,8 @@ ShowUninstDetails show
 !define MUI_ICON "icon.ico"
 !define MUI_UNICON "icon.ico"
 !define MUI_ABORTWARNING
-!define MUI_COMPONENTSPAGE_TEXT_TOP "באיזו שפה אתם לומדים? אפשר לסמן את Java, את C#, או את שתיהן. כל השאר (VS Code, Java להרצה, תיקיית התרגילים) מותקן אוטומטית."
-!define MUI_COMPONENTSPAGE_NODESC
-!define MUI_PAGE_HEADER_TEXT "בחירת שפה"
-!define MUI_PAGE_HEADER_SUBTEXT "באיזו שפה כותבים את התרגילים?"
 !define MUI_WELCOMEPAGE_TITLE "מבני נתונים — הרצה ויזואלית"
-!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse, ל-IntelliJ IDEA ול-Visual Studio (בחירה בעמוד הבא: חבילת Java, חבילת C#, או שתיהן):$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n• מאגר התרגילים (עם כניסה): תרגילים מוכנים לפי נושא וקושי, ב-Eclipse, ב-IntelliJ וב-Visual Studio.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse, Visual Studio או IntelliJ פתוחים — ההתקנה תבקש לסגור אותם.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
+!define MUI_WELCOMEPAGE_TEXT "התוכנה מוסיפה ל-VS Code, ל-Eclipse, ל-IntelliJ IDEA ול-Visual Studio — גם Java וגם C#, בלי שום בחירה:$\r$\n$\r$\n• תרגיל חדש בלחיצה: מחסנית, תור, רשימה מקושרת או עץ — עם כל המעטפת מוכנה.$\r$\n• הרצה ויזואלית: כל שורה בקוד, עם המשתנים והמבנים — צעד אחר צעד.$\r$\n• מאגר התרגילים (עם כניסה): תרגילים מוכנים לפי נושא וקושי, ב-Eclipse, ב-IntelliJ וב-Visual Studio.$\r$\n$\r$\nההתקנה מוצאת לבד את הסביבות שבמחשב, ומורידה לבד (ברקע) את התוספים של Microsoft ל-VS Code (Java / C#) — צריך אינטרנט רק בשביל זה.$\r$\nאם Eclipse, Visual Studio או IntelliJ פתוחים — ההתקנה תבקש לסגור אותם.$\r$\n$\r$\n© 2026 Moti Levi · motiml77@gmail.com"
 !define MUI_FINISHPAGE_TITLE "ההתקנה הסתיימה"
 !define MUI_FINISHPAGE_TEXT "יש לפתוח מחדש את VS Code / Eclipse / IntelliJ / Visual Studio.$\r$\n$\r$\nVS Code: בסרגל הצד מופיע הסמל 'מבני נתונים'.$\r$\nEclipse: בתפריט העליון מופיע 'מבני נתונים', וכפתורים בסרגל הכלים.$\r$\nIntelliJ IDEA: התפריט 'מבני נתונים', החלון DSViz בצד ימין, ו'הרצה ויזואלית' ליד main.$\r$\nמאגר תרגילים: כפתור בסרגל הכלים של Eclipse, של IntelliJ ושל Visual Studio.$\r$\nVisual Studio (C#): בכל פרויקט — גם הקיצור 'תרגילי C#' וגם כל פרויקט אחר שיוצרים או שכבר יש — מופיעה לבד האפשרות 'הרצה ויזואלית' ליד כפתור ההפעלה. לא צריך להריץ שום דבר משורת הפקודה.$\r$\n$\r$\nמודלים חישוביים (סימולטור אוטומטים): הקיצור בשולחן העבודה. הכניסה (מורה / תלמיד / עמדת מחשב) משותפת לכל התוכנות."
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-he.html"
@@ -69,7 +65,7 @@ ShowUninstDetails show
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
 
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_COMPONENTS
+; בלי עמוד בחירת שפה: תמיד מותקנות גם Java וגם C# (ההתקנה מוצאת לבד מה יש במחשב ומתקינה הכל)
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -556,7 +552,7 @@ Section "Java — Eclipse ו-VS Code (תרגילים ב-Java)" SEC_JAVA
   DetailPrint "חבילת Java"
 SectionEnd
 
-Section /o "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_CS
+Section "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_CS
   !insertmacro PROG 44
   DetailPrint "חבילת C#"
   Call EnsureVisualStudioClosed   ; לפני שמחליפים את dsviz-cs ומתקינים את סרגל הכלים
@@ -691,38 +687,26 @@ Function CopyVsTemplate
   Pop $0
 FunctionEnd
 
-; ------------------------------------------------------------ בחירת חבילת שפה
-; ברירת מחדל: Java; C# מסומן אוטומטית אם יש Visual Studio / Rider. אפשר לקבוע גם משורת הפקודה: /LANG=java|cs|both
+; ------------------------------------------------------------ חבילות השפה
+; תמיד שתיהן (Java וגם C#) — בהתקנה ראשונה, בהתקנה חוזרת ובעדכון האוטומטי, גם אם בעבר נבחרה רק אחת (lang.txt ישן לא קובע יותר).
+; כך תיקיית התרגילים של C#, הספרייה וסרגל Visual Studio קיימים תמיד, גם כש-Visual Studio מותקן אחרי DSViz.
+; רק לבדיקות אוטומטיות אפשר לצמצם משורת הפקודה: /LANG=java|cs
 Function .onInit
   ${GetParameters} $R0
-  ${GetOptions} $R0 "/LANG=" $R1
-  ; עדכון אוטומטי: אותן שפות כמו בהתקנה הקודמת
   ClearErrors
   ${GetOptions} $R0 "/UPDATE" $R3
   ${IfNot} ${Errors}
     StrCpy $UPDATING "1"
   ${EndIf}
-  ${If} $UPDATING == "1"
-  ${AndIf} ${FileExists} "$INSTDIR\lang.txt"
-    FileOpen $R4 "$INSTDIR\lang.txt" r
-    FileRead $R4 $R1
-    FileClose $R4
-    ${If} $R1 == "java"
-      StrCpy $R1 "javaonly"
-    ${EndIf}
-  ${EndIf}
-  ${If} $R1 == "cs"
-    !insertmacro UnselectSection ${SEC_JAVA}
-    !insertmacro SelectSection ${SEC_CS}
-  ${ElseIf} $R1 == "both"
-    !insertmacro SelectSection ${SEC_CS}
-  ${ElseIf} $R1 == "javaonly"
-    !insertmacro UnselectSection ${SEC_CS}
-  ${ElseIf} $R1 == ""
-    Call DetectCsTools
-    Pop $R2
-    ${If} $R2 == "1"
-      !insertmacro SelectSection ${SEC_CS}
+  !insertmacro SelectSection ${SEC_JAVA}
+  !insertmacro SelectSection ${SEC_CS}
+  ClearErrors
+  ${GetOptions} $R0 "/LANG=" $R1
+  ${IfNot} ${Errors}
+    ${If} $R1 == "cs"
+      !insertmacro UnselectSection ${SEC_JAVA}
+    ${ElseIf} $R1 == "java"
+      !insertmacro UnselectSection ${SEC_CS}
     ${EndIf}
   ${EndIf}
 FunctionEnd
@@ -744,23 +728,6 @@ Function .onSelChange
   ${EndIf}
 FunctionEnd
 
-; מחזיר 1 אם נמצא Visual Studio או Rider במחשב
-Function DetectCsTools
-  Push "0"
-  FindFirst $R3 $R4 "$DOCUMENTS\Visual Studio *"
-  ${If} $R4 != ""
-    Pop $R5
-    Push "1"
-  ${EndIf}
-  FindClose $R3
-  ${If} ${FileExists} "$PROGRAMFILES64\Microsoft Visual Studio\*.*"
-  ${OrIf} ${FileExists} "$PROGRAMFILES32\Microsoft Visual Studio\*.*"
-  ${OrIf} ${FileExists} "$PROGRAMFILES64\JetBrains\*.*"
-  ${OrIf} ${FileExists} "$LOCALAPPDATA\JetBrains\Toolbox\*.*"
-    Pop $R5
-    Push "1"
-  ${EndIf}
-FunctionEnd
 
 Section "-javaproject"
   !insertmacro PROG 84

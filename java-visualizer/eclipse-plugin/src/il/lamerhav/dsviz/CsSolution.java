@@ -58,6 +58,55 @@ public final class CsSolution {
         return null;
     }
 
+    /**
+     * התבנית של תיקיית התרגילים שבהתקנה: Windows ‎%LOCALAPPDATA%\DSViz\cs-project‎, Mac ‎~/Library/Application Support/DSViz/project-cs‎.
+     * null — אין (C# לא הותקן).
+     */
+    static Path template() {
+        java.util.List<Path> c = new java.util.ArrayList<>();
+        String lad = System.getenv("LOCALAPPDATA");
+        if (lad != null && !lad.isEmpty()) c.add(java.nio.file.Paths.get(lad, "DSViz", "cs-project"));
+        c.add(java.nio.file.Paths.get(System.getProperty("user.home"), "Library", "Application Support", "DSViz", "project-cs"));
+        for (Path p : c) if (Files.exists(p.resolve("lib").resolve(LIB))) return p;
+        return null;
+    }
+
+    /**
+     * משלים בתיקיית התרגילים את מה שחסר, מהתבנית שבהתקנה: הספרייה (lib) ו-Directory.Build.props תמיד, ואם אין בה פתרון בכלל —
+     * את כל התבנית. קבצים שכבר קיימים (העבודה של התלמיד) לא נדרסים. לא זורק; אם אין תבנית / אין הרשאה — לא עושה כלום.
+     */
+    public static void repair(Path root) {
+        if (root == null || check(root) == null) return;
+        Path t = template();
+        if (t == null) return;
+        try {
+            Files.createDirectories(root);
+            boolean whole = solution(root) == null;
+            java.util.List<Path> all;
+            try (java.util.stream.Stream<Path> s = Files.walk(t)) { all = s.collect(java.util.stream.Collectors.toList()); }
+            for (Path src : all) {
+                Path rel = t.relativize(src);
+                if (rel.toString().isEmpty()) continue;
+                String first = rel.getName(0).toString();
+                if (!whole && !first.equals("lib") && !first.equals("Directory.Build.props")) continue;
+                Path dst = root.resolve(rel.toString());
+                if (Files.isDirectory(src)) Files.createDirectories(dst);
+                else if (!Files.exists(dst)) {
+                    Files.createDirectories(dst.getParent());
+                    Files.copy(src, dst);
+                }
+            }
+        } catch (Exception ignored) {
+            // נשארת ההודעה של check
+        }
+    }
+
+    /** כמו check, אבל קודם מנסה להשלים את מה שחסר מההתקנה (repair) */
+    public static String ensure(Path root) {
+        repair(root);
+        return check(root);
+    }
+
     public static Path exercisesDir(Path root) {
         return root.resolve("Exercises");
     }

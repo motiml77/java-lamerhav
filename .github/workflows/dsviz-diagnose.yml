@@ -43,7 +43,7 @@ jobs:
           if (-not (Test-Path $f)) { throw 'no report file' }
           $t = Get-Content $f -Raw -Encoding UTF8
           $t
-          foreach ($need in 'DSViz — דוח אבחון', '==== DSViz ====', '==== Visual Studio ====', 'vsix-install.log', 'Windows:', 'כניסת מורה / עמדה', 'שעון המחשב:', 'בדיקה עמוקה 1', 'בדיקה עמוקה 2', 'בדיקה עמוקה 3', 'בדיקה עמוקה 4', 'יש Main בקובץ הזה: לא', 'סיבה סבירה למחסנית', 'stack-sum 3', 'Program.cs') {
+          foreach ($need in 'DSViz — דוח אבחון', '==== DSViz ====', '==== Visual Studio ====', 'vsix-install.log', 'Windows:', 'כניסת מורה / עמדה', 'שעון המחשב:', 'תיקיית התרגילים של C#', 'בדיקה עמוקה 1', 'בדיקה עמוקה 2', 'בדיקה עמוקה 3', 'בדיקה עמוקה 4', 'יש Main בקובץ הזה: לא', 'סיבה סבירה למחסנית', 'stack-sum 3', 'Program.cs') {
             if ($t -notmatch [regex]::Escape($need)) { throw "missing in report: $need" }
           }
           if ($t -match [regex]::Escape($env:USERNAME + '\')) { Write-Host 'note: username path present' }

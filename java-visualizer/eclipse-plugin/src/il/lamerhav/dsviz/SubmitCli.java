@@ -122,7 +122,7 @@ public final class SubmitCli {
         ExercisePipeline.Result r;
         if (lang.equals("csharp")) {
             if (cs.isEmpty()) cs.add("dsviz-cs");
-            String bad = CsSolution.check(outDir.toPath());
+            String bad = CsSolution.ensure(outDir.toPath());
             if (bad != null) {
                 emit("error", bad);
                 System.exit(1);

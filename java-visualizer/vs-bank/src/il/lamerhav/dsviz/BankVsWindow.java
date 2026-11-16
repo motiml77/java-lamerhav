@@ -552,9 +552,9 @@ final class BankVsWindow {
     /** בונה את התרגיל (חלון קטן עם התקדמות), ואז: הפתרון ב-Visual Studio, החלון הצף של השאלה, והחלון הזה נסגר */
     void create(final BankStore.Question q) {
         String bad = BankVs.ij ? (java.nio.file.Files.isDirectory(BankVs.root) && java.nio.file.Files.isWritable(BankVs.root) ? null
-                : "אין אפשרות לכתוב בתיקיית הקוד של הפרויקט: " + BankVs.root) : CsSolution.check(BankVs.root);
+                : "אין אפשרות לכתוב בתיקיית הקוד של הפרויקט: " + BankVs.root) : CsSolution.ensure(BankVs.root);
         if (bad != null) {
-            RtlDialog.show(frame, BankVs.title(), RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + (BankVs.ij ? "" : "\nמריצים שוב את ההתקנה (DSViz-Setup.exe) עם חבילת C#."));
+            RtlDialog.show(frame, BankVs.title(), RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + (BankVs.ij ? "" : "\nמריצים שוב את ההתקנה (DSViz-Setup.exe)."));
             return;
         }
         final JDialog wait = new JDialog(frame, RtlDialog.rtl(BankVs.title()), false);

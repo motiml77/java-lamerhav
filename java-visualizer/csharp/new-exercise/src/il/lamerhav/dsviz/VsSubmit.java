@@ -208,9 +208,9 @@ public final class VsSubmit {
     // ------------------------------------------------------------------ שליחת תרגיל
 
     public static void submit(Path root) {
-        String bad = CsSolution.check(root);
+        String bad = CsSolution.ensure(root);
         if (bad != null) {
-            RtlDialog.show(null, TITLE, RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + "\nמריצים שוב את ההתקנה (DSViz-Setup.exe) עם חבילת C#.");
+            RtlDialog.show(null, TITLE, RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + "\nמריצים שוב את ההתקנה (DSViz-Setup.exe).");
             return;
         }
         WorkerClient.CLIENT = "dsviz-vs/1.0.1";

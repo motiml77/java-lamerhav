@@ -166,9 +166,9 @@ public final class CsTool {
     // ------------------------------------------------------------------ תרגיל חדש
 
     private static void newExercise(Path root, String preset, String shot, boolean open) {
-        String bad = CsProject.check(root);
+        String bad = CsProject.ensure(root);
         if (bad != null) {
-            RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + "\nמריצים שוב את ההתקנה (DSViz-Setup.exe) עם חבילת C#.");
+            RtlDialog.show(null, "תרגיל חדש — C#", RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + "\nמריצים שוב את ההתקנה (DSViz-Setup.exe).");
             return;
         }
         ExerciseForm f = new ExerciseForm(root, preset);
