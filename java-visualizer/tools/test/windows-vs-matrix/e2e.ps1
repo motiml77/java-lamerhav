@@ -912,6 +912,182 @@ else {
     Check 'apps-close' $closed "$title נסגר בסגירה רגילה" ''
 }
 
+# ------------------------------------------------------------------ T14: Empty Project דרך האשף של Visual Studio (File > New > Project)
+# פרויקט רגיל לגמרי, כמו שתלמיד יוצר בלי DSViz: האשף (חיפוש התבנית, שם, מיקום, Create), Add Class, הדבקת קוד שמשתמש ב-Stack,
+# ואז הרצה רגילה (Debug > Start Without Debugging) והרצה ויזואלית (הכפתור בסרגל) — עם צילום אחרי כל צעד
+Section 'T14. פרויקט חדש דרך האשף: Empty Project (.NET Framework) → מחלקה עם Main → הרצה רגילה והרצה ויזואלית'
+# חלון של Visual Studio (לא הראשי) שיש בו רכיב בשם הזה — האשף ("Create a new project" / "Configure your new project"), "Add New Item"
+function VsWindowWith([string]$pattern) {
+    foreach ($w in (OtherWindows $script:vsP.Id ([int]$script:vsMain))) {
+        try {
+            if ((ElName $w) -match $pattern) { return $w }
+            foreach ($e in @($w.FindAll([Windows.Automation.TreeScope]::Descendants, (New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::Text))))) {
+                if ((ElName $e) -match $pattern) { return $w }
+            }
+        } catch { }
+    }
+    return $null
+}
+function InWin($w, [string]$pattern, [string]$type = '') {
+    if (-not $w) { return @() }
+    try { return @($w.FindAll([Windows.Automation.TreeScope]::Descendants, [Windows.Automation.Condition]::TrueCondition) | Where-Object { (ElName $_) -match $pattern -and (-not $type -or (ElType $_) -match $type) -and (Shown $_) }) } catch { return @() }
+}
+function SubText($el) { try { return ((@($el.FindAll([Windows.Automation.TreeScope]::Subtree, [Windows.Automation.Condition]::TrueCondition) | ForEach-Object { ElName $_ } | Where-Object { $_ }) | Select-Object -Unique) -join ' | ') } catch { return '' } }
+# שדה טקסט: לחיצה אמיתית, Ctrl+A, הקלדה
+function TypeInto($el, [string]$text, [string]$tag) {
+    if ($el -and (RealClick $el $tag)) { Start-Sleep -Milliseconds 300 }
+    [DsReal]::Chord([uint16[]]@(0x11, 0x41)); Start-Sleep -Milliseconds 200
+    [DsReal]::Type($text); Start-Sleep -Milliseconds 500
+}
+$emptyRoot = Join-Path $env:USERPROFILE 'DSViz-empty-test'
+$emptyName = 'EmptyDemo'
+$emptyCode = @'
+using System;
+using Unit4.CollectionsLib;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        Stack<int> s = new Stack<int>();
+        s.Push(3);
+        s.Push(7);
+        Console.WriteLine("Empty Project: top=" + s.Top() + " " + s);
+        Ci.Mark("empty", typeof(Stack<int>).Assembly.GetName().Name);
+    }
+}
+
+static class Ci
+{
+    public static void Mark(string prog, string lib)
+    {
+        string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dsviz-ci");
+        System.IO.Directory.CreateDirectory(dir);
+        string host = System.IO.Path.GetFileNameWithoutExtension(System.Environment.GetCommandLineArgs()[0]);
+        System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "run-" + prog + ".txt"), prog + "|" + lib + "|" + host + "|" + System.DateTime.Now.ToString("HH:mm:ss.fff"));
+    }
+}
+'@
+KillJava; KillVs
+Remove-Item $emptyRoot -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force $emptyRoot | Out-Null
+$p = StartVs ''
+if (-not $p) { Fail 't14-open' "$title נפתח (בלי פתרון)" ((Windows) -join ' ; ') }
+else {
+    try {
+        AssertTime
+        WaitToolbar 240 | Out-Null
+        Step 't14-vs-open'
+        # 1. האשף: Ctrl+Shift+N (= File > New > Project)
+        VsFront | Out-Null
+        [DsReal]::Chord([uint16[]]@(0x11, 0x10, 0x4E))
+        $npd = WaitFor { VsWindowWith '^Create a new project$' } 60 1000
+        Step 't14-wizard-open'
+        Check 't14-wizard-open' ($null -ne $npd) 'Ctrl+Shift+N פתח את האשף "Create a new project"' "חלונות אחרים: $((OtherWindows $script:vsP.Id ([int]$script:vsMain) | ForEach-Object { "'" + (ElName $_) + "'" }) -join ', ')"
+        if (-not $npd) { DumpUia $script:vsP.Id 't14-no-wizard'; throw 'האשף לא נפתח' }
+        # 2. חיפוש התבנית ובחירת Empty Project (.NET Framework) של C# (יש גם אחת של Visual Basic באותו שם)
+        $search = @(InWin $npd '^Search for templates' 'Edit') | Select-Object -First 1
+        TypeInto $search 'Empty Project (.NET Framework)' 't14-search'
+        Start-Sleep 3
+        $cands = @(WaitFor { $x = @(InWin $npd 'Empty Project \(\.NET Framework\)' 'ListItem|DataItem'); if ($x.Count) { $x } } 30)
+        $pick = $null
+        foreach ($c in $cands) { $t = (ElName $c) + ' | ' + (SubText $c); Info "תבנית: $t"; if (-not $pick -and $t -match 'C#') { $pick = $c } }
+        if (-not $pick) { $pick = @($cands | Where-Object { ((ElName $_) + (SubText $_)) -notmatch 'Visual Basic|C\+\+' }) | Select-Object -First 1 }
+        Step 't14-wizard-search'
+        if (-not $pick) { DumpUia $script:vsP.Id 't14-no-template'; throw 'התבנית Empty Project (.NET Framework) לא נמצאה באשף' }
+        RealClick $pick 't14-template' | Out-Null
+        $next = @(InWin $npd '^Next$' 'Button') | Select-Object -First 1
+        RealClick $next 't14-next' | Out-Null
+        # 3. Configure your new project: שם, מיקום, Create
+        $nameBox = WaitFor { $x = @(InWin $npd '^Project name' 'Edit'); if ($x.Count) { $x[0] } } 30
+        if (-not $nameBox) { $npd = VsWindowWith 'Configure your new project'; $nameBox = @(InWin $npd '^Project name' 'Edit') | Select-Object -First 1 }
+        Check 't14-configure' ($null -ne $nameBox) 'אחרי Next: המסך "Configure your new project" עם שם הפרויקט' (SubText $npd)
+        if (-not $nameBox) { DumpUia $script:vsP.Id 't14-no-configure'; throw 'מסך ההגדרות של האשף לא נמצא' }
+        TypeInto $nameBox $emptyName 't14-project-name'
+        $loc = @(InWin $npd '^Location' 'Edit|ComboBox') | Select-Object -First 1
+        if ($loc -and (ElType $loc) -match 'ComboBox') { $e = @(InWin $loc '.*' 'Edit') | Select-Object -First 1; if ($e) { $loc = $e } }
+        TypeInto $loc $emptyRoot 't14-location'
+        Step 't14-wizard-configure'
+        $create = @(InWin $npd '^Create$' 'Button') | Select-Object -First 1
+        if (-not $create) {   # בגרסה שבה יש עוד מסך (Additional information) לפני Create
+            RealClick (@(InWin $npd '^Next$' 'Button') | Select-Object -First 1) 't14-next2' | Out-Null
+            $create = WaitFor { $x = @(InWin $npd '^Create$' 'Button'); if ($x.Count) { $x[0] } } 20
+        }
+        RealClick $create 't14-create' | Out-Null
+        # 4. הפרויקט נוצר ונפתח
+        $csproj = WaitFor { $f = @(Get-ChildItem $emptyRoot -Recurse -Filter "$emptyName.csproj" -ErrorAction SilentlyContinue) | Select-Object -First 1; if ($f) { $f } } 120 1000
+        $opened = WaitFor { $n = Dte { param($d) if ($d.Solution.IsOpen) { [int]$d.Solution.Projects.Count } else { 0 } } 4; if ($n -ge 1) { $n } } 120 1000
+        Start-Sleep 5; DismissDialogs | Out-Null
+        VsFront | Out-Null
+        Step 't14-created'
+        $projText = if ($csproj) { Get-Content $csproj.FullName -Raw -Encoding UTF8 } else { '' }
+        $outType = if ($projText -match '<OutputType>([^<]+)</OutputType>') { $Matches[1] } else { '?' }
+        $fw = if ($projText -match '<TargetFrameworkVersion>([^<]+)</TargetFrameworkVersion>') { $Matches[1] } else { '?' }
+        Check 't14-created' ($csproj -and $opened) "האשף יצר את הפרויקט $emptyName.csproj ו-Visual Studio פתח אותו" "csproj: $(if ($csproj) { $csproj.FullName } else { 'אין' }) · פרויקטים בפתרון: $opened"
+        if (-not $csproj) { throw 'הפרויקט לא נוצר' }
+        Check 't14-plain-project' (($projText -notmatch 'Unit4|DsViz|DSViz') -and ($projText -notmatch '<Compile ')) "פרויקט ריק ורגיל של ‎.NET Framework (OutputType=$outType, $fw): בלי הפניה לספרייה, בלי שום דבר של DSViz, בלי קבצי קוד" $(($projText -replace '\s+', ' ') -replace '^(.{0,400}).*$', '$1')
+        $projDir = $csproj.DirectoryName
+        $file = Join-Path $projDir 'Program.cs'
+        # 5. Add Class (Shift+Alt+C) — אחרי לחיצה על הפרויקט ב-Solution Explorer
+        $node = WaitFor { $x = @(ByName $script:vsP.Id $emptyName 'TreeItem'); if ($x.Count) { $x[0] } } 30
+        if ($node) { RealClick $node 't14-solution-explorer-project' | Out-Null }
+        [DsReal]::Chord([uint16[]]@(0x10, 0x12, 0x43))
+        $add = WaitFor { VsWindowWith '^Add New Item' } 30 1000
+        $how = ''
+        if ($add) {
+            Start-Sleep 2
+            Step 't14-add-new-item'
+            $nb = @(InWin $add '^Name' 'Edit') | Select-Object -First 1
+            TypeInto $nb 'Program.cs' 't14-class-name'
+            [DsReal]::Chord([uint16[]]@(0x0D))
+            if (WaitFor { Test-Path $file } 30) { $how = 'Add Class (Shift+Alt+C) ← Program.cs' }
+        }
+        if (-not $how) {
+            Info "חלון Add New Item לא עבד ($(if ($add) { 'נפתח' } else { 'לא נפתח' })) — מוסיפים את Program.cs לפרויקט דרך DTE"
+            if ($add) { [DsReal]::Chord([uint16[]]@(0x1B)) }
+            Set-Content -Path $file -Value $emptyCode -Encoding UTF8
+            Dte { param($d) $d.Solution.Projects.Item(1).ProjectItems.AddFromFile($file) | Out-Null; 'ok' } 8 | Out-Null
+            $how = 'DTE AddFromFile (גיבוי)'
+        }
+        Check 't14-add-class' (Test-Path $file) "נוסף קובץ קוד לפרויקט: Program.cs ($how)" ''
+        # 6. הקוד: הדבקה בעורך (Ctrl+A, Ctrl+V, Ctrl+S) כמו תלמיד שמדביק קוד
+        OpenDoc $file | Out-Null
+        VsFront | Out-Null
+        Set-Clipboard -Value $emptyCode
+        [DsReal]::Chord([uint16[]]@(0x11, 0x41)); Start-Sleep -Milliseconds 300
+        [DsReal]::Chord([uint16[]]@(0x11, 0x56)); Start-Sleep 1
+        [DsReal]::Chord([uint16[]]@(0x11, 0x53)); Start-Sleep 2
+        $pasted = (Get-Content $file -Raw -Encoding UTF8) -match 'Ci\.Mark\("empty"'
+        if (-not $pasted) {
+            Info 'ההדבקה בעורך לא נשמרה — כותבים את הקוד לקובץ ופותחים מחדש'
+            CloseDocs; Set-Content -Path $file -Value $emptyCode -Encoding UTF8; OpenDoc $file | Out-Null
+        }
+        Step 't14-code'
+        Check 't14-code' ((Get-Content $file -Raw -Encoding UTF8) -match 'Ci\.Mark\("empty"') "הקוד (Stack<int> מ-Unit4.CollectionsLib, בלי שום הפניה בפרויקט) ב-Program.cs — $(if ($pasted) { 'הודבק בעורך ונשמר' } else { 'נכתב לקובץ' })" ''
+        $before = (Get-FileHash $csproj.FullName).Hash
+        # 7. הרצה רגילה: Debug > Start Without Debugging (שתי לחיצות עכבר)
+        KillRuns; KillJava; ClearMarkers
+        $used = NormalRun 'menu' 't14-normal' $emptyName
+        $m = WaitMarker 'empty' 240
+        Start-Sleep 3
+        Step 't14-normal-after'
+        $why = "הפעלה: $used · Startup: $(Startup) · סימונים: $(Markers)"
+        if (-not $m) { Fail 't14-normal' "Empty Project מהאשף — הרצה רגילה ($used)" "התוכנית לא רצה תוך 4 דקות · $why"; DumpUia $script:vsP.Id 't14-no-run' }
+        else {
+            Check 't14-normal' (($m.Host -ne 'dsviz-cs') -and (@(RunnerProcs).Count -eq 0)) "Empty Project מהאשף — הרצה רגילה ($used): רצה התוכנית עצמה בקונסול (תהליך $($m.Host)), בלי ההרצה הוויזואלית" $why
+            Check 't14-normal-lib' ($m.Lib -eq 'Unit4.CollectionsLib') 'Empty Project מהאשף — בהרצה הרגילה Stack מגיע מהספרייה Unit4.CollectionsLib, שנוספה לבד (בלי הפניה בפרויקט)' "בפועל: '$($m.Lib)'"
+        }
+        for ($i = 0; $i -lt 30 -and -not (DesignMode); $i++) { Start-Sleep 1 }
+        KillRuns
+        # 8. הרצה ויזואלית: הכפתור בסרגל של DSViz
+        CheckVisual 't14-visual' $file 'empty' 'Unit4.CollectionsLib' 'Empty Project מהאשף'
+        Check 't14-project-unchanged' ((Get-FileHash $csproj.FullName).Hash -eq $before) 'שתי ההרצות לא שינו את קובץ הפרויקט של התלמיד (EmptyDemo.csproj)' ''
+    } catch { Fail 't14-exception' 'T14 רץ עד הסוף' "$_" }
+    KillRuns; KillJava
+    $closed = CloseVsByX
+    Check 't14-close' $closed "$title נסגר בסגירה רגילה" ''
+}
+
 # ------------------------------------------------------------------ יומנים
 Section 'יומנים'
 KillJava; Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
