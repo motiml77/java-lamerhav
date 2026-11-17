@@ -54,12 +54,14 @@ namespace DsViz.VsExtension
             _docs = docs;
             _buffer.Changed += OnBufferChanged;
             SolutionHints.StoreChanged += OnStoreChanged;
+            Power.Changed += OnStoreChanged;   // כיבוי / הפעלה של DSViz: המנורות נעלמות / חוזרות מיד
         }
 
         public void Dispose()
         {
             _buffer.Changed -= OnBufferChanged;
             SolutionHints.StoreChanged -= OnStoreChanged;
+            Power.Changed -= OnStoreChanged;
         }
 
         string FilePath()
@@ -108,7 +110,7 @@ namespace DsViz.VsExtension
             {
                 if (snap.Version.VersionNumber == _lastVersion) return _last;
                 var found = new List<LocatedHint>();
-                string file = FilePath();
+                string file = Power.On ? FilePath() : null;   // DSViz כבוי — אין מנורות
                 if (file != null)
                 {
                     List<Hint> hints = SolutionHints.ForFile(file);
@@ -273,6 +275,7 @@ namespace DsViz.VsExtension
             try
             {
                 SolutionHints.Log("solution glyph clicked: " + t.Hint.Method + " in " + t.File);
+                if (!Power.On) return;
                 if (!File.Exists(DsVizTool.Runner))
                 {
                     ThreadHelper.ThrowIfNotOnUIThread();

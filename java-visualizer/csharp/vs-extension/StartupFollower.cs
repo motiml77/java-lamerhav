@@ -17,6 +17,7 @@ namespace DsViz.VsExtension
     ///      Miscellaneous Files, כמו Loops4.cs שנפתח מ-File ← Open; או קובץ של פרויקט הרצה אחר) — ההרצה הרגילה ממשיכה כרגיל, ובראש
     ///      החלון מופיעה שורת הודעה (InfoBar, לא חוסמת) שמסבירה מה רץ ולמה, עם כפתור "הרצה ויזואלית" של הקובץ הפתוח.
     /// את הפרופיל "הרצה ויזואלית" מוסיפים DSViz.targets ו-dsviz-cs (LaunchProfile.Ensure) — לא כאן. כל כשל שקט.
+    /// כש-DSViz כבוי (Power — הלחצן האדום בסרגל) לא עושים כלום מזה: לא מחליפים Startup Project ולא מסבירים — Visual Studio רגיל.
     /// </summary>
     internal sealed class StartupFollower
     {
@@ -75,6 +76,7 @@ namespace DsViz.VsExtension
             try
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
+                if (!Power.On) return;   // DSViz כבוי: ההרצה של Visual Studio בלבד, בלי הודעה
                 if (_dte.Debugger != null && _dte.Debugger.CurrentMode != dbgDebugMode.dbgDesignMode) return;   // F5 בזמן דיבאג = Continue
                 FollowActive();
                 // אין מה להסביר (רץ הפרויקט של הקובץ הפתוח) — הודעה מהרצה קודמת כבר לא נכונה
@@ -89,6 +91,7 @@ namespace DsViz.VsExtension
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
                 _exercisesFor = null;
+                if (!Power.On) return;   // DSViz כבוי: שום פעולה אוטומטית בפתיחת פתרון
                 FollowActive();
             }
             catch (Exception ex) { SolutionHints.Log("startup follower (solution opened): " + ex.Message, true); }
@@ -227,6 +230,7 @@ namespace DsViz.VsExtension
         public void Follow(Document doc)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+            if (!Power.On) return;   // DSViz כבוי: ה-Startup Project נשאר כמו שהמשתמש בחר
             try
             {
                 string file = doc.FullName;

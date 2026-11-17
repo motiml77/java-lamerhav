@@ -1129,6 +1129,96 @@ else {
     Check 't14-close' $closed "$title נסגר בסגירה רגילה" ''
 }
 
+# ------------------------------------------------------------------ T15: כיבוי DSViz — הלחצן האדום בסוף הסרגל
+# לחיצה אמיתית על "כיבוי DSViz" ← "OK" בהודעה: כל שאר הכפתורים של DSViz נעלמים, ונשאר רק הלחצן הירוק "הפעלת DSViz". ההרצה הרגילה
+# עובדת כרגיל — גם קוד שמשתמש בספריית הקורס בלי שום הפניה (DSViz.targets נטען מ-MSBuild ולא נכבה) — וההרחבה לא עושה כלום בזמן הזה.
+# אחרי סגירה ופתיחה של Visual Studio — עדיין כבוי (vs-power-off.flag). "הפעלת DSViz" ← כל הכפתורים חוזרים, וההרצה הוויזואלית עובדת שוב
+Section 'T15. כיבוי DSViz (הלחצן האדום בסוף הסרגל) והפעלה מחדש'
+$powerFlag = Join-Path $dsviz 'vs-power-off.flag'
+Remove-Item $powerFlag -Force -ErrorAction SilentlyContinue
+# הכפתורים הרגילים של DSViz שנראים עכשיו בסרגל (כש-DSViz כבוי — אף אחד)
+function PowerShownButtons() { @($script:dsvizNames | Where-Object { $b = ToolbarButton $_; $b -and $b.Current.IsEnabled }) }
+function PowerOffToolbar([int]$sec) { WaitFor { if ((@(PowerShownButtons).Count -eq 0) -and (ToolbarButton 'הפעלת DSViz') -and -not (ToolbarButton 'כיבוי DSViz')) { $true } } $sec 1000 }
+function PowerOnToolbar([int]$sec) { WaitFor { if ((@(PowerShownButtons).Count -eq $script:dsvizNames.Count) -and (ToolbarButton 'כיבוי DSViz') -and -not (ToolbarButton 'הפעלת DSViz')) { $true } } $sec 1000 }
+KillJava; KillVs
+$p = StartVs $apps.Sln
+if (-not $p) { Fail 't15-open' "$title נפתח עם CiApps.sln" ((Windows) -join ' ; ') }
+else {
+    $d = $apps.Dir
+    try {
+        AssertTime
+        Start-Sleep 25
+        SkipFirstRun $p.Id | Out-Null
+        $ready = WaitToolbar 240
+        $red = WaitFor { ToolbarButton 'כיבוי DSViz' } 60 1000
+        Step 't15-on'
+        Check 't15-red' ($ready -and $red -and -not (ToolbarButton 'הפעלת DSViz')) 'DSViz פועל: כל הכפתורים בסרגל, ובסופו הלחצן האדום "כיבוי DSViz" (בלי הירוק)' "$(DescEl $red) · $(DteToolbar)"
+        if ($red) {
+            $rights = @($script:dsvizNames | ForEach-Object { $b = ToolbarButton $_; if ($b) { [int]$b.Current.BoundingRectangle.Right } })
+            $rr = $red.Current.BoundingRectangle
+            $last = ($rights.Count -gt 0) -and ($rr.Left -ge (($rights | Measure-Object -Maximum).Maximum - 2))
+            Check 't15-red-last' $last 'הלחצן "כיבוי DSViz" הוא האחרון בסרגל של DSViz' "כיבוי: x=$([int]$rr.Left) · הקצה הימני של שאר הכפתורים: $($rights -join ',')"
+        }
+        # 1. כיבוי: לחיצה אמיתית, הסבר, OK
+        $tc = TraceCount
+        $clicked = ClickToolbar 'כיבוי DSViz' 't15-power-off'
+        $dlg = $null
+        if ($clicked) { $dlg = WaitFor { FindMessage 'לכבות את DSViz' } 30 1000 }
+        Step 't15-confirm'
+        Check 't15-confirm' ($null -ne $dlg) 'לפני הכיבוי: הודעה שמסבירה מה ייכבה (אישור / ביטול)' "חלונות קופצים: $((@(Dialogs | ForEach-Object { $_.Text }) -join ' || '))"
+        if ($dlg) {
+            Check 't15-confirm-text' (($dlg.Text -match 'לא משתנים') -and ($dlg.Text -match 'הפעלת DSViz')) 'ההודעה אומרת שהקוד והפרויקטים לא משתנים, ואיך מחזירים ("הפעלת DSViz")' ($dlg.Text.Substring(0, [Math]::Min(400, $dlg.Text.Length)))
+            if ($dlg.Ok) { RealClick $dlg.Ok 't15-confirm-ok' | Out-Null } else { Info 'כפתור OK לא נמצא — Enter'; [DsReal]::Chord([uint16[]]@(0x0D)); Step 't15-confirm-enter' }
+        } else { DumpUia $script:vsP.Id 't15-no-confirm' }
+        $off = PowerOffToolbar 30
+        Start-Sleep 2
+        Step 't15-off'
+        Check 't15-off-toolbar' ([bool]$off) 'אחרי "כיבוי": כל הכפתורים של DSViz נעלמו מהסרגל, ונשאר רק הלחצן הירוק "הפעלת DSViz"' "עדיין נראים: $((PowerShownButtons) -join ', ') · הירוק: $(DescEl (ToolbarButton 'הפעלת DSViz')) · האדום: $(DescEl (ToolbarButton 'כיבוי DSViz'))"
+        if (-not $off) { DumpUia $script:vsP.Id 't15-off-toolbar' }
+        Check 't15-off-saved' ((Test-Path $powerFlag) -and @(TraceSince $tc 'power: off').Count -gt 0) 'המצב "כבוי" נשמר (vs-power-off.flag) ונרשם ביומן ההרחבה ("power: off")' "flag=$(Test-Path $powerFlag) · יומן: $((TraceSince $tc 'power') -join ' | ')"
+        # 2. כשכבוי: ההרצה הרגילה של Visual Studio, כמו בלי DSViz — וגם ספריית הקורס עדיין נוספת בבנייה (DSViz.targets)
+        $tcRun = TraceCount
+        CheckNormal 't15-off-normal' 'SdkApp' (Join-Path $d 'SdkApp\Program.cs') 'sdk' 'ctrlf5' '' 'DSViz כבוי: פרויקט SDK' | Out-Null
+        CheckNormal 't15-off-lib' 'ClassicDsviz' (Join-Path $d 'ClassicDsviz\Program.cs') 'classicdsviz' 'menu' 'Unit4.CollectionsLib' 'DSViz כבוי: קוד שמשתמש בספריית הקורס בלי שום הפניה (DSViz.targets ממשיך להוסיף אותה)' | Out-Null
+        $busy = @(TraceSince $tcRun 'info bar shown|startup project ->|visual run|solution glyph')
+        Check 't15-off-quiet' ($busy.Count -eq 0) 'DSViz כבוי: ההרחבה לא עשתה כלום בזמן ההרצות (אין שורת הודעה, לא החליפה Startup Project, לא הריצה ויזואלית)' ($busy -join ' | ')
+    } catch { Fail 't15-exception' 'T15 (כיבוי) רץ עד הסוף' "$_" }
+    # 3. סגירה ופתיחה: עדיין כבוי
+    KillRuns; KillJava
+    $closed = CloseVsByX
+    Check 't15-close' $closed "$title נסגר בסגירה רגילה (DSViz כבוי)" ''
+    $p = StartVs $apps.Sln
+    if (-not $p) { Fail 't15-reopen' "$title נפתח שוב עם CiApps.sln" ((Windows) -join ' ; ') }
+    else {
+        try {
+            AssertTime
+            Start-Sleep 25
+            SkipFirstRun $p.Id | Out-Null
+            # עד שההרחבה נטענת Visual Studio מציג את ברירת המחדל של הסרגל — מחכים שהיא תסתיר את הכפתורים
+            $still = PowerOffToolbar 240
+            Step 't15-reopened'
+            Check 't15-persist' ([bool]$still -and (Test-Path $powerFlag)) 'אחרי סגירה ופתיחה של Visual Studio: DSViz עדיין כבוי — רק הלחצן הירוק "הפעלת DSViz" בסרגל' "עדיין נראים: $((PowerShownButtons) -join ', ') · הירוק: $(DescEl (ToolbarButton 'הפעלת DSViz')) · flag=$(Test-Path $powerFlag) · $(DteToolbar)"
+            if (-not $still) { DumpUia $script:vsP.Id 't15-reopened'; TraceTail 'power' }
+            # 4. הפעלה: הלחצן הירוק — הכפתורים חוזרים, וההרצה הוויזואלית עובדת שוב
+            $tc = TraceCount
+            $clicked = ClickToolbar 'הפעלת DSViz' 't15-power-on'
+            $on = $false
+            if ($clicked) { $on = PowerOnToolbar 60 }
+            Start-Sleep 2
+            Step 't15-on-again'
+            Check 't15-on-toolbar' ([bool]$on) 'אחרי "הפעלת DSViz": כל הכפתורים של DSViz חזרו לסרגל, והלחצן האדום "כיבוי DSViz" שוב בסופו' "נראים: $((PowerShownButtons) -join ', ') · האדום: $(DescEl (ToolbarButton 'כיבוי DSViz')) · הירוק: $(DescEl (ToolbarButton 'הפעלת DSViz'))"
+            if (-not $on) { DumpUia $script:vsP.Id 't15-on-toolbar' }
+            Check 't15-on-saved' ((-not (Test-Path $powerFlag)) -and @(TraceSince $tc 'power: on').Count -gt 0) 'המצב "פועל" נשמר (vs-power-off.flag נמחק) ונרשם ביומן ההרחבה ("power: on")' "flag=$(Test-Path $powerFlag) · יומן: $((TraceSince $tc 'power') -join ' | ')"
+            CheckVisual 't15-on-visual' (Join-Path $apps.Dir 'SdkApp\Program.cs') 'sdk' '' 'אחרי "הפעלת DSViz": פרויקט SDK'
+        } catch { Fail 't15-exception-reopen' 'T15 (פתיחה מחדש והפעלה) רץ עד הסוף' "$_" }
+        KillRuns; KillJava
+        $closed = CloseVsByX
+        Check 't15-close-again' $closed "$title נסגר בסגירה רגילה (DSViz פועל שוב)" ''
+    }
+}
+# בכל מקרה: DSViz חוזר להיות פועל (הקובץ נמחק) — שום דבר אחרי הבדיקה הזו לא רץ כשהוא כבוי
+Remove-Item $powerFlag -Force -ErrorAction SilentlyContinue
+
 # ------------------------------------------------------------------ יומנים
 Section 'יומנים'
 KillJava; Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue

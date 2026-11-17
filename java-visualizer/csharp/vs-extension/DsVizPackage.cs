@@ -15,6 +15,7 @@ namespace DsViz.VsExtension
     /// DSViz ב-Visual Studio: סרגל כלים בפני עצמו בראש החלון (DsVizPackage.vsct): תרגיל חדש · הוספת מבנה נתונים · מאגר שאלות ·
     /// שליחת תרגיל · הרצה ויזואלית · הדרכה. כל כפתור מפעיל את הכלי של ההתקנה (%LOCALAPPDATA%\DSViz\cs\dsviz-cs.exe --tool ...)
     /// — אותם חלונות כמו בקיצורים של ההתקנה; "הרצה ויזואלית" מריצה את קובץ ה-C# הפתוח.
+    /// בסוף הסרגל: "כיבוי DSViz" (אדום) / "הפעלת DSViz" (ירוק) — מכבה את כל מה שההרחבה עושה (Power.cs), בלי לגעת בקוד ובבנייה.
     /// </summary>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [InstalledProductRegistration("DSViz", "Data structures visualizer toolbar", "1.0.1")]
@@ -74,6 +75,7 @@ namespace DsViz.VsExtension
             Safe("visual run", () => Add(mcs, 0x0106, VisualRun));
             Safe("help", () => Add(mcs, 0x0107, () => Tool("help")));
             Safe("teacher", () => AddTeacher(mcs));
+            Safe("power", () => AddPower(mcs));
             Safe("toolbar", ShowToolbarOnce);
             Safe("follower", FollowActiveDocument);
             // "מאגר שאלות" / "השאלה" / "עמדת ניהול": בטעינה הסרגל עוד לא תמיד קיים, וכפתור שהוסתר פעם (גרסה בלי מאגר) נשאר מוסתר
@@ -94,8 +96,10 @@ namespace DsViz.VsExtension
         void ResyncButtons()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            _bankOn = true;   // לפני הגישה ל-CommandBars: היא מפעילה שוב את BeforeQueryStatus
-            SyncBankControl(true);   // "מאגר שאלות" ו"השאלה" — תמיד גלויים
+            bool on = Power.On;
+            _bankOn = on;   // לפני הגישה ל-CommandBars: היא מפעילה שוב את BeforeQueryStatus
+            SyncBankControl(on);   // "מאגר שאלות" ו"השאלה" — תמיד גלויים (כש-DSViz פועל)
+            SyncPowerControls(on);
             bool teacher = TeacherOn();
             _teacherSyncing = true;
             try
@@ -287,36 +291,37 @@ namespace DsViz.VsExtension
         {
             var cmd = new OleMenuCommand((s, e) =>
             {
-                try { if (BankReady()) Tool("bank"); }
+                try { if (Power.On && BankReady()) Tool("bank"); }
                 catch (Exception ex) { Say("DSViz: " + ex.Message); }
             }, new CommandID(CmdSet, 0x0103));
-            // תמיד גלוי ולחיץ: אם המאגר לא במקום, הלחיצה מתקנת (BankReady) או מסבירה — לא כפתור אפור או מוסתר
+            // תמיד גלוי ולחיץ: אם המאגר לא במקום, הלחיצה מתקנת (BankReady) או מסבירה — לא כפתור אפור או מוסתר. רק כש-DSViz כבוי — מוסתר
             cmd.BeforeQueryStatus += (s, e) =>
             {
+                bool on = Power.On;
                 var c = (OleMenuCommand)s;
-                c.Visible = true;
-                c.Enabled = true;
-                if (_bankOn != true)
+                c.Visible = on;
+                c.Enabled = on;
+                if (_bankOn != on)
                 {
-                    _bankOn = true;
-                    SyncBankControl(true);
+                    _bankOn = on;
+                    SyncBankControl(on);
                 }
             };
             mcs.AddCommand(cmd);
             // "השאלה": החלון הצף של השאלה האחרונה מהמאגר (כמו הכפתור "השאלה" ב-Eclipse) — עד עכשיו רק מקיצור בשולחן העבודה
             var q = new OleMenuCommand((s, e) =>
             {
-                try { if (BankReady()) Tool("question"); }
+                try { if (Power.On && BankReady()) Tool("question"); }
                 catch (Exception ex) { Say("DSViz: " + ex.Message); }
             }, new CommandID(CmdSet, 0x0109));
             q.BeforeQueryStatus += (s, e) =>
             {
                 var c = (OleMenuCommand)s;
-                c.Visible = true;
-                c.Enabled = true;
+                c.Visible = Power.On;
+                c.Enabled = Power.On;
             };
             mcs.AddCommand(q);
-            SyncBankControl(true);
+            SyncBankControl(Power.On);
         }
 
         bool? _bankOn;
@@ -361,6 +366,100 @@ namespace DsViz.VsExtension
             return found;
         }
 
+        // ------------------------------------------------------------------ כיבוי / הפעלה של כל DSViz (Power.cs)
+
+        /// <summary>כל הכפתורים שמוסתרים כש-DSViz כבוי (לפי הכיתוב — SyncControl). "מאגר שאלות" / "השאלה" / "עמדת ניהול" — בנפרד</summary>
+        static readonly string[][] RegularButtons =
+        {
+            new[] { "תרגיל חדש", "new" }, new[] { "הוספת מבנה נתונים", "insert" }, new[] { "שליחת תרגיל", "submit" },
+            new[] { "הרצה ויזואלית", "visual run" }, new[] { "הדרכה", "help" },
+        };
+
+        const string PowerOffCaption = "כיבוי DSViz", PowerOnCaption = "הפעלת DSViz";
+
+        /// <summary>השאלה לפני כיבוי (כמו ב-Eclipse וב-IntelliJ): מה ייעלם, שהקוד לא משתנה, ואיך מחזירים</summary>
+        internal const string PowerOffText = "לכבות את DSViz?\n\n"
+            + "כל מה ש-DSViz מוסיף ל-Visual Studio ייכבה:\n"
+            + "\u2022  הכפתורים בסרגל DSViz (תרגיל חדש, הוספת מבנה נתונים, מאגר שאלות, השאלה, שליחת תרגיל, הרצה ויזואלית, הדרכה)\n"
+            + "\u2022  המנורות של ההצעות לפתרון ליד הסעיפים\n"
+            + "\u2022  שורות ההסבר בראש החלון, והבחירה האוטומטית של הפרויקט שרץ לפי הקובץ הפתוח\n\n"
+            + "יישאר Visual Studio רגיל בלבד. הקוד והפרויקטים שלכם לא משתנים ולא נמחקים, והם ממשיכים להיבנות ולרוץ כרגיל (F5 / Ctrl+F5) — "
+            + "גם קוד שמשתמש בספריית הקורס (Unit4.CollectionsLib).\n\n"
+            + "כדי להחזיר הכול: הלחצן הירוק \"הפעלת DSViz\" בסוף סרגל DSViz.";
+
+        void AddPower(OleMenuCommandService mcs)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var off = new OleMenuCommand((s, e) =>
+            {
+                try { TurnOff(); }
+                catch (Exception ex) { Say("DSViz: " + ex.Message); }
+            }, new CommandID(CmdSet, 0x010A));
+            off.BeforeQueryStatus += (s, e) =>
+            {
+                var c = (OleMenuCommand)s;
+                c.Visible = Power.On;
+                c.Enabled = Power.On;
+            };
+            mcs.AddCommand(off);
+            var on = new OleMenuCommand((s, e) =>
+            {
+                try { ApplyPower(true); }
+                catch (Exception ex) { Say("DSViz: " + ex.Message); }
+            }, new CommandID(CmdSet, 0x010B));
+            on.BeforeQueryStatus += (s, e) =>
+            {
+                var c = (OleMenuCommand)s;
+                c.Visible = !Power.On;
+                c.Enabled = !Power.On;
+            };
+            mcs.AddCommand(on);
+            SyncPowerControls(Power.On);
+            if (!Power.On) SolutionHints.Log("power: off (since an earlier session) - only Visual Studio itself is active");
+        }
+
+        /// <summary>הלחצן האדום: קודם ההסבר (אישור / ביטול), ורק אחרי "אישור" מכבים</summary>
+        void TurnOff()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!Power.On) return;
+            int answer = VsShellUtilities.ShowMessageBox(this, PowerOffText, PowerOffCaption, OLEMSGICON.OLEMSGICON_WARNING,
+                OLEMSGBUTTON.OLEMSGBUTTON_OKCANCEL, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            if (answer != 1)   // IDOK
+            {
+                SolutionHints.Log("power: off cancelled");
+                return;
+            }
+            ApplyPower(false);
+        }
+
+        /// <summary>
+        /// מכבה / מפעיל: המצב נשמר (Power.Set — גם ליומן), הכפתורים מוסתרים / חוזרים (גם דרך CommandBars, כמו "מאגר שאלות"), שורת ההודעה
+        /// נסגרת, והמנורות מתעדכנות (SolutionTagger מקשיב ל-Power.Changed). שום קובץ של התלמיד לא משתנה
+        /// </summary>
+        void ApplyPower(bool on)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            Power.Set(on);
+            _bankOn = on;   // לפני הגישה ל-CommandBars (היא מפעילה שוב את BeforeQueryStatus)
+            SyncBankControl(on);
+            SyncPowerControls(on);
+            TeacherChanged(TeacherOn());
+            if (!on && _runBar != null) _runBar.Close();
+            if (on && _follower != null) _follower.FollowActive();
+            var shell = GetService(typeof(SVsUIShell)) as IVsUIShell;
+            if (shell != null) shell.UpdateCommandUI(0);
+        }
+
+        /// <summary>הכפתורים הרגילים ושני לחצני הכיבוי / ההפעלה — גם דרך CommandBars (DynamicVisibility לבד לא תמיד מעלים כפתור בסרגל)</summary>
+        void SyncPowerControls(bool on)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            foreach (string[] button in RegularButtons) SyncControl(button[0], button[1], on);
+            SyncControl(PowerOffCaption, "power-off", on);
+            SyncControl(PowerOnCaption, "power-on", !on);
+        }
+
         // ------------------------------------------------------------------ "עמדת ניהול" — רק למורה מחובר
 
         /// <summary>
@@ -386,6 +485,7 @@ namespace DsViz.VsExtension
 
         static bool TeacherOn()
         {
+            if (!Power.On) return false;   // DSViz כבוי — גם "עמדת ניהול" מוסתרת
             try { return File.Exists(BankJar) && (File.Exists(TeacherFlag) || File.Exists(LegacyTeacherFlag)); }
             catch (Exception) { return false; }
         }
@@ -494,7 +594,7 @@ namespace DsViz.VsExtension
         void Teacher()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (!Installed()) return;
+            if (!Power.On || !Installed()) return;
             if (!File.Exists(BankJar)) { Say("DSViz: מאגר השאלות לא מותקן."); return; }
             string java = Path.Combine(InstallDir, "jdk", "bin", "javaw.exe");
             if (!File.Exists(java)) java = "javaw";
@@ -506,13 +606,21 @@ namespace DsViz.VsExtension
             Process.Start(psi);
         }
 
+        /// <summary>כפתור רגיל של הסרגל: גלוי ולחיץ רק כש-DSViz פועל (Power), וכשהוא כבוי גם פקודה שמגיעה בדרך אחרת (Command Window) לא עושה כלום</summary>
         void Add(OleMenuCommandService mcs, int id, Action action)
         {
-            mcs.AddCommand(new MenuCommand((s, e) =>
+            var cmd = new OleMenuCommand((s, e) =>
             {
-                try { action(); }
+                try { if (Power.On) action(); }
                 catch (Exception ex) { Say("DSViz: " + ex.Message); }
-            }, new CommandID(CmdSet, id)));
+            }, new CommandID(CmdSet, id));
+            cmd.BeforeQueryStatus += (s, e) =>
+            {
+                var c = (OleMenuCommand)s;
+                c.Visible = Power.On;
+                c.Enabled = Power.On;
+            };
+            mcs.AddCommand(cmd);
         }
 
         void Say(string text)
@@ -585,7 +693,7 @@ namespace DsViz.VsExtension
         void Tool(string mode)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (Installed()) Start("--tool", mode, ExercisesRoot());
+            if (Power.On && Installed()) Start("--tool", mode, ExercisesRoot());
         }
 
         /// <summary>
@@ -638,7 +746,7 @@ namespace DsViz.VsExtension
         void RunFile(string file)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (!Installed()) return;
+            if (!Power.On || !Installed()) return;
             var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
             try { if (dte != null) dte.Documents.SaveAll(); } catch (Exception) { }
             SolutionHints.Log("visual run (info bar): " + file);
@@ -649,7 +757,7 @@ namespace DsViz.VsExtension
         void VisualRun()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (!Installed()) return;
+            if (!Power.On || !Installed()) return;
             var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
             // כמו הכפתור הירוק של Visual Studio: קודם שומרים את כל הקבצים — dsviz-cs קורא את הקוד מהדיסק, ובלי זה תלמיד שכתב
             // קוד ולא שמר היה רואה את הגרסה הקודמת (למשל "Hello, World!" של התבנית)

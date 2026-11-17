@@ -92,6 +92,8 @@
     </PropertyGroup>
     <MakeDir Directories="$(_VsctWork)" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\DsVizPackage.vsct;$(_VsctInc)\stdidcmd.h;$(_VsctInc)\vsshlids.h;$(_VsctInc)\sharedids.h;$(_VsctInc)\virtkeys.h;$(_VsctInc)\MnuHelpIds.h;$(_VsctInc)\sccmnid.h;$(_VsctInc)\wbids.h;$(_VsctInc)\editids.h;$(_VsctInc)\venusids.h;$(_VsctInc)\KnownImageIds.vsct" DestinationFolder="$(_VsctWork)" />
+    <!-- הסמלים של כיבוי / הפעלה (<Bitmap href="Resources\PowerIcons.png"> ב-vsct): VSCT מטמיע אותם בתוך ה-cto -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Resources\PowerIcons.png" DestinationFolder="$(_VsctWork)Resources" />
     <Exec WorkingDirectory="$(_VsctWork)" Command="&quot;$(_VsctExe)&quot; DsVizPackage.vsct DsVizPackage.cto" />
     <!-- VS מחפש את Menus.ctmenu בתוך משאב מנוהל בשם VSPackage.resources (כך VSSDK ממזג את ה-cto), לא כמשאב עצמאי -->
     <DsVizWriteResources Cto="$(_VsctOut)" Out="$(_VsctWork)VSPackage.resources" />

@@ -27,6 +27,7 @@
       <Button guid="guidDsVizCmdSet" id="CmdNew" priority="0x0100" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="NewDocument" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>תרגיל חדש</ButtonText></Strings>
@@ -34,6 +35,7 @@
       <Button guid="guidDsVizCmdSet" id="CmdInsert" priority="0x0200" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="Hierarchy" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>הוספת מבנה נתונים</ButtonText></Strings>
@@ -41,7 +43,8 @@
       <Button guid="guidDsVizCmdSet" id="CmdBank" priority="0x0300" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="Library" />
-        <!-- תמיד גלוי ולחיץ; אם המאגר חסר, הלחיצה מתקנת או מסבירה (BankReady ב-DsVizPackage) -->
+        <!-- תמיד גלוי ולחיץ (כש-DSViz פועל); אם המאגר חסר, הלחיצה מתקנת או מסבירה (BankReady ב-DsVizPackage) -->
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>מאגר שאלות</ButtonText></Strings>
@@ -49,7 +52,8 @@
       <Button guid="guidDsVizCmdSet" id="CmdQuestion" priority="0x0350" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="Document" />
-        <!-- תמיד גלוי ולחיץ; אם המאגר חסר, הלחיצה מתקנת או מסבירה (BankReady ב-DsVizPackage) -->
+        <!-- תמיד גלוי ולחיץ (כש-DSViz פועל); אם המאגר חסר, הלחיצה מתקנת או מסבירה (BankReady ב-DsVizPackage) -->
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>השאלה</ButtonText></Strings>
@@ -57,6 +61,7 @@
       <Button guid="guidDsVizCmdSet" id="CmdSubmit" priority="0x0400" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="Send" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>שליחת תרגיל</ButtonText></Strings>
@@ -64,6 +69,7 @@
       <Button guid="guidDsVizCmdSet" id="CmdRun" priority="0x0600" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="Run" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>הרצה ויזואלית</ButtonText></Strings>
@@ -71,6 +77,7 @@
       <Button guid="guidDsVizCmdSet" id="CmdHelp" priority="0x0700" type="Button">
         <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
         <Icon guid="ImageCatalogGuid" id="StatusHelp" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>הדרכה</ButtonText></Strings>
@@ -85,7 +92,29 @@
         <CommandFlag>IconAndText</CommandFlag>
         <Strings><ButtonText>עמדת ניהול</ButtonText></Strings>
       </Button>
+      <!-- כיבוי / הפעלה של כל DSViz (Power.cs), בסוף הסרגל: אדום "כיבוי DSViz" כש-DSViz פועל, ירוק "הפעלת DSViz" כשהוא כבוי — אז כל שאר
+           הכפתורים מוסתרים. שני כפתורים ולא אחד שמחליף סמל: בסרגל של Visual Studio אי אפשר להחליף סמל של פקודה בזמן ריצה.
+           הסמלים: אותם PNG של Eclipse / IntelliJ (eclipse-plugin/icons/power-off.png, power-on.png), ברצועה אחת של 16x16 — Resources\PowerIcons.png -->
+      <Button guid="guidDsVizCmdSet" id="CmdPowerOff" priority="0x0F00" type="Button">
+        <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
+        <Icon guid="guidDsVizPowerImages" id="bmpPowerOff" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
+        <Strings><ButtonText>כיבוי DSViz</ButtonText></Strings>
+      </Button>
+      <Button guid="guidDsVizCmdSet" id="CmdPowerOn" priority="0x0F01" type="Button">
+        <Parent guid="guidDsVizCmdSet" id="DsVizToolbarGroup" />
+        <Icon guid="guidDsVizPowerImages" id="bmpPowerOn" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
+        <Strings><ButtonText>הפעלת DSViz</ButtonText></Strings>
+      </Button>
     </Buttons>
+
+    <Bitmaps>
+      <Bitmap guid="guidDsVizPowerImages" href="Resources\PowerIcons.png" usedList="bmpPowerOff, bmpPowerOn" />
+    </Bitmaps>
   </Commands>
 
   <Symbols>
@@ -101,6 +130,12 @@
       <IDSymbol name="CmdHelp" value="0x0107" />
       <IDSymbol name="CmdTeacher" value="0x0108" />
       <IDSymbol name="CmdQuestion" value="0x0109" />
+      <IDSymbol name="CmdPowerOff" value="0x010A" />
+      <IDSymbol name="CmdPowerOn" value="0x010B" />
+    </GuidSymbol>
+    <GuidSymbol name="guidDsVizPowerImages" value="{3c8e5b7a-2f14-4d69-9a0b-6e1d4c7f8a25}">
+      <IDSymbol name="bmpPowerOff" value="1" />
+      <IDSymbol name="bmpPowerOn" value="2" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

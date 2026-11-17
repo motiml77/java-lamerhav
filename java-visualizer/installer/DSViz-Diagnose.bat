@@ -72,6 +72,8 @@ if (Test-Path $vswhere) {
     }
     $loaded = @(Get-ChildItem $dsviz -Filter 'vs-loaded-*.txt' -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
     if ($loaded.Count) { Put ('קובצי "ההרחבה נטענה": ' + ($loaded -join ', ')) }
+    # הלחצן האדום "כיבוי DSViz" בסרגל (Power.cs בהרחבה): כבוי — נשארים רק הלחצן הירוק "הפעלת DSViz" ו-Visual Studio עצמו
+    if (Test-Path (Join-Path $dsviz 'vs-power-off.flag')) { Put '*** DSViz כבוי ב-Visual Studio (נלחץ "כיבוי DSViz"): בסרגל נשאר רק הלחצן הירוק "הפעלת DSViz" — לוחצים עליו כדי להחזיר הכול ***' }
 } else {
     Put 'לא נמצא Visual Studio (אין vswhere.exe)'
 }

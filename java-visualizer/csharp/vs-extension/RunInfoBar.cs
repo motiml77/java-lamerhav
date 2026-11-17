@@ -28,6 +28,7 @@ namespace DsViz.VsExtension
         public void Show(string key, string text, string[] buttons, Action[] actions)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+            if (!Power.On) return;   // DSViz כבוי — אין שורות הודעה
             try
             {
                 if (_element != null && key == _key) return;
