@@ -872,5 +872,29 @@ sed 's/Console.WriteLine(q);/Grid g = new Grid(3, 3, 40, 40); g.Show(); Console.
     || { echo "קוד שמשתמש ב-Grid: חסר ההסבר בעברית"; cat "$ST/grid.out"; exit 1; }
 echo "התבנית של בתי הספר (using BinTreeCanvasLib / BinTreeUtilsLib / GridLib / TurtleLib): ההרצה הוויזואלית מתחילה, TreeCanvas עם אותו פלט (4 סדרי מעבר), ושימוש ב-Grid — הסבר בעברית"
 
+# כט. אין פער שלא ידוע לנו מול Unit4.dll האמיתי: כל סוג ציבורי שם קיים בספרייה של DSViz (באותו API — סעיף כד), או רשום כגרפי בהרצה
+#     הוויזואלית (SchoolUsings.GraphicTypes, ‏dsviz-cs --school-graphics) — שם יש הסבר בעברית. סוג חדש בגרסה חדשה של הקובץ — הבדיקה נכשלת
+#     ואומרת מה להוסיף. ותוכנית עם using לכל namespace שיש בקובץ רצה בהרצה הוויזואלית; using עם שגיאת הקלדה נשאר שגיאה (כמו בהרצה הרגילה)
+dotnet "$W/apicmp/out/ApiCompare.dll" --types "$SCHOOL_DLL" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$ST/school-only.txt" \
+    && viz --school-graphics > "$ST/graphics.txt" || { echo "רשימת הסוגים של Unit4.dll לא נקראה"; exit 1; }
+if ! cmp -s "$ST/school-only.txt" "$ST/graphics.txt"; then
+    echo "יש ב-Unit4.dll האמיתי סוג שאין בספרייה של DSViz ושלא רשום כגרפי (או רשום סוג שכבר לא קיים שם):"
+    diff "$ST/graphics.txt" "$ST/school-only.txt" | sed -n 's/^> /  חדש בקובץ של בית הספר (לממש בספרייה, או להוסיף ל-GraphicTypes ב-SchoolUsings.cs): /p; s/^< /  רשום ב-GraphicTypes ואין בקובץ: /p'
+    exit 1
+fi
+mkdir -p "$ST/all" "$ST/typo"
+{ echo 'using System;'; dotnet "$W/apicmp/out/ApiCompare.dll" --namespaces "$SCHOOL_DLL" | sed 's/^/using /; s/$/;/'
+  printf 'class Program\n{\n    static void Main()\n    {\n        Stack<int> s = new Stack<int>();\n        s.Push(7);\n        Console.WriteLine(s);\n    }\n}\n'; } > "$ST/all/Program.cs"
+NS_COUNT=$(grep -c '^using Unit4\.' "$ST/all/Program.cs")
+cp "$ST/app/List.csproj" "$ST/all/"
+V=normal msb "$ST/all" > "$ST/all.build" 2>&1 && grep -q 'Build succeeded' "$ST/all.build" || { echo "תוכנית עם using לכל ה-namespaces לא נבנתה מול Unit4.dll"; grep error "$ST/all.build" | head -3; exit 1; }
+viz "$ST/all" --trace "$ST/all.trace" > "$ST/all.out" 2>&1 && grep -qx '\[7\]' "$ST/all.out" \
+    || { echo "using לכל $NS_COUNT ה-namespaces של Unit4.dll: ההרצה הוויזואלית לא התחילה"; cat "$ST/all.out"; exit 1; }
+cp "$ST/app/List.csproj" "$ST/typo/"
+sed 's/using Unit4.GridLib;/using Unit4.Colections;/' "$ST/app/Program.cs" > "$ST/typo/Program.cs"
+! viz "$ST/typo" --trace "$ST/typo.trace" > "$ST/typo.out" 2>&1 && grep -q "CS0234.*'Colections'" "$ST/typo.out" \
+    || { echo "using עם שגיאת הקלדה (Unit4.Colections) צריך להישאר שגיאה, כמו בהרצה הרגילה"; cat "$ST/typo.out"; exit 1; }
+echo "מול Unit4.dll האמיתי: כל $(grep -c . "$ST/graphics.txt") הסוגים שאין אצלנו רשומים כגרפיים (עם הסבר), using לכל $NS_COUNT ה-namespaces — ההרצה הוויזואלית מתחילה, ושגיאת הקלדה ב-using נשארת שגיאה"
+
 unset XDG_DATA_HOME
-echo "DSViz.targets: 30 תרחישים נבדקו (התבנית של בתי הספר עם using לספריות הגרפיות ו-TreeCanvas, אותו קוד בהרצה רגילה ובהרצה ויזואלית מול ספריית בית הספר, אותו פלט מול Unit4.dll האמיתי, השוואת ה-API, חבר שחסר אצלנו, שתי ההרצות באותו זמן, פרויקט רגיל לא משתנה, ספריית בית הספר ב-Reference / ProjectReference, פרויקט מסומן, קוד מעורב, סדר הפרופילים והעברת 'הרצה רגילה' לראש, ‎.NET Framework בלי הפניה, LangVersion ישן בהרצה הוויזואלית, ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"
+echo "DSViz.targets: 31 תרחישים נבדקו (כל סוג ב-Unit4.dll האמיתי מסווג, using לכל ה-namespaces שלו, התבנית של בתי הספר עם using לספריות הגרפיות ו-TreeCanvas, אותו קוד בהרצה רגילה ובהרצה ויזואלית מול ספריית בית הספר, אותו פלט מול Unit4.dll האמיתי, השוואת ה-API, חבר שחסר אצלנו, שתי ההרצות באותו זמן, פרויקט רגיל לא משתנה, ספריית בית הספר ב-Reference / ProjectReference, פרויקט מסומן, קוד מעורב, סדר הפרופילים והעברת 'הרצה רגילה' לראש, ‎.NET Framework בלי הפניה, LangVersion ישן בהרצה הוויזואלית, ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"

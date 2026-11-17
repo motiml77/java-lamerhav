@@ -132,6 +132,7 @@ namespace DsViz
             if (args.Length > 0 && args[0] == "--check") return Check(args.Skip(1).ToArray());
             if (args.Length > 1 && args[0] == "--check-project") return CheckProject(args[1]);
             if (args.Length > 1 && args[0] == "--ensure-profile") return EnsureProfile(args[1]);
+            if (args.Length > 0 && args[0] == "--school-graphics") { foreach (string t in SchoolUsings.GraphicTypeNames()) Console.WriteLine(t); return 0; }
             if (args.Length > 1 && args[0] == "--tool") return LaunchTool(args[1], args.Length > 2 ? args[2] : "", args.Skip(3).ToArray());
             string target = null, traceOut = null, inputFile = null;
             var progArgs = new List<string>();
@@ -225,7 +226,7 @@ namespace DsViz
             var original = CSharpCompilation.Create("StudentProgram", trees, refs, options);
             var errors = original.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
             // using לספריות של בית הספר שאין אצלנו (using Unit4.GridLib; של התבנית, גם כשלא משתמשים בה): בלי השורה הזו — SchoolUsings
-            var droppedUsings = SchoolUsings.Missing(errors);
+            var droppedUsings = SchoolUsings.Missing(errors, project.SchoolLibPath);
             if (droppedUsings.Count > 0)
             {
                 trees = trees.Select(t =>
@@ -265,7 +266,7 @@ namespace DsViz
             {
                 foreach (Diagnostic d in errors) Console.Error.WriteLine(Format(d));
                 foreach (string hint in Hints(errors, project)) Console.Error.WriteLine(hint);
-                foreach (string hint in SchoolUsings.Hints(errors, droppedUsings)) Console.Error.WriteLine(hint);
+                foreach (string hint in SchoolUsings.Hints(errors, droppedUsings, project.SchoolLibPath)) Console.Error.WriteLine(hint);
                 // קוד שמשתמש במשהו שאין בספרייה של DSViz (למשל פעולה שקיימת רק בספרייה של בית הספר): ההסבר — מה חסר, ושההרצה הרגילה לא מושפעת
                 int gaps;
                 foreach (string gap in LibraryGaps(errors, original, project, out gaps)) Console.Error.WriteLine(gap);
@@ -398,7 +399,7 @@ namespace DsViz
             var options = new CSharpCompilationOptions(OutputKind.ConsoleApplication, nullableContextOptions: NullableContextOptions.Disable);
             var errors = CSharpCompilation.Create(project.Name, trees, MetadataReferences(), options)
                 .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
-            var dropped = SchoolUsings.Missing(errors);   // using לספריות של בית הספר שאין אצלנו — כמו בהרצה הוויזואלית
+            var dropped = SchoolUsings.Missing(errors, project.SchoolLibPath);   // using לספריות של בית הספר שאין אצלנו — כמו בהרצה הוויזואלית
             if (dropped.Count > 0)
                 errors = CSharpCompilation.Create(project.Name, trees.Select(t => SchoolUsings.Blank(t, dropped)), MetadataReferences(), options)
                     .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
@@ -664,6 +665,8 @@ namespace DsViz
         /// או ProjectReference לפרויקט שה-AssemblyName שלו כזה), או null. ההרצה הוויזואלית לא משתמשת בה — רק מסבירה כשחסר משהו בספרייה של DSViz
         /// </summary>
         public string SchoolLib;
+        /// <summary>הנתיב המלא של ה-DLL של בית הספר (מ-HintPath), אם הוא קיים במחשב — ממנו יודעים אילו namespaces יש בו (SchoolUsings)</summary>
+        public string SchoolLibPath;
 
         /// <summary>
         /// הנתיב שביקשו להריץ, מנורמל: בלי מרכאות / רווחים בקצוות, נתיב מלא. קובץ שאינו .cs / .csproj (למשל .sln) — התיקייה שלו.
@@ -738,7 +741,7 @@ namespace DsViz
                     // ההרצה הוויזואלית מוסיפה קובץ global using משלה (C# 10), ובגרסה ישנה הוא לא מתקמפל (CS8773) — "ההרצה לא התחילה"
                     // בלי שהתלמיד עשה משהו לא נכון. קוד שנכתב לגרסה ישנה מתקמפל גם בחדשה; את גרסת השפה של הפרויקט אוכפת הבנייה הרגילה
                     if (p.LangVersion.MapSpecifiedToEffectiveVersion() < LanguageVersion.CSharp10) p.LangVersion = LanguageVersion.Latest;
-                    p.SchoolLib = SchoolLibrary(x, csproj);
+                    p.SchoolLib = SchoolLibrary(x, csproj, out p.SchoolLibPath);
                 }
                 catch (Exception) { }
             }
@@ -759,16 +762,28 @@ namespace DsViz
         }
 
         /// <summary>שם ה-assembly של הספרייה של בית הספר שהפרויקט מפנה אליה (ראו SchoolLib), או null</summary>
-        static string SchoolLibrary(XDocument x, string csproj)
+        static string SchoolLibrary(XDocument x, string csproj, out string path)
         {
+            path = null;
             bool School(string n) { return n != null && n.StartsWith("Unit4", StringComparison.OrdinalIgnoreCase) && !n.Equals("Unit4.CollectionsLib", StringComparison.OrdinalIgnoreCase); }
             foreach (XElement e in x.Descendants().Where(e => e.Name.LocalName == "Reference"))
             {
                 string inc = ((string)e.Attribute("Include") ?? "").Split(',')[0].Trim();
                 string hint = e.Elements().Where(h => h.Name.LocalName == "HintPath").Select(h => h.Value.Trim()).FirstOrDefault();
                 string file = hint == null ? null : Path.GetFileNameWithoutExtension(hint.Replace('\\', '/').Split('/').Last());
-                if (School(inc)) return inc;
-                if (School(file)) return file;
+                if (School(inc) || School(file))
+                {
+                    if (hint != null)
+                    {
+                        try
+                        {
+                            string full = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(csproj), hint.Replace('\\', Path.DirectorySeparatorChar)));
+                            if (File.Exists(full)) path = full;
+                        }
+                        catch (Exception) { }
+                    }
+                    return School(inc) ? inc : file;
+                }
             }
             foreach (XElement e in x.Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
             {

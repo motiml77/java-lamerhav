@@ -42,8 +42,28 @@ static class ApiCompare
         return set;
     }
 
+    /// <summary>
+    /// ApiCompare --types <א> <ב>: כל סוג ציבורי ב-א שאין ב-ב (לפי namespace ושם), שורה לכל סוג — "Unit4.GridLib.Grid".
+    /// ApiCompare --namespaces <א>: כל ה-namespaces של הסוגים הציבוריים ב-א.
+    /// </summary>
+    static IEnumerable<string> TypeNames(string dll)
+    {
+        return Assembly.LoadFrom(dll).GetExportedTypes().Where(t => !t.IsNested && t.Namespace != null).Select(t => t.Namespace + "." + t.Name.Split('`')[0]);
+    }
+
     static int Main(string[] args)
     {
+        if (args[0] == "--types")
+        {
+            var mine = new HashSet<string>(TypeNames(args[2]));
+            foreach (string t in TypeNames(args[1]).Where(t => !mine.Contains(t)).Distinct().OrderBy(x => x, StringComparer.Ordinal)) Console.WriteLine(t);
+            return 0;
+        }
+        if (args[0] == "--namespaces")
+        {
+            foreach (string n in TypeNames(args[1]).Select(t => t.Substring(0, t.LastIndexOf('.'))).Distinct().OrderBy(x => x, StringComparer.Ordinal)) Console.WriteLine(n);
+            return 0;
+        }
         SortedSet<string> school = Members(args[0]), ours = Members(args[1]);
         int missing = 0;
         foreach (string m in school.Union(ours).OrderBy(x => x, StringComparer.Ordinal))
