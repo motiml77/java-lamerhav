@@ -423,9 +423,7 @@ namespace DsViz.VsExtension
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             if (!Power.On) return;
-            int answer = VsShellUtilities.ShowMessageBox(this, PowerOffText, PowerOffCaption, OLEMSGICON.OLEMSGICON_WARNING,
-                OLEMSGBUTTON.OLEMSGBUTTON_OKCANCEL, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-            if (answer != 1)   // IDOK
+            if (!RtlBox.Show(this, PowerOffText, PowerOffCaption, true, true))   // מימין לשמאל; false = ביטול
             {
                 SolutionHints.Log("power: off cancelled");
                 return;
@@ -626,7 +624,7 @@ namespace DsViz.VsExtension
         void Say(string text)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            VsShellUtilities.ShowMessageBox(this, text, "DSViz", OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            RtlBox.Show(this, text, "DSViz", false, false);
         }
 
         bool Installed()

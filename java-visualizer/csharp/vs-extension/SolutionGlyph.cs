@@ -279,8 +279,7 @@ namespace DsViz.VsExtension
                 if (!File.Exists(DsVizTool.Runner))
                 {
                     ThreadHelper.ThrowIfNotOnUIThread();
-                    VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider, "DSViz לא מותקן במחשב הזה — מריצים את DSViz-Setup.exe.", "DSViz",
-                        OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                    RtlBox.Show(ServiceProvider.GlobalProvider, "DSViz לא מותקן במחשב הזה — מריצים את DSViz-Setup.exe.", "DSViz", false, false);
                     return;
                 }
                 string dir = System.IO.Path.GetDirectoryName(t.File) ?? "";
