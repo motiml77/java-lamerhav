@@ -121,7 +121,8 @@ function New-CiApps([string]$dir, [string]$schoolSource, [string]$realSchoolDll)
     # 1. כקובץ DLL מוכן — הפרויקט הקלאסי מפנה אליו ב-HintPath: Unit4.dll האמיתי של בתי הספר. אם לא הורד — המדומה, במהדר של ‎.NET Framework
     #    שיש בכל Windows (C# 5 — מספיק לקוד הזה), בלי תלות בגרסת Visual Studio
     New-Item -ItemType Directory -Force (Join-Path $dir 'school-bin') | Out-Null
-    if ($realSchoolDll -and (Test-Path $realSchoolDll)) { Copy-Item $realSchoolDll (Join-Path $dir 'school-bin\Unit4.dll') -Force }
+    $real = [bool]($realSchoolDll -and (Test-Path $realSchoolDll))
+    if ($real) { Copy-Item $realSchoolDll (Join-Path $dir 'school-bin\Unit4.dll') -Force }
     else {
         WriteCode (Join-Path $dir 'school-bin\Lib.cs') $school
         $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
@@ -201,9 +202,35 @@ Console.WriteLine("TOP-APP " + sum);
     WriteCode (Join-Path $dir 'SchoolRef\SchoolRef.csproj') (SdkCsproj "`r`n  <ItemGroup>`r`n    <ProjectReference Include=`"..\CollectionsLib\CollectionsLib.csproj`" />`r`n  </ItemGroup>`r`n")
     Add 'SchoolRef' '{C0110001-0000-4000-8000-000000000004}'
 
-    # --- SchoolClassic: Console App (.NET Framework) קלאסי שמפנה ל-Unit4.dll של בית הספר (HintPath)
+    # --- SchoolClassic: Console App (.NET Framework) קלאסי שמפנה ל-Unit4.dll של בית הספר (HintPath). עם Unit4.dll האמיתי — הקוד משתמש גם במה
+    #     שיש רק בספרייה של בתי הספר (StackInt, BinTreeUtils) ומדפיס חוליה; את מה שהדפיס הוא כותב בסימון school-out, כדי להשוות בין ההרצה
+    #     הרגילה (Unit4.dll) להרצה הוויזואלית (הספרייה של DSViz): אותו פלט בדיוק. הצפוי: [4,3] [5,1] 4 h1 c3 full=True
     $g = '{C0110001-0000-4000-8000-000000000005}'
-    WriteCode (Join-Path $dir 'SchoolClassic\Program.cs') (($schoolProgram -creplace 'PROG', 'school') + $script:ciHelper)
+    $realSchoolProgram = @'
+using System;
+using Unit4.CollectionsLib;
+using Unit4.BinTreeUtilsLib;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        Stack<int> s = new Stack<int>();
+        s.Push(3);
+        s.Push(4);
+        StackInt si = new StackInt();
+        si.Push(1);
+        si.Push(5);
+        Node<int> n = new Node<int>(4, new Node<int>(8));
+        BinNode<int> t = new BinNode<int>(new BinNode<int>(1), 2, new BinNode<int>(3));
+        string text = s + " " + si + " " + n + " h" + BinTreeUtils.Height(t) + " c" + BinTreeUtils.NumOfNodes(t) + " full=" + BinTreeUtils.IsFull(t);
+        Console.WriteLine(text);
+        Ci.Mark("school-out", text);
+        Ci.Mark("school", typeof(Node<int>).Assembly.GetName().Name);
+    }
+}
+'@
+    WriteCode (Join-Path $dir 'SchoolClassic\Program.cs') ($(if ($real) { $realSchoolProgram } else { $schoolProgram -creplace 'PROG', 'school' }) + $script:ciHelper)
     WriteCode (Join-Path $dir 'SchoolClassic\Properties\AssemblyInfo.cs') "using System.Reflection;`r`n[assembly: AssemblyTitle(`"SchoolClassic`")]`r`n[assembly: AssemblyVersion(`"1.0.0.0`")]`r`n"
     WriteCode (Join-Path $dir 'SchoolClassic\SchoolClassic.csproj') (ClassicCsproj 'SchoolClassic' $g "    <Reference Include=`"Unit4`">`r`n      <HintPath>..\school-bin\Unit4.dll</HintPath>`r`n    </Reference>")
     Add 'SchoolClassic' $g
@@ -242,7 +269,7 @@ class Program
     WriteCode (Join-Path $dir 'EmptyMain\EmptyMain.csproj') (SdkCsproj '')
     Add 'EmptyMain' '{C0110001-0000-4000-8000-000000000009}'
 
-    # --- WaitApp: ספריית בית הספר ב-ProjectReference, והתוכנית מחכה לקלט (Console.ReadLine) — ההרצה הרגילה נשארת פתוחה, ובזמן הזה
+    # --- WaitApp: Unit4.dll האמיתי של בתי הספר (Reference; בלעדיו — הספרייה המדומה ב-ProjectReference), והתוכנית מחכה לקלט (Console.ReadLine) — ההרצה הרגילה נשארת פתוחה, ובזמן הזה
     #     ההרצה הוויזואלית של אותו קובץ. הסימון: run-wait-<תהליך>.txt (WaitApp בהרצה הרגילה, dsviz-cs בהרצה הוויזואלית)
     WriteCode (Join-Path $dir 'WaitApp\Program.cs') (@'
 using System;
@@ -261,7 +288,8 @@ class Program
     }
 }
 '@ + $script:ciHelper)
-    WriteCode (Join-Path $dir 'WaitApp\WaitApp.csproj') (SdkCsproj "`r`n  <ItemGroup>`r`n    <ProjectReference Include=`"..\CollectionsLib\CollectionsLib.csproj`" />`r`n  </ItemGroup>`r`n")
+    if ($real) { WriteCode (Join-Path $dir 'WaitApp\WaitApp.csproj') (SdkCsproj "`r`n  <ItemGroup>`r`n    <Reference Include=`"Unit4`">`r`n      <HintPath>..\school-bin\Unit4.dll</HintPath>`r`n    </Reference>`r`n  </ItemGroup>`r`n") }
+    else { WriteCode (Join-Path $dir 'WaitApp\WaitApp.csproj') (SdkCsproj "`r`n  <ItemGroup>`r`n    <ProjectReference Include=`"..\CollectionsLib\CollectionsLib.csproj`" />`r`n  </ItemGroup>`r`n") }
     Add 'WaitApp' '{C0110001-0000-4000-8000-00000000000B}'
 
     # --- SchoolExt: קוד שמשתמש ב-Stack<int>.Count() של הספרייה המורחבת (חבר שאין בספרייה של DSViz)

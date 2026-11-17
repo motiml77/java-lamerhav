@@ -780,8 +780,16 @@ else {
         AssertTime
         Section 'T3. הספרייה של בית הספר (Unit4) מול הספרייה של DSViz'
         CheckNormal 't3-classic-normal' 'SchoolClassic' (Join-Path $d 'SchoolClassic\Program.cs') 'school' 'menu' 'Unit4' 'פרויקט ‎.NET Framework קלאסי עם Unit4.dll של בית הספר' | Out-Null
+        $outNormal = ReadMarker 'school-out'
         Check 't3-classic-bin' ((Test-Path (Join-Path $d 'SchoolClassic\bin\Debug\Unit4.dll')) -and -not (Test-Path (Join-Path $d 'SchoolClassic\bin\Debug\Unit4.CollectionsLib.dll'))) 'ב-bin של הפרויקט הקלאסי: Unit4.dll של בית הספר, בלי הספרייה של DSViz' "$((Get-ChildItem (Join-Path $d 'SchoolClassic\bin\Debug') -ErrorAction SilentlyContinue | ForEach-Object Name) -join ', ')"
         CheckVisual 't3-classic-visual' (Join-Path $d 'SchoolClassic\Program.cs') 'school' 'Unit4.CollectionsLib' 'אותו פרויקט קלאסי'
+        if ($haveReal) {
+            # אותו קוד (StackInt, BinTreeUtils, הדפסת חוליה — מה שיש רק ב-Unit4.dll של בתי הספר): ההרצה הרגילה עם Unit4.dll וההרצה הוויזואלית
+            # עם הספרייה של DSViz הדפיסו בדיוק אותו דבר
+            $outVisual = ReadMarker 'school-out'
+            $want = '[4,3] [5,1] 4 h1 c3 full=True'
+            Check 't3-classic-same-output' ($outNormal -and $outVisual -and $outNormal.Lib -eq $want -and $outVisual.Lib -eq $want) "Unit4.dll האמיתי: אותו קוד (StackInt, BinTreeUtils, הדפסת חוליה) הדפיס אותו דבר בהרצה הרגילה ובהרצה הוויזואלית — '$want'" "רגילה: '$($outNormal.Lib)' · ויזואלית: '$($outVisual.Lib)'"
+        }
         CheckNormal 't3-ref-normal' 'SchoolRef' (Join-Path $d 'SchoolRef\Program.cs') 'schoolref' 'ctrlf5' 'Unit4' 'ספריית בית הספר ב-ProjectReference (CollectionsLib.csproj, AssemblyName=Unit4)' | Out-Null
         CheckVisual 't3-ref-visual' (Join-Path $d 'SchoolRef\Program.cs') 'schoolref' 'Unit4.CollectionsLib' 'אותו פרויקט עם ProjectReference'
         CheckNormal 't3-noref-normal' 'ClassicDsviz' (Join-Path $d 'ClassicDsviz\Program.cs') 'classicdsviz' 'ctrlf5' 'Unit4.CollectionsLib' 'פרויקט ‎.NET Framework קלאסי שמשתמש בספרייה בלי שום הפניה' | Out-Null
@@ -805,7 +813,7 @@ else {
         Start-Sleep 2
         Step 't13-normal-waiting'
         $waiting = @(Get-Process WaitApp -ErrorAction SilentlyContinue).Count -gt 0
-        Check 't13-normal' ($mN -and $mN.Lib -eq 'Unit4' -and $waiting) "ההרצה הרגילה ($used) רצה עם Unit4 של בית הספר ומחכה לקלט (התהליך WaitApp פתוח)" "סימונים: $(Markers) · פעיל: $act"
+        Check 't13-normal' ($mN -and $mN.Lib -eq 'Unit4' -and $waiting) "ההרצה הרגילה ($used) רצה עם Unit4 של בית הספר$(if ($haveReal) { ' (Unit4.dll האמיתי)' }) ומחכה לקלט (התהליך WaitApp פתוח)" "סימונים: $(Markers) · פעיל: $act"
         $clicked = ClickToolbar 'הרצה ויזואלית' 't13-toolbar-visual-run'
         $mV = $null
         if ($clicked) { $mV = WaitMarker 'wait-dsviz-cs' 150 }
