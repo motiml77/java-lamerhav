@@ -14,6 +14,7 @@ function encodeValue(v) {
   if (typeof v === 'boolean') return { booleanValue: v };
   if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
   if (typeof v === 'string') return { stringValue: v };
+  if (v instanceof Date) return { timestampValue: v.toISOString() };   // Timestamp אמיתי — רק בשביל מדיניות TTL (expiresAt)
   if (Array.isArray(v)) return { arrayValue: { values: v.map(encodeValue) } };
   if (typeof v === 'object') return { mapValue: { fields: encodeFields(v) } };
   return { stringValue: String(v) };

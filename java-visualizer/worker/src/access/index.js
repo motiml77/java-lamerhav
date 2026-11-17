@@ -18,6 +18,7 @@ import { sha256, sha256Hex, randomToken, teacherCode, normalizeCode, showCode, s
 import { payProvider, PAY_PROVIDERS } from './pay.js';
 import { servePage } from './pages.js';
 import { alert, alertTo, mailReady, listAlerts, markSeen, WAIT } from './alerts.js';
+import { CLASSROOM_ROUTES, studentState } from './classroom.js';
 
 export const DEFAULTS = {
   price: 0,                     // ₪ — 0 = עוד לא נקבע (אי אפשר לשלם)
@@ -31,10 +32,13 @@ export const DEFAULTS = {
   monthlyPerSeat: 4,            // שליחות בחודש למורה: לכל עמדה שלו × מספר העמדות (העמדות עצמן לא שולחות — רק מאגר השאלות)
   monthlyStudent: 30,           // שליחות בחודש לתלמיד רשום (מייל)
   alertEmail: true,             // התראה במייל למנהל כשמצטרף מורה / תלמיד (alerts.js); במסוף — תמיד
+  studentsFree: true,           // תלמיד עם Google: המאגר פתוח בלי תשלום (עד accessUntil, או שנה קדימה). כבוי — כמו קודם: תשלום / הענקה
+  teacherReleases: 5,           // כמה עמדות המורה משחרר לבד בחודש (עמדת הניהול); מעבר לזה — בקשה להנהלה
+  stationSubmitDays: 3,         // הגשה מעמדת מחשב שהמורה לא מחק — נמחקת לבד אחרי כמה ימים (classroom.js)
 };
 const SETTING_LIMITS = {
   price: [0, 5000], offlineDays: [0, 365], studentDevices: [1, 20], teacherDevices: [1, 50], defaultSeats: [0, 2000],
-  monthlyPerSeat: [0, 1000], monthlyStudent: [0, 5000],
+  monthlyPerSeat: [0, 1000], monthlyStudent: [0, 5000], teacherReleases: [0, 100], stationSubmitDays: [1, 30],
 };
 
 const SESSION_TOUCH_MS = 6 * 3600 * 1000;   // מעדכנים "נראה לאחרונה" לכל היותר פעם ב-6 שעות (חוסך כתיבות)
@@ -63,9 +67,9 @@ export function phoneNorm(p) {
 const machineOk = m => /^[a-f0-9]{16,64}$/.test(String(m || ''));
 const intIn = (v, lo, hi) => Number.isInteger(+v) && +v >= lo && +v <= hi;
 
-async function readJson(request) {
+export async function readJson(request, max = 200000) {
   const text = await request.text();
-  if (text.length > 200000) throw new Fail(413, 'too_big', 'הבקשה גדולה מדי.');
+  if (text.length > max) throw new Fail(413, 'too_big', 'הבקשה גדולה מדי.');
   try { return text ? JSON.parse(text) || {} : {}; } catch (e) { throw new Fail(400, 'format', 'לא הצלחתי לקרוא את הבקשה'); }
 }
 
@@ -100,7 +104,7 @@ function appDetail(app, more) {
   return [app ? 'app=' + app : '', more || ''].filter(Boolean).join(' · ');
 }
 
-async function log(store, actor, action, target, detail) {
+export async function log(store, actor, action, target, detail) {
   try {
     await store.set('log/' + timeId(), { at: nowIso(), actor: clip(actor, 120), action, target: clip(target, 200), detail: clip(detail, 400) });
   } catch (e) {
@@ -108,7 +112,7 @@ async function log(store, actor, action, target, detail) {
   }
 }
 
-async function webUser(request, env) {
+export async function webUser(request, env) {
   const m = /^Bearer\s+(\S+)$/.exec(request.headers.get('authorization') || '');
   if (!m) throw new Fail(401, 'login', 'צריך להתחבר עם Google.');
   try {
@@ -219,10 +223,13 @@ export async function resolveToken(env, token, machine) {
     return Object.assign(base, { status: 'ok', teacher: await teacherView(t) });
   }
   const st = await store.get('students/' + se.email);
-  const until = st && st.accessUntil || '';
+  const s = await settings(env);
+  // בינתיים בחינם (studentsFree): עד accessUntil של ההגדרות, ואם הוא כבר עבר — שנה קדימה. כבוי — רק תשלום / הענקה
+  const yearAhead = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+  const until = s.studentsFree !== false ? (s.accessUntil >= today() ? s.accessUntil : yearAhead) : (st && st.accessUntil || '');
   await touch();
   return { kind: 'student', subject: 'student:' + se.email, session: p.id, machine: se.machine, profile, until,
-    status: until && until >= today() ? 'ok' : 'pay' };
+    student: await studentState(env, se.email), status: until && until >= today() ? 'ok' : 'pay' };
 }
 
 async function accessReply(env, r, extra) {
@@ -232,6 +239,8 @@ async function accessReply(env, r, extra) {
   if (r.station) out.station = { id: r.station.id, name: r.station.name };
   if (r.until) out.until = r.until;
   if (r.why) out.why = r.why;
+  // תלמיד: עצמאי / משויך למורה (mode '' — עוד לא בחר: התוסף מציג את החלון "תלמיד עצמאי / יש לי קוד מורה")
+  if (r.student) out.student = r.student;
   Object.assign(out, extra || {});
   if (r.status === 'ok') {
     out.pass = await makePass(env, s, {
@@ -427,7 +436,7 @@ async function claim(request, env) {
 /** קוד שגוי שוב ושוב מאותה כתובת: עד 30 בשעה (KV בשם USAGE, ואם אין — STATS) */
 /** מגבלת ניסיונות עם קוד שגוי (30 בשעה מאותה כתובת). מחזיר {count, src}: כמה ניסיונות שגויים מהכתובת הזו בשעה הזו,
  *  ו"מקור" — 4 תווים מטביעה של הכתובת (בלי לשמור את הכתובת עצמה), כדי לראות ביומן אם הניסיונות באים מאותו מקום */
-async function badCodeLimit(env, request, failed) {
+export async function badCodeLimit(env, request, failed) {
   const ip = request.headers.get('cf-connecting-ip') || 'local';
   const hour = new Date().toISOString().slice(0, 13);
   const src = (await sha256Hex('badcode-src|' + hour.slice(0, 10) + '|' + ip)).slice(0, 4);
@@ -1025,6 +1034,10 @@ async function adminSettings(env, u, b) {
       const pk = b.packages.map(p => ({ seats: +p.seats, price: +p.price }));
       if (JSON.stringify(pk) !== JSON.stringify(cur.packages)) { upd.packages = pk; changes.push('חבילות: ' + pk.map(p => `${p.seats}=${p.price}₪`).join(', ')); }
     }
+    if (b.studentsFree !== undefined && !!b.studentsFree !== (cur.studentsFree !== false)) {
+      upd.studentsFree = !!b.studentsFree;
+      changes.push(b.studentsFree ? 'תלמידים: בחינם' : 'תלמידים: בתשלום');
+    }
     if (b.alertEmail !== undefined && !!b.alertEmail !== (cur.alertEmail !== false)) {
       upd.alertEmail = !!b.alertEmail;
       changes.push(b.alertEmail ? 'התראות במייל: דולק' : 'התראות במייל: כבוי');
@@ -1110,6 +1123,7 @@ const ADMIN_ROUTES = {
 export async function handleAccess(request, env, ctx, url) {
   const path = url.pathname;
   const isOurs = path.startsWith('/v1/access/') || path.startsWith('/v1/auth/') || path.startsWith('/v1/station/') || path === '/v1/me' || path.startsWith('/v1/me/')
+    || path.startsWith('/v1/student/') || path === '/v1/submit'
     || path.startsWith('/v1/admin/') || path.startsWith('/v1/pay/') || path.startsWith('/pay/')
     || ['/signin', '/welcome', '/account', '/admin'].includes(path) || path.startsWith('/static/');
   if (!isOurs) return null;
@@ -1132,6 +1146,7 @@ export async function handleAccess(request, env, ctx, url) {
   }
   const key = request.method + ' ' + path;
   if (JSON_ROUTES[key]) return reply(200, await JSON_ROUTES[key](request, env, url));
+  if (CLASSROOM_ROUTES[key]) return reply(200, await CLASSROOM_ROUTES[key](request, env, url));
   if (ADMIN_ROUTES[key]) {
     const u = await adminUser(request, env);
     const b = request.method === 'POST' ? await readJson(request) : null;

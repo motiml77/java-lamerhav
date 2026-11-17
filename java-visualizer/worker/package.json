@@ -9,6 +9,7 @@
     "assets": "node tools/gen-assets.mjs",
     "test:eclipse-gate": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node eclipse-gate-e2e.mjs\"",
     "test:access": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node access-test.mjs\"",
-    "test:access-java": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"sh ../../tools/test/access/run.sh\""
+    "test:access-java": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"sh ../../tools/test/access/run.sh\"",
+    "test:classroom": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node classroom-test.mjs\""
   }
 }

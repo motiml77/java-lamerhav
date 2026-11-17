@@ -125,6 +125,10 @@ async function test(name, fn) {
 await realFetch(`http://${FS}/emulator/v1/projects/${PROJECT}/databases/(default)/documents`, { method: 'DELETE' });
 accessTest.reset();
 const admin = await idToken('admin@test.dev', 'מנהל');
+// הבדיקות כאן — של מצב התשלום (תלמיד משלם / מקבל הענקה). ברירת המחדל עכשיו: תלמידים בחינם (studentsFree) — נבדק ב-classroom-test.mjs
+await realFetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/config/settings?updateMask.fieldPaths=studentsFree`, {
+  method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { studentsFree: { booleanValue: false } } }),
+});
 
 await test('כבוי (ACCESS לא on): config אומר enabled:false, והנתיבים לא קיימים', async () => {
   const env = Object.assign({}, ENV, { ACCESS: '' });
