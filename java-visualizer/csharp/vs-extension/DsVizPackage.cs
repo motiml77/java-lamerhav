@@ -61,8 +61,10 @@ namespace DsViz.VsExtension
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            // לפני הכול: הסימן "ההרחבה נטענה" — גם אם אחד השלבים הבאים נכשל, רואים מבחוץ שהחבילה עלתה (DSViz-Diagnose.bat)
+            Safe("loaded marker", WriteLoadedMarker);
             var mcs = await GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
-            if (mcs == null) return;
+            if (mcs == null) { SolutionHints.Log("init: no menu command service — the toolbar buttons are not connected", true); return; }
             // כל שלב בנפרד: חריגה באחד מהם (גרסת Visual Studio ישנה, CommandBars חסר, תוסף אחר...) לא מפילה את כל החבילה —
             // אחרת Visual Studio מראה "The 'DsVizPackage' package did not load correctly" ואף כפתור לא עובד
             Safe("new", () => Add(mcs, 0x0101, () => Tool("new")));
@@ -112,9 +114,73 @@ namespace DsViz.VsExtension
             catch (Exception ex) { SolutionHints.Log("init " + what + " failed: " + ex, true); }
         }
 
-        StartupFollower _follower;
+        /// <summary>מספר הבנייה של ההרחבה (1.0.&lt;שנה ויום&gt;.&lt;דקה&gt; — עולה בכל בנייה; אותו מספר כמו גרסת ה-VSIX)</summary>
+        static string BuildVersion
+        {
+            get
+            {
+                try { return typeof(DsVizPackage).Assembly.GetName().Version.ToString(); }
+                catch (Exception) { return "?"; }
+            }
+        }
 
-        /// <summary>הכפתור הירוק ("הרצה ויזואלית") מריץ את התרגיל שפתוח: הפרויקט של הקובץ הפעיל נהיה ה-Startup Project (StartupFollower)</summary>
+        /// <summary>
+        /// המזהה של המופע הזה של Visual Studio, כמו בשם תיקיית ההגדרות שלו: 17.0_1a2b3c4d (גרסה + מזהה ההתקנה). במחשב אחד יכולים
+        /// להיות כמה מופעים (2022 ליד 2026, Community ליד Enterprise) — לכל אחד קובצי סימון משלו.
+        /// </summary>
+        string InstanceSuffix()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            string suffix = null;
+            try
+            {
+                var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                string root = dte == null ? null : dte.RegistryRoot;   // Software\Microsoft\VisualStudio\17.0_1a2b3c4d
+                if (!string.IsNullOrEmpty(root)) suffix = root.Substring(root.LastIndexOf('\\') + 1);
+            }
+            catch (Exception) { }
+            if (string.IsNullOrEmpty(suffix))
+            {
+                try { suffix = Process.GetCurrentProcess().MainModule.FileVersionInfo.FileMajorPart + ".0"; }
+                catch (Exception) { suffix = "0.0"; }
+            }
+            var clean = new System.Text.StringBuilder();
+            foreach (char c in suffix) clean.Append(char.IsLetterOrDigit(c) || c == '.' || c == '_' || c == '-' ? c : '_');
+            return clean.ToString();
+        }
+
+        /// <summary>
+        /// הסימן "ההרחבה נטענה": ‎%LOCALAPPDATA%\DSViz\vs-loaded-&lt;מופע&gt;.txt‎ — נכתב בכל טעינה של החבילה, עם מספר הבנייה, השעה וגרסת
+        /// Visual Studio. מבחוץ אי אפשר לדעת אם הרחבה מותקנת גם נטענת (היא יכולה להיות מושבתת, או להיכשל בטעינה) — הקובץ הזה אומר
+        /// שכן, ומתי. DSViz-Diagnose.bat מציג אותו ומשווה למה שמותקן.
+        /// </summary>
+        void WriteLoadedMarker()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("build=" + BuildVersion);
+            sb.AppendLine("time=" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            try
+            {
+                var main = Process.GetCurrentProcess().MainModule;
+                sb.AppendLine("vs=" + main.FileVersionInfo.ProductVersion);
+                sb.AppendLine("devenv=" + main.FileName);
+            }
+            catch (Exception) { }
+            try { sb.AppendLine("dll=" + typeof(DsVizPackage).Assembly.Location); } catch (Exception) { }
+            Directory.CreateDirectory(InstallDir);
+            string file = Path.Combine(InstallDir, "vs-loaded-" + InstanceSuffix() + ".txt");
+            File.WriteAllText(file, sb.ToString(), new System.Text.UTF8Encoding(false));
+            SolutionHints.Log("package loaded: build " + BuildVersion + " -> " + Path.GetFileName(file));
+        }
+
+        StartupFollower _follower;
+        RunInfoBar _runBar;
+
+        /// <summary>
+        /// ההרצה הרגילה (הכפתור הירוק / F5 / Ctrl+F5) נשארת של Visual Studio. StartupFollower: בפתרון התרגילים של DSViz הפרויקט של
+        /// הקובץ הפעיל נהיה ה-Startup Project; ובכל פתרון — שורת הודעה כש-Visual Studio מריץ פרויקט אחר מהקובץ הפתוח.
+        /// </summary>
         void FollowActiveDocument()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
@@ -122,7 +188,8 @@ namespace DsViz.VsExtension
             {
                 var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
                 if (dte == null) return;
-                _follower = new StartupFollower(dte, RunFile);
+                _runBar = new RunInfoBar(this);
+                _follower = new StartupFollower(dte, _runBar, RunFile);
                 EnvDTE.Document active = null;
                 try { active = dte.ActiveDocument; } catch (Exception) { }
                 if (active != null) _follower.Follow(active);
@@ -152,7 +219,8 @@ namespace DsViz.VsExtension
                     bar.Visible = true;
                     ActivityLog.LogInformation("DsViz", "toolbar shown");
                 }
-                string flag = Path.Combine(InstallDir, "vs-toolbar-shown");
+                // לכל מופע של Visual Studio סימון משלו (2022 ליד 2026: בכל אחד הסרגל מקבל שורה משלו בפעם הראשונה)
+                string flag = Path.Combine(InstallDir, "vs-toolbar-shown-" + InstanceSuffix());
                 // מיקום בשורה משלו: בפעם הראשונה, וגם בכל פעם שהסרגל היה מוסתר — אז Visual Studio החזיר את ברירת המחדל
                 // (למשל אחרי סגירה בכוח), והסרגל נדחס לסוף השורה הראשונה ורוב הכפתורים נעלמים מאחורי החץ
                 // וגם כשהוא באותה שורה של סרגל אחר (Standard, Build, סרגל של הרחבה אחרת): שם אין לו מקום, והכפתורים נדחסים
@@ -183,7 +251,11 @@ namespace DsViz.VsExtension
                 {
                     SolutionHints.Log("toolbar rows scan failed: " + ex1.Message, true);
                 }
-                if (File.Exists(flag) && !wasHidden && crowdedBy == null) return;
+                if (File.Exists(flag) && !wasHidden && crowdedBy == null)
+                {
+                    if (!_rowLogged) { _rowLogged = true; try { SolutionHints.Log("toolbar row: visible, alone in row " + (int)bar.RowIndex + " (last other row " + lastRow + ")"); } catch (Exception) { } }
+                    return;
+                }
                 SolutionHints.Log("toolbar row: " + (wasHidden ? "was hidden" : crowdedBy != null ? "shared the row of " + crowdedBy : "first time"));
                 // שורה משלו מתחת לסרגלים הרגילים (בלי זה הוא נדחס לשורה הראשונה ורוב הכפתורים נעלמים לחץ "עוד")
                 try
@@ -207,6 +279,8 @@ namespace DsViz.VsExtension
                 ActivityLog.LogWarning("DsViz", "toolbar show failed: " + ex.Message);
             }
         }
+
+        bool _rowLogged;
 
         /// <summary>"מאגר שאלות": נראה רק כשהמאגר מותקן (בגרסה הציבורית אין אותו)</summary>
         void AddBank(OleMenuCommandService mcs)
@@ -558,14 +632,16 @@ namespace DsViz.VsExtension
         }
 
         /// <summary>
-        /// הרצה ויזואלית של קובץ C# שלא שייך לאף פרויקט (Miscellaneous Files), כשלוחצים על הכפתור הירוק / F5 / Ctrl+F5 (StartupFollower):
+        /// הרצה ויזואלית של קובץ C# מסוים — הכפתור שבשורת ההודעה (StartupFollower: Visual Studio הריץ פרויקט אחר מהקובץ הפתוח).
         /// בדיוק כמו "הרצה ויזואלית" בסרגל — קודם שומרים את כל הקבצים, ואז dsviz-cs על הקובץ
         /// </summary>
         void RunFile(string file)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+            if (!Installed()) return;
             var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
             try { if (dte != null) dte.Documents.SaveAll(); } catch (Exception) { }
+            SolutionHints.Log("visual run (info bar): " + file);
             RunVisual(file);
         }
 
@@ -586,12 +662,14 @@ namespace DsViz.VsExtension
                 string dir = StartupProjectDir(dte);
                 if (dir != null)
                 {
+                    SolutionHints.Log("visual run (toolbar): no C# file is open -> the startup project " + dir);
                     RunVisual(dir);
                     return;
                 }
                 Say("פותחים קובץ C# של התרגיל (עם Main), או בוחרים פרויקט להרצה (קליק ימני עליו ב-Solution Explorer " + "\u2190" + " Set as Startup Project), ולוחצים שוב.");
                 return;
             }
+            SolutionHints.Log("visual run (toolbar): " + file);
             RunVisual(file);
         }
     }

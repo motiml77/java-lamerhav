@@ -1,6 +1,7 @@
 ﻿# אורז את ההרחבה של DSViz (csharp/vs-extension) ל-VSIX ידנית: msbuild בונה את ה-dll ואת ה-pkgdef, כאן מרכיבים מהם את הקובץ
 # (VSIX = zip עם [Content_Types].xml, extension.vsixmanifest, ה-dll וה-pkgdef). נפעל גם כש-msbuild לא יוצר את הקובץ לבד (פרויקט SDK-style).
-param([string]$Bin, [string]$SourceManifest, [string]$OutFile)
+# -Version: מספר הגרסה של הבנייה ל-Identity Version (כמו DsVizStampManifest ב-csproj)
+param([string]$Bin, [string]$SourceManifest, [string]$OutFile, [string]$Version = '')
 $ErrorActionPreference = 'Stop'
 $stage = Join-Path $env:RUNNER_TEMP 'vsix-stage'
 Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
@@ -10,6 +11,7 @@ $pkgdef = Get-ChildItem $Bin -Filter '*.pkgdef' | Select-Object -First 1
 if (-not $pkgdef) { throw "לא נמצא pkgdef ב-$Bin" }
 Copy-Item $pkgdef.FullName (Join-Path $stage 'DsViz.VsExtension.pkgdef')
 $m = [IO.File]::ReadAllText($SourceManifest)
+if ($Version) { $m = [regex]::Replace($m, '(<Identity\b[^>]*\bVersion=")[^"]*(")', ('${1}' + $Version + '${2}')) }
 $m = [regex]::Replace($m, '<Asset Type="Microsoft.VisualStudio.VsPackage"[^>]*/>', '<Asset Type="Microsoft.VisualStudio.VsPackage" Path="DsViz.VsExtension.pkgdef" />')
 $m = [regex]::Replace($m, '<Asset Type="Microsoft.VisualStudio.MefComponent"[^>]*/>', '<Asset Type="Microsoft.VisualStudio.MefComponent" Path="DsViz.VsExtension.dll" />')
 [IO.File]::WriteAllText((Join-Path $stage 'extension.vsixmanifest'), $m, (New-Object Text.UTF8Encoding($false)))

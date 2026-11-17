@@ -9,7 +9,13 @@
     <LangVersion>latest</LangVersion>
     <RootNamespace>DsViz.VsExtension</RootNamespace>
     <AssemblyName>DsViz.VsExtension</AssemblyName>
-    <Version>1.0.1</Version>
+    <!-- מספר הגרסה עולה בכל בנייה: 1.0.<שנה ויום בשנה>.<דקה ביום> (UTC; כל חלק קטן מ-65535). הוא גרסת ה-VSIX (Identity Version במניפסט,
+         DsVizStampManifest) וגם גרסת ה-DLL. כך VSIXInstaller מעדכן הרחבה מותקנת במקום (גרסה גבוהה יותר של אותו מזהה) — בלי "הסרה ואז
+         התקנה", שאם ההתקנה נכשלה אחריה לא נשאר סרגל בכלל. אפשר לקבוע מבחוץ: -p:VsixVersion=1.0.x.y -->
+    <VsixVersion Condition="'$(VsixVersion)' == ''">1.0.$([System.DateTime]::UtcNow.ToString('yy'))$([System.DateTime]::UtcNow.DayOfYear.ToString('000')).$([MSBuild]::Add($([MSBuild]::Multiply($([System.DateTime]::UtcNow.Hour), 60)), $([System.DateTime]::UtcNow.Minute)))</VsixVersion>
+    <Version>$(VsixVersion)</Version>
+    <AssemblyVersion>$(VsixVersion)</AssemblyVersion>
+    <FileVersion>$(VsixVersion)</FileVersion>
     <GeneratePkgDefFile>true</GeneratePkgDefFile>
     <UseCodebase>true</UseCodebase>
     <CreateVsixContainer>true</CreateVsixContainer>
@@ -67,7 +73,15 @@
     </Task>
   </UsingTask>
 
-  <Target Name="DsVizCompileVsct" BeforeTargets="AssignTargetPaths;CoreCompile;PrepareResources" DependsOnTargets="">
+  <!-- המניפסט שנארז ב-VSIX (VSSDK כותב אותו ל-obj מ-source.extension.vsixmanifest): מספר הגרסה של הבנייה ב-Identity Version -->
+  <Target Name="DsVizStampManifest" AfterTargets="DetokenizeVsixManifestFile" Condition="Exists('$(IntermediateVsixManifest)')">
+    <XmlPoke XmlInputPath="$(IntermediateVsixManifest)" Query="/x:PackageManifest/x:Metadata/x:Identity/@Version" Value="$(VsixVersion)"
+             Namespaces="&lt;Namespace Prefix='x' Uri='http://schemas.microsoft.com/developer/vsx-schema/2011' /&gt;" />
+    <Message Importance="high" Text="DSViz: VSIX version $(VsixVersion)" />
+  </Target>
+
+  <!-- VSCT.exe קיים רק ב-Windows. ב-Linux (tools/test/vs-extension-compile.sh) רק הקוד מתקמפל, בלי הסרגל ובלי הרכבת ה-VSIX -->
+  <Target Name="DsVizCompileVsct" BeforeTargets="AssignTargetPaths;CoreCompile;PrepareResources" DependsOnTargets="" Condition="'$(OS)' == 'Windows_NT'">
     <PropertyGroup>
       <_VsctExe>$(NuGetPackageRoot)microsoft.vssdk.buildtools\17.14.2120\tools\vssdk\bin\VSCT.exe</_VsctExe>
       <_VsctInc>$(NuGetPackageRoot)microsoft.vssdk.buildtools\17.14.2120\tools\vssdk\inc</_VsctInc>
