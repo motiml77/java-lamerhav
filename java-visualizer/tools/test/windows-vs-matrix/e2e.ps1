@@ -79,6 +79,7 @@ function Dialogs() {
 }
 # שאלות של Visual Studio שעוצרות את הבדיקה: עונים כמו תלמיד זהיר, ורושמים
 function DismissDialogs() {
+    if (CloseSignIn) { return 'sign-in' }
     foreach ($d in (Dialogs)) {
         if ($d.Text -match 'There were build errors|build errors\. Would you like') {
             Step 'dialog-build-errors'
@@ -452,12 +453,19 @@ function CheckCreated([string]$tag, [string]$name) {
         $todo = New-Object System.Collections.Stack; $seen = @(); $n = 0
         foreach ($p in $d.Solution.Projects) { $todo.Push($p) }
         while ($todo.Count -gt 0 -and $n -lt 400) {
-            $n++; $p = $todo.Pop(); $pn = ''
-            try { $pn = [string]$p.Name } catch { }
-            if ($pn -eq $name) { return 'yes' }
-            try { if (([string]$p.UniqueName) -like "*\$name.csproj") { return 'yes' } } catch { }
+            $n++; $p = $todo.Pop()
+            $pn = [string](ComGet $p 'Name')
+            if ($pn -eq $name -or ([string](ComGet $p 'UniqueName')) -like "*\$name.csproj") { return 'yes' }
             $seen += $pn
-            try { foreach ($i in $p.ProjectItems) { if ($i.SubProject) { $todo.Push($i.SubProject) } } } catch { }
+            if ([string](ComGet $p 'Kind') -ne '{66A26720-8FB5-11D2-AA7E-00C04F688DDE}') { continue }   # רק תיקיית פתרון מכילה פרויקטים
+            $items = ComGet $p 'ProjectItems'
+            $cnt = [int](ComGet $items 'Count')
+            for ($k = 1; $k -le $cnt -and $k -le 200; $k++) {
+                $it = $null
+                try { $it = [System.__ComObject].InvokeMember('Item', [Reflection.BindingFlags]::InvokeMethod, $null, $items, @([object]$k)) } catch { try { $it = $items.Item($k) } catch { } }
+                $sub = ComGet $it 'SubProject'
+                if ($sub) { $todo.Push($sub) }
+            }
         }
         'no (' + ($seen -join ', ') + ')' } 8
     Step "$tag-solution-explorer"
@@ -680,7 +688,20 @@ else {
             ClearMarkers
             VsFront | Out-Null
             $bar = @(ByName $script:vsP.Id $btnName '') | Select-Object -First 1
+            $sc = $script:signInClosed; $tcClick = TraceCount
             RealClick $bar 't5-info-bar-visual-run' | Out-Null
+            # ההרחבה רושמת ביומן כל לחיצה שהגיעה אליה ('visual run (info bar)') וסוגרת את שורת ההודעה. אם אחרי 20 שניות אין רישום והשורה
+            # עדיין פתוחה — הלחיצה לא הגיעה (בריצה 4: חלון כניסה לחשבון Microsoft ש-Visual Studio פתח לבד, מודאלי). סוגרים אותו ולוחצים שוב, כמו תלמיד
+            $got = WaitFor { @(TraceSince $tcClick 'visual run \(info bar\)').Count -gt 0 } 20
+            if (-not $got) {
+                CloseSignIn | Out-Null
+                $again = @(ByName $script:vsP.Id $btnName '') | Select-Object -First 1
+                if ($again) {
+                    Info ("הלחיצה על שורת ההודעה לא הגיעה להרחבה (אין רישום ביומן, השורה עדיין פתוחה)" + $(if ($script:signInClosed -gt $sc) { ' — חלון כניסה לחשבון Microsoft חסם אותה ונסגר' } else { '' }) + ' — לוחצים שוב')
+                    VsFront | Out-Null
+                    RealClick $again 't5-info-bar-visual-run-again' | Out-Null
+                }
+            }
             $m2 = WaitMarker 'loose' 120
             $v = WaitFor { $x = @(Viewers); if ($x.Count) { $x } } 90
             Start-Sleep 3; Step 't5-info-bar-viewer'

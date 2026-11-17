@@ -234,6 +234,42 @@ function OtherWindows([int]$procId, [int]$mainHandle) {
     }
     return @($list)
 }
+# חלון כניסה לחשבון Microsoft ("Microsoft Azure — Sign in") ש-Visual Studio פותח לבד ברקע (חשבון / Copilot), באמצע הבדיקה. הוא מודאלי:
+# לחיצות על החלון הראשי לא מגיעות לשום מקום (כך נבלעה הלחיצה על שורת ההודעה ב-T5). סוגרים אותו כמו תלמיד — בלי להיכנס — וסופרים,
+# כדי שמי שלחץ יידע ללחוץ שוב. רק חלונות כניסה: הכותרת, או השדה "Email, phone, or Skype" בדף; לא חלון ההפעלה הראשונה (SkipFirstRun)
+$script:signInClosed = 0
+function CloseSignIn() {
+    $closed = 0
+    $owners = @{}
+    if ($script:vsP) { $owners[[int]$script:vsP.Id] = 1 }
+    Get-Process -Name 'msedgewebview2', 'Microsoft.AAD.BrokerPlugin', 'ServiceHub.IdentityHost' -ErrorAction SilentlyContinue | ForEach-Object { $owners[[int]$_.Id] = 1 }
+    $main = 0; try { $main = [int]$script:vsMain } catch { }
+    $cands = @()
+    try { $cands = @([Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition)) } catch { }
+    if ($script:vsP) { $cands += @(OtherWindows $script:vsP.Id $main) }
+    foreach ($w in $cands) {
+        try {
+            $c = $w.Current
+            if ($c.BoundingRectangle.IsEmpty -or [int]$c.NativeWindowHandle -eq $main -or -not $owners.ContainsKey([int]$c.ProcessId)) { continue }
+            $hit = $c.Name -match '^(Sign in to your account|Microsoft Azure|Microsoft account)$'
+            if (-not $hit) {
+                $all = @($w.FindAll([Windows.Automation.TreeScope]::Subtree, [Windows.Automation.Condition]::TrueCondition))
+                if ($all.Count -gt 400) { continue }
+                $hit = @($all | Where-Object { (ElName $_) -match '^Email, phone, or Skype$|^Sign in to your account$' }).Count -gt 0
+            }
+            if (-not $hit) { continue }
+            Step 'dialog-sign-in'
+            $done = $false
+            try { $w.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Close(); $done = $true } catch { }
+            if (-not $done) { try { [void][DsReal]::Front([IntPtr][int]$c.NativeWindowHandle); [DsReal]::Chord([uint16]0x1B); $done = $true } catch { } }   # Esc
+            Start-Sleep -Milliseconds 800
+            Info "נסגר חלון כניסה לחשבון Microsoft ש-Visual Studio פתח לבד ('$($c.Name)', תהליך $($c.ProcessId)) — הוא חוסם לחיצות בחלון הראשי"
+            $closed++
+        } catch { }
+    }
+    $script:signInClosed += $closed
+    return ($closed -gt 0)
+}
 # רכיבים של התהליך לפי שם מדויק (ואפשר סוג: 'Button', 'MenuItem'...). רק רכיבים שנראים על המסך, אלא אם -Any
 function ByName([int]$procId, [string]$name, [string]$type = '', [switch]$Any) {
     $c = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::NameProperty, $name)
@@ -365,6 +401,17 @@ function Dte([scriptblock]$body, [int]$tries = 20) {
     if ($last) { Info "DTE: $($last.Exception.Message)" } else { Info 'DTE: אין חיבור ל-Visual Studio' }
     return $null
 }
+# מאפיין של אובייקט COM של Visual Studio דרך IDispatch ישירות. בפרויקטים מסוג SDK ‏(CPS) PowerShell לא מוצא את המאפיינים
+# (אין לו מידע על הטיפוס) ומחזיר ריק בלי שגיאה — כך ‎$p.Name‎ היה ריק לכל פרויקט C#. "עסוק" (RPC_E_CALL_REJECTED) נזרק הלאה כדי ש-Dte ינסה שוב
+function ComGet($o, [string]$prop) {
+    if ($null -eq $o) { return $null }
+    try { return [System.__ComObject].InvokeMember($prop, [Reflection.BindingFlags]::GetProperty, $null, $o, $null) }
+    catch {
+        $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+        if ($e -is [Runtime.InteropServices.COMException] -and ($e.HResult -eq -2147418111 -or $e.HResult -eq -2147417846)) { throw }
+        try { return $o.$prop } catch { return $null }
+    }
+}
 # מסכי ההפעלה הראשונה של Visual Studio (כניסה לחשבון, בחירת ערכת צבעים, חלון הפתיחה): גם אותם סוגרים בלחיצת עכבר אמיתית
 function SkipFirstRun([int]$procId) {
     $pats = 'Not now, maybe later|Skip and add accounts later|Skip this for now|^Start Visual Studio$|Continue without code|Are you sure you want to exit'
@@ -419,6 +466,7 @@ function StartVs([string]$sln, [int]$minutes = 12) {
 # מביא את Visual Studio לקדמה (לפני לחיצה / הקשה). true — החלון הראשי, או חלון אחר של Visual Studio (תיבת הודעה), בקדמה.
 # אם Windows לא נותן להביא חלון לקדמה מבחוץ: לחיצת עכבר אמיתית על שורת המצב שבתחתית החלון (לא משנה כלום — רק מפעילה את החלון, כמו משתמש)
 function VsFront() {
+    CloseSignIn | Out-Null
     $h = $script:vsMain
     $ok = [DsReal]::Front($h)
     if (-not $ok) {
