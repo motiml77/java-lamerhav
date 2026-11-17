@@ -137,7 +137,7 @@
       "givenCode": [
         {
           "className": "ListTargil9",
-          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\npublic static Node<int> Build(int[] values)\n{\n    Node<int> first = null;\n    for (int i = values.Length - 1; i >= 0; i--)\n    {\n        first = new Node<int>(values[i], first);\n    }\n    return first;\n}"
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    if (got is Node<int>)   // את הרשימה בונים כאן כטקסט — כמו בכל ספרייה (ב-Unit4.dll של בית הספר ToString של חוליה מחזיר רק את הערך)\n    {\n        g = \"\";\n        for (Node<int> p = (Node<int>)got; p != null; p = p.GetNext())\n        {\n            g += p.GetValue() + \" -> \";\n        }\n        g += \"null\";\n    }\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\npublic static Node<int> Build(int[] values)\n{\n    Node<int> first = null;\n    for (int i = values.Length - 1; i >= 0; i--)\n    {\n        first = new Node<int>(values[i], first);\n    }\n    return first;\n}"
         }
       ],
       "otherQuestions": [],
