@@ -1,0 +1,144 @@
+# טביעת אצבע של Unit4.dll — הגרסה שהמורים משתמשים בה בפועל (קיבלנו מהמשתמש ב-17.11.2026; אין לה מקור להורדה — היא מלפני שנים).
+# הקובץ עצמו לא נשמר במאגר (של משרד החינוך). כאן רק מה שצריך כדי לבדוק אותנו מולו: ה-namespaces, הסוגים הציבוריים, וכל החברים
+# הציבוריים של האוספים / BinTreeUtils / TreeCanvas (בפורמט של ApiCompare). נוצר עם: ApiCompare --snapshot <Unit4.dll>
+#   sha256 1dcf50f0d25fa8ab7fbe0ea168840c2904f10b27c00c7226652f0b6b1dcad57a · 308,736 בתים · Unit4 1.0.0.0 · .NETFramework v4.0 · Copyright 2014
+# מה נבדק בקובץ עצמו (helpers/IlCompare.cs, מול הגרסה מהתיקייה של המפקחים — זו שהבדיקות מורידות, sha 9f47124f…):
+#   81 פעולות זהות הוראה-הוראה (IL, אחרי פענוח כל ההפניות לשמות): כל Stack / Queue / Node / BinNode, כל 13 הפעולות של BinTreeUtils,
+#   והחלק של TreeCanvas שמדפיס לקונסול (סדרי המעבר). שונים רק: הציור של TreeCanvas על המסך (גודל, גופן, תמונות העלים) ו-StackInt
+#   (רק בגרסת המפקחים). לכן הבדיקות של ההתנהגות מול גרסת המפקחים (cs-tests, סעיף כז) מכסות גם את הגרסה הזו.
+#   אין בה: StackInt, CardLib, HanoiLib, OrganLib; ב-Grid: FlipX / FlipY / FlipCellX / FlipCellY ובלי Delay / SetDelay.
+ns Unit4.BinTreeCanvasLib
+ns Unit4.BinTreeUtilsLib
+ns Unit4.BucketLib
+ns Unit4.CollectionsLib
+ns Unit4.DiceLib
+ns Unit4.DreidelLib
+ns Unit4.FrogLib
+ns Unit4.GridLib
+ns Unit4.PolygonLib
+ns Unit4.TowerLib
+ns Unit4.TurtleLib
+type Unit4.BinTreeCanvasLib.AnimationSpeed
+type Unit4.BinTreeCanvasLib.TreeCanvas
+type Unit4.BinTreeUtilsLib.BinTreeUtils
+type Unit4.BucketLib.Bucket
+type Unit4.CollectionsLib.BinNode
+type Unit4.CollectionsLib.Node
+type Unit4.CollectionsLib.Queue
+type Unit4.CollectionsLib.Stack
+type Unit4.DiceLib.Die
+type Unit4.DreidelLib.Dreidel
+type Unit4.FrogLib.BrownFrog
+type Unit4.FrogLib.FrogsBase
+type Unit4.FrogLib.GreenFrog
+type Unit4.GridLib.Grid
+type Unit4.GridLib.Point
+type Unit4.PolygonLib.Point
+type Unit4.PolygonLib.Polygon
+type Unit4.TowerLib.Tower
+type Unit4.TurtleLib.Turtle
+api BinNode<T> BinNode<T>.GetLeft()
+api BinNode<T> BinNode<T>.GetRight()
+api BinNode<T>(BinNode<T>, T, BinNode<T>)
+api BinNode<T>(T)
+api Boolean AnimationSpeed.Equals(Object)
+api Boolean AnimationSpeed.HasFlag(Enum)
+api Boolean BinNode<T>.HasLeft()
+api Boolean BinNode<T>.HasRight()
+api Boolean Node<T>.HasNext()
+api Boolean Queue<T>.IsEmpty()
+api Boolean Stack<T>.IsEmpty()
+api Int32 AnimationSpeed.CompareTo(Object)
+api Int32 AnimationSpeed.GetHashCode()
+api Node<T> Node<T>.GetNext()
+api Node<T>(T)
+api Node<T>(T, Node<T>)
+api Queue<T>()
+api Stack<T>()
+api String AnimationSpeed.ToString()
+api String AnimationSpeed.ToString(IFormatProvider)
+api String AnimationSpeed.ToString(String)
+api String AnimationSpeed.ToString(String, IFormatProvider)
+api String BinNode<T>.ToString()
+api String Node<T>.ToString()
+api String Queue<T>.ToString()
+api String Stack<T>.ToString()
+api T BinNode<T>.GetValue()
+api T Node<T>.GetValue()
+api T Queue<T>.Head()
+api T Queue<T>.Remove()
+api T Stack<T>.Pop()
+api T Stack<T>.Top()
+api TypeCode AnimationSpeed.GetTypeCode()
+api Void BinNode<T>.SetLeft(BinNode<T>)
+api Void BinNode<T>.SetRight(BinNode<T>)
+api Void BinNode<T>.SetValue(T)
+api Void Node<T>.SetNext(Node<T>)
+api Void Node<T>.SetValue(T)
+api Void Queue<T>.Insert(T)
+api Void Stack<T>.Push(T)
+api static Array AnimationSpeed.GetValues(Type)
+api static Array AnimationSpeed.GetValuesAsUnderlyingType(Type)
+api static Array AnimationSpeed.GetValuesAsUnderlyingType<TEnum>()
+api static BinNode<Int32> BinTreeUtils.BuildRandomTree(Int32, Int32, Int32)
+api static BinNode<T> BinTreeUtils.Clone<T>(BinNode<T>)
+api static BinNode<T> BinTreeUtils.Parent<T>(BinNode<T>, BinNode<T>)
+api static Boolean AnimationSpeed.IsDefined(Type, Object)
+api static Boolean AnimationSpeed.IsDefined<TEnum>(TEnum)
+api static Boolean AnimationSpeed.TryFormat<TEnum>(TEnum, Span<Char>, Int32&, ReadOnlySpan<Char>)
+api static Boolean AnimationSpeed.TryParse(Type, ReadOnlySpan<Char>, Boolean, Object&)
+api static Boolean AnimationSpeed.TryParse(Type, ReadOnlySpan<Char>, Object&)
+api static Boolean AnimationSpeed.TryParse(Type, String, Boolean, Object&)
+api static Boolean AnimationSpeed.TryParse(Type, String, Object&)
+api static Boolean AnimationSpeed.TryParse<TEnum>(ReadOnlySpan<Char>, Boolean, TEnum&)
+api static Boolean AnimationSpeed.TryParse<TEnum>(ReadOnlySpan<Char>, TEnum&)
+api static Boolean AnimationSpeed.TryParse<TEnum>(String, Boolean, TEnum&)
+api static Boolean AnimationSpeed.TryParse<TEnum>(String, TEnum&)
+api static Boolean BinTreeUtils.Exists<T>(BinNode<T>, T)
+api static Boolean BinTreeUtils.IsFull<T>(BinNode<T>)
+api static Boolean BinTreeUtils.TreeIsValid<T>(BinNode<T>)
+api static Int32 BinTreeUtils.Height<T>(BinNode<T>)
+api static Int32 BinTreeUtils.NumOfLeaves<T>(BinNode<T>)
+api static Int32 BinTreeUtils.NumOfNodes<T>(BinNode<T>)
+api static Node<T> BinTreeUtils.InOrder2Nodes<T>(BinNode<T>)
+api static Node<T> BinTreeUtils.LevelOrder2Nodes<T>(BinNode<T>)
+api static Node<T> BinTreeUtils.PostOrder2Nodes<T>(BinNode<T>)
+api static Node<T> BinTreeUtils.PreOrder2Nodes<T>(BinNode<T>)
+api static Object AnimationSpeed.Parse(Type, ReadOnlySpan<Char>)
+api static Object AnimationSpeed.Parse(Type, ReadOnlySpan<Char>, Boolean)
+api static Object AnimationSpeed.Parse(Type, String)
+api static Object AnimationSpeed.Parse(Type, String, Boolean)
+api static Object AnimationSpeed.ToObject(Type, Byte)
+api static Object AnimationSpeed.ToObject(Type, Int16)
+api static Object AnimationSpeed.ToObject(Type, Int32)
+api static Object AnimationSpeed.ToObject(Type, Int64)
+api static Object AnimationSpeed.ToObject(Type, Object)
+api static Object AnimationSpeed.ToObject(Type, SByte)
+api static Object AnimationSpeed.ToObject(Type, UInt16)
+api static Object AnimationSpeed.ToObject(Type, UInt32)
+api static Object AnimationSpeed.ToObject(Type, UInt64)
+api static String AnimationSpeed.Format(Type, Object, String)
+api static String AnimationSpeed.GetName(Type, Object)
+api static String AnimationSpeed.GetName<TEnum>(TEnum)
+api static String[] AnimationSpeed.GetNames(Type)
+api static String[] AnimationSpeed.GetNames<TEnum>()
+api static TEnum AnimationSpeed.Parse<TEnum>(ReadOnlySpan<Char>)
+api static TEnum AnimationSpeed.Parse<TEnum>(ReadOnlySpan<Char>, Boolean)
+api static TEnum AnimationSpeed.Parse<TEnum>(String)
+api static TEnum AnimationSpeed.Parse<TEnum>(String, Boolean)
+api static TEnum[] AnimationSpeed.GetValues<TEnum>()
+api static Type AnimationSpeed.GetUnderlyingType(Type)
+api static Void TreeCanvas.AddTree<T>(BinNode<T>)
+api static Void TreeCanvas.PrintOutAllElements(Boolean)
+api static Void TreeCanvas.SetAnimastion(AnimationSpeed)
+api static Void TreeCanvas.TreeDrawInOrder()
+api static Void TreeCanvas.TreeDrawLevelOrder()
+api static Void TreeCanvas.TreeDrawPostOrder()
+api static Void TreeCanvas.TreeDrawPreOrder()
+api type Unit4.BinTreeCanvasLib.AnimationSpeed
+api type Unit4.BinTreeCanvasLib.TreeCanvas
+api type Unit4.BinTreeUtilsLib.BinTreeUtils
+api type Unit4.CollectionsLib.BinNode<T>
+api type Unit4.CollectionsLib.Node<T>
+api type Unit4.CollectionsLib.Queue<T>
+api type Unit4.CollectionsLib.Stack<T>

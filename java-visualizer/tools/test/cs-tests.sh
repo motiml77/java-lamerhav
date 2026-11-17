@@ -907,22 +907,42 @@ sed 's/using Unit4.GridLib;/using Unit4.Colections;/' "$ST/app/Program.cs" > "$S
     || { echo "using עם שגיאת הקלדה (Unit4.Colections) צריך להישאר שגיאה, כמו בהרצה הרגילה"; cat "$ST/typo.out"; exit 1; }
 echo "מול Unit4.dll האמיתי: כל $(grep -c . "$ST/graphics.txt") הסוגים שאין אצלנו רשומים כגרפיים (עם הסבר), using לכל $NS_COUNT ה-namespaces — ההרצה הוויזואלית מתחילה, ושגיאת הקלדה ב-using נשארת שגיאה"
 
-# ל. הגרסה של Unit4.dll שהמורים משתמשים בה בפועל (helpers/school-unit4.sh — school_unit4_teachers; קטנה יותר: בלי StackInt ועוד).
-#    אותן בדיקות: כל חבר של האוספים / BinTreeUtils / TreeCanvas קיים אצלנו, כל סוג אחר רשום כגרפי, תבנית בית הספר ו-using לכל
-#    ה-namespaces — ההרצה הוויזואלית מתחילה, ואותו פלט בהרצה הרגילה (מול הקובץ שלהם) ובהרצה הוויזואלית
+# ל. הגרסה של Unit4.dll שהמורים משתמשים בה בפועל (אין לה מקור להורדה — היא מלפני שנים). במאגר: טביעת האצבע שלה
+#    (helpers/unit4-teachers.snapshot.txt — ה-namespaces, הסוגים וכל החברים של האוספים / BinTreeUtils / TreeCanvas), ותמיד בודקים מולה:
+#    כל חבר קיים אצלנו, כל סוג אחר רשום כגרפי, ותבנית בית הספר + using לכל ה-namespaces — ההרצה הוויזואלית מתחילה.
+#    כשהקובץ עצמו במחשב (helpers/school-unit4.sh — school_unit4_teachers): גם שטביעת האצבע עדיין שלו, שהקוד של האוספים / BinTreeUtils /
+#    ההדפסה של TreeCanvas זהה הוראה-הוראה לגרסת המפקחים (IlCompare), ואותו פלט בהרצה הרגילה (מול הקובץ שלהם) ובהרצה הוויזואלית
+SNAP="$PWD/helpers/unit4-teachers.snapshot.txt"
+TV="$W/school-teachers"; rm -rf "$TV" && mkdir -p "$TV/app" "$TV/all" "$TV/print" "$TV/allviz"
+dotnet "$W/apicmp/out/ApiCompare.dll" "$SNAP" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$TV/api.txt" \
+    || { echo "גרסת המורים (טביעת האצבע): חסר בספרייה של DSViz חבר:"; grep '^only-school' "$TV/api.txt"; exit 1; }
+dotnet "$W/apicmp/out/ApiCompare.dll" --types "$SNAP" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$TV/school-only.txt"
+sort "$TV/school-only.txt" > "$TV/a.sorted"; sort "$ST/graphics.txt" > "$TV/b.sorted"
+NEW=$(comm -23 "$TV/a.sorted" "$TV/b.sorted")
+[ -z "$NEW" ] || { echo "גרסת המורים: סוגים שאין אצלנו ולא רשומים כגרפיים (לממש, או להוסיף ל-GraphicTypes ב-SchoolUsings.cs):"; echo "$NEW"; exit 1; }
+{ echo 'using System;'; dotnet "$W/apicmp/out/ApiCompare.dll" --namespaces "$SNAP" | sed 's/^/using /; s/$/;/'
+  printf 'class Program\n{\n    static void Main()\n    {\n        Stack<int> s = new Stack<int>();\n        s.Push(7);\n        Console.WriteLine(s);\n    }\n}\n'; } > "$TV/all/Program.cs"
+TV_NS=$(grep -c '^using Unit4\.' "$TV/all/Program.cs")
+# בלי הקובץ (ב-GitHub): פרויקט בלי הפניה — ההרצה הוויזואלית בכל זאת מתחילה (using ל-Unit4.* שהמהדר לא מוצא יורד)
+cp "$TV/all/Program.cs" "$TV/allviz/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$TV/allviz/App.csproj"
+viz "$TV/allviz" --trace "$TV/allviz.trace" > "$TV/allviz.out" 2>&1 && grep -qx '\[7\]' "$TV/allviz.out" \
+    || { echo "גרסת המורים (טביעת האצבע): using לכל $TV_NS ה-namespaces — ההרצה הוויזואלית לא התחילה"; cat "$TV/allviz.out"; exit 1; }
+echo "גרסת המורים של Unit4.dll (טביעת האצבע במאגר): $(grep -c '^both' "$TV/api.txt") חברים משותפים, 0 חסרים; $(grep -c . "$TV/school-only.txt") סוגים גרפיים — רשומים; using לכל $TV_NS ה-namespaces — ההרצה הוויזואלית מתחילה"
 if TEACH_DLL=$(school_unit4_teachers "$ROOT/build"); then
-    TV="$W/school-teachers"; rm -rf "$TV" && mkdir -p "$TV/app" "$TV/all" "$TV/print"
-    dotnet "$W/apicmp/out/ApiCompare.dll" "$TEACH_DLL" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$TV/api.txt" \
-        || { echo "גרסת המורים: חסר בספרייה של DSViz חבר:"; grep '^only-school' "$TV/api.txt"; exit 1; }
-    dotnet "$W/apicmp/out/ApiCompare.dll" --types "$TEACH_DLL" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$TV/school-only.txt"
-    sort "$TV/school-only.txt" > "$TV/a.sorted"; sort "$ST/graphics.txt" > "$TV/b.sorted"
-    NEW=$(comm -23 "$TV/a.sorted" "$TV/b.sorted")
-    [ -z "$NEW" ] || { echo "גרסת המורים: סוגים שאין אצלנו ולא רשומים כגרפיים (לממש, או להוסיף ל-GraphicTypes ב-SchoolUsings.cs):"; echo "$NEW"; exit 1; }
+    dotnet "$W/apicmp/out/ApiCompare.dll" --snapshot "$TEACH_DLL" > "$TV/snap-now.txt"
+    grep -v '^#' "$SNAP" > "$TV/snap-saved.txt"
+    cmp -s "$TV/snap-now.txt" "$TV/snap-saved.txt" || { echo "טביעת האצבע במאגר לא תואמת לקובץ (מעדכנים: ApiCompare --snapshot):"; diff "$TV/snap-saved.txt" "$TV/snap-now.txt" | head; exit 1; }
+    mkdir -p "$W/ilcmp"
+    printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include="%s" /></ItemGroup></Project>\n' "$PWD/helpers/IlCompare.cs" > "$W/ilcmp/IlCompare.csproj"
+    msb "$W/ilcmp" -p:DSVizDisable=true -o "$W/ilcmp/out" > "$W/ilcmp.build" 2>&1 || { echo "IlCompare לא נבנה"; grep error "$W/ilcmp.build" | head -3; exit 1; }
+    dotnet "$W/ilcmp/out/IlCompare.dll" "$SCHOOL_DLL" "$TEACH_DLL" > "$TV/il.txt"
+    # מה מותר להיות שונה: הציור של TreeCanvas על המסך (והחלון שלו), ו-StackInt (רק בגרסת המפקחים). כל השאר — זהה הוראה-הוראה
+    UNEXPECTED=$(grep '^DIFF' "$TV/il.txt" | grep -v -E 'TreeCanvas::(\.cctor|InitTreeToDraw|TreeDrawConvas)|BinTreeCanvasLib\.Window::|StackInt::' || true)
+    [ -z "$UNEXPECTED" ] && grep -q '^same=81 ' "$TV/il.txt" || { echo "גרסת המורים: הקוד של האוספים / BinTreeUtils שונה מגרסת המפקחים:"; echo "$UNEXPECTED"; tail -1 "$TV/il.txt"; exit 1; }
     REF="<ItemGroup><Reference Include=\"Unit4\"><HintPath>$TEACH_DLL</HintPath></Reference></ItemGroup>"
     for d in app all print; do printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup>%s</Project>\n' "$REF" > "$TV/$d/App.csproj"; done
     cp "$ST/app/Program.cs" "$TV/app/Program.cs"
-    { echo 'using System;'; dotnet "$W/apicmp/out/ApiCompare.dll" --namespaces "$TEACH_DLL" | sed 's/^/using /; s/$/;/'
-      printf 'class Program\n{\n    static void Main()\n    {\n        Stack<int> s = new Stack<int>();\n        s.Push(7);\n        Console.WriteLine(s);\n    }\n}\n'; } > "$TV/all/Program.cs"
     sed '/StackInt si = new StackInt();/,/"stackint: "/d' helpers/SchoolProgram.cs > "$TV/print/Program.cs"
     for d in app all print; do
         V=normal msb "$TV/$d" > "$TV/$d.build" 2>&1 && grep -q 'Build succeeded' "$TV/$d.build" || { echo "גרסת המורים: $d לא נבנה"; grep -E 'error' "$TV/$d.build" | head -3; exit 1; }
@@ -933,9 +953,9 @@ if TEACH_DLL=$(school_unit4_teachers "$ROOT/build"); then
     done
     [ "$(wc -l < "$TV/print.normal")" -ge 9 ] && grep -q '^pre=2,1,0,3,4 in=0,1,2,3,4 post=0,1,4,3,2 level=2,1,3,0,4$' "$TV/print.normal" \
         && [ "$(grep -c ': NullReferenceException$' "$TV/print.normal")" = 4 ] || { echo "גרסת המורים: הפלט של תוכנית הבדיקה לא צפוי"; cat "$TV/print.normal"; exit 1; }
-    echo "גרסת המורים של Unit4.dll: $(grep -c '^both' "$TV/api.txt") חברים משותפים, 0 חסרים; $(grep -c . "$TV/school-only.txt") סוגים גרפיים — רשומים; התבנית, using לכל $(grep -c '^using Unit4\.' "$TV/all/Program.cs") ה-namespaces ותוכנית האוספים והעץ — אותו פלט בהרצה הרגילה ובהרצה הוויזואלית"
+    echo "גרסת המורים של Unit4.dll (הקובץ עצמו): טביעת האצבע תואמת; 81 פעולות זהות הוראה-הוראה לגרסת המפקחים (שונים רק הציור של TreeCanvas ו-StackInt); התבנית, using לכל ה-namespaces ותוכנית האוספים והעץ — אותו פלט בהרצה הרגילה ובהרצה הוויזואלית"
 else
-    echo "לא נבדק: גרסת המורים של Unit4.dll — אין קובץ (DSVIZ_SCHOOL_UNIT4_TEACHERS) ואין קישור להורדה (SCHOOL_UNIT4_TEACHERS_URL)"
+    echo "(גרסת המורים: הקובץ עצמו לא במחשב — נבדק מול טביעת האצבע בלבד; ההתנהגות — מול גרסת המפקחים, שהקוד שלה זהה)"
 fi
 
 unset XDG_DATA_HOME

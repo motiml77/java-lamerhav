@@ -19,9 +19,17 @@ static class ApiCompare
         return t.Name;
     }
 
+    /// <summary>"טביעת אצבע" של Unit4.dll (ApiCompare --snapshot): שורות "ns …", "type …", "api …" — במקום הקובץ עצמו, כשאין ממנו מקור להורדה</summary>
+    static bool IsSnapshot(string path) { return path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase); }
+    static IEnumerable<string> SnapshotLines(string path, string prefix)
+    {
+        return System.IO.File.ReadAllLines(path).Where(l => l.StartsWith(prefix + " ", StringComparison.Ordinal)).Select(l => l.Substring(prefix.Length + 1));
+    }
+
     static SortedSet<string> Members(string dll)
     {
         var set = new SortedSet<string>(StringComparer.Ordinal);
+        if (IsSnapshot(dll)) { foreach (string l in SnapshotLines(dll, "api")) set.Add(l); return set; }
         Assembly a = Assembly.LoadFrom(dll);
         foreach (Type t in a.GetExportedTypes().Where(t => t.Namespace == "Unit4.CollectionsLib" || t.Namespace == "Unit4.BinTreeUtilsLib" || t.Namespace == "Unit4.BinTreeCanvasLib"))
         {
@@ -48,6 +56,7 @@ static class ApiCompare
     /// </summary>
     static IEnumerable<string> TypeNames(string dll)
     {
+        if (IsSnapshot(dll)) return SnapshotLines(dll, "type");
         return Assembly.LoadFrom(dll).GetExportedTypes().Where(t => !t.IsNested && t.Namespace != null).Select(t => t.Namespace + "." + t.Name.Split('`')[0]);
     }
 
@@ -57,6 +66,13 @@ static class ApiCompare
         {
             var mine = new HashSet<string>(TypeNames(args[2]));
             foreach (string t in TypeNames(args[1]).Where(t => !mine.Contains(t)).Distinct().OrderBy(x => x, StringComparer.Ordinal)) Console.WriteLine(t);
+            return 0;
+        }
+        if (args[0] == "--snapshot")
+        {
+            foreach (string n in TypeNames(args[1]).Select(t => t.Substring(0, t.LastIndexOf('.'))).Distinct().OrderBy(x => x, StringComparer.Ordinal)) Console.WriteLine("ns " + n);
+            foreach (string t in TypeNames(args[1]).Distinct().OrderBy(x => x, StringComparer.Ordinal)) Console.WriteLine("type " + t);
+            foreach (string m in Members(args[1])) Console.WriteLine("api " + m);
             return 0;
         }
         if (args[0] == "--namespaces")
