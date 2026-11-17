@@ -69,7 +69,10 @@ final class SelfViz {
                 int open = -1;
                 Matcher mm = in.ctor ? Pattern.compile("(\\w+)\\s*=\\s*new\\s+" + Pattern.quote(m) + "\\s*(?:<[^()]*>)?\\s*\\(").matcher(line)
                         : Pattern.compile("(?<![\\w.])(\\w+)\\s*\\.\\s*" + Pattern.quote(m) + "\\s*\\(").matcher(line);
-                if (mm.find()) {
+                if (mm.find() && !in.ctor && (mm.group(1).equals("super") || mm.group(1).equals("base"))) {
+                    in.self = outer(s);   // super.say() / base.Say(): אותו עצם, הגרסה של מחלקת העל
+                    open = mm.end() - 1;
+                } else if (mm.find(0)) {
                     in.self = mm.group(1);
                     open = mm.end() - 1;
                 } else if (!in.ctor) {

@@ -176,6 +176,8 @@ final class ObjCard {
 
     /** כרטיס פנימי: הסוג (Student) ותג של המשתנים שמצביעים עליו (s), ומתחת — טבלת המאפיינים שלו */
     private static Dimension card(JComponent c, Graphics2D g, Obj n, int x, int y, Hot hs, Access acc) {
+        Poly.Card pc = Poly.card(null, n, true);
+        if (pc != null) return PolyPaint.compact(c, g, pc, n.labels, x, y, acc, hs);   // הורשה (Poly, כלל 4): קופסאות קומפקטיות — רק מאפיינים
         Dimension t = table(c, null, n, 0, 0, acc, 1, hs);
         FontMetrics tm = c.getFontMetrics(TINY), lm = c.getFontMetrics(TINY_B);
         int chipW = tm.stringWidth(n.type) + 12;

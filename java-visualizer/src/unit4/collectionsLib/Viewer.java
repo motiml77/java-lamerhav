@@ -132,6 +132,8 @@ final class Viewer extends JFrame {
 
     private final StructPanel structs = new StructPanel();
     private final ObjDock objDock = new ObjDock();
+    /** תרשים המחלקות (הורשה / הכלה בין מחלקות של התלמיד) — קטן בתחתית, והתרשים המלא בבועה (Poly) */
+    private final ClassDiagram classDiagram = new ClassDiagram();
     private final RecursionPanel recursion = new RecursionPanel();
     private final StructPanel miniStructs = new StructPanel();
     private final JPanel miniBox = new JPanel(new BorderLayout());
@@ -321,7 +323,15 @@ final class Viewer extends JFrame {
         structPage.add(structScroll, BorderLayout.CENTER);
         JPanel structSouth = new JPanel(new BorderLayout());
         structSouth.setOpaque(false);
-        structSouth.add(objDock, BorderLayout.NORTH);
+        JPanel southTop = new JPanel(new BorderLayout());
+        southTop.setOpaque(false);
+        southTop.add(objDock, BorderLayout.NORTH);
+        JPanel diagramRow = new JPanel(new BorderLayout());   // תרשים המחלקות — בצד ימין, מתחת למבנים
+        diagramRow.setOpaque(false);
+        diagramRow.setBorder(BorderFactory.createEmptyBorder(4, 8, 6, 12));
+        diagramRow.add(classDiagram, BorderLayout.EAST);
+        southTop.add(diagramRow, BorderLayout.CENTER);
+        structSouth.add(southTop, BorderLayout.NORTH);
         structSouth.add(legend(), BorderLayout.CENTER);
         structPage.add(structSouth, BorderLayout.SOUTH);
         JPanel recPage = new JPanel(new BorderLayout());
@@ -1043,6 +1053,7 @@ final class Viewer extends JFrame {
 
         structs.setStep(d, animate, interval);
         objDock.setStep(d);
+        classDiagram.setStep(d);
         // רקורסיה: כל עוד הצעד בתוך הרקורסיה — מעקב הרקורסיה (כרטיס לכל קריאה, והמבנים בקטן מתחת); אחר כך — חזרה למבנים
         boolean rec;
         try {
@@ -1256,6 +1267,7 @@ final class Viewer extends JFrame {
             code.getHighlighter().removeAllHighlights();   // הסימון של הקובץ הקודם — אחרת הוא נשאר על השורה הראשונה
             codeHighlight = null;
             List<String> lines = SourceFiles.lines(f);
+            codeText = lines == null ? null : String.join("\n", lines);
             if (lines == null) {
                 code.setText("קובץ המקור " + key + " לא נמצא.\n(צריך להריץ מתוך תיקיית הפרויקט כדי לראות את הקוד)");
                 codeSub.setText(f.file);
@@ -1471,12 +1483,42 @@ final class Viewer extends JFrame {
                     a.closePath();
                     g.draw(a);
                 }
+                Color stripe = stripe(i + 1);
+                if (stripe != null) {   // הורשה (Poly): פס בצבע המחלקה לאורך הקוד שלה
+                    g.setColor(stripe);
+                    g.fillRect(getWidth() - 7, r.y, 5, r.height);
+                }
                 String s = String.valueOf(i + 1);
                 g.setFont(cur ? code.getFont().deriveFont(Font.BOLD) : code.getFont());
                 g.setColor(cur ? Theme.TEXT : new Color(0xA0A7B4));
                 g.drawString(s, getWidth() - 10 - fm.stringWidth(s), r.y + fm.getAscent() + (r.height - fm.getHeight()) / 2);
             }
             g.dispose();
+        }
+    }
+
+    // ------------------------------------------------------------ הפס של המחלקות בחלון הקוד (Poly)
+
+    private String codeText, stripeKey;
+    private String[] stripeOf;
+    private java.util.Set<String> diagramNames = new java.util.HashSet<String>();
+
+    /** הצבע של הפס בשורה (מחלקה בעץ הורשה — הצבע שלה; מחלקה אחרת שבתרשים המחלקות — אפור), או null */
+    private Color stripe(int line) {
+        try {
+            String key = codeKey + "|" + Poly.all().size();
+            if (!key.equals(stripeKey)) {
+                stripeKey = key;
+                stripeOf = Poly.classLines(codeText);
+                diagramNames = new java.util.HashSet<String>();
+                for (Model.ClassInfo c : Poly.diagramClasses()) diagramNames.add(c.name);
+            }
+            String cls = stripeOf == null || line >= stripeOf.length ? null : stripeOf[line];
+            if (cls == null) return null;
+            if (Poly.inHierarchy(cls)) return Poly.ink(cls);
+            return diagramNames.contains(cls) ? Poly.GRAY : null;
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 

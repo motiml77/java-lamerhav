@@ -99,6 +99,13 @@ public final class LineByLine {
             System.exit(1);
             return;
         }
+        if (isChild()) {
+            try {
+                Poly.scanJava(main.getDeclaringClass());   // המחלקות של התלמיד והקשרים ביניהן (הורשה — קופסאות וצבעים), לפני שהתוכנית מתחילה
+            } catch (Throwable ignored) {
+                // בלי טבלת מחלקות — הכרטיסים כמו קודם
+            }
+        }
         try {
             main.invoke(null, (Object) args);
         } catch (InvocationTargetException e) {

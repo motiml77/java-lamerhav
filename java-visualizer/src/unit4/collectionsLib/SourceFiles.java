@@ -96,6 +96,23 @@ final class SourceFiles {
         return m.find() ? m.group(1) : null;
     }
 
+    /** הקובץ של המסגרת על הדיסק (או null) — בשביל Poly: שאר הקבצים באותה תיקייה (מחלקות שהתלמיד כתב בקבצים נפרדים) */
+    static synchronized File fileOf(Frame f) {
+        if (f == null || f.file == null) return null;
+        return locate(f.packagePath() + f.file);
+    }
+
+    /** כל הקובץ כטקסט (UTF-8 / windows-1255, כמו lines), או null */
+    static String readText(File f) {
+        List<String> l = read(f);
+        return l == null ? null : String.join("\n", l);
+    }
+
+    /** כל קובצי הקוד שנטענו מראש (C# — מקובץ ההרצה): שם → טקסט */
+    static synchronized Map<String, String> preloaded() {
+        return new java.util.LinkedHashMap<String, String>(texts);
+    }
+
     private static File locate(String rel) {
         File base = new File(System.getProperty("user.dir"));
         String[] prefixes = { "src/", "", "src/main/java/", "java-visualizer/src/" };

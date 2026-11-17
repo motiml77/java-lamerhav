@@ -24,6 +24,7 @@ final class Problems {
     private static final Pattern NPE_RET = Pattern.compile("because the return value of \"(?:[\\w$]+\\.)*([\\w$]+)\\.([\\w$]+)\\([^\"]*\\)\" is null");
     private static final Pattern INDEX = Pattern.compile("Index (-?\\d+) out of bounds for length (\\d+)");
     private static final Pattern CAST = Pattern.compile("class ([\\w.$]+) cannot be cast to class ([\\w.$]+)");
+    private static final Pattern CS_CAST = Pattern.compile("Unable to cast object of type '([\\w.`+\\[\\]]+)' to type '([\\w.`+\\[\\]]+)'");
     private static final Pattern INPUT = Pattern.compile("For input string: \"([^\"]{0,40})\"");
 
     /** java.lang.Integer → Integer, Outer$Inner → Inner */
@@ -43,6 +44,13 @@ final class Problems {
         if (s == null || s.text == null) return null;
         ProblemView p = explain(s.text);
         if (p == null) return null;
+        if (p.kind.equals("cast")) {   // ההפניה שבהמרה — מהשורה ((Boxer) a2)
+            String l = line != null ? line.replaceFirst("^שורה \\d+:\\s*", "") : s.where == null ? null : SourceFiles.line(s.where);
+            Matcher c = l == null || p.op == null ? null
+                    : Pattern.compile("\\(\\s*(?:[\\w.]+\\.)?" + Pattern.quote(p.op) + "\\s*\\)\\s*([A-Za-z_]\\w*(?:\\s*\\[[^\\]]*\\])?)").matcher(l);
+            if (c != null && c.find()) p.name = c.group(1).replaceAll("\\s+", "");
+            castTexts(p);
+        }
         if (p.kind.equals("null") && p.name == null && line != null) {
             Matcher c = CALL.matcher(line.replaceFirst("^שורה \\d+:\\s*", ""));
             if (c.find()) {
@@ -211,11 +219,15 @@ final class Problems {
             p.hint = "בלולאה על רשימה:  " + code("i < list.size()") + "  (ולא <=).";
             return p;
         }
-        Matcher cast = CAST.matcher(t);
-        if (t.startsWith("ClassCastException")) {
-            p.what = cast.find() ? "אי אפשר להפוך " + code(simple(cast.group(1))) + " ל-" + code(simple(cast.group(2))) : "המרה (casting) לטיפוס לא מתאים";
-            p.why = "בסוגריים של ההמרה כתוב טיפוס אחר מהטיפוס האמיתי של האובייקט.";
-            p.hint = "בודקים לפני ההמרה:  " + code("if (x instanceof Integer)");
+        Matcher cast = CAST.matcher(t), csCast = CS_CAST.matcher(t);
+        if (t.startsWith("ClassCastException") || t.startsWith("InvalidCastException")) {
+            p.kind = "cast";
+            Matcher m2 = cast.find() ? cast : csCast.find() ? csCast : null;
+            if (m2 != null) {
+                p.actual = simple(m2.group(1));
+                p.op = simple(m2.group(2));
+            }
+            castTexts(p);
             return p;
         }
         if (t.startsWith("NumberFormatException")) {
@@ -248,6 +260,24 @@ final class Problems {
         p.why = t.replaceAll("\\s+\\(.*\\)\\s*$", "");
         p.hint = "השורה שבה זה קרה מסומנת בקוד.";
         return p;
+    }
+
+    /**
+     * המרה שנכשלה (ClassCastException / InvalidCastException): "שגיאת ריצה: ההמרה לא חוקית", מה העצם באמת ומה אין בו —
+     * בלי "להפוך" (המרה לא משנה את העצם) — ואיך בודקים לפני, עם השמות מהקוד של התלמיד
+     */
+    private static void castTexts(ProblemView p) {
+        p.what = "שגיאת ריצה: ההמרה לא חוקית";
+        String who = p.name != null ? p.name + " מצביע על עצם" : "העצם הוא";
+        if (p.actual == null || p.op == null) {
+            p.why = "בסוגריים של ההמרה כתוב טיפוס שאין בעצם הזה. ההמרה לא משנה את העצם — היא רק בודקת מה הוא.";
+            p.hint = "בודקים לפני ההמרה מה העצם באמת:  " + code(Syntax.csharp ? "if (x is T)" : "if (x instanceof T)");
+            return;
+        }
+        boolean tree = Poly.inHierarchy(p.actual) || Poly.inHierarchy(p.op);
+        p.why = who + " מסוג " + p.actual + ". " + (tree ? "בעצם הזה אין חלק של " + p.op + "." : "הוא לא " + p.op + ", ולכן אי אפשר להתייחס אליו כאל " + p.op + ".");
+        String n = p.name != null ? p.name : "x";
+        p.hint = "הקוד נבנה, והבעיה מתגלה רק כשההמרה רצה. בודקים קודם:  " + code(Syntax.csharp ? "if (" + n + " is " + p.op + ")" : "if (" + n + " instanceof " + p.op + ")");
     }
 
     /** קוד בתוך משפט בעברית — משמאל לימין (LRE ... PDF), כדי שהסוגריים לא יתהפכו */

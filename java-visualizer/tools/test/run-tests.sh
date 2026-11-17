@@ -251,6 +251,58 @@ javac -encoding UTF-8 -cp "$JAR" -d "$ON" objects/ObjNestPaint.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$ON:$JAR" unit4.collectionsLib.ObjNestPaint "$ON/frames" > "$ON/paint.txt" 2>&1 \
     && grep -q MARK-END "$ON/paint.txt" && grep '^  ok' "$ON/paint.txt" || { cat "$ON/paint.txt"; exit 1; }
 
+echo "== 5ו3. הורשה ופולימורפיזם: קופסאות זו בתוך זו, הפניה כחלון, מותר? / מה רץ?, בנאים, super, המרות, instanceof ותרשים המחלקות"
+# [מחלקות ...] הצבעים לפי העץ; [קופסאות ...] = Poly.text: הקופסאות מבחוץ פנימה, ~ פעולה שנדרסת, ◀ רצה עכשיו, תגים שם:טיפוס (^ = מעל הכול),
+# פסים מ-X (ההפניה), הכיתוב; [דריסה ...] רץ = מה שהחיפוש מצא, בפועל = המחלקה שהקוד שלה באמת רץ; [בדיקה ...] instanceof; [תרשים ...]
+PO="$W/poly"
+mkdir -p "$PO"
+for p in pets zoo valid; do
+    mkdir -p "$PO/$p" && cp objects/poly/$p/*.java "$PO/$p/"
+    javac -g -encoding UTF-8 -nowarn -cp "$JAR" -d "$PO/$p" "$PO/$p"/*.java
+done
+(cd "$PO/pets" && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Pets > out.txt 2>&1) || true
+(cd "$PO/zoo" && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Zoo > out.txt 2>&1) || true
+(cd "$PO/valid" && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Valid > out.txt 2>&1) || true
+conds "$PO/pets/out.txt" \
+    '[מחלקות: Pets Animal=#c0392b Dog<Animal=#7b3fb0 Cat<Animal=#0c8583 Person Collar]' \
+    '[תרשים: Dog ▷ Animal; Cat ▷ Animal; Dog ◇owner Person; Cat ◆collar Collar;]' \
+    'שורה 32: this: Animal{name=null, age=0}(Animal(…) getName() ~say())·לא-נבנתה > Dog{breed=null, owner=null}(Dog(…)◀ say() bark() fetch())·נבנית | תגים this:Dog | בבנייה: הבנאי Dog() ממלא את הקופסה של Dog — Animal עוד לא נבנתה]' \
+    'שורה 33: this: Animal{name="Rexy", age=5}(Animal(…) getName() ~say()) > Dog{breed=null, owner=null}(Dog(…)◀ say() bark() fetch())·נבנית' \
+    'שורה 7: d: Animal{name="Rexy", age=5}(Animal(…) getName() ~say()) > Dog{breed="Boxer", owner=→ Hila}(Dog(…) say() bark() fetch()) | תגים d:Dog]' \
+    'שורה 7: a: Animal{name="Bob", age=3}(Animal(…) getName() say()) | תגים a:Animal]' \
+    'שורה 8: d, pet: Animal{name="Rexy", age=5}(Animal(…) getName() ~say()) > Dog{breed="Boxer", owner=→ Hila}(Dog(…) say() bark() fetch()) | תגים pet:Animal d:Dog | פסים מ-Dog (pet) | העצם של d ושל pet הוא אותו עצם. Animal pet = d; לא יצר עצם חדש ולא שינה אותו.]' \
+    'שורה 37: this: Animal{name="Rexy", age=5}(Animal(…) getName() ~say()) > Dog{breed="Boxer", owner=→ Hila}(Dog(…) say()◀ bark() fetch()) | תגים this:Dog]' \
+    'שורה 37: pet.say() מותר=Animal(Animal) רץ=Dog בפועל=Dog | pet.say() | מותר? pet היא הפניה מסוג Animal, ול-Animal יש say() ✓ | מה רץ? מחפשים מהקופסה הפנימית החוצה. בקופסה הפנימית Dog יש say(), ולכן רצה Dog.say() |]' \
+    'שורה 24: super.say() מותר=Animal(Animal) רץ=Animal בפועל=Animal super | super.say() | מה רץ? super.say() ממשיך לחפש מהקופסה שמחוץ ל-Dog. ב-Animal יש say(), ולכן רצה Animal.say() |]' \
+    'שורה 8: pet : Animal → Dog]' 'שורה 37: this : Dog → Dog רצה Dog.say()]'
+conds "$PO/zoo/out.txt" \
+    '[מחלקות: Zoo Animal=#c0392b Mammal<Animal=#7b3fb0 Dog<Mammal=#0c8583 Boxer<Dog=#1f6fb5 Labrador<Dog=#1f8a4c Person]' \
+    '[תרשים: Mammal ▷ Animal; Dog ▷ Mammal; Boxer ▷ Dog; Labrador ▷ Dog; Labrador ◇person Person;]' \
+    'zoo : Animal[] [{Animal}animal, {Dog}Dasty, {Boxer}Rexy, {Labrador}Toto]' \
+    'שורה 54: this: Animal{name=null, gender=null}(Animal(…) getName() getGender() ~say())·לא-נבנתה > Mammal{milk=0.0}(Mammal(…)◀ getMilk() ~say())·נבנית > Dog{bonesToEat=0}(Dog(…) say())·לא-נבנתה' \
+    'שורה 76: zoo[i].say() מותר=Animal(Animal) רץ=Dog בפועל=Dog | zoo[i].say() | מותר? zoo[i] היא הפניה מסוג Animal, ול-Animal יש say() ✓ | מה רץ? מחפשים מהקופסה הפנימית החוצה. בקופסה הפנימית Dog יש say(), ולכן רצה Dog.say() |]' \
+    'שורה 89: zoo[i].say() מותר=Animal(Animal) רץ=Boxer בפועל=Boxer' \
+    'מה רץ? מחפשים מהקופסה הפנימית החוצה. בקופסה הפנימית Labrador אין say(); בקופסה Dog יש say(), ולכן רצה Dog.say() |]' \
+    'תגים myAnimal:Animal mom:Mammal | פסים מ-Mammal (myAnimal) | העצם של mom ושל myAnimal הוא אותו עצם. Animal myAnimal = mom; לא יצר עצם חדש ולא שינה אותו.]' \
+    'שורה 13: (Mammal) myAnimal → חוקית (Mammal)]' \
+    'תגים myAnimal:Animal mom:Mammal m1:Mammal | בעצם יש חלק של Mammal — ההמרה חוקית. דרך m1 רואים את Mammal ואת מה שמסביב.]' \
+    'zoo[i] instanceof Mammal → false (Animal)]' 'zoo[i] instanceof Mammal → true (Dog)]' 'zoo[i] instanceof Mammal → true (Boxer)]' 'zoo[i] instanceof Mammal → true (Labrador)]' \
+    '[כרטיס cast a2 Boxer]' 'שגיאת ריצה: ההמרה לא חוקית — a2 מצביע על עצם מסוג Labrador. בעצם הזה אין חלק של Boxer.' \
+    'num of Mammal is: 3'
+conds "$PO/valid/out.txt" \
+    'שורה 6: (Animal) obj → חוקית (Mammal)]' \
+    'תגים obj:Object^ ann:Animal goofy:Mammal | פסים מ-Mammal (ann) | בעצם יש חלק של Animal — ההמרה חוקית. דרך ann רואים רק את החלק של Animal.]' \
+    '[כרטיס cast obj Bird]' 'שגיאת ריצה: ההמרה לא חוקית — obj מצביע על עצם מסוג Mammal. בעצם הזה אין חלק של Bird.'
+# "מה רץ" לפי החיפוש = מה שבאמת רץ, בכל קריאה; בלי "להפוך" בכרטיס של המרה; ותוכנית בלי הורשה — בלי קופסאות (Pets.java של 5ו)
+n=$(cat "$PO"/*/out.txt | grep -c '\[דריסה') && bad=$(cat "$PO"/*/out.txt | grep '\[דריסה' | sed -n 's/.* רץ=\([A-Za-z]*\) בפועל=\([A-Za-z]*\).*/\1 \2/p' | awk '$1 != $2' | wc -l) \
+    && [ "$n" -ge 10 ] && [ "$bad" -eq 0 ] && ! grep -q 'להפוך' "$PO/zoo/out.txt" "$PO/valid/out.txt" && ! grep -q '\[קופסאות' "$O/out.txt" && ! grep -q '\[מחלקות' "$O/out.txt" \
+    && echo "  ok  $n קריאות: מה שהחלונית אומרת שרץ = מה שבאמת רץ; בלי \"להפוך\"; בלי הורשה — הכרטיס הרגיל" \
+    || { echo "  FAIL מה רץ / להפוך / קופסאות בלי הורשה ($n, $bad)"; grep '\[דריסה' "$PO"/*/out.txt | head; exit 1; }
+# הציור (בלי חלון): Dog בתוך Animal, צבע אחד למחלקה בקופסה / בתגית / בתא, פסים רק כשהטיפוסים שונים, תגיות קטנות בתאים, תרשים המחלקות
+javac -encoding UTF-8 -cp "$JAR" -d "$PO" objects/PolyPaintCheck.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$PO:$JAR" unit4.collectionsLib.PolyPaintCheck "$PO/frames" > "$PO/paint.txt" 2>&1 \
+    && grep -q MARK-END "$PO/paint.txt" && grep '^  ok' "$PO/paint.txt" || { cat "$PO/paint.txt"; exit 1; }
+
 echo "== 5ז. סוגי רקורסיה: פשוטה, זנב (גם void), כפולה, הדדית, על עץ / על שרשרת — והקריאות של תנאי העצירה"
 R="$W/reckinds"
 mkdir -p "$R"

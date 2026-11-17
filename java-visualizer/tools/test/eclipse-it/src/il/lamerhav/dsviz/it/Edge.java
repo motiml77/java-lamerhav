@@ -257,7 +257,7 @@ public class Edge implements IApplication {
         runtime("A-aioobe", "ArrayIndexOutOfBounds", "public class Aioobe {\n    public static void main(String[] args) {\n        int[] a = {1, 2, 3};\n"
                 + "        for (int i = 0; i <= a.length; i++) System.out.println(a[i]);\n    }\n}\n", "אין תא כזה");
         runtime("A-cce", "ClassCastException", "public class Cce {\n    public static void main(String[] args) {\n        Object o = \"שלום\";\n"
-                + "        Integer n = (Integer) o;\n        System.out.println(n);\n    }\n}\n", "אי אפשר להפוך");
+                + "        Integer n = (Integer) o;\n        System.out.println(n);\n    }\n}\n", "ההמרה לא חוקית");
         runtime("A-div0", "חלוקה ב-0", "public class Div0 {\n    public static void main(String[] args) {\n        int a = 5, b = 0;\n"
                 + "        System.out.println(a / b);\n    }\n}\n", "חלוקה ב-0");
         runtime("A-custom", "חריגה של התלמיד שלא נתפסה", "public class Custom {\n    static class MyErr extends RuntimeException {\n        MyErr(String m) { super(m); }\n    }\n"

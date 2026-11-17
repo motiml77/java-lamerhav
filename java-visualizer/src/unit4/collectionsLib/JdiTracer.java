@@ -114,7 +114,7 @@ final class JdiTracer {
             cmd.add("-Xdock:name=DSViz");
             cmd.add("-Dapple.awt.application.name=DSViz");
         }
-        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview", "dsviz.conditions", "dsviz.loopArrowFreeze", "dsviz.animFreeze", "dsviz.anim", "dsviz.input", "dsviz.inputDelay", "dsviz.licenseUrl", "dsviz.license", "user.home", "dsviz.varsFrame" }) {
+        for (String p : new String[] { "file.encoding", "stdout.encoding", "stderr.encoding", "java.awt.headless", "dsviz.timing", "dsviz.fonts", "dsviz.debug", "dsviz.objview", "dsviz.conditions", "dsviz.loopArrowFreeze", "dsviz.animFreeze", "dsviz.anim", "dsviz.input", "dsviz.inputDelay", "dsviz.licenseUrl", "dsviz.license", "user.home", "dsviz.varsFrame", "dsviz.diagramOpen" }) {
             String v = System.getProperty(p);
             if (v != null) cmd.add("-D" + p + "=" + v);
         }
@@ -334,7 +334,27 @@ final class JdiTracer {
         meta.append('\u0004');
         appendCallerRoots(meta, frames);
         appendFrameVars(meta, frames);   // המשתנים של הפעולות שמחכות — בחירת פעולה במעקב המשתנים
+        appendTypes(meta, f);            // הטיפוס המוצהר של כל משתנה (הורשה: Animal pet = d)
         return meta.toString();
+    }
+
+    /**
+     * הטיפוס המוצהר של המשתנים המקומיים של המסגרת העליונה (בלי מספרים ומחרוזות): חצי חדש בסוף, \u0004 \u0019, ואחריו
+     * שם \u0002 טיפוס \u0001 — הטיפוס בשם הקצר (Animal, Animal[]). ה-Recorder מראה בעזרתו לאיזו קופסה בעצם כל הפניה מצביעה (Poly).
+     * בלי מידע על משתנים (javac בלי -g) — חצי ריק
+     */
+    private void appendTypes(StringBuilder meta, StackFrame f) {
+        meta.append('\u0004').append('\u0019');
+        try {
+            for (LocalVariable lv : f.visibleVariables()) {
+                String t = lv.typeName();
+                if (PRIMITIVES.contains(t)) continue;
+                String simple = t.substring(Math.max(t.lastIndexOf('.'), t.lastIndexOf('$')) + 1);
+                meta.append(clean(lv.name())).append('\u0002').append(clean(simple)).append('\u0001');
+            }
+        } catch (AbsentInformationException | RuntimeException ignored) {
+            // בלי טיפוסים — הכרטיסים כמו קודם
+        }
     }
 
     private static final java.util.Set<String> PRIMITIVES = new java.util.HashSet<>(java.util.Arrays.asList(

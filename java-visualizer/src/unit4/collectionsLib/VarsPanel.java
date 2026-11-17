@@ -70,6 +70,8 @@ final class VarsPanel extends JPanel {
     /** "כל שורה" (LineAfter): השורות שהשורה בקוד שינתה עכשיו — מרקר צהוב חזק; ולכל אחת מה היה קודם ("היה 5") או "חדש" */
     private final Set<Integer> markedRows = new HashSet<Integer>();
     private final java.util.Map<Integer, String> rowNote = new java.util.HashMap<Integer, String>();
+    /** הטיפוס המוצהר של המשתנה בשורה, כשהוא מחלקה שבהיררכיה (Poly) — מצויר בצבע שלה אחרי השם */
+    private final java.util.Map<Integer, String> rowType = new java.util.HashMap<Integer, String>();
     private After after;
 
     /**
@@ -256,6 +258,7 @@ final class VarsPanel extends JPanel {
 
     private void fillTable(Step s, int k) {
         model.setRowCount(0);
+        rowType.clear();
         changedRows.clear();
         markedRows.clear();
         rowNote.clear();
@@ -277,6 +280,8 @@ final class VarsPanel extends JPanel {
             String name = v[0];
             if (name.equals("this") && self != null && self.self != null && !self.self.isEmpty() && !self.self.equals("this"))
                 name = "this (" + self.self + ")";
+            String t = k == 0 && s != null ? Poly.declared(s, v[0]) : null;
+            if (t != null && Poly.inHierarchy(Poly.elem(t))) rowType.put(i, t);   // הורשה (Poly): הטיפוס המוצהר, בצבע של המחלקה — pet  Animal
             model.addRow(new Object[] { name, ltr(v[1]) });
             if (changed.contains(v[0])) changedRows.add(i);
             if (old != null) {
@@ -292,6 +297,14 @@ final class VarsPanel extends JPanel {
                 }
             }
         }
+        int nameW = 110;   // שם + טיפוס צבעוני (הורשה) — העמודה מתרחבת כדי שהטיפוס ייכנס
+        java.awt.FontMetrics nfm = table.getFontMetrics(Theme.zv(Theme.mono.deriveFont(Font.BOLD)));
+        java.awt.FontMetrics tfm = table.getFontMetrics(Theme.zv(Theme.mono));
+        for (java.util.Map.Entry<Integer, String> e : rowType.entrySet())
+            nameW = Math.max(nameW, nfm.stringWidth(String.valueOf(model.getValueAt(e.getKey(), 0))) + tfm.stringWidth(e.getValue()) + 34);
+        javax.swing.table.TableColumn col0 = table.getColumnModel().getColumn(0);
+        col0.setMinWidth(nameW > 110 ? Math.min(220, nameW) : 15);
+        if (nameW > 110) col0.setPreferredWidth(Math.min(220, nameW));
         boolean willHave = vs.isEmpty() && FrameViz.willHaveVars(s, k);   // עוד לא רץ עד ההכרזה — ולא שאין בפעולה הזו משתנים בכלל
         table.empty = vs.isEmpty() ? (willHave ? "אין עדיין משתנים בפעולה הזו" : "אין משתנים בפעולה הזו") : null;
     }
@@ -420,6 +433,7 @@ final class VarsPanel extends JPanel {
             super.getTableCellRendererComponent(t, v, false, false, row, col);
             boolean mark = markedRows.contains(row);
             note = mark && col == 1 ? rowNote.get(row) : null;
+            type = col == 0 ? rowType.get(row) : null;
             setBackground(mark ? MARK : changedRows.contains(row) ? Theme.CHANGED : Color.WHITE);
             setForeground(Theme.TEXT);
             setFont(col == 0 ? Theme.zv(Theme.mono.deriveFont(Font.BOLD)) : Theme.zv(Theme.mono));
@@ -431,10 +445,32 @@ final class VarsPanel extends JPanel {
 
         /** "היה 5" / "חדש" — בקטן ובאפור-זהוב, בצד הימני של תא הערך (הערך עצמו משמאל) */
         private String note;
+        /** הטיפוס המוצהר (הורשה) — אחרי שם המשתנה, בצבע של המחלקה */
+        private String type;
 
         @Override
         protected void paintComponent(Graphics g0) {
             super.paintComponent(g0);
+            if (type != null) {
+                Graphics2D g = (Graphics2D) g0.create();
+                try {
+                    g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                    java.awt.FontMetrics fm = getFontMetrics(getFont());
+                    Font tf = Theme.zv(Theme.mono);
+                    int x = 10 + fm.stringWidth(getText() == null ? "" : getText()) + 10, base = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+                    String el = Poly.elem(type);
+                    g.setFont(tf);
+                    g.setColor(Poly.ink(el));
+                    g.drawString(el, x, base);
+                    int k = type.indexOf(el);
+                    if (k >= 0 && k + el.length() < type.length()) {
+                        g.setColor(Theme.TEXT);
+                        g.drawString(type.substring(k + el.length()), x + g.getFontMetrics().stringWidth(el), base);
+                    }
+                } finally {
+                    g.dispose();
+                }
+            }
             if (note == null) return;
             Graphics2D g = (Graphics2D) g0.create();
             try {
@@ -594,7 +630,7 @@ final class VarsPanel extends JPanel {
     List<String> rows() {
         List<String> res = new java.util.ArrayList<String>();
         for (int i = 0; i < model.getRowCount(); i++)
-            res.add((model.getValueAt(i, 0) + "=" + model.getValueAt(i, 1)).replaceAll("[‎‏‪-‮]", ""));
+            res.add((String.valueOf(model.getValueAt(i, 0)) + "=" + model.getValueAt(i, 1)).replaceAll("[‎‏‪-‮]", ""));
         if (res.isEmpty() && table.empty != null) res.add("(" + table.empty + ")");
         return res;
     }

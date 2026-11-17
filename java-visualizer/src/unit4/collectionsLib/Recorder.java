@@ -686,6 +686,7 @@ final class Recorder {
     private static final Map<String, List<String>> nowFieldArrays = new HashMap<String, List<String>>();
 
     private static Obj reflectObj(Object v) {
+        if (lineMode) Poly.ensure(v.getClass());   // הורשה: המחלקה (ומחלקות העל שלה) בטבלת המחלקות — קופסאות וצבעים
         Obj o = new Obj();
         o.id = System.identityHashCode(v);
         o.type = v.getClass().getSimpleName();
@@ -1048,6 +1049,7 @@ final class Recorder {
         // ולא currentVars (שעלול עדיין להחזיק את המשתנים של פעולת עזר שרצה אחרונה, אם main עצמו לא עבר עוד שורה)
         s.vars = kind == Kind.END && lineMode ? mainVars : currentVars;
         attachFrameVars(s);
+        if (lineMode) s.types = typesFor(s);
         if (kind == Kind.END && s.vars != null) s.frameVars = java.util.Collections.singletonList(s.vars);
         steps.add(s);
         if (textMode) printStep(s);
@@ -1856,6 +1858,7 @@ final class Recorder {
                     out.print(CallViz.dump());
                     out.print(SelfViz.dump());
                     out.print(ObjCard.dump());
+                    out.print(Poly.dump());
                     out.print(LoopArrow.dump());
                     out.print(RecursionKind.dump());
                     out.print(chainDump());
@@ -1981,6 +1984,10 @@ final class Recorder {
         currentVars = vars;
         lineFrameVars = parseFrameVars(halves, vars, frames.size());
         if (frames.size() == 1) mainVars = vars;   // המשתנים של main ברגע הזה — למעקב המשתנים בצעד הסיום (END)
+        currentTypes = parseTypes(halves);
+        if (!frames.isEmpty()) typesAt.put(frames.size(), new Object[] { frames.get(0).className + "." + frames.get(0).method, currentTypes });
+        if (frames.size() == 1) mainTypes = currentTypes;
+        if (!Poly.scanned() && !frames.isEmpty()) Poly.scanJava(frames.get(frames.size() - 1));   // ליתר ביטחון (בדרך כלל כבר ב-LineByLine)
         // המבנים שהמשתנים של הפעולות שקראו לנוכחית מצביעים עליהם — כדי לדעת אם חוליה באמת אבדה
         List<Object> roots = new ArrayList<Object>();
         if (halves.length > 3) for (String id : split(halves[3])) {
@@ -2100,6 +2107,43 @@ final class Recorder {
     private static List<List<String[]>> lineFrameVars;
     /** המשתנים של main בשורה האחרונה שלו (ולא, למשל, של פעולת עזר שרצה אחריה) — ל-Kind.END, שאין לו מחסנית קריאות משלו */
     private static List<String[]> mainVars;
+
+    // ------------------------------------------------------------ הטיפוס המוצהר של המשתנים (הורשה ופולימורפיזם — Poly)
+
+    /** הטיפוסים של המשתנים בשורה האחרונה, של main, ולכל עומק במחסנית: עומק → {מחלקה.פעולה, טיפוסים} */
+    private static Map<String, String> currentTypes, mainTypes;
+    private static final Map<Integer, Object[]> typesAt = new HashMap<Integer, Object[]>();
+
+    /** החצי של ה-Tracer שמתחיל ב-\u0019 (ראו JdiTracer.appendTypes): שם \u0002 טיפוס, מופרדים ב-\u0001. null — אין (גרסה ישנה) */
+    private static Map<String, String> parseTypes(String[] halves) {
+        for (int h = 4; h < halves.length; h++) {
+            if (!halves[h].startsWith("\u0019")) continue;
+            Map<String, String> res = new HashMap<String, String>();
+            for (String item : split(halves[h].substring(1))) {
+                int k = item.indexOf('\u0002');
+                if (k > 0) res.put(item.substring(0, k), item.substring(k + 1));
+            }
+            return res;
+        }
+        return null;
+    }
+
+    /**
+     * הטיפוסים לצעד: של השורה האחרונה — אבל צעד בפעולה שקראה (חזרנו מפעולה, לפני השורה הבאה שלה: s.vars הוחלפו ב-attachFrameVars)
+     * מקבל את הטיפוסים שנשמרו לעומק שלה, אם זו אותה פעולה
+     */
+    private static Map<String, String> typesFor(Step s) {
+        if (s.kind == Kind.END) return mainTypes;
+        if (s.calls.isEmpty()) return currentTypes;
+        Object[] t = typesAt.get(s.calls.size());
+        Frame f = s.calls.get(0);
+        if (t != null && t[0].equals(f.className + "." + f.method)) {
+            @SuppressWarnings("unchecked")
+            Map<String, String> m = (Map<String, String>) t[1];
+            return m;
+        }
+        return currentTypes;
+    }
 
     /** החצי של ה-Tracer שמתחיל ב-\u0012 (ראו JdiTracer.appendFrameVars): מספר מסגרת \u0013 משתנים, מופרדות ב-\u0011 */
     private static List<List<String[]>> parseFrameVars(String[] halves, List<String[]> top, int depth) {

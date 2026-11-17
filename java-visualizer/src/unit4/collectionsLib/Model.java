@@ -66,6 +66,48 @@ final class Model {
          * null — לא נשמרו (הרצה ישנה); איבר null — הפעולה הזו עמוק מדי במחסנית
          */
         List<List<String[]>> frameVars;
+        /**
+         * הטיפוס המוצהר של המשתנים של הפעולה שרצה (Animal pet = d → pet: "Animal"; מערך: "Animal[]") — בשביל הורשה ופולימורפיזם (Poly).
+         * null — לא ידוע (הרצה ישנה). this לא כאן: הטיפוס שלו הוא המחלקה של הפעולה שרצה
+         */
+        java.util.Map<String, String> types;
+    }
+
+    /**
+     * מחלקה של התלמיד, כפי שהיא בקוד: מחלקת העל (אם גם היא של התלמיד), המאפיינים והפעולות שהיא עצמה מגדירה — בשביל הקופסאות
+     * של הורשה (Poly). נבנית ב-Java מ-reflection בתהליך של התוכנית, וב-C# מ-Roslyn (שורות CLS / CF / CM בקובץ ההרצה)
+     */
+    static final class ClassInfo {
+        String name;                       // Dog
+        String sup;                        // Animal — רק אם גם היא מחלקה של התלמיד; אחרת null
+        boolean isAbstract, isInterface;
+        final List<String> ifaces = new ArrayList<String>();      // implements Comparable / : IShape
+        final List<String[]> fields = new ArrayList<String[]>();  // {שם, טיפוס, נראות + - # ~} — המאפיינים של המחלקה עצמה (לא static), לפי הסדר
+        final List<Meth> methods = new ArrayList<Meth>();         // הבנאים והפעולות של המחלקה עצמה, לפי הסדר בקוד
+        int order;                         // המקום בקוד (בשביל הצבעים: לפי סדר ההגדרה)
+        int color = -1;                    // אינדקס בפלטה (Poly); -1 = לא בהיררכיה
+    }
+
+    /** פעולה או בנאי של מחלקה (ClassInfo) */
+    static final class Meth {
+        String name;                       // say / Dog (בנאי)
+        String params = "";                // טיפוסי הפרמטרים, מופרדים בפסיק — לזיהוי דריסה
+        int count;                         // כמה פרמטרים
+        boolean ctor, isStatic, isAbstract, isPrivate;
+        /** הקריאה נשלחת לפי העצם (Java: כל פעולה לא static ולא private; C#: virtual / override / abstract) */
+        boolean virt;
+        boolean override;                  // C#: override (ב-Java: דורסת פעולה של מחלקת על)
+        boolean hides;                     // C#: new — מסתירה ולא דורסת
+        String ret;                        // טיפוס ההחזרה (לתרשים המחלקות); null — void / בנאי
+        String vis = "+";                  // נראות: + public, - private, # protected, ~ package
+
+        String label() {
+            return name + (count > 0 ? "(…)" : "()");
+        }
+
+        String sig() {
+            return name + "(" + params + ")";
+        }
     }
 
     /**
@@ -155,6 +197,8 @@ final class Model {
      */
     static final class ProblemView extends View {
         String kind = "other", what = "", why = "", hint = "", name, op;
+        /** cast: הטיפוס האמיתי של העצם (Labrador); op = הטיפוס שביקשו בהמרה (Boxer); name = ההפניה (a2) */
+        String actual;
         int index = -1, length = -1;       // index: התא שניסו, length: כמה תאים יש (loop: index = כמה סיבובים)
         int line = -1;                     // loop: שורת התנאי של הלולאה שלא נגמרת (התגית בקוד)
     }
