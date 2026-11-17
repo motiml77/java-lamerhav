@@ -109,7 +109,7 @@ ${DONATE_CSS}
   <div class="sub">בוחרים הדרכה — לכל אחת סרטון קצר שמראה בדיוק איפה לוחצים ומה נפתח.</div>
   <div class="grid" id="grid"></div>
   <div class="hint">אפשר לחזור לכאן בכל רגע בכפתור <b>?</b> בסרגל הכלים.</div>
-  <div class="foot"><div class="hint copy" style="margin:0">© 2026 Moti Levi · motiml77@gmail.com</div></div>
+  <div class="foot"><div class="hint copy" style="margin:0">© 2026 Moti Levi · motiml77@gmail.com</div><div class="hint copy" id="dsviz-ver" style="margin:4px 0 0"></div></div>
 </div>
 <div id="player"><div class="bar"><h3 id="ptitle"></h3><div class="speed" id="speed"><span>מהירות</span></div><button class="btn" id="next">ההדרכה הבאה ◂</button><button class="btn" id="close">✕ סגירה</button></div><video id="vid" controls></video></div>
 <script>
@@ -144,7 +144,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') stop(); });
 const h = (location.hash || '').slice(1), k = LIST.findIndex(t => t.id === h);
 if (k >= 0) play(k);
 ${DONATE_JS}
-</script></body></html>`;
+</script><script src="version.js"></script><script>(function(){var v;try{v=window.DSVIZ_VERSION;}catch(e){}if(v){document.getElementById("dsviz-ver").textContent="גרסה "+v;}})();</script></body></html>`;
 }
 
 /**

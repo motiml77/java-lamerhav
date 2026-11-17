@@ -17,6 +17,12 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !ifndef VERSION
   !define VERSION "1.0.1"
 !endif
+; הגרסה המוצגת (ברישום, בכותרת ההתקנה): 1.0.1.<מספר הבנייה>; בלי BUILDNO — רק 1.0.1
+!ifdef BUILDNO
+  !define FULLVER "${VERSION}.${BUILDNO}"
+!else
+  !define FULLVER "${VERSION}"
+!endif
 !ifndef BUILDNO
   !define BUILDNO "0"   ; מספר הבנייה (build-all.sh שם תאריך ושעה) — בשביל העדכון האוטומטי
 !endif
@@ -49,7 +55,7 @@ Name "מבני נתונים — הרצה ויזואלית"
 OutFile "${RELEASE}\DSViz-Setup.exe"
 InstallDir "$LOCALAPPDATA\DSViz"
 RequestExecutionLevel user
-BrandingText "מבני נתונים — הרצה ויזואלית ${VERSION}  ·  © Moti Levi"
+BrandingText "מבני נתונים — הרצה ויזואלית ${FULLVER}  ·  © Moti Levi"
 ShowInstDetails show
 ShowUninstDetails show
 
@@ -437,7 +443,7 @@ Section "-core"
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "מבני נתונים — הרצה ויזואלית"
-  WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${VERSION}"
+  WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${FULLVER}"
   WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "Moti Levi"
   WriteRegStr HKCU "${UNINST_KEY}" "Contact" "motiml77@gmail.com"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\icon.ico"

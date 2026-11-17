@@ -5,3 +5,6 @@ build/
 node_modules/
 obj/
 csharp/project/lib/
+
+# עותקים של תוכנית ההתקנה עם הגרסה בשם (נוצרים ב-build-all.sh) — לא נכנסים לגיט
+release/DSViz-Setup-*.exe

@@ -50,6 +50,10 @@ if command -v ffprobe >/dev/null 2>&1; then node tools/build-help.js; else echo 
 rm -rf build/help && mkdir -p build/help && cp help/index.html help/player.html help/tutorials.json help/*.mp4 help/*.jpg build/help/ 2>/dev/null || true
 # לכל סביבה הסרטונים שלה: help/ (Eclipse), help/vscode/, help/vs/ (Visual Studio) — בהתקנה כולם, וכל כלי פותח את התיקייה שלו
 for d in vscode vs; do [ -d help/$d ] && mkdir -p build/help/$d && cp help/$d/index.html help/$d/player.html help/$d/tutorials.json help/$d/*.mp4 help/$d/*.jpg build/help/$d/ 2>/dev/null || true; done
+# הגרסה המדויקת (1.0.1.<מספר הבנייה>) — version.js ליד כל דף הדרכה שנארז (דף ההדרכה מציג אותה בתחתית; בלי הקובץ — לא מציג כלום)
+for d in build/help build/help/vscode build/help/vs; do
+    if [ -f "$d/index.html" ]; then echo "window.DSVIZ_VERSION = \"$VERSION.$BUILDNO\";" > "$d/version.js"; fi
+done
 
 echo "== Eclipse"
 DEPS=build/eclipse-deps
@@ -145,6 +149,9 @@ if command -v makensis >/dev/null 2>&1; then
     # BUILDNO (למעלה) — העדכון האוטומטי מתקין כל בנייה חדשה יותר; אותו מספר כמו ב-Bundle-Version של התוסף ל-Eclipse
     (cd installer && makensis -V2 -DVERSION=$VERSION -DBUILDNO=$BUILDNO setup.nsi)
     echo "release/DSViz-Setup.exe"
+    # עותק עם הגרסה המדויקת בשם הקובץ (השם הקבוע DSViz-Setup.exe נשאר — הקישור הקבוע וה-version.json מצביעים עליו). ישנים מוסרים
+    cp release/DSViz-Setup.exe "release/DSViz-Setup-$VERSION.$BUILDNO.exe"
+    for f in release/DSViz-Setup-*.exe; do [ "$f" = "release/DSViz-Setup-$VERSION.$BUILDNO.exe" ] || rm -f "$f"; done
     # מה העדכון האוטומטי (installer/update.ps1) בודק: הגרסה, מספר הבנייה, והקובץ (עם SHA-256 — כדי לוודא שהורד שלם)
     printf '{\n  "version": "%s",\n  "build": %s,\n  "url": "https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe",\n  "sha256": "%s"\n}\n' \
         "$VERSION" "$BUILDNO" "$(sha256sum release/DSViz-Setup.exe | cut -d' ' -f1)" > release/version.json
