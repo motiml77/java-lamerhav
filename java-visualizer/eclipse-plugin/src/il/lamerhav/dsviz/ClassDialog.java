@@ -129,7 +129,7 @@ public class ClassDialog extends Dialog {
         ctor = new Button(right, SWT.CHECK);
         ctor.setText("בנאי שמקבל את כל השדות");
         ctor.setSelection(true);
-        GridData cg = new GridData(SWT.FILL, SWT.CENTER, true, false);
+        GridData cg = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);   // בתחילת השורה (מימין) — כמו ToString שמתחתיו
         cg.verticalIndent = 8;
         ctor.setLayoutData(cg);
         toStr = new Button(right, SWT.CHECK);
