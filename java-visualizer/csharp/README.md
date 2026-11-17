@@ -25,13 +25,20 @@ csharp/
 ההתקנה (חבילת C#) מעתיקה את `installer/DSViz.targets` ל-
 `%LOCALAPPDATA%\Microsoft\MSBuild\Current\Microsoft.CSharp.targets\ImportAfter\` — נקודת הרחבה של MSBuild ברמת המשתמש
 (בלי הרשאות מנהל) שכל בנייה של פרויקט C# מייבאת: Visual Studio (גם הבנייה של עיצוב-זמן כשהפרויקט נטען), `dotnet build`, ו-C# Dev Kit.
-ההסרה מוחקת את הקובץ. בכל פרויקט **קונסול** (`OutputType` = `Exe`) ב-C#:
-- **הפניה ל-`Unit4.CollectionsLib.dll`** מתיקיית ההתקנה, לפני `ResolveAssemblyReferences` — רק אם הפרויקט עוד לא מפנה לספרייה
-  (`Reference` בשם קצר/מלא או לפי `HintPath`, או `ProjectReference`), ורק ל-‎.NET Core 2.0+ / ‎.NET 5+ / ‎.NET Framework 4.7.2+.
-- **פרופיל "הרצה ויזואלית"** ב-`Properties\launchSettings.json` (פרויקט SDK, ‎.NET 6+): אם הפרופיל לא בקובץ, רץ
+ההסרה מוחקת את הקובץ. העיקרון: **פרויקט שאין לו קשר ל-DSViz נבנה בדיוק כמו בלי DSViz**. הקובץ פועל רק בפרויקט **קונסול**
+(`OutputType` = `Exe`) שהקוד שלו מזכיר את `Unit4.CollectionsLib`, או שמסומן כפרויקט של DSViz (`<DSVizProject>true</DSVizProject>` —
+את הסימון שם `Directory.Build.props` של תיקיית התרגילים):
+- **`Unit4.CollectionsLib.dll`** מתיקיית ההתקנה מתווסף **אחרי** `ResolveAssemblyReferences` — רק אם אף אחת מההפניות שנפתרו אינה `Unit4*`
+  (הספרייה שלנו, או `Unit4.dll` של בית הספר — גם כשהיא מגיעה מ-`ProjectReference` לפרויקט בשם אחר), ורק ל-‎.NET Core 2.0+ / ‎.NET 5+ /
+  ‎.NET Framework 4.7.2+. כך אין CS0433: ההרצה הרגילה משתמשת במה שהפרויקט מפנה אליו, וההרצה הוויזואלית (dsviz-cs) — תמיד בספרייה של DSViz.
+  ב-‎.NET Framework מתווסף גם `netstandard.dll`.
+- **`using` מוסתר**: כשהקוד משתמש בספרייה ולא באוספים של ‎.NET — `System.Collections.Generic` יוצא מהרשימה המוסתרת (אחרת CS0104).
+  `global using Unit4.CollectionsLib` האוטומטי — רק בפרויקט מסומן. פרויקט רגיל עם `Stack<int>` של ‎.NET לא משתנה.
+- **פרופיל "הרצה ויזואלית"** ב-`Properties\launchSettings.json` (פרויקט SDK של ‎.NET 6+ שמשתמש בספרייה / מסומן): אם הפרופיל לא בקובץ, רץ
   `dsviz-cs.exe --ensure-profile <תיקייה>` — ממזג את הפרופיל (ו"הרצה רגילה" אם אין פרופיל `Project`), משאיר את הפרופילים הקיימים,
-  ולא נוגע בקובץ פגום. כשהפרופיל כבר שם — לא רץ כלום (בנייה רגילה לא מתעכבת), חוץ מפרופיל מגרסה ישנה
-  (`"\"$(ProjectDir)\""` — ProjectDir נגמר ב-`\`, וב-Windows הנתיב מגיע עם מרכאה בסוף): אותה קריאה מתקנת אותו ל-`"\"$(ProjectDir).\""`.
+  ולא נוגע בקובץ פגום. **"הרצה רגילה" ראשונה** — הפרופיל הראשון הוא ברירת המחדל של הכפתור הירוק / F5 / Ctrl+F5, והם מריצים
+  כרגיל, בקונסול; קובץ מגרסה ישנה שבו "הרצה ויזואלית" הייתה ראשונה מתוקן פעם אחת. כשהכול תקין — לא רץ כלום (הבנייה לא מתעכבת).
+  פרופיל מגרסה ישנה (`"\"$(ProjectDir)\""` — ProjectDir נגמר ב-`\`, וב-Windows הנתיב מגיע עם מרכאה בסוף) מתוקן ל-`"\"$(ProjectDir).\""`.
   dsviz-cs עצמו מקבל גם ארגומנט כזה (מרכאות בקצוות, `C:\dir" --trace x` שנבלע לארגומנט אחד), ונתיב שלא קיים — הודעה בעברית, קוד 2.
 
 לא נוגע בספריות / פרויקטי בדיקות / פרויקטים שאינם C#, ולא אם יש `<DSVizDisable>true</DSVizDisable>` בפרויקט. אף שלב לא מכשיל את הבנייה
@@ -93,10 +100,18 @@ sh tools/test/cs-tests.sh          # בדיקות C#: תבניות (2331 קבצ�
 
 ## סרגל הכלים של DSViz ב-Visual Studio (הרחבה)
 
-`csharp/vs-extension/` — הרחבה ל-Visual Studio (VisualStudio.Extensibility, מחוץ לתהליך, דורשת Visual Studio 2022 17.14 ומעלה) עם סרגל כלים בפני עצמו
-(View ← Toolbars ← "DSViz — מבני נתונים"): תרגיל חדש · הוספת מבנה נתונים · מאגר שאלות · שליחת תרגיל · הצעה לפתרון · הרצה ויזואלית · הדרכה.
+`csharp/vs-extension/` — הרחבה ל-Visual Studio 2022 ומעלה (VSIX רגיל, בתוך התהליך, מול ה-SDK של 17.0) עם סרגל כלים בפני עצמו, בשורה משלו
+(View ← Toolbars ← "DSViz"): תרגיל חדש · הוספת מבנה נתונים · מאגר שאלות · השאלה · שליחת תרגיל · הרצה ויזואלית · הדרכה.
 כל כפתור מפעיל את הכלי של ההתקנה (`dsviz-cs.exe --tool <מצב>` — אותם חלונות כמו בקיצורים), וההרצה הוויזואלית מריצה את קובץ ה-C# הפתוח.
-- נבנית ב-CI של Windows (`.github/workflows/dsviz-vsix.yml`), שמתקין אותה גם ב-Visual Studio האמיתי של המכונה ומצלם; ה-VSIX נשמר ב-`vs-extension/prebuilt/`.
-- `tools/build-all.sh` אורז אותו להתקנה, ו-`installer/install-vsix.ps1` מתקין אותו בכל Visual Studio שנמצא (ומסיר בהסרה). Visual Studio ישן יותר — לא מקבל את ההרחבה.
+- **הכפתור הירוק נשאר של Visual Studio**: ההרחבה לא מבטלת ולא מחליפה את ההרצה הרגילה. בפתרון התרגילים של DSViz הפרויקט של הקובץ הפתוח
+  נהיה ה-Startup Project; בכל פתרון — כש-Visual Studio מריץ פרויקט אחר מהקובץ הפתוח (למשל קובץ שלא שייך לאף פרויקט), שורת הודעה
+  מסבירה מה רץ, עם כפתור "הרצה ויזואלית" של הקובץ.
+- מספר הגרסה עולה בכל בנייה (1.0.‹שנה ויום›.‹דקה›), כך שעדכון מתקין מעל הקיים. בכל טעינה ההרחבה כותבת
+  `%LOCALAPPDATA%\DSViz\vs-loaded-<מופע>.txt` (גרסה ושעה) — `DSViz-Diagnose.bat` מציג אותו (מותקנת ≠ נטענת).
+- נבנית ב-CI של Windows (`.github/workflows/dsviz-vsix.yml`, `tools/test/windows-vs/build-vsix.ps1`), שמתקין אותה גם ב-Visual Studio האמיתי
+  של המכונה ומצלם; ה-VSIX נשמר ב-`vs-extension/prebuilt/`. `tools/test/vs-extension-compile.sh` מקמפל את הקוד גם ב-Linux.
+  הבדיקה המלאה, בלחיצות עכבר אמיתיות ב-2022 וב-2026: `.github/workflows/dsviz-vs-matrix.yml` (`tools/test/windows-vs-matrix/`).
+- `tools/build-all.sh` אורז אותו להתקנה, ו-`installer/install-vsix.ps1` מתקין אותו בכל Visual Studio (Community / Professional / Enterprise,
+  מ-2022) ומסיר בהסרה. `tools/test/install-vsix-test.sh` בודק את הלוגיקה שלו עם Visual Studio מדומה.
 - גיבוי בכל גרסה של Visual Studio: אותם כלים כפרופילי הרצה בתפריט שליד הכפתור הירוק ("תרגיל חדש", "הוספת מבנה נתונים", "שליחת תרגיל", "הצעה לפתרון") — `DSViz.targets` ← `dsviz-cs --ensure-profile`.
 
