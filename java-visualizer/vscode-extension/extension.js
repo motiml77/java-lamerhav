@@ -508,6 +508,7 @@ async function openHelp(id) {
         lang: currentLang === 'csharp' ? 'cs' : 'java',   // התג "תמכו בפרויקט" של השפה שבה עובדים
         urlOf: f => panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, f))).toString(),
         remote: help.REMOTE_HELP + (path.basename(dir) === 'help' && path.basename(path.dirname(dir)) !== 'resources' ? '' : 'vscode/'),   // אין עותק במחשב — מהאתר
+        version: (() => { try { return (/DSVIZ_VERSION\s*=\s*"([0-9.]+)"/.exec(fs.readFileSync(path.join(dir, 'version.js'), 'utf8')) || [])[1]; } catch (e) { return undefined; } })(),   // הגרסה המדויקת, בתחתית הנגן
         csp: `default-src 'none'; img-src ${src} data:; media-src ${src} https://raw.githubusercontent.com; style-src 'unsafe-inline'; script-src 'unsafe-inline';`
     });
     panel.webview.onDidReceiveMessage(m => {

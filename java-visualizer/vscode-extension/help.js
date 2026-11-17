@@ -154,7 +154,8 @@ ${DONATE_JS}
 /** הסרטונים באתר (הענף הראשי ב-GitHub) — ההתקנה לא כוללת אותם; הנגן מנגן משם כשאין עותק במחשב, והעדכון ברקע מוריד אותם */
 const REMOTE_HELP = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/help/';
 
-function playerPage({ urlOf, csp, id: fixedId, remote, lang, vs }) {
+/** version: הגרסה המדויקת (VS Code קורא אותה מ-version.js ומעביר); בלי — הדף טוען את version.js שליד (build-all.sh כותב אותו) */
+function playerPage({ urlOf, csp, id: fixedId, remote, lang, vs, version }) {
     const list = TUTORIALS.filter(t => !t.vsOnly || vs).map(t => ({ id: t.id, num: t.num, title: t.title, video: urlOf(t.id + '.mp4'), poster: urlOf(t.id + '.jpg') }));
     const data = JSON.stringify(list).replace(/</g, '\\u003c');
     return `<!doctype html>
@@ -184,7 +185,8 @@ ${DONATE_CSS}
 </style></head><body>
 <div class="bar"><h1 id="ttl"></h1><button class="other" id="other">הדרכה אחרת</button><div class="speed" id="speed"><span>מהירות</span></div>${donateHtml(lang)}</div>
 <div class="stage"><video id="vid" controls autoplay></video><div id="err">לא הצלחתי לנגן את הסרטון בחלון הזה.</div></div>
-<div class="foot"><div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div></div>
+<div class="foot"><div class="copy">© 2026 Moti Levi · motiml77@gmail.com</div><div class="copy" id="dsviz-ver" style="direction:rtl">${version ? 'גרסה ' + String(version).replace(/[^0-9.]/g, '') : ''}</div></div>
+${version ? '' : `<script src="${urlOf('version.js')}"></script>`}
 <script>
 var LIST = ${data};
 var SPEEDS = [1, 1.25, 1.5, 2];
@@ -226,6 +228,7 @@ v.onerror = function () {
 v.addEventListener('loadedmetadata', function () { v.playbackRate = rate; });
 v.src = t.video;
 setRate(rate);
+try { if (!$('dsviz-ver').textContent && window.DSVIZ_VERSION) $('dsviz-ver').textContent = 'גרסה ' + window.DSVIZ_VERSION; } catch (e) { }
 ${DONATE_JS}
 </script></body></html>`;
 }
