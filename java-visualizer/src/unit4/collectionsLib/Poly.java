@@ -818,7 +818,10 @@ final class Poly {
         c.runs = found == null ? c.ran : found.name;
         if (Syntax.csharp && c.foundIn != null && !c.viaSuper) {
             Meth m = own(get(c.foundIn), c.method);
-            if (m != null && !m.virt) {   // C#: בלי virtual — הגרסה של טיפוס ההפניה
+            boolean hidden = false;   // יש גרסה אחרת (new) בקופסה פנימית יותר — רק אז ההסבר על virtual מעניין
+            for (ClassInfo x = get(actual); x != null && !x.name.equals(c.foundIn); x = x.sup == null ? null : get(x.sup))
+                if (own(x, c.method) != null) hidden = true;
+            if (m != null && !m.virt && hidden) {   // C#: בלי virtual — הגרסה של טיפוס ההפניה
                 c.nonVirtual = true;
                 c.runs = c.foundIn;
             }
@@ -886,7 +889,7 @@ final class Poly {
             r.add("לא סומנה virtual, ולכן רצה הגרסה של טיפוס ההפניה:");
             r.add("\u0002" + runs + "." + c.method + "()");
         } else if (c.viaSuper) {
-            r.add("\u0002super." + c.method + "()");
+            r.add("\u0002" + c.recv + "." + c.method + "()");
             r.add("ממשיך לחפש מהקופסה שמחוץ ל-");
             r.add("\u0001" + (c.searched.isEmpty() ? runs : childOf(c.searched.get(0))));
             r.add(". ב-");

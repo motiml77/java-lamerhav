@@ -20,6 +20,8 @@ namespace Unit4.CollectionsLib
         public string Class, Method, File;
         public int Line;
         public List<KeyValuePair<string, object>> Vars = new List<KeyValuePair<string, object>>();
+        /// <summary>הטיפוס המוצהר של משתנה שהטיפוס שלו מחלקה של התלמיד (Animal pet) — מה-Instrumenter ("pet\u0019Animal"). הורשה: Poly בחלון</summary>
+        public Dictionary<string, string> Types = new Dictionary<string, string>();
         public bool Returned, Faulted;
         public Frame Copy() { return new Frame { Class = Class, Method = Method, File = File, Line = Line }; }
     }

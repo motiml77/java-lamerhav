@@ -256,10 +256,26 @@ namespace DsViz
             foreach (ISymbol v in VisibleVariables(flow, position, extra))
             {
                 string id = SyntaxFacts.GetKeywordKind(v.Name) != SyntaxKind.None ? "@" + v.Name : v.Name;
-                sb.Append(", ").Append(Quote(v.Name)).Append(", ").Append(id);
+                sb.Append(", ").Append(Quote(v.Name + TypeTag(v))).Append(", ").Append(id);
             }
             if (HasThis(position)) sb.Append(", \"this\", this");   // פעולה של אובייקט: האובייקט שהיא רצה בתוכו (כמו ב-Java)
             return SyntaxFactory.ParseExpression(sb.Append(')').ToString());
+        }
+
+        /// <summary>
+        /// הטיפוס המוצהר של משתנה שהוא מחלקה של התלמיד (או מערך / אוסף שלה, או object): "\u0019Animal" — Recorder מפריד אותו מהשם,
+        /// והחלון מראה לאיזו קופסה בעצם ההפניה מצביעה (הורשה). אחרת ""
+        /// </summary>
+        static string TypeTag(ISymbol v)
+        {
+            ITypeSymbol t = v is ILocalSymbol l ? l.Type : v is IParameterSymbol p ? p.Type : null;
+            if (t == null) return "";
+            if (t.SpecialType == SpecialType.System_Object) return "\u0019object";
+            ITypeSymbol e = t;
+            while (e is IArrayTypeSymbol a) e = a.ElementType;
+            if (e is INamedTypeSymbol n && n.IsGenericType && n.TypeArguments.Length == 1 && !n.Locations.Any(x => x.IsInSource)) e = n.TypeArguments[0];
+            bool mine = e != null && (e.TypeKind == TypeKind.Class || e.TypeKind == TypeKind.Interface) && e.Locations.Any(x => x.IsInSource);
+            return mine ? "\u0019" + t.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) : "";
         }
 
         /// <summary>האם במקום הזה יש this של מחלקה (פעולה / בנאי / property שאינם static; לא struct)</summary>

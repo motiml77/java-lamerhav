@@ -170,6 +170,47 @@ java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -c
     && grep -qF 'שורה 10: t: Team(t){name="אלפא", leader=Student, scores=[0, 0, 0]}]' "$W/nested-nofx.txt" \
     || { echo "קובץ צעדים בלי שורות FX לא נטען"; head -5 "$W/nested-nofx.txt"; grep 'טבלה' "$W/nested-nofx.txt" | head -20; exit 1; }
 echo "אובייקט בתוך אובייקט ומערך בתוך אובייקט ב-C#: $(grep -c '^FX$' "$W/nested.trace") מאפיינים מצוירים בתוך כרטיס (FX), וקובץ ישן בלי FX נטען כמו קודם"
+# הורשה ופולימורפיזם (כמו ב-Java, run-tests.sh 5ו3): טבלת המחלקות בכותרת (CLS / CF / CM — מ-Roslyn), הטיפוס המוצהר בעמודה רביעית של VAR,
+# והחלון מראה את אותם קופסאות, תגים, "מותר? / מה רץ?" (וגם פעולה בלי virtual), המרות, is, הכרטיס של המרה שנכשלה ותרשים המחלקות
+for p in zoo pets valid; do
+    viz objects/cs/poly/$p/*.cs --trace "$W/poly-$p.trace" > "$W/poly-$p.out" 2>&1 || true
+    java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/poly-$p.trace" > "$W/poly-$p.txt" 2>&1
+done
+for want in '[מחלקות: Program Animal=#c0392b Dog<Animal=#7b3fb0 Cat<Animal=#0c8583 Person Collar]' \
+    '[תרשים: Dog ▷ Animal; Cat ▷ Animal; Dog ◇owner Person; Cat ◆collar Collar;]' \
+    'שורה 12: d, pet: Animal{name="Rexy", age=5}(Animal(…) GetName() ~Say()) > Dog{breed="Boxer", owner=Person}(Dog(…) Say() Bark() Fetch()) | תגים pet:Animal d:Dog | פסים מ-Dog (pet) | העצם של d ושל pet הוא אותו עצם. Animal pet = d; לא יצר עצם חדש ולא שינה אותו.]' \
+    'pet.Say() מותר=Animal(Animal) רץ=Dog בפועל=Dog | pet.Say() | מותר? pet היא הפניה מסוג Animal, ול-Animal יש Say() ✓ | מה רץ? מחפשים מהקופסה הפנימית החוצה. בקופסה הפנימית Dog יש Say(), ולכן רצה Dog.Say() |]' \
+    'base.Say() מותר=Animal(Animal) רץ=Animal בפועל=Animal super | base.Say() | מה רץ? base.Say() ממשיך לחפש מהקופסה שמחוץ ל-Dog. ב-Animal יש Say(), ולכן רצה Animal.Say() |]' \
+    'Dog{breed="Boxer", owner=Person}(Dog(…) Say()◀ Bark() Fetch()) | תגים this:Dog]'; do
+    grep -qF -- "$want" "$W/poly-pets.txt" || { echo "הורשה ב-C# (Pets): חסר $want"; grep 'מחלקות\|קופסאות\|דריסה' "$W/poly-pets.txt" | head -30; exit 1; }
+done
+for want in '[מחלקות: Program Animal=#c0392b Mammal<Animal=#7b3fb0 Dog<Mammal=#0c8583 Boxer<Dog=#1f6fb5 Labrador<Dog=#1f8a4c Person]' \
+    'zoo : Animal[] [{Animal}animal, {Dog}Dasty, {Boxer}Rexy, {Labrador}Toto]' \
+    'zoo[i].Say() מותר=Animal(Animal) רץ=Boxer בפועל=Boxer' \
+    'בקופסה הפנימית Labrador אין Say(); בקופסה Dog יש Say(), ולכן רצה Dog.Say() |]' \
+    'zoo[i].Kind() מותר=Animal(Animal) רץ=Animal בפועל=Animal לא-virtual | zoo[i].Kind() | מותר? zoo[i] היא הפניה מסוג Animal, ול-Animal יש Kind() ✓ | מה רץ? ב-Animal הפעולה Kind() לא סומנה virtual, ולכן רצה הגרסה של טיפוס ההפניה: Animal.Kind() |]' \
+    'Animal{name="Numa", gender="female"}(Animal(…) GetName() ~Say() Kind()) > Mammal{milk=2}(Mammal(…) GetMilk() Say() Kind())' \
+    'תגים myAnimal:Animal mom:Mammal | פסים מ-Mammal (myAnimal) | העצם של mom ושל myAnimal הוא אותו עצם. Animal myAnimal = mom; לא יצר עצם חדש ולא שינה אותו.]' \
+    '(Mammal) myAnimal → חוקית (Mammal)]' 'בעצם יש חלק של Mammal — ההמרה חוקית. דרך m1 רואים את Mammal ואת מה שמסביב.]' \
+    'zoo[i] is Mammal → false (Animal)]' 'zoo[i] is Mammal → true (Dog)]' 'zoo[i] is Mammal → true (Labrador)]' \
+    '[כרטיס cast a2 Boxer]' 'שגיאת ריצה: ההמרה לא חוקית — a2 מצביע על עצם מסוג Labrador. בעצם הזה אין חלק של Boxer. | הקוד נבנה, והבעיה מתגלה רק כשההמרה רצה. בודקים קודם:  if (a2 is Boxer)'; do
+    grep -qF -- "$want" "$W/poly-zoo.txt" || { echo "הורשה ב-C# (Zoo): חסר $want"; grep 'מחלקות\|תאים\|דריסה\|בדיקה\|כרטיס' "$W/poly-zoo.txt" | head -30; exit 1; }
+done
+for want in '(Animal) obj → חוקית (Mammal)]' 'תגים obj:object^ ann:Animal goofy:Mammal | פסים מ-Mammal (ann)' \
+    'בבנייה: הבנאי Animal() ממלא את הקופסה של Animal — Mammal עוד לא נבנתה]' \
+    '[כרטיס cast obj Bird]' 'obj מצביע על עצם מסוג Mammal. בעצם הזה אין חלק של Bird.'; do
+    grep -qF -- "$want" "$W/poly-valid.txt" || { echo "הורשה ב-C# (Valid): חסר $want"; grep 'קופסאות\|המרה\|כרטיס' "$W/poly-valid.txt" | head -20; exit 1; }
+done
+n=$(cat "$W"/poly-*.txt | grep -c '\[דריסה') && bad=$(cat "$W"/poly-*.txt | grep '\[דריסה' | sed -n 's/.* רץ=\([A-Za-z]*\) בפועל=\([A-Za-z]*\).*/\1 \2/p' | awk '$1 != $2' | wc -l)
+[ "$n" -ge 10 ] && [ "$bad" -eq 0 ] && grep -q '^CLS	Dog	Animal' "$W/poly-pets.trace" && grep -q '^VAR	pet	.*	Animal$' "$W/poly-pets.trace" \
+    || { echo "הורשה ב-C#: מה רץ ≠ מה שבאמת רץ / שורות CLS / VAR חסרות ($n, $bad)"; exit 1; }
+# קובץ בלי טבלת המחלקות ובלי הטיפוסים (גרסה קודמת): אותם צעדים, הכרטיסים כמו קודם — בלי קופסאות, בלי חלונית ובלי תרשים
+awk -F '\t' 'BEGIN { OFS = "\t" } $1 == "CLS" || $1 == "CF" || $1 == "CM" { next } $1 == "VAR" && NF > 3 { NF = 3 } { print }' "$W/poly-pets.trace" > "$W/poly-pets-old.trace"
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/poly-pets-old.trace" > "$W/poly-pets-old.txt" 2>&1
+[ "$(head -1 "$W/poly-pets-old.txt")" = "$(head -1 "$W/poly-pets.txt")" ] && ! grep -q '\[קופסאות\|\[דריסה\|\[מחלקות' "$W/poly-pets-old.txt" \
+    && grep -qF 'שורה 12: d, pet: Dog(d,pet){name="Rexy", age=5, breed="Boxer", owner=Person{name="Hila"}}]' "$W/poly-pets-old.txt" \
+    || { echo "קובץ צעדים בלי טבלת מחלקות לא נטען כמו קודם"; head -3 "$W/poly-pets-old.txt"; grep 'טבלה' "$W/poly-pets-old.txt" | head; exit 1; }
+echo "הורשה ופולימורפיזם ב-C#: $n קריאות עם \"מותר? / מה רץ?\" (מה שרץ = מה שהחלונית אומרת), המרות, is, כרטיס המרה שנכשלה — וקובץ בלי CLS נטען כמו קודם"
 # מחלקה של התלמיד עם ToString משלה (במשתנים, במחסנית, ברשימה, במערך, בערך מוחזר): ההרצה הוויזואלית מגיעה לסוף —
 # בלי Quiet ה-ToString שנקרא בשביל התצוגה נרשם כצעדים, ומכל צעד שוב מציגים את המשתנים, וההרצה נתקעה
 timeout 60 dotnet "$RUNNER" objects/cs/OwnToString.cs --trace "$W/owntostring.trace" > "$W/owntostring.out" 2>&1 || { echo "ToString של התלמיד: ההרצה הוויזואלית נתקעה / נכשלה"; cat "$W/owntostring.out"; exit 1; }

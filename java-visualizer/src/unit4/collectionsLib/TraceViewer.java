@@ -65,6 +65,7 @@ public final class TraceViewer {
                         Model.ProblemView p = (Model.ProblemView) v;
                         System.out.println("[כרטיס " + p.kind + (p.name != null ? " " + p.name : "") + (p.op != null ? " " + p.op : "") + "]");
                         if ("loop".equals(p.kind)) System.out.println(LoopCard.text(p));
+                        if ("cast".equals(p.kind)) System.out.println(p.what + " — " + p.why + " | " + p.hint.replaceAll("[\u202A\u202C]", ""));
                     }
             if (Boolean.getBoolean("dsviz.conditions")) {   // התנאים והקריאות לפעולות עזר: מה מצויר בכל צעד
                 System.out.print(CondViz.dump());
@@ -216,6 +217,16 @@ public final class TraceViewer {
                     break;
                 case "SRC":
                     SourceFiles.preload(f[1], f[2]);
+                    Poly.addSource(f[2]);
+                    break;
+                case "CLS":   // טבלת המחלקות (הורשה): CLS שם מחלקת-על abstract interface ממשקים — ואחריה CF / CM שלה
+                    readClass(f);
+                    break;
+                case "CF":
+                    if (cls != null && f.length > 3) cls.fields.add(new String[] { f[1], f[2], f[3] });
+                    break;
+                case "CM":
+                    readMethod(f);
                     break;
                 case "STEP":
                     cur = new Step();
@@ -240,8 +251,12 @@ public final class TraceViewer {
                 case "VARS":
                     cur.vars = new ArrayList<String[]>();
                     break;
-                case "VAR":
+                case "VAR":   // שם ערך [טיפוס מוצהר — מחלקה של התלמיד]
                     cur.vars.add(new String[] { f[1], f[2] });
+                    if (f.length > 3 && !f[3].isEmpty()) {
+                        if (cur.types == null) cur.types = new java.util.HashMap<String, String>();
+                        cur.types.put(f[1], f[3]);
+                    }
                     break;
                 case "FV":   // המשתנים של פעולה שמחכה (מסגרת k במחסנית, 0 = העליונה): "FV k" פותח אותה, "FV k שם ערך" — משתנה
                     readFrameVar(cur, f);
@@ -283,6 +298,45 @@ public final class TraceViewer {
             }
         }
         return steps;
+    }
+
+    /** המחלקה האחרונה שנקראה (CLS) — אליה שייכות שורות CF / CM שאחריה */
+    private static Model.ClassInfo cls;
+
+    private static void readClass(String[] f) {
+        if (f.length < 2) return;
+        Model.ClassInfo c = new Model.ClassInfo();
+        c.name = f[1];
+        c.sup = f.length > 2 && !f[2].isEmpty() ? f[2] : null;
+        c.isAbstract = f.length > 3 && f[3].equals("1");
+        c.isInterface = f.length > 4 && f[4].equals("1");
+        if (f.length > 5 && !f[5].isEmpty()) for (String i : f[5].split("\u0001")) c.ifaces.add(i);
+        cls = c;
+        Poly.define(c);
+    }
+
+    /** CM שם טיפוסי-פרמטרים כמה דגלים נראות טיפוס-החזרה */
+    private static void readMethod(String[] f) {
+        if (cls == null || f.length < 5) return;
+        Model.Meth m = new Model.Meth();
+        m.name = f[1];
+        m.params = f[2];
+        try {
+            m.count = Integer.parseInt(f[3]);
+        } catch (NumberFormatException e) {
+            m.count = 0;
+        }
+        String fl = f[4];
+        m.ctor = fl.contains("c");
+        m.isStatic = fl.contains("s");
+        m.isAbstract = fl.contains("a");
+        m.isPrivate = fl.contains("p");
+        m.virt = fl.contains("v");
+        m.override = fl.contains("o");
+        m.hides = fl.contains("n");
+        if (f.length > 5) m.vis = f[5];
+        m.ret = f.length > 6 && !f[6].isEmpty() ? f[6] : null;
+        cls.methods.add(m);
     }
 
     /** שורת FV (קובץ ישן בלי שורות כאלה — Step.frameVars נשאר null, והמעקב מציג רק את הפעולה שרצה) */

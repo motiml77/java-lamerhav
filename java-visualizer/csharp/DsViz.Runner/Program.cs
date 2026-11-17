@@ -299,6 +299,8 @@ namespace DsViz
             catch (UserError) { throw; }
             catch (Exception) { }
 
+            ClassTable.Build(original);   // המחלקות של התלמיד, ההורשה והפעולות (virtual / override) — לחלון (Poly)
+
             // --- 2. הכנסת ההוקים
             var instrumented = new List<SyntaxTree>();
             foreach (SyntaxTree t in trees)

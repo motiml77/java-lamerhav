@@ -62,7 +62,11 @@ namespace Unit4.CollectionsLib
             if (!Active || Quiet > 0 || Frames.Count == 0) return;
             Frame top = Frames[Frames.Count - 1];
             if (!top.Returned && !top.Faulted) AddReturn(null);
-            if (Frames.Count == 1) endVars = new List<KeyValuePair<string, object>>(top.Vars);   // המשתנים של main — לצילום האחרון
+            if (Frames.Count == 1)   // המשתנים של main (והטיפוסים המוצהרים שלהם) — לצילום האחרון
+            {
+                endVars = new List<KeyValuePair<string, object>>(top.Vars);
+                endTypes = new Dictionary<string, string>(top.Types);
+            }
             LoopGuard.OnExit(Frames.Count);
             Frames.RemoveAt(Frames.Count - 1);
         }
@@ -90,13 +94,22 @@ namespace Unit4.CollectionsLib
             top.Line = line;
             LoopGuard.OnLine(Frames.Count, MethodKey(top), line);
             top.Vars.Clear();
+            top.Types.Clear();
             var vars = new List<string[]>();
             for (int i = 0; i + 1 < kv.Length; i += 2)
             {
-                string name = (string)kv[i];
+                string name = (string)kv[i], type = null;
+                int cut = name.IndexOf('\u0019');   // "pet\u0019Animal": הטיפוס המוצהר (מחלקה של התלמיד) — בשביל הורשה
+                if (cut >= 0)
+                {
+                    type = name.Substring(cut + 1);
+                    name = name.Substring(0, cut);
+                    kv[i] = name;
+                    top.Types[name] = type;
+                }
                 if (name == "args" && kv[i + 1] is string[] && top.Method == "Main") continue;   // כמו ב-Java: args של main לא מוצג
                 top.Vars.Add(new KeyValuePair<string, object>(name, kv[i + 1]));
-                vars.Add(new[] { name, FormatVar(kv[i + 1]) });
+                vars.Add(type == null ? new[] { name, FormatVar(kv[i + 1]) } : new[] { name, FormatVar(kv[i + 1]), type });
             }
             currentVars = vars;
             currentVarsFrame = top;
@@ -164,6 +177,7 @@ namespace Unit4.CollectionsLib
         }
 
         static List<KeyValuePair<string, object>> endVars = new List<KeyValuePair<string, object>>();
+        static Dictionary<string, string> endTypes = new Dictionary<string, string>();
 
         public static void Finish()
         {
@@ -171,7 +185,7 @@ namespace Unit4.CollectionsLib
             ended = true;
             Frames.Clear();
             // הצעד האחרון מציג את המבנים כפי שנשארו ב-main (כמו ב-Java), אבל בלי מסגרות קריאה
-            Frames.Add(new Frame { Class = "Program", Method = "Main", Vars = endVars });
+            Frames.Add(new Frame { Class = "Program", Method = "Main", Vars = endVars, Types = endTypes });
             AddStep(Kind.END, null, Mark.NONE, null, "התוכנית הסתיימה", true);
             Steps[Steps.Count - 1].Calls.Clear();
             Frames.Clear();
@@ -345,7 +359,8 @@ namespace Unit4.CollectionsLib
             foreach (var kv in f.Vars)
             {
                 if (res.Count >= FrameVarsMax) break;
-                res.Add(new[] { kv.Key, FormatVar(kv.Value) });
+                string type;
+                res.Add(f.Types.TryGetValue(kv.Key, out type) ? new[] { kv.Key, FormatVar(kv.Value), type } : new[] { kv.Key, FormatVar(kv.Value) });
             }
             return res;
         }

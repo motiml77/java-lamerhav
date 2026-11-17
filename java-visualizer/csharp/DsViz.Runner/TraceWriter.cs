@@ -41,6 +41,7 @@ namespace DsViz
         {
             Row(w, "DSVIZ", "1", "cs");
             foreach (var kv in Recorder.Sources) Row(w, "SRC", kv.Key, kv.Value);
+            foreach (string[] r in ClassTable.Rows) Row(w, r);   // טבלת המחלקות (CLS / CF / CM) — הורשה ופולימורפיזם בחלון
         }
 
         /// <summary>
@@ -68,7 +69,11 @@ namespace DsViz
                 if (s.Vars != null)
                 {
                     Row(w, "VARS");
-                    foreach (string[] v in s.Vars) Row(w, "VAR", v[0], v[1]);
+                    foreach (string[] v in s.Vars)
+                    {
+                        if (v.Length > 2 && v[2] != null) Row(w, "VAR", v[0], v[1], v[2]);   // + הטיפוס המוצהר (מחלקה של התלמיד)
+                        else Row(w, "VAR", v[0], v[1]);
+                    }
                 }
                 WriteFrameVars(w, s);
                 foreach (View v in s.Views) WriteView(w, v);
