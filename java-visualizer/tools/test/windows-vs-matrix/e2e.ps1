@@ -135,7 +135,7 @@ function FindMessage([string]$pattern) {
     foreach ($d in (Dialogs)) {
         if ($d.Text -match $pattern) {
             $ok = @($d.Elements | Where-Object { (ElName $_) -eq 'OK' -and (ElType $_) -match 'Button' }) | Select-Object -First 1
-            return @{ Text = $d.Text; Ok = $ok }
+            return @{ Text = $d.Text; Ok = $ok; Elements = $d.Elements }   # Elements: גם הכפתורים "דיווח על הבעיה" / "סגירה"
         }
     }
     $e = @(ByPattern $script:vsP.Id $pattern) | Select-Object -First 1
@@ -329,6 +329,7 @@ function CheckMessage([string]$id, [string]$file, [string]$pattern, [string]$wha
     if ($dlg) {
         Info ("ההודעה: " + $dlg.Text.Substring(0, [Math]::Min(400, $dlg.Text.Length)))
         $rep = @($dlg.Elements | Where-Object { (ElName $_) -eq 'דיווח על הבעיה' -and (ElType $_) -match 'Button' }) | Select-Object -First 1
+        if (-not $rep) { $rep = @(ByName $script:vsP.Id 'דיווח על הבעיה' 'Button') | Select-Object -First 1 }
         if ($Report) {
             # "דיווח על הבעיה": תודה, והדיווח נשמר בתיבת היוצא (עם הבדיקה המעמיקה)
             Check "$id-report-button" ($null -ne $rep) "$what — בחלון יש כפתור 'דיווח על הבעיה'" $dlg.Text
