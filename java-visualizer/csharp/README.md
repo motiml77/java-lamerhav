@@ -136,6 +136,9 @@ sh tools/test/cs-tests.sh          # בדיקות C#: תבניות (2331 קבצ�
   לא של ההרחבה), כדי שקוד שמשתמש בספריית הקורס ימשיך להיבנות ולרוץ. המצב נשמר ב-`%LOCALAPPDATA%\DSViz\vs-power-off.flag` (קיים = כבוי).
 - מספר הגרסה עולה בכל בנייה (1.0.‹שנה ויום›.‹דקה›), כך שעדכון מתקין מעל הקיים. בכל טעינה ההרחבה כותבת
   `%LOCALAPPDATA%\DSViz\vs-loaded-<מופע>.txt` (גרסה ושעה) — `DSViz-Diagnose.bat` מציג אותו (מותקנת ≠ נטענת).
+- "הוספת מבנה נתונים" מעביר לכלי את הקובץ הפעיל ואת הפתרון (`DSVIZ_VS_FILE`, `DSVIZ_VS_SLN`). בחלון — **"+ צור מחלקה…"** (`CsTool class`):
+  המחלקה נוצרת ליד הקובץ (באותו namespace, עם BOM וסוף שורה כמו בו — `CsClassFile`), ו-`VsDte.addAndOpen` פותח אותה באותו Visual Studio;
+  בפרויקט ‎.NET Framework‎ (csproj בלי `Sdk`) היא קודם נרשמת בפרויקט דרך Visual Studio, ואם הוא לא פתוח — ב-csproj עצמו. בפרויקט SDK כל קובץ בתיקייה נכלל לבד.
 - נבנית ב-CI של Windows (`.github/workflows/dsviz-vsix.yml`, `tools/test/windows-vs/build-vsix.ps1`), שמתקין אותה גם ב-Visual Studio האמיתי
   של המכונה ומצלם; ה-VSIX נשמר ב-`vs-extension/prebuilt/`. `tools/test/vs-extension-compile.sh` מקמפל את הקוד גם ב-Linux.
   הבדיקה המלאה, בלחיצות עכבר אמיתיות ב-2022 וב-2026: `.github/workflows/dsviz-vs-matrix.yml` (`tools/test/windows-vs-matrix/`).
