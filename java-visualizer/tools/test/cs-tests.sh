@@ -482,11 +482,12 @@ msb "$W/new4" | grep -q 'Build succeeded'
 
 # ו. פרויקט רגיל של Visual Studio (GoldWater, עם הפניה משלו לספרייה) — לא מתווספת הפניה כפולה, והבנייה מצליחה.
 #    (ResolveAssemblyReferences היה מאחד שתי הפניות לבד — אבל לטובת העותק שבהתקנה; לכן בודקים שנשארה ההפניה של הפרויקט)
+#    סופרים קבצים שונים (sort -u): ב-SDK חדש יותר שורת המהדר מודפסת פעמיים ב-verbosity normal — אותה הפניה, לא הפניה כפולה
 rm -rf "$W/gw" && mkdir -p "$W/gw"
 cp calls/vs/GoldWater.csproj calls/vs/Recursion.cs "$W/gw/"
 cp "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" "$W/Unit4.CollectionsLib.dll"   # ה-HintPath בפרויקט: ..\Unit4.CollectionsLib.dll
 V=normal msb "$W/gw" > "$W/gw.out" 2>&1; grep -q 'Build succeeded' "$W/gw.out" \
-    && [ "$(grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/gw.out" | wc -l)" = 1 ] \
+    && [ "$(grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/gw.out" | sort -u | wc -l)" = 1 ] \
     && ! grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/gw.out" | grep -q msbuild-home \
     && echo "פרויקט עם הפניה משלו לספרייה: בלי הפניה כפולה (נשארת ההפניה של הפרויקט)" || { echo "הפניה כפולה לספרייה"; grep reference "$W/gw.out" | tr ' ' '\n' | grep -i unit4; exit 1; }
 
@@ -505,7 +506,7 @@ printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputT
 printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup><ItemGroup><ProjectReference Include="%s" /></ItemGroup></Project>\n' "$ROOT/csharp/Unit4.CollectionsLib/Unit4.CollectionsLib.csproj" > "$W/new7/New7.csproj"
 for d in new6 new7; do
     V=normal msb "$W/$d" > "$W/$d.out" 2>&1; grep -q 'Build succeeded' "$W/$d.out" \
-        && [ "$(grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/$d.out" | wc -l)" = 1 ] \
+        && [ "$(grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/$d.out" | sort -u | wc -l)" = 1 ] \
         && ! grep -o '/reference:[^ ]*Unit4\.CollectionsLib\.dll' "$W/$d.out" | grep -q msbuild-home \
         || { echo "$d: הפניה כפולה / בנייה נכשלה"; grep -E 'error|warning' "$W/$d.out" | head; exit 1; }
 done
