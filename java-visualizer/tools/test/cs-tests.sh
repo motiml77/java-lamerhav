@@ -54,7 +54,7 @@ for n in CounterStuck:'[לולאה x שורה 7 הלולאה בשורה 7 לא �
     grep -q 'לא נגמרת — התוכנית נעצרה' "$W/loop-$c.out" && ! grep -q '^STEP	END' "$W/loop-$c.trace" && grep -q '^LOOP	' "$W/loop-$c.trace" \
         || { echo "לולאה שלא נגמרת ב-C#: $c לא נעצרה"; tail -5 "$W/loop-$c.out"; exit 1; }
     java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/loop-$c.trace" \
-        | sed 's/\xE2\x80[\xAA\xAC\x8E\x8F]//g' > "$W/loop-$c.txt"
+        | LC_ALL=C sed 's/\xE2\x80[\xAA\xAC\x8E\x8F]//g' > "$W/loop-$c.txt"
     echo "$wants" | tr '|' '\n' | while read -r want; do
         grep -qF -- "$want" "$W/loop-$c.txt" || { echo "לולאה שלא נגמרת ב-C# ($c): חסר $want"; cat "$W/loop-$c.txt"; exit 1; }
     done
