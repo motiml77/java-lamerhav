@@ -280,12 +280,14 @@ function CloseSignIn() {
     foreach ($w in $cands) {
         try {
             $c = $w.Current
-            if ($c.BoundingRectangle.IsEmpty -or [int]$c.NativeWindowHandle -eq $main -or -not $owners.ContainsKey([int]$c.ProcessId)) { continue }
+            # חלון הכניסה של Windows ("Work or school account") הוא ApplicationFrameWindow שרשום על explorer — גם הוא חוסם לחיצות
+            $frame = $c.ClassName -eq 'ApplicationFrameWindow'
+            if ($c.BoundingRectangle.IsEmpty -or [int]$c.NativeWindowHandle -eq $main -or -not ($frame -or $owners.ContainsKey([int]$c.ProcessId))) { continue }
             $hit = $c.Name -match '^(Sign in to your account|Microsoft Azure|Microsoft account|Sign in|Sign in to Visual Studio)$'
             if (-not $hit) {
                 $all = @($w.FindAll([Windows.Automation.TreeScope]::Subtree, [Windows.Automation.Condition]::TrueCondition))
                 if ($all.Count -gt 400) { continue }
-                $hit = @($all | Where-Object { (ElName $_) -match '^Email, phone, or Skype$|^Sign in to your account$|^Can.t access your account\?$|^Sign-in options$' }).Count -gt 0
+                $hit = @($all | Where-Object { (ElName $_) -match '^Email, phone, or Skype$|^Enter your email, phone, or Skype\.?$|^Sign in to your account$|^Work or school account$|^Can.t access your account\?$|^Sign-in options$' }).Count -gt 0
             }
             if (-not $hit) { continue }
             Step 'dialog-sign-in'
