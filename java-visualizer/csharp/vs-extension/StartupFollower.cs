@@ -31,13 +31,13 @@ namespace DsViz.VsExtension
         readonly WindowEvents _windows;   // שומרים הפניה — אחרת האירועים נאספים (GC) ומפסיקים להגיע
         CommandEvents _start, _startNoDebug;   // שומרים הפניה (ref) — אחרת האירועים נאספים
         readonly SolutionEvents _solution;
-        readonly RunInfoBar _bar;               // שורת ההודעה בראש החלון (null — בלי הודעות)
+        readonly RunInfoBar _bar;               // שורת ההודעה בראש החלון
         readonly Action<string> _visualRun;     // הרצה ויזואלית של קובץ (DsVizPackage — שמירת הכול ו-dsviz-cs על הקובץ)
 
         /// <summary>פרויקט "Miscellaneous Files" (vsProjectKindMisc) ותיקיית פתרון (Solution Items) — קבצים שאף פרויקט לא בונה</summary>
         const string MiscProjectKind = "{66A2671D-8FB5-11D2-AA7E-00C04F688DDE}", SolutionItemsKind = "{66A26722-8FB5-11D2-AA7E-00C04F688DDE}";
 
-        public StartupFollower(DTE dte, RunInfoBar bar = null, Action<string> visualRun = null)
+        public StartupFollower(DTE dte, RunInfoBar bar, Action<string> visualRun)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             _dte = dte;
@@ -78,7 +78,7 @@ namespace DsViz.VsExtension
                 if (_dte.Debugger != null && _dte.Debugger.CurrentMode != dbgDebugMode.dbgDesignMode) return;   // F5 בזמן דיבאג = Continue
                 FollowActive();
                 // אין מה להסביר (רץ הפרויקט של הקובץ הפתוח) — הודעה מהרצה קודמת כבר לא נכונה
-                if (!ExplainOtherRun() && _bar != null) _bar.Close();
+                if (!ExplainOtherRun()) _bar.Close();
             }
             catch (Exception ex) { SolutionHints.Log("startup follower (run): " + ex.Message, true); }
         }
@@ -105,7 +105,6 @@ namespace DsViz.VsExtension
         bool ExplainOtherRun()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (_bar == null) return false;
             Document doc = null;
             try { doc = _dte.ActiveDocument; } catch (Exception) { }
             if (doc == null) return false;
@@ -161,7 +160,7 @@ namespace DsViz.VsExtension
             string key = file + "|" + startup;
             SolutionHints.Log("run: normal run" + (startupName != null ? " of " + startupName : "") + " while the open file is " + name
                 + (loose ? " (not in a project)" : " (another project)") + " -> info bar, the run itself is not changed");
-            if (!File.Exists(DsVizTool.Runner) || _visualRun == null)
+            if (!File.Exists(DsVizTool.Runner))
             {
                 _bar.Show(key, text, new string[0], new Action[0]);
                 return true;
