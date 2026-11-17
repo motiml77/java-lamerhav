@@ -83,6 +83,14 @@ public final class AccessGate {
             boolean need;
             try { need = serverRequiresLogin(); } catch (Throwable e) { need = true; }
             try { Account.flushPendingLogouts(); } catch (Throwable ignored) { /* בפעם הבאה */ }
+            // יש כניסה שמורה, רק שהאישור שבה פג / לא אומת (המחשב היה בלי אינטרנט זמן רב, שעון לא נכון): לא מבקשים קוד / כניסה
+            // מחדש — בודקים מול השרת, שמחדש את האישור, ופותחים את המאגר
+            try {
+                if (need && Account.hasSavedToken()) {
+                    Account.refresh();
+                    if (Account.current() != null) need = false;
+                }
+            } catch (Throwable ignored) { /* מסך הכניסה */ }
             final boolean show = need;
             SwingUtilities.invokeLater(() -> {
                 decided[0] = true;
@@ -138,7 +146,7 @@ public final class AccessGate {
                 done[0] = true;
                 AccessGate.Dialog d = new AccessGate.Dialog(parent, open);
                 d.notice(saved.isStation()
-                        ? "המחשב הזה כבר לא מחובר כעמדת מחשב — ההנהלה שחררה אותו. כדי להמשיך מתחברים שוב."
+                        ? "המחשב הזה כבר לא מחובר כעמדת מחשב — המורה או ההנהלה שחררו אותו. כדי להמשיך מתחברים שוב עם קוד המורה."
                         : "הכניסה שהייתה שמורה במחשב הזה כבר לא בתוקף. כדי להמשיך מתחברים שוב.");
                 showInFront(d);
             });
@@ -549,12 +557,15 @@ public final class AccessGate {
 
     /**
      * יש כאן משתמש שאפשר לנתק: מורה או תלמיד שנכנסו עם Google. עמדת מחשב — לא: את העמדה משחררים המורה / ההנהלה
-     * (תלמיד בכיתה לא יכול "לנתק" מחשב של בית הספר ולתפוס היתר מחדש)
+     * (תלמיד בכיתה לא יכול "לנתק" מחשב של בית הספר ולתפוס היתר מחדש). אין התנתקות של עמדה בשום מקום:
+     * מורה / תלמיד שנכנסו עם Google במחשב שהוא גם עמדה — מתנתקים רק מהחשבון שלהם (העמדה נשארת); כניסה שעוד לא הושלמה (תלמיד
+     * שעוד לא שילם) על עמדה — בלי כפתור, כדי שלא ייראה כאילו הוא מנתק את העמדה
      */
     public static boolean canSignOut() {
         if (disabled()) return false;
         Map<String, Object> u = Account.userState();
-        return u != null && !Json.str(u.get("token")).isEmpty();
+        if (u == null || Json.str(u.get("token")).isEmpty()) return false;
+        return Account.userSignedIn() || !Account.stationConnected();
     }
 
     /** לבדיקות: התשובה לשאלה "להתנתק?" בלי חלון (null — שואלים בחלון) */

@@ -127,7 +127,7 @@ public class GateUi {
         SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
         w = waitWindow();
         check("אחרי 'שחרר' — נפתח מסך הכניסה, לא המאגר", w != null && opened.get() == 0);
-        check("במסך: הסבר שההנהלה שחררה את העמדה", w != null && waitText(w, "שחררה"));
+        check("במסך: הסבר שהמורה או ההנהלה שחררו את העמדה", w != null && waitText(w, "המורה או ההנהלה שחררו"));
         check("הכניסה של העמדה נמחקה מהמחשב", Account.current() == null);
         shot(w, "7-released");
         Thread.sleep(1500);

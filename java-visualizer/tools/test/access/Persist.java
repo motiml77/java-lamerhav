@@ -20,6 +20,11 @@ public class Persist {
             m.setAccessible(true);
             System.out.println("files: " + m.invoke(null));
         } catch (Exception ignored) { }
+        try {   // "קובץ הזהב" (בגרסה ישנה אין): כל העותקים ואם הם קיימים — ליומן של הבדיקה ב-Windows
+            java.lang.reflect.Method m = Account.class.getDeclaredMethod("goldenForTest");
+            m.setAccessible(true);
+            for (Object f : (java.util.List<?>) m.invoke(null)) System.out.println("golden: " + (((java.io.File) f).isFile() ? "yes " : "no  ") + f);
+        } catch (Exception ignored) { }
         Account.Access before = Account.current();
         System.out.println("before: " + (before == null ? null : before.kind + " / " + before.label()));
         boolean ok;

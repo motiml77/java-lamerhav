@@ -120,6 +120,8 @@ public final class Account {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static volatile String machineRaw, machineHash, machineOsReal;
+    /** תוכן קובץ המזהה (כמו i.dat) — נשמר גם בתוך כל קובץ זהב (השדה "id") */
+    private static volatile String identityText;
     private static volatile String lastError = "";
 
     // ------------------------------------------------------------------ הגדרות
@@ -158,25 +160,61 @@ public final class Account {
     static File machineDir() {
         String d = System.getProperty("dsviz.machineDir");
         if (d != null && !d.isEmpty()) return new File(d);
-        String os = System.getProperty("os.name", "").toLowerCase();
-        File f;
-        if (os.contains("win")) {
-            String pd = System.getenv("ProgramData");
-            f = new File(pd == null || pd.isEmpty() ? "C:\\ProgramData" : pd, "DSViz");
-        } else if (os.contains("mac")) f = new File("/Users/Shared/DSViz");
-        else f = new File("/var/tmp/dsviz");
-        return f;
+        if (windows()) return new File(envDir("ProgramData", "C:\\ProgramData"), "DSViz");
+        if (mac()) return sysPath("/Users/Shared/DSViz");
+        return sysPath("/var/tmp/dsviz");
+    }
+
+    /**
+     * מערכת ההפעלה — לבחירת התיקיות. בבדיקות: ‎-Ddsviz.os=windows / mac / linux‎ (הסידור של Windows / Mac נבדק גם ב-Linux,
+     * יחד עם ‎-Ddsviz.env.<משתנה>‎ ו-‎-Ddsviz.fsroot‎). את מזהה המחשב (liveOsId) זה לא משנה
+     */
+    private static String osName() {
+        String t = System.getProperty("dsviz.os");
+        return (t != null && !t.isEmpty() ? t : System.getProperty("os.name", "")).toLowerCase();
+    }
+
+    private static boolean mac() {
+        return osName().contains("mac");
+    }
+
+    /** משתנה סביבה; בבדיקות ‎-Ddsviz.env.<שם>‎ מחליף אותו */
+    private static String env(String var) {
+        String t = System.getProperty("dsviz.env." + var);
+        return t != null ? t : System.getenv(var);
+    }
+
+    /** נתיב קבוע של המערכת (‎/Users/Shared‎…); בבדיקות ‎-Ddsviz.fsroot=<תיקייה>‎ — מתחת לתיקייה זמנית */
+    private static File sysPath(String path) {
+        String r = System.getProperty("dsviz.fsroot");
+        return r == null || r.isEmpty() ? new File(path) : new File(r, path);
     }
 
     // ------------------------------------------------------------------ מקום שמור ונסתר לקבצי הזיהוי
 
     /*
-     * הקבצים שמזהים את המחשב (מורה / עמדת מחשב / המזהה של ההתקנה) נשמרים בתיקיות נסתרות שלא נמחקות בכיבוי המחשב,
-     * בהסרה או בהתקנה מחדש של DSViz, ובשני מקומות (עותק גיבוי): אם אחד נמחק — משחזרים מהשני.
-     *   Windows: ‎%LOCALAPPDATA%\Lamerhav\.cache‎ (המשתמש), ‎%APPDATA%\Lamerhav\.cache‎ (גיבוי), ‎%ProgramData%\Lamerhav\.cache‎ (כל המחשב)
-     *   Mac / Linux: ‎~/.local/share/.lamerhav‎, ‎~/.config/.lamerhav‎, ‎/Users/Shared/.lamerhav‎ (Mac)
-     * הקבצים מוצפנים (לפי המחשב), עם שמות קצרים, ומסומנים כנסתרים ב-Windows. קבצים מהמקום הישן (‎.dsviz‎, ‎ProgramData\DSViz‎)
-     * עוברים לכאן לבד בפעם הראשונה.
+     * "קובץ הזהב" — הכניסה השמורה, קובץ אחד קבוע לכל תפקיד, שמחזיק את המחשב מחובר אחרי כיבוי, עדכון גרסה, התקנה מחדש
+     * ותקופות בלי אינטרנט. הוא נמחק רק כש: (1) מורה / תלמיד לוחצים "התנתקות" (signOut), (2) השרת עונה שהכניסה בוטלה —
+     * לעמדה: רק "שוחררה" (revoked — המורה / ההנהלה שחררו); למורה / תלמיד: התנתקות ממקום אחר / ההנהלה ביטלה (refreshWith).
+     * תקלת רשת / שרת / תשובה לא תקינה אף פעם לא מוחקת (post מחזיר offline / error, ו-refresh לא נוגע בקובץ).
+     *
+     *   עמדת מחשב (כל המחשב):  Windows ‎%ProgramData%\Lamerhav\.cache\s.dat‎ · Mac ‎/Users/Shared/.lamerhav/s.dat‎ · Linux ‎~/.local/share/.lamerhav/s.dat‎
+     *                          (כשאין הרשאה לכתוב שם — אצל המשתמש, ‎<תיקיית המשתמש>/s.dat‎; stationFiles)
+     *   מורה / תלמיד (המשתמש): Windows ‎%LOCALAPPDATA%\Lamerhav\.cache\a.dat‎ · Mac / Linux ‎~/.local/share/.lamerhav/a.dat‎
+     *
+     * למה דווקא שם: שום התקנה / עדכון / הסרה לא נוגעים בתיקיות האלה. ‎%LOCALAPPDATA%\DSViz‎ היא תיקיית ההתקנה ב-Windows,
+     * ו-‎~/Library/Application Support/DSViz‎ ב-Mac מוחלפת כולה בכל עדכון (install.sh) ונמחקת בהסרה (uninstall.sh) — לכן
+     * הקובץ לא שם. ‎%ProgramData%\DSViz‎ ו-‎~/.dsviz‎ הם המקומות הישנים (עד 1.0.1): משם הכניסה עוברת לכאן פעם אחת (migrate).
+     *
+     * כל קובץ זהב:
+     *   • נכתב באטומיות (קובץ זמני ייחודי + החלפה בשינוי שם, בתוך הנעילה) — אף פעם לא נשאר חצי קובץ;
+     *   • עם שני גיבויים: ‎<קובץ>.bak‎ באותה תיקייה (גם לעמדה — כל משתמש של המחשב רואה אותו), ועותק בתיקייה אחרת לגמרי
+     *     (Windows ‎%APPDATA%\Lamerhav\.cache‎, Mac / Linux ‎~/.config/.lamerhav‎). קובץ ראשי פגום / חסר — נקרא מהגיבוי ומשוחזר
+     *     (והפגום נשמר בצד כ-‎.bad‎ — לא מוחקים שום דבר שאולי עוד נפתח);
+     *   • מוצפן (AES-GCM, מפתח לפי המחשב), והאישור שבתוכו חתום בשרת (RSA) ונבדק בכל קריאה (verifyPass) — כמו קודם;
+     *   • מחזיק גם את מזהה ההתקנה (השדה "id", אותו תוכן כמו i.dat, לא סוד): אם i.dat נמחק בכל המקומות, המזהה נלקח מקובץ הזהב
+     *     והכניסה ממשיכה להיפתח. קובץ שהועתק למחשב אחר עדיין לא נפתח (שם מחשב / מזהה Windows אחרים → מפתח אחר).
+     * הקבצים מסומנים כנסתרים ב-Windows. הסרה מלאה של DSViz (לא עדכון) משאירה אותם בכוונה: התקנה מחדש — עדיין מחוברים.
      */
 
     /** בדיקות (-Ddsviz.home / -Ddsviz.machineDir): הסידור הישן, בלי העברה ובלי גיבוי */
@@ -186,11 +224,11 @@ public final class Account {
     }
 
     private static boolean windows() {
-        return System.getProperty("os.name", "").toLowerCase().contains("win");
+        return osName().contains("win");
     }
 
     private static File envDir(String var, String fallback) {
-        String v = System.getenv(var);
+        String v = env(var);
         return new File(v == null || v.isEmpty() ? fallback : v);
     }
 
@@ -213,9 +251,8 @@ public final class Account {
     /** המקום של כל המחשב (עמדת מחשב) */
     static File secureMachineDir() {
         if (plainDirs()) return machineDir();
-        String os = System.getProperty("os.name", "").toLowerCase();
         if (windows()) return new File(new File(envDir("ProgramData", "C:\\ProgramData"), "Lamerhav"), ".cache");
-        if (os.contains("mac")) return new File("/Users/Shared/.lamerhav");
+        if (mac()) return sysPath("/Users/Shared/.lamerhav");
         return secureUserDir();   // Linux: ‎/var/tmp‎ נמחק — נשארים אצל המשתמש
     }
 
@@ -225,6 +262,39 @@ public final class Account {
         if (b == null || f == null) return null;
         File g = new File(b, f.getName());
         return g.getAbsoluteFile().equals(f.getAbsoluteFile()) ? null : g;
+    }
+
+    /** הגיבוי שליד הקובץ, באותה תיקייה: ‎<קובץ>.bak‎ */
+    static File bakOf(File f) {
+        return f == null ? null : new File(f.getParentFile(), f.getName() + ".bak");
+    }
+
+    /** כל העותקים של קובץ זהב: הקובץ, ‎.bak‎ שלידו, והעותק בתיקיית הגיבוי (בלי null) */
+    private static List<File> copiesOf(File f) {
+        List<File> out = new ArrayList<File>();
+        for (File x : new File[] { f, bakOf(f), backupOf(f) }) if (x != null && !out.contains(x)) out.add(x);
+        return out;
+    }
+
+    /** מעתיק קובץ באטומיות (קובץ זמני ליד היעד + החלפה בשינוי שם) */
+    private static void copyAtomic(File from, File to, boolean owner) throws IOException {
+        to.getParentFile().mkdirs();
+        File tmp = new File(to.getParentFile(), to.getName() + "." + Long.toHexString(RANDOM.nextLong() & Long.MAX_VALUE) + ".tmp");
+        try {
+            Files.copy(from.toPath(), tmp.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            if (owner) ownerOnly(tmp);
+            moveAtomic(tmp, to);
+        } finally {
+            if (tmp.exists()) tmp.delete();
+        }
+    }
+
+    private static void moveAtomic(File from, File to) throws IOException {
+        try {
+            Files.move(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            Files.move(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     /** מסמן כנסתר ב-Windows (הקובץ והתיקייה) */
@@ -297,30 +367,103 @@ public final class Account {
         return ok;
     }
 
-    /** מוחק קובץ זיהוי (ההנהלה ביטלה / התנתקות) — גם את הגיבוי */
+    /**
+     * מוחק קובץ זהב עם כל העותקים שלו. נקרא רק מ: התנתקות (signOut), תשובת שרת שהכניסה בוטלה (refresh / refreshWith),
+     * והתור של ההתנתקויות בלי אינטרנט. שום מסלול של תקלה לא מגיע לכאן
+     */
     private static void forget(final File f) {
         if (f == null) return;
         lockedRun(new Runnable() {
             @Override public void run() {
-                f.delete();
-                File b = backupOf(f);
-                if (b != null) b.delete();
+                for (File x : copiesOf(f)) x.delete();
                 syncTeacherFlag();
             }
         });
     }
 
-    /** מעביר קובץ מהמקום הישן לחדש (אם בחדש אין) ומוחק את הישן */
-    private static void migrate(File legacy, File now) {
+    private static double checkedAt(Map<String, Object> d) {
+        return d != null && d.get("checkedAt") instanceof Number ? ((Number) d.get("checkedAt")).doubleValue() : 0;
+    }
+
+    /**
+     * העברה חד-פעמית מהמקום הישן (‎~/.dsviz/account.json‎, ‎ProgramData\DSViz\station.json‎) לקובץ הזהב. אף פעם לא מאבדים כניסה:
+     *   • הישן לא נפתח (עדיין) — נשאר במקומו, כמו שהוא;
+     *   • אין קובץ זהב שנפתח, או שהישן נבדק מול השרת מאוחר יותר (חזרו לגרסה ישנה ונכנסו שם) — הישן נכתב לקובץ הזהב, ונקרא בחזרה;
+     *   • רק אחרי שקובץ הזהב נפתח — הישן לא נמחק אלא מקבל שם אחר (‎.migrated‎): כך הוא לא "חוזר לחיים" אחרי התנתקות, ועדיין יש עותק.
+     */
+    private static void migrate(final File legacy, final File now) {
         try {
             if (legacy == null || now == null || !legacy.isFile() || legacy.getAbsoluteFile().equals(now.getAbsoluteFile())) return;
-            if (!now.isFile()) {
-                byte[] data = Files.readAllBytes(legacy.toPath());
-                if (!writeBoth(now, data)) return;
-            }
-            legacy.delete();
+            final String tried = legacyMark(legacy) + "|" + machine();
+            if (MIGRATE_FAILED.contains(tried)) return;   // ישן שלא נפתח: לא מנסים שוב בכל קריאה (AccessWatch — כל 1.5 שניות)
+            lockedRun(new Runnable() {
+                @Override public void run() {
+                    if (!legacy.isFile()) return;   // תוכנה אחרת כבר העבירה
+                    String mark = legacyMark(legacy);
+                    if (mark.isEmpty() || migratedMarks().contains(mark)) return;   // כבר הועבר (ואי אפשר היה לשנות את שמו)
+                    Map<String, Object> old = open(legacy, storeKey());
+                    if (old == null) { MIGRATE_FAILED.add(tried); return; }
+                    Map<String, Object> cur = load(now);
+                    if (cur == null || checkedAt(old) > checkedAt(cur)) {
+                        if (cur == null && now.isFile()) {   // קובץ זהב שלא נפתח — נשמר בצד, לא נדרס
+                            try { moveAtomic(now, new File(now.getParentFile(), now.getName() + ".bad")); } catch (IOException ignored) { /* נדרס */ }
+                        }
+                        if (!saveLocked(now, old)) return;
+                        Map<String, Object> back = load(now);
+                        if (back == null || !Json.str(old.get("token")).equals(Json.str(back.get("token")))) return;
+                    }
+                    try {
+                        moveAtomic(legacy, new File(legacy.getParentFile(), legacy.getName() + ".migrated"));
+                    } catch (IOException e) {
+                        // אין הרשאה לשנות את השם (קובץ של משתמש Windows אחר): נרשם שכבר הועבר — אחרת אחרי התנתקות / שחרור
+                        // הכניסה הישנה הייתה "חוזרת לחיים" מכאן
+                        noteMigrated(mark);
+                    }
+                }
+            });
         } catch (Exception ignored) {
-            // נשאר במקום הישן — עדיין נקרא משם
+            // נשאר במקום הישן — ננסה בפעם הבאה
+        }
+    }
+
+    private static final java.util.Set<String> MIGRATE_FAILED = java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
+
+    /** הקובץ שבו נרשמים קבצים ישנים שכבר הועברו ואי אפשר היה לשנות את שמם (שורה לכל קובץ: hash של התוכן) */
+    private static File migratedFile() {
+        return new File(secureUserDir(), plainDirs() ? "migrated.txt" : "m.dat");
+    }
+
+    private static String legacyMark(File legacy) {
+        try {
+            return hex(sha256Bytes(Files.readAllBytes(legacy.toPath()))).substring(0, 32);
+        } catch (IOException e) {
+            return "";
+        }
+    }
+
+    private static List<String> migratedMarks() {
+        List<String> out = new ArrayList<String>();
+        try {
+            File f = migratedFile();
+            if (f.isFile()) for (String l : new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).split("\\r?\\n")) if (!l.trim().isEmpty()) out.add(l.trim());
+        } catch (IOException ignored) {
+            // בלי רשימה
+        }
+        return out;
+    }
+
+    private static void noteMigrated(String mark) {
+        try {
+            List<String> all = migratedMarks();
+            if (all.contains(mark)) return;
+            all.add(mark);
+            while (all.size() > 20) all.remove(0);
+            File f = migratedFile();
+            f.getParentFile().mkdirs();
+            Files.write(f.toPath(), (String.join("\n", all) + "\n").getBytes(StandardCharsets.UTF_8));
+            hide(f);
+        } catch (IOException ignored) {
+            // לא חובה
         }
     }
 
@@ -435,6 +578,8 @@ public final class Account {
         } catch (Exception e) {
             id = identityLocked();
         }
+        identityText = id[0] + "\n" + machineName() + "\n" + (System.getProperty("dsviz.machine") != null && !System.getProperty("dsviz.machine").isEmpty()
+                ? "" : ("1".equals(id[2]) ? "g:" : "f:") + id[1] + "\n");
         machineRaw = id[1] + "|" + id[0];
         machineOsReal = "1".equals(id[2]) ? id[1] : null;
         // במעבדות מחשבים משוכפלים מתמונה אחת (אותו MachineGuid בכולם) — בלי המזהה האקראי, כל המחשבים נחשבו עמדה אחת ודרסו זה את זה
@@ -447,11 +592,22 @@ public final class Account {
         return windows() || forced != null && !forced.isEmpty();
     }
 
-    /** קובץ מזהה תקין: [המזהה האקראי, מזהה המערכת השמור ("" אם אין), "1" אם השמור אמיתי], או null */
+    /**
+     * קובץ מזהה תקין: [המזהה האקראי, מזהה המערכת השמור ("" אם אין), "1" אם השמור אמיתי], או null. גם קובץ זהב (‎*.dat‎ מוצפן):
+     * המזהה שבשדה "id" שלו
+     */
     private static String[] readIdentityFile(File f, String host) {
         try {
             if (f == null || !f.isFile()) return null;
-            String[] lines = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).split("\\r?\\n");
+            String text = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+            if (text.startsWith("{")) {
+                try {
+                    text = Json.str(Json.obj(Json.parse(text)).get("id"));
+                } catch (RuntimeException e) {
+                    return null;
+                }
+            }
+            String[] lines = text.split("\\r?\\n");
             if (lines.length < 2 || lines[0].trim().length() < 16) return null;
             if (strictHost() && !lines[1].trim().equals(host)) return null;   // הקובץ הועתק ממחשב אחר
             String os = lines.length >= 3 ? lines[2].trim() : "";
@@ -469,7 +625,10 @@ public final class Account {
         // המקומות החדשים (נסתרים, עם גיבוי) קודם, ואחריהם המקום הישן — ממנו המזהה עובר לחדש (אותו מזהה: אחרת היו
         // אובדים העמדה והקבצים המוצפנים)
         File mPrimary = new File(secureMachineDir(), "i.dat"), uPrimary = new File(secureUserDir(), "i.dat");
-        File[] reads = { mPrimary, uPrimary, backupOf(uPrimary), new File(machineDir(), "install-id"), new File(userDir(), "install-id") };
+        List<File> readList = new ArrayList<File>(java.util.Arrays.asList(mPrimary, uPrimary, backupOf(uPrimary), new File(machineDir(), "install-id"), new File(userDir(), "install-id")));
+        // ואחריהם — המזהה ששמור בתוך קובצי הזהב (i.dat נמחק בכל המקומות: הכניסה עדיין נפתחת)
+        for (File g : goldenCopies()) readList.add(g);
+        File[] reads = readList.toArray(new File[0]);
         String forced = System.getProperty("dsviz.machine");
         boolean isForced = forced != null && !forced.isEmpty();
         OsId live = isForced ? new OsId(forced, true) : null, fast = null;
@@ -539,18 +698,23 @@ public final class Account {
         return list.isEmpty() ? other : list.get(0);
     }
 
-    /** הקבצים המוצפנים שכבר שמורים במחשב (עמדה / משתמש, במקומות החדשים, בגיבוי ובמקומות הישנים) — בלי לגעת בהם */
-    private static List<File> identityTargets() {
+    /** קובצי הזהב (עמדה / משתמש) עם כל העותקים שלהם — קיימים בלבד, בלי לגעת בהם */
+    private static List<File> goldenCopies() {
         List<File> out = new ArrayList<File>();
-        File[] all;
-        if (plainDirs()) all = new File[] { new File(machineDir(), STATION_FILE), new File(userDir(), STATION_FILE), new File(userDir(), USER_FILE) };
-        else {
-            File b = secureBackupDir();
-            all = new File[] { new File(secureMachineDir(), STATION_DAT), new File(secureUserDir(), STATION_DAT), b == null ? null : new File(b, STATION_DAT),
-                new File(secureUserDir(), USER_DAT), b == null ? null : new File(b, USER_DAT),
-                new File(machineDir(), STATION_FILE), new File(userDir(), STATION_FILE), new File(userDir(), USER_FILE) };
+        File[] main = plainDirs()
+                ? new File[] { new File(machineDir(), STATION_FILE), new File(userDir(), STATION_FILE), new File(userDir(), USER_FILE) }
+                : new File[] { new File(secureMachineDir(), STATION_DAT), new File(secureUserDir(), STATION_DAT), new File(secureUserDir(), USER_DAT) };
+        for (File f : main) for (File x : copiesOf(f)) if (x.isFile() && !out.contains(x)) out.add(x);
+        return out;
+    }
+
+    /** הקבצים המוצפנים שכבר שמורים במחשב (עמדה / משתמש, במקומות החדשים, בגיבויים ובמקומות הישנים) — בלי לגעת בהם */
+    private static List<File> identityTargets() {
+        List<File> out = goldenCopies();
+        if (!plainDirs()) {
+            for (File f : new File[] { new File(machineDir(), STATION_FILE), new File(userDir(), STATION_FILE), new File(userDir(), USER_FILE) })
+                if (f.isFile() && !out.contains(f)) out.add(f);
         }
-        for (File f : all) if (f != null && f.isFile() && !out.contains(f)) out.add(f);
         return out;
     }
 
@@ -726,7 +890,7 @@ public final class Account {
             if (d == null) continue;
             if (readable == null) readable = f;
             if (verifyPass(Json.str(d.get("pass"))) == null) continue;
-            double at = d.get("checkedAt") instanceof Number ? ((Number) d.get("checkedAt")).doubleValue() : 0;
+            double at = checkedAt(d);
             if (best == null || at > bestAt) { best = f; bestAt = at; }
         }
         return best != null ? best : readable != null ? readable : fs[0];
@@ -752,22 +916,38 @@ public final class Account {
         }
     }
 
-    static Map<String, Object> load(File f) {
-        SecretKeySpec key = storeKey();
+    /**
+     * קורא קובץ זהב. הקובץ הראשי חסר / פגום / נכתב בחצי — קוראים מ-‎.bak‎ שלידו, ואחריו מהעותק בתיקיית הגיבוי, ומשחזרים ממנו
+     * את הראשי (באטומיות; הראשי הפגום נשמר בצד כ-‎.bad‎). null — אין כניסה שנפתחת במחשב הזה
+     */
+    static Map<String, Object> load(final File f) {
+        final SecretKeySpec key = storeKey();
         Map<String, Object> d = open(f, key);
         if (d != null) return d;
-        // נמחק, או שלא נפתח (פגום / נכתב בחצי)? קוראים מהגיבוי, ומשחזרים ממנו את הקובץ הראשי אם אפשר
-        File b = backupOf(f);
-        d = b == null ? null : open(b, key);
-        if (d == null) return null;
-        try {
-            f.getParentFile().mkdirs();
-            Files.copy(b.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            hide(f);
-        } catch (IOException ignored) {
-            // אין הרשאה לשחזר — קוראים מהגיבוי
+        for (final File b : new File[] { bakOf(f), backupOf(f) }) {
+            if (b == null || !b.isFile()) continue;
+            d = open(b, key);
+            if (d == null) continue;
+            try {
+                lockedRun(new Runnable() {
+                    @Override public void run() {
+                        if (open(f, key) != null || open(b, key) == null) return;   // בינתיים תוכנה אחרת כבר תיקנה / כתבה
+                        try {
+                            if (f.isFile()) moveAtomic(f, new File(f.getParentFile(), f.getName() + ".bad"));
+                            copyAtomic(b, f, !isStationFile(f));
+                            if (isStationFile(f)) f.setReadable(true, false);
+                            hide(f);
+                        } catch (IOException ignored) {
+                            // אין הרשאה לשחזר — קוראים מהגיבוי
+                        }
+                    }
+                });
+            } catch (RuntimeException ignored) {
+                // קוראים מהגיבוי
+            }
+            return d;
         }
-        return d;
+        return null;
     }
 
     static boolean save(final File f, final Map<String, Object> data) {
@@ -793,26 +973,27 @@ public final class Account {
             System.arraycopy(iv, 0, all, 0, 12);
             System.arraycopy(ct, 0, all, 12, ct.length);
             Map<String, Object> outer = new LinkedHashMap<String, Object>();
-            outer.put("v", 1.0);
+            outer.put("v", 1.0);   // גרסאות קודמות קוראות רק את data (ו-id לא מפריע להן) — אפשר גם לחזור לגרסה ישנה
             outer.put("data", Base64.getEncoder().encodeToString(all));
+            if (identityText != null) outer.put("id", identityText);   // מזהה ההתקנה (כמו i.dat) — הקובץ נפתח גם בלי i.dat
             f.getParentFile().mkdirs();
             tmp = new File(f.getParentFile(), f.getName() + "." + Long.toHexString(RANDOM.nextLong() & Long.MAX_VALUE) + ".tmp");
             Files.write(tmp.toPath(), Json.write(outer).getBytes(StandardCharsets.UTF_8));
             boolean shared = isStationFile(f);
             if (!shared) ownerOnly(tmp);   // הכרטיס של המורה / התלמיד — רק המשתמש עצמו קורא (Mac / Linux: בלי זה הקובץ ‎0644‎)
-            Files.move(tmp.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            moveAtomic(tmp, f);
             if (shared) f.setReadable(true, false);   // עמדה: כל המשתמשים של המחשב קוראים
             hide(f);
             shareMachineDir(f.getParentFile());
-            File b = backupOf(f);
-            if (b != null) {
+            // הגיבויים: ‎.bak‎ ליד הקובץ, ועותק בתיקיית הגיבוי. כל אחד באטומיות; נכשל — הקובץ הראשי כבר נשמר
+            for (File b : new File[] { bakOf(f), backupOf(f) }) {
+                if (b == null) continue;
                 try {
-                    b.getParentFile().mkdirs();
-                    Files.copy(f.toPath(), b.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    if (!shared) ownerOnly(b);
+                    copyAtomic(f, b, !shared);
+                    if (shared) b.setReadable(true, false);
                     hide(b);
                 } catch (IOException ignored) {
-                    // בלי גיבוי — הקובץ הראשי נשמר
+                    // בלי הגיבוי הזה
                 }
             }
             return true;
@@ -821,6 +1002,32 @@ public final class Account {
             return false;
         } finally {
             if (tmp != null && tmp.exists()) tmp.delete();
+        }
+    }
+
+    /** משלים גיבוי חסר / פגום של קובץ זהב תקין (קובץ מגרסה קודמת, שנשמר לפני שהיה ‎.bak‎). נקרא בבדיקה מול השרת */
+    private static void ensureBackups(final File f) {
+        try {
+            lockedRun(new Runnable() {
+                @Override public void run() {
+                    SecretKeySpec key = storeKey();
+                    if (open(f, key) == null) return;
+                    boolean shared = isStationFile(f);
+                    for (File b : new File[] { bakOf(f), backupOf(f) }) {
+                        if (b == null) continue;
+                        try {
+                            if (sameContent(b, Files.readAllBytes(f.toPath()))) continue;
+                            copyAtomic(f, b, !shared);
+                            if (shared) b.setReadable(true, false);
+                            hide(b);
+                        } catch (IOException ignored) {
+                            // בלי הגיבוי הזה
+                        }
+                    }
+                }
+            });
+        } catch (RuntimeException ignored) {
+            // לא חובה
         }
     }
 
@@ -1121,8 +1328,9 @@ public final class Account {
         }
         boolean any = false, opened = false;
         for (File f : stationFiles()) {
-            File b = backupOf(f);
-            if (!f.isFile() && (b == null || !b.isFile())) continue;
+            boolean exists = false;
+            for (File x : copiesOf(f)) exists |= x.isFile();
+            if (!exists) continue;
             any = true;
             Map<String, Object> d = load(f);
             if (d == null) continue;
@@ -1324,6 +1532,7 @@ public final class Account {
         File uf = userFile();
         Map<String, Object> u = load(uf);
         if (u != null && !Json.str(u.get("token")).isEmpty()) {
+            ensureBackups(uf);
             Result r = post("/v1/access/check", map("token", Json.str(u.get("token")), "machine", machine()));
             refreshWith(uf, Json.str(u.get("token")), r);
             // כל דבר אחר (בלי אינטרנט, 429 / 500 / 404, תשובה לא תקינה) — תקלה רגעית: האישור השמור נשאר כמו שהוא
@@ -1332,13 +1541,17 @@ public final class Account {
         File sf = stationFile();
         Map<String, Object> s = load(sf);
         if (s != null && !Json.str(s.get("token")).isEmpty()) {
+            ensureBackups(sf);
             Result r = post("/v1/access/check", map("token", Json.str(s.get("token")), "machine", machine()));
-            // revoked — המורה / ההנהלה שחררו את העמדה. invalid עם סיבה (שרת חדש) — הכרטיס באמת לא של עמדה פעילה.
-            // invalid בלי סיבה (שרת ישן): שם כל חיבור חוזר מאותו מחשב (משתמש Windows אחר, תוכנה אחרת) החליף את הכרטיס של
-            // העמדה — העמדה עצמה עדיין מחוברת, ולכן לא מוחקים (עמדה ששוחררה באמת מחזירה תמיד revoked)
-            String why = r.body == null ? "" : Json.str(r.body.get("why"));
-            if (r.status.equals("revoked") || r.status.equals("invalid") && !why.isEmpty()) {
+            if (stationReleased(r)) {
+                // כל קובצי העמדה של אותה עמדה (לכל המחשב, וההעתק אצל המשתמש) — אחרת העותק השני "מחזיר" אותה עד הבדיקה הבאה
+                String released = stationIdOf(Json.str(s.get("token")));
                 forgetIfSame(sf, Json.str(s.get("token")));
+                for (File f : stationFiles()) {
+                    Map<String, Object> d = load(f);
+                    String t = d == null ? "" : Json.str(d.get("token"));
+                    if (!t.isEmpty() && stationIdOf(t).equals(released)) forgetIfSame(f, t);
+                }
                 noteDrop("server-" + r.status);
             } else if (validState(r)) storeIfSame(sf, r, Json.str(s.get("token")));
             if (last == null || !last.ok()) last = r;
@@ -1346,7 +1559,50 @@ public final class Account {
         return last == null ? new Result("none", "", null) : last;
     }
 
-    /** מעדכן את הכרטיס של המשתמש לפי תשובת השרת — רק אם הוא עדיין אותו כרטיס (storeIfSame / forgetIfSame) */
+    /**
+     * העמדה שוחררה — רק אז קובץ הזהב של העמדה נמחק: השרת ענה (JSON תקין, ok:true) revoked = המורה / ההנהלה שחררו אותה
+     * (או עמדה לא פעילה). כל דבר אחר משאיר את העמדה מחוברת:
+     *   • invalid (בלי סיבה משרת ישן, או עם סיבה token / machine / gone): הכרטיס הוחלף בחיבור חוזר מאותו מחשב (משתמש Windows
+     *     אחר, תוכנה אחרת), או שמזהה המחשב לא ברשימה של העמדה — העמדה עצמה לא שוחררה. האישור החתום שבקובץ ממשיך לפתוח את
+     *     המאגר (עמדה לא שולחת תרגילים ל-AI, אז הכרטיס לא נדרש), ושחרור אמיתי מגיע בכל מקרה: השרת בודק "שוחררה" לפני הכרטיס;
+     *   • בלי אינטרנט, 429 / 500 / 404, סינון אינטרנט / פורטל של רשת אורחים (תשובה לא תקינה) — תקלה רגעית (offline / error).
+     */
+    static boolean stationReleased(Result r) {
+        return r != null && "revoked".equals(r.status);
+    }
+
+    /** המזהה של העמדה מתוך הכרטיס שלה (‎s.<id>.<secret>‎) */
+    private static String stationIdOf(String token) {
+        String[] p = token.split("\\.");
+        return p.length >= 3 && "s".equals(p[0]) ? p[1] : token;
+    }
+
+    /** יש במחשב כניסה שמורה עם כרטיס (משתמש או עמדה) — גם אם האישור שבה פג (בלי אינטרנט זמן רב) / לא אומת עדיין */
+    public static boolean hasSavedToken() {
+        Map<String, Object> u = load(userFile());
+        if (u != null && !Json.str(u.get("token")).isEmpty()) return true;
+        Map<String, Object> s = load(stationFile());
+        return s != null && !Json.str(s.get("token")).isEmpty();
+    }
+
+    /** המחשב מחובר כעמדת מחשב (אישור תקף בקובץ הזהב של העמדה) — בלי קשר למשתמש שאולי נכנס עם Google מעליה */
+    public static boolean stationConnected() {
+        Map<String, Object> s = load(stationFile());
+        Map<String, Object> p = s == null ? null : verifyPass(Json.str(s.get("pass")));
+        return p != null && "station".equals(Json.str(p.get("kind")));
+    }
+
+    /** המשתמש (מורה / תלמיד) מחובר עם Google: אישור תקף בקובץ הזהב שלו */
+    public static boolean userSignedIn() {
+        Map<String, Object> u = load(userFile());
+        return u != null && verifyPass(Json.str(u.get("pass"))) != null;
+    }
+
+    /**
+     * מעדכן את הכרטיס של המשתמש לפי תשובת השרת — רק אם הוא עדיין אותו כרטיס (storeIfSame / forgetIfSame). נמחק רק על תשובה
+     * אמיתית של השרת שהכניסה בוטלה: revoked (התנתקות ממקום אחר / "ניתוק מחשב" בדפדפן / ההנהלה), invalid (אין חיבור כזה בשרת),
+     * not-teacher (ההנהלה הורידה את הרשאת המורה)
+     */
     static void refreshWith(File uf, String token, Result r) {
         if (r.status.matches("revoked|invalid|not-teacher")) forgetIfSame(uf, token);
         else if (validState(r)) storeIfSame(uf, r, token);
@@ -1473,7 +1729,7 @@ public final class Account {
     /** המקום הישן של הסימון (עד גרסה 1.0.1), או null */
     static File legacyTeacherFlagFile() {
         if (System.getProperty("dsviz.statusDir") != null || plainDirs() || !windows()) return null;
-        String la = System.getenv("LOCALAPPDATA");
+        String la = env("LOCALAPPDATA");
         return la == null || la.isEmpty() ? null : new File(new File(la, "DSViz"), "teacher.flag");
     }
 
@@ -1593,6 +1849,8 @@ public final class Account {
 
     /** לבדיקות בלבד: לשכוח את מזהה המחשב שנשמר בזיכרון */
     static void resetForTest() {
+        MIGRATE_FAILED.clear();
+        identityText = null;
         machineRaw = null;
         machineHash = null;
         machineOsReal = null;
@@ -1605,5 +1863,13 @@ public final class Account {
     /** לבדיקות: איפה נשמרת העמדה ואיפה המשתמש (המקומות הנסתרים, או אלה של dsviz.home / dsviz.machineDir) */
     static String stationFileForTest() {
         return stationFile() + " | " + userFile();
+    }
+
+    /** לבדיקות: קובצי הזהב (העמדה לכל המחשב, העמדה אצל המשתמש, המשתמש) עם הגיבויים שלהם */
+    static List<File> goldenForTest() {
+        List<File> out = new ArrayList<File>();
+        for (File f : stationFiles()) out.addAll(copiesOf(f));
+        out.addAll(copiesOf(userFile()));
+        return out;
     }
 }

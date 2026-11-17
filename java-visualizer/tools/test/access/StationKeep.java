@@ -18,7 +18,7 @@ import com.sun.net.httpserver.HttpServer;
  *   1. מזהה המחשב: נשמר, ונשאר אותו דבר כשאי אפשר לקרוא את מזהה מערכת ההפעלה (reg.exe חסום לתלמידים), כשהקובץ השמור נוצר
  *      בגרסה קודמת עם מזהה חלופי (Java של 32 ביט), וקובץ שהועתק ממחשב אחר עדיין נדחה.
  *   2. קובץ העמדה: נבחר הקובץ שנפתח והאישור בו תקף (לא "הקובץ המשותף אם הוא קיים"), וחיבור חדש נשמר במקום שנקרא בחזרה.
- *   3. תשובת השרת: עמדה ששוחררה נמחקת; "לא תקף" משרת ישן (חיבור חוזר מאותו מחשב החליף את הכרטיס) — לא מוחק את העמדה.
+ *   3. תשובת השרת: רק עמדה ששוחררה (revoked) נמחקת; "לא תקף" — משרת ישן או חדש, עם סיבה או בלי — לא מוחק את העמדה.
  *   4. מה נשלח לשרת בחיבור: המזהה הקבוע (stable) והסיבה (why), ליומן של ההנהלה.
  *   java -cp <classes>:<lib> il.lamerhav.dsviz.StationKeep <work-dir>
  */
@@ -152,14 +152,17 @@ public class StationKeep {
         SignInEdge.answers.put("/v1/access/check", SignInEdge.json("{\"ok\":false,\"code\":\"internal\",\"error\":\"תקלה\"}"));
         Account.refresh();
         check("תקלה בשרת — העמדה נשארת", Account.current() != null);
-        SignInEdge.answers.put("/v1/access/check", SignInEdge.json("{\"ok\":true,\"status\":\"invalid\",\"why\":\"token\",\"profile\":null}"));
-        Account.refresh();
-        check("שרת חדש: \"לא תקף\" עם סיבה — העמדה נמחקת, והסיבה נשמרת לחיבור הבא", Account.current() == null && Account.stationWhy().equals("server-invalid"));
-        r = Account.claimStation("K7QM", "עמדה 1");
-        check("  חיבור מחדש שולח את הסיבה", r.ok() && "server-invalid".equals(Json.obj(Json.parse(bodies.get("/v1/station/claim"))).get("why")));
+        // קובץ הזהב של עמדה נמחק רק כשהמורה / ההנהלה שחררו אותה (revoked). "לא תקף" — גם עם סיבה — משאיר אותה מחוברת
+        for (String why : new String[] { "token", "machine", "gone" }) {
+            SignInEdge.answers.put("/v1/access/check", SignInEdge.json("{\"ok\":true,\"status\":\"invalid\",\"why\":\"" + why + "\",\"profile\":null}"));
+            Account.refresh();
+            check("שרת חדש: \"לא תקף\" עם סיבה (" + why + ") — העמדה נשארת (רק שחרור מוחק)", Account.current() != null && Account.current().isStation() && Account.stationWhy().isEmpty());
+        }
         SignInEdge.answers.put("/v1/access/check", SignInEdge.json("{\"ok\":true,\"status\":\"revoked\",\"why\":\"released\",\"profile\":null}"));
         Account.refresh();
         check("המורה שחרר את העמדה — נמחקת (" + Account.stationWhy() + ")", Account.current() == null && Account.stationWhy().equals("server-revoked"));
+        r = Account.claimStation("K7QM", "עמדה 1");
+        check("  חיבור מחדש שולח את הסיבה", r.ok() && "server-revoked".equals(Json.obj(Json.parse(bodies.get("/v1/station/claim"))).get("why")));
         SignInEdge.answers.put("/v1/access/check", SignInEdge.json("{\"ok\":true,\"status\":\"revoked\",\"profile\":null}"));
         station(mf, "s.station1234.secretsecretsecretsecretZZ", 100);
         Account.refresh();

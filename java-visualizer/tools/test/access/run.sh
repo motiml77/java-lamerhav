@@ -2,6 +2,8 @@
 # בדיקות הכניסה של הלקוח (Account / AccessGate — Eclipse, IntelliJ, Visual Studio) מהמקור, בלי release/:
 #   SignInEdge     — מקרי קצה מול שרת מדומה (בלי אמולטור)
 #   StationKeep    — "עמדה שמשתחררת לבד": מזהה המחשב, בחירת קובץ העמדה, תשובות השרת (בלי אמולטור)
+#   Golden         — "קובץ הזהב": עדכון / התקנה מחדש / קובץ פגום / תקלות / התנתקות / שחרור עמדה / העברה מהמקום הישן,
+#                    בסידור התיקיות של Windows ושל Mac, וסריקה של installer/ (בלי אמולטור)
 #   OsTrustTest    — סינון אינטרנט שבודק תעבורה מוצפנת: תעודת שורש רק ב"מאגר מערכת ההפעלה" (בלי אמולטור)
 #   AccountIt      — עמדה / מורה / תלמיד מול השרת המקומי והאמולטור
 #   GateUi         — מסך הכניסה (Swing, ב-xvfb)
@@ -54,6 +56,8 @@ echo "=== SignInEdge"
 $J il.lamerhav.dsviz.SignInEdge "$W/edge" || rc=1
 echo "=== StationKeep"
 $J il.lamerhav.dsviz.StationKeep "$W/keep" || rc=1
+echo "=== Golden"
+$J -Djava.awt.headless=true il.lamerhav.dsviz.Golden "$W/golden" "$R" || rc=1
 xrun() { if [ -n "$DISPLAY" ]; then "$@"; else xvfb-run -a -s "-screen 0 1600x1000x24" "$@"; fi; }
 echo "=== OsTrustTest"
 xrun $J il.lamerhav.dsviz.OsTrustTest "$W/ostrust" "$SHOTS/OsTrustTest" || rc=1
