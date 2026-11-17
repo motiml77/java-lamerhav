@@ -669,6 +669,9 @@ async function settingsView() {
   const mailOn = h('input', { type: 'checkbox', role: 'switch', id: 's-mail', checked: s.alertEmail !== false });
   const mailLabel = h('span', null, s.alertEmail !== false ? 'דולק' : 'כבוי');
   mailOn.addEventListener('change', () => { mailLabel.textContent = mailOn.checked ? 'דולק' : 'כבוי'; });
+  const freeOn = h('input', { type: 'checkbox', role: 'switch', id: 's-free', checked: s.studentsFree !== false });
+  const freeLabel = h('span', null, s.studentsFree !== false ? 'בחינם' : 'בתשלום');
+  freeOn.addEventListener('change', () => { freeLabel.textContent = freeOn.checked ? 'בחינם' : 'בתשלום'; });
   const am = r.alertMail || {};
   const form = h('div', { class: 'stack', style: { gap: '18px', maxWidth: '900px' } },
     h('section', { class: 'card' },
@@ -685,6 +688,14 @@ async function settingsView() {
             'ובמייל', am.to ? [' ל-', h('span', { class: 'ltr', style: { fontWeight: 600 } }, am.to)] : '', '.')),
         h('label', { class: 'switch', for: 's-mail' }, h('span', { class: 'sr' }, 'התראות במייל'), mailOn, h('span', { class: 'track', 'aria-hidden': 'true' }, h('span', { class: 'knob' })), mailLabel)),
       am.ready ? null : h('div', { class: 'warn-box' }, 'שליחת המייל עוד לא מוגדרת בשרת (RESEND_API_KEY). עד אז ההתראות מופיעות רק בפעמון.')),
+    h('section', { class: 'card' },
+      h('div', { class: 'row', style: { alignItems: 'flex-start', gap: '16px' } },
+        h('div', { class: 'grow stack', style: { gap: '6px' } }, h('h2', null, 'תלמידים — בחינם'),
+          h('p', { class: 'muted', style: { lineHeight: '1.55' } }, 'דולק: תלמיד שנכנס עם Google מקבל את המאגר בלי תשלום (תלמיד עצמאי או עם קוד מורה). כבוי: צריך לשלם (או הענקה ידנית) — המחיר והתאריך למטה.')),
+        h('label', { class: 'switch', for: 's-free' }, h('span', { class: 'sr' }, 'תלמידים בחינם'), freeOn, h('span', { class: 'track', 'aria-hidden': 'true' }, h('span', { class: 'knob' })), freeLabel))),
+    h('section', { class: 'card' }, h('h2', null, 'עמדת הניהול של המורה'),
+      h('div', { class: 'form2' }, num('teacherReleases', 'כמה עמדות המורה משחרר לבד בחודש (מעבר לזה — בקשה להנהלה)', s.teacherReleases, 0, 100),
+        num('stationSubmitDays', 'הגשה מעמדת מחשב שלא נמחקה — נמחקת לבד אחרי (ימים)', s.stationSubmitDays, 1, 30))),
     h('section', { class: 'card' }, h('h2', null, 'תשלום תלמידים'),
       h('div', { class: 'form3' }, num('price', 'מחיר (₪) — 0 = עוד לא פתוח', s.price, 0, 5000),
         h('label', { class: 'lbl', for: 's-until' }, 'תשלום פותח את המאגר עד', until),
@@ -703,7 +714,8 @@ async function settingsView() {
       r.passKey ? null : h('div', { class: 'warn-box' }, 'חסר מפתח החתימה (PASS_KEY) בשרת — בלי זה המאגר לא נפתח בלי אינטרנט.')));
   const save = h('button', { type: 'button', class: 'btn primary lg' }, 'שמירת השינויים');
   save.onclick = () => busy(save, async () => {
-    const body = { requireLoginForGemini: gem.checked, accessUntil: until.value, alertEmail: mailOn.checked };
+    const body = { requireLoginForGemini: gem.checked, accessUntil: until.value, alertEmail: mailOn.checked, studentsFree: freeOn.checked };
+    if (!freeOn.checked && s.studentsFree !== false && !await ask({ title: 'להעביר את התלמידים לתשלום?', text: 'מעכשיו תלמיד בלי תשלום או הענקה יקבל "צריך לשלם" בבדיקה הבאה של המחשב שלו.', ok: 'מעבר לתשלום', danger: true })) return;
     for (const f of form.querySelectorAll('input[data-key]')) body[f.dataset.key] = +f.value;
     body.packages = (s.packages || []).map((p, i) => ({ seats: +form.querySelector(`[data-pk="${i}"][data-f="seats"]`).value, price: +form.querySelector(`[data-pk="${i}"][data-f="price"]`).value }));
     if (gem.checked && !s.requireLoginForGemini && !await ask({ title: 'להדליק "רק למחוברים"?', text: 'מעכשיו מי שלא מחובר (או שהגרסה אצלו ישנה) לא יוכל לשלוח תרגיל ל-Gemini.', ok: 'הדלקה' })) return;

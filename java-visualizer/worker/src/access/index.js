@@ -539,7 +539,8 @@ async function me(request, env) {
   return {
     ok: true, email: u.email, name: u.name, picture: u.picture, admin: admins(env).includes(u.email),
     teacher: t ? Object.assign(await teacherView(t, stations.filter(x => x.active).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'))), { sends: (await monthlySends(env, [t]))[0], phone: t.phone || '' }) : null,
-    student: { until, open: !!until && until >= today(), source: st && st.source || '', sends: (await monthlySends(env, [{ email: u.email, kind: 'student' }]))[0] },
+    student: { until, free: s.studentsFree !== false, open: s.studentsFree !== false || (!!until && until >= today()), source: st && st.source || '',
+      state: t ? null : await studentState(env, u.email), sends: (await monthlySends(env, [{ email: u.email, kind: 'student' }]))[0] },
     requests: requests.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 12).map(r => ({
       id: r._id, kind: r.kind, amount: r.amount || 0, stationName: r.stationName || '', status: r.status, createdAt: r.createdAt, decidedAt: r.decidedAt || '', reason: r.reason || '',
     })),

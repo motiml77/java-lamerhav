@@ -1,5 +1,7 @@
-// /account — החשבון שלי בדפדפן: מורה (הקוד, העמדות, בקשות מההנהלה) / תלמיד (מצב הגישה, תשלומים) / המחשבים המחוברים
+// /account — החשבון שלי בדפדפן: מורה — עמדת הניהול (console.js: מחשבי המעבדה, תלמידים בכיתות, הגשות), חבילות, בקשות מההנהלה;
+// תלמיד — עצמאי / משויך למורה (קוד המורה), מצב המאגר; והמחשבים המחוברים
 import { boot, currentUser, googleSignIn, api, h, icon, ICONS, googleLogo, topBar, fmtDate, ago, daysSince, busy, toast, ask, logoutWeb } from '/static/common.js';
+import { mountConsole } from '/static/console.js';
 
 const app = document.getElementById('app');
 let user = null;
@@ -37,36 +39,6 @@ function requestDialog(kind, station) {   // רק "לשחרר מחשב" — עמ
   d.showModal();
 }
 
-function teacherCards(t) {
-  const copy = h('button', { type: 'button', class: 'btn primary grow' }, 'העתקת הקוד');
-  copy.onclick = async () => { try { await navigator.clipboard.writeText(t.code); toast('הקוד הועתק'); } catch (e) { toast(t.code); } };
-  const free = Math.max(0, t.seats - t.used);
-  const pct = t.seats ? Math.min(100, Math.round(100 * t.used / t.seats)) : 100;
-  const stations = t.stations || [];
-  const pendingRelease = new Set(me.requests.filter(r => r.kind === 'release' && r.status === 'open').map(r => r.stationName));
-  return [
-    h('section', { class: 'card' },
-      h('h2', null, 'קוד המורה'),
-      h('p', { class: 'muted' }, 'מקלידים את הקוד הזה פעם אחת בכל מחשב של הכיתה ("עמדת מחשב"). כל מחשב שמתחבר משתמש בהיתר אחד.'),
-      h('div', { class: 'codebox' }, h('span', { class: 'mono' }, t.code)),
-      h('div', { class: 'row' }, copy),
-      h('p', { class: 'small muted' }, 'הקוד קבוע — אותו קוד לכל השנים.')),
-    h('section', { class: 'card' },
-      h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'baseline' } }, h('h2', null, 'עמדות מחשב'),
-        h('span', { class: 'muted' }, h('b', { style: { color: 'var(--ink)', fontSize: '20px' } }, String(t.used)), ` מתוך ${t.seats} בשימוש`)),
-      h('span', { class: 'bar big ' + (free ? 'ok' : 'full') }, h('span', { style: { width: pct + '%' } })),
-      t.sends ? h('div', { class: 'small', style: { marginTop: '10px' } }, 'שליחות תרגיל החודש (המורה וכל העמדות יחד): ', h('b', null, String(t.sends.n)), ` מתוך ${t.sends.limit}`, t.sends.n >= t.sends.limit ? ' — המנה נגמרה, תתחדש בתחילת החודש הבא' : '') : null,
-      h('div', { class: 'small muted' }, free ? `נשארו ${free} היתרים פנויים` : 'כל ההיתרים בשימוש — מחשב חדש יקבל "אין עוד היתרים"'),
-      h('div', { class: 'list' }, stations.length ? stations.map(s => h('div', { class: 'item' + (daysSince(s.lastSeen) > 30 ? ' stale' : '') },
-        h('div', { class: 'grow' }, h('div', { style: { fontWeight: 600 } }, s.name), h('div', { class: 'small muted' }, (daysSince(s.lastSeen) > 30 ? 'לא נראתה ' + daysSince(s.lastSeen) + ' יום' : 'פעילה ' + ago(s.lastSeen)))),
-        pendingRelease.has(s.name) ? h('span', { class: 'pill orange' }, 'בקשה נשלחה')
-          : h('a', { href: '#', class: 'small', style: { fontWeight: 600 }, onclick: e => { e.preventDefault(); requestDialog('release', s); } }, 'בקשה לשחרר')))
-        : h('div', { class: 'empty' }, 'עוד אין מחשבים מחוברים.')),
-      h('span', { class: 'small muted' }, 'מחשב שהוחלף? "בקשה לשחרר" — וההנהלה מחזירה את ההיתר.')),
-    packagesCard(),
-  ];
-}
-
 function packagesCard() {
   const list = me.packages || [];
   return h('section', { class: 'card', style: { gridColumn: '1 / -1' } },
@@ -100,8 +72,57 @@ function requestsCard() {
       h('span', { class: 'pill ' + STATUS[r.status][1] }, STATUS[r.status][0]))))));
 }
 
+/** תלמיד: עצמאי, או משויך למורה בקוד הקבוע של המורה (מופיע אצלו ב"תלמידים", ויכול להגיש לו תרגילים) */
+function teacherLinkCard() {
+  const st = me.student.state || { mode: '', teacher: null };
+  const code = h('input', { class: 'field mono', id: 'join-code', maxlength: '6', placeholder: 'W8S2', 'aria-label': 'קוד המורה', style: { width: '120px', textAlign: 'center' } });
+  const join = h('button', { type: 'button', class: 'btn primary' }, 'הצטרפות');
+  const doJoin = replace => busy(join, async () => {
+    const r = await api('POST', '/v1/student/join', { code: code.value, replace: !!replace });
+    if (r.status === 'replace') {
+      if (await ask({ title: `לעבור למורה ${r.teacher.name}?`, text: 'אפשר להיות משויך למורה אחד. המורה הקודם יראה אותך כ"עזב", והתרגילים שהגשת לו נשארים אצלו.', ok: 'מעבר' })) return doJoin(true);
+      return;
+    }
+    const msg = { 'bad-code': 'הקוד לא נכון. בודקים אותו מול המורה (4 תווים, אותיות באנגלית וספרות).', closed: 'המורה סגר כרגע את ההצטרפות. פונים למורה.', blocked: 'המורה הזה לא פעיל כרגע.' }[r.status];
+    if (msg) { toast(msg, true); return; }
+    toast(`הצטרפת למורה ${r.teacher.name}`);
+    load();
+  });
+  join.onclick = () => doJoin(false);
+  code.onkeydown = e => { if (e.key === 'Enter') doJoin(false); };
+  const form = h('div', { class: 'stack' },
+    h('label', { class: 'lbl', for: 'join-code' }, 'קוד המורה'),
+    h('div', { class: 'row' }, code, join),
+    h('p', { class: 'small muted' }, 'המורה יראה את השם שלך, את המייל ואת התרגילים שתגיש לו.'));
+  if (st.teacher) {
+    const leave = h('button', { type: 'button', class: 'btn sm' }, 'יציאה מהמורה');
+    leave.onclick = async () => {
+      if (!await ask({ title: `לצאת מהמורה ${st.teacher.name}?`, text: 'לא תוכל להגיש לו תרגילים עד שתצטרף שוב עם הקוד. התרגילים שכבר הגשת נשארים אצלו.', ok: 'יציאה', danger: true })) return;
+      busy(leave, async () => { await api('POST', '/v1/student/leave', {}); toast('יצאת מהמורה'); load(); });
+    };
+    return h('section', { class: 'card' }, h('h2', null, 'המורה שלי'),
+      h('div', { class: 'row' }, h('span', { class: 'pill green' }, 'משויך'), h('b', null, st.teacher.name), h('span', { class: 'muted' }, st.teacher.school || '')),
+      h('p', { class: 'small muted' }, 'בתוכנה (Eclipse, Visual Studio, IntelliJ): הכפתור "הגשה למורה" שולח לו את התרגיל.'), leave);
+  }
+  if (st.mode === 'independent') {
+    return h('section', { class: 'card' }, h('h2', null, 'המורה שלי'),
+      h('div', { class: 'row' }, h('span', { class: 'pill gray' }, 'תלמיד עצמאי')),
+      h('p', { class: 'muted' }, 'יש לך קוד מורה? אפשר להצטרף בכל זמן:'), form);
+  }
+  const indep = h('button', { type: 'button', class: 'btn' }, 'תלמיד עצמאי');
+  indep.onclick = () => busy(indep, async () => { await api('POST', '/v1/student/mode', { mode: 'independent' }); load(); });
+  return h('section', { class: 'card' }, h('h2', null, 'תלמיד עצמאי, או עם מורה?'),
+    h('p', { class: 'muted' }, 'עם קוד מורה — המורה רואה את התרגילים שתגיש לו. בלי — לומדים לבד; אפשר להצטרף למורה גם אחר כך.'),
+    h('div', { class: 'row' }, indep), form);
+}
+
 function studentCard() {
   const s = me.student;
+  if (s.free) {
+    return h('section', { class: 'card' }, h('h2', null, 'מאגר התרגילים'),
+      h('div', { class: 'row' }, h('span', { class: 'pill green' }, 'פתוח'), h('span', null, 'בלי תשלום')),
+      s.sends ? h('div', { class: 'small' }, 'שליחות תרגיל החודש: ', h('b', null, String(s.sends.n)), ` מתוך ${s.sends.limit}`) : null);
+  }
   return h('section', { class: 'card' }, h('h2', null, 'מאגר התרגילים'),
     s.sends && s.open ? h('div', { class: 'small', style: { marginBottom: '8px' } }, 'שליחות תרגיל החודש: ', h('b', null, String(s.sends.n)), ` מתוך ${s.sends.limit}`) : null,
     s.open ? h('div', { class: 'row' }, h('span', { class: 'pill green' }, 'פתוח'), h('span', null, `עד ${fmtDate(s.until)}${s.source === 'manual' ? ' · הענקה מההנהלה' : ''}`))
@@ -130,13 +151,17 @@ function devicesCard() {
 async function load() {
   me = await api('GET', '/v1/me');
   const badge = me.teacher ? h('span', { class: 'pill blue' }, 'מורה') : null;
-  const head = h('div', { class: 'titlebar' }, h('h1', null, me.teacher ? 'הלוח של המורה' : 'החשבון שלי'),
+  const head = h('div', { class: 'titlebar' }, h('h1', null, me.teacher ? 'עמדת הניהול' : 'החשבון שלי'),
     me.admin ? h('a', { class: 'btn dark', href: '/admin' }, icon(ICONS.shield, 18, '#fff'), 'מסוף ההנהלה') : null);
+  const con = h('div', { id: 'console' }, h('div', { class: 'loading' }, 'רגע…'));
   const body = me.teacher
-    ? [h('div', { class: 'grid2' }, ...teacherCards(me.teacher)), h('div', { class: 'grid2' }, requestsCard() || h('span'), devicesCard())]
-    : [h('div', { class: 'grid2' }, studentCard(), devicesCard())];
+    ? [con, h('div', { class: 'grid2' }, packagesCard(), requestsCard() || devicesCard()), me.requests.length ? h('div', { class: 'grid2' }, devicesCard()) : null]
+    : [h('div', { class: 'grid2' }, teacherLinkCard(), studentCard()), h('div', { class: 'grid2' }, devicesCard())];
   if (me.teacher && !me.teacher.active) body.unshift(h('div', { class: 'warn-box' }, 'החשבון שלך כמורה הושבת — העמדות שלך ננעלות בבדיקה הבאה. פונים להנהלה.'));
   app.replaceChildren(topBar(user, { badge, onLogout: async () => { await logoutWeb(); location.reload(); } }), h('main', { class: 'page' }, head, ...body));
+  if (me.teacher && me.teacher.active) {
+    try { await mountConsole(con, { requestRelease: s => requestDialog('release', s) }); } catch (e) { con.replaceChildren(h('div', { class: 'warn-box' }, e.message)); }
+  } else if (me.teacher) con.remove();
 }
 
 async function main() {
@@ -146,7 +171,7 @@ async function main() {
     const b = h('button', { type: 'button', class: 'gbtn' }, googleLogo(), 'התחברות עם Google');
     b.onclick = () => busy(b, async () => { user = await googleSignIn(); await load(); });
     app.replaceChildren(topBar(null), h('main', { class: 'center' }, h('div', { class: 'panel' },
-      h('h1', null, 'החשבון שלי'), h('p', { class: 'muted', style: { lineHeight: '1.6' } }, 'מורים רואים כאן את קוד המורה ואת העמדות; תלמידים — את מצב המאגר והתשלומים.'), b)));
+      h('h1', null, 'החשבון שלי'), h('p', { class: 'muted', style: { lineHeight: '1.6' } }, 'מורים — עמדת הניהול: מחשבי המעבדה, התלמידים והתרגילים שהוגשו. תלמידים — הצטרפות למורה ומצב המאגר.'), b)));
     return;
   }
   try {

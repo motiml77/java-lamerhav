@@ -1,0 +1,264 @@
+// בדיקה בדפדפן אמיתי (Playwright + Chromium) של עמדת הניהול של המורה (/account → console.js) ושל דף התלמיד (עצמאי / קוד מורה).
+// רץ מול אמולטור Firebase ושרת מקומי (tools/dev-server.mjs), עם נתוני דוגמה: עמדות עם הגשות, תלמידים שהצטרפו, כיתות.
+// צילומי מסך: SHOTS (ברירת מחדל test/shots).
+//   npm run test:console
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const { chromium } = require('playwright');
+const PORT = 8788, BASE = `http://127.0.0.1:${PORT}`;
+const AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
+const FS = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8181';
+const SHOTS = process.env.SHOTS || join(here, 'shots');
+mkdirSync(SHOTS, { recursive: true });
+
+await fetch(`http://${FS}/emulator/v1/projects/demo-dsviz/databases/(default)/documents`, { method: 'DELETE' });
+await fetch(`http://${AUTH}/emulator/v1/projects/demo-dsviz/accounts`, { method: 'DELETE' });
+const server = spawn(process.execPath, [join(here, '../tools/dev-server.mjs')], { env: Object.assign({}, process.env, { PORT: String(PORT), ADMIN_EMAILS: 'admin@test.dev' }), stdio: ['ignore', 'pipe', 'inherit'] });
+await new Promise(res => server.stdout.on('data', d => { if (String(d).includes('dev server')) res(); }));
+
+async function idToken(email, name) {
+  const claims = { sub: 'uid-' + createHash('sha256').update(email).digest('hex').slice(0, 16), email, email_verified: true, name };
+  const r = await fetch(`http://${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=fake-api-key`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ postBody: 'id_token=' + encodeURIComponent(JSON.stringify(claims)) + '&providerId=google.com', requestUri: 'http://localhost', returnSecureToken: true }),
+  });
+  return (await r.json()).idToken;
+}
+async function api(method, path, body, headers = {}) {
+  const r = await fetch(BASE + path, { method, headers: Object.assign({ 'content-type': 'application/json' }, headers), body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json();
+  if (!r.ok) throw new Error(path + ' ' + JSON.stringify(j));
+  return j;
+}
+const bearer = t => ({ authorization: 'Bearer ' + t });
+const mid = () => randomBytes(16).toString('hex');
+async function studentPlugin(email, name) {
+  const verifier = randomBytes(32).toString('base64url');
+  const challenge = createHash('sha256').update(verifier).digest('base64url');
+  const ex = await api('POST', '/v1/auth/exchange', { idToken: await idToken(email, name), role: 'student', challenge });
+  const m = mid();
+  const r = await api('POST', '/v1/auth/redeem', { code: ex.code, verifier, machine: m, machineName: 'מחשב בבית', client: 'test' });
+  return { 'x-dsviz-access': r.token, 'x-dsviz-machine': m };
+}
+
+// ------------------------------------------------------------------ נתוני דוגמה
+const admin = await idToken('admin@test.dev', 'מנהל');
+await api('POST', '/v1/admin/teacher', { create: true, email: 'sara.cohen@ort.org.il', name: 'שרה כהן', school: 'אורט רחובות', seats: 20 }, bearer(admin));
+const code = (await api('GET', '/v1/admin/teacher?email=sara.cohen@ort.org.il', null, bearer(admin))).teacher.code;
+const stations = {};
+for (const n of [1, 2, 3, 10, 11, 12]) {
+  const m = mid();
+  const r = await api('POST', '/v1/station/claim', { code, name: 'עמדה ' + n, machine: m, client: n > 10 ? 'dsviz-eclipse/1.0.2' : 'dsviz-vs/1.0.2' });
+  stations[n] = { 'x-dsviz-access': r.token, 'x-dsviz-machine': m };
+}
+const Q_EXP = 'סעיף א: 18\nסעיף ב: 2\nהתור אחרי: [3,8,1,6]';
+const QUEUE_CS = 'public static int SumQueue(Queue<int> q)\n{\n    int sum = 0;\n    while (!q.IsEmpty())\n        sum += q.Remove();\n    return sum;\n}\n';
+const QUEUE_JAVA = 'public static int sumQueue(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int sum = 0;\n    while (!q.isEmpty()) {\n        int x = q.remove();\n        sum += x;\n        temp.insert(x);\n    }\n    while (!temp.isEmpty())\n        q.insert(temp.remove());\n    return sum;\n}\n';
+const bank = (over) => Object.assign({ exercise: { source: 'bank', bankId: 'queue-sum-even', topic: 'תור', title: 'סכום תור וזוגיים', level: 'קל' }, app: 'Visual Studio 2022' }, over);
+await api('POST', '/v1/submit', bank({ who: 'נועם', files: [{ path: 'Exercises/Ex01_Queues/QueueTargil1.cs', text: QUEUE_CS }, { path: 'Exercises/Ex01_Queues/Program.cs', text: 'class Program { }\n' }], main: 'Exercises/Ex01_Queues/QueueTargil1.cs',
+  check: { ran: true, compiles: true, output: 'סעיף א: 18\nסעיף ב: 2\nהתור אחרי: []', expected: Q_EXP, outputMatch: false } }), stations[1]);
+await api('POST', '/v1/submit', bank({ who: 'אריאל', exercise: { source: 'bank', bankId: 'list-evens-remove', topic: 'רשימה מקושרת', title: 'מחיקת זוגיים מרשימה', level: 'בינוני' },
+  files: [{ path: 'ListTargil4.cs', text: 'static Node<int> RemoveEvens(Node<int> head)\n{\n    return head\n}\n' }], check: { ran: true, compiles: false, error: 'ListTargil4.cs, שורה 3: חסר ; בסוף השורה' } }), stations[1]);
+await api('POST', '/v1/submit', bank({ who: 'יובל', files: [{ path: 'QueueTargil1.cs', text: QUEUE_CS }], check: { ran: true, compiles: true, output: Q_EXP, expected: Q_EXP, outputMatch: true } }), stations[2]);
+const kids = [['noam.levi@gmail.com', 'נועם לוי'], ['ariel.cohen@gmail.com', 'אריאל כהן'], ['yuval.m@gmail.com', 'יובל מזרחי'], ['ido.s@gmail.com', 'עידו שפירא'], ['itamar.p@gmail.com', 'איתמר פרץ']];
+const plug = {};
+for (const [email, name] of kids) {
+  plug[email] = await studentPlugin(email, name);
+  await api('POST', '/v1/student/join', { code }, plug[email]);
+}
+const teacherTok = await idToken('sara.cohen@ort.org.il', 'שרה כהן');
+const c1 = (await api('POST', '/v1/me/class', { op: 'create', name: 'יא 3' }, bearer(teacherTok))).id;
+const c2 = (await api('POST', '/v1/me/class', { op: 'create', name: 'יב 1' }, bearer(teacherTok))).id;
+for (const [email, cls] of [['noam.levi@gmail.com', c1], ['ariel.cohen@gmail.com', c1], ['yuval.m@gmail.com', c1], ['ido.s@gmail.com', c2]]) {
+  await api('POST', '/v1/me/member', { op: 'move', student: email, classId: cls }, bearer(teacherTok));
+}
+await api('POST', '/v1/submit', bank({ files: [{ path: 'src/ex01_queues/QueueTargil1.java', text: QUEUE_JAVA }], app: 'Eclipse', check: { ran: true, compiles: true, output: Q_EXP, expected: Q_EXP, outputMatch: true } }), plug['noam.levi@gmail.com']);
+await api('POST', '/v1/submit', bank({ exercise: { source: 'own', title: 'מחסנית מדף עבודה' }, files: [{ path: 'src/Ex03_Stack.java', text: 'public class Ex03_Stack {\n    public static void main(String[] args) {\n        System.out.println("המחסנית: [5,3,1]");\n    }\n}\n' }], app: 'IntelliJ IDEA',
+  check: { ran: true, compiles: true, output: 'המחסנית: [5,3,1]' } }), plug['noam.levi@gmail.com']);
+await api('POST', '/v1/submit', bank({ files: [{ path: 'QueueTargil1.java', text: QUEUE_JAVA.replace('q.insert(temp.remove());', '') }], check: { ran: true, compiles: true, output: 'סעיף א: 18\nסעיף ב: 2\nהתור אחרי: []', expected: Q_EXP, outputMatch: false } }), plug['ariel.cohen@gmail.com']);
+console.log('נתוני דוגמה מוכנים');
+
+// ------------------------------------------------------------------ דפדפן
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2, locale: 'he-IL' });
+const errors = [];
+ctx.on('page', p => p.on('pageerror', e => errors.push(String(e))));
+let passed = 0;
+async function step(name, fn) {
+  try { await fn(); passed++; console.log('✓ ' + name); } catch (e) { console.error('✗ ' + name); console.error(e); process.exitCode = 1; }
+}
+const shot = (page, name) => page.screenshot({ path: join(SHOTS, name + '.png'), fullPage: true });
+async function googlePopup(page, clickSel, email, name) {
+  const [popup] = await Promise.all([page.waitForEvent('popup'), page.click(clickSel)]);
+  await popup.waitForLoadState();
+  const existing = popup.locator('li', { hasText: email });
+  if (await existing.count()) await existing.first().click();
+  else {
+    await popup.getByText('Add new account').click();
+    await popup.fill('#email-input', email);
+    await popup.fill('#display-name-input', name);
+    await popup.click('#sign-in');
+  }
+  await popup.waitForEvent('close', { timeout: 15000 }).catch(() => {});
+}
+
+const page = await ctx.newPage();
+await step('המורה נכנס ל-/account → עמדת הניהול: הקוד, ההיתרים, 6 מחשבים ממוינים לפי השם (2 לפני 10)', async () => {
+  await page.goto(BASE + '/account');
+  await googlePopup(page, '.gbtn', 'sara.cohen@ort.org.il', 'שרה כהן');
+  await page.waitForSelector('.con-tab');
+  assert.equal(await page.locator('.con-code').textContent(), code);
+  const names = await page.locator('.con-table tbody tr td:first-child b').allTextContents();
+  assert.deepEqual(names, ['עמדה 1', 'עמדה 2', 'עמדה 3', 'עמדה 10', 'עמדה 11', 'עמדה 12']);
+  assert.ok(await page.locator('text=2 הגשות ממתינות').count());
+  await shot(page, 'c01-console-stations');
+});
+
+await step('הגשות של עמדה: שם המגיש, הקוד, והפלט של התלמיד מול הפלט הרצוי — שורה שונה מסומנת', async () => {
+  await page.click('tr:has-text("עמדה 1") button:has-text("הגשות")');
+  await page.waitForSelector('pre.code');
+  await page.click('.d-item:has-text("סכום תור")');
+  await page.waitForSelector('pre.code:has-text("SumQueue")');
+  assert.ok((await page.locator('pre.code').textContent()).includes('SumQueue'));
+  assert.equal(await page.locator('.outcol').first().locator('.ln.bad').count(), 1, 'רק השורה "התור אחרי" שונה');
+  assert.ok(await page.locator('text=מגיש: נועם').count());
+  assert.equal(await page.locator('.file').count(), 2, 'שני קבצים — לשוניות');
+  await shot(page, 'c02-station-submission');
+  await page.click('.d-item:has-text("מחיקת זוגיים")');
+  await page.waitForSelector('text=הקוד לא התקמפל');
+  assert.ok(await page.locator('.ln.bad:has-text("חסר ;")').count());
+  await shot(page, 'c03-station-compile-error');
+});
+
+await step('מחיקת הגשה של עמדה, ושחרור עמדה (אישור בתוך השורה) — ההיתר חוזר', async () => {
+  await page.click('.d-code .d-top button:has-text("מחיקה")');
+  await page.waitForSelector('.toast:has-text("ההגשה נמחקה")');
+  await page.waitForSelector('text=הגשות מעמדה 1');
+  assert.equal(await page.locator('.d-item').count(), 1);
+  await page.click('tr:has-text("עמדה 12") button:has-text("שחרור")');
+  await page.waitForSelector('.confirm');
+  await shot(page, 'c04-release-confirm');
+  await page.click('.confirm button:has-text("שחרור")');
+  await page.waitForSelector('.toast:has-text("שוחררה")');
+  assert.equal(await page.locator('.con-table tbody tr:has-text("עמדה 12")').count(), 0);
+  assert.ok(await page.locator('text=5 מתוך 20').count(), 'היתרים: 5 מתוך 20');
+  assert.ok(await page.locator('text=שחרורים החודש: 1 מתוך 5').count());
+});
+
+await step('טאב תלמידים: כיתות בצד, "בלי כיתה", ותרגילים של תלמיד עם בדיקת ההרצה', async () => {
+  await page.click('#tab-su');
+  await page.waitForSelector('.folders');
+  assert.deepEqual((await page.locator('.folder span:first-child').allTextContents()).slice(0, 4), ['כל התלמידים', 'יא 3', 'יב 1', 'בלי כיתה']);
+  await page.click('.folder:has-text("יא 3")');
+  assert.equal(await page.locator('.con-table tbody tr').count(), 3);
+  await page.click('tr:has-text("נועם לוי") button:has-text("תרגילים")');
+  await page.waitForSelector('pre.code');
+  await page.click('.d-item:has-text("סכום תור")');
+  await page.waitForSelector('pre.code:has-text("sumQueue")');
+  assert.ok(await page.locator('text=הפלט תואם לפלט הרצוי').count());
+  await shot(page, 'c05-students-class');
+  await page.click('.d-item:has-text("מחסנית מדף עבודה")');
+  await page.waitForSelector('text=אין פלט רצוי');
+});
+
+await step('כיתה חדשה, העברת תלמיד אליה, ושינוי שם', async () => {
+  await page.click('.folder.add');
+  await page.fill('#new-class', 'יב 4');
+  await page.click('.newcls button');
+  await page.waitForSelector('.folder[aria-current="true"]:has-text("יב 4")');
+  await page.click('.folder:has-text("בלי כיתה")');
+  await page.selectOption('tr:has-text("איתמר פרץ") select', { label: 'יב 4' });
+  await page.waitForTimeout(400);
+  await page.click('.folder:has-text("יב 4")');
+  assert.equal(await page.locator('.con-table tbody tr').count(), 1);
+  await page.click('button:has-text("שינוי שם")');
+  await page.fill('#rename-class', 'יב 4 — מגמת מחשבים');
+  await page.click('button:has-text("שמירה")');
+  await page.waitForSelector('.folder:has-text("יב 4 — מגמת מחשבים")');
+});
+
+await step('מחיקת תלמיד: אזהרה עם מספר ההגשות; אחרי האישור — יוצא מהרשימה', async () => {
+  await page.click('.folder:has-text("יא 3")');
+  await page.click('tr:has-text("אריאל כהן") button:has-text("מחיקה")');
+  await page.waitForSelector('.confirm:has-text("ההגשה שלו נמחקת")');
+  await shot(page, 'c06-delete-student-confirm');
+  await page.click('.confirm button:has-text("מחיקה לצמיתות")');
+  await page.waitForSelector('.toast:has-text("נמחק מהרשימה")');
+  assert.equal(await page.locator('.con-table tbody tr:has-text("אריאל כהן")').count(), 0);
+});
+
+await step('מחיקת כיתה שלמה: הכפתור פעיל רק אחרי הקלדת השם המדויק', async () => {
+  await page.click('button:has-text("מחיקת הכיתה")');
+  await page.waitForSelector('#confirm-class');
+  assert.equal(await page.locator('.confirm button:has-text("מחיקה לצמיתות")').isDisabled(), true);
+  await page.fill('#confirm-class', 'יא');
+  assert.equal(await page.locator('.confirm button:has-text("מחיקה לצמיתות")').isDisabled(), true);
+  await page.fill('#confirm-class', 'יא 3');
+  await shot(page, 'c07-delete-class-confirm');
+  await page.click('.confirm button:has-text("מחיקה לצמיתות")');
+  await page.waitForSelector('.toast:has-text("הכיתה ״יא 3״ נמחקה")');
+  assert.equal(await page.locator('.folder:has-text("יא 3")').count(), 0);
+  assert.equal(await page.locator('.con-table tbody tr:has-text("נועם לוי")').count(), 0);
+});
+
+await step('הצטרפות סגורה (מתג) — נשמר אחרי טעינה מחדש', async () => {
+  await page.click('#join-open');
+  await page.waitForSelector('text=הקוד לא מצרף תלמידים חדשים');
+  await page.reload();
+  await page.waitForSelector('.con-tab');
+  await page.click('#tab-su');
+  assert.equal(await page.locator('#join-open').getAttribute('aria-pressed'), 'false');
+  await page.click('#join-open');
+  await page.waitForSelector('#join-open[aria-pressed="true"]');
+});
+
+await step('תלמיד בדפדפן: בוחר "תלמיד עצמאי" → ואז מצטרף בקוד המורה; קוד שגוי — הודעה', async () => {
+  const sctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2, locale: 'he-IL' });
+  sctx.on('page', p => p.on('pageerror', e => errors.push(String(e))));
+  const sp = await sctx.newPage();
+  await sp.goto(BASE + '/account');
+  await googlePopup(sp, '.gbtn', 'shira.b@gmail.com', 'שירה ברק');
+  await sp.waitForSelector('text=תלמיד עצמאי, או עם מורה?');
+  await shot(sp, 'c08-student-choose');
+  await sp.click('button:has-text("תלמיד עצמאי")');
+  await sp.waitForSelector('.pill:has-text("תלמיד עצמאי")');
+  await sp.fill('#join-code', 'ZZZZ');
+  await sp.click('button:has-text("הצטרפות")');
+  await sp.waitForSelector('.toast:has-text("הקוד לא נכון")');
+  await sp.fill('#join-code', code.toLowerCase());
+  await sp.click('button:has-text("הצטרפות")');
+  await sp.waitForSelector('text=משויך');
+  assert.ok(await sp.locator('b:has-text("שרה כהן")').count());
+  await shot(sp, 'c09-student-joined');
+  await page.reload();
+  await page.waitForSelector('.con-tab');
+  await page.click('#tab-su');
+  await page.click('.folder:has-text("בלי כיתה")');
+  assert.ok(await page.locator('tr:has-text("שירה ברק")').count(), 'מופיעה אצל המורה ב"בלי כיתה"');
+  await sctx.close();
+});
+
+await step('רוחב טלפון: אין גלילה לרוחב בעמדת הניהול', async () => {
+  const pctx = await browser.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2, locale: 'he-IL' });
+  const pp = await pctx.newPage();
+  await pp.goto(BASE + '/account');
+  await googlePopup(pp, '.gbtn', 'sara.cohen@ort.org.il', 'שרה כהן');
+  await pp.waitForSelector('.con-tab');
+  const over = await pp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  assert.ok(over <= 1, 'גלילה לרוחב: ' + over);
+  await shot(pp, 'c10-phone');
+  await pctx.close();
+});
+
+assert.deepEqual(errors, [], 'שגיאות JavaScript בדפים: ' + errors.join(' | '));
+await browser.close();
+server.kill();
+console.log(`\n${passed} בדיקות בדפדפן עברו` + (process.exitCode ? ' — יש כישלונות' : ''));

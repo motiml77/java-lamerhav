@@ -65,7 +65,7 @@ const old = new Date(Date.now() - 40 * 86400000).toISOString();
 await store.merge('stations/' + ronitStations[0]._id, { name: 'ספרייה · מחשב 1', lastSeen: old });
 await api('POST', '/v1/me/request', { kind: 'release', stationId: ronitStations[0]._id, note: 'המחשב הוחלף בחדש.' }, await idToken('ronit.a@school.org.il', 'רונית אברהם'));
 await api('POST', '/v1/me/request', { kind: 'teacher', school: 'תיכון עירוני ד׳, תל אביב', phone: '0501234567', computers: 28 }, await idToken('david.levi@gmail.com', 'דוד לוי'));
-await api('POST', '/v1/admin/settings', { price: 60, accessUntil: '2027-08-31', packages: [{ seats: 10, price: 300 }, { seats: 20, price: 550 }, { seats: 30, price: 750 }] }, admin);
+await api('POST', '/v1/admin/settings', { studentsFree: false, price: 60, accessUntil: '2027-08-31', packages: [{ seats: 10, price: 300 }, { seats: 20, price: 550 }, { seats: 30, price: 750 }] }, admin);
 for (const [email, name] of [['noa.k@gmail.com', 'נועה כץ'], ['tamar.r@gmail.com', 'תמר רוזן'], ['michael.d@gmail.com', 'מיכאל דהן']]) {
   const tok = await idToken(email, name);
   await api('GET', '/v1/me', null, tok);
@@ -329,9 +329,8 @@ await step('מורה מתוך התוכנה: כניסה → הצלחה; הלוח 
   await teacher.waitForURL(/\/welcome\?r=ok&role=teacher/);
   assert.equal(appSrv.result().status, 'ok');
   assert.equal(appSrv.result().teacher.seats, 30);
-  await teacher.click('a:has-text("ללוח המורה")');
-  await teacher.waitForSelector('.codebox');
-  assert.equal(await teacher.locator('button:has-text("שחרור")').count(), 0, 'למורה אין כפתור שחרור');
+  await teacher.click('a:has-text("לעמדת הניהול")');
+  await teacher.waitForSelector('.con-code');   // עמדת הניהול (console.js) — הבדיקה המלאה שלה: console-e2e.mjs
   await shot(teacher, '14-teacher-panel');
   await shot(teacher, '15-teacher-packages');
   await teacher.click('.pack:has-text("20") button');
@@ -339,7 +338,7 @@ await step('מורה מתוך התוכנה: כניסה → הצלחה; הלוח 
   await teacher.fill('#ph', '052-7654321');
   await teacher.click('#pay');
   await teacher.waitForSelector('.toast:has-text("נוספו 20 עמדות")', { timeout: 30000 });
-  await teacher.waitForSelector('text=מתוך 50 בשימוש');
+  await teacher.waitForSelector('.con-stat b:has-text("30 מתוך 50")');
   const pay = (await api('GET', '/v1/admin/payments', null, admin)).payments.find(p => p.kind === 'seats');
   assert.deepEqual([pay.seats, pay.amount, pay.payerPhone], [20, 550, '052-7654321']);
   appSrv.close();

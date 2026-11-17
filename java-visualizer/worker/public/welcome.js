@@ -127,7 +127,7 @@ async function main() {
     }
     if (role === 'teacher') {
       return done('נכנסת בהצלחה', 'אפשר לחזור ל-DSViz — מאגר התרגילים פתוח, ושליחת תרגיל זמינה.',
-        h('a', { class: 'btn', href: '/account' }, 'ללוח המורה — הקוד והעמדות'));
+        h('a', { class: 'btn', href: '/account' }, 'לעמדת הניהול — המחשבים, התלמידים וההגשות'));
     }
     const me = user ? await api('GET', '/v1/me').catch(() => null) : null;
     openScreen(me);
