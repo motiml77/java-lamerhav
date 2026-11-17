@@ -17,7 +17,8 @@ import javax.swing.SwingUtilities;
  * · has <טקסט> / hasnot <טקסט> (בודקים שיש / אין רכיב עם הטקסט בחלון; התוצאה ב-results.txt)
  * · target <טקסט> (המיקום על המסך של הכפתור / הרכיב עם הטקסט — target.txt: x y w h; לסרטון ההדרכה: לאן העכבר הולך).
  * · ptarget <טקסט> / targetrow topic|question <מזהה> (אותו דבר בפיקסלים של המסך, גם לשורות המצוירות של המאגר — הסקריפט לוחץ שם בעכבר אמיתי).
- * מצב viewer: חלון ההרצה הוויזואלית (TraceViewer שמפעיל dsviz-cs).
+ * · pfield <placeholder> (המיקום בפיקסלים של שדה טקסט ריק עם ה-placeholder הזה — "Student" שם המחלקה, "name" שם השדה; הסקריפט לוחץ ומקליד).
+ * מצב viewer: חלון ההרצה הוויזואלית (TraceViewer שמפעיל dsviz-cs). מצב insert: "הוספת מבנה נתונים" (CsTool insert) — וממנו "צור מחלקה".
  * סיום: <מצב>.done.txt, או <מצב>.error.txt עם החריגה.
  */
 public class ToolbarAgent {
@@ -34,7 +35,7 @@ public class ToolbarAgent {
         try {
             ctl = new File(args);
             String cmd = System.getProperty("sun.java.command", "");
-            String mode = cmd.contains("CsTool submit") ? "submit" : cmd.contains("BankVs bank") ? "bank" : cmd.contains("BankVs teacher") ? "teacher" : cmd.contains("TraceViewer") ? "viewer" : null;
+            String mode = cmd.contains("CsTool submit") ? "submit" : cmd.contains("CsTool insert") ? "insert" : cmd.contains("BankVs bank") ? "bank" : cmd.contains("BankVs teacher") ? "teacher" : cmd.contains("TraceViewer") ? "viewer" : null;
             log("jvm: " + cmd + " -> " + mode);
             if (mode == null) return;
             final File script = new File(ctl, mode + ".script.txt");
@@ -84,6 +85,9 @@ public class ToolbarAgent {
                         break;
                     case "targetrow":
                         delay = targetRow(arg);
+                        break;
+                    case "pfield":
+                        delay = physField(arg);
                         break;
                     default:
                         delay = SwingScript.run(cmd, arg, shots);
@@ -185,6 +189,22 @@ public class ToolbarAgent {
             if (hit != null) r[0] = phys(hit, new java.awt.Rectangle(hit.getLocationOnScreen(), hit.getSize()));
         });
         writeTarget("ptarget " + text, r[0]);
+        return 50;
+    }
+
+    /** pfield <placeholder>: המיקום בפיקסלים של השדה הראשון (שנראה, ריק) עם ה-placeholder הזה — שם בחלון "צור מחלקה" אין טקסט לחפש */
+    static long physField(String placeholder) throws Exception {
+        final java.awt.Rectangle[] r = { null };
+        SwingUtilities.invokeAndWait(() -> {
+            java.awt.Container root = ((javax.swing.RootPaneContainer) SwingScript.win).getRootPane();
+            for (java.awt.Component k : SwingScript.all(root, new java.util.ArrayList<java.awt.Component>())) {
+                if (r[0] != null || !k.isShowing() || !(k instanceof javax.swing.JTextField)) continue;
+                javax.swing.JTextField f = (javax.swing.JTextField) k;
+                if (placeholder.equals(f.getClientProperty("JTextField.placeholderText")) && f.getText().isEmpty())
+                    r[0] = phys(k, new java.awt.Rectangle(k.getLocationOnScreen(), k.getSize()));
+            }
+        });
+        writeTarget("pfield " + placeholder, r[0]);
         return 50;
     }
 

@@ -475,6 +475,48 @@ function RunBank([string]$tag, [string[]]$lines, [int]$timeoutSec = 420) {
     if ($status -ne 'done') { AgentTail }
     return $status
 }
+# "הוספת מבנה נתונים" → "צור מחלקה" (חלונות Swing): כמו RunBank — ה-agent אומר איפה הרכיב, הלחיצה אמיתית, ואחרי לחיצה על שדה
+# ($type[<mark>]) — Ctrl+A והקלדה במקלדת האמיתית. מחזיר done / error / timeout / no-button
+function RunInsert([string]$tag, [string[]]$lines, [hashtable]$type, [int]$timeoutSec = 240) {
+    Get-ChildItem $ctl -Filter 'mark-*' -ErrorAction SilentlyContinue | Remove-Item -Force
+    Get-ChildItem $ctl -Filter 'ack-*' -ErrorAction SilentlyContinue | Remove-Item -Force
+    Remove-Item (Join-Path $ctl 'insert.done.txt'), (Join-Path $ctl 'insert.error.txt'), (Join-Path $ctl 'target.txt'), (Join-Path $ctl 'insert.script.txt.claimed') -Force -ErrorAction SilentlyContinue
+    KillJava; Start-Sleep 1
+    WriteScript 'insert' $lines
+    if (-not (ClickToolbar 'הוספת מבנה נתונים' "$tag-toolbar-insert")) { return 'no-button' }
+    $t0 = Get-Date; $seen = @{}; $status = 'timeout'
+    while (((Get-Date) - $t0).TotalSeconds -lt $timeoutSec) {
+        foreach ($m in @(Get-ChildItem $ctl -Filter 'mark-*.txt' -ErrorAction SilentlyContinue)) {
+            if ($seen[$m.Name]) { continue }
+            $seen[$m.Name] = $true
+            $nm = $m.BaseName.Substring(5)
+            Start-Sleep -Milliseconds 500
+            $tf = Join-Path $ctl 'target.txt'
+            if (Test-Path $tf) {
+                $v = @(([IO.File]::ReadAllText($tf)).Trim() -split '\s+' | Where-Object { $_ -match '^-?\d+$' } | ForEach-Object { [int]$_ })
+                Remove-Item $tf -Force -ErrorAction SilentlyContinue
+                if ($v.Count -eq 4 -and $v[2] -gt 0) {
+                    RealClickAt ([int]($v[0] + $v[2] / 2)) ([int]($v[1] + $v[3] / 2)) "$tag-$nm" | Out-Null
+                } else { Info "ה-agent לא מצא את הרכיב של '$nm' (target.txt: '$($v -join ' ')')"; Step "$tag-$nm-not-found" }
+            } elseif (-not ($type -and $type.ContainsKey($nm))) { Step "$tag-$nm" }
+            # הקלדה בשדה שבפוקוס — אחרי הלחיצה עליו, או בלי לחיצה (אחרי "+ שדה" הפוקוס כבר בטיפוס של השורה החדשה, והוא מסומן)
+            if ($type -and $type.ContainsKey($nm)) {
+                [DsReal]::Chord([uint16[]]@(0x11, 0x41)); Start-Sleep -Milliseconds 200
+                [DsReal]::Type([string]$type[$nm]); Start-Sleep -Milliseconds 600
+                Info "הוקלד במקלדת: '$($type[$nm])'"
+                Step "$tag-$nm-typed"
+            }
+            Set-Content (Join-Path $ctl "ack-$nm.txt") 'ok'
+        }
+        if (Test-Path (Join-Path $ctl 'insert.done.txt')) { $status = 'done'; break }
+        if (Test-Path (Join-Path $ctl 'insert.error.txt')) { $status = 'error'; break }
+        Start-Sleep -Milliseconds 400
+    }
+    if ($status -eq 'error') { Info ("שגיאת agent: " + (Get-Content (Join-Path $ctl 'insert.error.txt') -Raw -Encoding UTF8)) }
+    Info "הוספת מבנה נתונים / צור מחלקה ($tag): $status ($([int]((Get-Date) - $t0).TotalSeconds) שניות)"
+    if ($status -ne 'done') { AgentTail }
+    return $status
+}
 # פותח את המאגר מהסרגל, בוחר נושא ושאלה ולוחץ "צור תרגיל" — הכול בלחיצות אמיתיות. מחזיר את שם הפרויקט שנוצר, או ''
 function CreateFromBank([string]$tag, [string]$topic, [string]$question) {
     $before = @(Get-ChildItem $exDir -Directory -ErrorAction SilentlyContinue | ForEach-Object Name)
@@ -1196,6 +1238,48 @@ else {
         $afterText = @(Get-Content $csproj.FullName -Encoding UTF8)
         $diff = @(Compare-Object $beforeText $afterText | ForEach-Object { "$($_.SideIndicator) $($_.InputObject.Trim())" })
         Check 't14-project-unchanged' ((Get-FileHash $csproj.FullName).Hash -eq $before) 'שתי ההרצות לא שינו את קובץ הפרויקט של התלמיד (EmptyDemo.csproj)' "שורות ששונו: $($diff -join ' | ')"
+        # 9. "צור מחלקה": Program.cs פתוח → "הוספת מבנה נתונים" בסרגל → "+ צור מחלקה…" → Book עם int pages ו-string title, ToString
+        #    → "יצירת המחלקה". הכול בעכבר ובמקלדת האמיתיים. Book.cs נוצר ליד Program.cs, נרשם בפרויקט דרך Visual Studio, נפתח בעורך, והפרויקט נבנה
+        $book = Join-Path $projDir 'Book.cs'
+        Remove-Item $book -Force -ErrorAction SilentlyContinue
+        $dteLog = Join-Path $env:TEMP 'dsviz-vs-dte.txt'
+        Remove-Item $dteLog -Force -ErrorAction SilentlyContinue
+        KillRuns; KillJava
+        OpenDoc $file | Out-Null
+        VsFront | Out-Null
+        $cc = RunInsert 't14-cc' @(
+            'waitwin הוסף מבנה נתונים', 'wait 1500', 'mark insert-window',
+            'ptarget + צור מחלקה…', 'mark new-class',
+            'waitwin צור מחלקה', 'wait 1500', 'mark class-window',
+            'pfield Student', 'mark class-name',
+            'pfield name', 'mark field1-name',
+            'ptarget + שדה', 'mark add-field',
+            'wait 500', 'mark field2-type',
+            'pfield name', 'mark field2-name',
+            'ptarget ToString', 'mark tostring',
+            'wait 800', 'mark filled',
+            'ptarget יצירת המחלקה', 'mark create',
+            'wait 1500'
+        ) @{ 'class-name' = 'Book'; 'field1-name' = 'pages'; 'field2-type' = 'string'; 'field2-name' = 'title' }
+        $made = WaitFor { Test-Path $book } 30
+        $opened = WaitFor { $a = Dte { param($d) if ($d.ActiveDocument) { [string]$d.ActiveDocument.FullName } else { '' } } 3; if ($a -like '*\Book.cs') { $a } } 60 1000
+        Start-Sleep 2
+        $q = DismissDialogs
+        if ($q -eq 'reload') { Note 't14-cc-reload' 'Visual Studio שאל אם לטעון מחדש את הפרויקט אחרי "צור מחלקה" (הקובץ נרשם בקובץ הפרויקט ולא דרך Visual Studio)' }
+        VsFront | Out-Null
+        Step 't14-cc-after'
+        $bookText = if ($made) { Get-Content $book -Raw -Encoding UTF8 } else { '' }
+        $dteText = if (Test-Path $dteLog) { Get-Content $dteLog -Raw -Encoding UTF8 } else { '' }
+        if ($dteText) { Copy-Item $dteLog (Join-Path $logs "dsviz-vs-dte-t14-cc.txt") -Force -ErrorAction SilentlyContinue }
+        Check 't14-cc-window' ($cc -eq 'done') '"הוספת מבנה נתונים" מהסרגל → "+ צור מחלקה…" → שם, שני שדות (טיפוס מהמקלדת), ToString → "יצירת המחלקה" — הכול בעכבר ובמקלדת אמיתיים' "מצב: $cc · חלונות: $((Windows) -join ' ; ')"
+        Check 't14-cc-file' ($made -and $bookText -match 'public class Book' -and $bookText -match 'private int pages;' -and $bookText -match 'private string title;' -and $bookText -match 'public Book\(int pages, string title\)' -and $bookText -match 'public string GetTitle\(\)' -and $bookText -match 'public void SetPages\(int pages\)' -and $bookText -match 'public override string ToString\(\)') `
+            'Book.cs נוצר ליד Program.cs: שדות private, בנאי, Get / Set לכל שדה ו-ToString' $(($bookText -replace '\s+', ' ') -replace '^(.{0,300}).*$', '$1')
+        $projNow = Get-Content $csproj.FullName -Raw -Encoding UTF8
+        $inProj = Dte { param($d) $n = 0; foreach ($it in $d.Solution.Projects.Item(1).ProjectItems) { if ($it.Name -eq 'Book.cs') { $n++ } }; $n } 4
+        Check 't14-cc-project' (($projNow -match '<Compile Include="Book.cs"\s*/>') -and $inProj -ge 1) 'Book.cs נרשם בפרויקט (‎.NET Framework‎) — בקובץ הפרויקט וב-Visual Studio (ProjectItems)' "ב-csproj: $($projNow -match 'Book.cs') · ב-ProjectItems: $inProj · יומן DTE: $(($dteText -replace '\s+', ' ') -replace '^(.{0,300}).*$', '$1')"
+        Check 't14-cc-opened' ([bool]$opened -and $dteText -match 'OK class') 'המחלקה החדשה נפתחה בעורך של אותו Visual Studio (דרך Visual Studio, בלי חלון "נוצרה" של גיבוי)' "המסמך הפעיל: '$opened' · יומן DTE: $(($dteText -replace '\s+', ' ') -replace '^(.{0,300}).*$', '$1')"
+        $failedCc = BuildSolution 't14-cc-build'
+        Check 't14-cc-build' ($failedCc -eq 0) 'Build Solution אחרי "צור מחלקה": הפרויקט נבנה עם Book.cs' "פרויקטים שנכשלו: $failedCc"
     } catch { Fail 't14-exception' 'T14 רץ עד הסוף' "$_" }
     KillRuns; KillJava
     $closed = CloseVsByX
