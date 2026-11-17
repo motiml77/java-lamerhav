@@ -659,7 +659,7 @@ final class Poly {
 
     private static void hatch(Step s, Obj o, Card card, List<ClassInfo> chain) {
         card.ref = currentRef(s, o.labels);
-        if (card.ref == null) return;
+        if (card.ref == null || card.ref.equals("this")) return;   // this בפעולה של מחלקת העל — בלי פסים (העצם כולו שלו)
         String t = declared(s, card.ref);
         if (t == null || t.equals(o.type)) return;   // כלל 7: רק כשהטיפוס המוצהר שונה מהטיפוס של העצם
         int k = -1;
