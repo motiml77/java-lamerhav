@@ -14,6 +14,10 @@ javac -encoding UTF-8 -nowarn -cp release/dsviz.jar:build/lab-vs/dsviz-bank-vs.j
 run() { if [ -n "$DISPLAY" ]; then "$@"; else xvfb-run -a "$@"; fi; }
 LC_ALL=C.UTF-8 run java -Duser.home="$PWD/$W/home" -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 \
     -cp release/dsviz.jar:build/lab-vs/dsviz-bank-vs.jar:$W/cls il.lamerhav.dsviz.BankIjAll "$PWD/$W/work" "$PWD/release/dsviz.jar" | grep -v "^  ok   create-\|^  ok   run-"
+# אותו כלי ב-VS Code (vscode-extension/bank.js, מצב --vscode): הגשר, הפקודה, ו-Java / C# מקצה לקצה מול הכלי האמיתי
+mkdir -p build/test
+LC_ALL=C.UTF-8 run node tools/test/vscode-bank-test.js "$PWD/build/test/vscode-bank" > build/test/vscode-bank.log 2>&1 || { cat build/test/vscode-bank.log; exit 1; }
+grep -v "^  ok " build/test/vscode-bank.log
 (cd intellij-bank && gradle --no-daemon -q test buildPlugin)
 mkdir -p build/lab-ij && rm -f build/lab-ij/*
 cp intellij-bank/build/distributions/dsviz-bank-intellij-*.zip build/lab-ij/

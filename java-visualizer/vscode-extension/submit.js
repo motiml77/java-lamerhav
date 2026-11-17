@@ -814,7 +814,7 @@ function register(deps) {
         decorateAll();
         if (!on() && problems) problems.clear();
     };
-    return { submit, showSolution, showDone, decorate, powerChanged };
+    return { submit, showSolution, showDone, decorate, powerChanged, store };
 }
 
 module.exports = { register, readStore, forFile, methods, lensesFor, entryAt, paramCount, submitHtml, solutionHtml, highlight, section, runCli,

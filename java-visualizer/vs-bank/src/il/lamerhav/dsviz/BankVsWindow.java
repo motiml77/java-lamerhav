@@ -528,8 +528,8 @@ final class BankVsWindow {
             if (!pool.isEmpty()) select(pool.get(new Random().nextInt(pool.size())).id);
         });
         buttons.add(random);
-        // IntelliJ (אותו חלון, --ij): אין שם כפתור בסרגל — עמדת הניהול מכאן. ב-Visual Studio היא בסרגל הכלים (כמו ב-Eclipse)
-        if (BankVs.ij && AccessGate.isTeacher()) {
+        // IntelliJ ו-VS Code (אותו חלון, דרך הגשר): אין שם כפתור בסרגל — עמדת הניהול מכאן. ב-Visual Studio היא בסרגל הכלים (כמו ב-Eclipse)
+        if (BankVs.bridged() && AccessGate.isTeacher()) {
             JButton manage = RtlDialog.secondary("עמדת ניהול");
             manage.addActionListener(e -> AccessGate.showTeacherPanel(frame));
             buttons.add(manage);
@@ -554,7 +554,7 @@ final class BankVsWindow {
         String bad = BankVs.ij ? (java.nio.file.Files.isDirectory(BankVs.root) && java.nio.file.Files.isWritable(BankVs.root) ? null
                 : "אין אפשרות לכתוב בתיקיית הקוד של הפרויקט: " + BankVs.root) : CsSolution.ensure(BankVs.root);
         if (bad != null) {
-            RtlDialog.show(frame, BankVs.title(), RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + (BankVs.ij ? "" : "\nמריצים שוב את ההתקנה (DSViz-Setup.exe)."));
+            RtlDialog.show(frame, BankVs.title(), RtlDialog.Kind.ERROR, "תיקיית התרגילים לא מוכנה", bad + (BankVs.bridged() ? "" : "\nמריצים שוב את ההתקנה (DSViz-Setup.exe)."));
             return;
         }
         final JDialog wait = new JDialog(frame, RtlDialog.rtl(BankVs.title()), false);

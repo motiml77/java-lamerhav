@@ -15,6 +15,7 @@ const help = require('./help');
 const submitModule = require('./submit');
 const ui = require('./ui');
 const powerModule = require('./power');
+const bankModule = require('./bank');
 
 /** התבניות של השפה שעובדים בה עכשיו (Java / C#) — נקבע בתחילת כל פעולה לפי השפה */
 let templates = javaTemplates;
@@ -67,6 +68,8 @@ function activate(context) {
         project, cs, runner, openFiles, isOn: () => power.on });
     reg('dsviz.submit', () => sub.submit());
     reg('dsviz.solution', entry => sub.showSolution(entry));
+    // "מאגר תרגילים" ו"השאלה" — אותו כלי כמו ב-Visual Studio וב-IntelliJ (bank.js → dsviz-bank-vs.jar של ההתקנה, דרך גשר מקומי)
+    bankModule.register({ vscode, ctx: context, reg, chooseRoot, detectLanguage: root => detectLanguage(root), project, cs, runner, ui, store: sub.store });
 
     // תצוגה בסרגל הצד — הכפתורים עצמם מוגדרים ב-package.json (viewsWelcome)
     for (const view of ['dsviz.home', 'dsviz.insertView', 'dsviz.runView']) {

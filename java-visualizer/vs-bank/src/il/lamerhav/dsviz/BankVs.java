@@ -30,6 +30,8 @@ import unit4.collectionsLib.Theme;
  * "סיימתי את התרגיל" (בחלון הצף): סימון ירוק, והפרויקט נמחק עם כל המעטפת שלו — התיקייה (כולל bin / obj), הרישום בפתרון (.sln),
  * ההצעות לפתרון השמורות, והשיוך לשאלה.
  * ההתקדמות נשמרת ב-~/.dsviz/bank-progress-cs.json (נפרד מ-Eclipse).
+ * IntelliJ (--ij) ו-VS Code (--vscode, ול-C# גם --cs): אותם חלונות; הסביבה מקבלת בקשות בגשר מקומי (--port, --token): פתיחת קובץ,
+ * רענון, שמירה. ההתקדמות של כל סביבה בקובץ משלה (key()).
  */
 public final class BankVs {
     private BankVs() {}
@@ -46,17 +48,35 @@ public final class BankVs {
     /** תיקיות הפלט של הקומפילציה (IntelliJ: out/production/<מודול>) — מוחקים משם רק את ה-class של קבצי התרגיל */
     static final List<File> outDirs = new ArrayList<File>();
 
+    // ---- מצב VS Code (--vscode): אותו גשר כמו של IntelliJ (OPEN / REFRESH / DIALOG, ועוד SAVE). Java — גם ij=true (חבילה ex01_...
+    // בתיקיית הקוד, כמו ב-IntelliJ); C# (--vscode --cs) — csBridge=true: פרויקט Exercises\Ex01_... כמו ב-Visual Studio, אבל בלי
+    // האוטומציה של Visual Studio (DTE / devenv) — הקובץ נפתח, והקבצים שנמחקו נסגרים, דרך הגשר
+    /** הכלי הופעל מ-VS Code (vscode-extension/bank.js) */
+    static boolean vscode;
+    /** C# דרך הגשר (VS Code), ולא דרך Visual Studio */
+    static boolean csBridge;
+
+    /** הסביבה מקבלת בקשות בגשר (IntelliJ, VS Code) — ולא Visual Studio */
+    static boolean bridged() {
+        return ij || csBridge;
+    }
+
+    /** המפתח של הסביבה לשמות הקבצים ב-~/.dsviz (ההתקדמות, השאלה האחרונה, מיקום החלון הצף): כל סביבה בנפרד */
+    static String key() {
+        return vscode ? (ij ? "vscode" : "vscode-cs") : ij ? "ij" : "cs";
+    }
+
     static String title() {
-        return ij ? "מאגר תרגילים — IntelliJ" : TITLE;
+        return vscode ? (ij ? "מאגר תרגילים — VS Code" : "מאגר תרגילים — C# · VS Code") : ij ? "מאגר תרגילים — IntelliJ" : TITLE;
     }
 
     static String ide() {
-        return ij ? "IntelliJ" : "Visual Studio";
+        return vscode ? "VS Code" : ij ? "IntelliJ" : "Visual Studio";
     }
 
     /** איפה התרגיל נוצר — לטקסט בחלונות */
     static String where() {
-        return ij ? "בפרויקט " + projectName : "ב-Visual Studio";
+        return vscode ? "בתיקייה " + projectName + " ב-VS Code" : ij ? "בפרויקט " + projectName : "ב-Visual Studio";
     }
 
     static String ext() {
@@ -64,7 +84,7 @@ public final class BankVs {
     }
 
     static File storeFile() {
-        return ij && solutionsFile != null ? solutionsFile : VsSubmit.storeFile();
+        return bridged() && solutionsFile != null ? solutionsFile : VsSubmit.storeFile();
     }
     static BankStore store;
     /** בדיקות: מה היה נפתח ב-Visual Studio (עם -Ddsviz.noOpen=true לא נפתח כלום) */
@@ -147,6 +167,8 @@ public final class BankVs {
             String k = a[i], v = i + 1 < a.length ? a[i + 1] : "";
             switch (k) {
                 case "--ij": ij = true; continue;
+                case "--vscode": vscode = true; continue;
+                case "--cs": csBridge = true; continue;
                 case "--lib": lib = new File(v); break;
                 case "--java": javaExe = v; break;
                 case "--store": solutionsFile = new File(v); break;
@@ -158,15 +180,17 @@ public final class BankVs {
             }
             i++;
         }
+        if (vscode && !csBridge) ij = true;   // VS Code עם Java: בדיוק כמו IntelliJ (חבילה בתיקיית הקוד), רק הטקסטים אחרים
+        if (csBridge) ij = false;
         init(Paths.get(a[1]));
     }
 
     /** הכנה (גם לבדיקות): ההתקדמות של C#, העיצוב, והמאגר */
     static void init(Path r) throws Exception {
         if (System.getProperty("dsviz.bankProgress") == null)
-            System.setProperty("dsviz.bankProgress", Paths.get(System.getProperty("user.home"), ".dsviz", ij ? "bank-progress-ij.json" : "bank-progress-cs.json").toString());
+            System.setProperty("dsviz.bankProgress", Paths.get(System.getProperty("user.home"), ".dsviz", "bank-progress-" + key() + ".json").toString());
         root = r.toAbsolutePath();
-        if (!ij) CsSolution.openIde = (sln, csproj) -> inOpenVs("add", sln, csproj.toString());
+        if (!bridged()) CsSolution.openIde = (sln, csproj) -> inOpenVs("add", sln, csproj.toString());
         cleanPending();
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
@@ -338,13 +362,14 @@ public final class BankVs {
         AiScaffold.Task task = null;
         for (AiScaffold.Task x : full.tasks) if (BankSections.norm(x.label).equals(BankSections.norm(t.label))) task = x;
         if (task == null) return "הסעיף לא נמצא בשאלה.";
-        boolean vs = !ij && windows() && !Boolean.getBoolean("dsviz.noOpen") && vsRunning();
+        boolean vs = !bridged() && windows() && !Boolean.getBoolean("dsviz.noOpen") && vsRunning();
         List<String> problems = new ArrayList<String>();
         File focus = null;
         int line = -1;
         for (Map.Entry<String, File> fe : files.entrySet()) {
             File f = fe.getValue();
             if (vs) vsDocument("save", f, null);   // שינויים שלא נשמרו בעורך — קודם נשמרים, כדי שההוספה תהיה על הקוד העדכני
+            if (vscode) bridge("SAVE", f.getAbsolutePath());   // VS Code: אותו דבר — העורך שומר קודם (אחרת "הקובץ השתנה בדיסק" כשהתלמיד ישמור)
             String text = read(f);
             if (text.isEmpty() && f.length() > 0) {   // \u05E2\u05D3\u05D9\u05D9\u05DF \u05EA\u05E4\u05D5\u05E1 (Visual Studio / \u05D0\u05E0\u05D8\u05D9-\u05D5\u05D9\u05E8\u05D5\u05E1) \u2014 \u05DC\u05D0 "\u05DE\u05D5\u05E1\u05D9\u05E4\u05D9\u05DD" \u05DC\u05E7\u05D5\u05D1\u05E5 \u05E8\u05D9\u05E7
                 problems.add("\u05D4\u05E7\u05D5\u05D1\u05E5 " + f.getName() + " \u05EA\u05E4\u05D5\u05E1 \u05DB\u05E8\u05D2\u05E2 \u2014 \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D1\u05E2\u05D5\u05D3 \u05E8\u05D2\u05E2.");
@@ -383,7 +408,7 @@ public final class BankVs {
             se.status = "ok";
             new SolutionStore(storeFile()).add(java.util.Collections.singletonList(se));
         }
-        if (ij) bridge("REFRESH", root.toString());
+        if (bridged()) bridge("REFRESH", root.toString());
         if (focus != null) openFile(focus, line);
         return problems.isEmpty() ? null : String.join("\n", problems);
     }
@@ -550,10 +575,10 @@ public final class BankVs {
             if (ij) {
                 what.append(n.size() == 1 ? "הקובץ שיימחק: " : "הקבצים שיימחקו: ").append(String.join(", ", n));
                 if (!r.others.isEmpty()) what.append("\nהחבילה ").append(r.dir.getName()).append(" נשארת — יש בה עוד קבצים שלך: ").append(String.join(", ", r.others));
-            } else if (!r.dir.exists()) what.append("הפרויקט ").append(r.dir.getName()).append(" כבר נמחק מהמחשב — הוא יוצא גם מ-Visual Studio");
+            } else if (!r.dir.exists()) what.append("הפרויקט ").append(r.dir.getName()).append(" כבר נמחק מהמחשב — הוא יוצא גם מ-" + ide());
             else if (r.wholeProject()) what.append("התרגיל שיימחק: ").append(r.dir.getName()).append(n.isEmpty() ? "" : " (" + String.join(", ", n) + ")");
             else what.append("קבצי התרגיל שיימחקו: ").append(String.join(", ", n)).append("\nהתרגיל ").append(r.dir.getName())
-                    .append(" נשאר ב-Visual Studio — יש בו עוד קבצים שלך: ").append(String.join(", ", r.others));
+                    .append(" נשאר ב-" + ide() + " — יש בו עוד קבצים שלך: ").append(String.join(", ", r.others));
         }
         return "קבצי התרגיל יימחקו — כדי שלא יצטברו תרגילים ישנים.\n\n"
                 + "אפשר תמיד לפתוח את השאלה שוב מ\"מאגר תרגילים\" ולהתחיל מחדש.\n\n"
@@ -590,8 +615,14 @@ public final class BankVs {
         return true;
     }
 
-    /** מוחק לפי התוכנית. מחזיר מה שלא הצליח להימחק */
+    /** מוחק לפי התוכנית. מחזיר מה שלא הצליח להימחק. VS Code עם C#: אחר כך רענון — הלשוניות של הקבצים שנמחקו נסגרות */
     static List<String> remove(Removal r) {
+        List<String> left = removeNow(r);
+        if (csBridge) bridge("REFRESH", root.toString());
+        return left;
+    }
+
+    static List<String> removeNow(Removal r) {
         List<String> left = new ArrayList<String>();
         // Visual Studio פתוח עם הפתרון: קודם הוא מוציא את הפרויקט בעצמו (ושומר) — בלי "File Modification Detected", ולפני שהקבצים נמחקים
         Path vsSln = ij || !(r.missingButRegistered() || (r.wholeProject() && r.dir.isDirectory())) ? null : CsSolution.solution(root);
@@ -854,7 +885,7 @@ public final class BankVs {
 
     /** הפתרון ב-Visual Studio: אם Visual Studio לא פתוח — פותחים אותו עם הפתרון; אם פתוח — הוא יציע Reload לבד */
     static void openSolution() {
-        if (ij) {
+        if (bridged()) {
             bridge("REFRESH", root.toString());
             return;
         }
@@ -874,7 +905,7 @@ public final class BankVs {
     /** פותח קובץ ב-Visual Studio שכבר פתוח (devenv /edit), והסמן בשורה (מ-1) */
     static void openFile(File f, int line) {
         opened.add("FILE " + f.getName() + ":" + line);
-        if (ij) {
+        if (bridged()) {
             bridge("OPEN", f.getAbsolutePath(), String.valueOf(line));
             return;
         }
@@ -951,7 +982,7 @@ public final class BankVs {
      * false — Visual Studio לא פתוח / פתוח עם פתרון אחר / לא הצליח: ואז משנים את קובץ ה-.sln עצמו.
      */
     static boolean inOpenVs(String action, Path sln, String arg) {
-        if (ij || Boolean.getBoolean("dsviz.noOpen") || !windows() || sln == null || !vsRunning()) return false;
+        if (bridged() || Boolean.getBoolean("dsviz.noOpen") || !windows() || sln == null || !vsRunning()) return false;
         String name = action.equals("add") ? new File(arg).getName().replaceFirst("\\.csproj$", "") : arg;
         // אחרי השמירה בודקים את קובץ ה-.sln עצמו: הפרויקט באמת נוסף / יצא. לא — קוד 6, ואז משנים את הקובץ בעצמנו
         String ps = "$ErrorActionPreference='Stop'; $d=$null; "
@@ -1021,7 +1052,7 @@ public final class BankVs {
 
     /** IntelliJ / Visual Studio מציג עכשיו חלון דו-שיח (למשל שגיאות בהרצה, או "פתיחת קובץ") — שהחלון הצף לא יסתיר אותו */
     static boolean ideDialog() {
-        return ij ? "1".equals(send("DIALOG")) : vsDialog;
+        return bridged() ? "1".equals(send("DIALOG")) : vsDialog;
     }
 
     private static volatile boolean vsDialog;
@@ -1032,7 +1063,7 @@ public final class BankVs {
      * שיש לו חלון-אב — הדו-שיחים; לחלון הראשי אין), ומדפיס 1 / 0 כשזה משתנה. נסגר לבד כשהכלי נסגר.
      */
     static synchronized void watchVsDialogs() {
-        if (ij || vsWatching || Boolean.getBoolean("dsviz.noOpen") || !windows()) return;
+        if (bridged() || vsWatching || Boolean.getBoolean("dsviz.noOpen") || !windows()) return;
         vsWatching = true;
         String pid = java.lang.management.ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
         String ps = "Add-Type -Namespace DsViz -Name W -MemberDefinition '"

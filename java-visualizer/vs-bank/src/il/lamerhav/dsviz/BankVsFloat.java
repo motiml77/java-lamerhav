@@ -53,7 +53,7 @@ final class BankVsFloat {
     static final List<String> shown = new ArrayList<String>();
 
     static File lastFile() {
-        return Paths.get(System.getProperty("user.home"), ".dsviz", BankVs.ij ? "bank-ij-last.txt" : "bank-cs-last.txt").toFile();
+        return Paths.get(System.getProperty("user.home"), ".dsviz", "bank-" + BankVs.key() + "-last.txt").toFile();
     }
 
     /**
@@ -130,7 +130,7 @@ final class BankVsFloat {
         else {
             // ברירת מחדל: מימין, אבל לא על Solution Explorer של Visual Studio (העמודה הימנית) — משמאל לה
             Rectangle s = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-            int x = s.width >= 1600 && !BankVs.ij ? s.x + s.width - WIDTH - 380 : s.x + s.width - WIDTH - 12;   // IntelliJ: בקצה הימני (כלי הצד שם צרים)
+            int x = s.width >= 1600 && !BankVs.bridged() ? s.x + s.width - WIDTH - 380 : s.x + s.width - WIDTH - 12;   // IntelliJ: בקצה הימני (כלי הצד שם צרים)
             f.setBounds(x, s.y + 60, WIDTH, Math.min(s.height - 100, 880));
         }
         f.addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -178,7 +178,7 @@ final class BankVsFloat {
 
     /** המקום והגודל שהתלמיד בחר לחלון — נשמרים, כדי שבפעם הבאה ייפתח באותו מקום */
     static File boundsFile() {
-        return Paths.get(System.getProperty("user.home"), ".dsviz", BankVs.ij ? "bank-ij-float.txt" : "bank-cs-float.txt").toFile();
+        return Paths.get(System.getProperty("user.home"), ".dsviz", "bank-" + BankVs.key() + "-float.txt").toFile();
     }
 
     /** החלון פתוח (לא ממוזער) ובמקום סביר */
