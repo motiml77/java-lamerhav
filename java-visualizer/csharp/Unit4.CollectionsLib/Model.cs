@@ -46,6 +46,10 @@ namespace Unit4.CollectionsLib
         public string Type, Title, Sub;
         public readonly List<string[]> Fields = new List<string[]>();   // {שם, ערך}
         public readonly List<string> Labels = new List<string>();       // שמות משתנים שמצביעים עליו
+        /// <summary>מאפיין שערכו אובייקט של מחלקה של התלמיד (Team.leader): כרטיס קטן בתוך הכרטיס (רק בכרטיס שמוצג לבד, עד 3 רמות) — כמו ב-Java</summary>
+        public readonly Dictionary<string, Obj> Nested = new Dictionary<string, Obj>();
+        /// <summary>מאפיין שהוא מערך (int[] Scores): תאים קטנים בתוך הכרטיס — ArrayView / MatrixView</summary>
+        public readonly Dictionary<string, View> Arrays = new Dictionary<string, View>();
     }
 
     /// <summary>הצעד קרא (READ) או שינה (CHANGED) את המאפיין Field של האובייקט Obj</summary>

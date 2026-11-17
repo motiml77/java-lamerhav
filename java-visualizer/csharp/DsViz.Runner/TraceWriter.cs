@@ -185,12 +185,23 @@ namespace DsViz
             Row(w, "ENDSUB");
         }
 
-        /// <summary>אובייקט של מחלקה: שורת O (זהות, סוג, כותרת, פרטים, תוויות) ואחריה שורת F לכל מאפיין</summary>
+        /// <summary>
+        /// אובייקט של מחלקה: שורת O (זהות, סוג, כותרת, פרטים, תוויות) ואחריה שורת F לכל מאפיין.
+        /// מאפיין שמצויר בתוך הכרטיס: אחרי ה-F שלו — FX, האובייקט הפנימי (O + F..., רקורסיבי) או המערך (V ARR / V MAT), ו-FXE.
+        /// (קובץ ישן — בלי FX: החלון מציג את הכרטיס כמו קודם, הכול טקסט)
+        /// </summary>
         static void WriteObj(TextWriter w, Obj o)
         {
             if (o == null) return;
             Row(w, "O", o.Id.ToString(), o.Type, o.Title, o.Sub, string.Join("\u0001", o.Labels));
-            foreach (string[] f in o.Fields) Row(w, "F", f[0], f[1]);
+            foreach (string[] f in o.Fields)
+            {
+                Row(w, "F", f[0], f[1]);
+                Obj n;
+                View a;
+                if (o.Nested.TryGetValue(f[0], out n)) { Row(w, "FX"); WriteObj(w, n); Row(w, "FXE"); }
+                else if (o.Arrays.TryGetValue(f[0], out a)) { Row(w, "FX"); WriteView(w, a); Row(w, "FXE"); }
+            }
         }
 
         public static void Row(TextWriter w, params string[] fields)

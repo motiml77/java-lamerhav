@@ -425,26 +425,135 @@ namespace Unit4.CollectionsLib
             return o;
         }
 
+        // ------------------------------------------------------------ אובייקט בתוך אובייקט, מערך בתוך אובייקט (בכרטיס שמוצג לבד) — כמו ב-Java
+
+        /// <summary>כמה רמות של כרטיס בתוך כרטיס (כמו MaxNest של מבנים), וכמה תאים של מערך-מאפיין מצוירים (השאר: "…"); מטריצה קטנה בלבד</summary>
+        const int ObjNestMax = 3, FieldCells = 12, FieldRows = 6, FieldCols = 8;
+        /// <summary>בונים עכשיו כרטיס שמוצג לבד (ObjView): מאפיינים שהם אובייקט / מערך מצוירים בתוכו. בתא של מבנה — לא (שם רק כותרת)</summary>
+        static bool ObjNest;
+        /// <summary>האובייקטים שבתהליך בנייה (החיצוני ראשון) — נגד מעגלים (t.Leader.Team == t) ובשביל העומק</summary>
+        static readonly List<object> ObjPath = new List<object>();
+        /// <summary>מערכים-מאפיינים: "זהות.מאפיין" → התאים בצילום האחרון שבו הופיעו (כדי לסמן תאים שהשתנו), ובצילום הנוכחי</summary>
+        static readonly Dictionary<string, List<string>> LastFieldArrays = new Dictionary<string, List<string>>();
+        static readonly Dictionary<string, List<string>> NowFieldArrays = new Dictionary<string, List<string>>();
+
         static Obj ReflectObj(object v)
         {
             var o = new Obj { Id = RuntimeHelpers.GetHashCode(v), Type = CleanTypeName(v.GetType()) };
-            var chain = new List<Type>();
-            for (Type c = v.GetType(); c != null && c != typeof(object); c = c.BaseType) chain.Insert(0, c);
-            foreach (Type c in chain)
+            bool nest = ObjNest && ObjPath.Count <= ObjNestMax;
+            ObjPath.Add(v);
+            try
             {
-                foreach (var f in c.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public
-                                              | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                var chain = new List<Type>();
+                for (Type c = v.GetType(); c != null && c != typeof(object); c = c.BaseType) chain.Insert(0, c);
+                foreach (Type c in chain)
                 {
-                    if (o.Fields.Count >= 12) break;
-                    string val;
-                    try { val = FieldText(f.GetValue(v)); } catch (Exception) { val = "?"; }
-                    string name = f.Name;
-                    if (name.StartsWith("<") && name.Contains(">k__BackingField")) name = name.Substring(1, name.IndexOf('>') - 1);   // מאפיין אוטומטי
-                    o.Fields.Add(new[] { name, val });
+                    foreach (var f in c.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public
+                                                  | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                    {
+                        if (o.Fields.Count >= 12) break;
+                        string val;
+                        object raw = null;
+                        bool known = false;
+                        try { raw = f.GetValue(v); known = true; val = FieldText(raw); } catch (Exception) { val = "?"; }
+                        string name = f.Name;
+                        if (name.StartsWith("<") && name.Contains(">k__BackingField")) name = name.Substring(1, name.IndexOf('>') - 1);   // מאפיין אוטומטי
+                        if (nest && known && raw != null)
+                        {
+                            if (raw is Array)
+                            {
+                                View av = ArrayFieldView((Array)raw, o.Id + "." + name);
+                                if (av != null) o.Arrays[name] = av;
+                            }
+                            else if (!(raw is Student || raw is Car) && IsRecordLike(raw.GetType()) && !SelfTyped(v, f.FieldType, raw))
+                            {
+                                if (ObjPath.Any(p => ReferenceEquals(p, raw))) val = "→ " + CleanTypeName(raw.GetType());   // כבר בדרך — בלי להיכנס שוב
+                                else if (ObjPath.Count <= ObjNestMax) o.Nested[name] = ReflectObj(raw);
+                            }
+                        }
+                        o.Fields.Add(new[] { name, val });
+                    }
                 }
             }
+            finally { ObjPath.RemoveAt(ObjPath.Count - 1); }
             Describe(o);
             return o;
+        }
+
+        /// <summary>
+        /// מאפיין מאותו סוג כמו האובייקט שלו (MyNode Next, Person Spouse): רשימה מקושרת / מבנה רקורסיבי שהתלמיד כתב — נשאר הפניה (טקסט),
+        /// ולא כרטיס בתוך כרטיס (אחרת שרשרת של חוליות הייתה מגדל של קופסאות). כמו Recorder.selfTyped ב-Java
+        /// </summary>
+        static bool SelfTyped(object owner, Type declared, object value)
+        {
+            return value.GetType() == owner.GetType() || declared != typeof(object) && declared.IsAssignableFrom(owner.GetType());
+        }
+
+        /// <summary>מערך-מאפיין → תאים קטנים (ArrayView) / מטריצה קטנה (MatrixView, עד 6×8, רק ערכים פשוטים); null — טקסט</summary>
+        static View ArrayFieldView(Array arr, string key)
+        {
+            List<string> old;
+            LastFieldArrays.TryGetValue(key, out old);
+            var flat = new List<string>();
+            View res;
+            if (IsMatrix(arr))
+            {
+                bool rect = arr.Rank == 2;
+                int rows = rect ? arr.GetLength(0) : arr.Length;
+                if (rows > FieldRows || (!rect && arr.GetType().GetElementType().GetElementType().IsArray)) return null;
+                var m = new MatrixView();
+                for (int r = 0; r < rows; r++)
+                {
+                    var cells = new List<string>();
+                    Array row = rect ? null : arr.GetValue(r) as Array;
+                    int cols = rect ? arr.GetLength(1) : row == null ? 0 : row.Length;
+                    if (cols > FieldCols) return null;
+                    for (int c = 0; c < cols; c++)
+                    {
+                        object x = rect ? arr.GetValue(r, c) : row.GetValue(c);
+                        if (x != null && !(x is string || x is char || x is bool || x is IFormattable)) return null;   // מטריצה של אובייקטים — טקסט
+                        cells.Add(x == null ? "null" : Shorten(Plain(x), 14));
+                    }
+                    m.Rows.Add(cells);
+                    for (int c = 0; c < cells.Count; c++)
+                    {
+                        string f = r + "," + c + "=" + cells[c];
+                        flat.Add(f);
+                        if (old != null && !old.Contains(f)) m.Changed.Add(r + "," + c);
+                    }
+                }
+                res = m;
+            }
+            else if (arr.Rank == 1)
+            {
+                var a = new ArrayView();
+                for (int i = 0; i < Math.Min(arr.Length, FieldCells); i++) a.Items.Add(CellText(arr.GetValue(i)));
+                a.Truncated = arr.Length > a.Items.Count;
+                if (old != null)
+                    for (int i = 0; i < a.Items.Count; i++) if (i >= old.Count || old[i] != a.Items[i]) a.Changed.Add(i);
+                flat.AddRange(a.Items);
+                res = a;
+            }
+            else return null;
+            NowFieldArrays[key] = flat;
+            return res;
+        }
+
+        /// <summary>הטקסט בתא קטן: ערך (כמו בתא של מערך רגיל), או הכותרת הקצרה של אובייקט ("נועה")</summary>
+        static string CellText(object x)
+        {
+            if (x == null) return "null";
+            if (x is Student || x is Car || !IsRecordLike(x.GetType())) return Str(x);
+            var ts = x.GetType().GetMethod("ToString", Type.EmptyTypes);
+            if (ts != null && ts.DeclaringType != typeof(object)) return Shorten(UserText(x), 14);   // ToString משלו
+            bool was = ObjNest;
+            ObjNest = false;
+            try
+            {
+                Obj o = ReflectObj(x);
+                return Shorten(o.Title != o.Type ? o.Title : o.Sub.Length == 0 ? o.Type : "{" + o.Sub + "}", 14);
+            }
+            finally { ObjNest = was; }
         }
 
         static string CleanTypeName(Type t)
@@ -506,14 +615,21 @@ namespace Unit4.CollectionsLib
         {
             if (top == null) return;
             var seen = new HashSet<object>(new RefComparer());
+            var inStructs = SnapObjs.ToArray();             // האובייקטים שבתוך מבנים (לפני הכרטיסים שנבנים כאן)
+            var cards = new List<ObjView>();
+            var named = new List<KeyValuePair<int, List<string>>>();
             foreach (var kv in top.Vars)
             {
                 object v = kv.Value;
                 if (v == null || v.GetType().IsValueType || v is string || !(v is Student || v is Car || IsRecordLike(v.GetType())) || !seen.Add(v)) continue;
-                Obj probe = ObjOf(v);                      // מקבל את אותה זהות כמו הכרטיסים בתוך המבנים
+                Obj probe;
+                ObjNest = true;                             // כרטיס מלא: אובייקטים ומערכים שבמאפיינים מצוירים בתוכו
+                try { probe = ObjOf(v); }                   // מקבל את אותה זהות כמו הכרטיסים בתוך המבנים
+                finally { ObjNest = false; }
                 var names = Aliases(v, true);
+                named.Add(new KeyValuePair<int, List<string>>(probe.Id, names));
                 bool shown = false;
-                foreach (Obj o in SnapObjs.ToArray())
+                foreach (Obj o in inStructs)
                 {
                     if (o == probe || o.Id != probe.Id) continue;
                     shown = true;
@@ -522,8 +638,59 @@ namespace Unit4.CollectionsLib
                 if (!shown)
                 {
                     probe.Labels.AddRange(names);
-                    views.Add(new ObjView { Obj = probe, Title = string.Join(", ", names) });
+                    cards.Add(new ObjView { Obj = probe, Title = string.Join(", ", names) });
                 }
+            }
+            var kept = KeepCards(cards);
+            foreach (ObjView k in kept)   // משתנה שמצביע על אובייקט שמצויר בתוך כרטיס (s ← t.Leader): תג על הכרטיס הפנימי
+                foreach (var e in named) if (e.Key != k.Obj.Id) TagNested(k.Obj, e.Key, e.Value);
+            views.AddRange(kept);
+        }
+
+        /// <summary>
+        /// כרטיס של אובייקט שכבר מצויר בתוך כרטיס אחר (t.Leader הוא s) לא מצויר שוב לבד — שם המשתנה עובר לתג על הכרטיס הפנימי,
+        /// כמו מבנה בתוך מבנה. this נשאר כרטיס משלו (הפעולה רצה בתוכו). שני כרטיסים שמכילים זה את זה — הראשון נשאר. כמו ב-Java
+        /// </summary>
+        static List<ObjView> KeepCards(List<ObjView> cards)
+        {
+            var inner = cards.Select(c => { var s = new HashSet<int>(); InnerIds(c.Obj, s); return s; }).ToList();
+            var keep = new bool[cards.Count];
+            var covered = new HashSet<int>();
+            for (int i = 0; i < cards.Count; i++)   // קודם: this, וכרטיסים שאף כרטיס אחר לא מכיל
+            {
+                bool contained = false;
+                for (int j = 0; j < cards.Count; j++) if (j != i && inner[j].Contains(cards[i].Obj.Id)) contained = true;
+                if (contained && !cards[i].Obj.Labels.Contains("this")) continue;
+                keep[i] = true;
+                covered.UnionWith(inner[i]);
+            }
+            for (int i = 0; i < cards.Count; i++)   // כרטיסים שמכילים זה את זה (מעגל): לפי הסדר
+            {
+                if (keep[i] || covered.Contains(cards[i].Obj.Id)) continue;
+                keep[i] = true;
+                covered.UnionWith(inner[i]);
+            }
+            var res = new List<ObjView>();
+            for (int i = 0; i < cards.Count; i++) if (keep[i]) res.Add(cards[i]);
+            return res;
+        }
+
+        static void InnerIds(Obj o, HashSet<int> res)
+        {
+            foreach (Obj n in o.Nested.Values)
+            {
+                res.Add(n.Id);
+                InnerIds(n, res);
+            }
+        }
+
+        /// <summary>שמות המשתנים של אובייקט (id) — תג על כל כרטיס פנימי שלו</summary>
+        static void TagNested(Obj o, int id, List<string> names)
+        {
+            foreach (Obj n in o.Nested.Values)
+            {
+                if (n.Id == id) foreach (string l in names) if (!n.Labels.Contains(l)) n.Labels.Add(l);
+                TagNested(n, id, names);
             }
         }
 
@@ -681,6 +848,9 @@ namespace Unit4.CollectionsLib
             Nested.Clear();
             NestPath.Clear();
             NestDepth = 0;
+            foreach (var kv in NowFieldArrays) LastFieldArrays[kv.Key] = kv.Value;   // מערכים-מאפיינים: מה שהיה בצילום הקודם
+            NowFieldArrays.Clear();
+            ObjPath.Clear();
             Frame top = Frames.Count > 0 ? Frames[Frames.Count - 1] : null;
 
             // כל הערכים של המשתנים, מהמסגרת העליונה כלפי מטה (בלי כפילויות לפי זהות)
