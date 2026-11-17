@@ -246,6 +246,36 @@ await step('תלמיד בדפדפן: בוחר "תלמיד עצמאי" → ואז
   await sctx.close();
 });
 
+await step('מסוף ההנהלה — "דיווחים על בעיות": רשימה עם מי שלח ושל איזה מורה, פתיחה — פרטי המורה, ההודעה והבדיקה המעמיקה; טופל', async () => {
+  const rid = () => randomBytes(12).toString('base64url');
+  const when = new Date(Date.now() - 2 * 86400000).toISOString();
+  const msg = "Program.cs(5,13): error CS0234: The type or namespace name 'GridLib' does not exist in the namespace 'Unit4' (are you missing an assembly reference?)";
+  const diag = '== DSViz-Diagnose 1.0.2 ==\nWindows 11 Pro 10.0.26100 · he-IL\nVisual Studio Community 2022 17.14.45 · C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\nDSViz extension 1.0.26321.808 (enabled)\nproject: C:\\Users\\%USERNAME%\\source\\repos\\List\\List.csproj (.NET Framework 4.7.2, Reference Unit4 -> ..\\Unit4.dll)\n';
+  await api('POST', '/v1/report', { id: rid(), kind: 'visual-run', auto: true, title: 'ההרצה הוויזואלית לא התחילה: CS0234 (GridLib)', message: msg, app: 'Visual Studio 2022', appVersion: '17.14.45', dsvizVersion: '1.0.2', os: 'Windows 11 (10.0.26100)', context: { lang: 'csharp', project: 'classic', schoolLib: 'Unit4' }, diag, occurredAt: when }, stations[3]);
+  await api('POST', '/v1/report', { id: rid(), kind: 'visual-run', auto: true, title: 'ההרצה הוויזואלית לא התחילה: CS0234 (GridLib)', message: msg, app: 'Visual Studio 2022', dsvizVersion: '1.0.2', diag }, plug['ido.s@gmail.com']);
+  await api('POST', '/v1/report', { id: rid(), kind: 'manual', auto: false, title: 'החלון של מאגר השאלות לא נפתח', note: 'לוחצים על "מאגר שאלות" ולא קורה כלום', app: 'Eclipse 2024-09', dsvizVersion: '1.0.2' }, {});
+  const adm = await ctx.newPage();
+  await adm.goto(BASE + '/admin#reports');
+  await googlePopup(adm, '.gbtn', 'admin@test.dev', 'מנהל');
+  await adm.waitForSelector('h1:has-text("דיווחים על בעיות")');
+  assert.equal(await adm.locator('table.t tbody tr').count(), 3);
+  assert.ok(await adm.locator('text=עוד 1 דומים').count());
+  assert.ok(await adm.locator('td:has-text("של המורה שרה כהן")').count());
+  await shot(adm, 'c11-admin-reports');
+  await adm.locator('table.t tbody tr', { hasText: 'עמדה 3' }).click();
+  await adm.waitForSelector('h2:has-text("הבדיקה המעמיקה")');
+  assert.ok(await adm.locator('a:has-text("sara.cohen@ort.org.il")').count());
+  assert.ok(await adm.locator('text=המחשב היה בלי אינטרנט').count(), 'נשלח אחרי ניתוק — מופיע');
+  assert.ok(await adm.locator('pre.diag:has-text("DSViz-Diagnose")').count());
+  await shot(adm, 'c12-admin-report');
+  await adm.fill('#r-note', 'תוקן בגרסה 1.0.3 — using לספריות הגרפיות יורד בהרצה הוויזואלית');
+  await adm.click('button:has-text("סימון: טופל")');
+  await adm.waitForSelector('.toast:has-text("סומן כטופל")');
+  await adm.waitForSelector('h1:has-text("דיווחים על בעיות")');
+  assert.equal(await adm.locator('table.t tbody tr').count(), 2);
+  await adm.close();
+});
+
 await step('רוחב טלפון: אין גלילה לרוחב בעמדת הניהול', async () => {
   const pctx = await browser.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2, locale: 'he-IL' });
   const pp = await pctx.newPage();

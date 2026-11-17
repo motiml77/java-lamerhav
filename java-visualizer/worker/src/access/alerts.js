@@ -14,6 +14,7 @@ export const ALERT_KINDS = {
   'teacher.request': { title: 'בקשה חדשה להרשאת מורה', go: () => '#requests' },
   'payment.paid': { title: 'תלמיד שילם', go: a => '#students=' + encodeURIComponent(a.email) },
   'payment.seats': { title: 'מורה קנה חבילת עמדות', go: a => '#teacher=' + encodeURIComponent(a.email) },
+  'report.new': { title: 'דיווח חדש על בעיה', go: a => (a.ref ? '#report=' + encodeURIComponent(a.ref) : '#reports') },
 };
 
 export const WAIT = Symbol('waitUntil');
@@ -26,7 +27,7 @@ export async function alert(env, store, a, opts) {
   try {
     const kind = ALERT_KINDS[a.kind] ? a.kind : '';
     if (!kind) return;
-    const doc = { kind, email: clip(a.email, 120).toLowerCase(), name: clip(a.name, 80), detail: clip(a.detail, 200), at: new Date().toISOString(), seen: false };
+    const doc = { kind, email: clip(a.email, 120).toLowerCase(), name: clip(a.name, 80), detail: clip(a.detail, 200), ref: clip(a.ref, 64), at: new Date().toISOString(), seen: false };
     await store.set('alerts/' + timeId(), doc);
     if (opts && opts.email === false) return;
     const send = mail(env, doc).catch(e => console.error('alert mail', e && e.message));

@@ -15,6 +15,7 @@ const NAV = [
   ['requests', 'בקשות', ICONS.msg],
   ['teachers', 'מורים ועמדות', ICONS.user],
   ['students', 'תלמידים ותשלומים', ICONS.cap],
+  ['reports', 'דיווחים על בעיות', ICONS.bell],
   ['log', 'יומן פעולות', ICONS.list],
   ['settings', 'הגדרות', ICONS.gear],
 ];
@@ -89,7 +90,7 @@ function shell(content) {
   const r = route();
   const nav = h('nav', { class: 'side', 'aria-label': 'תפריט' },
     h('div', { class: 'brand' }, h('div', { class: 'logo dark' }, icon(ICONS.shield, 19, '#fff')), h('div', null, 'מסוף ההנהלה', h('small', null, 'DSViz · מאגר תרגילים'))),
-    h('div', { class: 'nav', style: { display: 'flex', flexDirection: 'column', gap: '4px' } }, NAV.map(([id, label, ic]) => h('a', { href: '#' + id, 'aria-current': r.page === id || (id === 'teachers' && r.page === 'teacher') ? 'page' : null },
+    h('div', { class: 'nav', style: { display: 'flex', flexDirection: 'column', gap: '4px' } }, NAV.map(([id, label, ic]) => h('a', { href: '#' + id, 'aria-current': r.page === id || (id === 'teachers' && r.page === 'teacher') || (id === 'reports' && r.page === 'report') ? 'page' : null },
       icon(ic, 18), h('span', null, label), id === 'requests' && openCount ? h('span', { class: 'count', 'aria-label': openCount + ' פתוחות' }, String(openCount)) : null))));
   const header = h('header', null, searchBox(), h('div', { class: 'grow' }), bell(),
     h('div', { class: 'who' }, h('div', { class: 'meta' }, h('span', { class: 'ltr' }, user.email),
@@ -132,7 +133,7 @@ async function render() {
   shell(loadingView());
   const content = document.getElementById('content');
   try {
-    const views = { overview, requests, teachers, teacher: teachers, students, log: logView, settings: settingsView };
+    const views = { overview, requests, teachers, teacher: teachers, students, reports: reportsView, report: reportView, log: logView, settings: settingsView };
     const v = await (views[r.page] || overview)(r.arg);
     content.replaceChildren(...[v].flat(Infinity));
   } catch (e) {
@@ -625,6 +626,91 @@ async function payments() {
         h('td', null, `${p.amount} ₪`), h('td', null, h('span', { class: 'pill ' + (label[p.status] || ['', 'gray'])[1] }, (label[p.status] || [p.status])[0])),
         h('td', { class: 'small muted ltr' }, p.ref || '')))
         : h('tr', null, h('td', { colspan: '8' }, h('div', { class: 'empty' }, 'עוד אין תשלומים.')))))));
+}
+
+// ------------------------------------------------------------------ דיווחים על בעיות (מהתוספים: "דיווח על הבעיה" ודיווח אוטומטי)
+
+const REPORT_KIND = { 'visual-run': 'ההרצה הוויזואלית לא התחילה', crash: 'קריסה / שגיאה פנימית', diagnose: 'בדיקה מעמיקה', manual: 'דיווח של משתמש' };
+const WHO_KIND = { teacher: ['מורה', 'blue'], station: ['עמדת מחשב', 'purple'], student: ['תלמיד', 'green'], none: ['לא מחובר', 'gray'] };
+
+function reportWho(x, full) {
+  const w = x.who || {}, t = x.teacher;
+  const k = WHO_KIND[w.kind] || WHO_KIND.none;
+  const main = w.kind === 'station' ? `עמדה "${w.stationName}"` : w.kind === 'none' ? 'מחשב לא מחובר' : (w.name || w.email);
+  const parts = [h('span', { class: 'pill ' + k[1] }, k[0]), ' ', h('b', null, main)];
+  if (w.kind === 'student' && w.email && full) parts.push(' ', h('span', { class: 'ltr small muted' }, w.email));
+  if (t && w.kind !== 'teacher') parts.push(h('div', { class: 'small muted' }, 'של המורה ', t.name || t.email, t.school ? ' · ' + t.school : ''));
+  if (t && w.kind === 'teacher' && t.school) parts.push(h('div', { class: 'small muted' }, t.school));
+  return parts;
+}
+
+async function reportsView(arg) {
+  const done = arg === 'done';
+  const r = await api('GET', '/v1/admin/reports' + (done ? '?status=done' : ''));
+  const tabs = h('div', { class: 'tabs', role: 'tablist' },
+    h('button', { type: 'button', role: 'tab', 'aria-selected': String(!done), onclick: () => { location.hash = '#reports'; } }, `חדשים · ${r.open}`),
+    h('button', { type: 'button', role: 'tab', 'aria-selected': String(done), onclick: () => { location.hash = '#reports=done'; } }, 'טופלו'));
+  const rowEl = x => {
+    const go = () => { location.hash = '#report=' + encodeURIComponent(x.id); };
+    return h('tr', { class: 'click', tabindex: '0', onclick: go, onkeydown: e => { if (e.key === 'Enter') go(); } },
+      h('td', { class: 'muted', style: { whiteSpace: 'nowrap' } }, ago(x.occurredAt)),
+      h('td', null, reportWho(x)),
+      h('td', null, h('div', null, h('b', null, x.title)), h('div', { class: 'small muted' }, REPORT_KIND[x.kind] || x.kind, x.similar ? ` · עוד ${x.similar} דומים` : '')),
+      h('td', null, x.app || '—', x.dsvizVersion ? h('div', { class: 'small muted' }, 'DSViz ' + x.dsvizVersion) : null),
+      h('td', null, h('span', { class: 'pill ' + (x.auto ? 'orange' : 'blue') }, x.auto ? 'אוטומטי' : 'משתמש לחץ'), x.hasDiag ? h('div', { class: 'small muted' }, 'עם בדיקה מעמיקה') : null));
+  };
+  const table = r.reports.length
+    ? h('div', { class: 'tablewrap' }, h('table', { class: 't' }, h('thead', null, h('tr', null, ['מתי', 'מי', 'הבעיה', 'תוכנה', 'איך הגיע'].map(x => h('th', null, x)))), h('tbody', null, r.reports.map(rowEl))))
+    : h('div', { class: 'card' }, h('div', { class: 'empty' }, done ? 'עוד אין דיווחים שטופלו.' : 'אין דיווחים חדשים.'));
+  return [h('div', { class: 'stack', style: { gap: '6px' } }, h('h1', null, 'דיווחים על בעיות'),
+    h('p', { class: 'muted' }, 'מהתוכנה: "דיווח על הבעיה" שתלמיד / מורה לחצו, ודיווחים אוטומטיים — כשההרצה הוויזואלית לא מתחילה בזמן שההרצה הרגילה עובדת, או בשגיאה פנימית. מחשב בלי אינטרנט שולח כשהחיבור חוזר.')),
+    tabs, table];
+}
+
+async function reportView(id) {
+  const r = await api('GET', '/v1/admin/report?id=' + encodeURIComponent(id || ''));
+  const x = r.report, t = x.teacher;
+  const field = (label, ...v) => h('div', { class: 'kv' }, h('span', { class: 'small muted' }, label), h('div', null, ...v));
+  const pre = s => h('pre', { class: 'diag', dir: 'ltr' }, s);
+  const status = h('button', { type: 'button', class: 'btn ' + (x.status === 'done' ? '' : 'primary') }, x.status === 'done' ? 'החזרה ל"חדשים"' : 'סימון: טופל');
+  const note = h('textarea', { class: 'field', id: 'r-note', rows: '2', placeholder: 'הערה לעצמך (מה מצאת, מה תוקן, באיזו גרסה)' }, x.adminNote || '');
+  status.onclick = () => busy(status, async () => {
+    await api('POST', '/v1/admin/report', { id: x.id, status: x.status === 'done' ? 'new' : 'done', adminNote: note.value });
+    toast(x.status === 'done' ? 'הוחזר לחדשים' : 'סומן כטופל');
+    location.hash = '#reports' + (x.status === 'done' ? '=done' : '');
+  });
+  const saveNote = h('button', { type: 'button', class: 'btn' }, 'שמירת ההערה');
+  saveNote.onclick = () => busy(saveNote, async () => { await api('POST', '/v1/admin/report', { id: x.id, adminNote: note.value }); toast('נשמר'); });
+  const copy = h('button', { type: 'button', class: 'btn sm' }, 'העתקת הכול');
+  copy.onclick = async () => {
+    const all = [x.title, x.message, 'תוכנה: ' + x.app + ' ' + x.appVersion + ' · DSViz ' + x.dsvizVersion + ' · ' + x.os, Object.entries(x.context).map(([k, v]) => k + ': ' + v).join('\n'), r.diag].filter(Boolean).join('\n\n');
+    try { await navigator.clipboard.writeText(all); toast('הועתק'); } catch (e) { toast('ההעתקה לא הצליחה', true); }
+  };
+  const ctx = Object.entries(x.context || {});
+  return [
+    h('div', { class: 'titlebar' }, h('div', { class: 'stack', style: { gap: '4px' } }, h('a', { href: '#reports' + (x.status === 'done' ? '=done' : ''), class: 'small' }, '→ כל הדיווחים'), h('h1', null, x.title)),
+      h('span', { class: 'pill ' + (x.status === 'done' ? 'green' : 'orange') }, x.status === 'done' ? 'טופל' : 'חדש')),
+    h('div', { class: 'grid2' },
+      h('section', { class: 'card' }, h('h2', null, 'מי שלח'),
+        field('שולח', ...reportWho(x, true)),
+        t ? [field('המורה', h('b', null, t.name || '—'), t.school ? ' · ' + t.school : ''),
+          field('טלפון', t.phone ? h('span', { class: 'ltr' }, t.phone) : '—'),
+          field('מייל', h('a', { class: 'ltr', href: '#teacher=' + encodeURIComponent(t.email) }, t.email))] : field('המורה', x.who && x.who.kind === 'none' ? 'המחשב לא היה מחובר — אין פרטים' : 'לא משויך למורה'),
+        field('מתי', fmtDate(x.occurredAt), ' · ', ago(x.occurredAt), x.at !== x.occurredAt && Math.abs(Date.parse(x.at) - Date.parse(x.occurredAt)) > 3600000 ? h('div', { class: 'small muted' }, 'הגיע לשרת ' + ago(x.at) + ' (המחשב היה בלי אינטרנט)') : null)),
+      h('section', { class: 'card' }, h('h2', null, 'התוכנה'),
+        field('סוג', REPORT_KIND[x.kind] || x.kind, ' · ', x.auto ? 'אוטומטי' : 'המשתמש לחץ "דיווח על הבעיה"'),
+        field('תוכנה', x.app || '—', x.appVersion ? ' ' + x.appVersion : ''),
+        field('DSViz', x.dsvizVersion || '—'),
+        field('מערכת', x.os || '—'),
+        ctx.length ? field('פרטים', h('div', { class: 'stack', style: { gap: '2px' } }, ctx.map(([k, v]) => h('div', { class: 'small ltr', style: { textAlign: 'right' } }, k + ': ' + v)))) : null)),
+    x.note ? h('section', { class: 'card' }, h('h2', null, 'מה המשתמש כתב'), h('p', null, x.note)) : null,
+    h('section', { class: 'card' }, h('div', { class: 'row', style: { justifyContent: 'space-between' } }, h('h2', null, 'ההודעה'), copy), pre(x.message || '—')),
+    r.diag ? h('section', { class: 'card' }, h('h2', null, 'הבדיקה המעמיקה'), h('p', { class: 'small muted' }, 'נאספה אוטומטית במחשב (גרסאות, הגדרות, יומנים). שמות משתמשים בנתיבים הוחלפו.'), pre(r.diag)) : null,
+    r.similar.length ? h('section', { class: 'card' }, h('h2', null, `דיווחים דומים (${r.similar.length})`),
+      h('div', { class: 'list' }, r.similar.map(o => h('a', { class: 'item', href: '#report=' + encodeURIComponent(o.id) },
+        h('div', { class: 'grow' }, reportWho(o)), h('span', { class: 'small muted' }, ago(o.occurredAt)), h('span', { class: 'pill ' + (o.status === 'done' ? 'green' : 'orange') }, o.status === 'done' ? 'טופל' : 'חדש'))))) : null,
+    h('section', { class: 'card' }, h('h2', null, 'טיפול'), note, h('div', { class: 'row' }, status, saveNote)),
+  ].filter(Boolean);
 }
 
 // ------------------------------------------------------------------ יומן

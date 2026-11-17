@@ -19,6 +19,7 @@ import { payProvider, PAY_PROVIDERS } from './pay.js';
 import { servePage } from './pages.js';
 import { alert, alertTo, mailReady, listAlerts, markSeen, WAIT } from './alerts.js';
 import { CLASSROOM_ROUTES, studentState } from './classroom.js';
+import { REPORT_ROUTES, REPORT_ADMIN_ROUTES } from './reports.js';
 
 export const DEFAULTS = {
   price: 0,                     // ₪ — 0 = עוד לא נקבע (אי אפשר לשלם)
@@ -1124,7 +1125,7 @@ const ADMIN_ROUTES = {
 export async function handleAccess(request, env, ctx, url) {
   const path = url.pathname;
   const isOurs = path.startsWith('/v1/access/') || path.startsWith('/v1/auth/') || path.startsWith('/v1/station/') || path === '/v1/me' || path.startsWith('/v1/me/')
-    || path.startsWith('/v1/student/') || path === '/v1/submit'
+    || path.startsWith('/v1/student/') || path === '/v1/submit' || path === '/v1/report'
     || path.startsWith('/v1/admin/') || path.startsWith('/v1/pay/') || path.startsWith('/pay/')
     || ['/signin', '/welcome', '/account', '/admin'].includes(path) || path.startsWith('/static/');
   if (!isOurs) return null;
@@ -1148,10 +1149,12 @@ export async function handleAccess(request, env, ctx, url) {
   const key = request.method + ' ' + path;
   if (JSON_ROUTES[key]) return reply(200, await JSON_ROUTES[key](request, env, url));
   if (CLASSROOM_ROUTES[key]) return reply(200, await CLASSROOM_ROUTES[key](request, env, url));
-  if (ADMIN_ROUTES[key]) {
+  if (REPORT_ROUTES[key]) return reply(200, await REPORT_ROUTES[key](request, env, url));
+  const adminRoute = ADMIN_ROUTES[key] || REPORT_ADMIN_ROUTES[key];
+  if (adminRoute) {
     const u = await adminUser(request, env);
     const b = request.method === 'POST' ? await readJson(request) : null;
-    return reply(200, await ADMIN_ROUTES[key](env, u, url, b));
+    return reply(200, await adminRoute(env, u, url, b));
   }
   throw new Fail(404, 'not_found', 'כתובת לא מוכרת');
 }

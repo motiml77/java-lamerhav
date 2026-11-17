@@ -276,3 +276,7 @@ pre.outpre .ln.bad { background: #FDECEA; color: var(--red); }
 pre.outpre .ln.want { background: var(--green-soft); color: var(--green); }
 .keep { font-size: 13.5px; color: var(--muted); padding: 10px 14px; border-top: 1px solid var(--line); margin-top: 8px; }
 .pill.red { color: var(--red); background: #FDECEA; }
+
+/* דיווחים על בעיות (מסוף ההנהלה) */
+.kv { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+pre.diag { margin: 0; padding: 12px; background: #F7F9FD; border: 1px solid var(--line); border-radius: 10px; font: 500 12.5px/1.55 'JetBrains Mono', ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 520px; overflow: auto; text-align: left; unicode-bidi: plaintext; }
