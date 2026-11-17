@@ -45,7 +45,15 @@ csharp/
 ## הספרייה של בתי הספר (Unit4.dll)
 
 בתי הספר מקבלים `Unit4.dll` (‎.NET Framework 4.0, מתיקיית Unit4CSharp של המפקחים): `Unit4.CollectionsLib` — Stack, Queue, Node, BinNode,
-StackInt; `Unit4.BinTreeUtilsLib.BinTreeUtils` — פעולות שירות לעץ; ועוד מחלקות גרפיות (צב, צפרדעים, מגדלי האנוי...) שלא רלוונטיות להרצה הוויזואלית.
+StackInt; `Unit4.BinTreeUtilsLib.BinTreeUtils` — פעולות שירות לעץ; `Unit4.BinTreeCanvasLib.TreeCanvas` — ציור עץ בחלון; ועוד ספריות גרפיות
+(`Unit4.GridLib`, `TurtleLib`, `FrogLib`, `TowerLib`, `HanoiLib`, `CardLib`, `PolygonLib`, `OrganLib`, `DiceLib`, `DreidelLib`, `BucketLib`) שלא רלוונטיות להרצה הוויזואלית.
+
+**התבנית של בתי הספר** מתחילה לרוב ב-`using Unit4.BinTreeCanvasLib; using Unit4.BinTreeUtilsLib; using Unit4.GridLib;` גם כשלא משתמשים בהן.
+`TreeCanvas` קיים גם בספרייה של DSViz (`Unit4.CollectionsLib/TreeCanvas.cs`): בלי חלון — העץ כבר מצויר בתצוגה — אבל עם אותו פלט לקונסול
+(`PrintOutAllElements(true)` ← הערכים בסדר המעבר, `"1, 2, 4"`; ב-`StopAfterAllSteps` ירידת שורה בסוף, בלי לחכות למקשים) וצעד בתצוגה לכל מעבר.
+`using` לספרייה גרפית שאין אצלנו (`GridLib`...) — ההרצה הוויזואלית מורידה אותו (רק כשהמהדר לא מוצא אותו; מוחלף ברווחים, כך שמספרי השורות
+לא זזים — `DsViz.Runner/SchoolUsings.cs`) ומקמפלת שוב. קוד שבאמת משתמש ב-`Grid` / `Turtle`... — הסבר בעברית שזו ספרייה גרפית של בית הספר,
+וההרצה הרגילה לא מושפעת. נבדק ב-`cs-tests.sh`, סעיף כח, מול הקובץ האמיתי.
 ההרצה הוויזואלית מקמפלת תמיד מול הספרייה של DSViz, ולכן יש בה **כל** ה-API של האוספים ושל BinTreeUtils, באותה התנהגות (גובה עלה 0, IsFull = עץ
 מלא, BuildRandomTree עם אותה התפלגות צורות, NullReferenceException על עץ ריק — עם הסבר בעברית). ההבדל היחיד בהדפסה — `Node.ToString`: אצלנו כל
 השרשרת (`4 -> 8 -> null`), שם רק הערך; כשהפרויקט מפנה ל-Unit4.dll של בית הספר, dsviz-cs מדליק `Recorder.SchoolText` ומודפס רק הערך — אותו פלט

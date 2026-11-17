@@ -776,7 +776,8 @@ printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputT
 msb "$W/apicmp" -p:DSVizDisable=true -o "$W/apicmp/out" > "$W/apicmp.build" 2>&1 || { echo "ApiCompare לא נבנה"; grep error "$W/apicmp.build" | head -3; exit 1; }
 dotnet "$W/apicmp/out/ApiCompare.dll" "$SCHOOL_DLL" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$W/apicmp.txt" \
     && grep -q '^both  *type Unit4.CollectionsLib.StackInt$' "$W/apicmp.txt" && grep -q '^both  *type Unit4.BinTreeUtilsLib.BinTreeUtils$' "$W/apicmp.txt" \
-    && echo "ה-API מול Unit4.dll האמיתי: $(grep -c '^both' "$W/apicmp.txt") חברים משותפים (גם StackInt ו-BinTreeUtils), 0 שחסרים בספרייה של DSViz (ורק אצלנו: $(grep -c '^only-dsviz' "$W/apicmp.txt") — Helpers, Student, Car, GetInfo / SetInfo...)" \
+    && grep -q '^both  *type Unit4.BinTreeCanvasLib.TreeCanvas$' "$W/apicmp.txt" && grep -q '^both  *static Void TreeCanvas.AddTree<T>(BinNode<T>)$' "$W/apicmp.txt" \
+    && echo "ה-API מול Unit4.dll האמיתי: $(grep -c '^both' "$W/apicmp.txt") חברים משותפים (גם StackInt, BinTreeUtils ו-TreeCanvas), 0 שחסרים בספרייה של DSViz (ורק אצלנו: $(grep -c '^only-dsviz' "$W/apicmp.txt") — Helpers, Student, Car, GetInfo / SetInfo...)" \
     || { echo "חסר בספרייה של DSViz חבר שיש ב-Unit4.dll האמיתי:"; grep '^only-school' "$W/apicmp.txt"; exit 1; }
 dotnet "$W/apicmp/out/ApiCompare.dll" "$SCH/bin/Unit4.dll" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$W/apicmp-sim.txt" \
     || { echo "חסר בספרייה של DSViz חבר שיש בספרייה המדומה (SchoolUnit4.cs):"; grep '^only-school' "$W/apicmp-sim.txt"; exit 1; }
@@ -846,5 +847,30 @@ viz "$SP/own" --trace "$SP/own.trace" > "$SP/own.out" 2>&1 && grep -qx '4 -> 8 -
     || { echo "בפרויקט בלי הספרייה של בית הספר חוליה צריכה להיות מודפסת כשרשרת"; cat "$SP/own.out"; exit 1; }
 echo "אותו פלט בהרצה הרגילה (Unit4.dll האמיתי) ובהרצה הוויזואלית: $(wc -l < "$SP/normal.txt") שורות — Stack / Queue / Node / BinNode, StackInt, BinTreeUtils (כל 13 הפעולות), חוליה מודפסת כערך; ובפרויקט רגיל של DSViz — שרשרת"
 
+# כח. התבנית של בתי הספר: בראש הקובץ using Unit4.BinTreeCanvasLib; using Unit4.BinTreeUtilsLib; using Unit4.GridLib; (גם כשלא משתמשים בהן).
+#     ההרצה הרגילה בונה מול Unit4.dll; ההרצה הוויזואלית צריכה להתחיל — לא CS0234 על GridLib (ספרייה גרפית שאין אצלנו: ה-using יורד,
+#     בלי להזיז שורות). TreeCanvas (Unit4.BinTreeCanvasLib) קיים גם אצלנו, עם אותו פלט לקונסול כמו שם (PrintOutAllElements, סדרי המעבר).
+#     וקוד שבאמת משתמש ב-Grid — הסבר בעברית שזו ספרייה גרפית של בית הספר, וההרצה הרגילה לא מושפעת
+ST="$W/school-template"; rm -rf "$ST" && mkdir -p "$ST/app" "$ST/canvas" "$ST/grid"
+SCHOOL_REF="<ItemGroup><Reference Include=\"Unit4\"><HintPath>$SCHOOL_DLL</HintPath></Reference></ItemGroup>"
+printf 'using System;\nusing Unit4.CollectionsLib;\nusing Unit4.BinTreeCanvasLib;\nusing Unit4.BinTreeUtilsLib;\nusing Unit4.GridLib;\nusing Unit4.TurtleLib;\n//using System.Collections.Generic;\n\nnamespace List\n{\n    public class Program\n    {\n        public static void Main(string[] args)\n        {\n            Queue<int> q = new Queue<int>();\n            q.Insert(5);\n            q.Insert(11);\n            Console.WriteLine(q);\n        }\n    }\n}\n' > "$ST/app/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup>%s</Project>\n' "$SCHOOL_REF" > "$ST/app/List.csproj"
+V=normal msb "$ST/app" > "$ST/build.out" 2>&1 && grep -q 'Build succeeded' "$ST/build.out" || { echo "התבנית של בית הספר לא נבנתה מול Unit4.dll"; grep -E 'error' "$ST/build.out" | head -3; exit 1; }
+[ "$(dotnet "$ST/app/bin/Debug/net8.0/List.dll")" = '[5,11]' ] || { echo "ההרצה הרגילה של התבנית נכשלה"; exit 1; }
+viz "$ST/app" --trace "$ST/app.trace" > "$ST/app.out" 2>&1 && grep -qx '\[5,11\]' "$ST/app.out" && ! grep -q CS0234 "$ST/app.out" \
+    && grep -qP '^STEP\tLINE\t.*שורה 16:' "$ST/app.trace" \
+    || { echo "התבנית של בית הספר (using GridLib / TurtleLib): ההרצה הוויזואלית לא התחילה"; cat "$ST/app.out"; exit 1; }
+cp "$ST/app/List.csproj" "$ST/canvas/"
+printf 'using System;\nusing Unit4.CollectionsLib;\nusing Unit4.BinTreeCanvasLib;\nusing Unit4.BinTreeUtilsLib;\nusing Unit4.GridLib;\n\nclass Program\n{\n    static void Main()\n    {\n        BinNode<int> t = new BinNode<int>(new BinNode<int>(new BinNode<int>(1), 2, null), 4, new BinNode<int>(null, 7, new BinNode<int>(9)));\n        TreeCanvas.SetAnimastion(AnimationSpeed.StandardSpeedPlus3);\n        TreeCanvas.PrintOutAllElements(true);\n        TreeCanvas.AddTree(t);\n        TreeCanvas.TreeDrawInOrder(); Console.WriteLine();\n        TreeCanvas.TreeDrawPreOrder(); Console.WriteLine();\n        TreeCanvas.TreeDrawPostOrder(); Console.WriteLine();\n        TreeCanvas.TreeDrawLevelOrder(); Console.WriteLine();\n        TreeCanvas.PrintOutAllElements(false);\n        TreeCanvas.TreeDrawInOrder();\n        Console.WriteLine(BinTreeUtils.Height(t));\n    }\n}\n' > "$ST/canvas/Program.cs"
+viz "$ST/canvas" --trace "$ST/canvas.trace" > "$ST/canvas.out" 2>&1 && tail -n +2 "$ST/canvas.out" > "$ST/canvas.txt" \
+    && [ "$(cat "$ST/canvas.txt")" = "$(printf '1, 2, 4, 7, 9\n4, 2, 1, 7, 9\n1, 2, 9, 7, 4\n4, 2, 7, 1, 9\n2')" ] && grep -q 'TreeCanvas: מעבר תוכי' "$ST/canvas.trace" \
+    || { echo "TreeCanvas בהרצה הוויזואלית: פלט שונה מזה של הספרייה של בית הספר"; cat "$ST/canvas.out"; exit 1; }
+cp "$ST/app/List.csproj" "$ST/grid/"
+sed 's/Console.WriteLine(q);/Grid g = new Grid(3, 3, 40, 40); g.Show(); Console.WriteLine(q);/' "$ST/app/Program.cs" > "$ST/grid/Program.cs"
+! viz "$ST/grid" --trace "$ST/grid.trace" > "$ST/grid.out" 2>&1 && grep -q "'Grid' היא מהספרייה של בית הספר (Unit4.GridLib)" "$ST/grid.out" && grep -q 'ההרצה הרגילה (הכפתור הירוק) לא מושפעת' "$ST/grid.out" \
+    && ! grep -q "Unhandled" "$ST/grid.out" \
+    || { echo "קוד שמשתמש ב-Grid: חסר ההסבר בעברית"; cat "$ST/grid.out"; exit 1; }
+echo "התבנית של בתי הספר (using BinTreeCanvasLib / BinTreeUtilsLib / GridLib / TurtleLib): ההרצה הוויזואלית מתחילה, TreeCanvas עם אותו פלט (4 סדרי מעבר), ושימוש ב-Grid — הסבר בעברית"
+
 unset XDG_DATA_HOME
-echo "DSViz.targets: 29 תרחישים נבדקו (אותו קוד בהרצה רגילה ובהרצה ויזואלית מול ספריית בית הספר, אותו פלט מול Unit4.dll האמיתי, השוואת ה-API, חבר שחסר אצלנו, שתי ההרצות באותו זמן, פרויקט רגיל לא משתנה, ספריית בית הספר ב-Reference / ProjectReference, פרויקט מסומן, קוד מעורב, סדר הפרופילים והעברת 'הרצה רגילה' לראש, ‎.NET Framework בלי הפניה, LangVersion ישן בהרצה הוויזואלית, ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"
+echo "DSViz.targets: 30 תרחישים נבדקו (התבנית של בתי הספר עם using לספריות הגרפיות ו-TreeCanvas, אותו קוד בהרצה רגילה ובהרצה ויזואלית מול ספריית בית הספר, אותו פלט מול Unit4.dll האמיתי, השוואת ה-API, חבר שחסר אצלנו, שתי ההרצות באותו זמן, פרויקט רגיל לא משתנה, ספריית בית הספר ב-Reference / ProjectReference, פרויקט מסומן, קוד מעורב, סדר הפרופילים והעברת 'הרצה רגילה' לראש, ‎.NET Framework בלי הפניה, LangVersion ישן בהרצה הוויזואלית, ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"

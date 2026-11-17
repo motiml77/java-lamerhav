@@ -224,6 +224,19 @@ namespace DsViz
                 allowUnsafe: project.AllowUnsafe, nullableContextOptions: NullableContextOptions.Disable, mainTypeName: mainType);
             var original = CSharpCompilation.Create("StudentProgram", trees, refs, options);
             var errors = original.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            // using לספריות של בית הספר שאין אצלנו (using Unit4.GridLib; של התבנית, גם כשלא משתמשים בה): בלי השורה הזו — SchoolUsings
+            var droppedUsings = SchoolUsings.Missing(errors);
+            if (droppedUsings.Count > 0)
+            {
+                trees = trees.Select(t =>
+                {
+                    SyntaxTree b = SchoolUsings.Blank(t, droppedUsings);
+                    if (plain.TryGetValue(t, out SyntaxTree o)) { plain.Remove(t); plain[b] = SchoolUsings.Blank(o, droppedUsings); }
+                    return b;
+                }).ToList();
+                original = CSharpCompilation.Create("StudentProgram", trees, refs, options);
+                errors = original.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            }
             // פרויקט רגיל שמשתמש ב-Stack / Queue של ‎.NET (Count, Contains, foreach...) בלי אף אוסף אחר: הספרייה "לבד" לא מתאימה לו.
             // מקמפלים כמו Visual Studio (עם System.Collections.Generic המוסתר) — ההרצה הוויזואלית לא שוברת קוד שנבנה בהרצה רגילה
             void WithoutAutoLib()
@@ -252,6 +265,7 @@ namespace DsViz
             {
                 foreach (Diagnostic d in errors) Console.Error.WriteLine(Format(d));
                 foreach (string hint in Hints(errors, project)) Console.Error.WriteLine(hint);
+                foreach (string hint in SchoolUsings.Hints(errors, droppedUsings)) Console.Error.WriteLine(hint);
                 // קוד שמשתמש במשהו שאין בספרייה של DSViz (למשל פעולה שקיימת רק בספרייה של בית הספר): ההסבר — מה חסר, ושההרצה הרגילה לא מושפעת
                 int gaps;
                 foreach (string gap in LibraryGaps(errors, original, project, out gaps)) Console.Error.WriteLine(gap);
@@ -384,6 +398,10 @@ namespace DsViz
             var options = new CSharpCompilationOptions(OutputKind.ConsoleApplication, nullableContextOptions: NullableContextOptions.Disable);
             var errors = CSharpCompilation.Create(project.Name, trees, MetadataReferences(), options)
                 .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            var dropped = SchoolUsings.Missing(errors);   // using לספריות של בית הספר שאין אצלנו — כמו בהרצה הוויזואלית
+            if (dropped.Count > 0)
+                errors = CSharpCompilation.Create(project.Name, trees.Select(t => SchoolUsings.Blank(t, dropped)), MetadataReferences(), options)
+                    .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
             foreach (Diagnostic d in errors.Take(30)) Console.WriteLine(Format(d));
             Console.WriteLine("errors: " + errors.Count);
             return errors.Count == 0 ? 0 : 1;

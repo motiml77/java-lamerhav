@@ -205,11 +205,15 @@ Console.WriteLine("TOP-APP " + sum);
     # --- SchoolClassic: Console App (.NET Framework) קלאסי שמפנה ל-Unit4.dll של בית הספר (HintPath). עם Unit4.dll האמיתי — הקוד משתמש גם במה
     #     שיש רק בספרייה של בתי הספר (StackInt, BinTreeUtils) ומדפיס חוליה; את מה שהדפיס הוא כותב בסימון school-out, כדי להשוות בין ההרצה
     #     הרגילה (Unit4.dll) להרצה הוויזואלית (הספרייה של DSViz): אותו פלט בדיוק. הצפוי: [4,3] [5,1] 4 h1 c3 full=True
+    #     בראש הקובץ גם using Unit4.BinTreeCanvasLib; ו-using Unit4.GridLib; — כמו בתבנית של בתי הספר (GridLib לא קיים בספרייה של DSViz;
+    #     ההרצה הוויזואלית צריכה להתחיל בכל זאת)
     $g = '{C0110001-0000-4000-8000-000000000005}'
     $realSchoolProgram = @'
 using System;
 using Unit4.CollectionsLib;
+using Unit4.BinTreeCanvasLib;
 using Unit4.BinTreeUtilsLib;
+using Unit4.GridLib;
 
 class Program
 {

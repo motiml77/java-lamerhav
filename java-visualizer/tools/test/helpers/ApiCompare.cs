@@ -1,4 +1,4 @@
-// משווה חבר-חבר את ה-API הציבורי של שתי ספריות ב-namespace Unit4.CollectionsLib וב-Unit4.BinTreeUtilsLib: הספרייה של בית הספר (Unit4.dll — האמיתית,
+// משווה חבר-חבר את ה-API הציבורי של שתי ספריות ב-namespace Unit4.CollectionsLib, Unit4.BinTreeUtilsLib ו-Unit4.BinTreeCanvasLib (TreeCanvas): הספרייה של בית הספר (Unit4.dll — האמיתית,
 // שבתי הספר מחלקים; ב-cs-tests היא מורדת ונבדקת מול sha256) מול הספרייה של DSViz (Unit4.CollectionsLib.dll). ההרצה הוויזואלית מקמפלת תמיד מול
 // הספרייה של DSViz — גם קוד שנכתב לספרייה של בית הספר — ולכן כל חבר ציבורי שיש שם צריך להיות גם אצלנו (אותו שם, אותם פרמטרים, אותו סוג מוחזר;
 // גם בירושה — StackInt שלנו יורשת מ-Stack<int>).
@@ -23,7 +23,7 @@ static class ApiCompare
     {
         var set = new SortedSet<string>(StringComparer.Ordinal);
         Assembly a = Assembly.LoadFrom(dll);
-        foreach (Type t in a.GetExportedTypes().Where(t => t.Namespace == "Unit4.CollectionsLib" || t.Namespace == "Unit4.BinTreeUtilsLib"))
+        foreach (Type t in a.GetExportedTypes().Where(t => t.Namespace == "Unit4.CollectionsLib" || t.Namespace == "Unit4.BinTreeUtilsLib" || t.Namespace == "Unit4.BinTreeCanvasLib"))
         {
             string tn = Fmt(t);
             set.Add("type " + t.Namespace + "." + tn);
