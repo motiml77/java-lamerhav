@@ -13,7 +13,9 @@ rm -rf "$OUT" && mkdir -p "$OUT/bank" "$OUT/icons/topics"
 # הכניסה (dsviz-access.jar) בתוך התוספת, כמו CsSolution: גם כשה-dsviz.jar של ההתקנה ישן
 sh tools/build-access.sh > /dev/null
 (cd "$OUT" && unzip -qo ../access/dsviz-access.jar -x 'META-INF/*')
-javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp "$OUT:release/dsviz.jar" -d "$OUT" \
+# מפריד ה-classpath: ב-Windows (Git Bash — javac של Windows, ב-CI של dsviz-vs-matrix.yml) נקודה-פסיק, אחרת נקודתיים
+S=:; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) S=';' ;; esac
+javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp "$OUT${S}release/dsviz.jar" -d "$OUT" \
     $(find vs-bank/src -name '*.java') eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
     eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java
 # המאגר של Visual Studio רץ ב-Java של ההתקנה (jlink) — כולל הכניסה (Account / AccessGate): בלי מודול שלא נכנס אליה

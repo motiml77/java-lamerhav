@@ -18,7 +18,9 @@ if (-not $Version) { $u = [DateTime]::UtcNow; $Version = '1.0.{0}{1:000}.{2}' -f
 Say "גרסת ההרחבה: $Version"
 
 $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-$msb = & $vw -latest -prerelease -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+# MSBuild של Visual Studio 2022 (כמו הבנייה של ההרחבה שבהתקנה, dsviz-vsix.yml על windows-2022); אם אין — ה-Visual Studio החדש ביותר
+$msb = & $vw -latest -version '[17.0,18.0)' -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+if (-not $msb) { $msb = & $vw -latest -prerelease -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1 }
 if (-not $msb) { Say 'לא נמצא MSBuild של Visual Studio'; Done 1 }
 Say "MSBuild: $msb"
 $log = Join-Path $Out 'msbuild-vsix.log'

@@ -1,0 +1,145 @@
+# DSViz ב-Visual Studio אמיתי, בשתי גרסאות במקביל — כמו תלמיד: לחיצות עכבר והקשות מקלדת אמיתיות (SendInput) על רכיבים שנמצאו
+# ב-UI Automation, וצילום מסך מלא ממוספר אחרי כל צעד (צלב אדום בנקודת הלחיצה). בלי UIA Invoke, בלי DTE.ExecuteCommand לפעולות
+# שנבדקות, ובלי devenv /updateconfiguration.
+#   vs2022  windows-2022 — Visual Studio 2022 שכבר במחשב
+#   vs2026  windows-2025 — Visual Studio 2026 Community מותקן ליד ה-2022 (כמו dsviz-vs2026-real.yml)
+# (ועוד job קצר ב-Linux, linux-checks: קומפילציה של ההרחבה מול ה-SDK של 17.0, הלוגיקה של install-vsix.ps1, ו-cs-tests.sh.)
+# כל job עומד בפני עצמו ובונה הכול מהמקור (לא תלוי בקבצים בנויים שנשמרו ב-repo): קובץ ההרחבה, dsviz-cs.exe, dsviz.jar והמאגר; מתקין
+# אותם באותם מקומות שההתקנה שמה (install-kit.ps1 — DSViz-Setup.exe עצמו נבנה רק ב-Linux ונבדק ב-workflows האחרים), מריץ את
+# install-vsix.ps1 בדיוק כמו ההתקנה, ואז את התרחישים של tools/test/windows-vs-matrix/e2e.ps1 (docs/vs-deep-dive.md, סעיף 4.4).
+# כל בדיקה מדפיסה PASS / FAIL; ה-job נכשל אם אחת נכשלה, והצילומים והיומנים עולים תמיד ל-Artifacts.
+name: DSViz VS matrix (real clicks)
+on:
+  push:
+    branches: [release/public-all]
+    paths:
+      - '.github/workflows/dsviz-vs-matrix.yml'
+      - 'java-visualizer/csharp/**'
+      - '!java-visualizer/csharp/vs-extension/prebuilt/**'
+      - 'java-visualizer/installer/DSViz.targets'
+      - 'java-visualizer/installer/install-vsix.ps1'
+      - 'java-visualizer/tools/test/windows-vs-matrix/**'
+      - 'java-visualizer/tools/test/windows-vs/build-vsix.ps1'
+      - 'java-visualizer/tools/test/windows-vs/pack-vsix.ps1'
+      - 'java-visualizer/tools/test/windows-vs-toolbar/ToolbarAgent.java'
+      - 'java-visualizer/tools/test/windows-vs-toolbar/SeedSession.java'
+      - 'java-visualizer/tutorials/harness/SwingScript.java'
+      - 'java-visualizer/tools/test/cs-tests.sh'
+      - 'java-visualizer/tools/test/vs-extension-compile.sh'
+      - 'java-visualizer/tools/test/install-vsix-test.sh'
+      - 'java-visualizer/tools/test/helpers/install-vsix-sim.ps1'
+      - 'java-visualizer/vs-bank/**'
+      - 'java-visualizer/access/**'
+      - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java'
+      - 'java-visualizer/tools/build-lib.sh'
+      - 'java-visualizer/tools/build-bank-vs.sh'
+  workflow_dispatch:
+concurrency:
+  group: dsviz-vs-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # בדיקות מהירות בלי Windows: הקוד של ההרחבה מתקמפל מול ה-SDK של 17.0, הלוגיקה של install-vsix.ps1 עם Visual Studio מדומה
+  # (מי מתאים, עדכון במקום), ובדיקות ה-C# — כולל DSViz.targets ב-MSBuild (cs-tests.sh, סעיף 10)
+  linux-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - name: ההרחבה מתקמפלת מול ה-SDK של Visual Studio 17.0
+        working-directory: java-visualizer
+        run: sh tools/test/vs-extension-compile.sh
+      - name: install-vsix.ps1 — הלוגיקה, עם Visual Studio מדומה (pwsh)
+        if: always()
+        working-directory: java-visualizer
+        run: sh tools/test/install-vsix-test.sh
+      - name: בדיקות C# (dsviz-cs, המחוללים, DSViz.targets)
+        if: always()
+        working-directory: java-visualizer
+        run: |
+          sh tools/build-lib.sh
+          sh tools/test/cs-tests.sh
+
+  vs:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: vs2022, os: windows-2022, major: '17' }
+          - { name: vs2026, os: windows-2025, major: '18' }
+    steps:
+      # הקבצים כמו שהם ב-repo (סופי שורה של Linux): הסקריפטים של הבנייה רצים ב-Git Bash, והתבנית מגיעה לתלמיד כמו שהיא בהתקנה
+      - name: git — בלי המרת סופי שורה
+        shell: bash
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: nuget-vs-matrix-${{ matrix.os }}-${{ hashFiles('java-visualizer/csharp/vs-extension/DsViz.VsExtension.csproj', 'java-visualizer/csharp/DsViz.Runner/DsViz.Runner.csproj') }}
+      - name: Visual Studio שיש במחשב
+        shell: powershell
+        run: |
+          $vw = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          & $vw -all -prerelease -products * -format json | Out-String | ConvertFrom-Json | ForEach-Object { $_ } |
+            ForEach-Object { Write-Host ("{0} {1} [{2}] {3} id={4}" -f $_.displayName, $_.catalog.productDisplayVersion, $_.productId, $_.installationPath, $_.instanceId) }
+          dotnet --list-sdks
+          Get-PSDrive C | ForEach-Object { Write-Host ("C: free {0:N1} GB" -f ($_.Free / 1GB)) }
+      # dsviz.jar והמאגר מהמקור, באותם סקריפטים שבונים את ההתקנה. JDEPS: הבדיקה "הכול רץ ב-Java המקוצרת של ההתקנה" שייכת לבנייה ב-Linux
+      - name: dsviz.jar ו-dsviz-bank-vs.jar מהמקור (Git Bash)
+        shell: bash
+        working-directory: java-visualizer
+        run: |
+          set -ex
+          export JDEPS=skip-jdeps-on-windows
+          sh tools/build-lib.sh
+          # המאגר עצמו (ה-jar) נבנה לפני קובצי העזר של ההתקנה הידנית שבסוף הסקריפט — אם רק הם נכשלו ב-Windows, ממשיכים
+          SKIP_BANK_CHECK=1 sh tools/build-bank-vs.sh || echo "build-bank-vs.sh ended with an error - continuing only if the jar was built"
+          ls -la release/dsviz.jar build/lab-vs/dsviz-bank-vs.jar
+      - name: קובץ ההרחבה מהמקור (MSBuild של Visual Studio)
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs\build-vsix.ps1" -Out "$env:GITHUB_WORKSPACE\out\vsix"
+          $code = $LASTEXITCODE
+          $rep = "$env:GITHUB_WORKSPACE\out\vsix\vsix-build.txt"
+          if (Test-Path $rep) { ("``````" + "`n" + ((Get-Content $rep -Encoding UTF8) -join "`n") + "`n" + "``````") | Add-Content $env:GITHUB_STEP_SUMMARY -Encoding utf8 }
+          exit $code
+      - name: dsviz-cs.exe והערכה להתקנה
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-matrix\build-kit.ps1" -Vsix "$env:GITHUB_WORKSPACE\out\vsix" -Kit "$env:GITHUB_WORKSPACE\kit"
+          exit $LASTEXITCODE
+      - name: Visual Studio 2026 Community (bootstrapper רשמי, ליד ה-Visual Studio שבמחשב)
+        if: matrix.major == '18'
+        timeout-minutes: 120
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-matrix\install-vs.ps1" -Out "$env:GITHUB_WORKSPACE\out\vs-install"
+          exit $LASTEXITCODE
+      - name: התרחישים — עכבר ומקלדת אמיתיים, צילום אחרי כל צעד
+        timeout-minutes: 200
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vs-matrix\e2e.ps1" -Kit "$env:GITHUB_WORKSPACE\kit" -Out "$env:GITHUB_WORKSPACE\out\e2e" -Major '${{ matrix.major }}'
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vs-matrix-${{ matrix.name }}
+          path: out
+          retention-days: 14

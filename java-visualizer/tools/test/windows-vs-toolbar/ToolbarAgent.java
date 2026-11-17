@@ -16,6 +16,7 @@ import javax.swing.SwingUtilities;
  * פקודות נוספות: mark <שם> (כותב mark-<שם>.txt וממתין ל-ack-<שם>.txt — הסקריפט מצלם את המסך האמיתי) · bankselect <מזהה שאלה>
  * · has <טקסט> / hasnot <טקסט> (בודקים שיש / אין רכיב עם הטקסט בחלון; התוצאה ב-results.txt)
  * · target <טקסט> (המיקום על המסך של הכפתור / הרכיב עם הטקסט — target.txt: x y w h; לסרטון ההדרכה: לאן העכבר הולך).
+ * · ptarget <טקסט> / targetrow topic|question <מזהה> (אותו דבר בפיקסלים של המסך, גם לשורות המצוירות של המאגר — הסקריפט לוחץ שם בעכבר אמיתי).
  * מצב viewer: חלון ההרצה הוויזואלית (TraceViewer שמפעיל dsviz-cs).
  * סיום: <מצב>.done.txt, או <מצב>.error.txt עם החריגה.
  */
@@ -78,6 +79,12 @@ public class ToolbarAgent {
                     case "clicktarget":
                         delay = clickTarget(arg);
                         break;
+                    case "ptarget":
+                        delay = physTarget(arg);
+                        break;
+                    case "targetrow":
+                        delay = targetRow(arg);
+                        break;
                     default:
                         delay = SwingScript.run(cmd, arg, shots);
                 }
@@ -138,6 +145,86 @@ public class ToolbarAgent {
         Files.write(new File(ctl, "target.txt").toPath(), line.getBytes(StandardCharsets.UTF_8));
         log("target " + text + " -> " + line);
         return 50;
+    }
+
+    /** המלבן בפיקסלים של המסך (כמו ש-SendInput ו-UI Automation רואים): Java מחזירה קואורדינטות "לוגיות" — כשהתצוגה מוגדלת (125% / 150%) מכפילים */
+    static java.awt.Rectangle phys(java.awt.Component k, java.awt.Rectangle r) {
+        try {
+            java.awt.geom.AffineTransform t = k.getGraphicsConfiguration().getDefaultTransform();
+            double sx = t.getScaleX(), sy = t.getScaleY();
+            return new java.awt.Rectangle((int) Math.round(r.x * sx), (int) Math.round(r.y * sy), (int) Math.round(r.width * sx), (int) Math.round(r.height * sy));
+        } catch (Exception e) {
+            return r;
+        }
+    }
+
+    static void writeTarget(String what, java.awt.Rectangle r) throws Exception {
+        String line = r == null ? "" : r.x + " " + r.y + " " + r.width + " " + r.height;
+        Files.write(new File(ctl, "target.txt").toPath(), line.getBytes(StandardCharsets.UTF_8));
+        log(what + " -> " + line);
+    }
+
+    /**
+     * ptarget <טקסט>: כמו target, אבל בפיקסלים של המסך — בשביל לחיצת עכבר אמיתית מבחוץ (dsviz-vs-matrix: הסקריפט לוחץ ב-SendInput
+     * בנקודה הזו; ה-agent רק אומר איפה הכפתור). target.txt: x y w h, או ריק אם לא נמצא
+     */
+    static long physTarget(String text) throws Exception {
+        final java.awt.Rectangle[] r = { null };
+        SwingUtilities.invokeAndWait(() -> {
+            java.awt.Container root = ((javax.swing.RootPaneContainer) SwingScript.win).getRootPane();
+            java.util.List<java.awt.Component> all = SwingScript.all(root, new java.util.ArrayList<java.awt.Component>());
+            java.awt.Component hit = null;
+            for (java.awt.Component k : all)
+                if (hit == null && k.isShowing() && k instanceof javax.swing.AbstractButton && !(k instanceof javax.swing.JCheckBox)
+                        && text.equals(((javax.swing.AbstractButton) k).getText())) hit = k;
+            for (java.awt.Component k : all) {
+                if (hit != null) break;
+                String t = k.isShowing() ? SwingScript.text(k) : null;
+                if (t != null && t.contains(text)) hit = k;
+            }
+            if (hit != null) r[0] = phys(hit, new java.awt.Rectangle(hit.getLocationOnScreen(), hit.getSize()));
+        });
+        writeTarget("ptarget " + text, r[0]);
+        return 50;
+    }
+
+    /**
+     * targetrow topic|question <מזהה>: המיקום על המסך (בפיקסלים) של שורת הנושא / השאלה בעץ של חלון המאגר. השורות מצוירות (TopicRow /
+     * QuestionRow ב-BankVsWindow) ואין להן טקסט שאפשר לחפש — מזהים לפי המזהה של הנושא / השאלה. גוללים אליה אם היא מחוץ לחלק הנראה.
+     * target.txt: x y w h של החלק הנראה, או ריק אם אין שורה כזו (למשל הנושא עוד סגור). הלחיצה עצמה — עכבר אמיתי מהסקריפט
+     */
+    static long targetRow(String arg) throws Exception {
+        String[] p = arg.trim().split("\\s+", 2);
+        final boolean topic = p[0].equals("topic");
+        final String id = p.length > 1 ? p[1].trim() : "";
+        final java.awt.Rectangle[] r = { null };
+        final String[] seen = { "" };
+        SwingUtilities.invokeAndWait(() -> {
+            java.awt.Container root = ((javax.swing.RootPaneContainer) SwingScript.win).getRootPane();
+            for (java.awt.Component k : SwingScript.all(root, new java.util.ArrayList<java.awt.Component>())) {
+                if (r[0] != null || !k.isShowing() || !(k instanceof javax.swing.JComponent)) continue;
+                if (!k.getClass().getSimpleName().equals(topic ? "TopicRow" : "QuestionRow")) continue;
+                try {
+                    java.lang.reflect.Field f = k.getClass().getDeclaredField(topic ? "t" : "q");
+                    f.setAccessible(true);
+                    Object o = f.get(k);
+                    java.lang.reflect.Field idf = o.getClass().getDeclaredField("id");
+                    idf.setAccessible(true);
+                    String rowId = String.valueOf(idf.get(o));
+                    seen[0] += rowId + " ";
+                    if (!id.equals(rowId)) continue;
+                    javax.swing.JComponent jc = (javax.swing.JComponent) k;
+                    jc.scrollRectToVisible(new java.awt.Rectangle(0, 0, jc.getWidth(), jc.getHeight()));
+                    java.awt.Rectangle vis = jc.getVisibleRect();
+                    java.awt.Point at = jc.getLocationOnScreen();
+                    if (vis.width > 0 && vis.height > 0) r[0] = phys(jc, new java.awt.Rectangle(at.x + vis.x, at.y + vis.y, vis.width, vis.height));
+                } catch (Exception e) {
+                    seen[0] += "(" + e + ") ";
+                }
+            }
+        });
+        writeTarget("targetrow " + arg + " [rows: " + seen[0].trim() + "]", r[0]);
+        return 150;
     }
 
     /** clicktarget <טקסט>: לוחצים על אותו רכיב ש-target מוצא (גם כפתור מצויר שאין לו getText שווה בדיוק): כפתור — doClick;

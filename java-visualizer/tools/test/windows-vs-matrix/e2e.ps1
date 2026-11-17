@@ -1,0 +1,844 @@
+﻿# (UTF-8 עם BOM) DSViz ב-Visual Studio אמיתי — כמו תלמיד: לחיצות עכבר והקשות מקלדת אמיתיות (SendInput), צילום מסך מלא אחרי כל צעד.
+# רץ ב-.github/workflows/dsviz-vs-matrix.yml, פעם לכל גרסה: ‎-Major 17‎ (Visual Studio 2022), ‎18‎ (2026).
+#   -Kit   הערכה שנבנתה מהמקור (build-kit.ps1): dsviz-cs, קובץ ההרחבה, dsviz.jar, המאגר, תבנית התרגילים, DSViz.targets
+#   -Out   תיקיית התוצאות: shots\NNN-*.png, summary.txt / summary.md, logs\ (vsix-install.log, VSIXInstaller, ActivityLog, vs-trace.log, vs-loaded-*.txt)
+# מה נבדק (המספרים — docs/vs-deep-dive.md, סעיף 4.4):
+#   T0  התקנה (install-kit.ps1 + install-vsix.ps1 כמו ההתקנה): כל Visual Studio מתאים במחשב קיבל את ההרחבה, ומה שלא מתאים דולג ונרשם
+#   T1  הסרגל של DSViz: כל הכפתורים גלויים ולחיצים, בשורה משלו — בלי פתרון, עם פתרון, אחרי סגירה רגילה, אחרי סגירה בכוח; ההרחבה כתבה "נטענתי"
+#   T2  הרצה רגילה של פרויקט SDK: הכפתור הירוק (עכבר) ו-Ctrl+F5 (מקלדת) — קונסול, בלי dsviz-cs; "הרצה ויזואלית" בסרגל — החלון של DSViz
+#   T3  ספריית בית הספר (Unit4): פרויקט ‎.NET Framework קלאסי (HintPath) ופרויקט עם ProjectReference — הרצה רגילה עם הספרייה שלהם,
+#       הרצה ויזואלית של אותו קוד עם הספרייה של DSViz; פרויקט קלאסי בלי הפניה — הספרייה של DSViz מתווספת
+#   T4  top-level statements: רגילה וויזואלית
+#   T5  קובץ שלא שייך לאף פרויקט (בפתרון התרגילים): ההרצה הרגילה מריצה את ה-Startup Project כרגיל, מופיעה שורת הודעה שמסבירה,
+#       והכפתור שבה / הכפתור בסרגל מריצים ויזואלית את הקובץ. שום דבר לא מוחלף בשקט
+#   T6  הודעות: קובץ בלי Main, Main ריקה, שגיאת קומפילציה
+#   T7  שני פרויקטי הרצה בפתרון רגיל: ההרצה הרגילה מריצה את ה-Startup Project (שלא משתנה), עם שורת הודעה; הסרגל מריץ את הקובץ הפתוח
+#   T8  פרויקט שאין לו קשר ל-DSViz (Stack<int> של ‎.NET): נבנה ורץ, בלי הספרייה שלנו
+#   T12 מאגר השאלות: מסך הכניסה; עם כניסה שמורה — לחיצה על נושא, על שאלה, על "צור תרגיל"; הקבצים, הפרויקט ב-Solution Explorer, הקובץ
+#       בעורך, הבנייה, הרצה ויזואלית. ושוב אחרי שמוחקים את lib\Unit4.CollectionsLib.dll מתיקיית התרגילים (התיקון העצמי)
+# לא נבדק כאן (ולמה): T9 עדכון כש-Visual Studio פתוח, T10 הרחבה מושבתת, T11 מדיניות שחוסמת PowerShell — דורשים את DSViz-Setup.exe עצמו
+# (נבנה ב-Linux) או את חלון ניהול ההרחבות, ששונה בכל גרסה; ראו vs-upgrade.ps1 ו-dsviz-public.yml.
+param([Parameter(Mandatory = $true)][string]$Kit, [Parameter(Mandatory = $true)][string]$Out,
+    [Parameter(Mandatory = $true)][ValidateSet('17', '18')][string]$Major)
+. (Join-Path $PSScriptRoot 'real-ui.ps1')
+. (Join-Path $PSScriptRoot 'fixtures.ps1')
+$Kit = (Resolve-Path $Kit).Path
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$script:vsMajor = [int]$Major
+$logs = Join-Path $Out 'logs'
+New-Item -ItemType Directory -Force $logs | Out-Null
+$title = "Visual Studio $(@{ '17' = '2022'; '18' = '2026' }[$Major])"
+
+# יומן ההרחבה גם לקובץ (%LOCALAPPDATA%\DSViz\vs-trace.log) — Visual Studio יורש את המשתנה
+$env:DSVIZ_VS_TRACE = '1'
+# בלי שרת: הכניסה השמורה (מפתח בדיקה) נבדקת במחשב בלבד, ושום דבר לא נשלח החוצה
+$env:DSVIZ_WORKER_URL = 'http://127.0.0.1:9'
+$dsviz = Join-Path $env:LOCALAPPDATA 'DSViz'
+$docs = [Environment]::GetFolderPath('MyDocuments')
+$csDir = Join-Path $docs 'DataStructures-CS'
+$exSln = Join-Path $csDir 'DataStructures-CS.sln'
+$exDir = Join-Path $csDir 'Exercises'
+$runner = Join-Path $dsviz 'cs\dsviz-cs.exe'
+$traceLog = Join-Path $dsviz 'vs-trace.log'
+
+# שומר: אחרי 175 דקות סוגרים את Visual Studio וה-java, כדי שהסיכום, הצילומים והיומנים יישמרו גם אם משהו נתקע
+Start-Process powershell -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 10500; Get-Process devenv,javaw,java,dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force' -WindowStyle Hidden | Out-Null
+
+function KillJava() { Get-Process javaw, java, dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
+function Viewers() { @(Get-Process javaw, java -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' }) }
+function JavaWindow([string]$pattern) { Get-Process javaw, java -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match $pattern } | Select-Object -First 1 }
+function RunnerProcs() { @(Get-CimInstance Win32_Process -Filter "Name='dsviz-cs.exe'" -ErrorAction SilentlyContinue | ForEach-Object { [string]$_.CommandLine }) }
+# סוגר את מה שנשאר מהרצה רגילה: חלון הקונסול ("Press any key"), התוכנית עצמה
+function KillRuns() {
+    $names = @('VsDebugConsole', 'SdkApp', 'TopApp', 'SchoolRef', 'SchoolClassic', 'ClassicDsviz', 'PlainStack', 'NoMain', 'EmptyMain', 'Exercise')
+    Get-Process -Name $names -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-CimInstance Win32_Process -Filter "Name='cmd.exe' or Name='dotnet.exe' or Name='conhost.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match 'CiApps|DataStructures-CS|DSViz-loose' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+function TraceTail([string]$pattern, [int]$n = 6) {
+    if (-not (Test-Path $traceLog)) { Info 'יומן ההרחבה (vs-trace.log) עוד לא קיים'; return }
+    @(Get-Content $traceLog -Encoding UTF8 | Where-Object { $_ -match $pattern } | Select-Object -Last $n) | ForEach-Object { Info "   יומן ההרחבה: $_" }
+}
+# חלונות קופצים של Visual Studio (לא החלון הראשי) והטקסטים שבהם — בשביל הודעות ("אין פעולת Main") ושאלות ("build errors")
+function Dialogs() {
+    $list = @()
+    $main = 0; try { $main = [int]$script:vsMain } catch { }
+    foreach ($w in (OtherWindows $script:vsP.Id $main)) {
+        try {
+            if ($w.Current.BoundingRectangle.IsEmpty) { continue }
+            $all = @($w.FindAll([Windows.Automation.TreeScope]::Subtree, [Windows.Automation.Condition]::TrueCondition))
+            if ($all.Count -gt 400) { continue }   # לא תיבת הודעה (חלון כלי צף וכו')
+            $text = (@($all | ForEach-Object { ElName $_ } | Where-Object { $_ }) | Select-Object -Unique) -join ' | '
+            $list += @{ Window = $w; Text = $text; Elements = $all }
+        } catch { }
+    }
+    return @($list)
+}
+# שאלות של Visual Studio שעוצרות את הבדיקה: עונים כמו תלמיד זהיר, ורושמים
+function DismissDialogs() {
+    foreach ($d in (Dialogs)) {
+        if ($d.Text -match 'There were build errors|build errors\. Would you like') {
+            Step 'dialog-build-errors'
+            $no = @($d.Elements | Where-Object { (ElName $_) -eq 'No' -and (ElType $_) -match 'Button' })
+            if ($no.Count) { RealClick $no[0] 'build-errors-no' | Out-Null }
+            return 'build-errors'
+        }
+        if ($d.Text -match 'File Modification Detected|has been modified outside|Reload') {
+            Step 'dialog-reload'
+            $b = @($d.Elements | Where-Object { (ElName $_) -match '^(Reload|Reload All|Yes to All|Yes)$' -and (ElType $_) -match 'Button' })
+            if ($b.Count) { RealClick $b[0] 'reload-yes' | Out-Null }
+            return 'reload'
+        }
+        # "This project is out of date — would you like to build it?" (ההגדרה "Prompt to build" — ברירת המחדל בחלק מהגרסאות): כן
+        if ($d.Text -match 'out of date|Would you like to build') {
+            Step 'dialog-out-of-date'
+            $b = @($d.Elements | Where-Object { (ElName $_) -eq 'Yes' -and (ElType $_) -match 'Button' })
+            if ($b.Count) { RealClick $b[0] 'out-of-date-yes' | Out-Null }
+            return 'out-of-date'
+        }
+        # אחרי סגירה בכוח: "Visual Studio has recovered the following files" — לא משחזרים (הכול נשמר לפני)
+        if ($d.Text -match 'recovered the following files|Recovered Files') {
+            Step 'dialog-recovered-files'
+            $b = @($d.Elements | Where-Object { (ElName $_) -match '^(Do Not Recover.*|Don.t Recover.*|Close)$' -and (ElType $_) -match 'Button' })
+            if ($b.Count) { RealClick $b[0] 'recovered-files-no' | Out-Null }
+            return 'recovered-files'
+        }
+    }
+    return ''
+}
+# הודעה של Visual Studio שהטקסט שלה מתאים לביטוי: @{ Text; Ok (כפתור OK, או $null) }, או $null כשאין. קודם בחלונות הקופצים;
+# ואם לא נמצאה שם — בכל הרכיבים של Visual Studio (איטי יותר; בשביל גרסה שבה תיבת ההודעה נמצאת במקום אחר בעץ של UI Automation)
+function FindMessage([string]$pattern) {
+    foreach ($d in (Dialogs)) {
+        if ($d.Text -match $pattern) {
+            $ok = @($d.Elements | Where-Object { (ElName $_) -eq 'OK' -and (ElType $_) -match 'Button' }) | Select-Object -First 1
+            return @{ Text = $d.Text; Ok = $ok }
+        }
+    }
+    $e = @(ByPattern $script:vsP.Id $pattern) | Select-Object -First 1
+    if ($e) {
+        $ok = @(ByName $script:vsP.Id 'OK' 'Button') | Select-Object -First 1
+        return @{ Text = (ElName $e); Ok = $ok }
+    }
+    return $null
+}
+# יומן ההרחבה (vs-trace.log): כמה שורות יש עכשיו, והשורות שנוספו מאז ומתאימות לביטוי — "מה ההרחבה עשתה בצעד הזה"
+function TraceCount() { if (Test-Path $traceLog) { return @(Get-Content $traceLog -Encoding UTF8).Count }; return 0 }
+function TraceSince([int]$from, [string]$pattern) {
+    if (-not (Test-Path $traceLog)) { return @() }
+    return @(Get-Content $traceLog -Encoding UTF8 | Select-Object -Skip $from | Where-Object { $_ -match $pattern })
+}
+# מחכה לסימון של תוכנית (עד $sec שניות). בדרך: עונה לשאלות של Visual Studio. מחזיר את הסימון או $null
+function WaitMarker([string]$prog, [int]$sec = 180) {
+    $t0 = Get-Date; $n = 0
+    while (((Get-Date) - $t0).TotalSeconds -lt $sec) {
+        $m = ReadMarker $prog
+        if ($m) { return $m }
+        Start-Sleep -Milliseconds 700
+        $n++
+        if ($n % 8 -eq 0) { $q = DismissDialogs; if ($q) { Info "Visual Studio שאל: $q"; $script:lastQuestion = $q } }
+    }
+    return $null
+}
+
+# ------------------------------------------------------------------ הכנה (DTE): איזה פרויקט הוא Startup, איזה קובץ פתוח
+function Startup() { $s = Dte { param($d) (@($d.Solution.SolutionBuild.StartupProjects) -join ',') }; return [string]$s }
+function SetStartup([string]$unique) { Dte { param($d) $d.Solution.SolutionBuild.StartupProjects = $unique; 'ok' } | Out-Null }
+function OpenDoc([string]$file) {
+    $r = Dte { param($d) $null = $d.ItemOperations.OpenFile($file); $d.ActiveDocument.Activate(); [string]$d.ActiveDocument.FullName }
+    Start-Sleep -Milliseconds 1200
+    return [string]$r
+}
+function ActiveDoc() { $r = Dte { param($d) if ($d.ActiveDocument) { [string]$d.ActiveDocument.FullName } else { '-' } } 6; return [string]$r }
+function CloseDocs() { Dte { param($d) while ($d.Documents.Count -gt 0) { $d.Documents.Item(1).Close(2) }; 'ok' } 6 | Out-Null }
+function DesignMode() { $r = Dte { param($d) [int]$d.Debugger.CurrentMode } 2; return ($r -eq 1) }
+
+# ------------------------------------------------------------------ הפעולות שנבדקות: עכבר ומקלדת אמיתיים
+# ההרצה הרגילה של Visual Studio. how: green — הכפתור הירוק בסרגל (עם דיבאגר); ctrlf5 — מקלדת; menu — Debug ← Start Without Debugging (שתי לחיצות)
+# $target: מה שכתוב על הכפתור הירוק (שם ה-Startup Project / הפרופיל) — אם הכפתור נחשף ב-UI Automation בשם הזה
+function NormalRun([string]$how, [string]$tag, [string]$target = '') {
+    VsFront | Out-Null
+    if ($how -eq 'green') {
+        $b = @(ByName $script:vsP.Id 'Debug Target' 'SplitButton|Button|MenuItem')
+        if ($b.Count -gt 0) {
+            # הצד השמאלי של הכפתור (לא החץ שפותח את רשימת הפרופילים)
+            $r = $b[0].Current.BoundingRectangle
+            if (RealClickAt ([int]($r.X + [Math]::Min(26, $r.Width / 3))) ([int]($r.Y + $r.Height / 2)) "$tag-green-button" $b[0]) { return 'green (Debug Target)' }
+        }
+        foreach ($name in @($target, 'Start', 'Start Debugging', 'Continue') | Where-Object { $_ }) {
+            $b = @(ByName $script:vsP.Id $name 'Button|SplitButton' | Where-Object { $_.Current.BoundingRectangle.Y -lt 200 })
+            if ($b.Count -gt 0 -and (RealClick $b[0] "$tag-green-button")) { return "green ($name)" }
+        }
+        Info 'הכפתור הירוק לא נמצא ב-UI Automation — עוברים לתפריט Debug'
+        DumpUia $script:vsP.Id "$tag-no-green"
+        $how = 'menu'
+    }
+    if ($how -eq 'menu') {
+        $m = @(ByName $script:vsP.Id 'Debug' 'MenuItem' | Where-Object { $_.Current.BoundingRectangle.Y -lt 80 })
+        if ($m.Count -gt 0 -and (RealClick $m[0] "$tag-menu-debug")) {
+            $i = WaitFor { $x = @(ByName $script:vsP.Id 'Start Without Debugging' 'MenuItem'); if ($x.Count) { $x[0] } } 8
+            if ($i -and (RealClick $i "$tag-menu-start-without-debugging")) { return 'menu (Debug > Start Without Debugging)' }
+            [DsReal]::Chord([uint16[]]@(0x1B)); Start-Sleep -Milliseconds 300; [DsReal]::Chord([uint16[]]@(0x1B))
+        }
+        Info 'התפריט Debug > Start Without Debugging לא נמצא — עוברים ל-Ctrl+F5'
+        DumpUia $script:vsP.Id "$tag-no-debug-menu"
+    }
+    [DsReal]::Chord([uint16[]]@(0x11, 0x74))   # Ctrl+F5
+    Start-Sleep -Milliseconds 700
+    Step "$tag-ctrl-f5"
+    return 'keyboard (Ctrl+F5)'
+}
+# לחיצה אמיתית על כפתור של DSViz בסרגל
+function ClickToolbar([string]$name, [string]$tag) {
+    VsFront | Out-Null
+    $b = WaitFor { ToolbarButton $name } 20 1000
+    if (-not $b) { Info "הכפתור '$name' לא נמצא בסרגל"; Step "$tag-no-button"; DumpUia $script:vsP.Id "$tag-no-button"; return $false }
+    return (RealClick $b $tag)
+}
+# Build Solution: לחיצות אמיתיות בתפריט Build. מחכה שהבנייה תיגמר; מחזיר כמה פרויקטים נכשלו (-1 = לא ידוע)
+function BuildSolution([string]$tag, [int]$sec = 420) {
+    VsFront | Out-Null
+    $how = ''
+    $m = @(ByName $script:vsP.Id 'Build' 'MenuItem' | Where-Object { $_.Current.BoundingRectangle.Y -lt 80 })
+    if ($m.Count -gt 0 -and (RealClick $m[0] "$tag-menu-build")) {
+        $i = WaitFor { $x = @(ByName $script:vsP.Id 'Build Solution' 'MenuItem'); if ($x.Count) { $x[0] } } 8
+        if ($i -and (RealClick $i "$tag-menu-build-solution")) { $how = 'menu (Build > Build Solution)' }
+        else { [DsReal]::Chord([uint16[]]@(0x1B)); Start-Sleep -Milliseconds 300; [DsReal]::Chord([uint16[]]@(0x1B)) }
+    }
+    if (-not $how) { [DsReal]::Chord([uint16[]]@(0x11, 0x10, 0x42)); $how = 'keyboard (Ctrl+Shift+B)'; Step "$tag-ctrl-shift-b" }
+    Info "Build Solution: $how"
+    # קודם מחכים שהבנייה תתחיל (אחרת "הסתיימה" הוא של בנייה קודמת), ואז שתיגמר. vsBuildState: 2 = בתהליך, 3 = הסתיימה
+    $t0 = Get-Date; $state = 0; $started = $false
+    while (((Get-Date) - $t0).TotalSeconds -lt 20) {
+        $state = Dte { param($d) [int]$d.Solution.SolutionBuild.BuildState } 3
+        if ($state -eq 2) { $started = $true; break }
+        Start-Sleep -Milliseconds 400
+    }
+    while (((Get-Date) - $t0).TotalSeconds -lt $sec) {
+        $state = Dte { param($d) [int]$d.Solution.SolutionBuild.BuildState } 4
+        if ($state -eq 3) { break }
+        Start-Sleep 2
+    }
+    if (-not $started) { Info 'הבנייה לא נראתה "בתהליך" (מהירה מאוד, או שהלחיצה לא התחילה בנייה) — ראו בצילום את חלון Output' }
+    $failed = Dte { param($d) [int]$d.Solution.SolutionBuild.LastBuildInfo } 6
+    Info ("הבנייה: מצב {0}, {1:N0} שניות, פרויקטים שנכשלו: {2}" -f $state, ((Get-Date) - $t0).TotalSeconds, $failed)
+    Step "$tag-built"
+    if ($state -ne 3 -or $null -eq $failed) { return -1 }
+    return [int]$failed
+}
+# הרצה רגילה של פרויקט ובדיקה שהיא רגילה: קונסול (הסימון נכתב מהתוכנית עצמה, לא מ-dsviz-cs), הספרייה הצפויה, בלי dsviz-cs
+function CheckNormal([string]$id, [string]$project, [string]$file, [string]$prog, [string]$how, [string]$lib, [string]$what) {
+    KillRuns; KillJava
+    SetStartup "$project\$project.csproj"
+    $act = OpenDoc $file
+    ClearMarkers
+    $used = NormalRun $how $id $project
+    $m = WaitMarker $prog 240
+    Start-Sleep 2
+    Step "$id-after"
+    $dsvizRan = @(RunnerProcs).Count
+    $why = "הפעלה: $used · פעיל: $act · Startup: $(Startup) · סימונים: $(Markers)"
+    if (-not $m) { Fail $id "$what — הרצה רגילה ($used)" "התוכנית לא רצה תוך 4 דקות · $why"; DumpUia $script:vsP.Id "$id-no-run" }
+    else {
+        Check $id (($m.Host -ne 'dsviz-cs') -and ($dsvizRan -eq 0)) "$what — הרצה רגילה ($used): רצה התוכנית עצמה בקונסול (תהליך $($m.Host)), בלי ההרצה הוויזואלית" $why
+        if ($lib) { Check "$id-lib" ($m.Lib -eq $lib) "$what — בהרצה הרגילה הספרייה היא $lib" "בפועל: '$($m.Lib)'" }
+    }
+    for ($i = 0; $i -lt 30 -and -not (DesignMode); $i++) { Start-Sleep 1 }
+    KillRuns
+    Start-Sleep 1
+    return $m
+}
+# "הרצה ויזואלית" בסרגל על הקובץ, ובדיקה שנפתח החלון של DSViz ושהקוד רץ בתוך dsviz-cs עם הספרייה של DSViz
+function CheckVisual([string]$id, [string]$file, [string]$prog, [string]$lib, [string]$what) {
+    KillRuns; KillJava
+    $act = OpenDoc $file
+    ClearMarkers
+    $clicked = ClickToolbar 'הרצה ויזואלית' "$id-toolbar-visual-run"
+    $m = $null
+    if ($clicked) { $m = WaitMarker $prog 120 }
+    $v = WaitFor { $x = @(Viewers); if ($x.Count) { $x } } 90
+    Start-Sleep 3
+    Step "$id-viewer"
+    $why = "פעיל: $act · סימונים: $(Markers) · חלונות: $((Windows) -join ' ; ')"
+    Check $id ($clicked -and $m -and $m.Host -eq 'dsviz-cs' -and $v) "$what — 'הרצה ויזואלית' בסרגל: הקוד רץ בהרצה הוויזואלית ונפתח החלון של DSViz" $why
+    if ($lib -and $m) { Check "$id-lib" ($m.Lib -eq $lib) "$what — בהרצה הוויזואלית הספרייה היא $lib (של DSViz)" "בפועל: '$($m.Lib)'" }
+    if (-not ($m -and $v)) { TraceTail 'visual run|info bar' }
+    KillJava
+    Start-Sleep 1
+}
+# "הרצה ויזואלית" בסרגל שאמורה להסביר ולא להריץ: מחכים לתיבת ההודעה, בודקים את הטקסט, ולוחצים OK
+function CheckMessage([string]$id, [string]$file, [string]$pattern, [string]$what) {
+    KillRuns; KillJava
+    $act = OpenDoc $file
+    ClearMarkers
+    $clicked = ClickToolbar 'הרצה ויזואלית' "$id-toolbar-visual-run"
+    $dlg = $null
+    if ($clicked) { $dlg = WaitFor { FindMessage $pattern } 90 1000 }
+    Step "$id-message"
+    $all = (@(Dialogs | ForEach-Object { $_.Text }) -join ' || ')
+    Check $id ($null -ne $dlg) "$what — הודעה ברורה במקום 'שום דבר לא קורה'" "פעיל: $act · חלונות קופצים: $all · סימונים: $(Markers)"
+    Check "$id-no-run" (@(Viewers).Count -eq 0 -and -not (Markers)) "$what — לא רץ שום קוד אחר (אין חלון הרצה, אין סימון)" "סימונים: $(Markers)"
+    if ($dlg) {
+        Info ("ההודעה: " + $dlg.Text.Substring(0, [Math]::Min(400, $dlg.Text.Length)))
+        if ($dlg.Ok) { RealClick $dlg.Ok "$id-ok" | Out-Null } else { Info 'כפתור OK לא נמצא — Enter'; [DsReal]::Chord([uint16[]]@(0x0D)); Step "$id-enter" }
+        Start-Sleep 1
+        # ההודעה נסגרה? אם עדיין יש כפתור OK על המסך וההודעה שם — Enter (אחרת היא חוסמת את כל מה שבא אחריה)
+        if (@(ByName $script:vsP.Id 'OK' 'Button').Count -gt 0 -and (FindMessage $pattern)) { [DsReal]::Chord([uint16[]]@(0x0D)); Start-Sleep 1; Step "$id-enter-again" }
+    } else { TraceTail 'visual run'; DumpUia $script:vsP.Id "$id-no-message" }
+    KillJava
+}
+
+# ------------------------------------------------------------------ הסרגל
+function DteToolbar() {
+    $r = Dte {
+        param($d)
+        $bars = $d.CommandBars; $ds = $bars.Item('DSViz'); $shared = @()
+        foreach ($nm in 'Standard', 'Build', 'Debug', 'Text Editor', 'Debug Location', 'Layout', 'Source Control', 'Web Browser', 'Workflow', 'XML Editor') {
+            try { $b = $bars.Item($nm); if ($b.Visible -and $b.Position -eq $ds.Position -and $b.RowIndex -eq $ds.RowIndex) { $shared += $nm } } catch { }
+        }
+        "visible=$($ds.Visible) row=$($ds.RowIndex) shared=$($shared -join ',')"
+    } 3
+    return [string]$r
+}
+function CheckToolbar([string]$id, [string]$when) {
+    $ready = WaitToolbar 240
+    $row = ''
+    for ($i = 0; $i -lt 30; $i++) { $row = DteToolbar; if ($row -match '^visible=True row=-?\d+ shared=$') { break }; Start-Sleep 4 }
+    Step "$id-toolbar"
+    $main = $null; try { $main = [Windows.Automation.AutomationElement]::FromHandle($script:vsMain).Current.BoundingRectangle } catch { }
+    $bad = @(); $ys = @(); $rects = @()
+    foreach ($n in $script:dsvizNames) {
+        $b = ToolbarButton $n
+        if (-not $b) { $bad += "$n (לא נמצא)"; continue }
+        $c = $b.Current; $r = $c.BoundingRectangle
+        $inside = (-not $main) -or ($r.Left -ge $main.Left - 2 -and $r.Right -le $main.Right + 2)
+        if (-not $c.IsEnabled -or -not $inside -or $r.Width -lt 8) { $bad += "$n ($(DescEl $b))" }
+        $ys += [int]($r.Y + $r.Height / 2); $rects += $r
+    }
+    Check "$id-buttons" ($ready -and $bad.Count -eq 0 -and $ys.Count -eq $script:dsvizNames.Count) "$when — כל $($script:dsvizNames.Count) הכפתורים של DSViz בסרגל, גלויים ולחיצים (לא אפורים, לא מאחורי החץ 'עוד')" ($bad -join ' ; ')
+    if ($bad.Count -gt 0) { DumpUia $script:vsP.Id "$id-toolbar" }
+    $oneLine = ($ys.Count -gt 0) -and ((($ys | Measure-Object -Maximum).Maximum - ($ys | Measure-Object -Minimum).Minimum) -le 8)
+    # הסרגל Standard (שמירה, ביטול...) בשורה אחרת? לפי המלבן של הסרגל ב-UI Automation, אם הוא נחשף בשם הזה
+    $std = ''
+    try {
+        $tb = New-Object Windows.Automation.AndCondition((New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::ToolBar)),
+            (New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::NameProperty, 'Standard')))
+        $s = @([Windows.Automation.AutomationElement]::FromHandle($script:vsMain).FindAll([Windows.Automation.TreeScope]::Descendants, $tb) | Where-Object { Shown $_ })
+        if ($s.Count -gt 0 -and $ys.Count -gt 0) { $sr = $s[0].Current.BoundingRectangle; $std = "Standard y=$([int]$sr.Y)..$([int]$sr.Bottom) · DSViz y=$($ys[0])"; if ($ys[0] -ge $sr.Y -and $ys[0] -le $sr.Bottom) { $std += ' · אותה שורה!' } }
+    } catch { }
+    Check "$id-own-row" (($row -match '^visible=True row=-?\d+ shared=$') -and $oneLine -and ($std -notmatch 'אותה שורה')) "$when — הסרגל של DSViz גלוי ובשורה משלו" "DTE: $row · הכפתורים בשורה אחת: $oneLine (y: $($ys -join ',')) · $std"
+    TraceTail 'toolbar row' 3
+}
+function CheckLoaded([string]$id) {
+    $mark = Join-Path $dsviz ("vs-loaded-{0}.0_{1}.txt" -f $script:vsMajor, $script:vsInst.instanceId)
+    $text = ''
+    $ok = WaitFor { Test-Path $mark } 60
+    if ($ok) { $text = (Get-Content $mark -Raw -Encoding UTF8) }
+    Check $id ($ok -and $text -match "build=$([regex]::Escape($script:kitVersion))") "ההרחבה כתבה שהיא נטענה ב-$title (vs-loaded): הגרסה שהותקנה ($script:kitVersion)" "$(Split-Path -Leaf $mark): $($text -replace "`r?`n", ' · ') · קבצים: $((Get-ChildItem $dsviz -Filter 'vs-loaded-*' -ErrorAction SilentlyContinue | ForEach-Object Name) -join ', ')"
+}
+
+# ------------------------------------------------------------------ מאגר השאלות (חלון Swing): ה-agent רק אומר איפה הרכיב — הלחיצה אמיתית
+$ctl = 'C:\dsagent'
+function WriteScript([string]$mode, [string[]]$lines) { [IO.File]::WriteAllLines((Join-Path $ctl "$mode.script.txt"), [string[]]$lines, (New-Object Text.UTF8Encoding($false))) }
+function AgentTail() { $f = Join-Path $ctl 'agent.log'; if (Test-Path $f) { @(Get-Content $f -Encoding UTF8 -Tail 12) | ForEach-Object { Info "   agent: $_" } } }
+# מריץ תסריט של ה-agent בחלון שהכפתור בסרגל פותח. בכל mark: צילום, ואם ה-agent כתב מיקום (target.txt) — לחיצת עכבר אמיתית שם.
+# מחזיר done / error / timeout / gate (נפתח מסך הכניסה במקום המאגר)
+function RunBank([string]$tag, [string[]]$lines, [int]$timeoutSec = 420) {
+    Get-ChildItem $ctl -Filter 'mark-*' -ErrorAction SilentlyContinue | Remove-Item -Force
+    Get-ChildItem $ctl -Filter 'ack-*' -ErrorAction SilentlyContinue | Remove-Item -Force
+    Remove-Item (Join-Path $ctl 'bank.done.txt'), (Join-Path $ctl 'bank.error.txt'), (Join-Path $ctl 'target.txt'), (Join-Path $ctl 'bank.script.txt'), (Join-Path $ctl 'bank.script.txt.claimed') -Force -ErrorAction SilentlyContinue
+    KillJava; Start-Sleep 1
+    WriteScript 'bank' $lines
+    if (-not (ClickToolbar 'מאגר שאלות' "$tag-toolbar-bank")) { return 'no-button' }
+    $t0 = Get-Date; $seen = @{}; $status = 'timeout'; $again = $false; $picked = $false
+    while (((Get-Date) - $t0).TotalSeconds -lt $timeoutSec) {
+        foreach ($m in @(Get-ChildItem $ctl -Filter 'mark-*.txt' -ErrorAction SilentlyContinue)) {
+            if ($seen[$m.Name]) { continue }
+            $seen[$m.Name] = $true
+            $nm = $m.BaseName.Substring(5)
+            Start-Sleep -Milliseconds 500
+            $tf = Join-Path $ctl 'target.txt'
+            $clickedAt = ''
+            if (Test-Path $tf) {
+                $v = @(([IO.File]::ReadAllText($tf)).Trim() -split '\s+' | Where-Object { $_ -match '^-?\d+$' } | ForEach-Object { [int]$_ })
+                Remove-Item $tf -Force -ErrorAction SilentlyContinue
+                $found = ($v.Count -eq 4 -and $v[2] -gt 0)
+                # השאלה כבר נראית (הנושא פתוח)? אז לא לוחצים על הנושא (לחיצה נוספת הייתה סוגרת אותו), ולא לוחצים על השאלה פעמיים
+                $skip = ($nm -in 'topic', 'question') -and $picked
+                if ($found -and -not $skip) {
+                    # שורות המאגר רחבות: לוחצים בצד ימין שלהן (שם הטקסט), כפתור — באמצע
+                    $x = if ($nm -match 'topic|question') { [int]($v[0] + $v[2] * 0.7) } else { [int]($v[0] + $v[2] / 2) }
+                    $y = [int]($v[1] + $v[3] / 2)
+                    # מה באמת נמצא בנקודה: חלון המאגר (java), או חלון אחר שמכסה אותו? אם אחר — מביאים את חלון המאגר לקדמה לפני הלחיצה
+                    $at = ''
+                    try {
+                        $hp = [Windows.Automation.AutomationElement]::FromPoint((New-Object Windows.Point $x, $y)).Current.ProcessId
+                        $at = (Get-Process -Id $hp -ErrorAction SilentlyContinue).ProcessName
+                    } catch { }
+                    if ($at -notmatch '^javaw?$') {
+                        Info "בנקודה ($x,$y) נמצא חלון של '$at' ולא חלון המאגר — מביאים את חלון המאגר לקדמה"
+                        $jw = JavaWindow 'מאגר תרגילים'
+                        if ($jw) { [DsReal]::Front($jw.MainWindowHandle) | Out-Null; Start-Sleep -Milliseconds 500 }
+                    }
+                    RealClickAt $x $y "$tag-$nm" | Out-Null
+                    $clickedAt = "$x,$y"
+                    if ($nm -match 'question') { $picked = $true }
+                } elseif ($skip) { Step "$tag-$nm-skipped" }
+                elseif ($nm -eq 'question-if-open') { Step "$tag-$nm-topic-closed" }
+                else { Info "ה-agent לא מצא את הרכיב של '$nm' (target.txt: '$($v -join ' ')')"; Step "$tag-$nm-not-found" }
+            } else { Step "$tag-$nm" }
+            Info ("mark {0}{1} · חלונות: {2}" -f $nm, $(if ($clickedAt) { " — לחיצה ב-($clickedAt)" } else { '' }), ((Windows) -join ' ; '))
+            Set-Content (Join-Path $ctl "ack-$nm.txt") 'ok'
+        }
+        if (Test-Path (Join-Path $ctl 'bank.done.txt')) { $status = 'done'; break }
+        if (Test-Path (Join-Path $ctl 'bank.error.txt')) { $status = 'error'; break }
+        if ($seen.Count -eq 0 -and (JavaWindow 'כניסה למאגר')) { Start-Sleep 2; Step "$tag-gate-instead"; $status = 'gate'; break }
+        if (-not $again -and $seen.Count -eq 0 -and ((Get-Date) - $t0).TotalSeconds -gt 90 -and (Test-Path (Join-Path $ctl 'bank.script.txt'))) {
+            $again = $true
+            Info 'הכלי לא עלה אחרי 90 שניות — לוחצים שוב על הכפתור'
+            ClickToolbar 'מאגר שאלות' "$tag-toolbar-bank-again" | Out-Null
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    if ($status -eq 'error') { Info ("שגיאת agent: " + (Get-Content (Join-Path $ctl 'bank.error.txt') -Raw -Encoding UTF8)) }
+    Info "המאגר ($tag): $status ($([int]((Get-Date) - $t0).TotalSeconds) שניות)"
+    if ($status -ne 'done') { AgentTail }
+    return $status
+}
+# פותח את המאגר מהסרגל, בוחר נושא ושאלה ולוחץ "צור תרגיל" — הכול בלחיצות אמיתיות. מחזיר את שם הפרויקט שנוצר, או ''
+function CreateFromBank([string]$tag, [string]$topic, [string]$question) {
+    $before = @(Get-ChildItem $exDir -Directory -ErrorAction SilentlyContinue | ForEach-Object Name)
+    $steps = @(
+        'waitwin מאגר תרגילים', 'wait 2500', 'mark window',
+        "targetrow question $question", 'mark question-if-open', 'wait 1200',   # הנושא כבר פתוח: השאלה נראית — לוחצים עליה ישר
+        "targetrow topic $topic", 'mark topic', 'wait 1500',                      # אחרת: לחיצה על הנושא פותחת אותו
+        "targetrow question $question", 'mark question', 'wait 1500',
+        'ptarget צור תרגיל', 'mark create',
+        'waitwin השאלה', 'wait 4000', 'mark float'
+    )
+    $st = RunBank $tag $steps
+    if ($st -eq 'gate') {
+        Note "$tag-seed" 'הכניסה השמורה (מפתח בדיקה) לא התקבלה ונפתח מסך הכניסה — ממשיכים עם dsviz.access=off (בלי מסך כניסה)'
+        $st = RunBank "$tag-off" (@('#access=off') + $steps)
+    } else { $script:seedWorked = ($st -eq 'done') }
+    Start-Sleep 6
+    $q = DismissDialogs
+    if ($q -eq 'reload') { Note "$tag-reload" 'Visual Studio שאל אם לטעון מחדש את הפתרון אחרי יצירת התרגיל (הפרויקט נרשם בקובץ ולא דרך Visual Studio)' }
+    Step "$tag-after-create"
+    $new = @(Get-ChildItem $exDir -Directory -ErrorAction SilentlyContinue | ForEach-Object Name | Where-Object { $before -notcontains $_ })
+    Check "$tag-create" (($st -eq 'done') -and $new.Count -ge 1) "המאגר נפתח מהסרגל, ובלחיצות עכבר: הנושא '$topic', השאלה '$question', 'צור תרגיל' — נוצר תרגיל, ונפתח חלון 'השאלה'" "מצב: $st · תיקיות חדשות: $($new -join ', ') · חלונות: $((Windows) -join ' ; ')"
+    if ($new.Count -ge 1) { return [string]$new[0] }
+    return ''
+}
+# אחרי "צור תרגיל": הקבצים בדיסק, הפרויקט בפתרון וב-Solution Explorer, הקובץ פתוח בעורך
+function CheckCreated([string]$tag, [string]$name) {
+    $dir = Join-Path $exDir $name
+    $cs = @(Get-ChildItem $dir -Filter '*.cs' -ErrorAction SilentlyContinue)
+    Check "$tag-files" ((Test-Path (Join-Path $dir "$name.csproj")) -and $cs.Count -ge 1 -and (Test-Path (Join-Path $dir 'Properties\launchSettings.json'))) "הקבצים בדיסק: Exercises\$name\$name.csproj, קובצי ‎.cs‎ ו-launchSettings.json" "$(($cs | ForEach-Object Name) -join ', ')"
+    $first = ''
+    try { $first = (Get-Content (Join-Path $dir 'Properties\launchSettings.json') -Raw -Encoding UTF8 | ConvertFrom-Json).profiles.PSObject.Properties.Name | Select-Object -First 1 } catch { }
+    Check "$tag-normal-first" ($first -eq 'הרצה רגילה') "בתרגיל החדש הפרופיל הראשון (ברירת המחדל של הכפתור הירוק) הוא 'הרצה רגילה'" "ראשון: '$first'"
+    $slnText = Get-Content $exSln -Raw -Encoding UTF8
+    Check "$tag-sln" ($slnText -match [regex]::Escape("$name.csproj")) "הפרויקט $name רשום בפתרון DataStructures-CS.sln"
+    KillJava   # החלון הצף "השאלה" תמיד מעל Visual Studio — סוגרים אותו לפני שמסתכלים ולוחצים
+    Start-Sleep 2
+    VsFront | Out-Null
+    $node = WaitFor { $x = @(ByName $script:vsP.Id $name 'TreeItem' -Any); if ($x.Count) { $x[0] } } 40
+    $inDte = Dte { param($d) $r = 'no'; foreach ($p in $d.Solution.Projects) { if ($p.Name -eq $name) { $r = 'yes' }; try { foreach ($i in $p.ProjectItems) { if ($i.SubProject -and $i.SubProject.Name -eq $name) { $r = 'yes' } } } catch { } }; $r } 8
+    Step "$tag-solution-explorer"
+    # הפתרון ש-Solution Explorer מציג (DTE) הוא הקובע; הצומת עצמו ב-UI Automation קיים רק כשהתיקייה שמעליו פתוחה (העץ וירטואלי)
+    Check "$tag-solution-explorer" ($inDte -eq 'yes') "הפרויקט $name נמצא בפתרון שפתוח ב-Visual Studio — Solution Explorer מציג אותו (בלי טעינה מחדש)" "ב-DTE: $inDte · הצומת ב-UI Automation: $(DescEl $node)"
+    if ($node) { Pass "$tag-solution-explorer-node" "הצומת של $name נראה ב-Solution Explorer ($(DescEl $node))" }
+    else { Note "$tag-solution-explorer-node" "הצומת של $name לא נמצא ב-UI Automation של Solution Explorer (תיקייה סגורה / עץ וירטואלי) — ראו בצילום"; DumpUia $script:vsP.Id "$tag-solution-explorer" }
+    $act = ActiveDoc
+    $tab = @()
+    if ($cs.Count) { $tab = @($cs | ForEach-Object { ByName $script:vsP.Id $_.Name 'TabItem' -Any }) }
+    Check "$tag-editor" (($act -like "$dir\*") -and ($act -like '*.cs')) "קובץ ה-C# של התרגיל פתוח בעורך (הקובץ הפעיל)" "פעיל: $act · לשוניות: $(($tab | ForEach-Object { ElName $_ }) -join ', ')"
+    return $dir
+}
+# התרגיל שנוצר: כשהקובץ שלו פתוח הוא ה-Startup Project (פתרון התרגילים), ו"הרצה ויזואלית" בסרגל (לחיצה אמיתית) פותחת את החלון של DSViz
+function CheckBankRun([string]$tag, [string]$name, [string]$dir) {
+    $main = @(Get-ChildItem $dir -Filter '*.cs' -ErrorAction SilentlyContinue | Where-Object { (Get-Content $_.FullName -Raw -Encoding UTF8) -match 'static (void|int) Main' } | Select-Object -First 1)
+    if ($main.Count -eq 0) { Fail "$tag-visual-run" 'בתרגיל מהמאגר יש קובץ עם Main' $dir; return }
+    KillRuns; KillJava
+    OpenDoc $main[0].FullName | Out-Null
+    WaitFor { (Startup) -like "*$name*" } 12 | Out-Null
+    Info "Startup אחרי פתיחת הקובץ של התרגיל: $(Startup)"
+    Check "$tag-startup-follows" ((Startup) -like "*$name*") 'בפתרון התרגילים: התרגיל שפתוח הוא ה-Startup Project (הכפתור הירוק יריץ אותו, לא את תרגיל המחסנית)' (Startup)
+    $clicked = ClickToolbar 'הרצה ויזואלית' "$tag-toolbar-visual-run"
+    $v = WaitFor { $x = @(Viewers); if ($x.Count) { $x } } 150
+    Start-Sleep 4; Step "$tag-viewer"
+    $msg = (@(Dialogs | ForEach-Object { $_.Text }) -join ' || ')
+    Check "$tag-visual-run" ($clicked -and $v) "התרגיל מהמאגר: 'הרצה ויזואלית' בסרגל פותחת את החלון של DSViz" "חלונות: $((Windows) -join ' ; ') · הודעות: $msg"
+    if (-not $v) { TraceTail 'visual run'; foreach ($d in (Dialogs)) { $ok = @($d.Elements | Where-Object { (ElName $_) -eq 'OK' -and (ElType $_) -match 'Button' }); if ($ok.Count) { RealClick $ok[0] "$tag-message-ok" | Out-Null } } }
+    KillJava
+}
+
+# ====================================================================================================================
+Section "0. הסביבה — $title"
+$all = VsInstances
+foreach ($i in $all) { Info ("מופע: {0} {1} [{2}] {3} · id={4}" -f $i.displayName, $i.catalog.productDisplayVersion, $i.productId, $i.installationPath, $i.instanceId) }
+$fits = @($all | Where-Object { ([string]$_.productId -match 'Product\.(Community|Professional|Enterprise)$') -and ([version]$_.installationVersion).Major -ge 17 })
+$script:vsInst = $fits | Where-Object { ([version]$_.installationVersion).Major -eq $script:vsMajor } | Sort-Object { [version]$_.installationVersion } | Select-Object -Last 1
+if (-not $script:vsInst) { Fail 'env-vs' "$title מותקן במחשב" "אין מופע בגרסה $Major"; Save-Summary $title; exit 1 }
+$script:devenv = Join-Path $script:vsInst.installationPath 'Common7\IDE\devenv.exe'
+$msbuild = @((Join-Path $script:vsInst.installationPath 'MSBuild\Current\Bin\amd64\MSBuild.exe'), (Join-Path $script:vsInst.installationPath 'MSBuild\Current\Bin\MSBuild.exe')) | Where-Object { Test-Path $_ } | Select-Object -First 1
+$hive = "{0}.0_{1}" -f $script:vsMajor, $script:vsInst.instanceId
+$title = "{0} ({1} {2})" -f $title, $script:vsInst.displayName, $script:vsInst.catalog.productDisplayVersion
+Info ("Windows: {0} · מסך: {1} · DPI: {2} · PowerShell {3}" -f [Environment]::OSVersion.VersionString, [Windows.Forms.SystemInformation]::VirtualScreen.Size, [DsReal]::Dpi(), $PSVersionTable.PSVersion)
+Info "נבדק: $title · devenv: $script:devenv · msbuild: $msbuild"
+Check 'env-vs' ((Test-Path $script:devenv) -and $msbuild) "${title} — יש devenv ו-MSBuild" "$script:devenv"
+Info ("‎.NET SDKs: " + ((& dotnet --list-sdks 2>&1) -join ' ; '))
+Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+KillJava
+Step 'desktop'
+
+# ------------------------------------------------------------------ T0
+Section 'T0. התקנה — כמו DSViz-Setup.exe (חבילת C#), ואז install-vsix.ps1'
+$t = Get-Date
+$o = @(); $code = -1
+try { $o = & (Join-Path $PSScriptRoot 'install-kit.ps1') -Kit $Kit 2>&1; $code = $LASTEXITCODE } catch { Fail 'install-kit' 'הערכה הותקנה (install-kit.ps1)' "$_" }
+$o | ForEach-Object { Info "$_" }
+Info ("ההתקנה: קוד {0}, {1:N0} שניות" -f $code, ((Get-Date) - $t).TotalSeconds)
+foreach ($f in @($runner, (Join-Path $dsviz 'dsviz.jar'), (Join-Path $dsviz 'jdk\bin\javaw.exe'), (Join-Path $dsviz 'bank\dsviz-bank-vs.jar'), $exSln, (Join-Path $csDir 'lib\Unit4.CollectionsLib.dll'),
+        (Join-Path $env:LOCALAPPDATA 'Microsoft\MSBuild\Current\Microsoft.CSharp.targets\ImportAfter\DSViz.targets'))) {
+    if (-not (Test-Path $f)) { Fail 'install-file' "קיים אחרי ההתקנה: $f" }
+}
+$vlog = Join-Path $dsviz 'vsix-install.log'
+$vtext = if (Test-Path $vlog) { Get-Content $vlog -Raw -Encoding UTF8 } else { '' }
+Copy-Item $vlog (Join-Path $logs 'vsix-install.log') -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $dsviz 'logs\*') $logs -Force -ErrorAction SilentlyContinue
+Get-ChildItem $env:TEMP -Filter 'dd_VSIXInstaller*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 6 | ForEach-Object { Copy-Item $_.FullName $logs -Force -ErrorAction SilentlyContinue }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+function VsixFacts([string]$file) {
+    $r = @{ Hash = ''; Version = '' }
+    try {
+        $z = [IO.Compression.ZipFile]::OpenRead($file)
+        try {
+            $e = $z.Entries | Where-Object { $_.FullName -eq 'DsViz.VsExtension.dll' } | Select-Object -First 1
+            if ($e) { $st = $e.Open(); $r.Hash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($st)) -replace '-', ''; $st.Close() }
+            $m = $z.Entries | Where-Object { $_.FullName -eq 'extension.vsixmanifest' } | Select-Object -First 1
+            if ($m) { $rd = New-Object IO.StreamReader($m.Open(), [Text.Encoding]::UTF8); if ($rd.ReadToEnd() -match '<Identity\b[^>]*\bVersion="([^"]+)"') { $r.Version = $Matches[1] }; $rd.Close() }
+        } finally { $z.Dispose() }
+    } catch { }
+    return $r
+}
+function ExtDirs($inst) {
+    $d = Join-Path $env:LOCALAPPDATA ("Microsoft\VisualStudio\{0}.0_{1}\Extensions" -f ([version]$inst.installationVersion).Major, $inst.instanceId)
+    if (-not (Test-Path $d)) { return @() }
+    return @(Get-ChildItem $d -Recurse -Filter extension.vsixmanifest -ErrorAction SilentlyContinue | Where-Object { (Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue) -match 'DsViz\.VisualStudio\.Toolbar' } | ForEach-Object { $_.Directory.FullName })
+}
+$facts = VsixFacts (Join-Path $dsviz 'cs\DsViz.VsExtension.vsix')
+foreach ($i in $all) {
+    $label = "{0} {1}" -f $i.displayName, $i.catalog.productDisplayVersion
+    $short = ([string]$i.productId -replace '^Microsoft\.VisualStudio\.Product\.', '')
+    # Contains ולא -like: בשם הגרסה יכולים להיות סוגריים מרובעים ("18.0.0 Insiders [11205.157]"), שב--like הם תווים מיוחדים
+    $line = @($vtext -split "`r?`n" | Where-Object { $_.Contains("$label [$short]") })
+    if ($fits -contains $i) {
+        $m = ([version]$i.installationVersion).Major
+        $dirs = @(ExtDirs $i)
+        $same = $false
+        foreach ($d in $dirs) { try { if ((Get-FileHash (Join-Path $d 'DsViz.VsExtension.dll') -Algorithm SHA256).Hash -eq $facts.Hash) { $same = $true } } catch { } }
+        $ok = @($line | Where-Object { $_ -match ('התקנה \(ניסיון \d\): קוד \S+ · הותקן ב-.* · גרסה ' + [regex]::Escape($facts.Version)) }).Count -gt 0
+        Check "install-vsix-$m-$short" ($ok -and $same -and $facts.Hash) "$label [$short]: הותקנה בו ההרחבה (גרסה $($facts.Version)), וה-DLL המותקן הוא זה שבקובץ" "ביומן: $(($line | Select-Object -Last 2) -join ' // ') · תיקיות: $($dirs -join ', ')"
+        if ($i.instanceId -eq $script:vsInst.instanceId) { $script:kitVersion = $facts.Version }
+    } else {
+        Check "install-skip-$short" (@($line | Where-Object { $_ -match 'לא מתאים' }).Count -gt 0 -and @(ExtDirs $i).Count -eq 0) "$label [$short]: לא מתאים לסרגל — דולג, ונרשם ביומן" "ביומן: $(($line | Select-Object -Last 1) -join '')"
+    }
+}
+Check 'install-exit' ($code -eq 0) 'install-vsix.ps1 הסתיים בקוד 0' "קוד $code"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dsviz 'cs\install-vsix.ps1') (Join-Path $dsviz 'cs\DsViz.VsExtension.vsix') -Check | Out-Null
+Check 'install-check' ($LASTEXITCODE -eq 0) 'install-vsix.ps1 -Check אחרי ההתקנה: הכול מעודכן (קוד 0)' "קוד $LASTEXITCODE"
+if (-not $script:kitVersion) { $script:kitVersion = '?' }
+Info "גרסת ההרחבה שהותקנה ב-${title}: $script:kitVersion"
+
+# ------------------------------------------------------------------ הכנה: פרויקטי הבדיקה, ה-agent של חלונות ה-Swing, כניסה שמורה
+Section 'הכנה: פרויקטי הבדיקה (CiApps.sln), קובץ בלי פרויקט, ה-agent של המאגר, כניסה שמורה'
+$apps = New-CiApps (Join-Path $env:USERPROFILE 'source\repos\CiApps')
+Check 'prep-school-dll' (Test-Path (Join-Path $apps.Dir 'school-bin\Unit4.dll')) 'נבנתה ספריית בית הספר המדומה (Unit4.dll)'
+$r = & $msbuild $apps.Sln '/t:Restore' '/v:m' '/nologo' 2>&1
+$r | Set-Content (Join-Path $logs 'ciapps-restore.txt') -Encoding utf8
+Info "restore ל-CiApps.sln: קוד $LASTEXITCODE · $(($r | Select-String 'error' | Select-Object -First 3) -join ' | ')"
+$looseDir = Join-Path $env:USERPROFILE 'DSViz-loose-test'
+$looseFile = Join-Path $looseDir 'Loops4.cs'
+WriteCode $looseFile ("using System;`r`n`r`nclass Loops4`r`n{`r`n    static void Main(string[] args)`r`n    {`r`n        int sum = 0;`r`n        for (int i = 1; i <= 3; i++)`r`n        {`r`n            sum += i;`r`n        }`r`n        Ci.Mark(`"loose`", `"`");`r`n        Console.WriteLine(sum);`r`n    }`r`n}`r`n" + $script:ciHelper)
+# תרגיל המחסנית של התבנית (Exercise) מסמן שהוא רץ — כדי לראות אם הוא רץ כשלא ביקשו אותו
+$exProg = Join-Path $csDir 'Exercise\Program.cs'
+$exText = [IO.File]::ReadAllText($exProg)
+if ($exText -notmatch 'exercise-template') {
+    $exText = $exText -replace '(static void Main\(string\[\] args\)\s*\{)', ('$1' + "`r`n        " + 'System.IO.Directory.CreateDirectory(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dsviz-ci")); System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dsviz-ci", "run-exercise-template.txt"), "exercise-template||" + System.Diagnostics.Process.GetCurrentProcess().ProcessName + "|" + DateTime.Now.ToString("HH:mm:ss.fff"));')
+    [IO.File]::WriteAllText($exProg, $exText, (New-Object Text.UTF8Encoding($true)))
+}
+Check 'prep-exercise-marker' (([IO.File]::ReadAllText($exProg)) -match 'exercise-template') 'תרגיל המחסנית של התבנית מסמן כשהוא רץ'
+$r = & $msbuild $exSln '/t:Restore' '/v:m' '/nologo' 2>&1
+$r | Set-Content (Join-Path $logs 'exercises-restore.txt') -Encoding utf8
+Info "restore ל-DataStructures-CS.sln: קוד $LASTEXITCODE"
+
+Remove-Item $ctl -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force (Join-Path $ctl 'cls'), (Join-Path $ctl 'seed') | Out-Null
+$o = & javac --release 11 -encoding UTF-8 -nowarn -d (Join-Path $ctl 'cls') (Join-Path $root 'tutorials\harness\SwingScript.java') (Join-Path $root 'tools\test\windows-vs-toolbar\ToolbarAgent.java') 2>&1
+Info "javac (agent): $($o -join ' ')"
+[IO.File]::WriteAllText((Join-Path $ctl 'manifest.txt'), "Premain-Class: ToolbarAgent`r`n", (New-Object Text.UTF8Encoding($false)))
+& jar --create --file (Join-Path $ctl 'agent.jar') --manifest (Join-Path $ctl 'manifest.txt') -C (Join-Path $ctl 'cls') . 2>&1 | ForEach-Object { Info "jar: $_" }
+Check 'prep-agent' (Test-Path (Join-Path $ctl 'agent.jar')) 'נבנה ה-agent שמאתר את הרכיבים בחלון המאגר'
+$seedCp = "$(Join-Path $dsviz 'bank\dsviz-bank-vs.jar');$(Join-Path $dsviz 'dsviz.jar')"
+$o = & javac --release 11 -encoding UTF-8 -nowarn -cp $seedCp -d (Join-Path $ctl 'seed') (Join-Path $root 'tools\test\windows-vs-toolbar\SeedSession.java') 2>&1
+Info "javac (SeedSession): $($o -join ' ')"
+$seedKey = Join-Path $ctl 'seed-key.txt'
+function Seed([string]$role, [string]$email) {
+    $r = & (Join-Path $dsviz 'jdk\bin\java.exe') '-Dfile.encoding=UTF-8' -cp "$(Join-Path $ctl 'seed');$seedCp" il.lamerhav.dsviz.SeedSession $role $email $seedKey 2>&1 | Where-Object { "$_" -notmatch 'JAVA_TOOL_OPTIONS' }
+    return ($r -join ' ')
+}
+$pk = Seed 'key' '-'
+if ($pk -match 'PASSKEY (\S+)') { $env:DSVIZ_PASS_KEY = $Matches[1]; Info "מפתח בדיקה לכניסה שמורה: DSVIZ_PASS_KEY ($($Matches[1].Length) תווים)" } else { Info "SeedSession לא עבד: $pk" }
+Info "בלי כניסה: $(Seed 'none' '-')"
+# מכאן כל Java שהסרגל מפעיל טוען את ה-agent (Visual Studio יורש את המשתנה)
+$env:JAVA_TOOL_OPTIONS = "-javaagent:$ctl\agent.jar=$ctl"
+Remove-Item $traceLog -Force -ErrorAction SilentlyContinue
+
+# ------------------------------------------------------------------ T1א: בלי פתרון
+Section 'T1. הסרגל של DSViz — Visual Studio בלי פתרון (הפתיחה הראשונה אחרי ההתקנה)'
+$p = StartVs ''
+if (-not $p) { Fail 't1-open' "$title נפתח (בלי פתרון)" ((Windows) -join ' ; ') }
+else {
+    Step 't1-vs-open-no-solution'
+    CheckToolbar 't1-nosln' 'בלי פתרון, בפתיחה הראשונה'
+    CheckLoaded 't1-loaded'
+    $closed = CloseVsByX
+    Check 't1-close' $closed "$title נסגר בסגירה רגילה (לחיצה על X)" ''
+}
+
+# ------------------------------------------------------------------ T1ב + T5 + T12: פתרון התרגילים
+Section 'T1. הסרגל אחרי סגירה רגילה ופתיחה עם פתרון התרגילים (DataStructures-CS)'
+$p = StartVs $exSln
+if (-not $p) { Fail 'ex-open' "$title נפתח עם DataStructures-CS.sln" ((Windows) -join ' ; ') }
+else {
+    Start-Sleep 20
+    SkipFirstRun $p.Id | Out-Null
+    Step 'ex-vs-open'
+    CheckToolbar 't1-exsln' 'אחרי סגירה רגילה, עם פתרון התרגילים'
+
+    Section 'T5. קובץ C# שלא שייך לאף פרויקט (Loops4.cs), כשה-Startup Project הוא תרגיל המחסנית של התבנית'
+    try {
+        AssertTime
+        SetStartup 'Exercise\Exercise.csproj'
+        # פותחים את הקובץ כמו תלמיד: Ctrl+O, מקלידים את הנתיב, Enter
+        VsFront | Out-Null
+        [DsReal]::Chord([uint16[]]@(0x11, 0x4F))
+        # חלון "Open File" של Windows: חלון עליון של devenv (לא החלון הראשי) ששמו מתחיל ב-Open. לא סורקים את כל התוכן שלו (רשימת קבצים ארוכה)
+        $dlg = WaitFor { foreach ($w in (OtherWindows $script:vsP.Id ([int]$script:vsMain))) { if ((ElName $w) -match '^Open') { return $w } } } 20
+        Step 't5-open-file-dialog'
+        if ($dlg) {
+            Start-Sleep -Milliseconds 800   # הסמן כבר בשדה "File name"
+            [DsReal]::Type($looseFile); Start-Sleep -Milliseconds 800; Step 't5-open-file-typed'; [DsReal]::Chord([uint16[]]@(0x0D))
+        } else { Info "חלון הפתיחה לא נמצא · חלונות אחרים של Visual Studio: $((OtherWindows $script:vsP.Id ([int]$script:vsMain) | ForEach-Object { "'" + (ElName $_) + "'" }) -join ', ')" }
+        $opened = WaitFor { (ActiveDoc) -ieq $looseFile } 25
+        Check 't5-open-real' ([bool]$opened) 'Loops4.cs נפתח כמו תלמיד: Ctrl+O, הקלדת הנתיב, Enter' "חלון הפתיחה נמצא: $($null -ne $dlg) · פעיל: $(ActiveDoc)"
+        if (-not $opened) { [DsReal]::Chord([uint16[]]@(0x1B)); Start-Sleep 1; OpenDoc $looseFile | Out-Null }
+        $proj = Dte { param($d) $pi = $d.ActiveDocument.ProjectItem; if ($pi -and $pi.ContainingProject) { [string]$pi.ContainingProject.Name } else { '(אין פרויקט)' } } 6
+        Info "הקובץ הפעיל: $(ActiveDoc) · פרויקט ב-Visual Studio: $proj · Startup: $(Startup)"
+        ClearMarkers; KillRuns; KillJava
+        $tc = TraceCount
+        $used = NormalRun 'ctrlf5' 't5'
+        $m = WaitMarker 'exercise-template' 300
+        Start-Sleep 3
+        Step 't5-after-normal-run'
+        $loose = ReadMarker 'loose'
+        Check 't5-normal-runs-startup' ($m -and $m.Host -ne 'dsviz-cs') "ההרצה הרגילה ($used) עם Loops4.cs פתוח: Visual Studio מריץ את ה-Startup Project (Exercise) כרגיל — כמו בלי DSViz" "סימונים: $(Markers) · Startup: $(Startup)"
+        Check 't5-not-hijacked' ((-not $loose) -and @(RunnerProcs).Count -eq 0 -and @(Viewers).Count -eq 0) 'ההרצה הרגילה לא הוחלפה בהרצה ויזואלית (אין dsviz-cs, אין חלון של DSViz)' "סימונים: $(Markers) · dsviz-cs: $((RunnerProcs) -join ' | ')"
+        $btnName = 'הרצה ויזואלית של Loops4.cs'
+        $bar = WaitFor { $x = @(ByName $script:vsP.Id $btnName ''); if ($x.Count) { $x[0] } } 30
+        $txt = @(ByPattern $script:vsP.Id 'לא שייך לאף פרויקט' '')
+        # הטקסט של שורת ההודעה: ב-UI Automation, ואם הוא לא נחשף שם כשם של רכיב — מה שההרחבה רשמה ביומן שהיא הציגה (והצילום)
+        $said = @(TraceSince $tc 'info bar shown: .*לא שייך לאף פרויקט.*Exercise')
+        VsFront | Out-Null
+        Step 't5-info-bar'
+        Check 't5-info-bar' (($null -ne $bar) -and ($txt.Count -gt 0 -or $said.Count -gt 0)) "שורת ההודעה מסבירה: הקובץ לא שייך לאף פרויקט ולכן רץ Exercise — עם הכפתור '$btnName'" "כפתור: $(DescEl $bar) · טקסט ב-UI Automation: $(($txt | Select-Object -First 1 | ForEach-Object { ElName $_ }) -join '') · ביומן ההרחבה: $(($said | Select-Object -Last 1) -join '')"
+        if (-not $bar) { DumpUia $script:vsP.Id 't5-info-bar'; TraceTail 'info bar|run:' }
+        Check 't5-keeps-startup' ((Startup) -like '*Exercise\Exercise.csproj*') 'ה-Startup Project לא השתנה (נשאר Exercise)' (Startup)
+        for ($i = 0; $i -lt 20 -and -not (DesignMode); $i++) { Start-Sleep 1 }
+        KillRuns
+        if ($bar) {
+            ClearMarkers
+            VsFront | Out-Null
+            $bar = @(ByName $script:vsP.Id $btnName '') | Select-Object -First 1
+            RealClick $bar 't5-info-bar-visual-run' | Out-Null
+            $m2 = WaitMarker 'loose' 120
+            $v = WaitFor { $x = @(Viewers); if ($x.Count) { $x } } 90
+            Start-Sleep 3; Step 't5-info-bar-viewer'
+            Check 't5-info-bar-visual' ($m2 -and $m2.Host -eq 'dsviz-cs' -and $v) "לחיצה על '$btnName' בשורת ההודעה: Loops4.cs רץ בהרצה הוויזואלית ונפתח החלון של DSViz" "סימונים: $(Markers) · חלונות: $((Windows) -join ' ; ')"
+            KillJava
+        }
+        CheckVisual 't5-toolbar-visual' $looseFile 'loose' '' 'קובץ בלי פרויקט'
+        Dte { param($d) foreach ($x in @($d.Documents)) { if ($x.FullName -ieq $looseFile) { $x.Close(2) } }; 'ok' } 6 | Out-Null
+    } catch { Fail 't5-exception' 'T5 רץ עד הסוף' "$_" }
+
+    Section 'T12. מאגר השאלות מהסרגל'
+    try {
+        AssertTime
+        Info "בלי כניסה: $(Seed 'none' '-')"
+        KillJava
+        Remove-Item (Join-Path $ctl 'bank.script.txt') -Force -ErrorAction SilentlyContinue
+        $clicked = ClickToolbar 'מאגר שאלות' 't12-toolbar-bank-gate'
+        $gate = WaitFor { JavaWindow 'כניסה למאגר' } 120
+        Start-Sleep 2; Step 't12-gate'
+        Check 't12-gate' ($clicked -and $gate) "בלי כניסה: לחיצה על 'מאגר שאלות' בסרגל פותחת את מסך הכניסה" ((Windows) -join ' ; ')
+        KillJava
+        Info "כניסה שמורה (תלמיד, מפתח בדיקה): $(Seed 'student' 'pupil@test.dev')"
+        $name = CreateFromBank 't12' 'stack' 'stack-remove-bottom'
+        if ($script:seedWorked) { Pass 't12-seeded-open' 'עם כניסה שמורה המאגר נפתח ישר, בלי מסך הכניסה' }
+        if ($name) {
+            $dir = CheckCreated 't12' $name
+            $b = $null
+            $failed = BuildSolution 't12'
+            if ($failed -ne 0) { $b = & $msbuild $exSln '/restore' '/nologo' '/v:m' 2>&1; $b | Set-Content (Join-Path $logs 't12-build.txt') -Encoding utf8 }
+            Check 't12-build' ($failed -eq 0) "Build Solution ב-${title}: כל הפתרון (התבנית, הדוגמאות והתרגיל החדש) נבנה" "פרויקטים שנכשלו: $failed · $(if ($b) { ($b | Select-String 'error' | Select-Object -First 3) -join ' | ' })"
+            CheckBankRun 't12' $name $dir
+        }
+    } catch { Fail 't12-exception' 'T12 רץ עד הסוף' "$_" }
+
+    # ------------------------------------------------------------------ T1ג + T12ב: סגירה בכוח, הספרייה נמחקת, פתיחה מחדש
+    Section 'T1 / T12ב. Visual Studio נסגר בכוח; lib\Unit4.CollectionsLib.dll נמחק מתיקיית התרגילים; פתיחה מחדש'
+    try {
+        AssertTime
+        KillJava; KillVs
+        $libFile = Join-Path $csDir 'lib\Unit4.CollectionsLib.dll'
+        Remove-Item $libFile -Force -ErrorAction SilentlyContinue
+        Check 't12b-lib-deleted' (-not (Test-Path $libFile)) 'הספרייה נמחקה מתיקיית התרגילים (lib\Unit4.CollectionsLib.dll)'
+        $p = StartVs $exSln
+        if (-not $p) { Fail 't12b-open' "$title נפתח שוב אחרי סגירה בכוח" ((Windows) -join ' ; ') }
+        else {
+            Start-Sleep 15
+            $q = DismissDialogs
+            if ($q) { Info "Visual Studio שאל אחרי הסגירה בכוח: $q" }
+            Step 't12b-vs-open'
+            CheckToolbar 't1-after-kill' 'אחרי סגירה בכוח ופתיחה מחדש'
+            $name2 = CreateFromBank 't12b' 'arrays' 'arrays-sum-less-input'
+            $want = ''; try { $want = (Get-FileHash (Join-Path $dsviz 'cs-project\lib\Unit4.CollectionsLib.dll') -Algorithm SHA256).Hash } catch { }
+            $got = ''; try { $got = (Get-FileHash $libFile -Algorithm SHA256).Hash } catch { }
+            Check 't12b-repaired' ($got -and $got -eq $want) "'צור תרגיל' השלים לבד את הספרייה שנמחקה (מהתבנית שבהתקנה)" "קיים: $(Test-Path $libFile) · זהה לתבנית: $($got -eq $want)"
+            if ($name2) {
+                $null = CheckCreated 't12b' $name2
+                $b = $null
+                $failed = BuildSolution 't12b'
+                if ($failed -ne 0) { $b = & $msbuild $exSln '/restore' '/nologo' '/v:m' 2>&1; $b | Set-Content (Join-Path $logs 't12b-build.txt') -Encoding utf8 }
+                Check 't12b-build' ($failed -eq 0) 'אחרי התיקון העצמי: Build Solution עובר' "פרויקטים שנכשלו: $failed · $(if ($b) { ($b | Select-String 'error' | Select-Object -First 3) -join ' | ' })"
+                CheckBankRun 't12b' $name2 (Join-Path $exDir $name2)
+            }
+            KillJava
+            $closed = CloseVsByX
+            Check 't12b-close' $closed "$title נסגר בסגירה רגילה" ''
+        }
+    } catch { Fail 't12b-exception' 'T12ב רץ עד הסוף' "$_" }
+}
+
+# ------------------------------------------------------------------ CiApps: פרויקטים רגילים של תלמיד / מורה
+Section 'T2–T8. פתרון רגיל (CiApps.sln): הרצה רגילה מול הרצה ויזואלית'
+KillJava; KillVs
+$p = StartVs $apps.Sln
+if (-not $p) { Fail 'apps-open' "$title נפתח עם CiApps.sln" ((Windows) -join ' ; ') }
+else {
+    Start-Sleep 25
+    SkipFirstRun $p.Id | Out-Null
+    Step 'apps-vs-open'
+    $ready = WaitToolbar 240
+    Check 'apps-toolbar' $ready 'הסרגל של DSViz גם בפתרון רגיל' (DteToolbar)
+    $d = $apps.Dir
+    try {
+        AssertTime
+        Section 'T2. פרויקט SDK רגיל'
+        CheckNormal 't2-green' 'SdkApp' (Join-Path $d 'SdkApp\Program.cs') 'sdk' 'green' '' 'פרויקט SDK' | Out-Null
+        CheckNormal 't2-ctrlf5' 'SdkApp' (Join-Path $d 'SdkApp\Program.cs') 'sdk' 'ctrlf5' '' 'פרויקט SDK' | Out-Null
+        Check 't2-no-profile-written' (-not (Test-Path (Join-Path $d 'SdkApp\Properties\launchSettings.json'))) 'לפרויקט שלא משתמש בספרייה לא נכתב launchSettings.json בהרצה רגילה' ''
+        CheckVisual 't2-visual' (Join-Path $d 'SdkApp\Program.cs') 'sdk' '' 'פרויקט SDK'
+    } catch { Fail 't2-exception' 'T2 רץ עד הסוף' "$_" }
+    try {
+        AssertTime
+        Section 'T4. top-level statements'
+        CheckNormal 't4-normal' 'TopApp' (Join-Path $d 'TopApp\Program.cs') 'top' 'menu' '' 'top-level statements' | Out-Null
+        CheckVisual 't4-visual' (Join-Path $d 'TopApp\Program.cs') 'top' '' 'top-level statements'
+    } catch { Fail 't4-exception' 'T4 רץ עד הסוף' "$_" }
+    try {
+        AssertTime
+        Section 'T3. הספרייה של בית הספר (Unit4) מול הספרייה של DSViz'
+        CheckNormal 't3-classic-normal' 'SchoolClassic' (Join-Path $d 'SchoolClassic\Program.cs') 'school' 'menu' 'Unit4' 'פרויקט ‎.NET Framework קלאסי עם Unit4.dll של בית הספר' | Out-Null
+        Check 't3-classic-bin' ((Test-Path (Join-Path $d 'SchoolClassic\bin\Debug\Unit4.dll')) -and -not (Test-Path (Join-Path $d 'SchoolClassic\bin\Debug\Unit4.CollectionsLib.dll'))) 'ב-bin של הפרויקט הקלאסי: Unit4.dll של בית הספר, בלי הספרייה של DSViz' "$((Get-ChildItem (Join-Path $d 'SchoolClassic\bin\Debug') -ErrorAction SilentlyContinue | ForEach-Object Name) -join ', ')"
+        CheckVisual 't3-classic-visual' (Join-Path $d 'SchoolClassic\Program.cs') 'school' 'Unit4.CollectionsLib' 'אותו פרויקט קלאסי'
+        CheckNormal 't3-ref-normal' 'SchoolRef' (Join-Path $d 'SchoolRef\Program.cs') 'schoolref' 'ctrlf5' 'Unit4' 'ספריית בית הספר ב-ProjectReference (CollectionsLib.csproj, AssemblyName=Unit4)' | Out-Null
+        CheckVisual 't3-ref-visual' (Join-Path $d 'SchoolRef\Program.cs') 'schoolref' 'Unit4.CollectionsLib' 'אותו פרויקט עם ProjectReference'
+        CheckNormal 't3-noref-normal' 'ClassicDsviz' (Join-Path $d 'ClassicDsviz\Program.cs') 'classicdsviz' 'ctrlf5' 'Unit4.CollectionsLib' 'פרויקט ‎.NET Framework קלאסי שמשתמש בספרייה בלי שום הפניה' | Out-Null
+        OpenDoc (Join-Path $d 'ClassicDsviz\Program.cs') | Out-Null
+        Start-Sleep 8
+        $errs = Dte { param($x) try { [int]$x.ToolWindows.ErrorList.ErrorItems.Count } catch { -1 } } 6
+        Step 't3-noref-intellisense'
+        Note 't3-noref-intellisense' "פרויקט קלאסי בלי הפניה, הקובץ פתוח בעורך: $errs שורות ב-Error List (0 = גם IntelliSense מכיר את הספרייה שנוספה אחרי פתרון ההפניות)"
+    } catch { Fail 't3-exception' 'T3 רץ עד הסוף' "$_" }
+    try {
+        AssertTime
+        Section 'T7. שני פרויקטי הרצה: ה-Startup Project הוא SdkApp, והקובץ הפתוח שייך ל-TopApp'
+        KillRuns; KillJava
+        SetStartup 'SdkApp\SdkApp.csproj'
+        OpenDoc (Join-Path $d 'TopApp\Program.cs') | Out-Null
+        ClearMarkers
+        $tc = TraceCount
+        $used = NormalRun 'ctrlf5' 't7'
+        $m = WaitMarker 'sdk' 240
+        Start-Sleep 3
+        $top = ReadMarker 'top'
+        Step 't7-after-normal-run'
+        Check 't7-runs-startup' ($m -and $m.Host -ne 'dsviz-cs' -and -not $top) "ההרצה הרגילה ($used): רץ ה-Startup Project (SdkApp), כמו בלי DSViz" "סימונים: $(Markers)"
+        Check 't7-startup-untouched' ((Startup) -like '*SdkApp*') 'בפתרון שאינו של DSViz ההרחבה לא מחליפה את ה-Startup Project' (Startup)
+        $bn = 'הרצה ויזואלית של Program.cs'
+        $bar = WaitFor { $x = @(ByName $script:vsP.Id $bn ''); if ($x.Count) { $x[0] } } 30
+        $txt = @(ByPattern $script:vsP.Id 'ה-Startup Project' '' | Where-Object { (ElName $_) -match 'SdkApp' -and (ElName $_) -match 'TopApp' })
+        $said = @(TraceSince $tc 'info bar shown: .*SdkApp.*TopApp')
+        VsFront | Out-Null
+        Step 't7-info-bar'
+        Check 't7-info-bar' (($null -ne $bar) -and ($txt.Count -gt 0 -or $said.Count -gt 0)) 'שורת ההודעה מסבירה ש-Visual Studio מריץ את SdkApp ולא את TopApp שהקובץ הפתוח שייך אליו' "כפתור: $(DescEl $bar) · טקסט ב-UI Automation: $(($txt | Select-Object -First 1 | ForEach-Object { ElName $_ }) -join '') · ביומן ההרחבה: $(($said | Select-Object -Last 1) -join '')"
+        if (-not $bar) { TraceTail 'info bar|run:' }
+        for ($i = 0; $i -lt 20 -and -not (DesignMode); $i++) { Start-Sleep 1 }
+        KillRuns
+        CheckVisual 't7-visual' (Join-Path $d 'TopApp\Program.cs') 'top' '' 'הקובץ הפתוח (TopApp) כשה-Startup Project אחר'
+    } catch { Fail 't7-exception' 'T7 רץ עד הסוף' "$_" }
+    try {
+        AssertTime
+        Section 'T6. הודעות של ההרצה הוויזואלית'
+        CheckMessage 't6-no-main' (Join-Path $d 'NoMain\Helper.cs') 'אין פעולת Main' 'קובץ בלי Main (Helper.cs)'
+        CheckMessage 't6-empty-main' (Join-Path $d 'EmptyMain\Program.cs') 'Main ריקה' 'Main ריקה'
+        CheckMessage 't6-compile-error' (Join-Path $d 'loose\Bad.cs') 'error CS\d+' 'שגיאת קומפילציה'
+        Dte { param($x) foreach ($doc in @($x.Documents)) { if ($doc.FullName -like '*\loose\Bad.cs') { $doc.Close(2) } }; 'ok' } 6 | Out-Null
+    } catch { Fail 't6-exception' 'T6 רץ עד הסוף' "$_" }
+    try {
+        AssertTime
+        Section 'T8. פרויקט שאין לו קשר ל-DSViz, ו-Build Solution'
+        CloseDocs
+        $b = $null
+        $failed = BuildSolution 't8'
+        if ($failed -ne 0) { $b = & $msbuild $apps.Sln '/nologo' '/v:m' 2>&1; $b | Set-Content (Join-Path $logs 't8-build.txt') -Encoding utf8 }
+        Check 't8-build-solution' ($failed -eq 0) "Build Solution ב-${title}: כל פרויקטי הבדיקה נבנים (גם אלה שאין להם קשר ל-DSViz)" "פרויקטים שנכשלו: $failed · $(if ($b) { ($b | Select-String 'error' | Select-Object -First 4) -join ' | ' })"
+        $bin = Get-ChildItem (Join-Path $d 'PlainStack\bin') -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object Name
+        Check 't8-plain-untouched' ((@($bin | Where-Object { $_ -match '^Unit4' }).Count -eq 0) -and -not (Test-Path (Join-Path $d 'PlainStack\Properties\launchSettings.json'))) 'בפרויקט הרגיל (Stack<int> של ‎.NET): בלי הספרייה של DSViz ב-bin, ובלי launchSettings.json שנכתב לו' "$($bin -join ', ')"
+        $m = CheckNormal 't8-plain-run' 'PlainStack' (Join-Path $d 'PlainStack\Program.cs') 'plain' 'menu' '' 'פרויקט רגיל עם Stack<int> של ‎.NET'
+        if ($m) { Check 't8-plain-lib' ($m.Lib -notmatch '^Unit4') 'Stack<int> בפרויקט הרגיל הוא של ‎.NET' "מגיע מ: $($m.Lib)" }
+        $ref = Get-ChildItem (Join-Path $d 'SchoolRef\bin') -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object Name
+        Check 't8-ref-bin' ((@($ref | Where-Object { $_ -eq 'Unit4.dll' }).Count -gt 0) -and (@($ref | Where-Object { $_ -eq 'Unit4.CollectionsLib.dll' }).Count -eq 0)) 'בפרויקט עם ProjectReference לספריית בית הספר: Unit4.dll ב-bin, בלי הספרייה של DSViz (בלי CS0433)' "$($ref -join ', ')"
+    } catch { Fail 't8-exception' 'T8 רץ עד הסוף' "$_" }
+    KillRuns; KillJava
+    $closed = CloseVsByX
+    Check 'apps-close' $closed "$title נסגר בסגירה רגילה" ''
+}
+
+# ------------------------------------------------------------------ יומנים
+Section 'יומנים'
+KillJava; Get-Process devenv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+foreach ($f in @($traceLog, (Join-Path $dsviz 'vsix-install.log'), (Join-Path $ctl 'agent.log'))) { if (Test-Path $f) { Copy-Item $f $logs -Force -ErrorAction SilentlyContinue } }
+Get-ChildItem $dsviz -Filter 'vs-loaded-*' -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $logs -Force; Info "$($_.Name): $((Get-Content $_.FullName -Raw) -replace "`r?`n", ' · ')" }
+Get-ChildItem $dsviz -Filter 'vs-toolbar-shown*' -ErrorAction SilentlyContinue | ForEach-Object { Info "$($_.Name): $((Get-Content $_.FullName -Raw).Trim())" }
+foreach ($pair in @(@((Join-Path $env:APPDATA "Microsoft\VisualStudio\$hive\ActivityLog.xml"), 'ActivityLog.xml'), @((Join-Path $env:LOCALAPPDATA "Microsoft\VisualStudio\$hive\ComponentModelCache\Microsoft.VisualStudio.Default.err"), 'mef-errors.txt'))) {
+    if (Test-Path $pair[0]) { Copy-Item $pair[0] (Join-Path $logs $pair[1]) -Force -ErrorAction SilentlyContinue } else { Info "אין $($pair[0])" }
+}
+$act = Join-Path $logs 'ActivityLog.xml'
+if (Test-Path $act) { @(Select-String -Path $act -Pattern 'DsViz' -SimpleMatch -Context 0, 2 | Select-Object -Last 12) | ForEach-Object { Info ("ActivityLog: " + ($_.Line.Trim())) } }
+if (Test-Path $traceLog) { @(Get-Content $traceLog -Encoding UTF8 -Tail 25) | ForEach-Object { Info "vs-trace: $_" } }
+Save-Summary $title
+exit $(if ($script:fails -gt 0) { 1 } else { 0 })
