@@ -46,9 +46,13 @@ public class SeedSession {
             return;
         }
         if (a[0].equals("none")) {
+            // כמו התנתקות אמיתית (Account.forget): כל העותקים של קובץ הזהב — הקובץ, ה-‎.bak‎ שלידו, והעותק בתיקיית הגיבוי.
+            // בלי ה-‎.bak‎ — Account משחזר ממנו את הכניסה (כמו שצריך: קובץ שנמחק בטעות), והבדיקה "אחרי התנתקות" נכשלת
             uf.delete();
+            Account.bakOf(uf).delete();
             File b = new File(Account.secureBackupDir() == null ? uf.getParentFile() : Account.secureBackupDir(), uf.getName());
             b.delete();
+            Account.bakOf(b).delete();
         } else {
             String role = a[0], email = a[1];
             boolean station = role.equals("station");
