@@ -540,6 +540,8 @@ const DECO_KEY = 'dsviz.submittedFiles';
  */
 function register(deps) {
     const { vscode, ctx } = deps;
+    /** DSViz פועל? (power.js) — כשכבוי: בלי 💡, בלי סימון של סעיפים ובלי הסברים */
+    const on = () => !deps.isOn || deps.isOn();
     const store = () => path.join(ctx.globalStorageUri ? ctx.globalStorageUri.fsPath : path.join(os.homedir(), '.dsviz'), 'solutions.json');
     const jar = () => path.join(ctx.extensionPath, 'resources', 'dsviz.jar');
     const javaExe = () => {
@@ -559,6 +561,7 @@ function register(deps) {
     ctx.subscriptions.push(vscode.languages.registerCodeLensProvider([{ language: 'java' }, { language: 'csharp' }], {
         onDidChangeCodeLenses: changed.event,
         provideCodeLenses(doc) {
+            if (!on()) return [];
             const all = entries();
             if (!all.length) return [];
             return lensesFor(all, doc.uri.fsPath, doc.getText()).map(l => new vscode.CodeLens(new vscode.Range(l.line, 0, l.line, 0),
@@ -606,6 +609,7 @@ function register(deps) {
     if (deco) ctx.subscriptions.push(deco);
     const decorate = ed => {
         if (!deco || !ed || !ed.document || !ed.setDecorations || !ed.document.uri || !tracked.has(norm(ed.document.uri.fsPath))) return;
+        if (!on()) { ed.setDecorations(deco, []); return; }   // DSViz כבוי — בלי הסימון הצהוב
         ed.setDecorations(deco, emptyAnswers(ed.document.getText()).map(r => new vscode.Range(r.start, 0, r.end, 0)));
     };
     const decorateAll = () => (vscode.window.visibleTextEditors || [vscode.window.activeTextEditor]).forEach(decorate);
@@ -804,7 +808,13 @@ function register(deps) {
         };
     };
 
-    return { submit, showSolution, showDone, decorate };
+    /** DSViz כובה / הופעל: 💡 והסימונים מתעדכנים מיד, וההסברים של "שליחת תרגיל" נמחקים בכיבוי */
+    const powerChanged = () => {
+        changed.fire();
+        decorateAll();
+        if (!on() && problems) problems.clear();
+    };
+    return { submit, showSolution, showDone, decorate, powerChanged };
 }
 
 module.exports = { register, readStore, forFile, methods, lensesFor, entryAt, paramCount, submitHtml, solutionHtml, highlight, section, runCli,

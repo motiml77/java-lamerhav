@@ -160,6 +160,18 @@
                 "title": "הדרכה לשימוש (?)",
                 "category": "מבני נתונים",
                 "icon": "$(question)"
+            },
+            {
+                "command": "dsviz.powerOff",
+                "title": "כיבוי DSViz",
+                "category": "מבני נתונים",
+                "icon": "media/power-off.png"
+            },
+            {
+                "command": "dsviz.powerOn",
+                "title": "הפעלת DSViz",
+                "category": "מבני נתונים",
+                "icon": "media/power-on.png"
             }
         ],
         "viewsContainers": {
@@ -175,15 +187,23 @@
             "dsviz": [
                 {
                     "id": "dsviz.home",
-                    "name": "תרגיל חדש"
+                    "name": "תרגיל חדש",
+                    "when": "!dsviz.off"
                 },
                 {
                     "id": "dsviz.insertView",
-                    "name": "הוסף מבנה נתונים"
+                    "name": "הוסף מבנה נתונים",
+                    "when": "!dsviz.off"
                 },
                 {
                     "id": "dsviz.runView",
-                    "name": "הרצה"
+                    "name": "הרצה",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "id": "dsviz.offView",
+                    "name": "DSViz כבוי",
+                    "when": "dsviz.off"
                 }
             ]
         },
@@ -205,50 +225,66 @@
             {
                 "view": "dsviz.runView",
                 "contents": "אחרי שכותבים את הקוד:\n[▶  הרצה ויזואלית](command:dsviz.run)\nבחלון רואים כל שורה בקוד, את המשתנים ואת מבני הנתונים — צעד אחר צעד.\nהרצה רגילה (Run) מדפיסה רק לקונסול.\n[?  הדרכה לשימוש — סרטונים קצרים](command:dsviz.help)\n© 2026 Moti Levi · motiml77@gmail.com"
+            },
+            {
+                "view": "dsviz.offView",
+                "contents": "DSViz כבוי: הכפתורים, ההרצה הוויזואלית, 💡 ההצעות לפתרון וההוספה האוטומטית של ספריית הקורס לא פועלים. הקוד שלכם לא השתנה, וממשיך לרוץ כרגיל.\n[הפעלת DSViz](command:dsviz.powerOn)"
             }
         ],
         "menus": {
             "editor/title": [
                 {
                     "command": "dsviz.submit",
-                    "when": "resourceLangId == java || resourceLangId == csharp",
+                    "when": "(resourceLangId == java || resourceLangId == csharp) && !dsviz.off",
                     "group": "navigation@0"
                 },
                 {
                     "command": "dsviz.newExercise",
-                    "when": "resourceLangId == java || resourceLangId == csharp",
+                    "when": "(resourceLangId == java || resourceLangId == csharp) && !dsviz.off",
                     "group": "navigation@1"
                 },
                 {
                     "command": "dsviz.insert",
-                    "when": "resourceLangId == java || resourceLangId == csharp",
+                    "when": "(resourceLangId == java || resourceLangId == csharp) && !dsviz.off",
                     "group": "navigation@2"
                 },
                 {
                     "command": "dsviz.run",
-                    "when": "resourceLangId == java || resourceLangId == csharp",
+                    "when": "(resourceLangId == java || resourceLangId == csharp) && !dsviz.off",
                     "group": "navigation@3"
                 },
                 {
                     "command": "dsviz.help",
-                    "when": "resourceLangId == java || resourceLangId == csharp",
+                    "when": "(resourceLangId == java || resourceLangId == csharp) && !dsviz.off",
                     "group": "navigation@4"
+                },
+                {
+                    "command": "dsviz.powerOff",
+                    "when": "(resourceLangId == java || resourceLangId == csharp) && !dsviz.off",
+                    "group": "navigation@9"
+                },
+                {
+                    "command": "dsviz.powerOn",
+                    "when": "(resourceLangId == java || resourceLangId == csharp) && dsviz.off",
+                    "group": "navigation@9"
                 }
             ],
             "explorer/context": [
                 {
                     "command": "dsviz.newExercise",
-                    "group": "navigation@9"
+                    "group": "navigation@9",
+                    "when": "!dsviz.off"
                 },
                 {
                     "command": "dsviz.submit",
-                    "group": "navigation@8"
+                    "group": "navigation@8",
+                    "when": "!dsviz.off"
                 }
             ],
             "editor/context": [
                 {
                     "submenu": "dsviz.editorMenu",
-                    "when": "resourceLangId == java || resourceLangId == csharp",
+                    "when": "(resourceLangId == java || resourceLangId == csharp) && !dsviz.off",
                     "group": "0_dsviz"
                 }
             ],
@@ -276,6 +312,10 @@
                 {
                     "command": "dsviz.help",
                     "group": "3_help"
+                },
+                {
+                    "command": "dsviz.powerOff",
+                    "group": "9_power"
                 }
             ],
             "dsviz.insertMenu": [
@@ -319,39 +359,119 @@
             "commandPalette": [
                 {
                     "command": "dsviz.insert.stack",
-                    "when": "editorLangId == java || editorLangId == csharp"
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
                 },
                 {
                     "command": "dsviz.insert.queue",
-                    "when": "editorLangId == java || editorLangId == csharp"
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
                 },
                 {
                     "command": "dsviz.insert.list",
-                    "when": "editorLangId == java || editorLangId == csharp"
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
                 },
                 {
                     "command": "dsviz.insert.tree",
-                    "when": "editorLangId == java || editorLangId == csharp"
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
                 },
                 {
                     "command": "dsviz.insert.bst",
-                    "when": "editorLangId == java || editorLangId == csharp"
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
                 },
                 {
                     "command": "dsviz.insert.array",
-                    "when": "editorLangId == java || editorLangId == csharp"
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
                 },
                 {
                     "command": "dsviz.insert.matrix",
-                    "when": "editorLangId == java || editorLangId == csharp"
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
                 },
                 {
                     "command": "dsviz.insert.student",
-                    "when": "editorLangId == java || editorLangId == csharp"
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
                 },
                 {
                     "command": "dsviz.insert.car",
-                    "when": "editorLangId == java || editorLangId == csharp"
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
+                },
+                {
+                    "command": "dsviz.newExercise",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.submit",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.solution",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.newStack",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.newQueue",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.newList",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.newTree",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.newBst",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.newArray",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.newMatrix",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.run",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.examples",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.insert",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.openProject",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.help",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.powerOff",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.powerOn",
+                    "when": "dsviz.off"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "dsviz.powerOff",
+                    "when": "view == dsviz.home && !dsviz.off",
+                    "group": "navigation@9"
+                },
+                {
+                    "command": "dsviz.powerOn",
+                    "when": "view == dsviz.offView && dsviz.off",
+                    "group": "navigation@9"
                 }
             ]
         },
@@ -360,13 +480,13 @@
                 "command": "dsviz.run",
                 "key": "ctrl+alt+r",
                 "mac": "cmd+alt+r",
-                "when": "editorLangId == java || editorLangId == csharp"
+                "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
             },
             {
                 "command": "dsviz.insert",
                 "key": "ctrl+alt+i",
                 "mac": "cmd+alt+i",
-                "when": "editorLangId == java || editorLangId == csharp"
+                "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
             }
         ],
         "submenus": [

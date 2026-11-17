@@ -12,6 +12,7 @@ const names = require('./names');
 const help = require('./help');
 const submitModule = require('./submit');
 const ui = require('./ui');
+const powerModule = require('./power');
 
 /** התבניות של השפה שעובדים בה עכשיו (Java / C#) — נקבע בתחילת כל פעולה לפי השפה */
 let templates = javaTemplates;
@@ -25,6 +26,8 @@ const PENDING_KEY = 'dsviz.pendingOpen';
 
 let ctx;
 let diagnostics, output, terminal;
+/** DSViz פועל / כבוי (power.js) — הלחצן האדום "כיבוי DSViz" והירוק "הפעלת DSViz" */
+let power;
 
 function activate(context) {
     ctx = context;
@@ -32,7 +35,13 @@ function activate(context) {
     diagnostics = vscode.languages.createDiagnosticCollection('dsviz');
     output = vscode.window.createOutputChannel('מבני נתונים');
     context.subscriptions.push(diagnostics, output);
-    const reg = (id, fn) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
+    power = powerModule.create(vscode, context);
+    power.sync();
+    // כל הפקודות של DSViz: כש-DSViz כבוי הן מוסתרות (dsviz.off ב-package.json), ואם בכל זאת הגיעו (פקודה ישנה, קישור) — לא עושות כלום
+    const reg = (id, fn) => context.subscriptions.push(vscode.commands.registerCommand(id, (...args) => (power.on ? fn(...args) : undefined)));
+    // כיבוי / הפעלה — תמיד פועלות
+    context.subscriptions.push(vscode.commands.registerCommand('dsviz.powerOff', () => powerOff()));
+    context.subscriptions.push(vscode.commands.registerCommand('dsviz.powerOn', () => powerOn()));
     reg('dsviz.newExercise', () => newExercise());
     reg('dsviz.newStack', () => newExercise('stack'));
     reg('dsviz.newQueue', () => newExercise('queue'));
@@ -52,7 +61,7 @@ function activate(context) {
     reg('dsviz.openProject', () => openProject());
     // "שליחת תרגיל" ו"הצעה לפתרון" — אותו מנוע כמו ב-Eclipse (submit.js → SubmitCli שבתוך dsviz.jar)
     const sub = submitModule.register({ vscode, ctx: context, chooseRoot, detectLanguage: root => detectLanguage(root),
-        project, cs, runner, openFiles });
+        project, cs, runner, openFiles, isOn: () => power.on });
     reg('dsviz.submit', () => sub.submit());
     reg('dsviz.solution', entry => sub.showSolution(entry));
 
@@ -77,25 +86,38 @@ function activate(context) {
     submitBar.tooltip = 'מצרפים את דף התרגיל (PDF, Word או צילום מסך) — ומקבלים קובץ מוכן עם מקום לכתוב את הפתרון';
     submitBar.command = 'dsviz.submit';
     context.subscriptions.push(submitBar);
-    const refresh = () => {
-        const ed = vscode.window.activeTextEditor;
-        const on = ed && (ed.document.languageId === 'java' || ed.document.languageId === 'csharp');
-        if (on) { bar.show(); addBar.show(); submitBar.show(); } else { bar.hide(); addBar.hide(); submitBar.hide(); }
-    };
     // וכפתור "?" — הדרכה לשימוש (סרטונים קצרים)
     const helpBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
     helpBar.text = '$(question)';
     helpBar.tooltip = 'הדרכה לשימוש';
     helpBar.command = 'dsviz.help';
-    helpBar.show();
-    context.subscriptions.push(bar, addBar, helpBar, vscode.window.onDidChangeActiveTextEditor(refresh));
+    // כש-DSViz כבוי: במקום כל הכפתורים — רק "DSViz כבוי" (לחיצה: הפעלת DSViz), כדי שתמיד יהיה איפה להחזיר אותו
+    const offBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 97);
+    offBar.text = '$(circle-slash) DSViz כבוי';
+    offBar.tooltip = 'DSViz כבוי — לחיצה: הפעלת DSViz (מחזיר את כל הכפתורים והיכולות)';
+    offBar.command = 'dsviz.powerOn';
+    const refresh = () => {
+        const ed = vscode.window.activeTextEditor;
+        const on = power.on && ed && (ed.document.languageId === 'java' || ed.document.languageId === 'csharp');
+        if (on) { bar.show(); addBar.show(); submitBar.show(); } else { bar.hide(); addBar.hide(); submitBar.hide(); }
+        if (power.on) { helpBar.show(); offBar.hide(); } else { helpBar.hide(); offBar.show(); }
+    };
+    context.subscriptions.push(bar, addBar, helpBar, offBar, vscode.window.onDidChangeActiveTextEditor(refresh));
     // פעולות העזר מהספרייה: כותבים size(q) / duplicate(q) בקובץ Java — ושורת ה-import static נוספת לבד
     if (vscode.workspace.onDidChangeTextDocument) context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => helperImportSoon(e.document)));
     refresh();
 
     openPending();
     firstRun();
-    autoLibrary(context);
+    const libraryEverywhere = autoLibrary(context);
+    // כיבוי: הכפתורים בשורת המצב, 💡 והסימונים נעלמים וההסברים נמחקים. הפעלה: הכול חוזר, וספריית הקורס נבדקת שוב בכל תיקייה
+    power.onChange(on => {
+        output.appendLine(on ? 'DSViz פועל' : 'DSViz כבוי — נשאר VS Code רגיל בלבד (הקוד לא השתנה)');
+        if (!on) diagnostics.clear();
+        refresh();
+        sub.powerChanged();
+        if (on) libraryEverywhere();
+    });
     // Mac: עדכון אוטומטי (פעם ביום, ברקע — update.sh של ההתקנה). דקה אחרי הפתיחה, כדי לא להאט את VS Code
     if (runner.MAC) {
         const t = setTimeout(() => runner.startMacUpdater(), 60000);
@@ -129,7 +151,7 @@ function autoLibrary(context) {
     const done = new Set();
     const jar = path.join(ctx.extensionPath, 'resources', project.JAR_NAME);
     const check = root => {
-        if (!root || done.has(root)) return;
+        if (!root || done.has(root) || !power.on) return;   // DSViz כבוי — לא נוגעים בתיקיות
         try {
             if (!project.needsLibrary(root)) return;
             done.add(root);
@@ -149,11 +171,30 @@ function autoLibrary(context) {
         const f = ws.getWorkspaceFolder && doc.uri && ws.getWorkspaceFolder(doc.uri);
         if (f) check(f.uri.fsPath);
     }));
+    return all;
+}
+
+// ------------------------------------------------------------ כיבוי / הפעלה של DSViz (power.js)
+
+/** הלחצן האדום: קודם ההסבר (מה ייעלם, שהקוד לא משתנה, איך מחזירים), ורק אחרי "כיבוי" מכבים */
+async function powerOff() {
+    if (!power.on) return;
+    const ans = await ui.warn(vscode, powerModule.OFF_TITLE, { modal: true, detail: powerModule.OFF_DETAIL }, powerModule.OFF_BUTTON);
+    if (ans !== powerModule.OFF_BUTTON) return;
+    await power.set(false);
+    if (vscode.window.setStatusBarMessage) vscode.window.setStatusBarMessage('DSViz כבוי. מפעילים שוב בלחצן הירוק "הפעלת DSViz"', 6000);
+}
+
+/** הלחצן הירוק: מחזיר הכול, בלי שאלה (כמו ב-IntelliJ) */
+async function powerOn() {
+    if (power.on) return;
+    await power.set(true);
+    if (vscode.window.setStatusBarMessage) vscode.window.setStatusBarMessage('DSViz פועל שוב', 4000);
 }
 
 /** פעם ראשונה אחרי ההתקנה, בלי תיקייה פתוחה: מציעים לפתוח את תיקיית התרגילים */
 async function firstRun() {
-    if (ctx.globalState.get('dsviz.welcomed') || vscode.workspace.workspaceFolders) return;
+    if (!power.on || ctx.globalState.get('dsviz.welcomed') || vscode.workspace.workspaceFolders) return;
     if (!project.installedProject() && !cs.installedProject()) return;
     await ctx.globalState.update('dsviz.welcomed', true);
     const open = 'פתיחת תיקיית התרגילים';
@@ -425,7 +466,7 @@ async function insertSnippet(structure) {
 const helperTimers = new Map();
 
 function helperImportSoon(doc) {
-    if (!doc || doc.languageId !== 'java') return;
+    if (!doc || doc.languageId !== 'java' || !power.on) return;   // DSViz כבוי — לא נוגעים בקוד
     const key = doc.uri.toString();
     clearTimeout(helperTimers.get(key));
     helperTimers.set(key, setTimeout(() => { helperTimers.delete(key); addHelperImport(doc); }, 800));
@@ -442,7 +483,7 @@ function needsHelperImport(text) {
 }
 
 async function addHelperImport(doc) {
-    if (doc.isClosed || !needsHelperImport(doc.getText())) return;
+    if (doc.isClosed || !power.on || !needsHelperImport(doc.getText())) return;
     const text = doc.getText();
     const lib = /^\s*import\s+unit4\.collectionsLib\.\*\s*;.*$/m.exec(text);
     const pkg = /^\s*package\s+[\w.]+\s*;.*$/m.exec(text);
@@ -827,7 +868,7 @@ async function openAt(root, file, line, opts) {
 
 async function openPending() {
     const p = ctx.globalState.get(PENDING_KEY);
-    if (!p) return;
+    if (!p || !power.on) return;
     await ctx.globalState.update(PENDING_KEY, undefined);
     if (fs.existsSync(p.file)) {
         const root = (vscode.workspace.workspaceFolders || []).find(f => p.file.startsWith(f.uri.fsPath));

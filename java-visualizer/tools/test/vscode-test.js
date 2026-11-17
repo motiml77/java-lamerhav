@@ -28,6 +28,8 @@ const config = {};   // הגדרות: 'java.project.sourcePaths' → [...]
 const decorations = [];   // { type, ranges } — setDecorations של עורכים מדומים
 let docChange = null;
 const openedSeq = [];
+const contextKeys = {};   // setContext (executeCommand) — למשל dsviz.off
+const statusItems = [];   // createStatusBarItem — כל פריט בשורת המצב, ואם הוא מוצג
 
 const vscode = {
     workspace: {
@@ -43,7 +45,7 @@ const vscode = {
                  registerCodeLensProvider: (sel, provider) => { lensProviders.push(provider); return { dispose() {} }; } },
     env: { openExternal: () => {}, clipboard: { writeText: async t => { clipboard = t; } } },
     ProgressLocation: { Window: 10, Notification: 15 },
-    EventEmitter: class { constructor() { this.event = () => ({ dispose() {} }); } fire() {} },
+    EventEmitter: class { constructor() { this.fired = 0; this.event = () => ({ dispose() {} }); } fire() { this.fired++; } },
     CodeLens: class { constructor(range, command) { this.range = range; this.command = command; } },
     DiagnosticSeverity: { Error: 0, Warning: 1 },
     Diagnostic: class { constructor(r, m, s) { this.range = r; this.message = m; this.severity = s; } },
@@ -59,7 +61,7 @@ const vscode = {
         visibleTextEditors: [],
         onDidChangeVisibleTextEditors: () => ({ dispose() {} }),
         showTextDocument: async (doc, o) => { opened = doc.fileName; openedSeq.push({ file: doc.fileName, preview: o && o.preview, preserveFocus: !!(o && o.preserveFocus), line: o && o.selection ? o.selection.line : undefined }); return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document === doc ? vscode.window.activeTextEditor : { selection: null, revealRange() {} }; },
-        createStatusBarItem: () => ({ show() {}, hide() {}, dispose() {} }),
+        createStatusBarItem: () => { const it = { visible: false, show() { it.visible = true; }, hide() { it.visible = false; }, dispose() {} }; statusItems.push(it); return it; },
         setStatusBarMessage: m => { log.push("status: " + m); return { dispose() {} }; },
         showOpenDialog: async () => [],
         registerTreeDataProvider: () => ({ dispose() {} }),
@@ -79,7 +81,8 @@ const vscode = {
             return panel;
         }
     },
-    commands: { registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; }, executeCommand: async () => {} },
+    commands: { registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; },
+                executeCommand: async (id, ...a) => { if (id === 'setContext') contextKeys[a[0]] = a[1]; } },
     extensions: { getExtension: () => ({}) },
     StatusBarAlignment: { Left: 1 }, TextEditorRevealType: { InCenter: 2 }, ViewColumn: { Beside: -2, Active: -1 }, OverviewRulerLane: { Left: 1 },
     Position: class { constructor(l, c) { this.line = l; this.character = c; } },
@@ -622,6 +625,9 @@ async function addDialog(command, state, steps) {
         }
     }
 
+    // ===================== כיבוי DSViz (הלחצן האדום "כיבוי DSViz" / הירוק "הפעלת DSViz") =====================
+    await powerTests();
+
     // ===================== החלונות בדפדפן אמיתי (Chromium): תצוגת הבנייה, "הצגה", "כל השגיאות" — בערכה בהירה וכהה =====================
     await webviewShots();
 
@@ -736,5 +742,165 @@ async function webviewShots() {
         log.push('Chromium: תצוגת הבנייה (שלבים, שניות, שגיאה ונסו שוב), "הצגה" ו"כל השגיאות" — RTL, בהיר וכהה → ' + out);
     } finally {
         await browser.close();
+    }
+}
+
+/**
+ * כיבוי DSViz (power.js): ב-package.json כל כפתור / תפריט / פקודה / קיצור / תצוגה של DSViz מוסתר כש-dsviz.off, והלחצנים האדום והירוק
+ * במקומם; בהרצה — שאלה לפני כיבוי (ביטול לא משנה כלום), dsviz.off, שורת המצב, פקודות שלא עושות כלום, בלי ספרייה ובלי import אוטומטיים,
+ * בלי 💡 ובלי סימון; המצב נשמר (טעינה מחדש של התוסף עם אותו globalState — עדיין כבוי); "הפעלת DSViz" מחזיר הכול. שום קובץ לא משתנה.
+ */
+async function powerTests() {
+    const power = require(path.join(ext, 'power.js'));
+    // --- package.json: כל מה ש-DSViz מוסיף מוסתר כשכבוי
+    const pkg = JSON.parse(fs.readFileSync(path.join(ext, 'package.json'), 'utf8'));
+    const c = pkg.contributes, menus = c.menus;
+    const hidden = w => /(^|&&\s*)!dsviz\.off(\s*&&|$)/.test(String(w || '').trim());
+    const offOnly = w => /(^|&&\s*)dsviz\.off(\s*&&|$)/.test(String(w || '').trim()) && !hidden(w);
+    const missing = [];
+    for (const [menu, list] of Object.entries(menus)) {
+        if (menu.startsWith('dsviz.')) continue;   // תת-התפריטים שלנו — מוסתרים יחד עם התפריט שמכיל אותם
+        for (const e of list) {
+            const id = e.command || e.submenu;
+            if (id === 'dsviz.powerOn') { if (!offOnly(e.when)) missing.push(menu + ': ' + id + ' (צריך dsviz.off)'); continue; }
+            if (!hidden(e.when)) missing.push(menu + ': ' + id + " — when='" + (e.when || '') + "'");
+        }
+    }
+    for (const k of c.keybindings) if (!hidden(k.when)) missing.push('keybinding ' + k.command);
+    for (const v of c.views.dsviz) {
+        if (v.id === 'dsviz.offView') { if (!offOnly(v.when)) missing.push('view dsviz.offView (צריך dsviz.off)'); }
+        else if (!hidden(v.when)) missing.push('view ' + v.id);
+    }
+    const palette = new Set(menus.commandPalette.map(e => e.command));
+    for (const cmd of c.commands) if (!palette.has(cmd.command)) missing.push('commandPalette: אין ' + cmd.command);
+    assert.deepStrictEqual(missing, [], 'מה שלא מוסתר כש-DSViz כבוי');
+    const titleOf = id => c.commands.find(x => x.command === id);
+    assert(titleOf('dsviz.powerOff').title === 'כיבוי DSViz' && titleOf('dsviz.powerOn').title === 'הפעלת DSViz');
+    for (const id of ['dsviz.powerOff', 'dsviz.powerOn']) assert(fs.existsSync(path.join(ext, titleOf(id).icon)), 'הסמל של ' + id);
+    // הלחצן האדום בסוף הכפתורים שלמעלה (editor/title)
+    const nav = e => +(/@(\d+)$/.exec(e.group || '') || [0, -1])[1];
+    const top = menus['editor/title'];
+    const red = top.find(e => e.command === 'dsviz.powerOff'), green = top.find(e => e.command === 'dsviz.powerOn');
+    assert(red && green && top.every(e => nav(e) <= nav(red)) && nav(green) === nav(red), 'כיבוי / הפעלה — אחרונים למעלה: ' + JSON.stringify(top));
+    assert(c.viewsWelcome.some(v => v.view === 'dsviz.offView' && v.contents.includes('command:dsviz.powerOn')), 'בסרגל הצד כשכבוי: "הפעלת DSViz"');
+
+    // --- בהרצה: תוסף טעון מחדש, עם globalState משלו
+    const pws = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-power-'));
+    fs.writeFileSync(path.join(pws, 'Ex.java'), 'import unit4.collectionsLib.*;\npublic class Ex { Queue<Integer> q = new Queue<Integer>(); }\n');
+    const snapshot = () => { const out = {}; const walk = d => { for (const f of fs.readdirSync(d)) { const p = path.join(d, f);
+        if (fs.statSync(p).isDirectory()) walk(p); else out[path.relative(pws, p)] = fs.readFileSync(p, 'utf8'); } }; walk(pws); return out; };
+    const savedFolders = vscode.workspace.workspaceFolders, savedLang = testLang;
+    vscode.workspace.workspaceFolders = [{ uri: { fsPath: pws }, name: 'pws' }];
+    testLang = 'java';
+    const state = new Map();
+    const load = () => {
+        for (const k of Object.keys(require.cache)) if (k.startsWith(ext)) delete require.cache[k];
+        const before = lensProviders.length;
+        statusItems.length = 0;
+        let onSave = null;
+        vscode.workspace.onDidSaveTextDocument = fn => { onSave = fn; return { dispose() {} }; };
+        const e = require(path.join(ext, 'extension.js'));
+        e.activate({ subscriptions: [], extensionPath: ext, globalState: { get: k => state.get(k), update: async (k, v) => state.set(k, v) },
+            workspaceState: { get: () => undefined, update: async () => {} } });
+        delete vscode.workspace.onDidSaveTextDocument;
+        return { lens: lensProviders[before], onSave: () => onSave };
+    };
+    const visibleBar = () => statusItems.filter(i => i.visible).map(i => i.text);
+    try {
+        // 1. ברירת המחדל: פועל — dsviz.off=false, "?" בשורת המצב, ספריית הקורס נוספת לתיקייה
+        load();
+        assert.strictEqual(contextKeys[power.CONTEXT], false, 'בהתחלה DSViz פועל: dsviz.off=false');
+        assert(visibleBar().includes('$(question)') && !visibleBar().some(t => /DSViz כבוי/.test(t)), JSON.stringify(visibleBar()));
+        assert(fs.existsSync(path.join(pws, 'lib', 'dsviz.jar')), 'פועל: ספריית הקורס נוספה לתיקייה');
+        // 2. "כיבוי" ← "ביטול": שום דבר לא משתנה
+        shown.length = 0;
+        onMessage = () => undefined;
+        await commands['dsviz.powerOff']();
+        const q = shown.pop();
+        assert(q && q.kind === 'warn' && q.modal && q.text === power.OFF_TITLE && JSON.stringify(q.buttons) === JSON.stringify(['כיבוי']), 'השאלה לפני כיבוי: ' + JSON.stringify(q));
+        assert(log[log.length - 1].includes('לא משתנים') && log[log.length - 1].includes('הפעלת DSViz'), 'ההסבר: הקוד לא משתנה, ואיך מחזירים');
+        assert(contextKeys[power.CONTEXT] === false && state.get(power.KEY) !== false, 'ביטול — DSViz נשאר פועל');
+        // 3. "כיבוי" ← "כיבוי"
+        const files = snapshot();
+        onMessage = (t, b) => b[0];
+        await commands['dsviz.powerOff']();
+        onMessage = null;
+        assert(contextKeys[power.CONTEXT] === true && state.get(power.KEY) === false, 'אחרי כיבוי: dsviz.off=true, נשמר ב-globalState');
+        assert.deepStrictEqual(visibleBar(), ['$(circle-slash) DSViz כבוי'], 'שורת המצב כשכבוי: רק "DSViz כבוי"');
+        assert.strictEqual(statusItems.find(i => i.visible).command, 'dsviz.powerOn');
+        assert.deepStrictEqual(snapshot(), files, 'הכיבוי לא שינה ולא מחק אף קובץ (גם ספריית הקורס שכבר נוספה נשארת)');
+        // פקודות של DSViz לא עושות כלום (לא שואלות, לא יוצרות קבצים)
+        answers.length = 0;
+        const asked = log.length;
+        await commands['dsviz.newStack']();
+        await commands['dsviz.run']();
+        await commands['dsviz.insert']();
+        await commands['dsviz.help']();
+        assert.strictEqual(log.length, asked, 'כשכבוי הפקודות לא עושות כלום: ' + log.slice(asked).join(' | '));
+        assert.deepStrictEqual(snapshot(), files);
+        // 4. טעינה מחדש (כמו פתיחה מחדש של VS Code): עדיין כבוי. תיקייה חדשה עם קוד של הקורס — הספרייה לא נוספת; שמירה — גם לא
+        const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-power-new-'));
+        fs.writeFileSync(path.join(fresh, 'S.java'), 'public class S { Stack<String> s; }\n');
+        vscode.workspace.workspaceFolders = [{ uri: { fsPath: fresh }, name: 'fresh' }];
+        contextKeys[power.CONTEXT] = undefined;
+        const again = load();
+        const helperChange = docChange;   // onDidChangeTextDocument של התוסף (פעולות העזר) — לפני ש-register למטה מחליף אותו
+        assert.strictEqual(contextKeys[power.CONTEXT], true, 'אחרי טעינה מחדש: עדיין כבוי (dsviz.off=true)');
+        assert.deepStrictEqual(visibleBar(), ['$(circle-slash) DSViz כבוי']);
+        const ws0 = vscode.workspace.getWorkspaceFolder;
+        vscode.workspace.getWorkspaceFolder = () => vscode.workspace.workspaceFolders[0];
+        again.onSave()({ languageId: 'java', fileName: path.join(fresh, 'S.java'), uri: { fsPath: path.join(fresh, 'S.java') } });
+        vscode.workspace.getWorkspaceFolder = ws0;
+        assert(!fs.existsSync(path.join(fresh, 'lib')), 'כשכבוי: ספריית הקורס לא נוספת לבד (גם לא בשמירה)');
+        // import אוטומטי של פעולות העזר: לא נוסף
+        const helperDoc = { languageId: 'java', isClosed: false, uri: { toString: () => 'h', fsPath: path.join(fresh, 'S.java') }, positionAt: o => ({ offset: o }),
+            getText: () => 'import unit4.collectionsLib.*;\nclass S { int n = size(q); Queue<Integer> q; }' };
+        const applied = [];
+        vscode.workspace.applyEdit = async ed => { applied.push(ed); return true; };
+        vscode.WorkspaceEdit = class { constructor() { this.edits = []; } insert(u, p, t) { this.edits.push(t); } };
+        helperChange({ document: helperDoc });
+        await new Promise(r => setTimeout(r, 1000));
+        assert.strictEqual(applied.length, 0, 'כשכבוי: שורת ה-import לא נוספת לבד');
+        // 💡 הצעה לפתרון וסימון הסעיפים: אין
+        const storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsviz-power-store-'));
+        const target = path.join(fresh, 'S.java'), text = 'public class S {\n    public static int count(Stack<Integer> s) {\n        return 0;\n    }\n}\n';
+        fs.writeFileSync(path.join(storeDir, 'solutions.json'), JSON.stringify({ solutions: [{ path: target, class: 'S', method: 'count', params: ['Stack<Integer> s'], code: 'return 1;', label: 'א' }] }));
+        let on = false;
+        const sub = require(path.join(ext, 'submit.js'));
+        const lensAt = lensProviders.length;
+        const api = sub.register({ vscode, ctx: { subscriptions: [], extensionPath: ext, globalStorageUri: { fsPath: storeDir },
+                workspaceState: { get: () => [target], update: async () => {} } },
+            chooseRoot: async () => fresh, detectLanguage: () => 'java', project: require(path.join(ext, 'project.js')), cs: require(path.join(ext, 'cs.js')),
+            runner: require(path.join(ext, 'runner.js')), openFiles: async () => {}, isOn: () => on });
+        const lens = lensProviders[lensAt];
+        const doc = { uri: { fsPath: target }, getText: () => text };
+        assert.strictEqual((await lens.provideCodeLenses(doc)).length, 0, 'כשכבוי: בלי 💡');
+        const deco = [];
+        api.decorate({ document: doc, setDecorations: (t, r) => deco.push(r) });
+        assert.deepStrictEqual(deco.pop(), [], 'כשכבוי: בלי סימון של סעיפים');
+        on = true;
+        api.powerChanged();
+        assert.strictEqual((await lens.provideCodeLenses(doc)).length, 1, 'פועל: 💡 חוזר');
+        assert(again.lens, 'ספק ה-CodeLens של התוסף נרשם');
+        assert.strictEqual((await again.lens.provideCodeLenses(doc)).length, 0, 'התוסף עצמו (כבוי): בלי 💡');
+        // 5. "הפעלת DSViz": הכול חוזר — dsviz.off=false, הכפתורים בשורת המצב, וספריית הקורס נוספת לתיקייה
+        await commands['dsviz.powerOn']();
+        assert(contextKeys[power.CONTEXT] === false && state.get(power.KEY) === true, 'אחרי הפעלה: dsviz.off=false');
+        assert(visibleBar().includes('$(question)') && !visibleBar().some(t => /DSViz כבוי/.test(t)), JSON.stringify(visibleBar()));
+        assert(fs.existsSync(path.join(fresh, 'lib', 'dsviz.jar')), 'אחרי הפעלה: ספריית הקורס נבדקת שוב ונוספת');
+        helperChange({ document: helperDoc });
+        await new Promise(r => setTimeout(r, 1000));
+        assert.strictEqual(applied.length, 1, 'אחרי הפעלה: שורת ה-import נוספת שוב');
+        fs.rmSync(fresh, { recursive: true, force: true });
+        fs.rmSync(storeDir, { recursive: true, force: true });
+        log.push('כיבוי DSViz: package.json (כל הכפתורים / התפריטים / הפקודות / הקיצורים / התצוגות מוסתרים כש-dsviz.off), שאלה לפני כיבוי, '
+            + 'שורת המצב, פקודות שלא עושות כלום, בלי ספרייה / import / 💡 / סימון אוטומטיים, הקבצים לא השתנו, נשמר אחרי טעינה מחדש, הפעלה מחזירה הכול');
+    } finally {
+        onMessage = null;
+        delete vscode.workspace.applyEdit;
+        delete vscode.WorkspaceEdit;
+        vscode.workspace.workspaceFolders = savedFolders;
+        testLang = savedLang;
+        fs.rmSync(pws, { recursive: true, force: true });
     }
 }
