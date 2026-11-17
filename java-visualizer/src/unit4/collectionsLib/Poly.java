@@ -123,6 +123,7 @@ final class Poly {
         sources.clear();
         nextColor = 0;
         scanned = false;
+        relKey = null;
         cache.clear();
     }
 
@@ -1032,6 +1033,10 @@ final class Poly {
 
     /** הקשרים בין מחלקות התלמיד (בלי מאפיין מאותו סוג — רשימה מקושרת: לא מצויר קו) */
     static synchronized List<Rel> relations() {
+        int fields = 0;
+        for (ClassInfo c : classes.values()) fields += c.fields.size();
+        String key = classes.size() + "|" + fields + "|" + sources.size();
+        if (key.equals(relKey)) return relCache;   // נקרא בכל ציור — מחושב רק כשהטבלה השתנתה
         List<Rel> res = new ArrayList<Rel>();
         for (ClassInfo c : classes.values()) {
             if (c.sup != null && classes.containsKey(c.sup) && !c.isInterface) {
@@ -1056,8 +1061,13 @@ final class Poly {
                 res.add(r);
             }
         }
+        relKey = key;
+        relCache = res;
         return res;
     }
+
+    private static String relKey;
+    private static List<Rel> relCache;
 
     /** המחלקה owner יוצרת בעצמה (בתוך הקוד שלה) את העצם שבמאפיין field: field = new Part(...) / this.field = new Part(...) */
     static boolean createsItself(String owner, String field, String part) {
