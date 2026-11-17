@@ -14,6 +14,9 @@
 #   T6  הודעות: קובץ בלי Main, Main ריקה, שגיאת קומפילציה
 #   T7  שני פרויקטי הרצה בפתרון רגיל: ההרצה הרגילה מריצה את ה-Startup Project (שלא משתנה), עם שורת הודעה; הסרגל מריץ את הקובץ הפתוח
 #   T8  פרויקט שאין לו קשר ל-DSViz (Stack<int> של ‎.NET): נבנה ורץ, בלי הספרייה שלנו
+#   T13 שתי ההרצות באותו זמן על אותו קובץ (ספריית בית הספר): ההרצה הרגילה מחכה לקלט, ובזמן הזה ההרצה הוויזואלית — שתיהן רצות, כל אחת עם
+#       הספרייה שלה, והרגילה לא מופרעת
+#   T3x חבר שיש רק בספרייה של בית הספר: ההרצה הרגילה עובדת, וההרצה הוויזואלית מסבירה בעברית מה חסר בספרייה של DSViz
 #   T12 מאגר השאלות: מסך הכניסה; עם כניסה שמורה — לחיצה על נושא, על שאלה, על "צור תרגיל"; הקבצים, הפרויקט ב-Solution Explorer, הקובץ
 #       בעורך, הבנייה, הרצה ויזואלית. ושוב אחרי שמוחקים את lib\Unit4.CollectionsLib.dll מתיקיית התרגילים (התיקון העצמי)
 # לא נבדק כאן (ולמה): T9 עדכון כש-Visual Studio פתוח, T10 הרחבה מושבתת, T11 מדיניות שחוסמת PowerShell — דורשים את DSViz-Setup.exe עצמו
@@ -50,7 +53,7 @@ function JavaWindow([string]$pattern) { Get-Process javaw, java -ErrorAction Sil
 function RunnerProcs() { @(Get-CimInstance Win32_Process -Filter "Name='dsviz-cs.exe'" -ErrorAction SilentlyContinue | ForEach-Object { [string]$_.CommandLine }) }
 # סוגר את מה שנשאר מהרצה רגילה: חלון הקונסול ("Press any key"), התוכנית עצמה
 function KillRuns() {
-    $names = @('VsDebugConsole', 'SdkApp', 'TopApp', 'SchoolRef', 'SchoolClassic', 'ClassicDsviz', 'PlainStack', 'NoMain', 'EmptyMain', 'Exercise')
+    $names = @('VsDebugConsole', 'SdkApp', 'TopApp', 'SchoolRef', 'SchoolClassic', 'ClassicDsviz', 'PlainStack', 'NoMain', 'EmptyMain', 'WaitApp', 'SchoolExt', 'Exercise')
     Get-Process -Name $names -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Get-CimInstance Win32_Process -Filter "Name='cmd.exe' or Name='dotnet.exe' or Name='conhost.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -match 'CiApps|DataStructures-CS|DSViz-loose' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -554,7 +557,7 @@ Info "גרסת ההרחבה שהותקנה ב-${title}: $script:kitVersion"
 
 # ------------------------------------------------------------------ הכנה: פרויקטי הבדיקה, ה-agent של חלונות ה-Swing, כניסה שמורה
 Section 'הכנה: פרויקטי הבדיקה (CiApps.sln), קובץ בלי פרויקט, ה-agent של המאגר, כניסה שמורה'
-$apps = New-CiApps (Join-Path $env:USERPROFILE 'source\repos\CiApps')
+$apps = New-CiApps (Join-Path $env:USERPROFILE 'source\repos\CiApps') (Join-Path $root 'tools\test\helpers\SchoolUnit4.cs')
 Check 'prep-school-dll' (Test-Path (Join-Path $apps.Dir 'school-bin\Unit4.dll')) 'נבנתה ספריית בית הספר המדומה (Unit4.dll)'
 $r = & $msbuild $apps.Sln '/t:Restore' '/v:m' '/nologo' 2>&1
 $r | Set-Content (Join-Path $logs 'ciapps-restore.txt') -Encoding utf8
@@ -773,6 +776,43 @@ else {
         Step 't3-noref-intellisense'
         Note 't3-noref-intellisense' "פרויקט קלאסי בלי הפניה, הקובץ פתוח בעורך: $errs שורות ב-Error List (0 = גם IntelliSense מכיר את הספרייה שנוספה אחרי פתרון ההפניות)"
     } catch { Fail 't3-exception' 'T3 רץ עד הסוף' "$_" }
+    try {
+        AssertTime
+        Section 'T13. שתי ההרצות באותו זמן על אותו קובץ: הרגילה (ספריית בית הספר) מחכה לקלט, ובזמן הזה ההרצה הוויזואלית'
+        KillRuns; KillJava
+        SetStartup 'WaitApp\WaitApp.csproj'
+        $waitFile = Join-Path $d 'WaitApp\Program.cs'
+        $waitMd5 = (Get-FileHash $waitFile -Algorithm MD5).Hash
+        $act = OpenDoc $waitFile
+        ClearMarkers
+        $used = NormalRun 'ctrlf5' 't13'
+        $mN = WaitMarker 'wait-WaitApp' 240
+        Start-Sleep 2
+        Step 't13-normal-waiting'
+        $waiting = @(Get-Process WaitApp -ErrorAction SilentlyContinue).Count -gt 0
+        Check 't13-normal' ($mN -and $mN.Lib -eq 'Unit4' -and $waiting) "ההרצה הרגילה ($used) רצה עם Unit4 של בית הספר ומחכה לקלט (התהליך WaitApp פתוח)" "סימונים: $(Markers) · פעיל: $act"
+        $clicked = ClickToolbar 'הרצה ויזואלית' 't13-toolbar-visual-run'
+        $mV = $null
+        if ($clicked) { $mV = WaitMarker 'wait-dsviz-cs' 150 }
+        $v = WaitFor { $x = @(Viewers); if ($x.Count) { $x } } 90
+        Start-Sleep 3
+        Step 't13-both-running'
+        $stillWaiting = @(Get-Process WaitApp -ErrorAction SilentlyContinue).Count -gt 0
+        $msg = (@(Dialogs | ForEach-Object { $_.Text }) -join ' || ')
+        Check 't13-visual' ($clicked -and $mV -and $mV.Lib -eq 'Unit4.CollectionsLib' -and $v) "בזמן שההרצה הרגילה פתוחה: ההרצה הוויזואלית של אותו קובץ רצה עם Unit4.CollectionsLib (של DSViz) ונפתח החלון" "סימונים: $(Markers) · הודעות: $msg · חלונות: $((Windows) -join ' ; ')"
+        Check 't13-normal-undisturbed' ($stillWaiting -and -not $msg) 'ההרצה הרגילה לא הופרעה (WaitApp עדיין רץ ומחכה), ושום הודעה לא נפתחה' "WaitApp: $stillWaiting · הודעות: $msg"
+        Check 't13-file-unchanged' ((Get-FileHash $waitFile -Algorithm MD5).Hash -eq $waitMd5) 'הקובץ לא השתנה — אותו קוד בשתי ההרצות' ''
+        KillJava; KillRuns
+        for ($i = 0; $i -lt 30 -and -not (DesignMode); $i++) { Start-Sleep 1 }
+    } catch { Fail 't13-exception' 'T13 רץ עד הסוף' "$_" }
+    try {
+        AssertTime
+        Section 'T3x. חבר שיש רק בספרייה של בית הספר (Stack<int>.Count()): ההרצה הרגילה עובדת, ההרצה הוויזואלית מסבירה בעברית'
+        $null = CheckNormal 't3x-normal' 'SchoolExt' (Join-Path $d 'SchoolExt\Program.cs') 'schoolext' 'ctrlf5' 'Unit4' 'קוד שמשתמש ב-Count() של ספריית בית הספר'
+        CheckMessage 't3x-visual-message' (Join-Path $d 'SchoolExt\Program.cs') "אין 'Count'" 'אותו קוד בהרצה הוויזואלית (הספרייה של DSViz — בלי Count())'
+        $last = @(Dialogs | ForEach-Object { $_.Text }) -join ' || '
+        Info "ההודעה (אם עוד פתוחה): $last"
+    } catch { Fail 't3x-exception' 'T3x רץ עד הסוף' "$_" }
     try {
         AssertTime
         Section 'T7. שני פרויקטי הרצה: ה-Startup Project הוא SdkApp, והקובץ הפתוח שייך ל-TopApp'

@@ -92,46 +92,16 @@ $refs
 "@
 }
 
-# יוצר את הפתרון ב-$dir. מחזיר טבלה: Sln, Dir, ושמות הפרויקטים
-function New-CiApps([string]$dir) {
+# יוצר את הפתרון ב-$dir. $schoolSource: tools/test/helpers/SchoolUnit4.cs. מחזיר טבלה: Sln, Dir
+function New-CiApps([string]$dir, [string]$schoolSource) {
     if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
     New-Item -ItemType Directory -Force $dir | Out-Null
     $projects = New-Object System.Collections.Generic.List[object]
     function Add([string]$name, [string]$guid) { $projects.Add(@{ Name = $name; Guid = $guid }) }
 
-    # --- ספריית בית הספר: namespace Unit4.CollectionsLib ב-assembly בשם Unit4 (כמו הספרייה שבתי הספר מחלקים)
-    $school = @'
-namespace Unit4.CollectionsLib
-{
-    public class Node<T>
-    {
-        private T value; private Node<T> next;
-        public Node(T value) { this.value = value; this.next = null; }
-        public Node(T value, Node<T> next) { this.value = value; this.next = next; }
-        public T GetValue() { return value; }
-        public void SetValue(T v) { value = v; }
-        public Node<T> GetNext() { return next; }
-        public void SetNext(Node<T> n) { next = n; }
-        public bool HasNext() { return next != null; }
-    }
-    public class Stack<T>
-    {
-        private Node<T> head;
-        public void Push(T x) { head = new Node<T>(x, head); }
-        public T Pop() { T x = head.GetValue(); head = head.GetNext(); return x; }
-        public T Top() { return head.GetValue(); }
-        public bool IsEmpty() { return head == null; }
-    }
-    public class Queue<T>
-    {
-        private System.Collections.Generic.List<T> items = new System.Collections.Generic.List<T>();
-        public void Insert(T x) { items.Add(x); }
-        public T Remove() { T x = items[0]; items.RemoveAt(0); return x; }
-        public T Head() { return items[0]; }
-        public bool IsEmpty() { return items.Count == 0; }
-    }
-}
-'@
+    # --- ספריית בית הספר: namespace Unit4.CollectionsLib ב-assembly בשם Unit4, עם ה-API של ספריית הבגרות (tools/test/helpers/SchoolUnit4.cs —
+    #     אותו קובץ שמול ה-API שלו cs-tests.sh משווה את הספרייה של DSViz, חבר-חבר)
+    $school = [IO.File]::ReadAllText($schoolSource)
     # 1. כקובץ DLL מוכן (Unit4.dll, ‎.NET Framework — כמו הספרייה שבתי הספר מחלקים) — הפרויקט הקלאסי מפנה אליו ב-HintPath.
     #    המהדר של ‎.NET Framework שיש בכל Windows (C# 5 — מספיק לקוד הזה), בלי תלות בגרסת Visual Studio
     WriteCode (Join-Path $dir 'school-bin\Lib.cs') $school
@@ -142,6 +112,12 @@ namespace Unit4.CollectionsLib
     WriteCode (Join-Path $dir 'CollectionsLib\Lib.cs') $school
     WriteCode (Join-Path $dir 'CollectionsLib\CollectionsLib.csproj') "<Project Sdk=`"Microsoft.NET.Sdk`">`r`n  <PropertyGroup>`r`n    <TargetFramework>netstandard2.0</TargetFramework>`r`n    <AssemblyName>Unit4</AssemblyName>`r`n    <RootNamespace>Unit4.CollectionsLib</RootNamespace>`r`n  </PropertyGroup>`r`n</Project>`r`n"
     Add 'CollectionsLib' '{C0110001-0000-4000-8000-000000000001}'
+    # 3. ספרייה של בית ספר שהוסיפה חבר שאין בספרייה של DSViz (Stack<T>.Count()) — קוד שמשתמש בו נבנה ורץ בהרצה הרגילה; ההרצה הוויזואלית מסבירה
+    $schoolExt = $school.Replace('public bool IsEmpty() { return head == null; }', 'public bool IsEmpty() { return head == null; }' + "`r`n" + '        public int Count() { int c = 0; for (Node<T> p = head; p != null; p = p.GetNext()) c++; return c; }')
+    if ($schoolExt -eq $school) { Info 'הכנת הספרייה המורחבת (Count) נכשלה' }
+    WriteCode (Join-Path $dir 'CollectionsLibExt\Lib.cs') $schoolExt
+    WriteCode (Join-Path $dir 'CollectionsLibExt\CollectionsLibExt.csproj') "<Project Sdk=`"Microsoft.NET.Sdk`">`r`n  <PropertyGroup>`r`n    <TargetFramework>netstandard2.0</TargetFramework>`r`n    <AssemblyName>Unit4</AssemblyName>`r`n    <RootNamespace>Unit4.CollectionsLib</RootNamespace>`r`n  </PropertyGroup>`r`n</Project>`r`n"
+    Add 'CollectionsLibExt' '{C0110001-0000-4000-8000-00000000000A}'
 
     $schoolProgram = @'
 using System;
@@ -246,6 +222,48 @@ class Program
     WriteCode (Join-Path $dir 'EmptyMain\EmptyMain.csproj') (SdkCsproj '')
     Add 'EmptyMain' '{C0110001-0000-4000-8000-000000000009}'
 
+    # --- WaitApp: ספריית בית הספר ב-ProjectReference, והתוכנית מחכה לקלט (Console.ReadLine) — ההרצה הרגילה נשארת פתוחה, ובזמן הזה
+    #     ההרצה הוויזואלית של אותו קובץ. הסימון: run-wait-<תהליך>.txt (WaitApp בהרצה הרגילה, dsviz-cs בהרצה הוויזואלית)
+    WriteCode (Join-Path $dir 'WaitApp\Program.cs') (@'
+using System;
+using Unit4.CollectionsLib;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        Stack<int> s = new Stack<int>();
+        s.Push(7);
+        Ci.Mark("wait-" + System.Diagnostics.Process.GetCurrentProcess().ProcessName, typeof(Stack<int>).Assembly.GetName().Name);
+        Console.WriteLine("WAIT " + s.Top() + " - press Enter");
+        string line = Console.ReadLine();
+        Console.WriteLine("got " + line);
+    }
+}
+'@ + $script:ciHelper)
+    WriteCode (Join-Path $dir 'WaitApp\WaitApp.csproj') (SdkCsproj "`r`n  <ItemGroup>`r`n    <ProjectReference Include=`"..\CollectionsLib\CollectionsLib.csproj`" />`r`n  </ItemGroup>`r`n")
+    Add 'WaitApp' '{C0110001-0000-4000-8000-00000000000B}'
+
+    # --- SchoolExt: קוד שמשתמש ב-Stack<int>.Count() של הספרייה המורחבת (חבר שאין בספרייה של DSViz)
+    WriteCode (Join-Path $dir 'SchoolExt\Program.cs') (@'
+using System;
+using Unit4.CollectionsLib;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        Stack<int> s = new Stack<int>();
+        s.Push(4);
+        s.Push(9);
+        Ci.Mark("schoolext", typeof(Stack<int>).Assembly.GetName().Name);
+        Console.WriteLine("COUNT " + s.Count());
+    }
+}
+'@ + $script:ciHelper)
+    WriteCode (Join-Path $dir 'SchoolExt\SchoolExt.csproj') (SdkCsproj "`r`n  <ItemGroup>`r`n    <ProjectReference Include=`"..\CollectionsLibExt\CollectionsLibExt.csproj`" />`r`n  </ItemGroup>`r`n")
+    Add 'SchoolExt' '{C0110001-0000-4000-8000-00000000000C}'
+
     # --- קובץ בודד עם שגיאת קומפילציה (לא שייך לאף פרויקט; בתיקייה בלי ‎.csproj‎ מעליה)
     WriteCode (Join-Path $dir 'loose\Bad.cs') "using System;`r`n`r`nclass Bad`r`n{`r`n    static void Main(string[] args)`r`n    {`r`n        int x = `"not a number`";`r`n        Console.WriteLine(x);`r`n    }`r`n}`r`n"
 
@@ -263,5 +281,5 @@ class Program
     $lines.Add('EndGlobal')
     $sln = Join-Path $dir 'CiApps.sln'
     [IO.File]::WriteAllText($sln, (($lines -join "`r`n") + "`r`n"), (New-Object Text.UTF8Encoding($true)))
-    return @{ Sln = $sln; Dir = $dir; Names = @($projects | ForEach-Object { $_.Name }) }
+    return @{ Sln = $sln; Dir = $dir }
 }
