@@ -739,6 +739,66 @@ sed 's/        Console.WriteLine(q.Head()/        Console.WriteLine(typeof(Grid)
 ! viz "$W/marked/Grid" --trace "$W/marked-grid.trace" > "$W/marked-grid.viz" 2>&1 && grep -q "'Grid' היא מהספרייה של בית הספר (Unit4.GridLib)" "$W/marked-grid.viz" \
     || { echo "שימוש ב-Grid בפרויקט של DSViz: צריך הסבר בעברית שזו ספרייה גרפית של בית הספר"; cat "$W/marked-grid.viz"; exit 1; }
 echo "התבנית של בתי הספר בפרויקט של DSViz (using ל-11 הספריות הגרפיות + alias): הרצה רגילה והרצה ויזואלית — אותו פלט; שגיאת הקלדה — שגיאה בשתיהן; Grid — הסבר בעברית"
+# יח3. הורשה ופולימורפיזם יחד עם Unit4 (התבנית של בתי הספר): מערך של מחלקת העל, Queue / Stack / Node של עצמים מהמחלקות, is והמרה,
+#      דריסה (override) והסתרה (new) — הרצה רגילה והרצה ויזואלית, אותו פלט. ומחלקה של התלמיד/ה בשם Stack ב-namespace אחר עם using:
+#      CS0104 בשתי ההרצות, ובוויזואלית — הסבר בעברית
+rm -rf "$W/marked/PolyU4" "$W/marked/Mine" && mkdir -p "$W/marked/PolyU4" "$W/marked/Mine"
+for d in PolyU4 Mine; do cp "$ROOT/csharp/project/Exercise/Exercise.csproj" "$W/marked/$d/$d.csproj"; done
+cat > "$W/marked/PolyU4/Program.cs" <<'CS'
+using System;
+using Unit4.CollectionsLib;
+using Unit4.BinTreeUtilsLib;
+using Unit4.GridLib;
+
+class Animal
+{
+    protected string name;
+    public Animal(string name) { this.name = name; }
+    public string GetName() { return name; }
+    public virtual string Say() { return "..."; }
+    public override string ToString() { return GetType().Name + ":" + name; }
+}
+class Dog : Animal
+{
+    public Dog(string name) : base(name) { }
+    public override string Say() { return "Woof"; }
+}
+class Cat : Animal
+{
+    public Cat(string name) : base(name) { }
+    public override string Say() { return "Meow"; }
+    public new string GetName() { return "cat " + name; }
+}
+class Program
+{
+    static void Main()
+    {
+        Animal[] zoo = { new Dog("Rex"), new Cat("Tom"), new Animal("Bob") };
+        Queue<Animal> q = new Queue<Animal>();
+        Stack<Animal> s = new Stack<Animal>();
+        foreach (Animal a in zoo) { q.Insert(a); s.Push(a); }
+        Node<Animal> n = new Node<Animal>(zoo[0], new Node<Animal>(zoo[1]));
+        int dogs = 0;
+        while (!q.IsEmpty()) { Animal a = q.Remove(); Console.WriteLine(a.GetName() + " " + a.Say()); if (a is Dog) dogs++; }
+        Animal c = zoo[1];
+        Console.WriteLine(c.GetName() + " / " + ((Cat)c).GetName());
+        Console.WriteLine("dogs=" + dogs + " top=" + s.Top() + " n=" + n.GetValue().Say() + "," + n.GetNext().GetValue().Say());
+        Console.WriteLine(s);
+    }
+}
+CS
+msb "$W/marked/PolyU4" > "$W/marked-poly.out" 2>&1
+grep -q 'Build succeeded' "$W/marked-poly.out" && dotnet "$W/marked/PolyU4/bin/Debug/net8.0/PolyU4.dll" > "$W/marked-poly.normal" \
+    || { echo "הורשה + Unit4 בפרויקט של DSViz: ההרצה הרגילה נכשלה"; grep -E 'error' "$W/marked-poly.out" | head -5; exit 1; }
+viz "$W/marked/PolyU4" --trace "$W/marked-poly.trace" 2>&1 | grep -v '^הרצה ויזואלית' > "$W/marked-poly.viz"
+cmp -s "$W/marked-poly.normal" "$W/marked-poly.viz" && grep -qx 'Tom / cat Tom' "$W/marked-poly.viz" && grep -q '^CLS	Dog	Animal' "$W/marked-poly.trace" \
+    || { echo "הורשה + Unit4: הפלט של ההרצה הוויזואלית שונה מהרגילה (או בלי שורות CLS)"; diff "$W/marked-poly.normal" "$W/marked-poly.viz"; grep -m3 '^CLS' "$W/marked-poly.trace"; exit 1; }
+printf 'using System;\nusing Unit4.CollectionsLib;\nusing Mine;\n\nclass Program\n{\n    static void Main()\n    {\n        Stack<int> s = new Stack<int>();\n        Console.WriteLine(s);\n    }\n}\n' > "$W/marked/Mine/Program.cs"
+printf 'namespace Mine\n{\n    public class Stack<T> { public override string ToString() { return "mine"; } }\n}\n' > "$W/marked/Mine/Mine.cs"
+! msb "$W/marked/Mine" > "$W/marked-mine.out" 2>&1; grep -q "error CS0104" "$W/marked-mine.out" \
+    && ! viz "$W/marked/Mine" --trace "$W/marked-mine.trace" > "$W/marked-mine.viz" 2>&1 && grep -q 'השם Stack קיים גם בספרייה (Unit4.CollectionsLib.Stack) וגם בקוד שלכם (Mine.Stack)' "$W/marked-mine.viz" \
+    || { echo "מחלקה בשם Stack ב-namespace אחר: צריכה להיות CS0104 בשתי ההרצות והסבר בעברית"; grep error "$W/marked-mine.out" | head -3; cat "$W/marked-mine.viz"; exit 1; }
+echo "הורשה + Unit4 (מערך של מחלקת העל, Queue / Stack / Node של עצמים, is, המרה, override ו-new): אותו פלט בשתי ההרצות; Stack של התלמיד/ה — CS0104 והסבר בעברית"
 # אותו קוד בפרויקט לא מסומן (בלי Directory.Build.props): לא נבנה — Stack שם הוא של ‎.NET, כמו בלי DSViz (אין using אוטומטי)
 rm -rf "$W/unmarked" && mkdir -p "$W/unmarked"
 printf 'Stack<int> s = new Stack<int>(); s.Push(4);\nQueue<int> q = new Queue<int>(); q.Insert(1);\nConsole.WriteLine(s.Count);\n' > "$W/unmarked/Program.cs"

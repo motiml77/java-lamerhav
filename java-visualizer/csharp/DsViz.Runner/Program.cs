@@ -505,6 +505,14 @@ namespace DsViz
             if (errors.Any(e => e.Id == "CS0104" && e.GetMessage().Contains("Unit4.CollectionsLib") && e.GetMessage().Contains("System.Collections.Generic")))
                 yield return "← Stack / Queue קיימים גם ב-‎.NET (System.Collections.Generic) וגם בספרייה. מוחקים את השורה using System.Collections.Generic; מראש הקובץ"
                     + " (אותה שגיאה מופיעה גם ב-Visual Studio). אם צריך גם List — כותבים בשם המלא: System.Collections.Generic.List<int>.";
+            // מחלקה של התלמיד/ה באותו שם כמו סוג של Unit4 (Stack, Queue, Node...) ב-namespace אחר שיש עליו using
+            var mine = errors.Where(e => e.Id == "CS0104" && e.GetMessage().Contains("Unit4.CollectionsLib") && !e.GetMessage().Contains("System.Collections.Generic"))
+                .Select(e => System.Text.RegularExpressions.Regex.Match(e.GetMessage(), "'([^']+)'[^']*'([^']+)'[^']*'([^']+)'"))
+                .Where(m => m.Success).Select(m => new { Name = m.Groups[1].Value.Replace("<>", ""), Other = m.Groups[2].Value.StartsWith("Unit4.") ? m.Groups[3].Value : m.Groups[2].Value })
+                .GroupBy(x => x.Name).Select(g => g.First()).ToList();
+            foreach (var m in mine)
+                yield return "← השם " + m.Name + " קיים גם בספרייה (Unit4.CollectionsLib." + m.Name + ") וגם בקוד שלכם (" + m.Other.Replace("<T>", "") + ")."
+                    + " משנים את השם של המחלקה שלכם (למשל My" + m.Name + "), או כותבים בשם המלא. אותה שגיאה מופיעה גם ב-Visual Studio.";
             if (errors.Any(e => e.Id == "CS0103" && e.GetMessage().Contains("'Console'")))
                 yield return "← חסרה בראש הקובץ השורה: using System;";
             if (ids.Contains("CS0246") && errors.Any(e => e.GetMessage().Contains("'Unit4'")))
