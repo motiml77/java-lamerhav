@@ -74,7 +74,7 @@ namespace DsViz.VsExtension
 
         /// <summary>
         /// הרצה ויזואלית: כמו Start, אבל אוספים את מה ש-dsviz-cs כותב. בלי חלון הוא כותב את ההסבר ל-stderr — ובלי זה כשההרצה נכשלת
-        /// (שגיאת קומפילציה, אין Main) הלחיצה על הכפתור "לא עושה כלום". אם התהליך נגמר בקוד שאינו 0 — onFail מקבל את ההסבר.
+        /// (שגיאת קומפילציה, אין Main) הלחיצה על הכפתור "לא עושה כלום". אם dsviz-cs נגמר בקוד 1/2/3 עם הסבר — onFail מקבל אותו.
         /// כשההרצה מצליחה התהליך ממשיך (החלון של התצוגה), ולא קורה כלום.
         /// </summary>
         public static void Run(Action<string> onFail, params string[] args)
@@ -97,11 +97,13 @@ namespace DsViz.VsExtension
             {
                 int code;
                 try { p.WaitForExit(); code = p.ExitCode; } catch (Exception) { return; }   // WaitForExit() בלי זמן: מחכה שגם הקריאה מהצינורות תיגמר
-                if (code == 0) return;
+                // רק כשההרצה לא התחילה ו-dsviz-cs הסביר למה: 1 = שגיאות קומפילציה, 2 = אין מה להריץ (אין Main, Main ריקה, קובץ לא נמצא),
+                // 3 = תקלה פנימית. קוד אחר (תהליך שנסגר בכוח, החלון נסגר באמצע ההרצה) — בלי חלון הודעה: זו לא תקלה של התלמיד,
+                // וחלון מודאלי היה תוקע את Visual Studio עד שמישהו לוחץ "אישור"
+                if (code != 1 && code != 2 && code != 3) return;
                 string text;
                 lock (err) text = err.ToString().Trim();
-                if (text.Length == 0) lock (outp) text = outp.ToString().Trim();
-                if (text.Length == 0) text = "ההרצה נעצרה (קוד " + code + ") בלי הסבר.";
+                if (text.Length == 0) return;
                 if (text.Length > 1500) text = text.Substring(0, 1500) + "…";
                 try { onFail("ההרצה הוויזואלית לא התחילה:" + Environment.NewLine + Environment.NewLine + text); } catch (Exception) { }
             };
