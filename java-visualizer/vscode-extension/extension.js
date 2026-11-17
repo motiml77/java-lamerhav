@@ -491,7 +491,8 @@ async function openHelp(id) {
     try { durations = JSON.parse(fs.readFileSync(path.join(dir, 'tutorials.json'), 'utf8')); } catch (e) { /* בלי משכים */ }
     if (!id) {
         const pick = await vscode.window.showQuickPick(
-            help.TUTORIALS.map(t => ({ label: t.num + '  ·  ' + t.title, description: durations[t.id] || '', detail: t.desc, id: t.id })),
+            // ההדרכה של Visual Studio בלבד (vsOnly) — לא ברשימה של VS Code, כמו בנגן עצמו (playerPage)
+            help.TUTORIALS.filter(t => !t.vsOnly).map(t => ({ label: t.num + '  ·  ' + t.title, description: durations[t.id] || '', detail: t.desc, id: t.id })),
             { title: 'הדרכה לשימוש', placeHolder: 'איזו הדרכה לצפות?', matchOnDetail: true });
         if (!pick) return;
         id = pick.id;
