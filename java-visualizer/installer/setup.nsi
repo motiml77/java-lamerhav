@@ -17,9 +17,9 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !ifndef VERSION
   !define VERSION "1.0.1"
 !endif
-; הגרסה המוצגת (ברישום, בכותרת ההתקנה): 1.0.1.<מספר הבנייה>; בלי BUILDNO — רק 1.0.1
-!ifdef BUILDNO
-  !define FULLVER "${VERSION}.${BUILDNO}"
+; הגרסה המוצגת (ברישום של Windows, בכותרת ההתקנה, במאפייני הקובץ): הקצרה — 1.0.<מספר העדכון> (build-all.sh מעביר SHORTVER); בלי — 1.0.1
+!ifdef SHORTVER
+  !define FULLVER "${SHORTVER}"
 !else
   !define FULLVER "${VERSION}"
 !endif
@@ -43,11 +43,11 @@ Target amd64-unicode   ; Windows 10/11 של 64 ביט (כל המחשבים הי�
 !define PLUGIN "il.lamerhav.dsviz_${VERSION}.jar"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DSViz"
 
-VIProductVersion "${VERSION}.0"
+VIProductVersion "${FULLVER}.0"
 VIAddVersionKey /LANG=1037 "ProductName" "DSViz — Data Structures Visualizer"
 VIAddVersionKey /LANG=1037 "FileDescription" "הרצה ויזואלית למבני נתונים — תוכנית התקנה"
-VIAddVersionKey /LANG=1037 "FileVersion" "${VERSION}"
-VIAddVersionKey /LANG=1037 "ProductVersion" "${VERSION}"
+VIAddVersionKey /LANG=1037 "FileVersion" "${FULLVER}"
+VIAddVersionKey /LANG=1037 "ProductVersion" "${FULLVER}"
 VIAddVersionKey /LANG=1037 "CompanyName" "Moti Levi"
 VIAddVersionKey /LANG=1037 "LegalCopyright" "© 2026 Moti Levi (motiml77@gmail.com)"
 

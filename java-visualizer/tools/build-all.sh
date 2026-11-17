@@ -15,6 +15,17 @@ VERSION=1.0.1
 # מספר הבנייה (תאריך ושעה, UTC) — עולה בכל בנייה. נכנס ל-Bundle-Version של התוסף ל-Eclipse (1.0.1.v<מספר>), להתקנה
 # ול-version.json: Eclipse מעדיף תמיד את הגרסה הגבוהה יותר, כך שעותק ישן של התוסף (שנשאר במקום אחר) לא יכול "לנצח"
 BUILDNO=${BUILDNO:-$(date -u +%Y%m%d%H%M)}
+# הגרסה שמוצגת לאנשים (בתחתית דף ההדרכה, בשם הקובץ של ההתקנה, ב-Windows): קצרה — 1.0.<מספר העדכון>, ועולה ב-1 בכל עדכון שמתפרסם.
+# העדכון הקודם הוא זה שבקישור הקבוע (release/version.json ב-master, השדה number); בנייה חוזרת לפני הפרסום מקבלת אותו מספר.
+# BUILDNO (הארוך) נשאר בשביל המחשב: העדכון האוטומטי והאתר משווים לפיו, ו-Eclipse / VS Code מעדיפים לפיו את הגרסה החדשה.
+# RELEASE_NUMBER=7 — לקבוע ידנית
+if [ -z "$RELEASE_NUMBER" ]; then
+    PREV=$(git show origin/master:java-visualizer/release/version.json 2>/dev/null | sed -n 's/.*"number": *\([0-9][0-9]*\).*/\1/p')
+    [ -n "$PREV" ] || PREV=$(git show master:java-visualizer/release/version.json 2>/dev/null | sed -n 's/.*"number": *\([0-9][0-9]*\).*/\1/p')
+    RELEASE_NUMBER=$(( ${PREV:-1} + 1 ))   # לפני השיטה הזו הגרסה המפורסמת הייתה 1.0.1 — הבאה 1.0.2
+fi
+SHORTVER=${VERSION%.*}.$RELEASE_NUMBER
+echo "גרסה $SHORTVER (בנייה $BUILDNO)"
 
 tools/build-lib.sh
 
@@ -50,9 +61,9 @@ if command -v ffprobe >/dev/null 2>&1; then node tools/build-help.js; else echo 
 rm -rf build/help && mkdir -p build/help && cp help/index.html help/player.html help/tutorials.json help/*.mp4 help/*.jpg build/help/ 2>/dev/null || true
 # לכל סביבה הסרטונים שלה: help/ (Eclipse), help/vscode/, help/vs/ (Visual Studio) — בהתקנה כולם, וכל כלי פותח את התיקייה שלו
 for d in vscode vs; do [ -d help/$d ] && mkdir -p build/help/$d && cp help/$d/index.html help/$d/player.html help/$d/tutorials.json help/$d/*.mp4 help/$d/*.jpg build/help/$d/ 2>/dev/null || true; done
-# הגרסה המדויקת (1.0.1.<מספר הבנייה>) — version.js ליד כל דף הדרכה שנארז (דף ההדרכה מציג אותה בתחתית; בלי הקובץ — לא מציג כלום)
+# הגרסה ($SHORTVER, למשל 1.0.2) — version.js ליד כל דף הדרכה שנארז (דף ההדרכה והנגן מציגים אותה בתחתית; בלי הקובץ — לא מציג כלום)
 for d in build/help build/help/vscode build/help/vs; do
-    if [ -f "$d/index.html" ]; then echo "window.DSVIZ_VERSION = \"$VERSION.$BUILDNO\";" > "$d/version.js"; fi
+    if [ -f "$d/index.html" ]; then echo "window.DSVIZ_VERSION = \"$SHORTVER\";" > "$d/version.js"; fi
 done
 
 echo "== Eclipse"
@@ -147,15 +158,16 @@ if command -v makensis >/dev/null 2>&1; then
     # מאגר התרגילים (Eclipse, IntelliJ, Visual Studio) — נכנס להתקנה ולעדכון האוטומטי; BUILDNO אחד לכל הבנייה
     BUILDNO=$BUILDNO sh tools/build-bank-all.sh
     # BUILDNO (למעלה) — העדכון האוטומטי מתקין כל בנייה חדשה יותר; אותו מספר כמו ב-Bundle-Version של התוסף ל-Eclipse
-    (cd installer && makensis -V2 -DVERSION=$VERSION -DBUILDNO=$BUILDNO setup.nsi)
+    (cd installer && makensis -V2 -DVERSION=$VERSION -DBUILDNO=$BUILDNO -DSHORTVER=$SHORTVER setup.nsi)
     echo "release/DSViz-Setup.exe"
-    # עותק עם הגרסה המדויקת בשם הקובץ (השם הקבוע DSViz-Setup.exe נשאר — הקישור הקבוע וה-version.json מצביעים עליו). ישנים מוסרים
-    cp release/DSViz-Setup.exe "release/DSViz-Setup-$VERSION.$BUILDNO.exe"
-    for f in release/DSViz-Setup-*.exe; do [ "$f" = "release/DSViz-Setup-$VERSION.$BUILDNO.exe" ] || rm -f "$f"; done
+    # עותק עם הגרסה בשם הקובץ (DSViz-Setup-1.0.2.exe; השם הקבוע DSViz-Setup.exe נשאר — הקישור הקבוע וה-version.json מצביעים עליו). ישנים מוסרים
+    cp release/DSViz-Setup.exe "release/DSViz-Setup-$SHORTVER.exe"
+    for f in release/DSViz-Setup-*.exe; do [ "$f" = "release/DSViz-Setup-$SHORTVER.exe" ] || rm -f "$f"; done
     # מה העדכון האוטומטי (installer/update.ps1) בודק: הגרסה, מספר הבנייה, והקובץ (עם SHA-256 — כדי לוודא שהורד שלם)
-    printf '{\n  "version": "%s",\n  "build": %s,\n  "url": "https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe",\n  "sha256": "%s"\n}\n' \
-        "$VERSION" "$BUILDNO" "$(sha256sum release/DSViz-Setup.exe | cut -d' ' -f1)" > release/version.json
-    echo "release/version.json (build $BUILDNO)"
+    # number — מספר העדכון (הגרסה הקצרה); build — מה שהעדכון האוטומטי והאתר משווים (תאריך ושעה)
+    printf '{\n  "version": "%s",\n  "number": %s,\n  "build": %s,\n  "url": "https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe",\n  "sha256": "%s"\n}\n' \
+        "$SHORTVER" "$RELEASE_NUMBER" "$BUILDNO" "$(sha256sum release/DSViz-Setup.exe | cut -d' ' -f1)" > release/version.json
+    echo "release/version.json (גרסה $SHORTVER, build $BUILDNO)"
 else
     echo "makensis לא מותקן (apt install nsis) — DSViz-Setup.exe לא נבנה מחדש"
 fi
