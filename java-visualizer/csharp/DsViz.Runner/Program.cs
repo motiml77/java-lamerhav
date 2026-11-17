@@ -252,7 +252,13 @@ namespace DsViz
             {
                 foreach (Diagnostic d in errors) Console.Error.WriteLine(Format(d));
                 foreach (string hint in Hints(errors, project)) Console.Error.WriteLine(hint);
-                Console.Error.WriteLine("הקומפילציה נכשלה — " + errors.Count + " שגיאות. מתקנים ומריצים שוב.");
+                // קוד שמשתמש במשהו שאין בספרייה של DSViz (למשל פעולה שקיימת רק בספרייה של בית הספר): ההסבר — מה חסר, ושההרצה הרגילה לא מושפעת
+                int gaps;
+                foreach (string gap in LibraryGaps(errors, original, project, out gaps)) Console.Error.WriteLine(gap);
+                if (gaps > 0 && gaps == errors.Count && project.SchoolLib != null)
+                    Console.Error.WriteLine("ההרצה הוויזואלית לא יכולה להריץ את הקוד הזה עם הספרייה של DSViz. ההרצה הרגילה (הכפתור הירוק) לא מושפעת — היא בונה עם " + project.SchoolLib + ".");
+                else
+                    Console.Error.WriteLine("הקומפילציה נכשלה — " + errors.Count + " שגיאות. מתקנים ומריצים שוב.");
                 return 1;
             }
 
@@ -474,6 +480,72 @@ namespace DsViz
                 yield return "← הספרייה נקראת Unit4.CollectionsLib: בראש הקובץ — using Unit4.CollectionsLib;";
         }
 
+        /// <summary>
+        /// שגיאות שנובעות מכך שבספרייה של DSViz (Unit4.CollectionsLib) אין חבר שהקוד משתמש בו: פעולה / מאפיין שאין בסוג של הספרייה
+        /// (CS1061, CS0117), או בנאי / פעולה עם מספר פרמטרים אחר (CS1729, CS1501, CS7036). ההרצה הוויזואלית מקמפלת תמיד מול הספרייה של
+        /// DSViz — גם כשהפרויקט מפנה לספרייה של בית הספר (Unit4) — ולכן קוד שמשתמש בחבר שקיים רק שם נבנה בהרצה הרגילה ולא כאן.
+        /// לכל שגיאה כזו: הסבר בעברית — מה חסר, ומה יש בסוג הזה בספרייה של DSViz.
+        /// </summary>
+        static List<string> LibraryGaps(List<Diagnostic> errors, Compilation comp, ProjectInfo project, out int covered)
+        {
+            var lines = new List<string>();
+            covered = 0;   // כמה מהשגיאות הן מהסוג הזה (גם כשההסבר עליהן כבר נכתב)
+            var seen = new HashSet<string>();
+            foreach (Diagnostic e in errors)
+            {
+                // סוג שאין בספרייה של DSViz (למשל BinTreeNode של גרסה ישנה), בפרויקט שמפנה לספרייה של בית הספר
+                if (e.Id == "CS0246" && project.SchoolLib != null)
+                {
+                    var tm = System.Text.RegularExpressions.Regex.Match(e.GetMessage(), "'([^']+)'");
+                    string tn = tm.Success ? tm.Groups[1].Value.Replace("<>", "") : "?";
+                    covered++;
+                    if (seen.Add(tn))
+                        lines.Add("← הסוג '" + tn + "' לא קיים בספרייה של DSViz (Unit4.CollectionsLib). אם הוא מהספרייה שהפרויקט מפנה אליה (" + project.SchoolLib
+                            + ") — ההרצה הרגילה בונה איתה ועובדת כרגיל, אבל ההרצה הוויזואלית משתמשת תמיד בספרייה של DSViz (Node, BinNode, Stack, Queue).");
+                    continue;
+                }
+                if (e.Id != "CS1061" && e.Id != "CS0117" && e.Id != "CS1729" && e.Id != "CS1501" && e.Id != "CS7036") continue;
+                if (!e.Location.IsInSource) continue;
+                INamedTypeSymbol type = null;
+                string member = null;
+                try
+                {
+                    SyntaxTree tree = e.Location.SourceTree;
+                    SemanticModel model = comp.GetSemanticModel(tree);
+                    SyntaxNode node = tree.GetRoot().FindNode(e.Location.SourceSpan, getInnermostNodeForTie: true);
+                    for (SyntaxNode n = node; n != null && type == null; n = n.Parent)
+                    {
+                        if (n is MemberAccessExpressionSyntax ma)
+                        {
+                            type = model.GetTypeInfo(ma.Expression).Type as INamedTypeSymbol ?? model.GetSymbolInfo(ma.Expression).Symbol as INamedTypeSymbol;
+                            member = ma.Name.Identifier.ValueText;
+                        }
+                        else if (n is ObjectCreationExpressionSyntax oc)
+                        {
+                            type = model.GetTypeInfo(oc).Type as INamedTypeSymbol;
+                            member = "new " + (type == null ? "" : type.Name) + "(" + (oc.ArgumentList == null ? 0 : oc.ArgumentList.Arguments.Count) + " פרמטרים)";
+                        }
+                        else if (n is StatementSyntax) break;
+                    }
+                }
+                catch (Exception) { }
+                if (type == null || type.ContainingNamespace == null || type.ContainingNamespace.ToDisplayString() != "Unit4.CollectionsLib") continue;
+                if (type.ContainingAssembly == null || type.ContainingAssembly.Name != "Unit4.CollectionsLib") continue;
+                covered++;
+                string typeName = type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                if (!seen.Add(typeName + "." + member)) continue;
+                var have = type.GetMembers().OfType<IMethodSymbol>()
+                    .Where(m => m.DeclaredAccessibility == Accessibility.Public && m.MethodKind == MethodKind.Ordinary && !m.IsStatic && m.Name != "ToString" && m.Name != "Equals" && m.Name != "GetHashCode")
+                    .Select(m => m.Name).Distinct().ToList();
+                string where = project.SchoolLib != null
+                    ? " הוא כנראה קיים בספרייה שהפרויקט מפנה אליה (" + project.SchoolLib + ") — ההרצה הרגילה בונה איתה ועובדת כרגיל, אבל ההרצה הוויזואלית משתמשת תמיד בספרייה של DSViz."
+                    : "";
+                lines.Add("← ב-" + typeName + " של הספרייה של DSViz (Unit4.CollectionsLib) אין '" + member + "'." + where
+                    + (have.Count > 0 ? " יש בה: " + string.Join(", ", have) + "." : ""));
+            }
+            return lines;
+        }
+
         static int RunProgram(MethodInfo entry, string[] args)
         {
             try
@@ -568,6 +640,11 @@ namespace DsViz
         public string Csproj;          // קובץ הפרויקט (או null)
         public bool SdkStyle;          // פרויקט ‎.NET חדש (<Project Sdk=...>) — יש לו launchSettings.json
         public LanguageVersion LangVersion = LanguageVersion.Latest;
+        /// <summary>
+        /// הספרייה של בית הספר שהפרויקט מפנה אליה (assembly ששמו מתחיל ב-Unit4 ואינו Unit4.CollectionsLib של DSViz — Reference / HintPath,
+        /// או ProjectReference לפרויקט שה-AssemblyName שלו כזה), או null. ההרצה הוויזואלית לא משתמשת בה — רק מסבירה כשחסר משהו בספרייה של DSViz
+        /// </summary>
+        public string SchoolLib;
 
         /// <summary>
         /// הנתיב שביקשו להריץ, מנורמל: בלי מרכאות / רווחים בקצוות, נתיב מלא. קובץ שאינו .cs / .csproj (למשל .sln) — התיקייה שלו.
@@ -642,6 +719,7 @@ namespace DsViz
                     // ההרצה הוויזואלית מוסיפה קובץ global using משלה (C# 10), ובגרסה ישנה הוא לא מתקמפל (CS8773) — "ההרצה לא התחילה"
                     // בלי שהתלמיד עשה משהו לא נכון. קוד שנכתב לגרסה ישנה מתקמפל גם בחדשה; את גרסת השפה של הפרויקט אוכפת הבנייה הרגילה
                     if (p.LangVersion.MapSpecifiedToEffectiveVersion() < LanguageVersion.CSharp10) p.LangVersion = LanguageVersion.Latest;
+                    p.SchoolLib = SchoolLibrary(x, csproj);
                 }
                 catch (Exception) { }
             }
@@ -659,6 +737,37 @@ namespace DsViz
             }
             p.Files.Sort(StringComparer.OrdinalIgnoreCase);
             return p;
+        }
+
+        /// <summary>שם ה-assembly של הספרייה של בית הספר שהפרויקט מפנה אליה (ראו SchoolLib), או null</summary>
+        static string SchoolLibrary(XDocument x, string csproj)
+        {
+            bool School(string n) { return n != null && n.StartsWith("Unit4", StringComparison.OrdinalIgnoreCase) && !n.Equals("Unit4.CollectionsLib", StringComparison.OrdinalIgnoreCase); }
+            foreach (XElement e in x.Descendants().Where(e => e.Name.LocalName == "Reference"))
+            {
+                string inc = ((string)e.Attribute("Include") ?? "").Split(',')[0].Trim();
+                string hint = e.Elements().Where(h => h.Name.LocalName == "HintPath").Select(h => h.Value.Trim()).FirstOrDefault();
+                string file = hint == null ? null : Path.GetFileNameWithoutExtension(hint.Replace('\\', '/').Split('/').Last());
+                if (School(inc)) return inc;
+                if (School(file)) return file;
+            }
+            foreach (XElement e in x.Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
+            {
+                try
+                {
+                    string inc = ((string)e.Attribute("Include") ?? "").Replace('\\', Path.DirectorySeparatorChar);
+                    string other = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(csproj), inc));
+                    string name = Path.GetFileNameWithoutExtension(other);
+                    if (File.Exists(other))
+                    {
+                        string an = XDocument.Load(other).Descendants().Where(a => a.Name.LocalName == "AssemblyName").Select(a => a.Value.Trim()).FirstOrDefault();
+                        if (!string.IsNullOrEmpty(an)) name = an;
+                    }
+                    if (School(name)) return name;
+                }
+                catch (Exception) { }
+            }
+            return null;
         }
 
         /// <summary>הפרויקט (.csproj) שהתיקייה שייכת אליו — בתיקייה עצמה או עד 4 תיקיות למעלה</summary>
