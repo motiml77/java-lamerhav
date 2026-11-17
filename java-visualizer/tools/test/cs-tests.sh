@@ -896,5 +896,34 @@ sed 's/using Unit4.GridLib;/using Unit4.Colections;/' "$ST/app/Program.cs" > "$S
     || { echo "using עם שגיאת הקלדה (Unit4.Colections) צריך להישאר שגיאה, כמו בהרצה הרגילה"; cat "$ST/typo.out"; exit 1; }
 echo "מול Unit4.dll האמיתי: כל $(grep -c . "$ST/graphics.txt") הסוגים שאין אצלנו רשומים כגרפיים (עם הסבר), using לכל $NS_COUNT ה-namespaces — ההרצה הוויזואלית מתחילה, ושגיאת הקלדה ב-using נשארת שגיאה"
 
+# ל. הגרסה של Unit4.dll שהמורים משתמשים בה בפועל (helpers/school-unit4.sh — school_unit4_teachers; קטנה יותר: בלי StackInt ועוד).
+#    אותן בדיקות: כל חבר של האוספים / BinTreeUtils / TreeCanvas קיים אצלנו, כל סוג אחר רשום כגרפי, תבנית בית הספר ו-using לכל
+#    ה-namespaces — ההרצה הוויזואלית מתחילה, ואותו פלט בהרצה הרגילה (מול הקובץ שלהם) ובהרצה הוויזואלית
+if TEACH_DLL=$(school_unit4_teachers "$ROOT/build"); then
+    TV="$W/school-teachers"; rm -rf "$TV" && mkdir -p "$TV/app" "$TV/all" "$TV/print"
+    dotnet "$W/apicmp/out/ApiCompare.dll" "$TEACH_DLL" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$TV/api.txt" \
+        || { echo "גרסת המורים: חסר בספרייה של DSViz חבר:"; grep '^only-school' "$TV/api.txt"; exit 1; }
+    dotnet "$W/apicmp/out/ApiCompare.dll" --types "$TEACH_DLL" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$TV/school-only.txt"
+    NEW=$(comm -23 <(sort "$TV/school-only.txt") <(sort "$ST/graphics.txt"))
+    [ -z "$NEW" ] || { echo "גרסת המורים: סוגים שאין אצלנו ולא רשומים כגרפיים (לממש, או להוסיף ל-GraphicTypes ב-SchoolUsings.cs):"; echo "$NEW"; exit 1; }
+    REF="<ItemGroup><Reference Include=\"Unit4\"><HintPath>$TEACH_DLL</HintPath></Reference></ItemGroup>"
+    for d in app all print; do printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup>%s</Project>\n' "$REF" > "$TV/$d/App.csproj"; done
+    cp "$ST/app/Program.cs" "$TV/app/Program.cs"
+    { echo 'using System;'; dotnet "$W/apicmp/out/ApiCompare.dll" --namespaces "$TEACH_DLL" | sed 's/^/using /; s/$/;/'
+      printf 'class Program\n{\n    static void Main()\n    {\n        Stack<int> s = new Stack<int>();\n        s.Push(7);\n        Console.WriteLine(s);\n    }\n}\n'; } > "$TV/all/Program.cs"
+    sed '/StackInt si = new StackInt();/,/"stackint: "/d' helpers/SchoolProgram.cs > "$TV/print/Program.cs"
+    for d in app all print; do
+        V=normal msb "$TV/$d" > "$TV/$d.build" 2>&1 && grep -q 'Build succeeded' "$TV/$d.build" || { echo "גרסת המורים: $d לא נבנה"; grep -E 'error' "$TV/$d.build" | head -3; exit 1; }
+        dotnet "$TV/$d/bin/Debug/net8.0/App.dll" > "$TV/$d.normal" 2>&1 || { echo "גרסת המורים: ההרצה הרגילה של $d נכשלה"; cat "$TV/$d.normal"; exit 1; }
+        viz "$TV/$d" --trace "$TV/$d.trace" > "$TV/$d.out" 2>&1 || { echo "גרסת המורים: ההרצה הוויזואלית של $d לא התחילה"; cat "$TV/$d.out"; exit 1; }
+        tail -n +2 "$TV/$d.out" > "$TV/$d.visual"
+        cmp -s "$TV/$d.normal" "$TV/$d.visual" || { echo "גרסת המורים ($d): הפלט שונה בין ההרצה הרגילה להרצה הוויזואלית:"; diff "$TV/$d.normal" "$TV/$d.visual" | head; exit 1; }
+    done
+    [ "$(wc -l < "$TV/print.normal")" -ge 9 ] && grep -q '^pre=2,1,0,3,4 in=0,1,2,3,4 post=0,1,4,3,2 level=2,1,3,0,4$' "$TV/print.normal" || { echo "גרסת המורים: הפלט של תוכנית הבדיקה לא צפוי"; cat "$TV/print.normal"; exit 1; }
+    echo "גרסת המורים של Unit4.dll: $(grep -c '^both' "$TV/api.txt") חברים משותפים, 0 חסרים; $(grep -c . "$TV/school-only.txt") סוגים גרפיים — רשומים; התבנית, using לכל $(grep -c '^using Unit4\.' "$TV/all/Program.cs") ה-namespaces ותוכנית האוספים והעץ — אותו פלט בהרצה הרגילה ובהרצה הוויזואלית"
+else
+    echo "לא נבדק: גרסת המורים של Unit4.dll — אין קובץ (DSVIZ_SCHOOL_UNIT4_TEACHERS) ואין קישור להורדה (SCHOOL_UNIT4_TEACHERS_URL)"
+fi
+
 unset XDG_DATA_HOME
 echo "DSViz.targets: 31 תרחישים נבדקו (כל סוג ב-Unit4.dll האמיתי מסווג, using לכל ה-namespaces שלו, התבנית של בתי הספר עם using לספריות הגרפיות ו-TreeCanvas, אותו קוד בהרצה רגילה ובהרצה ויזואלית מול ספריית בית הספר, אותו פלט מול Unit4.dll האמיתי, השוואת ה-API, חבר שחסר אצלנו, שתי ההרצות באותו זמן, פרויקט רגיל לא משתנה, ספריית בית הספר ב-Reference / ProjectReference, פרויקט מסומן, קוד מעורב, סדר הפרופילים והעברת 'הרצה רגילה' לראש, ‎.NET Framework בלי הפניה, LangVersion ישן בהרצה הוויזואלית, ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"

@@ -24,7 +24,10 @@ namespace DsViz
     /// </summary>
     internal static class SchoolUsings
     {
-        /// <summary>הסוגים הציבוריים בספריות הגרפיות של Unit4.dll (לפי הקובץ האמיתי) — להסבר כשהקוד משתמש באחד מהם</summary>
+        /// <summary>
+        /// הסוגים הציבוריים בספריות הגרפיות של Unit4.dll — להסבר כשהקוד משתמש באחד מהם. לפי שתי הגרסאות האמיתיות: זו שבתיקייה של המפקחים
+        /// (כל הרשימה) וזו שהמורים משתמשים בה (בלי CardLib, HanoiLib, OrganLib). נבדק מול שתיהן ב-cs-tests (סעיפים כט, ל).
+        /// </summary>
         static readonly Dictionary<string, string[]> GraphicTypes = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
             { "Unit4.GridLib", new[] { "Grid", "Point" } },

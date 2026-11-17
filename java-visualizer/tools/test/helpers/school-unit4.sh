@@ -16,3 +16,21 @@ school_unit4() {
     fi
     echo "$f"
 }
+
+# הגרסה שהמורים משתמשים בה בפועל (קיבלנו מהמשתמש, 17.11.2026): קטנה יותר — בלי StackInt, CardLib, HanoiLib, OrganLib; ב-Grid
+# ‏FlipX / FlipY / FlipCellX / FlipCellY ובלי Delay. האוספים, BinTreeUtils והפלט של TreeCanvas — זהים לגרסה שלמעלה (נבדק בפירוק הקוד).
+# אין לה עדיין קישור להורדה: נותנים נתיב ב-DSVIZ_SCHOOL_UNIT4_TEACHERS (או קישור ב-SCHOOL_UNIT4_TEACHERS_URL). בלי — מודפס "לא נבדק".
+SCHOOL_UNIT4_TEACHERS_SHA256=1dcf50f0d25fa8ab7fbe0ea168840c2904f10b27c00c7226652f0b6b1dcad57a
+SCHOOL_UNIT4_TEACHERS_URL="${SCHOOL_UNIT4_TEACHERS_URL:-}"
+school_unit4_teachers() {
+    local f="${DSVIZ_SCHOOL_UNIT4_TEACHERS:-$1/school-unit4-teachers/Unit4.dll}"
+    if [ ! -f "$f" ] || ! echo "$SCHOOL_UNIT4_TEACHERS_SHA256  $f" | sha256sum -c --status; then
+        [ -n "$DSVIZ_SCHOOL_UNIT4_TEACHERS" ] && { echo "DSVIZ_SCHOOL_UNIT4_TEACHERS=$f — לא הקובץ הנכון (sha256)" >&2; return 1; }
+        [ -n "$SCHOOL_UNIT4_TEACHERS_URL" ] || return 1
+        mkdir -p "$(dirname "$f")"
+        curl -fsSL --retry 4 --retry-delay 5 -o "$f.tmp" "$SCHOOL_UNIT4_TEACHERS_URL" || { echo "ההורדה של Unit4.dll (גרסת המורים) נכשלה" >&2; return 1; }
+        echo "$SCHOOL_UNIT4_TEACHERS_SHA256  $f.tmp" | sha256sum -c --status || { echo "Unit4.dll (גרסת המורים) שהורד שונה מהצפוי" >&2; rm -f "$f.tmp"; return 1; }
+        mv "$f.tmp" "$f"
+    fi
+    echo "$f"
+}
