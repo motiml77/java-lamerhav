@@ -40,6 +40,7 @@ STAMP="$DSV/update-check.txt"
 if [ -z "$FORCE" ] && [ -f "$STAMP" ] && [ -z "$(find "$STAMP" -mmin +1200 2>/dev/null)" ] && [ ! -f "$APP/eclipse-pending" ] && [ ! -f "$APP/intellij-pending" ]; then
     return 0   # נבדק ב-20 השעות האחרונות
 fi
+# (הכניסה השמורה — "קובץ הזהב" ב-~/.local/share/.lamerhav / /Users/Shared/.lamerhav — מחוץ ל-$APP: העדכון לא נוגע בה)
 LOCK="$DSV/update.lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
     [ -n "$(find "$LOCK" -maxdepth 0 -mmin +120 2>/dev/null)" ] || return 0   # עדכון אחר רץ עכשיו

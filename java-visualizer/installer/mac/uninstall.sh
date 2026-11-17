@@ -4,6 +4,9 @@
 # או: curl -fsSL https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/installer/mac/uninstall.sh | bash
 # מסיר: התוסף מ-VS Code, מכל Eclipse ומכל IntelliJ IDEA, DSViz.targets (C#), התיקייה ~/Library/Application Support/DSViz, הנתיבים ב-~/.dsviz.
 # לא נוגע: בתיקיות התרגילים במסמכים (DataStructures, DataStructures-CS — העבודה שלכם), וב-‎.NET SDK שב-~/.dotnet.
+# ובכוונה גם לא בכניסה השמורה ("קובץ הזהב" — Account.java): ~/.local/share/.lamerhav (מורה / תלמיד), ~/.config/.lamerhav (גיבוי),
+# /Users/Shared/.lamerhav (עמדת מחשב) — התקנה מחדש ממשיכה מחוברת, ועמדה בכיתה משתחררת רק כשהמורה משחרר אותה.
+# מ-~/.dsviz נמחקים רק הקבצים שברשימה למטה (שם גם המקום הישן של הכניסה, account.json) — לא את כל התיקייה.
 main() {
 APP="$HOME/Library/Application Support/DSViz"
 DSV="$HOME/.dsviz"

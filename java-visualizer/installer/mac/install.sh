@@ -179,7 +179,8 @@ else
         [ "$GOT" = "$R_SHA" ] || die "הקובץ שהורד לא שלם (SHA-256 לא תואם). מריצים שוב את הפקודה." "Checksum mismatch for $R_FILE (expected $R_SHA, got $GOT). Please run again."
         ok "הורד ונבדק (SHA-256)" "Downloaded and verified"
 
-        # פורסים לתיקייה חדשה ליד הקיימת, בודקים שהיא עובדת, ורק אז מחליפים בשינוי שם — לא כותבים מעל קבצים חתומים
+        # פורסים לתיקייה חדשה ליד הקיימת, בודקים שהיא עובדת, ורק אז מחליפים בשינוי שם — לא כותבים מעל קבצים חתומים.
+        # התיקייה מוחלפת כולה — לכן הכניסה השמורה ("קובץ הזהב", Account.java) לא כאן אלא ב-~/.local/share/.lamerhav ו-/Users/Shared/.lamerhav
         mkdir -p "$PARENT" || die "אין הרשאה לכתוב ל-$PARENT" "Cannot create $PARENT"
         NEW="$PARENT/.DSViz-new-$$"
         rm -rf "$NEW" && mkdir "$NEW" && tar -xzf "$TMP/payload.tgz" -C "$NEW" 2>>"$LOG" || die "פריסת הקובץ נכשלה" "Extracting the payload failed"

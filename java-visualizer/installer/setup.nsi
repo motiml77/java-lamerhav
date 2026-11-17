@@ -381,6 +381,7 @@ Section "-core"
   !insertmacro PROG 2
   ; ניקוי ההתקנה הקודמת (כשמתקינים על קיימת): קיצורים בשולחן העבודה (נוצר רק "מודלים חישוביים" — בסעיף -automata), קיצורי תפריט התחלה, קבצים ותיקיות מגרסה קודמת —
   ; כך כל התיקונים נכנסים, בלי שיישאר משהו ישן. לא נוגעים בעבודה של התלמיד (תיקיות התרגילים במסמכים), ב-JDK ובסרטונים שכבר ירדו.
+  ; וגם לא בכניסה השמורה ("קובץ הזהב", ב-...\Lamerhav\.cache — מחוץ ל-$INSTDIR): עדכון / התקנה מחדש ממשיכים מחוברים (ראו "הסרה")
   Delete "$DESKTOP\תרגילי C# (מבני נתונים).lnk"
   Delete "$DESKTOP\תרגיל חדש ב-C#.lnk"
   Delete "$DESKTOP\הוסף מבנה נתונים ל-C#.lnk"
@@ -953,6 +954,12 @@ Section "-wait"
 SectionEnd
 
 ; ------------------------------------------------------------ הסרה
+; "קובץ הזהב" של הכניסה (עמדת מחשב / מורה / תלמיד — access/src/il/lamerhav/dsviz/Account.java) לא נמחק כאן, בכוונה, גם בהסרה
+; מלאה — כך התקנה מחדש / עדכון ממשיכים מחוברים, ועמדה בכיתה משתחררת רק כשהמורה משחרר אותה:
+;   %ProgramData%\Lamerhav\.cache (עמדה — כל המחשב), %LOCALAPPDATA%\Lamerhav\.cache (מורה / תלמיד), %APPDATA%\Lamerhav\.cache (גיבוי),
+;   והמקום הישן ‎%USERPROFILE%\.dsviz‎ (רק קבצים מסוימים נמחקים ממנו — לא account.json / station.json).
+; אסור להוסיף כאן (או ב-"-core", שרץ בכל התקנה ובכל עדכון /S /UPDATE) מחיקה של התיקיות האלה, או RMDir /r על $INSTDIR / ‎.dsviz‎ —
+; tools/test/access/Golden.java סורק את installer/ ונכשל על שורה כזו.
 Section "Uninstall"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "DSVizUpdate"
   ; "מודלים חישוביים": סוגרים, מוחקים את הקבצים ואת הקיצורים. ‎automata-data‎ (העבודה שנשמרה בדף) נשאר — כמו תיקיות התרגילים

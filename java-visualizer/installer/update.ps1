@@ -10,6 +10,8 @@
 #     Studio שהותקן אחרי DSViz. Visual Studio פתוח (זה המצב הרגיל — הבדיקה מתחילה מכלי של DSViz בתוכו): VSIXInstaller לא מתקין כשהוא
 #     פתוח, אז תהליך קטן ברקע (install-vsix.ps1 -WhenClosed) מחכה שייסגר, מתקין, ומודיע "סרגל הכלים מוכן" — ובפתיחה הבאה הוא שם
 #   - -Videos: רק מוריד את סרטוני ההדרכה שחסרים (ההתקנה לא כוללת אותם — מגבלת הגודל של GitHub). רץ מיד אחרי ההתקנה, וגם בכל בדיקה.
+#   - הכניסה השמורה ("קובץ הזהב" — עמדת מחשב / מורה / תלמיד, ב-%ProgramData% / %LOCALAPPDATA% / %APPDATA%\Lamerhav\.cache) מחוץ
+#     לתיקיית ההתקנה: העדכון (/S /UPDATE) לא נוגע בה, ואסור להוסיף כאן מחיקה שלה (tools/test/access/Golden.java בודק)
 param([switch]$AfterEclipse, [switch]$FromEclipse, [switch]$FromIde, [switch]$Videos)
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
