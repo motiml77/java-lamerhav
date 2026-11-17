@@ -412,7 +412,7 @@ final class JdiTracer {
         String ref = v instanceof ObjectReference && isUserClass((ObjectReference) v) ? userRef((ObjectReference) v) : null;
         b.append(frameClean(name)).append('\u0002').append(frameClean(clean(ref != null ? ref : format(v, 0))));
         // הערכים של אובייקט של התלמיד ברגע הזה (כמו במסגרת העליונה) — פעם אחת לכל אובייקט בשורה
-        if (ref != null && snapped.size() < FRAME_SNAPSHOTS && snapped.add((ObjectReference) v)) b.append(frameClean(snapshot((ObjectReference) v)));
+        if (ref != null && snapped.size() < FRAME_SNAPSHOTS && snapped.add((ObjectReference) v)) b.append(frameClean(snapshot((ObjectReference) v, true)));
         b.append('\u0001');
     }
 
@@ -488,7 +488,7 @@ final class JdiTracer {
         ObjectReference self = m.isStatic() ? null : frames.get(0).thisObject();
         if (self != null && isUserClass(self)) {
             String ref = userRef(self);
-            if (ref != null) meta.append('\u0004').append(ref).append(snapshot(self));
+            if (ref != null) meta.append('\u0004').append(ref).append(snapshot(self, true));
         }
         write(meta.toString());
     }
@@ -656,7 +656,7 @@ final class JdiTracer {
         String ref = v instanceof ObjectReference && isUserClass((ObjectReference) v) ? userRef((ObjectReference) v) : null;
         String text = ref != null ? ref : format(v, 0);
         meta.append(name).append('\u0002').append(clean(text));
-        if (ref != null) meta.append(snapshot((ObjectReference) v));
+        if (ref != null) meta.append(snapshot((ObjectReference) v, true));
         meta.append('\u0001');
     }
 
@@ -666,25 +666,176 @@ final class JdiTracer {
      * ערך: s + מחרוזת, c + תו, n + מספר / boolean, 0 = null.
      */
     private String snapshot(ObjectReference o) {
+        return snapshot(o, false);
+    }
+
+    /** כמה תאים של מערך-מאפיין נשלחים (כמו בכרטיס), כמה שורות / עמודות במטריצה, כמה רמות של אובייקט בתוך אובייקט, וכמה אובייקטים פנימיים */
+    private static final int FIELD_CELLS = 12, FIELD_ROWS = 6, FIELD_COLS = 8, OBJ_NEST = 3, NEST_SNAPS = 8;
+
+    /**
+     * deep: גם המאפיינים שבכרטיס מצוירים בתוכו — מערך (a אורך \u0015 תאים מופרדים ב-\u0014; מטריצה קטנה: m \u0015 שורות מופרדות
+     * ב-\u0016; מערך גדול / אחר: t + טקסט), ואובייקט אחר של התלמיד (r + u-מקום, כמו המשתנים). תא במערך: s / c / n / 0 / r / t כמו מאפיין.
+     * ואחרי המאפיינים — הערכים של האובייקטים הפנימיים עצמם (עד OBJ_NEST רמות): \u0017 u-מקום \u0018 מאפיינים, לכל אחד.
+     * מאפיין מאותו סוג כמו האובייקט (רשימה מקושרת שהתלמיד כתב: MyNode next) לא נכנס — הוא הפניה, לא כרטיס בתוך כרטיס.
+     */
+    private String snapshot(ObjectReference o, boolean deep) {
         StringBuilder b = new StringBuilder("\u0007");
-        int n = 0;
+        List<ObjectReference> inner = deep ? new ArrayList<>() : null;
         try {
-            for (com.sun.jdi.Field f : o.referenceType().allFields()) {
-                if (f.isStatic() || f.isSynthetic() || n >= 12) continue;
-                Value x = o.getValue(f);
-                String val;
-                if (x == null) val = "0";
-                else if (x instanceof StringReference) val = "s" + shorten(((StringReference) x).value(), 40);
-                else if (x instanceof CharValue) val = "c" + ((CharValue) x).value();
-                else if (x instanceof PrimitiveValue) val = "n" + x;
-                else continue;
-                b.append(n++ == 0 ? "" : "\u000F").append(f.name()).append('\u0010')
-                 .append(clean(val).replace('\u000F', ' ').replace('\u0010', ' '));
+            if (!snapFields(b, o, deep, inner)) return "";
+            if (deep) {
+                java.util.Set<ObjectReference> done = new java.util.HashSet<>();
+                done.add(o);
+                List<ObjectReference> level = inner;
+                for (int d = 1; d <= OBJ_NEST && !level.isEmpty(); d++) {
+                    List<ObjectReference> next = new ArrayList<>();
+                    for (ObjectReference x : level) {
+                        if (done.size() > NEST_SNAPS || !done.add(x)) continue;
+                        String ref = userRef(x);
+                        if (ref == null) continue;
+                        StringBuilder fb = new StringBuilder();
+                        // ברמה האחרונה: המערכים שלו עוד מצוירים (והפניה — "→ ..."), אבל לא ממשיכים פנימה
+                        if (snapFields(fb, x, true, d < OBJ_NEST ? next : null))
+                            b.append('\u0017').append(ref.substring(1)).append('\u0018').append(fb);
+                    }
+                    level = next;
+                }
             }
         } catch (RuntimeException e) {
             return "";
         }
-        return n == 0 ? "" : b.toString();
+        return b.toString();
+    }
+
+    /**
+     * המאפיינים של o (ראו snapshot). deep: גם מערכים והפניות לאובייקטים של התלמיד; inner != null — האובייקטים האלה נוספים
+     * ל-inner (כדי לשלוח גם את הערכים שלהם). false = אין מה לשלוח
+     */
+    private boolean snapFields(StringBuilder b, ObjectReference o, boolean deep, List<ObjectReference> inner) {
+        int n = 0;
+        for (com.sun.jdi.Field f : o.referenceType().allFields()) {
+            if (f.isStatic() || f.isSynthetic() || n >= 12) continue;
+            Value x = o.getValue(f);
+            String val;
+            if (x == null) val = "0";
+            else if (x instanceof StringReference) val = "s" + shorten(((StringReference) x).value(), 40);
+            else if (x instanceof CharValue) val = "c" + ((CharValue) x).value();
+            else if (x instanceof PrimitiveValue) val = "n" + x;
+            else if (!deep) continue;
+            else if (x instanceof ArrayReference) val = arraySnap((ArrayReference) x);
+            else if (isUserClass((ObjectReference) x) && !selfTyped(o, f, (ObjectReference) x)) {
+                String ref = userRef((ObjectReference) x);
+                if (ref == null) continue;
+                val = "r" + ref.substring(1);
+                if (inner != null && !inner.contains(x)) inner.add((ObjectReference) x);
+            } else continue;
+            if (val == null) continue;   // מערך שלא נשלח (מטריצה של אובייקטים) — ה-Recorder קורא אותו בעצמו, כמו עד עכשיו
+            b.append(n++ == 0 ? "" : "\u000F").append(f.name()).append('\u0010').append(fieldClean(val));
+        }
+        return n > 0;
+    }
+
+    /** מערך שלא מצויר כתאים (מטריצה גדולה, תלת-ממדי): t + הטקסט שלו ברגע הזה; null — יש בו אובייקטים (לא נשלח) */
+    private String bigArrayText(ArrayReference a) {
+        String s = arrayText(a);
+        return s == null ? null : "t" + snapClean(s);
+    }
+
+    /** כמו Recorder.fieldText למערך: עד 6 איברים בכל רמה — [[0, 0], [0, 0], …]. null אם יש בו אובייקטים */
+    private String arrayText(ArrayReference a) {
+        int n = a.length();
+        StringBuilder b = new StringBuilder("[");
+        List<Value> items = n == 0 ? new ArrayList<>() : a.getValues(0, Math.min(n, 6));
+        for (int i = 0; i < items.size(); i++) {
+            Value x = items.get(i);
+            b.append(i == 0 ? "" : ", ");
+            if (x == null) b.append("null");
+            else if (x instanceof ArrayReference) {
+                String in = arrayText((ArrayReference) x);
+                if (in == null) return null;
+                b.append(in);
+            } else if (x instanceof StringReference) b.append('"').append(shorten(((StringReference) x).value(), 24)).append('"');
+            else if (x instanceof CharValue) b.append('\'').append(((CharValue) x).value()).append('\'');
+            else if (x instanceof PrimitiveValue) b.append(x);
+            else return null;
+        }
+        return b.append(n > 6 ? ", …]" : "]").toString();
+    }
+
+    /** ערך בצילום: בלי התווים שמפרידים בין החלקים (התאים של מערך כבר נוקו, וההפרדה ביניהם נשארת) */
+    private static String fieldClean(String s) {
+        if (s.startsWith("a") || s.startsWith("m")) return s;
+        return clean(s).replace('\u000F', ' ').replace('\u0010', ' ').replace('\u0014', ' ').replace('\u0015', ' ')
+                .replace('\u0016', ' ').replace('\u0017', ' ').replace('\u0018', ' ');
+    }
+
+    /** מערך-מאפיין ברגע הזה (ראו snapshot) */
+    private String arraySnap(ArrayReference a) {
+        int len = a.length();
+        String type = a.referenceType().name();
+        if (type.endsWith("[][]")) {
+            if (type.endsWith("[][][]") || len > FIELD_ROWS) return bigArrayText(a);
+            StringBuilder m = new StringBuilder("m").append(len).append('\u0015');
+            List<Value> rows = len == 0 ? new ArrayList<>() : a.getValues();
+            for (int r = 0; r < rows.size(); r++) {
+                if (r > 0) m.append('\u0016');
+                if (rows.get(r) == null) { m.append("0"); continue; }   // שורה שהיא null
+                ArrayReference row = (ArrayReference) rows.get(r);
+                if (row.length() > FIELD_COLS) return bigArrayText(a);
+                List<Value> cells = row.length() == 0 ? new ArrayList<>() : row.getValues();
+                m.append(row.length()).append('\u0015');
+                for (int c = 0; c < cells.size(); c++) {
+                    String cell = cellSnap(cells.get(c));
+                    if (cell.startsWith("r") || cell.startsWith("t")) return bigArrayText(a);   // מטריצה של אובייקטים — טקסט
+                    m.append(c == 0 ? "" : "\u0014").append(cell);
+                }
+            }
+            return m.toString();
+        }
+        StringBuilder s = new StringBuilder("a").append(len).append('\u0015');
+        List<Value> cells = len == 0 ? new ArrayList<>() : a.getValues(0, Math.min(len, FIELD_CELLS));
+        for (int i = 0; i < cells.size(); i++) s.append(i == 0 ? "" : "\u0014").append(cellSnap(cells.get(i)));
+        return s.toString();
+    }
+
+    /** תא במערך-מאפיין: כמו ערך של מאפיין (s / c / n / 0), אובייקט של התלמיד (r + מקום), ואחר — טקסט (t) */
+    private String cellSnap(Value x) {
+        if (x == null) return "0";
+        if (x instanceof StringReference) return "s" + snapClean(shorten(((StringReference) x).value(), 14));
+        if (x instanceof CharValue) return "c" + snapClean(String.valueOf(((CharValue) x).value()));
+        if (x instanceof PrimitiveValue) return "n" + x;
+        if (x instanceof ObjectReference && isUserClass((ObjectReference) x)) {
+            String ref = userRef((ObjectReference) x);
+            if (ref != null) return "r" + ref.substring(1);
+        }
+        if (x instanceof ObjectReference && isStudent((ObjectReference) x)) return "t" + snapClean(studentLabel((ObjectReference) x, true));
+        if (x instanceof ObjectReference && isCar((ObjectReference) x)) return "t" + snapClean(carLabel((ObjectReference) x));
+        String s = format(x, 2);
+        return "t" + snapClean(s.startsWith("\u0003") ? "•" : shorten(s, 14));
+    }
+
+    /** טקסט בתוך הצילום: בלי התווים שמפרידים בין החלקים */
+    private static String snapClean(String s) {
+        StringBuilder b = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            b.append(c < 32 ? ' ' : c);
+        }
+        return b.toString();
+    }
+
+    /**
+     * מאפיין מאותו סוג כמו האובייקט שלו (MyNode next, Person spouse): רשימה מקושרת / מבנה רקורסיבי שהתלמיד כתב — הפניה
+     * ("→ ..." כמו עד עכשיו), לא כרטיס בתוך כרטיס (אחרת שרשרת של 20 חוליות הייתה מגדל של קופסאות). כמו Recorder.selfTyped
+     */
+    private static boolean selfTyped(ObjectReference owner, com.sun.jdi.Field f, ObjectReference value) {
+        ReferenceType ot = owner.referenceType();
+        if (value.referenceType().equals(ot)) return true;
+        String declared = f.typeName();
+        if (declared.equals("java.lang.Object")) return false;
+        for (ReferenceType t = ot; t instanceof ClassType; t = ((ClassType) t).superclass())
+            if (t.name().equals(declared)) return true;
+        return false;
     }
 
     /** מבנה של הספרייה → \u0003 + vizId (ה-Recorder יודע לאיזה אובייקט זה שייך). השאר → טקסט */

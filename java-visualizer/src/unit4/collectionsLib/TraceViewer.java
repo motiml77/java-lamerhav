@@ -70,6 +70,7 @@ public final class TraceViewer {
                 System.out.print(CondViz.dump());
                 System.out.print(CallViz.dump());
                 System.out.print(SelfViz.dump());
+                System.out.print(ObjCard.dump());
                 System.out.print(LoopArrow.dump());
                 System.out.print(RecursionKind.dump());
                 System.out.print(Recorder.chainDump());
@@ -430,7 +431,11 @@ public final class TraceViewer {
         return v;
     }
 
-    /** אובייקט של מחלקה (אם השורה הבאה היא O): O זהות סוג כותרת פרטים תוויות, ואחריה F לכל מאפיין */
+    /**
+     * אובייקט של מחלקה (אם השורה הבאה היא O): O זהות סוג כותרת פרטים תוויות, ואחריה F לכל מאפיין.
+     * אחרי F יכולה לבוא FX: הערך של המאפיין מצויר בתוך הכרטיס — O (אובייקט פנימי, עם ה-F וה-FX שלו) או V ARR / V MAT (מערך),
+     * ובסוף FXE. (קבצים ישנים — בלי FX: הכרטיס כמו שהיה)
+     */
     private static Obj readObj() {
         if (!next("O")) return null;
         String[] f = rows.get(pos++);
@@ -443,6 +448,16 @@ public final class TraceViewer {
         while (next("F")) {
             String[] r = rows.get(pos++);
             o.fields.add(new String[] { r[1], r[2] });
+            if (!next("FX")) continue;
+            pos++;
+            if (next("O")) {
+                Obj n = readObj();
+                if (n != null) o.nested.put(r[1], n);
+            } else if (next("V")) {
+                View v = readView(rows.get(pos++));
+                if (v instanceof ArrayView || v instanceof MatrixView) o.arrays.put(r[1], v);
+            }
+            if (next("FXE")) pos++;
         }
         return o;
     }

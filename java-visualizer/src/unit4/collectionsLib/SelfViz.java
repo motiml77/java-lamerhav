@@ -29,7 +29,12 @@ final class SelfViz {
         String calling;              // בשורה שקוראת: שם המשתנה שעליו קוראים (d1) — או null
         String callingMethod;        // ... ולאיזו פעולה (birthday)
         final Map<String, String> alias = new LinkedHashMap<String, String>();   // פרמטר → השם שלו אצל מי שקרא (other → d1)
-        final Map<String, Map<String, Mark>> hot = new LinkedHashMap<String, Map<String, Mark>>();   // שם משתנה → מאפיין → קריאה/שינוי
+        /** שם משתנה → מאפיין → קריאה/שינוי. מאפיין של אובייקט פנימי — לפי המסלול: t.leader.grade → "leader.grade" */
+        final Map<String, Map<String, Mark>> hot = new LinkedHashMap<String, Map<String, Mark>>();
+        /** תוויות אינדקס על מערך-מאפיין (scores[i] → i על התא 1): שם משתנה → מאפיין (מסלול) → אינדקס → שמות; במטריצה — השורות */
+        final Map<String, Map<String, Map<Integer, List<String>>>> idx = new LinkedHashMap<String, Map<String, Map<Integer, List<String>>>>();
+        /** ... והעמודות של מטריצה-מאפיין (grid[r][c] → c) */
+        final Map<String, Map<String, Map<Integer, List<String>>>> cols = new LinkedHashMap<String, Map<String, Map<Integer, List<String>>>>();
     }
 
     private static int cachedIndex = -1;
@@ -138,38 +143,90 @@ final class SelfViz {
         }
     }
 
-    /** המאפיינים שהשורה הנוכחית קוראת / משנה: age או this.age (של this), other.age (של other) */
+    /**
+     * המאפיינים שהשורה הנוכחית קוראת / משנה: age או this.age (של this), other.age (של other) — וגם של אובייקט שמצויר בתוך כרטיס:
+     * t.leader.grade (או leader.grade בתוך פעולה של t) → "leader.grade" אצל t, ו-s.grade אצל s (שמצויר בתוך t). ומערך-מאפיין:
+     * scores[i] / this.scores[i] → התווית i על התא שבו i עומד (כמו במערך רגיל)
+     */
     private static boolean hotFields(Info in, Step s) {
         String line = clean(SourceFiles.line(s.where));
         if (line == null) return false;
         boolean found = false;
-        for (Obj o : Recorder.objectsOf(s)) {
+        for (Obj o : Recorder.allObjectsOf(s)) {
             for (String label : o.labels) {
                 boolean self = label.equals("this");
-                for (String[] f : o.fields) {
-                    String fn = f[0];
-                    if (!fn.matches("\\w+")) continue;
-                    Mark m = null;
-                    String q = Pattern.quote(fn), dotted = Pattern.quote(label) + "\\s*\\.\\s*" + q + "\\b(?!\\s*\\()";
-                    if (Pattern.compile("(?<![\\w.])" + dotted).matcher(line).find()) m = changed(line, dotted) ? Mark.CHANGED : Mark.READ;
-                    // בתוך הפעולה: age לבד הוא this.age — אלא אם יש משתנה מקומי / פרמטר בשם הזה
-                    if (m == null && self && !hasVar(s, fn)) {
-                        String bare = q + "\\b(?!\\s*\\()";
-                        if (Pattern.compile("(?<![\\w.])" + bare).matcher(line).find()) m = changed(line, bare) ? Mark.CHANGED : Mark.READ;
-                    }
-                    if (m == null) continue;
-                    Map<String, Mark> h = in.hot.get(label);
-                    if (h == null) in.hot.put(label, h = new LinkedHashMap<String, Mark>());
-                    h.put(fn, m);
-                    found = true;
-                }
+                found |= hotIn(in, s, line, label, o, "", Pattern.quote(label) + "\\s*\\.\\s*", self ? "" : null, 0);
             }
         }
         return found;
     }
 
+    /**
+     * המאפיינים של o (שמגיעים אליו ב-label ואחריו path) שהשורה נוגעת בהם. dotted = התבנית עד המאפיין ("t\.leader\."),
+     * bare = בתוך פעולה של האובייקט החיצוני — אותו מסלול בלי this ("leader\.") — או null
+     */
+    private static boolean hotIn(Info in, Step s, String line, String label, Obj o, String path, String dotted, String bare, int depth) {
+        boolean found = false;
+        for (String[] f : o.fields) {
+            String fn = f[0];
+            if (!fn.matches("\\w+")) continue;
+            String q = Pattern.quote(fn), d = dotted + q + "\\b";
+            // בתוך הפעולה: age לבד הוא this.age — אלא אם יש משתנה מקומי / פרמטר בשם הזה (גם leader.grade: אם leader הוא משתנה — לא)
+            String b = bare != null && !hasVar(s, depth == 0 ? fn : path.substring(0, path.indexOf('.'))) ? bare + q + "\\b" : null;
+            Mark m = null;
+            if (find(line, "(?<![\\w.])" + d + "(?!\\s*\\()")) m = changed(line, d + "(?!\\s*\\()") ? Mark.CHANGED : Mark.READ;
+            if (m == null && b != null && find(line, "(?<![\\w.])" + b + "(?!\\s*\\()")) m = changed(line, b + "(?!\\s*\\()") ? Mark.CHANGED : Mark.READ;
+            if (m != null) {
+                put(in.hot, label, path + fn, m);
+                found = true;
+            }
+            Model.View av = o.arrays.get(fn);
+            if (av != null) {
+                int size = av instanceof Model.ArrayView ? ((Model.ArrayView) av).items.size() : ((Model.MatrixView) av).rows.size();
+                int width = av instanceof Model.MatrixView && !((Model.MatrixView) av).rows.isEmpty() ? ((Model.MatrixView) av).rows.get(0).size() : 0;
+                for (String[] v : s.vars) {
+                    int k;
+                    try { k = Integer.parseInt(v[1]); } catch (NumberFormatException e) { continue; }
+                    String iv = Pattern.quote(v[0]) + "\\b";
+                    for (String target : b == null ? new String[] { d } : new String[] { d, b }) {
+                        String t = "(?<![\\w.])" + target;
+                        if (k >= 0 && k < size && find(line, t + "\\s*\\[\\s*" + iv)) label(in.idx, label, path + fn, k, v[0]);
+                        if (av instanceof Model.MatrixView && k >= 0 && k < width
+                                && (find(line, t + "\\s*\\[[^\\]]*\\]\\s*\\[\\s*" + iv) || find(line, t + "\\s*\\[[^\\],]*,\\s*" + iv)))
+                            label(in.cols, label, path + fn, k, v[0]);   // grid[r][c] (וב-C# גם grid[r, c])
+                    }
+                }
+            }
+            Obj n = o.nested.get(fn);
+            if (n != null && depth < Recorder.OBJ_NEST)
+                found |= hotIn(in, s, line, label, n, path + fn + ".", d + "\\s*\\.\\s*", b == null ? null : b + "\\s*\\.\\s*", depth + 1);
+        }
+        return found;
+    }
+
+    private static boolean find(String line, String regex) {
+        return Pattern.compile(regex).matcher(line).find();
+    }
+
+    private static void put(Map<String, Map<String, Mark>> hot, String label, String field, Mark m) {
+        Map<String, Mark> h = hot.get(label);
+        if (h == null) hot.put(label, h = new LinkedHashMap<String, Mark>());
+        h.put(field, m);
+    }
+
+    private static void label(Map<String, Map<String, Map<Integer, List<String>>>> all, String label, String field, int k, String name) {
+        Map<String, Map<Integer, List<String>>> byField = all.get(label);
+        if (byField == null) all.put(label, byField = new LinkedHashMap<String, Map<Integer, List<String>>>());
+        Map<Integer, List<String>> byIndex = byField.get(field);
+        if (byIndex == null) byField.put(field, byIndex = new java.util.TreeMap<Integer, List<String>>());
+        List<String> names = byIndex.get(k);
+        if (names == null) byIndex.put(k, names = new java.util.ArrayList<String>());
+        if (!names.contains(name)) names.add(name);
+    }
+
+    /** השורה משנה את target: target = ..., target++, target += ... — וגם תא שלו: target[i] = ... */
     private static boolean changed(String line, String target) {
-        return Pattern.compile("(?<![\\w.])" + target + "\\s*(?:\\+\\+|--|[-+*/%]?=(?!=))").matcher(line).find()
+        return Pattern.compile("(?<![\\w.])" + target + "(?:\\s*\\[[^\\]]*\\])*\\s*(?:\\+\\+|--|[-+*/%]?=(?!=))").matcher(line).find()
                 || Pattern.compile("(?:\\+\\+|--)\\s*" + target).matcher(line).find();
     }
 
@@ -184,6 +241,38 @@ final class SelfViz {
             res.putAll(h);
         }
         return res;
+    }
+
+    /** מה מודגש בטבלה של אובייקט (ראו ObjCard.Hot): לפי השמות שמצביעים עליו בצעד. גם כשאין כלום — Hot ריק (בשביל האובייקטים הפנימיים) */
+    static ObjCard.Hot hot(Info in, Obj o) {
+        ObjCard.Hot h = new ObjCard.Hot();
+        h.self = in;
+        addHot(h, in, o);
+        return h;
+    }
+
+    /** מוסיף ל-h את מה שהשורה עושה באובייקט o דרך משתנה שמצביע עליו (s.grade, this.scores[i]) */
+    static void addHot(ObjCard.Hot h, Info in, Obj o) {
+        if (in == null || o == null) return;
+        for (String l : o.labels) {
+            Map<String, Mark> m = in.hot.get(l);
+            if (m != null) h.marks.putAll(m);
+            merge(h.idx, in.idx.get(l));
+            merge(h.cols, in.cols.get(l));
+        }
+    }
+
+    private static void merge(Map<String, Map<Integer, List<String>>> to, Map<String, Map<Integer, List<String>>> from) {
+        if (from == null) return;
+        for (Map.Entry<String, Map<Integer, List<String>>> e : from.entrySet()) {
+            Map<Integer, List<String>> t = to.get(e.getKey());
+            if (t == null) to.put(e.getKey(), t = new java.util.TreeMap<Integer, List<String>>());
+            for (Map.Entry<Integer, List<String>> x : e.getValue().entrySet()) {
+                List<String> names = t.get(x.getKey());
+                if (names == null) t.put(x.getKey(), names = new java.util.ArrayList<String>());
+                for (String n : x.getValue()) if (!names.contains(n)) names.add(n);
+            }
+        }
     }
 
     /** הכותרת של כרטיס האובייקט: "d1" במקום "this", "other ← d1" לפרמטר */
@@ -259,11 +348,12 @@ final class SelfViz {
             if (in == null) continue;
             b.append("  [אובייקט #").append(i + 1).append(" שורה ").append(s.where.line).append(':');
             if (in.self != null) b.append(" this=").append(in.self.isEmpty() ? "?" : in.self).append(" ב-").append(in.method);
-            for (Obj o : Recorder.objectsOf(s))
+            for (Obj o : Recorder.allObjectsOf(s))   // this יכול להיות גם כרטיס בתוך כרטיס
                 if (o.labels.contains("this")) {
                     b.append(" {");
                     for (int k = 0; k < o.fields.size(); k++) b.append(k > 0 ? ", " : "").append(o.fields.get(k)[0]).append('=').append(o.fields.get(k)[1]);
                     b.append('}');
+                    break;
                 }
             if (in.calling != null) b.append(" נכנסים ל-").append(in.calling).append('.').append(in.callingMethod).append("()");
             for (Map.Entry<String, String> e : in.alias.entrySet()) b.append(' ').append(e.getKey()).append("←").append(e.getValue());

@@ -79,6 +79,13 @@ final class Model {
         String sub;                        // שורה שנייה: "יא2 · 84"
         final List<String[]> fields = new ArrayList<String[]>();   // {שם, ערך}
         final List<String> labels = new ArrayList<String>();       // שמות משתנים שמצביעים עליו (s1, best...)
+        /**
+         * מאפיין שערכו אובייקט של מחלקה של התלמיד (Team.leader): כרטיס קטן בתוך הכרטיס — שם המאפיין → האובייקט.
+         * רק בכרטיס של אובייקט שמוצג לבד (ObjView), עד 3 רמות; הטקסט ב-fields נשאר (חלונית מידע, בדיקות)
+         */
+        final java.util.Map<String, Obj> nested = new java.util.LinkedHashMap<String, Obj>();
+        /** מאפיין שהוא מערך (int[] scores): תאים קטנים בתוך הכרטיס — שם המאפיין → ArrayView / MatrixView */
+        final java.util.Map<String, View> arrays = new java.util.LinkedHashMap<String, View>();
     }
 
     /** הצעד קרא ({@link Mark#READ}) או שינה ({@link Mark#CHANGED}) את המאפיין field של האובייקט obj */

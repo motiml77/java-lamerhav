@@ -1884,9 +1884,13 @@ final class StructPanel extends JPanel {
         g.drawString(text, x + 6, y + h - 4);
     }
 
-    /** טבלת מאפיינים (ראו ObjCard): עד שתי עמודות בכרטיס המלא ובחלונית */
-    private Dimension fieldsTable(Graphics2D g, Obj o, int x, int y, Access acc) {
-        return ObjCard.table(this, g, o, x, y, acc, ObjCard.columnsFor(o.fields.size(), 2));
+    /**
+     * טבלת מאפיינים (ראו ObjCard): עד שתי עמודות בכרטיס המלא — ועמודה אחת כשיש בו כרטיס פנימי / מערך (שורות גבוהות ורחבות).
+     * hot = מה שהשורה עושה באובייקט (גם בפנימיים) — אותו דבר במדידה ובציור
+     */
+    private Dimension fieldsTable(Graphics2D g, Obj o, int x, int y, Access acc, ObjCard.Hot hot) {
+        int cols = o.nested.isEmpty() && o.arrays.isEmpty() ? ObjCard.columnsFor(o.fields.size(), 2) : 1;
+        return ObjCard.table(this, g, o, x, y, acc, cols, hot);
     }
 
     private static final Color SELF = new Color(0x7C3AED), SELF_BG = new Color(0xF6F1FF), SELF_INK = new Color(0x5B21B6);
@@ -1900,8 +1904,8 @@ final class StructPanel extends JPanel {
         boolean me = SelfViz.active(self, v.obj);
         String title = SelfViz.title(self, v.obj, v.title), cap = SelfViz.caption(self, v.obj);
         boolean thisChip = v.obj.labels.contains("this") && !title.equals("this");
-        java.util.Map<String, Mark> marks = SelfViz.hotFor(self, v.obj);
-        Dimension t = fieldsTable(null, v.obj, 0, 0, null);
+        ObjCard.Hot hot = SelfViz.hot(self, v.obj);
+        Dimension t = fieldsTable(null, v.obj, 0, 0, step.access, hot);
         int chipW = thisChip ? textWidth("this", SMALL) + 14 + 6 : 0;
         int w = Math.max(t.width + 24, titleWidth(title, v.obj.type) + chipW), h = TITLE_H + t.height + 20;
         if (cap != null) {
@@ -1927,7 +1931,7 @@ final class StructPanel extends JPanel {
         g.setColor(acc ? darker(color(step.access.mark)) : me ? SELF : BOX_LINE);
         g.setStroke(acc || me ? THICK : THIN);
         g.drawRoundRect(x, y + TITLE_H, w, t.height + 16, 10, 10);
-        ObjCard.table(this, g, v.obj, x + 12, y + TITLE_H + 8, step.access, ObjCard.columnsFor(v.obj.fields.size(), 2), marks);
+        fieldsTable(g, v.obj, x + 12, y + TITLE_H + 8, step.access, hot);
         if (cap != null) {
             g.setFont(SMALL);
             g.setColor(SELF_INK);

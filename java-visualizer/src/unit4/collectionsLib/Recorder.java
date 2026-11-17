@@ -673,32 +673,191 @@ final class Recorder {
         return o;
     }
 
+    // ------------------------------------------------------------ אובייקט בתוך אובייקט, מערך בתוך אובייקט (בכרטיס שמוצג לבד)
+
+    /** כמה רמות של כרטיס בתוך כרטיס (כמו MAX_NEST של מבנים), וכמה תאים של מערך-מאפיין מצוירים (השאר: "…"); מטריצה קטנה בלבד */
+    static final int OBJ_NEST = 3, FIELD_CELLS = 12, FIELD_ROWS = 6, FIELD_COLS = 8;
+    /** בונים עכשיו כרטיס שמוצג לבד (ObjView): מאפיינים שהם אובייקט / מערך מצוירים בתוכו. בתא של מבנה — לא (שם רק כותרת) */
+    private static boolean objNest;
+    /** האובייקטים שבתהליך בנייה (החיצוני ראשון) — נגד מעגלים (t.leader.team == t) ובשביל העומק */
+    private static final List<Object> objPath = new ArrayList<Object>();
+    /** מערכים-מאפיינים: "זהות.מאפיין" → התאים בצילום האחרון שבו הופיעו (כדי לסמן תאים שהשתנו), ובצילום הנוכחי */
+    private static final Map<String, List<String>> lastFieldArrays = new HashMap<String, List<String>>();
+    private static final Map<String, List<String>> nowFieldArrays = new HashMap<String, List<String>>();
+
     private static Obj reflectObj(Object v) {
         Obj o = new Obj();
         o.id = System.identityHashCode(v);
         o.type = v.getClass().getSimpleName();
-        List<Class<?>> chain = new ArrayList<Class<?>>();
-        for (Class<?> c = v.getClass(); c != null && c != Object.class; c = c.getSuperclass()) chain.add(0, c);
-        for (Class<?> c : chain) {
-            for (java.lang.reflect.Field f : c.getDeclaredFields()) {
-                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.isSynthetic() || o.fields.size() >= 12) continue;
-                String val;
-                Map<String, String> snap = lineSnap.get(v);
-                if (snap != null && snap.containsKey(f.getName())) {
-                    val = snap.get(f.getName());   // הערך ברגע של השורה (ראו lineSnap)
-                } else {
-                    try {
-                        f.setAccessible(true);
-                        val = fieldText(f.get(v));
-                    } catch (Exception e) {
-                        val = "?";
+        boolean nest = objNest && objPath.size() <= OBJ_NEST;
+        objPath.add(v);
+        try {
+            List<Class<?>> chain = new ArrayList<Class<?>>();
+            for (Class<?> c = v.getClass(); c != null && c != Object.class; c = c.getSuperclass()) chain.add(0, c);
+            Map<String, Object> snap = lineSnap.get(v);
+            for (Class<?> c : chain) {
+                for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.isSynthetic() || o.fields.size() >= 12) continue;
+                    String name = f.getName(), val;
+                    Object raw = null, sv = snap == null ? null : snap.get(name);
+                    boolean known = false;   // raw הוא הערך (מהצילום של השורה, או מהאובייקט עצמו)
+                    if (sv instanceof String) {
+                        val = (String) sv;   // הערך ברגע של השורה (ראו lineSnap)
+                    } else if (sv instanceof SnapRef) {
+                        raw = ((SnapRef) sv).target;
+                        known = raw != null;
+                        val = raw == null ? "?" : fieldText(raw);
+                    } else if (sv instanceof SnapArray) {
+                        val = snapArrayText((SnapArray) sv);
+                        if (nest) {
+                            View av = snapArrayView((SnapArray) sv, o.id + "." + name);
+                            if (av != null) o.arrays.put(name, av);
+                        }
+                    } else {
+                        try {
+                            f.setAccessible(true);
+                            raw = f.get(v);
+                            known = true;
+                            val = fieldText(raw);
+                        } catch (Exception e) {
+                            val = "?";
+                        }
                     }
+                    if (nest && known && raw != null) {
+                        if (raw.getClass().isArray()) {
+                            View av = arrayFieldView(raw, o.id + "." + name);
+                            if (av != null) o.arrays.put(name, av);
+                        } else if (isRecordLike(raw.getClass()) && !selfTyped(v, f, raw)) {
+                            boolean cycle = false;
+                            for (Object p : objPath) if (p == raw) cycle = true;
+                            if (cycle) val = "→ " + raw.getClass().getSimpleName();   // אובייקט שכבר בדרך (t.leader.team) — בלי להיכנס שוב
+                            else if (objPath.size() <= OBJ_NEST) o.nested.put(name, reflectObj(raw));
+                        }
+                    }
+                    o.fields.add(new String[] { name, val });
                 }
-                o.fields.add(new String[] { f.getName(), val });
             }
+        } finally {
+            objPath.remove(objPath.size() - 1);
         }
         describe(o);
         return o;
+    }
+
+    /**
+     * מאפיין מאותו סוג כמו האובייקט שלו (MyNode next, Person spouse): רשימה מקושרת / מבנה רקורסיבי שהתלמיד כתב — נשאר הפניה
+     * ("→ ..."), ולא כרטיס בתוך כרטיס: אחרת שרשרת של חוליות הייתה מגדל של קופסאות זו בתוך זו (ושתי חוליות שמצביעות זו על זו —
+     * כל אחת בתוך השנייה). כך הן נשארות כרטיסים זה ליד זה, כמו עד עכשיו. (כמו JdiTracer.selfTyped, ו-SelfTyped ב-C#)
+     */
+    private static boolean selfTyped(Object owner, java.lang.reflect.Field f, Object value) {
+        return value.getClass() == owner.getClass() || f.getType() != Object.class && f.getType().isAssignableFrom(owner.getClass());
+    }
+
+    /** מערך-מאפיין מהאובייקט עצמו (לא מהצילום של השורה) → תאים קטנים; null — לא מתאים (מטריצה גדולה / של אובייקטים): טקסט */
+    private static View arrayFieldView(Object arr, String key) {
+        int n = java.lang.reflect.Array.getLength(arr);
+        SnapArray a = new SnapArray();
+        a.length = n;
+        Class<?> item = arr.getClass().getComponentType();
+        if (item.isArray()) {
+            if (item.getComponentType().isArray() || n > FIELD_ROWS) return null;
+            a.rows = new ArrayList<List<Object>>();
+            for (int r = 0; r < n; r++) {
+                Object row = java.lang.reflect.Array.get(arr, r);
+                if (row == null) { a.rows.add(null); continue; }
+                int m = java.lang.reflect.Array.getLength(row);
+                if (m > FIELD_COLS) return null;
+                List<Object> cells = new ArrayList<Object>();
+                for (int c = 0; c < m; c++) {
+                    Object x = java.lang.reflect.Array.get(row, c);
+                    if (x != null && !(x instanceof String || x instanceof Number || x instanceof Character || x instanceof Boolean)) return null;
+                    cells.add(cellOf(x));
+                }
+                a.rows.add(cells);
+            }
+        } else {
+            for (int i = 0; i < Math.min(n, FIELD_CELLS); i++) {
+                Object x = java.lang.reflect.Array.get(arr, i);
+                a.cells.add(x != null && isRecordLike(x.getClass()) ? new SnapRef(x) : cellOf(x));
+            }
+        }
+        return snapArrayView(a, key);
+    }
+
+    /** תא במערך-מאפיין: כמו בתא של מערך רגיל (בלי מרכאות) */
+    private static String cellOf(Object x) {
+        if (x == null) return "null";
+        if (x instanceof Student || x instanceof Car) return str(x);
+        return shorten(String.valueOf(x), 14);
+    }
+
+    /** התאים של מערך-מאפיין → ArrayView / MatrixView קטן, עם התאים שהשתנו מאז הצילום הקודם שבו הופיע (key = זהות.מאפיין) */
+    private static View snapArrayView(SnapArray a, String key) {
+        List<String> flat = new ArrayList<String>();
+        List<String> old = lastFieldArrays.get(key);
+        View res;
+        if (a.rows != null) {
+            MatrixView m = new MatrixView();
+            for (int r = 0; r < a.rows.size(); r++) {
+                List<String> cells = new ArrayList<String>();
+                if (a.rows.get(r) != null) for (Object c : a.rows.get(r)) cells.add(cellText(c));
+                m.rows.add(cells);
+                for (int c = 0; c < cells.size(); c++) {
+                    String f = r + "," + c + "=" + cells.get(c);
+                    flat.add(f);
+                    if (old != null && !old.contains(f)) m.changed.add(r + "," + c);
+                }
+            }
+            res = m;
+        } else {
+            ArrayView v = new ArrayView();
+            for (Object c : a.cells) v.items.add(cellText(c));
+            v.truncated = a.length > v.items.size();
+            if (old != null)
+                for (int i = 0; i < v.items.size(); i++) if (i >= old.size() || !old.get(i).equals(v.items.get(i))) v.changed.add(i);
+            flat.addAll(v.items);
+            res = v;
+        }
+        nowFieldArrays.put(key, flat);
+        return res;
+    }
+
+    /** הטקסט בתא קטן: ערך, או הכותרת הקצרה של אובייקט ("נועה") */
+    private static String cellText(Object c) {
+        if (!(c instanceof SnapRef)) return String.valueOf(c);
+        Object t = ((SnapRef) c).target;
+        if (t == null) return "•";
+        boolean was = objNest;
+        objNest = false;
+        try {
+            return shorten(overridesToString(t.getClass()) ? str(t) : userTitle(t), 14);
+        } finally {
+            objNest = was;
+        }
+    }
+
+    /** מערך-מאפיין מהצילום — הטקסט שבטבלה (כמו fieldText): [0, 7, 0] */
+    private static String snapArrayText(SnapArray a) {
+        StringBuilder b = new StringBuilder("[");
+        int k = 0;
+        if (a.rows != null) {
+            for (int r = 0; r < Math.min(a.rows.size(), 6); r++) {
+                b.append(r == 0 ? "" : ", ");
+                List<Object> row = a.rows.get(r);
+                if (row == null) { b.append("null"); continue; }
+                b.append('[');
+                for (int c = 0; c < row.size(); c++, k++) if (c < 6) b.append(c == 0 ? "" : ", ").append(snapText(a.texts.get(k)));
+                b.append(row.size() > 6 ? ", …]" : "]");
+            }
+            return b.append(']').toString();
+        }
+        for (int i = 0; i < Math.min(a.cells.size(), 6); i++) b.append(i == 0 ? "" : ", ").append(snapText(a.texts.get(i)));
+        return b.append(a.length > 6 ? ", …]" : "]").toString();
+    }
+
+    private static String snapText(Object t) {
+        if (!(t instanceof SnapRef)) return String.valueOf(t);
+        return ((SnapRef) t).target == null ? "?" : fieldText(((SnapRef) t).target);
     }
 
     /** ערך של מאפיין בטבלה: קצר, בסגנון Java */
@@ -1074,6 +1233,9 @@ final class Recorder {
         nested.clear();
         nestPath.clear();
         nestDepth = 0;
+        lastFieldArrays.putAll(nowFieldArrays);   // מערכים-מאפיינים: מה שהיה בצילום הקודם (לסימון תאים שהשתנו)
+        nowFieldArrays.clear();
+        objPath.clear();
 
         // --- מערכים (במצב שורה-שורה: כפי שנקראו בשורה האחרונה, כי מערך משתנה גם בלי הספרייה)
         if (lineMode) {
@@ -1300,24 +1462,96 @@ final class Recorder {
     /** שמות המשתנים מעל הכרטיסים; ואובייקט שמשתנה מצביע אליו ואינו בתוך מבנה — מוצג לבד */
     private static void attachObjects(List<View> views) {
         if (!lineMode) return;
+        List<Obj> inStructs = new ArrayList<Obj>(snapObjs);   // האובייקטים שבתוך מבנים (לפני הכרטיסים שנבנים כאן)
+        List<ObjView> cards = new ArrayList<ObjView>();
+        Map<Integer, List<String>> named = new LinkedHashMap<Integer, List<String>>();
         for (Map.Entry<Object, List<String>> e : frameVars.entrySet()) {
             Object k = e.getKey();
             boolean user = !(k instanceof Student || k instanceof Car);
             if (user && !isRecordLike(k.getClass())) continue;
             int id = k instanceof Student ? ((Student) k).vizId : k instanceof Car ? ((Car) k).vizId : System.identityHashCode(k);
+            named.put(id, e.getValue());
             boolean shown = false;
-            for (Obj o : snapObjs) {
+            for (Obj o : inStructs) {
                 if (o.id != id) continue;
                 shown = true;
                 for (String n : e.getValue()) if (!o.labels.contains(n)) o.labels.add(n);
             }
             if (!shown) {
                 ObjView ov = new ObjView();
-                ov.obj = objOf(k);
+                objNest = true;   // כרטיס מלא: אובייקטים ומערכים שבמאפיינים מצוירים בתוכו
+                try {
+                    ov.obj = objOf(k);
+                } finally {
+                    objNest = false;
+                }
                 ov.obj.labels.addAll(e.getValue());
                 ov.title = String.join(", ", e.getValue());
-                views.add(ov);
+                cards.add(ov);
             }
+        }
+        List<ObjView> kept = keepCards(cards);
+        for (ObjView k : kept)   // משתנה שמצביע על אובייקט שמצויר בתוך כרטיס (s ← t.leader): תג על הכרטיס הפנימי
+            for (Map.Entry<Integer, List<String>> e : named.entrySet()) if (e.getKey() != k.obj.id) tagNested(k.obj, e.getKey(), e.getValue());
+        views.addAll(kept);
+    }
+
+    /**
+     * כרטיס של אובייקט שכבר מצויר בתוך כרטיס אחר (t.leader הוא s) לא מצויר שוב לבד — שם המשתנה עובר לתג על הכרטיס הפנימי,
+     * כמו מבנה בתוך מבנה (hideNested). this נשאר כרטיס משלו (הפעולה רצה בתוכו). שני כרטיסים שמכילים זה את זה — הראשון נשאר.
+     */
+    static List<ObjView> keepCards(List<ObjView> cards) {
+        List<Set<Integer>> inner = new ArrayList<Set<Integer>>();
+        for (ObjView c : cards) {
+            Set<Integer> s = new java.util.HashSet<Integer>();
+            innerIds(c.obj, s);
+            inner.add(s);
+        }
+        boolean[] keep = new boolean[cards.size()];
+        Set<Integer> covered = new java.util.HashSet<Integer>();
+        for (int i = 0; i < cards.size(); i++) {   // קודם: this, וכרטיסים שאף כרטיס אחר לא מכיל
+            boolean contained = false;
+            for (int j = 0; j < cards.size(); j++) if (j != i && inner.get(j).contains(cards.get(i).obj.id)) contained = true;
+            if (contained && !cards.get(i).obj.labels.contains("this")) continue;
+            keep[i] = true;
+            covered.addAll(inner.get(i));
+        }
+        // כרטיסים שמכילים זה את זה (מעגל: s.team == t, t.leader == s): נשאר זה שהמשתנה שלו הוגדר ראשון (כמו ב-C#)
+        List<Integer> byVar = new ArrayList<Integer>();
+        for (int i = 0; i < cards.size(); i++) byVar.add(i);
+        final List<ObjView> all = cards;
+        Collections.sort(byVar, new Comparator<Integer>() {
+            public int compare(Integer a, Integer b) { return varRank(all.get(a).obj) - varRank(all.get(b).obj); }
+        });
+        for (int i : byVar) {
+            if (keep[i] || covered.contains(cards.get(i).obj.id)) continue;
+            keep[i] = true;
+            covered.addAll(inner.get(i));
+        }
+        List<ObjView> res = new ArrayList<ObjView>();
+        for (int i = 0; i < cards.size(); i++) if (keep[i]) res.add(cards.get(i));
+        return res;
+    }
+
+    /** המקום של המשתנה הראשון שמצביע על האובייקט, ברשימת המשתנים של השורה */
+    private static int varRank(Obj o) {
+        if (currentVars != null)
+            for (int i = 0; i < currentVars.size(); i++) if (o.labels.contains(currentVars.get(i)[0])) return i;
+        return Integer.MAX_VALUE / 2;
+    }
+
+    private static void innerIds(Obj o, Set<Integer> res) {
+        for (Obj n : o.nested.values()) {
+            res.add(n.id);
+            innerIds(n, res);
+        }
+    }
+
+    /** שמות המשתנים של אובייקט (id) — תג על כל כרטיס פנימי שלו */
+    private static void tagNested(Obj o, int id, List<String> names) {
+        for (Obj n : o.nested.values()) {
+            if (n.id == id) for (String l : names) if (!n.labels.contains(l)) n.labels.add(l);
+            tagNested(n, id, names);
         }
     }
 
@@ -1326,6 +1560,18 @@ final class Recorder {
         List<Obj> res = new ArrayList<Obj>();
         if (s != null) for (View v : s.views) if (v instanceof ObjView && ((ObjView) v).obj != null) res.add(((ObjView) v).obj);
         return res;
+    }
+
+    /** כמו objectsOf, וגם האובייקטים שמצוירים בתוכם (s בתוך t.leader) — כל אחד אחרי הכרטיס שמכיל אותו */
+    static List<Obj> allObjectsOf(Step s) {
+        List<Obj> res = new ArrayList<Obj>();
+        for (Obj o : objectsOf(s)) addWithNested(o, res);
+        return res;
+    }
+
+    private static void addWithNested(Obj o, List<Obj> res) {
+        res.add(o);
+        for (Obj n : o.nested.values()) addWithNested(n, res);
     }
 
     private static <T> List<T> alive(List<WeakReference<T>> refs) {
@@ -1508,7 +1754,14 @@ final class Recorder {
 
     /** מחלקה של התלמיד בלי toString משלה: במקום Dog@1b6d3586 — הכותרת של הכרטיס (השם, או סוג המחלקה) */
     private static String userTitle(Object v) {
-        Obj o = reflectObj(v);
+        boolean was = objNest;
+        objNest = false;   // רק הכותרת — בלי לבנות את האובייקטים הפנימיים שלו
+        Obj o;
+        try {
+            o = reflectObj(v);
+        } finally {
+            objNest = was;
+        }
         if (!o.title.equals(o.type)) return o.title;           // שדה שם / טקסט
         return o.sub.isEmpty() ? o.type : "{" + o.sub + "}";   // אחרת — המאפיינים הראשונים: {x=3 · y=4}
     }
@@ -1602,6 +1855,7 @@ final class Recorder {
                     out.print(CondViz.dump());
                     out.print(CallViz.dump());
                     out.print(SelfViz.dump());
+                    out.print(ObjCard.dump());
                     out.print(LoopArrow.dump());
                     out.print(RecursionKind.dump());
                     out.print(chainDump());
@@ -1709,7 +1963,7 @@ final class Recorder {
                     value = value.substring(0, cut);
                 }
                 Object v = value.startsWith("\u0003") ? byId(value.substring(1)) : null;
-                if (v != null && snap != null) lineSnap.put(v, parseSnap(snap));
+                if (v != null && snap != null) putSnap(v, snap, true);
                 if (v != null) {
                     List<String> l = fv.get(v);
                     if (l == null) fv.put(v, l = new ArrayList<String>());
@@ -1838,7 +2092,7 @@ final class Recorder {
      * הערכים של אובייקטים של התלמיד ברגע של השורה (מה-Tracer): השורות הופכות לצעדים מאוחר יותר,
      * כשהאובייקט כבר השתנה — בלי זה הבנאי היה מראה כבר את הגיל אחרי birthday.
      */
-    private static final Map<Object, Map<String, String>> lineSnap = new IdentityHashMap<Object, Map<String, String>>();
+    private static final Map<Object, Map<String, Object>> lineSnap = new IdentityHashMap<Object, Map<String, Object>>();
 
     // ------------------------------------------------------------ המשתנים של הפעולות שמחכות (FrameViz)
 
@@ -1872,7 +2126,7 @@ final class Recorder {
                     String value = p.length > 1 ? p[1] : "";
                     int c = value.startsWith("\u0003") ? value.indexOf('\u0007') : -1;
                     Object o = c > 0 ? byId(value.substring(1, c)) : null;
-                    if (o != null && !lineSnap.containsKey(o)) lineSnap.put(o, parseSnap(value.substring(c + 1)));
+                    if (o != null && !lineSnap.containsKey(o)) putSnap(o, value.substring(c + 1), false);
                 }
                 List<String[]> vs = new ArrayList<String[]>();
                 for (String item : items) {
@@ -1915,16 +2169,84 @@ final class Recorder {
         s.frameVars = res;
     }
 
-    private static Map<String, String> parseSnap(String snap) {
-        Map<String, String> m = new HashMap<String, String>();
+    /**
+     * הצילום של אובייקט ברגע השורה (ראו JdiTracer.snapshot): המאפיינים שלו, ואחרי \u0017 — של האובייקטים הפנימיים שלו (u-מקום \u0018 מאפיינים).
+     * own = הצילום של האובייקט עצמו דורס צילום קודם שלו; האובייקטים הפנימיים — רק אם עוד אין להם (אותו רגע, אותם ערכים)
+     */
+    private static void putSnap(Object o, String snap, boolean own) {
+        String[] parts = snap.split("\u0017", -1);
+        if (own || !lineSnap.containsKey(o)) lineSnap.put(o, parseSnap(parts[0]));
+        for (int i = 1; i < parts.length; i++) {
+            int k = parts[i].indexOf('\u0018');
+            Object in = k > 0 ? byId(parts[i].substring(0, k)) : null;
+            if (in != null && !lineSnap.containsKey(in)) lineSnap.put(in, parseSnap(parts[i].substring(k + 1)));
+        }
+    }
+
+    /** הפניה לאובייקט אחר של התלמיד (מאפיין / תא במערך) ברגע השורה */
+    private static final class SnapRef {
+        final Object target;
+        SnapRef(Object target) { this.target = target; }
+    }
+
+    /** מערך-מאפיין ברגע השורה: תאים (טקסט / SnapRef) והאורך האמיתי; מטריצה — שורות (null = שורה שהיא null) */
+    private static final class SnapArray {
+        final List<Object> cells = new ArrayList<Object>();
+        /** הטקסט של כל תא בסגנון של טבלת המאפיינים ("אב" במרכאות, 'c', או SnapRef) — לפי הסדר (מטריצה: שורה אחרי שורה) */
+        final List<Object> texts = new ArrayList<Object>();
+        int length;
+        List<List<Object>> rows;   // מטריצה (אחרת null)
+    }
+
+    /** מאפיין \u0010 ערך, מופרדים ב-\u000F. ערך: s מחרוזת, c תו, n מספר, 0 null, t טקסט, r הפניה, a מערך, m מטריצה */
+    private static Map<String, Object> parseSnap(String snap) {
+        Map<String, Object> m = new HashMap<String, Object>();
         for (String kv : snap.split("\u000F")) {
             int k = kv.indexOf('\u0010');
             if (k <= 0 || k + 1 >= kv.length()) continue;
             String raw = kv.substring(k + 2);
             char tag = kv.charAt(k + 1);
-            m.put(kv.substring(0, k), tag == 's' ? lit(raw) : tag == 'c' ? "'" + raw + "'" : tag == '0' ? "null" : raw);
+            Object val;
+            if (tag == 'a' || tag == 'm') {
+                SnapArray a = new SnapArray();
+                int c = raw.indexOf('\u0015');
+                try {
+                    a.length = Integer.parseInt(raw.substring(0, Math.max(c, 0)));
+                } catch (NumberFormatException e) {
+                    continue;
+                }
+                String body = raw.substring(c + 1);
+                if (tag == 'a') {
+                    if (a.length > 0) for (String cell : body.split("\u0014", -1)) a.cells.add(snapCell(cell, a));
+                } else {
+                    a.rows = new ArrayList<List<Object>>();
+                    if (a.length > 0) for (String row : body.split("\u0016", -1)) {
+                        int rc = row.indexOf('\u0015');
+                        if (rc < 0) { a.rows.add(null); continue; }
+                        List<Object> cells = new ArrayList<Object>();
+                        String rb = row.substring(rc + 1);
+                        if (!rb.isEmpty()) for (String cell : rb.split("\u0014", -1)) cells.add(snapCell(cell, a));
+                        a.rows.add(cells);
+                    }
+                }
+                val = a;
+            } else if (tag == 'r') {
+                val = new SnapRef(byId(raw));
+            } else {
+                val = tag == 's' ? lit(raw) : tag == 'c' ? "'" + raw + "'" : tag == '0' ? "null" : raw;
+            }
+            m.put(kv.substring(0, k), val);
         }
         return m;
+    }
+
+    /** תא במערך-מאפיין: הטקסט שבתא (כמו במערך רגיל — בלי מרכאות), או SnapRef לאובייקט של התלמיד */
+    private static Object snapCell(String cell, SnapArray a) {
+        char tag = cell.isEmpty() ? 't' : cell.charAt(0);
+        String raw = cell.isEmpty() ? "" : cell.substring(1);
+        Object res = tag == 'r' ? new SnapRef(byId(raw)) : tag == '0' ? "null" : raw;
+        a.texts.add(tag == 's' ? lit(raw) : tag == 'c' ? "'" + raw + "'" : res);
+        return res;
     }
 
     /** פעולה של התלמיד הסתיימה: מסגרות \u0004 ערך ההחזרה (\u0006 = void) */
@@ -1961,7 +2283,7 @@ final class Recorder {
         int cut = self.indexOf('\u0007');
         if (self.startsWith("\u0003") && cut > 0) {
             Object o = byId(self.substring(1, cut));
-            if (o != null) lineSnap.put(o, parseSnap(self.substring(cut + 1)));
+            if (o != null) putSnap(o, self.substring(cut + 1), true);
         }
         try {
             addStep(Kind.RETURN, null, Mark.NONE, null, text, frames);
