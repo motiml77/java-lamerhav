@@ -12,6 +12,12 @@ rm -rf "$W" && mkdir -p "$W"
 dotnet build "$ROOT/csharp/DsViz.Runner/DsViz.Runner.csproj" -c Release -v q --nologo 2>&1 | grep -E "error|Build succeeded" | head -3
 RUNNER="$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/dsviz-cs.dll"
 viz() { dotnet "$RUNNER" "$@"; }
+# תיקיית התבנית (csharp/project) צריכה את הספרייה ב-lib — כמו בהתקנה. היא לא במאגר (‎.gitignore): מעתיקים את זו שנבנתה עכשיו, כדי שלא
+# תחסר (ב-GitHub) ולא תהיה ישנה (במחשב שבנה פעם)
+mkdir -p "$ROOT/csharp/project/lib" && cp "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" "$ROOT/csharp/project/lib/"
+# Unit4.dll האמיתי של בתי הספר (מורד ונבדק מול sha256 — helpers/school-unit4.sh)
+. ./helpers/school-unit4.sh
+SCHOOL_DLL=$(school_unit4 "$ROOT/build") || { echo "אין Unit4.dll האמיתי של בתי הספר — הבדיקות מולו לא יכולות לרוץ"; exit 1; }
 
 echo "== 6. תבניות C#: כל התרגילים וכל קטעי הקוד מתקמפלים"
 node cs-combos.js "$W/gen" > "$W/.combos.out" 2>&1 || { cat "$W/.combos.out"; exit 1; }; tail -1 "$W/.combos.out"
@@ -711,8 +717,9 @@ viz "$W/cs73" --trace "$W/cs73.trace" > "$W/cs73.out" 2>&1 || true
 [ -s "$W/cs73.trace" ] && grep -q 'cs73 7' "$W/cs73.out" && ! grep -qE 'CS8773|error CS' "$W/cs73.out" \
     && echo "פרויקט עם LangVersion 7.3: ההרצה הוויזואלית מקמפלת ומריצה אותו" || { echo "הרצה ויזואלית של פרויקט עם LangVersion 7.3 נכשלה"; head -5 "$W/cs73.out"; exit 1; }
 
-# כג. ההפרדה בין ההרצה הרגילה להרצה הוויזואלית, על אותו קובץ בדיוק (using Unit4.CollectionsLib; פעם אחת, בלי שום שינוי של המשתמש), מול ספרייה
-#     "של בית הספר" עם ה-API של ספריית הבגרות (helpers/SchoolUnit4.cs, assembly בשם Unit4). לכל סוג פרויקט: עם איזו ספרייה הבנייה הרגילה
+# כג. ההפרדה בין ההרצה הרגילה להרצה הוויזואלית, על אותו קובץ בדיוק (using Unit4.CollectionsLib; פעם אחת, בלי שום שינוי של המשתמש), מול
+#     הספרייה של בית הספר: ב-Reference — Unit4.dll האמיתי שבתי הספר מחלקים; ב-ProjectReference — ספרייה מדומה עם אותו API מקוד מקור
+#     (helpers/SchoolUnit4.cs, assembly בשם Unit4 — צריך קוד מקור בשביל פרויקט). לכל סוג פרויקט: עם איזו ספרייה הבנייה הרגילה
 #     מקמפלת (בדיוק הפניה אחת ל-Unit4*, בלי CS0433 / CS0104), מה ב-bin, עם איזו ספרייה התוכנית רצה — ועם איזו ההרצה הוויזואלית. הקובץ לא משתנה
 SCH="$W/school-real"; rm -rf "$SCH" && mkdir -p "$SCH/CollectionsLib" "$SCH/ref" "$SCH/proj" "$SCH/none"
 printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.0</TargetFramework><AssemblyName>Unit4</AssemblyName><LangVersion>5</LangVersion></PropertyGroup></Project>\n' > "$SCH/CollectionsLib/CollectionsLib.csproj"
@@ -742,7 +749,7 @@ SUM=20
 PROG_MD5=$(md5sum < "$SCH/Program.cs")
 # אותו csproj כמו "Console App" חדש (ImplicitUsings פעיל — Stack / Queue גם ב-System.Collections.Generic), ועוד ההפניה לספרייה של בית הספר
 CSPROJ_HEAD='<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>'
-printf '%s<ItemGroup><Reference Include="Unit4"><HintPath>%s</HintPath></Reference></ItemGroup></Project>\n' "$CSPROJ_HEAD" "$SCH/bin/Unit4.dll" > "$SCH/ref/Ref.csproj"
+printf '%s<ItemGroup><Reference Include="Unit4"><HintPath>%s</HintPath></Reference></ItemGroup></Project>\n' "$CSPROJ_HEAD" "$SCHOOL_DLL" > "$SCH/ref/Ref.csproj"
 printf '%s<ItemGroup><ProjectReference Include="../CollectionsLib/CollectionsLib.csproj" /></ItemGroup></Project>\n' "$CSPROJ_HEAD" > "$SCH/proj/Proj.csproj"
 printf '%s</Project>\n' "$CSPROJ_HEAD" > "$SCH/none/None.csproj"
 for k in ref:Ref:Unit4 proj:Proj:Unit4 none:None:Unit4.CollectionsLib; do
@@ -761,13 +768,17 @@ for k in ref:Ref:Unit4 proj:Proj:Unit4 none:None:Unit4.CollectionsLib; do
 done
 echo "אותו קוד, בלי שינוי: הבנייה הרגילה עם הספרייה שהפרויקט מפנה אליה (Reference / ProjectReference בשם אחר) או עם של DSViz כשאין, ההרצה הוויזואלית תמיד עם של DSViz"
 
-# כד. ה-API: כל חבר ציבורי של הספרייה של בית הספר (SchoolUnit4.cs) קיים גם בספרייה של DSViz — אותו שם, אותם פרמטרים, אותו סוג מוחזר
+# כד. ה-API: כל חבר ציבורי של Unit4.dll האמיתי (Unit4.CollectionsLib ו-Unit4.BinTreeUtilsLib — גם StackInt ו-BinTreeUtils) קיים גם בספרייה של
+#     DSViz — אותו שם, אותם פרמטרים, אותו סוג מוחזר. וגם הספרייה המדומה (SchoolUnit4.cs) — שה-ProjectReference בבדיקות האלה בונה ממנה
 mkdir -p "$W/apicmp"
 printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include="%s" /></ItemGroup></Project>\n' "$PWD/helpers/ApiCompare.cs" > "$W/apicmp/ApiCompare.csproj"
 msb "$W/apicmp" -p:DSVizDisable=true -o "$W/apicmp/out" > "$W/apicmp.build" 2>&1 || { echo "ApiCompare לא נבנה"; grep error "$W/apicmp.build" | head -3; exit 1; }
-dotnet "$W/apicmp/out/ApiCompare.dll" "$SCH/bin/Unit4.dll" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$W/apicmp.txt" \
-    && echo "ה-API: $(grep -c '^both' "$W/apicmp.txt") חברים משותפים, 0 שחסרים בספרייה של DSViz (ורק אצלנו: $(grep -c '^only-dsviz' "$W/apicmp.txt") — Helpers, Student, Car, GetInfo / SetInfo...)" \
-    || { echo "חסר בספרייה של DSViz חבר שיש בספרייה של בית הספר:"; grep '^only-school' "$W/apicmp.txt"; exit 1; }
+dotnet "$W/apicmp/out/ApiCompare.dll" "$SCHOOL_DLL" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$W/apicmp.txt" \
+    && grep -q '^both  *type Unit4.CollectionsLib.StackInt$' "$W/apicmp.txt" && grep -q '^both  *type Unit4.BinTreeUtilsLib.BinTreeUtils$' "$W/apicmp.txt" \
+    && echo "ה-API מול Unit4.dll האמיתי: $(grep -c '^both' "$W/apicmp.txt") חברים משותפים (גם StackInt ו-BinTreeUtils), 0 שחסרים בספרייה של DSViz (ורק אצלנו: $(grep -c '^only-dsviz' "$W/apicmp.txt") — Helpers, Student, Car, GetInfo / SetInfo...)" \
+    || { echo "חסר בספרייה של DSViz חבר שיש ב-Unit4.dll האמיתי:"; grep '^only-school' "$W/apicmp.txt"; exit 1; }
+dotnet "$W/apicmp/out/ApiCompare.dll" "$SCH/bin/Unit4.dll" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$W/apicmp-sim.txt" \
+    || { echo "חסר בספרייה של DSViz חבר שיש בספרייה המדומה (SchoolUnit4.cs):"; grep '^only-school' "$W/apicmp-sim.txt"; exit 1; }
 
 # כה. קוד שמשתמש בחבר / סוג שיש רק בספרייה של בית הספר (כאן: ספרייה שהוסיפה Stack<T>.Count() והסוג BinTreeNode<T> של גרסה ישנה): ההרצה
 #     הרגילה עובדת; ההרצה הוויזואלית לא מתחילה, ומסבירה בעברית מה חסר ושההרצה הרגילה לא מושפעת (בלי חריגה, בלי שקט)
@@ -791,7 +802,7 @@ rc=0; viz "$SCH/extapp" --trace "$SCH/extapp.trace" > "$SCH/extapp.viz" 2>&1 || 
 #     מצליחות, וההרצה הוויזואלית לא כותבת ולא נוגעת בשום קובץ של הפרויקט (bin / obj / קוד): היא מקמפלת בזיכרון, בתהליך נפרד
 CC="$W/concurrent"; rm -rf "$CC" && mkdir -p "$CC"
 printf 'using System;\nusing Unit4.CollectionsLib;\n\nclass Program\n{\n    static void Main(string[] args)\n    {\n        Stack<int> s = new Stack<int>();\n        s.Push(5);\n        Console.WriteLine("started " + typeof(Stack<int>).Assembly.GetName().Name);\n        string line = Console.ReadLine();\n        Console.WriteLine("got " + line + " " + s.Top());\n    }\n}\n' > "$CC/Program.cs"
-printf '%s<ItemGroup><Reference Include="Unit4"><HintPath>%s</HintPath></Reference></ItemGroup></Project>\n' "$CSPROJ_HEAD" "$SCH/bin/Unit4.dll" > "$CC/Concurrent.csproj"
+printf '%s<ItemGroup><Reference Include="Unit4"><HintPath>%s</HintPath></Reference></ItemGroup></Project>\n' "$CSPROJ_HEAD" "$SCHOOL_DLL" > "$CC/Concurrent.csproj"
 msb "$CC" | grep -q 'Build succeeded' || { echo "הפרויקט של ההרצה המקבילה לא נבנה"; exit 1; }
 mkfifo "$CC/stdin.fifo"
 dotnet "$CC/bin/Debug/net8.0/Concurrent.dll" < "$CC/stdin.fifo" > "$CC/normal.out" 2>&1 &
@@ -812,5 +823,27 @@ nrc=0; wait $NPID || nrc=$?
     && echo "שתי ההרצות באותו זמן על אותו קובץ: הרגילה (Unit4 של בית הספר) חיכתה לקלט והמשיכה, הוויזואלית (Unit4.CollectionsLib) רצה עד הסוף — ושום קובץ בפרויקט לא השתנה" \
     || { echo "הרצה מקבילה: ויזואלית $vrc, רגילה $nrc (רצה בזמן הוויזואלית: $running)"; cat "$CC/visual.out" "$CC/normal.out"; diff "$W/concurrent.before" "$W/concurrent.after" | head; exit 1; }
 
+# כז. אותו פלט בשתי ההרצות, מול Unit4.dll האמיתי: תוכנית שמשתמשת בכל ה-API שלו (Stack / Queue / Node / BinNode, StackInt, BinTreeUtils,
+#     והדפסה ישירה של חוליה — שם ToString מחזיר רק את הערך) — ההרצה הרגילה (Unit4.dll) וההרצה הוויזואלית (הספרייה של DSViz) מדפיסות אותו דבר.
+#     ובפרויקט שלא מפנה לספרייה של בית הספר, חוליה מודפסת כמו תמיד ב-DSViz (כל השרשרת)
+SP="$W/school-print"; rm -rf "$SP" && mkdir -p "$SP/app" "$SP/own"
+cp helpers/SchoolProgram.cs "$SP/app/Program.cs"
+printf '%s<ItemGroup><Reference Include="Unit4"><HintPath>%s</HintPath></Reference></ItemGroup></Project>\n' "$CSPROJ_HEAD" "$SCHOOL_DLL" > "$SP/app/SchoolApp.csproj"
+V=normal msb "$SP/app" > "$SP/build.out" 2>&1 && grep -q 'Build succeeded' "$SP/build.out" && ! grep -qE 'CS0433|CS0104' "$SP/build.out" \
+    || { echo "התוכנית מול Unit4.dll האמיתי לא נבנתה"; grep -E 'error [A-Z]+[0-9]+' "$SP/build.out" | head -5; exit 1; }
+ls "$SP/app/bin/Debug/net8.0" | grep -qx 'Unit4.dll' && ! ls "$SP/app/bin/Debug/net8.0" | grep -qx 'Unit4.CollectionsLib.dll' || { echo "ב-bin לא רק Unit4.dll"; exit 1; }
+dotnet "$SP/app/bin/Debug/net8.0/SchoolApp.dll" > "$SP/normal.txt" 2>&1 || { echo "ההרצה הרגילה מול Unit4.dll נכשלה"; cat "$SP/normal.txt"; exit 1; }
+viz "$SP/app" --trace "$SP/visual.trace" > "$SP/visual.out" 2>&1 || { echo "ההרצה הוויזואלית של התוכנית נכשלה"; cat "$SP/visual.out"; exit 1; }
+tail -n +2 "$SP/visual.out" > "$SP/visual.txt"
+[ "$(wc -l < "$SP/normal.txt")" -ge 12 ] && grep -qx 'node: 4 | next: 8 | has: True' "$SP/normal.txt" && grep -q '^stackint: \[3,5,1\] top=3' "$SP/normal.txt" \
+    && grep -q '^pre=2,1,0,3,4 in=0,1,2,3,4 post=0,1,4,3,2 level=2,1,3,0,4$' "$SP/normal.txt" && cmp -s "$SP/normal.txt" "$SP/visual.txt" \
+    && grep -qP '^STEP\tREAD\t.*BinTreeUtils\.Height\(\[2\]\)  →  2$' "$SP/visual.trace" && grep -qP '^STEP\tCREATE\t.*BinTreeUtils\.BuildRandomTree\(7, 3, 5\)' "$SP/visual.trace" \
+    || { echo "הפלט שונה בין ההרצה הרגילה (Unit4.dll) להרצה הוויזואלית:"; diff "$SP/normal.txt" "$SP/visual.txt" | head -20; exit 1; }
+printf 'using System;\nusing Unit4.CollectionsLib;\n\nclass Program\n{\n    static void Main(string[] args)\n    {\n        Node<int> lst = new Node<int>(4, new Node<int>(8));\n        Console.WriteLine(lst);\n    }\n}\n' > "$SP/own/Program.cs"
+printf '%s</Project>\n' "$CSPROJ_HEAD" > "$SP/own/Own.csproj"
+viz "$SP/own" --trace "$SP/own.trace" > "$SP/own.out" 2>&1 && grep -qx '4 -> 8 -> null' "$SP/own.out" \
+    || { echo "בפרויקט בלי הספרייה של בית הספר חוליה צריכה להיות מודפסת כשרשרת"; cat "$SP/own.out"; exit 1; }
+echo "אותו פלט בהרצה הרגילה (Unit4.dll האמיתי) ובהרצה הוויזואלית: $(wc -l < "$SP/normal.txt") שורות — Stack / Queue / Node / BinNode, StackInt, BinTreeUtils (כל 13 הפעולות), חוליה מודפסת כערך; ובפרויקט רגיל של DSViz — שרשרת"
+
 unset XDG_DATA_HOME
-echo "DSViz.targets: 28 תרחישים נבדקו (אותו קוד בהרצה רגילה ובהרצה ויזואלית מול ספריית בית הספר, השוואת ה-API, חבר שחסר אצלנו, שתי ההרצות באותו זמן, פרויקט רגיל לא משתנה, ספריית בית הספר ב-Reference / ProjectReference, פרויקט מסומן, קוד מעורב, סדר הפרופילים והעברת 'הרצה רגילה' לראש, ‎.NET Framework בלי הפניה, LangVersion ישן בהרצה הוויזואלית, ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"
+echo "DSViz.targets: 29 תרחישים נבדקו (אותו קוד בהרצה רגילה ובהרצה ויזואלית מול ספריית בית הספר, אותו פלט מול Unit4.dll האמיתי, השוואת ה-API, חבר שחסר אצלנו, שתי ההרצות באותו זמן, פרויקט רגיל לא משתנה, ספריית בית הספר ב-Reference / ProjectReference, פרויקט מסומן, קוד מעורב, סדר הפרופילים והעברת 'הרצה רגילה' לראש, ‎.NET Framework בלי הפניה, LangVersion ישן בהרצה הוויזואלית, ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"

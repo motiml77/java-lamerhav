@@ -1,6 +1,7 @@
-// משווה חבר-חבר את ה-API הציבורי של שתי ספריות ב-namespace Unit4.CollectionsLib: הספרייה "של בית הספר" (SchoolUnit4.cs → Unit4.dll)
-// מול הספרייה של DSViz (Unit4.CollectionsLib.dll). ההרצה הוויזואלית מקמפלת תמיד מול הספרייה של DSViz — גם קוד שנכתב לספרייה של
-// בית הספר — ולכן כל חבר ציבורי שיש שם צריך להיות גם אצלנו (אותו שם, אותם פרמטרים, אותו סוג מוחזר).
+// משווה חבר-חבר את ה-API הציבורי של שתי ספריות ב-namespace Unit4.CollectionsLib וב-Unit4.BinTreeUtilsLib: הספרייה של בית הספר (Unit4.dll — האמיתית,
+// שבתי הספר מחלקים; ב-cs-tests היא מורדת ונבדקת מול sha256) מול הספרייה של DSViz (Unit4.CollectionsLib.dll). ההרצה הוויזואלית מקמפלת תמיד מול
+// הספרייה של DSViz — גם קוד שנכתב לספרייה של בית הספר — ולכן כל חבר ציבורי שיש שם צריך להיות גם אצלנו (אותו שם, אותם פרמטרים, אותו סוג מוחזר;
+// גם בירושה — StackInt שלנו יורשת מ-Stack<int>).
 //   ApiCompare <Unit4.dll של בית הספר> <Unit4.CollectionsLib.dll של DSViz>
 // מדפיס "both" / "only-school" / "only-dsviz" לכל חבר; קוד יציאה 1 אם יש חבר שקיים רק בספרייה של בית הספר.
 using System;
@@ -22,14 +23,16 @@ static class ApiCompare
     {
         var set = new SortedSet<string>(StringComparer.Ordinal);
         Assembly a = Assembly.LoadFrom(dll);
-        foreach (Type t in a.GetExportedTypes().Where(t => t.Namespace == "Unit4.CollectionsLib"))
+        foreach (Type t in a.GetExportedTypes().Where(t => t.Namespace == "Unit4.CollectionsLib" || t.Namespace == "Unit4.BinTreeUtilsLib"))
         {
             string tn = Fmt(t);
-            set.Add("type " + tn);
+            set.Add("type " + t.Namespace + "." + tn);
             const BindingFlags F = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
             foreach (ConstructorInfo c in t.GetConstructors(F))
                 set.Add(tn + "(" + string.Join(", ", c.GetParameters().Select(p => Fmt(p.ParameterType))) + ")");
-            foreach (MethodInfo m in t.GetMethods(F).Where(m => !m.IsSpecialName))
+            // פעולות: גם בירושה (חוץ מאלה של object) — StackInt שלנו יורשת את Push / Pop / Top / IsEmpty / ToString מ-Stack<int>
+            const BindingFlags M = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+            foreach (MethodInfo m in t.GetMethods(M).Where(m => !m.IsSpecialName && m.DeclaringType.FullName != "System.Object"))
                 set.Add((m.IsStatic ? "static " : "") + Fmt(m.ReturnType) + " " + tn + "." + m.Name
                     + (m.IsGenericMethod ? "<" + string.Join(",", m.GetGenericArguments().Select(Fmt)) + ">" : "")
                     + "(" + string.Join(", ", m.GetParameters().Select(p => Fmt(p.ParameterType))) + ")");

@@ -27,7 +27,7 @@ on:
       - 'java-visualizer/tools/test/cs-tests.sh'
       - 'java-visualizer/tools/test/vs-extension-compile.sh'
       - 'java-visualizer/tools/test/install-vsix-test.sh'
-      - 'java-visualizer/tools/test/helpers/install-vsix-sim.ps1'
+      - 'java-visualizer/tools/test/helpers/**'
       - 'java-visualizer/vs-bank/**'
       - 'java-visualizer/access/**'
       - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java'

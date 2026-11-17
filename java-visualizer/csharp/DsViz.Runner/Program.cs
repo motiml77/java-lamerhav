@@ -309,6 +309,7 @@ namespace DsViz
 
             // --- 3. הרצה
             Recorder.Active = true;
+            Recorder.SchoolText = project.SchoolLib != null;   // הדפסה כמו בספרייה של בית הספר — כמו בהרצה הרגילה של הפרויקט הזה
             TextWriter console = Console.Out;
             var tee = new TeeWriter(console);
             Console.SetOut(tee);

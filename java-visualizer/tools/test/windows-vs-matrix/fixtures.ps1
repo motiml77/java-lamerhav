@@ -92,8 +92,24 @@ $refs
 "@
 }
 
-# יוצר את הפתרון ב-$dir. $schoolSource: tools/test/helpers/SchoolUnit4.cs. מחזיר טבלה: Sln, Dir
-function New-CiApps([string]$dir, [string]$schoolSource) {
+# Unit4.dll האמיתי — הספרייה שבתי הספר מחלקים (תיקיית Unit4CSharp ב-Google Drive), ‎.NET Framework 4.0 עם WinForms. לא נשמר במאגר: מורד ונבדק
+# מול sha256 (כמו tools/test/helpers/school-unit4.sh). מחזיר true אם $dest הוא הקובץ הנכון
+$script:SchoolUnit4Sha = '9F47124FC1F7F7A1204EC083636933023CEDA142D23734E76E146A33C96CF4B9'
+function Get-SchoolUnit4([string]$dest) {
+    $url = 'https://drive.usercontent.google.com/download?id=1r24UUvcESdtZ14be8ud3sEu4IEYsqnQF&export=download&confirm=t'
+    New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
+    for ($i = 0; $i -lt 4; $i++) {
+        if ((Test-Path $dest) -and (Get-FileHash $dest -Algorithm SHA256).Hash -eq $script:SchoolUnit4Sha) { return $true }
+        try { Invoke-WebRequest $url -OutFile $dest -UseBasicParsing -TimeoutSec 60 } catch { Info "הורדת Unit4.dll (ניסיון $($i + 1)): $($_.Exception.Message)" }
+        if ((Test-Path $dest) -and (Get-FileHash $dest -Algorithm SHA256).Hash -eq $script:SchoolUnit4Sha) { return $true }
+        Start-Sleep -Seconds 5
+    }
+    return $false
+}
+
+# יוצר את הפתרון ב-$dir. $schoolSource: tools/test/helpers/SchoolUnit4.cs (ספרייה מדומה — בשביל ProjectReference והספרייה המורחבת, שצריכות קוד מקור).
+# $realSchoolDll: Unit4.dll האמיתי (Get-SchoolUnit4) — אליו מפנה הפרויקט הקלאסי; ריק — בונים במקומו את המדומה. מחזיר טבלה: Sln, Dir
+function New-CiApps([string]$dir, [string]$schoolSource, [string]$realSchoolDll) {
     if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
     New-Item -ItemType Directory -Force $dir | Out-Null
     $projects = New-Object System.Collections.Generic.List[object]
@@ -102,12 +118,16 @@ function New-CiApps([string]$dir, [string]$schoolSource) {
     # --- ספריית בית הספר: namespace Unit4.CollectionsLib ב-assembly בשם Unit4, עם ה-API של ספריית הבגרות (tools/test/helpers/SchoolUnit4.cs —
     #     אותו קובץ שמול ה-API שלו cs-tests.sh משווה את הספרייה של DSViz, חבר-חבר)
     $school = [IO.File]::ReadAllText($schoolSource)
-    # 1. כקובץ DLL מוכן (Unit4.dll, ‎.NET Framework — כמו הספרייה שבתי הספר מחלקים) — הפרויקט הקלאסי מפנה אליו ב-HintPath.
-    #    המהדר של ‎.NET Framework שיש בכל Windows (C# 5 — מספיק לקוד הזה), בלי תלות בגרסת Visual Studio
-    WriteCode (Join-Path $dir 'school-bin\Lib.cs') $school
-    $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-    $o = & $csc /nologo /target:library "/out:$(Join-Path $dir 'school-bin\Unit4.dll')" (Join-Path $dir 'school-bin\Lib.cs') 2>&1
-    if (-not (Test-Path (Join-Path $dir 'school-bin\Unit4.dll'))) { Info "csc (Unit4.dll של בית הספר): $($o -join ' ')" }
+    # 1. כקובץ DLL מוכן — הפרויקט הקלאסי מפנה אליו ב-HintPath: Unit4.dll האמיתי של בתי הספר. אם לא הורד — המדומה, במהדר של ‎.NET Framework
+    #    שיש בכל Windows (C# 5 — מספיק לקוד הזה), בלי תלות בגרסת Visual Studio
+    New-Item -ItemType Directory -Force (Join-Path $dir 'school-bin') | Out-Null
+    if ($realSchoolDll -and (Test-Path $realSchoolDll)) { Copy-Item $realSchoolDll (Join-Path $dir 'school-bin\Unit4.dll') -Force }
+    else {
+        WriteCode (Join-Path $dir 'school-bin\Lib.cs') $school
+        $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+        $o = & $csc /nologo /target:library "/out:$(Join-Path $dir 'school-bin\Unit4.dll')" (Join-Path $dir 'school-bin\Lib.cs') 2>&1
+        if (-not (Test-Path (Join-Path $dir 'school-bin\Unit4.dll'))) { Info "csc (Unit4.dll של בית הספר): $($o -join ' ')" }
+    }
     # 2. כפרויקט שקובץ הפרויקט שלו נקרא אחרת (CollectionsLib.csproj, AssemblyName=Unit4) — בשביל ProjectReference
     WriteCode (Join-Path $dir 'CollectionsLib\Lib.cs') $school
     WriteCode (Join-Path $dir 'CollectionsLib\CollectionsLib.csproj') "<Project Sdk=`"Microsoft.NET.Sdk`">`r`n  <PropertyGroup>`r`n    <TargetFramework>netstandard2.0</TargetFramework>`r`n    <AssemblyName>Unit4</AssemblyName>`r`n    <RootNamespace>Unit4.CollectionsLib</RootNamespace>`r`n  </PropertyGroup>`r`n</Project>`r`n"

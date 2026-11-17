@@ -2,7 +2,8 @@
 
 ```
 csharp/
-├── Unit4.CollectionsLib/   הספרייה (netstandard2.0): Stack<T>, Queue<T>, Node<T>, BinNode<T>, Student, Car
+├── Unit4.CollectionsLib/   הספרייה (netstandard2.0): Stack<T>, Queue<T>, Node<T>, BinNode<T>, StackInt, Student, Car,
+│                           ו-Unit4.BinTreeUtilsLib.BinTreeUtils (כמו ב-Unit4.dll של בתי הספר)
 │                           + Recorder (התיעוד) + VizHooks (מה שנכנס לקוד של התלמיד)
 ├── DsViz.Runner/           dsviz-cs: מקמפל (Roslyn), מכניס דיווח לפני כל שורה (Instrumenter), מריץ וכותב קובץ הרצה
 └── project/                DataStructures-CS: פתרון Visual Studio — Exercise + 8 דוגמאות (נבנה לתיקיית מסמכים בהתקנה)
@@ -40,6 +41,16 @@ csharp/
   כרגיל, בקונסול; קובץ מגרסה ישנה שבו "הרצה ויזואלית" הייתה ראשונה מתוקן פעם אחת. כשהכול תקין — לא רץ כלום (הבנייה לא מתעכבת).
   פרופיל מגרסה ישנה (`"\"$(ProjectDir)\""` — ProjectDir נגמר ב-`\`, וב-Windows הנתיב מגיע עם מרכאה בסוף) מתוקן ל-`"\"$(ProjectDir).\""`.
   dsviz-cs עצמו מקבל גם ארגומנט כזה (מרכאות בקצוות, `C:\dir" --trace x` שנבלע לארגומנט אחד), ונתיב שלא קיים — הודעה בעברית, קוד 2.
+
+## הספרייה של בתי הספר (Unit4.dll)
+
+בתי הספר מקבלים `Unit4.dll` (‎.NET Framework 4.0, מתיקיית Unit4CSharp של המפקחים): `Unit4.CollectionsLib` — Stack, Queue, Node, BinNode,
+StackInt; `Unit4.BinTreeUtilsLib.BinTreeUtils` — פעולות שירות לעץ; ועוד מחלקות גרפיות (צב, צפרדעים, מגדלי האנוי...) שלא רלוונטיות להרצה הוויזואלית.
+ההרצה הוויזואלית מקמפלת תמיד מול הספרייה של DSViz, ולכן יש בה **כל** ה-API של האוספים ושל BinTreeUtils, באותה התנהגות (גובה עלה 0, IsFull = עץ
+מלא, BuildRandomTree עם אותה התפלגות צורות, NullReferenceException על עץ ריק — עם הסבר בעברית). ההבדל היחיד בהדפסה — `Node.ToString`: אצלנו כל
+השרשרת (`4 -> 8 -> null`), שם רק הערך; כשהפרויקט מפנה ל-Unit4.dll של בית הספר, dsviz-cs מדליק `Recorder.SchoolText` ומודפס רק הערך — אותו פלט
+כמו בהרצה הרגילה. נבדק ב-`tools/test/cs-tests.sh` מול הקובץ האמיתי (מורד ונבדק מול sha256 — `helpers/school-unit4.sh`; לא נשמר במאגר):
+השוואת ה-API חבר-חבר (`helpers/ApiCompare.cs`) ואותו פלט בשתי ההרצות (`helpers/SchoolProgram.cs`).
 
 לא נוגע בספריות / פרויקטי בדיקות / פרויקטים שאינם C#, ולא אם יש `<DSVizDisable>true</DSVizDisable>` בפרויקט. אף שלב לא מכשיל את הבנייה
 (ההתקנה חסרה, DLL חסר, Exec נכשל). פרויקט שהיה פתוח ב-Visual Studio בזמן ההתקנה — סוגרים ופותחים פעם אחת.

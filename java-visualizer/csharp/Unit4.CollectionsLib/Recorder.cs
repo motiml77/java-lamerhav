@@ -16,6 +16,11 @@ namespace Unit4.CollectionsLib
     internal static class Recorder
     {
         public static bool Active;
+        /// <summary>
+        /// הפרויקט מפנה לספרייה של בית הספר (Unit4.dll): ההרצה הוויזואלית (dsviz-cs) מדליקה, כדי שהקוד ידפיס בדיוק מה שהוא מדפיס בהרצה הרגילה —
+        /// שם Node.ToString מחזיר רק את ערך החוליה (ולא את כל השרשרת)
+        /// </summary>
+        public static bool SchoolText;
         public static int MaxSteps = 5000;
 
         const int MaxCells = 300, MaxCallFrames = 60, MaxArray = 60, MaxMatrix = 20;

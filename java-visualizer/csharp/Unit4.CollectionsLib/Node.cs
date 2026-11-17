@@ -68,9 +68,13 @@ namespace Unit4.CollectionsLib
 
         string Ref() { return Recorder.NodeRef(this); }
 
-        /// <summary>כל הרשימה מהחוליה הזו והלאה, למשל: 5 -> 2 -> 8 -> null</summary>
+        /// <summary>
+        /// כל הרשימה מהחוליה הזו והלאה, למשל: 5 -> 2 -> 8 -> null. בפרויקט שמפנה לספרייה של בית הספר (Unit4.dll) — רק ערך החוליה,
+        /// כמו ב-ToString שלה, כדי שההרצה הוויזואלית תדפיס בדיוק כמו ההרצה הרגילה
+        /// </summary>
         public override string ToString()
         {
+            if (Recorder.SchoolText) return value.ToString();
             var b = new StringBuilder();
             var seen = new HashSet<Node<T>>();
             Node<T> p = this;

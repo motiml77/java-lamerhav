@@ -447,10 +447,22 @@ function CheckCreated([string]$tag, [string]$name) {
     Start-Sleep 2
     VsFront | Out-Null
     $node = WaitFor { $x = @(ByName $script:vsP.Id $name 'TreeItem' -Any); if ($x.Count) { $x[0] } } 40
-    $inDte = Dte { param($d) $r = 'no'; foreach ($p in $d.Solution.Projects) { if ($p.Name -eq $name) { $r = 'yes' }; try { foreach ($i in $p.ProjectItems) { if ($i.SubProject -and $i.SubProject.Name -eq $name) { $r = 'yes' } } } catch { } }; $r } 8
+    # כל הרמות: פרויקט בתוך תיקיית פתרון (Exercises) ואולי בתוך תיקייה נוספת. אם לא נמצא — השמות שכן נראו, בשביל ההסבר
+    $inDte = Dte { param($d)
+        $todo = New-Object System.Collections.Stack; $seen = @(); $n = 0
+        foreach ($p in $d.Solution.Projects) { $todo.Push($p) }
+        while ($todo.Count -gt 0 -and $n -lt 400) {
+            $n++; $p = $todo.Pop(); $pn = ''
+            try { $pn = [string]$p.Name } catch { }
+            if ($pn -eq $name) { return 'yes' }
+            try { if (([string]$p.UniqueName) -like "*\$name.csproj") { return 'yes' } } catch { }
+            $seen += $pn
+            try { foreach ($i in $p.ProjectItems) { if ($i.SubProject) { $todo.Push($i.SubProject) } } } catch { }
+        }
+        'no (' + ($seen -join ', ') + ')' } 8
     Step "$tag-solution-explorer"
     # הפתרון ש-Solution Explorer מציג (DTE) הוא הקובע; הצומת עצמו ב-UI Automation קיים רק כשהתיקייה שמעליו פתוחה (העץ וירטואלי)
-    Check "$tag-solution-explorer" ($inDte -eq 'yes') "הפרויקט $name נמצא בפתרון שפתוח ב-Visual Studio — Solution Explorer מציג אותו (בלי טעינה מחדש)" "ב-DTE: $inDte · הצומת ב-UI Automation: $(DescEl $node)"
+    Check "$tag-solution-explorer" ([string]$inDte -eq 'yes') "הפרויקט $name נמצא בפתרון שפתוח ב-Visual Studio — Solution Explorer מציג אותו (בלי טעינה מחדש)" "ב-DTE: $inDte · הצומת ב-UI Automation: $(DescEl $node)"
     if ($node) { Pass "$tag-solution-explorer-node" "הצומת של $name נראה ב-Solution Explorer ($(DescEl $node))" }
     else { Note "$tag-solution-explorer-node" "הצומת של $name לא נמצא ב-UI Automation של Solution Explorer (תיקייה סגורה / עץ וירטואלי) — ראו בצילום"; DumpUia $script:vsP.Id "$tag-solution-explorer" }
     $act = ActiveDoc
@@ -557,8 +569,11 @@ Info "גרסת ההרחבה שהותקנה ב-${title}: $script:kitVersion"
 
 # ------------------------------------------------------------------ הכנה: פרויקטי הבדיקה, ה-agent של חלונות ה-Swing, כניסה שמורה
 Section 'הכנה: פרויקטי הבדיקה (CiApps.sln), קובץ בלי פרויקט, ה-agent של המאגר, כניסה שמורה'
-$apps = New-CiApps (Join-Path $env:USERPROFILE 'source\repos\CiApps') (Join-Path $root 'tools\test\helpers\SchoolUnit4.cs')
-Check 'prep-school-dll' (Test-Path (Join-Path $apps.Dir 'school-bin\Unit4.dll')) 'נבנתה ספריית בית הספר המדומה (Unit4.dll)'
+$realSchool = Join-Path $env:USERPROFILE 'school-unit4\Unit4.dll'
+$haveReal = Get-SchoolUnit4 $realSchool
+Check 'prep-school-real' $haveReal 'הורד Unit4.dll האמיתי של בתי הספר (sha256 תואם) — הפרויקט הקלאסי מפנה אליו' $(if ($haveReal) { $realSchool } else { 'לא הורד — הפרויקט הקלאסי מפנה לספרייה המדומה' })
+$apps = New-CiApps (Join-Path $env:USERPROFILE 'source\repos\CiApps') (Join-Path $root 'tools\test\helpers\SchoolUnit4.cs') $(if ($haveReal) { $realSchool } else { '' })
+Check 'prep-school-dll' (Test-Path (Join-Path $apps.Dir 'school-bin\Unit4.dll')) 'ספריית בית הספר במקום (school-bin\Unit4.dll)'
 $r = & $msbuild $apps.Sln '/t:Restore' '/v:m' '/nologo' 2>&1
 $r | Set-Content (Join-Path $logs 'ciapps-restore.txt') -Encoding utf8
 Info "restore ל-CiApps.sln: קוד $LASTEXITCODE · $(($r | Select-String 'error' | Select-Object -First 3) -join ' | ')"
