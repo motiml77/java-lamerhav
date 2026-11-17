@@ -220,7 +220,9 @@ namespace ConsoleApp2
     }
 }
 '@
-# תלמיד שכותב בפרויקט רגיל בלי שום שורה בראש הקובץ: DSViz.targets מוסיף לבד global using Unit4.CollectionsLib
+# תלמיד שכותב בפרויקט רגיל בלי שום שורה בראש הקובץ (Queue / Stack של הספרייה, בלי using). DSViz.targets מהגרסה שבה פרויקט רגיל
+# נבנה בדיוק כמו בלי DSViz (מכיר את הסימון DSVizProject של תיקיית התרגילים): לא מוסיף לו using, ולכן הבנייה הרגילה נכשלת כמו בלי DSViz,
+# וההרצה הוויזואלית (dsviz-cs) מריצה אותו. DSViz.targets מהגרסה הקודמת (בהתקנה שעוד לא נבנתה מחדש) הוסיף global using — נבדק כמו קודם
 $codeNoUsing = @'
 Queue<int> q = new Queue<int>();
 q.Insert(5);
@@ -233,7 +235,7 @@ s.Push(sum);
 Console.WriteLine("sum = " + s.Top());
 '@
 $cases = @(
-    @{ Id = 'new-nousing'; Dir = (Join-Path $repos 'ConsoleApp0\ConsoleApp0'); Name = 'ConsoleApp0'; Code = $codeNoUsing; Tfm = 'net8.0'; Extra = @() },
+    @{ Id = 'new-nousing'; Dir = (Join-Path $repos 'ConsoleApp0\ConsoleApp0'); Name = 'ConsoleApp0'; Code = $codeNoUsing; Tfm = 'net8.0'; Extra = @(); Plain = $true },
     @{ Id = 'new-toplevel'; Dir = (Join-Path $repos 'ConsoleApp1\ConsoleApp1'); Name = 'ConsoleApp1'; Code = $code; Tfm = 'net8.0'; Extra = @() },
     @{ Id = 'new-main'; Dir = (Join-Path $repos 'ConsoleApp2\ConsoleApp2'); Name = 'ConsoleApp2'; Code = $codeMain; Tfm = 'net8.0'; Extra = @('--use-program-main') },
     @{ Id = 'new-hebrew'; Dir = (Join-Path $repos 'מבני נתונים\תרגיל 1'); Name = 'Targil1'; Code = $code; Tfm = 'net8.0'; Extra = @() },
@@ -251,6 +253,17 @@ foreach ($c in $cases) {
     if ($c.Code -eq $codeMain) { $txt = $txt.Replace('namespace ConsoleApp2', "namespace $($c.Name)") }
     [IO.File]::WriteAllText($prog, $txt, (New-Object Text.UTF8Encoding($true)))   # Visual Studio שומר UTF-8 עם BOM
     $b = Build (Join-Path $c.Dir "$($c.Name).csproj") $c.Id
+    if ($c.Plain -and ((Get-Content $importAfter -Raw -ErrorAction SilentlyContinue) -match 'DSVizProject')) {
+        # פרויקט רגיל שלא מזכיר את הספרייה: DSViz לא נוגע בבנייה הרגילה (בלי using מוסתר, בלי הספרייה, בלי launchSettings.json)
+        $dll = @(Get-ChildItem (Join-Path $c.Dir 'bin') -Recurse -Filter 'Unit4.CollectionsLib.dll' -ErrorAction SilentlyContinue)
+        Check "$($c.Id)-untouched" (($b.Code -ne 0) -and ($b.Text -match 'CS1061') -and ($b.Text -notmatch 'CS1503|CS0104') -and $dll.Count -eq 0 -and -not (Test-Path (Join-Path $c.Dir 'Properties\launchSettings.json'))) "$($c.Name): פרויקט רגיל בלי using — הבנייה הרגילה כמו בלי DSViz (Queue של ‎.NET, בלי הספרייה ובלי launchSettings)" (($b.Text -split "`n" | Select-String 'error' | Select-Object -First 3) -join ' | ')
+        # וההרצה הוויזואלית של אותו קוד עובדת (dsviz-cs מוסיף את הספרייה לבד)
+        $trace = Join-Path $Out "$($c.Id).trace.txt"
+        $vo = & $runner $c.Dir --trace $trace 2>&1
+        $tl = if (Test-Path $trace) { @(Get-Content $trace -Encoding utf8).Count } else { 0 }
+        Check "$($c.Id)-visual" ($LASTEXITCODE -eq 0 -and $tl -gt 5) "$($c.Name): ההרצה הוויזואלית מריצה את הקוד (Queue / Stack של הספרייה, בלי using)" ($vo -join ' | ')
+        continue
+    }
     Check "$($c.Id)-build" ($b.Code -eq 0) "$($c.Name) ($($c.Tfm)) נבנה — הספרייה מתווספת לבד" (($b.Text -split "`n" | Select-String 'error' | Select-Object -First 3) -join ' | ')
     $pr = Profile $c.Dir
     Check "$($c.Id)-profile" ($null -ne $pr) "פרופיל 'הרצה ויזואלית' נוסף לבד ($($c.Dir))"

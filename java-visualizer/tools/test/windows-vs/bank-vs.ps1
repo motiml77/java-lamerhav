@@ -356,8 +356,9 @@ if ($dir) {
 }
 Shot '08-before-done'
 New-Item -ItemType File -Force "$go.2" | Out-Null
-# "הרצה ויזואלית" מהסרגל של Visual Studio עצמו (בחלון הצף אין כפתור הרצה): התרגיל נהיה לבד ה-Startup Project כשנפתח,
-# ולחיצה על ▶ "הרצה ויזואלית" (כמו Ctrl+F5) מריצה את הפרופיל של התרגיל
+# ההרצה מ-Visual Studio עצמו (בחלון הצף אין כפתור הרצה): התרגיל נהיה לבד ה-Startup Project כשנפתח. הכפתור הירוק / Ctrl+F5 מריצים
+# את הפרופיל הראשון שלו — "הרצה רגילה": התוכנית רצה כרגיל, בקונסול, ולא בהרצה הוויזואלית. את ההרצה הוויזואלית מפעילים מהכפתור
+# "הרצה ויזואלית" בסרגל של DSViz
 $ran = Join-Path $it 'ran.txt'
 for ($i = 0; $i -lt 120 -and -not (Test-Path $ran) -and -not $itP.HasExited; $i++) { Start-Sleep 1 }
 if ($ready -and $dir) {
@@ -367,18 +368,44 @@ if ($ready -and $dir) {
         foreach ($p in 'VisualStudio.DTE.18.0', 'VisualStudio.DTE.17.0', 'VisualStudio.DTE') { try { $d = [Runtime.InteropServices.Marshal]::GetActiveObject($p); break } catch {} }
         if ($d) { $startup = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') }
     } catch { $startup = "שגיאה: $_" }
-    Check 'vs-startup' ($startup -match [regex]::Escape($name)) "התרגיל $name הוא ה-Startup Project — ▶ 'הרצה ויזואלית' בסרגל של Visual Studio מריץ אותו" $startup
+    Check 'vs-startup' ($startup -match [regex]::Escape($name)) "התרגיל $name הוא ה-Startup Project — הכפתור הירוק של Visual Studio מריץ אותו" $startup
+    function ViewerUp() { return @(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' }).Count -gt 0 }
     $wsh = New-Object -ComObject WScript.Shell
     [void]$wsh.AppActivate($vsP.Id); Start-Sleep 2
     $wsh.SendKeys('^{F5}')
-    $seen = $false
-    for ($i = 0; $i -lt 180; $i++) {
+    # הרצה רגילה: חלון קונסול של התוכנית (הכותרת שלו — הנתיב של ה-exe, או "Microsoft Visual Studio Debug Console"), בלי dsviz-cs ובלי החלון של DSViz
+    $viewer = $false; $console = ''
+    for ($i = 0; $i -lt 180 -and -not $viewer -and -not $console; $i++) {
         Start-Sleep 1
-        if (@(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' }).Count -gt 0) { $seen = $true; break }
+        if ((ViewerUp) -or @(Get-Process dsviz-cs -ErrorAction SilentlyContinue).Count -gt 0) { $viewer = $true }
+        $console = [string](Windows | Where-Object { $_ -match ([regex]::Escape("$name.exe") + '|Debug Console') } | Select-Object -First 1)
+        if (-not $console) {
+            # או התהליך שמחזיק את הקונסול פתוח אחרי שהתוכנית נגמרה (cmd /c "<exe> & pause", VsDebugConsole)
+            $console = [string](Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^(cmd|VsDebugConsole)\.exe$' -and $_.CommandLine -match [regex]::Escape("$name.") } |
+                ForEach-Object { "$($_.Name): $($_.CommandLine)" } | Select-Object -First 1)
+        }
     }
-    Start-Sleep 6
-    Shot '08b-vs-toolbar-run'
-    Check 'vs-toolbar-run' $seen "▶ 'הרצה ויזואלית' בסרגל של Visual Studio הריץ את התרגיל בהרצה הוויזואלית" ((Windows) -join ' ; ')
+    Start-Sleep 4
+    Shot '08b-vs-normal-run'
+    Check 'vs-normal-run' ((-not $viewer) -and $console) "Ctrl+F5 (הכפתור הירוק) על התרגיל: הרצה רגילה בקונסול — לא ההרצה הוויזואלית ($console)" ((Windows) -join ' ; ')
+    # סוגרים את הקונסול ("Press any key") לפני שממשיכים
+    Get-Process VsDebugConsole, $name -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match [regex]::Escape($name) } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' } | Stop-Process -Force
+    Get-Process dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force
+    Start-Sleep 2
+    # "הרצה ויזואלית" בסרגל של DSViz ב-Visual Studio (אם הסרגל מותקן בהתקנה שנבדקת): מריץ ויזואלית את הקובץ הפתוח — התרגיל
+    $runBtn = VsElements $vsP.Id | Where-Object { (ElName $_) -eq 'הרצה ויזואלית' -and (ElType $_) -match 'Button' } | Select-Object -First 1
+    if ($runBtn) {
+        $how = ClickEl $runBtn
+        $seen = $false
+        for ($i = 0; $i -lt 120 -and -not $seen; $i++) { Start-Sleep 1; $seen = ViewerUp }
+        Start-Sleep 6
+        Shot '08b-vs-toolbar-run'
+        Check 'vs-toolbar-run' $seen "'הרצה ויזואלית' בסרגל של DSViz ב-Visual Studio ($how) הריצה את התרגיל בהרצה הוויזואלית" ((Windows) -join ' ; ')
+    } else { Info "אין כפתור 'הרצה ויזואלית' של DSViz בסרגל של Visual Studio (ההתקנה שנבדקת בלי סרגל הכלים) — ההרצה הוויזואלית נבדקה למעלה דרך הפרופיל" }
     Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'הרצה ויזואלית' } | Stop-Process -Force
     Get-Process dsviz-cs -ErrorAction SilentlyContinue | Stop-Process -Force
     # חלון דו-שיח של Visual Studio ("Open File", Ctrl+O): החלון הצף יורד אחורה (BankVsIt בודק), וכשנסגר — חוזר להיות מעל

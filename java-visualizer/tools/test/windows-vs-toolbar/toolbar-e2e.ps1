@@ -618,6 +618,16 @@ if ($subDir) {
     Info "הוכנסו $nSolved הצעות לפתרון (כמו תלמיד שכתב את הפעולות)"
     Check 'run-solved' ($nSolved -gt 0) 'הפעולות של התרגיל נכתבו (הצעות לפתרון)'
     $mainCs = @(Get-ChildItem $subDir -Filter '*.cs' | Where-Object { (Get-Content $_.FullName -Raw -Encoding utf8) -match 'static (void|int) Main' }) | Select-Object -First 1
+    # הרצה רגילה (הכפתור הירוק / Ctrl+F5 כש"הרצה רגילה" הפרופיל הראשון) נגמרת מיד — אי אפשר "לתפוס" את התהליך שלה. לכן ה-Main של
+    # התרגיל כותב קובץ סימון (שם התרגיל | התהליך שהריץ: dsviz-cs בהרצה ויזואלית, שם התרגיל בהרצה רגילה)
+    $script:runMarker = Join-Path ([IO.Path]::GetTempPath()) 'dsviz-toolbar-e2e-run.txt'   # כמו Path.GetTempPath() בתוכנית (TMP לפני TEMP)
+    try {
+        $mt = [IO.File]::ReadAllText($mainCs.FullName)
+        $mark = 'System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dsviz-toolbar-e2e-run.txt"), "' + $subName + '|" + System.Diagnostics.Process.GetCurrentProcess().ProcessName);'
+        $mt2 = (New-Object regex '(static\s+(?:void|int)\s+Main\s*\([^)]*\)\s*\{)').Replace($mt, ('$1 ' + $mark), 1)
+        if ($mt2 -ne $mt) { [IO.File]::WriteAllText($mainCs.FullName, $mt2, (New-Object Text.UTF8Encoding($true))) }
+        Info "סימון הרצה ב-Main של $($mainCs.Name): $($mt2 -ne $mt)"
+    } catch { Info "סימון הרצה: $_" }
     try { $null = $d.ItemOperations.OpenFile($mainCs.FullName) } catch { Info "DTE (פתיחת הקובץ): $_" }
     Start-Sleep 5
     $act = ''; try { $act = $d.ActiveDocument.FullName } catch { }
@@ -779,11 +789,15 @@ if ($new2.Count -ge 1) {
         Get-Process VsDebugConsole, $pn -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     }
     function Launched() {
-        @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -ieq 'dsviz-cs.exe' -or $_.Name -ieq "$subName.exe" } |
+        $l = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -ieq 'dsviz-cs.exe' -or $_.Name -ieq "$subName.exe" } |
             ForEach-Object { "$($_.Name): $($_.CommandLine)" })
+        # הרצה רגילה נגמרת מיד — הסימון שה-Main של התרגיל כתב (שם התרגיל | התהליך)
+        if ($script:runMarker -and (Test-Path $script:runMarker)) { try { $l += "marker: $([IO.File]::ReadAllText($script:runMarker))" } catch { } }
+        return $l
     }
     function StartAndWatch($file, $want, $label) {
         KillRun
+        if ($script:runMarker) { Remove-Item $script:runMarker -Force -ErrorAction SilentlyContinue }
         try { $d.Solution.SolutionBuild.StartupProjects = 'Exercise\Exercise.csproj' } catch { Info "הגדרת Startup: $_" }
         try { $null = $d.ItemOperations.OpenFile($file); $d.ActiveDocument.Activate() } catch { Info "DTE פתיחה: $_" }
         Start-Sleep 2
@@ -794,6 +808,7 @@ if ($new2.Count -ge 1) {
         for ($w = 0; $w -lt 15; $w++) { Start-Sleep 1; try { $s = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }; if ($s -like "*$want*") { break } }
         $runs = @()
         for ($w = 0; $w -lt 90 -and $runs.Count -eq 0; $w++) { Start-Sleep 1; $runs = Launched }
+        Start-Sleep 3; $runs = @(Launched)   # גם הסימון שה-Main כותב (התהליך של הרצה רגילה כבר נגמר)
         Info "   $label — לפני ההרצה: $before · אחרי הלחיצה על הרצה: $s · הורץ: $($runs -join ' | ')"
         $script:runShot++; Shot "37-run-$($script:runShot)"
         KillRun
@@ -810,6 +825,11 @@ if ($new2.Count -ge 1) {
         $r1 = StartAndWatch $runFile $subName 'לחיצה על הרצה'
         Check 'run-follows-active-file' (($r1[0] -like '*Exercise\Exercise.csproj*') -and ($r1[1] -like "*$subName*")) "ה-Startup Project היה Exercise ובלחיצה על הרצה הפך לתרגיל הפתוח (ולא רץ תרגיל המחסנית): $($r1[0]) -> $($r1[1])"
         Check 'run-launches-active-project' (($r1[2] -like "*$subName*") -and ($r1[2] -notlike '*\Exercise\.*')) "Ctrl+F5 הריץ את התרגיל הפתוח: $($r1[2])"
+        # כש"הרצה רגילה" הפרופיל הראשון של התרגיל (התרגיל נוצר בגרסה שבה זה כך): Ctrl+F5 מריץ כרגיל, בקונסול — לא את ההרצה הוויזואלית
+        $first = ''
+        try { $first = @((Get-Content (Join-Path $subDir 'Properties\launchSettings.json') -Raw -Encoding UTF8 | ConvertFrom-Json).profiles.PSObject.Properties | ForEach-Object { $_.Name })[0] } catch { }
+        if ($first -ne 'הרצה רגילה') { Info "הפרופיל הראשון של התרגיל: '$first' (נוצר בגרסה קודמת) — 'run-is-normal' לא נבדק: $($r1[2])" }
+        else { Check 'run-is-normal' (($r1[2] -like "*marker: $subName|*") -and ($r1[2] -notlike '*marker: *|dsviz-cs*') -and ($r1[2] -notlike '*dsviz-cs.exe*')) "Ctrl+F5 בתרגיל שנוצר ('הרצה רגילה' ראשונה): הרצה רגילה (קונסול), לא ההרצה הוויזואלית: $($r1[2])" }
         # פרויקט של DSViz (מפנה לספרייה) שעוד אין לו את הפרופיל "הרצה ויזואלית" (הועתק בלי Properties): גם הוא נהיה ה-Startup Project.
         # ההרחבה לא כותבת את הפרופיל — את זה עושים DSViz.targets / dsviz-cs (רק נרשם כאן אם נוצר מחדש בבנייה)
         $launchFile = Join-Path $subDir 'Properties\launchSettings.json'
@@ -822,8 +842,9 @@ if ($new2.Count -ge 1) {
         if ($launchKeep) { New-Item -ItemType Directory -Force (Split-Path $launchFile) | Out-Null; [IO.File]::WriteAllBytes($launchFile, $launchKeep) }
     } else { Info 'אין תרגיל מהשליחה (שלב 5) — בדיקת "הרצה" (Ctrl+F5) דולגה' }
     # קובץ C# שלא שייך לאף פרויקט (Miscellaneous Files — כמו Loops4.cs שתלמיד פתח מ-File > Open), וה-Startup Project הוא Exercise:
-    # Ctrl+F5 (אותה פקודה כמו הכפתור הירוק) מריץ ויזואלית את הקובץ הפתוח (dsviz-cs על הקובץ) — ולא את Exercise (תרגיל המחסנית).
-    # התיקייה מחוץ לתיקיית התרגילים ובלי .csproj מעליה (גם לא ב-%TEMP%: קבצים זמניים, כמו "[from metadata]", ההרחבה לא מריצה)
+    # Ctrl+F5 (אותה פקודה כמו הכפתור הירוק) נשאר של Visual Studio — רץ ה-Startup Project כרגיל, ולא מוחלף בהרצה ויזואלית. ההרחבה רק
+    # מסבירה: שורת הודעה (InfoBar) "הקובץ Loops4.cs לא שייך לאף פרויקט..." עם הכפתור "הרצה ויזואלית של Loops4.cs", שמריץ את הקובץ עצמו.
+    # (ההרחבה שבגרסה הקודמת — לפני שכתבה vs-loaded-*.txt — הריצה ויזואלית את הקובץ במקום.) התיקייה מחוץ לתיקיית התרגילים ובלי .csproj מעליה
     $looseDir = Join-Path $env:USERPROFILE 'DSViz-loose-test'
     New-Item -ItemType Directory -Force $looseDir | Out-Null
     $looseFile = Join-Path $looseDir 'Loops4.cs'
@@ -836,6 +857,7 @@ if ($new2.Count -ge 1) {
     Start-Sleep 2
     try { $pi = $d.ActiveDocument.ProjectItem; $looseProj = if ($pi -and $pi.ContainingProject) { $pi.ContainingProject.Name } else { '(אין פרויקט)' } } catch { $looseProj = "? $_" }
     $lBefore = ''; try { $lBefore = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }
+    if ($script:runMarker) { Remove-Item $script:runMarker -Force -ErrorAction SilentlyContinue }   # הסימון של ההרצה הקודמת — שלא ייחשב להרצה הזו
     try { $d.ExecuteCommand('Debug.StartWithoutDebugging') } catch { Info "הרצה: $_" }
     $lRuns = @()
     for ($w = 0; $w -lt 90 -and $lRuns.Count -eq 0; $w++) { Start-Sleep 1; $lRuns = Launched }
@@ -850,8 +872,36 @@ if ($new2.Count -ge 1) {
         Copy-Item $vsTrace (Join-Path $Out 'vs-trace.log') -Force -ErrorAction SilentlyContinue
         @(Get-Content $vsTrace -Encoding utf8 | Where-Object { $_ -match 'startup|run' } | Select-Object -Last 8) | ForEach-Object { Info "   יומן ההרחבה: $_" }
     } else { Info '   יומן ההרחבה (vs-trace.log) לא נמצא' }
-    Check 'run-loose-file' (($lJoined -like '*Loops4.cs*') -and ($lJoined -notlike '*\Exercise\.*') -and ($lJoined -notlike '*Exercise.exe*')) "קובץ C# מחוץ לפתרון (Miscellaneous Files) + Ctrl+F5: הורץ ויזואלית הקובץ הפתוח, ולא Exercise: $lJoined"
+    # ההרחבה שנטענה מהגרסה החדשה כותבת vs-loaded-*.txt בכל טעינה (ההרחבה שב-prebuilt מתעדכנת מ-dsviz-vsix.yml אחרי הבנייה)
+    $newExt = @(Get-ChildItem $dsviz -Filter 'vs-loaded-*.txt' -ErrorAction SilentlyContinue).Count -gt 0
+    Info "   ההרחבה שנטענה מהגרסה שלא מחליפה את ההרצה הרגילה (vs-loaded-*.txt): $newExt"
+    if (-not $newExt) {
+        Check 'run-loose-file' (($lJoined -like '*Loops4.cs*') -and ($lJoined -notlike '*\Exercise\.*') -and ($lJoined -notlike '*Exercise.exe*')) "קובץ C# מחוץ לפתרון (Miscellaneous Files) + Ctrl+F5 (ההרחבה מהגרסה הקודמת): הורץ ויזואלית הקובץ הפתוח, ולא Exercise: $lJoined"
+    } else {
+        Check 'run-loose-not-hijacked' ($lJoined -notlike '*Loops4.cs*') "קובץ C# מחוץ לפתרון (Miscellaneous Files) + Ctrl+F5: ההרצה הרגילה לא הוחלפה בהרצה ויזואלית של הקובץ (אין dsviz-cs): $lJoined"
+    }
     Check 'run-loose-keeps-startup' ($lAfter -like '*Exercise\Exercise.csproj*') "ה-Startup Project לא השתנה (הקובץ לא שייך לאף פרויקט): $lAfter"
+    if ($newExt) {
+        # שורת ההודעה שמסבירה מה רץ, והכפתור שבה
+        $barName = 'הרצה ויזואלית של Loops4.cs'
+        $barBtn = @()
+        for ($w = 0; $w -lt 15 -and $barBtn.Count -eq 0; $w++) { $barBtn = @(VsByName $vsP.Id $barName); if ($barBtn.Count -eq 0) { Start-Sleep 2 } }
+        [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
+        Start-Sleep 1
+        $script:runShot++; Shot "37-run-$($script:runShot)-loose-infobar"
+        Check 'run-loose-infobar' ($barBtn.Count -gt 0) "שורת הודעה מסבירה שהקובץ לא שייך לאף פרויקט, עם הכפתור '$barName'" "$(($barBtn | ForEach-Object { DescEl $_ }) -join ' ; ')"
+        if ($barBtn.Count -gt 0) {
+            KillRun
+            Get-CimInstance Win32_Process -Filter "Name='Exercise.exe'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+            $how = ClickEl $barBtn[0]
+            $bRuns = @()
+            for ($w = 0; $w -lt 90 -and $bRuns.Count -eq 0; $w++) { Start-Sleep 1; $bRuns = @(Launched | Where-Object { $_ -like 'dsviz-cs.exe*' }) }
+            Start-Sleep 4
+            $script:runShot++; Shot "37-run-$($script:runShot)-loose-visual"
+            Check 'run-loose-infobar-visual' (($bRuns -join ' | ') -like '*Loops4.cs*') "הכפתור שבשורת ההודעה ($how) מריץ ויזואלית את Loops4.cs: $($bRuns -join ' | ')"
+            KillRun
+        }
+    }
     # הספרייה של בית הספר ב-.NET Framework (פרויקט קלאסי, assembly בשם Unit4): הרצה רגילה (בנייה של Visual Studio) עם הספרייה שלהם — בלי CS0433 ובלי הספרייה של DSViz —
     # והרצה ויזואלית (dsviz-cs) עם הספרייה של DSViz, אותו קוד
     $schBuild = $false; $schRun = $false; $schNoDsviz = $false; $schVisual = $false; $schOut = ''
@@ -1048,11 +1098,38 @@ $act = ActivateDoc $progB; Info "פעיל: $act"
 $r2 = RunAndTrace '53-two-B'
 Check 'two-run-B' ($r2.win -and $r2.text -match 'q\.Insert\(42\)' -and $r2.text -notmatch 's\.Push') "מעבר ל-QueueB — רץ QueueB (q.Insert(42)), לא StackA" (Snip $r2.text)
 Check 'two-saved-B' ((Get-Content $progB -Raw -Encoding utf8) -match 'q\.Insert\(42\)') "הקוד של QueueB נשמר לפני ההרצה" ''
-# 3. משנים שוב את A (בלי לשמור) ועוברים לקובץ העזר של A (בלי Main) — רץ A עם הקוד החדש
+# 3. משנים שוב את A (בלי לשמור) ועוברים לקובץ העזר של A (בלי Main). dsviz-cs שבהתקנה שנבדקת: מהגרסה שבה קובץ בלי Main מקבל הסבר
+#    (קוד 2, "אין פעולת Main") — לא מריצים בשקט Main של קובץ אחר, והקוד בכל זאת נשמר לפני; בגרסה הקודמת רץ A עם הקוד החדש
 $eA2 = EditDoc $progA $codeA2
 $act = ActivateDoc $helperA; Info "פעיל: $act (A2 נכתב: $eA2)"
-$r3 = RunAndTrace '54-two-A-helper'
-Check 'two-run-helper' ($r3.win -and $r3.text -match 's\.Push\(99\)' -and $r3.text -notmatch 's\.Push\(7\)' -and $r3.text -notmatch 'q\.Insert') "מקובץ העזר Helper.cs של StackA — רץ StackA עם הקוד העדכני (s.Push(99)), גם בלי לשמור לפני" (Snip $r3.text)
+$probe = (& $runner $helperA --trace (Join-Path $env:TEMP 'dsviz-probe-nomain.txt') 2>&1 | Out-String)
+$explainsNoMain = ($LASTEXITCODE -eq 2) -and ($probe -match 'אין פעולת Main')
+Info "dsviz-cs שבהתקנה על קובץ בלי Main: קוד $LASTEXITCODE · מסביר: $explainsNoMain"
+if (-not $explainsNoMain) {
+    $r3 = RunAndTrace '54-two-A-helper'
+    Check 'two-run-helper' ($r3.win -and $r3.text -match 's\.Push\(99\)' -and $r3.text -notmatch 's\.Push\(7\)' -and $r3.text -notmatch 'q\.Insert') "מקובץ העזר Helper.cs של StackA (dsviz-cs מהגרסה הקודמת) — רץ StackA עם הקוד העדכני (s.Push(99)), גם בלי לשמור לפני" (Snip $r3.text)
+} else {
+    KillDsviz; Start-Sleep 2
+    [Screen2]::ShowWindow($vsP.MainWindowHandle, 3) | Out-Null
+    [Screen2]::SetForegroundWindow($vsP.MainWindowHandle) | Out-Null
+    Start-Sleep 2
+    $e = ToolbarButton $vsP.Id @('הרצה ויזואלית')
+    $how = if ($e) { ClickEl $e } else { 'הכפתור לא נמצא' }
+    Info "לחיצה על 'הרצה ויזואלית' בסרגל (Helper.cs): $how"
+    $msgEl = $null
+    for ($w = 0; $w -lt 30 -and -not $msgEl; $w++) {
+        Start-Sleep 2
+        $msgEl = VsElements $vsP.Id | Where-Object { (ElName $_) -match 'אין פעולת Main' } | Select-Object -First 1
+    }
+    Shot '54-two-A-helper'
+    $msgText = if ($msgEl) { ElName $msgEl } else { '' }
+    Check 'two-run-helper' (($null -ne $msgEl) -and (@(DsvizWindows).Count -eq 0)) "מקובץ העזר Helper.cs של StackA (בלי Main): הודעה ברורה שאין בו Main — לא רץ בשקט Program.cs" "הודעה: $msgText · חלונות: $((Windows) -join ' ; ')"
+    Check 'two-saved-A2' ((Get-Content $progA -Raw -Encoding utf8) -match 's\.Push\(99\)') "גם כאן הקוד נשמר לפני (s.Push(99) בדיסק)" ''
+    $okBtn = VsElements $vsP.Id | Where-Object { (ElName $_) -eq 'OK' -and (ElType $_) -match 'Button' } | Select-Object -First 1
+    if ($okBtn) { ClickEl $okBtn | Out-Null } else { try { [Windows.Forms.SendKeys]::SendWait('{ENTER}') } catch { } }
+    Start-Sleep 2
+    KillDsviz
+}
 # 4. וחזרה ל-B — שוב B
 $act = ActivateDoc $progB; Info "פעיל: $act"
 $r4 = RunAndTrace '55-two-B-again'
