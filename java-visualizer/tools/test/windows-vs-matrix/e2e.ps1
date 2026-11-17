@@ -1099,7 +1099,11 @@ else {
         DismissDialogs | Out-Null
         Step 't14-code'
         Check 't14-code' ((Get-Content $file -Raw -Encoding UTF8) -match 'Ci\.Mark\("empty"') "הקוד (Stack<int> מ-Unit4.CollectionsLib, בלי שום הפניה בפרויקט) ב-Program.cs — $(if ($pasted) { 'הודבק בעורך ונשמר' } else { 'נכתב לקובץ' })" ''
+        # Visual Studio שומר את קובץ הפרויקט (הקובץ שנוסף) רק כשבונים — שומרים הכול לפני התמונה, כדי שההשוואה תבדוק רק את מה ש-DSViz עשה
+        Dte { param($d) $d.ExecuteCommand('File.SaveAll'); 'ok' } 6 | Out-Null
+        Start-Sleep 2
         $before = (Get-FileHash $csproj.FullName).Hash
+        $beforeText = @(Get-Content $csproj.FullName -Encoding UTF8)
         # 7. הרצה רגילה: Debug > Start Without Debugging (שתי לחיצות עכבר)
         KillRuns; KillJava; ClearMarkers
         $r = NormalRunRetry 'menu' 't14-normal' $emptyName 'empty'
@@ -1116,7 +1120,9 @@ else {
         KillRuns
         # 8. הרצה ויזואלית: הכפתור בסרגל של DSViz
         CheckVisual 't14-visual' $file 'empty' 'Unit4.CollectionsLib' 'Empty Project מהאשף'
-        Check 't14-project-unchanged' ((Get-FileHash $csproj.FullName).Hash -eq $before) 'שתי ההרצות לא שינו את קובץ הפרויקט של התלמיד (EmptyDemo.csproj)' ''
+        $afterText = @(Get-Content $csproj.FullName -Encoding UTF8)
+        $diff = @(Compare-Object $beforeText $afterText | ForEach-Object { "$($_.SideIndicator) $($_.InputObject.Trim())" })
+        Check 't14-project-unchanged' ((Get-FileHash $csproj.FullName).Hash -eq $before) 'שתי ההרצות לא שינו את קובץ הפרויקט של התלמיד (EmptyDemo.csproj)' "שורות ששונו: $($diff -join ' | ')"
     } catch { Fail 't14-exception' 'T14 רץ עד הסוף' "$_" }
     KillRuns; KillJava
     $closed = CloseVsByX

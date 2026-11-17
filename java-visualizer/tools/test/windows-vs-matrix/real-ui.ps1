@@ -223,7 +223,14 @@ function TopWindows([int]$procId) {
 function OtherWindows([int]$procId, [int]$mainHandle) {
     $isWindow = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::Window)
     $list = @()
-    foreach ($w in (TopWindows $procId)) {
+    $tops = @(TopWindows $procId)
+    # החלון הראשי השמור לא נמצא בין החלונות של התהליך (בריצות 7–8: ה-handle התחלף, ו"Open File" שמתחת לחלון הראשי לא נמצא) —
+    # החלון הראשי הוא זה שהכותרת שלו "... - Microsoft Visual Studio"; מעדכנים את השמור
+    if (-not @($tops | Where-Object { try { [int]$_.Current.NativeWindowHandle -eq $mainHandle } catch { $false } }).Count) {
+        $m = @($tops | Where-Object { (ElName $_) -match 'Microsoft Visual Studio( \(Administrator\))?$' }) | Select-Object -First 1
+        if ($m) { $mainHandle = [int]$m.Current.NativeWindowHandle; if ($procId -eq $script:vsP.Id) { $script:vsMain = [IntPtr]$mainHandle } }
+    }
+    foreach ($w in $tops) {
         try {
             if ([int]$w.Current.NativeWindowHandle -ne $mainHandle) { $list += $w; continue }
             foreach ($c in @($w.FindAll([Windows.Automation.TreeScope]::Children, $isWindow))) {
@@ -500,8 +507,18 @@ function StartVsOnce([string]$sln, [int]$minutes = 12) {
 }
 # מביא את Visual Studio לקדמה (לפני לחיצה / הקשה). true — החלון הראשי, או חלון אחר של Visual Studio (תיבת הודעה), בקדמה.
 # אם Windows לא נותן להביא חלון לקדמה מבחוץ: לחיצת עכבר אמיתית על שורת המצב שבתחתית החלון (לא משנה כלום — רק מפעילה את החלון, כמו משתמש)
+# חלון של Windows שקופץ במכונת הבדיקה ולוקח את המיקוד ("System Properties — Windows created a temporary paging file"): OK
+function CloseSystemNoise() {
+    foreach ($pp in @(Get-Process -Name 'SystemPropertiesPerformance', 'SystemPropertiesAdvanced' -ErrorAction SilentlyContinue)) {
+        foreach ($w in (TopWindows $pp.Id)) {
+            try { $w.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Close(); Info "נסגר חלון של Windows: '$(ElName $w)' ($($pp.ProcessName))" } catch { }
+        }
+    }
+}
 function VsFront() {
+    CloseSystemNoise
     CloseSignIn | Out-Null
+    if ($script:vsP) { OtherWindows $script:vsP.Id ([int]$script:vsMain) | Out-Null }   # מעדכן את החלון הראשי אם ה-handle התחלף
     $h = $script:vsMain
     $ok = [DsReal]::Front($h)
     if (-not $ok) {
