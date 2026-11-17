@@ -28,7 +28,7 @@ namespace Unit4.CollectionsLib
         public T Remove()
         {
             if (items.Count == 0)
-                throw new InvalidOperationException("Remove() על תור ריק (" + Recorder.NameOf(this) + ")");
+                throw new NullReferenceException("Remove() על תור ריק (" + Recorder.NameOf(this) + ")");
             T x = items[0];
             items.RemoveAt(0);
             Recorder.Change(this, Mark.NONE, Recorder.Str(x), Recorder.NameOf(this) + ".Remove()  →  " + Recorder.Str(x));
@@ -39,7 +39,7 @@ namespace Unit4.CollectionsLib
         public T Head()
         {
             if (items.Count == 0)
-                throw new InvalidOperationException("Head() על תור ריק (" + Recorder.NameOf(this) + ")");
+                throw new NullReferenceException("Head() על תור ריק (" + Recorder.NameOf(this) + ")");
             T x = items[0];
             Recorder.Read(this, Recorder.NameOf(this) + ".Head()  →  " + Recorder.Str(x));
             return x;

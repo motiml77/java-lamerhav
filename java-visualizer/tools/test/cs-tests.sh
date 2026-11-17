@@ -838,6 +838,7 @@ dotnet "$SP/app/bin/Debug/net8.0/SchoolApp.dll" > "$SP/normal.txt" 2>&1 || { ech
 viz "$SP/app" --trace "$SP/visual.trace" > "$SP/visual.out" 2>&1 || { echo "ההרצה הוויזואלית של התוכנית נכשלה"; cat "$SP/visual.out"; exit 1; }
 tail -n +2 "$SP/visual.out" > "$SP/visual.txt"
 [ "$(wc -l < "$SP/normal.txt")" -ge 12 ] && grep -qx 'node: 4 | next: 8 | has: True' "$SP/normal.txt" && grep -q '^stackint: \[3,5,1\] top=3' "$SP/normal.txt" \
+    && [ "$(grep -c ': NullReferenceException$' "$SP/normal.txt")" = 4 ] \
     && grep -q '^pre=2,1,0,3,4 in=0,1,2,3,4 post=0,1,4,3,2 level=2,1,3,0,4$' "$SP/normal.txt" && cmp -s "$SP/normal.txt" "$SP/visual.txt" \
     && grep -qP '^STEP\tREAD\t.*BinTreeUtils\.Height\(\[2\]\)  →  2$' "$SP/visual.trace" && grep -qP '^STEP\tCREATE\t.*BinTreeUtils\.BuildRandomTree\(7, 3, 5\)' "$SP/visual.trace" \
     || { echo "הפלט שונה בין ההרצה הרגילה (Unit4.dll) להרצה הוויזואלית:"; diff "$SP/normal.txt" "$SP/visual.txt" | head -20; exit 1; }
@@ -904,7 +905,8 @@ if TEACH_DLL=$(school_unit4_teachers "$ROOT/build"); then
     dotnet "$W/apicmp/out/ApiCompare.dll" "$TEACH_DLL" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$TV/api.txt" \
         || { echo "גרסת המורים: חסר בספרייה של DSViz חבר:"; grep '^only-school' "$TV/api.txt"; exit 1; }
     dotnet "$W/apicmp/out/ApiCompare.dll" --types "$TEACH_DLL" "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" > "$TV/school-only.txt"
-    NEW=$(comm -23 <(sort "$TV/school-only.txt") <(sort "$ST/graphics.txt"))
+    sort "$TV/school-only.txt" > "$TV/a.sorted"; sort "$ST/graphics.txt" > "$TV/b.sorted"
+    NEW=$(comm -23 "$TV/a.sorted" "$TV/b.sorted")
     [ -z "$NEW" ] || { echo "גרסת המורים: סוגים שאין אצלנו ולא רשומים כגרפיים (לממש, או להוסיף ל-GraphicTypes ב-SchoolUsings.cs):"; echo "$NEW"; exit 1; }
     REF="<ItemGroup><Reference Include=\"Unit4\"><HintPath>$TEACH_DLL</HintPath></Reference></ItemGroup>"
     for d in app all print; do printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup>%s</Project>\n' "$REF" > "$TV/$d/App.csproj"; done
@@ -919,7 +921,8 @@ if TEACH_DLL=$(school_unit4_teachers "$ROOT/build"); then
         tail -n +2 "$TV/$d.out" > "$TV/$d.visual"
         cmp -s "$TV/$d.normal" "$TV/$d.visual" || { echo "גרסת המורים ($d): הפלט שונה בין ההרצה הרגילה להרצה הוויזואלית:"; diff "$TV/$d.normal" "$TV/$d.visual" | head; exit 1; }
     done
-    [ "$(wc -l < "$TV/print.normal")" -ge 9 ] && grep -q '^pre=2,1,0,3,4 in=0,1,2,3,4 post=0,1,4,3,2 level=2,1,3,0,4$' "$TV/print.normal" || { echo "גרסת המורים: הפלט של תוכנית הבדיקה לא צפוי"; cat "$TV/print.normal"; exit 1; }
+    [ "$(wc -l < "$TV/print.normal")" -ge 9 ] && grep -q '^pre=2,1,0,3,4 in=0,1,2,3,4 post=0,1,4,3,2 level=2,1,3,0,4$' "$TV/print.normal" \
+        && [ "$(grep -c ': NullReferenceException$' "$TV/print.normal")" = 4 ] || { echo "גרסת המורים: הפלט של תוכנית הבדיקה לא צפוי"; cat "$TV/print.normal"; exit 1; }
     echo "גרסת המורים של Unit4.dll: $(grep -c '^both' "$TV/api.txt") חברים משותפים, 0 חסרים; $(grep -c . "$TV/school-only.txt") סוגים גרפיים — רשומים; התבנית, using לכל $(grep -c '^using Unit4\.' "$TV/all/Program.cs") ה-namespaces ותוכנית האוספים והעץ — אותו פלט בהרצה הרגילה ובהרצה הוויזואלית"
 else
     echo "לא נבדק: גרסת המורים של Unit4.dll — אין קובץ (DSVIZ_SCHOOL_UNIT4_TEACHERS) ואין קישור להורדה (SCHOOL_UNIT4_TEACHERS_URL)"

@@ -45,6 +45,11 @@ namespace SchoolApp
             bool inRange = true;
             for (Node<int> p = BinTreeUtils.LevelOrder2Nodes(r); p != null; p = p.GetNext()) inRange = inRange && p.GetValue() >= 3 && p.GetValue() <= 5;
             Console.WriteLine("random n=" + BinTreeUtils.NumOfNodes(r) + " range=" + inRange + " valid=" + BinTreeUtils.TreeIsValid(r));
+            // מחסנית / תור ריקים: אותה חריגה כמו ב-Unit4.dll של בתי הספר (NullReferenceException) — קוד שתופס אותה מתנהג אותו דבר בשתי ההרצות
+            try { new Stack<int>().Pop(); Console.WriteLine("empty pop: no exception"); } catch (NullReferenceException) { Console.WriteLine("empty pop: NullReferenceException"); }
+            try { new Stack<int>().Top(); Console.WriteLine("empty top: no exception"); } catch (NullReferenceException) { Console.WriteLine("empty top: NullReferenceException"); }
+            try { new Queue<int>().Remove(); Console.WriteLine("empty remove: no exception"); } catch (NullReferenceException) { Console.WriteLine("empty remove: NullReferenceException"); }
+            try { new Queue<int>().Head(); Console.WriteLine("empty head: no exception"); } catch (NullReferenceException) { Console.WriteLine("empty head: NullReferenceException"); }
         }
 
         static string Text(Node<int> p)

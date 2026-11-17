@@ -353,7 +353,7 @@ namespace Unit4.CollectionsLib
         static string Describe(Exception e)
         {
             string s = e.GetType().Name + (string.IsNullOrEmpty(e.Message) ? "" : ": " + e.Message);
-            if (e is NullReferenceException) s += "   (ניסיון להשתמש באובייקט שהוא null)";
+            if (e is NullReferenceException && !(e.Message ?? "").Contains("ריק")) s += "   (ניסיון להשתמש באובייקט שהוא null)";   // Pop על מחסנית ריקה — ההודעה כבר מסבירה
             if (e is IndexOutOfRangeException) s += "   (אינדקס מחוץ לגבולות המערך)";
             if (e is InvalidCastException) s += "   (המרה לא חוקית)";
             return s;

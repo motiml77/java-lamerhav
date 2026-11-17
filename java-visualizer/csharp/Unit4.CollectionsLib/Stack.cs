@@ -24,11 +24,14 @@ namespace Unit4.CollectionsLib
             Recorder.Change(this, Mark.NEW, null, Recorder.NameOf(this) + ".Push(" + Recorder.Str(x) + ")");
         }
 
-        /// <summary>הוצאת האיבר שבראש המחסנית והחזרתו</summary>
+        /// <summary>
+        /// הוצאת האיבר שבראש המחסנית והחזרתו. מחסנית ריקה — NullReferenceException, כמו ב-Unit4.dll של בתי הספר (שם Pop / Top ניגשים
+        /// לחוליה שאין), כדי שקוד שתופס את החריגה יתנהג אותו דבר בהרצה הרגילה ובהרצה הוויזואלית; ההודעה בעברית מסבירה מה קרה
+        /// </summary>
         public T Pop()
         {
             if (items.Count == 0)
-                throw new InvalidOperationException("Pop() על מחסנית ריקה (" + Recorder.NameOf(this) + ")");
+                throw new NullReferenceException("Pop() על מחסנית ריקה (" + Recorder.NameOf(this) + ")");
             T x = items[items.Count - 1];
             items.RemoveAt(items.Count - 1);
             Recorder.Change(this, Mark.NONE, Recorder.Str(x), Recorder.NameOf(this) + ".Pop()  →  " + Recorder.Str(x));
@@ -39,7 +42,7 @@ namespace Unit4.CollectionsLib
         public T Top()
         {
             if (items.Count == 0)
-                throw new InvalidOperationException("Top() על מחסנית ריקה (" + Recorder.NameOf(this) + ")");
+                throw new NullReferenceException("Top() על מחסנית ריקה (" + Recorder.NameOf(this) + ")");
             T x = items[items.Count - 1];
             Recorder.Read(this, Recorder.NameOf(this) + ".Top()  →  " + Recorder.Str(x));
             return x;
