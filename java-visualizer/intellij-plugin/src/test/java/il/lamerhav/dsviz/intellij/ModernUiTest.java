@@ -321,8 +321,9 @@ public class ModernUiTest extends BasePlatformTestCase {
             new ExerciseDialog(getProject(), Arrays.asList(new ExerciseDialog.Target(dir, "src")), "stack"),
             new InsertDialog(getProject(), null, code, code.indexOf("        \n"), "        "),
             new Help.ChooserDialog(getProject()),
+            new ClassDialog(getProject(), "", new java.util.LinkedHashMap<String, String>(), new ArrayList<il.lamerhav.dsviz.ClassGen.Known>()),
         };
-        String[] primary = { "יצירת התרגיל", "הוספה לקוד", "צפייה" };
+        String[] primary = { "יצירת התרגיל", "הוספה לקוד", "צפייה", "יצירת המחלקה" };
         for (int i = 0; i < ds.length; i++) {
             try {
                 JPanel f = ds[i].footer();

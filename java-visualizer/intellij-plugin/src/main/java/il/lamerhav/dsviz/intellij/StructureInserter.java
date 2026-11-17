@@ -77,15 +77,23 @@ public final class StructureInserter {
         Document doc = editor.getDocument();
         PsiDocumentManager.getInstance(project).commitDocument(doc);
         Spot spot = spot(file, doc, editor.getCaretModel().getOffset());
+        com.intellij.openapi.vfs.VirtualFile dir = file.getVirtualFile() == null ? null : file.getVirtualFile().getParent();
+        String pkg = file instanceof com.intellij.psi.PsiJavaFile ? ((com.intellij.psi.PsiJavaFile) file).getPackageName() : "";
         if (!NameCheck.insideFunction(doc.getText(), spot.insertAt)) {
-            Say.warn(project,
+            boolean create = new Notice(project, Say.spec(Modern.Kind.WARN, TITLE + " — הסמן לא במקום הנכון",
                     "הסמן נמצא מחוץ לפעולה (בגוף המחלקה, או לפני / אחרי המחלקה), ושם אי אפשר לכתוב פקודות.\n\n"
-                    + "לחצו בתוך הפעולה main (או בכל פעולה אחרת), בשורה שבה רוצים את המבנה — ואז לחצו שוב על \"הוסף מבנה נתונים\".",
-                    TITLE + " — הסמן לא במקום הנכון");
+                    + "לחצו בתוך הפעולה main (או בכל פעולה אחרת), בשורה שבה רוצים את המבנה — ואז לחצו שוב על \"הוסף מבנה נתונים\".\n\n"
+                    + "מחלקה חדשה (שדות, בנאי, get ו-set) — \"צור מחלקה\".").buttons("צור מחלקה…", "סגירה")).ask();
+            if (create) ClassCreator.run(project, dir, pkg);
             return;
         }
         InsertDialog d = new InsertDialog(project, null, doc.getText(), spot.insertAt, spot.indent);
-        if (!d.showAndGet() || d.code() == null) return;
+        boolean ok = d.showAndGet();
+        if (d.wantsClass()) {   // הכפתור "צור מחלקה" בחלון
+            ClassCreator.run(project, dir, pkg);
+            return;
+        }
+        if (!ok || d.code() == null) return;
         int caret = insert(project, doc, file, spot, d.code());
         editor.getCaretModel().moveToOffset(caret);
         editor.getScrollingModel().scrollToCaret(ScrollType.MAKE_VISIBLE);

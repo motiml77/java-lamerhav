@@ -147,6 +147,37 @@ public final class Actions {
         }
     }
 
+    // ------------------------------------------------------------------ צור מחלקה
+
+    /** "צור מחלקה": באותה תיקייה (ובאותה חבילה) של הקובץ הפתוח, או בתיקייה שנבחרה בעץ הקבצים */
+    public static final class CreateClass extends Base {
+        @Override
+        boolean available(AnActionEvent e) {
+            if (e.getPlace().equals("EditorPopup")) return psiFile(e) instanceof PsiJavaFile;
+            return true;
+        }
+
+        @Override
+        public void actionPerformed(AnActionEvent e) {
+            Project project = e.getProject();
+            PsiFile f = psiFile(e);
+            VirtualFile dir = null;
+            String pkg = "";
+            if (f instanceof PsiJavaFile && f.getVirtualFile() != null) {
+                dir = f.getVirtualFile().getParent();
+                pkg = ((PsiJavaFile) f).getPackageName();
+            } else {
+                VirtualFile vf = e.getData(CommonDataKeys.VIRTUAL_FILE);
+                if (vf != null && vf.isDirectory() && project != null) {
+                    dir = vf;
+                    String p = com.intellij.openapi.roots.ProjectRootManager.getInstance(project).getFileIndex().getPackageNameByDirectory(vf);
+                    pkg = p == null ? "" : p;
+                }
+            }
+            ClassCreator.run(project, dir, pkg);
+        }
+    }
+
     // ------------------------------------------------------------------ שליחת תרגיל (רק כשיש שרת)
 
     public static final class Submit extends Base {

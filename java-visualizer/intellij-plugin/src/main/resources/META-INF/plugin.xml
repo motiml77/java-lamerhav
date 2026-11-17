@@ -48,6 +48,11 @@
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift I"/>
             <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="DSViz.Run"/>
         </action>
+        <action id="DSViz.CreateClass" class="il.lamerhav.dsviz.intellij.Actions$CreateClass" text="צור מחלקה…" icon="/icons/insert.png"
+                description="מחלקה חדשה בקובץ משלה: שם ושדות — והיא נוצרת עם בנאי, get ו-set לכל שדה">
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="DSViz.Insert"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="DSViz.NewExercise"/>
+        </action>
         <action id="DSViz.Submit" class="il.lamerhav.dsviz.intellij.Actions$Submit" text="שליחת תרגיל (PDF / Word / תמונה)…" icon="/icons/send.png"
                 description="שליחת תרגיל: מצרפים את דף התרגיל ומקבלים קובץ מוכן — מחלקות, main ופעולה לכל סעיף">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="DSViz.NewExercise"/>
@@ -65,6 +70,7 @@
             <reference ref="DSViz.Submit"/>
             <separator/>
             <reference ref="DSViz.Insert"/>
+            <reference ref="DSViz.CreateClass"/>
             <separator/>
             <reference ref="DSViz.Run"/>
             <separator/>

@@ -47,6 +47,7 @@ final class InsertDialog extends Modern.Dialog {
     private String lastType = "", lastStructure = "";
     private String result, chosenClass;
     private JPanel root;
+    private boolean wantsClass;   // לחצו על "צור מחלקה"
 
     InsertDialog(Project project, String preset, String documentText, int offset, String indent) {
         super(project);
@@ -72,6 +73,14 @@ final class InsertDialog extends Modern.Dialog {
         right.section("איזה מבנה נתונים?");
         for (Map.Entry<String, String> e : Scaffold.SNIPPETS.entrySet()) structures.add(e.getValue(), e.getKey(), null, e.getKey().equals(initial), this::update);
         right.add(structures.panel);
+        // "צור מחלקה": מחלקה משלכם בקובץ חדש — החלון הזה נסגר ונפתח החלון של המחלקה
+        javax.swing.JButton newClass = new javax.swing.JButton("+ צור מחלקה…");
+        newClass.addActionListener(e -> {
+            wantsClass = true;
+            close(CANCEL_EXIT_CODE);
+        });
+        right.add(newClass, 8);
+        right.add(Forms.muted("מחלקה משלכם בקובץ חדש: שם, שדות, בנאי, get ו-set"), 2);
         right.section("מה יש בכל תא?");
         for (String[] in : Scaffold.INSIDE) insides.add(in[1], in[0], in[2], in[0].equals(initialInside), this::update);
         right.add(insides.panel);
@@ -244,6 +253,11 @@ final class InsertDialog extends Modern.Dialog {
     /** הקוד להכנסה (אחרי OK) */
     String code() {
         return result;
+    }
+
+    /** לחצו על "צור מחלקה" (החלון נסגר בלי קוד) */
+    boolean wantsClass() {
+        return wantsClass;
     }
 
     /** Student / Car אם נבחרה מחלקה מוכנה, אחרת null */
