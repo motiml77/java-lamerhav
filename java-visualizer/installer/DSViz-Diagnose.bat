@@ -54,8 +54,24 @@ if (Test-Path $vswhere) {
             if ($m) { $found = $m.Directory.FullName }
         }
         Put ('- {0} {1} [{2}] · {3}' -f $i.displayName, $i.catalog.productDisplayVersion, $i.productId, $i.installationPath)
-        Put ('  סרגל הכלים של DSViz: ' + $(if ($found) { 'מותקן · ' + $found } else { 'לא מותקן' }))
+        $fits = ([string]$i.productId -match '^Microsoft\.VisualStudio\.Product\.(Community|Professional|Enterprise)$') -and $major -ge 17
+        if (-not $fits) { Put '  סרגל הכלים של DSViz: לא מתאים למוצר הזה (רק Visual Studio Community / Professional / Enterprise, מ-2022)'; continue }
+        $ver = ''
+        if ($found) { try { if ((Get-Content (Join-Path $found 'extension.vsixmanifest') -Raw) -match '<Identity\b[^>]*\bVersion="([^"]+)"') { $ver = $Matches[1] } } catch { } }
+        Put ('  סרגל הכלים של DSViz: ' + $(if ($found) { 'מותקן · גרסה ' + $ver + ' · ' + $found } else { 'לא מותקן' }))
+        # הסימן שההרחבה כותבת בכל פעם שהיא נטענת ב-Visual Studio הזה (vs-loaded-<גרסה>_<מופע>.txt): מותקנת זה עוד לא אומר שהיא נטענת
+        $mark = Join-Path $dsviz ('vs-loaded-{0}.0_{1}.txt' -f $major, $i.instanceId)
+        if (Test-Path $mark) {
+            $kv = @{}; foreach ($ln in (Get-Content $mark -Encoding UTF8)) { $k = $ln.IndexOf('='); if ($k -gt 0) { $kv[$ln.Substring(0, $k)] = $ln.Substring($k + 1) } }
+            Put ('  ההרחבה נטענה לאחרונה: ' + $kv['time'] + ' · גרסה ' + $kv['build'] + ' · Visual Studio ' + $kv['vs'])
+            if ($found -and $ver -and $kv['build'] -and $ver -ne $kv['build']) { Put ('  *** הגרסה שנטענה (' + $kv['build'] + ') אינה הגרסה שמותקנת עכשיו (' + $ver + ') — סוגרים את Visual Studio לגמרי ופותחים מחדש ***') }
+        } elseif ($found) {
+            Put '  *** ההרחבה מותקנת, אבל אף פעם לא נטענה ב-Visual Studio הזה (אין vs-loaded). אם Visual Studio נפתח מאז ההתקנה: היא מושבתת או נכשלה בטעינה —'
+            Put '      Extensions ← Manage Extensions ← Installed ← "DSViz - Data Structures" ← Enable, ואז לסגור ולפתוח את Visual Studio (גרסה ישנה של DSViz לא כתבה את הסימן) ***'
+        }
     }
+    $loaded = @(Get-ChildItem $dsviz -Filter 'vs-loaded-*.txt' -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    if ($loaded.Count) { Put ('קובצי "ההרחבה נטענה": ' + ($loaded -join ', ')) }
 } else {
     Put 'לא נמצא Visual Studio (אין vswhere.exe)'
 }
@@ -101,6 +117,8 @@ if ($v) {
 } else {
     Put '(אין)'
 }
+$kept = @(Get-ChildItem (Join-Path $dsviz 'logs') -Filter 'vsix-*.log' -ErrorAction SilentlyContinue)
+foreach ($k in $kept) { Put ('היומן המלא של ההתקנה האחרונה במופע: logs\' + $k.Name + ' · ' + $k.LastWriteTime.ToString('yyyy-MM-dd HH:mm') + ' · ' + $k.Length + ' בתים') }
 
 Section 'כניסת מורה / עמדה — למה מתבקש קוד שוב'
 Put ('שם המחשב: ' + $env:COMPUTERNAME + ' · משתמש Windows: ' + $env:USERNAME)

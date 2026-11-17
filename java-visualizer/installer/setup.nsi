@@ -573,18 +573,32 @@ Section "C# — Visual Studio, VS Code ו-Rider (תרגילים ב-C#)" SEC_CS
   FileClose $0
   DetailPrint "C#: ההרצה הוויזואלית הותקנה ב-$INSTDIR\cs"
 
-  ; MSBuild (DSViz.targets): בכל פרויקט C# של Visual Studio — חדש או קיים, בכל תיקייה — מתווספת לבד
-  ; ההפניה לספרייה ופרופיל ההרצה "הרצה ויזואלית", בלי להריץ שום דבר משורת הפקודה (ראו installer/DSViz.targets)
+  ; MSBuild (DSViz.targets): בכל פרויקט C# של Visual Studio שמשתמש בספרייה — חדש או קיים, בכל תיקייה — מתווספת לבד
+  ; ההפניה לספרייה ופרופיל ההרצה "הרצה ויזואלית", בלי להריץ שום דבר משורת הפקודה. פרויקט אחר נבנה כמו בלי DSViz (ראו installer/DSViz.targets)
   SetOutPath "${MSBUILD_IMPORTAFTER}"
   File "DSViz.targets"
   SetOutPath "$INSTDIR"
-  DetailPrint "Visual Studio: בכל פרויקט C# מופיעה לבד 'הרצה ויזואלית' ליד כפתור ההפעלה (${MSBUILD_IMPORTAFTER})"
+  DetailPrint "Visual Studio: בפרויקט C# שמשתמש בספרייה מופיעה לבד 'הרצה ויזואלית' ליד כפתור ההפעלה (${MSBUILD_IMPORTAFTER})"
   !insertmacro PROG 68   ; הקבצים של חבילת C# הועתקו — עכשיו ההרחבה ל-Visual Studio (כמה עשרות שניות לכל Visual Studio)
   ; סרגל הכלים של DSViz בראש Visual Studio (הרחבה): מותקן בכל Visual Studio שנמצא (installer/install-vsix.ps1). תקלה כאן לא עוצרת את ההתקנה
   ${If} ${FileExists} "$INSTDIR\cs\DsViz.VsExtension.vsix"
     DetailPrint "Visual Studio: מתקין את סרגל הכלים של DSViz..."
+    ; שורה ביומן עוד לפני PowerShell: אם מדיניות של המחשב חוסמת סקריפטים, install-vsix.ps1 לא רץ בכלל ולא כותב כלום ליומן —
+    ; כך רואים ב-vsix-install.log (ו-DSViz-Diagnose.bat) שההתקנה ניסתה, ובאיזה קוד PowerShell חזר
+    FileOpen $0 "$INSTDIR\vsix-install.log" a
+    FileSeek $0 0 END
+    FileWrite $0 "setup ${BUILDNO}: running install-vsix.ps1$\r$\n"
+    FileClose $0
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\cs\install-vsix.ps1" "$INSTDIR\cs\DsViz.VsExtension.vsix"'
     Pop $0
+    ${If} $0 != "0"
+      Push $1
+      FileOpen $1 "$INSTDIR\vsix-install.log" a
+      FileSeek $1 0 END
+      FileWrite $1 "setup ${BUILDNO}: install-vsix.ps1 did not finish (PowerShell returned $0) - scripts may be blocked on this computer$\r$\n"
+      FileClose $1
+      Pop $1
+    ${EndIf}
     ; Visual Studio עדיין פתוח (עדכון שקט שחיכה שעתיים, או "סגרתי בעצמי" בלי לסגור): VSIXInstaller לא התקין בו — תהליך קטן ברקע
     ; מחכה שייסגר ומתקין (ומודיע "סרגל הכלים מוכן"); בפתיחה הבאה של Visual Studio הסרגל המעודכן שם
     Call IsVisualStudioRunning
