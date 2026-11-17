@@ -238,11 +238,34 @@ function OtherWindows([int]$procId, [int]$mainHandle) {
 # לחיצות על החלון הראשי לא מגיעות לשום מקום (כך נבלעה הלחיצה על שורת ההודעה ב-T5). סוגרים אותו כמו תלמיד — בלי להיכנס — וסופרים,
 # כדי שמי שלחץ יידע ללחוץ שוב. רק חלונות כניסה: הכותרת, או השדה "Email, phone, or Skype" בדף; לא חלון ההפעלה הראשונה (SkipFirstRun)
 $script:signInClosed = 0
+# כל החלונות העליונים במסך (כל התהליכים): תהליך, מחלקה, שם, מיקום — לקובץ, כשלחיצה לא נקלטה או חלון לא נמצא; כדי לדעת מי פתח את
+# חלון הכניסה (בריצות 5–7 הוא לא זוהה לפי התהליכים שבדקנו)
+function DumpTopWindows([string]$tag) {
+    try {
+        $names = @{}; Get-Process | ForEach-Object { $names[[int]$_.Id] = $_.ProcessName }
+        $rows = @([Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) | ForEach-Object {
+            $c = $_.Current
+            $t = ''
+            if ([int]$c.NativeWindowHandle -ne [int]$script:vsMain) {
+                try {
+                    $all = @($_.FindAll([Windows.Automation.TreeScope]::Subtree, [Windows.Automation.Condition]::TrueCondition))
+                    if ($all.Count -le 400) { $t = ((@($all | ForEach-Object { ElName $_ } | Where-Object { $_ }) | Select-Object -Unique) -join ' | ') } else { $t = "($($all.Count) רכיבים)" }
+                } catch { }
+            }
+            if ($t.Length -gt 300) { $t = $t.Substring(0, 300) }
+            "{0}[{1}]`t{2}`t'{3}'`t{4}`t{5}" -f $names[[int]$c.ProcessId], $c.ProcessId, $c.ClassName, $c.Name, $c.BoundingRectangle, $t
+        })
+        $f = Join-Path $logs "top-windows-$tag.txt"
+        $rows | Set-Content $f -Encoding UTF8
+        Info "החלונות העליונים במסך נשמרו: $(Split-Path $f -Leaf) ($($rows.Count))"
+        @($rows | Where-Object { $_ -notmatch '^(devenv|explorer|hosted-compute-agent|TextInputHost)\[' }) | Select-Object -First 8 | ForEach-Object { Info "   חלון: $_" }
+    } catch { Info "DumpTopWindows: $_" }
+}
 function CloseSignIn() {
     $closed = 0
     $owners = @{}
     if ($script:vsP) { $owners[[int]$script:vsP.Id] = 1 }
-    Get-Process -Name 'msedgewebview2', 'Microsoft.AAD.BrokerPlugin', 'ServiceHub.IdentityHost' -ErrorAction SilentlyContinue | ForEach-Object { $owners[[int]$_.Id] = 1 }
+    Get-Process -Name 'msedgewebview2', 'Microsoft.AAD.BrokerPlugin', 'ServiceHub.IdentityHost', 'ApplicationFrameHost', 'backgroundTaskHost', 'Microsoft.ServiceHub.Controller', 'ServiceHub.Host.dotnet.x64', 'ServiceHub.Host.netfx.x86', 'ServiceHub.Host.netfx.x64', 'msedge' -ErrorAction SilentlyContinue | ForEach-Object { $owners[[int]$_.Id] = 1 }
     $main = 0; try { $main = [int]$script:vsMain } catch { }
     $cands = @()
     try { $cands = @([Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition)) } catch { }
@@ -251,11 +274,11 @@ function CloseSignIn() {
         try {
             $c = $w.Current
             if ($c.BoundingRectangle.IsEmpty -or [int]$c.NativeWindowHandle -eq $main -or -not $owners.ContainsKey([int]$c.ProcessId)) { continue }
-            $hit = $c.Name -match '^(Sign in to your account|Microsoft Azure|Microsoft account)$'
+            $hit = $c.Name -match '^(Sign in to your account|Microsoft Azure|Microsoft account|Sign in|Sign in to Visual Studio)$'
             if (-not $hit) {
                 $all = @($w.FindAll([Windows.Automation.TreeScope]::Subtree, [Windows.Automation.Condition]::TrueCondition))
                 if ($all.Count -gt 400) { continue }
-                $hit = @($all | Where-Object { (ElName $_) -match '^Email, phone, or Skype$|^Sign in to your account$' }).Count -gt 0
+                $hit = @($all | Where-Object { (ElName $_) -match '^Email, phone, or Skype$|^Sign in to your account$|^Can.t access your account\?$|^Sign-in options$' }).Count -gt 0
             }
             if (-not $hit) { continue }
             Step 'dialog-sign-in'

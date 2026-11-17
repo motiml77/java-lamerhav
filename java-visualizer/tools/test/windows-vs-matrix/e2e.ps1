@@ -87,7 +87,7 @@ function DismissDialogs() {
             if ($no.Count) { RealClick $no[0] 'build-errors-no' | Out-Null }
             return 'build-errors'
         }
-        if ($d.Text -match 'File Modification Detected|has been modified outside|Reload') {
+        if ($d.Text -match 'File Modification Detected|has been modified outside|Reload All|\| Reload \|') {
             Step 'dialog-reload'
             $b = @($d.Elements | Where-Object { (ElName $_) -match '^(Reload|Reload All|Yes to All|Yes)$' -and (ElType $_) -match 'Button' })
             if ($b.Count) { RealClick $b[0] 'reload-yes' | Out-Null }
@@ -99,6 +99,13 @@ function DismissDialogs() {
             $b = @($d.Elements | Where-Object { (ElName $_) -eq 'Yes' -and (ElType $_) -match 'Button' })
             if ($b.Count) { RealClick $b[0] 'out-of-date-yes' | Out-Null }
             return 'out-of-date'
+        }
+        # "Inconsistent Line Endings — Do you want to normalize the line endings?": כן (Windows CR LF)
+        if ($d.Text -match 'Inconsistent Line Endings|normalize the line endings') {
+            Step 'dialog-line-endings'
+            $b = @($d.Elements | Where-Object { (ElName $_) -eq 'Yes' -and (ElType $_) -match 'Button' })
+            if ($b.Count) { RealClick $b[0] 'line-endings-yes' | Out-Null }
+            return 'line-endings'
         }
         # אחרי סגירה בכוח: "Visual Studio has recovered the following files" — לא משחזרים (הכול נשמר לפני)
         if ($d.Text -match 'recovered the following files|Recovered Files') {
@@ -238,7 +245,7 @@ function NormalRunRetry([string]$how, [string]$tag, [string]$target, [string]$pr
     if (-not $m) {
         $building = (Dte { param($d) [int]$d.Solution.SolutionBuild.BuildState } 3) -eq 2
         if ((DesignMode) -and -not $building -and @(RunnerProcs).Count -eq 0) {
-            CloseSignIn | Out-Null
+            DumpTopWindows "$tag-no-start"; CloseSignIn | Out-Null
             Info "ההרצה הרגילה ($used) לא התחילה אחרי 90 שניות (Visual Studio במצב עריכה, לא בונה) — הלחיצה לא נקלטה; לוחצים שוב"
             $used = (NormalRun $how "$tag-again" $target) + ' — בלחיצה השנייה'
         }
@@ -279,7 +286,7 @@ function CheckVisual([string]$id, [string]$file, [string]$prog, [string]$lib, [s
     if ($clicked) {
         # ההרחבה רושמת כל לחיצה שהגיעה אליה ('visual run (toolbar)'). אין רישום אחרי 20 שניות — הלחיצה לא נקלטה (חלון הכניסה של Microsoft); לוחצים שוב
         if (-not (WaitFor { @(TraceSince $tcClick 'visual run \(toolbar\)').Count -gt 0 } 20)) {
-            CloseSignIn | Out-Null
+            DumpTopWindows "$id-click-lost"; CloseSignIn | Out-Null
             Info "הלחיצה על 'הרצה ויזואלית' לא הגיעה להרחבה (אין רישום ביומן) — לוחצים שוב"
             $clicked = ClickToolbar 'הרצה ויזואלית' "$id-toolbar-visual-run-again"
         }
@@ -682,7 +689,7 @@ else {
         if ($dlg) {
             Start-Sleep -Milliseconds 800   # הסמן כבר בשדה "File name"
             [DsReal]::Type($looseFile); Start-Sleep -Milliseconds 800; Step 't5-open-file-typed'; [DsReal]::Chord([uint16[]]@(0x0D))
-        } else { Info "חלון הפתיחה לא נמצא · חלונות אחרים של Visual Studio: $((OtherWindows $script:vsP.Id ([int]$script:vsMain) | ForEach-Object { "'" + (ElName $_) + "'" }) -join ', ')" }
+        } else { Info "חלון הפתיחה לא נמצא · חלונות אחרים של Visual Studio: $((OtherWindows $script:vsP.Id ([int]$script:vsMain) | ForEach-Object { "'" + (ElName $_) + "'" }) -join ', ')"; DumpTopWindows 't5-no-open-dialog' }
         $opened = WaitFor { (ActiveDoc) -ieq $looseFile } 25
         Check 't5-open-real' ([bool]$opened) 'Loops4.cs נפתח כמו תלמיד: Ctrl+O, הקלדת הנתיב, Enter' "חלון הפתיחה נמצא: $($null -ne $dlg) · פעיל: $(ActiveDoc)"
         if (-not $opened) { [DsReal]::Chord([uint16[]]@(0x1B)); Start-Sleep 1; OpenDoc $looseFile | Out-Null }
@@ -719,7 +726,7 @@ else {
             # עדיין פתוחה — הלחיצה לא הגיעה (בריצה 4: חלון כניסה לחשבון Microsoft ש-Visual Studio פתח לבד, מודאלי). סוגרים אותו ולוחצים שוב, כמו תלמיד
             $got = WaitFor { @(TraceSince $tcClick 'visual run \(info bar\)').Count -gt 0 } 20
             if (-not $got) {
-                CloseSignIn | Out-Null
+                DumpTopWindows 't5-info-bar-click-lost'; CloseSignIn | Out-Null
                 $again = @(ByName $script:vsP.Id $btnName '') | Select-Object -First 1
                 if ($again) {
                     Info ("הלחיצה על שורת ההודעה לא הגיעה להרחבה (אין רישום ביומן, השורה עדיין פתוחה)" + $(if ($script:signInClosed -gt $sc) { ' — חלון כניסה לחשבון Microsoft חסם אותה ונסגר' } else { '' }) + ' — לוחצים שוב')
@@ -993,6 +1000,7 @@ static class Ci
     }
 }
 '@
+$emptyCode = $emptyCode -replace "`r?`n", "`r`n"   # סופי שורה של Windows, כמו הקובץ ש-Visual Studio יצר (אחרת: "Inconsistent Line Endings")
 KillJava; KillVs
 Remove-Item $emptyRoot -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $emptyRoot | Out-Null
@@ -1088,6 +1096,7 @@ else {
             Info 'ההדבקה בעורך לא נשמרה — כותבים את הקוד לקובץ ופותחים מחדש'
             CloseDocs; Set-Content -Path $file -Value $emptyCode -Encoding UTF8; OpenDoc $file | Out-Null
         }
+        DismissDialogs | Out-Null
         Step 't14-code'
         Check 't14-code' ((Get-Content $file -Raw -Encoding UTF8) -match 'Ci\.Mark\("empty"') "הקוד (Stack<int> מ-Unit4.CollectionsLib, בלי שום הפניה בפרויקט) ב-Program.cs — $(if ($pasted) { 'הודבק בעורך ונשמר' } else { 'נכתב לקובץ' })" ''
         $before = (Get-FileHash $csproj.FullName).Hash
