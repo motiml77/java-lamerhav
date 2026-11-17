@@ -511,6 +511,38 @@ function CheckCreated([string]$tag, [string]$name) {
     Check "$tag-editor" (($act -like "$dir\*") -and ($act -like '*.cs')) "קובץ ה-C# של התרגיל פתוח בעורך (הקובץ הפעיל)" "פעיל: $act · לשוניות: $(($tab | ForEach-Object { ElName $_ }) -join ', ')"
     return $dir
 }
+# תרגיל מהמאגר נוצר בכוונה בלי return בפעולות שמחזירות ערך (התלמיד כותב בעצמו — AiScaffold.stub, כמו ב-Eclipse), ולכן עד שהתלמיד
+# כותב את הפעולות הוא לא מתקמפל. קודם בודקים מה התלמיד רואה אז (הרצה ויזואלית מסבירה את שגיאת הקומפילציה), ואז "התלמיד פותר":
+# ההצעה לפתרון מהמאגר נכתבת במקום הפעולה הריקה (רק הפעולות שכבר בקובץ — הסעיפים נוספים אחד אחד). מחזיר כמה פעולות נכתבו
+function SolveFromBank([string]$dir, [string]$topic, [string]$question) {
+    $j = Get-Content (Join-Path $root "bank\$topic\$question.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+    $n = 0
+    foreach ($t in @($j.csharp.exercise.tasks)) {
+        if (-not $t.solution) { continue }
+        $sol = @($t.solution -split "`r?`n")
+        $sig = $sol[0].Trim()
+        foreach ($f in @(Get-ChildItem $dir -Filter '*.cs' -ErrorAction SilentlyContinue)) {
+            $lines = New-Object 'System.Collections.Generic.List[string]'
+            $lines.AddRange([string[]]@(Get-Content $f.FullName -Encoding UTF8))
+            $i = -1; for ($k = 0; $k -lt $lines.Count; $k++) { if ($lines[$k].Trim() -eq $sig) { $i = $k; break } }
+            if ($i -lt 0) { continue }
+            $e = -1; for ($k = $i + 1; $k -lt $lines.Count; $k++) { if ($lines[$k] -eq '    }') { $e = $k; break } }
+            if ($e -lt 0) { continue }
+            $lines.RemoveRange($i, $e - $i + 1)
+            $lines.InsertRange($i, [string[]]@($sol | ForEach-Object { if ($_) { '    ' + $_ } else { '' } }))
+            [IO.File]::WriteAllLines($f.FullName, $lines, (New-Object Text.UTF8Encoding($true)))
+            $n++; break
+        }
+    }
+    return $n
+}
+function BankUnsolvedThenSolve([string]$tag, [string]$dir, [string]$topic, [string]$question) {
+    $main = @(Get-ChildItem $dir -Filter '*.cs' -ErrorAction SilentlyContinue | Where-Object { (Get-Content $_.FullName -Raw -Encoding UTF8) -match 'static (void|int) Main' } | Select-Object -First 1)
+    if ($main.Count) { CheckMessage "$tag-unsolved-message" $main[0].FullName 'error CS\d+' "תרגיל חדש שעוד לא נפתר (פעולה בלי return)" }
+    CloseDocs
+    $n = SolveFromBank $dir $topic $question
+    Check "$tag-solved" ($n -ge 1) "התלמיד כתב את הפתרון בפעולות של התרגיל ($question, ההצעה מהמאגר)" "פעולות שנכתבו: $n"
+}
 # התרגיל שנוצר: כשהקובץ שלו פתוח הוא ה-Startup Project (פתרון התרגילים), ו"הרצה ויזואלית" בסרגל (לחיצה אמיתית) פותחת את החלון של DSViz
 function CheckBankRun([string]$tag, [string]$name, [string]$dir) {
     $main = @(Get-ChildItem $dir -Filter '*.cs' -ErrorAction SilentlyContinue | Where-Object { (Get-Content $_.FullName -Raw -Encoding UTF8) -match 'static (void|int) Main' } | Select-Object -First 1)
@@ -760,6 +792,7 @@ else {
         if ($script:seedWorked) { Pass 't12-seeded-open' 'עם כניסה שמורה המאגר נפתח ישר, בלי מסך הכניסה' }
         if ($name) {
             $dir = CheckCreated 't12' $name
+            BankUnsolvedThenSolve 't12' $dir 'queue' 'queue-sum-even'
             $b = $null
             $failed = BuildSolution 't12'
             if ($failed -ne 0) { $b = & $msbuild $exSln '/restore' '/nologo' '/v:m' 2>&1; $b | Set-Content (Join-Path $logs 't12-build.txt') -Encoding utf8 }
@@ -789,7 +822,8 @@ else {
             $got = ''; try { $got = (Get-FileHash $libFile -Algorithm SHA256).Hash } catch { }
             Check 't12b-repaired' ($got -and $got -eq $want) "'צור תרגיל' השלים לבד את הספרייה שנמחקה (מהתבנית שבהתקנה)" "קיים: $(Test-Path $libFile) · זהה לתבנית: $($got -eq $want)"
             if ($name2) {
-                $null = CheckCreated 't12b' $name2
+                $dir2 = CheckCreated 't12b' $name2
+                BankUnsolvedThenSolve 't12b' $dir2 'list' 'list-evens-remove'
                 $b = $null
                 $failed = BuildSolution 't12b'
                 if ($failed -ne 0) { $b = & $msbuild $exSln '/restore' '/nologo' '/v:m' 2>&1; $b | Set-Content (Join-Path $logs 't12b-build.txt') -Encoding utf8 }
