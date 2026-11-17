@@ -230,14 +230,30 @@ function BuildSolution([string]$tag, [int]$sec = 420) {
     if ($state -ne 3 -or $null -eq $failed) { return -1 }
     return [int]$failed
 }
+# הרצה רגילה ועוד ניסיון אחד: אם אחרי 90 שניות התוכנית לא רצה, Visual Studio לא בונה ולא מריץ (עדיין במצב עריכה) — הלחיצה לא נקלטה
+# (בריצות 5–6: חלון הכניסה של Microsoft ש-Visual Studio 2022 Enterprise פותח לבד בלחיצה הראשונה אחרי הפתיחה). לוחצים שוב, כמו תלמיד, ורושמים
+function NormalRunRetry([string]$how, [string]$tag, [string]$target, [string]$prog) {
+    $used = NormalRun $how $tag $target
+    $m = WaitMarker $prog 90
+    if (-not $m) {
+        $building = (Dte { param($d) [int]$d.Solution.SolutionBuild.BuildState } 3) -eq 2
+        if ((DesignMode) -and -not $building -and @(RunnerProcs).Count -eq 0) {
+            CloseSignIn | Out-Null
+            Info "ההרצה הרגילה ($used) לא התחילה אחרי 90 שניות (Visual Studio במצב עריכה, לא בונה) — הלחיצה לא נקלטה; לוחצים שוב"
+            $used = (NormalRun $how "$tag-again" $target) + ' — בלחיצה השנייה'
+        }
+        $m = WaitMarker $prog 180
+    }
+    return @{ M = $m; Used = $used }
+}
 # הרצה רגילה של פרויקט ובדיקה שהיא רגילה: קונסול (הסימון נכתב מהתוכנית עצמה, לא מ-dsviz-cs), הספרייה הצפויה, בלי dsviz-cs
 function CheckNormal([string]$id, [string]$project, [string]$file, [string]$prog, [string]$how, [string]$lib, [string]$what) {
     KillRuns; KillJava
     SetStartup "$project\$project.csproj"
     $act = OpenDoc $file
     ClearMarkers
-    $used = NormalRun $how $id $project
-    $m = WaitMarker $prog 240
+    $r = NormalRunRetry $how $id $project $prog
+    $used = $r.Used; $m = $r.M
     Start-Sleep 2
     Step "$id-after"
     $dsvizRan = @(RunnerProcs).Count
@@ -257,9 +273,18 @@ function CheckVisual([string]$id, [string]$file, [string]$prog, [string]$lib, [s
     KillRuns; KillJava
     $act = OpenDoc $file
     ClearMarkers
+    $tcClick = TraceCount
     $clicked = ClickToolbar 'הרצה ויזואלית' "$id-toolbar-visual-run"
     $m = $null
-    if ($clicked) { $m = WaitMarker $prog 120 }
+    if ($clicked) {
+        # ההרחבה רושמת כל לחיצה שהגיעה אליה ('visual run (toolbar)'). אין רישום אחרי 20 שניות — הלחיצה לא נקלטה (חלון הכניסה של Microsoft); לוחצים שוב
+        if (-not (WaitFor { @(TraceSince $tcClick 'visual run \(toolbar\)').Count -gt 0 } 20)) {
+            CloseSignIn | Out-Null
+            Info "הלחיצה על 'הרצה ויזואלית' לא הגיעה להרחבה (אין רישום ביומן) — לוחצים שוב"
+            $clicked = ClickToolbar 'הרצה ויזואלית' "$id-toolbar-visual-run-again"
+        }
+        $m = WaitMarker $prog 120
+    }
     $v = WaitFor { $x = @(Viewers); if ($x.Count) { $x } } 90
     Start-Sleep 3
     Step "$id-viewer"
@@ -986,7 +1011,8 @@ else {
         Check 't14-wizard-open' ($null -ne $npd) 'Ctrl+Shift+N פתח את האשף "Create a new project"' "חלונות אחרים: $((OtherWindows $script:vsP.Id ([int]$script:vsMain) | ForEach-Object { "'" + (ElName $_) + "'" }) -join ', ')"
         if (-not $npd) { DumpUia $script:vsP.Id 't14-no-wizard'; throw 'האשף לא נפתח' }
         # 2. חיפוש התבנית ובחירת Empty Project (.NET Framework) של C# (יש גם אחת של Visual Basic באותו שם)
-        $search = @(InWin $npd '^Search for templates' 'Edit') | Select-Object -First 1
+        $search = @(InWin $npd 'Search for templates' 'Edit') | Select-Object -First 1   # ב-2022 השם הוא '_Search for templates (Alt+S)'
+        if (-not $search) { Info 'שדה החיפוש לא נמצא בשם — Alt+S (קיצור המקלדת של האשף)'; [DsReal]::Chord([uint16[]]@(0x12, 0x53)); Start-Sleep -Milliseconds 500 }
         TypeInto $search 'Empty Project (.NET Framework)' 't14-search'
         Start-Sleep 3
         $cands = @(WaitFor { $x = @(InWin $npd 'Empty Project \(\.NET Framework\)' 'ListItem|DataItem'); if ($x.Count) { $x } } 30)
@@ -1067,8 +1093,8 @@ else {
         $before = (Get-FileHash $csproj.FullName).Hash
         # 7. הרצה רגילה: Debug > Start Without Debugging (שתי לחיצות עכבר)
         KillRuns; KillJava; ClearMarkers
-        $used = NormalRun 'menu' 't14-normal' $emptyName
-        $m = WaitMarker 'empty' 240
+        $r = NormalRunRetry 'menu' 't14-normal' $emptyName 'empty'
+        $used = $r.Used; $m = $r.M
         Start-Sleep 3
         Step 't14-normal-after'
         $why = "הפעלה: $used · Startup: $(Startup) · סימונים: $(Markers)"

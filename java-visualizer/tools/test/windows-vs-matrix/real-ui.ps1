@@ -435,7 +435,19 @@ function SkipFirstRun([int]$procId) {
     return $false
 }
 # פותח את Visual Studio (עם פתרון, או בלי) ומחכה לחלון הראשי. מחזיר את התהליך, או $null
+# פותח את Visual Studio; אם devenv עצמו קרס בזמן העלייה (בריצה 6: 0xC0000374 — heap corruption ב-Visual Studio, מיד אחרי סגירה בכוח),
+# מנסים פעם אחת נוספת, כמו תלמיד שפותח שוב — ורושמים את זה
 function StartVs([string]$sln, [int]$minutes = 12) {
+    $p = StartVsOnce $sln $minutes
+    if (-not $p -and $script:lastVsExit -and $script:lastVsExit -ne 0) {
+        Info ("devenv קרס בזמן העלייה (קוד 0x{0:X8}) — פותחים שוב" -f ([int64]$script:lastVsExit -band 0xFFFFFFFF))
+        Start-Sleep 5
+        $p = StartVsOnce $sln $minutes
+    }
+    return $p
+}
+function StartVsOnce([string]$sln, [int]$minutes = 12) {
+    $script:lastVsExit = $null
     # ‎/log‎: רק יומן הפעילות (ActivityLog.xml) לאבחון — לא משנה את ההתנהגות. בלי ‎/updateconfiguration‎ ובלי שום מתג אחר
     $a = @()
     if ($sln) { $a += "`"$sln`"" }
@@ -446,7 +458,7 @@ function StartVs([string]$sln, [int]$minutes = 12) {
     while (((Get-Date) - $t0).TotalMinutes -lt $minutes) {
         Start-Sleep 4
         $p.Refresh()
-        if ($p.HasExited) { Info "devenv נסגר (קוד $($p.ExitCode))"; break }
+        if ($p.HasExited) { Info "devenv נסגר (קוד $($p.ExitCode))"; $script:lastVsExit = $p.ExitCode; break }
         if (SkipFirstRun $p.Id) { Start-Sleep 3 }
         $p.Refresh()
         $title = [string]$p.MainWindowTitle
