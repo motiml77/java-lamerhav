@@ -585,9 +585,22 @@ if (-not $NoGui) {
         Start-Sleep 3
         if ($profileName) {
             # הפרופיל שנבחר בתפריט שליד כפתור ההפעלה נשמר ב-.csproj.user — כמו שתלמיד בוחר "הרצה ויזואלית" פעם אחת
-            $cp = Get-ChildItem $projDir -Filter '*.csproj' | Select-Object -First 1
+            $cps = @((Get-ChildItem $projDir -Filter '*.csproj' | Select-Object -First 1).FullName)
+            # פרויקט שנמצא בתוך תיקייה של פתרון (Exercises\Ex01_... ב-DataStructures-CS): Visual Studio פותח את הפתרון כולו, ובפתיחה ראשונה
+            # (אין .vs) פרויקט ההפעלה הוא הראשון בפתרון (Exercise) — לא הפרויקט שביקשנו. הכפתור הירוק מריץ אותו, אז הבחירה נשמרת גם בו.
+            # (עד 1.0.2 "הרצה ויזואלית" הייתה הראשונה ב-launchSettings של Exercise, ולכן הבדיקה עברה גם בלי זה)
+            $sd = $projDir
+            while ($sd) {
+                $sln = Get-ChildItem $sd -Filter '*.sln' -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($sln) {
+                    $m = [regex]::Match((Get-Content $sln.FullName -Raw -Encoding utf8), 'Project\("\{[^}]+\}"\)\s*=\s*"[^"]*",\s*"([^"]+\.csproj)"')
+                    if ($m.Success) { $first = Join-Path $sln.DirectoryName $m.Groups[1].Value; if ((Test-Path $first) -and $cps -notcontains $first) { $cps += $first } }
+                    break
+                }
+                $sd = Split-Path $sd -Parent
+            }
             $u = "<?xml version=`"1.0`" encoding=`"utf-8`"?>`r`n<Project ToolsVersion=`"Current`" xmlns=`"http://schemas.microsoft.com/developer/msbuild/2003`">`r`n  <PropertyGroup>`r`n    <ActiveDebugProfile>$profileName</ActiveDebugProfile>`r`n  </PropertyGroup>`r`n</Project>`r`n"
-            [IO.File]::WriteAllText($cp.FullName + '.user', $u, (New-Object Text.UTF8Encoding($false)))
+            foreach ($c in $cps) { [IO.File]::WriteAllText($c + '.user', $u, (New-Object Text.UTF8Encoding($false))); Info "ActiveDebugProfile '$profileName': $c.user" }
         }
         $t0 = Get-Date
         $vsP = Start-Process $devenv -ArgumentList "`"$target`"" -PassThru
