@@ -16,6 +16,9 @@
                defaultHandler="il.lamerhav.dsviz.InsertHandler">
          <commandParameter id="il.lamerhav.dsviz.structure" name="מבנה" optional="true"/>
       </command>
+      <command id="il.lamerhav.dsviz.createClass" categoryId="il.lamerhav.dsviz.category"
+               name="צור מחלקה" description="מחלקה חדשה בקובץ משלה: שם ושדות — והיא נוצרת עם בנאי, get ו-set לכל שדה"
+               defaultHandler="il.lamerhav.dsviz.CreateClassHandler"/>
       <command id="il.lamerhav.dsviz.submit" categoryId="il.lamerhav.dsviz.category"
                name="שליחת תרגיל" description="שולחים את דף התרגיל (PDF, Word או תמונות) ומקבלים מעטפת מוכנה: מחלקות, main ופעולה לכל סעיף"
                defaultHandler="il.lamerhav.dsviz.SubmitHandler"/>
@@ -87,6 +90,7 @@
             <!-- submit:end -->
             <separator name="insert" visible="true"/>
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
+            <command commandId="il.lamerhav.dsviz.createClass" label="צור מחלקה..." style="push"/>
             <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
             <separator name="more" visible="true"/>
@@ -157,6 +161,9 @@
          <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
+         <command commandId="il.lamerhav.dsviz.createClass" label="צור מחלקה..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
@@ -172,6 +179,9 @@
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
+         <command commandId="il.lamerhav.dsviz.createClass" label="צור מחלקה..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <!-- submit:start -->
          <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
@@ -183,6 +193,9 @@
       </menuContribution>
       <menuContribution locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?after=additions">
          <command commandId="il.lamerhav.dsviz.newExercise" label="תרגיל חדש במבני נתונים..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+         <command commandId="il.lamerhav.dsviz.createClass" label="צור מחלקה..." style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
          <!-- submit:start -->

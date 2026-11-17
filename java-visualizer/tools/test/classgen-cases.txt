@@ -1,0 +1,64 @@
+# "צור מחלקה" — מקרים לבדיקה (classgen-tests.sh): אותה תוצאה ב-ClassGen.java וב-classgen.js, והמחלקות התקינות מתקמפלות ורצות.
+# שפה|שם|בנאי|toString|package / namespace|namespace X; (1)|טיפוס שם;טיפוס שם...|מחלקות שכבר קיימות
+# שורה שמתחילה ב-! — בלי קומפילציה (טיפוסים שלא קיימים בבדיקה)
+java|Student|1|1||0|String name;int grade;boolean active
+cs|Student|1|1||0|string name;int grade;bool active
+cs|Student|1|1|School|0|String name;int grade;boolean active
+cs|Student|1|1|School.Data|1|string name;int grade;bool active
+java|Student|1|1|school.data|0|String name;int grade;boolean active
+java|Library|1|1||0|Queue<int> waiting;Stack<String> returned;Node<Integer> first;BinNode<Character> tree;int[] shelves;double[][] grid
+cs|Library|1|1|Lib|0|Queue<Integer> waiting;Stack<String> returned;Node<int> first;BinNode<char> tree;int[] shelves;int[,] grid;int[][] jag;int? maybe
+java|point|0|0||0|int x;int y
+cs|point|0|1||0|int x;int y
+java|Car|1|0||0|String model;int year
+cs|Car|1|1||0|string model;int year
+java|Box|1|1||0|bool full;string label;object thing
+cs|Box|1|1||0|boolean full;String label;Object thing;Integer count
+java|Person|1|1||0|int a;int b;int c;int d;String e
+cs|Person|1|1|N|1|int a;int b;int c;int d;string e
+java|Person|1|0||0|Student best;Queue<Student> line;Car car
+cs|Team|1|1||0|Node<Node<int>> head;string[] tags;Stack<Queue<char>> mixed
+java|Team|1|1||0|Node<Node<int>> head;String[] tags;Stack<Queue<char>> mixed;  long   total
+java|Gaps|1|0||0|int ;String name;  ;double avg
+!java|Grades|1|1||0|java.util.ArrayList<Integer> list;Map<String, int> m;Student s
+!cs|Grades|1|1||0|System.Collections.Generic.List<int> list;Dictionary<String, Integer> d
+java|Solo|0|0||0|char c
+cs|Solo|1|0||0|double[] values
+# שגיאות
+java|Empty|1|1||0|
+java|Empty|1|1||0|int ;String
+java||1|0||0|int x
+cs|   |1|0||0|int x
+java|My Class|1|0||0|int x
+java|2Fast|1|0||0|int x
+java|class|1|0||0|int x
+cs|string|1|0||0|int x
+cs|Namespace|1|0||0|int x
+java|Stack|1|0||0|int x
+cs|Console|1|0||0|int x
+java|Student|1|0||0|int x|Student
+cs|student|1|0||0|int x|Student,Program
+java|Main|1|0||0|int x|Main
+cs|Person|1|0||0|int age;string age
+java|Person|1|0||0|int name;String Name
+java|Person|1|0||0|int Person
+java|Person|1|0||0|in t x;void y;List<> z;Queue<int w
+java|Person|1|0||0|int my-name;int for;int ok
+cs|Person|1|0||0|int @x;int base;int fine
+cs|Person|1|0||0|int x;bool y;int[,] z;int? w;string? s
+java|Person|1|0||0|int[,] grid;int? n
+java|Person|1|0||0|int x; y
+# מחלקות שכבר יש בפרויקט (העמודה האחרונה: שם@package): import / using, אותה חבילה, שם כפול, Student של הספרייה
+!java|Team|1|1|school.app|0|Student best;Queue<Student> line;Car[] cars||Student@school.model,Car@school.model
+!cs|Team|1|1|School.App|0|Student best;Queue<Student> line;Car[] cars||Student@School.Model,Car@School.Model
+!java|Team|1|0|school.model|0|Student best;Car car||Student@school.model,Car@school.model
+!cs|Team|1|0|School.Model|1|Student best;Stack<Car> cars||Student@School.Model,Car@School.Model
+!java|Team|1|0|app|0|Student s||Student@a,Student@b
+!java|Team|1|0|app|0|Student s{Student=b};Queue<Student> q{Student=b}||Student@a,Student@b
+!java|Team|1|0|app|0|Point p||Point@
+!cs|Team|1|0|App.Ui|0|Point p;Shape s;Node<Shape> n||Point@App,Shape@Geo
+!cs|Team|1|0|App|0|Point p||Point@
+java|Student|1|0|school.model|0|int x||Student@school.model
+!java|Student|1|0|other|0|int x||Student@school.model
+java|Person|1|0||0|Student s;Car c
+cs|Person|1|0||0|Student s

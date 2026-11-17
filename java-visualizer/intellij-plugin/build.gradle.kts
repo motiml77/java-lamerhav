@@ -1,5 +1,5 @@
 // DSViz ל-IntelliJ IDEA (Community ו-Ultimate, 2024.2 ומעלה):  gradle buildPlugin → build/distributions/dsviz-intellij-<גרסה>.zip
-// הקוד המשותף (Scaffold, NameCheck, WorkerClient, SolutionStore, ClassInfo) נלקח כמו שהוא מהתוסף של Eclipse, והכניסה
+// הקוד המשותף (Scaffold, NameCheck, ClassGen, WorkerClient, SolutionStore, ClassInfo) נלקח כמו שהוא מהתוסף של Eclipse, והכניסה
 // המשותפת (Account, Json, OsTrust... — build/access/dsviz-access.jar, tools/build-access.sh) נכנסת לתוסף כמו שהיא (lib/),
 // והספרייה (release/dsviz.jar — tools/build-lib.sh) נכנסת לתוסף בתיקייה runtime/ (לא ב-classpath של IntelliJ עצמו).
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
@@ -32,7 +32,7 @@ sourceSets {
         java {
             srcDir(viz.dir("eclipse-plugin/src"))
             include("il/lamerhav/dsviz/intellij/**", "il/lamerhav/dsviz/IjShared.java",
-                    "il/lamerhav/dsviz/Scaffold.java", "il/lamerhav/dsviz/NameCheck.java", "il/lamerhav/dsviz/ClassInfo.java",
+                    "il/lamerhav/dsviz/Scaffold.java", "il/lamerhav/dsviz/NameCheck.java", "il/lamerhav/dsviz/ClassInfo.java", "il/lamerhav/dsviz/ClassGen.java",
                     "il/lamerhav/dsviz/WorkerClient.java", "il/lamerhav/dsviz/ExerciseFiles.java", "il/lamerhav/dsviz/SolutionStore.java")
         }
     }

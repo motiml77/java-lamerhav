@@ -64,11 +64,24 @@ namespace DsViz.VsExtension
 
         public static void Start(params string[] args)
         {
+            Start(null, args);
+        }
+
+        /// <summary>
+        /// כמו Start, ועוד משתני סביבה לכלי (env — שם ← ערך; ריק / null — לא נשלח). למשל DSVIZ_VS_FILE / DSVIZ_VS_SLN: הקובץ שפתוח ב-Visual Studio
+        /// והפתרון — "צור מחלקה" יוצר את המחלקה ליד הקובץ ופותח אותה באותו Visual Studio. משתני סביבה (לא שורת הפקודה) — כדי שנתיב עם עברית יעבור כמו שהוא
+        /// </summary>
+        public static void Start(IDictionary<string, string> env, params string[] args)
+        {
             var parts = new List<string>();
             foreach (string a in args) parts.Add("\"" + a.Replace("\"", "\\\"") + "\"");
             var psi = new ProcessStartInfo(Runner, string.Join(" ", parts)) { UseShellExecute = false, CreateNoWindow = true };
             // איזה Visual Studio פתח את הכלי: "הוספת מבנה נתונים" מכניס את הקוד בקובץ הפתוח שלו, בשורת הסמן (בלי הדבקה), ו"תרגיל חדש" מוסיף אליו את הפרויקט
             try { psi.EnvironmentVariables["DSVIZ_VS_PID"] = Process.GetCurrentProcess().Id.ToString(); } catch (Exception) { }
+            if (env != null)
+                foreach (var kv in env)
+                    if (!string.IsNullOrEmpty(kv.Value))
+                        try { psi.EnvironmentVariables[kv.Key] = kv.Value; } catch (Exception) { }
             Process.Start(psi);
         }
 

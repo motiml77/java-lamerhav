@@ -399,6 +399,70 @@ async function addDialog(command, state, steps) {
     assert.strictEqual(edits.length, 0, 'שם תפוס לא אמור להיכנס לקוד');
     assert.strictEqual((await d.set('name', { name: '' })).hint, 'stk2');
 
+    // --- צור מחלקה: מהכפתור בחלון "הוסף מבנה נתונים" — נפתח החלון "צור מחלקה", והמחלקה נוצרת בקובץ חדש ליד הקובץ (באותו package)
+    {
+        const dir = path.join(ws, 'src', 'cc1');
+        fs.mkdirSync(dir, { recursive: true });
+        const mainFile = path.join(dir, 'Main.java');
+        const ls = ['package cc1;', '', 'public class Main {', '    public static void main(String[] args) {', '        ', '    }', '}'];
+        fs.writeFileSync(mainFile, ls.join('\n'));
+        const e1 = mkEditor(ls, 4, 'java', []);
+        e1.document.fileName = mainFile;
+        vscode.window.activeTextEditor = e1;
+        const ad = await addDialog(commands['dsviz.insert.stack'], {});
+        assert(ad.panel.html.includes('id="newClass"') && ad.panel.html.includes('צור מחלקה'), 'הכפתור "צור מחלקה" חסר בחלון "הוסף מבנה נתונים"');
+        const before = panels.length;
+        await ad.panel.handler({ type: 'createClass' });
+        assert(ad.panel.disposed, 'החלון "הוסף מבנה נתונים" לא נסגר');
+        const cp = panels.slice(before).find(x => x.id === 'dsviz.createClass');
+        assert(cp && cp.handler && cp.title === 'צור מחלקה', 'החלון "צור מחלקה" לא נפתח');
+        const lastView = () => cp.posted[cp.posted.length - 1].view;
+        const st = { className: 'student', fields: [{ type: 'String', name: 'name' }, { type: 'int', name: 'grade' }, { type: 'boolean', name: 'active' }], ctor: true, toStr: true };
+        await cp.handler({ type: 'state', state: st });
+        assert(lastView().ok && lastView().file === 'Student.java' && lastView().code.startsWith('package cc1;\n\npublic class Student {'), JSON.stringify(lastView()));
+        assert(lastView().warnings.some(w => w.includes('תיקרא Student')), JSON.stringify(lastView().warnings));
+        // שם של מחלקה שכבר יש בתיקייה (Main) — שגיאה, ושום קובץ לא נוצר
+        await cp.handler({ type: 'ok', state: Object.assign({}, st, { className: 'Main' }) });
+        assert(!lastView().ok && lastView().error.includes('כבר יש מחלקה בשם Main') && !cp.disposed, JSON.stringify(lastView()));
+        // בלי שדות — שגיאה
+        await cp.handler({ type: 'state', state: Object.assign({}, st, { fields: [{ type: 'int', name: '' }] }) });
+        assert(!lastView().ok && lastView().error === 'מוסיפים לפחות שדה אחד (טיפוס ושם)', lastView().error);
+        await cp.handler({ type: 'ok', state: st });
+        const created = path.join(dir, 'Student.java');
+        assert(fs.existsSync(created), 'Student.java לא נוצר');
+        const code = fs.readFileSync(created, 'utf8');
+        assert(code.includes('    public Student(String name, int grade, boolean active) {') && code.includes('    public boolean getActive() {')
+            && code.includes('    public void setGrade(int grade) {') && code.includes('return "Student: name=" + this.name'), code);
+        assert.strictEqual(opened, created);
+        assert(cp.disposed, 'החלון "צור מחלקה" לא נסגר אחרי היצירה');
+        // הסמן מחוץ לפעולה: האזהרה מציעה "צור מחלקה" — ולחיצה עליה פותחת את החלון (ולא את "הוסף מבנה נתונים")
+        const outside = ['package cc1;', 'public class Main {', '    ', '    public static void main(String[] args) {', '    }', '}'];
+        const e2 = mkEditor(outside, 2, 'java', []);
+        e2.document.fileName = mainFile;
+        vscode.window.activeTextEditor = e2;
+        onMessage = (text, buttons) => (buttons.includes('צור מחלקה') ? 'צור מחלקה' : undefined);
+        const b2 = panels.length;
+        await commands['dsviz.insert.stack']();
+        onMessage = null;
+        const cp2 = panels.slice(b2).find(x => x.id === 'dsviz.createClass');
+        assert(cp2 && !panels.slice(b2).some(x => x.id === 'dsviz.addStructure'), JSON.stringify(panels.slice(b2).map(x => x.id)));
+        // Student כבר קיים עכשיו בתיקייה
+        await cp2.handler({ type: 'state', state: Object.assign({}, st, { className: 'Student' }) });
+        assert(cp2.posted[cp2.posted.length - 1].view.error.includes('כבר יש מחלקה בשם Student'), JSON.stringify(cp2.posted[cp2.posted.length - 1].view));
+        // Student שנוצר עכשיו מוצע ברשימה; שדה Queue<Student> (נבחר מהרשימה) — import של ספריית הקורס, בלי import ל-Student (אותה חבילה)
+        assert(cp2.html.includes('"type":"Student","hint":"","pkg":"cc1"'), 'Student ברשימת הטיפוסים');
+        await cp2.handler({ type: 'state', state: { className: 'Course', fields: [{ base: 'Queue', elem: 'Student', name: 'line', refs: { Student: 'cc1' } }, { base: 'Student[]', elem: '', name: 'top', refs: { Student: 'cc1' } }], ctor: true } });
+        const cv = cp2.posted[cp2.posted.length - 1].view;
+        assert(cv.ok && cv.code.startsWith('package cc1;\n\nimport unit4.collectionsLib.*;\n\npublic class Course {\n    private Queue<Student> line;\n    private Student[] top;'), cv.code);
+        // מהפקודה עצמה, בלי קובץ Java פתוח — הסבר, בלי חלון
+        vscode.window.activeTextEditor = null;
+        const b3 = panels.length;
+        shown.length = 0;
+        await commands['dsviz.createClass']();
+        assert(panels.length === b3 && shown.some(m => m.kind === 'info' && m.text.includes('פותחים קובץ Java או C#')), JSON.stringify(shown));
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+
     // --- ספרייה מתנגשת (jar מקורי של unit4) מזוהה
     fs.writeFileSync(path.join(ws, 'lib', 'unit4.jar'), Buffer.concat([Buffer.from('PK...'), Buffer.from('unit4/collectionsLib/Stack.class')]));
     assert.deepStrictEqual(require(path.join(ext, 'project.js')).findConflicts(ws).map(f => path.basename(f)), ['unit4.jar']);
@@ -472,6 +536,51 @@ async function addDialog(command, state, steps) {
         await dl.set('name', { name: 'lst' });
         await dl.ok();
         assert(ed3[0][2].includes('Node<Stack<int>> lst = null;') && ed3[0][2].includes('lstInner.Push(3);'), ed3[0][2]);
+    }
+    // --- צור מחלקה ב-C#: ליד Program.cs של התרגיל (בלי namespace — כמו הקובץ), Get / Set, ומחלקה שכבר יש בפרויקט נחסמת
+    {
+        const ls = code1.split('\n');
+        const e3 = mkEditor(ls, 0, 'csharp', []);
+        e3.document.fileName = cs1;
+        vscode.window.activeTextEditor = e3;
+        const before = panels.length;
+        await commands['dsviz.createClass']();
+        const cp = panels.slice(before).find(x => x.id === 'dsviz.createClass');
+        assert(cp, 'החלון "צור מחלקה" (C#) לא נפתח');
+        assert(cp.html.includes('ToString()') && cp.html.includes('"title":"סוגים בסיסיים","empty":"","items":[{"type":"int","hint":"","pkg":null},{"type":"double","hint":"","pkg":null},{"type":"bool"'),
+            'הטיפוסים של C# בחלון');
+        // הקבוצה "מחלקות שכבר קיימות בפרויקט": המחלקה של התרגיל (Targil1) מוצעת גם כטיפוס וגם כמערך
+        assert(cp.html.includes('"type":"Targil1","hint":""') && cp.html.includes('"type":"Targil1[]"'), 'המחלקות של הפרויקט ברשימה');
+        const last = () => cp.posted[cp.posted.length - 1].view;
+        await cp.handler({ type: 'state', state: { className: 'Targil1', fields: [{ type: 'int', name: 'x' }], ctor: true, toStr: false } });
+        assert(last().error && last().error.includes('כבר יש מחלקה בשם Targil1'), JSON.stringify(last()));
+        const st = { className: 'Car', fields: [{ type: 'string', name: 'model' }, { type: 'int', name: 'year' }, { type: 'Queue<int>', name: 'owners' }], ctor: true, toStr: true };
+        await cp.handler({ type: 'ok', state: st });
+        const carFile = path.join(path.dirname(cs1), 'Car.cs');
+        assert(fs.existsSync(carFile), 'Car.cs לא נוצר');
+        const car = fs.readFileSync(carFile, 'utf8');
+        assert(car.startsWith('using Unit4.CollectionsLib;\n\npublic class Car\n{\n    private string model;') && car.includes('    public string GetModel()\n    {')
+            && car.includes('    public void SetOwners(Queue<int> owners)') && car.includes('    public override string ToString()'), car);
+        assert.strictEqual(opened, carFile);
+        fs.unlinkSync(carFile);
+        // קובץ עם namespace X; — המחלקה נכנסת לאותו namespace, באותו סגנון
+        const appDir = path.join(ws2, 'App');
+        fs.mkdirSync(appDir, { recursive: true });
+        const appFile = path.join(appDir, 'Program.cs');
+        const appText = 'namespace MyApp;\r\n\r\nclass Program\r\n{\r\n    static void Main() { }\r\n}\r\n';
+        fs.writeFileSync(appFile, appText);
+        const e4 = mkEditor(appText.split('\n'), 0, 'csharp', []);
+        e4.document.fileName = appFile;
+        e4.document.getText = () => appText;
+        vscode.window.activeTextEditor = e4;
+        const b2 = panels.length;
+        await commands['dsviz.createClass']();
+        const cp2 = panels.slice(b2).find(x => x.id === 'dsviz.createClass');
+        await cp2.handler({ type: 'ok', state: { className: 'Point', fields: [{ type: 'double', name: 'x' }, { type: 'double', name: 'y' }], ctor: true, toStr: false } });
+        const pt = fs.readFileSync(path.join(appDir, 'Point.cs'), 'utf8');
+        assert(pt.startsWith('namespace MyApp;\r\n\r\npublic class Point\r\n{\r\n    private double x;') && !pt.includes('\n\n'.replace(/\n/g, '\n')) || pt.includes('\r\n'), JSON.stringify(pt.slice(0, 80)));
+        assert(!/[^\r]\n/.test(pt), 'שורות CRLF כמו בקובץ המקורי');
+        fs.rmSync(appDir, { recursive: true, force: true });
     }
     const cm = require(path.join(ext, 'cs.js'));
     assert.strictEqual(cm.detectLanguage(ws2), 'csharp');

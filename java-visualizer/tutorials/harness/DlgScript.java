@@ -13,8 +13,10 @@ import org.eclipse.swt.widgets.*;
  * מפעיל חלון אמיתי של התוסף (תרגיל חדש / הוסף מבנה נתונים / דוגמאות פתורות) לפי תסריט, ושומר צילום + מיקומי הרכיבים (JSON)
  * בכל "shot" — כדי שבסרטון ההדרכה העכבר יגיע בדיוק לכפתור הנכון.
  *
- *   DlgScript <ex|ins|examples> <preset> <script.txt> <out-dir> [doc.java] [offset-marker]
+ *   DlgScript <ex|ins|examples|class> <preset> <script.txt> <out-dir> [doc.java] [offset-marker]
+ *   class — "צור מחלקה": preset = תיקיית פרויקט לסריקה (המחלקות שברשימה) או "-"; doc.java — הקובץ הנוכחי (ה-package שלו)
  * פקודות בתסריט (שורה לכל אחת): chip <טקסט> · check <חלק מהטקסט> · spin <מספר> · text <אינדקס> <ערך> · combo <אינדקס> <פריט> · shot <שם>
+ *   call <פעולה> [ארגומנטים, מופרדים ב-|] — פעולה של החלון (למשל call demo Student|String name;int grade · call openList 0|base)
  */
 public class DlgScript {
     static Shell dlgShell;
@@ -51,6 +53,12 @@ public class DlgScript {
         display.timerExec(1200, step[0]);
         if (kind.equals("ex")) new ExerciseDialog(parent, new ArrayList<org.eclipse.jdt.core.IJavaProject>(), "DataStructures", null, preset).open();
         else if (kind.equals("ins")) new InsertDialog(parent, preset, fDoc, fOffset, "        ").open();
+        else if (kind.equals("class")) {
+            java.util.List<ClassGen.Known> known = preset.equals("-") ? new ArrayList<ClassGen.Known>() : ClassGen.scanProject(new File(preset), "java");
+            ClassDialog cd = new ClassDialog(parent, "java", ClassGen.packageOf(fDoc), new java.util.LinkedHashMap<String, String>(), known);
+            dialog = cd;
+            cd.open();
+        }
         else if (kind.equals("help")) new HelpDialog(parent).open();
         else if (kind.equals("solution")) {
             // החלון "הצעה לפתרון" עם הצעה מ-solutions.json (preset = הקובץ, הצעה ראשונה; או "קובץ#אינדקס")
@@ -153,6 +161,7 @@ public class DlgScript {
                 dlgShell.layout(true, true);
                 while (d.readAndDispatch()) { }
                 Rectangle b = dlgShell.getBounds();
+                for (Shell s : d.getShells()) if (s.isVisible() && s.getParent() == dlgShell) b = b.union(s.getBounds());   // רשימה נפתחת שיוצאת מהחלון
                 Image img = new Image(d, b.width, b.height);
                 GC gc = new GC(d);
                 gc.copyArea(img, b.x, b.y);
@@ -183,6 +192,16 @@ public class DlgScript {
                 return 350;
             }
             case "wait": return Integer.parseInt(arg);
+            case "call": {   // פעולה של החלון עם ארגומנטים מסוג String (מופרדים ב-|)
+                String[] q = arg.split(" ", 2);
+                String[] args = q.length > 1 ? q[1].split("\\|", -1) : new String[0];
+                Class<?>[] types = new Class<?>[args.length];
+                java.util.Arrays.fill(types, String.class);
+                java.lang.reflect.Method m = dialog.getClass().getDeclaredMethod(q[0], types);
+                m.setAccessible(true);
+                m.invoke(dialog, (Object[]) args);
+                return 500;
+            }
             case "click": {   // כפתור מעוגל (Round) לפי הטקסט שלו
                 for (Control c : cs) if (c.getClass().getSimpleName().equals("Round") && arg.equals(textOf(c))) {
                     Event e = new Event(); e.button = 1; e.x = 5; e.y = 5;

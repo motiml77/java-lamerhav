@@ -726,7 +726,32 @@ namespace DsViz.VsExtension
         void Tool(string mode)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (Power.On && Installed()) Start("--tool", mode, ExercisesRoot());
+            if (!Power.On || !Installed()) return;
+            if (mode == "insert") DsVizTool.Start(EditorContext(), "--tool", mode, ExercisesRoot());
+            else Start("--tool", mode, ExercisesRoot());
+        }
+
+        /// <summary>
+        /// "הוספת מבנה נתונים" (וממנו "צור מחלקה"): הקובץ הפעיל (‎.cs‎) והפתרון הפתוח — בשביל בדיקת שמות מול הקובץ הנכון, ומחלקה חדשה
+        /// שנוצרת ליד הקובץ ונפתחת באותו Visual Studio. בלי קובץ C# פתוח — ריק (הכלי לוקח את הקובץ שנערך לאחרונה)
+        /// </summary>
+        System.Collections.Generic.Dictionary<string, string> EditorContext()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var env = new System.Collections.Generic.Dictionary<string, string>();
+            try
+            {
+                var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                string file = dte != null && dte.ActiveDocument != null ? dte.ActiveDocument.FullName : null;
+                if (file != null && file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) env["DSVIZ_VS_FILE"] = file;
+                string sln = dte != null && dte.Solution != null ? dte.Solution.FullName : null;
+                if (!string.IsNullOrEmpty(sln)) env["DSVIZ_VS_SLN"] = sln;
+            }
+            catch (Exception ex)
+            {
+                SolutionHints.Log("editor context failed: " + ex.Message, true);
+            }
+            return env;
         }
 
         /// <summary>

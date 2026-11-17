@@ -19,7 +19,7 @@ javac --release 11 -encoding UTF-8 -cp "$OUT" -d "$OUT" src/unit4/collectionsLib
 sh tools/build-access.sh > /dev/null
 (cd "$OUT" && unzip -qo ../access/dsviz-access.jar -x 'META-INF/*')
 E=eclipse-plugin/src/il/lamerhav/dsviz
-javac --release 8 -Xlint:-options -encoding UTF-8 -cp "$OUT" -d "$OUT" $E/Scaffold.java $E/NameCheck.java $E/CsSolution.java \
+javac --release 8 -Xlint:-options -encoding UTF-8 -cp "$OUT" -d "$OUT" $E/Scaffold.java $E/NameCheck.java $E/CsSolution.java $E/ClassGen.java \
     $E/WorkerClient.java $E/ExerciseFiles.java $E/AiScaffold.java $E/SolutionCheck.java $E/SolutionStore.java $E/ExercisePipeline.java $E/SubmitCli.java \
     $(find csharp/new-exercise/src -name '*.java')
 mkdir -p "$OUT/resources" && cp eclipse-plugin/ai.properties "$OUT/resources/"   # כתובת השרת של "שליחת תרגיל" (worker/README.md)

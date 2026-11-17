@@ -88,6 +88,26 @@ public final class VsDte {
         return code == 0;
     }
 
+    /**
+     * "צור מחלקה": הקובץ החדש file ב-Visual Studio שפתוח עם הפתרון sln. add — פרויקט ישן (‎.NET Framework‎): קודם מוסיפים את הקובץ
+     * לפרויקט של near (הקובץ שעבדו עליו — FindProjectItem) ושומרים את הפרויקט; בפרויקט SDK הוא נכלל לבד. אחר כך פותחים אותו
+     * בשורה line (מ-1). 0 — הצליח; 3 — אין Visual Studio עם הפתרון; 5 — near לא בפרויקט; אחר — לא הצליח
+     */
+    public static int addAndOpen(Path sln, File near, File file, int line, boolean add) {
+        if (!enabled() || sln == null) return 3;
+        String ps = FIND
+                + "$f=[IO.Path]::GetFullPath($env:DSVIZ_FILE); "
+                + "if($env:DSVIZ_ADD -eq '1'){ for($i=0; $i -lt 10; $i++){ try { "
+                + "$it=$d.Solution.FindProjectItem($env:DSVIZ_NEAR); if(-not $it){ Write-Output 'NO-ITEM'; exit 5 }; "
+                + "$p=$it.ContainingProject; $null=$p.ProjectItems.AddFromFile($f); try { $p.Save() } catch { Write-Output ('SAVE ' + $_) }; break "
+                + "} catch { Write-Output ('RETRY ' + $_); Start-Sleep -Milliseconds 1200 } }; if($i -ge 10){ exit 4 } }; "
+                + "for($i=0; $i -lt 10; $i++){ try { $null=$d.ItemOperations.OpenFile($f); "
+                + "if([int]$env:DSVIZ_LINE -gt 0){ $d.ActiveDocument.Selection.GotoLine([int]$env:DSVIZ_LINE, $true) }; "
+                + "$d.MainWindow.Activate(); Write-Output 'OK class'; exit 0 } catch { Write-Output ('RETRY ' + $_); Start-Sleep -Milliseconds 1200 } }; exit 4";
+        return powershell(ps, 90, "DSVIZ_SLN", sln.toAbsolutePath().toString(), "DSVIZ_FILE", file.getAbsolutePath(), "DSVIZ_NEAR",
+                near == null ? "" : near.getAbsolutePath(), "DSVIZ_LINE", String.valueOf(line), "DSVIZ_ADD", add ? "1" : "0");
+    }
+
     /** PowerShell עם התסריט מקודד (-EncodedCommand) ומשתני סביבה (שם, ערך, ...). הפלט — ביומן dsviz-vs-dte.txt בתיקייה הזמנית. קוד היציאה, או -1 */
     static int powershell(String script, int timeoutSec, String... env) {
         try {

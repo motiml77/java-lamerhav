@@ -8,6 +8,8 @@ const project = require('./project');
 const runner = require('./runner');
 const cs = require('./cs');
 const addstructure = require('./addstructure');
+const createclass = require('./createclass');
+const classgen = require('./classgen');
 const names = require('./names');
 const help = require('./help');
 const submitModule = require('./submit');
@@ -51,6 +53,7 @@ function activate(context) {
     reg('dsviz.newArray', () => newExercise('array'));
     reg('dsviz.newMatrix', () => newExercise('matrix'));
     reg('dsviz.insert', () => insertSnippet());
+    reg('dsviz.createClass', () => createClass());
     for (const id of Object.keys(templates.SNIPPETS)) {
         reg('dsviz.insert.' + id, () => insertSnippet(id));
     }
@@ -435,7 +438,9 @@ async function insertSnippet(structure) {
     const at = insertionPoint(ed.document, lineNo);
     // שכבת הגנה: אי אפשר להכניס משתנה / פקודות מחוץ לפעולה (בגוף המחלקה או אחריה) — מזהירים ולא פותחים את החלון
     if (!names.insideFunction(ed.document.getText(), at.offset)) {
-        ui.warn(vscode, 'הסמן מחוץ לפעולה. לוחצים בתוך main (או בפעולה אחרת), בשורה של המבנה, ואז שוב "הוסף מבנה נתונים".');
+        const pick = await ui.warn(vscode, 'הסמן מחוץ לפעולה. לוחצים בתוך main (או בפעולה אחרת), בשורה של המבנה, ואז שוב "הוסף מבנה נתונים". '
+            + 'מחלקה חדשה (שדות, בנאי, get ו-set) — "צור מחלקה".', CREATE_CLASS);
+        if (pick === CREATE_CLASS) await createClass(ed);
         return;
     }
     const session = new addstructure.Session({ tpl: templates, text: ed.document.getText(), offset: at.offset, indent: at.indent, preset: structure });
@@ -447,6 +452,7 @@ async function insertSnippet(structure) {
     panel.onDidDispose(() => { if (addPanel === panel) addPanel = undefined; });
     panel.webview.onDidReceiveMessage(async msg => {
         if (msg.type === 'cancel') { panel.dispose(); return; }
+        if (msg.type === 'createClass') { panel.dispose(); await createClass(ed); return; }   // הכפתור "צור מחלקה" בחלון
         // הקובץ יכול להשתנות כשהחלון פתוח — בודקים את השם מול הקוד העדכני
         const now = insertionPoint(ed.document, lineNo);
         session.update(ed.document.getText(), now.offset, now.indent);
@@ -455,6 +461,62 @@ async function insertSnippet(structure) {
             await insertCode(ed, lineNo, view.code, csharp);
             panel.dispose();
             if (view.chosenClass) showClassInfo(view.chosenClass);
+            return;
+        }
+        panel.webview.postMessage({ type: 'view', view });
+    });
+}
+
+// ------------------------------------------------------------ צור מחלקה: שם ושדות → קובץ חדש ליד הקובץ הנוכחי, עם בנאי, get ו-set
+
+const CREATE_CLASS = 'צור מחלקה';
+let classPanel;
+
+/**
+ * "צור מחלקה" (מהחלון "הוסף מבנה נתונים", מהתפריט או מהפקודה): חלון עם שם המחלקה והשדות, והמחלקה נוצרת בקובץ חדש
+ * (Name.java / Name.cs) באותה תיקייה של הקובץ הנוכחי — באותו package / namespace — ונפתחת בעורך
+ */
+async function createClass(editor) {
+    const ed = editor || vscode.window.activeTextEditor;
+    const doc = ed && ed.document;
+    const file = doc && (doc.fileName || (doc.uri && doc.uri.fsPath));
+    if (!doc || !file || (doc.languageId !== 'java' && doc.languageId !== 'csharp')) {
+        ui.info(vscode, 'פותחים קובץ Java או C# — המחלקה החדשה נוצרת באותה תיקייה, ואז לוחצים שוב "צור מחלקה".');
+        return;
+    }
+    const lang = doc.languageId === 'csharp' ? 'cs' : 'java';
+    const text = doc.getText();
+    // המחלקות של הפרויקט (לרשימת הטיפוסים): Java — כל תיקיית העבודה של הקובץ; C# — הפרויקט (csproj) של הקובץ
+    const wsf = vscode.workspace.getWorkspaceFolder && doc.uri ? vscode.workspace.getWorkspaceFolder(doc.uri) : null;
+    const cx = createclass.context(lang, file, text, wsf && wsf.uri ? wsf.uri.fsPath : undefined);
+    const session = new createclass.Session(cx);
+    if (classPanel) { try { classPanel.dispose(); } catch (e) { /* כבר נסגר */ } }
+    const panel = vscode.window.createWebviewPanel('dsviz.createClass', CREATE_CLASS,
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false }, { enableScripts: true, retainContextWhenHidden: true });
+    classPanel = panel;
+    panel.webview.html = createclass.html(createclass.options(lang, session.initial(), cx.known));
+    panel.onDidDispose(() => { if (classPanel === panel) classPanel = undefined; });
+    panel.webview.onDidReceiveMessage(async msg => {
+        if (msg.type === 'cancel') { panel.dispose(); return; }
+        if (msg.type === 'ok') {   // אולי נוצר קובץ בינתיים
+            session.taken = createclass.takenNames(cx.dir, lang);
+            session.known = classgen.scanProject(cx.root, lang);
+        }
+        const view = session.view(msg.state);
+        if (msg.type === 'ok' && view.ok) {
+            const target = path.join(cx.dir, view.file);
+            if (fs.existsSync(target)) {
+                panel.webview.postMessage({ type: 'view', view: Object.assign({}, view, { ok: false, error: 'כבר יש קובץ ' + view.file + ' בתיקייה — בוחרים שם אחר' }) });
+                return;
+            }
+            const nl = /\r\n/.test(text) ? '\r\n' : '\n';   // כמו בקובץ הנוכחי
+            fs.writeFileSync(target, view.code.replace(/\n/g, nl), 'utf8');
+            panel.dispose();
+            const line = classgen.classLine(view.code);
+            const created = await vscode.workspace.openTextDocument(target);
+            await vscode.window.showTextDocument(created, { viewColumn: ed.viewColumn, preview: false, selection: new vscode.Range(line, 0, line, 0) });
+            if (vscode.window.setStatusBarMessage) vscode.window.setStatusBarMessage('נוצרה המחלקה ' + view.className + ' (' + view.file + ')', 8000);
+            output.appendLine('צור מחלקה: ' + target);
             return;
         }
         panel.webview.postMessage({ type: 'view', view });
@@ -884,4 +946,4 @@ async function warnConflicts(root) {
     if (ans === btn) for (const c of conflicts) fs.renameSync(c, c + '.bak');
 }
 
-module.exports = { needsHelperImport, activate, deactivate, siblingMain, showErrorList, openFiles };
+module.exports = { needsHelperImport, activate, deactivate, siblingMain, showErrorList, openFiles, createClass };

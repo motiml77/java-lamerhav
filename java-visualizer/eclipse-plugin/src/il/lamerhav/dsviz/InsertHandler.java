@@ -5,6 +5,7 @@ import java.util.regex.Pattern;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.resources.IFile;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IRegion;
@@ -73,14 +74,23 @@ public class InsertHandler extends AbstractHandler {
                 insertAt = line.getOffset() + line.getLength();
             }
             // שכבת הגנה: אי אפשר להכניס משתנה / פקודות מחוץ לפעולה (בגוף המחלקה או אחריה) — מזהירים ולא פותחים את החלון
+            IFile file = ed.getEditorInput().getAdapter(IFile.class);
             if (!NameCheck.insideFunction(doc.get(), insertAt)) {
-                Say.warn(shell, "הוסף מבנה נתונים — הסמן לא במקום הנכון",
-                        "הסמן נמצא מחוץ לפעולה (בגוף המחלקה, או לפני / אחרי המחלקה), ושם אי אפשר לכתוב פקודות.\n\n"
-                        + "לחצו בתוך הפעולה main (או בכל פעולה אחרת), בשורה שבה רוצים את המבנה — ואז לחצו שוב על \"הוסף מבנה נתונים\".");
+                int pick = new Say(shell, Say.Kind.WARN, "הוסף מבנה נתונים — הסמן לא במקום הנכון")
+                        .text("הסמן נמצא מחוץ לפעולה (בגוף המחלקה, או לפני / אחרי המחלקה), ושם אי אפשר לכתוב פקודות.\n\n"
+                        + "לחצו בתוך הפעולה main (או בכל פעולה אחרת), בשורה שבה רוצים את המבנה — ואז לחצו שוב על \"הוסף מבנה נתונים\".\n\n"
+                        + "מחלקה חדשה (שדות, בנאי, get ו-set) — \"צור מחלקה\".")
+                        .buttons("צור מחלקה…", "סגירה").open();
+                if (pick == 0) CreateClassHandler.run(shell, ed.getSite().getPage(), file, doc.get());
                 return null;
             }
             InsertDialog d = new InsertDialog(shell, event.getParameter("il.lamerhav.dsviz.structure"), doc.get(), insertAt, indent);
-            if (d.open() != Window.OK || d.code() == null) return null;
+            int rc = d.open();
+            if (d.wantsClass()) {   // הכפתור "צור מחלקה" בחלון
+                CreateClassHandler.run(shell, ed.getSite().getPage(), file, doc.get());
+                return null;
+            }
+            if (rc != Window.OK || d.code() == null) return null;
             String code = d.code();
 
             int caret;

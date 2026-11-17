@@ -37,6 +37,7 @@ import javax.swing.text.JTextComponent;
  * פקודות: shot <שם> · click <טקסט> · chip <טקסט> · check <חלק> · spin <מספר> · text <אינדקס> <ערך> · combo <אינדקס> <פריט>
  *         addfile <קובץ> · pasteimg <קובץ> · select <אינדקס> (ברשימה) · waitwin <חלק מהכותרת> · wait <ms> · close
  *         progress <טקסט> (שליחת תרגיל: הודעה מהבנייה, כאילו הגיעה מהשרת — לצילום של תצוגת הבנייה)
+ *         call <פעולה> [ארגומנטים ב-|] (פעולה של הטופס — "צור מחלקה": demo / openList / withToString) · shotpop <שם> (צילום מסך עם רשימה פתוחה)
  */
 public class SwingScript {
     static Window win;
@@ -126,6 +127,45 @@ public class SwingScript {
     static long exec(String cmd, String arg, File out) throws Exception {
         JRootPane rp = win instanceof JDialog ? ((JDialog) win).getRootPane() : ((JFrame) win).getRootPane();
         switch (cmd) {
+            case "call": {   // פעולה של הטופס (rootPane "dsviz.form") עם ארגומנטים מסוג String מופרדים ב-| — למשל call demo Team|string name
+                Object form = rp.getClientProperty("dsviz.form");
+                if (form == null) throw new IllegalStateException("no dsviz.form");
+                String[] q = arg.split(" ", 2);
+                String[] args = q.length > 1 ? q[1].split("\\|", -1) : new String[0];
+                Class<?>[] types = new Class<?>[args.length];
+                Arrays.fill(types, String.class);
+                Method m = form.getClass().getDeclaredMethod(q[0], types);
+                m.setAccessible(true);
+                m.invoke(form, (Object[]) args);
+                return 500L;
+            }
+            case "shotpop": {   // כמו shot, אבל כל החלון עם השכבות שמעליו — גם רשימה נפתחת (בתוך החלון, או חלון קטן משלה שיוצא ממנו)
+                rp.validate();
+                Point origin = rp.getLocationOnScreen();
+                java.awt.Rectangle b = new java.awt.Rectangle(0, 0, rp.getWidth(), rp.getHeight());
+                List<Window> pops = new ArrayList<Window>();
+                for (Window w : Window.getWindows())
+                    if (w.isShowing() && w.getOwner() == win && !(w instanceof JDialog)) {
+                        Point p = w.getLocationOnScreen();
+                        b = b.union(new java.awt.Rectangle(p.x - origin.x, p.y - origin.y, w.getWidth(), w.getHeight()));
+                        pops.add(w);
+                    }
+                BufferedImage img = new BufferedImage(b.width, b.height, BufferedImage.TYPE_INT_RGB);
+                java.awt.Graphics2D g = img.createGraphics();
+                g.setColor(java.awt.Color.WHITE);
+                g.fillRect(0, 0, b.width, b.height);
+                g.translate(-b.x, -b.y);
+                rp.paint(g);
+                for (Window w : pops) {
+                    Point p = w.getLocationOnScreen();
+                    java.awt.Graphics2D wg = (java.awt.Graphics2D) g.create(p.x - origin.x, p.y - origin.y, w.getWidth(), w.getHeight());
+                    w.paint(wg);
+                    wg.dispose();
+                }
+                g.dispose();
+                ImageIO.write(img, "png", new File(out, arg + ".png"));
+                return 300L;
+            }
             case "shot": {
                 Container c = rp.getContentPane();
                 c.validate();

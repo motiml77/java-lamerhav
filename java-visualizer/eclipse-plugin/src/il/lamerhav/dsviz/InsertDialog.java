@@ -43,6 +43,7 @@ public class InsertDialog extends Dialog {
     private String lastType = "", lastStructure = "";
     private String result, chosenClass;
     private Look.Round ok;
+    private boolean wantsClass;   // לחצו על "צור מחלקה" — החלון נסגר, והפקודה פותחת את החלון "צור מחלקה"
 
     public InsertDialog(Shell parent, String preset, String documentText, int offset, String indent) {
         super(parent);
@@ -91,6 +92,21 @@ public class InsertDialog extends Dialog {
             Look.Chip b = chip(structs, e.getValue(), e.getKey(), structureButtons, 28, 120);
             b.setSelection(e.getKey().equals(initial));
         }
+        // "צור מחלקה": מחלקה משלכם בקובץ חדש (שם, שדות, בנאי, get ו-set) — חלון נפרד
+        Look.Round newClass = new Look.Round(right, "+ צור מחלקה…", false, () -> {
+            wantsClass = true;
+            setReturnCode(CANCEL);
+            close();
+        });
+        GridData ncg = new GridData(SWT.FILL, SWT.CENTER, true, false);
+        ncg.verticalIndent = 6;
+        newClass.setLayoutData(ncg);
+        Label ncNote = new Label(right, SWT.WRAP);
+        ncNote.setText("מחלקה משלכם בקובץ חדש: שם, שדות, בנאי, get ו-set");
+        ncNote.setForeground(Look.color(right.getDisplay(), Look.MUTED));
+        GridData nng = new GridData(SWT.FILL, SWT.CENTER, true, false);
+        nng.widthHint = 240;
+        ncNote.setLayoutData(nng);
         Look.section(right, "מה יש בכל תא?", 8);
         Composite inside = grid(right, 2, true, 6);
         for (String[] in : Scaffold.INSIDE) {
@@ -312,6 +328,11 @@ public class InsertDialog extends Dialog {
         ok.setEnabled(error == null);
         Look.updateScroll(scroll);
         if (getShell().isVisible()) Look.fit(getShell(), true);
+    }
+
+    /** לחצו על "צור מחלקה" (החלון נסגר בלי קוד) */
+    public boolean wantsClass() {
+        return wantsClass;
     }
 
     /** Student / Car אם נבחרה מחלקה מוכנה (להצגת חלון "מה יש במחלקה"), אחרת null */

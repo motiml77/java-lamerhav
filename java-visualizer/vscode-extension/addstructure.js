@@ -6,6 +6,7 @@
  *   Session — ההיגיון (רץ בתוסף): מקבל את מצב החלון, ומחזיר מה להציג (ציור, ערכים, שגיאה, הצעת שם...) ואת הקוד.
  *             משתמש בתבניות של Java או של C# (templates.js / templates-cs.js) ובבדיקת השמות (names.js).
  *   html()  — הדף עצמו (HTML + JS + SVG), שמדבר עם Session בהודעות. אותו עיצוב כמו החלונות של Eclipse ושל Visual Studio.
+ * הכפתור "צור מחלקה" בחלון שולח { type: 'createClass' } — והתוסף פותח במקומו את החלון של createclass.js.
  */
 
 const MAX_INNER = 12;
@@ -142,12 +143,18 @@ input:disabled { opacity: .5; } input::placeholder { color: var(--muted); opacit
 .btn.primary { background: var(--accent); color: var(--accentText); border-color: var(--accent); font-weight: 600; min-width: 130px; }
 .btn:disabled { opacity: .45; cursor: default; }
 .link { background: none; border: none; color: var(--vscode-textLink-foreground); cursor: pointer; font: inherit; padding: 0 4px; }
+.newclass { width: 100%; margin-top: 8px; font: inherit; min-height: 28px; border: 1px dashed var(--accent); border-radius: 9px; padding: 4px 6px;
+            background: transparent; color: var(--vscode-textLink-foreground, var(--accent)); cursor: pointer; }
+.newclass:hover { background: var(--soft); }
+.newclassNote { color: var(--muted); font-size: 12px; margin-top: 3px; }
 </style></head><body>
 <h1>הוסף מבנה נתונים</h1>
 <div class="sub">המבנה נבנה בקוד במקום הסמן, עם הערכים שבחרתם — רואים כאן איך הוא ייראה.</div>
 <div class="cols">
   <div class="card right">
     <h2>איזה מבנה נתונים?</h2><div class="grid g2" id="structs"></div>
+    <button class="newclass" id="newClass">+ צור מחלקה…</button>
+    <div class="newclassNote">מחלקה משלכם בקובץ חדש: שם, שדות, בנאי, get ו-set</div>
     <h2>מה יש בכל תא?</h2><div class="grid g2" id="inside"></div>
     <h2 id="typeSection">טיפוס הערכים</h2><div class="grid g3" id="types"></div>
   </div>
@@ -191,6 +198,7 @@ $('values').oninput = () => { state.values = $('values').value; send('values'); 
 $('name').oninput = () => { state.name = $('name').value; send('name'); };
 $('ok').onclick = () => vscode.postMessage({ type: 'ok', state });
 $('cancel').onclick = () => vscode.postMessage({ type: 'cancel' });
+$('newClass').onclick = () => vscode.postMessage({ type: 'createClass' });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type === 'text' && !$('ok').disabled) $('ok').click();
   if (e.key === 'Escape') $('cancel').click();

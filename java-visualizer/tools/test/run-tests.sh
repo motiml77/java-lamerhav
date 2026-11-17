@@ -75,6 +75,8 @@ echo "== 3. התוסף של VS Code (מול חיקוי של ה-API)"
 last 2 node vscode-test.js
 echo "== 3ב. החלון \"הוסף מבנה נתונים\" של VS Code בדפדפן (Chromium): לחיצות, ערכים אקראיים, בדיקת שם, ציור"
 last 1 node addstructure-test.js "$W"
+echo "== 3ג. \"צור מחלקה\": אותו קוד ב-Java (Eclipse / IntelliJ / Visual Studio) וב-VS Code, סריקת הפרויקט, והמחלקות מתקמפלות ורצות (Java ו-C#)"
+last 8 sh classgen-tests.sh "$W/classgen"
 echo "== 4. הרצה שורה אחר שורה (JDI) — כל שורה מתועדת עם המשתנים"
 L="$W/lines"
 mkdir -p "$L"
