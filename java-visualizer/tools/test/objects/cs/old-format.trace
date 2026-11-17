@@ -1,0 +1,467 @@
+DSVIZ	1	cs
+SRC	Demo.cs	using System;\n\npublic class Program\n{\n    public static void Main()\n    {\n        int[] grades = new int[4];\n        Student s = new Student("נועה", 90);\n        Team t = new Team("אלפא", s);\n        int x = 3;\n        x = x + 1;\n        grades[0] = 95;\n        t.GetLeader().SetGrade(100);\n        Console.WriteLine(t.GetName() + " " + x);\n    }\n}\n\npublic class Student\n{\n    private string name;\n    private int grade;\n\n    public Student(string name, int grade)\n    {\n        this.name = name;\n        this.grade = grade;\n    }\n\n    public void SetGrade(int grade)\n    {\n        this.grade = grade;\n    }\n}\n\npublic class Team\n{\n    private string name;\n    private Student leader;\n    private int[] scores;\n\n    public Team(string name, Student leader)\n    {\n        this.name = name;\n        this.leader = leader;\n        this.scores = new int[3];\n    }\n\n    public Student GetLeader()\n    {\n        return leader;\n    }\n\n    public string GetName()\n    {\n        return name;\n    }\n}\n
+STEP	LINE	0	\0	שורה 7:   ‪int[] grades = new int[4];‬
+FR	Program	Main	Demo.cs	7
+VARS
+STEP	LINE	0	\0	שורה 8:   ‪Student s = new Student("נועה", 90);‬
+FR	Program	Main	Demo.cs	8
+VARS
+VAR	grades	[0, 0, 0, 0]
+V	ARR	0	grades	0
+I	0
+I	0
+I	0
+I	0
+STEP	LINE	0	\0	שורה 25:   ‪this.name = name;‬
+FR	Student	<init>	Demo.cs	25
+FR	Program	Main	Demo.cs	8
+VARS
+VAR	name	נועה
+VAR	grade	90
+VAR	this	Student
+FV	1
+FV	1	grades	[0, 0, 0, 0]
+V	ARR	0	grades (Main)	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	this
+O	11404313	Student	Student	name=null · grade=0	this
+F	name	null
+F	grade	0
+STEP	LINE	0	\0	שורה 26:   ‪this.grade = grade;‬
+FR	Student	<init>	Demo.cs	26
+FR	Program	Main	Demo.cs	8
+VARS
+VAR	name	נועה
+VAR	grade	90
+VAR	this	Student
+FV	1
+FV	1	grades	[0, 0, 0, 0]
+V	ARR	0	grades (Main)	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	this
+O	11404313	Student	נועה	grade=0	this
+F	name	"נועה"
+F	grade	0
+STEP	RETURN	0	\0	‏הפעולה <init> הסתיימה
+FR	Student	<init>	Demo.cs	26
+FR	Program	Main	Demo.cs	8
+VARS
+VAR	name	נועה
+VAR	grade	90
+VAR	this	Student
+FV	1
+FV	1	grades	[0, 0, 0, 0]
+V	ARR	0	grades (Main)	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	this
+O	11404313	Student	נועה	grade=90	this
+F	name	"נועה"
+F	grade	90
+STEP	LINE	0	\0	שורה 9:   ‪Team t = new Team("אלפא", s);‬
+FR	Program	Main	Demo.cs	9
+VARS
+VAR	grades	[0, 0, 0, 0]
+VAR	s	Student
+V	ARR	0	grades	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	s
+O	11404313	Student	נועה	grade=90	s
+F	name	"נועה"
+F	grade	90
+STEP	LINE	0	\0	שורה 43:   ‪this.name = name;‬
+FR	Team	<init>	Demo.cs	43
+FR	Program	Main	Demo.cs	9
+VARS
+VAR	name	אלפא
+VAR	leader	Student
+VAR	this	Team
+FV	1
+FV	1	grades	[0, 0, 0, 0]
+FV	1	s	Student
+V	ARR	0	grades (Main)	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	leader
+O	11404313	Student	נועה	grade=90	leader
+F	name	"נועה"
+F	grade	90
+V	OBJ	0	this
+O	64923656	Team	Team	name=null · leader=nu…	this
+F	name	null
+F	leader	null
+F	scores	null
+STEP	LINE	0	\0	שורה 44:   ‪this.leader = leader;‬
+FR	Team	<init>	Demo.cs	44
+FR	Program	Main	Demo.cs	9
+VARS
+VAR	name	אלפא
+VAR	leader	Student
+VAR	this	Team
+FV	1
+FV	1	grades	[0, 0, 0, 0]
+FV	1	s	Student
+V	ARR	0	grades (Main)	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	leader
+O	11404313	Student	נועה	grade=90	leader
+F	name	"נועה"
+F	grade	90
+V	OBJ	0	this
+O	64923656	Team	אלפא	leader=null · scores=…	this
+F	name	"אלפא"
+F	leader	null
+F	scores	null
+STEP	LINE	0	\0	שורה 45:   ‪this.scores = new int[3];‬
+FR	Team	<init>	Demo.cs	45
+FR	Program	Main	Demo.cs	9
+VARS
+VAR	name	אלפא
+VAR	leader	Student
+VAR	this	Team
+FV	1
+FV	1	grades	[0, 0, 0, 0]
+FV	1	s	Student
+V	ARR	0	grades (Main)	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	leader
+O	11404313	Student	נועה	grade=90	leader
+F	name	"נועה"
+F	grade	90
+V	OBJ	0	this
+O	64923656	Team	אלפא	leader=Student · scor…	this
+F	name	"אלפא"
+F	leader	Student
+F	scores	null
+STEP	RETURN	0	\0	‏הפעולה <init> הסתיימה
+FR	Team	<init>	Demo.cs	45
+FR	Program	Main	Demo.cs	9
+VARS
+VAR	name	אלפא
+VAR	leader	Student
+VAR	this	Team
+FV	1
+FV	1	grades	[0, 0, 0, 0]
+FV	1	s	Student
+V	ARR	0	grades (Main)	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	leader
+O	11404313	Student	נועה	grade=90	leader
+F	name	"נועה"
+F	grade	90
+V	OBJ	0	this
+O	64923656	Team	אלפא	leader=Student · scor…	this
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	LINE	0	\0	שורה 10:   ‪int x = 3;‬
+FR	Program	Main	Demo.cs	10
+VARS
+VAR	grades	[0, 0, 0, 0]
+VAR	s	Student
+VAR	t	Team
+V	ARR	0	grades	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	s
+O	11404313	Student	נועה	grade=90	s
+F	name	"נועה"
+F	grade	90
+V	OBJ	0	t
+O	64923656	Team	אלפא	leader=Student · scor…	t
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	LINE	0	\0	שורה 11:   ‪x = x + 1;‬
+FR	Program	Main	Demo.cs	11
+VARS
+VAR	grades	[0, 0, 0, 0]
+VAR	s	Student
+VAR	t	Team
+VAR	x	3
+V	ARR	0	grades	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	s
+O	11404313	Student	נועה	grade=90	s
+F	name	"נועה"
+F	grade	90
+V	OBJ	0	t
+O	64923656	Team	אלפא	leader=Student · scor…	t
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	LINE	0	\0	שורה 12:   ‪grades[0] = 95;‬
+FR	Program	Main	Demo.cs	12
+VARS
+VAR	grades	[0, 0, 0, 0]
+VAR	s	Student
+VAR	t	Team
+VAR	x	4
+V	ARR	0	grades	0
+I	0
+I	0
+I	0
+I	0
+V	OBJ	0	s
+O	11404313	Student	נועה	grade=90	s
+F	name	"נועה"
+F	grade	90
+V	OBJ	0	t
+O	64923656	Team	אלפא	leader=Student · scor…	t
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	LINE	0	\0	שורה 13:   ‪t.GetLeader().SetGrade(100);‬
+FR	Program	Main	Demo.cs	13
+VARS
+VAR	grades	[95, 0, 0, 0]
+VAR	s	Student
+VAR	t	Team
+VAR	x	4
+V	ARR	0	grades	0
+I	95
+I	0
+I	0
+I	0
+CH	0
+V	OBJ	0	s
+O	11404313	Student	נועה	grade=90	s
+F	name	"נועה"
+F	grade	90
+V	OBJ	0	t
+O	64923656	Team	אלפא	leader=Student · scor…	t
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	LINE	0	\0	שורה 50:   ‪return leader;‬
+FR	Team	GetLeader	Demo.cs	50
+FR	Program	Main	Demo.cs	13
+VARS
+VAR	this	Team
+FV	1
+FV	1	grades	[95, 0, 0, 0]
+FV	1	s	Student
+FV	1	t	Team
+FV	1	x	4
+V	ARR	0	grades (Main)	0
+I	95
+I	0
+I	0
+I	0
+CH	0
+V	OBJ	0	this
+O	64923656	Team	אלפא	leader=Student · scor…	this
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	RETURN	0	Student	‏הפעולה GetLeader מחזירה  ‎Student‎
+FR	Team	GetLeader	Demo.cs	50
+FR	Program	Main	Demo.cs	13
+VARS
+VAR	this	Team
+FV	1
+FV	1	grades	[95, 0, 0, 0]
+FV	1	s	Student
+FV	1	t	Team
+FV	1	x	4
+V	ARR	0	grades (Main)	0
+I	95
+I	0
+I	0
+I	0
+V	OBJ	0	this
+O	64923656	Team	אלפא	leader=Student · scor…	this
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	LINE	0	\0	שורה 31:   ‪this.grade = grade;‬
+FR	Student	SetGrade	Demo.cs	31
+FR	Program	Main	Demo.cs	13
+VARS
+VAR	grade	100
+VAR	this	Student
+FV	1
+FV	1	grades	[95, 0, 0, 0]
+FV	1	s	Student
+FV	1	t	Team
+FV	1	x	4
+V	ARR	0	grades (Main)	0
+I	95
+I	0
+I	0
+I	0
+V	OBJ	0	this
+O	11404313	Student	נועה	grade=90	this
+F	name	"נועה"
+F	grade	90
+STEP	RETURN	0	\0	‏הפעולה SetGrade הסתיימה
+FR	Student	SetGrade	Demo.cs	31
+FR	Program	Main	Demo.cs	13
+VARS
+VAR	grade	100
+VAR	this	Student
+FV	1
+FV	1	grades	[95, 0, 0, 0]
+FV	1	s	Student
+FV	1	t	Team
+FV	1	x	4
+V	ARR	0	grades (Main)	0
+I	95
+I	0
+I	0
+I	0
+V	OBJ	0	this
+O	11404313	Student	נועה	grade=100	this
+F	name	"נועה"
+F	grade	100
+STEP	LINE	0	\0	שורה 14:   ‪Console.WriteLine(t.GetName() + " " + x);‬
+FR	Program	Main	Demo.cs	14
+VARS
+VAR	grades	[95, 0, 0, 0]
+VAR	s	Student
+VAR	t	Team
+VAR	x	4
+V	ARR	0	grades	0
+I	95
+I	0
+I	0
+I	0
+V	OBJ	0	s
+O	11404313	Student	נועה	grade=100	s
+F	name	"נועה"
+F	grade	100
+V	OBJ	0	t
+O	64923656	Team	אלפא	leader=Student · scor…	t
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	LINE	0	\0	שורה 55:   ‪return name;‬
+FR	Team	GetName	Demo.cs	55
+FR	Program	Main	Demo.cs	14
+VARS
+VAR	this	Team
+FV	1
+FV	1	grades	[95, 0, 0, 0]
+FV	1	s	Student
+FV	1	t	Team
+FV	1	x	4
+V	ARR	0	grades (Main)	0
+I	95
+I	0
+I	0
+I	0
+V	OBJ	0	this
+O	64923656	Team	אלפא	leader=Student · scor…	this
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	RETURN	0	אלפא	‏הפעולה GetName מחזירה  ‎אלפא‎
+FR	Team	GetName	Demo.cs	55
+FR	Program	Main	Demo.cs	14
+VARS
+VAR	this	Team
+FV	1
+FV	1	grades	[95, 0, 0, 0]
+FV	1	s	Student
+FV	1	t	Team
+FV	1	x	4
+V	ARR	0	grades (Main)	0
+I	95
+I	0
+I	0
+I	0
+V	OBJ	0	this
+O	64923656	Team	אלפא	leader=Student · scor…	this
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	OUTPUT	7	\0	הדפסה: אלפא 4
+FR	Program	Main	Demo.cs	14
+VARS
+VAR	grades	[95, 0, 0, 0]
+VAR	s	Student
+VAR	t	Team
+VAR	x	4
+V	ARR	0	grades	0
+I	95
+I	0
+I	0
+I	0
+V	OBJ	0	s
+O	11404313	Student	נועה	grade=100	s
+F	name	"נועה"
+F	grade	100
+V	OBJ	0	t
+O	64923656	Team	אלפא	leader=Student · scor…	t
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	RETURN	7	\0	‏הפעולה Main הסתיימה
+FR	Program	Main	Demo.cs	14
+VARS
+VAR	grades	[95, 0, 0, 0]
+VAR	s	Student
+VAR	t	Team
+VAR	x	4
+V	ARR	0	grades	0
+I	95
+I	0
+I	0
+I	0
+V	OBJ	0	s
+O	11404313	Student	נועה	grade=100	s
+F	name	"נועה"
+F	grade	100
+V	OBJ	0	t
+O	64923656	Team	אלפא	leader=Student · scor…	t
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+STEP	END	7	\0	התוכנית הסתיימה
+VARS
+VAR	grades	[95, 0, 0, 0]
+VAR	s	Student
+VAR	t	Team
+VAR	x	4
+V	ARR	0	grades	0
+I	95
+I	0
+I	0
+I	0
+V	OBJ	0	s
+O	11404313	Student	נועה	grade=100	s
+F	name	"נועה"
+F	grade	100
+V	OBJ	0	t
+O	64923656	Team	אלפא	leader=Student · scor…	t
+F	name	"אלפא"
+F	leader	Student
+F	scores	[0, 0, 0]
+OUT	אלפא 4\n

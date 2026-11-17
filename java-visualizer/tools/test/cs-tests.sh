@@ -135,6 +135,41 @@ for want in 'this=d1 ב-הבנאי Dog() {name=null, age=0} this.name=שינוי
     grep -qF -- "$want" "$W/pets.txt" || { echo "אובייקט ב-C#: חסר $want"; grep 'אובייקט' "$W/pets.txt"; exit 1; }
 done
 echo "פעולה בתוך אובייקט ב-C#: $(grep -c 'אובייקט #' "$W/pets.txt") צעדים מסומנים"
+# אובייקט בתוך אובייקט ומערך בתוך אובייקט (כמו ב-Java, run-tests.sh 5ו2): כרטיס קטן / תאים קטנים בתוך הכרטיס — שורות FX ... FXE בקובץ
+viz objects/cs/Nested.cs --trace "$W/nested.trace" > "$W/nested.out" 2>&1 || { cat "$W/nested.out"; exit 1; }
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/nested.trace" > "$W/nested.txt" 2>&1
+for want in 'שורה 52: this: Team(this){name="אלפא", leader=Student(leader){name="נועה", grade=90, team=null}, scores=[0, 0, 0]}]' \
+    'שורה 10: t: Team(t){name="אלפא", leader=Student(s){name="נועה", grade=90, team=null}, scores=[0, 0, 0]}]' \
+    'שורה 57: this: Team(this){name="אלפא", leader=Student{name="נועה", grade=90, team=null}, scores=[0, 0, 0] i→1}]' \
+    'שורה 57: this: Team(this){name="אלפא", leader=Student{name="נועה", grade=90, team=null}, scores=[0, 7*, 0]}]' \
+    'שורה 57: this=t ב-SetScore() {name="אלפא", leader=Student, scores=[0, 0, 0]} this.scores=שינוי]' \
+    'שורה 62: this=t ב-Boost() {name="אלפא", leader=Student, scores=[0, 7, 0]} this.leader=קריאה this.leader.grade=שינוי]' \
+    'שורה 62: this: Team(this){name="אלפא", leader=Student{name="נועה", grade=95, team=null}, scores=[0, 7, 0]}]' \
+    'שורה 70: this: Team(this){name="אלפא", leader=Student{name="נועה", grade=95, team=→ Team}, scores=[0, 7, 0] i→2}]' \
+    'שורה 13: s: Student(s){name="נועה", grade=95, team=Team(t){name="אלפא", leader=→ Student, scores=[0, 7, 0]}}]' \
+    'שורה 16: a: Link(a){val=1, next=Link}]' 'שורה 16: b: Link(b){val=2, next=Link}]' \
+    'many=[0, 0, 0, 4*, 0, 0, 0, 0, 0, 0, 0, 0, …], people=[null, null]' \
+    'people=[דן*, null], grid=[[0, 0, 0], [0, 0, 0]], big=[0, 0, 0, 0, 0, 0, …], words=[אב, גד]}]' \
+    'grid=[[0, 0, 0], [0, 0, 0]] r→r1 c→c2, big=' 'grid=[[0, 0, 0], [0, 0, 9*]], big=' \
+    'שורה 20: deep: L1(deep){inner=L2{inner=L3{inner=L4{x=4, inner=L5}}}}]'; do
+    grep -qF -- "$want" "$W/nested.txt" || { echo "אובייקט בתוך אובייקט ב-C#: חסר $want"; grep 'טבלה' "$W/nested.txt" | head -60; exit 1; }
+done
+! grep -qF 'שורה 10: s: Student' "$W/nested.txt" && grep -q '^7 2 20 4$' "$W/nested.out" \
+    && [ "$(grep -c '^FX$' "$W/nested.trace")" -ge 20 ] && [ "$(grep -c '^FX$' "$W/nested.trace")" = "$(grep -c '^FXE$' "$W/nested.trace")" ] \
+    || { echo "אובייקט בתוך אובייקט ב-C#: כרטיס כפול של s / פלט / שורות FX לא מאוזנות"; exit 1; }
+# קובץ ישן (בלי FX): objects/cs/old-format.trace נכתב בגרסה הקודמת של dsviz-cs (Team עם leader ו-scores) — נטען כמו קודם:
+# אותם צעדים, המאפיינים כטקסט, ו-s כרטיס משלו. וגם הקובץ החדש בלי שורות ה-FX שלו
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check objects/cs/old-format.trace > "$W/nested-old.txt" 2>&1
+head -1 "$W/nested-old.txt" | grep -q '^ok 24 steps$' && ! grep -q '^FX' objects/cs/old-format.trace \
+    && grep -qF 'שורה 10: t: Team(t){name="אלפא", leader=Student, scores=[0, 0, 0]}]' "$W/nested-old.txt" \
+    && grep -qF 'שורה 10: s: Student(s){name="נועה", grade=90}]' "$W/nested-old.txt" \
+    || { echo "קובץ צעדים ישן (בלי FX) לא נטען כמו קודם"; head -5 "$W/nested-old.txt"; grep 'טבלה' "$W/nested-old.txt" | head -20; exit 1; }
+awk '/^FX$/ { d++; next } /^FXE$/ { d--; next } d == 0' "$W/nested.trace" > "$W/nested-nofx.trace"
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/nested-nofx.trace" > "$W/nested-nofx.txt" 2>&1
+[ "$(head -1 "$W/nested-nofx.txt")" = "$(head -1 "$W/nested.txt")" ] && head -1 "$W/nested-nofx.txt" | grep -q '^ok [1-9]' \
+    && grep -qF 'שורה 10: t: Team(t){name="אלפא", leader=Student, scores=[0, 0, 0]}]' "$W/nested-nofx.txt" \
+    || { echo "קובץ צעדים בלי שורות FX לא נטען"; head -5 "$W/nested-nofx.txt"; grep 'טבלה' "$W/nested-nofx.txt" | head -20; exit 1; }
+echo "אובייקט בתוך אובייקט ומערך בתוך אובייקט ב-C#: $(grep -c '^FX$' "$W/nested.trace") מאפיינים מצוירים בתוך כרטיס (FX), וקובץ ישן בלי FX נטען כמו קודם"
 # מחלקה של התלמיד עם ToString משלה (במשתנים, במחסנית, ברשימה, במערך, בערך מוחזר): ההרצה הוויזואלית מגיעה לסוף —
 # בלי Quiet ה-ToString שנקרא בשביל התצוגה נרשם כצעדים, ומכל צעד שוב מציגים את המשתנים, וההרצה נתקעה
 timeout 60 dotnet "$RUNNER" objects/cs/OwnToString.cs --trace "$W/owntostring.trace" > "$W/owntostring.out" 2>&1 || { echo "ToString של התלמיד: ההרצה הוויזואלית נתקעה / נכשלה"; cat "$W/owntostring.out"; exit 1; }

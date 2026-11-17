@@ -216,6 +216,41 @@ conds "$O/out.txt" \
     'שורה 30: this=d2 ב-isOlderThan() {name="לאסי", age=5} other←d1 this.age=קריאה other.age=קריאה]' \
     'שורה 34: this=d1 ב-getName() {name="רקס", age=4} this.name=קריאה]'
 
+echo "== 5ו2. אובייקט בתוך אובייקט ומערך בתוך אובייקט: כרטיס קטן / תאים קטנים בתוך הכרטיס, עם הערכים של אותו רגע"
+# [טבלה ...] = מה מצויר בכרטיס (ObjCard.dump): סוג(תגים){...} לאובייקט פנימי, [..] למערך — * תא שהשתנה, i→1 תווית אינדקס, … נקטע
+ON="$W/objnest"
+mkdir -p "$ON"
+cp objects/Nested.java "$ON/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$ON" "$ON/Nested.java"
+(cd "$ON" && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Nested > out.txt 2>&1) || true
+conds "$ON/out.txt" \
+    'שורה 44: this: Team(this){name="אלפא", leader=Student(leader){name="נועה", grade=90, team=null}, scores=[0, 0, 0]}]' \
+    'שורה 6: t: Team(t){name="אלפא", leader=Student(s){name="נועה", grade=90, team=null}, scores=[0, 0, 0]}]' \
+    'שורה 47: this: Team(this){name="אלפא", leader=Student{name="נועה", grade=90, team=null}, scores=[0, 0, 0] i→1}]' \
+    'שורה 48: this: Team(this){name="אלפא", leader=Student{name="נועה", grade=90, team=null}, scores=[0, 7*, 0]}]' \
+    'שורה 47: this=t ב-setScore() {name="אלפא", leader=→ נועה, scores=[0, 0, 0]} this.scores=שינוי]' \
+    'שורה 51: this=t ב-boost() {name="אלפא", leader=→ נועה, scores=[0, 7, 0]} this.leader=קריאה this.leader.grade=שינוי]' \
+    'שורה 52: this: Team(this){name="אלפא", leader=Student{name="נועה", grade=95, team=null}, scores=[0, 7, 0]}]' \
+    'שורה 57: this: Team(this){name="אלפא", leader=Student{name="נועה", grade=95, team=→ Team}, scores=[0, 7, 0] i→2}]' \
+    'שורה 9: s: Student(s){name="נועה", grade=95, team=Team(t){name="אלפא", leader=→ Student, scores=[0, 7, 0]}}]' \
+    'שורה 12: a: Link(a){val=1, next=→ {val=2 · next…}]' \
+    'שורה 12: b: Link(b){val=2, next=→ {val=1 · next…}]' \
+    'many=[0, 0, 0, 4*, 0, 0, 0, 0, 0, 0, 0, 0, …], people=[null, null]' \
+    'people=[דן*, null], grid=[[0, 0, 0], [0, 0, 0]], big=[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], …], words=[אב, גד]}]' \
+    'grid=[[0, 0, 0], [0, 0, 0]] r→r1 c→c2, big=' \
+    'grid=[[0, 0, 0], [0, 0, 9*]], big=' \
+    'שורה 16: deep: L1(deep){in=L2{in=L3{in=L4{x=4, in=→ {y=5}}}}}]'
+# האובייקט שמצויר בתוך כרטיס לא מצויר שוב לבד (s בתוך t — אין כרטיס של s באותו צעד), ומערך-מאפיין לא מקדים את השורה
+! grep -qF 'שורה 6: s: Student' "$ON/out.txt" && ! grep -qF 'שורה 7: s: Student' "$ON/out.txt" \
+    && ! grep -qF 'שורה 44: this: Team(this){name="אלפא", leader=Student(leader){name="נועה", grade=90, team=null}, scores=[0, 7' "$ON/out.txt" \
+    && grep -q '^7 2 20 4$' "$ON/out.txt" \
+    && echo "  ok  s מצויר רק בתוך t (בלי כרטיס כפול), scores בבנאי עוד [0, 0, 0], והתוכנית הדפיסה 7 2 20 4" \
+    || { echo "  FAIL כרטיס כפול / ערך של רגע אחר / פלט"; grep 'טבלה' "$ON/out.txt" | head -40; exit 1; }
+# הציור עצמו (בלי חלון): הכרטיס הפנימי בתוך החיצוני, התאים הקטנים, תא שהשתנה, התגים — והגדלים הגיוניים
+javac -encoding UTF-8 -cp "$JAR" -d "$ON" objects/ObjNestPaint.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$ON:$JAR" unit4.collectionsLib.ObjNestPaint "$ON/frames" > "$ON/paint.txt" 2>&1 \
+    && grep -q MARK-END "$ON/paint.txt" && grep '^  ok' "$ON/paint.txt" || { cat "$ON/paint.txt"; exit 1; }
+
 echo "== 5ז. סוגי רקורסיה: פשוטה, זנב (גם void), כפולה, הדדית, על עץ / על שרשרת — והקריאות של תנאי העצירה"
 R="$W/reckinds"
 mkdir -p "$R"
