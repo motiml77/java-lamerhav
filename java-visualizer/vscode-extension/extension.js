@@ -484,6 +484,10 @@ async function createClass(editor) {
         ui.info(vscode, 'פותחים קובץ Java או C# — המחלקה החדשה נוצרת באותה תיקייה, ואז לוחצים שוב "צור מחלקה".');
         return;
     }
+    if (doc.isUntitled || !path.isAbsolute(file)) {   // קובץ שעוד לא נשמר — אין תיקייה ליצור לידה
+        ui.info(vscode, 'שומרים קודם את הקובץ (Ctrl+S) בתיקייה של התרגיל, ואז לוחצים שוב "צור מחלקה".');
+        return;
+    }
     const lang = doc.languageId === 'csharp' ? 'cs' : 'java';
     const text = doc.getText();
     // המחלקות של הפרויקט (לרשימת הטיפוסים): Java — כל תיקיית העבודה של הקובץ; C# — הפרויקט (csproj) של הקובץ
