@@ -36,6 +36,18 @@ $title = "Visual Studio $(@{ '17' = '2022'; '18' = '2026' }[$Major])"
 $env:DSVIZ_VS_TRACE = '1'
 # בלי שרת: הכניסה השמורה (מפתח בדיקה) נבדקת במחשב בלבד, ושום דבר לא נשלח החוצה
 $env:DSVIZ_WORKER_URL = 'http://127.0.0.1:9'
+$env:DSVIZ_REPORTS_OFF = '1'   # דיווחים על בעיות (Reporter / Reports.java): נשארים בתיבת היוצא — לא נשלחים לשרת האמיתי
+$reportsDir = Join-Path $env:LOCALAPPDATA 'DSViz\reports\outbox'
+function ReportFiles() { if (Test-Path $reportsDir) { return @(Get-ChildItem $reportsDir -Filter *.json | Sort-Object Name) }; return @() }
+# דיווח חדש בתיבת היוצא (אחרי $before קבצים) — עד $sec שניות (הבדיקה המעמיקה רצה קודם, ברקע). מחזיר את התוכן (אובייקט) או $null
+function WaitReport([int]$before, [int]$sec) {
+    for ($i = 0; $i -lt $sec; $i++) {
+        $f = @(ReportFiles)
+        if ($f.Count -gt $before) { try { return (Get-Content $f[-1].FullName -Raw -Encoding UTF8 | ConvertFrom-Json) } catch { } }
+        Start-Sleep 1
+    }
+    return $null
+}
 $dsviz = Join-Path $env:LOCALAPPDATA 'DSViz'
 $docs = [Environment]::GetFolderPath('MyDocuments')
 $csDir = Join-Path $docs 'DataStructures-CS'
@@ -303,7 +315,7 @@ function CheckVisual([string]$id, [string]$file, [string]$prog, [string]$lib, [s
     Start-Sleep 1
 }
 # "הרצה ויזואלית" בסרגל שאמורה להסביר ולא להריץ: מחכים לתיבת ההודעה, בודקים את הטקסט, ולוחצים OK
-function CheckMessage([string]$id, [string]$file, [string]$pattern, [string]$what) {
+function CheckMessage([string]$id, [string]$file, [string]$pattern, [string]$what, [switch]$Report) {
     KillRuns; KillJava
     $act = OpenDoc $file
     ClearMarkers
@@ -316,7 +328,28 @@ function CheckMessage([string]$id, [string]$file, [string]$pattern, [string]$wha
     Check "$id-no-run" (@(Viewers).Count -eq 0 -and -not (Markers)) "$what — לא רץ שום קוד אחר (אין חלון הרצה, אין סימון)" "סימונים: $(Markers)"
     if ($dlg) {
         Info ("ההודעה: " + $dlg.Text.Substring(0, [Math]::Min(400, $dlg.Text.Length)))
-        if ($dlg.Ok) { RealClick $dlg.Ok "$id-ok" | Out-Null } else { Info 'כפתור OK לא נמצא — Enter'; [DsReal]::Chord([uint16[]]@(0x0D)); Step "$id-enter" }
+        $rep = @($dlg.Elements | Where-Object { (ElName $_) -eq 'דיווח על הבעיה' -and (ElType $_) -match 'Button' }) | Select-Object -First 1
+        if ($Report) {
+            # "דיווח על הבעיה": תודה, והדיווח נשמר בתיבת היוצא (עם הבדיקה המעמיקה)
+            Check "$id-report-button" ($null -ne $rep) "$what — בחלון יש כפתור 'דיווח על הבעיה'" $dlg.Text
+            $before = @(ReportFiles).Count
+            if ($rep) {
+                RealClick $rep "$id-report" | Out-Null
+                $thanks = WaitFor { FindMessage 'הדיווח יישלח' } 30 1000
+                Step "$id-report-thanks"
+                Check "$id-report-thanks" ($null -ne $thanks) "$what — אחרי 'דיווח על הבעיה': הודעת תודה ('הדיווח יישלח… כשיהיה חיבור')" "חלונות: $((@(Dialogs | ForEach-Object { $_.Text }) -join ' || '))"
+                if ($thanks -and $thanks.Ok) { RealClick $thanks.Ok "$id-thanks-ok" | Out-Null } else { [DsReal]::Chord([uint16[]]@(0x0D)) }
+                $r = WaitReport $before 150
+                $user = $env:USERNAME
+                $txt = if ($r) { ($r | ConvertTo-Json -Depth 5 -Compress) } else { '' }
+                Check "$id-report-saved" ($r -and $r.kind -eq 'visual-run' -and $r.auto -eq $false -and $r.message -match $pattern -and $r.app -match 'Visual Studio' -and $r.diag.Length -gt 200) `
+                    "$what — הדיווח נשמר בתיבת היוצא (ידני, עם ההודעה, התוכנה והבדיקה המעמיקה) ויישלח כשיש אינטרנט" "$reportsDir · $($txt.Substring(0, [Math]::Min(500, $txt.Length)))"
+                Check "$id-report-masked" ($r -and $txt -notmatch [regex]::Escape($user) -and $r.diag -match '%USERPROFILE%') "$what — בדיווח אין את שם המשתמש של Windows ($user) — הוחלף ב-%USERNAME% / %USERPROFILE%" ''
+            }
+        } elseif ($dlg.Ok) { RealClick $dlg.Ok "$id-ok" | Out-Null } elseif ($rep) {
+            $close = @($dlg.Elements | Where-Object { (ElName $_) -eq 'סגירה' -and (ElType $_) -match 'Button' }) | Select-Object -First 1
+            if ($close) { RealClick $close "$id-close" | Out-Null } else { [DsReal]::Chord([uint16[]]@(0x1B)) }
+        } else { Info 'כפתור OK לא נמצא — Enter'; [DsReal]::Chord([uint16[]]@(0x0D)); Step "$id-enter" }
         Start-Sleep 1
         # ההודעה נסגרה? אם עדיין יש כפתור OK על המסך וההודעה שם — Enter (אחרת היא חוסמת את כל מה שבא אחריה)
         if (@(ByName $script:vsP.Id 'OK' 'Button').Count -gt 0 -and (FindMessage $pattern)) { [DsReal]::Chord([uint16[]]@(0x0D)); Start-Sleep 1; Step "$id-enter-again" }
@@ -919,7 +952,12 @@ else {
         AssertTime
         Section 'T3x. חבר שיש רק בספרייה של בית הספר (Stack<int>.Count()): ההרצה הרגילה עובדת, ההרצה הוויזואלית מסבירה בעברית'
         $null = CheckNormal 't3x-normal' 'SchoolExt' (Join-Path $d 'SchoolExt\Program.cs') 'schoolext' 'ctrlf5' 'Unit4' 'קוד שמשתמש ב-Count() של ספריית בית הספר'
+        $beforeAuto = @(ReportFiles).Count
         CheckMessage 't3x-visual-message' (Join-Path $d 'SchoolExt\Program.cs') "אין 'Count'" 'אותו קוד בהרצה הוויזואלית (הספרייה של DSViz — בלי Count())'
+        # חסר בספרייה של DSViz משהו שיש בספרייה של בית הספר = תקלה אצלנו: דיווח אוטומטי (עם הבדיקה המעמיקה), בלי לשאול
+        $auto = WaitReport $beforeAuto 150
+        Check 't3x-auto-report' ($auto -and $auto.auto -eq $true -and $auto.context.reason -eq 'library-gap' -and $auto.message -match 'Count' -and $auto.diag.Length -gt 200 -and $auto.message -notmatch '##dsviz-report') `
+            'חבר שחסר בספרייה של DSViz — דיווח אוטומטי לצוות נשמר בתיבת היוצא (library-gap, עם הבדיקה המעמיקה; שורת הסימון לא בהודעה)' "$(if ($auto) { $j = ($auto | ConvertTo-Json -Depth 4 -Compress); $j.Substring(0, [Math]::Min(400, $j.Length)) } else { 'אין דיווח ב-' + $reportsDir })"
         $last = @(Dialogs | ForEach-Object { $_.Text }) -join ' || '
         Info "ההודעה (אם עוד פתוחה): $last"
     } catch { Fail 't3x-exception' 'T3x רץ עד הסוף' "$_" }
@@ -955,7 +993,7 @@ else {
         Section 'T6. הודעות של ההרצה הוויזואלית'
         CheckMessage 't6-no-main' (Join-Path $d 'NoMain\Helper.cs') 'אין פעולת Main' 'קובץ בלי Main (Helper.cs)'
         CheckMessage 't6-empty-main' (Join-Path $d 'EmptyMain\Program.cs') 'Main ריקה' 'Main ריקה'
-        CheckMessage 't6-compile-error' (Join-Path $d 'loose\Bad.cs') 'error CS\d+' 'שגיאת קומפילציה'
+        CheckMessage 't6-compile-error' (Join-Path $d 'loose\Bad.cs') 'error CS\d+' 'שגיאת קומפילציה' -Report
         Dte { param($x) foreach ($doc in @($x.Documents)) { if ($doc.FullName -like '*\loose\Bad.cs') { $doc.Close(2) } }; 'ok' } 6 | Out-Null
     } catch { Fail 't6-exception' 'T6 רץ עד הסוף' "$_" }
     try {

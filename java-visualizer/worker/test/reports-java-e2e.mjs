@@ -119,5 +119,20 @@ await step('קובץ פגום בתיבת היוצא לא תוקע את השאר'
   assert.equal(await java(BASE, 'flush'), 'SENT 1 LEFT 0');
 });
 
+await step('קובץ שהתוסף של Visual Studio כתב (Reporter.cs, JavaScriptSerializer: ‎\\u003c‎, עברית) — נשלח כמו שהוא', async () => {
+  const id = 'VsReporter' + Date.now().toString(36) + 'abcdefgh';
+  const json = '{"id":"' + id + '","kind":"visual-run","auto":false,"title":"ההרצה הוויזואלית לא התחילה: Bad.cs(3,5): error CS1002: ; expected","message":"ההרצה הוויזואלית לא התחילה:\\n\\nBad.cs(3,5): error CS1002: ; expected \\u003cעוד\\u003e","note":"",' +
+    '"app":"Visual Studio 2022","appVersion":"17.14.36518.9","dsvizVersion":"202611171212 · הרחבה 1.0.26321.808","os":"Microsoft Windows NT 10.0.26100.0 64-bit · he-IL","occurredAt":"2026-11-17T10:00:00.000Z",' +
+    '"context":{"file":"Bad.cs","exitCode":"1","reason":"","power":"on"},"diag":"DSViz — דוח אבחון\\r\\n%USERPROFILE%\\\\source"}';
+  writeFileSync(join(outbox, '20261117100000000-' + id + '.json'), json);
+  assert.equal(await java(BASE, 'flush'), 'SENT 1 LEFT 0');
+  const r = await api('GET', '/v1/admin/report?id=' + id, null, admin);
+  assert.equal(r.report.app, 'Visual Studio 2022');
+  assert.match(r.report.message, /<עוד>/);
+  assert.equal(r.report.context.file, 'Bad.cs');
+  assert.equal(r.report.occurredAt, '2026-11-17T10:00:00.000Z');
+  assert.match(r.diag, /%USERPROFILE%\\source/);
+});
+
 server.kill();
 console.log(`\n${passed} בדיקות עברו` + (process.exitCode ? ' — יש כישלונות' : ''));

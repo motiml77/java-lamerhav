@@ -64,6 +64,7 @@ namespace DsViz.VsExtension
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             // לפני הכול: הסימן "ההרחבה נטענה" — גם אם אחד השלבים הבאים נכשל, רואים מבחוץ שהחבילה עלתה (DSViz-Diagnose.bat)
             Safe("loaded marker", WriteLoadedMarker);
+            Safe("reports", Reporter.FlushPending);   // דיווחים שנשמרו כשלא היה אינטרנט — נשלחים עכשיו (ברקע)
             var mcs = await GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
             if (mcs == null) { SolutionHints.Log("init: no menu command service — the toolbar buttons are not connected", true); return; }
             // כל שלב בנפרד: חריגה באחד מהם (גרסת Visual Studio ישנה, CommandBars חסר, תוסף אחר...) לא מפילה את כל החבילה —
@@ -642,18 +643,52 @@ namespace DsViz.VsExtension
         /// <summary>הרצה ויזואלית של קובץ / פרויקט: אם היא נכשלת (שגיאת קומפילציה, אין Main) — הודעה בחלון, ולא "שום דבר לא קורה"</summary>
         void RunVisual(string target)
         {
-            DsVizTool.Run(msg =>
+            DsVizTool.Run((msg, code) =>
             {
                 try
                 {
                     ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
                     {
                         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                        Say(msg);
+                        VisualRunFailed(target, msg, code);
                     });
                 }
                 catch (Exception) { }
             }, target);
+        }
+
+        /// <summary>
+        /// ההרצה הוויזואלית לא התחילה. תקלה אצלנו (שגיאה פנימית של dsviz-cs, או חסר בספרייה של DSViz משהו שיש בספרייה של בית הספר —
+        /// "##dsviz-report") — דיווח אוטומטי לצוות עם הבדיקה המעמיקה, והתלמיד רואה שנשלח. אחרת — ההודעה עם הכפתור "דיווח על הבעיה".
+        /// הדיווח נשמר במחשב ונשלח כשיש אינטרנט (Reporter)
+        /// </summary>
+        void VisualRunFailed(string target, string msg, int code)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            string reason;
+            string shown = Reporter.StripMarker(msg, out reason);
+            bool auto = code == 3 || reason != null;
+            var ctx = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["file"] = Path.GetFileName(target ?? ""), ["exitCode"] = code.ToString(), ["reason"] = reason ?? "", ["power"] = Power.On ? "on" : "off",
+            };
+            string first = "";
+            foreach (string line in shown.Split('\n')) { string l = line.Trim(); if (l.Length > 0 && !l.StartsWith("ההרצה הוויזואלית לא התחילה")) { first = l; break; } }
+            if (first.Length > 120) first = first.Substring(0, 120) + "…";
+            string title = code == 3 ? "שגיאה פנימית בהרצה הוויזואלית"
+                : reason == "library-gap" ? "ההרצה הוויזואלית: חסר בספרייה של DSViz משהו מהספרייה של בית הספר"
+                : "ההרצה הוויזואלית לא התחילה" + (first.Length > 0 ? ": " + first : "");
+            if (auto)
+            {
+                Reporter.Send(code == 3 ? "crash" : "visual-run", true, title, shown, "", ctx, true);
+                Say(shown + "\n\nנשלח לצוות DSViz דיווח על הבעיה (בלי הקוד שלך). אם אין עכשיו אינטרנט — הוא יישלח כשיהיה חיבור.");
+                return;
+            }
+            if (RtlBox.AskReport(this, shown, "DSViz"))
+            {
+                Reporter.Send("visual-run", false, title, shown, "", ctx, true);
+                Say("תודה! הדיווח יישלח לצוות DSViz עם פרטים טכניים (בלי הקוד שלך). אם אין עכשיו אינטרנט — הוא יישלח כשיהיה חיבור.");
+            }
         }
 
         /// <summary>

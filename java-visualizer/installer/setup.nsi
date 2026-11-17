@@ -408,6 +408,8 @@ Section "-core"
   File "README-he.html"
   File "icon.ico"
   File "update.ps1"
+  ; הבדיקה המעמיקה: התוסף ב-Visual Studio מריץ אותה ברקע כשיש בעיה, ומצרף אותה לדיווח לצוות DSViz (גם מורה יכול להריץ ידנית)
+  File "DSViz-Diagnose.bat"
   File "intellij.ps1"
   File "notify.ps1"
   File "clean-eclipse.ps1"
@@ -1008,6 +1010,8 @@ Section "Uninstall"
   ${EndIf}
   RMDir /r "$INSTDIR\intellij"
   Delete "$INSTDIR\intellij.ps1"
+  Delete "$INSTDIR\DSViz-Diagnose.bat"
+  RMDir /r "$INSTDIR\reports"   ; דיווחים שעוד לא נשלחו (תיבת היוצא של Reports)
   ; מאגר התרגילים (Eclipse, IntelliJ, Visual Studio) — לפני שמוחקים את eclipse-dirs.txt
   ${If} ${FileExists} "$INSTDIR\bank\bank-install.ps1"
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -Remove'

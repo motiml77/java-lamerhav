@@ -799,6 +799,16 @@ rc=0; viz "$SCH/extapp" --trace "$SCH/extapp.trace" > "$SCH/extapp.viz" 2>&1 || 
     && grep -q 'Push, Pop, Top, IsEmpty' "$SCH/extapp.viz" && ! grep -qE 'Unhandled|Exception' "$SCH/extapp.viz" \
     && echo "חבר / סוג שיש רק בספרייה של בית הספר (Stack.Count(), BinTreeNode): ההרצה הרגילה עובדת, וההרצה הוויזואלית מסבירה בעברית מה חסר ושההרצה הרגילה לא מושפעת" \
     || { echo "חבר חסר בספרייה של DSViz: ההרצה הוויזואלית צריכה הסבר בעברית (קוד $rc)"; cat "$SCH/extapp.viz"; exit 1; }
+# ...ושורת הסימון לדיווח אוטומטי (##dsviz-report library-gap) — רק כשהסרגל של Visual Studio הריץ (DSVIZ_VS_PID; התוסף מוריד את
+#    השורה ושולח דיווח לצוות). בטרמינל (VS Code, הכפתור הירוק) היא לא מופיעה
+! grep -q '##dsviz-report' "$SCH/extapp.viz" || { echo "שורת הסימון הופיעה גם בלי Visual Studio"; exit 1; }
+rc=0; DSVIZ_VS_PID=1234 viz "$SCH/extapp" --trace "$SCH/extapp2.trace" > "$SCH/extapp2.viz" 2>&1 || rc=$?
+[ $rc -eq 1 ] && grep -qx '##dsviz-report library-gap' "$SCH/extapp2.viz" || { echo "מהסרגל של Visual Studio: חסרה שורת הסימון לדיווח האוטומטי"; cat "$SCH/extapp2.viz"; exit 1; }
+mkdir -p "$SCH/plainerr" && printf 'using Unit4.CollectionsLib;\nStack<int> s = new Stack<int>()\nConsole.WriteLine(s);\n' > "$SCH/plainerr/Program.cs"
+printf '%s</Project>\n' "$CSPROJ_HEAD" > "$SCH/plainerr/P.csproj"
+rc=0; DSVIZ_VS_PID=1234 viz "$SCH/plainerr" --trace "$SCH/plainerr.trace" > "$SCH/plainerr.viz" 2>&1 || rc=$?
+[ $rc -eq 1 ] && ! grep -q '##dsviz-report' "$SCH/plainerr.viz" || { echo "שגיאה רגילה של התלמיד (חסר ;) — בלי סימון לדיווח אוטומטי"; cat "$SCH/plainerr.viz"; exit 1; }
+echo "סימון לדיווח אוטומטי: רק לחבר שחסר בספרייה של DSViz ורק מ-Visual Studio"
 
 # כו. שתי ההרצות על אותו פרויקט באותו זמן: התוכנית של ההרצה הרגילה רצה ומחכה לקלט, ובזמן הזה ההרצה הוויזואלית של אותו קובץ — שתיהן
 #     מצליחות, וההרצה הוויזואלית לא כותבת ולא נוגעת בשום קובץ של הפרויקט (bin / obj / קוד): היא מקמפלת בזיכרון, בתהליך נפרד

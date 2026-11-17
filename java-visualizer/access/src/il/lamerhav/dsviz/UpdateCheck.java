@@ -19,6 +19,7 @@ public final class UpdateCheck {
     public static synchronized void start(String flag) {
         if (started && !"-AfterEclipse".equals(flag)) return;   // פעם אחת לכל תהליך
         started = true;
+        try { if (Reports.pendingCount() > 0) Reports.flushAsync(); } catch (Throwable ignored) { }   // דיווחים שנשמרו כשלא היה אינטרנט
         try {
             if (!System.getProperty("os.name", "").toLowerCase().contains("win")) return;
             String dir = installDir();

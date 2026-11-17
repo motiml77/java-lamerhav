@@ -77,7 +77,8 @@ namespace DsViz.VsExtension
         /// (שגיאת קומפילציה, אין Main) הלחיצה על הכפתור "לא עושה כלום". אם dsviz-cs נגמר בקוד 1/2/3 עם הסבר — onFail מקבל אותו.
         /// כשההרצה מצליחה התהליך ממשיך (החלון של התצוגה), ולא קורה כלום.
         /// </summary>
-        public static void Run(Action<string> onFail, params string[] args)
+        /// <summary>onFail(ההודעה לתלמיד, קוד היציאה של dsviz-cs): ההודעה עוד כוללת שורות סימון (##dsviz-report) — Reporter.StripMarker מוריד אותן</summary>
+        public static void Run(Action<string, int> onFail, params string[] args)
         {
             var parts = new List<string>();
             foreach (string a in args) parts.Add("\"" + a.Replace("\"", "\\\"") + "\"");
@@ -105,7 +106,7 @@ namespace DsViz.VsExtension
                 lock (err) text = err.ToString().Trim();
                 if (text.Length == 0) return;
                 if (text.Length > 1500) text = text.Substring(0, 1500) + "…";
-                try { onFail("ההרצה הוויזואלית לא התחילה:" + Environment.NewLine + Environment.NewLine + text); } catch (Exception) { }
+                try { onFail("ההרצה הוויזואלית לא התחילה:" + Environment.NewLine + Environment.NewLine + text, code); } catch (Exception) { }
             };
             p.Start();
             p.BeginOutputReadLine();

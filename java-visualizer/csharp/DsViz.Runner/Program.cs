@@ -271,7 +271,11 @@ namespace DsViz
                 int gaps;
                 foreach (string gap in LibraryGaps(errors, original, project, out gaps)) Console.Error.WriteLine(gap);
                 if (gaps > 0 && gaps == errors.Count && project.SchoolLib != null)
+                {
                     Console.Error.WriteLine("ההרצה הוויזואלית לא יכולה להריץ את הקוד הזה עם הספרייה של DSViz. ההרצה הרגילה (הכפתור הירוק) לא מושפעת — היא בונה עם " + project.SchoolLib + ".");
+                    // סימון לתוסף (לא מוצג לתלמיד): זו תקלה אצלנו — חסר בספרייה של DSViz משהו שיש בספרייה של בית הספר → דיווח אוטומטי לצוות
+                    if (Environment.GetEnvironmentVariable("DSVIZ_VS_PID") != null) Console.Error.WriteLine(ReportMarker + " library-gap");   // רק מהסרגל של Visual Studio (שם התוסף מוריד את השורה)
+                }
                 else
                     Console.Error.WriteLine("הקומפילציה נכשלה — " + errors.Count + " שגיאות. מתקנים ומריצים שוב.");
                 return 1;
@@ -358,6 +362,9 @@ namespace DsViz
         }
 
         /// <summary>קוד שמשתמש באוספים של ‎.NET (ואז לא מוסיפים את הספרייה לבד) — אותו ביטוי כמו _DSVizBclPattern ב-DSViz.targets</summary>
+        /// <summary>שורה ב-stderr שהתוסף מזהה (ומוריד מההודעה): ההרצה לא התחילה בגלל תקלה אצלנו — לשלוח דיווח אוטומטי (Reporter ב-vs-extension)</summary>
+        internal const string ReportMarker = "##dsviz-report";
+
         internal static readonly System.Text.RegularExpressions.Regex BclCollections = new System.Text.RegularExpressions.Regex(
             @"\b(List|Dictionary|HashSet|SortedSet|SortedDictionary|SortedList|LinkedList|KeyValuePair|IEnumerable|ICollection|IList|IDictionary|IReadOnlyList|IReadOnlyCollection|IReadOnlyDictionary|Comparer|EqualityComparer)\s*<|\.(Enqueue|Dequeue|Peek|TryPeek|TryPop|TryDequeue|EnsureCapacity)\s*\(|System\.Collections\.Generic");
 

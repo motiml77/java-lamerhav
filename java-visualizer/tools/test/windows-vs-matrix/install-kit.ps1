@@ -21,6 +21,7 @@ foreach ($d in 'cs', 'cs-project') {
 $global:LASTEXITCODE = 0
 Copy-Item (Join-Path $Kit 'dsviz.jar') $inst -Force
 Copy-Item (Join-Path $Kit 'build.txt') $inst -Force
+Copy-Item (Join-Path $Kit 'DSViz-Diagnose.bat') $inst -Force   # כמו setup.nsi
 [IO.File]::WriteAllText((Join-Path $inst 'lang.txt'), 'both')
 foreach ($d in 'bank', 'lab') {
     New-Item -ItemType Directory -Force (Join-Path $inst $d) | Out-Null

@@ -165,6 +165,8 @@ public final class Reports {
     public static int[] flush() {
         File dir = outbox();
         if (!dir.isDirectory()) return new int[] { 0, 0 };
+        // בדיקות אוטומטיות (Visual Studio ב-GitHub Actions): הדיווחים נשארים בתיבת היוצא ולא נשלחים לשרת האמיתי
+        if (System.getenv("DSVIZ_REPORTS_OFF") != null) return new int[] { 0, pending(dir).size() };
         String base = Account.serverUrl();
         if (base.isEmpty()) return new int[] { 0, pending(dir).size() };
         int sent = 0;

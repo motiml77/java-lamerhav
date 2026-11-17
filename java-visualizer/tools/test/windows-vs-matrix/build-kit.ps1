@@ -31,6 +31,7 @@ $global:LASTEXITCODE = 0
 New-Item -ItemType Directory -Force (Join-Path $proj 'lib') | Out-Null
 Copy-Item "$Kit\cs-lib\Unit4.CollectionsLib.dll" (Join-Path $proj 'lib\') -Force
 Copy-Item "$root\installer\DSViz.targets" $Kit -Force
+Copy-Item "$root\installer\DSViz-Diagnose.bat" $Kit -Force   # הבדיקה המעמיקה — התוסף מצרף אותה לדיווח על בעיה
 foreach ($pair in @(@("$root\release\dsviz.jar", "$Kit\dsviz.jar"), @("$root\build\lab-vs\dsviz-bank-vs.jar", "$Kit\bank\dsviz-bank-vs.jar"))) {
     if (-not (Test-Path $pair[0])) { throw "חסר $($pair[0]) — קודם בונים: sh tools/build-lib.sh; SKIP_BANK_CHECK=1 sh tools/build-bank-vs.sh" }
     New-Item -ItemType Directory -Force (Split-Path $pair[1]) | Out-Null
@@ -41,7 +42,7 @@ $build = [DateTime]::UtcNow.ToString('yyyyMMddHHmm')
 Write-Host "הערכה מוכנה: $Kit (build $build)"
 Get-ChildItem $Kit | ForEach-Object { Write-Host ("  {0}" -f $_.Name) }
 Get-ChildItem (Join-Path $Kit 'cs') -Filter '*.vsix' | ForEach-Object { Write-Host ("  cs\{0}: {1:N0} בתים" -f $_.Name, $_.Length) }
-foreach ($need in 'cs\dsviz-cs.exe', 'cs\Unit4.CollectionsLib.dll', 'cs\DsViz.VsExtension.vsix', 'cs\install-vsix.ps1', 'cs-project\DataStructures-CS.sln', 'cs-project\lib\Unit4.CollectionsLib.dll', 'cs-project\Directory.Build.props', 'dsviz.jar', 'bank\dsviz-bank-vs.jar', 'DSViz.targets') {
+foreach ($need in 'cs\dsviz-cs.exe', 'cs\Unit4.CollectionsLib.dll', 'cs\DsViz.VsExtension.vsix', 'cs\install-vsix.ps1', 'cs-project\DataStructures-CS.sln', 'cs-project\lib\Unit4.CollectionsLib.dll', 'cs-project\Directory.Build.props', 'dsviz.jar', 'bank\dsviz-bank-vs.jar', 'DSViz.targets', 'DSViz-Diagnose.bat') {
     if (-not (Test-Path (Join-Path $Kit $need))) { throw "חסר בערכה: $need" }
 }
 exit 0

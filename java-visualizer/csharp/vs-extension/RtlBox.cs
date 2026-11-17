@@ -19,6 +19,48 @@ namespace DsViz.VsExtension
             public IntPtr Handle { get { return handle; } }
         }
 
+        /// <summary>
+        /// הודעת שגיאה עם שני כפתורים: "סגירה" (ברירת המחדל, גם Esc) ו"דיווח על הבעיה". true — המשתמש ביקש לדווח.
+        /// חלון של WinForms מימין לשמאל (MessageBox לא מאפשר כיתוב משלנו על הכפתורים)
+        /// </summary>
+        public static bool AskReport(IServiceProvider services, string text, string caption)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            IntPtr owner = IntPtr.Zero;
+            try { var shell = services == null ? null : services.GetService(typeof(SVsUIShell)) as IVsUIShell; if (shell != null) shell.GetDialogOwnerHwnd(out owner); } catch { owner = IntPtr.Zero; }
+            using (var f = new WinForms.Form())
+            {
+                f.Text = caption;
+                f.RightToLeft = WinForms.RightToLeft.Yes;
+                f.RightToLeftLayout = true;
+                f.FormBorderStyle = WinForms.FormBorderStyle.FixedDialog;
+                f.MinimizeBox = false; f.MaximizeBox = false; f.ShowInTaskbar = false;
+                f.StartPosition = owner == IntPtr.Zero ? WinForms.FormStartPosition.CenterScreen : WinForms.FormStartPosition.CenterParent;
+                f.Font = new System.Drawing.Font("Segoe UI", 10f);
+                f.ClientSize = new System.Drawing.Size(620, 330);
+                var box = new WinForms.TextBox
+                {
+                    Multiline = true, ReadOnly = true, ScrollBars = WinForms.ScrollBars.Vertical, Text = (text ?? "").Replace("\r\n", "\n").Replace("\n", "\r\n"),
+                    Left = 14, Top = 14, Width = 592, Height = 230, BackColor = System.Drawing.SystemColors.Window, TabStop = false,
+                    RightToLeft = WinForms.RightToLeft.Yes,
+                };
+                var hint = new WinForms.Label
+                {
+                    Text = "חושבים שזו תקלה של DSViz? \"דיווח על הבעיה\" שולח לצוות את ההודעה ופרטים טכניים (בלי הקוד שלך).",
+                    Left = 14, Top = 250, Width = 592, Height = 36, ForeColor = System.Drawing.SystemColors.GrayText,
+                };
+                var close = new WinForms.Button { Text = "סגירה", DialogResult = WinForms.DialogResult.Cancel, Width = 110, Height = 30, Top = 290, Left = 496 };
+                var report = new WinForms.Button { Text = "דיווח על הבעיה", DialogResult = WinForms.DialogResult.Yes, Width = 150, Height = 30, Top = 290, Left = 334 };
+                box.AccessibleName = box.Text.Length > 2000 ? box.Text.Substring(0, 2000) : box.Text;   // קוראי מסך (וגם הבדיקות האוטומטיות) קוראים את ההודעה
+                f.Controls.AddRange(new WinForms.Control[] { box, hint, close, report });
+                f.AcceptButton = close;
+                f.CancelButton = close;
+                f.Shown += (s, e) => close.Focus();
+                var r = owner == IntPtr.Zero ? f.ShowDialog() : f.ShowDialog(new Owner(owner));
+                return r == WinForms.DialogResult.Yes;
+            }
+        }
+
         /// <summary>true = נלחץ "אישור" (OK). okCancel: שני כפתורים (אישור / ביטול); warning: סימן אזהרה במקום "מידע"</summary>
         public static bool Show(IServiceProvider services, string text, string caption, bool okCancel, bool warning)
         {

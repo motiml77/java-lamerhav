@@ -316,9 +316,12 @@ foreach ($a in $al) {
 # בלי שם המשתמש בנתיבים
 $text = $out -join "`r`n"
 if ($env:USERPROFILE) { $text = $text.Replace($env:USERPROFILE, '%USERPROFILE%') }
+# ושם המשתמש עצמו (גם מחוץ לנתיב הבית — למשל ביומנים), כמילה שלמה
+if ($env:USERNAME -and $env:USERNAME.Length -ge 3) { $text = [regex]::Replace($text, '(?<![\p{L}\p{N}])' + [regex]::Escape($env:USERNAME) + '(?![\p{L}\p{N}])', '%USERNAME%', 'IgnoreCase') }
 $desk = [Environment]::GetFolderPath('Desktop')
 if (-not $desk -or -not (Test-Path $desk)) { $desk = $env:TEMP }
-$file = Join-Path $desk 'DSViz-diagnose.txt'
+# DSVIZ_DIAG_OUT: התוסף מריץ את הבדיקה ברקע כשיש בעיה (דיווח אוטומטי) ושומר אותה בקובץ זמני משלו — לא על שולחן העבודה
+$file = if ($env:DSVIZ_DIAG_OUT) { $env:DSVIZ_DIAG_OUT } else { Join-Path $desk 'DSViz-diagnose.txt' }
 [IO.File]::WriteAllText($file, $text, (New-Object Text.UTF8Encoding($true)))
 if ($quiet) { Write-Output $file; return }
 try { Set-Clipboard -Value $text } catch { }
