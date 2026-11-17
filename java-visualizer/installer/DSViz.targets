@@ -4,18 +4,24 @@
   (ב-Mac: installer/mac/install.sh מתקין אותו ל-~/Library/Application Support/Microsoft/MSBuild/Current/Microsoft.CSharp.targets/ImportAfter)
   ומוסר בהסרת ההתקנה. זו נקודת הרחבה סטנדרטית של MSBuild (ברמת המשתמש — בלי הרשאות מנהל) שכל בנייה של
   פרויקט C# מייבאת אוטומטית — גם מ-Visual Studio (כולל הבנייה של עיצוב-זמן, שרצה כש-Visual Studio פותח/טוען
-  את הפרויקט, בשביל ה-IntelliSense), וגם מ-dotnet build / dotnet msbuild. כך שבכל פרויקט קונסול ב-C#, חדש
-  או קיים, בכל תיקייה, בלי שום פעולה של התלמיד:
-    1. מתווספת הפניה לספרייה Unit4.CollectionsLib (אם קיימת בהתקנה, ואם הפרויקט לא כבר מפנה אליה —
-       ב-Reference או ב-ProjectReference, או שהוא מפנה לספרייה של בית הספר "Unit4") — כדי ש-using Unit4.CollectionsLib; יתקמפל גם בבנייה הרגילה
-       של Visual Studio (F5), ו-IntelliSense יכיר את Stack / Queue / Node / BinNode.
-    2. מתווסף (פעם אחת) פרופיל ההרצה "הרצה ויזואלית" ל-Properties\launchSettings.json, בתפריט שליד כפתור
-       ההפעלה הירוק — באמצעות dsviz-cs.exe ‎ensure-profile (קריאה קטנה: רק ה-csproj, בלי לסרוק את קבצי
-       הפרויקט). פרופילים קיימים נשמרים. רק בפרויקטים מסוג SDK (רק בהם יש launchSettings.json).
+  את הפרויקט, בשביל ה-IntelliSense), וגם מ-dotnet build / dotnet msbuild.
+
+  העיקרון: פרויקט שאין לו קשר ל-DSViz נבנה בדיוק כמו בלי DSViz. הקובץ הזה פועל רק כשהקוד עצמו מבקש את הספרייה
+  (כתוב בו Unit4.CollectionsLib), או כשהפרויקט מסומן כפרויקט של DSViz (<DSVizProject>true</DSVizProject> — את הסימון שם
+  Directory.Build.props של תיקיית התרגילים DataStructures-CS):
+    1. הספרייה Unit4.CollectionsLib של DSViz מתווספת רק אחרי שכל ההפניות של הפרויקט נפתרו (ResolveAssemblyReferences), ורק אם
+       הקוד משתמש בה (או שהפרויקט מסומן) ואף אחת מההפניות שנפתרו אינה Unit4* — לא הספרייה שלנו, ולא הספרייה של בית הספר (Unit4.dll), גם כשהיא
+       מגיעה מ-ProjectReference לפרויקט שהקובץ שלו נקרא אחרת (CollectionsLib.csproj עם AssemblyName=Unit4). שתי ספריות יחד
+       היו נותנות CS0433 בכל שורה — שגיאה שתלמיד לא יכול לתקן. ההרצה הרגילה משתמשת במה שהפרויקט מפנה אליו; ההרצה הוויזואלית
+       (dsviz-cs, תהליך נפרד) — תמיד בספרייה של DSViz.
+    2. פרופיל ההרצה "הרצה ויזואלית" נוסף (פעם אחת) ל-Properties\launchSettings.json — אחרי "הרצה רגילה", כך שהכפתור הירוק /
+       F5 / Ctrl+F5 ממשיכים להריץ כרגיל. רק בפרויקט SDK שמשתמש בספרייה או מסומן. פרופילים קיימים נשמרים.
+    3. using מוסתר: בפרויקט שהקוד שלו משתמש בספרייה — System.Collections.Generic יוצא מהרשימה המוסתרת (אחרת Stack / Queue
+       דו-משמעיים, CS0104), אלא אם הקוד משתמש גם באוספים של ‎.NET. ‎global using Unit4.CollectionsLib;‎ האוטומטי — רק בפרויקט מסומן.
 
   לא נוגע: בפרויקטים שאינם Exe (ספריות, בדיקות), בפרויקטים שאינם C#, ב-$(DSVizDisable)==true
-  (אפשר לשים ב-csproj: <DSVizDisable>true</DSVizDisable>). הפניה — רק ל-‎.NET Core 2.0+ / ‎.NET 5+ /
-  ‎.NET Framework 4.7.2+ (הספרייה היא netstandard2.0). פרופיל ההרצה — רק לפרויקט SDK של ‎.NET 6 ומעלה.
+  (אפשר לשים ב-csproj: <DSVizDisable>true</DSVizDisable>). הספרייה — רק ל-‎.NET Core 2.0+ / ‎.NET 5+ /
+  ‎.NET Framework 4.7.2+ (היא netstandard2.0). פרופיל ההרצה — רק לפרויקט SDK של ‎.NET 6 ומעלה.
   כל שלב מוגן ב-Condition וב-ContinueOnError — הבנייה לא נכשלת אף פעם בגלל הקובץ הזה, גם אם ההתקנה
   של DSViz חסרה או חלקית, ואין בו שום פעולה בזמן הטעינה (evaluation) שיכולה להיכשל.
 -->
@@ -35,6 +41,8 @@
 
     <!-- פרויקט קונסול ב-C# (לא ספרייה), ולא כובה -->
     <_DSVizExe Condition="'$(DSVizDisable)' != 'true' and '$(Language)' == 'C#' and '$(OutputType)' == 'Exe'">true</_DSVizExe>
+    <!-- פרויקט של DSViz (תיקיית התרגילים: Directory.Build.props שם את הסימון) -->
+    <_DSVizMarked Condition="'$(_DSVizExe)' == 'true' and '$(DSVizProject)' == 'true'">true</_DSVizMarked>
 
     <!-- הספרייה (netstandard2.0) מתאימה: ‎.NET Core 2.0+ / ‎.NET 5+ או ‎.NET Framework 4.7.2+.
          (and ב-MSBuild מקצר — VersionGreaterThanOrEquals לא נבדק כשאין TargetFrameworkVersion, למשל בבנייה החיצונית של כמה מסגרות) -->
@@ -51,48 +59,78 @@
   </PropertyGroup>
 
   <!--
-    1. הפניה לספרייה. רצה לפני ResolveAssemblyReferences (גם בבנייה רגילה וגם בבנייה של עיצוב-זמן —
-    שתיהן מריצות אותו, כדי ש-IntelliSense יידע על ההפניות), כך שהקובץ שמתווסף כבר נכלל ברשימת
-    ה-References שהמהדר מקבל.
+    0. מה כתוב בקוד. רץ פעם אחת בכל בנייה (גם של עיצוב-זמן), לפני כל שלב אחר:
+       _DSVizLibSource — קבצים שכתוב בהם Unit4.CollectionsLib (הקוד מבקש את הספרייה).
+       _DSVizBclSource — קבצים שמשתמשים באוספים של ‎.NET (_DSVizBclPattern: List, Dictionary, Enqueue...).
+       _DSVizNetStackSource — Stack< / Queue< בקובץ שלא כתוב בו Unit4.CollectionsLib: בפרויקט רגיל אלה Stack / Queue של ‎.NET
+                         (מה-using המוסתר), ולכן לא מוציאים אותו.
   -->
-  <Target Name="DSVizAddLibraryReference" BeforeTargets="ResolveAssemblyReferences"
-          Condition="'$(_DSVizLibOk)' == 'true' and Exists('$(DSVizLibPath)')">
+  <Target Name="DSVizScanSources" Condition="'$(_DSVizExe)' == 'true'">
     <ItemGroup>
-      <!-- הפרויקט כבר מפנה לספרייה? (Reference בשם, גם בצורה המלאה "Unit4.CollectionsLib, Version=...",
-           או לפי ה-HintPath; או ProjectReference לפרויקט של הספרייה) — אז לא מוסיפים עוד הפניה -->
-      <!-- וגם: הפרויקט כבר מפנה לספרייה של בית הספר — assembly בשם Unit4 (Reference Include="Unit4", או Unit4.dll ב-HintPath) עם אותו namespace
-           (Unit4.CollectionsLib) ואותם שמות (Stack / Queue / Node...). עוד הפניה לספרייה שלנו הייתה יוצרת CS0433 ("The type 'Node<T>' exists in
-           both 'Unit4.CollectionsLib' and 'Unit4'") — שגיאה שתלמיד לא יכול לתקן. בפרויקט כזה VS משתמש בספרייה שלהם, וההרצה הוויזואלית
-           (dsviz-cs, תהליך נפרד) בספרייה שלנו — אותו API. -->
-      <_DSVizExistingRef Include="@(Reference)"
-          Condition="'%(Reference.Identity)' == 'Unit4.CollectionsLib'
-                  or $([System.String]::Copy('%(Reference.Identity)').StartsWith('Unit4.CollectionsLib,'))
-                  or $([System.String]::Copy('%(Reference.HintPath)').ToLowerInvariant().EndsWith('unit4.collectionslib.dll'))
-                  or $([System.String]::Copy('%(Reference.Identity)').ToLowerInvariant().StartsWith('unit4'))
-                  or $([System.String]::Copy('%(Reference.HintPath)').ToLowerInvariant().EndsWith('unit4.dll'))" />
-      <_DSVizExistingRef Include="@(ProjectReference)" Condition="'%(ProjectReference.Filename)' == 'Unit4.CollectionsLib' or '%(ProjectReference.Filename)' == 'Unit4'" />
+      <_DSVizCsFile Include="@(Compile)" Condition="'%(Extension)' == '.cs' and Exists('%(FullPath)')" />
     </ItemGroup>
-    <ItemGroup Condition="'@(_DSVizExistingRef)' == ''">
-      <Reference Include="Unit4.CollectionsLib">
-        <HintPath>$(DSVizLibPath)</HintPath>
+    <!-- התנאי על הקבוצה כולה: בלי קבצים MSBuild היה בודק את התנאי של הפריט פעם אחת עם נתיב ריק — ו-ReadAllText('') מפיל את הבנייה -->
+    <ItemGroup Condition="'@(_DSVizCsFile)' != ''">
+      <_DSVizLibSource Include="@(_DSVizCsFile)" Condition="$([System.IO.File]::ReadAllText('%(FullPath)').Contains('Unit4.CollectionsLib'))" />
+      <_DSVizBclSource Include="@(_DSVizCsFile)"
+          Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('%(FullPath)')), '$(_DSVizBclPattern)'))" />
+      <_DSVizPlainSource Include="@(_DSVizCsFile)" Exclude="@(_DSVizLibSource)" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_DSVizPlainSource)' != ''">
+      <_DSVizNetStackSource Include="@(_DSVizPlainSource)"
+          Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('%(FullPath)')), '$(_DSVizBclStackPattern)'))" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_DSVizUsesLib Condition="'@(_DSVizLibSource)' != ''">true</_DSVizUsesLib>
+      <_DSVizUsesBcl Condition="'@(_DSVizBclSource)' != ''">true</_DSVizUsesBcl>
+      <_DSVizUsesNetStack Condition="'@(_DSVizNetStackSource)' != ''">true</_DSVizUsesNetStack>
+    </PropertyGroup>
+  </Target>
+
+  <!--
+    1. הספרייה. רצה אחרי ResolveAssemblyReferences (גם בבנייה רגילה וגם בבנייה של עיצוב-זמן — שתיהן מריצות אותו, כדי
+    ש-IntelliSense יידע על ההפניות) ולפני שהרשימה עוברת למהדר (FindReferenceAssembliesForReferences / CoreCompile).
+    @(ReferencePath) הוא מה שהמהדר באמת יקבל: Reference, ProjectReference (לפי שם ה-assembly שנבנה, לא שם קובץ הפרויקט),
+    חבילות NuGet. אם אחד מהם Unit4* (Unit4.dll של בית הספר, Unit4.CollectionsLib.dll שלנו) — לא מוסיפים כלום.
+  -->
+  <Target Name="DSVizAddLibraryReference" AfterTargets="ResolveAssemblyReferences" BeforeTargets="FindReferenceAssembliesForReferences"
+          DependsOnTargets="DSVizScanSources" Condition="'$(_DSVizLibOk)' == 'true' and Exists('$(DSVizLibPath)')">
+    <ItemGroup>
+      <_DSVizHaveLib Include="@(ReferencePath)" Condition="$([System.String]::Copy('%(Filename)').ToLowerInvariant().StartsWith('unit4'))" />
+    </ItemGroup>
+    <PropertyGroup>
+      <!-- הקוד מבקש את הספרייה, או פרויקט של DSViz (גם כשה-lib\ של תיקיית התרגילים חסר — הספרייה שבהתקנה) -->
+      <_DSVizLibAdded Condition="('$(_DSVizUsesLib)' == 'true' or '$(_DSVizMarked)' == 'true') and '@(_DSVizHaveLib)' == ''">true</_DSVizLibAdded>
+      <!-- ‎.NET Framework: הספרייה היא netstandard2.0, והמהדר צריך גם את netstandard.dll (Facades). ResolveAssemblyReferences מסמן את זה
+           (_DependsOnNETStandard) רק לפי ההפניות שהוא עצמו פתר — הספרייה שלנו מתווספת אחריו, ולכן מסמנים כאן. ImplicitlyExpandDesignTimeFacades
+           (רץ מיד אחרי, עוד בתוך ResolveReferences) מוסיף את ה-Facades. בלי זה: CS0012 (netstandard) בכל שורה עם Stack / Queue / Node -->
+      <_DependsOnNETStandard Condition="'$(_DSVizLibAdded)' == 'true' and '$(TargetFrameworkIdentifier)' == '.NETFramework'">true</_DependsOnNETStandard>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(_DSVizLibAdded)' == 'true'">
+      <ReferencePath Include="$(DSVizLibPath)">
+        <CopyLocal>true</CopyLocal>
         <Private>true</Private>
-      </Reference>
+        <ReferenceSourceTarget>DSViz</ReferenceSourceTarget>
+        <ResolvedFrom>DSViz</ResolvedFrom>
+      </ReferencePath>
+      <ReferenceCopyLocalPaths Include="$(DSVizLibPath)" />
     </ItemGroup>
   </Target>
 
   <!--
-    2. פרופיל ההרצה. אותה נקודת-חיבור (ResolveAssemblyReferences) — רצה גם בבנייה של עיצוב-זמן, כך
-    שהאפשרות "הרצה ויזואלית" מופיעה ליד כפתור ההפעלה כבר כשהפרויקט נטען ב-Visual Studio, בלי להמתין
-    ל-F5 / Build. קודם קוראים את launchSettings.json (אם יש): אם הפרופיל כבר שם — ה-Exec לא רץ, כך
-    שבנייה שנייה (ושלישית...) לא עושה שום דבר נוסף והבנייה/הטעינה לא מתעכבת. dsviz-cs ממזג את הפרופיל
-    לתוך הקובץ (ומשאיר את הפרופילים הקיימים) ולא נכשל אף פעם.
+    2. פרופיל ההרצה. לפני ResolveAssemblyReferences — רץ גם בבנייה של עיצוב-זמן, כך שהאפשרות "הרצה ויזואלית" מופיעה ליד כפתור
+    ההפעלה כבר כשהפרויקט נטען ב-Visual Studio, בלי להמתין ל-F5 / Build. רק בפרויקט שמשתמש בספרייה או מסומן (לא כותבים קבצים
+    לפרויקטים אחרים של המשתמש). קודם קוראים את launchSettings.json (אם יש): אם הפרופיל כבר שם ותקין — ה-Exec לא רץ, כך שבנייה
+    שנייה (ושלישית...) לא עושה שום דבר נוסף והבנייה/הטעינה לא מתעכבת. dsviz-cs ממזג את הפרופיל לתוך הקובץ (ומשאיר את הפרופילים
+    הקיימים) ולא נכשל אף פעם. "הרצה רגילה" נשארת / נהיית ראשונה: הפרופיל הראשון הוא ברירת המחדל של הכפתור הירוק.
   -->
-  <Target Name="DSVizEnsureLaunchProfile" BeforeTargets="ResolveAssemblyReferences"
+  <Target Name="DSVizEnsureLaunchProfile" BeforeTargets="ResolveAssemblyReferences" DependsOnTargets="DSVizScanSources"
           Condition="'$(_DSVizProfileOk)' == 'true' and Exists('$(DSVizRunner)')">
     <ReadLinesFromFile File="$(_DSVizLaunchFile)" Condition="Exists('$(_DSVizLaunchFile)')" ContinueOnError="true">
       <Output TaskParameter="Lines" ItemName="_DSVizLaunchLines" />
     </ReadLinesFromFile>
     <PropertyGroup>
+      <_DSVizWantsProfile Condition="'$(_DSVizUsesLib)' == 'true' or '$(_DSVizMarked)' == 'true'">true</_DSVizWantsProfile>
       <_DSVizLaunchText>@(_DSVizLaunchLines)</_DSVizLaunchText>
       <_DSVizHasProfile Condition="$(_DSVizLaunchText.Contains('הרצה ויזואלית')) and ($(_DSVizLaunchText.Contains('שליחת תרגיל')) or '$(OS)' != 'Windows_NT')">true</_DSVizHasProfile>
       <!-- פרופיל מגרסה ישנה: "commandLineArgs": "\"$(ProjectDir)\"" — ProjectDir נגמר בלוכסן, וב-Windows הנתיב מגיע
@@ -100,40 +138,42 @@
            ב-Mac / Linux ‏MSBuild הופך \ ל-/ בשורות שנקראו מהקובץ — לכן שתי הצורות -->
       <_DSVizOldProfile Condition="'$(_DSVizHasProfile)' == 'true' and ('$(_DSVizLaunchText.Contains(`ProjectDir)\&quot;`))' == 'True'
           or '$(_DSVizLaunchText.Contains(`ProjectDir)/&quot;`))' == 'True')">true</_DSVizOldProfile>
+      <!-- קובץ מגרסה ישנה שבו "הרצה ויזואלית" הוא הפרופיל הראשון: הכפתור הירוק היה מריץ ויזואלית. הפרופיל הראשון הוא זה ששמו מופיע
+           לפני ה-"commandName" הראשון בקובץ. dsviz-cs ‎-‎-ensure-profile מעביר את ההרצה הרגילה לראש הרשימה (ומוסיף "הרצה רגילה" אם אין) -->
+      <_DSVizVisualAt Condition="'$(_DSVizHasProfile)' == 'true'">$(_DSVizLaunchText.IndexOf('הרצה ויזואלית'))</_DSVizVisualAt>
+      <_DSVizCommandAt Condition="'$(_DSVizHasProfile)' == 'true'">$(_DSVizLaunchText.IndexOf('&quot;commandName&quot;'))</_DSVizCommandAt>
+      <_DSVizVisualFirst Condition="'$(_DSVizHasProfile)' == 'true' and $(_DSVizVisualAt) &lt; $(_DSVizCommandAt)">true</_DSVizVisualFirst>
     </PropertyGroup>
-    <Exec Condition="'$(_DSVizHasProfile)' != 'true' or '$(_DSVizOldProfile)' == 'true'"
+    <Exec Condition="('$(_DSVizWantsProfile)' == 'true' and '$(_DSVizHasProfile)' != 'true') or '$(_DSVizOldProfile)' == 'true' or '$(_DSVizVisualFirst)' == 'true'"
           Command="&quot;$(DSVizRunner)&quot; --ensure-profile &quot;$(MSBuildProjectDirectory)&quot;"
           ContinueOnError="true" IgnoreExitCode="true" EchoOff="true" Timeout="60000"
           StandardOutputImportance="Low" StandardErrorImportance="Low" />
   </Target>
 
   <!--
-    3. Stack / Queue כפולים, ו-using Unit4.CollectionsLib; לבד. בפרויקט קונסול חדש של Visual Studio (‎.NET 6+) ‎ImplicitUsings‎ פעיל,
-    כלומר ‎using System.Collections.Generic;‎ "מוסתר" בכל קובץ — ואז ‎Stack<int>‎ ו-‎Queue<int>‎ מהספרייה נתקלים ב-‎CS0104‎
+    3. Stack / Queue כפולים. בפרויקט קונסול חדש של Visual Studio (‎.NET 6+) ‎ImplicitUsings‎ פעיל, כלומר
+    ‎using System.Collections.Generic;‎ "מוסתר" בכל קובץ — ואז ‎Stack<int>‎ ו-‎Queue<int>‎ מהספרייה נתקלים ב-‎CS0104‎
     (הפניה דו-משמעית) — שגיאה באנגלית שתלמיד לא יכול לתקן, כי אין שורה למחוק.
-      א. הקוד כבר כותב using Unit4.CollectionsLib; — מוציאים את System.Collections.Generic מהרשימה המוסתרת.
-      ב. הקוד לא נוגע באוספים של ‎.NET (List, Dictionary, HashSet..., Enqueue / Dequeue / Peek, או using System.Collections.Generic
-         בעצמו) — מוסיפים לכל הפרויקט ‎global using Unit4.CollectionsLib;‎ (ומוציאים את System.Collections.Generic): בפרויקט רגיל
-         כותבים Queue<int> / Stack<int> / Node<int> / BinNode<int> בלי שום שורה בראש הקובץ — בדיוק כמו בתבנית של DSViz.
-      ג. הקוד משתמש באוספים של ‎.NET — לא נוגעים (מי שצריך גם את הספרייה כותב using Unit4.CollectionsLib; ואז ‎א‎).
-    ב — רק כשההפניה לספרייה באמת קיימת (שלב 1), ורק בפרויקט SDK של ‎.NET 6+ (global using). אותו כלל בדיוק ב-dsviz-cs (ההרצה
-    הוויזואלית). רץ לפני יצירת קובץ ה-global usings (גם בבנייה של עיצוב-זמן, כדי ש-IntelliSense יכיר את Queue ולא יסמן אדום).
+      א. הקוד כותב using Unit4.CollectionsLib; ולא משתמש באוספים של ‎.NET — מוציאים את System.Collections.Generic מהרשימה
+         המוסתרת. (קוד שמשתמש גם ב-List / Dictionary... או ב-Stack של ‎.NET בקובץ אחר — לא נוגעים: הוא נבנה כמו בלי DSViz.)
+      ב. רק בפרויקט מסומן (DSVizProject — תיקיית התרגילים), שהקוד שלו לא מזכיר את הספרייה ולא נוגע באוספים של ‎.NET, ויש לו
+         הפניה לספרייה: מוסיפים ‎global using Unit4.CollectionsLib;‎ — כותבים Queue<int> / Stack<int> / Node<int> בלי שום שורה
+         בראש הקובץ. בפרויקט רגיל (לא מסומן) לא מוסיפים שום using: Stack<int> שם הוא של ‎.NET, כמו בלי DSViz.
+    ההרצה הוויזואלית (dsviz-cs) מחליטה לבד, בלי הקובץ הזה. רץ לפני יצירת קובץ ה-global usings (גם בבנייה של עיצוב-זמן, כדי
+    ש-IntelliSense יכיר את Queue ולא יסמן אדום). לא מריצים מכאן את ResolveAssemblyReferences: הוא חייב לרוץ במקומו, אחרי ResolveProjectReferences.
   -->
-  <Target Name="DSVizResolveImplicitUsings" BeforeTargets="GenerateGlobalUsings" Condition="'$(_DSVizExe)' == 'true'">
+  <Target Name="DSVizResolveImplicitUsings" BeforeTargets="GenerateGlobalUsings" DependsOnTargets="DSVizScanSources" Condition="'$(_DSVizExe)' == 'true'">
     <ItemGroup>
-      <_DSVizCsFile Include="@(Compile)" Condition="'%(Extension)' == '.cs' and Exists('%(FullPath)')" />
-    </ItemGroup>
-    <ItemGroup>
-      <_DSVizLibSource Include="@(_DSVizCsFile)" Condition="$([System.IO.File]::ReadAllText('%(FullPath)').Contains('Unit4.CollectionsLib'))" />
-      <_DSVizBclSource Include="@(_DSVizCsFile)"
-          Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('%(FullPath)')), '$(_DSVizBclPattern)'))" />
+      <!-- ההפניה של הפרויקט עצמו לספרייה (כאן ההפניות עוד לא נפתרו: GenerateGlobalUsings רץ לפני ResolveAssemblyReferences) -->
+      <_DSVizDeclaredLib Include="@(Reference)" Condition="$([System.String]::Copy('%(Reference.Identity)').ToLowerInvariant().StartsWith('unit4'))" />
     </ItemGroup>
     <PropertyGroup>
-      <_DSVizAutoUsing Condition="'@(_DSVizLibSource)' == '' and '@(_DSVizBclSource)' == '' and '$(_DSVizProfileOk)' == 'true'
-          and '$(_DSVizLibOk)' == 'true' and Exists('$(DSVizLibPath)')">true</_DSVizAutoUsing>
+      <_DSVizDropGeneric Condition="'$(_DSVizUsesLib)' == 'true' and '$(_DSVizUsesBcl)' != 'true' and '$(_DSVizUsesNetStack)' != 'true'">true</_DSVizDropGeneric>
+      <_DSVizAutoUsing Condition="'$(_DSVizMarked)' == 'true' and '$(_DSVizUsesLib)' != 'true' and '$(_DSVizUsesBcl)' != 'true' and '$(_DSVizProfileOk)' == 'true'
+          and ('@(_DSVizDeclaredLib)' != '' or ('$(_DSVizLibOk)' == 'true' and Exists('$(DSVizLibPath)')))">true</_DSVizAutoUsing>
     </PropertyGroup>
     <ItemGroup Condition="'$(ImplicitUsings)' == 'enable' or '$(ImplicitUsings)' == 'true'">
-      <Using Remove="System.Collections.Generic" Condition="'@(_DSVizLibSource)' != '' or '$(_DSVizAutoUsing)' == 'true'" />
+      <Using Remove="System.Collections.Generic" Condition="'$(_DSVizDropGeneric)' == 'true' or '$(_DSVizAutoUsing)' == 'true'" />
     </ItemGroup>
     <ItemGroup Condition="'$(_DSVizAutoUsing)' == 'true'">
       <Using Include="Unit4.CollectionsLib" />
@@ -141,8 +181,10 @@
   </Target>
 
   <PropertyGroup>
-    <!-- קוד שמשתמש באוספים של ‎.NET (ואז לא מוסיפים את הספרייה לבד) — אותו ביטוי כמו ב-dsviz-cs (Program.cs: BclCollections) -->
+    <!-- קוד שמשתמש באוספים של ‎.NET (ואז לא נוגעים ב-using המוסתר) — אותו ביטוי כמו ב-dsviz-cs (Program.cs: BclCollections) -->
     <_DSVizBclPattern>\b(List|Dictionary|HashSet|SortedSet|SortedDictionary|SortedList|LinkedList|KeyValuePair|IEnumerable|ICollection|IList|IDictionary|IReadOnlyList|IReadOnlyCollection|IReadOnlyDictionary|Comparer|EqualityComparer)\s*&lt;|\.(Enqueue|Dequeue|Peek|TryPeek|TryPop|TryDequeue|EnsureCapacity)\s*\(|System\.Collections\.Generic</_DSVizBclPattern>
+    <!-- Stack / Queue בקובץ שלא מזכיר את הספרייה: אלה של ‎.NET -->
+    <_DSVizBclStackPattern>\b(Stack|Queue)\s*&lt;</_DSVizBclStackPattern>
   </PropertyGroup>
 
 </Project>

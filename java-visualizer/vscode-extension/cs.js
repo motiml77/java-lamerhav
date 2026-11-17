@@ -14,6 +14,8 @@ const BUILD_PROPS = `<Project>
   <PropertyGroup>
     <!-- הספרייה: lib\\Unit4.CollectionsLib.dll בתיקיית התרגילים -->
     <DsVizLib>$(MSBuildThisFileDirectory)lib\\Unit4.CollectionsLib.dll</DsVizLib>
+    <!-- הסימון "פרויקט של DSViz" (ל-DSViz.targets שמותקן עם DSViz): רק בפרויקטים שבתיקייה הזו מתווסף לבד using Unit4.CollectionsLib -->
+    <DSVizProject>true</DSVizProject>
   </PropertyGroup>
   <ItemGroup>
     <!-- פעולות העזר מהספרייה (Size / Duplicate) בלי לכתוב Helpers. — בכל הקבצים -->
@@ -42,15 +44,16 @@ const csproj = name => `<Project Sdk="Microsoft.NET.Sdk">
 </Project>
 `;
 
+// "הרצה רגילה" ראשונה: ב-Visual Studio הפרופיל הראשון הוא ברירת המחדל של הכפתור הירוק / F5 — הוא מריץ כרגיל, בקונסול
 const LAUNCH = {
     profiles: {
+        'הרצה רגילה': { commandName: 'Project' },
         'הרצה ויזואלית': {
             commandName: 'Executable',
             executablePath: '%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe',
             commandLineArgs: '"$(ProjectDir)."',   // הנקודה בסוף: ProjectDir נגמר בלוכסן, ו-"...\\" לפני מרכאה סוגרת נקרא כמרכאה בתוך הנתיב
             workingDirectory: '$(ProjectDir)'
-        },
-        'הרצה רגילה': { commandName: 'Project' }
+        }
     }
 };
 

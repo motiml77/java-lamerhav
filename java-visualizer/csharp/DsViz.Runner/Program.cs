@@ -182,11 +182,15 @@ namespace DsViz
             bool usesLib = trees.Any(t => t.GetText().ToString().Contains("Unit4.CollectionsLib"));
             // וכמו DSViz.targets: קוד שלא נוגע באוספים של ‎.NET — הספרייה לבד (Queue / Stack / Node בלי using בראש הקובץ)
             bool autoLib = !usesLib && !trees.Any(t => BclCollections.IsMatch(t.GetText().ToString()));
-            bool noGeneric = usesLib || autoLib;
-            trees.Add(CSharpSyntaxTree.ParseText("global using static global::Unit4.CollectionsLib.Helpers; " + (autoLib ? "global using global::Unit4.CollectionsLib; " : "") + (project.ImplicitUsings ?
-                    "global using global::System; " + (noGeneric ? "" : "global using global::System.Collections.Generic; ") + "global using global::System.IO; " +
+            SyntaxTree Globals(bool auto)
+            {
+                bool dropGeneric = usesLib || auto;
+                return CSharpSyntaxTree.ParseText("global using static global::Unit4.CollectionsLib.Helpers; " + (auto ? "global using global::Unit4.CollectionsLib; " : "") + (project.ImplicitUsings ?
+                    "global using global::System; " + (dropGeneric ? "" : "global using global::System.Collections.Generic; ") + "global using global::System.IO; " +
                     "global using global::System.Linq; global using global::System.Net.Http; global using global::System.Threading; " +
-                    "global using global::System.Threading.Tasks;" : ""), parse, "GlobalUsings.g.cs"));
+                    "global using global::System.Threading.Tasks;" : ""), parse, "GlobalUsings.g.cs");
+            }
+            trees.Add(Globals(autoLib));
 
             // איזה Main מריצים: קובץ מסוים מתוך פרויקט — ה-Main שבו (ושאר הקבצים בפרויקט נכללים);
             // אחרת ה-StartupObject של הפרויקט, ואם אין — מה שהמהדר בוחר (כמו ב-Visual Studio)
@@ -220,6 +224,20 @@ namespace DsViz
                 allowUnsafe: project.AllowUnsafe, nullableContextOptions: NullableContextOptions.Disable, mainTypeName: mainType);
             var original = CSharpCompilation.Create("StudentProgram", trees, refs, options);
             var errors = original.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            // פרויקט רגיל שמשתמש ב-Stack / Queue של ‎.NET (Count, Contains, foreach...) בלי אף אוסף אחר: הספרייה "לבד" לא מתאימה לו.
+            // מקמפלים כמו Visual Studio (עם System.Collections.Generic המוסתר) — ההרצה הוויזואלית לא שוברת קוד שנבנה בהרצה רגילה
+            void WithoutAutoLib()
+            {
+                if (errors.Count == 0 || !autoLib) return;
+                var alt = trees.Select(t => t.FilePath == "GlobalUsings.g.cs" ? Globals(false) : t).ToList();
+                var c2 = CSharpCompilation.Create("StudentProgram", alt, refs, options);
+                if (c2.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error)) return;
+                trees = alt;
+                original = c2;
+                errors.Clear();
+                autoLib = false;
+            }
+            WithoutAutoLib();
             if (errors.Count > 0 && plain.Count > 0)
             {
                 // העטיפה של ה-top-level לא הצליחה (למשל פעולה מקומית שמשתמשת במשתנה של התוכנית) — מריצים כמו שהוא, בלי שורה-שורה שם
@@ -228,6 +246,7 @@ namespace DsViz
                 options = options.WithMainTypeName(mainType);
                 original = CSharpCompilation.Create("StudentProgram", trees, refs, options);
                 errors = original.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+                WithoutAutoLib();
             }
             if (errors.Count > 0)
             {
@@ -619,6 +638,10 @@ namespace DsViz
                     p.AllowUnsafe = un != null && un.Equals("true", StringComparison.OrdinalIgnoreCase);
                     LanguageVersion parsed;
                     if (lv != null && LanguageVersionFacts.TryParse(lv, out parsed)) p.LangVersion = parsed;
+                    // פרויקט שמגדיר גרסת שפה ישנה (LangVersion 7.3 — ברירת המחדל של ‎.NET Framework, שפרויקט קלאסי כותב לעיתים במפורש):
+                    // ההרצה הוויזואלית מוסיפה קובץ global using משלה (C# 10), ובגרסה ישנה הוא לא מתקמפל (CS8773) — "ההרצה לא התחילה"
+                    // בלי שהתלמיד עשה משהו לא נכון. קוד שנכתב לגרסה ישנה מתקמפל גם בחדשה; את גרסת השפה של הפרויקט אוכפת הבנייה הרגילה
+                    if (p.LangVersion.MapSpecifiedToEffectiveVersion() < LanguageVersion.CSharp10) p.LangVersion = LanguageVersion.Latest;
                 }
                 catch (Exception) { }
             }
@@ -788,6 +811,39 @@ namespace DsViz
             return added;
         }
 
+        const string NormalName = "הרצה רגילה";
+
+        static string Command(System.Text.Json.Nodes.JsonNode profile)
+        {
+            try { return profile?["commandName"] is System.Text.Json.Nodes.JsonValue v && v.TryGetValue(out string s) ? s : null; }
+            catch (Exception) { return null; }
+        }
+
+        /// <summary>
+        /// ההרצה הרגילה ראשונה: ב-Visual Studio הפרופיל הראשון בקובץ הוא ברירת המחדל של הכפתור הירוק / F5 / Ctrl+F5 — והם צריכים להריץ
+        /// כרגיל (קונסול), בדיוק כמו בלי DSViz. בקבצים שנוצרו בגרסאות ישנות "הרצה ויזואלית" הייתה ראשונה: מעבירים את ההרצה הרגילה
+        /// (פרופיל commandName=Project) לראש הרשימה, ואם אין כזו — מוסיפים "הרצה רגילה". רק כשהפרופיל הראשון הוא שלנו; קובץ שהפרופיל
+        /// הראשון בו הוא של המשתמש — הסדר נשאר. (מי שבחר "הרצה ויזואלית" בתפריט שליד הכפתור: הבחירה שמורה ב-‎.csproj.user‎ ונשארת.)
+        /// </summary>
+        internal static bool NormalFirst(System.Text.Json.Nodes.JsonObject profiles)
+        {
+            var keys = profiles.Select(kv => kv.Key).ToList();
+            if (keys.Count == 0) return false;
+            if (keys[0] != Name && !Tools.Any(t => t.Key == keys[0])) return false;
+            string normal = keys.FirstOrDefault(k => Command(profiles[k]) == "Project");
+            var all = new List<KeyValuePair<string, System.Text.Json.Nodes.JsonNode>>();
+            foreach (string k in keys)
+            {
+                System.Text.Json.Nodes.JsonNode node = profiles[k];
+                profiles.Remove(k);   // מנתק את הצומת — אפשר להוסיף אותו שוב במקום אחר
+                all.Add(new KeyValuePair<string, System.Text.Json.Nodes.JsonNode>(k, node));
+            }
+            if (normal == null) profiles.Add(NormalName, new System.Text.Json.Nodes.JsonObject { ["commandName"] = "Project" });
+            else profiles.Add(normal, all.First(kv => kv.Key == normal).Value);
+            foreach (var kv in all) if (kv.Key != normal) profiles.Add(kv.Key, kv.Value);
+            return true;
+        }
+
         public static bool Ensure(ProjectInfo p)
         {
             if (p.Csproj == null || !p.SdkStyle) return false;
@@ -801,33 +857,33 @@ namespace DsViz
                 if (root == null) return false;
                 var profiles = root["profiles"] as System.Text.Json.Nodes.JsonObject;
                 if (profiles == null) { profiles = new System.Text.Json.Nodes.JsonObject(); root["profiles"] = profiles; }
+                bool changed = false;
                 if (profiles.ContainsKey(Name))
                 {
                     // פרופיל מגרסה ישנה: "$(ProjectDir)" — הנתיב הגיע עם מרכאה בסוף. מתקנים אותו במקום, בלי לגעת בשאר
                     var old = profiles[Name] as System.Text.Json.Nodes.JsonObject;
                     string fixedArgs = old == null ? null : Migrate(old["commandLineArgs"] is System.Text.Json.Nodes.JsonValue v && v.TryGetValue(out string s) ? s : null);
-                    bool changed = false;
                     if (fixedArgs != null) { old["commandLineArgs"] = fixedArgs; changed = true; }
-                    if (AddTools(profiles)) changed = true;   // פרויקט שכבר יש בו הרצה ויזואלית — מקבל גם את כפתורי הכלים
-                    if (changed) Write(file, root);
-                    return changed;
                 }
-                // ההרצה הרגילה נשארת ראשונה (F5 כמו קודם)
-                if (!profiles.Any(kv => (string)kv.Value?["commandName"] == "Project"))
-                    profiles.Add("הרצה רגילה", new System.Text.Json.Nodes.JsonObject { ["commandName"] = "Project" });
-                profiles.Add(Name, new System.Text.Json.Nodes.JsonObject
+                else
                 {
-                    ["commandName"] = "Executable",
-                    // Mac (Rider): הנתיב המלא של dsviz-cs שרץ עכשיו (~/Library/Application Support/DSViz/cs/dsviz-cs)
-                    ["executablePath"] = OperatingSystem.IsWindows() || string.IsNullOrEmpty(Environment.ProcessPath)
-                        || Path.GetFileName(Environment.ProcessPath) != "dsviz-cs"
-                        ? "%LOCALAPPDATA%\\DSViz\\cs\\dsviz-cs.exe" : Environment.ProcessPath,
-                    ["commandLineArgs"] = Args,
-                    ["workingDirectory"] = "$(ProjectDir)"
-                });
-                AddTools(profiles);
-                Write(file, root);
-                return true;
+                    // ההרצה הרגילה ראשונה (F5 / הכפתור הירוק כמו קודם); אם לתלמיד כבר יש פרופיל רגיל משלו — לא מוסיפים עוד אחד
+                    if (!profiles.Any(kv => Command(kv.Value) == "Project"))
+                        profiles.Add(NormalName, new System.Text.Json.Nodes.JsonObject { ["commandName"] = "Project" });
+                    profiles.Add(Name, new System.Text.Json.Nodes.JsonObject
+                    {
+                        ["commandName"] = "Executable",
+                        // Mac (Rider): הנתיב המלא של dsviz-cs שרץ עכשיו (~/Library/Application Support/DSViz/cs/dsviz-cs)
+                        ["executablePath"] = RunnerPath(),
+                        ["commandLineArgs"] = Args,
+                        ["workingDirectory"] = "$(ProjectDir)"
+                    });
+                    changed = true;
+                }
+                if (AddTools(profiles)) changed = true;   // פרויקט שכבר יש בו הרצה ויזואלית — מקבל גם את כפתורי הכלים
+                if (NormalFirst(profiles)) changed = true;   // קובץ מגרסה ישנה: "הרצה ויזואלית" הייתה ראשונה, והכפתור הירוק הריץ ויזואלית
+                if (changed) Write(file, root);
+                return changed;
             }
             catch (Exception)
             {

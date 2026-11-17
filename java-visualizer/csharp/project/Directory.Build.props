@@ -2,6 +2,9 @@
   <PropertyGroup>
     <!-- הספרייה: lib\Unit4.CollectionsLib.dll בתיקיית התרגילים -->
     <DsVizLib>$(MSBuildThisFileDirectory)lib\Unit4.CollectionsLib.dll</DsVizLib>
+    <!-- הסימון "פרויקט של DSViz": רק בפרויקטים שבתיקייה הזו DSViz.targets (שמותקן עם DSViz) מוסיף לבד using Unit4.CollectionsLib.
+         פרויקטים אחרים במחשב נבנים בדיוק כמו בלי DSViz -->
+    <DSVizProject>true</DSVizProject>
   </PropertyGroup>
   <ItemGroup>
     <!-- פעולות העזר מהספרייה (Size / Duplicate) בלי לכתוב Helpers. — בכל הקבצים -->

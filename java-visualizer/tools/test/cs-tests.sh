@@ -419,7 +419,7 @@ set +e; viz "$NM/empty/Program.cs" --trace "$NM/e.trace" > "$NM/e.out" 2>&1; EMC
 [ "$EMC" = 2 ] && grep -q 'Main ריקה' "$NM/e.out" || { echo "נכשל: Main ריקה (קוד $EMC)"; cat "$NM/e.out"; exit 1; }
 echo "קובץ בלי Main: הודעה ברורה, בלי להריץ Main אחר · Main ריקה: הודעה · קובץ עם Main: רץ"
 
-echo "== 10. Visual Studio בלי שום פעולה: DSViz.targets (MSBuild ImportAfter) — הפניה לספרייה ופרופיל ההרצה אוטומטית בכל פרויקט"
+echo "== 10. Visual Studio בלי שום פעולה: DSViz.targets (MSBuild ImportAfter) — הספרייה ופרופיל ההרצה בפרויקט שמשתמש בספרייה; פרויקט רגיל לא משתנה"
 # מדמים את %LOCALAPPDATA% של Windows (MSBuildUserExtensionsPath נגזר מ-XDG_DATA_HOME גם ב-Linux) —
 # עם קובץ ה-targets שההתקנה כותבת, ואת תיקיית ההתקנה $(LOCALAPPDATA)\DSViz\cs (dsviz-cs.exe + הספרייה)
 FAKE="$W/msbuild-home"
@@ -439,6 +439,10 @@ msb "$W/new1" | grep -q 'Build succeeded' && [ -f "$W/new1/bin/Debug/net8.0/Unit
     && grep -q 'הרצה ויזואלית' "$W/new1/Properties/launchSettings.json" && grep -q 'הרצה רגילה' "$W/new1/Properties/launchSettings.json" \
     && [ "$(dotnet "$W/new1/bin/Debug/net8.0/New1.dll")" = 2 ] \
     && echo "פרויקט חדש: הפניה לספרייה + פרופיל הרצה נוספו לבד (והתוכנית רצה עם הספרייה)" || { echo "DSViz.targets נכשל על פרויקט חדש"; cat "$W/new1/Properties/launchSettings.json" 2>&1; exit 1; }
+# הפרופיל הראשון בקובץ הוא ברירת המחדל של הכפתור הירוק / F5 ב-Visual Studio: "הרצה רגילה" לפני "הרצה ויזואלית"
+first_profile() { python3 -c "import json,sys; print(list(json.load(open(sys.argv[1], encoding='utf-8-sig'))['profiles'])[0])" "$1"; }
+[ "$(first_profile "$W/new1/Properties/launchSettings.json")" = 'הרצה רגילה' ] \
+    && echo "הפרופיל הראשון (ברירת המחדל של הכפתור הירוק): הרצה רגילה" || { echo "הפרופיל הראשון אינו 'הרצה רגילה'"; cat "$W/new1/Properties/launchSettings.json"; exit 1; }
 
 # ב. בנייה שנייה: מהירה — dsviz-cs לא רץ שוב (ה-Exec מדלג כש-הפרופיל כבר קיים)
 rm -f "$FAKE/DSViz/cs/calls.log"
@@ -447,13 +451,13 @@ msb "$W/new1" | grep -q 'Build succeeded'
 
 # ג. launchSettings.json קיים עם פרופיל אחר של התלמיד — נשאר, והפרופיל שלנו מתווסף לידו
 rm -rf "$W/new2" && mkdir -p "$W/new2/Properties"
-printf 'using System;\nConsole.WriteLine("hi");\n' > "$W/new2/Program.cs"
+printf 'using System;\nusing Unit4.CollectionsLib;\nStack<int> st = new Stack<int>(); st.Push(3);\nConsole.WriteLine("hi");\n' > "$W/new2/Program.cs"
 printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new2/New2.csproj"
 printf '{"profiles":{"שלי":{"commandName":"Project","environmentVariables":{"X":"1"}}}}\n' > "$W/new2/Properties/launchSettings.json"
 msb "$W/new2" | grep -q 'Build succeeded'
 grep -q '"שלי"' "$W/new2/Properties/launchSettings.json" && grep -q '"X": *"1"' "$W/new2/Properties/launchSettings.json" && grep -q 'הרצה ויזואלית' "$W/new2/Properties/launchSettings.json" \
-    && ! grep -q 'הרצה רגילה' "$W/new2/Properties/launchSettings.json" \
-    && echo "launchSettings.json קיים: הפרופיל של התלמיד נשאר, והפרופיל שלנו נוסף (בלי 'הרצה רגילה' כפולה)" || { echo "פרופיל קיים לא נשמר"; cat "$W/new2/Properties/launchSettings.json"; exit 1; }
+    && ! grep -q 'הרצה רגילה' "$W/new2/Properties/launchSettings.json" && [ "$(first_profile "$W/new2/Properties/launchSettings.json")" = 'שלי' ] \
+    && echo "launchSettings.json קיים: הפרופיל של התלמיד נשאר ראשון, והפרופיל שלנו נוסף אחריו (בלי 'הרצה רגילה' כפולה)" || { echo "פרופיל קיים לא נשמר"; cat "$W/new2/Properties/launchSettings.json"; exit 1; }
 
 # ד. DSVizDisable=true — שום דבר לא קורה
 rm -rf "$W/new3" && mkdir -p "$W/new3"
@@ -482,7 +486,7 @@ V=normal msb "$W/gw" > "$W/gw.out" 2>&1; grep -q 'Build succeeded' "$W/gw.out" \
 
 # ז. ה-DLL חסר (למשל התקנה חלקית) — הבנייה מצליחה בכל זאת, ופרופיל ההרצה עדיין מתווסף
 rm -rf "$W/new5" && mkdir -p "$W/new5"
-printf 'using System;\nConsole.WriteLine("hi");\n' > "$W/new5/Program.cs"
+printf 'using System;\n// using Unit4.CollectionsLib;\nConsole.WriteLine("hi");\n' > "$W/new5/Program.cs"
 printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new5/New5.csproj"
 msb "$W/new5" -p:DSVizLibPath="$W/no-such-file.dll" | grep -q 'Build succeeded'
 grep -q 'הרצה ויזואלית' "$W/new5/Properties/launchSettings.json" \
@@ -506,7 +510,7 @@ before=$(md5sum < "$W/new2/Properties/launchSettings.json")
 viz --ensure-profile "$W/new2" && [ "$(md5sum < "$W/new2/Properties/launchSettings.json")" = "$before" ] \
     || { echo "--ensure-profile שינה קובץ שכבר יש בו את הפרופיל"; exit 1; }
 rm -rf "$W/new8" && mkdir -p "$W/new8/Properties"
-printf 'using System;\nConsole.WriteLine("hi");\n' > "$W/new8/Program.cs"
+printf 'using System;\nusing Unit4.CollectionsLib;\nConsole.WriteLine("hi");\n' > "$W/new8/Program.cs"
 printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/new8/New8.csproj"
 printf '{ "profiles": { oops\n' > "$W/new8/Properties/launchSettings.json"
 msb "$W/new8" | grep -q 'Build succeeded' && [ "$(cat "$W/new8/Properties/launchSettings.json")" = '{ "profiles": { oops' ] \
@@ -593,5 +597,119 @@ msb "$W/school/app" > "$W/school.out" 2>&1
 grep -q 'Build succeeded' "$W/school.out" && ! grep -q CS0433 "$W/school.out" && [ ! -f "$W/school/app/bin/Debug/net8.0/Unit4.CollectionsLib.dll" ] && [ -f "$W/school/app/bin/Debug/net8.0/Unit4.dll" ] \
     && echo "הפרויקט מפנה לספרייה של בית הספר (Unit4): בלי הפניה לספרייה של DSViz — בלי CS0433" || { echo "התנגשות עם Unit4 של בית הספר"; cat "$W/school.out" | head; exit 1; }
 
+# טז. פרויקט קונסול רגיל שאין לו קשר ל-DSViz (ImplicitUsings, Stack<int> של ‎.NET עם Count): נבנה ורץ בדיוק כמו בלי DSViz —
+#     בלי global using של הספרייה (קודם: CS1503), בלי ה-DLL שלנו ב-bin, ובלי launchSettings.json שנכתב לפרויקט
+rm -rf "$W/plain" && mkdir -p "$W/plain"
+printf 'var s = new Stack<int>();\ns.Push(1); s.Push(2);\nConsole.WriteLine(s.Count);\n' > "$W/plain/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/plain/Plain.csproj"
+rm -f "$FAKE/DSViz/cs/calls.log"
+msb "$W/plain" > "$W/plain.out" 2>&1
+grep -q 'Build succeeded' "$W/plain.out" && [ "$(dotnet "$W/plain/bin/Debug/net8.0/Plain.dll")" = 2 ] \
+    && [ ! -f "$W/plain/bin/Debug/net8.0/Unit4.CollectionsLib.dll" ] && [ ! -e "$W/plain/Properties" ] && [ ! -f "$FAKE/DSViz/cs/calls.log" ] \
+    && echo "פרויקט רגיל עם Stack<int> של ‎.NET: נבנה ורץ כמו בלי DSViz (בלי הספרייה, בלי using מוסתר, בלי launchSettings)" || { echo "DSViz.targets שינה פרויקט רגיל"; grep -E 'error|warn' "$W/plain.out" | head -5; ls -a "$W/plain"; exit 1; }
+# ההרצה הוויזואלית של אותו פרויקט: רצה (הספרייה "לבד" לא מתאימה ל-Count — מקמפלים כמו Visual Studio), ולא "שגיאת קומפילציה"
+viz "$W/plain" --trace "$W/plain.trace" > "$W/plain.viz.out" 2>&1 && grep -q '^2$' "$W/plain.viz.out" \
+    && echo "הרצה ויזואלית של פרויקט רגיל עם Stack של ‎.NET: רצה (2)" || { echo "הרצה ויזואלית של פרויקט רגיל נכשלה"; cat "$W/plain.viz.out"; exit 1; }
+rm -rf "$W/plain/Properties"
+
+# יז. הספרייה של בית הספר ב-ProjectReference, כשקובץ הפרויקט שלה נקרא אחרת (CollectionsLib.csproj, AssemblyName=Unit4): ההחלטה אחרי
+#     שההפניות נפתרו — לפי שם ה-assembly, לא לפי שם הקובץ. בלי CS0433, ב-bin הספרייה שלהם ולא שלנו
+rm -rf "$W/school2" && mkdir -p "$W/school2/CollectionsLib" "$W/school2/app"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.0</TargetFramework><AssemblyName>Unit4</AssemblyName></PropertyGroup></Project>\n' > "$W/school2/CollectionsLib/CollectionsLib.csproj"
+printf 'namespace Unit4.CollectionsLib { public class Node<T> { T v; public Node(T x) { v = x; } public T GetValue() { return v; } } }\n' > "$W/school2/CollectionsLib/Node.cs"
+printf 'using Unit4.CollectionsLib;\nvar n = new Node<int>(3);\nConsole.WriteLine(typeof(Node<int>).Assembly.GetName().Name + " " + n.GetValue());\n' > "$W/school2/app/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup><ItemGroup><ProjectReference Include="../CollectionsLib/CollectionsLib.csproj" /></ItemGroup></Project>\n' > "$W/school2/app/App.csproj"
+msb "$W/school2/app" > "$W/school2.out" 2>&1
+grep -q 'Build succeeded' "$W/school2.out" && ! grep -q CS0433 "$W/school2.out" && [ ! -f "$W/school2/app/bin/Debug/net8.0/Unit4.CollectionsLib.dll" ] \
+    && [ "$(dotnet "$W/school2/app/bin/Debug/net8.0/App.dll")" = 'Unit4 3' ] \
+    && echo "ספריית בית הספר ב-ProjectReference (CollectionsLib.csproj, AssemblyName=Unit4): בלי CS0433, ההרצה הרגילה עם הספרייה שלהם" || { echo "ProjectReference לספריית בית הספר: נכשל"; grep -E 'error' "$W/school2.out" | head -5; exit 1; }
+# וההרצה הוויזואלית של אותו קוד — עם הספרייה של DSViz (אותו קוד, בלי שינוי)
+viz "$W/school2/app" --trace "$W/school2.trace" > "$W/school2.viz.out" 2>&1 && grep -q '^Unit4.CollectionsLib 3$' "$W/school2.viz.out" \
+    && echo "אותו פרויקט בהרצה ויזואלית: הספרייה של DSViz (Unit4.CollectionsLib)" || { echo "הרצה ויזואלית של פרויקט בית הספר נכשלה"; cat "$W/school2.viz.out"; exit 1; }
+
+# יח. פרויקט של DSViz (תיקיית התרגילים: Directory.Build.props שם את הסימון DSVizProject) — עדיין מקבל את ה-using המוסתרים:
+#     Stack / Queue בלי using Unit4.CollectionsLib (DSViz.targets), ו-Size בלי Helpers. (Directory.Build.props)
+rm -rf "$W/marked" && mkdir -p "$W/marked/lib" "$W/marked/Targil"
+cp "$ROOT/csharp/project/Directory.Build.props" "$W/marked/"
+cp "$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/Unit4.CollectionsLib.dll" "$W/marked/lib/"
+cp "$ROOT/csharp/project/Exercise/Exercise.csproj" "$W/marked/Targil/Targil.csproj"
+printf 'using System;\nclass P { static void Main() { Stack<int> s = new Stack<int>(); s.Push(4); s.Push(5); Queue<int> q = new Queue<int>(); q.Insert(1); Console.WriteLine(Size(s) + Size(q)); } }\n' > "$W/marked/Targil/Program.cs"
+msb "$W/marked/Targil" > "$W/marked.out" 2>&1
+grep -q 'Build succeeded' "$W/marked.out" && [ "$(dotnet "$W/marked/Targil/bin/Debug/net8.0/Targil.dll")" = 3 ] \
+    && echo "פרויקט של DSViz (מסומן): Stack / Queue / Size בלי שום using — נבנה ורץ" || { echo "פרויקט מסומן: ה-using המוסתרים לא נוספו"; grep -E 'error' "$W/marked.out" | head -5; exit 1; }
+# אותו קוד בפרויקט לא מסומן (בלי Directory.Build.props): לא נבנה — Stack שם הוא של ‎.NET, כמו בלי DSViz (אין using אוטומטי)
+rm -rf "$W/unmarked" && mkdir -p "$W/unmarked"
+printf 'Stack<int> s = new Stack<int>(); s.Push(4);\nQueue<int> q = new Queue<int>(); q.Insert(1);\nConsole.WriteLine(s.Count);\n' > "$W/unmarked/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/unmarked/Unmarked.csproj"
+msb "$W/unmarked" > "$W/unmarked.out" 2>&1 || true
+grep -q "error CS1061.*'Insert'" "$W/unmarked.out" && ! grep -q CS1503 "$W/unmarked.out" \
+    && echo "פרויקט לא מסומן: אין using אוטומטי של הספרייה (Queue הוא של ‎.NET — אותה שגיאה כמו בלי DSViz)" || { echo "פרויקט לא מסומן קיבל using אוטומטי"; grep -E 'error' "$W/unmarked.out" | head -5; exit 1; }
+# יח2. פרויקט מסומן שה-lib\ של תיקיית התרגילים חסר בו: נבנה עם הספרייה שבהתקנה
+rm -f "$W/marked/lib/Unit4.CollectionsLib.dll" && rm -rf "$W/marked/Targil/bin" "$W/marked/Targil/obj"
+msb "$W/marked/Targil" > "$W/marked2.out" 2>&1
+grep -q 'Build succeeded' "$W/marked2.out" && [ "$(dotnet "$W/marked/Targil/bin/Debug/net8.0/Targil.dll")" = 3 ] \
+    && echo "פרויקט מסומן בלי lib\\ (נמחק): נבנה עם הספרייה שבהתקנה" || { echo "פרויקט מסומן בלי lib: נכשל"; grep -E 'error' "$W/marked2.out" | head -5; exit 1; }
+
+# יט. הספרייה (Node) בקובץ אחד, ואוספים של ‎.NET (List, Stack עם Count) מה-using המוסתר בקובץ אחר: System.Collections.Generic נשאר —
+#     פרויקט שנבנה בלי DSViz נבנה גם איתו
+rm -rf "$W/mixed" && mkdir -p "$W/mixed"
+printf 'using Unit4.CollectionsLib;\nNode<int> n = new Node<int>(7);\nConsole.WriteLine(n.GetValue() + Other.Total());\n' > "$W/mixed/Program.cs"
+printf 'static class Other { public static int Total() { var l = new List<int> { 1, 2 }; var s = new Stack<int>(); s.Push(5); return l.Count + s.Count; } }\n' > "$W/mixed/Other.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/mixed/Mixed.csproj"
+msb "$W/mixed" > "$W/mixed.out" 2>&1
+grep -q 'Build succeeded' "$W/mixed.out" && [ "$(dotnet "$W/mixed/bin/Debug/net8.0/Mixed.dll")" = 10 ] \
+    && echo "הספרייה + אוספים של ‎.NET באותו פרויקט: ה-using המוסתר נשאר, נבנה ורץ" || { echo "פרויקט מעורב: נכשל"; grep -E 'error' "$W/mixed.out" | head -5; exit 1; }
+
+# כ. קובץ מגרסה ישנה: "הרצה ויזואלית" ראשונה (הכפתור הירוק הריץ ויזואלית). הבנייה מעבירה את "הרצה רגילה" לראש — פעם אחת
+rm -rf "$W/oldorder" && mkdir -p "$W/oldorder/Properties"
+cp "$W/new1/Program.cs" "$W/oldorder/Program.cs"; cp "$W/new1/New1.csproj" "$W/oldorder/OldOrder.csproj"
+printf '{\n  "profiles": {\n    "הרצה ויזואלית": {\n      "commandName": "Executable",\n      "executablePath": "%%LOCALAPPDATA%%\\\\DSViz\\\\cs\\\\dsviz-cs.exe",\n      "commandLineArgs": "\\"$(ProjectDir).\\"",\n      "workingDirectory": "$(ProjectDir)"\n    },\n    "הרצה רגילה": {\n      "commandName": "Project"\n    }\n  }\n}\n' > "$W/oldorder/Properties/launchSettings.json"
+[ "$(first_profile "$W/oldorder/Properties/launchSettings.json")" = 'הרצה ויזואלית' ] || { echo "הכנת קובץ ישן (כ) נכשלה"; exit 1; }
+rm -f "$FAKE/DSViz/cs/calls.log"
+msb "$W/oldorder" | grep -q 'Build succeeded' && [ "$(first_profile "$W/oldorder/Properties/launchSettings.json")" = 'הרצה רגילה' ] \
+    && grep -q 'הרצה ויזואלית' "$W/oldorder/Properties/launchSettings.json" && grep -q 'ensure-profile' "$FAKE/DSViz/cs/calls.log" \
+    || { echo "קובץ ישן: 'הרצה רגילה' לא עברה לראש"; cat "$W/oldorder/Properties/launchSettings.json"; exit 1; }
+rm -f "$FAKE/DSViz/cs/calls.log"
+msb "$W/oldorder" | grep -q 'Build succeeded' && [ ! -f "$FAKE/DSViz/cs/calls.log" ] \
+    || { echo "אחרי העברת 'הרצה רגילה' לראש: הבנייה עדיין מריצה את dsviz-cs"; cat "$FAKE/DSViz/cs/calls.log"; exit 1; }
+# בלי הרצה רגילה בכלל (רק "הרצה ויזואלית"): נוספת "הרצה רגילה" בראש
+printf '{ "profiles": { "הרצה ויזואלית": { "commandName": "Executable", "executablePath": "x", "commandLineArgs": "\\"$(ProjectDir).\\"" } } }\n' > "$W/oldorder/Properties/launchSettings.json"
+msb "$W/oldorder" | grep -q 'Build succeeded' && [ "$(first_profile "$W/oldorder/Properties/launchSettings.json")" = 'הרצה רגילה' ] \
+    && echo "קובץ מגרסה ישנה ('הרצה ויזואלית' ראשונה, או בלי הרצה רגילה): 'הרצה רגילה' עוברת לראש — פעם אחת" || { echo "קובץ בלי הרצה רגילה: נכשל"; cat "$W/oldorder/Properties/launchSettings.json"; exit 1; }
+# הפרופיל הראשון של המשתמש אינו "Project" (ואין הרצה רגילה בכלל), ו"הרצה ויזואלית" אחריו: הסדר שלו נשאר, והבנייה לא מריצה את dsviz-cs בכל פעם
+printf '{ "profiles": { "WSL": { "commandName": "WSL2" }, "הרצה ויזואלית": { "commandName": "Executable", "executablePath": "x", "commandLineArgs": "\\"$(ProjectDir).\\"" }, "שליחת תרגיל": { "commandName": "Executable" } } }\n' > "$W/oldorder/Properties/launchSettings.json"
+rm -f "$FAKE/DSViz/cs/calls.log"
+msb "$W/oldorder" | grep -q 'Build succeeded' && [ "$(first_profile "$W/oldorder/Properties/launchSettings.json")" = 'WSL' ] && [ ! -f "$FAKE/DSViz/cs/calls.log" ] \
+    && echo "הפרופיל הראשון של המשתמש (לא Project): נשאר ראשון, בלי להריץ את dsviz-cs בכל בנייה" || { echo "פרופיל ראשון של המשתמש: נכשל"; cat "$W/oldorder/Properties/launchSettings.json"; cat "$FAKE/DSViz/cs/calls.log" 2>/dev/null; exit 1; }
+# הפרופילים שנוצרים עם התרגילים (התבנית, "תרגיל חדש" / המאגר, VS Code): "הרצה רגילה" ראשונה
+for f in "$ROOT"/csharp/project/Exercise/Properties/launchSettings.json "$ROOT"/csharp/project/Examples/*/Properties/launchSettings.json "$W/csroot/Exercises/Targil1/Properties/launchSettings.json"; do
+    [ "$(first_profile "$f")" = 'הרצה רגילה' ] || { echo "הפרופיל הראשון אינו 'הרצה רגילה': $f"; exit 1; }
+done
+node -e "const cs = require('$ROOT/vscode-extension/cs.js'); if (Object.keys(cs.LAUNCH.profiles)[0] !== 'הרצה רגילה') process.exit(1)" \
+    && echo "התבנית, 'תרגיל חדש' ו-VS Code: 'הרצה רגילה' ראשונה בכל launchSettings.json" || { echo "cs.js: 'הרצה רגילה' לא ראשונה"; exit 1; }
+
+# כא. פרויקט ‎.NET Framework (net48) שהקוד שלו משתמש בספרייה בלי הפניה: הספרייה מתווספת אחרי שההפניות נפתרו — יחד עם netstandard.dll
+#     (הספרייה היא netstandard2.0; בלי זה CS0012 בכל שורה). צריך את חבילת ה-reference assemblies מ-NuGet — בלי רשת מדלגים
+rm -rf "$W/fw1" && mkdir -p "$W/fw1"
+printf 'using System;\nusing Unit4.CollectionsLib;\nclass P { static void Main() { Stack<int> s = new Stack<int>(); s.Push(4); Console.WriteLine(s.Pop()); } }\n' > "$W/fw1/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net48</TargetFramework></PropertyGroup></Project>\n' > "$W/fw1/Fw1.csproj"
+if msb "$W/fw1" > "$W/fw1.out" 2>&1; then
+    ! grep -q CS0012 "$W/fw1.out" && [ -f "$W/fw1/bin/Debug/net48/Unit4.CollectionsLib.dll" ] \
+        && echo "פרויקט ‎.NET Framework 4.8 בלי הפניה: הספרייה (ו-netstandard) מתווספות לבד — נבנה" || { echo ".NET Framework בלי הפניה: נכשל"; grep -E 'error' "$W/fw1.out" | sort -u | head -5; exit 1; }
+elif grep -qE 'NU1101|NU1301|MSB3644|Unable to load the service index' "$W/fw1.out"; then
+    echo "(net48: אין גישה לחבילת ה-reference assemblies — הבדיקה דולגה)"
+else
+    echo ".NET Framework בלי הפניה: הבנייה נכשלה"; grep -E 'error' "$W/fw1.out" | sort -u | head -5; exit 1
+fi
+
+# כב. פרויקט עם גרסת שפה ישנה (LangVersion 7.3 — ברירת המחדל של ‎.NET Framework): ההרצה הוויזואלית מוסיפה קובץ global using משלה (C# 10) —
+#     בגרסת השפה של הפרויקט הוא לא היה מתקמפל (CS8773) וההרצה הוויזואלית לא הייתה מתחילה
+rm -rf "$W/cs73" && mkdir -p "$W/cs73"
+printf 'using System;\nusing Unit4.CollectionsLib;\nclass Program\n{\n    static void Main(string[] args)\n    {\n        Stack<int> s = new Stack<int>();\n        s.Push(7);\n        Console.WriteLine("cs73 " + s.Pop());\n    }\n}\n' > "$W/cs73/Program.cs"
+printf '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><LangVersion>7.3</LangVersion><ImplicitUsings>disable</ImplicitUsings></PropertyGroup></Project>\n' > "$W/cs73/Cs73.csproj"
+viz "$W/cs73" --trace "$W/cs73.trace" > "$W/cs73.out" 2>&1 || true
+[ -s "$W/cs73.trace" ] && grep -q 'cs73 7' "$W/cs73.out" && ! grep -qE 'CS8773|error CS' "$W/cs73.out" \
+    && echo "פרויקט עם LangVersion 7.3: ההרצה הוויזואלית מקמפלת ומריצה אותו" || { echo "הרצה ויזואלית של פרויקט עם LangVersion 7.3 נכשלה"; head -5 "$W/cs73.out"; exit 1; }
+
 unset XDG_DATA_HOME
-echo "DSViz.targets: 17 תרחישים נבדקו (ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"
+echo "DSViz.targets: 24 תרחישים נבדקו (פרויקט רגיל לא משתנה, ספריית בית הספר ב-Reference / ProjectReference, פרויקט מסומן, קוד מעורב, סדר הפרופילים והעברת 'הרצה רגילה' לראש, ‎.NET Framework בלי הפניה, LangVersion ישן בהרצה הוויזואלית, ImplicitUsings + Stack, נתיב בעברית, פרויקט חדש, בנייה שנייה מהירה, launchSettings קיים, DSVizDisable, ספרייה, הפניה קיימת, DLL חסר, שם מלא/ProjectReference, אידמפוטנטי/קובץ פגום, פרופיל ישן בפרויקט קיים, ארגומנטים כמו מ-Windows, כמה מסגרות)"

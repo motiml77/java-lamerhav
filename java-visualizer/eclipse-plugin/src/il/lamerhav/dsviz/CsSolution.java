@@ -36,16 +36,20 @@ public final class CsSolution {
                 + "</Project>\n";
     }
 
+    /**
+     * פרופילי ההרצה של הפרויקט ב-Visual Studio. "הרצה רגילה" ראשונה: הפרופיל הראשון הוא ברירת המחדל של הכפתור הירוק / F5 / Ctrl+F5,
+     * והם מריצים כרגיל (קונסול) — בדיוק כמו בלי DSViz. "הרצה ויזואלית": בתפריט שליד הכפתור הירוק, או הכפתור בסרגל של DSViz.
+     */
     public static final String LAUNCH = "{\n"
             + "  \"profiles\": {\n"
+            + "    \"הרצה רגילה\": {\n"
+            + "      \"commandName\": \"Project\"\n"
+            + "    },\n"
             + "    \"הרצה ויזואלית\": {\n"
             + "      \"commandName\": \"Executable\",\n"
             + "      \"executablePath\": \"%LOCALAPPDATA%\\\\DSViz\\\\cs\\\\dsviz-cs.exe\",\n"
             + "      \"commandLineArgs\": \"\\\"$(ProjectDir).\\\"\",\n"   // הנקודה בסוף: ProjectDir נגמר בלוכסן, ו-"...\\" לפני מרכאה סוגרת נקרא כמרכאה בתוך הנתיב
             + "      \"workingDirectory\": \"$(ProjectDir)\"\n"
-            + "    },\n"
-            + "    \"הרצה רגילה\": {\n"
-            + "      \"commandName\": \"Project\"\n"
             + "    }\n"
             + "  }\n"
             + "}\n";
