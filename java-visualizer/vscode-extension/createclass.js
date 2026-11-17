@@ -157,13 +157,13 @@ pre { direction: ltr; text-align: left; margin: 0; padding: 10px 12px; border-ra
 .btn.primary { background: var(--accent); color: var(--accentText); border-color: var(--accent); font-weight: 600; min-width: 130px; }
 .btn:disabled { opacity: .45; cursor: default; }
 /* הרשימה הנפתחת של הטיפוסים — בקבוצות */
-#pop { position: fixed; z-index: 10; display: none; max-height: 300px; overflow-y: auto; min-width: 230px; padding: 4px 0; border-radius: 10px;
+#pop { position: fixed; z-index: 10; display: none; max-height: 360px; overflow-y: auto; min-width: 230px; padding: 4px 0; border-radius: 10px;
        background: var(--vscode-dropdown-background, var(--card)); color: var(--vscode-dropdown-foreground, inherit); border: 1px solid var(--vscode-dropdown-border, var(--line));
        box-shadow: 0 6px 18px rgba(0,0,0,.14); }
 #pop .gh { font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 6px 12px 2px; }
 #pop .gh:not(:first-child) { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 7px; }
 #pop .it { padding: 3px 14px 3px 12px; cursor: pointer; display: flex; gap: 10px; align-items: baseline; }
-#pop .it bdi { font-family: var(--vscode-editor-font-family, monospace); }
+#pop .it bdi { font-family: var(--vscode-editor-font-family, monospace); direction: ltr; unicode-bidi: isolate; }
 #pop .it .hint { color: var(--muted); font-size: 11.5px; }
 #pop .it.on, #pop .it:hover { background: var(--vscode-list-activeSelectionBackground, var(--accent)); color: var(--vscode-list-activeSelectionForeground, var(--accentText)); }
 #pop .it.on .hint, #pop .it:hover .hint { color: inherit; opacity: .8; }
@@ -217,7 +217,8 @@ function openPop(input, groups, onPick, all) {
     if (!items.length && g.empty) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = g.empty; pop.appendChild(e); }
     for (const it of items) {
       const d = document.createElement('div'); d.className = 'it'; d.setAttribute('role', 'option');
-      const b = document.createElement('bdi'); b.dir = 'ltr'; b.textContent = it.type; d.appendChild(b);
+      // הטיפוס (באנגלית) ברשימה מימין לשמאל: מבודד ו-LRM משני הצדדים — אחרת int[] מוצג []int
+      const b = document.createElement('bdi'); b.dir = 'ltr'; b.textContent = '\u200E' + it.type + '\u200E'; d.appendChild(b);
       if (it.hint) { const h = document.createElement('span'); h.className = 'hint'; h.dir = 'ltr'; h.textContent = it.hint; d.appendChild(h); }
       d.onmousedown = e => { e.preventDefault(); onPick(it); closePop(); };
       popItems.push({ el: d, it, onPick });
@@ -227,11 +228,12 @@ function openPop(input, groups, onPick, all) {
   if (!pop.children.length) { closePop(); return; }
   const r = input.getBoundingClientRect();
   pop.style.display = 'block';
+  pop.scrollTop = 0;
   pop.style.minWidth = Math.max(230, r.width) + 'px';
   const left = Math.min(r.left, window.innerWidth - pop.offsetWidth - 8);
   pop.style.left = Math.max(8, left) + 'px';
   const below = window.innerHeight - r.bottom - 8;
-  pop.style.top = (below >= Math.min(300, pop.scrollHeight) || below > r.top ? r.bottom + 2 : Math.max(8, r.top - 2 - Math.min(300, pop.scrollHeight))) + 'px';
+  pop.style.top = (below >= Math.min(360, pop.scrollHeight) || below > r.top ? r.bottom + 2 : Math.max(8, r.top - 2 - Math.min(360, pop.scrollHeight))) + 'px';
 }
 function closePop() { pop.style.display = 'none'; popFor = null; popItems = []; popIndex = -1; }
 function movePop(d) {
@@ -241,7 +243,11 @@ function movePop(d) {
   popItems[popIndex].el.classList.add('on');
   popItems[popIndex].el.scrollIntoView({ block: 'nearest' });
 }
-document.addEventListener('mousedown', e => { if (popFor && !pop.contains(e.target) && e.target !== popFor) closePop(); });
+// לחיצה מחוץ לרשימה ומחוץ לשדה שלה (גם לא על ה-▼ שלו) — סוגרת
+document.addEventListener('mousedown', e => {
+  const own = e.target.closest && e.target.closest('.combo');
+  if (popFor && !pop.contains(e.target) && !(own && own.contains(popFor))) closePop();
+});
 window.addEventListener('resize', closePop);
 
 /** שדה עם רשימה: לחיצה על ▾ / חץ למטה — הרשימה כולה; הקלדה — מסננת; Enter — בוחר; Esc — סוגר את הרשימה */

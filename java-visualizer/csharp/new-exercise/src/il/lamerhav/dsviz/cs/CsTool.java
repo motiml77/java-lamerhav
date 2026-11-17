@@ -607,7 +607,7 @@ public final class CsTool {
             newClass.setPreferredSize(new Dimension(newClass.getPreferredSize().width, 30));
             newClass.addActionListener(e -> { wantsClass = true; d.dispose(); });
             right.add(newClass, 8);
-            JLabel classNote = new JLabel("מחלקה משלכם בקובץ חדש: שם, שדות, בנאי, Get ו-Set");
+            JLabel classNote = new JLabel("מחלקה משלכם בקובץ חדש: שדות, בנאי, Get ו-Set");
             classNote.setFont(Theme.small);
             classNote.setForeground(Theme.MUTED);
             right.add(classNote, 2);
