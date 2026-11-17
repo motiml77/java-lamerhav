@@ -756,7 +756,7 @@ else {
         Check 't12-gate' ($clicked -and $gate) "בלי כניסה: לחיצה על 'מאגר שאלות' בסרגל פותחת את מסך הכניסה" ((Windows) -join ' ; ')
         KillJava
         Info "כניסה שמורה (תלמיד, מפתח בדיקה): $(Seed 'student' 'pupil@test.dev')"
-        $name = CreateFromBank 't12' 'stack' 'stack-remove-bottom'
+        $name = CreateFromBank 't12' 'queue' 'queue-sum-even'
         if ($script:seedWorked) { Pass 't12-seeded-open' 'עם כניסה שמורה המאגר נפתח ישר, בלי מסך הכניסה' }
         if ($name) {
             $dir = CheckCreated 't12' $name
@@ -784,7 +784,7 @@ else {
             if ($q) { Info "Visual Studio שאל אחרי הסגירה בכוח: $q" }
             Step 't12b-vs-open'
             CheckToolbar 't1-after-kill' 'אחרי סגירה בכוח ופתיחה מחדש'
-            $name2 = CreateFromBank 't12b' 'arrays' 'arrays-sum-less-input'
+            $name2 = CreateFromBank 't12b' 'list' 'list-evens-remove'
             $want = ''; try { $want = (Get-FileHash (Join-Path $dsviz 'cs-project\lib\Unit4.CollectionsLib.dll') -Algorithm SHA256).Hash } catch { }
             $got = ''; try { $got = (Get-FileHash $libFile -Algorithm SHA256).Hash } catch { }
             Check 't12b-repaired' ($got -and $got -eq $want) "'צור תרגיל' השלים לבד את הספרייה שנמחקה (מהתבנית שבהתקנה)" "קיים: $(Test-Path $libFile) · זהה לתבנית: $($got -eq $want)"
