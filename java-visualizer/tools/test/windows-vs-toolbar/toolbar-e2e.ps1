@@ -808,7 +808,10 @@ if ($new2.Count -ge 1) {
         for ($w = 0; $w -lt 15; $w++) { Start-Sleep 1; try { $s = (@($d.Solution.SolutionBuild.StartupProjects) -join ',') } catch { }; if ($s -like "*$want*") { break } }
         $runs = @()
         for ($w = 0; $w -lt 90 -and $runs.Count -eq 0; $w++) { Start-Sleep 1; $runs = Launched }
-        Start-Sleep 3; $runs = @(Launched)   # גם הסימון שה-Main כותב (התהליך של הרצה רגילה כבר נגמר)
+        # גם הסימון שה-Main כותב (התהליך של הרצה רגילה כבר נגמר). התהליך נראה לפני ש-Main הגיע לכתוב את הסימון — מחכים לו עד 20 שניות
+        # (3 שניות קבועות לא הספיקו תמיד: התהליך כבר רץ והסימון עוד לא נכתב); הרצה ויזואלית (dsviz-cs) — אין סימון, לא מחכים
+        for ($w = 0; $w -lt 20; $w++) { Start-Sleep 1; $runs = @(Launched); if ((($runs -join ' | ') -like '*marker: *') -or (($runs -join ' | ') -like '*dsviz-cs.exe*')) { break } }
+        if ($w -lt 3) { Start-Sleep (3 - $w) ; $runs = @(Launched) }
         Info "   $label — לפני ההרצה: $before · אחרי הלחיצה על הרצה: $s · הורץ: $($runs -join ' | ')"
         $script:runShot++; Shot "37-run-$($script:runShot)"
         KillRun

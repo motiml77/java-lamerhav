@@ -485,6 +485,7 @@ function RunInsert([string]$tag, [string[]]$lines, [hashtable]$type, [int]$timeo
     WriteScript 'insert' $lines
     if (-not (ClickToolbar 'הוספת מבנה נתונים' "$tag-toolbar-insert")) { return 'no-button' }
     $t0 = Get-Date; $seen = @{}; $status = 'timeout'
+    $lastMark = (@($lines | Where-Object { $_ -like 'mark *' }) | Select-Object -Last 1) -replace '^mark ', ''
     while (((Get-Date) - $t0).TotalSeconds -lt $timeoutSec) {
         foreach ($m in @(Get-ChildItem $ctl -Filter 'mark-*.txt' -ErrorAction SilentlyContinue)) {
             if ($seen[$m.Name]) { continue }
@@ -509,6 +510,8 @@ function RunInsert([string]$tag, [string[]]$lines, [hashtable]$type, [int]$timeo
             Set-Content (Join-Path $ctl "ack-$nm.txt") 'ok'
         }
         if (Test-Path (Join-Path $ctl 'insert.done.txt')) { $status = 'done'; break }
+        # הסימון האחרון בתסריט כבר טופל (הלחיצה נעשתה): הכלי יוצר את הקובץ ונסגר, ולפעמים לפני שה-agent מספיק לכתוב done — זה סוף התסריט
+        if ($lastMark -and $seen["mark-$lastMark.txt"]) { $status = 'done'; break }
         if (Test-Path (Join-Path $ctl 'insert.error.txt')) { $status = 'error'; break }
         Start-Sleep -Milliseconds 400
     }
@@ -1258,8 +1261,7 @@ else {
             'pfield name', 'mark field2-name',
             'ptarget ToString', 'mark tostring',
             'wait 800', 'mark filled',
-            'ptarget יצירת המחלקה', 'mark create',
-            'wait 1500'
+            'ptarget יצירת המחלקה', 'mark create'   # אחרי הלחיצה הכלי יוצר את הקובץ ונסגר — התסריט נגמר כאן (שורה נוספת לא הייתה מספיקה לרוץ)
         ) @{ 'class-name' = 'Book'; 'field1-name' = 'pages'; 'field2-type' = 'string'; 'field2-name' = 'title' }
         $made = WaitFor { Test-Path $book } 30
         $opened = WaitFor { $a = Dte { param($d) if ($d.ActiveDocument) { [string]$d.ActiveDocument.FullName } else { '' } } 3; if ($a -like '*\Book.cs') { $a } } 60 1000
