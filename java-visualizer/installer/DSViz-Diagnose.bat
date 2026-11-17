@@ -256,7 +256,7 @@ foreach ($file in $targets) {
         $so = $null; try { $so = ([xml](Get-Content -LiteralPath $owner -Raw -Encoding UTF8)).Project.PropertyGroup.StartupObject | Where-Object { $_ } | Select-Object -First 1 } catch { }
         if ($so) { Put ('    StartupObject בפרויקט: ' + $so) }
         if (-not $hasMain -and -not $topLevel -and $mainFiles.Count -ge 1 -and -not ($mainFiles.FullName -contains $file)) {
-            Put ('    *** סיבה סבירה למחסנית: בקובץ שמריצים אין Main, ולכן ההרצה משתמשת ב-Main של קובץ אחר בפרויקט (' + $mainFiles[0].Name + ') ***')
+            Put ('    *** בקובץ שמריצים אין Main. בגרסה ישנה של DSViz ההרצה הריצה במקומו את ה-Main של ' + $mainFiles[0].Name + ' (למשל המחסנית של התבנית); בגרסה עדכנית מופיעה הודעה "אין פעולת Main" ***')
         }
     } else {
         Put '    הקובץ לא שייך לפרויקט (לא נמצא csproj יחיד) — ירוץ הקובץ לבד.'
