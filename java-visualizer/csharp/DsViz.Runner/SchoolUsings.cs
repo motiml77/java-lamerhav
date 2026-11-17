@@ -100,11 +100,16 @@ namespace DsViz
             return false;
         }
 
-        /// <summary>ה-namespaces של שורות using שהמהדר לא מצא (CS0234 / CS0246 בתוך שורת ה-using) ושקיימים בספרייה של בית הספר</summary>
-        internal static HashSet<string> Missing(IEnumerable<Diagnostic> errors, string schoolDll)
+        /// <summary>
+        /// ה-namespaces של שורות using שהמהדר לא מצא (CS0234 / CS0246 בתוך שורת ה-using) ושקיימים בספרייה של בית הספר.
+        /// hasSchool = הפרויקט מפנה לספרייה של בית הספר. כשהוא לא מפנה — לא מורידים כלום: גם ההרצה הרגילה בונה רק מול הספרייה של DSViz
+        /// (שבה ה-namespaces הגרפיים קיימים ריקים), ו-using שלא נמצא הוא שגיאת הקלדה — אותה שגיאה בשתי ההרצות
+        /// </summary>
+        internal static HashSet<string> Missing(IEnumerable<Diagnostic> errors, string schoolDll, bool hasSchool)
         {
-            var school = TypesIn(schoolDll);
             var names = new HashSet<string>(StringComparer.Ordinal);
+            if (!hasSchool) return names;
+            var school = TypesIn(schoolDll);
             foreach (Diagnostic d in errors)
             {
                 if ((d.Id != "CS0234" && d.Id != "CS0246") || !d.Location.IsInSource) continue;
@@ -113,6 +118,23 @@ namespace DsViz
                 string name = u == null ? null : NameOf(u);
                 if (name != null && InSchool(name, school)) names.Add(name);
             }
+            return names;
+        }
+
+        /// <summary>
+        /// ה-namespaces הגרפיים שיש אליהם using בקוד. בספרייה של DSViz הם קיימים ריקים (SchoolNamespaces.cs), ולכן ה-using נבנה ולא "יורד" —
+        /// אבל קוד שמשתמש בסוג מהם (Grid) צריך את אותו הסבר (Hints)
+        /// </summary>
+        internal static HashSet<string> GraphicUsings(IEnumerable<SyntaxTree> trees)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (SyntaxTree t in trees)
+                foreach (UsingDirectiveSyntax u in t.GetRoot().DescendantNodes().OfType<UsingDirectiveSyntax>())
+                {
+                    string name = NameOf(u);
+                    for (string n = name; n != null && n.Contains('.'); n = n.Substring(0, n.LastIndexOf('.')))
+                        if (GraphicTypes.ContainsKey(n)) { names.Add(n); break; }   // גם using Grid = Unit4.GridLib.Grid;
+                }
             return names;
         }
 

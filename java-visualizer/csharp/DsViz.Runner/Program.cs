@@ -226,7 +226,7 @@ namespace DsViz
             var original = CSharpCompilation.Create("StudentProgram", trees, refs, options);
             var errors = original.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
             // using לספריות של בית הספר שאין אצלנו (using Unit4.GridLib; של התבנית, גם כשלא משתמשים בה): בלי השורה הזו — SchoolUsings
-            var droppedUsings = SchoolUsings.Missing(errors, project.SchoolLibPath);
+            var droppedUsings = SchoolUsings.Missing(errors, project.SchoolLibPath, project.SchoolLib != null);
             if (droppedUsings.Count > 0)
             {
                 trees = trees.Select(t =>
@@ -266,7 +266,9 @@ namespace DsViz
             {
                 foreach (Diagnostic d in errors) Console.Error.WriteLine(Format(d));
                 foreach (string hint in Hints(errors, project)) Console.Error.WriteLine(hint);
-                foreach (string hint in SchoolUsings.Hints(errors, droppedUsings, project.SchoolLibPath)) Console.Error.WriteLine(hint);
+                var schoolUsings = new HashSet<string>(droppedUsings, StringComparer.Ordinal);
+                schoolUsings.UnionWith(SchoolUsings.GraphicUsings(trees));   // אצלנו ה-namespaces הגרפיים קיימים ריקים — ה-using נבנה, והסוג עצמו חסר
+                foreach (string hint in SchoolUsings.Hints(errors, schoolUsings, project.SchoolLibPath)) Console.Error.WriteLine(hint);
                 // קוד שמשתמש במשהו שאין בספרייה של DSViz (למשל פעולה שקיימת רק בספרייה של בית הספר): ההסבר — מה חסר, ושההרצה הרגילה לא מושפעת
                 int gaps;
                 foreach (string gap in LibraryGaps(errors, original, project, out gaps)) Console.Error.WriteLine(gap);
@@ -406,7 +408,7 @@ namespace DsViz
             var options = new CSharpCompilationOptions(OutputKind.ConsoleApplication, nullableContextOptions: NullableContextOptions.Disable);
             var errors = CSharpCompilation.Create(project.Name, trees, MetadataReferences(), options)
                 .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
-            var dropped = SchoolUsings.Missing(errors, project.SchoolLibPath);   // using לספריות של בית הספר שאין אצלנו — כמו בהרצה הוויזואלית
+            var dropped = SchoolUsings.Missing(errors, project.SchoolLibPath, project.SchoolLib != null);   // using לספריות של בית הספר שאין אצלנו — כמו בהרצה הוויזואלית
             if (dropped.Count > 0)
                 errors = CSharpCompilation.Create(project.Name, trees.Select(t => SchoolUsings.Blank(t, dropped)), MetadataReferences(), options)
                     .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();

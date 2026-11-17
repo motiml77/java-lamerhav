@@ -49,6 +49,9 @@ StackInt; `Unit4.BinTreeUtilsLib.BinTreeUtils` — פעולות שירות לע�
 (`Unit4.GridLib`, `TurtleLib`, `FrogLib`, `TowerLib`, `HanoiLib`, `CardLib`, `PolygonLib`, `OrganLib`, `DiceLib`, `DreidelLib`, `BucketLib`) שלא רלוונטיות להרצה הוויזואלית.
 
 **התבנית של בתי הספר** מתחילה לרוב ב-`using Unit4.BinTreeCanvasLib; using Unit4.BinTreeUtilsLib; using Unit4.GridLib;` גם כשלא משתמשים בהן.
+ה-namespaces של הספריות הגרפיות (`Unit4.GridLib`, `Unit4.TurtleLib`... — 11) קיימים גם בספרייה של DSViz, ריקים (`Unit4.CollectionsLib/SchoolNamespaces.cs`):
+כך `using Unit4.GridLib;` נבנה גם בפרויקט שאין בו Unit4.dll של בית הספר (תבנית שהודבקה לפרויקט של DSViz) — בהרצה הרגילה ובוויזואלית.
+שגיאת הקלדה ב-using נשארת שגיאה בשתיהן, ושימוש בסוג גרפי (`Grid`) — שגיאה עם הסבר בעברית.
 `TreeCanvas` קיים גם בספרייה של DSViz (`Unit4.CollectionsLib/TreeCanvas.cs`): בלי חלון — העץ כבר מצויר בתצוגה — אבל עם אותו פלט לקונסול
 (`PrintOutAllElements(true)` ← הערכים בסדר המעבר, `"1, 2, 4"`; ב-`StopAfterAllSteps` ירידת שורה בסוף, בלי לחכות למקשים) וצעד בתצוגה לכל מעבר.
 `using` ל-namespace שאין אצלנו (`GridLib`...) — ההרצה הוויזואלית מורידה אותו ומקמפלת שוב (`DsViz.Runner/SchoolUsings.cs`): רק כשהמהדר לא

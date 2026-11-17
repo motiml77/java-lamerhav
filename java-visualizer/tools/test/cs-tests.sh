@@ -644,6 +644,25 @@ printf 'using System;\nclass P { static void Main() { Stack<int> s = new Stack<i
 msb "$W/marked/Targil" > "$W/marked.out" 2>&1
 grep -q 'Build succeeded' "$W/marked.out" && [ "$(dotnet "$W/marked/Targil/bin/Debug/net8.0/Targil.dll")" = 3 ] \
     && echo "פרויקט של DSViz (מסומן): Stack / Queue / Size בלי שום using — נבנה ורץ" || { echo "פרויקט מסומן: ה-using המוסתרים לא נוספו"; grep -E 'error' "$W/marked.out" | head -5; exit 1; }
+# יח2. התבנית של בתי הספר בפרויקט של DSViz (בלי Unit4.dll של בית הספר — רק הספרייה של DSViz): using Unit4.GridLib; / TurtleLib... בראש
+#      הקובץ. ה-namespaces הגרפיים קיימים אצלנו ריקים (SchoolNamespaces.cs), ולכן ההרצה הרגילה נבנית (לפני כן: CS0234 בכפתור הירוק)
+#      וגם ההרצה הוויזואלית — אותו פלט. שגיאת הקלדה ב-using נשארת שגיאה בשתיהן, ושימוש אמיתי ב-Grid — שגיאה עם הסבר בעברית
+rm -rf "$W/marked/Tavnit" "$W/marked/Typo" "$W/marked/Grid" && mkdir -p "$W/marked/Tavnit" "$W/marked/Typo" "$W/marked/Grid"
+for d in Tavnit Typo Grid; do cp "$ROOT/csharp/project/Exercise/Exercise.csproj" "$W/marked/$d/$d.csproj"; done
+printf 'using System;\nusing Unit4.CollectionsLib;\nusing Unit4.BinTreeCanvasLib;\nusing Unit4.BinTreeUtilsLib;\nusing Unit4.GridLib;\nusing Unit4.TurtleLib;\nusing Unit4.FrogLib;\nusing Unit4.TowerLib;\nusing Unit4.HanoiLib;\nusing Unit4.CardLib;\nusing Unit4.PolygonLib;\nusing Unit4.OrganLib;\nusing Unit4.DiceLib;\nusing Unit4.DreidelLib;\nusing Unit4.BucketLib;\nusing G = Unit4.GridLib;\n\nclass Program\n{\n    static void Main()\n    {\n        Queue<int> q = new Queue<int>();\n        q.Insert(5);\n        q.Insert(11);\n        Console.WriteLine(q.Head() + " " + BinTreeUtils.Height(new BinNode<int>(3)));\n    }\n}\n' > "$W/marked/Tavnit/Program.cs"
+msb "$W/marked/Tavnit" > "$W/marked-tavnit.out" 2>&1
+grep -q 'Build succeeded' "$W/marked-tavnit.out" && [ "$(dotnet "$W/marked/Tavnit/bin/Debug/net8.0/Tavnit.dll")" = "5 0" ] \
+    || { echo "התבנית של בתי הספר בפרויקט של DSViz: ההרצה הרגילה לא נבנתה (using לספריות הגרפיות)"; grep -E 'error' "$W/marked-tavnit.out" | head -5; exit 1; }
+viz "$W/marked/Tavnit" --trace "$W/marked-tavnit.trace" > "$W/marked-tavnit.viz" 2>&1 && grep -qx '5 0' "$W/marked-tavnit.viz" \
+    || { echo "התבנית של בתי הספר בפרויקט של DSViz: ההרצה הוויזואלית לא התחילה"; cat "$W/marked-tavnit.viz"; exit 1; }
+sed 's/using Unit4.GridLib;/using Unit4.GridLb;/' "$W/marked/Tavnit/Program.cs" > "$W/marked/Typo/Program.cs"
+! msb "$W/marked/Typo" > "$W/marked-typo.out" 2>&1; grep -q "error CS0234.*'GridLb'" "$W/marked-typo.out" \
+    && ! viz "$W/marked/Typo" --trace "$W/marked-typo.trace" > "$W/marked-typo.viz" 2>&1 && grep -q "CS0234.*'GridLb'" "$W/marked-typo.viz" \
+    || { echo "שגיאת הקלדה ב-using (Unit4.GridLb) בפרויקט של DSViz צריכה להיות שגיאה בשתי ההרצות"; grep error "$W/marked-typo.out" | head -3; cat "$W/marked-typo.viz"; exit 1; }
+sed 's/        Console.WriteLine(q.Head()/        Console.WriteLine(typeof(Grid).Name);\n        Console.WriteLine(q.Head()/' "$W/marked/Tavnit/Program.cs" > "$W/marked/Grid/Program.cs"
+! viz "$W/marked/Grid" --trace "$W/marked-grid.trace" > "$W/marked-grid.viz" 2>&1 && grep -q "'Grid' היא מהספרייה של בית הספר (Unit4.GridLib)" "$W/marked-grid.viz" \
+    || { echo "שימוש ב-Grid בפרויקט של DSViz: צריך הסבר בעברית שזו ספרייה גרפית של בית הספר"; cat "$W/marked-grid.viz"; exit 1; }
+echo "התבנית של בתי הספר בפרויקט של DSViz (using ל-11 הספריות הגרפיות + alias): הרצה רגילה והרצה ויזואלית — אותו פלט; שגיאת הקלדה — שגיאה בשתיהן; Grid — הסבר בעברית"
 # אותו קוד בפרויקט לא מסומן (בלי Directory.Build.props): לא נבנה — Stack שם הוא של ‎.NET, כמו בלי DSViz (אין using אוטומטי)
 rm -rf "$W/unmarked" && mkdir -p "$W/unmarked"
 printf 'Stack<int> s = new Stack<int>(); s.Push(4);\nQueue<int> q = new Queue<int>(); q.Insert(1);\nConsole.WriteLine(s.Count);\n' > "$W/unmarked/Program.cs"
