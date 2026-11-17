@@ -563,6 +563,9 @@ public class BankIt implements IApplication {
         if (s == null) return;
         ui(() -> {
             if (s.isDisposed()) return null;
+            // קודם מציירים את מה שהשתנה (rebuildTree וכו'): בלי זה הצילום מהמסך מראה את המצב של הצעד הקודם
+            for (int i = 0; i < 50 && s.getDisplay().readAndDispatch(); i++) { }
+            s.update();
             Rectangle ca = s.getClientArea();
             org.eclipse.swt.graphics.Point o = s.toDisplay(0, 0), e = s.toDisplay(ca.width, 0);
             capture(new Rectangle(Math.min(o.x, e.x), o.y, ca.width, ca.height), new File(shots, name));
