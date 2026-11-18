@@ -211,6 +211,49 @@ java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -c
     && grep -qF 'שורה 12: d, pet: Dog(d,pet){name="Rexy", age=5, breed="Boxer", owner=Person{name="Hila"}}]' "$W/poly-pets-old.txt" \
     || { echo "קובץ צעדים בלי טבלת מחלקות לא נטען כמו קודם"; head -3 "$W/poly-pets-old.txt"; grep 'טבלה' "$W/poly-pets-old.txt" | head; exit 1; }
 echo "הורשה ופולימורפיזם ב-C#: $n קריאות עם \"מותר? / מה רץ?\" (מה שרץ = מה שהחלונית אומרת), המרות, is, כרטיס המרה שנכשלה — וקובץ בלי CLS נטען כמו קודם"
+# בתוך namespace (כמו כל פרויקט של Visual Studio): בדיוק אותה תצוגה. קודם הטיפוס הגיע כ-ConsoleApp1.Dog — החלונית "מותר? / מה רץ?",
+# ההמרות ו-is לא הופיעו, ובמשתנים היה כתוב ConsoleApp1.Dog. namespace בשורה 1 — אותם מספרי שורות
+for p in zoo pets valid; do
+    f=$(ls objects/cs/poly/$p/*.cs) && mkdir -p "$W/ns-$p" && sed '1s/^using System;$/using System; namespace ConsoleApp1;/' "$f" > "$W/ns-$p/$(basename "$f")"
+    grep -q '^using System; namespace ConsoleApp1;$' "$W/ns-$p/$(basename "$f")" || { echo "namespace: השורה הראשונה של $f השתנתה"; exit 1; }
+    viz "$W/ns-$p/$(basename "$f")" --trace "$W/ns-$p.trace" > "$W/ns-$p.out" 2>&1 || true
+    java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/ns-$p.trace" > "$W/ns-$p.txt" 2>&1
+    cmp -s "$W/poly-$p.txt" "$W/ns-$p.txt" && ! grep -q 'ConsoleApp1' "$W/ns-$p.txt" \
+        || { echo "הורשה ב-C# בתוך namespace ($p): התצוגה שונה מבלי namespace"; diff "$W/poly-$p.txt" "$W/ns-$p.txt" | head -20; exit 1; }
+done
+echo "הורשה ופולימורפיזם ב-C# בתוך namespace: אותה תצוגה בדיוק (חלונית, המרות, is, שמות קצרים במשתנים)"
+# פרויקט כמו של Visual Studio: namespace, מחלקה בכל קובץ — אותן קריאות, base.Say() ב-Dog — "מחוץ ל-Dog" (קודם: Cat), בלי PolyApp. בתצוגה
+mkdir -p "$W/polyapp" && python3 - "$W/polyapp" <<'PYEOF'
+import re, sys
+src = open('objects/cs/poly/pets/Pets.cs', encoding='utf-8').read().split('\n', 1)[1]
+for b in re.split(r'\n(?=public (?:abstract )?class )', src):
+    m = re.search(r'public (?:abstract )?class (\w+)', b)
+    if not m: continue
+    body = '\n'.join('    ' + l if l.strip() else l for l in b[m.start():].rstrip().split('\n'))
+    open('%s/%s.cs' % (sys.argv[1], m.group(1)), 'w', encoding='utf-8').write('using System;\n\nnamespace PolyApp\n{\n' + body + '\n}\n')
+open(sys.argv[1] + '/PolyApp.csproj', 'w').write('<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0</TargetFramework>\n  </PropertyGroup>\n</Project>\n')
+PYEOF
+viz "$W/polyapp" --trace "$W/polyapp.trace" > "$W/polyapp.out" 2>&1 || true
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/polyapp.trace" > "$W/polyapp.txt" 2>&1
+[ "$(ls "$W/polyapp"/*.cs | wc -l)" -eq 6 ] && [ "$(grep -c '\[דריסה' "$W/polyapp.txt")" = "$(grep -c '\[דריסה' "$W/poly-pets.txt")" ] \
+    && grep -q 'base.Say() ממשיך לחפש מהקופסה שמחוץ ל-Dog' "$W/polyapp.txt" && ! grep -q 'שמחוץ ל-Cat\|PolyApp\.' "$W/polyapp.txt" \
+    || { echo "הורשה ב-C#, פרויקט עם namespace ומחלקה בכל קובץ: שונה"; grep '\[דריסה' "$W/polyapp.txt" | head; tail -5 "$W/polyapp.out"; exit 1; }
+echo "הורשה ב-C#, פרויקט עם namespace ומחלקה בכל קובץ: אותן קריאות, base.Say() — מחוץ ל-Dog"
+# הסברים בעברית לשגיאות של הורשה ופולימורפיזם (PolyHints — כמו "המורה בעברית" של Eclipse): השמות מהקוד והקוד המתוקן בסוף
+for want in 'member|ל-Animal אין Bark — היא רק ב-Dog|((Dog)pet).Bark()' 'castparen|הסוגריים של ההמרה במקום הלא נכון|((Dog)pet).Bark()' \
+    'down|כל Dog הוא Animal, אבל לא כל Animal הוא Dog|Dog d = (Dog)pet;' 'sibling|Dog ו-Cat יורשות שתיהן מ-Animal|Animal c = new Dog();' \
+    'siblingcast|אין עצם שהוא גם Dog וגם Cat|Animal a = d;' 'nobase|הבנאי של Dog צריך לקרוא לבנאי של Animal|: base(name)' \
+    'noctor|ל-Dog אין בנאי|public Dog(string name) : base(name) { }' 'abstract|את הפעולה המופשטת Say()|public override string Say() { ... }' \
+    'abstractnew|Animal מופשטת (abstract)|Animal a = new Dog();' 'notvirtual|צריך לסמן אותה ב-Animal כ-virtual|public virtual string Say()' \
+    'nooverride|אין פעולה Sya — יש Say|public override string Say()' 'access|ההרשאה שלה חייבת להיות זהה (public)|public override string Say()' \
+    'rettype|ולכן חייבת להחזיר string|public override string Say()' 'private|name פרטית (private) ב-Animal|GetName()' \
+    'hides|(אזהרה) Say() ב-Dog מסתירה את Say() של Animal|public override string Say()'; do
+    f=${want%%|*}; rest=${want#*|}; a=${rest%%|*}; b=${rest#*|}
+    viz objects/cs/poly-errors/$f.cs --trace "$W/pe-$f.trace" > "$W/pe-$f.out" 2>&1 || true
+    grep '^← ' "$W/pe-$f.out" | grep -qF -- "$a" && grep '^← ' "$W/pe-$f.out" | grep -qF -- "$b" \
+        || { echo "הורשה ב-C# ($f): חסר ההסבר '$a' / '$b'"; cat "$W/pe-$f.out"; exit 1; }
+done
+echo "הורשה ופולימורפיזם ב-C#: 15 שגיאות / אזהרות נפוצות — לכל אחת הסבר בעברית עם השמות מהקוד והקוד המתוקן"
 # מחלקה של התלמיד עם ToString משלה (במשתנים, במחסנית, ברשימה, במערך, בערך מוחזר): ההרצה הוויזואלית מגיעה לסוף —
 # בלי Quiet ה-ToString שנקרא בשביל התצוגה נרשם כצעדים, ומכל צעד שוב מציגים את המשתנים, וההרצה נתקעה
 timeout 60 dotnet "$RUNNER" objects/cs/OwnToString.cs --trace "$W/owntostring.trace" > "$W/owntostring.out" 2>&1 || { echo "ToString של התלמיד: ההרצה הוויזואלית נתקעה / נכשלה"; cat "$W/owntostring.out"; exit 1; }

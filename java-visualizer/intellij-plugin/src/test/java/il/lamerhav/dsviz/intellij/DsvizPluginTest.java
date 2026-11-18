@@ -223,6 +223,11 @@ public class DsvizPluginTest extends LightJavaCodeInsightFixtureTestCase {
         assertEquals("חסר ; בסוף הפקודה", JavacHebrew.translate("';' expected"));
         assertTrue(JavacHebrew.translate("incompatible types: String cannot be converted to int").contains("String"));
         assertEquals("something new", JavacHebrew.translate("something new"));
+        // הורשה ופולימורפיזם: עם שורות הפירוט של javac (symbol / location / required / found / was public)
+        assertTrue(JavacHebrew.translate("cannot find symbol\n  symbol:   method bark()\n  location: variable pet of type Animal").startsWith("ל-Animal אין פעולה bark()"));
+        assertTrue(JavacHebrew.translate("constructor Animal in class Animal cannot be applied to given types;\n  required: String\n  found:    no arguments").contains("super(...)"));
+        assertTrue(JavacHebrew.translate("say() in Dog cannot override say() in Animal\n  attempting to assign weaker access privileges; was public").contains("חייבת להיות public"));
+        assertTrue(JavacHebrew.translate("Dog is not abstract and does not override abstract method say() in Animal").contains("הפעולה המופשטת say()"));
         assertEquals("// ab", Submitter.clean("// ‫a‬b"));
     }
 

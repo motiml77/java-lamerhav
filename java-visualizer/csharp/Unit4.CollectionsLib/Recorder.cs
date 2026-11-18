@@ -275,6 +275,14 @@ namespace Unit4.CollectionsLib
         /// </summary>
         static string UserText(object x)
         {
+            // מחלקה בלי ToString משלה: ‎.NET מחזיר את השם המלא (ConsoleApp1.Dog — בכל פרויקט של Visual Studio יש namespace).
+            // בתצוגה — השם הקצר, כמו בתוכנית בלי namespace
+            Type t = x.GetType();
+            if (!t.IsGenericType && !t.IsArray && t.Namespace != null && t.FullName == t.Namespace + "." + t.Name)
+            {
+                var m = t.GetMethod("ToString", Type.EmptyTypes);
+                if (m != null && m.DeclaringType == typeof(object)) return t.Name;
+            }
             Quiet++;
             try { return x.ToString(); }
             finally { Quiet--; }

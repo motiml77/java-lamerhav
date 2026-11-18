@@ -266,6 +266,8 @@ namespace DsViz
             {
                 foreach (Diagnostic d in errors) Console.Error.WriteLine(Format(d));
                 foreach (string hint in Hints(errors, project)) Console.Error.WriteLine(hint);
+                // הורשה ופולימורפיזם: הסבר לכל שגיאה (וגם לאזהרות CS0114 / CS0108 — פעולה שמסתירה במקום לדרוס, תכונה שחוזרת)
+                foreach (string hint in PolyHints.For(errors.Concat(original.GetDiagnostics().Where(w => w.Id == "CS0114" || w.Id == "CS0108")), original)) Console.Error.WriteLine(hint);
                 var schoolUsings = new HashSet<string>(droppedUsings, StringComparer.Ordinal);
                 schoolUsings.UnionWith(SchoolUsings.GraphicUsings(trees));   // אצלנו ה-namespaces הגרפיים קיימים ריקים — ה-using נבנה, והסוג עצמו חסר
                 foreach (string hint in SchoolUsings.Hints(errors, schoolUsings, project.SchoolLibPath)) Console.Error.WriteLine(hint);

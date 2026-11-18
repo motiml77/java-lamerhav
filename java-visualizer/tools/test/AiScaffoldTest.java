@@ -53,7 +53,7 @@ public class AiScaffoldTest {
                     cursors++;
                     // הסמן בשורה הריקה שמתחת לכותרת הפעולה — בלי הערות מעליה ובלי הערות בתוכה
                     String mk = lines[g.cursorLine - 1];
-                    check(mk.contains(e.tasks.size() > 1 ? AiScaffold.markFor(e.tasks.get(0), true) : AiScaffold.MARK), f + ": הסמן לא מתחת לשורת הסימון (" + g.cursorLine + "): " + mk);
+                    check(mk.contains(e.tasks.size() > 1 ? AiScaffold.markFor(e.tasks.get(0), true) : AiScaffold.mark()), f + ": הסמן לא מתחת לשורת הסימון (" + g.cursorLine + "): " + mk);
                     // בלי return בתוך הפעולה — התלמיד כותב בעצמו
                     check(lines[g.cursorLine + 1].trim().equals("}"), f + ": אחרי הסמן צריך להיות סוף הפעולה, בלי return: " + lines[g.cursorLine + 1]);
                     String before = lines[g.cursorLine - 2].trim();

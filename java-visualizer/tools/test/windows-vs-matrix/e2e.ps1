@@ -65,7 +65,7 @@ function JavaWindow([string]$pattern) { Get-Process javaw, java -ErrorAction Sil
 function RunnerProcs() { @(Get-CimInstance Win32_Process -Filter "Name='dsviz-cs.exe'" -ErrorAction SilentlyContinue | ForEach-Object { [string]$_.CommandLine }) }
 # סוגר את מה שנשאר מהרצה רגילה: חלון הקונסול ("Press any key"), התוכנית עצמה
 function KillRuns() {
-    $names = @('VsDebugConsole', 'SdkApp', 'TopApp', 'SchoolRef', 'SchoolClassic', 'ClassicDsviz', 'PlainStack', 'NoMain', 'EmptyMain', 'WaitApp', 'SchoolExt', 'Exercise')
+    $names = @('VsDebugConsole', 'SdkApp', 'TopApp', 'SchoolRef', 'SchoolClassic', 'ClassicDsviz', 'PlainStack', 'NoMain', 'EmptyMain', 'WaitApp', 'SchoolExt', 'Exercise', 'PolyApp')
     Get-Process -Name $names -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Get-CimInstance Win32_Process -Filter "Name='cmd.exe' or Name='dotnet.exe' or Name='conhost.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -match 'CiApps|DataStructures-CS|DSViz-loose' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -313,6 +313,37 @@ function CheckVisual([string]$id, [string]$file, [string]$prog, [string]$lib, [s
     if (-not ($m -and $v)) { TraceTail 'visual run|info bar' }
     KillJava
     Start-Sleep 1
+}
+# T16: "הרצה ויזואלית" על PolyApp, ובחלון — המקלדת (חץ שמאלה = "הבא", כמו תלמיד) עד Animal pet = d; (צעד 24, הפסים "לא נראה דרך pet")
+# ועד pet.Say() (צעד 25, "מותר? / מה רץ?"), עם צילום מסך בכל אחד. ואז אותו פרויקט דרך dsviz-cs וחלון ההרצה בלי מסך (--check):
+# הקריאות עם החלונית, base.Say() ב-Dog — "מחוץ ל-Dog", ובלי השם המלא PolyApp.Dog
+function CheckPoly([string]$d) {
+    KillRuns; KillJava
+    OpenDoc (Join-Path $d 'PolyApp\Program.cs') | Out-Null
+    ClearMarkers
+    $clicked = ClickToolbar 'הרצה ויזואלית' 't16-toolbar-again'
+    $v = WaitFor { $x = @(Viewers); if ($x.Count) { $x } } 120
+    if (-not ($clicked -and $v)) { Fail 't16-viewer' 'T16: חלון ההרצה הוויזואלית נפתח שוב' ((Windows) -join ' ; '); return }
+    Start-Sleep 6
+    $h = $v[0].MainWindowHandle
+    $front = [DsReal]::Front($h)
+    Start-Sleep 1
+    for ($i = 0; $i -lt 23; $i++) { [DsReal]::Chord([uint16[]]@(0x25)); Start-Sleep -Milliseconds 150 }
+    Start-Sleep 2
+    Step 't16-pet-equals-d'
+    [DsReal]::Chord([uint16[]]@(0x25)); Start-Sleep 2
+    Step 't16-pet-say'
+    Check 't16-stepped' ($front -and @(Viewers).Count -gt 0) 'T16: החלון בקדמה, 24 צעדים במקלדת — צילומים t16-pet-equals-d ו-t16-pet-say' "בקדמה: $front"
+    KillJava
+    $tr = Join-Path $logs 't16-polyapp.trace'; $ck = Join-Path $logs 't16-polyapp-check.txt'
+    & $runner (Join-Path $d 'PolyApp') --trace $tr 2>&1 | Out-Null
+    $java = Join-Path $dsviz 'jdk\bin\java.exe'
+    & $java '-Djava.awt.headless=true' '-Ddsviz.conditions=true' '-Dstdout.encoding=UTF-8' '-cp' (Join-Path $dsviz 'dsviz.jar') 'unit4.collectionsLib.TraceViewer' '--check' $tr 2>&1 | Out-File $ck -Encoding utf8
+    $txt = if (Test-Path $ck) { [IO.File]::ReadAllText($ck) } else { '' }
+    $n = ([regex]::Matches($txt, '\[דריסה')).Count
+    Check 't16-dispatch' ($n -ge 4 -and $txt -match 'pet\.Say\(\) מותר=Animal\(Animal\) רץ=Dog') "T16: 'מותר? / מה רץ?' ב-pet.Say() — רץ Dog.Say() ($n קריאות)" ($txt.Substring(0, [Math]::Min(300, $txt.Length)))
+    Check 't16-base' ($txt -match 'base\.Say\(\) ממשיך לחפש מהקופסה שמחוץ ל-Dog' -and $txt -notmatch 'שמחוץ ל-Cat') "T16: base.Say() ב-Dog — 'ממשיך לחפש מהקופסה שמחוץ ל-Dog'" ''
+    Check 't16-short-names' ($txt -notmatch 'PolyApp\.') 'T16: בתצוגה השמות הקצרים (Dog), לא PolyApp.Dog' ''
 }
 # "הרצה ויזואלית" בסרגל שאמורה להסביר ולא להריץ: מחכים לתיבת ההודעה, בודקים את הטקסט, ולוחצים OK
 function CheckMessage([string]$id, [string]$file, [string]$pattern, [string]$what, [switch]$Report) {
@@ -1057,6 +1088,12 @@ else {
         $ref = Get-ChildItem (Join-Path $d 'SchoolRef\bin') -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object Name
         Check 't8-ref-bin' ((@($ref | Where-Object { $_ -eq 'Unit4.dll' }).Count -gt 0) -and (@($ref | Where-Object { $_ -eq 'Unit4.CollectionsLib.dll' }).Count -eq 0)) 'בפרויקט עם ProjectReference לספריית בית הספר: Unit4.dll ב-bin, בלי הספרייה של DSViz (בלי CS0433)' "$($ref -join ', ')"
     } catch { Fail 't8-exception' 'T8 רץ עד הסוף' "$_" }
+    try {
+        AssertTime
+        Section 'T16. הורשה ופולימורפיזם: PolyApp (namespace, מחלקה בכל קובץ) — "הרצה ויזואלית" בסרגל, ובחלון "הבא" עד pet.Say()'
+        CheckVisual 't16-visual' (Join-Path $d 'PolyApp\Program.cs') 'poly' '' 'הורשה ופולימורפיזם (PolyApp)'
+        CheckPoly $d
+    } catch { Fail 't16-exception' 'T16 רץ עד הסוף' "$_" }
     KillRuns; KillJava
     $closed = CloseVsByX
     Check 'apps-close' $closed "$title נסגר בסגירה רגילה" ''

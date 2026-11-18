@@ -39,7 +39,7 @@ const JAVAC = [
     [/^bad operand types for binary operator '(.+)'$/, 'אי אפשר להפעיל את $1 על הטיפוסים האלה'],
     [/^unclosed string literal$/, 'חסרות מירכאות " בסוף המחרוזת'],
     [/^method (\w+) in class (\w+) cannot be applied to given types;?$/, 'הפעולה $1 במחלקה $2 נקראה עם פרמטרים לא מתאימים (מספר או טיפוס)'],
-    [/^(.+) has private access in (.+)$/, '$1 פרטי במחלקה $2. ניגשים אליו דרך פעולה (get...)']
+    [/^(.+) has private access in (.+)$/, '$1 פרטי (private) ב-$2, וגם מחלקה שיורשת ממנה לא רואה אותו. ניגשים אליו דרך פעולה (get...), או משנים ל-protected']
 ];
 
 /** C# — לפי מספר השגיאה (CS1002 ...) */
@@ -61,10 +61,162 @@ const CSC = {
     CS0136: 'כבר יש משתנה בשם הזה בפעולה. בחרו שם אחר', CS0201: 'זו לא פקודה. אולי חסר = או קריאה לפעולה'
 };
 
-/** ההסבר בעברית להודעה של הקומפיילר, או '' אם אין */
-function explain(message, code) {
+// ------------------------------------------------------------ הורשה ופולימורפיזם (כמו "המורה בעברית" של Eclipse — HebrewErrors)
+
+/** טיפוסים של Java / של הספרייה — עליהם לא מסבירים על ירושה */
+const LIB_TYPES = /^(Stack|Queue|Node|BinNode|String|Integer|Double|Character|Boolean|Object|Math|System|Scanner|ArrayList|List|int|double|char|boolean|long)\b/;
+
+/**
+ * עץ ההורשה של הפרויקט, מקבצי המקור (סריקה פשוטה — רק כדי לתת שם למחלקה בהסבר):
+ * Map שם-מחלקה → { sup, ifaces, members: Set של שמות פעולות ותכונות שהיא מגדירה, abstract }
+ */
+function hierarchy(texts) {
+    const h = new Map();
+    for (const raw of texts || []) {
+        const t = String(raw).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ').replace(/"(?:\\.|[^"\\])*"/g, '""');
+        const re = /\b(abstract\s+)?(class|interface)\s+(\w+)(?:\s*<[^>{]*>)?(?:\s+extends\s+([\w.]+))?(?:\s+implements\s+([\w\s,.<>]+?))?\s*\{/g;
+        let m;
+        while ((m = re.exec(t))) {
+            let depth = 0, i = re.lastIndex - 1, body = '';
+            for (; i < t.length; i++) {
+                const c = t[i];
+                if (c === '{') { depth++; if (depth === 1) continue; }
+                if (c === '}') { depth--; if (depth === 0) break; }
+                if (depth === 1) body += c;
+            }
+            const members = new Set();
+            for (const x of body.matchAll(/([A-Za-z_]\w*)\s*\(/g)) members.add(x[1]);
+            for (const x of body.matchAll(/([A-Za-z_]\w*)\s*(?:=|;|,)/g)) members.add(x[1]);
+            h.set(m[3], { sup: m[4] ? m[4].split('.').pop() : (m[2] === 'interface' ? null : null), ifaces: (m[5] || '').split(',').map(s => s.trim().replace(/<.*/, '')).filter(Boolean),
+                          members, abstract: !!m[1] || m[2] === 'interface' });
+        }
+    }
+    return h;
+}
+
+/** sub יורשת מ-sup (ישירות, דרך מחלקות באמצע, או מממשת) */
+function inherits(h, sub, sup) {
+    const seen = new Set();
+    const up = c => {
+        if (!c || seen.has(c)) return false;
+        seen.add(c);
+        const x = h.get(c);
+        if (!x) return false;
+        if (x.sup === sup || x.ifaces.includes(sup)) return true;
+        return up(x.sup) || x.ifaces.some(up);
+    };
+    return sub !== sup && up(sub);
+}
+
+/** המחלקות שיורשות מ-sup ושמגדירות את member (או כל מחלקה לא מופשטת כש-member ריק) */
+function subclassesWith(h, sup, member) {
+    const out = [];
+    if (!h) return out;
+    for (const [name, x] of h) if (inherits(h, name, sup) && (member ? x.members.has(member) : !x.abstract)) out.push(name);
+    return out;
+}
+
+function commonSuper(h, a, b) {
+    for (let x = h.get(a) && h.get(a).sup; x; x = h.get(x) && h.get(x).sup) if (inherits(h, b, x)) return x;
+    return null;
+}
+
+/** שורות הפירוט של javac שאחרי ההודעה (symbol: / location: / required: / found: ...) → אובייקט */
+function details(detail) {
+    const d = {};
+    for (const l of String(detail || '').split('\n')) {
+        const m = /^\s*(symbol|location|required|found|reason)\s*:\s*(.*)$/.exec(l);
+        if (m) d[m[1]] = m[2].trim();
+        else if (l.trim()) d.extra = (d.extra ? d.extra + ' ' : '') + l.trim();
+    }
+    return d;
+}
+
+/** הסבר להודעה של javac על הורשה ופולימורפיזם, או '' */
+function javacPoly(m, detail, h) {
+    const d = details(detail);
+    let x;
+    if (m === 'cannot find symbol' && d.symbol && d.location) {
+        const sym = /^(method|variable)\s+(\w+)(\(.*\))?/.exec(d.symbol), loc = /^variable\s+(\w+)\s+of type\s+([\w.]+)/.exec(d.location);
+        if (!sym || !loc || LIB_TYPES.test(loc[2])) return '';
+        const kind = sym[1] === 'method' ? 'פעולה' : 'תכונה', name = sym[2] + (sym[1] === 'method' ? '()' : ''), v = loc[1], t = loc[2].split('.').pop();
+        const sub = subclassesWith(h, t, sym[2])[0];
+        if (sub) return `ל-${t} אין ${kind} ${name} — היא רק ב-${sub}. ${v} היא הפניה מסוג ${t}, ודרכה רואים רק את מה שיש ב-${t}. אם היא מצביעה על ${sub} — בודקים עם instanceof וממירים: ((${sub}) ${v}).${sym[2]}${sym[1] === 'method' ? '(...)' : ''}`;
+        if (h && h.has(t) || !h) return `ל-${t} אין ${kind} ${name}. בודקים את השם (אותיות גדולות וקטנות). אם היא במחלקה שיורשת מ-${t} — דרך הפניה מסוג ${t} לא רואים אותה; ממירים אחרי בדיקה עם instanceof`;
+        return '';
+    }
+    if ((x = /^incompatible types: ([\w.]+) cannot be converted to ([\w.]+)$/.exec(m)) && h) {
+        const f = x[1].split('.').pop(), t = x[2].split('.').pop();
+        if (inherits(h, t, f)) return `כל ${t} הוא ${f}, אבל לא כל ${f} הוא ${t}. אם הערך באמת ${t} — ממירים (ואפשר לבדוק קודם עם instanceof): (${t}) ...`;
+        const c = commonSuper(h, f, t);
+        if (c) return `${f} ו-${t} יורשות שתיהן מ-${c}, אבל ${f} הוא לא ${t}. משתנה מסוג ${c} יכול להצביע על כל אחת מהן`;
+        return '';
+    }
+    if ((x = /^(\w+) is not abstract and does not override abstract method (\w+)\((.*)\) in (\w+)$/.exec(m)))
+        return `${x[1]} יורשת מ-${x[4]} את הפעולה המופשטת ${x[2]}(), ולא כתבה אותה. פעולה מופשטת היא הבטחה: כל מחלקה שיורשת חייבת לכתוב אותה (או להיות בעצמה abstract)`;
+    if ((x = /^(\w+) is abstract; cannot be instantiated$/.exec(m))) {
+        const sub = subclassesWith(h, x[1], '')[0];
+        return `${x[1]} מופשטת (abstract) או ממשק — אי אפשר ליצור ממנה עצם. יוצרים עצם של מחלקה שיורשת ממנה, ושומרים אותו בהפניה מסוג ${x[1]}` + (sub ? `: ${x[1]} a = new ${sub}(...);` : '');
+    }
+    if ((x = /^constructor (\w+) in class (\w+) cannot be applied to given types;?$/.exec(m))) {
+        if (/no arguments/.test(d.found || '')) return `ל-${x[1]} אין בנאי בלי ערכים (הבנאי שלה צריך: ${d.required || '...'}). אם זו מחלקה שיורשת מ-${x[1]} — השורה הראשונה בבנאי שלה: super(...) עם הערכים`;
+        return `הבנאי של ${x[1]} נקרא עם ערכים לא מתאימים` + (d.required ? ` (הוא צריך: ${d.required})` : '');
+    }
+    if (/^call to (super|this) must be first statement in constructor$/.test(m))
+        return 'הקריאה ל-super(...) חייבת להיות השורה הראשונה בבנאי: קודם נבנה החלק של מחלקת-העל, ורק אחריו החלק של המחלקה שיורשת';
+    if ((x = /^(\w+)\((.*)\) in (\w+) cannot override (\w+)\((.*)\) in (\w+)$/.exec(m))) {
+        const e = d.extra || '', what = `${x[1]}() ב-${x[3]} דורסת את ${x[4]}() של ${x[6]}`;
+        let y;
+        if ((y = /weaker access privileges; was (\w+)/.exec(e))) return `${what}, ולכן חייבת להיות ${y[1]} (בדריסה אסור להקטין את ההרשאה)`;
+        if ((y = /return type (.+) is not compatible with (.+)/.exec(e))) return `${what}, ולכן חייבת להחזיר ${y[2].trim()} (אם זו פעולה אחרת — תנו לה שם אחר)`;
+        if (/overridden method is final/.test(e)) return `אי אפשר לדרוס את ${x[4]}() של ${x[6]}, כי היא final. נותנים לפעולה החדשה שם אחר`;
+        return `${x[1]}() ב-${x[3]} לא יכולה לדרוס את ${x[4]}() של ${x[6]}`;
+    }
+    if ((x = /^cannot inherit from final (\w+)$/.exec(m))) return `אי אפשר לרשת מ-${x[1]}, כי היא final (סופית). אם צריך לרשת — מוחקים את final מהכותרת שלה`;
+    if (m === 'method does not override or implement a method from a supertype')
+        return 'כתוב @Override, אבל במחלקת-העל אין פעולה כזו. בודקים את השם (אותיות גדולות וקטנות) ואת הפרמטרים, למשל toString()';
+    if (m === 'no interface expected here') return 'אחרי extends כותבים מחלקה. לממשק כותבים implements';
+    if (m === 'interface expected here') return 'אחרי implements כותבים ממשק. למחלקה כותבים extends';
+    return '';
+}
+
+/** C# — הודעות של הורשה ופולימורפיזם, עם השמות מההודעה (בלי namespace) */
+const N = "'(?:[\\w.]*\\.)?";
+const CS_POLY = [
+    ['CS0506', new RegExp(`^${N}(\\w+)\\.(\\w+)\\(.*\\)': cannot override inherited member ${N}(\\w+)\\.\\w+\\(`), 'כדי ש-$1 תוכל לדרוס את $2(), צריך לסמן אותה ב-$3 כ-virtual (למשל public virtual)'],
+    ['CS0534', new RegExp(`^${N}(\\w+)' does not implement inherited abstract member ${N}(\\w+)\\.(\\w+)\\(`), '$1 יורשת מ-$2 את הפעולה המופשטת $3(), ולא כתבה אותה. מוסיפים ל-$1: public override ... $3(...)'],
+    ['CS0535', new RegExp(`^${N}(\\w+)' does not implement interface member ${N}(\\w+)\\.(\\w+)\\(`), '$1 מממשת את $2, ולא כתבה את הפעולה $3()'],
+    ['CS0144', new RegExp(`abstract type or interface ${N}(\\w+)'`), '$1 מופשטת (abstract) או ממשק — אי אפשר ליצור ממנה עצם. יוצרים עצם של מחלקה שיורשת ממנה'],
+    ['CS0115', new RegExp(`^${N}(\\w+)\\.(\\w+)\\(.*\\)': no suitable method found to override`), 'כתוב override, אבל למחלקת-העל אין פעולה $2() לדרוס. בודקים את השם (אותיות גדולות וקטנות) ואת הפרמטרים'],
+    ['CS0507', new RegExp(`^${N}(\\w+)\\.(\\w+)\\(.*\\)': cannot change access modifiers when overriding '(\\w+)'`), '$2() דורסת פעולה של מחלקת-העל, ולכן ההרשאה שלה חייבת להיות $3'],
+    ['CS0508', new RegExp(`^${N}(\\w+)\\.(\\w+)\\(.*\\)': return type must be '([^']+)'`), '$2() דורסת פעולה של מחלקת-העל, ולכן חייבת להחזיר $3'],
+    ['CS0030', new RegExp(`^Cannot convert type ${N}(\\w+)' to ${N}(\\w+)'`), 'אי אפשר להמיר $1 ל-$2 — אין ביניהן ירושה (למשל מחלקות אחיות). ממירים רק בין מחלקה למחלקה שיורשת ממנה'],
+    ['CS7036', new RegExp(`required parameter '(\\w+)' of ${N}(\\w+)\\.\\2\\(`), 'הבנאי של $2 צריך את הערך $1. אם זו מחלקה שיורשת מ-$2 — מוסיפים לבנאי שלה : base(...) עם הערכים'],
+    ['CS0122', new RegExp(`^${N}(\\w+)\\.(\\w+)' is inaccessible due to its protection level`), '$2 פרטי (private) ב-$1 — גם מחלקה שיורשת לא רואה אותו. ניגשים דרך מאפיין או פעולה, או משנים ל-protected'],
+    ['CS0114', new RegExp(`^${N}(\\w+)\\.(\\w+)\\(.*\\)' hides inherited member ${N}(\\w+)\\.`), '$2() ב-$1 מסתירה את הפעולה של $3 במקום לדרוס אותה: דרך הפניה מסוג $3 תרוץ הגרסה של $3. כדי לדרוס — מוסיפים override'],
+    ['CS0108', new RegExp(`^${N}(\\w+)\\.(\\w+)' hides inherited member ${N}(\\w+)\\.`), 'גם ב-$3 יש $2 — לעצם של $1 יהיו שתי תכונות $2 נפרדות. מוחקים את השורה, ואת הערך מעבירים ל-$3 דרך : base(...)'],
+    ['CS0513', /is abstract but it is contained in non-abstract type/, 'פעולה מופשטת (abstract) יכולה להיות רק במחלקה מופשטת. מוסיפים abstract לכותרת של המחלקה'],
+    ['CS0500', /cannot declare a body because it is marked abstract/, 'לפעולה מופשטת אין גוף — רק כותרת ונקודה-פסיק'],
+    ['CS0239', /because it is sealed/, 'אי אפשר לדרוס פעולה sealed (סופית). נותנים לפעולה שם אחר, או מוחקים את sealed'],
+    ['CS0509', new RegExp(`cannot derive from sealed type ${N}(\\w+)'`), 'אי אפשר לרשת מ-$1, כי היא sealed (סופית)'],
+    ['CS0266', new RegExp(`^Cannot implicitly convert type ${N}([A-Z]\\w*)' to ${N}([A-Z]\\w*)'. An explicit`), 'כל $2 הוא $1, אבל לא כל $1 הוא $2. אם הערך באמת $2 — ממירים (ואפשר לבדוק קודם עם is): ($2)...'],
+];
+
+/**
+ * ההסבר בעברית להודעה של הקומפיילר, או '' אם אין.
+ * detail — שורות הפירוט של javac (symbol: / location: ...); h — עץ ההורשה של הפרויקט (hierarchy), בשביל שם המחלקה בהסבר
+ */
+function explain(message, code, detail, h) {
+    const msg = String(message || '').trim();
+    if (code) for (const [c, re, he] of CS_POLY) {
+        const x = c === code ? re.exec(msg) : null;
+        if (x && !(c === 'CS0266' && /^(Int|Double|Single|Decimal|Char|Byte|Int64|Int16|String)/.test(x[1] + x[2]))) return he.replace(/\$(\d)/g, (s, i) => x[+i] || '');
+    }
     if (code && CSC[code]) return CSC[code];
-    const m = String(message || '').trim().replace(/^(java|javac):\s*/, '').split('\n')[0].trim();
+    const m = msg.replace(/^(java|javac):\s*/, '').split('\n')[0].trim();
+    const extra = msg.includes('\n') ? msg.split('\n').slice(1).join('\n') : '';
+    const poly = javacPoly(m, (detail || '') + (extra ? '\n' + extra : ''), h);
+    if (poly) return poly;
     for (const [re, he] of JAVAC) {
         const x = re.exec(m);
         if (x) return he.replace(/\$(\d)/g, (s, i) => x[+i] || '');
@@ -208,7 +360,7 @@ ${cards}`
 function errorsHtml(errors, title) {
     const list = errors || [];
     const cards = list.map((e, i) => {
-        const he = explain(e.message, e.code);
+        const he = e.he != null ? e.he : explain(e.message, e.code, e.detail);
         return `<article class="panel err">
   <a class="where" data-i="${i}" href="#"><bdi dir="ltr">${esc(e.file)}</bdi> · שורה ${e.line}</a>
   <p class="he">${inlineHtml(he || e.message)}</p>
@@ -231,4 +383,4 @@ ${cards}`
 document.querySelectorAll('[data-i]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); vscode.postMessage({ type: 'open', i: +a.dataset.i }); }));`);
 }
 
-module.exports = { RLM, rtl, info, warn, error, esc, explain, parseError, inlineHtml, richHtml, isCodeLine, sectionName, CSS, page, othersHtml, errorsHtml };
+module.exports = { RLM, rtl, info, warn, error, esc, explain, hierarchy, parseError, inlineHtml, richHtml, isCodeLine, sectionName, CSS, page, othersHtml, errorsHtml };

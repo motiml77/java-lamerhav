@@ -255,7 +255,7 @@ final class BankSections {
     /** "כאן כותבים את התשובה" (תרגיל של סעיף אחד) → "כאן עונים סעיף א'" — כי בשאלה יש עוד סעיפים שיתווספו */
     static String markSections(String text, AiScaffold.Task first, boolean cs) {
         // עם סימוני הכיוון (כמו שהמעטפת נבנית) ובלעדיהם (קובץ C# אחרי stripMarks)
-        String plain = "// " + AiScaffold.MARK, several = "// " + AiScaffold.markFor(first, true);
+        String plain = "// " + AiScaffold.mark(), several = "// " + AiScaffold.markFor(first, true);
         String out = text.replace(plain, several).replace(noMarks(plain), noMarks(several));
         return cs ? out : out;
     }

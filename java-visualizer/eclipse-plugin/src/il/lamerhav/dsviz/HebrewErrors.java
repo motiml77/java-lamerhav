@@ -20,6 +20,9 @@ import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
 import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.CastExpression;
+import org.eclipse.jdt.core.dom.ClassInstanceCreation;
+import org.eclipse.jdt.core.dom.ConstructorInvocation;
 import org.eclipse.jdt.core.dom.BooleanLiteral;
 import org.eclipse.jdt.core.dom.BreakStatement;
 import org.eclipse.jdt.core.dom.CatchClause;
@@ -33,17 +36,23 @@ import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.ForStatement;
 import org.eclipse.jdt.core.dom.IMethodBinding;
 import org.eclipse.jdt.core.dom.ITypeBinding;
+import org.eclipse.jdt.core.dom.IVariableBinding;
 import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.ImportDeclaration;
 import org.eclipse.jdt.core.dom.InfixExpression;
+import org.eclipse.jdt.core.dom.InstanceofExpression;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.Modifier;
 import org.eclipse.jdt.core.dom.NodeFinder;
 import org.eclipse.jdt.core.dom.ParenthesizedExpression;
 import org.eclipse.jdt.core.dom.QualifiedName;
 import org.eclipse.jdt.core.dom.ReturnStatement;
+import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.Statement;
+import org.eclipse.jdt.core.dom.SuperConstructorInvocation;
+import org.eclipse.jdt.core.dom.ThisExpression;
 import org.eclipse.jdt.core.dom.ThrowStatement;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationExpression;
@@ -250,6 +259,20 @@ final class HebrewErrors {
                     "שורה לבד צריכה להיות השמה, קריאה לפעולה או ++. טעות נפוצה: == במקום = (השמה), או השוואה שצריכה להיות בתוך if");
             case 223: return new Spot("בצד שמאל של סימן השוויון צריך להיות משתנה",
                     "ההשמה שמה את הערך שמימין בתוך המשתנה שמשמאל. להשוואה כותבים: `==`");
+            // הורשה ופולימורפיזם
+            case 156: return illegalCast(p, arg(a, 0), arg(a, 1));
+            case 16: return neverInstance(p);
+            case 140: case 143: return superCall(id, p);
+            case 139: return superFirst(p);
+            case 400: return abstractMissing(p, arg(a, 0));
+            case 157: return abstractNew(p);
+            case 409: return weakerAccess(p);
+            case 404: return returnOverride(p);
+            case 623: case 634: return overrideNothing(p);
+            case 313: return new Spot("המחלקה " + c(arg(a, 1)) + " לא יכולה לרשת מ-" + c(arg(a, 0)) + ", כי היא " + c("final"),
+                    "מחלקה final היא סופית, ואסור לרשת ממנה. אם צריך לרשת — מוחקים את final מהכותרת של " + c(arg(a, 0)));
+            case 401: return new Spot("אי אפשר לדרוס פעולה " + c("final") + " של " + c(arg(a, 0)),
+                    "פעולה final אסור לשנות במחלקה יורשת. נותנים לפעולה החדשה שם אחר, או מוחקים את final ב-" + c(arg(a, 0)));
             default: return null;
         }
     }
@@ -543,6 +566,13 @@ final class HebrewErrors {
         if (t == null) return null;
         String qs = q.toString();
         if (t.isArray()) return new Spot("למערך אין " + c(name), "האורך של מערך נכתב בלי סוגריים: " + c(qs + ".length"));
+        List<String> subs = t.isFromSource() ? subclassesWith(t, name, false) : new ArrayList<String>();
+        if (!subs.isEmpty()) {
+            String sub = subs.get(0), sup = t.getErasure().getName();
+            return new Spot("ל-" + c(sup) + " אין תכונה " + c(name) + " — היא רק ב-" + c(sub),
+                    c(qs) + " היא הפניה מסוג " + c(sup) + ", ודרכה רואים רק את מה שיש ב-" + c(sup) + ". אם היא מצביעה על " + c(sub)
+                            + " — בודקים עם instanceof וממירים: " + c("((" + sub + ") " + qs + ")." + name));
+        }
         for (String m : methodNames(t)) {
             if (m.equals(name)) return new Spot(c(name) + " היא פעולה, וחסרים לה סוגריים", "גם פעולה שלא מקבלת ערכים נכתבת עם סוגריים: " + c(qs + "." + name + "()"));
         }
@@ -572,6 +602,8 @@ final class HebrewErrors {
         ITypeBinding t = null;
         if (mi != null && mi.getExpression() != null) t = mi.getExpression().resolveTypeBinding();
         else if (mi != null) t = enclosingType(mi);
+        Spot poly = mi != null ? polyMethod(mi, name, t) : null;
+        if (poly != null) return poly;
         Set<String> names = t != null ? methodNames(t) : new LinkedHashSet<String>();
         for (String m : names) {
             if (m.equalsIgnoreCase(name)) return new Spot("אין פעולה " + c(name) + ", יש " + c(m), "ב-Java אותיות גדולות וקטנות שונות: " + c(r + m + "()"));
@@ -759,7 +791,7 @@ final class HebrewErrors {
                         "מגדירים עם סוג האיברים: " + c(s + "<Integer> " + e + " = new " + s + "<Integer>();"));
             }
         }
-        return null;
+        return polyAssign(n, from, to, expr);
     }
 
     private Spot incompatible(String a, String b) {
@@ -991,6 +1023,10 @@ final class HebrewErrors {
         if (n != null && n.getParent() instanceof QualifiedName) { q = ((QualifiedName) n.getParent()).getQualifier(); access = n.getParent(); }
         else if (n != null && n.getParent() instanceof FieldAccess) { q = ((FieldAccess) n.getParent()).getExpression(); access = n.getParent(); }
         ITypeBinding t = q != null ? q.resolveTypeBinding() : null;
+        if (q == null || q instanceof ThisExpression) {
+            Spot inherited = inheritedPrivate(n, field, type);
+            if (inherited != null) return inherited;
+        }
         if (t == null) return null;
         String cap = Character.toUpperCase(field.charAt(0)) + field.substring(1);
         Set<String> ms = methodNames(t);
@@ -1004,6 +1040,417 @@ final class HebrewErrors {
         }
         if (getter != null) return new Spot(c(field) + " היא תכונה פרטית של " + c(simple), "מבחוץ קוראים אותה דרך הפעולה: " + c(q + "." + getter + "()"));
         return null;
+    }
+
+
+    // ---------------------------------------------------------------- הורשה ופולימורפיזם
+
+    /** pet.bark() כשהפעולה רק במחלקה שיורשת; (Dog) pet.bark() — ההמרה חלה על התוצאה */
+    private Spot polyMethod(MethodInvocation mi, String name, ITypeBinding t) {
+        String args = argsText(mi.arguments());
+        if (mi.getParent() instanceof CastExpression && mi.getExpression() != null && ((CastExpression) mi.getParent()).getExpression() == mi) {
+            CastExpression ce = (CastExpression) mi.getParent();
+            ITypeBinding ct = ce.getType().resolveBinding();
+            if (ct != null && methodNames(ct).contains(name)) {
+                return new Spot("הסוגריים של ההמרה במקום הלא נכון",
+                        "ההמרה חלה על מה ש-" + c(name + "()") + " מחזירה, ולא על " + c(mi.getExpression()) + ". עוטפים בסוגריים את ההמרה יחד עם ההפניה: "
+                                + c("((" + ce.getType() + ") " + mi.getExpression() + ")." + name + "(" + args + ")"));
+            }
+        }
+        if (t == null || mi.getExpression() == null || !t.isFromSource()) return null;
+        List<String> subs = subclassesWith(t, name, true);
+        if (subs.isEmpty()) return null;
+        String sub = subs.get(0), sup = t.getErasure().getName(), recv = mi.getExpression().toString();
+        return new Spot("ל-" + c(sup) + " אין פעולה " + c(name + "()") + " — היא רק ב-" + c(sub),
+                c(recv) + " היא הפניה מסוג " + c(sup) + ", ודרכה רואים רק את מה שיש ב-" + c(sup) + ". אם היא מצביעה על " + c(sub)
+                        + " — בודקים עם instanceof וממירים: " + c("((" + sub + ") " + recv + ")." + name + "(" + args + ")"));
+    }
+
+    /** Dog d = pet; (מחלקת-העל למשתנה של מחלקה יורשת) / Cat c = new Dog(); (מחלקות אחיות) */
+    private Spot polyAssign(ASTNode n, String from, String to, String expr) {
+        if (!(n instanceof Expression)) return null;
+        if (n instanceof CastExpression && ((CastExpression) n).getExpression() instanceof MethodInvocation
+                && ((MethodInvocation) ((CastExpression) n).getExpression()).resolveMethodBinding() == null) {
+            MethodInvocation mi = (MethodInvocation) ((CastExpression) n).getExpression();
+            if (mi.getExpression() != null) return new Spot("זו תוצאה של הסוגריים במקום הלא נכון בהמרה",
+                    "מתקנים את ההמרה, והשגיאה הזאת תיעלם: " + c("((" + ((CastExpression) n).getType() + ") " + mi.getExpression() + ")." + mi.getName() + "(" + argsText(mi.arguments()) + ")"));
+        }
+        ITypeBinding fb = ((Expression) n).resolveTypeBinding(), tb = targetType(n);
+        if (!userType(fb) || !userType(tb)) return null;
+        String var = targetName(n), f = fb.getErasure().getName(), t = tb.getErasure().getName();
+        boolean decl = n.getParent() instanceof VariableDeclarationFragment;
+        if (inherits(tb, fb)) {
+            if (n instanceof ClassInstanceCreation) {
+                String args = argsText(((ClassInstanceCreation) n).arguments());
+                return new Spot("עצם של " + c(f) + " הוא לא " + c(t), "כל " + c(t) + " הוא " + c(f) + ", אבל לא להפך. יוצרים עצם של " + c(t) + ": "
+                        + c((decl ? t + " " : "") + (var != null ? var + " = " : "") + "new " + t + "(" + args + ")" + (var != null ? ";" : "")));
+            }
+            String fix = "(" + t + ") " + expr;
+            if (var != null) fix = (decl ? t + " " : "") + var + " = " + fix + ";";
+            return new Spot("כל " + c(t) + " הוא " + c(f) + ", אבל לא כל " + c(f) + " הוא " + c(t),
+                    "אם " + c(expr) + " באמת מצביע על " + c(t) + " — ממירים (ואפשר לבדוק קודם עם instanceof): " + c(fix));
+        }
+        String common = commonSuper(fb, tb);
+        if (common == null) return null;
+        return new Spot(c(f) + " ו-" + c(t) + " יורשות שתיהן מ-" + c(common) + ", אבל " + c(f) + " הוא לא " + c(t),
+                "משתנה מסוג " + c(common) + " יכול להצביע על כל אחת מהן" + (var != null && decl ? ": " + c(common + " " + var + " = " + expr + ";") : ""));
+    }
+
+    /** (Cat) d — המרה בין מחלקות שאין ביניהן ירושה */
+    private Spot illegalCast(IProblem p, String from, String to) {
+        ASTNode n = node(p);
+        while (n != null && !(n instanceof CastExpression)) n = n.getParent();
+        if (n == null) return null;
+        CastExpression ce = (CastExpression) n;
+        ITypeBinding fb = ce.getExpression().resolveTypeBinding(), tb = ce.getType().resolveBinding();
+        if (!userType(fb) || !userType(tb)) return null;
+        String f = fb.getErasure().getName(), t = tb.getErasure().getName(), common = commonSuper(fb, tb);
+        if (common == null) return new Spot("אי אפשר להמיר " + c(f) + " ל-" + c(t) + " — אין ביניהן ירושה",
+                "ממירים רק בין מחלקה למחלקה שיורשת ממנה (בכל כיוון)");
+        return new Spot("אי אפשר להמיר " + c(f) + " ל-" + c(t) + " — אין עצם שהוא גם " + c(f) + " וגם " + c(t),
+                "שתיהן יורשות מ-" + c(common) + ", אבל אלה ענפים נפרדים. הפניה מסוג " + c(common) + " יכולה להצביע על כל אחת מהן: "
+                        + c(common + " a = " + ce.getExpression() + ";"));
+    }
+
+    /** d instanceof Cat כש-d תמיד Dog (16 משמש גם ל-? :) */
+    private Spot neverInstance(IProblem p) {
+        ASTNode n = node(p);
+        for (int i = 0; n != null && i < 3 && !(n instanceof InstanceofExpression); i++) n = n.getParent();
+        if (!(n instanceof InstanceofExpression)) return null;
+        InstanceofExpression ie = (InstanceofExpression) n;
+        ITypeBinding lb = ie.getLeftOperand().resolveTypeBinding(), rb = ie.getRightOperand().resolveBinding();
+        if (lb == null || rb == null) return null;
+        String l = lb.getErasure().getName(), r = rb.getErasure().getName(), common = commonSuper(lb, rb);
+        return new Spot(c(ie.getLeftOperand()) + " הוא תמיד " + c(l) + ", ולכן אף פעם לא יהיה " + c(r),
+                common != null ? "instanceof שימושי על הפניה מסוג מחלקת-העל " + c(common) + ", שיכולה להצביע גם על " + c(l) + " וגם על " + c(r)
+                        : "אין ירושה בין " + c(l) + " ל-" + c(r));
+    }
+
+    /** 143: בבנאי חסר super(...) (למחלקת-העל אין בנאי ריק); 140: אין בנאי בכלל */
+    private Spot superCall(int id, IProblem p) {
+        ASTNode n = node(p);
+        AbstractTypeDeclaration td = type(n);
+        ITypeBinding b = td != null ? td.resolveBinding() : null;
+        ITypeBinding sup = b != null ? b.getSuperclass() : null;
+        if (sup == null) return null;
+        IMethodBinding ctor = null;
+        for (IMethodBinding m : sup.getDeclaredMethods())
+            if (m.isConstructor() && !Modifier.isPrivate(m.getModifiers()) && (ctor == null || m.getParameterTypes().length < ctor.getParameterTypes().length)) ctor = m;
+        if (ctor == null) return null;
+        String me = b.getName(), s = sup.getErasure().getName();
+        String[] names = paramNames(ctor);
+        ITypeBinding[] types = ctor.getParameterTypes();
+        MethodDeclaration md = null;
+        for (ASTNode x = n; x != null && md == null; x = x.getParent()) if (x instanceof MethodDeclaration && ((MethodDeclaration) x).isConstructor()) md = (MethodDeclaration) x;
+        if (id == 143 && md != null) {
+            for (Object o : md.getBody() == null ? new ArrayList<Object>() : md.getBody().statements()) {
+                if (o instanceof SuperConstructorInvocation)
+                    return new Spot("השורה " + c(text((ASTNode) o)) + " צריכה להיות הראשונה בבנאי",
+                            "עד שהיא רצה, החלק של " + c(s) + " לא נבנה. מעבירים אותה לראש הבנאי של " + c(me));
+            }
+            List<String> args = new ArrayList<String>();
+            for (int i = 0; i < types.length; i++) {
+                String best = names[i];
+                for (Object o : md.parameters()) {
+                    SingleVariableDeclaration v = (SingleVariableDeclaration) o;
+                    IVariableBinding vb = v.resolveBinding();
+                    if (vb == null || !vb.getType().isAssignmentCompatible(types[i])) continue;
+                    if (v.getName().getIdentifier().equals(names[i])) { best = names[i]; break; }
+                    if (best.equals(names[i])) best = v.getName().getIdentifier();
+                }
+                args.add(best);
+            }
+            return new Spot("הבנאי של " + c(me) + " צריך להתחיל בקריאה לבנאי של " + c(s),
+                    "ל-" + c(s) + " אין בנאי בלי ערכים, ולכן קודם בונים את החלק של " + c(s) + " עם הערכים שהוא צריך. השורה הראשונה בבנאי: "
+                            + c("super(" + String.join(", ", args) + ");"));
+        }
+        List<String> ps = new ArrayList<String>();
+        for (int i = 0; i < types.length; i++) ps.add(types[i].getName() + " " + names[i]);
+        return new Spot("ל-" + c(me) + " אין בנאי, ו-" + c(s) + " צריכה ערכים כדי להיבנות",
+                "מוסיפים ל-" + c(me) + " בנאי שמקבל את הערכים ומעביר אותם ל-" + c(s) + ": "
+                        + c("public " + me + "(" + String.join(", ", ps) + ") { super(" + String.join(", ", names) + "); }"));
+    }
+
+    /** super(...) / this(...) לא בשורה הראשונה */
+    private Spot superFirst(IProblem p) {
+        ASTNode n = node(p);
+        while (n != null && !(n instanceof SuperConstructorInvocation) && !(n instanceof ConstructorInvocation)) n = n.getParent();
+        if (n == null) return null;
+        AbstractTypeDeclaration td = type(n);
+        ITypeBinding b = td != null ? td.resolveBinding() : null;
+        String me = b != null ? b.getName() : "", call = text(n).trim();
+        if (n instanceof SuperConstructorInvocation && b != null && b.getSuperclass() != null) {
+            return new Spot("הקריאה " + c(call) + " חייבת להיות השורה הראשונה בבנאי",
+                    "קודם נבנה החלק של " + c(b.getSuperclass().getErasure().getName()) + " (מחלקת-העל), ורק אחריו החלק של " + c(me) + ". מעבירים את השורה לראש הבנאי: " + c(call));
+        }
+        return new Spot("הקריאה " + c(call) + " חייבת להיות השורה הראשונה בבנאי", "מעבירים את השורה לראש הבנאי: " + c(call));
+    }
+
+    /** המחלקה לא כתבה פעולה מופשטת שירשה (או של ממשק שהיא מממשת) */
+    private Spot abstractMissing(IProblem p, String name) {
+        AbstractTypeDeclaration td = type(node(p));
+        ITypeBinding b = td != null ? td.resolveBinding() : null;
+        if (b == null) return null;
+        IMethodBinding m = abstractMethod(b, name, new HashSet<String>());
+        if (m == null) return null;
+        ITypeBinding owner = m.getDeclaringClass();
+        String[] names = paramNames(m);
+        List<String> ps = new ArrayList<String>();
+        for (int i = 0; i < m.getParameterTypes().length; i++) ps.add(m.getParameterTypes()[i].getName() + " " + names[i]);
+        String header = "public " + m.getReturnType().getName() + " " + name + "(" + String.join(", ", ps) + ") { ... }";
+        String me = b.getName(), o = owner.getErasure().getName();
+        String main = owner.isInterface() ? c(me) + " מממשת את " + c(o) + ", ולא כתבה את הפעולה " + c(name + "()")
+                : c(me) + " יורשת מ-" + c(o) + " את הפעולה המופשטת " + c(name + "()") + ", ולא כתבה אותה";
+        return new Spot(main, "פעולה מופשטת היא הבטחה: כל מחלקה שיורשת חייבת לכתוב אותה (או להיות בעצמה abstract). מוסיפים ל-" + c(me) + ": " + c(header));
+    }
+
+    private static IMethodBinding abstractMethod(ITypeBinding t, String name, Set<String> seen) {
+        if (t == null || !seen.add(t.getErasure().getQualifiedName())) return null;
+        for (IMethodBinding m : t.getDeclaredMethods()) if (m.getName().equals(name) && Modifier.isAbstract(m.getModifiers())) return m;
+        IMethodBinding r = abstractMethod(t.getSuperclass(), name, seen);
+        if (r != null) return r;
+        for (ITypeBinding i : t.getInterfaces()) if ((r = abstractMethod(i, name, seen)) != null) return r;
+        return null;
+    }
+
+    /** new Animal() כש-Animal מופשטת או ממשק */
+    private Spot abstractNew(IProblem p) {
+        ASTNode n = node(p);
+        while (n != null && !(n instanceof ClassInstanceCreation)) n = n.getParent();
+        if (n == null) return null;
+        ClassInstanceCreation ci = (ClassInstanceCreation) n;
+        ITypeBinding t = ci.resolveTypeBinding();
+        if (t == null) t = ci.getType().resolveBinding();
+        if (t == null) return null;
+        String a = t.getErasure().getName();
+        String sub = null;
+        for (String s : subclassesWith(t, null, true)) { sub = s; break; }
+        String main = t.isInterface() ? c(a) + " הוא ממשק — אי אפשר ליצור ממנו עצם" : c(a) + " מופשטת (abstract) — אי אפשר ליצור ממנה עצם";
+        if (sub == null) return new Spot(main, "כותבים מחלקה שיורשת מ-" + c(a) + " וכותבת את הפעולות המופשטות שלה, ויוצרים עצם שלה");
+        String var = targetName(ci), args = argsText(ci.arguments());
+        return new Spot(main, "יוצרים עצם של מחלקה שיורשת ממנה, ושומרים אותו בהפניה מסוג " + c(a) + ": "
+                + c(a + " " + (var != null ? var : "a") + " = new " + sub + "(" + args + ");"));
+    }
+
+    /** דריסה עם הרשאה חלשה יותר (say() בלי public) */
+    private Spot weakerAccess(IProblem p) {
+        MethodDeclaration md = method(node(p));
+        IMethodBinding mb = md != null ? md.resolveBinding() : null;
+        IMethodBinding over = mb != null ? overridden(mb) : null;
+        for (ITypeBinding t = mb != null ? mb.getDeclaringClass().getSuperclass() : null; t != null && over == null; t = t.getSuperclass())
+            for (IMethodBinding m : t.getDeclaredMethods()) if (!m.isConstructor() && mb.isSubsignature(m)) over = m;
+        if (over == null) return null;
+        String acc = Modifier.isPublic(over.getModifiers()) ? "public" : Modifier.isProtected(over.getModifiers()) ? "protected" : null;
+        if (acc == null) return null;
+        String name = md.getName().getIdentifier();
+        return new Spot(c(name + "()") + " דורסת את הפעולה של " + c(over.getDeclaringClass().getErasure().getName()) + ", ולכן גם היא חייבת להיות " + c(acc),
+                "בדריסה אסור להקטין את ההרשאה. מוסיפים לכותרת: " + c(acc + " " + md.getReturnType2() + " " + name + "(" + params(md) + ")"));
+    }
+
+    /** דריסה עם טיפוס החזרה אחר */
+    private Spot returnOverride(IProblem p) {
+        MethodDeclaration md = method(node(p));
+        IMethodBinding mb = md != null ? md.resolveBinding() : null;
+        if (mb == null) return null;
+        IMethodBinding over = null;
+        for (ITypeBinding t = mb.getDeclaringClass().getSuperclass(); t != null && over == null; t = t.getSuperclass())
+            for (IMethodBinding m : t.getDeclaredMethods()) if (!m.isConstructor() && mb.isSubsignature(m)) over = m;
+        if (over == null) return null;
+        String name = md.getName().getIdentifier(), ret = over.getReturnType().getName();
+        String acc = Modifier.isPublic(over.getModifiers()) ? "public " : Modifier.isProtected(over.getModifiers()) ? "protected " : "";
+        return new Spot(c(name + "()") + " דורסת את " + c(name + "()") + " של " + c(over.getDeclaringClass().getErasure().getName()) + ", ולכן חייבת להחזיר " + c(ret),
+                "בדריסה השם, הפרמטרים וטיפוס ההחזרה זהים (אם זו פעולה אחרת — תנו לה שם אחר). מתקנים את הכותרת: " + c(acc + ret + " " + name + "(" + params(md) + ")"));
+    }
+
+    /** @Override על פעולה שלא דורסת: שם קרוב (Say / tostring) או פרמטרים אחרים (equals(Dog)) */
+    private Spot overrideNothing(IProblem p) {
+        MethodDeclaration md = method(node(p));
+        if (md == null || md.isConstructor()) return null;
+        AbstractTypeDeclaration td = type(md);
+        ITypeBinding b = td != null ? td.resolveBinding() : null;
+        if (b == null) return null;
+        String name = md.getName().getIdentifier();
+        List<IMethodBinding> inherited = new ArrayList<IMethodBinding>();
+        for (ITypeBinding t = b.getSuperclass(); t != null; t = t.getSuperclass())
+            for (IMethodBinding m : t.getDeclaredMethods()) if (!m.isConstructor() && !Modifier.isPrivate(m.getModifiers()) && !Modifier.isStatic(m.getModifiers())) inherited.add(m);
+        for (ITypeBinding i : b.getInterfaces()) for (IMethodBinding m : i.getDeclaredMethods()) inherited.add(m);
+        for (IMethodBinding m : inherited) {
+            if (!m.getName().equals(name)) continue;
+            String sup = m.getDeclaringClass().getErasure().getName();
+            return new Spot("ל-" + c(sup) + " יש " + c(name + "()") + ", אבל עם פרמטרים אחרים — לכן זו לא דריסה",
+                    "בדריסה הפרמטרים זהים בדיוק לפעולה של " + c(sup) + ": " + c(signature(m)));
+        }
+        for (IMethodBinding m : inherited) {
+            if (!m.getName().equalsIgnoreCase(name) && distance(m.getName().toLowerCase(), name.toLowerCase()) > 2) continue;
+            if (m.getParameterTypes().length != md.parameters().size()) continue;
+            String sup = m.getDeclaringClass().getErasure().getName();
+            return new Spot("כתוב " + c("@Override") + ", אבל ל-" + c(sup) + " אין פעולה " + c(name + "()") + " — יש " + c(m.getName() + "()"),
+                    "בדריסה השם זהה בדיוק, כולל אותיות גדולות וקטנות: " + c(signature(m)));
+        }
+        return null;
+    }
+
+    /** תכונה private של מחלקת-העל, בשימוש בתוך המחלקה שיורשת (name / this.name) */
+    private Spot inheritedPrivate(ASTNode n, String field, String owner) {
+        AbstractTypeDeclaration td = type(n);
+        ITypeBinding me = td != null ? td.resolveBinding() : null;
+        if (me == null) return null;
+        ITypeBinding sup = null;
+        for (ITypeBinding t = me.getSuperclass(); t != null; t = t.getSuperclass()) if (t.getErasure().getName().equals(owner.replaceAll("<.*", ""))) sup = t;
+        if (sup == null) return null;
+        String f = field, s = sup.getErasure().getName(), cap = f.isEmpty() ? f : Character.toUpperCase(f.charAt(0)) + f.substring(1);
+        Set<String> ms = methodNames(sup);
+        String main = c(f) + " פרטית (private) ב-" + c(s) + ", ולכן גם " + c(me.getName()) + " שיורשת ממנה לא רואה אותה";
+        ASTNode access = n.getParent() instanceof FieldAccess ? n.getParent() : n;
+        if (access.getParent() instanceof Assignment && ((Assignment) access.getParent()).getLeftHandSide() == access && ms.contains("set" + cap))
+            return new Spot(main, "משנים אותה דרך הפעולה של " + c(s) + ": " + c("set" + cap + "(" + ((Assignment) access.getParent()).getRightHandSide() + ");"));
+        String getter = ms.contains("get" + cap) ? "get" + cap : ms.contains("is" + cap) ? "is" + cap : null;
+        if (getter != null) return new Spot(main, "משתמשים בפעולה של " + c(s) + ": " + c(getter + "()"));
+        String type = "int";
+        for (IVariableBinding v : sup.getDeclaredFields()) if (v.getName().equals(f)) type = v.getType().getName();
+        return new Spot(main, "אם " + c(me.getName()) + " צריכה לגשת אליה ישירות — משנים ב-" + c(s) + " את private ל-protected: " + c("protected " + type + " " + f + ";"));
+    }
+
+    /** המחלקות שיורשות מ-sup (או מממשות אותה) ושיש בהן member (null — כל מחלקה לא מופשטת): קודם בקובץ, ואז בפרויקט (Eclipse) */
+    private List<String> subclassesWith(ITypeBinding sup, String member, boolean method) {
+        Set<String> out = new LinkedHashSet<String>();
+        ITypeBinding se = sup.getErasure();
+        for (AbstractTypeDeclaration t : types()) {
+            ITypeBinding b = t.resolveBinding();
+            if (b == null || b.getErasure().isEqualTo(se) || !b.getErasure().isSubTypeCompatible(se)) continue;
+            if (member == null ? !b.isInterface() && !Modifier.isAbstract(b.getModifiers()) : declares(b, se, member, method)) out.add(b.getName());
+        }
+        if (out.isEmpty()) {
+            try {   // מחלקות בקבצים אחרים של הפרויקט (רק בתוך Eclipse — יש מודל של הפרויקט)
+                org.eclipse.jdt.core.IJavaElement e = se.getJavaElement();
+                if (e instanceof org.eclipse.jdt.core.IType) {
+                    org.eclipse.jdt.core.IType it = (org.eclipse.jdt.core.IType) e;
+                    org.eclipse.jdt.core.ITypeHierarchy h = it.newTypeHierarchy(null);
+                    for (org.eclipse.jdt.core.IType s : h.getAllSubtypes(it)) {
+                        if (member == null) {
+                            if (!s.isInterface() && !org.eclipse.jdt.core.Flags.isAbstract(s.getFlags())) out.add(s.getElementName());
+                            continue;
+                        }
+                        if (method) { for (org.eclipse.jdt.core.IMethod m : s.getMethods()) if (m.getElementName().equals(member)) out.add(s.getElementName()); }
+                        else if (s.getField(member).exists()) out.add(s.getElementName());
+                    }
+                }
+            } catch (Throwable ignored) {
+                // בלי מודל (בדיקות) / תקלה — רק מה שבקובץ
+            }
+        }
+        return new ArrayList<String>(out);
+    }
+
+    /** member מוגדר ב-b או במחלקה שבין b ל-sup */
+    private static boolean declares(ITypeBinding b, ITypeBinding sup, String member, boolean method) {
+        for (ITypeBinding x = b; x != null && !x.getErasure().isEqualTo(sup); x = x.getSuperclass()) {
+            if (method) { for (IMethodBinding m : x.getDeclaredMethods()) if (!m.isConstructor() && m.getName().equals(member)) return true; }
+            else for (IVariableBinding v : x.getDeclaredFields()) if (v.getName().equals(member)) return true;
+        }
+        return false;
+    }
+
+    /** מחלקה (או ממשק) שהתלמיד כתב */
+    private static boolean userType(ITypeBinding t) {
+        return t != null && !t.isPrimitive() && !t.isArray() && t.isFromSource() && (t.isClass() || t.isInterface());
+    }
+
+    /** sub יורשת מ-sup (ישירות או דרך מחלקות באמצע, או מממשת אותה) */
+    private static boolean inherits(ITypeBinding sub, ITypeBinding sup) {
+        return sub != null && sup != null && !sub.getErasure().isEqualTo(sup.getErasure()) && sub.getErasure().isSubTypeCompatible(sup.getErasure());
+    }
+
+    /** מחלקת-העל המשותפת הקרובה (לא Object) של שתי מחלקות שאין ביניהן ירושה — או null */
+    private static String commonSuper(ITypeBinding a, ITypeBinding b) {
+        if (a == null || b == null || inherits(a, b) || inherits(b, a)) return null;
+        for (ITypeBinding x = a.getSuperclass(); x != null; x = x.getSuperclass()) {
+            if (x.getQualifiedName().equals("java.lang.Object")) break;
+            if (inherits(b, x)) return x.getErasure().getName();
+        }
+        for (ITypeBinding i : a.getInterfaces()) if (inherits(b, i)) return i.getErasure().getName();
+        return null;
+    }
+
+    /** הטיפוס של המקום שאליו הערך נכנס: המשתנה, הצד השמאלי של ההשמה, או טיפוס ההחזרה */
+    private static ITypeBinding targetType(ASTNode n) {
+        ASTNode p = n.getParent();
+        while (p instanceof ParenthesizedExpression) { n = p; p = p.getParent(); }
+        if (p instanceof VariableDeclarationFragment && ((VariableDeclarationFragment) p).getInitializer() == n) {
+            IVariableBinding v = ((VariableDeclarationFragment) p).resolveBinding();
+            return v != null ? v.getType() : null;
+        }
+        if (p instanceof Assignment && ((Assignment) p).getRightHandSide() == n) return ((Assignment) p).getLeftHandSide().resolveTypeBinding();
+        if (p instanceof ReturnStatement) {
+            for (ASTNode x = p; x != null; x = x.getParent())
+                if (x instanceof MethodDeclaration) return ((MethodDeclaration) x).getReturnType2() != null ? ((MethodDeclaration) x).getReturnType2().resolveBinding() : null;
+        }
+        return null;
+    }
+
+    private static String targetName(ASTNode n) {
+        ASTNode p = n.getParent();
+        while (p instanceof ParenthesizedExpression) { n = p; p = p.getParent(); }
+        if (p instanceof VariableDeclarationFragment) return ((VariableDeclarationFragment) p).getName().getIdentifier();
+        if (p instanceof Assignment && ((Assignment) p).getRightHandSide() == n) return ((Assignment) p).getLeftHandSide().toString();
+        return null;
+    }
+
+    private static MethodDeclaration method(ASTNode n) {
+        while (n != null && !(n instanceof MethodDeclaration)) n = n.getParent();
+        return (MethodDeclaration) n;
+    }
+
+    /** הפעולה במחלקת-העל שהפעולה דורסת */
+    private static IMethodBinding overridden(IMethodBinding mb) {
+        for (ITypeBinding t = mb.getDeclaringClass().getSuperclass(); t != null; t = t.getSuperclass())
+            for (IMethodBinding m : t.getDeclaredMethods()) if (!m.isConstructor() && mb.overrides(m)) return m;
+        for (ITypeBinding i : mb.getDeclaringClass().getInterfaces())
+            for (IMethodBinding m : i.getDeclaredMethods()) if (mb.overrides(m)) return m;
+        return null;
+    }
+
+    /** הכותרת של פעולה, עם שמות הפרמטרים: public boolean equals(Object obj) */
+    private static String signature(IMethodBinding m) {
+        String[] names = paramNames(m);
+        List<String> ps = new ArrayList<String>();
+        for (int i = 0; i < m.getParameterTypes().length; i++) ps.add(m.getParameterTypes()[i].getName() + " " + names[i]);
+        String acc = Modifier.isPublic(m.getModifiers()) || m.getDeclaringClass().isInterface() ? "public " : Modifier.isProtected(m.getModifiers()) ? "protected " : "";
+        return acc + m.getReturnType().getName() + " " + m.getName() + "(" + String.join(", ", ps) + ")";
+    }
+
+    /** שמות הפרמטרים (IMethodBinding.getParameterNames — לא בכל גרסה של Eclipse); אחרת לפי הטיפוס */
+    private static String[] paramNames(IMethodBinding m) {
+        ITypeBinding[] ts = m.getParameterTypes();
+        try {
+            Object r = IMethodBinding.class.getMethod("getParameterNames").invoke(m);
+            if (r instanceof String[] && ((String[]) r).length == ts.length) {
+                String[] n = (String[]) r;
+                boolean real = true;
+                for (String x : n) if (x == null || x.matches("arg\\d+")) real = false;
+                if (real) return n;
+            }
+        } catch (Throwable ignored) {
+            // גרסה ישנה
+        }
+        String[] out = new String[ts.length];
+        for (int i = 0; i < ts.length; i++) {
+            String t = ts[i].getErasure().getName();
+            out[i] = t.equals("Object") ? "obj" : (Character.toLowerCase(t.charAt(0)) + t.substring(1)).replaceAll("[^A-Za-z0-9]", "") + (ts.length > 1 ? String.valueOf(i + 1) : "");
+        }
+        return out;
+    }
+
+    private String params(MethodDeclaration md) {
+        List<String> ps = new ArrayList<String>();
+        for (Object o : md.parameters()) ps.add(text((ASTNode) o));
+        return String.join(", ", ps);
+    }
+
+    private String argsText(List<?> args) {
+        List<String> out = new ArrayList<String>();
+        for (Object o : args) out.add(text((ASTNode) o));
+        return String.join(", ", out);
     }
 
     // ---------------------------------------------------------------- עזרים

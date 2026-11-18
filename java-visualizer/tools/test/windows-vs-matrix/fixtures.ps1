@@ -180,6 +180,122 @@ class Program
     WriteCode (Join-Path $dir 'SdkApp\SdkApp.csproj') (SdkCsproj '')
     Add 'SdkApp' '{C0110001-0000-4000-8000-000000000002}'
 
+    # --- PolyApp: הורשה ופולימורפיזם כמו פרויקט של Visual Studio — namespace, מחלקה בכל קובץ (tools/test/objects/cs/poly/pets/Pets.cs, מפוצל)
+    WriteCode (Join-Path $dir 'PolyApp\Program.cs') (@'
+using System;
+
+namespace PolyApp
+{
+    public class Program
+    {
+        public static void Main()
+        {
+            Animal a = new Animal("Bob", 3);
+            Dog d = new Dog("Rexy", 5, "Boxer", new Person("Hila"));
+            Cat c = new Cat("Mitzi", 2, true);
+            Animal pet = d;
+            Console.WriteLine(pet.Say());
+            Console.WriteLine(d.Bark());
+            Ci.Mark("poly", "");
+        }
+    }
+}
+'@ + $script:ciHelper)
+    WriteCode (Join-Path $dir 'PolyApp\Animal.cs') @'
+using System;
+
+namespace PolyApp
+{
+    public class Animal
+    {
+        private string name;
+        private int age;
+
+        public Animal(string name, int age)
+        {
+            this.name = name;
+            this.age = age;
+        }
+
+        public string GetName() { return name; }
+
+        public virtual string Say() { return "..."; }
+    }
+}
+'@
+    WriteCode (Join-Path $dir 'PolyApp\Dog.cs') @'
+using System;
+
+namespace PolyApp
+{
+    public class Dog : Animal
+    {
+        private string breed;
+        private Person owner;      // מקבל מבחוץ
+
+        public Dog(string name, int age, string breed, Person owner) : base(name, age)
+        {
+            this.breed = breed;
+            this.owner = owner;
+        }
+
+        public override string Say() { return "Woof"; }
+
+        public string Bark() { return base.Say() + "!"; }
+
+        public void Fetch() { }
+    }
+}
+'@
+    WriteCode (Join-Path $dir 'PolyApp\Cat.cs') @'
+using System;
+
+namespace PolyApp
+{
+    public class Cat : Animal
+    {
+        private bool indoor;
+        private Collar collar;
+
+        public Cat(string n, int a, bool inside) : base(n, a)
+        {
+            this.indoor = inside;
+            this.collar = new Collar("red"); // יוצר בעצמו
+        }
+
+        public override string Say() { return "Meow"; }
+    }
+}
+'@
+    WriteCode (Join-Path $dir 'PolyApp\Person.cs') @'
+using System;
+
+namespace PolyApp
+{
+    public class Person
+    {
+        private string name;
+
+        public Person(string name) { this.name = name; }
+    }
+}
+'@
+    WriteCode (Join-Path $dir 'PolyApp\Collar.cs') @'
+using System;
+
+namespace PolyApp
+{
+    public class Collar
+    {
+        private string color;
+
+        public Collar(string color) { this.color = color; }
+    }
+}
+'@
+    WriteCode (Join-Path $dir 'PolyApp\PolyApp.csproj') (SdkCsproj '')
+    Add 'PolyApp' '{C0110001-0000-4000-8000-00000000000D}'
+
     # --- TopApp: top-level statements (התבנית החדשה של Visual Studio)
     WriteCode (Join-Path $dir 'TopApp\Program.cs') @'
 using System;

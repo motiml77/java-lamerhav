@@ -73,6 +73,7 @@ grep -qF "for (int i = 0; i < 4; i++) סיבוב 2, i=1 [0,(1),2,3], תנאי: 1
     || { echo "נכשל: לולאות"; grep -h "לולאה\|הזוגות" "$L2" "$L3" | head -30; exit 1; }
 echo "== 3. התוסף של VS Code (מול חיקוי של ה-API)"
 last 2 node vscode-test.js
+last 1 node javac-poly-test.js "$W/javac-poly"
 echo "== 3ב. החלון \"הוסף מבנה נתונים\" של VS Code בדפדפן (Chromium): לחיצות, ערכים אקראיים, בדיקת שם, ציור"
 last 1 node addstructure-test.js "$W"
 echo "== 3ג. \"צור מחלקה\": אותו קוד ב-Java (Eclipse / IntelliJ / Visual Studio) וב-VS Code, סריקת הפרויקט, והמחלקות מתקמפלות ורצות (Java ו-C#)"
@@ -299,6 +300,24 @@ n=$(cat "$PO"/*/out.txt | grep -c '\[דריסה') && bad=$(cat "$PO"/*/out.txt |
     && ! grep -q 'פסים מ-[A-Za-z]* (this)' "$PO"/*/out.txt \
     && echo "  ok  $n קריאות: מה שהחלונית אומרת שרץ = מה שבאמת רץ; בלי \"להפוך\"; בלי הורשה — הכרטיס הרגיל; בלי פסים על this" \
     || { echo "  FAIL מה רץ / להפוך / קופסאות בלי הורשה ($n, $bad)"; grep '\[דריסה' "$PO"/*/out.txt | head; exit 1; }
+# בתוך package (Eclipse / IntelliJ / VS Code — פרויקט עם חבילה): אותה תצוגה; רק הודעת השגיאה של Java עצמה כוללת את שם החבילה
+for p in pets zoo valid; do
+    f=$(ls objects/poly/$p/*.java) && b=$(basename "$f" .java) && mkdir -p "$PO/pk-$p/zz" && sed '1s/^/package zz; /' "$f" > "$PO/pk-$p/zz/$b.java"
+    javac -g -encoding UTF-8 -nowarn -cp "$JAR" -d "$PO/pk-$p" "$PO/pk-$p/zz/$b.java"
+    (cd "$PO/pk-$p" && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine zz.$b > out.txt 2>&1) || true
+    grep -v 'ClassCastException\|^\s*at ' "$PO/$p/out.txt" > "$PO/pk-$p/a.txt"; grep -v 'ClassCastException\|^\s*at ' "$PO/pk-$p/out.txt" > "$PO/pk-$p/b.txt"
+    if cmp -s "$PO/pk-$p/a.txt" "$PO/pk-$p/b.txt" \
+        && [ "$(grep -c '\[דריסה' "$PO/pk-$p/out.txt")" = "$(grep -c '\[דריסה' "$PO/$p/out.txt")" ]; then :; else
+        echo "  FAIL הורשה בתוך package ($p): התצוגה שונה"; diff "$PO/$p/out.txt" "$PO/pk-$p/out.txt" | head; exit 1; fi
+done
+echo "  ok  הורשה בתוך package: אותה תצוגה כמו בלי package"
+# מחלקה בכל קובץ (כמו פרויקט של תלמיד): אותן קריאות, ו-super.say() ב-Dog — "מחוץ ל-Dog" (קודם: מחלקה אחרת שיורשת מ-Animal — Cat)
+mkdir -p "$PO/split" && python3 helpers/split-classes.py objects/poly/pets/Pets.java "$PO/split" && javac -g -encoding UTF-8 -nowarn -cp "$JAR" -d "$PO/split" "$PO/split"/*.java
+(cd "$PO/split" && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Pets > out.txt 2>&1) || true
+[ "$(ls "$PO/split"/*.java | wc -l)" -eq 6 ] && [ "$(grep -c '\[דריסה' "$PO/split/out.txt")" = "$(grep -c '\[דריסה' "$PO/pets/out.txt")" ] \
+    && grep -q 'super.say() ממשיך לחפש מהקופסה שמחוץ ל-Dog' "$PO/split/out.txt" && ! grep -q 'שמחוץ ל-Cat' "$PO/split/out.txt" \
+    && echo "  ok  הורשה, מחלקה בכל קובץ: אותן קריאות, super.say() — מחוץ ל-Dog" \
+    || { echo "  FAIL הורשה, מחלקה בכל קובץ"; grep '\[דריסה' "$PO/split/out.txt" | head; exit 1; }
 # הציור (בלי חלון): Dog בתוך Animal, צבע אחד למחלקה בקופסה / בתגית / בתא, פסים רק כשהטיפוסים שונים, תגיות קטנות בתאים, תרשים המחלקות
 javac -encoding UTF-8 -cp "$JAR" -d "$PO" objects/PolyPaintCheck.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$PO:$JAR" unit4.collectionsLib.PolyPaintCheck "$PO/frames" > "$PO/paint.txt" 2>&1 \
@@ -517,6 +536,10 @@ cp ../../eclipse-plugin/src/il/lamerhav/dsviz/problems_he.properties "$W/mentor/
 (cd "$W/mentor" && jar xf "$DEPS/ecj.jar" org/eclipse/jdt/internal/compiler/problem/messages.properties)
 java -Dstdout.encoding=UTF-8 -Dclean=../../src/examples:../../src/Main.java -Dmessages="$W/mentor/org/eclipse/jdt/internal/compiler/problem/messages.properties" \
     -cp "$W/mentor/cls:$(ls "$DEPS"/*.jar | tr '\n' ':')" il.lamerhav.dsviz.MentorTest "$JAR" mentor-cases.txt
+# הורשה ופולימורפיזם: הסברים לשגיאות (pet.bark() כשהפעולה רק ב-Dog, המרות, super, פעולה מופשטת, דריסה) ואזהרות (toString בכתיב שגוי,
+# תכונה שחוזרת במחלקה היורשת, המרה בלולאה בלי instanceof, instanceof בסדר הפוך, דריסה שקוראת לעצמה) — ובלי אזהרות שווא על הדוגמאות של הורשה
+java -Dstdout.encoding=UTF-8 -Dclean=objects/poly:classgen-poly \
+    -cp "$W/mentor/cls:$(ls "$DEPS"/*.jar | tr '\n' ':')" il.lamerhav.dsviz.MentorTest "$JAR" mentor/poly-cases.txt
 echo "== 10א. חלון \"הסברים בעברית\": עברית עם קוד מוצגת נכון מימין לשמאל (s.pop() בסוף משפט, arr[i], Stack<Integer>, !=, מספרים, רשימות)"
 java -Dstdout.encoding=UTF-8 -cp "$W/mentor/cls" il.lamerhav.dsviz.RtlTextTest
 echo "== 10ב. Eclipse: כל חלונות ההודעה דרך Say (מימין לשמאל, במראה החדש) — בלי MessageDialog / ErrorDialog / MessageBox / חלונות בחירה של JFace ישירות"

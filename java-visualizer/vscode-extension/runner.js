@@ -85,12 +85,20 @@ function compile(javac, srcDir, binDir, jar) {
     });
 }
 
-/** "C:\x\Main.java:12: error: ';' expected" → { file, line, message, severity } */
+/**
+ * "C:\x\Main.java:12: error: ';' expected" → { file, line, message, severity, detail }
+ * detail — שורות הפירוט שאחרי השורה מהקוד והחץ (symbol: / location: / required: / found: ...), בשביל ההסבר בעברית
+ */
 function parseErrors(out) {
     const res = [];
+    let cur = null, after = 0;
     for (const line of out.split(/\r?\n/)) {
         const m = /^(.*\.java):(\d+): (error|warning): (.*)$/.exec(line);
-        if (m) res.push({ file: m[1], line: +m[2], severity: m[3], message: m[4] });
+        if (m) { cur = { file: m[1], line: +m[2], severity: m[3], message: m[4], detail: '' }; res.push(cur); after = 0; continue; }
+        if (!cur || /^\d+ (errors?|warnings?)$/.test(line.trim())) { cur = null; continue; }
+        after++;
+        if (after === 1 || /^\s*\^\s*$/.test(line) || !line.trim()) continue;   // השורה מהקוד והחץ שמתחתיה
+        if (/^\s/.test(line)) cur.detail += (cur.detail ? '\n' : '') + line.trim();
     }
     return res;
 }

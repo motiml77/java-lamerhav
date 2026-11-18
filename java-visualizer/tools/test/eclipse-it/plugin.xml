@@ -41,4 +41,9 @@
          <run class="il.lamerhav.dsviz.it.ModuleFix"/>
       </application>
    </extension>
+   <extension id="poly" point="org.eclipse.core.runtime.applications">
+      <application visible="true">
+         <run class="il.lamerhav.dsviz.it.PolyIt"/>
+      </application>
+   </extension>
 </plugin>

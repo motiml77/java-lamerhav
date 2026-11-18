@@ -48,13 +48,16 @@ check "OFF-MENTOR-COUNT 0" "כיבוי מהתפריט: כל הסימונים נ�
 check "AUTOIMPORT bare=true member=false" "פעולות העזר: size(s) — ה-import נוסף לבד; s.size() — לא"
 check "POWER-OFF on=false mentor=0 autoimport=false" "לחצן הכיבוי: בלי הסברים בעברית ובלי import אוטומטי"
 check "POWER-ON on=true mentor=[1-9][0-9]* autoimport=true" "לחצן ההפעלה: הכול חוזר"
+check "BUILD Poly.java:5 mentor error ל[-‑]Animal אין פעולה bark() — היא רק ב[-‑]Dog" "הורשה: פעולה שרק במחלקה היורשת, דרך הפניה של מחלקת-העל"
+check "BUILD Poly.java:6 mentor error כל Dog הוא Animal, אבל לא כל Animal הוא Dog" "הורשה: מחלקת-העל למשתנה של המחלקה היורשת בלי המרה"
+check "BUILD Poly.java:26 mentor error הבנאי של Dog צריך להתחיל בקריאה לבנאי של Animal \[.*super(name);\]" "הורשה: בנאי בלי super(...) — עם הקריאה המתוקנת"
 grep -q "BUILD Targil.java" "$OUT" && { echo "  FAIL קוד תקין קיבל סימונים"; FAILED=1; } || echo "  ok  קוד תקין (Targil.java) — בלי אף סימון"
 [ "$(grep -c '^BUILD-MENTOR-COUNT 0' "$OUT")" = 0 ] && echo "  ok  יש סימונים בבנייה" || { echo "  FAIL אין סימונים בבנייה"; FAILED=1; }
 [ "$(sed -n 's/^ON-AGAIN-MENTOR-COUNT //p' "$OUT")" = "$(sed -n 's/^BUILD-MENTOR-COUNT //p' "$OUT")" ] && echo "  ok  הפעלה מחדש: אותם סימונים חוזרים" \
     || { echo "  FAIL הפעלה מחדש"; FAILED=1; }
 # צילומי מסך (SHOT=1, צריך xvfb-run או XD): העורך, חלון Problems וחלון "הסברים בעברית" (‎-mentor.png‎)
 if [ "$SHOT" = 1 ]; then
-    for f in Mistakes:5:21 Warnings:16:15 Mixed:15:20; do
+    for f in Mistakes:5:21 Warnings:16:15 Mixed:15:20 Poly:5:13; do
         xrun java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -consoleLog -data "$B/ws" \
             -application il.lamerhav.dsviz.it.shot "/Students/src/${f%%:*}.java" "$B/${f%%:*}.png" "${f#*:}" >> "$B/eclipse.log" 2>&1 || true
         [ "$f" = "Mistakes:5:21" ] && { grep -m1 "MENTOR-VIEW-OPEN" "$B/eclipse.log" | grep -q true && echo "  ok  בהפעלה הראשונה — חלון ההסברים בעברית נפתח לבד בצד" \

@@ -476,6 +476,7 @@ final class Poly {
         for (String[] v : s.vars) {
             if (!v[0].equals(name)) continue;
             String w = v[1].trim().split("\\s+")[0];
+            if (get(w) == null) w = simple(w);   // C# בתוך namespace (ConsoleApp1.Dog), Java בתוך package
             return get(w) != null ? w : null;
         }
         return null;
@@ -733,6 +734,7 @@ final class Poly {
         String runs;            // הגרסה שרצה לפי החיפוש
         String ran;             // המחלקה שהקוד שלה באמת רץ (המסגרת)
         boolean viaSuper, nonVirtual;
+        String superFrom;       // super.say() / base.Say(): המחלקה שהקוד שלה קרא (מחוץ לקופסה שלה ממשיכים לחפש)
     }
 
     private static final Map<Step, Call[]> calls = new WeakHashMap<Step, Call[]>();
@@ -785,6 +787,7 @@ final class Poly {
             c.text = (c.recv.equals("this") && !line.matches("(?s).*\\bthis\\s*\\..*") ? "" : c.recv + ".") + top.method + "()";
             if (c.recv.equals("super") || c.recv.equals("base")) {
                 c.viaSuper = true;
+                c.superFrom = get(callerCls) != null ? callerCls : null;
                 ClassInfo cc = get(callerCls);
                 c.declared = cc == null ? null : cc.sup;
             } else if (c.recv.equals("this")) {
@@ -892,7 +895,7 @@ final class Poly {
         } else if (c.viaSuper) {
             r.add("\u0002" + c.recv + "." + c.method + "()");
             r.add("ממשיך לחפש מהקופסה שמחוץ ל-");
-            r.add("\u0001" + (c.searched.isEmpty() ? runs : childOf(c.searched.get(0))));
+            r.add("\u0001" + (c.superFrom != null ? c.superFrom : c.searched.isEmpty() ? runs : childOf(c.searched.get(0))));
             r.add(". ב-");
             r.add("\u0001" + runs);
             r.add("יש");

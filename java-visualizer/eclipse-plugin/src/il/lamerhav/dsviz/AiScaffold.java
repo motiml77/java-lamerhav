@@ -44,13 +44,19 @@ final class AiScaffold {
     private static final Pattern TYPE = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\s*<[A-Za-z0-9_<>,\\s\\[\\]?]*>)?(\\s*\\[[,\\s]*\\])*");
     private static final Pattern IMPORT = Pattern.compile("java\\.util(\\.[a-z]+)*\\.([A-Z][A-Za-z0-9_]*|\\*)");
     private static final Pattern USING = Pattern.compile("System(\\.[A-Z][A-Za-z0-9]*)+");
-    static final String MARK = "====" + rtl("כאן כותבים את התשובה") + "====";
+    /**
+     * שורת הסימון "כאן כותבים את התשובה". פעולה ולא קבוע: קבוע (static final) היה מחושב כשהמחלקה נטענת — לפני ש-bidiMarks
+     * מקבל את הערך שלו (שדות static מאותחלים לפי הסדר), ולכן יצא בלי סימוני הכיוון גם ב-Eclipse וב-Visual Studio
+     */
+    static String mark() {
+        return "====" + rtl("כאן כותבים את התשובה") + "====";
+    }
     /** רק לבדיקות: שורת return חשופה בסוף פעולה שמחזירה ערך, כדי שהקוד יתקמפל (לתלמיד לא מוסיפים — הוא כותב בעצמו) */
     static boolean testReturns = false;
 
     /** שורת הסימון בתוך הפעולה: כשיש כמה סעיפים — "כאן עונים סעיף א'", אחרת "כאן כותבים את התשובה" */
     static String markFor(Task t, boolean several) {
-        if (!several) return MARK;
+        if (!several) return mark();
         String l = t.label == null ? "" : t.label.trim();
         if (l.matches("[א-ת]")) l += "'";
         return "====" + rtl("כאן עונים סעיף " + l) + "====";

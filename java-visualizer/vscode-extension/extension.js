@@ -815,7 +815,7 @@ async function run() {
     const result = await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Window, title: 'מבני נתונים: מקמפל...' },
         () => runner.compile(jdk.javac, srcDir, binDir, jar));
-    showErrors(result);
+    showErrors(result, srcDir);
     if (!result.ok) {
         output.clear();
         output.appendLine(result.output);
@@ -860,11 +860,14 @@ async function runCs(ed) {
 }
 
 /** שגיאות הקומפילציה כקו אדום בקוד (עובד גם בלי התוספים של Java) */
-function showErrors(result) {
+function showErrors(result, srcDir) {
     diagnostics.clear();
     const byFile = new Map();
+    // עץ ההורשה של הפרויקט — כדי שההסבר יגיד באיזו מחלקה הפעולה כן נמצאת ("היא רק ב-Dog")
+    let h = null;
+    try { if (srcDir && result.errors.length) h = ui.hierarchy(runner.javaFiles(srcDir).map(f => fs.readFileSync(f, 'utf8'))); } catch (x) { h = null; }
     for (const e of result.errors) {
-        const he = ui.explain(e.message);
+        const he = ui.explain(e.message, '', e.detail, h);
         const d = new vscode.Diagnostic(new vscode.Range(e.line - 1, 0, e.line - 1, 1000), he ? ui.rtl(he) + ' (' + e.message + ')' : e.message,
             e.severity === 'error' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning);
         d.source = 'javac';

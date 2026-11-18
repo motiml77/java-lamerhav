@@ -17,6 +17,7 @@ import org.eclipse.jdt.core.dom.ArrayCreation;
 import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.BreakStatement;
+import org.eclipse.jdt.core.dom.CastExpression;
 import org.eclipse.jdt.core.dom.CatchClause;
 import org.eclipse.jdt.core.dom.ClassInstanceCreation;
 import org.eclipse.jdt.core.dom.CompilationUnit;
@@ -27,6 +28,7 @@ import org.eclipse.jdt.core.dom.EnhancedForStatement;
 import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.ExpressionStatement;
 import org.eclipse.jdt.core.dom.FieldAccess;
+import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.ForStatement;
 import org.eclipse.jdt.core.dom.IBinding;
 import org.eclipse.jdt.core.dom.IMethodBinding;
@@ -34,9 +36,11 @@ import org.eclipse.jdt.core.dom.ITypeBinding;
 import org.eclipse.jdt.core.dom.IVariableBinding;
 import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.InfixExpression;
+import org.eclipse.jdt.core.dom.InstanceofExpression;
 import org.eclipse.jdt.core.dom.LambdaExpression;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.Modifier;
 import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.ParenthesizedExpression;
 import org.eclipse.jdt.core.dom.NumberLiteral;
@@ -47,9 +51,11 @@ import org.eclipse.jdt.core.dom.ReturnStatement;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.Statement;
+import org.eclipse.jdt.core.dom.SuperMethodInvocation;
 import org.eclipse.jdt.core.dom.SwitchStatement;
 import org.eclipse.jdt.core.dom.ThisExpression;
 import org.eclipse.jdt.core.dom.ThrowStatement;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.WhileStatement;
 
@@ -106,6 +112,110 @@ final class MentorRules extends ASTVisitor {
         return true;
     }
 
+
+    // ---------------------------------------------------------------- הורשה ופולימורפיזם
+
+    /** private String name; ב-Dog, כשגם ב-Animal יש name — לעצם יהיו שתי תכונות נפרדות */
+    @Override
+    public boolean visit(FieldDeclaration fd) {
+        if (Modifier.isStatic(fd.getModifiers()) || !(fd.getParent() instanceof TypeDeclaration)) return true;
+        ITypeBinding me = ((TypeDeclaration) fd.getParent()).resolveBinding();
+        if (me == null) return true;
+        for (Object o : fd.fragments()) {
+            VariableDeclarationFragment f = (VariableDeclarationFragment) o;
+            String name = f.getName().getIdentifier();
+            for (ITypeBinding sup = me.getSuperclass(); sup != null && sup.isFromSource(); sup = sup.getSuperclass()) {
+                IVariableBinding hidden = null;
+                for (IVariableBinding v : sup.getDeclaredFields()) if (v.getName().equals(name) && !Modifier.isStatic(v.getModifiers())) hidden = v;
+                if (hidden == null) continue;
+                String s = sup.getErasure().getName();
+                warn(f.getName(), "field-hides", "גם ב-" + c(s) + " יש תכונה " + c(name) + " — לעצם של " + c(me.getName()) + " יהיו שתי תכונות " + c(name) + " נפרדות",
+                        "התכונה כבר עוברת בירושה מ-" + c(s) + ". מוחקים את השורה, ואת הערך מעבירים לבנאי של " + c(s) + ": " + c("super(" + name + ");"));
+                break;
+            }
+        }
+        return true;
+    }
+
+    /** ((Dog) zoo[i]).bark() בלולאה על מערך של מחלקת-העל, בלי instanceof — עצם שאינו Dog ייפול בזמן ריצה */
+    @Override
+    public boolean visit(CastExpression ce) {
+        ITypeBinding to = ce.getType().resolveBinding();
+        Expression e = strip(ce.getExpression());
+        ITypeBinding from = e.resolveTypeBinding();
+        if (to == null || from == null || !to.isFromSource() || !from.isFromSource() || to.getErasure().isEqualTo(from.getErasure())
+                || !to.getErasure().isSubTypeCompatible(from.getErasure())) return true;
+        if (!(e instanceof ArrayAccess) && !loopVariable(e)) return true;
+        ASTNode loop = null;
+        for (ASTNode x = ce.getParent(); x != null && !(x instanceof MethodDeclaration); x = x.getParent())
+            if (x instanceof ForStatement || x instanceof EnhancedForStatement || x instanceof WhileStatement || x instanceof DoStatement) { loop = x; break; }
+        if (loop == null) return true;
+        final boolean[] checked = new boolean[1];
+        loop.accept(new ASTVisitor() {
+            @Override
+            public boolean visit(InstanceofExpression i) { checked[0] = true; return false; }
+            @Override
+            public boolean visit(MethodInvocation m) {
+                if (m.getName().getIdentifier().equals("getClass")) checked[0] = true;
+                return true;
+            }
+        });
+        if (checked[0]) return true;
+        String t = to.getErasure().getName(), f = from.getErasure().getName();
+        warn(ce, "cast-no-check", "אם " + c(e) + " לא מצביע על " + c(t) + " — תהיה שגיאת ריצה (ClassCastException)",
+                "במערך של " + c(f) + " יכולים להיות עצמים מכמה מחלקות. בודקים לפני ההמרה: " + c("if (" + e + " instanceof " + t + ")"));
+        return true;
+    }
+
+    /** x במשתנה של for-each */
+    private static boolean loopVariable(Expression e) {
+        if (!(e instanceof SimpleName)) return false;
+        IBinding b = ((SimpleName) e).resolveBinding();
+        if (!(b instanceof IVariableBinding)) return false;
+        ASTNode p = e.getParent();
+        while (p != null && !(p instanceof MethodDeclaration)) {
+            if (p instanceof EnhancedForStatement && b.equals(((EnhancedForStatement) p).getParameter().resolveBinding())) return true;
+            p = p.getParent();
+        }
+        return false;
+    }
+
+    /** if (a instanceof Animal) ... else if (a instanceof Dog) — כל Dog הוא Animal, ולכן הענף השני לא יתבצע */
+    private void instanceofOrder(IfStatement s) {
+        if (s.getParent() instanceof IfStatement && ((IfStatement) s.getParent()).getElseStatement() == s) return;   // רק מראש השרשרת
+        List<InstanceofExpression> seen = new ArrayList<InstanceofExpression>();
+        for (Statement x = s; x instanceof IfStatement; x = ((IfStatement) x).getElseStatement()) {
+            Expression c = strip(((IfStatement) x).getExpression());
+            if (!(c instanceof InstanceofExpression)) continue;
+            InstanceofExpression ie = (InstanceofExpression) c;
+            ITypeBinding t = ie.getRightOperand().resolveBinding();
+            for (InstanceofExpression before : seen) {
+                ITypeBinding b = before.getRightOperand().resolveBinding();
+                if (t == null || b == null || !before.getLeftOperand().toString().equals(ie.getLeftOperand().toString())) continue;
+                if (t.getErasure().isEqualTo(b.getErasure()) || !t.getErasure().isSubTypeCompatible(b.getErasure())) continue;
+                String sub = t.getErasure().getName(), sup = b.getErasure().getName(), v = ie.getLeftOperand().toString();
+                warn(ie, "instanceof-order", "כל " + c(sub) + " הוא גם " + c(sup) + ", ולכן הענף של " + c(sub) + " אף פעם לא יתבצע",
+                        "הבדיקה של " + c(sup) + " כבר תפסה אותו. בודקים קודם את המחלקה היורשת: " + c("if (" + v + " instanceof " + sub + ") ... else if (" + v + " instanceof " + sup + ")"));
+                return;
+            }
+            seen.add(ie);
+        }
+    }
+
+    /** הפעולה במחלקת-העל שהפעולה דורסת (או null) */
+    private static IMethodBinding overridden(IMethodBinding mb) {
+        if (mb == null || mb.isConstructor() || Modifier.isStatic(mb.getModifiers())) return null;
+        for (ITypeBinding t = mb.getDeclaringClass().getSuperclass(); t != null; t = t.getSuperclass())
+            for (IMethodBinding m : t.getDeclaredMethods()) if (!m.isConstructor() && mb.overrides(m)) return m;
+        return null;
+    }
+
+    private static String argsOf(MethodInvocation m) {
+        List<String> a = new ArrayList<String>();
+        for (Object o : m.arguments()) a.add(o.toString());
+        return String.join(", ", a);
+    }
+
     // ---------------------------------------------------------------- תנאים ולולאות
 
     @Override
@@ -115,6 +225,7 @@ final class MentorRules extends ASTVisitor {
                     "היא כל הגוף של ה-if, ולכן מה שבא אחריה יתבצע תמיד, גם כשהתנאי לא מתקיים. מוחקים את התו: `;`");
         }
         assignmentInCondition(s.getExpression());
+        instanceofOrder(s);
         if (s.getElseStatement() == null) misleadingIndent(s, s.getThenStatement(), "if");
         else if (!(s.getElseStatement() instanceof IfStatement)) misleadingIndent(s, s.getElseStatement(), "else");
         return true;
@@ -618,6 +729,10 @@ final class MentorRules extends ASTVisitor {
             if (t != null && t.isArray() && !t.getElementType().getName().equals("char")) {
                 warn(arg, "print-array", "הדפסה של מערך מדפיסה כתובת בזיכרון, לא את האיברים",
                         "מדפיסים בלולאה, או בעזרת המחלקה Arrays (צריך גם import שלה): " + c("System.out.println(Arrays.toString(" + arg + "));"));
+            } else if (t != null && t.isClass() && t.isFromSource() && !hasToString(t) && nearToString(t) != null) {
+                String name = t.getErasure().getName(), near = nearToString(t);
+                warn(arg, "print-object", "הדפסה של עצם מטיפוס " + c(name) + " מדפיסה כתובת — " + c(near + "()") + " לא נקראת, כי השם שלה לא בדיוק " + c("toString"),
+                        "ההדפסה מחפשת פעולה בשם הזה בדיוק (T גדולה, בלי שגיאת כתיב). מתקנים את השם: " + c("public String toString()"));
             } else if (t != null && t.isClass() && t.isFromSource() && !hasToString(t)) {
                 String name = t.getErasure().getName();
                 warn(arg, "print-object", "הדפסה של עצם מטיפוס " + c(name) + " מדפיסה כתובת, כי למחלקה אין toString",
@@ -625,6 +740,18 @@ final class MentorRules extends ASTVisitor {
             }
         }
         return true;
+    }
+
+    /** פעולה בלי פרמטרים שמחזירה String ושמה כמעט toString (tostring, ToString, toSting) — או null */
+    private static String nearToString(ITypeBinding t) {
+        for (ITypeBinding c = t; c != null && !c.getQualifiedName().equals("java.lang.Object"); c = c.getSuperclass()) {
+            for (IMethodBinding m : c.getDeclaredMethods()) {
+                String n = m.getName();
+                if (m.getParameterTypes().length == 0 && !n.equals("toString") && m.getReturnType().getQualifiedName().equals("java.lang.String")
+                        && (n.equalsIgnoreCase("toString") || HebrewErrors.distance(n.toLowerCase(), "tostring") <= 2)) return n;
+            }
+        }
+        return null;
     }
 
     private static boolean hasToString(ITypeBinding t) {
@@ -776,7 +903,12 @@ final class MentorRules extends ASTVisitor {
             }
         });
         String name = m.getName().getIdentifier();
-        if (!self.isEmpty() && !nullBase(m, self) && !branches[0]) {
+        IMethodBinding over = !self.isEmpty() && !branches[0] ? overridden(mb) : null;
+        if (over != null) {
+            String sup = over.getDeclaringClass().getErasure().getName();
+            warn(self.get(0), "override-calls-itself", c(name + "()") + " קוראת לעצמה, ולא לגרסה של " + c(sup),
+                    "כך היא לא תיעצר (StackOverflowError). את הפעולה של מחלקת-העל קוראים עם super: " + c("super." + self.get(0).getName() + "(" + argsOf(self.get(0)) + ")"));
+        } else if (!self.isEmpty() && !nullBase(m, self) && !branches[0]) {
             warn(m.getName(), "no-base-case", c(name) + " קוראת לעצמה בכל מקרה — אין תנאי עצירה",
                     "היא לא תיעצר (StackOverflowError). בתחילת הפעולה בודקים מקרה פשוט ומחזירים: " + c("if (…) return …;"));
         }
