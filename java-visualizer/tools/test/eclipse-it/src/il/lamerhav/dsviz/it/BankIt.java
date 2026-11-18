@@ -165,6 +165,11 @@ public class BankIt implements IApplication {
         ui(() -> { select(dlg, "classes", "classes-points"); return null; });
         sleep(800);
         shot(dlg, "bank-dialog-points.png");
+        // הורשה: תרשים המחלקות (BankClassCanvas) מתחת לנוסח — מהקוד של המחלקות בתרגיל
+        ui(() -> { select(dlg, "inheritance", "inheritance-zoo-owners"); return null; });
+        sleep(900);
+        out.println("PREVIEW-INHERITANCE " + ui(() -> preview(dlg)));
+        shot(dlg, "bank-dialog-inheritance.png");
         ui(() -> { select(dlg, "list", "list-length-sum"); return null; });
         sleep(800);
         out.println("PREVIEW-LIST " + ui(() -> preview(dlg)));

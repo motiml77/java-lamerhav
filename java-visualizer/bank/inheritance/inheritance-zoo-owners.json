@@ -4,23 +4,38 @@
   "level": "hard",
   "title": "גן החיות — כלבים ובעליהם",
   "question": {
-    "intro": "נתונות המחלקות:\nAnimal (חיה) — שם, והפעולה say שמחזירה \"חיה\"\nMammal (יונק) — יורשת מ-Animal; כמות חלב; say מחזירה \"יונק\"\nDog (כלב) — יורשת מ-Mammal; מספר עצמות (getBones); say מחזירה \"כלב\"\nBoxer (בוקסר) — יורשת מ-Dog; מה הבוקסר שומר (guard)\nLabrador (לברדור) — יורשת מ-Dog; לכל לברדור יש בעלים owner מטיפוס Person (אדם, עם שם)\nZoo (גן חיות) — מערך animals מטיפוס Animal[] ומספר החיות count; הפעולה add מוסיפה חיה במקום הפנוי הראשון, ויש פעולות getCount, getSize (גודל המערך) ו-getAnimal(i).\nהקוד של המחלקות נמצא בתרגיל.",
+    "intro": "גן חיות — התרשים מראה את המחלקות ומי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nהפעולה say של כל מחלקה מחזירה את השם שלה בעברית. למשל, say של Dog מחזירה \"כלב\"\nבוקסר (Boxer) ולברדור (Labrador) יורשות מ-Dog. לכל לברדור יש בעלים owner מטיפוס Person (אדם, עם שם).\nגן חיות (Zoo): מערך animals מטיפוס Animal[] ומספר החיות count.\nהפעולה add של Zoo מוסיפה חיה במקום הפנוי הראשון. getSize מחזירה את גודל המערך, ו-getAnimal(i) את החיה במקום i.",
     "sections": [
       {
         "label": "א",
-        "text": "הוסיפו למחלקה Labrador פעולה say שדורסת את הפעולה של Dog ומחזירה את מה ש-say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את say של מחלקת העל (super.say()).\nלדוגמה: ללברדור שהבעלים שלו Hila הפעולה תחזיר \"כלב של Hila\""
+        "text": "הוסיפו למחלקה Labrador פעולה say שדורסת את say של Dog.\nהיא מחזירה את מה ש-say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את הפעולה של מחלקת העל: super.say()\nלדוגמה: לברדור שהבעלים שלו Hila — הפעולה תחזיר \"כלב של Hila\""
       },
       {
         "label": "ב",
-        "text": "כתבו במחלקה Zoo פעולה פנימית ששמה countDogs, המחזירה כמה כלבים יש בגן (כלב רגיל, בוקסר או לברדור)."
+        "text": "כתבו במחלקה Zoo פעולה פנימית countDogs, שמחזירה כמה כלבים יש בגן.\nכל עצם של Dog נספר — גם בוקסר וגם לברדור."
       },
       {
         "label": "ג",
-        "text": "כתבו במחלקה Zoo פעולה פנימית ששמה findOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור), הפעולה תחזיר null."
+        "text": "כתבו במחלקה Zoo פעולה פנימית findOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור) — הפעולה מחזירה null"
       },
       {
         "label": "ד",
-        "text": "כתבו פעולה חיצונית ששמה onlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר. הגן z לא משתנה."
+        "text": "כתבו פעולה חיצונית onlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר.\nהגן z לא משתנה."
+      }
+    ],
+    "figures": [
+      {
+        "type": "classes",
+        "values": [
+          "Animal",
+          "Mammal",
+          "Dog",
+          "Boxer",
+          "Labrador",
+          "Person",
+          "Zoo"
+        ],
+        "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
       }
     ]
   },
@@ -69,7 +84,7 @@
         "returnType": "String",
         "methodName": "say",
         "parameters": [],
-        "instructions": "הוסיפו למחלקה Labrador פעולה say שדורסת את הפעולה של Dog ומחזירה את מה ש-say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את say של מחלקת העל (super.say()).\nלדוגמה: ללברדור שהבעלים שלו Hila הפעולה תחזיר \"כלב של Hila\"",
+        "instructions": "הוסיפו למחלקה Labrador פעולה say שדורסת את say של Dog.\nהיא מחזירה את מה ש-say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את הפעולה של מחלקת העל: super.say()\nלדוגמה: לברדור שהבעלים שלו Hila — הפעולה תחזיר \"כלב של Hila\"",
         "solution": "public String say() {\n    return super.say() + \" של \" + owner.getName();\n}"
       },
       {
@@ -80,7 +95,7 @@
         "returnType": "int",
         "methodName": "countDogs",
         "parameters": [],
-        "instructions": "כתבו במחלקה Zoo פעולה פנימית ששמה countDogs, המחזירה כמה כלבים יש בגן (כלב רגיל, בוקסר או לברדור).",
+        "instructions": "כתבו במחלקה Zoo פעולה פנימית countDogs, שמחזירה כמה כלבים יש בגן.\nכל עצם של Dog נספר — גם בוקסר וגם לברדור.",
         "solution": "public int countDogs() {\n    int n = 0;\n    for (int i = 0; i < count; i++) {\n        if (animals[i] instanceof Dog) {\n            n++;\n        }\n    }\n    return n;\n}"
       },
       {
@@ -96,7 +111,7 @@
             "name": "dogName"
           }
         ],
-        "instructions": "כתבו במחלקה Zoo פעולה פנימית ששמה findOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור), הפעולה תחזיר null.",
+        "instructions": "כתבו במחלקה Zoo פעולה פנימית findOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור) — הפעולה מחזירה null",
         "solution": "public String findOwner(String dogName) {\n    for (int i = 0; i < count; i++) {\n        if (animals[i] instanceof Labrador && animals[i].getName().equals(dogName)) {\n            Labrador lab = (Labrador) animals[i];\n            return lab.getOwner().getName();\n        }\n    }\n    return null;\n}"
       },
       {
@@ -112,7 +127,7 @@
             "name": "z"
           }
         ],
-        "instructions": "כתבו פעולה חיצונית ששמה onlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר. הגן z לא משתנה.",
+        "instructions": "כתבו פעולה חיצונית onlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר.\nהגן z לא משתנה.",
         "solution": "public static Zoo onlyMammals(Zoo z) {\n    Zoo res = new Zoo(z.getSize());\n    for (int i = 0; i < z.getCount(); i++) {\n        if (z.getAnimal(i) instanceof Mammal) {\n            res.add(z.getAnimal(i));\n        }\n    }\n    return res;\n}"
       }
     ],
@@ -129,23 +144,38 @@
   "csharp": {
     "manual": true,
     "question": {
-      "intro": "נתונות המחלקות:\nAnimal (חיה) — שם, והפעולה Say (virtual) שמחזירה \"חיה\"\nMammal (יונק) — יורשת מ-Animal; כמות חלב; Say מחזירה \"יונק\"\nDog (כלב) — יורשת מ-Mammal; מספר עצמות (GetBones); Say מחזירה \"כלב\"\nBoxer (בוקסר) — יורשת מ-Dog; מה הבוקסר שומר (guard)\nLabrador (לברדור) — יורשת מ-Dog; לכל לברדור יש בעלים owner מטיפוס Person (אדם, עם שם)\nZoo (גן חיות) — מערך animals מטיפוס Animal[] ומספר החיות count; הפעולה Add מוסיפה חיה במקום הפנוי הראשון, ויש פעולות GetCount, GetSize (גודל המערך) ו-GetAnimal(i).\nהקוד של המחלקות נמצא בתרגיל.",
+      "intro": "גן חיות — התרשים מראה את המחלקות ומי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nהפעולה Say של כל מחלקה מחזירה את השם שלה בעברית. למשל, Say של Dog מחזירה \"כלב\"\nבוקסר (Boxer) ולברדור (Labrador) יורשות מ-Dog. לכל לברדור יש בעלים owner מטיפוס Person (אדם, עם שם).\nגן חיות (Zoo): מערך animals מטיפוס Animal[] ומספר החיות count.\nהפעולה Add של Zoo מוסיפה חיה במקום הפנוי הראשון. GetSize מחזירה את גודל המערך, ו-GetAnimal(i) את החיה במקום i.",
       "sections": [
         {
           "label": "א",
-          "text": "הוסיפו למחלקה Labrador פעולה Say שדורסת את הפעולה של Dog (override) ומחזירה את מה ש-Say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את Say של מחלקת העל (base.Say()).\nלדוגמה: ללברדור שהבעלים שלו Hila הפעולה תחזיר \"כלב של Hila\""
+          "text": "הוסיפו למחלקה Labrador פעולה Say שדורסת (override) את Say של Dog.\nהיא מחזירה את מה ש-Say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את הפעולה של מחלקת העל: base.Say()\nלדוגמה: לברדור שהבעלים שלו Hila — הפעולה תחזיר \"כלב של Hila\""
         },
         {
           "label": "ב",
-          "text": "כתבו במחלקה Zoo פעולה פנימית ששמה CountDogs, המחזירה כמה כלבים יש בגן (כלב רגיל, בוקסר או לברדור)."
+          "text": "כתבו במחלקה Zoo פעולה פנימית CountDogs, שמחזירה כמה כלבים יש בגן.\nכל עצם של Dog נספר — גם בוקסר וגם לברדור."
         },
         {
           "label": "ג",
-          "text": "כתבו במחלקה Zoo פעולה פנימית ששמה FindOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור), הפעולה תחזיר null."
+          "text": "כתבו במחלקה Zoo פעולה פנימית FindOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור) — הפעולה מחזירה null"
         },
         {
           "label": "ד",
-          "text": "כתבו פעולה חיצונית ששמה OnlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר. הגן z לא משתנה."
+          "text": "כתבו פעולה חיצונית OnlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר.\nהגן z לא משתנה."
+        }
+      ],
+      "figures": [
+        {
+          "type": "classes",
+          "values": [
+            "Animal",
+            "Mammal",
+            "Dog",
+            "Boxer",
+            "Labrador",
+            "Person",
+            "Zoo"
+          ],
+          "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
         }
       ]
     },
@@ -194,7 +224,7 @@
           "returnType": "string",
           "methodName": "Say",
           "parameters": [],
-          "instructions": "הוסיפו למחלקה Labrador פעולה Say שדורסת את הפעולה של Dog (override) ומחזירה את מה ש-Say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את Say של מחלקת העל (base.Say()).\nלדוגמה: ללברדור שהבעלים שלו Hila הפעולה תחזיר \"כלב של Hila\"",
+          "instructions": "הוסיפו למחלקה Labrador פעולה Say שדורסת (override) את Say של Dog.\nהיא מחזירה את מה ש-Say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את הפעולה של מחלקת העל: base.Say()\nלדוגמה: לברדור שהבעלים שלו Hila — הפעולה תחזיר \"כלב של Hila\"",
           "solution": "public override string Say()\n{\n    return base.Say() + \" של \" + owner.GetName();\n}",
           "modifier": "override"
         },
@@ -206,7 +236,7 @@
           "returnType": "int",
           "methodName": "CountDogs",
           "parameters": [],
-          "instructions": "כתבו במחלקה Zoo פעולה פנימית ששמה CountDogs, המחזירה כמה כלבים יש בגן (כלב רגיל, בוקסר או לברדור).",
+          "instructions": "כתבו במחלקה Zoo פעולה פנימית CountDogs, שמחזירה כמה כלבים יש בגן.\nכל עצם של Dog נספר — גם בוקסר וגם לברדור.",
           "solution": "public int CountDogs()\n{\n    int n = 0;\n    for (int i = 0; i < count; i++)\n    {\n        if (animals[i] is Dog)\n        {\n            n++;\n        }\n    }\n    return n;\n}"
         },
         {
@@ -222,7 +252,7 @@
               "name": "dogName"
             }
           ],
-          "instructions": "כתבו במחלקה Zoo פעולה פנימית ששמה FindOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור), הפעולה תחזיר null.",
+          "instructions": "כתבו במחלקה Zoo פעולה פנימית FindOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור) — הפעולה מחזירה null",
           "solution": "public string FindOwner(string dogName)\n{\n    for (int i = 0; i < count; i++)\n    {\n        if (animals[i] is Labrador && animals[i].GetName() == dogName)\n        {\n            Labrador lab = (Labrador) animals[i];\n            return lab.GetOwner().GetName();\n        }\n    }\n    return null;\n}"
         },
         {
@@ -238,7 +268,7 @@
               "name": "z"
             }
           ],
-          "instructions": "כתבו פעולה חיצונית ששמה OnlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר. הגן z לא משתנה.",
+          "instructions": "כתבו פעולה חיצונית OnlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר.\nהגן z לא משתנה.",
           "solution": "public static Zoo OnlyMammals(Zoo z)\n{\n    Zoo res = new Zoo(z.GetSize());\n    for (int i = 0; i < z.GetCount(); i++)\n    {\n        if (z.GetAnimal(i) is Mammal)\n        {\n            res.Add(z.GetAnimal(i));\n        }\n    }\n    return res;\n}"
         }
       ],

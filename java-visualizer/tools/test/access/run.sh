@@ -35,7 +35,7 @@ javac -encoding UTF-8 -nowarn -cp "$LIB" -d "$CLS" tools/test/access/*.java
 VSB="$W/vsb"
 mkdir -p "$VSB"
 javac --release 8 -Xlint:-options -encoding UTF-8 -nowarn -cp "$LIB" -d "$VSB" $(find vs-bank/src -name '*.java') \
-    eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
+    eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankClasses.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
     $E/CsSolution.java
 (cd "$VSB" && unzip -qo "$ACC" -x 'META-INF/*')
 sh tools/check-jre-modules.sh "$VSB" "$LIB"

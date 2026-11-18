@@ -4,15 +4,27 @@
   "level": "easy",
   "title": "כמה יונקים בגן החיות",
   "question": {
-    "intro": "נתונות המחלקות Animal (חיה), Mammal (יונק) שיורשת מ-Animal, Dog (כלב) שיורשת מ-Mammal ו-Bird (ציפור) שיורשת מ-Animal. הקוד שלהן נמצא בתרגיל.\nליונק (Mammal) יש פעולה getMilk שמחזירה את כמות החלב שלו. לחיה (Animal) אין פעולה כזו.",
+    "intro": "ארבע מחלקות של חיות — התרשים מראה מי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nכלב (Dog) הוא גם יונק (Mammal), וכל יונק וכל ציפור (Bird) הם חיה (Animal).\nלכל יונק יש פעולה getMilk שמחזירה את כמות החלב שלו. לחיה כללית ולציפור אין פעולה כזו.",
     "sections": [
       {
         "label": "א",
-        "text": "כתבו פעולה ששמה countMammals, המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה מהחיות במערך הן יונקים — עצמים מהמחלקה Mammal או ממחלקה שיורשת ממנה (כלב הוא גם יונק).\nרמז: instanceof"
+        "text": "כתבו פעולה countMammals המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה יונקים יש בו.\nיונק הוא עצם של Mammal או של מחלקה שיורשת ממנה — גם כלב נספר.\nרמז: instanceof"
       },
       {
         "label": "ב",
-        "text": "כתבו פעולה ששמה totalMilk, המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סך כמות החלב (getMilk) של כל היונקים במערך.\nשימו לב: את getMilk אפשר לזמן רק דרך הפניה מטיפוס Mammal (או יורשת שלה) — צריך המרה (casting), ורק אחרי שבדקתם שהעצם הוא יונק."
+        "text": "כתבו פעולה totalMilk המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סכום החלב (getMilk) של כל היונקים בו.\nשימו לב: דרך הפניה מטיפוס Animal אי אפשר לזמן את getMilk.\nקודם בודקים שהעצם הוא יונק, ואז ממירים: (Mammal) zoo[i]"
+      }
+    ],
+    "figures": [
+      {
+        "type": "classes",
+        "values": [
+          "Animal",
+          "Mammal",
+          "Dog",
+          "Bird"
+        ],
+        "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
       }
     ]
   },
@@ -54,7 +66,7 @@
             "name": "zoo"
           }
         ],
-        "instructions": "כתבו פעולה ששמה countMammals, המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה מהחיות במערך הן יונקים — עצמים מהמחלקה Mammal או ממחלקה שיורשת ממנה (כלב הוא גם יונק).\nרמז: instanceof",
+        "instructions": "כתבו פעולה countMammals המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה יונקים יש בו.\nיונק הוא עצם של Mammal או של מחלקה שיורשת ממנה — גם כלב נספר.\nרמז: instanceof",
         "solution": "public static int countMammals(Animal[] zoo) {\n    int count = 0;\n    for (int i = 0; i < zoo.length; i++) {\n        if (zoo[i] instanceof Mammal) {\n            count++;\n        }\n    }\n    return count;\n}"
       },
       {
@@ -70,7 +82,7 @@
             "name": "zoo"
           }
         ],
-        "instructions": "כתבו פעולה ששמה totalMilk, המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סך כמות החלב (getMilk) של כל היונקים במערך.\nשימו לב: את getMilk אפשר לזמן רק דרך הפניה מטיפוס Mammal (או יורשת שלה) — צריך המרה (casting), ורק אחרי שבדקתם שהעצם הוא יונק.",
+        "instructions": "כתבו פעולה totalMilk המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סכום החלב (getMilk) של כל היונקים בו.\nשימו לב: דרך הפניה מטיפוס Animal אי אפשר לזמן את getMilk.\nקודם בודקים שהעצם הוא יונק, ואז ממירים: (Mammal) zoo[i]",
         "solution": "public static double totalMilk(Animal[] zoo) {\n    double sum = 0;\n    for (int i = 0; i < zoo.length; i++) {\n        if (zoo[i] instanceof Mammal) {\n            Mammal m = (Mammal) zoo[i];\n            sum += m.getMilk();\n        }\n    }\n    return sum;\n}"
       }
     ],
@@ -87,15 +99,27 @@
   "csharp": {
     "manual": true,
     "question": {
-      "intro": "נתונות המחלקות Animal (חיה), Mammal (יונק) שיורשת מ-Animal, Dog (כלב) שיורשת מ-Mammal ו-Bird (ציפור) שיורשת מ-Animal. הקוד שלהן נמצא בתרגיל.\nליונק (Mammal) יש פעולה GetMilk שמחזירה את כמות החלב שלו. לחיה (Animal) אין פעולה כזו.",
+      "intro": "ארבע מחלקות של חיות — התרשים מראה מי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nכלב (Dog) הוא גם יונק (Mammal), וכל יונק וכל ציפור (Bird) הם חיה (Animal).\nלכל יונק יש פעולה GetMilk שמחזירה את כמות החלב שלו. לחיה כללית ולציפור אין פעולה כזו.",
       "sections": [
         {
           "label": "א",
-          "text": "כתבו פעולה ששמה CountMammals, המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה מהחיות במערך הן יונקים — עצמים מהמחלקה Mammal או ממחלקה שיורשת ממנה (כלב הוא גם יונק).\nרמז: is"
+          "text": "כתבו פעולה CountMammals המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה יונקים יש בו.\nיונק הוא עצם של Mammal או של מחלקה שיורשת ממנה — גם כלב נספר.\nרמז: is"
         },
         {
           "label": "ב",
-          "text": "כתבו פעולה ששמה TotalMilk, המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סך כמות החלב (GetMilk) של כל היונקים במערך.\nשימו לב: את GetMilk אפשר לזמן רק דרך הפניה מטיפוס Mammal (או יורשת שלה) — צריך המרה (casting), ורק אחרי שבדקתם שהעצם הוא יונק."
+          "text": "כתבו פעולה TotalMilk המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סכום החלב (GetMilk) של כל היונקים בו.\nשימו לב: דרך הפניה מטיפוס Animal אי אפשר לזמן את GetMilk.\nקודם בודקים שהעצם הוא יונק, ואז ממירים: (Mammal) zoo[i]"
+        }
+      ],
+      "figures": [
+        {
+          "type": "classes",
+          "values": [
+            "Animal",
+            "Mammal",
+            "Dog",
+            "Bird"
+          ],
+          "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
         }
       ]
     },
@@ -137,7 +161,7 @@
               "name": "zoo"
             }
           ],
-          "instructions": "כתבו פעולה ששמה CountMammals, המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה מהחיות במערך הן יונקים — עצמים מהמחלקה Mammal או ממחלקה שיורשת ממנה (כלב הוא גם יונק).\nרמז: is",
+          "instructions": "כתבו פעולה CountMammals המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה יונקים יש בו.\nיונק הוא עצם של Mammal או של מחלקה שיורשת ממנה — גם כלב נספר.\nרמז: is",
           "solution": "public static int CountMammals(Animal[] zoo)\n{\n    int count = 0;\n    for (int i = 0; i < zoo.Length; i++)\n    {\n        if (zoo[i] is Mammal)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
         },
         {
@@ -153,7 +177,7 @@
               "name": "zoo"
             }
           ],
-          "instructions": "כתבו פעולה ששמה TotalMilk, המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סך כמות החלב (GetMilk) של כל היונקים במערך.\nשימו לב: את GetMilk אפשר לזמן רק דרך הפניה מטיפוס Mammal (או יורשת שלה) — צריך המרה (casting), ורק אחרי שבדקתם שהעצם הוא יונק.",
+          "instructions": "כתבו פעולה TotalMilk המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סכום החלב (GetMilk) של כל היונקים בו.\nשימו לב: דרך הפניה מטיפוס Animal אי אפשר לזמן את GetMilk.\nקודם בודקים שהעצם הוא יונק, ואז ממירים: (Mammal) zoo[i]",
           "solution": "public static double TotalMilk(Animal[] zoo)\n{\n    double sum = 0;\n    for (int i = 0; i < zoo.Length; i++)\n    {\n        if (zoo[i] is Mammal)\n        {\n            Mammal m = (Mammal) zoo[i];\n            sum += m.GetMilk();\n        }\n    }\n    return sum;\n}"
         }
       ],

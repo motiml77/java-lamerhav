@@ -4,19 +4,31 @@
   "level": "medium",
   "title": "צורות — מלבן, ריבוע ומשולש",
   "question": {
-    "intro": "נתונה המחלקה Shape (צורה) ובה צבע, והפעולה area שמחזירה 0\nהמחלקה Rectangle (מלבן) יורשת מ-Shape, ויש לה רוחב וגובה.\nהמחלקה Square (ריבוע) יורשת מ-Rectangle: הפעולה הבונה שלה מקבלת צלע אחת ומעבירה אותה כרוחב וכגובה.\nהמחלקה RightTriangle (משולש ישר זווית) יורשת מ-Shape, ויש לה שני ניצבים a ו-b. כל המידות הן מספרים שלמים.\nהקוד של המחלקות נמצא בתרגיל.",
+    "intro": "ארבע מחלקות של צורות — התרשים מראה מי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nצורה (Shape): צבע. הפעולה area מחזירה 0\nמלבן (Rectangle) יורשת מ-Shape: רוחב וגובה.\nריבוע (Square) יורשת מ-Rectangle: הבנאי מקבל צלע אחת ומעביר אותה כרוחב וכגובה.\nמשולש ישר זווית (RightTriangle) יורשת מ-Shape: שני ניצבים a ו-b.\nכל המידות הן מספרים שלמים.",
     "sections": [
       {
         "label": "א",
-        "text": "הוסיפו למחלקה Rectangle פעולה area שדורסת את הפעולה של Shape ומחזירה את שטח המלבן.\nלדוגמה: למלבן ברוחב 3 ובגובה 4 הפעולה תחזיר 12\nשימו לב: את area של Square לא צריך לכתוב — ריבוע יורש אותה מ-Rectangle."
+        "text": "הוסיפו למחלקה Rectangle פעולה area שדורסת את area של Shape ומחזירה את שטח המלבן.\nלדוגמה: מלבן ברוחב 3 ובגובה 4 — הפעולה תחזיר 12\nשימו לב: ל-Square לא כותבים area — ריבוע יורש אותה מ-Rectangle."
       },
       {
         "label": "ב",
-        "text": "הוסיפו למחלקה RightTriangle פעולה area שדורסת את הפעולה של Shape ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק של שלמים).\nלדוגמה: למשולש עם ניצבים 6 ו-4 הפעולה תחזיר 12"
+        "text": "הוסיפו למחלקה RightTriangle פעולה area שדורסת את area של Shape ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק שלמים).\nלדוגמה: משולש עם ניצבים 6 ו-4 — הפעולה תחזיר 12"
       },
       {
         "label": "ג",
-        "text": "כתבו פעולה ששמה countRectangles, המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש במערך.\nשימו לב: ריבוע הוא גם מלבן — Square יורשת מ-Rectangle."
+        "text": "כתבו פעולה countRectangles המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש בו.\nשימו לב: ריבוע הוא גם מלבן (Square יורשת מ-Rectangle), ולכן instanceof Rectangle נכון גם לריבוע."
+      }
+    ],
+    "figures": [
+      {
+        "type": "classes",
+        "values": [
+          "Shape",
+          "Rectangle",
+          "Square",
+          "RightTriangle"
+        ],
+        "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
       }
     ]
   },
@@ -53,7 +65,7 @@
         "returnType": "int",
         "methodName": "area",
         "parameters": [],
-        "instructions": "הוסיפו למחלקה Rectangle פעולה area שדורסת את הפעולה של Shape ומחזירה את שטח המלבן.\nלדוגמה: למלבן ברוחב 3 ובגובה 4 הפעולה תחזיר 12\nשימו לב: את area של Square לא צריך לכתוב — ריבוע יורש אותה מ-Rectangle.",
+        "instructions": "הוסיפו למחלקה Rectangle פעולה area שדורסת את area של Shape ומחזירה את שטח המלבן.\nלדוגמה: מלבן ברוחב 3 ובגובה 4 — הפעולה תחזיר 12\nשימו לב: ל-Square לא כותבים area — ריבוע יורש אותה מ-Rectangle.",
         "solution": "public int area() {\n    return width * height;\n}"
       },
       {
@@ -64,7 +76,7 @@
         "returnType": "int",
         "methodName": "area",
         "parameters": [],
-        "instructions": "הוסיפו למחלקה RightTriangle פעולה area שדורסת את הפעולה של Shape ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק של שלמים).\nלדוגמה: למשולש עם ניצבים 6 ו-4 הפעולה תחזיר 12",
+        "instructions": "הוסיפו למחלקה RightTriangle פעולה area שדורסת את area של Shape ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק שלמים).\nלדוגמה: משולש עם ניצבים 6 ו-4 — הפעולה תחזיר 12",
         "solution": "public int area() {\n    return a * b / 2;\n}"
       },
       {
@@ -80,7 +92,7 @@
             "name": "shapes"
           }
         ],
-        "instructions": "כתבו פעולה ששמה countRectangles, המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש במערך.\nשימו לב: ריבוע הוא גם מלבן — Square יורשת מ-Rectangle.",
+        "instructions": "כתבו פעולה countRectangles המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש בו.\nשימו לב: ריבוע הוא גם מלבן (Square יורשת מ-Rectangle), ולכן instanceof Rectangle נכון גם לריבוע.",
         "solution": "public static int countRectangles(Shape[] shapes) {\n    int count = 0;\n    for (int i = 0; i < shapes.length; i++) {\n        if (shapes[i] instanceof Rectangle && !(shapes[i] instanceof Square)) {\n            count++;\n        }\n    }\n    return count;\n}"
       }
     ],
@@ -97,19 +109,31 @@
   "csharp": {
     "manual": true,
     "question": {
-      "intro": "נתונה המחלקה Shape (צורה) ובה צבע, והפעולה Area (virtual) שמחזירה 0\nהמחלקה Rectangle (מלבן) יורשת מ-Shape, ויש לה רוחב וגובה.\nהמחלקה Square (ריבוע) יורשת מ-Rectangle: הפעולה הבונה שלה מקבלת צלע אחת ומעבירה אותה כרוחב וכגובה.\nהמחלקה RightTriangle (משולש ישר זווית) יורשת מ-Shape, ויש לה שני ניצבים a ו-b. כל המידות הן מספרים שלמים.\nהקוד של המחלקות נמצא בתרגיל.",
+      "intro": "ארבע מחלקות של צורות — התרשים מראה מי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nצורה (Shape): צבע. הפעולה Area מחזירה 0\nמלבן (Rectangle) יורשת מ-Shape: רוחב וגובה.\nריבוע (Square) יורשת מ-Rectangle: הבנאי מקבל צלע אחת ומעביר אותה כרוחב וכגובה.\nמשולש ישר זווית (RightTriangle) יורשת מ-Shape: שני ניצבים a ו-b.\nכל המידות הן מספרים שלמים.",
       "sections": [
         {
           "label": "א",
-          "text": "הוסיפו למחלקה Rectangle פעולה Area שדורסת את הפעולה של Shape (override) ומחזירה את שטח המלבן.\nלדוגמה: למלבן ברוחב 3 ובגובה 4 הפעולה תחזיר 12\nשימו לב: את Area של Square לא צריך לכתוב — ריבוע יורש אותה מ-Rectangle."
+          "text": "הוסיפו למחלקה Rectangle פעולה Area שדורסת (override) את Area של Shape ומחזירה את שטח המלבן.\nלדוגמה: מלבן ברוחב 3 ובגובה 4 — הפעולה תחזיר 12\nשימו לב: ל-Square לא כותבים Area — ריבוע יורש אותה מ-Rectangle."
         },
         {
           "label": "ב",
-          "text": "הוסיפו למחלקה RightTriangle פעולה Area שדורסת את הפעולה של Shape (override) ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק של שלמים).\nלדוגמה: למשולש עם ניצבים 6 ו-4 הפעולה תחזיר 12"
+          "text": "הוסיפו למחלקה RightTriangle פעולה Area שדורסת (override) את Area של Shape ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק שלמים).\nלדוגמה: משולש עם ניצבים 6 ו-4 — הפעולה תחזיר 12"
         },
         {
           "label": "ג",
-          "text": "כתבו פעולה ששמה CountRectangles, המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש במערך.\nשימו לב: ריבוע הוא גם מלבן — Square יורשת מ-Rectangle."
+          "text": "כתבו פעולה CountRectangles המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש בו.\nשימו לב: ריבוע הוא גם מלבן (Square יורשת מ-Rectangle), ולכן is Rectangle נכון גם לריבוע."
+        }
+      ],
+      "figures": [
+        {
+          "type": "classes",
+          "values": [
+            "Shape",
+            "Rectangle",
+            "Square",
+            "RightTriangle"
+          ],
+          "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
         }
       ]
     },
@@ -146,7 +170,7 @@
           "returnType": "int",
           "methodName": "Area",
           "parameters": [],
-          "instructions": "הוסיפו למחלקה Rectangle פעולה Area שדורסת את הפעולה של Shape (override) ומחזירה את שטח המלבן.\nלדוגמה: למלבן ברוחב 3 ובגובה 4 הפעולה תחזיר 12\nשימו לב: את Area של Square לא צריך לכתוב — ריבוע יורש אותה מ-Rectangle.",
+          "instructions": "הוסיפו למחלקה Rectangle פעולה Area שדורסת (override) את Area של Shape ומחזירה את שטח המלבן.\nלדוגמה: מלבן ברוחב 3 ובגובה 4 — הפעולה תחזיר 12\nשימו לב: ל-Square לא כותבים Area — ריבוע יורש אותה מ-Rectangle.",
           "solution": "public override int Area()\n{\n    return width * height;\n}",
           "modifier": "override"
         },
@@ -158,7 +182,7 @@
           "returnType": "int",
           "methodName": "Area",
           "parameters": [],
-          "instructions": "הוסיפו למחלקה RightTriangle פעולה Area שדורסת את הפעולה של Shape (override) ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק של שלמים).\nלדוגמה: למשולש עם ניצבים 6 ו-4 הפעולה תחזיר 12",
+          "instructions": "הוסיפו למחלקה RightTriangle פעולה Area שדורסת (override) את Area של Shape ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק שלמים).\nלדוגמה: משולש עם ניצבים 6 ו-4 — הפעולה תחזיר 12",
           "solution": "public override int Area()\n{\n    return a * b / 2;\n}",
           "modifier": "override"
         },
@@ -175,7 +199,7 @@
               "name": "shapes"
             }
           ],
-          "instructions": "כתבו פעולה ששמה CountRectangles, המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש במערך.\nשימו לב: ריבוע הוא גם מלבן — Square יורשת מ-Rectangle.",
+          "instructions": "כתבו פעולה CountRectangles המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש בו.\nשימו לב: ריבוע הוא גם מלבן (Square יורשת מ-Rectangle), ולכן is Rectangle נכון גם לריבוע.",
           "solution": "public static int CountRectangles(Shape[] shapes)\n{\n    int count = 0;\n    for (int i = 0; i < shapes.Length; i++)\n    {\n        if (shapes[i] is Rectangle && !(shapes[i] is Square))\n        {\n            count++;\n        }\n    }\n    return count;\n}"
         }
       ],

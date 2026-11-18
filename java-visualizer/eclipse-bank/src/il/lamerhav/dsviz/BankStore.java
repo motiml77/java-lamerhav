@@ -70,14 +70,18 @@ final class BankStore {
      *   stack — מהראש למטה (כמו שכותבים בשאלה: "4, 7, 2, 9 — 4 בראש"); queue — מהראש (יוצאים) לזנב; list — מהחוליה הראשונה;
      *   tree — לפי רמות, null במקום שאין צומת ([5, 3, 8, null, 4]); array — לפי המקום; matrix — שורות ([[1,2],[3,4]]);
      *   inner — מבנה בתוך מבנה: כל ערך הוא רשימה (מחסנית של תורים: "type": "stack", "inner": "queue", "values": [[1,2],[3]]).
+     *   classes — תרשים מחלקות (הורשה): values — שמות המחלקות מ-exercise.classes ("values": ["Animal", "Mammal", "Dog"]); הקופסאות,
+     *   התכונות, הפעולות והמשולש אצל מחלקת העל נקראים מהקוד עצמו (BankClasses), בשפה של הכלי.
      */
     static final class Figure {
         String type = "", inner = "cell", caption = "";
         /** לציור (NestedPreview.set): לכל תא — הערכים שבו; במחסנית — לפי סדר ההכנסה (הראש אחרון); null בעץ — אין צומת */
         final List<List<String>> groups = new ArrayList<List<String>>();
+        /** "classes" — תרשים המחלקות (BankClasses), מהקוד של המחלקות בתרגיל; values — שמות המחלקות שבתרשים */
+        List<BankClasses.Cls> classes;
     }
 
-    static final List<String> FIGURE_TYPES = java.util.Arrays.asList("stack", "queue", "list", "tree", "array", "matrix");
+    static final List<String> FIGURE_TYPES = java.util.Arrays.asList("stack", "queue", "list", "tree", "array", "matrix", "classes");
     static final List<String> INNER_TYPES = java.util.Arrays.asList("stack", "queue", "list");
 
     static final class Question {
@@ -238,6 +242,21 @@ final class BankStore {
         if (csharp) q.exercise.put("language", "csharp");
         else if (!q.exercise.containsKey("language")) q.exercise.put("language", "java");
         if (Json.str(q.exercise.get("topic")).isEmpty()) q.exercise.put("topic", q.topic);
+        // תרשים מחלקות: מהקוד של המחלקות בתרגיל (בשפה של הכלי — Java או C#)
+        Map<String, String> codes = new java.util.LinkedHashMap<String, String>();
+        for (Object o : Json.arr(q.exercise.get("classes"))) codes.put(Json.str(Json.obj(o).get("name")).trim(), Json.str(Json.obj(o).get("code")));
+        List<Figure> all = new ArrayList<Figure>(q.figures);
+        for (Section sec : q.sections) all.addAll(sec.figures);
+        for (Figure f : all) {
+            if (!f.type.equals("classes")) continue;
+            List<String> names = new ArrayList<String>();
+            for (List<String> g : f.groups) {
+                String n = g.get(0);
+                if (!codes.containsKey(n)) return "תרשים מחלקות: אין בתרגיל מחלקה בשם \"" + n + "\" (exercise.classes)";
+                names.add(n);
+            }
+            f.classes = BankClasses.parse(names, codes);
+        }
         return null;
     }
 
@@ -256,6 +275,7 @@ final class BankStore {
             f.caption = Json.str(m.get("caption")).trim();
             List<Object> values = Json.arr(m.get("values"));
             if (values.isEmpty() && !f.type.equals("stack") && !f.type.equals("queue")) return where + ": ציור בלי ערכים (values)";
+            if (f.type.equals("classes") && !f.inner.equals("cell")) return where + ": לתרשים מחלקות אין inner";
             for (Object v : values) {
                 if (v == null) {
                     if (!f.type.equals("tree")) return where + ": null מותר רק בעץ (צומת שאין)";

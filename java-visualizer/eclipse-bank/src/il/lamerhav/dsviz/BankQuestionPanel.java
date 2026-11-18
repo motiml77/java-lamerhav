@@ -168,6 +168,24 @@ final class BankQuestionPanel {
             ol.marginHeight = 0;
             ol.verticalSpacing = 2;
             one.setLayout(ol);
+            if (f.classes != null) {   // תרשים מחלקות (הורשה) — BankClassCanvas, מוקטן לרוחב השורה כמו שאר הציורים
+                BankClassCanvas cc = new BankClassCanvas(one, f.classes);
+                cc.setBackground(Look.color(d, Look.CARD));
+                cc.setData(FigureRow.NATURAL, cc.naturalWidth());
+                GridData cg = new GridData(SWT.CENTER, SWT.TOP, false, false);
+                cg.widthHint = cc.naturalWidth();
+                cg.heightHint = cc.computeSize(cc.naturalWidth(), SWT.DEFAULT).y;
+                cc.setLayoutData(cg);
+                if (!f.caption.isEmpty()) {
+                    Label cap = new Label(one, SWT.CENTER | SWT.RIGHT_TO_LEFT);
+                    cap.setText(caption(f.caption));
+                    cap.setFont(Look.font(d, -1, SWT.NORMAL));
+                    cap.setForeground(Look.color(d, Look.MUTED));
+                    cap.setLayoutData(new GridData(SWT.CENTER, SWT.TOP, true, false));
+                }
+                if (shown != null) shown.add("FIGURE classes " + BankClasses.describe(f.classes) + " w=" + cc.naturalWidth());
+                continue;
+            }
             // גודל טבעי של הציור (NestedPreview מקטין לרוחב 330 — מחשבים את הרוחב האמיתי מהיחס בין הגבהים)
             NestedPreview probe = new NestedPreview(one);
             probe.set(f.type, f.inner, f.groups);

@@ -205,7 +205,7 @@ final class BankVsPanel {
         JPanel one = new JPanel();
         one.setLayout(new BoxLayout(one, BoxLayout.Y_AXIS));
         one.setOpaque(false);
-        JComponent d = BankZoom.scaled(il.lamerhav.dsviz.cs.BankFigure.of(f.type, f.inner, f.groups), room);
+        JComponent d = BankZoom.scaled(f.classes != null ? new BankClassFigure(f.classes) : il.lamerhav.dsviz.cs.BankFigure.of(f.type, f.inner, f.groups), room);
         d.setAlignmentX(Component.CENTER_ALIGNMENT);
         one.add(d);
         if (!f.caption.isEmpty()) {

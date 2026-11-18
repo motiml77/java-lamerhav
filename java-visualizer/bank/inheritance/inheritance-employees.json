@@ -4,19 +4,30 @@
   "level": "medium",
   "title": "עובדים, מנהלים ומתמחים",
   "question": {
-    "intro": "נתונה המחלקה Employee (עובד): לכל עובד שם ומשכורת בסיס, והפעולה salary מחזירה את המשכורת שלו — משכורת הבסיס.\nהמחלקה Manager (מנהל) יורשת מ-Employee, ולכל מנהל יש גם בונוס.\nהמחלקה Intern (מתמחה) יורשת מ-Employee ודורסת את salary: מתמחה מקבל חצי ממשכורת הבסיס (היא מזמנת את super.salary() ומחלקת ב-2).\nהקוד של המחלקות נמצא בתרגיל.",
+    "intro": "שלוש מחלקות של עובדים — התרשים מראה מי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nעובד (Employee): שם ומשכורת בסיס. הפעולה salary מחזירה את משכורת הבסיס.\nמנהל (Manager) יורשת מ-Employee, ויש לו גם בונוס.\nמתמחה (Intern) יורשת מ-Employee ודורסת את salary: מתמחה מקבל חצי ממשכורת הבסיס.",
     "sections": [
       {
         "label": "א",
-        "text": "הוסיפו למחלקה Manager פעולה salary שדורסת את הפעולה של Employee: המשכורת של מנהל היא משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה salary של מחלקת העל (super.salary()).\nלדוגמה: למנהל עם משכורת בסיס 10000 ובונוס 3000 הפעולה תחזיר 13000"
+        "text": "הוסיפו למחלקה Manager פעולה salary שדורסת את salary של Employee.\nהמשכורת של מנהל: משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה של מחלקת העל: super.salary()\nלדוגמה: מנהל עם משכורת בסיס 10000 ובונוס 3000 — הפעולה תחזיר 13000"
       },
       {
         "label": "ב",
-        "text": "כתבו פעולה ששמה countManagers, המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש במערך."
+        "text": "כתבו פעולה countManagers המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש בו."
       },
       {
         "label": "ג",
-        "text": "כתבו פעולה ששמה totalSalary, המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים במערך — לכל עובד לפי הסוג שלו (עובד, מנהל או מתמחה).\nאין צורך לבדוק את הסוג של כל עובד: מספיק לזמן את salary."
+        "text": "כתבו פעולה totalSalary המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים בו.\nכל עובד מקבל לפי הסוג שלו: עובד, מנהל או מתמחה.\nרמז: לא צריך לבדוק את הסוג — מספיק לזמן salary, ורצה הגרסה של המחלקה של העצם."
+      }
+    ],
+    "figures": [
+      {
+        "type": "classes",
+        "values": [
+          "Employee",
+          "Manager",
+          "Intern"
+        ],
+        "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
       }
     ]
   },
@@ -49,7 +60,7 @@
         "returnType": "int",
         "methodName": "salary",
         "parameters": [],
-        "instructions": "הוסיפו למחלקה Manager פעולה salary שדורסת את הפעולה של Employee: המשכורת של מנהל היא משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה salary של מחלקת העל (super.salary()).\nלדוגמה: למנהל עם משכורת בסיס 10000 ובונוס 3000 הפעולה תחזיר 13000",
+        "instructions": "הוסיפו למחלקה Manager פעולה salary שדורסת את salary של Employee.\nהמשכורת של מנהל: משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה של מחלקת העל: super.salary()\nלדוגמה: מנהל עם משכורת בסיס 10000 ובונוס 3000 — הפעולה תחזיר 13000",
         "solution": "public int salary() {\n    return super.salary() + bonus;\n}"
       },
       {
@@ -65,7 +76,7 @@
             "name": "staff"
           }
         ],
-        "instructions": "כתבו פעולה ששמה countManagers, המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש במערך.",
+        "instructions": "כתבו פעולה countManagers המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש בו.",
         "solution": "public static int countManagers(Employee[] staff) {\n    int count = 0;\n    for (int i = 0; i < staff.length; i++) {\n        if (staff[i] instanceof Manager) {\n            count++;\n        }\n    }\n    return count;\n}"
       },
       {
@@ -81,7 +92,7 @@
             "name": "staff"
           }
         ],
-        "instructions": "כתבו פעולה ששמה totalSalary, המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים במערך — לכל עובד לפי הסוג שלו (עובד, מנהל או מתמחה).\nאין צורך לבדוק את הסוג של כל עובד: מספיק לזמן את salary.",
+        "instructions": "כתבו פעולה totalSalary המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים בו.\nכל עובד מקבל לפי הסוג שלו: עובד, מנהל או מתמחה.\nרמז: לא צריך לבדוק את הסוג — מספיק לזמן salary, ורצה הגרסה של המחלקה של העצם.",
         "solution": "public static int totalSalary(Employee[] staff) {\n    int sum = 0;\n    for (int i = 0; i < staff.length; i++) {\n        sum += staff[i].salary();\n    }\n    return sum;\n}"
       }
     ],
@@ -98,19 +109,30 @@
   "csharp": {
     "manual": true,
     "question": {
-      "intro": "נתונה המחלקה Employee (עובד): לכל עובד שם ומשכורת בסיס, והפעולה Salary (virtual) מחזירה את המשכורת שלו — משכורת הבסיס.\nהמחלקה Manager (מנהל) יורשת מ-Employee, ולכל מנהל יש גם בונוס.\nהמחלקה Intern (מתמחה) יורשת מ-Employee ודורסת את Salary (override): מתמחה מקבל חצי ממשכורת הבסיס (היא מזמנת את base.Salary() ומחלקת ב-2).\nהקוד של המחלקות נמצא בתרגיל.",
+      "intro": "שלוש מחלקות של עובדים — התרשים מראה מי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nעובד (Employee): שם ומשכורת בסיס. הפעולה Salary מחזירה את משכורת הבסיס.\nמנהל (Manager) יורשת מ-Employee, ויש לו גם בונוס.\nמתמחה (Intern) יורשת מ-Employee ודורסת את Salary: מתמחה מקבל חצי ממשכורת הבסיס.",
       "sections": [
         {
           "label": "א",
-          "text": "הוסיפו למחלקה Manager פעולה Salary שדורסת את הפעולה של Employee (override): המשכורת של מנהל היא משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה Salary של מחלקת העל (base.Salary()).\nלדוגמה: למנהל עם משכורת בסיס 10000 ובונוס 3000 הפעולה תחזיר 13000"
+          "text": "הוסיפו למחלקה Manager פעולה Salary שדורסת (override) את Salary של Employee.\nהמשכורת של מנהל: משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה של מחלקת העל: base.Salary()\nלדוגמה: מנהל עם משכורת בסיס 10000 ובונוס 3000 — הפעולה תחזיר 13000"
         },
         {
           "label": "ב",
-          "text": "כתבו פעולה ששמה CountManagers, המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש במערך."
+          "text": "כתבו פעולה CountManagers המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש בו."
         },
         {
           "label": "ג",
-          "text": "כתבו פעולה ששמה TotalSalary, המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים במערך — לכל עובד לפי הסוג שלו (עובד, מנהל או מתמחה).\nאין צורך לבדוק את הסוג של כל עובד: מספיק לזמן את Salary."
+          "text": "כתבו פעולה TotalSalary המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים בו.\nכל עובד מקבל לפי הסוג שלו: עובד, מנהל או מתמחה.\nרמז: לא צריך לבדוק את הסוג — מספיק לזמן Salary, ורצה הגרסה של המחלקה של העצם."
+        }
+      ],
+      "figures": [
+        {
+          "type": "classes",
+          "values": [
+            "Employee",
+            "Manager",
+            "Intern"
+          ],
+          "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
         }
       ]
     },
@@ -143,7 +165,7 @@
           "returnType": "int",
           "methodName": "Salary",
           "parameters": [],
-          "instructions": "הוסיפו למחלקה Manager פעולה Salary שדורסת את הפעולה של Employee (override): המשכורת של מנהל היא משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה Salary של מחלקת העל (base.Salary()).\nלדוגמה: למנהל עם משכורת בסיס 10000 ובונוס 3000 הפעולה תחזיר 13000",
+          "instructions": "הוסיפו למחלקה Manager פעולה Salary שדורסת (override) את Salary של Employee.\nהמשכורת של מנהל: משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה של מחלקת העל: base.Salary()\nלדוגמה: מנהל עם משכורת בסיס 10000 ובונוס 3000 — הפעולה תחזיר 13000",
           "solution": "public override int Salary()\n{\n    return base.Salary() + bonus;\n}",
           "modifier": "override"
         },
@@ -160,7 +182,7 @@
               "name": "staff"
             }
           ],
-          "instructions": "כתבו פעולה ששמה CountManagers, המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש במערך.",
+          "instructions": "כתבו פעולה CountManagers המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש בו.",
           "solution": "public static int CountManagers(Employee[] staff)\n{\n    int count = 0;\n    for (int i = 0; i < staff.Length; i++)\n    {\n        if (staff[i] is Manager)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
         },
         {
@@ -176,7 +198,7 @@
               "name": "staff"
             }
           ],
-          "instructions": "כתבו פעולה ששמה TotalSalary, המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים במערך — לכל עובד לפי הסוג שלו (עובד, מנהל או מתמחה).\nאין צורך לבדוק את הסוג של כל עובד: מספיק לזמן את Salary.",
+          "instructions": "כתבו פעולה TotalSalary המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים בו.\nכל עובד מקבל לפי הסוג שלו: עובד, מנהל או מתמחה.\nרמז: לא צריך לבדוק את הסוג — מספיק לזמן Salary, ורצה הגרסה של המחלקה של העצם.",
           "solution": "public static int TotalSalary(Employee[] staff)\n{\n    int sum = 0;\n    for (int i = 0; i < staff.Length; i++)\n    {\n        sum += staff[i].Salary();\n    }\n    return sum;\n}"
         }
       ],

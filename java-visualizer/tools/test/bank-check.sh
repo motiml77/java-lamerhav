@@ -11,7 +11,7 @@ W=$ROOT/build/bank-check
 rm -rf "$W" && mkdir -p "$W/cls"
 javac -encoding UTF-8 -nowarn -d "$W/cls" eclipse-plugin/src/il/lamerhav/dsviz/AiScaffold.java access/src/il/lamerhav/dsviz/Json.java \
     eclipse-plugin/src/il/lamerhav/dsviz/SolutionCheck.java eclipse-plugin/src/il/lamerhav/dsviz/ExercisePipeline.java -sourcepath eclipse-plugin/src:access/src -cp release/dsviz.jar \
-    eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
+    eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankClasses.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
     tools/test/bank/BankCheck.java tools/test/bank/BankCheckCs.java tools/test/bank/BankSchoolCs.java tools/test/bank/BankProgressTest.java tools/test/bank/BankSectionsCheck.java 2>&1 | grep -v "Picked up" || true
 # פלט בלי "Picked up", וקוד היציאה של הבדיקה עצמה (לא של grep) — כשל עוצר את הסקריפט
 run() { s=0; java -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 -cp "$W/cls:release/dsviz.jar" "$@" > "$W/out.txt" 2>&1 || s=$?; grep -v "Picked up" "$W/out.txt"; return $s; }

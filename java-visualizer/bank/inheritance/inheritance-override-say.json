@@ -4,15 +4,26 @@
   "level": "easy",
   "title": "דריסה — מה כל חיה אומרת",
   "question": {
-    "intro": "נתונה המחלקה Animal (חיה) ובה הפעולה say, שמחזירה \"קול של חיה\".\nהמחלקות Dog (כלב) ו-Cat (חתול) יורשות מ-Animal. המחלקה Dog דורסת את say ומחזירה \"הב\". הקוד של המחלקות נמצא בתרגיל.",
+    "intro": "שלוש מחלקות — התרשים מראה מי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nחיה (Animal): הפעולה say מחזירה \"קול של חיה\"\nכלב (Dog) יורשת מ-Animal ודורסת את say: מחזירה \"הב\"\nחתול (Cat) יורשת מ-Animal, ועוד לא דורסת את say.",
     "sections": [
       {
         "label": "א",
-        "text": "הוסיפו למחלקה Cat פעולה say שדורסת את הפעולה של Animal ומחזירה \"מיאו\".\nבדקו בהרצה הוויזואלית: בקופסה של Animal הפעולה say מסומנת בקו חוצה — כי Cat דורסת אותה."
+        "text": "הוסיפו למחלקה Cat פעולה say שדורסת את say של Animal ומחזירה \"מיאו\"\nבהרצה הוויזואלית: בקופסה של Animal הפעולה say תופיע בקו חוצה — כי Cat דורסת אותה."
       },
       {
         "label": "ב",
-        "text": "כתבו פעולה ששמה countSay, המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה מהחיות במערך הפעולה say שלהן מחזירה בדיוק את word.\nלדוגמה: עבור מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\", הפעולה תחזיר 2"
+        "text": "כתבו פעולה countSay המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה חיות במערך אומרות בדיוק את word (לפי say).\nלדוגמה: מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\" — הפעולה תחזיר 2"
+      }
+    ],
+    "figures": [
+      {
+        "type": "classes",
+        "values": [
+          "Animal",
+          "Dog",
+          "Cat"
+        ],
+        "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
       }
     ]
   },
@@ -45,7 +56,7 @@
         "returnType": "String",
         "methodName": "say",
         "parameters": [],
-        "instructions": "הוסיפו למחלקה Cat פעולה say שדורסת את הפעולה של Animal ומחזירה \"מיאו\".\nבדקו בהרצה הוויזואלית: בקופסה של Animal הפעולה say מסומנת בקו חוצה — כי Cat דורסת אותה.",
+        "instructions": "הוסיפו למחלקה Cat פעולה say שדורסת את say של Animal ומחזירה \"מיאו\"\nבהרצה הוויזואלית: בקופסה של Animal הפעולה say תופיע בקו חוצה — כי Cat דורסת אותה.",
         "solution": "public String say() {\n    return \"מיאו\";\n}"
       },
       {
@@ -65,7 +76,7 @@
             "name": "word"
           }
         ],
-        "instructions": "כתבו פעולה ששמה countSay, המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה מהחיות במערך הפעולה say שלהן מחזירה בדיוק את word.\nלדוגמה: עבור מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\", הפעולה תחזיר 2",
+        "instructions": "כתבו פעולה countSay המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה חיות במערך אומרות בדיוק את word (לפי say).\nלדוגמה: מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\" — הפעולה תחזיר 2",
         "solution": "public static int countSay(Animal[] animals, String word) {\n    int count = 0;\n    for (int i = 0; i < animals.length; i++) {\n        if (animals[i].say().equals(word)) {\n            count++;\n        }\n    }\n    return count;\n}"
       }
     ],
@@ -82,15 +93,26 @@
   "csharp": {
     "manual": true,
     "question": {
-      "intro": "נתונה המחלקה Animal (חיה) ובה הפעולה Say (virtual), שמחזירה \"קול של חיה\".\nהמחלקות Dog (כלב) ו-Cat (חתול) יורשות מ-Animal. המחלקה Dog דורסת את Say (override) ומחזירה \"הב\". הקוד של המחלקות נמצא בתרגיל.",
+      "intro": "שלוש מחלקות — התרשים מראה מי יורשת ממי. הקוד שלהן נמצא בתרגיל.\nחיה (Animal): הפעולה Say מחזירה \"קול של חיה\"\nכלב (Dog) יורשת מ-Animal ודורסת את Say: מחזירה \"הב\"\nחתול (Cat) יורשת מ-Animal, ועוד לא דורסת את Say.",
       "sections": [
         {
           "label": "א",
-          "text": "הוסיפו למחלקה Cat פעולה Say שדורסת את הפעולה של Animal (override) ומחזירה \"מיאו\".\nבדקו בהרצה הוויזואלית: בקופסה של Animal הפעולה Say מסומנת בקו חוצה — כי Cat דורסת אותה."
+          "text": "הוסיפו למחלקה Cat פעולה Say שדורסת (override) את Say של Animal ומחזירה \"מיאו\"\nבהרצה הוויזואלית: בקופסה של Animal הפעולה Say תופיע בקו חוצה — כי Cat דורסת אותה."
         },
         {
           "label": "ב",
-          "text": "כתבו פעולה ששמה CountSay, המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה מהחיות במערך הפעולה Say שלהן מחזירה בדיוק את word.\nלדוגמה: עבור מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\", הפעולה תחזיר 2"
+          "text": "כתבו פעולה CountSay המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה חיות במערך אומרות בדיוק את word (לפי Say).\nלדוגמה: מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\" — הפעולה תחזיר 2"
+        }
+      ],
+      "figures": [
+        {
+          "type": "classes",
+          "values": [
+            "Animal",
+            "Dog",
+            "Cat"
+          ],
+          "caption": "תרשים המחלקות — המשולש מצביע על מחלקת העל"
         }
       ]
     },
@@ -123,7 +145,7 @@
           "returnType": "string",
           "methodName": "Say",
           "parameters": [],
-          "instructions": "הוסיפו למחלקה Cat פעולה Say שדורסת את הפעולה של Animal (override) ומחזירה \"מיאו\".\nבדקו בהרצה הוויזואלית: בקופסה של Animal הפעולה Say מסומנת בקו חוצה — כי Cat דורסת אותה.",
+          "instructions": "הוסיפו למחלקה Cat פעולה Say שדורסת (override) את Say של Animal ומחזירה \"מיאו\"\nבהרצה הוויזואלית: בקופסה של Animal הפעולה Say תופיע בקו חוצה — כי Cat דורסת אותה.",
           "solution": "public override string Say()\n{\n    return \"מיאו\";\n}",
           "modifier": "override"
         },
@@ -144,7 +166,7 @@
               "name": "word"
             }
           ],
-          "instructions": "כתבו פעולה ששמה CountSay, המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה מהחיות במערך הפעולה Say שלהן מחזירה בדיוק את word.\nלדוגמה: עבור מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\", הפעולה תחזיר 2",
+          "instructions": "כתבו פעולה CountSay המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה חיות במערך אומרות בדיוק את word (לפי Say).\nלדוגמה: מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\" — הפעולה תחזיר 2",
           "solution": "public static int CountSay(Animal[] animals, string word)\n{\n    int count = 0;\n    for (int i = 0; i < animals.Length; i++)\n    {\n        if (animals[i].Say() == word)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
         }
       ],
