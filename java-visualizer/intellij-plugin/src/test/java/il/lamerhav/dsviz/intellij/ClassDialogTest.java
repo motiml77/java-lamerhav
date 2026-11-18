@@ -76,6 +76,76 @@ public class ClassDialogTest extends LightJavaCodeInsightFixtureTestCase {
         }
     }
 
+    /** הורשה: יורשת מ- (עם הצבעים של ההרצה), שדות שירשה, דריסה עם @Override, פעולה חדשה, בנאי שמעביר ל-super */
+    public void testInheritanceFromProjectClass() {
+        ClassGen.Options zb = new ClassGen.Options();
+        ClassGen.TreeResult zoo = ClassGen.treeFiles(ClassGen.trees().get(0), zb, false, false);
+        ClassDialog d = new ClassDialog(getProject(), "", new LinkedHashMap<String, String>(), zoo.known);
+        try {
+            List<String> sup = d.inherit().superList();
+            assertEquals("בלי", sup.get(0));
+            assertTrue(sup.toString(), sup.contains("Animal #c0392b") && sup.contains("Dog #0c8583") && sup.contains("Person #55607a"));
+            d.demo("Puppy", "int age");
+            d.inherit().demoSuper("Dog");
+            d.inherit().demoPick("say()");
+            d.inherit().addMethod("String", "bark", "int times", false, false);
+            assertEquals("", d.error());
+            String code = d.code();
+            assertTrue(code, code.startsWith("public class Puppy extends Dog {\n    private int age;\n\n    public Puppy(String name, String gender, double milk, int bonesToEat, int age) {\n"
+                    + "        super(name, gender, milk, bonesToEat);\n"));
+            assertTrue(code, code.contains("    @Override\n    public String say() {\n        return super.say();\n    }\n"));
+            assertTrue(code, code.contains("    public String bark(int times) {\n        return \"Puppy\";\n    }\n"));
+            assertTrue(d.inherit().overrideList().toString(), d.inherit().overrideList().contains("say() ✓"));
+            d.demo("Puppy", "double milk");
+            assertEquals("השדה milk כבר קיים במחלקה Mammal — המחלקה יורשת אותו. בוחרים שם אחר", d.error());
+        } finally {
+            d.close(0);
+        }
+    }
+
+    /** היררכיה מוכנה ועץ משלכם: הקבצים נוצרים בתיקייה, והשם של מחלקה מ-Unit4 נחסם */
+    public void testTreeDialogCreatesAllFiles() throws Exception {
+        File base = Files.createTempDirectory("dsviz-tree").toFile();
+        VirtualFile dir = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(base);
+        ClassGen.Options o = new ClassGen.Options();
+        PolyDialogs.TreeDialog d = new PolyDialogs.TreeDialog(getProject(), o);
+        try {
+            assertEquals("", d.error());
+            assertTrue(d.isOKActionEnabled());
+            assertEquals(7, d.result.files.size());
+            List<VirtualFile> made = PolyDialogs.createAll(getProject(), dir, d.result, d.tree);
+            assertEquals(7, made.size());
+            assertTrue(VfsUtilCore.loadText(dir.findChild("Boxer.java")).contains("public class Boxer extends Dog {"));
+            assertTrue(VfsUtilCore.loadText(dir.findChild("ZooDemo.java")).contains("zoo[3] = new Boxer(\"Rexy\", \"male\", 3.2, 3, \"house\");"));
+            d.panel.demoChoose(3);
+            d.panel.demoRows("Node||int value/Box|Node|int size");
+            assertTrue(d.error(), d.error().startsWith("Node: \"Node\" הוא שם של מחלקה מוכנה"));
+            assertFalse(d.isOKActionEnabled());
+        } finally {
+            d.close(0);
+        }
+    }
+
+    /** הוסף עצם: רק המחלקה או יורשת שלה, ערך לכל פרמטר, והשם נבדק מול הקוד שבמקום הסמן */
+    public void testObjectDialog() {
+        ClassGen.TreeResult zoo = ClassGen.treeFiles(ClassGen.trees().get(0), new ClassGen.Options(), false, false);
+        String text = "public class Main {\n    public static void main(String[] args) {\n        int a1 = 3;\n        \n    }\n}\n";
+        PolyDialogs.ObjectDialog d = new PolyDialogs.ObjectDialog(getProject(), zoo.known, text, text.indexOf("        \n"), "        ");
+        try {
+            d.panel.demo("Animal", "a2", "Boxer", "Rexy, male, 3.2, 3, house");
+            assertEquals("", d.error());
+            assertEquals("        Animal a2 = new Boxer(\"Rexy\", \"male\", 3.2, 3, \"house\");", d.code);
+            assertEquals(Arrays.asList("Animal", "Mammal", "Dog", "Boxer", "Labrador"), d.panel.classList());
+            d.panel.demo("Animal", "a1", "Dog", "Dasty, female, 0.5, 3");
+            assertTrue(d.error(), d.error().contains("a1"));
+            d.panel.demoArray("Animal", "zoo", "Dog:Dasty, female, 0.5, 3/:/Labrador:Toto, male, 2.5, 4, new Person(\"Hila\")");
+            assertEquals("        Animal[] zoo = new Animal[3];\n        zoo[0] = new Dog(\"Dasty\", \"female\", 0.5, 3);\n"
+                    + "        zoo[2] = new Labrador(\"Toto\", \"male\", 2.5, 4, new Person(\"Hila\"));", d.code);
+        } finally {
+            d.close(0);
+        }
+    }
+
     public void testCreatesFileNextToCurrentAndScansProject() throws Exception {
         File base = Files.createTempDirectory("dsviz-cc").toFile();
         File pkg = new File(base, "school/model");

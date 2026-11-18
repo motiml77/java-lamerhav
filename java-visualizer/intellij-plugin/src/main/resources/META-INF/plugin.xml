@@ -53,6 +53,14 @@
             <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="DSViz.Insert"/>
             <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="DSViz.NewExercise"/>
         </action>
+        <action id="DSViz.CreateTree" class="il.lamerhav.dsviz.intellij.Actions$CreateTree" text="היררכיה מוכנה…" icon="/icons/insert.png"
+                description="כל המחלקות של עץ הורשה בלחיצה אחת (בעלי חיים, צורות, אנשים בבית הספר, או עץ משלכם) — ו-main לדוגמה עם מערך">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="DSViz.CreateClass"/>
+        </action>
+        <action id="DSViz.InsertObject" class="il.lamerhav.dsviz.intellij.Actions$InsertObject" text="הוסף עצם…" icon="/icons/insert.png"
+                description="עצם במקום הסמן: משתנה מסוג מחלקת העל ועצם של מחלקה יורשת — או מערך שבכל תא מחלקה אחרת">
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="DSViz.CreateClass"/>
+        </action>
         <action id="DSViz.Submit" class="il.lamerhav.dsviz.intellij.Actions$Submit" text="שליחת תרגיל (PDF / Word / תמונה)…" icon="/icons/send.png"
                 description="שליחת תרגיל: מצרפים את דף התרגיל ומקבלים קובץ מוכן — מחלקות, main ופעולה לכל סעיף">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="DSViz.NewExercise"/>
@@ -71,6 +79,8 @@
             <separator/>
             <reference ref="DSViz.Insert"/>
             <reference ref="DSViz.CreateClass"/>
+            <reference ref="DSViz.CreateTree"/>
+            <reference ref="DSViz.InsertObject"/>
             <separator/>
             <reference ref="DSViz.Run"/>
             <separator/>

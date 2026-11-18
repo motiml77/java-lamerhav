@@ -32,7 +32,7 @@ sourceSets {
         java {
             srcDir(viz.dir("eclipse-plugin/src"))
             include("il/lamerhav/dsviz/intellij/**", "il/lamerhav/dsviz/IjShared.java",
-                    "il/lamerhav/dsviz/Scaffold.java", "il/lamerhav/dsviz/NameCheck.java", "il/lamerhav/dsviz/ClassInfo.java", "il/lamerhav/dsviz/ClassGen.java",
+                    "il/lamerhav/dsviz/Scaffold.java", "il/lamerhav/dsviz/NameCheck.java", "il/lamerhav/dsviz/ClassInfo.java", "il/lamerhav/dsviz/ClassGen.java", "il/lamerhav/dsviz/PolyPanels.java",
                     "il/lamerhav/dsviz/WorkerClient.java", "il/lamerhav/dsviz/ExerciseFiles.java", "il/lamerhav/dsviz/SolutionStore.java")
         }
     }

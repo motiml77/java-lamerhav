@@ -178,6 +178,52 @@ public final class Actions {
         }
     }
 
+    /** "היררכיה מוכנה": כל המחלקות של עץ (בעלי חיים / צורות / אנשים בבית הספר / עץ משלכם) + main לדוגמה — באותה תיקייה כמו "צור מחלקה" */
+    public static final class CreateTree extends Base {
+        @Override
+        boolean available(AnActionEvent e) {
+            if (e.getPlace().equals("EditorPopup")) return psiFile(e) instanceof PsiJavaFile;
+            return true;
+        }
+
+        @Override
+        public void actionPerformed(AnActionEvent e) {
+            Project project = e.getProject();
+            PsiFile f = psiFile(e);
+            VirtualFile dir = null;
+            String pkg = "";
+            if (f instanceof PsiJavaFile && f.getVirtualFile() != null) {
+                dir = f.getVirtualFile().getParent();
+                pkg = ((PsiJavaFile) f).getPackageName();
+            } else {
+                VirtualFile vf = e.getData(CommonDataKeys.VIRTUAL_FILE);
+                if (vf != null && vf.isDirectory() && project != null) {
+                    dir = vf;
+                    String p = com.intellij.openapi.roots.ProjectRootManager.getInstance(project).getFileIndex().getPackageNameByDirectory(vf);
+                    pkg = p == null ? "" : p;
+                }
+            }
+            PolyDialogs.createTree(project, dir, pkg);
+        }
+    }
+
+    /** "הוסף עצם": Animal a1 = new Boxer(...); (או מערך של מחלקת העל) במקום הסמן */
+    public static final class InsertObject extends Base {
+        @Override
+        boolean available(AnActionEvent e) {
+            if (e.getPlace().equals("EditorPopup")) return psiFile(e) instanceof PsiJavaFile;
+            return true;
+        }
+
+        @Override
+        public void actionPerformed(AnActionEvent e) {
+            Editor editor = e.getData(CommonDataKeys.EDITOR);
+            if (editor == null && e.getProject() != null) editor = com.intellij.openapi.fileEditor.FileEditorManager.getInstance(e.getProject()).getSelectedTextEditor();
+            PsiFile f = editor == null ? null : com.intellij.psi.PsiDocumentManager.getInstance(e.getProject()).getPsiFile(editor.getDocument());
+            PolyDialogs.insertObject(e.getProject(), editor, f);
+        }
+    }
+
     // ------------------------------------------------------------------ שליחת תרגיל (רק כשיש שרת)
 
     public static final class Submit extends Base {

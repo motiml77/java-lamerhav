@@ -46,6 +46,7 @@ final class ClassDialog extends Modern.Dialog {
     private JBTextArea preview;
     private JBCheckBox ctor, toStr;
     private String code, file, name;
+    private il.lamerhav.dsviz.PolyPanels.InheritPanel inherit;
 
     private final class Row {
         TypeBox base, elem;
@@ -81,6 +82,10 @@ final class ClassDialog extends Modern.Dialog {
         className.getEmptyText().setText("Student");
         className.setFont(Forms.codeFont());
         right.add(className);
+        // הורשה: יורשת מ- ושדות שירשה (כאן), פעולות לדריסה / פעולה חדשה / מופשטת (אחרי השדות)
+        il.lamerhav.dsviz.PolyPanels.code = Forms.codeFont();
+        inherit = new il.lamerhav.dsviz.PolyPanels.InheritPanel(ClassGen.JAVA, known, this::update);
+        right.add(inherit, 0);
         right.section("השדות (private)");
         fieldsPanel = new JPanel(new GridBagLayout());
         right.add(fieldsPanel);
@@ -93,6 +98,7 @@ final class ClassDialog extends Modern.Dialog {
             r.base.text.selectAll();
         });
         right.add(Forms.row(add));
+        right.add(inherit.lower, 0);
         ctor = new JBCheckBox("בנאי שמקבל את כל השדות", true);
         right.add(ctor, 8);
         toStr = new JBCheckBox(ClassGen.toStringLabel(ClassGen.JAVA));
@@ -148,6 +154,7 @@ final class ClassDialog extends Modern.Dialog {
         root.registerKeyboardAction(e -> { if (isOKActionEnabled()) doOKAction(); },
                 KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_IN_FOCUSED_WINDOW);
         Forms.rtl(root, className, preview, ps, fileLabel);
+        il.lamerhav.dsviz.PolyPanels.fixLtr(root);
         ltrRows();
         return Modern.Dialog.wrap(root);
     }
@@ -274,6 +281,11 @@ final class ClassDialog extends Modern.Dialog {
                 preview.setText(text);
                 preview.setCaretPosition(0);
             }
+            if (inherit != null) {
+                inherit.refresh(c, c.className);
+                il.lamerhav.dsviz.PolyPanels.fixLtr(inherit);
+                il.lamerhav.dsviz.PolyPanels.fixLtr(inherit.lower);
+            }
             fileLabel.setText(c.className == null ? " " : ClassGen.fileName(c.className, ClassGen.JAVA));
             errorLabel.setText(c.errors.isEmpty() ? " " : c.errors.get(0));
             warnLabel.setText(c.warnings.isEmpty() ? " " : "‏" + String.join(" · ", c.warnings));
@@ -298,6 +310,7 @@ final class ClassDialog extends Modern.Dialog {
         o.toString = toStr.isSelected();
         o.taken = taken;
         o.known = known;
+        if (inherit != null) inherit.apply(o);
         for (Row r : rows) {
             ClassGen.Field f = new ClassGen.Field(ClassGen.fullType(r.base.value(), r.elem.value(), ClassGen.JAVA), r.name.getText());
             f.refs.putAll(r.refs);
@@ -365,6 +378,11 @@ final class ClassDialog extends Modern.Dialog {
     void withToString(boolean on) {
         toStr.setSelected(on);
         update();
+    }
+
+    /** הורשה (לבדיקות): יורשת מ-, דריסה, פעולה חדשה, מופשטת; מה ברשימה של "יורשת מ-" ובפעולות לדריסה */
+    il.lamerhav.dsviz.PolyPanels.InheritPanel inherit() {
+        return inherit;
     }
 
     /** מה ברשימת הטיפוסים של שורה (לבדיקות) */
