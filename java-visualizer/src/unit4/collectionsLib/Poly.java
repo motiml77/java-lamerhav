@@ -1150,6 +1150,11 @@ final class Poly {
         return res;
     }
 
+    /** כמה מחלקות כבר נמצאו בשימוש — בשביל מטמון (הפס בחלון הקוד): משתנה כשההרצה מתחילה להשתמש במחלקה נוספת */
+    static synchronized int usedCount() {
+        return usedSeeds.size();
+    }
+
     /** הקשרים בין מחלקות התלמיד שההרצה משתמשת בהן (בלי מאפיין מאותו סוג — רשימה מקושרת: לא מצויר קו) */
     static List<Rel> relations() {
         scanUsed();   // מחוץ לנעילה של Poly

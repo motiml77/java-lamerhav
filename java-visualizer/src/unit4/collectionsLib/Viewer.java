@@ -1506,7 +1506,7 @@ final class Viewer extends JFrame {
     /** הצבע של הפס בשורה (מחלקה בעץ הורשה — הצבע שלה; מחלקה אחרת שבתרשים המחלקות — אפור), או null */
     private Color stripe(int line) {
         try {
-            String key = codeKey + "|" + Poly.all().size();
+            String key = codeKey + "|" + Poly.all().size() + "|" + Poly.usedCount();   // גם כשההרצה מתחילה להשתמש במחלקה נוספת
             if (!key.equals(stripeKey)) {
                 stripeKey = key;
                 stripeOf = Poly.classLines(codeText);

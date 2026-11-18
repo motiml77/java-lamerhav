@@ -217,6 +217,17 @@ public class PolyPaintCheck {
         check(red3 != null && red3.height <= 24 && dogChip != null && red3.y + red3.height < dogChip.y,
                 "בכותרת: zoo : Animal[] — Animal באדום, מעל התאים (ובתאים אין קופסה אדומה של Animal)");
 
+        // --- תרשים המחלקות: רק מחלקות שההרצה משתמשת בהן. לפני שנרשם צעד — אין תרשים
+        check(Poly.relations().isEmpty() && Poly.usedClasses().isEmpty(), "לפני שההרצה רשמה צעדים: התרשים ריק");
+        List<Step> run = new ArrayList<Step>();
+        run.add(s);
+        run.add(s2);
+        run.add(s3);
+        Recorder.adopt(run, "");
+        Poly.relations();   // סורק את הצעדים החדשים
+        check(Poly.usedClasses().containsAll(java.util.Arrays.asList("Animal", "Dog", "Cat", "Person", "Collar")),
+                "אחרי ההרצה (Dog, Cat): גם Animal (מחלקת האב), Person ו-Collar (שדות) בתרשים — " + Poly.usedClasses());
+
         // --- תרשים המחלקות: הסידור והקשרים
         List<Poly.Rel> rels = Poly.relations();
         boolean collar = false, owner = false;

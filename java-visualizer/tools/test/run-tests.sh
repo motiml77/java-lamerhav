@@ -295,10 +295,11 @@ conds "$PO/valid/out.txt" \
     'תגים obj:Object^ ann:Animal goofy:Mammal | פסים מ-Mammal (ann) | בעצם יש חלק של Animal — ההמרה חוקית. דרך ann רואים רק את החלק של Animal.]' \
     '[כרטיס cast obj Bird]' 'שגיאת ריצה: ההמרה לא חוקית — obj מצביע על עצם מסוג Mammal. בעצם הזה אין חלק של Bird.'
 # תרשים המחלקות — רק המחלקות ש-main משתמש בהן (דיווח של משתמש: הופיעו מחלקות של תרגיל אחר מאותה תיקייה, BusRoute ו-Station):
+#   (בתיקייה נפרדת, לא ב-objects/poly: כל מחלקה בקובץ משלה, כמו בפרויקט של התלמיד — בדיקת "קוד תקין" של המורה בודקת קובץ-קובץ)
 #   mixed — Dog יורשת מ-Animal, ו-BusRoute ◇ Station בקבצים אחרים בתיקייה, בלי שימוש → רק "Dog ▷ Animal"
 #   single — מערך של Object עם Person1 (כמו בצילום), ו-BusRoute / Station בתיקייה → אין תרשים (ל-Person1 אין הורשה / הכלה)
 for p in mixed single; do
-    mkdir -p "$PO/$p" && cp objects/poly/$p/*.java "$PO/$p/"
+    mkdir -p "$PO/$p" && cp objects/diagram/$p/*.java "$PO/$p/"
     javac -g -encoding UTF-8 -nowarn -cp "$JAR" -d "$PO/$p" "$PO/$p"/*.java
 done
 (cd "$PO/mixed" && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Mixed > out.txt 2>&1) || true
