@@ -166,7 +166,7 @@ function deletedTabs(tabGroups, under) {
 }
 
 /**
- * רושם את הפקודות dsviz.bank ("מאגר תרגילים") ו-dsviz.bankQuestion ("השאלה"). deps: vscode, ctx, chooseRoot, detectLanguage, project,
+ * רושם את הפקודות dsviz.bank ("מאגר תרגילים"), dsviz.bankQuestion ("השאלה") ו-dsviz.teacherPanel ("עמדת ניהול"). deps: vscode, ctx, chooseRoot, detectLanguage, project,
  * cs, runner, ui, store (הנתיב של solutions.json), reg (רישום פקודה שמכבדת "כיבוי DSViz").
  */
 function register(deps) {
@@ -254,6 +254,8 @@ function register(deps) {
 
     deps.reg('dsviz.bank', () => open('bank'));
     deps.reg('dsviz.bankQuestion', () => open('question'));
+    // "עמדת ניהול" של המורה (הקוד, העמדות, ובדפדפן — התלמידים, הכיתות וההגשות): אותו כלי, במצב teacher (BankVs.teacher)
+    deps.reg('dsviz.teacherPanel', () => open('teacher'));
     ctx.subscriptions.push({
         dispose: () => {
             for (const s of sessions.values()) {

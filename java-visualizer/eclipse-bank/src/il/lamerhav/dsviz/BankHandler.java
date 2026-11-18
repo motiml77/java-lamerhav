@@ -469,6 +469,12 @@ public class BankHandler extends AbstractHandler {
         return f == null ? new ArrayList<String>() : new ArrayList<String>(f.shown);
     }
 
+    /** "הגשה למורה" בחלון הצף: איך הסתיימה ההגשה האחרונה (ok / queued / קוד שגיאה), או null */
+    public static String floatSubmitResultForTest() {
+        BankFloat f = BankFloat.current();
+        return f == null ? null : f.submitResult;
+    }
+
     public static void setDoneForTest(String id, boolean done) {
         BankProgress.get().setDone(id, done);
     }

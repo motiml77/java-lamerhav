@@ -231,7 +231,9 @@ async function overview() {
     h('div', { class: 'kpis' },
       kpi('#teachers', 'מורים פעילים', h('b', { class: 'v' }, String(c.teachers)), c.teachersBlocked ? `ועוד ${c.teachersBlocked} מושבתים` : ''),
       kpi('#teachers', 'עמדות מחשב בשימוש', h('span', { class: 'v' }, String(c.used), ' ', h('small', null, `מתוך ${c.seats}`)), '', h('span', { class: 'bar' }, h('span', { style: { width: pct + '%' } }))),
-      kpi('#students', 'תלמידים עם גישה', h('b', { class: 'v' }, String(c.students)), `${c.studentsPaid} בתשלום · ${c.studentsManual} הענקה ידנית`),
+      c.studentsFree
+        ? kpi('#students', 'תלמידים (בחינם)', h('b', { class: 'v' }, String(c.studentsAll)), `${c.studentsRegistered} נרשמו · ${c.studentsWithTeacher} עם מורה`)
+        : kpi('#students', 'תלמידים עם גישה', h('b', { class: 'v' }, String(c.students)), `${c.studentsPaid} בתשלום · ${c.studentsManual} הענקה ידנית`),
       kpi('#students=payments', 'תשלומים החודש', h('b', { class: 'v' }, String(c.paymentsMonth)), c.refundsMonth ? `${c.refundsMonth} הוחזרו` : '')),
     h('div', { class: 'two' },
       h('section', { class: 'card' }, h('div', { class: 'row', style: { justifyContent: 'space-between' } }, h('h2', null, 'דורש טיפול'), h('a', { href: '#requests', class: 'small', style: { fontWeight: 600 } }, 'כל הבקשות')),
@@ -517,24 +519,32 @@ async function students(arg) {
   const r = await api('GET', '/v1/admin/students');
   cache.students = r.students;
   const all = r.students;
-  const groups = { open: ['עם גישה', s => s.open], manual: ['הענקה ידנית', s => s.open && s.source === 'manual'], unpaid: ['נכנסו ועוד לא שילמו', s => !s.open], all: ['הכול', () => true] };
+  // בינתיים בחינם (r.free): כל מי שנכנס פתוח, והקבוצות לפי ההרשמה (שם מלא וטלפון) והמורה; בתשלום — כמו קודם
+  const groups = r.free
+    ? { open: ['כולם', () => true], registered: ['נרשמו', s => s.registered], unregistered: ['עוד לא נרשמו', s => !s.registered], teacher: ['עם מורה', s => !!s.teacher], paid: ['שילמו / הענקה', s => s.paid] }
+    : { open: ['עם גישה', s => s.open], manual: ['הענקה ידנית', s => s.open && s.source === 'manual'], unpaid: ['נכנסו ועוד לא שילמו', s => !s.open], all: ['הכול', () => true] };
+  if (!groups[studentFilter]) studentFilter = 'open';
   const shown = byTime(all.filter(groups[studentFilter][1]), 'lastSignIn', orderOf('students.lastSignIn', 'none'));
-  const sourcePill = s => s.open ? (s.source === 'manual' ? h('span', { class: 'pill purple' }, 'הענקה ידנית') : h('span', { class: 'pill green' }, 'תשלום' + (s.paidAt ? ' · ' + fmtDate(s.paidAt) : '')))
+  const sourcePill = s => s.paid ? (s.source === 'manual' ? h('span', { class: 'pill purple' }, 'הענקה ידנית') : h('span', { class: 'pill green' }, 'תשלום' + (s.paidAt ? ' · ' + fmtDate(s.paidAt) : '')))
+    : r.free ? h('span', { class: 'pill blue' }, 'בחינם')
     : s.source === 'refunded' ? h('span', { class: 'pill gray' }, 'הוחזר') : s.source === 'revoked' ? h('span', { class: 'pill gray' }, 'בוטל') : h('span', { class: 'pill gray' }, 'לא שילם/ה');
   const table = h('div', { class: 'tablewrap' }, h('table', { class: 't' },
-    h('thead', null, h('tr', null, ['תלמיד', 'טלפון', 'גישה עד', 'איך', 'שליחות החודש'].map(x => h('th', null, x)), timeHeader('כניסה אחרונה', 'students.lastSignIn', render), h('th', null, ''))),
+    h('thead', null, h('tr', null, ['תלמיד', 'טלפון', 'מורה', 'גישה עד', 'איך', 'שליחות החודש'].map(x => h('th', null, x)), timeHeader('כניסה אחרונה', 'students.lastSignIn', render), h('th', null, ''))),
     h('tbody', null, shown.length ? shown.slice(0, 400).map(s => h('tr', null,
-      h('td', null, h('div', { class: 'cellname' }, h('b', null, s.name || '—'), h('span', { class: 'ltr' }, s.email))),
+      h('td', null, h('div', { class: 'cellname' }, h('b', null, s.name || '—'), h('span', { class: 'ltr' }, s.email),
+        s.registered ? null : h('span', { class: 'pill orange', style: { alignSelf: 'flex-start' } }, 'עוד לא נרשם/ה'))),
       h('td', { class: 'ltr muted' }, s.phone || '—'),
-      h('td', null, s.open ? fmtDate(s.until) : '—'), h('td', null, sourcePill(s)),
+      h('td', null, s.teacherName || h('span', { class: 'muted' }, s.mode === 'independent' ? 'עצמאי' : '—')),
+      h('td', null, s.paid ? fmtDate(s.until) : r.free ? 'בחינם' : '—'), h('td', null, sourcePill(s)),
       h('td', null, s.sends ? h('span', { class: s.sends.n >= s.sends.limit ? 'pill orange' : '' }, h('b', null, String(s.sends.n)), ` / ${s.sends.limit}`) : '—'),
       h('td', { class: 'muted', title: fmtWhen(s.lastSignIn) }, s.lastSignIn ? ago(s.lastSignIn) : '—'),
       h('td', null, h('button', { type: 'button', class: 'btn sm', onclick: () => studentDialog(s.email) }, 'פרטים'))))
-      : h('tr', null, h('td', { colspan: '7' }, h('div', { class: 'empty' }, 'אין תלמידים בקבוצה הזו.'))))));
+      : h('tr', null, h('td', { colspan: '8' }, h('div', { class: 'empty' }, 'אין תלמידים בקבוצה הזו.'))))));
   if (arg && arg.includes('@')) setTimeout(() => studentDialog(arg), 0);
   return h('div', { class: 'split' },
     h('div', { class: 'grow stack', style: { gap: '16px' } },
       h('h1', null, 'תלמידים ותשלומים'),
+      r.free ? h('p', { class: 'small muted' }, 'התלמידים בחינם בינתיים (הגדרות ← "תלמידים בחינם"). כשמכבים — מי שלא שילם / לא קיבל הענקה נדרש לשלם, גם מי שכבר מחובר.') : null,
       h('div', { class: 'tabs', role: 'tablist' }, h('button', { type: 'button', role: 'tab', 'aria-selected': 'true' }, `תלמידים · ${all.filter(s => s.open).length}`),
         h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', onclick: () => { location.hash = '#students=payments'; } }, 'תשלומים')),
       h('div', { class: 'filters' }, Object.entries(groups).map(([id, [label, fn]]) => h('button', { type: 'button', 'aria-pressed': String(studentFilter === id), onclick: () => { studentFilter = id; render(); } }, `${label} · ${all.filter(fn).length}`))),

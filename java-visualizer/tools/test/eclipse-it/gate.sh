@@ -1,7 +1,7 @@
 #!/bin/sh
 # מסך הכניסה האמיתי (Swing, AccessGate.Dialog) בתוך Eclipse אמיתי — מכין את Eclipse כמו bank.sh (התוסף + ההרחבה ב-dropins,
 # תוסף הבדיקה דרך p2) ומריץ את GateIt. את הצד של הדפדפן/ההנהלה עושה worker/test/eclipse-gate-e2e.mjs (מפעיל את הסקריפט הזה
-# עם GATE_WORKER / GATE_PASSKEY / GATE_SHOTS; אל תריצו אותו ישירות).
+# עם GATE_WORKER / GATE_PASSKEY / GATE_SHOTS; אל תריצו אותו ישירות). GATE_APP=teachersubmit — "הגשה למורה" (eclipse-submit-e2e.mjs).
 #   cd worker && npm run test:eclipse-gate
 set -e
 cd "$(dirname "$0")"
@@ -59,7 +59,7 @@ echo "Eclipse מתחיל (xvfb)"
 xrun "$JAVA" -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 \
     -Ddsviz.worker="$GATE_WORKER" -Ddsviz.passKey="$GATE_PASSKEY" -Ddsviz.machineDir="$G/machine" -Ddsviz.home="$G/home" \
     -Ddsviz.machine="gateit$(date +%s)0000000000000000" \
-    -jar "$LAUNCH" -nosplash -clean -consoleLog -data "$G/ws" -application il.lamerhav.dsviz.it.gate "$OUT" "$GATE_SHOTS" > "$GATE_SHOTS/eclipse.log" 2>&1 || true
+    -jar "$LAUNCH" -nosplash -clean -consoleLog -data "$G/ws" -application il.lamerhav.dsviz.it.${GATE_APP:-gate} "$OUT" "$GATE_SHOTS" > "$GATE_SHOTS/eclipse.log" 2>&1 || true
 rm -f "$ECL"/dropins/il.lamerhav.dsviz.bank_*.jar
 "$JAVA" -jar "$LAUNCH" -nosplash -consoleLog -application org.eclipse.equinox.p2.director -uninstallIU il.lamerhav.dsviz.it >> "$G/p2.log" 2>&1 || true
 echo "Eclipse הסתיים"

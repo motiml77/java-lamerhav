@@ -11,7 +11,7 @@ BUILDNO=${BUILDNO:-$(date -u +%Y%m%d%H%M)}
 HOST=${HOST_JAR:-release/il.lamerhav.dsviz_1.0.1.jar}   # HOST_JAR: תוסף שנבנה מהמקור (tools/test/eclipse-it/gate.sh) במקום זה שב-release/
 [ -f "$HOST" ] || { echo "חסר $HOST — מריצים קודם tools/build-all.sh"; exit 1; }
 [ -f release/dsviz.jar ] || sh tools/build-lib.sh
-sh tools/test/bank-check.sh
+[ "$SKIP_BANK_CHECK" = 1 ] || sh tools/test/bank-check.sh   # SKIP_BANK_CHECK=1 — בבדיקות שבונות את ההרחבה שוב (gate.sh), כשהמאגר כבר נבדק
 
 DEPS=build/eclipse-deps
 [ -f "$DEPS/org.eclipse.ui.workbench.jar" ] && [ -f "$DEPS/org.eclipse.jdt.core.jar" ] || python3 tools/eclipse-deps.py "$DEPS"

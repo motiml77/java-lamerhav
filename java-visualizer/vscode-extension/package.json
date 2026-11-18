@@ -60,6 +60,11 @@
                 "icon": "media/question.png"
             },
             {
+                "command": "dsviz.teacherPanel",
+                "title": "עמדת ניהול (מורה)",
+                "category": "מבני נתונים"
+            },
+            {
                 "command": "dsviz.solution",
                 "title": "הצעה לפתרון",
                 "category": "מבני נתונים"
@@ -535,6 +540,10 @@
                 },
                 {
                     "command": "dsviz.bankQuestion",
+                    "when": "!dsviz.off"
+                },
+                {
+                    "command": "dsviz.teacherPanel",
                     "when": "!dsviz.off"
                 }
             ],

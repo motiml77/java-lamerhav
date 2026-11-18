@@ -781,15 +781,18 @@ function teacherRow(t) {
 async function adminOverview(env) {
   const store = db(env);
   const monthStart = today().slice(0, 8) + '01';
-  const [teachers, requests, students, payments, recent, unseen] = await Promise.all([
+  const [teachers, requests, students, payments, recent, unseen, everyone, cfg] = await Promise.all([
     store.query('teachers'),
     store.query('requests', { where: [['status', '==', 'open']] }),
     store.query('students', { where: [['accessUntil', '>=', today()]] }),
     store.query('payments', { where: [['createdAt', '>=', monthStart]] }),
     store.query('log', { orderBy: ['at', 'desc'], limit: 15 }),
     store.query('alerts', { where: [['seen', '==', false]], limit: 200 }),
+    store.query('students', { limit: 5000 }),
+    settings(env),
   ]);
   const active = teachers.filter(t => t.active);
+  const free = cfg.studentsFree !== false;
   const full = active.filter(t => (t.seats || 0) > 0 && (t.used || 0) >= (t.seats || 0));
   return {
     ok: true,
@@ -797,6 +800,9 @@ async function adminOverview(env) {
       teachers: active.length, teachersBlocked: teachers.length - active.length,
       seats: active.reduce((n, t) => n + (t.seats || 0), 0), used: active.reduce((n, t) => n + (t.used || 0), 0),
       students: students.length, studentsPaid: students.filter(s => s.source === 'payment').length, studentsManual: students.filter(s => s.source === 'manual').length,
+      // בינתיים בחינם: כמה תלמידים נכנסו, כמה נרשמו (שם מלא וטלפון), כמה הצטרפו למורה
+      studentsFree: free, studentsAll: everyone.length, studentsRegistered: everyone.filter(isRegistered).length,
+      studentsWithTeacher: everyone.filter(s => !!s.teacher).length,
       paymentsMonth: payments.filter(p => p.status === 'paid' || p.status === 'refunded').length, refundsMonth: payments.filter(p => p.status === 'refunded').length,
       openRequests: requests.length, alertsUnseen: unseen.length,
     },
@@ -922,16 +928,20 @@ async function adminStations(env, url) {
 
 async function adminStudents(env, url) {
   const store = db(env);
-  const all = await store.query('students', { limit: 5000 });
+  const [all, teachers, cfg] = await Promise.all([store.query('students', { limit: 5000 }), store.query('teachers', { limit: 2000 }), settings(env)]);
   const t = today();
+  const free = cfg.studentsFree !== false;   // בינתיים בחינם: כל תלמיד שנכנס פתוח (paid — מי ששילם / קיבל הענקה, לקראת המעבר לתשלום)
+  const tname = new Map(teachers.map(x => [x.email || x._id, x.name || '']));
   const rows = all.map(s => ({
-    email: s.email || s._id, name: s.fullName || s.name || '', googleName: s.name || '', until: s.accessUntil || '', open: !!s.accessUntil && s.accessUntil >= t, source: s.source || '',
+    email: s.email || s._id, name: s.fullName || s.name || '', googleName: s.name || '', until: s.accessUntil || '',
+    paid: !!s.accessUntil && s.accessUntil >= t, open: free || (!!s.accessUntil && s.accessUntil >= t), source: s.source || '',
+    teacherName: s.teacher ? tname.get(s.teacher) || s.teacher : '',
     note: s.note || '', paidAt: s.paidAt || '', lastSignIn: s.lastSignIn || '', phone: s.phone || '',
     registered: isRegistered(s), registeredAt: s.registeredAt || '', mode: s.mode || '', teacher: s.teacher || '',
   }));
   const sends = await monthlySends(env, rows.map(r => ({ email: r.email, kind: 'student' })));
   rows.forEach((r, i) => { r.sends = sends[i]; });
-  return { ok: true, students: rows.sort((a, b) => String(b.paidAt || b.lastSignIn).localeCompare(String(a.paidAt || a.lastSignIn))) };
+  return { ok: true, free, students: rows.sort((a, b) => String(b.paidAt || b.lastSignIn).localeCompare(String(a.paidAt || a.lastSignIn))) };
 }
 
 async function adminStudent(env, url) {

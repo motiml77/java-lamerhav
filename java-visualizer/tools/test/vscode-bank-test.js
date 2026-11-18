@@ -173,6 +173,10 @@ async function main() {
     check('cmd-cs', ea2[1] === csRoot && ea2.includes('--vscode') && ea2.includes('--cs') && !ea2.includes('--lib') && s2.o.env.DSVIZ_CS === settings.csRunner
         && fs.existsSync(path.join(csRoot, 'Directory.Build.props')),
         '"מאגר תרגילים" (C#): --cs, התיקייה עצמה (Exercises בתוכה), dsviz-cs ב-DSVIZ_CS, והתיקייה הוכנה (Directory.Build.props)', JSON.stringify(ea2));
+    await cmds['dsviz.teacherPanel']();
+    const sT = spawned[3] || { o: {} };
+    check('cmd-teacher', (sT.o.env && sT.o.env.DSVIZ_ARGS || '').split('\n')[0] === 'teacher' && typeof cmds['dsviz.teacherPanel'] === 'function',
+        '"עמדת ניהול (מורה)": אותו כלי במצב teacher (הקוד, העמדות, ועמדת הניהול בדפדפן)', '');
     if (!hadCsLib) fs.rmSync(path.join(EXT, 'resources', 'cs'), { recursive: true, force: true });
     delete settings.csRunner;
     chosenRoot = path.join(W, 'nothing');
