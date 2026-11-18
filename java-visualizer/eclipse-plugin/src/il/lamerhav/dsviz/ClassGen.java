@@ -21,6 +21,10 @@ import java.util.regex.Pattern;
  * עותק זהה ב-JavaScript בתוסף של VS Code (vscode-extension/classgen.js) — tools/test/classgen-tests.sh משווה את שניהם
  * על אותם מקרים (קוד והודעות), ומקמפל ומריץ את המחלקות שנוצרו מול הספרייה (javac / dotnet).
  * תואם Java 8 (התוסף של Eclipse, IntelliJ והכלי של Visual Studio).
+ *
+ * הורשה ופולימורפיזם: "יורשת מ-" (מחלקת העל מהפרויקט — models קורא מהקוד את השדות, הבנאי והפעולות; בנאי עם super / base, דריסות,
+ * פעולות חדשות, abstract, ותיקון virtual בקובץ של מחלקת העל ב-C#), הצבעים כמו בהרצה הוויזואלית (colors — כמו Poly), "היררכיה מוכנה"
+ * (trees / ownTree / treeFiles — כל מחלקה עוברת באותו check, כולל שמות של Unit4) ו"הוסף עצם" (objectCode).
  */
 public final class ClassGen {
     private ClassGen() {}

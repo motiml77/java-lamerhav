@@ -336,10 +336,14 @@ public class ClassGenTest {
                     }
                     sb.append('\n');
                 }
+                for (String t : SPLITS) sb.append("SPLIT ").append(t).append(" → ").append(String.join(" | ", ClassGen.splitArgs(t))).append('\n');
                 out.add(new String[] { lang + "-objects" + (ns.isEmpty() ? "" : "-ns"), sb.toString() });
             }
         return out;
     }
+
+    /** ערכים לתא של מערך (ClassGen.splitArgs) — גם classgen-test.js */
+    static final String[] SPLITS = { "Rexy, male, 3.2", "  ", "new Person(\"a, b\"), \"x,y\", ',', f(1, g(2, 3))", "\"say \\\"hi, you\\\"\", 2", "a,,b" };
 
     /** "הוסף עצם": "type|name|cls|arg;arg..." או מערך "type|name|[]4|cls:arg;arg/cls:arg/..." */
     static final String[] OBJECTS = { "Animal|a1|Boxer|Rexy;male;3.2;3;house", "Animal|a2|Labrador|Toto;male;2.5;4;new Person(\"Hila\")",

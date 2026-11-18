@@ -101,6 +101,29 @@ public class CsClassFileTest {
         ok(!CsClassFile.addCompile(sdk.resolve("Sdk.csproj"), pt) && CsClassFile.read(sdk.resolve("Sdk.csproj")).equals(sp), "SDK — csproj לא משתנה");
         ok(CsClassFile.solution(sdk) == null || !CsClassFile.solution(sdk).startsWith(sdk), "בלי sln בפרויקט");
 
+        // --- הורשה: virtual נוסף בקובץ של מחלקת העל (BOM ו-CRLF נשמרים), ו-hasMain (Main רגיל / פקודות ברמה העליונה / בלי)
+        Path inh = w.resolve("Inh");
+        write(inh.resolve("Inh.csproj"), sp, false);
+        write(inh.resolve("Animal.cs"), "public class Animal\r\n{\r\n    public Animal(string name) { }\r\n\r\n    public string Kind()\r\n    {\r\n        return \"a\";\r\n    }\r\n}\r\n", true);
+        List<ClassGen.Known> ik = CsClassFile.known(inh);
+        ClassGen.Options io = new ClassGen.Options();
+        io.lang = ClassGen.CS;
+        io.className = "Cat";
+        io.known = ik;
+        io.superName = "Animal";
+        io.overrides.add("Kind()");
+        ClassGen.Check ic = ClassGen.check(io);
+        ok(ic.ok() && ic.edits.size() == 1 && ic.edits.get(0).file.equals("Animal.cs"), ic.errors + " " + ic.edits.size());
+        List<Path> touched = CsClassFile.applyVirtual(inh, ic.edits);
+        byte[] ar = Files.readAllBytes(inh.resolve("Animal.cs"));
+        ok(touched.size() == 1 && (ar[0] & 0xFF) == 0xEF && CsClassFile.read(inh.resolve("Animal.cs")).contains("    public virtual string Kind()\r\n"), CsClassFile.read(inh.resolve("Animal.cs")));
+        ok(CsClassFile.applyVirtual(inh, ic.edits).isEmpty(), "פעם שנייה — כבר virtual");
+        ok(!CsClassFile.hasMain(inh), "בלי Main");
+        write(inh.resolve("Program.cs"), "using System;\n\nConsole.WriteLine(1);\n", false);
+        ok(CsClassFile.hasMain(inh), "פקודות ברמה העליונה");
+        write(inh.resolve("Program.cs"), "class P { static void Main(string[] a) { } }\n", false);
+        ok(CsClassFile.hasMain(inh), "Main רגיל");
+
         // --- הסריקה של classgen-project/cs: Student ו-Car (וגם Student של School.Other), בלי Ghost שב-target
         if (a.length > 1) {
             List<ClassGen.Known> k = CsClassFile.known(new File(a[1], "cs/Model").toPath());

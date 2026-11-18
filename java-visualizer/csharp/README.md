@@ -144,6 +144,10 @@ sh tools/test/cs-tests.sh          # בדיקות C#: תבניות (2331 קבצ�
 - "הוספת מבנה נתונים" מעביר לכלי את הקובץ הפעיל ואת הפתרון (`DSVIZ_VS_FILE`, `DSVIZ_VS_SLN`). בחלון — **"+ צור מחלקה…"** (`CsTool class`):
   המחלקה נוצרת ליד הקובץ (באותו namespace, עם BOM וסוף שורה כמו בו — `CsClassFile`), ו-`VsDte.addAndOpen` פותח אותה באותו Visual Studio;
   בפרויקט ‎.NET Framework‎ (csproj בלי `Sdk`) היא קודם נרשמת בפרויקט דרך Visual Studio, ואם הוא לא פתוח — ב-csproj עצמו. בפרויקט SDK כל קובץ בתיקייה נכלל לבד.
+  הורשה: **"יורשת מ-"** בחלון (`: Base`, `: base(...)`, `override`; פעולה של מחלקת העל בלי `virtual` שנבחרה לדריסה — `virtual` נוסף בקובץ
+  שלה, `CsClassFile.applyVirtual`), ולידו **"+ היררכיה מוכנה…"** (`CsTool tree`, כל המחלקות של עץ + main; בפרויקט שכבר יש בו Main —
+  `Run()`) ו-**"+ הוסף עצם…"** (`CsTool object`, הקוד ללוח). החלונות — `CsPoly` על `PolyPanels` (משותף ל-IntelliJ). שם של סוג מ-Unit4 נחסם,
+  כדי שהקוד ייבנה לצד `using Unit4.CollectionsLib;`. בהרצה הוויזואלית מחלקת העל נרשמת תמיד לפני היורשת (`ClassTable`), כך שהצבעים לא תלויים בסדר הקבצים.
 - נבנית ב-CI של Windows (`.github/workflows/dsviz-vsix.yml`, `tools/test/windows-vs/build-vsix.ps1`), שמתקין אותה גם ב-Visual Studio האמיתי
   של המכונה ומצלם; ה-VSIX נשמר ב-`vs-extension/prebuilt/`. `tools/test/vs-extension-compile.sh` מקמפל את הקוד גם ב-Linux.
   הבדיקה המלאה, בלחיצות עכבר אמיתיות ב-2022 וב-2026: `.github/workflows/dsviz-vs-matrix.yml` (`tools/test/windows-vs-matrix/`).

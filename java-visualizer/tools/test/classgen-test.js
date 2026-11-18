@@ -19,6 +19,7 @@ const firstError = o => G.check(o).errors[0] || '';
 var ownRows = spec => spec.split('/').map(r => { const p = r.split('|'); return { name: p[0], sup: p.length > 1 ? p[1] : '', fields: p.length > 2 ? p[2] : '' }; });
 var OWN = ['Vehicle||String model; int year/Bus|Vehicle|int seats/Taxi|vehicle|String company, boolean night/MiniBus|Bus|',
     'A||int x/a|A|int y', 'A|B|int x/B|A|int y', 'Node||int value/Thing|Ghost|', 'Box|Dog|int size', 'Q||int x;int 2y/R|Q|int x'];
+var SPLITS = ['Rexy, male, 3.2', '  ', 'new Person("a, b"), "x,y", \',\', f(1, g(2, 3))', '"say \\"hi, you\\"", 2', 'a,,b'];
 var OBJECTS = ['Animal|a1|Boxer|Rexy;male;3.2;3;house', 'Animal|a2|Labrador|Toto;male;2.5;4;new Person("Hila")',
     'Dog|d|Dog|"Dasty";female;0.5;3', 'Shape|s|Circle|red;2', 'Animal|a3|Animal|', 'Animal|zoo|[]4|Dog:Dasty;female;0.5;3//Boxer:Rexy;male;3.2;3;42/Animal:Bob',
     'Animal|x|Person|Hila', 'Shape|s|Shape|red', 'Animal|1x|Dog|', '|a|Dog|', 'Animal|zoo|[]40|', 'Animal|zoo|[]2|Person:Hila/Mammal:Numa;female;2',
@@ -281,6 +282,7 @@ function treeCases() {
             for (const type of ['Animal', 'Dog', 'Shape', 'Person', 'Nope'])
                 s += 'CLASSES ' + type + ':' + G.objectClasses(known, type).map(k => ' ' + k.name + '('
                     + G.ctorParams(known, k.name).map(p => p.type + ' ' + p.name + '@' + G.paramOwner(known, k.name, p.name)).join(', ') + ')').join('') + '\n';
+            for (const t of SPLITS) s += 'SPLIT ' + t + ' → ' + G.splitArgs(t).join(' | ') + '\n';
             outList.push([lang + '-objects' + (ns ? '-ns' : ''), s]);
         }
     return outList;
