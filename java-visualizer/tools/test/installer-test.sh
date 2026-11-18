@@ -95,7 +95,7 @@ ok "Windows: setup.nsi מתקין ב-VS Code Insiders / VSCodium / Cursor ומס
 # notify.ps1 מימין לשמאל ולא לוקח פוקוס; ב-Mac — התראה של macOS לפני ואחרי
 W="$ROOT/installer"
 grep -q "notify.ps1" "$W/update.ps1" && grep -q "Toast 'updating' \$p.Id" "$W/update.ps1" && grep -q '$p.WaitForExit()' "$W/update.ps1" \
-  && grep -q "Toast 'found'" "$W/update.ps1" && grep -q "Toast 'waiting'" "$W/update.ps1" && grep -q "'found', 'waiting', 'updating', 'done'" "$W/notify.ps1" \
+  && grep -q "Toast 'download'" "$W/update.ps1" && grep -q "Toast 'waiting'" "$W/update.ps1" && grep -q "'found', 'waiting', 'updating', 'done'" "$W/notify.ps1" \
   && grep -q 'File "notify.ps1"' "$W/setup.nsi" && grep -q 'notify.ps1" -State done' "$W/setup.nsi" && grep -q 'StrCpy $UPDATING "1"' "$W/setup.nsi" \
   && grep -q 'RightToLeftLayout = true' "$W/notify.ps1" && grep -q 'ShowWithoutActivation' "$W/notify.ps1" \
   && [ "$(od -An -tx1 -N3 "$W/notify.ps1" | tr -d ' ')" = "efbbbf" ] \
@@ -184,9 +184,10 @@ ok "Windows: מאגר התרגילים — setup.nsi / update.ps1 / lab.nsi מח
 
 if command -v makensis >/dev/null 2>&1; then
     B="$OUT/nsis/build"; R="$OUT/nsis/release"
-    mkdir -p "$B/light" "$B/help" "$B/project" "$B/jre-windows/bin" "$B/dsviz-cs-win" "$B/project-cs" "$B/vs-template" "$B/intellij/dsviz-intellij/lib" "$R"
+    mkdir -p "$B/light" "$B/help" "$B/project" "$B/jre-windows/bin" "$B/dsviz-cs-win" "$B/project-cs" "$B/vs-template" "$B/intellij/dsviz-intellij/lib" "$B/automata/app" "$R"
     for f in light/dsviz-1.0.1.vsix light/il.lamerhav.dsviz_1.0.1.jar help/index.html project/README.txt jre-windows/bin/java.exe \
-             dsviz-cs-win/dsviz-cs.exe project-cs/README.txt vs-template/DSViz-Exercise.zip intellij/dsviz-intellij/lib/dsviz-intellij.jar; do echo x > "$B/$f"; done
+             dsviz-cs-win/dsviz-cs.exe project-cs/README.txt vs-template/DSViz-Exercise.zip intellij/dsviz-intellij/lib/dsviz-intellij.jar \
+             automata/dsviz-automata.jar automata/app/index.html; do echo x > "$B/$f"; done
     echo x > "$R/dsviz.jar"
     BK="$OUT/nsis/bank"; mkdir -p "$BK"
     for f in il.lamerhav.dsviz.bank_1.0.0.jar dsviz-bank-vs.jar dsviz-bank-intellij-1.0.0.zip; do echo x > "$BK/$f"; done
