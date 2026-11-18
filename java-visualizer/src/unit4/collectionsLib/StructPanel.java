@@ -1007,7 +1007,104 @@ final class StructPanel extends JPanel {
 
     // ------------------------------------------------------------ מערך חד-ממדי
 
+    // ------------------------------------------------------------ מסגרת המחלקה: מבנה (מערך, מחסנית, תור) של עצמים
+
+    /** המחלקה של העצמים במבנה: cls — השם שכתוב על המסגרת; poly — יש בו עצם ממחלקה אחרת (יורשת): תגית מחלקה בכל תא */
+    private static final class ElemClass {
+        final String cls;
+        final boolean poly;
+
+        ElemClass(String cls, boolean poly) {
+            this.cls = cls;
+            this.poly = poly;
+        }
+    }
+
+    /** הרווח בין המסגרת לתאים, וכמה השם בולט מעל הקו של המסגרת */
+    private static final int FRAME_PAD = 6, LEGEND_UP = 8;
+    private static final Color FRAME_GRAY = new Color(0x9AA4B5);
+    private final Font LEGEND = Theme.font(Theme.boldFamily, Theme.boldStyle, 12);
+    /** בזמן הציור של מבנה עם מסגרת: 1 — תגית מחלקה בכל תא (פולימורפיזם); -1 — בלי תגיות (המחלקה כתובה על המסגרת); 0 — כרגיל */
+    private int chipMode;
+
+    /**
+     * המחלקה שכתובה על המסגרת של מבנה עם עצמים: הטיפוס המוצהר (Animal[] zoo) אם הוא מחלקה של התלמיד שכל העצמים הם ממנה;
+     * אחרת — המחלקה של כל העצמים, או מחלקת העל המשותפת להם (Object / object אם אין). null — אין עצמים, או מבנה בתוך כרטיס
+     */
+    private ElemClass elemClass(List<Obj> objs, String title) {
+        if (nest > 0) return null;
+        List<String> types = new ArrayList<String>();
+        if (objs != null)
+            for (Obj o : objs) {
+                if (o == null || o.type == null || o.type.isEmpty()) continue;
+                String t = Poly.simple(o.type);
+                if (!types.contains(t)) types.add(t);
+            }
+        String decl = null;
+        if (title != null && step != null) {
+            String n = title.split(",\\s*")[0].trim();
+            if (!n.isEmpty() && !n.contains("(")) decl = Poly.elem(Poly.declared(step, n));
+        }
+        boolean declOk = decl != null && Poly.get(decl) != null;
+        if (types.isEmpty()) return declOk ? new ElemClass(decl, false) : null;   // Person1[] שכל התאים בו null
+        String general = null;
+        if (declOk && allA(types, decl)) general = decl;
+        else if (types.size() == 1) general = types.get(0);
+        else {
+            for (Model.ClassInfo c = Poly.get(types.get(0)); c != null && general == null; c = c.sup == null ? null : Poly.get(c.sup))
+                if (allA(types, c.name)) general = c.name;
+            if (general == null) general = Syntax.csharp ? "object" : "Object";
+        }
+        return new ElemClass(general, types.size() > 1 || !types.get(0).equals(general));
+    }
+
+    private static boolean anySub(List<View> subs) {
+        for (View s : subs) if (s != null) return true;
+        return false;
+    }
+
+    private static boolean allA(List<String> types, String sup) {
+        for (String t : types) if (!Poly.isA(t, sup)) return false;
+        return true;
+    }
+
+    private int legendW(ElemClass ec) {
+        return ec == null ? 0 : textWidth(ec.cls, LEGEND) + 34;
+    }
+
+    /** מסגרת דקה סביב התאים, ושם המחלקה על הקו שלה (למעלה משמאל): בצבע של המחלקה אם היא בעץ הורשה, אחרת אפור */
+    private void classFrame(Graphics2D g, ElemClass ec, int x, int y, int w, int h) {
+        Color ink = Poly.inHierarchy(ec.cls) ? Poly.ink(ec.cls) : FRAME_GRAY;
+        Graphics2D f = (Graphics2D) g.create();
+        f.setFont(LEGEND);
+        FontMetrics fm = f.getFontMetrics();
+        int lw = fm.stringWidth(ec.cls), lx = x + 12;
+        java.awt.geom.Area keep = new java.awt.geom.Area(new Rectangle(x - 3, y - 3, w + 6, h + 6));
+        keep.subtract(new java.awt.geom.Area(new Rectangle(lx - 5, y - 9, lw + 10, 18)));
+        Graphics2D line = (Graphics2D) f.create();
+        line.clip(keep);
+        line.setColor(ink);
+        line.setStroke(new BasicStroke(1.3f));
+        line.drawRoundRect(x, y, w, h, 12, 12);
+        line.dispose();
+        f.setColor(ink);
+        f.drawString(ec.cls, lx, y + (fm.getAscent() - fm.getDescent()) / 2);
+        f.dispose();
+    }
+
     private Dimension drawArray(Graphics2D g, ArrayView v, int x, int y) {
+        // מערך של עצמים: מסגרת דקה סביב התאים עם שם המחלקה (Person1; ב-Animal[] עם Dog / Cat — Animal, ותגית בכל תא)
+        ElemClass ec = v.items.isEmpty() || anySub(v.subs) ? null : elemClass(v.objs, v.title);
+        int chips = chipMode;
+        chipMode = ec == null ? 0 : ec.poly ? 1 : -1;
+        try {
+            return drawArray(g, v, x, y, ec);
+        } finally {
+            chipMode = chips;
+        }
+    }
+
+    private Dimension drawArray(Graphics2D g, ArrayView v, int x, int y, ElemClass ec) {
         int n = v.items.size();
         boolean objs = hasObjs(v.objs);
         int cw = Math.max(44, widthOf(v.items, v.objs, null) + 22), ch = objs ? OBJ_H : 40;
@@ -1018,12 +1115,14 @@ final class StructPanel extends JPanel {
         int labelsH = 22 + Math.max(0, mostLabels - 1) * LABEL_STEP;   // כמה משתני אינדקס על אותו תא — שורה לכל אחד
         String type = "מערך, אורך " + n + (v.truncated ? "+" : "");
         String decl = declOf(v.title);
-        int top = y + th() + labelsH;
-        int w = Math.max(16 + Math.max(n, 1) * cw + 20, titleWidth(v.title, type) + declW(decl));
-        int h = th() + labelsH + ch + 22;
+        int fp = ec == null ? 0 : FRAME_PAD, fu = ec == null ? 0 : LEGEND_UP;
+        int top = y + th() + labelsH + fu + fp;
+        int w = Math.max(Math.max(16 + Math.max(n, 1) * cw + 20, legendW(ec)), titleWidth(v.title, type) + declW(decl));
+        int h = th() + labelsH + ch + 22 + fu + 2 * fp;
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, decl, type, x, y, v.focus || !v.changed.isEmpty());
+        if (ec != null) classFrame(g, ec, x + 8 - fp, top - fp, n * cw + 2 * fp, ch + 2 * fp);
         if (n == 0) {
             box(g, x + 8, top, cw, ch, BOX, null, true);
             g.setColor(MUTED);
@@ -1033,9 +1132,9 @@ final class StructPanel extends JPanel {
             int bx = x + 8 + i * cw;
             cell(g, bx, top, cw, ch, v.changed.contains(i) ? CHANGED_C : BOX, v.items.get(i), objAt(v.objs, i), subAt(v.subs, i));
             g.setColor(MUTED);
-            center(g, String.valueOf(i), SMALL, bx + cw / 2, top + ch + 11);
+            center(g, String.valueOf(i), SMALL, bx + cw / 2, top + ch + 11 + fp);
             List<String> labels = v.indexLabels.get(i);
-            if (labels != null) labelStack(g, labels, bx + cw / 2, top - 4);
+            if (labels != null) labelStack(g, labels, bx + cw / 2, top - 4 - fp - fu);
         }
         if (v.truncated) {
             g.setColor(MUTED);
@@ -1104,18 +1203,30 @@ final class StructPanel extends JPanel {
     // ------------------------------------------------------------ מחסנית
 
     private Dimension drawStack(Graphics2D g, LinearView v, int x, int y) {
+        ElemClass ec = v.items.isEmpty() || anySub(v.subs) ? null : elemClass(v.objs, v.title);   // מסגרת המחלקה, כמו במערך
+        int chips = chipMode;
+        chipMode = ec == null ? 0 : ec.poly ? 1 : -1;
+        try {
+            return drawStack(g, v, x, y, ec);
+        } finally {
+            chipMode = chips;
+        }
+    }
+
+    private Dimension drawStack(Graphics2D g, LinearView v, int x, int y, ElemClass ec) {
         int n = v.items.size(), rows = Math.max(n, 1);
         boolean objs = hasObjs(v.objs);
         int cw = Math.max(76, widthOf(v.items, v.objs, v.ghost) + 26), ch = objs ? OBJ_H : 36, ghostH = v.ghost != null || v.error != null ? (objs ? 62 : 50) : 14;
         Dimension sb = subsBox(v.subs);
         if (sb != null) { cw = Math.max(cw, sb.width); ch = Math.max(ch, sb.height); }
-        int w = Math.max(cw + 84, titleWidth(v.title, "מחסנית")), h = th() + ghostH + rows * ch + 14;
+        int fp = ec == null ? 0 : FRAME_PAD, fu = ec == null ? 0 : LEGEND_UP;
+        int w = Math.max(Math.max(cw + 84 + 3 * fp, legendW(ec)), titleWidth(v.title, "מחסנית")), h = th() + ghostH + rows * ch + 14 + fu + 2 * fp;
         if (g == null) return new Dimension(w, h);
         boolean wasInStack = inStack;
         inStack = true;
 
         drawTitle(g, v.title, "מחסנית", x, y, v.focus);
-        int cx = x + 8, top = y + th() + ghostH;
+        int cx = x + 8 + fp, top = y + th() + ghostH + fu + fp;
         // המקומות של האיברים ושל הקירות — בהנפשה: בדרך מהמקום הקודם (StructAnim.stack)
         Rectangle[] rs = new Rectangle[n];
         for (int i = 0; i < n; i++) rs[i] = new Rectangle(cx, top + i * ch, cw, ch);
@@ -1135,6 +1246,8 @@ final class StructPanel extends JPanel {
                 ghostA = anim.ghostAlpha(key);
             }
         }
+        if (ec != null)   // מסגרת המחלקה סביב הקירות (בהנפשה — זזה איתם)
+            classFrame(g, ec, wall.x - 5 - fp, wall.y - 8 - fp, wall.width + 10 + 2 * fp, wall.height + 13 + 2 * fp);
         if (v.ghost != null && ghostA > 0.01f) {
             Graphics2D gg = faded(g, ghostA);
             ghostBox(gg, cx, y + th() + 4, cw, ch, v.ghost);
@@ -1173,9 +1286,9 @@ final class StructPanel extends JPanel {
             g.setColor(v.error != null ? GHOST : MUTED);
             center(g, "ריקה", SMALL_B, cx + cw / 2, top + ch / 2);
         } else {
-            arrow(g, wr + 42, wt + ch / 2, wr + 10, wt + ch / 2, LINE);
+            arrow(g, wr + 42 + fp, wt + ch / 2, wr + 10, wt + ch / 2, LINE);
             g.setFont(SMALL_B);
-            g.drawString("top", wr + 46, wt + ch / 2 + 5);
+            g.drawString("top", wr + 46 + fp, wt + ch / 2 + 5);
         }
         return new Dimension(w, h);
     }
@@ -1185,6 +1298,17 @@ final class StructPanel extends JPanel {
     private static final int QARROW = 16;   // אורך החצים בצדי התור
 
     private Dimension drawQueue(Graphics2D g, LinearView v, int x, int y) {
+        ElemClass ec = v.items.isEmpty() || anySub(v.subs) ? null : elemClass(v.objs, v.title);   // מסגרת המחלקה, כמו במערך
+        int chips = chipMode;
+        chipMode = ec == null ? 0 : ec.poly ? 1 : -1;
+        try {
+            return drawQueue(g, v, x, y, ec);
+        } finally {
+            chipMode = chips;
+        }
+    }
+
+    private Dimension drawQueue(Graphics2D g, LinearView v, int x, int y, ElemClass ec) {
         int n = v.items.size(), rows = Math.max(n, 1);
         boolean objs = hasObjs(v.objs);
         int cw = Math.max(56, widthOf(v.items, v.objs, v.ghost) + 24), ch = objs ? OBJ_H : 40;
@@ -1193,11 +1317,12 @@ final class StructPanel extends JPanel {
         // משמאל: מקום לאיבר שהוצא (remove) — רק במבנה ראשי, או כשבאמת הוציאו; ואז חץ קצר החוצה
         boolean ghostSpace = nest == 0 || v.ghost != null;
         int left = x + (ghostSpace ? cw + 16 : 4) + QARROW + 8;
-        int w = Math.max(left - x + rows * cw + QARROW + 18, titleWidth(v.title, "תור")), h = th() + ch + 40;
+        int fp = ec == null ? 0 : FRAME_PAD, fu = ec == null ? 0 : LEGEND_UP;
+        int w = Math.max(Math.max(left - x + rows * cw + QARROW + 18, legendW(ec)), titleWidth(v.title, "תור")), h = th() + ch + 40 + fu + 2 * fp;
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "תור", x, y, v.focus);
-        int top = y + th() + 6;
+        int top = y + th() + 6 + fu + fp;
         // המקומות של האיברים ושל הצינור — בהנפשה: בדרך מהמקום הקודם (StructAnim.queue)
         Rectangle[] rs = new Rectangle[n];
         for (int i = 0; i < n; i++) rs[i] = new Rectangle(left + i * cw, top, cw, ch);
@@ -1228,6 +1353,8 @@ final class StructPanel extends JPanel {
             g.setColor(GHOST);
             center(g, v.error, SMALL_B, x + 8 + cw / 2, top + ch + 16);
         }
+        if (ec != null)   // מסגרת המחלקה סביב הצינור (החצים של הכניסה / היציאה עוברים דרכה)
+            classFrame(g, ec, wall.x - 8 - fp, wall.y - 5 - fp, wall.width + 16 + 2 * fp, wall.height + 10 + 2 * fp);
         g.setColor(v.error != null ? GHOST : LINE);
         g.setStroke(THICK);
         int wl = wall.x, wt = wall.y, wh = wall.height;
@@ -1251,12 +1378,12 @@ final class StructPanel extends JPanel {
             // head / tail — מתחת לאיברים עצמם (בהנפשה הם זזים איתם: מי שמתקדם לראש / נכנס לזנב לוקח את השם)
             Graphics2D gl = alpha != null && alpha[0] < 1f ? faded(g, alpha[0]) : g;
             gl.setColor(LINE);
-            center(gl, n == 1 ? "head / tail" : "head", SMALL_B, rs[0].x + rs[0].width / 2, rs[0].y + rs[0].height + 18);
+            center(gl, n == 1 ? "head / tail" : "head", SMALL_B, rs[0].x + rs[0].width / 2, rs[0].y + rs[0].height + 18 + fp);
             if (gl != g) gl.dispose();
             if (n > 1) {
                 gl = alpha != null && alpha[n - 1] < 1f ? faded(g, alpha[n - 1]) : g;
                 gl.setColor(LINE);
-                center(gl, "tail", SMALL_B, rs[n - 1].x + rs[n - 1].width / 2, rs[n - 1].y + rs[n - 1].height + 18);
+                center(gl, "tail", SMALL_B, rs[n - 1].x + rs[n - 1].width / 2, rs[n - 1].y + rs[n - 1].height + 18 + fp);
                 if (gl != g) gl.dispose();
             }
         }
@@ -1876,7 +2003,7 @@ final class StructPanel extends JPanel {
 
     private int objW(Obj o) {
         int w = Math.max(70, Math.max(titleW(o), textWidth(o.sub, CARD_S)) + 22);
-        return PolyPaint.has(o) ? Math.max(w, PolyPaint.chipW(this, o.type, BADGE) + 18) : w;
+        return chipMode > 0 || chipMode == 0 && PolyPaint.has(o) ? Math.max(w, PolyPaint.chipW(this, o.type, BADGE) + 18) : w;
     }
 
     /** רוחב התא הרחב ביותר (טקסט רגיל או כרטיס) */
@@ -1913,7 +2040,7 @@ final class StructPanel extends JPanel {
         g.setColor(acc ? darker(fill) : fill == BOX ? BOX_LINE : darker(fill));
         g.setStroke(acc ? THICK : THIN);
         g.drawRoundRect(x + 1, y + 1, w - 2, h - 2, ARC + 2, ARC + 2);
-        if (PolyPaint.has(o)) {   // הורשה (Poly, כלל 3): בתא — רק תגית צבעונית עם המחלקה של העצם, והכותרת הקצרה; לא קופסאות
+        if (chipMode > 0 || chipMode == 0 && PolyPaint.has(o)) {   // הורשה (Poly, כלל 3): בתא — רק תגית צבעונית עם המחלקה של העצם, והכותרת הקצרה; לא קופסאות
             int cw = PolyPaint.chipW(this, o.type, BADGE);
             PolyPaint.chip(g, o.type, x + (w - cw) / 2, y + 5, 16, BADGE, false);
             g.setColor(INK);
