@@ -6,6 +6,7 @@
 #   sh tools/test/eclipse-it/run.sh [תיקיית eclipse]
 # צילומי המסך (SHOT=1) ו"הצעה לפתרון" רצים ב-xvfb-run; עם XD=:99 — על מסך X קיים (כמו ב-tutorials/viewer.sh)
 set -e
+export LC_ALL=C.UTF-8   # המקף העברי (U+2011) בתבניות של grep — בלי UTF-8 הוא לא מזוהה
 cd "$(dirname "$0")"
 ROOT="$(cd ../../.. && pwd)"
 B="$ROOT/build/eclipse-it"
@@ -77,7 +78,7 @@ if [ "$SHOT" = 1 ]; then
              "PANEL-TEXT Mixed.java:6 fix <RLM><RLE>הצעה לתיקון: בסיבוב האחרון תהיה שגיאה <RLM><LRE>(ArrayIndexOutOfBoundsException)<PDF><RLM>. כותבים:<PDF>" \
              "PANEL-TEXT Mixed.java:6 code <LRM><LRE> i < arr.length <PDF>" \
              "PANEL-TEXT Mixed.java:27 main <RLM><RLE>אי התאמה בטיפוסים: אי אפשר להכניס <RLM><LRE>Stack<String><PDF><RLM> למשתנה מטיפוס <RLM><LRE>Stack<Integer><PDF><RLM><PDF>" \
-             "PANEL-HEAD Mixed.java <RLM><RLE><RLM><LRE>1<PDF><RLM> שגיאות ו-<RLM><LRE>5<PDF><RLM> אזהרות"; do
+             "PANEL-HEAD Mixed.java <RLM><RLE><RLM><LRE>1<PDF><RLM> שגיאות ו[-‑]<RLM><LRE>5<PDF><RLM> אזהרות"; do
         grep -q -- "$k" "$B/eclipse.log" && echo "  ok  חלון ההסברים: ${k%%<*}" || { echo "  FAIL חלון ההסברים: $k"; FAILED=1; }
     done
 fi
