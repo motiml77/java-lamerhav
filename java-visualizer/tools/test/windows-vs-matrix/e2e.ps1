@@ -314,7 +314,20 @@ function CheckVisual([string]$id, [string]$file, [string]$prog, [string]$lib, [s
     KillJava
     Start-Sleep 1
 }
-# T16: "הרצה ויזואלית" על PolyApp, ובחלון — המקלדת (חץ שמאלה = "הבא", כמו תלמיד) עד Animal pet = d; (צעד 24, הפסים "לא נראה דרך pet")
+# טביעת אצבע של מה שמוצג במלבן של חלון (צילום של האזור) — כדי לדעת שהחלון באמת השתנה
+function RegionHash($r) {
+    try {
+        $w = [Math]::Max(1, $r.Right - $r.Left); $hh = [Math]::Max(1, $r.Bottom - $r.Top)
+        $bmp = New-Object Drawing.Bitmap $w, $hh
+        $g = [Drawing.Graphics]::FromImage($bmp)
+        $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
+        $ms = New-Object IO.MemoryStream
+        $bmp.Save($ms, [Drawing.Imaging.ImageFormat]::Png)
+        $g.Dispose(); $bmp.Dispose()
+        return [BitConverter]::ToString([Security.Cryptography.SHA1]::Create().ComputeHash($ms.ToArray()))
+    } catch { return "err $_" }
+}
+# T16: "הרצה ויזואלית" על PolyApp, ובחלון — לחיצות על "הבא" (כמו תלמיד) עד Animal pet = d; (צעד 24, הפסים "לא נראה דרך pet")
 # ועד pet.Say() (צעד 25, "מותר? / מה רץ?"), עם צילום מסך בכל אחד. ואז אותו פרויקט דרך dsviz-cs וחלון ההרצה בלי מסך (--check):
 # הקריאות עם החלונית, base.Say() ב-Dog — "מחוץ ל-Dog", ובלי השם המלא PolyApp.Dog
 function CheckPoly([string]$d) {
@@ -328,12 +341,20 @@ function CheckPoly([string]$d) {
     $h = $v[0].MainWindowHandle
     $front = [DsReal]::Front($h)
     Start-Sleep 1
-    for ($i = 0; $i -lt 23; $i++) { [DsReal]::Chord([uint16[]]@(0x25)); Start-Sleep -Milliseconds 150 }
+    # הכפתור "הבא" — לחיצות עכבר אמיתיות (כמו תלמיד): 145 פיקסלים משמאל לקצה הימני של החלון, 65 מתחת לראש שלו
+    # (המקלדת לא הגיעה לחלון ב-Visual Studio 2026: הפוקוס נשאר אצל Visual Studio)
+    $r = New-Object DsReal+RECT
+    [DsReal]::GetWindowRect($h, [ref]$r) | Out-Null
+    $nx = $r.Right - 152; $ny = $r.Top + 65
+    $before = RegionHash $r
+    for ($i = 0; $i -lt 23; $i++) { [DsReal]::Click($nx, $ny) | Out-Null; Start-Sleep -Milliseconds 200 }
     Start-Sleep 2
-    Step 't16-pet-equals-d'
-    [DsReal]::Chord([uint16[]]@(0x25)); Start-Sleep 2
-    Step 't16-pet-say'
-    Check 't16-stepped' ($front -and @(Viewers).Count -gt 0) 'T16: החלון בקדמה, 24 צעדים במקלדת — צילומים t16-pet-equals-d ו-t16-pet-say' "בקדמה: $front"
+    Step 't16-pet-equals-d' $nx $ny
+    $mid = RegionHash $r
+    [DsReal]::Click($nx, $ny) | Out-Null; Start-Sleep 2
+    Step 't16-pet-say' $nx $ny
+    $after = RegionHash $r
+    Check 't16-stepped' ($front -and @(Viewers).Count -gt 0 -and $before -ne $mid -and $mid -ne $after) 'T16: 24 לחיצות על "הבא" — החלון התקדם (התמונה שלו השתנתה), צילומים t16-pet-equals-d ו-t16-pet-say' "בקדמה: $front · הבא ב-($nx,$ny) · חלון $($r.Left),$($r.Top)-$($r.Right),$($r.Bottom)"
     KillJava
     $tr = Join-Path $logs 't16-polyapp.trace'; $ck = Join-Path $logs 't16-polyapp-check.txt'
     & $runner (Join-Path $d 'PolyApp') --trace $tr 2>&1 | Out-Null
