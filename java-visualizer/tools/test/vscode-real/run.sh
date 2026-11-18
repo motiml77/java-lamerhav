@@ -16,5 +16,5 @@ javac -encoding UTF-8 -nowarn -cp "$BANK:$R/release/dsviz.jar" -d "$VSC_DIR/seed
 "$VSC_DIR/dl/VSCode-linux-x64/bin/code" --no-sandbox --extensions-dir "$VSC_DIR/ext" --user-data-dir "$VSC_UD" --install-extension "$R/release/dsviz-1.0.1.vsix" >/dev/null 2>&1
 if [ -z "$DISPLAY" ]; then Xvfb :55 -screen 0 1600x1000x24 >/dev/null 2>&1 & XP=$!; export DISPLAY=:55; sleep 2; fi
 node "$R/tools/test/vscode-real/real-vscode.js"; rc=$?
-[ -n "$XP" ] && kill $XP
+if [ -n "$XP" ]; then kill $XP; fi
 exit $rc
