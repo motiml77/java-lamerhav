@@ -26,7 +26,7 @@ class Session {
     }
 
     initial() {
-        return { className: '', fields: [row(this.lang)], ctor: true, toStr: false };
+        return { className: '', fields: [row(this.lang)], ctor: true, toStr: false, superName: '', isAbstract: false, overrides: [], methods: [] };
     }
 
     /** שורה בחלון: { base, elem, name, refs } (או { type, name } — טיפוס מלא) → שדה של המחולל */
@@ -34,9 +34,13 @@ class Session {
         const fields = (s.fields || []).map(f => ({
             type: f.base !== undefined ? G.fullType(f.base, f.elem, this.lang) : (f.type || ''), name: f.name || '', refs: Object.assign({}, f.refs || {})
         }));
+        const sup = (this.known || []).find(k => k.name === (s.superName || ''));
         return {
             lang: this.lang, className: s.className || '', fields, ctor: s.ctor !== false, toStr: !!s.toStr, pkg: this.pkg, namespace: this.namespace,
-            fileScoped: this.fileScoped, taken: this.taken, known: this.known
+            fileScoped: this.fileScoped, taken: this.taken, known: this.known,
+            // הורשה: יורשת מ-, מחלקה מופשטת, הדריסות שנבחרו, פעולות חדשות
+            superName: s.superName || '', superPkg: sup ? sup.pkg : null, isAbstract: !!s.isAbstract, overrides: (s.overrides || []).slice(),
+            methods: (s.methods || []).map(m => ({ ret: m.ret || '', name: m.name || '', params: m.params || '', isAbstract: !!s.isAbstract && !!m.isAbstract }))
         };
     }
 
@@ -44,14 +48,41 @@ class Session {
     view(s) {
         const o = this.options(s);
         const c = G.check(o);
+        // הצבעים — כמו בהרצה הוויזואלית (ClassGen.colors); אחרי שהמחלקה תירש — הצבעים שיהיו לה ולשרשרת שלה
+        const now = G.colors(sorted(this.known)), after = G.colorsWith(this.known, c.className || 'MyClass', c.sup);
+        const hex = (map, n) => G.hex(G.ink(map.has(n) ? map.get(n) : -1));
         return {
             ok: c.ok, error: c.errors[0] || null, errors: c.errors, warnings: c.warnings,
-            code: c.ok ? G.generate(o) : G.preview(o), file: c.className ? G.fileName(c.className, this.lang) : '', className: c.className
+            code: c.ok ? G.generate(o) : G.preview(o), file: c.className ? G.fileName(c.className, this.lang) : '', className: c.className,
+            supers: G.superCandidates(this.known).map(k => ({ name: k.name, pkg: k.pkg, color: hex(now, k.name), bg: G.hex(G.bg(now.has(k.name) ? now.get(k.name) : -1)) })),
+            sup: c.sup ? c.sup.name : null,
+            inherited: c.inherited.map(h => ({ from: h.from, color: hex(after, h.from), fields: h.fields.map(f => f.type + ' ' + f.name) })),
+            overridable: c.overridable.map(ov => ({ key: ov.key, label: ov.method.ret + ' ' + ov.method.name + '(' + ov.method.params + ')', from: ov.from,
+                color: hex(after, ov.from), required: ov.isAbstract && !o.isAbstract, virtual: ov.needsVirtual, on: c.overrides.includes(ov) })),
+            edits: c.ok ? c.edits : []
         };
     }
 }
 
 const row = lang => ({ base: G.defaultType(lang), elem: '', name: '', refs: {} });
+const sorted = known => (known || []).slice().sort((a, b) => a.name === b.name ? (a.pkg < b.pkg ? -1 : a.pkg > b.pkg ? 1 : 0) : (a.name < b.name ? -1 : 1));
+
+/** הורשה ב-C#: מוסיף virtual לפעולות של מחלקת העל שנבחרו לדריסה (view.edits — הקובץ יחסית ל-root). מחזיר את הקבצים ששונו */
+function applyEdits(root, edits) {
+    const out = [];
+    for (const e of edits || []) {
+        if (!e.file) continue;
+        const f = path.join(root, e.file);
+        let raw;
+        try { raw = fs.readFileSync(f, 'utf8'); } catch (x) { continue; }
+        const bom = raw.charCodeAt(0) === 0xFEFF, text = bom ? raw.slice(1) : raw;
+        const now = G.addVirtual(text, e.className, e.method, e.params);
+        if (now === text) continue;
+        fs.writeFileSync(f, (bom ? '\uFEFF' : '') + now, 'utf8');
+        if (!out.includes(f)) out.push(f);
+    }
+    return out;
+}
 
 /** תיקיית הפרויקט של C#: התיקייה הקרובה (עד 4 רמות למעלה) שיש בה ‎.csproj‎; אחרת — התיקייה של הקובץ */
 function csProjectDir(dir) {
@@ -168,6 +199,17 @@ pre { direction: ltr; text-align: left; margin: 0; padding: 10px 12px; border-ra
 #pop .it.on, #pop .it:hover { background: var(--vscode-list-activeSelectionBackground, var(--accent)); color: var(--vscode-list-activeSelectionForeground, var(--accentText)); }
 #pop .it.on .hint, #pop .it:hover .hint { color: inherit; opacity: .8; }
 #pop .empty { color: var(--muted); padding: 2px 14px 4px 12px; font-size: 12px; }
+/* הורשה: תגית לכל מחלקה, בצבע שלה (כמו בהרצה הוויזואלית) — השם תמיד כתוב על הצבע */
+.tags { display: flex; flex-wrap: wrap; gap: 6px; direction: ltr; justify-content: flex-end; }
+.tag { font: 12.5px var(--vscode-editor-font-family, monospace); border: 1.5px solid; border-radius: 8px; padding: 2px 9px; cursor: pointer; background: #fff; }
+.tag.on { border-width: 3px; padding: 1px 8px; }
+.tag.none { color: var(--muted); border-color: var(--line); }
+.inh { display: flex; gap: 8px; align-items: center; direction: ltr; justify-content: flex-end; margin: 3px 0; }
+.inh .f { color: #8a909c; font-family: var(--vscode-editor-font-family, monospace); font-size: 12px; }
+.ov { display: flex; gap: 8px; align-items: center; direction: ltr; justify-content: flex-end; margin: 2px 0; font-family: var(--vscode-editor-font-family, monospace); font-size: 12.5px; }
+.mrow { display: flex; gap: 4px; align-items: center; direction: ltr; margin: 4px 0; } .mrow input[type=text] { width: auto; flex: 1 1 0; }
+.mrow .abs { display: none; } body.abstract .mrow .abs { display: inline-flex; }
+.muted { color: var(--muted); font-size: 12px; } .hidden { display: none; }
 </style></head><body>
 <h1 id="title"></h1>
 <div class="sub" id="sub"></div>
@@ -175,10 +217,19 @@ pre { direction: ltr; text-align: left; margin: 0; padding: 10px 12px; border-ra
   <div class="card right">
     <h2><label for="className">שם המחלקה</label></h2>
     <input type="text" id="className" spellcheck="false" autocomplete="off">
+    <h2>יורשת מ-</h2>
+    <div class="tags" id="supers"></div>
+    <div id="inhBox" class="hidden"><h2>שדות שירשה</h2><div id="inherited"></div></div>
     <h2>השדות (private)</h2>
     <table class="fields"><thead><tr><th>טיפוס</th><th>שם</th><th></th></tr></thead><tbody id="rows"></tbody></table>
     <button class="add" id="add">+ שדה</button>
+    <div id="ovBox" class="hidden"><h2>פעולות לדריסה</h2><div id="overrides"></div></div>
+    <h2>פעולה חדשה</h2>
+    <div class="muted">טיפוס מוחזר · שם · פרמטרים (למשל  int steps, String word)</div>
+    <div id="methods"></div>
+    <button class="add" id="addMethod">+ פעולה</button>
     <div class="opts">
+      <label><input type="checkbox" id="abstract"> מחלקה מופשטת (abstract) — אי אפשר ליצור ממנה עצם, רק לרשת ממנה</label>
       <label><input type="checkbox" id="ctor"> בנאי שמקבל את כל השדות</label>
       <label><input type="checkbox" id="toStr"> <span id="toStrLabel"></span></label>
     </div>
@@ -321,6 +372,56 @@ $('add').onclick = addRow;
 $('className').oninput = () => { state.className = $('className').value; send(); };
 $('className').onkeydown = e => { if (e.key === 'Enter' && !e.ctrlKey) { e.preventDefault(); $('rows').querySelector('.name').focus(); } };
 $('ctor').onchange = () => { state.ctor = $('ctor').checked; send(true); };
+// ---------------------------------------------------------------- הורשה
+$('abstract').checked = !!state.isAbstract;
+$('abstract').onchange = () => { state.isAbstract = $('abstract').checked; document.body.classList.toggle('abstract', state.isAbstract); send(true); };
+function methodRows() {
+  const box = $('methods');
+  box.innerHTML = '';
+  (state.methods || []).forEach((m, i) => {
+    const d = document.createElement('div'); d.className = 'mrow';
+    d.innerHTML = '<input type="text" class="r" placeholder="String" spellcheck="false"><input type="text" class="n" placeholder="say" spellcheck="false">'
+      + '(<input type="text" class="p" placeholder="int x, String s" spellcheck="false">)<label class="abs"><input type="checkbox" class="a"> abstract</label>'
+      + '<span class="x"><button title="הסרת הפעולה">✕</button></span>';
+    const r = d.querySelector('.r'), n = d.querySelector('.n'), p = d.querySelector('.p'), a = d.querySelector('.a');
+    r.value = m.ret; n.value = m.name; p.value = m.params; a.checked = !!m.isAbstract;
+    r.oninput = () => { m.ret = r.value; send(); }; n.oninput = () => { m.name = n.value; send(); }; p.oninput = () => { m.params = p.value; send(); };
+    a.onchange = () => { m.isAbstract = a.checked; send(true); };
+    d.querySelector('button').onclick = () => { state.methods.splice(i, 1); methodRows(); send(true); };
+    box.appendChild(d);
+  });
+}
+$('addMethod').onclick = () => { state.methods = state.methods || []; state.methods.push({ ret: 'String', name: '', params: '', isAbstract: false }); methodRows(); send(true);
+  const ns = $('methods').querySelectorAll('.n'); if (ns.length) ns[ns.length - 1].focus(); };
+methodRows();
+function renderInheritance(v) {
+  const sb = $('supers');
+  sb.innerHTML = '';
+  const tag = (label, color, bg, on, pick) => { const t = document.createElement('span'); t.className = 'tag' + (on ? ' on' : '') + (color ? '' : ' none');
+    t.textContent = label; if (color) { t.style.color = color; t.style.borderColor = color; t.style.background = bg; } t.onclick = pick; return t; };
+  sb.appendChild(tag('בלי', null, null, !state.superName, () => { state.superName = ''; send(true); }));
+  for (const s of v.supers || []) sb.appendChild(tag(s.name, s.color, s.bg, state.superName === s.name, () => { state.superName = s.name; send(true); }));
+  if (!(v.supers || []).length) { const m = document.createElement('span'); m.className = 'muted'; m.textContent = '(אין עדיין מחלקות בפרויקט)'; sb.appendChild(m); }
+  $('inhBox').classList.toggle('hidden', !v.sup); $('ovBox').classList.toggle('hidden', !v.sup);
+  const ib = $('inherited'); ib.innerHTML = '';
+  for (const h of v.inherited || []) {
+    const d = document.createElement('div'); d.className = 'inh';
+    const f = document.createElement('span'); f.className = 'f'; f.textContent = h.fields.length ? h.fields.join(', ') : '(אין שדות)';
+    const t = document.createElement('span'); t.className = 'tag'; t.textContent = h.from; t.style.color = h.color; t.style.borderColor = h.color;
+    d.appendChild(f); d.appendChild(t); ib.appendChild(d);
+  }
+  const ob = $('overrides'); ob.innerHTML = '';
+  if (v.sup && !(v.overridable || []).length) { const m = document.createElement('div'); m.className = 'muted'; m.textContent = '(אין פעולות שאפשר לדרוס — toString בתיבת הסימון למטה)'; ob.appendChild(m); }
+  for (const o of v.overridable || []) {
+    const d = document.createElement('label'); d.className = 'ov';
+    const from = document.createElement('span'); from.style.color = o.color; from.dir = 'rtl';
+    from.textContent = 'מ-' + o.from + (o.required ? ' — מופשטת, חובה לדרוס' : o.virtual ? ' — תתווסף לה virtual' : '');
+    const c = document.createElement('input'); c.type = 'checkbox'; c.checked = o.on; c.disabled = o.required;
+    c.onchange = () => { state.overrides = (state.overrides || []).filter(k => k !== o.key); if (c.checked) state.overrides.push(o.key); send(true); };
+    const l = document.createElement('span'); l.dir = 'ltr'; l.textContent = '\u200E' + o.label + '\u200E';
+    d.appendChild(from); d.appendChild(l); d.appendChild(c); ob.appendChild(d);
+  }
+}
 $('toStr').onchange = () => { state.toStr = $('toStr').checked; send(true); };
 $('ok').onclick = () => { if (!$('ok').disabled) vscode.postMessage({ type: 'ok', state }); };
 $('cancel').onclick = () => vscode.postMessage({ type: 'cancel' });
@@ -340,10 +441,11 @@ function render(v) {
   $('warn').textContent = (v.warnings || []).join('\\n');
   $('err').textContent = v.error || '';
   $('ok').disabled = !v.ok;
+  renderInheritance(v);
 }
 vscode.postMessage({ type: 'state', state });
 setTimeout(() => $('className').focus(), 50);
 </script></body></html>`;
 }
 
-module.exports = { Session, html, options, context, takenNames, csProjectDir, javaSourceRoot };
+module.exports = { Session, html, options, context, takenNames, csProjectDir, javaSourceRoot, applyEdits };

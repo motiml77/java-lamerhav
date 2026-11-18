@@ -9,6 +9,7 @@ const runner = require('./runner');
 const cs = require('./cs');
 const addstructure = require('./addstructure');
 const createclass = require('./createclass');
+const poly = require('./poly');
 const classgen = require('./classgen');
 const names = require('./names');
 const help = require('./help');
@@ -55,6 +56,8 @@ function activate(context) {
     reg('dsviz.newMatrix', () => newExercise('matrix'));
     reg('dsviz.insert', () => insertSnippet());
     reg('dsviz.createClass', () => createClass());
+    reg('dsviz.createTree', () => createTree());
+    reg('dsviz.insertObject', () => insertObject());
     for (const id of Object.keys(templates.SNIPPETS)) {
         reg('dsviz.insert.' + id, () => insertSnippet(id));
     }
@@ -518,12 +521,111 @@ async function createClass(editor) {
             }
             const nl = /\r\n/.test(text) ? '\r\n' : '\n';   // כמו בקובץ הנוכחי
             fs.writeFileSync(target, view.code.replace(/\n/g, nl), 'utf8');
+            // הורשה ב-C#: virtual לפעולות של מחלקת העל שנבחרו לדריסה (בקובץ שלה)
+            for (const f of createclass.applyEdits(cx.root, view.edits)) output.appendLine('צור מחלקה: נוספה virtual ב-' + f);
             panel.dispose();
             const line = classgen.classLine(view.code);
             const created = await vscode.workspace.openTextDocument(target);
             await vscode.window.showTextDocument(created, { viewColumn: ed.viewColumn, preview: false, selection: new vscode.Range(line, 0, line, 0) });
             if (vscode.window.setStatusBarMessage) vscode.window.setStatusBarMessage('נוצרה המחלקה ' + view.className + ' (' + view.file + ')', 8000);
             output.appendLine('צור מחלקה: ' + target);
+            return;
+        }
+        panel.webview.postMessage({ type: 'view', view });
+    });
+}
+
+// ------------------------------------------------------------ הורשה: היררכיה מוכנה, הוסף עצם
+
+const TREES = classgen.TREES_TITLE, OBJECT = classgen.OBJECT_TITLE;
+let treePanel, objectPanel;
+
+/** "היררכיה מוכנה": כל המחלקות של עץ + main לדוגמה, בקבצים חדשים ליד הקובץ הנוכחי (באותו package / namespace) */
+async function createTree(editor) {
+    const ed = editor || vscode.window.activeTextEditor;
+    const doc = ed && ed.document;
+    const file = doc && (doc.fileName || (doc.uri && doc.uri.fsPath));
+    if (!doc || !file || (doc.languageId !== 'java' && doc.languageId !== 'csharp') || doc.isUntitled || !path.isAbsolute(file)) {
+        ui.info(vscode, 'פותחים קובץ Java או C# שמור — המחלקות נוצרות באותה תיקייה, ואז לוחצים שוב "' + TREES + '".');
+        return;
+    }
+    const lang = doc.languageId === 'csharp' ? 'cs' : 'java';
+    const text = doc.getText();
+    const wsf = vscode.workspace.getWorkspaceFolder && doc.uri ? vscode.workspace.getWorkspaceFolder(doc.uri) : null;
+    const cx = createclass.context(lang, file, text, wsf && wsf.uri ? wsf.uri.fsPath : undefined);
+    const session = new poly.TreeSession(cx, lang === 'cs' && poly.hasMain(cx.root));
+    if (treePanel) { try { treePanel.dispose(); } catch (e) { /* כבר נסגר */ } }
+    const panel = vscode.window.createWebviewPanel('dsviz.createTree', TREES, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false }, { enableScripts: true, retainContextWhenHidden: true });
+    treePanel = panel;
+    panel.webview.html = poly.treeHtml(session);
+    panel.onDidDispose(() => { if (treePanel === panel) treePanel = undefined; });
+    panel.webview.onDidReceiveMessage(async msg => {
+        if (msg.type === 'cancel') { panel.dispose(); return; }
+        if (msg.type === 'ok') {   // אולי נוצרו קבצים בינתיים
+            cx.taken = createclass.takenNames(cx.dir, lang);
+            cx.known = classgen.scanProject(cx.root, lang);
+        }
+        const view = session.view(msg.state);
+        if (msg.type === 'ok' && view.ok) {
+            const exists = view.files.find(f => fs.existsSync(path.join(cx.dir, f)));
+            if (exists) {
+                panel.webview.postMessage({ type: 'view', view: Object.assign({}, view, { ok: false, error: 'כבר יש קובץ ' + exists + ' בתיקייה — לא נוצר כלום' }) });
+                return;
+            }
+            const nl = /\r\n/.test(text) ? '\r\n' : '\n';
+            for (const [f, code] of view.result.files) fs.writeFileSync(path.join(cx.dir, f), code.replace(/\n/g, nl), 'utf8');
+            createclass.applyEdits(cx.root, view.result.edits);
+            panel.dispose();
+            const last = view.result.files[view.result.files.length - 1];
+            const created = await vscode.workspace.openTextDocument(path.join(cx.dir, last[0]));
+            const line = classgen.classLine(last[1]);
+            await vscode.window.showTextDocument(created, { viewColumn: ed.viewColumn, preview: false, selection: new vscode.Range(line, 0, line, 0) });
+            output.appendLine(TREES + ': ' + view.files.join(', '));
+            ui.info(vscode, 'נוצרו ' + view.files.length + ' קבצים: ' + view.files.join(', ')
+                + (session.run && view.main ? '. בפרויקט כבר יש Main — כותבים בו ' + view.main + '.Run(); ומריצים בהרצה הוויזואלית.' : '. מריצים את ' + (view.main || '') + ' בהרצה הוויזואלית.'));
+            return;
+        }
+        panel.webview.postMessage({ type: 'view', view });
+    });
+}
+
+/** "הוסף עצם": Animal a1 = new Boxer(...); (או מערך של מחלקת העל) במקום הסמן — המחלקות נקראות מהפרויקט */
+async function insertObject() {
+    const ed = vscode.window.activeTextEditor;
+    if (!ed || (ed.document.languageId !== 'java' && ed.document.languageId !== 'csharp')) {
+        ui.info(vscode, 'פתחו קובץ Java או C# ושימו את הסמן במקום של העצם (בתוך main או בתוך פעולה).');
+        return;
+    }
+    const doc = ed.document, csharp = doc.languageId === 'csharp', lang = csharp ? 'cs' : 'java';
+    const lineNo = ed.selection.active.line;
+    const at = insertionPoint(doc, lineNo);
+    if (!names.insideFunction(doc.getText(), at.offset)) {
+        ui.warn(vscode, 'הסמן מחוץ לפעולה. לוחצים בתוך main (או בפעולה אחרת), בשורה של העצם, ואז שוב "' + OBJECT + '".');
+        return;
+    }
+    const file = doc.fileName || (doc.uri && doc.uri.fsPath) || '';
+    const wsf = vscode.workspace.getWorkspaceFolder && doc.uri ? vscode.workspace.getWorkspaceFolder(doc.uri) : null;
+    const cx = file && path.isAbsolute(file) ? createclass.context(lang, file, doc.getText(), wsf && wsf.uri ? wsf.uri.fsPath : undefined) : { known: [] };
+    const session = new poly.ObjectSession({ lang, known: cx.known, text: doc.getText(), offset: at.offset, indent: at.indent });
+    if (objectPanel) { try { objectPanel.dispose(); } catch (e) { /* כבר נסגר */ } }
+    const panel = vscode.window.createWebviewPanel('dsviz.insertObject', OBJECT, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false }, { enableScripts: true, retainContextWhenHidden: true });
+    objectPanel = panel;
+    panel.webview.html = poly.objectHtml(session, lang);
+    panel.onDidDispose(() => { if (objectPanel === panel) objectPanel = undefined; });
+    panel.webview.onDidReceiveMessage(async msg => {
+        if (msg.type === 'cancel') { panel.dispose(); return; }
+        const now = insertionPoint(ed.document, lineNo);
+        session.text = ed.document.getText();
+        session.offset = now.offset;
+        session.indent = now.indent;
+        const view = session.view(msg.state);
+        if (msg.type === 'ok' && view.ok) {
+            const editor = await vscode.window.showTextDocument(ed.document, { viewColumn: ed.viewColumn, preserveFocus: false });
+            await editor.edit(b => {
+                if (now.blank) b.replace(now.line.range, view.code);
+                else b.insert(now.line.range.end, '\n' + view.code);
+            });
+            panel.dispose();
             return;
         }
         panel.webview.postMessage({ type: 'view', view });
@@ -953,4 +1055,4 @@ async function warnConflicts(root) {
     if (ans === btn) for (const c of conflicts) fs.renameSync(c, c + '.bak');
 }
 
-module.exports = { needsHelperImport, activate, deactivate, siblingMain, showErrorList, openFiles, createClass };
+module.exports = { needsHelperImport, activate, deactivate, siblingMain, showErrorList, openFiles, createClass, createTree, insertObject };

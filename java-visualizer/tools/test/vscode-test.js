@@ -463,6 +463,68 @@ async function addDialog(command, state, steps) {
         fs.rmSync(dir, { recursive: true, force: true });
     }
 
+    // --- הורשה: היררכיה מוכנה (כל המחלקות + main, צבעים כמו בהרצה), צור מחלקה שיורשת מ-Dog, הוסף עצם (גם מערך) — Java
+    {
+        const dir = path.join(ws, 'src', 'zoo');
+        fs.mkdirSync(dir, { recursive: true });
+        const mainFile = path.join(dir, 'Main.java');
+        const ls = ['package zoo;', '', 'public class Main {', '    public static void main(String[] args) {', '        int a1 = 1;', '        ', '    }', '}'];
+        fs.writeFileSync(mainFile, ls.join('\n'));
+        const e1 = mkEditor(ls, 5, 'java', []);
+        e1.document.fileName = mainFile;
+        vscode.window.activeTextEditor = e1;
+        assert(commands['dsviz.createTree'] && commands['dsviz.insertObject'], 'הפקודות של הורשה');
+        const before = panels.length;
+        await commands['dsviz.createTree']();
+        const tp = panels.slice(before).find(x => x.id === 'dsviz.createTree');
+        assert(tp && tp.html.includes('dir="rtl"') && tp.html.includes('בעלי חיים') && tp.html.includes('עץ משלכם'), 'החלון "היררכיה מוכנה" לא נפתח');
+        const tv = () => tp.posted[tp.posted.length - 1].view;
+        await tp.handler({ type: 'state', state: { choice: 0, withMain: true, rows: [] } });
+        assert(tv().ok && tv().files.join() === 'Animal.java,Mammal.java,Dog.java,Boxer.java,Person.java,Labrador.java,ZooDemo.java', JSON.stringify(tv().files));
+        assert(tv().layout.map(l => l.name + ':' + l.depth + ':' + l.color).join(' ') === 'Animal:0:#c0392b Mammal:1:#7b3fb0 Dog:2:#0c8583 Boxer:3:#1f6fb5 Labrador:3:#1f8a4c Person:0:#55607a',
+            JSON.stringify(tv().layout));
+        // עץ משלכם עם שם של Unit4 — שגיאה, ושום קובץ לא נוצר
+        await tp.handler({ type: 'ok', state: { choice: 3, withMain: true, rows: [{ name: 'Node', sup: '', fields: 'int value' }] } });
+        assert(!tv().ok && tv().error.includes('"Node" הוא שם של מחלקה מוכנה') && !fs.existsSync(path.join(dir, 'Node.java')), JSON.stringify(tv()));
+        await tp.handler({ type: 'ok', state: { choice: 0, withMain: true, rows: [] } });
+        assert(tp.disposed && fs.existsSync(path.join(dir, 'Boxer.java')) && fs.readFileSync(path.join(dir, 'Boxer.java'), 'utf8').startsWith('package zoo;\n\npublic class Boxer extends Dog {'),
+            'היררכיה מוכנה — הקבצים לא נוצרו');
+        assert(fs.readFileSync(path.join(dir, 'ZooDemo.java'), 'utf8').includes('zoo[3] = new Boxer("Rexy", "male", 3.2, 3, "house");'), 'ZooDemo');
+        // צור מחלקה שיורשת מ-Dog: ברשימה של "יורשת מ-" — כל מחלקה בצבע שלה; בנאי עם super(...), דריסה, פעולה חדשה
+        const b2 = panels.length;
+        await commands['dsviz.createClass']();
+        const cp = panels.slice(b2).find(x => x.id === 'dsviz.createClass');
+        const cv = () => cp.posted[cp.posted.length - 1].view;
+        await cp.handler({ type: 'state', state: { className: 'Puppy', fields: [{ type: 'int', name: 'age' }], ctor: true, superName: 'Dog', overrides: ['say()'],
+            methods: [{ ret: 'String', name: 'bark', params: 'int times' }] } });
+        assert(cv().supers.find(x => x.name === 'Dog').color === '#0c8583' && cv().sup === 'Dog' && cv().inherited.map(h => h.from).join() === 'Animal,Mammal,Dog', JSON.stringify(cv()).slice(0, 400));
+        assert(cv().ok && cv().code.includes('public class Puppy extends Dog {') && cv().code.includes('        super(name, gender, milk, bonesToEat);\n')
+            && cv().code.includes('    @Override\n    public String say() {') && cv().code.includes('    public String bark(int times) {'), cv().code);
+        assert(cv().overridable.find(o => o.key === 'say()').on, 'say() מסומנת');
+        assert(cp.html.includes('id="supers"') && cp.html.includes('id="overrides"') && cp.html.includes('id="abstract"'), 'החלקים של הורשה בדף');
+        await cp.handler({ type: 'state', state: { className: 'Puppy', fields: [{ type: 'double', name: 'milk' }], ctor: true, superName: 'Dog' } });
+        assert(cv().error === 'השדה milk כבר קיים במחלקה Mammal — המחלקה יורשת אותו. בוחרים שם אחר', cv().error);
+        cp.dispose && cp.dispose();
+        // הוסף עצם: רק Animal או יורשת שלה; השם נבדק מול הקוד (a1 כבר קיים); מערך של Animal
+        const ed = [];
+        const e2 = mkEditor(ls, 5, 'java', ed);
+        e2.document.fileName = mainFile;
+        vscode.window.activeTextEditor = e2;
+        const b3 = panels.length;
+        await commands['dsviz.insertObject']();
+        const op = panels.slice(b3).find(x => x.id === 'dsviz.insertObject');
+        assert(op && op.html.includes('הוסף עצם'), 'החלון "הוסף עצם" לא נפתח');
+        const ov = () => op.posted[op.posted.length - 1].view;
+        await op.handler({ type: 'state', state: { array: false, varType: 'Animal', varName: 'a1', cls: 'Boxer', args: ['Rexy', 'male', '3.2', '3', 'house'], size: 4, cells: [] } });
+        assert(ov().error && ov().error.includes('a1'), ov().error);
+        assert(ov().classes.map(c => c.name).join() === 'Animal,Mammal,Dog,Boxer,Labrador' && ov().params.map(p => p.owner).join() === 'Animal,Animal,Mammal,Dog,Boxer', JSON.stringify(ov()).slice(0, 300));
+        await op.handler({ type: 'ok', state: { array: true, varType: 'Animal', varName: 'zoo', size: 3,
+            cells: [{ cls: 'Dog', values: 'Dasty, female, 0.5, 3' }, { cls: '', values: '' }, { cls: 'Labrador', values: 'Toto, male, 2.5, 4, new Person("Hila")' }] } });
+        assert(ed.length === 1 && ed[0][2] === '        Animal[] zoo = new Animal[3];\n        zoo[0] = new Dog("Dasty", "female", 0.5, 3);\n        zoo[2] = new Labrador("Toto", "male", 2.5, 4, new Person("Hila"));',
+            JSON.stringify(ed));
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+
     // --- ספרייה מתנגשת (jar מקורי של unit4) מזוהה
     fs.writeFileSync(path.join(ws, 'lib', 'unit4.jar'), Buffer.concat([Buffer.from('PK...'), Buffer.from('unit4/collectionsLib/Stack.class')]));
     assert.deepStrictEqual(require(path.join(ext, 'project.js')).findConflicts(ws).map(f => path.basename(f)), ['unit4.jar']);
@@ -581,6 +643,29 @@ async function addDialog(command, state, steps) {
         assert(pt.startsWith('namespace MyApp;\r\n\r\npublic class Point\r\n{\r\n    private double x;') && !pt.includes('\n\n'.replace(/\n/g, '\n')) || pt.includes('\r\n'), JSON.stringify(pt.slice(0, 80)));
         assert(!/[^\r]\n/.test(pt), 'שורות CRLF כמו בקובץ המקורי');
         fs.rmSync(appDir, { recursive: true, force: true });
+    }
+    // --- הורשה ב-C#: מחלקה שיורשת ודורסת פעולה בלי virtual — virtual נוסף בקובץ של מחלקת העל
+    {
+        const dir = path.dirname(cs1);
+        const animal = path.join(dir, 'Animal.cs');
+        fs.writeFileSync(animal, '\uFEFFpublic class Animal\r\n{\r\n    private string name;\r\n\r\n    public Animal(string name)\r\n    {\r\n        this.name = name;\r\n    }\r\n\r\n    public string Kind()\r\n    {\r\n        return "animal";\r\n    }\r\n}\r\n');
+        const ls = code1.split('\n');
+        const e5 = mkEditor(ls, 0, 'csharp', []);
+        e5.document.fileName = cs1;
+        vscode.window.activeTextEditor = e5;
+        const b5 = panels.length;
+        await commands['dsviz.createClass']();
+        const cp5 = panels.slice(b5).find(x => x.id === 'dsviz.createClass');
+        const st5 = { className: 'Cat', fields: [{ type: 'bool', name: 'indoor' }], ctor: true, superName: 'Animal', overrides: ['Kind()'] };
+        await cp5.handler({ type: 'state', state: st5 });
+        const v5 = cp5.posted[cp5.posted.length - 1].view;
+        assert(v5.ok && v5.warnings.some(w => w.includes('תתווסף המילה virtual')) && v5.code.includes('public class Cat : Animal') && v5.code.includes(' : base(name)')
+            && v5.code.includes('    public override string Kind()'), JSON.stringify(v5).slice(0, 600));
+        await cp5.handler({ type: 'ok', state: st5 });
+        const an = fs.readFileSync(animal, 'utf8');
+        assert(an.charCodeAt(0) === 0xFEFF && an.includes('    public virtual string Kind()\r\n') && fs.existsSync(path.join(dir, 'Cat.cs')), JSON.stringify(an));
+        fs.unlinkSync(animal);
+        fs.unlinkSync(path.join(dir, 'Cat.cs'));
     }
     const cm = require(path.join(ext, 'cs.js'));
     assert.strictEqual(cm.detectLanguage(ws2), 'csharp');

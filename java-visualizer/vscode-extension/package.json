@@ -122,6 +122,16 @@
                 "category": "מבני נתונים"
             },
             {
+                "command": "dsviz.createTree",
+                "title": "היררכיה מוכנה...",
+                "category": "מבני נתונים"
+            },
+            {
+                "command": "dsviz.insertObject",
+                "title": "הוסף עצם...",
+                "category": "מבני נתונים"
+            },
+            {
                 "command": "dsviz.insert.stack",
                 "title": "הוסף מבנה נתונים: מחסנית",
                 "category": "מבני נתונים"
@@ -237,7 +247,7 @@
             },
             {
                 "view": "dsviz.insertView",
-                "contents": "בוחרים מבנה, ערכים (או אקראיים) ושם — והמבנה נבנה בקוד במקום הסמן, עם ציור של איך הוא ייראה:\n[הוסף מבנה נתונים...](command:dsviz.insert)\nאו ישר מבנה מסוים:\n[מחסנית](command:dsviz.insert.stack)  [תור](command:dsviz.insert.queue)  [רשימה מקושרת](command:dsviz.insert.list)\n[עץ בינארי](command:dsviz.insert.tree)  [עץ חיפוש](command:dsviz.insert.bst)  [מערך](command:dsviz.insert.array)\n[מערך דו-ממדי](command:dsviz.insert.matrix)  [תלמיד](command:dsviz.insert.student)  [מכונית](command:dsviz.insert.car)\nמחלקה משלכם בקובץ חדש — שם, שדות, בנאי, get ו-set:\n[צור מחלקה...](command:dsviz.createClass)"
+                "contents": "בוחרים מבנה, ערכים (או אקראיים) ושם — והמבנה נבנה בקוד במקום הסמן, עם ציור של איך הוא ייראה:\n[הוסף מבנה נתונים...](command:dsviz.insert)\nאו ישר מבנה מסוים:\n[מחסנית](command:dsviz.insert.stack)  [תור](command:dsviz.insert.queue)  [רשימה מקושרת](command:dsviz.insert.list)\n[עץ בינארי](command:dsviz.insert.tree)  [עץ חיפוש](command:dsviz.insert.bst)  [מערך](command:dsviz.insert.array)\n[מערך דו-ממדי](command:dsviz.insert.matrix)  [תלמיד](command:dsviz.insert.student)  [מכונית](command:dsviz.insert.car)\nמחלקה משלכם בקובץ חדש — שם, שדות, בנאי, get ו-set:\n[צור מחלקה...](command:dsviz.createClass)\nהורשה: כל המחלקות של עץ בלחיצה אחת, ועצם של מחלקה יורשת:\n[היררכיה מוכנה...](command:dsviz.createTree)  [הוסף עצם...](command:dsviz.insertObject)"
             },
             {
                 "view": "dsviz.runView",
@@ -332,6 +342,14 @@
                     "group": "1_insert@2"
                 },
                 {
+                    "command": "dsviz.createTree",
+                    "group": "1_insert@3"
+                },
+                {
+                    "command": "dsviz.insertObject",
+                    "group": "1_insert@4"
+                },
+                {
                     "command": "dsviz.run",
                     "group": "2_run@1"
                 },
@@ -384,11 +402,27 @@
                 {
                     "command": "dsviz.createClass",
                     "group": "2@0"
+                },
+                {
+                    "command": "dsviz.createTree",
+                    "group": "2@1"
+                },
+                {
+                    "command": "dsviz.insertObject",
+                    "group": "2@2"
                 }
             ],
             "commandPalette": [
                 {
                     "command": "dsviz.createClass",
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
+                },
+                {
+                    "command": "dsviz.createTree",
+                    "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
+                },
+                {
+                    "command": "dsviz.insertObject",
                     "when": "(editorLangId == java || editorLangId == csharp) && !dsviz.off"
                 },
                 {
