@@ -19,6 +19,12 @@
       <command id="il.lamerhav.dsviz.createClass" categoryId="il.lamerhav.dsviz.category"
                name="צור מחלקה" description="מחלקה חדשה בקובץ משלה: שם ושדות — והיא נוצרת עם בנאי, get ו-set לכל שדה"
                defaultHandler="il.lamerhav.dsviz.CreateClassHandler"/>
+      <command id="il.lamerhav.dsviz.createTree" categoryId="il.lamerhav.dsviz.category"
+               name="היררכיה מוכנה" description="כל המחלקות של עץ הורשה בלחיצה אחת (בעלי חיים, צורות, אנשים בבית הספר, או עץ משלכם) — ו-main לדוגמה עם מערך"
+               defaultHandler="il.lamerhav.dsviz.CreateTreeHandler"/>
+      <command id="il.lamerhav.dsviz.insertObject" categoryId="il.lamerhav.dsviz.category"
+               name="הוסף עצם" description="עצם במקום הסמן: משתנה מסוג מחלקת העל ועצם של מחלקה יורשת — או מערך שבכל תא מחלקה אחרת"
+               defaultHandler="il.lamerhav.dsviz.InsertObjectHandler"/>
       <command id="il.lamerhav.dsviz.submit" categoryId="il.lamerhav.dsviz.category"
                name="שליחת תרגיל" description="שולחים את דף התרגיל (PDF, Word או תמונות) ומקבלים מעטפת מוכנה: מחלקות, main ופעולה לכל סעיף"
                defaultHandler="il.lamerhav.dsviz.SubmitHandler"/>
@@ -91,6 +97,8 @@
             <separator name="insert" visible="true"/>
             <command commandId="il.lamerhav.dsviz.insert" label="הוסף מבנה נתונים..." style="push"/>
             <command commandId="il.lamerhav.dsviz.createClass" label="צור מחלקה..." style="push"/>
+            <command commandId="il.lamerhav.dsviz.createTree" label="היררכיה מוכנה..." style="push"/>
+            <command commandId="il.lamerhav.dsviz.insertObject" label="הוסף עצם..." style="push"/>
             <separator name="run" visible="true"/>
             <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push"/>
             <separator name="more" visible="true"/>
@@ -164,6 +172,12 @@
          <command commandId="il.lamerhav.dsviz.createClass" label="צור מחלקה..." style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
+         <command commandId="il.lamerhav.dsviz.createTree" label="היררכיה מוכנה..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+         <command commandId="il.lamerhav.dsviz.insertObject" label="הוסף עצם..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <command commandId="il.lamerhav.dsviz.run" label="הרצה ויזואלית" style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
@@ -182,6 +196,12 @@
          <command commandId="il.lamerhav.dsviz.createClass" label="צור מחלקה..." style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
+         <command commandId="il.lamerhav.dsviz.createTree" label="היררכיה מוכנה..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+         <command commandId="il.lamerhav.dsviz.insertObject" label="הוסף עצם..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
          <!-- submit:start -->
          <command commandId="il.lamerhav.dsviz.submit" label="שליחת תרגיל..." style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
@@ -196,6 +216,12 @@
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
          <command commandId="il.lamerhav.dsviz.createClass" label="צור מחלקה..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+         <command commandId="il.lamerhav.dsviz.createTree" label="היררכיה מוכנה..." style="push">
+            <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
+         </command>
+         <command commandId="il.lamerhav.dsviz.insertObject" label="הוסף עצם..." style="push">
             <visibleWhen checkEnabled="false"><with variable="il.lamerhav.dsviz.active"><equals value="true"/></with></visibleWhen>
          </command>
          <!-- submit:start -->

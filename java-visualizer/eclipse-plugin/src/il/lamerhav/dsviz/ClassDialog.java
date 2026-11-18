@@ -35,6 +35,9 @@ public class ClassDialog extends Dialog {
     private Look.Round ok;
     private final List<Row> rows = new ArrayList<Row>();
     private String code, file, name;
+    private SwtPoly.Inherit inherit;
+    /** virtual בקבצים של מחלקות העל — לא רלוונטי ב-Java (תמיד ריק); נשמר כדי שאותו חלון יתאים גם ל-C# */
+    private java.util.List<ClassGen.Edit> edits = new ArrayList<ClassGen.Edit>();
 
     /** שורה בטבלת השדות: טיפוס, מה יש בפנים (ליד Queue / Stack / Node / BinNode), שם, הסרה */
     private final class Row {
@@ -104,6 +107,10 @@ public class ClassDialog extends Dialog {
         className.setFont(Look.mono(area.getDisplay(), 0));
         className.setData("dsviz.keepFont", Boolean.TRUE);
 
+        // --- הורשה: יורשת מ- ושדות שירשה (כאן), פעולות לדריסה / פעולה חדשה / מופשטת (אחרי השדות)
+        inherit = new SwtPoly.Inherit(lang, known, this::update);
+        inherit.top(right);
+
         // --- השדות
         Look.section(right, "השדות (private)", 10);
         grid = new Composite(right, SWT.LEFT_TO_RIGHT);
@@ -125,6 +132,7 @@ public class ClassDialog extends Dialog {
         bl.marginHeight = 2;
         addBar.setLayout(bl);
         new Look.Round(addBar, "+ שדה", false, () -> addRow(ClassGen.defaultType(lang), "", "", true));
+        inherit.lower(right);
 
         ctor = new Button(right, SWT.CHECK);
         ctor.setText("בנאי שמקבל את כל השדות");
@@ -312,6 +320,12 @@ public class ClassDialog extends Dialog {
             ClassGen.Check c = ClassGen.check(o);
             String text = c.ok() ? ClassGen.generate(o) : ClassGen.preview(o);
             if (!text.equals(preview.getText())) preview.setText(text);
+            if (inherit != null && inherit.isAbstract != null && inherit.refresh(c, c.className)) {
+                Look.applyFont(right(), -1);
+                getShell().layout(true, true);
+                if (scroll != null) Look.updateScroll(scroll);
+            }
+            edits = c.ok() ? c.edits : new ArrayList<ClassGen.Edit>();
             fileLabel.setText(c.className == null ? "" : ClassGen.fileName(c.className, lang));
             errorLabel.setText(c.errors.isEmpty() ? "" : c.errors.get(0));
             warnLabel.setText(String.join("\n", c.warnings));
@@ -336,6 +350,7 @@ public class ClassDialog extends Dialog {
         o.toString = toStr.getSelection();
         o.taken = taken;
         o.known = known;
+        if (inherit != null && inherit.isAbstract != null) inherit.apply(o);
         for (Row r : rows) {
             ClassGen.Field f = new ClassGen.Field(ClassGen.fullType(r.base.value(), r.elem.value(), lang), r.name.getText());
             f.refs.putAll(r.refs);
@@ -356,6 +371,14 @@ public class ClassDialog extends Dialog {
 
     public String className() {
         return name;
+    }
+
+    java.util.List<ClassGen.Edit> edits() {
+        return edits;
+    }
+
+    private Composite right() {
+        return grid.getParent();
     }
 
     // ------------------------------------------------------------------ לצילומי מסך ולבדיקות (DlgScript: call ...)
@@ -406,6 +429,23 @@ public class ClassDialog extends Dialog {
         TypeField t = "1".equals(elem) || "elem".equals(elem) ? r.elem : r.base;
         t.text.setFocus();
         t.open(true);
+    }
+
+    /** הורשה (DlgScript: call superOf Dog / call pick say() / call method String bark(int times)) */
+    void superOf(String name) {
+        inherit.sup.select(name.trim());
+    }
+
+    void pick(String key) {
+        inherit.picked.add(key.trim());
+        inherit.shownKeys = "";
+        update();
+    }
+
+    void method(String spec) {
+        String t = spec.trim();
+        int par = t.indexOf('('), sp = t.lastIndexOf(' ', par);
+        inherit.addMethod(t.substring(0, sp), t.substring(sp + 1, par), t.substring(par + 1, t.lastIndexOf(')')), false, false);
     }
 
     void withToString(String on) {

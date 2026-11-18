@@ -37,36 +37,32 @@ public class CreateClassHandler extends AbstractHandler {
         if (!Power.on()) return null;
         Shell shell = Ui.shell(event);
         IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
-        IEditorPart part = HandlerUtil.getActiveEditor(event);
-        IContainer folder = null;
-        String pkg = null;
-        IFile file = Ui.currentFile(event);
-        if (file != null && file.getName().endsWith(".java")) {
-            folder = file.getParent();
-            ITextEditor ed = part == null ? null : part.getAdapter(ITextEditor.class);
-            String text = ed != null && file.equals(ed.getEditorInput().getAdapter(IFile.class))
-                    ? ed.getDocumentProvider().getDocument(ed.getEditorInput()).get() : read(file);
-            pkg = ClassGen.packageOf(text);
-        } else {
-            // נבחרה חבילה / תיקיית קוד בעץ הקבצים
-            org.eclipse.jface.viewers.ISelection sel = HandlerUtil.getCurrentSelection(event);
-            if (sel instanceof org.eclipse.jface.viewers.IStructuredSelection && !sel.isEmpty()) {
-                Object first = ((org.eclipse.jface.viewers.IStructuredSelection) sel).getFirstElement();
-                IJavaElement je = org.eclipse.core.runtime.Adapters.adapt(first, IJavaElement.class);
-                if (je instanceof IPackageFragment && je.getResource() instanceof IContainer) {
-                    folder = (IContainer) je.getResource();
-                    pkg = je.getElementName();
-                } else if (je instanceof IPackageFragmentRoot && je.getResource() instanceof IContainer) {
-                    folder = (IContainer) je.getResource();
-                    pkg = "";
-                }
-            }
-        }
-        if (folder == null) {
+        Object[] t = target(event);
+        if (t == null) {
             Say.info(shell, TITLE, "פותחים קובץ Java (או בוחרים חבילה בעץ הקבצים) — המחלקה החדשה נוצרת שם, ואז לוחצים שוב \"צור מחלקה\".");
             return null;
         }
-        run(shell, page, folder, pkg);
+        run(shell, page, (IContainer) t[0], (String) t[1]);
+        return null;
+    }
+
+    /** התיקייה והחבילה: של הקובץ הנוכחי, או של החבילה / תיקיית הקוד שנבחרה בעץ הקבצים. null — אין (גם "היררכיה מוכנה") */
+    static Object[] target(ExecutionEvent event) {
+        IEditorPart part = HandlerUtil.getActiveEditor(event);
+        IFile file = Ui.currentFile(event);
+        if (file != null && file.getName().endsWith(".java")) {
+            ITextEditor ed = part == null ? null : part.getAdapter(ITextEditor.class);
+            String text = ed != null && file.equals(ed.getEditorInput().getAdapter(IFile.class))
+                    ? ed.getDocumentProvider().getDocument(ed.getEditorInput()).get() : read(file);
+            return new Object[] { file.getParent(), ClassGen.packageOf(text) };
+        }
+        org.eclipse.jface.viewers.ISelection sel = HandlerUtil.getCurrentSelection(event);
+        if (sel instanceof org.eclipse.jface.viewers.IStructuredSelection && !sel.isEmpty()) {
+            Object first = ((org.eclipse.jface.viewers.IStructuredSelection) sel).getFirstElement();
+            IJavaElement je = org.eclipse.core.runtime.Adapters.adapt(first, IJavaElement.class);
+            if (je instanceof IPackageFragment && je.getResource() instanceof IContainer) return new Object[] { je.getResource(), je.getElementName() };
+            if (je instanceof IPackageFragmentRoot && je.getResource() instanceof IContainer) return new Object[] { je.getResource(), "" };
+        }
         return null;
     }
 

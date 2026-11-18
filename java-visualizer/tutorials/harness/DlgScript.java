@@ -59,6 +59,22 @@ public class DlgScript {
             dialog = cd;
             cd.open();
         }
+        else if (kind.equals("tree") || kind.equals("object")) {
+            // הורשה: "היררכיה מוכנה" / "הוסף עצם" — preset = תיקיית פרויקט לסריקה (המחלקות שכבר יש) או "-"
+            java.util.List<ClassGen.Known> known = preset.equals("-") ? new ArrayList<ClassGen.Known>() : ClassGen.scanProject(new File(preset), "java");
+            if (kind.equals("tree")) {
+                ClassGen.Options base = new ClassGen.Options();
+                base.pkg = ClassGen.packageOf(fDoc);
+                base.known = known;
+                SwtPoly.TreeDialog td = new SwtPoly.TreeDialog(parent, base);
+                dialog = td;
+                td.open();
+            } else {
+                SwtPoly.ObjectDialog od = new SwtPoly.ObjectDialog(parent, known, fDoc, fOffset < 0 ? fDoc.length() : fOffset, "        ");
+                dialog = od;
+                od.open();
+            }
+        }
         else if (kind.equals("help")) new HelpDialog(parent).open();
         else if (kind.equals("solution")) {
             // החלון "הצעה לפתרון" עם הצעה מ-solutions.json (preset = הקובץ, הצעה ראשונה; או "קובץ#אינדקס")
