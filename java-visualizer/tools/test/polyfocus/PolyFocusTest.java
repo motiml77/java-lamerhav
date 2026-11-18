@@ -43,12 +43,26 @@ public class PolyFocusTest {
 
     static Robot robot;
 
+    /**
+     * מחכה שהאירוע יגיע לחלון. בלי Robot.waitForIdle: ב-Xvfb בלי מנהל חלונות הוא לוקח שניות לכל הקשה (הבדיקה כולה ~100 שניות)
+     */
+    static void settle() {
+        java.awt.Toolkit.getDefaultToolkit().sync();
+        try {
+            SwingUtilities.invokeAndWait(() -> { });
+            Thread.sleep(30);
+            SwingUtilities.invokeAndWait(() -> { });
+        } catch (Exception ignored) {
+            // ממשיכים
+        }
+    }
+
     static void key(int code, boolean shift) {
         if (shift) robot.keyPress(KeyEvent.VK_SHIFT);
         robot.keyPress(code);
         robot.keyRelease(code);
         if (shift) robot.keyRelease(KeyEvent.VK_SHIFT);
-        robot.waitForIdle();
+        settle();
         robot.delay(40);
     }
 
@@ -107,7 +121,7 @@ public class PolyFocusTest {
         robot.mouseMove(at.x, at.y);
         robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
         robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
-        robot.waitForIdle();
+        settle();
         Thread.sleep(400);
         if (owner() != c0) { SwingUtilities.invokeAndWait(c0::requestFocusInWindow); Thread.sleep(300); }   // בלי מנהל חלונות ב-Xvfb
         check("הלחיצה על התא — הפוקוס בשדה של תא 0", owner() == c0, owner());
@@ -122,7 +136,7 @@ public class PolyFocusTest {
         robot.mouseMove(at.x, at.y);
         robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
         robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
-        robot.waitForIdle();
+        settle();
         Thread.sleep(400);
         if (owner() != c1) { SwingUtilities.invokeAndWait(c1::requestFocusInWindow); Thread.sleep(300); }
         lost = type(c1, "aa,12");

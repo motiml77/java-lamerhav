@@ -1830,8 +1830,52 @@ final class StructPanel extends JPanel {
         return i < objs.size() ? objs.get(i) : null;
     }
 
+    /**
+     * המאפיין שהכותרת של הכרטיס היא הערך שלו — "name" כשהכותרת היא "naor" — כדי לכתוב את שמו בקטן לפני הערך (כמו בשורת הפרטים:
+     * id=123). אותו כלל כמו בבחירת הכותרת (Recorder.describe ב-Java, Describe ב-C#): מאפיין טקסט בשם name / title / ...name קודם,
+     * ואחר כך הראשון; כותרת שנחתכה ("Alexandr…") — לפי ההתחלה. null — הכותרת אינה מאפיין (שם המחלקה, toString של התלמיד)
+     */
+    static String titleField(Obj o) {
+        if (o == null || o.title == null || o.title.isEmpty() || o.title.equals(o.type)) return null;
+        String t = o.title, cut = t.endsWith("…") && t.length() > 1 ? t.substring(0, t.length() - 1) : null;
+        String first = null;
+        for (String[] f : o.fields) {
+            if (f[1] == null || f[1].length() < 2 || !f[1].startsWith("\"") || !f[1].endsWith("\"")) continue;
+            String v = f[1].substring(1, f[1].length() - 1);
+            if (!v.equals(t) && (cut == null || !v.startsWith(cut))) continue;
+            String n = f[0].toLowerCase();
+            if (n.equals("name") || n.equals("title") || n.endsWith("name")) return f[0];
+            if (first == null) first = f[0];
+        }
+        return first;
+    }
+
+    /** הכותרת של כרטיס, עם שם המאפיין בקטן לפניה ("name  naor"), ממורכזת סביב cx */
+    private void titleWithField(Graphics2D g, Obj o, int cx, int cy) {
+        String key = titleField(o);
+        if (key == null) {
+            center(g, o.title, CARD_T, cx, cy);
+            return;
+        }
+        FontMetrics ft = getFontMetrics(CARD_T), fk = getFontMetrics(CARD_S);
+        int gap = 5, kw = fk.stringWidth(key), tw = ft.stringWidth(o.title), x = cx - (kw + gap + tw) / 2;
+        int base = cy + (ft.getAscent() - ft.getDescent()) / 2;
+        Color was = g.getColor();
+        g.setFont(CARD_S);
+        g.setColor(MUTED);
+        g.drawString(key, x, base);
+        g.setFont(CARD_T);
+        g.setColor(was);
+        g.drawString(o.title, x + kw + gap, base);
+    }
+
+    private int titleW(Obj o) {
+        String key = titleField(o);
+        return textWidth(o.title, CARD_T) + (key == null ? 0 : textWidth(key, CARD_S) + 5);
+    }
+
     private int objW(Obj o) {
-        int w = Math.max(70, Math.max(textWidth(o.title, CARD_T), textWidth(o.sub, CARD_S)) + 22);
+        int w = Math.max(70, Math.max(titleW(o), textWidth(o.sub, CARD_S)) + 22);
         return PolyPaint.has(o) ? Math.max(w, PolyPaint.chipW(this, o.type, BADGE) + 18) : w;
     }
 
@@ -1873,7 +1917,7 @@ final class StructPanel extends JPanel {
             int cw = PolyPaint.chipW(this, o.type, BADGE);
             PolyPaint.chip(g, o.type, x + (w - cw) / 2, y + 5, 16, BADGE, false);
             g.setColor(INK);
-            center(g, o.title, CARD_T, x + w / 2, y + 5 + 16 + (h - 21) / 2);
+            titleWithField(g, o, x + w / 2, y + 5 + 16 + (h - 21) / 2);
             if (!o.labels.isEmpty()) badge(g, String.join(",", o.labels), x + w - 5, y + h);
             if (nest > 0 || noHits) return;
             Rectangle pr = new Rectangle(x, y, w, h);
@@ -1882,7 +1926,7 @@ final class StructPanel extends JPanel {
             return;
         }
         g.setColor(INK);
-        center(g, o.title, CARD_T, x + w / 2, y + h * 38 / 100);
+        titleWithField(g, o, x + w / 2, y + h * 38 / 100);
         if (acc) {
             // המאפיין שנקרא / שונה, ישר בכרטיס: "average = 84.0" (כל המאפיינים — בשורת הפרטים שמתחת)
             Access a = step.access;

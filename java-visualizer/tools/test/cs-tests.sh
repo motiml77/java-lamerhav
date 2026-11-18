@@ -201,6 +201,16 @@ for want in '(Animal) obj → חוקית (Mammal)]' 'תגים obj:object^ ann:An
     '[כרטיס cast obj Bird]' 'obj מצביע על עצם מסוג Mammal. בעצם הזה אין חלק של Bird.'; do
     grep -qF -- "$want" "$W/poly-valid.txt" || { echo "הורשה ב-C# (Valid): חסר $want"; grep 'קופסאות\|המרה\|כרטיס' "$W/poly-valid.txt" | head -20; exit 1; }
 done
+# תרשים המחלקות — רק המחלקות ש-Main משתמש בהן (כמו ב-Java, run-tests.sh 5ו3): BusRoute / Station בקובץ אחר בפרויקט — לא בתרשים
+for p in mixed single; do
+    mkdir -p "$W/cs-$p" && cp objects/cs/poly/$p/*.cs "$W/cs-$p/"
+    viz "$W/cs-$p" --trace "$W/cs-$p.trace" > "$W/cs-$p.out" 2>&1 || true
+    java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/cs-$p.trace" > "$W/cs-$p.txt" 2>&1
+done
+grep -q '^CLS	BusRoute' "$W/cs-mixed.trace" && grep -qxF '  [תרשים: Dog ▷ Animal;]' "$W/cs-mixed.txt" && ! grep -q '^  \[תרשים:' "$W/cs-single.txt" \
+    && grep -q '^CLS	Person1' "$W/cs-single.trace" \
+    && echo "תרשים המחלקות ב-C#: רק מה ש-Main משתמש בו (Dog ▷ Animal, בלי BusRoute / Station מקובץ אחר בפרויקט; מערך של Person1 — בלי תרשים)" \
+    || { echo "תרשים המחלקות ב-C#: מחלקות שלא בשימוש"; grep '\[מחלקות\|\[תרשים:' "$W/cs-mixed.txt" "$W/cs-single.txt"; tail -5 "$W/cs-mixed.out"; exit 1; }
 n=$(cat "$W"/poly-*.txt | grep -c '\[דריסה') && bad=$(cat "$W"/poly-*.txt | grep '\[דריסה' | sed -n 's/.* רץ=\([A-Za-z]*\) בפועל=\([A-Za-z]*\).*/\1 \2/p' | awk '$1 != $2' | wc -l)
 [ "$n" -ge 10 ] && [ "$bad" -eq 0 ] && grep -q '^CLS	Dog	Animal' "$W/poly-pets.trace" && grep -q '^VAR	pet	.*	Animal$' "$W/poly-pets.trace" \
     || { echo "הורשה ב-C#: מה רץ ≠ מה שבאמת רץ / שורות CLS / VAR חסרות ($n, $bad)"; exit 1; }

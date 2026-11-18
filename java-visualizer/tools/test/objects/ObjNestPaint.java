@@ -192,6 +192,32 @@ public class ObjNestPaint {
         check(o1 != null && o1.x + o1.width < W && o1.y + o1.height < H, "הכרטיס של שלוש הרמות מצויר כולו: " + o1);
         check(o1 != null && count(deepImg, TAG, o1) == 0, "... ובלי משתנה שמצביע על הפנימיים — בלי תג סגול");
 
+        // --- שם המאפיין בקטן לפני הכותרת של כרטיס בתא (דיווח של משתמש: "naor" בלי לדעת שזה name): מערך של Person1
+        Obj p0 = obj(10, "Person1", "name", "\"naor\"", "id", "\"123\"");
+        p0.title = "naor";
+        p0.sub = "id=123";
+        Obj p1 = obj(11, "Person1", "fullName", "\"Alexandra Ben-David\"", "id", "\"12\"");
+        p1.title = "Alexandra Ben-D…";   // כותרת שנחתכה (16 תווים) — לפי ההתחלה
+        p1.sub = "id=12";
+        Obj p2 = obj(12, "Counter", "count", "3");   // בלי מאפיין טקסט — הכותרת היא שם המחלקה, בלי שם מאפיין
+        Obj p3 = obj(13, "Card", "suit", "\"lev\"", "label", "\"lev\"");   // שני מאפיינים עם אותו ערך — הראשון (אין name)
+        p3.title = "lev";
+        check("name".equals(StructPanel.titleField(p0)), "שם המאפיין של הכותרת: name (\"naor\")");
+        check("fullName".equals(StructPanel.titleField(p1)), "כותרת שנחתכה (Alexandra Ben-D…) — fullName");
+        check(StructPanel.titleField(p2) == null, "כותרת שהיא שם המחלקה — בלי שם מאפיין");
+        check("suit".equals(StructPanel.titleField(p3)), "שני מאפיינים עם אותו ערך — הראשון (suit)");
+        Step arr = new Step();
+        ArrayView people = new ArrayView();
+        people.title = "arr";
+        for (Obj o : new Obj[] { p0, p1 }) {
+            people.items.add(o.title);
+            people.objs.add(o);
+        }
+        arr.views.add(people);
+        BufferedImage pi = render(arr, "obj-title-field");
+        Color muted = new Color(0x8A93A3);
+        int grey = count(pi, muted, new Rectangle(0, 0, W, H));
+        check(grey > 60, "בתאים: שם המאפיין (name / fullName) מצויר באפור קטן לפני הערך (" + grey + " פיקסלים אפורים)");
         System.out.println(fails == 0 ? "MARK-END" : "נכשלו " + fails);
     }
 }

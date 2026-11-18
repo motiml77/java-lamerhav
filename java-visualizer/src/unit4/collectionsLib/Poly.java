@@ -7,8 +7,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -121,6 +123,8 @@ final class Poly {
     static synchronized void reset() {
         classes.clear();
         sources.clear();
+        usedSeeds.clear();
+        usedSeen = 0;
         nextColor = 0;
         scanned = false;
         relKey = null;
@@ -1034,14 +1038,133 @@ final class Poly {
         boolean inherit, many, composition;
     }
 
-    /** הקשרים בין מחלקות התלמיד (בלי מאפיין מאותו סוג — רשימה מקושרת: לא מצויר קו) */
-    static synchronized List<Rel> relations() {
+    // ------------------------------------------------------------ המחלקות שההרצה משתמשת בהן
+
+    /** שמות של מחלקות שהופיעו בהרצה: עצם שנוצר, משתנה / מערך / אוסף מהטיפוס הזה (בכל הצעדים שנסרקו עד עכשיו) */
+    private static final Set<String> usedSeeds = new LinkedHashSet<String>();
+    /** כמה צעדים כבר נסרקו */
+    private static int usedSeen;
+
+    /**
+     * סורק את הצעדים החדשים שנרשמו (Recorder — ב-Java מההרצה, ב-C# מקובץ ההרצה). נקרא מחוץ לנעילה של Poly: Recorder נועל את
+     * הצעדים שלו, וכך אין נעילה כפולה בסדר הפוך
+     */
+    static void scanUsed() {
+        int n;
+        try {
+            n = Recorder.recordedCount();
+        } catch (RuntimeException e) {
+            return;
+        }
+        int from;
+        synchronized (Poly.class) {
+            if (n < usedSeen) { usedSeeds.clear(); usedSeen = 0; }   // הרצה חדשה (בדיקות)
+            from = usedSeen;
+        }
+        if (n == from) return;
+        Set<String> found = new LinkedHashSet<String>();
+        int done = from;
+        for (int i = from; i < n; i++) {
+            Step s;
+            try {
+                s = Recorder.step(i);
+            } catch (RuntimeException e) {
+                break;
+            }
+            collectUsed(s, found);
+            done = i + 1;
+        }
+        synchronized (Poly.class) {
+            usedSeeds.addAll(found);
+            usedSeen = Math.max(usedSeen, done);
+        }
+    }
+
+    private static void collectUsed(Step s, Set<String> out) {
+        if (s == null) return;
+        if (s.types != null) for (String t : s.types.values()) addUsed(elem(t), out);
+        for (View v : s.views) collectView(v, out, 0);
+        if (s.access != null) collectObj(s.access.obj, out, 0);
+    }
+
+    private static void addUsed(String name, Set<String> out) {
+        if (name != null && !name.isEmpty()) out.add(simple(name));
+    }
+
+    private static void collectObj(Obj o, Set<String> out, int depth) {
+        if (o == null || depth > 6) return;
+        addUsed(elem(o.type), out);
+        for (Obj n : o.nested.values()) collectObj(n, out, depth + 1);
+        for (View v : o.arrays.values()) collectView(v, out, depth + 1);
+    }
+
+    private static void collectView(View v, Set<String> out, int depth) {
+        if (v == null || depth > 6) return;
+        if (v instanceof ObjView) collectObj(((ObjView) v).obj, out, depth);
+        else if (v instanceof ArrayView) {
+            for (Obj o : ((ArrayView) v).objs) collectObj(o, out, depth + 1);
+            for (View x : ((ArrayView) v).subs) collectView(x, out, depth + 1);
+        } else if (v instanceof Model.LinearView) {
+            for (Obj o : ((Model.LinearView) v).objs) collectObj(o, out, depth + 1);
+            for (View x : ((Model.LinearView) v).subs) collectView(x, out, depth + 1);
+        } else if (v instanceof Model.MatrixView) {
+            for (List<Obj> row : ((Model.MatrixView) v).objs) for (Obj o : row) collectObj(o, out, depth + 1);
+        } else if (v instanceof Model.ChainView) {
+            Model.ChainView c = (Model.ChainView) v;
+            for (Model.Cell cell : c.cells) {
+                collectObj(cell.obj, out, depth + 1);
+                collectView(cell.sub, out, depth + 1);
+            }
+            for (Model.ChainView b : c.branches) collectView(b, out, depth + 1);
+        } else if (v instanceof Model.TreeView) collectTree(((Model.TreeView) v).root, out, depth + 1, 0);
+    }
+
+    private static void collectTree(Model.TreeCell t, Set<String> out, int depth, int level) {
+        if (t == null || level > 64) return;
+        collectObj(t.obj, out, depth);
+        collectView(t.sub, out, depth);
+        if (!t.shared) {
+            collectTree(t.left, out, depth, level + 1);
+            collectTree(t.right, out, depth, level + 1);
+        }
+    }
+
+    /**
+     * המחלקות של התלמיד שההרצה משתמשת בהן — מה שהתרשים מציג: מחלקה שיש ממנה עצם או משתנה / מערך מהטיפוס שלה, ועוד מחלקות העל
+     * שלה והמחלקות שבמאפיינים שלה (הכלה). מחלקות אחרות בפרויקט (של תרגיל אחר, בקובץ אחר) — לא בתרשים
+     */
+    static synchronized Set<String> usedClasses() {
+        Set<String> res = new LinkedHashSet<String>();
+        List<String> queue = new ArrayList<String>();
+        for (String n : usedSeeds) if (classes.containsKey(n)) queue.add(n);
+        while (!queue.isEmpty()) {
+            String n = queue.remove(0);
+            ClassInfo c = classes.get(n);
+            if (c == null || !res.add(n)) continue;
+            if (c.sup != null && classes.containsKey(c.sup)) queue.add(c.sup);
+            for (String[] f : c.fields) {
+                String p = elem(f[1]);
+                if (p != null && classes.containsKey(p)) queue.add(p);
+            }
+        }
+        return res;
+    }
+
+    /** הקשרים בין מחלקות התלמיד שההרצה משתמשת בהן (בלי מאפיין מאותו סוג — רשימה מקושרת: לא מצויר קו) */
+    static List<Rel> relations() {
+        scanUsed();   // מחוץ לנעילה של Poly
+        return relationsNow();
+    }
+
+    private static synchronized List<Rel> relationsNow() {
         int fields = 0;
         for (ClassInfo c : classes.values()) fields += c.fields.size();
-        String key = classes.size() + "|" + fields + "|" + sources.size();
-        if (key.equals(relKey)) return relCache;   // נקרא בכל ציור — מחושב רק כשהטבלה השתנתה
+        Set<String> used = usedClasses();
+        String key = classes.size() + "|" + fields + "|" + sources.size() + "|" + used;
+        if (key.equals(relKey)) return relCache;   // נקרא בכל ציור — מחושב רק כשהטבלה (או המחלקות שבשימוש) השתנו
         List<Rel> res = new ArrayList<Rel>();
         for (ClassInfo c : classes.values()) {
+            if (!used.contains(c.name)) continue;
             if (c.sup != null && classes.containsKey(c.sup) && !c.isInterface) {
                 Rel r = new Rel();
                 r.owner = c.name;
@@ -1051,9 +1174,10 @@ final class Poly {
             }
         }
         for (ClassInfo c : classes.values()) {
+            if (!used.contains(c.name)) continue;
             for (String[] f : c.fields) {
                 String p = elem(f[1]);
-                if (p == null || !classes.containsKey(p) || classes.get(p).isInterface) continue;
+                if (p == null || !classes.containsKey(p) || classes.get(p).isInterface || !used.contains(p)) continue;
                 if (p.equals(c.name) || isA(c.name, p)) continue;   // מאפיין מאותו סוג (next) — לא קו
                 Rel r = new Rel();
                 r.owner = c.name;
@@ -1081,7 +1205,7 @@ final class Poly {
                 + Pattern.quote(part) + "\\s*[(<{]").matcher(t).find();
     }
 
-    /** כלל 9: התרשים מוצג רק כשיש הורשה או הכלה בין מחלקות של התלמיד */
+    /** כלל 9: התרשים מוצג רק כשיש הורשה או הכלה בין מחלקות של התלמיד שההרצה משתמשת בהן */
     static boolean diagram() {
         return !relations().isEmpty();
     }

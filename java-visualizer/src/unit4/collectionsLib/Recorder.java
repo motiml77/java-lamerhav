@@ -107,6 +107,11 @@ final class Recorder {
         synchronized (LOCK) { return steps.get(i); }
     }
 
+    /** כמה צעדים כבר נרשמו — בלי sync() (בשביל Poly.used: לא מושך שורות שממתינות, ולא נכנס שוב לרישום) */
+    static int recordedCount() {
+        synchronized (LOCK) { return steps.size(); }
+    }
+
     /** מקור חיצוני (למשל הרצה של C# — TraceViewer): טוענים צעדים מוכנים ופלט, והחלון מציג אותם כמו הרצה שורה-שורה */
     static void adopt(List<Step> loaded, String out) {
         synchronized (LOCK) {

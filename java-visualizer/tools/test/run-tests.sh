@@ -294,6 +294,19 @@ conds "$PO/valid/out.txt" \
     'שורה 6: (Animal) obj → חוקית (Mammal)]' \
     'תגים obj:Object^ ann:Animal goofy:Mammal | פסים מ-Mammal (ann) | בעצם יש חלק של Animal — ההמרה חוקית. דרך ann רואים רק את החלק של Animal.]' \
     '[כרטיס cast obj Bird]' 'שגיאת ריצה: ההמרה לא חוקית — obj מצביע על עצם מסוג Mammal. בעצם הזה אין חלק של Bird.'
+# תרשים המחלקות — רק המחלקות ש-main משתמש בהן (דיווח של משתמש: הופיעו מחלקות של תרגיל אחר מאותה תיקייה, BusRoute ו-Station):
+#   mixed — Dog יורשת מ-Animal, ו-BusRoute ◇ Station בקבצים אחרים בתיקייה, בלי שימוש → רק "Dog ▷ Animal"
+#   single — מערך של Object עם Person1 (כמו בצילום), ו-BusRoute / Station בתיקייה → אין תרשים (ל-Person1 אין הורשה / הכלה)
+for p in mixed single; do
+    mkdir -p "$PO/$p" && cp objects/poly/$p/*.java "$PO/$p/"
+    javac -g -encoding UTF-8 -nowarn -cp "$JAR" -d "$PO/$p" "$PO/$p"/*.java
+done
+(cd "$PO/mixed" && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Mixed > out.txt 2>&1) || true
+(cd "$PO/single" && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine Single > out.txt 2>&1) || true
+grep -qxF '  [תרשים: Dog ▷ Animal;]' "$PO/mixed/out.txt" && ! grep -q '^  \[תרשים:.*\(BusRoute\|Station\)' "$PO/mixed/out.txt" \
+    && ! grep -q '^  \[תרשים:' "$PO/single/out.txt" && grep -q 'naor 123' "$PO/single/out.txt" \
+    && echo "  ok  תרשים המחלקות — רק מה ש-main משתמש בו: Dog ▷ Animal בלי BusRoute / Station; מערך של Person1 בלבד — בלי תרשים" \
+    || { echo "  FAIL תרשים המחלקות: מחלקות שלא בשימוש"; grep '\[מחלקות\|\[תרשים:' "$PO/mixed/out.txt" "$PO/single/out.txt"; exit 1; }
 # "מה רץ" לפי החיפוש = מה שבאמת רץ, בכל קריאה; בלי "להפוך" בכרטיס של המרה; ותוכנית בלי הורשה — בלי קופסאות (Pets.java של 5ו)
 n=$(cat "$PO"/*/out.txt | grep -c '\[דריסה') && bad=$(cat "$PO"/*/out.txt | grep '\[דריסה' | sed -n 's/.* רץ=\([A-Za-z]*\) בפועל=\([A-Za-z]*\).*/\1 \2/p' | awk '$1 != $2' | wc -l) \
     && [ "$n" -ge 10 ] && [ "$bad" -eq 0 ] && ! grep -q 'להפוך' "$PO/zoo/out.txt" "$PO/valid/out.txt" && ! grep -q '\[קופסאות' "$O/out.txt" && ! grep -q '\[מחלקות' "$O/out.txt" \
