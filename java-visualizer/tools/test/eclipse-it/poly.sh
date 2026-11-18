@@ -21,7 +21,7 @@ cp "$P/il.lamerhav.dsviz.it_1.0.0.jar" "$ROOT"/release/il.lamerhav.dsviz_*.jar "
 XD=${XD:-:73}
 pgrep -f "Xvfb $XD " >/dev/null || { (Xvfb $XD -screen 0 1600x1000x24 >/dev/null 2>&1 &); sleep 2; }
 export DISPLAY=$XD
-java -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog -data "$B/ws-poly" \
+java -Doomph.setup.skip=true -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog -data "$B/ws-poly" \
     -application il.lamerhav.dsviz.it.poly "$P/out.txt" "$P/src" "$P/shots" > "$P/eclipse.log" 2>&1 &
 EP=$!
 K="python3 $ROOT/tools/test/vscode-real/xkeys.py $XD"

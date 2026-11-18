@@ -1224,6 +1224,17 @@ else {
             $create = WaitFor { $x = @(InWin $npd '^Create$' 'Button'); if ($x.Count) { $x[0] } } 20
         }
         RealClick $create 't14-create' | Out-Null
+        # הלחיצה על Create לא תמיד נקלטת (הודעה קופצת של Visual Studio — "Use Copilot for Free" — לוקחת את המיקוד באותו רגע, והאשף נשאר
+        # על "Configure your new project"): אם אחרי 15 שניות אין פרויקט והכפתור עדיין שם — לוחצים שוב, פעם אחת (כמו הלחיצה החוזרת על הסרגל)
+        $early = WaitFor { $f = @(Get-ChildItem $emptyRoot -Recurse -Filter "$emptyName.csproj" -ErrorAction SilentlyContinue) | Select-Object -First 1; if ($f) { $f } } 15 1000
+        if (-not $early) {
+            $again = $null
+            try { $again = @(InWin $npd '^Create$' 'Button') | Select-Object -First 1 } catch { $again = $null }   # האשף כבר נסגר — הפרויקט בדרך
+            if ($again) {
+                Info "הלחיצה על Create לא נקלטה (האשף עדיין פתוח) — לוחצים שוב"
+                RealClick $again 't14-create-again' | Out-Null
+            }
+        }
         # 4. הפרויקט נוצר ונפתח
         $csproj = WaitFor { $f = @(Get-ChildItem $emptyRoot -Recurse -Filter "$emptyName.csproj" -ErrorAction SilentlyContinue) | Select-Object -First 1; if ($f) { $f } } 120 1000
         $opened = WaitFor { $n = Dte { param($d) if ($d.Solution.IsOpen) { [int]$d.Solution.Projects.Count } else { 0 } } 4; if ($n -ge 1) { $n } } 120 1000

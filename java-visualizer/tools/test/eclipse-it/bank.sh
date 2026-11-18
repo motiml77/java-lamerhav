@@ -4,6 +4,7 @@
 # הפלט הרצוי מעל main, הצעות לפתרון), "פתח את התרגיל", וחלון הצד "השאלה" (+ "סיימתי"). צילומי מסך: build/eclipse-it/bank/
 #   sh tools/test/eclipse-it/bank.sh [תיקיית eclipse]     (אחרי tools/build-all.sh; צריך xvfb-run או XD=:99)
 set -e
+export LC_ALL=C.UTF-8   # המקף העברי (U+2011) בתבניות של grep
 cd "$(dirname "$0")"
 ROOT="$(cd ../../.. && pwd)"
 B="$ROOT/build/eclipse-it"
@@ -14,7 +15,9 @@ if [ ! -d "$ECL/plugins" ]; then
     echo "מוריד Eclipse..."
     curl -sSL -o "$B/eclipse.tar.gz" "$URL" && tar xzf "$B/eclipse.tar.gz" -C "$B" && rm "$B/eclipse.tar.gz"
 fi
-sh "$ROOT/tools/build-bank.sh" > "$B/bank-build.log" 2>&1 || { cat "$B/bank-build.log"; exit 1; }
+# SKIP_BANK_BUILD=1 — ההרחבה כבר נבנתה עכשיו (tools/build-all.sh), בלי לבדוק שוב את כל המאגר (כ-25 דקות)
+[ "$SKIP_BANK_BUILD" = 1 ] && ls "$ROOT"/build/lab/il.lamerhav.dsviz.bank_*.jar >/dev/null 2>&1 \
+    || sh "$ROOT/tools/build-bank.sh" > "$B/bank-build.log" 2>&1 || { cat "$B/bank-build.log"; exit 1; }
 FRAG=$(ls "$ROOT"/build/lab/il.lamerhav.dsviz.bank_*.jar)
 rm -rf "$B/it" "$B/ws-bank" "$B/bank" && mkdir -p "$B/it/cls" "$B/bank"
 javac ${JAVAC_FLAGS:---release 11} -encoding UTF-8 -nowarn -cp "$(ls "$ECL"/plugins/*.jar | tr '\n' ':')$(ls "$ROOT"/release/il.lamerhav.dsviz_*.jar)" -d "$B/it/cls" src/il/lamerhav/dsviz/it/*.java
@@ -49,7 +52,7 @@ d['question']['sections'][0].setdefault('figures', []).append({"type": "list", "
 open(sys.argv[2], 'w', encoding='utf-8').write(json.dumps(d, ensure_ascii=False))
 PY
 OUT="$B/bank/out.txt"
-xrun "$JAVA" -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Ddsviz.bankProgress="$B/bank/progress.json" -Ddsviz.bank="$B/bank-local" -Ddsviz.debugLayout=true -jar "$LAUNCH" \
+xrun "$JAVA" -Doomph.setup.skip=true -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Ddsviz.bankProgress="$B/bank/progress.json" -Ddsviz.bank="$B/bank-local" -Ddsviz.debugLayout=true -jar "$LAUNCH" \
     -nosplash -clean -consoleLog -data "$B/ws-bank" -application il.lamerhav.dsviz.it.bank "$OUT" "$B/bank" > "$B/bank/eclipse.log" 2>&1 || true
 rm -f "$ECL"/dropins/il.lamerhav.dsviz.bank_*.jar   # שאר הבדיקות (run.sh) — בלי ההרחבה
 "$JAVA" -jar "$LAUNCH" -nosplash -consoleLog -application org.eclipse.equinox.p2.director -uninstallIU il.lamerhav.dsviz.it >> "$B/bank-p2.log" 2>&1 || true
@@ -67,9 +70,9 @@ check "^MEDIUM stack-split-sorted files=1 marks=1 checks=2 helper=true expected=
 check "^MEDIUM classes-fraction files=2 marks=1 checks=3 helper=true expected=true" "שאלה בינונית ב-Eclipse (מחלקה Fraction עם toString): שני קבצים, ו-main עם 3 הבדיקות של סעיף א"
 check "^MEDIUM tree-equal-mirror files=1 marks=1 checks=4 helper=true expected=true" "שאלה בינונית ב-Eclipse (עץ בינארי): קובץ, ו-main עם 4 הבדיקות של סעיף א"
 [ "$(grep -c '^QUESTION ' "$OUT")" = "$(( $(find "$ROOT/bank" -mindepth 2 -name '*.json' | wc -l) + 1 ))" ] && echo "  ok  כל השאלות במאגר נטענו ($(grep -c '^QUESTION ' "$OUT"))" || { echo "  FAIL לא כל השאלות נטענו"; FAILED=1; }
-check "^TOPICS לולאות | מערכים | מחרוזות | מחלקות | רקורסיה | מחסנית | תור | שרשרת חוליות | עץ בינארי | $" "הנושאים: לולאות, מערכים, מחרוזות, מחלקות, רקורסיה, מחסנית, תור, שרשרת חוליות, עץ בינארי"
+check "^TOPICS לולאות | מערכים | מחרוזות | מחלקות | הורשה ופולימורפיזם | רקורסיה | מחסנית | תור | שרשרת חוליות | עץ בינארי | $" "הנושאים: לולאות, מערכים, מחרוזות, מחלקות, הורשה ופולימורפיזם, רקורסיה, מחסנית, תור, שרשרת חוליות, עץ בינארי"
 check "^DIALOG title=מאגר תרגילים rtl=true" "החלון: מימין לשמאל"
-check "^TREE TOPIC loops closed 0/[0-9][0-9]* | TOPIC arrays closed 0/[0-9][0-9]* | TOPIC strings closed 0/[0-9][0-9]* | TOPIC classes closed 0/[0-9][0-9]* | TOPIC recursion closed 0/[0-9][0-9]* | TOPIC stack open 0/[0-9][0-9]* | Q stack-copy-greater easy | Q stack-max-contains easy | Q stack-sum-size easy | Q stack-brackets medium | Q stack-remove-bottom medium | Q stack-split-sorted medium.* | TOPIC queue closed 0/[0-9][0-9]* | TOPIC list closed 0/[0-9][0-9]* | TOPIC tree closed 0/[0-9][0-9]*$" "סרגל הצד: עץ נושאים — הכול סגור חוץ מהנושא של השאלה (פתוח), עם כמה V מתוך כמה; בכל נושא מהקל לקשה"
+check "^TREE TOPIC loops closed 0/[0-9][0-9]* | TOPIC arrays closed 0/[0-9][0-9]* | TOPIC strings closed 0/[0-9][0-9]* | TOPIC classes closed 0/[0-9][0-9]* | TOPIC inheritance closed 0/[0-9][0-9]* | TOPIC recursion closed 0/[0-9][0-9]* | TOPIC stack open 0/[0-9][0-9]* | Q stack-copy-greater easy | Q stack-max-contains easy | Q stack-sum-size easy | Q stack-brackets medium | Q stack-remove-bottom medium | Q stack-split-sorted medium.* | TOPIC queue closed 0/[0-9][0-9]* | TOPIC list closed 0/[0-9][0-9]* | TOPIC tree closed 0/[0-9][0-9]*$" "סרגל הצד: עץ נושאים — הכול סגור חוץ מהנושא של השאלה (פתוח), עם כמה V מתוך כמה; בכל נושא מהקל לקשה"
 check "^SEARCH-QUEUE .*TOPIC queue open 0/[0-9][0-9]* | Q queue-copy-contains easy | Q queue-min-last easy | Q queue-sum-even easy | Q queue-last-min medium | Q queue-merge-sorted medium | Q queue-remove-reverse medium" "חיפוש: \"תור\" — הנושא תור פתוח עם השאלות שלו (ועוד נושאים שיש בהם \"תור\")"
 check "^FILTER-HARD TOPIC [a-z]* open 0/[0-9][0-9]* | Q [a-z0-9-]* hard" "סינון לפי קושי \"קשה\": יש שאלות קשות"
 if grep -a "^FILTER-HARD" "$OUT" | grep -qE " (easy|medium)( |$)"; then echo "  FAIL סינון לפי קושי \"קשה\": הופיעה שאלה קלה / בינונית"; FAILED=1; else echo "  ok  סינון לפי קושי \"קשה\": רק שאלות קשות"; fi

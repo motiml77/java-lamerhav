@@ -23,7 +23,7 @@ cp plugin.xml "$B/it/cls/"
 jar --create --file "$B/it/il.lamerhav.dsviz.it_1.0.0.jar" --manifest META-INF/MANIFEST.MF -C "$B/it/cls" .
 rm -f "$ECL"/dropins/il.lamerhav.dsviz*.jar
 cp "$B/it/il.lamerhav.dsviz.it_1.0.0.jar" "$ROOT"/release/il.lamerhav.dsviz_*.jar "$ECL/dropins/"
-java -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog -data "$B/ws" \
+java -Doomph.setup.skip=true -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog -data "$B/ws" \
     -application il.lamerhav.dsviz.it.app "$ROOT/release/dsviz.jar" "$(pwd)/cases" "$B/out.txt" > "$B/eclipse.log" 2>&1 || true
 OUT="$B/out.txt"
 [ -f "$OUT" ] || { echo "  FAIL Eclipse לא הריץ את הבדיקה"; tail -40 "$B/eclipse.log"; exit 1; }
@@ -59,7 +59,7 @@ grep -q "BUILD Targil.java" "$OUT" && { echo "  FAIL קוד תקין קיבל ס
 # צילומי מסך (SHOT=1, צריך xvfb-run או XD): העורך, חלון Problems וחלון "הסברים בעברית" (‎-mentor.png‎)
 if [ "$SHOT" = 1 ]; then
     for f in Mistakes:5:21 Warnings:16:15 Mixed:15:20 Poly:5:13; do
-        xrun java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -consoleLog -data "$B/ws" \
+        xrun java -Doomph.setup.skip=true -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -consoleLog -data "$B/ws" \
             -application il.lamerhav.dsviz.it.shot "/Students/src/${f%%:*}.java" "$B/${f%%:*}.png" "${f#*:}" >> "$B/eclipse.log" 2>&1 || true
         [ "$f" = "Mistakes:5:21" ] && { grep -m1 "MENTOR-VIEW-OPEN" "$B/eclipse.log" | grep -q true && echo "  ok  בהפעלה הראשונה — חלון ההסברים בעברית נפתח לבד בצד" \
             || { echo "  FAIL חלון ההסברים לא נפתח לבד"; FAILED=1; }; }
@@ -84,7 +84,7 @@ if [ "$SHOT" = 1 ]; then
 fi
 # "הצעה לפתרון" (צריך xvfb-run): תרגיל מתשובה לדוגמה → ההצעות נבדקו ונשמרו בצד, הכפתור מעל כל פעולה של סעיף, לחיצה → החלון
 mkdir -p "$B/sol"
-XSCREEN=1600x1000x24 xrun timeout 240 java -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog \
+XSCREEN=1600x1000x24 xrun timeout 240 java -Doomph.setup.skip=true -Dfile.encoding=UTF-8 -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar -nosplash -clean -consoleLog \
     -data "$B/ws-sol" -application il.lamerhav.dsviz.it.solution "$ROOT/tools/test/ai/1-stack.json" "$B/sol/out.txt" "$B/sol" > "$B/sol/eclipse.log" 2>&1 || true
 rm -rf "$B/ws-sol"
 SOL="$B/sol/out.txt"
@@ -100,7 +100,7 @@ if command -v node >/dev/null 2>&1; then
     SHOTS="${SUBMIT_SHOTS:-$B/sub}"
     PORT="${SUBMIT_PORT:-8813}"
     MOCK_DELAY_MS=3000 MOCK_REPAIR_DELAY_MS=4000 node "$ROOT/tools/test/submit/mock-worker.js" "$PORT" "$(pwd)/submit" "$B/sub/mock.log" & MOCKP=$!
-    XSCREEN=1500x1000x24 xrun timeout 480 java -Dfile.encoding=UTF-8 -Ddsviz.worker="http://127.0.0.1:$PORT" -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar \
+    XSCREEN=1500x1000x24 xrun timeout 480 java -Doomph.setup.skip=true -Dfile.encoding=UTF-8 -Ddsviz.worker="http://127.0.0.1:$PORT" -jar "$ECL"/plugins/org.eclipse.equinox.launcher_*.jar \
         -nosplash -clean -consoleLog -data "$B/ws-sub" -application il.lamerhav.dsviz.it.submit "$B/sub/out.txt" "$SHOTS" "$ROOT/tools/test/ai/files" > "$B/sub/eclipse.log" 2>&1 || true
     kill $MOCKP 2>/dev/null || true
     rm -rf "$B/ws-sub"
