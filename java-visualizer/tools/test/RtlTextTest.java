@@ -42,7 +42,7 @@ public class RtlTextTest {
             { "פותחים קובץ Java — וההסברים לשגיאות שבו יופיעו כאן", "Java" },
             { "אין שגיאות ואין אזהרות בקובץ Mistakes.java — כל הכבוד!", "Mistakes.java" },
             { "2 שגיאות ו-6 אזהרות — לחיצה על הסבר מעבירה לשורה בקוד", "2|6" },
-            { "שורה 12 · אזהרה", "12" },
+            { "שורה 12 · אזהרה", "12 ·" },   // · (כפל) הוא חלק מקטע קוד — "12 ·" יחידה אחת משמאל לימין
             { "Ctrl+1 על השגיאה מציע תיקונים אפשריים", "Ctrl+1" },
             { "הצעה לתיקון: מוסיפים אחרי `n`: `;`", "n|;" },
             { "כותבים: `s.equals(\"ABC\")` (ולא ==)", "s.equals(\"ABC\")|==" },
@@ -74,7 +74,8 @@ public class RtlTextTest {
         // התווים לא נראים, ו-strip מחזיר את הטקסט המקורי (בלי סימוני ה-`)
         checks++;
         String t = "ל-`Queue` אין פעולה size [לתור אין פעולה שסופרת: `s.size()`]";
-        if (!RtlText.strip(RtlText.rtl(t)).equals(t.replace("`", ""))) failures.add("strip: " + RtlText.strip(RtlText.rtl(t)));
+        // "ל-" לפני קוד הופך למקף שלא נשבר (U+2011) — מלבד זה, אותו טקסט
+        if (!RtlText.strip(RtlText.rtl(t)).replace('\u2011', '-').equals(t.replace("`", ""))) failures.add("strip: " + RtlText.strip(RtlText.rtl(t)));
         // לשם השוואה: הדרך הקודמת (רק LRM במקום ה-`) — בכמה מהדוגמאות היא שגויה
         int old = 0;
         for (String[] c : cases) {
