@@ -220,6 +220,43 @@ function TopWindows([int]$procId) {
     $c = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ProcessIdProperty, $procId)
     try { return @([Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children, $c)) } catch { return @() }
 }
+# החלון הראשי של Visual Studio: מבין החלונות העליונים של התהליך — VisualStudioMainWindow (או כותרת "... Microsoft Visual Studio"), הגדול ביותר.
+# Process.MainWindowHandle לבדו לא מספיק: Visual Studio 18.12 מקפיץ מעל החלון חלוניות "Use Copilot for Free", ולפעמים אחת מהן היא
+# שמוחזרת — ואז "המלבן של החלון הראשי" הוא של החלונית (כ-270 פיקסלים), וכפתורים של הסרגל נחשבים בטעות "מחוץ לחלון"
+function VsMainHandle($p) {
+    $best = [IntPtr]::Zero; $area = 0.0
+    foreach ($w in @(TopWindows $p.Id)) {
+        try {
+            $c = $w.Current
+            if (([string]$c.AutomationId -ne 'VisualStudioMainWindow') -and ([string]$c.Name -notmatch 'Microsoft Visual Studio( \(Administrator\))?$')) { continue }
+            $r = $c.BoundingRectangle
+            if ($r.IsEmpty) { continue }
+            $a = [double]$r.Width * [double]$r.Height
+            if ($a -gt $area) { $area = $a; $best = [IntPtr][int]$c.NativeWindowHandle }
+        } catch { }
+    }
+    if ($best -ne [IntPtr]::Zero) { return $best }
+    return $p.MainWindowHandle
+}
+# החלוניות "Use Copilot for Free" של Visual Studio (בפינות למעלה): מכסות את תחילת הסרגל ובולעות לחיצות. סוגרים אותן בלחיצה אמיתית
+# על ה-X שלהן, כמו משתמש. מחזיר כמה נסגרו (0 — לא היו)
+function CloseCopilotToasts([int]$procId) {
+    $closed = 0
+    try {
+        $isTitle = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::NameProperty, 'Use Copilot for Free')
+        $isImage = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::Image)
+        foreach ($w in @(TopWindows $procId)) {
+            try {
+                if ([string]$w.Current.AutomationId -eq 'VisualStudioMainWindow') { continue }
+                if (-not $w.FindFirst([Windows.Automation.TreeScope]::Subtree, $isTitle)) { continue }
+                $x = @($w.FindAll([Windows.Automation.TreeScope]::Subtree, $isImage) | Where-Object { Shown $_ }) | Select-Object -First 1
+                if ($x -and (RealClick $x 'copilot-toast-x')) { $closed++ }
+            } catch { }
+        }
+    } catch { }
+    if ($closed -gt 0) { Info "נסגרו $closed חלוניות 'Use Copilot for Free' של Visual Studio"; Start-Sleep 1 }
+    return $closed
+}
 # כל החלונות של התהליך חוץ מהחלון הראשי ($mainHandle): תיבות הודעה, חלון "Open File", שאלות. בעץ של UI Automation חלון עם "בעלים"
 # (דיאלוג) מופיע כילד של החלון שפתח אותו ולא ליד החלון הראשי — לכן גם החלונות שמתחת לחלון הראשי, ועוד רמה אחת מתחתיהם
 function OtherWindows([int]$procId, [int]$mainHandle) {
@@ -503,10 +540,12 @@ function StartVsOnce([string]$sln, [int]$minutes = 12) {
     if (-not $up) { Step 'vs-not-up'; return $null }
     Start-Sleep 2
     $p.Refresh()   # החלון הראשי כמו שהוא עכשיו (אחרי שחלון הפתיחה נסגר)
-    [DsReal]::ShowWindow($p.MainWindowHandle, 3) | Out-Null   # SW_MAXIMIZE
-    [DsReal]::Front($p.MainWindowHandle) | Out-Null
+    $mainNow = VsMainHandle $p   # לא Process.MainWindowHandle לבדו: חלונית "Use Copilot for Free" שקפצה מעל החלון יכולה להיות זו שמוחזרת
+    [DsReal]::ShowWindow($mainNow, 3) | Out-Null   # SW_MAXIMIZE
+    [DsReal]::Front($mainNow) | Out-Null
     $script:vsP = $p
-    $script:vsMain = $p.MainWindowHandle   # החלון הראשי, כמו שהוא עכשיו (כשתיבת הודעה פתוחה Process.MainWindowHandle יכול להשתנות)
+    $script:vsMain = $mainNow   # החלון הראשי, כמו שהוא עכשיו (כשתיבת הודעה פתוחה Process.MainWindowHandle יכול להשתנות)
+    CloseCopilotToasts $p.Id | Out-Null
     return $p
 }
 # מביא את Visual Studio לקדמה (לפני לחיצה / הקשה). true — החלון הראשי, או חלון אחר של Visual Studio (תיבת הודעה), בקדמה.

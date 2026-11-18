@@ -426,8 +426,10 @@ function CheckToolbar([string]$id, [string]$when) {
     $ready = WaitToolbar 240
     $row = ''
     for ($i = 0; $i -lt 30; $i++) { $row = DteToolbar; if ($row -match '^visible=True row=-?\d+ shared=$') { break }; Start-Sleep 4 }
+    CloseCopilotToasts $script:vsP.Id | Out-Null   # חלונית של Visual Studio שמכסה את תחילת הסרגל — סוגרים כמו משתמש
     Step "$id-toolbar"
-    $main = $null; try { $main = [Windows.Automation.AutomationElement]::FromHandle($script:vsMain).Current.BoundingRectangle } catch { }
+    # המלבן של החלון הראשי האמיתי (VsMainHandle), לא של חלונית שקפצה מעליו
+    $main = $null; try { $script:vsMain = VsMainHandle $script:vsP; $main = [Windows.Automation.AutomationElement]::FromHandle($script:vsMain).Current.BoundingRectangle } catch { }
     $bad = @(); $ys = @(); $rects = @()
     foreach ($n in $script:dsvizNames) {
         $b = ToolbarButton $n
