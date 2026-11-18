@@ -966,7 +966,7 @@ function tree(id, title, about) {
 
 function trees() {
     const out = [];
-    const a = tree('animals', 'בעלי חיים', 'Animal ← Mammal ← Dog ← Boxer, Labrador (ובתוך Labrador — Person). כל אחת דורסת את say()');
+    const a = tree('animals', 'בעלי חיים', 'Animal ← Mammal ← Dog ← Boxer, Labrador (ובתוך Labrador — Person). כל אחת דורסת את say()\u200E');
     a.add('Animal', '').field('String', 'name').field('String', 'gender').method('String', 'say', 'return "I am an Animal";', false);
     a.add('Mammal', 'Animal').field('double', 'milk').override('say', 'return "I am a Mammal";');
     a.add('Dog', 'Mammal').field('int', 'bonesToEat').override('say', 'return "I am a Dog";');
@@ -978,7 +978,7 @@ function trees() {
         ['Boxer', '"Rexy"', '"male"', '3.2', '3', '"house"'], ['Labrador', '"Toto"', '"male"', '2.5', '4', 'new Person("Hila")']);
     out.push(a);
 
-    const s = tree('shapes', 'צורות', 'Shape (מופשטת) ← Circle, Rectangle, Triangle. כל צורה מחשבת את השטח שלה — area()');
+    const s = tree('shapes', 'צורות', 'Shape (מופשטת) ← Circle, Rectangle, Triangle. כל צורה מחשבת את השטח שלה — area()\u200E');
     const shape = s.add('Shape', '').field('String', 'color').method('double', 'area', null, true);
     shape.isAbstract = true;
     shape.toStr = true;
@@ -989,7 +989,7 @@ function trees() {
     s.objects.push(['Circle', '"red"', '2'], ['Rectangle', '"blue"', '3', '4'], ['Triangle', '"green"', '6', '2']);
     out.push(s);
 
-    const p = tree('school', 'אנשים בבית הספר', 'Person ← Pupil, Teacher ← HomeroomTeacher. כל אחד דורס את role()');
+    const p = tree('school', 'אנשים בבית הספר', 'Person ← Pupil, Teacher ← HomeroomTeacher. כל אחד דורס את role()\u200E');
     p.add('Person', '').field('String', 'name').field('int', 'age').method('String', 'role', 'return "Person";', false).toStr = true;
     p.add('Pupil', 'Person').field('int', 'grade').override('role', 'return "Pupil";').toStr = true;
     p.add('Teacher', 'Person').field('String', 'subject').override('role', 'return "Teacher";').toStr = true;
@@ -1196,6 +1196,26 @@ function paramOwner(knownIn, cls, param) {
     return k.name;
 }
 
+/** מפצל ערכים בפסיקים שלא בתוך מרכאות / סוגריים — כמו ClassGen.splitArgs */
+function splitArgs(text) {
+    const out = [], s = text == null ? '' : String(text);
+    if (!jtrim(s)) return out;
+    let depth = 0, q = '', cur = '';
+    for (let i = 0; i < s.length; i++) {
+        const ch = s.charAt(i);
+        if (q) {
+            if (ch === '\\' && i + 1 < s.length) { cur += ch + s.charAt(++i); continue; }
+            if (ch === q) q = '';
+        } else if (ch === '"' || ch === "'") q = ch;
+        else if (ch === '(' || ch === '[' || ch === '{') depth++;
+        else if (ch === ')' || ch === ']' || ch === '}') depth--;
+        else if (ch === ',' && depth === 0) { out.push(jtrim(cur)); cur = ''; continue; }
+        cur += ch;
+    }
+    out.push(jtrim(cur));
+    return out;
+}
+
 const quote = t => '"' + t.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 
 function literal(type, text, lang) {
@@ -1333,4 +1353,4 @@ module.exports = { JAVA, CS, TITLE, subtitle, toStringLabel, KEYS, COURSE, UNIT4
     check, generate, preview, packageOf, namespaceOf, declaredTypes, topTypes, scanProject, classLine, parseCase, describe, strip,
     models, modelText, addVirtual, paramList, key, chainOf, findKnown, kn, defaultValue, literal,
     INK, BG, GRAY, GRAY_BG, colors, colorsWith, ink, bg, dashed, hex, superCandidates,
-    TREES_TITLE, OBJECT_TITLE, OWN_TREE, trees, ownTree, parseFields, treeFiles, treeLayout, objectClasses, ctorParams, paramOwner, objectCode };
+    TREES_TITLE, OBJECT_TITLE, OWN_TREE, trees, ownTree, parseFields, treeFiles, treeLayout, objectClasses, ctorParams, paramOwner, objectCode, splitArgs };

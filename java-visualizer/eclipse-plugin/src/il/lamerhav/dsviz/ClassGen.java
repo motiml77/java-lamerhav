@@ -1466,7 +1466,7 @@ public final class ClassGen {
     /** שלוש ההיררכיות המוכנות: בעלי חיים (כמו בדף העבודה), צורות, אנשים בבית הספר */
     public static List<Tree> trees() {
         List<Tree> out = new ArrayList<Tree>();
-        Tree a = new Tree("animals", "בעלי חיים", "Animal ← Mammal ← Dog ← Boxer, Labrador (ובתוך Labrador — Person). כל אחת דורסת את say()");
+        Tree a = new Tree("animals", "בעלי חיים", "Animal ← Mammal ← Dog ← Boxer, Labrador (ובתוך Labrador — Person). כל אחת דורסת את say()\u200E");
         a.add("Animal", "").field("String", "name").field("String", "gender").method("String", "say", "return \"I am an Animal\";", false);
         a.add("Mammal", "Animal").field("double", "milk").override("say", "return \"I am a Mammal\";");
         a.add("Dog", "Mammal").field("int", "bonesToEat").override("say", "return \"I am a Dog\";");
@@ -1484,7 +1484,7 @@ public final class ClassGen {
         a.objects.add(new String[] { "Labrador", "\"Toto\"", "\"male\"", "2.5", "4", "new Person(\"Hila\")" });
         out.add(a);
 
-        Tree s = new Tree("shapes", "צורות", "Shape (מופשטת) ← Circle, Rectangle, Triangle. כל צורה מחשבת את השטח שלה — area()");
+        Tree s = new Tree("shapes", "צורות", "Shape (מופשטת) ← Circle, Rectangle, Triangle. כל צורה מחשבת את השטח שלה — area()\u200E");
         TreeClass shape = s.add("Shape", "").field("String", "color").method("double", "area", null, true);
         shape.isAbstract = true;
         shape.toString = true;
@@ -1500,7 +1500,7 @@ public final class ClassGen {
         s.objects.add(new String[] { "Triangle", "\"green\"", "6", "2" });
         out.add(s);
 
-        Tree p = new Tree("school", "אנשים בבית הספר", "Person ← Pupil, Teacher ← HomeroomTeacher. כל אחד דורס את role()");
+        Tree p = new Tree("school", "אנשים בבית הספר", "Person ← Pupil, Teacher ← HomeroomTeacher. כל אחד דורס את role()\u200E");
         p.add("Person", "").field("String", "name").field("int", "age").method("String", "role", "return \"Person\";", false).toString = true;
         p.add("Pupil", "Person").field("int", "grade").override("role", "return \"Pupil\";").toString = true;
         p.add("Teacher", "Person").field("String", "subject").override("role", "return \"Teacher\";").toString = true;
@@ -1829,6 +1829,36 @@ public final class ClassGen {
             return raw ? t : quote(t);
         }
         return t;
+    }
+
+    /** "Rexy, male, new Person(\"a, b\")" → 3 ערכים: מפצל בפסיקים שלא בתוך מרכאות / סוגריים (ערכים לתא של מערך) */
+    public static List<String> splitArgs(String text) {
+        List<String> out = new ArrayList<String>();
+        String s = text == null ? "" : text;
+        if (s.trim().isEmpty()) return out;
+        int depth = 0;
+        char q = 0;
+        StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (q != 0) {
+                if (ch == '\\' && i + 1 < s.length()) {
+                    cur.append(ch).append(s.charAt(++i));
+                    continue;
+                }
+                if (ch == q) q = 0;
+            } else if (ch == '"' || ch == '\'') q = ch;
+            else if (ch == '(' || ch == '[' || ch == '{') depth++;
+            else if (ch == ')' || ch == ']' || ch == '}') depth--;
+            else if (ch == ',' && depth == 0) {
+                out.add(cur.toString().trim());
+                cur.setLength(0);
+                continue;
+            }
+            cur.append(ch);
+        }
+        out.add(cur.toString().trim());
+        return out;
     }
 
     private static String quote(String t) {

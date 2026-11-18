@@ -68,7 +68,7 @@ echo "  ok  היררכיות (Java): $nh פרויקטים התקמפלו ורצ�
 T="$W/vstool"
 mkdir -p "$T/cls"
 E="$ROOT/eclipse-plugin/src/il/lamerhav/dsviz"
-javac --release 8 -Xlint:-options -nowarn -encoding UTF-8 -cp "$JAR" -d "$T/cls" "$E/Scaffold.java" "$E/NameCheck.java" "$E/CsSolution.java" "$E/ClassGen.java" \
+javac --release 8 -Xlint:-options -nowarn -encoding UTF-8 -cp "$JAR" -d "$T/cls" "$E/Scaffold.java" "$E/NameCheck.java" "$E/CsSolution.java" "$E/ClassGen.java" "$E/PolyPanels.java" \
     "$E/WorkerClient.java" "$E/ExerciseFiles.java" "$E/AiScaffold.java" "$E/SolutionCheck.java" "$E/SolutionStore.java" "$E/ExercisePipeline.java" "$E/SubmitCli.java" \
     $(find "$ROOT/csharp/new-exercise/src" -name '*.java') "$ROOT/tutorials/harness/SwingScript.java" cstool/il/lamerhav/dsviz/cs/CsClassFileTest.java
 java -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -cp "$T/cls" il.lamerhav.dsviz.cs.CsClassFileTest "$T/work" classgen-project | sed 's/^/  ok  /'
@@ -87,6 +87,33 @@ if command -v Xvfb >/dev/null 2>&1; then
         && head -c 40 "$P/Student.cs" | grep -q 'namespace OldApp' \
         && echo "  ok  Visual Studio (Swing): החלון → Student.cs ליד Program.cs (namespace OldApp), נרשם ב-OldApp.csproj, והודעה בעברית" \
         || { echo "הכלי של Visual Studio — צור מחלקה נכשל"; cat "$T/e2e.out"; cat "$T/shots/done.json" 2>/dev/null | head -c 600; cat "$P/OldApp.csproj"; exit 1; }
+    # הורשה בכלי של Visual Studio: "היררכיה מוכנה" בפרויקט SDK שכבר יש בו Main (ה-main לדוגמה — Run()), "צור מחלקה" שיורשת מ-Person
+    # ודורסת את GetName (נוספת virtual בקובץ של Person), "הוסף עצם" (הקוד בלוח) — ובסוף הפרויקט כולו נבנה ורץ
+    S="$T/e2e/SdkApp"
+    mkdir -p "$S" "$ROOT/build/shots"
+    printf '<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0</TargetFramework>\n  </PropertyGroup>\n</Project>\n' > "$S/SdkApp.csproj"
+    printf 'namespace SdkApp;\n\npublic static class Program\n{\n    public static void Main()\n    {\n        ZooDemo.Run();\n        System.Console.WriteLine(new Guide("Hila", 3).GetName());\n    }\n}\n' > "$S/Program.cs"
+    printf 'wait 900\ncall choose 0\nwait 500\nshot tree\nclick יצירת המחלקות\nwaitwin היררכיה\nshot treedone\nclose\n' > "$T/tree.txt"
+    printf 'wait 900\ncall demo Guide|int years\nwait 300\ncall superOf Person\nwait 400\ncall pick GetName()\nwait 300\ncall method string Greet(string who)\nwait 400\nshot inherit\nclick יצירת המחלקה\nwaitwin צור מחלקה\nshot inheritdone\nclose\n' > "$T/inherit.txt"
+    printf 'wait 900\ncall demo Animal|a1|Boxer|Rexy, male, 3.2, 3, house\nwait 500\nshot object\ncall demoArray Animal|zoo|Dog:Dasty, female, 0.5, 3/Boxer:Rexy, male, 3.2, 3, house/:/Labrador:Toto, male, 2.5, 4, new Person("Hila")\nwait 500\nshot objectarr\nclick העתקת הקוד\nwaitwin הוסף עצם\nshot objectdone\nclose\n' > "$T/object.txt"
+    for m in tree inherit object; do
+        mode=$m; [ $m = inherit ] && mode=class
+        DISPLAY=:96 timeout 90 java -Ddsviz.noOpen=true -Ddsviz.printCode=1 -Dstdout.encoding=UTF-8 -cp "$T/cls:$JAR" SwingScript "$T/$m.txt" "$T/shots" il.lamerhav.dsviz.cs.CsTool $mode "$T/e2e" --file "$S/Program.cs" > "$T/$m.out" 2>&1 || true
+    done
+    grep -q 'נוצרו 7 קבצים' "$T/shots/treedone.json" && grep -q 'ZooDemo.Run();' "$T/shots/treedone.json" && grep -q 'public static void Run()' "$S/ZooDemo.cs" \
+        && grep -q 'public class Boxer : Dog' "$S/Boxer.cs" && grep -q 'namespace SdkApp;' "$S/Boxer.cs" \
+        && grep -q 'המחלקה Guide נוצרה' "$T/shots/inheritdone.json" && grep -q 'נוספה המילה virtual בקובץ' "$T/shots/inheritdone.json" \
+        && grep -q 'public virtual string GetName()' "$S/Person.cs" && grep -q 'public override string GetName()' "$S/Guide.cs" && grep -q ' : base(name)' "$S/Guide.cs" \
+        && grep -q 'הקוד הועתק' "$T/shots/objectdone.json" && grep -qxF 'Animal[] zoo = new Animal[4];' "$T/object.out" \
+        && grep -qxF 'zoo[3] = new Labrador("Toto", "male", 2.5, 4, new Person("Hila"));' "$T/object.out" && ! grep -q 'zoo\[2\]' "$T/object.out" \
+        || { echo "הכלי של Visual Studio — הורשה נכשלה"; for o in tree inherit object; do tail -n 20 "$T/$o.out"; done; ls "$S"; exit 1; }
+    for s in tree inherit object; do cp "$T/shots/$s.png" "$ROOT/build/shots/vs-$s.png"; done
+    if command -v dotnet >/dev/null 2>&1; then
+        (cd "$S" && DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 dotnet build -c Release -v q --nologo > "$T/sdkapp-build.txt" 2>&1 && dotnet bin/Release/net8.0/SdkApp.dll > "$T/sdkapp-run.txt" 2>&1) \
+            && grep -qx 'I am a Boxer' "$T/sdkapp-run.txt" && grep -qx 'Hila' "$T/sdkapp-run.txt" \
+            || { echo "SdkApp (אחרי היררכיה מוכנה + צור מחלקה) לא נבנה / לא רץ"; cat "$T/sdkapp-build.txt" "$T/sdkapp-run.txt" | tail -20; exit 1; }
+    fi
+    echo "  ok  Visual Studio (Swing): היררכיה מוכנה (7 קבצים, Run() כשיש Main), צור מחלקה שיורשת (base, override, virtual בקובץ של מחלקת העל), הוסף עצם (גם מערך) — והפרויקט נבנה ורץ"
 else
     echo "  (אין Xvfb — מדלגים על החלון של Visual Studio)"
 fi

@@ -44,6 +44,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import il.lamerhav.dsviz.ClassGen;
+import il.lamerhav.dsviz.PolyPanels;
 import il.lamerhav.dsviz.RtlDialog;
 import il.lamerhav.dsviz.Scaffold;
 import unit4.collectionsLib.Theme;
@@ -138,6 +139,8 @@ public final class CsTool {
                 }
                 else if (mode.equals("insert")) insert(root, fPreset, fShot, fFile);
                 else if (mode.equals("class")) createClass(root, fShot, activeFile(root, fFile));   // "צור מחלקה" ישירות
+                else if (mode.equals("tree")) CsPoly.createTree(root, fShot, activeFile(root, fFile));        // "היררכיה מוכנה"
+                else if (mode.equals("object")) CsPoly.insertObject(root, fShot, activeFile(root, fFile));    // "הוסף עצם"
                 else newExercise(root, fPreset, fShot, fOpen);
             }
         });
@@ -534,6 +537,14 @@ public final class CsTool {
             createClass(root, null, source);
             return;
         }
+        if ("tree".equals(f.wants)) {
+            CsPoly.createTree(root, null, source);
+            return;
+        }
+        if ("object".equals(f.wants)) {
+            CsPoly.insertObject(root, null, source);
+            return;
+        }
         if (!ok) return;
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(f.code), null);
         RtlDialog.show(null, "הוסף מבנה נתונים — C#", RtlDialog.Kind.OK, "הקוד הועתק",
@@ -573,6 +584,7 @@ public final class CsTool {
         private String lastType = "", lastStructure = "";
         String code;
         boolean wantsClass;   // לחצו על "צור מחלקה"
+        String wants;         // לחצו על "היררכיה מוכנה" (tree) / "הוסף עצם" (object)
 
         InsertForm(String preset, String docText, String docName) {
             this.preset = preset == null ? "queue" : preset;
@@ -606,7 +618,19 @@ public final class CsTool {
             newClass.putClientProperty("FlatLaf.style", "arc:14; background:#ffffff; foreground:#2457C5; borderColor:#9DB7EE");
             newClass.setPreferredSize(new Dimension(newClass.getPreferredSize().width, 30));
             newClass.addActionListener(e -> { wantsClass = true; d.dispose(); });
-            right.add(newClass, 8);
+            // הורשה: "היררכיה מוכנה" (כל המחלקות של עץ + main לדוגמה) ו"הוסף עצם" (Animal a1 = new Boxer(...);) — כל אחד בחלון משלו
+            JButton newTree = new JButton("+ " + ClassGen.TREES_TITLE + "…"), newObj = new JButton("+ " + ClassGen.OBJECT_TITLE + "…");
+            for (JButton b : new JButton[] { newTree, newObj }) {
+                b.putClientProperty("FlatLaf.style", "arc:14; background:#ffffff; foreground:#2457C5; borderColor:#9DB7EE");
+                b.setPreferredSize(new Dimension(b.getPreferredSize().width, 30));
+            }
+            newTree.addActionListener(e -> { wants = "tree"; d.dispose(); });
+            newObj.addActionListener(e -> { wants = "object"; d.dispose(); });
+            JPanel classButtons = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 0));
+            classButtons.add(newClass);
+            classButtons.add(newTree);
+            classButtons.add(newObj);
+            right.add(classButtons, 8);
             JLabel classNote = new JLabel("מחלקה משלכם בקובץ חדש: שדות, בנאי, Get ו-Set");
             classNote.setFont(Theme.small);
             classNote.setForeground(Theme.MUTED);
@@ -855,6 +879,7 @@ public final class CsTool {
         try {
             Path created = CsClassFile.write(dir, f.file, f.code, source);
             Path proj = CsClassFile.projectDir(dir), csproj = CsClassFile.csproj(proj);
+            List<Path> touched = CsClassFile.applyVirtual(proj != null ? proj : dir, f.edits);   // virtual בפעולות של מחלקת העל שנדרסות
             boolean classic = csproj != null && !CsClassFile.sdkStyle(csproj);
             String slnEnv = System.getenv("DSVIZ_VS_SLN");
             Path sln = slnEnv != null && !slnEnv.trim().isEmpty() && Files.isRegularFile(Paths.get(slnEnv.trim())) ? Paths.get(slnEnv.trim())
@@ -864,8 +889,10 @@ public final class CsTool {
             if (r == 0) return;   // נוסף (אם צריך) ונפתח ב-Visual Studio
             boolean registered = classic && CsClassFile.addCompile(csproj, created);
             String rel = proj != null ? proj.relativize(created).toString() : created.getFileName().toString();
+            StringBuilder virt = new StringBuilder();
+            for (Path t : touched) virt.append("נוספה המילה virtual בקובץ ").append(t.getFileName()).append(" (פעולה שנדרסת).\n");
             RtlDialog.show(null, title, RtlDialog.Kind.OK, "המחלקה " + f.resultName + " נוצרה",
-                    "הקובץ: " + rel + "\n"
+                    "הקובץ: " + rel + "\n" + virt
                     + (classic ? (registered ? "הוא נרשם בקובץ הפרויקט: " + csproj.getFileName() + "\nאם Visual Studio פתוח — מאשרים Reload.\n" : "")
                             : "הוא כבר חלק מהפרויקט (כל קובץ ‎.cs‎ בתיקייה נכלל בו).\n")
                     + "פותחים אותו ב-Solution Explorer.");
@@ -891,7 +918,10 @@ public final class CsTool {
         private JCheckBox ctor, toStr;
         private JButton ok;
         private JDialog dlg;
+        private PolyPanels.InheritPanel inherit;
         String code, file, resultName;   // אחרי "יצירת המחלקה": הקוד, Name.cs, Name
+        /** virtual שצריך להוסיף בקבצים של מחלקות העל (פעולות שנבחרו לדריסה) */
+        List<ClassGen.Edit> edits = new ArrayList<ClassGen.Edit>();
 
         private final class Row {
             TypeBox base, elem;
@@ -932,6 +962,10 @@ public final class CsTool {
             className = ltrField(220);
             className.putClientProperty("JTextField.placeholderText", "Student");
             right.add(className);
+            // הורשה: יורשת מ- ושדות שירשה (למעלה), פעולות לדריסה / פעולה חדשה / מופשטת (אחרי השדות)
+            if (Theme.mono != null) PolyPanels.code = Theme.mono;
+            inherit = new PolyPanels.InheritPanel(ClassGen.CS, known, this::update);
+            right.add(inherit, 0);
             right.section("השדות (private)");
             fieldsPanel = ltr(new JPanel(new GridBagLayout()));
             right.add(fieldsPanel);
@@ -947,6 +981,7 @@ public final class CsTool {
             JPanel addBox = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 2));
             addBox.add(add);
             right.add(addBox);
+            right.add(inherit.lower, 0);
             ctor = new JCheckBox("בנאי שמקבל את כל השדות", true);
             right.add(ctor, 8);
             toStr = new JCheckBox(ClassGen.toStringLabel(ClassGen.CS));
@@ -1137,6 +1172,12 @@ public final class CsTool {
                     preview.setText(text);
                     preview.setCaretPosition(0);
                 }
+                if (inherit != null) {
+                    inherit.refresh(c, c.className);
+                    PolyPanels.fixLtr(inherit);
+                    PolyPanels.fixLtr(inherit.lower);
+                }
+                edits = c.ok() ? c.edits : new ArrayList<ClassGen.Edit>();
                 fileLabel.setText(c.className == null ? " " : ClassGen.fileName(c.className, ClassGen.CS));
                 errorLabel.setText(c.errors.isEmpty() ? " " : c.errors.get(0));
                 warnLabel.setText(c.warnings.isEmpty() ? " " : String.join(" · ", c.warnings));
@@ -1160,6 +1201,7 @@ public final class CsTool {
             o.toString = toStr.isSelected();
             o.taken = taken;
             o.known = known;
+            if (inherit != null) inherit.apply(o);
             for (Row r : rows) {
                 ClassGen.Field f = new ClassGen.Field(ClassGen.fullType(r.base.value(), r.elem.value(), ClassGen.CS), r.name.getText());
                 f.refs.putAll(r.refs);
@@ -1218,6 +1260,21 @@ public final class CsTool {
         void withToString(String on) {
             toStr.setSelected("1".equals(on) || "true".equals(on));
             update();
+        }
+
+        /** הורשה (לצילומי מסך ולבדיקות): יורשת מ-, דריסה, פעולה חדשה "ret name(params)" */
+        void superOf(String name) {
+            inherit.demoSuper(name.trim());
+        }
+
+        void pick(String key) {
+            inherit.demoPick(key.trim());
+        }
+
+        void method(String spec) {
+            String t = spec.trim();
+            int par = t.indexOf('('), sp = t.lastIndexOf(' ', par);
+            inherit.addMethod(t.substring(0, sp), t.substring(sp + 1, par), t.substring(par + 1, t.lastIndexOf(')')), false, false);
         }
     }
 
@@ -1543,7 +1600,7 @@ public final class CsTool {
 
     // ------------------------------------------------------------------ בסיס משותף לחלונות
 
-    private abstract static class Base {
+    abstract static class Base {
         boolean accepted;
         private JDialog dlg;
 
@@ -1767,7 +1824,7 @@ public final class CsTool {
     }
 
     /** כרטיס לבן מעוגל עם מסגרת דקה */
-    private static final class Card extends JPanel {
+    static final class Card extends JPanel {
         Card(JComponent inner) {
             super(new BorderLayout());
             setOpaque(false);
@@ -1788,7 +1845,7 @@ public final class CsTool {
     }
 
     /** עמודה: שורות ממולאות לרוחב, מיושרות להתחלה (בעברית — ימין) */
-    private static final class Col {
+    static final class Col {
         final JPanel panel = new JPanel(new GridBagLayout());
         private int row;
 

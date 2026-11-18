@@ -138,6 +138,45 @@ public final class CsClassFile {
         return true;
     }
 
+    /**
+     * הורשה: מוסיף virtual לפעולות של מחלקת העל שנבחרו לדריסה (ClassGen.Check.edits — הקובץ יחסית ל-root, תיקיית הסריקה).
+     * שומר על BOM ועל סוף השורה של הקובץ. מחזיר את הקבצים ששונו
+     */
+    public static List<Path> applyVirtual(Path root, List<ClassGen.Edit> edits) throws IOException {
+        List<Path> out = new ArrayList<Path>();
+        if (edits == null) return out;
+        for (ClassGen.Edit e : edits) {
+            if (e.file == null || e.file.isEmpty()) continue;
+            Path f = root.resolve(e.file);
+            if (!Files.isRegularFile(f)) continue;
+            byte[] raw = Files.readAllBytes(f);
+            boolean bom = raw.length >= 3 && (raw[0] & 0xFF) == 0xEF && (raw[1] & 0xFF) == 0xBB && (raw[2] & 0xFF) == 0xBF;
+            String text = read(f), now = ClassGen.addVirtual(text, e.className, e.method, e.params);
+            if (now.equals(text)) continue;
+            Files.write(f, ((bom ? "﻿" : "") + now).getBytes(StandardCharsets.UTF_8));
+            if (!out.contains(f)) out.add(f);
+        }
+        return out;
+    }
+
+    /** האם יש כבר Main בפרויקט (אז ה-main לדוגמה של "היררכיה מוכנה" נוצר כפעולה Run()) */
+    public static boolean hasMain(Path dir) {
+        Path root = projectDir(dir);
+        try (Stream<Path> s = Files.walk(root != null ? root : dir, 6)) {
+            for (Path p : (Iterable<Path>) s::iterator) {
+                String n = p.toString();
+                if (!n.endsWith(".cs") || n.contains("/bin/") || n.contains("\\bin\\") || n.contains("/obj/") || n.contains("\\obj\\")) continue;
+                String text = read(p);
+                if (Pattern.compile("\\bstatic\\s+(?:async\\s+)?(?:void|int|Task|Task<int>)\\s+Main\\s*\\(").matcher(text).find()) return true;
+                // פקודות ברמה העליונה (C# 9+): קובץ בלי מחלקות ועם קוד
+                if (ClassGen.declaredTypes(text).isEmpty() && text.replaceAll("(?s)/\\*.*?\\*/|//[^\\n]*|\\busing\\s+[\\w.=\\s]+;", "").trim().length() > 0) return true;
+            }
+        } catch (IOException ignored) {
+            // בלי סריקה — כאילו אין
+        }
+        return false;
+    }
+
     /** מה צריך לדעת על הקובץ הנוכחי: namespace (או "") ו-namespace X; */
     public static String[] namespace(Path source) {
         try {
