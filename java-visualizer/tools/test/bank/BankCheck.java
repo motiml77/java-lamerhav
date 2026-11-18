@@ -39,6 +39,10 @@ public final class BankCheck {
                 if (!ids.add(id)) fail(f.getPath(), "ה-id \"" + id + "\" כבר קיים בשאלה אחרת");
                 if (!sub.getName().equals(Json.str(j.get("topic")))) fail(f.getPath(), "הקובץ בתיקייה " + sub.getName() + " אבל הנושא שלו " + Json.str(j.get("topic")));
                 if (!f.getName().equals(id + ".json")) fail(f.getPath(), "שם הקובץ צריך להיות " + id + ".json");
+                for (String c : classNames(j)) {
+                    if (UNIT4_NAMES.contains(c)) fail(f.getPath(), "המחלקה " + c + " מתנגשת בסוג של ספריית Unit4 "
+                            + "(import unit4.collectionsLib.* / using Unit4.CollectionsLib שבכל תרגיל) — צריך שם אחר למחלקה");
+                }
             }
         }
         int n = 0;
@@ -48,6 +52,38 @@ public final class BankCheck {
         }
         System.out.println(fails == 0 ? "מאגר התרגילים: " + n + " שאלות — כולן תקינות" : "מאגר התרגילים: " + fails + " בעיות");
         System.exit(fails == 0 ? 0 : 1);
+    }
+
+    /**
+     * שמות של סוגים בספריית Unit4 שהקוד של כל תרגיל רואה: המעטפת תמיד מתחילה ב-{@code import unit4.collectionsLib.*;} / {@code using Unit4.CollectionsLib;}
+     * (AiScaffold.build), והתרגיל רץ גם מול Unit4.dll של בתי הספר (BankSchoolCs). מחלקה של התרגיל בשם כזה — AiScaffold משמיט אותה
+     * (LIBRARY), וב-C# היא מתנגשת בסוג של הספרייה. המבנים (גם StackInt של גרסת המפקחים ו-BinTreeNode של Java), העזרים שתלמידים מזמנים,
+     * ו-List (java.util / System.Collections.Generic). Car ו-Student (מחלקות הדוגמה של DSViz) — לא כאן: במאגר יש להן מחלקה משלה, והיא גוברת
+     * (נבדק: classes-car-allcars, classes-student-excellent — ב-dsviz-cs ומול Unit4.dll של בית הספר).
+     */
+    static final Set<String> UNIT4_NAMES = new HashSet<String>(java.util.Arrays.asList(
+            "Node", "BinNode", "BinTreeNode", "Stack", "Queue", "StackInt", "List", "Helpers", "BinTreeUtils", "TreeCanvas", "AnimationSpeed"));
+
+    /** כל המחלקות שהשאלה מגדירה — ב-Java וב-C#: classes, המחלקה של כל סעיף, ו-"class X" בתוך הקוד (גם בקוד הנתון) */
+    static Set<String> classNames(Map<String, Object> q) {
+        Set<String> out = new java.util.TreeSet<String>();
+        java.util.regex.Pattern decl = java.util.regex.Pattern.compile("\\b(?:class|interface|enum)\\s+([A-Za-z_]\\w*)");
+        List<Map<String, Object>> exs = new ArrayList<Map<String, Object>>();
+        exs.add(Json.obj(q.get("exercise")));
+        exs.add(Json.obj(Json.obj(q.get("csharp")).get("exercise")));
+        for (Map<String, Object> ex : exs) {
+            StringBuilder code = new StringBuilder(Json.str(ex.get("mainCode")));
+            for (Object o : Json.arr(ex.get("classes"))) {
+                out.add(Json.str(Json.obj(o).get("name")).trim());
+                code.append('\n').append(Json.str(Json.obj(o).get("code")));
+            }
+            for (Object o : Json.arr(ex.get("tasks"))) out.add(Json.str(Json.obj(o).get("className")).trim());
+            for (Object o : Json.arr(ex.get("givenCode"))) code.append('\n').append(Json.str(Json.obj(o).get("code")));
+            java.util.regex.Matcher m = decl.matcher(code);
+            while (m.find()) out.add(m.group(1));
+        }
+        out.remove("");
+        return out;
     }
 
     private static final java.util.regex.Pattern RTL_LIST = java.util.regex.Pattern.compile("-?\\d+(?:\\.\\d+)?(?:\\s*,\\s*-?\\d+(?:\\.\\d+)?)+");
