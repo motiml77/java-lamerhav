@@ -85,21 +85,25 @@ public final class AccessGate {
             try { Account.flushPendingLogouts(); } catch (Throwable ignored) { /* בפעם הבאה */ }
             // יש כניסה שמורה, רק שהאישור שבה פג / לא אומת (המחשב היה בלי אינטרנט זמן רב, שעון לא נכון): לא מבקשים קוד / כניסה
             // מחדש — בודקים מול השרת, שמחדש את האישור, ופותחים את המאגר
+            String step = "";
             try {
                 if (need && Account.hasSavedToken()) {
                     Account.refresh();
                     if (Account.current() != null) need = false;
+                    else step = studentNeeds();   // תלמיד מחובר שנשאר לו להשלים הרשמה / לשלם — ישר למסך הזה, בלי כניסה מחדש
                 }
             } catch (Throwable ignored) { /* מסך הכניסה */ }
             final boolean show = need;
+            final String needs = step;
             SwingUtilities.invokeLater(() -> {
                 decided[0] = true;
                 early.stop();
                 if (show) {
                     if (shown[0] == null) {
                         shown[0] = new AccessGate.Dialog(parent, open);
+                        if (!needs.isEmpty()) shown[0].studentStep(needs, false);
                         showInFront(shown[0]);
-                    }
+                    } else if (!needs.isEmpty() && shown[0].isDisplayable() && shown[0].idle()) shown[0].studentStep(needs, false);
                 } else {
                     if (shown[0] != null) shown[0].dispose();
                     open.run();
@@ -136,6 +140,7 @@ public final class AccessGate {
             Account.Result r;
             try { r = Account.refresh(); } catch (Throwable e) { r = new Account.Result("error", "", null); }
             final boolean gone = !"offline".equals(r.status) && !"error".equals(r.status) && Account.current() == null;
+            final String needs = gone ? studentNeeds() : "";
             SwingUtilities.invokeLater(() -> {
                 wait.stop();
                 if (done[0]) return;          // כבר נפתח (התשובה איחרה) — הפעם הבאה תראה את מסך הכניסה
@@ -145,6 +150,11 @@ public final class AccessGate {
                 }
                 done[0] = true;
                 AccessGate.Dialog d = new AccessGate.Dialog(parent, open);
+                if (!needs.isEmpty()) {   // תלמיד שעוד מחובר: נשאר להשלים הרשמה, או שהמאגר עבר לתשלום — לא "הכניסה לא בתוקף"
+                    d.studentStep(needs, false);
+                    showInFront(d);
+                    return;
+                }
                 d.notice(saved.isStation()
                         ? "המחשב הזה כבר לא מחובר כעמדת מחשב — המורה או ההנהלה שחררו אותו. כדי להמשיך מתחברים שוב עם קוד המורה."
                         : "הכניסה שהייתה שמורה במחשב הזה כבר לא בתוקף. כדי להמשיך מתחברים שוב.");
@@ -153,6 +163,16 @@ public final class AccessGate {
         }, "dsviz-access-check");
         t.setDaemon(false);
         t.start();
+    }
+
+    /**
+     * תלמיד שמחובר במחשב הזה (הכרטיס שלו שמור), והשרת ענה בבדיקה האחרונה שנשאר לו צעד לפני שהמאגר נפתח:
+     * "register" — להשלים הרשמה (שם מלא וטלפון, בדפדפן); "pay" — המאגר בתשלום. אחרת ""
+     */
+    static String studentNeeds() {
+        Map<String, Object> st = Account.studentInfo();
+        String s = st == null ? "" : Json.str(st.get("status"));
+        return "register".equals(s) || "pay".equals(s) ? s : "";
     }
 
     /**
@@ -229,6 +249,8 @@ public final class AccessGate {
         private final JPanel message = column();
         private Account.Cancel cancel;
         private Timer payPoll;
+        /** המסך שמוצג עכשיו: "choose" (שלוש האפשרויות) / "station" / "message" */
+        private String showing = "choose";
 
         Dialog(Component parent, Runnable open) {
             super(parent == null ? null : SwingUtilities.getWindowAncestor(parent) != null ? SwingUtilities.getWindowAncestor(parent)
@@ -293,8 +315,8 @@ public final class AccessGate {
             grid.setOpaque(false);
             grid.setAlignmentX(Component.RIGHT_ALIGNMENT);
             grid.add(roleCard("מורה", "כניסה עם חשבון Google שההנהלה הגדירה. רואים את קוד המורה ואת העמדות.", "כניסה עם Google", () -> google("teacher")));
-            grid.add(roleCard("עמדת מחשב בכיתה", "מקלידים את קוד המורה — והמחשב הזה פתוח לכל התלמידים שעובדים עליו.", "הקלדת קוד המורה", () -> cards.show(body, "station")));
-            grid.add(roleCard("תלמיד", "כניסה עם חשבון Google. מי ששילם — המאגר נפתח בכל המחשבים שלו.", "כניסה עם Google", () -> google("student")));
+            grid.add(roleCard("עמדת מחשב בכיתה", "מקלידים את קוד המורה — והמחשב הזה פתוח לכל התלמידים שעובדים עליו.", "הקלדת קוד המורה", () -> showCard("station")));
+            grid.add(roleCard("תלמיד", "כניסה עם חשבון Google. בפעם הראשונה: שם מלא וטלפון, ואפשר גם קוד מורה.", "כניסה עם Google", () -> google("student")));
             p.add(grid);
             return p;
         }
@@ -338,7 +360,7 @@ public final class AccessGate {
             row.setAlignmentX(Component.RIGHT_ALIGNMENT);
             final JButton go = primary("חיבור המחשב");
             JButton back = secondary("חזרה");
-            back.addActionListener(e -> cards.show(body, "choose"));
+            back.addActionListener(e -> showCard("choose"));
             go.addActionListener(e -> claim(go));
             getRootPane().setDefaultButton(go);
             row.add(go);
@@ -420,9 +442,9 @@ public final class AccessGate {
             p.add(copy);
             p.add(Box.createVerticalStrut(22));
             JButton stop = secondary("ביטול");
-            stop.addActionListener(e -> { mine.cancel(); cards.show(body, "choose"); });
+            stop.addActionListener(e -> { mine.cancel(); showCard("choose"); });
             p.add(stop);
-            cards.show(body, "message");
+            showCard("message");
             p.revalidate();
             p.repaint();
             new SwingWorker<Account.Result, Void>() {
@@ -437,7 +459,7 @@ public final class AccessGate {
                     Account.Result r;
                     try { r = get(); } catch (Exception e) { r = new Account.Result("error", "הכניסה לא הצליחה.", null); }
                     // ביטול כשהכניסה כבר הסתיימה בדפדפן (הקוד מומש) — נכנסנו: מראים את התוצאה ולא "בוטל"
-                    if (mine.cancelled && !r.ok() && !"pay".equals(r.status)) return;
+                    if (mine.cancelled && !r.ok() && !"pay".equals(r.status) && !"register".equals(r.status)) return;
                     afterSignIn(role, r);
                 }
             }.execute();
@@ -450,7 +472,9 @@ public final class AccessGate {
                     success("נכנסת בהצלחה", "teacher".equals(role) ? "המאגר פתוח. את קוד המורה ואת העמדות רואים בדף \"החשבון שלי\" בדפדפן." : "המאגר פתוח — גם בפעם הבאה, גם בלי אינטרנט.");
                     break;
                 case "pay":
-                    waitForPayment();
+                case "register":
+                    changed();
+                    studentStep(r.status, true);   // הדפדפן כבר בדף התשלום / ההרשמה (signIn הפנה אותו לשם)
                     break;
                 case "not-teacher":
                     show("החשבון עוד לא מוגדר כמורה", "בדפדפן אפשר לשלוח בקשה להנהלה. אחרי האישור לוחצים שוב \"כניסה עם Google\".", WARN, WARN_SOFT, true);
@@ -463,7 +487,7 @@ public final class AccessGate {
                     show("החשבון כבר מחובר בכל המחשבים המותרים", "מחובר ב: " + String.join(", ", d) + ". בדפדפן אפשר לנתק מחשב שכבר לא בשימוש, ואז לנסות שוב.", WARN, WARN_SOFT, true);
                     break;
                 case "cancelled":
-                    if (r.message.isEmpty()) cards.show(body, "choose");
+                    if (r.message.isEmpty()) showCard("choose");
                     else show("לא התקבלה כניסה", r.message, WARN, WARN_SOFT, true);
                     break;
                 default:
@@ -471,27 +495,109 @@ public final class AccessGate {
             }
         }
 
-        /** תלמיד שעוד לא שילם: דף התשלום פתוח בדפדפן; בודקים כל 5 שניות, וכשאושר — נפתח */
-        private void waitForPayment() {
-            show("מחכים לתשלום", "דף התשלום פתוח בדפדפן. אחרי שהתשלום עובר, החלון הזה מתעדכן לבד — לא צריך ללחוץ על כלום.", BLUE, BLUE_SOFT, true);
-            payPoll = new Timer(5000, null);
-            payPoll.addActionListener(e -> new SwingWorker<Account.Result, Void>() {
+        /** אף פעולה לא באמצע: מוצגות שלוש האפשרויות (אז מותר להחליף למסך "נשאר להשלים הרשמה / לשלם") */
+        boolean idle() {
+            return "choose".equals(showing);
+        }
+
+        /**
+         * תלמיד מחובר שנשאר לו צעד אחד בדפדפן לפני שהמאגר נפתח: "register" — הרשמה (שם מלא וטלפון), "pay" — תשלום.
+         * מסבירים, כפתור פותח את הדף (עם הסימן של החשבון — Account.studentPageUrl), ובודקים מול השרת כל כמה שניות: כשהצעד
+         * הושלם — המאגר נפתח לבד. pageOpen: הדפדפן כבר בדף הזה (מיד אחרי "כניסה עם Google").
+         */
+        void studentStep(final String what, boolean pageOpen) {
+            if (payPoll != null) payPoll.stop();
+            final boolean pay = "pay".equals(what);
+            Map<String, Object> st = Account.studentInfo();
+            Object price = st == null ? null : st.get("price");
+            String cost = price instanceof Number && ((Number) price).doubleValue() > 0 ? " (" + ((Number) price).intValue() + " \u20aa)" : "";
+            String title = pay ? (pageOpen ? "מחכים לתשלום" : "המאגר פתוח עכשיו בתשלום") : (pageOpen ? "משלימים הרשמה בדפדפן" : "נשאר להשלים הרשמה");
+            String text = pay
+                    ? "כדי להמשיך להשתמש במאגר התרגילים צריך תשלום אחד" + cost + ", בדף מאובטח בדפדפן. אחרי שהתשלום עובר, החלון הזה מתעדכן לבד — לא צריך ללחוץ על כלום."
+                    : "ממלאים פעם אחת שם מלא וטלפון, בדף בדפדפן. אחרי ההרשמה החלון הזה מתעדכן לבד והמאגר נפתח — לא צריך ללחוץ על כלום.";
+            JPanel p = message;
+            p.removeAll();
+            p.setBorder(BorderFactory.createEmptyBorder(34, 40, 26, 40));
+            JPanel box = new Rounded(BLUE_SOFT, BLUE_SOFT, 14);
+            box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
+            box.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
+            box.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            box.add(text(title, 21, true, BLUE));
+            box.add(Box.createVerticalStrut(8));
+            box.add(wrap(text, 15, INK, 420));
+            String who = st == null ? "" : Json.str(st.get("email"));
+            if (!who.isEmpty()) {
+                box.add(Box.createVerticalStrut(8));
+                box.add(text("החשבון: " + who, 13, false, MUTED));
+            }
+            p.add(box);
+            p.add(Box.createVerticalStrut(16));
+            final JLabel hint = text(pageOpen ? "הדף פתוח בדפדפן." : " ", 13, false, MUTED);
+            final JButton go = pageOpen ? secondary(pay ? "פתיחת דף התשלום שוב" : "פתיחת דף ההרשמה שוב") : primary(pay ? "לתשלום בדפדפן" : "להרשמה בדפדפן");
+            go.putClientProperty("dsviz.id", "student-step");
+            go.addActionListener(e -> {
+                String url = Account.studentPageUrl(what);
+                if (url.isEmpty()) return;
+                try {
+                    Account.browser.accept(url);
+                    hint.setText(RLM + "הדף נפתח בדפדפן. אחרי שמסיימים שם, החלון הזה מתעדכן לבד.");
+                } catch (RuntimeException x) {
+                    java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(url), null);
+                    hint.setText(RLM + "הדפדפן לא נפתח. הכתובת הועתקה — מדביקים אותה בדפדפן.");
+                }
+            });
+            JButton back = secondary("כניסה אחרת");
+            back.addActionListener(e -> { if (payPoll != null) payPoll.stop(); showCard("choose"); });
+            JPanel row = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 10, 0));
+            row.setOpaque(false);
+            row.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            row.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+            row.add(go);
+            row.add(back);
+            p.add(row);
+            p.add(Box.createVerticalStrut(10));
+            p.add(hint);
+            p.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+            showCard("message");
+            p.revalidate();
+            p.repaint();
+            // בודקים מול השרת: כל 5 שניות בחמש הדקות הראשונות, ואחר כך כל 20 שניות (כל עוד החלון פתוח)
+            final int[] ticks = { 0 };
+            final Timer poll = new Timer(POLL_MS, null);
+            payPoll = poll;
+            poll.addActionListener(e -> new SwingWorker<Account.Result, Void>() {
                 @Override
                 protected Account.Result doInBackground() { return Account.refresh(); }
 
                 @Override
                 protected void done() {
+                    if (payPoll != poll || !isDisplayable()) return;
+                    if (++ticks[0] == 60) poll.setDelay(4 * POLL_MS);
                     try {
-                        if (get().ok() && Account.current() != null && payPoll != null) {
-                            payPoll.stop();
-                            success("התשלום התקבל", "המאגר פתוח עד סוף שנת הלימודים, בכל המחשבים שלך.");
-                        }
+                        get();
                     } catch (Exception ignored) {
-                        // ננסה שוב
+                        return;   // ננסה שוב
                     }
+                    if (Account.current() != null) {
+                        poll.stop();
+                        changed();
+                        success(pay ? "התשלום התקבל" : "ההרשמה הושלמה", pay ? "המאגר פתוח עד סוף שנת הלימודים, בכל המחשבים שלך." : "המאגר פתוח — גם בפעם הבאה, גם בלי אינטרנט.");
+                        return;
+                    }
+                    String now = studentNeeds();
+                    if (!now.isEmpty() && !now.equals(what)) studentStep(now, false);   // נרשם, והמאגר בתשלום — עוברים למסך התשלום
+                    else if (now.isEmpty() && Account.userState() == null) { poll.stop(); showCard("choose"); }   // התנתק ממקום אחר
                 }
             }.execute());
-            payPoll.start();
+            poll.start();
+        }
+
+        /** כל כמה זמן בודקים מול השרת אם ההרשמה / התשלום הושלמו (לבדיקות — קצר יותר) */
+        static int POLL_MS = 5000;
+
+        private void showCard(String name) {
+            showing = name;
+            cards.show(body, name);
         }
 
         private void success(String title, String text) {
@@ -516,10 +622,10 @@ public final class AccessGate {
             if (back) {
                 p.add(Box.createVerticalStrut(18));
                 JButton b = secondary("חזרה");
-                b.addActionListener(e -> { if (payPoll != null) payPoll.stop(); cards.show(body, "choose"); });
+                b.addActionListener(e -> { if (payPoll != null) payPoll.stop(); showCard("choose"); });
                 p.add(b);
             }
-            cards.show(body, "message");
+            showCard("message");
             p.revalidate();
             p.repaint();
         }

@@ -76,14 +76,53 @@ public final class AccountIt {
         Account.signOut();
         check("התנתקות — סגור", Account.current() == null);
 
-        // תלמיד — צריך לשלם; אחרי תשלום — פתוח
+        // תלמיד — בחינם: בפעם הראשונה ההרשמה (שם מלא וטלפון) בדפדפן, לפני החזרה לתוכנה → המאגר פתוח
         String student = "it.student" + System.nanoTime() + "@test.dev";
         browserEmail = student;
         Account.Result s = Account.signIn("student", null, null, 30000);
-        check("תלמיד בלי תשלום — pay, עם כרטיס ובלי גישה", "pay".equals(s.status) && Account.current() == null && Account.userState() != null);
-        api("POST", "/v1/admin/student", admin, "{\"email\":\"" + student + "\",\"until\":\"2027-08-31\"}");
+        Map<String, Object> info = Account.studentInfo();
+        check("תלמיד חדש (נרשם בדפדפן) — ok והמאגר פתוח (" + s.status + ")", s.ok() && Account.current() != null && Account.current().isStudent());
+        check("המצב של התלמיד נשמר במחשב: רשום, עצמאי", info != null && Boolean.TRUE.equals(info.get("registered")) && "independent".equals(info.get("mode"))
+                && "תלמיד בדיקה".equals(info.get("fullName")) && student.equals(info.get("email")));
+        check("תלמיד עצמאי — בלי מורה בכותרת", Account.current().teacher.isEmpty() && !Account.current().label().contains("המורה"));
+        // מצטרף למורה (בדף "החשבון שלי") → בבדיקה הבאה התוכנה יודעת, והכותרת מציגה את המורה
+        api("POST", "/v1/student/join", idToken(student), "{\"code\":\"" + code + "\"}");
+        check("לפני בדיקה מול השרת — עדיין עצמאי", Account.current().teacher.isEmpty());
+        check("אחרי בדיקה — משויך למורה", Account.refresh().ok() && "מורה בדיקה".equals(Account.current().teacher) && Account.current().label().contains("המורה: מורה בדיקה")
+                && "teacher".equals(Account.studentInfo().get("mode")));
+        Account.signOut();
+
+        // תלמיד שהתחבר בלי הרשמה (דף ישן מהמטמון / כניסה מלפני ההרשמה): register — כרטיס שמור, בלי גישה, והדפדפן מופנה לדף ההרשמה
+        String late = "it.late" + System.nanoTime() + "@test.dev";
+        browserEmail = late;
+        registerInBrowser = false;
+        lastRedirect = "";
+        Account.Result lr = Account.signIn("student", null, null, 30000);
+        registerInBrowser = true;
+        check("בלי הרשמה — register, עם כרטיס ובלי גישה (" + lr.status + ")", "register".equals(lr.status) && Account.current() == null && Account.userState() != null
+                && "register".equals(Account.studentInfo().get("status")) && Boolean.FALSE.equals(Account.studentInfo().get("registered")));
+        String mark = Account.emailMark(late);
+        check("הדפדפן הופנה לדף ההרשמה, עם הסימן של החשבון ובלי המייל (" + lastRedirect + ")", lastRedirect.endsWith("/welcome?r=register&role=student&u=" + mark)
+                && mark.matches("[a-f0-9]{10}") && !lastRedirect.contains("@"));
+        check("הכתובת של דף ההרשמה (לכפתור בחלון)", Account.studentPageUrl("register").equals(server + "/welcome?r=register&role=student&u=" + mark));
+        check("בדיקה חוזרת לפני ההרשמה — עדיין register, הכרטיס נשאר", "register".equals(Account.refresh().status) && Account.current() == null && Account.userState() != null);
+        register(idToken(late));
+        Account.Result ar = Account.refresh();
+        check("אחרי ההרשמה בדפדפן — refresh פותח (" + ar.status + ")", ar.ok() && Account.current() != null && Account.current().isStudent()
+                && Boolean.TRUE.equals(Account.studentInfo().get("registered")));
+
+        // ההנהלה מעבירה את המאגר לתשלום: גם תלמיד רשום שכבר מחובר — pay (הכרטיס נשאר, בלי גישה); אחרי תשלום / הענקה — פתוח
+        api("POST", "/v1/admin/settings", admin, "{\"studentsFree\":false,\"price\":60}");
+        Account.Result pr = Account.refresh();
+        Map<String, Object> pi = Account.studentInfo();
+        check("המאגר בתשלום — pay, עם כרטיס ובלי גישה (" + pr.status + ")", "pay".equals(pr.status) && Account.current() == null && Account.userState() != null);
+        check("נשמר: המחיר, ולמה סגור", pi != null && "pay".equals(pi.get("status")) && pi.get("price") instanceof Number && ((Number) pi.get("price")).intValue() == 60);
+        check("הכתובת של דף התשלום", Account.studentPageUrl("pay").equals(server + "/welcome?r=pay&role=student&u=" + mark));
+        api("POST", "/v1/admin/student", admin, "{\"email\":\"" + late + "\",\"until\":\"2027-08-31\"}");
         Account.Result after = Account.refresh();
-        check("אחרי הענקה — refresh פותח (" + after.status + ")", after.ok() && Account.current() != null && Account.current().isStudent());
+        check("אחרי תשלום / הענקה — refresh פותח (" + after.status + ")", after.ok() && Account.current() != null && Account.current().isStudent());
+        api("POST", "/v1/admin/settings", admin, "{\"studentsFree\":true}");
+        check("חזרה לחינם — נשאר פתוח", Account.refresh().ok() && Account.current() != null);
 
         // ההנהלה משחררת את העמדה של מחשב 1 → בבדיקה הבאה עם אינטרנט נמחקת
         use(work, "pc1", "alice");
@@ -156,26 +195,58 @@ public final class AccountIt {
         if (ok) { pass++; System.out.println("  ok   " + name); } else { fail++; System.out.println("  FAIL " + name); }
     }
 
-    /** "הדפדפן": מה שהדף /signin עושה — כניסה עם Google (באמולטור), exchange, וחזרה ל-127.0.0.1 */
+    /** הדף /signin של תלמיד עושה את ההרשמה לפני החזרה לתוכנה. false — כמו דף ישן שנשאר במטמון (בלי שלב ההרשמה) */
+    static volatile boolean registerInBrowser = true;
+    /** לאן התוכנה הפנתה את הדפדפן בסוף הכניסה (‎/welcome?r=...‎) */
+    static volatile String lastRedirect = "";
+    /** כתובות אחרות שהתוכנה פתחה בדפדפן (דף ההרשמה / התשלום, "החשבון שלי") */
+    static final java.util.List<String> opened = java.util.Collections.synchronizedList(new java.util.ArrayList<String>());
+    /** הדף ‎/welcome?r=pay‎ "משלם": ההנהלה מעניקה גישה (false — התלמיד עוד לא שילם) */
+    static volatile boolean payInBrowser = true;
+
+    /**
+     * "הדפדפן": מה שהדפים עושים. ‎/signin‎ — כניסה עם Google (באמולטור), לתלמיד גם ההרשמה (register.js), exchange, וחזרה
+     * ל-127.0.0.1. ‎/welcome?r=register‎ — ההרשמה של תלמיד שכבר מחובר; ‎/welcome?r=pay‎ — התשלום. כל כתובת אחרת רק נרשמת.
+     */
     static void fakeBrowser(String url) {
         new Thread(() -> {
             try {
+                int qm = url.indexOf('?');
+                String path = new URL(url).getPath();
                 Map<String, String> q = new LinkedHashMap<String, String>();
-                for (String p : url.substring(url.indexOf('?') + 1).split("&")) {
+                if (qm >= 0) for (String p : url.substring(qm + 1).split("&")) {
                     String[] kv = p.split("=", 2);
-                    q.put(kv[0], java.net.URLDecoder.decode(kv[1], "UTF-8"));
+                    q.put(kv[0], kv.length > 1 ? java.net.URLDecoder.decode(kv[1], "UTF-8") : "");
                 }
-                String body = "{\"idToken\":\"" + idToken(browserEmail) + "\",\"role\":\"" + q.get("role") + "\",\"challenge\":\"" + q.get("challenge") + "\"}";
+                if (!path.equals("/signin")) {
+                    opened.add(url);
+                    if (path.equals("/welcome") && "register".equals(q.get("r"))) register(idToken(browserEmail));
+                    if (path.equals("/welcome") && "pay".equals(q.get("r")) && payInBrowser) {
+                        api("POST", "/v1/admin/student", idToken("motiml77@gmail.com"), "{\"email\":\"" + browserEmail + "\",\"until\":\"2027-08-31\"}");
+                    }
+                    return;
+                }
+                String tok = idToken(browserEmail);
+                if ("student".equals(q.get("role")) && registerInBrowser) register(tok);
+                String body = "{\"idToken\":\"" + tok + "\",\"role\":\"" + q.get("role") + "\",\"challenge\":\"" + q.get("challenge") + "\"}";
                 String code = Json.str(Json.obj(Json.parse(api("POST", "/v1/auth/exchange", null, body))).get("code"));
                 HttpURLConnection c = (HttpURLConnection) new URL("http://127.0.0.1:" + q.get("port") + "/done?code=" + code + "&state=" + q.get("state")).openConnection();
                 c.setInstanceFollowRedirects(false);
                 int st = c.getResponseCode();
                 String loc = c.getHeaderField("Location");
+                lastRedirect = loc == null ? "" : loc;
                 if (st != 302 || loc == null || !loc.contains("/welcome?r=")) System.out.println("  FAIL redirect " + st + " " + loc);
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }).start();
+    }
+
+    /** טופס ההרשמה בדפדפן (register.js): שם מלא וטלפון, ובפעם הראשונה "תלמיד עצמאי" */
+    static void register(String tok) throws Exception {
+        Map<String, Object> st = Json.obj(Json.obj(Json.parse(api("GET", "/v1/me", tok, null))).get("student"));
+        if (!Boolean.TRUE.equals(st.get("registered"))) api("POST", "/v1/student/register", tok, "{\"fullName\":\"תלמיד בדיקה\",\"phone\":\"050-1234567\"}");
+        if ("".equals(Json.str(Json.obj(st.get("state")).get("mode"))) && st.get("state") != null) api("POST", "/v1/student/mode", tok, "{\"mode\":\"independent\"}");
     }
 
     static String idToken(String email) throws Exception {

@@ -140,8 +140,116 @@ public class GateUi {
         check("אחרי השחרור, גם בלי אינטרנט — מסך הכניסה (לא המאגר)", w != null && opened.get() == 0);
         if (w != null) w.dispose();
         System.setProperty("dsviz.worker", a[0]);
+        for (Window x : Window.getWindows()) x.dispose();
+
+        // 7. תלמיד חדש: כניסה עם Google; ההרשמה (שם מלא וטלפון) נעשית בדפדפן לפני החזרה לתוכנה → המאגר נפתח
+        AccessGate.Dialog.POLL_MS = 600;
+        AccountIt.use(work, "pc5", "pupil");
+        String pupil = "gate.pupil" + System.nanoTime() + "@test.dev";
+        AccountIt.browserEmail = pupil;
+        opened.set(0);
+        SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
+        w = waitWindow();
+        check("הכרטיס של תלמיד מסביר: בפעם הראשונה שם מלא וטלפון", waitText(w, "שם מלא וטלפון"));
+        shot(w, "8-choose-student-text");
+        clickLast(w, "כניסה עם Google");
+        waitUntil(() -> opened.get() > 0, 20000);
+        check("תלמיד: אחרי Google וההרשמה בדפדפן — המאגר נפתח", opened.get() == 1 && Account.current() != null && Account.current().isStudent());
+        check("רשום כתלמיד עצמאי", Account.studentInfo() != null && Boolean.TRUE.equals(Account.studentInfo().get("registered")) && "independent".equals(Account.studentInfo().get("mode")));
+        for (Window x : Window.getWindows()) x.dispose();
+
+        // 8. תלמיד שמחובר בלי הרשמה (התחבר לפני שהייתה הרשמה): במקום המאגר — "נשאר להשלים הרשמה". הכפתור פותח את דף ההרשמה,
+        //    ואחרי ההרשמה בדפדפן החלון מתעדכן לבד והמאגר נפתח (בלי כניסה מחדש)
+        AccountIt.use(work, "pc6", "late");
+        String late = "gate.late" + System.nanoTime() + "@test.dev";
+        AccountIt.browserEmail = late;
+        AccountIt.registerInBrowser = false;
+        Account.Result lr = Account.signIn("student", null, null, 30000);
+        AccountIt.registerInBrowser = true;
+        check("הכנה: מחובר בלי הרשמה (register), עם כרטיס ובלי גישה", "register".equals(lr.status) && Account.current() == null && Account.userState() != null);
+        AccountIt.opened.clear();
+        opened.set(0);
+        SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
+        w = waitWindow();
+        check("נפתח 'נשאר להשלים הרשמה' (לא המאגר)", w != null && waitText(w, "נשאר להשלים הרשמה") && opened.get() == 0);
+        check("במסך: החשבון המחובר, ובלי שלוש האפשרויות", visibleText(w).contains(late) && find(w, "הקלדת קוד המורה") == null);
+        shot(w, "9-register-step");
+        Thread.sleep(2500);
+        check("בלי ללחוץ — הדפדפן לא נפתח לבד, והמאגר סגור", AccountIt.opened.isEmpty() && opened.get() == 0);
+        click(w, "להרשמה בדפדפן");
+        waitUntil(() -> opened.get() > 0, 20000);
+        check("הכפתור פתח את דף ההרשמה, עם הסימן של החשבון (" + AccountIt.opened + ")", AccountIt.opened.size() == 1
+                && AccountIt.opened.get(0).endsWith("/welcome?r=register&role=student&u=" + Account.emailMark(late)));
+        check("אחרי ההרשמה בדפדפן — החלון התעדכן לבד והמאגר נפתח", opened.get() == 1 && Account.current() != null && Account.current().isStudent());
+        for (Window x : Window.getWindows()) x.dispose();
+
+        // 9. ההנהלה מעבירה את המאגר לתשלום: תלמיד רשום שכבר מחובר — במקום המאגר, "המאגר פתוח עכשיו בתשלום" עם המחיר
+        //    (לא "הכניסה לא בתוקף", ובלי כניסה מחדש). הכפתור פותח את דף התשלום, ואחרי התשלום המאגר נפתח לבד
+        AccountIt.api("POST", "/v1/admin/settings", admin, "{\"studentsFree\":false,\"price\":60}");
+        AccountIt.payInBrowser = false;
+        AccountIt.opened.clear();
+        opened.set(0);
+        SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
+        w = waitWindow();
+        check("נפתח מסך התשלום (לא המאגר)", w != null && waitText(w, "המאגר פתוח עכשיו בתשלום") && opened.get() == 0);
+        check("במסך: המחיר והחשבון; בלי 'הכניסה לא בתוקף'", visibleText(w).contains("60") && visibleText(w).contains(late) && !visibleText(w).contains("לא בתוקף"));
+        check("הכרטיס נשאר במחשב — לא צריך להיכנס שוב", Account.userState() != null && Account.current() == null);
+        shot(w, "10-pay-step");
+        click(w, "לתשלום בדפדפן");
+        Thread.sleep(2500);
+        check("דף התשלום נפתח; עוד לא שולם — המאגר סגור והחלון מחכה", AccountIt.opened.size() == 1 && AccountIt.opened.get(0).contains("/welcome?r=pay&role=student&u=")
+                && opened.get() == 0 && w.isShowing());
+        w.dispose();
+        // פתיחה נוספת של המאגר — שוב מסך התשלום (ולא שלוש האפשרויות); עכשיו משלמים
+        AccountIt.payInBrowser = true;
+        SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
+        w = waitWindow();
+        check("פתיחה נוספת — שוב מסך התשלום", w != null && waitText(w, "המאגר פתוח עכשיו בתשלום") && opened.get() == 0);
+        click(w, "לתשלום בדפדפן");
+        waitUntil(() -> opened.get() > 0, 20000);
+        check("אחרי התשלום — המאגר נפתח לבד", opened.get() == 1 && Account.current() != null && Account.current().isStudent());
+        for (Window x : Window.getWindows()) x.dispose();
+        // תלמיד חדש כשהמאגר בתשלום: נרשם בדפדפן, ואז "מחכים לתשלום" (הדפדפן כבר בדף התשלום)
+        AccountIt.use(work, "pc7", "payer");
+        AccountIt.browserEmail = "gate.payer" + System.nanoTime() + "@test.dev";
+        AccountIt.payInBrowser = false;
+        opened.set(0);
+        SwingUtilities.invokeLater(() -> AccessGate.require(null, opened::incrementAndGet));
+        w = waitWindow();
+        clickLast(w, "כניסה עם Google");
+        check("תלמיד חדש, מאגר בתשלום — 'מחכים לתשלום' (לא נפתח)", waitText(w, "מחכים לתשלום") && opened.get() == 0);
+        check("הדפדפן הופנה לדף התשלום", AccountIt.lastRedirect.contains("/welcome?r=pay&role=student&u="));
+        shot(w, "11-wait-payment");
+        AccountIt.api("POST", "/v1/admin/student", admin, "{\"email\":\"" + AccountIt.browserEmail + "\",\"until\":\"2027-08-31\"}");
+        waitUntil(() -> opened.get() > 0, 20000);
+        check("אחרי התשלום — נפתח לבד", opened.get() == 1 && Account.current() != null);
+        for (Window x : Window.getWindows()) x.dispose();
+        AccountIt.payInBrowser = true;
+        AccountIt.api("POST", "/v1/admin/settings", admin, "{\"studentsFree\":true}");
+
         System.out.println("\n" + pass + " עברו, " + fail + " נכשלו");
         System.exit(fail == 0 ? 0 : 1);
+    }
+
+    /** הכפתור האחרון עם הכיתוב הזה (למשל "כניסה עם Google" של הכרטיס "תלמיד" — אחרי זה של "מורה") */
+    static void clickLast(Window w, String label) throws Exception {
+        java.util.List<AbstractButton> all = new java.util.ArrayList<>();
+        long end = System.currentTimeMillis() + 8000;
+        while (System.currentTimeMillis() < end) {
+            all.clear();
+            buttons(w, label, all);
+            if (!all.isEmpty()) break;
+            Thread.sleep(100);
+        }
+        if (all.isEmpty()) throw new IllegalStateException("אין כפתור: " + label + "\n" + visibleText(w));
+        final AbstractButton b = all.get(all.size() - 1);
+        SwingUtilities.invokeAndWait(b::doClick);
+        Thread.sleep(300);
+    }
+
+    static void buttons(Component c, String label, java.util.List<AbstractButton> out) {
+        if (c instanceof AbstractButton && c.isShowing() && ((AbstractButton) c).getText() != null && ((AbstractButton) c).getText().contains(label)) out.add((AbstractButton) c);
+        if (c instanceof Container) for (Component k : ((Container) c).getComponents()) buttons(k, label, out);
     }
 
     interface Cond { boolean ok(); }

@@ -83,11 +83,13 @@ public final class Account {
         public String label() {
             if (isStation()) return "עמדת מחשב: " + name + (teacher.isEmpty() ? "" : " · " + teacher);
             if (isTeacher()) return "מורה: " + (name.isEmpty() ? email : name);
+            // תלמיד משויך: המורה שלו (אליו נשלחת "הגשה למורה"); תלמיד עצמאי: עד מתי המאגר פתוח
+            if (!teacher.isEmpty()) return (name.isEmpty() ? email : name) + " · המורה: " + teacher;
             return (name.isEmpty() ? email : name) + (until.isEmpty() ? "" : " · פתוח עד " + dmy(until));
         }
     }
 
-    /** תוצאה של פעולה מול השרת. status: ok / pay / not-teacher / blocked / devices / full / bad-code / revoked / invalid / offline / error / cancelled */
+    /** תוצאה של פעולה מול השרת. status: ok / pay / register / not-teacher / blocked / devices / full / bad-code / revoked / invalid / offline / error / cancelled */
     public static final class Result {
         public final String status, message;
         public final Map<String, Object> body;
@@ -114,6 +116,12 @@ public final class Account {
 
     /** התוכנה, לשרת (ביומן הפעילות): dsviz — Eclipse / IntelliJ / Visual Studio / VS Code; automata — "מודלים חישוביים" */
     public static volatile String app = "dsviz";
+
+    /**
+     * מה הלקוח הזה יודע לעשות — נשלח לשרת בכניסה ובכל בדיקה (caps). "register": מכיר את המצב "register" — תלמיד שעוד לא השלים
+     * הרשמה (שם מלא וטלפון) מופנה לדף ההרשמה בדפדפן, והמאגר נפתח אחריה. לקוח ישן לא שולח, והשרת עונה לו כמו קודם.
+     */
+    static final List<String> CAPS = java.util.Collections.unmodifiableList(java.util.Arrays.asList("register"));
 
     /** המפתח הציבורי של השרת (החתימה על האישור). ציבורי — לא סוד; המפתח הפרטי נמצא רק בשרת (PASS_KEY) */
     static final String PASS_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzcPy66SILXotJ2VPxjt93e7dGBR1chdnNh6Ptgr6KYXn5DGhSYEbkT3dsFKWO96QQCw/wG/bsQmqtLDxLHgjzOxjmYMGxyLmBkhHfywmYBl8JvRRPkWUn5AqZI5VgQ7cqeF4vbjMIOeb3jR3GB4QhfaI04v+4mAna6KQEC0drXfhT5oMuOhbfxH2t77tCC1iUkAnnfA/VprWcvPyieyzdTxZ4/r4e9VS5hTGceRsKpsdC7/Euy31vqrJxeVLV7Mwc1PkAMk0ghEJtSRBbvZdRUv5X5K8DLAjVpEVRHlq2XwobMI2c8oSU8qGESGsUk/R1lGUWIqGOXE+UdW6ODPVjQIDAQAB";
@@ -1087,7 +1095,12 @@ public final class Account {
     public static Access current() {
         Map<String, Object> u = load(userFile());
         Map<String, Object> p = u == null ? null : verifyPass(Json.str(u.get("pass")));
-        if (p != null) return accessOf(p);
+        if (p != null) {
+            Access a = accessOf(p);
+            // תלמיד משויך למורה: שם המורה (מהבדיקה האחרונה מול השרת — לא חלק מהאישור החתום; רק לתצוגה ול"הגשה למורה")
+            String t = a.isStudent() && "teacher".equals(Json.str(u.get("studentMode"))) ? Json.str(u.get("studentTeacher")) : "";
+            return t.isEmpty() ? a : new Access(a.kind, a.name, a.email, a.until, t, a.apps);
+        }
         Map<String, Object> s = load(stationFile());
         p = s == null ? null : verifyPass(Json.str(s.get("pass")));
         return p == null ? null : accessOf(p);
@@ -1135,9 +1148,36 @@ public final class Account {
         return h;
     }
 
+    /** העמדה של המחשב (אישור תקף בקובץ הזהב של העמדה), גם כשמעליה מחובר משתמש עם Google. null — המחשב לא עמדה */
+    public static Access station() {
+        Map<String, Object> s = load(stationFile());
+        Map<String, Object> p = s == null ? null : verifyPass(Json.str(s.get("pass")));
+        return p != null && "station".equals(Json.str(p.get("kind"))) ? accessOf(p) : null;
+    }
+
+    /**
+     * הכותרות של כרטיס מסוים: station=true — של העמדה של המחשב; false — של המשתמש המחובר עם Google (מורה / תלמיד).
+     * ריק — אין כרטיס כזה. ("הגשה למורה": תלמיד משויך מגיש בשם עצמו; בעמדת מחשב — בשם העמדה, גם אם מישהו מחובר מעליה)
+     */
+    static Map<String, String> headersOf(boolean station) {
+        Map<String, String> h = new LinkedHashMap<String, String>();
+        Map<String, Object> d = load(station ? stationFile() : userFile());
+        String tok = d == null ? "" : Json.str(d.get("token"));
+        if (!tok.isEmpty()) {
+            h.put("X-DSViz-Access", tok);
+            h.put("X-DSViz-Machine", machine());
+        }
+        return h;
+    }
+
     // ------------------------------------------------------------------ מול השרת
 
     static Result post(String path, Map<String, Object> body) {
+        return post(path, body, null);
+    }
+
+    /** כמו post, עם כותרות נוספות — הכרטיס של מי ששולח (headersOf), לפעולות של המשתמש / העמדה (הגשה למורה) */
+    static Result post(String path, Map<String, Object> body, Map<String, String> extra) {
         String base = serverUrl();
         if (base.isEmpty()) return new Result("error", "כתובת השרת לא מוגדרת.", null);
         HttpURLConnection c = null;
@@ -1151,6 +1191,7 @@ public final class Account {
             c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             c.setRequestProperty("Accept", "application/json");
             c.setRequestProperty("User-Agent", client.get());
+            if (extra != null) for (Map.Entry<String, String> h : extra.entrySet()) c.setRequestProperty(h.getKey(), h.getValue());
             byte[] out = Json.write(body).getBytes(StandardCharsets.UTF_8);
             try (OutputStream o = c.getOutputStream()) { o.write(out); }
             int code = c.getResponseCode();
@@ -1238,6 +1279,22 @@ public final class Account {
             d.put("teacherUsed", t.get("used"));
             d.put("teacherName", Json.str(t.get("name")));   // השם שההנהלה הגדירה (בחשבון Google לפעמים אין שם)
         }
+        // תלמיד: עצמאי / משויך למורה, והאם השלים הרשמה (שם מלא וטלפון) — כמו שהשרת ענה בבדיקה האחרונה
+        Map<String, Object> st = Json.obj(r.body.get("student"));
+        if (!st.isEmpty()) {
+            Map<String, Object> mine = Json.obj(st.get("teacher"));
+            d.put("studentMode", Json.str(st.get("mode")));
+            d.put("studentTeacher", Json.str(mine.get("name")));
+            d.put("studentSchool", Json.str(mine.get("school")));
+            d.put("studentRegistered", Boolean.TRUE.equals(st.get("registered")));
+            d.put("studentFullName", Json.str(st.get("fullName")));
+        }
+        // "צריך לשלם": המחיר ועד מתי — למסך שמסביר (גם בלי אינטרנט בפתיחה הבאה)
+        if ("pay".equals(r.status)) {
+            d.put("payPrice", r.body.get("price"));
+            d.put("payUntil", Json.str(r.body.get("accessUntil")));
+            d.put("payOpen", Boolean.TRUE.equals(r.body.get("canPay")));
+        }
         save(f, d);
         syncTeacherFlag();
     }
@@ -1258,6 +1315,44 @@ public final class Account {
     public static void openManagement() {
         String u = managementUrl();
         if (!u.isEmpty()) browser.accept(u);
+    }
+
+    // ------------------------------------------------------------------ תלמיד: הרשמה, תשלום, עצמאי / משויך למורה
+
+    /**
+     * המצב של התלמיד שמחובר במחשב הזה, כמו שהשרת ענה בבדיקה האחרונה (או null — אין תלמיד): status (ok / register / pay),
+     * mode (independent / teacher / ""), teacher, school, registered, fullName, email, ולמצב pay גם price / until / canPay
+     */
+    public static Map<String, Object> studentInfo() {
+        Map<String, Object> u = load(userFile());
+        if (u == null || !"student".equals(Json.str(u.get("role"))) || Json.str(u.get("token")).isEmpty()) return null;
+        Map<String, Object> m = new LinkedHashMap<String, Object>();
+        m.put("status", Json.str(u.get("status")));
+        m.put("email", Json.str(u.get("email")));
+        m.put("mode", Json.str(u.get("studentMode")));
+        m.put("teacher", Json.str(u.get("studentTeacher")));
+        m.put("school", Json.str(u.get("studentSchool")));
+        m.put("registered", Boolean.TRUE.equals(u.get("studentRegistered")));
+        m.put("fullName", Json.str(u.get("studentFullName")));
+        m.put("price", u.get("payPrice"));
+        m.put("until", Json.str(u.get("payUntil")));
+        m.put("canPay", Boolean.TRUE.equals(u.get("payOpen")));
+        return m;
+    }
+
+    /** 10 התווים הראשונים של SHA-256 של המייל (באותיות קטנות) — כמו emailMark בדפים: מזהה את החשבון בלי לחשוף את המייל */
+    static String emailMark(String email) {
+        String e = email == null ? "" : email.trim().toLowerCase(java.util.Locale.ROOT);
+        return e.isEmpty() ? "" : hex(sha256Bytes(e.getBytes(StandardCharsets.UTF_8))).substring(0, 10);
+    }
+
+    /** הדף בדפדפן שבו התלמיד המחובר משלים הרשמה ("register") או משלם ("pay") — עם הסימן של החשבון שלו */
+    public static String studentPageUrl(String what) {
+        String base = serverUrl();
+        if (base.isEmpty()) return "";
+        Map<String, Object> st = studentInfo();
+        String mark = st == null ? "" : emailMark(Json.str(st.get("email")));
+        return base + "/welcome?r=" + enc(what) + "&role=student" + (mark.isEmpty() ? "" : "&u=" + mark);
     }
 
     /** אחרי כניסה מוצלחת: מה שנשמר באמת נפתח במחשב הזה? אחרת — "נכנסת" היה מופיע, והמאגר שוב היה מבקש כניסה בכל פתיחה */
@@ -1397,13 +1492,16 @@ public final class Account {
                 String location;
                 try {
                     Result r = post("/v1/auth/redeem", map("code", q.get("code"), "verifier", verifier, "machine", machine(),
-                            "machineName", machineName(), "client", client.get(), "app", app));
+                            "machineName", machineName(), "client", client.get(), "app", app, "caps", CAPS));
                     String token = Json.str(r.body.get("token"));
                     if (!token.isEmpty()) store(userFile(), r, token);
                     r = checkSaved(r, userFile());
                     result.set(r);
-                    location = base + "/welcome?r=" + enc(r.status.matches("ok|pay|not-teacher|blocked|devices") ? r.status : "error")
-                            + "&role=" + enc(role) + (r.status.matches("ok|pay|not-teacher|blocked|devices") ? "" : "&m=" + enc(r.message));
+                    boolean known = r.status.matches("ok|pay|register|not-teacher|blocked|devices");
+                    // u: סימן של החשבון שנכנס — דף ההרשמה / התשלום מוודא שבדפדפן מחובר אותו חשבון (בלי המייל עצמו בכתובת)
+                    String mark = r.status.matches("pay|register") ? emailMark(Json.str(Json.obj(r.body.get("profile")).get("email"))) : "";
+                    location = base + "/welcome?r=" + enc(known ? r.status : "error") + "&role=" + enc(role)
+                            + (mark.isEmpty() ? "" : "&u=" + mark) + (known ? "" : "&m=" + enc(r.message));
                 } catch (RuntimeException e) {
                     result.set(new Result("error", "הכניסה לא הצליחה.", null));
                     location = base + "/welcome?r=error";
@@ -1515,7 +1613,7 @@ public final class Account {
     // ------------------------------------------------------------------ בדיקה כשיש אינטרנט, התנתקות
 
     /** המצבים שהשרת מחזיר על כרטיס תקף (/v1/access/check) — רק אז מעדכנים את מה ששמור (עם אישור חדש, או בלי — לא שילם / הושבת) */
-    private static final String ACCESS_STATES = "ok|pay|blocked";
+    private static final String ACCESS_STATES = "ok|pay|register|blocked";
 
     /** תשובה אמיתית על הכרטיס: מצב מוכר, ו-"ok" רק עם אישור חתום שנפתח במחשב הזה (אחרת היינו שומרים "מאושר" בלי אישור) */
     private static boolean validState(Result r) {
@@ -1533,7 +1631,7 @@ public final class Account {
         Map<String, Object> u = load(uf);
         if (u != null && !Json.str(u.get("token")).isEmpty()) {
             ensureBackups(uf);
-            Result r = post("/v1/access/check", map("token", Json.str(u.get("token")), "machine", machine()));
+            Result r = post("/v1/access/check", map("token", Json.str(u.get("token")), "machine", machine(), "caps", CAPS));
             refreshWith(uf, Json.str(u.get("token")), r);
             // כל דבר אחר (בלי אינטרנט, 429 / 500 / 404, תשובה לא תקינה) — תקלה רגעית: האישור השמור נשאר כמו שהוא
             last = r;
