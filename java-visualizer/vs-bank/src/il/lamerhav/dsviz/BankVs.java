@@ -92,6 +92,7 @@ public final class BankVs {
 
     public static void main(String[] args) throws Exception {
         UpdateCheck.start("-FromIde");   // עדכון אוטומטי — רק כשמשתמשים ב-DSViz
+        consumeHiddenStart();
         String[] a = envArgs(args);
         if (a.length == 1 && !a[0].equals("teacher")) a = new String[] { a[0], defaultCsRoot() };   // קיצור דרך בלי נתיב
         // "עמדת ניהול" מסרגל הכלים של Visual Studio: רק חלון המורה (בלי המאגר)
@@ -110,6 +111,27 @@ public final class BankVs {
             if (fa[0].equals("question")) AccessGate.require(null, () -> BankVsFloat.showLast(null));
             else AccessGate.require(null, () -> BankVsWindow.open(null, null));
         });
+    }
+
+    /**
+     * Windows: תוכנה שמפעילה את הכלי עם "חלון מוסתר" (STARTUPINFO עם SW_HIDE — למשל spawn של Node עם windowsHide, כמו שהיה ב-VS Code)
+     * גורמת ל-Windows להסתיר את החלון הראשון שהכלי מציג — מסך הכניסה או חלון המאגר — והלחיצה על הכפתור נראית כאילו לא קרה כלום.
+     * ההוראה הזאת חלה רק על ההצגה הראשונה בתהליך, ולכן מציגים קודם חלון זעיר מחוץ למסך ומיד סוגרים אותו: הוא "נבלע", וכל החלונות
+     * האמיתיים מוצגים כרגיל — לא משנה מי הפעיל את הכלי ואיך.
+     */
+    static void consumeHiddenStart() {
+        if (!System.getProperty("os.name", "").toLowerCase().contains("win") || java.awt.GraphicsEnvironment.isHeadless()) return;
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                javax.swing.JWindow w = new javax.swing.JWindow();
+                w.setBounds(-32000, -32000, 1, 1);
+                w.setFocusableWindowState(false);
+                w.setVisible(true);
+                w.dispose();
+            });
+        } catch (Exception e) {
+            // לא קריטי: בלי זה החלון עדיין נפתח כשהכלי מופעל רגיל
+        }
     }
 
     /**

@@ -120,20 +120,59 @@ async function waitJavaWindow(re, sec) {
         await sleep(1500);
         info('כניסה של מורה: ' + seed('teacher', 'teacher.test@example.com'));
         ({ app, win } = await launch({ DSVIZ_PASS_KEY: pk, DSVIZ_WORKER_URL: 'http://127.0.0.1:8796' }));
-        script(['waitwin מאגר תרגילים', 'wait 3000', 'mark bank']);
+        script(['waitwin מאגר תרגילים', 'wait 3000', 'shot window', 'mark bank', 'bankselect stack-sum-size', 'wait 1500', 'mark selected',
+            'click צור תרגיל', 'waitwin השאלה', 'wait 6000', 'shot float', 'mark float', "click הכן סעיף ב'", 'wait 9000', 'mark prepared']);
         await clickBank(win);
-        let bankFront = '';
-        const r2 = await marks(150, async mk => { if (mk === 'bank') bankFront = wt('front', 'מאגר תרגילים — VS Code'); });
-        info('ה-agent בכלי: ' + r2.st);
+        let bankFront = '', floatFront = '', tabsAfterCreate = [], editorAfterPrepare = '';
+        const tabs = () => win.$$eval('.tab', ts => ts.map(t => t.getAttribute('aria-label') || t.textContent).filter(Boolean)).catch(() => []);
+        const r2 = await marks(300, async mk => {
+            if (mk === 'bank') bankFront = wt('front', 'מאגר תרגילים — VS Code');
+            if (mk === 'float') { floatFront = wt('front', 'השאלה'); await sleep(2000); tabsAfterCreate = await tabs(); }
+            if (mk === 'prepared') { await sleep(3000); editorAfterPrepare = await win.$eval('.editor-instance .view-lines', e => e.innerText).catch(() => ''); }
+        });
+        info('ה-agent בכלי: ' + r2.st + ' (' + [...r2.seen].join(', ') + ')');
         const bw = javaWins().find(w => /מאגר תרגילים — VS Code/.test(w.title));
         const m2 = /^FOUND (\d+) center-pid=(\d+)/.exec(bankFront);
         check(!!bw && bw.visible, 'after-bank-visible', 'אחרי כניסה: נפתח חלון המאגר "מאגר תרגילים — VS Code" וב-Windows הוא גלוי', JSON.stringify(javaWins()));
         check(!!m2 && m2[2] === m2[1], 'after-bank-front', 'חלון המאגר מקדימה', bankFront);
         check(!javaWins().some(w => w.visible && /כניסה למאגר/.test(w.title)), 'after-no-gate', 'אחרי כניסה — בלי מסך כניסה נוסף');
+        // השאלה מהמאגר: חלון "השאלה" גלוי, הקובץ נפתח ב-VS Code, ו"הכן סעיף ב'" מכניס את סעיף ב לקוד (בקובץ ובעורך)
+        const winTexts = n => { try { return fs.readFileSync(path.join(CTL, 'shots-bank', n + '.json'), 'utf8'); } catch (e) { return ''; } };
+        const bankJson = winTexts('window'), floatJson = winTexts('float');
+        check(/מחסנית/.test(bankJson) && /תור/.test(bankJson) && /הורשה/.test(bankJson), 'after-bank-topics', 'בחלון המאגר מוצגים הנושאים (מחסנית, תור... והנושא החדש הורשה ופולימורפיזם)', bankJson.slice(0, 300));
+        const mf = /^FOUND (\d+) center-pid=(\d+)/.exec(floatFront);
+        check(!!mf && mf[2] === mf[1], 'after-float-front', '"צור תרגיל" — החלון הצף "השאלה" נפתח, גלוי ומקדימה', floatFront);
+        check(/sumStack|סכום|מחסנית/.test(floatJson), 'after-float-text', 'בחלון "השאלה" מוצג הנוסח של השאלה', floatJson.slice(0, 300));
+        const javaFiles = [];
+        const walk = d => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) walk(p); else if (f.name.endsWith('.java')) javaFiles.push(p); } };
+        walk(path.join(WS, 'src'));
+        const ex = javaFiles.find(f => /sumStack/.test(fs.readFileSync(f, 'utf8')));
+        info('קבצי התרגיל: ' + javaFiles.map(f => path.relative(WS, f)).join(', '));
+        check(!!ex, 'after-exercise-file', 'נוצר קובץ התרגיל עם הפעולה של סעיף א (sumStack)', javaFiles.join(', '));
+        check(!!ex && tabsAfterCreate.some(t => t.includes(path.basename(ex))), 'after-opened-in-vscode', 'הקובץ של התרגיל נפתח ב-VS Code', JSON.stringify(tabsAfterCreate));
+        if (ex) {
+            const t = fs.readFileSync(ex, 'utf8'), mi = t.indexOf('static void main'), si = t.indexOf('sizeOf(Stack');
+            check(si >= 0 && mi >= 0 && si < mi, 'after-prepare-method', '"הכן סעיף ב\'": הפעולה sizeOf נוספה לפני main', 'sizeOf@' + si + ' main@' + mi);
+            check(mi >= 0 && t.indexOf('סעיף ב', mi) > 0, 'after-prepare-main', '"הכן סעיף ב\'": הבדיקות של סעיף ב נוספו ל-main');
+            check(/sizeOf/.test(editorAfterPrepare), 'after-prepare-editor', 'בעורך של VS Code רואים את סעיף ב (בלי לפתוח מחדש)', editorAfterPrepare.slice(0, 200));
+        }
         killJava();
         await app.close();
         mock.kill();
         info('כניסה: ' + seed('none', '-'));
+    }
+    // ---- 3. הגנה בכלי עצמו: גם כשמפעילים אותו עם "חלון מוסתר" (Start-Process -WindowStyle Hidden = SW_HIDE, כמו ה-spawn הישן) —
+    //         מסך הכניסה עדיין גלוי (BankVs.consumeHiddenStart)
+    if (phase === 'after') {
+        killJava();
+        const ps = "Start-Process -FilePath '" + path.join(DSVIZ, 'jdk', 'bin', 'javaw.exe') + "' -WorkingDirectory '" + DSVIZ + "' -WindowStyle Hidden "
+            + "-ArgumentList '-cp','\"dsviz.jar;bank\\dsviz-bank-vs.jar\"','il.lamerhav.dsviz.BankVs','bank'";   // כמו הקיצור בתפריט התחל
+        try { execFileSync('powershell.exe', ['-NoProfile', '-Command', ps], { env: Object.assign({}, process.env, { JDK_JAVA_OPTIONS: '' }) }); } catch (e) { info('Start-Process: ' + e.message); }
+        const hw = await waitJavaWindow(/כניסה למאגר/, 60);
+        await sleep(2000);
+        shot('hidden-start');
+        check(!!hw && javaWins().some(w => w.visible && /כניסה למאגר/.test(w.title)), 'after-hidden-start', 'הכלי שהופעל עם "חלון מוסתר" (SW_HIDE) — מסך הכניסה בכל זאת גלוי', JSON.stringify(javaWins()));
+        killJava();
     }
     say('SUMMARY ' + phase + ': ' + ok + ' PASS / ' + fail + ' FAIL');
     fs.writeFileSync(path.join(OUT, 'summary-' + phase + '.txt'), lines.join('\n'), 'utf8');
