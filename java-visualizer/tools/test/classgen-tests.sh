@@ -10,6 +10,7 @@ ROOT=$(cd ../.. && pwd)
 W=${1:-$ROOT/build/test/classgen}
 JAR="$ROOT/release/dsviz.jar"
 rm -rf "$W" && mkdir -p "$W/cls"
+W=$(cd "$W" && pwd)   # נתיב מלא — יש שלבים שעובדים מתוך תיקייה אחרת (cd)
 javac --release 8 -Xlint:-options -nowarn -encoding UTF-8 -d "$W/cls" "$ROOT/eclipse-plugin/src/il/lamerhav/dsviz/ClassGen.java" ClassGenTest.java
 java -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -cp "$W/cls" ClassGenTest classgen-cases.txt "$W/java" classgen-project
 node classgen-test.js classgen-cases.txt "$W" classgen-project
