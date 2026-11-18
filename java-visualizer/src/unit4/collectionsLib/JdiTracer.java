@@ -349,11 +349,87 @@ final class JdiTracer {
             for (LocalVariable lv : f.visibleVariables()) {
                 String t = lv.typeName();
                 if (PRIMITIVES.contains(t)) continue;
-                String simple = t.substring(Math.max(t.lastIndexOf('.'), t.lastIndexOf('$')) + 1);
+                String simple = genericName(lv);   // Stack<Animal> (כמו בקוד), ובלי מידע — Stack
+                if (simple == null) simple = t.substring(Math.max(t.lastIndexOf('.'), t.lastIndexOf('$')) + 1);
                 meta.append(clean(lv.name())).append('\u0002').append(clean(simple)).append('\u0001');
             }
         } catch (AbsentInformationException | RuntimeException ignored) {
             // בלי טיפוסים — הכרטיסים כמו קודם
+        }
+    }
+
+    /** הטיפוס המוצהר עם הפרמטרים, בשמות קצרים: "Lunit4/collectionsLib/Stack<LAnimal;>;" → "Stack<Animal>". null — אין / לא מוכר */
+    static String genericName(LocalVariable lv) {
+        try {
+            return fromSignature(lv.genericSignature());
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** חתימה גנרית → שם קצר (בדיקות: GenericSigCheck) */
+    static String fromSignature(String sig) {
+        if (sig == null || sig.indexOf('<') < 0) return null;
+        int[] at = { 0 };
+        String r = sigType(sig, at);
+        return r != null && at[0] == sig.length() ? r : null;
+    }
+
+    private static String sigType(String s, int[] at) {
+        if (at[0] >= s.length()) return null;
+        char c = s.charAt(at[0]++);
+        switch (c) {
+        case '[': {
+            String e = sigType(s, at);
+            return e == null ? null : e + "[]";
+        }
+        case 'T': {
+            int end = s.indexOf(';', at[0]);
+            if (end < 0) return null;
+            String v = s.substring(at[0], end);
+            at[0] = end + 1;
+            return v;
+        }
+        case 'L': {
+            int i = at[0];
+            while (i < s.length() && s.charAt(i) != '<' && s.charAt(i) != ';') i++;
+            if (i >= s.length()) return null;
+            String full = s.substring(at[0], i);
+            String name = full.substring(Math.max(full.lastIndexOf('/'), full.lastIndexOf('$')) + 1);
+            at[0] = i;
+            if (s.charAt(i) == '<') {
+                at[0]++;
+                StringBuilder b = new StringBuilder(name).append('<');
+                boolean first = true;
+                while (at[0] < s.length() && s.charAt(at[0]) != '>') {
+                    char w = s.charAt(at[0]);
+                    String arg;
+                    if (w == '*') { at[0]++; arg = "?"; }
+                    else if (w == '+' || w == '-') { at[0]++; arg = sigType(s, at); if (arg != null) arg = (w == '+' ? "? extends " : "? super ") + arg; }
+                    else arg = sigType(s, at);
+                    if (arg == null) return null;
+                    if (!first) b.append(", ");
+                    b.append(arg);
+                    first = false;
+                }
+                if (at[0] >= s.length()) return null;
+                at[0]++;   // '>'
+                b.append('>');
+                name = b.toString();
+            }
+            if (at[0] >= s.length() || s.charAt(at[0]) != ';') return null;   // מחלקה פנימית של טיפוס גנרי (Outer<T>.Inner) — בלי
+            at[0]++;
+            return name;
+        }
+        case 'B': return "byte";
+        case 'C': return "char";
+        case 'D': return "double";
+        case 'F': return "float";
+        case 'I': return "int";
+        case 'J': return "long";
+        case 'S': return "short";
+        case 'Z': return "boolean";
+        default: return null;
         }
     }
 

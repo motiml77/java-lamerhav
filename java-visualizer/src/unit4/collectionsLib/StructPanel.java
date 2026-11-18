@@ -1040,11 +1040,7 @@ final class StructPanel extends JPanel {
                 String t = Poly.simple(o.type);
                 if (!types.contains(t)) types.add(t);
             }
-        String decl = null;
-        if (title != null && step != null) {
-            String n = title.split(",\\s*")[0].trim();
-            if (!n.isEmpty() && !n.contains("(")) decl = Poly.elem(Poly.declared(step, n));
-        }
+        String decl = Poly.elem(declaredFor(title));
         boolean declOk = decl != null && Poly.get(decl) != null;
         if (types.isEmpty()) return declOk ? new ElemClass(decl, false) : null;   // Person1[] שכל התאים בו null
         String general = null;
@@ -1114,7 +1110,7 @@ final class StructPanel extends JPanel {
         for (List<String> l : v.indexLabels.values()) mostLabels = Math.max(mostLabels, l.size());
         int labelsH = 22 + Math.max(0, mostLabels - 1) * LABEL_STEP;   // כמה משתני אינדקס על אותו תא — שורה לכל אחד
         String type = "מערך, אורך " + n + (v.truncated ? "+" : "");
-        String decl = declOf(v.title);
+        String decl = declOf(v.title, ec);
         int fp = ec == null ? 0 : FRAME_PAD, fu = ec == null ? 0 : LEGEND_UP;
         int top = y + th() + labelsH + fu + fp;
         int w = Math.max(Math.max(16 + Math.max(n, 1) * cw + 20, legendW(ec)), titleWidth(v.title, type) + declW(decl));
@@ -1185,7 +1181,7 @@ final class StructPanel extends JPanel {
         for (List<String> l : v.rowLabels.values()) labelW = Math.max(labelW, textWidth(String.join(",", l), SMALL_B) + 16);
         int left = x + 8 + labelW + 22 + fp, top = y + th() + 22 + (v.colLabels.isEmpty() ? 0 : 18) + fu + 2 * fp;
         String type = "מערך דו-ממדי " + rows + "×" + cols;
-        String decl = declOf(v.title);
+        String decl = declOf(v.title, ec);
         int w = Math.max(Math.max(left - x + Math.max(cols, 1) * cw + 16 + fp, left - x - fp + legendW(ec)), titleWidth(v.title, type) + declW(decl));
         int h = top - y + Math.max(rows, 1) * ch + 12 + fp;
         if (g == null) return new Dimension(w, h);
@@ -1235,12 +1231,13 @@ final class StructPanel extends JPanel {
         Dimension sb = subsBox(v.subs);
         if (sb != null) { cw = Math.max(cw, sb.width); ch = Math.max(ch, sb.height); }
         int fp = ec == null ? 0 : FRAME_PAD, fu = ec == null ? 0 : LEGEND_UP;
-        int w = Math.max(Math.max(cw + 84 + 3 * fp, legendW(ec)), titleWidth(v.title, "מחסנית")), h = th() + ghostH + rows * ch + 14 + fu + 2 * fp;
+        String decl = declOf(v.title, ec);
+        int w = Math.max(Math.max(cw + 84 + 3 * fp, legendW(ec)), titleWidth(v.title, "מחסנית") + declW(decl)), h = th() + ghostH + rows * ch + 14 + fu + 2 * fp;
         if (g == null) return new Dimension(w, h);
         boolean wasInStack = inStack;
         inStack = true;
 
-        drawTitle(g, v.title, "מחסנית", x, y, v.focus);
+        drawTitle(g, v.title, decl, "מחסנית", x, y, v.focus);
         int cx = x + 8 + fp, top = y + th() + ghostH + fu + fp;
         // המקומות של האיברים ושל הקירות — בהנפשה: בדרך מהמקום הקודם (StructAnim.stack)
         Rectangle[] rs = new Rectangle[n];
@@ -1288,7 +1285,7 @@ final class StructPanel extends JPanel {
             if (rs[i].y >= y + th()) continue;
             Graphics2D gt = (Graphics2D) g.create();
             gt.clip(rs[i]);
-            drawTitle(gt, v.title, "מחסנית", x, y, v.focus);
+            drawTitle(gt, v.title, decl, "מחסנית", x, y, v.focus);
             gt.dispose();
         }
         inStack = wasInStack;
@@ -1333,10 +1330,11 @@ final class StructPanel extends JPanel {
         boolean ghostSpace = nest == 0 || v.ghost != null;
         int left = x + (ghostSpace ? cw + 16 : 4) + QARROW + 8;
         int fp = ec == null ? 0 : FRAME_PAD, fu = ec == null ? 0 : LEGEND_UP;
-        int w = Math.max(Math.max(left - x + rows * cw + QARROW + 18, legendW(ec)), titleWidth(v.title, "תור")), h = th() + ch + 40 + fu + 2 * fp;
+        String decl = declOf(v.title, ec);
+        int w = Math.max(Math.max(left - x + rows * cw + QARROW + 18, legendW(ec)), titleWidth(v.title, "תור") + declW(decl)), h = th() + ch + 40 + fu + 2 * fp;
         if (g == null) return new Dimension(w, h);
 
-        drawTitle(g, v.title, "תור", x, y, v.focus);
+        drawTitle(g, v.title, decl, "תור", x, y, v.focus);
         int top = y + th() + 6 + fu + fp;
         // המקומות של האיברים ושל הצינור — בהנפשה: בדרך מהמקום הקודם (StructAnim.queue)
         Rectangle[] rs = new Rectangle[n];
@@ -1505,7 +1503,8 @@ final class StructPanel extends JPanel {
         }
         List<String[]> notes = new ArrayList<String[]>();   // {מה קרה, מה עושים}
         for (ChainView r : rows) if (r.lostNote != null) notes.add(new String[] { r.lostNote, r.lostHint });
-        int w = Math.max(Math.max(right - x + fp, legendW(ec)), titleWidth(v.title, "רשימה מקושרת"));
+        String decl = declOf(v.title, ec);
+        int w = Math.max(Math.max(right - x + fp, legendW(ec)), titleWidth(v.title, "רשימה מקושרת") + declW(decl));
         int frameTop = y + th() + fu, frameW = Math.max(right - x + fp, legendW(ec)) - 4;
         if (ec != null) below += fp;
         int noteW = Math.max(w, Math.min(620, Math.max(360, w)));
@@ -1515,7 +1514,7 @@ final class StructPanel extends JPanel {
         if (noteH > 0) w = Math.max(w, noteW);
         if (g == null) return new Dimension(w, h);
 
-        drawTitle(g, v.title, "רשימה מקושרת", x, y, v.focus);
+        drawTitle(g, v.title, decl, "רשימה מקושרת", x, y, v.focus);
         if (ec != null) classFrame(g, ec, x + 2, frameTop, frameW, below - 4 - frameTop);
         // המקומות של החוליות (השורה הראשית והענפים) — בהנפשה: בדרך מהמקום הקודם (StructAnim.cell)
         Rectangle[] mr = new Rectangle[n];
@@ -1864,11 +1863,12 @@ final class StructPanel extends JPanel {
         int nw = Math.max(2 * r + 12, most + LBL_SPACE), lv = boxy ? Math.max(76, 2 * ry + 30) : 70;
         final int extra = most > 0 ? 6 : 0;
         int bodyW = Math.max(inorder.size() * nw + 16 + 2 * fp, legendW(ec));
-        int w = Math.max(bodyW, titleWidth(v.title, "עץ בינארי"));
+        String decl = declOf(v.title, ec);
+        int w = Math.max(bodyW, titleWidth(v.title, "עץ בינארי") + declW(decl));
         int h = th() + 22 + extra + (maxDepth + 1) * lv + fu + 2 * fp;
         if (g == null) return new Dimension(w, h);
 
-        drawTitle(g, v.title, "עץ בינארי", x, y, v.focus);
+        drawTitle(g, v.title, decl, "עץ בינארי", x, y, v.focus);
         if (ec != null) classFrame(g, ec, x + 2, y + th() + fu, bodyW - 4, h - th() - fu - 4);
         Map<TreeCell, int[]> pos = new IdentityHashMap<TreeCell, int[]>();
         for (int i = 0; i < inorder.size(); i++) {
@@ -2355,11 +2355,57 @@ final class StructPanel extends JPanel {
      * לפי המשתנה הראשון בכותרת שהוא של הפעולה שרצה
      */
     private String declOf(String title) {
+        return declOf(title, null);
+    }
+
+    /**
+     * הטיפוס המוצהר לכותרת ("zoo : Animal[]", "arr : Person1[]", "st : Stack<Animal>"): במבנה של עצמים (יש לו מסגרת מחלקה),
+     * או כשהאיברים ממחלקה שבעץ הורשה; אחרת null (מערך של מספרים — כמו קודם, בלי)
+     */
+    private String declOf(String title, ElemClass ec) {
         if (title == null || step == null || nest > 0) return null;
-        String n = title.split(",\\s*")[0].trim();
-        if (n.contains("(")) return null;
-        String t = Poly.declared(step, n);
-        return t != null && Poly.inHierarchy(Poly.elem(t)) ? t : null;
+        String t = declaredFor(title);
+        return t != null && (ec != null || Poly.inHierarchy(Poly.elem(t))) ? t : null;
+    }
+
+    private int declStep = -1;
+    private final Map<String, String> declCache = new HashMap<String, String>();
+
+    /**
+     * הטיפוס המוצהר של המשתנה הראשון בכותרת. משתנה של פעולה אחרת במחסנית ("zoo (main)" — בזמן שרצה פעולה שהיא קראה לה):
+     * מהצעד האחרון של אותה פעולה שבו הוא מוכר — כך המסגרת והכותרת לא משתנות כשנכנסים לפעולה (Animal ולא Dog)
+     */
+    private String declaredFor(String title) {
+        if (title == null || step == null) return null;
+        String n = title.split(",\\s*")[0].trim(), owner = null;
+        int p = n.indexOf(" (");
+        if (p > 0 && n.endsWith(")")) {
+            owner = n.substring(p + 2, n.length() - 1);
+            n = n.substring(0, p).trim();
+        }
+        if (n.isEmpty() || n.contains("(")) return null;
+        if (owner == null) {
+            String here = Poly.declared(step, n);
+            if (here != null || step.calls.size() < 2) return here;   // אחרת: מבנה של פעולה שקראה לפעולה הזו (st של main בתוך בנאי)
+        }
+        if (declStep != step.index) {
+            declCache.clear();
+            declStep = step.index;
+        }
+        String key = owner + "|" + n;
+        if (declCache.containsKey(key)) return declCache.get(key);
+        String found = null;
+        try {
+            for (int i = Math.min(step.index, Recorder.recordedCount()) - 1, lim = 0; i >= 0 && lim < 20000 && found == null; i--, lim++) {
+                Step s = Recorder.step(i);
+                if (s == null || s.where == null || s.types == null) continue;
+                if (owner != null ? owner.equals(s.where.method) : s.calls.size() < step.calls.size()) found = s.types.get(n);
+            }
+        } catch (RuntimeException e) {
+            found = null;
+        }
+        declCache.put(key, found);
+        return found;
     }
 
     private int declW(String decl) {
@@ -2385,12 +2431,20 @@ final class StructPanel extends JPanel {
         g.setColor(MUTED);
         g.drawString(" : ", dx, base);
         dx += fm.stringWidth(" : ");
-        g.setColor(Poly.ink(el));
-        g.drawString(el, dx, base);
-        dx += fm.stringWidth(el);
-        g.setColor(INK);
-        int k = decl.indexOf(el);
-        g.drawString(k < 0 ? "" : decl.substring(k + el.length()), dx, base);
+        int k = el == null ? -1 : decl.indexOf(el);
+        if (k < 0) {   // לא מצאנו את שם המחלקה בטיפוס — כולו בצבע רגיל
+            g.setColor(INK);
+            g.drawString(decl, dx, base);
+        } else {   // "Stack<" רגיל, Animal בצבע של המחלקה, ">" / "[]" רגיל
+            g.setColor(INK);
+            g.drawString(decl.substring(0, k), dx, base);
+            dx += fm.stringWidth(decl.substring(0, k));
+            g.setColor(Poly.ink(el));
+            g.drawString(el, dx, base);
+            dx += fm.stringWidth(el);
+            g.setColor(INK);
+            g.drawString(decl.substring(k + el.length()), dx, base);
+        }
         typePill(g, type, x + nw + declW(decl) + 12, base);
     }
 

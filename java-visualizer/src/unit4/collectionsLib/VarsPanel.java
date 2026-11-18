@@ -460,12 +460,20 @@ final class VarsPanel extends JPanel {
                     int x = 10 + fm.stringWidth(getText() == null ? "" : getText()) + 10, base = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
                     String el = Poly.elem(type);
                     g.setFont(tf);
-                    g.setColor(Poly.ink(el));
-                    g.drawString(el, x, base);
-                    int k = type.indexOf(el);
-                    if (k >= 0 && k + el.length() < type.length()) {
+                    java.awt.FontMetrics tm = g.getFontMetrics();
+                    int k = el == null ? -1 : type.indexOf(el);
+                    if (k < 0) {
                         g.setColor(Theme.TEXT);
-                        g.drawString(type.substring(k + el.length()), x + g.getFontMetrics().stringWidth(el), base);
+                        g.drawString(type, x, base);
+                    } else {   // "Stack<" רגיל, Animal בצבע של המחלקה, ">" / "[]" רגיל
+                        g.setColor(Theme.TEXT);
+                        g.drawString(type.substring(0, k), x, base);
+                        x += tm.stringWidth(type.substring(0, k));
+                        g.setColor(Poly.ink(el));
+                        g.drawString(el, x, base);
+                        x += tm.stringWidth(el);
+                        g.setColor(Theme.TEXT);
+                        g.drawString(type.substring(k + el.length()), x, base);
                     }
                 } finally {
                     g.dispose();

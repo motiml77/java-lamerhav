@@ -333,7 +333,10 @@ mkdir -p "$PO/split" && python3 helpers/split-classes.py objects/poly/pets/Pets.
     && echo "  ok  הורשה, מחלקה בכל קובץ: אותן קריאות, super.say() — מחוץ ל-Dog" \
     || { echo "  FAIL הורשה, מחלקה בכל קובץ"; grep '\[דריסה' "$PO/split/out.txt" | head; exit 1; }
 # הציור (בלי חלון): Dog בתוך Animal, צבע אחד למחלקה בקופסה / בתגית / בתא, פסים רק כשהטיפוסים שונים, תגיות קטנות בתאים, תרשים המחלקות
-javac -encoding UTF-8 -cp "$JAR" -d "$PO" objects/PolyPaintCheck.java
+javac -encoding UTF-8 -cp "$JAR" -d "$PO" objects/PolyPaintCheck.java objects/GenericSigCheck.java
+# הכותרת של מבנה ב-Java עם הפרמטרים (st : Stack<Animal>, כמו ב-C#): החתימה הגנרית של המשתנה → שם קצר
+java -Dstdout.encoding=UTF-8 -cp "$PO:$JAR" unit4.collectionsLib.GenericSigCheck > "$PO/sig.txt" 2>&1 && grep -q MARK-END "$PO/sig.txt" \
+    && echo "  ok  הטיפוס המוצהר עם הפרמטרים ב-Java: $(grep -c '^  ok' "$PO/sig.txt") חתימות" || { echo "  FAIL GenericSigCheck"; cat "$PO/sig.txt"; exit 1; }
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$PO:$JAR" unit4.collectionsLib.PolyPaintCheck "$PO/frames" > "$PO/paint.txt" 2>&1 \
     && grep -q MARK-END "$PO/paint.txt" && grep '^  ok' "$PO/paint.txt" || { cat "$PO/paint.txt"; exit 1; }
 
