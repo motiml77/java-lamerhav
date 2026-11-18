@@ -106,8 +106,14 @@ final class AiScaffold {
      * כמו שצריך, וסימני הפיסוק (נקודתיים, מקף, סוגריים) לא יקפצו לצד הלא נכון. הסימונים בלתי נראים, והקומפיילר מתעלם מהם בהערות.
      */
     static String rtl(String s) {
-        return "\u202B" + s + "\u202C";
+        return bidiMarks ? "\u202B" + s + "\u202C" : s;
     }
+
+    /**
+     * סימוני הכיוון בהערות (rtl). VS Code מציג עברית בהערות נכון גם בלי הסימונים, ואת הסימונים עצמם הוא מראה כ-[U+202B] באדום
+     * (הגנה מפני "Trojan Source") — לכן הכלי של המאגר מכבה אותם כשהוא עובד מול VS Code (BankVs.configure)
+     */
+    static volatile boolean bidiMarks = true;
 
     /** הערה לתלמיד מעל main: מה צריך להיות מודפס על המסך אם הפתרון נכון (לפי התשובה של Gemini) */
     static List<String> expectedComment(String expected) {
@@ -643,7 +649,7 @@ final class AiScaffold {
             for (int i = 0; i + 1 < l.length(); i++) if (l.charAt(i) == '/' && l.charAt(i + 1) == '/' && isCode.length > i && !isCode[i] && (i == 0 || isCode[i - 1] || l.substring(0, i).trim().isEmpty())) { at = i; break; }
             if (at >= 0) {
                 String text = l.substring(at + 2).trim();
-                if (text.matches(".*[\u0590-\u05FF].*") && text.indexOf('\u202B') < 0) {
+                if (bidiMarks && text.matches(".*[\u0590-\u05FF].*") && text.indexOf('\u202B') < 0) {
                     out.add(l.substring(0, at) + "// " + rtl(text));
                     continue;
                 }

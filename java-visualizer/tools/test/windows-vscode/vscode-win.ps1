@@ -58,6 +58,7 @@ Install $NewSetup 'ההתקנה החדשה'
 & node (Join-Path $Here 'vscode-win.js') after $Out $pw
 $rc = $LASTEXITCODE
 Copy-Item (Join-Path $ctl 'agent.log') $Out -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $ctl 'shots-bank') (Join-Path $Out 'agent-shots') -Recurse -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $env:TEMP 'dsviz-bank-vscode.log') $Out -ErrorAction SilentlyContinue
 if ($env:GITHUB_STEP_SUMMARY) {
     foreach ($f in 'summary-before.txt', 'summary-after.txt') {

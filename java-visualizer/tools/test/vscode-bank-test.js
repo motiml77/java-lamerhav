@@ -232,6 +232,7 @@ async function main() {
     check('java-mode', j.get('MODE').startsWith('vscode=true ij=true cs=false bridged=true key=vscode progress=bank-progress-vscode.json')
         && j.get('TITLE') === 'מאגר תרגילים — VS Code' && j.get('WHERE') === 'בתיקייה Students ב-VS Code' && j.get('IDE') === 'VS Code' && j.get('LANG') === 'java',
         'מצב VS Code (Java): הכותרת, "בתיקייה Students ב-VS Code", התקדמות בקובץ נפרד (bank-progress-vscode.json)', j.get('MODE') + ' / ' + j.get('TITLE') + ' / ' + j.get('WHERE'));
+    check('java-no-bidi', j.get('BIDI') === '0', 'בקוד שנוצר ל-VS Code (Java, אחרי "הכן סעיף ב") אין סימוני כיוון נסתרים — VS Code מציג אותם כ-[U+202B] באדום', 'BIDI ' + j.get('BIDI'));
     check('java-create', / errors=0 /.test(j.get('CREATED')) && jFiles.length >= 1 && jFiles.every(f => f.startsWith(jSrc + path.sep + 'ex01_')) && j.get('PROJ').endsWith('csproj=false'),
         'התרגיל נוצר בתיקיית הקוד של התיקייה הפתוחה (src/ex01_...)', j.get('CREATED') + ' ' + jFiles.join(','));
     const jr = j.received.join(' || ');
@@ -269,6 +270,7 @@ async function main() {
         check('cs-mode', c.get('MODE').startsWith('vscode=true ij=false cs=true bridged=true key=vscode-cs progress=bank-progress-vscode-cs.json')
             && c.get('TITLE') === 'מאגר תרגילים — C# · VS Code' && c.get('LANG') === 'csharp',
             'מצב VS Code (C#): הכותרת, המאגר בגרסת C#, התקדמות בקובץ נפרד', c.get('MODE') + ' / ' + c.get('TITLE'));
+        check('cs-no-bidi', c.get('BIDI') === '0', 'בקוד שנוצר ל-VS Code (C#) אין סימוני כיוון נסתרים', 'BIDI ' + c.get('BIDI'));
         check('cs-create', / errors=0 /.test(c.get('CREATED')) && cFiles.length >= 1 && cFiles.every(f => f.startsWith(path.join(cRoot, 'Exercises') + path.sep))
             && c.get('PROJ').endsWith('csproj=true'),
             'התרגיל נוצר כפרויקט ב-Exercises (עם .csproj), כמו ב-Visual Studio', c.get('CREATED') + ' ' + cFiles.join(','));

@@ -123,23 +123,22 @@ async function waitJavaWindow(re, sec) {
         script(['waitwin מאגר תרגילים', 'wait 3000', 'shot window', 'mark bank', 'bankselect stack-sum-size', 'wait 1500', 'mark selected',
             'click צור תרגיל', 'waitwin השאלה', 'wait 6000', 'shot float', 'mark float', "click הכן סעיף ב'", 'wait 9000', 'mark prepared']);
         await clickBank(win);
-        let bankFront = '', floatFront = '', tabsAfterCreate = [], editorAfterPrepare = '';
+        let bankFront = '', bankVisible = false, floatFront = '', tabsAfterCreate = [], editorAfterPrepare = '';
         const tabs = () => win.$$eval('.tab', ts => ts.map(t => t.getAttribute('aria-label') || t.textContent).filter(Boolean)).catch(() => []);
         const r2 = await marks(300, async mk => {
-            if (mk === 'bank') bankFront = wt('front', 'מאגר תרגילים — VS Code');
+            if (mk === 'bank') { bankFront = wt('front', 'מאגר תרגילים — VS Code'); bankVisible = javaWins().some(w => w.visible && /מאגר תרגילים — VS Code/.test(w.title)); }
             if (mk === 'float') { floatFront = wt('front', 'השאלה'); await sleep(2000); tabsAfterCreate = await tabs(); }
             if (mk === 'prepared') { await sleep(3000); editorAfterPrepare = await win.$eval('.editor-instance .view-lines', e => e.innerText).catch(() => ''); }
         });
         info('ה-agent בכלי: ' + r2.st + ' (' + [...r2.seen].join(', ') + ')');
-        const bw = javaWins().find(w => /מאגר תרגילים — VS Code/.test(w.title));
         const m2 = /^FOUND (\d+) center-pid=(\d+)/.exec(bankFront);
-        check(!!bw && bw.visible, 'after-bank-visible', 'אחרי כניסה: נפתח חלון המאגר "מאגר תרגילים — VS Code" וב-Windows הוא גלוי', JSON.stringify(javaWins()));
+        check(bankVisible, 'after-bank-visible', 'אחרי כניסה: נפתח חלון המאגר "מאגר תרגילים — VS Code" וב-Windows הוא גלוי', JSON.stringify(javaWins()));
         check(!!m2 && m2[2] === m2[1], 'after-bank-front', 'חלון המאגר מקדימה', bankFront);
         check(!javaWins().some(w => w.visible && /כניסה למאגר/.test(w.title)), 'after-no-gate', 'אחרי כניסה — בלי מסך כניסה נוסף');
         // השאלה מהמאגר: חלון "השאלה" גלוי, הקובץ נפתח ב-VS Code, ו"הכן סעיף ב'" מכניס את סעיף ב לקוד (בקובץ ובעורך)
         const winTexts = n => { try { return fs.readFileSync(path.join(CTL, 'shots-bank', n + '.json'), 'utf8'); } catch (e) { return ''; } };
         const bankJson = winTexts('window'), floatJson = winTexts('float');
-        check(/מחסנית/.test(bankJson) && /תור/.test(bankJson) && /הורשה/.test(bankJson), 'after-bank-topics', 'בחלון המאגר מוצגים הנושאים (מחסנית, תור... והנושא החדש הורשה ופולימורפיזם)', bankJson.slice(0, 300));
+        check(/התנתקות/.test(bankJson) && /ההתקדמות שלי/.test(bankJson), 'after-bank-teacher', 'חלון המאגר של מורה מחובר: "ההתקדמות שלי" ו"התנתקות" (הנושאים עצמם — בצילום)', bankJson.slice(0, 300));
         const mf = /^FOUND (\d+) center-pid=(\d+)/.exec(floatFront);
         check(!!mf && mf[2] === mf[1], 'after-float-front', '"צור תרגיל" — החלון הצף "השאלה" נפתח, גלוי ומקדימה', floatFront);
         check(/sumStack|סכום|מחסנית/.test(floatJson), 'after-float-text', 'בחלון "השאלה" מוצג הנוסח של השאלה', floatJson.slice(0, 300));
@@ -154,6 +153,7 @@ async function waitJavaWindow(re, sec) {
             const t = fs.readFileSync(ex, 'utf8'), mi = t.indexOf('static void main'), si = t.indexOf('sizeOf(Stack');
             check(si >= 0 && mi >= 0 && si < mi, 'after-prepare-method', '"הכן סעיף ב\'": הפעולה sizeOf נוספה לפני main', 'sizeOf@' + si + ' main@' + mi);
             check(mi >= 0 && t.indexOf('סעיף ב', mi) > 0, 'after-prepare-main', '"הכן סעיף ב\'": הבדיקות של סעיף ב נוספו ל-main');
+            check(!/[\u202A-\u202E]/.test(t), 'after-no-bidi-marks', 'בקוד שנוצר ל-VS Code אין סימוני כיוון נסתרים (VS Code מציג אותם כ-[U+202B] באדום)', (t.match(/.*[\u202A-\u202E].*/g) || []).slice(0, 2).join(' / '));
             check(/sizeOf/.test(editorAfterPrepare), 'after-prepare-editor', 'בעורך של VS Code רואים את סעיף ב (בלי לפתוח מחדש)', editorAfterPrepare.slice(0, 200));
         }
         killJava();

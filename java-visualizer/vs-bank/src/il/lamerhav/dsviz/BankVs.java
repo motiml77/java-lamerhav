@@ -122,10 +122,12 @@ public final class BankVs {
     static void consumeHiddenStart() {
         if (!System.getProperty("os.name", "").toLowerCase().contains("win") || java.awt.GraphicsEnvironment.isHeadless()) return;
         try {
+            // חלון מאותו סוג כמו מסך הכניסה (JDialog רגיל, שמוצג עם SW_SHOW): Windows מחליף רק הצגה "רגילה" — חלון שמוצג בלי
+            // להפעיל אותו (JWindow שלא מקבל פוקוס, SW_SHOWNA) לא "בולע" את ההוראה
             SwingUtilities.invokeAndWait(() -> {
-                javax.swing.JWindow w = new javax.swing.JWindow();
+                javax.swing.JDialog w = new javax.swing.JDialog((java.awt.Frame) null);
+                w.setUndecorated(true);
                 w.setBounds(-32000, -32000, 1, 1);
-                w.setFocusableWindowState(false);
                 w.setVisible(true);
                 w.dispose();
             });
@@ -203,6 +205,7 @@ public final class BankVs {
             i++;
         }
         if (vscode && !csBridge) ij = true;   // VS Code עם Java: בדיוק כמו IntelliJ (חבילה בתיקיית הקוד), רק הטקסטים אחרים
+        if (vscode) AiScaffold.bidiMarks = false;   // VS Code: בלי סימוני כיוון בהערות (מוצגים שם כ-[U+202B] באדום)
         if (csBridge) ij = false;
         init(Paths.get(a[1]));
     }

@@ -48,6 +48,10 @@ public final class BankVsCodeDriver {
             String p = BankVs.prepare(q, tasks.get(1));
             out("PREPARE " + (p == null ? "ok" : p) + " prepared=" + BankVs.prepared(q));
         }
+        // סימוני כיוון נסתרים (U+202A..U+202E) בקוד שנוצר — VS Code מציג אותם כ-[U+202B] באדום
+        int bidi = 0;
+        for (File f : r.files) if (f.isFile()) for (char ch : new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8).toCharArray()) if (ch >= '\u202A' && ch <= '\u202E') bidi++;
+        out("BIDI " + bidi);
         if (Boolean.getBoolean("withWindow")) {
             BankVsWindow w = BankVsIt.ui(() -> new BankVsWindow());
             String texts = BankVsIt.ui(() -> BankVsIt.texts(w.frame));
