@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- מאגר תרגילים — אייקון הנושא "inheritance" (המקור; ה-PNG נוצר ב-tools/make-topic-icons.js): מחלקת על, שתי יורשות, משולש ריק של UML -->
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11" fill="#FDEEED"/>
+  <g stroke="#C0392B" stroke-width="2.4" stroke-linejoin="round"><path d="M24 23v5M13 28h22M13 28v3M35 28v3" fill="none" stroke-linecap="round"/><path d="M24 16.5l-4.5 6.5h9z" fill="#fff"/></g>
+  <g fill="#fff" stroke="#C0392B" stroke-width="2.4"><rect x="14" y="5" width="20" height="11.5" rx="3"/><rect x="4.5" y="31" width="17" height="11.5" rx="3"/><rect x="26.5" y="31" width="17" height="11.5" rx="3"/></g>
+  <g fill="#C0392B"><rect x="14" y="5" width="20" height="4.6" rx="2.5"/><rect x="4.5" y="31" width="17" height="4.6" rx="2.5"/><rect x="26.5" y="31" width="17" height="4.6" rx="2.5"/></g>
+</svg>

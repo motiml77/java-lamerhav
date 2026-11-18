@@ -14,7 +14,7 @@ const { chromium } = require('playwright');
         all.push(svg.replace(/width="64" height="64"/, 'width="96" height="96"'));
     }
     // דף תצוגה של כולם יחד (לבדיקה בעין)
-    await page.setViewportSize({ width: 960, height: 120 });
+    await page.setViewportSize({ width: 24 + all.length * 104, height: 120 });
     await page.setContent(`<html><body style="margin:12px;background:#fff;display:flex;gap:8px">${all.join('')}</body></html>`);
     await page.screenshot({ path: path.join(dir, 'src', 'all.png') });
     await browser.close();
