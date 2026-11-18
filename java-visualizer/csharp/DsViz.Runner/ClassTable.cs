@@ -33,8 +33,11 @@ namespace DsViz
                     {
                         if (!(td is ClassDeclarationSyntax || td is InterfaceDeclarationSyntax)) continue;
                         var t = model.GetDeclaredSymbol(td) as INamedTypeSymbol;
-                        if (t == null || !seen.Add(t.Name)) continue;   // partial — פעם אחת
-                        Add(t);
+                        if (t == null || seen.Contains(t.Name)) continue;   // partial — פעם אחת
+                        // מחלקת העל לפני היורשת (כמו ב-Java, שבה הטעינה מגדירה קודם את מחלקת העל): כך הצבעים בחלון — השורש
+                        // קודם — לא תלויים בסדר הקבצים, ותואמים לחלונות של "צור מחלקה" / "היררכיה מוכנה" (ClassGen.colors)
+                        AddBasesFirst(t, seen);
+                        if (seen.Add(t.Name)) Add(t);
                     }
                 }
             }
@@ -42,6 +45,14 @@ namespace DsViz
             {
                 Rows.Clear();   // בלי טבלה — הכרטיסים כמו קודם
             }
+        }
+
+        static void AddBasesFirst(INamedTypeSymbol t, HashSet<string> seen)
+        {
+            var b = t.BaseType == null ? null : t.BaseType.OriginalDefinition;
+            if (b == null || !InSource(b) || b.TypeKind != TypeKind.Class || seen.Contains(b.Name)) return;
+            AddBasesFirst(b, seen);
+            if (seen.Add(b.Name)) Add(b);
         }
 
         static bool InSource(ITypeSymbol t)
