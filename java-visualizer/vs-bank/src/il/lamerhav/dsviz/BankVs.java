@@ -495,6 +495,24 @@ public final class BankVs {
         return p.replace('\\', '/');
     }
 
+    /**
+     * לפני "הגשה למורה": שינויים שעוד לא נשמרו בעורך נשמרים (Visual Studio — דרך האוטומציה שלו; VS Code — דרך הגשר; IntelliJ שומר
+     * לבד כשעוברים לחלון אחר) — כדי שמה שנבדק ונשלח יהיה הקוד שהתלמיד רואה. רץ ברקע (ב-Visual Studio זה לוקח רגע לכל קובץ)
+     */
+    static void saveOpen(File dir) {
+        File[] all = dir == null ? null : dir.listFiles((d, n) -> n.toLowerCase().endsWith(ext()));
+        if (all == null) return;
+        boolean vs = !bridged() && windows() && !Boolean.getBoolean("dsviz.noOpen") && vsRunning();
+        for (File f : all) {
+            try {
+                if (vs) vsDocument("save", f, null);
+                if (vscode) bridge("SAVE", f.getAbsolutePath());
+            } catch (RuntimeException e) {
+                // לא נשמר מהעורך — נשלח מה שבדיסק
+            }
+        }
+    }
+
     /** הפרויקטים של השאלה שעוד קיימים (החדש בסוף) */
     static List<File> projects(BankStore.Question q) {
         List<File> out = new ArrayList<File>();

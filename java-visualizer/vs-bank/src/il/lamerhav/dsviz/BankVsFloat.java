@@ -422,9 +422,15 @@ final class BankVsFloat {
         submitResult = null;
         render();
         new javax.swing.SwingWorker<RunCheck.Result, Void>() {
+            /** הקבצים אחרי שהעורך שמר אותם — מה שנבדק הוא מה שנשלח */
+            Map<String, String> saved = st.files;
+
             @Override
             protected RunCheck.Result doInBackground() {
-                return BankSubmit.check(q, st.files, st.mainClass, !BankVs.ij, BankVs.lib, BankVs.javaExe, VsSubmit.dsvizCs());
+                BankVs.saveOpen(dir);   // שינויים שעוד לא נשמרו בעורך (Visual Studio / VS Code) — כדי שלמורה יגיע הקוד שהתלמיד רואה
+                Map<String, String> now = BankSubmit.files(dir, BankVs.ext(), st.mainClass);
+                if (!now.isEmpty()) saved = now;
+                return BankSubmit.check(q, saved, st.mainClass, !BankVs.ij, BankVs.lib, BankVs.javaExe, VsSubmit.dsvizCs());
             }
 
             @Override
@@ -434,6 +440,7 @@ final class BankVsFloat {
                 } catch (Exception e) {
                     st.check = new RunCheck.Result();
                 }
+                st.files = saved;
                 if (submit == st && f.isDisplayable()) render();
             }
         }.execute();

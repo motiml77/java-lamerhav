@@ -2,6 +2,7 @@ package il.lamerhav.dsviz;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
@@ -49,6 +50,28 @@ final class BankFloat {
     private String confirm;
     /** בדף האישור: התלמיד בחר לשמור את קבצי התרגיל (ברירת המחדל — מחיקה) */
     private boolean keepFiles;
+    /** "הגשה למורה": הדף מוצג במקום השאלה (null — לא מגישים עכשיו) */
+    private SubmitState submit;
+    /** אחרי הגשה: "הוגש למורה ב-10:42" — מוצג מעל "סיימתי את התרגיל" */
+    private String submitNote;
+    /** לבדיקות: איך הסתיימה ההגשה האחרונה (ok / queued / קוד השגיאה); null — עוד לא הייתה מאז שדף ההגשה נפתח */
+    volatile String submitResult;
+
+    /** מצב הדף "הגשה למורה" */
+    static final class SubmitState {
+        /** קובצי התרגיל (שם → תוכן), כמו שהיו כשהדף נפתח (אחרי שמירת העורכים) */
+        Map<String, String> files = new java.util.LinkedHashMap<String, String>();
+        String mainClass = "";
+        /** תוצאת בדיקת ההרצה; null — הבדיקה עוד רצה */
+        RunCheck.Result check;
+        /** "שם המגיש" (בעמדת מחשב) — ריק בכל הגשה חדשה */
+        String who = "";
+        /** הודעה מהשרת כשההגשה לא עברה */
+        String error;
+        boolean busy;
+        /** "סיימתי את התרגיל": אחרי ההגשה מסמנים ומוחקים (keep — שומרים את הקבצים) */
+        boolean thenComplete, keep;
+    }
     final List<String> shown = new ArrayList<String>();
     private final Runnable onProgress;
     private final IPartListener2 parts = new IPartListener2() {
@@ -167,7 +190,11 @@ final class BankFloat {
     }
 
     void setQuestion(String id) {
-        if (!id.equals(questionId)) confirm = null;
+        if (!id.equals(questionId)) {
+            confirm = null;
+            submit = null;
+            submitNote = null;
+        }
         questionId = id;
         render();
     }
@@ -197,7 +224,8 @@ final class BankFloat {
                 shell.setText("השאלה — " + q.title);
                 BankStore.Topic t = store.topic(q.topic);
                 BankQuestionPanel.titleRow(body, q, t == null ? null : t.title, shown);
-                if (confirm != null) confirmCard(q);
+                if (submit != null) submitCard(q, submit);
+                else if (confirm != null) confirmCard(q);
                 else {
                 final int ready = BankHandler.prepared(q);   // כמה סעיפים כבר בקוד
                 shown.add("PREPARED " + ready);
@@ -222,6 +250,20 @@ final class BankFloat {
                         BankFloat.this.prepare(q, task);
                     }
                 }, shown);
+                // "הגשה למורה" — רק למי שיש לו למי להגיש (תלמיד שמשויך למורה, או עמדת מחשב של הכיתה), וכשיש תרגיל
+                if (canSubmit(q)) {
+                    Look.Round send = new Look.Round(body, Submit.label(), false, () -> openSubmit(q, false, false));
+                    send.setData("dsviz.id", "submit-open");
+                    GridData sg = new GridData(SWT.FILL, SWT.TOP, true, false);
+                    sg.verticalIndent = 6;
+                    send.setLayoutData(sg);
+                    shown.add("SUBMIT-BUTTON " + Submit.label());
+                    if (submitNote != null) {
+                        BankQuestionPanel.text(body, submitNote, -1, SWT.NORMAL, Look.OK, null);
+                        shown.add("SUBMIT-NOTE " + submitNote);
+                    }
+                }
+                if (submitResult != null) shown.add("SUBMIT-RESULT " + submitResult);
                 final boolean done = BankProgress.get().done(q.id);
                 DoneButton db = new DoneButton(body, done, () -> {
                     if (done) BankProgress.get().setDone(q.id, false);
@@ -262,6 +304,10 @@ final class BankFloat {
         Composite card = Look.card(body, BankQuestionPanel.wide());
         BankQuestionPanel.text(card, "סיימתי את התרגיל", 1, SWT.BOLD, Look.TEXT, shown);
         BankQuestionPanel.text(card, "השאלה תסומן בסימן ירוק. מה לעשות עם קבצי התרגיל?", 0, SWT.NORMAL, Look.TEXT, shown);
+        if (canSubmit(q)) {   // "סיימתי" מגיש למורה לפני המחיקה
+            BankQuestionPanel.text(card, "לפני הסיום התרגיל יוגש " + (Submit.teacher().isEmpty() ? "למורה" : "למורה " + Submit.teacher()) + ".", 0, SWT.BOLD, Look.ACCENT, shown);
+            shown.add("DONE-SUBMITS");
+        }
         Composite choice = new Composite(card, SWT.RIGHT_TO_LEFT);
         GridLayout cl = new GridLayout(1, false);
         cl.marginWidth = 0;
@@ -302,7 +348,8 @@ final class BankFloat {
             boolean k = keepFiles;
             confirm = null;
             keepFiles = false;
-            if (BankHandler.complete(shell, q, false, k)) shell.dispose();
+            if (canSubmit(q)) openSubmit(q, true, k);   // "סיימתי" מגיש למורה לפני המחיקה
+            else if (BankHandler.complete(shell, q, false, k)) shell.dispose();
             else render();
         });
         yes.setData("dsviz.say", "primary");
@@ -313,6 +360,195 @@ final class BankFloat {
         });
         no.setData("dsviz.say", "cancel");
         shown.add("DONE-CONFIRM");
+    }
+
+    // ------------------------------------------------------------------ "הגשה למורה"
+
+    /** התיקייה (במחשב) של התרגיל האחרון שנוצר מהשאלה, או null */
+    private static java.io.File exerciseDir(BankStore.Question q) {
+        List<BankProgress.Created> all = BankProgress.get().createdOf(q.id);
+        if (all.isEmpty()) return null;
+        BankProgress.Created c = all.get(all.size() - 1);
+        if (BankHandler.createdFiles(c).isEmpty()) return null;
+        IResource r = ResourcesPlugin.getWorkspace().getRoot().findMember(new org.eclipse.core.runtime.Path(c.folder));
+        return r == null || r.getLocation() == null ? null : r.getLocation().toFile();
+    }
+
+    /** יש למי להגיש (תלמיד שמשויך למורה / עמדת מחשב), ויש תרגיל מהשאלה */
+    static boolean canSubmit(BankStore.Question q) {
+        try {
+            return Submit.available() && exerciseDir(q) != null;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** שינויים שעוד לא נשמרו בעורך נשמרים — כדי שמה שנבדק ונשלח יהיה הקוד שהתלמיד רואה */
+    private void saveEditors(BankStore.Question q) {
+        List<BankProgress.Created> all = BankProgress.get().createdOf(q.id);
+        if (all.isEmpty()) return;
+        for (IFile f : BankHandler.createdFiles(all.get(all.size() - 1))) {
+            try {
+                IEditorPart open = page.findEditor(new org.eclipse.ui.part.FileEditorInput(f));
+                if (open != null && open.isDirty()) open.doSave(null);
+            } catch (RuntimeException e) {
+                // לא נשמר מהעורך — נשלח מה שבדיסק
+            }
+        }
+    }
+
+    /** פותח את דף ההגשה, ובודק ברקע שהקוד נבנה ורץ (RunCheck). thenComplete — "סיימתי": אחרי ההגשה מסמנים ומוחקים */
+    void openSubmit(final BankStore.Question q, boolean thenComplete, boolean keep) {
+        final SubmitState st = new SubmitState();
+        st.thenComplete = thenComplete;
+        st.keep = keep;
+        saveEditors(q);
+        st.mainClass = AiScaffold.read(Json.obj(Json.parse(Json.write(q.exercise)))).mainClass;
+        st.files = BankSubmit.files(exerciseDir(q), ".java", st.mainClass);
+        submit = st;
+        submitNote = null;
+        submitResult = null;
+        render();
+        final Display d = shell.getDisplay();
+        Thread t = new Thread(() -> {
+            RunCheck.Result r;
+            try {
+                r = BankSubmit.check(q, st.files, st.mainClass, false, RunVisualHandler.libraryJar(), null, null);
+            } catch (Throwable x) {
+                r = new RunCheck.Result();
+            }
+            final RunCheck.Result result = r;
+            d.asyncExec(() -> {
+                st.check = result;
+                if (submit == st && !shell.isDisposed()) render();
+            });
+        }, "dsviz-submit-check");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** אפשר ללחוץ "הגשה": הבדיקה הסתיימה, יש קבצים, לא שולחים עכשיו, ובעמדה — נכתב שם */
+    private static boolean ready(SubmitState st) {
+        return st.check != null && !st.busy && !st.files.isEmpty() && (!"station".equals(Submit.mode()) || Submit.whoOk(st.who));
+    }
+
+    /** דף "הגשה למורה" (במקום השאלה): מה נשלח, תוצאת בדיקת ההרצה, ובעמדת מחשב — "שם המגיש" */
+    private void submitCard(final BankStore.Question q, final SubmitState st) {
+        Composite card = Look.card(body, BankQuestionPanel.wide());
+        BankQuestionPanel.text(card, Submit.label(), 1, SWT.BOLD, Look.TEXT, shown);
+        BankQuestionPanel.text(card, "התרגיל: " + q.title, 0, SWT.NORMAL, Look.TEXT, shown);
+        BankQuestionPanel.text(card, BankSubmit.filesLine(st.files), 0, SWT.NORMAL, Look.INK2, shown);
+        if (st.check == null) BankQuestionPanel.text(card, "בודק שהקוד נבנה ורץ…", 0, SWT.NORMAL, Look.MUTED, shown);
+        else {
+            String tone = st.check.tone();
+            int color = "good".equals(tone) ? Look.OK : "bad".equals(tone) ? Look.ERR : "warn".equals(tone) ? 0xB45309 : Look.MUTED;
+            BankQuestionPanel.text(card, ("good".equals(tone) ? "✓ " : "") + st.check.summary(), 0, SWT.BOLD, color, shown);
+            shown.add("SUBMIT-CHECK " + tone + " " + st.check.summary());
+            if (!st.check.error.isEmpty() && !st.check.timedOut) BankQuestionPanel.text(card, st.check.error, -1, SWT.NORMAL, Look.INK2, shown);
+            if (!"good".equals(tone) && !"none".equals(tone))
+                BankQuestionPanel.text(card, "אפשר לבטל, לתקן ולהגיש שוב — או להגיש כך: המורה יראה את הקוד ואת מה שקרה בהרצה.", 0, SWT.NORMAL, Look.INK2, shown);
+        }
+        final Look.Round[] yesRef = { null };
+        org.eclipse.swt.widgets.Text whoField = null;
+        if ("station".equals(Submit.mode())) {
+            BankQuestionPanel.text(card, "שם המגיש", 0, SWT.BOLD, Look.TEXT, shown);
+            final org.eclipse.swt.widgets.Text who = new org.eclipse.swt.widgets.Text(card, SWT.BORDER | SWT.SINGLE | SWT.RIGHT_TO_LEFT);
+            who.setText(st.who);
+            who.setFont(Look.font(body.getDisplay(), 0, SWT.NORMAL));
+            who.setTextLimit(Submit.WHO_MAX);
+            who.setEnabled(!st.busy);
+            who.setData("dsviz.id", "submit-who");
+            GridData wg = new GridData(SWT.BEGINNING, SWT.TOP, false, false);
+            wg.widthHint = 220;
+            who.setLayoutData(wg);
+            who.addModifyListener(e -> {
+                st.who = who.getText();
+                if (yesRef[0] != null && !yesRef[0].isDisposed()) yesRef[0].setEnabled(ready(st));
+            });
+            BankQuestionPanel.text(card, "כותבים את השם שלכם: המחשב הזה משמש כמה תלמידים.", -1, SWT.NORMAL, Look.MUTED, shown);
+            shown.add("SUBMIT-WHO");
+            whoField = who;
+        }
+        if (st.error != null) {
+            BankQuestionPanel.text(card, st.error, 0, SWT.NORMAL, Look.ERR, shown);
+            shown.add("SUBMIT-ERROR " + st.error);
+        }
+        Composite bar = new Composite(card, SWT.NONE);
+        GridLayout l = new GridLayout(3, false);
+        l.marginWidth = 0;
+        l.marginHeight = 8;
+        l.horizontalSpacing = 10;
+        bar.setLayout(l);
+        bar.setLayoutData(new GridData(SWT.BEGINNING, SWT.TOP, false, false));
+        Look.Round yes = new Look.Round(bar, st.busy ? "שולח…" : st.thenComplete ? "הגשה וסיום" : "הגשה", true, () -> send(q, st));
+        yes.setData("dsviz.say", "primary");
+        yes.setData("dsviz.id", "submit-yes");
+        yes.setEnabled(ready(st));
+        yesRef[0] = yes;
+        Look.Round no = new Look.Round(bar, "ביטול", false, () -> {
+            submit = null;
+            render();
+        });
+        no.setData("dsviz.say", "cancel");
+        no.setData("dsviz.id", "submit-no");
+        no.setEnabled(!st.busy);
+        if (st.thenComplete && st.error != null && !st.busy) {   // ההגשה לא עוברת — לא נועלים את "סיימתי"
+            Look.Round skip = new Look.Round(bar, "לסיים בלי להגיש", false, () -> {
+                submit = null;
+                if (BankHandler.complete(shell, q, false, st.keep)) shell.dispose();
+                else render();
+            });
+            skip.setData("dsviz.id", "submit-skip");
+        }
+        shown.add("SUBMIT-PAGE " + (st.check == null ? "checking" : st.check.tone()) + (st.thenComplete ? " then-complete" : ""));
+        if (submitResult != null) shown.add("SUBMIT-RESULT " + submitResult);
+        // הסמן בשדה "שם המגיש" (גם אחרי שהדף צויר מחדש כשהבדיקה הסתיימה), בסוף מה שכבר נכתב
+        final org.eclipse.swt.widgets.Text focus = whoField;
+        if (focus != null && focus.getEnabled()) body.getDisplay().asyncExec(() -> {
+            if (!focus.isDisposed() && shell.getDisplay().getActiveShell() == shell) {
+                focus.setFocus();
+                focus.setSelection(focus.getText().length());
+            }
+        });
+    }
+
+    /** שולח (ברקע). הצליח / נשמר לשליחה מאוחרת — חוזרים לשאלה עם "הוגש למורה ב-…" (או מסיימים את התרגיל); אחרת — ההודעה בדף */
+    private void send(final BankStore.Question q, final SubmitState st) {
+        if (!ready(st)) return;
+        st.busy = true;
+        st.error = null;
+        render();
+        BankStore.Topic topic = BankStore.load().topic(q.topic);
+        final Submit.Work w = BankSubmit.work(q, topic == null ? "" : topic.title, st.files, st.mainClass, ".java", "Eclipse");
+        w.who = st.who;
+        w.check = st.check.ran || st.check.needsInput ? st.check.toMap() : null;
+        final Display d = shell.getDisplay();
+        Thread t = new Thread(() -> {
+            Account.Result r;
+            try {
+                r = Submit.send(w);
+            } catch (Throwable x) {
+                r = new Account.Result("error", "ההגשה לא הצליחה. נסו שוב בעוד רגע.", null);
+            }
+            final Account.Result res = r;
+            d.asyncExec(() -> {
+                st.busy = false;
+                submitResult = res.status;
+                if (shell.isDisposed()) return;
+                if (res.ok() || "queued".equals(res.status)) {
+                    Submit.flushAsync();
+                    if (submit == st) submit = null;
+                    submitNote = Submit.doneText(res);
+                    if (st.thenComplete && BankHandler.complete(shell, q, false, st.keep)) shell.dispose();
+                    else render();
+                    return;
+                }
+                st.error = res.message.isEmpty() ? "ההגשה לא הצליחה. נסו שוב בעוד רגע." : res.message;
+                if (submit == st) render();
+            });
+        }, "dsviz-submit");
+        t.setDaemon(true);
+        t.start();
     }
 
     // ------------------------------------------------------------------ פעולות
