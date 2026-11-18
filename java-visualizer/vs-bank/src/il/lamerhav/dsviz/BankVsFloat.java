@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
@@ -48,6 +49,28 @@ final class BankVsFloat {
     static String confirm;
     /** בדף האישור: התלמיד בחר לשמור את קבצי התרגיל (ברירת המחדל — מחיקה) */
     static boolean keepFiles;
+    /** "הגשה למורה": הדף מוצג במקום השאלה (null — לא מגישים עכשיו). אחרי כל שינוי בו — render() */
+    static SubmitState submit;
+    /** אחרי הגשה: "הוגש למורה ב-10:42" — מוצג מעל "סיימתי את התרגיל" */
+    static String submitNote;
+    /** לבדיקות: איך הסתיימה ההגשה האחרונה (ok / queued / קוד השגיאה); null — עוד לא הייתה מאז שדף ההגשה נפתח */
+    static String submitResult;
+
+    /** מצב הדף "הגשה למורה" */
+    static final class SubmitState {
+        /** קובצי התרגיל (שם → תוכן), כמו שהיו כשהדף נפתח */
+        Map<String, String> files = new java.util.LinkedHashMap<String, String>();
+        String mainClass = "";
+        /** תוצאת בדיקת ההרצה; null — הבדיקה עוד רצה */
+        RunCheck.Result check;
+        /** "שם המגיש" (בעמדת מחשב) — ריק בכל הגשה חדשה, כדי שלא יוגש בטעות בשם של מי שישב קודם */
+        String who = "";
+        /** הודעה מהשרת כשההגשה לא עברה */
+        String error;
+        boolean busy;
+        /** "סיימתי את התרגיל": אחרי ההגשה מסמנים ומוחקים (keep — שומרים את הקבצים) */
+        boolean thenComplete, keep;
+    }
     private static Rectangle lastBounds;
     /** לבדיקות: מה מוצג */
     static final List<String> shown = new ArrayList<String>();
@@ -89,8 +112,10 @@ final class BankVsFloat {
     }
 
     static void show(BankStore.Question q) {
+        if (question == null || !question.id.equals(q.id)) submitNote = null;
         question = q;
         confirm = null;
+        submit = null;
         try {
             File f = lastFile();
             f.getParentFile().mkdirs();
@@ -251,7 +276,11 @@ final class BankVsFloat {
         page.add(top, BorderLayout.NORTH);
 
         JScrollPane question = null;
-        if (confirm != null) {
+        if (submit != null) {
+            page.add(submitPage(f, q, submit), BorderLayout.CENTER);
+            page.add(submitFooter(f, q, submit), BorderLayout.SOUTH);
+            shown.add("SUBMIT-PAGE " + (submit.check == null ? "checking" : submit.check.tone()) + (submit.thenComplete ? " then-complete" : ""));
+        } else if (confirm != null) {
             // "סיימתי את התרגיל": האישור בתוך החלון עצמו (במקום השאלה) — בלי חלון נוסף שמכסה אותו
             page.add(confirmPage(f, q, confirm), BorderLayout.CENTER);
             JPanel foot = RtlDialog.footer();
@@ -261,7 +290,8 @@ final class BankVsFloat {
                 boolean k = keepFiles;
                 confirm = null;
                 keepFiles = false;
-                if (BankVs.complete(f, q, false, k)) f.dispose();
+                if (canSubmit(q)) openSubmit(f, q, true, k);   // "סיימתי" מגיש למורה לפני המחיקה
+                else if (BankVs.complete(f, q, false, k)) f.dispose();
                 else render();
             });
             no.addActionListener(e -> {
@@ -323,13 +353,43 @@ final class BankVsFloat {
                 }
             });
             foot.add(db, BorderLayout.CENTER);
+            // "הגשה למורה" — רק למי שיש לו למי להגיש (תלמיד שמשויך למורה, או עמדת מחשב של הכיתה), וכשיש תרגיל
+            if (canSubmit(q)) {
+                JPanel up = BankVsPanel.column();
+                javax.swing.JButton send = RtlDialog.secondary(Submit.label());
+                send.putClientProperty("dsviz.id", "submit-open");
+                send.setAlignmentX(Component.RIGHT_ALIGNMENT);
+                send.addActionListener(e -> openSubmit(f, q, false, false));
+                JPanel row = new JPanel(new BorderLayout());
+                row.setOpaque(false);
+                row.setAlignmentX(Component.RIGHT_ALIGNMENT);
+                row.add(send, BorderLayout.CENTER);
+                up.add(row);
+                if (submitNote != null) {
+                    up.add(RtlDialog.gap(4));
+                    up.add(RtlDialog.label(submitNote, RtlDialog.small(), RtlDialog.GREEN));
+                    shown.add("SUBMIT-NOTE " + submitNote);
+                }
+                up.add(RtlDialog.gap(8));
+                foot.add(up, BorderLayout.NORTH);
+                shown.add("SUBMIT-BUTTON " + Submit.label());
+            }
             page.add(foot, BorderLayout.SOUTH);
             shown.add("DONE-BUTTON " + (done ? "done" : "todo"));
             for (BankStore.Section s : q.sections) shown.add("SECTION " + s.label);
         }
 
+        if (submit == null) whoField = null;
+        if (submitResult != null) shown.add("SUBMIT-RESULT " + submitResult);
         f.setContentPane(page);
         RtlDialog.rtl(page);
+        final javax.swing.JTextField wf = whoField;
+        if (wf != null) SwingUtilities.invokeLater(() -> {
+            if (wf.isShowing() && wf.isEnabled()) {
+                wf.requestFocusInWindow();
+                wf.setCaretPosition(wf.getText().length());
+            }
+        });
         // אחרי החלפת התוכן בחלון שכבר מוצג (למשל אחרי שינוי בסימון) — פריסה מחדש של כל החלון; בלי זה החלון נשאר ריק (לבן)
         f.getRootPane().revalidate();
         f.validate();
@@ -341,12 +401,211 @@ final class BankVsFloat {
         });
     }
 
+    // ------------------------------------------------------------------ "הגשה למורה"
+
+    /** יש למי להגיש (תלמיד שמשויך למורה / עמדת מחשב), ויש תרגיל מהשאלה */
+    static boolean canSubmit(BankStore.Question q) {
+        return Submit.available() && !BankVs.projects(q).isEmpty();
+    }
+
+    /** פותח את דף ההגשה, ובודק ברקע שהקוד נבנה ורץ (RunCheck). thenComplete — "סיימתי": אחרי ההגשה מסמנים ומוחקים */
+    static void openSubmit(final JFrame f, final BankStore.Question q, boolean thenComplete, boolean keep) {
+        final SubmitState st = new SubmitState();
+        st.thenComplete = thenComplete;
+        st.keep = keep;
+        List<File> projects = BankVs.projects(q);
+        final File dir = projects.isEmpty() ? null : projects.get(projects.size() - 1);
+        st.mainClass = AiScaffold.read(Json.obj(Json.parse(Json.write(q.exercise)))).mainClass;
+        st.files = BankSubmit.files(dir, BankVs.ext(), st.mainClass);
+        submit = st;
+        submitNote = null;
+        submitResult = null;
+        render();
+        new javax.swing.SwingWorker<RunCheck.Result, Void>() {
+            @Override
+            protected RunCheck.Result doInBackground() {
+                return BankSubmit.check(q, st.files, st.mainClass, !BankVs.ij, BankVs.lib, BankVs.javaExe, VsSubmit.dsvizCs());
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    st.check = get();
+                } catch (Exception e) {
+                    st.check = new RunCheck.Result();
+                }
+                if (submit == st && f.isDisplayable()) render();
+            }
+        }.execute();
+    }
+
+    /** דף "הגשה למורה": מה נשלח, תוצאת בדיקת ההרצה, ובעמדת מחשב — "שם המגיש" */
+    static JComponent submitPage(final JFrame f, final BankStore.Question q, final SubmitState st) {
+        JPanel card = BankVsPanel.column();
+        card.add(RtlDialog.heading(RtlDialog.Kind.INFO, Submit.label()));
+        card.add(RtlDialog.gap(10));
+        card.add(RtlDialog.rich("התרגיל: " + q.title, WIDTH - 90, RtlDialog.INK, true));
+        card.add(RtlDialog.gap(4));
+        card.add(RtlDialog.rich(BankSubmit.filesLine(st.files), WIDTH - 90, RtlDialog.INK_2, true));
+        card.add(RtlDialog.gap(12));
+        // בדיקת ההרצה
+        if (st.check == null) card.add(RtlDialog.label("בודק שהקוד נבנה ורץ…", RtlDialog.ui(), RtlDialog.MUTED));
+        else {
+            String tone = st.check.tone();
+            shown.add("SUBMIT-CHECK " + tone + " " + st.check.summary());
+            Color c = "good".equals(tone) ? RtlDialog.GREEN : "bad".equals(tone) ? RtlDialog.RED : "warn".equals(tone) ? new Color(0xB45309) : RtlDialog.MUTED;
+            card.add(RtlDialog.rich(("good".equals(tone) ? "✓ " : "") + st.check.summary(), WIDTH - 90, c, true));
+            if (!st.check.errors.isEmpty()) {   // שגיאות קומפילציה: הקובץ והשורה, ההסבר בעברית, וההודעה המקורית
+                for (String e : st.check.errors.subList(0, Math.min(3, st.check.errors.size()))) {
+                    card.add(RtlDialog.gap(6));
+                    card.add(RtlDialog.errorCard(e, WIDTH - 90));
+                }
+            } else if (!st.check.error.isEmpty() && !st.check.timedOut) {
+                card.add(RtlDialog.gap(6));
+                card.add(RtlDialog.codeBlock(st.check.error, WIDTH - 110));
+            }
+            if (!"good".equals(tone) && !"none".equals(tone)) {
+                card.add(RtlDialog.gap(6));
+                card.add(RtlDialog.rich("אפשר לבטל, לתקן ולהגיש שוב — או להגיש כך: המורה יראה את הקוד ואת מה שקרה בהרצה.", WIDTH - 90, RtlDialog.INK_2, true));
+            }
+        }
+        // בעמדת מחשב: שם המגיש (חובה)
+        if ("station".equals(Submit.mode())) {
+            card.add(RtlDialog.gap(14));
+            card.add(RtlDialog.label("שם המגיש", RtlDialog.bold(), RtlDialog.INK));
+            card.add(RtlDialog.gap(4));
+            final javax.swing.JTextField who = new javax.swing.JTextField(st.who, 18);
+            who.putClientProperty("dsviz.id", "submit-who");
+            who.setFont(RtlDialog.ui());
+            who.setComponentOrientation(java.awt.ComponentOrientation.RIGHT_TO_LEFT);
+            who.setHorizontalAlignment(javax.swing.JTextField.RIGHT);
+            who.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            who.setMaximumSize(new java.awt.Dimension(260, who.getPreferredSize().height + 6));
+            who.setEnabled(!st.busy);
+            who.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                void changed() {
+                    st.who = who.getText();
+                    javax.swing.JButton yes = whoButton;
+                    if (yes != null) yes.setEnabled(ready(st));
+                }
+
+                @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { changed(); }
+                @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { changed(); }
+                @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { changed(); }
+            });
+            card.add(who);
+            card.add(RtlDialog.gap(4));
+            card.add(RtlDialog.label("כותבים את השם שלכם: המחשב הזה משמש כמה תלמידים.", RtlDialog.small(), RtlDialog.MUTED));
+            shown.add("SUBMIT-WHO");
+            whoField = who;
+        } else whoField = null;
+        if (st.error != null) {
+            card.add(RtlDialog.gap(12));
+            card.add(RtlDialog.rich(st.error, WIDTH - 90, RtlDialog.RED, true));
+            shown.add("SUBMIT-ERROR " + st.error);
+        }
+        RtlDialog.Panel box = new RtlDialog.Panel(new BorderLayout(), Color.WHITE, RtlDialog.LINE);
+        box.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+        box.add(card, BorderLayout.CENTER);
+        JPanel holder = new JPanel(new BorderLayout());
+        holder.setBackground(RtlDialog.PAGE);
+        holder.setBorder(BorderFactory.createEmptyBorder(10, 14, 14, 14));
+        holder.add(box, BorderLayout.NORTH);
+        JScrollPane sp = new JScrollPane(holder, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        sp.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, RtlDialog.LINE));
+        sp.getViewport().setBackground(RtlDialog.PAGE);
+        return sp;
+    }
+
+    /** הכפתור "הגשה" של הדף שמוצג עכשיו — "שם המגיש" מפעיל אותו בלי לצייר את הדף מחדש (כדי שההקלדה לא תיקטע) */
+    private static javax.swing.JButton whoButton;
+    /** השדה "שם המגיש" של הדף שמוצג עכשיו (או null) — אחרי שהדף מצויר מחדש (הבדיקה הסתיימה) הסמן חוזר אליו, בסוף מה שנכתב */
+    private static javax.swing.JTextField whoField;
+
+    /** אפשר ללחוץ "הגשה": הבדיקה הסתיימה, יש קבצים, לא שולחים עכשיו, ובעמדה — נכתב שם */
+    static boolean ready(SubmitState st) {
+        return st.check != null && !st.busy && !st.files.isEmpty() && (!"station".equals(Submit.mode()) || Submit.whoOk(st.who));
+    }
+
+    static JPanel submitFooter(final JFrame f, final BankStore.Question q, final SubmitState st) {
+        JPanel foot = RtlDialog.footer();
+        final javax.swing.JButton yes = RtlDialog.primary(st.busy ? "שולח…" : st.thenComplete ? "הגשה וסיום" : "הגשה"), no = RtlDialog.secondary("ביטול");
+        yes.putClientProperty("dsviz.id", "submit-yes");
+        yes.setEnabled(ready(st));
+        whoButton = yes;
+        yes.addActionListener(e -> send(f, q, st));
+        no.setEnabled(!st.busy);
+        no.addActionListener(e -> {
+            submit = null;
+            render();
+        });
+        foot.add(yes);
+        foot.add(no);
+        if (st.thenComplete && st.error != null && !st.busy) {   // ההגשה לא עוברת — לא נועלים את "סיימתי"
+            javax.swing.JButton skip = RtlDialog.link("לסיים בלי להגיש");
+            skip.putClientProperty("dsviz.id", "submit-skip");
+            skip.addActionListener(e -> {
+                submit = null;
+                if (BankVs.complete(f, q, false, st.keep)) f.dispose();
+                else render();
+            });
+            foot.add(skip);
+        }
+        return foot;
+    }
+
+    /** שולח (ברקע). הצליח / נשמר לשליחה מאוחרת — חוזרים לשאלה עם "הוגש למורה ב-…" (או מסיימים את התרגיל); אחרת — ההודעה בדף */
+    static void send(final JFrame f, final BankStore.Question q, final SubmitState st) {
+        if (!ready(st)) return;
+        st.busy = true;
+        st.error = null;
+        render();
+        final Submit.Work w = BankSubmit.work(q, BankVs.topicTitle(q.topic), st.files, st.mainClass, BankVs.ext(), BankVs.ide());
+        w.who = st.who;
+        w.check = st.check.ran || st.check.needsInput ? st.check.toMap() : null;
+        new javax.swing.SwingWorker<Account.Result, Void>() {
+            @Override
+            protected Account.Result doInBackground() {
+                return Submit.send(w);
+            }
+
+            @Override
+            protected void done() {
+                Account.Result r;
+                try {
+                    r = get();
+                } catch (Exception e) {
+                    r = new Account.Result("error", "ההגשה לא הצליחה. נסו שוב בעוד רגע.", null);
+                }
+                st.busy = false;
+                submitResult = r.status;
+                if (r.ok() || "queued".equals(r.status)) {
+                    Submit.flushAsync();
+                    if (submit == st) submit = null;
+                    submitNote = Submit.doneText(r);
+                    if (st.thenComplete) {
+                        if (BankVs.complete(f, q, false, st.keep)) f.dispose();
+                        else if (f.isDisplayable()) render();
+                    } else if (f.isDisplayable()) render();
+                    return;
+                }
+                st.error = r.message.isEmpty() ? "ההגשה לא הצליחה. נסו שוב בעוד רגע." : r.message;
+                if (submit == st && f.isDisplayable()) render();
+            }
+        }.execute();
+    }
+
     /** דף האישור של "סיימתי את התרגיל": כותרת, מה יקרה ומה יימחק */
     static JComponent confirmPage(JFrame f, BankStore.Question q, String text) {
         JPanel card = BankVsPanel.column();
         card.add(RtlDialog.heading(RtlDialog.Kind.OK, "סיימתי את התרגיל"));
         card.add(RtlDialog.gap(10));
         card.add(RtlDialog.rich("השאלה תסומן בסימן ירוק. מה לעשות עם קבצי התרגיל?", WIDTH - 90, RtlDialog.INK, true));
+        if (canSubmit(q)) {   // "סיימתי" מגיש למורה לפני המחיקה
+            card.add(RtlDialog.gap(6));
+            card.add(RtlDialog.rich("לפני הסיום התרגיל יוגש " + (Submit.teacher().isEmpty() ? "למורה" : "למורה " + Submit.teacher()) + ".", WIDTH - 90, RtlDialog.ACCENT_2, true));
+            shown.add("DONE-SUBMITS");
+        }
         card.add(RtlDialog.gap(6));
         // למחוק (ברירת המחדל — כדי שלא יצטברו תרגילים ישנים) או לשמור ולהמשיך לעבוד עליהם
         javax.swing.ButtonGroup group = new javax.swing.ButtonGroup();

@@ -92,7 +92,14 @@ public class RunCheckTest {
             r = RunCheck.cs(files("Program.cs", prog), cs, "sum: 7");
             check("C#: פלט שונה", r.ran && Boolean.FALSE.equals(r.outputMatch) && r.output.equals("sum: 6") && r.expected.equals("sum: 7"), show(r));
             r = RunCheck.cs(files("Program.cs", prog.replace("return s;", "return s")), cs, "sum: 6");
-            check("C#: שגיאת קומפילציה — עם השגיאה, בלי הנתיב של התיקייה הזמנית", r.ran && Boolean.FALSE.equals(r.compiles) && r.error.contains("error CS") && !r.error.contains("dsviz-submit"), show(r));
+            check("C#: שגיאת קומפילציה — הקובץ, השורה וההודעה (בלי הנתיב של התיקייה הזמנית); השגיאה הגולמית עם הקוד שלה", r.ran && Boolean.FALSE.equals(r.compiles)
+                    && r.error.startsWith("Program.cs, שורה 6:") && !r.error.contains("dsviz-submit") && r.errors.size() == 1 && r.errors.get(0).matches("Program\\.cs:6: .*\\[CS1002\\]"), show(r) + " " + r.errors);
+            RunCheck.explainer = (message, code) -> "CS1002".equals(code) ? "חסר ; בסוף הפקודה" : "missing return statement".equals(message) ? "חסרה הוראת return" : "";
+            r = RunCheck.cs(files("Program.cs", prog.replace("return s;", "return s")), cs, "sum: 6");
+            check("C#: עם הסבר בעברית (כמו בכלי של Visual Studio) — 'חסר ; … (; expected)'", r.error.equals("Program.cs, שורה 6: חסר ; בסוף הפקודה (; expected)"), r.error);
+            r = RunCheck.java(files("M.java", "public class M {\n    static int f() { }\n    public static void main(String[] a) { }\n}\n"), "M", lib, null, "");
+            check("Java: עם הסבר בעברית — 'חסרה הוראת return (missing return statement)' / ההודעה של ecj", r.error.startsWith("M.java, שורה 2:") && Boolean.FALSE.equals(r.compiles), r.error);
+            RunCheck.explainer = (message, code) -> "";
             r = RunCheck.cs(files("Program.cs", prog.replace("Console.WriteLine(\"sum: \" + Sum(new int[] { 1, 2, 3 }));", "Console.WriteLine(int.Parse(Console.ReadLine()) * 2);")), cs, "");
             check("C#: מחכה לקלט — לא מורץ, מסומן needsInput", !r.ran && r.needsInput && r.error.isEmpty(), show(r));
             t0 = System.currentTimeMillis();

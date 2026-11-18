@@ -215,6 +215,7 @@ public final class BankVs {
         if (System.getProperty("dsviz.bankProgress") == null)
             System.setProperty("dsviz.bankProgress", Paths.get(System.getProperty("user.home"), ".dsviz", "bank-progress-" + key() + ".json").toString());
         root = r.toAbsolutePath();
+        RunCheck.explainer = RtlDialog::explain;   // "הגשה למורה": שגיאות הקומפילציה עם ההסבר בעברית
         if (!bridged()) CsSolution.openIde = (sln, csproj) -> inOpenVs("add", sln, csproj.toString());
         cleanPending();
         SwingUtilities.invokeAndWait(() -> {

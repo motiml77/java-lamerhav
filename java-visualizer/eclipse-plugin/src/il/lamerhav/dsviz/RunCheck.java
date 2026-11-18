@@ -27,6 +27,25 @@ final class RunCheck {
     /** dsviz-cs מקמפל בעצמו לפני ההרצה — הזמן הזה לא נספר בתוך 10 השניות של התוכנית */
     static final int CS_COMPILE_SEC = 20;
 
+    /**
+     * ההסבר בעברית להודעה של הקומפיילר: (הודעה, קוד השגיאה ב-C# או "") → הסבר, או "" כשאין. הכלי של Visual Studio / VS Code /
+     * IntelliJ מחבר לכאן את RtlDialog.explain; בלי חיבור — ההודעה של הקומפיילר כמו שהיא.
+     */
+    static java.util.function.BiFunction<String, String, String> explainer = (message, code) -> "";
+
+    /** "Targil.java:12: missing return statement" → "Targil.java, שורה 12: חסרה הוראת return... (missing return statement)" */
+    static String hebrewLine(String e) {
+        Matcher m = Pattern.compile("^([^:\\n]+\\.(?:java|cs)):(\\d+):\\s*(?:error:\\s*)?(.*?)(?:\\s+\\[(CS\\d+)\\])?\\s*$", Pattern.DOTALL).matcher(e);
+        if (!m.find()) return e;
+        String msg = m.group(3).trim(), he = "";
+        try {
+            he = explainer.apply(msg, m.group(4) == null ? "" : m.group(4));
+        } catch (RuntimeException | LinkageError x) {
+            // בלי הסבר
+        }
+        return m.group(1) + ", שורה " + m.group(2) + ": " + (he == null || he.isEmpty() ? msg : he + " (" + msg + ")");
+    }
+
     static final class Result {
         /** הבדיקה נעשתה (גם אם הקוד לא התקמפל). false — לא נבדק: אין קומפיילר, או שהתוכנית מחכה לקלט */
         boolean ran;
@@ -34,6 +53,8 @@ final class RunCheck {
         /** null — לא ידוע */
         Boolean compiles, outputMatch;
         String error = "", output = "", expected = "";
+        /** שגיאות הקומפילציה, כל אחת "Targil.java:12: הודעה" (ב-C# גם "   [CS1002]" בסוף) — לתצוגה בכרטיסים (RtlDialog.errorCard) */
+        final List<String> errors = new ArrayList<String>();
 
         /** השדה check של ההגשה (worker/src/access/classroom.js — cleanCheck) */
         Map<String, Object> toMap() {
@@ -137,7 +158,8 @@ final class RunCheck {
             r.compiles = errors.isEmpty();
             if (!errors.isEmpty()) {
                 StringBuilder b = new StringBuilder();
-                for (String e : errors.subList(0, Math.min(6, errors.size()))) b.append(b.length() == 0 ? "" : "\n").append(hebrewLine(e));
+                r.errors.addAll(errors.subList(0, Math.min(6, errors.size())));
+                for (String e : r.errors) b.append(b.length() == 0 ? "" : "\n").append(hebrewLine(e.replaceAll("\\s+\\[[^\\]]*\\]\\s*$", "")));
                 r.error = cut(b.toString(), MAX_ERROR);
                 r.expected = cut(SolutionCheck.clean(expected), MAX_OUTPUT);
                 return r;
@@ -205,10 +227,19 @@ final class RunCheck {
                 r.ran = true;
                 r.compiles = false;
                 StringBuilder b = new StringBuilder();
-                for (String line : all.replace(work.getAbsolutePath() + File.separator, "").split("\n")) {
-                    if (line.trim().isEmpty() || line.startsWith("errors:")) continue;
-                    if (b.length() > 0) b.append('\n');
-                    b.append(line.trim());
+                Matcher em = Pattern.compile("(?m)^\\s*(.+?\\.cs)\\((\\d+),\\d+\\): error (CS\\d+): (.*)$").matcher(all.replace(work.getAbsolutePath() + File.separator, ""));
+                while (em.find() && r.errors.size() < 6) {
+                    String raw = new File(em.group(1)).getName() + ":" + em.group(2) + ": " + em.group(4).trim() + "   [" + em.group(3) + "]";
+                    if (r.errors.contains(raw)) continue;
+                    r.errors.add(raw);
+                    b.append(b.length() == 0 ? "" : "\n").append(hebrewLine(raw));
+                }
+                if (r.errors.isEmpty()) {   // פורמט אחר — הטקסט כמו שהוא
+                    for (String line : all.replace(work.getAbsolutePath() + File.separator, "").split("\n")) {
+                        if (line.trim().isEmpty() || line.startsWith("errors:")) continue;
+                        if (b.length() > 0) b.append('\n');
+                        b.append(line.trim());
+                    }
                 }
                 r.error = cut(firstLines(b.toString(), 8), MAX_ERROR);
                 return r;
@@ -240,12 +271,6 @@ final class RunCheck {
         } finally {
             if (work != null) delete(work);
         }
-    }
-
-    /** "Targil.java:12: ..." → "Targil.java, שורה 12: ..." */
-    static String hebrewLine(String e) {
-        Matcher m = Pattern.compile("^([^:\\n]+\\.(?:java|cs)):(\\d+):\\s*(?:error:\\s*)?(.*)$", Pattern.DOTALL).matcher(e);
-        return m.find() ? m.group(1) + ", שורה " + m.group(2) + ": " + m.group(3).trim() : e;
     }
 
     private static String firstLines(String s, int n) {
