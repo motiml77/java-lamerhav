@@ -66,7 +66,7 @@
 
     function newTask(cs) {
         return { cs: cs, label: '', kind: 'method', className: '', returnType: 'void', methodName: '', instructions: '',
-                 solution: '', isStatic: true, params: [] };   // params: [{type, name}]
+                 solution: '', isStatic: true, modifier: '', params: [] };   // params: [{type, name}]; modifier — C# בלבד: override / virtual
     }
 
     function newExercise() {
@@ -139,6 +139,8 @@
             }
             t.isStatic = get(m, 'isStatic') !== false && !isCtor(t);
             if (t.className === main && !isCtor(t)) t.isStatic = true;   // במחלקה הראשית: פעולות סטטיות שנקראות מ-main
+            const mod = trim(jstr(get(m, 'modifier')));
+            if (cs && !t.isStatic && !isCtor(t) && (mod === 'override' || mod === 'virtual')) t.modifier = mod;
             t.instructions = trim(jstr(get(m, 'instructions')));
             const pnames = new Set();
             for (const po of jarr(get(m, 'parameters'))) {
@@ -438,6 +440,7 @@
     function header(t) {
         let sig = 'public ';
         if (t.isStatic) sig += 'static ';
+        if (t.modifier) sig += t.modifier + ' ';
         if (!isCtor(t)) sig += t.returnType + ' ';
         sig += t.methodName + '(';
         for (let i = 0; i < t.params.length; i++) {

@@ -64,6 +64,11 @@ final class AiScaffold {
         /** ההצעה לפתרון (הפעולה כולה — כותרת וגוף). לא נכנסת לקוד של התלמיד: נשמרת בצד ונפתחת רק בלחיצה על "הצעה לפתרון" */
         String solution = "";
         boolean isStatic = true;
+        /**
+         * ב-C# בלבד: "override" (פעולה שדורסת פעולה של מחלקת העל — ToString, Say...) או "virtual" (פעולה שמחלקה יורשת דורסת), או "".
+         * נכנס לכותרת (public override string Say()) — במעטפת, בהצעה לפתרון וב"הכן סעיף ב". ב-Java אין צורך (כל פעולה ניתנת לדריסה)
+         */
+        String modifier = "";
         final List<String[]> params = new ArrayList<String[]>();   // {טיפוס, שם}
 
         boolean constructor() { return "constructor".equals(kind); }
@@ -159,6 +164,8 @@ final class AiScaffold {
             }
             t.isStatic = !Boolean.FALSE.equals(m.get("isStatic")) && !t.constructor();
             if (t.className.equals(main) && !t.constructor()) t.isStatic = true;   // במחלקה הראשית: פעולות סטטיות שנקראות מ-main
+            String mod = Json.str(m.get("modifier")).trim();
+            if (cs && !t.isStatic && !t.constructor() && (mod.equals("override") || mod.equals("virtual"))) t.modifier = mod;
             t.instructions = Json.str(m.get("instructions")).trim();
             Set<String> pnames = new HashSet<String>();
             for (Object po : Json.arr(m.get("parameters"))) {
@@ -538,6 +545,7 @@ final class AiScaffold {
     static String header(Task t) {
         StringBuilder sig = new StringBuilder("public ");
         if (t.isStatic) sig.append("static ");
+        if (!t.modifier.isEmpty()) sig.append(t.modifier).append(' ');
         if (!t.constructor()) sig.append(t.returnType).append(' ');
         sig.append(t.methodName).append('(');
         for (int i = 0; i < t.params.size(); i++) {

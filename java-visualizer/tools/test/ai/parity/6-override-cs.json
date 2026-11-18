@@ -1,0 +1,47 @@
+{
+ "language": "csharp",
+ "title": "הורשה",
+ "topic": "inheritance",
+ "mainClass": "Program",
+ "classes": [
+  { "name": "Animal", "code": "public class Animal\n{\n    public virtual string Say() { return \"חיה\"; }\n}" },
+  { "name": "Dog", "code": "public class Dog : Animal\n{\n}" }
+ ],
+ "tasks": [
+  {
+   "label": "א",
+   "kind": "method",
+   "className": "Dog",
+   "isStatic": false,
+   "modifier": "override",
+   "returnType": "string",
+   "methodName": "Say",
+   "parameters": [],
+   "instructions": "דריסה",
+   "solution": "public string Say()\n{\n    return \"כלב\";\n}"
+  },
+  {
+   "label": "ב",
+   "kind": "method",
+   "className": "Animal",
+   "isStatic": false,
+   "modifier": "virtual",
+   "returnType": "int",
+   "methodName": "Legs",
+   "parameters": [],
+   "instructions": "וירטואלית"
+  },
+  {
+   "label": "ג",
+   "kind": "method",
+   "className": "Program",
+   "modifier": "override",
+   "returnType": "int",
+   "methodName": "Count",
+   "parameters": [{ "type": "Animal[]", "name": "zoo" }],
+   "instructions": "סטטית — בלי modifier"
+  }
+ ],
+ "mainCode": "Console.WriteLine(new Dog().Say());",
+ "expectedOutput": "כלב"
+}
