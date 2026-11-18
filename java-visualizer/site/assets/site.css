@@ -690,6 +690,15 @@ html:not(.js) .fp-pane { grid-area: auto; border-bottom: 1px solid var(--line); 
 .page h2 { font-size: var(--t-18); margin: var(--s-32) 0 var(--s-8); }
 .page .cta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-16); margin-top: var(--s-32); }
 
+/* מדריך קצר (inheritance.html): צילומים מחלון ההרצה, רשימות וטבלה */
+.guide ul, .guide ol { padding-inline-start: 22px; line-height: 1.7; }
+.guide li + li { margin-top: var(--s-4); }
+.guide .shot { margin: var(--s-16) 0; display: grid; justify-items: center; gap: var(--s-8); }
+.guide .shot img { max-width: 100%; height: auto; background: #fff; border: 1px solid var(--line-2); border-radius: var(--r-win); }
+.guide .shot figcaption { font-size: var(--t-14); color: var(--muted); text-align: center; }
+.guide .envs { margin-top: var(--s-12); }
+.guide code { unicode-bidi: isolate; direction: ltr; }   /* super(...) ולא (...)super */
+
 /* ---------- מדריך ההתקנה (install.html): תוכן עניינים בצד, כמו דפי תיעוד */
 .docs { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-48); padding-block: var(--s-48) var(--s-96); }
 @media (min-width: 1000px) { .docs { grid-template-columns: 220px minmax(0, 1fr); gap: var(--s-64); } }

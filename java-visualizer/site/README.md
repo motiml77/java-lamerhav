@@ -1,6 +1,8 @@
 # האתר של DSViz
 
-עמוד ראשי (`index.html`), מדריך התקנה לכל סביבה (`install.html`), `bagrut.html` (שאלת בגרות לקוד), `privacy.html` ו-`404.html`.
+עמוד ראשי (`index.html`), מדריך התקנה לכל סביבה (`install.html`), `bagrut.html` (שאלת בגרות לקוד), `inheritance.html` (הורשה ופולימורפיזם
+בהרצה הוויזואלית — מדריך קצר למורים, מקושר מ-`#run`; הצילומים `assets/img/poly-*.webp` הם הציור האמיתי מ-`tools/test/objects/PolyPaintCheck.java`),
+`privacy.html` ו-`404.html`.
 בלי שלב בנייה: HTML, CSS ו-JS רגילים. העיצוב והכללים שלו, ולמה הוא לא נראה "עשוי ב-AI": [DESIGN.md](DESIGN.md).
 
 - **ההדגמה בראש העמוד** (`assets/demo.js`): ההרצה של `countEven` צעד אחרי צעד. הצעדים מחושבים מהקוד עצמו בדפדפן,

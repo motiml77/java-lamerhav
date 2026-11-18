@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSViz: הורשה ופולימורפיזם בהרצה הוויזואלית</title>
+<meta name="description" content="מדריך קצר למורים: איך ההרצה הוויזואלית מציגה הורשה, דריסה, המרות, instanceof ותרשים מחלקות, ב-Java וב-C#.">
+<meta name="theme-color" content="#FAFAFB">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="he_IL">
+<meta property="og:site_name" content="DSViz">
+<meta property="og:title" content="הורשה ופולימורפיזם בהרצה הוויזואלית: DSViz">
+<meta property="og:description" content="מדריך קצר למורים: קופסאות בתוך קופסאות, הפניה כחלון, מותר? / מה רץ?, המרות ותרשים מחלקות.">
+<meta property="og:image" content="https://motiml77.github.io/java-lamerhav/assets/og.png">
+<link rel="canonical" href="https://motiml77.github.io/java-lamerhav/inheritance.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>!function(d){var q=/[?&]os=(mac|win|other)\b/.exec(location.search),n=navigator,p=(n.userAgentData&&n.userAgentData.platform)||n.platform||"";d.setAttribute("data-os",q?q[1]:/mac/i.test(p)&&!(n.maxTouchPoints>1)?"mac":/win/i.test(p)||/Windows/.test(n.userAgent)?"win":"other");d.className+=" js"}(document.documentElement)</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">דילוג לתוכן</a>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="mark" href="./" aria-label="DSViz, לעמוד הראשי">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="7" y="14" width="10" height="3.4" rx=".8" fill="currentColor"/><rect x="7" y="9.4" width="10" height="3.4" rx=".8" fill="#E8A100"/></svg>
+      DSViz
+    </a>
+    <nav aria-label="ניווט באתר">
+      <a href="./#exercise">שליחת תרגיל</a>
+      <a href="./#run">הרצה ויזואלית</a>
+      <a href="./#playground">נסו בעצמכם</a>
+      <a class="nav-opt" href="./#errors">הסברים בעברית</a>
+      <a href="bagrut.html">שאלת בגרות לקוד</a>
+      <a href="install.html">התקנה</a>
+    </nav>
+    <div class="bar-end">
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="180" height="34"></a>
+      <a class="btn btn-sm dl-win" href="https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe">הורדה</a>
+      <a class="btn btn-sm dl-mac" href="install.html#mac">התקנה ל-Mac</a>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="wrap page guide">
+<h1>הורשה ופולימורפיזם בהרצה הוויזואלית</h1>
+<p>מדריך קצר למורים. כשבתוכנית יש מחלקה שיורשת ממחלקה אחרת שהתלמידים כתבו, למשל <code>class Dog extends Animal</code> וב-<bdi>C#</bdi> <code>class Dog : Animal</code>, ההרצה הוויזואלית מציירת את העצמים אחרת. מחלקה שלא נמצאת בשום היררכיה נשארת הכרטיס הרגיל. הכול עובד באותה צורה ב-Java וב-<bdi>C#</bdi>.</p>
+
+<h2>העצם: קופסה בתוך קופסה</h2>
+<figure class="shot">
+  <img src="assets/img/poly-boxes-hatched.webp" alt="עצם מהמחלקה Dog: קופסה סגולה של Dog בתוך קופסה אדומה של Animal. התגית pet : Animal על הקופסה של Animal, התגית d : Dog על הקופסה של Dog, והקופסה של Dog מכוסה בפסים עם הכיתוב: לא נראה דרך pet" width="314" height="392" loading="lazy">
+  <figcaption><code>Animal pet = d;</code> העצם הוא Dog. דרך pet רואים רק את החלק של Animal.</figcaption>
+</figure>
+<ul>
+  <li>מחלקת העל בחוץ, וכל מחלקה יורשת בתוך מחלקת העל שלה. הקופסה הפנימית ביותר היא המחלקה של העצם.</li>
+  <li>בכל קופסה: המאפיינים שהמחלקה עצמה הגדירה, קו מקווקו, ואז הבנאי והפעולות שלה.</li>
+  <li>צבע אחד לכל מחלקה, ואותו צבע בכל מקום שהיא מופיעה: הקופסה, התגית של ההפניה, התא במערך, תרשים המחלקות ומעקב המשתנים. שם המחלקה תמיד כתוב ליד הצבע.</li>
+  <li>פעולה שמחלקה פנימית דורסת מסומנת בקו חוצה (בדוגמה: <code>say()</code> של Animal). ב-<bdi>C#</bdi> רק <code>override</code> נחשב דריסה.</li>
+  <li>בזמן הבנייה הקופסאות מתמלאות מבחוץ פנימה: הבנאי של מחלקת העל רץ קודם, וקופסה שהבנאי שלה עוד לא רץ מעומעמת.</li>
+</ul>
+
+<h2>ההפניה היא חלון</h2>
+<ul>
+  <li>כל משתנה שמצביע על העצם הוא תגית <code>שם : טיפוס</code>, שיושבת על הקופסה של הטיפוס <b>המוצהר</b> שלו. כמה משתנים על אותו עצם הם כמה תגיות על אותן קופסאות, ולא כמה עצמים.</li>
+  <li>כשהשורה משתמשת בהפניה שהטיפוס שלה שונה מהמחלקה של העצם, הקופסאות שלא נראות דרכה מכוסות בפסים: "לא נראה דרך pet". זה מה שהמהדר בודק: פעולה שנמצאת רק בחלק המפוספס היא שגיאת הידור, גם אם העצם עצמו יודע לעשות אותה.</li>
+  <li>על <code>this</code> אין פסים. התגית שלו יושבת על הקופסה של הפעולה שרצה עכשיו, גם כשזו פעולה של מחלקת העל.</li>
+</ul>
+
+<h2>"מותר? / מה רץ?"</h2>
+<p>בקריאה לפעולה שמוגדרת ביותר ממחלקה אחת בשרשרת של העצם, נפתח בראש התצוגה חלון קטן עם שתי שאלות:</p>
+<ol>
+  <li><b>מותר?</b> מה הטיפוס של ההפניה, והאם הפעולה קיימת בו. זו ההחלטה של המהדר.</li>
+  <li><b>מה רץ?</b> החיפוש מתחיל בקופסה הפנימית (המחלקה של העצם) ויוצא החוצה, עד הגרסה הראשונה של הפעולה. בקופסה שהקוד שלה רץ כתוב "◀ רצה עכשיו". <code>super.say()</code> / <code>base.Say()</code> ממשיך את החיפוש מחוץ לקופסה הנוכחית.</li>
+</ol>
+<p>ב-<bdi>C#</bdi>, פעולה שלא סומנה <code>virtual</code> (ויש לה גרסה <code>new</code> במחלקה יורשת): החלון אומר שרצה הגרסה של טיפוס ההפניה, ולמה.</p>
+
+<h2>המרות ו-instanceof</h2>
+<ul>
+  <li><code>(Mammal) x</code> שמצליחה, וגם <code>x instanceof Mammal</code> (ב-<bdi>C#</bdi>: <code>x is Mammal</code>): הקופסאות של העצם מוצגות יחד עם המחלקה שנבדקה, ואחרי ההמרה מופיע כיתוב מתחת לעצם.</li>
+  <li>המרה שנכשלת: "שגיאת ריצה: ההמרה לא חוקית", מה העצם באמת ומה אין בו, עץ קטן עם העצם והענף שביקשו, והצעה לבדיקה לפני ההמרה עם השמות של התלמידים (<code>if (a2 instanceof Boxer)</code>).</li>
+</ul>
+
+<h2>מערך של מחלקת העל</h2>
+<figure class="shot">
+  <img src="assets/img/poly-array-chips.webp" alt="המערך zoo מטיפוס Animal[] באורך 2: בתא 0 תגית סגולה Dog ובה Rexy, בתא 1 תגית טורקיז Cat ובה Mitzi" width="225" height="141" loading="lazy">
+  <figcaption>בכותרת: הטיפוס המוצהר של האיברים. בכל תא: המחלקה האמיתית של העצם.</figcaption>
+</figure>
+<p>בתא של מערך (וגם במחסנית, בתור, בשרשרת ובעץ) אין קופסאות: רק תגית צבעונית קטנה עם המחלקה של העצם ושם קצר. כך רואים בבת אחת ש-<code>zoo : Animal[]</code> מחזיק כלבים, חתולים וציפורים.</p>
+
+<h2>תרשים המחלקות</h2>
+<figure class="shot wide">
+  <img src="assets/img/poly-diagram-full.webp" alt="תרשים מחלקות: Animal למעלה, Dog ו-Cat מתחתיה עם משולש ריק אצל Animal. Person מחובר ל-Dog ביהלום ריק עם השם owner, ו-Collar מחובר ל-Cat ביהלום מלא עם השם collar. הפעולה say של Dog מסומנת בצהוב: רצה" width="1072" height="464" loading="lazy">
+  <figcaption>הבועה שנפתחת במעבר עם העכבר על התרשים הקטן: מאפיינים, פעולות ושמות המאפיינים על הקווים.</figcaption>
+</figure>
+<p>בתחתית התצוגה, כשיש הורשה או הכלה בין מחלקות של התלמידים. הסימנים הם של UML:</p>
+<ul>
+  <li><b>משולש ריק</b> אצל מחלקת העל: ירושה (<code>Dog extends Animal</code>).</li>
+  <li><b>יהלום מלא</b> אצל המחלקה שמכילה: היא יוצרת את העצם בעצמה (<code>this.collar = new Collar(...)</code>).</li>
+  <li><b>יהלום ריק</b>: היא מקבלת עצם שנוצר בחוץ (בפרמטר של הבנאי או ב-set), כמו הבעלים של כלב.</li>
+  <li>מחלקה שלא בעץ הורשה מצוירת באפור. ההפניה של השורה (<code>pet</code>) והפעולה שרצה מסומנות גם בתרשים.</li>
+</ul>
+
+<h2>בכיתה: מאגר השאלות</h2>
+<p>במאגר השאלות (<bdi>Eclipse, IntelliJ, Visual Studio, VS Code</bdi>) יש נושא "הורשה ופולימורפיזם", עם שאלות קלות, בינוניות וקשות, כל אחת ב-Java וב-<bdi>C#</bdi>:</p>
+<ul>
+  <li><b>מה יודפס?</b> מערך <code>Animal[]</code> עם פעולה שנדרסת. התלמידים כותבים את התשובה, וההרצה בודקת מול מה שבאמת רץ.</li>
+  <li><b>האם קטע הקוד תקין?</b> לכל שורה: תקין, שגיאת הידור או שגיאת ריצה. המשתנים של השאלה כבר מוגדרים ב-main, כך שאפשר להוסיף שורה תקינה או שורה עם שגיאת ריצה ולראות אותה בהרצה.</li>
+  <li><b>כתיבה:</b> דריסה, קריאה ל-<code>super</code> (ב-<bdi>C#</bdi>: <code>base</code>), וספירה עם <code>instanceof</code> (ב-<bdi>C#</bdi>: <code>is</code>).</li>
+</ul>
+
+<h2>Java מול <bdi>C#</bdi></h2>
+<table class="envs">
+  <thead><tr><th scope="col">מה</th><th scope="col">Java</th><th scope="col"><bdi>C#</bdi></th></tr></thead>
+  <tbody>
+    <tr><th scope="row">ירושה</th><td data-h="Java"><code>class Dog extends Animal</code></td><td data-h="C#‎"><code>class Dog : Animal</code></td></tr>
+    <tr><th scope="row">הבנאי של מחלקת העל</th><td data-h="Java"><code>super(name);</code> בשורה הראשונה</td><td data-h="C#‎"><code>: base(name)</code> אחרי הכותרת</td></tr>
+    <tr><th scope="row">הגרסה של מחלקת העל</th><td data-h="Java"><code>super.say()</code></td><td data-h="C#‎"><code>base.Say()</code></td></tr>
+    <tr><th scope="row">דריסה</th><td data-h="Java">כל פעולה שאינה <code>private</code> או <code>static</code></td><td data-h="C#‎"><code>virtual</code> במחלקת העל, <code>override</code> ביורשת</td></tr>
+    <tr><th scope="row">בדיקת סוג</th><td data-h="Java"><code>x instanceof Dog</code></td><td data-h="C#‎"><code>x is Dog</code></td></tr>
+  </tbody>
+</table>
+<p class="quiet">הכללים המלאים של התצוגה כתובים בראש הקובץ <code>Poly.java</code> בקוד המקור.</p>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <p>© 2026 DSViz</p>
+    <p class="foot-links">
+      <a href="./">לעמוד הראשי</a>
+      <a href="install.html">התקנה</a>
+      <a href="privacy.html">פרטיות</a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-java.png" alt="תמכו בפרויקט" width="159" height="30"></a>
+      <a class="donate" href="https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2" target="_blank" rel="noopener" title="התוכנה חינמית. אם היא עוזרת לכם, אפשר לתמוך בה ב-PayPal"><img src="assets/donate-cs.png" alt="תמכו בפרויקט (C#)" width="163" height="30"></a>
+    </p>
+  </div>
+</footer>
+<script src="assets/site.js" defer></script>
+<script src="assets/downloads.js" defer></script>
+</body>
+</html>

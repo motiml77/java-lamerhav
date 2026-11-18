@@ -22,7 +22,7 @@ const RAW = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/';
 const EXE = RAW + 'java-visualizer/release/DSViz-Setup.exe';
 const MAC = 'curl -fsSL ' + RAW + 'java-visualizer/installer/mac/install.sh | bash';
 const DONATE = 'https://www.paypal.com/ncp/payment/DJYTDJ6F57KA2';
-const PAGES = ['index.html', 'install.html', 'bagrut.html', 'privacy.html', '404.html'];
+const PAGES = ['index.html', 'install.html', 'bagrut.html', 'inheritance.html', 'privacy.html', '404.html'];
 
 let ok = 0;
 function pass(msg) { ok++; console.log('  ok  ' + msg); }
