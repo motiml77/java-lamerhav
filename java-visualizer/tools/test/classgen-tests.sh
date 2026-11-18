@@ -32,6 +32,38 @@ grep -qx 'Library: waiting=\[\], returned=\[\], first=null, tree=null, shelves=\
 grep -qx 'Team: best=Student Dan, line=\[Student Noa\], cars=\[Car Mazda\]' "$W/compile/scan-java/run.txt" || { echo "Team עם מחלקות מהפרויקט (Java):"; cat "$W/compile/scan-java/run.txt"; exit 1; }
 echo "  ok  Java: $nj מחלקות התקמפלו ורצו (בנאי, get / set לכל שדה, toString; גם עם Student / Queue<Student> / Car[] מהפרויקט ו-import)"
 
+# --- היררכיה מוכנה ועץ משלכם (Java): כל הקבצים + ה-main לדוגמה מתקמפלים ורצים — בפרויקט רגיל (בלי הספרייה ובלי import),
+#     בפרויקט של DSViz (עם import unit4.collectionsLib.*; בכל קובץ, בלי package ועם package) — וההרצה הוויזואלית מראה את אותם
+#     צבעים שהחלונות מציגים (ClassGen.colors) ואת הקופסאות זו בתוך זו
+tree_fail() { echo "היררכיה ($1): $2"; for f in "$1"/*.txt; do echo "--- $f"; head -c 3000 "$f"; done; exit 1; }
+nh=0; nv=0
+for d in "$W"/trees/java-*/; do
+    d=${d%/}; mode=$(cat "$d/mode.txt"); main=$(cat "$d/main.txt")
+    if [ "$mode" = plain ]; then
+        javac -nowarn -encoding UTF-8 -d "$d/out" $(find "$d/src" -name '*.java') > "$d/javac.txt" 2>&1 || tree_fail "$d" "לא מתקמפל בלי הספרייה"
+        java -Dstdout.encoding=UTF-8 -cp "$d/out" "$main" > "$d/run.txt" 2>&1 || tree_fail "$d" "נכשל בהרצה"
+    else
+        javac -nowarn -encoding UTF-8 -cp "$JAR" -d "$d/out" $(find "$d/src" -name '*.java') > "$d/javac.txt" 2>&1 || tree_fail "$d" "לא מתקמפל מול dsviz.jar"
+        java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$d/out:$JAR" "$main" > "$d/run.txt" 2>&1 || tree_fail "$d" "נכשל בהרצה"
+    fi
+    while IFS= read -r want; do [ -z "$want" ] || grep -qF -- "$want" "$d/run.txt" || tree_fail "$d" "חסר בפלט: $want"; done < "$d/expect.txt"
+    nh=$((nh+1))
+    if [ -f "$d/visual.txt" ]; then
+        (cd "$d/src" && javac -g -nowarn -encoding UTF-8 -cp "$JAR" -d . *.java && timeout 120 java -Djava.awt.headless=true -Ddsviz.conditions=true \
+            -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine "$main" > "$d/visual-out.txt" 2>&1) || true
+        grep -F '[מחלקות: ' "$d/visual-out.txt" | head -1 > "$d/classes.txt"
+        grep -F '[קופסאות' "$d/visual-out.txt" > "$d/boxes.txt" || true
+        while IFS= read -r tok; do
+            case "$tok" in
+                C\ *) grep -qF -- "${tok#C }" "$d/classes.txt" || tree_fail "$d" "הצבע בהרצה שונה מהחלון: ${tok#C }" ;;
+                B\ *) grep -qF -- "${tok#B }" "$d/boxes.txt" || tree_fail "$d" "חסרה קופסה בתוך קופסה: ${tok#B }" ;;
+            esac
+        done < "$d/visual.txt"
+        nv=$((nv+1))
+    fi
+done
+echo "  ok  היררכיות (Java): $nh פרויקטים התקמפלו ורצו (בלי הספרייה / עם import, בלי package / עם); $nv הרצות ויזואליות — אותם צבעים כמו בחלון, קופסאות זו בתוך זו"
+
 # --- הכלי של Visual Studio: הקבצים (פרויקט ישן / SDK, BOM ו-CRLF, namespace), ואז החלון עצמו מקצה לקצה (Swing, אם יש Xvfb)
 T="$W/vstool"
 mkdir -p "$T/cls"
@@ -86,3 +118,50 @@ grep -qx 'Student: name=xyz, grade=8, active=False' "$W/compile/2/run.txt" || { 
 grep -q ', shelves=\[0, 0\], grid=System.Int32\[,\]' "$W/compile/7/run.txt" || { echo "ToString עם מערך (C#):"; cat "$W/compile/7/run.txt"; exit 1; }
 grep -qx 'Team: best=Student Dan, line=\[Student Noa\], cars=\[Car Mazda\]' "$W/compile/scan-cs/run.txt" || { echo "Team עם מחלקות מהפרויקט (C#):"; cat "$W/compile/scan-cs/run.txt"; exit 1; }
 echo "  ok  C#: $nc מחלקות התקמפלו ורצו (בנאי, Get / Set לכל שדה, ToString; גם עם Student / Queue<Student> / Car[] מהפרויקט ו-using)"
+
+# --- היררכיה מוכנה ועץ משלכם (C#): בפרויקט רגיל (בלי Unit4 ובלי using), עם כל שורות ה-using של בית הספר (גם classes ב-namespace אחר
+#     ו-Program שעושה using לשניהם), בתוך תיקיית התרגילים של DSViz (dotnet build, Directory.Build.props) ובפרויקט SDK רגיל — וההרצה
+#     הוויזואלית (dsviz-cs) מראה את אותם צבעים כמו בחלון ואת הקופסאות זו בתוך זו
+dotnet build "$ROOT/csharp/DsViz.Runner/DsViz.Runner.csproj" -c Release -v q --nologo > "$W/runner-build.txt" 2>&1 || { cat "$W/runner-build.txt"; exit 1; }
+RUNNER="$ROOT/csharp/DsViz.Runner/bin/Release/net8.0/dsviz-cs.dll"
+nh=0; nv=0
+for d in "$W"/trees/cs-*/; do
+    d=${d%/}; mode=$(cat "$d/mode.txt")
+    case "$mode" in
+        plain|dsviz)
+            lib=""; [ "$mode" = dsviz ] && lib="-r:$LIB/Unit4.CollectionsLib.dll"
+            # shellcheck disable=SC2086
+            dotnet "$SDK/Roslyn/bincore/csc.dll" -nologo -target:exe -out:"$d/app.dll" $REFS $lib "$d"/src/*.cs > "$d/csc.txt" 2>&1 || tree_fail "$d" "לא מתקמפל ($mode)"
+            [ "$mode" = dsviz ] && cp "$LIB/Unit4.CollectionsLib.dll" "$d/"
+            printf '{"runtimeOptions":{"tfm":"net8.0","framework":{"name":"Microsoft.NETCore.App","version":"%s"}}}\n' "$RT" > "$d/app.runtimeconfig.json"
+            dotnet "$d/app.dll" > "$d/run.txt" 2>&1 || tree_fail "$d" "נכשל בהרצה" ;;
+        project)
+            # תיקיית התרגילים של DSViz: Directory.Build.props (using static של Helpers) + Exercise (Program.cs עם using Unit4.CollectionsLib;)
+            P="$d/proj"
+            mkdir -p "$P/lib" && cp "$ROOT/csharp/project/Directory.Build.props" "$P/" && cp -r "$ROOT/csharp/project/Exercise" "$P/" && cp "$LIB/Unit4.CollectionsLib.dll" "$P/lib/"
+            rm -rf "$P/Exercise/bin" "$P/Exercise/obj" && cp "$d"/src/*.cs "$P/Exercise/"
+            sed -i "s|^    static void Main(string\[\] args)\$|    static void Main(string[] args)\n    {\n        $(cat "$d/main.txt").Run();\n    }\n    static void Old(string[] args)|" "$P/Exercise/Program.cs"
+            (cd "$P/Exercise" && dotnet build -c Release -v q --nologo > "$d/build.txt" 2>&1 && dotnet bin/Release/net8.0/Exercise.dll > "$d/run.txt" 2>&1) || tree_fail "$d" "תיקיית התרגילים של DSViz" ;;
+        sdk)
+            P="$d/sdk"
+            mkdir -p "$P" && cp "$d"/src/*.cs "$P/"
+            printf '<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0</TargetFramework>\n  </PropertyGroup>\n</Project>\n' > "$P/Plain.csproj"
+            (cd "$P" && dotnet build -c Release -v q --nologo > "$d/build.txt" 2>&1 && dotnet bin/Release/net8.0/Plain.dll > "$d/run.txt" 2>&1) || tree_fail "$d" "פרויקט SDK רגיל" ;;
+    esac
+    while IFS= read -r want; do [ -z "$want" ] || grep -qF -- "$want" "$d/run.txt" || tree_fail "$d" "חסר בפלט: $want"; done < "$d/expect.txt"
+    nh=$((nh+1))
+    if [ -f "$d/visual.txt" ]; then
+        dotnet "$RUNNER" "$d/src" --trace "$d/viz.trace" > "$d/viz.out" 2>&1 || true
+        java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$d/viz.trace" > "$d/visual-out.txt" 2>&1 || true
+        grep -F '[מחלקות: ' "$d/visual-out.txt" | head -1 > "$d/classes.txt"
+        grep -F '[קופסאות' "$d/visual-out.txt" > "$d/boxes.txt" || true
+        while IFS= read -r tok; do
+            case "$tok" in
+                C\ *) grep -qF -- "${tok#C }" "$d/classes.txt" || tree_fail "$d" "הצבע בהרצה שונה מהחלון: ${tok#C }" ;;
+                B\ *) grep -qF -- "${tok#B }" "$d/boxes.txt" || tree_fail "$d" "חסרה קופסה בתוך קופסה: ${tok#B }" ;;
+            esac
+        done < "$d/visual.txt"
+        nv=$((nv+1))
+    fi
+done
+echo "  ok  היררכיות (C#): $nh פרויקטים התקמפלו ורצו (בלי Unit4, עם כל ה-using של בית הספר, namespace אחר, תיקיית התרגילים של DSViz, פרויקט SDK); $nv הרצות ויזואליות (dsviz-cs) — אותם צבעים כמו בחלון, קופסאות זו בתוך זו"

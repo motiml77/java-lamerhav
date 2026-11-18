@@ -16,6 +16,20 @@ const ok = (b, what) => { checks++; assert(b, what); };
 const opts = (lang, className, ...fields) => ({ lang, className, fields: fields.map(f => { const i = f.lastIndexOf(' '); return { type: f.slice(0, i), name: f.slice(i + 1) }; }) });
 const firstError = o => G.check(o).errors[0] || '';
 
+var ownRows = spec => spec.split('/').map(r => { const p = r.split('|'); return { name: p[0], sup: p.length > 1 ? p[1] : '', fields: p.length > 2 ? p[2] : '' }; });
+var OWN = ['Vehicle||String model; int year/Bus|Vehicle|int seats/Taxi|vehicle|String company, boolean night/MiniBus|Bus|',
+    'A||int x/a|A|int y', 'A|B|int x/B|A|int y', 'Node||int value/Thing|Ghost|', 'Box|Dog|int size', 'Q||int x;int 2y/R|Q|int x'];
+var OBJECTS = ['Animal|a1|Boxer|Rexy;male;3.2;3;house', 'Animal|a2|Labrador|Toto;male;2.5;4;new Person("Hila")',
+    'Dog|d|Dog|"Dasty";female;0.5;3', 'Shape|s|Circle|red;2', 'Animal|a3|Animal|', 'Animal|zoo|[]4|Dog:Dasty;female;0.5;3//Boxer:Rexy;male;3.2;3;42/Animal:Bob',
+    'Animal|x|Person|Hila', 'Shape|s|Shape|red', 'Animal|1x|Dog|', '|a|Dog|', 'Animal|zoo|[]40|', 'Animal|zoo|[]2|Person:Hila/Mammal:Numa;female;2',
+    'Person|p|Person|He said "hi"'];
+
+var SCHOOL_CS = 'using Unit4.CollectionsLib;\nusing Unit4.BinTreeUtilsLib;\nusing Unit4.BinTreeCanvasLib;\nusing Unit4.GridLib;\n';
+var SCHOOL_JAVA = 'import unit4.collectionsLib.*;\n';
+/** מה חייב להופיע בפלט של ה-main של כל היררכיה */
+var OUTPUT = { animals: 'I am a Boxer', shapes: 'area=12', school: 'Homeroom teacher: ', own: ', seats=' };
+
+
 // --- Student ב-Java (כמו ClassGenTest.java)
 const s = Object.assign(opts('java', 'Student', 'String name', 'int grade', 'boolean active'), { toStr: true });
 eq('public class Student {\n'
@@ -112,7 +126,7 @@ eq(4, G.classLine('package a;\n\nimport x.*;\n\npublic class A {\n}\n'));
 // --- סריקת הפרויקט (classgen-project): Student ו-Car מוצעים (גם כמערך ובתוך מבנה); Student כפול — עם ה-package באפור
 const projectDir = process.argv[4];
 function scanText(lang, known) {
-    let t = known.map(k => k.name + '|' + k.pkg + '|' + k.file + '\n').join('');
+    let t = known.map(k => k.name + '|' + k.pkg + '|' + k.file + ' # ' + G.modelText(k) + '\n').join('');
     for (const groups of [G.typeGroups(lang, known), G.elementGroups(lang, known)])
         for (const g of groups) {
             t += '# ' + g.title + '\n';
@@ -138,6 +152,38 @@ if (projectDir) for (const lang of ['java', 'cs']) {
     ok(new createclass.Session(cx).view({ className: 'Car', fields: [{ base: 'int', name: 'x' }] }).error.includes('כבר יש מחלקה בשם Car'), 'Car תפוס');
 }
 
+// --- הורשה (כמו ClassGenTest.poly): מה נקרא מהקוד, virtual ב-C#, צבעים כמו בהרצה, היררכיות, הוסף עצם
+{
+    const ks = G.models('public abstract class Shape extends Base implements Cloneable {\n  @Deprecated protected int a = 1, b = 2;\n  private static int n;\n'
+        + '  private java.util.List<String> names = new java.util.ArrayList<String>();\n  public Shape() { this(1); }\n  public Shape(int a, String b) { }\n'
+        + '  private Shape(int a, int b, int c) { }\n  public abstract double area();\n  protected void grow(final int by, String why) { if (by > 0) { a++; } }\n'
+        + '  public final String id() { return "x { y }"; }\n  class Inner { void hidden() {} }\n}\ninterface Walker { void walk(); default void rest() { } }\nfinal class Locked { }\n', 'Shape.java');
+    eq('Shape : Base abstract | int a; int b; java.util.List<String> names; | ctor(int a, String b) | [public abstract] double area()!; [protected] void grow(int by, String why); [public final] String id();', G.modelText(ks[0]));
+    eq('Walker interface | | ctor(-) | void walk()!; [default] void rest();', G.modelText(ks[1]));
+    eq('Locked final | | ctor(-) |', G.modelText(ks[2]));
+    const src = 'public class A\n{\n    public string Kind() { return "a"; }\n}\npublic class B\n{\n    public string Kind(int x) { return "b"; }\n    public string Kind()\n    {\n        return "b";\n    }\n}\n';
+    eq(src.replace('    public string Kind()\n    {', '    public virtual string Kind()\n    {'), G.addVirtual(src, 'B', 'Kind', ''));
+    const done = G.addVirtual(src, 'B', 'Kind', '');
+    eq(done, G.addVirtual(done, 'B', 'Kind', ''));
+    const zoo = G.treeFiles(G.trees()[0], { lang: 'java', pkg: '', namespace: '', taken: new Map(), known: [] }, true, false);
+    const col = G.colors(zoo.known.slice().sort((a, b) => (a.name < b.name ? -1 : 1)));
+    eq('Animal=0 Mammal=1 Dog=2 Boxer=3 Labrador=4 Person=-1', [...col].map(([k, v]) => k + '=' + v).join(' '));
+    eq('#c0392b', G.hex(G.ink(col.get('Animal'))));
+    ok(zoo.ok && zoo.files.length === 7 && zoo.files[6][0] === 'ZooDemo.java', zoo.errors.join());
+    const bad = G.treeFiles(G.trees()[0], { lang: 'cs', taken: { Dog: 'Dog.cs' }, known: [] }, true, false);
+    ok(!bad.ok && bad.errors[0] === 'Dog: כבר יש מחלקה בשם Dog (בקובץ Dog.cs) — בוחרים שם אחר', bad.errors.join());
+    eq('"Helpers" הוא שם של מחלקה בספריית הקורס (Unit4) — מחלקה בשם הזה תתנגש ב-using Unit4.CollectionsLib; בוחרים שם אחר למחלקה', firstError(opts('cs', 'Helpers', 'int x')));
+    const pup = Object.assign(opts('java', 'Puppy', 'int milk'), { known: zoo.known, superName: 'Dog' });
+    eq('השדה milk כבר קיים במחלקה Mammal — המחלקה יורשת אותו. בוחרים שם אחר', firstError(pup));
+    const sh = G.treeFiles(G.trees()[1], { lang: 'java', known: [] }, false, false);
+    const sq = Object.assign(opts('java', 'Square', 'double side'), { known: sh.known, superName: 'Shape' });
+    ok(G.generate(sq).includes('    @Override\n    public double area() {\n        return 0;\n    }\n'), G.generate(sq));
+    eq('    Animal a1 = new Boxer("Rexy", "male", 3.2, 3, "house");', G.objectCode({ lang: 'java', varType: 'Animal', varName: 'a1', cls: 'Boxer', indent: '    ',
+        args: ['Rexy', 'male', '3.2', '3', 'house'] }, zoo.known).code);
+    eq('"house"', G.literal('object', 'house', 'cs'));
+    eq("'x'", G.literal('char', 'x', 'java'));
+}
+
 // --- כל המקרים
 const [casesFile, out] = process.argv.slice(2);
 if (casesFile && out) {
@@ -152,20 +198,170 @@ if (casesFile && out) {
         if (!line.trim() || line.startsWith('#')) continue;
         n++;
         const noCompile = line.startsWith('!');
-        const o = G.parseCase(noCompile ? line.slice(1) : line);
+        const o = G.parseCase(noCompile ? line.slice(1) : line, path.dirname(path.resolve(casesFile)));
         fs.writeFileSync(path.join(jsDir, n + '.txt'), G.describe(o));
         const chk = G.check(o);
         if (!chk.ok || noCompile) continue;
         projects++;
-        writeProject(path.join(compileDir, String(n)), o, chk);
+        writeProject(path.join(compileDir, String(n)), o, chk, (line.split('|')[13] || '') ? path.join(path.dirname(path.resolve(casesFile)), line.split('|')[13]) : null);
     }
     if (projectDir) {
         for (const lang of ['java', 'cs']) fs.writeFileSync(path.join(jsDir, 'scan-' + lang + '.txt'), scanText(lang, scans[lang]));
         scanProjects(compileDir);
         projects += 2;
     }
-    console.log(`classgen (JS): ${checks} בדיקות עברו, ${n} מקרים נכתבו, ${projects} פרויקטים לקומפילציה`);
+    let t = 0;
+    for (const [name, text] of treeCases()) { fs.writeFileSync(path.join(jsDir, 'tree-' + name + '.txt'), text); t++; }
+    const tp = treeProjects(path.join(out, 'trees'));
+    console.log(`classgen (JS): ${checks} בדיקות עברו, ${n} מקרים ו-${t} היררכיות / עצמים נכתבו, ${projects} פרויקטים ו-${tp} פרויקטים של היררכיות לקומפילציה`);
 } else console.log(`classgen (JS): ${checks} בדיקות עברו`);
+
+// ------------------------------------------------------------------ היררכיות: אותו טקסט כמו ClassGenTest.treeCases
+
+function base(lang, ns, known) {
+    return { lang, pkg: lang === 'cs' ? '' : ns, namespace: lang === 'cs' ? ns : '', fileScoped: false, taken: new Map(), known: known || [] };
+}
+
+function treeText(tr, r) {
+    let s = '';
+    for (const e of r.errors) s += 'ERROR ' + e + '\n';
+    for (const w of r.warnings) s += 'WARN ' + w + '\n';
+    s += 'LAYOUT' + G.treeLayout(tr, []).map(l => ' ' + l.join(':')).join('') + '\n';
+    for (const [f, src] of r.files) s += '--- ' + f + '\n' + src;
+    return s;
+}
+
+function objOptions(lang, spec) {
+    const p = spec.split('|');
+    const o = { lang, varType: p[0], varName: p[1], indent: '    ', args: [], cells: [], array: false };
+    if (p[2].startsWith('[]')) {
+        o.array = true;
+        o.size = parseInt(p[2].slice(2), 10);
+        for (const cell of p[3].split('/')) {
+            const c = [];
+            if (cell) {
+                const colon = cell.indexOf(':');
+                c.push(colon < 0 ? cell : cell.slice(0, colon));
+                if (colon >= 0) c.push(...cell.slice(colon + 1).split(';'));
+            }
+            o.cells.push(c);
+        }
+    } else {
+        o.cls = p[2];
+        if (p[3]) o.args.push(...p[3].split(';'));
+    }
+    return o;
+}
+
+function treeCases() {
+    const outList = [];
+    for (const lang of ['java', 'cs'])
+        for (const ns of ['', lang === 'cs' ? 'Zoo1' : 'zoo.app']) {
+            for (const tr of G.trees())
+                for (const run of [false, true]) {
+                    if (run && lang !== 'cs') continue;
+                    const b = base(lang, ns);
+                    b.fileScoped = run;
+                    outList.push([lang + '-' + tr.id + (ns ? '-ns' : '') + (run ? '-run' : ''), treeText(tr, G.treeFiles(tr, b, true, run))]);
+                }
+            OWN.forEach((spec, i) => {
+                const errors = [];
+                const proj = G.treeFiles(G.trees()[0], base(lang, ns), false, false).known;
+                const tr = G.ownTree(ownRows(spec), proj, errors);
+                const r = G.treeFiles(tr, base(lang, ns, proj), true, false);
+                r.errors.unshift(...errors);
+                outList.push([lang + '-own' + i + (ns ? '-ns' : ''), treeText(tr, r)]);
+            });
+            const known = G.treeFiles(G.trees()[0], base(lang, ns), false, false).known.concat(G.treeFiles(G.trees()[1], base(lang, ns), false, false).known);
+            let s = '';
+            for (const spec of OBJECTS) {
+                const r = G.objectCode(objOptions(lang, spec), known);
+                s += '## ' + spec + '\n' + r.errors.map(e => 'ERROR ' + e + '\n').join('') + r.code + '\n';
+            }
+            for (const type of ['Animal', 'Dog', 'Shape', 'Person', 'Nope'])
+                s += 'CLASSES ' + type + ':' + G.objectClasses(known, type).map(k => ' ' + k.name + '('
+                    + G.ctorParams(known, k.name).map(p => p.type + ' ' + p.name + '@' + G.paramOwner(known, k.name, p.name)).join(', ') + ')').join('') + '\n';
+            outList.push([lang + '-objects' + (ns ? '-ns' : ''), s]);
+        }
+    return outList;
+}
+
+// ------------------------------------------------------------------ היררכיות: פרויקטים לקומפילציה, להרצה ולהרצה הוויזואלית (classgen-tests.sh)
+
+/** כל קובץ עם שורות ה-using / import של בית הספר בהתחלה (אחרי package ב-Java) */
+function withSchool(src, lang) {
+    if (lang === 'cs') return SCHOOL_CS + '\n' + src;
+    const m = /^package [\w.]+;\n\n/.exec(src);
+    return m ? m[0] + SCHOOL_JAVA + '\n' + src.slice(m[0].length) : SCHOOL_JAVA + '\n' + src;
+}
+
+function treeProjects(dir) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    const proj = G.treeFiles(G.trees()[0], base('java', ''), false, false).known;
+    const list = G.trees().map(tr => ({ tr, id: tr.id })).concat([{ tr: null, id: 'own' }]);
+    let count = 0;
+    const write = (name, lang, mode, main, files, expect, extra) => {
+        const d = path.join(dir, name), src = path.join(d, 'src');
+        fs.mkdirSync(src, { recursive: true });
+        for (const [f, text] of files) {
+            const p = path.join(src, f);
+            fs.mkdirSync(path.dirname(p), { recursive: true });
+            fs.writeFileSync(p, text);
+        }
+        fs.writeFileSync(path.join(d, 'lang.txt'), lang);
+        fs.writeFileSync(path.join(d, 'mode.txt'), mode);
+        fs.writeFileSync(path.join(d, 'main.txt'), main);
+        fs.writeFileSync(path.join(d, 'expect.txt'), expect.join('\n') + '\n');
+        if (extra) fs.writeFileSync(path.join(d, 'visual.txt'), extra.join('\n') + '\n');
+        count++;
+    };
+    for (const { tr: ready, id } of list) {
+        for (const lang of ['java', 'cs']) {
+            const own = () => G.ownTree(ownRows(OWN[0]), [], []);
+            const tr = ready || own();
+            const gen = (ns, run) => {
+                const r = G.treeFiles(tr, base(lang, ns), true, run);
+                if (!r.ok) throw new Error(id + ' ' + lang + ': ' + r.errors.join('; '));
+                return r;
+            };
+            const out = [OUTPUT[id]];
+            // הצבעים שהחלונות מציגים (ClassGen.colors) — חייבים להיות אותם צבעים כמו בהרצה הוויזואלית
+            const plain = gen('', false);
+            const col = G.colors(sorted(plain.known.filter(k => tr.classes.some(c => c.name === k.name))));
+            const tokens = [];
+            for (const [n, v] of col) {
+                const k = plain.known.find(x => x.name === n);
+                if (v >= 0) tokens.push('C ' + n + (k.sup && col.get(k.sup) !== undefined && col.get(k.sup) >= 0 ? '<' + k.sup : '') + '=' + G.hex(G.ink(v)));
+                // קופסאות זו בתוך זו: כל מחלקה יורשת מצוירת בתוך הקופסה של מחלקת העל שלה
+                if (v >= 0 && k.sup) tokens.push('B > ' + n + '{');
+            }
+            if (lang === 'java') {
+                write('java-plain-' + id, 'java', 'plain', tr.main, plain.files, out);
+                write('java-dsviz-' + id, 'java', 'dsviz', tr.main, plain.files.map(([f, s]) => [f, withSchool(s, 'java')]), out, tokens);
+                const pk = gen('zoo.app', false);
+                write('java-pkg-' + id, 'java', 'dsviz', 'zoo.app.' + tr.main, pk.files.map(([f, s]) => ['zoo/app/' + f, withSchool(s, 'java')]), out);
+            } else {
+                write('cs-plain-' + id, 'cs', 'plain', tr.main, plain.files, out);
+                write('cs-visual-' + id, 'cs', 'dsviz', tr.main, plain.files.map(([f, s]) => [f, withSchool(s, 'cs')]), out, tokens);
+                // classes ב-namespace אחר, ו-Program שעושה using לשניהם — המצב שבו שם כמו Node היה דו-משמעי
+                const nsr = gen('Zoo1', true);
+                const program = SCHOOL_CS + 'using Zoo1;\n\nnamespace App\n{\n    public static class Program\n    {\n        public static void Main()\n        {\n            '
+                    + tr.main + '.Run();\n        }\n    }\n}\n';
+                write('cs-ns-' + id, 'cs', 'dsviz', 'App.Program', nsr.files.map(([f, s]) => [f, withSchool(s, 'cs')]).concat([['Program.cs', program]]), out);
+                if (id === 'animals' || id === 'own') {
+                    const run = gen('', true);
+                    write('cs-project-' + id, 'cs', 'project', tr.main, run.files, out);
+                    write('cs-sdk-' + id, 'cs', 'sdk', tr.main, run.files.concat([['Program.cs', 'public static class Program\n{\n    public static void Main()\n    {\n        ' + tr.main + '.Run();\n    }\n}\n']]), out);
+                }
+            }
+        }
+    }
+    return count;
+}
+
+function sorted(known) {
+    return known.slice().sort((a, b) => a.name === b.name ? (a.pkg < b.pkg ? -1 : a.pkg > b.pkg ? 1 : 0) : (a.name < b.name ? -1 : 1));
+}
 
 /**
  * המחלקה החדשה Team בפרויקט שיש בו כבר Student ו-Car (ועוד Student בחבילה אחרת): שדות Student, Queue<Student> ו-Car[]
@@ -266,19 +462,33 @@ function sample(type, k, cs) {
     return 'null';
 }
 
-function writeProject(dir, o, chk) {
+function writeProject(dir, o, chk, extra) {
     const cs = o.lang === 'cs', name = chk.className, fields = chk.fields;
     const ns = cs ? o.namespace : o.pkg;
     const src = cs ? dir : path.join(dir, 'src', ...(ns ? ns.split('.') : []));
     fs.mkdirSync(src, { recursive: true });
     fs.writeFileSync(path.join(src, G.fileName(name, o.lang)), G.generate(o));
+    // הורשה: הקובץ של מחלקת העל (מ-classgen-poly) ליד המחלקה, עם virtual שהמחולל מוסיף (C#)
+    if (extra) {
+        let text = fs.readFileSync(extra, 'utf8');
+        for (const e of chk.edits) text = G.addVirtual(text, e.className, e.method, e.params);
+        fs.writeFileSync(path.join(src, 'Base' + path.basename(extra)), text);
+    }
     const get = f => G.getter(f.name, o.lang) + '()', set = (f, v) => G.setter(f.name, o.lang) + '(' + v + ')';
     const fail = cs ? 'throw new System.Exception' : 'throw new RuntimeException';
     const L = [];
     fields.forEach((f, i) => { L.push(`${f.type} a${i} = ${sample(f.type, 0, cs)};`); L.push(`${f.type} b${i} = ${sample(f.type, 1, cs)};`); });
-    L.push(o.ctor !== false ? `${name} o = new ${name}(${fields.map((f, i) => 'a' + i).join(', ')});` : `${name} o = new ${name}();`);
-    if (o.ctor !== false) fields.forEach((f, i) => L.push(`if (o.${get(f)} != a${i}) ${fail}("בנאי: ${f.name}");`));
+    const supArgs = chk.superParams.map(p => sample(p.type, 0, cs));
+    const withCtor = o.ctor !== false || chk.superParams.length > 0;
+    L.push(withCtor ? `${name} o = new ${name}(${supArgs.concat(fields.map((f, i) => 'a' + i)).join(', ')});` : `${name} o = new ${name}();`);
+    if (withCtor) fields.forEach((f, i) => L.push(`if (o.${get(f)} != a${i}) ${fail}("בנאי: ${f.name}");`));
     fields.forEach((f, i) => { L.push(`o.${set(f, 'b' + i)};`); L.push(`if (o.${get(f)} != b${i}) ${fail}("set/get: ${f.name}");`); });
+    // כל דריסה וכל פעולה חדשה נקראת (מותר לקרוא לפעולה protected רק מבפנים — מדלגים)
+    for (const m of chk.overrides.map(ov => ov.method).concat(chk.methods)) {
+        if (/\bprotected\b/.test(m.mods || '') || m.isAbstract) continue;
+        const call = `o.${m.name}(${G.paramList(m.params).map(p => sample(p.type, 0, cs)).join(', ')})`;
+        L.push(m.ret === 'void' ? call + ';' : (cs ? `System.Console.WriteLine(${call});` : `System.out.println(${call});`));
+    }
     if (o.toStr) L.push(cs ? 'System.Console.WriteLine(o.ToString());' : 'System.out.println(o.toString());');
     L.push(cs ? 'System.Console.WriteLine("OK " + "' + name + '");' : 'System.out.println("OK " + "' + name + '");');
     const body = L.map(l => '        ' + l).join('\n');

@@ -3,6 +3,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import il.lamerhav.dsviz.ClassGen;
 
@@ -52,7 +53,7 @@ public class ClassGenTest {
     /** הסריקה והרשימות כטקסט (אותו פורמט ב-classgen-test.js): המחלקות, ואז כל קבוצה — "טיפוס|טקסט אפור" */
     static String scanText(String lang, List<ClassGen.Known> known) {
         StringBuilder sb = new StringBuilder();
-        for (ClassGen.Known k : known) sb.append(k.name).append('|').append(k.pkg).append('|').append(k.file).append('\n');
+        for (ClassGen.Known k : known) sb.append(k.name).append('|').append(k.pkg).append('|').append(k.file).append(" # ").append(ClassGen.modelText(k)).append('\n');
         for (List<ClassGen.Group> groups : Arrays.asList(ClassGen.typeGroups(lang, known), ClassGen.elementGroups(lang, known)))
             for (ClassGen.Group g : groups) {
                 sb.append("# ").append(g.title).append('\n');
@@ -236,6 +237,9 @@ public class ClassGenTest {
             }
         }
 
+        // --- הורשה: מה נקרא מהקוד, דריסות, virtual ב-C#, צבעים, היררכיות מוכנות, עץ משלכם, הוסף עצם
+        poly();
+
         // --- כל המקרים לקבצים (להשוואה מול classgen.js)
         if (a.length >= 2) {
             File out = new File(a[1]);
@@ -244,10 +248,198 @@ public class ClassGenTest {
             for (String line : Files.readAllLines(new File(a[0]).toPath(), StandardCharsets.UTF_8)) {
                 if (line.trim().isEmpty() || line.startsWith("#")) continue;
                 n++;
-                String text = ClassGen.describe(ClassGen.parseCase(line.startsWith("!") ? line.substring(1) : line));
+                String text = ClassGen.describe(ClassGen.parseCase(line.startsWith("!") ? line.substring(1) : line, new File(a[0]).getAbsoluteFile().getParentFile()));
                 Files.write(new File(out, n + ".txt").toPath(), text.getBytes(StandardCharsets.UTF_8));
             }
-            System.out.println("ClassGen (Java): " + checks + " בדיקות עברו, " + n + " מקרים נכתבו");
+            int t = 0;
+            for (String[] tc : treeCases()) {
+                Files.write(new File(out, "tree-" + tc[0] + ".txt").toPath(), tc[1].getBytes(StandardCharsets.UTF_8));
+                t++;
+            }
+            System.out.println("ClassGen (Java): " + checks + " בדיקות עברו, " + n + " מקרים ו-" + t + " היררכיות / עצמים נכתבו");
         } else System.out.println("ClassGen (Java): " + checks + " בדיקות עברו");
+    }
+
+    static ClassGen.Options base(String lang, String ns, List<ClassGen.Known> known) {
+        ClassGen.Options o = new ClassGen.Options();
+        o.lang = lang;
+        if (lang.equals("cs")) o.namespace = ns;
+        else o.pkg = ns;
+        if (known != null) o.known = known;
+        return o;
+    }
+
+    /** היררכיה כטקסט (אותו פורמט ב-classgen-test.js): שגיאות, אזהרות, הקבצים, וציור העץ */
+    static String treeText(ClassGen.Tree t, ClassGen.TreeResult r) {
+        StringBuilder sb = new StringBuilder();
+        for (String e : r.errors) sb.append("ERROR ").append(e).append('\n');
+        for (String w : r.warnings) sb.append("WARN ").append(w).append('\n');
+        sb.append("LAYOUT");
+        for (Object[] l : ClassGen.treeLayout(t, new java.util.ArrayList<ClassGen.Known>())) sb.append(' ').append(l[0]).append(':').append(l[1]).append(':').append(l[2]).append(':').append(l[3]);
+        sb.append('\n');
+        for (String[] f : r.files) sb.append("--- ").append(f[0]).append('\n').append(f[1]);
+        return sb.toString();
+    }
+
+    static List<ClassGen.TreeRow> ownRows(String spec) {
+        List<ClassGen.TreeRow> rows = new java.util.ArrayList<ClassGen.TreeRow>();
+        for (String r : spec.split("/", -1)) {
+            String[] p = r.split("\\|", -1);
+            rows.add(new ClassGen.TreeRow(p[0], p.length > 1 ? p[1] : "", p.length > 2 ? p[2] : ""));
+        }
+        return rows;
+    }
+
+    /** טבלאות של "עץ משלכם" (שורות מופרדות ב-/, עמודות ב-|) — גם classgen-test.js משתמש בהן */
+    static final String[] OWN = { "Vehicle||String model; int year/Bus|Vehicle|int seats/Taxi|vehicle|String company, boolean night/MiniBus|Bus|",
+            "A||int x/a|A|int y", "A|B|int x/B|A|int y", "Node||int value/Thing|Ghost|", "Box|Dog|int size", "Q||int x;int 2y/R|Q|int x" };
+
+    static List<String[]> treeCases() {
+        List<String[]> out = new java.util.ArrayList<String[]>();
+        for (String lang : Arrays.asList("java", "cs"))
+            for (String ns : Arrays.asList("", lang.equals("cs") ? "Zoo1" : "zoo.app")) {
+                for (ClassGen.Tree t : ClassGen.trees())
+                    for (boolean run : new boolean[] { false, true }) {
+                        if (run && !lang.equals("cs")) continue;
+                        ClassGen.Options b = base(lang, ns, null);
+                        b.fileScoped = run;
+                        out.add(new String[] { lang + "-" + t.id + (ns.isEmpty() ? "" : "-ns") + (run ? "-run" : ""), treeText(t, ClassGen.treeFiles(t, b, true, run)) });
+                    }
+                for (int i = 0; i < OWN.length; i++) {
+                    List<String> errors = new java.util.ArrayList<String>();
+                    List<ClassGen.Known> proj = ClassGen.treeFiles(ClassGen.trees().get(0), base(lang, ns, null), false, false).known;
+                    ClassGen.Tree t = ClassGen.ownTree(ownRows(OWN[i]), proj, errors);
+                    ClassGen.Options b = base(lang, ns, proj);
+                    ClassGen.TreeResult r = ClassGen.treeFiles(t, b, true, false);
+                    r.errors.addAll(0, errors);
+                    out.add(new String[] { lang + "-own" + i + (ns.isEmpty() ? "" : "-ns"), treeText(t, r) });
+                }
+                // הוסף עצם — מול המחלקות של בעלי חיים וצורות
+                List<ClassGen.Known> known = new java.util.ArrayList<ClassGen.Known>(ClassGen.treeFiles(ClassGen.trees().get(0), base(lang, ns, null), false, false).known);
+                known.addAll(ClassGen.treeFiles(ClassGen.trees().get(1), base(lang, ns, null), false, false).known);
+                StringBuilder sb = new StringBuilder();
+                for (String spec : OBJECTS) {
+                    ClassGen.ObjOptions o = objOptions(lang, spec);
+                    ClassGen.ObjResult r = ClassGen.objectCode(o, known);
+                    sb.append("## ").append(spec).append('\n');
+                    for (String e : r.errors) sb.append("ERROR ").append(e).append('\n');
+                    sb.append(r.code).append('\n');
+                }
+                for (String type : Arrays.asList("Animal", "Dog", "Shape", "Person", "Nope")) {
+                    sb.append("CLASSES ").append(type).append(':');
+                    for (ClassGen.Known k : ClassGen.objectClasses(known, type)) {
+                        sb.append(' ').append(k.name).append('(');
+                        List<ClassGen.Field> ps = ClassGen.ctorParams(known, k.name);
+                        for (int i = 0; i < ps.size(); i++)
+                            sb.append(i > 0 ? ", " : "").append(ps.get(i).type).append(' ').append(ps.get(i).name).append('@').append(ClassGen.paramOwner(known, k.name, ps.get(i).name));
+                        sb.append(')');
+                    }
+                    sb.append('\n');
+                }
+                out.add(new String[] { lang + "-objects" + (ns.isEmpty() ? "" : "-ns"), sb.toString() });
+            }
+        return out;
+    }
+
+    /** "הוסף עצם": "type|name|cls|arg;arg..." או מערך "type|name|[]4|cls:arg;arg/cls:arg/..." */
+    static final String[] OBJECTS = { "Animal|a1|Boxer|Rexy;male;3.2;3;house", "Animal|a2|Labrador|Toto;male;2.5;4;new Person(\"Hila\")",
+            "Dog|d|Dog|\"Dasty\";female;0.5;3", "Shape|s|Circle|red;2", "Animal|a3|Animal|", "Animal|zoo|[]4|Dog:Dasty;female;0.5;3//Boxer:Rexy;male;3.2;3;42/Animal:Bob",
+            "Animal|x|Person|Hila", "Shape|s|Shape|red", "Animal|1x|Dog|", "|a|Dog|", "Animal|zoo|[]40|", "Animal|zoo|[]2|Person:Hila/Mammal:Numa;female;2",
+            "Person|p|Person|He said \"hi\"" };
+
+    static ClassGen.ObjOptions objOptions(String lang, String spec) {
+        String[] p = spec.split("\\|", -1);
+        ClassGen.ObjOptions o = new ClassGen.ObjOptions();
+        o.lang = lang;
+        o.varType = p[0];
+        o.varName = p[1];
+        o.indent = "    ";
+        if (p[2].startsWith("[]")) {
+            o.array = true;
+            o.size = Integer.parseInt(p[2].substring(2));
+            for (String cell : p[3].split("/", -1)) {
+                List<String> c = new java.util.ArrayList<String>();
+                if (!cell.isEmpty()) {
+                    int colon = cell.indexOf(':');
+                    c.add(colon < 0 ? cell : cell.substring(0, colon));
+                    if (colon >= 0) c.addAll(Arrays.asList(cell.substring(colon + 1).split(";", -1)));
+                }
+                o.cells.add(c);
+            }
+        } else {
+            o.cls = p[2];
+            if (!p[3].isEmpty()) o.args.addAll(Arrays.asList(p[3].split(";", -1)));
+        }
+        return o;
+    }
+
+    static void poly() throws Exception {
+        // מה נקרא מהקוד: מחלקת על, שדות (גם int a = 1, b = 2 ו-ArrayList<String> x = new ...()), הבנאי הרחב, פעולות עם מגדירים
+        List<ClassGen.Known> ks = ClassGen.models("public abstract class Shape extends Base implements Cloneable {\n"
+                + "  @Deprecated protected int a = 1, b = 2;\n  private static int n;\n  private java.util.List<String> names = new java.util.ArrayList<String>();\n"
+                + "  public Shape() { this(1); }\n  public Shape(int a, String b) { }\n  private Shape(int a, int b, int c) { }\n"
+                + "  public abstract double area();\n  protected void grow(final int by, String why) { if (by > 0) { a++; } }\n"
+                + "  public final String id() { return \"x { y }\"; }\n  class Inner { void hidden() {} }\n}\n"
+                + "interface Walker { void walk(); default void rest() { } }\nfinal class Locked { }\n", "Shape.java");
+        eq("Shape : Base abstract | int a; int b; java.util.List<String> names; | ctor(int a, String b) | [public abstract] double area()!; [protected] void grow(int by, String why); [public final] String id();",
+                ClassGen.modelText(ks.get(0)));
+        eq("Walker interface | | ctor(-) | void walk()!; [default] void rest();", ClassGen.modelText(ks.get(1)));
+        eq("Locked final | | ctor(-) |", ClassGen.modelText(ks.get(2)));
+        List<ClassGen.Known> cs = ClassGen.models("namespace Zoo {\n public class Dog : Mammal, IComparable<Dog> {\n  public int Legs { get; set; }\n"
+                + "  public Dog(string name, int bones = 3) : base(name) { }\n  public string GetName() => name;\n  public sealed override string Say() { return \"\"; }\n"
+                + "  [Obsolete] public virtual void Bark(ref int times) { }\n }\n public class Pet : IDisposable { public void Dispose() { } }\n}\n", "Dog.cs");
+        eq("Dog : Mammal | int Legs; | ctor(string name, int bones) | [public] string GetName(); [public sealed override] string Say(); [public virtual] void Bark(int times);",
+                ClassGen.modelText(cs.get(0)));
+        eq("Zoo", cs.get(0).pkg);
+        eq("Pet | | ctor(-) | [public] void Dispose();", ClassGen.modelText(cs.get(1)));
+        // virtual נוסף לפעולה הנכונה (במחלקה הנכונה, עם אותו מספר פרמטרים)
+        String src = "public class A\n{\n    public string Kind() { return \"a\"; }\n}\npublic class B\n{\n    public string Kind(int x) { return \"b\"; }\n    public string Kind()\n    {\n        return \"b\";\n    }\n}\n";
+        eq(src.replace("    public string Kind()\n    {", "    public virtual string Kind()\n    {"), ClassGen.addVirtual(src, "B", "Kind", ""));
+        eq(src, ClassGen.addVirtual(src.replace("public string Kind()\n", "public virtual string Kind()\n"), "B", "Kind", "").replace("public virtual string Kind()\n", "public string Kind()\n"));
+        // צבעים כמו בהרצה: השורשים, ואז הילדים — מחלקה בלי עץ אפורה
+        ClassGen.TreeResult zoo = ClassGen.treeFiles(ClassGen.trees().get(0), base("java", "", null), true, false);
+        Map<String, Integer> col = ClassGen.colors(ClassGen.sorted(zoo.known));
+        eq("{Animal=0, Mammal=1, Dog=2, Boxer=3, Labrador=4, Person=-1}", col.toString());
+        eq("#c0392b #7b3fb0 #55607a", String.format("#%06x #%06x #%06x", ClassGen.ink(col.get("Animal")), ClassGen.ink(col.get("Mammal")), ClassGen.ink(col.get("Person"))));
+        ClassGen.TreeResult school = ClassGen.treeFiles(ClassGen.trees().get(2), base("java", "", null), true, false);
+        eq("{Person=0, Teacher=1, HomeroomTeacher=2, Pupil=3}", ClassGen.colors(ClassGen.sorted(school.known)).toString());
+        // היררכיה מוכנה: כל הקבצים, Boxer עם super(...) ו-@Override; ב-C# — : base(...) ו-override, ו-Run כשיש כבר Main
+        ok(zoo.ok() && zoo.files.size() == 7 && zoo.files.get(6)[0].equals("ZooDemo.java"), zoo.errors.toString());
+        ok(zoo.files.get(3)[1].contains("    public Boxer(String name, String gender, double milk, int bonesToEat, Object guard) {\n        super(name, gender, milk, bonesToEat);\n"), zoo.files.get(3)[1]);
+        ok(zoo.files.get(6)[1].contains("        zoo[3] = new Boxer(\"Rexy\", \"male\", 3.2, 3, \"house\");\n"), zoo.files.get(6)[1]);
+        ClassGen.TreeResult zcs = ClassGen.treeFiles(ClassGen.trees().get(0), base("cs", "", null), true, true);
+        ok(zcs.files.get(3)[1].contains("    public Boxer(string name, string gender, double milk, int bonesToEat, object guard) : base(name, gender, milk, bonesToEat)\n")
+                && zcs.files.get(3)[1].contains("    public override string Say()\n") && zcs.files.get(0)[1].contains("    public virtual string Say()\n"), zcs.files.get(3)[1]);
+        ok(zcs.files.get(6)[1].contains("public static void Run()") && zcs.files.get(6)[1].contains("System.Console.WriteLine(zoo[i].Say());"), zcs.files.get(6)[1]);
+        // שם תפוס / שם של Unit4 בהיררכיה — שגיאה עם שם המחלקה
+        ClassGen.Options tb = base("cs", "", null);
+        tb.taken.put("Dog", "Dog.cs");
+        ClassGen.TreeResult bad = ClassGen.treeFiles(ClassGen.trees().get(0), tb, true, false);
+        ok(!bad.ok() && bad.errors.get(0).equals("Dog: כבר יש מחלקה בשם Dog (בקובץ Dog.cs) — בוחרים שם אחר"), bad.errors.toString());
+        eq("\"Helpers\" הוא שם של מחלקה בספריית הקורס (Unit4) — מחלקה בשם הזה תתנגש ב-using Unit4.CollectionsLib; בוחרים שם אחר למחלקה", firstError(opts("cs", "Helpers", "int x")));
+        // צור מחלקה עם יורשת מ-: הפרמטרים של הבנאי, שדה שכבר עובר בירושה, פעולה מופשטת שחובה לדרוס
+        ClassGen.Options in = opts("java", "Puppy", "int age");
+        in.known = zoo.known;
+        in.superName = "Dog";
+        ClassGen.Check ic = ClassGen.check(in);
+        ok(ic.ok() && ic.superParams.size() == 4 && ic.inherited.size() == 3 && ic.inherited.get(0).from.equals("Animal"), ic.errors.toString());
+        in.fields.get(0).name = "milk";
+        eq("השדה milk כבר קיים במחלקה Mammal — המחלקה יורשת אותו. בוחרים שם אחר", firstError(in));
+        ClassGen.TreeResult shapes = ClassGen.treeFiles(ClassGen.trees().get(1), base("java", "", null), false, false);
+        ClassGen.Options sq = opts("java", "Square", "double side");
+        sq.known = shapes.known;
+        sq.superName = "Shape";
+        ClassGen.Check sc = ClassGen.check(sq);
+        ok(sc.overrides.size() == 1 && sc.overrides.get(0).isAbstract && ClassGen.generate(sq).contains("    @Override\n    public double area() {\n        return 0;\n    }\n"), ClassGen.generate(sq));
+        sq.isAbstract = true;
+        ok(ClassGen.check(sq).overrides.isEmpty() && ClassGen.generate(sq).startsWith("public abstract class Square extends Shape {"), ClassGen.generate(sq));
+        // הוסף עצם
+        ClassGen.ObjResult or = ClassGen.objectCode(objOptions("java", OBJECTS[0]), zoo.known);
+        eq("    Animal a1 = new Boxer(\"Rexy\", \"male\", 3.2, 3, \"house\");", or.code);
+        eq("\"a \\\"b\\\"\"", ClassGen.literal("String", "a \"b\"", "java"));
+        eq("'x'", ClassGen.literal("char", "x", "cs"));
+        eq("0", ClassGen.literal("int", "", "cs"));
+        eq("42", ClassGen.literal("Object", "42", "java"));
+        eq("\"house\"", ClassGen.literal("object", "house", "cs"));
     }
 }

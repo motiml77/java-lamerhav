@@ -62,3 +62,30 @@ java|Student|1|0|school.model|0|int x||Student@school.model
 !java|Student|1|0|other|0|int x||Student@school.model
 java|Person|1|0||0|Student s;Car c
 cs|Person|1|0||0|Student s
+# הורשה (עוד עמודות: |מחלקת על|abstract|דריסות|פעולות חדשות — ret name(params);... (! מופשטת)|קובץ קוד שהמחלקות שלו בפרויקט)
+java|Boxer|1|1||0|Object guard|||Dog|0|say||classgen-poly/Zoo.java
+java|Cat|1|1||0|boolean indoor|||Mammal|0|say,getMilk,grow|void purr(int times);int lives()|classgen-poly/Zoo.java
+java|Puppy|1|1||0||||Dog|0|||classgen-poly/Zoo.java
+java|Puppy|0|0||0||||Animal|0|||classgen-poly/Zoo.java
+java|Circle|1|1||0|double radius|||Shape|0|||classgen-poly/Shapes.java
+!java|Polygon|1|1||0|int sides|||Shape|1|area||classgen-poly/Shapes.java
+!java|Figure|1|1|geo|0|String color||||1||!double area();String label();void show(int x, String s)|
+java|Speaker|1|0||0|||||0||String say()|
+cs|Boxer|1|1||0|object guard|||Dog|0|Say,Kind,Grow||classgen-poly/Zoo.cs
+cs|Cat|1|1||0|bool indoor|||Mammal|0|Say|void purr(int times)|classgen-poly/Zoo.cs
+cs|Circle|1|1||0|double radius|||Pet|0|||classgen-poly/Zoo.cs
+!cs|Figure|1|1|Geo|1|string color||||1||!double area();string Label()|
+# הורשה — שגיאות
+java|Boxer|1|0||0|String name|||Dog|0|||classgen-poly/Zoo.java
+java|Boxer|1|0||0|int bones|||Dog|0|||classgen-poly/Zoo.java
+java|Boxer|1|0||0|int legs|||Dog|0|||classgen-poly/Zoo.java
+java|Boxer|1|0||0|int x|||Ghost|0|||classgen-poly/Zoo.java
+java|Boxer|1|0||0|int x|||Locked|0|||classgen-poly/Zoo.java
+cs|Boxer|1|0||0|int x|||Locked|0|||classgen-poly/Zoo.cs
+java|Boxer|1|0||0|int x|||Walker|0|||classgen-poly/Zoo.java
+java|Boxer|1|0||0|int x|||Dog|0||String say();int getX();void boxer()|classgen-poly/Zoo.java
+java|Boxer|1|0||0|int x|||Dog|0||!int jump();x 1y();int run(int a, int a);void walk(int);void walk()|classgen-poly/Zoo.java
+java|Dog|1|0||0|int x|||Dog|0|||classgen-poly/Zoo.java
+cs|Helpers|1|0||0|int x
+java|List|1|0||0|int x
+cs|StackInt|1|0||0|int x
