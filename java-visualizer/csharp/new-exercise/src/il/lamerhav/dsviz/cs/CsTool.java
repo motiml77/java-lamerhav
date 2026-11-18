@@ -1110,8 +1110,15 @@ public final class CsTool {
             for (Component c : new Component[] { r.base, r.elemPanel, r.name }) c.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
         }
 
-        /** הטבלה מחדש: כותרות, ושורה לכל שדה; העמודה "בפנים" — רק כשיש מבנה של הקורס */
+        /**
+         * הטבלה מחדש: כותרות, ושורה לכל שדה; העמודה "בפנים" — רק כשיש מבנה של הקורס. נקרא גם תוך כדי הקלדה (כשהטיפוס שמקלידים
+         * הופך למבנה של הקורס, למשל "Stack") — בלי לזרוק את התלמיד מהשדה שבו הוא מקליד
+         */
         private void layoutRows() {
+            PolyPanels.rebuildKeepingFocus(fieldsPanel, this::layoutRowsNow);
+        }
+
+        private void layoutRowsNow() {
             fieldsPanel.removeAll();
             boolean any = false;
             for (Row r : rows) any |= r.course();

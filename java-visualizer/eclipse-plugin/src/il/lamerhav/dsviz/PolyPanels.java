@@ -107,6 +107,28 @@ public final class PolyPanels {
         return l;
     }
 
+    /**
+     * בונה מחדש את התוכן של panel בלי לזרוק את התלמיד מהשדה שבו הוא מקליד. רכיב שמוציאים מהחלון כשהוא בפוקוס — Swing מעביר
+     * את הפוקוס הלאה; אם אחרי הבנייה אותו רכיב שוב בפנים, הוא מקבל את הפוקוס בחזרה, עם הסמן באותו מקום
+     */
+    public static void rebuildKeepingFocus(final Container panel, Runnable rebuild) {
+        final Component f = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+        final boolean inside = f != null && javax.swing.SwingUtilities.isDescendingFrom(f, panel);
+        final int caret = f instanceof javax.swing.text.JTextComponent ? ((javax.swing.text.JTextComponent) f).getCaretPosition() : -1;
+        rebuild.run();
+        if (!inside) return;
+        Runnable back = () -> {
+            if (!f.isShowing() || !javax.swing.SwingUtilities.isDescendingFrom(f, panel) || f.isFocusOwner()) return;
+            f.requestFocusInWindow();
+            if (caret >= 0) {
+                javax.swing.text.JTextComponent t = (javax.swing.text.JTextComponent) f;
+                t.setCaretPosition(Math.min(caret, t.getDocument().getLength()));
+            }
+        };
+        back.run();
+        javax.swing.SwingUtilities.invokeLater(back);   // אחרי שהחלון סידר את עצמו מחדש
+    }
+
     static void onText(JTextField f, final Runnable r) {
         f.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { r.run(); }
@@ -731,6 +753,8 @@ public final class PolyPanels {
         final ClassRenderer renderer = new ClassRenderer();
         boolean updating;
         String shownParams = "";
+        /** כמה שורות תאים מוצגות עכשיו (‎-1‎ — עוד לא נבנו). השורות נבנות מחדש רק כשהגודל משתנה — לא בכל הקשה */
+        int shownCells = -1;
 
         public ObjectPanel(String lang, List<ClassGen.Known> known, Runnable onChange, NameCheck names) {
             super(new BorderLayout(0, 8));
@@ -825,6 +849,7 @@ public final class PolyPanels {
             shownParams = key.toString();
             List<String> old = new ArrayList<String>();
             for (JTextField t : args) old.add(t.getText());
+            // רק כשהמחלקה (או הבנאי שלה) השתנו — לא בהקלדה בשדות עצמם
             params.reset();
             args.clear();
             if (ps.isEmpty()) params.line(muted("(לבנאי אין פרמטרים)"), 0);
@@ -843,30 +868,47 @@ public final class PolyPanels {
             params.revalidate();
         }
 
+        /**
+         * שורה לכל תא. בונים מחדש רק כשמספר התאים משתנה; כל הקשה בשדה של תא (וכל בחירה של מחלקה) רק מעדכנת את השורות הקיימות —
+         * קודם השורות נבנו מחדש בכל הקשה, והשדה שבו מקלידים יצא מהחלון ואיבד את הפוקוס ("קופץ מאזור הרישום")
+         */
         void layoutCells() {
-            int n = (Integer) size.getValue();
+            final int n = (Integer) size.getValue();
             while (cellRows.size() < n) {
                 JComboBox<Object> b = new JComboBox<Object>();
                 b.setRenderer(renderer);
                 JTextField v = field(26, "ערכים בפסיקים");
-                final JComponent[] r = { new JLabel("[" + cellRows.size() + "]"), b, v };
+                JLabel idx = new JLabel("[" + cellRows.size() + "]");
+                idx.setFont(code);   // רוחב קבוע — השורות מיושרות (‎[1]‎ צר מ-‎[0]‎ בגופן רגיל)
+                final JComponent[] r = { idx, b, v };
                 fillCell(r);
                 b.addActionListener(e -> changed());
                 onText(v, this::changed);
                 cellRows.add(r);
             }
-            cells.reset();
             for (int i = 0; i < n; i++) {
                 JComponent[] r = cellRows.get(i);
                 String c = nameOf(((JComboBox<?>) r[1]).getSelectedItem());
                 StringBuilder ph = new StringBuilder();
                 for (ClassGen.Field f : ClassGen.ctorParams(known, c)) ph.append(ph.length() > 0 ? ", " : "").append(f.name);
-                ((JTextField) r[2]).putClientProperty("JTextField.placeholderText", c.isEmpty() ? "" : ph.toString());
-                ((JTextField) r[2]).setToolTipText(ph.toString());
-                r[2].setEnabled(!c.isEmpty());
-                cells.line(ltr(flow(r[0], r[1], r[2])), 2);
+                String place = c.isEmpty() ? "" : ph.toString();
+                JTextField t = (JTextField) r[2];
+                if (!place.equals(t.getClientProperty("JTextField.placeholderText"))) {
+                    t.putClientProperty("JTextField.placeholderText", place);
+                    t.setToolTipText(ph.toString());
+                }
+                if (t.isEnabled() == c.isEmpty()) t.setEnabled(!c.isEmpty());
             }
-            cells.revalidate();
+            if (n == shownCells) return;
+            shownCells = n;
+            rebuildKeepingFocus(cells, () -> {
+                cells.reset();
+                for (int i = 0; i < n; i++) {
+                    JComponent[] r = cellRows.get(i);
+                    cells.line(ltr(flow(r[0], r[1], r[2])), 2);
+                }
+                cells.revalidate();
+            });
         }
 
         /** הקוד (כל שורה עם indent) והשגיאות — גם שם משתנה שכבר קיים בקוד */

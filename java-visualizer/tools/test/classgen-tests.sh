@@ -115,6 +115,11 @@ if command -v Xvfb >/dev/null 2>&1; then
             || { echo "SdkApp (אחרי היררכיה מוכנה + צור מחלקה) לא נבנה / לא רץ"; cat "$T/sdkapp-build.txt" "$T/sdkapp-run.txt" | tail -20; exit 1; }
     fi
     echo "  ok  Visual Studio (Swing): היררכיה מוכנה (7 קבצים, Run() כשיש Main), צור מחלקה שיורשת (base, override, virtual בקובץ של מחלקת העל), הוסף עצם (גם מערך) — והפרויקט נבנה ורץ"
+    # "הוסף עצם": הקלדה אמיתית (Robot) בתא של מערך ובשדות הבנאי — הפוקוס לא עוזב את השדה (קודם השורות נבנו מחדש בכל הקשה)
+    mkdir -p "$T/focus"
+    javac -nowarn -encoding UTF-8 -cp "$T/cls:$JAR" -d "$T/focus" "$ROOT/tools/test/polyfocus/PolyFocusTest.java"
+    DISPLAY=:96 timeout 120 java -Dstdout.encoding=UTF-8 -cp "$T/focus:$T/cls:$JAR" il.lamerhav.dsviz.PolyFocusTest "$T/shots" > "$T/focus.out" 2>&1 \
+        && echo "  ok  $(tail -n 1 "$T/focus.out")" || { echo "הוסף עצם — הפוקוס בהקלדה נכשל"; cat "$T/focus.out"; exit 1; }
 else
     echo "  (אין Xvfb — מדלגים על החלון של Visual Studio)"
 fi
