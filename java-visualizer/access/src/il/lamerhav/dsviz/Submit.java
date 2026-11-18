@@ -48,13 +48,16 @@ public final class Submit {
         public Map<String, Object> check;
     }
 
-    /** באיזו זהות מגישים מהמחשב הזה: "student" — תלמיד שמשויך למורה; "station" — עמדת מחשב של הכיתה; "" — אין למי להגיש */
+    /**
+     * באיזו זהות מגישים מהמחשב הזה: "student" — תלמיד שמשויך למורה; "station" — עמדת מחשב של הכיתה; "" — אין למי להגיש.
+     * רק כשהשרת אמר שהוא יודע לקבל הגשות (features: submit) — מול שרת ישן אין כפתור
+     */
     public static String mode() {
         try {
             Account.Access a = Account.current();
             if (a != null && a.isTeacher()) return "";                               // מורה לא מגיש לעצמו
-            if (a != null && a.isStudent() && !a.teacher.isEmpty()) return "student";
-            if (Account.station() != null) return "station";
+            if (a != null && a.isStudent() && !a.teacher.isEmpty()) return Account.serverHas(false, "submit") ? "student" : "";
+            if (Account.station() != null && Account.serverHas(true, "submit")) return "station";
         } catch (Throwable ignored) {
             // לא הצלחנו לקרוא את הכניסה — בלי כפתור
         }

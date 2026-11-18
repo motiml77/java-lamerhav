@@ -247,9 +247,15 @@ export async function resolveToken(env, token, machine, caps) {
     student: await studentState(env, se.email), status };
 }
 
+/**
+ * מה השרת הזה יודע (נשמר במחשב עם הכניסה): submit — "הגשה למורה" (POST /v1/submit). התוסף מציג את הכפתור רק כשהשרת אמר
+ * שהוא יודע — כך גרסה חדשה של התוסף מול שרת ישן (או שרת שבו ההגשה כבויה) לא מציגה כפתור שלא עובד
+ */
+const FEATURES = ['submit'];
+
 async function accessReply(env, r, extra) {
   const s = await settings(env);
-  const out = { ok: true, status: r.status, profile: r.profile || null };
+  const out = { ok: true, status: r.status, profile: r.profile || null, features: FEATURES };
   if (r.teacher) out.teacher = r.teacher;
   if (r.station) out.station = { id: r.station.id, name: r.station.name };
   if (r.until) out.until = r.until;

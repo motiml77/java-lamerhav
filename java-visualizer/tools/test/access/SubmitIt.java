@@ -328,6 +328,19 @@ public class SubmitIt {
         check("הגשה נוספת מאותה עמדה: השדה 'שם המגיש' ריק שוב (לא נזכר)", opened4 && who2 instanceof JTextField && ui(() -> ((JTextField) who2).getText()).isEmpty(), "");
         SwingUtilities.invokeAndWait(() -> ((JTextField) who2).setText("יואב כהן"));
         check("תלמיד אחר באותה עמדה, אותו תרגיל — הגשה נפרדת", "ok".equals(sendAndWait()) && submissions(teacherTok, "station=" + stationId).size() == 2, shown());
+        // שרת ישן (בלי features: submit — למשל לפני שהשרת עודכן): אין כפתור שלא עובד; בדיקה מול שרת חדש מחזירה אותו
+        File sf = new File(Account.stationFileForTest().split(" \\| ")[0]);
+        Map<String, Object> saved = Account.load(sf);
+        check("קובץ העמדה נשמר עם features: submit", saved != null && Json.arr(saved.get("features")).contains("submit"), saved == null ? "" : saved.get("features"));
+        if (saved != null) {
+            saved.remove("features");
+            Account.save(sf, saved);
+        }
+        check("כניסה שנשמרה מול שרת ישן (בלי 'submit') — אין 'הגשה למורה'", Submit.mode().isEmpty() && !Submit.available(), Submit.mode());
+        openFloat(q);
+        check("ובחלון השאלה אין את הכפתור", !has("SUBMIT-BUTTON"), shown());
+        Account.refresh();
+        check("אחרי בדיקה מול השרת החדש — מגישים שוב כעמדה", "station".equals(Submit.mode()), Submit.mode());
         ui(() -> { if (BankVsFloat.current != null) BankVsFloat.current.dispose(); return null; });
 
         // ---------------------------------------------------------------- מורה: לא מגיש לעצמו

@@ -1155,6 +1155,14 @@ public final class Account {
         return p != null && "station".equals(Json.str(p.get("kind"))) ? accessOf(p) : null;
     }
 
+    /** השרת אמר (בבדיקה האחרונה של הכרטיס הזה) שהוא יודע feature — station=true: הכרטיס של העמדה; false: של המשתמש */
+    static boolean serverHas(boolean station, String feature) {
+        Map<String, Object> d = load(station ? stationFile() : userFile());
+        if (d == null) return false;
+        for (Object o : Json.arr(d.get("features"))) if (feature.equals(Json.str(o))) return true;
+        return false;
+    }
+
     /**
      * הכותרות של כרטיס מסוים: station=true — של העמדה של המחשב; false — של המשתמש המחובר עם Google (מורה / תלמיד).
      * ריק — אין כרטיס כזה. ("הגשה למורה": תלמיד משויך מגיש בשם עצמו; בעמדת מחשב — בשם העמדה, גם אם מישהו מחובר מעליה)
@@ -1289,6 +1297,10 @@ public final class Account {
             d.put("studentRegistered", Boolean.TRUE.equals(st.get("registered")));
             d.put("studentFullName", Json.str(st.get("fullName")));
         }
+        // מה השרת יודע (features — למשל submit: "הגשה למורה"). שרת ישן לא שולח — רשימה ריקה, והכפתורים החדשים לא מוצגים
+        List<Object> feats = new ArrayList<Object>();
+        for (Object o : Json.arr(r.body.get("features"))) if (!Json.str(o).isEmpty()) feats.add(Json.str(o));
+        d.put("features", feats);
         // "צריך לשלם": המחיר ועד מתי — למסך שמסביר (גם בלי אינטרנט בפתיחה הבאה)
         if ("pay".equals(r.status)) {
             d.put("payPrice", r.body.get("price"));

@@ -352,6 +352,7 @@ await test('הרשמה מהתוסף: נשמרת (שם מסודר, טלפון ב-
   const chk = await checkAs(tamar, NEW);
   assert.equal(chk.body.status, 'ok');
   assert.ok(chk.body.pass);
+  assert.deepEqual(chk.body.features, ['submit'], 'השרת אומר שהוא מקבל הגשות — רק אז התוסף מציג "הגשה למורה"');
   assert.deepEqual(chk.body.student, { mode: '', teacher: null, registered: true, fullName: 'תמר בן-דוד' });
   const me = (await call('GET', '/v1/me', { token: await idToken('tamar@test.dev', 'tami2011') })).body;
   assert.equal(me.student.registered, true);
