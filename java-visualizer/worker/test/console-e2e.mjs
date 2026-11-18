@@ -226,10 +226,15 @@ await step('תלמיד בדפדפן: בוחר "תלמיד עצמאי" → ואז
   const sp = await sctx.newPage();
   await sp.goto(BASE + '/account');
   await googlePopup(sp, '.gbtn', 'shira.b@gmail.com', 'שירה ברק');
-  await sp.waitForSelector('text=תלמיד עצמאי, או עם מורה?');
+  // פעם ראשונה: ההרשמה (שם מלא, טלפון) יחד עם הבחירה "תלמיד עצמאי / יש לי קוד מורה"
+  await sp.waitForSelector('h2:has-text("השלמת ההרשמה")');
+  assert.equal(await sp.inputValue('#reg-name'), 'שירה ברק');
   await shot(sp, 'c08-student-choose');
-  await sp.click('button:has-text("תלמיד עצמאי")');
+  await sp.fill('#reg-phone', '050-2223344');
+  await sp.check('#reg-mode-independent');
+  await sp.click('form button[type=submit]');
   await sp.waitForSelector('.pill:has-text("תלמיד עצמאי")');
+  await sp.waitForSelector('h2:has-text("הפרטים שלי")');
   await sp.fill('#join-code', 'ZZZZ');
   await sp.click('button:has-text("הצטרפות")');
   await sp.waitForSelector('.toast:has-text("הקוד לא נכון")');

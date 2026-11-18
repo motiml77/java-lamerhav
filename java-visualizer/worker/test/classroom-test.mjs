@@ -37,13 +37,13 @@ async function idToken(email, name = '') {
   return j.idToken;
 }
 const machine = () => randomBytes(16).toString('hex');
-async function signInPlugin(email, role, name) {
+async function signInPlugin(email, role, name, caps) {
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
   const ex = await call('POST', '/v1/auth/exchange', { body: { idToken: await idToken(email, name || email.split('@')[0]), role, challenge } });
   assert.equal(ex.status, 200, JSON.stringify(ex.body));
   const m = machine();
-  const r = await call('POST', '/v1/auth/redeem', { body: { code: ex.body.code, verifier, machine: m, machineName: 'מחשב בבית', client: 'test' } });
+  const r = await call('POST', '/v1/auth/redeem', { body: { code: ex.body.code, verifier, machine: m, machineName: 'מחשב בבית', client: 'test', caps } });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   return Object.assign(r.body, { machine: m });
 }
@@ -73,7 +73,7 @@ await test('תלמיד חדש: המאגר פתוח בחינם (studentsFree), ו
   noam = await signInPlugin('noam@test.dev', 'student', 'נועם לוי');
   assert.equal(noam.status, 'ok', JSON.stringify(noam));
   assert.ok(noam.pass, 'אישור חתום');
-  assert.deepEqual(noam.student, { mode: '', teacher: null });
+  assert.deepEqual(noam.student, { mode: '', teacher: null, registered: false, fullName: '' });
 });
 
 await test('תלמיד עצמאי: הבחירה נשמרת, ו"הגשה למורה" לא אפשרית', async () => {
@@ -308,6 +308,112 @@ await test('ההנהלה מכבה "תלמידים בחינם" — תלמיד ב�
   await call('POST', '/v1/admin/settings', { token: admin, body: { studentsFree: true } });
   accessTest.reset();
   assert.equal((await call('POST', '/v1/access/check', { body: { token: noam.token, machine: noam.machine } })).body.status, 'ok');
+});
+
+// ------------------------------------------------------------------ הרשמת תלמיד: שם מלא וטלפון
+const NEW = ['register'];   // לקוח חדש: מכיר את המצב "register"
+const checkAs = (tok, caps) => call('POST', '/v1/access/check', { body: { token: tok.token, machine: tok.machine, caps } });
+
+let tamar;
+await test('הרשמה: לקוח חדש מקבל register (בלי אישור) עד שהתלמיד כותב שם מלא וטלפון; לקוח ישן ממשיך לקבל ok', async () => {
+  tamar = await signInPlugin('tamar@test.dev', 'student', 'tami2011', NEW);
+  assert.equal(tamar.status, 'register', JSON.stringify(tamar));
+  assert.ok(!tamar.pass, 'בלי הרשמה אין אישור');
+  assert.ok(tamar.token, 'הכרטיס נשמר — אחרי ההרשמה אותו מחשב נפתח בלי כניסה נוספת');
+  assert.equal(tamar.student.registered, false);
+  assert.equal((await checkAs(tamar, NEW)).body.status, 'register');
+  const old = await checkAs(tamar);   // לקוח ישן (בלי caps) — כמו קודם
+  assert.equal(old.body.status, 'ok');
+  assert.ok(old.body.pass);
+});
+
+await test('הרשמה: שם לא מלא / טלפון לא תקין נדחים עם הסבר; בלי כניסה — 401', async () => {
+  const reg = body => call('POST', '/v1/student/register', { headers: plugin(tamar), body });
+  for (const fullName of ['תמר', 'ת כ', 'תמר 123', 'tami2011', '', 'א'.repeat(70) + ' כהן']) {
+    const r = await reg({ fullName, phone: '050-1234567' });
+    assert.equal(r.status, 400, fullName + ' → ' + JSON.stringify(r.body));
+    assert.equal(r.body.code, 'name');
+  }
+  for (const phone of ['', '12345', '03-5551234', '050-123456', '0501234567 8']) {
+    const r = await reg({ fullName: 'תמר כהן', phone });
+    assert.equal(r.status, 400, phone + ' → ' + JSON.stringify(r.body));
+    assert.equal(r.body.code, 'phone');
+  }
+  assert.equal((await call('POST', '/v1/student/register', { body: { fullName: 'תמר כהן', phone: '0501234567' } })).status, 401);
+  assert.equal((await checkAs(tamar, NEW)).body.status, 'register');
+});
+
+await test('הרשמה מהתוסף: נשמרת (שם מסודר, טלפון ב-10 ספרות), והמאגר נפתח — אישור חתום', async () => {
+  const r = await call('POST', '/v1/student/register', { headers: plugin(tamar), body: { fullName: '  תמר   בן-דוד ', phone: '+972 50-123 4567' } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.first, true);
+  assert.equal(r.body.registered, true);
+  assert.equal(r.body.fullName, 'תמר בן-דוד');
+  const chk = await checkAs(tamar, NEW);
+  assert.equal(chk.body.status, 'ok');
+  assert.ok(chk.body.pass);
+  assert.deepEqual(chk.body.student, { mode: '', teacher: null, registered: true, fullName: 'תמר בן-דוד' });
+  const me = (await call('GET', '/v1/me', { token: await idToken('tamar@test.dev', 'tami2011') })).body;
+  assert.equal(me.student.registered, true);
+  assert.equal(me.student.fullName, 'תמר בן-דוד');
+  assert.equal(me.student.phone, '0501234567');
+});
+
+await test('הרשמה מהדף בדפדפן (לפני שחוזרים לתוכנה): התוסף מקבל ok כבר בכניסה; המורה רואה את השם המלא ולא את הכינוי מ-Google', async () => {
+  const web = await idToken('yoav@test.dev', 'yoyo_gamer');
+  const before = (await call('GET', '/v1/me', { token: web })).body;
+  assert.equal(before.student.registered, false);
+  const r = await call('POST', '/v1/student/register', { token: web, body: { fullName: "יואב ז'אן לוי", phone: '052-7654321' } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal((await call('POST', '/v1/student/join', { token: web, body: { code: codes['sara@test.dev'] } })).body.status, 'ok');
+  const yoav = await signInPlugin('yoav@test.dev', 'student', 'yoyo_gamer', NEW);
+  assert.equal(yoav.status, 'ok', JSON.stringify(yoav));
+  assert.ok(yoav.pass);
+  assert.equal(yoav.student.mode, 'teacher');
+  const row = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(x => x.email === 'yoav@test.dev');
+  assert.equal(row.name, "יואב ז'אן לוי");
+  // עדכון השם ב"החשבון שלי" — מתעדכן גם אצל המורה
+  const upd = await call('POST', '/v1/student/register', { token: web, body: { fullName: 'יואב לוי', phone: '0527654321' } });
+  assert.equal(upd.body.first, false);
+  assert.equal((await call('GET', '/v1/me/console', { token: sara })).body.students.find(x => x.email === 'yoav@test.dev').name, 'יואב לוי');
+});
+
+await test('מסוף ההנהלה: לכל תלמיד — שם מלא, טלפון, נרשם / לא, והמורה שלו', async () => {
+  const list = (await call('GET', '/v1/admin/students', { token: admin })).body.students;
+  const t = list.find(x => x.email === 'tamar@test.dev'), y = list.find(x => x.email === 'yoav@test.dev'), n = list.find(x => x.email === 'noam@test.dev');
+  assert.equal(t.name, 'תמר בן-דוד');
+  assert.equal(t.googleName, 'tami2011');
+  assert.equal(t.phone, '0501234567');
+  assert.equal(t.registered, true);
+  assert.ok(t.registeredAt);
+  assert.equal(y.teacher, 'sara@test.dev');
+  assert.equal(n.registered, false);
+  const one = (await call('GET', '/v1/admin/student?email=tamar@test.dev', { token: admin })).body.student;
+  assert.equal(one.name, 'תמר בן-דוד');
+  assert.equal(one.phone, '0501234567');
+  assert.equal(one.registered, true);
+});
+
+await test('מעבר לתשלום: גם תלמיד רשום שכבר מחובר נדרש לשלם (pay); מי שעוד לא נרשם — קודם ההרשמה (בחינם), ואז התשלום', async () => {
+  const fresh = await signInPlugin('gali@test.dev', 'student', 'גלי', NEW);
+  assert.equal(fresh.status, 'register');
+  assert.equal((await checkAs(tamar, NEW)).body.status, 'ok');
+  await call('POST', '/v1/admin/settings', { token: admin, body: { studentsFree: false } });
+  accessTest.reset();
+  const paid = await checkAs(tamar, NEW);
+  assert.equal(paid.body.status, 'pay');
+  assert.ok(!paid.body.pass, 'בלי תשלום אין אישור');
+  assert.equal((await checkAs(fresh, NEW)).body.status, 'register');
+  await call('POST', '/v1/student/register', { headers: plugin(fresh), body: { fullName: 'גלי שחר', phone: '0541112233' } });
+  assert.equal((await checkAs(fresh, NEW)).body.status, 'pay');
+  // הענקה ידנית מההנהלה פותחת (כמו תשלום)
+  await call('POST', '/v1/admin/student', { token: admin, body: { email: 'tamar@test.dev', until: '2099-01-01' } });
+  const open = await checkAs(tamar, NEW);
+  assert.equal(open.body.status, 'ok');
+  assert.ok(open.body.pass);
+  await call('POST', '/v1/admin/settings', { token: admin, body: { studentsFree: true } });
+  accessTest.reset();
+  assert.equal((await checkAs(fresh, NEW)).body.status, 'ok');
 });
 
 console.log(`\n${passed} בדיקות עברו` + (process.exitCode ? ' — יש כישלונות' : ''));

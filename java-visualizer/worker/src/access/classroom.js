@@ -15,12 +15,12 @@
 //   submissions/{id}             teacher, from (student / station), student | station, stationName, who, exercise{…}, lang, app, check{…},
 //                                n, firstAt, createdAt, seenAt, size, fileCount, expiresAt (רק מעמדה — Timestamp, בשביל TTL)
 //   submissionFiles/{id}         teacher, files[{path, text}], main, expiresAt — הקוד עצמו, נקרא רק כשהמורה פותח הגשה
-//   students/{email}             + mode, teacher, joinedAt
+//   students/{email}             + mode, teacher, joinedAt; ההרשמה: fullName, phone, registeredAt (שם מלא וטלפון — פעם אחת, בדפדפן)
 
 import { Fail } from '../http.js';
 import { db, timeId } from './firestore.js';
 import { sha256Hex, normalizeCode } from './crypto.js';
-import { webUser, readJson, log, settings, resolveToken, badCodeLimit } from './index.js';
+import { webUser, readJson, log, settings, resolveToken, badCodeLimit, phoneNorm } from './index.js';
 
 const nowIso = () => new Date().toISOString();
 const month = () => nowIso().slice(0, 7);
@@ -52,17 +52,23 @@ async function studentUser(request, env) {
     const u = await webUser(request, env);
     return { email: u.email, name: u.name || '', picture: u.picture || '' };
   }
-  const r = await pluginUser(request, env);
+  // הפרטים של התלמיד (הרשמה, עצמאי / מורה) — גם כשהמאגר שלו עוד סגור (מחכה לתשלום): הכרטיס מזהה אותו בכל מקרה
+  const r = await pluginUser(request, env, true);
   if (r.kind !== 'student') throw new Fail(403, 'student', 'הפעולה הזו לתלמידים שמחוברים עם Google.');
   return { email: r.profile.email, name: r.profile.name || '', picture: r.profile.picture || '' };
 }
 
-/** מהתוסף: הכרטיס של המחשב (תלמיד / עמדה / מורה), חייב להיות בתוקף */
-async function pluginUser(request, env) {
+/**
+ * מהתוסף: הכרטיס של המחשב (תלמיד / עמדה / מורה), חייב להיות בתוקף.
+ * unpaidToo — גם תלמיד שהכרטיס שלו אמיתי אבל המאגר סגור לו כרגע (pay): לפעולות על הפרטים שלו, לא להגשה
+ */
+async function pluginUser(request, env, unpaidToo) {
   const token = request.headers.get('x-dsviz-access') || '';
   if (!token) throw new Fail(401, 'login', 'צריך להתחבר פעם אחת במחשב (בסרגל של DSViz).');
   const r = await resolveToken(env, token, request.headers.get('x-dsviz-machine') || '');
   if (r.status === 'blocked') throw new Fail(403, 'blocked', 'הגישה של המורה הזה הושבתה. פונים למורה או להנהלה.');
+  if (r.status === 'pay' && unpaidToo && r.kind === 'student') return r;
+  if (r.status === 'pay') throw new Fail(402, 'pay', 'המאגר סגור כרגע לחשבון הזה — קודם משלימים את התשלום (בחלון הכניסה של DSViz).');
   if (r.status !== 'ok') throw new Fail(401, 'login', 'הכניסה במחשב הזה כבר לא בתוקף — מתחברים שוב.');
   return r;
 }
@@ -102,14 +108,15 @@ async function studentJoin(request, env) {
     if (!teacher.active) return { status: 'blocked', teacher };
     if (teacher.joinOpen === false) return { status: 'closed', teacher };
     const prev = st && st.teacher || '';
+    const shown = clip(st && st.fullName || u.name, 80);   // המורה רואה את השם המלא מההרשמה (בחשבון Google לפעמים כינוי / בלי שם)
     const m = await t.get('members/' + memberId(c.teacher, u.email));
     if (prev === c.teacher && m && !m.leftAt) return { status: 'ok', teacher, already: true };
     if (prev && prev !== c.teacher && !b.replace) return { status: 'replace', teacher, prev };
     if (m) {   // חוזר למורה שעזב קודם: אותו מסמך (הכיתה וההגשות נשארו)
-      t.update('members/' + memberId(c.teacher, u.email), { leftAt: '', leftWhy: '', name: clip(u.name, 80) || m.name || '', picture: clip(u.picture, 400) || m.picture || '', rejoinedAt: at });
+      t.update('members/' + memberId(c.teacher, u.email), { leftAt: '', leftWhy: '', name: shown || m.name || '', picture: clip(u.picture, 400) || m.picture || '', rejoinedAt: at });
     } else {
       t.set('members/' + memberId(c.teacher, u.email), {
-        teacher: c.teacher, student: u.email, name: clip(u.name, 80), picture: clip(u.picture, 400), classId: '', joinedAt: at, leftAt: '', submits: 0, lastSubmitAt: '', lastTitle: '',
+        teacher: c.teacher, student: u.email, name: shown, picture: clip(u.picture, 400), classId: '', joinedAt: at, leftAt: '', submits: 0, lastSubmitAt: '', lastTitle: '',
       });
     }
     t.merge('students/' + u.email, { email: u.email, mode: 'teacher', teacher: c.teacher, joinedAt: at, modeAt: at });
@@ -158,7 +165,51 @@ export async function studentState(env, email) {
     const [t, m] = await store.getMany(['teachers/' + st.teacher, 'members/' + memberId(st.teacher, email)]);
     if (t && m && !m.leftAt) teacher = { name: t.name || '', school: t.school || '', email: st.teacher };
   }
-  return { mode: teacher ? 'teacher' : (mode === 'teacher' ? '' : mode), teacher };
+  return { mode: teacher ? 'teacher' : (mode === 'teacher' ? '' : mode), teacher, registered: isRegistered(st), fullName: st && st.fullName || '' };
+}
+
+// ------------------------------------------------------------------ הרשמת תלמיד: שם מלא וטלפון (פעם אחת)
+
+/** התלמיד השלים הרשמה: שם מלא וטלפון נייד (נשמרים ב-students/{email}) */
+export function isRegistered(st) {
+  return !!(st && st.fullName && st.phone);
+}
+
+/**
+ * שם מלא: שם פרטי ושם משפחה — לפחות שתי מילים של שתי אותיות ומעלה; אותיות (בכל שפה), רווח, מקף, גרש וגרשיים, נקודה.
+ * מחזיר את השם מסודר (רווח אחד בין מילים), או '' אם הוא לא תקין
+ */
+export function fullNameNorm(v) {
+  const s = String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s.length < 5 || s.length > 60) return '';
+  if (!/^[\p{L}\p{M} .'\u05f3\u05f4\u2019"-]+$/u.test(s)) return '';
+  const words = s.split(' ').filter(w => (w.match(/\p{L}/gu) || []).length >= 2);
+  return words.length >= 2 ? s : '';
+}
+
+/**
+ * הרשמה: שם מלא וטלפון. מהדף בדפדפן (אחרי הכניסה עם Google — לפני שחוזרים לתוכנה) או מהתוסף. אפשר לעדכן בכל זמן מ"החשבון שלי".
+ * תלמיד שכבר משויך למורה — השם אצל המורה מתעדכן מיד.
+ */
+async function studentRegister(request, env) {
+  const u = await studentUser(request, env);
+  const b = await readJson(request);
+  const fullName = fullNameNorm(b.fullName);
+  if (!fullName) throw new Fail(400, 'name', 'כותבים שם פרטי ושם משפחה (אותיות בלבד, למשל: נועה כהן).');
+  const phone = phoneNorm(b.phone);
+  if (!phone) throw new Fail(400, 'phone', 'צריך מספר טלפון נייד תקני — 10 ספרות (למשל 050-1234567).');
+  const store = db(env);
+  const st = await store.get('students/' + u.email);
+  const at = nowIso();
+  const first = !isRegistered(st);
+  await store.merge('students/' + u.email, Object.assign({ email: u.email, fullName, phone, profileAt: at }, first ? { registeredAt: at } : {}));
+  if (st && st.teacher) {
+    const m = await store.get('members/' + memberId(st.teacher, u.email));
+    if (m && m.name !== fullName) await store.update('members/' + memberId(st.teacher, u.email), { name: fullName }).catch(() => {});
+  }
+  if (first) await log(store, u.email, 'student.register', '', fullName + ' · ' + phone);
+  else if (st.fullName !== fullName || st.phone !== phone) await log(store, u.email, 'student.profile', '', fullName + ' · ' + phone);
+  return Object.assign({ ok: true, first }, await studentState(env, u.email));
 }
 
 // ------------------------------------------------------------------ הגשה (מהתוסף)
@@ -482,6 +533,7 @@ export const CLASSROOM_ROUTES = {
   'POST /v1/student/mode': studentMode,
   'POST /v1/student/join': studentJoin,
   'POST /v1/student/leave': studentLeave,
+  'POST /v1/student/register': studentRegister,
   'POST /v1/submit': submit,
   'GET /v1/me/console': consoleData,
   'GET /v1/me/submissions': listSubmissions,

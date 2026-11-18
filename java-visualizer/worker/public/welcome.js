@@ -1,10 +1,13 @@
-// /welcome — אחרי הכניסה מתוך התוכנה (התוסף מפנה לכאן עם המצב): הצלחה / תשלום / בקשת הרשאת מורה / מחשבים
+// /welcome — אחרי הכניסה מתוך התוכנה (התוסף מפנה לכאן עם המצב): הצלחה / הרשמה / תשלום / בקשת הרשאת מורה / מחשבים
 import { boot, currentUser, googleSignIn, api, h, icon, ICONS, googleLogo, topBar, fmtDate, ago, busy, toast, logoutWeb } from '/static/common.js';
+import { registerForm, missing, emailMark } from '/static/register.js';
 
 const app = document.getElementById('app');
 const q = new URLSearchParams(location.search);
 const r = q.get('r') || 'ok';
 const role = q.get('role') === 'teacher' ? 'teacher' : 'student';
+// u — סימן של החשבון שמחובר בתוכנה (emailMark): הרשמה ותשלום חייבים להיעשות עם אותו חשבון, אחרת החלון בתוכנה לא יתעדכן
+const mark = /^[a-f0-9]{10}$/.test(q.get('u') || '') ? q.get('u') : '';
 let user = null;
 
 function show(...kids) {
@@ -17,22 +20,52 @@ const done = (title, text, ...more) => show(
 
 async function needUser() {
   user = await currentUser();
-  if (user) return user;
-  return new Promise(resolve => {
-    const b = h('button', { type: 'button', class: 'gbtn' }, googleLogo(), 'התחברות עם Google');
-    b.onclick = () => busy(b, async () => { user = await googleSignIn(); resolve(user); });
-    show(h('h1', null, 'עוד צעד אחד'), h('p', { class: 'muted' }, 'נכנסים שוב עם אותו חשבון Google כדי להמשיך.'), b);
-  });
+  for (;;) {
+    if (user && (!mark || await emailMark(user.email) === mark)) return user;
+    const other = user;
+    user = await new Promise(resolve => {
+      const b = h('button', { type: 'button', class: 'gbtn' }, googleLogo(), 'התחברות עם Google');
+      // בלי התנתקות לפני החלון של Google: המתנה לפני פתיחת חלון גורמת לדפדפן לחסום אותו; הכניסה החדשה מחליפה את הקודמת
+      b.onclick = () => busy(b, async () => { resolve(await googleSignIn()); });
+      if (other) {
+        show(h('div', { class: 'badge-icon orange' }, icon(ICONS.info, 30, '#9A3412')), h('h1', null, 'בדפדפן מחובר חשבון אחר'),
+          h('p', { class: 'muted', style: { lineHeight: '1.6' } }, 'כאן מחובר ', h('b', { class: 'ltr' }, other.email), ', וב-DSViz מחובר חשבון Google אחר. כדי להמשיך נכנסים כאן עם החשבון שמחובר ב-DSViz.'), b);
+      } else show(h('h1', null, 'עוד צעד אחד'), h('p', { class: 'muted' }, 'נכנסים שוב עם אותו חשבון Google כדי להמשיך.'), b);
+    });
+  }
 }
 
 function openScreen(me) {
-  done('המאגר פתוח', `מעכשיו המחשב זוכר אותך: חוזרים ל-DSViz ופותחים את מאגר התרגילים.${me && me.student && me.student.until ? ' פתוח עד ' + fmtDate(me.student.until) + '.' : ''}`);
+  const t = me && me.student && me.student.state && me.student.state.teacher;
+  done('המאגר פתוח', `מעכשיו המחשב זוכר אותך: חוזרים ל-DSViz ופותחים את מאגר התרגילים.${me && me.student && me.student.until ? ' פתוח עד ' + fmtDate(me.student.until) + '.' : ''}`,
+    t ? h('p', { class: 'small muted' }, `המורה שלך: ${t.name}${t.school ? ' · ' + t.school : ''}. הכפתור "הגשה למורה" בחלון השאלה שולח לו את התרגיל.`) : null);
+}
+
+/**
+ * תלמיד שכבר מחובר בתוכנה ועוד לא נרשם (שם מלא וטלפון): הטופס; אחריו החלון בתוכנה מתעדכן לבד.
+ * next — מה בא אחרי ההרשמה במקום מסך הסיום (התשלום, כשהמאגר בתשלום)
+ */
+async function register(next) {
+  await needUser();
+  const me = await api('GET', '/v1/me');
+  const parts = missing(me);
+  const finished = t => (next ? next() : done('ההרשמה הושלמה', (t && t.name ? `הצטרפת למורה ${t.name}${t.school ? ' · ' + t.school : ''}. ` : '') + 'חוזרים ל-DSViz — החלון שם מתעדכן לבד, והמאגר נפתח.'));
+  if (!parts.reg && !parts.mode) return finished(me.student.state && me.student.state.teacher);
+  show(
+    h('div', { class: 'badge-icon blue', style: { width: '56px', height: '56px' } }, icon(ICONS.cap, 28, '#1E4FB8')),
+    h('h1', null, parts.reg ? 'השלמת ההרשמה' : 'עוד שאלה אחת'),
+    h('p', { class: 'muted', style: { lineHeight: '1.6', fontSize: '16px' } }, parts.reg
+      ? 'כדי להמשיך להשתמש במאגר התרגילים ממלאים פעם אחת שם מלא וטלפון' + (me.student.free ? ' — בחינם.' : '.')
+      : 'כדי שנדע אם להציג את "הגשה למורה".'),
+    registerForm({ me, parts, onDone: async r => finished(r.teacher) }),
+    parts.reg ? h('p', { class: 'small muted' }, 'את הפרטים אפשר לעדכן בכל זמן בדף "החשבון שלי".') : null);
 }
 
 async function pay() {
   await needUser();
   const me = await api('GET', '/v1/me');
   if (me.student.open) return openScreen(me);
+  if (!me.student.registered) return register(pay);   // קודם ההרשמה (שם מלא וטלפון), ואז התשלום
   if (!me.canPay) {
     return show(h('div', { class: 'badge-icon orange' }, icon(ICONS.info, 30, '#9A3412')), h('h1', null, 'התשלום עוד לא פתוח'),
       h('p', { class: 'muted' }, 'עוד מעט אפשר יהיה לשלם כאן. בינתיים, אם המורה פתח עמדה בכיתה — המאגר פתוח שם.'));
@@ -113,6 +146,7 @@ async function devices() {
 async function main() {
   try { await boot(); } catch (e) { show(h('h1', null, 'הכניסה עוד לא פתוחה')); return; }
   try {
+    if (r === 'register') return await register();
     if (r === 'pay') return await pay();
     if (r === 'paid') return await waitPaid();
     if (r === 'not-teacher') return await notTeacher();

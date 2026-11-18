@@ -2,6 +2,7 @@
 // תלמיד — עצמאי / משויך למורה (קוד המורה), מצב המאגר; והמחשבים המחוברים
 import { boot, currentUser, googleSignIn, api, h, icon, ICONS, googleLogo, topBar, fmtDate, ago, daysSince, busy, toast, ask, logoutWeb } from '/static/common.js';
 import { mountConsole } from '/static/console.js';
+import { registerForm, missing } from '/static/register.js';
 
 const app = document.getElementById('app');
 let user = null;
@@ -116,6 +117,25 @@ function teacherLinkCard() {
     h('div', { class: 'row' }, indep), form);
 }
 
+/** תלמיד: ההרשמה (שם מלא וטלפון). עוד לא נרשם — הטופס (עם "עצמאי / קוד מורה" אם עוד לא בחר); נרשם — הפרטים, ו"עדכון" */
+function detailsCard() {
+  const s = me.student;
+  const parts = missing(me);
+  if (parts.reg) {
+    return h('section', { class: 'card', style: { gridColumn: '1 / -1' } }, h('h2', null, 'השלמת ההרשמה'),
+      h('p', { class: 'muted' }, 'כדי להשתמש במאגר התרגילים ממלאים פעם אחת שם מלא וטלפון' + (s.free ? ' — בחינם.' : '.')),
+      h('div', { style: { maxWidth: '460px' } }, registerForm({ me, parts, onDone: async () => { toast('ההרשמה הושלמה'); await load(); } })));
+  }
+  const edit = h('button', { type: 'button', class: 'btn sm' }, 'עדכון');
+  const card = h('section', { class: 'card' }, h('h2', null, 'הפרטים שלי'),
+    h('div', { class: 'row wrap' }, h('b', null, s.fullName), h('span', { class: 'muted ltr' }, s.phone.replace(/^(\d{3})(\d{7})$/, '$1-$2'))),
+    h('div', { class: 'small muted ltr', style: { textAlign: 'right' } }, me.email), edit);
+  edit.onclick = () => card.replaceChildren(h('h2', null, 'הפרטים שלי'),
+    registerForm({ me, parts: { reg: true, mode: false }, submit: 'שמירה', onDone: async () => { toast('הפרטים נשמרו'); await load(); } }),
+    h('button', { type: 'button', class: 'btn sm', onclick: () => load() }, 'ביטול'));
+  return card;
+}
+
 function studentCard() {
   const s = me.student;
   if (s.free) {
@@ -156,7 +176,8 @@ async function load() {
   const con = h('div', { id: 'console' }, h('div', { class: 'loading' }, 'רגע…'));
   const body = me.teacher
     ? [con, h('div', { class: 'grid2' }, packagesCard(), requestsCard() || devicesCard()), me.requests.length ? h('div', { class: 'grid2' }, devicesCard()) : null]
-    : [h('div', { class: 'grid2' }, teacherLinkCard(), studentCard()), h('div', { class: 'grid2' }, devicesCard())];
+    : missing(me).reg ? [h('div', { class: 'grid2' }, detailsCard()), h('div', { class: 'grid2' }, studentCard(), devicesCard())]
+      : [h('div', { class: 'grid2' }, detailsCard(), teacherLinkCard()), h('div', { class: 'grid2' }, studentCard(), devicesCard())];
   if (me.teacher && !me.teacher.active) body.unshift(h('div', { class: 'warn-box' }, 'החשבון שלך כמורה הושבת — העמדות שלך ננעלות בבדיקה הבאה. פונים להנהלה.'));
   app.replaceChildren(topBar(user, { badge, onLogout: async () => { await logoutWeb(); location.reload(); } }), h('main', { class: 'page' }, head, ...body));
   if (me.teacher && me.teacher.active) {

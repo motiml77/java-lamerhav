@@ -130,6 +130,19 @@ function realAppRun(mode, dir) {
 }
 const shot = (page, name) => page.screenshot({ path: join(SHOTS, name + '.png') });
 
+/** טופס ההרשמה של תלמיד (register.js): שם מלא, טלפון, ו"עצמאי" או קוד מורה; שולח */
+async function fillRegister(page, { name, phone, code } = {}) {
+  await page.waitForSelector('#reg-name');
+  if (name !== undefined) await page.fill('#reg-name', name);
+  if (phone !== undefined) await page.fill('#reg-phone', phone);
+  if (code !== undefined) {
+    await page.check('#reg-mode-teacher');
+    await page.fill('#reg-code', code);
+  } else if (await page.locator('#reg-mode-independent').count()) await page.check('#reg-mode-independent');
+  await page.click('form button[type=submit]');
+}
+const emailMark = email => createHash('sha256').update(email.trim().toLowerCase()).digest('hex').slice(0, 10);
+
 const page = await ctx.newPage();
 await step('מסוף ההנהלה: כניסה עם Google → סקירה עם המספרים, "דורש טיפול" ופעילות', async () => {
   await page.goto(BASE + '/admin');
@@ -305,7 +318,27 @@ await step('תלמיד מתוך התוכנה: /signin → Google → חזרה ל
   await student.waitForSelector('.gbtn');
   await shot(student, '10-signin-student');
   await googlePopup(student, '.gbtn', 'pupil.new@gmail.com', 'תלמיד חדש');
+  // פעם ראשונה: ההרשמה (שם מלא, טלפון, עצמאי / קוד מורה) — לפני שחוזרים לתוכנה
+  await student.waitForSelector('#reg-name');
+  assert.equal(await student.inputValue('#reg-name'), 'תלמיד חדש', 'השם מ-Google מוצע כשהוא נראה כמו שם מלא');
+  assert.equal(appSrv.result(), null, 'עוד לא חזרנו לתוכנה');
+  await shot(student, '10b-signin-register');
+  await student.click('form button[type=submit]');
+  await student.waitForSelector('.warn-box:not([hidden])');
+  assert.match(await student.textContent('.warn-box'), /נייד תקני/);
+  await student.fill('#reg-phone', '03-5551234');
+  await student.click('form button[type=submit]');
+  assert.match(await student.textContent('.warn-box'), /נייד תקני/);
+  await student.fill('#reg-phone', '050-765 4321');
+  await student.click('form button[type=submit]');
+  assert.match(await student.textContent('.warn-box'), /בוחרים/);
+  await shot(student, '10c-signin-register-error');
+  await fillRegister(student, { name: 'נועם  בר-לב' });
   await student.waitForURL(/\/welcome\?r=pay/);
+  const reg = await store.get('students/pupil.new@gmail.com');
+  assert.equal(reg.fullName, 'נועם בר-לב');
+  assert.equal(reg.phone, '0507654321');
+  assert.equal(reg.mode, 'independent');
   await student.waitForSelector('.price');
   assert.equal(appSrv.result().status, 'pay');
   assert.match(appSrv.result().token, /^u\./);
@@ -424,6 +457,7 @@ await step('הלקוח האמיתי, כל הדרך: תלמיד נכנס בדפד
   assert.match(url, /^http:\/\/127\.0\.0\.1:8787\/signin\?role=student&port=\d+&state=[\w-]{22}&challenge=[\w-]{43}$/, 'כתובת הכניסה: בלי סודות (רק state ו-challenge)');
   await p.goto(url);
   await googlePopup(p, '.gbtn', 'life.pupil@gmail.com', 'תלמידה בדיקה');
+  await fillRegister(p, { phone: '054-1112233' });   // פעם ראשונה: ההרשמה בדפדפן, ורק אחריה חוזרים לתוכנה
   await p.waitForURL(/\/welcome\?r=ok&role=student/);
   assert.equal(await app.result(), 'ok');
   const hist = await p.evaluate(() => location.href);
@@ -439,6 +473,132 @@ await step('הלקוח האמיתי, כל הדרך: תלמיד נכנס בדפד
   assert.match(out, /^ACCESS none$/m, 'אחרי התנתקות והפעלה מחדש — לא מחובר: ' + out);
   const sessions = await store.query('sessions', { where: [['email', '==', 'life.pupil@gmail.com']] });
   assert.ok(sessions.length === 1 && sessions[0].revoked === true && sessions[0].revokedBy === 'logout', 'הכרטיס בוטל בשרת');
+});
+
+const newCtx = () => browser.newContext({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 2, locale: 'he-IL', ignoreHTTPSErrors: true });
+/** כניסה של תלמיד "מהתוכנה" בלי הדף (כמו תלמיד שהתחבר לפני שהייתה הרשמה): כרטיס אמיתי, בלי שם מלא וטלפון */
+async function oldSession(email, name) {
+  const verifier = randomBytes(32).toString('base64url');
+  const ex = await api('POST', '/v1/auth/exchange', { idToken: await idToken(email, name), role: 'student', challenge: createHash('sha256').update(verifier).digest('base64url') });
+  const machine = mid();
+  const r = await api('POST', '/v1/auth/redeem', { code: ex.code, verifier, machine, machineName: 'מחשב ישן', client: 'e2e' });
+  return { token: r.token, machine, status: r.status };
+}
+const checkNew = s => api('POST', '/v1/access/check', { token: s.token, machine: s.machine, caps: ['register'] });
+
+await step('הרשמה עם קוד מורה (בחינם): קוד שגוי → הסבר; קוד נכון → חוזרים לתוכנה משויכים, והמורה רואה את השם המלא', async () => {
+  await api('POST', '/v1/admin/settings', { studentsFree: true }, admin);
+  const code = (await api('GET', '/v1/admin/teacher?email=sara.cohen@ort.org.il', null, admin)).teacher.code;
+  const p = await newCtx().then(c => c.newPage());
+  p.on('pageerror', e => errors.push(String(e)));
+  const appSrv = await fakeApp('student');
+  await p.goto(`${BASE}/signin?role=student&port=${appSrv.port}&state=${appSrv.state}&challenge=${appSrv.challenge}`);
+  assert.match(await p.textContent('main'), /ההרשמה בחינם/);
+  await googlePopup(p, '.gbtn', 'pupil.join@gmail.com', 'gamer_2011');
+  await p.waitForSelector('#reg-name');
+  assert.equal(await p.inputValue('#reg-name'), '', 'כינוי מ-Google (לא שם מלא) לא מוצע');
+  assert.match(await p.textContent('main'), /בחינם/);
+  await fillRegister(p, { name: 'יעל אברהם', phone: '0521234567', code: 'ZZZZ' });
+  await p.waitForSelector('.warn-box:not([hidden])');
+  assert.match(await p.textContent('.warn-box'), /הקוד לא נכון/);
+  assert.equal(appSrv.result(), null, 'קוד שגוי — לא חוזרים לתוכנה');
+  await shot(p, '19-register-bad-code');
+  await p.fill('#reg-code', code.toLowerCase());
+  await p.click('form button[type=submit]');
+  await p.waitForURL(/\/welcome\?r=ok&role=student/);
+  await p.waitForSelector('h1:has-text("המאגר פתוח")');
+  assert.match(await p.textContent('main'), /המורה שלך: שרה כהן/);
+  await shot(p, '20-register-joined');
+  assert.equal(appSrv.result().status, 'ok');
+  assert.deepEqual(appSrv.result().student, { mode: 'teacher', teacher: { name: 'שרה כהן', school: 'אורט רחובות', email: 'sara.cohen@ort.org.il' }, registered: true, fullName: 'יעל אברהם' });
+  const row = (await api('GET', '/v1/me/console', null, await idToken('sara.cohen@ort.org.il', 'שרה כהן'))).students.find(x => x.email === 'pupil.join@gmail.com');
+  assert.equal(row.name, 'יעל אברהם');
+  appSrv.close();
+  // "החשבון שלי": הפרטים, ועדכון הטלפון
+  await p.goto(BASE + '/account');
+  await p.waitForSelector('h2:has-text("הפרטים שלי")');
+  assert.match(await p.textContent('main'), /יעל אברהם/);
+  assert.match(await p.textContent('main'), /052-1234567/);
+  await shot(p, '21-account-student');
+  await p.click('section:has(h2:has-text("הפרטים שלי")) button:has-text("עדכון")');
+  await p.fill('#reg-phone', '052-0000001');
+  await p.click('form button[type=submit]');
+  await p.waitForSelector('text=052-0000001');
+  assert.equal((await store.get('students/pupil.join@gmail.com')).phone, '0520000001');
+});
+
+await step('תלמיד שכבר מחובר בתוכנה ועוד לא נרשם: לקוח חדש מקבל register → ‎/welcome?r=register‎ → הטופס → המאגר נפתח', async () => {
+  const s = await oldSession('old.pupil@gmail.com', 'דני');
+  assert.equal(s.status, 'ok', 'לקוח ישן — כמו קודם');
+  assert.equal((await checkNew(s)).status, 'register');
+  const p = await newCtx().then(c => c.newPage());
+  p.on('pageerror', e => errors.push(String(e)));
+  await p.goto(`${BASE}/welcome?r=register&role=student&u=${emailMark('old.pupil@gmail.com')}`);
+  await googlePopup(p, '.gbtn', 'old.pupil@gmail.com', 'דני');
+  await p.waitForSelector('h1:has-text("השלמת ההרשמה")');
+  await shot(p, '22-welcome-register');
+  await fillRegister(p, { name: 'דני רוזנברג', phone: '0539998877' });
+  await p.waitForSelector('h1:has-text("ההרשמה הושלמה")');
+  await shot(p, '23-welcome-registered');
+  const after = await checkNew(s);
+  assert.equal(after.status, 'ok');
+  assert.ok(after.pass, 'אישור חתום — המאגר נפתח בתוכנה');
+  assert.equal(after.student.fullName, 'דני רוזנברג');
+  // פתיחה חוזרת של הדף — כבר רשום
+  await p.goto(`${BASE}/welcome?r=register&role=student&u=${emailMark('old.pupil@gmail.com')}`);
+  await p.waitForSelector('h1:has-text("ההרשמה הושלמה")');
+});
+
+await step('חשבון אחר בדפדפן: הדף לא נותן להירשם / לשלם בשביל חשבון שלא מחובר בתוכנה', async () => {
+  const s = await oldSession('right.one@gmail.com', 'רון');
+  const p = await newCtx().then(c => c.newPage());
+  p.on('pageerror', e => errors.push(String(e)));
+  await p.goto(BASE + '/account');
+  await googlePopup(p, '.gbtn', 'other.kid@gmail.com', 'אח קטן');
+  await p.waitForSelector('h1:has-text("החשבון שלי")');
+  await p.goto(`${BASE}/welcome?r=register&role=student&u=${emailMark('right.one@gmail.com')}`);
+  await p.waitForSelector('h1:has-text("בדפדפן מחובר חשבון אחר")');
+  assert.match(await p.textContent('main'), /other\.kid@gmail\.com/);
+  await shot(p, '24-welcome-other-account');
+  await googlePopup(p, '.gbtn', 'right.one@gmail.com', 'רון');
+  await p.waitForSelector('h1:has-text("השלמת ההרשמה")');
+  await fillRegister(p, { name: 'רון שגיא', phone: '0587776655' });
+  await p.waitForSelector('h1:has-text("ההרשמה הושלמה")');
+  assert.equal((await checkNew(s)).status, 'ok');
+  assert.equal((await store.get('students/other.kid@gmail.com') || {}).fullName, undefined, 'החשבון האחר לא נרשם בטעות');
+});
+
+await step('מעבר לתשלום: תלמיד רשום שכבר מחובר מקבל pay; דף התשלום פותח לו, והלקוח מקבל ok', async () => {
+  const s = await oldSession('pay.later@gmail.com', 'מאיה');
+  const tok = await idToken('pay.later@gmail.com', 'מאיה');
+  await api('POST', '/v1/student/register', { fullName: 'מאיה גולן', phone: '0501112222' }, tok);
+  assert.equal((await checkNew(s)).status, 'ok');
+  await api('POST', '/v1/admin/settings', { studentsFree: false }, admin);
+  const due = await checkNew(s);
+  assert.equal(due.status, 'pay');
+  assert.equal(due.price, 60);
+  assert.equal(due.canPay, true);
+  const p = await newCtx().then(c => c.newPage());
+  p.on('pageerror', e => errors.push(String(e)));
+  await p.goto(`${BASE}/welcome?r=pay&role=student&u=${emailMark('pay.later@gmail.com')}`);
+  await googlePopup(p, '.gbtn', 'pay.later@gmail.com', 'מאיה');
+  await p.waitForSelector('.price');
+  await p.click('button:has-text("מעבר לתשלום מאובטח")');
+  await p.waitForURL(/\/pay\/demo/);
+  await p.click('#pay');
+  await p.waitForSelector('h1:has-text("המאגר פתוח")', { timeout: 20000 });
+  assert.equal((await checkNew(s)).status, 'ok');
+  // מי שעוד לא נרשם ומגיע לדף התשלום — קודם ההרשמה, ואז התשלום
+  const s2 = await oldSession('pay.unreg@gmail.com', 'עומר');
+  assert.equal((await checkNew(s2)).status, 'register');
+  const p2 = await newCtx().then(c => c.newPage());
+  p2.on('pageerror', e => errors.push(String(e)));
+  await p2.goto(`${BASE}/welcome?r=pay&role=student`);
+  await googlePopup(p2, '.gbtn', 'pay.unreg@gmail.com', 'עומר');
+  await fillRegister(p2, { name: 'עומר דיין', phone: '0523334444' });
+  await p2.waitForSelector('.price');
+  await shot(p2, '25-register-then-pay');
+  assert.equal((await checkNew(s2)).status, 'pay');
 });
 
 await step('טלפון: מסוף ההנהלה ברוחב 390 — בלי גלילה לצד', async () => {

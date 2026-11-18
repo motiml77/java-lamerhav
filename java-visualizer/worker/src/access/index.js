@@ -3,7 +3,8 @@
 // מי מחליט: רק השרת. Firestore סגור לכל מחשב (כללי האבטחה: הכול חסום) — השרת ניגש בשם חשבון השירות.
 //   • מורה      — חשבון Google שההנהלה הגדירה (teachers/{email}). קוד קבוע. רואה את העמדות; מוסיף עמדות רק בקניית חבילה.
 //   • עמדת מחשב — קוד המורה + שם למחשב. היתר אחד יורד מהמורה, בטרנזקציה. אותו מחשב שמתחבר שוב — אותו היתר.
-//   • תלמיד     — חשבון Google + תשלום (או הענקה ידנית מההנהלה): students/{email}.accessUntil.
+//   • תלמיד     — חשבון Google + הרשמה (שם מלא וטלפון — פעם אחת, בדפדפן). בינתיים בחינם (settings.studentsFree); כשההנהלה
+//                 מכבה את המתג — תשלום (או הענקה ידנית מההנהלה): students/{email}.accessUntil. גם תלמיד שכבר מחובר נדרש אז לשלם.
 //   • הנהלה     — רק כתובות שב-ADMIN_EMAILS (בהגדרות השרת, לא ב-Firestore — אף אחד לא יכול "להוסיף את עצמו").
 //
 // הכניסה במחשב: "כרטיס" (token) ששמור במחשב, ו"אישור" (pass) חתום — אחרי הכניסה הראשונה (עם אינטרנט) המאגר נפתח
@@ -18,7 +19,7 @@ import { sha256, sha256Hex, randomToken, teacherCode, normalizeCode, showCode, s
 import { payProvider, PAY_PROVIDERS } from './pay.js';
 import { servePage } from './pages.js';
 import { alert, alertTo, mailReady, listAlerts, markSeen, WAIT } from './alerts.js';
-import { CLASSROOM_ROUTES, studentState } from './classroom.js';
+import { CLASSROOM_ROUTES, studentState, isRegistered } from './classroom.js';
 import { REPORT_ROUTES, REPORT_ADMIN_ROUTES } from './reports.js';
 
 export const DEFAULTS = {
@@ -105,6 +106,14 @@ function appDetail(app, more) {
   return [app ? 'app=' + app : '', more || ''].filter(Boolean).join(' · ');
 }
 
+/**
+ * מה הלקוח יודע לעשות (body.caps — מערך קצר של מילים). לקוח ישן לא שולח, והשרת ממשיך לענות לו כמו קודם:
+ *   register — מכיר את המצב "register" (תלמיד שעוד לא השלים הרשמה: שם מלא וטלפון) ומפנה לדף ההרשמה בדפדפן
+ */
+function capsOf(v) {
+  return Array.isArray(v) ? v.slice(0, 12).map(x => String(x || '').trim().toLowerCase()).filter(x => /^[a-z0-9-]{1,24}$/.test(x)) : [];
+}
+
 export async function log(store, actor, action, target, detail) {
   try {
     await store.set('log/' + timeId(), { at: nowIso(), actor: clip(actor, 120), action, target: clip(target, 200), detail: clip(detail, 400) });
@@ -185,8 +194,11 @@ const CLAIM_WHY = {
 };
 const REJECT_WHY = { gone: 'אין עמדה כזו', released: 'העמדה שוחררה', token: 'הכרטיס לא שייך לעמדה (התחברות חדשה החליפה אותו)', machine: 'מזהה המחשב שונה מזה של העמדה' };
 
-/** בודק כרטיס: מי זה, והאם מותר לו עכשיו. status: ok / pay / blocked / not-teacher / revoked / invalid */
-export async function resolveToken(env, token, machine) {
+/**
+ * בודק כרטיס: מי זה, והאם מותר לו עכשיו. status: ok / pay / register / blocked / not-teacher / revoked / invalid.
+ * caps (מה הלקוח יודע — capsOf): "register" מוחזר רק ללקוח שמכיר אותו; לקוח ישן מקבל ok כמו קודם (ומתעדכן לבד).
+ */
+export async function resolveToken(env, token, machine, caps) {
   const store = db(env);
   const p = parseToken(token);
   if (!p) return { status: 'invalid' };
@@ -229,8 +241,10 @@ export async function resolveToken(env, token, machine) {
   const yearAhead = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
   const until = s.studentsFree !== false ? (s.accessUntil >= today() ? s.accessUntil : yearAhead) : (st && st.accessUntil || '');
   await touch();
+  // קודם ההרשמה (שם מלא וטלפון — בחינם), ורק אחריה התשלום (כשהמאגר בתשלום)
+  const status = !isRegistered(st) && (caps || []).includes('register') ? 'register' : until && until >= today() ? 'ok' : 'pay';
   return { kind: 'student', subject: 'student:' + se.email, session: p.id, machine: se.machine, profile, until,
-    student: await studentState(env, se.email), status: until && until >= today() ? 'ok' : 'pay' };
+    student: await studentState(env, se.email), status };
 }
 
 async function accessReply(env, r, extra) {
@@ -329,15 +343,20 @@ async function redeem(request, env) {
     await store.merge('teachers/' + doc.email, { lastSignIn: nowIso(), uid: doc.uid });
     if (prev && !prev.lastSignIn) joined = 'teacher.first';
   }
-  if (joined) await alert(env, store, { kind: joined, email: doc.email, name: doc.name, detail: clip(b.machineName, 60) ? 'מחשב: ' + clip(b.machineName, 60) : '' }, { email: s.alertEmail !== false });
+  if (joined) {
+    // תלמיד חדש: ההרשמה (שם מלא וטלפון) נעשית בדפדפן לפני החזרה לתוכנה — ההתראה למנהל כוללת אותה
+    const reg = joined === 'student.new' ? await store.get('students/' + doc.email) : null;
+    const detail = [reg && reg.fullName, reg && reg.phone, clip(b.machineName, 60) ? 'מחשב: ' + clip(b.machineName, 60) : ''].filter(Boolean).join(' · ');
+    await alert(env, store, { kind: joined, email: doc.email, name: reg && reg.fullName || doc.name, detail }, { email: s.alertEmail !== false });
+  }
   await log(store, doc.email, doc.role === 'teacher' ? 'signin.teacher' : 'signin.student', clip(b.machineName, 60), appDetail(appOf(b.app)));
-  const r = await resolveToken(env, ses.token, b.machine);
+  const r = await resolveToken(env, ses.token, b.machine, capsOf(b.caps));
   return accessReply(env, r, { token: ses.token });
 }
 
 async function check(request, env) {
   const b = await readJson(request);
-  const r = await resolveToken(env, b.token, machineOk(b.machine) ? b.machine : '');
+  const r = await resolveToken(env, b.token, machineOk(b.machine) ? b.machine : '', capsOf(b.caps));
   if (r.stationDoc && r.why) await logStationReject(env, r).catch(() => {});
   return accessReply(env, r);
 }
@@ -541,6 +560,7 @@ async function me(request, env) {
     ok: true, email: u.email, name: u.name, picture: u.picture, admin: admins(env).includes(u.email),
     teacher: t ? Object.assign(await teacherView(t, stations.filter(x => x.active).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'))), { sends: (await monthlySends(env, [t]))[0], phone: t.phone || '' }) : null,
     student: { until, free: s.studentsFree !== false, open: s.studentsFree !== false || (!!until && until >= today()), source: st && st.source || '',
+      registered: isRegistered(st), fullName: st && st.fullName || '', phone: st && st.phone || '',
       state: t ? null : await studentState(env, u.email), sends: (await monthlySends(env, [{ email: u.email, kind: 'student' }]))[0] },
     requests: requests.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 12).map(r => ({
       id: r._id, kind: r.kind, amount: r.amount || 0, stationName: r.stationName || '', status: r.status, createdAt: r.createdAt, decidedAt: r.decidedAt || '', reason: r.reason || '',
@@ -704,7 +724,8 @@ export async function settlePayment(env, n) {
       if (n.status === 'paid' && (p.status === 'pending' || p.status === 'failed')) {
         t.update('payments/' + n.id, Object.assign({ status: 'paid', paidAt: at, providerRef: clip(n.ref || p.providerRef, 120) }, payer));
         const until = st && st.accessUntil && st.accessUntil > p.accessUntil ? st.accessUntil : p.accessUntil;
-        t.merge('students/' + p.email, { email: p.email, accessUntil: until, source: 'payment', lastPayment: n.id, paidAt: at, phone: payer.payerPhone || (st && st.phone) || '' });
+        // הטלפון של התלמיד מההרשמה נשאר; של המשלם (לפעמים הורה) נשמר בתשלום עצמו, ומשמש רק כשלתלמיד עוד אין
+        t.merge('students/' + p.email, { email: p.email, accessUntil: until, source: 'payment', lastPayment: n.id, paidAt: at, phone: (st && st.phone) || payer.payerPhone || '' });
         return { done: 'paid', p };
       }
       if (n.status === 'refunded' && p.status === 'paid') {
@@ -898,8 +919,9 @@ async function adminStudents(env, url) {
   const all = await store.query('students', { limit: 5000 });
   const t = today();
   const rows = all.map(s => ({
-    email: s.email || s._id, name: s.name || '', until: s.accessUntil || '', open: !!s.accessUntil && s.accessUntil >= t, source: s.source || '',
+    email: s.email || s._id, name: s.fullName || s.name || '', googleName: s.name || '', until: s.accessUntil || '', open: !!s.accessUntil && s.accessUntil >= t, source: s.source || '',
     note: s.note || '', paidAt: s.paidAt || '', lastSignIn: s.lastSignIn || '', phone: s.phone || '',
+    registered: isRegistered(s), registeredAt: s.registeredAt || '', mode: s.mode || '', teacher: s.teacher || '',
   }));
   const sends = await monthlySends(env, rows.map(r => ({ email: r.email, kind: 'student' })));
   rows.forEach((r, i) => { r.sends = sends[i]; });
@@ -916,7 +938,8 @@ async function adminStudent(env, url) {
   ]);
   return {
     ok: true, email,
-    student: st ? { name: st.name || '', until: st.accessUntil || '', source: st.source || '', note: st.note || '', phone: st.phone || '' } : null,
+    student: st ? { name: st.fullName || st.name || '', googleName: st.name || '', until: st.accessUntil || '', source: st.source || '', note: st.note || '', phone: st.phone || '',
+      registered: isRegistered(st), registeredAt: st.registeredAt || '', mode: st.mode || '', teacher: st.teacher || '' } : null,
     sends: (await monthlySends(env, [{ email, kind: 'student' }]))[0],
     payments: payments.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(p => ({ id: p._id, kind: p.kind || 'student', seats: p.seats || 0, amount: p.amount, status: p.status, provider: p.provider, ref: p.providerRef || '', createdAt: p.createdAt, paidAt: p.paidAt || '', payerName: p.payerName || '', payerPhone: p.payerPhone || '', payerEmail: p.payerEmail || '' })),
     devices: sessions.filter(x => !x.revoked).map(x => ({ id: x._id, name: x.machineName || '', role: x.role, lastSeen: x.lastSeen || x.createdAt, createdAt: x.createdAt || '' })),
@@ -1071,7 +1094,7 @@ const JSON_ROUTES = {
     const s = await settings(env);
     return {
       ok: true, enabled: true, requireLogin: !!s.requireLoginForGemini, price: s.price, accessUntil: s.accessUntil, offlineDays: s.offlineDays,
-      canPay: s.price > 0 && !!payProvider(env),
+      canPay: s.price > 0 && !!payProvider(env), studentsFree: s.studentsFree !== false,
       firebase: { apiKey: env.FIREBASE_API_KEY || '', authDomain: env.FIREBASE_AUTH_DOMAIN || (projectId(env) + '.firebaseapp.com'), projectId: projectId(env) },
       emulator: firestoreEmulator(env) ? { auth: env.FIREBASE_AUTH_EMULATOR_HOST || '' } : undefined,
     };
