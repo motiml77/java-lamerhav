@@ -1,0 +1,57 @@
+# "מאגר תרגילים" ב-VS Code האמיתי ב-Windows (tools/test/windows-vscode): VS Code מותקן, ואחריו DSViz-Setup.exe של ה-repo (/S) — כמו
+# תלמיד/ה. לחיצת עכבר אמיתית על הכפתור בסרגל: מסך הכניסה נפתח, גלוי ומקדימה (נבדק ב-Windows עצמו), "כניסה עם Google" פותחת את הדפדפן
+# בדף הכניסה, ואחרי כניסה של מורה — חלון המאגר. old_setup (אופציונלי): קודם ההתקנה הקודמת, רק כדי לתעד מה קרה בה (לשחזר תקלה).
+name: DSViz VS Code on Windows (question bank, real clicks)
+
+on:
+  push:
+    branches: [release/public-all]
+    paths:
+      - '.github/workflows/dsviz-vscode-win.yml'
+      - 'java-visualizer/release/DSViz-Setup.exe'
+      - 'java-visualizer/tools/test/windows-vscode/**'
+  workflow_dispatch:
+    inputs:
+      old_setup:
+        description: 'כתובת של DSViz-Setup.exe קודם (לשחזר תקלה), או ריק'
+        required: false
+        default: ''
+
+concurrency:
+  group: dsviz-vscode-win-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vscode-win:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      # ההתקנה שבה הכפתור לא פתח כלום (build 202611180546) — לתעד מה קרה בה לפני הבדיקה של ההתקנה החדשה
+      OLD_SETUP_URL: ${{ github.event.inputs.old_setup || 'https://github.com/motiml77/java-lamerhav/raw/4b6740e/java-visualizer/release/DSViz-Setup.exe' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: ההתקנה הקודמת (לשחזר את התקלה)
+        shell: pwsh
+        run: |
+          if ($env:OLD_SETUP_URL) {
+            try { Invoke-WebRequest $env:OLD_SETUP_URL -OutFile "$env:RUNNER_TEMP\DSViz-Setup-old.exe" -UseBasicParsing; Get-Item "$env:RUNNER_TEMP\DSViz-Setup-old.exe" | Format-List Name, Length }
+            catch { Write-Host "לא הורד: $_" }
+          }
+      - name: VS Code + DSViz-Setup.exe, לחיצות אמיתיות על "מאגר תרגילים"
+        shell: pwsh
+        run: |
+          $old = "$env:RUNNER_TEMP\DSViz-Setup-old.exe"
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-vscode\vscode-win.ps1" `
+            -NewSetup "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" `
+            -OldSetup $(if (Test-Path $old) { $old } else { '' }) `
+            -Out "$env:GITHUB_WORKSPACE\vscode-win" `
+            -Harness "$env:GITHUB_WORKSPACE\java-visualizer\tutorials\harness"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: vscode-win, path: vscode-win, retention-days: 14 }

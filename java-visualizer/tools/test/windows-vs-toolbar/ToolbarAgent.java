@@ -35,6 +35,9 @@ public class ToolbarAgent {
         try {
             ctl = new File(args);
             String cmd = System.getProperty("sun.java.command", "");
+            // מ-VS Code: הארגומנטים במשתנה הסביבה DSVIZ_ARGS (BankVs --args-env) — המצב הוא השורה הראשונה
+            String envArgs = System.getenv("DSVIZ_ARGS");
+            if (cmd.contains("--args-env") && envArgs != null) cmd = cmd.replace("--args-env", envArgs.replace('\n', ' '));
             String mode = cmd.contains("CsTool submit") ? "submit" : cmd.contains("CsTool insert") ? "insert" : cmd.contains("BankVs bank") ? "bank" : cmd.contains("BankVs teacher") ? "teacher" : cmd.contains("TraceViewer") ? "viewer" : null;
             log("jvm: " + cmd + " -> " + mode);
             if (mode == null) return;

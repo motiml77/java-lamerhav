@@ -126,7 +126,7 @@ async function main() {
     // ---- 2. הכפתור (הפקודה שנוצרת; spawn מדומה)
     const spawned = [];
     const realSpawn = cp.spawn;
-    cp.spawn = (c, a, o) => { spawned.push({ c, a, o }); return { exitCode: null, on: () => {}, kill: () => {} }; };
+    cp.spawn = (c, a, o) => { const h = {}; spawned.push({ c, a, o, h }); return { exitCode: null, on: (ev, fn) => { h[ev] = fn; }, kill: () => {} }; };
     const api2 = bank.register({ vscode, ctx: { extensionPath: EXT, subscriptions: [] }, reg: (id, fn) => { cmds[id] = fn; },
         chooseRoot: async () => chosenRoot, detectLanguage: () => chosenLang, project, cs, runner: fakeRunner, ui, store: () => path.join(W, 'solutions.json') });
     fs.mkdirSync(path.join(EXT, 'resources'), { recursive: true });
@@ -146,6 +146,14 @@ async function main() {
         && !('JAVA_TOOL_OPTIONS' in s0.o.env) && fs.existsSync(path.join(chosenRoot, 'lib', 'dsviz.jar')),
         '"מאגר תרגילים" (Java): מתיקיית ההתקנה, classpath יחסי, הארגומנטים ב-DSVIZ_ARGS (נתיב בעברית עם רווחים עובר כמו שהוא), והתיקייה הוכנה (lib/dsviz.jar)',
         JSON.stringify({ a: s0.a, cwd: s0.o.cwd, envArgs }));
+    // Windows: windowsHide מעביר SW_HIDE ו-Windows מסתיר את החלון הראשון של הכלי (מסך הכניסה / המאגר) — "לחצתי ולא קרה כלום"
+    check('cmd-visible', s0.o.windowsHide === false, 'הכלי נפתח עם חלון גלוי (בלי windowsHide — ב-Windows הוא מסתיר את מסך הכניסה)', JSON.stringify({ windowsHide: s0.o.windowsHide }));
+    messages.length = 0;
+    if (s0.h && s0.h.exit) s0.h.exit(1, null);
+    check('cmd-early-exit', messages.some(m => m.includes('מאגר התרגילים נסגר מיד')), 'הכלי נסגר מיד עם שגיאה — הודעה (ולא "לא קרה כלום")', messages.join(' | '));
+    messages.length = 0;
+    if (s0.h && s0.h.exit) s0.h.exit(0, null);
+    check('cmd-normal-exit', messages.length === 0, 'סגירה רגילה של הכלי — בלי הודעה', messages.join(' | '));
     await cmds['dsviz.bankQuestion']();
     const s1 = spawned[1] || { o: {} };
     check('cmd-question', (s1.o.env && s1.o.env.DSVIZ_ARGS || '').split('\n')[0] === 'question' && api2.sessions.size === 1,

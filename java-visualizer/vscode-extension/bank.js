@@ -78,8 +78,19 @@ function command(o, tool) {
         command: windowless(o.javaExe),
         args: ['-Dfile.encoding=UTF-8', '-cp', tool.cp.join(path.delimiter), MAIN, '--args-env'],
         cwd: tool.dir,
-        env
+        env,
+        // לא windowsHide: ב-Windows הוא מעביר לתהליך SW_HIDE, ו-Windows מסתיר בו את החלון הראשון שהתהליך מציג — מסך הכניסה או חלון
+        // המאגר. הלחיצה על "מאגר תרגילים" נראתה כאילו לא קרה כלום. javaw בלי חלון קונסול גם כך
+        windowsHide: false
     };
+}
+
+/** השורות האחרונות ביומן (להודעה כשהכלי נסגר מיד) — בלי השורות של המחסנית */
+function logTail(file, from) {
+    try {
+        const t = fs.readFileSync(file, 'utf8').slice(from || 0);
+        return t.split(/\r?\n/).filter(l => l.trim() && !/^\s+at /.test(l)).slice(-3).join(' · ');
+    } catch (e) { return ''; }
 }
 
 /**
@@ -223,11 +234,18 @@ function register(deps) {
         }
         Object.assign(o, { port: s.bridge.port, token: s.bridge.token });
         const c = command(o, tool);
-        let out;
-        try { out = fs.openSync(log, 'a'); } catch (e) { out = 'ignore'; }
+        let out, from = 0;
+        try { from = fs.existsSync(log) ? fs.statSync(log).size : 0; out = fs.openSync(log, 'a'); } catch (e) { out = 'ignore'; }
         try {
-            s.proc = cp.spawn(c.command, c.args, { cwd: c.cwd, env: c.env, stdio: ['ignore', out, out], windowsHide: true });
-            s.proc.on('error', e => deps.ui.error(vscode, 'לא הצלחתי לפתוח את מאגר התרגילים: ' + e.message));
+            const proc = cp.spawn(c.command, c.args, { cwd: c.cwd, env: c.env, stdio: ['ignore', out, out], windowsHide: c.windowsHide });
+            s.proc = proc;
+            const started = Date.now();
+            proc.on('error', e => deps.ui.error(vscode, 'לא הצלחתי לפתוח את מאגר התרגילים: ' + e.message));
+            // הכלי נסגר מיד עם שגיאה (Java פגומה, קובץ חסר...) — הודעה, ולא "לא קרה כלום". סגירה רגילה / כשפותחים מחדש — בלי הודעה
+            proc.on('exit', (code, signal) => {
+                if (code && !signal && s.proc === proc && Date.now() - started < 20000)
+                    deps.ui.error(vscode, 'מאגר התרגילים נסגר מיד (קוד ' + code + '). ' + (logTail(log, from) || 'הפרטים ביומן: ' + log));
+            });
         } finally {
             if (typeof out === 'number') fs.closeSync(out);
         }
@@ -248,4 +266,4 @@ function register(deps) {
     return { open, sessions, handlers, log };
 }
 
-module.exports = { register, startBridge, toolArgs, command, findTool, deletedTabs, installDirs, MAIN, BANK_JAR };
+module.exports = { register, startBridge, toolArgs, command, findTool, deletedTabs, installDirs, logTail, MAIN, BANK_JAR };
