@@ -4,6 +4,7 @@
     { "id": "arrays", "title": "מערכים" },
     { "id": "strings", "title": "מחרוזות" },
     { "id": "classes", "title": "מחלקות" },
+    { "id": "inheritance", "title": "הורשה ופולימורפיזם" },
     { "id": "recursion", "title": "רקורסיה" },
     { "id": "stack", "title": "מחסנית" },
     { "id": "queue", "title": "תור" },

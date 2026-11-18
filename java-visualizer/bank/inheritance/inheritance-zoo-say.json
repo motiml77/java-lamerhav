@@ -1,0 +1,171 @@
+{
+  "id": "inheritance-zoo-say",
+  "topic": "inheritance",
+  "level": "easy",
+  "title": "מה יודפס? — גן החיות",
+  "question": {
+    "intro": "נתונות המחלקות Animal (חיה), Mammal (יונק) שיורשת מ-Animal, Dog (כלב) שיורשת מ-Mammal ו-Bird (ציפור) שיורשת מ-Animal. הקוד שלהן נמצא בתרגיל.\nבמחלקה Animal יש פעולה say ופעולה describe. המחלקות Mammal ו-Dog דורסות את say; המחלקה Bird לא דורסת אותה, ואף מחלקה לא דורסת את describe.\nלפניכם קטע קוד:\nAnimal[] zoo = new Animal[4];\nzoo[0] = new Bird(\"Tweety\");\nzoo[1] = new Dog(\"Rexy\", 0.5, 3);\nzoo[2] = new Animal(\"Mitzi\");\nzoo[3] = new Mammal(\"Numa\", 2.5);",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתבו פעולה ששמה sayOf, המקבלת מספר i (בין 0 ל-3) ומחזירה את המחרוזת ש-zoo[i].say() מחזירה — לפי הקוד של המחלקות, בלי להריץ.\nלדוגמה: עבור i שווה 2 הפעולה תחזיר \"חיה\"\nאחרי שפתרתם — הריצו בהרצה הוויזואלית, ובחלון \"מותר? / מה רץ?\" ראו איזו גרסה של say רצה בכל סיבוב."
+      },
+      {
+        "label": "ב",
+        "text": "הפעולה describe מוגדרת רק במחלקה Animal, והיא מזמנת את say.\nכתבו פעולה ששמה describeOf, המקבלת מספר i (בין 0 ל-3) ומחזירה את המחרוזת ש-zoo[i].describe() מחזירה.\nלדוגמה: עבור i שווה 0 הפעולה תחזיר \"Tweety: חיה\"\nרמז: גם כש-say מזומנת מתוך פעולה של Animal, רצה הגרסה של המחלקה של העצם."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מה יודפס? — גן החיות",
+    "topic": "inheritance",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Animal",
+        "code": "public class Animal {\n    private String name;\n\n    public Animal(String name) {\n        this.name = name;\n    }\n\n    public String getName() {\n        return name;\n    }\n\n    public String say() {\n        return \"חיה\";\n    }\n\n    public String describe() {\n        return getName() + \": \" + say();\n    }\n}"
+      },
+      {
+        "name": "Mammal",
+        "code": "public class Mammal extends Animal {\n    private double milk;\n\n    public Mammal(String name, double milk) {\n        super(name);\n        this.milk = milk;\n    }\n\n    public double getMilk() {\n        return milk;\n    }\n\n    public String say() {\n        return \"יונק\";\n    }\n}"
+      },
+      {
+        "name": "Dog",
+        "code": "public class Dog extends Mammal {\n    private int bones;\n\n    public Dog(String name, double milk, int bones) {\n        super(name, milk);\n        this.bones = bones;\n    }\n\n    public int getBones() {\n        return bones;\n    }\n\n    public String say() {\n        return \"כלב\";\n    }\n}"
+      },
+      {
+        "name": "Bird",
+        "code": "public class Bird extends Animal {\n    public Bird(String name) {\n        super(name);\n    }\n\n    public String fly() {\n        return getName() + \" עף\";\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "sayOf",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "i"
+          }
+        ],
+        "instructions": "כתבו פעולה ששמה sayOf, המקבלת מספר i (בין 0 ל-3) ומחזירה את המחרוזת ש-zoo[i].say() מחזירה — לפי הקוד של המחלקות, בלי להריץ.\nלדוגמה: עבור i שווה 2 הפעולה תחזיר \"חיה\"\nאחרי שפתרתם — הריצו בהרצה הוויזואלית, ובחלון \"מותר? / מה רץ?\" ראו איזו גרסה של say רצה בכל סיבוב.",
+        "solution": "public static String sayOf(int i) {\n    if (i == 0) {\n        return \"חיה\";\n    }\n    if (i == 1) {\n        return \"כלב\";\n    }\n    if (i == 2) {\n        return \"חיה\";\n    }\n    return \"יונק\";\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "describeOf",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "i"
+          }
+        ],
+        "instructions": "הפעולה describe מוגדרת רק במחלקה Animal, והיא מזמנת את say.\nכתבו פעולה ששמה describeOf, המקבלת מספר i (בין 0 ל-3) ומחזירה את המחרוזת ש-zoo[i].describe() מחזירה.\nלדוגמה: עבור i שווה 0 הפעולה תחזיר \"Tweety: חיה\"\nרמז: גם כש-say מזומנת מתוך פעולה של Animal, רצה הגרסה של המחלקה של העצם.",
+        "solution": "public static String describeOf(int i) {\n    if (i == 0) {\n        return \"Tweety: חיה\";\n    }\n    if (i == 1) {\n        return \"Rexy: כלב\";\n    }\n    if (i == 2) {\n        return \"Mitzi: חיה\";\n    }\n    return \"Numa: יונק\";\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Animal[] zoo = new Animal[4];\nzoo[0] = new Bird(\"Tweety\");\nzoo[1] = new Dog(\"Rexy\", 0.5, 3);\nzoo[2] = new Animal(\"Mitzi\");\nzoo[3] = new Mammal(\"Numa\", 2.5);\nfor (int i = 0; i < zoo.length; i++) {\n    System.out.println(\"סעיף א, בדיקה \" + (i + 1) + \": \" + check(sayOf(i), zoo[i].say()));\n}\nfor (int i = 0; i < zoo.length; i++) {\n    System.out.println(\"סעיף ב, בדיקה \" + (i + 1) + \": \" + check(describeOf(i), zoo[i].describe()));\n}",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "נתונות המחלקות Animal (חיה), Mammal (יונק) שיורשת מ-Animal, Dog (כלב) שיורשת מ-Mammal ו-Bird (ציפור) שיורשת מ-Animal. הקוד שלהן נמצא בתרגיל.\nבמחלקה Animal יש פעולה Say (virtual) ופעולה Describe. המחלקות Mammal ו-Dog דורסות את Say (override); המחלקה Bird לא דורסת אותה, ואף מחלקה לא דורסת את Describe.\nלפניכם קטע קוד:\nAnimal[] zoo = new Animal[4];\nzoo[0] = new Bird(\"Tweety\");\nzoo[1] = new Dog(\"Rexy\", 0.5, 3);\nzoo[2] = new Animal(\"Mitzi\");\nzoo[3] = new Mammal(\"Numa\", 2.5);",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתבו פעולה ששמה SayOf, המקבלת מספר i (בין 0 ל-3) ומחזירה את המחרוזת ש-zoo[i].Say() מחזירה — לפי הקוד של המחלקות, בלי להריץ.\nלדוגמה: עבור i שווה 2 הפעולה תחזיר \"חיה\"\nאחרי שפתרתם — הריצו בהרצה הוויזואלית, ובחלון \"מותר? / מה רץ?\" ראו איזו גרסה של Say רצה בכל סיבוב."
+        },
+        {
+          "label": "ב",
+          "text": "הפעולה Describe מוגדרת רק במחלקה Animal, והיא מזמנת את Say.\nכתבו פעולה ששמה DescribeOf, המקבלת מספר i (בין 0 ל-3) ומחזירה את המחרוזת ש-zoo[i].Describe() מחזירה.\nלדוגמה: עבור i שווה 0 הפעולה תחזיר \"Tweety: חיה\"\nרמז: גם כש-Say מזומנת מתוך פעולה של Animal, רצה הגרסה של המחלקה של העצם (כי היא virtual)."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מה יודפס? — גן החיות",
+      "topic": "inheritance",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Animal",
+          "code": "public class Animal\n{\n    private string name;\n\n    public Animal(string name)\n    {\n        this.name = name;\n    }\n\n    public string GetName()\n    {\n        return name;\n    }\n\n    public virtual string Say()\n    {\n        return \"חיה\";\n    }\n\n    public string Describe()\n    {\n        return GetName() + \": \" + Say();\n    }\n}"
+        },
+        {
+          "name": "Mammal",
+          "code": "public class Mammal : Animal\n{\n    private double milk;\n\n    public Mammal(string name, double milk) : base(name)\n    {\n        this.milk = milk;\n    }\n\n    public double GetMilk()\n    {\n        return milk;\n    }\n\n    public override string Say()\n    {\n        return \"יונק\";\n    }\n}"
+        },
+        {
+          "name": "Dog",
+          "code": "public class Dog : Mammal\n{\n    private int bones;\n\n    public Dog(string name, double milk, int bones) : base(name, milk)\n    {\n        this.bones = bones;\n    }\n\n    public int GetBones()\n    {\n        return bones;\n    }\n\n    public override string Say()\n    {\n        return \"כלב\";\n    }\n}"
+        },
+        {
+          "name": "Bird",
+          "code": "public class Bird : Animal\n{\n    public Bird(string name) : base(name)\n    {\n    }\n\n    public string Fly()\n    {\n        return GetName() + \" עף\";\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "SayOf",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "i"
+            }
+          ],
+          "instructions": "כתבו פעולה ששמה SayOf, המקבלת מספר i (בין 0 ל-3) ומחזירה את המחרוזת ש-zoo[i].Say() מחזירה — לפי הקוד של המחלקות, בלי להריץ.\nלדוגמה: עבור i שווה 2 הפעולה תחזיר \"חיה\"\nאחרי שפתרתם — הריצו בהרצה הוויזואלית, ובחלון \"מותר? / מה רץ?\" ראו איזו גרסה של Say רצה בכל סיבוב.",
+          "solution": "public static string SayOf(int i)\n{\n    if (i == 0)\n    {\n        return \"חיה\";\n    }\n    if (i == 1)\n    {\n        return \"כלב\";\n    }\n    if (i == 2)\n    {\n        return \"חיה\";\n    }\n    return \"יונק\";\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "DescribeOf",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "i"
+            }
+          ],
+          "instructions": "הפעולה Describe מוגדרת רק במחלקה Animal, והיא מזמנת את Say.\nכתבו פעולה ששמה DescribeOf, המקבלת מספר i (בין 0 ל-3) ומחזירה את המחרוזת ש-zoo[i].Describe() מחזירה.\nלדוגמה: עבור i שווה 0 הפעולה תחזיר \"Tweety: חיה\"\nרמז: גם כש-Say מזומנת מתוך פעולה של Animal, רצה הגרסה של המחלקה של העצם (כי היא virtual).",
+          "solution": "public static string DescribeOf(int i)\n{\n    if (i == 0)\n    {\n        return \"Tweety: חיה\";\n    }\n    if (i == 1)\n    {\n        return \"Rexy: כלב\";\n    }\n    if (i == 2)\n    {\n        return \"Mitzi: חיה\";\n    }\n    return \"Numa: יונק\";\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Animal[] zoo = new Animal[4];\nzoo[0] = new Bird(\"Tweety\");\nzoo[1] = new Dog(\"Rexy\", 0.5, 3);\nzoo[2] = new Animal(\"Mitzi\");\nzoo[3] = new Mammal(\"Numa\", 2.5);\nfor (int i = 0; i < zoo.Length; i++)\n{\n    Console.WriteLine(\"סעיף א, בדיקה \" + (i + 1) + \": \" + Check(SayOf(i), zoo[i].Say()));\n}\nfor (int i = 0; i < zoo.Length; i++)\n{\n    Console.WriteLine(\"סעיף ב, בדיקה \" + (i + 1) + \": \" + Check(DescribeOf(i), zoo[i].Describe()));\n}",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2: נכון\nסעיף א, בדיקה 3: נכון\nסעיף א, בדיקה 4: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון\nסעיף ב, בדיקה 4: נכון"
+    }
+  }
+}

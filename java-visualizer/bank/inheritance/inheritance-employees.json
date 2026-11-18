@@ -1,0 +1,194 @@
+{
+  "id": "inheritance-employees",
+  "topic": "inheritance",
+  "level": "medium",
+  "title": "עובדים, מנהלים ומתמחים",
+  "question": {
+    "intro": "נתונה המחלקה Employee (עובד): לכל עובד שם ומשכורת בסיס, והפעולה salary מחזירה את המשכורת שלו — משכורת הבסיס.\nהמחלקה Manager (מנהל) יורשת מ-Employee, ולכל מנהל יש גם בונוס.\nהמחלקה Intern (מתמחה) יורשת מ-Employee ודורסת את salary: מתמחה מקבל חצי ממשכורת הבסיס (היא מזמנת את super.salary() ומחלקת ב-2).\nהקוד של המחלקות נמצא בתרגיל.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסיפו למחלקה Manager פעולה salary שדורסת את הפעולה של Employee: המשכורת של מנהל היא משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה salary של מחלקת העל (super.salary()).\nלדוגמה: למנהל עם משכורת בסיס 10000 ובונוס 3000 הפעולה תחזיר 13000"
+      },
+      {
+        "label": "ב",
+        "text": "כתבו פעולה ששמה countManagers, המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש במערך."
+      },
+      {
+        "label": "ג",
+        "text": "כתבו פעולה ששמה totalSalary, המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים במערך — לכל עובד לפי הסוג שלו (עובד, מנהל או מתמחה).\nאין צורך לבדוק את הסוג של כל עובד: מספיק לזמן את salary."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "עובדים, מנהלים ומתמחים",
+    "topic": "inheritance",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Employee",
+        "code": "public class Employee {\n    private String name;\n    private int baseSalary;\n\n    public Employee(String name, int baseSalary) {\n        this.name = name;\n        this.baseSalary = baseSalary;\n    }\n\n    public String getName() {\n        return name;\n    }\n\n    public int getBaseSalary() {\n        return baseSalary;\n    }\n\n    public int salary() {\n        return baseSalary;\n    }\n}"
+      },
+      {
+        "name": "Manager",
+        "code": "public class Manager extends Employee {\n    private int bonus;\n\n    public Manager(String name, int baseSalary, int bonus) {\n        super(name, baseSalary);\n        this.bonus = bonus;\n    }\n\n    public int getBonus() {\n        return bonus;\n    }\n}"
+      },
+      {
+        "name": "Intern",
+        "code": "public class Intern extends Employee {\n    public Intern(String name, int baseSalary) {\n        super(name, baseSalary);\n    }\n\n    public int salary() {\n        return super.salary() / 2;\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Manager",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "salary",
+        "parameters": [],
+        "instructions": "הוסיפו למחלקה Manager פעולה salary שדורסת את הפעולה של Employee: המשכורת של מנהל היא משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה salary של מחלקת העל (super.salary()).\nלדוגמה: למנהל עם משכורת בסיס 10000 ובונוס 3000 הפעולה תחזיר 13000",
+        "solution": "public int salary() {\n    return super.salary() + bonus;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countManagers",
+        "parameters": [
+          {
+            "type": "Employee[]",
+            "name": "staff"
+          }
+        ],
+        "instructions": "כתבו פעולה ששמה countManagers, המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש במערך.",
+        "solution": "public static int countManagers(Employee[] staff) {\n    int count = 0;\n    for (int i = 0; i < staff.length; i++) {\n        if (staff[i] instanceof Manager) {\n            count++;\n        }\n    }\n    return count;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "totalSalary",
+        "parameters": [
+          {
+            "type": "Employee[]",
+            "name": "staff"
+          }
+        ],
+        "instructions": "כתבו פעולה ששמה totalSalary, המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים במערך — לכל עובד לפי הסוג שלו (עובד, מנהל או מתמחה).\nאין צורך לבדוק את הסוג של כל עובד: מספיק לזמן את salary.",
+        "solution": "public static int totalSalary(Employee[] staff) {\n    int sum = 0;\n    for (int i = 0; i < staff.length; i++) {\n        sum += staff[i].salary();\n    }\n    return sum;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Manager boss = new Manager(\"Dana\", 10000, 3000);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(boss.salary(), 13000));\nEmployee e1 = new Manager(\"Avi\", 8000, 500);\nSystem.out.println(\"סעיף א, בדיקה 2 (דרך הפניה מטיפוס Employee): \" + check(e1.salary(), 8500));\nEmployee[] staff = { new Employee(\"Noa\", 7000), boss, new Intern(\"Tal\", 6000), e1, new Employee(\"Omer\", 9000) };\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(countManagers(staff), 2));\nEmployee[] two = { new Intern(\"Tal\", 6000), new Employee(\"Noa\", 7000) };\nSystem.out.println(\"סעיף ב, בדיקה 2 (אין מנהלים): \" + check(countManagers(two), 0));\nSystem.out.println(\"סעיף ג, בדיקה 1: \" + check(totalSalary(staff), 40500));\nSystem.out.println(\"סעיף ג, בדיקה 2: \" + check(totalSalary(two), 10000));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (דרך הפניה מטיפוס Employee): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (אין מנהלים): נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "נתונה המחלקה Employee (עובד): לכל עובד שם ומשכורת בסיס, והפעולה Salary (virtual) מחזירה את המשכורת שלו — משכורת הבסיס.\nהמחלקה Manager (מנהל) יורשת מ-Employee, ולכל מנהל יש גם בונוס.\nהמחלקה Intern (מתמחה) יורשת מ-Employee ודורסת את Salary (override): מתמחה מקבל חצי ממשכורת הבסיס (היא מזמנת את base.Salary() ומחלקת ב-2).\nהקוד של המחלקות נמצא בתרגיל.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "הוסיפו למחלקה Manager פעולה Salary שדורסת את הפעולה של Employee (override): המשכורת של מנהל היא משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה Salary של מחלקת העל (base.Salary()).\nלדוגמה: למנהל עם משכורת בסיס 10000 ובונוס 3000 הפעולה תחזיר 13000"
+        },
+        {
+          "label": "ב",
+          "text": "כתבו פעולה ששמה CountManagers, המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש במערך."
+        },
+        {
+          "label": "ג",
+          "text": "כתבו פעולה ששמה TotalSalary, המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים במערך — לכל עובד לפי הסוג שלו (עובד, מנהל או מתמחה).\nאין צורך לבדוק את הסוג של כל עובד: מספיק לזמן את Salary."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "עובדים, מנהלים ומתמחים",
+      "topic": "inheritance",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Employee",
+          "code": "public class Employee\n{\n    private string name;\n    private int baseSalary;\n\n    public Employee(string name, int baseSalary)\n    {\n        this.name = name;\n        this.baseSalary = baseSalary;\n    }\n\n    public string GetName()\n    {\n        return name;\n    }\n\n    public int GetBaseSalary()\n    {\n        return baseSalary;\n    }\n\n    public virtual int Salary()\n    {\n        return baseSalary;\n    }\n}"
+        },
+        {
+          "name": "Manager",
+          "code": "public class Manager : Employee\n{\n    private int bonus;\n\n    public Manager(string name, int baseSalary, int bonus) : base(name, baseSalary)\n    {\n        this.bonus = bonus;\n    }\n\n    public int GetBonus()\n    {\n        return bonus;\n    }\n}"
+        },
+        {
+          "name": "Intern",
+          "code": "public class Intern : Employee\n{\n    public Intern(string name, int baseSalary) : base(name, baseSalary)\n    {\n    }\n\n    public override int Salary()\n    {\n        return base.Salary() / 2;\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Manager",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "Salary",
+          "parameters": [],
+          "instructions": "הוסיפו למחלקה Manager פעולה Salary שדורסת את הפעולה של Employee (override): המשכורת של מנהל היא משכורת הבסיס ועוד הבונוס.\nחובה לזמן את הפעולה Salary של מחלקת העל (base.Salary()).\nלדוגמה: למנהל עם משכורת בסיס 10000 ובונוס 3000 הפעולה תחזיר 13000",
+          "solution": "public override int Salary()\n{\n    return base.Salary() + bonus;\n}",
+          "modifier": "override"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountManagers",
+          "parameters": [
+            {
+              "type": "Employee[]",
+              "name": "staff"
+            }
+          ],
+          "instructions": "כתבו פעולה ששמה CountManagers, המקבלת מערך staff מטיפוס Employee[] ומחזירה כמה מנהלים יש במערך.",
+          "solution": "public static int CountManagers(Employee[] staff)\n{\n    int count = 0;\n    for (int i = 0; i < staff.Length; i++)\n    {\n        if (staff[i] is Manager)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "TotalSalary",
+          "parameters": [
+            {
+              "type": "Employee[]",
+              "name": "staff"
+            }
+          ],
+          "instructions": "כתבו פעולה ששמה TotalSalary, המקבלת מערך staff מטיפוס Employee[] ומחזירה את סכום המשכורות של כל העובדים במערך — לכל עובד לפי הסוג שלו (עובד, מנהל או מתמחה).\nאין צורך לבדוק את הסוג של כל עובד: מספיק לזמן את Salary.",
+          "solution": "public static int TotalSalary(Employee[] staff)\n{\n    int sum = 0;\n    for (int i = 0; i < staff.Length; i++)\n    {\n        sum += staff[i].Salary();\n    }\n    return sum;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Manager boss = new Manager(\"Dana\", 10000, 3000);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(boss.Salary(), 13000));\nEmployee e1 = new Manager(\"Avi\", 8000, 500);\nConsole.WriteLine(\"סעיף א, בדיקה 2 (דרך הפניה מטיפוס Employee): \" + Check(e1.Salary(), 8500));\nEmployee[] staff = { new Employee(\"Noa\", 7000), boss, new Intern(\"Tal\", 6000), e1, new Employee(\"Omer\", 9000) };\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(CountManagers(staff), 2));\nEmployee[] two = { new Intern(\"Tal\", 6000), new Employee(\"Noa\", 7000) };\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (אין מנהלים): \" + Check(CountManagers(two), 0));\nConsole.WriteLine(\"סעיף ג, בדיקה 1: \" + Check(TotalSalary(staff), 40500));\nConsole.WriteLine(\"סעיף ג, בדיקה 2: \" + Check(TotalSalary(two), 10000));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (דרך הפניה מטיפוס Employee): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (אין מנהלים): נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון"
+    }
+  }
+}

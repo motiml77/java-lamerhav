@@ -1,0 +1,301 @@
+{
+  "id": "inheritance-valid-code",
+  "topic": "inheritance",
+  "level": "medium",
+  "title": "האם קטע הקוד תקין?",
+  "question": {
+    "intro": "נתונות המחלקות Animal (חיה), Mammal (יונק) שיורשת מ-Animal, Dog (כלב) שיורשת מ-Mammal ו-Bird (ציפור) שיורשת מ-Animal. הקוד שלהן נמצא בתרגיל.\nבתוכנית הוגדרו המשתנים:\nAnimal a = new Dog(\"Rexy\", 0.5, 3);\nMammal m = new Mammal(\"Numa\", 2.5);\nObject obj = m;\nבכל סעיף יש שורת קוד אחת, שבאה מיד אחרי ההגדרות האלה (כל סעיף לבד). קבעו אם השורה תקינה, גורמת לשגיאת הידור (התוכנית לא מתקמפלת) או לשגיאת ריצה (התוכנית מתקמפלת, אבל נעצרת כשהשורה רצה).\nבכל סעיף כתבו פעולה שמחזירה את התשובה כמחרוזת.\nשורה תקינה או שורה עם שגיאת ריצה אפשר להוסיף ל-main (המשתנים כבר מוגדרים שם) ולהריץ בהרצה הוויזואלית: רואים את התגית של כל הפניה על העצם, את ההמרה, ואיפה התוכנית נעצרת. שורה עם שגיאת הידור — התוכנית לא מתקמפלת בכלל.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "השורה:\nDog d1 = a;\nכתבו בפעולה answerA את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+      },
+      {
+        "label": "ב",
+        "text": "השורה:\nDog d2 = (Dog) a;\nכתבו בפעולה answerB את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+      },
+      {
+        "label": "ג",
+        "text": "השורה:\nBird b1 = (Bird) a;\nכתבו בפעולה answerC את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+      },
+      {
+        "label": "ד",
+        "text": "השורה:\ndouble x = a.getMilk();\nכתבו בפעולה answerD את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+      },
+      {
+        "label": "ה",
+        "text": "השורה:\nBird b2 = (Bird) m;\nכתבו בפעולה answerE את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+      },
+      {
+        "label": "ו",
+        "text": "השורה:\nDog d3 = (Dog) m;\nכתבו בפעולה answerF את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+      },
+      {
+        "label": "ז",
+        "text": "השורה:\nAnimal a2 = (Animal) obj;\nכתבו בפעולה answerG את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "האם קטע הקוד תקין?",
+    "topic": "inheritance",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Animal",
+        "code": "public class Animal {\n    private String name;\n\n    public Animal(String name) {\n        this.name = name;\n    }\n\n    public String getName() {\n        return name;\n    }\n\n    public String say() {\n        return \"חיה\";\n    }\n}"
+      },
+      {
+        "name": "Mammal",
+        "code": "public class Mammal extends Animal {\n    private double milk;\n\n    public Mammal(String name, double milk) {\n        super(name);\n        this.milk = milk;\n    }\n\n    public double getMilk() {\n        return milk;\n    }\n\n    public String say() {\n        return \"יונק\";\n    }\n}"
+      },
+      {
+        "name": "Dog",
+        "code": "public class Dog extends Mammal {\n    private int bones;\n\n    public Dog(String name, double milk, int bones) {\n        super(name, milk);\n        this.bones = bones;\n    }\n\n    public int getBones() {\n        return bones;\n    }\n\n    public String say() {\n        return \"כלב\";\n    }\n}"
+      },
+      {
+        "name": "Bird",
+        "code": "public class Bird extends Animal {\n    public Bird(String name) {\n        super(name);\n    }\n\n    public String fly() {\n        return getName() + \" עף\";\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "answerA",
+        "parameters": [],
+        "instructions": "השורה:\nDog d1 = a;\nכתבו בפעולה answerA את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+        "solution": "public static String answerA() {\n    return \"שגיאת הידור\";\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "answerB",
+        "parameters": [],
+        "instructions": "השורה:\nDog d2 = (Dog) a;\nכתבו בפעולה answerB את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+        "solution": "public static String answerB() {\n    return \"תקין\";\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "answerC",
+        "parameters": [],
+        "instructions": "השורה:\nBird b1 = (Bird) a;\nכתבו בפעולה answerC את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+        "solution": "public static String answerC() {\n    return \"שגיאת ריצה\";\n}"
+      },
+      {
+        "label": "ד",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "answerD",
+        "parameters": [],
+        "instructions": "השורה:\ndouble x = a.getMilk();\nכתבו בפעולה answerD את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+        "solution": "public static String answerD() {\n    return \"שגיאת הידור\";\n}"
+      },
+      {
+        "label": "ה",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "answerE",
+        "parameters": [],
+        "instructions": "השורה:\nBird b2 = (Bird) m;\nכתבו בפעולה answerE את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+        "solution": "public static String answerE() {\n    return \"שגיאת הידור\";\n}"
+      },
+      {
+        "label": "ו",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "answerF",
+        "parameters": [],
+        "instructions": "השורה:\nDog d3 = (Dog) m;\nכתבו בפעולה answerF את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+        "solution": "public static String answerF() {\n    return \"שגיאת ריצה\";\n}"
+      },
+      {
+        "label": "ז",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "answerG",
+        "parameters": [],
+        "instructions": "השורה:\nAnimal a2 = (Animal) obj;\nכתבו בפעולה answerG את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+        "solution": "public static String answerG() {\n    return \"תקין\";\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String checkVerdict(String got, int key) {\n    String[] all = { \"תקין\", \"שגיאת הידור\", \"שגיאת ריצה\" };\n    String g = got == null ? \"null\" : got.trim();\n    if (g.equals(all[key % 3])) {\n        return \"נכון\";\n    }\n    if (!g.equals(all[0]) && !g.equals(all[1]) && !g.equals(all[2])) {\n        return \"לא נכון — התקבל \" + g + \" (התשובה היא תקין, שגיאת הידור או שגיאת ריצה)\";\n    }\n    return \"לא נכון — התקבל \" + g;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Animal a = new Dog(\"Rexy\", 0.5, 3);\nMammal m = new Mammal(\"Numa\", 2.5);\nObject obj = m;\nSystem.out.println(\"סעיף א, בדיקה 1: \" + checkVerdict(answerA(), 31));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + checkVerdict(answerB(), 45));\nSystem.out.println(\"סעיף ג, בדיקה 1: \" + checkVerdict(answerC(), 53));\nSystem.out.println(\"סעיף ד, בדיקה 1: \" + checkVerdict(answerD(), 22));\nSystem.out.println(\"סעיף ה, בדיקה 1: \" + checkVerdict(answerE(), 64));\nSystem.out.println(\"סעיף ו, בדיקה 1: \" + checkVerdict(answerF(), 38));\nSystem.out.println(\"סעיף ז, בדיקה 1: \" + checkVerdict(answerG(), 57));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ד, בדיקה 1: נכון\nסעיף ה, בדיקה 1: נכון\nסעיף ו, בדיקה 1: נכון\nסעיף ז, בדיקה 1: נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "נתונות המחלקות Animal (חיה), Mammal (יונק) שיורשת מ-Animal, Dog (כלב) שיורשת מ-Mammal ו-Bird (ציפור) שיורשת מ-Animal. הקוד שלהן נמצא בתרגיל.\nבתוכנית הוגדרו המשתנים:\nAnimal a = new Dog(\"Rexy\", 0.5, 3);\nMammal m = new Mammal(\"Numa\", 2.5);\nobject obj = m;\nבכל סעיף יש שורת קוד אחת, שבאה מיד אחרי ההגדרות האלה (כל סעיף לבד). קבעו אם השורה תקינה, גורמת לשגיאת הידור (התוכנית לא נבנית) או לשגיאת ריצה (התוכנית נבנית, אבל נעצרת כשהשורה רצה).\nבכל סעיף כתבו פעולה שמחזירה את התשובה כמחרוזת.\nשורה תקינה או שורה עם שגיאת ריצה אפשר להוסיף ל-main (המשתנים כבר מוגדרים שם) ולהריץ בהרצה הוויזואלית: רואים את התגית של כל הפניה על העצם, את ההמרה, ואיפה התוכנית נעצרת. שורה עם שגיאת הידור — התוכנית לא מתקמפלת בכלל.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "השורה:\nDog d1 = a;\nכתבו בפעולה AnswerA את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+        },
+        {
+          "label": "ב",
+          "text": "השורה:\nDog d2 = (Dog) a;\nכתבו בפעולה AnswerB את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+        },
+        {
+          "label": "ג",
+          "text": "השורה:\nBird b1 = (Bird) a;\nכתבו בפעולה AnswerC את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+        },
+        {
+          "label": "ד",
+          "text": "השורה:\ndouble x = a.GetMilk();\nכתבו בפעולה AnswerD את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+        },
+        {
+          "label": "ה",
+          "text": "השורה:\nBird b2 = (Bird) m;\nכתבו בפעולה AnswerE את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+        },
+        {
+          "label": "ו",
+          "text": "השורה:\nDog d3 = (Dog) m;\nכתבו בפעולה AnswerF את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+        },
+        {
+          "label": "ז",
+          "text": "השורה:\nAnimal a2 = (Animal) obj;\nכתבו בפעולה AnswerG את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\"."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "האם קטע הקוד תקין?",
+      "topic": "inheritance",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Animal",
+          "code": "public class Animal\n{\n    private string name;\n\n    public Animal(string name)\n    {\n        this.name = name;\n    }\n\n    public string GetName()\n    {\n        return name;\n    }\n\n    public virtual string Say()\n    {\n        return \"חיה\";\n    }\n}"
+        },
+        {
+          "name": "Mammal",
+          "code": "public class Mammal : Animal\n{\n    private double milk;\n\n    public Mammal(string name, double milk) : base(name)\n    {\n        this.milk = milk;\n    }\n\n    public double GetMilk()\n    {\n        return milk;\n    }\n\n    public override string Say()\n    {\n        return \"יונק\";\n    }\n}"
+        },
+        {
+          "name": "Dog",
+          "code": "public class Dog : Mammal\n{\n    private int bones;\n\n    public Dog(string name, double milk, int bones) : base(name, milk)\n    {\n        this.bones = bones;\n    }\n\n    public int GetBones()\n    {\n        return bones;\n    }\n\n    public override string Say()\n    {\n        return \"כלב\";\n    }\n}"
+        },
+        {
+          "name": "Bird",
+          "code": "public class Bird : Animal\n{\n    public Bird(string name) : base(name)\n    {\n    }\n\n    public string Fly()\n    {\n        return GetName() + \" עף\";\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "AnswerA",
+          "parameters": [],
+          "instructions": "השורה:\nDog d1 = a;\nכתבו בפעולה AnswerA את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+          "solution": "public static string AnswerA()\n{\n    return \"שגיאת הידור\";\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "AnswerB",
+          "parameters": [],
+          "instructions": "השורה:\nDog d2 = (Dog) a;\nכתבו בפעולה AnswerB את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+          "solution": "public static string AnswerB()\n{\n    return \"תקין\";\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "AnswerC",
+          "parameters": [],
+          "instructions": "השורה:\nBird b1 = (Bird) a;\nכתבו בפעולה AnswerC את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+          "solution": "public static string AnswerC()\n{\n    return \"שגיאת ריצה\";\n}"
+        },
+        {
+          "label": "ד",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "AnswerD",
+          "parameters": [],
+          "instructions": "השורה:\ndouble x = a.GetMilk();\nכתבו בפעולה AnswerD את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+          "solution": "public static string AnswerD()\n{\n    return \"שגיאת הידור\";\n}"
+        },
+        {
+          "label": "ה",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "AnswerE",
+          "parameters": [],
+          "instructions": "השורה:\nBird b2 = (Bird) m;\nכתבו בפעולה AnswerE את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+          "solution": "public static string AnswerE()\n{\n    return \"שגיאת הידור\";\n}"
+        },
+        {
+          "label": "ו",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "AnswerF",
+          "parameters": [],
+          "instructions": "השורה:\nDog d3 = (Dog) m;\nכתבו בפעולה AnswerF את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+          "solution": "public static string AnswerF()\n{\n    return \"שגיאת ריצה\";\n}"
+        },
+        {
+          "label": "ז",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "AnswerG",
+          "parameters": [],
+          "instructions": "השורה:\nAnimal a2 = (Animal) obj;\nכתבו בפעולה AnswerG את התשובה: \"תקין\", \"שגיאת הידור\" או \"שגיאת ריצה\".",
+          "solution": "public static string AnswerG()\n{\n    return \"תקין\";\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string CheckVerdict(string got, int key)\n{\n    string[] all = { \"תקין\", \"שגיאת הידור\", \"שגיאת ריצה\" };\n    string g = got == null ? \"null\" : got.Trim();\n    if (g == all[key % 3])\n    {\n        return \"נכון\";\n    }\n    if (g != all[0] && g != all[1] && g != all[2])\n    {\n        return \"לא נכון — התקבל \" + g + \" (התשובה היא תקין, שגיאת הידור או שגיאת ריצה)\";\n    }\n    return \"לא נכון — התקבל \" + g;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Animal a = new Dog(\"Rexy\", 0.5, 3);\nMammal m = new Mammal(\"Numa\", 2.5);\nobject obj = m;\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + CheckVerdict(AnswerA(), 31));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + CheckVerdict(AnswerB(), 45));\nConsole.WriteLine(\"סעיף ג, בדיקה 1: \" + CheckVerdict(AnswerC(), 53));\nConsole.WriteLine(\"סעיף ד, בדיקה 1: \" + CheckVerdict(AnswerD(), 22));\nConsole.WriteLine(\"סעיף ה, בדיקה 1: \" + CheckVerdict(AnswerE(), 64));\nConsole.WriteLine(\"סעיף ו, בדיקה 1: \" + CheckVerdict(AnswerF(), 38));\nConsole.WriteLine(\"סעיף ז, בדיקה 1: \" + CheckVerdict(AnswerG(), 57));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ד, בדיקה 1: נכון\nסעיף ה, בדיקה 1: נכון\nסעיף ו, בדיקה 1: נכון\nסעיף ז, בדיקה 1: נכון"
+    }
+  }
+}

@@ -1,0 +1,256 @@
+{
+  "id": "inheritance-zoo-owners",
+  "topic": "inheritance",
+  "level": "hard",
+  "title": "גן החיות — כלבים ובעליהם",
+  "question": {
+    "intro": "נתונות המחלקות:\nAnimal (חיה) — שם, והפעולה say שמחזירה \"חיה\"\nMammal (יונק) — יורשת מ-Animal; כמות חלב; say מחזירה \"יונק\"\nDog (כלב) — יורשת מ-Mammal; מספר עצמות (getBones); say מחזירה \"כלב\"\nBoxer (בוקסר) — יורשת מ-Dog; מה הבוקסר שומר (guard)\nLabrador (לברדור) — יורשת מ-Dog; לכל לברדור יש בעלים owner מטיפוס Person (אדם, עם שם)\nZoo (גן חיות) — מערך animals מטיפוס Animal[] ומספר החיות count; הפעולה add מוסיפה חיה במקום הפנוי הראשון, ויש פעולות getCount, getSize (גודל המערך) ו-getAnimal(i).\nהקוד של המחלקות נמצא בתרגיל.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסיפו למחלקה Labrador פעולה say שדורסת את הפעולה של Dog ומחזירה את מה ש-say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את say של מחלקת העל (super.say()).\nלדוגמה: ללברדור שהבעלים שלו Hila הפעולה תחזיר \"כלב של Hila\""
+      },
+      {
+        "label": "ב",
+        "text": "כתבו במחלקה Zoo פעולה פנימית ששמה countDogs, המחזירה כמה כלבים יש בגן (כלב רגיל, בוקסר או לברדור)."
+      },
+      {
+        "label": "ג",
+        "text": "כתבו במחלקה Zoo פעולה פנימית ששמה findOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור), הפעולה תחזיר null."
+      },
+      {
+        "label": "ד",
+        "text": "כתבו פעולה חיצונית ששמה onlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר. הגן z לא משתנה."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "גן החיות — כלבים ובעליהם",
+    "topic": "inheritance",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Animal",
+        "code": "public class Animal {\n    private String name;\n\n    public Animal(String name) {\n        this.name = name;\n    }\n\n    public String getName() {\n        return name;\n    }\n\n    public String say() {\n        return \"חיה\";\n    }\n}"
+      },
+      {
+        "name": "Mammal",
+        "code": "public class Mammal extends Animal {\n    private double milk;\n\n    public Mammal(String name, double milk) {\n        super(name);\n        this.milk = milk;\n    }\n\n    public double getMilk() {\n        return milk;\n    }\n\n    public String say() {\n        return \"יונק\";\n    }\n}"
+      },
+      {
+        "name": "Dog",
+        "code": "public class Dog extends Mammal {\n    private int bones;\n\n    public Dog(String name, double milk, int bones) {\n        super(name, milk);\n        this.bones = bones;\n    }\n\n    public int getBones() {\n        return bones;\n    }\n\n    public String say() {\n        return \"כלב\";\n    }\n}"
+      },
+      {
+        "name": "Boxer",
+        "code": "public class Boxer extends Dog {\n    private String guard;\n\n    public Boxer(String name, double milk, int bones, String guard) {\n        super(name, milk, bones);\n        this.guard = guard;\n    }\n\n    public String getGuard() {\n        return guard;\n    }\n}"
+      },
+      {
+        "name": "Labrador",
+        "code": "public class Labrador extends Dog {\n    private Person owner;\n\n    public Labrador(String name, double milk, int bones, Person owner) {\n        super(name, milk, bones);\n        this.owner = owner;\n    }\n\n    public Person getOwner() {\n        return owner;\n    }\n}"
+      },
+      {
+        "name": "Person",
+        "code": "public class Person {\n    private String name;\n\n    public Person(String name) {\n        this.name = name;\n    }\n\n    public String getName() {\n        return name;\n    }\n}"
+      },
+      {
+        "name": "Zoo",
+        "code": "public class Zoo {\n    private Animal[] animals;\n    private int count;\n\n    public Zoo(int max) {\n        this.animals = new Animal[max];\n        this.count = 0;\n    }\n\n    public void add(Animal a) {\n        if (count < animals.length) {\n            animals[count] = a;\n            count++;\n        }\n    }\n\n    public int getCount() {\n        return count;\n    }\n\n    public int getSize() {\n        return animals.length;\n    }\n\n    public Animal getAnimal(int i) {\n        return animals[i];\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Labrador",
+        "isStatic": false,
+        "returnType": "String",
+        "methodName": "say",
+        "parameters": [],
+        "instructions": "הוסיפו למחלקה Labrador פעולה say שדורסת את הפעולה של Dog ומחזירה את מה ש-say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את say של מחלקת העל (super.say()).\nלדוגמה: ללברדור שהבעלים שלו Hila הפעולה תחזיר \"כלב של Hila\"",
+        "solution": "public String say() {\n    return super.say() + \" של \" + owner.getName();\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Zoo",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "countDogs",
+        "parameters": [],
+        "instructions": "כתבו במחלקה Zoo פעולה פנימית ששמה countDogs, המחזירה כמה כלבים יש בגן (כלב רגיל, בוקסר או לברדור).",
+        "solution": "public int countDogs() {\n    int n = 0;\n    for (int i = 0; i < count; i++) {\n        if (animals[i] instanceof Dog) {\n            n++;\n        }\n    }\n    return n;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Zoo",
+        "isStatic": false,
+        "returnType": "String",
+        "methodName": "findOwner",
+        "parameters": [
+          {
+            "type": "String",
+            "name": "dogName"
+          }
+        ],
+        "instructions": "כתבו במחלקה Zoo פעולה פנימית ששמה findOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור), הפעולה תחזיר null.",
+        "solution": "public String findOwner(String dogName) {\n    for (int i = 0; i < count; i++) {\n        if (animals[i] instanceof Labrador && animals[i].getName().equals(dogName)) {\n            Labrador lab = (Labrador) animals[i];\n            return lab.getOwner().getName();\n        }\n    }\n    return null;\n}"
+      },
+      {
+        "label": "ד",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "Zoo",
+        "methodName": "onlyMammals",
+        "parameters": [
+          {
+            "type": "Zoo",
+            "name": "z"
+          }
+        ],
+        "instructions": "כתבו פעולה חיצונית ששמה onlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר. הגן z לא משתנה.",
+        "solution": "public static Zoo onlyMammals(Zoo z) {\n    Zoo res = new Zoo(z.getSize());\n    for (int i = 0; i < z.getCount(); i++) {\n        if (z.getAnimal(i) instanceof Mammal) {\n            res.add(z.getAnimal(i));\n        }\n    }\n    return res;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Person hila = new Person(\"Hila\");\nLabrador toto = new Labrador(\"Toto\", 2.5, 4, hila);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(toto.say(), \"כלב של Hila\"));\nAnimal max = new Labrador(\"Max\", 1.5, 2, new Person(\"Yoav\"));\nSystem.out.println(\"סעיף א, בדיקה 2 (דרך הפניה מטיפוס Animal): \" + check(max.say(), \"כלב של Yoav\"));\nZoo zoo = new Zoo(8);\nzoo.add(new Animal(\"Nemo\"));\nzoo.add(toto);\nzoo.add(new Boxer(\"Rexy\", 3.0, 3, \"house\"));\nzoo.add(new Mammal(\"Numa\", 2.0));\nzoo.add(max);\nzoo.add(new Dog(\"Lucky\", 1.0, 2));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(zoo.countDogs(), 4));\nSystem.out.println(\"סעיף ב, בדיקה 2 (גן ריק): \" + check(new Zoo(3).countDogs(), 0));\nSystem.out.println(\"סעיף ג, בדיקה 1: \" + check(zoo.findOwner(\"Max\"), \"Yoav\"));\nSystem.out.println(\"סעיף ג, בדיקה 2: \" + check(zoo.findOwner(\"Toto\"), \"Hila\"));\nSystem.out.println(\"סעיף ג, בדיקה 3 (Rexy הוא בוקסר): \" + check(zoo.findOwner(\"Rexy\"), \"null\"));\nSystem.out.println(\"סעיף ג, בדיקה 4 (אין חיה בשם הזה): \" + check(zoo.findOwner(\"Bob\"), \"null\"));\nZoo mammals = onlyMammals(zoo);\nSystem.out.println(\"סעיף ד, בדיקה 1: \" + check(mammals.getCount(), 5));\nSystem.out.println(\"סעיף ד, בדיקה 2: \" + check(mammals.getAnimal(0).getName(), \"Toto\"));\nSystem.out.println(\"סעיף ד, בדיקה 3: \" + check(mammals.getSize(), 8));\nSystem.out.println(\"סעיף ד, בדיקה 4 (הגן המקורי לא השתנה): \" + check(zoo.getCount(), 6));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (דרך הפניה מטיפוס Animal): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (גן ריק): נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ג, בדיקה 3 (Rexy הוא בוקסר): נכון\nסעיף ג, בדיקה 4 (אין חיה בשם הזה): נכון\nסעיף ד, בדיקה 1: נכון\nסעיף ד, בדיקה 2: נכון\nסעיף ד, בדיקה 3: נכון\nסעיף ד, בדיקה 4 (הגן המקורי לא השתנה): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "נתונות המחלקות:\nAnimal (חיה) — שם, והפעולה Say (virtual) שמחזירה \"חיה\"\nMammal (יונק) — יורשת מ-Animal; כמות חלב; Say מחזירה \"יונק\"\nDog (כלב) — יורשת מ-Mammal; מספר עצמות (GetBones); Say מחזירה \"כלב\"\nBoxer (בוקסר) — יורשת מ-Dog; מה הבוקסר שומר (guard)\nLabrador (לברדור) — יורשת מ-Dog; לכל לברדור יש בעלים owner מטיפוס Person (אדם, עם שם)\nZoo (גן חיות) — מערך animals מטיפוס Animal[] ומספר החיות count; הפעולה Add מוסיפה חיה במקום הפנוי הראשון, ויש פעולות GetCount, GetSize (גודל המערך) ו-GetAnimal(i).\nהקוד של המחלקות נמצא בתרגיל.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "הוסיפו למחלקה Labrador פעולה Say שדורסת את הפעולה של Dog (override) ומחזירה את מה ש-Say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את Say של מחלקת העל (base.Say()).\nלדוגמה: ללברדור שהבעלים שלו Hila הפעולה תחזיר \"כלב של Hila\""
+        },
+        {
+          "label": "ב",
+          "text": "כתבו במחלקה Zoo פעולה פנימית ששמה CountDogs, המחזירה כמה כלבים יש בגן (כלב רגיל, בוקסר או לברדור)."
+        },
+        {
+          "label": "ג",
+          "text": "כתבו במחלקה Zoo פעולה פנימית ששמה FindOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור), הפעולה תחזיר null."
+        },
+        {
+          "label": "ד",
+          "text": "כתבו פעולה חיצונית ששמה OnlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר. הגן z לא משתנה."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "גן החיות — כלבים ובעליהם",
+      "topic": "inheritance",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Animal",
+          "code": "public class Animal\n{\n    private string name;\n\n    public Animal(string name)\n    {\n        this.name = name;\n    }\n\n    public string GetName()\n    {\n        return name;\n    }\n\n    public virtual string Say()\n    {\n        return \"חיה\";\n    }\n}"
+        },
+        {
+          "name": "Mammal",
+          "code": "public class Mammal : Animal\n{\n    private double milk;\n\n    public Mammal(string name, double milk) : base(name)\n    {\n        this.milk = milk;\n    }\n\n    public double GetMilk()\n    {\n        return milk;\n    }\n\n    public override string Say()\n    {\n        return \"יונק\";\n    }\n}"
+        },
+        {
+          "name": "Dog",
+          "code": "public class Dog : Mammal\n{\n    private int bones;\n\n    public Dog(string name, double milk, int bones) : base(name, milk)\n    {\n        this.bones = bones;\n    }\n\n    public int GetBones()\n    {\n        return bones;\n    }\n\n    public override string Say()\n    {\n        return \"כלב\";\n    }\n}"
+        },
+        {
+          "name": "Boxer",
+          "code": "public class Boxer : Dog\n{\n    private string guard;\n\n    public Boxer(string name, double milk, int bones, string guard) : base(name, milk, bones)\n    {\n        this.guard = guard;\n    }\n\n    public string GetGuard()\n    {\n        return guard;\n    }\n}"
+        },
+        {
+          "name": "Labrador",
+          "code": "public class Labrador : Dog\n{\n    private Person owner;\n\n    public Labrador(string name, double milk, int bones, Person owner) : base(name, milk, bones)\n    {\n        this.owner = owner;\n    }\n\n    public Person GetOwner()\n    {\n        return owner;\n    }\n}"
+        },
+        {
+          "name": "Person",
+          "code": "public class Person\n{\n    private string name;\n\n    public Person(string name)\n    {\n        this.name = name;\n    }\n\n    public string GetName()\n    {\n        return name;\n    }\n}"
+        },
+        {
+          "name": "Zoo",
+          "code": "public class Zoo\n{\n    private Animal[] animals;\n    private int count;\n\n    public Zoo(int max)\n    {\n        this.animals = new Animal[max];\n        this.count = 0;\n    }\n\n    public void Add(Animal a)\n    {\n        if (count < animals.Length)\n        {\n            animals[count] = a;\n            count++;\n        }\n    }\n\n    public int GetCount()\n    {\n        return count;\n    }\n\n    public int GetSize()\n    {\n        return animals.Length;\n    }\n\n    public Animal GetAnimal(int i)\n    {\n        return animals[i];\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Labrador",
+          "isStatic": false,
+          "returnType": "string",
+          "methodName": "Say",
+          "parameters": [],
+          "instructions": "הוסיפו למחלקה Labrador פעולה Say שדורסת את הפעולה של Dog (override) ומחזירה את מה ש-Say של Dog מחזירה, ואחריו \" של \" ושם הבעלים.\nחובה לזמן את Say של מחלקת העל (base.Say()).\nלדוגמה: ללברדור שהבעלים שלו Hila הפעולה תחזיר \"כלב של Hila\"",
+          "solution": "public override string Say()\n{\n    return base.Say() + \" של \" + owner.GetName();\n}",
+          "modifier": "override"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Zoo",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "CountDogs",
+          "parameters": [],
+          "instructions": "כתבו במחלקה Zoo פעולה פנימית ששמה CountDogs, המחזירה כמה כלבים יש בגן (כלב רגיל, בוקסר או לברדור).",
+          "solution": "public int CountDogs()\n{\n    int n = 0;\n    for (int i = 0; i < count; i++)\n    {\n        if (animals[i] is Dog)\n        {\n            n++;\n        }\n    }\n    return n;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Zoo",
+          "isStatic": false,
+          "returnType": "string",
+          "methodName": "FindOwner",
+          "parameters": [
+            {
+              "type": "string",
+              "name": "dogName"
+            }
+          ],
+          "instructions": "כתבו במחלקה Zoo פעולה פנימית ששמה FindOwner, המקבלת מחרוזת dogName ומחזירה את שם הבעלים של הלברדור ששמו dogName.\nאם אין בגן לברדור בשם הזה (אין חיה בשם הזה, או שהיא לא לברדור), הפעולה תחזיר null.",
+          "solution": "public string FindOwner(string dogName)\n{\n    for (int i = 0; i < count; i++)\n    {\n        if (animals[i] is Labrador && animals[i].GetName() == dogName)\n        {\n            Labrador lab = (Labrador) animals[i];\n            return lab.GetOwner().GetName();\n        }\n    }\n    return null;\n}"
+        },
+        {
+          "label": "ד",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "Zoo",
+          "methodName": "OnlyMammals",
+          "parameters": [
+            {
+              "type": "Zoo",
+              "name": "z"
+            }
+          ],
+          "instructions": "כתבו פעולה חיצונית ששמה OnlyMammals, המקבלת גן חיות z ומחזירה גן חיות חדש, באותו גודל, ובו רק היונקים של z (כולל כלבים), באותו הסדר. הגן z לא משתנה.",
+          "solution": "public static Zoo OnlyMammals(Zoo z)\n{\n    Zoo res = new Zoo(z.GetSize());\n    for (int i = 0; i < z.GetCount(); i++)\n    {\n        if (z.GetAnimal(i) is Mammal)\n        {\n            res.Add(z.GetAnimal(i));\n        }\n    }\n    return res;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Person hila = new Person(\"Hila\");\nLabrador toto = new Labrador(\"Toto\", 2.5, 4, hila);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(toto.Say(), \"כלב של Hila\"));\nAnimal max = new Labrador(\"Max\", 1.5, 2, new Person(\"Yoav\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (דרך הפניה מטיפוס Animal): \" + Check(max.Say(), \"כלב של Yoav\"));\nZoo zoo = new Zoo(8);\nzoo.Add(new Animal(\"Nemo\"));\nzoo.Add(toto);\nzoo.Add(new Boxer(\"Rexy\", 3.0, 3, \"house\"));\nzoo.Add(new Mammal(\"Numa\", 2.0));\nzoo.Add(max);\nzoo.Add(new Dog(\"Lucky\", 1.0, 2));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(zoo.CountDogs(), 4));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (גן ריק): \" + Check(new Zoo(3).CountDogs(), 0));\nConsole.WriteLine(\"סעיף ג, בדיקה 1: \" + Check(zoo.FindOwner(\"Max\"), \"Yoav\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 2: \" + Check(zoo.FindOwner(\"Toto\"), \"Hila\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 3 (Rexy הוא בוקסר): \" + Check(zoo.FindOwner(\"Rexy\"), \"null\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 4 (אין חיה בשם הזה): \" + Check(zoo.FindOwner(\"Bob\"), \"null\"));\nZoo mammals = OnlyMammals(zoo);\nConsole.WriteLine(\"סעיף ד, בדיקה 1: \" + Check(mammals.GetCount(), 5));\nConsole.WriteLine(\"סעיף ד, בדיקה 2: \" + Check(mammals.GetAnimal(0).GetName(), \"Toto\"));\nConsole.WriteLine(\"סעיף ד, בדיקה 3: \" + Check(mammals.GetSize(), 8));\nConsole.WriteLine(\"סעיף ד, בדיקה 4 (הגן המקורי לא השתנה): \" + Check(zoo.GetCount(), 6));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (דרך הפניה מטיפוס Animal): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (גן ריק): נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2: נכון\nסעיף ג, בדיקה 3 (Rexy הוא בוקסר): נכון\nסעיף ג, בדיקה 4 (אין חיה בשם הזה): נכון\nסעיף ד, בדיקה 1: נכון\nסעיף ד, בדיקה 2: נכון\nסעיף ד, בדיקה 3: נכון\nסעיף ד, בדיקה 4 (הגן המקורי לא השתנה): נכון"
+    }
+  }
+}

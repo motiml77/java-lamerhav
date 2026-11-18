@@ -1,0 +1,162 @@
+{
+  "id": "inheritance-override-say",
+  "topic": "inheritance",
+  "level": "easy",
+  "title": "דריסה — מה כל חיה אומרת",
+  "question": {
+    "intro": "נתונה המחלקה Animal (חיה) ובה הפעולה say, שמחזירה \"קול של חיה\".\nהמחלקות Dog (כלב) ו-Cat (חתול) יורשות מ-Animal. המחלקה Dog דורסת את say ומחזירה \"הב\". הקוד של המחלקות נמצא בתרגיל.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסיפו למחלקה Cat פעולה say שדורסת את הפעולה של Animal ומחזירה \"מיאו\".\nבדקו בהרצה הוויזואלית: בקופסה של Animal הפעולה say מסומנת בקו חוצה — כי Cat דורסת אותה."
+      },
+      {
+        "label": "ב",
+        "text": "כתבו פעולה ששמה countSay, המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה מהחיות במערך הפעולה say שלהן מחזירה בדיוק את word.\nלדוגמה: עבור מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\", הפעולה תחזיר 2"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "דריסה — מה כל חיה אומרת",
+    "topic": "inheritance",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Animal",
+        "code": "public class Animal {\n    private String name;\n\n    public Animal(String name) {\n        this.name = name;\n    }\n\n    public String getName() {\n        return name;\n    }\n\n    public String say() {\n        return \"קול של חיה\";\n    }\n}"
+      },
+      {
+        "name": "Cat",
+        "code": "public class Cat extends Animal {\n    public Cat(String name) {\n        super(name);\n    }\n}"
+      },
+      {
+        "name": "Dog",
+        "code": "public class Dog extends Animal {\n    public Dog(String name) {\n        super(name);\n    }\n\n    public String say() {\n        return \"הב\";\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Cat",
+        "isStatic": false,
+        "returnType": "String",
+        "methodName": "say",
+        "parameters": [],
+        "instructions": "הוסיפו למחלקה Cat פעולה say שדורסת את הפעולה של Animal ומחזירה \"מיאו\".\nבדקו בהרצה הוויזואלית: בקופסה של Animal הפעולה say מסומנת בקו חוצה — כי Cat דורסת אותה.",
+        "solution": "public String say() {\n    return \"מיאו\";\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countSay",
+        "parameters": [
+          {
+            "type": "Animal[]",
+            "name": "animals"
+          },
+          {
+            "type": "String",
+            "name": "word"
+          }
+        ],
+        "instructions": "כתבו פעולה ששמה countSay, המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה מהחיות במערך הפעולה say שלהן מחזירה בדיוק את word.\nלדוגמה: עבור מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\", הפעולה תחזיר 2",
+        "solution": "public static int countSay(Animal[] animals, String word) {\n    int count = 0;\n    for (int i = 0; i < animals.length; i++) {\n        if (animals[i].say().equals(word)) {\n            count++;\n        }\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Cat tom = new Cat(\"Tom\");\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(tom.say(), \"מיאו\"));\nAnimal pet = new Cat(\"Mitzi\");\nSystem.out.println(\"סעיף א, בדיקה 2 (דרך הפניה מטיפוס Animal): \" + check(pet.say(), \"מיאו\"));\nAnimal[] farm = { new Cat(\"Mitzi\"), new Dog(\"Rexy\"), tom, new Animal(\"Nemo\") };\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(countSay(farm, \"מיאו\"), 2));\nSystem.out.println(\"סעיף ב, בדיקה 2: \" + check(countSay(farm, \"הב\"), 1));\nSystem.out.println(\"סעיף ב, בדיקה 3: \" + check(countSay(farm, \"מו\"), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (דרך הפניה מטיפוס Animal): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "נתונה המחלקה Animal (חיה) ובה הפעולה Say (virtual), שמחזירה \"קול של חיה\".\nהמחלקות Dog (כלב) ו-Cat (חתול) יורשות מ-Animal. המחלקה Dog דורסת את Say (override) ומחזירה \"הב\". הקוד של המחלקות נמצא בתרגיל.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "הוסיפו למחלקה Cat פעולה Say שדורסת את הפעולה של Animal (override) ומחזירה \"מיאו\".\nבדקו בהרצה הוויזואלית: בקופסה של Animal הפעולה Say מסומנת בקו חוצה — כי Cat דורסת אותה."
+        },
+        {
+          "label": "ב",
+          "text": "כתבו פעולה ששמה CountSay, המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה מהחיות במערך הפעולה Say שלהן מחזירה בדיוק את word.\nלדוגמה: עבור מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\", הפעולה תחזיר 2"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "דריסה — מה כל חיה אומרת",
+      "topic": "inheritance",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Animal",
+          "code": "public class Animal\n{\n    private string name;\n\n    public Animal(string name)\n    {\n        this.name = name;\n    }\n\n    public string GetName()\n    {\n        return name;\n    }\n\n    public virtual string Say()\n    {\n        return \"קול של חיה\";\n    }\n}"
+        },
+        {
+          "name": "Cat",
+          "code": "public class Cat : Animal\n{\n    public Cat(string name) : base(name)\n    {\n    }\n}"
+        },
+        {
+          "name": "Dog",
+          "code": "public class Dog : Animal\n{\n    public Dog(string name) : base(name)\n    {\n    }\n\n    public override string Say()\n    {\n        return \"הב\";\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Cat",
+          "isStatic": false,
+          "returnType": "string",
+          "methodName": "Say",
+          "parameters": [],
+          "instructions": "הוסיפו למחלקה Cat פעולה Say שדורסת את הפעולה של Animal (override) ומחזירה \"מיאו\".\nבדקו בהרצה הוויזואלית: בקופסה של Animal הפעולה Say מסומנת בקו חוצה — כי Cat דורסת אותה.",
+          "solution": "public override string Say()\n{\n    return \"מיאו\";\n}",
+          "modifier": "override"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountSay",
+          "parameters": [
+            {
+              "type": "Animal[]",
+              "name": "animals"
+            },
+            {
+              "type": "string",
+              "name": "word"
+            }
+          ],
+          "instructions": "כתבו פעולה ששמה CountSay, המקבלת מערך animals מטיפוס Animal[] ומחרוזת word, ומחזירה כמה מהחיות במערך הפעולה Say שלהן מחזירה בדיוק את word.\nלדוגמה: עבור מערך של שני חתולים וכלב, ו-word שהוא \"מיאו\", הפעולה תחזיר 2",
+          "solution": "public static int CountSay(Animal[] animals, string word)\n{\n    int count = 0;\n    for (int i = 0; i < animals.Length; i++)\n    {\n        if (animals[i].Say() == word)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Cat tom = new Cat(\"Tom\");\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(tom.Say(), \"מיאו\"));\nAnimal pet = new Cat(\"Mitzi\");\nConsole.WriteLine(\"סעיף א, בדיקה 2 (דרך הפניה מטיפוס Animal): \" + Check(pet.Say(), \"מיאו\"));\nAnimal[] farm = { new Cat(\"Mitzi\"), new Dog(\"Rexy\"), tom, new Animal(\"Nemo\") };\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(CountSay(farm, \"מיאו\"), 2));\nConsole.WriteLine(\"סעיף ב, בדיקה 2: \" + Check(CountSay(farm, \"הב\"), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 3: \" + Check(CountSay(farm, \"מו\"), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (דרך הפניה מטיפוס Animal): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2: נכון\nסעיף ב, בדיקה 3: נכון"
+    }
+  }
+}

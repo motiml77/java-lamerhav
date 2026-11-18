@@ -1,0 +1,193 @@
+{
+  "id": "inheritance-shapes",
+  "topic": "inheritance",
+  "level": "medium",
+  "title": "צורות — מלבן, ריבוע ומשולש",
+  "question": {
+    "intro": "נתונה המחלקה Shape (צורה) ובה צבע, והפעולה area שמחזירה 0\nהמחלקה Rectangle (מלבן) יורשת מ-Shape, ויש לה רוחב וגובה.\nהמחלקה Square (ריבוע) יורשת מ-Rectangle: הפעולה הבונה שלה מקבלת צלע אחת ומעבירה אותה כרוחב וכגובה.\nהמחלקה RightTriangle (משולש ישר זווית) יורשת מ-Shape, ויש לה שני ניצבים a ו-b. כל המידות הן מספרים שלמים.\nהקוד של המחלקות נמצא בתרגיל.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "הוסיפו למחלקה Rectangle פעולה area שדורסת את הפעולה של Shape ומחזירה את שטח המלבן.\nלדוגמה: למלבן ברוחב 3 ובגובה 4 הפעולה תחזיר 12\nשימו לב: את area של Square לא צריך לכתוב — ריבוע יורש אותה מ-Rectangle."
+      },
+      {
+        "label": "ב",
+        "text": "הוסיפו למחלקה RightTriangle פעולה area שדורסת את הפעולה של Shape ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק של שלמים).\nלדוגמה: למשולש עם ניצבים 6 ו-4 הפעולה תחזיר 12"
+      },
+      {
+        "label": "ג",
+        "text": "כתבו פעולה ששמה countRectangles, המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש במערך.\nשימו לב: ריבוע הוא גם מלבן — Square יורשת מ-Rectangle."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "צורות — מלבן, ריבוע ומשולש",
+    "topic": "inheritance",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Shape",
+        "code": "public class Shape {\n    private String color;\n\n    public Shape(String color) {\n        this.color = color;\n    }\n\n    public String getColor() {\n        return color;\n    }\n\n    public int area() {\n        return 0;\n    }\n}"
+      },
+      {
+        "name": "Rectangle",
+        "code": "public class Rectangle extends Shape {\n    private int width;\n    private int height;\n\n    public Rectangle(String color, int width, int height) {\n        super(color);\n        this.width = width;\n        this.height = height;\n    }\n\n    public int getWidth() {\n        return width;\n    }\n\n    public int getHeight() {\n        return height;\n    }\n}"
+      },
+      {
+        "name": "Square",
+        "code": "public class Square extends Rectangle {\n    public Square(String color, int side) {\n        super(color, side, side);\n    }\n}"
+      },
+      {
+        "name": "RightTriangle",
+        "code": "public class RightTriangle extends Shape {\n    private int a;\n    private int b;\n\n    public RightTriangle(String color, int a, int b) {\n        super(color);\n        this.a = a;\n        this.b = b;\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Rectangle",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "area",
+        "parameters": [],
+        "instructions": "הוסיפו למחלקה Rectangle פעולה area שדורסת את הפעולה של Shape ומחזירה את שטח המלבן.\nלדוגמה: למלבן ברוחב 3 ובגובה 4 הפעולה תחזיר 12\nשימו לב: את area של Square לא צריך לכתוב — ריבוע יורש אותה מ-Rectangle.",
+        "solution": "public int area() {\n    return width * height;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "RightTriangle",
+        "isStatic": false,
+        "returnType": "int",
+        "methodName": "area",
+        "parameters": [],
+        "instructions": "הוסיפו למחלקה RightTriangle פעולה area שדורסת את הפעולה של Shape ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק של שלמים).\nלדוגמה: למשולש עם ניצבים 6 ו-4 הפעולה תחזיר 12",
+        "solution": "public int area() {\n    return a * b / 2;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countRectangles",
+        "parameters": [
+          {
+            "type": "Shape[]",
+            "name": "shapes"
+          }
+        ],
+        "instructions": "כתבו פעולה ששמה countRectangles, המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש במערך.\nשימו לב: ריבוע הוא גם מלבן — Square יורשת מ-Rectangle.",
+        "solution": "public static int countRectangles(Shape[] shapes) {\n    int count = 0;\n    for (int i = 0; i < shapes.length; i++) {\n        if (shapes[i] instanceof Rectangle && !(shapes[i] instanceof Square)) {\n            count++;\n        }\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Rectangle r = new Rectangle(\"red\", 3, 4);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(r.area(), 12));\nShape s = new Square(\"blue\", 5);\nSystem.out.println(\"סעיף א, בדיקה 2 (ריבוע, דרך הפניה מטיפוס Shape): \" + check(s.area(), 25));\nRightTriangle t = new RightTriangle(\"green\", 6, 4);\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(t.area(), 12));\nShape t2 = new RightTriangle(\"black\", 3, 2);\nSystem.out.println(\"סעיף ב, בדיקה 2 (דרך הפניה מטיפוס Shape): \" + check(t2.area(), 3));\nShape[] shapes = { r, s, t, new Rectangle(\"white\", 1, 2), new Square(\"pink\", 2) };\nSystem.out.println(\"סעיף ג, בדיקה 1: \" + check(countRectangles(shapes), 2));\nShape[] noRect = { new Square(\"blue\", 5), t };\nSystem.out.println(\"סעיף ג, בדיקה 2 (ריבוע ומשולש בלבד): \" + check(countRectangles(noRect), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (ריבוע, דרך הפניה מטיפוס Shape): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (דרך הפניה מטיפוס Shape): נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2 (ריבוע ומשולש בלבד): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "נתונה המחלקה Shape (צורה) ובה צבע, והפעולה Area (virtual) שמחזירה 0\nהמחלקה Rectangle (מלבן) יורשת מ-Shape, ויש לה רוחב וגובה.\nהמחלקה Square (ריבוע) יורשת מ-Rectangle: הפעולה הבונה שלה מקבלת צלע אחת ומעבירה אותה כרוחב וכגובה.\nהמחלקה RightTriangle (משולש ישר זווית) יורשת מ-Shape, ויש לה שני ניצבים a ו-b. כל המידות הן מספרים שלמים.\nהקוד של המחלקות נמצא בתרגיל.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "הוסיפו למחלקה Rectangle פעולה Area שדורסת את הפעולה של Shape (override) ומחזירה את שטח המלבן.\nלדוגמה: למלבן ברוחב 3 ובגובה 4 הפעולה תחזיר 12\nשימו לב: את Area של Square לא צריך לכתוב — ריבוע יורש אותה מ-Rectangle."
+        },
+        {
+          "label": "ב",
+          "text": "הוסיפו למחלקה RightTriangle פעולה Area שדורסת את הפעולה של Shape (override) ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק של שלמים).\nלדוגמה: למשולש עם ניצבים 6 ו-4 הפעולה תחזיר 12"
+        },
+        {
+          "label": "ג",
+          "text": "כתבו פעולה ששמה CountRectangles, המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש במערך.\nשימו לב: ריבוע הוא גם מלבן — Square יורשת מ-Rectangle."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "צורות — מלבן, ריבוע ומשולש",
+      "topic": "inheritance",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Shape",
+          "code": "public class Shape\n{\n    private string color;\n\n    public Shape(string color)\n    {\n        this.color = color;\n    }\n\n    public string GetColor()\n    {\n        return color;\n    }\n\n    public virtual int Area()\n    {\n        return 0;\n    }\n}"
+        },
+        {
+          "name": "Rectangle",
+          "code": "public class Rectangle : Shape\n{\n    private int width;\n    private int height;\n\n    public Rectangle(string color, int width, int height) : base(color)\n    {\n        this.width = width;\n        this.height = height;\n    }\n\n    public int GetWidth()\n    {\n        return width;\n    }\n\n    public int GetHeight()\n    {\n        return height;\n    }\n}"
+        },
+        {
+          "name": "Square",
+          "code": "public class Square : Rectangle\n{\n    public Square(string color, int side) : base(color, side, side)\n    {\n    }\n}"
+        },
+        {
+          "name": "RightTriangle",
+          "code": "public class RightTriangle : Shape\n{\n    private int a;\n    private int b;\n\n    public RightTriangle(string color, int a, int b) : base(color)\n    {\n        this.a = a;\n        this.b = b;\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Rectangle",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "Area",
+          "parameters": [],
+          "instructions": "הוסיפו למחלקה Rectangle פעולה Area שדורסת את הפעולה של Shape (override) ומחזירה את שטח המלבן.\nלדוגמה: למלבן ברוחב 3 ובגובה 4 הפעולה תחזיר 12\nשימו לב: את Area של Square לא צריך לכתוב — ריבוע יורש אותה מ-Rectangle.",
+          "solution": "public override int Area()\n{\n    return width * height;\n}",
+          "modifier": "override"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "RightTriangle",
+          "isStatic": false,
+          "returnType": "int",
+          "methodName": "Area",
+          "parameters": [],
+          "instructions": "הוסיפו למחלקה RightTriangle פעולה Area שדורסת את הפעולה של Shape (override) ומחזירה את שטח המשולש: מכפלת הניצבים חלקי 2 (חילוק של שלמים).\nלדוגמה: למשולש עם ניצבים 6 ו-4 הפעולה תחזיר 12",
+          "solution": "public override int Area()\n{\n    return a * b / 2;\n}",
+          "modifier": "override"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountRectangles",
+          "parameters": [
+            {
+              "type": "Shape[]",
+              "name": "shapes"
+            }
+          ],
+          "instructions": "כתבו פעולה ששמה CountRectangles, המקבלת מערך shapes מטיפוס Shape[] ומחזירה כמה מלבנים שאינם ריבועים יש במערך.\nשימו לב: ריבוע הוא גם מלבן — Square יורשת מ-Rectangle.",
+          "solution": "public static int CountRectangles(Shape[] shapes)\n{\n    int count = 0;\n    for (int i = 0; i < shapes.Length; i++)\n    {\n        if (shapes[i] is Rectangle && !(shapes[i] is Square))\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Rectangle r = new Rectangle(\"red\", 3, 4);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(r.Area(), 12));\nShape s = new Square(\"blue\", 5);\nConsole.WriteLine(\"סעיף א, בדיקה 2 (ריבוע, דרך הפניה מטיפוס Shape): \" + Check(s.Area(), 25));\nRightTriangle t = new RightTriangle(\"green\", 6, 4);\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(t.Area(), 12));\nShape t2 = new RightTriangle(\"black\", 3, 2);\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (דרך הפניה מטיפוס Shape): \" + Check(t2.Area(), 3));\nShape[] shapes = { r, s, t, new Rectangle(\"white\", 1, 2), new Square(\"pink\", 2) };\nConsole.WriteLine(\"סעיף ג, בדיקה 1: \" + Check(CountRectangles(shapes), 2));\nShape[] noRect = { new Square(\"blue\", 5), t };\nConsole.WriteLine(\"סעיף ג, בדיקה 2 (ריבוע ומשולש בלבד): \" + Check(CountRectangles(noRect), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (ריבוע, דרך הפניה מטיפוס Shape): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (דרך הפניה מטיפוס Shape): נכון\nסעיף ג, בדיקה 1: נכון\nסעיף ג, בדיקה 2 (ריבוע ומשולש בלבד): נכון"
+    }
+  }
+}

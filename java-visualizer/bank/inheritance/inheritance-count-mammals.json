@@ -1,0 +1,171 @@
+{
+  "id": "inheritance-count-mammals",
+  "topic": "inheritance",
+  "level": "easy",
+  "title": "כמה יונקים בגן החיות",
+  "question": {
+    "intro": "נתונות המחלקות Animal (חיה), Mammal (יונק) שיורשת מ-Animal, Dog (כלב) שיורשת מ-Mammal ו-Bird (ציפור) שיורשת מ-Animal. הקוד שלהן נמצא בתרגיל.\nליונק (Mammal) יש פעולה getMilk שמחזירה את כמות החלב שלו. לחיה (Animal) אין פעולה כזו.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתבו פעולה ששמה countMammals, המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה מהחיות במערך הן יונקים — עצמים מהמחלקה Mammal או ממחלקה שיורשת ממנה (כלב הוא גם יונק).\nרמז: instanceof"
+      },
+      {
+        "label": "ב",
+        "text": "כתבו פעולה ששמה totalMilk, המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סך כמות החלב (getMilk) של כל היונקים במערך.\nשימו לב: את getMilk אפשר לזמן רק דרך הפניה מטיפוס Mammal (או יורשת שלה) — צריך המרה (casting), ורק אחרי שבדקתם שהעצם הוא יונק."
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "כמה יונקים בגן החיות",
+    "topic": "inheritance",
+    "mainClass": "Program",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Animal",
+        "code": "public class Animal {\n    private String name;\n\n    public Animal(String name) {\n        this.name = name;\n    }\n\n    public String getName() {\n        return name;\n    }\n\n    public String say() {\n        return \"חיה\";\n    }\n}"
+      },
+      {
+        "name": "Mammal",
+        "code": "public class Mammal extends Animal {\n    private double milk;\n\n    public Mammal(String name, double milk) {\n        super(name);\n        this.milk = milk;\n    }\n\n    public double getMilk() {\n        return milk;\n    }\n\n    public String say() {\n        return \"יונק\";\n    }\n}"
+      },
+      {
+        "name": "Dog",
+        "code": "public class Dog extends Mammal {\n    private int bones;\n\n    public Dog(String name, double milk, int bones) {\n        super(name, milk);\n        this.bones = bones;\n    }\n\n    public int getBones() {\n        return bones;\n    }\n\n    public String say() {\n        return \"כלב\";\n    }\n}"
+      },
+      {
+        "name": "Bird",
+        "code": "public class Bird extends Animal {\n    public Bird(String name) {\n        super(name);\n    }\n\n    public String fly() {\n        return getName() + \" עף\";\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countMammals",
+        "parameters": [
+          {
+            "type": "Animal[]",
+            "name": "zoo"
+          }
+        ],
+        "instructions": "כתבו פעולה ששמה countMammals, המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה מהחיות במערך הן יונקים — עצמים מהמחלקה Mammal או ממחלקה שיורשת ממנה (כלב הוא גם יונק).\nרמז: instanceof",
+        "solution": "public static int countMammals(Animal[] zoo) {\n    int count = 0;\n    for (int i = 0; i < zoo.length; i++) {\n        if (zoo[i] instanceof Mammal) {\n            count++;\n        }\n    }\n    return count;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Program",
+        "isStatic": true,
+        "returnType": "double",
+        "methodName": "totalMilk",
+        "parameters": [
+          {
+            "type": "Animal[]",
+            "name": "zoo"
+          }
+        ],
+        "instructions": "כתבו פעולה ששמה totalMilk, המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סך כמות החלב (getMilk) של כל היונקים במערך.\nשימו לב: את getMilk אפשר לזמן רק דרך הפניה מטיפוס Mammal (או יורשת שלה) — צריך המרה (casting), ורק אחרי שבדקתם שהעצם הוא יונק.",
+        "solution": "public static double totalMilk(Animal[] zoo) {\n    double sum = 0;\n    for (int i = 0; i < zoo.length; i++) {\n        if (zoo[i] instanceof Mammal) {\n            Mammal m = (Mammal) zoo[i];\n            sum += m.getMilk();\n        }\n    }\n    return sum;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Program",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Animal[] zoo = new Animal[5];\nzoo[0] = new Dog(\"Rexy\", 0.5, 3);\nzoo[1] = new Bird(\"Tweety\");\nzoo[2] = new Mammal(\"Numa\", 2.5);\nzoo[3] = new Animal(\"Mitzi\");\nzoo[4] = new Dog(\"Lucky\", 1.0, 2);\nSystem.out.println(\"סעיף א, בדיקה 1: \" + check(countMammals(zoo), 3));\nAnimal[] birds = { new Bird(\"Kiwi\"), new Animal(\"Nemo\") };\nSystem.out.println(\"סעיף א, בדיקה 2 (אין יונקים): \" + check(countMammals(birds), 0));\nSystem.out.println(\"סעיף ב, בדיקה 1: \" + check(totalMilk(zoo), 4.0));\nSystem.out.println(\"סעיף ב, בדיקה 2 (אין יונקים): \" + check(totalMilk(birds), 0.0));",
+    "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (אין יונקים): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (אין יונקים): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "נתונות המחלקות Animal (חיה), Mammal (יונק) שיורשת מ-Animal, Dog (כלב) שיורשת מ-Mammal ו-Bird (ציפור) שיורשת מ-Animal. הקוד שלהן נמצא בתרגיל.\nליונק (Mammal) יש פעולה GetMilk שמחזירה את כמות החלב שלו. לחיה (Animal) אין פעולה כזו.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתבו פעולה ששמה CountMammals, המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה מהחיות במערך הן יונקים — עצמים מהמחלקה Mammal או ממחלקה שיורשת ממנה (כלב הוא גם יונק).\nרמז: is"
+        },
+        {
+          "label": "ב",
+          "text": "כתבו פעולה ששמה TotalMilk, המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סך כמות החלב (GetMilk) של כל היונקים במערך.\nשימו לב: את GetMilk אפשר לזמן רק דרך הפניה מטיפוס Mammal (או יורשת שלה) — צריך המרה (casting), ורק אחרי שבדקתם שהעצם הוא יונק."
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "כמה יונקים בגן החיות",
+      "topic": "inheritance",
+      "mainClass": "Program",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Animal",
+          "code": "public class Animal\n{\n    private string name;\n\n    public Animal(string name)\n    {\n        this.name = name;\n    }\n\n    public string GetName()\n    {\n        return name;\n    }\n\n    public virtual string Say()\n    {\n        return \"חיה\";\n    }\n}"
+        },
+        {
+          "name": "Mammal",
+          "code": "public class Mammal : Animal\n{\n    private double milk;\n\n    public Mammal(string name, double milk) : base(name)\n    {\n        this.milk = milk;\n    }\n\n    public double GetMilk()\n    {\n        return milk;\n    }\n\n    public override string Say()\n    {\n        return \"יונק\";\n    }\n}"
+        },
+        {
+          "name": "Dog",
+          "code": "public class Dog : Mammal\n{\n    private int bones;\n\n    public Dog(string name, double milk, int bones) : base(name, milk)\n    {\n        this.bones = bones;\n    }\n\n    public int GetBones()\n    {\n        return bones;\n    }\n\n    public override string Say()\n    {\n        return \"כלב\";\n    }\n}"
+        },
+        {
+          "name": "Bird",
+          "code": "public class Bird : Animal\n{\n    public Bird(string name) : base(name)\n    {\n    }\n\n    public string Fly()\n    {\n        return GetName() + \" עף\";\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountMammals",
+          "parameters": [
+            {
+              "type": "Animal[]",
+              "name": "zoo"
+            }
+          ],
+          "instructions": "כתבו פעולה ששמה CountMammals, המקבלת מערך zoo מטיפוס Animal[] ומחזירה כמה מהחיות במערך הן יונקים — עצמים מהמחלקה Mammal או ממחלקה שיורשת ממנה (כלב הוא גם יונק).\nרמז: is",
+          "solution": "public static int CountMammals(Animal[] zoo)\n{\n    int count = 0;\n    for (int i = 0; i < zoo.Length; i++)\n    {\n        if (zoo[i] is Mammal)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Program",
+          "isStatic": true,
+          "returnType": "double",
+          "methodName": "TotalMilk",
+          "parameters": [
+            {
+              "type": "Animal[]",
+              "name": "zoo"
+            }
+          ],
+          "instructions": "כתבו פעולה ששמה TotalMilk, המקבלת מערך zoo מטיפוס Animal[] ומחזירה את סך כמות החלב (GetMilk) של כל היונקים במערך.\nשימו לב: את GetMilk אפשר לזמן רק דרך הפניה מטיפוס Mammal (או יורשת שלה) — צריך המרה (casting), ורק אחרי שבדקתם שהעצם הוא יונק.",
+          "solution": "public static double TotalMilk(Animal[] zoo)\n{\n    double sum = 0;\n    for (int i = 0; i < zoo.Length; i++)\n    {\n        if (zoo[i] is Mammal)\n        {\n            Mammal m = (Mammal) zoo[i];\n            sum += m.GetMilk();\n        }\n    }\n    return sum;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Program",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Animal[] zoo = new Animal[5];\nzoo[0] = new Dog(\"Rexy\", 0.5, 3);\nzoo[1] = new Bird(\"Tweety\");\nzoo[2] = new Mammal(\"Numa\", 2.5);\nzoo[3] = new Animal(\"Mitzi\");\nzoo[4] = new Dog(\"Lucky\", 1.0, 2);\nConsole.WriteLine(\"סעיף א, בדיקה 1: \" + Check(CountMammals(zoo), 3));\nAnimal[] birds = { new Bird(\"Kiwi\"), new Animal(\"Nemo\") };\nConsole.WriteLine(\"סעיף א, בדיקה 2 (אין יונקים): \" + Check(CountMammals(birds), 0));\nConsole.WriteLine(\"סעיף ב, בדיקה 1: \" + Check(TotalMilk(zoo), 4.0));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (אין יונקים): \" + Check(TotalMilk(birds), 0.0));",
+      "expectedOutput": "סעיף א, בדיקה 1: נכון\nסעיף א, בדיקה 2 (אין יונקים): נכון\nסעיף ב, בדיקה 1: נכון\nסעיף ב, בדיקה 2 (אין יונקים): נכון"
+    }
+  }
+}

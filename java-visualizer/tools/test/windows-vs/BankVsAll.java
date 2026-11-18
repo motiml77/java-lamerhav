@@ -220,7 +220,7 @@ public final class BankVsAll {
         String t1 = String.valueOf(w.treeShown);
         ui(() -> { w.search = "xyz-אין-כזה"; w.rebuildTree(); return null; });
         String t2 = String.valueOf(w.treeShown);
-        ui(() -> { w.search = ""; w.levelFilter = "easy"; w.open.addAll(java.util.Arrays.asList("loops", "arrays", "strings", "classes", "recursion", "stack", "queue", "list", "tree")); w.rebuildTree(); return null; });
+        ui(() -> { w.search = ""; w.levelFilter = "easy"; w.open.addAll(java.util.Arrays.asList("loops", "arrays", "strings", "classes", "inheritance", "recursion", "stack", "queue", "list", "tree")); w.rebuildTree(); return null; });
         int easy = 0;
         for (String s : w.treeShown) if (s.startsWith("Q ")) easy++;
         ui(() -> { w.levelFilter = "hard"; w.rebuildTree(); return null; });

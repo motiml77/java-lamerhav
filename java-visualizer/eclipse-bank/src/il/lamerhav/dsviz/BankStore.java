@@ -99,7 +99,8 @@ final class BankStore {
 
     /** הנושאים — הסדר הקבוע, גם אם עוד אין בהם שאלות (אפשר להוסיף נושא חדש ב-topics.json) */
     static final String[][] DEFAULT_TOPICS = {
-        { "loops", "לולאות" }, { "arrays", "מערכים" }, { "strings", "מחרוזות" }, { "classes", "מחלקות" }, { "recursion", "רקורסיה" },
+        { "loops", "לולאות" }, { "arrays", "מערכים" }, { "strings", "מחרוזות" }, { "classes", "מחלקות" }, { "inheritance", "הורשה ופולימורפיזם" },
+        { "recursion", "רקורסיה" },
         { "stack", "מחסנית" }, { "queue", "תור" }, { "list", "שרשרת חוליות" }, { "tree", "עץ בינארי" },
     };
 
