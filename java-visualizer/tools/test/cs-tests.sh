@@ -126,6 +126,11 @@ javac -encoding UTF-8 -cp "$JAR" -d "$W/vp" calls/LineAfterCheck.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/vp:$JAR" unit4.collectionsLib.LineAfterCheck "$W/calls.trace" > "$W/lineafter.txt" 2>&1 \
     && grep -q MARK-END "$W/lineafter.txt" || { echo "כל שורה — מה שהשורה עשתה (LineAfter) נכשל"; cat "$W/lineafter.txt"; exit 1; }
 echo "כל שורה — השורה המסומנת מראה מה היא עשתה: $(grep -c '^  ok' "$W/lineafter.txt") בדיקות (קיפול הפעולה, המשתנים אחרי השורה, המרקר)"
+# "לדלג על פונקציות": רק השורות של Main; שורה שקוראת לפעולה — צעד אחד עם המצב אחרי שהפעולה הסתיימה (SkipCalls)
+javac -encoding UTF-8 -cp "$JAR" -d "$W/vp" calls/SkipCallsCheck.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$W/vp:$JAR" unit4.collectionsLib.SkipCallsCheck "$W/calls.trace" > "$W/skipcalls.txt" 2>&1 \
+    && grep -q MARK-END "$W/skipcalls.txt" || { echo "לדלג על פונקציות (SkipCalls) נכשל"; cat "$W/skipcalls.txt"; exit 1; }
+echo "לדלג על פונקציות — רק Main, וקריאה לפעולה בצעד אחד: $(grep -c '^  ok' "$W/skipcalls.txt") בדיקות"
 # פעולה שרצה בתוך אובייקט: this הוא d1, המאפיינים שהשורה קוראת / משנה (כמו ב-Java)
 viz objects/cs/Pets.cs --trace "$W/pets.trace" > "$W/pets.out" 2>&1 || { cat "$W/pets.out"; exit 1; }
 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/pets.trace" > "$W/pets.txt" 2>&1

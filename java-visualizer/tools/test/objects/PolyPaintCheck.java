@@ -211,11 +211,58 @@ public class PolyPaintCheck {
         zoo.objs.add(obj(12, "Cat", "Mitzi", "name", "\"Mitzi\""));
         s3.views.add(zoo);
         BufferedImage img3 = render(s3, "array-chips");
-        Rectangle dogChip = bbox(img3, PURPLE, null, 30), catChip = bbox(img3, TEAL, null, 30), red3 = bbox(img3, RED, null, 30);
+        Rectangle dogChip = bbox(img3, PURPLE, null, 30), catChip = bbox(img3, TEAL, null, 30);
         check(dogChip != null && dogChip.height <= 22 && catChip != null && catChip.height <= 22 && catChip.x > dogChip.x,
                 "בתאים: תגית Dog (סגול) ותגית Cat (טורקיז), קטנות (" + dogChip + ", " + catChip + ")");
-        check(red3 != null && red3.height <= 24 && dogChip != null && red3.y + red3.height < dogChip.y,
-                "בכותרת: zoo : Animal[] — Animal באדום, מעל התאים (ובתאים אין קופסה אדומה של Animal)");
+        // הכותרת (zoo : Animal[]) למעלה; מתחתיה מסגרת אדומה דקה של Animal סביב כל התאים, והשם עליה — ובתוך התאים אין אדום
+        Rectangle red3 = bbox(img3, RED, new Rectangle(0, 0, W, 52), 30), frame3 = bbox(img3, RED, new Rectangle(0, 52, W, H - 52), 30);
+        check(red3 != null && red3.height <= 24 && frame3 != null && red3.y + red3.height < frame3.y,
+                "בכותרת: zoo : Animal[] — Animal באדום, מעל התאים");
+        check(frame3 != null && dogChip != null && catChip != null && frame3.contains(dogChip) && frame3.contains(catChip) && frame3.height < 90,
+                "מסגרת אדומה דקה של Animal סביב כל התאים: " + frame3);
+        int inside3 = frame3 == null ? -1 : count(img3, RED, new Rectangle(frame3.x + 4, frame3.y + 10, frame3.width - 8, frame3.height - 14), 30);
+        check(inside3 == 0, "בתוך המסגרת אין אדום — בתאים אין קופסה של Animal, רק התגיות Dog / Cat (" + inside3 + ")");
+
+        // --- איזו מחלקה כתובה על המסגרת (StructPanel.elemClass)
+        StructPanel sp = new StructPanel();
+        sp.offscreen = true;
+        sp.setStep(s3);
+        StructPanel.ElemClass e1 = sp.elemClass(zoo.objs, "zoo");
+        check(e1 != null && e1.cls.equals("Animal") && e1.poly, "Animal[] עם Dog ו-Cat: Animal על המסגרת, ותגית בכל תא");
+        List<Obj> dogs = new ArrayList<Obj>();
+        dogs.add(obj(15, "Dog", "Rexy", "name", "\"Rexy\""));
+        StructPanel.ElemClass e2 = sp.elemClass(dogs, "zoo");
+        check(e2 != null && e2.cls.equals("Animal") && e2.poly, "Animal[] שיש בו רק Dog: עדיין Animal (הטיפוס המוצהר), ותגית Dog בתא");
+        Step s4 = step(5, "things", "Object[]", "people", "Person[]");
+        sp.setStep(s4);
+        StructPanel.ElemClass e3 = sp.elemClass(zoo.objs, "things");
+        check(e3 != null && e3.cls.equals("Animal") && e3.poly, "Object[] עם Dog ו-Cat: מחלקת העל המשותפת — Animal");
+        List<Obj> mixed = new ArrayList<Obj>();
+        mixed.add(obj(16, "Person", "Hila", "name", "\"Hila\""));
+        mixed.add(obj(17, "Dog", "Rexy", "name", "\"Rexy\""));
+        StructPanel.ElemClass e4 = sp.elemClass(mixed, "things");
+        check(e4 != null && e4.cls.equals("Object") && e4.poly, "Object[] עם Person ו-Dog (בלי מחלקת על משותפת): Object");
+        List<Obj> nulls = new ArrayList<Obj>();
+        nulls.add(null);
+        nulls.add(null);
+        StructPanel.ElemClass e5 = sp.elemClass(nulls, "people");
+        check(e5 != null && e5.cls.equals("Person") && !e5.poly, "Person[] שכל התאים בו null: Person (הטיפוס המוצהר)");
+
+        // --- מערך של עצמים ממחלקה אחת (Person, לא בעץ): מסגרת אפורה דקה עם השם, בלי תגיות ובלי צבע בתאים
+        ArrayView people = new ArrayView();
+        people.title = "people";
+        people.items.add("Hila");
+        people.items.add("Dana");
+        people.objs.add(obj(13, "Person", "Hila", "name", "\"Hila\""));
+        people.objs.add(obj(14, "Person", "Dana", "name", "\"Dana\""));
+        s4.views.add(people);
+        StructPanel.ElemClass e6 = sp.elemClass(people.objs, "people");
+        check(e6 != null && e6.cls.equals("Person") && !e6.poly, "Person[] עם Person: Person על המסגרת, בלי תגיות");
+        BufferedImage img4 = render(s4, "array-frame-one-class");
+        Rectangle gray4 = bbox(img4, new Color(0x9AA4B5), new Rectangle(0, 52, W, H - 52), 8);
+        check(bbox(img4, PURPLE, null, 30) == null && bbox(img4, TEAL, null, 30) == null && bbox(img4, RED, null, 30) == null,
+                "מערך של Person: בלי תגיות ובלי צבעים של הורשה");
+        check(gray4 != null && gray4.width > 150 && gray4.height > 40 && gray4.height < 90, "מסגרת אפורה דקה סביב התאים: " + gray4);
 
         // --- תרשים המחלקות: רק מחלקות שההרצה משתמשת בהן. לפני שנרשם צעד — אין תרשים
         check(Poly.relations().isEmpty() && Poly.usedClasses().isEmpty(), "לפני שההרצה רשמה צעדים: התרשים ריק");

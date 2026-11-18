@@ -1010,7 +1010,7 @@ final class StructPanel extends JPanel {
     // ------------------------------------------------------------ מסגרת המחלקה: מבנה (מערך, מחסנית, תור) של עצמים
 
     /** המחלקה של העצמים במבנה: cls — השם שכתוב על המסגרת; poly — יש בו עצם ממחלקה אחרת (יורשת): תגית מחלקה בכל תא */
-    private static final class ElemClass {
+    static final class ElemClass {
         final String cls;
         final boolean poly;
 
@@ -1031,7 +1031,7 @@ final class StructPanel extends JPanel {
      * המחלקה שכתובה על המסגרת של מבנה עם עצמים: הטיפוס המוצהר (Animal[] zoo) אם הוא מחלקה של התלמיד שכל העצמים הם ממנה;
      * אחרת — המחלקה של כל העצמים, או מחלקת העל המשותפת להם (Object / object אם אין). null — אין עצמים, או מבנה בתוך כרטיס
      */
-    private ElemClass elemClass(List<Obj> objs, String title) {
+    ElemClass elemClass(List<Obj> objs, String title) {
         if (nest > 0) return null;
         List<String> types = new ArrayList<String>();
         if (objs != null)
@@ -1156,6 +1156,20 @@ final class StructPanel extends JPanel {
     // ------------------------------------------------------------ מערך דו-ממדי
 
     private Dimension drawMatrix(Graphics2D g, MatrixView v, int x, int y) {
+        List<Obj> all = new ArrayList<Obj>();
+        for (List<Obj> row : v.objs) all.addAll(row);
+        ElemClass ec = v.rows.isEmpty() || !hasObjs(all) ? null : elemClass(all, v.title);   // מסגרת המחלקה סביב הטבלה
+        int chips = chipMode;
+        chipMode = ec == null ? 0 : ec.poly ? 1 : -1;
+        try {
+            return drawMatrix(g, v, x, y, ec);
+        } finally {
+            chipMode = chips;
+        }
+    }
+
+    private Dimension drawMatrix(Graphics2D g, MatrixView v, int x, int y, ElemClass ec) {
+        int fp = ec == null ? 0 : FRAME_PAD, fu = ec == null ? 0 : LEGEND_UP;
         int rows = v.rows.size(), cols = 0;
         List<String> all = new ArrayList<String>();
         List<Obj> allObjs = new ArrayList<Obj>();
@@ -1169,19 +1183,20 @@ final class StructPanel extends JPanel {
         int cw = Math.max(44, widthOf(all, allObjs, null) + 20), ch = objs ? OBJ_H : 36;
         int labelW = 0;
         for (List<String> l : v.rowLabels.values()) labelW = Math.max(labelW, textWidth(String.join(",", l), SMALL_B) + 16);
-        int left = x + 8 + labelW + 22, top = y + th() + 22 + (v.colLabels.isEmpty() ? 0 : 18);
+        int left = x + 8 + labelW + 22 + fp, top = y + th() + 22 + (v.colLabels.isEmpty() ? 0 : 18) + fu + 2 * fp;
         String type = "מערך דו-ממדי " + rows + "×" + cols;
         String decl = declOf(v.title);
-        int w = Math.max(left - x + Math.max(cols, 1) * cw + 16, titleWidth(v.title, type) + declW(decl));
-        int h = top - y + Math.max(rows, 1) * ch + 12;
+        int w = Math.max(Math.max(left - x + Math.max(cols, 1) * cw + 16 + fp, left - x - fp + legendW(ec)), titleWidth(v.title, type) + declW(decl));
+        int h = top - y + Math.max(rows, 1) * ch + 12 + fp;
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, decl, type, x, y, v.focus || !v.changed.isEmpty());
+        if (ec != null) classFrame(g, ec, left - fp, top - fp, Math.max(cols, 1) * cw + 2 * fp, Math.max(rows, 1) * ch + 2 * fp);
         g.setColor(MUTED);
-        for (int c = 0; c < cols; c++) center(g, String.valueOf(c), SMALL, left + c * cw + cw / 2, top - 9);
+        for (int c = 0; c < cols; c++) center(g, String.valueOf(c), SMALL, left + c * cw + cw / 2, top - 9 - fp - fu);
         for (int r = 0; r < rows; r++) {
             g.setColor(MUTED);
-            center(g, String.valueOf(r), SMALL, left - 11, top + r * ch + ch / 2);
+            center(g, String.valueOf(r), SMALL, left - 11 - fp, top + r * ch + ch / 2);
             List<String> row = v.rows.get(r);
             for (int c = 0; c < row.size(); c++)
                 cell(g, left + c * cw, top + r * ch, cw, ch, v.changed.contains(r + "," + c) ? CHANGED_C : BOX, row.get(c),
@@ -1191,12 +1206,12 @@ final class StructPanel extends JPanel {
                 g.setColor(LABEL);
                 g.setFont(SMALL_B);
                 String t = String.join(",", rl);
-                g.drawString(t, left - 22 - textWidth(t, SMALL_B) - 8, top + r * ch + ch / 2 + 5);
-                g.fillPolygon(new int[] { left - 26, left - 26, left - 20 }, new int[] { top + r * ch + ch / 2 - 4, top + r * ch + ch / 2 + 4, top + r * ch + ch / 2 }, 3);
+                g.drawString(t, left - fp - 22 - textWidth(t, SMALL_B) - 8, top + r * ch + ch / 2 + 5);
+                g.fillPolygon(new int[] { left - fp - 26, left - fp - 26, left - fp - 20 }, new int[] { top + r * ch + ch / 2 - 4, top + r * ch + ch / 2 + 4, top + r * ch + ch / 2 }, 3);
             }
         }
         for (Map.Entry<Integer, List<String>> e : v.colLabels.entrySet())
-            indexLabel(g, String.join(",", e.getValue()), left + e.getKey() * cw + cw / 2, top - 20);
+            indexLabel(g, String.join(",", e.getValue()), left + e.getKey() * cw + cw / 2, top - 20 - fp - fu);
         return new Dimension(w, h);
     }
 
@@ -1400,6 +1415,22 @@ final class StructPanel extends JPanel {
      * לחוליה שלפני החוליה שהיא מצביעה עליה, עם חץ אלכסוני אליה.
      */
     private Dimension drawChain(Graphics2D g, ChainView v, int x, int y) {
+        List<Obj> all = new ArrayList<Obj>();
+        boolean subs = false;
+        for (Cell c : v.cells) { all.add(c.obj); subs |= c.sub != null; }
+        for (ChainView b : v.branches) for (Cell c : b.cells) { all.add(c.obj); subs |= c.sub != null; }
+        ElemClass ec = v.cells.isEmpty() || subs || !hasObjs(all) ? null : elemClass(all, v.title);   // מסגרת המחלקה סביב השרשרת
+        int chips = chipMode;
+        chipMode = ec == null ? 0 : ec.poly ? 1 : -1;
+        try {
+            return drawChain(g, v, x, y, ec);
+        } finally {
+            chipMode = chips;
+        }
+    }
+
+    private Dimension drawChain(Graphics2D g, ChainView v, int x, int y, ElemClass ec) {
+        int fp = ec == null ? 0 : FRAME_PAD, fu = ec == null ? 0 : LEGEND_UP;
         List<ChainView> rows = new ArrayList<ChainView>();
         rows.add(v);
         rows.addAll(v.branches);
@@ -1446,7 +1477,7 @@ final class StructPanel extends JPanel {
                 need[col] = Math.max(need[col], pointerRowW(b.cells.get(k).labels));
             }
         int[] left = new int[cols];
-        left[0] = x + 8 + Math.max(0, (need[0] - cw) / 2);
+        left[0] = x + 8 + fp + Math.max(0, (need[0] - cw) / 2);
         for (int c = 1; c < cols; c++) left[c] = left[c - 1] + Math.max(stepW, (need[c - 1] + need[c]) / 2 + LBL_SPACE);
         int last = shift + n - 1;
         int lastX = left[last] + vw + pw / 2;
@@ -1460,7 +1491,7 @@ final class StructPanel extends JPanel {
         // --- גובה: שמות מעל השורה הראשית, השורה, מעגל, ענפים, והסבר על חוליות שאבדו
         boolean mainLabels = !v.nullLabels.isEmpty();
         for (Cell c : v.cells) mainLabels |= !c.labels.isEmpty();
-        int top = y + th() + (mainLabels ? LABELS_H : 24);
+        int top = y + th() + fu + fp + (mainLabels ? LABELS_H : 24);
         int below = top + ch + (v.cycleTo >= 0 ? 36 : 14);
         int[] rowTop = new int[taken.size()];
         int yy = top + ch + (v.cycleTo >= 0 ? 36 : 0);
@@ -1474,7 +1505,9 @@ final class StructPanel extends JPanel {
         }
         List<String[]> notes = new ArrayList<String[]>();   // {מה קרה, מה עושים}
         for (ChainView r : rows) if (r.lostNote != null) notes.add(new String[] { r.lostNote, r.lostHint });
-        int w = Math.max(right - x, titleWidth(v.title, "רשימה מקושרת"));
+        int w = Math.max(Math.max(right - x + fp, legendW(ec)), titleWidth(v.title, "רשימה מקושרת"));
+        int frameTop = y + th() + fu, frameW = Math.max(right - x + fp, legendW(ec)) - 4;
+        if (ec != null) below += fp;
         int noteW = Math.max(w, Math.min(620, Math.max(360, w)));
         int noteH = 0;
         if (nest == 0) for (String[] t : notes) noteH += 10 + paragraph(null, t[0], SMALL_B, GHOST, 0, 0, noteW) + paragraph(null, t[1], SMALL, INK, 0, 0, noteW);
@@ -1483,6 +1516,7 @@ final class StructPanel extends JPanel {
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "רשימה מקושרת", x, y, v.focus);
+        if (ec != null) classFrame(g, ec, x + 2, frameTop, frameW, below - 4 - frameTop);
         // המקומות של החוליות (השורה הראשית והענפים) — בהנפשה: בדרך מהמקום הקודם (StructAnim.cell)
         Rectangle[] mr = new Rectangle[n];
         for (int i = 0; i < n; i++) mr[i] = new Rectangle(left[shift + i], top, vw + pw, ch);
@@ -1789,6 +1823,23 @@ final class StructPanel extends JPanel {
     // ------------------------------------------------------------ עץ
 
     private Dimension drawTree(Graphics2D g, TreeView v, int x, int y) {
+        List<TreeCell> cells = new ArrayList<TreeCell>();
+        collect(v.root, 0, cells, new IdentityHashMap<TreeCell, Integer>());
+        List<Obj> all = new ArrayList<Obj>();
+        boolean subs = false;
+        for (TreeCell c : cells) { all.add(c.obj); subs |= c.sub != null; }
+        ElemClass ec = cells.isEmpty() || subs || !hasObjs(all) ? null : elemClass(all, v.title);   // מסגרת המחלקה סביב העץ
+        int chips = chipMode;
+        chipMode = ec == null ? 0 : ec.poly ? 1 : -1;
+        try {
+            return drawTree(g, v, x, y, ec);
+        } finally {
+            chipMode = chips;
+        }
+    }
+
+    private Dimension drawTree(Graphics2D g, TreeView v, int x, int y, ElemClass ec) {
+        int fp = ec == null ? 0 : FRAME_PAD, fu = ec == null ? 0 : LEGEND_UP;
         final List<TreeCell> inorder = new ArrayList<TreeCell>();
         final Map<TreeCell, Integer> depth = new IdentityHashMap<TreeCell, Integer>();
         collect(v.root, 0, inorder, depth);
@@ -1812,15 +1863,17 @@ final class StructPanel extends JPanel {
         // המצביעים: השמות זה לצד זה מעל הצומת — הצמתים מתרחקים כך שהשמות של שכנים לא נוגעים זה בזה
         int nw = Math.max(2 * r + 12, most + LBL_SPACE), lv = boxy ? Math.max(76, 2 * ry + 30) : 70;
         final int extra = most > 0 ? 6 : 0;
-        int w = Math.max(inorder.size() * nw + 16, titleWidth(v.title, "עץ בינארי"));
-        int h = th() + 22 + extra + (maxDepth + 1) * lv;
+        int bodyW = Math.max(inorder.size() * nw + 16 + 2 * fp, legendW(ec));
+        int w = Math.max(bodyW, titleWidth(v.title, "עץ בינארי"));
+        int h = th() + 22 + extra + (maxDepth + 1) * lv + fu + 2 * fp;
         if (g == null) return new Dimension(w, h);
 
         drawTitle(g, v.title, "עץ בינארי", x, y, v.focus);
+        if (ec != null) classFrame(g, ec, x + 2, y + th() + fu, bodyW - 4, h - th() - fu - 4);
         Map<TreeCell, int[]> pos = new IdentityHashMap<TreeCell, int[]>();
         for (int i = 0; i < inorder.size(); i++) {
             TreeCell c = inorder.get(i);
-            pos.put(c, new int[] { x + 8 + i * nw + nw / 2, y + th() + 22 + extra + depth.get(c) * lv + ry });
+            pos.put(c, new int[] { x + 8 + fp + i * nw + nw / 2, y + th() + 22 + extra + fu + fp + depth.get(c) * lv + ry });
         }
         g.setColor(LINE);
         g.setStroke(new BasicStroke(2f));

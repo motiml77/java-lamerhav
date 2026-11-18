@@ -94,10 +94,10 @@ final class Viewer extends JFrame {
 
     // ------------------------------------------------------------ מצב
 
-    /** האינדקסים (ב-Recorder) של הצעדים שמוצגים — כולם, או רק פעולות על מבנים */
+    /** האינדקסים (ב-Recorder) של הצעדים שמוצגים — כולם, או ("לדלג על פונקציות") רק השורות של main */
     private final List<Integer> vis = new ArrayList<Integer>();
     private int known = 0, pos = -1;
-    private boolean onlyOps, hasLines, adjusting;
+    private boolean hasLines, adjusting;
     /** "לדלג על פונקציות": רק השורות של main; שורה שקוראת לפעולה של התלמיד מוצגת אחרי שהפעולה הסתיימה (בלי השורות שבתוכה) */
     private boolean skipCalls;
     /** inFunction = התוכנית כבר נכנסה לפעולה (לא main); mainOnly = הסתיימה בלי פעולות; showMain = "גם main" */
@@ -116,7 +116,7 @@ final class Viewer extends JFrame {
     private final JButton prevBtn, nextBtn, playBtn;
     private final JSlider speed = new JSlider(1, 10, 6);
     private final JPanel modePanel;
-    private final JToggleButton allBtn = new SegButton("שורה שורה"), skipBtn = new SegButton("לדלג על פונקציות"), opsBtn = new SegButton("רק פעולות");
+    private final JToggleButton allBtn = new SegButton("שורה שורה"), skipBtn = new SegButton("לדלג על פונקציות");
     private final Timer player;
 
 
@@ -230,24 +230,20 @@ final class Viewer extends JFrame {
         });
 
         ButtonGroup g = new ButtonGroup();
-        for (JToggleButton b : new JToggleButton[] { allBtn, skipBtn, opsBtn }) g.add(b);
+        for (JToggleButton b : new JToggleButton[] { allBtn, skipBtn }) g.add(b);
         allBtn.setSelected(true);
         allBtn.setToolTipText("כל שורה בקוד היא צעד — גם השורות בתוך הפעולות, עם המשתנים");
         skipBtn.setToolTipText("רק השורות של main: קריאה לפעולה — צעד אחד, שמראה את המצב אחרי שהפעולה הסתיימה");
-        opsBtn.setToolTipText("רק הצעדים שמשנים או קוראים מבנה (push, insert, setNext...)");
-        allBtn.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setMode(false, false); } });
-        skipBtn.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setMode(false, true); } });
-        opsBtn.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setMode(true, false); } });
-        skipBtn.setVisible(false);   // רק כשיש בתוכנית פעולות של התלמיד
+        allBtn.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setSkipCalls(false); } });
+        skipBtn.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setSkipCalls(true); } });
         modePanel = new Pill(new Color(0xEDF0F5), Theme.BORDER);
         modePanel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
         modePanel.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
         modePanel.add(allBtn);
         modePanel.add(skipBtn);
-        modePanel.add(opsBtn);
-        modePanel.setVisible(false);
+        modePanel.setVisible(false);   // רק כשיש בתוכנית פעולות של התלמיד (ושורות)
 
-        // פס המידע: מספר הצעד, "כל שורה / רק פעולות", ומתג "להציג גם main" — בתוך מסגרת לבנה אחת
+        // פס המידע: מספר הצעד, "שורה שורה / לדלג על פונקציות", ומתג "להציג גם main" — בתוך מסגרת לבנה אחת
         JPanel info = new Pill(Color.WHITE, Theme.BORDER);
         info.setLayout(new FlowLayout(FlowLayout.LEADING, 0, 0));
         info.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
@@ -889,13 +885,12 @@ final class Viewer extends JFrame {
             }
             if (s.kind == Kind.LINE && !hasLines) {
                 hasLines = true;
-                modePanel.setVisible(true);
+                modePanel.setVisible(inFunction);
             }
             if (s.calls.size() >= 2 && !inFunction) {
                 inFunction = true;
                 mainBtn.setVisible(!skipCalls);
-                skipBtn.setVisible(true);
-                modePanel.revalidate();
+                modePanel.setVisible(hasLines);   // "שורה שורה / לדלג על פונקציות" — רק כשיש פעולות של התלמיד
             }
             // תוכנית שכולה ב-main (בלי פעולות) — מציגים את main
             // (וגם לולאה שלא נגמרת ב-main — רואים את הסיבובים שלפני העצירה, לא רק את הכרטיס)
@@ -934,21 +929,16 @@ final class Viewer extends JFrame {
      * אלא אם לוחצים "גם main" או שאין בתוכנית פעולות בכלל. המבנים שנבנו ב-main מופיעים מוכנים.
      */
     private boolean visible(Step s) {
-        if (s.kind == Kind.INPUT || waitPoints.contains(s.index)) return true;   // קלט מהמקלדת — תמיד (גם ב"רק פעולות" ובלי main)
-        if (onlyOps && (s.kind == Kind.LINE || s.kind == Kind.CHECK)) return false;
+        if (s.kind == Kind.INPUT || waitPoints.contains(s.index)) return true;   // קלט מהמקלדת — תמיד (גם בלי main)
         if (lineAfter() && LineAfter.folded(s.index)) return false;   // הפעולה הראשונה של השורה — מוצגת בתוך צעד השורה (LineAfter)
         boolean always = s.kind == Kind.END || s.kind == Kind.ERROR;
-        if (skipCalls) {   // "לדלג על פונקציות": רק main (השגיאה והסוף — תמיד)
-            if (always) return true;
-            if (s.calls.size() >= 2) return false;
-            return !skipFolded(s.index);
-        }
+        if (skipCalls) return SkipCalls.shown(s, known);   // "לדלג על פונקציות": רק main (השגיאה והסוף — תמיד)
         return always || showMain || mainOnly || s.calls.size() >= 2;
     }
 
-    /** "כל שורה": השורה המסומנת מראה את מה שהיא כבר עשתה (LineAfter). ב"רק פעולות" — כמו קודם */
+    /** "שורה שורה": השורה המסומנת מראה את מה שהיא כבר עשתה (LineAfter) */
     private boolean lineAfter() {
-        return LineAfter.ENABLED && Recorder.lineMode && !onlyOps;
+        return LineAfter.ENABLED && Recorder.lineMode;
     }
 
     /** מה שמצויר בצעד vis[p] — כדי לדעת אם צריך לצייר אותו מחדש כשמגיעים עוד צעדים (הפעולה של השורה, המשתנים שאחריה) */
@@ -957,49 +947,14 @@ final class Viewer extends JFrame {
         return dataIdx(idx) + ":" + afterIdx(idx);
     }
 
-    /**
-     * "לדלג על פונקציות": השורה idx ב-main קוראת לפעולה של התלמיד (הצעד שאחריה עמוק יותר במחסנית) — הצעד הראשון אחרי שהפעולה
-     * הסתיימה (חזרה לאותו עומק). -1: לא במצב הזה, השורה לא קוראת לפעולה, או שהפעולה עוד לא הסתיימה (נגיע לשם כשהצעדים יגיעו)
-     */
-    private int skipTarget(int idx) {
-        if (!skipCalls || idx + 1 >= known) return -1;
-        Step s = Recorder.step(idx), nx = Recorder.step(idx + 1);
-        if (s == null || nx == null || s.kind != Kind.LINE || nx.calls.size() <= s.calls.size()) return -1;
-        for (int j = idx + 2; j < known; j++) {
-            Step t = Recorder.step(j);
-            if (t == null) return -1;
-            if (t.kind == Kind.ERROR || t.kind == Kind.END) return -1;   // נעצר בתוך הפעולה — רואים את השגיאה בצעד שלה
-            if (t.calls.size() <= s.calls.size()) return j;
-        }
-        return -1;
-    }
-
-    /** "לדלג על פונקציות": פעולה באותה שורה מיד אחרי החזרה מהפעולה (System.out.println(f(x))) — מוצגת בתוך צעד השורה */
-    private boolean skipFolded(int idx) {
-        Step s = Recorder.step(idx);
-        if (idx <= 0 || !LineAfter.op(s)) return false;
-        Step p = Recorder.step(idx - 1);
-        if (p == null || p.calls.size() <= s.calls.size()) return false;   // לא חזרנו הרגע מפעולה
-        for (int i = idx - 2, lim = 0; i >= 0 && lim < 200000; i--, lim++) {
-            Step t = Recorder.step(i);
-            if (t == null) return false;
-            if (t.calls.size() <= s.calls.size()) return t.kind == Kind.LINE && LineAfter.sameSpot(t, s) && skipTarget(i) == idx;
-        }
-        return false;
-    }
-
     /** מאיזה צעד מציירים את המבנים והפלט כשהצעד idx מוצג (LineAfter; ב"לדלג על פונקציות" — אחרי הפעולה שהשורה קראה לה) */
     private int dataIdx(int idx) {
-        int j = skipTarget(idx);
-        return j >= 0 ? j : LineAfter.data(idx, known);
+        return skipCalls ? SkipCalls.data(idx, known) : LineAfter.data(idx, known);
     }
 
     /** הצעד שהמשתנים שלו הם המצב "אחרי השורה" של idx, או -1 */
     private int afterIdx(int idx) {
-        int j = skipTarget(idx);
-        if (j < 0) return LineAfter.after(idx, known);
-        Step t = Recorder.step(j);
-        return t != null && t.kind == Kind.LINE ? j : LineAfter.after(j, known);
+        return skipCalls ? SkipCalls.after(idx, known) : LineAfter.after(idx, known);
     }
 
     /** המשתנים שהוצגו בצעד idx (לפעולה שרצה): אחרי השורה, אם ידוע — אחרת של הצעד עצמו */
@@ -1024,10 +979,9 @@ final class Viewer extends JFrame {
         return s.vars;
     }
 
-    /** מעבר בין "שורה שורה", "לדלג על פונקציות" ו"רק פעולות" — נשארים בערך באותו מקום בהרצה */
-    private void setMode(boolean only, boolean skip) {
-        if (only == onlyOps && skip == skipCalls) return;
-        onlyOps = only;
+    /** מעבר בין "שורה שורה" ל"לדלג על פונקציות" — נשארים בערך באותו מקום בהרצה */
+    private void setSkipCalls(boolean skip) {
+        if (skip == skipCalls) return;
         skipCalls = skip;
         mainBtn.setVisible(inFunction && !skip);   // ב"לדלג על פונקציות" רואים תמיד את main
         rebuildVisible();
@@ -1965,7 +1919,7 @@ final class Viewer extends JFrame {
         }
     }
 
-    /** רקע מעוגל (עם מסגרת דקה) — לפס המידע ולמתג "כל שורה / רק פעולות" */
+    /** רקע מעוגל (עם מסגרת דקה) — לפס המידע ולמתג "שורה שורה / לדלג על פונקציות" */
     private static final class Pill extends JPanel {
         private final Color bg, line;
 
