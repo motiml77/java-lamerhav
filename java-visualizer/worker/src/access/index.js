@@ -21,6 +21,7 @@ import { servePage } from './pages.js';
 import { alert, alertTo, mailReady, listAlerts, markSeen, WAIT } from './alerts.js';
 import { CLASSROOM_ROUTES, studentState, isRegistered } from './classroom.js';
 import { REPORT_ROUTES, REPORT_ADMIN_ROUTES } from './reports.js';
+import { selfTest } from './selftest.js';
 
 export const DEFAULTS = {
   price: 0,                     // ₪ — 0 = עוד לא נקבע (אי אפשר לשלם)
@@ -1158,6 +1159,7 @@ const ADMIN_ROUTES = {
   'GET /v1/admin/alerts': (env, u, url) => listAlerts(db(env), url.searchParams.get('limit')),
   'POST /v1/admin/alerts/seen': (env, u, url, b) => markSeen(db(env), b),
   'POST /v1/admin/settings': (env, u, url, b) => adminSettings(env, u, b),
+  'GET /v1/admin/selftest': (env, u, url) => selfTest(env, url),
 };
 
 /** מחזיר Response לנתיבים של הכניסה, או null אם הנתיב לא שלנו */

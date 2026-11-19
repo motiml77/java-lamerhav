@@ -9,6 +9,9 @@ export class DbError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
+/** שאילתות שנדרש להן אינדקס שלא קיים (נענו בדרך העוקפת) — בדיקת המערכת של ההנהלה מציגה אותן */
+export const indexMisses = [];
+
 function encodeValue(v) {
   if (v === null || v === undefined) return { nullValue: null };
   if (typeof v === 'boolean') return { booleanValue: v };
@@ -24,6 +27,25 @@ function encodeFields(obj) {
   const out = {};
   for (const [k, v] of Object.entries(obj || {})) if (v !== undefined && !k.startsWith('_')) out[k] = encodeValue(v);
   return out;
+}
+
+/**
+ * שדות לכתיבה חלקית (merge / update): מפתח עם נקודה הוא נתיב לתוך מפה — {'work.u12': {…}} משנה רק את work.u12,
+ * ושאר המפה נשאר כמו שהוא (ה-updateMask מקבל את אותו נתיב)
+ */
+function encodeMergeFields(obj) {
+  const root = {};
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (v === undefined || k.startsWith('_')) continue;
+    const parts = k.split('.');
+    let at = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!at[parts[i]] || !at[parts[i]].mapValue) at[parts[i]] = { mapValue: { fields: {} } };
+      at = at[parts[i]].mapValue.fields;
+    }
+    at[parts[parts.length - 1]] = encodeValue(v);
+  }
+  return root;
 }
 
 function decodeValue(v) {
@@ -79,7 +101,7 @@ export function db(env) {
   }
 
   function updateWrite(path, data, opts = {}) {
-    const w = { update: { name: name(path), fields: encodeFields(data) } };
+    const w = { update: { name: name(path), fields: opts.merge ? encodeMergeFields(data) : encodeFields(data) } };
     if (opts.merge) w.updateMask = { fieldPaths: Object.keys(data).filter(k => data[k] !== undefined && !k.startsWith('_')).map(quoteField) };
     if (opts.exists === true) w.currentDocument = { exists: true };
     if (opts.exists === false) w.currentDocument = { exists: false };
@@ -148,7 +170,22 @@ export function db(env) {
       else if (filters.length > 1) sq.where = { compositeFilter: { op: 'AND', filters } };
       if (q.orderBy) sq.orderBy = [{ field: { fieldPath: quoteField(q.orderBy[0]) }, direction: q.orderBy[1] === 'desc' ? 'DESCENDING' : 'ASCENDING' }];
       if (q.limit) sq.limit = q.limit;
-      const j = await call('POST', base + root + ':runQuery', { structuredQuery: sq });
+      let j;
+      try {
+        j = await call('POST', base + root + ':runQuery', { structuredQuery: sq });
+      } catch (e) {
+        // רק ב-Firestore האמיתי (האמולטור לא בודק אינדקסים): שאילתה של כמה תנאי שוויון רצה בדרך כלל על האינדקסים האוטומטיים
+        // של כל שדה. אם בכל זאת נדרש אינדקס מורכב שלא קיים — לא נכשלים: שואלים לפי התנאי הראשון ומסננים את השאר כאן
+        const eq = (q.where || []).length > 1 && !q.orderBy && q.where.every(w => w[1] === '==');
+        if (!(eq && e.status === 400 && /FAILED_PRECONDITION|requires an index/i.test(e.message))) throw e;
+        console.error('firestore: missing index for', collection, q.where.map(w => w[0]).join('+'), '-', e.message);
+        indexMisses.push({ collection, fields: q.where.map(w => w[0]), message: e.message, at: new Date().toISOString() });
+        if (indexMisses.length > 20) indexMisses.shift();
+        const first = await api.query(collection, { where: [q.where[0]] });
+        const rest = q.where.slice(1);
+        const out = first.filter(d => rest.every(([f, , v]) => String(f).split('.').reduce((o, k) => (o == null ? o : o[k]), d) === v));
+        return q.limit ? out.slice(0, q.limit) : out;
+      }
       return (j || []).filter(r => r.document).map(r => decodeDoc(r.document));
     },
     /**

@@ -11,7 +11,9 @@
 //
 // המסמכים:
 //   classes/{id}                 teacher, name, createdAt, updatedAt
-//   members/{מורה~תלמיד}         teacher, student, name, picture, classId ('' = בלי כיתה), joinedAt, submits, lastSubmitAt, lastTitle
+//   members/{מורה~תלמיד}         teacher, student, name, picture, classId ('' = בלי כיתה), joinedAt, submits, lastSubmitAt, lastTitle,
+//                                work{מזהה ההגשה: {t כותרת, b מזהה במאגר, p נושא, l רמה, at, r תוצאה, n, s נצפה}} — תקציר התרגילים של התלמיד:
+//                                ממנו עמדת הניהול מציגה "הגשות חדשות" ו"לפי תרגיל" בלי לקרוא את ההגשות עצמן
 //   submissions/{id}             teacher, from (student / station), student | station, stationName, who, exercise{…}, lang, app, check{…},
 //                                n, firstAt, createdAt, seenAt, size, fileCount, expiresAt (רק מעמדה — Timestamp, בשביל TTL)
 //   submissionFiles/{id}         teacher, files[{path, text}], main, expiresAt — הקוד עצמו, נקרא רק כשהמורה פותח הגשה
@@ -21,6 +23,7 @@ import { Fail } from '../http.js';
 import { db, timeId } from './firestore.js';
 import { sha256Hex, normalizeCode } from './crypto.js';
 import { webUser, readJson, log, settings, resolveToken, badCodeLimit, phoneNorm } from './index.js';
+import { WAIT } from './alerts.js';
 
 const nowIso = () => new Date().toISOString();
 const month = () => nowIso().slice(0, 7);
@@ -31,6 +34,10 @@ const memberId = (teacher, student) => teacher + '~' + student;
 const CHUNK = 400;                 // כמה מסמכים מוחקים בקריאה אחת (מחיקת כיתה / תלמיד) — הדף ממשיך לקרוא עד done
 const MAX_FILES = 12, MAX_BYTES = 200 * 1024, MAX_OUTPUT = 2000;
 const SUBMITS_PER_HOUR = 30;
+const MAX_WORK = 200;              // כמה תרגילים נשמרים בתקציר של תלמיד (members.work); מעבר לזה ההגשה נשמרת, רק בלי שורה בתקציר
+// Cloudflare (התוכנית החינמית): עד 50 פניות החוצה בבקשה אחת. מחיקת כיתה נעשית בשלבים — בכל קריאה עד כמה תלמידים
+// (שאילתה + כתיבה לכל תלמיד), והדף ממשיך לקרוא עד done
+const CLASS_DELETE_STEP = 12;
 
 // ------------------------------------------------------------------ מי פונה
 
@@ -296,9 +303,37 @@ async function submit(request, env) {
   await store.commit(w => {
     w.set('submissions/' + id, doc);
     w.set('submissionFiles/' + id, filesDoc);
-    if (member) w.update('members/' + memberId(teacher, base.student), { lastSubmitAt: at, lastTitle: exercise.title }, prev ? undefined : { submits: 1 });
+    if (member) {
+      const upd = { lastSubmitAt: at, lastTitle: exercise.title };
+      // התקציר של התלמיד אצל המורה: שורה לכל תרגיל (הגשה חוזרת מחליפה אותה, ושוב "לא נצפה")
+      const work = member.work && typeof member.work === 'object' ? member.work : {};
+      if (work[id] || Object.keys(work).length < MAX_WORK) {
+        upd['work.' + id] = { t: exercise.title, b: exercise.bankId, p: exercise.topic, l: exercise.level, at, r: resultOf(doc.check), n: doc.n, s: 0 };
+      }
+      w.update('members/' + memberId(teacher, base.student), upd, prev ? undefined : { submits: 1 });
+    }
   });
+  purgeLater(env);
   return { ok: true, id, at, replaced: !!prev, teacher: r.teacher ? r.teacher.name : undefined };
+}
+
+/** התוצאה של בדיקת ההרצה במילה אחת (לתקציר): ok — הפלט תואם; diff — רץ, פלט שונה; err — לא מתקמפל; time — נעצר; none — לא נבדק */
+function resultOf(c) {
+  if (!c || !c.ran) return 'none';
+  if (c.compiles === false) return 'err';
+  if (c.timedOut) return 'time';
+  if (c.outputMatch === true) return 'ok';
+  if (c.outputMatch === false) return 'diff';
+  return 'none';
+}
+
+/** התקציר של תלמיד כרשימה (לעמדת הניהול), מהחדש לישן */
+function workRows(m) {
+  const w = m && m.work && typeof m.work === 'object' ? m.work : {};
+  return Object.keys(w).filter(id => w[id] && w[id].at).map(id => {
+    const x = w[id];
+    return { id, title: x.t || 'תרגיל', bankId: x.b || '', topic: x.p || '', level: x.l || '', at: x.at, result: x.r || 'none', n: x.n || 1, seen: !!x.s };
+  }).sort((a, b) => String(b.at).localeCompare(String(a.at)));
 }
 
 // ------------------------------------------------------------------ המורה: עמדת הניהול (מהדף)
@@ -312,6 +347,40 @@ async function dropExpired(store, subs) {
   const old = subs.filter(expired);
   if (old.length) await store.commit(w => { for (const x of old.slice(0, CHUNK / 2)) { w.remove('submissions/' + x._id); w.remove('submissionFiles/' + x._id); } }).catch(() => {});
   return subs.filter(x => !expired(x));
+}
+
+/**
+ * ניקוי כללי של הגשות מעמדות שפג תוקפן (אצל כל המורים) — כדי ש"נמחק לבד אחרי כמה ימים" יקרה גם אצל מורה שלא פותח את עמדת
+ * הניהול, וגם בלי מדיניות TTL ב-Firestore. רץ ברקע (אחרי התשובה), לכל היותר פעם ב-PURGE_EVERY_MS, עד 150 הגשות בכל פעם.
+ */
+const PURGE_EVERY_MS = 3 * 3600 * 1000;
+let lastPurge = 0;
+
+export async function purgeExpired(env, force) {
+  const now = Date.now();
+  if (!force && now - lastPurge < PURGE_EVERY_MS) return 0;
+  lastPurge = now;
+  const kv = env.USAGE && typeof env.USAGE.get === 'function' ? env.USAGE : env.STATS && typeof env.STATS.get === 'function' ? env.STATS : null;
+  try {
+    if (kv && !force) {   // כמה עותקים של השרת רצים במקביל: סימן משותף, כדי שלא כולם ינקו
+      if (await kv.get('purge:submissions')) return 0;
+      await kv.put('purge:submissions', '1', { expirationTtl: Math.floor(PURGE_EVERY_MS / 1000) });
+    }
+    const store = db(env);
+    const old = await store.query('submissions', { where: [['expiresAt', '<', new Date(now)]], limit: 150 });
+    if (old.length) await store.commit(w => { for (const x of old) { w.remove('submissions/' + x._id); w.remove('submissionFiles/' + x._id); } });
+    return old.length;
+  } catch (e) {
+    console.error('purge', e && e.message);
+    return 0;
+  }
+}
+
+/** מריץ את הניקוי ברקע (ctx.waitUntil — index.js שם אותו ב-env), בלי לעכב את התשובה ובלי להפיל אותה */
+function purgeLater(env) {
+  const wait = env[WAIT];
+  if (typeof wait !== 'function' || Date.now() - lastPurge < PURGE_EVERY_MS) return;   // בלי waitUntil (בבדיקות) — לא ברקע
+  wait(purgeExpired(env).catch(() => 0));
 }
 
 function subRow(x) {
@@ -339,6 +408,7 @@ async function consoleData(request, env) {
     store.query('submissions', { where: [['teacher', '==', u.email], ['from', '==', 'station']] }),
   ]);
   const live = await dropExpired(store, stationSubs);
+  purgeLater(env);
   const byStation = new Map();
   for (const x of live) byStation.set(x.station, (byStation.get(x.station) || []).concat([x]));
   const collator = new Intl.Collator('he', { numeric: true });
@@ -349,10 +419,13 @@ async function consoleData(request, env) {
     releases: await releasesLeft(env, t),
     stationSubmitDays: s.stationSubmitDays,
     classes: classes.map(c => ({ id: c._id, name: c.name, createdAt: c.createdAt })).sort((a, b) => collator.compare(a.name, b.name)),
-    students: members.map(m => ({
-      email: m.student, name: m.name || '', picture: m.picture || '', classId: m.classId || '', joinedAt: m.joinedAt, left: !!m.leftAt, leftAt: m.leftAt || '',
-      submits: m.submits || 0, lastSubmitAt: m.lastSubmitAt || '', lastTitle: m.lastTitle || '',
-    })).sort((a, b) => collator.compare(a.name || a.email, b.name || b.email)),
+    students: members.map(m => {
+      const work = workRows(m);
+      return {
+        email: m.student, name: m.name || '', picture: m.picture || '', classId: m.classId || '', joinedAt: m.joinedAt, left: !!m.leftAt, leftAt: m.leftAt || '',
+        submits: m.submits || 0, lastSubmitAt: m.lastSubmitAt || '', lastTitle: m.lastTitle || '', work, unseen: work.filter(x => !x.seen).length,
+      };
+    }).sort((a, b) => collator.compare(a.name || a.email, b.name || b.email)),
     stations: stations.filter(x => x.active).map(x => {
       const subs = (byStation.get(x._id) || []).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
       return { id: x._id, name: x.name, lastSeen: x.lastSeen, client: x.client || '', claimedAt: x.claimedAt, pending: subs.length, unseen: subs.filter(y => !y.seenAt).length };
@@ -376,7 +449,11 @@ async function getSubmission(request, env, url) {
   const id = clip(url.searchParams.get('id'), 64);
   const [x, f] = await store.getMany(['submissions/' + id, 'submissionFiles/' + id]);
   if (!x || x.teacher !== u.email || expired(x)) throw new Fail(404, 'not_found', 'ההגשה לא נמצאה (אולי כבר נמחקה).');
-  if (!x.seenAt) await store.update('submissions/' + id, { seenAt: nowIso() }).catch(() => {});
+  if (!x.seenAt) {
+    await store.update('submissions/' + id, { seenAt: nowIso() }).catch(() => {});
+    // גם בתקציר של התלמיד (ממנו נספרות "הגשות חדשות"). תלמיד שנמחק בינתיים — אין מה לסמן
+    if (x.from === 'student' && x.student) await store.update('members/' + memberId(u.email, x.student), { ['work.' + id + '.s']: 1 }).catch(() => {});
+  }
   return { ok: true, submission: Object.assign(subRow(x), { seen: true }), files: f ? f.files || [] : [], main: f ? f.main || '' : '' };
 }
 
@@ -454,36 +531,46 @@ async function classOp(request, env) {
   if (b.op === 'delete') {
     if (clip(b.confirm, 40) !== c.name) throw new Fail(400, 'confirm', 'כדי למחוק כיתה מקלידים את השם שלה בדיוק.');
     const members = await store.query('members', { where: [['teacher', '==', u.email], ['classId', '==', c._id]] });
+    const step = members.slice(0, CLASS_DELETE_STEP);
+    const students = await store.getMany(step.map(m => 'students/' + m.student));
     let budget = CHUNK, removed = 0;
-    for (const m of members) {
-      const r = await deleteMemberData(store, u.email, m, budget);
+    for (let i = 0; i < step.length; i++) {
+      const r = await deleteMemberData(store, u.email, step[i], budget, students[i]);
       budget -= r.writes;
       if (!r.done) return { ok: true, done: false, left: members.length - removed };
       removed++;
-      if (budget <= 20) return { ok: true, done: false, left: members.length - removed };
+      if (budget <= 20) break;
     }
+    if (removed < members.length) return { ok: true, done: false, left: members.length - removed };
     await store.remove('classes/' + c._id);
-    await log(store, u.email, 'class.delete', c.name, `${removed} תלמידים`);
+    await log(store, u.email, 'class.delete', c.name, 'הכיתה נמחקה עם התלמידים וההגשות שלהם');
     return { ok: true, done: true, removed };
   }
   throw new Fail(400, 'format', 'פעולה לא מוכרת');
 }
 
-/** מוחק את ההגשות של תלמיד אצל המורה (עד budget כתיבות), ואז את הקשר עצמו. done=false — יש עוד */
-async function deleteMemberData(store, teacher, m, budget) {
-  const subs = await store.query('submissions', { where: [['teacher', '==', teacher], ['student', '==', m.student]], limit: Math.max(1, Math.floor((budget - 4) / 2)) });
-  if (subs.length) await store.commit(w => { for (const x of subs) { w.remove('submissions/' + x._id); w.remove('submissionFiles/' + x._id); } });
-  let writes = subs.length * 2;
-  const more = await store.query('submissions', { where: [['teacher', '==', teacher], ['student', '==', m.student]], limit: 1 });
-  if (more.length) return { done: false, writes };
-  const st = await store.get('students/' + m.student);
+/**
+ * מוחק את ההגשות של תלמיד אצל המורה (עד budget כתיבות), ואיתן — באותה כתיבה — את הקשר עצמו. done=false — יש עוד הגשות.
+ * st: המסמך של התלמיד אם כבר נקרא (מחיקת כיתה קוראת את כולם בבת אחת); undefined — נקרא כאן.
+ * שתי פניות ל-Firestore לכל תלמיד (שאילתה + כתיבה), כדי שמחיקת כיתה תישאר בתוך מגבלת הפניות של Cloudflare
+ */
+async function deleteMemberData(store, teacher, m, budget, st) {
+  const limit = Math.max(1, Math.floor((budget - 4) / 2));
+  const subs = await store.query('submissions', { where: [['teacher', '==', teacher], ['student', '==', m.student]], limit });
+  const drop = w => { for (const x of subs) { w.remove('submissions/' + x._id); w.remove('submissionFiles/' + x._id); } };
+  if (subs.length >= limit) {   // אולי יש עוד: מוחקים את אלה, והקריאה הבאה ממשיכה
+    await store.commit(drop);
+    return { done: false, writes: subs.length * 2 };
+  }
+  if (st === undefined) st = await store.get('students/' + m.student);
   await store.commit(w => {
+    drop(w);
     w.remove('members/' + memberId(teacher, m.student));
     // התלמיד לא משויך יותר; בפעם הבאה התוסף / הדף מציעים שוב "עצמאי / קוד מורה" (אפשר להצטרף שוב עם הקוד)
     if (st && st.teacher === teacher) w.merge('students/' + m.student, { mode: '', teacher: '', removedBy: teacher, removedAt: nowIso() });
     if (!m.leftAt) w.merge('teachers/' + teacher, {}, { members: -1 });
   });
-  return { done: true, writes: writes + 3 };
+  return { done: true, writes: subs.length * 2 + 3 };
 }
 
 /** תלמיד: העברה לכיתה, או מחיקה (מהרשימה + כל ההגשות שלו) */
@@ -527,6 +614,8 @@ async function myStudent(request, env) {
   const u = await studentUser(request, env);
   return Object.assign({ ok: true }, await studentState(env, u.email));
 }
+
+export const _test = { reset() { lastPurge = 0; } };
 
 export const CLASSROOM_ROUTES = {
   'GET /v1/student/state': myStudent,

@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, createHash, randomBytes } from 'node:crypto';
 import worker from '../src/index.js';
 import { _test as accessTest } from '../src/access/index.js';
+import { purgeExpired } from '../src/access/classroom.js';
 
 const FS = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8181';
 const AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
@@ -17,14 +18,31 @@ const ENV = {
 };
 const realFetch = globalThis.fetch;
 
+// כל פנייה של השרת החוצה (Firestore, Auth) נספרת: ב-Cloudflare החינמי מותרות עד 50 בבקשה אחת.
+// failIndex: מדמה את Firestore האמיתי כשחסר אינדקס מורכב (האמולטור אף פעם לא דוחה שאילתה בגלל אינדקס)
+const sub = { n: 0, max: 0, route: '' };
+let failIndex = false;
+globalThis.fetch = async (input, init) => {
+  sub.n++;
+  const url = typeof input === 'string' ? input : input.url;
+  if (failIndex && /:runQuery$/.test(url) && JSON.parse(init.body).structuredQuery.where && JSON.parse(init.body).structuredQuery.where.compositeFilter) {
+    return new Response(JSON.stringify({ error: { code: 400, status: 'FAILED_PRECONDITION', message: 'The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/demo-dsviz/firestore/indexes?create_composite=abc' } }),
+      { status: 400, headers: { 'content-type': 'application/json' } });
+  }
+  return realFetch(input, init);
+};
+
 const BASE = 'https://w.example';
 async function call(method, path, { body, token, headers = {} } = {}) {
   const h = Object.assign({}, headers);
   if (body !== undefined) h['content-type'] = 'application/json';
   if (token) h.authorization = 'Bearer ' + token;
+  const before = sub.n;
   const res = await worker.fetch(new Request(BASE + path, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }), ENV, {});
+  const used = sub.n - before;
+  if (used > sub.max) { sub.max = used; sub.route = method + ' ' + path.split('?')[0]; }
   const type = res.headers.get('content-type') || '';
-  return { status: res.status, body: type.includes('json') ? await res.json() : await res.text() };
+  return { status: res.status, used, body: type.includes('json') ? await res.json() : await res.text() };
 }
 async function idToken(email, name = '') {
   const claims = { sub: 'uid-' + createHash('sha256').update(email).digest('hex').slice(0, 16), email, email_verified: true, name };
@@ -141,6 +159,36 @@ await test('הגשה מתלמיד: נשמרת אצל המורה עם תוצאת 
   const s = c.body.students.find(y => y.email === 'noam@test.dev');
   assert.equal(s.submits, 1);
   assert.equal(s.lastTitle, 'סכום תור וזוגיים');
+});
+
+await test('התקציר של התלמיד אצל המורה: שורה לכל תרגיל עם התוצאה; "חדש" עד שהמורה פותח; הגשה חוזרת — שוב חדש', async () => {
+  let s = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(y => y.email === 'noam@test.dev');
+  assert.equal(s.work.length, 1, JSON.stringify(s.work));
+  assert.deepEqual({ title: s.work[0].title, bankId: s.work[0].bankId, topic: s.work[0].topic, result: s.work[0].result, n: s.work[0].n, seen: s.work[0].seen },
+    { title: 'סכום תור וזוגיים', bankId: 'queue-sum-even', topic: 'queue', result: 'ok', n: 2, seen: true });
+  assert.equal(s.unseen, 0, 'המורה כבר פתח את ההגשה');
+  // תרגיל שני (לא מתקמפל) ותרגיל שלישי (נעצר אחרי 10 שניות) — שתי שורות חדשות
+  await call('POST', '/v1/submit', { headers: plugin(noam), body: bankSubmit({ exercise: { source: 'bank', bankId: 'stack-size', topic: 'stack', title: 'גודל מחסנית', level: 'קל' }, check: { ran: true, compiles: false, error: 'חסר ;' } }) });
+  await call('POST', '/v1/submit', { headers: plugin(noam), body: bankSubmit({ exercise: { source: 'own', title: 'תרגיל שלי' }, check: { ran: true, compiles: true, timedOut: true, output: '' } }) });
+  s = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(y => y.email === 'noam@test.dev');
+  assert.equal(s.work.length, 3);
+  assert.equal(s.unseen, 2);
+  assert.deepEqual(s.work.map(x => x.result).sort(), ['err', 'ok', 'time']);
+  assert.equal(s.submits, 3);
+  // הגשה חוזרת של התרגיל שכבר נפתח — שוב "חדש", ועדיין שורה אחת לתרגיל
+  await call('POST', '/v1/submit', { headers: plugin(noam), body: bankSubmit() });
+  s = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(y => y.email === 'noam@test.dev');
+  assert.equal(s.work.length, 3);
+  assert.equal(s.unseen, 3);
+  const row = s.work.find(x => x.bankId === 'queue-sum-even');
+  assert.deepEqual({ n: row.n, seen: row.seen, result: row.result }, { n: 3, seen: false, result: 'diff' });
+  assert.equal(s.work[0].id, row.id, 'מהחדש לישן');
+  // המורה פותח אחת — היא יורדת מהספירה, והשאר נשארות
+  assert.equal((await call('GET', '/v1/me/submission?id=' + row.id, { token: sara })).status, 200);
+  s = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(y => y.email === 'noam@test.dev');
+  assert.equal(s.unseen, 2);
+  assert.equal(s.work.find(x => x.id === row.id).seen, true);
+  assert.equal(s.work.length, 3, 'סימון "נצפה" לא מוחק שורות אחרות מהתקציר');
 });
 
 await test('הגשה: קבצים שאינם קוד / גדולים מדי / יותר מ-12 — נדחים; מורה לא מגיש', async () => {
@@ -415,6 +463,133 @@ await test('מעבר לתשלום: גם תלמיד רשום שכבר מחובר 
   await call('POST', '/v1/admin/settings', { token: admin, body: { studentsFree: true } });
   accessTest.reset();
   assert.equal((await checkAs(fresh, NEW)).body.status, 'ok');
+});
+
+await test('כיתה גדולה (30 תלמידים, 60 הגשות): המחיקה בשלבים, וכל קריאה בתוך מגבלת הפניות של Cloudflare', async () => {
+  const cls = (await call('POST', '/v1/me/class', { token: sara, body: { op: 'create', name: 'שכבה גדולה' } })).body.id;
+  const emails = [];
+  for (let i = 0; i < 30; i++) {
+    const email = `big${i}@test.dev`;
+    const tok = await signInPlugin(email, 'student', 'תלמיד ' + i);
+    assert.equal((await call('POST', '/v1/student/join', { headers: plugin(tok), body: { code: codes['sara@test.dev'] } })).body.status, 'ok');
+    assert.equal((await call('POST', '/v1/me/member', { token: sara, body: { op: 'move', student: email, classId: cls } })).status, 200);
+    for (const q of ['a', 'b']) assert.equal((await call('POST', '/v1/submit', { headers: plugin(tok), body: bankSubmit({ exercise: { source: 'bank', bankId: 'big-' + q, title: 'תרגיל ' + q } }) })).status, 200);
+    emails.push(email);
+  }
+  const before = (await call('GET', '/v1/me/console', { token: sara })).body;
+  assert.equal(before.students.filter(x => x.classId === cls).length, 30);
+  let r, steps = 0, most = 0;
+  do {
+    r = await call('POST', '/v1/me/class', { token: sara, body: { op: 'delete', id: cls, confirm: 'שכבה גדולה' } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    most = Math.max(most, r.used);
+    assert.ok(++steps < 20, 'המחיקה לא מתקדמת');
+  } while (!r.body.done);
+  assert.ok(steps >= 3, 'מחיקה בשלבים: ' + steps);
+  assert.ok(most <= 40, 'פניות בקריאה אחת: ' + most);
+  const after = (await call('GET', '/v1/me/console', { token: sara })).body;
+  assert.ok(!after.classes.some(x => x.id === cls));
+  assert.ok(!after.students.some(x => emails.includes(x.email)));
+  for (const e of [emails[0], emails[17], emails[29]]) assert.equal((await call('GET', '/v1/me/submissions?student=' + e, { token: sara })).body.submissions.length, 0);
+  // המונה של המורה (תלמידים) ירד בחזרה
+  const t = (await call('GET', '/v1/admin/teacher?email=sara@test.dev', { token: admin })).body.teacher;
+  assert.ok((t.members || 0) < 30, 'members: ' + t.members);
+});
+
+await test('תלמיד עם יותר הגשות ממה שנמחק בקריאה אחת: המחיקה ממשיכה בקריאה הבאה (done=false)', async () => {
+  const tok = await signInPlugin('heavy@test.dev', 'student', 'תלמיד חרוץ');
+  await call('POST', '/v1/student/join', { headers: plugin(tok), body: { code: codes['sara@test.dev'] } });
+  // 210 הגשות ישירות באמולטור (יותר מ-198 שנמחקות בקריאה אחת) — דרך השרת זה היה לוקח דקות
+  const base = `http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents`;
+  const writes = [];
+  for (let i = 0; i < 210; i++) {
+    for (const col of ['submissions', 'submissionFiles']) {
+      writes.push({ update: { name: `projects/${PROJECT}/databases/(default)/documents/${col}/heavy${i}`, fields: { teacher: { stringValue: 'sara@test.dev' }, student: { stringValue: 'heavy@test.dev' }, from: { stringValue: 'student' } } } });
+    }
+  }
+  const res = await realFetch(base + ':commit', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ writes }) });
+  assert.equal(res.status, 200, await res.text());
+  const one = await call('POST', '/v1/me/member', { token: sara, body: { op: 'delete', student: 'heavy@test.dev' } });
+  assert.equal(one.body.done, false, 'יש עוד הגשות');
+  assert.ok(one.used <= 40);
+  const two = await call('POST', '/v1/me/member', { token: sara, body: { op: 'delete', student: 'heavy@test.dev' } });
+  assert.equal(two.body.done, true);
+  assert.equal((await call('GET', '/v1/me/submissions?student=heavy@test.dev', { token: sara })).body.submissions.length, 0);
+});
+
+await test('Firestore אמיתי בלי אינדקס מורכב: השאילתות לא נכשלות (סינון בשרת), ועמדת הניהול עובדת כרגיל', async () => {
+  const m = machine();
+  const cl = await call('POST', '/v1/station/claim', { body: { code: codes['david@test.dev'], name: 'עמדה של דוד', machine: m, client: 'test' } });
+  assert.equal(cl.body.status, 'ok', JSON.stringify(cl.body));
+  const st = { token: cl.body.token, machine: m };
+  await call('POST', '/v1/submit', { headers: plugin(st), body: bankSubmit({ who: 'רוני' }) });
+  const normal = (await call('GET', '/v1/me/console', { token: david })).body;
+  failIndex = true;
+  try {
+    const c = await call('GET', '/v1/me/console', { token: david });
+    assert.equal(c.status, 200, JSON.stringify(c.body));
+    assert.deepEqual(c.body.stations.map(x => [x.name, x.pending]), normal.stations.map(x => [x.name, x.pending]));
+    assert.equal(c.body.stations[0].pending, 1);
+    const list = await call('GET', '/v1/me/submissions?station=' + cl.body.token.split('.')[1], { token: david });
+    assert.equal(list.body.submissions.length, 1);
+    assert.equal(list.body.submissions[0].who, 'רוני');
+    // בדיקת המערכת מדווחת על האינדקס החסר (אזהרה, לא כישלון) עם הקישור ליצירה
+    const t2 = await call('GET', '/v1/admin/selftest?part=2', { token: admin });
+    const q = t2.body.checks.find(x => x.id === 'queries');
+    assert.equal(q.state, 'warn', JSON.stringify(q));
+    assert.match(q.detail, /console\.firebase\.google\.com/);
+  } finally {
+    failIndex = false;
+  }
+});
+
+await test('בדיקת מערכת (ההנהלה): כל השורות תקינות; רק מנהל; לא משאירה מסמכים', async () => {
+  assert.equal((await call('GET', '/v1/admin/selftest', { token: sara })).status, 403);
+  // הגדרה חסרה מתגלה: בלי ההגדרות של Firebase לדפים — שורה אדומה עם הסבר
+  const miss = await call('GET', '/v1/admin/selftest?part=1', { token: admin });
+  assert.equal(miss.body.checks.find(x => x.id === 'google').state, 'fail');
+  Object.assign(ENV, { FIREBASE_API_KEY: 'fake-api-key', FIREBASE_AUTH_DOMAIN: 'demo-dsviz.firebaseapp.com' });
+  const a = await call('GET', '/v1/admin/selftest?part=1', { token: admin });
+  assert.equal(a.status, 200, JSON.stringify(a.body));
+  assert.ok(a.used <= 40, 'פניות: ' + a.used);
+  const bad = a.body.checks.filter(x => x.state === 'fail');
+  assert.deepEqual(bad, []);
+  for (const id of ['firestore', 'merge', 'tx', 'rules', 'pass', 'kv', 'mail', 'pay']) assert.ok(a.body.checks.some(x => x.id === id), 'חסרה שורה: ' + id);
+  assert.equal(a.body.checks.find(x => x.id === 'merge').state, 'ok');
+  assert.equal(a.body.checks.find(x => x.id === 'tx').state, 'ok');
+  const b = await call('GET', '/v1/admin/selftest?part=2', { token: admin });
+  assert.equal(b.status, 200, JSON.stringify(b.body));
+  assert.ok(b.used <= 40, 'פניות: ' + b.used);
+  assert.equal(b.body.checks.find(x => x.id === 'queries').state, 'ok', JSON.stringify(b.body.checks));
+  const left = await realFetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/selftest`, { headers: { authorization: 'Bearer owner' } });
+  assert.deepEqual((await left.json()).documents || [], []);
+});
+
+await test('ניקוי כללי: הגשות מעמדות שפג תוקפן נמחקות גם אצל מורה שלא פותח את עמדת הניהול', async () => {
+  const m = machine();
+  const cl = await call('POST', '/v1/station/claim', { body: { code: codes['david@test.dev'], name: 'עמדה נשכחת', machine: m, client: 'test' } });
+  const st = { token: cl.body.token, machine: m };
+  const a = await call('POST', '/v1/submit', { headers: plugin(st), body: bankSubmit({ who: 'ישן' }) });
+  const b = await call('POST', '/v1/submit', { headers: plugin(st), body: bankSubmit({ who: 'חדש' }) });
+  for (const col of ['submissions', 'submissionFiles']) {
+    const url = `http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/${col}/${a.body.id}?updateMask.fieldPaths=expiresAt`;
+    const res = await realFetch(url, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { expiresAt: { timestampValue: new Date(Date.now() - 1000).toISOString() } } }) });
+    assert.equal(res.status, 200, await res.text());
+  }
+  assert.equal(await purgeExpired(ENV, true), 1);
+  const get = async (col, id) => (await realFetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/${col}/${id}`, { headers: { authorization: 'Bearer owner' } })).status;
+  assert.equal(await get('submissions', a.body.id), 404);
+  assert.equal(await get('submissionFiles', a.body.id), 404);
+  assert.equal(await get('submissions', b.body.id), 200, 'הגשה שעוד בתוקף נשארת');
+  // הגשות של תלמידים (בלי תפוגה) אף פעם לא נמחקות בניקוי
+  const mine = await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara });
+  assert.equal(await purgeExpired(ENV, true), 0);
+  assert.equal((await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions.length, mine.body.submissions.length);
+});
+
+await test('אף קריאה בכל הבדיקות לא עברה 40 פניות החוצה (המגבלה של Cloudflare החינמי: 50)', async () => {
+  assert.ok(sub.max <= 40, `${sub.route}: ${sub.max} פניות`);
+  console.log(`  (הכי הרבה: ${sub.max} — ${sub.route})`);
 });
 
 console.log(`\n${passed} בדיקות עברו` + (process.exitCode ? ' — יש כישלונות' : ''));
