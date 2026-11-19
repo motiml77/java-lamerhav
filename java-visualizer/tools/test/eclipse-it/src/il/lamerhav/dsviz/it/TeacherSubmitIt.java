@@ -89,6 +89,8 @@ public class TeacherSubmitIt implements IApplication {
             return null;
         });
         handler = Class.forName("il.lamerhav.dsviz.BankHandler", true, Account.class.getClassLoader());
+        // ההתקדמות נשמרת בתיקיית המשתמש (לא בתיקיית הבדיקה): ריצה קודמת שסימנה "עשיתי" לא משפיעה על הריצה הזו
+        handler.getMethod("setDoneForTest", String.class, boolean.class).invoke(null, Q, false);
         // 1. עמדת מחשב: הקוד של המורה (הבדיקה כותבת אותו)
         File codeFile = new File(shots, "code.txt");
         for (int i = 0; i < 200 && !codeFile.isFile(); i++) sleep(300);

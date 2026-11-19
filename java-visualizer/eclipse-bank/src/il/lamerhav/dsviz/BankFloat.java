@@ -56,6 +56,8 @@ final class BankFloat {
     private String submitNote;
     /** לבדיקות: איך הסתיימה ההגשה האחרונה (ok / queued / קוד השגיאה); null — עוד לא הייתה מאז שדף ההגשה נפתח */
     volatile String submitResult;
+    /** התוצאה של ההגשה האחרונה גם אחרי שהחלון נסגר ("הגשה וסיום" סוגר אותו) — לבדיקות */
+    static volatile String lastSubmitResult;
 
     /** מצב הדף "הגשה למורה" */
     static final class SubmitState {
@@ -429,6 +431,7 @@ final class BankFloat {
         submit = st;
         submitNote = null;
         submitResult = null;
+        lastSubmitResult = null;
         render();
         final Display d = shell.getDisplay();
         Thread t = new Thread(() -> {
@@ -556,6 +559,7 @@ final class BankFloat {
             d.asyncExec(() -> {
                 st.busy = false;
                 submitResult = res.status;
+                lastSubmitResult = res.status;
                 if (shell.isDisposed()) return;
                 if (res.ok() || "queued".equals(res.status)) {
                     Submit.flushAsync();

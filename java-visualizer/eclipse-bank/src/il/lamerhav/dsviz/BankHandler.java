@@ -472,7 +472,7 @@ public class BankHandler extends AbstractHandler {
     /** "הגשה למורה" בחלון הצף: איך הסתיימה ההגשה האחרונה (ok / queued / קוד שגיאה), או null */
     public static String floatSubmitResultForTest() {
         BankFloat f = BankFloat.current();
-        return f == null ? null : f.submitResult;
+        return f == null ? BankFloat.lastSubmitResult : f.submitResult;   // "הגשה וסיום" סוגר את החלון — התוצאה נשארת
     }
 
     public static void setDoneForTest(String id, boolean done) {
