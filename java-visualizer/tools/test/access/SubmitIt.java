@@ -339,7 +339,7 @@ public class SubmitIt {
         // גם אחרי שסוגרים ופותחים מחדש (ההערה של הרגע נשכחה): ההגשה רשומה במחשב — "הוגש למורה שרה כהן ב-…"
         ui(() -> { BankVsFloat.submitNote = null; BankVsFloat.shown.clear(); return null; });
         openFloat(q);
-        check("פתיחה מחדש של השאלה: עדיין כתוב שהיא הוגשה, למי ומתי (" + line("SUBMIT-NOTE") + ")", line("SUBMIT-NOTE").matches("SUBMIT-NOTE הוגש למורה שרה כהן ב-\\d{1,2}\\.\\d{1,2}, \\d{1,2}:\\d{2}\\."), shown());
+        check("פתיחה מחדש של השאלה: עדיין כתוב שהיא הוגשה, למי ומתי (" + line("SUBMIT-NOTE") + ")", line("SUBMIT-NOTE").matches("SUBMIT-NOTE הוגש למורה שרה כהן ב-\\d{1,2}\\.\\d{1,2} בשעה \\d{1,2}:\\d{2}\\."), shown());
         List<Object> subs = submissions(teacherTok, "student=" + Account.enc(student));
         Map<String, Object> s0 = subs.isEmpty() ? Collections.<String, Object>emptyMap() : Json.obj(subs.get(0));
         Map<String, Object> ex0 = Json.obj(s0.get("exercise")), ck0 = Json.obj(s0.get("check"));

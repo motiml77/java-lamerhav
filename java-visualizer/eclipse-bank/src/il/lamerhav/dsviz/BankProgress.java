@@ -171,7 +171,8 @@ final class BankProgress {
         if (!(q.get("submittedAt") instanceof Number)) return "";
         String to = Json.str(q.get("submittedTo"));
         if (teacher != null && !teacher.isEmpty() && !to.isEmpty() && !to.equals(teacher)) return "";   // הוגש למורה קודם
-        String when = new java.text.SimpleDateFormat("d.M, H:mm").format(new java.util.Date(((Number) q.get("submittedAt")).longValue()));
+        // "19.11 בשעה 6:22" — מילה בין התאריך לשעה, כדי שהמספרים לא יתהפכו בשורה מימין לשמאל
+        String when = new java.text.SimpleDateFormat("d.M 'בשעה' H:mm").format(new java.util.Date(((Number) q.get("submittedAt")).longValue()));
         return Boolean.TRUE.equals(q.get("submitQueued")) ? "ההגשה מ-" + when + " נשמרה במחשב ונשלחת כשיש אינטרנט."
                 : "הוגש למורה" + (to.isEmpty() ? "" : " " + to) + " ב-" + when + ".";
     }
