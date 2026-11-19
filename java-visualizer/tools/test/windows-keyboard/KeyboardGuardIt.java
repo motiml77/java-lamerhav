@@ -54,7 +54,8 @@ public final class KeyboardGuardIt {
         BidiUtil.setKeyboardLanguage(BidiUtil.KEYBOARD_NON_BIDI);
         pump(200);
         Shell hover0 = hover(shell);
-        check("בלי ההגנה: חלון ריחוף עם הסבר בעברית מחליף לעברית", lang() == BidiUtil.KEYBOARD_BIDI);
+        // מידע בלבד: ב-SWT 3.135 חלון ריחוף חדש לא מחליף בעצמו (ב-Windows של GitHub) — הבדיקה עם ההגנה למטה נשארת
+        System.out.println("  info בלי ההגנה, חלון ריחוף עם הסבר בעברית: " + (lang() == BidiUtil.KEYBOARD_BIDI ? "מחליף לעברית" : "לא מחליף"));
         hover0.dispose();
         BidiUtil.setKeyboardLanguage(BidiUtil.KEYBOARD_NON_BIDI);
         editor.setFocus();
