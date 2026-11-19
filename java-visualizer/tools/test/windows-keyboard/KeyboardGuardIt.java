@@ -46,41 +46,42 @@ public final class KeyboardGuardIt {
         pump(400);
         check("בהתחלה: אנגלית", lang() == BidiUtil.KEYBOARD_NON_BIDI);
 
-        // 1. בלי ההגנה — SWT באמת מחליף (אחרת אין כאן מה לבדוק)
-        editor.setCaretOffset(code.indexOf("שלום") + 2);
-        pump(300);
-        check("בלי ההגנה: סמן ליד אות עברית מחליף לעברית (ההתנהגות של SWT שגורמת לבעיה)", lang() == BidiUtil.KEYBOARD_BIDI);
-        editor.setCaretOffset(code.indexOf("int y"));
-        pump(300);
+        // 1. בלי ההגנה — SWT באמת מחליף (אחרת אין כאן מה לבדוק). SWT מחשב את הכיוון מחדש רק בלחיצת עכבר / מקשי ניווט
+        //    (doMouseLocationChange / invokeAction) ובחלון טקסט חדש — לכן לוחצים באמת (SendInput), כמו תלמיד
+        click(editor, code.indexOf("שלום") + 2);
+        check("בלי ההגנה: לחיצה בעכבר על הערה בעברית מחליפה לעברית (ההתנהגות של SWT שגורמת לבעיה)", lang() == BidiUtil.KEYBOARD_BIDI);
+        click(editor, code.indexOf("int y") + 1);
         BidiUtil.setKeyboardLanguage(BidiUtil.KEYBOARD_NON_BIDI);
         pump(200);
+        Shell hover0 = hover(shell);
+        check("בלי ההגנה: חלון ריחוף עם הסבר בעברית מחליף לעברית", lang() == BidiUtil.KEYBOARD_BIDI);
+        hover0.dispose();
+        BidiUtil.setKeyboardLanguage(BidiUtil.KEYBOARD_NON_BIDI);
+        editor.setFocus();
+        pump(300);
 
         // 2. עם ההגנה
         KeyboardGuard.install(d);
         pump(300);
         check("ההגנה פעילה, ושפת המשתמש: אנגלית", KeyboardGuard.typing() == BidiUtil.KEYBOARD_NON_BIDI);
-        editor.setCaretOffset(code.indexOf("שלום") + 2);
-        pump(400);
-        check("עורך: סמן ליד הערה בעברית — נשאר באנגלית", lang() == BidiUtil.KEYBOARD_NON_BIDI);
+        click(editor, code.indexOf("שלום") + 2);
+        check("עורך: לחיצה בעכבר על הערה בעברית — נשאר באנגלית", lang() == BidiUtil.KEYBOARD_NON_BIDI);
+        click(editor, code.indexOf("System") + 2);
         for (int i = 0; i < 3; i++) {
-            editor.setCaretOffset(code.indexOf("נכון") + 1);
-            pump(150);
-            editor.setCaretOffset(code.indexOf("System"));
-            pump(150);
+            click(editor, code.indexOf("נכון") + 1);
+            click(editor, code.indexOf("System") + 3);
         }
+        check("עורך: לחיצות הלוך ושוב בין מחרוזת בעברית לקוד — אנגלית", lang() == BidiUtil.KEYBOARD_NON_BIDI);
+        editor.setCaretOffset(code.indexOf("// שלום"));
+        pump(150);
+        for (int i = 0; i < 6; i++) { key(SWT.ARROW_RIGHT, true); key(SWT.ARROW_RIGHT, false); }   // חצים לתוך ההערה בעברית
         pump(300);
-        check("עורך: הלוך ושוב בין מחרוזת בעברית לקוד — אנגלית", lang() == BidiUtil.KEYBOARD_NON_BIDI);
+        check("עורך: חצים לתוך הערה בעברית — אנגלית", lang() == BidiUtil.KEYBOARD_NON_BIDI);
         console.append("סעיף א, בדיקה 1: נכון");
         console.setCaretOffset(console.getCharCount());   // כמו IOConsoleViewer.repositionCaretAfterOutput אחרי הדפסה
         pump(400);
         check("Console בלי פוקוס: הסמן זז לסוף פלט בעברית — אנגלית", lang() == BidiUtil.KEYBOARD_NON_BIDI);
-        Shell hover = new Shell(shell, SWT.ON_TOP | SWT.NO_FOCUS | SWT.TOOL);
-        hover.setLayout(new FillLayout());
-        StyledText tip = new StyledText(hover, SWT.MULTI | SWT.WRAP | SWT.READ_ONLY);
-        tip.setText("חסר נקודה-פסיק בסוף השורה");
-        hover.setBounds(shell.getBounds().x + 40, shell.getBounds().y + 80, 300, 80);
-        hover.setVisible(true);
-        pump(400);
+        Shell hover = hover(shell);
         check("חלון ריחוף עם הסבר בעברית — אנגלית", lang() == BidiUtil.KEYBOARD_NON_BIDI);
         hover.dispose();
         editor.setFocus();
@@ -118,6 +119,36 @@ public final class KeyboardGuardIt {
         System.out.println("KeyboardGuard: " + ok + " עברו, " + fail + " נכשלו");
         d.dispose();
         System.exit(fail == 0 ? 0 : 1);
+    }
+
+    /** לחיצת עכבר אמיתית (SendInput) על התו ב-offset */
+    private static void click(StyledText st, int offset) {
+        org.eclipse.swt.graphics.Point p = st.getLocationAtOffset(offset);
+        org.eclipse.swt.graphics.Point at = st.toDisplay(p.x + 2, p.y + st.getLineHeight(offset) / 2);
+        Event m = new Event();
+        m.type = SWT.MouseMove; m.x = at.x; m.y = at.y;
+        d.post(m);
+        pump(40);
+        Event dn = new Event();
+        dn.type = SWT.MouseDown; dn.button = 1;
+        d.post(dn);
+        pump(30);
+        Event up = new Event();
+        up.type = SWT.MouseUp; up.button = 1;
+        d.post(up);
+        pump(350);
+    }
+
+    /** חלון ריחוף (כמו של Eclipse מעל שגיאה): StyledText חדש שמתחיל באות עברית */
+    private static Shell hover(Shell owner) {
+        Shell h = new Shell(owner, SWT.ON_TOP | SWT.NO_FOCUS | SWT.TOOL);
+        h.setLayout(new FillLayout());
+        StyledText tip = new StyledText(h, SWT.MULTI | SWT.WRAP | SWT.READ_ONLY);
+        tip.setText("חסר נקודה-פסיק בסוף השורה");
+        h.setBounds(owner.getBounds().x + 40, owner.getBounds().y + 80, 300, 80);
+        h.setVisible(true);
+        pump(400);
+        return h;
     }
 
     /** החלפת שפה כמו שמשתמש עושה (SendInput): Alt+Shift; אם השפה לא זזה — Win+רווח */
