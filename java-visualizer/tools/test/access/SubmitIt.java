@@ -108,6 +108,91 @@ public class SubmitIt {
         return false;
     }
 
+    /** כל הטקסט שמוצג בחלון השאלה (תוויות, כפתורים, שדות) — בלי תגי HTML */
+    static String windowText() throws Exception {
+        return ui(() -> {
+            StringBuilder b = new StringBuilder();
+            collect(BankVsFloat.current, b);
+            return b.toString().replaceAll("(?s)<style.*?</style>", " ").replaceAll("<[^>]+>", " ").replace("&nbsp;", " ");
+        });
+    }
+
+    static void collect(java.awt.Component c, StringBuilder b) {
+        if (c == null) return;
+        if (c instanceof javax.swing.JLabel) b.append(((javax.swing.JLabel) c).getText()).append('\n');
+        else if (c instanceof javax.swing.text.JTextComponent) b.append(((javax.swing.text.JTextComponent) c).getText()).append('\n');
+        else if (c instanceof javax.swing.AbstractButton) b.append(((javax.swing.AbstractButton) c).getText()).append('\n');
+        if (c instanceof java.awt.Container) for (java.awt.Component k : ((java.awt.Container) c).getComponents()) collect(k, b);
+    }
+
+    // ---- החלון "המורה שלי" (AccessGate.MyTeacher)
+
+    static boolean waitTeacherWindow() throws Exception {
+        long end = System.currentTimeMillis() + 10000;
+        while (System.currentTimeMillis() < end) {
+            if (ui(() -> AccessGate.myTeacher != null && AccessGate.myTeacher.isShowing())) return true;
+            Thread.sleep(150);
+        }
+        return false;
+    }
+
+    static void typeCode(final String text) throws Exception {
+        ui(() -> {
+            Component c = byId(AccessGate.myTeacher, "teacher-code");
+            if (c instanceof javax.swing.JTextField) ((javax.swing.JTextField) c).setText(text);
+            AccessGate.myTeacher.lastJoin = "";
+            return null;
+        });
+    }
+
+    static boolean clickIn(String id) throws Exception {
+        final Component c = ui(() -> AccessGate.myTeacher == null ? null : byId(AccessGate.myTeacher, id));
+        if (!(c instanceof AbstractButton)) { System.out.println("  ..   אין כפתור " + id + " בחלון 'המורה שלי' · " + teacherText()); return false; }
+        SwingUtilities.invokeAndWait(((AbstractButton) c)::doClick);
+        Thread.sleep(300);
+        return true;
+    }
+
+    /** התשובה של ההצטרפות האחרונה הגיעה */
+    static boolean waitJoin(String status) throws Exception {
+        long end = System.currentTimeMillis() + 20000;
+        while (System.currentTimeMillis() < end) {
+            if (status.equals(ui(() -> AccessGate.myTeacher == null ? "" : AccessGate.myTeacher.lastJoin))) { Thread.sleep(300); return true; }
+            Thread.sleep(150);
+        }
+        return false;
+    }
+
+    /** המורה של התלמיד (כמו שנשמר במחשב) הוא name ("" — אין מורה) */
+    static boolean waitTeacher(String name) throws Exception {
+        long end = System.currentTimeMillis() + 20000;
+        while (System.currentTimeMillis() < end) {
+            if (name.equals(AccessGate.studentTeacher())) { Thread.sleep(400); return true; }
+            Thread.sleep(150);
+        }
+        return false;
+    }
+
+    static String teacherText() throws Exception {
+        return ui(() -> {
+            StringBuilder b = new StringBuilder();
+            collect(AccessGate.myTeacher, b);
+            return b.toString().replaceAll("<[^>]+>", " ").replace('\n', ' ');
+        });
+    }
+
+    static void shotTeacher(String name) throws Exception {
+        Thread.sleep(400);
+        final java.awt.Window w = ui(() -> AccessGate.myTeacher);
+        if (w == null) return;
+        final BufferedImage[] img = new BufferedImage[1];
+        SwingUtilities.invokeAndWait(() -> {
+            img[0] = new BufferedImage(w.getWidth(), w.getHeight(), BufferedImage.TYPE_INT_RGB);
+            w.paint(img[0].getGraphics());
+        });
+        ImageIO.write(img[0], "png", new File(shots, name + ".png"));
+    }
+
     static void shot(String name) throws Exception {
         Thread.sleep(400);
         final JFrame f = ui(() -> BankVsFloat.current);
@@ -202,12 +287,38 @@ public class SubmitIt {
         check("נוצר תרגיל מהשאלה (" + dir.getName() + ")", new File(dir, "StackTargil1.java").isFile(), dir.list() == null ? "" : String.join(",", dir.list()));
 
         openFloat(q);
-        check("תלמיד עצמאי: בחלון השאלה אין 'הגשה למורה'", !has("SUBMIT-BUTTON") && ui(() -> byId(BankVsFloat.current, "submit-open")) == null, shown());
+        check("תלמיד עצמאי: בחלון השאלה אין 'הגשה למורה' — במקומו קישור להצטרפות עם קוד המורה", !has("SUBMIT-BUTTON") && has("SUBMIT-JOIN")
+                && ui(() -> byId(BankVsFloat.current, "submit-open")) == null, shown());
+        check("תלמיד בלי מורה: הקישור במאגר הוא 'הצטרפות למורה'", "הצטרפות למורה".equals(AccessGate.teacherLink()) && AccessGate.isStudent() && AccessGate.studentTeacher().isEmpty(), AccessGate.teacherLink());
+        shot("s0-question-join-hint");
 
-        AccountIt.api("POST", "/v1/student/join", AccountIt.idToken(student), "{\"code\":\"" + code + "\"}");
-        check("הצטרף למורה (בדף 'החשבון שלי') → אחרי בדיקה מול השרת: מגישים כתלמיד, למורה שרה כהן", Account.refresh().ok() && "student".equals(Submit.mode())
-                && "שרה כהן".equals(Submit.teacher()) && "הגשה למורה שרה כהן".equals(Submit.label()), Submit.mode() + " / " + Submit.teacher());
-        openFloat(q);
+        // "המורה שלי" — ההצטרפות עם קוד המורה מתוך התוכנה (בלי הדפדפן): קוד שגוי → הסבר; קוד נכון → הכפתור "הגשה למורה" מופיע לבד
+        check("הקישור פותח את החלון 'הצטרפות למורה'", click("submit-join") && waitTeacherWindow(), "");
+        typeCode("ZZZZ");
+        clickIn("teacher-join");
+        check("קוד שגוי: 'הקוד לא נמצא', ועדיין אין מורה", waitJoin("bad-code") && teacherText().contains("הקוד לא נמצא") && AccessGate.studentTeacher().isEmpty(), teacherText());
+        shotTeacher("t1-my-teacher-bad-code");
+        typeCode("12");
+        clickIn("teacher-join");
+        check("קוד קצר מדי: הסבר מיד, בלי פנייה לשרת", teacherText().contains("4 תווים"), teacherText());
+        typeCode(code.toLowerCase());
+        clickIn("teacher-join");
+        check("קוד נכון (גם באותיות קטנות): הצטרף — 'מעכשיו מגישים למורה שרה כהן'", waitJoin("ok") && waitTeacher("שרה כהן") && teacherText().contains("מגישים למורה שרה כהן")
+                && ui(() -> byId(AccessGate.myTeacher, "teacher-name")) != null, teacherText());
+        shotTeacher("t2-my-teacher-joined");
+        check("מגישים כתלמיד, למורה שרה כהן; הקישור במאגר הפך ל'המורה שלי'", "student".equals(Submit.mode()) && "שרה כהן".equals(Submit.teacher())
+                && "הגשה למורה שרה כהן".equals(Submit.label()) && "המורה שלי".equals(AccessGate.teacherLink()), Submit.mode() + " / " + Submit.teacher());
+        check("אצל המורה: התלמיד מופיע ברשימה (בלי כיתה)", AccountIt.api("GET", "/v1/me/console", teacherTok, null).contains(student), "");
+        check("חלון השאלה התעדכן לבד: הכפתור 'הגשה למורה שרה כהן' (בלי לפתוח מחדש)", waitShown("SUBMIT-BUTTON הגשה למורה שרה כהן", 8000) && !has("SUBMIT-JOIN"), shown());
+        // יציאה מהמורה וחזרה (עם אישור): הכפתור נעלם ומופיע
+        AccessGate.confirmForTest = Boolean.TRUE;
+        clickIn("teacher-leave");
+        check("יציאה מהמורה (עם אישור): אין למי להגיש, והכפתור בחלון השאלה נעלם", waitTeacher("") && Submit.mode().isEmpty() && waitShown("SUBMIT-JOIN", 8000) && !has("SUBMIT-BUTTON"), shown() + " " + teacherText());
+        typeCode(code);
+        clickIn("teacher-join");
+        check("הצטרפות חוזרת — אותו מורה, והכפתור חזר", waitJoin("ok") && waitTeacher("שרה כהן") && waitShown("SUBMIT-BUTTON הגשה למורה שרה כהן", 8000), shown());
+        AccessGate.confirmForTest = null;
+        clickIn("teacher-close");
         check("בחלון השאלה: הכפתור 'הגשה למורה שרה כהן'", has("SUBMIT-BUTTON הגשה למורה שרה כהן"), shown());
         shot("s1-question-with-submit");
 
@@ -215,6 +326,10 @@ public class SubmitIt {
         check("דף ההגשה נפתח, ובדיקת ההרצה הסתיימה", openSubmitPage(), shown());
         String page = line("SUBMIT-PAGE");
         check("לפני שכותבים את הפעולה: הקוד לא מתקמפל (" + line("SUBMIT-CHECK") + ")", page.contains("bad") && line("SUBMIT-CHECK").contains("לא מתקמפל"), page);
+        // לתלמיד מוצג רק כמה שגיאות יש — בלי הרשימה (בלי ההודעות של הקומפיילר ובלי מספרי שורות)
+        String seen = windowText();
+        check("דף ההגשה: רק מספר השגיאות ('יש בו … שגיא'), בלי פירוט השגיאות", line("SUBMIT-CHECK").matches(".*יש בו (שגיאה אחת|\\d+ שגיאות)\\.")
+                && !seen.contains("missing return") && !seen.matches("(?s).*שורה \\d+.*") && seen.contains("יש בו"), line("SUBMIT-CHECK") + " | " + seen.replace('\n', ' '));
         check("בעמדת תלמיד אין שדה 'שם המגיש'", !has("SUBMIT-WHO"), shown());
         shot("s2-submit-page-not-compiling");
         check("'הגשה' — נשלח", "ok".equals(sendAndWait()), shown());

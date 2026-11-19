@@ -142,10 +142,12 @@ final class BankVsFloat {
             if (current == f && f.isDisplayable()) render();
         });
         BankProgress.get().listen(onChange);
+        AccessGate.onChange(onChange);   // תלמיד שהצטרף למורה / יצא ממנו — הכפתור "הגשה למורה" מופיע / נעלם מיד
         f.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent e) {
                 BankProgress.get().unlisten(onChange);
+                AccessGate.offChange(onChange);
                 if (usable(f)) lastBounds = f.getBounds();
                 if (current == f) current = null;
             }
@@ -373,6 +375,17 @@ final class BankVsFloat {
                 up.add(RtlDialog.gap(8));
                 foot.add(up, BorderLayout.NORTH);
                 shown.add("SUBMIT-BUTTON " + Submit.label());
+            } else if (!AccessGate.teacherLink().isEmpty() && AccessGate.studentTeacher().isEmpty() && !BankVs.projects(q).isEmpty()) {
+                // תלמיד שעוד לא הצטרף למורה: במקום שבו היה מופיע "הגשה למורה" — קישור להצטרפות עם קוד המורה
+                JPanel up = BankVsPanel.column();
+                javax.swing.JButton join = RtlDialog.link("רוצים להגיש למורה? מצטרפים עם קוד המורה");
+                join.putClientProperty("dsviz.id", "submit-join");
+                join.setAlignmentX(Component.RIGHT_ALIGNMENT);
+                join.addActionListener(e -> AccessGate.showMyTeacher(f));
+                up.add(join);
+                up.add(RtlDialog.gap(8));
+                foot.add(up, BorderLayout.NORTH);
+                shown.add("SUBMIT-JOIN");
             }
             page.add(foot, BorderLayout.SOUTH);
             shown.add("DONE-BUTTON " + (done ? "done" : "todo"));
@@ -462,12 +475,8 @@ final class BankVsFloat {
             shown.add("SUBMIT-CHECK " + tone + " " + st.check.summary());
             Color c = "good".equals(tone) ? RtlDialog.GREEN : "bad".equals(tone) ? RtlDialog.RED : "warn".equals(tone) ? new Color(0xB45309) : RtlDialog.MUTED;
             card.add(RtlDialog.rich(("good".equals(tone) ? "✓ " : "") + st.check.summary(), WIDTH - 90, c, true));
-            if (!st.check.errors.isEmpty()) {   // שגיאות קומפילציה: הקובץ והשורה, ההסבר בעברית, וההודעה המקורית
-                for (String e : st.check.errors.subList(0, Math.min(3, st.check.errors.size()))) {
-                    card.add(RtlDialog.gap(6));
-                    card.add(RtlDialog.errorCard(e, WIDTH - 90));
-                }
-            } else if (!st.check.error.isEmpty() && !st.check.timedOut) {
+            // קוד שלא מתקמפל: רק כמה שגיאות יש (בשורה שלמעלה) — בלי רשימה. שגיאה בזמן ריצה: מה שהתוכנית הדפיסה
+            if (!"bad".equals(tone) && !st.check.error.isEmpty() && !st.check.timedOut) {
                 card.add(RtlDialog.gap(6));
                 card.add(RtlDialog.codeBlock(st.check.error, WIDTH - 110));
             }

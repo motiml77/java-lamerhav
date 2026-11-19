@@ -249,7 +249,8 @@ public class BankDialog extends Dialog {
         buttons = new Composite(parent, SWT.NONE);
         buttons.setBackground(Look.color(parent.getDisplay(), Look.BG));
         boolean signOut = AccessGate.canSignOut();   // מורה / תלמיד שנכנסו עם Google (לא עמדת מחשב)
-        GridLayout l = new GridLayout(signOut ? 5 : 4, false);
+        final String teacherLink = AccessGate.teacherLink();   // תלמיד: "המורה שלי" / "הצטרפות למורה"
+        GridLayout l = new GridLayout((signOut ? 5 : 4) + (teacherLink.isEmpty() ? 0 : 1), false);
         l.marginWidth = 20;
         l.marginHeight = 10;
         l.horizontalSpacing = 10;
@@ -259,6 +260,11 @@ public class BankDialog extends Dialog {
         copyButton = new Look.Round(buttons, "צור עותק חדש", false, () -> finish(Action.CREATE));
         new Look.Round(buttons, "שאלה אקראית", false, this::random);
         new Look.Round(buttons, "סגירה", false, this::cancelPressed);
+        if (!teacherLink.isEmpty()) {
+            // תלמיד: הצטרפות למורה עם קוד המורה / מי המורה — בלי לצאת מהתוכנה (החלון של הכניסה)
+            Look.Round mine = new Look.Round(buttons, teacherLink, false, () -> AccessGate.showMyTeacher(null));
+            mine.setData("dsviz.id", "my-teacher");
+        }
         if (signOut) {
             // התנתקות: שואלים (חלון של הכניסה), ואחרי ההתנתקות המאגר נסגר — בפתיחה הבאה מסך הכניסה
             final Display display = parent.getDisplay();

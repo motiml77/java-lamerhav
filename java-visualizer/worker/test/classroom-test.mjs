@@ -545,10 +545,6 @@ await test('Firestore אמיתי בלי אינדקס מורכב: השאילתו�
 
 await test('בדיקת מערכת (ההנהלה): כל השורות תקינות; רק מנהל; לא משאירה מסמכים', async () => {
   assert.equal((await call('GET', '/v1/admin/selftest', { token: sara })).status, 403);
-  // הגדרה חסרה מתגלה: בלי ההגדרות של Firebase לדפים — שורה אדומה עם הסבר
-  const miss = await call('GET', '/v1/admin/selftest?part=1', { token: admin });
-  assert.equal(miss.body.checks.find(x => x.id === 'google').state, 'fail');
-  Object.assign(ENV, { FIREBASE_API_KEY: 'fake-api-key', FIREBASE_AUTH_DOMAIN: 'demo-dsviz.firebaseapp.com' });
   const a = await call('GET', '/v1/admin/selftest?part=1', { token: admin });
   assert.equal(a.status, 200, JSON.stringify(a.body));
   assert.ok(a.used <= 40, 'פניות: ' + a.used);
@@ -563,6 +559,33 @@ await test('בדיקת מערכת (ההנהלה): כל השורות תקינות
   assert.equal(b.body.checks.find(x => x.id === 'queries').state, 'ok', JSON.stringify(b.body.checks));
   const left = await realFetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/selftest`, { headers: { authorization: 'Bearer owner' } });
   assert.deepEqual((await left.json()).documents || [], []);
+});
+
+await test('בדיקת מערכת: הגדרה חסרה מתגלה עם הסבר (מפתח החתימה, ההגדרות של Google לדפים, Firestore שלא עונה)', async () => {
+  const { selfTest } = await import('../src/access/selftest.js');
+  const state = (r, id) => (r.checks.find(x => x.id === id) || {}).state;
+  // כמו בשרת האמיתי (בלי אמולטור ל-Auth): בלי FIREBASE_API_KEY / FIREBASE_AUTH_DOMAIN — אדום; בלי PASS_KEY — אדום
+  const noAuth = Object.assign({}, ENV, { FIREBASE_AUTH_EMULATOR_HOST: '', PASS_KEY: '' });
+  const r1 = await selfTest(noAuth, new URL(BASE + '/v1/admin/selftest?part=1'));
+  assert.equal(state(r1, 'google'), 'fail');
+  assert.equal(state(r1, 'pass'), 'fail');
+  assert.equal(state(r1, 'firestore'), 'ok');
+  const r2 = await selfTest(Object.assign({}, noAuth, { FIREBASE_API_KEY: 'k', FIREBASE_AUTH_DOMAIN: 'x.firebaseapp.com', PASS_KEY: ENV.PASS_KEY }), new URL(BASE + '/v1/admin/selftest?part=1'));
+  assert.equal(state(r2, 'google'), 'ok');
+  assert.equal(state(r2, 'pass'), 'ok');
+  // Firestore לא עונה (חשבון שירות שגוי / פרויקט שגוי): שורה אדומה אחת עם הסבר מה לבדוק, ולא קריסה
+  const hold = globalThis.fetch;
+  globalThis.fetch = async (input, init) => (String(typeof input === 'string' ? input : input.url).includes('/documents')
+    ? new Response(JSON.stringify({ error: { code: 403, status: 'PERMISSION_DENIED', message: 'Missing or insufficient permissions.' } }), { status: 403, headers: { 'content-type': 'application/json' } })
+    : hold(input, init));
+  try {
+    const r3 = await selfTest(ENV, new URL(BASE + '/v1/admin/selftest?part=1'));
+    assert.equal(state(r3, 'firestore'), 'fail');
+    assert.match(r3.checks[0].detail, /FIREBASE_SERVICE_ACCOUNT/);
+    assert.equal(r3.checks.length, 1, 'בלי Firestore לא ממשיכים לשאר');
+  } finally {
+    globalThis.fetch = hold;
+  }
 });
 
 await test('ניקוי כללי: הגשות מעמדות שפג תוקפן נמחקות גם אצל מורה שלא פותח את עמדת הניהול', async () => {

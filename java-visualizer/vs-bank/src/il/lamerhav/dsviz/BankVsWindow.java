@@ -71,6 +71,8 @@ final class BankVsWindow {
     final List<JButton> chips = new ArrayList<JButton>();
     JScrollPane previewScroll;
     private final Runnable onChange;
+    /** כניסה / הצטרפות למורה השתנו — שורת החשבון מתעדכנת (AccessGate.onChange; מוסר כשהחלון נסגר) */
+    private Runnable accessChanged;
     private final Map<String, Image> icons = new HashMap<String, Image>();
 
     /**
@@ -83,8 +85,22 @@ final class BankVsWindow {
         JPanel row = new JPanel(new BorderLayout(8, 0));
         row.setOpaque(false);
         row.setAlignmentX(Component.RIGHT_ALIGNMENT);
-        JLabel l = RtlDialog.label(who, RtlDialog.small(), RtlDialog.MUTED);
+        final JLabel l = RtlDialog.label(who, RtlDialog.small(), RtlDialog.MUTED);
         row.add(l, BorderLayout.CENTER);
+        // תלמיד: "המורה שלי" / "הצטרפות למורה" — עם קוד המורה, בלי לצאת מהתוכנה. מתעדכן מיד אחרי הצטרפות / יציאה
+        final JButton mine = RtlDialog.link(AccessGate.teacherLink());
+        mine.putClientProperty("dsviz.id", "my-teacher");
+        mine.setVisible(!AccessGate.teacherLink().isEmpty());
+        mine.addActionListener(e -> AccessGate.showMyTeacher(frame));
+        row.add(mine, BorderLayout.LINE_START);
+        accessChanged = () -> {
+            if (!frame.isDisplayable()) return;
+            l.setText(AccessGate.who());
+            mine.setText(AccessGate.teacherLink());
+            mine.setVisible(!AccessGate.teacherLink().isEmpty());
+            row.revalidate();
+        };
+        AccessGate.onChange(accessChanged);
         if (AccessGate.canSignOut()) {
             JButton out = RtlDialog.link("התנתקות");
             out.putClientProperty("dsviz.id", "signout");
@@ -245,6 +261,7 @@ final class BankVsWindow {
             @Override
             public void windowClosed(WindowEvent e) {
                 BankProgress.get().unlisten(onChange);
+                if (accessChanged != null) AccessGate.offChange(accessChanged);
                 if (current == BankVsWindow.this) current = null;
             }
         });

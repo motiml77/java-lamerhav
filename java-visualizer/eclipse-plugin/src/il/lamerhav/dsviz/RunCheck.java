@@ -53,8 +53,10 @@ final class RunCheck {
         /** null — לא ידוע */
         Boolean compiles, outputMatch;
         String error = "", output = "", expected = "";
-        /** שגיאות הקומפילציה, כל אחת "Targil.java:12: הודעה" (ב-C# גם "   [CS1002]" בסוף) — לתצוגה בכרטיסים (RtlDialog.errorCard) */
+        /** שגיאות הקומפילציה (עד 6 הראשונות), כל אחת "Targil.java:12: הודעה" (ב-C# גם "   [CS1002]" בסוף) — למורה, בתוך error */
         final List<String> errors = new ArrayList<String>();
+        /** כמה שגיאות קומפילציה יש בסך הכול (0 — לא ידוע). לתלמיד מוצג רק המספר, לא הרשימה */
+        int errorCount;
 
         /** השדה check של ההגשה (worker/src/access/classroom.js — cleanCheck) */
         Map<String, Object> toMap() {
@@ -62,6 +64,7 @@ final class RunCheck {
             m.put("ran", ran);
             if (compiles != null) m.put("compiles", compiles);
             m.put("error", error);
+            if (errorCount > 0) m.put("errors", errorCount);
             m.put("output", output);
             m.put("expected", expected);
             if (outputMatch != null) m.put("outputMatch", outputMatch);
@@ -82,7 +85,8 @@ final class RunCheck {
         String summary() {
             if (needsInput) return "התוכנית מחכה לקלט מהמקלדת, ולכן לא נבדקה בהרצה.";
             if (!ran) return "הקוד לא נבדק בהרצה (לא נמצא קומפיילר במחשב הזה).";
-            if (Boolean.FALSE.equals(compiles)) return "הקוד לא מתקמפל — יש בו שגיאה.";
+            // רק כמה שגיאות יש — לא הרשימה (כשיש הרבה היא רק מבלבלת); את השגיאות עצמן רואים בעורך
+            if (Boolean.FALSE.equals(compiles)) return "הקוד לא מתקמפל — יש בו " + (errorCount > 1 ? errorCount + " שגיאות." : errorCount == 1 ? "שגיאה אחת." : "שגיאה.");
             if (timedOut) return error.isEmpty() ? "ההרצה נעצרה אחרי " + TIMEOUT_SEC + " שניות (אולי לולאה שלא נגמרת)." : "ההרצה נעצרה: " + error + ".";
             if (crashed) return "התוכנית נעצרה באמצע בגלל שגיאה בזמן ריצה.";
             if (outputMatch == null) return "הקוד מתקמפל ורץ.";
@@ -158,6 +162,7 @@ final class RunCheck {
             r.compiles = errors.isEmpty();
             if (!errors.isEmpty()) {
                 StringBuilder b = new StringBuilder();
+                r.errorCount = errors.size();
                 r.errors.addAll(errors.subList(0, Math.min(6, errors.size())));
                 for (String e : r.errors) b.append(b.length() == 0 ? "" : "\n").append(hebrewLine(e.replaceAll("\\s+\\[[^\\]]*\\]\\s*$", "")));
                 r.error = cut(b.toString(), MAX_ERROR);
@@ -228,12 +233,14 @@ final class RunCheck {
                 r.compiles = false;
                 StringBuilder b = new StringBuilder();
                 Matcher em = Pattern.compile("(?m)^\\s*(.+?\\.cs)\\((\\d+),\\d+\\): error (CS\\d+): (.*)$").matcher(all.replace(work.getAbsolutePath() + File.separator, ""));
-                while (em.find() && r.errors.size() < 6) {
+                java.util.Set<String> all2 = new java.util.LinkedHashSet<String>();   // כל השגיאות (לספירה); לרשימה — עד 6
+                while (em.find()) {
                     String raw = new File(em.group(1)).getName() + ":" + em.group(2) + ": " + em.group(4).trim() + "   [" + em.group(3) + "]";
-                    if (r.errors.contains(raw)) continue;
+                    if (!all2.add(raw) || r.errors.size() >= 6) continue;
                     r.errors.add(raw);
                     b.append(b.length() == 0 ? "" : "\n").append(hebrewLine(raw));
                 }
+                r.errorCount = all2.size();
                 if (r.errors.isEmpty()) {   // פורמט אחר — הטקסט כמו שהוא
                     for (String line : all.replace(work.getAbsolutePath() + File.separator, "").split("\n")) {
                         if (line.trim().isEmpty() || line.startsWith("errors:")) continue;

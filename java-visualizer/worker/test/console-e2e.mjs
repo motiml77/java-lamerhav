@@ -119,6 +119,13 @@ await step('המורה נכנס ל-/account → עמדת הניהול: הקוד,
   const names = await page.locator('.con-table tbody tr td:first-child b').allTextContents();
   assert.deepEqual(names, ['עמדה 1', 'עמדה 2', 'עמדה 3', 'עמדה 10', 'עמדה 11', 'עמדה 12']);
   assert.ok(await page.locator('text=2 הגשות ממתינות').count());
+  // "הגשות חדשות": 3 מעמדות + 3 מתלמידים, ועיגול אדום עם המספר על כל טאב
+  assert.equal(await page.locator('#stat-new b').textContent(), '6');
+  assert.ok(await page.locator('#stat-new:has-text("3 מתלמידים · 3 ממחשבי המעבדה")').count());
+  assert.equal(await page.locator('#tab-st .newdot').textContent(), '3');
+  assert.equal(await page.locator('#tab-su .newdot').textContent(), '3');
+  // הסרגל העליון נשאר שורה אחת (המייל ליד העיגול) — שום עיצוב של עמדת הניהול לא נוגע בו
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.top .who')).flexDirection), 'row');
   await shot(page, 'c01-console-stations');
 });
 
@@ -159,6 +166,10 @@ await step('טאב תלמידים: כיתות בצד, "בלי כיתה", ותר�
   assert.deepEqual((await page.locator('.folder span:first-child').allTextContents()).slice(0, 4), ['כל התלמידים', 'יא 3', 'יב 1', 'בלי כיתה']);
   await page.click('.folder:has-text("יא 3")');
   assert.equal(await page.locator('.con-table tbody tr').count(), 3);
+  // הגשות חדשות: ליד התלמיד ("2 חדשות"), ועל הכיתה בצד (3)
+  assert.ok(await page.locator('tr:has-text("נועם לוי") .pill:has-text("2 חדשות")').count());
+  assert.ok(await page.locator('tr:has-text("אריאל כהן") .pill:has-text("חדשה")').count());
+  assert.equal(await page.locator('.folder:has-text("יא 3") .newdot').textContent(), '3');
   await page.click('tr:has-text("נועם לוי") button:has-text("תרגילים")');
   await page.waitForSelector('pre.code');
   await page.click('.d-item:has-text("סכום תור")');
@@ -167,6 +178,55 @@ await step('טאב תלמידים: כיתות בצד, "בלי כיתה", ותר�
   await shot(page, 'c05-students-class');
   await page.click('.d-item:has-text("מחסנית מדף עבודה")');
   await page.waitForSelector('text=אין פלט רצוי');
+  // שתי ההגשות של נועם נפתחו — הוא כבר לא "חדש", והמספרים למעלה ירדו בלי טעינה מחדש
+  assert.equal(await page.locator('tr:has-text("נועם לוי") .pill:has-text("חדשות")').count(), 0);
+  assert.equal(await page.locator('#tab-su .newdot').textContent(), '1');
+  assert.equal(await page.locator('.folder:has-text("יא 3") .newdot').textContent(), '1');
+});
+
+await step('"לפי תרגיל": לכל תרגיל — כמה הגישו ומה יצא; פתיחה מראה מי הגיש ומי עוד לא, ולחיצה על תלמיד פותחת את הקוד שלו', async () => {
+  await page.click('#view-ex');
+  await page.waitForSelector('th:has-text("תוצאות בדיקת ההרצה")');
+  const rows = page.locator('.con-table > tbody > tr');
+  assert.equal(await rows.count(), 2, 'שני תרגילים הוגשו בכיתה יא 3');
+  const q = page.locator('.con-table > tbody > tr', { hasText: 'סכום תור וזוגיים' });
+  assert.ok(await q.locator('text=2 מתוך 3').count(), 'נועם ואריאל הגישו, יובל לא');
+  assert.ok(await q.locator('.pill:has-text("1 · הפלט תואם")').count());
+  assert.ok(await q.locator('.pill:has-text("1 · הפלט שונה")').count());
+  assert.ok(await q.locator('.pill:has-text("חדשה")').count(), 'ההגשה של אריאל עוד לא נפתחה');
+  await q.locator('button:has-text("מי הגיש")').click();
+  await page.waitForSelector('.ex-row');
+  assert.deepEqual((await page.locator('.ex-row b').allTextContents()).sort(), ['אריאל כהן', 'נועם לוי']);
+  assert.ok(await page.locator('.ex-none:has-text("תלמיד אחד עוד לא הגיש: יובל מזרחי")').count());
+  await shot(page, 'c13-by-exercise');
+  await page.click('.ex-row:has-text("אריאל כהן")');
+  await page.waitForSelector('pre.code:has-text("sumQueue")');
+  assert.ok(await page.locator('.d-head:has-text("התרגילים של אריאל כהן")').count());
+  assert.ok(await page.locator('text=הפלט שונה מהפלט הרצוי').count());
+  await page.waitForSelector('#tab-su:not(:has(.newdot))');   // זו הייתה ההגשה החדשה האחרונה של תלמידים
+  await shot(page, 'c14-by-exercise-code');
+  // בכל התלמידים: גם התרגיל האישי של נועם (בלי פלט רצוי)
+  await page.click('.folder:has-text("כל התלמידים")');
+  assert.equal(await page.locator('.con-table > tbody > tr').count(), 2);
+  assert.ok(await page.locator('tr:has-text("מחסנית מדף עבודה") .pill:has-text("1 · בלי בדיקת הרצה")').count());
+  assert.ok(await page.locator('tr:has-text("סכום תור וזוגיים"):has-text("2 מתוך 5")').count());
+  await page.click('#view-students');
+  await page.waitForSelector('th:has-text("ההגשה האחרונה")');
+});
+
+await step('"הגשות חדשות" למעלה: לחיצה מובילה לתלמידים שיש להם הגשה חדשה בלבד; המתג מחזיר את כולם', async () => {
+  // עידו מגיש עכשיו (מהתוסף) — אחרי טעינה מחדש הוא היחיד עם הגשה חדשה
+  await api('POST', '/v1/submit', bank({ files: [{ path: 'QueueTargil1.java', text: QUEUE_JAVA }], app: 'IntelliJ IDEA', check: { ran: true, compiles: true, output: Q_EXP, expected: Q_EXP, outputMatch: true } }), plug['ido.s@gmail.com']);
+  await page.reload();
+  await page.waitForSelector('.con-tab');
+  assert.equal(await page.locator('#tab-su .newdot').textContent(), '1');
+  await page.click('#stat-new');
+  await page.waitForSelector('#only-new[aria-pressed="true"]');
+  assert.deepEqual(await page.locator('.con-table tbody tr td:first-child b').allTextContents(), ['עידו שפירא']);
+  await shot(page, 'c15-only-new');
+  await page.click('#only-new');
+  await page.waitForSelector('#only-new[aria-pressed="false"]');
+  assert.equal(await page.locator('.con-table tbody tr').count(), 5);
 });
 
 await step('כיתה חדשה, העברת תלמיד אליה, ושינוי שם', async () => {
@@ -281,6 +341,21 @@ await step('מסוף ההנהלה — "דיווחים על בעיות": רשימ
   await adm.close();
 });
 
+await step('מסוף ההנהלה — "בדיקת מערכת": השרת בודק את עצמו (Firestore, שאילתות, חתימה, Google) — אין שורה אדומה', async () => {
+  const adm = await ctx.newPage();
+  await adm.goto(BASE + '/admin#check');
+  await adm.waitForSelector('h1:has-text("בדיקת מערכת")');
+  await adm.waitForSelector('#check-summary[data-done]', { timeout: 30000 });
+  assert.equal(await adm.locator('#check-summary').getAttribute('data-done'), 'ok', await adm.locator('#check-list').textContent());
+  assert.equal(await adm.locator('.chk.fail').count(), 0);
+  for (const id of ['firestore', 'merge', 'tx', 'rules', 'pass', 'google', 'queries', 'expire']) assert.equal(await adm.locator(`.chk[data-id="${id}"]`).getAttribute('data-state'), 'ok', id);
+  assert.ok(await adm.locator('.chk[data-id="queries"]:has-text("לא חסר שום אינדקס")').count());
+  await shot(adm, 'c16-admin-check');
+  await adm.click('#check-run');
+  await adm.waitForSelector('#check-summary[data-done="ok"]');
+  await adm.close();
+});
+
 await step('רוחב טלפון: אין גלילה לרוחב בעמדת הניהול', async () => {
   const pctx = await browser.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2, locale: 'he-IL' });
   const pp = await pctx.newPage();
@@ -290,6 +365,12 @@ await step('רוחב טלפון: אין גלילה לרוחב בעמדת הני�
   const over = await pp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(over <= 1, 'גלילה לרוחב: ' + over);
   await shot(pp, 'c10-phone');
+  await pp.click('#tab-su');
+  await pp.click('#view-ex');
+  await pp.waitForSelector('.seg');
+  const over2 = await pp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  assert.ok(over2 <= 1, 'גלילה לרוחב ב"לפי תרגיל": ' + over2);
+  await shot(pp, 'c10b-phone-exercises');
   await pctx.close();
 });
 

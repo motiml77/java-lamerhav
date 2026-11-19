@@ -59,6 +59,17 @@ public class RunCheckTest {
         check("Java: לולאה שלא נגמרת — נעצרת אחרי 10 שניות (" + ms + "ms), עם הפלט עד אז", r.ran && r.timedOut && Boolean.FALSE.equals(r.outputMatch) && r.output.equals("start")
                 && ms >= 9000 && ms < 25000 && r.summary().contains("10 שניות"), show(r));
 
+        // כמה שגיאות יש: לתלמיד מוצג רק המספר (לא הרשימה); למורה — עד 6 הראשונות
+        r = RunCheck.java(files("One.java", "public class One {\n    static int f() { }\n    public static void main(String[] a) { }\n}\n"), "One", lib, null, "");
+        check("Java: שגיאה אחת — 'יש בו שגיאה אחת' (" + r.summary() + ")", Boolean.FALSE.equals(r.compiles) && r.errorCount == 1 && r.summary().equals("הקוד לא מתקמפל — יש בו שגיאה אחת.")
+                && Integer.valueOf(1).equals(r.toMap().get("errors")), show(r));
+        StringBuilder many = new StringBuilder("public class Many {\n    public static void main(String[] a) {\n");
+        for (int i = 0; i < 9; i++) many.append("        int v").append(i).append(" = \"x\";\n");
+        many.append("    }\n}\n");
+        r = RunCheck.java(files("Many.java", many.toString()), "Many", lib, null, "");
+        check("Java: 9 שגיאות — 'יש בו 9 שגיאות', ולמורה נשלחות רק 6 הראשונות (" + r.summary() + ")", Boolean.FALSE.equals(r.compiles) && r.errorCount == 9
+                && r.summary().equals("הקוד לא מתקמפל — יש בו 9 שגיאות.") && r.errors.size() == 6 && r.error.split("\n").length == 6 && Integer.valueOf(9).equals(r.toMap().get("errors")), show(r) + " count=" + r.errorCount);
+
         r = RunCheck.java(files("Crash.java", "public class Crash {\n    public static void main(String[] args) {\n        System.out.println(\"before\");\n        int[] x = new int[2];\n        x[5] = 1;\n    }\n}\n"),
                 "Crash", lib, null, "before\nafter");
         check("Java: שגיאה בזמן ריצה — הפלט עד השגיאה, והשגיאה עצמה", r.ran && r.crashed && Boolean.TRUE.equals(r.compiles) && Boolean.FALSE.equals(r.outputMatch)
@@ -94,6 +105,12 @@ public class RunCheckTest {
             r = RunCheck.cs(files("Program.cs", prog.replace("return s;", "return s")), cs, "sum: 6");
             check("C#: שגיאת קומפילציה — הקובץ, השורה וההודעה (בלי הנתיב של התיקייה הזמנית); השגיאה הגולמית עם הקוד שלה", r.ran && Boolean.FALSE.equals(r.compiles)
                     && r.error.startsWith("Program.cs, שורה 6:") && !r.error.contains("dsviz-submit") && r.errors.size() == 1 && r.errors.get(0).matches("Program\\.cs:6: .*\\[CS1002\\]"), show(r) + " " + r.errors);
+            check("C#: שגיאה אחת — 'יש בו שגיאה אחת'", r.errorCount == 1 && r.summary().equals("הקוד לא מתקמפל — יש בו שגיאה אחת."), r.summary());
+            StringBuilder manyCs = new StringBuilder();
+            for (int i = 0; i < 8; i++) manyCs.append("            int v").append(i).append(" = \"x\";\n");
+            r = RunCheck.cs(files("Program.cs", prog.replace("            Console.WriteLine(\"sum: \" + Sum(new int[] { 1, 2, 3 }));\n", manyCs.toString())), cs, "sum: 6");
+            check("C#: 8 שגיאות — 'יש בו 8 שגיאות', ולמורה נשלחות רק 6 הראשונות (" + r.summary() + ")", Boolean.FALSE.equals(r.compiles) && r.errorCount == 8
+                    && r.summary().equals("הקוד לא מתקמפל — יש בו 8 שגיאות.") && r.errors.size() == 6, show(r) + " count=" + r.errorCount);
             RunCheck.explainer = (message, code) -> "CS1002".equals(code) ? "חסר ; בסוף הפקודה" : "missing return statement".equals(message) ? "חסרה הוראת return" : "";
             r = RunCheck.cs(files("Program.cs", prog.replace("return s;", "return s")), cs, "sum: 6");
             check("C#: עם הסבר בעברית (כמו בכלי של Visual Studio) — 'חסר ; … (; expected)'", r.error.equals("Program.cs, שורה 6: חסר ; בסוף הפקודה (; expected)"), r.error);

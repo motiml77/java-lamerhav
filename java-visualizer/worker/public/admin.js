@@ -18,6 +18,7 @@ const NAV = [
   ['reports', 'דיווחים על בעיות', ICONS.bell],
   ['log', 'יומן פעולות', ICONS.list],
   ['settings', 'הגדרות', ICONS.gear],
+  ['check', 'בדיקת מערכת', ICONS.shield],
 ];
 
 const ACTIONS = {
@@ -133,7 +134,7 @@ async function render() {
   shell(loadingView());
   const content = document.getElementById('content');
   try {
-    const views = { overview, requests, teachers, teacher: teachers, students, reports: reportsView, report: reportView, log: logView, settings: settingsView };
+    const views = { overview, requests, teachers, teacher: teachers, students, reports: reportsView, report: reportView, log: logView, settings: settingsView, check: checkView };
     const v = await (views[r.page] || overview)(r.arg);
     content.replaceChildren(...[v].flat(Infinity));
   } catch (e) {
@@ -820,6 +821,57 @@ async function settingsView() {
     render();
   });
   return [h('h1', null, 'הגדרות'), form, h('div', { class: 'row' }, save, h('span', { class: 'small muted' }, 'שינוי נכנס לתוקף תוך דקה.'))];
+}
+
+// ------------------------------------------------------------------ בדיקת מערכת
+
+/** טקסט עם קישור (למשל הקישור ליצירת אינדקס ב-Firebase): רק כתובות https נהפכות לקישור */
+function linkify(text) {
+  const out = [];
+  let last = 0;
+  for (const m of String(text || '').matchAll(/https:\/\/[^\s)]+/g)) {
+    out.push(text.slice(last, m.index), h('a', { href: m[0], target: '_blank', rel: 'noopener noreferrer' }, 'פתיחה'));
+    last = m.index + m[0].length;
+  }
+  out.push(String(text || '').slice(last));
+  return out;
+}
+
+/**
+ * השרת בודק את עצמו מול Firebase / Google / Cloudflare (GET /v1/admin/selftest, שני חלקים): כתיבה וקריאה, טרנזקציות,
+ * כל צורות השאילתה (אינדקסים), כללי האבטחה, מפתח החתימה, הגבלות הקצב, המייל והתשלום. לא משנה שום נתון אמיתי.
+ */
+async function checkView() {
+  const list = h('div', { class: 'stack', id: 'check-list', style: { gap: '8px', maxWidth: '860px' } });
+  const summary = h('div', { class: 'note', id: 'check-summary', role: 'status' }, 'בודק…');
+  const run = h('button', { type: 'button', class: 'btn primary', id: 'check-run' }, 'בדיקה מחדש');
+  const row = c => h('div', { class: 'chk ' + c.state, 'data-id': c.id, 'data-state': c.state },
+    h('span', { class: 'mark', 'aria-hidden': 'true' }, c.state === 'ok' ? '✓' : c.state === 'warn' ? '!' : '✕'),
+    h('div', { class: 'grow stack', style: { gap: '2px' } }, h('b', null, c.title), c.detail ? h('span', { class: 'd' }, linkify(c.detail)) : null));
+  const go = async () => {
+    const all = [];
+    list.replaceChildren();
+    summary.className = 'note';
+    summary.textContent = 'בודק את השרת מול Firebase, Google ו-Cloudflare…';
+    for (const part of [1, 2]) {
+      try {
+        all.push(...(await api('GET', '/v1/admin/selftest?part=' + part)).checks);
+      } catch (e) {
+        all.push({ id: 'part' + part, title: part === 1 ? 'החיבור לנתונים' : 'השאילתות של המערכת', state: 'fail', detail: e.message });
+      }
+      list.replaceChildren(...all.map(row));
+    }
+    const bad = all.filter(x => x.state === 'fail').length, notes = all.filter(x => x.state === 'warn').length;
+    summary.textContent = bad ? (bad === 1 ? 'בדיקה אחת נכשלה' : `${bad} בדיקות נכשלו`) + ' — ההסבר ליד כל שורה אדומה.'
+      : notes ? `הכול עובד. ${notes === 1 ? 'הערה אחת' : notes + ' הערות'} (לא חובה לטפל).` : 'הכול תקין.';
+    summary.className = bad ? 'warn-box' : 'note ok';
+    summary.dataset.done = bad ? 'fail' : 'ok';
+  };
+  run.onclick = () => busy(run, go);
+  go();
+  return [h('h1', null, 'בדיקת מערכת'),
+    h('p', { class: 'muted', style: { maxWidth: '860px' } }, 'השרת בודק את עצמו מול Firebase, Google ו-Cloudflare: מה עובד, ומה חסר בהגדרות. הבדיקה לא משנה שום נתון של מורים ותלמידים. כדאי להריץ אותה אחרי כל עדכון של השרת.'),
+    h('div', { class: 'row', style: { gap: '12px', flexWrap: 'wrap' } }, run, summary), list];
 }
 
 // ------------------------------------------------------------------ התחלה

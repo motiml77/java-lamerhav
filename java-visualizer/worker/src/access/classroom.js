@@ -234,7 +234,8 @@ function cleanCheck(c) {
   c = c && typeof c === 'object' ? c : {};
   const bool = v => (v === true ? true : v === false ? false : null);
   return {
-    ran: c.ran === true, compiles: bool(c.compiles), error: clip(c.error, 1000), output: codeText(c.output, MAX_OUTPUT), expected: codeText(c.expected, MAX_OUTPUT),
+    ran: c.ran === true, compiles: bool(c.compiles), error: codeText(c.error, 1000).trim(), errors: Number.isInteger(c.errors) && c.errors > 0 ? Math.min(c.errors, 999) : 0,
+    output: codeText(c.output, MAX_OUTPUT), expected: codeText(c.expected, MAX_OUTPUT),
     outputMatch: bool(c.outputMatch), timedOut: c.timedOut === true, needsInput: c.needsInput === true,
   };
 }

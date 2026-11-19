@@ -166,9 +166,11 @@ final class BankFloat {
         });
         onProgress = () -> d.asyncExec(() -> { if (!body.isDisposed()) render(); });
         BankProgress.get().listen(onProgress);
+        AccessGate.onChange(onProgress);   // תלמיד שהצטרף למורה / יצא ממנו — הכפתור "הגשה למורה" מופיע / נעלם מיד
         page.addPartListener(parts);
         shell.addListener(SWT.Dispose, e -> {
             BankProgress.get().unlisten(onProgress);
+            AccessGate.offChange(onProgress);
             page.removePartListener(parts);
             if (current == BankFloat.this) current = null;
             BankQuestionSource.refresh();
@@ -262,6 +264,14 @@ final class BankFloat {
                         BankQuestionPanel.text(body, submitNote, -1, SWT.NORMAL, Look.OK, null);
                         shown.add("SUBMIT-NOTE " + submitNote);
                     }
+                } else if (joinHint(q)) {
+                    // תלמיד שעוד לא הצטרף למורה: במקום שבו היה מופיע "הגשה למורה" — הצטרפות עם קוד המורה (החלון "המורה שלי")
+                    Look.Round join = new Look.Round(body, "רוצים להגיש למורה? מצטרפים עם קוד המורה", false, () -> AccessGate.showMyTeacher(null));
+                    join.setData("dsviz.id", "submit-join");
+                    GridData jg = new GridData(SWT.FILL, SWT.TOP, true, false);
+                    jg.verticalIndent = 6;
+                    join.setLayoutData(jg);
+                    shown.add("SUBMIT-JOIN");
                 }
                 if (submitResult != null) shown.add("SUBMIT-RESULT " + submitResult);
                 final boolean done = BankProgress.get().done(q.id);
@@ -375,6 +385,15 @@ final class BankFloat {
     }
 
     /** יש למי להגיש (תלמיד שמשויך למורה / עמדת מחשב), ויש תרגיל מהשאלה */
+    /** תלמיד מחובר שעוד לא משויך למורה (והשרת יודע לקבל הגשות), ויש תרגיל — מציעים להצטרף עם קוד המורה */
+    static boolean joinHint(BankStore.Question q) {
+        try {
+            return !AccessGate.teacherLink().isEmpty() && AccessGate.studentTeacher().isEmpty() && exerciseDir(q) != null;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     static boolean canSubmit(BankStore.Question q) {
         try {
             return Submit.available() && exerciseDir(q) != null;
@@ -444,7 +463,8 @@ final class BankFloat {
             int color = "good".equals(tone) ? Look.OK : "bad".equals(tone) ? Look.ERR : "warn".equals(tone) ? 0xB45309 : Look.MUTED;
             BankQuestionPanel.text(card, ("good".equals(tone) ? "✓ " : "") + st.check.summary(), 0, SWT.BOLD, color, shown);
             shown.add("SUBMIT-CHECK " + tone + " " + st.check.summary());
-            if (!st.check.error.isEmpty() && !st.check.timedOut) BankQuestionPanel.text(card, st.check.error, -1, SWT.NORMAL, Look.INK2, shown);
+            // קוד שלא מתקמפל: רק כמה שגיאות יש (בשורה שלמעלה) — בלי רשימה. שגיאה בזמן ריצה: מה שהתוכנית הדפיסה
+            if (!"bad".equals(tone) && !st.check.error.isEmpty() && !st.check.timedOut) BankQuestionPanel.text(card, st.check.error, -1, SWT.NORMAL, Look.INK2, shown);
             if (!"good".equals(tone) && !"none".equals(tone))
                 BankQuestionPanel.text(card, "אפשר לבטל, לתקן ולהגיש שוב — או להגיש כך: המורה יראה את הקוד ואת מה שקרה בהרצה.", 0, SWT.NORMAL, Look.INK2, shown);
         }

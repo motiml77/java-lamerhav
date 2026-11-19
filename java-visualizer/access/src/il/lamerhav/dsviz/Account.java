@@ -1367,6 +1367,28 @@ public final class Account {
         return base + "/welcome?r=" + enc(what) + "&role=student" + (mark.isEmpty() ? "" : "&u=" + mark);
     }
 
+    /**
+     * התלמיד שמחובר במחשב הזה מצטרף למורה עם קוד המורה (מתוך התוכנה — בלי הדפדפן). replace — כבר משויך למורה אחר, ועובר.
+     * status: ok (הצטרף; teacher().name) / bad-code / closed (המורה סגר את ההצטרפות) / blocked / replace (צריך אישור לעבור) /
+     * rate / offline / login. אחרי הצלחה המצב השמור מתעדכן מהשרת — הכפתור "הגשה למורה" מופיע מיד
+     */
+    public static Result studentJoin(String code, boolean replace) {
+        Map<String, String> h = studentInfo() == null ? new LinkedHashMap<String, String>() : headersOf(false);
+        if (h.isEmpty()) return new Result("login", "ההצטרפות למורה היא לתלמיד שמחובר עם Google במחשב הזה.", null);
+        Result r = post("/v1/student/join", map("code", code == null ? "" : code.trim(), "replace", replace), h);
+        if (r.ok()) refresh();
+        return r;
+    }
+
+    /** התלמיד שמחובר במחשב הזה יוצא מהמורה שלו (מה שכבר הוגש נשאר אצל המורה). אחרי הצלחה המצב השמור מתעדכן */
+    public static Result studentLeave() {
+        Map<String, String> h = studentInfo() == null ? new LinkedHashMap<String, String>() : headersOf(false);
+        if (h.isEmpty()) return new Result("login", "הפעולה הזו לתלמיד שמחובר עם Google במחשב הזה.", null);
+        Result r = post("/v1/student/leave", new LinkedHashMap<String, Object>(), h);
+        if (r.ok()) refresh();
+        return r;
+    }
+
     /** אחרי כניסה מוצלחת: מה שנשמר באמת נפתח במחשב הזה? אחרת — "נכנסת" היה מופיע, והמאגר שוב היה מבקש כניסה בכל פתיחה */
     private static Result checkSaved(Result r, File f) {
         if (!r.ok()) return r;

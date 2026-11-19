@@ -2,7 +2,8 @@
 // השרת: src/access/classroom.js (GET /v1/me/console וכו'). הכול נבנה עם h() — טקסט תמיד כטקסט (אין הזרקת קוד מנתונים של תלמידים).
 import { api, h, icon, ICONS, ago, fmtDate, daysSince, busy, toast } from '/static/common.js';
 
-const S = { tab: 'st', folder: 'all', open: null, subs: [], cur: null, curData: null, fileIdx: 0, ask: null, renaming: false, adding: false, q: '' };
+const S = { tab: 'st', folder: 'all', open: null, subs: [], cur: null, curData: null, fileIdx: 0, ask: null, renaming: false, adding: false, q: '',
+  view: 'students', ex: null, onlyNew: false };
 let data = null, root = null, onRelease = null;
 
 /** מציג את עמדת הניהול בתוך container. requestRelease(station) — "בקשה לשחרר" להנהלה (כשנגמרו השחרורים של החודש) */
@@ -20,6 +21,12 @@ async function reload(keepOpen) {
 }
 
 const pill = (cls, text) => h('span', { class: 'pill ' + cls }, text);
+/** התוצאה של בדיקת ההרצה (מהתקציר של התלמיד): צבע וטקסט */
+const RESULT = { ok: ['green', 'הפלט תואם'], diff: ['orange', 'הפלט שונה'], err: ['red', 'לא מתקמפל'], time: ['orange', 'נעצר אחרי 10 שניות'], none: ['gray', 'בלי בדיקת הרצה'] };
+const resultPill = r => pill((RESULT[r] || RESULT.none)[0], (RESULT[r] || RESULT.none)[1]);
+/** עיגול אדום קטן עם מספר ההגשות החדשות (שהמורה עוד לא פתח) */
+const newDot = n => (n ? h('span', { class: 'newdot', title: n === 1 ? 'הגשה חדשה אחת' : n + ' הגשות חדשות' }, String(n)) : null);
+const newWord = n => (n === 1 ? 'הגשה חדשה' : n + ' הגשות חדשות');
 const collator = new Intl.Collator('he', { numeric: true });
 function className(id) { const c = data.classes.find(x => x.id === id); return c ? c.name : 'בלי כיתה'; }
 function inFolder(f) { return data.students.filter(s => f === 'all' || s.classId === f); }
@@ -27,16 +34,24 @@ function seenText(iso) { return daysSince(iso) > 30 ? 'לא נראה ' + daysSin
 
 function render() {
   const t = data.teacher;
-  const unseen = data.stations.reduce((n, s) => n + s.unseen, 0);
+  const newSt = data.stations.reduce((n, s) => n + s.unseen, 0);
+  const newSu = data.students.reduce((n, s) => n + (s.unseen || 0), 0);
+  const goTab = id => { S.tab = id; S.open = null; S.cur = null; S.curData = null; S.ask = null; S.renaming = false; S.adding = false; render(); };
+  // "הגשות חדשות": לחיצה מובילה ישר למקום שבו הן מחכות (תלמידים — רק אלה עם הגשה חדשה; אחרת המחשבים)
+  const fresh = h('button', { type: 'button', class: 'con-stat link', id: 'stat-new', disabled: !(newSt + newSu),
+    onclick: () => { if (newSu) { S.view = 'students'; S.folder = 'all'; S.onlyNew = true; goTab('su'); } else goTab('st'); } },
+    h('span', { class: 'small muted' }, 'הגשות חדשות'), h('b', { class: newSt + newSu ? 'hot' : null }, String(newSt + newSu)),
+    h('span', { class: 'small muted' }, newSt + newSu ? `${newSu} מתלמידים · ${newSt} ממחשבי המעבדה` : 'אין הגשות שמחכות'));
   const head = h('div', { class: 'con-head' },
-    h('div', { class: 'con-stat' }, h('span', { class: 'small muted' }, 'הקוד שלי (קבוע)'), h('b', { class: 'mono con-code' }, t.code)),
+    h('div', { class: 'con-stat' }, h('span', { class: 'small muted' }, 'הקוד שלי (קבוע)'), h('b', { class: 'mono con-code' }, t.code),
+      h('span', { class: 'small muted' }, 'נותנים אותו לתלמידים ולמחשבי המעבדה')),
+    fresh,
     h('div', { class: 'con-stat' }, h('span', { class: 'small muted' }, 'היתרים בשימוש'), h('b', null, `${t.used} מתוך ${t.seats}`),
       h('span', { class: 'bar' }, h('span', { style: { width: (t.seats ? Math.min(100, Math.round(100 * t.used / t.seats)) : 100) + '%' } }))),
-    h('div', { class: 'con-stat' }, h('span', { class: 'small muted' }, 'הגשות מעמדות שלא נפתחו'), h('b', null, String(unseen))),
     h('div', { class: 'con-stat' }, h('span', { class: 'small muted' }, 'תלמידים'), h('b', null, String(data.students.filter(s => !s.left).length))));
-  const tab = (id, label, n) => h('button', { type: 'button', role: 'tab', class: 'con-tab', 'aria-selected': String(S.tab === id), id: 'tab-' + id,
-    onclick: () => { S.tab = id; S.open = null; S.cur = null; S.curData = null; S.ask = null; S.renaming = false; S.adding = false; render(); } }, label, h('span', { class: 'n' }, String(n)));
-  const tabs = h('div', { class: 'con-tabs', role: 'tablist' }, tab('st', 'מחשבי המעבדה', data.stations.length), tab('su', 'תלמידים', data.students.length));
+  const tab = (id, label, n, k) => h('button', { type: 'button', role: 'tab', class: 'con-tab', 'aria-selected': String(S.tab === id), id: 'tab-' + id,
+    onclick: () => { S.onlyNew = false; goTab(id); } }, label, h('span', { class: 'n' }, String(n)), newDot(k));
+  const tabs = h('div', { class: 'con-tabs', role: 'tablist' }, tab('st', 'מחשבי המעבדה', data.stations.length, newSt), tab('su', 'תלמידים', data.students.length, newSu));
   const pane = S.tab === 'st' ? stationsPane() : studentsPane();
   root.replaceChildren(h('section', { class: 'card con' }, head, tabs, pane, detailPane()));
 }
@@ -86,16 +101,21 @@ function stationsPane() {
 function studentsPane() {
   const sw = h('button', { type: 'button', class: 'sw', 'aria-pressed': String(data.teacher.joinOpen), id: 'join-open' }, h('i'), 'הצטרפות פתוחה');
   sw.onclick = () => busy(sw, async () => { await api('POST', '/v1/me/settings', { joinOpen: !data.teacher.joinOpen }); await reload(true); });
+  const seg = (id, label) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.view === id), id: 'view-' + id,
+    onclick: () => { S.view = id; S.ex = null; S.open = null; S.cur = null; S.curData = null; S.ask = null; render(); } }, label);
   return h('div', { class: 'con-pane' },
-    h('div', { class: 'con-tools' }, sw,
+    h('div', { class: 'con-tools' },
+      h('div', { class: 'seg', role: 'tablist', 'aria-label': 'איך להציג' }, seg('students', 'לפי תלמיד'), seg('ex', 'לפי תרגיל')),
+      h('span', { class: 'grow' }), sw,
       h('span', { class: 'small muted' }, data.teacher.joinOpen ? `תלמיד שמקליד ${data.teacher.code} אחרי הכניסה עם Google מצטרף ל"בלי כיתה"` : 'הקוד לא מצרף תלמידים חדשים')),
-    h('div', { class: 'con-cls' }, folders(), h('div', { class: 'con-main' }, classHead(), studentsTable())));
+    h('div', { class: 'con-cls' }, folders(), h('div', { class: 'con-main' }, classHead(), S.view === 'ex' ? exercisesTable() : studentsTable())));
 }
 
 function folders() {
   const box = h('div', { class: 'folders' });
   const item = (id, label, n) => box.append(h('button', { type: 'button', class: 'folder', 'aria-current': String(S.folder === id),
-    onclick: () => { S.folder = id; S.open = null; S.cur = null; S.curData = null; S.ask = null; S.renaming = false; render(); } }, h('span', null, label), h('span', { class: 'c' }, String(n))));
+    onclick: () => { S.folder = id; S.ex = null; S.onlyNew = false; S.open = null; S.cur = null; S.curData = null; S.ask = null; S.renaming = false; render(); } },
+    h('span', null, label), newDot(inFolder(id).reduce((k, x) => k + (x.unseen || 0), 0)), h('span', { class: 'c' }, String(n))));
   item('all', 'כל התלמידים', data.students.length);
   for (const c of data.classes) item(c.id, c.name, inFolder(c.id).length);
   item('', 'בלי כיתה', inFolder('').length);
@@ -162,7 +182,10 @@ function classHead() {
 }
 
 function studentsTable() {
-  const list = inFolder(S.folder);
+  const all = inFolder(S.folder);
+  const fresh = all.filter(s => s.unseen);
+  const list = S.onlyNew && fresh.length ? fresh : all;
+  if (S.onlyNew && !fresh.length) S.onlyNew = false;
   if (!list.length) {
     return h('div', { class: 'tablewrap' }, h('div', { class: 'empty' }, S.folder === '' ? 'כל התלמידים משובצים בכיתות.'
       : S.folder === 'all' ? `עוד אין תלמידים. תלמיד נכנס עם Google בחלון הכניסה של DSViz, בוחר "יש לי קוד מורה" ומקליד ${data.teacher.code}.`
@@ -181,9 +204,9 @@ function studentsTable() {
       h('td', null, pick),
       h('td', null, s.left ? pill('gray', 'עזב ' + ago(s.leftAt)) : h('span', null, 'הצטרף ' + fmtDate(s.joinedAt))),
       h('td', null, s.lastSubmitAt ? [h('div', null, s.lastTitle), h('div', { class: 'sub' }, ago(s.lastSubmitAt))] : h('span', { class: 'muted' }, 'עוד אין')),
-      h('td', { class: 'num' }, String(s.submits)),
+      h('td', { class: 'num' }, String(s.submits), s.unseen ? [' ', pill('blue', s.unseen === 1 ? 'חדשה' : s.unseen + ' חדשות')] : null),
       h('td', null, h('div', { class: 'acts' },
-        h('button', { type: 'button', class: 'btn sm', onclick: () => openRow('su', s.email) }, 'תרגילים'),
+        h('button', { type: 'button', class: 'btn sm' + (s.unseen ? ' primary' : ''), onclick: () => openRow('su', s.email) }, 'תרגילים'),
         h('button', { type: 'button', class: 'btn sm danger', onclick: () => { S.ask = { kind: 'student', id: s.email }; render(); } }, 'מחיקה')))));
     if (S.ask && S.ask.kind === 'student' && S.ask.id === s.email) {
       const go = h('button', { type: 'button', class: 'btn sm danger' }, 'מחיקה לצמיתות');
@@ -197,8 +220,77 @@ function studentsTable() {
         go, h('button', { type: 'button', class: 'btn sm ghost', onclick: () => { S.ask = null; render(); } }, 'ביטול')]));
     }
   }
-  return h('div', { class: 'tablewrap' }, h('table', { class: 'con-table' },
+  const table = h('div', { class: 'tablewrap' }, h('table', { class: 'con-table' },
     h('thead', null, h('tr', null, ['תלמיד', 'כיתה', 'פעילות', 'ההגשה האחרונה', 'הגשות', ''].map(x => h('th', null, x)))), h('tbody', null, rows)));
+  if (!fresh.length) return table;
+  // סינון: רק מי שיש לו הגשה שעוד לא נפתחה
+  const only = h('button', { type: 'button', class: 'sw', 'aria-pressed': String(S.onlyNew), id: 'only-new', onclick: () => { S.onlyNew = !S.onlyNew; render(); } },
+    h('i'), `רק תלמידים עם הגשה חדשה (${fresh.length})`);
+  return h('div', { class: 'stack', style: { gap: '8px' } }, h('div', { class: 'con-tools' }, only), table);
+}
+
+// ------------------------------------------------------------------ לפי תרגיל: מי הגיש, ומה יצא לו
+
+/** התרגילים שהוגשו בתיקייה (כיתה / כולם / בלי כיתה), מהאחרון שהוגש. לכל תרגיל: מי הגיש (לפי המייל) ומה התוצאה */
+function exercisesOf(list) {
+  const by = new Map();
+  for (const s of list) {
+    for (const w of s.work || []) {
+      const key = w.bankId || 'כותרת:' + w.title;
+      let e = by.get(key);
+      if (!e) by.set(key, e = { key, title: w.title, topic: w.topic, level: w.level, last: '', rows: new Map() });
+      e.rows.set(s.email, w);
+      if (String(w.at) > e.last) e.last = String(w.at);
+    }
+  }
+  return Array.from(by.values()).sort((a, b) => b.last.localeCompare(a.last));
+}
+
+function exercisesTable() {
+  const list = inFolder(S.folder);
+  const active = list.filter(s => !s.left);
+  const exs = exercisesOf(list);
+  if (!exs.length) {
+    return h('div', { class: 'tablewrap' }, h('div', { class: 'empty' }, list.length
+      ? 'עוד לא הוגש אף תרגיל. תלמיד מגיש בכפתור "הגשה למורה" בחלון השאלה (או ב"סיימתי את התרגיל").'
+      : 'אין כאן תלמידים עדיין.'));
+  }
+  const rows = [];
+  for (const e of exs) {
+    const got = active.filter(s => e.rows.has(s.email));
+    const count = r => Array.from(e.rows.values()).filter(w => w.result === r).length;
+    const fresh = Array.from(e.rows.values()).filter(w => !w.seen).length;
+    const open = S.ex === e.key;
+    rows.push(h('tr', { class: open ? 'sel' : null },
+      h('td', null, h('b', null, e.title), fresh ? [' ', pill('blue', fresh === 1 ? 'חדשה' : fresh + ' חדשות')] : null,
+        h('div', { class: 'sub' }, [e.topic, e.level].filter(Boolean).join(' · '))),
+      h('td', null, h('div', { class: 'done' }, h('span', null, `${got.length} מתוך ${active.length}`),
+        h('span', { class: 'bar ok' }, h('span', { style: { width: (active.length ? Math.round(100 * got.length / active.length) : 0) + '%' } })))),
+      h('td', null, h('div', { class: 'pills' }, ['ok', 'diff', 'err', 'time', 'none'].filter(r => count(r)).map(r => pill(RESULT[r][0], count(r) + ' · ' + RESULT[r][1])))),
+      h('td', null, h('span', { class: 'sub' }, ago(e.last))),
+      h('td', null, h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn sm' + (open ? ' primary' : ''), 'aria-expanded': String(open),
+        onclick: () => { S.ex = open ? null : e.key; S.open = null; S.cur = null; S.curData = null; render(); } }, open ? 'סגירה' : 'מי הגיש')))));
+    if (open) rows.push(h('tr', null, h('td', { colspan: '5', class: 'exwho' }, whoSubmitted(e, list))));
+  }
+  return h('div', { class: 'tablewrap' }, h('table', { class: 'con-table' },
+    h('thead', null, h('tr', null, ['תרגיל', 'הגישו', 'תוצאות בדיקת ההרצה', 'הגשה אחרונה', ''].map(x => h('th', null, x)))), h('tbody', null, rows)));
+}
+
+/** בתוך תרגיל פתוח: כל התלמידים של התיקייה — קודם מי שהגיש (מהחדש לישן), ואחריהם מי שעוד לא */
+function whoSubmitted(e, list) {
+  const yes = list.filter(s => e.rows.has(s.email)).sort((a, b) => String(e.rows.get(b.email).at).localeCompare(String(e.rows.get(a.email).at)));
+  const no = list.filter(s => !e.rows.has(s.email) && !s.left);
+  const box = h('div', { class: 'ex-list' });
+  for (const s of yes) {
+    const w = e.rows.get(s.email);
+    box.append(h('button', { type: 'button', class: 'ex-row', 'aria-current': String(S.cur === w.id), onclick: () => openRow('su', s.email, w.id) },
+      h('b', null, s.name || s.email), resultPill(w.result), w.seen ? null : pill('blue', 'חדש'),
+      h('span', { class: 'sub' }, ago(w.at) + (w.n > 1 ? ` · הוגש ${w.n} פעמים` : '') + (s.left ? ' · עזב' : '')), h('span', { class: 'go' }, 'פתיחת הקוד ›')));
+  }
+  if (no.length) {
+    box.append(h('div', { class: 'ex-none' }, h('b', null, no.length === 1 ? 'תלמיד אחד עוד לא הגיש: ' : `${no.length} תלמידים עוד לא הגישו: `), no.map(s => s.name || s.email).join(', ')));
+  } else if (yes.length) box.append(h('div', { class: 'ex-none ok' }, 'כל התלמידים הגישו את התרגיל הזה.'));
+  return box;
 }
 
 function confirmRow(cols, kids) {
@@ -207,13 +299,17 @@ function confirmRow(cols, kids) {
 
 // ------------------------------------------------------------------ חלונית ההגשות
 
-async function openRow(kind, id) {
+/** פותח את חלונית ההגשות של עמדה / תלמיד. pick — ההגשה שתיפתח (אחרת: הראשונה שעוד לא נפתחה, ואם אין — האחרונה) */
+async function openRow(kind, id, pick) {
   S.open = { kind, id }; S.cur = null; S.curData = null; S.subs = []; S.ask = null;
   render();
   try {
     const r = await api('GET', '/v1/me/submissions?' + (kind === 'st' ? 'station=' : 'student=') + encodeURIComponent(id));
     S.subs = r.submissions;
-    if (S.subs.length) await openSub(S.subs[0].id); else render();
+    const first = S.subs.find(x => x.id === pick) || S.subs.find(x => !x.seen) || S.subs[0];
+    if (first) await openSub(first.id); else render();
+    const d = root.querySelector('.detail');
+    if (d && d.scrollIntoView) d.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   } catch (e) { toast(e.message, true); }
 }
 
@@ -222,7 +318,14 @@ async function openSub(id) {
   try {
     S.curData = await api('GET', '/v1/me/submission?id=' + encodeURIComponent(id));
     const row = S.subs.find(x => x.id === id);
-    if (row && !row.seen) { row.seen = true; const st = data.stations.find(x => S.open && x.id === S.open.id); if (st && st.unseen) st.unseen--; }
+    if (row && !row.seen) {   // נפתחה עכשיו: יורדת מ"הגשות חדשות" (בעמדה ואצל התלמיד) בלי לטעון את הכול מחדש
+      row.seen = true;
+      const st = data.stations.find(x => S.open && S.open.kind === 'st' && x.id === S.open.id);
+      if (st && st.unseen) st.unseen--;
+      const su = data.students.find(x => S.open && S.open.kind === 'su' && x.email === S.open.id);
+      const w = su && (su.work || []).find(x => x.id === id);
+      if (w && !w.seen) { w.seen = true; su.unseen = Math.max(0, (su.unseen || 0) - 1); }
+    }
     const m = S.curData.files.findIndex(f => f.path === S.curData.main);
     S.fileIdx = m >= 0 ? m : 0;
   } catch (e) { toast(e.message, true); S.curData = null; }
@@ -230,6 +333,13 @@ async function openSub(id) {
 }
 
 function exTitle(x) { return (x.exercise && x.exercise.title) || 'תרגיל'; }
+/** כמו resultOf בשרת: התוצאה של בדיקת ההרצה במילה אחת */
+function checkResult(c) {
+  if (!c || !c.ran) return 'none';
+  if (c.compiles === false) return 'err';
+  if (c.timedOut) return 'time';
+  return c.outputMatch === true ? 'ok' : c.outputMatch === false ? 'diff' : 'none';
+}
 
 function detailPane() {
   if (!S.open) return null;
@@ -241,7 +351,8 @@ function detailPane() {
   for (const x of S.subs) {
     list.append(h('button', { type: 'button', class: 'd-item', 'aria-current': String(x.id === S.cur), onclick: () => openSub(x.id) },
       h('span', { class: 't' }, exTitle(x)),
-      h('span', { class: 'm' }, ago(x.createdAt), st ? ' · ' + x.who : '', x.n > 1 ? ` · הוגש ${x.n} פעמים` : '', x.seen ? null : pill('blue', 'חדש'))));
+      h('span', { class: 'm' }, ago(x.createdAt), st ? ' · ' + x.who : '', x.n > 1 ? ` · הוגש ${x.n} פעמים` : '', x.seen ? null : pill('blue', 'חדש')),
+      h('span', { class: 'm' }, resultPill(checkResult(x.check)))));
   }
   if (st && S.subs.length > 1) {
     const all = h('button', { type: 'button', class: 'btn sm danger' }, 'מחיקת כל ההגשות');
@@ -297,7 +408,10 @@ function outView(c) {
   const box = h('div', { class: 'out' });
   if (!c || !c.ran) { box.append(h('span', { class: 'small muted' }, c && c.needsInput ? 'בדיקת ההרצה: התרגיל מחכה לקלט מהמקלדת, ולכן לא הורץ.' : 'בלי בדיקת הרצה.')); return box; }
   if (c.compiles === false) {
-    box.append(h('b', null, 'בדיקת ההרצה: הקוד לא התקמפל, ולכן לא רץ'), h('pre', { class: 'outpre' }, h('span', { class: 'ln bad' }, c.error || '')));
+    const n = c.errors || 0, shown = c.error ? String(c.error).split('\n').length : 0;
+    box.append(h('b', null, 'בדיקת ההרצה: הקוד לא התקמפל, ולכן לא רץ' + (n > 1 ? ` (${n} שגיאות)` : n === 1 ? ' (שגיאה אחת)' : '')),
+      h('pre', { class: 'outpre' }, h('span', { class: 'ln bad' }, c.error || '')),
+      n > shown && shown ? h('span', { class: 'small muted' }, `מוצגות ${shown} הראשונות.`) : null);
     return box;
   }
   const got = String(c.output || '').replace(/\s+$/, '').split('\n'), exp = c.expected ? String(c.expected).replace(/\s+$/, '').split('\n') : null;

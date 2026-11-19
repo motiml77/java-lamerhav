@@ -650,6 +650,11 @@ public final class AccessGate {
         AccessWatch.listen(() -> SwingUtilities.invokeLater(AccessGate::notifyListeners));
     }
 
+    /** מפסיק להודיע (חלון שנסגר) */
+    public static void offChange(Runnable r) {
+        CHANGED.remove(r);
+    }
+
     static void changed() {
         AccessWatch.baseline();   // כבר מודיעים כאן — המעקב לא יודיע שוב על אותו שינוי
         notifyListeners();
@@ -989,6 +994,274 @@ public final class AccessGate {
             }, "dsviz-teacher-panel");
             t.setDaemon(true);
             t.start();
+        }
+    }
+
+    // ------------------------------------------------------------------ תלמיד: "המורה שלי" (הצטרפות עם קוד המורה, מתוך התוכנה)
+
+    /** תלמיד שמחובר עם Google במחשב הזה, והמאגר פתוח לו */
+    public static boolean isStudent() {
+        if (disabled()) return false;
+        Account.Access a = Account.current();
+        return a != null && !a.isStation() && !a.isTeacher() && Account.studentInfo() != null;
+    }
+
+    /** המורה של התלמיד המחובר (השם), או "" — תלמיד עצמאי / עוד לא הצטרף / לא תלמיד */
+    public static String studentTeacher() {
+        Map<String, Object> st = isStudent() ? Account.studentInfo() : null;
+        return st == null ? "" : Json.str(st.get("teacher"));
+    }
+
+    /**
+     * הטקסט של הקישור במאגר לתלמיד מחובר: "המורה שלי" (כשהוא משויך) / "הצטרפות למורה" (כשלא). "" — לא תלמיד, או שהשרת
+     * עוד לא יודע לקבל הגשות (אז אין טעם להצטרף מכאן)
+     */
+    public static String teacherLink() {
+        if (!isStudent() || !Account.serverHas(false, "submit")) return "";
+        return studentTeacher().isEmpty() ? "הצטרפות למורה" : "המורה שלי";
+    }
+
+    /** החלון הפתוח (או null) — גם לבדיקות */
+    static MyTeacher myTeacher;
+
+    /** החלון "המורה שלי": מי המורה, הצטרפות עם קוד המורה, יציאה / החלפה. רק לתלמיד מחובר */
+    public static void showMyTeacher(final Component parent) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                if (!isStudent()) return;
+                if (myTeacher != null && myTeacher.isDisplayable()) {
+                    front(myTeacher);
+                    return;
+                }
+                final MyTeacher d = new MyTeacher(parent);
+                myTeacher = d;
+                d.addWindowListener(new java.awt.event.WindowAdapter() {
+                    @Override
+                    public void windowClosed(java.awt.event.WindowEvent e) {
+                        if (myTeacher == d) myTeacher = null;
+                    }
+                });
+                d.setVisible(true);
+                front(d);
+            }
+        });
+    }
+
+    /** שאלת אישור (בבדיקות — confirmForTest עונה בלי חלון) */
+    private static boolean confirm(Component parent, String title, String text, String yes) {
+        Boolean t = confirmForTest;
+        return t != null ? t : ask(parent, title, text, yes, "ביטול");
+    }
+
+    static final class MyTeacher extends JDialog {
+        private static final long serialVersionUID = 1L;
+        private final JPanel body = column();
+        private final JTextField code = field("");
+        private final JLabel error = text(" ", 13, false, new Color(0xB42318));
+        /** הודעה ירוקה אחרי פעולה שהצליחה ("הצטרפת למורה…") */
+        private String done = "";
+        /** מוצג שדה הקוד גם כשכבר יש מורה ("החלפת מורה") */
+        private boolean switching;
+        private boolean busy;
+
+        MyTeacher(Component parent) {
+            super(parent == null ? null : SwingUtilities.getWindowAncestor(parent) != null ? SwingUtilities.getWindowAncestor(parent)
+                    : parent instanceof Window ? (Window) parent : null, "המורה שלי", ModalityType.MODELESS);
+            setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+            JPanel root = new JPanel(new BorderLayout());
+            root.setBackground(PAGE);
+            body.setBorder(BorderFactory.createEmptyBorder(22, 28, 22, 28));
+            root.add(body, BorderLayout.CENTER);
+            setContentPane(root);
+            code.setFont(new Font(Font.MONOSPACED, Font.BOLD, 22));
+            code.setHorizontalAlignment(SwingConstants.CENTER);
+            code.setMaximumSize(new Dimension(190, 46));
+            code.setPreferredSize(new Dimension(190, 46));
+            code.putClientProperty("dsviz.id", "teacher-code");
+            error.putClientProperty("dsviz.id", "teacher-error");
+            fill();
+            setMinimumSize(new Dimension(520, 0));
+            setLocationRelativeTo(parent);
+            // המצב העדכני מהשרת (המורה מחק את התלמיד / התלמיד הצטרף מהדף בדפדפן) — ברקע
+            Thread t = new Thread(() -> {
+                try { Account.refresh(); } catch (Throwable ignored) { /* נשאר מה ששמור */ }
+                SwingUtilities.invokeLater(() -> { if (isDisplayable() && !busy) { fill(); changed(); } });
+            }, "dsviz-my-teacher");
+            t.setDaemon(true);
+            t.start();
+        }
+
+        /** בונה את החלון לפי המצב השמור: יש מורה → מי הוא + "החלפת מורה" / "יציאה מהמורה"; אין → שדה לקוד המורה */
+        void fill() {
+            Map<String, Object> st = Account.studentInfo();
+            String teacher = st == null ? "" : Json.str(st.get("teacher")), school = st == null ? "" : Json.str(st.get("school"));
+            boolean linked = !teacher.isEmpty();
+            body.removeAll();
+            body.add(text(linked && !switching ? "המורה שלי" : linked ? "החלפת מורה" : "הצטרפות למורה", 22, true, INK));
+            body.add(Box.createVerticalStrut(10));
+            if (!done.isEmpty()) {
+                JLabel ok = text(done, 14, true, GREEN);
+                ok.setOpaque(true);
+                ok.setBackground(GREEN_SOFT);
+                ok.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+                ok.putClientProperty("dsviz.id", "teacher-done");
+                body.add(ok);
+                body.add(Box.createVerticalStrut(10));
+            }
+            if (linked) {
+                JPanel box = new Rounded(BLUE_SOFT, BLUE_SOFT, 14);
+                box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
+                box.setBorder(BorderFactory.createEmptyBorder(14, 18, 14, 18));
+                box.setAlignmentX(Component.RIGHT_ALIGNMENT);
+                JLabel who = text(teacher, 19, true, BLUE);
+                who.putClientProperty("dsviz.id", "teacher-name");
+                box.add(who);
+                if (!school.isEmpty()) {
+                    box.add(Box.createVerticalStrut(2));
+                    box.add(text(school, 14, false, MUTED));
+                }
+                body.add(box);
+                body.add(Box.createVerticalStrut(10));
+                body.add(wrap("כדי להגיש תרגיל: בחלון השאלה לוחצים \"הגשה למורה\". המורה רואה את הקוד ואת מה שיצא בהרצה.", 14, MUTED, 430));
+                body.add(Box.createVerticalStrut(14));
+            }
+            final JButton join = primary(linked ? "מעבר למורה הזה" : "הצטרפות");
+            if (!linked || switching) {
+                body.add(wrap(linked ? "מקלידים את הקוד של המורה החדש (4 תווים). ההגשות שכבר נשלחו נשארות אצל המורה הקודם."
+                        : "מקלידים את הקוד שהמורה נותן (4 תווים). אחרי ההצטרפות מגישים למורה תרגילים ישר מחלון השאלה.", 14, linked ? MUTED : INK, 430));
+                body.add(Box.createVerticalStrut(12));
+                body.add(text("קוד המורה", 14, true, INK));
+                body.add(Box.createVerticalStrut(6));
+                JPanel line = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+                line.setOpaque(false);
+                line.setAlignmentX(Component.RIGHT_ALIGNMENT);
+                line.add(code);
+                body.add(line);
+                body.add(Box.createVerticalStrut(6));
+                body.add(error);
+                body.add(Box.createVerticalStrut(12));
+                join.putClientProperty("dsviz.id", "teacher-join");
+                join.addActionListener(e -> join(join, false));
+                getRootPane().setDefaultButton(join);
+            } else getRootPane().setDefaultButton(null);
+            JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+            row.setOpaque(false);
+            row.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            if (!linked || switching) row.add(join);
+            if (linked && !switching) {
+                JButton other = secondary("החלפת מורה");
+                other.putClientProperty("dsviz.id", "teacher-switch");
+                other.addActionListener(e -> { switching = true; done = ""; error.setText(" "); fill(); code.requestFocusInWindow(); });
+                final JButton leave = secondary("יציאה מהמורה");
+                leave.putClientProperty("dsviz.id", "teacher-leave");
+                leave.addActionListener(e -> leave(leave, teacher));
+                row.add(other);
+                row.add(leave);
+            } else if (linked) {
+                JButton back = secondary("חזרה");
+                back.addActionListener(e -> { switching = false; error.setText(" "); fill(); });
+                row.add(back);
+            }
+            JButton close = secondary("סגירה");
+            close.putClientProperty("dsviz.id", "teacher-close");
+            close.addActionListener(e -> dispose());
+            row.add(close);
+            body.add(row);
+            body.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+            code.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+            body.revalidate();
+            body.repaint();
+            pack();
+        }
+
+        private void say(String msg) {
+            error.setText(wrapHtml(msg, 430));
+            pack();
+        }
+
+        private void join(final JButton go, final boolean replace) {
+            final String c = code.getText().trim();
+            if (c.replaceAll("[\\s-]", "").length() != 4) { say("הקוד הוא 4 תווים, למשל K7QM."); return; }
+            busy = true;
+            go.setEnabled(false);
+            go.setText("רגע…");
+            new SwingWorker<Account.Result, Void>() {
+                @Override
+                protected Account.Result doInBackground() { return Account.studentJoin(c, replace); }
+
+                @Override
+                protected void done() {
+                    busy = false;
+                    if (!isDisplayable()) return;
+                    Account.Result r;
+                    try { r = get(); } catch (Exception e) { r = new Account.Result("error", "", null); }
+                    String name = Json.str(r.teacher().get("name"));
+                    if (name.isEmpty()) name = "המורה";
+                    go.setEnabled(true);
+                    go.setText(switching ? "מעבר למורה הזה" : "הצטרפות");
+                    lastJoin = r.status;
+                    switch (r.status) {
+                        case "ok":
+                            MyTeacher.this.done = "ההצטרפות הצליחה. מעכשיו מגישים למורה " + name + ".";
+                            switching = false;
+                            code.setText("");
+                            error.setText(" ");
+                            changed();
+                            fill();
+                            break;
+                        case "bad-code":
+                            say("הקוד לא נמצא. בודקים מול המורה ומקלידים שוב.");
+                            break;
+                        case "closed":
+                            say(name + " סגר כרגע את ההצטרפות עם הקוד. מבקשים מהמורה לפתוח אותה (בעמדת הניהול שלו).");
+                            break;
+                        case "blocked":
+                            say("הגישה של המורה הזה הושבתה. פונים למורה.");
+                            break;
+                        case "replace":   // כבר משויך למורה אחר: שואלים לפני שעוברים
+                            if (confirm(MyTeacher.this, "מעבר למורה אחר", "החשבון כבר משויך למורה אחר. לעבור למורה " + name + "? ההגשות שכבר נשלחו נשארות אצל המורה הקודם.", "מעבר")) join(go, true);
+                            break;
+                        default:
+                            say(r.message.isEmpty() ? "ההצטרפות לא הצליחה. מנסים שוב בעוד רגע." : r.message);
+                    }
+                }
+            }.execute();
+        }
+
+        /** לבדיקות: התשובה האחרונה של ההצטרפות */
+        volatile String lastJoin = "";
+
+        private void leave(final JButton go, final String teacher) {
+            if (!confirm(this, "יציאה מהמורה", "לצאת מהמורה " + teacher + "? אחרי היציאה אי אפשר להגיש לו תרגילים. מה שכבר הוגש נשאר אצלו.", "יציאה")) return;
+            busy = true;
+            go.setEnabled(false);
+            new SwingWorker<Account.Result, Void>() {
+                @Override
+                protected Account.Result doInBackground() { return Account.studentLeave(); }
+
+                @Override
+                protected void done() {
+                    busy = false;
+                    if (!isDisplayable()) return;
+                    Account.Result r;
+                    try { r = get(); } catch (Exception e) { r = new Account.Result("error", "", null); }
+                    go.setEnabled(true);
+                    if (r.ok()) {
+                        MyTeacher.this.done = "יצאת מהמורה " + teacher + ".";
+                        changed();
+                        fill();
+                    } else {
+                        MyTeacher.this.done = "";
+                        fill();
+                        JLabel l = text(r.message.isEmpty() ? "היציאה לא הצליחה. מנסים שוב בעוד רגע." : r.message, 13, false, new Color(0xB42318));
+                        body.add(Box.createVerticalStrut(8));
+                        body.add(l);
+                        body.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+                        pack();
+                    }
+                }
+            }.execute();
         }
     }
 

@@ -5,7 +5,7 @@
 // שני חלקים (part=1 / part=2), כדי להישאר בתוך מגבלת הפניות של Cloudflare לבקשה אחת.
 
 import { db, indexMisses } from './firestore.js';
-import { firestoreEmulator, projectId, serviceToken } from './google.js';
+import { firestoreEmulator, authEmulator, projectId, serviceToken } from './google.js';
 import { importRsaPrivate, signRs256 } from './crypto.js';
 import { payProvider } from './pay.js';
 import { mailReady } from './alerts.js';
@@ -101,7 +101,8 @@ async function partData(env) {
     out.push(fail('pass', 'האישור החתום (עבודה בלי אינטרנט)', short(e) + '. בלי PASS_KEY תקין התוספים לא פותחים את המאגר.'));
   }
   // 6. כניסה עם Google בדפים
-  if (env.FIREBASE_API_KEY && env.FIREBASE_AUTH_DOMAIN) out.push(ok('google', 'כניסה עם Google', 'הכניסה שלך למסוף עברה אימות מול Google · ' + env.FIREBASE_AUTH_DOMAIN));
+  if (authEmulator(env)) out.push(ok('google', 'כניסה עם Google', 'אמולטור (בבדיקות)'));
+  else if (env.FIREBASE_API_KEY && env.FIREBASE_AUTH_DOMAIN) out.push(ok('google', 'כניסה עם Google', 'הכניסה שלך למסוף עברה אימות מול Google · ' + env.FIREBASE_AUTH_DOMAIN));
   else out.push(fail('google', 'כניסה עם Google', 'חסר FIREBASE_API_KEY / FIREBASE_AUTH_DOMAIN בהגדרות השרת — הדפים לא יוכלו לפתוח את הכניסה של Google.'));
   // 7. הגבלות קצב (קוד מורה שגוי, הגשות)
   const kv = env.USAGE && typeof env.USAGE.get === 'function' ? env.USAGE : env.STATS && typeof env.STATS.get === 'function' ? env.STATS : null;
