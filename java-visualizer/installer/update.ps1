@@ -153,7 +153,7 @@ function RelaunchEclipse {
 }
 # פתוחים עכשיו? בודקים כל שנייה (מי שסגר את Eclipse ופתח אותו מיד "פספס" את העדכון כשבדקנו כל 5 שניות);
 # "מודלים חישוביים" (שאילתת WMI — איטית יותר) — כל 5 שניות
-$script:tick = 0; $script:auto = $false
+$script:tick = 0; $script:auto = $false; $script:installed = $false
 function Busy {
     $script:tick++
     if (($script:tick % 5) -eq 1) { $script:auto = AutomataRunning }
@@ -165,46 +165,50 @@ if ($InstallNow) {
     if ($Relaunch) { Set-Content -LiteralPath $relaunchFile -Value @($Relaunch, $Workspace) -Encoding UTF8 }
 }
 
+# תחזוקה של IntelliJ / Visual Studio (התוסף לכל IntelliJ, סרגל הכלים לכל Visual Studio — גם כאלה שהותקנו אחרי DSViz).
+# רצה בסוף, כשאין עדכון להתקין (בעדכון — ההתקנה עושה את זה בעצמה): קודם היא רצה לפני בדיקת הגרסה, וההתקנה של סרגל הכלים
+# ל-Visual Studio (דקות) עיכבה את העדכון
+function IdeMaintenance {
+    # IntelliJ IDEA: גם IntelliJ שהותקן אחרי DSViz (או שהיה פתוח בזמן ההתקנה) מקבל את התוסף — בכל בדיקה, גם בלי אינטרנט
+    try {
+        $langFile = Join-Path $dir 'lang.txt'
+        $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
+        $ij = Join-Path $dir 'intellij\dsviz-intellij'
+        if ($lang -ne 'cs' -and (Test-Path -LiteralPath (Join-Path $ij 'lib'))) {
+            $r = & (Join-Path $dir 'intellij.ps1') -Source $ij -Quiet
+            if ($LASTEXITCODE -eq 3) { Log 'IntelliJ פתוח — התוסף יעודכן בפעם הבאה' }
+        }
+        # מאגר התרגילים ב-IntelliJ (אחרי שהתוסף הראשי נכנס) — אותה בדיקה, גם בלי אינטרנט
+        $bank = Join-Path $dir 'bank\bank-install.ps1'
+        if ($lang -ne 'cs' -and (Test-Path -LiteralPath $bank)) { & $bank -Only intellij -Quiet | Out-Null }
+    } catch { Log "IntelliJ: $($_.Exception.Message)" }
+    # Visual Studio: גם Visual Studio שהותקן אחרי DSViz (למשל 2026 ליד 2022), או שההתקנה של סרגל הכלים לא הצליחה בו, או שנשארה בו
+    # גרסה ישנה (העדכון רץ כשהוא היה פתוח), מקבל את סרגל הכלים — בכל בדיקה, גם בלי אינטרנט. Visual Studio שכבר יש בו את הגרסה הנוכחית — לא נוגעים.
+    # כש-Visual Studio פתוח: מחכים ברקע שייסגר (תהליך נפרד — לא מעכב את בדיקת הגרסה)
+    try {
+        $langFile = Join-Path $dir 'lang.txt'
+        $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
+        $vsixPs = Join-Path $dir 'cs\install-vsix.ps1'
+        $vsixFile = Join-Path $dir 'cs\DsViz.VsExtension.vsix'
+        if ($lang -ne 'java' -and (Test-Path -LiteralPath $vsixPs) -and (Test-Path -LiteralPath $vsixFile)) {
+            if (-not (Get-Process -Name devenv -ErrorAction SilentlyContinue)) {
+                & $vsixPs -Vsix $vsixFile -Missing | Out-Null
+            } else {
+                & $vsixPs -Vsix $vsixFile -Check | Out-Null
+                if ($LASTEXITCODE -eq 10) {
+                    Log 'Visual Studio פתוח וחסר בו סרגל הכלים (או שיש בו גרסה ישנה) — יותקן ברקע כשייסגר'
+                    Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$vsixPs`"", '-Vsix', "`"$vsixFile`"", '-Missing', '-WhenClosed')
+                }
+            }
+        }
+    } catch { Log "Visual Studio: $($_.Exception.Message)" }
+}
+
 # רק עדכון אחד בכל פעם (מי שכבר מחכה לסגירה — יתקין, ויפתח את Eclipse מחדש אם ביקשו: relaunch.txt)
 $lock = Join-Path $env:TEMP 'dsviz-update.lock'
 try { $fs = [IO.File]::Open($lock, 'OpenOrCreate', 'ReadWrite', 'None') } catch { exit 0 }
 try {
     if ($testUrl -or $InstallNow) { } elseif ($AfterEclipse) { Start-Sleep -Seconds 5 } elseif ($FromEclipse -or $FromIde) { Start-Sleep -Seconds 60 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows / את פתיחת Eclipse
-    if (-not $InstallNow) {
-        # IntelliJ IDEA: גם IntelliJ שהותקן אחרי DSViz (או שהיה פתוח בזמן ההתקנה) מקבל את התוסף — בכל בדיקה, גם בלי אינטרנט
-        try {
-            $langFile = Join-Path $dir 'lang.txt'
-            $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
-            $ij = Join-Path $dir 'intellij\dsviz-intellij'
-            if ($lang -ne 'cs' -and (Test-Path -LiteralPath (Join-Path $ij 'lib'))) {
-                $r = & (Join-Path $dir 'intellij.ps1') -Source $ij -Quiet
-                if ($LASTEXITCODE -eq 3) { Log 'IntelliJ פתוח — התוסף יעודכן בפעם הבאה' }
-            }
-            # מאגר התרגילים ב-IntelliJ (אחרי שהתוסף הראשי נכנס) — אותה בדיקה, גם בלי אינטרנט
-            $bank = Join-Path $dir 'bank\bank-install.ps1'
-            if ($lang -ne 'cs' -and (Test-Path -LiteralPath $bank)) { & $bank -Only intellij -Quiet | Out-Null }
-        } catch { Log "IntelliJ: $($_.Exception.Message)" }
-        # Visual Studio: גם Visual Studio שהותקן אחרי DSViz (למשל 2026 ליד 2022), או שההתקנה של סרגל הכלים לא הצליחה בו, או שנשארה בו
-        # גרסה ישנה (העדכון רץ כשהוא היה פתוח), מקבל את סרגל הכלים — בכל בדיקה, גם בלי אינטרנט. Visual Studio שכבר יש בו את הגרסה הנוכחית — לא נוגעים.
-        # כש-Visual Studio פתוח: מחכים ברקע שייסגר (תהליך נפרד — לא מעכב את בדיקת הגרסה)
-        try {
-            $langFile = Join-Path $dir 'lang.txt'
-            $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
-            $vsixPs = Join-Path $dir 'cs\install-vsix.ps1'
-            $vsixFile = Join-Path $dir 'cs\DsViz.VsExtension.vsix'
-            if ($lang -ne 'java' -and (Test-Path -LiteralPath $vsixPs) -and (Test-Path -LiteralPath $vsixFile)) {
-                if (-not (Get-Process -Name devenv -ErrorAction SilentlyContinue)) {
-                    & $vsixPs -Vsix $vsixFile -Missing | Out-Null
-                } else {
-                    & $vsixPs -Vsix $vsixFile -Check | Out-Null
-                    if ($LASTEXITCODE -eq 10) {
-                        Log 'Visual Studio פתוח וחסר בו סרגל הכלים (או שיש בו גרסה ישנה) — יותקן ברקע כשייסגר'
-                        Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$vsixPs`"", '-Vsix', "`"$vsixFile`"", '-Missing', '-WhenClosed')
-                    }
-                }
-            }
-        } catch { Log "Visual Studio: $($_.Exception.Message)" }
-    }
     $local = LocalBuild
     $pending = ReadPending
     if ($pending -and [int64]$pending.build -le $local) { ClearPending; $pending = $null }   # כבר מותקן
@@ -267,6 +271,7 @@ try {
 
     Log "מתקין את הגרסה החדשה ($($pending.version))..."
     Prog 'install' 0
+    $script:installed = $true
     $p = Start-Process -FilePath $exe -ArgumentList '/S', '/UPDATE' -PassThru -WindowStyle Hidden
     # חלון קטן בפינה: "DSViz מתעדכן לגרסה חדשה" עם אחוזים (המתקין מדווח בכל שלב) — נסגר לבד כשההתקנה נגמרת; בסופה ההתקנה מראה "DSViz עודכן"
     Toast 'updating' $p.Id
@@ -287,5 +292,6 @@ try {
     Prog 'failed' 0   # חלון ההתקדמות (אם פתוח) נסגר — לא נשאר תקוע על המסך
     RelaunchEclipse
 } finally {
+    if (-not $InstallNow -and -not $script:installed) { try { IdeMaintenance } catch { } }
     $fs.Close()
 }

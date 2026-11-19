@@ -54,6 +54,9 @@ Set-Content "$fe\plugins\org.eclipse.jdt.core_3.40.0.jar" -Value 'x'
 Set-Content "$fe\eclipse.ini" -Value "-vmargs`r`n-Xmx1024m"
 $null = InstallDsviz $Setup '/S' 'התקנה'
 $real = BuildTxt
+# update.ps1 מהקוד (לא מההתקנה): כך שינוי ב-update.ps1 נבדק מיד, בלי לחכות לבנייה של התקנה חדשה (ההתקנה שבענף נבנית ממנו)
+$srcUpd = Join-Path $PSScriptRoot '..\..\..\installer\update.ps1'
+if ((Get-FileHash $srcUpd).Hash -ne (Get-FileHash $upd).Hash) { Copy-Item $srcUpd $upd -Force; Info 'update.ps1 מהקוד (שונה מזה שבהתקנה)' }
 $plugin = Get-ChildItem "$fe\dropins" -Filter 'il.lamerhav.dsviz_*.jar' -ErrorAction SilentlyContinue | Select-Object -First 1
 Check 'eclipse-got-plugin' ($null -ne $plugin) "Eclipse המדומה קיבל את התוסף ב-dropins ($real)"
 if (-not $plugin -or $real -le 0) { Save-Summary; exit 1 }

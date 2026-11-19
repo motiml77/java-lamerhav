@@ -8,6 +8,7 @@ on:
     paths:
       - 'java-visualizer/release/DSViz-Setup.exe'
       - 'java-visualizer/tools/test/windows-public/update-flow.ps1'
+      - 'java-visualizer/installer/update.ps1'
       - '.github/workflows/dsviz-update-flow.yml'
   workflow_dispatch:
 
@@ -23,6 +24,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { lfs: false }
+      - name: תחביר הסקריפטים של ההתקנה (PowerShell)
+        shell: powershell
+        run: |
+          $bad = 0
+          foreach ($f in @(Get-ChildItem java-visualizer\installer\*.ps1) + @(Get-Item java-visualizer\tools\test\windows-public\update-flow.ps1)) {
+            $errs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errs)
+            foreach ($e in $errs) { $bad++; Write-Host ("{0}:{1}: {2}" -f $f.Name, $e.Extent.StartLineNumber, $e.Message) }
+          }
+          Write-Host "שגיאות תחביר: $bad"
+          exit $bad
       - name: בדיקה
         shell: powershell
         run: |
