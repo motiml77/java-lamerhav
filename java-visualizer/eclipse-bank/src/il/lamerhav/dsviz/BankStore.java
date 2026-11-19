@@ -99,6 +99,63 @@ final class BankStore {
         String expectedOutput() {
             return Json.str(exercise.get("expectedOutput")).replace("\r", "").replaceAll("\\s+$", "");
         }
+
+        private String searchText;
+
+        /**
+         * החיפוש בחלון המאגר (Eclipse, וגם Visual Studio / VS Code / IntelliJ — BankVsWindow): כל מילה שהוקלדה מופיעה בכותרת,
+         * בנוסח (הפתיחה וכל הסעיפים) או בשם הנושא — בלי הבדל של אותיות גדולות / קטנות, ניקוד, גרש וגרשיים.
+         * אות סופית בסוף מילה בחיפוש מוצאת גם את הצורות עם סיומת: "ממוין" — ממוינת, ממוינים; "עץ" — עצים (אבל לא "עצם").
+         */
+        boolean matches(String query, String topicTitle) {
+            String[] words = fold(query).trim().split("\\s+");
+            if (words.length == 0 || words[0].isEmpty()) return true;
+            if (searchText == null) {
+                StringBuilder b = new StringBuilder(title).append(' ').append(intro);
+                for (Section s : sections) b.append(' ').append(s.text);
+                b.append(' ').append(topicTitle == null ? "" : topicTitle).append(' ').append(id);
+                searchText = finals(fold(b.toString()));
+            }
+            for (String w : words) {
+                char last = w.charAt(w.length() - 1);
+                if (FINALS.indexOf(last) >= 0) {
+                    // "עץ" → עצ, ואחריו סוף מילה או סיומת: עצ / עצים / עצי — לא עצם (עצמ)
+                    String base = finals(w);
+                    if (!java.util.regex.Pattern.compile(java.util.regex.Pattern.quote(base) + "(?:ים|ות|ית|י|ו|ה|ת)?(?!\\p{L})")
+                            .matcher(searchText).find()) return false;
+                } else if (!searchText.contains(finals(w))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    private static final String FINALS = "ךםןףץ", REGULAR = "כמנפצ";
+
+    /** אותיות סופיות → רגילות (ממוין → ממוינ — כך זה חלק מ"ממוינת") */
+    static String finals(String s) {
+        StringBuilder b = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            int f = FINALS.indexOf(c);
+            b.append(f >= 0 ? REGULAR.charAt(f) : c);
+        }
+        return b.toString();
+    }
+
+    /** לחיפוש: אותיות קטנות, בלי ניקוד וטעמים, בלי גרש / גרשיים / מרכאות, ובלי סימני כיוון (RLM, RLE...) */
+    static String fold(String s) {
+        if (s == null) return "";
+        StringBuilder b = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c >= '֑' && c <= 'ׇ') continue;                       // ניקוד וטעמים
+            if (c == '׳' || c == '״' || c == '"' || c == '\'' || c == '`') continue;
+            if (c == '‎' || c == '‏' || (c >= '‪' && c <= '‮') || (c >= '⁦' && c <= '⁩')) continue;
+            b.append(Character.toLowerCase(c));
+        }
+        return b.toString();
     }
 
     /** הנושאים — הסדר הקבוע, גם אם עוד אין בהם שאלות (אפשר להוסיף נושא חדש ב-topics.json) */

@@ -81,7 +81,7 @@ public final class Account {
 
         /** שורה קצרה לכותרת המאגר */
         public String label() {
-            if (isStation()) return "עמדת מחשב: " + name + (teacher.isEmpty() ? "" : " · " + teacher);
+            if (isStation()) return "עמדת מחשב: " + name + (teacher.isEmpty() ? "" : " · המורה: " + teacher);
             if (isTeacher()) return "מורה: " + (name.isEmpty() ? email : name);
             return (name.isEmpty() ? email : name) + (until.isEmpty() ? "" : " · פתוח עד " + dmy(until));
         }

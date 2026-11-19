@@ -266,11 +266,11 @@ final class BankVsWindow {
 
     List<BankStore.Question> visible(String topic) {
         List<BankStore.Question> out = new ArrayList<BankStore.Question>();
-        String s = search.toLowerCase();
+        String topicTitle = BankVs.topicTitle(topic);
         for (BankStore.Question q : BankVs.store.questions) {
             if (!q.topic.equals(topic)) continue;
             if (!levelFilter.isEmpty() && !q.level.id.equals(levelFilter)) continue;
-            if (!s.isEmpty() && !(q.title + " " + q.intro).toLowerCase().contains(s) && !BankVs.topicTitle(q.topic).contains(search)) continue;
+            if (!search.isEmpty() && !q.matches(search, topicTitle)) continue;   // אותו חיפוש כמו ב-Eclipse (BankStore)
             out.add(q);
         }
         return out;

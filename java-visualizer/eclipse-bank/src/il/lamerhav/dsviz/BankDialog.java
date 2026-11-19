@@ -3,7 +3,6 @@ package il.lamerhav.dsviz;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 
@@ -249,7 +248,14 @@ public class BankDialog extends Dialog {
         buttons = new Composite(parent, SWT.NONE);
         buttons.setBackground(Look.color(parent.getDisplay(), Look.BG));
         boolean signOut = AccessGate.canSignOut();   // מורה / תלמיד שנכנסו עם Google (לא עמדת מחשב)
-        GridLayout l = new GridLayout(signOut ? 5 : 4, false);
+        // עמדת מחשב בכיתה: בתחתית — שם העמדה ושם המורה שהיא שייכת אליו ("עמדת מחשב: כיתה 3 · המורה: שרה כהן")
+        String whoLine = "";
+        try {
+            Account.Access a = AccessGate.who().isEmpty() ? null : Account.current();   // who() ריק כשהכניסה כבויה
+            if (a != null && a.isStation()) whoLine = a.label();
+        } catch (Throwable ignored) { /* בלי שורת העמדה */ }
+        final boolean station = !whoLine.isEmpty();
+        GridLayout l = new GridLayout((signOut ? 5 : 4) + (station ? 1 : 0), false);
         l.marginWidth = 20;
         l.marginHeight = 10;
         l.horizontalSpacing = 10;
@@ -266,10 +272,17 @@ public class BankDialog extends Dialog {
                     () -> AccessGate.signOut(null, () -> display.asyncExec(() -> { if (getShell() != null && !getShell().isDisposed()) close(); })));
             out.setData("dsviz.id", "signout");
         }
-        Label c = new Label(buttons, SWT.LEFT_TO_RIGHT);
-        c.setText(Look.COPYRIGHT);
-        c.setFont(Look.font(parent.getDisplay(), -2, SWT.NORMAL));
-        c.setForeground(Look.color(parent.getDisplay(), 0xA0A8B8));
+        if (station) {
+            Label st = new Label(buttons, SWT.RIGHT_TO_LEFT);
+            st.setText("🖥  " + whoLine);
+            st.setFont(Look.font(parent.getDisplay(), -1, SWT.BOLD));
+            st.setForeground(Look.color(parent.getDisplay(), 0x344054));
+            st.setData("dsviz.id", "station-line");
+            GridData sgd = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+            sgd.horizontalIndent = 12;
+            st.setLayoutData(sgd);
+        }
+        Label c = Look.copyrightLabel(buttons);   // זכויות יוצרים והגרסה
         c.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
         updateButtons();
         return buttons;
@@ -280,10 +293,11 @@ public class BankDialog extends Dialog {
     /** השאלות של הנושא שעוברות את החיפוש ואת הסינון */
     private List<BankStore.Question> visible(String topicId) {
         List<BankStore.Question> out = new ArrayList<BankStore.Question>();
-        String s = search.toLowerCase(Locale.ROOT);
+        String topicTitle = "";
+        for (BankStore.Topic t : store.topics) if (t.id.equals(topicId)) topicTitle = t.title;
         for (BankStore.Question q : store.of(topicId)) {
             if (levelFilter != null && q.level != levelFilter) continue;
-            if (!s.isEmpty() && !q.title.toLowerCase(Locale.ROOT).contains(s) && !q.intro.toLowerCase(Locale.ROOT).contains(s)) continue;
+            if (!search.isEmpty() && !q.matches(search, topicTitle)) continue;
             out.add(q);
         }
         return out;

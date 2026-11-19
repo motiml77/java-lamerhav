@@ -39,6 +39,52 @@ final class Look {
     /** זכויות יוצרים — בתחתית החלונות של התוסף */
     static final String COPYRIGHT = "\u200E© 2026 Moti Levi · motiml77@gmail.com";
 
+    private static String version;
+
+    /**
+     * הגרסה שמותקנת ("1.0.3") — מהקובץ resources/version.properties שנכנס לתוסף בבנייה (tools/build-all.sh: version, build).
+     * "" כשאין (בנייה מקומית בלי הקובץ). כך רואים בכל חלון איזו גרסה מותקנת — וגם אם העדכון האוטומטי נכנס.
+     */
+    static String version() {
+        if (version != null) return version;
+        String v = "";
+        try (java.io.InputStream in = Look.class.getResourceAsStream("/resources/version.properties")) {
+            if (in != null) {
+                java.util.Properties p = new java.util.Properties();
+                p.load(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
+                v = p.getProperty("version", "").trim();
+                String b = p.getProperty("build", "").trim();
+                if (!v.isEmpty() && !b.isEmpty()) build = b;
+            }
+        } catch (Exception ignored) { /* בלי גרסה */ }
+        version = v;
+        return v;
+    }
+
+    private static String build = "";
+
+    /** מספר הבנייה (202611191230) — לרמז שמופיע מעל שורת הגרסה */
+    static String build() {
+        version();
+        return build;
+    }
+
+    /** שורת זכויות היוצרים בתחתית החלונות, עם הגרסה: "© 2026 Moti Levi · motiml77@gmail.com · גרסה 1.0.3" */
+    static String copyright() {
+        String v = version();
+        return v.isEmpty() ? COPYRIGHT : COPYRIGHT + "  ·  גרסה " + v;
+    }
+
+    /** תווית זכויות היוצרים + הגרסה (הרמז: מספר הבנייה) */
+    static Label copyrightLabel(Composite parent) {
+        Label c = new Label(parent, SWT.LEFT_TO_RIGHT);
+        c.setText(copyright());
+        if (!build().isEmpty()) c.setToolTipText("בנייה " + build());
+        c.setFont(font(parent.getDisplay(), -2, SWT.NORMAL));
+        c.setForeground(color(parent.getDisplay(), 0xA0A8B8));
+        return c;
+    }
+
     static final int BG = 0xF1F3F7, CARD = 0xFFFFFF, BORDER = 0xDFE3EA, TEXT = 0x1D2433, MUTED = 0x667085,
             ACCENT = 0x2F6FED, ACCENT_DARK = 0x2457C5, ACCENT_SOFT = 0xE8F0FE;
     /** המראה החדש (כמו באתר — site/DESIGN.md): משטח אפור-בהיר, טקסט משני, ירוק של "בוצע", אדום של שגיאה, הצהוב של "כאן עונים" */
@@ -437,11 +483,8 @@ final class Look {
         Round primary = new Round(bar, okText, true, ok);
         new Round(bar, "ביטול", false, cancel);
         okOut[0] = primary;
-        Label c = new Label(bar, SWT.LEFT_TO_RIGHT);   // זכויות יוצרים — בקצה השני של שורת הכפתורים
-        c.setText(COPYRIGHT);
-        c.setFont(font(parent.getDisplay(), -2, SWT.NORMAL));
+        Label c = copyrightLabel(bar);   // זכויות יוצרים והגרסה — בקצה השני של שורת הכפתורים
         c.setData(KEEP, Boolean.TRUE);
-        c.setForeground(color(parent.getDisplay(), 0xA0A8B8));
         c.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
         return bar;
     }
@@ -534,57 +577,30 @@ final class Look {
      * שדה טקסט שמציע ערך בצבע אפור: כל עוד לא הקלידו — מוצגת ההצעה (ו-value() מחזיר ""), ברגע שמקלידים ההצעה נעלמת.
      * אם מוחקים הכול — ההצעה חוזרת.
      */
+    /**
+     * תיבת טקסט עם רמז אפור — הרמז של המערכת (Text.setMessage: ב-Windows EM_SETCUEBANNER), לא טקסט אמיתי בתוך השדה.
+     * קודם הרמז נכתב לתוך השדה ו"הוחלף" בהקלדה דרך Verify (e.start / e.end) — אבל ב-Windows SWT מתעלם משינוי של start / end,
+     * כך שמה שהוקלד נדבק לרמז ("ממוין🔍 חיפוש שאלה…"), והחיפוש חיפש את כל זה ולא מצא כלום.
+     */
     static final class HintText {
         final org.eclipse.swt.widgets.Text text;
-        private String hint = "";
-        private boolean showing, internal;
-        private final Display display;
 
         HintText(Composite parent, int style) {
             text = new org.eclipse.swt.widgets.Text(parent, style);
-            display = parent.getDisplay();
-            text.addListener(SWT.Verify, e -> {
-                if (internal || !showing) return;
-                if (e.text.isEmpty()) { e.doit = false; return; }   // מחיקה כשמוצגת ההצעה — לא עושים כלום
-                e.start = 0;                                          // הקלדה: מחליפים את כל ההצעה
-                e.end = text.getCharCount();
-                showing = false;
-                text.setForeground(null);
-            });
-            text.addListener(SWT.Modify, e -> {
-                if (!internal && !showing && text.getText().isEmpty()) show();
-            });
-            Listener caretToStart = e -> { if (showing) text.setSelection(0); };
-            text.addListener(SWT.FocusIn, caretToStart);
-            text.addListener(SWT.MouseUp, caretToStart);
-            text.addListener(SWT.KeyUp, e -> { if (showing && (e.keyCode == SWT.ARROW_RIGHT || e.keyCode == SWT.END)) text.setSelection(0); });
         }
 
-        private void show() {
-            internal = true;
-            try {
-                text.setText(hint);
-                text.setForeground(color(display, 0x9AA3B2));
-                text.setSelection(0);
-                showing = true;
-            } finally {
-                internal = false;
-            }
-        }
-
-        /** ההצעה (נראית באפור כשהשדה ריק) */
+        /** הרמז (נראה באפור כשהשדה ריק, ונעלם כשמקלידים) */
         void setHint(String h) {
-            hint = h == null ? "" : h;
-            if (showing || text.getText().isEmpty()) show();
+            text.setMessage(h == null ? "" : h);
         }
 
-        /** מה שהמשתמש הקליד — "" אם עוד לא הקליד כלום (אז משתמשים בהצעה) */
+        /** מה שהמשתמש הקליד — "" אם עוד לא הקליד כלום (אז משתמשים ברמז) */
         String value() {
-            return showing ? "" : text.getText();
+            return text.getText();
         }
 
         boolean isShowingHint() {
-            return showing;
+            return text.getText().isEmpty();
         }
     }
 }

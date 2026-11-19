@@ -94,6 +94,8 @@ cp eclipse-plugin/ai.properties "$OUT/resources/"   # "שליחת תרגיל": �
 mkdir -p "$OUT/resources/help" && cp build/help/* "$OUT/resources/help/" 2>/dev/null || true
 cp src/examples/*.java "$OUT/resources/examples/"
 cp src/Main.java "$OUT/resources/"
+# הגרסה בתחתית החלונות של Eclipse ("גרסה 1.0.3") — Look.version()
+printf 'version=%s\nbuild=%s\n' "$SHORTVER" "$BUILDNO" > "$OUT/resources/version.properties"
 # Bundle-Version עם qualifier של הבנייה (1.0.1.v202611011200). שם הקובץ נשאר il.lamerhav.dsviz_1.0.1.jar (קישורים קבועים);
 # ל-Eclipse משנה רק הגרסה שבתוך MANIFEST.MF. בלי זה כל הבניות היו "1.0.1", ועותק ישן היה נטען במקום החדש
 MF=build/eclipse-MANIFEST.MF
