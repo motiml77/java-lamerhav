@@ -835,6 +835,19 @@ Section "-eclipse"
   ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
     Return
   ${EndIf}
+  ; עדכון אוטומטי: בודקים שוב רגע לפני שנוגעים בקבצים של Eclipse — הבדיקה הראשונה (EnsureEclipseClosed) הייתה דקה קודם,
+  ; ומי שסגר את Eclipse ופתח אותו מיד נתפס כאן: בלי זה ההחלפה נכשלה בשקט (הקבצים נעולים), וההתקנה "הצליחה" עם התוסף הישן
+  ${If} $UPDATING == "1"
+  ${AndIf} $ECLIPSE_BUSY != "1"
+    Push $0
+    Call IsEclipseRunning
+    Pop $0
+    ${If} $0 == "0"
+      StrCpy $ECLIPSE_BUSY "1"
+      StrCpy $INCOMPLETE "1"
+    ${EndIf}
+    Pop $0
+  ${EndIf}
   ${If} $ECLIPSE_BUSY == "1"
     DetailPrint "Eclipse: פתוח — התוסף יתעדכן בסגירה הבאה"
     Return   ; eclipse-dirs.txt נשאר כמו שהוא (ההסרה והעדכון הבא צריכים אותו)
