@@ -1,0 +1,52 @@
+# Eclipse על Windows עם מקלדת עברית: רק המשתמש מחליף את שפת ההקלדה (KeyboardGuard).
+# SWT (StyledText) מחליף לבד לעברית כשהסמן ליד אות עברית — בעורך, ב-Console ובחלונות ריחוף. הבדיקה מראה קודם שזה באמת
+# קורה בלי ההגנה, ואחר כך שעם ההגנה השפה לא זזה — ושמשתמש שלוחץ Alt+Shift כן מחליף. ראו tools/test/windows-keyboard/KeyboardGuardIt.java
+name: DSViz Eclipse keyboard (Hebrew)
+on:
+  push:
+    branches: [release/public-all, release/control-center]
+    paths:
+      - '.github/workflows/dsviz-eclipse-keyboard.yml'
+      - 'java-visualizer/eclipse-plugin/src/il/lamerhav/dsviz/KeyboardGuard.java'
+      - 'java-visualizer/tools/test/windows-keyboard/**'
+  workflow_dispatch:
+
+jobs:
+  keyboard:
+    name: keyboard (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - name: מקלדת עברית
+        shell: powershell
+        run: |
+          $l = Get-WinUserLanguageList
+          if (-not ($l | Where-Object { $_.LanguageTag -like 'he*' })) { $l.Add('he-IL') }
+          Set-WinUserLanguageList $l -Force
+          # טוענים את פריסת המקלדת העברית (0000040D) גם לסשן הזה — בלי להתנתק ולהתחבר מחדש
+          Add-Type -Name Kbd -Namespace W -MemberDefinition '[DllImport("user32.dll")] public static extern System.IntPtr LoadKeyboardLayout(string id, uint flags); [DllImport("user32.dll")] public static extern int GetKeyboardLayoutList(int n, System.IntPtr[] list);'
+          [void][W.Kbd]::LoadKeyboardLayout('0000040D', 0x80)
+          [void][W.Kbd]::LoadKeyboardLayout('00000409', 0x80)
+          $n = [W.Kbd]::GetKeyboardLayoutList(0, $null); $a = New-Object IntPtr[] $n; [void][W.Kbd]::GetKeyboardLayoutList($n, $a)
+          Write-Host ("layouts: " + (($a | ForEach-Object { '{0:X8}' -f $_.ToInt64() }) -join ', '))
+          Get-WinUserLanguageList | Format-List LanguageTag, InputMethodTips
+      - name: SWT ל-Windows (אותה גרסה כמו ב-Eclipse 2026-09)
+        shell: powershell
+        run: Invoke-WebRequest 'https://repo1.maven.org/maven2/org/eclipse/platform/org.eclipse.swt.win32.win32.x86_64/3.135.0/org.eclipse.swt.win32.win32.x86_64-3.135.0.jar' -OutFile swt.jar -UseBasicParsing
+      - name: בדיקה
+        shell: powershell
+        run: |
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          $src = 'java-visualizer'
+          javac -encoding UTF-8 -d out -cp swt.jar "$src\eclipse-plugin\src\il\lamerhav\dsviz\KeyboardGuard.java" "$src\tools\test\windows-keyboard\KeyboardGuardIt.java"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          java "-Dfile.encoding=UTF-8" "-Dstdout.encoding=UTF-8" -cp "out;swt.jar" il.lamerhav.dsviz.KeyboardGuardIt
+          exit $LASTEXITCODE
