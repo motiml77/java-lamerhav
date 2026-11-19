@@ -1,0 +1,135 @@
+{
+  "id": "queue-two-sum",
+  "topic": "queue",
+  "level": "hard",
+  "title": "שני מספרים שסכומם x",
+  "question": {
+    "intro": "בשאלה זו נתונה הפעולה:\npublic static int size(Queue<Integer> q)\nהפעולה מחזירה את מספר האיברים בתור q בלי לשנות את התור.\nאפשר להשתמש בפעולה size בלי לממש אותה (במעטפת היא כבר כתובה).\nבבגרות היא מופיעה כפעולה של המחלקה Queue (q.size()); בספרייה של בית הספר אין פעולה כזו, ולכן כאן היא פעולה חיצונית.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית ששמה twoSum, המקבלת תור q של מספרים שלמים ומספר שלם x. הפעולה מחזירה true אם בתור q יש שני מספרים שסכומם שווה לערך הפרמטר x, אחרת הפעולה מחזירה false.\nשני המספרים הם שני איברים שונים בתור (אותו איבר לא נספר פעמיים).\nלדוגמה: עבור התור q שבציור ו-x = 10 הפעולה תחזיר true, כי יש בתור שני מספרים שסכומם 10: (9, 1)\nהערות:\nהנח שבתור q יש שני איברים לפחות.\nאין צורך לשמור על התור q.\nאין להשתמש בשאלה זו במערך וברשימה מקושרת.",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              5,
+              4,
+              1,
+              4,
+              3,
+              15,
+              9
+            ],
+            "caption": "התור q (5 בראש)"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "שני מספרים שסכומם x",
+    "topic": "queue",
+    "mainClass": "QueueTargil10",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "QueueTargil10",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "twoSum",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q"
+          },
+          {
+            "type": "int",
+            "name": "x"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית ששמה twoSum, המקבלת תור q של מספרים שלמים ומספר שלם x. הפעולה מחזירה true אם בתור q יש שני מספרים שסכומם שווה לערך הפרמטר x, אחרת הפעולה מחזירה false.\nשני המספרים הם שני איברים שונים בתור (אותו איבר לא נספר פעמיים).\nלדוגמה: עבור התור q שבציור ו-x = 10 הפעולה תחזיר true, כי יש בתור שני מספרים שסכומם 10: (9, 1)\nהערות:\nהנח שבתור q יש שני איברים לפחות.\nאין צורך לשמור על התור q.\nאין להשתמש בשאלה זו במערך וברשימה מקושרת.",
+        "solution": "public static boolean twoSum(Queue<Integer> q, int x) {\n    int n = size(q);\n    // כל איבר בתורו יוצא מהתור, ומשווים אותו לכל שאר האיברים (סיבוב שלם של התור)\n    for (int i = 0; i < n; i++) {\n        int a = q.remove();\n        for (int j = 0; j < n - 1; j++) {\n            int b = q.remove();\n            if (a + b == x) {\n                return true;\n            }\n            q.insert(b);\n        }\n        q.insert(a);\n    }\n    return false;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "QueueTargil10",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// הפעולה הנתונה בשאלה: מספר האיברים בתור q, בלי לשנות את התור\npublic static int size(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int count = 0;\n    while (!q.isEmpty()) {\n        temp.insert(q.remove());\n        count++;\n    }\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    return count;\n}\n\n// תור עם הערכים לפי הסדר (הראשון — בראש התור)\npublic static Queue<Integer> build(int[] values) {\n    Queue<Integer> q = new Queue<Integer>();\n    for (int i = 0; i < values.length; i++) {\n        q.insert(values[i]);\n    }\n    return q;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה, x = 10): \" + check(twoSum(build(new int[] { 5, 4, 1, 4, 3, 15, 9 }), 10), true));\nSystem.out.println(\"סעיף א, בדיקה 2 (הדוגמה, x = 100 — אין זוג כזה): \" + check(twoSum(build(new int[] { 5, 4, 1, 4, 3, 15, 9 }), 100), false));\nSystem.out.println(\"סעיף א, בדיקה 3 (אותו איבר לא נספר פעמיים): \" + check(twoSum(build(new int[] { 4, 1, 3 }), 8), false));\nSystem.out.println(\"סעיף א, בדיקה 4 (שני איברים שווים): \" + check(twoSum(build(new int[] { 4, 1, 4 }), 8), true));\nSystem.out.println(\"סעיף א, בדיקה 5 (שני איברים בתור): \" + check(twoSum(build(new int[] { 6, 4 }), 10), true));\nSystem.out.println(\"סעיף א, בדיקה 6 (שני איברים בתור, בלי זוג): \" + check(twoSum(build(new int[] { 6, 4 }), 12), false));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה, x = 10): נכון\nסעיף א, בדיקה 2 (הדוגמה, x = 100 — אין זוג כזה): נכון\nסעיף א, בדיקה 3 (אותו איבר לא נספר פעמיים): נכון\nסעיף א, בדיקה 4 (שני איברים שווים): נכון\nסעיף א, בדיקה 5 (שני איברים בתור): נכון\nסעיף א, בדיקה 6 (שני איברים בתור, בלי זוג): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בשאלה זו נתונה הפעולה:\npublic static int Size(Queue<int> q)\nהפעולה מחזירה את מספר האיברים בתור q בלי לשנות את התור.\nאפשר להשתמש בפעולה Size בלי לממש אותה (במעטפת היא כבר כתובה).\nבבגרות היא מופיעה כפעולה של המחלקה Queue (q.Size()); בספרייה של בית הספר אין פעולה כזו, ולכן כאן היא פעולה חיצונית.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית ששמה TwoSum, המקבלת תור q של מספרים שלמים ומספר שלם x. הפעולה מחזירה true אם בתור q יש שני מספרים שסכומם שווה לערך הפרמטר x, אחרת הפעולה מחזירה false.\nשני המספרים הם שני איברים שונים בתור (אותו איבר לא נספר פעמיים).\nלדוגמה: עבור התור q שבציור ו-x = 10 הפעולה תחזיר true, כי יש בתור שני מספרים שסכומם 10: (9, 1)\nהערות:\nהנח שבתור q יש שני איברים לפחות.\nאין צורך לשמור על התור q.\nאין להשתמש בשאלה זו במערך וברשימה מקושרת.",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                5,
+                4,
+                1,
+                4,
+                3,
+                15,
+                9
+              ],
+              "caption": "התור q (5 בראש)"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "שני מספרים שסכומם x",
+      "topic": "queue",
+      "mainClass": "QueueTargil10",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "QueueTargil10",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "TwoSum",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q"
+            },
+            {
+              "type": "int",
+              "name": "x"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית ששמה TwoSum, המקבלת תור q של מספרים שלמים ומספר שלם x. הפעולה מחזירה true אם בתור q יש שני מספרים שסכומם שווה לערך הפרמטר x, אחרת הפעולה מחזירה false.\nשני המספרים הם שני איברים שונים בתור (אותו איבר לא נספר פעמיים).\nלדוגמה: עבור התור q שבציור ו-x = 10 הפעולה תחזיר true, כי יש בתור שני מספרים שסכומם 10: (9, 1)\nהערות:\nהנח שבתור q יש שני איברים לפחות.\nאין צורך לשמור על התור q.\nאין להשתמש בשאלה זו במערך וברשימה מקושרת.",
+          "solution": "public static bool TwoSum(Queue<int> q, int x)\n{\n    int n = Size(q);\n    // כל איבר בתורו יוצא מהתור, ומשווים אותו לכל שאר האיברים (סיבוב שלם של התור)\n    for (int i = 0; i < n; i++)\n    {\n        int a = q.Remove();\n        for (int j = 0; j < n - 1; j++)\n        {\n            int b = q.Remove();\n            if (a + b == x)\n            {\n                return true;\n            }\n            q.Insert(b);\n        }\n        q.Insert(a);\n    }\n    return false;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "QueueTargil10",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// הפעולה הנתונה בשאלה: מספר האיברים בתור q, בלי לשנות את התור\npublic static int Size(Queue<int> q)\n{\n    Queue<int> temp = new Queue<int>();\n    int count = 0;\n    while (!q.IsEmpty())\n    {\n        temp.Insert(q.Remove());\n        count++;\n    }\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n    return count;\n}\n\n// תור עם הערכים לפי הסדר (הראשון — בראש התור)\npublic static Queue<int> Build(int[] values)\n{\n    Queue<int> q = new Queue<int>();\n    for (int i = 0; i < values.Length; i++)\n    {\n        q.Insert(values[i]);\n    }\n    return q;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה, x = 10): \" + Check(TwoSum(Build(new int[] { 5, 4, 1, 4, 3, 15, 9 }), 10), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (הדוגמה, x = 100 — אין זוג כזה): \" + Check(TwoSum(Build(new int[] { 5, 4, 1, 4, 3, 15, 9 }), 100), false));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (אותו איבר לא נספר פעמיים): \" + Check(TwoSum(Build(new int[] { 4, 1, 3 }), 8), false));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (שני איברים שווים): \" + Check(TwoSum(Build(new int[] { 4, 1, 4 }), 8), true));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (שני איברים בתור): \" + Check(TwoSum(Build(new int[] { 6, 4 }), 10), true));\nConsole.WriteLine(\"סעיף א, בדיקה 6 (שני איברים בתור, בלי זוג): \" + Check(TwoSum(Build(new int[] { 6, 4 }), 12), false));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה, x = 10): נכון\nסעיף א, בדיקה 2 (הדוגמה, x = 100 — אין זוג כזה): נכון\nסעיף א, בדיקה 3 (אותו איבר לא נספר פעמיים): נכון\nסעיף א, בדיקה 4 (שני איברים שווים): נכון\nסעיף א, בדיקה 5 (שני איברים בתור): נכון\nסעיף א, בדיקה 6 (שני איברים בתור, בלי זוג): נכון"
+    }
+  }
+}
