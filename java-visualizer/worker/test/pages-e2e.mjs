@@ -550,7 +550,7 @@ await step('הרשמה עם קוד מורה (בחינם): קוד שגוי → ה
 
 await step('תלמיד שכבר מחובר בתוכנה ועוד לא נרשם: לקוח חדש מקבל register → ‎/welcome?r=register‎ → הטופס → המאגר נפתח', async () => {
   const s = await oldSession('old.pupil@gmail.com', 'דני');
-  assert.equal(s.status, 'pay', 'לקוח רגיל — כמו בשרת של היום: בלי מרכז הבקרה תלמיד לא פתוח בחינם');
+  assert.equal(s.status, 'ok', 'לקוח רגיל — כמו בשרת של היום: התלמידים בחינם, בלי הרשמה');
   assert.equal((await checkNew(s)).status, 'register');
   const p = await newCtx().then(c => c.newPage());
   p.on('pageerror', e => errors.push(String(e)));

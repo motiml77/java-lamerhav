@@ -2957,7 +2957,7 @@ async function resolveToken(env, token, machine, caps) {
   const st = await store.get("students/" + se.email);
   const s = await settings(env);
   if (classroomClient(caps)) await markClassroom(store, "students/" + se.email, st || {});
-  const free = s.studentsFree !== false && (classroomClient(caps) || classroomFor(s, se.email, { student: st }));
+  const free = s.studentsFree !== false;
   const yearAhead = new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
   const until = free ? s.accessUntil >= today() ? s.accessUntil : yearAhead : st && st.accessUntil || "";
   await touch();
@@ -3287,7 +3287,7 @@ async function me(request, env) {
   ]);
   const until = st && st.accessUntil || "";
   const classroom = classroomFor(s, u.email, { teacher: t, student: st });
-  const free = s.studentsFree !== false && classroom;
+  const free = s.studentsFree !== false;
   return {
     ok: true,
     email: u.email,
@@ -3721,8 +3721,8 @@ async function adminStudents(env, url) {
     until: s.accessUntil || "",
     paid: !!s.accessUntil && s.accessUntil >= t,
     source: s.source || "",
-    free: free && classroomFor(cfg, s.email || s._id, { student: s }),
-    open: free && classroomFor(cfg, s.email || s._id, { student: s }) || !!s.accessUntil && s.accessUntil >= t,
+    free,
+    open: free || !!s.accessUntil && s.accessUntil >= t,
     teacherName: s.teacher ? tname.get(s.teacher) || s.teacher : "",
     note: s.note || "",
     paidAt: s.paidAt || "",
@@ -4089,7 +4089,7 @@ function withCors(request, env, res) {
   h.set("vary", "origin");
   return new Response(res.body, { status: res.status, headers: h });
 }
-var VERSION = "2026-11-19.1";
+var VERSION = "2026-11-19.2";
 async function handle(request, env, ctx) {
   const url = new URL(request.url);
   if (request.method === "GET" && (url.pathname === "/v1/health" || url.pathname === "/")) {

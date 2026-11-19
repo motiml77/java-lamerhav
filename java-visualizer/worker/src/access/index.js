@@ -3,7 +3,7 @@
 // מי מחליט: רק השרת. Firestore סגור לכל מחשב (כללי האבטחה: הכול חסום) — השרת ניגש בשם חשבון השירות.
 //   • מורה      — חשבון Google שההנהלה הגדירה (teachers/{email}). קוד קבוע. רואה את העמדות; מוסיף עמדות רק בקניית חבילה.
 //   • עמדת מחשב — קוד המורה + שם למחשב. היתר אחד יורד מהמורה, בטרנזקציה. אותו מחשב שמתחבר שוב — אותו היתר.
-//   • תלמיד     — חשבון Google + הרשמה (שם מלא וטלפון — פעם אחת, בדפדפן). בינתיים בחינם (settings.studentsFree); כשההנהלה
+//   • תלמיד     — חשבון Google (+ במרכז הבקרה: הרשמה בשם מלא וטלפון). בינתיים בחינם לכולם (settings.studentsFree); כשההנהלה
 //                 מכבה את המתג — תשלום (או הענקה ידנית מההנהלה): students/{email}.accessUntil. גם תלמיד שכבר מחובר נדרש אז לשלם.
 //   • הנהלה     — רק כתובות שב-ADMIN_EMAILS (בהגדרות השרת, לא ב-Firestore — אף אחד לא יכול "להוסיף את עצמו").
 //
@@ -125,7 +125,7 @@ function capsOf(v) {
 export const classroomClient = caps => (caps || []).includes('classroom') || (caps || []).includes('register');
 
 /**
- * מרכז הבקרה פתוח לחשבון הזה (הדפים בדפדפן, והתלמיד — בחינם): ההנהלה פתחה אותו לכולם, חשבון בדיקה, או מי שכבר משתמש בו —
+ * מרכז הבקרה פתוח לחשבון הזה (הדפים בדפדפן: עמדת הניהול, ההרשמה, "המורה שלי"): ההנהלה פתחה אותו לכולם, חשבון בדיקה, או מי שכבר משתמש בו —
  * מורה / תלמיד שהתוסף שלהם הוא הגרסה עם מרכז הבקרה (classroom: true), תלמיד שנרשם או בחר "עצמאי / מורה"
  */
 export function classroomFor(s, email, docs) {
@@ -270,9 +270,9 @@ export async function resolveToken(env, token, machine, caps) {
   const st = await store.get('students/' + se.email);
   const s = await settings(env);
   if (classroomClient(caps)) await markClassroom(store, 'students/' + se.email, st || {});
-  // בינתיים בחינם (studentsFree) — רק במרכז הבקרה (שם נרשמים בשם מלא וטלפון): עד accessUntil של ההגדרות, ואם הוא כבר עבר —
-  // שנה קדימה. בגרסה הרגילה כשמרכז הבקרה כבוי, וכשההנהלה כיבתה את המתג — כמו קודם: רק תשלום / הענקה
-  const free = s.studentsFree !== false && (classroomClient(caps) || classroomFor(s, se.email, { student: st }));
+  // בינתיים בחינם (studentsFree) — לכל תלמיד, בשתי הגרסאות (הרגילה ומרכז הבקרה): עד accessUntil של ההגדרות, ואם הוא כבר עבר —
+  // שנה קדימה. רק כשההנהלה מכבה את המתג — תשלום / הענקה
+  const free = s.studentsFree !== false;
   const yearAhead = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
   const until = free ? (s.accessUntil >= today() ? s.accessUntil : yearAhead) : (st && st.accessUntil || '');
   await touch();
@@ -600,7 +600,7 @@ async function me(request, env) {
   const until = st && st.accessUntil || '';
   // מרכז הבקרה בדפדפן (עמדת הניהול, ההרשמה, "המורה שלי") — או הדף הקודם, כמו שהיה לפני מרכז הבקרה
   const classroom = classroomFor(s, u.email, { teacher: t, student: st });
-  const free = s.studentsFree !== false && classroom;
+  const free = s.studentsFree !== false;   // בחינם לכל תלמיד — לא רק במרכז הבקרה
   return {
     ok: true, email: u.email, name: u.name, picture: u.picture, admin: admins(env).includes(u.email), classroom,
     teacher: t ? Object.assign(await teacherView(t, stations.filter(x => x.active).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'))), { sends: (await monthlySends(env, [t]))[0], phone: t.phone || '' }) : null,
@@ -972,14 +972,14 @@ async function adminStudents(env, url) {
   const store = db(env);
   const [all, teachers, cfg] = await Promise.all([store.query('students', { limit: 5000 }), store.query('teachers', { limit: 2000 }), settings(env)]);
   const t = today();
-  // בינתיים בחינם — מי שבמרכז הבקרה (נרשם / משתמש בגרסה עם מרכז הבקרה / חשבון בדיקה / פתוח לכולם); paid — מי ששילם / קיבל הענקה
+  // בינתיים בחינם — כל תלמיד (בשתי הגרסאות); paid — מי ששילם / קיבל הענקה
   const free = cfg.studentsFree !== false;
   const tname = new Map(teachers.map(x => [x.email || x._id, x.name || '']));
   const rows = all.map(s => ({
     email: s.email || s._id, name: s.fullName || s.name || '', googleName: s.name || '', until: s.accessUntil || '',
     paid: !!s.accessUntil && s.accessUntil >= t, source: s.source || '',
-    free: free && classroomFor(cfg, s.email || s._id, { student: s }),
-    open: (free && classroomFor(cfg, s.email || s._id, { student: s })) || (!!s.accessUntil && s.accessUntil >= t),
+    free,
+    open: free || (!!s.accessUntil && s.accessUntil >= t),
     teacherName: s.teacher ? tname.get(s.teacher) || s.teacher : '',
     note: s.note || '', paidAt: s.paidAt || '', lastSignIn: s.lastSignIn || '', phone: s.phone || '',
     registered: isRegistered(s), registeredAt: s.registeredAt || '', mode: s.mode || '', teacher: s.teacher || '',

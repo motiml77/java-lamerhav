@@ -400,7 +400,8 @@ await step('תלמיד בדפדפן: בוחר "תלמיד עצמאי" → ואז
   // מרכז הבקרה כבוי, ושירה לא השתמשה בגרסה עם מרכז הבקרה: הדף כמו בגרסה הרגילה — בלי הרשמה ובלי "המורה שלי"
   await sp.waitForSelector('h2:has-text("מאגר התרגילים")');
   assert.equal(await sp.locator('#reg-name').count(), 0);
-  assert.ok(await sp.locator('.pill:has-text("סגור")').count(), 'בגרסה הרגילה תלמיד לא פתוח בחינם');
+  assert.ok(await sp.locator('.pill:has-text("פתוח")').count(), 'גם בגרסה הרגילה התלמיד בחינם (המתג "תלמידים בחינם")');
+  assert.match(await sp.textContent('main'), /בלי תשלום/);
   await shot(sp, 'c08a-student-regular-version');
   // ההנהלה מוסיפה אותה לחשבונות הבדיקה — ועכשיו מרכז הבקרה פתוח לה
   await api('POST', '/v1/admin/settings', { classroomTesters: ['shira.b@gmail.com'] }, bearer(admin));

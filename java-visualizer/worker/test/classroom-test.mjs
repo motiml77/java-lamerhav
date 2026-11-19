@@ -713,18 +713,21 @@ await test('ניקוי כללי: הגשות מעמדות שפג תוקפן נמ�
 
 // ------------------------------------------------------------------ שתי גרסאות, שרת אחד: מרכז הבקרה כבוי לכולם עד שמדליקים
 
-await test('מרכז הבקרה כבוי (ברירת המחדל): לקוח רגיל (1.0.2 ומטה) מקבל בדיוק מה שקיבל קודם — תלמיד לא בחינם, בלי הרשמה, הדף הקודם', async () => {
+await test('מרכז הבקרה כבוי (ברירת המחדל): לקוח רגיל (1.0.2 ומטה) מקבל בדיוק מה שקיבל קודם — תלמיד בחינם, בלי הרשמה, הדף הקודם', async () => {
   assert.equal((await call('GET', '/v1/access/config')).body.classroom, false);
   const old = await signInPlugin('plain.pupil@test.dev', 'student', 'תלמיד רגיל', []);
-  assert.equal(old.status, 'pay', 'כמו בשרת של היום: תלמיד בלי תשלום / הענקה — סגור');
-  assert.ok(!old.pass);
-  assert.equal((await call('POST', '/v1/access/check', { body: { token: old.token, machine: old.machine } })).body.status, 'pay');
+  assert.equal(old.status, 'ok', 'כמו בשרת של היום: תלמיד בחינם (studentsFree), בלי הרשמה');
+  assert.ok(old.pass);
+  assert.equal((await call('POST', '/v1/access/check', { body: { token: old.token, machine: old.machine } })).body.status, 'ok');
   const web = await idToken('plain.pupil@test.dev', 'תלמיד רגיל');
   const me = (await call('GET', '/v1/me', { token: web })).body;
-  assert.deepEqual({ classroom: me.classroom, free: me.student.free, open: me.student.open }, { classroom: false, free: false, open: false });
+  assert.deepEqual({ classroom: me.classroom, free: me.student.free, open: me.student.open }, { classroom: false, free: true, open: true });
   assert.ok(!('work' in me.student.state), 'בלי התרגילים והציונים (הדף מציג את הגרסה הקודמת)');
-  // הענקה מההנהלה פותחת (כמו היום)
-  await call('POST', '/v1/admin/student', { token: admin, body: { email: 'plain.pupil@test.dev', until: '2099-01-01' } });
+  // ההנהלה מכבה "תלמידים בחינם" — גם בגרסה הרגילה נדרש תשלום / הענקה (כמו היום), ומדליקה חזרה
+  await call('POST', '/v1/admin/settings', { token: admin, body: { studentsFree: false } });
+  accessTest.reset();
+  assert.equal((await call('POST', '/v1/access/check', { body: { token: old.token, machine: old.machine } })).body.status, 'pay');
+  await call('POST', '/v1/admin/settings', { token: admin, body: { studentsFree: true } });
   accessTest.reset();
   assert.equal((await call('POST', '/v1/access/check', { body: { token: old.token, machine: old.machine } })).body.status, 'ok');
   // מורה שלא השתמש בגרסה עם מרכז הבקרה: הדף הקודם (קוד, עמדות, חבילות)
@@ -760,7 +763,7 @@ await test('חשבונות בדיקה: מורה ברשימה רואה את מר�
   assert.equal((await call('GET', '/v1/me', { token: david })).body.classroom, false);
 });
 
-await test('ההנהלה פותחת את מרכז הבקרה לכולם: גם לקוח רגיל — תלמיד בחינם, והדף החדש; וסוגרת חזרה', async () => {
+await test('ההנהלה פותחת את מרכז הבקרה לכולם: גם לקוח רגיל — דף הכניסה מבקש הרשמה, והדף החדש; וסוגרת חזרה', async () => {
   await call('POST', '/v1/admin/settings', { token: admin, body: { classroomOpen: true } });
   accessTest.reset();
   assert.equal((await call('GET', '/v1/access/config')).body.classroom, true, 'דף הכניסה יבקש הרשמה גם מגרסה רגילה');
@@ -770,7 +773,7 @@ await test('ההנהלה פותחת את מרכז הבקרה לכולם: גם ל
   await call('POST', '/v1/admin/settings', { token: admin, body: { classroomOpen: false } });
   accessTest.reset();
   assert.equal((await call('GET', '/v1/me', { token: david })).body.classroom, false);
-  assert.equal((await call('POST', '/v1/access/check', { body: { token: old.token, machine: old.machine } })).body.status, 'pay', 'נסגר — חוזר להיות כמו קודם');
+  assert.equal((await call('POST', '/v1/access/check', { body: { token: old.token, machine: old.machine } })).body.status, 'ok', 'נסגר — חוזר להיות כמו קודם (התלמיד עדיין בחינם)');
 });
 
 await test('אף קריאה בכל הבדיקות לא עברה 40 פניות החוצה (המגבלה של Cloudflare החינמי: 50)', async () => {
