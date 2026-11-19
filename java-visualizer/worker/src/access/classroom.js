@@ -12,7 +12,7 @@
 // המסמכים:
 //   classes/{id}                 teacher, name, createdAt, updatedAt
 //   members/{מורה~תלמיד}         teacher, student, name, picture, classId ('' = בלי כיתה), joinedAt, submits, lastSubmitAt, lastTitle,
-//                                work{מזהה ההגשה: {t כותרת, b מזהה במאגר, p נושא, l רמה, at, r תוצאה, n, s נצפה, g ציון, gn}} — תקציר התרגילים של התלמיד:
+//                                work{מזהה ההגשה: {t כותרת, b מזהה במאגר, p נושא, l רמה, at, r תוצאה, n, s נצפה, g ציון, gn, ga}} — תקציר התרגילים של התלמיד:
 //                                ממנו עמדת הניהול מציגה "הגשות חדשות" ו"לפי תרגיל" בלי לקרוא את ההגשות עצמן
 //   submissions/{id}             teacher, from (student / station), student | station, stationName, who, exercise{…}, lang, app, check{…},
 //                                n, firstAt, createdAt, seenAt, size, fileCount, expiresAt (רק מעמדה — Timestamp, בשביל TTL),
@@ -163,17 +163,31 @@ async function leaveTeacher(store, student, teacher, why) {
   }
 }
 
-/** מצב התלמיד (לדף "החשבון שלי" ולתוסף): עצמאי / משויך (לאיזה מורה) / עוד לא בחר */
-export async function studentState(env, email) {
+/**
+ * מצב התלמיד (לדף "החשבון שלי" ולתוסף): עצמאי / משויך (לאיזה מורה) / עוד לא בחר. withWork — גם התרגילים שהגיש למורה הנוכחי,
+ * עם הציון שהמורה נתן (myWork)
+ */
+export async function studentState(env, email, withWork) {
   const store = db(env);
   const st = await store.get('students/' + email);
   const mode = st && st.mode || '';
-  let teacher = null;
+  let teacher = null, member = null;
   if (st && st.teacher) {
     const [t, m] = await store.getMany(['teachers/' + st.teacher, 'members/' + memberId(st.teacher, email)]);
-    if (t && m && !m.leftAt) teacher = { name: t.name || '', school: t.school || '', email: st.teacher };
+    if (t && m && !m.leftAt) { teacher = { name: t.name || '', school: t.school || '', email: st.teacher }; member = m; }
   }
-  return { mode: teacher ? 'teacher' : (mode === 'teacher' ? '' : mode), teacher, registered: isRegistered(st), fullName: st && st.fullName || '' };
+  const out = { mode: teacher ? 'teacher' : (mode === 'teacher' ? '' : mode), teacher, registered: isRegistered(st), fullName: st && st.fullName || '' };
+  if (withWork) out.work = myWork(member);
+  return out;
+}
+
+/**
+ * מה שהתלמיד רואה על ההגשות שלו (אצל המורה הנוכחי): התרגיל, מתי, כמה פעמים, והציון שהמורה נתן — בלי מה שפנימי למורה
+ * ("נצפה"). again — הגיש שוב אחרי שקיבל את הציון (הציון ניתן על הגשה קודמת)
+ */
+function myWork(member) {
+  return member ? workRows(member).map(x => ({ bankId: x.bankId, title: x.title, topic: x.topic, at: x.at, n: x.n, result: x.result,
+    grade: x.grade, gradedAt: x.grade === null ? '' : x.gradedAt, again: x.grade !== null && x.n > x.gradedN })) : [];
 }
 
 // ------------------------------------------------------------------ הרשמת תלמיד: שם מלא וטלפון (פעם אחת)
@@ -339,7 +353,7 @@ function workRows(m) {
   return Object.keys(w).filter(id => w[id] && w[id].at).map(id => {
     const x = w[id];
     return { id, title: x.t || 'תרגיל', bankId: x.b || '', topic: x.p || '', level: x.l || '', at: x.at, result: x.r || 'none', n: x.n || 1, seen: !!x.s,
-      grade: Number.isInteger(x.g) ? x.g : null, gradedN: x.gn || 0 };
+      grade: Number.isInteger(x.g) ? x.g : null, gradedN: x.gn || 0, gradedAt: x.ga || '' };
   }).sort((a, b) => String(b.at).localeCompare(String(a.at)));
 }
 
@@ -487,7 +501,7 @@ async function gradeSubmission(request, env) {
   // מי שנתן ציון ראה את ההגשה: היא כבר לא "חדשה"
   await store.update('submissions/' + id, { grade, gradedAt: grade === null ? '' : at, gradedN, seenAt: x.seenAt || at });
   if (x.student) {
-    await store.update('members/' + memberId(u.email, x.student), { ['work.' + id + '.g']: grade, ['work.' + id + '.gn']: gradedN, ['work.' + id + '.s']: 1 }).catch(() => {});
+    await store.update('members/' + memberId(u.email, x.student), { ['work.' + id + '.g']: grade, ['work.' + id + '.gn']: gradedN, ['work.' + id + '.ga']: grade === null ? '' : at, ['work.' + id + '.s']: 1 }).catch(() => {});
   }
   return { ok: true, id, grade, gradedAt: grade === null ? '' : at, gradedN };
 }
@@ -666,6 +680,13 @@ async function teacherSummary(request, env) {
   };
 }
 
+/** התלמיד: התרגילים שהגיש למורה שלו, עם הציונים (מהתוסף — חלון השאלה; ומהדף "החשבון שלי") */
+async function studentWork(request, env) {
+  const u = await studentUser(request, env);
+  const state = await studentState(env, u.email, true);
+  return { ok: true, teacher: state.teacher ? { name: state.teacher.name, school: state.teacher.school } : null, work: state.work };
+}
+
 async function myStudent(request, env) {
   const u = await studentUser(request, env);
   return Object.assign({ ok: true }, await studentState(env, u.email));
@@ -679,6 +700,8 @@ export const CLASSROOM_ROUTES = {
   'POST /v1/student/join': studentJoin,
   'POST /v1/student/leave': studentLeave,
   'POST /v1/student/register': studentRegister,
+  'GET /v1/student/work': studentWork,
+  'POST /v1/student/work': studentWork,
   'POST /v1/submit': submit,
   'POST /v1/teacher/summary': teacherSummary,
   'GET /v1/me/console': consoleData,

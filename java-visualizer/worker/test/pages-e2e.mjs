@@ -224,7 +224,7 @@ await step('הגדרות: המתג של Gemini נשמר; יומן הפעולות
   await page.click('.nav a[href="#settings"]');
   await page.waitForSelector('#s-gem', { state: 'attached' });
   await shot(page, '08-admin-settings');
-  await page.click('label.switch');
+  await page.click('label.switch[for="s-gem"]');
   await page.fill('#s-monthlyStudent', '25');
   await page.click('button:has-text("שמירת השינויים")');
   await page.click('dialog button:has-text("הדלקה")');
@@ -312,9 +312,26 @@ function fakeApp(role) {
 }
 
 const student = await ctx.newPage();
+await step('הגרסה הרגילה (בלי מרכז הבקרה): תלמיד נכנס → בלי הרשמה, ישר חזרה לתוכנה — בדיוק כמו בשרת של היום', async () => {
+  const appSrv = await fakeApp('student');
+  const p = await browser.newContext({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 2, locale: 'he-IL', ignoreHTTPSErrors: true }).then(c => c.newPage());
+  p.on('pageerror', e => errors.push(String(e)));
+  await p.goto(`${BASE}/signin?role=student&port=${appSrv.port}&state=${appSrv.state}&challenge=${appSrv.challenge}`);
+  await p.waitForSelector('.gbtn');
+  assert.doesNotMatch(await p.textContent('main'), /שם מלא וטלפון/, 'בגרסה הרגילה לא מבקשים להירשם');
+  await googlePopup(p, '.gbtn', 'regular.pupil@gmail.com', 'תלמיד רגיל');
+  await p.waitForURL(/\/welcome\?r=pay/);
+  assert.equal(await p.locator('#reg-name').count(), 0);
+  assert.equal(appSrv.result().status, 'pay', 'בלי תשלום / הענקה — סגור, כמו היום');
+  const st = await store.get('students/regular.pupil@gmail.com');
+  assert.ok(st && !st.fullName && !st.classroom, 'לא נרשם, ולא סומן כמשתמש במרכז הבקרה');
+  appSrv.close();
+});
+
 await step('תלמיד מתוך התוכנה: /signin → Google → חזרה לתוכנה → "צריך לשלם" → תשלום → המאגר פתוח', async () => {
   const appSrv = await fakeApp('student');
-  await student.goto(`${BASE}/signin?role=student&port=${appSrv.port}&state=${appSrv.state}&challenge=${appSrv.challenge}`);
+  // הגרסה עם מרכז הבקרה פותחת את הכניסה עם classroom=1 — ואז תלמיד חדש נרשם לפני החזרה לתוכנה
+  await student.goto(`${BASE}/signin?role=student&port=${appSrv.port}&state=${appSrv.state}&challenge=${appSrv.challenge}&classroom=1`);
   await student.waitForSelector('.gbtn');
   await shot(student, '10-signin-student');
   await googlePopup(student, '.gbtn', 'pupil.new@gmail.com', 'תלמיד חדש');
@@ -362,8 +379,11 @@ await step('מורה מתוך התוכנה: כניסה → הצלחה; הלוח 
   await teacher.waitForURL(/\/welcome\?r=ok&role=teacher/);
   assert.equal(appSrv.result().status, 'ok');
   assert.equal(appSrv.result().teacher.seats, 30);
-  await teacher.click('a:has-text("לעמדת הניהול")');
-  await teacher.waitForSelector('.con-code');   // עמדת הניהול (console.js) — הבדיקה המלאה שלה: console-e2e.mjs
+  // הגרסה הרגילה (המורה לא השתמש בגרסה עם מרכז הבקרה): הלוח של המורה כמו היום — הקוד, העמדות, החבילות
+  await teacher.click('a:has-text("ללוח המורה")');
+  await teacher.waitForSelector('.codebox');
+  assert.equal(await teacher.locator('.con-tab').count(), 0, 'בלי עמדת הניהול החדשה (console-e2e.mjs בודק אותה)');
+  assert.equal(await teacher.locator('button:has-text("שחרור")').count(), 0, 'למורה אין כפתור שחרור');
   await shot(teacher, '14-teacher-panel');
   await shot(teacher, '15-teacher-packages');
   await teacher.click('.pack:has-text("20") button');
@@ -371,7 +391,7 @@ await step('מורה מתוך התוכנה: כניסה → הצלחה; הלוח 
   await teacher.fill('#ph', '052-7654321');
   await teacher.click('#pay');
   await teacher.waitForSelector('.toast:has-text("נוספו 20 עמדות")', { timeout: 30000 });
-  await teacher.waitForSelector('.con-stat b:has-text("30 מתוך 50")');
+  await teacher.waitForSelector('text=מתוך 50 בשימוש');
   const pay = (await api('GET', '/v1/admin/payments', null, admin)).payments.find(p => p.kind === 'seats');
   assert.deepEqual([pay.seats, pay.amount, pay.payerPhone], [20, 550, '052-7654321']);
   appSrv.close();
@@ -454,7 +474,7 @@ await step('הלקוח האמיתי, כל הדרך: תלמיד נכנס בדפד
   const p = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'he-IL', ignoreHTTPSErrors: true }).then(c => c.newPage());
   const app = realApp('student', dir);
   const url = await app.url();
-  assert.match(url, /^http:\/\/127\.0\.0\.1:8787\/signin\?role=student&port=\d+&state=[\w-]{22}&challenge=[\w-]{43}$/, 'כתובת הכניסה: בלי סודות (רק state ו-challenge)');
+  assert.match(url, /^http:\/\/127\.0\.0\.1:8787\/signin\?role=student&port=\d+&state=[\w-]{22}&challenge=[\w-]{43}&classroom=1$/, 'כתובת הכניסה: בלי סודות (רק state ו-challenge), ו-classroom=1 — הגרסה עם מרכז הבקרה');
   await p.goto(url);
   await googlePopup(p, '.gbtn', 'life.pupil@gmail.com', 'תלמידה בדיקה');
   await fillRegister(p, { phone: '054-1112233' });   // פעם ראשונה: ההרשמה בדפדפן, ורק אחריה חוזרים לתוכנה
@@ -492,7 +512,8 @@ await step('הרשמה עם קוד מורה (בחינם): קוד שגוי → ה
   const p = await newCtx().then(c => c.newPage());
   p.on('pageerror', e => errors.push(String(e)));
   const appSrv = await fakeApp('student');
-  await p.goto(`${BASE}/signin?role=student&port=${appSrv.port}&state=${appSrv.state}&challenge=${appSrv.challenge}`);
+  // הגרסה עם מרכז הבקרה פותחת את הכניסה עם classroom=1 (Account.signIn) — רק אז הדף מבקש להירשם
+  await p.goto(`${BASE}/signin?role=student&port=${appSrv.port}&state=${appSrv.state}&challenge=${appSrv.challenge}&classroom=1`);
   assert.match(await p.textContent('main'), /ההרשמה בחינם/);
   await googlePopup(p, '.gbtn', 'pupil.join@gmail.com', 'gamer_2011');
   await p.waitForSelector('#reg-name');
@@ -529,7 +550,7 @@ await step('הרשמה עם קוד מורה (בחינם): קוד שגוי → ה
 
 await step('תלמיד שכבר מחובר בתוכנה ועוד לא נרשם: לקוח חדש מקבל register → ‎/welcome?r=register‎ → הטופס → המאגר נפתח', async () => {
   const s = await oldSession('old.pupil@gmail.com', 'דני');
-  assert.equal(s.status, 'ok', 'לקוח ישן — כמו קודם');
+  assert.equal(s.status, 'pay', 'לקוח רגיל — כמו בשרת של היום: בלי מרכז הבקרה תלמיד לא פתוח בחינם');
   assert.equal((await checkNew(s)).status, 'register');
   const p = await newCtx().then(c => c.newPage());
   p.on('pageerror', e => errors.push(String(e)));

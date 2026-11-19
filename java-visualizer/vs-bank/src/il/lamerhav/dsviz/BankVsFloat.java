@@ -248,6 +248,7 @@ final class BankVsFloat {
         final BankStore.Question q = question;
         if (f == null || q == null) return;
         shown.clear();
+        if ("student".equals(Submit.mode())) BankSubmit.syncGradesLater();   // הציון מהמורה — ברקע; החלון מתעדכן כשהוא מגיע
         JPanel page = new JPanel(new BorderLayout());
         page.setBackground(RtlDialog.PAGE);
         JPanel top = BankVsPanel.column();
@@ -373,6 +374,15 @@ final class BankVsFloat {
                     up.add(RtlDialog.gap(4));
                     up.add(RtlDialog.label(note, RtlDialog.small(), RtlDialog.GREEN));
                     shown.add("SUBMIT-NOTE " + note);
+                }
+                // הציון שהמורה נתן (נשמר במחשב מהבדיקה האחרונה מול השרת — BankSubmit.syncGradesLater)
+                String grade = "student".equals(Submit.mode()) ? BankProgress.get().gradeNote(q.id) : "";
+                if (!grade.isEmpty()) {
+                    up.add(RtlDialog.gap(4));
+                    javax.swing.JLabel g = RtlDialog.label(grade, RtlDialog.bold(), new Color(0x3F3A8F));
+                    g.putClientProperty("dsviz.id", "submit-grade");
+                    up.add(g);
+                    shown.add("SUBMIT-GRADE " + grade);
                 }
                 up.add(RtlDialog.gap(8));
                 foot.add(up, BorderLayout.NORTH);

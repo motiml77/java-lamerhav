@@ -17,6 +17,42 @@ import java.util.Map;
 final class BankSubmit {
     private BankSubmit() {}
 
+    private static volatile long gradesAt;
+
+    /**
+     * הציונים מהמורה: ברקע (בלי לעכב את החלון) שואלים את השרת, ושומרים לכל שאלה (BankProgress.syncGrades) — חלון השאלה מתעדכן
+     * לבד. רק לתלמיד שמשויך למורה, לכל היותר פעם בחצי דקה; בלי אינטרנט — נשאר מה ששמור
+     */
+    static void syncGradesLater() {
+        if (System.currentTimeMillis() - gradesAt < 30000) return;
+        gradesAt = System.currentTimeMillis();
+        Thread t = new Thread(BankSubmit::syncGrades, "dsviz-grades");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    static void syncGrades() {
+        try {
+            if (!"student".equals(Submit.mode())) return;
+            Account.Result r = Account.studentWork();
+            if (!r.ok()) return;
+            Map<String, Object[]> grades = new LinkedHashMap<String, Object[]>();
+            for (Object o : Json.arr(r.body.get("work"))) {
+                Map<String, Object> w = Json.obj(o);
+                String id = Json.str(w.get("bankId"));
+                if (!id.isEmpty() && w.get("grade") instanceof Number) grades.put(id, new Object[] { w.get("grade"), Boolean.TRUE.equals(w.get("again")) });
+            }
+            BankProgress.get().syncGrades(grades);
+        } catch (Throwable ignored) {
+            // בפעם הבאה
+        }
+    }
+
+    /** לבדיקות: לשאול שוב מיד */
+    static void resetGradesClock() {
+        gradesAt = 0;
+    }
+
     /**
      * קובצי הקוד של התרגיל: כל קובץ עם הסיומת הזו שנמצא ישירות בתיקיית התרגיל (גם קבצים שהתלמיד הוסיף שם) — שם → תוכן,
      * והקובץ של main ראשון. קובץ שאי אפשר לקרוא מדלגים עליו.

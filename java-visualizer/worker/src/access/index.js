@@ -38,6 +38,12 @@ export const DEFAULTS = {
   studentsFree: true,           // תלמיד עם Google: המאגר פתוח בלי תשלום (עד accessUntil, או שנה קדימה). כבוי — כמו קודם: תשלום / הענקה
   teacherReleases: 5,           // כמה עמדות המורה משחרר לבד בחודש (עמדת הניהול); מעבר לזה — בקשה להנהלה
   stationSubmitDays: 3,         // הגשה מעמדת מחשב שהמורה לא מחק — נמחקת לבד אחרי כמה ימים (classroom.js)
+  // מרכז הבקרה (עמדת הניהול, הרשמת תלמידים, הגשות וציונים) — כבוי לכולם עד שמדליקים. גם כשהוא כבוי הוא עובד:
+  //   • בגרסה עם מרכז הבקרה (התוסף שולח caps: classroom) — ומי שהשתמש בה מסומן (classroom: true) ורואה אותו גם בדפדפן;
+  //   • לחשבונות הבדיקה (classroomTesters).
+  // לגרסאות האחרות (1.0.2 ומטה) השרת מתנהג בדיוק כמו קודם: בלי הרשמה, תלמיד לא פתוח בחינם, והדף /account הישן
+  classroomOpen: false,
+  classroomTesters: [],
 };
 const SETTING_LIMITS = {
   price: [0, 5000], offlineDays: [0, 365], studentDevices: [1, 20], teacherDevices: [1, 50], defaultSeats: [0, 2000],
@@ -113,6 +119,26 @@ function appDetail(app, more) {
  */
 function capsOf(v) {
   return Array.isArray(v) ? v.slice(0, 12).map(x => String(x || '').trim().toLowerCase()).filter(x => /^[a-z0-9-]{1,24}$/.test(x)) : [];
+}
+
+/** הלקוח הוא הגרסה עם מרכז הבקרה (caps: classroom, או register — הגרסה שמכירה את ההרשמה) */
+export const classroomClient = caps => (caps || []).includes('classroom') || (caps || []).includes('register');
+
+/**
+ * מרכז הבקרה פתוח לחשבון הזה (הדפים בדפדפן, והתלמיד — בחינם): ההנהלה פתחה אותו לכולם, חשבון בדיקה, או מי שכבר משתמש בו —
+ * מורה / תלמיד שהתוסף שלהם הוא הגרסה עם מרכז הבקרה (classroom: true), תלמיד שנרשם או בחר "עצמאי / מורה"
+ */
+export function classroomFor(s, email, docs) {
+  if (s.classroomOpen) return true;
+  const e = normEmail(email);
+  if (e && Array.isArray(s.classroomTesters) && s.classroomTesters.includes(e)) return true;
+  const t = docs && docs.teacher, st = docs && docs.student;
+  return !!(t && t.classroom) || !!(st && (st.classroom || isRegistered(st) || st.mode || st.teacher));
+}
+
+/** סימון "משתמש בגרסה עם מרכז הבקרה" — פעם אחת לכל מסמך (בלי כתיבה בכל בדיקה) */
+async function markClassroom(store, path, doc) {
+  if (doc && !doc.classroom) await store.merge(path, { classroom: true }).catch(() => {});
 }
 
 export async function log(store, actor, action, target, detail) {
@@ -217,6 +243,10 @@ export async function resolveToken(env, token, machine, caps) {
     const base = { kind: 'station', subject: 'station:' + p.id, station: { id: p.id, name: st.name, teacher: st.teacher }, machine: machine && machines.includes(machine) ? machine : st.machine,
       profile: { role: 'station', name: st.name, email: '' }, teacher: t ? { name: t.name || '', school: t.school || '' } : null };
     if (!t || !t.active) return Object.assign(base, { status: 'blocked' });
+    if (classroomClient(caps)) {   // עמדה בגרסה עם מרכז הבקרה: גם המורה שלה רואה את עמדת הניהול (ההגשות של העמדה)
+      await markClassroom(store, 'stations/' + p.id, st);
+      await markClassroom(store, 'teachers/' + st.teacher, t);
+    }
     if (!st.lastSeen || Date.now() - Date.parse(st.lastSeen) > SESSION_TOUCH_MS) {
       await store.merge('stations/' + p.id, { lastSeen: nowIso() }).catch(() => {});
     }
@@ -233,14 +263,18 @@ export async function resolveToken(env, token, machine, caps) {
     const base = { kind: 'teacher', subject: 'teacher:' + se.email, session: p.id, machine: se.machine, profile };
     if (!t) return Object.assign(base, { status: 'not-teacher' });
     if (!t.active) return Object.assign(base, { status: 'blocked' });
+    if (classroomClient(caps)) await markClassroom(store, 'teachers/' + se.email, t);
     await touch();
     return Object.assign(base, { status: 'ok', teacher: await teacherView(t) });
   }
   const st = await store.get('students/' + se.email);
   const s = await settings(env);
-  // בינתיים בחינם (studentsFree): עד accessUntil של ההגדרות, ואם הוא כבר עבר — שנה קדימה. כבוי — רק תשלום / הענקה
+  if (classroomClient(caps)) await markClassroom(store, 'students/' + se.email, st || {});
+  // בינתיים בחינם (studentsFree) — רק במרכז הבקרה (שם נרשמים בשם מלא וטלפון): עד accessUntil של ההגדרות, ואם הוא כבר עבר —
+  // שנה קדימה. בגרסה הרגילה כשמרכז הבקרה כבוי, וכשההנהלה כיבתה את המתג — כמו קודם: רק תשלום / הענקה
+  const free = s.studentsFree !== false && (classroomClient(caps) || classroomFor(s, se.email, { student: st }));
   const yearAhead = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
-  const until = s.studentsFree !== false ? (s.accessUntil >= today() ? s.accessUntil : yearAhead) : (st && st.accessUntil || '');
+  const until = free ? (s.accessUntil >= today() ? s.accessUntil : yearAhead) : (st && st.accessUntil || '');
   await touch();
   // קודם ההרשמה (שם מלא וטלפון — בחינם), ורק אחריה התשלום (כשהמאגר בתשלום)
   const status = !isRegistered(st) && (caps || []).includes('register') ? 'register' : until && until >= today() ? 'ok' : 'pay';
@@ -250,10 +284,10 @@ export async function resolveToken(env, token, machine, caps) {
 
 /**
  * מה השרת הזה יודע (נשמר במחשב עם הכניסה): submit — "הגשה למורה" (POST /v1/submit); summary — כמה הגשות חדשות מחכות למורה
- * (POST /v1/teacher/summary). התוסף מציג את הכפתור רק כשהשרת אמר
+ * (POST /v1/teacher/summary); grades — התלמיד רואה את הציון שהמורה נתן (POST /v1/student/work). התוסף מציג את הכפתור רק כשהשרת אמר
  * שהוא יודע — כך גרסה חדשה של התוסף מול שרת ישן (או שרת שבו ההגשה כבויה) לא מציגה כפתור שלא עובד
  */
-const FEATURES = ['submit', 'summary'];
+const FEATURES = ['submit', 'summary', 'grades'];
 
 async function accessReply(env, r, extra) {
   const s = await settings(env);
@@ -457,7 +491,7 @@ async function claim(request, env) {
   await log(store, 'מחשב: ' + name, res.again ? 'station.again' : 'station.claim', res.teacher.email,
     appDetail(appOf(b.app), `${tv.used}/${tv.seats}`) + (res.same === 'stable' ? ' · אותו מחשב עם מזהה חדש' : '') + (res.again && why ? ' · ' + why : ''));
   const token = 's.' + res.stationId + '.' + secret;
-  const r = await resolveToken(env, token, b.machine);
+  const r = await resolveToken(env, token, b.machine, capsOf(b.caps));
   return accessReply(env, r, { token, teacher: tv });
 }
 
@@ -564,12 +598,16 @@ async function me(request, env) {
     store.query('payments', { where: [['email', '==', u.email]] }),
   ]);
   const until = st && st.accessUntil || '';
+  // מרכז הבקרה בדפדפן (עמדת הניהול, ההרשמה, "המורה שלי") — או הדף הקודם, כמו שהיה לפני מרכז הבקרה
+  const classroom = classroomFor(s, u.email, { teacher: t, student: st });
+  const free = s.studentsFree !== false && classroom;
   return {
-    ok: true, email: u.email, name: u.name, picture: u.picture, admin: admins(env).includes(u.email),
+    ok: true, email: u.email, name: u.name, picture: u.picture, admin: admins(env).includes(u.email), classroom,
     teacher: t ? Object.assign(await teacherView(t, stations.filter(x => x.active).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'))), { sends: (await monthlySends(env, [t]))[0], phone: t.phone || '' }) : null,
-    student: { until, free: s.studentsFree !== false, open: s.studentsFree !== false || (!!until && until >= today()), source: st && st.source || '',
+    student: { until, free, open: free || (!!until && until >= today()), source: st && st.source || '',
       registered: isRegistered(st), fullName: st && st.fullName || '', phone: st && st.phone || '',
-      state: t ? null : await studentState(env, u.email), sends: (await monthlySends(env, [{ email: u.email, kind: 'student' }]))[0] },
+      // המצב (עצמאי / משויך) — גם לפני מרכז הבקרה: דף הכניסה של הגרסה עם מרכז הבקרה צריך אותו להרשמה; התרגילים והציונים — רק בו
+      state: t ? null : await studentState(env, u.email, classroom), sends: (await monthlySends(env, [{ email: u.email, kind: 'student' }]))[0] },
     requests: requests.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 12).map(r => ({
       id: r._id, kind: r.kind, amount: r.amount || 0, stationName: r.stationName || '', status: r.status, createdAt: r.createdAt, decidedAt: r.decidedAt || '', reason: r.reason || '',
     })),
@@ -796,6 +834,7 @@ async function adminOverview(env) {
   const active = teachers.filter(t => t.active);
   const free = cfg.studentsFree !== false;
   const full = active.filter(t => (t.seats || 0) > 0 && (t.used || 0) >= (t.seats || 0));
+  const inClassroom = everyone.filter(x => classroomFor(cfg, x.email || x._id, { student: x }));
   return {
     ok: true,
     counts: {
@@ -804,6 +843,7 @@ async function adminOverview(env) {
       students: students.length, studentsPaid: students.filter(s => s.source === 'payment').length, studentsManual: students.filter(s => s.source === 'manual').length,
       // בינתיים בחינם: כמה תלמידים נכנסו, כמה נרשמו (שם מלא וטלפון), כמה הצטרפו למורה
       studentsFree: free, studentsAll: everyone.length, studentsRegistered: everyone.filter(isRegistered).length,
+      classroomOpen: !!cfg.classroomOpen, studentsClassroom: inClassroom.length,
       studentsWithTeacher: everyone.filter(s => !!s.teacher).length,
       paymentsMonth: payments.filter(p => p.status === 'paid' || p.status === 'refunded').length, refundsMonth: payments.filter(p => p.status === 'refunded').length,
       openRequests: requests.length, alertsUnseen: unseen.length,
@@ -932,11 +972,14 @@ async function adminStudents(env, url) {
   const store = db(env);
   const [all, teachers, cfg] = await Promise.all([store.query('students', { limit: 5000 }), store.query('teachers', { limit: 2000 }), settings(env)]);
   const t = today();
-  const free = cfg.studentsFree !== false;   // בינתיים בחינם: כל תלמיד שנכנס פתוח (paid — מי ששילם / קיבל הענקה, לקראת המעבר לתשלום)
+  // בינתיים בחינם — מי שבמרכז הבקרה (נרשם / משתמש בגרסה עם מרכז הבקרה / חשבון בדיקה / פתוח לכולם); paid — מי ששילם / קיבל הענקה
+  const free = cfg.studentsFree !== false;
   const tname = new Map(teachers.map(x => [x.email || x._id, x.name || '']));
   const rows = all.map(s => ({
     email: s.email || s._id, name: s.fullName || s.name || '', googleName: s.name || '', until: s.accessUntil || '',
-    paid: !!s.accessUntil && s.accessUntil >= t, open: free || (!!s.accessUntil && s.accessUntil >= t), source: s.source || '',
+    paid: !!s.accessUntil && s.accessUntil >= t, source: s.source || '',
+    free: free && classroomFor(cfg, s.email || s._id, { student: s }),
+    open: (free && classroomFor(cfg, s.email || s._id, { student: s })) || (!!s.accessUntil && s.accessUntil >= t),
     teacherName: s.teacher ? tname.get(s.teacher) || s.teacher : '',
     note: s.note || '', paidAt: s.paidAt || '', lastSignIn: s.lastSignIn || '', phone: s.phone || '',
     registered: isRegistered(s), registeredAt: s.registeredAt || '', mode: s.mode || '', teacher: s.teacher || '',
@@ -1081,6 +1124,19 @@ async function adminSettings(env, u, b) {
       upd.studentsFree = !!b.studentsFree;
       changes.push(b.studentsFree ? 'תלמידים: בחינם' : 'תלמידים: בתשלום');
     }
+    if (b.classroomOpen !== undefined && !!b.classroomOpen !== !!cur.classroomOpen) {
+      upd.classroomOpen = !!b.classroomOpen;
+      changes.push(b.classroomOpen ? 'מרכז הבקרה: פתוח לכולם' : 'מרכז הבקרה: רק לגרסה עם מרכז הבקרה ולחשבונות הבדיקה');
+    }
+    if (b.classroomTesters !== undefined) {
+      const raw = Array.isArray(b.classroomTesters) ? b.classroomTesters : String(b.classroomTesters || '').split(/[\s,;]+/);
+      const list = Array.from(new Set(raw.map(normEmail).filter(Boolean)));
+      if (list.length > 100 || !list.every(emailOk)) throw new Fail(400, 'format', 'חשבונות הבדיקה: עד 100 כתובות מייל תקינות.');
+      if (JSON.stringify(list) !== JSON.stringify(cur.classroomTesters || [])) {
+        upd.classroomTesters = list;
+        changes.push('חשבונות בדיקה למרכז הבקרה: ' + (list.length ? list.join(', ') : 'אין'));
+      }
+    }
     if (b.alertEmail !== undefined && !!b.alertEmail !== (cur.alertEmail !== false)) {
       upd.alertEmail = !!b.alertEmail;
       changes.push(b.alertEmail ? 'התראות במייל: דולק' : 'התראות במייל: כבוי');
@@ -1112,7 +1168,7 @@ const JSON_ROUTES = {
     const s = await settings(env);
     return {
       ok: true, enabled: true, requireLogin: !!s.requireLoginForGemini, price: s.price, accessUntil: s.accessUntil, offlineDays: s.offlineDays,
-      canPay: s.price > 0 && !!payProvider(env), studentsFree: s.studentsFree !== false,
+      canPay: s.price > 0 && !!payProvider(env), studentsFree: s.studentsFree !== false, classroom: !!s.classroomOpen,
       firebase: { apiKey: env.FIREBASE_API_KEY || '', authDomain: env.FIREBASE_AUTH_DOMAIN || (projectId(env) + '.firebaseapp.com'), projectId: projectId(env) },
       emulator: firestoreEmulator(env) ? { auth: env.FIREBASE_AUTH_EMULATOR_HOST || '' } : undefined,
     };

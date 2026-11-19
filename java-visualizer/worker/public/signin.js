@@ -10,6 +10,8 @@ const port = +q.get('port');
 const state = q.get('state') || '';
 const challenge = q.get('challenge') || '';
 const fromApp = Number.isInteger(port) && port >= 1024 && port <= 65535 && /^[A-Za-z0-9_-]{16,64}$/.test(state) && /^[A-Za-z0-9_-]{43}$/.test(challenge);
+/** ההרשמה (שם מלא וטלפון, "עצמאי / קוד מורה") — בגרסה עם מרכז הבקרה (classroom=1 בכתובת), או כשההנהלה פתחה אותו לכולם */
+const classroom = () => q.get('classroom') === '1' || !!(config && config.classroom);
 
 let signedIn = null;
 function show(...kids) {
@@ -57,7 +59,7 @@ async function main() {
         const r = await api('POST', '/v1/auth/exchange', { idToken: await user.getIdToken(), role, challenge });
         backToApp(r.code);
       };
-      if (role === 'student') {
+      if (role === 'student' && classroom()) {
         const me = await api('GET', '/v1/me');
         const parts = missing(me);
         if (parts.reg || parts.mode) return registerStep(me, parts, finish);
@@ -79,9 +81,11 @@ async function main() {
     h('h1', null, teacher ? 'כניסת מורה' : 'כניסת תלמיד'),
     h('p', { class: 'muted', style: { lineHeight: '1.6', fontSize: '16px' } }, teacher
       ? 'נכנסים עם חשבון Google שההנהלה הגדירה כמורה. אחרי הכניסה הדפדפן מחזיר אותך לתוכנה, והמחשב זוכר.'
-      : config && config.studentsFree === false
-        ? 'נכנסים עם חשבון Google. בפעם הראשונה ממלאים שם מלא וטלפון. אם כבר שילמת — המאגר נפתח מיד, גם במחשב אחר.'
-        : 'נכנסים עם חשבון Google. בפעם הראשונה ממלאים שם מלא וטלפון — ההרשמה בחינם. אחרי הכניסה המחשב זוכר.'),
+      : !classroom()
+        ? 'נכנסים עם חשבון Google. אם כבר שילמת — המאגר נפתח מיד, גם במחשב אחר. אחרי הכניסה המחשב זוכר.'
+        : config && config.studentsFree === false
+          ? 'נכנסים עם חשבון Google. בפעם הראשונה ממלאים שם מלא וטלפון. אם כבר שילמת — המאגר נפתח מיד, גם במחשב אחר.'
+          : 'נכנסים עם חשבון Google. בפעם הראשונה ממלאים שם מלא וטלפון — ההרשמה בחינם. אחרי הכניסה המחשב זוכר.'),
     btn, err,
     h('p', { class: 'small muted' }, 'לא מקלידים סיסמה בתוך התוכנה — הכניסה עם Google נעשית אצל Google.'));
 }

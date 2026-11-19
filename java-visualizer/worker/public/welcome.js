@@ -160,8 +160,9 @@ async function main() {
       return show(h('h1', null, 'הכניסה לא הצליחה'), h('p', { class: 'muted' }, q.get('m') || 'חוזרים לתוכנה, לוחצים "חזרה" ושוב "כניסה עם Google".'));
     }
     if (role === 'teacher') {
+      const t = user ? await api('GET', '/v1/me').catch(() => null) : null;   // מרכז הבקרה פתוח למורה הזה? (הגרסה עם מרכז הבקרה)
       return done('נכנסת בהצלחה', 'אפשר לחזור ל-DSViz — מאגר התרגילים פתוח, ושליחת תרגיל זמינה.',
-        h('a', { class: 'btn', href: '/account' }, 'לעמדת הניהול — המחשבים, התלמידים וההגשות'));
+        h('a', { class: 'btn', href: '/account' }, t && t.classroom ? 'לעמדת הניהול — המחשבים, התלמידים וההגשות' : 'ללוח המורה — הקוד והעמדות'));
     }
     const me = user ? await api('GET', '/v1/me').catch(() => null) : null;
     openScreen(me);

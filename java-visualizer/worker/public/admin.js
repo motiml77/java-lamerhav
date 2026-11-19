@@ -770,6 +770,12 @@ async function settingsView() {
   const freeLabel = h('span', null, s.studentsFree !== false ? 'בחינם' : 'בתשלום');
   freeOn.addEventListener('change', () => { freeLabel.textContent = freeOn.checked ? 'בחינם' : 'בתשלום'; });
   const am = r.alertMail || {};
+  // מרכז הבקרה: פתוח לכולם, או רק לגרסה עם מרכז הבקרה + חשבונות הבדיקה
+  const ccOn = h('input', { type: 'checkbox', role: 'switch', id: 's-classroom', checked: !!s.classroomOpen });
+  const ccLabel = h('span', null, s.classroomOpen ? 'פתוח לכולם' : 'כבוי');
+  ccOn.addEventListener('change', () => { ccLabel.textContent = ccOn.checked ? 'פתוח לכולם' : 'כבוי'; });
+  const testers = h('textarea', { class: 'field ltr', id: 's-testers', rows: '3', placeholder: 'teacher@school.org.il', style: { textAlign: 'left', height: 'auto', paddingTop: '8px' } });
+  testers.value = (s.classroomTesters || []).join('\n');
   const form = h('div', { class: 'stack', style: { gap: '18px', maxWidth: '900px' } },
     h('section', { class: 'card' },
       h('div', { class: 'row', style: { alignItems: 'flex-start', gap: '16px' } },
@@ -790,6 +796,14 @@ async function settingsView() {
         h('div', { class: 'grow stack', style: { gap: '6px' } }, h('h2', null, 'תלמידים — בחינם'),
           h('p', { class: 'muted', style: { lineHeight: '1.55' } }, 'דולק: תלמיד שנכנס עם Google מקבל את המאגר בלי תשלום (תלמיד עצמאי או עם קוד מורה). כבוי: צריך לשלם (או הענקה ידנית) — המחיר והתאריך למטה.')),
         h('label', { class: 'switch', for: 's-free' }, h('span', { class: 'sr' }, 'תלמידים בחינם'), freeOn, h('span', { class: 'track', 'aria-hidden': 'true' }, h('span', { class: 'knob' })), freeLabel))),
+    h('section', { class: 'card', id: 'classroom-card' },
+      h('div', { class: 'row', style: { alignItems: 'flex-start', gap: '16px' } },
+        h('div', { class: 'grow stack', style: { gap: '6px' } }, h('h2', null, 'מרכז הבקרה — עמדת הניהול, תלמידים, הגשות וציונים'),
+          h('p', { class: 'muted', style: { lineHeight: '1.55' } }, 'כבוי: מרכז הבקרה עובד רק בגרסה עם מרכז הבקרה (התקנת הבדיקה), ולחשבונות הבדיקה שלמטה. כל השאר — בגרסה הרגילה — רואים הכול כמו קודם: בלי הרשמת תלמידים, בלי "המורה שלי" ובלי עמדת הניהול החדשה. ',
+            'פתוח לכולם: מדליקים כשהגרסה עם מרכז הבקרה יוצאת לכולם.')),
+        h('label', { class: 'switch', for: 's-classroom' }, h('span', { class: 'sr' }, 'מרכז הבקרה פתוח לכולם'), ccOn, h('span', { class: 'track', 'aria-hidden': 'true' }, h('span', { class: 'knob' })), ccLabel)),
+      h('label', { class: 'lbl', for: 's-testers' }, 'חשבונות בדיקה (מייל בכל שורה) — רואים את מרכז הבקרה בדפדפן גם כשהוא כבוי', testers),
+      h('p', { class: 'small muted' }, 'מורה או תלמיד שהתוסף שלהם הוא הגרסה עם מרכז הבקרה נכנסים לבד — לא צריך להוסיף אותם כאן.')),
     h('section', { class: 'card' }, h('h2', null, 'עמדת הניהול של המורה'),
       h('div', { class: 'form2' }, num('teacherReleases', 'כמה עמדות המורה משחרר לבד בחודש (מעבר לזה — בקשה להנהלה)', s.teacherReleases, 0, 100),
         num('stationSubmitDays', 'הגשה מעמדת מחשב שלא נמחקה — נמחקת לבד אחרי (ימים)', s.stationSubmitDays, 1, 30))),
@@ -811,7 +825,9 @@ async function settingsView() {
       r.passKey ? null : h('div', { class: 'warn-box' }, 'חסר מפתח החתימה (PASS_KEY) בשרת — בלי זה המאגר לא נפתח בלי אינטרנט.')));
   const save = h('button', { type: 'button', class: 'btn primary lg' }, 'שמירת השינויים');
   save.onclick = () => busy(save, async () => {
-    const body = { requireLoginForGemini: gem.checked, accessUntil: until.value, alertEmail: mailOn.checked, studentsFree: freeOn.checked };
+    const body = { requireLoginForGemini: gem.checked, accessUntil: until.value, alertEmail: mailOn.checked, studentsFree: freeOn.checked,
+      classroomOpen: ccOn.checked, classroomTesters: testers.value };
+    if (ccOn.checked && !s.classroomOpen && !await ask({ title: 'לפתוח את מרכז הבקרה לכולם?', text: 'מעכשיו כל המורים רואים את עמדת הניהול החדשה, ותלמיד שנכנס עם Google — גם מגרסה רגילה — ממלא שם מלא וטלפון ונכנס בחינם.', ok: 'פתיחה לכולם' })) return;
     if (!freeOn.checked && s.studentsFree !== false && !await ask({ title: 'להעביר את התלמידים לתשלום?', text: 'מעכשיו תלמיד בלי תשלום או הענקה יקבל "צריך לשלם" בבדיקה הבאה של המחשב שלו.', ok: 'מעבר לתשלום', danger: true })) return;
     for (const f of form.querySelectorAll('input[data-key]')) body[f.dataset.key] = +f.value;
     body.packages = (s.packages || []).map((p, i) => ({ seats: +form.querySelector(`[data-pk="${i}"][data-f="seats"]`).value, price: +form.querySelector(`[data-pk="${i}"][data-f="price"]`).value }));

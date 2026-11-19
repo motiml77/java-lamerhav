@@ -219,6 +219,7 @@ final class BankFloat {
         try {
             for (Control k : body.getChildren()) k.dispose();
             shown.clear();
+            if ("student".equals(Submit.mode())) BankSubmit.syncGradesLater();   // הציון מהמורה — ברקע; החלון מתעדכן כשהוא מגיע
             BankStore store = BankStore.load();
             BankStore.Question q = questionId == null ? null : store.find(questionId);
             if (q == null) {
@@ -267,6 +268,12 @@ final class BankFloat {
                     if (!note.isEmpty()) {
                         BankQuestionPanel.text(body, note, -1, SWT.NORMAL, Look.OK, null);
                         shown.add("SUBMIT-NOTE " + note);
+                    }
+                    // הציון שהמורה נתן (נשמר במחשב מהבדיקה האחרונה מול השרת — BankSubmit.syncGradesLater)
+                    String grade = "student".equals(Submit.mode()) ? BankProgress.get().gradeNote(q.id) : "";
+                    if (!grade.isEmpty()) {
+                        BankQuestionPanel.text(body, grade, 0, SWT.BOLD, 0x3F3A8F, null);
+                        shown.add("SUBMIT-GRADE " + grade);
                     }
                 } else if (joinHint(q)) {
                     // תלמיד שעוד לא הצטרף למורה: במקום שבו היה מופיע "הגשה למורה" — הצטרפות עם קוד המורה (החלון "המורה שלי")

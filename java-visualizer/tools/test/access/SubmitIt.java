@@ -350,6 +350,15 @@ public class SubmitIt {
         Map<String, Object> full = json(AccountIt.api("GET", "/v1/me/submission?id=" + Json.str(s0.get("id")), teacherTok, null));
         List<Object> files = Json.arr(full.get("files"));
         String sent = files.isEmpty() ? "" : Json.str(Json.obj(files.get(0)).get("text"));
+        // הציון: המורה נותן 85 → כשהתלמיד פותח את השאלה (ברקע, מול השרת) — "הציון מהמורה: 85"; נשמר במחשב (גם בלי אינטרנט)
+        check("ההגשה עוד בלי ציון — אין שורת ציון", !has("SUBMIT-GRADE"), shown());
+        AccountIt.api("POST", "/v1/me/submission/grade", teacherTok, "{\"id\":\"" + Json.str(s0.get("id")) + "\",\"grade\":85}");
+        BankSubmit.resetGradesClock();
+        ui(() -> { BankVsFloat.shown.clear(); return null; });
+        openFloat(q);
+        check("המורה נתן ציון → בחלון השאלה של התלמיד: 'הציון מהמורה: 85' (" + line("SUBMIT-GRADE") + ")", waitShown("SUBMIT-GRADE הציון מהמורה: 85", 15000), shown());
+        shot("s3b-grade-from-teacher");
+        check("הציון נשמר במחשב (קובץ ההתקדמות)", new String(Files.readAllBytes(new File(work, "progress.json").toPath()), StandardCharsets.UTF_8).contains("\"grade\":85"), "");
         check("אצל המורה: הקוד עצמו — הקובץ של main ראשון, כמו שהוא במחשב של התלמיד", !files.isEmpty() && "StackTargil1.java".equals(Json.obj(files.get(0)).get("path"))
                 && sent.equals(new String(Files.readAllBytes(new File(dir, "StackTargil1.java").toPath()), StandardCharsets.UTF_8)) && "StackTargil1.java".equals(full.get("main")), full.get("main"));
 
@@ -366,6 +375,13 @@ public class SubmitIt {
         check("ההודעה: במקום ההגשה הקודמת", line("SUBMIT-NOTE").contains("במקום ההגשה הקודמת"), line("SUBMIT-NOTE"));
         subs = submissions(teacherTok, "student=" + Account.enc(student));
         s0 = subs.isEmpty() ? Collections.<String, Object>emptyMap() : Json.obj(subs.get(0));
+        // הגשה חוזרת אחרי הציון: הציון נשאר, עם "על ההגשה הקודמת"; המורה מעדכן ל-100 → מתעדכן גם אצל התלמיד
+        BankSubmit.resetGradesClock();
+        BankSubmit.syncGrades();
+        check("אחרי הגשה חוזרת: 'הציון מהמורה: 85 (על ההגשה הקודמת)' (" + line("SUBMIT-GRADE") + ")", waitShown("SUBMIT-GRADE הציון מהמורה: 85 (על ההגשה הקודמת)", 8000), shown());
+        AccountIt.api("POST", "/v1/me/submission/grade", teacherTok, "{\"id\":\"" + Json.str(s0.get("id")) + "\",\"grade\":100}");
+        BankSubmit.syncGrades();
+        check("המורה עדכן ל-100 — מתעדכן אצל התלמיד", waitShown("SUBMIT-GRADE הציון מהמורה: 100", 8000) && !line("SUBMIT-GRADE").contains("הקודמת"), shown());
         check("אצל המורה: עדיין הגשה אחת (הוחלפה, n=2), והפלט תואם", subs.size() == 1 && ((Number) s0.get("n")).intValue() == 2 && Boolean.TRUE.equals(Json.obj(s0.get("check")).get("outputMatch")), s0);
 
         // 3. תשובה שגויה (מתקמפלת ורצה, אבל מדפיסה משהו אחר): הדף אומר שהפלט שונה; המורה רואה את הפלט מול הפלט הרצוי

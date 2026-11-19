@@ -257,6 +257,9 @@ button.g:focus-visible { outline: 3px solid #9DBBF7; outline-offset: 1px; }
 .con-table td.avg b { font-family: 'Rubik', sans-serif; font-size: 16px; }
 .d-grade { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 14px; background: var(--blue-row); border-bottom: 1px solid var(--line); }
 .d-grade label { font-size: 15px; }
+.mygrade { display: inline-flex; flex-direction: column; align-items: center; min-width: 54px; padding: 4px 10px; border-radius: 10px; background: var(--purple-soft); color: var(--purple); line-height: 1.1; }
+.mygrade small { font-size: 11.5px; font-weight: 600; }
+.mygrade b { font: 700 20px 'Rubik', sans-serif; font-variant-numeric: tabular-nums; }
 .field.sm.grade-in { width: 84px; height: 36px; text-align: center; font: 700 17px 'Rubik', sans-serif; direction: ltr; }
 .field.sm.grade-in::placeholder { font: 400 13px 'Assistant', sans-serif; }
 .chk { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 12px 14px; }

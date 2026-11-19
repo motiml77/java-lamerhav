@@ -55,7 +55,8 @@ async function idToken(email, name = '') {
   return j.idToken;
 }
 const machine = () => randomBytes(16).toString('hex');
-async function signInPlugin(email, role, name, caps) {
+// ברירת המחדל: הגרסה עם מרכז הבקרה (caps: classroom). לקוח רגיל (1.0.2 ומטה) — caps: []
+async function signInPlugin(email, role, name, caps = ['classroom']) {
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
   const ex = await call('POST', '/v1/auth/exchange', { body: { idToken: await idToken(email, name || email.split('@')[0]), role, challenge } });
@@ -287,6 +288,30 @@ await test('הגשה מעמדת מחשב: "שם המגיש" חובה; נשמרת
   const days = (Date.parse(list.body.submissions[0].expiresAt) - Date.now()) / 86400000;
   assert.ok(days > 2.9 && days < 3.1, 'תפוגה אחרי 3 ימים: ' + days);
   assert.equal(list.body.submissions.find(x => x.who === 'הלל ברק').check.compiles, false);
+});
+
+await test('התלמיד רואה את הציונים שלו — מהתוסף ומהדף; רק את שלו; "הגשת שוב אחרי הציון"', async () => {
+  const viaPlugin = await call('POST', '/v1/student/work', { headers: plugin(noam), body: {} });
+  assert.equal(viaPlugin.status, 200, JSON.stringify(viaPlugin.body));
+  assert.equal(viaPlugin.body.teacher.name, 'שרה כהן');
+  const row = viaPlugin.body.work.find(w => w.bankId === 'stack-size');
+  assert.deepEqual({ grade: row.grade, again: row.again }, { grade: 88, again: false });
+  assert.ok(row.gradedAt);
+  assert.ok(!('seen' in row), 'בלי מה שפנימי למורה');
+  assert.ok(viaPlugin.body.work.some(w => w.grade === null), 'תרגיל בלי ציון — null');
+  const noamWeb = await idToken('noam@test.dev', 'נועם');
+  assert.deepEqual((await call('GET', '/v1/student/work', { token: noamWeb })).body.work, viaPlugin.body.work);
+  const me = await call('GET', '/v1/me', { token: noamWeb });
+  assert.equal(me.body.classroom, true, 'משתמש בגרסה עם מרכז הבקרה');
+  assert.equal(me.body.student.state.work.find(w => w.bankId === 'stack-size').grade, 88, 'הדף "החשבון שלי" — אותו ציון');
+  await call('POST', '/v1/submit', { headers: plugin(noam), body: bankSubmit({ exercise: { source: 'bank', bankId: 'stack-size', topic: 'stack', title: 'גודל מחסנית', level: 'קל' } }) });
+  const again = (await call('POST', '/v1/student/work', { headers: plugin(noam), body: {} })).body.work.find(w => w.bankId === 'stack-size');
+  assert.deepEqual({ grade: again.grade, again: again.again, n: again.n }, { grade: 88, again: true, n: 3 });
+  const other = (await call('POST', '/v1/student/work', { headers: plugin(ariel), body: {} })).body;
+  assert.ok(!other.work.some(w => w.bankId === 'stack-size'), 'תלמיד אחר לא רואה את הציונים של נועם');
+  const t = await signInPlugin('sara@test.dev', 'teacher', 'שרה כהן');
+  assert.equal((await call('POST', '/v1/student/work', { headers: plugin(t), body: {} })).status, 403);
+  assert.equal((await call('POST', '/v1/student/work', { body: {} })).status, 401);
 });
 
 await test('ציון: רק להגשה של תלמיד (לא מעמדת מחשב), רק המורה של ההגשה, ורק מורה', async () => {
@@ -684,6 +709,68 @@ await test('ניקוי כללי: הגשות מעמדות שפג תוקפן נמ�
   const mine = await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara });
   assert.equal(await purgeExpired(ENV, true), 0);
   assert.equal((await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions.length, mine.body.submissions.length);
+});
+
+// ------------------------------------------------------------------ שתי גרסאות, שרת אחד: מרכז הבקרה כבוי לכולם עד שמדליקים
+
+await test('מרכז הבקרה כבוי (ברירת המחדל): לקוח רגיל (1.0.2 ומטה) מקבל בדיוק מה שקיבל קודם — תלמיד לא בחינם, בלי הרשמה, הדף הקודם', async () => {
+  assert.equal((await call('GET', '/v1/access/config')).body.classroom, false);
+  const old = await signInPlugin('plain.pupil@test.dev', 'student', 'תלמיד רגיל', []);
+  assert.equal(old.status, 'pay', 'כמו בשרת של היום: תלמיד בלי תשלום / הענקה — סגור');
+  assert.ok(!old.pass);
+  assert.equal((await call('POST', '/v1/access/check', { body: { token: old.token, machine: old.machine } })).body.status, 'pay');
+  const web = await idToken('plain.pupil@test.dev', 'תלמיד רגיל');
+  const me = (await call('GET', '/v1/me', { token: web })).body;
+  assert.deepEqual({ classroom: me.classroom, free: me.student.free, open: me.student.open }, { classroom: false, free: false, open: false });
+  assert.ok(!('work' in me.student.state), 'בלי התרגילים והציונים (הדף מציג את הגרסה הקודמת)');
+  // הענקה מההנהלה פותחת (כמו היום)
+  await call('POST', '/v1/admin/student', { token: admin, body: { email: 'plain.pupil@test.dev', until: '2099-01-01' } });
+  accessTest.reset();
+  assert.equal((await call('POST', '/v1/access/check', { body: { token: old.token, machine: old.machine } })).body.status, 'ok');
+  // מורה שלא השתמש בגרסה עם מרכז הבקרה: הדף הקודם (קוד, עמדות, חבילות)
+  assert.equal((await call('GET', '/v1/me', { token: david })).body.classroom, false);
+});
+
+await test('הגרסה עם מרכז הבקרה פותחת אותו לבד: עמדה שהתחברה ממנה → גם המורה שלה רואה את עמדת הניהול', async () => {
+  await call('POST', '/v1/admin/teacher', { token: admin, body: { create: true, email: 'rina@test.dev', name: 'רינה', school: 'תיכון', seats: 2 } });
+  const rina = await idToken('rina@test.dev', 'רינה');
+  const code = (await call('GET', '/v1/admin/teacher?email=rina@test.dev', { token: admin })).body.teacher.code;
+  assert.equal((await call('GET', '/v1/me', { token: rina })).body.classroom, false);
+  const m1 = machine();
+  await call('POST', '/v1/station/claim', { body: { code, name: 'רגילה', machine: m1, client: 'dsviz/1.0.2' } });
+  assert.equal((await call('GET', '/v1/me', { token: rina })).body.classroom, false, 'עמדה מהגרסה הרגילה לא משנה כלום');
+  const m2 = machine();
+  const cl = await call('POST', '/v1/station/claim', { body: { code, name: 'עם מרכז הבקרה', machine: m2, client: 'dsviz/1.0.3', caps: ['register', 'classroom'] } });
+  assert.equal(cl.body.status, 'ok');
+  assert.equal((await call('GET', '/v1/me', { token: rina })).body.classroom, true);
+  // תלמיד מהגרסה עם מרכז הבקרה: בחינם (גם כשהוא בודק אחר כך מגרסה רגילה — הוא כבר במרכז הבקרה)
+  const p = await signInPlugin('cc.pupil@test.dev', 'student', 'תלמיד', ['classroom']);
+  assert.equal(p.status, 'ok');
+  assert.equal((await call('POST', '/v1/access/check', { body: { token: p.token, machine: p.machine } })).body.status, 'ok');
+});
+
+await test('חשבונות בדיקה: מורה ברשימה רואה את מרכז הבקרה בדפדפן גם כשהוא כבוי; מחוץ לרשימה — לא', async () => {
+  assert.equal((await call('POST', '/v1/admin/settings', { token: admin, body: { classroomTesters: 'DAVID@test.dev, bad-email' } })).status, 400);
+  assert.equal((await call('POST', '/v1/admin/settings', { token: admin, body: { classroomTesters: ' DAVID@test.dev \n' } })).status, 200);
+  accessTest.reset();
+  assert.deepEqual((await call('GET', '/v1/admin/settings', { token: admin })).body.settings.classroomTesters, ['david@test.dev']);
+  assert.equal((await call('GET', '/v1/me', { token: david })).body.classroom, true);
+  await call('POST', '/v1/admin/settings', { token: admin, body: { classroomTesters: [] } });
+  accessTest.reset();
+  assert.equal((await call('GET', '/v1/me', { token: david })).body.classroom, false);
+});
+
+await test('ההנהלה פותחת את מרכז הבקרה לכולם: גם לקוח רגיל — תלמיד בחינם, והדף החדש; וסוגרת חזרה', async () => {
+  await call('POST', '/v1/admin/settings', { token: admin, body: { classroomOpen: true } });
+  accessTest.reset();
+  assert.equal((await call('GET', '/v1/access/config')).body.classroom, true, 'דף הכניסה יבקש הרשמה גם מגרסה רגילה');
+  const old = await signInPlugin('open.pupil@test.dev', 'student', 'תלמיד', []);
+  assert.equal(old.status, 'ok', 'בחינם');
+  assert.equal((await call('GET', '/v1/me', { token: david })).body.classroom, true);
+  await call('POST', '/v1/admin/settings', { token: admin, body: { classroomOpen: false } });
+  accessTest.reset();
+  assert.equal((await call('GET', '/v1/me', { token: david })).body.classroom, false);
+  assert.equal((await call('POST', '/v1/access/check', { body: { token: old.token, machine: old.machine } })).body.status, 'pay', 'נסגר — חוזר להיות כמו קודם');
 });
 
 await test('אף קריאה בכל הבדיקות לא עברה 40 פניות החוצה (המגבלה של Cloudflare החינמי: 50)', async () => {

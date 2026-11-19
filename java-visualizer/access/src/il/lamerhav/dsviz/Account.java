@@ -119,9 +119,10 @@ public final class Account {
 
     /**
      * מה הלקוח הזה יודע לעשות — נשלח לשרת בכניסה ובכל בדיקה (caps). "register": מכיר את המצב "register" — תלמיד שעוד לא השלים
-     * הרשמה (שם מלא וטלפון) מופנה לדף ההרשמה בדפדפן, והמאגר נפתח אחריה. לקוח ישן לא שולח, והשרת עונה לו כמו קודם.
+     * הרשמה (שם מלא וטלפון) מופנה לדף ההרשמה בדפדפן, והמאגר נפתח אחריה. "classroom": זו הגרסה עם מרכז הבקרה — השרת פותח לה
+     * (ולמורה של העמדה) את עמדת הניהול, ההגשות והציונים גם כשמרכז הבקרה עוד כבוי לכולם. לקוח ישן לא שולח, והשרת עונה לו כמו קודם.
      */
-    static final List<String> CAPS = java.util.Collections.unmodifiableList(java.util.Arrays.asList("register"));
+    static final List<String> CAPS = java.util.Collections.unmodifiableList(java.util.Arrays.asList("register", "classroom"));
 
     /** המפתח הציבורי של השרת (החתימה על האישור). ציבורי — לא סוד; המפתח הפרטי נמצא רק בשרת (PASS_KEY) */
     static final String PASS_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzcPy66SILXotJ2VPxjt93e7dGBR1chdnNh6Ptgr6KYXn5DGhSYEbkT3dsFKWO96QQCw/wG/bsQmqtLDxLHgjzOxjmYMGxyLmBkhHfywmYBl8JvRRPkWUn5AqZI5VgQ7cqeF4vbjMIOeb3jR3GB4QhfaI04v+4mAna6KQEC0drXfhT5oMuOhbfxH2t77tCC1iUkAnnfA/VprWcvPyieyzdTxZ4/r4e9VS5hTGceRsKpsdC7/Euy31vqrJxeVLV7Mwc1PkAMk0ghEJtSRBbvZdRUv5X5K8DLAjVpEVRHlq2XwobMI2c8oSU8qGESGsUk/R1lGUWIqGOXE+UdW6ODPVjQIDAQAB";
@@ -1389,6 +1390,16 @@ public final class Account {
         return r;
     }
 
+    /**
+     * התרגילים שהתלמיד המחובר הגיש למורה שלו, עם הציון שהמורה נתן (body.work: bankId, title, at, n, grade או null, again —
+     * הגיש שוב אחרי הציון). רק כשהשרת יודע ("grades") ויש תלמיד משויך; אחרת status שאינו ok
+     */
+    public static Result studentWork() {
+        Map<String, Object> st = studentInfo();
+        if (st == null || Json.str(st.get("teacher")).isEmpty() || !serverHas(false, "grades")) return new Result("none", "", null);
+        return post("/v1/student/work", new LinkedHashMap<String, Object>(), headersOf(false));
+    }
+
     /** התלמיד שמחובר במחשב הזה יוצא מהמורה שלו (מה שכבר הוגש נשאר אצל המורה). אחרי הצלחה המצב השמור מתעדכן */
     public static Result studentLeave() {
         Map<String, String> h = studentInfo() == null ? new LinkedHashMap<String, String>() : headersOf(false);
@@ -1414,7 +1425,7 @@ public final class Account {
     /** חיבור עמדה עם קוד המורה. ok — נשמר לכל המחשב; full / bad-code / blocked / offline — הודעה */
     public static Result claimStation(String code, String name) {
         Result r = post("/v1/station/claim", map("code", code, "name", name, "machine", machine(), "stable", stableMachine(),
-                "why", stationWhy(), "client", client.get(), "app", app));
+                "why", stationWhy(), "client", client.get(), "app", app, "caps", CAPS));
         if (r.ok()) {
             String token = Json.str(r.body.get("token"));
             // נשמר במקום הראשון שבאמת נכתב ונקרא בחזרה עם הכרטיס החדש: לכל המחשב, ואם אי אפשר (אין הרשאה, או קובץ ישן של
@@ -1570,7 +1581,8 @@ public final class Account {
         acceptor.setDaemon(true);
         acceptor.start();
         try {
-            String url = base + "/signin?role=" + enc(role) + "&port=" + server.getLocalPort() + "&state=" + enc(state) + "&challenge=" + enc(challenge);
+            // classroom=1: הגרסה עם מרכז הבקרה — הדף מבקש מתלמיד חדש להירשם (שם מלא וטלפון) לפני החזרה לתוכנה
+            String url = base + "/signin?role=" + enc(role) + "&port=" + server.getLocalPort() + "&state=" + enc(state) + "&challenge=" + enc(challenge) + "&classroom=1";
             if (listener != null) listener.waiting(url);
             try {
                 browser.accept(url);
@@ -1683,7 +1695,7 @@ public final class Account {
         Map<String, Object> s = load(sf);
         if (s != null && !Json.str(s.get("token")).isEmpty()) {
             ensureBackups(sf);
-            Result r = post("/v1/access/check", map("token", Json.str(s.get("token")), "machine", machine()));
+            Result r = post("/v1/access/check", map("token", Json.str(s.get("token")), "machine", machine(), "caps", CAPS));
             if (stationReleased(r)) {
                 // כל קובצי העמדה של אותה עמדה (לכל המחשב, וההעתק אצל המשתמש) — אחרת העותק השני "מחזיר" אותה עד הבדיקה הבאה
                 String released = stationIdOf(Json.str(s.get("token")));

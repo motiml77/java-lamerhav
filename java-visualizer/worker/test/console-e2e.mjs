@@ -45,7 +45,8 @@ async function studentPlugin(email, name) {
   const challenge = createHash('sha256').update(verifier).digest('base64url');
   const ex = await api('POST', '/v1/auth/exchange', { idToken: await idToken(email, name), role: 'student', challenge });
   const m = mid();
-  const r = await api('POST', '/v1/auth/redeem', { code: ex.code, verifier, machine: m, machineName: 'מחשב בבית', client: 'test' });
+  // הגרסה עם מרכז הבקרה (caps: classroom) — בלי שלב ההרשמה, כדי שנתוני הדוגמה יהיו קצרים
+  const r = await api('POST', '/v1/auth/redeem', { code: ex.code, verifier, machine: m, machineName: 'מחשב בבית', client: 'test', caps: ['classroom'] });
   return { 'x-dsviz-access': r.token, 'x-dsviz-machine': m };
 }
 
@@ -56,7 +57,7 @@ const code = (await api('GET', '/v1/admin/teacher?email=sara.cohen@ort.org.il', 
 const stations = {};
 for (const n of [1, 2, 3, 10, 11, 12]) {
   const m = mid();
-  const r = await api('POST', '/v1/station/claim', { code, name: 'עמדה ' + n, machine: m, client: n > 10 ? 'dsviz-eclipse/1.0.2' : 'dsviz-vs/1.0.2' });
+  const r = await api('POST', '/v1/station/claim', { code, name: 'עמדה ' + n, machine: m, client: n > 10 ? 'dsviz-eclipse/1.0.3' : 'dsviz-vs/1.0.3', caps: ['register', 'classroom'] });
   stations[n] = { 'x-dsviz-access': r.token, 'x-dsviz-machine': m };
 }
 const Q_EXP = 'סעיף א: 18\nסעיף ב: 2\nהתור אחרי: [3,8,1,6]';
@@ -308,6 +309,37 @@ await step('ציון להגשה של תלמיד: המורה כותב ציון ל
   await page.waitForSelector('.folders');
 });
 
+await step('התלמיד רואה בדף "החשבון שלי" את התרגילים שהגיש, עם הציון שהמורה נתן', async () => {
+  await api('POST', '/v1/student/register', { fullName: 'נועם לוי', phone: '0501234567' }, plug['noam.levi@gmail.com']);
+  const nctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2, locale: 'he-IL' });
+  nctx.on('page', p => p.on('pageerror', e => errors.push(String(e))));
+  const np = await nctx.newPage();
+  await np.goto(BASE + '/account');
+  await googlePopup(np, '.gbtn', 'noam.levi@gmail.com', 'נועם לוי');
+  await np.waitForSelector('#my-work');
+  assert.ok(await np.locator('#my-work:has-text("למורה שרה כהן")').count());
+  const q = np.locator('#my-work .item', { hasText: 'סכום תור וזוגיים' });
+  assert.equal((await q.locator('.mygrade b').textContent()).trim(), '75');
+  assert.ok(await np.locator('#my-work .item', { hasText: 'מחסנית מדף עבודה' }).locator('text=עוד בלי ציון').count(), 'הציון הוסר');
+  await shot(np, 'c19-student-grades');
+  await nctx.close();
+});
+
+await step('מורה שלא השתמש בגרסה עם מרכז הבקרה: הדף כמו בגרסה הרגילה (קוד, עמדות, חבילות) — בלי עמדת הניהול החדשה', async () => {
+  await api('POST', '/v1/admin/teacher', { create: true, email: 'dana.old@ort.org.il', name: 'דנה', school: 'אורט', seats: 5 }, bearer(admin));
+  const octx = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2, locale: 'he-IL' });
+  octx.on('page', p => p.on('pageerror', e => errors.push(String(e))));
+  const op = await octx.newPage();
+  await op.goto(BASE + '/account');
+  await googlePopup(op, '.gbtn', 'dana.old@ort.org.il', 'דנה');
+  await op.waitForSelector('h2:has-text("קוד המורה")');
+  assert.ok(await op.locator('h1:has-text("הלוח של המורה")').count());
+  assert.ok(await op.locator('h2:has-text("עמדות מחשב")').count());
+  assert.equal(await op.locator('.con-tab').count(), 0, 'בלי עמדת הניהול החדשה');
+  await shot(op, 'c20-teacher-regular-version');
+  await octx.close();
+});
+
 await step('כיתה חדשה, העברת תלמיד אליה, ושינוי שם', async () => {
   await page.click('.folder.add');
   await page.fill('#new-class', 'יב 4');
@@ -365,6 +397,15 @@ await step('תלמיד בדפדפן: בוחר "תלמיד עצמאי" → ואז
   const sp = await sctx.newPage();
   await sp.goto(BASE + '/account');
   await googlePopup(sp, '.gbtn', 'shira.b@gmail.com', 'שירה ברק');
+  // מרכז הבקרה כבוי, ושירה לא השתמשה בגרסה עם מרכז הבקרה: הדף כמו בגרסה הרגילה — בלי הרשמה ובלי "המורה שלי"
+  await sp.waitForSelector('h2:has-text("מאגר התרגילים")');
+  assert.equal(await sp.locator('#reg-name').count(), 0);
+  assert.ok(await sp.locator('.pill:has-text("סגור")').count(), 'בגרסה הרגילה תלמיד לא פתוח בחינם');
+  await shot(sp, 'c08a-student-regular-version');
+  // ההנהלה מוסיפה אותה לחשבונות הבדיקה — ועכשיו מרכז הבקרה פתוח לה
+  await api('POST', '/v1/admin/settings', { classroomTesters: ['shira.b@gmail.com'] }, bearer(admin));
+  await new Promise(r => setTimeout(r, 31000));   // ההגדרות נשמרות במטמון של השרת עד 30 שניות
+  await sp.reload();
   // פעם ראשונה: ההרשמה (שם מלא, טלפון) יחד עם הבחירה "תלמיד עצמאי / יש לי קוד מורה"
   await sp.waitForSelector('h2:has-text("השלמת ההרשמה")');
   assert.equal(await sp.inputValue('#reg-name'), 'שירה ברק');

@@ -176,6 +176,47 @@ final class BankProgress {
                 : "הוגש למורה" + (to.isEmpty() ? "" : " " + to) + " ב-" + when + ".";
     }
 
+    // ------------------------------------------------------------------ הציון מהמורה
+
+    /**
+     * הציונים שהמורה נתן, כמו שהשרת ענה (Account.studentWork): מזהה השאלה במאגר → {grade, again}. שאלה שכבר לא מופיעה עם ציון
+     * (המורה מחק את הציון, או את התלמיד) — הציון נמחק גם כאן. נשמר בקובץ, כדי שיוצג גם בלי אינטרנט. מודיע רק אם משהו השתנה
+     */
+    void syncGrades(Map<String, Object[]> grades) {
+        boolean changed = false;
+        synchronized (this) {
+            load();
+            for (Map.Entry<String, Object> e : questions.entrySet()) {
+                Map<String, Object> q = Json.obj(e.getValue());
+                if (q.containsKey("grade") && !grades.containsKey(e.getKey())) {
+                    entry(e.getKey()).remove("grade");
+                    entry(e.getKey()).remove("gradeAgain");
+                    changed = true;
+                }
+            }
+            for (Map.Entry<String, Object[]> g : grades.entrySet()) {
+                Map<String, Object> q = Json.obj(questions.get(g.getKey()));
+                double grade = ((Number) g.getValue()[0]).doubleValue();
+                boolean again = Boolean.TRUE.equals(g.getValue()[1]);
+                if (q.get("grade") instanceof Number && ((Number) q.get("grade")).doubleValue() == grade && again == Boolean.TRUE.equals(q.get("gradeAgain"))) continue;
+                Map<String, Object> w = entry(g.getKey());
+                w.put("grade", grade);
+                if (again) w.put("gradeAgain", Boolean.TRUE); else w.remove("gradeAgain");
+                changed = true;
+            }
+            if (changed) save();
+        }
+        if (changed) fire();
+    }
+
+    /** "הציון מהמורה: 90" (ואם הגיש שוב אחרי הציון — "על ההגשה הקודמת"), או "" כשאין ציון */
+    synchronized String gradeNote(String id) {
+        load();
+        Map<String, Object> q = Json.obj(questions.get(id));
+        if (!(q.get("grade") instanceof Number)) return "";
+        return "הציון מהמורה: " + ((Number) q.get("grade")).intValue() + (Boolean.TRUE.equals(q.get("gradeAgain")) ? " (על ההגשה הקודמת)" : "");
+    }
+
     // ------------------------------------------------------------------ קובץ
 
     private Map<String, Object> entry(String id) {
