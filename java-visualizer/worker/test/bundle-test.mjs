@@ -84,7 +84,7 @@ await test('מורה חדש (ההנהלה), עמדת מחשב בקוד שלו, �
   assert.equal(s.status, 200, JSON.stringify(s.body));
 });
 
-await test('תלמיד: כניסה, הרשמה, הצטרפות בקוד המורה, והגשה — מופיע אצל המורה עם "חדש" ובטבלת התרגילים', async () => {
+await test('תלמיד: כניסה, הרשמה, הצטרפות בקוד המורה, והגשה — מופיע אצל המורה עם "חדש" ובטבלת התרגילים; המורה נותן ציון', async () => {
   const verifier = randomBytes(32).toString('base64url');
   const ex = await call('POST', '/v1/auth/exchange', { body: { idToken: await idToken('noa@test.dev', 'נועה'), role: 'student', challenge: createHash('sha256').update(verifier).digest('base64url') } });
   const m = machine();
@@ -105,7 +105,11 @@ await test('תלמיד: כניסה, הרשמה, הצטרפות בקוד המור
   const one = await call('GET', '/v1/me/submission?id=' + st.work[0].id, { token: sara });
   assert.equal(one.body.files[0].text, 'class B {}');
   assert.equal((await call('GET', '/v1/me/console', { token: sara })).body.students[0].unseen, 0, 'נפתחה — כבר לא חדשה');
+  // ציון להגשה של התלמיד — נשמר, ומופיע בתקציר
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: st.work[0].id, grade: 90 } })).body.grade, 90);
+  assert.equal((await call('GET', '/v1/me/console', { token: sara })).body.students[0].work[0].grade, 90);
   const sub = (await call('GET', '/v1/me/submissions?station=' + c.stations[0].id, { token: sara })).body.submissions[0];
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: 90 } })).status, 400, 'הגשה מעמדה — בלי ציון');
   assert.equal(sub.check.errors, 2, 'מספר השגיאות נשמר');
   assert.equal(sub.check.error.split('\n').length, 2, 'כל שגיאה בשורה שלה');
 });

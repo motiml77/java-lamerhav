@@ -196,11 +196,11 @@ await step('"לפי תרגיל" — טבלת הגשות: שורה לכל תלמ�
   const row = name => page.locator('.gridt tbody tr', { hasText: name });
   assert.equal(await row('נועם לוי').locator('button.g.ok').count(), 1);
   assert.equal(await row('נועם לוי').locator('button.g.none').count(), 1, 'התרגיל האישי — בלי בדיקת הרצה');
-  assert.equal(await row('נועם לוי').locator('.gsum').textContent(), '2/2');
+  assert.equal(await row('נועם לוי').locator('.gsum:not(.gavg)').textContent(), '2/2');
   assert.equal(await row('אריאל כהן').locator('button.g.diff.new').count(), 1);
   assert.equal(await row('אריאל כהן').locator('.gno').count(), 1);
   assert.equal(await row('יובל מזרחי').locator('.gno').count(), 2, 'לא הגיש כלום');
-  assert.equal(await row('יובל מזרחי').locator('.gsum').textContent(), '0/2');
+  assert.equal(await row('יובל מזרחי').locator('.gsum:not(.gavg)').textContent(), '0/2');
   assert.match(await row('אריאל כהן').locator('button.g').getAttribute('title'), /אריאל כהן · סכום תור וזוגיים · הפלט שונה/);
   // הטבלה קומפקטית: כל שלושת התלמידים עם הכותרת והמקרא בפחות מ-230 פיקסלים גובה
   const hgt = await page.evaluate(() => document.querySelector('.gwrap').getBoundingClientRect().height);
@@ -235,6 +235,77 @@ await step('"הגשות חדשות" למעלה: לחיצה מובילה לתלמ
   await page.click('#only-new');
   await page.waitForSelector('#only-new[aria-pressed="false"]');
   assert.equal(await page.locator('.con-table tbody tr').count(), 5);
+});
+
+await step('ציון להגשה של תלמיד: המורה כותב ציון ליד הקוד, הוא נשמר ומופיע ברשימה, בממוצע ובטבלת ההגשות; עריכה והסרה בכל זמן', async () => {
+  await page.click('tr:has-text("נועם לוי") button:has-text("תרגילים")');
+  await page.waitForSelector('pre.code');
+  await page.click('.d-item:has-text("סכום תור")');
+  await page.waitForSelector('pre.code:has-text("sumQueue")');
+  assert.equal(await page.inputValue('#grade-in'), '', 'עוד בלי ציון');
+  assert.ok(await page.locator('#grade-info:has-text("אפשר לשנות אותו בכל זמן")').count());
+  // ציון לא תקין — הודעה, ושום דבר לא נשמר
+  await page.fill('#grade-in', '150');
+  await page.click('#grade-save');
+  await page.waitForSelector('.toast.err:has-text("בין 0 ל-100")');
+  assert.equal(await page.locator('.d-item .pill:has-text("ציון")').count(), 0);
+  // ציון תקין
+  await page.fill('#grade-in', '90');
+  await page.click('#grade-save');
+  await page.waitForSelector('.toast:has-text("הציון 90 נשמר")');
+  assert.ok(await page.locator('.d-item:has-text("סכום תור") .pill:has-text("ציון 90")').count(), 'ברשימת התרגילים של התלמיד');
+  assert.equal(await page.inputValue('#grade-in'), '90');
+  assert.ok(await page.locator('#grade-save:has-text("עדכון הציון")').count());
+  assert.equal((await page.locator('tr:has-text("נועם לוי") td.avg b').textContent()).trim(), '90', 'הממוצע בטבלת התלמידים');
+  assert.ok(await page.locator('tr:has-text("נועם לוי") td.avg:has-text("ציון אחד")').count());
+  // הטבלה לא גולשת לצד: גם כפתור "מחיקה" שבקצה השורה נראה כולו
+  const fits = await page.evaluate(() => { const w = document.querySelector('.con-main .tablewrap'); return w.scrollWidth - w.clientWidth; });
+  assert.ok(fits <= 1, 'טבלת התלמידים רחבה מדי ב-' + fits + ' פיקסלים');
+  await shot(page, 'c17-grade');
+  // עריכה (Enter שומר), ואחרי טעינה מחדש הציון עדיין שם
+  await page.fill('#grade-in', '75');
+  await page.press('#grade-in', 'Enter');
+  await page.waitForSelector('.toast:has-text("הציון 75 נשמר")');
+  // ציון לתרגיל שני — הממוצע מתעדכן
+  await page.click('.d-item:has-text("מחסנית מדף עבודה")');
+  await page.waitForSelector('text=אין פלט רצוי');
+  assert.equal(await page.inputValue('#grade-in'), '');
+  await page.fill('#grade-in', '100');
+  await page.click('#grade-save');
+  await page.waitForSelector('.toast:has-text("הציון 100 נשמר")');
+  assert.equal((await page.locator('tr:has-text("נועם לוי") td.avg b').textContent()).trim(), '88', 'ממוצע של 75 ו-100');
+  await page.reload();
+  await page.waitForSelector('.con-tab');
+  await page.click('#tab-su');
+  assert.equal((await page.locator('tr:has-text("נועם לוי") td.avg b').textContent()).trim(), '88');
+  assert.ok(await page.locator('tr:has-text("אריאל כהן") td.avg:has-text("—")').count(), 'תלמיד בלי ציונים');
+  // בטבלת ההגשות: התא מציג את הציון, ויש עמודת ממוצע
+  await page.click('#view-ex');
+  await page.waitForSelector('table.gridt');
+  const noam = page.locator('.gridt tbody tr', { hasText: 'נועם לוי' });
+  assert.deepEqual((await noam.locator('button.g.graded').allTextContents()).sort(), ['100', '75']);
+  assert.equal(await noam.locator('.gavg').textContent(), '88');
+  assert.equal(await page.locator('.gridt tbody tr', { hasText: 'אריאל כהן' }).locator('.gavg').textContent(), '—');
+  assert.match(await noam.locator('button.g.graded', { hasText: '75' }).getAttribute('title'), /נועם לוי · סכום תור וזוגיים · הפלט תואם · ציון 75/);
+  await shot(page, 'c18-grades-grid');
+  // לחיצה על התא → הקוד עם הציון; הסרת הציון (שדה ריק)
+  await noam.locator('button.g.graded', { hasText: '100' }).click();
+  await page.waitForSelector('#grade-in');
+  assert.equal(await page.inputValue('#grade-in'), '100');
+  await page.fill('#grade-in', '');
+  await page.click('#grade-save');
+  await page.waitForSelector('.toast:has-text("הציון הוסר")');
+  assert.equal(await noam.locator('button.g.graded').count(), 1);
+  assert.equal(await noam.locator('.gavg').textContent(), '75');
+  await page.click('#view-students');
+  await page.waitForSelector('th:has-text("ממוצע ציונים")');
+  // הגשה מעמדת מחשב — בלי ציון
+  await page.click('#tab-st');
+  await page.click('tr:has-text("עמדה 2") button:has-text("הגשות")');
+  await page.waitForSelector('pre.code');
+  assert.equal(await page.locator('#grade-in').count(), 0, 'להגשה מעמדה אין שדה ציון');
+  await page.click('#tab-su');
+  await page.waitForSelector('.folders');
 });
 
 await step('כיתה חדשה, העברת תלמיד אליה, ושינוי שם', async () => {

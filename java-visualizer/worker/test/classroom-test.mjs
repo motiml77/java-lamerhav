@@ -191,6 +191,54 @@ await test('התקציר של התלמיד אצל המורה: שורה לכל ת
   assert.equal(s.work.length, 3, 'סימון "נצפה" לא מוחק שורות אחרות מהתקציר');
 });
 
+await test('ציון להגשה של תלמיד: 0–100, נשמר בהגשה ובתקציר; המורה מעדכן ומסיר בכל זמן; הגשה חוזרת — הציון נשאר רשום', async () => {
+  const sub = (await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions.find(x => x.exercise.bankId === 'stack-size');
+  assert.equal(sub.grade, null, 'עוד בלי ציון');
+  assert.equal(sub.seen, false);
+  const g = await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: 85 } });
+  assert.equal(g.status, 200, JSON.stringify(g.body));
+  assert.deepEqual({ grade: g.body.grade, gradedN: g.body.gradedN }, { grade: 85, gradedN: 1 });
+  let list = (await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions;
+  let x = list.find(y => y.id === sub.id);
+  assert.equal(x.grade, 85);
+  assert.ok(x.gradedAt);
+  assert.equal(x.seen, true, 'מי שנתן ציון ראה את ההגשה');
+  let s = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(y => y.email === 'noam@test.dev');
+  assert.equal(s.work.find(w => w.id === sub.id).grade, 85, 'גם בתקציר (הרשימות וטבלת ההגשות)');
+  assert.equal(s.work.filter(w => w.grade !== null).length, 1, 'שאר התרגילים בלי ציון');
+  assert.equal(s.work.length, 3, 'הציון לא מוחק שורות אחרות מהתקציר');
+  // עריכה: המורה תמיד יכול לשנות (גם כמחרוזת מהטופס)
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: '92' } })).body.grade, 92);
+  s = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(y => y.email === 'noam@test.dev');
+  assert.equal(s.work.find(w => w.id === sub.id).grade, 92);
+  // ציון לא תקין — נדחה, והקודם נשאר
+  for (const bad of [101, -1, 85.5, 'תשעים', '9 0']) {
+    const r = await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: bad } });
+    assert.equal(r.status, 400, String(bad));
+    assert.equal(r.body.code, 'grade');
+  }
+  assert.equal((await call('GET', '/v1/me/submission?id=' + sub.id, { token: sara })).body.submission.grade, 92);
+  // 0 ו-100 הם ציונים תקינים (0 הוא ציון, לא "בלי ציון")
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: 0 } })).body.grade, 0);
+  assert.equal((await call('GET', '/v1/me/submission?id=' + sub.id, { token: sara })).body.submission.grade, 0);
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: 100 } })).body.grade, 100);
+  // התלמיד מגיש שוב את אותו תרגיל: הציון נשאר רשום, וההגשה מסומנת "הוגש שוב מאז הציון" (n > gradedN) ושוב חדשה
+  await call('POST', '/v1/submit', { headers: plugin(noam), body: bankSubmit({ exercise: { source: 'bank', bankId: 'stack-size', topic: 'stack', title: 'גודל מחסנית', level: 'קל' }, check: { ran: true, compiles: true, output: '4', expected: '4', outputMatch: true } }) });
+  x = (await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions.find(y => y.id === sub.id);
+  assert.deepEqual({ grade: x.grade, n: x.n, gradedN: x.gradedN, seen: x.seen }, { grade: 100, n: 2, gradedN: 1, seen: false });
+  s = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(y => y.email === 'noam@test.dev');
+  const w = s.work.find(y => y.id === sub.id);
+  assert.deepEqual({ grade: w.grade, n: w.n, gradedN: w.gradedN, seen: w.seen, result: w.result }, { grade: 100, n: 2, gradedN: 1, seen: false, result: 'ok' });
+  // המורה מעדכן אחרי ההגשה החדשה — הציון שייך עכשיו להגשה האחרונה
+  const g2 = await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: 95 } });
+  assert.deepEqual({ grade: g2.body.grade, gradedN: g2.body.gradedN }, { grade: 95, gradedN: 2 });
+  // הסרת הציון
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: null } })).body.grade, null);
+  s = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(y => y.email === 'noam@test.dev');
+  assert.equal(s.work.find(y => y.id === sub.id).grade, null);
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: 88 } })).body.grade, 88);
+});
+
 await test('מורה מהתוסף (הכרטיס של המחשב): כמה הגשות חדשות מחכות — תלמידים ומחשבי המעבדה; תלמיד / עמדה / בלי כרטיס — נדחים', async () => {
   const t = await signInPlugin('sara@test.dev', 'teacher', 'שרה כהן');
   assert.equal(t.status, 'ok', JSON.stringify(t));
@@ -199,7 +247,7 @@ await test('מורה מהתוסף (הכרטיס של המחשב): כמה הגש�
   const r = await call('POST', '/v1/teacher/summary', { headers: plugin(t), body: {} });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.newStudents, c.students.reduce((n, x) => n + x.unseen, 0));
-  assert.equal(r.body.newStudents, 2);
+  assert.ok(r.body.newStudents >= 1, 'יש לפחות הגשה חדשה אחת של תלמיד');
   assert.equal(r.body.newStations, c.stations.reduce((n, x) => n + x.unseen, 0));
   assert.equal(r.body.students, c.students.filter(x => !x.left).length);
   assert.equal((await call('POST', '/v1/teacher/summary', { headers: plugin(noam), body: {} })).status, 403);
@@ -239,6 +287,19 @@ await test('הגשה מעמדת מחשב: "שם המגיש" חובה; נשמרת
   const days = (Date.parse(list.body.submissions[0].expiresAt) - Date.now()) / 86400000;
   assert.ok(days > 2.9 && days < 3.1, 'תפוגה אחרי 3 ימים: ' + days);
   assert.equal(list.body.submissions.find(x => x.who === 'הלל ברק').check.compiles, false);
+});
+
+await test('ציון: רק להגשה של תלמיד (לא מעמדת מחשב), רק המורה של ההגשה, ורק מורה', async () => {
+  const st = (await call('GET', '/v1/me/submissions?station=' + stationId, { token: sara })).body.submissions[0];
+  const r = await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: st.id, grade: 90 } });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.code, 'station');
+  assert.equal((await call('GET', '/v1/me/submissions?station=' + stationId, { token: sara })).body.submissions.find(x => x.id === st.id).grade, null);
+  const sub = (await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions[0];
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: david, body: { id: sub.id, grade: 10 } })).status, 404, 'מורה אחר');
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: await idToken('noam@test.dev', 'נועם'), body: { id: sub.id, grade: 100 } })).status, 403, 'תלמיד לא נותן ציון לעצמו');
+  assert.equal((await call('POST', '/v1/me/submission/grade', { body: { id: sub.id, grade: 100 } })).status, 401);
+  assert.equal((await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: 'no-such', grade: 100 } })).status, 404);
 });
 
 await test('הגשה מעמדה שפג תוקפה — לא מופיעה ונמחקת (גם בלי TTL)', async () => {

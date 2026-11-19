@@ -12,10 +12,11 @@
 // המסמכים:
 //   classes/{id}                 teacher, name, createdAt, updatedAt
 //   members/{מורה~תלמיד}         teacher, student, name, picture, classId ('' = בלי כיתה), joinedAt, submits, lastSubmitAt, lastTitle,
-//                                work{מזהה ההגשה: {t כותרת, b מזהה במאגר, p נושא, l רמה, at, r תוצאה, n, s נצפה}} — תקציר התרגילים של התלמיד:
+//                                work{מזהה ההגשה: {t כותרת, b מזהה במאגר, p נושא, l רמה, at, r תוצאה, n, s נצפה, g ציון, gn}} — תקציר התרגילים של התלמיד:
 //                                ממנו עמדת הניהול מציגה "הגשות חדשות" ו"לפי תרגיל" בלי לקרוא את ההגשות עצמן
 //   submissions/{id}             teacher, from (student / station), student | station, stationName, who, exercise{…}, lang, app, check{…},
-//                                n, firstAt, createdAt, seenAt, size, fileCount, expiresAt (רק מעמדה — Timestamp, בשביל TTL)
+//                                n, firstAt, createdAt, seenAt, size, fileCount, expiresAt (רק מעמדה — Timestamp, בשביל TTL),
+//                                grade (0–100 או null), gradedAt, gradedN (מספר ההגשה שקיבלה את הציון) — רק להגשה של תלמיד
 //   submissionFiles/{id}         teacher, files[{path, text}], main, expiresAt — הקוד עצמו, נקרא רק כשהמורה פותח הגשה
 //   students/{email}             + mode, teacher, joinedAt; ההרשמה: fullName, phone, registeredAt (שם מלא וטלפון — פעם אחת, בדפדפן)
 
@@ -299,6 +300,9 @@ async function submit(request, env) {
     teacher, exercise, lang, app: clip(b.app, 40), check: cleanCheck(b.check), size, fileCount: files.length,
     n: (prev && prev.n || 0) + 1, firstAt: prev && prev.firstAt || at, createdAt: at, seenAt: '',
   });
+  // הציון שהמורה נתן נשאר רשום גם כשהתלמיד מגיש שוב (gradedN < n — המורה רואה "הוגש שוב מאז הציון" ויכול לעדכן)
+  const graded = !!member && !!prev && Number.isInteger(prev.grade);
+  if (graded) Object.assign(doc, { grade: prev.grade, gradedAt: prev.gradedAt || '', gradedN: prev.gradedN || 0 });
   const filesDoc = { teacher, files, main };
   if (expires) { doc.expiresAt = expires; filesDoc.expiresAt = expires; }
   await store.commit(w => {
@@ -309,7 +313,8 @@ async function submit(request, env) {
       // התקציר של התלמיד אצל המורה: שורה לכל תרגיל (הגשה חוזרת מחליפה אותה, ושוב "לא נצפה")
       const work = member.work && typeof member.work === 'object' ? member.work : {};
       if (work[id] || Object.keys(work).length < MAX_WORK) {
-        upd['work.' + id] = { t: exercise.title, b: exercise.bankId, p: exercise.topic, l: exercise.level, at, r: resultOf(doc.check), n: doc.n, s: 0 };
+        upd['work.' + id] = Object.assign({ t: exercise.title, b: exercise.bankId, p: exercise.topic, l: exercise.level, at, r: resultOf(doc.check), n: doc.n, s: 0 },
+          graded ? { g: prev.grade, gn: prev.gradedN || 0 } : {});
       }
       w.update('members/' + memberId(teacher, base.student), upd, prev ? undefined : { submits: 1 });
     }
@@ -333,7 +338,8 @@ function workRows(m) {
   const w = m && m.work && typeof m.work === 'object' ? m.work : {};
   return Object.keys(w).filter(id => w[id] && w[id].at).map(id => {
     const x = w[id];
-    return { id, title: x.t || 'תרגיל', bankId: x.b || '', topic: x.p || '', level: x.l || '', at: x.at, result: x.r || 'none', n: x.n || 1, seen: !!x.s };
+    return { id, title: x.t || 'תרגיל', bankId: x.b || '', topic: x.p || '', level: x.l || '', at: x.at, result: x.r || 'none', n: x.n || 1, seen: !!x.s,
+      grade: Number.isInteger(x.g) ? x.g : null, gradedN: x.gn || 0 };
   }).sort((a, b) => String(b.at).localeCompare(String(a.at)));
 }
 
@@ -388,6 +394,7 @@ function subRow(x) {
   return {
     id: x._id, from: x.from, student: x.student || '', station: x.station || '', who: x.who || '', exercise: x.exercise || {}, lang: x.lang || '', app: x.app || '',
     check: x.check || {}, n: x.n || 1, createdAt: x.createdAt, seen: !!x.seenAt, expiresAt: x.expiresAt || '',
+    grade: Number.isInteger(x.grade) ? x.grade : null, gradedAt: x.gradedAt || '', gradedN: x.gradedN || 0,
   };
 }
 
@@ -456,6 +463,33 @@ async function getSubmission(request, env, url) {
     if (x.from === 'student' && x.student) await store.update('members/' + memberId(u.email, x.student), { ['work.' + id + '.s']: 1 }).catch(() => {});
   }
   return { ok: true, submission: Object.assign(subRow(x), { seen: true }), files: f ? f.files || [] : [], main: f ? f.main || '' : '' };
+}
+
+/**
+ * ציון להגשה של תלמיד: מספר שלם 0–100, או null — הסרת הציון. המורה יכול לשנות בכל זמן. נרשם בהגשה ובתקציר של התלמיד
+ * (ממנו הרשימות וטבלת ההגשות). רק להגשה של תלמיד שמחובר בחשבון שלו: הגשה מעמדת מחשב נמחקת אחרי כמה ימים, ואין לה ציון
+ */
+async function gradeSubmission(request, env) {
+  const u = await teacherUser(request, env);
+  const b = await readJson(request);
+  const store = db(env);
+  const id = clip(b.id, 64);
+  const x = await store.get('submissions/' + id);
+  if (!x || x.teacher !== u.email) throw new Fail(404, 'not_found', 'ההגשה לא נמצאה (אולי כבר נמחקה).');
+  if (x.from !== 'student') throw new Fail(400, 'station', 'ציון נותנים רק להגשה של תלמיד שמחובר בחשבון שלו — לא להגשה מעמדת מחשב.');
+  let grade = null;
+  if (b.grade !== null && b.grade !== undefined && String(b.grade).trim() !== '') {
+    grade = typeof b.grade === 'number' ? b.grade : /^\d{1,3}$/.test(String(b.grade).trim()) ? +String(b.grade).trim() : NaN;
+    if (!Number.isInteger(grade) || grade < 0 || grade > 100) throw new Fail(400, 'grade', 'הציון הוא מספר שלם בין 0 ל-100.');
+  }
+  const at = nowIso();
+  const gradedN = grade === null ? 0 : x.n || 1;
+  // מי שנתן ציון ראה את ההגשה: היא כבר לא "חדשה"
+  await store.update('submissions/' + id, { grade, gradedAt: grade === null ? '' : at, gradedN, seenAt: x.seenAt || at });
+  if (x.student) {
+    await store.update('members/' + memberId(u.email, x.student), { ['work.' + id + '.g']: grade, ['work.' + id + '.gn']: gradedN, ['work.' + id + '.s']: 1 }).catch(() => {});
+  }
+  return { ok: true, id, grade, gradedAt: grade === null ? '' : at, gradedN };
 }
 
 /** מחיקת הגשה של עמדה, או כל ההגשות של עמדה ({station, all:true}). הגשות של תלמידים נמחקות עם התלמיד / הכיתה */
@@ -651,6 +685,7 @@ export const CLASSROOM_ROUTES = {
   'GET /v1/me/submissions': listSubmissions,
   'GET /v1/me/submission': getSubmission,
   'POST /v1/me/submission/delete': deleteSubmission,
+  'POST /v1/me/submission/grade': gradeSubmission,
   'POST /v1/me/station/release': releaseStation,
   'POST /v1/me/class': classOp,
   'POST /v1/me/member': memberOp,

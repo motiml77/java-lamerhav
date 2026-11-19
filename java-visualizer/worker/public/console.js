@@ -27,6 +27,11 @@ const resultPill = r => pill((RESULT[r] || RESULT.none)[0], (RESULT[r] || RESULT
 /** עיגול אדום קטן עם מספר ההגשות החדשות (שהמורה עוד לא פתח) */
 const newDot = n => (n ? h('span', { class: 'newdot', title: n === 1 ? 'הגשה חדשה אחת' : n + ' הגשות חדשות' }, String(n)) : null);
 const newWord = n => (n === 1 ? 'הגשה חדשה' : n + ' הגשות חדשות');
+/** ממוצע הציונים שהמורה נתן לתלמיד ({avg, n}), או null כשעוד אין ציונים */
+function gradeAvg(s) {
+  const g = (s.work || []).filter(w => w.grade != null).map(w => w.grade);
+  return g.length ? { avg: Math.round(g.reduce((a, b) => a + b, 0) / g.length), n: g.length } : null;
+}
 const collator = new Intl.Collator('he', { numeric: true });
 function className(id) { const c = data.classes.find(x => x.id === id); return c ? c.name : 'בלי כיתה'; }
 function inFolder(f) { return data.students.filter(s => f === 'all' || s.classId === f); }
@@ -200,11 +205,12 @@ function studentsTable() {
       try { await api('POST', '/v1/me/member', { op: 'move', student: s.email, classId: pick.value }); s.classId = pick.value; render(); } catch (e) { toast(e.message, true); }
     };
     rows.push(h('tr', { class: sel ? 'sel' : null },
-      h('td', null, h('b', null, s.name || s.email), h('div', { class: 'sub ltr' }, s.email)),
+      // מתי הצטרף — ברמז על השם (לא עמודה: הטבלה נשארת צרה); תלמיד שעזב מסומן ליד השם
+      h('td', { title: 'הצטרף ב-' + fmtDate(s.joinedAt) }, h('b', null, s.name || s.email), s.left ? [' ', pill('gray', 'עזב ' + ago(s.leftAt))] : null, h('div', { class: 'sub ltr' }, s.email)),
       h('td', null, pick),
-      h('td', null, s.left ? pill('gray', 'עזב ' + ago(s.leftAt)) : h('span', null, 'הצטרף ' + fmtDate(s.joinedAt))),
       h('td', null, s.lastSubmitAt ? [h('div', null, s.lastTitle), h('div', { class: 'sub' }, ago(s.lastSubmitAt))] : h('span', { class: 'muted' }, 'עוד אין')),
       h('td', { class: 'num' }, String(s.submits), s.unseen ? [' ', pill('blue', s.unseen === 1 ? 'חדשה' : s.unseen + ' חדשות')] : null),
+      h('td', { class: 'num avg' }, gradeAvg(s) ? [h('b', null, String(gradeAvg(s).avg)), h('div', { class: 'sub' }, gradeAvg(s).n === 1 ? 'ציון אחד' : gradeAvg(s).n + ' ציונים')] : h('span', { class: 'muted' }, '—')),
       h('td', null, h('div', { class: 'acts' },
         h('button', { type: 'button', class: 'btn sm' + (s.unseen ? ' primary' : ''), onclick: () => openRow('su', s.email) }, 'תרגילים'),
         h('button', { type: 'button', class: 'btn sm danger', onclick: () => { S.ask = { kind: 'student', id: s.email }; render(); } }, 'מחיקה')))));
@@ -216,12 +222,12 @@ function studentsTable() {
         S.ask = null; if (S.open && S.open.id === s.email) { S.open = null; S.cur = null; S.curData = null; } await reload(true); toast(`${s.name || s.email} נמחק מהרשימה`);
       });
       rows.push(confirmRow(6, [h('span', { class: 'grow' }, `למחוק את ${s.name || s.email}? הוא יוצא מהרשימה שלך, ו`,
-        h('b', null, s.submits === 1 ? 'ההגשה שלו נמחקת' : `כל ${s.submits} ההגשות שלו נמחקות`), ' לצמיתות. אי אפשר לשחזר. (אם ירצה, יוכל להצטרף שוב עם הקוד — מההתחלה.)'),
+        h('b', null, s.submits === 1 ? 'ההגשה שלו נמחקת' : `כל ${s.submits} ההגשות שלו נמחקות`), gradeAvg(s) ? ' עם הציונים שנתת' : '', ' לצמיתות. אי אפשר לשחזר. (אם ירצה, יוכל להצטרף שוב עם הקוד — מההתחלה.)'),
         go, h('button', { type: 'button', class: 'btn sm ghost', onclick: () => { S.ask = null; render(); } }, 'ביטול')]));
     }
   }
   const table = h('div', { class: 'tablewrap' }, h('table', { class: 'con-table' },
-    h('thead', null, h('tr', null, ['תלמיד', 'כיתה', 'פעילות', 'ההגשה האחרונה', 'הגשות', ''].map(x => h('th', null, x)))), h('tbody', null, rows)));
+    h('thead', null, h('tr', null, ['תלמיד', 'כיתה', 'ההגשה האחרונה', 'הגשות', 'ממוצע ציונים', ''].map(x => h('th', null, x)))), h('tbody', null, rows)));
   if (!fresh.length) return table;
   // סינון: רק מי שיש לו הגשה שעוד לא נפתחה
   const only = h('button', { type: 'button', class: 'sw', 'aria-pressed': String(S.onlyNew), id: 'only-new', onclick: () => { S.onlyNew = !S.onlyNew; render(); } },
@@ -264,6 +270,7 @@ function exercisesTable() {
   // תלמיד שעזב מופיע רק אם הגיש משהו
   const who = list.filter(s => !s.left || (s.work || []).length);
   const head = h('tr', null, h('th', { class: 'gname', scope: 'col' }, 'תלמיד'), h('th', { class: 'gsum', scope: 'col', title: 'כמה מהתרגילים שבטבלה התלמיד הגיש' }, 'הגיש'),
+    h('th', { class: 'gsum', scope: 'col', title: 'ממוצע הציונים שנתת לתלמיד' }, 'ממוצע'),
     exs.map(e => {
       const got = active.filter(s => e.rows.has(s.email)).length;
       const fresh = Array.from(e.rows.values()).filter(w => !w.seen).length;
@@ -275,17 +282,22 @@ function exercisesTable() {
     return h('tr', null,
       h('th', { class: 'gname', scope: 'row' }, h('span', { class: 'gn' }, s.name || s.email), s.left ? pill('gray', 'עזב') : null),
       h('td', { class: 'gsum' }, `${mine}/${exs.length}`),
+      h('td', { class: 'gsum gavg' }, gradeAvg(s) ? String(gradeAvg(s).avg) : '—'),
       exs.map(e => {
         const w = e.rows.get(s.email);
         if (!w) return h('td', { class: 'gcell' }, h('span', { class: 'gno', title: 'לא הוגש' }, '–'));
-        const text = `${s.name || s.email} · ${e.title} · ${(RESULT[w.result] || RESULT.none)[1]} · ${ago(w.at)}` + (w.n > 1 ? ` · הוגש ${w.n} פעמים` : '') + (w.seen ? '' : ' · חדש');
-        return h('td', { class: 'gcell' }, h('button', { type: 'button', class: 'g ' + (RESULT[w.result] ? w.result : 'none') + (w.seen ? '' : ' new'),
-          'aria-current': String(S.cur === w.id), title: text, 'aria-label': text, onclick: () => openRow('su', s.email, w.id) }, MARK[w.result] || MARK.none));
+        const graded = w.grade != null;
+        const text = `${s.name || s.email} · ${e.title} · ${(RESULT[w.result] || RESULT.none)[1]}` + (graded ? ` · ציון ${w.grade}` : '') + ` · ${ago(w.at)}`
+          + (w.n > 1 ? ` · הוגש ${w.n} פעמים` : '') + (w.seen ? '' : ' · חדש');
+        // תא עם ציון מציג את הציון (הצבע נשאר של בדיקת ההרצה); בלי ציון — הסימן של בדיקת ההרצה
+        return h('td', { class: 'gcell' }, h('button', { type: 'button', class: 'g ' + (RESULT[w.result] ? w.result : 'none') + (graded ? ' graded' : '') + (w.seen ? '' : ' new'),
+          'aria-current': String(S.cur === w.id), title: text, 'aria-label': text, onclick: () => openRow('su', s.email, w.id) }, graded ? String(w.grade) : MARK[w.result] || MARK.none));
       }));
   });
   const key = (r, label) => h('span', { class: 'gkey' }, h('span', { class: 'g ' + r, 'aria-hidden': 'true' }, MARK[r]), label);
   const legend = h('div', { class: 'glegend' }, key('ok', 'הפלט תואם'), key('diff', 'הפלט שונה'), key('err', 'לא מתקמפל'), key('time', 'נעצר'), key('none', 'בלי בדיקה'),
     h('span', { class: 'gkey' }, h('span', { class: 'gno', 'aria-hidden': 'true' }, '–'), 'לא הוגש'), h('span', { class: 'gkey' }, h('span', { class: 'g ok new', 'aria-hidden': 'true' }, MARK.ok), 'חדש'),
+    h('span', { class: 'gkey' }, h('span', { class: 'g ok graded', 'aria-hidden': 'true' }, '90'), 'הציון שנתת'),
     h('span', { class: 'gkey' }, '· לחיצה על סימן פותחת את הקוד'));
   return h('div', { class: 'stack', style: { gap: '8px' } }, legend,
     h('div', { class: 'tablewrap gwrap' }, h('table', { class: 'gridt' }, h('thead', null, head), h('tbody', null, rows))));
@@ -350,7 +362,7 @@ function detailPane() {
     list.append(h('button', { type: 'button', class: 'd-item', 'aria-current': String(x.id === S.cur), onclick: () => openSub(x.id) },
       h('span', { class: 't' }, exTitle(x)),
       h('span', { class: 'm' }, ago(x.createdAt), st ? ' · ' + x.who : '', x.n > 1 ? ` · הוגש ${x.n} פעמים` : '', x.seen ? null : pill('blue', 'חדש')),
-      h('span', { class: 'm' }, resultPill(checkResult(x.check)))));
+      h('span', { class: 'm' }, resultPill(checkResult(x.check)), x.grade != null ? pill('purple', 'ציון ' + x.grade) : null)));
   }
   if (st && S.subs.length > 1) {
     const all = h('button', { type: 'button', class: 'btn sm danger' }, 'מחיקת כל ההגשות');
@@ -386,6 +398,7 @@ function codePane(st) {
       top.append(del);
     }
     box.append(top);
+    if (!st) box.append(gradeBar(x));
     if (d.files.length > 1) {
       box.append(h('div', { class: 'files' }, d.files.map((f, i) => h('button', { type: 'button', class: 'file', 'aria-current': String(i === S.fileIdx),
         onclick: () => { S.fileIdx = i; render(); } }, f.path.split('/').pop()))));
@@ -399,6 +412,34 @@ function codePane(st) {
     ? `הגשות מעמדה לא נשמרות לאורך זמן: צופים ומוחקים. מה שלא נמחק נמחק לבד אחרי ${data.stationSubmitDays} ימים.`
     : 'העבודות של תלמיד נשמרות אצלך עד שמוחקים אותו או את הכיתה שלו.'));
   return box;
+}
+
+/**
+ * ציון להגשה של תלמיד (לא מעמדת מחשב): שדה קטן מעל הקוד. המורה נותן ציון 0–100, מעדכן בכל זמן, או מוחק (שדה ריק).
+ * הציון נרשם אצל המורה: ברשימת התרגילים של התלמיד, בטבלת ההגשות ובממוצע שלו
+ */
+function gradeBar(x) {
+  const has = x.grade != null;
+  const inp = h('input', { class: 'field sm grade-in', type: 'text', inputmode: 'numeric', maxlength: '3', id: 'grade-in', autocomplete: 'off',
+    placeholder: '0–100', 'aria-label': 'ציון, מספר בין 0 ל-100', value: has ? String(x.grade) : '' });
+  const save = h('button', { type: 'button', class: 'btn sm primary', id: 'grade-save' }, has ? 'עדכון הציון' : 'שמירת הציון');
+  const go = () => busy(save, async () => {
+    const raw = inp.value.trim();
+    if (raw !== '' && (!/^\d{1,3}$/.test(raw) || +raw > 100)) { toast('הציון הוא מספר שלם בין 0 ל-100', true); inp.focus(); inp.select(); return; }
+    if (raw === '' && !has) { inp.focus(); return; }
+    const r = await api('POST', '/v1/me/submission/grade', { id: x.id, grade: raw === '' ? null : +raw });
+    const set = o => { if (o) { o.grade = r.grade; o.gradedAt = r.gradedAt; o.gradedN = r.gradedN; } };
+    if (S.curData && S.curData.submission.id === x.id) set(S.curData.submission);
+    set(S.subs.find(y => y.id === x.id));
+    for (const s of data.students) set((s.work || []).find(w => w.id === x.id));
+    render();
+    toast(r.grade === null ? 'הציון הוסר' : `הציון ${r.grade} נשמר`);
+  });
+  save.onclick = go;
+  inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go(); } };
+  return h('div', { class: 'd-grade' }, h('label', { for: 'grade-in' }, h('b', null, 'ציון')), inp, save,
+    h('span', { class: 'small muted', id: 'grade-info' }, has ? `ניתן ${ago(x.gradedAt)} · אפשר לשנות בכל זמן` : 'מספר בין 0 ל-100. הציון נרשם אצלך, ואפשר לשנות אותו בכל זמן'),
+    has && x.n > x.gradedN ? pill('orange', 'התלמיד הגיש שוב מאז הציון') : null);
 }
 
 /** בדיקת ההרצה שהתוסף עשה לפני ההגשה: הפלט של התלמיד מול הפלט הרצוי (מהמאגר), שורות שונות מסומנות */
