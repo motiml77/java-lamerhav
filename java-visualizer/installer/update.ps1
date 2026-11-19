@@ -206,7 +206,7 @@ function IdeMaintenance {
 
 # רק עדכון אחד בכל פעם (מי שכבר מחכה לסגירה — יתקין, ויפתח את Eclipse מחדש אם ביקשו: relaunch.txt)
 $lock = Join-Path $env:TEMP 'dsviz-update.lock'
-try { $fs = [IO.File]::Open($lock, 'OpenOrCreate', 'ReadWrite', 'None') } catch { exit 0 }
+try { $fs = [IO.File]::Open($lock, 'OpenOrCreate', 'ReadWrite', 'None') } catch { if ($testUrl -or $InstallNow) { Log 'עדכון אחר כבר רץ — הוא ימשיך (relaunch.txt נשמר)' }; exit 0 }
 try {
     if ($testUrl -or $InstallNow) { } elseif ($AfterEclipse) { Start-Sleep -Seconds 5 } elseif ($FromEclipse -or $FromIde) { Start-Sleep -Seconds 60 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows / את פתיחת Eclipse
     $local = LocalBuild
@@ -226,6 +226,7 @@ try {
         $v = (Invoke-WebRequest -Uri $versionUrl -UseBasicParsing -TimeoutSec 30).Content | ConvertFrom-Json
         $remote = [int64]$v.build
         if ($remote -le $local) {
+            if ($testUrl) { Log "אין גרסה חדשה ($remote, מותקנת: $local)" }
             # אין גרסה חדשה — הזדמנות להוריד סרטונים שחסרים (בעדכון: ההתקנה מורידה אותם בעצמה, update.ps1 -Videos)
             if (-not $testUrl) { try { SyncVideos } catch { Log "סרטונים: $($_.Exception.Message)" } }
             exit 0

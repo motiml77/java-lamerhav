@@ -37,12 +37,27 @@ function StopEclipse {
     Start-Sleep 1
     Info 'Eclipse המדומה נסגר'
 }
+$script:runNo = 0
 function RunUpdater([string[]]$extra) {
+    # מי עוד מריץ את update.ps1 עכשיו (מחזיק את המנעול "עדכון אחד בכל פעם")?
+    $others = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like '*update.ps1*' })
+    foreach ($o in $others) { Info ("   כבר רץ: [{0}] {1}" -f $o.ProcessId, $o.CommandLine) }
+    $script:runNo++
     $env:DSVIZ_VERSION_URL = "http://127.0.0.1:$port/version.json"
     $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$upd`"") + $extra
-    $p = Start-Process powershell.exe -ArgumentList $a -PassThru -WindowStyle Hidden
+    $o1 = Join-Path $Out "updater-$($script:runNo).out.txt"; $o2 = Join-Path $Out "updater-$($script:runNo).err.txt"
+    $p = Start-Process powershell.exe -ArgumentList $a -PassThru -RedirectStandardOutput $o1 -RedirectStandardError $o2
     Remove-Item Env:\DSVIZ_VERSION_URL -ErrorAction SilentlyContinue
+    Info ("update.ps1 {0} — תהליך {1}" -f ($extra -join ' '), $p.Id)
     return $p
+}
+function ShowRun([System.Diagnostics.Process]$p) {
+    $n = $script:runNo
+    Info ("   הסתיים: {0}, קוד: {1}" -f $p.HasExited, $(if ($p.HasExited) { $p.ExitCode } else { '-' }))
+    foreach ($f in @("updater-$n.out.txt", "updater-$n.err.txt")) {
+        $path = Join-Path $Out $f
+        if ((Test-Path $path) -and (Get-Item $path).Length -gt 0) { Get-Content $path -Encoding UTF8 | Select-Object -First 30 | ForEach-Object { Info "   $f`: $_" } }
+    }
 }
 function WaitFor([scriptblock]$cond, [int]$sec) { $t = Get-Date; while (-not (& $cond) -and ((Get-Date) - $t).TotalSeconds -lt $sec) { Start-Sleep -Milliseconds 300 }; return (& $cond) }
 function Installing { return [bool](Get-Process | Where-Object { $_.ProcessName -like 'DSViz-Setup-*' }) }
@@ -97,7 +112,9 @@ Remove-Item (Join-Path $dsviz 'pending') -Recurse -Force -ErrorAction SilentlyCo
 StartEclipse
 $n0 = LogCount
 $u = RunUpdater @('-FromEclipse')
-$saved = WaitFor { Test-Path (Join-Path $dsviz 'pending\pending.json') } 900   # לפני הבדיקה: סרגל הכלים ל-Visual Studio שבמחשב (דקות)
+$saved = WaitFor { (Test-Path (Join-Path $dsviz 'pending\pending.json')) -or $u.HasExited } 900
+ShowRun $u
+(LogSince $n0) | ForEach-Object { Info "   update.log: $_" }   # לפני הבדיקה: סרגל הכלים ל-Visual Studio שבמחשב (דקות)
 Start-Sleep 8
 Check 'a-pending-saved' $saved 'ההורדה נשמרה ב-pending (לא ב-TEMP)'
 Check 'a-not-installed-yet' ((BuildTxt) -lt $real -and -not (Installing)) 'כש-Eclipse פתוח — לא מתקינים'
@@ -119,10 +136,11 @@ Remove-Item $progress -Force -ErrorAction SilentlyContinue
 $n1 = LogCount
 $u = RunUpdater @('-AfterEclipse')
 # פותחים את Eclipse אחרי הבדיקה הראשונה של ההתקנה (42%) — בזמן חבילת C# (44–82%), לפני הקבצים של Eclipse (86%), כמו שקרה לתלמיד
-$mid = WaitFor { $t = ''; try { $t = (Get-Content $progress -Raw -ErrorAction Stop).Trim() } catch { }; $m = [regex]::Match($t, '^install (\d+)$'); $m.Success -and [int]$m.Groups[1].Value -ge 44 } 1200
+$mid = WaitFor { if ($u.HasExited) { return $true }; $t = ''; try { $t = (Get-Content $progress -Raw -ErrorAction Stop).Trim() } catch { }; $m = [regex]::Match($t, '^install (\d+)$'); $m.Success -and [int]$m.Groups[1].Value -ge 44 } 1200
 Check 'b-install-midway' $mid 'ההתקנה עברה את הבדיקה הראשונה של Eclipse (42%) — עכשיו חבילת C#'
 StartEclipse
 $null = WaitFor { $u.HasExited } 900
+ShowRun $u
 (LogSince $n1) | ForEach-Object { Info "   update.log: $_" }
 Check 'b-build-not-claimed' ((BuildTxt) -lt $real) 'build.txt נשאר הישן — העדכון לא סומן כמותקן'
 Check 'b-incomplete-file' (Test-Path (Join-Path $dsviz 'update-incomplete.txt')) 'update-incomplete.txt נכתב'
