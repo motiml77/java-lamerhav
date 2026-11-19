@@ -9,7 +9,9 @@
 param([string]$Scenario = 'fresh', [string]$Setup, [string]$Out, [int64]$Build = 0,
       [string]$OldUrl = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe',
       [string]$LabUrl = 'https://github.com/motiml77/java-lamerhav/releases/download/lab-test/DSViz-Lab-Setup.exe',
-      [string]$LabNsi)
+      [string]$LabNsi,
+      # גרסת בדיקה עם ערוץ עדכון משלה (CHANNEL ב-build-all.sh): הכתובת שצריכה להיות ב-channel.txt; ריק — הגרסה הרגילה (בלי הקובץ)
+      [string]$Channel = '')
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -149,6 +151,9 @@ function CheckBuild([string]$when) {
     $b = if (Test-Path "$d\build.txt") { (Get-Content "$d\build.txt" -Raw).Trim() } else { '' }
     Write-Host "     build.txt = $b (צפוי $Build)"
     Check "$when — build.txt = הבנייה החדשה" ($Build -gt 0 -and $b -eq "$Build")
+    $ch = if (Test-Path "$d\channel.txt") { (Get-Content "$d\channel.txt" -Raw).Trim() } else { '' }
+    if ($Channel) { Check "$when — ערוץ העדכון של גרסת הבדיקה (channel.txt = $ch)" ($ch -eq $Channel) }
+    else { Check "$when — הגרסה הרגילה: בלי channel.txt (מתעדכנת מ-master)" ($ch -eq '') }
 }
 function OpenBankGate([string]$shot) {
     $csDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'DataStructures-CS'

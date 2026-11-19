@@ -43,13 +43,17 @@ jobs:
         run: |
           $v = Get-Content "$env:GITHUB_WORKSPACE\java-visualizer\release\version.json" -Raw | ConvertFrom-Json
           Write-Host "build: $($v.build)"
+          # גרסת בדיקה עם ערוץ עדכון משלה: version.json מצביע על הענף שלה — ההתקנה צריכה להכניס channel.txt עם הכתובת שלו
+          $channel = if ($v.url -notmatch '/master/') { ($v.url -replace 'DSViz-Setup\.exe$', 'version.json') } else { '' }
+          Write-Host "channel: $channel"
           Get-FileHash "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" -Algorithm SHA256 | Format-List
           & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-public\public-test.ps1" `
             -Scenario '${{ matrix.scenario }}' `
             -Setup "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" `
             -Out "$env:GITHUB_WORKSPACE\public-ci" `
             -Build ([int64]$v.build) `
-            -LabNsi "$env:GITHUB_WORKSPACE\java-visualizer\installer\lab\lab.nsi"
+            -LabNsi "$env:GITHUB_WORKSPACE\java-visualizer\installer\lab\lab.nsi" `
+            -Channel $channel
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()
