@@ -1,0 +1,135 @@
+{
+  "id": "queue-covid-most-sick",
+  "topic": "queue",
+  "level": "hard",
+  "title": "העיר עם הכי הרבה חולים",
+  "question": {
+    "intro": "נתונה המחלקה CovidTest, המייצגת אדם שנבדק בבדיקת קורונה, ולה 4 תכונות:\nname — שם הנבדק, מטיפוס מחרוזת\nid — מספר זהות, מטיפוס מחרוזת\ncityCode — קוד של עיר המגורים, מטיפוס שלם\nלדוגמה: הקוד של אשדוד הוא 1030\nוהקוד של עכו הוא 23\nsick — משתנה בוליאני, המקבל true אם הנבדק חולה, אחרת הוא מקבל false\nהנח שיש פעולות get ו-set עבור תכונות המחלקה (במעטפת המחלקה כבר כתובה).",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית ששמה mostSick, המקבלת תור q שאינו ריק מטיפוס CovidTest. הפעולה תחזיר את הקוד של העיר שבה כמות החולים היא הגדולה ביותר.\nהערות:\nמיקום הנבדקים בתור אינו לפי סדר כלשהו.\nכל נבדק מופיע רק פעם אחת בתור.\nהקוד של העיר אינו קשור לגודל התור: ייתכן שבתור יש 1000 איברים, ושהקוד של אחת הערים הוא 5000\nאין צורך לשמור על התור.\nהנח שיש רק עיר אחת שבה כמות החולים היא הגדולה ביותר.\nלדוגמה: עבור התור q שבציור הפעולה תחזיר 1030",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              "(23,true)",
+              "(1030,true)",
+              "(5000,false)",
+              "(1030,true)",
+              "(23,false)",
+              "(1030,true)"
+            ],
+            "caption": "התור q: בכל תא (cityCode,sick) — הראש משמאל"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "העיר עם הכי הרבה חולים",
+    "topic": "queue",
+    "mainClass": "QueueTargil9",
+    "imports": [],
+    "classes": [
+      {
+        "name": "CovidTest",
+        "code": "public class CovidTest {\n    private String name;\n    private String id;\n    private int cityCode;\n    private boolean sick;\n\n    public CovidTest(String name, String id, int cityCode, boolean sick) {\n        this.name = name;\n        this.id = id;\n        this.cityCode = cityCode;\n        this.sick = sick;\n    }\n\n    public String getName() { return name; }\n    public void setName(String name) { this.name = name; }\n    public String getId() { return id; }\n    public void setId(String id) { this.id = id; }\n    public int getCityCode() { return cityCode; }\n    public void setCityCode(int cityCode) { this.cityCode = cityCode; }\n    public boolean getSick() { return sick; }\n    public void setSick(boolean sick) { this.sick = sick; }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "QueueTargil9",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "mostSick",
+        "parameters": [
+          {
+            "type": "Queue<CovidTest>",
+            "name": "q"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית ששמה mostSick, המקבלת תור q שאינו ריק מטיפוס CovidTest. הפעולה תחזיר את הקוד של העיר שבה כמות החולים היא הגדולה ביותר.\nהערות:\nמיקום הנבדקים בתור אינו לפי סדר כלשהו.\nכל נבדק מופיע רק פעם אחת בתור.\nהקוד של העיר אינו קשור לגודל התור: ייתכן שבתור יש 1000 איברים, ושהקוד של אחת הערים הוא 5000\nאין צורך לשמור על התור.\nהנח שיש רק עיר אחת שבה כמות החולים היא הגדולה ביותר.\nלדוגמה: עבור התור q שבציור הפעולה תחזיר 1030",
+        "solution": "public static int mostSick(Queue<CovidTest> q) {\n    int bestCode = 0;\n    int bestCount = 0;\n    while (!q.isEmpty()) {\n        CovidTest t = q.remove();\n        if (t.getSick()) {\n            // סופרים את החולים מהעיר של t, ומוציאים מהתור את כל הנבדקים של העיר הזו\n            int code = t.getCityCode();\n            int count = 1;\n            Queue<CovidTest> rest = new Queue<CovidTest>();\n            while (!q.isEmpty()) {\n                CovidTest x = q.remove();\n                if (x.getCityCode() == code) {\n                    if (x.getSick()) {\n                        count++;\n                    }\n                } else {\n                    rest.insert(x);\n                }\n            }\n            while (!rest.isEmpty()) {\n                q.insert(rest.remove());\n            }\n            if (count > bestCount) {\n                bestCount = count;\n                bestCode = code;\n            }\n        }\n    }\n    return bestCode;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "QueueTargil9",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// מוסיף לסוף התור נבדק חדש (השם ומספר הזהות לא משנים לשאלה)\npublic static void add(Queue<CovidTest> q, String name, int cityCode, boolean sick) {\n    q.insert(new CovidTest(name, \"0\", cityCode, sick));\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "// התור מהציור: (cityCode,sick) — הראשון בראש התור\nQueue<CovidTest> q = new Queue<CovidTest>();\nadd(q, \"דנה\", 23, true);\nadd(q, \"יוסי\", 1030, true);\nadd(q, \"רון\", 5000, false);\nadd(q, \"מיכל\", 1030, true);\nadd(q, \"אבי\", 23, false);\nadd(q, \"נועה\", 1030, true);\nSystem.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(mostSick(q), 1030));\nQueue<CovidTest> q2 = new Queue<CovidTest>();\nadd(q2, \"שירה\", 77, true);\nSystem.out.println(\"סעיף א, בדיקה 2 (נבדק אחד): \" + check(mostSick(q2), 77));\nQueue<CovidTest> q3 = new Queue<CovidTest>();\nadd(q3, \"עידו\", 5000, false);\nadd(q3, \"טל\", 5000, false);\nadd(q3, \"גיל\", 12, true);\nadd(q3, \"עדי\", 5000, true);\nadd(q3, \"רז\", 12, true);\nSystem.out.println(\"סעיף א, בדיקה 3 (סופרים רק חולים, לא את כל הנבדקים): \" + check(mostSick(q3), 12));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (נבדק אחד): נכון\nסעיף א, בדיקה 3 (סופרים רק חולים, לא את כל הנבדקים): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "נתונה המחלקה CovidTest, המייצגת אדם שנבדק בבדיקת קורונה, ולה 4 תכונות:\nname — שם הנבדק, מטיפוס מחרוזת\nid — מספר זהות, מטיפוס מחרוזת\ncityCode — קוד של עיר המגורים, מטיפוס שלם\nלדוגמה: הקוד של אשדוד הוא 1030\nוהקוד של עכו הוא 23\nsick — משתנה בוליאני, המקבל true אם הנבדק חולה, אחרת הוא מקבל false\nהנח שיש פעולות Get ו-Set עבור תכונות המחלקה (במעטפת המחלקה כבר כתובה).",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית ששמה MostSick, המקבלת תור q שאינו ריק מטיפוס CovidTest. הפעולה תחזיר את הקוד של העיר שבה כמות החולים היא הגדולה ביותר.\nהערות:\nמיקום הנבדקים בתור אינו לפי סדר כלשהו.\nכל נבדק מופיע רק פעם אחת בתור.\nהקוד של העיר אינו קשור לגודל התור: ייתכן שבתור יש 1000 איברים, ושהקוד של אחת הערים הוא 5000\nאין צורך לשמור על התור.\nהנח שיש רק עיר אחת שבה כמות החולים היא הגדולה ביותר.\nלדוגמה: עבור התור q שבציור הפעולה תחזיר 1030",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                "(23,true)",
+                "(1030,true)",
+                "(5000,false)",
+                "(1030,true)",
+                "(23,false)",
+                "(1030,true)"
+              ],
+              "caption": "התור q: בכל תא (cityCode,sick) — הראש משמאל"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "העיר עם הכי הרבה חולים",
+      "topic": "queue",
+      "mainClass": "QueueTargil9",
+      "imports": [],
+      "classes": [
+        {
+          "name": "CovidTest",
+          "code": "public class CovidTest\n{\n    private string name;\n    private string id;\n    private int cityCode;\n    private bool sick;\n\n    public CovidTest(string name, string id, int cityCode, bool sick)\n    {\n        this.name = name;\n        this.id = id;\n        this.cityCode = cityCode;\n        this.sick = sick;\n    }\n\n    public string GetName() { return name; }\n    public void SetName(string name) { this.name = name; }\n    public string GetId() { return id; }\n    public void SetId(string id) { this.id = id; }\n    public int GetCityCode() { return cityCode; }\n    public void SetCityCode(int cityCode) { this.cityCode = cityCode; }\n    public bool GetSick() { return sick; }\n    public void SetSick(bool sick) { this.sick = sick; }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "QueueTargil9",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "MostSick",
+          "parameters": [
+            {
+              "type": "Queue<CovidTest>",
+              "name": "q"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית ששמה MostSick, המקבלת תור q שאינו ריק מטיפוס CovidTest. הפעולה תחזיר את הקוד של העיר שבה כמות החולים היא הגדולה ביותר.\nהערות:\nמיקום הנבדקים בתור אינו לפי סדר כלשהו.\nכל נבדק מופיע רק פעם אחת בתור.\nהקוד של העיר אינו קשור לגודל התור: ייתכן שבתור יש 1000 איברים, ושהקוד של אחת הערים הוא 5000\nאין צורך לשמור על התור.\nהנח שיש רק עיר אחת שבה כמות החולים היא הגדולה ביותר.\nלדוגמה: עבור התור q שבציור הפעולה תחזיר 1030",
+          "solution": "public static int MostSick(Queue<CovidTest> q)\n{\n    int bestCode = 0;\n    int bestCount = 0;\n    while (!q.IsEmpty())\n    {\n        CovidTest t = q.Remove();\n        if (t.GetSick())\n        {\n            // סופרים את החולים מהעיר של t, ומוציאים מהתור את כל הנבדקים של העיר הזו\n            int code = t.GetCityCode();\n            int count = 1;\n            Queue<CovidTest> rest = new Queue<CovidTest>();\n            while (!q.IsEmpty())\n            {\n                CovidTest x = q.Remove();\n                if (x.GetCityCode() == code)\n                {\n                    if (x.GetSick())\n                    {\n                        count++;\n                    }\n                }\n                else\n                {\n                    rest.Insert(x);\n                }\n            }\n            while (!rest.IsEmpty())\n            {\n                q.Insert(rest.Remove());\n            }\n            if (count > bestCount)\n            {\n                bestCount = count;\n                bestCode = code;\n            }\n        }\n    }\n    return bestCode;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "QueueTargil9",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// מוסיף לסוף התור נבדק חדש (השם ומספר הזהות לא משנים לשאלה)\npublic static void Add(Queue<CovidTest> q, string name, int cityCode, bool sick)\n{\n    q.Insert(new CovidTest(name, \"0\", cityCode, sick));\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "// התור מהציור: (cityCode,sick) — הראשון בראש התור\nQueue<CovidTest> q = new Queue<CovidTest>();\nAdd(q, \"דנה\", 23, true);\nAdd(q, \"יוסי\", 1030, true);\nAdd(q, \"רון\", 5000, false);\nAdd(q, \"מיכל\", 1030, true);\nAdd(q, \"אבי\", 23, false);\nAdd(q, \"נועה\", 1030, true);\nConsole.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(MostSick(q), 1030));\nQueue<CovidTest> q2 = new Queue<CovidTest>();\nAdd(q2, \"שירה\", 77, true);\nConsole.WriteLine(\"סעיף א, בדיקה 2 (נבדק אחד): \" + Check(MostSick(q2), 77));\nQueue<CovidTest> q3 = new Queue<CovidTest>();\nAdd(q3, \"עידו\", 5000, false);\nAdd(q3, \"טל\", 5000, false);\nAdd(q3, \"גיל\", 12, true);\nAdd(q3, \"עדי\", 5000, true);\nAdd(q3, \"רז\", 12, true);\nConsole.WriteLine(\"סעיף א, בדיקה 3 (סופרים רק חולים, לא את כל הנבדקים): \" + Check(MostSick(q3), 12));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (נבדק אחד): נכון\nסעיף א, בדיקה 3 (סופרים רק חולים, לא את כל הנבדקים): נכון"
+    }
+  }
+}
