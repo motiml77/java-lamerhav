@@ -1,4 +1,4 @@
-﻿﻿# (נשמר ב-UTF-8 עם BOM — אחרת PowerShell של Windows קורא את העברית לא נכון)
+﻿# (נשמר ב-UTF-8 עם BOM — אחרת PowerShell של Windows קורא את העברית לא נכון)
 # העדכון האוטומטי כשהתלמיד סוגר ופותח את Eclipse — על Windows אמיתי, עם ההתקנה החדשה ו-update.ps1 האמיתי שלה, מול שרת מקומי.
 # Eclipse מדומה: תיקייה עם eclipse.exe (עותק של ping — תהליך בשם eclipse) ו-plugins\org.eclipse.jdt.core_*.jar, וכשהוא "פתוח" —
 # תהליך שמחזיק את קובצי התוסף והמאגר ב-dropins נעולים, כמו Eclipse אמיתי.
