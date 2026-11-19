@@ -1,0 +1,223 @@
+{
+  "id": "loops-waiters-salaries",
+  "topic": "loops",
+  "level": "medium",
+  "title": "משכורות המלצרים (לולאה מקוננת)",
+  "question": {
+    "intro": "במסעדה עובדים 15 מלצרים, ולכל מלצר תעריף אישי לשעה. בתוכנית המלאה קולטים לכל מלצר את התעריף שלו, ואחר כך את מספר השעות שעבד בכל אחד מ-25 ימי העבודה בחודש.\nכאן הנתונים כבר נתונים במערכים: rates[i] הוא התעריף לשעה (₪) של המלצר שבמקום i, והשורה hours[i] במערך הדו-ממדי hours היא מספר השעות שעבד בכל יום. בבדיקות יש פחות מלצרים וימים: מספר המלצרים הוא rates.length, ומספר הימים הוא האורך של כל שורה. יש מלצר אחד לפחות.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה salaries, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת החודשית של כל מלצר (התעריף כפול סך השעות בחודש), לפי הסדר, ברווח אחד בין משכורת למשכורת (רווח בסוף — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על המלצרים, והפנימית — על הימים.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר \"760 1100 1080\""
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה averageSalary, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת הממוצעת של המלצרים (מספר ממשי).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 980.0"
+      }
+    ],
+    "figures": [
+      {
+        "type": "array",
+        "values": [
+          40,
+          50,
+          45
+        ],
+        "caption": "rates — התעריף לשעה של כל מלצר"
+      },
+      {
+        "type": "matrix",
+        "values": [
+          [
+            8,
+            6,
+            0,
+            5
+          ],
+          [
+            4,
+            8,
+            8,
+            2
+          ],
+          [
+            6,
+            6,
+            6,
+            6
+          ]
+        ],
+        "caption": "hours — שורה לכל מלצר, עמודה לכל יום"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "משכורות המלצרים (לולאה מקוננת)",
+    "topic": "loops",
+    "mainClass": "Loops25",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops25",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "salaries",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "rates"
+          },
+          {
+            "type": "int[][]",
+            "name": "hours"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה salaries, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת החודשית של כל מלצר (התעריף כפול סך השעות בחודש), לפי הסדר, ברווח אחד בין משכורת למשכורת (רווח בסוף — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על המלצרים, והפנימית — על הימים.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר \"760 1100 1080\"",
+        "solution": "public static String salaries(int[] rates, int[][] hours) {\n    String s = \"\";\n    for (int i = 0; i < rates.length; i++) {\n        int total = 0;   // סך השעות של המלצר\n        for (int d = 0; d < hours[i].length; d++) {\n            total = total + hours[i][d];\n        }\n        s = s + rates[i] * total + \" \";\n    }\n    return s;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops25",
+        "isStatic": true,
+        "returnType": "double",
+        "methodName": "averageSalary",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "rates"
+          },
+          {
+            "type": "int[][]",
+            "name": "hours"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה averageSalary, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת הממוצעת של המלצרים (מספר ממשי).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 980.0",
+        "solution": "public static double averageSalary(int[] rates, int[][] hours) {\n    int sum = 0;\n    for (int i = 0; i < rates.length; i++) {\n        for (int d = 0; d < hours[i].length; d++) {\n            sum = sum + rates[i] * hours[i][d];\n        }\n    }\n    return (double) sum / rates.length;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops25",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(salaries(new int[] { 40, 50, 45 }, new int[][] { new int[] { 8, 6, 0, 5 }, new int[] { 4, 8, 8, 2 }, new int[] { 6, 6, 6, 6 } }), \"760 1100 1080\"));\nSystem.out.println(\"סעיף א, בדיקה 2 (מלצר אחד, יום אחד): \" + check(salaries(new int[] { 35 }, new int[][] { new int[] { 7 } }), \"245\"));\nSystem.out.println(\"סעיף א, בדיקה 3 (מלצר שלא עבד): \" + check(salaries(new int[] { 40, 60 }, new int[][] { new int[] { 0, 0 }, new int[] { 5, 3 } }), \"0 480\"));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה): \" + check(averageSalary(new int[] { 40, 50, 45 }, new int[][] { new int[] { 8, 6, 0, 5 }, new int[] { 4, 8, 8, 2 }, new int[] { 6, 6, 6, 6 } }), 980.0));\nSystem.out.println(\"סעיף ב, בדיקה 2 (ממוצע לא שלם): \" + check(averageSalary(new int[] { 30, 31 }, new int[][] { new int[] { 2, 1 }, new int[] { 1, 2 } }), 91.5));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (מלצר אחד, יום אחד): נכון\nסעיף א, בדיקה 3 (מלצר שלא עבד): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (ממוצע לא שלם): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "במסעדה עובדים 15 מלצרים, ולכל מלצר תעריף אישי לשעה. בתוכנית המלאה קולטים לכל מלצר את התעריף שלו, ואחר כך את מספר השעות שעבד בכל אחד מ-25 ימי העבודה בחודש.\nכאן הנתונים כבר נתונים במערכים: rates[i] הוא התעריף לשעה (₪) של המלצר שבמקום i, והשורה hours[i] במערך הדו-ממדי hours היא מספר השעות שעבד בכל יום. בבדיקות יש פחות מלצרים וימים: מספר המלצרים הוא rates.Length, ומספר הימים הוא האורך של כל שורה. יש מלצר אחד לפחות.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה Salaries, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת החודשית של כל מלצר (התעריף כפול סך השעות בחודש), לפי הסדר, ברווח אחד בין משכורת למשכורת (רווח בסוף — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על המלצרים, והפנימית — על הימים.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר \"760 1100 1080\""
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה AverageSalary, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת הממוצעת של המלצרים (מספר ממשי).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 980"
+        }
+      ],
+      "figures": [
+        {
+          "type": "array",
+          "values": [
+            40,
+            50,
+            45
+          ],
+          "caption": "rates — התעריף לשעה של כל מלצר"
+        },
+        {
+          "type": "matrix",
+          "values": [
+            [
+              8,
+              6,
+              0,
+              5
+            ],
+            [
+              4,
+              8,
+              8,
+              2
+            ],
+            [
+              6,
+              6,
+              6,
+              6
+            ]
+          ],
+          "caption": "hours — שורה לכל מלצר, עמודה לכל יום"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "משכורות המלצרים (לולאה מקוננת)",
+      "topic": "loops",
+      "mainClass": "Loops25",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops25",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "Salaries",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "rates"
+            },
+            {
+              "type": "int[][]",
+              "name": "hours"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Salaries, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת החודשית של כל מלצר (התעריף כפול סך השעות בחודש), לפי הסדר, ברווח אחד בין משכורת למשכורת (רווח בסוף — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על המלצרים, והפנימית — על הימים.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר \"760 1100 1080\"",
+          "solution": "public static string Salaries(int[] rates, int[][] hours)\n{\n    string s = \"\";\n    for (int i = 0; i < rates.Length; i++)\n    {\n        int total = 0;   // סך השעות של המלצר\n        for (int d = 0; d < hours[i].Length; d++)\n        {\n            total = total + hours[i][d];\n        }\n        s = s + rates[i] * total + \" \";\n    }\n    return s;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops25",
+          "isStatic": true,
+          "returnType": "double",
+          "methodName": "AverageSalary",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "rates"
+            },
+            {
+              "type": "int[][]",
+              "name": "hours"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה AverageSalary, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת הממוצעת של המלצרים (מספר ממשי).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 980",
+          "solution": "public static double AverageSalary(int[] rates, int[][] hours)\n{\n    int sum = 0;\n    for (int i = 0; i < rates.Length; i++)\n    {\n        for (int d = 0; d < hours[i].Length; d++)\n        {\n            sum = sum + rates[i] * hours[i][d];\n        }\n    }\n    return (double) sum / rates.Length;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops25",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(Salaries(new int[] { 40, 50, 45 }, new int[][] { new int[] { 8, 6, 0, 5 }, new int[] { 4, 8, 8, 2 }, new int[] { 6, 6, 6, 6 } }), \"760 1100 1080\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (מלצר אחד, יום אחד): \" + Check(Salaries(new int[] { 35 }, new int[][] { new int[] { 7 } }), \"245\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (מלצר שלא עבד): \" + Check(Salaries(new int[] { 40, 60 }, new int[][] { new int[] { 0, 0 }, new int[] { 5, 3 } }), \"0 480\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה): \" + Check(AverageSalary(new int[] { 40, 50, 45 }, new int[][] { new int[] { 8, 6, 0, 5 }, new int[] { 4, 8, 8, 2 }, new int[] { 6, 6, 6, 6 } }), 980.0));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (ממוצע לא שלם): \" + Check(AverageSalary(new int[] { 30, 31 }, new int[][] { new int[] { 2, 1 }, new int[] { 1, 2 } }), 91.5));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (מלצר אחד, יום אחד): נכון\nסעיף א, בדיקה 3 (מלצר שלא עבד): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (ממוצע לא שלם): נכון"
+    }
+  }
+}

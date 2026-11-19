@@ -82,6 +82,9 @@ Var CODE          ; הנתיב ל-code.cmd של VS Code (ריק אם לא נמצ
 Var ECLIPSES      ; כמה התקנות Eclipse קיבלו את התוסף
 Var EXTS          ; תוספים של Microsoft ל-VS Code שמורידים ברקע (מופרדים ברווח)
 Var UPDATING      ; 1 — עדכון אוטומטי (/UPDATE): בסוף מופיע חלון קטן "DSViz עודכן"
+Var INCOMPLETE    ; 1 — עדכון אוטומטי שלא הושלם (Eclipse / Visual Studio נפתחו בינתיים, קובץ נעול): build.txt לא מתעדכן,
+                  ;     update.ps1 שומר את ההתקנה שהורדה ומתקין אותה שוב כשהכול נסגר (update-incomplete.txt — למה)
+Var ECLIPSE_BUSY  ; 1 — Eclipse פתוח בעדכון האוטומטי: לא נוגעים בקבצים שלו (dropins, המטמון) — הם נעולים
 
 ; אחוזי ההתקנה בעדכון אוטומטי (/UPDATE): שורה אחת "install 40" בקובץ ‎%TEMP%\dsviz-progress.txt‎ — החלון הקטן בפינה (notify.ps1)
 ; קורא אותו ומראה אחוזים. ההתקנה השקטה לא מראה כלום בעצמה, ולכן כל שלב מדווח כשהוא מתחיל (האחוזים — לפי כמה זמן כל שלב לוקח).
@@ -119,12 +122,33 @@ FunctionEnd
 !insertmacro FIND_CODE ""
 !insertmacro FIND_CODE "un."
 
+; ------------------------------------------------------------ Eclipse פתוח: הגרסה החדשה ליד הישנה
+; קלט: תיקיית Eclipse במחסנית. מעתיקים את התוסף ל-dropins בשם עם מספר הבנייה (il.lamerhav.dsviz_1.0.1.v<בנייה>.jar) —
+; בלי למחוק / לדרוס שום קובץ ובלי לגעת במטמון. כשל (אין הרשאה) — העדכון "לא הושלם" וינסה שוב
+Function TryEclipseBeside
+  Exch $0
+  ${If} ${FileExists} "$0\eclipse.exe"
+  ${AndIfNot} ${FileExists} "$0\dropins\il.lamerhav.dsviz_${VERSION}.v${BUILDNO}.jar"
+    CreateDirectory "$0\dropins"
+    ClearErrors
+    CopyFiles /SILENT "$INSTDIR\${PLUGIN}" "$0\dropins\il.lamerhav.dsviz_${VERSION}.v${BUILDNO}.jar"
+    ${If} ${Errors}
+      StrCpy $INCOMPLETE "1"
+      DetailPrint "Eclipse: לא הצלחתי לכתוב ל-$0\dropins"
+    ${Else}
+      DetailPrint "Eclipse: הגרסה החדשה נכתבה ב-$0\dropins (תיטען בהפעלה הבאה)"
+    ${EndIf}
+  ${EndIf}
+  Pop $0
+FunctionEnd
+
 ; ------------------------------------------------------------ התקנה ל-Eclipse אחד
 ; קלט: תיקייה במחסנית. אם יש בה eclipse.exe — מעתיקים את התוסף ל-dropins
 Function TryEclipse
   Exch $0
   Push $1
-  ${If} ${FileExists} "$0\eclipse.exe"
+  ${If} $ECLIPSE_BUSY != "1"
+  ${AndIf} ${FileExists} "$0\eclipse.exe"
     Push $0
     Call EclipseUtf8
     CreateDirectory "$0\dropins"
@@ -138,6 +162,9 @@ Function TryEclipse
     ClearErrors
     CopyFiles /SILENT "$INSTDIR\${PLUGIN}" "$0\dropins"
     ${If} ${Errors}
+      ${If} $UPDATING == "1"
+        StrCpy $INCOMPLETE "1"   ; קובץ נעול / אין הרשאה — לא מסמנים את הגרסה החדשה כמותקנת
+      ${EndIf}
       DetailPrint "Eclipse: אין הרשאה לכתוב ל-$0\dropins — יש להריץ את ההתקנה כמנהל (לחיצה ימנית ← הפעל כמנהל)"
       MessageBox MB_OK|MB_ICONEXCLAMATION "ה-Eclipse שנמצא ב:$\r$\n$0$\r$\n$\r$\nנמצא בתיקייה מוגנת, ולכן אי אפשר להתקין בו בלי הרשאות מנהל.$\r$\n$\r$\nסגרו את ההתקנה, ולחצו על הקובץ DSViz-Setup.exe לחיצה ימנית ← 'הפעל כמנהל'." /SD IDOK
     ${Else}
@@ -227,8 +254,16 @@ Function EnsureEclipseClosed
     Pop $0
     StrCmp $0 "0" running done
   running:
+    ${If} $UPDATING == "1"
+      ; עדכון אוטומטי: update.ps1 מפעיל את ההתקנה רק כש-Eclipse סגור. נפתח בינתיים — מחכים עד דקה, ואם עדיין פתוח לא נוגעים
+      ; בקבצים שלו (נעולים): ההתקנה מסומנת "לא הושלמה", build.txt נשאר הישן, ו-Eclipse מתעדכן בסגירה הבאה
+      IntOp $1 $1 + 1
+      IntCmp $1 7 eclipse_busy 0 eclipse_busy
+      Sleep 10000
+      Goto check
+    ${EndIf}
     ${If} ${Silent}
-      ; התקנה שקטה (עדכון אוטומטי / מעבדה): מחכים ש-Eclipse ייסגר — עד שעתיים
+      ; התקנה שקטה (מעבדה): מחכים ש-Eclipse ייסגר — עד שעתיים
       IntOp $1 $1 + 1
       IntCmp $1 240 done 0 done
       Sleep 30000
@@ -249,6 +284,9 @@ Function EnsureEclipseClosed
     StrCmp $0 "0" 0 done
     IntOp $1 $1 + 1
     IntCmp $1 30 check wait check
+  eclipse_busy:
+    StrCpy $ECLIPSE_BUSY "1"
+    DetailPrint "Eclipse פתוח — הגרסה החדשה תיכתב ליד הישנה ותיטען בהפעלה הבאה שלו"
   done:
   Pop $1
   Pop $0
@@ -297,8 +335,20 @@ Function EnsureVisualStudioClosed
     Pop $0
     StrCmp $0 "0" running done
   running:
+    ${If} $UPDATING == "1"
+      ; עדכון אוטומטי: Visual Studio נפתח בינתיים — מחכים עד דקה; אם עדיין פתוח ממשיכים, אבל ההתקנה "לא הושלמה" (build.txt
+      ; נשאר הישן) — סרגל הכלים לא מתקין כש-Visual Studio פתוח, והעדכון יותקן שוב בסגירה הבאה
+      IntOp $1 $1 + 1
+      IntCmp $1 7 0 0 vs_busy
+      Sleep 10000
+      Goto check
+    vs_busy:
+      StrCpy $INCOMPLETE "1"
+      DetailPrint "Visual Studio פתוח — העדכון יושלם בסגירה הבאה"
+      Goto done
+    ${EndIf}
     ${If} ${Silent}
-      ; התקנה שקטה (עדכון אוטומטי): update.ps1 כבר חיכה ש-Visual Studio ייסגר; אם בכל זאת פתוח — מחכים עד שעתיים
+      ; התקנה שקטה (מעבדה): מחכים ש-Visual Studio ייסגר — עד שעתיים
       IntOp $1 $1 + 1
       IntCmp $1 240 done 0 done
       Sleep 30000
@@ -425,10 +475,8 @@ Section "-core"
   CreateDirectory "$INSTDIR\intellij\dsviz-intellij\runtime"
   CopyFiles /SILENT "$INSTDIR\dsviz.jar" "$INSTDIR\intellij\dsviz-intellij\runtime"
   SetOutPath "$INSTDIR"
-  ; עדכון אוטומטי ברקע: מספר הבנייה שמותקן, ובדיקה בכל כניסה ל-Windows (וגם כש-Eclipse נסגר — התוסף מפעיל)
-  FileOpen $0 "$INSTDIR\build.txt" w
-  FileWrite $0 "${BUILDNO}"
-  FileClose $0
+  ; מספר הבנייה שמותקן (build.txt) נכתב רק בסוף ההתקנה, ורק אם הכול הותקן (.onInstSuccess) — אחרת העדכון האוטומטי חשב שהגרסה
+  ; החדשה מותקנת גם כשהתוסף של Eclipse לא הוחלף (Eclipse נפתח באמצע), ולא ניסה שוב לעולם
   ; עדכון אוטומטי — רק כשמשתמשים ב-DSViz (Eclipse / IntelliJ / VS Code נפתחים, כלי מ-Visual Studio, מודלים חישוביים): בלי משימה
   ; נסתרת בכניסה ל-Windows. מוחקים את זו שהתקנות קודמות רשמו
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "DSVizUpdate"
@@ -740,6 +788,17 @@ FunctionEnd
 ; עדכון אוטומטי שהסתיים: חלון קטן בפינה — "DSViz עודכן לגרסה החדשה" (נעלם לבד, לא לוקח פוקוס). לא מחכים לו
 Function .onInstSuccess
   !insertmacro PROG 100
+  ${If} $INCOMPLETE == "1"
+    ; עדכון שלא הושלם: build.txt נשאר הישן — update.ps1 יתקין שוב (את אותו קובץ שהורד) כש-Eclipse / Visual Studio ייסגרו
+    FileOpen $0 "$INSTDIR\update-incomplete.txt" w
+    FileWrite $0 "${BUILDNO}"
+    FileClose $0
+    Return
+  ${EndIf}
+  FileOpen $0 "$INSTDIR\build.txt" w
+  FileWrite $0 "${BUILDNO}"
+  FileClose $0
+  Delete "$INSTDIR\update-incomplete.txt"
   ${If} $UPDATING == "1"
   ${AndIf} ${FileExists} "$INSTDIR\notify.ps1"
     Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$INSTDIR\notify.ps1" -State done'
@@ -796,6 +855,47 @@ SectionEnd
 Section "-eclipse"
   !insertmacro PROG 86
   ${IfNot} ${SectionIsSelected} ${SEC_JAVA}
+    Return
+  ${EndIf}
+  ; עדכון אוטומטי: בודקים שוב רגע לפני שנוגעים בקבצים של Eclipse — הבדיקה הראשונה (EnsureEclipseClosed) הייתה דקה קודם,
+  ; ומי שסגר את Eclipse ופתח אותו מיד נתפס כאן: בלי זה ההחלפה נכשלה בשקט (הקבצים נעולים), וההתקנה "הצליחה" עם התוסף הישן
+  ${If} $UPDATING == "1"
+  ${AndIf} $ECLIPSE_BUSY != "1"
+    Push $0
+    Call IsEclipseRunning
+    Pop $0
+    ${If} $0 == "0"
+      StrCpy $ECLIPSE_BUSY "1"
+    ${EndIf}
+    Pop $0
+  ${EndIf}
+  ${If} $ECLIPSE_BUSY == "1"
+    ; Eclipse פתוח: לא נוגעים בקבצים שהוא מחזיק (נעולים) — הגרסה החדשה נכתבת לידם בשם אחר (TryEclipseBeside), כמו ש-Chrome /
+    ; העדכון של Eclipse עצמו עושים. בהפעלה הבאה Eclipse טוען את הגרסה הגבוהה (נבדק ב-Eclipse אמיתי: שתי גרסאות ב-dropins —
+    ; נרשמת רק הגבוהה, גם כשהחדשה נוספה בזמן שהוא רץ); את הישנה מוחקת ההתקנה הבאה שרצה כשהוא סגור.
+    ; eclipse-dirs.txt נשאר כמו שהוא (ההסרה והעדכון הבא צריכים אותו)
+    DetailPrint "Eclipse: פתוח — הגרסה החדשה נכתבת ליד הישנה, ותיטען בהפעלה הבאה שלו"
+    ${If} ${FileExists} "$INSTDIR\eclipse-dirs.txt"
+      FileOpen $R2 "$INSTDIR\eclipse-dirs.txt" r
+      FileReadUTF16LE $R2 $R3
+      ${DoWhile} $R3 != ""
+        btrim_eol:
+        StrCpy $R4 $R3 1 -1
+        StrCmp $R4 "$\n" bcut_eol
+        StrCmp $R4 "$\r" bcut_eol
+        Goto beol_done
+        bcut_eol:
+        StrCpy $R3 $R3 -1
+        Goto btrim_eol
+        beol_done:
+        ${If} $R3 != ""
+          Push $R3
+          Call TryEclipseBeside
+        ${EndIf}
+        FileReadUTF16LE $R2 $R3
+      ${Loop}
+      FileClose $R2
+    ${EndIf}
     Return
   ${EndIf}
   StrCpy $ECLIPSES 0
@@ -903,8 +1003,16 @@ Section "-bank"
   ${EndIf}
   ${If} ${SectionIsSelected} ${SEC_CS}
     DetailPrint "מאגר התרגילים: Eclipse, IntelliJ IDEA ו-Visual Studio..."
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1"'
+    ${If} $ECLIPSE_BUSY == "1"
+      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -Beside ${BUILDNO}'
+    ${Else}
+      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1"'
+    ${EndIf}
     Pop $0
+    ${If} $0 == "2"
+    ${AndIf} $UPDATING == "1"
+      StrCpy $INCOMPLETE "1"   ; המאגר לא נכנס ל-Eclipse (קובץ נעול)
+    ${EndIf}
     ; קיצורי המאגר בתפריט התחלה (בשביל Rider; ב-Visual Studio — הכפתורים בסרגל). בהתקנה חדשה ה-jar מגיע רק כאן (אחרי חלק ה-C#),
     ; לכן יוצרים אותם גם כאן. javaw דרך הצומת באנגלית (automata.ps1 -JavaPath) — שם משתמש בעברית
     ${If} ${FileExists} "$INSTDIR\lab\dsviz-bank-vs.jar"
@@ -921,7 +1029,17 @@ Section "-bank"
     Push $0
   ${Else}
     DetailPrint "מאגר התרגילים: Eclipse ו-IntelliJ IDEA..."
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoVs'
+    ${If} $ECLIPSE_BUSY == "1"
+      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoVs -Beside ${BUILDNO}'
+    ${Else}
+      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoVs'
+    ${EndIf}
+    Pop $0
+    ${If} $0 == "2"
+    ${AndIf} $UPDATING == "1"
+      StrCpy $INCOMPLETE "1"
+    ${EndIf}
+    Push $0
   ${EndIf}
   Pop $0
 SectionEnd

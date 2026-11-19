@@ -1,0 +1,301 @@
+{
+  "id": "queue-identical-similar",
+  "topic": "queue",
+  "level": "hard",
+  "title": "תורים זהים ותורים דומים",
+  "question": {
+    "intro": "נתונה הפעולה:\npublic static int size(Queue<Integer> q)\nהפעולה מחזירה את מספר האיברים בתור q בלי לשנות את התור.\nבשאלה זו אפשר להשתמש בפעולה size בלי לממש אותה (במעטפת היא כבר כתובה).",
+    "sections": [
+      {
+        "label": "א",
+        "text": "שני תורים, q1 ו-q2, יהיו \"תורים זהים\" אם מספר האיברים בשני התורים זהה, ובשני התורים מופיעים בדיוק אותם ערכים ובאותו הסדר.\nלדוגמה: שני התורים שבציורים זהים.\nכתוב פעולה חיצונית ששמה isIdentical, המקבלת שני תורים q1 ו-q2 של מספרים שלמים, ומחזירה true אם התורים זהים, אחרת היא מחזירה false.\nהערה: עם סיום הפעולה, חובה לשמור על מבנה התורים המקורי שהתקבל.",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              6,
+              2,
+              8,
+              9
+            ],
+            "caption": "q1 (6 בראש התור)"
+          },
+          {
+            "type": "queue",
+            "values": [
+              6,
+              2,
+              8,
+              9
+            ],
+            "caption": "q2 (6 בראש התור)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "\"העברה מההתחלה לסוף\" היא העברת מספר מראש התור לסופו.\nלדוגמה: התור שבציור השני הוא התור שבציור הראשון אחרי \"העברה מההתחלה לסוף\".\nכתוב פעולה חיצונית ששמה isSimilar, המקבלת שני תורים q1 ו-q2 של מספרים שלמים. הפעולה מחזירה true אם התורים q1 ו-q2 זהים, או שהם יהיו זהים לאחר שנבצע ב-q1 \"העברה מההתחלה לסוף\" פעם אחת או יותר. אחרת הפעולה מחזירה false.\nלדוגמה: עבור התורים q1 ו-q2 שבציור השלישי ובציור הרביעי הפעולה תחזיר true: אחרי שתי \"העברות מההתחלה לסוף\" ב-q1, הוא יהיה זהה ל-q2 (הציור החמישי).\nחובה להשתמש בפעולה שכתבת בסעיף א.\nאין צורך לשמור על מבנה התורים המקורי שהתקבל.",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              4,
+              6,
+              2,
+              5
+            ],
+            "caption": "התור המקורי (4 בראש)"
+          },
+          {
+            "type": "queue",
+            "values": [
+              6,
+              2,
+              5,
+              4
+            ],
+            "caption": "התור אחרי \"העברה מההתחלה לסוף\" (6 בראש)"
+          },
+          {
+            "type": "queue",
+            "values": [
+              4,
+              6,
+              5,
+              7
+            ],
+            "caption": "q1 (4 בראש)"
+          },
+          {
+            "type": "queue",
+            "values": [
+              5,
+              7,
+              4,
+              6
+            ],
+            "caption": "q2 (5 בראש)"
+          },
+          {
+            "type": "queue",
+            "values": [
+              5,
+              7,
+              4,
+              6
+            ],
+            "caption": "q1 אחרי שתי העברות (5 בראש)"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "תורים זהים ותורים דומים",
+    "topic": "queue",
+    "mainClass": "QueueTargil8",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "QueueTargil8",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isIdentical",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q1"
+          },
+          {
+            "type": "Queue<Integer>",
+            "name": "q2"
+          }
+        ],
+        "instructions": "שני תורים, q1 ו-q2, יהיו \"תורים זהים\" אם מספר האיברים בשני התורים זהה, ובשני התורים מופיעים בדיוק אותם ערכים ובאותו הסדר.\nלדוגמה: שני התורים שבציורים זהים.\nכתוב פעולה חיצונית ששמה isIdentical, המקבלת שני תורים q1 ו-q2 של מספרים שלמים, ומחזירה true אם התורים זהים, אחרת היא מחזירה false.\nהערה: עם סיום הפעולה, חובה לשמור על מבנה התורים המקורי שהתקבל.",
+        "solution": "public static boolean isIdentical(Queue<Integer> q1, Queue<Integer> q2) {\n    int n = size(q1);\n    if (n != size(q2)) {\n        return false;\n    }\n    boolean same = true;\n    // מסובבים את שני התורים סיבוב שלם: כל איבר יוצא מהראש וחוזר לסוף — כך הם חוזרים להיות כמו בהתחלה\n    for (int i = 0; i < n; i++) {\n        int a = q1.remove();\n        int b = q2.remove();\n        if (a != b) {\n            same = false;\n        }\n        q1.insert(a);\n        q2.insert(b);\n    }\n    return same;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "QueueTargil8",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "isSimilar",
+        "parameters": [
+          {
+            "type": "Queue<Integer>",
+            "name": "q1"
+          },
+          {
+            "type": "Queue<Integer>",
+            "name": "q2"
+          }
+        ],
+        "instructions": "\"העברה מההתחלה לסוף\" היא העברת מספר מראש התור לסופו.\nלדוגמה: התור שבציור השני הוא התור שבציור הראשון אחרי \"העברה מההתחלה לסוף\".\nכתוב פעולה חיצונית ששמה isSimilar, המקבלת שני תורים q1 ו-q2 של מספרים שלמים. הפעולה מחזירה true אם התורים q1 ו-q2 זהים, או שהם יהיו זהים לאחר שנבצע ב-q1 \"העברה מההתחלה לסוף\" פעם אחת או יותר. אחרת הפעולה מחזירה false.\nלדוגמה: עבור התורים q1 ו-q2 שבציור השלישי ובציור הרביעי הפעולה תחזיר true: אחרי שתי \"העברות מההתחלה לסוף\" ב-q1, הוא יהיה זהה ל-q2 (הציור החמישי).\nחובה להשתמש בפעולה שכתבת בסעיף א.\nאין צורך לשמור על מבנה התורים המקורי שהתקבל.",
+        "solution": "public static boolean isSimilar(Queue<Integer> q1, Queue<Integer> q2) {\n    if (isIdentical(q1, q2)) {\n        return true;\n    }\n    int n = size(q1);\n    // כל \"העברה מההתחלה לסוף\" נותנת סדר אחר; אחרי n העברות התור חוזר להיות כמו בהתחלה\n    for (int i = 1; i < n; i++) {\n        q1.insert(q1.remove());\n        if (isIdentical(q1, q2)) {\n            return true;\n        }\n    }\n    return false;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "QueueTargil8",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// הפעולה הנתונה בשאלה: מספר האיברים בתור q, בלי לשנות את התור\npublic static int size(Queue<Integer> q) {\n    Queue<Integer> temp = new Queue<Integer>();\n    int count = 0;\n    while (!q.isEmpty()) {\n        temp.insert(q.remove());\n        count++;\n    }\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    return count;\n}\n\n// תור עם הערכים לפי הסדר (הראשון — בראש התור)\npublic static Queue<Integer> build(int[] values) {\n    Queue<Integer> q = new Queue<Integer>();\n    for (int i = 0; i < values.length; i++) {\n        q.insert(values[i]);\n    }\n    return q;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "Queue<Integer> q1 = build(new int[] { 6, 2, 8, 9 });\nQueue<Integer> q2 = build(new int[] { 6, 2, 8, 9 });\nSystem.out.println(\"סעיף א, בדיקה 1 (הדוגמה — זהים): \" + check(isIdentical(q1, q2), true));\nSystem.out.println(\"סעיף א, בדיקה 2 (שני התורים נשארו כמו בהתחלה): \" + check(q1 + \" \" + q2, \"[6,2,8,9] [6,2,8,9]\"));\nSystem.out.println(\"סעיף א, בדיקה 3 (אותם ערכים, סדר אחר): \" + check(isIdentical(build(new int[] { 6, 2, 9 }), build(new int[] { 6, 9, 2 })), false));\nSystem.out.println(\"סעיף א, בדיקה 4 (מספר איברים שונה): \" + check(isIdentical(build(new int[] { 6, 2 }), build(new int[] { 6, 2, 8 })), false));\nSystem.out.println(\"סעיף א, בדיקה 5 (שני תורים ריקים): \" + check(isIdentical(new Queue<Integer>(), new Queue<Integer>()), true));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה — שתי העברות): \" + check(isSimilar(build(new int[] { 4, 6, 5, 7 }), build(new int[] { 5, 7, 4, 6 })), true));\nSystem.out.println(\"סעיף ב, בדיקה 2 (אותם ערכים, אבל לא בסיבוב): \" + check(isSimilar(build(new int[] { 1, 2, 3 }), build(new int[] { 1, 3, 2 })), false));\nSystem.out.println(\"סעיף ב, בדיקה 3 (מספר איברים שונה): \" + check(isSimilar(build(new int[] { 1, 2 }), build(new int[] { 1, 2, 1 })), false));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה — זהים): נכון\nסעיף א, בדיקה 2 (שני התורים נשארו כמו בהתחלה): נכון\nסעיף א, בדיקה 3 (אותם ערכים, סדר אחר): נכון\nסעיף א, בדיקה 4 (מספר איברים שונה): נכון\nסעיף א, בדיקה 5 (שני תורים ריקים): נכון\nסעיף ב, בדיקה 1 (הדוגמה — שתי העברות): נכון\nסעיף ב, בדיקה 2 (אותם ערכים, אבל לא בסיבוב): נכון\nסעיף ב, בדיקה 3 (מספר איברים שונה): נכון"
+  },
+  "csharp": {
+    "question": {
+      "intro": "נתונה הפעולה:\npublic static int Size(Queue<int> q)\nהפעולה מחזירה את מספר האיברים בתור q בלי לשנות את התור.\nבשאלה זו אפשר להשתמש בפעולה Size בלי לממש אותה (במעטפת היא כבר כתובה).",
+      "sections": [
+        {
+          "label": "א",
+          "text": "שני תורים, q1 ו-q2, יהיו \"תורים זהים\" אם מספר האיברים בשני התורים זהה, ובשני התורים מופיעים בדיוק אותם ערכים ובאותו הסדר.\nלדוגמה: שני התורים שבציורים זהים.\nכתוב פעולה חיצונית ששמה IsIdentical, המקבלת שני תורים q1 ו-q2 של מספרים שלמים, ומחזירה true אם התורים זהים, אחרת היא מחזירה false.\nהערה: עם סיום הפעולה, חובה לשמור על מבנה התורים המקורי שהתקבל.",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                6,
+                2,
+                8,
+                9
+              ],
+              "caption": "q1 (6 בראש התור)"
+            },
+            {
+              "type": "queue",
+              "values": [
+                6,
+                2,
+                8,
+                9
+              ],
+              "caption": "q2 (6 בראש התור)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "\"העברה מההתחלה לסוף\" היא העברת מספר מראש התור לסופו.\nלדוגמה: התור שבציור השני הוא התור שבציור הראשון אחרי \"העברה מההתחלה לסוף\".\nכתוב פעולה חיצונית ששמה IsSimilar, המקבלת שני תורים q1 ו-q2 של מספרים שלמים. הפעולה מחזירה true אם התורים q1 ו-q2 זהים, או שהם יהיו זהים לאחר שנבצע ב-q1 \"העברה מההתחלה לסוף\" פעם אחת או יותר. אחרת הפעולה מחזירה false.\nלדוגמה: עבור התורים q1 ו-q2 שבציור השלישי ובציור הרביעי הפעולה תחזיר true: אחרי שתי \"העברות מההתחלה לסוף\" ב-q1, הוא יהיה זהה ל-q2 (הציור החמישי).\nחובה להשתמש בפעולה שכתבת בסעיף א.\nאין צורך לשמור על מבנה התורים המקורי שהתקבל.",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                4,
+                6,
+                2,
+                5
+              ],
+              "caption": "התור המקורי (4 בראש)"
+            },
+            {
+              "type": "queue",
+              "values": [
+                6,
+                2,
+                5,
+                4
+              ],
+              "caption": "התור אחרי \"העברה מההתחלה לסוף\" (6 בראש)"
+            },
+            {
+              "type": "queue",
+              "values": [
+                4,
+                6,
+                5,
+                7
+              ],
+              "caption": "q1 (4 בראש)"
+            },
+            {
+              "type": "queue",
+              "values": [
+                5,
+                7,
+                4,
+                6
+              ],
+              "caption": "q2 (5 בראש)"
+            },
+            {
+              "type": "queue",
+              "values": [
+                5,
+                7,
+                4,
+                6
+              ],
+              "caption": "q1 אחרי שתי העברות (5 בראש)"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "תורים זהים ותורים דומים",
+      "topic": "queue",
+      "mainClass": "QueueTargil8",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "QueueTargil8",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsIdentical",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q1"
+            },
+            {
+              "type": "Queue<int>",
+              "name": "q2"
+            }
+          ],
+          "instructions": "שני תורים, q1 ו-q2, יהיו \"תורים זהים\" אם מספר האיברים בשני התורים זהה, ובשני התורים מופיעים בדיוק אותם ערכים ובאותו הסדר.\nלדוגמה: שני התורים שבציורים זהים.\nכתוב פעולה חיצונית ששמה IsIdentical, המקבלת שני תורים q1 ו-q2 של מספרים שלמים, ומחזירה true אם התורים זהים, אחרת היא מחזירה false.\nהערה: עם סיום הפעולה, חובה לשמור על מבנה התורים המקורי שהתקבל.",
+          "solution": "public static bool IsIdentical(Queue<int> q1, Queue<int> q2)\n{\n    int n = Size(q1);\n    if (n != Size(q2))\n    {\n        return false;\n    }\n    bool same = true;\n    // מסובבים את שני התורים סיבוב שלם: כל איבר יוצא מהראש וחוזר לסוף — כך הם חוזרים להיות כמו בהתחלה\n    for (int i = 0; i < n; i++)\n    {\n        int a = q1.Remove();\n        int b = q2.Remove();\n        if (a != b)\n        {\n            same = false;\n        }\n        q1.Insert(a);\n        q2.Insert(b);\n    }\n    return same;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "QueueTargil8",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "IsSimilar",
+          "parameters": [
+            {
+              "type": "Queue<int>",
+              "name": "q1"
+            },
+            {
+              "type": "Queue<int>",
+              "name": "q2"
+            }
+          ],
+          "instructions": "\"העברה מההתחלה לסוף\" היא העברת מספר מראש התור לסופו.\nלדוגמה: התור שבציור השני הוא התור שבציור הראשון אחרי \"העברה מההתחלה לסוף\".\nכתוב פעולה חיצונית ששמה IsSimilar, המקבלת שני תורים q1 ו-q2 של מספרים שלמים. הפעולה מחזירה true אם התורים q1 ו-q2 זהים, או שהם יהיו זהים לאחר שנבצע ב-q1 \"העברה מההתחלה לסוף\" פעם אחת או יותר. אחרת הפעולה מחזירה false.\nלדוגמה: עבור התורים q1 ו-q2 שבציור השלישי ובציור הרביעי הפעולה תחזיר true: אחרי שתי \"העברות מההתחלה לסוף\" ב-q1, הוא יהיה זהה ל-q2 (הציור החמישי).\nחובה להשתמש בפעולה שכתבת בסעיף א.\nאין צורך לשמור על מבנה התורים המקורי שהתקבל.",
+          "solution": "public static bool IsSimilar(Queue<int> q1, Queue<int> q2)\n{\n    if (IsIdentical(q1, q2))\n    {\n        return true;\n    }\n    int n = Size(q1);\n    // כל \"העברה מההתחלה לסוף\" נותנת סדר אחר; אחרי n העברות התור חוזר להיות כמו בהתחלה\n    for (int i = 1; i < n; i++)\n    {\n        q1.Insert(q1.Remove());\n        if (IsIdentical(q1, q2))\n        {\n            return true;\n        }\n    }\n    return false;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "QueueTargil8",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// הפעולה הנתונה בשאלה: מספר האיברים בתור q, בלי לשנות את התור\npublic static int Size(Queue<int> q)\n{\n    Queue<int> temp = new Queue<int>();\n    int count = 0;\n    while (!q.IsEmpty())\n    {\n        temp.Insert(q.Remove());\n        count++;\n    }\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n    return count;\n}\n\n// תור עם הערכים לפי הסדר (הראשון — בראש התור)\npublic static Queue<int> Build(int[] values)\n{\n    Queue<int> q = new Queue<int>();\n    for (int i = 0; i < values.Length; i++)\n    {\n        q.Insert(values[i]);\n    }\n    return q;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Queue<int> q1 = Build(new int[] { 6, 2, 8, 9 });\nQueue<int> q2 = Build(new int[] { 6, 2, 8, 9 });\nConsole.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה — זהים): \" + Check(IsIdentical(q1, q2), true));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (שני התורים נשארו כמו בהתחלה): \" + Check(q1 + \" \" + q2, \"[6,2,8,9] [6,2,8,9]\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (אותם ערכים, סדר אחר): \" + Check(IsIdentical(Build(new int[] { 6, 2, 9 }), Build(new int[] { 6, 9, 2 })), false));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (מספר איברים שונה): \" + Check(IsIdentical(Build(new int[] { 6, 2 }), Build(new int[] { 6, 2, 8 })), false));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (שני תורים ריקים): \" + Check(IsIdentical(new Queue<int>(), new Queue<int>()), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה — שתי העברות): \" + Check(IsSimilar(Build(new int[] { 4, 6, 5, 7 }), Build(new int[] { 5, 7, 4, 6 })), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (אותם ערכים, אבל לא בסיבוב): \" + Check(IsSimilar(Build(new int[] { 1, 2, 3 }), Build(new int[] { 1, 3, 2 })), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (מספר איברים שונה): \" + Check(IsSimilar(Build(new int[] { 1, 2 }), Build(new int[] { 1, 2, 1 })), false));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה — זהים): נכון\nסעיף א, בדיקה 2 (שני התורים נשארו כמו בהתחלה): נכון\nסעיף א, בדיקה 3 (אותם ערכים, סדר אחר): נכון\nסעיף א, בדיקה 4 (מספר איברים שונה): נכון\nסעיף א, בדיקה 5 (שני תורים ריקים): נכון\nסעיף ב, בדיקה 1 (הדוגמה — שתי העברות): נכון\nסעיף ב, בדיקה 2 (אותם ערכים, אבל לא בסיבוב): נכון\nסעיף ב, בדיקה 3 (מספר איברים שונה): נכון"
+    },
+    "manual": true
+  }
+}

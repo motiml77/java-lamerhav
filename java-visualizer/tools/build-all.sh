@@ -94,6 +94,8 @@ cp eclipse-plugin/ai.properties "$OUT/resources/"   # "שליחת תרגיל": �
 mkdir -p "$OUT/resources/help" && cp build/help/* "$OUT/resources/help/" 2>/dev/null || true
 cp src/examples/*.java "$OUT/resources/examples/"
 cp src/Main.java "$OUT/resources/"
+# הגרסה בתחתית החלונות של Eclipse ("גרסה 1.0.3") — Look.version()
+printf 'version=%s\nbuild=%s\n' "$SHORTVER" "$BUILDNO" > "$OUT/resources/version.properties"
 # Bundle-Version עם qualifier של הבנייה (1.0.1.v202611011200). שם הקובץ נשאר il.lamerhav.dsviz_1.0.1.jar (קישורים קבועים);
 # ל-Eclipse משנה רק הגרסה שבתוך MANIFEST.MF. בלי זה כל הבניות היו "1.0.1", ועותק ישן היה נטען במקום החדש
 MF=build/eclipse-MANIFEST.MF
@@ -156,7 +158,7 @@ echo "== Windows installer (DSViz-Setup.exe)"
 if command -v makensis >/dev/null 2>&1; then
     tools/build-jre.sh   # Java 21 מקוצרת ל-Windows שנכנסת לתוך ההתקנה
     # מאגר התרגילים (Eclipse, IntelliJ, Visual Studio) — נכנס להתקנה ולעדכון האוטומטי; BUILDNO אחד לכל הבנייה
-    BUILDNO=$BUILDNO sh tools/build-bank-all.sh
+    BUILDNO=$BUILDNO SHORTVER=$SHORTVER sh tools/build-bank-all.sh
     # BUILDNO (למעלה) — העדכון האוטומטי מתקין כל בנייה חדשה יותר; אותו מספר כמו ב-Bundle-Version של התוסף ל-Eclipse
     # CHANNEL=<ענף> — גרסת בדיקה (למשל release/control-center): העדכון האוטומטי שלה בודק את version.json של הענף הזה בלבד
     # (installer/channel.txt נכנס להתקנה). בלי CHANNEL — הגרסה הרגילה, שמתעדכנת מ-master

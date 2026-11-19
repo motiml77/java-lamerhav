@@ -1,0 +1,253 @@
+{
+  "id": "loops-matriculation-grades",
+  "topic": "loops",
+  "level": "medium",
+  "title": "בגרות במדעי המחשב (לולאת while)",
+  "question": {
+    "intro": "תלמידי כיתה נבחנו בבחינת הבגרות במדעי המחשב.\nבתוכנית המלאה קולטים לכל תלמיד את הציון השנתי שלו ואת ציון הבחינה שלו, עד שנקלט -1 בציון השנתי או בציון הבחינה (סימן לסיום — לא תלמיד).\nכאן הציונים כבר נתונים בשני מערכים באותו אורך: years[i] הוא הציון השנתי של התלמיד שבמקום i, ו-exams[i] הוא ציון הבחינה שלו. באחד המקומות באחד המערכים יש -1, והתלמידים הם רק מי שלפני המקום הזה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה finalGrade, המקבלת את הציון השנתי year ואת ציון הבחינה exam של תלמיד, ומחזירה את הציון הסופי שלו: הממוצע של שני הציונים, מעוגל למספר שלם. ממוצע שמסתיים ב-.5 מעוגל כלפי מעלה.\nלדוגמה:\nעבור year = 80 ו-exam = 85 הממוצע הוא 82.5, והפעולה תחזיר 83\nעבור year = 92 ו-exam = 90 הפעולה תחזיר 91"
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה countExamHigher, המקבלת את המערכים years ו-exams ומחזירה כמה תלמידים קיבלו בבחינה ציון גבוה מהציון השנתי שלהם.\nהשתמש בלולאת while שנעצרת במספר -1 הראשון (בציון השנתי או בציון הבחינה).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 2\nהתלמידים הם ארבעת הראשונים: אצל החמישי ציון הבחינה הוא -1",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              80,
+              92,
+              75,
+              60,
+              88,
+              70
+            ],
+            "caption": "years — הציונים השנתיים"
+          },
+          {
+            "type": "array",
+            "values": [
+              85,
+              90,
+              75,
+              71,
+              -1,
+              95
+            ],
+            "caption": "exams — ציוני הבחינה"
+          }
+        ]
+      },
+      {
+        "label": "ג",
+        "text": "כתוב פעולה ששמה countExamLower, המקבלת את המערכים years ו-exams ומחזירה כמה תלמידים קיבלו בבחינה ציון נמוך מהציון השנתי שלהם.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 1\nתלמיד שקיבל בבחינה ציון ששווה לציון השנתי לא נספר בסעיף ב ולא בסעיף ג"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "בגרות במדעי המחשב (לולאת while)",
+    "topic": "loops",
+    "mainClass": "Loops22",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops22",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "finalGrade",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "year"
+          },
+          {
+            "type": "int",
+            "name": "exam"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה finalGrade, המקבלת את הציון השנתי year ואת ציון הבחינה exam של תלמיד, ומחזירה את הציון הסופי שלו: הממוצע של שני הציונים, מעוגל למספר שלם. ממוצע שמסתיים ב-.5 מעוגל כלפי מעלה.\nלדוגמה:\nעבור year = 80 ו-exam = 85 הממוצע הוא 82.5, והפעולה תחזיר 83\nעבור year = 92 ו-exam = 90 הפעולה תחזיר 91",
+        "solution": "public static int finalGrade(int year, int exam) {\n    return (int) Math.round((year + exam) / 2.0);\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops22",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countExamHigher",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "years"
+          },
+          {
+            "type": "int[]",
+            "name": "exams"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countExamHigher, המקבלת את המערכים years ו-exams ומחזירה כמה תלמידים קיבלו בבחינה ציון גבוה מהציון השנתי שלהם.\nהשתמש בלולאת while שנעצרת במספר -1 הראשון (בציון השנתי או בציון הבחינה).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 2\nהתלמידים הם ארבעת הראשונים: אצל החמישי ציון הבחינה הוא -1",
+        "solution": "public static int countExamHigher(int[] years, int[] exams) {\n    int count = 0;\n    int i = 0;\n    while (years[i] != -1 && exams[i] != -1) {\n        if (exams[i] > years[i]) {\n            count++;\n        }\n        i++;\n    }\n    return count;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Loops22",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countExamLower",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "years"
+          },
+          {
+            "type": "int[]",
+            "name": "exams"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countExamLower, המקבלת את המערכים years ו-exams ומחזירה כמה תלמידים קיבלו בבחינה ציון נמוך מהציון השנתי שלהם.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 1\nתלמיד שקיבל בבחינה ציון ששווה לציון השנתי לא נספר בסעיף ב ולא בסעיף ג",
+        "solution": "public static int countExamLower(int[] years, int[] exams) {\n    int count = 0;\n    int i = 0;\n    while (years[i] != -1 && exams[i] != -1) {\n        if (exams[i] < years[i]) {\n            count++;\n        }\n        i++;\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops22",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (82.5 — מעגלים למעלה): \" + check(finalGrade(80, 85), 83));\nSystem.out.println(\"סעיף א, בדיקה 2 (ממוצע שלם): \" + check(finalGrade(92, 90), 91));\nSystem.out.println(\"סעיף א, בדיקה 3 (84.5 — מעגלים למעלה): \" + check(finalGrade(84, 85), 85));\nSystem.out.println(\"סעיף א, בדיקה 4 (ציונים שווים): \" + check(finalGrade(75, 75), 75));\nint[] years = { 80, 92, 75, 60, 88, 70 };\nint[] exams = { 85, 90, 75, 71, -1, 95 };\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה): \" + check(countExamHigher(years, exams), 2));\nSystem.out.println(\"סעיף ב, בדיקה 2 (המספר -1 בציון השנתי): \" + check(countExamHigher(new int[] { 70, -1, 50 }, new int[] { 80, 90, 60 }), 1));\nSystem.out.println(\"סעיף ב, בדיקה 3 (אין תלמידים): \" + check(countExamHigher(new int[] { -1 }, new int[] { 50 }), 0));\nSystem.out.println(\"סעיף ג, בדיקה 1 (הדוגמה): \" + check(countExamLower(years, exams), 1));\nSystem.out.println(\"סעיף ג, בדיקה 2 (מה שאחרי המספר -1 לא נספר): \" + check(countExamLower(new int[] { 90, 80, 100 }, new int[] { 70, -1, 50 }), 1));\nSystem.out.println(\"סעיף ג, בדיקה 3 (כולם ירדו): \" + check(countExamLower(new int[] { 90, 80, -1 }, new int[] { 85, 79, 60 }), 2));",
+    "expectedOutput": "סעיף א, בדיקה 1 (82.5 — מעגלים למעלה): נכון\nסעיף א, בדיקה 2 (ממוצע שלם): נכון\nסעיף א, בדיקה 3 (84.5 — מעגלים למעלה): נכון\nסעיף א, בדיקה 4 (ציונים שווים): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (המספר -1 בציון השנתי): נכון\nסעיף ב, בדיקה 3 (אין תלמידים): נכון\nסעיף ג, בדיקה 1 (הדוגמה): נכון\nסעיף ג, בדיקה 2 (מה שאחרי המספר -1 לא נספר): נכון\nסעיף ג, בדיקה 3 (כולם ירדו): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "תלמידי כיתה נבחנו בבחינת הבגרות במדעי המחשב.\nבתוכנית המלאה קולטים לכל תלמיד את הציון השנתי שלו ואת ציון הבחינה שלו, עד שנקלט -1 בציון השנתי או בציון הבחינה (סימן לסיום — לא תלמיד).\nכאן הציונים כבר נתונים בשני מערכים באותו אורך: years[i] הוא הציון השנתי של התלמיד שבמקום i, ו-exams[i] הוא ציון הבחינה שלו. באחד המקומות באחד המערכים יש -1, והתלמידים הם רק מי שלפני המקום הזה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה FinalGrade, המקבלת את הציון השנתי year ואת ציון הבחינה exam של תלמיד, ומחזירה את הציון הסופי שלו: הממוצע של שני הציונים, מעוגל למספר שלם. ממוצע שמסתיים ב-.5 מעוגל כלפי מעלה.\nלדוגמה:\nעבור year = 80 ו-exam = 85 הממוצע הוא 82.5, והפעולה תחזיר 83\nעבור year = 92 ו-exam = 90 הפעולה תחזיר 91\nשים לב: ב-C# הפעולה Math.Round מעגלת חצי למספר הזוגי (84.5 יהיה 84). אפשר לכתוב Math.Round(x, MidpointRounding.AwayFromZero), או לחשב בלי Math.Round"
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה CountExamHigher, המקבלת את המערכים years ו-exams ומחזירה כמה תלמידים קיבלו בבחינה ציון גבוה מהציון השנתי שלהם.\nהשתמש בלולאת while שנעצרת במספר -1 הראשון (בציון השנתי או בציון הבחינה).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 2\nהתלמידים הם ארבעת הראשונים: אצל החמישי ציון הבחינה הוא -1",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                80,
+                92,
+                75,
+                60,
+                88,
+                70
+              ],
+              "caption": "years — הציונים השנתיים"
+            },
+            {
+              "type": "array",
+              "values": [
+                85,
+                90,
+                75,
+                71,
+                -1,
+                95
+              ],
+              "caption": "exams — ציוני הבחינה"
+            }
+          ]
+        },
+        {
+          "label": "ג",
+          "text": "כתוב פעולה ששמה CountExamLower, המקבלת את המערכים years ו-exams ומחזירה כמה תלמידים קיבלו בבחינה ציון נמוך מהציון השנתי שלהם.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 1\nתלמיד שקיבל בבחינה ציון ששווה לציון השנתי לא נספר בסעיף ב ולא בסעיף ג"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "בגרות במדעי המחשב (לולאת while)",
+      "topic": "loops",
+      "mainClass": "Loops22",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops22",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "FinalGrade",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "year"
+            },
+            {
+              "type": "int",
+              "name": "exam"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה FinalGrade, המקבלת את הציון השנתי year ואת ציון הבחינה exam של תלמיד, ומחזירה את הציון הסופי שלו: הממוצע של שני הציונים, מעוגל למספר שלם. ממוצע שמסתיים ב-.5 מעוגל כלפי מעלה.\nלדוגמה:\nעבור year = 80 ו-exam = 85 הממוצע הוא 82.5, והפעולה תחזיר 83\nעבור year = 92 ו-exam = 90 הפעולה תחזיר 91\nשים לב: ב-C# הפעולה Math.Round מעגלת חצי למספר הזוגי (84.5 יהיה 84). אפשר לכתוב Math.Round(x, MidpointRounding.AwayFromZero), או לחשב בלי Math.Round",
+          "solution": "public static int FinalGrade(int year, int exam)\n{\n    return (int) Math.Round((year + exam) / 2.0, MidpointRounding.AwayFromZero);\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops22",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountExamHigher",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "years"
+            },
+            {
+              "type": "int[]",
+              "name": "exams"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountExamHigher, המקבלת את המערכים years ו-exams ומחזירה כמה תלמידים קיבלו בבחינה ציון גבוה מהציון השנתי שלהם.\nהשתמש בלולאת while שנעצרת במספר -1 הראשון (בציון השנתי או בציון הבחינה).\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 2\nהתלמידים הם ארבעת הראשונים: אצל החמישי ציון הבחינה הוא -1",
+          "solution": "public static int CountExamHigher(int[] years, int[] exams)\n{\n    int count = 0;\n    int i = 0;\n    while (years[i] != -1 && exams[i] != -1)\n    {\n        if (exams[i] > years[i])\n        {\n            count++;\n        }\n        i++;\n    }\n    return count;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Loops22",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountExamLower",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "years"
+            },
+            {
+              "type": "int[]",
+              "name": "exams"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountExamLower, המקבלת את המערכים years ו-exams ומחזירה כמה תלמידים קיבלו בבחינה ציון נמוך מהציון השנתי שלהם.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 1\nתלמיד שקיבל בבחינה ציון ששווה לציון השנתי לא נספר בסעיף ב ולא בסעיף ג",
+          "solution": "public static int CountExamLower(int[] years, int[] exams)\n{\n    int count = 0;\n    int i = 0;\n    while (years[i] != -1 && exams[i] != -1)\n    {\n        if (exams[i] < years[i])\n        {\n            count++;\n        }\n        i++;\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops22",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (82.5 — מעגלים למעלה): \" + Check(FinalGrade(80, 85), 83));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (ממוצע שלם): \" + Check(FinalGrade(92, 90), 91));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (84.5 — מעגלים למעלה): \" + Check(FinalGrade(84, 85), 85));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (ציונים שווים): \" + Check(FinalGrade(75, 75), 75));\nint[] years = { 80, 92, 75, 60, 88, 70 };\nint[] exams = { 85, 90, 75, 71, -1, 95 };\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה): \" + Check(CountExamHigher(years, exams), 2));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (המספר -1 בציון השנתי): \" + Check(CountExamHigher(new int[] { 70, -1, 50 }, new int[] { 80, 90, 60 }), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (אין תלמידים): \" + Check(CountExamHigher(new int[] { -1 }, new int[] { 50 }), 0));\nConsole.WriteLine(\"סעיף ג, בדיקה 1 (הדוגמה): \" + Check(CountExamLower(years, exams), 1));\nConsole.WriteLine(\"סעיף ג, בדיקה 2 (מה שאחרי המספר -1 לא נספר): \" + Check(CountExamLower(new int[] { 90, 80, 100 }, new int[] { 70, -1, 50 }), 1));\nConsole.WriteLine(\"סעיף ג, בדיקה 3 (כולם ירדו): \" + Check(CountExamLower(new int[] { 90, 80, -1 }, new int[] { 85, 79, 60 }), 2));",
+      "expectedOutput": "סעיף א, בדיקה 1 (82.5 — מעגלים למעלה): נכון\nסעיף א, בדיקה 2 (ממוצע שלם): נכון\nסעיף א, בדיקה 3 (84.5 — מעגלים למעלה): נכון\nסעיף א, בדיקה 4 (ציונים שווים): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (המספר -1 בציון השנתי): נכון\nסעיף ב, בדיקה 3 (אין תלמידים): נכון\nסעיף ג, בדיקה 1 (הדוגמה): נכון\nסעיף ג, בדיקה 2 (מה שאחרי המספר -1 לא נספר): נכון\nסעיף ג, בדיקה 3 (כולם ירדו): נכון"
+    }
+  }
+}

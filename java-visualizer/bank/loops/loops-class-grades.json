@@ -1,0 +1,231 @@
+{
+  "id": "loops-class-grades",
+  "topic": "loops",
+  "level": "medium",
+  "title": "ציונים בשלוש כיתות (לולאה מקוננת)",
+  "question": {
+    "intro": "בתוכנית המלאה קולטים את הציונים של התלמידים בשלוש כיתות: לכל כיתה קולטים את מספר התלמידים בה, ואחר כך את הציונים שלהם.\nכאן הציונים כבר נתונים במערך דו-ממדי grades: השורה grades[i] היא הציונים של הכיתה שבמקום i (בשורות יכולים להיות מספרים שונים של ציונים). מספר הכיתות הוא grades.length, ובכל כיתה יש תלמיד אחד לפחות.\nכל פעולה מחזירה מחרוזת עם תוצאה אחת לכל כיתה, לפי הסדר, ורווח אחד בין תוצאה לתוצאה (רווח בסוף — לא משנה). בכל סעיף משתמשים בלולאה בתוך לולאה: החיצונית עוברת על הכיתות, והפנימית — על הציונים של הכיתה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה classAverages, המקבלת את המערך grades ומחזירה את הממוצע של כל כיתה (מספר ממשי).\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"75.25 61.0 71.0\""
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה failCounts, המקבלת את המערך grades ומחזירה את מספר הנכשלים בכל כיתה. ציון נמוך מ-55 הוא ציון נכשל (55 עובר).\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"1 2 1\""
+      },
+      {
+        "label": "ג",
+        "text": "כתוב פעולה ששמה highestGrades, המקבלת את המערך grades ומחזירה את הציון הגבוה ביותר בכל כיתה.\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"90 99 95\""
+      }
+    ],
+    "figures": [
+      {
+        "type": "matrix",
+        "values": [
+          [
+            90,
+            75,
+            50,
+            86
+          ],
+          [
+            60,
+            45,
+            40,
+            99
+          ],
+          [
+            55,
+            54,
+            80,
+            71,
+            95
+          ]
+        ],
+        "caption": "grades — שורה לכל כיתה"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "ציונים בשלוש כיתות (לולאה מקוננת)",
+    "topic": "loops",
+    "mainClass": "Loops23",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops23",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "classAverages",
+        "parameters": [
+          {
+            "type": "int[][]",
+            "name": "grades"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה classAverages, המקבלת את המערך grades ומחזירה את הממוצע של כל כיתה (מספר ממשי).\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"75.25 61.0 71.0\"",
+        "solution": "public static String classAverages(int[][] grades) {\n    String s = \"\";\n    for (int i = 0; i < grades.length; i++) {\n        int sum = 0;\n        for (int j = 0; j < grades[i].length; j++) {\n            sum = sum + grades[i][j];\n        }\n        s = s + (double) sum / grades[i].length + \" \";\n    }\n    return s;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops23",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "failCounts",
+        "parameters": [
+          {
+            "type": "int[][]",
+            "name": "grades"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה failCounts, המקבלת את המערך grades ומחזירה את מספר הנכשלים בכל כיתה. ציון נמוך מ-55 הוא ציון נכשל (55 עובר).\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"1 2 1\"",
+        "solution": "public static String failCounts(int[][] grades) {\n    String s = \"\";\n    for (int i = 0; i < grades.length; i++) {\n        int count = 0;\n        for (int j = 0; j < grades[i].length; j++) {\n            if (grades[i][j] < 55) {\n                count++;\n            }\n        }\n        s = s + count + \" \";\n    }\n    return s;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Loops23",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "highestGrades",
+        "parameters": [
+          {
+            "type": "int[][]",
+            "name": "grades"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה highestGrades, המקבלת את המערך grades ומחזירה את הציון הגבוה ביותר בכל כיתה.\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"90 99 95\"",
+        "solution": "public static String highestGrades(int[][] grades) {\n    String s = \"\";\n    for (int i = 0; i < grades.length; i++) {\n        int max = grades[i][0];\n        for (int j = 1; j < grades[i].length; j++) {\n            if (grades[i][j] > max) {\n                max = grades[i][j];\n            }\n        }\n        s = s + max + \" \";\n    }\n    return s;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops23",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(classAverages(new int[][] { new int[] { 90, 75, 50, 86 }, new int[] { 60, 45, 40, 99 }, new int[] { 55, 54, 80, 71, 95 } }), \"75.25 61.0 71.0\"));\nSystem.out.println(\"סעיף א, בדיקה 2 (שתי כיתות): \" + check(classAverages(new int[][] { new int[] { 100 }, new int[] { 30, 20 } }), \"100.0 25.0\"));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה): \" + check(failCounts(new int[][] { new int[] { 90, 75, 50, 86 }, new int[] { 60, 45, 40, 99 }, new int[] { 55, 54, 80, 71, 95 } }), \"1 2 1\"));\nSystem.out.println(\"סעיף ב, בדיקה 2 (שתי כיתות): \" + check(failCounts(new int[][] { new int[] { 100 }, new int[] { 30, 20 } }), \"0 2\"));\nSystem.out.println(\"סעיף ג, בדיקה 1 (הדוגמה): \" + check(highestGrades(new int[][] { new int[] { 90, 75, 50, 86 }, new int[] { 60, 45, 40, 99 }, new int[] { 55, 54, 80, 71, 95 } }), \"90 99 95\"));\nSystem.out.println(\"סעיף ג, בדיקה 2 (שתי כיתות): \" + check(highestGrades(new int[][] { new int[] { 100 }, new int[] { 30, 20 } }), \"100 30\"));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (שתי כיתות): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (שתי כיתות): נכון\nסעיף ג, בדיקה 1 (הדוגמה): נכון\nסעיף ג, בדיקה 2 (שתי כיתות): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בתוכנית המלאה קולטים את הציונים של התלמידים בשלוש כיתות: לכל כיתה קולטים את מספר התלמידים בה, ואחר כך את הציונים שלהם.\nכאן הציונים כבר נתונים במערך דו-ממדי grades: השורה grades[i] היא הציונים של הכיתה שבמקום i (בשורות יכולים להיות מספרים שונים של ציונים). מספר הכיתות הוא grades.Length, ובכל כיתה יש תלמיד אחד לפחות.\nכל פעולה מחזירה מחרוזת עם תוצאה אחת לכל כיתה, לפי הסדר, ורווח אחד בין תוצאה לתוצאה (רווח בסוף — לא משנה). בכל סעיף משתמשים בלולאה בתוך לולאה: החיצונית עוברת על הכיתות, והפנימית — על הציונים של הכיתה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה ClassAverages, המקבלת את המערך grades ומחזירה את הממוצע של כל כיתה (מספר ממשי).\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"75.25 61 71\""
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה FailCounts, המקבלת את המערך grades ומחזירה את מספר הנכשלים בכל כיתה. ציון נמוך מ-55 הוא ציון נכשל (55 עובר).\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"1 2 1\""
+        },
+        {
+          "label": "ג",
+          "text": "כתוב פעולה ששמה HighestGrades, המקבלת את המערך grades ומחזירה את הציון הגבוה ביותר בכל כיתה.\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"90 99 95\""
+        }
+      ],
+      "figures": [
+        {
+          "type": "matrix",
+          "values": [
+            [
+              90,
+              75,
+              50,
+              86
+            ],
+            [
+              60,
+              45,
+              40,
+              99
+            ],
+            [
+              55,
+              54,
+              80,
+              71,
+              95
+            ]
+          ],
+          "caption": "grades — שורה לכל כיתה"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "ציונים בשלוש כיתות (לולאה מקוננת)",
+      "topic": "loops",
+      "mainClass": "Loops23",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops23",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "ClassAverages",
+          "parameters": [
+            {
+              "type": "int[][]",
+              "name": "grades"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה ClassAverages, המקבלת את המערך grades ומחזירה את הממוצע של כל כיתה (מספר ממשי).\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"75.25 61 71\"",
+          "solution": "public static string ClassAverages(int[][] grades)\n{\n    string s = \"\";\n    for (int i = 0; i < grades.Length; i++)\n    {\n        int sum = 0;\n        for (int j = 0; j < grades[i].Length; j++)\n        {\n            sum = sum + grades[i][j];\n        }\n        s = s + (double) sum / grades[i].Length + \" \";\n    }\n    return s;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops23",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "FailCounts",
+          "parameters": [
+            {
+              "type": "int[][]",
+              "name": "grades"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה FailCounts, המקבלת את המערך grades ומחזירה את מספר הנכשלים בכל כיתה. ציון נמוך מ-55 הוא ציון נכשל (55 עובר).\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"1 2 1\"",
+          "solution": "public static string FailCounts(int[][] grades)\n{\n    string s = \"\";\n    for (int i = 0; i < grades.Length; i++)\n    {\n        int count = 0;\n        for (int j = 0; j < grades[i].Length; j++)\n        {\n            if (grades[i][j] < 55)\n            {\n                count++;\n            }\n        }\n        s = s + count + \" \";\n    }\n    return s;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Loops23",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "HighestGrades",
+          "parameters": [
+            {
+              "type": "int[][]",
+              "name": "grades"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה HighestGrades, המקבלת את המערך grades ומחזירה את הציון הגבוה ביותר בכל כיתה.\nלדוגמה: עבור המערך grades שבציור הפעולה תחזיר \"90 99 95\"",
+          "solution": "public static string HighestGrades(int[][] grades)\n{\n    string s = \"\";\n    for (int i = 0; i < grades.Length; i++)\n    {\n        int max = grades[i][0];\n        for (int j = 1; j < grades[i].Length; j++)\n        {\n            if (grades[i][j] > max)\n            {\n                max = grades[i][j];\n            }\n        }\n        s = s + max + \" \";\n    }\n    return s;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops23",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(ClassAverages(new int[][] { new int[] { 90, 75, 50, 86 }, new int[] { 60, 45, 40, 99 }, new int[] { 55, 54, 80, 71, 95 } }), \"75.25 61 71\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (שתי כיתות): \" + Check(ClassAverages(new int[][] { new int[] { 100 }, new int[] { 30, 20 } }), \"100 25\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה): \" + Check(FailCounts(new int[][] { new int[] { 90, 75, 50, 86 }, new int[] { 60, 45, 40, 99 }, new int[] { 55, 54, 80, 71, 95 } }), \"1 2 1\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (שתי כיתות): \" + Check(FailCounts(new int[][] { new int[] { 100 }, new int[] { 30, 20 } }), \"0 2\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 1 (הדוגמה): \" + Check(HighestGrades(new int[][] { new int[] { 90, 75, 50, 86 }, new int[] { 60, 45, 40, 99 }, new int[] { 55, 54, 80, 71, 95 } }), \"90 99 95\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 2 (שתי כיתות): \" + Check(HighestGrades(new int[][] { new int[] { 100 }, new int[] { 30, 20 } }), \"100 30\"));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (שתי כיתות): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (שתי כיתות): נכון\nסעיף ג, בדיקה 1 (הדוגמה): נכון\nסעיף ג, בדיקה 2 (שתי כיתות): נכון"
+    }
+  }
+}

@@ -94,6 +94,7 @@ final class NestedPreview extends Canvas {
         }
         switch (outer) {
             case "matrix": return drawMatrix(gc, x, y);
+            case "text": return drawText(gc, x, y);
             case "stack": return drawStack(gc, x, y);
             case "queue": return drawRow(gc, x, y, false, true);
             case "list": return drawRow(gc, x, y, true, false);
@@ -161,6 +162,30 @@ final class NestedPreview extends Canvas {
     }
 
     /** מערך דו-ממדי: טבלה של תאים, עם מספרי השורות והעמודות */
+    /** פלט של תוכנית (מאגר: ציור "text"): מסגרת כמו מסך, כל שורה משמאל לימין, כל תו בעמודה קבועה — הצורה בדיוק כמו בהדפסה */
+    private Point drawText(GC gc, int x, int y) {
+        int colW = 10, lineH = 18, pad = 10, cols = 1;
+        for (List<String> l : groups) cols = Math.max(cols, l == null || l.isEmpty() ? 0 : l.get(0).length());
+        int w = cols * colW + 2 * pad, h = groups.size() * lineH + 2 * pad - 4;
+        if (gc != null) {
+            gc.setBackground(boxFill);
+            gc.fillRoundRectangle(x + 2, y + 2, w, h, 8, 8);
+            gc.setForeground(boxLine);
+            gc.drawRoundRectangle(x + 2, y + 2, w, h, 8, 8);
+            gc.setForeground(ink);
+            for (int i = 0; i < groups.size(); i++) {
+                String line = groups.get(i) == null || groups.get(i).isEmpty() ? "" : groups.get(i).get(0);
+                for (int j = 0; j < line.length(); j++) {
+                    String ch = String.valueOf(line.charAt(j));
+                    if (ch.trim().isEmpty()) continue;
+                    int cx = x + 2 + pad + j * colW + (colW - gc.stringExtent(ch).x) / 2;
+                    gc.drawString(ch, cx, y + 2 + pad - 2 + i * lineH, true);
+                }
+            }
+        }
+        return new Point(w + 6, h + 6);
+    }
+
     private Point drawMatrix(GC gc, int x, int y) {
         int rows = groups.size(), cols = 0;
         for (List<String> r : groups) cols = Math.max(cols, r == null ? 0 : r.size());

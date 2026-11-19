@@ -239,6 +239,13 @@ final class BankVsWindow {
         buttons.setOpaque(false);
         buttons.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
         foot.add(buttons, BorderLayout.CENTER);
+        // הגרסה שמותקנת — רואים אם העדכון האוטומטי נכנס
+        if (!BankStore.version().isEmpty()) {
+            JLabel ver = RtlDialog.label("גרסה " + BankStore.version(), RtlDialog.small(), RtlDialog.MUTED);
+            ver.setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 14));
+            ver.putClientProperty("dsviz.id", "version");
+            foot.add(ver, BorderLayout.LINE_END);
+        }
         center.add(foot, BorderLayout.SOUTH);
         page.add(center, BorderLayout.CENTER);
 
@@ -283,11 +290,11 @@ final class BankVsWindow {
 
     List<BankStore.Question> visible(String topic) {
         List<BankStore.Question> out = new ArrayList<BankStore.Question>();
-        String s = search.toLowerCase();
+        String topicTitle = BankVs.topicTitle(topic);
         for (BankStore.Question q : BankVs.store.questions) {
             if (!q.topic.equals(topic)) continue;
             if (!levelFilter.isEmpty() && !q.level.id.equals(levelFilter)) continue;
-            if (!s.isEmpty() && !(q.title + " " + q.intro).toLowerCase().contains(s) && !BankVs.topicTitle(q.topic).contains(search)) continue;
+            if (!search.isEmpty() && !q.matches(search, topicTitle)) continue;   // אותו חיפוש כמו ב-Eclipse (BankStore)
             out.add(q);
         }
         return out;

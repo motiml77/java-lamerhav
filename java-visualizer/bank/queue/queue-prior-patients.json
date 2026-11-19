@@ -1,0 +1,269 @@
+{
+  "id": "queue-prior-patients",
+  "topic": "queue",
+  "level": "hard",
+  "title": "תור עדיפויות בחדר מיון",
+  "question": {
+    "intro": "נתונה המחלקה Patient (חולה בחדר מיון), ולה שתי תכונות:\nid — מספר הזהות של החולה, מטיפוס שלם\npriority — רמת הדחיפות של הטיפול בחולה: מספר שלם בין 1 ל-10. ככל שהמספר גבוה יותר, רמת הדחיפות גבוהה יותר.\nהנח שלתכונות המחלקה יש פעולות get ו-set.\nסדר הטיפול בחולים בחדר המיון: ככל שרמת הדחיפות גבוהה יותר, החולה מטופל מוקדם יותר. כשיש יותר מחולה אחד באותה רמת דחיפות, החולה שהגיע קודם לחדר המיון מטופל מוקדם יותר.\nכדי לשמור על סדר הטיפול נבנתה המחלקה PriorQueue (תור עדיפויות), ולה תכונה אחת:\nq — הפניה לתור מטיפוס Patient\nהנח שהחולים שרמת הדחיפות שלהם זהה מוצגים בתור לפי סדר ההגעה שלהם לחדר המיון.\nבציורים, כל חולה מוצג כך: (id,priority)",
+    "sections": [
+      {
+        "label": "א",
+        "text": "ממש את הפעולה priorityInsert של המחלקה PriorQueue. הפעולה מקבלת חולה חדש p, ומכניסה אותו לתור q בהתאם לכללים של חדר המיון.\nלדוגמה: עבור התור שבציור הראשון והחולה החדש (11210,6), התור ייראה אחרי ההכנסה כמו בציור השני",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              "(13893,7)",
+              "(28834,7)",
+              "(72890,6)",
+              "(12223,4)",
+              "(13335,4)",
+              "(33800,4)"
+            ],
+            "caption": "התור q (הראש משמאל)"
+          },
+          {
+            "type": "queue",
+            "values": [
+              "(13893,7)",
+              "(28834,7)",
+              "(72890,6)",
+              "(11210,6)",
+              "(12223,4)",
+              "(13335,4)",
+              "(33800,4)"
+            ],
+            "caption": "התור q אחרי ההכנסה של (11210,6)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "מדי פעם רמת הדחיפות של חולה מסוים משתנה בזמן שהוא בחדר המיון.\nממש את הפעולה update של המחלקה PriorQueue. הפעולה מקבלת מספר זהות id של חולה הנמצא בתור, ומספר pri — רמת הדחיפות המעודכנת שלו.\nהפעולה מעדכנת את התכונה priority של החולה, ומזיזה אותו בתור למקום שמתאים לרמת הדחיפות המעודכנת. אם בתור כבר יש חולים אחרים באותה רמת דחיפות, החולה שעודכן יוצב אחריהם, כאילו הגיע אחריהם לחדר המיון.\nאפשר להשתמש בפעולה priorityInsert שכתבת בסעיף א.\nלדוגמה: עבור התור שבציור הראשון, אחרי עדכון החולה 12223 לרמת דחיפות 7, התור ייראה כמו בציור השני",
+        "figures": [
+          {
+            "type": "queue",
+            "values": [
+              "(13893,7)",
+              "(28834,7)",
+              "(72890,6)",
+              "(12223,4)",
+              "(13335,4)",
+              "(33800,4)"
+            ],
+            "caption": "התור q (הראש משמאל)"
+          },
+          {
+            "type": "queue",
+            "values": [
+              "(13893,7)",
+              "(28834,7)",
+              "(12223,7)",
+              "(72890,6)",
+              "(13335,4)",
+              "(33800,4)"
+            ],
+            "caption": "התור q אחרי העדכון של 12223 לרמה 7"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "תור עדיפויות בחדר מיון",
+    "topic": "queue",
+    "mainClass": "QueueTargil11",
+    "imports": [],
+    "classes": [
+      {
+        "name": "Patient",
+        "code": "public class Patient {\n    private int id;\n    private int priority;\n\n    public Patient(int id, int priority) {\n        this.id = id;\n        this.priority = priority;\n    }\n\n    public int getId() { return id; }\n    public void setId(int id) { this.id = id; }\n    public int getPriority() { return priority; }\n    public void setPriority(int priority) { this.priority = priority; }\n\n    public String toString() {\n        return \"(\" + id + \",\" + priority + \")\";\n    }\n}"
+      },
+      {
+        "name": "PriorQueue",
+        "code": "public class PriorQueue {\n    private Queue<Patient> q;\n\n    public PriorQueue() {\n        q = new Queue<Patient>();\n    }\n\n    public Queue<Patient> getQ() { return q; }\n    public void setQ(Queue<Patient> q) { this.q = q; }\n\n    public String toString() {\n        return q.toString();\n    }\n}"
+      }
+    ],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "PriorQueue",
+        "isStatic": false,
+        "returnType": "void",
+        "methodName": "priorityInsert",
+        "parameters": [
+          {
+            "type": "Patient",
+            "name": "p"
+          }
+        ],
+        "instructions": "ממש את הפעולה priorityInsert של המחלקה PriorQueue. הפעולה מקבלת חולה חדש p, ומכניסה אותו לתור q בהתאם לכללים של חדר המיון.\nלדוגמה: עבור התור שבציור הראשון והחולה החדש (11210,6), התור ייראה אחרי ההכנסה כמו בציור השני",
+        "solution": "public void priorityInsert(Patient p) {\n    Queue<Patient> temp = new Queue<Patient>();\n    boolean done = false;\n    while (!q.isEmpty()) {\n        Patient x = q.remove();\n        // p נכנס לפני החולה הראשון שרמת הדחיפות שלו נמוכה משלו (אחרי כל מי שבאותה רמה)\n        if (!done && x.getPriority() < p.getPriority()) {\n            temp.insert(p);\n            done = true;\n        }\n        temp.insert(x);\n    }\n    if (!done) {\n        temp.insert(p);\n    }\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "PriorQueue",
+        "isStatic": false,
+        "returnType": "void",
+        "methodName": "update",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "id"
+          },
+          {
+            "type": "int",
+            "name": "pri"
+          }
+        ],
+        "instructions": "מדי פעם רמת הדחיפות של חולה מסוים משתנה בזמן שהוא בחדר המיון.\nממש את הפעולה update של המחלקה PriorQueue. הפעולה מקבלת מספר זהות id של חולה הנמצא בתור, ומספר pri — רמת הדחיפות המעודכנת שלו.\nהפעולה מעדכנת את התכונה priority של החולה, ומזיזה אותו בתור למקום שמתאים לרמת הדחיפות המעודכנת. אם בתור כבר יש חולים אחרים באותה רמת דחיפות, החולה שעודכן יוצב אחריהם, כאילו הגיע אחריהם לחדר המיון.\nאפשר להשתמש בפעולה priorityInsert שכתבת בסעיף א.\nלדוגמה: עבור התור שבציור הראשון, אחרי עדכון החולה 12223 לרמת דחיפות 7, התור ייראה כמו בציור השני",
+        "solution": "public void update(int id, int pri) {\n    Queue<Patient> temp = new Queue<Patient>();\n    Patient found = null;\n    // מוציאים את החולה מהתור; שאר החולים נשארים באותו הסדר\n    while (!q.isEmpty()) {\n        Patient x = q.remove();\n        if (x.getId() == id) {\n            found = x;\n        } else {\n            temp.insert(x);\n        }\n    }\n    while (!temp.isEmpty()) {\n        q.insert(temp.remove());\n    }\n    found.setPriority(pri);\n    priorityInsert(found);\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "QueueTargil11",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// תור עדיפויות עם החולים לפי הסדר (הראשון — בראש התור): ids[i] ו-pris[i] של כל חולה\npublic static PriorQueue make(int[] ids, int[] pris) {\n    PriorQueue pq = new PriorQueue();\n    for (int i = 0; i < ids.length; i++) {\n        pq.getQ().insert(new Patient(ids[i], pris[i]));\n    }\n    return pq;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "PriorQueue pq = make(new int[] { 13893, 28834, 72890, 12223, 13335, 33800 }, new int[] { 7, 7, 6, 4, 4, 4 });\npq.priorityInsert(new Patient(11210, 6));\nSystem.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(pq, \"[(13893,7),(28834,7),(72890,6),(11210,6),(12223,4),(13335,4),(33800,4)]\"));\nPriorQueue small = make(new int[] { 1, 2 }, new int[] { 7, 4 });\nsmall.priorityInsert(new Patient(5, 9));\nSystem.out.println(\"סעיף א, בדיקה 2 (הכי דחוף — לראש התור): \" + check(small, \"[(5,9),(1,7),(2,4)]\"));\nsmall.priorityInsert(new Patient(6, 2));\nSystem.out.println(\"סעיף א, בדיקה 3 (הכי פחות דחוף — לסוף התור): \" + check(small, \"[(5,9),(1,7),(2,4),(6,2)]\"));\nPriorQueue empty = new PriorQueue();\nempty.priorityInsert(new Patient(7, 5));\nSystem.out.println(\"סעיף א, בדיקה 4 (תור ריק): \" + check(empty, \"[(7,5)]\"));\nPriorQueue pq2 = make(new int[] { 13893, 28834, 72890, 12223, 13335, 33800 }, new int[] { 7, 7, 6, 4, 4, 4 });\npq2.update(12223, 7);\nSystem.out.println(\"סעיף ב, בדיקה 1 (דחיפות עולה — אחרי מי שכבר ב-7): \" + check(pq2, \"[(13893,7),(28834,7),(12223,7),(72890,6),(13335,4),(33800,4)]\"));\npq2.update(13893, 4);\nSystem.out.println(\"סעיף ב, בדיקה 2 (דחיפות יורדת — אחרי כל מי שב-4): \" + check(pq2, \"[(28834,7),(12223,7),(72890,6),(13335,4),(33800,4),(13893,4)]\"));\npq2.update(72890, 6);\nSystem.out.println(\"סעיף ב, בדיקה 3 (אותה דחיפות — נשאר במקום): \" + check(pq2, \"[(28834,7),(12223,7),(72890,6),(13335,4),(33800,4),(13893,4)]\"));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (הכי דחוף — לראש התור): נכון\nסעיף א, בדיקה 3 (הכי פחות דחוף — לסוף התור): נכון\nסעיף א, בדיקה 4 (תור ריק): נכון\nסעיף ב, בדיקה 1 (דחיפות עולה — אחרי מי שכבר ב-7): נכון\nסעיף ב, בדיקה 2 (דחיפות יורדת — אחרי כל מי שב-4): נכון\nסעיף ב, בדיקה 3 (אותה דחיפות — נשאר במקום): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "נתונה המחלקה Patient (חולה בחדר מיון), ולה שתי תכונות:\nid — מספר הזהות של החולה, מטיפוס שלם\npriority — רמת הדחיפות של הטיפול בחולה: מספר שלם בין 1 ל-10. ככל שהמספר גבוה יותר, רמת הדחיפות גבוהה יותר.\nהנח שלתכונות המחלקה יש פעולות Get ו-Set.\nסדר הטיפול בחולים בחדר המיון: ככל שרמת הדחיפות גבוהה יותר, החולה מטופל מוקדם יותר. כשיש יותר מחולה אחד באותה רמת דחיפות, החולה שהגיע קודם לחדר המיון מטופל מוקדם יותר.\nכדי לשמור על סדר הטיפול נבנתה המחלקה PriorQueue (תור עדיפויות), ולה תכונה אחת:\nq — הפניה לתור מטיפוס Patient\nהנח שהחולים שרמת הדחיפות שלהם זהה מוצגים בתור לפי סדר ההגעה שלהם לחדר המיון.\nבציורים, כל חולה מוצג כך: (id,priority)",
+      "sections": [
+        {
+          "label": "א",
+          "text": "ממש את הפעולה PriorityInsert של המחלקה PriorQueue. הפעולה מקבלת חולה חדש p, ומכניסה אותו לתור q בהתאם לכללים של חדר המיון.\nלדוגמה: עבור התור שבציור הראשון והחולה החדש (11210,6), התור ייראה אחרי ההכנסה כמו בציור השני",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                "(13893,7)",
+                "(28834,7)",
+                "(72890,6)",
+                "(12223,4)",
+                "(13335,4)",
+                "(33800,4)"
+              ],
+              "caption": "התור q (הראש משמאל)"
+            },
+            {
+              "type": "queue",
+              "values": [
+                "(13893,7)",
+                "(28834,7)",
+                "(72890,6)",
+                "(11210,6)",
+                "(12223,4)",
+                "(13335,4)",
+                "(33800,4)"
+              ],
+              "caption": "התור q אחרי ההכנסה של (11210,6)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "מדי פעם רמת הדחיפות של חולה מסוים משתנה בזמן שהוא בחדר המיון.\nממש את הפעולה Update של המחלקה PriorQueue. הפעולה מקבלת מספר זהות id של חולה הנמצא בתור, ומספר pri — רמת הדחיפות המעודכנת שלו.\nהפעולה מעדכנת את התכונה priority של החולה, ומזיזה אותו בתור למקום שמתאים לרמת הדחיפות המעודכנת. אם בתור כבר יש חולים אחרים באותה רמת דחיפות, החולה שעודכן יוצב אחריהם, כאילו הגיע אחריהם לחדר המיון.\nאפשר להשתמש בפעולה PriorityInsert שכתבת בסעיף א.\nלדוגמה: עבור התור שבציור הראשון, אחרי עדכון החולה 12223 לרמת דחיפות 7, התור ייראה כמו בציור השני",
+          "figures": [
+            {
+              "type": "queue",
+              "values": [
+                "(13893,7)",
+                "(28834,7)",
+                "(72890,6)",
+                "(12223,4)",
+                "(13335,4)",
+                "(33800,4)"
+              ],
+              "caption": "התור q (הראש משמאל)"
+            },
+            {
+              "type": "queue",
+              "values": [
+                "(13893,7)",
+                "(28834,7)",
+                "(12223,7)",
+                "(72890,6)",
+                "(13335,4)",
+                "(33800,4)"
+              ],
+              "caption": "התור q אחרי העדכון של 12223 לרמה 7"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "תור עדיפויות בחדר מיון",
+      "topic": "queue",
+      "mainClass": "QueueTargil11",
+      "imports": [],
+      "classes": [
+        {
+          "name": "Patient",
+          "code": "public class Patient\n{\n    private int id;\n    private int priority;\n\n    public Patient(int id, int priority)\n    {\n        this.id = id;\n        this.priority = priority;\n    }\n\n    public int GetId() { return id; }\n    public void SetId(int id) { this.id = id; }\n    public int GetPriority() { return priority; }\n    public void SetPriority(int priority) { this.priority = priority; }\n\n    public override string ToString()\n    {\n        return \"(\" + id + \",\" + priority + \")\";\n    }\n}"
+        },
+        {
+          "name": "PriorQueue",
+          "code": "public class PriorQueue\n{\n    private Queue<Patient> q;\n\n    public PriorQueue()\n    {\n        q = new Queue<Patient>();\n    }\n\n    public Queue<Patient> GetQ() { return q; }\n    public void SetQ(Queue<Patient> q) { this.q = q; }\n\n    public override string ToString()\n    {\n        return q.ToString();\n    }\n}"
+        }
+      ],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "PriorQueue",
+          "isStatic": false,
+          "returnType": "void",
+          "methodName": "PriorityInsert",
+          "parameters": [
+            {
+              "type": "Patient",
+              "name": "p"
+            }
+          ],
+          "instructions": "ממש את הפעולה PriorityInsert של המחלקה PriorQueue. הפעולה מקבלת חולה חדש p, ומכניסה אותו לתור q בהתאם לכללים של חדר המיון.\nלדוגמה: עבור התור שבציור הראשון והחולה החדש (11210,6), התור ייראה אחרי ההכנסה כמו בציור השני",
+          "solution": "public void PriorityInsert(Patient p)\n{\n    Queue<Patient> temp = new Queue<Patient>();\n    bool done = false;\n    while (!q.IsEmpty())\n    {\n        Patient x = q.Remove();\n        // p נכנס לפני החולה הראשון שרמת הדחיפות שלו נמוכה משלו (אחרי כל מי שבאותה רמה)\n        if (!done && x.GetPriority() < p.GetPriority())\n        {\n            temp.Insert(p);\n            done = true;\n        }\n        temp.Insert(x);\n    }\n    if (!done)\n    {\n        temp.Insert(p);\n    }\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "PriorQueue",
+          "isStatic": false,
+          "returnType": "void",
+          "methodName": "Update",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "id"
+            },
+            {
+              "type": "int",
+              "name": "pri"
+            }
+          ],
+          "instructions": "מדי פעם רמת הדחיפות של חולה מסוים משתנה בזמן שהוא בחדר המיון.\nממש את הפעולה Update של המחלקה PriorQueue. הפעולה מקבלת מספר זהות id של חולה הנמצא בתור, ומספר pri — רמת הדחיפות המעודכנת שלו.\nהפעולה מעדכנת את התכונה priority של החולה, ומזיזה אותו בתור למקום שמתאים לרמת הדחיפות המעודכנת. אם בתור כבר יש חולים אחרים באותה רמת דחיפות, החולה שעודכן יוצב אחריהם, כאילו הגיע אחריהם לחדר המיון.\nאפשר להשתמש בפעולה PriorityInsert שכתבת בסעיף א.\nלדוגמה: עבור התור שבציור הראשון, אחרי עדכון החולה 12223 לרמת דחיפות 7, התור ייראה כמו בציור השני",
+          "solution": "public void Update(int id, int pri)\n{\n    Queue<Patient> temp = new Queue<Patient>();\n    Patient found = null;\n    // מוציאים את החולה מהתור; שאר החולים נשארים באותו הסדר\n    while (!q.IsEmpty())\n    {\n        Patient x = q.Remove();\n        if (x.GetId() == id)\n        {\n            found = x;\n        }\n        else\n        {\n            temp.Insert(x);\n        }\n    }\n    while (!temp.IsEmpty())\n    {\n        q.Insert(temp.Remove());\n    }\n    found.SetPriority(pri);\n    PriorityInsert(found);\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "QueueTargil11",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}\n\n// תור עדיפויות עם החולים לפי הסדר (הראשון — בראש התור): ids[i] ו-pris[i] של כל חולה\npublic static PriorQueue Make(int[] ids, int[] pris)\n{\n    PriorQueue pq = new PriorQueue();\n    for (int i = 0; i < ids.Length; i++)\n    {\n        pq.GetQ().Insert(new Patient(ids[i], pris[i]));\n    }\n    return pq;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "PriorQueue pq = Make(new int[] { 13893, 28834, 72890, 12223, 13335, 33800 }, new int[] { 7, 7, 6, 4, 4, 4 });\npq.PriorityInsert(new Patient(11210, 6));\nConsole.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(pq, \"[(13893,7),(28834,7),(72890,6),(11210,6),(12223,4),(13335,4),(33800,4)]\"));\nPriorQueue small = Make(new int[] { 1, 2 }, new int[] { 7, 4 });\nsmall.PriorityInsert(new Patient(5, 9));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (הכי דחוף — לראש התור): \" + Check(small, \"[(5,9),(1,7),(2,4)]\"));\nsmall.PriorityInsert(new Patient(6, 2));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (הכי פחות דחוף — לסוף התור): \" + Check(small, \"[(5,9),(1,7),(2,4),(6,2)]\"));\nPriorQueue empty = new PriorQueue();\nempty.PriorityInsert(new Patient(7, 5));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (תור ריק): \" + Check(empty, \"[(7,5)]\"));\nPriorQueue pq2 = Make(new int[] { 13893, 28834, 72890, 12223, 13335, 33800 }, new int[] { 7, 7, 6, 4, 4, 4 });\npq2.Update(12223, 7);\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (דחיפות עולה — אחרי מי שכבר ב-7): \" + Check(pq2, \"[(13893,7),(28834,7),(12223,7),(72890,6),(13335,4),(33800,4)]\"));\npq2.Update(13893, 4);\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (דחיפות יורדת — אחרי כל מי שב-4): \" + Check(pq2, \"[(28834,7),(12223,7),(72890,6),(13335,4),(33800,4),(13893,4)]\"));\npq2.Update(72890, 6);\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (אותה דחיפות — נשאר במקום): \" + Check(pq2, \"[(28834,7),(12223,7),(72890,6),(13335,4),(33800,4),(13893,4)]\"));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (הכי דחוף — לראש התור): נכון\nסעיף א, בדיקה 3 (הכי פחות דחוף — לסוף התור): נכון\nסעיף א, בדיקה 4 (תור ריק): נכון\nסעיף ב, בדיקה 1 (דחיפות עולה — אחרי מי שכבר ב-7): נכון\nסעיף ב, בדיקה 2 (דחיפות יורדת — אחרי כל מי שב-4): נכון\nסעיף ב, בדיקה 3 (אותה דחיפות — נשאר במקום): נכון"
+    }
+  }
+}

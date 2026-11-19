@@ -81,7 +81,7 @@ final class BankStore {
         List<BankClasses.Cls> classes;
     }
 
-    static final List<String> FIGURE_TYPES = java.util.Arrays.asList("stack", "queue", "list", "tree", "array", "matrix", "classes");
+    static final List<String> FIGURE_TYPES = java.util.Arrays.asList("stack", "queue", "list", "tree", "array", "matrix", "classes", "text");
     static final List<String> INNER_TYPES = java.util.Arrays.asList("stack", "queue", "list");
 
     static final class Question {
@@ -99,6 +99,63 @@ final class BankStore {
         String expectedOutput() {
             return Json.str(exercise.get("expectedOutput")).replace("\r", "").replaceAll("\\s+$", "");
         }
+
+        private String searchText;
+
+        /**
+         * החיפוש בחלון המאגר (Eclipse, וגם Visual Studio / VS Code / IntelliJ — BankVsWindow): כל מילה שהוקלדה מופיעה בכותרת,
+         * בנוסח (הפתיחה וכל הסעיפים) או בשם הנושא — בלי הבדל של אותיות גדולות / קטנות, ניקוד, גרש וגרשיים.
+         * אות סופית בסוף מילה בחיפוש מוצאת גם את הצורות עם סיומת: "ממוין" — ממוינת, ממוינים; "עץ" — עצים (אבל לא "עצם").
+         */
+        boolean matches(String query, String topicTitle) {
+            String[] words = fold(query).trim().split("\\s+");
+            if (words.length == 0 || words[0].isEmpty()) return true;
+            if (searchText == null) {
+                StringBuilder b = new StringBuilder(title).append(' ').append(intro);
+                for (Section s : sections) b.append(' ').append(s.text);
+                b.append(' ').append(topicTitle == null ? "" : topicTitle).append(' ').append(id);
+                searchText = finals(fold(b.toString()));
+            }
+            for (String w : words) {
+                char last = w.charAt(w.length() - 1);
+                if (FINALS.indexOf(last) >= 0) {
+                    // "עץ" → עצ, ואחריו סוף מילה או סיומת: עצ / עצים / עצי — לא עצם (עצמ)
+                    String base = finals(w);
+                    if (!java.util.regex.Pattern.compile(java.util.regex.Pattern.quote(base) + "(?:ים|ות|ית|י|ו|ה|ת)?(?!\\p{L})")
+                            .matcher(searchText).find()) return false;
+                } else if (!searchText.contains(finals(w))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    private static final String FINALS = "ךםןףץ", REGULAR = "כמנפצ";
+
+    /** אותיות סופיות → רגילות (ממוין → ממוינ — כך זה חלק מ"ממוינת") */
+    static String finals(String s) {
+        StringBuilder b = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            int f = FINALS.indexOf(c);
+            b.append(f >= 0 ? REGULAR.charAt(f) : c);
+        }
+        return b.toString();
+    }
+
+    /** לחיפוש: אותיות קטנות, בלי ניקוד וטעמים, בלי גרש / גרשיים / מרכאות, ובלי סימני כיוון (RLM, RLE...) */
+    static String fold(String s) {
+        if (s == null) return "";
+        StringBuilder b = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c >= '֑' && c <= 'ׇ') continue;                       // ניקוד וטעמים
+            if (c == '׳' || c == '״' || c == '"' || c == '\'' || c == '`') continue;
+            if (c == '‎' || c == '‏' || (c >= '‪' && c <= '‮') || (c >= '⁦' && c <= '⁩')) continue;
+            b.append(Character.toLowerCase(c));
+        }
+        return b.toString();
     }
 
     /** הנושאים — הסדר הקבוע, גם אם עוד אין בהם שאלות (אפשר להוסיף נושא חדש ב-topics.json) */
@@ -276,6 +333,8 @@ final class BankStore {
             List<Object> values = Json.arr(m.get("values"));
             if (values.isEmpty() && !f.type.equals("stack") && !f.type.equals("queue")) return where + ": ציור בלי ערכים (values)";
             if (f.type.equals("classes") && !f.inner.equals("cell")) return where + ": לתרשים מחלקות אין inner";
+            // "text": פלט של תוכנית כמו שהוא מודפס (צורה מכוכביות / מספרים) — כל ערך שורה, משמאל לימין, תו מתחת לתו
+            if (f.type.equals("text") && !f.inner.equals("cell")) return where + ": לציור text אין inner";
             for (Object v : values) {
                 if (v == null) {
                     if (!f.type.equals("tree")) return where + ": null מותר רק בעץ (צומת שאין)";
@@ -352,6 +411,24 @@ final class BankStore {
             problems.add(new String[] { what, "JSON לא תקין: " + e.getMessage() });
             return null;
         }
+    }
+
+    private static String version;
+
+    /**
+     * הגרסה שמותקנת ("1.0.3") — bank/version.properties שנכנס למאגר בבנייה (tools/build-bank.sh, build-bank-vs.sh: SHORTVER).
+     * מוצגת בחלון המאגר בכל התוכנות. "" כשאין (בנייה מקומית)
+     */
+    static String version() {
+        if (version != null) return version;
+        String v = "";
+        try {
+            String t = resource(BankStore.class.getClassLoader(), "bank/version.properties");
+            java.util.regex.Matcher m = t == null ? null : java.util.regex.Pattern.compile("(?m)^version=(.+)$").matcher(t);
+            if (m != null && m.find()) v = m.group(1).trim();
+        } catch (Throwable ignored) { /* בלי גרסה */ }
+        version = v;
+        return v;
     }
 
     private static String resource(ClassLoader cl, String path) {

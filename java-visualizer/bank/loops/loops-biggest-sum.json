@@ -1,0 +1,137 @@
+{
+  "id": "loops-biggest-sum",
+  "topic": "loops",
+  "level": "hard",
+  "title": "הסכום הגדול ביותר בין שני אפסים",
+  "question": {
+    "intro": "",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה חיצונית ששמה biggestSum, המקבלת מערך arr מטיפוס שלם שאין בו מספרים שליליים (המספרים גדולים מ-0 או שווים ל-0). המספר 0 מופיע במערך פעמיים לפחות.\nהפעולה תחזיר את סכום המספרים הגבוה ביותר המתקבל בין כל שני מספרי 0 במערך.\nהנח שיש מספרים חיוביים בין כל שני מספרי 0 במערך.\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 17\nהסכומים בין כל שני מספרי 0 במערך: 9, 17, 14",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              33,
+              0,
+              5,
+              4,
+              0,
+              17,
+              0,
+              4,
+              10,
+              0,
+              5,
+              14
+            ],
+            "caption": "arr"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "הסכום הגדול ביותר בין שני אפסים",
+    "topic": "loops",
+    "mainClass": "Loops7",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops7",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "biggestSum",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה חיצונית ששמה biggestSum, המקבלת מערך arr מטיפוס שלם שאין בו מספרים שליליים (המספרים גדולים מ-0 או שווים ל-0). המספר 0 מופיע במערך פעמיים לפחות.\nהפעולה תחזיר את סכום המספרים הגבוה ביותר המתקבל בין כל שני מספרי 0 במערך.\nהנח שיש מספרים חיוביים בין כל שני מספרי 0 במערך.\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 17\nהסכומים בין כל שני מספרי 0 במערך: 9, 17, 14",
+        "solution": "public static int biggestSum(int[] arr) {\n    int max = 0;\n    int sum = 0;\n    boolean started = false;   // כבר עברנו את ה-0 הראשון?\n    for (int i = 0; i < arr.length; i++) {\n        if (arr[i] == 0) {\n            // נגמר קטע בין שני אפסים (או שזה ה-0 הראשון — לפניו אין קטע)\n            if (started && sum > max) {\n                max = sum;\n            }\n            started = true;\n            sum = 0;\n        } else {\n            sum = sum + arr[i];\n        }\n    }\n    return max;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops7",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got);\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(biggestSum(new int[] { 33, 0, 5, 4, 0, 17, 0, 4, 10, 0, 5, 14 }), 17));\nSystem.out.println(\"סעיף א, בדיקה 2 (שני אפסים בלבד): \" + check(biggestSum(new int[] { 0, 3, 0 }), 3));\nSystem.out.println(\"סעיף א, בדיקה 3 (מה שלפני ה-0 הראשון ואחרי האחרון לא נספר): \" + check(biggestSum(new int[] { 50, 0, 1, 2, 0, 8, 0, 100 }), 8));\nSystem.out.println(\"סעיף א, בדיקה 4 (הסכום הגדול בקטע האחרון): \" + check(biggestSum(new int[] { 0, 4, 4, 0, 9, 1, 0 }), 10));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (שני אפסים בלבד): נכון\nסעיף א, בדיקה 3 (מה שלפני ה-0 הראשון ואחרי האחרון לא נספר): נכון\nסעיף א, בדיקה 4 (הסכום הגדול בקטע האחרון): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה חיצונית ששמה BiggestSum, המקבלת מערך arr מטיפוס שלם שאין בו מספרים שליליים (המספרים גדולים מ-0 או שווים ל-0). המספר 0 מופיע במערך פעמיים לפחות.\nהפעולה תחזיר את סכום המספרים הגבוה ביותר המתקבל בין כל שני מספרי 0 במערך.\nהנח שיש מספרים חיוביים בין כל שני מספרי 0 במערך.\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 17\nהסכומים בין כל שני מספרי 0 במערך: 9, 17, 14",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                33,
+                0,
+                5,
+                4,
+                0,
+                17,
+                0,
+                4,
+                10,
+                0,
+                5,
+                14
+              ],
+              "caption": "arr"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "הסכום הגדול ביותר בין שני אפסים",
+      "topic": "loops",
+      "mainClass": "Loops7",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops7",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "BiggestSum",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "arr"
+            }
+          ],
+          "instructions": "כתוב פעולה חיצונית ששמה BiggestSum, המקבלת מערך arr מטיפוס שלם שאין בו מספרים שליליים (המספרים גדולים מ-0 או שווים ל-0). המספר 0 מופיע במערך פעמיים לפחות.\nהפעולה תחזיר את סכום המספרים הגבוה ביותר המתקבל בין כל שני מספרי 0 במערך.\nהנח שיש מספרים חיוביים בין כל שני מספרי 0 במערך.\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 17\nהסכומים בין כל שני מספרי 0 במערך: 9, 17, 14",
+          "solution": "public static int BiggestSum(int[] arr)\n{\n    int max = 0;\n    int sum = 0;\n    bool started = false;   // כבר עברנו את ה-0 הראשון?\n    for (int i = 0; i < arr.Length; i++)\n    {\n        if (arr[i] == 0)\n        {\n            // נגמר קטע בין שני אפסים (או שזה ה-0 הראשון — לפניו אין קטע)\n            if (started && sum > max)\n            {\n                max = sum;\n            }\n            started = true;\n            sum = 0;\n        }\n        else\n        {\n            sum = sum + arr[i];\n        }\n    }\n    return max;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops7",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = got == null ? \"null\" : got.ToString();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(BiggestSum(new int[] { 33, 0, 5, 4, 0, 17, 0, 4, 10, 0, 5, 14 }), 17));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (שני אפסים בלבד): \" + Check(BiggestSum(new int[] { 0, 3, 0 }), 3));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (מה שלפני ה-0 הראשון ואחרי האחרון לא נספר): \" + Check(BiggestSum(new int[] { 50, 0, 1, 2, 0, 8, 0, 100 }), 8));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (הסכום הגדול בקטע האחרון): \" + Check(BiggestSum(new int[] { 0, 4, 4, 0, 9, 1, 0 }), 10));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (שני אפסים בלבד): נכון\nסעיף א, בדיקה 3 (מה שלפני ה-0 הראשון ואחרי האחרון לא נספר): נכון\nסעיף א, בדיקה 4 (הסכום הגדול בקטע האחרון): נכון"
+    }
+  }
+}

@@ -1,0 +1,259 @@
+{
+  "id": "loops-star-shapes",
+  "topic": "loops",
+  "level": "easy",
+  "title": "צורות מכוכביות ומספרים (לולאה מקוננת)",
+  "question": {
+    "intro": "בבחינה מדפיסים את הצורות. כאן כל פעולה מחזירה את הצורה כמחרוזת אחת: השורות לפי הסדר, ובין שורה לשורה \"\\n\" (אחרי השורה האחרונה אין \"\\n\"). כך main יכול לבדוק אותה, ו-System.out.println של המחרוזת מדפיס את הצורה.\nבכל סעיף משתמשים בלולאה בתוך לולאה: החיצונית עוברת על השורות, והפנימית — על מה שבתוך השורה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה rectangle, המקבלת שני מספרים טבעיים m ו-n ומחזירה מלבן של כוכביות (*) עם m שורות ו-n עמודות.\nלדוגמה: עבור m = 3 ו-n = 4 הפעולה תחזיר את המלבן שבציור",
+        "figures": [
+          {
+            "type": "text",
+            "values": [
+              "****",
+              "****",
+              "****"
+            ],
+            "caption": "הפלט עבור m = 3 ו-n = 4"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה triangle, המקבלת מספר טבעי n (קטן מ-80) ומחזירה משולש של כוכביות עם n שורות: בשורה הראשונה כוכבית אחת, ובכל שורה כוכבית אחת יותר מבשורה שלפניה.\nלדוגמה: עבור n = 5 הפעולה תחזיר את המשולש שבציור",
+        "figures": [
+          {
+            "type": "text",
+            "values": [
+              "*",
+              "**",
+              "***",
+              "****",
+              "*****"
+            ],
+            "caption": "הפלט עבור n = 5"
+          }
+        ]
+      },
+      {
+        "label": "ג",
+        "text": "כתוב פעולה ששמה numberTriangle, המקבלת מספר טבעי n (קטן מ-10) ומחזירה n שורות: בשורה הראשונה המספר 1, בשורה השנייה המספרים מ-1 עד 2, וכן הלאה עד n. בין מספר למספר באותה שורה יש רווח אחד (רווח בסוף שורה — לא משנה).\nלדוגמה: עבור n = 5 הפעולה תחזיר את מה שבציור",
+        "figures": [
+          {
+            "type": "text",
+            "values": [
+              "1",
+              "1 2",
+              "1 2 3",
+              "1 2 3 4",
+              "1 2 3 4 5"
+            ],
+            "caption": "הפלט עבור n = 5"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "צורות מכוכביות ומספרים (לולאה מקוננת)",
+    "topic": "loops",
+    "mainClass": "Loops27",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops27",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "rectangle",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "m"
+          },
+          {
+            "type": "int",
+            "name": "n"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה rectangle, המקבלת שני מספרים טבעיים m ו-n ומחזירה מלבן של כוכביות (*) עם m שורות ו-n עמודות.\nלדוגמה: עבור m = 3 ו-n = 4 הפעולה תחזיר את המלבן שבציור",
+        "solution": "public static String rectangle(int m, int n) {\n    String s = \"\";\n    for (int i = 1; i <= m; i++) {\n        for (int j = 1; j <= n; j++) {\n            s = s + \"*\";\n        }\n        if (i < m) {\n            s = s + \"\\n\";   // בין שורה לשורה\n        }\n    }\n    return s;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops27",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "triangle",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "n"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה triangle, המקבלת מספר טבעי n (קטן מ-80) ומחזירה משולש של כוכביות עם n שורות: בשורה הראשונה כוכבית אחת, ובכל שורה כוכבית אחת יותר מבשורה שלפניה.\nלדוגמה: עבור n = 5 הפעולה תחזיר את המשולש שבציור",
+        "solution": "public static String triangle(int n) {\n    String s = \"\";\n    for (int i = 1; i <= n; i++) {\n        for (int j = 1; j <= i; j++) {   // בשורה i יש i כוכביות\n            s = s + \"*\";\n        }\n        if (i < n) {\n            s = s + \"\\n\";\n        }\n    }\n    return s;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Loops27",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "numberTriangle",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "n"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה numberTriangle, המקבלת מספר טבעי n (קטן מ-10) ומחזירה n שורות: בשורה הראשונה המספר 1, בשורה השנייה המספרים מ-1 עד 2, וכן הלאה עד n. בין מספר למספר באותה שורה יש רווח אחד (רווח בסוף שורה — לא משנה).\nלדוגמה: עבור n = 5 הפעולה תחזיר את מה שבציור",
+        "solution": "public static String numberTriangle(int n) {\n    String s = \"\";\n    for (int i = 1; i <= n; i++) {\n        for (int j = 1; j <= i; j++) {\n            s = s + j;\n            if (j < i) {\n                s = s + \" \";\n            }\n        }\n        if (i < n) {\n            s = s + \"\\n\";\n        }\n    }\n    return s;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops27",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).replace(\" \\n\", \"\\n\").trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה, m = 3 ו-n = 4): \" + check(rectangle(3, 4), \"****\\n****\\n****\"));\nSystem.out.println(\"סעיף א, בדיקה 2 (שורה אחת): \" + check(rectangle(1, 5), \"*****\"));\nSystem.out.println(\"סעיף א, בדיקה 3 (עמודה אחת): \" + check(rectangle(2, 1), \"*\\n*\"));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה, n = 5): \" + check(triangle(5), \"*\\n**\\n***\\n****\\n*****\"));\nSystem.out.println(\"סעיף ב, בדיקה 2 (n = 1): \" + check(triangle(1), \"*\"));\nSystem.out.println(\"סעיף ג, בדיקה 1 (הדוגמה, n = 5): \" + check(numberTriangle(5), \"1\\n1 2\\n1 2 3\\n1 2 3 4\\n1 2 3 4 5\"));\nSystem.out.println(\"סעיף ג, בדיקה 2 (n = 1): \" + check(numberTriangle(1), \"1\"));\nSystem.out.println(\"סעיף ג, בדיקה 3 (n = 3): \" + check(numberTriangle(3), \"1\\n1 2\\n1 2 3\"));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה, m = 3 ו-n = 4): נכון\nסעיף א, בדיקה 2 (שורה אחת): נכון\nסעיף א, בדיקה 3 (עמודה אחת): נכון\nסעיף ב, בדיקה 1 (הדוגמה, n = 5): נכון\nסעיף ב, בדיקה 2 (n = 1): נכון\nסעיף ג, בדיקה 1 (הדוגמה, n = 5): נכון\nסעיף ג, בדיקה 2 (n = 1): נכון\nסעיף ג, בדיקה 3 (n = 3): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בבחינה מדפיסים את הצורות. כאן כל פעולה מחזירה את הצורה כמחרוזת אחת: השורות לפי הסדר, ובין שורה לשורה \"\\n\" (אחרי השורה האחרונה אין \"\\n\"). כך Main יכול לבדוק אותה, ו-Console.WriteLine של המחרוזת מדפיס את הצורה.\nבכל סעיף משתמשים בלולאה בתוך לולאה: החיצונית עוברת על השורות, והפנימית — על מה שבתוך השורה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה Rectangle, המקבלת שני מספרים טבעיים m ו-n ומחזירה מלבן של כוכביות (*) עם m שורות ו-n עמודות.\nלדוגמה: עבור m = 3 ו-n = 4 הפעולה תחזיר את המלבן שבציור",
+          "figures": [
+            {
+              "type": "text",
+              "values": [
+                "****",
+                "****",
+                "****"
+              ],
+              "caption": "הפלט עבור m = 3 ו-n = 4"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה Triangle, המקבלת מספר טבעי n (קטן מ-80) ומחזירה משולש של כוכביות עם n שורות: בשורה הראשונה כוכבית אחת, ובכל שורה כוכבית אחת יותר מבשורה שלפניה.\nלדוגמה: עבור n = 5 הפעולה תחזיר את המשולש שבציור",
+          "figures": [
+            {
+              "type": "text",
+              "values": [
+                "*",
+                "**",
+                "***",
+                "****",
+                "*****"
+              ],
+              "caption": "הפלט עבור n = 5"
+            }
+          ]
+        },
+        {
+          "label": "ג",
+          "text": "כתוב פעולה ששמה NumberTriangle, המקבלת מספר טבעי n (קטן מ-10) ומחזירה n שורות: בשורה הראשונה המספר 1, בשורה השנייה המספרים מ-1 עד 2, וכן הלאה עד n. בין מספר למספר באותה שורה יש רווח אחד (רווח בסוף שורה — לא משנה).\nלדוגמה: עבור n = 5 הפעולה תחזיר את מה שבציור",
+          "figures": [
+            {
+              "type": "text",
+              "values": [
+                "1",
+                "1 2",
+                "1 2 3",
+                "1 2 3 4",
+                "1 2 3 4 5"
+              ],
+              "caption": "הפלט עבור n = 5"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "צורות מכוכביות ומספרים (לולאה מקוננת)",
+      "topic": "loops",
+      "mainClass": "Loops27",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops27",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "Rectangle",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "m"
+            },
+            {
+              "type": "int",
+              "name": "n"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Rectangle, המקבלת שני מספרים טבעיים m ו-n ומחזירה מלבן של כוכביות (*) עם m שורות ו-n עמודות.\nלדוגמה: עבור m = 3 ו-n = 4 הפעולה תחזיר את המלבן שבציור",
+          "solution": "public static string Rectangle(int m, int n)\n{\n    string s = \"\";\n    for (int i = 1; i <= m; i++)\n    {\n        for (int j = 1; j <= n; j++)\n        {\n            s = s + \"*\";\n        }\n        if (i < m)\n        {\n            s = s + \"\\n\";   // בין שורה לשורה\n        }\n    }\n    return s;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops27",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "Triangle",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "n"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Triangle, המקבלת מספר טבעי n (קטן מ-80) ומחזירה משולש של כוכביות עם n שורות: בשורה הראשונה כוכבית אחת, ובכל שורה כוכבית אחת יותר מבשורה שלפניה.\nלדוגמה: עבור n = 5 הפעולה תחזיר את המשולש שבציור",
+          "solution": "public static string Triangle(int n)\n{\n    string s = \"\";\n    for (int i = 1; i <= n; i++)\n    {\n        for (int j = 1; j <= i; j++)     // בשורה i יש i כוכביות\n        {\n            s = s + \"*\";\n        }\n        if (i < n)\n        {\n            s = s + \"\\n\";\n        }\n    }\n    return s;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Loops27",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "NumberTriangle",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "n"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה NumberTriangle, המקבלת מספר טבעי n (קטן מ-10) ומחזירה n שורות: בשורה הראשונה המספר 1, בשורה השנייה המספרים מ-1 עד 2, וכן הלאה עד n. בין מספר למספר באותה שורה יש רווח אחד (רווח בסוף שורה — לא משנה).\nלדוגמה: עבור n = 5 הפעולה תחזיר את מה שבציור",
+          "solution": "public static string NumberTriangle(int n)\n{\n    string s = \"\";\n    for (int i = 1; i <= n; i++)\n    {\n        for (int j = 1; j <= i; j++)\n        {\n            s = s + j;\n            if (j < i)\n            {\n                s = s + \" \";\n            }\n        }\n        if (i < n)\n        {\n            s = s + \"\\n\";\n        }\n    }\n    return s;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops27",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Replace(\" \\n\", \"\\n\").Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה, m = 3 ו-n = 4): \" + Check(Rectangle(3, 4), \"****\\n****\\n****\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (שורה אחת): \" + Check(Rectangle(1, 5), \"*****\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (עמודה אחת): \" + Check(Rectangle(2, 1), \"*\\n*\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה, n = 5): \" + Check(Triangle(5), \"*\\n**\\n***\\n****\\n*****\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (n = 1): \" + Check(Triangle(1), \"*\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 1 (הדוגמה, n = 5): \" + Check(NumberTriangle(5), \"1\\n1 2\\n1 2 3\\n1 2 3 4\\n1 2 3 4 5\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 2 (n = 1): \" + Check(NumberTriangle(1), \"1\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 3 (n = 3): \" + Check(NumberTriangle(3), \"1\\n1 2\\n1 2 3\"));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה, m = 3 ו-n = 4): נכון\nסעיף א, בדיקה 2 (שורה אחת): נכון\nסעיף א, בדיקה 3 (עמודה אחת): נכון\nסעיף ב, בדיקה 1 (הדוגמה, n = 5): נכון\nסעיף ב, בדיקה 2 (n = 1): נכון\nסעיף ג, בדיקה 1 (הדוגמה, n = 5): נכון\nסעיף ג, בדיקה 2 (n = 1): נכון\nסעיף ג, בדיקה 3 (n = 3): נכון"
+    }
+  }
+}

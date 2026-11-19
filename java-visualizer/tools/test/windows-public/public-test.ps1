@@ -42,8 +42,21 @@ function Download([string]$url, [string]$to) {
     throw "לא ירד: $url"
 }
 function Run([string]$exe, [string]$a) {
-    $t = Measure-Command { $script:p = Start-Process $exe -ArgumentList $a -PassThru -Wait }
-    Write-Host "  $(Split-Path $exe -Leaf) $a — $([int]$t.TotalSeconds) שניות, קוד $($script:p.ExitCode)"
+    # מחכים להתקנה עצמה, לא לתהליכי המשנה שלה (כמו update.ps1 אצל משתמשים): "-Wait" מחכה גם לכל צאצא, והמתקין של Visual Studio
+    # (VSIXInstaller) משאיר לפעמים שירות רקע (Microsoft.ServiceHub.Controller) שחי עוד דקות ארוכות — והבדיקה נתקעה עד גבול הזמן.
+    # גבול: 25 דקות להתקנה אחת; התקנה שלא נגמרת — כישלון, עם רשימת התהליכים שרצים
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $script:p = Start-Process $exe -ArgumentList $a -PassThru
+    $null = $script:p.Handle   # בלי זה ExitCode ריק אחרי WaitForExit
+    if (-not $script:p.WaitForExit(25 * 60 * 1000)) {
+        Write-Host "  FAIL $(Split-Path $exe -Leaf) $a — לא הסתיים תוך 25 דקות. תהליכים:"
+        Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'DSViz|setup|powershell|devenv|VSIX|ServiceHub|java|tasklist|cmd' } |
+            ForEach-Object { Write-Host ("     [{0}] {1}  {2}" -f $_.ProcessId, $_.Name, ([string]$_.CommandLine).Substring(0, [Math]::Min(160, ([string]$_.CommandLine).Length))) }
+        try { $script:p.Kill() } catch { }
+        $script:fails++
+        return -1
+    }
+    Write-Host "  $(Split-Path $exe -Leaf) $a — $([int]$sw.Elapsed.TotalSeconds) שניות, קוד $($script:p.ExitCode)"
     return $script:p.ExitCode
 }
 function TreeHash([string]$d) {

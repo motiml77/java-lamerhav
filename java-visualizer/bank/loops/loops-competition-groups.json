@@ -1,0 +1,165 @@
+{
+  "id": "loops-competition-groups",
+  "topic": "loops",
+  "level": "easy",
+  "title": "תחרות קדמוני",
+  "question": {
+    "intro": "בתחרות \"קדמוני\" השתתפו קבוצות של תלמידים משתי שכבות גיל: יסודי וחטיבת ביניים.\nבתוכנית המלאה קולטים את מספר הקבוצות שהשתתפו, ולכל קבוצה את קוד שכבת הגיל שלה (1 — יסודי, 2 — חטיבת ביניים) ואת מספר הנקודות שצברה, ומדפיסים כמה נקודות צברה הקבוצה המנצחת מבין קבוצות היסודי, וכמה נקודות צברה הקבוצה המנצחת מבין קבוצות חטיבת הביניים.\nכאן הנתונים כבר נתונים בשני מערכים באותו אורך: codes[i] הוא קוד שכבת הגיל של הקבוצה שבמקום i, ו-points[i] הוא מספר הנקודות שצברה (0 או יותר).",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה winnerPoints, המקבלת את המערכים codes ו-points ואת קוד שכבת גיל code (1 או 2), ומחזירה כמה נקודות צברה הקבוצה המנצחת (זו שצברה הכי הרבה נקודות) מבין הקבוצות ששכבת הגיל שלהן היא code.\nאם אין אף קבוצה משכבת הגיל code — הפעולה מחזירה -1\nהתוכנית המלאה קוראת לפעולה פעמיים: פעם עם code = 1 ופעם עם code = 2\nלדוגמה, עבור המערכים שבציור:\nעבור code = 1 הפעולה תחזיר 61\nעבור code = 2 הפעולה תחזיר 52",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              1,
+              2,
+              2,
+              1,
+              1,
+              2
+            ],
+            "caption": "codes — קוד שכבת הגיל"
+          },
+          {
+            "type": "array",
+            "values": [
+              35,
+              48,
+              52,
+              61,
+              40,
+              29
+            ],
+            "caption": "points — הנקודות"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "תחרות קדמוני",
+    "topic": "loops",
+    "mainClass": "Loops11",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops11",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "winnerPoints",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "codes"
+          },
+          {
+            "type": "int[]",
+            "name": "points"
+          },
+          {
+            "type": "int",
+            "name": "code"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה winnerPoints, המקבלת את המערכים codes ו-points ואת קוד שכבת גיל code (1 או 2), ומחזירה כמה נקודות צברה הקבוצה המנצחת (זו שצברה הכי הרבה נקודות) מבין הקבוצות ששכבת הגיל שלהן היא code.\nאם אין אף קבוצה משכבת הגיל code — הפעולה מחזירה -1\nהתוכנית המלאה קוראת לפעולה פעמיים: פעם עם code = 1 ופעם עם code = 2\nלדוגמה, עבור המערכים שבציור:\nעבור code = 1 הפעולה תחזיר 61\nעבור code = 2 הפעולה תחזיר 52",
+        "solution": "public static int winnerPoints(int[] codes, int[] points, int code) {\n    int max = -1;   // נשאר -1 אם אין אף קבוצה משכבת הגיל הזו\n    for (int i = 0; i < codes.length; i++) {\n        if (codes[i] == code && points[i] > max) {\n            max = points[i];\n        }\n    }\n    return max;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops11",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "int[] codes = { 1, 2, 2, 1, 1, 2 };\nint[] points = { 35, 48, 52, 61, 40, 29 };\nSystem.out.println(\"סעיף א, בדיקה 1 (הדוגמה, יסודי): \" + check(winnerPoints(codes, points, 1), 61));\nSystem.out.println(\"סעיף א, בדיקה 2 (הדוגמה, חטיבת ביניים): \" + check(winnerPoints(codes, points, 2), 52));\nSystem.out.println(\"סעיף א, בדיקה 3 (המנצחת היא הקבוצה הראשונה): \" + check(winnerPoints(new int[] { 1, 2, 1 }, new int[] { 70, 90, 45 }, 1), 70));\nSystem.out.println(\"סעיף א, בדיקה 4 (אין קבוצות של חטיבת ביניים): \" + check(winnerPoints(new int[] { 1, 1 }, new int[] { 20, 30 }, 2), -1));\nSystem.out.println(\"סעיף א, בדיקה 5 (קבוצה אחת עם 0 נקודות): \" + check(winnerPoints(new int[] { 2, 1 }, new int[] { 0, 15 }, 2), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה, יסודי): נכון\nסעיף א, בדיקה 2 (הדוגמה, חטיבת ביניים): נכון\nסעיף א, בדיקה 3 (המנצחת היא הקבוצה הראשונה): נכון\nסעיף א, בדיקה 4 (אין קבוצות של חטיבת ביניים): נכון\nסעיף א, בדיקה 5 (קבוצה אחת עם 0 נקודות): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בתחרות \"קדמוני\" השתתפו קבוצות של תלמידים משתי שכבות גיל: יסודי וחטיבת ביניים.\nבתוכנית המלאה קולטים את מספר הקבוצות שהשתתפו, ולכל קבוצה את קוד שכבת הגיל שלה (1 — יסודי, 2 — חטיבת ביניים) ואת מספר הנקודות שצברה, ומדפיסים כמה נקודות צברה הקבוצה המנצחת מבין קבוצות היסודי, וכמה נקודות צברה הקבוצה המנצחת מבין קבוצות חטיבת הביניים.\nכאן הנתונים כבר נתונים בשני מערכים באותו אורך: codes[i] הוא קוד שכבת הגיל של הקבוצה שבמקום i, ו-points[i] הוא מספר הנקודות שצברה (0 או יותר).",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה WinnerPoints, המקבלת את המערכים codes ו-points ואת קוד שכבת גיל code (1 או 2), ומחזירה כמה נקודות צברה הקבוצה המנצחת (זו שצברה הכי הרבה נקודות) מבין הקבוצות ששכבת הגיל שלהן היא code.\nאם אין אף קבוצה משכבת הגיל code — הפעולה מחזירה -1\nהתוכנית המלאה קוראת לפעולה פעמיים: פעם עם code = 1 ופעם עם code = 2\nלדוגמה, עבור המערכים שבציור:\nעבור code = 1 הפעולה תחזיר 61\nעבור code = 2 הפעולה תחזיר 52",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                1,
+                2,
+                2,
+                1,
+                1,
+                2
+              ],
+              "caption": "codes — קוד שכבת הגיל"
+            },
+            {
+              "type": "array",
+              "values": [
+                35,
+                48,
+                52,
+                61,
+                40,
+                29
+              ],
+              "caption": "points — הנקודות"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "תחרות קדמוני",
+      "topic": "loops",
+      "mainClass": "Loops11",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops11",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "WinnerPoints",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "codes"
+            },
+            {
+              "type": "int[]",
+              "name": "points"
+            },
+            {
+              "type": "int",
+              "name": "code"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה WinnerPoints, המקבלת את המערכים codes ו-points ואת קוד שכבת גיל code (1 או 2), ומחזירה כמה נקודות צברה הקבוצה המנצחת (זו שצברה הכי הרבה נקודות) מבין הקבוצות ששכבת הגיל שלהן היא code.\nאם אין אף קבוצה משכבת הגיל code — הפעולה מחזירה -1\nהתוכנית המלאה קוראת לפעולה פעמיים: פעם עם code = 1 ופעם עם code = 2\nלדוגמה, עבור המערכים שבציור:\nעבור code = 1 הפעולה תחזיר 61\nעבור code = 2 הפעולה תחזיר 52",
+          "solution": "public static int WinnerPoints(int[] codes, int[] points, int code)\n{\n    int max = -1;   // נשאר -1 אם אין אף קבוצה משכבת הגיל הזו\n    for (int i = 0; i < codes.Length; i++)\n    {\n        if (codes[i] == code && points[i] > max)\n        {\n            max = points[i];\n        }\n    }\n    return max;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops11",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "int[] codes = { 1, 2, 2, 1, 1, 2 };\nint[] points = { 35, 48, 52, 61, 40, 29 };\nConsole.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה, יסודי): \" + Check(WinnerPoints(codes, points, 1), 61));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (הדוגמה, חטיבת ביניים): \" + Check(WinnerPoints(codes, points, 2), 52));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (המנצחת היא הקבוצה הראשונה): \" + Check(WinnerPoints(new int[] { 1, 2, 1 }, new int[] { 70, 90, 45 }, 1), 70));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (אין קבוצות של חטיבת ביניים): \" + Check(WinnerPoints(new int[] { 1, 1 }, new int[] { 20, 30 }, 2), -1));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (קבוצה אחת עם 0 נקודות): \" + Check(WinnerPoints(new int[] { 2, 1 }, new int[] { 0, 15 }, 2), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה, יסודי): נכון\nסעיף א, בדיקה 2 (הדוגמה, חטיבת ביניים): נכון\nסעיף א, בדיקה 3 (המנצחת היא הקבוצה הראשונה): נכון\nסעיף א, בדיקה 4 (אין קבוצות של חטיבת ביניים): נכון\nסעיף א, בדיקה 5 (קבוצה אחת עם 0 נקודות): נכון"
+    }
+  }
+}

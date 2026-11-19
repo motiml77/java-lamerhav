@@ -273,11 +273,8 @@ public class SubmitDialog extends Dialog {
         cancelBtn = new Look.Round(bar, "ביטול", false, this::cancel);
         closeBtn = new Look.Round(bar, "סגירה", false, this::cancelPressed);
         for (Look.Round r : new Look.Round[] { ok, retry, cancelBtn, closeBtn }) r.setLayoutData(new GridData());
-        Label c = new Label(bar, SWT.LEFT_TO_RIGHT);   // זכויות יוצרים — בקצה השני של שורת הכפתורים
-        c.setText(Look.COPYRIGHT);
-        c.setFont(Look.font(d, -2, SWT.NORMAL));
+        Label c = Look.copyrightLabel(bar);   // זכויות יוצרים והגרסה — בקצה השני של שורת הכפתורים
         c.setData("dsviz.keepFont", Boolean.TRUE);
-        c.setForeground(Look.color(d, 0xA0A8B8));
         c.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
         buttons("form");
         refresh();

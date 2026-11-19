@@ -1,0 +1,201 @@
+{
+  "id": "loops-worker-salaries",
+  "topic": "loops",
+  "level": "medium",
+  "title": "משכורות העובדים (לולאת while)",
+  "question": {
+    "intro": "חברה משלמת לכל עובד משכורת לפי שעות העבודה: התעריף לשעה כפול מספר השעות שעבד בחודש.\nבתוכנית המלאה קולטים לכל עובד את התעריף שלו לשעה ואת מספר השעות שעבד בחודש אייר, עד שנקלט תעריף שלילי (סימן לסיום — לא עובד).\nכאן הנתונים כבר נתונים בשני מערכים באותו אורך: rates[i] הוא התעריף לשעה של העובד שבמקום i, ו-hours[i] הוא מספר השעות שלו. במקום האחרון ב-rates יש מספר שלילי — סימן הסיום (מה שיש באותו מקום ב-hours לא שייך לאף עובד).",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה averageSalary, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת הממוצעת בחודש אייר (מספר ממשי). הנח שיש עובד אחד לפחות.\nהשתמש בלולאת while שנעצרת בתעריף השלילי.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 9725.0\nהמשכורות של העובדים: 8000, 12000, 8100, 10800",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              50,
+              80,
+              45,
+              120,
+              -1
+            ],
+            "caption": "rates — התעריף לשעה (₪)"
+          },
+          {
+            "type": "array",
+            "values": [
+              160,
+              150,
+              180,
+              90,
+              0
+            ],
+            "caption": "hours — שעות בחודש"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה countAbove10000, המקבלת את המערכים rates ו-hours ומחזירה כמה עובדים הרוויחו בחודש אייר יותר מ-10000 ₪. משכורת של 10000 בדיוק לא נספרת.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 2"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "משכורות העובדים (לולאת while)",
+    "topic": "loops",
+    "mainClass": "Loops20",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops20",
+        "isStatic": true,
+        "returnType": "double",
+        "methodName": "averageSalary",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "rates"
+          },
+          {
+            "type": "int[]",
+            "name": "hours"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה averageSalary, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת הממוצעת בחודש אייר (מספר ממשי). הנח שיש עובד אחד לפחות.\nהשתמש בלולאת while שנעצרת בתעריף השלילי.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 9725.0\nהמשכורות של העובדים: 8000, 12000, 8100, 10800",
+        "solution": "public static double averageSalary(int[] rates, int[] hours) {\n    int sum = 0;\n    int i = 0;\n    while (rates[i] >= 0) {\n        sum = sum + rates[i] * hours[i];\n        i++;\n    }\n    return (double) sum / i;   // i — מספר העובדים\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops20",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countAbove10000",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "rates"
+          },
+          {
+            "type": "int[]",
+            "name": "hours"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countAbove10000, המקבלת את המערכים rates ו-hours ומחזירה כמה עובדים הרוויחו בחודש אייר יותר מ-10000 ₪. משכורת של 10000 בדיוק לא נספרת.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 2",
+        "solution": "public static int countAbove10000(int[] rates, int[] hours) {\n    int count = 0;\n    int i = 0;\n    while (rates[i] >= 0) {\n        if (rates[i] * hours[i] > 10000) {\n            count++;\n        }\n        i++;\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops20",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(averageSalary(new int[] { 50, 80, 45, 120, -1 }, new int[] { 160, 150, 180, 90, 0 }), 9725.0));\nSystem.out.println(\"סעיף א, בדיקה 2 (עובד אחד): \" + check(averageSalary(new int[] { 60, -1 }, new int[] { 100, 0 }), 6000.0));\nSystem.out.println(\"סעיף א, בדיקה 3 (ממוצע לא שלם): \" + check(averageSalary(new int[] { 30, 31, -5 }, new int[] { 100, 101, 0 }), 3065.5));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה): \" + check(countAbove10000(new int[] { 50, 80, 45, 120, -1 }, new int[] { 160, 150, 180, 90, 0 }), 2));\nSystem.out.println(\"סעיף ב, בדיקה 2 (10000 בדיוק לא נספר): \" + check(countAbove10000(new int[] { 100, 101, -1 }, new int[] { 100, 100, 0 }), 1));\nSystem.out.println(\"סעיף ב, בדיקה 3 (אין עובדים): \" + check(countAbove10000(new int[] { -1 }, new int[] { 0 }), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (עובד אחד): נכון\nסעיף א, בדיקה 3 (ממוצע לא שלם): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (10000 בדיוק לא נספר): נכון\nסעיף ב, בדיקה 3 (אין עובדים): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "חברה משלמת לכל עובד משכורת לפי שעות העבודה: התעריף לשעה כפול מספר השעות שעבד בחודש.\nבתוכנית המלאה קולטים לכל עובד את התעריף שלו לשעה ואת מספר השעות שעבד בחודש אייר, עד שנקלט תעריף שלילי (סימן לסיום — לא עובד).\nכאן הנתונים כבר נתונים בשני מערכים באותו אורך: rates[i] הוא התעריף לשעה של העובד שבמקום i, ו-hours[i] הוא מספר השעות שלו. במקום האחרון ב-rates יש מספר שלילי — סימן הסיום (מה שיש באותו מקום ב-hours לא שייך לאף עובד).",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה AverageSalary, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת הממוצעת בחודש אייר (מספר ממשי). הנח שיש עובד אחד לפחות.\nהשתמש בלולאת while שנעצרת בתעריף השלילי.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 9725\nהמשכורות של העובדים: 8000, 12000, 8100, 10800",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                50,
+                80,
+                45,
+                120,
+                -1
+              ],
+              "caption": "rates — התעריף לשעה (₪)"
+            },
+            {
+              "type": "array",
+              "values": [
+                160,
+                150,
+                180,
+                90,
+                0
+              ],
+              "caption": "hours — שעות בחודש"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה CountAbove10000, המקבלת את המערכים rates ו-hours ומחזירה כמה עובדים הרוויחו בחודש אייר יותר מ-10000 ₪. משכורת של 10000 בדיוק לא נספרת.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 2"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "משכורות העובדים (לולאת while)",
+      "topic": "loops",
+      "mainClass": "Loops20",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops20",
+          "isStatic": true,
+          "returnType": "double",
+          "methodName": "AverageSalary",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "rates"
+            },
+            {
+              "type": "int[]",
+              "name": "hours"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה AverageSalary, המקבלת את המערכים rates ו-hours ומחזירה את המשכורת הממוצעת בחודש אייר (מספר ממשי). הנח שיש עובד אחד לפחות.\nהשתמש בלולאת while שנעצרת בתעריף השלילי.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 9725\nהמשכורות של העובדים: 8000, 12000, 8100, 10800",
+          "solution": "public static double AverageSalary(int[] rates, int[] hours)\n{\n    int sum = 0;\n    int i = 0;\n    while (rates[i] >= 0)\n    {\n        sum = sum + rates[i] * hours[i];\n        i++;\n    }\n    return (double) sum / i;   // i — מספר העובדים\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops20",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountAbove10000",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "rates"
+            },
+            {
+              "type": "int[]",
+              "name": "hours"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountAbove10000, המקבלת את המערכים rates ו-hours ומחזירה כמה עובדים הרוויחו בחודש אייר יותר מ-10000 ₪. משכורת של 10000 בדיוק לא נספרת.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 2",
+          "solution": "public static int CountAbove10000(int[] rates, int[] hours)\n{\n    int count = 0;\n    int i = 0;\n    while (rates[i] >= 0)\n    {\n        if (rates[i] * hours[i] > 10000)\n        {\n            count++;\n        }\n        i++;\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops20",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(AverageSalary(new int[] { 50, 80, 45, 120, -1 }, new int[] { 160, 150, 180, 90, 0 }), 9725.0));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (עובד אחד): \" + Check(AverageSalary(new int[] { 60, -1 }, new int[] { 100, 0 }), 6000.0));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (ממוצע לא שלם): \" + Check(AverageSalary(new int[] { 30, 31, -5 }, new int[] { 100, 101, 0 }), 3065.5));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה): \" + Check(CountAbove10000(new int[] { 50, 80, 45, 120, -1 }, new int[] { 160, 150, 180, 90, 0 }), 2));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (10000 בדיוק לא נספר): \" + Check(CountAbove10000(new int[] { 100, 101, -1 }, new int[] { 100, 100, 0 }), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (אין עובדים): \" + Check(CountAbove10000(new int[] { -1 }, new int[] { 0 }), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (עובד אחד): נכון\nסעיף א, בדיקה 3 (ממוצע לא שלם): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (10000 בדיוק לא נספר): נכון\nסעיף ב, בדיקה 3 (אין עובדים): נכון"
+    }
+  }
+}

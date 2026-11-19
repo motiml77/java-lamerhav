@@ -1,0 +1,175 @@
+{
+  "id": "loops-donations",
+  "topic": "loops",
+  "level": "medium",
+  "title": "מבצע התרמה (לולאה מקוננת)",
+  "question": {
+    "intro": "תלמידי שכבת י\"ב (5 כיתות) אספו תרומות במבצע התרמה. בתוכנית המלאה קולטים לכל כיתה את הסכומים שאסף כל תלמיד בה, והסדרה של כל כיתה מסתיימת במספר -1\nכאן כל הסכומים כבר נתונים במערך אחד amounts, כיתה אחרי כיתה, ואחרי הסכומים של כל כיתה יש -1. המערך מסתיים במספר -1 של הכיתה האחרונה. מספר הכיתות הוא כמה פעמים מופיע -1 במערך (בבדיקות יש פחות מ-5 כיתות). יכולה להיות כיתה שלא אספה כלום (שני -1 צמודים).",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה classTotals, המקבלת את המערך amounts ומחזירה את הסכום שאספה כל כיתה, לפי הסדר, ברווח אחד בין סכום לסכום (רווח בסוף — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על הכיתות, והפנימית (לולאת while) — על הסכומים של הכיתה, עד המספר -1\nלדוגמה: עבור המערך amounts שבציור הפעולה תחזיר \"100 100 40\"",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              20,
+              50,
+              30,
+              -1,
+              100,
+              -1,
+              10,
+              10,
+              10,
+              10,
+              -1
+            ],
+            "caption": "amounts — הסכומים, כיתה אחרי כיתה (-1 בסוף כל כיתה)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה gradeTotal, המקבלת את המערך amounts ומחזירה את הסכום שאספה כל השכבה.\nלדוגמה: עבור המערך amounts שבציור הפעולה תחזיר 240"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מבצע התרמה (לולאה מקוננת)",
+    "topic": "loops",
+    "mainClass": "Loops26",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops26",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "classTotals",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "amounts"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה classTotals, המקבלת את המערך amounts ומחזירה את הסכום שאספה כל כיתה, לפי הסדר, ברווח אחד בין סכום לסכום (רווח בסוף — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על הכיתות, והפנימית (לולאת while) — על הסכומים של הכיתה, עד המספר -1\nלדוגמה: עבור המערך amounts שבציור הפעולה תחזיר \"100 100 40\"",
+        "solution": "public static String classTotals(int[] amounts) {\n    String s = \"\";\n    int i = 0;\n    while (i < amounts.length) {          // כיתה אחרי כיתה\n        int sum = 0;\n        while (amounts[i] != -1) {        // הסכומים של הכיתה\n            sum = sum + amounts[i];\n            i++;\n        }\n        i++;                              // מדלגים על -1\n        s = s + sum + \" \";\n    }\n    return s;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops26",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "gradeTotal",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "amounts"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה gradeTotal, המקבלת את המערך amounts ומחזירה את הסכום שאספה כל השכבה.\nלדוגמה: עבור המערך amounts שבציור הפעולה תחזיר 240",
+        "solution": "public static int gradeTotal(int[] amounts) {\n    int total = 0;\n    for (int i = 0; i < amounts.length; i++) {\n        if (amounts[i] != -1) {\n            total = total + amounts[i];\n        }\n    }\n    return total;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops26",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(classTotals(new int[] { 20, 50, 30, -1, 100, -1, 10, 10, 10, 10, -1 }), \"100 100 40\"));\nSystem.out.println(\"סעיף א, בדיקה 2 (כיתה שלא אספה כלום): \" + check(classTotals(new int[] { -1, 15, -1 }), \"0 15\"));\nSystem.out.println(\"סעיף א, בדיקה 3 (כיתה אחת): \" + check(classTotals(new int[] { 5, 25, -1 }), \"30\"));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה): \" + check(gradeTotal(new int[] { 20, 50, 30, -1, 100, -1, 10, 10, 10, 10, -1 }), 240));\nSystem.out.println(\"סעיף ב, בדיקה 2 (כיתה שלא אספה כלום): \" + check(gradeTotal(new int[] { -1, 15, -1 }), 15));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (כיתה שלא אספה כלום): נכון\nסעיף א, בדיקה 3 (כיתה אחת): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (כיתה שלא אספה כלום): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "תלמידי שכבת י\"ב (5 כיתות) אספו תרומות במבצע התרמה. בתוכנית המלאה קולטים לכל כיתה את הסכומים שאסף כל תלמיד בה, והסדרה של כל כיתה מסתיימת במספר -1\nכאן כל הסכומים כבר נתונים במערך אחד amounts, כיתה אחרי כיתה, ואחרי הסכומים של כל כיתה יש -1. המערך מסתיים במספר -1 של הכיתה האחרונה. מספר הכיתות הוא כמה פעמים מופיע -1 במערך (בבדיקות יש פחות מ-5 כיתות). יכולה להיות כיתה שלא אספה כלום (שני -1 צמודים).",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה ClassTotals, המקבלת את המערך amounts ומחזירה את הסכום שאספה כל כיתה, לפי הסדר, ברווח אחד בין סכום לסכום (רווח בסוף — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על הכיתות, והפנימית (לולאת while) — על הסכומים של הכיתה, עד המספר -1\nלדוגמה: עבור המערך amounts שבציור הפעולה תחזיר \"100 100 40\"",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                20,
+                50,
+                30,
+                -1,
+                100,
+                -1,
+                10,
+                10,
+                10,
+                10,
+                -1
+              ],
+              "caption": "amounts — הסכומים, כיתה אחרי כיתה (-1 בסוף כל כיתה)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה GradeTotal, המקבלת את המערך amounts ומחזירה את הסכום שאספה כל השכבה.\nלדוגמה: עבור המערך amounts שבציור הפעולה תחזיר 240"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מבצע התרמה (לולאה מקוננת)",
+      "topic": "loops",
+      "mainClass": "Loops26",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops26",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "ClassTotals",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "amounts"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה ClassTotals, המקבלת את המערך amounts ומחזירה את הסכום שאספה כל כיתה, לפי הסדר, ברווח אחד בין סכום לסכום (רווח בסוף — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על הכיתות, והפנימית (לולאת while) — על הסכומים של הכיתה, עד המספר -1\nלדוגמה: עבור המערך amounts שבציור הפעולה תחזיר \"100 100 40\"",
+          "solution": "public static string ClassTotals(int[] amounts)\n{\n    string s = \"\";\n    int i = 0;\n    while (i < amounts.Length)            // כיתה אחרי כיתה\n    {\n        int sum = 0;\n        while (amounts[i] != -1)          // הסכומים של הכיתה\n        {\n            sum = sum + amounts[i];\n            i++;\n        }\n        i++;                              // מדלגים על -1\n        s = s + sum + \" \";\n    }\n    return s;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops26",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "GradeTotal",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "amounts"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה GradeTotal, המקבלת את המערך amounts ומחזירה את הסכום שאספה כל השכבה.\nלדוגמה: עבור המערך amounts שבציור הפעולה תחזיר 240",
+          "solution": "public static int GradeTotal(int[] amounts)\n{\n    int total = 0;\n    for (int i = 0; i < amounts.Length; i++)\n    {\n        if (amounts[i] != -1)\n        {\n            total = total + amounts[i];\n        }\n    }\n    return total;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops26",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(ClassTotals(new int[] { 20, 50, 30, -1, 100, -1, 10, 10, 10, 10, -1 }), \"100 100 40\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (כיתה שלא אספה כלום): \" + Check(ClassTotals(new int[] { -1, 15, -1 }), \"0 15\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (כיתה אחת): \" + Check(ClassTotals(new int[] { 5, 25, -1 }), \"30\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה): \" + Check(GradeTotal(new int[] { 20, 50, 30, -1, 100, -1, 10, 10, 10, 10, -1 }), 240));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (כיתה שלא אספה כלום): \" + Check(GradeTotal(new int[] { -1, 15, -1 }), 15));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (כיתה שלא אספה כלום): נכון\nסעיף א, בדיקה 3 (כיתה אחת): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (כיתה שלא אספה כלום): נכון"
+    }
+  }
+}

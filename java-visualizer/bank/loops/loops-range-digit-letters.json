@@ -1,0 +1,183 @@
+{
+  "id": "loops-range-digit-letters",
+  "topic": "loops",
+  "level": "medium",
+  "title": "כפולות בתחום, סכום ספרות ואותיות",
+  "question": {
+    "intro": "בבחינה מדפיסים את הערכים. כאן כל פעולה מחזירה אותם כמחרוזת אחת, לפי הסדר, עם רווח אחד בין ערך לערך (רווח אחרי האחרון — לא משנה), כדי שאפשר יהיה לבדוק אותה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה divisibleInRange, המקבלת שלושה מספרים טבעיים m, n ו-k (m קטן מ-n או שווה לו), ומחזירה את כל המספרים מ-m עד n (כולל) שמתחלקים ב-k ללא שארית, בסדר עולה. אם אין מספרים כאלה — הפעולה מחזירה מחרוזת ריקה.\nלדוגמה: עבור m = 10 ו-n = 30 ו-k = 7 הפעולה תחזיר \"14 21 28\""
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה digitSumNumbers, המקבלת מספר טבעי k בתחום 1 עד 27, ומחזירה את כל המספרים התלת-ספרתיים שסכום הספרות שלהם שווה ל-k, בסדר עולה.\nלדוגמה: עבור k = 2 הפעולה תחזיר \"101 110 200\"\nרמז: אין צורך לעבור על כל המספרים התלת-ספרתיים. אפשר לעבור בלולאה בתוך לולאה על ספרת המאות ועל ספרת העשרות, ולחשב מהן מה צריכה להיות ספרת האחדות."
+      },
+      {
+        "label": "ג",
+        "text": "כתוב פעולה ששמה lowercaseLetters, שאינה מקבלת פרמטרים ומחזירה את כל האותיות הקטנות באנגלית, מ-a עד z, עם רווח בין אות לאות.\nהמחרוזת מתחילה ב-\"a b c\" ומסתיימת ב-\"y z\"\nרמז: אפשר לעבור בלולאה על משתנה מטיפוס char"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "כפולות בתחום, סכום ספרות ואותיות",
+    "topic": "loops",
+    "mainClass": "Loops16",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops16",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "divisibleInRange",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "m"
+          },
+          {
+            "type": "int",
+            "name": "n"
+          },
+          {
+            "type": "int",
+            "name": "k"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה divisibleInRange, המקבלת שלושה מספרים טבעיים m, n ו-k (m קטן מ-n או שווה לו), ומחזירה את כל המספרים מ-m עד n (כולל) שמתחלקים ב-k ללא שארית, בסדר עולה. אם אין מספרים כאלה — הפעולה מחזירה מחרוזת ריקה.\nלדוגמה: עבור m = 10 ו-n = 30 ו-k = 7 הפעולה תחזיר \"14 21 28\"",
+        "solution": "public static String divisibleInRange(int m, int n, int k) {\n    String s = \"\";\n    for (int i = m; i <= n; i++) {\n        if (i % k == 0) {\n            s = s + i + \" \";\n        }\n    }\n    return s;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops16",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "digitSumNumbers",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "k"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה digitSumNumbers, המקבלת מספר טבעי k בתחום 1 עד 27, ומחזירה את כל המספרים התלת-ספרתיים שסכום הספרות שלהם שווה ל-k, בסדר עולה.\nלדוגמה: עבור k = 2 הפעולה תחזיר \"101 110 200\"\nרמז: אין צורך לעבור על כל המספרים התלת-ספרתיים. אפשר לעבור בלולאה בתוך לולאה על ספרת המאות ועל ספרת העשרות, ולחשב מהן מה צריכה להיות ספרת האחדות.",
+        "solution": "public static String digitSumNumbers(int k) {\n    String s = \"\";\n    for (int h = 1; h <= 9; h++) {          // ספרת המאות\n        for (int t = 0; t <= 9; t++) {      // ספרת העשרות\n            int u = k - h - t;              // ספרת האחדות שצריך\n            if (u >= 0 && u <= 9) {\n                s = s + (h * 100 + t * 10 + u) + \" \";\n            }\n        }\n    }\n    return s;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Loops16",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "lowercaseLetters",
+        "parameters": [],
+        "instructions": "כתוב פעולה ששמה lowercaseLetters, שאינה מקבלת פרמטרים ומחזירה את כל האותיות הקטנות באנגלית, מ-a עד z, עם רווח בין אות לאות.\nהמחרוזת מתחילה ב-\"a b c\" ומסתיימת ב-\"y z\"\nרמז: אפשר לעבור בלולאה על משתנה מטיפוס char",
+        "solution": "public static String lowercaseLetters() {\n    String s = \"\";\n    for (char c = 'a'; c <= 'z'; c++) {\n        s = s + c + \" \";\n    }\n    return s;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops16",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(divisibleInRange(10, 30, 7), \"14 21 28\"));\nSystem.out.println(\"סעיף א, בדיקה 2 (גם m וגם n מתחלקים): \" + check(divisibleInRange(12, 24, 6), \"12 18 24\"));\nSystem.out.println(\"סעיף א, בדיקה 3 (אין מספרים כאלה): \" + check(divisibleInRange(15, 19, 10), \"\"));\nSystem.out.println(\"סעיף א, בדיקה 4 (m שווה ל-n): \" + check(divisibleInRange(5, 5, 5), \"5\"));\nSystem.out.println(\"סעיף ב, בדיקה 1 (k = 2): \" + check(digitSumNumbers(2), \"101 110 200\"));\nSystem.out.println(\"סעיף ב, בדיקה 2 (k = 1): \" + check(digitSumNumbers(1), \"100\"));\nSystem.out.println(\"סעיף ב, בדיקה 3 (k = 26): \" + check(digitSumNumbers(26), \"899 989 998\"));\nSystem.out.println(\"סעיף ג, בדיקה 1: \" + check(lowercaseLetters(), \"a b c d e f g h i j k l m n o p q r s t u v w x y z\"));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (גם m וגם n מתחלקים): נכון\nסעיף א, בדיקה 3 (אין מספרים כאלה): נכון\nסעיף א, בדיקה 4 (m שווה ל-n): נכון\nסעיף ב, בדיקה 1 (k = 2): נכון\nסעיף ב, בדיקה 2 (k = 1): נכון\nסעיף ב, בדיקה 3 (k = 26): נכון\nסעיף ג, בדיקה 1: נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בבחינה מדפיסים את הערכים. כאן כל פעולה מחזירה אותם כמחרוזת אחת, לפי הסדר, עם רווח אחד בין ערך לערך (רווח אחרי האחרון — לא משנה), כדי שאפשר יהיה לבדוק אותה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה DivisibleInRange, המקבלת שלושה מספרים טבעיים m, n ו-k (m קטן מ-n או שווה לו), ומחזירה את כל המספרים מ-m עד n (כולל) שמתחלקים ב-k ללא שארית, בסדר עולה. אם אין מספרים כאלה — הפעולה מחזירה מחרוזת ריקה.\nלדוגמה: עבור m = 10 ו-n = 30 ו-k = 7 הפעולה תחזיר \"14 21 28\""
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה DigitSumNumbers, המקבלת מספר טבעי k בתחום 1 עד 27, ומחזירה את כל המספרים התלת-ספרתיים שסכום הספרות שלהם שווה ל-k, בסדר עולה.\nלדוגמה: עבור k = 2 הפעולה תחזיר \"101 110 200\"\nרמז: אין צורך לעבור על כל המספרים התלת-ספרתיים. אפשר לעבור בלולאה בתוך לולאה על ספרת המאות ועל ספרת העשרות, ולחשב מהן מה צריכה להיות ספרת האחדות."
+        },
+        {
+          "label": "ג",
+          "text": "כתוב פעולה ששמה LowercaseLetters, שאינה מקבלת פרמטרים ומחזירה את כל האותיות הקטנות באנגלית, מ-a עד z, עם רווח בין אות לאות.\nהמחרוזת מתחילה ב-\"a b c\" ומסתיימת ב-\"y z\"\nרמז: אפשר לעבור בלולאה על משתנה מטיפוס char"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "כפולות בתחום, סכום ספרות ואותיות",
+      "topic": "loops",
+      "mainClass": "Loops16",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops16",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "DivisibleInRange",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "m"
+            },
+            {
+              "type": "int",
+              "name": "n"
+            },
+            {
+              "type": "int",
+              "name": "k"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה DivisibleInRange, המקבלת שלושה מספרים טבעיים m, n ו-k (m קטן מ-n או שווה לו), ומחזירה את כל המספרים מ-m עד n (כולל) שמתחלקים ב-k ללא שארית, בסדר עולה. אם אין מספרים כאלה — הפעולה מחזירה מחרוזת ריקה.\nלדוגמה: עבור m = 10 ו-n = 30 ו-k = 7 הפעולה תחזיר \"14 21 28\"",
+          "solution": "public static string DivisibleInRange(int m, int n, int k)\n{\n    string s = \"\";\n    for (int i = m; i <= n; i++)\n    {\n        if (i % k == 0)\n        {\n            s = s + i + \" \";\n        }\n    }\n    return s;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops16",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "DigitSumNumbers",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "k"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה DigitSumNumbers, המקבלת מספר טבעי k בתחום 1 עד 27, ומחזירה את כל המספרים התלת-ספרתיים שסכום הספרות שלהם שווה ל-k, בסדר עולה.\nלדוגמה: עבור k = 2 הפעולה תחזיר \"101 110 200\"\nרמז: אין צורך לעבור על כל המספרים התלת-ספרתיים. אפשר לעבור בלולאה בתוך לולאה על ספרת המאות ועל ספרת העשרות, ולחשב מהן מה צריכה להיות ספרת האחדות.",
+          "solution": "public static string DigitSumNumbers(int k)\n{\n    string s = \"\";\n    for (int h = 1; h <= 9; h++)            // ספרת המאות\n    {\n        for (int t = 0; t <= 9; t++)        // ספרת העשרות\n        {\n            int u = k - h - t;              // ספרת האחדות שצריך\n            if (u >= 0 && u <= 9)\n            {\n                s = s + (h * 100 + t * 10 + u) + \" \";\n            }\n        }\n    }\n    return s;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Loops16",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "LowercaseLetters",
+          "parameters": [],
+          "instructions": "כתוב פעולה ששמה LowercaseLetters, שאינה מקבלת פרמטרים ומחזירה את כל האותיות הקטנות באנגלית, מ-a עד z, עם רווח בין אות לאות.\nהמחרוזת מתחילה ב-\"a b c\" ומסתיימת ב-\"y z\"\nרמז: אפשר לעבור בלולאה על משתנה מטיפוס char",
+          "solution": "public static string LowercaseLetters()\n{\n    string s = \"\";\n    for (char c = 'a'; c <= 'z'; c++)\n    {\n        s = s + c + \" \";\n    }\n    return s;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops16",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(DivisibleInRange(10, 30, 7), \"14 21 28\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (גם m וגם n מתחלקים): \" + Check(DivisibleInRange(12, 24, 6), \"12 18 24\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (אין מספרים כאלה): \" + Check(DivisibleInRange(15, 19, 10), \"\"));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (m שווה ל-n): \" + Check(DivisibleInRange(5, 5, 5), \"5\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (k = 2): \" + Check(DigitSumNumbers(2), \"101 110 200\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (k = 1): \" + Check(DigitSumNumbers(1), \"100\"));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (k = 26): \" + Check(DigitSumNumbers(26), \"899 989 998\"));\nConsole.WriteLine(\"סעיף ג, בדיקה 1: \" + Check(LowercaseLetters(), \"a b c d e f g h i j k l m n o p q r s t u v w x y z\"));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (גם m וגם n מתחלקים): נכון\nסעיף א, בדיקה 3 (אין מספרים כאלה): נכון\nסעיף א, בדיקה 4 (m שווה ל-n): נכון\nסעיף ב, בדיקה 1 (k = 2): נכון\nסעיף ב, בדיקה 2 (k = 1): נכון\nסעיף ב, בדיקה 3 (k = 26): נכון\nסעיף ג, בדיקה 1: נכון"
+    }
+  }
+}

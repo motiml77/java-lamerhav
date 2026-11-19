@@ -81,7 +81,7 @@ public final class Account {
 
         /** שורה קצרה לכותרת המאגר */
         public String label() {
-            if (isStation()) return "עמדת מחשב: " + name + (teacher.isEmpty() ? "" : " · " + teacher);
+            if (isStation()) return "עמדת מחשב: " + name + (teacher.isEmpty() ? "" : " · המורה: " + teacher);
             if (isTeacher()) return "מורה: " + (name.isEmpty() ? email : name);
             // תלמיד משויך: המורה שלו (אליו נשלחת "הגשה למורה"); תלמיד עצמאי: עד מתי המאגר פתוח
             if (!teacher.isEmpty()) return (name.isEmpty() ? email : name) + " · המורה: " + teacher;

@@ -1,0 +1,155 @@
+{
+  "id": "loops-apple-packing",
+  "topic": "loops",
+  "level": "easy",
+  "title": "בית אריזה לתפוחים (לולאת while)",
+  "question": {
+    "intro": "בבית אריזה ממיינים תפוחים לשלושה סוגים לפי המשקל, וכל סוג נארז בארגז משלו:\nסוג א — משקל 351 עד 450 גרם, בארגז 50 תפוחים\nסוג ב — משקל 251 עד 350 גרם, בארגז 70 תפוחים\nסוג ג — משקל 1 עד 250 גרם, בארגז 100 תפוחים\nבתוכנית המלאה קולטים את המשקלים של התפוחים, אחד אחרי השני, ועוצרים כשאחד הארגזים (מכל סוג שהוא) מתמלא. אז מדפיסים כמה תפוחים מכל סוג נארזו.\nכאן המשקלים כבר נתונים במערך weights, לפי הסדר (כל משקל בין 1 ל-450). הנח שהמערך ארוך מספיק: לפני סוף המערך אחד הארגזים מתמלא.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה packApples, המקבלת את המערך weights ואת מספר התפוחים שנכנסים בארגז מכל סוג: sizeA, sizeB ו-sizeC (בבית האריזה — המספרים שלמעלה; הפרמטרים מאפשרים לבדוק את הפעולה עם מעט תפוחים).\nהפעולה אורזת את התפוחים לפי הסדר, ועוצרת מיד אחרי שאחד הארגזים מתמלא. היא מחזירה מחרוזת עם שלושה מספרים ורווח אחד ביניהם: כמה תפוחים מסוג א נארזו, כמה מסוג ב וכמה מסוג ג.\nהשתמש בלולאת while.\nלדוגמה: עבור המערך weights שבציור, ו-sizeA = 3 ו-sizeB = 4 ו-sizeC = 5, הפעולה תחזיר \"3 3 2\"\nהארגז של סוג א מתמלא בתפוח השמיני (420 גרם), והתפוח האחרון כבר לא נארז",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              400,
+              300,
+              120,
+              360,
+              280,
+              90,
+              300,
+              420,
+              200
+            ],
+            "caption": "weights — משקלי התפוחים (גרם)"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "בית אריזה לתפוחים (לולאת while)",
+    "topic": "loops",
+    "mainClass": "Loops19",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops19",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "packApples",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "weights"
+          },
+          {
+            "type": "int",
+            "name": "sizeA"
+          },
+          {
+            "type": "int",
+            "name": "sizeB"
+          },
+          {
+            "type": "int",
+            "name": "sizeC"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה packApples, המקבלת את המערך weights ואת מספר התפוחים שנכנסים בארגז מכל סוג: sizeA, sizeB ו-sizeC (בבית האריזה — המספרים שלמעלה; הפרמטרים מאפשרים לבדוק את הפעולה עם מעט תפוחים).\nהפעולה אורזת את התפוחים לפי הסדר, ועוצרת מיד אחרי שאחד הארגזים מתמלא. היא מחזירה מחרוזת עם שלושה מספרים ורווח אחד ביניהם: כמה תפוחים מסוג א נארזו, כמה מסוג ב וכמה מסוג ג.\nהשתמש בלולאת while.\nלדוגמה: עבור המערך weights שבציור, ו-sizeA = 3 ו-sizeB = 4 ו-sizeC = 5, הפעולה תחזיר \"3 3 2\"\nהארגז של סוג א מתמלא בתפוח השמיני (420 גרם), והתפוח האחרון כבר לא נארז",
+        "solution": "public static String packApples(int[] weights, int sizeA, int sizeB, int sizeC) {\n    int a = 0, b = 0, c = 0;\n    int i = 0;\n    while (a < sizeA && b < sizeB && c < sizeC) {\n        if (weights[i] > 350) {\n            a++;\n        } else if (weights[i] > 250) {\n            b++;\n        } else {\n            c++;\n        }\n        i++;\n    }\n    return a + \" \" + b + \" \" + c;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops19",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה — ארגז א מתמלא): \" + check(packApples(new int[] { 400, 300, 120, 360, 280, 90, 300, 420, 200 }, 3, 4, 5), \"3 3 2\"));\nSystem.out.println(\"סעיף א, בדיקה 2 (ארגז ב מתמלא, 350 ו-251 הם סוג ב): \" + check(packApples(new int[] { 350, 251, 400 }, 2, 2, 2), \"0 2 0\"));\nSystem.out.println(\"סעיף א, בדיקה 3 (ארגז ג מתמלא, 250 הוא סוג ג): \" + check(packApples(new int[] { 250, 450, 1, 100, 300 }, 3, 3, 3), \"1 0 3\"));\nSystem.out.println(\"סעיף א, בדיקה 4 (351 הוא סוג א): \" + check(packApples(new int[] { 351, 450, 200 }, 2, 5, 5), \"2 0 0\"));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה — ארגז א מתמלא): נכון\nסעיף א, בדיקה 2 (ארגז ב מתמלא, 350 ו-251 הם סוג ב): נכון\nסעיף א, בדיקה 3 (ארגז ג מתמלא, 250 הוא סוג ג): נכון\nסעיף א, בדיקה 4 (351 הוא סוג א): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בבית אריזה ממיינים תפוחים לשלושה סוגים לפי המשקל, וכל סוג נארז בארגז משלו:\nסוג א — משקל 351 עד 450 גרם, בארגז 50 תפוחים\nסוג ב — משקל 251 עד 350 גרם, בארגז 70 תפוחים\nסוג ג — משקל 1 עד 250 גרם, בארגז 100 תפוחים\nבתוכנית המלאה קולטים את המשקלים של התפוחים, אחד אחרי השני, ועוצרים כשאחד הארגזים (מכל סוג שהוא) מתמלא. אז מדפיסים כמה תפוחים מכל סוג נארזו.\nכאן המשקלים כבר נתונים במערך weights, לפי הסדר (כל משקל בין 1 ל-450). הנח שהמערך ארוך מספיק: לפני סוף המערך אחד הארגזים מתמלא.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה PackApples, המקבלת את המערך weights ואת מספר התפוחים שנכנסים בארגז מכל סוג: sizeA, sizeB ו-sizeC (בבית האריזה — המספרים שלמעלה; הפרמטרים מאפשרים לבדוק את הפעולה עם מעט תפוחים).\nהפעולה אורזת את התפוחים לפי הסדר, ועוצרת מיד אחרי שאחד הארגזים מתמלא. היא מחזירה מחרוזת עם שלושה מספרים ורווח אחד ביניהם: כמה תפוחים מסוג א נארזו, כמה מסוג ב וכמה מסוג ג.\nהשתמש בלולאת while.\nלדוגמה: עבור המערך weights שבציור, ו-sizeA = 3 ו-sizeB = 4 ו-sizeC = 5, הפעולה תחזיר \"3 3 2\"\nהארגז של סוג א מתמלא בתפוח השמיני (420 גרם), והתפוח האחרון כבר לא נארז",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                400,
+                300,
+                120,
+                360,
+                280,
+                90,
+                300,
+                420,
+                200
+              ],
+              "caption": "weights — משקלי התפוחים (גרם)"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "בית אריזה לתפוחים (לולאת while)",
+      "topic": "loops",
+      "mainClass": "Loops19",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops19",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "PackApples",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "weights"
+            },
+            {
+              "type": "int",
+              "name": "sizeA"
+            },
+            {
+              "type": "int",
+              "name": "sizeB"
+            },
+            {
+              "type": "int",
+              "name": "sizeC"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה PackApples, המקבלת את המערך weights ואת מספר התפוחים שנכנסים בארגז מכל סוג: sizeA, sizeB ו-sizeC (בבית האריזה — המספרים שלמעלה; הפרמטרים מאפשרים לבדוק את הפעולה עם מעט תפוחים).\nהפעולה אורזת את התפוחים לפי הסדר, ועוצרת מיד אחרי שאחד הארגזים מתמלא. היא מחזירה מחרוזת עם שלושה מספרים ורווח אחד ביניהם: כמה תפוחים מסוג א נארזו, כמה מסוג ב וכמה מסוג ג.\nהשתמש בלולאת while.\nלדוגמה: עבור המערך weights שבציור, ו-sizeA = 3 ו-sizeB = 4 ו-sizeC = 5, הפעולה תחזיר \"3 3 2\"\nהארגז של סוג א מתמלא בתפוח השמיני (420 גרם), והתפוח האחרון כבר לא נארז",
+          "solution": "public static string PackApples(int[] weights, int sizeA, int sizeB, int sizeC)\n{\n    int a = 0, b = 0, c = 0;\n    int i = 0;\n    while (a < sizeA && b < sizeB && c < sizeC)\n    {\n        if (weights[i] > 350)\n        {\n            a++;\n        }\n        else if (weights[i] > 250)\n        {\n            b++;\n        }\n        else\n        {\n            c++;\n        }\n        i++;\n    }\n    return a + \" \" + b + \" \" + c;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops19",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה — ארגז א מתמלא): \" + Check(PackApples(new int[] { 400, 300, 120, 360, 280, 90, 300, 420, 200 }, 3, 4, 5), \"3 3 2\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (ארגז ב מתמלא, 350 ו-251 הם סוג ב): \" + Check(PackApples(new int[] { 350, 251, 400 }, 2, 2, 2), \"0 2 0\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (ארגז ג מתמלא, 250 הוא סוג ג): \" + Check(PackApples(new int[] { 250, 450, 1, 100, 300 }, 3, 3, 3), \"1 0 3\"));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (351 הוא סוג א): \" + Check(PackApples(new int[] { 351, 450, 200 }, 2, 5, 5), \"2 0 0\"));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה — ארגז א מתמלא): נכון\nסעיף א, בדיקה 2 (ארגז ב מתמלא, 350 ו-251 הם סוג ב): נכון\nסעיף א, בדיקה 3 (ארגז ג מתמלא, 250 הוא סוג ג): נכון\nסעיף א, בדיקה 4 (351 הוא סוג א): נכון"
+    }
+  }
+}

@@ -87,12 +87,36 @@ final class NestedDiagram extends JComponent {
         }
         switch (outer) {
             case "matrix": return drawMatrix(x, y);
+            case "text": return drawText(x, y);
             case "stack": return drawStack(x, y);
             case "queue": return drawRow(x, y, false, true);
             case "list": return drawRow(x, y, true, false);
             case "tree": return drawTree(x, y);
             default: return drawRow(x, y, false, false);   // מערך
         }
+    }
+
+    /** פלט של תוכנית (מאגר: ציור "text"): מסגרת כמו מסך, כל שורה משמאל לימין, כל תו בעמודה קבועה — הצורה בדיוק כמו בהדפסה */
+    private Dimension drawText(int x, int y) {
+        int colW = 10, lineH = 18, pad = 10, cols = 1;
+        for (List<String> l : groups) cols = Math.max(cols, l == null || l.isEmpty() ? 0 : l.get(0).length());
+        int w = cols * colW + 2 * pad, h = groups.size() * lineH + 2 * pad - 4;
+        if (g != null) {
+            g.setColor(new Color(0xF6F8FB));
+            g.fillRoundRect(x + 2, y + 2, w, h, 8, 8);
+            g.setColor(new Color(0xC9D1DC));
+            g.drawRoundRect(x + 2, y + 2, w, h, 8, 8);
+            for (int i = 0; i < groups.size(); i++) {
+                String line = groups.get(i) == null || groups.get(i).isEmpty() ? "" : groups.get(i).get(0);
+                for (int j = 0; j < line.length(); j++) {
+                    String ch = String.valueOf(line.charAt(j));
+                    if (ch.trim().isEmpty()) continue;
+                    int cx = x + 2 + pad + j * colW + (colW - g.getFontMetrics().stringWidth(ch)) / 2;
+                    text(ch, cx, y + 2 + pad - 2 + i * lineH, new Color(0x1D2939));
+                }
+            }
+        }
+        return new Dimension(w + 6, h + 6);
     }
 
     private Dimension innerSize(List<String> list) {
