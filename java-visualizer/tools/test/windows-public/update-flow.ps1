@@ -94,7 +94,7 @@ Remove-Item (Join-Path $dsviz 'pending') -Recurse -Force -ErrorAction SilentlyCo
 StartEclipse
 $n0 = LogCount
 $u = RunUpdater @('-FromEclipse')
-$saved = WaitFor { Test-Path (Join-Path $dsviz 'pending\pending.json') } 240
+$saved = WaitFor { Test-Path (Join-Path $dsviz 'pending\pending.json') } 900   # לפני הבדיקה: סרגל הכלים ל-Visual Studio שבמחשב (דקות)
 Start-Sleep 8
 Check 'a-pending-saved' $saved 'ההורדה נשמרה ב-pending (לא ב-TEMP)'
 Check 'a-not-installed-yet' ((BuildTxt) -lt $real -and -not (Installing)) 'כש-Eclipse פתוח — לא מתקינים'
@@ -116,7 +116,7 @@ Remove-Item $progress -Force -ErrorAction SilentlyContinue
 $n1 = LogCount
 $u = RunUpdater @('-AfterEclipse')
 # פותחים את Eclipse אחרי הבדיקה הראשונה של ההתקנה (42%) — בזמן חבילת C# (44–82%), לפני הקבצים של Eclipse (86%), כמו שקרה לתלמיד
-$mid = WaitFor { $t = ''; try { $t = (Get-Content $progress -Raw -ErrorAction Stop).Trim() } catch { }; $m = [regex]::Match($t, '^install (\d+)$'); $m.Success -and [int]$m.Groups[1].Value -ge 44 } 600
+$mid = WaitFor { $t = ''; try { $t = (Get-Content $progress -Raw -ErrorAction Stop).Trim() } catch { }; $m = [regex]::Match($t, '^install (\d+)$'); $m.Success -and [int]$m.Groups[1].Value -ge 44 } 1200
 Check 'b-install-midway' $mid 'ההתקנה עברה את הבדיקה הראשונה של Eclipse (42%) — עכשיו חבילת C#'
 StartEclipse
 $null = WaitFor { $u.HasExited } 900

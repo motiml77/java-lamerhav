@@ -217,11 +217,15 @@ try {
         Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('s')
 
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        try { SyncVideos } catch { Log "סרטונים: $($_.Exception.Message)" }
+        # קודם הגרסה — ורק אחר כך סרטוני ההדרכה: הורדת הסרטונים יכולה לקחת דקות, והעדכון חיכה לה
         # GitHub מחזיר את הקובץ כטקסט רגיל — ממירים ל-JSON בעצמנו
         $v = (Invoke-WebRequest -Uri $versionUrl -UseBasicParsing -TimeoutSec 30).Content | ConvertFrom-Json
         $remote = [int64]$v.build
-        if ($remote -le $local) { exit 0 }
+        if ($remote -le $local) {
+            # אין גרסה חדשה — הזדמנות להוריד סרטונים שחסרים (בעדכון: ההתקנה מורידה אותם בעצמה, update.ps1 -Videos)
+            if (-not $testUrl) { try { SyncVideos } catch { Log "סרטונים: $($_.Exception.Message)" } }
+            exit 0
+        }
         Log "נמצאה גרסה חדשה: $($v.version) ($remote, מותקנת: $local)"
         # חלון בפינה עם אחוזי הורדה — נשאר על המסך עד שההורדה נגמרת (בלי כפתור סגירה)
         Prog 'download' 0
