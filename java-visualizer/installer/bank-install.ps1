@@ -4,9 +4,11 @@
 #   IntelliJ IDEA  — התוסף dsviz-bank-intellij לכל IntelliJ שיש בו את DSViz (גם IntelliJ שהותקן אחר כך: update.ps1 מפעיל עם -Only intellij)
 #   Visual Studio  — dsviz-bank-vs.jar (‎%LOCALAPPDATA%\DSViz\lab) + שני קיצורים בשולחן העבודה (install-bank-vs.ps1)
 # אפשר להריץ שוב ושוב: מעתיק רק מה שהשתנה, ולא מכפיל (שם הקובץ קבוע; עותק ישן מוחלף). אותה התקנה מחליפה גם התקנה של גרסת הבדיקה (DSViz-Lab).
-#   bank-install.ps1 [-NoVs] [-Only intellij] [-Quiet]     התקנה / עדכון
+#   bank-install.ps1 [-NoVs] [-NoEclipse] [-Only intellij] [-Quiet]     התקנה / עדכון
+#   -NoEclipse: Eclipse פתוח בעדכון האוטומטי (הקבצים שלו נעולים) — מדלגים עליו. קוד יציאה 2: המאגר לא נכנס ל-Eclipse אחד לפחות
 #   bank-install.ps1 -Remove                                הסרה (DSViz עצמו נשאר)
-param([switch]$Remove, [switch]$NoVs, [string]$Only = 'all', [switch]$Quiet, [string]$ConfigRoot)
+param([switch]$Remove, [switch]$NoVs, [switch]$NoEclipse, [string]$Only = 'all', [switch]$Quiet, [string]$ConfigRoot)
+$eclipseFailed = $false
 $ErrorActionPreference = 'Continue'
 $here = $PSScriptRoot
 $dsviz = Split-Path -Parent $here
@@ -45,7 +47,7 @@ if ($Remove) {
     exit 0
 }
 
-if ($Only -ne 'intellij') {
+if ($Only -ne 'intellij' -and -not $NoEclipse) {
     $jar = Get-ChildItem -LiteralPath $here -Filter 'il.lamerhav.dsviz.bank_*.jar' -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($jar) {
         foreach ($e in EclipseDirs) {
@@ -57,7 +59,7 @@ if ($Only -ne 'intellij') {
                 $old | Remove-Item -Force -ErrorAction Stop
                 Copy-Item -LiteralPath $jar.FullName -Destination $drop -Force -ErrorAction Stop
                 Say "Eclipse: המאגר הותקן ב-$e"
-            } catch { Say "Eclipse: אין הרשאה לכתוב ל-$drop — מריצים את ההתקנה כמנהל" }
+            } catch { $eclipseFailed = $true; Say "Eclipse: לא הצלחתי לכתוב ל-$drop (Eclipse פתוח, או שצריך הרשאות מנהל)" }
         }
     }
 }
@@ -88,4 +90,5 @@ if (-not $NoVs -and $Only -ne 'intellij') {
     $vs = Join-Path $here 'install-bank-vs.ps1'
     if (Test-Path -LiteralPath $vs) { try { & $vs | ForEach-Object { Say $_ } } catch { Say "Visual Studio: $($_.Exception.Message)" } }
 }
+if ($eclipseFailed) { exit 2 }
 exit 0

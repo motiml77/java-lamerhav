@@ -12,7 +12,11 @@
 #   - -Videos: רק מוריד את סרטוני ההדרכה שחסרים (ההתקנה לא כוללת אותם — מגבלת הגודל של GitHub). רץ מיד אחרי ההתקנה, וגם בכל בדיקה.
 #   - הכניסה השמורה ("קובץ הזהב" — עמדת מחשב / מורה / תלמיד, ב-%ProgramData% / %LOCALAPPDATA% / %APPDATA%\Lamerhav\.cache) מחוץ
 #     לתיקיית ההתקנה: העדכון (/S /UPDATE) לא נוגע בה, ואסור להוסיף כאן מחיקה שלה (tools/test/access/Golden.java בודק)
-param([switch]$AfterEclipse, [switch]$FromEclipse, [switch]$FromIde, [switch]$Videos)
+#   - העדכון שהורד נשמר ב-pending\ (ליד הקובץ הזה, לא ב-TEMP) עד שהוא באמת מותקן: build.txt של ההתקנה = הגרסה שהורדה.
+#     התקנה שלא הושלמה (Eclipse / Visual Studio נפתחו באמצע) — אותו קובץ מותקן שוב בסגירה הבאה, בלי להוריד שוב.
+#   - -InstallNow (מ-Eclipse: "הפעלה מחדש ועדכון"): מחכים ש-Eclipse ייסגר (עד 2 דקות), מתקינים את העדכון שהורד,
+#     ופותחים את Eclipse מחדש (-Relaunch <eclipse.exe> -Workspace <תיקייה>) — גם אם ההתקנה לא הצליחה, כדי שלא יישאר סגור
+param([switch]$AfterEclipse, [switch]$FromEclipse, [switch]$FromIde, [switch]$Videos, [switch]$InstallNow, [string]$Relaunch = '', [string]$Workspace = '')
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 $log = Join-Path $dir 'update.log'
@@ -110,95 +114,174 @@ if ($Videos) {
     exit 0
 }
 
-# רק עדכון אחד בכל פעם
+# העדכון שהורד ומחכה להתקנה: pending\DSViz-Setup-<build>.exe + pending.json ({build, version, sha256, file})
+$pendDir = Join-Path $dir 'pending'
+$pendJson = Join-Path $pendDir 'pending.json'
+$relaunchFile = Join-Path $pendDir 'relaunch.txt'   # "הפעלה מחדש ועדכון": מי שמתקין פותח את Eclipse מחדש בסוף
+function LocalBuild {
+    $bf = Join-Path $dir 'build.txt'
+    try { if (Test-Path -LiteralPath $bf) { return [int64]((Get-Content -LiteralPath $bf -Raw).Trim()) } } catch { }
+    return [int64]0
+}
+function ReadPending {
+    try {
+        if (-not (Test-Path -LiteralPath $pendJson)) { return $null }
+        $p = Get-Content -LiteralPath $pendJson -Raw -Encoding UTF8 | ConvertFrom-Json
+        $f = Join-Path $pendDir ([string]$p.file)
+        if ((Test-Path -LiteralPath $f) -and ((Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash.ToLower() -eq ([string]$p.sha256).ToLower())) { return $p }
+    } catch { }
+    return $null
+}
+function ClearPending {
+    Get-ChildItem -LiteralPath $pendDir -Filter 'DSViz-Setup-*' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $pendJson -Force -ErrorAction SilentlyContinue
+}
+function RelaunchEclipse {
+    if (-not (Test-Path -LiteralPath $relaunchFile)) { return }
+    # בקשה ישנה (Eclipse לא נסגר אז, והתלמיד המשיך לעבוד) — לא פותחים את Eclipse פתאום שעות אחר כך
+    if (((Get-Date) - (Get-Item -LiteralPath $relaunchFile).LastWriteTime).TotalMinutes -gt 15) { Remove-Item -LiteralPath $relaunchFile -Force -ErrorAction SilentlyContinue; return }
+    try {
+        $l = @(Get-Content -LiteralPath $relaunchFile -Encoding UTF8)
+        Remove-Item -LiteralPath $relaunchFile -Force -ErrorAction SilentlyContinue
+        $exePath = if ($l.Count -gt 0) { $l[0].Trim() } else { '' }
+        $ws = if ($l.Count -gt 1) { $l[1].Trim() } else { '' }
+        if ($exePath -and (Test-Path -LiteralPath $exePath) -and -not (Get-Process -Name eclipse -ErrorAction SilentlyContinue)) {
+            if ($ws) { Start-Process -FilePath $exePath -ArgumentList @('-data', "`"$ws`"") } else { Start-Process -FilePath $exePath }
+            Log "Eclipse נפתח מחדש"
+        }
+    } catch { Log "פתיחה מחדש של Eclipse: $($_.Exception.Message)" }
+}
+# פתוחים עכשיו? בודקים כל שנייה (מי שסגר את Eclipse ופתח אותו מיד "פספס" את העדכון כשבדקנו כל 5 שניות);
+# "מודלים חישוביים" (שאילתת WMI — איטית יותר) — כל 5 שניות
+$script:tick = 0; $script:auto = $false
+function Busy {
+    $script:tick++
+    if (($script:tick % 5) -eq 1) { $script:auto = AutomataRunning }
+    return [bool](Get-Process -Name eclipse, devenv, dsviz-cs -ErrorAction SilentlyContinue) -or $script:auto
+}
+
+if ($InstallNow) {
+    New-Item -ItemType Directory -Path $pendDir -Force | Out-Null
+    if ($Relaunch) { Set-Content -LiteralPath $relaunchFile -Value @($Relaunch, $Workspace) -Encoding UTF8 }
+}
+
+# רק עדכון אחד בכל פעם (מי שכבר מחכה לסגירה — יתקין, ויפתח את Eclipse מחדש אם ביקשו: relaunch.txt)
 $lock = Join-Path $env:TEMP 'dsviz-update.lock'
 try { $fs = [IO.File]::Open($lock, 'OpenOrCreate', 'ReadWrite', 'None') } catch { exit 0 }
 try {
-    if ($testUrl) { } elseif ($AfterEclipse) { Start-Sleep -Seconds 5 } elseif ($FromEclipse -or $FromIde) { Start-Sleep -Seconds 60 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows / את פתיחת Eclipse
-    # IntelliJ IDEA: גם IntelliJ שהותקן אחרי DSViz (או שהיה פתוח בזמן ההתקנה) מקבל את התוסף — בכל בדיקה, גם בלי אינטרנט
-    try {
-        $langFile = Join-Path $dir 'lang.txt'
-        $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
-        $ij = Join-Path $dir 'intellij\dsviz-intellij'
-        if ($lang -ne 'cs' -and (Test-Path -LiteralPath (Join-Path $ij 'lib'))) {
-            $r = & (Join-Path $dir 'intellij.ps1') -Source $ij -Quiet
-            if ($LASTEXITCODE -eq 3) { Log 'IntelliJ פתוח — התוסף יעודכן בפעם הבאה' }
-        }
-        # מאגר התרגילים ב-IntelliJ (אחרי שהתוסף הראשי נכנס) — אותה בדיקה, גם בלי אינטרנט
-        $bank = Join-Path $dir 'bank\bank-install.ps1'
-        if ($lang -ne 'cs' -and (Test-Path -LiteralPath $bank)) { & $bank -Only intellij -Quiet | Out-Null }
-    } catch { Log "IntelliJ: $($_.Exception.Message)" }
-    # Visual Studio: גם Visual Studio שהותקן אחרי DSViz (למשל 2026 ליד 2022), או שההתקנה של סרגל הכלים לא הצליחה בו, או שנשארה בו
-    # גרסה ישנה (העדכון רץ כשהוא היה פתוח), מקבל את סרגל הכלים — בכל בדיקה, גם בלי אינטרנט. Visual Studio שכבר יש בו את הגרסה הנוכחית — לא נוגעים.
-    # כש-Visual Studio פתוח: מחכים ברקע שייסגר (תהליך נפרד — לא מעכב את בדיקת הגרסה)
-    try {
-        $langFile = Join-Path $dir 'lang.txt'
-        $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
-        $vsixPs = Join-Path $dir 'cs\install-vsix.ps1'
-        $vsixFile = Join-Path $dir 'cs\DsViz.VsExtension.vsix'
-        if ($lang -ne 'java' -and (Test-Path -LiteralPath $vsixPs) -and (Test-Path -LiteralPath $vsixFile)) {
-            if (-not (Get-Process -Name devenv -ErrorAction SilentlyContinue)) {
-                & $vsixPs -Vsix $vsixFile -Missing | Out-Null
-            } else {
-                & $vsixPs -Vsix $vsixFile -Check | Out-Null
-                if ($LASTEXITCODE -eq 10) {
-                    Log 'Visual Studio פתוח וחסר בו סרגל הכלים (או שיש בו גרסה ישנה) — יותקן ברקע כשייסגר'
-                    Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$vsixPs`"", '-Vsix', "`"$vsixFile`"", '-Missing', '-WhenClosed')
+    if ($testUrl -or $InstallNow) { } elseif ($AfterEclipse) { Start-Sleep -Seconds 5 } elseif ($FromEclipse -or $FromIde) { Start-Sleep -Seconds 60 } else { Start-Sleep -Seconds 120 }   # לא להאט את הכניסה ל-Windows / את פתיחת Eclipse
+    if (-not $InstallNow) {
+        # IntelliJ IDEA: גם IntelliJ שהותקן אחרי DSViz (או שהיה פתוח בזמן ההתקנה) מקבל את התוסף — בכל בדיקה, גם בלי אינטרנט
+        try {
+            $langFile = Join-Path $dir 'lang.txt'
+            $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
+            $ij = Join-Path $dir 'intellij\dsviz-intellij'
+            if ($lang -ne 'cs' -and (Test-Path -LiteralPath (Join-Path $ij 'lib'))) {
+                $r = & (Join-Path $dir 'intellij.ps1') -Source $ij -Quiet
+                if ($LASTEXITCODE -eq 3) { Log 'IntelliJ פתוח — התוסף יעודכן בפעם הבאה' }
+            }
+            # מאגר התרגילים ב-IntelliJ (אחרי שהתוסף הראשי נכנס) — אותה בדיקה, גם בלי אינטרנט
+            $bank = Join-Path $dir 'bank\bank-install.ps1'
+            if ($lang -ne 'cs' -and (Test-Path -LiteralPath $bank)) { & $bank -Only intellij -Quiet | Out-Null }
+        } catch { Log "IntelliJ: $($_.Exception.Message)" }
+        # Visual Studio: גם Visual Studio שהותקן אחרי DSViz (למשל 2026 ליד 2022), או שההתקנה של סרגל הכלים לא הצליחה בו, או שנשארה בו
+        # גרסה ישנה (העדכון רץ כשהוא היה פתוח), מקבל את סרגל הכלים — בכל בדיקה, גם בלי אינטרנט. Visual Studio שכבר יש בו את הגרסה הנוכחית — לא נוגעים.
+        # כש-Visual Studio פתוח: מחכים ברקע שייסגר (תהליך נפרד — לא מעכב את בדיקת הגרסה)
+        try {
+            $langFile = Join-Path $dir 'lang.txt'
+            $lang = if (Test-Path -LiteralPath $langFile) { (Get-Content -LiteralPath $langFile -Raw).Trim() } else { 'java' }
+            $vsixPs = Join-Path $dir 'cs\install-vsix.ps1'
+            $vsixFile = Join-Path $dir 'cs\DsViz.VsExtension.vsix'
+            if ($lang -ne 'java' -and (Test-Path -LiteralPath $vsixPs) -and (Test-Path -LiteralPath $vsixFile)) {
+                if (-not (Get-Process -Name devenv -ErrorAction SilentlyContinue)) {
+                    & $vsixPs -Vsix $vsixFile -Missing | Out-Null
+                } else {
+                    & $vsixPs -Vsix $vsixFile -Check | Out-Null
+                    if ($LASTEXITCODE -eq 10) {
+                        Log 'Visual Studio פתוח וחסר בו סרגל הכלים (או שיש בו גרסה ישנה) — יותקן ברקע כשייסגר'
+                        Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$vsixPs`"", '-Vsix', "`"$vsixFile`"", '-Missing', '-WhenClosed')
+                    }
                 }
             }
-        }
-    } catch { Log "Visual Studio: $($_.Exception.Message)" }
-    # לא יותר מבדיקה אחת בשעה בכניסה ל-Windows; מ-Eclipse (בפתיחה ובסגירה) — עד פעם ב-5 דקות: אלה הרגעים שבהם התלמיד עובד,
-    # וקודם בדיקה בכניסה ל-Windows חסמה לשעה את הבדיקה בסגירת Eclipse
-    $stamp = Join-Path $dir 'update-check.txt'
-    $every = if ($AfterEclipse -or $FromEclipse -or $FromIde) { 5 } else { 60 }
-    if (-not $testUrl -and (Test-Path -LiteralPath $stamp) -and ((Get-Date) - (Get-Item -LiteralPath $stamp).LastWriteTime).TotalMinutes -lt $every) { exit 0 }
-    Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('s')
+        } catch { Log "Visual Studio: $($_.Exception.Message)" }
+    }
+    $local = LocalBuild
+    $pending = ReadPending
+    if ($pending -and [int64]$pending.build -le $local) { ClearPending; $pending = $null }   # כבר מותקן
+    if (-not $pending) {
+        if ($InstallNow) { Log 'אין עדכון שמחכה להתקנה'; RelaunchEclipse; exit 0 }
+        # לא יותר מבדיקה אחת בשעה בכניסה ל-Windows; מ-Eclipse (בפתיחה ובסגירה) — עד פעם ב-5 דקות. עדכון שכבר הורד לא מחכה לזה
+        $stamp = Join-Path $dir 'update-check.txt'
+        $every = if ($AfterEclipse -or $FromEclipse -or $FromIde) { 5 } else { 60 }
+        if (-not $testUrl -and (Test-Path -LiteralPath $stamp) -and ((Get-Date) - (Get-Item -LiteralPath $stamp).LastWriteTime).TotalMinutes -lt $every) { exit 0 }
+        Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('s')
 
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    try { SyncVideos } catch { Log "סרטונים: $($_.Exception.Message)" }
-    $local = 0
-    $bf = Join-Path $dir 'build.txt'
-    if (Test-Path -LiteralPath $bf) { $local = [int64]((Get-Content -LiteralPath $bf -Raw).Trim()) }
-    # GitHub מחזיר את הקובץ כטקסט רגיל — ממירים ל-JSON בעצמנו
-    $v = (Invoke-WebRequest -Uri $versionUrl -UseBasicParsing -TimeoutSec 30).Content | ConvertFrom-Json
-    $remote = [int64]$v.build
-    if ($remote -le $local) { exit 0 }
-    Log "נמצאה גרסה חדשה: $($v.version) ($remote, מותקנת: $local)"
-    # חלון בפינה עם אחוזי הורדה — נשאר על המסך עד שההורדה נגמרת (בלי כפתור סגירה)
-    Prog 'download' 0
-    Toast 'download'
-
-    $exe = Join-Path $env:TEMP 'DSViz-Update.exe'
-    DownloadWithProgress $v.url $exe
-    $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLower()
-    if ($hash -ne ([string]$v.sha256).ToLower()) { Log "הקובץ שהורד לא תקין (SHA-256) — מדלגים"; Remove-Item -LiteralPath $exe -Force; Prog 'failed' 0; exit 0 }
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        try { SyncVideos } catch { Log "סרטונים: $($_.Exception.Message)" }
+        # GitHub מחזיר את הקובץ כטקסט רגיל — ממירים ל-JSON בעצמנו
+        $v = (Invoke-WebRequest -Uri $versionUrl -UseBasicParsing -TimeoutSec 30).Content | ConvertFrom-Json
+        $remote = [int64]$v.build
+        if ($remote -le $local) { exit 0 }
+        Log "נמצאה גרסה חדשה: $($v.version) ($remote, מותקנת: $local)"
+        # חלון בפינה עם אחוזי הורדה — נשאר על המסך עד שההורדה נגמרת (בלי כפתור סגירה)
+        Prog 'download' 0
+        Toast 'download'
+        New-Item -ItemType Directory -Path $pendDir -Force | Out-Null
+        ClearPending
+        $name = "DSViz-Setup-$remote.exe"
+        $part = Join-Path $pendDir "$name.part"
+        DownloadWithProgress $v.url $part
+        $hash = (Get-FileHash -LiteralPath $part -Algorithm SHA256).Hash.ToLower()
+        if ($hash -ne ([string]$v.sha256).ToLower()) { Log "הקובץ שהורד לא תקין (SHA-256) — מדלגים"; Remove-Item -LiteralPath $part -Force; Prog 'failed' 0; exit 0 }
+        Move-Item -LiteralPath $part -Destination (Join-Path $pendDir $name) -Force
+        ([ordered]@{ build = $remote; version = [string]$v.version; sha256 = $hash; file = $name } | ConvertTo-Json) | Set-Content -LiteralPath $pendJson -Encoding UTF8
+        $pending = ReadPending
+        if (-not $pending) { Log "העדכון שהורד לא נשמר — ננסה בפעם הבאה"; Prog 'failed' 0; exit 0 }
+    } else {
+        Log "עדכון שהורד קודם מחכה להתקנה: $($pending.version) ($($pending.build), מותקנת: $local)"
+    }
     Prog 'ready' 100   # ההורדה הושלמה ונבדקה — חלון ההורדה נסגר
+    $exe = Join-Path $pendDir ([string]$pending.file)
 
-    # מחכים ש-Eclipse / Visual Studio (והרצה ויזואלית של C#) ייסגרו (עד 12 שעות), כדי לא להפריע לעבודה — והעדכון נכנס לתוקף בפתיחה הבאה
-    # בודקים כל 5 שניות (קודם: פעם בדקה — מי שסגר את Eclipse ופתח אותו שוב תוך דקה "פספס" את העדכון), ומודיעים מה עוד פתוח
-    # בכל פעם שזה משתנה (סגרו את Eclipse אבל Visual Studio עוד פתוח — רואים את זה, ולא חושבים שהעדכון נתקע)
+    # מחכים ש-Eclipse / Visual Studio (והרצה ויזואלית של C#, מודלים חישוביים) ייסגרו — עד 12 שעות (ב-InstallNow: עד 2 דקות),
+    # ומודיעים מה עוד פתוח בכל פעם שזה משתנה. בודקים כל שנייה
+    $limit = if ($InstallNow) { 120 } else { 43200 }
     $waited = 0
     $shown = ''
-    while ((EclipseRunning) -and $waited -lt 8640) {
-        $open = OpenApps
-        if ($open -and $open -ne $shown) { Toast 'waiting' 0 $open; Log "מחכים שייסגרו: $open"; $shown = $open }
-        Start-Sleep -Seconds 5; $waited++
+    while ((Busy) -and $waited -lt $limit) {
+        if (($waited % 5) -eq 0) {
+            $open = OpenApps
+            if ($open -and $open -ne $shown) { Toast 'waiting' 0 $open; Log "מחכים שייסגרו: $open"; $shown = $open }
+        }
+        Start-Sleep -Seconds 1; $waited++
     }
-    if (EclipseRunning) { Log "Eclipse / Visual Studio / הרצה ויזואלית / מודלים חישוביים עדיין פתוחים — ננסה בפעם הבאה"; exit 0 }
+    if (Busy) {
+        Log "Eclipse / Visual Studio / הרצה ויזואלית / מודלים חישוביים עדיין פתוחים — העדכון שהורד יותקן בסגירה הבאה"
+        if ($InstallNow) { Remove-Item -LiteralPath $relaunchFile -Force -ErrorAction SilentlyContinue }   # Eclipse לא נסגר (ביטלו) — לא פותחים אותו אחר כך
+        exit 0
+    }
 
-    Log "מתקין את הגרסה החדשה..."
+    Log "מתקין את הגרסה החדשה ($($pending.version))..."
     Prog 'install' 0
     $p = Start-Process -FilePath $exe -ArgumentList '/S', '/UPDATE' -PassThru -WindowStyle Hidden
     # חלון קטן בפינה: "DSViz מתעדכן לגרסה חדשה" עם אחוזים (המתקין מדווח בכל שלב) — נסגר לבד כשההתקנה נגמרת; בסופה ההתקנה מראה "DSViz עודכן"
     Toast 'updating' $p.Id
     $p.WaitForExit()
-    Log "ההתקנה הסתיימה (קוד $($p.ExitCode))"
-    Prog 'done' 100
-    Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue
+    $after = LocalBuild
+    if ($after -ge [int64]$pending.build) {
+        Log "ההתקנה הסתיימה: גרסה $($pending.version) מותקנת (קוד $($p.ExitCode))"
+        Prog 'done' 100
+        ClearPending
+    } else {
+        # build.txt לא התעדכן — Eclipse / Visual Studio נפתחו באמצע (update-incomplete.txt), או שההתקנה נכשלה: הקובץ נשאר, וננסה שוב
+        Log "ההתקנה לא הושלמה (קוד $($p.ExitCode), מותקנת: $after) — העדכון שהורד יותקן שוב בסגירה הבאה"
+        Prog 'failed' 0
+    }
+    RelaunchEclipse
 } catch {
     Log "שגיאה: $($_.Exception.Message)"
     Prog 'failed' 0   # חלון ההתקדמות (אם פתוח) נסגר — לא נשאר תקוע על המסך
+    RelaunchEclipse
 } finally {
     $fs.Close()
 }
