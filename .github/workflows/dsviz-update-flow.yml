@@ -6,8 +6,9 @@ on:
   push:
     branches: [release/public-all]
     paths:
-      # רק עם התקנה חדשה (ההתקנה שבענף היא זו שנבדקת — בלי בנייה חדשה אין מה לבדוק)
       - 'java-visualizer/release/DSViz-Setup.exe'
+      - 'java-visualizer/tools/test/windows-public/update-flow.ps1'
+      - '.github/workflows/dsviz-update-flow.yml'
   workflow_dispatch:
 
 jobs:
