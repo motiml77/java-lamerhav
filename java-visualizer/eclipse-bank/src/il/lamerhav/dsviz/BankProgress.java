@@ -146,6 +146,36 @@ final class BankProgress {
         return best;
     }
 
+    // ------------------------------------------------------------------ הוגש למורה
+
+    /**
+     * תלמיד הגיש את התרגיל למורה (או שההגשה מחכה לאינטרנט): נרשם מתי ולמי — כדי שגם בפעם הבאה שפותחים את השאלה יופיע
+     * "הוגש למורה…". רק לתלמיד שמחובר בעצמו; בעמדת מחשב של הכיתה לא רושמים (כמה תלמידים עובדים על אותו מחשב)
+     */
+    void submitted(String id, String teacher, boolean queued) {
+        synchronized (this) {
+            load();
+            Map<String, Object> q = entry(id);
+            q.put("submittedAt", (double) System.currentTimeMillis());
+            q.put("submittedTo", teacher == null ? "" : teacher);
+            if (queued) q.put("submitQueued", Boolean.TRUE); else q.remove("submitQueued");
+            save();
+        }
+        fire();
+    }
+
+    /** "הוגש למורה שרה כהן ב-18.11, 10:42" (למורה teacher — מי שמקבל עכשיו את ההגשות), או "" אם לא הוגש אליו */
+    synchronized String submittedNote(String id, String teacher) {
+        load();
+        Map<String, Object> q = Json.obj(questions.get(id));
+        if (!(q.get("submittedAt") instanceof Number)) return "";
+        String to = Json.str(q.get("submittedTo"));
+        if (teacher != null && !teacher.isEmpty() && !to.isEmpty() && !to.equals(teacher)) return "";   // הוגש למורה קודם
+        String when = new java.text.SimpleDateFormat("d.M, H:mm").format(new java.util.Date(((Number) q.get("submittedAt")).longValue()));
+        return Boolean.TRUE.equals(q.get("submitQueued")) ? "ההגשה מ-" + when + " נשמרה במחשב ונשלחת כשיש אינטרנט."
+                : "הוגש למורה" + (to.isEmpty() ? "" : " " + to) + " ב-" + when + ".";
+    }
+
     // ------------------------------------------------------------------ קובץ
 
     private Map<String, Object> entry(String id) {

@@ -3,7 +3,7 @@
 import { api, h, icon, ICONS, ago, fmtDate, daysSince, busy, toast } from '/static/common.js';
 
 const S = { tab: 'st', folder: 'all', open: null, subs: [], cur: null, curData: null, fileIdx: 0, ask: null, renaming: false, adding: false, q: '',
-  view: 'students', ex: null, onlyNew: false };
+  view: 'students', onlyNew: false };
 let data = null, root = null, onRelease = null;
 
 /** מציג את עמדת הניהול בתוך container. requestRelease(station) — "בקשה לשחרר" להנהלה (כשנגמרו השחרורים של החודש) */
@@ -102,7 +102,7 @@ function studentsPane() {
   const sw = h('button', { type: 'button', class: 'sw', 'aria-pressed': String(data.teacher.joinOpen), id: 'join-open' }, h('i'), 'הצטרפות פתוחה');
   sw.onclick = () => busy(sw, async () => { await api('POST', '/v1/me/settings', { joinOpen: !data.teacher.joinOpen }); await reload(true); });
   const seg = (id, label) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.view === id), id: 'view-' + id,
-    onclick: () => { S.view = id; S.ex = null; S.open = null; S.cur = null; S.curData = null; S.ask = null; render(); } }, label);
+    onclick: () => { S.view = id; S.open = null; S.cur = null; S.curData = null; S.ask = null; render(); } }, label);
   return h('div', { class: 'con-pane' },
     h('div', { class: 'con-tools' },
       h('div', { class: 'seg', role: 'tablist', 'aria-label': 'איך להציג' }, seg('students', 'לפי תלמיד'), seg('ex', 'לפי תרגיל')),
@@ -114,7 +114,7 @@ function studentsPane() {
 function folders() {
   const box = h('div', { class: 'folders' });
   const item = (id, label, n) => box.append(h('button', { type: 'button', class: 'folder', 'aria-current': String(S.folder === id),
-    onclick: () => { S.folder = id; S.ex = null; S.onlyNew = false; S.open = null; S.cur = null; S.curData = null; S.ask = null; S.renaming = false; render(); } },
+    onclick: () => { S.folder = id; S.onlyNew = false; S.open = null; S.cur = null; S.curData = null; S.ask = null; S.renaming = false; render(); } },
     h('span', null, label), newDot(inFolder(id).reduce((k, x) => k + (x.unseen || 0), 0)), h('span', { class: 'c' }, String(n))));
   item('all', 'כל התלמידים', data.students.length);
   for (const c of data.classes) item(c.id, c.name, inFolder(c.id).length);
@@ -246,6 +246,12 @@ function exercisesOf(list) {
   return Array.from(by.values()).sort((a, b) => b.last.localeCompare(a.last));
 }
 
+/**
+ * "לפי תרגיל" — טבלת הגשות (כמו יומן ציונים): שורה לכל תלמיד, עמודה לכל תרגיל, ובכל תא סימן קטן של התוצאה.
+ * רואים במבט אחד מי הגיש מה ומה יצא; לחיצה על תא פותחת את הקוד של אותו תלמיד למטה. הרבה תרגילים — גוללים לצד, והשמות נשארים.
+ */
+const MARK = { ok: '✓', diff: '≠', err: '✕', time: '!', none: '•' };
+
 function exercisesTable() {
   const list = inFolder(S.folder);
   const active = list.filter(s => !s.left);
@@ -255,42 +261,34 @@ function exercisesTable() {
       ? 'עוד לא הוגש אף תרגיל. תלמיד מגיש בכפתור "הגשה למורה" בחלון השאלה (או ב"סיימתי את התרגיל").'
       : 'אין כאן תלמידים עדיין.'));
   }
-  const rows = [];
-  for (const e of exs) {
-    const got = active.filter(s => e.rows.has(s.email));
-    const count = r => Array.from(e.rows.values()).filter(w => w.result === r).length;
-    const fresh = Array.from(e.rows.values()).filter(w => !w.seen).length;
-    const open = S.ex === e.key;
-    rows.push(h('tr', { class: open ? 'sel' : null },
-      h('td', null, h('b', null, e.title), fresh ? [' ', pill('blue', fresh === 1 ? 'חדשה' : fresh + ' חדשות')] : null,
-        h('div', { class: 'sub' }, [e.topic, e.level].filter(Boolean).join(' · '))),
-      h('td', null, h('div', { class: 'done' }, h('span', null, `${got.length} מתוך ${active.length}`),
-        h('span', { class: 'bar ok' }, h('span', { style: { width: (active.length ? Math.round(100 * got.length / active.length) : 0) + '%' } })))),
-      h('td', null, h('div', { class: 'pills' }, ['ok', 'diff', 'err', 'time', 'none'].filter(r => count(r)).map(r => pill(RESULT[r][0], count(r) + ' · ' + RESULT[r][1])))),
-      h('td', null, h('span', { class: 'sub' }, ago(e.last))),
-      h('td', null, h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn sm' + (open ? ' primary' : ''), 'aria-expanded': String(open),
-        onclick: () => { S.ex = open ? null : e.key; S.open = null; S.cur = null; S.curData = null; render(); } }, open ? 'סגירה' : 'מי הגיש')))));
-    if (open) rows.push(h('tr', null, h('td', { colspan: '5', class: 'exwho' }, whoSubmitted(e, list))));
-  }
-  return h('div', { class: 'tablewrap' }, h('table', { class: 'con-table' },
-    h('thead', null, h('tr', null, ['תרגיל', 'הגישו', 'תוצאות בדיקת ההרצה', 'הגשה אחרונה', ''].map(x => h('th', null, x)))), h('tbody', null, rows)));
-}
-
-/** בתוך תרגיל פתוח: כל התלמידים של התיקייה — קודם מי שהגיש (מהחדש לישן), ואחריהם מי שעוד לא */
-function whoSubmitted(e, list) {
-  const yes = list.filter(s => e.rows.has(s.email)).sort((a, b) => String(e.rows.get(b.email).at).localeCompare(String(e.rows.get(a.email).at)));
-  const no = list.filter(s => !e.rows.has(s.email) && !s.left);
-  const box = h('div', { class: 'ex-list' });
-  for (const s of yes) {
-    const w = e.rows.get(s.email);
-    box.append(h('button', { type: 'button', class: 'ex-row', 'aria-current': String(S.cur === w.id), onclick: () => openRow('su', s.email, w.id) },
-      h('b', null, s.name || s.email), resultPill(w.result), w.seen ? null : pill('blue', 'חדש'),
-      h('span', { class: 'sub' }, ago(w.at) + (w.n > 1 ? ` · הוגש ${w.n} פעמים` : '') + (s.left ? ' · עזב' : '')), h('span', { class: 'go' }, 'פתיחת הקוד ›')));
-  }
-  if (no.length) {
-    box.append(h('div', { class: 'ex-none' }, h('b', null, no.length === 1 ? 'תלמיד אחד עוד לא הגיש: ' : `${no.length} תלמידים עוד לא הגישו: `), no.map(s => s.name || s.email).join(', ')));
-  } else if (yes.length) box.append(h('div', { class: 'ex-none ok' }, 'כל התלמידים הגישו את התרגיל הזה.'));
-  return box;
+  // תלמיד שעזב מופיע רק אם הגיש משהו
+  const who = list.filter(s => !s.left || (s.work || []).length);
+  const head = h('tr', null, h('th', { class: 'gname', scope: 'col' }, 'תלמיד'), h('th', { class: 'gsum', scope: 'col', title: 'כמה מהתרגילים שבטבלה התלמיד הגיש' }, 'הגיש'),
+    exs.map(e => {
+      const got = active.filter(s => e.rows.has(s.email)).length;
+      const fresh = Array.from(e.rows.values()).filter(w => !w.seen).length;
+      return h('th', { class: 'gcol', scope: 'col', title: [e.title, e.topic, e.level].filter(Boolean).join(' · ') + ` — הגישו ${got} מתוך ${active.length}` },
+        h('span', { class: 'gt' }, e.title), h('span', { class: 'gc' }, `${got}/${active.length}`, newDot(fresh)));
+    }));
+  const rows = who.map(s => {
+    const mine = exs.filter(e => e.rows.has(s.email)).length;
+    return h('tr', null,
+      h('th', { class: 'gname', scope: 'row' }, h('span', { class: 'gn' }, s.name || s.email), s.left ? pill('gray', 'עזב') : null),
+      h('td', { class: 'gsum' }, `${mine}/${exs.length}`),
+      exs.map(e => {
+        const w = e.rows.get(s.email);
+        if (!w) return h('td', { class: 'gcell' }, h('span', { class: 'gno', title: 'לא הוגש' }, '–'));
+        const text = `${s.name || s.email} · ${e.title} · ${(RESULT[w.result] || RESULT.none)[1]} · ${ago(w.at)}` + (w.n > 1 ? ` · הוגש ${w.n} פעמים` : '') + (w.seen ? '' : ' · חדש');
+        return h('td', { class: 'gcell' }, h('button', { type: 'button', class: 'g ' + (RESULT[w.result] ? w.result : 'none') + (w.seen ? '' : ' new'),
+          'aria-current': String(S.cur === w.id), title: text, 'aria-label': text, onclick: () => openRow('su', s.email, w.id) }, MARK[w.result] || MARK.none));
+      }));
+  });
+  const key = (r, label) => h('span', { class: 'gkey' }, h('span', { class: 'g ' + r, 'aria-hidden': 'true' }, MARK[r]), label);
+  const legend = h('div', { class: 'glegend' }, key('ok', 'הפלט תואם'), key('diff', 'הפלט שונה'), key('err', 'לא מתקמפל'), key('time', 'נעצר'), key('none', 'בלי בדיקה'),
+    h('span', { class: 'gkey' }, h('span', { class: 'gno', 'aria-hidden': 'true' }, '–'), 'לא הוגש'), h('span', { class: 'gkey' }, h('span', { class: 'g ok new', 'aria-hidden': 'true' }, MARK.ok), 'חדש'),
+    h('span', { class: 'gkey' }, '· לחיצה על סימן פותחת את הקוד'));
+  return h('div', { class: 'stack', style: { gap: '8px' } }, legend,
+    h('div', { class: 'tablewrap gwrap' }, h('table', { class: 'gridt' }, h('thead', null, head), h('tbody', null, rows))));
 }
 
 function confirmRow(cols, kids) {

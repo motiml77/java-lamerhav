@@ -184,32 +184,40 @@ await step('טאב תלמידים: כיתות בצד, "בלי כיתה", ותר�
   assert.equal(await page.locator('.folder:has-text("יא 3") .newdot').textContent(), '1');
 });
 
-await step('"לפי תרגיל": לכל תרגיל — כמה הגישו ומה יצא; פתיחה מראה מי הגיש ומי עוד לא, ולחיצה על תלמיד פותחת את הקוד שלו', async () => {
+await step('"לפי תרגיל" — טבלת הגשות: שורה לכל תלמיד, עמודה לכל תרגיל, סימן קטן בכל תא; לחיצה על תא פותחת את הקוד של התלמיד', async () => {
   await page.click('#view-ex');
-  await page.waitForSelector('th:has-text("תוצאות בדיקת ההרצה")');
-  const rows = page.locator('.con-table > tbody > tr');
-  assert.equal(await rows.count(), 2, 'שני תרגילים הוגשו בכיתה יא 3');
-  const q = page.locator('.con-table > tbody > tr', { hasText: 'סכום תור וזוגיים' });
-  assert.ok(await q.locator('text=2 מתוך 3').count(), 'נועם ואריאל הגישו, יובל לא');
-  assert.ok(await q.locator('.pill:has-text("1 · הפלט תואם")').count());
-  assert.ok(await q.locator('.pill:has-text("1 · הפלט שונה")').count());
-  assert.ok(await q.locator('.pill:has-text("חדשה")').count(), 'ההגשה של אריאל עוד לא נפתחה');
-  await q.locator('button:has-text("מי הגיש")').click();
-  await page.waitForSelector('.ex-row');
-  assert.deepEqual((await page.locator('.ex-row b').allTextContents()).sort(), ['אריאל כהן', 'נועם לוי']);
-  assert.ok(await page.locator('.ex-none:has-text("תלמיד אחד עוד לא הגיש: יובל מזרחי")').count());
+  await page.waitForSelector('table.gridt');
+  // כיתה יא 3: שלושה תלמידים, שני תרגילים (החדש ביותר ראשון)
+  assert.deepEqual(await page.locator('.gridt tbody th.gname .gn').allTextContents(), ['אריאל כהן', 'יובל מזרחי', 'נועם לוי']);
+  assert.equal(await page.locator('.gridt thead th.gcol').count(), 2);
+  const col = page.locator('.gridt thead th.gcol', { hasText: 'סכום תור וזוגיים' });
+  assert.equal((await col.locator('.gc').textContent()).trim().slice(0, 3), '2/3', 'נועם ואריאל הגישו, יובל לא');
+  assert.equal(await col.locator('.newdot').textContent(), '1', 'ההגשה של אריאל עוד לא נפתחה');
+  const row = name => page.locator('.gridt tbody tr', { hasText: name });
+  assert.equal(await row('נועם לוי').locator('button.g.ok').count(), 1);
+  assert.equal(await row('נועם לוי').locator('button.g.none').count(), 1, 'התרגיל האישי — בלי בדיקת הרצה');
+  assert.equal(await row('נועם לוי').locator('.gsum').textContent(), '2/2');
+  assert.equal(await row('אריאל כהן').locator('button.g.diff.new').count(), 1);
+  assert.equal(await row('אריאל כהן').locator('.gno').count(), 1);
+  assert.equal(await row('יובל מזרחי').locator('.gno').count(), 2, 'לא הגיש כלום');
+  assert.equal(await row('יובל מזרחי').locator('.gsum').textContent(), '0/2');
+  assert.match(await row('אריאל כהן').locator('button.g').getAttribute('title'), /אריאל כהן · סכום תור וזוגיים · הפלט שונה/);
+  // הטבלה קומפקטית: כל שלושת התלמידים עם הכותרת והמקרא בפחות מ-230 פיקסלים גובה
+  const hgt = await page.evaluate(() => document.querySelector('.gwrap').getBoundingClientRect().height);
+  assert.ok(hgt < 190, 'גובה הטבלה: ' + hgt);
   await shot(page, 'c13-by-exercise');
-  await page.click('.ex-row:has-text("אריאל כהן")');
+  await row('אריאל כהן').locator('button.g').click();
   await page.waitForSelector('pre.code:has-text("sumQueue")');
   assert.ok(await page.locator('.d-head:has-text("התרגילים של אריאל כהן")').count());
   assert.ok(await page.locator('text=הפלט שונה מהפלט הרצוי').count());
   await page.waitForSelector('#tab-su:not(:has(.newdot))');   // זו הייתה ההגשה החדשה האחרונה של תלמידים
+  assert.equal(await row('אריאל כהן').locator('button.g.new').count(), 0, 'נפתחה — כבר לא "חדש"');
+  assert.equal(await row('אריאל כהן').locator('button.g[aria-current="true"]').count(), 1, 'התא הפתוח מסומן');
   await shot(page, 'c14-by-exercise-code');
-  // בכל התלמידים: גם התרגיל האישי של נועם (בלי פלט רצוי)
+  // כל התלמידים: 5 שורות; "סכום תור" — 2 מתוך 5
   await page.click('.folder:has-text("כל התלמידים")');
-  assert.equal(await page.locator('.con-table > tbody > tr').count(), 2);
-  assert.ok(await page.locator('tr:has-text("מחסנית מדף עבודה") .pill:has-text("1 · בלי בדיקת הרצה")').count());
-  assert.ok(await page.locator('tr:has-text("סכום תור וזוגיים"):has-text("2 מתוך 5")').count());
+  assert.equal(await page.locator('.gridt tbody tr').count(), 5);
+  assert.equal((await page.locator('.gridt thead th.gcol', { hasText: 'סכום תור וזוגיים' }).locator('.gc').textContent()).trim(), '2/5');
   await page.click('#view-students');
   await page.waitForSelector('th:has-text("ההגשה האחרונה")');
 });

@@ -60,7 +60,7 @@ public class TeacherPanelIt {
 
         // ---- 3. עמדת הניהול: השם, המייל, הקוד (אותו קוד כמו בשרת), עמדות 0 מתוך 3
         claim(code1, "מעבדה 2 · עמדה 1");
-        claim(code1, "מעבדה 2 · עמדה 2");
+        String[] st2 = claimTok(code1, "מעבדה 2 · עמדה 2");
         JDialog p = openPanel();
         String text = GateUi.visibleText(p);
         check("החלון: השם והמייל של המורה", text.contains("רונית אברהם") && text.contains(t1));
@@ -68,7 +68,22 @@ public class TeacherPanelIt {
         check("החלון: עמדות 2 מתוך 3 (" + label(p, "seats") + ")", label(p, "seats").contains("2 מתוך 3"));
         check("החלון: כפתורי עמדת ניהול בדפדפן, העתקה, התנתקות", GateUi.find(p, "פתח עמדת ניהול בדפדפן") != null && GateUi.find(p, "העתק קוד") != null
                 && GateUi.find(p, "התנתקות") != null);
+        check("החלון: 'אין הגשות חדשות' (" + label(p, "fresh") + ")", label(p, "fresh").startsWith("אין הגשות חדשות") && find(p, "fresh").isVisible());
+        check("החלון: הקוד הוא גם לתלמידים (הצטרפות עם Google) וגם למחשבי המעבדה", text.contains("לתלמידים ולמחשבי המעבדה") && GateUi.visibleText(p).contains("מצטרף אליך עם הקוד הזה"));
         GateUi.shot(p, "panel-1-teacher");
+        // הגשה ממחשב במעבדה → פתיחה מחדש של החלון: "הגשה חדשה אחת מחכה לך"
+        java.net.HttpURLConnection sc = (java.net.HttpURLConnection) new java.net.URL(AccountIt.server + "/v1/submit").openConnection();
+        sc.setRequestMethod("POST");
+        sc.setDoOutput(true);
+        sc.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        sc.setRequestProperty("X-DSViz-Access", st2[0]);
+        sc.setRequestProperty("X-DSViz-Machine", st2[1]);
+        sc.getOutputStream().write("{\"who\":\"נועם\",\"exercise\":{\"source\":\"own\",\"title\":\"תרגיל\"},\"files\":[{\"path\":\"A.java\",\"text\":\"class A {}\"}]}".getBytes("UTF-8"));
+        int submitCode = sc.getResponseCode();
+        check("הגשה מעמדה נשלחה (" + submitCode + ")", submitCode == 200);
+        p = openPanel();
+        check("החלון: 'הגשה חדשה אחת מחכה לך' (" + label(p, "fresh") + ")", label(p, "fresh").equals("הגשה חדשה אחת מחכה לך (0 מתלמידים · 1 ממחשבי המעבדה)"));
+        GateUi.shot(p, "panel-1b-new-submission");
         Map<String, Object> me = me(t1);
         check("/account (‏/v1/me): אותו קוד, 2 מתוך 3, שני המחשבים", code1.equals(Json.str(me.get("code"))) && num(me, "used") == 2 && num(me, "seats") == 3
                 && Json.arr(me.get("stations")).size() == 2);
@@ -202,6 +217,13 @@ public class TeacherPanelIt {
 
     static String serverCode(String email) throws Exception {
         return Json.str(Json.obj(Json.obj(Json.parse(AccountIt.api("GET", "/v1/admin/teacher?email=" + email, admin, null))).get("teacher")).get("code"));
+    }
+
+    /** כמו claim, ומחזיר את הכרטיס של העמדה ואת מזהה המחשב שלה (להגשה מהעמדה) */
+    static String[] claimTok(String code, String name) throws Exception {
+        String mid = Long.toHexString(System.nanoTime()) + "abcdef0123456789";
+        String r = AccountIt.api("POST", "/v1/station/claim", null, "{\"code\":\"" + code + "\",\"name\":\"" + name + "\",\"machine\":\"" + mid + "\"}");
+        return new String[] { Json.str(Json.obj(Json.parse(r)).get("token")), mid };
     }
 
     static void claim(String code, String name) throws Exception {

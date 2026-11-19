@@ -260,9 +260,11 @@ final class BankFloat {
                     sg.verticalIndent = 6;
                     send.setLayoutData(sg);
                     shown.add("SUBMIT-BUTTON " + Submit.label());
-                    if (submitNote != null) {
-                        BankQuestionPanel.text(body, submitNote, -1, SWT.NORMAL, Look.OK, null);
-                        shown.add("SUBMIT-NOTE " + submitNote);
+                    // מה שהוגש עכשיו, ואם אין — מה שנרשם בהגשה קודמת של התלמיד (גם אחרי שסגרו את התוכנה)
+                    String note = submitNote != null ? submitNote : "student".equals(Submit.mode()) ? BankProgress.get().submittedNote(q.id, Submit.teacher()) : "";
+                    if (!note.isEmpty()) {
+                        BankQuestionPanel.text(body, note, -1, SWT.NORMAL, Look.OK, null);
+                        shown.add("SUBMIT-NOTE " + note);
                     }
                 } else if (joinHint(q)) {
                     // תלמיד שעוד לא הצטרף למורה: במקום שבו היה מופיע "הגשה למורה" — הצטרפות עם קוד המורה (החלון "המורה שלי")
@@ -559,6 +561,8 @@ final class BankFloat {
                     Submit.flushAsync();
                     if (submit == st) submit = null;
                     submitNote = Submit.doneText(res);
+                    // נרשם במחשב (רק לתלמיד שמחובר בעצמו): גם מחר, כשפותחים את השאלה, רואים שהיא הוגשה
+                    if ("student".equals(Submit.mode())) BankProgress.get().submitted(q.id, Submit.teacher(), "queued".equals(res.status));
                     if (st.thenComplete && BankHandler.complete(shell, q, false, st.keep)) shell.dispose();
                     else render();
                     return;

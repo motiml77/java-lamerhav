@@ -611,6 +611,27 @@ async function teacherSettings(request, env) {
   return { ok: true };
 }
 
+/**
+ * למורה, מהתוסף (הכרטיס של המחשב — לא Google): כמה הגשות חדשות מחכות לו. החלון "עמדת ניהול" בתוכנה מציג את המספר,
+ * והמורה יודע מתי כדאי לפתוח את עמדת הניהול בדפדפן
+ */
+async function teacherSummary(request, env) {
+  const r = await pluginUser(request, env);
+  if (r.kind !== 'teacher') throw new Fail(403, 'teacher', 'הפעולה הזו למורה שמחובר במחשב.');
+  const store = db(env);
+  const email = r.profile.email;
+  const [members, stationSubs] = await Promise.all([
+    store.query('members', { where: [['teacher', '==', email]] }),
+    store.query('submissions', { where: [['teacher', '==', email], ['from', '==', 'station']] }),
+  ]);
+  const live = stationSubs.filter(x => !expired(x));
+  return {
+    ok: true, students: members.filter(m => !m.leftAt).length,
+    newStudents: members.reduce((n, m) => n + workRows(m).filter(x => !x.seen).length, 0),
+    newStations: live.filter(x => !x.seenAt).length,
+  };
+}
+
 async function myStudent(request, env) {
   const u = await studentUser(request, env);
   return Object.assign({ ok: true }, await studentState(env, u.email));
@@ -625,6 +646,7 @@ export const CLASSROOM_ROUTES = {
   'POST /v1/student/leave': studentLeave,
   'POST /v1/student/register': studentRegister,
   'POST /v1/submit': submit,
+  'POST /v1/teacher/summary': teacherSummary,
   'GET /v1/me/console': consoleData,
   'GET /v1/me/submissions': listSubmissions,
   'GET /v1/me/submission': getSubmission,

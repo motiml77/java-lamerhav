@@ -249,10 +249,11 @@ export async function resolveToken(env, token, machine, caps) {
 }
 
 /**
- * מה השרת הזה יודע (נשמר במחשב עם הכניסה): submit — "הגשה למורה" (POST /v1/submit). התוסף מציג את הכפתור רק כשהשרת אמר
+ * מה השרת הזה יודע (נשמר במחשב עם הכניסה): submit — "הגשה למורה" (POST /v1/submit); summary — כמה הגשות חדשות מחכות למורה
+ * (POST /v1/teacher/summary). התוסף מציג את הכפתור רק כשהשרת אמר
  * שהוא יודע — כך גרסה חדשה של התוסף מול שרת ישן (או שרת שבו ההגשה כבויה) לא מציגה כפתור שלא עובד
  */
-const FEATURES = ['submit'];
+const FEATURES = ['submit', 'summary'];
 
 async function accessReply(env, r, extra) {
   const s = await settings(env);
@@ -1166,7 +1167,7 @@ const ADMIN_ROUTES = {
 export async function handleAccess(request, env, ctx, url) {
   const path = url.pathname;
   const isOurs = path.startsWith('/v1/access/') || path.startsWith('/v1/auth/') || path.startsWith('/v1/station/') || path === '/v1/me' || path.startsWith('/v1/me/')
-    || path.startsWith('/v1/student/') || path === '/v1/submit' || path === '/v1/report'
+    || path.startsWith('/v1/student/') || path.startsWith('/v1/teacher/') || path === '/v1/submit' || path === '/v1/report'
     || path.startsWith('/v1/admin/') || path.startsWith('/v1/pay/') || path.startsWith('/pay/')
     || ['/signin', '/welcome', '/account', '/admin'].includes(path) || path.startsWith('/static/');
   if (!isOurs) return null;

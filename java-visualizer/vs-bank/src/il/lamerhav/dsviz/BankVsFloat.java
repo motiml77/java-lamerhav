@@ -367,10 +367,12 @@ final class BankVsFloat {
                 row.setAlignmentX(Component.RIGHT_ALIGNMENT);
                 row.add(send, BorderLayout.CENTER);
                 up.add(row);
-                if (submitNote != null) {
+                // מה שהוגש עכשיו, ואם אין — מה שנרשם בהגשה קודמת של התלמיד (גם אחרי שסגרו את התוכנה)
+                String note = submitNote != null ? submitNote : "student".equals(Submit.mode()) ? BankProgress.get().submittedNote(q.id, Submit.teacher()) : "";
+                if (!note.isEmpty()) {
                     up.add(RtlDialog.gap(4));
-                    up.add(RtlDialog.label(submitNote, RtlDialog.small(), RtlDialog.GREEN));
-                    shown.add("SUBMIT-NOTE " + submitNote);
+                    up.add(RtlDialog.label(note, RtlDialog.small(), RtlDialog.GREEN));
+                    shown.add("SUBMIT-NOTE " + note);
                 }
                 up.add(RtlDialog.gap(8));
                 foot.add(up, BorderLayout.NORTH);
@@ -599,6 +601,8 @@ final class BankVsFloat {
                     Submit.flushAsync();
                     if (submit == st) submit = null;
                     submitNote = Submit.doneText(r);
+                    // נרשם במחשב (רק לתלמיד שמחובר בעצמו): גם מחר, כשפותחים את השאלה, רואים שהיא הוגשה
+                    if ("student".equals(Submit.mode())) BankProgress.get().submitted(q.id, Submit.teacher(), "queued".equals(r.status));
                     if (st.thenComplete) {
                         if (BankVs.complete(f, q, false, st.keep)) f.dispose();
                         else if (f.isDisplayable()) render();

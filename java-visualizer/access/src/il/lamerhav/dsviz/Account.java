@@ -1323,6 +1323,15 @@ public final class Account {
         return base.isEmpty() ? "" : base + "/account";
     }
 
+    /**
+     * למורה שמחובר במחשב: כמה הגשות חדשות מחכות לו (body: students, newStudents, newStations). רק כשהשרת יודע ("summary");
+     * אחרת / בלי אינטרנט — status שאינו ok, והחלון פשוט לא מציג את השורה
+     */
+    public static Result teacherSummary() {
+        if (teacherInfo() == null || !serverHas(false, "summary")) return new Result("none", "", null);
+        return post("/v1/teacher/summary", new LinkedHashMap<String, Object>(), headersOf(false));
+    }
+
     /** פותח את עמדת הניהול של המורה בדפדפן */
     public static void openManagement() {
         String u = managementUrl();

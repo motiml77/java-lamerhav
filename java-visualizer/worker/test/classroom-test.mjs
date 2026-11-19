@@ -191,6 +191,21 @@ await test('התקציר של התלמיד אצל המורה: שורה לכל ת
   assert.equal(s.work.length, 3, 'סימון "נצפה" לא מוחק שורות אחרות מהתקציר');
 });
 
+await test('מורה מהתוסף (הכרטיס של המחשב): כמה הגשות חדשות מחכות — תלמידים ומחשבי המעבדה; תלמיד / עמדה / בלי כרטיס — נדחים', async () => {
+  const t = await signInPlugin('sara@test.dev', 'teacher', 'שרה כהן');
+  assert.equal(t.status, 'ok', JSON.stringify(t));
+  assert.ok(t.features.includes('summary') && t.features.includes('submit'), JSON.stringify(t.features));
+  const c = (await call('GET', '/v1/me/console', { token: sara })).body;
+  const r = await call('POST', '/v1/teacher/summary', { headers: plugin(t), body: {} });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.newStudents, c.students.reduce((n, x) => n + x.unseen, 0));
+  assert.equal(r.body.newStudents, 2);
+  assert.equal(r.body.newStations, c.stations.reduce((n, x) => n + x.unseen, 0));
+  assert.equal(r.body.students, c.students.filter(x => !x.left).length);
+  assert.equal((await call('POST', '/v1/teacher/summary', { headers: plugin(noam), body: {} })).status, 403);
+  assert.equal((await call('POST', '/v1/teacher/summary', { body: {} })).status, 401);
+});
+
 await test('הגשה: קבצים שאינם קוד / גדולים מדי / יותר מ-12 — נדחים; מורה לא מגיש', async () => {
   assert.equal((await call('POST', '/v1/submit', { headers: plugin(noam), body: bankSubmit({ files: [{ path: 'a.exe', text: 'x' }] }) })).status, 400);
   assert.equal((await call('POST', '/v1/submit', { headers: plugin(noam), body: bankSubmit({ files: [{ path: 'A.java', text: 'x'.repeat(210 * 1024) }] }) })).status, 400);
@@ -400,7 +415,7 @@ await test('הרשמה מהתוסף: נשמרת (שם מסודר, טלפון ב-
   const chk = await checkAs(tamar, NEW);
   assert.equal(chk.body.status, 'ok');
   assert.ok(chk.body.pass);
-  assert.deepEqual(chk.body.features, ['submit'], 'השרת אומר שהוא מקבל הגשות — רק אז התוסף מציג "הגשה למורה"');
+  assert.ok(chk.body.features.includes('submit'), 'השרת אומר שהוא מקבל הגשות — רק אז התוסף מציג "הגשה למורה"');
   assert.deepEqual(chk.body.student, { mode: '', teacher: null, registered: true, fullName: 'תמר בן-דוד' });
   const me = (await call('GET', '/v1/me', { token: await idToken('tamar@test.dev', 'tami2011') })).body;
   assert.equal(me.student.registered, true);

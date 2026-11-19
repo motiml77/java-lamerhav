@@ -878,6 +878,8 @@ public final class AccessGate {
         private final JLabel big = new JLabel("—", SwingConstants.CENTER);
         private final JLabel note = wrap("", 13, MUTED, 400);
         private final JLabel seats = text("", 14, false, INK);
+        /** "3 הגשות חדשות מחכות לך" — מהשרת (Account.teacherSummary); מוסתר כשאין תשובה */
+        private final JLabel fresh = text(" ", 14, true, BLUE);
         private final JButton copy = secondary("העתק קוד");
         private String codeText = "";
         /** לבדיקות: כמה פעמים הנתונים נטענו מחדש מהשרת */
@@ -903,7 +905,7 @@ public final class AccessGate {
             col.add(Box.createVerticalStrut(8));
             col.add(notice);
             col.add(Box.createVerticalStrut(10));
-            col.add(text("הקוד שלך לחיבור עמדות מחשב", 14, true, INK));
+            col.add(text("הקוד שלך — לתלמידים ולמחשבי המעבדה", 14, true, INK));
             col.add(Box.createVerticalStrut(6));
             big.setFont(new Font(Font.MONOSPACED, Font.BOLD, 40));
             big.setForeground(BLUE);
@@ -918,8 +920,12 @@ public final class AccessGate {
             col.add(Box.createVerticalStrut(12));
             seats.putClientProperty("dsviz.id", "seats");
             col.add(seats);
+            col.add(Box.createVerticalStrut(4));
+            fresh.putClientProperty("dsviz.id", "fresh");
+            fresh.setVisible(false);
+            col.add(fresh);
             col.add(Box.createVerticalStrut(2));
-            col.add(text("רשימת המחשבים, שחרור מחשב וקניית עמדות — בעמדת הניהול בדפדפן.", 13, false, MUTED));
+            col.add(text("ההגשות, התלמידים, הכיתות והמחשבים — בעמדת הניהול בדפדפן.", 13, false, MUTED));
             col.add(Box.createVerticalStrut(16));
             JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
             row.setOpaque(false);
@@ -971,11 +977,30 @@ public final class AccessGate {
                 int s = ((Number) t.get("seats")).intValue(), u = ((Number) t.get("used")).intValue();
                 seats.setText(RLM + (s < 0 ? "עמדות מחשב: מתעדכן…" : "עמדות מחשב בשימוש: " + Math.max(0, u) + " מתוך " + s));
                 note.setText(wrapHtml(codeText.isEmpty() ? "הקוד עוד לא נטען. נכנסים לעמדת הניהול בדפדפן (הכפתור למטה) — שם הוא מוצג תמיד."
-                        : "מקלידים אותו בכל מחשב במעבדה, במסך \"עמדת מחשב\". הקוד קבוע — אפשר לחזור לכאן בכל פעם.", 400));
+                        : "תלמיד שנכנס עם Google מצטרף אליך עם הקוד הזה, ובמעבדה מקלידים אותו במסך \"עמדת מחשב\". הקוד קבוע.", 400));
                 notice.setVisible(false);
                 copy.setEnabled(!codeText.isEmpty());
             }
             if (isDisplayable()) pack();
+        }
+
+        /** כמה הגשות חדשות מחכות למורה (מתלמידים וממחשבי המעבדה), או שאין. בלי תשובה מהשרת — השורה מוסתרת */
+        void showFresh(Account.Result s) {
+            if (s == null || !s.ok()) {
+                fresh.setVisible(false);
+            } else {
+                int a = num(s.body.get("newStudents")), b = num(s.body.get("newStations")), kids = num(s.body.get("students"));
+                String text = a + b == 0 ? "אין הגשות חדשות" + (kids > 0 ? " · " + (kids == 1 ? "תלמיד אחד" : kids + " תלמידים") : "")
+                        : (a + b == 1 ? "הגשה חדשה אחת מחכה לך" : (a + b) + " הגשות חדשות מחכות לך") + " (" + a + " מתלמידים · " + b + " ממחשבי המעבדה)";
+                fresh.setText(RLM + text);
+                fresh.setForeground(a + b == 0 ? MUTED : BLUE);
+                fresh.setVisible(true);
+            }
+            if (isDisplayable()) pack();
+        }
+
+        private static int num(Object o) {
+            return o instanceof Number ? ((Number) o).intValue() : 0;
         }
 
         /** בדיקה מול השרת ברקע: המקומות / הקוד העדכניים; מורה שהושבת — ההודעה, והכפתור בסרגל נכבה */
@@ -984,10 +1009,14 @@ public final class AccessGate {
                 Account.Result r;
                 try { r = Account.refresh(); } catch (Throwable e) { r = null; }
                 final boolean online = r != null && !"offline".equals(r.status) && !"error".equals(r.status);
+                Account.Result sum;
+                try { sum = online ? Account.teacherSummary() : null; } catch (Throwable e) { sum = null; }
+                final Account.Result summary = sum;
                 SwingUtilities.invokeLater(() -> {
                     if (!isDisplayable()) return;
                     Map<String, Object> info = Account.teacherInfo();
                     if (online || info == null) fill(info);
+                    showFresh(info == null ? null : summary);
                     reloads++;
                     if (info == null) changed();
                 });
