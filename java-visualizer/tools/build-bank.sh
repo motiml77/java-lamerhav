@@ -29,6 +29,8 @@ for f in $(cd bank && find . -mindepth 2 -name '*.json' | sed 's|^\./||' | sort)
     LIST="$LIST${LIST:+, }\"$f\""
 done
 printf '{ "questions": [%s] }\n' "$LIST" > "$OUT/bank/index.json"
+# הגרסה בחלון המאגר ("גרסה 1.0.3") — BankStore.version(); SHORTVER מגיע מ-build-all.sh
+[ -z "${SHORTVER:-}" ] || printf 'version=%s\nbuild=%s\n' "$SHORTVER" "${BUILDNO:-}" > "$OUT/bank/version.properties"
 MF=build/bank-MANIFEST.MF
 sed "s/^Bundle-Version: .*/Bundle-Version: 1.0.0.v$BUILDNO/" eclipse-bank/META-INF/MANIFEST.MF > "$MF"
 mkdir -p build/lab

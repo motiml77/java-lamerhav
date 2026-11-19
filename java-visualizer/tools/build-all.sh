@@ -158,7 +158,7 @@ echo "== Windows installer (DSViz-Setup.exe)"
 if command -v makensis >/dev/null 2>&1; then
     tools/build-jre.sh   # Java 21 מקוצרת ל-Windows שנכנסת לתוך ההתקנה
     # מאגר התרגילים (Eclipse, IntelliJ, Visual Studio) — נכנס להתקנה ולעדכון האוטומטי; BUILDNO אחד לכל הבנייה
-    BUILDNO=$BUILDNO sh tools/build-bank-all.sh
+    BUILDNO=$BUILDNO SHORTVER=$SHORTVER sh tools/build-bank-all.sh
     # BUILDNO (למעלה) — העדכון האוטומטי מתקין כל בנייה חדשה יותר; אותו מספר כמו ב-Bundle-Version של התוסף ל-Eclipse
     (cd installer && makensis -V2 -DVERSION=$VERSION -DBUILDNO=$BUILDNO -DSHORTVER=$SHORTVER setup.nsi)
     echo "release/DSViz-Setup.exe"

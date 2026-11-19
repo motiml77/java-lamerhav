@@ -411,6 +411,24 @@ final class BankStore {
         }
     }
 
+    private static String version;
+
+    /**
+     * הגרסה שמותקנת ("1.0.3") — bank/version.properties שנכנס למאגר בבנייה (tools/build-bank.sh, build-bank-vs.sh: SHORTVER).
+     * מוצגת בחלון המאגר בכל התוכנות. "" כשאין (בנייה מקומית)
+     */
+    static String version() {
+        if (version != null) return version;
+        String v = "";
+        try {
+            String t = resource(BankStore.class.getClassLoader(), "bank/version.properties");
+            java.util.regex.Matcher m = t == null ? null : java.util.regex.Pattern.compile("(?m)^version=(.+)$").matcher(t);
+            if (m != null && m.find()) v = m.group(1).trim();
+        } catch (Throwable ignored) { /* בלי גרסה */ }
+        version = v;
+        return v;
+    }
+
     private static String resource(ClassLoader cl, String path) {
         try (InputStream in = cl.getResourceAsStream(path)) {
             if (in == null) return null;

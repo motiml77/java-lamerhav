@@ -223,6 +223,13 @@ final class BankVsWindow {
         buttons.setOpaque(false);
         buttons.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
         foot.add(buttons, BorderLayout.CENTER);
+        // הגרסה שמותקנת — רואים אם העדכון האוטומטי נכנס
+        if (!BankStore.version().isEmpty()) {
+            JLabel ver = RtlDialog.label("גרסה " + BankStore.version(), RtlDialog.small(), RtlDialog.MUTED);
+            ver.setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 14));
+            ver.putClientProperty("dsviz.id", "version");
+            foot.add(ver, BorderLayout.LINE_END);
+        }
         center.add(foot, BorderLayout.SOUTH);
         page.add(center, BorderLayout.CENTER);
 
