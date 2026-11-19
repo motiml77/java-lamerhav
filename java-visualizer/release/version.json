@@ -1,7 +1,7 @@
 {
-  "version": "1.0.2",
-  "number": 2,
-  "build": 202611182140,
+  "version": "1.0.3",
+  "number": 3,
+  "build": 202611191032,
   "url": "https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe",
-  "sha256": "28f8372f78183570625661e93f971bbb79b4cd41bc56ecb35e86af451eb01066"
+  "sha256": "7cd4e8ea99f76aa10917e88f077a8ae8e042d2c442cb03be596cc14b81fe58d3"
 }
