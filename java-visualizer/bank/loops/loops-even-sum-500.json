@@ -1,0 +1,133 @@
+{
+  "id": "loops-even-sum-500",
+  "topic": "loops",
+  "level": "easy",
+  "title": "סכום הזוגיים עד 500 (לולאת while)",
+  "question": {
+    "intro": "בתוכנית המלאה המחשב \"מגריל\" בכל פעם מספר דו-ספרתי (בין 10 ל-99), ומסכם את המספרים הזוגיים שהוגרלו. ההגרלה נעצרת כשהסכום של המספרים הזוגיים גדול מ-500\nהגרלה אי אפשר לבדוק, ולכן כאן המספרים שהוגרלו כבר נתונים במערך nums, לפי סדר ההגרלה. הנח שהמערך ארוך מספיק: לפני סוף המערך הסכום של הזוגיים כבר גדול מ-500",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה countDraws, המקבלת את המערך nums ומחזירה כמה מספרים הוגרלו עד שהסכום של המספרים הזוגיים היה גדול מ-500, כולל המספר שבגללו הסכום עבר את 500\nהמספרים האי-זוגיים נספרים גם הם (גם הם הוגרלו), אבל לא נכנסים לסכום. סכום ששווה ל-500 בדיוק עוד לא עוצר את ההגרלה.\nהשתמש בלולאת while.\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 9\nהסכום של הזוגיים אחרי כל מספר זוגי: 98, 184, 274, 338, 430, 510",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              98,
+              35,
+              86,
+              77,
+              90,
+              64,
+              99,
+              92,
+              80,
+              41
+            ],
+            "caption": "nums — המספרים לפי סדר ההגרלה"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "סכום הזוגיים עד 500 (לולאת while)",
+    "topic": "loops",
+    "mainClass": "Loops17",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops17",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countDraws",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "nums"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countDraws, המקבלת את המערך nums ומחזירה כמה מספרים הוגרלו עד שהסכום של המספרים הזוגיים היה גדול מ-500, כולל המספר שבגללו הסכום עבר את 500\nהמספרים האי-זוגיים נספרים גם הם (גם הם הוגרלו), אבל לא נכנסים לסכום. סכום ששווה ל-500 בדיוק עוד לא עוצר את ההגרלה.\nהשתמש בלולאת while.\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 9\nהסכום של הזוגיים אחרי כל מספר זוגי: 98, 184, 274, 338, 430, 510",
+        "solution": "public static int countDraws(int[] nums) {\n    int sum = 0;\n    int count = 0;\n    while (sum <= 500) {\n        if (nums[count] % 2 == 0) {\n            sum = sum + nums[count];\n        }\n        count++;\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops17",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(countDraws(new int[] { 98, 35, 86, 77, 90, 64, 99, 92, 80, 41 }), 9));\nSystem.out.println(\"סעיף א, בדיקה 2 (500 בדיוק עוד לא מספיק): \" + check(countDraws(new int[] { 90, 90, 90, 90, 90, 50, 12, 70 }), 7));\nSystem.out.println(\"סעיף א, בדיקה 3 (גם האי-זוגיים נספרים): \" + check(countDraws(new int[] { 11, 99, 98, 98, 98, 98, 98, 98, 13 }), 8));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (500 בדיוק עוד לא מספיק): נכון\nסעיף א, בדיקה 3 (גם האי-זוגיים נספרים): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בתוכנית המלאה המחשב \"מגריל\" בכל פעם מספר דו-ספרתי (בין 10 ל-99), ומסכם את המספרים הזוגיים שהוגרלו. ההגרלה נעצרת כשהסכום של המספרים הזוגיים גדול מ-500\nהגרלה אי אפשר לבדוק, ולכן כאן המספרים שהוגרלו כבר נתונים במערך nums, לפי סדר ההגרלה. הנח שהמערך ארוך מספיק: לפני סוף המערך הסכום של הזוגיים כבר גדול מ-500",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה CountDraws, המקבלת את המערך nums ומחזירה כמה מספרים הוגרלו עד שהסכום של המספרים הזוגיים היה גדול מ-500, כולל המספר שבגללו הסכום עבר את 500\nהמספרים האי-זוגיים נספרים גם הם (גם הם הוגרלו), אבל לא נכנסים לסכום. סכום ששווה ל-500 בדיוק עוד לא עוצר את ההגרלה.\nהשתמש בלולאת while.\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 9\nהסכום של הזוגיים אחרי כל מספר זוגי: 98, 184, 274, 338, 430, 510",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                98,
+                35,
+                86,
+                77,
+                90,
+                64,
+                99,
+                92,
+                80,
+                41
+              ],
+              "caption": "nums — המספרים לפי סדר ההגרלה"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "סכום הזוגיים עד 500 (לולאת while)",
+      "topic": "loops",
+      "mainClass": "Loops17",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops17",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountDraws",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "nums"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountDraws, המקבלת את המערך nums ומחזירה כמה מספרים הוגרלו עד שהסכום של המספרים הזוגיים היה גדול מ-500, כולל המספר שבגללו הסכום עבר את 500\nהמספרים האי-זוגיים נספרים גם הם (גם הם הוגרלו), אבל לא נכנסים לסכום. סכום ששווה ל-500 בדיוק עוד לא עוצר את ההגרלה.\nהשתמש בלולאת while.\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 9\nהסכום של הזוגיים אחרי כל מספר זוגי: 98, 184, 274, 338, 430, 510",
+          "solution": "public static int CountDraws(int[] nums)\n{\n    int sum = 0;\n    int count = 0;\n    while (sum <= 500)\n    {\n        if (nums[count] % 2 == 0)\n        {\n            sum = sum + nums[count];\n        }\n        count++;\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops17",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(CountDraws(new int[] { 98, 35, 86, 77, 90, 64, 99, 92, 80, 41 }), 9));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (500 בדיוק עוד לא מספיק): \" + Check(CountDraws(new int[] { 90, 90, 90, 90, 90, 50, 12, 70 }), 7));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (גם האי-זוגיים נספרים): \" + Check(CountDraws(new int[] { 11, 99, 98, 98, 98, 98, 98, 98, 13 }), 8));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (500 בדיוק עוד לא מספיק): נכון\nסעיף א, בדיקה 3 (גם האי-זוגיים נספרים): נכון"
+    }
+  }
+}

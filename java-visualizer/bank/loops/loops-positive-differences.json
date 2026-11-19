@@ -1,0 +1,123 @@
+{
+  "id": "loops-positive-differences",
+  "topic": "loops",
+  "level": "medium",
+  "title": "ממוצע ההפרשים החיוביים",
+  "question": {
+    "intro": "בתוכנית המלאה קולטים סדרה של מספרים שלמים שונים מ-0, והקליטה מסתיימת כשנקלט 0 (ה-0 מסמן את סוף הסדרה ואינו חלק ממנה).\nכאן המספרים כבר נתונים במערך arr לפי סדר הקליטה, והאיבר האחרון במערך הוא ה-0 שמסמן את הסוף. לפני ה-0 יש מספר אחד לפחות, ואין 0 בתוך הסדרה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה averagePositiveDiff, המקבלת מערך arr ומחזירה את הממוצע (מספר ממשי) של ההפרשים החיוביים בין כל שני מספרים סמוכים בסדרה.\nההפרש בין שני מספרים סמוכים הוא המספר הקודם פחות המספר שאחריו. נספרים רק ההפרשים החיוביים (גדולים מ-0).\nאם אין בסדרה אף הפרש חיובי — הפעולה מחזירה 0\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 4.0\nסכום ההפרשים החיוביים: (3-2)+(2-(-5)) = 1 + 7 = 8\nמספר ההפרשים החיוביים: 2\nההפרש בין -5 ל-10 שלילי, ולכן לא נספר; וה-0 שבסוף אינו חלק מהסדרה",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              3,
+              2,
+              -5,
+              10,
+              0
+            ],
+            "caption": "arr (ה-0 בסוף — סימן הסיום)"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "ממוצע ההפרשים החיוביים",
+    "topic": "loops",
+    "mainClass": "Loops13",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops13",
+        "isStatic": true,
+        "returnType": "double",
+        "methodName": "averagePositiveDiff",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה averagePositiveDiff, המקבלת מערך arr ומחזירה את הממוצע (מספר ממשי) של ההפרשים החיוביים בין כל שני מספרים סמוכים בסדרה.\nההפרש בין שני מספרים סמוכים הוא המספר הקודם פחות המספר שאחריו. נספרים רק ההפרשים החיוביים (גדולים מ-0).\nאם אין בסדרה אף הפרש חיובי — הפעולה מחזירה 0\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 4.0\nסכום ההפרשים החיוביים: (3-2)+(2-(-5)) = 1 + 7 = 8\nמספר ההפרשים החיוביים: 2\nההפרש בין -5 ל-10 שלילי, ולכן לא נספר; וה-0 שבסוף אינו חלק מהסדרה",
+        "solution": "public static double averagePositiveDiff(int[] arr) {\n    int sum = 0;\n    int count = 0;\n    int i = 1;\n    while (arr[i] != 0) {   // ה-0 מסמן את סוף הסדרה\n        int diff = arr[i - 1] - arr[i];\n        if (diff > 0) {\n            sum = sum + diff;\n            count++;\n        }\n        i++;\n    }\n    if (count == 0) {\n        return 0;\n    }\n    return (double) sum / count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops13",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(averagePositiveDiff(new int[] { 3, 2, -5, 10, 0 }), 4.0));\nSystem.out.println(\"סעיף א, בדיקה 2 (ממוצע לא שלם): \" + check(averagePositiveDiff(new int[] { 9, 4, 2, 0 }), 3.5));\nSystem.out.println(\"סעיף א, בדיקה 3 (אין הפרש חיובי — סדרה עולה): \" + check(averagePositiveDiff(new int[] { 1, 4, 9, 0 }), 0.0));\nSystem.out.println(\"סעיף א, בדיקה 4 (מספר אחד בסדרה): \" + check(averagePositiveDiff(new int[] { 5, 0 }), 0.0));\nSystem.out.println(\"סעיף א, בדיקה 5 (עולה ויורדת): \" + check(averagePositiveDiff(new int[] { 10, 7, 6, 8, 0 }), 2.0));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (ממוצע לא שלם): נכון\nסעיף א, בדיקה 3 (אין הפרש חיובי — סדרה עולה): נכון\nסעיף א, בדיקה 4 (מספר אחד בסדרה): נכון\nסעיף א, בדיקה 5 (עולה ויורדת): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בתוכנית המלאה קולטים סדרה של מספרים שלמים שונים מ-0, והקליטה מסתיימת כשנקלט 0 (ה-0 מסמן את סוף הסדרה ואינו חלק ממנה).\nכאן המספרים כבר נתונים במערך arr לפי סדר הקליטה, והאיבר האחרון במערך הוא ה-0 שמסמן את הסוף. לפני ה-0 יש מספר אחד לפחות, ואין 0 בתוך הסדרה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה AveragePositiveDiff, המקבלת מערך arr ומחזירה את הממוצע (מספר ממשי) של ההפרשים החיוביים בין כל שני מספרים סמוכים בסדרה.\nההפרש בין שני מספרים סמוכים הוא המספר הקודם פחות המספר שאחריו. נספרים רק ההפרשים החיוביים (גדולים מ-0).\nאם אין בסדרה אף הפרש חיובי — הפעולה מחזירה 0\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 4\nסכום ההפרשים החיוביים: (3-2)+(2-(-5)) = 1 + 7 = 8\nמספר ההפרשים החיוביים: 2\nההפרש בין -5 ל-10 שלילי, ולכן לא נספר; וה-0 שבסוף אינו חלק מהסדרה",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                3,
+                2,
+                -5,
+                10,
+                0
+              ],
+              "caption": "arr (ה-0 בסוף — סימן הסיום)"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "ממוצע ההפרשים החיוביים",
+      "topic": "loops",
+      "mainClass": "Loops13",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops13",
+          "isStatic": true,
+          "returnType": "double",
+          "methodName": "AveragePositiveDiff",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "arr"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה AveragePositiveDiff, המקבלת מערך arr ומחזירה את הממוצע (מספר ממשי) של ההפרשים החיוביים בין כל שני מספרים סמוכים בסדרה.\nההפרש בין שני מספרים סמוכים הוא המספר הקודם פחות המספר שאחריו. נספרים רק ההפרשים החיוביים (גדולים מ-0).\nאם אין בסדרה אף הפרש חיובי — הפעולה מחזירה 0\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 4\nסכום ההפרשים החיוביים: (3-2)+(2-(-5)) = 1 + 7 = 8\nמספר ההפרשים החיוביים: 2\nההפרש בין -5 ל-10 שלילי, ולכן לא נספר; וה-0 שבסוף אינו חלק מהסדרה",
+          "solution": "public static double AveragePositiveDiff(int[] arr)\n{\n    int sum = 0;\n    int count = 0;\n    int i = 1;\n    while (arr[i] != 0)   // ה-0 מסמן את סוף הסדרה\n    {\n        int diff = arr[i - 1] - arr[i];\n        if (diff > 0)\n        {\n            sum = sum + diff;\n            count++;\n        }\n        i++;\n    }\n    if (count == 0)\n    {\n        return 0;\n    }\n    return (double) sum / count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops13",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(AveragePositiveDiff(new int[] { 3, 2, -5, 10, 0 }), 4.0));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (ממוצע לא שלם): \" + Check(AveragePositiveDiff(new int[] { 9, 4, 2, 0 }), 3.5));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (אין הפרש חיובי — סדרה עולה): \" + Check(AveragePositiveDiff(new int[] { 1, 4, 9, 0 }), 0.0));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (מספר אחד בסדרה): \" + Check(AveragePositiveDiff(new int[] { 5, 0 }), 0.0));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (עולה ויורדת): \" + Check(AveragePositiveDiff(new int[] { 10, 7, 6, 8, 0 }), 2.0));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (ממוצע לא שלם): נכון\nסעיף א, בדיקה 3 (אין הפרש חיובי — סדרה עולה): נכון\nסעיף א, בדיקה 4 (מספר אחד בסדרה): נכון\nסעיף א, בדיקה 5 (עולה ויורדת): נכון"
+    }
+  }
+}

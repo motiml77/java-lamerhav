@@ -1,0 +1,127 @@
+{
+  "id": "loops-greater-than-previous",
+  "topic": "loops",
+  "level": "medium",
+  "title": "גדולים מהמספר שלפניהם",
+  "question": {
+    "intro": "בתוכנית המלאה קולטים n מספרים שלמים. כאן המספרים כבר נתונים במערך arr לפי סדר הקליטה, ובמערך יש מספר אחד לפחות.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה countGreater, המקבלת מערך arr של מספרים שלמים ומחזירה כמה מספרים בסדרה גדולים מהמספר שלפניהם.\nהמספר הראשון לא נספר (אין מספר לפניו), וגם מספר ששווה למספר שלפניו לא נספר.\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 4\nהמספרים שגדולים מהמספר שלפניהם: 3, 7, 10, 3",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              1,
+              3,
+              2,
+              7,
+              10,
+              -4,
+              3
+            ],
+            "caption": "arr"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "גדולים מהמספר שלפניהם",
+    "topic": "loops",
+    "mainClass": "Loops12",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops12",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countGreater",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "arr"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countGreater, המקבלת מערך arr של מספרים שלמים ומחזירה כמה מספרים בסדרה גדולים מהמספר שלפניהם.\nהמספר הראשון לא נספר (אין מספר לפניו), וגם מספר ששווה למספר שלפניו לא נספר.\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 4\nהמספרים שגדולים מהמספר שלפניהם: 3, 7, 10, 3",
+        "solution": "public static int countGreater(int[] arr) {\n    int count = 0;\n    for (int i = 1; i < arr.length; i++) {\n        if (arr[i] > arr[i - 1]) {\n            count++;\n        }\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops12",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(countGreater(new int[] { 1, 3, 2, 7, 10, -4, 3 }), 4));\nSystem.out.println(\"סעיף א, בדיקה 2 (סדרה עולה): \" + check(countGreater(new int[] { 2, 5, 9, 11 }), 3));\nSystem.out.println(\"סעיף א, בדיקה 3 (יורדת, עם שני מספרים שווים): \" + check(countGreater(new int[] { 9, 5, 5, 1 }), 0));\nSystem.out.println(\"סעיף א, בדיקה 4 (מספרים שליליים): \" + check(countGreater(new int[] { -3, -1, -2, 0 }), 2));\nSystem.out.println(\"סעיף א, בדיקה 5 (מספר אחד): \" + check(countGreater(new int[] { 7 }), 0));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (סדרה עולה): נכון\nסעיף א, בדיקה 3 (יורדת, עם שני מספרים שווים): נכון\nסעיף א, בדיקה 4 (מספרים שליליים): נכון\nסעיף א, בדיקה 5 (מספר אחד): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בתוכנית המלאה קולטים n מספרים שלמים. כאן המספרים כבר נתונים במערך arr לפי סדר הקליטה, ובמערך יש מספר אחד לפחות.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה CountGreater, המקבלת מערך arr של מספרים שלמים ומחזירה כמה מספרים בסדרה גדולים מהמספר שלפניהם.\nהמספר הראשון לא נספר (אין מספר לפניו), וגם מספר ששווה למספר שלפניו לא נספר.\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 4\nהמספרים שגדולים מהמספר שלפניהם: 3, 7, 10, 3",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                1,
+                3,
+                2,
+                7,
+                10,
+                -4,
+                3
+              ],
+              "caption": "arr"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "גדולים מהמספר שלפניהם",
+      "topic": "loops",
+      "mainClass": "Loops12",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops12",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountGreater",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "arr"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountGreater, המקבלת מערך arr של מספרים שלמים ומחזירה כמה מספרים בסדרה גדולים מהמספר שלפניהם.\nהמספר הראשון לא נספר (אין מספר לפניו), וגם מספר ששווה למספר שלפניו לא נספר.\nלדוגמה: עבור המערך arr שבציור הפעולה תחזיר 4\nהמספרים שגדולים מהמספר שלפניהם: 3, 7, 10, 3",
+          "solution": "public static int CountGreater(int[] arr)\n{\n    int count = 0;\n    for (int i = 1; i < arr.Length; i++)\n    {\n        if (arr[i] > arr[i - 1])\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops12",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(CountGreater(new int[] { 1, 3, 2, 7, 10, -4, 3 }), 4));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (סדרה עולה): \" + Check(CountGreater(new int[] { 2, 5, 9, 11 }), 3));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (יורדת, עם שני מספרים שווים): \" + Check(CountGreater(new int[] { 9, 5, 5, 1 }), 0));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (מספרים שליליים): \" + Check(CountGreater(new int[] { -3, -1, -2, 0 }), 2));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (מספר אחד): \" + Check(CountGreater(new int[] { 7 }), 0));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (סדרה עולה): נכון\nסעיף א, בדיקה 3 (יורדת, עם שני מספרים שווים): נכון\nסעיף א, בדיקה 4 (מספרים שליליים): נכון\nסעיף א, בדיקה 5 (מספר אחד): נכון"
+    }
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "id": "loops-sports-day",
+  "topic": "loops",
+  "level": "easy",
+  "title": "יום ספורט",
+  "question": {
+    "intro": "בבית ספר נערך \"יום ספורט\", ובו תחרות קפיצה לרוחק ותחרות ריצה למרחק 100 מטר. כל כיתה שולחת נציג לכל תחרות.\nבתוכנית המלאה קולטים את מספר התלמידים בכיתה, ולכל תלמיד את התוצאה שלו בקפיצה ואת התוצאה שלו בריצה, ומדפיסים את התוצאה הטובה ביותר שהושגה בכיתה בקפיצה ואת התוצאה הטובה ביותר שהושגה בכיתה בריצה.\nכאן התוצאות כבר נתונות במערכים של מספרים ממשיים: jumps[i] היא התוצאה של התלמיד שבמקום i בקפיצה (במטרים), ו-runs[i] היא התוצאה שלו בריצה (בשניות). בכיתה יש תלמיד אחד לפחות.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה bestJump, המקבלת מערך jumps ומחזירה את התוצאה הטובה ביותר בכיתה בקפיצה לרוחק.\nבקפיצה לרוחק התוצאה הטובה ביותר היא הקפיצה הארוכה ביותר (המספר הגדול ביותר).\nלדוגמה: עבור המערך jumps שבציור הפעולה תחזיר 4.35",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              3.8,
+              4.35,
+              2.95,
+              4.1,
+              3.6
+            ],
+            "caption": "jumps — תוצאות הקפיצה (מטרים)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה bestRun, המקבלת מערך runs ומחזירה את התוצאה הטובה ביותר בכיתה בריצה.\nבריצה התוצאה הטובה ביותר היא הזמן הקצר ביותר (המספר הקטן ביותר).\nלדוגמה: עבור המערך runs שבציור הפעולה תחזיר 12.85",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              14.2,
+              13.45,
+              15.1,
+              12.85,
+              13.9
+            ],
+            "caption": "runs — תוצאות הריצה (שניות)"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "יום ספורט",
+    "topic": "loops",
+    "mainClass": "Loops9",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops9",
+        "isStatic": true,
+        "returnType": "double",
+        "methodName": "bestJump",
+        "parameters": [
+          {
+            "type": "double[]",
+            "name": "jumps"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה bestJump, המקבלת מערך jumps ומחזירה את התוצאה הטובה ביותר בכיתה בקפיצה לרוחק.\nבקפיצה לרוחק התוצאה הטובה ביותר היא הקפיצה הארוכה ביותר (המספר הגדול ביותר).\nלדוגמה: עבור המערך jumps שבציור הפעולה תחזיר 4.35",
+        "solution": "public static double bestJump(double[] jumps) {\n    double best = jumps[0];\n    for (int i = 1; i < jumps.length; i++) {\n        if (jumps[i] > best) {\n            best = jumps[i];\n        }\n    }\n    return best;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops9",
+        "isStatic": true,
+        "returnType": "double",
+        "methodName": "bestRun",
+        "parameters": [
+          {
+            "type": "double[]",
+            "name": "runs"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה bestRun, המקבלת מערך runs ומחזירה את התוצאה הטובה ביותר בכיתה בריצה.\nבריצה התוצאה הטובה ביותר היא הזמן הקצר ביותר (המספר הקטן ביותר).\nלדוגמה: עבור המערך runs שבציור הפעולה תחזיר 12.85",
+        "solution": "public static double bestRun(double[] runs) {\n    double best = runs[0];\n    for (int i = 1; i < runs.length; i++) {\n        if (runs[i] < best) {\n            best = runs[i];\n        }\n    }\n    return best;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops9",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(bestJump(new double[] { 3.8, 4.35, 2.95, 4.1, 3.6 }), 4.35));\nSystem.out.println(\"סעיף א, בדיקה 2 (הטובה ביותר ראשונה): \" + check(bestJump(new double[] { 5.2, 4.9, 3.75 }), 5.2));\nSystem.out.println(\"סעיף א, בדיקה 3 (הטובה ביותר אחרונה): \" + check(bestJump(new double[] { 3.25, 3.5, 4.75 }), 4.75));\nSystem.out.println(\"סעיף א, בדיקה 4 (תלמיד אחד): \" + check(bestJump(new double[] { 3.9 }), 3.9));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה): \" + check(bestRun(new double[] { 14.2, 13.45, 15.1, 12.85, 13.9 }), 12.85));\nSystem.out.println(\"סעיף ב, בדיקה 2 (הטובה ביותר ראשונה): \" + check(bestRun(new double[] { 11.5, 12.25, 13.75 }), 11.5));\nSystem.out.println(\"סעיף ב, בדיקה 3 (הטובה ביותר אחרונה): \" + check(bestRun(new double[] { 15.5, 14.25, 13.1 }), 13.1));\nSystem.out.println(\"סעיף ב, בדיקה 4 (תלמיד אחד): \" + check(bestRun(new double[] { 14.6 }), 14.6));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (הטובה ביותר ראשונה): נכון\nסעיף א, בדיקה 3 (הטובה ביותר אחרונה): נכון\nסעיף א, בדיקה 4 (תלמיד אחד): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (הטובה ביותר ראשונה): נכון\nסעיף ב, בדיקה 3 (הטובה ביותר אחרונה): נכון\nסעיף ב, בדיקה 4 (תלמיד אחד): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בבית ספר נערך \"יום ספורט\", ובו תחרות קפיצה לרוחק ותחרות ריצה למרחק 100 מטר. כל כיתה שולחת נציג לכל תחרות.\nבתוכנית המלאה קולטים את מספר התלמידים בכיתה, ולכל תלמיד את התוצאה שלו בקפיצה ואת התוצאה שלו בריצה, ומדפיסים את התוצאה הטובה ביותר שהושגה בכיתה בקפיצה ואת התוצאה הטובה ביותר שהושגה בכיתה בריצה.\nכאן התוצאות כבר נתונות במערכים של מספרים ממשיים: jumps[i] היא התוצאה של התלמיד שבמקום i בקפיצה (במטרים), ו-runs[i] היא התוצאה שלו בריצה (בשניות). בכיתה יש תלמיד אחד לפחות.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה BestJump, המקבלת מערך jumps ומחזירה את התוצאה הטובה ביותר בכיתה בקפיצה לרוחק.\nבקפיצה לרוחק התוצאה הטובה ביותר היא הקפיצה הארוכה ביותר (המספר הגדול ביותר).\nלדוגמה: עבור המערך jumps שבציור הפעולה תחזיר 4.35",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                3.8,
+                4.35,
+                2.95,
+                4.1,
+                3.6
+              ],
+              "caption": "jumps — תוצאות הקפיצה (מטרים)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה BestRun, המקבלת מערך runs ומחזירה את התוצאה הטובה ביותר בכיתה בריצה.\nבריצה התוצאה הטובה ביותר היא הזמן הקצר ביותר (המספר הקטן ביותר).\nלדוגמה: עבור המערך runs שבציור הפעולה תחזיר 12.85",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                14.2,
+                13.45,
+                15.1,
+                12.85,
+                13.9
+              ],
+              "caption": "runs — תוצאות הריצה (שניות)"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "יום ספורט",
+      "topic": "loops",
+      "mainClass": "Loops9",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops9",
+          "isStatic": true,
+          "returnType": "double",
+          "methodName": "BestJump",
+          "parameters": [
+            {
+              "type": "double[]",
+              "name": "jumps"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה BestJump, המקבלת מערך jumps ומחזירה את התוצאה הטובה ביותר בכיתה בקפיצה לרוחק.\nבקפיצה לרוחק התוצאה הטובה ביותר היא הקפיצה הארוכה ביותר (המספר הגדול ביותר).\nלדוגמה: עבור המערך jumps שבציור הפעולה תחזיר 4.35",
+          "solution": "public static double BestJump(double[] jumps)\n{\n    double best = jumps[0];\n    for (int i = 1; i < jumps.Length; i++)\n    {\n        if (jumps[i] > best)\n        {\n            best = jumps[i];\n        }\n    }\n    return best;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops9",
+          "isStatic": true,
+          "returnType": "double",
+          "methodName": "BestRun",
+          "parameters": [
+            {
+              "type": "double[]",
+              "name": "runs"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה BestRun, המקבלת מערך runs ומחזירה את התוצאה הטובה ביותר בכיתה בריצה.\nבריצה התוצאה הטובה ביותר היא הזמן הקצר ביותר (המספר הקטן ביותר).\nלדוגמה: עבור המערך runs שבציור הפעולה תחזיר 12.85",
+          "solution": "public static double BestRun(double[] runs)\n{\n    double best = runs[0];\n    for (int i = 1; i < runs.Length; i++)\n    {\n        if (runs[i] < best)\n        {\n            best = runs[i];\n        }\n    }\n    return best;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops9",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(BestJump(new double[] { 3.8, 4.35, 2.95, 4.1, 3.6 }), 4.35));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (הטובה ביותר ראשונה): \" + Check(BestJump(new double[] { 5.2, 4.9, 3.75 }), 5.2));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (הטובה ביותר אחרונה): \" + Check(BestJump(new double[] { 3.25, 3.5, 4.75 }), 4.75));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (תלמיד אחד): \" + Check(BestJump(new double[] { 3.9 }), 3.9));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה): \" + Check(BestRun(new double[] { 14.2, 13.45, 15.1, 12.85, 13.9 }), 12.85));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (הטובה ביותר ראשונה): \" + Check(BestRun(new double[] { 11.5, 12.25, 13.75 }), 11.5));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (הטובה ביותר אחרונה): \" + Check(BestRun(new double[] { 15.5, 14.25, 13.1 }), 13.1));\nConsole.WriteLine(\"סעיף ב, בדיקה 4 (תלמיד אחד): \" + Check(BestRun(new double[] { 14.6 }), 14.6));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (הטובה ביותר ראשונה): נכון\nסעיף א, בדיקה 3 (הטובה ביותר אחרונה): נכון\nסעיף א, בדיקה 4 (תלמיד אחד): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (הטובה ביותר ראשונה): נכון\nסעיף ב, בדיקה 3 (הטובה ביותר אחרונה): נכון\nסעיף ב, בדיקה 4 (תלמיד אחד): נכון"
+    }
+  }
+}

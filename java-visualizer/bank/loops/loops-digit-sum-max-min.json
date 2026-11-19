@@ -1,0 +1,205 @@
+{
+  "id": "loops-digit-sum-max-min",
+  "topic": "loops",
+  "level": "easy",
+  "title": "סכום הספרות הגדול והקטן",
+  "question": {
+    "intro": "בתוכנית המלאה קולטים סדרה של n מספרים תלת-ספרתיים. כאן המספרים כבר נתונים במערך nums (כל מספר בין 100 ל-999), ובמערך יש מספר אחד לפחות.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה digitSum, המקבלת מספר שלם חיובי num ומחזירה את סכום הספרות שלו.\nלדוגמה: עבור num = 352 הפעולה תחזיר 10"
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה maxDigitSum, המקבלת את המערך nums ומחזירה את המספר שסכום הספרות שלו הוא הגדול ביותר מבין המספרים שבמערך. מותר להשתמש בפעולה מסעיף א.\nשים לב: אם יש כמה מספרים שסכום הספרות שלהם הוא הגדול ביותר — הפעולה מחזירה את הראשון מביניהם (זה שמופיע ראשון במערך).\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 918\nסכומי הספרות של המספרים שבמערך: 10, 18, 11, 3, 18, 10\nגם ל-918 וגם ל-765 סכום הספרות הוא 18, ו-918 מופיע ראשון",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              352,
+              918,
+              407,
+              111,
+              765,
+              280
+            ],
+            "caption": "nums"
+          }
+        ]
+      },
+      {
+        "label": "ג",
+        "text": "כתוב פעולה ששמה minDigitSum, המקבלת את המערך nums ומחזירה את המספר שסכום הספרות שלו הוא הקטן ביותר מבין המספרים שבמערך. מותר להשתמש בפעולה מסעיף א.\nגם כאן: אם יש כמה מספרים כאלה — הפעולה מחזירה את הראשון מביניהם.\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 111"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "סכום הספרות הגדול והקטן",
+    "topic": "loops",
+    "mainClass": "Loops10",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops10",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "digitSum",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "num"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה digitSum, המקבלת מספר שלם חיובי num ומחזירה את סכום הספרות שלו.\nלדוגמה: עבור num = 352 הפעולה תחזיר 10",
+        "solution": "public static int digitSum(int num) {\n    int sum = 0;\n    while (num > 0) {\n        sum = sum + num % 10;\n        num = num / 10;\n    }\n    return sum;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops10",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "maxDigitSum",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "nums"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה maxDigitSum, המקבלת את המערך nums ומחזירה את המספר שסכום הספרות שלו הוא הגדול ביותר מבין המספרים שבמערך. מותר להשתמש בפעולה מסעיף א.\nשים לב: אם יש כמה מספרים שסכום הספרות שלהם הוא הגדול ביותר — הפעולה מחזירה את הראשון מביניהם (זה שמופיע ראשון במערך).\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 918\nסכומי הספרות של המספרים שבמערך: 10, 18, 11, 3, 18, 10\nגם ל-918 וגם ל-765 סכום הספרות הוא 18, ו-918 מופיע ראשון",
+        "solution": "public static int maxDigitSum(int[] nums) {\n    int best = nums[0];\n    for (int i = 1; i < nums.length; i++) {\n        // רק גדול ממש: בתיקו נשאר המספר הראשון\n        if (digitSum(nums[i]) > digitSum(best)) {\n            best = nums[i];\n        }\n    }\n    return best;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Loops10",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "minDigitSum",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "nums"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה minDigitSum, המקבלת את המערך nums ומחזירה את המספר שסכום הספרות שלו הוא הקטן ביותר מבין המספרים שבמערך. מותר להשתמש בפעולה מסעיף א.\nגם כאן: אם יש כמה מספרים כאלה — הפעולה מחזירה את הראשון מביניהם.\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 111",
+        "solution": "public static int minDigitSum(int[] nums) {\n    int best = nums[0];\n    for (int i = 1; i < nums.length; i++) {\n        // רק קטן ממש: בתיקו נשאר המספר הראשון\n        if (digitSum(nums[i]) < digitSum(best)) {\n            best = nums[i];\n        }\n    }\n    return best;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops10",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (352): \" + check(digitSum(352), 10));\nSystem.out.println(\"סעיף א, בדיקה 2 (999): \" + check(digitSum(999), 27));\nSystem.out.println(\"סעיף א, בדיקה 3 (100): \" + check(digitSum(100), 1));\nSystem.out.println(\"סעיף א, בדיקה 4 (0 באמצע): \" + check(digitSum(405), 9));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה — תיקו, הראשון): \" + check(maxDigitSum(new int[] { 352, 918, 407, 111, 765, 280 }), 918));\nSystem.out.println(\"סעיף ב, בדיקה 2 (תיקו שלא בהתחלה): \" + check(maxDigitSum(new int[] { 120, 954, 873, 105 }), 954));\nSystem.out.println(\"סעיף ב, בדיקה 3 (הגדול אחרון): \" + check(maxDigitSum(new int[] { 101, 210, 989 }), 989));\nSystem.out.println(\"סעיף ב, בדיקה 4 (מספר אחד): \" + check(maxDigitSum(new int[] { 500 }), 500));\nSystem.out.println(\"סעיף ג, בדיקה 1 (הדוגמה): \" + check(minDigitSum(new int[] { 352, 918, 407, 111, 765, 280 }), 111));\nSystem.out.println(\"סעיף ג, בדיקה 2 (תיקו שלא בהתחלה): \" + check(minDigitSum(new int[] { 845, 310, 202, 999 }), 310));\nSystem.out.println(\"סעיף ג, בדיקה 3 (כולם שווים — הראשון): \" + check(minDigitSum(new int[] { 702, 450, 333, 900 }), 702));\nSystem.out.println(\"סעיף ג, בדיקה 4 (מספר אחד): \" + check(minDigitSum(new int[] { 777 }), 777));",
+    "expectedOutput": "סעיף א, בדיקה 1 (352): נכון\nסעיף א, בדיקה 2 (999): נכון\nסעיף א, בדיקה 3 (100): נכון\nסעיף א, בדיקה 4 (0 באמצע): נכון\nסעיף ב, בדיקה 1 (הדוגמה — תיקו, הראשון): נכון\nסעיף ב, בדיקה 2 (תיקו שלא בהתחלה): נכון\nסעיף ב, בדיקה 3 (הגדול אחרון): נכון\nסעיף ב, בדיקה 4 (מספר אחד): נכון\nסעיף ג, בדיקה 1 (הדוגמה): נכון\nסעיף ג, בדיקה 2 (תיקו שלא בהתחלה): נכון\nסעיף ג, בדיקה 3 (כולם שווים — הראשון): נכון\nסעיף ג, בדיקה 4 (מספר אחד): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בתוכנית המלאה קולטים סדרה של n מספרים תלת-ספרתיים. כאן המספרים כבר נתונים במערך nums (כל מספר בין 100 ל-999), ובמערך יש מספר אחד לפחות.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה DigitSum, המקבלת מספר שלם חיובי num ומחזירה את סכום הספרות שלו.\nלדוגמה: עבור num = 352 הפעולה תחזיר 10"
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה MaxDigitSum, המקבלת את המערך nums ומחזירה את המספר שסכום הספרות שלו הוא הגדול ביותר מבין המספרים שבמערך. מותר להשתמש בפעולה מסעיף א.\nשים לב: אם יש כמה מספרים שסכום הספרות שלהם הוא הגדול ביותר — הפעולה מחזירה את הראשון מביניהם (זה שמופיע ראשון במערך).\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 918\nסכומי הספרות של המספרים שבמערך: 10, 18, 11, 3, 18, 10\nגם ל-918 וגם ל-765 סכום הספרות הוא 18, ו-918 מופיע ראשון",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                352,
+                918,
+                407,
+                111,
+                765,
+                280
+              ],
+              "caption": "nums"
+            }
+          ]
+        },
+        {
+          "label": "ג",
+          "text": "כתוב פעולה ששמה MinDigitSum, המקבלת את המערך nums ומחזירה את המספר שסכום הספרות שלו הוא הקטן ביותר מבין המספרים שבמערך. מותר להשתמש בפעולה מסעיף א.\nגם כאן: אם יש כמה מספרים כאלה — הפעולה מחזירה את הראשון מביניהם.\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 111"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "סכום הספרות הגדול והקטן",
+      "topic": "loops",
+      "mainClass": "Loops10",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops10",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "DigitSum",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "num"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה DigitSum, המקבלת מספר שלם חיובי num ומחזירה את סכום הספרות שלו.\nלדוגמה: עבור num = 352 הפעולה תחזיר 10",
+          "solution": "public static int DigitSum(int num)\n{\n    int sum = 0;\n    while (num > 0)\n    {\n        sum = sum + num % 10;\n        num = num / 10;\n    }\n    return sum;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops10",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "MaxDigitSum",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "nums"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה MaxDigitSum, המקבלת את המערך nums ומחזירה את המספר שסכום הספרות שלו הוא הגדול ביותר מבין המספרים שבמערך. מותר להשתמש בפעולה מסעיף א.\nשים לב: אם יש כמה מספרים שסכום הספרות שלהם הוא הגדול ביותר — הפעולה מחזירה את הראשון מביניהם (זה שמופיע ראשון במערך).\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 918\nסכומי הספרות של המספרים שבמערך: 10, 18, 11, 3, 18, 10\nגם ל-918 וגם ל-765 סכום הספרות הוא 18, ו-918 מופיע ראשון",
+          "solution": "public static int MaxDigitSum(int[] nums)\n{\n    int best = nums[0];\n    for (int i = 1; i < nums.Length; i++)\n    {\n        // רק גדול ממש: בתיקו נשאר המספר הראשון\n        if (DigitSum(nums[i]) > DigitSum(best))\n        {\n            best = nums[i];\n        }\n    }\n    return best;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Loops10",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "MinDigitSum",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "nums"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה MinDigitSum, המקבלת את המערך nums ומחזירה את המספר שסכום הספרות שלו הוא הקטן ביותר מבין המספרים שבמערך. מותר להשתמש בפעולה מסעיף א.\nגם כאן: אם יש כמה מספרים כאלה — הפעולה מחזירה את הראשון מביניהם.\nלדוגמה: עבור המערך nums שבציור הפעולה תחזיר 111",
+          "solution": "public static int MinDigitSum(int[] nums)\n{\n    int best = nums[0];\n    for (int i = 1; i < nums.Length; i++)\n    {\n        // רק קטן ממש: בתיקו נשאר המספר הראשון\n        if (DigitSum(nums[i]) < DigitSum(best))\n        {\n            best = nums[i];\n        }\n    }\n    return best;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops10",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (352): \" + Check(DigitSum(352), 10));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (999): \" + Check(DigitSum(999), 27));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (100): \" + Check(DigitSum(100), 1));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (0 באמצע): \" + Check(DigitSum(405), 9));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה — תיקו, הראשון): \" + Check(MaxDigitSum(new int[] { 352, 918, 407, 111, 765, 280 }), 918));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (תיקו שלא בהתחלה): \" + Check(MaxDigitSum(new int[] { 120, 954, 873, 105 }), 954));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (הגדול אחרון): \" + Check(MaxDigitSum(new int[] { 101, 210, 989 }), 989));\nConsole.WriteLine(\"סעיף ב, בדיקה 4 (מספר אחד): \" + Check(MaxDigitSum(new int[] { 500 }), 500));\nConsole.WriteLine(\"סעיף ג, בדיקה 1 (הדוגמה): \" + Check(MinDigitSum(new int[] { 352, 918, 407, 111, 765, 280 }), 111));\nConsole.WriteLine(\"סעיף ג, בדיקה 2 (תיקו שלא בהתחלה): \" + Check(MinDigitSum(new int[] { 845, 310, 202, 999 }), 310));\nConsole.WriteLine(\"סעיף ג, בדיקה 3 (כולם שווים — הראשון): \" + Check(MinDigitSum(new int[] { 702, 450, 333, 900 }), 702));\nConsole.WriteLine(\"סעיף ג, בדיקה 4 (מספר אחד): \" + Check(MinDigitSum(new int[] { 777 }), 777));",
+      "expectedOutput": "סעיף א, בדיקה 1 (352): נכון\nסעיף א, בדיקה 2 (999): נכון\nסעיף א, בדיקה 3 (100): נכון\nסעיף א, בדיקה 4 (0 באמצע): נכון\nסעיף ב, בדיקה 1 (הדוגמה — תיקו, הראשון): נכון\nסעיף ב, בדיקה 2 (תיקו שלא בהתחלה): נכון\nסעיף ב, בדיקה 3 (הגדול אחרון): נכון\nסעיף ב, בדיקה 4 (מספר אחד): נכון\nסעיף ג, בדיקה 1 (הדוגמה): נכון\nסעיף ג, בדיקה 2 (תיקו שלא בהתחלה): נכון\nסעיף ג, בדיקה 3 (כולם שווים — הראשון): נכון\nסעיף ג, בדיקה 4 (מספר אחד): נכון"
+    }
+  }
+}

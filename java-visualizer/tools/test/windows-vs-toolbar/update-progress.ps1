@@ -23,7 +23,11 @@ Check 'notify-has-percent' ((Get-Content $notify -Raw -Encoding UTF8) -match 'Pr
 
 Log "== 1. שרת מקומי איטי: version.json (גרסה חדשה יותר) והקובץ — כ-6 MB בשנייה"
 $sha = (Get-FileHash $Setup -Algorithm SHA256).Hash.ToLower()
-$ver = (@{ version = '1.0.1'; build = [int64]99990101000000; url = "http://127.0.0.1:$port/DSViz-Setup.exe"; sha256 = $sha } | ConvertTo-Json)
+# מספר הבנייה האמיתי של ההתקנה החדשה, ובמחשב — מספר ישן יותר: update.ps1 בודק אחרי ההתקנה ש-build.txt באמת הגיע למספר שהורד
+$real = [int64]((Get-Content (Join-Path $dsviz 'build.txt') -Raw).Trim())
+Set-Content -LiteralPath (Join-Path $dsviz 'build.txt') -Value '202001010000' -NoNewline
+Remove-Item (Join-Path $dsviz 'pending') -Recurse -Force -ErrorAction SilentlyContinue
+$ver = (@{ version = '1.0.9'; build = $real; url = "http://127.0.0.1:$port/DSViz-Setup.exe"; sha256 = $sha } | ConvertTo-Json)
 $job = Start-Job -ArgumentList $Setup, $port, $ver -ScriptBlock {
     param($exe, $port, $verJson)
     $l = New-Object Net.HttpListener
@@ -105,7 +109,7 @@ Check 'toast-download-open' ([bool]$toast['u1-download-25'] -and [bool]$toast['u
 Check 'toast-install-open' ([bool]$toast['u3-install-12'] -and [bool]$toast['u4-install-44'] -and [bool]$toast['u5-install-68']) 'החלון עם אחוזי ההתקנה פתוח לאורך ההתקנה'
 $log = if (Test-Path (Join-Path $dsviz 'update.log')) { @(Get-Content (Join-Path $dsviz 'update.log') -Encoding UTF8 | Select-Object -Last 8) } else { @() }
 $log | ForEach-Object { Info "   update.log: $_" }
-Check 'update-finished' (($log -join "`n") -match 'ההתקנה הסתיימה \(קוד 0\)') 'העדכון הסתיים בהצלחה (קוד 0)'
+Check 'update-finished' (($log -join "`n") -match 'ההתקנה הסתיימה.*\(קוד 0\)') 'העדכון הסתיים בהצלחה (קוד 0)'
 Start-Sleep 12
 Check 'toast-closed' (-not (ToastRunning 'download') -and -not (ToastRunning 'updating')) 'אחרי העדכון חלון ההתקדמות נסגר (לא נשאר תקוע)'
 Copy-Item (Join-Path $dsviz 'update.log') $Out -ErrorAction SilentlyContinue

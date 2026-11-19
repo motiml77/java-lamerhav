@@ -1,0 +1,32 @@
+# העדכון האוטומטי כשסוגרים ופותחים את Eclipse (tools/test/windows-public/update-flow.ps1) — על Windows אמיתי, עם ההתקנה החדשה:
+# Eclipse פתוח → ההורדה נשמרת ולא מתקינים; סוגרים → מותקן מיד; פותחים באמצע ההתקנה → לא מסומן כמותקן ומותקן שוב;
+# "הפעלה מחדש ועדכון" → מותקן בלי להוריד שוב ו-Eclipse נפתח מחדש
+name: DSViz update flow
+on:
+  push:
+    branches: [release/public-all]
+    paths:
+      # רק עם התקנה חדשה (ההתקנה שבענף היא זו שנבדקת — בלי בנייה חדשה אין מה לבדוק)
+      - 'java-visualizer/release/DSViz-Setup.exe'
+  workflow_dispatch:
+
+jobs:
+  update-flow:
+    name: update flow (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - name: בדיקה
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\java-visualizer\tools\test\windows-public\update-flow.ps1" -Setup "$env:GITHUB_WORKSPACE\java-visualizer\release\DSViz-Setup.exe" -Out "$env:GITHUB_WORKSPACE\update-flow"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: 'update-flow-${{ matrix.os }}', path: update-flow, retention-days: 7 }

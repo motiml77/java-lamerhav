@@ -1,0 +1,167 @@
+{
+  "id": "loops-fever-readings",
+  "topic": "loops",
+  "level": "medium",
+  "title": "מדידות חום",
+  "question": {
+    "intro": "חולה המאושפז בבית חולים נבדק בכל בוקר: מודדים לו את החום.\nבתוכנית המלאה קולטים את מספר הימים שהחולה היה מאושפז, ואת החום שנמדד בכל יום. כאן המדידות כבר נתונות במערך temps של מספרים ממשיים, לפי סדר הימים. יש לפחות שתי מדידות.\nבשאלה זו \"המרחק בין שתי מדידות\" הוא ההפרש החיובי בין המדידות של שני ימים סמוכים (הערך המוחלט של ההפרש, בלי קשר לשאלה אם החום עלה או ירד). אפשר להשתמש ב-Math.abs\nלדוגמה: אם החום עלה מ-37.5 ל-38.25 או ירד מ-38.25 ל-37.5 — המרחק הוא 0.75",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה countBigChanges, המקבלת את המערך temps ומחזירה כמה פעמים המרחק בין שתי מדידות היה גדול מ-0.5 מעלות. מרחק של 0.5 בדיוק לא נספר.\nלדוגמה: עבור המערך temps שבציור הפעולה תחזיר 3\nהמרחקים בין יום ליום: 0.5, 0.75, 0.25, 0.75, 0, 1.5",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              37.0,
+              37.5,
+              38.25,
+              38.0,
+              37.25,
+              37.25,
+              38.75
+            ],
+            "caption": "temps — החום בכל יום"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה maxChange, המקבלת את המערך temps ומחזירה את המרחק הגדול ביותר בין שתי מדידות.\nלדוגמה: עבור המערך temps שבציור הפעולה תחזיר 1.5"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מדידות חום",
+    "topic": "loops",
+    "mainClass": "Loops14",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops14",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countBigChanges",
+        "parameters": [
+          {
+            "type": "double[]",
+            "name": "temps"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countBigChanges, המקבלת את המערך temps ומחזירה כמה פעמים המרחק בין שתי מדידות היה גדול מ-0.5 מעלות. מרחק של 0.5 בדיוק לא נספר.\nלדוגמה: עבור המערך temps שבציור הפעולה תחזיר 3\nהמרחקים בין יום ליום: 0.5, 0.75, 0.25, 0.75, 0, 1.5",
+        "solution": "public static int countBigChanges(double[] temps) {\n    int count = 0;\n    for (int i = 1; i < temps.length; i++) {\n        if (Math.abs(temps[i] - temps[i - 1]) > 0.5) {\n            count++;\n        }\n    }\n    return count;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops14",
+        "isStatic": true,
+        "returnType": "double",
+        "methodName": "maxChange",
+        "parameters": [
+          {
+            "type": "double[]",
+            "name": "temps"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה maxChange, המקבלת את המערך temps ומחזירה את המרחק הגדול ביותר בין שתי מדידות.\nלדוגמה: עבור המערך temps שבציור הפעולה תחזיר 1.5",
+        "solution": "public static double maxChange(double[] temps) {\n    double max = 0;\n    for (int i = 1; i < temps.length; i++) {\n        double d = Math.abs(temps[i] - temps[i - 1]);\n        if (d > max) {\n            max = d;\n        }\n    }\n    return max;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops14",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(countBigChanges(new double[] { 37.0, 37.5, 38.25, 38.0, 37.25, 37.25, 38.75 }), 3));\nSystem.out.println(\"סעיף א, בדיקה 2 (מרחק 0.5 בדיוק לא נספר): \" + check(countBigChanges(new double[] { 37.0, 37.5, 37.0 }), 0));\nSystem.out.println(\"סעיף א, בדיקה 3 (החום יורד — גם נספר): \" + check(countBigChanges(new double[] { 39.0, 38.25, 37.5 }), 2));\nSystem.out.println(\"סעיף א, בדיקה 4 (שתי מדידות): \" + check(countBigChanges(new double[] { 36.5, 37.25 }), 1));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה): \" + check(maxChange(new double[] { 37.0, 37.5, 38.25, 38.0, 37.25, 37.25, 38.75 }), 1.5));\nSystem.out.println(\"סעיף ב, בדיקה 2 (המרחק הגדול — ירידה): \" + check(maxChange(new double[] { 37.0, 37.5, 39.75, 37.25 }), 2.5));\nSystem.out.println(\"סעיף ב, בדיקה 3 (המרחק הגדול — בהתחלה): \" + check(maxChange(new double[] { 36.5, 38.0, 38.25 }), 1.5));\nSystem.out.println(\"סעיף ב, בדיקה 4 (שתי מדידות שוות): \" + check(maxChange(new double[] { 37.25, 37.25 }), 0.0));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (מרחק 0.5 בדיוק לא נספר): נכון\nסעיף א, בדיקה 3 (החום יורד — גם נספר): נכון\nסעיף א, בדיקה 4 (שתי מדידות): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (המרחק הגדול — ירידה): נכון\nסעיף ב, בדיקה 3 (המרחק הגדול — בהתחלה): נכון\nסעיף ב, בדיקה 4 (שתי מדידות שוות): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "חולה המאושפז בבית חולים נבדק בכל בוקר: מודדים לו את החום.\nבתוכנית המלאה קולטים את מספר הימים שהחולה היה מאושפז, ואת החום שנמדד בכל יום. כאן המדידות כבר נתונות במערך temps של מספרים ממשיים, לפי סדר הימים. יש לפחות שתי מדידות.\nבשאלה זו \"המרחק בין שתי מדידות\" הוא ההפרש החיובי בין המדידות של שני ימים סמוכים (הערך המוחלט של ההפרש, בלי קשר לשאלה אם החום עלה או ירד). אפשר להשתמש ב-Math.Abs\nלדוגמה: אם החום עלה מ-37.5 ל-38.25 או ירד מ-38.25 ל-37.5 — המרחק הוא 0.75",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה CountBigChanges, המקבלת את המערך temps ומחזירה כמה פעמים המרחק בין שתי מדידות היה גדול מ-0.5 מעלות. מרחק של 0.5 בדיוק לא נספר.\nלדוגמה: עבור המערך temps שבציור הפעולה תחזיר 3\nהמרחקים בין יום ליום: 0.5, 0.75, 0.25, 0.75, 0, 1.5",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                37.0,
+                37.5,
+                38.25,
+                38.0,
+                37.25,
+                37.25,
+                38.75
+              ],
+              "caption": "temps — החום בכל יום"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה MaxChange, המקבלת את המערך temps ומחזירה את המרחק הגדול ביותר בין שתי מדידות.\nלדוגמה: עבור המערך temps שבציור הפעולה תחזיר 1.5"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מדידות חום",
+      "topic": "loops",
+      "mainClass": "Loops14",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops14",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountBigChanges",
+          "parameters": [
+            {
+              "type": "double[]",
+              "name": "temps"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountBigChanges, המקבלת את המערך temps ומחזירה כמה פעמים המרחק בין שתי מדידות היה גדול מ-0.5 מעלות. מרחק של 0.5 בדיוק לא נספר.\nלדוגמה: עבור המערך temps שבציור הפעולה תחזיר 3\nהמרחקים בין יום ליום: 0.5, 0.75, 0.25, 0.75, 0, 1.5",
+          "solution": "public static int CountBigChanges(double[] temps)\n{\n    int count = 0;\n    for (int i = 1; i < temps.Length; i++)\n    {\n        if (Math.Abs(temps[i] - temps[i - 1]) > 0.5)\n        {\n            count++;\n        }\n    }\n    return count;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops14",
+          "isStatic": true,
+          "returnType": "double",
+          "methodName": "MaxChange",
+          "parameters": [
+            {
+              "type": "double[]",
+              "name": "temps"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה MaxChange, המקבלת את המערך temps ומחזירה את המרחק הגדול ביותר בין שתי מדידות.\nלדוגמה: עבור המערך temps שבציור הפעולה תחזיר 1.5",
+          "solution": "public static double MaxChange(double[] temps)\n{\n    double max = 0;\n    for (int i = 1; i < temps.Length; i++)\n    {\n        double d = Math.Abs(temps[i] - temps[i - 1]);\n        if (d > max)\n        {\n            max = d;\n        }\n    }\n    return max;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops14",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(CountBigChanges(new double[] { 37.0, 37.5, 38.25, 38.0, 37.25, 37.25, 38.75 }), 3));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (מרחק 0.5 בדיוק לא נספר): \" + Check(CountBigChanges(new double[] { 37.0, 37.5, 37.0 }), 0));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (החום יורד — גם נספר): \" + Check(CountBigChanges(new double[] { 39.0, 38.25, 37.5 }), 2));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (שתי מדידות): \" + Check(CountBigChanges(new double[] { 36.5, 37.25 }), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה): \" + Check(MaxChange(new double[] { 37.0, 37.5, 38.25, 38.0, 37.25, 37.25, 38.75 }), 1.5));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (המרחק הגדול — ירידה): \" + Check(MaxChange(new double[] { 37.0, 37.5, 39.75, 37.25 }), 2.5));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (המרחק הגדול — בהתחלה): \" + Check(MaxChange(new double[] { 36.5, 38.0, 38.25 }), 1.5));\nConsole.WriteLine(\"סעיף ב, בדיקה 4 (שתי מדידות שוות): \" + Check(MaxChange(new double[] { 37.25, 37.25 }), 0.0));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (מרחק 0.5 בדיוק לא נספר): נכון\nסעיף א, בדיקה 3 (החום יורד — גם נספר): נכון\nסעיף א, בדיקה 4 (שתי מדידות): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (המרחק הגדול — ירידה): נכון\nסעיף ב, בדיקה 3 (המרחק הגדול — בהתחלה): נכון\nסעיף ב, בדיקה 4 (שתי מדידות שוות): נכון"
+    }
+  }
+}

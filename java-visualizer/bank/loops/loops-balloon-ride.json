@@ -1,0 +1,129 @@
+{
+  "id": "loops-balloon-ride",
+  "topic": "loops",
+  "level": "easy",
+  "title": "טיסה בכדור פורח (לולאת while)",
+  "question": {
+    "intro": "מפעיל טיסות בכדור פורח יכול להעלות לכדור משקל כולל של 600 קילוגרם לכל היותר, ו-10 אנשים לכל היותר.\nבתוכנית המלאה קולטים את המשקלים של האנשים שבתור, אחד אחרי השני, ומדפיסים כמה אנשים עלו לכדור. כאן המשקלים כבר נתונים במערך weights, לפי הסדר בתור.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה boardCount, המקבלת את המערך weights ומחזירה כמה אנשים עלו לכדור. האנשים עולים לפי הסדר בתור, והעלייה נגמרת כאשר:\nהאדם הבא בתור היה מעלה את המשקל הכולל מעל 600 קילוגרם — הוא לא עולה, וגם אף אחד אחריו (גם אם הוא קל יותר). משקל כולל של 600 בדיוק — מותר.\nאו כשכבר עלו 10 אנשים.\nאו כשנגמר התור (סוף המערך).\nהשתמש בלולאת while.\nלדוגמה: עבור המערך weights שבציור הפעולה תחזיר 6\nהמשקל הכולל אחרי כל אחד שעלה: 80, 175, 245, 355, 440, 530\nעם האדם הבא המשקל היה 605, ולכן הוא לא עולה",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              80,
+              95,
+              70,
+              110,
+              85,
+              90,
+              75,
+              60
+            ],
+            "caption": "weights — המשקלים לפי הסדר בתור"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "טיסה בכדור פורח (לולאת while)",
+    "topic": "loops",
+    "mainClass": "Loops18",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops18",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "boardCount",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "weights"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה boardCount, המקבלת את המערך weights ומחזירה כמה אנשים עלו לכדור. האנשים עולים לפי הסדר בתור, והעלייה נגמרת כאשר:\nהאדם הבא בתור היה מעלה את המשקל הכולל מעל 600 קילוגרם — הוא לא עולה, וגם אף אחד אחריו (גם אם הוא קל יותר). משקל כולל של 600 בדיוק — מותר.\nאו כשכבר עלו 10 אנשים.\nאו כשנגמר התור (סוף המערך).\nהשתמש בלולאת while.\nלדוגמה: עבור המערך weights שבציור הפעולה תחזיר 6\nהמשקל הכולל אחרי כל אחד שעלה: 80, 175, 245, 355, 440, 530\nעם האדם הבא המשקל היה 605, ולכן הוא לא עולה",
+        "solution": "public static int boardCount(int[] weights) {\n    int total = 0;\n    int count = 0;\n    while (count < weights.length && count < 10 && total + weights[count] <= 600) {\n        total = total + weights[count];\n        count++;\n    }\n    return count;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops18",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה — המשקל עוצר): \" + check(boardCount(new int[] { 80, 95, 70, 110, 85, 90, 75, 60 }), 6));\nSystem.out.println(\"סעיף א, בדיקה 2 (10 אנשים עוצרים): \" + check(boardCount(new int[] { 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50 }), 10));\nSystem.out.println(\"סעיף א, בדיקה 3 (600 בדיוק — מותר): \" + check(boardCount(new int[] { 100, 100, 100, 100, 100, 100, 40 }), 6));\nSystem.out.println(\"סעיף א, בדיקה 4 (מי שאחרי — לא עולה, גם אם קל): \" + check(boardCount(new int[] { 300, 250, 90, 20 }), 2));\nSystem.out.println(\"סעיף א, בדיקה 5 (התור נגמר): \" + check(boardCount(new int[] { 70, 80 }), 2));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה — המשקל עוצר): נכון\nסעיף א, בדיקה 2 (10 אנשים עוצרים): נכון\nסעיף א, בדיקה 3 (600 בדיוק — מותר): נכון\nסעיף א, בדיקה 4 (מי שאחרי — לא עולה, גם אם קל): נכון\nסעיף א, בדיקה 5 (התור נגמר): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "מפעיל טיסות בכדור פורח יכול להעלות לכדור משקל כולל של 600 קילוגרם לכל היותר, ו-10 אנשים לכל היותר.\nבתוכנית המלאה קולטים את המשקלים של האנשים שבתור, אחד אחרי השני, ומדפיסים כמה אנשים עלו לכדור. כאן המשקלים כבר נתונים במערך weights, לפי הסדר בתור.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה BoardCount, המקבלת את המערך weights ומחזירה כמה אנשים עלו לכדור. האנשים עולים לפי הסדר בתור, והעלייה נגמרת כאשר:\nהאדם הבא בתור היה מעלה את המשקל הכולל מעל 600 קילוגרם — הוא לא עולה, וגם אף אחד אחריו (גם אם הוא קל יותר). משקל כולל של 600 בדיוק — מותר.\nאו כשכבר עלו 10 אנשים.\nאו כשנגמר התור (סוף המערך).\nהשתמש בלולאת while.\nלדוגמה: עבור המערך weights שבציור הפעולה תחזיר 6\nהמשקל הכולל אחרי כל אחד שעלה: 80, 175, 245, 355, 440, 530\nעם האדם הבא המשקל היה 605, ולכן הוא לא עולה",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                80,
+                95,
+                70,
+                110,
+                85,
+                90,
+                75,
+                60
+              ],
+              "caption": "weights — המשקלים לפי הסדר בתור"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "טיסה בכדור פורח (לולאת while)",
+      "topic": "loops",
+      "mainClass": "Loops18",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops18",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "BoardCount",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "weights"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה BoardCount, המקבלת את המערך weights ומחזירה כמה אנשים עלו לכדור. האנשים עולים לפי הסדר בתור, והעלייה נגמרת כאשר:\nהאדם הבא בתור היה מעלה את המשקל הכולל מעל 600 קילוגרם — הוא לא עולה, וגם אף אחד אחריו (גם אם הוא קל יותר). משקל כולל של 600 בדיוק — מותר.\nאו כשכבר עלו 10 אנשים.\nאו כשנגמר התור (סוף המערך).\nהשתמש בלולאת while.\nלדוגמה: עבור המערך weights שבציור הפעולה תחזיר 6\nהמשקל הכולל אחרי כל אחד שעלה: 80, 175, 245, 355, 440, 530\nעם האדם הבא המשקל היה 605, ולכן הוא לא עולה",
+          "solution": "public static int BoardCount(int[] weights)\n{\n    int total = 0;\n    int count = 0;\n    while (count < weights.Length && count < 10 && total + weights[count] <= 600)\n    {\n        total = total + weights[count];\n        count++;\n    }\n    return count;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops18",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה — המשקל עוצר): \" + Check(BoardCount(new int[] { 80, 95, 70, 110, 85, 90, 75, 60 }), 6));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (10 אנשים עוצרים): \" + Check(BoardCount(new int[] { 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50 }), 10));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (600 בדיוק — מותר): \" + Check(BoardCount(new int[] { 100, 100, 100, 100, 100, 100, 40 }), 6));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (מי שאחרי — לא עולה, גם אם קל): \" + Check(BoardCount(new int[] { 300, 250, 90, 20 }), 2));\nConsole.WriteLine(\"סעיף א, בדיקה 5 (התור נגמר): \" + Check(BoardCount(new int[] { 70, 80 }), 2));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה — המשקל עוצר): נכון\nסעיף א, בדיקה 2 (10 אנשים עוצרים): נכון\nסעיף א, בדיקה 3 (600 בדיוק — מותר): נכון\nסעיף א, בדיקה 4 (מי שאחרי — לא עולה, גם אם קל): נכון\nסעיף א, בדיקה 5 (התור נגמר): נכון"
+    }
+  }
+}

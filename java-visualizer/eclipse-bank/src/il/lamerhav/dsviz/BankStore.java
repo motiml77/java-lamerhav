@@ -81,7 +81,7 @@ final class BankStore {
         List<BankClasses.Cls> classes;
     }
 
-    static final List<String> FIGURE_TYPES = java.util.Arrays.asList("stack", "queue", "list", "tree", "array", "matrix", "classes");
+    static final List<String> FIGURE_TYPES = java.util.Arrays.asList("stack", "queue", "list", "tree", "array", "matrix", "classes", "text");
     static final List<String> INNER_TYPES = java.util.Arrays.asList("stack", "queue", "list");
 
     static final class Question {
@@ -333,6 +333,8 @@ final class BankStore {
             List<Object> values = Json.arr(m.get("values"));
             if (values.isEmpty() && !f.type.equals("stack") && !f.type.equals("queue")) return where + ": ציור בלי ערכים (values)";
             if (f.type.equals("classes") && !f.inner.equals("cell")) return where + ": לתרשים מחלקות אין inner";
+            // "text": פלט של תוכנית כמו שהוא מודפס (צורה מכוכביות / מספרים) — כל ערך שורה, משמאל לימין, תו מתחת לתו
+            if (f.type.equals("text") && !f.inner.equals("cell")) return where + ": לציור text אין inner";
             for (Object v : values) {
                 if (v == null) {
                     if (!f.type.equals("tree")) return where + ": null מותר רק בעץ (צומת שאין)";

@@ -1,0 +1,207 @@
+{
+  "id": "loops-basketball-tryouts",
+  "topic": "loops",
+  "level": "medium",
+  "title": "מיון לנבחרת הכדורסל (לולאת while)",
+  "question": {
+    "intro": "בבית הספר עורכים מיון לנבחרת הכדורסל. הגובה המינימלי לנבחרת הוא 1.75 מטר (תלמיד שגובהו 1.75 בדיוק — מתאים).\nבתוכנית המלאה קולטים את הגבהים של תלמידי הכיתה לפי הסדר ביומן, עד שנקלט 0 (סימן לסיום — לא תלמיד).\nכאן הגבהים כבר נתונים במערך heights של מספרים ממשיים, לפי הסדר ביומן, והאיבר האחרון במערך הוא ה-0. בכיתה יש תלמיד אחד לפחות, ואין שני תלמידים באותו גובה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה countFit, המקבלת את המערך heights ומחזירה כמה תלמידים מתאימים לנבחרת.\nהשתמש בלולאת while שנעצרת ב-0\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 4",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              1.68,
+              1.8,
+              1.75,
+              1.92,
+              1.6,
+              1.77,
+              0
+            ],
+            "caption": "heights — הגבהים לפי הסדר ביומן (ה-0 בסוף — סימן הסיום)"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה tallest, המקבלת את המערך heights ומחזירה את הגובה של התלמיד הגבוה ביותר.\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 1.92"
+      },
+      {
+        "label": "ג",
+        "text": "כתוב פעולה ששמה tallestPosition, המקבלת את המערך heights ומחזירה את המספר הסידורי ביומן של התלמיד הגבוה ביותר. המספרים ביומן מתחילים ב-1\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 4"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מיון לנבחרת הכדורסל (לולאת while)",
+    "topic": "loops",
+    "mainClass": "Loops21",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops21",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "countFit",
+        "parameters": [
+          {
+            "type": "double[]",
+            "name": "heights"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה countFit, המקבלת את המערך heights ומחזירה כמה תלמידים מתאימים לנבחרת.\nהשתמש בלולאת while שנעצרת ב-0\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 4",
+        "solution": "public static int countFit(double[] heights) {\n    int count = 0;\n    int i = 0;\n    while (heights[i] != 0) {\n        if (heights[i] >= 1.75) {\n            count++;\n        }\n        i++;\n    }\n    return count;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops21",
+        "isStatic": true,
+        "returnType": "double",
+        "methodName": "tallest",
+        "parameters": [
+          {
+            "type": "double[]",
+            "name": "heights"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה tallest, המקבלת את המערך heights ומחזירה את הגובה של התלמיד הגבוה ביותר.\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 1.92",
+        "solution": "public static double tallest(double[] heights) {\n    double max = heights[0];\n    int i = 1;\n    while (heights[i] != 0) {\n        if (heights[i] > max) {\n            max = heights[i];\n        }\n        i++;\n    }\n    return max;\n}"
+      },
+      {
+        "label": "ג",
+        "kind": "method",
+        "className": "Loops21",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "tallestPosition",
+        "parameters": [
+          {
+            "type": "double[]",
+            "name": "heights"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה tallestPosition, המקבלת את המערך heights ומחזירה את המספר הסידורי ביומן של התלמיד הגבוה ביותר. המספרים ביומן מתחילים ב-1\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 4",
+        "solution": "public static int tallestPosition(double[] heights) {\n    int best = 0;   // המקום במערך של הגבוה ביותר עד עכשיו\n    int i = 1;\n    while (heights[i] != 0) {\n        if (heights[i] > heights[best]) {\n            best = i;\n        }\n        i++;\n    }\n    return best + 1;   // ביומן מתחילים ב-1\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops21",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(countFit(new double[] { 1.68, 1.8, 1.75, 1.92, 1.6, 1.77, 0 }), 4));\nSystem.out.println(\"סעיף א, בדיקה 2 (אף אחד לא מתאים): \" + check(countFit(new double[] { 1.6, 1.7, 0 }), 0));\nSystem.out.println(\"סעיף א, בדיקה 3 (1.75 בדיוק — מתאים): \" + check(countFit(new double[] { 1.75, 0 }), 1));\nSystem.out.println(\"סעיף ב, בדיקה 1 (הדוגמה): \" + check(tallest(new double[] { 1.68, 1.8, 1.75, 1.92, 1.6, 1.77, 0 }), 1.92));\nSystem.out.println(\"סעיף ב, בדיקה 2 (הגבוה ראשון): \" + check(tallest(new double[] { 1.95, 1.7, 0 }), 1.95));\nSystem.out.println(\"סעיף ב, בדיקה 3 (הגבוה אחרון): \" + check(tallest(new double[] { 1.5, 1.62, 1.81, 0 }), 1.81));\nSystem.out.println(\"סעיף ג, בדיקה 1 (הדוגמה): \" + check(tallestPosition(new double[] { 1.68, 1.8, 1.75, 1.92, 1.6, 1.77, 0 }), 4));\nSystem.out.println(\"סעיף ג, בדיקה 2 (הגבוה ראשון): \" + check(tallestPosition(new double[] { 1.95, 1.7, 0 }), 1));\nSystem.out.println(\"סעיף ג, בדיקה 3 (הגבוה אחרון): \" + check(tallestPosition(new double[] { 1.5, 1.62, 1.81, 0 }), 3));\nSystem.out.println(\"סעיף ג, בדיקה 4 (תלמיד אחד): \" + check(tallestPosition(new double[] { 1.7, 0 }), 1));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (אף אחד לא מתאים): נכון\nסעיף א, בדיקה 3 (1.75 בדיוק — מתאים): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (הגבוה ראשון): נכון\nסעיף ב, בדיקה 3 (הגבוה אחרון): נכון\nסעיף ג, בדיקה 1 (הדוגמה): נכון\nסעיף ג, בדיקה 2 (הגבוה ראשון): נכון\nסעיף ג, בדיקה 3 (הגבוה אחרון): נכון\nסעיף ג, בדיקה 4 (תלמיד אחד): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בבית הספר עורכים מיון לנבחרת הכדורסל. הגובה המינימלי לנבחרת הוא 1.75 מטר (תלמיד שגובהו 1.75 בדיוק — מתאים).\nבתוכנית המלאה קולטים את הגבהים של תלמידי הכיתה לפי הסדר ביומן, עד שנקלט 0 (סימן לסיום — לא תלמיד).\nכאן הגבהים כבר נתונים במערך heights של מספרים ממשיים, לפי הסדר ביומן, והאיבר האחרון במערך הוא ה-0. בכיתה יש תלמיד אחד לפחות, ואין שני תלמידים באותו גובה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה CountFit, המקבלת את המערך heights ומחזירה כמה תלמידים מתאימים לנבחרת.\nהשתמש בלולאת while שנעצרת ב-0\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 4",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                1.68,
+                1.8,
+                1.75,
+                1.92,
+                1.6,
+                1.77,
+                0
+              ],
+              "caption": "heights — הגבהים לפי הסדר ביומן (ה-0 בסוף — סימן הסיום)"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה Tallest, המקבלת את המערך heights ומחזירה את הגובה של התלמיד הגבוה ביותר.\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 1.92"
+        },
+        {
+          "label": "ג",
+          "text": "כתוב פעולה ששמה TallestPosition, המקבלת את המערך heights ומחזירה את המספר הסידורי ביומן של התלמיד הגבוה ביותר. המספרים ביומן מתחילים ב-1\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 4"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מיון לנבחרת הכדורסל (לולאת while)",
+      "topic": "loops",
+      "mainClass": "Loops21",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops21",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "CountFit",
+          "parameters": [
+            {
+              "type": "double[]",
+              "name": "heights"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה CountFit, המקבלת את המערך heights ומחזירה כמה תלמידים מתאימים לנבחרת.\nהשתמש בלולאת while שנעצרת ב-0\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 4",
+          "solution": "public static int CountFit(double[] heights)\n{\n    int count = 0;\n    int i = 0;\n    while (heights[i] != 0)\n    {\n        if (heights[i] >= 1.75)\n        {\n            count++;\n        }\n        i++;\n    }\n    return count;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops21",
+          "isStatic": true,
+          "returnType": "double",
+          "methodName": "Tallest",
+          "parameters": [
+            {
+              "type": "double[]",
+              "name": "heights"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Tallest, המקבלת את המערך heights ומחזירה את הגובה של התלמיד הגבוה ביותר.\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 1.92",
+          "solution": "public static double Tallest(double[] heights)\n{\n    double max = heights[0];\n    int i = 1;\n    while (heights[i] != 0)\n    {\n        if (heights[i] > max)\n        {\n            max = heights[i];\n        }\n        i++;\n    }\n    return max;\n}"
+        },
+        {
+          "label": "ג",
+          "kind": "method",
+          "className": "Loops21",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "TallestPosition",
+          "parameters": [
+            {
+              "type": "double[]",
+              "name": "heights"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה TallestPosition, המקבלת את המערך heights ומחזירה את המספר הסידורי ביומן של התלמיד הגבוה ביותר. המספרים ביומן מתחילים ב-1\nלדוגמה: עבור המערך heights שבציור הפעולה תחזיר 4",
+          "solution": "public static int TallestPosition(double[] heights)\n{\n    int best = 0;   // המקום במערך של הגבוה ביותר עד עכשיו\n    int i = 1;\n    while (heights[i] != 0)\n    {\n        if (heights[i] > heights[best])\n        {\n            best = i;\n        }\n        i++;\n    }\n    return best + 1;   // ביומן מתחילים ב-1\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops21",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(CountFit(new double[] { 1.68, 1.8, 1.75, 1.92, 1.6, 1.77, 0 }), 4));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (אף אחד לא מתאים): \" + Check(CountFit(new double[] { 1.6, 1.7, 0 }), 0));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (1.75 בדיוק — מתאים): \" + Check(CountFit(new double[] { 1.75, 0 }), 1));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (הדוגמה): \" + Check(Tallest(new double[] { 1.68, 1.8, 1.75, 1.92, 1.6, 1.77, 0 }), 1.92));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (הגבוה ראשון): \" + Check(Tallest(new double[] { 1.95, 1.7, 0 }), 1.95));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (הגבוה אחרון): \" + Check(Tallest(new double[] { 1.5, 1.62, 1.81, 0 }), 1.81));\nConsole.WriteLine(\"סעיף ג, בדיקה 1 (הדוגמה): \" + Check(TallestPosition(new double[] { 1.68, 1.8, 1.75, 1.92, 1.6, 1.77, 0 }), 4));\nConsole.WriteLine(\"סעיף ג, בדיקה 2 (הגבוה ראשון): \" + Check(TallestPosition(new double[] { 1.95, 1.7, 0 }), 1));\nConsole.WriteLine(\"סעיף ג, בדיקה 3 (הגבוה אחרון): \" + Check(TallestPosition(new double[] { 1.5, 1.62, 1.81, 0 }), 3));\nConsole.WriteLine(\"סעיף ג, בדיקה 4 (תלמיד אחד): \" + Check(TallestPosition(new double[] { 1.7, 0 }), 1));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (אף אחד לא מתאים): נכון\nסעיף א, בדיקה 3 (1.75 בדיוק — מתאים): נכון\nסעיף ב, בדיקה 1 (הדוגמה): נכון\nסעיף ב, בדיקה 2 (הגבוה ראשון): נכון\nסעיף ב, בדיקה 3 (הגבוה אחרון): נכון\nסעיף ג, בדיקה 1 (הדוגמה): נכון\nסעיף ג, בדיקה 2 (הגבוה ראשון): נכון\nסעיף ג, בדיקה 3 (הגבוה אחרון): נכון\nסעיף ג, בדיקה 4 (תלמיד אחד): נכון"
+    }
+  }
+}

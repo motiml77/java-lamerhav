@@ -1,0 +1,145 @@
+{
+  "id": "loops-pairs-ranges",
+  "topic": "loops",
+  "level": "medium",
+  "title": "המספרים בין כל זוג (לולאה מקוננת)",
+  "question": {
+    "intro": "בתוכנית המלאה קולטים 50 זוגות של מספרים שלמים, ולכל זוג מדפיסים בשורה משלו את כל המספרים העוקבים מהמספר הראשון עד המספר השני (כולל שניהם). אם המספר השני קטן מהראשון — המספרים מודפסים בסדר יורד.\nכאן הזוגות כבר נתונים בשני מערכים באותו אורך: firsts[i] הוא המספר הראשון בזוג שבמקום i, ו-seconds[i] הוא המספר השני (בבדיקות יש פחות מ-50 זוגות).",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה allRanges, המקבלת את המערכים firsts ו-seconds ומחזירה מחרוזת עם שורה לכל זוג, לפי הסדר. בשורה — המספרים מהמספר הראשון עד המספר השני, עם רווח אחד בין מספר למספר. בין שורה לשורה יש \"\\n\" (רווח בסוף שורה, או \"\\n\" בסוף המחרוזת — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על הזוגות, והפנימית — על המספרים של הזוג.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר שלוש שורות:\n\"3 4 5 6\"\n\"10 9 8 7\"\n\"5\"",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              3,
+              10,
+              5
+            ],
+            "caption": "firsts — המספר הראשון בכל זוג"
+          },
+          {
+            "type": "array",
+            "values": [
+              6,
+              7,
+              5
+            ],
+            "caption": "seconds — המספר השני בכל זוג"
+          }
+        ]
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "המספרים בין כל זוג (לולאה מקוננת)",
+    "topic": "loops",
+    "mainClass": "Loops24",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops24",
+        "isStatic": true,
+        "returnType": "String",
+        "methodName": "allRanges",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "firsts"
+          },
+          {
+            "type": "int[]",
+            "name": "seconds"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה allRanges, המקבלת את המערכים firsts ו-seconds ומחזירה מחרוזת עם שורה לכל זוג, לפי הסדר. בשורה — המספרים מהמספר הראשון עד המספר השני, עם רווח אחד בין מספר למספר. בין שורה לשורה יש \"\\n\" (רווח בסוף שורה, או \"\\n\" בסוף המחרוזת — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על הזוגות, והפנימית — על המספרים של הזוג.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר שלוש שורות:\n\"3 4 5 6\"\n\"10 9 8 7\"\n\"5\"",
+        "solution": "public static String allRanges(int[] firsts, int[] seconds) {\n    String s = \"\";\n    for (int p = 0; p < firsts.length; p++) {\n        int step = 1;\n        if (seconds[p] < firsts[p]) {\n            step = -1;   // בסדר יורד\n        }\n        int x = firsts[p];\n        while (x != seconds[p]) {\n            s = s + x + \" \";\n            x = x + step;\n        }\n        s = s + seconds[p] + \"\\n\";\n    }\n    return s;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops24",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).replace(\" \\n\", \"\\n\").trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "System.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(allRanges(new int[] { 3, 10, 5 }, new int[] { 6, 7, 5 }), \"3 4 5 6\\n10 9 8 7\\n5\"));\nSystem.out.println(\"סעיף א, בדיקה 2 (זוג אחד): \" + check(allRanges(new int[] { 1 }, new int[] { 4 }), \"1 2 3 4\"));\nSystem.out.println(\"סעיף א, בדיקה 3 (יורד ואחר כך עולה): \" + check(allRanges(new int[] { 9, 2 }, new int[] { 6, 3 }), \"9 8 7 6\\n2 3\"));\nSystem.out.println(\"סעיף א, בדיקה 4 (מספרים שליליים): \" + check(allRanges(new int[] { -2 }, new int[] { 1 }), \"-2 -1 0 1\"));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (זוג אחד): נכון\nסעיף א, בדיקה 3 (יורד ואחר כך עולה): נכון\nסעיף א, בדיקה 4 (מספרים שליליים): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "בתוכנית המלאה קולטים 50 זוגות של מספרים שלמים, ולכל זוג מדפיסים בשורה משלו את כל המספרים העוקבים מהמספר הראשון עד המספר השני (כולל שניהם). אם המספר השני קטן מהראשון — המספרים מודפסים בסדר יורד.\nכאן הזוגות כבר נתונים בשני מערכים באותו אורך: firsts[i] הוא המספר הראשון בזוג שבמקום i, ו-seconds[i] הוא המספר השני (בבדיקות יש פחות מ-50 זוגות).",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה AllRanges, המקבלת את המערכים firsts ו-seconds ומחזירה מחרוזת עם שורה לכל זוג, לפי הסדר. בשורה — המספרים מהמספר הראשון עד המספר השני, עם רווח אחד בין מספר למספר. בין שורה לשורה יש \"\\n\" (רווח בסוף שורה, או \"\\n\" בסוף המחרוזת — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על הזוגות, והפנימית — על המספרים של הזוג.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר שלוש שורות:\n\"3 4 5 6\"\n\"10 9 8 7\"\n\"5\"",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                3,
+                10,
+                5
+              ],
+              "caption": "firsts — המספר הראשון בכל זוג"
+            },
+            {
+              "type": "array",
+              "values": [
+                6,
+                7,
+                5
+              ],
+              "caption": "seconds — המספר השני בכל זוג"
+            }
+          ]
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "המספרים בין כל זוג (לולאה מקוננת)",
+      "topic": "loops",
+      "mainClass": "Loops24",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops24",
+          "isStatic": true,
+          "returnType": "string",
+          "methodName": "AllRanges",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "firsts"
+            },
+            {
+              "type": "int[]",
+              "name": "seconds"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה AllRanges, המקבלת את המערכים firsts ו-seconds ומחזירה מחרוזת עם שורה לכל זוג, לפי הסדר. בשורה — המספרים מהמספר הראשון עד המספר השני, עם רווח אחד בין מספר למספר. בין שורה לשורה יש \"\\n\" (רווח בסוף שורה, או \"\\n\" בסוף המחרוזת — לא משנה).\nהשתמש בלולאה בתוך לולאה: החיצונית עוברת על הזוגות, והפנימית — על המספרים של הזוג.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר שלוש שורות:\n\"3 4 5 6\"\n\"10 9 8 7\"\n\"5\"",
+          "solution": "public static string AllRanges(int[] firsts, int[] seconds)\n{\n    string s = \"\";\n    for (int p = 0; p < firsts.Length; p++)\n    {\n        int step = 1;\n        if (seconds[p] < firsts[p])\n        {\n            step = -1;   // בסדר יורד\n        }\n        int x = firsts[p];\n        while (x != seconds[p])\n        {\n            s = s + x + \" \";\n            x = x + step;\n        }\n        s = s + seconds[p] + \"\\n\";\n    }\n    return s;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops24",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Replace(\" \\n\", \"\\n\").Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "Console.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(AllRanges(new int[] { 3, 10, 5 }, new int[] { 6, 7, 5 }), \"3 4 5 6\\n10 9 8 7\\n5\"));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (זוג אחד): \" + Check(AllRanges(new int[] { 1 }, new int[] { 4 }), \"1 2 3 4\"));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (יורד ואחר כך עולה): \" + Check(AllRanges(new int[] { 9, 2 }, new int[] { 6, 3 }), \"9 8 7 6\\n2 3\"));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (מספרים שליליים): \" + Check(AllRanges(new int[] { -2 }, new int[] { 1 }), \"-2 -1 0 1\"));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (זוג אחד): נכון\nסעיף א, בדיקה 3 (יורד ואחר כך עולה): נכון\nסעיף א, בדיקה 4 (מספרים שליליים): נכון"
+    }
+  }
+}

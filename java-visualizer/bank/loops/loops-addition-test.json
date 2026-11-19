@@ -1,0 +1,253 @@
+{
+  "id": "loops-addition-test",
+  "topic": "loops",
+  "level": "easy",
+  "title": "מבחן בתרגילי חיבור",
+  "question": {
+    "intro": "מטרת התוכנית: לבדוק תלמיד בתרגילי חיבור של מספרים בתחום 1 עד 100, ולתת לו ציון לפי התשובות שלו.\nבתוכנית המלאה המחשב \"מגריל\" 10 תרגילי חיבור, ומציג כל תרגיל על המסך עם מספר התרגיל לידו. לדוגמה, כך מוצג התרגיל הראשון:\n1.  67 + 13 =\nהמחשב קולט את התשובה של התלמיד. אם התשובה נכונה מודפסת מילת עידוד, והתלמיד מקבל 10 נקודות. אם התלמיד טעה, המחשב \"מודיע\" לו על הטעות ומדפיס את התוצאה הנכונה, והתלמיד לא מקבל נקודות על התרגיל.\nבסיום המבחן מודפס הציון הסופי של התלמיד, והודעה אם עבר או נכשל (ציון גבוה מ-54 עובר).\nכאן התרגילים והתשובות כבר נתונים במערכים, כדי שאפשר יהיה לבדוק את הפעולות: התרגיל שבמקום i הוא a[i] + b[i], ו-answers[i] היא התשובה של התלמיד לתרגיל הזה.",
+    "sections": [
+      {
+        "label": "א",
+        "text": "כתוב פעולה ששמה finalGrade, המקבלת שלושה מערכים מטיפוס שלם באורך 10 כל אחד: a, b ו-answers. הפעולה מחזירה את הציון הסופי של התלמיד: 10 נקודות על כל תרגיל שהתלמיד ענה עליו נכון, ו-0 נקודות על תרגיל שהתלמיד טעה בו.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 70\nהתלמיד טעה בתרגילים שבמקומות: 2, 5, 8",
+        "figures": [
+          {
+            "type": "array",
+            "values": [
+              67,
+              25,
+              48,
+              90,
+              12,
+              33,
+              71,
+              5,
+              56,
+              19
+            ],
+            "caption": "a"
+          },
+          {
+            "type": "array",
+            "values": [
+              13,
+              40,
+              27,
+              8,
+              64,
+              49,
+              18,
+              77,
+              30,
+              81
+            ],
+            "caption": "b"
+          },
+          {
+            "type": "array",
+            "values": [
+              80,
+              65,
+              74,
+              98,
+              76,
+              72,
+              89,
+              82,
+              85,
+              100
+            ],
+            "caption": "answers — התשובות של התלמיד"
+          }
+        ]
+      },
+      {
+        "label": "ב",
+        "text": "כתוב פעולה ששמה passed, המקבלת ציון grade (מספר שלם) ומחזירה true אם התלמיד עבר את המבחן, אחרת הפעולה מחזירה false.\nציון גבוה מ-54 עובר; ציון 54 או נמוך ממנו — נכשל.\nלדוגמה:\nעבור הציון 70 הפעולה תחזיר true\nעבור הציון 50 הפעולה תחזיר false"
+      }
+    ]
+  },
+  "exercise": {
+    "language": "java",
+    "title": "מבחן בתרגילי חיבור",
+    "topic": "loops",
+    "mainClass": "Loops8",
+    "imports": [],
+    "classes": [],
+    "tasks": [
+      {
+        "label": "א",
+        "kind": "method",
+        "className": "Loops8",
+        "isStatic": true,
+        "returnType": "int",
+        "methodName": "finalGrade",
+        "parameters": [
+          {
+            "type": "int[]",
+            "name": "a"
+          },
+          {
+            "type": "int[]",
+            "name": "b"
+          },
+          {
+            "type": "int[]",
+            "name": "answers"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה finalGrade, המקבלת שלושה מערכים מטיפוס שלם באורך 10 כל אחד: a, b ו-answers. הפעולה מחזירה את הציון הסופי של התלמיד: 10 נקודות על כל תרגיל שהתלמיד ענה עליו נכון, ו-0 נקודות על תרגיל שהתלמיד טעה בו.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 70\nהתלמיד טעה בתרגילים שבמקומות: 2, 5, 8",
+        "solution": "public static int finalGrade(int[] a, int[] b, int[] answers) {\n    int grade = 0;\n    for (int i = 0; i < a.length; i++) {\n        if (answers[i] == a[i] + b[i]) {\n            grade = grade + 10;\n        }\n    }\n    return grade;\n}"
+      },
+      {
+        "label": "ב",
+        "kind": "method",
+        "className": "Loops8",
+        "isStatic": true,
+        "returnType": "boolean",
+        "methodName": "passed",
+        "parameters": [
+          {
+            "type": "int",
+            "name": "grade"
+          }
+        ],
+        "instructions": "כתוב פעולה ששמה passed, המקבלת ציון grade (מספר שלם) ומחזירה true אם התלמיד עבר את המבחן, אחרת הפעולה מחזירה false.\nציון גבוה מ-54 עובר; ציון 54 או נמוך ממנו — נכשל.\nלדוגמה:\nעבור הציון 70 הפעולה תחזיר true\nעבור הציון 50 הפעולה תחזיר false",
+        "solution": "public static boolean passed(int grade) {\n    return grade > 54;\n}"
+      }
+    ],
+    "givenCode": [
+      {
+        "className": "Loops8",
+        "code": "public static String check(Object got, Object expected) {\n    String g = String.valueOf(got).trim();\n    String e = String.valueOf(expected);\n    if (g.equals(e)) {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+      }
+    ],
+    "otherQuestions": [],
+    "mainCode": "int[] a = { 67, 25, 48, 90, 12, 33, 71, 5, 56, 19 };\nint[] b = { 13, 40, 27, 8, 64, 49, 18, 77, 30, 81 };\nSystem.out.println(\"סעיף א, בדיקה 1 (הדוגמה): \" + check(finalGrade(a, b, new int[] { 80, 65, 74, 98, 76, 72, 89, 82, 85, 100 }), 70));\nSystem.out.println(\"סעיף א, בדיקה 2 (כל התשובות נכונות): \" + check(finalGrade(a, b, new int[] { 80, 65, 75, 98, 76, 82, 89, 82, 86, 100 }), 100));\nSystem.out.println(\"סעיף א, בדיקה 3 (כל התשובות שגויות): \" + check(finalGrade(a, b, new int[] { 81, 66, 76, 99, 77, 83, 90, 83, 87, 101 }), 0));\nSystem.out.println(\"סעיף א, בדיקה 4 (נכון רק בתרגיל הראשון ובאחרון): \" + check(finalGrade(a, b, new int[] { 80, 66, 76, 99, 77, 83, 90, 83, 87, 100 }), 20));\nSystem.out.println(\"סעיף ב, בדיקה 1 (ציון 70): \" + check(passed(70), true));\nSystem.out.println(\"סעיף ב, בדיקה 2 (ציון 50): \" + check(passed(50), false));\nSystem.out.println(\"סעיף ב, בדיקה 3 (ציון 54 — נכשל): \" + check(passed(54), false));\nSystem.out.println(\"סעיף ב, בדיקה 4 (ציון 55 — עובר): \" + check(passed(55), true));",
+    "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (כל התשובות נכונות): נכון\nסעיף א, בדיקה 3 (כל התשובות שגויות): נכון\nסעיף א, בדיקה 4 (נכון רק בתרגיל הראשון ובאחרון): נכון\nסעיף ב, בדיקה 1 (ציון 70): נכון\nסעיף ב, בדיקה 2 (ציון 50): נכון\nסעיף ב, בדיקה 3 (ציון 54 — נכשל): נכון\nסעיף ב, בדיקה 4 (ציון 55 — עובר): נכון"
+  },
+  "csharp": {
+    "manual": true,
+    "question": {
+      "intro": "מטרת התוכנית: לבדוק תלמיד בתרגילי חיבור של מספרים בתחום 1 עד 100, ולתת לו ציון לפי התשובות שלו.\nבתוכנית המלאה המחשב \"מגריל\" 10 תרגילי חיבור, ומציג כל תרגיל על המסך עם מספר התרגיל לידו. לדוגמה, כך מוצג התרגיל הראשון:\n1.  67 + 13 =\nהמחשב קולט את התשובה של התלמיד. אם התשובה נכונה מודפסת מילת עידוד, והתלמיד מקבל 10 נקודות. אם התלמיד טעה, המחשב \"מודיע\" לו על הטעות ומדפיס את התוצאה הנכונה, והתלמיד לא מקבל נקודות על התרגיל.\nבסיום המבחן מודפס הציון הסופי של התלמיד, והודעה אם עבר או נכשל (ציון גבוה מ-54 עובר).\nכאן התרגילים והתשובות כבר נתונים במערכים, כדי שאפשר יהיה לבדוק את הפעולות: התרגיל שבמקום i הוא a[i] + b[i], ו-answers[i] היא התשובה של התלמיד לתרגיל הזה.",
+      "sections": [
+        {
+          "label": "א",
+          "text": "כתוב פעולה ששמה FinalGrade, המקבלת שלושה מערכים מטיפוס שלם באורך 10 כל אחד: a, b ו-answers. הפעולה מחזירה את הציון הסופי של התלמיד: 10 נקודות על כל תרגיל שהתלמיד ענה עליו נכון, ו-0 נקודות על תרגיל שהתלמיד טעה בו.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 70\nהתלמיד טעה בתרגילים שבמקומות: 2, 5, 8",
+          "figures": [
+            {
+              "type": "array",
+              "values": [
+                67,
+                25,
+                48,
+                90,
+                12,
+                33,
+                71,
+                5,
+                56,
+                19
+              ],
+              "caption": "a"
+            },
+            {
+              "type": "array",
+              "values": [
+                13,
+                40,
+                27,
+                8,
+                64,
+                49,
+                18,
+                77,
+                30,
+                81
+              ],
+              "caption": "b"
+            },
+            {
+              "type": "array",
+              "values": [
+                80,
+                65,
+                74,
+                98,
+                76,
+                72,
+                89,
+                82,
+                85,
+                100
+              ],
+              "caption": "answers — התשובות של התלמיד"
+            }
+          ]
+        },
+        {
+          "label": "ב",
+          "text": "כתוב פעולה ששמה Passed, המקבלת ציון grade (מספר שלם) ומחזירה true אם התלמיד עבר את המבחן, אחרת הפעולה מחזירה false.\nציון גבוה מ-54 עובר; ציון 54 או נמוך ממנו — נכשל.\nלדוגמה:\nעבור הציון 70 הפעולה תחזיר true\nעבור הציון 50 הפעולה תחזיר false"
+        }
+      ]
+    },
+    "exercise": {
+      "language": "csharp",
+      "title": "מבחן בתרגילי חיבור",
+      "topic": "loops",
+      "mainClass": "Loops8",
+      "imports": [],
+      "classes": [],
+      "tasks": [
+        {
+          "label": "א",
+          "kind": "method",
+          "className": "Loops8",
+          "isStatic": true,
+          "returnType": "int",
+          "methodName": "FinalGrade",
+          "parameters": [
+            {
+              "type": "int[]",
+              "name": "a"
+            },
+            {
+              "type": "int[]",
+              "name": "b"
+            },
+            {
+              "type": "int[]",
+              "name": "answers"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה FinalGrade, המקבלת שלושה מערכים מטיפוס שלם באורך 10 כל אחד: a, b ו-answers. הפעולה מחזירה את הציון הסופי של התלמיד: 10 נקודות על כל תרגיל שהתלמיד ענה עליו נכון, ו-0 נקודות על תרגיל שהתלמיד טעה בו.\nלדוגמה: עבור המערכים שבציור הפעולה תחזיר 70\nהתלמיד טעה בתרגילים שבמקומות: 2, 5, 8",
+          "solution": "public static int FinalGrade(int[] a, int[] b, int[] answers)\n{\n    int grade = 0;\n    for (int i = 0; i < a.Length; i++)\n    {\n        if (answers[i] == a[i] + b[i])\n        {\n            grade = grade + 10;\n        }\n    }\n    return grade;\n}"
+        },
+        {
+          "label": "ב",
+          "kind": "method",
+          "className": "Loops8",
+          "isStatic": true,
+          "returnType": "bool",
+          "methodName": "Passed",
+          "parameters": [
+            {
+              "type": "int",
+              "name": "grade"
+            }
+          ],
+          "instructions": "כתוב פעולה ששמה Passed, המקבלת ציון grade (מספר שלם) ומחזירה true אם התלמיד עבר את המבחן, אחרת הפעולה מחזירה false.\nציון גבוה מ-54 עובר; ציון 54 או נמוך ממנו — נכשל.\nלדוגמה:\nעבור הציון 70 הפעולה תחזיר true\nעבור הציון 50 הפעולה תחזיר false",
+          "solution": "public static bool Passed(int grade)\n{\n    return grade > 54;\n}"
+        }
+      ],
+      "givenCode": [
+        {
+          "className": "Loops8",
+          "code": "public static string Check(object got, object expected)\n{\n    string g = (got == null ? \"null\" : got.ToString()).Trim();\n    string e = expected.ToString();\n    if (g == e)\n    {\n        return \"נכון\";\n    }\n    return \"לא נכון — התקבל \" + g + \", צריך להתקבל \" + e;\n}"
+        }
+      ],
+      "otherQuestions": [],
+      "mainCode": "int[] a = { 67, 25, 48, 90, 12, 33, 71, 5, 56, 19 };\nint[] b = { 13, 40, 27, 8, 64, 49, 18, 77, 30, 81 };\nConsole.WriteLine(\"סעיף א, בדיקה 1 (הדוגמה): \" + Check(FinalGrade(a, b, new int[] { 80, 65, 74, 98, 76, 72, 89, 82, 85, 100 }), 70));\nConsole.WriteLine(\"סעיף א, בדיקה 2 (כל התשובות נכונות): \" + Check(FinalGrade(a, b, new int[] { 80, 65, 75, 98, 76, 82, 89, 82, 86, 100 }), 100));\nConsole.WriteLine(\"סעיף א, בדיקה 3 (כל התשובות שגויות): \" + Check(FinalGrade(a, b, new int[] { 81, 66, 76, 99, 77, 83, 90, 83, 87, 101 }), 0));\nConsole.WriteLine(\"סעיף א, בדיקה 4 (נכון רק בתרגיל הראשון ובאחרון): \" + Check(FinalGrade(a, b, new int[] { 80, 66, 76, 99, 77, 83, 90, 83, 87, 100 }), 20));\nConsole.WriteLine(\"סעיף ב, בדיקה 1 (ציון 70): \" + Check(Passed(70), true));\nConsole.WriteLine(\"סעיף ב, בדיקה 2 (ציון 50): \" + Check(Passed(50), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 3 (ציון 54 — נכשל): \" + Check(Passed(54), false));\nConsole.WriteLine(\"סעיף ב, בדיקה 4 (ציון 55 — עובר): \" + Check(Passed(55), true));",
+      "expectedOutput": "סעיף א, בדיקה 1 (הדוגמה): נכון\nסעיף א, בדיקה 2 (כל התשובות נכונות): נכון\nסעיף א, בדיקה 3 (כל התשובות שגויות): נכון\nסעיף א, בדיקה 4 (נכון רק בתרגיל הראשון ובאחרון): נכון\nסעיף ב, בדיקה 1 (ציון 70): נכון\nסעיף ב, בדיקה 2 (ציון 50): נכון\nסעיף ב, בדיקה 3 (ציון 54 — נכשל): נכון\nסעיף ב, בדיקה 4 (ציון 55 — עובר): נכון"
+    }
+  }
+}
