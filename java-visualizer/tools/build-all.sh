@@ -158,15 +158,20 @@ if command -v makensis >/dev/null 2>&1; then
     # מאגר התרגילים (Eclipse, IntelliJ, Visual Studio) — נכנס להתקנה ולעדכון האוטומטי; BUILDNO אחד לכל הבנייה
     BUILDNO=$BUILDNO sh tools/build-bank-all.sh
     # BUILDNO (למעלה) — העדכון האוטומטי מתקין כל בנייה חדשה יותר; אותו מספר כמו ב-Bundle-Version של התוסף ל-Eclipse
+    # CHANNEL=<ענף> — גרסת בדיקה (למשל release/control-center): העדכון האוטומטי שלה בודק את version.json של הענף הזה בלבד
+    # (installer/channel.txt נכנס להתקנה). בלי CHANNEL — הגרסה הרגילה, שמתעדכנת מ-master
+    RAW=https://raw.githubusercontent.com/motiml77/java-lamerhav/${CHANNEL:-master}/java-visualizer/release
+    if [ -n "$CHANNEL" ]; then printf '%s/version.json\n' "$RAW" > installer/channel.txt; else rm -f installer/channel.txt; fi
     (cd installer && makensis -V2 -DVERSION=$VERSION -DBUILDNO=$BUILDNO -DSHORTVER=$SHORTVER setup.nsi)
+    rm -f installer/channel.txt
     echo "release/DSViz-Setup.exe"
     # עותק עם הגרסה בשם הקובץ (DSViz-Setup-1.0.2.exe; השם הקבוע DSViz-Setup.exe נשאר — הקישור הקבוע וה-version.json מצביעים עליו). ישנים מוסרים
     cp release/DSViz-Setup.exe "release/DSViz-Setup-$SHORTVER.exe"
     for f in release/DSViz-Setup-*.exe; do [ "$f" = "release/DSViz-Setup-$SHORTVER.exe" ] || rm -f "$f"; done
     # מה העדכון האוטומטי (installer/update.ps1) בודק: הגרסה, מספר הבנייה, והקובץ (עם SHA-256 — כדי לוודא שהורד שלם)
     # number — מספר העדכון (הגרסה הקצרה); build — מה שהעדכון האוטומטי והאתר משווים (תאריך ושעה)
-    printf '{\n  "version": "%s",\n  "number": %s,\n  "build": %s,\n  "url": "https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/DSViz-Setup.exe",\n  "sha256": "%s"\n}\n' \
-        "$SHORTVER" "$RELEASE_NUMBER" "$BUILDNO" "$(sha256sum release/DSViz-Setup.exe | cut -d' ' -f1)" > release/version.json
+    printf '{\n  "version": "%s",\n  "number": %s,\n  "build": %s,\n  "url": "%s/DSViz-Setup.exe",\n  "sha256": "%s"\n}\n' \
+        "$SHORTVER" "$RELEASE_NUMBER" "$BUILDNO" "$RAW" "$(sha256sum release/DSViz-Setup.exe | cut -d' ' -f1)" > release/version.json
     echo "release/version.json (גרסה $SHORTVER, build $BUILDNO)"
 else
     echo "makensis לא מותקן (apt install nsis) — DSViz-Setup.exe לא נבנה מחדש"

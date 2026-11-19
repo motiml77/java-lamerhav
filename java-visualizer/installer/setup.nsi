@@ -408,6 +408,9 @@ Section "-core"
   File "README-he.html"
   File "icon.ico"
   File "update.ps1"
+  ; ערוץ העדכון: רק בגרסת בדיקה (tools/build-all.sh עם CHANNEL=<ענף>) יש channel.txt; התקנה רגילה מוחקת קובץ שנשאר מגרסת בדיקה
+  Delete "$INSTDIR\channel.txt"
+  File /nonfatal "channel.txt"
   ; הבדיקה המעמיקה: התוסף ב-Visual Studio מריץ אותה ברקע כשיש בעיה, ומצרף אותה לדיווח לצוות DSViz (גם מורה יכול להריץ ידנית)
   File "DSViz-Diagnose.bat"
   File "intellij.ps1"

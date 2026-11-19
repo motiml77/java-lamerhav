@@ -17,6 +17,13 @@ $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 $log = Join-Path $dir 'update.log'
 $versionUrl = 'https://raw.githubusercontent.com/motiml77/java-lamerhav/master/java-visualizer/release/version.json'
+# ערוץ עדכון של גרסת בדיקה (למשל הגרסה עם מרכז הבקרה): channel.txt ליד הקובץ הזה, עם הכתובת של version.json בענף שלה.
+# כך גרסת הבדיקה מתעדכנת רק מהענף שלה, וגרסה רגילה חדשה יותר לא "דורסת" אותה. ההתקנה הרגילה מוחקת את הקובץ (setup.nsi)
+$channel = Join-Path $dir 'channel.txt'
+if (Test-Path -LiteralPath $channel) {
+    $u = (Get-Content -LiteralPath $channel -Raw).Trim()
+    if ($u -match '^https://raw\.githubusercontent\.com/motiml77/java-lamerhav/[A-Za-z0-9._/-]+/java-visualizer/release/version\.json$') { $versionUrl = $u }
+}
 # רק לבדיקות (tools/test/windows-vs-toolbar/update-progress.ps1): שרת מקומי במקום GitHub, בלי ההמתנות והבדיקה "לא יותר מפעם ב-5 דקות".
 # משתמש רגיל לא מגדיר את המשתנה הזה
 $testUrl = $env:DSVIZ_VERSION_URL
