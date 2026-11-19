@@ -122,6 +122,26 @@ FunctionEnd
 !insertmacro FIND_CODE ""
 !insertmacro FIND_CODE "un."
 
+; ------------------------------------------------------------ Eclipse פתוח: הגרסה החדשה ליד הישנה
+; קלט: תיקיית Eclipse במחסנית. מעתיקים את התוסף ל-dropins בשם עם מספר הבנייה (il.lamerhav.dsviz_1.0.1.v<בנייה>.jar) —
+; בלי למחוק / לדרוס שום קובץ ובלי לגעת במטמון. כשל (אין הרשאה) — העדכון "לא הושלם" וינסה שוב
+Function TryEclipseBeside
+  Exch $0
+  ${If} ${FileExists} "$0\eclipse.exe"
+  ${AndIfNot} ${FileExists} "$0\dropins\il.lamerhav.dsviz_${VERSION}.v${BUILDNO}.jar"
+    CreateDirectory "$0\dropins"
+    ClearErrors
+    CopyFiles /SILENT "$INSTDIR\${PLUGIN}" "$0\dropins\il.lamerhav.dsviz_${VERSION}.v${BUILDNO}.jar"
+    ${If} ${Errors}
+      StrCpy $INCOMPLETE "1"
+      DetailPrint "Eclipse: לא הצלחתי לכתוב ל-$0\dropins"
+    ${Else}
+      DetailPrint "Eclipse: הגרסה החדשה נכתבה ב-$0\dropins (תיטען בהפעלה הבאה)"
+    ${EndIf}
+  ${EndIf}
+  Pop $0
+FunctionEnd
+
 ; ------------------------------------------------------------ התקנה ל-Eclipse אחד
 ; קלט: תיקייה במחסנית. אם יש בה eclipse.exe — מעתיקים את התוסף ל-dropins
 Function TryEclipse
@@ -266,8 +286,7 @@ Function EnsureEclipseClosed
     IntCmp $1 30 check wait check
   eclipse_busy:
     StrCpy $ECLIPSE_BUSY "1"
-    StrCpy $INCOMPLETE "1"
-    DetailPrint "Eclipse פתוח — הוא יתעדכן בסגירה הבאה"
+    DetailPrint "Eclipse פתוח — הגרסה החדשה תיכתב ליד הישנה ותיטען בהפעלה הבאה שלו"
   done:
   Pop $1
   Pop $0
@@ -844,13 +863,37 @@ Section "-eclipse"
     Pop $0
     ${If} $0 == "0"
       StrCpy $ECLIPSE_BUSY "1"
-      StrCpy $INCOMPLETE "1"
     ${EndIf}
     Pop $0
   ${EndIf}
   ${If} $ECLIPSE_BUSY == "1"
-    DetailPrint "Eclipse: פתוח — התוסף יתעדכן בסגירה הבאה"
-    Return   ; eclipse-dirs.txt נשאר כמו שהוא (ההסרה והעדכון הבא צריכים אותו)
+    ; Eclipse פתוח: לא נוגעים בקבצים שהוא מחזיק (נעולים) — הגרסה החדשה נכתבת לידם בשם אחר (TryEclipseBeside), כמו ש-Chrome /
+    ; העדכון של Eclipse עצמו עושים. בהפעלה הבאה Eclipse טוען את הגרסה הגבוהה (נבדק ב-Eclipse אמיתי: שתי גרסאות ב-dropins —
+    ; נרשמת רק הגבוהה, גם כשהחדשה נוספה בזמן שהוא רץ); את הישנה מוחקת ההתקנה הבאה שרצה כשהוא סגור.
+    ; eclipse-dirs.txt נשאר כמו שהוא (ההסרה והעדכון הבא צריכים אותו)
+    DetailPrint "Eclipse: פתוח — הגרסה החדשה נכתבת ליד הישנה, ותיטען בהפעלה הבאה שלו"
+    ${If} ${FileExists} "$INSTDIR\eclipse-dirs.txt"
+      FileOpen $R2 "$INSTDIR\eclipse-dirs.txt" r
+      FileReadUTF16LE $R2 $R3
+      ${DoWhile} $R3 != ""
+        btrim_eol:
+        StrCpy $R4 $R3 1 -1
+        StrCmp $R4 "$\n" bcut_eol
+        StrCmp $R4 "$\r" bcut_eol
+        Goto beol_done
+        bcut_eol:
+        StrCpy $R3 $R3 -1
+        Goto btrim_eol
+        beol_done:
+        ${If} $R3 != ""
+          Push $R3
+          Call TryEclipseBeside
+        ${EndIf}
+        FileReadUTF16LE $R2 $R3
+      ${Loop}
+      FileClose $R2
+    ${EndIf}
+    Return
   ${EndIf}
   StrCpy $ECLIPSES 0
   InitPluginsDir
@@ -958,7 +1001,7 @@ Section "-bank"
   ${If} ${SectionIsSelected} ${SEC_CS}
     DetailPrint "מאגר התרגילים: Eclipse, IntelliJ IDEA ו-Visual Studio..."
     ${If} $ECLIPSE_BUSY == "1"
-      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoEclipse'
+      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -Beside ${BUILDNO}'
     ${Else}
       nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1"'
     ${EndIf}
@@ -984,7 +1027,7 @@ Section "-bank"
   ${Else}
     DetailPrint "מאגר התרגילים: Eclipse ו-IntelliJ IDEA..."
     ${If} $ECLIPSE_BUSY == "1"
-      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoVs -NoEclipse'
+      nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoVs -Beside ${BUILDNO}'
     ${Else}
       nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\bank\bank-install.ps1" -NoVs'
     ${EndIf}

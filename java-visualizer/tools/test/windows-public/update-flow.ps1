@@ -3,8 +3,10 @@
 # Eclipse מדומה: תיקייה עם eclipse.exe (עותק של ping — תהליך בשם eclipse) ו-plugins\org.eclipse.jdt.core_*.jar, וכשהוא "פתוח" —
 # תהליך שמחזיק את קובצי התוסף והמאגר ב-dropins נעולים, כמו Eclipse אמיתי.
 #   א. רגיל: Eclipse פתוח → ההורדה נשמרת ב-pending ולא מתקינים; סוגרים → מותקן תוך שניות, build.txt = הגרסה, pending נמחק
-#   ב. המקרה שקרה בפועל: סגרו, ההתקנה התחילה, ופתחו את Eclipse באמצע (אחרי הבדיקה הראשונה) → ההתקנה "לא הושלמה": build.txt
-#      נשאר הישן, הקובץ שהורד נשמר; סוגרים ו"הפעלה מחדש ועדכון" (-InstallNow -Relaunch) → מותקן בלי להוריד שוב, ו-Eclipse נפתח מחדש
+#      "הפעלה מחדש ועדכון" (-InstallNow -Relaunch) → אחרי ההתקנה Eclipse נפתח מחדש
+#   ב. המקרה שקרה בפועל: סגרו, ההתקנה התחילה, ופתחו את Eclipse באמצע (אחרי הבדיקה הראשונה) → הגרסה החדשה נכתבת ליד הישנה
+#      (בלי לגעת בקבצים הנעולים), והעדכון מושלם: build.txt = הגרסה החדשה
+#   ג. ההתקנה הבאה כש-Eclipse סגור מנקה את הכפילות
 #   update-flow.ps1 -Setup <DSViz-Setup.exe החדש> -Out <תיקייה>
 param([Parameter(Mandatory = $true)][string]$Setup, [Parameter(Mandatory = $true)][string]$Out)
 . (Join-Path $PSScriptRoot '..\windows-vs-toolbar\vs-helpers.ps1')
@@ -90,6 +92,7 @@ $job = Start-Job -ArgumentList $Setup, $port, $ver -ScriptBlock {
         try {
             if ($c.Request.Url.AbsolutePath -eq '/version.json') {
                 $b = [Text.Encoding]::UTF8.GetBytes($verJson)
+                $c.Response.ContentType = 'text/plain; charset=utf-8'   # כמו raw.githubusercontent.com; בלי סוג תוכן PowerShell מחזיר בתים, לא טקסט
                 $c.Response.ContentLength64 = $b.Length
                 $c.Response.OutputStream.Write($b, 0, $b.Length)
             } elseif ($c.Request.Url.AbsolutePath -eq '/DSViz-Setup.exe') {
@@ -106,60 +109,63 @@ $up = WaitFor { try { $null = Invoke-WebRequest "http://127.0.0.1:$port/version.
 Check 'server-up' $up 'השרת המקומי עלה'
 if (-not $up) { Stop-Job $job; Save-Summary; exit 1 }
 
-Log "== א. Eclipse פתוח: מורידים ושומרים, ומתקינים רק כשסוגרים"
+Log "== א. Eclipse פתוח: מורידים ושומרים; `"הפעלה מחדש ועדכון`" — נסגר, מותקן מיד, ונפתח מחדש"
 SetOld
 Remove-Item (Join-Path $dsviz 'pending') -Recurse -Force -ErrorAction SilentlyContinue
 StartEclipse
 $n0 = LogCount
 $u = RunUpdater @('-FromEclipse')
-$saved = WaitFor { (Test-Path (Join-Path $dsviz 'pending\pending.json')) -or $u.HasExited } 900
-ShowRun $u
-(LogSince $n0) | ForEach-Object { Info "   update.log: $_" }   # לפני הבדיקה: סרגל הכלים ל-Visual Studio שבמחשב (דקות)
-Start-Sleep 8
-Check 'a-pending-saved' $saved 'ההורדה נשמרה ב-pending (לא ב-TEMP)'
+$saved = WaitFor { (Test-Path (Join-Path $dsviz 'pending\pending.json')) -or $u.HasExited } 600
+Start-Sleep 5
+Check 'a-pending-saved' ((Test-Path (Join-Path $dsviz 'pending\pending.json')) -and -not $u.HasExited) 'ההורדה נשמרה ב-pending, והמעדכן מחכה ש-Eclipse ייסגר'
 Check 'a-not-installed-yet' ((BuildTxt) -lt $real -and -not (Installing)) 'כש-Eclipse פתוח — לא מתקינים'
+# הכפתור "הפעלה מחדש ועדכון" ב-Eclipse (UpdatePrompt): מעדכן שני רק רושם את הבקשה לפתוח מחדש (הראשון מחזיק את המנעול), ו-Eclipse נסגר
+$u2 = RunUpdater @('-InstallNow', '-Relaunch', "`"$fe\eclipse.exe`"", '-Workspace', "`"C:\dsviz-ws`"")
+$null = WaitFor { $u2.HasExited } 30
 StopEclipse
 $t = Get-Date
 $started = WaitFor { Installing } 30
 Check 'a-installs-fast' $started ("אחרי הסגירה ההתקנה התחילה תוך {0:N0} שניות" -f ((Get-Date) - $t).TotalSeconds)
-$null = WaitFor { $u.HasExited } 600
+$null = WaitFor { $u.HasExited } 900
 (LogSince $n0) | ForEach-Object { Info "   update.log: $_" }
+$l0 = (LogSince $n0) -join "`n"
 Check 'a-build-updated' ((BuildTxt) -eq $real) "build.txt = $real"
 Check 'a-pending-cleared' (-not (Test-Path (Join-Path $dsviz 'pending\pending.json'))) 'אחרי ההתקנה pending נמחק'
-Check 'a-log' (((LogSince $n0) -join "`n") -match 'ההתקנה הסתיימה: גרסה') 'ביומן: "ההתקנה הסתיימה: גרסה ..."'
+Check 'a-log' ($l0 -match 'ההתקנה הסתיימה: גרסה') 'ביומן: "ההתקנה הסתיימה: גרסה ..."'
+Check 'a-relaunched' ($l0 -match 'Eclipse נפתח מחדש') 'Eclipse נפתח מחדש אחרי ההתקנה'
+StopEclipse
 
-Log "== ב. סגרו, ההתקנה התחילה, ופתחו את Eclipse באמצע — ההתקנה לא מסמנת את עצמה כמותקנת"
+Log "== ב. המקרה שקרה: סגרו, ההתקנה התחילה, ופתחו את Eclipse באמצע — הגרסה החדשה נכתבת ליד הישנה, והעדכון מושלם"
 SetOld
 Remove-Item (Join-Path $dsviz 'pending') -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $dsviz 'update-incomplete.txt') -Force -ErrorAction SilentlyContinue
 Remove-Item $progress -Force -ErrorAction SilentlyContinue
+$oldJars = @(Get-ChildItem "$fe\dropins" -Filter '*.jar' | ForEach-Object { "$($_.Name)=$((Get-FileHash $_.FullName).Hash)" })
 $n1 = LogCount
 $u = RunUpdater @('-AfterEclipse')
 # פותחים את Eclipse אחרי הבדיקה הראשונה של ההתקנה (42%) — בזמן חבילת C# (44–82%), לפני הקבצים של Eclipse (86%), כמו שקרה לתלמיד
-$mid = WaitFor { if ($u.HasExited) { return $true }; $t = ''; try { $t = (Get-Content $progress -Raw -ErrorAction Stop).Trim() } catch { }; $m = [regex]::Match($t, '^install (\d+)$'); $m.Success -and [int]$m.Groups[1].Value -ge 44 } 1200
-Check 'b-install-midway' $mid 'ההתקנה עברה את הבדיקה הראשונה של Eclipse (42%) — עכשיו חבילת C#'
+$mid = WaitFor { if ($u.HasExited) { return $true }; $t = ''; try { $t = (Get-Content $progress -Raw -ErrorAction Stop).Trim() } catch { }; $m = [regex]::Match($t, '^install (\d+)$'); $m.Success -and [int]$m.Groups[1].Value -ge 44 } 900
+Check 'b-install-midway' ($mid -and -not $u.HasExited) 'ההתקנה עברה את הבדיקה הראשונה של Eclipse (42%) — עכשיו חבילת C#'
 StartEclipse
 $null = WaitFor { $u.HasExited } 900
 ShowRun $u
 (LogSince $n1) | ForEach-Object { Info "   update.log: $_" }
-Check 'b-build-not-claimed' ((BuildTxt) -lt $real) 'build.txt נשאר הישן — העדכון לא סומן כמותקן'
-Check 'b-incomplete-file' (Test-Path (Join-Path $dsviz 'update-incomplete.txt')) 'update-incomplete.txt נכתב'
-Check 'b-pending-kept' (Test-Path (Join-Path $dsviz 'pending\pending.json')) 'הקובץ שהורד נשמר להתקנה הבאה'
-Check 'b-plugin-untouched' ((Get-FileHash (Get-ChildItem "$fe\dropins" -Filter 'il.lamerhav.dsviz_*.jar' | Select-Object -First 1).FullName).Hash -eq $pluginHash) 'בקבצים של Eclipse הפתוח לא נגעו'
-Check 'b-log' (((LogSince $n1) -join "`n") -match 'לא הושלמה') 'ביומן: "ההתקנה לא הושלמה ... תותקן שוב"'
+$names = @(Get-ChildItem "$fe\dropins" -Filter '*.jar' | ForEach-Object { $_.Name })
+Info ("dropins: " + ($names -join ', '))
+Check 'b-new-beside-plugin' (@($names | Where-Object { $_ -match "^il\.lamerhav\.dsviz_.*\.v$real\.jar$" }).Count -eq 1) "התוסף החדש נכתב ליד הישן (…v$real.jar)"
+Check 'b-new-beside-bank' (@($names | Where-Object { $_ -match "^il\.lamerhav\.dsviz\.bank_.*\.v$real\.jar$" }).Count -le 1) 'המאגר: לכל היותר עותק חדש אחד ליד הישן (אותו קובץ — לא משוכפל)'
+$still = @(Get-ChildItem "$fe\dropins" -Filter '*.jar' | ForEach-Object { "$($_.Name)=$((Get-FileHash $_.FullName).Hash)" })
+Check 'b-old-untouched' (@($oldJars | Where-Object { $still -notcontains $_ }).Count -eq 0) 'בקבצים של Eclipse הפתוח (הנעולים) לא נגעו'
+Check 'b-build-updated' ((BuildTxt) -eq $real) "build.txt = $real — העדכון הושלם גם כש-Eclipse נפתח באמצע"
+Check 'b-pending-cleared' (-not (Test-Path (Join-Path $dsviz 'pending\pending.json'))) 'pending נמחק'
+Check 'b-log' (((LogSince $n1) -join "`n") -match 'ההתקנה הסתיימה: גרסה') 'ביומן: "ההתקנה הסתיימה: גרסה ..."'
 
-Log "== ב2. \"הפעלה מחדש ועדכון\" מ-Eclipse: נסגר, מותקן בלי להוריד שוב, ו-Eclipse נפתח מחדש"
-$n2 = LogCount
-$u = RunUpdater @('-InstallNow', '-Relaunch', "`"$fe\eclipse.exe`"", '-Workspace', "`"C:\dsviz-ws`"")
-Start-Sleep 3
-StopEclipse   # Eclipse נסגר (PlatformUI.getWorkbench().close())
-$null = WaitFor { $u.HasExited } 900
-(LogSince $n2) | ForEach-Object { Info "   update.log: $_" }
-$l2 = (LogSince $n2) -join "`n"
-Check 'b2-build-updated' ((BuildTxt) -eq $real) "build.txt = $real"
-Check 'b2-no-redownload' ($l2 -notmatch 'נמצאה גרסה חדשה') 'בלי להוריד שוב (הקובץ מ-pending)'
-Check 'b2-relaunched' ($l2 -match 'Eclipse נפתח מחדש') 'Eclipse נפתח מחדש אחרי ההתקנה'
-Check 'b2-incomplete-cleared' (-not (Test-Path (Join-Path $dsviz 'update-incomplete.txt'))) 'update-incomplete.txt נמחק'
+Log "== ג. ההתקנה הבאה, כש-Eclipse סגור, מנקה את הכפילות: נשאר תוסף אחד ומאגר אחד"
+StopEclipse
+$null = InstallDsviz $Setup '/S /UPDATE' 'עדכון כש-Eclipse סגור'
+$names = @(Get-ChildItem "$fe\dropins" -Filter '*.jar' | ForEach-Object { $_.Name })
+Info ("dropins: " + ($names -join ', '))
+Check 'c-one-plugin' (@($names | Where-Object { $_ -like 'il.lamerhav.dsviz_*' }).Count -eq 1) 'תוסף אחד ב-dropins'
+Check 'c-one-bank' (@($names | Where-Object { $_ -like 'il.lamerhav.dsviz.bank_*' }).Count -eq 1) 'מאגר אחד ב-dropins'
 
 StopEclipse
 Stop-Job $job -ErrorAction SilentlyContinue; Remove-Job $job -Force -ErrorAction SilentlyContinue

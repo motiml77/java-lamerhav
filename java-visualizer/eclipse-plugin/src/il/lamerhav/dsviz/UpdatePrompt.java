@@ -17,6 +17,8 @@ import org.eclipse.ui.PlatformUI;
  * כך מי שסגר את Eclipse ופתח אותו מיד (לפני שהעדכון הספיק להיכנס), או שההתקנה שלו לא הושלמה, לא נשאר עם הגרסה הישנה.
  * בודקים 20 שניות אחרי הפתיחה ואחר כך כל דקה (העדכון יכול לרדת בזמן העבודה), שואלים פעם אחת לכל גרסה, ורק כש-Eclipse
  * הוא החלון הפעיל (לא באמצע חלון אחר). "אחר כך" — העדכון יותקן כשסוגרים את Eclipse (כמו קודם).
+ * ואם העדכון הותקן בזמן ש-Eclipse פתוח (ההתקנה כותבת אז את הגרסה החדשה ליד הישנה — build.txt חדש מהתוסף שרץ):
+ * "הפעלה מחדש עכשיו" — Eclipse עולה עם הגרסה החדשה.
  */
 final class UpdatePrompt {
     private static String asked = "";
@@ -58,15 +60,40 @@ final class UpdatePrompt {
         try { return Long.parseLong(s.trim()); } catch (Exception e) { return 0; }
     }
 
+    /** מספר הבנייה שההתקנה רשמה (build.txt) — 0 כשאין */
+    static long installedBuild() {
+        String dir = AutoSetup.dsvizFile("install-dir.txt");
+        if (dir == null) return 0;
+        try {
+            return num(new String(Files.readAllBytes(new File(dir, "build.txt").toPath()), StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     static void check(Display d) {
-        String[] p = pending();
-        if (p == null || p[0].equals(asked)) return;
         long own = num(Look.build());
-        if (own <= 0 || num(p[0]) <= own) return;   // כבר מותקן (או בנייה מקומית בלי מספר)
+        if (own <= 0) return;   // בנייה מקומית בלי מספר
+        String[] p = pending();
+        boolean waiting = p != null && num(p[0]) > own;
+        // העדכון כבר הותקן בזמן ש-Eclipse פתוח (הגרסה החדשה נכתבה ליד הישנה) — צריך רק הפעלה מחדש של Eclipse
+        long inst = waiting ? 0 : installedBuild();
+        boolean installed = inst > own;
+        String key = waiting ? p[0] : installed ? "i" + inst : null;
+        if (key == null || key.equals(asked)) return;
         IWorkbenchWindow w = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
         Shell s = d.getActiveShell();
         if (w == null || s == null || s != w.getShell()) return;   // לא באמצע חלון אחר — ננסה בדקה הבאה
-        asked = p[0];
+        asked = key;
+        if (installed) {
+            boolean restart = Say.ask(s, "עדכון ל-DSViz",
+                    "DSViz התעדכן לגרסה חדשה.\n\n"
+                    + "כדי לעבוד איתה צריך להפעיל את Eclipse מחדש.\n"
+                    + "(אם יש קבצים שלא נשמרו, Eclipse ישאל אם לשמור.)",
+                    "הפעלה מחדש עכשיו", "אחר כך");
+            if (restart) PlatformUI.getWorkbench().restart();
+            return;
+        }
         String ver = p[1].isEmpty() ? "" : " (" + p[1] + ")";
         boolean now = Say.ask(s, "עדכון ל-DSViz",
                 "גרסה חדשה של DSViz" + ver + " הורדה ומוכנה להתקנה.\n\n"

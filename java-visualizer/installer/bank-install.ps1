@@ -5,9 +5,11 @@
 #   Visual Studio  — dsviz-bank-vs.jar (‎%LOCALAPPDATA%\DSViz\lab) + שני קיצורים בשולחן העבודה (install-bank-vs.ps1)
 # אפשר להריץ שוב ושוב: מעתיק רק מה שהשתנה, ולא מכפיל (שם הקובץ קבוע; עותק ישן מוחלף). אותה התקנה מחליפה גם התקנה של גרסת הבדיקה (DSViz-Lab).
 #   bank-install.ps1 [-NoVs] [-NoEclipse] [-Only intellij] [-Quiet]     התקנה / עדכון
-#   -NoEclipse: Eclipse פתוח בעדכון האוטומטי (הקבצים שלו נעולים) — מדלגים עליו. קוד יציאה 2: המאגר לא נכנס ל-Eclipse אחד לפחות
+#   -Beside <בנייה>: Eclipse פתוח בעדכון האוטומטי (הקבצים שלו נעולים) — המאגר החדש נכתב ליד הישן בשם עם מספר הבנייה,
+#               בלי למחוק כלום; Eclipse טוען את הגרסה הגבוהה בהפעלה הבאה, וההתקנה הבאה (כשהוא סגור) מנקה את הישן.
+#   -NoEclipse: מדלגים על Eclipse. קוד יציאה 2: המאגר לא נכנס ל-Eclipse אחד לפחות
 #   bank-install.ps1 -Remove                                הסרה (DSViz עצמו נשאר)
-param([switch]$Remove, [switch]$NoVs, [switch]$NoEclipse, [string]$Only = 'all', [switch]$Quiet, [string]$ConfigRoot)
+param([switch]$Remove, [switch]$NoVs, [switch]$NoEclipse, [string]$Beside = '', [string]$Only = 'all', [switch]$Quiet, [string]$ConfigRoot)
 $eclipseFailed = $false
 $ErrorActionPreference = 'Continue'
 $here = $PSScriptRoot
@@ -54,6 +56,14 @@ if ($Only -ne 'intellij' -and -not $NoEclipse) {
             $drop = Join-Path $e 'dropins'
             try {
                 $old = @(Get-ChildItem -LiteralPath $drop -Filter 'il.lamerhav.dsviz.bank_*.jar' -ErrorAction SilentlyContinue)
+                if ($Beside) {
+                    $h = (Get-FileHash -LiteralPath $jar.FullName).Hash
+                    if (@($old | Where-Object { (Get-FileHash -LiteralPath $_.FullName).Hash -eq $h }).Count) { Say "Eclipse: המאגר כבר מותקן ב-$e"; continue }
+                    $name = [IO.Path]::GetFileNameWithoutExtension($jar.Name) + ".v$Beside.jar"
+                    Copy-Item -LiteralPath $jar.FullName -Destination (Join-Path $drop $name) -Force -ErrorAction Stop
+                    Say "Eclipse: המאגר החדש נכתב ליד הישן ב-$e (ייטען בהפעלה הבאה)"
+                    continue
+                }
                 $same = ($old.Count -eq 1) -and ($old[0].Name -eq $jar.Name) -and ((Get-FileHash -LiteralPath $old[0].FullName).Hash -eq (Get-FileHash -LiteralPath $jar.FullName).Hash)
                 if ($same) { Say "Eclipse: המאגר כבר מותקן ב-$e"; continue }
                 $old | Remove-Item -Force -ErrorAction Stop
