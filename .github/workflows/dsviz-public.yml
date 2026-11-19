@@ -7,7 +7,7 @@
 name: DSViz public installer
 on:
   push:
-    branches: [release/public-all]
+    branches: [release/public-all, release/control-center]
     paths:
       - '.github/workflows/dsviz-public.yml'
       - 'java-visualizer/tools/test/windows-public/**'

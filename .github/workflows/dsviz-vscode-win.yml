@@ -5,7 +5,7 @@ name: DSViz VS Code on Windows (question bank, real clicks)
 
 on:
   push:
-    branches: [release/public-all]
+    branches: [release/public-all, release/control-center]
     paths:
       - '.github/workflows/dsviz-vscode-win.yml'
       - 'java-visualizer/release/DSViz-Setup.exe'
