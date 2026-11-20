@@ -112,6 +112,7 @@ public class GuideIt implements IApplication {
         Window w = openGate();
         if (w == null) return;
         window(w, "e01-gate-choose");
+        marks("e01-gate-choose", w, "teacher", nth(w, "כניסה עם Google", 0), "station", nth(w, "הקלדת קוד המורה", 0), "student", nth(w, "כניסה עם Google", 1));
         screen("e01-gate-choose-screen");
         clickNth(w, "כניסה עם Google", 0);
         waitFile(new File(shots, "url-1.txt"), 20000);
@@ -136,6 +137,7 @@ public class GuideIt implements IApplication {
             sleep(2500);
             out.println("TEACHER-PANEL-TEXT " + oneLine(visibleText(panel)));
             window(panel, "e05-teacher-panel");
+            marks("e05-teacher-panel", panel, "code", findLabel(panel, codeOf(panel)), "open", nth(panel, "פתח עמדת ניהול בדפדפן", 0));
             screen("e05-teacher-panel-screen");
             final Window p = panel;
             SwingUtilities.invokeAndWait(p::dispose);
@@ -161,6 +163,7 @@ public class GuideIt implements IApplication {
         if (bank != null) {
             sleep(3000);
             shotShell(bank, "e08-student-bank.png");
+            swtMarks("e08-student-bank", bank, "my-teacher", "signout");
             close(bank);
         }
         waitGateClosed();
@@ -183,6 +186,7 @@ public class GuideIt implements IApplication {
         });
         sleep(400);
         window(w, "e09-station-form");
+        marks("e09-station-form", w, "code", fields.get(0), "name", fields.get(1), "connect", nth(w, "חיבור המחשב", 0));
         clickNth(w, "חיבור המחשב", 0);
         out.println("STATION-SUCCESS " + waitText(w, "המחשב מחובר", 30000));
         sleep(200);
@@ -193,6 +197,7 @@ public class GuideIt implements IApplication {
             sleep(3000);
             out.println("STATION-LINE " + stationLine(bank));
             shotShell(bank, "e11-station-bank.png");
+            swtMarks("e11-station-bank", bank, "station-line");
             close(bank);
         }
         waitGateClosed();
@@ -208,8 +213,64 @@ public class GuideIt implements IApplication {
             out.println("STATION-LINE-RENAMED " + stationLine(bank));
             out.println("STATION-ACCESS-RENAMED " + (Account.current() == null ? "none" : Account.current().label()));
             shotShell(bank, "e12-station-bank-renamed.png");
+            swtMarks("e12-station-bank-renamed", bank, "station-line");
             close(bank);
         }
+    }
+
+    // ------------------------------------------------------------------ מקומות לחיצה בתמונות (marks/<name>.json: id → [x, y, w, h])
+
+    private AbstractButton nth(Window w, String label, int n) {
+        java.util.List<AbstractButton> l = new ArrayList<>();
+        findAll(w, label, l);
+        return l.size() > n ? l.get(n) : null;
+    }
+
+    /** הקוד של המורה (4 תווים) — התווית הגדולה בחלון "עמדת ניהול" */
+    private static String codeOf(Window w) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?m)^[\u200f]?([A-Z0-9]{4})$").matcher(visibleText(w));
+        return m.find() ? m.group(1) : "####";
+    }
+
+    private void marks(String name, Window w, Object... pairs) throws Exception {
+        StringBuilder b = new StringBuilder("{");
+        SwingUtilities.invokeAndWait(() -> {
+            for (int i = 0; i + 1 < pairs.length; i += 2) {
+                Component c = (Component) pairs[i + 1];
+                if (c == null || !c.isShowing()) { out.println("MARK-MISSING " + name + " " + pairs[i]); continue; }
+                java.awt.Rectangle r = SwingUtilities.convertRectangle(c.getParent(), c.getBounds(), w);
+                if (b.length() > 1) b.append(',');
+                b.append('"').append(pairs[i]).append("\":[").append(r.x).append(',').append(r.y).append(',').append(r.width).append(',').append(r.height).append(']');
+            }
+        });
+        b.append('}');
+        File d = new File(shots, "marks");
+        d.mkdirs();
+        Files.write(new File(d, name + ".json").toPath(), b.toString().getBytes(StandardCharsets.UTF_8));
+        out.println("MARKS " + name + " " + b);
+    }
+
+    private void swtMarks(String name, Shell s, String... ids) throws Exception {
+        String json = ui(() -> {
+            java.util.List<org.eclipse.swt.widgets.Control> all = new ArrayList<>();
+            collect(s, all);
+            Rectangle sb = s.getBounds();
+            StringBuilder b = new StringBuilder("{");
+            for (String id : ids)
+                for (org.eclipse.swt.widgets.Control k : all)
+                    if (id.equals(k.getData("dsviz.id"))) {
+                        org.eclipse.swt.graphics.Point p = k.toDisplay(0, 0);
+                        org.eclipse.swt.graphics.Point z = k.getSize();
+                        if (b.length() > 1) b.append(',');
+                        b.append('"').append(id).append("\":[").append(p.x - sb.x).append(',').append(p.y - sb.y).append(',').append(z.x).append(',').append(z.y).append(']');
+                        break;
+                    }
+            return b.append('}').toString();
+        });
+        File d = new File(shots, "marks");
+        d.mkdirs();
+        Files.write(new File(d, name + ".json").toPath(), json.getBytes(StandardCharsets.UTF_8));
+        out.println("MARKS " + name + " " + json);
     }
 
     private Window openGate() throws Exception {

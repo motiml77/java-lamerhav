@@ -76,6 +76,22 @@ async function waitFor(what, fn, ms) {
 }
 const fileText = f => existsSync(join(SHOTS, f)) ? readFileSync(join(SHOTS, f), 'utf8').trim() : '';
 const shot = (page, name) => page.screenshot({ path: join(SHOTS, name + '.png') });
+/** צילום של אזור בדף (rootSel) + מקומות הלחיצה בתוכו (marks/<name>.json: id → [x, y, w, h] בפיקסלים של התמונה, פי 2) */
+async function snap(page, name, rootSel, targets = {}, pad = 24) {
+  await page.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
+  const sc = await page.evaluate(() => [scrollX, scrollY]);
+  const rb = await page.locator(rootSel).first().boundingBox();
+  const clip = { x: Math.max(0, rb.x + sc[0] - pad), y: Math.max(0, rb.y + sc[1] - pad), width: rb.width + 2 * pad, height: rb.height + 2 * pad };
+  const marks = {};
+  for (const [id, sel] of Object.entries(targets)) {
+    const b = await page.locator(sel).first().boundingBox();
+    assert.ok(b, 'אין ' + sel + ' ב-' + name);
+    marks[id] = [b.x + sc[0] - clip.x, b.y + sc[1] - clip.y, b.width, b.height].map(v => Math.round(v * 2));
+  }
+  await page.screenshot({ path: join(SHOTS, name + '.png'), clip, fullPage: true });
+  mkdirSync(join(SHOTS, 'marks'), { recursive: true });
+  writeFileSync(join(SHOTS, 'marks', name + '.json'), JSON.stringify(marks));
+}
 
 // ------------------------------------------------------------------ נתוני דוגמה: המורה (ההנהלה מגדירה), עוד מחשבים ותלמידים עם הגשות
 const admin = await idToken('admin@test.dev', 'מנהל');
@@ -137,12 +153,12 @@ try {
     p.on('pageerror', e => errors.push(String(e)));
     await p.goto(url);
     await p.waitForSelector('.gbtn');
-    await shot(p, 'b01-teacher-signin');
+    await snap(p, 'b01-teacher-signin', 'main .panel', { google: '.gbtn' });
     await googlePopup(p, '.gbtn', TEACHER, 'שרה כהן');
     await p.waitForURL(/r=ok&role=teacher/, { timeout: 30000 });
     await p.waitForSelector('h1:has-text("נכנסת בהצלחה")');
     await sleep(500);
-    await shot(p, 'b02-teacher-welcome');
+    await snap(p, 'b02-teacher-welcome', 'main .panel', {});
   });
 
   await step('תלמיד: Eclipse ביקש כניסת תלמיד → Google → הרשמה עם קוד המורה → חזרה לתוכנה', async () => {
@@ -152,18 +168,18 @@ try {
     p.on('pageerror', e => errors.push(String(e)));
     await p.goto(url);
     await p.waitForSelector('.gbtn');
-    await shot(p, 'b03-student-signin');
+    await snap(p, 'b03-student-signin', 'main .panel', { google: '.gbtn' });
     await googlePopup(p, '.gbtn', STUDENT, 'יונתן לוי');
     await p.waitForSelector('#reg-name');
     await p.fill('#reg-name', 'יונתן לוי');
     await p.fill('#reg-phone', '050-123 4567');
     await p.check('#reg-mode-teacher');
     await p.fill('#reg-code', code);
-    await shot(p, 'b04-student-register');
+    await snap(p, 'b04-student-register', 'main .panel', { name: '#reg-name', phone: '#reg-phone', mode: 'label[for=reg-mode-teacher]', code: '#reg-code', submit: 'form button[type=submit]' });
     await p.click('form button[type=submit]');
     await p.waitForURL(/\/welcome\?r=ok/, { timeout: 30000 });
     await sleep(800);
-    await shot(p, 'b05-student-welcome');
+    await snap(p, 'b05-student-welcome', 'main .panel', {});
   });
 
   const tp = await newPage();
@@ -174,14 +190,15 @@ try {
     await googlePopup(tp, '.gbtn', TEACHER, 'שרה כהן');
     await tp.waitForSelector('#tab-st');
     await tp.waitForSelector('.con-table tbody tr:has-text("מחשב 14")');
-    await tp.locator('section.con').screenshot({ path: join(SHOTS, 'b06-console-stations.png') });
+    const r14 = 'tr:has-text("מחשב 14")';
+    await snap(tp, 'b06-console-stations', 'section.con', { tab: '#tab-st', subs: r14 + ' button:has-text("הגשות")', rename: r14 + ' button:has-text("שינוי שם")', release: r14 + ' button:has-text("שחרור")' }, 0);
   });
 
   await step('שינוי שם של המחשב בעמדת הניהול', async () => {
     const row = tp.locator('.con-table tbody tr', { hasText: 'מחשב 14' });
     await row.locator('button:has-text("שינוי שם")').click();
     await tp.fill('#rename-st', 'מעבדה 2 · עמדה 14');
-    await tp.locator('section.con').screenshot({ path: join(SHOTS, 'b07-console-rename.png') });
+    await snap(tp, 'b07-console-rename', 'section.con', { rename: 'tr:has-text("מחשב 14") button:has-text("שינוי שם")', input: '#rename-st', save: '.confirm button:has-text("שמירה")' }, 0);
     await tp.press('#rename-st', 'Enter');
     await tp.waitForSelector('.toast:has-text("השם נשמר")');
     await tp.waitForSelector('.con-table tbody tr:has-text("מעבדה 2 · עמדה 14")');
@@ -194,13 +211,13 @@ try {
     await tp.click('tr:has-text("מעבדה 2 · עמדה 5") button:has-text("הגשות")');
     await tp.waitForSelector('text=מגיש: הלל');
     await sleep(500);
-    await tp.locator('section.con').screenshot({ path: join(SHOTS, 'b08-console-station-submission.png') });
+    await snap(tp, 'b08-console-station-submission', 'section.con', { subs: 'tr:has-text("מעבדה 2 · עמדה 5") button:has-text("הגשות")', check: 'text=בדיקת ההרצה', del: '.d-code .d-top button:has-text("מחיקה")' }, 0);
   });
 
   await step('עמדת הניהול: "תלמידים" — כיתה, ויונתן שהצטרף עכשיו מ-Eclipse ב"בלי כיתה"', async () => {
     await tp.click('#tab-su');
     await tp.waitForSelector('.folder');
-    await tp.locator('section.con').screenshot({ path: join(SHOTS, 'b09-console-students.png') });
+    await snap(tp, 'b09-console-students', 'section.con', { tab: '#tab-su', folder: '.folder:has-text("יא 3")', move: 'tr:has-text("יונתן לוי") select', join: '#join-open' }, 0);
     const all = await tp.textContent('section.con');
     assert.match(all, /יונתן לוי/);
     await tp.click('.folder:has-text("יא 3")');
@@ -208,7 +225,7 @@ try {
     await tp.click('tr:has-text("אריאל כהן") button:has-text("תרגילים")');
     await tp.waitForSelector('text=הפלט שונה');
     await sleep(1200);
-    await tp.locator('section.con').screenshot({ path: join(SHOTS, 'b10-console-student-work.png') });
+    await snap(tp, 'b10-console-student-work', 'section.con', { work: 'tr:has-text("אריאל כהן") button:has-text("תרגילים")', grade: '#grade-in', save: '#grade-save' }, 0);
   });
 
   const rc = await Promise.race([exited, sleep(240000).then(() => 'timeout')]);
