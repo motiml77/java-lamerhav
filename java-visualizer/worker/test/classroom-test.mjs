@@ -265,7 +265,7 @@ await test('הגשה: קבצים שאינם קוד / גדולים מדי / יו�
 });
 
 let station, stationId;
-await test('הגשה מעמדת מחשב: "שם המגיש" חובה; נשמרת עם תאריך תפוגה (3 ימים); שני תלמידים באותה עמדה — שתי הגשות', async () => {
+await test('הגשה מעמדת מחשב: "שם המגיש" חובה; נשמרת רק לאותו יום (עד חצות, שעון ישראל); שני תלמידים באותה עמדה — שתי הגשות', async () => {
   const m = machine();
   const cl = await call('POST', '/v1/station/claim', { body: { code: codes['sara@test.dev'], name: 'עמדה 2', machine: m, client: 'test' } });
   assert.equal(cl.body.status, 'ok', JSON.stringify(cl.body));
@@ -285,8 +285,10 @@ await test('הגשה מעמדת מחשב: "שם המגיש" חובה; נשמרת
   assert.equal(st.unseen, 2);
   const list = await call('GET', '/v1/me/submissions?station=' + stationId, { token: sara });
   assert.deepEqual(list.body.submissions.map(x => x.who).sort(), ['הלל ברק', 'עידו שפירא']);
-  const days = (Date.parse(list.body.submissions[0].expiresAt) - Date.now()) / 86400000;
-  assert.ok(days > 2.9 && days < 3.1, 'תפוגה אחרי 3 ימים: ' + days);
+  const exp = Date.parse(list.body.submissions[0].expiresAt);
+  const hm = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(exp));
+  assert.equal(hm, '00:00', 'התפוגה בחצות שעון ישראל: ' + new Date(exp).toISOString());
+  assert.ok(exp > Date.now() && exp - Date.now() <= 86400000, 'עד סוף היום הזה: ' + new Date(exp).toISOString());
   assert.equal(list.body.submissions.find(x => x.who === 'הלל ברק').check.compiles, false);
 });
 

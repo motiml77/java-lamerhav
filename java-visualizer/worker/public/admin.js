@@ -806,7 +806,7 @@ async function settingsView() {
       h('p', { class: 'small muted' }, 'מורה או תלמיד שהתוסף שלהם הוא הגרסה עם מרכז הבקרה נכנסים לבד — לא צריך להוסיף אותם כאן.')),
     h('section', { class: 'card' }, h('h2', null, 'עמדת הניהול של המורה'),
       h('div', { class: 'form2' }, num('teacherReleases', 'כמה עמדות המורה משחרר לבד בחודש (מעבר לזה — בקשה להנהלה)', s.teacherReleases, 0, 100),
-        num('stationSubmitDays', 'הגשה מעמדת מחשב שלא נמחקה — נמחקת לבד אחרי (ימים)', s.stationSubmitDays, 1, 30))),
+        h('p', { class: 'small muted' }, 'הגשות מעמדת מחשב נשמרות רק לאותו יום ונמחקות לבד בחצות.'))),
     h('section', { class: 'card' }, h('h2', null, 'תשלום תלמידים'),
       h('div', { class: 'form3' }, num('price', 'מחיר (₪) — 0 = עוד לא פתוח', s.price, 0, 5000),
         h('label', { class: 'lbl', for: 's-until' }, 'תשלום פותח את המאגר עד', until),

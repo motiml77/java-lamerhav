@@ -5,7 +5,7 @@
 //             בינתיים בחינם (settings.studentsFree); המעבר לתשלום — מתג אחד בהנהלה, בלי שינוי בתוספים.
 //   • הגשה   — "הגשה למורה" (וגם "סיימתי") מתלמיד משויך או מעמדת מחשב. בעמדה — "שם המגיש" חובה.
 //             הגשה של תלמיד נשמרת עד שהמורה מוחק אותו / את הכיתה. הגשה מעמדה — עד שהמורה מוחק, ולכל המאוחר אחרי
-//             settings.stationSubmitDays ימים (expiresAt: מדיניות TTL ב-Firestore, ובנוסף נמחקת כשקוראים את הרשימה).
+//             עד חצות של אותו יום, שעון ישראל (expiresAt: מדיניות TTL ב-Firestore, ובנוסף נמחקת כשקוראים את הרשימה).
 //   • כיתות  — של המורה בלבד; שינוי שם בכל זמן; מחיקה מוחקת את התלמידים שבה ואת כל ההגשות שלהם (בשלבים, עד 400 מסמכים בכל קריאה).
 //   • שחרור עמדה — המורה לבד, עד settings.teacherReleases בחודש; מעבר לזה — בקשה להנהלה (כמו קודם).
 //
@@ -296,8 +296,7 @@ async function submit(request, env) {
     teacher = r.station.teacher;
     await submitLimit(env, 'station:' + r.station.id);
     id = 's' + (await sha256Hex([teacher, r.station.id, exKey, who.toLowerCase()].join('|'))).slice(0, 30);
-    const days = Math.max(1, Math.min(30, +s.stationSubmitDays || 3));
-    expires = new Date(Date.now() + days * 86400000);
+    expires = new Date(endOfDayIsrael(Date.now()));   // הגשה מעמדה נשמרת רק לאותו יום (עד חצות, שעון ישראל)
     base = { from: 'station', station: r.station.id, stationName: r.station.name || '', who };
   } else {
     const email = r.profile.email;
@@ -553,6 +552,15 @@ async function releaseStation(request, env) {
     if (subs.length) await store.commit(w => { for (const x of subs.slice(0, CHUNK / 2)) { w.remove('submissions/' + x._id); w.remove('submissionFiles/' + x._id); } }).catch(() => {});
   }
   return { ok: true, already: !!out.already };
+}
+
+/** חצות הקרובה בשעון ישראל (מילישניות). הגשות מעמדת מחשב נשמרות רק לאותו יום */
+export function endOfDayIsrael(now) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(now)).map(x => [x.type, x.value]));
+  const local = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  const offset = local - Math.floor(now / 1000) * 1000;   // ישראל מול UTC (שעתיים / שלוש בשעון קיץ)
+  return Date.UTC(+parts.year, +parts.month - 1, +parts.day + 1) - offset;
 }
 
 /** שינוי השם של מחשב במעבדה (המורה, מעמדת הניהול). השם נשמר גם כשהמחשב מתחבר שוב עם שם אחר (teacherNamed),
