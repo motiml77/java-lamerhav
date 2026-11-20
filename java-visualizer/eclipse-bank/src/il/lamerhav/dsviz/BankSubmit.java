@@ -98,9 +98,33 @@ final class BankSubmit {
      */
     static RunCheck.Result check(BankStore.Question q, Map<String, String> files, String mainClass, boolean cs, File lib, String javaExe, List<String> dsvizCs) {
         try {
-            return cs ? RunCheck.cs(files, dsvizCs, q.expectedOutput()) : RunCheck.java(files, mainClass, lib, javaExe, q.expectedOutput());
+            String expected = expectedFor(q, files);
+            return cs ? RunCheck.cs(files, dsvizCs, expected) : RunCheck.java(files, mainClass, lib, javaExe, expected);
         } catch (Throwable t) {
             return new RunCheck.Result();   // לא נבדק — ההגשה נשלחת בלי בדיקת הרצה
+        }
+    }
+
+    /**
+     * הפלט הרצוי לבדיקת ההרצה של ההגשה: רק הסעיפים שכבר בקוד (סעיף אחרי סעיף — "הכן סעיף ב"). תלמיד שהכין ופתר רק את סעיף א
+     * מקבל "הפלט תואם" ולא "הפלט שונה" בגלל השורות של סעיף ב שעוד לא בקוד. כמו בחלון השאלה (BankQuestionPanel).
+     * files — שם קובץ → הקוד (כמו שנשלח); המחלקה היא שם הקובץ בלי הסיומת.
+     */
+    static String expectedFor(BankStore.Question q, Map<String, String> files) {
+        String full = q.expectedOutput();
+        try {
+            AiScaffold.Exercise ex = AiScaffold.read(Json.obj(Json.parse(Json.write(q.exercise))));
+            Map<String, String> texts = new LinkedHashMap<String, String>();
+            for (Map.Entry<String, String> f : files.entrySet()) {
+                String n = f.getKey();
+                int dot = n.lastIndexOf('.');
+                texts.put(dot > 0 ? n.substring(0, dot) : n, f.getValue());
+            }
+            int ready = BankSections.prepared(ex, texts);
+            if (ready <= 0 || ready >= ex.tasks.size()) return full;
+            return BankSections.expectedUpTo(full, BankSections.labels(q.exercise), ready);
+        } catch (Throwable t) {
+            return full;
         }
     }
 
