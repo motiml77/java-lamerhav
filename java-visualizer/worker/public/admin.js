@@ -23,7 +23,7 @@ const NAV = [
 
 const ACTIONS = {
   'signin.teacher': 'כניסת מורה', 'signin.student': 'כניסת תלמיד', 'station.claim': 'עמדה חדשה חוברה', 'station.again': 'עמדה התחברה מחדש',
-  'station.bad-code': 'ניסיון חיבור עם קוד מורה שגוי', 'station.release': 'עמדה שוחררה', 'teacher.add': 'מורה נוסף', 'teacher.update': 'שינוי אצל מורה',
+  'station.bad-code': 'ניסיון חיבור עם קוד מורה שגוי', 'station.release': 'עמדה שוחררה', 'station.rename': 'שם של מחשב שונה', 'teacher.add': 'מורה נוסף', 'teacher.update': 'שינוי אצל מורה',
   'teacher.new-code': 'קוד מורה חדש', 'request.teacher': 'בקשת הרשאת מורה', 'request.seats': 'בקשת עמדות נוספות', 'request.release': 'בקשה לשחרר מחשב',
   'request.decline': 'בקשה נדחתה', 'student.grant': 'הענקת גישה לתלמיד', 'student.revoke': 'ביטול גישה לתלמיד', 'session.revoke': 'מחשב נותק',
   'payment.paid': 'תשלום התקבל', 'payment.seats': 'חבילת עמדות נקנתה', 'payment.refunded': 'החזר כספי', 'payment.failed': 'תשלום נכשל', settings: 'שינוי בהגדרות',

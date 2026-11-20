@@ -465,7 +465,7 @@ async function claim(request, env) {
       t.update('stations/' + stationId, {
         tokenHash: hash, tokens: uniq(stationTokens(st)).slice(0, STATION_TOKENS - 1),
         machine: b.machine, machines: uniq([b.machine].concat(stationMachines(st))).slice(0, STATION_MACHINES),
-        name, lastSeen: at, client: clip(b.client, 60), againAt: at, againCount: (st.againCount || 0) + 1,
+        name: st.teacherNamed ? st.name : name, lastSeen: at, client: clip(b.client, 60), againAt: at, againCount: (st.againCount || 0) + 1,
       });
       return { status: 'ok', stationId, teacher, again: true, same };
     }

@@ -76,9 +76,25 @@ function stationsPane() {
       h('td', null, s.pending ? pill('blue', s.pending === 1 ? 'הגשה אחת ממתינה' : `${s.pending} הגשות ממתינות`) : h('span', { class: 'muted' }, 'אין')),
       h('td', null, h('div', { class: 'acts' },
         h('button', { type: 'button', class: 'btn sm', onclick: () => openRow('st', s.id) }, 'הגשות'),
+        h('button', { type: 'button', class: 'btn sm', id: 'rename-st-' + s.id, onclick: () => { S.ask = { kind: 'rename', id: s.id }; render(); } }, 'שינוי שם'),
         r.left > 0
           ? h('button', { type: 'button', class: 'btn sm danger', onclick: () => { S.ask = { kind: 'release', id: s.id }; render(); } }, 'שחרור')
           : h('button', { type: 'button', class: 'btn sm', onclick: () => onRelease && onRelease(s) }, 'בקשה לשחרר')))));
+    if (S.ask && S.ask.kind === 'rename' && S.ask.id === s.id) {
+      const inp = h('input', { class: 'field sm grow', id: 'rename-st', value: s.name, 'aria-label': 'שם חדש למחשב', maxlength: '60' });
+      const save = h('button', { type: 'button', class: 'btn sm primary' }, 'שמירה');
+      save.onclick = () => busy(save, async () => {
+        const name = inp.value.trim();
+        if (!name) { inp.focus(); return; }
+        await api('POST', '/v1/me/station/rename', { id: s.id, name });
+        S.ask = null; await reload(true); toast(`השם נשמר: ״${name}״`);
+      });
+      inp.onkeydown = e => { if (e.key === 'Enter') save.click(); if (e.key === 'Escape') { S.ask = null; render(); } };
+      rows.push(h('tr', null, h('td', { colspan: '4' }, h('div', { class: 'confirm calm' },
+        h('span', null, 'שם חדש:'), inp, save, h('button', { type: 'button', class: 'btn sm ghost', onclick: () => { S.ask = null; render(); } }, 'ביטול'),
+        h('span', { class: 'small muted', style: { flexBasis: '100%' } }, 'השם יופיע גם במחשב עצמו (בתחתית מאגר השאלות) בפעם הבאה שהמאגר נפתח בו, וגם בהגשות החדשות ממנו.')))));
+      setTimeout(() => { const el = root.querySelector('#rename-st'); if (el) { el.focus(); el.select(); } }, 0);
+    }
     if (S.ask && S.ask.kind === 'release' && S.ask.id === s.id) {
       const go = h('button', { type: 'button', class: 'btn sm danger' }, 'שחרור');
       go.onclick = () => busy(go, async () => {

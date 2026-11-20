@@ -288,6 +288,7 @@ button.g:focus-visible { outline: 3px solid #9DBBF7; outline-offset: 1px; }
 .acts { display: flex; gap: 6px; justify-content: flex-end; }
 .confirm { background: #FDECEA; border-radius: 10px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 14.5px; }
 .confirm .grow { flex: 1 1 200px; }
+.confirm.calm { background: var(--line2); }
 .sw { display: inline-flex; align-items: center; gap: 8px; font: 600 14px 'Assistant', sans-serif; cursor: pointer; background: none; border: 0; color: var(--ink); padding: 4px; border-radius: 8px; }
 .sw i { width: 36px; height: 20px; border-radius: 999px; background: var(--field); position: relative; flex: none; }
 .sw i::after { content: ""; position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }

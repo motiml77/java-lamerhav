@@ -379,6 +379,23 @@ await test('בידוד: מורה אחר לא רואה, לא פותח ולא מו
   assert.equal((await call('GET', '/v1/me/console', { token: await idToken('noam@test.dev') })).status, 403);
 });
 
+await test('שינוי שם של מחשב במעבדה: המורה משנה; השם מגיע למחשב (בבדיקה מול השרת) ונשאר גם כשהמחשב מתחבר שוב עם השם הישן', async () => {
+  assert.equal((await call('POST', '/v1/me/station/rename', { token: david, body: { id: stationId, name: 'x' } })).status, 404, 'מורה אחר');
+  assert.equal((await call('POST', '/v1/me/station/rename', { token: sara, body: { id: stationId, name: '   ' } })).status, 400, 'שם ריק');
+  const r = await call('POST', '/v1/me/station/rename', { token: sara, body: { id: stationId, name: '  מעבדה 3 ·  עמדה 7 ' } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.name, 'מעבדה 3 · עמדה 7');
+  const c = await call('GET', '/v1/me/console', { token: sara });
+  assert.equal(c.body.stations.find(x => x.id === stationId).name, 'מעבדה 3 · עמדה 7');
+  const chk = await call('POST', '/v1/access/check', { body: { token: station.token, machine: station.machine } });
+  assert.equal(chk.body.station.name, 'מעבדה 3 · עמדה 7');
+  assert.equal(chk.body.profile.name, 'מעבדה 3 · עמדה 7');
+  const again = await call('POST', '/v1/station/claim', { body: { code: codes['sara@test.dev'], name: 'עמדה 2', machine: station.machine, client: 'test' } });
+  assert.equal(again.body.status, 'ok');
+  assert.equal(again.body.station.name, 'מעבדה 3 · עמדה 7', 'השם של המורה נשאר');
+  station.token = again.body.token;
+});
+
 await test('מעבר למורה אחר: צריך אישור (replace); אצל המורה הקודם — "עזב", וההגשות נשארות', async () => {
   const ask = await call('POST', '/v1/student/join', { headers: plugin(ariel), body: { code: codes['david@test.dev'] } });
   assert.equal(ask.body.status, 'replace');

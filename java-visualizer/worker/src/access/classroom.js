@@ -555,6 +555,25 @@ async function releaseStation(request, env) {
   return { ok: true, already: !!out.already };
 }
 
+/** שינוי השם של מחשב במעבדה (המורה, מעמדת הניהול). השם נשמר גם כשהמחשב מתחבר שוב עם שם אחר (teacherNamed),
+ *  ומופיע במחשב עצמו (בשורה שבתחתית המאגר) בבדיקה הבאה שלו מול השרת */
+async function renameStation(request, env) {
+  const u = await teacherUser(request, env);
+  const b = await readJson(request);
+  const store = db(env);
+  const id = clip(b.id, 64);
+  const name = clip(String(b.name || '').replace(/\s+/g, ' ').trim(), 60);
+  if (!name) throw new Fail(400, 'name', 'כתבו שם למחשב — למשל "מעבדה 2 · עמדה 14".');
+  const st = await store.get('stations/' + id);
+  if (!st || st.teacher !== u.email || !st.active) throw new Fail(404, 'not_found', 'המחשב לא נמצא ברשימה שלך.');
+  if (st.name === name) return { ok: true, same: true };
+  const mine = await store.query('stations', { where: [['teacher', '==', u.email]] });
+  if (mine.some(x => x.active && x._id !== id && x.name === name)) throw new Fail(400, 'exists', 'כבר יש מחשב בשם הזה.');
+  await store.merge('stations/' + id, { name, teacherNamed: true, renamedAt: nowIso() });
+  await log(store, u.email, 'station.rename', u.email, `${st.name || ''} ← ${name}`);
+  return { ok: true, name };
+}
+
 /** כיתות: יצירה, שינוי שם, מחיקה (עם כל התלמידים והעבודות — בשלבים: {done:false} → הדף קורא שוב) */
 async function classOp(request, env) {
   const u = await teacherUser(request, env);
@@ -710,6 +729,7 @@ export const CLASSROOM_ROUTES = {
   'POST /v1/me/submission/delete': deleteSubmission,
   'POST /v1/me/submission/grade': gradeSubmission,
   'POST /v1/me/station/release': releaseStation,
+  'POST /v1/me/station/rename': renameStation,
   'POST /v1/me/class': classOp,
   'POST /v1/me/member': memberOp,
   'POST /v1/me/settings': teacherSettings,

@@ -161,6 +161,21 @@ await step('מחיקת הגשה של עמדה, ושחרור עמדה (אישור
   assert.ok(await page.locator('text=שחרורים החודש: 1 מתוך 5').count());
 });
 
+await step('שינוי שם של מחשב: עורך בתוך השורה, Enter שומר, והשם החדש ברשימה', async () => {
+  const row = page.locator('.con-table tbody tr').first();
+  const old = (await row.locator('td b').first().textContent()).trim();
+  await row.locator('button:has-text("שינוי שם")').click();
+  await page.waitForSelector('#rename-st');
+  assert.equal(await page.inputValue('#rename-st'), old);
+  await page.fill('#rename-st', 'מעבדה 3 · עמדה 7');
+  await shot(page, 'c04b-station-rename');
+  await page.press('#rename-st', 'Enter');
+  await page.waitForSelector('.toast:has-text("השם נשמר")');
+  assert.ok(await page.locator('.con-table tbody tr:has-text("מעבדה 3 · עמדה 7")').count());
+  assert.equal(await page.locator('#rename-st').count(), 0);
+  await shot(page, 'c04c-station-renamed');
+});
+
 await step('טאב תלמידים: כיתות בצד, "בלי כיתה", ותרגילים של תלמיד עם בדיקת ההרצה', async () => {
   await page.click('#tab-su');
   await page.waitForSelector('.folders');
