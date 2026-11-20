@@ -1,6 +1,7 @@
 // עמדת הניהול של המורה (בדף /account): שני טאבים — "מחשבי המעבדה" ו"תלמידים" — וחלונית ההגשות עם הקוד ובדיקת ההרצה.
 // השרת: src/access/classroom.js (GET /v1/me/console וכו'). הכול נבנה עם h() — טקסט תמיד כטקסט (אין הזרקת קוד מנתונים של תלמידים).
 import { api, h, icon, ICONS, ago, fmtDate, daysSince, busy, toast } from '/static/common.js';
+import { attachPreview, hidePreview } from '/static/preview.js';
 
 const S = { tab: 'st', folder: 'all', open: null, subs: [], cur: null, curData: null, fileIdx: 0, ask: null, renaming: false, adding: false, q: '',
   view: 'students', onlyNew: false };
@@ -38,6 +39,7 @@ function inFolder(f) { return data.students.filter(s => f === 'all' || s.classId
 function seenText(iso) { return daysSince(iso) > 30 ? 'לא נראה ' + daysSince(iso) + ' יום' : 'נראה ' + ago(iso); }
 
 function render() {
+  hidePreview();
   const t = data.teacher;
   const newSt = data.stations.reduce((n, s) => n + s.unseen, 0);
   const newSu = data.students.reduce((n, s) => n + (s.unseen || 0), 0);
@@ -71,7 +73,7 @@ function stationsPane() {
   for (const s of list) {
     const sel = S.open && S.open.kind === 'st' && S.open.id === s.id;
     rows.push(h('tr', { class: sel ? 'sel' : null },
-      h('td', null, h('b', null, s.name), h('div', { class: 'sub' }, s.client || '')),
+      h('td', { title: s.client || '' }, h('b', null, s.name)),
       h('td', null, pill(daysSince(s.lastSeen) > 30 ? 'orange' : 'green', seenText(s.lastSeen))),
       h('td', null, s.pending ? pill('blue', s.pending === 1 ? 'הגשה אחת ממתינה' : `${s.pending} הגשות ממתינות`) : h('span', { class: 'muted' }, 'אין')),
       h('td', null, h('div', { class: 'acts' },
@@ -112,7 +114,7 @@ function stationsPane() {
       h('span', { class: 'small muted' }, `מחשב חדש מתחבר בחלון "עמדת מחשב" עם הקוד ${data.teacher.code}`),
       h('span', { class: 'small muted' }, `שחרורים החודש: ${r.used} מתוך ${r.limit}`)),
     data.stations.length
-      ? h('div', { class: 'tablewrap' }, h('table', { class: 'con-table' },
+      ? h('div', { class: 'tablewrap' }, h('table', { class: 'con-table compact', id: 'st-table' },
         h('thead', null, h('tr', null, ['מחשב', 'מצב', 'הגשות', ''].map(x => h('th', null, x)))), h('tbody', null, rows)))
       : h('div', { class: 'empty' }, 'עוד אין מחשבים מחוברים. בכל מחשב במעבדה: בחלון הכניסה של DSViz בוחרים "עמדת מחשב" ומקלידים את הקוד.'));
 }
@@ -290,8 +292,10 @@ function exercisesTable() {
     exs.map(e => {
       const got = active.filter(s => e.rows.has(s.email)).length;
       const fresh = Array.from(e.rows.values()).filter(w => !w.seen).length;
-      return h('th', { class: 'gcol', scope: 'col', title: [e.title, e.topic, e.level].filter(Boolean).join(' · ') + ` — הגישו ${got} מתוך ${active.length}` },
-        h('span', { class: 'gt' }, e.title), h('span', { class: 'gc' }, `${got}/${active.length}`, newDot(fresh)));
+      const bankId = e.key.startsWith('כותרת:') ? '' : e.key;
+      // תרגיל מהמאגר: מעבר עם העכבר על השם — השאלה כמו שהתלמיד רואה אותה (preview.js), ולכן בלי title של הדפדפן
+      return h('th', { class: 'gcol', scope: 'col', title: bankId ? null : [e.title, e.topic, e.level].filter(Boolean).join(' · ') + ` — הגישו ${got} מתוך ${active.length}` },
+        attachPreview(h('span', { class: 'gt' }, e.title), { source: 'bank', bankId }, 'java'), h('span', { class: 'gc' }, `${got}/${active.length}`, newDot(fresh)));
     }));
   const rows = who.map(s => {
     const mine = exs.filter(e => e.rows.has(s.email)).length;
@@ -376,8 +380,10 @@ function detailPane() {
     h('span', { class: 'small muted' }, S.subs.length ? (S.subs.length === 1 ? 'הגשה אחת' : `${S.subs.length} הגשות`) + (st ? ' ממתינות' : '') : (st ? 'אין הגשות שממתינות' : 'עוד לא הוגש כלום'))));
   for (const x of S.subs) {
     list.append(h('button', { type: 'button', class: 'd-item', 'aria-current': String(x.id === S.cur), onclick: () => openSub(x.id) },
-      h('span', { class: 't' }, exTitle(x)),
-      h('span', { class: 'm' }, ago(x.createdAt), st ? ' · ' + x.who : '', x.n > 1 ? ` · הוגש ${x.n} פעמים` : '', x.seen ? null : pill('blue', 'חדש')),
+      // מעמדת מחשב: השם שהתלמיד כתב בהגשה — בשורה משלו, ראשון (בעמדה אחת עובדים כמה תלמידים)
+      st ? h('span', { class: 'who' }, h('span', { class: 'lbl' }, 'מגיש:'), h('b', null, x.who || '—')) : null,
+      attachPreview(h('span', { class: 't' }, exTitle(x)), x.exercise, x.lang),
+      h('span', { class: 'm' }, ago(x.createdAt), x.n > 1 ? ` · הוגש ${x.n} פעמים` : '', x.seen ? null : pill('blue', 'חדש')),
       h('span', { class: 'm' }, resultPill(checkResult(x.check)), x.grade != null ? pill('purple', 'ציון ' + x.grade) : null)));
   }
   if (st && S.subs.length > 1) {
@@ -398,7 +404,7 @@ function codePane(st) {
     box.append(h('div', { class: 'empty' }, S.subs.length ? 'רגע…' : (st ? 'אין הגשות שממתינות מהמחשב הזה.' : 'כשתהיה הגשה, הקוד יופיע כאן.')));
   } else {
     const x = d.submission, c = x.check || {};
-    const top = h('div', { class: 'd-top' }, h('b', null, exTitle(x)),
+    const top = h('div', { class: 'd-top' }, attachPreview(h('b', null, exTitle(x)), x.exercise, x.lang),
       x.exercise.topic ? pill('gray', x.exercise.topic) : null, x.exercise.level ? pill('gray', x.exercise.level) : null,
       c.compiles === true ? pill('green', 'מתקמפל') : c.compiles === false ? pill('red', 'לא מתקמפל') : null,
       c.outputMatch === true ? pill('green', 'הפלט תואם') : c.outputMatch === false ? pill('orange', 'הפלט שונה') : null,

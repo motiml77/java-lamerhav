@@ -133,6 +133,8 @@ await step('המורה נכנס ל-/account → עמדת הניהול: הקוד,
 await step('הגשות של עמדה: שם המגיש, הקוד, והפלט של התלמיד מול הפלט הרצוי — שורה שונה מסומנת', async () => {
   await page.click('tr:has-text("עמדה 1") button:has-text("הגשות")');
   await page.waitForSelector('pre.code');
+  // ברשימה: שם המגיש (מה שהתלמיד כתב בהגשה מהעמדה) בשורה משלו, לפני שם התרגיל
+  assert.deepEqual((await page.locator('.d-item .who b').allTextContents()).sort(), ['אריאל', 'נועם']);
   await page.click('.d-item:has-text("סכום תור")');
   await page.waitForSelector('pre.code:has-text("SumQueue")');
   assert.ok((await page.locator('pre.code').textContent()).includes('SumQueue'));
@@ -140,6 +142,16 @@ await step('הגשות של עמדה: שם המגיש, הקוד, והפלט של
   assert.ok(await page.locator('text=מגיש: נועם').count());
   assert.equal(await page.locator('.file').count(), 2, 'שני קבצים — לשוניות');
   await shot(page, 'c02-station-submission');
+  // מעבר עם העכבר על שם התרגיל: השאלה מהמאגר כמו שהתלמיד רואה אותה (מהעותק שבשרת — C# כי ההגשה ב-C#), עם הציור של התור
+  await page.hover('.d-top b.pv-anchor');
+  await page.waitForSelector('#ex-preview .pv-sec');
+  const pv = await page.textContent('#ex-preview');
+  assert.match(pv, /סעיף א'/);
+  assert.match(pv, /C#/);
+  assert.ok(await page.locator('#ex-preview .pv-queue .pv-cell').count() > 1, 'הציור של התור');
+  await shot(page, 'c02b-exercise-preview');
+  await page.mouse.move(5, 5);
+  await page.waitForSelector('#ex-preview', { state: 'detached' });
   await page.click('.d-item:has-text("מחיקת זוגיים")');
   await page.waitForSelector('text=הקוד לא התקמפל');
   assert.ok(await page.locator('.ln.bad:has-text("חסר ;")').count());
