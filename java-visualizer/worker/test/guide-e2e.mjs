@@ -228,6 +228,14 @@ try {
     await snap(tp, 'b10-console-student-work', 'section.con', { work: 'tr:has-text("אריאל כהן") button:has-text("תרגילים")', grade: '#grade-in', save: '#grade-save' }, 0);
   });
 
+  await step('הדף של המורה: שלוש קטגוריות — "קוד ועמדות"', async () => {
+    await tp.click('#acc-seats');
+    await tp.waitForSelector('#pane-seats .codebox');
+    await sleep(400);
+    await snap(tp, 'b11-account-seats', 'main', { work: '#acc-work', seats: '#acc-seats', me: '#acc-me', copy: '#pane-seats .btn.primary' }, 0);
+    await tp.click('#acc-work');
+  });
+
   const rc = await Promise.race([exited, sleep(240000).then(() => 'timeout')]);
   assert.equal(rc, 0, 'gate.sh: ' + rc);
   assert.deepEqual(errors, [], 'שגיאות JavaScript בדפים');
