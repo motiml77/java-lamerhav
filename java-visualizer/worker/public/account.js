@@ -218,6 +218,61 @@ function devicesCard() {
     }) : h('div', { class: 'empty' }, 'אין מחשבים מחוברים.')));
 }
 
+// ------------------------------------------------------------------ מורה במרכז הבקרה: שלוש קטגוריות
+
+const ACC_TABS = [['work', 'עבודות התלמידים'], ['seats', 'קוד ועמדות'], ['me', 'החשבון שלי']];
+let accTab = '';
+
+/** הדף של המורה במרכז הבקרה, בשלוש קטגוריות: עבודות התלמידים (ההגשות — נפתח ראשון), קוד ועמדות, והחשבון שלי.
+ *  הקטגוריה שנבחרה נשמרת בכתובת (#seats / #me), כך שרענון וקישור חוזרים אליה */
+function classroomTeacher(con) {
+  const t = me.teacher;
+  const want = (location.hash || '').slice(1);
+  if (!accTab) accTab = ACC_TABS.some(x => x[0] === want) ? want : 'work';
+  const panes = {
+    work: h('div', { class: 'acc-pane', id: 'pane-work' }, con),
+    seats: h('div', { class: 'acc-pane', id: 'pane-seats' }, h('div', { class: 'grid2' }, ...seatsCards(t)), packagesCard()),
+    me: h('div', { class: 'acc-pane', id: 'pane-me' }, h('div', { class: 'grid2' }, requestsCard() || h('section', { class: 'card' }, h('h2', null, 'הבקשות שלי'),
+      h('p', { class: 'muted' }, 'אין בקשות. בקשה לשחרר מחשב שולחים מהשורה שלו בטאב "עבודות התלמידים", כשנגמרו השחרורים של החודש.')), devicesCard())),
+  };
+  const tabs = h('div', { class: 'acc-tabs', role: 'tablist', 'aria-label': 'קטגוריות' });
+  const show = id => {
+    accTab = id;
+    for (const [k, el] of Object.entries(panes)) el.hidden = k !== id;
+    for (const b of tabs.children) b.setAttribute('aria-selected', String(b.dataset.tab === id));
+    history.replaceState(null, '', id === 'work' ? location.pathname + location.search : '#' + id);
+  };
+  for (const [id, label] of ACC_TABS) {
+    tabs.append(h('button', { type: 'button', role: 'tab', class: 'acc-tab', id: 'acc-' + id, 'data-tab': id, onclick: () => show(id) },
+      label, id === 'work' ? h('span', { class: 'newdot', id: 'acc-new', hidden: true }) : null));
+  }
+  setTimeout(() => show(accTab), 0);
+  return [tabs, ...Object.values(panes)];
+}
+
+/** קוד המורה (עם העתקה) והעמדות שבשימוש — הפרטים הכלליים, מחוץ לעבודה היומיומית */
+function seatsCards(t) {
+  const copy = h('button', { type: 'button', class: 'btn primary grow' }, 'העתקת הקוד');
+  copy.onclick = async () => { try { await navigator.clipboard.writeText(t.code); toast('הקוד הועתק'); } catch (e) { toast(t.code); } };
+  const free = Math.max(0, t.seats - t.used);
+  const pct = t.seats ? Math.min(100, Math.round(100 * t.used / t.seats)) : 100;
+  return [
+    h('section', { class: 'card' },
+      h('h2', null, 'קוד המורה'),
+      h('p', { class: 'muted' }, 'נותנים אותו לתלמידים (מצטרפים אליך אחרי הכניסה עם Google) ולמחשבי המעבדה (מקלידים אותו במסך "עמדת מחשב").'),
+      h('div', { class: 'codebox' }, h('span', { class: 'mono' }, t.code)),
+      h('div', { class: 'row' }, copy),
+      h('p', { class: 'small muted' }, 'הקוד קבוע — אותו קוד לכל השנים.')),
+    h('section', { class: 'card' },
+      h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'baseline' } }, h('h2', null, 'עמדות מחשב'),
+        h('span', { class: 'muted' }, h('b', { style: { color: 'var(--ink)', fontSize: '20px' } }, String(t.used)), ` מתוך ${t.seats} בשימוש`)),
+      h('span', { class: 'bar big ' + (free ? 'ok' : 'full') }, h('span', { style: { width: pct + '%' } })),
+      h('div', { class: 'small muted' }, free ? `נשארו ${free} היתרים פנויים` : 'כל ההיתרים בשימוש — מחשב חדש יקבל "אין עוד היתרים"'),
+      t.sends ? h('div', { class: 'small' }, 'שליחות תרגיל החודש (המורה וכל העמדות יחד): ', h('b', null, String(t.sends.n)), ` מתוך ${t.sends.limit}`) : null,
+      h('p', { class: 'small muted' }, 'רשימת המחשבים, שינוי שם ושחרור — בטאב "עבודות התלמידים", "מחשבי המעבדה".')),
+  ];
+}
+
 async function load() {
   me = await api('GET', '/v1/me');
   const badge = me.teacher ? h('span', { class: 'pill blue' }, 'מורה') : null;
@@ -228,13 +283,18 @@ async function load() {
     ? (me.teacher ? [h('div', { class: 'grid2' }, ...teacherCards(me.teacher)), h('div', { class: 'grid2' }, requestsCard() || h('span'), devicesCard())]
       : [h('div', { class: 'grid2' }, studentCard(), devicesCard())])
     : me.teacher
-      ? [con, h('div', { class: 'grid2' }, packagesCard(), requestsCard() || devicesCard()), me.requests.length ? h('div', { class: 'grid2' }, devicesCard()) : null]
+      ? classroomTeacher(con)
       : missing(me).reg ? [h('div', { class: 'grid2' }, detailsCard()), h('div', { class: 'grid2' }, studentCard(), devicesCard())]
         : [h('div', { class: 'grid2' }, detailsCard(), teacherLinkCard()), workCard() ? h('div', { class: 'grid2' }, workCard()) : null, h('div', { class: 'grid2' }, studentCard(), devicesCard())];
   if (me.teacher && !me.teacher.active) body.unshift(h('div', { class: 'warn-box' }, 'החשבון שלך כמורה הושבת — העמדות שלך ננעלות בבדיקה הבאה. פונים להנהלה.'));
   app.replaceChildren(topBar(user, { badge, onLogout: async () => { await logoutWeb(); location.reload(); } }), h('main', { class: 'page' }, head, ...body));
   if (me.classroom && me.teacher && me.teacher.active) {
-    try { await mountConsole(con, { requestRelease: s => requestDialog('release', s) }); } catch (e) { con.replaceChildren(h('div', { class: 'warn-box' }, e.message)); }
+    const dataChanged = d => {   // נקודה אדומה עם מספר ההגשות החדשות על הקטגוריה "עבודות התלמידים"
+      const n = d.stations.reduce((k, s) => k + (s.unseen || 0), 0) + d.students.reduce((k, s) => k + (s.unseen || 0), 0);
+      const dot = document.getElementById('acc-new');
+      if (dot) { dot.hidden = !n; dot.textContent = String(n); }
+    };
+    try { await mountConsole(con, { requestRelease: s => requestDialog('release', s), dataChanged }); } catch (e) { con.replaceChildren(h('div', { class: 'warn-box' }, e.message)); }
   } else if (me.teacher && me.classroom) con.remove();
 }
 

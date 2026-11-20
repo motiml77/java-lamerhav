@@ -102,11 +102,11 @@ async function studentJoin(request, env) {
   const store = db(env);
   const code = normalizeCode(b.code);
   if (!code) {
-    const lim = await badCodeLimit(env, request, true);
+    const lim = await badCodeLimit(env, request, true, request.headers.get('x-dsviz-machine') || u.email);
     await log(store, u.email, 'student.bad-code', '', 'קוד לא בפורמט' + (lim.count ? ` · ניסיון ${lim.count} בשעה הזו` : ''));
     return { ok: true, status: 'bad-code' };
   }
-  await badCodeLimit(env, request, false);
+  await badCodeLimit(env, request, false, request.headers.get('x-dsviz-machine') || u.email);
   const at = nowIso();
   const res = await store.tx(async t => {
     const c = await t.get('teacherCodes/' + code);
@@ -132,7 +132,7 @@ async function studentJoin(request, env) {
     return { status: 'ok', teacher, prev };
   });
   if (res.status === 'bad-code') {
-    const lim = await badCodeLimit(env, request, true);
+    const lim = await badCodeLimit(env, request, true, request.headers.get('x-dsviz-machine') || u.email);
     await log(store, u.email, 'student.bad-code', '', 'קוד: ' + code.slice(0, 3) + '?' + (lim.count ? ` · ניסיון ${lim.count} בשעה הזו` : ''));
     return { ok: true, status: 'bad-code' };
   }

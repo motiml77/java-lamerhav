@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import worker from '../src/index.js';
 import { systemPrompt } from '../src/prompt.js';
+import { badCodeLimit, BAD_CODE_PER_MACHINE } from '../src/access/index.js';
+import { reportLimit } from '../src/access/reports.js';
 
 const SAMPLE = {
   isExercise: true, problem: '', title: 'ספירת זוגיים במחסנית', summary: 'כתיבת פעולה על מחסנית.',
@@ -684,6 +686,20 @@ await test('האתר (/v1/site/exercise): רק מהכתובת של האתר, ב�
   // התוסף (/v1/exercise) עדיין דורש את המפתח
   const r = await call(exerciseRequest({ files: [{ bytes: PDF, name: 'a.pdf', type: 'application/pdf' }] }), env);
   assert.equal(r.status, 401);
+});
+
+await test('מעבדה מאחורי כתובת IP אחת: קוד שגוי ודיווחים נספרים לכל מחשב — מחשב שטעה 30 פעמים לא חוסם את שאר הכיתה', async () => {
+  const store = new Map();
+  const kv = { get: async k => store.get(k) ?? null, put: async (k, v) => { store.set(k, v); } };
+  const env = { USAGE: kv };
+  const req = machine => new Request('https://x/v1/station/claim', { method: 'POST', headers: Object.assign({ 'cf-connecting-ip': '203.0.113.7' }, machine ? { 'x-dsviz-machine': machine } : {}) });
+  for (let i = 0; i < BAD_CODE_PER_MACHINE; i++) await badCodeLimit(env, req(), true, 'pc-aaaaaaaaaaaaaaaa');
+  await assert.rejects(badCodeLimit(env, req(), false, 'pc-aaaaaaaaaaaaaaaa'), e => e.status === 429, 'המחשב שטעה — נחסם לשעה');
+  const other = await badCodeLimit(env, req(), false, 'pc-bbbbbbbbbbbbbbbb');
+  assert.equal(other.count, 0, 'מחשב אחר באותה רשת — לא נחסם');
+  for (let i = 0; i < 20; i++) await reportLimit(env, req('pc-cccccccccccccccc'));
+  await assert.rejects(reportLimit(env, req('pc-cccccccccccccccc')), e => e.status === 429, '20 דיווחים בשעה למחשב');
+  await reportLimit(env, req('pc-dddddddddddddddd'));   // מחשב אחר באותה רשת — עובר
 });
 
 console.log(`\n${n} בדיקות עברו`);

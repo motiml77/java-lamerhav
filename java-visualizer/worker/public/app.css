@@ -211,6 +211,21 @@ dialog.modal .in { padding: 24px; display: flex; flex-direction: column; gap: 14
 /* עמדת הניהול של המורה (console.js) */
 .con { gap: 16px; }
 .con-head { display: flex; flex-wrap: wrap; gap: 12px; }
+.con-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; padding: 6px 12px; border-radius: 12px; background: var(--line2); }
+.cs-item { display: inline-flex; align-items: center; gap: 8px; }
+.cs-item b { font-family: 'Rubik', sans-serif; font-size: 16px; font-variant-numeric: tabular-nums; }
+.cs-item b.hot { color: var(--red); }
+.cs-item .btn.sm { height: 26px; padding: 0 8px; font-size: 12.5px; }
+button.cs-item.link { border: 1px solid transparent; background: transparent; border-radius: 9px; padding: 2px 8px; font: inherit; color: inherit; cursor: pointer; }
+button.cs-item.link:hover:not(:disabled) { border-color: var(--blue); background: var(--blue-row); }
+button.cs-item.link:disabled { cursor: default; }
+button.cs-item.link:focus-visible { outline: 3px solid #9DBBF7; outline-offset: 2px; }
+/* הדף של המורה (מרכז הבקרה): שלוש קטגוריות */
+.acc-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 2px solid var(--line); }
+.acc-tab { border: 0; background: transparent; font: 700 16px 'Assistant', sans-serif; color: var(--muted); padding: 10px 14px; margin-bottom: -2px; border-bottom: 3px solid transparent; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.acc-tab[aria-selected="true"] { color: var(--blue); border-bottom-color: var(--blue); }
+.acc-tab:focus-visible { outline: 3px solid #9DBBF7; outline-offset: 2px; }
+.acc-pane { display: flex; flex-direction: column; gap: 20px; }
 .con-stat { border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 140px; }
 .con-stat b { font-family: 'Rubik', sans-serif; font-size: 20px; font-variant-numeric: tabular-nums; }
 .con-code { letter-spacing: 3px; font-size: 20px; }

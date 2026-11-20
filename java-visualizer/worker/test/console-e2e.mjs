@@ -504,6 +504,35 @@ await step('מסוף ההנהלה — "בדיקת מערכת": השרת בודק
   await adm.close();
 });
 
+await step('הדף של המורה בשלוש קטגוריות: עבודות התלמידים (ראשון), קוד ועמדות, החשבון שלי — כל אחת בנפרד', async () => {
+  // חלון חדש (הצעדים הקודמים נכנסו בחלון הזה כמנהל): המורה נכנס
+  const tctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2, locale: 'he-IL' });
+  tctx.on('page', p => p.on('pageerror', e => errors.push(String(e))));
+  const page = await tctx.newPage();
+  await page.goto(BASE + '/account');
+  await googlePopup(page, '.gbtn', 'sara.cohen@ort.org.il', 'שרה כהן');
+  await page.waitForSelector('#acc-work[aria-selected="true"]');
+  assert.ok(await page.locator('#pane-work .con-strip .con-code').isVisible(), 'בעבודה: שורה דקה עם הקוד');
+  assert.equal(await page.locator('#pane-seats').isVisible(), false);
+  assert.equal(await page.locator('.con-stat').count(), 0, 'בלי כרטיסי הפרטים הכלליים בעמוד ההגשות');
+  await shot(page, 'c22-account-work');
+  await page.click('#acc-seats');
+  await page.waitForSelector('#pane-seats .codebox');
+  assert.ok(await page.locator('#pane-seats:has-text("עוד עמדות מחשב")').isVisible());
+  assert.equal(await page.locator('#pane-work').isVisible(), false);
+  assert.match(page.url(), /#seats$/);
+  await shot(page, 'c23-account-seats');
+  await page.click('#acc-me');
+  await page.waitForSelector('#pane-me:has-text("המחשבים שלי")');
+  await shot(page, 'c24-account-me');
+  await page.reload();
+  await page.waitForSelector('#acc-me[aria-selected="true"]');
+  assert.ok(await page.locator('#pane-me').isVisible(), 'אחרי רענון — אותה קטגוריה');
+  await page.click('#acc-work');
+  await page.waitForSelector('#pane-work .con-tab');
+  await tctx.close();
+});
+
 await step('רוחב טלפון: אין גלילה לרוחב בעמדת הניהול', async () => {
   const pctx = await browser.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2, locale: 'he-IL' });
   const pp = await pctx.newPage();

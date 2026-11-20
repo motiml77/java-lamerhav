@@ -436,11 +436,11 @@ async function claim(request, env) {
   if (!name) throw new Fail(400, 'name', 'כתבו שם למחשב — למשל "מעבדה 2 · עמדה 14".');
   if (!code) {
     // קוד שלא בפורמט (לא 4 אותיות/ספרות מהקוד של המורה) — נרשם ונספר כמו קוד שגוי
-    const lim = await badCodeLimit(env, request, true);
+    const lim = await badCodeLimit(env, request, true, b.machine);
     await log(store, 'מחשב: ' + name, 'station.bad-code', '', badCodeDetail(b.code, '', lim));
     return { ok: true, status: 'bad-code' };
   }
-  await badCodeLimit(env, request, false);
+  await badCodeLimit(env, request, false, b.machine);
   const secret = randomToken(32);
   const hash = await sha256Hex(secret);
   const at = nowIso();
@@ -478,7 +478,7 @@ async function claim(request, env) {
     return { status: 'ok', stationId, teacher };
   });
   if (res.status === 'bad-code') {
-    const lim = await badCodeLimit(env, request, true);
+    const lim = await badCodeLimit(env, request, true, b.machine);
     // לאיזה מורה זה כנראה שייך: קוד של מורה ששונה בתו אחד (או שני תווים סמוכים שהתחלפו) — כמעט תמיד טעות הקלדה
     const near = await nearTeacher(store, code);
     await log(store, 'מחשב: ' + name, 'station.bad-code', near.join(', '),
@@ -498,17 +498,26 @@ async function claim(request, env) {
 /** קוד שגוי שוב ושוב מאותה כתובת: עד 30 בשעה (KV בשם USAGE, ואם אין — STATS) */
 /** מגבלת ניסיונות עם קוד שגוי (30 בשעה מאותה כתובת). מחזיר {count, src}: כמה ניסיונות שגויים מהכתובת הזו בשעה הזו,
  *  ו"מקור" — 4 תווים מטביעה של הכתובת (בלי לשמור את הכתובת עצמה), כדי לראות ביומן אם הניסיונות באים מאותו מקום */
-export async function badCodeLimit(env, request, failed) {
+export const BAD_CODE_PER_MACHINE = 30, BAD_CODE_PER_IP = 300;
+/**
+ * כיתה שלמה יוצאת לאינטרנט מאותה כתובת IP (הכתובת הפרטית של כל מחשב לא מגיעה לשרת). לכן המגבלה היא לכל מחשב (machine — המזהה
+ * של המחשב עצמו, כמו בחיבור עמדה), ולכתובת כולה רק תקרה גבוהה נגד ניחוש: מחשב אחד שטעה 30 פעמים לא חוסם את שאר המעבדה.
+ */
+export async function badCodeLimit(env, request, failed, machine) {
   const ip = request.headers.get('cf-connecting-ip') || 'local';
   const hour = new Date().toISOString().slice(0, 13);
   const src = (await sha256Hex('badcode-src|' + hour.slice(0, 10) + '|' + ip)).slice(0, 4);
   const kv = env.USAGE && typeof env.USAGE.get === 'function' ? env.USAGE : env.STATS && typeof env.STATS.get === 'function' ? env.STATS : null;
   if (!kv) return { count: 0, src };
-  const key = 'badcode:' + hour + ':' + ip;
-  const n = +(await kv.get(key)) || 0;
-  if (n >= 30) throw new Fail(429, 'rate', 'יותר מדי ניסיונות עם קוד שגוי. נסו שוב בעוד שעה.');
-  if (failed) await kv.put(key, String(n + 1), { expirationTtl: 7200 });
-  return { count: failed ? n + 1 : n, src };
+  const m = machine ? String(machine).slice(0, 200) : '';   // מזהה המחשב (עמדה), או המייל (תלמיד שמצטרף)
+  const ipKey = 'badcode:' + hour + ':' + ip, mKey = m ? 'badcode:' + hour + ':m:' + (await sha256Hex('badcode-m|' + m)).slice(0, 24) : '';
+  const [nIp, nM] = await Promise.all([kv.get(ipKey), mKey ? kv.get(mKey) : null]).then(v => v.map(x => +x || 0));
+  if (nIp >= BAD_CODE_PER_IP || (mKey && nM >= BAD_CODE_PER_MACHINE)) throw new Fail(429, 'rate', 'יותר מדי ניסיונות עם קוד שגוי. נסו שוב בעוד שעה.');
+  if (failed) {
+    await kv.put(ipKey, String(nIp + 1), { expirationTtl: 7200 });
+    if (mKey) await kv.put(mKey, String(nM + 1), { expirationTtl: 7200 });
+  }
+  return { count: failed ? (mKey ? nM : nIp) + 1 : (mKey ? nM : nIp), src };
 }
 
 /** מורים שהקוד שלהם קרוב לקוד שהוקלד: תו אחד שונה, או שני תווים סמוכים שהתחלפו (עד 3 מיילים) */

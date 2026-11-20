@@ -5,17 +5,19 @@ import { attachPreview, hidePreview } from '/static/preview.js';
 
 const S = { tab: 'st', folder: 'all', open: null, subs: [], cur: null, curData: null, fileIdx: 0, ask: null, renaming: false, adding: false, q: '',
   view: 'students', onlyNew: false };
-let data = null, root = null, onRelease = null;
+let data = null, root = null, onRelease = null, onData = null;
 
 /** מציג את עמדת הניהול בתוך container. requestRelease(station) — "בקשה לשחרר" להנהלה (כשנגמרו השחרורים של החודש) */
-export async function mountConsole(container, { requestRelease } = {}) {
+export async function mountConsole(container, { requestRelease, dataChanged } = {}) {
   root = container;
   onRelease = requestRelease;
+  onData = dataChanged;
   await reload();
 }
 
 async function reload(keepOpen) {
   data = await api('GET', '/v1/me/console');
+  if (onData) onData(data);
   if (!keepOpen) { S.open = null; S.cur = null; S.curData = null; }
   if (S.folder !== 'all' && S.folder !== '' && !data.classes.some(c => c.id === S.folder)) S.folder = 'all';
   render();
@@ -44,18 +46,18 @@ function render() {
   const newSt = data.stations.reduce((n, s) => n + s.unseen, 0);
   const newSu = data.students.reduce((n, s) => n + (s.unseen || 0), 0);
   const goTab = id => { S.tab = id; S.open = null; S.cur = null; S.curData = null; S.ask = null; S.renaming = false; S.adding = false; render(); };
+  // שורה דקה למעלה: רק מה שצריך בזמן העבודה — הקוד (לתת לתלמידים), ההגשות החדשות וההיתרים. הפרטים הכלליים — בטאב "קוד ועמדות" בדף
+  const copy = h('button', { type: 'button', class: 'btn sm ghost', id: 'copy-code' }, 'העתקה');
+  copy.onclick = async () => { try { await navigator.clipboard.writeText(t.code); toast('הקוד הועתק'); } catch (e) { toast(t.code); } };
   // "הגשות חדשות": לחיצה מובילה ישר למקום שבו הן מחכות (תלמידים — רק אלה עם הגשה חדשה; אחרת המחשבים)
-  const fresh = h('button', { type: 'button', class: 'con-stat link', id: 'stat-new', disabled: !(newSt + newSu),
+  const fresh = h('button', { type: 'button', class: 'cs-item link', id: 'stat-new', disabled: !(newSt + newSu),
     onclick: () => { if (newSu) { S.view = 'students'; S.folder = 'all'; S.onlyNew = true; goTab('su'); } else goTab('st'); } },
     h('span', { class: 'small muted' }, 'הגשות חדשות'), h('b', { class: newSt + newSu ? 'hot' : null }, String(newSt + newSu)),
     h('span', { class: 'small muted' }, newSt + newSu ? `${newSu} מתלמידים · ${newSt} ממחשבי המעבדה` : 'אין הגשות שמחכות'));
-  const head = h('div', { class: 'con-head' },
-    h('div', { class: 'con-stat' }, h('span', { class: 'small muted' }, 'הקוד שלי (קבוע)'), h('b', { class: 'mono con-code' }, t.code),
-      h('span', { class: 'small muted' }, 'נותנים אותו לתלמידים ולמחשבי המעבדה')),
+  const head = h('div', { class: 'con-strip' },
+    h('span', { class: 'cs-item' }, h('span', { class: 'small muted' }, 'הקוד שלי'), h('b', { class: 'mono con-code' }, t.code), copy),
     fresh,
-    h('div', { class: 'con-stat' }, h('span', { class: 'small muted' }, 'היתרים בשימוש'), h('b', null, `${t.used} מתוך ${t.seats}`),
-      h('span', { class: 'bar' }, h('span', { style: { width: (t.seats ? Math.min(100, Math.round(100 * t.used / t.seats)) : 100) + '%' } }))),
-    h('div', { class: 'con-stat' }, h('span', { class: 'small muted' }, 'תלמידים'), h('b', null, String(data.students.filter(s => !s.left).length))));
+    h('span', { class: 'cs-item' }, h('span', { class: 'small muted' }, 'היתרים בשימוש'), h('b', null, `${t.used} מתוך ${t.seats}`)));
   const tab = (id, label, n, k) => h('button', { type: 'button', role: 'tab', class: 'con-tab', 'aria-selected': String(S.tab === id), id: 'tab-' + id,
     onclick: () => { S.onlyNew = false; goTab(id); } }, label, h('span', { class: 'n' }, String(n)), newDot(k));
   const tabs = h('div', { class: 'con-tabs', role: 'tablist' }, tab('st', 'מחשבי המעבדה', data.stations.length, newSt), tab('su', 'תלמידים', data.students.length, newSu));

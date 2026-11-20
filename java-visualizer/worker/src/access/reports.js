@@ -20,16 +20,20 @@ const clip = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]
 const text = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, n);
 const KINDS = ['visual-run', 'crash', 'diagnose', 'manual'];
 const MAX_DIAG = 300 * 1024;
-const REPORTS_PER_HOUR = 20;
+const REPORTS_PER_HOUR = 20, REPORTS_PER_IP_HOUR = 400;
 
-async function reportLimit(env, request) {
+/** דיווחים: עד 20 בשעה לכל מחשב (המזהה של המחשב, X-DSViz-Machine), ותקרה גבוהה לכתובת IP — מעבדה שלמה יוצאת מאותה כתובת */
+export async function reportLimit(env, request) {
   const kv = env.USAGE && typeof env.USAGE.get === 'function' ? env.USAGE : env.STATS && typeof env.STATS.get === 'function' ? env.STATS : null;
   if (!kv) return;
   const ip = request.headers.get('cf-connecting-ip') || 'local';
-  const key = 'report:' + nowIso().slice(0, 13) + ':' + (await sha256Hex('report|' + ip)).slice(0, 20);
-  const n = +(await kv.get(key)) || 0;
-  if (n >= REPORTS_PER_HOUR) throw new Fail(429, 'rate', 'יותר מדי דיווחים מהמחשב הזה בשעה האחרונה. הדיווח יישלח שוב מאוחר יותר.');
-  await kv.put(key, String(n + 1), { expirationTtl: 7200 });
+  const machine = String(request.headers.get('x-dsviz-machine') || '');
+  const hour = nowIso().slice(0, 13);
+  const keys = [['report:' + hour + ':' + (await sha256Hex('report|' + ip)).slice(0, 20), machine ? REPORTS_PER_IP_HOUR : REPORTS_PER_HOUR]];
+  if (/^[A-Za-z0-9_-]{8,128}$/.test(machine)) keys.push(['report:' + hour + ':m:' + (await sha256Hex('report-m|' + machine)).slice(0, 20), REPORTS_PER_HOUR]);
+  const counts = await Promise.all(keys.map(([k]) => kv.get(k).then(v => +v || 0)));
+  if (keys.some(([, lim], i) => counts[i] >= lim)) throw new Fail(429, 'rate', 'יותר מדי דיווחים מהמחשב הזה בשעה האחרונה. הדיווח יישלח שוב מאוחר יותר.');
+  await Promise.all(keys.map(([k], i) => kv.put(k, String(counts[i] + 1), { expirationTtl: 7200 })));
 }
 
 /** מי שלח: לפי כרטיס הכניסה של המחשב (אם יש ובתוקף). בלי כרטיס — "לא מחובר" (גם זה מתקבל) */

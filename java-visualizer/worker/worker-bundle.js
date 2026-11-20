@@ -1243,6 +1243,11 @@ button.g:focus-visible { outline: 3px solid #9DBBF7; outline-offset: 1px; }
 .d-item .m { font-size: 12.5px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .d-code { display: flex; flex-direction: column; min-width: 0; }
 .d-code .d-top { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* \u05D4\u05DB\u05D5\u05EA\u05E8\u05EA \u05E9\u05DC \u05D4\u05D4\u05D2\u05E9\u05D4: \u05D4\u05EA\u05D2\u05D9\u05D5\u05EA (\u05E0\u05D5\u05E9\u05D0, \u05E8\u05DE\u05D4, \u05EA\u05D5\u05E6\u05D0\u05D4) \u05D5"\u05DE\u05D7\u05D9\u05E7\u05D4" \u2014 \u05E7\u05D8\u05E0\u05D5\u05EA, \u05DB\u05D3\u05D9 \u05E9\u05D4\u05E9\u05DD \u05E9\u05DC \u05D4\u05EA\u05E8\u05D2\u05D9\u05DC \u05D9\u05D1\u05DC\u05D5\u05D8 */
+.d-code .d-top { gap: 6px; }
+.d-code .d-top .pill { font-size: 11.5px; padding: 1px 8px; font-weight: 700; }
+.d-code .d-top .small { font-size: 12.5px; }
+.d-code .d-top .btn.sm { height: 28px; padding: 0 10px; font-size: 13px; border-radius: 8px; }
 .files { display: flex; gap: 4px; flex-wrap: wrap; padding: 8px 14px 0; }
 .file { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 3px 10px; font: 600 13px 'JetBrains Mono', monospace; cursor: pointer; direction: ltr; }
 .file[aria-current="true"] { background: var(--blue-soft); border-color: var(--blue); color: var(--blue-ink); }
