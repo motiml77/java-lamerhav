@@ -78,6 +78,8 @@ final class RecursionPanel extends JPanel {
     private List<Call> all = new ArrayList<Call>();            // כל הקריאות עד הצעד הנוכחי (גם main)
     private final List<Call> cards = new ArrayList<Call>();   // הכרטיסים שמצוירים (ברקורסיה כפולה — רק הדרך אל הקריאה הנוכחית)
     private final java.util.Set<Call> cardSet = new java.util.HashSet<Call>();   // אותם כרטיסים, לבדיקה מהירה
+    /** המסגרת סביב הקריאה בכרטיס של הקורא, לכל קריאה שמצוירת: card() ממלאת בזמן הציור, והחצים (שמצוירים אחריה) מתחברים אליה */
+    private final java.util.Map<Call, RoundRectangle2D.Double> frames = new java.util.HashMap<Call, RoundRectangle2D.Double>();
     private RecursionKind kind;
     /** הפס שמעל המעקב: איזו רקורסיה זו, הסבר קצר, ואיפה אנחנו עכשיו */
     final Banner banner = new Banner();
@@ -408,6 +410,7 @@ final class RecursionPanel extends JPanel {
             g.dispose();
             return;
         }
+        frames.clear();
         for (Call c : cards) card(g, c);
         // החצים מעל הכרטיסים: חץ הקריאה יוצא מהמסגרת של שורת הקריאה, וחץ התשובה חוזר אליה — שניהם נוגעים בתוך הכרטיס
         for (Call c : cards) if (c.parent != null && c.parent.shown && cardSet.contains(c.parent)) callArrow(g, c.parent, c);
@@ -494,8 +497,7 @@ final class RecursionPanel extends JPanel {
                 g.setColor(CUR_ROW);
                 g.fillRect(c.x + 3, y - 14, W - 6, ROW - 1);
             }
-            if (opensShownCall(c, e)) callFrame(g, c, y, current);
-            trailRow(g, c, e, y);
+            trailRow(g, c, e, y, current);
         }
 
         // מצב הקריאה — בעברית, מיושר לימין
@@ -529,7 +531,7 @@ final class RecursionPanel extends JPanel {
     }
 
     /** שורה אחת ביומן: "7  if (n <= 1)" ומימין תגית: true / false / #3 → 6 / מחזירה 24 */
-    private void trailRow(Graphics2D g, Call c, Entry e, int y) {
+    private void trailRow(Graphics2D g, Call c, Entry e, int y, boolean current) {
         String tag = null;
         Color tagColor = null;
         if (e.returned != null || e.returnedVoid) {
@@ -557,9 +559,16 @@ final class RecursionPanel extends JPanel {
         int tagW = 0;
         if (tag != null) {
             g.setFont(smallBold);
-            FontMetrics fm = g.getFontMetrics();
-            tag = fit(tag, fm, 130);
-            tagW = fm.stringWidth(tag) + 12;
+            FontMetrics tm = g.getFontMetrics();
+            tag = fit(tag, tm, 130);
+            tagW = tm.stringWidth(tag) + 12;
+        }
+        g.setFont(small);
+        FontMetrics fm = g.getFontMetrics();
+        String shown = fit(e.code, fm, W - 46 - tagW - (tag != null ? 6 : 0));
+        callFrames(g, c, e, y, shown, fm, current);   // המסגרת סביב הקריאה (מתחת לטקסט)
+        if (tag != null) {
+            g.setFont(smallBold);
             int tx = c.x + W - 8 - tagW;
             g.setColor(tagColor);
             g.fillRoundRect(tx, y - 13, tagW, 17, 17, 17);
@@ -567,11 +576,10 @@ final class RecursionPanel extends JPanel {
             g.drawString(tag, tx + 6, y);
         }
         g.setFont(small);
-        FontMetrics fm = g.getFontMetrics();
         g.setColor(MUTED);
         String num = String.valueOf(e.line);
         g.drawString(num, c.x + 28 - fm.stringWidth(num), y);
-        drawCode(g, fit(e.code, fm, W - 46 - tagW - (tag != null ? 6 : 0)), c.x + 34, y, fm);
+        drawCode(g, shown, c.x + 34, y, fm);
     }
 
     /** שורת קוד צבעונית: כל מקטע בצבע שלו (הגופן ברוחב קבוע, אז מתקדמים לפי מדידה) */
@@ -621,49 +629,80 @@ final class RecursionPanel extends JPanel {
 
     // ------------------------------------------------------------ חיצים
 
-    /** האם השורה הזו פתחה קריאה שהכרטיס שלה מצויר (ואז יש לה מסגרת, ממנה יוצא החץ) */
-    private boolean opensShownCall(Call c, Entry e) {
-        for (Call k : e.calls) if (k.parent == c && k.shown && cardSet.contains(k)) return true;
-        return false;
-    }
-
-    /** המסגרת של שורת הקריאה הרקורסיבית בכרטיס של הקורא — באותו מלבן של הדגשת השורה הנוכחית */
-    private void callFrame(Graphics2D g, Call c, int y, boolean current) {
-        RoundRectangle2D r = new RoundRectangle2D.Double(c.x + 3, y - 14, W - 6, ROW - 1, 9, 9);
-        if (!current) {
+    /**
+     * מסגרת סביב הקריאה עצמה בשורת הקוד (rec(n-1), לא כל השורה), לכל קריאה שהשורה פתחה והכרטיס שלה מצויר.
+     * המסגרת נרשמת ב-frames — ממנה יוצא חץ הקריאה, ואליה חוזר חץ התשובה. נחתכה השורה או שלא נמצא מקום לקריאה — מסגרת סביב כל השורה
+     */
+    private void callFrames(Graphics2D g, Call c, Entry e, int y, String shown, FontMetrics fm, boolean current) {
+        List<RoundRectangle2D.Double> rects = new ArrayList<RoundRectangle2D.Double>();
+        for (Call k : e.calls) {
+            if (k.parent != c || !k.shown || !cardSet.contains(k)) continue;
+            int idx = 0;   // הקריאה ה-idx-ית לאותה פעולה באותה שורה (fib(n-1) + fib(n-2))
+            for (Call o : e.calls) {
+                if (o == k) break;
+                if (o.method.equals(k.method)) idx++;
+            }
+            int[] span = callSpan(e.code, k.method, idx);
+            double x0, x1;
+            if (span != null && span[1] <= shown.length() && shown.regionMatches(0, e.code, 0, span[1])) {
+                x0 = c.x + 34 + fm.stringWidth(shown.substring(0, span[0])) - 1.5;
+                x1 = c.x + 34 + fm.stringWidth(shown.substring(0, span[1])) + 1.5;
+            } else {
+                x0 = c.x + 3;
+                x1 = c.x + W - 3;
+            }
+            RoundRectangle2D.Double r = new RoundRectangle2D.Double(x0, y - 12, x1 - x0, 17, 8, 8);
+            frames.put(k, r);
+            rects.add(r);
+        }
+        if (!current) {   // קודם כל הרקעים, ואז הקווים — מסגרת של שורה שלמה לא מכסה מסגרת של קריאה
             g.setColor(CALL_BG);
-            g.fill(r);
+            for (RoundRectangle2D.Double r : rects) g.fill(r);
         }
         g.setColor(CALL);
         g.setStroke(new BasicStroke(1.8f));
-        g.draw(r);
+        for (RoundRectangle2D.Double r : rects) g.draw(r);
     }
 
-    /** איזו שורה ביומן של הקורא פתחה את הקריאה הזו (ועוד מצוירת בכרטיס), או -1 */
-    private int callRow(Call parent, Call child) {
-        int from = Math.max(0, parent.trail.size() - MAX_TRAIL);
-        for (int i = from; i < parent.trail.size(); i++) if (parent.trail.get(i).calls.contains(child)) return i;
-        return -1;
+    /** [התחלה, סוף) של הקריאה ה-idx-ית (0 = הראשונה) ל-method בשורת קוד: השם והסוגריים עד הסוגר המתאים. null — לא נמצאה */
+    static int[] callSpan(String code, String method, int idx) {
+        int from = 0, found = -1;
+        while (method != null && !method.isEmpty()) {
+            int i = code.indexOf(method, from);
+            if (i < 0) return null;
+            from = i + 1;
+            if (i > 0 && Character.isJavaIdentifierPart(code.charAt(i - 1))) continue;   // סוף של שם ארוך יותר (myrec)
+            int p = i + method.length();
+            while (p < code.length() && code.charAt(p) == ' ') p++;
+            if (p >= code.length() || code.charAt(p) != '(') continue;
+            if (++found < idx) continue;
+            int depth = 0, q = p;
+            for (; q < code.length(); q++) {
+                char ch = code.charAt(q);
+                if (ch == '(') depth++;
+                else if (ch == ')' && --depth == 0) {
+                    q++;
+                    break;
+                }
+            }
+            return new int[] { i, Math.min(q, code.length()) };
+        }
+        return null;
     }
 
-    /** קו הבסיס של שורה ביומן, כמו ש-card מציירת אותה */
-    private static int rowBase(Call c, int i) {
-        int from = Math.max(0, c.trail.size() - MAX_TRAIL);
-        return c.y + HEAD + VARS + 15 + (from > 0 ? ROW : 0) + (i - from) * ROW;
-    }
-
-    /** קריאה: יוצאת מהמסגרת של שורת הקריאה בכרטיס של הקורא, שמאלה, למטה לאורך הכרטיס, ואל הכרטיס החדש */
+    /** קריאה: יוצאת מתחתית המסגרת של הקריאה (בצד שמאל שלה), שמאלה מתחת לשורה אל שפת הכרטיס, למטה לאורך הכרטיס, ואל הכרטיס החדש */
     private void callArrow(Graphics2D g, Call from, Call to) {
-        int y2 = to.y + 18, i = callRow(from, to);
+        int y2 = to.y + 18;
+        RoundRectangle2D.Double r = frames.get(to);
         g.setColor(CALL);
         g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         Path2D.Double p = new Path2D.Double();
-        if (i >= 0) {
-            double sy = rowBase(from, i) - 4.5;   // אמצע השורה
-            int lx = from.x - 10;
-            p.moveTo(from.x + 3, sy);
-            p.lineTo(lx, sy);
-            p.lineTo(lx, y2);
+        if (r != null) {
+            double lane = Math.min(r.x + 7, r.x + r.width / 2 - 5), ys = r.getMaxY() + 6;   // ys: הרצועה הריקה שבין השורה לשורה שאחריה
+            p.moveTo(lane, r.getMaxY());
+            p.lineTo(lane, ys);
+            p.lineTo(from.x - 10, ys);
+            p.lineTo(from.x - 10, y2);
         } else {   // השורה כבר גללה מהכרטיס (יותר מ-MAX_TRAIL שורות): כמו קודם, מתחתית הכרטיס
             int x = from.x + 18;
             p.moveTo(x, from.y + from.h);
@@ -674,13 +713,13 @@ final class RecursionPanel extends JPanel {
         head(g, to.x - 2, y2, 0);
     }
 
-    /** חזרה: מהכרטיס שסיים, ימינה ולמעלה, ובחזרה אל אותה מסגרת בכרטיס של הקורא — עם הערך שהוחזר */
+    /** חזרה: מהכרטיס שסיים, ימינה ולמעלה, פנימה מתחת לשורה ועד תחתית אותה מסגרת (בצד הימני שלה) — עם הערך שהוחזר */
     private void returnArrow(Graphics2D g, Call to, Call from) {
         int sx = from.x + W, sy = from.y + from.h - 14;
-        int rx = sx + 22, i = callRow(to, from);
-        double ty = i >= 0 ? rowBase(to, i) - 4.5 : to.y + to.h - 14;
-        int tip = i >= 0 ? to.x + W - 3 : to.x + W + 2;   // קצה החץ: הקצה הימני של המסגרת (או, בלי מסגרת, שפת הכרטיס)
-        if (i >= 0) {   // הקו האחרון, אל המסגרת, חוצה את קו החזרה של הקריאה שמעל — רווח לבן קטן בקו שנחצה, כדי שלא ייראו מחוברים
+        int rx = sx + 22;
+        RoundRectangle2D.Double r = frames.get(from);
+        double ty = r != null ? r.getMaxY() + 6 : to.y + to.h - 14;
+        if (r != null) {   // הקו האופקי חוצה את קו החזרה של הקריאה שמעל — רווח לבן קטן בקו שנחצה, כדי שלא ייראו מחוברים
             Path2D.Double gap = new Path2D.Double();
             gap.moveTo(rx - 6, ty);
             gap.lineTo(to.x + W + 3, ty);
@@ -694,10 +733,17 @@ final class RecursionPanel extends JPanel {
         p.moveTo(sx, sy);
         p.lineTo(rx, sy);
         p.lineTo(rx, ty);
-        p.lineTo(tip + 2, ty);
+        double lane = 0;
+        if (r != null) {
+            lane = Math.max(r.getMaxX() - 7, r.x + r.width / 2 + 5);
+            p.lineTo(lane, ty);
+        } else {
+            p.lineTo(to.x + W + 4, ty);
+        }
         g.draw(p);
         g.setStroke(new BasicStroke(2f));
-        head(g, tip, ty, Math.PI);
+        if (r != null) head(g, lane, r.getMaxY(), -Math.PI / 2, 6);   // החץ נכנס מלמטה אל המסגרת
+        else head(g, to.x + W + 2, ty, Math.PI);
         if (from.returned != null) {
             g.setFont(monoBold);
             FontMetrics fm = g.getFontMetrics();
@@ -717,10 +763,15 @@ final class RecursionPanel extends JPanel {
     }
 
     private static void head(Graphics2D g, double x, double y, double angle) {
+        head(g, x, y, angle, 9);
+    }
+
+    /** ראש חץ שהקצה שלו ב-(x, y), באורך len (ברירת מחדל 9), בכיוון angle (0 = ימינה, π = שמאלה, ‎-π/2‎ = למעלה) */
+    private static void head(Graphics2D g, double x, double y, double angle, double len) {
         Path2D.Double a = new Path2D.Double();
         a.moveTo(0, 0);
-        a.lineTo(-9, -5);
-        a.lineTo(-9, 5);
+        a.lineTo(-len, -len * 5 / 9);
+        a.lineTo(-len, len * 5 / 9);
         a.closePath();
         Graphics2D h = (Graphics2D) g.create();
         h.translate(x, y);
