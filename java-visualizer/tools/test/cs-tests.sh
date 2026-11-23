@@ -298,6 +298,13 @@ for spec in 'Fib:רקורסיה כפולה | פעולות Fib | עומק 4 | ק�
     java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/rec-$c.trace" > "$W/rec-$c.txt" 2>&1
     grep -qF -- "[רקורסיה: $want" "$W/rec-$c.txt" && echo "רקורסיה ב-C#: $c — $want" || { echo "רקורסיה ב-C#: $c חסר $want"; grep 'רקורסיה:' "$W/rec-$c.txt"; exit 1; }
 done
+# תנאי עצירה שגוי ב-C# (Sum(n - 2) מדלג על 0): אזהרה "הרקורסיה לא נעצרת" כבר מהצעדים (אף קריאה לא חזרה), ובלי "תנאי עצירה" על הקריאה שהתרסקה.
+# ב-C# הצעד מכיל את 60 המסגרות הפנימיות, אז העומק שמוצג הוא 60 והנוסח "אולי"
+viz recursion/cs/BadBase.cs --trace "$W/rec-BadBase.trace" > "$W/rec-BadBase.out" 2>&1 || true
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/rec-BadBase.trace" > "$W/rec-BadBase.txt" 2>&1
+grep -qF -- 'פעולות Sum | עומק 60 | קריאות 119 | עצירה [] | ⚠ אף קריאה לא חזרה — אולי לא נעצרת (עומק 60)' "$W/rec-BadBase.txt" \
+    && echo "רקורסיה ב-C#: BadBase — אזהרה \"לא נעצרת\" (אף קריאה לא חזרה)" || { echo "רקורסיה ב-C#: BadBase חסרה האזהרה"; grep 'רקורסיה:' "$W/rec-BadBase.txt"; exit 1; }
+! grep -q '⚠' "$W"/rec-Fib.txt "$W"/rec-SumTail.txt "$W"/rec-ListLen.txt "$W"/rec-EvenOdd.txt || { echo "רקורסיה ב-C#: אזהרה על רקורסיה תקינה"; exit 1; }
 # חץ "חוזרים לראש הלולאה": אותן חזרות כמו ב-Java (גם foreach, while עם סוגריים בשורה נפרדת, ו-continue)
 viz loops/cs/LoopBack.cs --trace "$W/loopback.trace" > "$W/loopback.out" 2>&1 || { cat "$W/loopback.out"; exit 1; }
 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/loopback.trace" > "$W/loopback.txt" 2>&1
@@ -310,6 +317,16 @@ done
 ! grep -q 'שורה 27 for: מ-26\|\[חזרה #[0-9]* שורה 41 \|\[חזרה #[0-9]* שורה 8 ' "$W/loopback.txt" \
     || { echo "חץ הלולאה ב-C#: חץ במקום שאין בו חזרה"; grep 'חזרה' "$W/loopback.txt"; exit 1; }
 echo "חץ \"חוזרים לראש הלולאה\" ב-C#: $(grep -c '^  \[חזרה #' "$W/loopback.txt") חזרות מסומנות"
+# "הלולאה לא רצה אף לא פעם אחת": אותן לולאות כמו ב-Java (while עם סוגריים בשורה נפרדת, for, foreach על מערך ריק, פנימית בסיבוב אחד, פעולה שנקראת פעמיים)
+viz loops/cs/LoopSkipSample.cs --trace "$W/loopskip.trace" > "$W/loopskip.out" 2>&1 || { cat "$W/loopskip.out"; exit 1; }
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/loopskip.trace" > "$W/loopskip.txt" 2>&1
+for want in 'שורה 18 while | while (k > 5)]' 'שורה 23 for | for (int i = 0; i < n; i++)]' 'שורה 27 foreach | foreach (int x in empty)]' \
+    'שורה 31 for | for (int b = 0; b < a; b++)]' 'שורה 9 for | for (int i = 0; i < n; i++)]'; do
+    grep -qF -- "$want" "$W/loopskip.txt" || { echo "לולאה שלא רצה ב-C#: חסר $want"; grep 'לולאה לא רצה' "$W/loopskip.txt"; exit 1; }
+done
+[ "$(grep -c '^  \[לולאה לא רצה' "$W/loopskip.txt")" = 5 ] && ! grep -q 'לולאה לא רצה #[0-9]* שורה \(30\|36\|39\|42\) ' "$W/loopskip.txt" \
+    || { echo "לולאה שלא רצה ב-C#: סימון במקום שגוי"; grep 'לולאה לא רצה' "$W/loopskip.txt"; exit 1; }
+echo "\"הלולאה לא רצה אף לא פעם אחת\" ב-C#: $(grep -c '^  \[לולאה לא רצה' "$W/loopskip.txt") לולאות מסומנות, ולא אלה שרצו"
 # קלט מהמקלדת (Console.ReadLine / Console.Read / Console.In): השורה שמחכה, מה שהוקלד כצעד INPUT, והפלט — כמו ב-Java.
 # בלי חלון: --input קובץ (או DSVIZ_INPUT) "מקליד" את השורות כשהתוכנית מחכה (UTF-8 — עברית בלי תלות בקידוד של שורת הפקודה)
 IN="$W/input"

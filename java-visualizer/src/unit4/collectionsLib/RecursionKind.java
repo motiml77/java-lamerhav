@@ -30,6 +30,7 @@ final class RecursionKind {
     int maxBranch;               // הכי הרבה קריאות רקורסיביות מקריאה אחת
     int maxDepth;                // העומק המקסימלי של הרקורסיה (1 = הקריאה הראשונה)
     int total;                   // כמה קריאות רקורסיביות היו בכלל
+    int returns;                 // כמה מהן חזרו בחזרה רגילה (RETURN). 0 — אף אחת לא הגיעה לתנאי עצירה
 
     private static int cachedSteps = -1;
     private static RecursionKind cached;
@@ -60,9 +61,9 @@ final class RecursionKind {
         return res;
     }
 
-    /** תנאי העצירה: קריאה רקורסיבית שהסתיימה בלי לפתוח קריאה רקורסיבית נוספת */
+    /** תנאי העצירה: קריאה רקורסיבית שחזרה בלי לפתוח קריאה רקורסיבית נוספת (לא קריאה שהתוכנית התרסקה בה) */
     boolean base(Call c) {
-        return in(c) && c.done && kids(c).isEmpty() && c.parent != null && in(c.parent);
+        return in(c) && c.done && c.viaReturn && kids(c).isEmpty() && c.parent != null && in(c.parent);
     }
 
     static RecursionKind classify(List<Call> all) {
@@ -89,6 +90,7 @@ final class RecursionKind {
         for (Call c : all) {
             if (!k.in(c)) continue;
             k.total++;
+            if (c.viaReturn) k.returns++;
             k.maxBranch = Math.max(k.maxBranch, k.kids(c).size());
             int d = 0;
             for (Call b = c; b != null && k.in(b); b = b.parent) d++;
@@ -171,6 +173,18 @@ final class RecursionKind {
         }
     }
 
+    /** מאיזה עומק (של קריאות מקוננות שעוד לא חזרו) חושדים שהרקורסיה לא נעצרת — אם אף קריאה לא חזרה */
+    static final int WARN_DEPTH = 20, LIKELY_DEPTH = 100;
+
+    /**
+     * חשד שהרקורסיה לא נעצרת (תנאי עצירה שגוי / חסר): בכל הצעדים שנרשמו אף קריאה רקורסיבית לא חזרה, והקריאות כבר מקוננות
+     * לעומק WARN_DEPTH ומעלה. מחזיר את העומק, או 0 אם אין חשד. מחושב מכל הצעדים שנרשמו (גם אלה שלפנינו) — לכן האזהרה מוצגת
+     * כבר מהקריאה הראשונה, ונעלמת כשאחת הקריאות כן חוזרת (רקורסיה עמוקה שנגמרת כמו שצריך)
+     */
+    int stuckDepth() {
+        return type != Type.NONE && returns == 0 && maxDepth >= WARN_DEPTH ? maxDepth : 0;
+    }
+
     /** משפט אחד שמסביר את הסוג */
     String explain() {
         switch (type) {
@@ -232,7 +246,9 @@ final class RecursionKind {
         List<Call> all = RecursionPanel.build(Recorder.stepCount() - 1, null);
         List<String> bases = new ArrayList<String>();
         for (Call c : all) if (k.base(c)) bases.add("#" + c.id + (c.returned != null ? "→" + c.returned : ""));
-        b.append(" | עצירה ").append(bases.size() > 6 ? bases.subList(0, 6) + "…" : bases.toString()).append("]\n");
+        b.append(" | עצירה ").append(bases.size() > 6 ? bases.subList(0, 6) + "…" : bases.toString());
+        if (k.stuckDepth() > 0) b.append(" | ⚠ אף קריאה לא חזרה — ").append(k.stuckDepth() >= LIKELY_DEPTH ? "כנראה לא נעצרת" : "אולי לא נעצרת").append(" (עומק ").append(k.stuckDepth()).append(")");
+        b.append("]\n");
         return b.toString();
     }
 }

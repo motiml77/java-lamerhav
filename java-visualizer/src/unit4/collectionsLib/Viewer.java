@@ -159,7 +159,7 @@ final class Viewer extends JFrame {
     /** האינדקסים (ב-Recorder) של צעדי הקלט — בשביל הצבע של מה שהוקלד, בפלט */
     private final List<Integer> inputSteps = new ArrayList<Integer>();
     private boolean inputShown, inputFocused, followEnd;
-    private int shownWait = -1, shownWaitStep = -1, pulse, errorAt = -1;
+    private int shownWait = -1, shownWaitStep = -1, pulse, blinkTick, errorAt = -1;
 
     private final List<JSplitPane> splits = new ArrayList<JSplitPane>();
     /** הגודל הרגיל של כל קו גרירה (חלק מהרוחב / הגובה), והשם שבו נשמר הגודל שהמשתמש בחר */
@@ -428,6 +428,11 @@ final class Viewer extends JFrame {
                 if (inputShown && code.inputWait > 0 && ++pulse % 2 == 0) {   // התגית "מחכה לקלט" נושמת
                     Rectangle r = CondPaint.lineRect(code, code.inputWait);
                     if (r != null) code.repaint(0, r.y - 6, code.getWidth(), r.height + 12);
+                }
+                if (recursionShown && recursion.warning() && ++blinkTick % 2 == 0) recursion.banner.repaint();   // הנורה של "הרקורסיה לא נעצרת" מהבהבת
+                if (code.skipLine > 0 && ++blinkTick % 2 == 0) {   // הנורה של "הלולאה לא רצה" מהבהבת
+                    Rectangle r = CondPaint.lineRect(code, code.skipLine);
+                    if (r != null) code.repaint(0, r.y - 8, code.getWidth(), r.height + 16);
                 }
             }
         }).start();
@@ -1133,6 +1138,15 @@ final class Viewer extends JFrame {
         code.inputTyped = code.inputStep ? typedOf(s) : null;
         code.inputLine = s.where == null ? -1 : s.where.line;
         code.loopLine = Recorder.lineMode ? LoopCard.tagLine(s) : -1;
+        // לולאה שלא רצה אף לא פעם אחת: נורה צהובה מהבהבת ליד שורת הלולאה (LoopSkip)
+        code.skipLine = -1;
+        if (Recorder.lineMode && codeLine > 0) {
+            try {
+                code.skipLine = LoopSkip.at(vis.get(p));
+            } catch (RuntimeException e) {
+                code.skipLine = -1;   // בלי האזהרה
+            }
+        }
         code.repaint();
         nextLine = -1;
         if (after && p + 1 < vis.size() && s.where != null) {   // השורה שתרוץ בצעד הבא — חץ קטן ועדין ליד מספר השורה
@@ -1343,6 +1357,8 @@ final class Viewer extends JFrame {
         }
         /** לולאה שלא נגמרת בצעד הזה: השורה שמסמנים בה "∞ הלולאה לא נגמרת" (או -1) — LoopCard */
         int loopLine = -1;
+        /** לולאה שלא רצה אף לא פעם אחת בצעד הזה: שורת הלולאה שמסמנים בנורה צהובה מהבהבת (או -1) — LoopSkip */
+        int skipLine = -1;
 
         @Override
         protected void paintComponent(Graphics g0) {
@@ -1362,7 +1378,7 @@ final class Viewer extends JFrame {
             } else {
                 super.paintComponent(g0);
             }
-            if (marks == null && call == null && !loopAnim.active() && inputWait < 0 && !inputStep && loopLine < 0) return;
+            if (marks == null && call == null && !loopAnim.active() && inputWait < 0 && !inputStep && loopLine < 0 && skipLine < 0) return;
             Graphics2D g = (Graphics2D) g0.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
@@ -1394,6 +1410,13 @@ final class Viewer extends JFrame {
                     LoopCard.paintTag(g, this, loopLine, used);
                 } catch (RuntimeException e) {
                     // בלי תגית הלולאה
+                }
+            }
+            if (skipLine > 0) {
+                try {
+                    LoopSkip.paint(g, this, skipLine, used, LoopSkip.blink(System.currentTimeMillis()));
+                } catch (RuntimeException e) {
+                    // בלי האזהרה של הלולאה
                 }
             }
             g.dispose();

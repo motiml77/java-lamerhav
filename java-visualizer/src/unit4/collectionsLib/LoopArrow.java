@@ -59,7 +59,7 @@ final class LoopArrow {
 
     private static final Map<String, List<Loop>> parsed = new HashMap<String, List<Loop>>();
 
-    private static synchronized List<Loop> loops(Frame f) {
+    static synchronized List<Loop> loops(Frame f) {
         String key = f.packagePath() + f.file;
         List<Loop> l = parsed.get(key);
         if (l == null) {

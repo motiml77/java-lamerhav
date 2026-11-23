@@ -74,6 +74,7 @@ public final class TraceViewer {
                 System.out.print(ObjCard.dump());
                 System.out.print(Poly.dump());
                 System.out.print(LoopArrow.dump());
+                System.out.print(LoopSkip.dump());
                 System.out.print(RecursionKind.dump());
                 System.out.print(Recorder.chainDump());
                 System.out.print(FrameViz.dump());

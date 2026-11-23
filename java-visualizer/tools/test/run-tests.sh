@@ -357,6 +357,22 @@ for spec in 'Fact:רקורסיה פשוטה | פעולות fact | עומק 4 | �
     grep -qF -- "[רקורסיה: $want" "$R/$c.txt" && echo "  ok  $c: $want" || { echo "  FAIL $c: $want"; grep 'רקורסיה:' "$R/$c.txt"; exit 1; }
 done
 
+echo "== 5ז1. \"הרקורסיה לא נעצרת\": תנאי עצירה שגוי (sum(n - 2) מדלג על 0) מזוהה כבר מהצעדים, לפני שהתוכנית מתרסקת; רקורסיה עמוקה שחוזרת — בלי אזהרה"
+for c in BadBase DeepOk; do
+    (cd "$R" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine $c > $c.txt 2>&1) || true
+done
+grep -qF -- 'פעולות sum | עומק ' "$R/BadBase.txt" && grep -qF -- 'עצירה [] | ⚠ אף קריאה לא חזרה — כנראה לא נעצרת (עומק' "$R/BadBase.txt" \
+    && echo "  ok  BadBase: אף קריאה לא חזרה, ולכן אזהרה (ובלי \"תנאי עצירה\" על הקריאה שהתרסקה)" \
+    || { echo "  FAIL BadBase: חסרה האזהרה"; grep 'רקורסיה:' "$R/BadBase.txt"; exit 1; }
+grep -qF -- '[רקורסיה: רקורסיה פשוטה | פעולות sum | עומק 61 | קריאות 61 | עצירה [#62→0]]' "$R/DeepOk.txt" && ! grep -q '⚠' "$R/DeepOk.txt" \
+    && echo "  ok  DeepOk: 61 קריאות מקוננות שחוזרות — בלי אזהרה" \
+    || { echo "  FAIL DeepOk: אזהרה על רקורסיה עמוקה שחוזרת"; grep 'רקורסיה:' "$R/DeepOk.txt"; exit 1; }
+! grep -q '⚠' "$R"/Fact.txt "$R"/Fib.txt "$R"/SumTail.txt "$R"/EvenOdd.txt "$R"/ListLen.txt "$R"/TreeCount.txt "$R"/PrintDown.txt \
+    && echo "  ok  אף רקורסיה תקינה לא קיבלה אזהרה" || { echo "  FAIL אזהרה על רקורסיה תקינה"; grep -l '⚠' "$R"/*.txt; exit 1; }
+javac -encoding UTF-8 -cp "$JAR" -d "$R" recursion/paint/RecursionWarnPaint.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$R:$JAR" unit4.collectionsLib.RecursionWarnPaint "$R/pics" > "$R/paint.txt" 2>&1 \
+    && grep -q MARK-END "$R/paint.txt" && grep '^  ok' "$R/paint.txt" || { cat "$R/paint.txt"; exit 1; }
+
 echo "== 5ז2. מעקב המשתנים לכל פעולה פעילה: הפעולה שרצה, ולכל פעולה שמחכה (גם ברקורסיה) — המשתנים שלה ברגע הזה"
 # [מסגרות #צעד: הפנימית{משתנים} ← מי שקרא לה{...} ← ... ← main{...} | המשפט] — מה שהרשימה במעקב המשתנים מציגה לכל פעולה
 FV="$W/framevars"
@@ -404,6 +420,26 @@ conds "$LB/out.txt" \
 javac -encoding UTF-8 -cp "$JAR" -d "$LB" loops/LoopArrowPaint.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$LB:$JAR" unit4.collectionsLib.LoopArrowPaint > "$LB/paint.txt" 2>&1 \
     && grep -q MARK-END "$LB/paint.txt" && grep '^  ok' "$LB/paint.txt" || { cat "$LB/paint.txt"; exit 1; }
+
+echo "== 5ח1. \"הלולאה לא רצה אף לא פעם אחת\": while / for / for-each שהתנאי שלהם לא התקיים, לולאה פנימית בסיבוב אחד, פעולה שנקראת פעמיים — והציור (נורה צהובה מהבהבת)"
+LS="$W/loopskip"
+mkdir -p "$LS"
+cp loops/LoopSkipSample.java "$LS/"
+javac -g -encoding UTF-8 -cp "$JAR" -d "$LS" "$LS/LoopSkipSample.java"
+(cd "$LS" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine LoopSkipSample > out.txt 2>&1) || true
+conds "$LS/out.txt" \
+    'שורה 15 while | while (k > 5)]' \
+    'שורה 19 for | for (int i = 0; i < n; i++)]' \
+    'שורה 23 foreach | for (int x : empty)]' \
+    'שורה 27 for | for (int b = 0; b < a; b++)]' \
+    'שורה 6 for | for (int i = 0; i < n; i++)]'
+# רק חמש לולאות שלא רצו: לא החיצונית (26), לא do-while (32), לא הלולאה שרצה (35), לא גוף באותה שורה (38), ולא count(2)
+[ "$(grep -c '^  \[לולאה לא רצה' "$LS/out.txt")" = 5 ] && ! grep -q 'לולאה לא רצה #[0-9]* שורה \(26\|32\|35\|38\) ' "$LS/out.txt" \
+    && echo "  ok  לולאה שרצה / do-while / גוף בשורה אחת / החיצונית — לא מסומנות (5 סימונים בלבד)" \
+    || { echo "  FAIL סימון לולאה שלא רצה: מקומות שגויים"; grep 'לולאה לא רצה' "$LS/out.txt"; exit 1; }
+javac -encoding UTF-8 -cp "$JAR" -d "$LS" loops/LoopSkipPaint.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$LS:$JAR" unit4.collectionsLib.LoopSkipPaint "$LS/pics" > "$LS/paint.txt" 2>&1 \
+    && grep -q MARK-END "$LS/paint.txt" && grep '^  ok' "$LS/paint.txt" || { cat "$LS/paint.txt"; exit 1; }
 
 echo "== 5ח2. הנפשה של הכנסה / הוצאה: push / pop, insert / remove בתור, חוליה שנכנסת לרשימה / יוצאת ממנה — כמה רגעים מכל הנפשה, בלי חלון"
 # האיבר זז בכיוון הנכון מרגע לרגע, מה שהוצא נמחק, ובסוף — בדיוק הציור הרגיל (התמונות נשמרות ב-structanim/frames)
