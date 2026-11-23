@@ -14,6 +14,7 @@ const NAV = [
   ['overview', 'סקירה', ICONS.grid],
   ['requests', 'בקשות', ICONS.msg],
   ['teachers', 'מורים ועמדות', ICONS.user],
+  ['rooms', 'עמדות ותלמידי מורים', ICONS.monitor],
   ['students', 'תלמידים ותשלומים', ICONS.cap],
   ['reports', 'דיווחים על בעיות', ICONS.bell],
   ['log', 'יומן פעולות', ICONS.list],
@@ -100,26 +101,40 @@ function shell(content) {
 }
 
 function searchBox() {
-  const input = h('input', { type: 'search', placeholder: 'חיפוש מורה, תלמיד, קוד מורה או מחשב', 'aria-label': 'חיפוש', autocomplete: 'off' });
+  const input = h('input', { type: 'search', placeholder: 'חיפוש מורה, כיתה, תלמיד, קוד מורה או מחשב', 'aria-label': 'חיפוש', autocomplete: 'off' });
   const results = h('div', { class: 'results', hidden: true, role: 'listbox' });
   const box = h('label', { class: 'search' }, icon(ICONS.search, 18, '#5A6478'), input, results);
   let loading = null;
   const ensure = () => loading || (loading = Promise.all([
     cache.teachers ? cache.teachers : api('GET', '/v1/admin/teachers').then(r => (cache.teachers = r.teachers)),
     cache.students ? cache.students : api('GET', '/v1/admin/students').then(r => (cache.students = r.students)),
-    api('GET', '/v1/admin/stations').then(r => r.stations),
+    api('GET', '/v1/admin/rooms'),
   ]));
   input.addEventListener('focus', () => ensure().catch(() => {}));
   input.addEventListener('input', async () => {
     const q = input.value.trim().toLowerCase().replace(/-/g, '');
     if (q.length < 2) { results.hidden = true; return; }
-    const [teachers, students, stations] = await ensure();
+    const [teachers, students, rooms] = await ensure();
+    const has = (...parts) => parts.join(' ').toLowerCase().includes(q);
+    const tname = new Map(teachers.map(t => [t.email, t.name || t.email]));
+    // [סוג, כותרת, תיאור בעברית, קישור, מייל (בכיוון שמאל-לימין)]
     const hits = [];
-    for (const t of teachers) if ((t.name + ' ' + t.email + ' ' + t.school + ' ' + (t.phone || '') + ' ' + t.code.replace('-', '')).toLowerCase().includes(q)) hits.push(['מורה', t.name || t.email, t.email, '#teacher=' + encodeURIComponent(t.email)]);
-    for (const s of stations) if (String(s.name).toLowerCase().includes(q)) hits.push(['מחשב', s.name, s.teacherName || s.teacher, '#teacher=' + encodeURIComponent(s.teacher)]);
-    for (const s of students) if ((s.name + ' ' + s.email).toLowerCase().includes(q)) hits.push(['תלמיד', s.name || s.email, s.email, '#students=' + encodeURIComponent(s.email)]);
-    results.replaceChildren(...(hits.length ? hits.slice(0, 12).map(([kind, title, sub, href]) => h('button', { type: 'button', role: 'option', onclick: () => { results.hidden = true; input.value = ''; location.hash = href; } },
-      h('span', { class: 'pill gray' }, kind), h('span', { class: 'grow' }, h('b', null, title), ' ', h('span', { class: 'small muted ltr' }, sub))))
+    // מורים — לפי שם, מייל, בית ספר, טלפון וקוד
+    for (const t of teachers) if (has(t.name, t.email, t.school, t.phone || '', t.code.replace('-', ''))) hits.push(['מורה', t.name || t.email, t.school || '', '#teacher=' + encodeURIComponent(t.email), t.email]);
+    // כיתות — של כל המורים; פותחות את תלמידי הכיתה
+    for (const c of rooms.classes) if (has(c.name)) hits.push(['כיתה', c.name, `${tname.get(c.teacher) || c.teacher} · ${c.students} תלמידים`, roomsHash('students', c.teacher, c.id), '']);
+    // עמדות מעבדה
+    for (const x of rooms.stations) if (has(x.name)) hits.push(['מחשב', x.name, x.teacherName || tname.get(x.teacher) || x.teacher, roomsHash('stations', x.teacher), '']);
+    // תלמידים: מי שמשויך למורה — בעמוד של המורה (עם הכיתה); עצמאי — ברשימת התלמידים
+    const attached = new Map(rooms.students.map(x => [x.email, x]));
+    for (const s of students) if (has(s.name, s.email, s.phone || '')) {
+      const a = attached.get(s.email);
+      const cn = a && a.classId ? (rooms.classes.find(c => c.id === a.classId) || {}).name : '';
+      hits.push(a ? ['תלמיד', s.name || s.email, [a.teacherName || a.teacher, cn].filter(Boolean).join(' · '), roomsHash('students', a.teacher, a.classId, a.email), s.email]
+        : ['תלמיד', s.name || s.email, 'עצמאי', '#students=' + encodeURIComponent(s.email), s.email]);
+    }
+    results.replaceChildren(...(hits.length ? hits.slice(0, 20).map(([kind, title, sub, href, mail]) => h('button', { type: 'button', role: 'option', onclick: () => { results.hidden = true; input.value = ''; location.hash = href; } },
+      h('span', { class: 'pill gray' }, kind), h('span', { class: 'grow' }, h('b', null, title), sub ? [' ', h('span', { class: 'small muted' }, '· ' + sub)] : null, mail ? [' ', h('span', { class: 'small muted ltr' }, mail)] : null)))
       : [h('div', { class: 'empty' }, 'לא נמצא')]));
     results.hidden = false;
   });
@@ -134,7 +149,7 @@ async function render() {
   shell(loadingView());
   const content = document.getElementById('content');
   try {
-    const views = { overview, requests, teachers, teacher: teachers, students, reports: reportsView, report: reportView, log: logView, settings: settingsView, check: checkView };
+    const views = { overview, requests, teachers, teacher: teachers, rooms: roomsView, students, reports: reportsView, report: reportView, log: logView, settings: settingsView, check: checkView };
     const v = await (views[r.page] || overview)(r.arg);
     content.replaceChildren(...[v].flat(Infinity));
   } catch (e) {
@@ -233,7 +248,7 @@ async function overview() {
       kpi('#teachers', 'מורים פעילים', h('b', { class: 'v' }, String(c.teachers)), c.teachersBlocked ? `ועוד ${c.teachersBlocked} מושבתים` : ''),
       kpi('#teachers', 'עמדות מחשב בשימוש', h('span', { class: 'v' }, String(c.used), ' ', h('small', null, `מתוך ${c.seats}`)), '', h('span', { class: 'bar' }, h('span', { style: { width: pct + '%' } }))),
       c.studentsFree
-        ? kpi('#students', 'תלמידים (בחינם)', h('b', { class: 'v' }, String(c.studentsAll)), `${c.studentsRegistered} נרשמו · ${c.studentsWithTeacher} עם מורה`)
+        ? kpi('#students', 'תלמידים עצמאיים (בחינם)', h('b', { class: 'v' }, String(c.studentsSolo)), `${c.studentsSoloRegistered} נרשמו · ועוד ${c.studentsWithTeacher} משויכים למורים`)
         : kpi('#students', 'תלמידים עם גישה', h('b', { class: 'v' }, String(c.students)), `${c.studentsPaid} בתשלום · ${c.studentsManual} הענקה ידנית`),
       kpi('#students=payments', 'תשלומים החודש', h('b', { class: 'v' }, String(c.paymentsMonth)), c.refundsMonth ? `${c.refundsMonth} הוחזרו` : '')),
     h('div', { class: 'two' },
@@ -399,7 +414,7 @@ function quotaSection(t) {
 }
 
 async function teacherDrawer(email) {
-  const d = await api('GET', '/v1/admin/teacher?email=' + encodeURIComponent(email));
+  const [d, rm] = await Promise.all([api('GET', '/v1/admin/teacher?email=' + encodeURIComponent(email)), api('GET', '/v1/admin/rooms?teacher=' + encodeURIComponent(email))]);
   const t = d.teacher;
   const val = h('input', { class: 'field num', type: 'number', min: '0', max: '10000', value: String(t.seats), 'aria-label': 'מספר העמדות' });
   const preview = h('div', { class: 'note', style: { background: '#fff', color: 'var(--ink)' } });
@@ -451,6 +466,30 @@ async function teacherDrawer(email) {
   const stFieldSel = h('select', { class: 'field sm', 'aria-label': 'מיון המחשבים לפי', onchange: e => { stField = e.target.value; setOrder('stations.field', stField); drawStations(); } },
     Object.entries(STFIELD).map(([v, label]) => h('option', { value: v, selected: v === stField }, label)));
   const stOrder = d.stations.length > 1 ? h('div', { class: 'row wrap', style: { gap: '8px' } }, stFieldSel, orderToggle('stations', drawStations)) : null;
+  // שני טאבים נפרדים: עמדות המעבדה, והתלמידים שמשויכים למורה (עם הכיתה)
+  const cmap = new Map(rm.classes.map(c => [c.id, c]));
+  let cls = '', tab = 'stations';
+  const studentList = h('div', { class: 'list' });
+  const drawStudents = () => {
+    const shown = rm.students.filter(x => !cls || (cls === '-' ? !x.classId : x.classId === cls));
+    studentList.replaceChildren(...(shown.length ? shown.map(x => h('div', { class: 'item', 'data-student': x.email },
+      h('div', { class: 'grow' }, h('div', { style: { fontWeight: 600 } }, x.name || x.email), h('div', { class: 'small muted ltr', style: { textAlign: 'right' } }, x.email),
+        h('div', { class: 'small muted' }, (cmap.get(x.classId) || {}).name || 'בלי כיתה', ` · ${x.submits || 0} הגשות`, x.lastSubmitAt ? ' · הגשה אחרונה ' + ago(x.lastSubmitAt) : '')),
+      h('button', { type: 'button', class: 'btn sm', onclick: () => studentDialog(x.email) }, 'פרטים')))
+      : [h('div', { class: 'empty' }, rm.students.length ? 'אין תלמידים בכיתה הזו.' : 'עוד אין תלמידים שמשויכים למורה.')]));
+  };
+  drawStudents();
+  const clsSel = rm.classes.length ? h('select', { class: 'field sm', 'aria-label': 'כיתה', onchange: e => { cls = e.target.value; drawStudents(); } },
+    h('option', { value: '' }, 'כל הכיתות'), rm.classes.map(c => h('option', { value: c.id }, `${c.name} · ${c.students}`)), h('option', { value: '-' }, 'בלי כיתה')) : null;
+  const studentsPane = h('div', { class: 'stack' },
+    h('div', { class: 'row wrap', style: { justifyContent: 'space-between' } }, clsSel || h('span'), rm.students.length ? h('a', { class: 'small', href: roomsHash('students', t.email) }, 'בעמוד המלא') : null), studentList);
+  const stationsPane = h('div', { class: 'stack' }, stOrder, stList);
+  const tabsBox = h('div'), paneBox = h('div', { class: 'stack' });
+  const drawTab = () => {
+    tabsBox.replaceChildren(roomTabs(tab, { stations: d.stations.length, students: rm.students.length }, id => { tab = id; drawTab(); }));
+    paneBox.replaceChildren(tab === 'stations' ? stationsPane : studentsPane);
+  };
+  drawTab();
   return h('aside', { class: 'drawer card', 'aria-label': 'פרטי המורה' },
     h('div', { class: 'row', style: { alignItems: 'flex-start', justifyContent: 'space-between' } },
       h('div', { class: 'stack', style: { gap: '2px' } }, h('h2', { style: { fontSize: '21px' } }, t.name || t.email), h('span', { class: 'small muted' }, h('span', { class: 'ltr' }, t.email), t.school ? ' · ' + t.school : '', t.phone ? [' · ', h('span', { class: 'ltr' }, t.phone)] : ''),
@@ -464,7 +503,7 @@ async function teacherDrawer(email) {
       preview, h('div', { class: 'row' }, save, reset)),
     quotaSection(t),
     h('section', { class: 'row wrap' }, h('div', { class: 'grow stack', style: { gap: '2px' } }, h('span', { class: 'small muted', style: { fontWeight: 600 } }, 'קוד המורה'), h('span', { class: 'mono', style: { fontSize: '20px', textAlign: 'right' } }, t.code)), copy),
-    h('section', { class: 'stack' }, h('h3', null, `המחשבים של ${t.name || 'המורה'} (${d.stations.length})`), stOrder, stList),
+    h('section', { class: 'stack' }, h('h3', null, `עמדות ותלמידים של ${t.name || 'המורה'}`), tabsBox, paneBox),
     t.note ? h('div', { class: 'note' }, t.note) : null,
     h('section', { class: 'row wrap', style: { borderTop: '1px solid var(--line)', paddingTop: '14px' } }, edit, h('div', { class: 'grow' }), toggle));
 }
@@ -511,6 +550,103 @@ function editTeacher(t) {
   });
 }
 
+// ------------------------------------------------------------------ עמדות ותלמידים של מורים (שני טאבים נפרדים)
+
+/** הקישור לעמוד: טאב, מורה, כיתה ('-' = בלי כיתה) ותלמיד מסומן */
+function roomsHash(tab, teacher, cls, student) {
+  return '#rooms=' + encodeURIComponent([tab, teacher || '', cls || '', student || ''].join('|'));
+}
+function roomsArg(arg) {
+  const [tab, teacher, cls, student] = String(arg || '').split('|');
+  return { tab: tab === 'students' ? 'students' : 'stations', teacher: teacher || '', cls: cls || '', student: student || '' };
+}
+const ROOM_TABS = [['stations', 'עמדות מעבדה'], ['students', 'תלמידים']];
+
+/** שורת הטאבים — מחזירה את הכפתורים; onPick(id) */
+function roomTabs(current, counts, onPick) {
+  return h('div', { class: 'tabs', role: 'tablist' }, ROOM_TABS.map(([id, label]) =>
+    h('button', { type: 'button', role: 'tab', id: 'rt-' + id, 'aria-selected': String(current === id), onclick: () => onPick(id) }, `${label} · ${counts[id]}`)));
+}
+
+/** עמדה: האם נראית נטושה (לא פעילה 30 יום) והטקסט שמתחת לשם */
+function stationInfo(s) {
+  const stale = daysSince(s.lastSeen) > 30;
+  return { stale, text: stale ? `לא נראתה ${daysSince(s.lastSeen)} יום — אולי הוחלפה · חוברה ${fmtWhen(s.claimedAt)}` : `חוברה ${fmtWhen(s.claimedAt)} · פעילה ${ago(s.lastSeen)}` };
+}
+
+/** "הגשה אחרונה": מתי ומה */
+function lastSubmit(x) {
+  return x.lastSubmitAt ? [ago(x.lastSubmitAt), x.lastTitle ? ' · ' + x.lastTitle : ''] : '—';
+}
+
+async function roomsView(arg) {
+  const f = roomsArg(arg);
+  const r = await api('GET', '/v1/admin/rooms');
+  const tmap = new Map(r.teachers.map(t => [t.email, t]));
+  const cmap = new Map(r.classes.map(c => [c.id, c]));
+  const tn = e => (tmap.get(e) || {}).name || e;
+  const go = over => { const n = Object.assign({}, f, over); location.hash = roomsHash(n.tab, n.teacher, n.cls, n.student); };
+  const inTeacher = x => !f.teacher || x.teacher === f.teacher;
+  const stations = r.stations.filter(inTeacher);
+  const studentsInTeacher = r.students.filter(inTeacher);
+  const students = studentsInTeacher.filter(x => !f.cls || (f.cls === '-' ? !x.classId : x.classId === f.cls));
+  const counts = { stations: stations.length, students: studentsInTeacher.length };
+
+  // סינון: מורה (ואז כיתה — בטאב התלמידים)
+  const count = e => f.tab === 'stations' ? r.stations.filter(x => x.teacher === e).length : r.students.filter(x => x.teacher === e).length;
+  const teacherSel = h('select', { class: 'field sm', 'aria-label': 'מורה', onchange: e => go({ teacher: e.target.value, cls: '', student: '' }) },
+    h('option', { value: '' }, `כל המורים · ${f.tab === 'stations' ? r.stations.length : r.students.length}`),
+    r.teachers.filter(t => count(t.email) || t.email === f.teacher).map(t => h('option', { value: t.email, selected: t.email === f.teacher }, `${t.name || t.email} · ${count(t.email)}`)));
+  const classList = r.classes.filter(c => !f.teacher || c.teacher === f.teacher);
+  const classSel = f.tab === 'students' ? h('select', { class: 'field sm', 'aria-label': 'כיתה', onchange: e => go({ cls: e.target.value, student: '' }) },
+    h('option', { value: '' }, 'כל הכיתות'),
+    classList.map(c => h('option', { value: c.id, selected: c.id === f.cls }, f.teacher ? `${c.name} · ${c.students}` : `${c.name} — ${tn(c.teacher)} · ${c.students}`)),
+    h('option', { value: '-', selected: f.cls === '-' }, 'בלי כיתה')) : null;
+
+  // קבוצות לפי מורה (בסדר השמות)
+  const group = list => r.teachers.map(t => [t, list.filter(x => x.teacher === t.email)]).filter(([, l]) => l.length);
+  const head = (t, n, what) => h('div', { class: 'row wrap', style: { justifyContent: 'space-between' } },
+    h('div', { class: 'stack', style: { gap: '2px' } }, h('h2', { style: { fontSize: '18px' } }, t.name || t.email),
+      h('span', { class: 'small muted' }, h('span', { class: 'ltr' }, t.email), t.school ? ' · ' + t.school : '', t.active ? '' : ' · מושבת')),
+    h('div', { class: 'row' }, h('span', { class: 'pill blue' }, `${n} ${what}`), h('a', { class: 'btn sm', href: '#teacher=' + encodeURIComponent(t.email) }, 'פתיחת המורה')));
+
+  let body;
+  if (f.tab === 'stations') {
+    body = group(stations).map(([t, list]) => h('section', { class: 'card', 'data-teacher': t.email }, head(t, list.length, 'עמדות'),
+      h('div', { class: 'list' }, list.map(x => { const i = stationInfo(x); return h('div', { class: 'item' + (i.stale ? ' stale' : ''), 'data-station': x.id },
+        h('div', { class: 'grow' }, h('div', { style: { fontWeight: 600 } }, x.name), h('div', { class: 'small', style: { color: i.stale ? 'var(--orange)' : 'var(--muted)' } }, i.text))); }))));
+    if (!body.length) body = [h('div', { class: 'card' }, h('div', { class: 'empty' }, 'עוד אין עמדות מעבדה מחוברות.'))];
+  } else {
+    const CAP = 500;
+    let left = CAP;
+    body = group(students).map(([t, list]) => {
+      const shown = list.slice(0, Math.max(0, left));
+      left -= shown.length;
+      if (!shown.length) return null;
+      return h('section', { class: 'card', 'data-teacher': t.email }, head(t, list.length, 'תלמידים'),
+        h('div', { class: 'tablewrap' }, h('table', { class: 't' },
+          h('thead', null, h('tr', null, ['תלמיד', 'כיתה', 'הצטרף', 'הגשות', 'הגשה אחרונה', ''].map(x => h('th', null, x)))),
+          h('tbody', null, shown.map(x => h('tr', { class: x.email === f.student ? 'sel' : '', 'data-student': x.email },
+            h('td', null, h('div', { class: 'cellname' }, h('b', null, x.name || '—'), h('span', { class: 'ltr' }, x.email),
+              x.registered ? null : h('span', { class: 'pill orange', style: { alignSelf: 'flex-start' } }, 'עוד לא נרשם/ה'))),
+            h('td', null, x.classId && cmap.has(x.classId) ? cmap.get(x.classId).name : h('span', { class: 'muted' }, 'בלי כיתה')),
+            h('td', { class: 'muted', title: fmtWhen(x.joinedAt) }, x.joinedAt ? fmtDate(x.joinedAt) : '—'),
+            h('td', null, String(x.submits || 0)),
+            h('td', { class: 'muted', title: fmtWhen(x.lastSubmitAt) }, lastSubmit(x)),
+            h('td', null, h('button', { type: 'button', class: 'btn sm', onclick: () => studentDialog(x.email) }, 'פרטים'))))))));
+    }).filter(Boolean);
+    if (!body.length) body = [h('div', { class: 'card' }, h('div', { class: 'empty' }, studentsInTeacher.length ? 'אין תלמידים בכיתה הזו.' : 'עוד אין תלמידים שמשויכים למורים.'))];
+    if (students.length > CAP) body.push(h('p', { class: 'small muted' }, `מוצגים ${CAP} מתוך ${students.length} — מצמצמים לפי מורה או כיתה, או משתמשים בחיפוש למעלה.`));
+  }
+  if (f.student) setTimeout(() => { const el = document.querySelector('tr.sel'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' }); }, 0);
+  return [
+    h('div', { class: 'stack', style: { gap: '6px' } }, h('h1', null, 'עמדות ותלמידי מורים'),
+      h('p', { class: 'muted' }, 'כל מה שמשויך למורים, מופרד לשני טאבים: עמדות המעבדה (מחשבים שחוברו בקוד המורה) והתלמידים שנכנסו עם חשבון Google ושייכים למורה. תלמידים עצמאיים נמצאים ב"תלמידים ותשלומים".')),
+    roomTabs(f.tab, counts, id => go({ tab: id, student: '' })),
+    h('div', { class: 'row wrap', style: { gap: '8px' } }, teacherSel, classSel),
+    ...body];
+}
+
 // ------------------------------------------------------------------ תלמידים ותשלומים
 
 let studentFilter = 'open';
@@ -519,10 +655,12 @@ async function students(arg) {
   if (arg === 'payments') return payments();
   const r = await api('GET', '/v1/admin/students');
   cache.students = r.students;
-  const all = r.students;
+  // תלמידים שמשויכים למורה לא כאן — הם בעמוד "עמדות ותלמידי מורים" (עם הכיתה שלהם)
+  const attachedN = r.students.filter(s => s.teacher).length;
+  const all = r.students.filter(s => !s.teacher);
   // בינתיים בחינם (r.free): כל מי שנכנס פתוח, והקבוצות לפי ההרשמה (שם מלא וטלפון) והמורה; בתשלום — כמו קודם
   const groups = r.free
-    ? { open: ['כולם', () => true], registered: ['נרשמו', s => s.registered], unregistered: ['עוד לא נרשמו', s => !s.registered], teacher: ['עם מורה', s => !!s.teacher], paid: ['שילמו / הענקה', s => s.paid] }
+    ? { open: ['כולם', () => true], registered: ['נרשמו', s => s.registered], unregistered: ['עוד לא נרשמו', s => !s.registered], paid: ['שילמו / הענקה', s => s.paid] }
     : { open: ['עם גישה', s => s.open], manual: ['הענקה ידנית', s => s.open && s.source === 'manual'], unpaid: ['נכנסו ועוד לא שילמו', s => !s.open], all: ['הכול', () => true] };
   if (!groups[studentFilter]) studentFilter = 'open';
   const shown = byTime(all.filter(groups[studentFilter][1]), 'lastSignIn', orderOf('students.lastSignIn', 'none'));
@@ -530,12 +668,12 @@ async function students(arg) {
     : r.free ? h('span', { class: 'pill blue' }, 'בחינם')
     : s.source === 'refunded' ? h('span', { class: 'pill gray' }, 'הוחזר') : s.source === 'revoked' ? h('span', { class: 'pill gray' }, 'בוטל') : h('span', { class: 'pill gray' }, 'לא שילם/ה');
   const table = h('div', { class: 'tablewrap' }, h('table', { class: 't' },
-    h('thead', null, h('tr', null, ['תלמיד', 'טלפון', 'מורה', 'גישה עד', 'איך', 'שליחות החודש'].map(x => h('th', null, x)), timeHeader('כניסה אחרונה', 'students.lastSignIn', render), h('th', null, ''))),
+    h('thead', null, h('tr', null, ['תלמיד', 'טלפון', 'סוג', 'גישה עד', 'איך', 'שליחות החודש'].map(x => h('th', null, x)), timeHeader('כניסה אחרונה', 'students.lastSignIn', render), h('th', null, ''))),
     h('tbody', null, shown.length ? shown.slice(0, 400).map(s => h('tr', null,
       h('td', null, h('div', { class: 'cellname' }, h('b', null, s.name || '—'), h('span', { class: 'ltr' }, s.email),
         s.registered ? null : h('span', { class: 'pill orange', style: { alignSelf: 'flex-start' } }, 'עוד לא נרשם/ה'))),
       h('td', { class: 'ltr muted' }, s.phone || '—'),
-      h('td', null, s.teacherName || h('span', { class: 'muted' }, s.mode === 'independent' ? 'עצמאי' : '—')),
+      h('td', null, s.mode === 'independent' ? 'עצמאי' : h('span', { class: 'muted' }, 'עוד לא בחר/ה')),
       h('td', null, s.paid ? fmtDate(s.until) : r.free ? 'בחינם' : '—'), h('td', null, sourcePill(s)),
       h('td', null, s.sends ? h('span', { class: s.sends.n >= s.sends.limit ? 'pill orange' : '' }, h('b', null, String(s.sends.n)), ` / ${s.sends.limit}`) : '—'),
       h('td', { class: 'muted', title: fmtWhen(s.lastSignIn) }, s.lastSignIn ? ago(s.lastSignIn) : '—'),
@@ -545,6 +683,7 @@ async function students(arg) {
   return h('div', { class: 'split' },
     h('div', { class: 'grow stack', style: { gap: '16px' } },
       h('h1', null, 'תלמידים ותשלומים'),
+      attachedN ? h('p', { class: 'small muted' }, `${attachedN} תלמידים משויכים למורים ולכן לא מופיעים כאן — הם ב`, h('a', { href: roomsHash('students') }, 'עמדות ותלמידי מורים'), ', עם הכיתה שלהם.') : null,
       r.free ? h('p', { class: 'small muted' }, 'התלמידים בחינם בינתיים (הגדרות ← "תלמידים בחינם"). כשמכבים — מי שלא שילם / לא קיבל הענקה נדרש לשלם, גם מי שכבר מחובר.') : null,
       h('div', { class: 'tabs', role: 'tablist' }, h('button', { type: 'button', role: 'tab', 'aria-selected': 'true' }, `תלמידים · ${all.filter(s => s.open).length}`),
         h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', onclick: () => { location.hash = '#students=payments'; } }, 'תשלומים')),

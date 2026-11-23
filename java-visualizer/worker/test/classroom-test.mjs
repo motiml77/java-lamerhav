@@ -563,6 +563,40 @@ await test('מסוף ההנהלה: לכל תלמיד — שם מלא, טלפון
   assert.equal(one.registered, true);
 });
 
+await test('מסוף ההנהלה — עמדות ותלמידי מורים: כל התלמידים המשויכים (עם הכיתה), בנפרד מעמדות המעבדה; עצמאי לא ברשימה; אפשר לצמצם למורה', async () => {
+  const cls = (await call('POST', '/v1/me/class', { token: sara, body: { op: 'create', name: 'י״א 3' } })).body.id;
+  assert.equal((await call('POST', '/v1/me/member', { token: sara, body: { op: 'move', student: 'yoav@test.dev', classId: cls } })).status, 200);
+  const all = (await call('GET', '/v1/admin/rooms', { token: admin })).body;
+  const y = all.students.find(x => x.email === 'yoav@test.dev');
+  assert.equal(y.teacher, 'sara@test.dev');
+  assert.equal(y.classId, cls, 'הכיתה של התלמיד');
+  assert.equal(y.name, 'יואב לוי');
+  assert.ok(y.teacherName, 'שם המורה');
+  assert.ok(!all.students.some(x => x.email === 'tamar@test.dev'), 'תלמיד עצמאי לא ברשימת המשויכים');
+  const c = all.classes.find(x => x.id === cls);
+  assert.equal(c.name, 'י״א 3');
+  assert.equal(c.teacher, 'sara@test.dev');
+  assert.ok(c.students >= 1, 'מספר התלמידים בכיתה');
+  assert.ok(all.teachers.some(t => t.email === 'sara@test.dev'));
+  const st = all.stations.find(x => x.name === 'עמדה 20');   // העמדה שנשארה מחוברת מהבדיקה הקודמת (השחרור שלה נחסם במכסה)
+  assert.ok(st && st.teacher === 'sara@test.dev' && st.teacherName, 'עמדת המעבדה ברשימת העמדות, עם שם המורה');
+  assert.ok(!all.students.some(x => x.name === 'עמדה 20' || x.email === st.id), 'עמדה היא לא תלמיד');
+  // צמצום למורה אחד: רק שלו
+  const one = (await call('GET', '/v1/admin/rooms?teacher=sara@test.dev', { token: admin })).body;
+  assert.ok(one.students.length >= 1 && one.students.every(x => x.teacher === 'sara@test.dev'));
+  assert.ok(one.classes.every(x => x.teacher === 'sara@test.dev') && one.stations.every(x => x.teacher === 'sara@test.dev'));
+  const other = (await call('GET', '/v1/admin/rooms?teacher=david@test.dev', { token: admin })).body;
+  assert.ok(!other.students.some(x => x.email === 'yoav@test.dev'));
+  // רק מנהל
+  assert.equal((await call('GET', '/v1/admin/rooms', { token: sara })).status, 403);
+  assert.equal((await call('GET', '/v1/admin/rooms')).status, 401);
+  // מוציאים את התלמיד מהכיתה: נשאר משויך למורה, בלי כיתה, והכיתה ריקה
+  assert.equal((await call('POST', '/v1/me/member', { token: sara, body: { op: 'move', student: 'yoav@test.dev', classId: '' } })).status, 200);
+  const after = (await call('GET', '/v1/admin/rooms', { token: admin })).body;
+  assert.equal(after.students.find(x => x.email === 'yoav@test.dev').classId, '');
+  assert.equal(after.classes.find(x => x.id === cls).students, 0);
+});
+
 await test('מעבר לתשלום: גם תלמיד רשום שכבר מחובר נדרש לשלם (pay); מי שעוד לא נרשם — קודם ההרשמה (בחינם), ואז התשלום', async () => {
   const fresh = await signInPlugin('gali@test.dev', 'student', 'גלי', NEW);
   assert.equal(fresh.status, 'register');

@@ -622,26 +622,32 @@ await step('מעבר לתשלום: תלמיד רשום שכבר מחובר מק�
   assert.equal((await checkNew(s2)).status, 'pay');
 });
 
-await step('מסוף ההנהלה בזמן שהתלמידים בחינם: כולם ברשימה (גם בלי תשלום), מי נרשם ומי לא, המורה; בסקירה — כמה נרשמו', async () => {
+await step('מסוף ההנהלה בזמן שהתלמידים בחינם: עצמאיים ב"תלמידים" (גם בלי תשלום, מי נרשם ומי לא), המשויכים למורה ב"עמדות ותלמידי מורים"; בסקירה — כמה נרשמו', async () => {
   await api('POST', '/v1/admin/settings', { studentsFree: true }, admin);
   const p = await newCtx().then(c => c.newPage());
   p.on('pageerror', e => errors.push(String(e)));
   await p.goto(BASE + '/admin');
   await googlePopup(p, '.gbtn', 'motiml77@gmail.com', 'Moti');
   await p.waitForSelector('.kpis');
-  assert.match(await p.textContent('.kpis'), /תלמידים \(בחינם\)[\s\S]*נרשמו[\s\S]*עם מורה/);
+  assert.match(await p.textContent('.kpis'), /תלמידים עצמאיים \(בחינם\)[\s\S]*נרשמו[\s\S]*משויכים למורים/);
   await p.goto(BASE + '/admin#students');
   await p.waitForSelector('table.t');
   const t = await p.textContent('main');
   assert.match(t, /התלמידים בחינם בינתיים/);
-  assert.match(t, /יעל אברהם/, 'תלמידה שנרשמה בחינם (לא שילמה) — ברשימה');
-  assert.match(t, /שרה כהן/, 'המורה שלה');
   assert.match(t, /עוד לא נרשם\/ה/, 'מי שנכנס ועוד לא כתב שם וטלפון — מסומן');
+  assert.doesNotMatch(t, /יעל אברהם/, 'תלמידה שמשויכת למורה — לא בקטגוריה "תלמידים"');
+  assert.match(t, /משויכים למורים ולכן לא מופיעים כאן/);
+  assert.doesNotMatch(await p.locator('.filters').textContent(), /עם מורה/);
   await shot(p, '26-admin-students-free');
   await p.click('.filters button:has-text("עוד לא נרשמו")');
   assert.doesNotMatch(await p.textContent('table.t'), /יעל אברהם/);
-  await p.click('.filters button:has-text("עם מורה")');
-  assert.match(await p.textContent('table.t'), /יעל אברהם/);
+  // היא (עם המורה שלה) בעמוד "עמדות ותלמידי מורים"
+  await p.goto(BASE + '/admin#rooms=' + encodeURIComponent('students|sara.cohen@ort.org.il'));
+  await p.waitForSelector('#rt-students[aria-selected="true"]');
+  await p.waitForSelector('tr[data-student="pupil.join@gmail.com"]');
+  const room = await p.textContent('tr[data-student="pupil.join@gmail.com"]');
+  assert.match(room, /יעל אברהם/);
+  await shot(p, '26b-admin-rooms-students');
 });
 
 await step('טלפון: מסוף ההנהלה ברוחב 390 — בלי גלילה לצד', async () => {

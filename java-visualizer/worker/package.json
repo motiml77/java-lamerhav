@@ -15,6 +15,7 @@
     "test:bundle": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node bundle-test.mjs\"",
     "test:classroom": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node classroom-test.mjs\"",
     "test:console": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node console-e2e.mjs\"",
+    "test:admin-rooms": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node admin-rooms-e2e.mjs\"",
     "test:reports": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node reports-test.mjs\"",
     "test:reports-java": "cd test && npx --yes firebase-tools@13.29.1 emulators:exec --config firebase.json --only firestore,auth --project demo-dsviz \"node reports-java-e2e.mjs\""
   }

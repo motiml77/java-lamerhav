@@ -854,6 +854,8 @@ async function adminOverview(env) {
       studentsFree: free, studentsAll: everyone.length, studentsRegistered: everyone.filter(isRegistered).length,
       classroomOpen: !!cfg.classroomOpen, studentsClassroom: inClassroom.length,
       studentsWithTeacher: everyone.filter(s => !!s.teacher).length,
+      // תלמידים שלא משויכים למורה — אלה ב"תלמידים ותשלומים"; המשויכים נמצאים ב"עמדות ותלמידי מורים"
+      studentsSolo: everyone.filter(s => !s.teacher).length, studentsSoloRegistered: everyone.filter(s => !s.teacher && isRegistered(s)).length,
       paymentsMonth: payments.filter(p => p.status === 'paid' || p.status === 'refunded').length, refundsMonth: payments.filter(p => p.status === 'refunded').length,
       openRequests: requests.length, alertsUnseen: unseen.length,
     },
@@ -974,6 +976,47 @@ async function adminStations(env, url) {
     ok: true,
     stations: list.filter(x => x.active).map(x => ({ id: x._id, name: x.name, teacher: x.teacher, teacherName: x.teacherName || '', claimedAt: x.claimedAt, lastSeen: x.lastSeen }))
       .sort((a, b) => String(a.lastSeen).localeCompare(String(b.lastSeen))),
+  };
+}
+
+/**
+ * כל מה שמשויך למורים: עמדות המעבדה והתלמידים (עם הכיתה של כל תלמיד). אפשר לצמצם למורה אחד: ?teacher=.
+ * מזין את העמוד "עמדות ותלמידי מורים" (שני טאבים), את טאב התלמידים בכרטיס המורה ואת החיפוש במסוף (כיתות / מורים / תלמידים).
+ * "משויך" = ‎students.teacher‎ מלא (מי שעזב או הוסר מתנקה לו) — אותו כלל שבו עמוד "תלמידים ותשלומים" מדלג עליהם.
+ */
+async function adminRooms(env, url) {
+  const store = db(env);
+  const only = normEmail(url.searchParams.get('teacher'));
+  const by = (col, lim) => only ? store.query(col, { where: [['teacher', '==', only]] }) : store.query(col, { limit: lim });
+  const [teachers, stations, studs, members, classes] = await Promise.all([
+    store.query('teachers', { limit: 2000 }),
+    only ? store.query('stations', { where: [['teacher', '==', only]] }) : store.query('stations', { where: [['active', '==', true]] }),
+    by('students', 5000), by('members', 10000), by('classes', 5000),
+  ]);
+  const tmap = new Map(teachers.map(t => [t.email || t._id, t]));
+  const cmap = new Map(classes.map(c => [c._id, c]));
+  const mmap = new Map(members.map(m => [m.teacher + '~' + m.student, m]));
+  const sts = stations.filter(x => x.active).map(x => ({ id: x._id, name: x.name || '', teacher: x.teacher, claimedAt: x.claimedAt || '', lastSeen: x.lastSeen || '' }));
+  const rows = studs.filter(s => s.teacher).map(s => {
+    const m = mmap.get(s.teacher + '~' + (s.email || s._id)) || {};
+    const cls = m.classId && cmap.has(m.classId) ? m.classId : '';
+    return {
+      email: s.email || s._id, name: s.fullName || m.name || s.name || '', teacher: s.teacher, classId: cls,
+      joinedAt: m.joinedAt || s.joinedAt || '', submits: m.submits || 0, lastSubmitAt: m.lastSubmitAt || '', lastTitle: m.lastTitle || '',
+      lastSignIn: s.lastSignIn || '', registered: isRegistered(s),
+    };
+  });
+  const used = new Set([...sts.map(x => x.teacher), ...rows.map(x => x.teacher), ...classes.map(c => c.teacher)]);
+  const count = new Map();
+  for (const r of rows) if (r.classId) count.set(r.classId, (count.get(r.classId) || 0) + 1);
+  const name = e => { const t = tmap.get(e); return t && t.name || ''; };
+  return {
+    ok: true,
+    teachers: [...used].filter(Boolean).map(e => { const t = tmap.get(e) || {}; return { email: e, name: t.name || '', school: t.school || '', active: t.active !== false }; })
+      .sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, 'he')),
+    classes: classes.map(c => ({ id: c._id, teacher: c.teacher, name: c.name || '', students: count.get(c._id) || 0 })).sort((a, b) => a.name.localeCompare(b.name, 'he')),
+    stations: sts.map(x => Object.assign(x, { teacherName: name(x.teacher) })).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he')),
+    students: rows.map(r => Object.assign(r, { teacherName: name(r.teacher) })).sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, 'he')),
   };
 }
 
@@ -1206,6 +1249,7 @@ const ADMIN_ROUTES = {
   'POST /v1/admin/teacher': async (env, u, url, b) => Object.assign({ ok: true }, await adminSaveTeacher(env, u, b)),
   'GET /v1/admin/stations': (env, u, url) => adminStations(env, url),
   'POST /v1/admin/station/release': async (env, u, url, b) => { await adminReleaseStation(env, u, clip(b.id, 64), clip(b.reason, 120)); return { ok: true }; },
+  'GET /v1/admin/rooms': (env, u, url) => adminRooms(env, url),
   'GET /v1/admin/students': (env, u, url) => adminStudents(env, url),
   'GET /v1/admin/student': (env, u, url) => adminStudent(env, url),
   'POST /v1/admin/student': (env, u, url, b) => adminGrant(env, u, b),
