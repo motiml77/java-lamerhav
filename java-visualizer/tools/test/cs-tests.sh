@@ -310,6 +310,16 @@ done
 ! grep -q 'שורה 27 for: מ-26\|\[חזרה #[0-9]* שורה 41 \|\[חזרה #[0-9]* שורה 8 ' "$W/loopback.txt" \
     || { echo "חץ הלולאה ב-C#: חץ במקום שאין בו חזרה"; grep 'חזרה' "$W/loopback.txt"; exit 1; }
 echo "חץ \"חוזרים לראש הלולאה\" ב-C#: $(grep -c '^  \[חזרה #' "$W/loopback.txt") חזרות מסומנות"
+# "הלולאה לא רצה אף לא פעם אחת": אותן לולאות כמו ב-Java (while עם סוגריים בשורה נפרדת, for, foreach על מערך ריק, פנימית בסיבוב אחד, פעולה שנקראת פעמיים)
+viz loops/cs/LoopSkipSample.cs --trace "$W/loopskip.trace" > "$W/loopskip.out" 2>&1 || { cat "$W/loopskip.out"; exit 1; }
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/loopskip.trace" > "$W/loopskip.txt" 2>&1
+for want in 'שורה 18 while | while (k > 5)]' 'שורה 23 for | for (int i = 0; i < n; i++)]' 'שורה 27 foreach | foreach (int x in empty)]' \
+    'שורה 31 for | for (int b = 0; b < a; b++)]' 'שורה 9 for | for (int i = 0; i < n; i++)]'; do
+    grep -qF -- "$want" "$W/loopskip.txt" || { echo "לולאה שלא רצה ב-C#: חסר $want"; grep 'לולאה לא רצה' "$W/loopskip.txt"; exit 1; }
+done
+[ "$(grep -c '^  \[לולאה לא רצה' "$W/loopskip.txt")" = 5 ] && ! grep -q 'לולאה לא רצה #[0-9]* שורה \(30\|36\|39\|42\) ' "$W/loopskip.txt" \
+    || { echo "לולאה שלא רצה ב-C#: סימון במקום שגוי"; grep 'לולאה לא רצה' "$W/loopskip.txt"; exit 1; }
+echo "\"הלולאה לא רצה אף לא פעם אחת\" ב-C#: $(grep -c '^  \[לולאה לא רצה' "$W/loopskip.txt") לולאות מסומנות, ולא אלה שרצו"
 # קלט מהמקלדת (Console.ReadLine / Console.Read / Console.In): השורה שמחכה, מה שהוקלד כצעד INPUT, והפלט — כמו ב-Java.
 # בלי חלון: --input קובץ (או DSVIZ_INPUT) "מקליד" את השורות כשהתוכנית מחכה (UTF-8 — עברית בלי תלות בקידוד של שורת הפקודה)
 IN="$W/input"

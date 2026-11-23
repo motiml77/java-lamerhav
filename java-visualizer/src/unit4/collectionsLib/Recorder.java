@@ -1865,6 +1865,7 @@ final class Recorder {
                     out.print(ObjCard.dump());
                     out.print(Poly.dump());
                     out.print(LoopArrow.dump());
+                    out.print(LoopSkip.dump());
                     out.print(RecursionKind.dump());
                     out.print(chainDump());
                     out.print(FrameViz.dump());
