@@ -429,6 +429,7 @@ final class Viewer extends JFrame {
                     Rectangle r = CondPaint.lineRect(code, code.inputWait);
                     if (r != null) code.repaint(0, r.y - 6, code.getWidth(), r.height + 12);
                 }
+                if (recursionShown && recursion.warning() && ++blinkTick % 2 == 0) recursion.banner.repaint();   // הנורה של "הרקורסיה לא נעצרת" מהבהבת
                 if (code.skipLine > 0 && ++blinkTick % 2 == 0) {   // הנורה של "הלולאה לא רצה" מהבהבת
                     Rectangle r = CondPaint.lineRect(code, code.skipLine);
                     if (r != null) code.repaint(0, r.y - 8, code.getWidth(), r.height + 16);

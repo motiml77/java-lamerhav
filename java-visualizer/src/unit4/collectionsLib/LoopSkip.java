@@ -4,11 +4,9 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;
-import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.font.TextLayout;
-import java.awt.geom.Ellipse2D;
 import java.util.List;
 import java.util.Map;
 
@@ -129,11 +127,9 @@ final class LoopSkip {
 
     // ------------------------------------------------------------ הציור
 
-    static final Color AMBER = new Color(0xB45309), YELLOW = new Color(0xFACC15), PILL = new Color(0xFEF3C7);
-
     /** 0..1: ההבהוב — מחזור של שנייה בערך; ב-1 הנורה דולקת בעוצמה מלאה, ב-0 כמעט כבויה */
     static float blink(long now) {
-        return (float) (0.5 + 0.5 * Math.sin(now / 1000.0 * 2 * Math.PI));
+        return WarnLight.blink(now);
     }
 
     /** התגית מימין לשורת הלולאה (באותו סגנון כמו התגית "הלולאה לא נגמרת"): נורה צהובה מהבהבת, והטקסט משמאלה */
@@ -161,7 +157,7 @@ final class LoopSkip {
                 int xa = Math.max(CondPaint.lineEndX(c, alt) + 22, Math.min(x, vis.x + vis.width - 10 - w));
                 if (xa + w > vis.x + vis.width - 10) continue;
                 int ya = ra.y + (ra.height - h) / 2;
-                g.setColor(new Color(AMBER.getRed(), AMBER.getGreen(), AMBER.getBlue(), 190));
+                g.setColor(new Color(WarnLight.AMBER.getRed(), WarnLight.AMBER.getGreen(), WarnLight.AMBER.getBlue(), 190));
                 g.setStroke(new BasicStroke(1.4f));
                 int cx = xa + h / 2;
                 g.drawLine(cx, alt > line ? ya : ya + h, cx, r.y + r.height / 2);
@@ -175,32 +171,12 @@ final class LoopSkip {
             if (!placed) x = Math.max(vis.x + 10, vis.x + vis.width - 10 - w);   // אין מקום בשום שורה: לפחות בתוך מה שרואים
         }
         used.put(row, x + w);
-        // הרקע: צהוב בהיר שנושם קצת עם הנורה
-        g.setColor(new Color(255, 255, 255, 245));
-        g.fillRoundRect(x, y, w, h, h, h);
-        g.setColor(new Color(PILL.getRed(), PILL.getGreen(), PILL.getBlue(), 190 + (int) (65 * blink)));
-        g.fillRoundRect(x, y, w, h, h, h);
-        g.setColor(new Color(AMBER.getRed(), AMBER.getGreen(), AMBER.getBlue(), 120 + (int) (110 * blink)));
-        g.setStroke(new BasicStroke(1.4f));
-        g.drawRoundRect(x, y, w, h, h, h);
-        // הנורה מימין (קריאה מימין לשמאל): הילה זוהרת + גוף הנורה
+        WarnLight.pill(g, x, y, w, h, blink);
+        // הנורה מימין (קריאה מימין לשמאל), והטקסט משמאלה
         float cx = x + w - 9 - lamp / 2f, cy = y + h / 2f;
-        float glow = lamp * (0.9f + 0.45f * blink);
         Rectangle rr = CondPaint.lineRect(c, row);
-        Rectangle band = new Rectangle(vis.x, rr.y, vis.width, rr.height);   // ההילה לא גולשת לשורות שמעל ומתחת (לשורה שהתגית בה)
-        java.awt.Shape clip = g.getClip();
-        g.clipRect(band.x, band.y, band.width, band.height);
-        g.setPaint(new RadialGradientPaint(cx, cy, glow, new float[] { 0f, 1f }, new Color[] { new Color(250, 204, 21, 40 + (int) (170 * blink)), new Color(250, 204, 21, 0) }));
-        g.fill(new Ellipse2D.Float(cx - glow, cy - glow, glow * 2, glow * 2));
-        g.setClip(clip);
-        int a = 70 + (int) (185 * blink);
-        g.setPaint(new RadialGradientPaint(cx - lamp * 0.12f, cy - lamp * 0.15f, lamp * 0.62f, new float[] { 0f, 1f },
-                new Color[] { new Color(255, 238, 120, a), new Color(YELLOW.getRed(), YELLOW.getGreen(), YELLOW.getBlue(), a) }));
-        g.fill(new Ellipse2D.Float(cx - lamp / 2f, cy - lamp / 2f, lamp, lamp));
-        g.setColor(new Color(AMBER.getRed(), AMBER.getGreen(), AMBER.getBlue(), 200));
-        g.setStroke(new BasicStroke(1.2f));
-        g.draw(new Ellipse2D.Float(cx - lamp / 2f, cy - lamp / 2f, lamp, lamp));
-        g.setColor(new Color(0x78350F));
+        WarnLight.lamp(g, cx, cy, lamp, blink, new Rectangle(vis.x, rr.y, vis.width, rr.height));   // ההילה לא גולשת לשורות שמעל ומתחת
+        g.setColor(WarnLight.TEXT);
         tl.draw(g, cx - lamp / 2f - 7 - tl.getAdvance(), y + (h + tl.getAscent() - tl.getDescent()) / 2f);
         g.dispose();
     }

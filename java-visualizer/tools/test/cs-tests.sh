@@ -298,6 +298,13 @@ for spec in 'Fib:רקורסיה כפולה | פעולות Fib | עומק 4 | ק�
     java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/rec-$c.trace" > "$W/rec-$c.txt" 2>&1
     grep -qF -- "[רקורסיה: $want" "$W/rec-$c.txt" && echo "רקורסיה ב-C#: $c — $want" || { echo "רקורסיה ב-C#: $c חסר $want"; grep 'רקורסיה:' "$W/rec-$c.txt"; exit 1; }
 done
+# תנאי עצירה שגוי ב-C# (Sum(n - 2) מדלג על 0): אזהרה "הרקורסיה לא נעצרת" כבר מהצעדים (אף קריאה לא חזרה), ובלי "תנאי עצירה" על הקריאה שהתרסקה.
+# ב-C# הצעד מכיל את 60 המסגרות הפנימיות, אז העומק שמוצג הוא 60 והנוסח "אולי"
+viz recursion/cs/BadBase.cs --trace "$W/rec-BadBase.trace" > "$W/rec-BadBase.out" 2>&1 || true
+java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/rec-BadBase.trace" > "$W/rec-BadBase.txt" 2>&1
+grep -qF -- 'פעולות Sum | עומק 60 | קריאות 119 | עצירה [] | ⚠ אף קריאה לא חזרה — אולי לא נעצרת (עומק 60)' "$W/rec-BadBase.txt" \
+    && echo "רקורסיה ב-C#: BadBase — אזהרה \"לא נעצרת\" (אף קריאה לא חזרה)" || { echo "רקורסיה ב-C#: BadBase חסרה האזהרה"; grep 'רקורסיה:' "$W/rec-BadBase.txt"; exit 1; }
+! grep -q '⚠' "$W"/rec-Fib.txt "$W"/rec-SumTail.txt "$W"/rec-ListLen.txt "$W"/rec-EvenOdd.txt || { echo "רקורסיה ב-C#: אזהרה על רקורסיה תקינה"; exit 1; }
 # חץ "חוזרים לראש הלולאה": אותן חזרות כמו ב-Java (גם foreach, while עם סוגריים בשורה נפרדת, ו-continue)
 viz loops/cs/LoopBack.cs --trace "$W/loopback.trace" > "$W/loopback.out" 2>&1 || { cat "$W/loopback.out"; exit 1; }
 java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp "$JAR" unit4.collectionsLib.TraceViewer --check "$W/loopback.trace" > "$W/loopback.txt" 2>&1

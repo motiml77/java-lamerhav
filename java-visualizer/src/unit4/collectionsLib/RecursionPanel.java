@@ -54,6 +54,7 @@ final class RecursionPanel extends JPanel {
         List<String[]> vars;     // המשתנים בצעד האחרון שלה
         int line = -1;
         boolean done;
+        boolean viaReturn;       // הסתיימה בחזרה רגילה מהפעולה (צעד RETURN) — לא בחריגה ולא בסוף ההרצה
         String returned;         // null = void (או שעוד לא החזירה)
         int x, y, h;             // מיקום בציור
         boolean shown;           // main לא מוצג (הוא המעטפת), אלא אם ביקשו "גם main"
@@ -158,7 +159,7 @@ final class RecursionPanel extends JPanel {
             // המחסנית של הצעד (מלמטה למעלה) מול הקריאות הפעילות שלנו
             int k = 0;
             while (k < stack.size() && k < d && s.calls.get(d - 1 - k).method.equals(stack.get(k).method)) k++;
-            while (stack.size() > k) stack.remove(stack.size() - 1).done = true;   // יצאה בלי "חזרה" (חריגה)
+            while (stack.size() > k) stack.remove(stack.size() - 1).done = true;   // יצאה בלי "חזרה" (חריגה; וב-C# — החלון של 60 המסגרות הפנימיות זז)
             while (stack.size() < d) {
                 Frame f = s.calls.get(d - 1 - stack.size());
                 Call c = new Call();
@@ -188,6 +189,7 @@ final class RecursionPanel extends JPanel {
             if (s.kind == Kind.RETURN) {
                 if (s.vars != null) top.vars = s.vars;
                 top.done = true;
+                top.viaReturn = true;
                 top.returned = s.returned;
                 Entry e = last(top);
                 if (e != null && s.where != null && e.line == s.where.line) {
@@ -780,6 +782,11 @@ final class RecursionPanel extends JPanel {
         h.dispose();
     }
 
+    /** יש אזהרה בפס ("הרקורסיה לא נעצרת") — הנורה בה מהבהבת, אז הפס מתרענן כל כמה עשרות מילישניות */
+    boolean warning() {
+        return kind != null && kind.stuckDepth() > 0;
+    }
+
     /** הכותרת מעל הכרטיסים: הפס (סוג הרקורסיה) ועץ הקריאות */
     javax.swing.JComponent header() {
         JPanel p = new JPanel(new java.awt.BorderLayout());
@@ -837,7 +844,42 @@ final class RecursionPanel extends JPanel {
         @Override
         public Dimension getPreferredSize() {
             if (kind == null || kind.type == RecursionKind.Type.NONE) return new Dimension(10, 0);
-            return new Dimension(300, 58 + 17 * explainLines().size());
+            return new Dimension(300, 58 + 17 * explainLines().size() + warnHeight());
+        }
+
+        /** אזהרה "הרקורסיה לא נעצרת": הגובה שהיא מוסיפה לפס (0 = אין אזהרה) */
+        private int warnHeight() {
+            return kind == null || kind.stuckDepth() == 0 ? 0 : 30 + 17 * warnLines().size();
+        }
+
+        private String warnTitle() {
+            return kind.stuckDepth() >= RecursionKind.LIKELY_DEPTH ? "כנראה שהרקורסיה לא נעצרת" : "ייתכן שהרקורסיה לא נעצרת";
+        }
+
+        /** ההסבר מתחת לאזהרה, בשורות לפי הרוחב (עד שתיים) */
+        private List<String> warnLines() {
+            String text = "בהרצה הזו הקריאות ירדו כבר ל-" + kind.stuckDepth() + " רמות מקוננות, ואף קריאה לא הגיעה לתנאי עצירה וחזרה. בודקים שתנאי העצירה נכון, ושכל קריאה מתקרבת אליו.";
+            FontMetrics fm = getFontMetrics(RecursionPanel.this.ui);
+            int width = Math.max(200, (getWidth() > 0 ? getWidth() : 520) - 24);
+            List<String> res = new ArrayList<String>();
+            StringBuilder line = new StringBuilder();
+            for (String w : text.split(" ")) {
+                String t = line.length() == 0 ? w : line + " " + w;
+                if (fm.stringWidth(t) > width && line.length() > 0) {
+                    res.add(line.toString());
+                    line = new StringBuilder(w);
+                } else {
+                    line = new StringBuilder(t);
+                }
+            }
+            if (line.length() > 0) res.add(line.toString());
+            if (res.size() > 2) {
+                String two = res.get(1);
+                for (int i = 2; i < res.size(); i++) two += " " + res.get(i);
+                res = new ArrayList<String>(res.subList(0, 1));
+                res.add(fit(two, fm, width));
+            }
+            return res;
         }
 
         @Override
@@ -875,6 +917,26 @@ final class RecursionPanel extends JPanel {
                 ph = fit(ph, fm, getWidth() - 24);
                 g.setColor(ph.startsWith("■") ? new Color(0xB7791F) : ph.startsWith("↑") ? DONE : ACTIVE);
                 g.drawString(ph, right - fm.stringWidth(ph), y + 2);
+            }
+            // אף קריאה רקורסיבית לא חזרה, והעומק כבר גדול: נורה צהובה מהבהבת — אולי תנאי העצירה לא נכון (RecursionKind.stuckDepth)
+            if (kind.stuckDepth() > 0) {
+                float bl = WarnLight.blink(System.currentTimeMillis());
+                int top = 54 + 17 * explainLines().size();
+                java.awt.font.TextLayout tl = CondPaint.rtl(warnTitle(), RecursionPanel.this.uiBold, g.getFontRenderContext());
+                int h = 24, lamp = 14, w = (int) Math.ceil(tl.getAdvance()) + lamp + 26, wx = right - w;
+                WarnLight.pill(g, wx, top, w, h, bl);
+                float cx = wx + w - 10 - lamp / 2f, cy = top + h / 2f;
+                WarnLight.lamp(g, cx, cy, lamp, bl, new java.awt.Rectangle(0, top - 2, getWidth(), h + 4));
+                g.setColor(WarnLight.TEXT);
+                tl.draw(g, cx - lamp / 2f - 8 - tl.getAdvance(), top + (h + tl.getAscent() - tl.getDescent()) / 2f);
+                g.setFont(RecursionPanel.this.ui);
+                g.setColor(MUTED);
+                FontMetrics wm = g.getFontMetrics();
+                int dy = top + h + 16;
+                for (String ln : warnLines()) {
+                    g.drawString(ln, right - wm.stringWidth(ln), dy);
+                    dy += 17;
+                }
             }
             g.setColor(new Color(0xE3E7EE));
             g.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);

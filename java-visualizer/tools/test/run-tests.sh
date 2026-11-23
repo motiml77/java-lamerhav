@@ -357,6 +357,22 @@ for spec in 'Fact:רקורסיה פשוטה | פעולות fact | עומק 4 | �
     grep -qF -- "[רקורסיה: $want" "$R/$c.txt" && echo "  ok  $c: $want" || { echo "  FAIL $c: $want"; grep 'רקורסיה:' "$R/$c.txt"; exit 1; }
 done
 
+echo "== 5ז1. \"הרקורסיה לא נעצרת\": תנאי עצירה שגוי (sum(n - 2) מדלג על 0) מזוהה כבר מהצעדים, לפני שהתוכנית מתרסקת; רקורסיה עמוקה שחוזרת — בלי אזהרה"
+for c in BadBase DeepOk; do
+    (cd "$R" && java -Djava.awt.headless=true -Ddsviz.conditions=true -Dstdout.encoding=UTF-8 -cp ".:$JAR" unit4.collectionsLib.LineByLine $c > $c.txt 2>&1) || true
+done
+grep -qF -- 'פעולות sum | עומק ' "$R/BadBase.txt" && grep -qF -- 'עצירה [] | ⚠ אף קריאה לא חזרה — כנראה לא נעצרת (עומק' "$R/BadBase.txt" \
+    && echo "  ok  BadBase: אף קריאה לא חזרה, ולכן אזהרה (ובלי \"תנאי עצירה\" על הקריאה שהתרסקה)" \
+    || { echo "  FAIL BadBase: חסרה האזהרה"; grep 'רקורסיה:' "$R/BadBase.txt"; exit 1; }
+grep -qF -- '[רקורסיה: רקורסיה פשוטה | פעולות sum | עומק 61 | קריאות 61 | עצירה [#62→0]]' "$R/DeepOk.txt" && ! grep -q '⚠' "$R/DeepOk.txt" \
+    && echo "  ok  DeepOk: 61 קריאות מקוננות שחוזרות — בלי אזהרה" \
+    || { echo "  FAIL DeepOk: אזהרה על רקורסיה עמוקה שחוזרת"; grep 'רקורסיה:' "$R/DeepOk.txt"; exit 1; }
+! grep -q '⚠' "$R"/Fact.txt "$R"/Fib.txt "$R"/SumTail.txt "$R"/EvenOdd.txt "$R"/ListLen.txt "$R"/TreeCount.txt "$R"/PrintDown.txt \
+    && echo "  ok  אף רקורסיה תקינה לא קיבלה אזהרה" || { echo "  FAIL אזהרה על רקורסיה תקינה"; grep -l '⚠' "$R"/*.txt; exit 1; }
+javac -encoding UTF-8 -cp "$JAR" -d "$R" recursion/paint/RecursionWarnPaint.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$R:$JAR" unit4.collectionsLib.RecursionWarnPaint "$R/pics" > "$R/paint.txt" 2>&1 \
+    && grep -q MARK-END "$R/paint.txt" && grep '^  ok' "$R/paint.txt" || { cat "$R/paint.txt"; exit 1; }
+
 echo "== 5ז2. מעקב המשתנים לכל פעולה פעילה: הפעולה שרצה, ולכל פעולה שמחכה (גם ברקורסיה) — המשתנים שלה ברגע הזה"
 # [מסגרות #צעד: הפנימית{משתנים} ← מי שקרא לה{...} ← ... ← main{...} | המשפט] — מה שהרשימה במעקב המשתנים מציגה לכל פעולה
 FV="$W/framevars"
