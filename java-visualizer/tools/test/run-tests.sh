@@ -449,6 +449,19 @@ javac -encoding UTF-8 -cp "$JAR" -d "$SA" anim/StructAnimPaint.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$SA:$JAR" unit4.collectionsLib.StructAnimPaint "$SA/frames" > "$SA/paint.txt" 2>&1 \
     && grep -q MARK-END "$SA/paint.txt" && grep '^  ok' "$SA/paint.txt" || { cat "$SA/paint.txt"; exit 1; }
 
+echo "== 5ח3. סידור החלקים בחלון ההרצה: גרירת חלק מהכותרת אל צד של חלק אחר / החלפת מקומות, גודל הקווים, שמירה לפעם הבאה, \"פריסה רגילה\""
+# הלוגיקה של העץ (Dock) — בלי חלון; ואם יש xvfb: החלון האמיתי (TraceViewer על קובץ צעדים) עם גרירות עכבר אמיתיות (Robot)
+DK="$W/dock"
+mkdir -p "$DK/cls" "$DK/home"
+javac -encoding UTF-8 -cp "$JAR" -d "$DK/cls" dock/DockCheck.java
+if command -v xvfb-run >/dev/null 2>&1; then
+    xvfb-run -a -s "-screen 0 1600x1000x24" java -Duser.home="$DK/home" -Dstdout.encoding=UTF-8 -cp "$DK/cls:$JAR" unit4.collectionsLib.DockCheck dock/sample.trace "$DK/shots" > "$DK/out.txt" 2>&1 \
+        && grep -q MARK-END "$DK/out.txt" && echo "  ok  $(grep -c '^  ok' "$DK/out.txt") בדיקות (לוגיקה + גרירות אמיתיות בחלון; צילומים: $DK/shots)" || { cat "$DK/out.txt"; exit 1; }
+else
+    java -Djava.awt.headless=true -Duser.home="$DK/home" -Dstdout.encoding=UTF-8 -cp "$DK/cls:$JAR" unit4.collectionsLib.DockCheck > "$DK/out.txt" 2>&1 \
+        && grep -q MARK-END "$DK/out.txt" && echo "  ok  $(grep -c '^  ok' "$DK/out.txt") בדיקות לוגיקה (אין xvfb — בלי החלון)" || { cat "$DK/out.txt"; exit 1; }
+fi
+
 echo "== 5ט. קלט מהמקלדת (Scanner / BufferedReader / System.in.read): השורה שמחכה, מה שהוקלד כצעד INPUT, והפלט"
 # בלי חלון: dsviz.input "מקליד" את השורות כשהתוכנית מחכה (מקובץ UTF-8 — עברית בלי תלות בקידוד של שורת הפקודה)
 I="$W/input"

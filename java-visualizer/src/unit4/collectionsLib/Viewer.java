@@ -13,6 +13,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.KeyboardFocusManager;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
@@ -26,6 +27,7 @@ import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
@@ -161,17 +163,18 @@ final class Viewer extends JFrame {
     private boolean inputShown, inputFocused, followEnd;
     private int shownWait = -1, shownWaitStep = -1, pulse, blinkTick, errorAt = -1;
 
+    /** קווי הגרירה שעל המסך עכשיו, והצומת של כל אחד בעץ הסידור (dock) */
     private final List<JSplitPane> splits = new ArrayList<JSplitPane>();
-    /** הגודל הרגיל של כל קו גרירה (חלק מהרוחב / הגובה), והשם שבו נשמר הגודל שהמשתמש בחר */
-    private final List<Double> splitRatios = new ArrayList<Double>();
-    private final List<String> splitKeys = new ArrayList<String>();
-    /** הסידור הרגיל ("split") או חלק אחד מוגדל לכל החלון ("max") */
+    private final List<Dock> splitNodes = new ArrayList<Dock>();
+    /** סידור החלקים: המשתמש גורר חלק מהכותרת שלו למקום אחר, גורר את הקווים לגודל שהוא רוצה — והכול נשמר לפעם הבאה */
+    private Dock dock;
+    private final Map<String, Card> cards = new java.util.LinkedHashMap<String, Card>();
+    private final JPanel dockHolder = new JPanel(new BorderLayout());
+    private final DropHint dropHint = new DropHint();
+    /** הסידור ("split") או חלק אחד מוגדל לכל החלון ("max") */
     private final JPanel stage = new JPanel(new java.awt.CardLayout());
     private final JPanel maxHolder = new JPanel(new BorderLayout());
     private Card maximized;
-    private JSplitPane maxParent;
-    private boolean maxLeft;
-    private int[] maxLocations;
 
     private static final String TITLE = "הרצה ויזואלית — מבני נתונים";
 
@@ -313,7 +316,7 @@ final class Viewer extends JFrame {
         callStrip.setVisible(false);
         codeBody.add(callStrip, BorderLayout.NORTH);
         codeBody.add(codeScroll, BorderLayout.CENTER);
-        Card codeCard = new Card("הקוד", codeSub, null, codeBody);
+        Card codeCard = new Card("code", "הקוד", codeSub, null, codeBody);
 
         // --- התצוגה הוויזואלית
         JScrollPane structScroll = scroll(structs);
@@ -359,11 +362,11 @@ final class Viewer extends JFrame {
         viewPages.setOpaque(false);
         viewPages.add(structPage, "structs");
         viewPages.add(recPage, "recursion");
-        Card structCard = new Card("התצוגה הוויזואלית", null, null, viewPages);
+        Card structCard = new Card("view", "התצוגה הוויזואלית", null, null, viewPages);
         recScroll.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
 
         // --- מעקב משתנים
-        Card varsCard = new Card("מעקב משתנים", varsSub, null, varsPanel);
+        Card varsCard = new Card("vars", "מעקב משתנים", varsSub, null, varsPanel);
 
         // --- פלט
         console.setEditable(false);
@@ -372,18 +375,24 @@ final class Viewer extends JFrame {
         console.setForeground(Theme.TEXT);
         console.setMargin(new java.awt.Insets(6, 10, 6, 10));
         JScrollPane consoleScroll = scroll(console);
-        Card outCard = new Card("פלט", label("\u200ESystem.out\u200E עד הצעד הזה", Theme.small, Theme.MUTED), null, consoleScroll);
+        Card outCard = new Card("out", "פלט", label("\u200ESystem.out\u200E עד הצעד הזה", Theme.small, Theme.MUTED), null, consoleScroll);
 
-        // --- סידור (על המסך): מימין — התצוגה הוויזואלית, הכי גדולה ולכל הגובה; משמאל למעלה — הקוד, ומתחתיו מעקב המשתנים והפלט.
-        // כל הקווים ניתנים לגרירה. הקווים עצמם תמיד משמאל לימין (ראו למטה) — כך שהסדר כאן הוא הסדר על המסך.
-        JComponent under = Recorder.lineMode ? split(JSplitPane.HORIZONTAL_SPLIT, varsCard, outCard, 0.5, "viewer.pane.bottom") : outCard;
-        JSplitPane left = split(JSplitPane.VERTICAL_SPLIT, codeCard, under, 0.64, "viewer.pane.left");
-        JSplitPane top = split(JSplitPane.HORIZONTAL_SPLIT, left, structCard, 0.42, "viewer.pane.main");
-        // הסידור הרגיל, או חלק אחד מוגדל לכל החלון (הכפתור בכותרת שלו / לחיצה כפולה על הכותרת; Esc חוזר)
+        // --- סידור (על המסך). הרגיל: מימין — התצוגה הוויזואלית, הכי גדולה ולכל הגובה; משמאל למעלה — הקוד, ומתחתיו מעקב
+        // המשתנים והפלט. המשתמש משנה: גורר חלק מהכותרת שלו אל צד של חלק אחר (או אל האמצע — החלפת מקומות), וגורר את הקווים
+        // לגודל שהוא רוצה; הסידור נשמר לפעם הבאה ("פריסה רגילה" בסרגל מחזיר). הקווים עצמם תמיד משמאל לימין (ראו buildDock).
+        cards.put("code", codeCard);
+        if (Recorder.lineMode) cards.put("vars", varsCard);
+        cards.put("out", outCard);
+        cards.put("view", structCard);
+        dock = Dock.parse(Theme.savedText(dockKey()), cards.keySet());
+        if (dock == null) dock = defaultDock(true);
+        // הסידור, או חלק אחד מוגדל לכל החלון (הכפתור בכותרת שלו / לחיצה כפולה על הכותרת; Esc חוזר)
         stage.setOpaque(false);
         maxHolder.setOpaque(false);
-        stage.add(top, "split");
+        dockHolder.setOpaque(false);
+        stage.add(dockHolder, "split");
         stage.add(maxHolder, "max");
+        buildDock();   // לפני שקובעים את כיוון החלון (מימין לשמאל) — כדי שגם החלקים יקבלו אותו
         // מתחת לכול: הפס "התוכנית מחכה לקלט" (רק כשהיא מחכה)
         leftBox.setOpaque(false);
         leftBox.add(stage, BorderLayout.CENTER);
@@ -405,6 +414,7 @@ final class Viewer extends JFrame {
         varsPanel.leftToRight();   // מעקב המשתנים: שמות המשתנים בצד שמאל
         // קווי הגרירה עצמם — משמאל לימין (רק הם, לא התוכן): מימין לשמאל Swing הופך את הצדדים, והגרירה לא עובדת כמו שצריך
         for (JSplitPane sp : splits) sp.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+        getLayeredPane().add(dropHint, javax.swing.JLayeredPane.DRAG_LAYER);
 
         keys();
         player = new Timer(600, new ActionListener() {
@@ -446,11 +456,7 @@ final class Viewer extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowOpened(WindowEvent e) {
-                for (int i = 0; i < splits.size(); i++) {
-                    double r = Theme.savedRatio(splitKeys.get(i), splitRatios.get(i));   // הגודל שהמשתמש בחר בפעם הקודמת
-                    splits.get(i).setResizeWeight(r);   // שינוי גודל החלון שומר על היחס
-                    splits.get(i).setDividerLocation(r);
-                }
+                applyDockRatios();   // הגדלים שהמשתמש בחר בפעם הקודמת
             }
         });
         // התוכנית מתחילה / מפסיקה לחכות לקלט מהמקלדת — מיד (ולא רק בבדיקה התקופתית)
@@ -511,7 +517,7 @@ final class Viewer extends JFrame {
      * קו גרירה בין שני חלקים — כמו ב-VS Code / IntelliJ / Visual Studio: דק ושקט, במעבר עכבר ובגרירה קו כחול לכל האורך,
      * לחיצה כפולה מחזירה לגודל הרגיל, והגודל שנבחר נשמר לפעם הבאה (key)
      */
-    private JSplitPane split(int orientation, Component a, Component b, double ratio, String key) {
+    private JSplitPane split(int orientation, Component a, Component b, Dock node) {
         final int index = splits.size();
         JSplitPane s = new JSplitPane(orientation, a, b);
         s.setUI(new javax.swing.plaf.basic.BasicSplitPaneUI() {
@@ -520,7 +526,7 @@ final class Viewer extends JFrame {
                 return new Sash(this, index);
             }
         });
-        s.setResizeWeight(ratio);
+        s.setResizeWeight(node.ratio);
         s.setBorder(BorderFactory.createEmptyBorder());
         s.setOpaque(false);
         s.setContinuousLayout(true);
@@ -528,51 +534,149 @@ final class Viewer extends JFrame {
         s.setDividerSize(9);
         if (a instanceof JComponent) ((JComponent) a).setMinimumSize(new Dimension(60, 40));
         if (b instanceof JComponent) ((JComponent) b).setMinimumSize(new Dimension(60, 40));
+        // הקו עצמו משמאל לימין (רק הוא, לא התוכן): מימין לשמאל Swing הופך את הצדדים, והגרירה לא עובדת כמו שצריך
+        s.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
         splits.add(s);
-        splitRatios.add(ratio);
-        splitKeys.add(key);
+        splitNodes.add(node);
         return s;
+    }
+
+    // ------------------------------------------------------------ סידור החלקים (Dock)
+
+    /** הסידור נשמר בנפרד למצב "שורה-שורה" (ארבעה חלקים) ולמצב בלי מעקב משתנים (שלושה) */
+    private static String dockKey() {
+        return Recorder.lineMode ? "viewer.dock" : "viewer.dock.noline";
+    }
+
+    /**
+     * הסידור הרגיל: מימין התצוגה הוויזואלית לכל הגובה; משמאל למעלה הקוד, ומתחתיו מעקב המשתנים והפלט.
+     * saved — עם הגדלים שנשמרו בשיטה הקודמת (לפני שאפשר היה להזיז חלקים), כדי שמי שכבר סידר גדלים לא יאבד אותם
+     */
+    private static Dock defaultDock(boolean saved) {
+        Dock under = Recorder.lineMode ? node(true, 0.5, "viewer.pane.bottom", saved, Dock.leaf("vars"), Dock.leaf("out")) : Dock.leaf("out");
+        Dock left = node(false, 0.64, "viewer.pane.left", saved, Dock.leaf("code"), under);
+        return node(true, 0.42, "viewer.pane.main", saved, left, Dock.leaf("view"));
+    }
+
+    private static Dock node(boolean across, double def, String oldKey, boolean saved, Dock a, Dock b) {
+        Dock d = Dock.split(across, def, a, b);
+        if (saved) d.ratio = Theme.savedRatio(oldKey, def);
+        return d;
+    }
+
+    /** בונה את החלקים וקווי הגרירה מחדש לפי dock (אחרי הזזת חלק, "פריסה רגילה", חזרה מחלק מוגדל) */
+    private void buildDock() {
+        splits.clear();
+        splitNodes.clear();
+        dockHolder.removeAll();
+        dockHolder.add(build(dock), BorderLayout.CENTER);
+        dockHolder.revalidate();
+        dockHolder.repaint();
+        applyDockRatios();
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() { applyDockRatios(); }
+        });
+    }
+
+    private Component build(Dock n) {
+        if (n.isLeaf()) return cards.get(n.card);
+        Component a = build(n.a), b = build(n.b);
+        return split(n.across ? JSplitPane.HORIZONTAL_SPLIT : JSplitPane.VERTICAL_SPLIT, a, b, n);
+    }
+
+    /** מקום כל קו לפי היחס שלו בעץ — מלמעלה למטה, לפי הגודל של אזור הסידור (לפני שהחלון מוצג אין גודל — windowOpened קורא שוב) */
+    private void applyDockRatios() {
+        if (dockHolder.getWidth() <= 0 || dockHolder.getHeight() <= 0) return;
+        dockHolder.validate();
+        applyRatios(dock, dockHolder.getWidth(), dockHolder.getHeight());
+    }
+
+    private void applyRatios(Dock n, int w, int h) {
+        if (n.isLeaf()) return;
+        JSplitPane s = splits.get(splitNodes.indexOf(n));
+        int total = Math.max(0, (n.across ? w : h) - s.getDividerSize());
+        int loc = (int) Math.round(total * n.ratio);
+        s.setResizeWeight(n.ratio);   // שינוי גודל החלון שומר על היחס
+        s.setDividerLocation(loc);
+        applyRatios(n.a, n.across ? loc : w, n.across ? h : loc);
+        applyRatios(n.b, n.across ? total - loc : w, n.across ? h : total - loc);
+    }
+
+    private void saveDock() {
+        Theme.saveText(dockKey(), dock.format());
+    }
+
+    /** הטקסט של הסידור (לבדיקות) */
+    String dockText() {
+        return dock.format();
+    }
+
+    /** המקום של חלק על המסך (לבדיקות); null — החלק לא מוצג */
+    Rectangle cardOnScreen(String id) {
+        Card c = cards.get(id);
+        return c == null || !c.isShowing() ? null : new Rectangle(c.getLocationOnScreen(), c.getSize());
+    }
+
+    /** המקום של הכותרת של חלק על המסך (לבדיקות) */
+    Rectangle titleOnScreen(String id) {
+        Card c = cards.get(id);
+        return c == null || !c.titleLabel.isShowing() ? null : new Rectangle(c.titleLabel.getLocationOnScreen(), c.titleLabel.getSize());
+    }
+
+    /** הגדלה / חזרה של חלק לפי השם שלו (לבדיקות) */
+    void toggleMaxOf(String id) {
+        if (cards.containsKey(id)) toggleMax(cards.get(id));
+    }
+
+    /** מעבירים חלק אל הצד side של חלק אחר (Dock.LEFT / RIGHT / TOP / BOTTOM), או Dock.CENTER — החלפת מקומות */
+    boolean dockMove(String from, String to, int side) {
+        if (maximized != null || !dock.move(from, to, side)) return false;
+        saveDock();
+        buildDock();
+        return true;
     }
 
     /** הגודל של קו גרירה אחרי שהמשתמש גרר אותו — נשמר, ושינוי גודל החלון שומר על אותו יחס */
     private void saveSplit(int i) {
+        if (i >= splits.size()) return;
         JSplitPane s = splits.get(i);
         int total = (s.getOrientation() == JSplitPane.HORIZONTAL_SPLIT ? s.getWidth() : s.getHeight()) - s.getDividerSize();
         if (total <= 0 || maximized != null) return;
         double r = Math.max(0.05, Math.min(0.95, s.getDividerLocation() / (double) total));
         s.setResizeWeight(r);
-        Theme.saveRatio(splitKeys.get(i), r);
+        splitNodes.get(i).ratio = r;
+        saveDock();
     }
 
     /** לחיצה כפולה על קו גרירה: חזרה לגודל הרגיל */
     private void resetSplit(int i) {
-        JSplitPane s = splits.get(i);
-        double r = splitRatios.get(i);
-        s.setResizeWeight(r);
-        s.setDividerLocation(r);
-        Theme.saveRatio(splitKeys.get(i), r);
+        if (i >= splits.size()) return;
+        Dock n = splitNodes.get(i);
+        n.ratio = n.def;
+        saveDock();
+        applyDockRatios();
     }
 
-    /** "פריסה רגילה": כל החלקים בגודל הרגיל (ואם חלק מוגדל — חוזרים לסידור) */
+    /** "פריסה רגילה": כל החלקים במקום ובגודל הרגילים (ואם חלק מוגדל — חוזרים לסידור) */
     void resetLayout() {
-        restoreLayout();
-        for (int i = 0; i < splits.size(); i++) resetSplit(i);
+        Card c = maximized;
+        if (c != null) {
+            maximized = null;
+            maxHolder.remove(c);
+            c.setMaximized(false);
+            ((java.awt.CardLayout) stage.getLayout()).show(stage, "split");
+        }
+        dock = defaultDock(false);
+        saveDock();
+        buildDock();
     }
 
-    /** חלק אחד לכל החלון (כמו "Maximize" ב-IntelliJ / VS Code), ושוב — חזרה לסידור הרגיל */
+    /** חלק אחד לכל החלון (כמו "Maximize" ב-IntelliJ / VS Code), ושוב — חזרה לסידור */
     void toggleMax(Card c) {
         if (maximized == c) { restoreLayout(); return; }
         restoreLayout();
-        if (!(c.getParent() instanceof JSplitPane)) return;
-        maxParent = (JSplitPane) c.getParent();
-        maxLeft = maxParent.getLeftComponent() == c;
-        maxLocations = new int[splits.size()];
-        for (int i = 0; i < splits.size(); i++) maxLocations[i] = splits.get(i).getDividerLocation();
-        JPanel hole = new JPanel();
-        hole.setOpaque(false);
-        if (maxLeft) maxParent.setLeftComponent(hole);
-        else maxParent.setRightComponent(hole);
-        maxHolder.add(c, BorderLayout.CENTER);
+        if (!cards.containsValue(c)) return;
+        maxHolder.add(c, BorderLayout.CENTER);   // יוצא מהסידור; restoreLayout בונה אותו מחדש באותם מקומות וגדלים
         maximized = c;
         c.setMaximized(true);
         ((java.awt.CardLayout) stage.getLayout()).show(stage, "max");
@@ -580,24 +684,120 @@ final class Viewer extends JFrame {
         stage.repaint();
     }
 
-    /** חזרה מחלק מוגדל לסידור הרגיל — באותם גדלים */
+    /** חזרה מחלק מוגדל לסידור — באותם מקומות וגדלים */
     void restoreLayout() {
         if (maximized == null) return;
         Card c = maximized;
         maximized = null;
         maxHolder.remove(c);
-        if (maxLeft) maxParent.setLeftComponent(c);
-        else maxParent.setRightComponent(c);
         c.setMaximized(false);
         ((java.awt.CardLayout) stage.getLayout()).show(stage, "split");
-        final int[] locs = maxLocations;
+        buildDock();
         stage.revalidate();
         stage.repaint();
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                if (locs != null) for (int i = 0; i < splits.size() && i < locs.length; i++) splits.get(i).setDividerLocation(locs[i]);
+    }
+
+    // ------------------------------------------------------------ גרירת חלק למקום אחר
+
+    private Card dragCard, dropCard;
+    private int dropSide = -1;
+
+    /** תוך כדי גרירה: איזה חלק מתחת לעכבר, ובאיזה צד שלו (או האמצע) — והסימון הכחול של המקום החדש */
+    private void dragOver(Card from, Component src, Point at) {
+        dragCard = from;
+        dropCard = null;
+        dropSide = -1;
+        Rectangle zone = null;
+        String text = null;
+        for (Card c : cards.values()) {
+            if (c == from || !c.isShowing()) continue;
+            Point p = SwingUtilities.convertPoint(src, at, c);
+            if (!c.contains(p)) continue;
+            double fx = p.x / (double) Math.max(1, c.getWidth()), fy = p.y / (double) Math.max(1, c.getHeight());
+            int side;
+            if (fx > 0.3 && fx < 0.7 && fy > 0.3 && fy < 0.7) side = Dock.CENTER;
+            else {
+                double[] d = { fx, 1 - fx, fy, 1 - fy };   // LEFT, RIGHT, TOP, BOTTOM
+                side = 0;
+                for (int i = 1; i < 4; i++) if (d[i] < d[side]) side = i;
             }
-        });
+            int w = c.getWidth(), h = c.getHeight();
+            Rectangle r = side == Dock.LEFT ? new Rectangle(0, 0, w / 2, h) : side == Dock.RIGHT ? new Rectangle(w - w / 2, 0, w / 2, h)
+                    : side == Dock.TOP ? new Rectangle(0, 0, w, h / 2) : side == Dock.BOTTOM ? new Rectangle(0, h - h / 2, w, h / 2) : new Rectangle(0, 0, w, h);
+            zone = SwingUtilities.convertRectangle(c, r, getLayeredPane());
+            text = side == Dock.CENTER ? "החלפת מקומות עם ״" + c.title + "״" : "״" + from.title + "״ — כאן";
+            dropCard = c;
+            dropSide = side;
+            break;
+        }
+        dropHint.show(zone, text, from.title, SwingUtilities.convertPoint(src, at, getLayeredPane()));
+    }
+
+    private void dragEnd(boolean drop) {
+        Card from = dragCard, to = dropCard;
+        int side = dropSide;
+        dragCard = dropCard = null;
+        dropSide = -1;
+        dropHint.clear();
+        if (drop && from != null && to != null && side >= 0) dockMove(from.id, to.id, side);
+    }
+
+    /** הסימון בזמן גרירה: המקום החדש בכחול שקוף, ושם החלק הנגרר ליד העכבר. שכבה מעל החלון, בלי לתפוס עכבר */
+    private final class DropHint extends JComponent {
+        private static final long serialVersionUID = 1L;
+        private Rectangle zone;
+        private String text, chip;
+        private Point at;
+
+        void show(Rectangle zone, String text, String chip, Point at) {
+            this.zone = zone;
+            this.text = text;
+            this.chip = chip;
+            this.at = at;
+            setBounds(0, 0, getParent().getWidth(), getParent().getHeight());
+            setVisible(true);
+            repaint();
+        }
+
+        void clear() {
+            zone = null;
+            at = null;
+            setVisible(false);
+            repaint();
+        }
+
+        @Override
+        public boolean contains(int x, int y) {
+            return false;   // לא תופס עכבר
+        }
+
+        @Override
+        protected void paintComponent(Graphics g0) {
+            Graphics2D g = (Graphics2D) g0.create();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            Font f = Theme.z(Theme.smallBold != null ? Theme.smallBold : Theme.small);
+            if (zone != null) {
+                g.setColor(new Color(Theme.ACCENT.getRed(), Theme.ACCENT.getGreen(), Theme.ACCENT.getBlue(), 46));
+                g.fillRoundRect(zone.x + 3, zone.y + 3, zone.width - 6, zone.height - 6, 14, 14);
+                g.setColor(Theme.ACCENT);
+                g.setStroke(new BasicStroke(2f));
+                g.drawRoundRect(zone.x + 3, zone.y + 3, zone.width - 6, zone.height - 6, 14, 14);
+                if (text != null) pill(g, f, text, zone.x + zone.width / 2, zone.y + zone.height / 2, Theme.ACCENT, Color.WHITE);
+            }
+            if (at != null && chip != null && zone == null) pill(g, f, chip, at.x, at.y + 26, new Color(0x334155), Color.WHITE);
+            g.dispose();
+        }
+
+        private void pill(Graphics2D g, Font f, String s, int cx, int cy, Color bg, Color fg) {
+            java.awt.font.TextLayout tl = CondPaint.rtl(s, f, g.getFontRenderContext());
+            int w = (int) Math.ceil(tl.getAdvance()) + 22, h = (int) Math.ceil(tl.getAscent() + tl.getDescent()) + 10;
+            int x = Math.max(4, Math.min(getWidth() - w - 4, cx - w / 2)), y = Math.max(4, Math.min(getHeight() - h - 4, cy - h / 2));
+            g.setColor(bg);
+            g.fillRoundRect(x, y, w, h, h, h);
+            g.setColor(fg);
+            tl.draw(g, x + 11, y + 5 + tl.getAscent());
+        }
     }
 
     /** קו הגרירה עצמו: רקע החלון, שלוש נקודות באמצע; במעבר עכבר / גרירה — קו כחול לכל האורך */
@@ -662,7 +862,7 @@ final class Viewer extends JFrame {
      */
     private JComponent zoomTools() {
         JPanel box = row(6);
-        JButton layout = small("", "פריסה רגילה — כל החלקים בגודל הרגיל  (לחיצה כפולה על קו גרירה — רק אותו קו)");
+        JButton layout = small("", "פריסה רגילה — כל החלקים במקום ובגודל הרגילים  (לחיצה כפולה על קו גרירה — רק אותו קו)");
         layout.setIcon(new LayoutIcon());
         layout.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { resetLayout(); } });
         JPanel p = new Pill(Color.WHITE, Theme.BORDER);
@@ -1754,9 +1954,13 @@ final class Viewer extends JFrame {
     private final class Card extends JPanel {
         private static final long serialVersionUID = 1L;
         private final JButton maxBtn;
+        final String id, title;
+        private final JLabel titleLabel;
 
-        Card(String title, JLabel sub, JComponent tools, JComponent content) {
+        Card(String id, String title, JLabel sub, JComponent tools, JComponent content) {
             super(new BorderLayout());
+            this.id = id;
+            this.title = title;
             setOpaque(false);
             setBorder(BorderFactory.createEmptyBorder(1, 1, 6, 1));
             JPanel head = new JPanel(new BorderLayout(10, 0));
@@ -1766,8 +1970,10 @@ final class Viewer extends JFrame {
                     BorderFactory.createEmptyBorder(3, 12, 3, 8)));
             JPanel titles = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
             titles.setOpaque(false);
+            titles.add(new JLabel(new GripIcon()));   // "ידית": רמז שאפשר לגרור את החלק מהכותרת למקום אחר
             // כותרות קטנות — שיתפסו פחות מקום ויישאר יותר לתוכן הכרטיס
-            if (title != null) titles.add(label(title, Theme.title.deriveFont(Theme.title.getSize2D() - 2f), Theme.TEXT));
+            titleLabel = label(title, Theme.title.deriveFont(Theme.title.getSize2D() - 2f), Theme.TEXT);
+            titles.add(titleLabel);
             if (sub != null) {
                 sub.setFont(Theme.small.deriveFont(Theme.small.getSize2D() - 2f));
                 sub.setForeground(Theme.MUTED);
@@ -1791,7 +1997,41 @@ final class Viewer extends JFrame {
             };
             head.addMouseListener(twice);
             for (Component k : titles.getComponents()) k.addMouseListener(twice);
-            head.setToolTipText("לחיצה כפולה — הגדלה לכל החלון / חזרה");
+            // גרירה מהכותרת: העברת החלק למקום אחר בחלון (אל צד של חלק אחר, או אל האמצע שלו — החלפת מקומות)
+            java.awt.event.MouseAdapter drag = new java.awt.event.MouseAdapter() {
+                private Point from;
+                private boolean dragging;
+
+                @Override
+                public void mousePressed(java.awt.event.MouseEvent e) {
+                    from = SwingUtilities.isLeftMouseButton(e) ? e.getPoint() : null;
+                    dragging = false;
+                }
+
+                @Override
+                public void mouseDragged(java.awt.event.MouseEvent e) {
+                    if (from == null || maximized != null || cards.size() < 2) return;
+                    if (!dragging && from.distance(e.getPoint()) < 8) return;
+                    dragging = true;
+                    dragOver(Card.this, e.getComponent(), e.getPoint());
+                }
+
+                @Override
+                public void mouseReleased(java.awt.event.MouseEvent e) {
+                    if (dragging) dragEnd(true);
+                    dragging = false;
+                    from = null;
+                }
+            };
+            for (Component k : titles.getComponents()) { k.addMouseListener(drag); k.addMouseMotionListener(drag); }
+            head.addMouseListener(drag);
+            head.addMouseMotionListener(drag);
+            titles.addMouseListener(drag);
+            titles.addMouseMotionListener(drag);
+            titles.addMouseListener(twice);
+            head.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.MOVE_CURSOR));
+            end.setCursor(java.awt.Cursor.getDefaultCursor());
+            head.setToolTipText("גרירה — העברת החלק למקום אחר בחלון · לחיצה כפולה — הגדלה לכל החלון / חזרה");
             add(head, BorderLayout.NORTH);
             JPanel body = new JPanel(new BorderLayout());
             body.setOpaque(false);
@@ -1819,6 +2059,21 @@ final class Viewer extends JFrame {
     }
 
     private static final String MAX_TIP = "הגדלה לכל החלון  (גם לחיצה כפולה על הכותרת; Esc — חזרה)";
+
+    /** שש נקודות — "ידית הגרירה" בתחילת הכותרת של כל חלק */
+    private static final class GripIcon implements Icon {
+        public int getIconWidth() { return 8; }
+
+        public int getIconHeight() { return 12; }
+
+        public void paintIcon(Component c, Graphics g0, int x, int y) {
+            Graphics2D g = (Graphics2D) g0.create();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(new Color(0xA3ADBD));
+            for (int r = 0; r < 3; r++) for (int k = 0; k < 2; k++) g.fillOval(x + 1 + k * 4, y + 1 + r * 4, 2, 2);
+            g.dispose();
+        }
+    }
 
     /** הגדלה (פינות כלפי חוץ) / חזרה (פינות כלפי פנים) */
     private static final class CornerIcon implements Icon {

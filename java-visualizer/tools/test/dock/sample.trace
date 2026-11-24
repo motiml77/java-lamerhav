@@ -1,0 +1,482 @@
+DSVIZ	1	cs
+SRC	LinkNew.cs	using System;\nusing Unit4.CollectionsLib;\n\npublic class Program\n{\n    public static void Main(string[] args)\n    {\n        Node<int> list = new Node<int>(3, new Node<int>(7, new Node<int>(1)));\n        Node<int> n = new Node<int>(5);\n        n.SetNext(list);\n        list = n;\n        Node<int> p = list;\n        while (p.GetNext() != null)\n            p = p.GetNext();\n        Node<int> t = new Node<int>(9);\n        p.SetNext(t);\n        p = list.GetNext();\n        Node<int> q = new Node<int>(4);\n        q.SetNext(p.GetNext());\n        p.SetNext(q);\n        Console.WriteLine(list);\n    }\n}\n
+CLS	Program		0	0	
+CM	Main		1	s	+	
+STEP	LINE	0	\0	שורה 8:   ‪Node<int> list = new Node<int>(3, new Node<int>(7, new Node<int>(1)));‬
+FR	Program	Main	LinkNew.cs	8
+VARS
+STEP	CREATE	0	\0	new Node(1)
+FR	Program	Main	LinkNew.cs	8
+VARS
+V	CHAIN	1	רשימה	-1	\0	0
+C	1	NEW	0	
+STEP	CREATE	0	\0	new Node(7, [1])
+FR	Program	Main	LinkNew.cs	8
+VARS
+V	CHAIN	1	רשימה	-1	\0	0
+C	7	NEW	0	
+C	1	NONE	0	
+STEP	CREATE	0	\0	new Node(3, [7])
+FR	Program	Main	LinkNew.cs	8
+VARS
+V	CHAIN	1	רשימה	-1	\0	0
+C	3	NEW	0	
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 9:   ‪Node<int> n = new Node<int>(5);‬
+FR	Program	Main	LinkNew.cs	9
+VARS
+VAR	list	Node [3]
+V	CHAIN	0	list	-1	\0	0
+C	3	NONE	0	list
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	CREATE	0	\0	new Node(5)
+FR	Program	Main	LinkNew.cs	9
+VARS
+VAR	list	Node [3]
+V	CHAIN	0	list	-1	\0	0
+C	3	NONE	0	list
+C	7	NONE	0	
+C	1	NONE	0	
+V	CHAIN	1	רשימה	-1	\0	0
+C	5	NEW	0	
+STEP	LINE	0	\0	שורה 10:   ‪n.SetNext(list);‬
+FR	Program	Main	LinkNew.cs	10
+VARS
+VAR	list	Node [3]
+VAR	n	Node [5]
+V	CHAIN	0	list	-1	\0	0
+C	3	NONE	0	list
+C	7	NONE	0	
+C	1	NONE	0	
+V	CHAIN	0	n	-1	\0	0
+C	5	NONE	0	n
+STEP	CHANGE	0	\0	[5].SetNext([3])
+FR	Program	Main	LinkNew.cs	10
+VARS
+VAR	list	Node [3]
+VAR	n	Node [5]
+V	CHAIN	1	n	-1	\0	0
+C	5	CHANGED	0	n
+C	3	NONE	0	list
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 11:   ‪list = n;‬
+FR	Program	Main	LinkNew.cs	11
+VARS
+VAR	list	Node [3]
+VAR	n	Node [5]
+V	CHAIN	0	n	-1	\0	0
+C	5	NONE	0	n
+C	3	NONE	0	list
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 12:   ‪Node<int> p = list;‬
+FR	Program	Main	LinkNew.cs	12
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 13:   ‪while (p.GetNext() != null)‬
+FR	Program	Main	LinkNew.cs	13
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [5]
+V	CHAIN	0	list, n, p	-1	\0	0
+C	5	NONE	0	listnp
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	READ	0	\0	[5].GetNext()  →  [3]
+FR	Program	Main	LinkNew.cs	13
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [5]
+V	CHAIN	1	list, n, p	-1	\0	0
+C	5	READ	0	listnp
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 14:   ‪p = p.GetNext();‬
+FR	Program	Main	LinkNew.cs	14
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [5]
+V	CHAIN	0	list, n, p	-1	\0	0
+C	5	NONE	0	listnp
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	READ	0	\0	[5].GetNext()  →  [3]
+FR	Program	Main	LinkNew.cs	14
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [5]
+V	CHAIN	1	list, n, p	-1	\0	0
+C	5	READ	0	listnp
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 13:   ‪while (p.GetNext() != null)‬
+FR	Program	Main	LinkNew.cs	13
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	READ	0	\0	[3].GetNext()  →  [7]
+FR	Program	Main	LinkNew.cs	13
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	READ	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 14:   ‪p = p.GetNext();‬
+FR	Program	Main	LinkNew.cs	14
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	READ	0	\0	[3].GetNext()  →  [7]
+FR	Program	Main	LinkNew.cs	14
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	READ	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 13:   ‪while (p.GetNext() != null)‬
+FR	Program	Main	LinkNew.cs	13
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [7]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	p
+C	1	NONE	0	
+STEP	READ	0	\0	[7].GetNext()  →  [1]
+FR	Program	Main	LinkNew.cs	13
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [7]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	READ	0	p
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 14:   ‪p = p.GetNext();‬
+FR	Program	Main	LinkNew.cs	14
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [7]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	p
+C	1	NONE	0	
+STEP	READ	0	\0	[7].GetNext()  →  [1]
+FR	Program	Main	LinkNew.cs	14
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [7]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	READ	0	p
+C	1	NONE	0	
+STEP	LINE	0	\0	שורה 13:   ‪while (p.GetNext() != null)‬
+FR	Program	Main	LinkNew.cs	13
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [1]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	p
+STEP	READ	0	\0	[1].GetNext()  →  null
+FR	Program	Main	LinkNew.cs	13
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [1]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	READ	0	p
+STEP	LINE	0	\0	שורה 15:   ‪Node<int> t = new Node<int>(9);‬
+FR	Program	Main	LinkNew.cs	15
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [1]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	p
+STEP	CREATE	0	\0	new Node(9)
+FR	Program	Main	LinkNew.cs	15
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [1]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	p
+V	CHAIN	1	רשימה	-1	\0	0
+C	9	NEW	0	
+STEP	LINE	0	\0	שורה 16:   ‪p.SetNext(t);‬
+FR	Program	Main	LinkNew.cs	16
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [1]
+VAR	t	Node [9]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	p
+V	CHAIN	0	t	-1	\0	0
+C	9	NONE	0	t
+STEP	CHANGE	0	\0	[1].SetNext([9])
+FR	Program	Main	LinkNew.cs	16
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [1]
+VAR	t	Node [9]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	CHANGED	0	p
+C	9	NONE	0	t
+STEP	LINE	0	\0	שורה 17:   ‪p = list.GetNext();‬
+FR	Program	Main	LinkNew.cs	17
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [1]
+VAR	t	Node [9]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	p
+C	9	NONE	0	t
+STEP	READ	0	\0	[5].GetNext()  →  [3]
+FR	Program	Main	LinkNew.cs	17
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [1]
+VAR	t	Node [9]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	READ	0	listn
+C	3	NONE	0	
+C	7	NONE	0	
+C	1	NONE	0	p
+C	9	NONE	0	t
+STEP	LINE	0	\0	שורה 18:   ‪Node<int> q = new Node<int>(4);‬
+FR	Program	Main	LinkNew.cs	18
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+STEP	CREATE	0	\0	new Node(4)
+FR	Program	Main	LinkNew.cs	18
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+V	CHAIN	1	רשימה	-1	\0	0
+C	4	NEW	0	
+STEP	LINE	0	\0	שורה 19:   ‪q.SetNext(p.GetNext());‬
+FR	Program	Main	LinkNew.cs	19
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+VAR	q	Node [4]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+V	CHAIN	0	q	-1	\0	0
+C	4	NONE	0	q
+STEP	READ	0	\0	[3].GetNext()  →  [7]
+FR	Program	Main	LinkNew.cs	19
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+VAR	q	Node [4]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	READ	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+V	CHAIN	0	q	-1	\0	0
+C	4	NONE	0	q
+STEP	CHANGE	0	\0	[4].SetNext([7])
+FR	Program	Main	LinkNew.cs	19
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+VAR	q	Node [4]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+BR	2
+C	4	CHANGED	0	q
+STEP	LINE	0	\0	שורה 20:   ‪p.SetNext(q);‬
+FR	Program	Main	LinkNew.cs	20
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+VAR	q	Node [4]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+BR	2
+C	4	NONE	0	q
+STEP	CHANGE	0	\0	[3].SetNext([4])
+FR	Program	Main	LinkNew.cs	20
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+VAR	q	Node [4]
+V	CHAIN	1	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	CHANGED	0	p
+C	4	NONE	0	q
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+STEP	LINE	0	\0	שורה 21:   ‪Console.WriteLine(list);‬
+FR	Program	Main	LinkNew.cs	21
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+VAR	q	Node [4]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	4	NONE	0	q
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+STEP	OUTPUT	35	\0	הדפסה: 5 -> 3 -> 4 -> 7 -> 1 -> 9 -> null
+FR	Program	Main	LinkNew.cs	21
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+VAR	q	Node [4]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	4	NONE	0	q
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+STEP	RETURN	35	\0	‏הפעולה Main הסתיימה
+FR	Program	Main	LinkNew.cs	21
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+VAR	q	Node [4]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	4	NONE	0	q
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+STEP	END	35	\0	התוכנית הסתיימה
+VARS
+VAR	list	Node [5]
+VAR	n	Node [5]
+VAR	p	Node [3]
+VAR	t	Node [9]
+VAR	q	Node [4]
+V	CHAIN	0	list, n	-1	\0	0
+C	5	NONE	0	listn
+C	3	NONE	0	p
+C	4	NONE	0	q
+C	7	NONE	0	
+C	1	NONE	0	
+C	9	NONE	0	t
+OUT	5 -> 3 -> 4 -> 7 -> 1 -> 9 -> null\n

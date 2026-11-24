@@ -124,6 +124,24 @@ public final class Theme {
         try (java.io.OutputStream out = new java.io.FileOutputStream(f)) { p.store(out, "DSViz zoom"); } catch (Exception ignored) { /* לא חשוב */ }
     }
 
+    /** טקסט שנשמר (למשל סידור החלקים בחלון ההרצה) — או null */
+    public static String savedText(String key) {
+        java.util.Properties p = new java.util.Properties();
+        try (java.io.InputStream in = new java.io.FileInputStream(zoomFile())) { p.load(in); } catch (Exception e) { return null; }
+        return p.getProperty(key);
+    }
+
+    /** v == null — מוחקים (חוזרים לברירת המחדל) */
+    public static void saveText(String key, String v) {
+        java.util.Properties p = new java.util.Properties();
+        java.io.File f = zoomFile();
+        try (java.io.InputStream in = new java.io.FileInputStream(f)) { p.load(in); } catch (Exception ignored) { /* חדש */ }
+        if (v == null) p.remove(key);
+        else p.setProperty(key, v);
+        f.getParentFile().mkdirs();
+        try (java.io.OutputStream out = new java.io.FileOutputStream(f)) { p.store(out, "DSViz zoom"); } catch (Exception ignored) { /* לא חשוב */ }
+    }
+
     private static java.io.File zoomFile() {
         return new java.io.File(new java.io.File(System.getProperty("user.home"), ".dsviz"), "zoom.properties");
     }
