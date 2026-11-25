@@ -26,7 +26,7 @@ const ACTIONS = {
   'signin.teacher': 'כניסת מורה', 'signin.student': 'כניסת תלמיד', 'station.claim': 'עמדה חדשה חוברה', 'station.again': 'עמדה התחברה מחדש',
   'station.bad-code': 'ניסיון חיבור עם קוד מורה שגוי', 'station.release': 'עמדה שוחררה', 'station.rename': 'שם של מחשב שונה', 'teacher.add': 'מורה נוסף', 'teacher.update': 'שינוי אצל מורה',
   'teacher.new-code': 'קוד מורה חדש', 'request.teacher': 'בקשת הרשאת מורה', 'request.seats': 'בקשת עמדות נוספות', 'request.release': 'בקשה לשחרר מחשב',
-  'request.decline': 'בקשה נדחתה', 'student.grant': 'הענקת גישה לתלמיד', 'student.revoke': 'ביטול גישה לתלמיד', 'session.revoke': 'מחשב נותק',
+  'request.decline': 'בקשה נדחתה', 'student.grant': 'הענקת גישה לתלמיד', 'student.assign': 'תלמיד שויך למורה', 'student.unassign': 'בוטל שיוך של תלמיד למורה', 'student.revoke': 'ביטול גישה לתלמיד', 'session.revoke': 'מחשב נותק',
   'payment.paid': 'תשלום התקבל', 'payment.seats': 'חבילת עמדות נקנתה', 'payment.refunded': 'החזר כספי', 'payment.failed': 'תשלום נכשל', settings: 'שינוי בהגדרות',
 };
 const dotFor = a => (a.startsWith('payment.') ? 'green' : a === 'station.bad-code' ? 'warn' : /^(teacher|student|settings|session|request\.decline)/.test(a) ? 'dark' : '');
@@ -98,6 +98,9 @@ function shell(content) {
     h('div', { class: 'who' }, h('div', { class: 'meta' }, h('span', { class: 'ltr' }, user.email),
       h('a', { href: '#', onclick: async e => { e.preventDefault(); await logoutWeb(); location.reload(); } }, 'התנתקות')), avatar(user, true)));
   app.replaceChildren(h('div', { class: 'shell' }, nav, h('div', { class: 'main' }, header, h('main', { class: 'content', id: 'content' }, content))));
+  // בטלפון התפריט הוא שורה שנגללת לצד — העמוד הנוכחי תמיד נראה
+  const cur = nav.querySelector('a[aria-current="page"]');
+  if (cur && nav.scrollWidth > nav.clientWidth + 4 && cur.scrollIntoView) cur.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 
 function searchBox() {
@@ -366,17 +369,17 @@ async function teachers(selected) {
   const groups = { all: ['הכול', () => true], active: ['פעילים', t => t.active], full: ['כל העמדות בשימוש', full], blocked: ['מושבתים', t => !t.active] };
   const shown = byTime(all.filter(groups[teacherFilter][1]), 'lastSignIn', orderOf('teachers.lastSignIn', 'none'));
   const filters = h('div', { class: 'filters' }, Object.entries(groups).map(([id, [label, fn]]) => h('button', { type: 'button', 'aria-pressed': String(teacherFilter === id), onclick: () => { teacherFilter = id; render(); } }, `${label} · ${all.filter(fn).length}`)));
-  const table = h('div', { class: 'tablewrap' }, h('table', { class: 't' },
+  const table = h('div', { class: 'tablewrap' }, h('table', { class: 't cards' },
     h('thead', null, h('tr', null, ['מורה', 'בית ספר', 'עמדות', 'שליחות החודש'].map(x => h('th', null, x)), timeHeader('כניסה אחרונה', 'teachers.lastSignIn', render), h('th', null, 'מצב'))),
     h('tbody', null, shown.length ? shown.map(t => {
       const pct = t.seats ? Math.min(100, Math.round(100 * t.used / t.seats)) : (t.used ? 100 : 0);
       const tr = h('tr', { class: 'click' + (t.email === selected ? ' sel' : ''), tabindex: '0', onclick: () => { location.hash = '#teacher=' + encodeURIComponent(t.email); }, onkeydown: e => { if (e.key === 'Enter') location.hash = '#teacher=' + encodeURIComponent(t.email); } },
-        h('td', null, h('div', { class: 'cellname' }, h('b', null, t.name || '—'), h('span', { class: 'ltr' }, t.email))),
-        h('td', null, t.school || '—'),
-        h('td', null, h('div', { class: 'seats' }, h('span', null, h('b', null, String(t.used)), ` / ${t.seats}`), h('span', { class: 'bar' + (full(t) ? ' full' : '') }, h('span', { style: { width: pct + '%' } })))),
-        h('td', null, t.sends ? h('span', { class: t.sends.n >= t.sends.limit ? 'pill orange' : '' }, h('b', null, String(t.sends.n)), ` / ${t.sends.limit}`) : '—'),
-        h('td', { class: 'muted', title: fmtWhen(t.lastSignIn) }, t.lastSignIn ? ago(t.lastSignIn) : 'עוד לא נכנס/ה'),
-        h('td', null, t.active ? h('span', { class: 'pill green' }, 'פעיל') : h('span', { class: 'pill gray' }, 'מושבת')));
+        td('', { class: 'main' }, h('div', { class: 'cellname' }, h('b', null, t.name || '—'), h('span', { class: 'ltr' }, t.email))),
+        td('בית ספר', { class: t.school ? '' : 'empty' }, t.school || '—'),
+        td('עמדות', null, h('div', { class: 'seats' }, h('span', null, h('b', null, String(t.used)), ` / ${t.seats}`), h('span', { class: 'bar' + (full(t) ? ' full' : '') }, h('span', { style: { width: pct + '%' } })))),
+        td('שליחות החודש', null, t.sends ? h('span', { class: t.sends.n >= t.sends.limit ? 'pill orange' : '' }, h('b', null, String(t.sends.n)), ` / ${t.sends.limit}`) : '—'),
+        td('כניסה אחרונה', { class: 'muted', title: fmtWhen(t.lastSignIn) }, t.lastSignIn ? ago(t.lastSignIn) : 'עוד לא נכנס/ה'),
+        td('מצב', null, t.active ? h('span', { class: 'pill green' }, 'פעיל') : h('span', { class: 'pill gray' }, 'מושבת')));
       return tr;
     }) : h('tr', null, h('td', { colspan: '6' }, h('div', { class: 'empty' }, all.length ? 'אין מורים בקבוצה הזו.' : 'עוד אין מורים — מוסיפים בכפתור "הוספת מורה".'))))));
   const main = h('div', { class: 'grow stack', style: { gap: '16px' } },
@@ -610,7 +613,7 @@ async function roomsView(arg) {
       h('span', { class: 'small muted' }, h('span', { class: 'ltr' }, t.email), t.school ? ' · ' + t.school : '', t.active ? '' : ' · מושבת')),
     h('div', { class: 'row' }, h('span', { class: 'pill blue' }, `${n} ${what}`), h('a', { class: 'btn sm', href: '#teacher=' + encodeURIComponent(t.email) }, 'פתיחת המורה')));
 
-  let body;
+  let body, pb = null;
   if (f.tab === 'stations') {
     body = group(stations).map(([t, list]) => h('section', { class: 'card', 'data-teacher': t.email }, head(t, list.length, 'עמדות'),
       h('div', { class: 'list' }, list.map(x => { const i = stationInfo(x); return h('div', { class: 'item' + (i.stale ? ' stale' : ''), 'data-station': x.id },
@@ -619,21 +622,30 @@ async function roomsView(arg) {
   } else {
     const CAP = 500;
     let left = CAP;
+    for (const e of [...picked]) if (!students.some(x => x.email === e)) picked.delete(e);
+    pb = pickBar(students.slice(0, CAP), { canApprove: false });
     body = group(students).map(([t, list]) => {
       const shown = list.slice(0, Math.max(0, left));
       left -= shown.length;
       if (!shown.length) return null;
       return h('section', { class: 'card', 'data-teacher': t.email }, head(t, list.length, 'תלמידים'),
-        h('div', { class: 'tablewrap' }, h('table', { class: 't' },
-          h('thead', null, h('tr', null, ['תלמיד', 'כיתה', 'הצטרף', 'הגשות', 'הגשה אחרונה', ''].map(x => h('th', null, x)))),
-          h('tbody', null, shown.map(x => h('tr', { class: x.email === f.student ? 'sel' : '', 'data-student': x.email },
-            h('td', null, h('div', { class: 'cellname' }, h('b', null, x.name || '—'), h('span', { class: 'ltr' }, x.email),
-              x.registered ? null : h('span', { class: 'pill orange', style: { alignSelf: 'flex-start' } }, 'עוד לא נרשם/ה'))),
-            h('td', null, x.classId && cmap.has(x.classId) ? cmap.get(x.classId).name : h('span', { class: 'muted' }, 'בלי כיתה')),
-            h('td', { class: 'muted', title: fmtWhen(x.joinedAt) }, x.joinedAt ? fmtDate(x.joinedAt) : '—'),
-            h('td', null, String(x.submits || 0)),
-            h('td', { class: 'muted', title: fmtWhen(x.lastSubmitAt) }, lastSubmit(x)),
-            h('td', null, h('button', { type: 'button', class: 'btn sm', onclick: () => studentDialog(x.email) }, 'פרטים'))))))));
+        h('div', { class: 'tablewrap' }, h('table', { class: 't cards' },
+          h('thead', null, h('tr', null, ['', 'תלמיד', 'כיתה', 'הצטרף', 'הגשות', 'הגשה אחרונה', ''].map(x => h('th', null, x)))),
+          h('tbody', null, shown.map(x => {
+            const box = pickBox(x.email, x.name, pb.draw);
+            box.dataset.email = x.email;
+            return h('tr', { class: x.email === f.student ? 'sel' : '', 'data-student': x.email },
+              td('', { class: 'pickcell' }, box),
+              td('', { class: 'main' }, h('div', { class: 'cellname' }, h('b', null, x.name || '—'), h('span', { class: 'ltr' }, x.email),
+                x.registered ? null : h('span', { class: 'pill orange', style: { alignSelf: 'flex-start' } }, 'עוד לא נרשם/ה'))),
+              td('כיתה', null, x.classId && cmap.has(x.classId) ? cmap.get(x.classId).name : h('span', { class: 'muted' }, 'בלי כיתה')),
+              td('הצטרף', { class: 'muted', title: fmtWhen(x.joinedAt) }, x.joinedAt ? fmtDate(x.joinedAt) : '—'),
+              td('הגשות', null, String(x.submits || 0)),
+              td('הגשה אחרונה', { class: 'muted' + (x.lastSubmitAt ? '' : ' empty'), title: fmtWhen(x.lastSubmitAt) }, lastSubmit(x)),
+              td('', { class: 'actions' }, h('div', { class: 'row', style: { gap: '6px' } },
+                h('button', { type: 'button', class: 'btn sm', 'data-act': 'assign', onclick: () => assignDialog([x]) }, 'שיוך'),
+                h('button', { type: 'button', class: 'btn sm', 'data-act': 'details', onclick: () => studentDialog(x.email) }, 'פרטים'))));
+          })))));
     }).filter(Boolean);
     if (!body.length) body = [h('div', { class: 'card' }, h('div', { class: 'empty' }, studentsInTeacher.length ? 'אין תלמידים בכיתה הזו.' : 'עוד אין תלמידים שמשויכים למורים.'))];
     if (students.length > CAP) body.push(h('p', { class: 'small muted' }, `מוצגים ${CAP} מתוך ${students.length} — מצמצמים לפי מורה או כיתה, או משתמשים בחיפוש למעלה.`));
@@ -644,12 +656,118 @@ async function roomsView(arg) {
       h('p', { class: 'muted' }, 'כל מה שמשויך למורים, מופרד לשני טאבים: עמדות המעבדה (מחשבים שחוברו בקוד המורה) והתלמידים שנכנסו עם חשבון Google ושייכים למורה. תלמידים עצמאיים נמצאים ב"תלמידים ותשלומים".')),
     roomTabs(f.tab, counts, id => go({ tab: id, student: '' })),
     h('div', { class: 'row wrap', style: { gap: '8px' } }, teacherSel, classSel),
+    pb ? pb.bar : null,
     ...body];
 }
 
 // ------------------------------------------------------------------ תלמידים ותשלומים
 
 let studentFilter = 'open';
+
+/** תא בטבלה עם תווית — במסך צר (טלפון) השורה נהיית כרטיס, והתווית מוצגת לפני הערך (app.css: table.t.cards) */
+function td(label, attrs, ...kids) {
+  return h('td', Object.assign(label ? { 'data-label': label } : {}, attrs || {}), ...kids);
+}
+
+/** התלמידים שסומנו (בעמוד "תלמידים" ובטאב התלמידים של המורים) — לאישור / לשיוך של כמה יחד */
+const picked = new Set();
+
+/** תיבת סימון של תלמיד; onChange מצייר מחדש את פס הפעולות */
+function pickBox(email, name, onChange) {
+  const c = h('input', { type: 'checkbox', class: 'pick', 'aria-label': 'סימון ' + (name || email), checked: picked.has(email) });
+  c.addEventListener('change', () => { if (c.checked) picked.add(email); else picked.delete(email); onChange(); });
+  c.addEventListener('click', e => e.stopPropagation());
+  return c;
+}
+
+/**
+ * פס הפעולות לתלמידים שסומנו: אישור (הענקת גישה עד התאריך שבהגדרות) ושיוך למורה. shown — התלמידים שבתצוגה עכשיו
+ * (לכפתור "סימון הכול"); canApprove — בעמוד התלמידים העצמאיים
+ */
+function pickBar(shown, { canApprove }) {
+  const bar = h('div', { class: 'pickbar', id: 'pickbar' });
+  const draw = () => {
+    const mine = shown.filter(x => picked.has(x.email));
+    const all = h('button', { type: 'button', class: 'btn sm', id: 'pick-all' }, mine.length === shown.length && shown.length ? 'ניקוי הסימון' : `סימון הכול (${shown.length})`);
+    all.onclick = () => {
+      if (mine.length === shown.length) shown.forEach(x => picked.delete(x.email)); else shown.forEach(x => picked.add(x.email));
+      document.querySelectorAll('input.pick').forEach(c => { c.checked = picked.has(c.dataset.email); });
+      draw();
+    };
+    const approve = canApprove ? h('button', { type: 'button', class: 'btn sm primary', id: 'pick-approve' }, icon(ICONS.check, 16, '#fff', 2.4), `אישור גישה (${mine.length})`) : null;
+    if (approve) approve.onclick = () => busy(approve, () => approveStudents(mine.map(x => x.email)));
+    const assign = h('button', { type: 'button', class: 'btn sm', id: 'pick-assign' }, icon(ICONS.user, 16), `שיוך למורה (${mine.length})`);
+    assign.onclick = () => assignDialog(mine);
+    bar.classList.toggle('on', mine.length > 0);
+    bar.replaceChildren(...[all, mine.length ? h('span', { class: 'small muted' }, `${mine.length} מסומנים`) : h('span', { class: 'small muted hint' }, 'מסמנים תלמידים כדי לאשר או לשייך כמה יחד'),
+      h('span', { class: 'grow' }), mine.length ? approve : null, mine.length ? assign : null].filter(Boolean));
+  };
+  draw();
+  return { bar, draw };
+}
+
+/** "אישור": הענקת גישה עד התאריך שבהגדרות — לתלמיד אחד או לכמה */
+async function approveStudents(emails) {
+  if (!emails.length) return;
+  if (!settingsCache) settingsCache = (await api('GET', '/v1/admin/settings')).settings;
+  const r = await api('POST', '/v1/admin/student', { emails, until: settingsCache.accessUntil, note: 'אישור מהמסוף' });
+  emails.forEach(e => picked.delete(e));
+  toast(r.count === 1 ? `הגישה אושרה עד ${fmtDate(settingsCache.accessUntil)}` : `הגישה אושרה ל-${r.count} תלמידים, עד ${fmtDate(settingsCache.accessUntil)}`);
+  render();
+}
+
+/**
+ * שיוך תלמידים למורה (גם מי שנרשם עצמאי, או שמשויך למורה אחר — עובר), עם כיתה אם רוצים; או "בלי מורה" — חזרה לעצמאי.
+ * list: [{ email, name, teacher? }]. המורה רואה את התלמיד מיד בעמדת הניהול שלו, והתלמיד רואה את המורה בתוכנה.
+ */
+async function assignDialog(list) {
+  if (!list.length) return;
+  if (!cache.teachers) cache.teachers = (await api('GET', '/v1/admin/teachers')).teachers;
+  const teachers = cache.teachers.filter(t => t.active);
+  const anyAttached = list.some(x => x.teacher);
+  const d = h('dialog', { class: 'modal', 'aria-labelledby': 'as-t' });
+  const close = () => { d.close(); d.remove(); };
+  const same = list.every(x => x.teacher && x.teacher === list[0].teacher) ? list[0].teacher : '';
+  const tSel = h('select', { class: 'field', id: 'as-teacher' },
+    h('option', { value: '', disabled: true, selected: !same }, teachers.length ? 'בחירת מורה…' : 'אין מורים פעילים'),
+    teachers.map(t => h('option', { value: t.email, selected: t.email === same }, `${t.name || t.email}${t.school ? ' · ' + t.school : ''}`)),
+    anyAttached ? h('option', { value: '-' }, '— בלי מורה (תלמיד עצמאי) —') : null);
+  const cSel = h('select', { class: 'field', id: 'as-class' }, h('option', { value: '' }, 'בלי כיתה (המורה יסדר)'));
+  const cRow = h('label', { class: 'lbl', for: 'as-class' }, 'כיתה (לא חובה)', cSel);
+  const loadClasses = async () => {
+    cSel.replaceChildren(h('option', { value: '' }, 'בלי כיתה (המורה יסדר)'));
+    cRow.hidden = !tSel.value || tSel.value === '-';
+    if (cRow.hidden) return;
+    try {
+      const r = await api('GET', '/v1/admin/rooms?teacher=' + encodeURIComponent(tSel.value));
+      r.classes.forEach(c => cSel.append(h('option', { value: c.id }, `${c.name} · ${c.students}`)));
+      cRow.hidden = !r.classes.length;
+    } catch (e) { cRow.hidden = true; }
+  };
+  tSel.addEventListener('change', () => { ok.disabled = !tSel.value; loadClasses(); });
+  const ok = h('button', { type: 'button', class: 'btn primary', id: 'as-ok', disabled: !same }, 'שיוך');
+  ok.onclick = () => busy(ok, async () => {
+    const un = tSel.value === '-';
+    const r = await api('POST', '/v1/admin/student/assign', { emails: list.map(x => x.email), teacher: un ? '' : tSel.value, classId: un ? '' : cSel.value });
+    list.forEach(x => picked.delete(x.email));
+    cache.students = null;
+    cache.teachers = null;
+    close();
+    toast(un ? (r.changed === 1 ? 'השיוך בוטל — התלמיד עצמאי' : `השיוך בוטל ל-${r.changed} תלמידים`)
+      : r.changed ? (list.length === 1 ? `שויך ל${r.teacher.name || r.teacher.email}` : `${r.changed} תלמידים שויכו ל${r.teacher.name || r.teacher.email}`) : 'כבר משויכים למורה הזה');
+    render();
+  });
+  const names = list.slice(0, 6).map(x => x.name || x.email).join(', ') + (list.length > 6 ? ` ועוד ${list.length - 6}` : '');
+  d.append(h('div', { class: 'in' }, h('h2', { id: 'as-t' }, list.length === 1 ? 'שיוך תלמיד למורה' : `שיוך ${list.length} תלמידים למורה`),
+    h('p', { class: 'small muted' }, names),
+    h('label', { class: 'lbl', for: 'as-teacher' }, 'המורה', tSel), cRow,
+    h('p', { class: 'small muted', style: { lineHeight: '1.5' } }, 'המורה יראה את התלמידים מיד בעמדת הניהול שלו, והתלמיד יראה את המורה בתוכנה. תלמיד שמשויך למורה אחר — עובר (ההגשות הקודמות נשארות אצל המורה הקודם).'),
+    h('div', { class: 'row' }, ok, h('button', { type: 'button', class: 'btn', onclick: close }, 'ביטול'))));
+  d.addEventListener('cancel', e => { e.preventDefault(); close(); });
+  document.body.append(d);
+  d.showModal();
+  loadClasses();
+}
 
 async function students(arg) {
   if (arg === 'payments') return payments();
@@ -658,27 +776,40 @@ async function students(arg) {
   // תלמידים שמשויכים למורה לא כאן — הם בעמוד "עמדות ותלמידי מורים" (עם הכיתה שלהם)
   const attachedN = r.students.filter(s => s.teacher).length;
   const all = r.students.filter(s => !s.teacher);
-  // בינתיים בחינם (r.free): כל מי שנכנס פתוח, והקבוצות לפי ההרשמה (שם מלא וטלפון) והמורה; בתשלום — כמו קודם
+  // בינתיים בחינם (r.free): כל מי שנכנס פתוח, והקבוצות לפי ההרשמה (שם מלא וטלפון); בתשלום — כמו קודם
   const groups = r.free
-    ? { open: ['כולם', () => true], registered: ['נרשמו', s => s.registered], unregistered: ['עוד לא נרשמו', s => !s.registered], paid: ['שילמו / הענקה', s => s.paid] }
-    : { open: ['עם גישה', s => s.open], manual: ['הענקה ידנית', s => s.open && s.source === 'manual'], unpaid: ['נכנסו ועוד לא שילמו', s => !s.open], all: ['הכול', () => true] };
+    ? { open: ['כולם', () => true], registered: ['נרשמו', s => s.registered], unregistered: ['עוד לא נרשמו', s => !s.registered], paid: ['שילמו / הענקה', s => s.paid], waiting: ['מחכים לאישור', s => !s.paid] }
+    : { open: ['עם גישה', s => s.open], manual: ['הענקה ידנית', s => s.open && s.source === 'manual'], unpaid: ['מחכים לאישור', s => !s.open], all: ['הכול', () => true] };
   if (!groups[studentFilter]) studentFilter = 'open';
-  const shown = byTime(all.filter(groups[studentFilter][1]), 'lastSignIn', orderOf('students.lastSignIn', 'none'));
+  const shown = byTime(all.filter(groups[studentFilter][1]), 'lastSignIn', orderOf('students.lastSignIn', 'none')).slice(0, 400);
+  const total = all.filter(groups[studentFilter][1]).length;
+  for (const e of [...picked]) if (!shown.some(x => x.email === e)) picked.delete(e);
+  const pb = pickBar(shown, { canApprove: true });
   const sourcePill = s => s.paid ? (s.source === 'manual' ? h('span', { class: 'pill purple' }, 'הענקה ידנית') : h('span', { class: 'pill green' }, 'תשלום' + (s.paidAt ? ' · ' + fmtDate(s.paidAt) : '')))
     : r.free ? h('span', { class: 'pill blue' }, 'בחינם')
     : s.source === 'refunded' ? h('span', { class: 'pill gray' }, 'הוחזר') : s.source === 'revoked' ? h('span', { class: 'pill gray' }, 'בוטל') : h('span', { class: 'pill gray' }, 'לא שילם/ה');
-  const table = h('div', { class: 'tablewrap' }, h('table', { class: 't' },
-    h('thead', null, h('tr', null, ['תלמיד', 'טלפון', 'סוג', 'גישה עד', 'איך', 'שליחות החודש'].map(x => h('th', null, x)), timeHeader('כניסה אחרונה', 'students.lastSignIn', render), h('th', null, ''))),
-    h('tbody', null, shown.length ? shown.slice(0, 400).map(s => h('tr', null,
-      h('td', null, h('div', { class: 'cellname' }, h('b', null, s.name || '—'), h('span', { class: 'ltr' }, s.email),
+  const rowEl = s => {
+    const box = pickBox(s.email, s.name, pb.draw);
+    box.dataset.email = s.email;
+    const approve = s.paid ? null : h('button', { type: 'button', class: 'btn sm primary', 'data-act': 'approve' }, 'אישור');
+    if (approve) approve.onclick = () => busy(approve, () => approveStudents([s.email]));
+    return h('tr', { 'data-student': s.email },
+      td('', { class: 'pickcell' }, box),
+      td('', { class: 'main' }, h('div', { class: 'cellname' }, h('b', null, s.name || '—'), h('span', { class: 'ltr' }, s.email),
         s.registered ? null : h('span', { class: 'pill orange', style: { alignSelf: 'flex-start' } }, 'עוד לא נרשם/ה'))),
-      h('td', { class: 'ltr muted' }, s.phone || '—'),
-      h('td', null, s.mode === 'independent' ? 'עצמאי' : h('span', { class: 'muted' }, 'עוד לא בחר/ה')),
-      h('td', null, s.paid ? fmtDate(s.until) : r.free ? 'בחינם' : '—'), h('td', null, sourcePill(s)),
-      h('td', null, s.sends ? h('span', { class: s.sends.n >= s.sends.limit ? 'pill orange' : '' }, h('b', null, String(s.sends.n)), ` / ${s.sends.limit}`) : '—'),
-      h('td', { class: 'muted', title: fmtWhen(s.lastSignIn) }, s.lastSignIn ? ago(s.lastSignIn) : '—'),
-      h('td', null, h('button', { type: 'button', class: 'btn sm', onclick: () => studentDialog(s.email) }, 'פרטים'))))
-      : h('tr', null, h('td', { colspan: '8' }, h('div', { class: 'empty' }, 'אין תלמידים בקבוצה הזו.'))))));
+      td('טלפון', { class: 'ltr muted' + (s.phone ? '' : ' empty') }, s.phone || '—'),
+      td('סוג', null, s.mode === 'independent' ? 'עצמאי' : h('span', { class: 'muted' }, 'עוד לא בחר/ה')),
+      td('גישה עד', null, s.paid ? fmtDate(s.until) : r.free ? 'בחינם' : '—'), td('איך', null, sourcePill(s)),
+      td('שליחות החודש', null, s.sends ? h('span', { class: s.sends.n >= s.sends.limit ? 'pill orange' : '' }, h('b', null, String(s.sends.n)), ` / ${s.sends.limit}`) : '—'),
+      td('כניסה אחרונה', { class: 'muted' + (s.lastSignIn ? '' : ' empty'), title: fmtWhen(s.lastSignIn) }, s.lastSignIn ? ago(s.lastSignIn) : '—'),
+      td('', { class: 'actions' }, h('div', { class: 'row', style: { gap: '6px' } }, approve,
+        h('button', { type: 'button', class: 'btn sm', 'data-act': 'assign', onclick: () => assignDialog([s]) }, 'שיוך למורה'),
+        h('button', { type: 'button', class: 'btn sm', 'data-act': 'details', onclick: () => studentDialog(s.email) }, 'פרטים'))));
+  };
+  const table = h('div', { class: 'tablewrap' }, h('table', { class: 't cards' },
+    h('thead', null, h('tr', null, h('th', null, ''), ['תלמיד', 'טלפון', 'סוג', 'גישה עד', 'איך', 'שליחות החודש'].map(x => h('th', null, x)), timeHeader('כניסה אחרונה', 'students.lastSignIn', render), h('th', null, ''))),
+    h('tbody', null, shown.length ? shown.map(rowEl)
+      : h('tr', null, h('td', { colspan: '9' }, h('div', { class: 'empty' }, 'אין תלמידים בקבוצה הזו.'))))));
   if (arg && arg.includes('@')) setTimeout(() => studentDialog(arg), 0);
   return h('div', { class: 'split' },
     h('div', { class: 'grow stack', style: { gap: '16px' } },
@@ -688,7 +819,7 @@ async function students(arg) {
       h('div', { class: 'tabs', role: 'tablist' }, h('button', { type: 'button', role: 'tab', 'aria-selected': 'true' }, `תלמידים · ${all.filter(s => s.open).length}`),
         h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', onclick: () => { location.hash = '#students=payments'; } }, 'תשלומים')),
       h('div', { class: 'filters' }, Object.entries(groups).map(([id, [label, fn]]) => h('button', { type: 'button', 'aria-pressed': String(studentFilter === id), onclick: () => { studentFilter = id; render(); } }, `${label} · ${all.filter(fn).length}`))),
-      table, shown.length > 400 ? h('p', { class: 'small muted' }, `מוצגים 400 מתוך ${shown.length} — משתמשים בחיפוש למעלה.`) : null),
+      pb.bar, table, total > 400 ? h('p', { class: 'small muted' }, `מוצגים 400 מתוך ${total} — משתמשים בחיפוש למעלה.`) : null),
     grantPanel());
 }
 
@@ -750,7 +881,8 @@ async function studentDialog(email) {
       : h('div', { class: 'empty' }, 'אין תשלומים.')),
     h('div', { class: 'row wrap', style: { justifyContent: 'space-between' } }, h('h3', null, 'מחשבים מחוברים'), r.devices.length > 1 ? orderToggle('devices', drawDevices) : null),
     devList,
-    h('div', { class: 'row' }, extend, open ? revoke : null)));
+    h('div', { class: 'row wrap' }, extend, open ? revoke : null,
+      h('button', { type: 'button', class: 'btn', id: 'sd-assign', onclick: () => { close(); assignDialog([{ email, name: s.name, teacher: s.teacher }]); } }, s.teacher ? 'העברה למורה אחר / ביטול שיוך' : 'שיוך למורה'))));
   d.addEventListener('cancel', e => { e.preventDefault(); close(); });
   document.body.append(d);
   d.showModal();

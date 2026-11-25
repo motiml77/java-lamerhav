@@ -153,6 +153,65 @@ async function studentLeave(request, env) {
   return { ok: true };
 }
 
+/**
+ * ההנהלה משייכת תלמידים למורה (גם תלמיד שנרשם עצמאי, או שעוד לא בחר, או שמשויך למורה אחר — עובר), או מבטלת שיוך
+ * (teacher ריק — התלמיד נהיה עצמאי). אותה תוצאה כמו הצטרפות בקוד המורה: מסמך ב-members (המורה רואה אותו מיד בעמדת הניהול),
+ * students.teacher (התוסף והדף של התלמיד מציגים את המורה), והמונה של המורה. classId — כיתה של אותו מורה (לא חובה).
+ * מחזיר לכל תלמיד מה קרה. לא תלוי ב"הצטרפות פתוחה" של המורה (זו החלטה של ההנהלה), אבל המורה חייב להיות פעיל.
+ */
+export async function adminAssign(env, actor, b) {
+  const store = db(env);
+  const emails = [...new Set((Array.isArray(b.emails) ? b.emails : String(b.email || '').split(/[\s,;]+/)).map(e => String(e || '').trim().toLowerCase()).filter(Boolean))];
+  if (!emails.length) throw new Fail(400, 'email', 'חסרה כתובת מייל של תלמיד.');
+  if (emails.length > 200) throw new Fail(400, 'email', 'עד 200 תלמידים בבת אחת.');
+  const bad = emails.filter(e => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  if (bad.length) throw new Fail(400, 'email', 'כתובות לא תקינות: ' + bad.slice(0, 5).join(', '));
+  const teacherEmail = String(b.teacher || '').trim().toLowerCase();
+  let teacher = null, classId = '';
+  if (teacherEmail) {
+    teacher = await store.get('teachers/' + teacherEmail);
+    if (!teacher) throw new Fail(404, 'not_found', 'המורה לא נמצא.');
+    if (!teacher.active) throw new Fail(400, 'blocked', 'המורה מושבת — מפעילים אותו קודם.');
+    if (emails.includes(teacherEmail)) throw new Fail(400, 'self', 'אי אפשר לשייך מורה לעצמו.');
+    classId = clip(b.classId, 40);
+    if (classId) {
+      const c = await store.get('classes/' + classId);
+      if (!c || c.teacher !== teacherEmail) throw new Fail(400, 'class', 'הכיתה לא שייכת למורה הזה.');
+    }
+  }
+  const out = [];
+  for (const email of emails) {
+    const at = nowIso();
+    const st = await store.get('students/' + email);
+    const prev = st && st.teacher || '';
+    if (!teacherEmail) {   // ביטול שיוך: עצמאי
+      if (prev) await leaveTeacher(store, email, prev, 'admin');
+      await store.merge('students/' + email, { email, mode: 'independent', teacher: '', modeAt: at, assignedBy: actor });
+      if (prev) await log(store, actor, 'student.unassign', email, 'היה אצל ' + prev);
+      out.push({ email, status: prev ? 'unassigned' : 'same' });
+      continue;
+    }
+    const id = memberId(teacherEmail, email);
+    const m = await store.get('members/' + id);
+    if (prev === teacherEmail && m && !m.leftAt) {   // כבר אצלו: רק הכיתה (אם ביקשו)
+      if (classId && m.classId !== classId) await store.update('members/' + id, { classId });
+      out.push({ email, status: 'same' });
+      continue;
+    }
+    if (prev && prev !== teacherEmail) await leaveTeacher(store, email, prev, 'admin');
+    const shown = clip(st && (st.fullName || st.name) || '', 80);
+    await store.commit(w => {
+      if (m) w.update('members/' + id, Object.assign({ leftAt: '', leftWhy: '', name: shown || m.name || '', rejoinedAt: at }, classId ? { classId } : {}));
+      else w.set('members/' + id, { teacher: teacherEmail, student: email, name: shown, picture: clip(st && st.picture, 400), classId, joinedAt: at, leftAt: '', submits: 0, lastSubmitAt: '', lastTitle: '' });
+      w.merge('students/' + email, { email, mode: 'teacher', teacher: teacherEmail, joinedAt: at, modeAt: at, assignedBy: actor });
+      w.merge('teachers/' + teacherEmail, { updatedAt: at }, { members: 1 });
+    });
+    await log(store, actor, 'student.assign', email, 'למורה ' + teacherEmail + (prev && prev !== teacherEmail ? ' (עבר מ-' + prev + ')' : ''));
+    out.push({ email, status: prev && prev !== teacherEmail ? 'moved' : 'assigned' });
+  }
+  return { ok: true, teacher: teacher ? { email: teacherEmail, name: teacher.name || '' } : null, results: out, changed: out.filter(x => x.status !== 'same').length };
+}
+
 /** הקשר מורה-תלמיד מסתיים: המסמך ב-members נשאר (עם leftAt), כדי שהמורה יראה את ההגשות; המונה של המורה יורד */
 async function leaveTeacher(store, student, teacher, why) {
   const m = await store.get('members/' + memberId(teacher, student));

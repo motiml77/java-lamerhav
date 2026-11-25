@@ -19,7 +19,7 @@ import { sha256, sha256Hex, randomToken, teacherCode, normalizeCode, showCode, s
 import { payProvider, PAY_PROVIDERS } from './pay.js';
 import { servePage } from './pages.js';
 import { alert, alertTo, mailReady, listAlerts, markSeen, WAIT } from './alerts.js';
-import { CLASSROOM_ROUTES, studentState, isRegistered } from './classroom.js';
+import { CLASSROOM_ROUTES, studentState, isRegistered, adminAssign } from './classroom.js';
 import { REPORT_ROUTES, REPORT_ADMIN_ROUTES } from './reports.js';
 import { selfTest } from './selftest.js';
 
@@ -1252,6 +1252,7 @@ const ADMIN_ROUTES = {
   'GET /v1/admin/rooms': (env, u, url) => adminRooms(env, url),
   'GET /v1/admin/students': (env, u, url) => adminStudents(env, url),
   'GET /v1/admin/student': (env, u, url) => adminStudent(env, url),
+  'POST /v1/admin/student/assign': (env, u, url, b) => adminAssign(env, u.email, b),
   'POST /v1/admin/student': (env, u, url, b) => adminGrant(env, u, b),
   'POST /v1/admin/session/revoke': async (env, u, url, b) => {
     const store = db(env);

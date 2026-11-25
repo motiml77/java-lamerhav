@@ -191,7 +191,13 @@ if command -v makensis >/dev/null 2>&1; then
     echo x > "$R/dsviz.jar"
     BK="$OUT/nsis/bank"; mkdir -p "$BK"
     for f in il.lamerhav.dsviz.bank_1.0.0.jar dsviz-bank-vs.jar dsviz-bank-intellij-1.0.0.zip; do echo x > "$BK/$f"; done
-    (cd "$ROOT/installer" && makensis -V2 -WX -DBUILD="$B" -DRELEASE="$R" -DBANKDIR="$BK" setup.nsi) > "$OUT/makensis.txt" 2>&1 \
+    # גרסת בדיקה (CHANNEL): setup.nsi מצרף את installer/channel.txt, ש-build-all.sh יוצר ומוחק בסוף הבנייה — כאן קובץ מדומה
+    # (בלי הקובץ makensis מזהיר "no files found", ו--WX הופך את זה לשגיאה)
+    CH="$ROOT/installer/channel.txt"; MADE_CH=0
+    if grep -q 'channel\.txt' "$ROOT/installer/setup.nsi" && [ ! -f "$CH" ]; then echo x > "$CH"; MADE_CH=1; fi
+    (cd "$ROOT/installer" && makensis -V2 -WX -DBUILD="$B" -DRELEASE="$R" -DBANKDIR="$BK" setup.nsi) > "$OUT/makensis.txt" 2>&1; NSIS_RC=$?
+    [ "$MADE_CH" = 1 ] && rm -f "$CH"
+    [ "$NSIS_RC" = 0 ] \
         && [ -s "$R/DSViz-Setup.exe" ] && ok "Windows: setup.nsi מתקמפל ב-makensis בלי אזהרות ($(du -k "$R/DSViz-Setup.exe" | cut -f1)K עם קבצים מדומים)" \
         || { tail -30 "$OUT/makensis.txt"; fail "Windows: makensis נכשל"; }
 else

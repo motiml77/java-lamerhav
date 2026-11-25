@@ -417,3 +417,54 @@ label.choice input { margin: 4px 0 0; width: 18px; height: 18px; accent-color: v
 .pv-cls { display: grid; gap: 1px; border: 1.5px solid #7C9CE0; background: #EEF3FD; color: #17213A; border-radius: 6px; padding: 4px 10px; font: 13px ui-monospace, Consolas, monospace; }
 .pv-cls small { font-size: 11px; color: #5B6578; }
 .pv-text { margin: 0; font: 13px ui-monospace, Consolas, monospace; background: var(--line2); padding: 6px 10px; border-radius: 6px; }
+
+/* מסוף ההנהלה: סימון תלמידים ופס הפעולות (אישור / שיוך למורה) */
+input.pick { width: 20px; height: 20px; accent-color: var(--blue); cursor: pointer; flex-shrink: 0; }
+table.t td.pickcell, table.t th:first-child:empty { width: 36px; padding-inline-end: 0; }
+.pickbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.pickbar.on { border-color: var(--blue); background: var(--blue-row); position: sticky; top: 72px; z-index: 4; }
+.pickbar .btn { display: inline-flex; align-items: center; gap: 6px; }
+
+/* טלפון: טבלאות המסוף (table.t.cards) נהיות כרטיסים — שורה לכל תלמיד / מורה, כל ערך עם התווית שלו, בלי גלילה לצד */
+@media (max-width: 760px) {
+  .main > header { height: auto; padding: 10px 12px; gap: 10px; }
+  .search { max-width: none; }
+  .search .results { max-width: calc(100vw - 24px); }
+  .content { padding: 14px 12px 28px; gap: 14px; }
+  .content h1 { font-size: 24px; }
+  .tabs { overflow-x: auto; }
+  .tabs button { white-space: nowrap; }
+  .filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .filters button { flex-shrink: 0; }
+  .drawer.card, .card { padding: 16px 14px; }
+  .tablewrap:has(table.t.cards) { border: 0; background: transparent; overflow: visible; }
+  table.t.cards { min-width: 0 !important; display: block; }
+  table.t.cards thead { display: none; }
+  table.t.cards tbody { display: flex; flex-direction: column; gap: 10px; }
+  table.t.cards tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 12px 14px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+  table.t.cards tbody tr.sel { box-shadow: inset 0 0 0 2px var(--blue); }
+  table.t.cards td { display: flex; align-items: baseline; gap: 6px; padding: 0; border: 0; font-size: 14.5px; min-width: 0; }
+  table.t.cards td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  table.t.cards td.empty { display: none; }   /* ערך ריק (—) לא תופס מקום בכרטיס */
+  table.t.cards td.pickcell { width: auto; order: -2; align-self: flex-start; padding-top: 3px; }
+  table.t.cards td.pickcell + td.main { flex: 1 1 calc(100% - 60px); }
+  table.t.cards td.main { flex: 1 1 100%; min-width: 0; order: -1; font-size: 16px; }
+  table.t.cards td:not(.pickcell):not(.main):not(.actions) { white-space: nowrap; }
+  table.t.cards td.main .cellname { min-width: 0; }
+  table.t.cards td.main .cellname span.ltr { overflow-wrap: anywhere; text-align: right; }
+  table.t.cards td.actions { flex: 1 1 100%; }
+  table.t.cards td.actions .row { flex-wrap: wrap; width: 100%; }
+  table.t.cards td.actions .btn { flex: 1 1 auto; height: 40px; justify-content: center; }
+  table.t.cards td[colspan] { flex: 1 1 100%; display: block; }
+  table.t.cards .seats { flex-direction: row; align-items: center; gap: 8px; }
+  .pickbar.on { top: 0; }
+  .pickbar .hint { flex: 1 1 100%; order: 5; }
+  .pickbar .grow { display: none; }
+  .pickbar.on .btn.primary, .pickbar.on #pick-assign { flex: 1 1 auto; justify-content: center; }
+  /* התפריט: שורה אחת שנגללת לצד (ולא רשימה שתופסת חצי מסך) */
+  .side .nav { flex-direction: row !important; flex-wrap: nowrap; }
+  .side .nav a { flex-shrink: 0; padding: 8px 12px; }
+  .pickbar .btn { height: 40px; }
+  dialog.modal .in { padding: 18px 16px; }
+  .section-head, section.card > .row.wrap { gap: 8px; }
+}

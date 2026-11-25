@@ -597,6 +597,59 @@ await test('מסוף ההנהלה — עמדות ותלמידי מורים: כל
   assert.equal(after.classes.find(x => x.id === cls).students, 0);
 });
 
+await test('ההנהלה משייכת תלמיד למורה (גם עצמאי / שעוד לא נכנס), מעבירה למורה אחר עם כיתה, ומבטלת שיוך — והמורה והתלמיד רואים מיד', async () => {
+  const pupil = await signInPlugin('assign.me@test.dev', 'student', 'gamer77', NEW);
+  await call('POST', '/v1/student/register', { headers: plugin(pupil), body: { fullName: 'נגה שלום', phone: '0531112233' } });
+  await call('POST', '/v1/student/mode', { headers: plugin(pupil), body: { mode: 'independent' } });
+  assert.equal((await checkAs(pupil, NEW)).body.student.mode, 'independent');
+  // שיוך: תלמיד עצמאי + כתובת שעוד לא נכנסה אף פעם
+  const r = await call('POST', '/v1/admin/student/assign', { token: admin, body: { emails: ['assign.me@test.dev', ' Never.In@Test.dev '], teacher: 'david@test.dev' } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.changed, 2);
+  assert.deepEqual(r.body.results.map(x => x.status), ['assigned', 'assigned']);
+  const dc = (await call('GET', '/v1/me/console', { token: david })).body;
+  const row = dc.students.find(x => x.email === 'assign.me@test.dev');
+  assert.ok(row && !row.left, 'המורה רואה את התלמיד בעמדת הניהול');
+  assert.equal(row.name, 'נגה שלום', 'עם השם המלא מההרשמה');
+  assert.ok(dc.students.some(x => x.email === 'never.in@test.dev'), 'גם מי שעוד לא נכנס — מחכה אצל המורה');
+  const st = (await checkAs(pupil, NEW)).body.student;
+  assert.equal(st.mode, 'teacher');
+  assert.equal(st.teacher.email, 'david@test.dev', 'התלמיד רואה את המורה בתוכנה');
+  const rooms = (await call('GET', '/v1/admin/rooms?teacher=david@test.dev', { token: admin })).body;
+  assert.ok(rooms.students.some(x => x.email === 'assign.me@test.dev'));
+  assert.ok(!(await call('GET', '/v1/admin/students', { token: admin })).body.students.find(x => x.email === 'assign.me@test.dev' && !x.teacher), 'כבר לא ברשימת העצמאיים');
+  // שוב אותו שיוך — בלי שינוי, והמונה של המורה לא קופץ
+  const membersBefore = (await call('GET', '/v1/admin/teacher?email=david@test.dev', { token: admin })).body.teacher;
+  const again = await call('POST', '/v1/admin/student/assign', { token: admin, body: { email: 'assign.me@test.dev', teacher: 'david@test.dev' } });
+  assert.equal(again.body.changed, 0);
+  assert.equal(again.body.results[0].status, 'same');
+  assert.deepEqual((await call('GET', '/v1/admin/teacher?email=david@test.dev', { token: admin })).body.teacher, membersBefore);
+  // העברה למורה אחר, ישר לכיתה שלו
+  const cls = (await call('POST', '/v1/me/class', { token: sara, body: { op: 'create', name: 'שיוך מההנהלה' } })).body.id;
+  assert.equal((await call('POST', '/v1/admin/student/assign', { token: admin, body: { email: 'assign.me@test.dev', teacher: 'sara@test.dev', classId: 'nope' } })).status, 400, 'כיתה שלא קיימת');
+  const mv = await call('POST', '/v1/admin/student/assign', { token: admin, body: { email: 'assign.me@test.dev', teacher: 'sara@test.dev', classId: cls } });
+  assert.equal(mv.body.results[0].status, 'moved');
+  const sc = (await call('GET', '/v1/me/console', { token: sara })).body.students.find(x => x.email === 'assign.me@test.dev');
+  assert.ok(sc && !sc.left);
+  assert.equal(sc.classId, cls, 'בכיתה שנבחרה');
+  assert.ok((await call('GET', '/v1/me/console', { token: david })).body.students.find(x => x.email === 'assign.me@test.dev').left, 'אצל המורה הקודם — "עזב"');
+  assert.equal((await checkAs(pupil, NEW)).body.student.teacher.email, 'sara@test.dev');
+  // ביטול שיוך — עצמאי
+  const un = await call('POST', '/v1/admin/student/assign', { token: admin, body: { emails: ['assign.me@test.dev', 'never.in@test.dev'], teacher: '' } });
+  assert.deepEqual(un.body.results.map(x => x.status), ['unassigned', 'unassigned']);
+  assert.equal((await checkAs(pupil, NEW)).body.student.mode, 'independent');
+  assert.ok((await call('GET', '/v1/me/console', { token: sara })).body.students.find(x => x.email === 'assign.me@test.dev').left);
+  assert.ok((await call('GET', '/v1/admin/students', { token: admin })).body.students.some(x => x.email === 'assign.me@test.dev' && !x.teacher), 'חזר לרשימת העצמאיים');
+  // שגיאות והרשאות
+  assert.equal((await call('POST', '/v1/admin/student/assign', { token: admin, body: { email: 'assign.me@test.dev', teacher: 'nobody@test.dev' } })).status, 404);
+  assert.equal((await call('POST', '/v1/admin/student/assign', { token: admin, body: { email: 'not-an-email', teacher: 'sara@test.dev' } })).status, 400);
+  assert.equal((await call('POST', '/v1/admin/student/assign', { token: admin, body: { email: 'sara@test.dev', teacher: 'sara@test.dev' } })).status, 400, 'מורה לעצמו');
+  assert.equal((await call('POST', '/v1/admin/student/assign', { token: sara, body: { email: 'assign.me@test.dev', teacher: 'sara@test.dev' } })).status, 403, 'רק מנהל');
+  const log = (await call('GET', '/v1/admin/log?limit=40', { token: admin })).body.log;
+  assert.ok(log.some(l => l.action === 'student.assign' && l.target === 'assign.me@test.dev') && log.some(l => l.action === 'student.unassign'), 'נרשם ביומן');
+  await call('POST', '/v1/me/class', { token: sara, body: { op: 'delete', id: cls, confirm: 'שיוך מההנהלה' } });
+});
+
 await test('מעבר לתשלום: גם תלמיד רשום שכבר מחובר נדרש לשלם (pay); מי שעוד לא נרשם — קודם ההרשמה (בחינם), ואז התשלום', async () => {
   const fresh = await signInPlugin('gali@test.dev', 'student', 'גלי', NEW);
   assert.equal(fresh.status, 'register');

@@ -260,6 +260,137 @@ await step('החיפוש במסוף: כיתות, מורים, מחשבים ותל
   assert.equal(await page.evaluate(() => location.hash.startsWith('#students')), true);
 });
 
+await step('"אישור" בלחיצה אחת: תלמיד בלי גישה מקבל גישה עד התאריך שבהגדרות (הענקה ידנית), והכפתור נעלם', async () => {
+  await page.goto(BASE + '/admin#students');
+  const row = page.locator('tr[data-student="tamar.bd@gmail.com"]');
+  await row.waitFor();
+  assert.equal(await row.locator('button[data-act="approve"]').count(), 1, 'יש כפתור אישור');
+  assert.match(await page.locator('.filters').textContent(), /מחכים לאישור · 1/);
+  await row.locator('button[data-act="approve"]').click();
+  await page.waitForSelector('.toast:has-text("הגישה אושרה")');
+  await page.waitForFunction(() => { const r = document.querySelector('tr[data-student="tamar.bd@gmail.com"]'); return r && !r.querySelector('button[data-act="approve"]') && /הענקה ידנית/.test(r.textContent); });
+  const st = (await api('GET', '/v1/admin/students', null, bearer(admin))).students.find(x => x.email === 'tamar.bd@gmail.com');
+  assert.ok(st.paid && st.source === 'manual' && st.until, JSON.stringify(st));
+  assert.match(await page.locator('.filters').textContent(), /מחכים לאישור · 0/);
+});
+
+await step('שיוך תלמיד עצמאי למורה מהשורה שלו (עם כיתה): עובר לעמוד של המורה, והמורה רואה אותו בעמדת הניהול', async () => {
+  const row = page.locator('tr[data-student="tamar.bd@gmail.com"]');
+  await row.locator('button[data-act="assign"]').click();
+  await page.waitForSelector('dialog.modal[open] #as-teacher');
+  assert.equal(await page.locator('#as-ok').isDisabled(), true, 'בלי מורה — אי אפשר לשייך');
+  await page.selectOption('#as-teacher', 'yossi.m@gmail.com');
+  await page.waitForFunction(() => document.querySelectorAll('#as-class option').length === 2);
+  await page.selectOption('#as-class', { label: 'ט 2 · 1' });
+  await shot(page, 'r08-admin-assign-dialog');
+  await page.click('#as-ok');
+  await page.waitForSelector('.toast:has-text("שויך ליוסי מזרחי")');
+  await page.waitForFunction(() => !document.querySelector('tr[data-student="tamar.bd@gmail.com"]'));
+  assert.match(await page.textContent('#content'), /6 תלמידים משויכים למורים/);
+  await page.goto(BASE + '/admin#rooms=' + encodeURIComponent('students|yossi.m@gmail.com'));
+  await page.waitForSelector('tr[data-student="tamar.bd@gmail.com"]');
+  assert.match(await page.locator('tr[data-student="tamar.bd@gmail.com"]').textContent(), /ט 2/);
+  const con = await api('GET', '/v1/me/console', null, yossi);
+  const mine = con.students.find(x => x.email === 'tamar.bd@gmail.com');
+  assert.ok(mine && !mine.left && mine.classId === cT2, 'המורה רואה את התלמיד, בכיתה שנבחרה');
+  assert.equal((await api('GET', '/v1/student/state', null, tamar)).teacher.email, 'yossi.m@gmail.com', 'והתלמיד רואה את המורה');
+});
+
+await step('כמה תלמידים יחד: מסמנים, "שיוך למורה (2)" — עוברים למורה אחר; ו"בלי מורה" מחזיר תלמיד לעצמאי', async () => {
+  await page.goto(BASE + '/admin#rooms=' + encodeURIComponent('students|sara.cohen@ort.org.il'));
+  await page.waitForSelector('tr[data-student="dana.k@gmail.com"]');
+  assert.equal(await page.locator('#pickbar.on').count(), 0);
+  await page.check('tr[data-student="dana.k@gmail.com"] input.pick');
+  await page.check('tr[data-student="ido.s@gmail.com"] input.pick');
+  await page.waitForSelector('#pickbar.on');
+  assert.match(await page.locator('#pick-assign').textContent(), /שיוך למורה \(2\)/);
+  assert.equal(await page.locator('#pick-approve').count(), 0, 'אישור גישה — רק בעמוד התלמידים העצמאיים');
+  await shot(page, 'r09-admin-rooms-picked');
+  await page.click('#pick-assign');
+  await page.waitForSelector('dialog.modal[open] #as-teacher');
+  assert.equal(await page.inputValue('#as-teacher'), 'sara.cohen@ort.org.il', 'המורה הנוכחי מסומן');
+  await page.selectOption('#as-teacher', 'yossi.m@gmail.com');
+  await page.click('#as-ok');
+  await page.waitForSelector('.toast:has-text("2 תלמידים שויכו ליוסי מזרחי")');
+  await page.waitForFunction(() => document.querySelectorAll('tr[data-student]').length === 2);
+  const rooms = await api('GET', '/v1/admin/rooms', null, bearer(admin));
+  assert.deepEqual(rooms.students.filter(x => x.teacher === 'yossi.m@gmail.com').map(x => x.email).sort(), ['dana.k@gmail.com', 'ido.s@gmail.com', 'omer.b@gmail.com', 'tamar.bd@gmail.com']);
+  const saraCon = await api('GET', '/v1/me/console', null, sara);
+  assert.ok(saraCon.students.find(x => x.email === 'dana.k@gmail.com').left, 'אצל המורה הקודם — "עזב"');
+  // "בלי מורה": חזרה לעצמאי
+  await page.goto(BASE + '/admin#rooms=' + encodeURIComponent('students|yossi.m@gmail.com'));
+  await page.locator('tr[data-student="tamar.bd@gmail.com"] button[data-act="assign"]').click();
+  await page.waitForSelector('dialog.modal[open] #as-teacher');
+  await page.selectOption('#as-teacher', '-');
+  await page.click('#as-ok');
+  await page.waitForSelector('.toast:has-text("השיוך בוטל")');
+  await page.goto(BASE + '/admin#students');
+  await page.waitForSelector('tr[data-student="tamar.bd@gmail.com"]');
+  assert.equal((await api('GET', '/v1/student/state', null, tamar)).mode, 'independent');
+});
+
+await step('טלפון (390): תלמידים, תלמידי המורים ומורים — כרטיסים במקום טבלה רחבה, בלי גלילה לצד; אישור ושיוך עובדים גם שם', async () => {
+  for (const [email, name] of [['ayala.a@gmail.com', 'איילה אדלר'], ['sarah.s@gmail.com', 'שרה שמעוני'], ['avishag.l@gmail.com', 'Avishag']]) {
+    const pl = await studentPlugin(email, name);
+    await api('POST', '/v1/student/mode', { mode: 'independent' }, pl);
+  }
+  const m = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'he-IL', isMobile: true, hasTouch: true });
+  const mp = await m.newPage();
+  mp.on('pageerror', e => errors.push(String(e)));
+  await mp.goto(BASE + '/admin#students');
+  await googlePopup(mp, '.gbtn', 'admin@test.dev', 'מנהל');
+  await mp.waitForSelector('tr[data-student="ayala.a@gmail.com"]');
+  const wide = () => mp.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert.ok(await wide() <= 1, 'תלמידים — גלילה לצד: ' + await wide());
+  const card = await mp.evaluate(() => {
+    const tr = document.querySelector('tr[data-student="ayala.a@gmail.com"]'), r = tr.getBoundingClientRect();
+    const lbl = getComputedStyle(tr.querySelector('td[data-label="גישה עד"]'), '::before').content;
+    const btns = [...tr.querySelectorAll('td.actions button')].map(b => b.getBoundingClientRect());
+    return { display: getComputedStyle(tr).display, head: getComputedStyle(document.querySelector('table.t.cards thead')).display, left: r.left, right: r.right, lbl,
+      btnsIn: btns.every(b => b.left >= 0 && b.right <= innerWidth), btnH: Math.min(...btns.map(b => b.height)), n: btns.length };
+  });
+  assert.equal(card.display, 'flex', 'כל תלמיד — כרטיס');
+  assert.equal(card.head, 'none', 'בלי שורת כותרות של טבלה');
+  assert.ok(card.left >= 0 && card.right <= 390, 'הכרטיס בתוך המסך');
+  assert.match(card.lbl, /גישה עד/, 'לכל ערך התווית שלו');
+  assert.ok(card.btnsIn && card.n === 3 && card.btnH >= 38, 'אישור / שיוך למורה / פרטים — בתוך המסך, בגודל שנוח ללחוץ: ' + JSON.stringify(card));
+  await shot(mp, 'm01-phone-students');
+  // אישור של כמה יחד מהטלפון
+  await mp.click('#pick-all');
+  await mp.waitForSelector('#pickbar.on');
+  assert.match(await mp.locator('#pick-approve').textContent(), /אישור גישה \(4\)/, '"סימון הכול" מסמן את כל מי שבתצוגה (3 החדשים + מי שכבר אושר)');
+  await shot(mp, 'm02-phone-students-picked');
+  await mp.click('#pick-approve');
+  await mp.waitForSelector('.toast:has-text("הגישה אושרה ל-")');
+  await mp.waitForFunction(() => !document.querySelector('button[data-act="approve"]'));
+  // שיוך מהטלפון
+  await mp.locator('tr[data-student="ayala.a@gmail.com"] button[data-act="assign"]').click();
+  await mp.waitForSelector('dialog.modal[open] #as-teacher');
+  await mp.selectOption('#as-teacher', 'sara.cohen@ort.org.il');
+  const dlg = await mp.evaluate(() => { const r = document.querySelector('dialog.modal[open]').getBoundingClientRect(); return { l: r.left, r: r.right }; });
+  assert.ok(dlg.l >= 0 && dlg.r <= 390, 'חלון השיוך בתוך המסך');
+  await shot(mp, 'm03-phone-assign');
+  await mp.click('#as-ok');
+  await mp.waitForSelector('.toast:has-text("שויך לשרה כהן")');
+  // תלמידי המורים, ומורים
+  await mp.goto(BASE + '/admin#rooms=' + encodeURIComponent('students'));
+  await mp.waitForSelector('tr[data-student="ayala.a@gmail.com"]');
+  assert.ok(await wide() <= 1, 'תלמידי המורים — גלילה לצד: ' + await wide());
+  assert.equal(await mp.evaluate(() => getComputedStyle(document.querySelector('tr[data-student]')).display), 'flex');
+  await shot(mp, 'm04-phone-rooms-students');
+  await mp.goto(BASE + '/admin#rooms=stations');
+  await mp.waitForSelector('.item[data-station]');
+  assert.ok(await wide() <= 1, 'עמדות — גלילה לצד: ' + await wide());
+  await mp.goto(BASE + '/admin#teachers');
+  await mp.waitForSelector('table.t.cards tbody tr.click');
+  assert.ok(await wide() <= 1, 'מורים — גלילה לצד: ' + await wide());
+  await shot(mp, 'm05-phone-teachers');
+  await mp.locator('table.t.cards tbody tr.click', { hasText: 'שרה כהן' }).click();
+  await mp.waitForSelector('.drawer #rt-students');
+  assert.ok(await wide() <= 1, 'כרטיס המורה — גלילה לצד: ' + await wide());
+  await m.close();
+});
+
 await step('אין שגיאות JS בדפים', async () => { assert.deepEqual(errors, []); });
 
 await browser.close();
