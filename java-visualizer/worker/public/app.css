@@ -418,6 +418,10 @@ label.choice input { margin: 4px 0 0; width: 18px; height: 18px; accent-color: v
 .pv-cls small { font-size: 11px; color: #5B6578; }
 .pv-text { margin: 0; font: 13px ui-monospace, Consolas, monospace; background: var(--line2); padding: 6px 10px; border-radius: 6px; }
 
+/* המסגרת הקטנה עם שם המורה של תלמיד משויך */
+.tchip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 2px 9px; border: 1.5px solid var(--blue); border-radius: 8px; background: var(--blue-soft); color: var(--blue-ink); font-size: 13.5px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.tchip span { overflow: hidden; text-overflow: ellipsis; }
+.tchip:hover { background: #fff; }
 /* מסוף ההנהלה: סימון תלמידים ופס הפעולות (אישור / שיוך למורה) */
 input.pick { width: 20px; height: 20px; accent-color: var(--blue); cursor: pointer; flex-shrink: 0; }
 table.t td.pickcell, table.t th:first-child:empty { width: 36px; padding-inline-end: 0; }
@@ -434,7 +438,10 @@ table.t td.pickcell, table.t th:first-child:empty { width: 36px; padding-inline-
   .content h1 { font-size: 24px; }
   .tabs { overflow-x: auto; }
   .tabs button { white-space: nowrap; }
-  .filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  /* העמודה נשארת ברוחב המסך (בלי זה שורת הסינון, שלא נשברת, מרחיבה אותה — והכרטיסים נמתחים החוצה) */
+  .split { align-items: stretch; }
+  .split > * { min-width: 0; max-width: 100%; }
+  .filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; max-width: 100%; -webkit-overflow-scrolling: touch; }
   .filters button { flex-shrink: 0; }
   .drawer.card, .card { padding: 16px 14px; }
   .tablewrap:has(table.t.cards) { border: 0; background: transparent; overflow: visible; }

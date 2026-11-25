@@ -126,12 +126,12 @@ await step('מסוף ההנהלה: יש ערך בתפריט "עמדות ותלמ
   await shot(page, 'r01-admin-rooms-stations');
 });
 
-await step('הסקירה: כרטיס "תלמידים" סופר רק עצמאיים, ומציין כמה משויכים למורים', async () => {
+await step('הסקירה: כרטיס "תלמידים" סופר את כולם, ומפרט כמה משויכים למורה וכמה עצמאיים', async () => {
   await page.click('.nav a[href="#overview"]');
   await page.waitForSelector('.kpis');
-  const card = page.locator('.kpis a', { hasText: 'תלמידים עצמאיים' });
-  assert.equal((await card.locator('.v').textContent()).trim(), '1');
-  assert.match(await card.textContent(), /ועוד 5 משויכים למורים/);
+  const card = page.locator('.kpis a', { hasText: 'תלמידים (בחינם)' });
+  assert.equal((await card.locator('.v').textContent()).trim(), '6');
+  assert.match(await card.textContent(), /5 משויכים למורה · 1 עצמאיים/);
 });
 
 await step('טאב "תלמידים": כל התלמידים המשויכים, לפי מורה, עם הכיתה, ההגשות וההגשה האחרונה — ובלי העמדות', async () => {
@@ -169,15 +169,26 @@ await step('סינון: לפי מורה (רק שלו), ואז לפי כיתה, �
   await shot(page, 'r03-admin-rooms-filter');
 });
 
-await step('"תלמידים ותשלומים": תלמידים שמשויכים למורים לא מוצגים (רק עצמאיים), עם הסבר וקישור לעמוד החדש', async () => {
+await step('"תלמידים ותשלומים" — כולם במקום אחד: גם משויכים למורה, עם מסגרת קטנה ובה שם המורה; קבוצות "עצמאיים" / "משויכים למורה"', async () => {
   await page.click('.nav a[href="#students"]');
   await page.waitForSelector('table.t tbody tr');
   const text = await page.textContent('#content');
   assert.ok(text.includes('tamar.bd@gmail.com'), 'התלמיד העצמאי כאן');
-  for (const [email] of PUPILS) assert.ok(!text.includes(email), email + ' משויך למורה — לא בקטגוריה "תלמידים"');
-  assert.match(text, /5 תלמידים משויכים למורים ולכן לא מופיעים כאן/);
-  assert.match(await page.locator('.filters').textContent(), /כולם · 1/);
-  assert.ok(!(await page.locator('.filters').textContent()).includes('עם מורה'), 'הקבוצה "עם מורה" הוסרה');
+  for (const [email] of PUPILS) assert.ok(text.includes(email), email + ' משויך למורה — מופיע גם הוא ברשימה האחת');
+  assert.equal((await page.locator('tr[data-student="noam.levi@gmail.com"] a.tchip').textContent()).trim(), 'שרה כהן', 'מסגרת עם שם המורה');
+  assert.equal((await page.locator('tr[data-student="omer.b@gmail.com"] a.tchip').textContent()).trim(), 'יוסי מזרחי');
+  assert.equal(await page.locator('tr[data-student="tamar.bd@gmail.com"] a.tchip').count(), 0, 'לעצמאי אין מסגרת');
+  assert.match(await page.locator('tr[data-student="tamar.bd@gmail.com"] td[data-label="מורה"]').textContent(), /עצמאי/);
+  const chip = await page.evaluate(() => { const s = getComputedStyle(document.querySelector('a.tchip')); return { b: s.borderTopWidth, r: s.borderRadius }; });
+  assert.ok(parseFloat(chip.b) >= 1 && parseFloat(chip.r) >= 4, 'מסגרת של ממש: ' + JSON.stringify(chip));
+  assert.match(await page.locator('.filters').textContent(), /כולם · 6[\s\S]*עצמאיים · 1[\s\S]*משויכים למורה · 5/);
+  await page.click('.filters button:has-text("משויכים למורה")');
+  await page.waitForFunction(() => document.querySelectorAll('tr[data-student]').length === 5);
+  assert.ok(!(await page.textContent('table.t')).includes('tamar.bd@gmail.com'));
+  await page.click('.filters button:has-text("עצמאיים")');
+  await page.waitForFunction(() => document.querySelectorAll('tr[data-student]').length === 1);
+  await page.click('.filters button:has-text("כולם")');
+  await page.waitForFunction(() => document.querySelectorAll('tr[data-student]').length === 6);
   await shot(page, 'r04-admin-students-independent-only');
   await page.click('#content a:has-text("עמדות ותלמידי מורים")');
   await page.waitForSelector('#rt-students[aria-selected="true"]');
@@ -265,13 +276,13 @@ await step('"אישור" בלחיצה אחת: תלמיד בלי גישה מקב�
   const row = page.locator('tr[data-student="tamar.bd@gmail.com"]');
   await row.waitFor();
   assert.equal(await row.locator('button[data-act="approve"]').count(), 1, 'יש כפתור אישור');
-  assert.match(await page.locator('.filters').textContent(), /מחכים לאישור · 1/);
+  assert.match(await page.locator('.filters').textContent(), /מחכים לאישור · 6/, 'גם משויכים למורה שמחכים — באותה רשימה');
   await row.locator('button[data-act="approve"]').click();
   await page.waitForSelector('.toast:has-text("הגישה אושרה")');
   await page.waitForFunction(() => { const r = document.querySelector('tr[data-student="tamar.bd@gmail.com"]'); return r && !r.querySelector('button[data-act="approve"]') && /הענקה ידנית/.test(r.textContent); });
   const st = (await api('GET', '/v1/admin/students', null, bearer(admin))).students.find(x => x.email === 'tamar.bd@gmail.com');
   assert.ok(st.paid && st.source === 'manual' && st.until, JSON.stringify(st));
-  assert.match(await page.locator('.filters').textContent(), /מחכים לאישור · 0/);
+  assert.match(await page.locator('.filters').textContent(), /מחכים לאישור · 5/);
 });
 
 await step('שיוך תלמיד עצמאי למורה מהשורה שלו (עם כיתה): עובר לעמוד של המורה, והמורה רואה אותו בעמדת הניהול', async () => {
@@ -285,8 +296,8 @@ await step('שיוך תלמיד עצמאי למורה מהשורה שלו (עם 
   await shot(page, 'r08-admin-assign-dialog');
   await page.click('#as-ok');
   await page.waitForSelector('.toast:has-text("שויך ליוסי מזרחי")');
-  await page.waitForFunction(() => !document.querySelector('tr[data-student="tamar.bd@gmail.com"]'));
-  assert.match(await page.textContent('#content'), /6 תלמידים משויכים למורים/);
+  await page.waitForFunction(() => { const c = document.querySelector('tr[data-student="tamar.bd@gmail.com"] a.tchip'); return c && /יוסי מזרחי/.test(c.textContent); });
+  assert.match(await page.locator('tr[data-student="tamar.bd@gmail.com"] button[data-act="assign"]').textContent(), /שינוי מורה/, 'נשאר ברשימה האחת, עם המסגרת של המורה החדש');
   await page.goto(BASE + '/admin#rooms=' + encodeURIComponent('students|yossi.m@gmail.com'));
   await page.waitForSelector('tr[data-student="tamar.bd@gmail.com"]');
   assert.match(await page.locator('tr[data-student="tamar.bd@gmail.com"]').textContent(), /ט 2/);
@@ -351,14 +362,14 @@ await step('טלפון (390): תלמידים, תלמידי המורים ומור
   });
   assert.equal(card.display, 'flex', 'כל תלמיד — כרטיס');
   assert.equal(card.head, 'none', 'בלי שורת כותרות של טבלה');
-  assert.ok(card.left >= 0 && card.right <= 390, 'הכרטיס בתוך המסך');
+  assert.ok(card.left >= 0 && card.right <= 390, 'הכרטיס בתוך המסך: ' + JSON.stringify(card) + ' ' + JSON.stringify(await mp.evaluate(() => [...document.querySelectorAll('tr[data-student]')].map(r => [r.dataset.student, Math.round(r.getBoundingClientRect().left), Math.round(r.getBoundingClientRect().right), [...r.children].map(c => Math.round(c.getBoundingClientRect().width)).join('/')]))));
   assert.match(card.lbl, /גישה עד/, 'לכל ערך התווית שלו');
   assert.ok(card.btnsIn && card.n === 3 && card.btnH >= 38, 'אישור / שיוך למורה / פרטים — בתוך המסך, בגודל שנוח ללחוץ: ' + JSON.stringify(card));
   await shot(mp, 'm01-phone-students');
   // אישור של כמה יחד מהטלפון
   await mp.click('#pick-all');
   await mp.waitForSelector('#pickbar.on');
-  assert.match(await mp.locator('#pick-approve').textContent(), /אישור גישה \(4\)/, '"סימון הכול" מסמן את כל מי שבתצוגה (3 החדשים + מי שכבר אושר)');
+  assert.match(await mp.locator('#pick-approve').textContent(), /אישור גישה \(9\)/, '"סימון הכול" מסמן את כל מי שבתצוגה — עצמאיים ומשויכים');
   await shot(mp, 'm02-phone-students-picked');
   await mp.click('#pick-approve');
   await mp.waitForSelector('.toast:has-text("הגישה אושרה ל-")');
